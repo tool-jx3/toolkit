@@ -37,9 +37,11 @@ check('register() 可多次呼叫且不覆蓋既有內容',
 const HANGUL = /[가-힣]/;
 
 /* dir: 'tools/magic-circle'；dict: 字典檔名；
- * scripts: 需掃描的 JS 檔名陣列；minHooks: 標記中 i18n 掛勾的最低數量；
+ * scripts: 需掃描的 JS 檔名陣列；styles: 需掃描韓文洩漏的 CSS 檔名陣列
+ * （不檢查 T() key 引用，CSS 本來就不會呼叫 T()）；
+ * minHooks: 標記中 i18n 掛勾的最低數量；
  * allowHangul(line, lineNo, file): 回傳 true 表示該行允許出現韓文。 */
-function checkTool({ dir, dict, scripts, minHooks, allowHangul = () => false, licence = true }) {
+function checkTool({ dir, dict, scripts, styles = [], minHooks, allowHangul = () => false, licence = true }) {
   section(dir);
   const tool = loadI18N([`${dir}/${dict}`]);
   const zh = new Set(Object.keys(tool.messages['zh-TW']));
@@ -93,6 +95,12 @@ function checkTool({ dir, dict, scripts, minHooks, allowHangul = () => false, li
   const htmlLeaked = leakedIn(html, 'index.html');
   check('index.html 無殘留韓文', htmlLeaked.length === 0, report(htmlLeaked));
 
+  for (const file of styles) {
+    const src = read(`${dir}/${file}`);
+    const leaked = leakedIn(src, file);
+    check(`${file} 無殘留韓文`, leaked.length === 0, report(leaked));
+  }
+
   /* emotion-maker 無原始 LICENSE，該工具傳入 licence: false。 */
   if (licence) check('保留原始 LICENSE', exists(`${dir}/LICENSE`));
   return tool;
@@ -103,6 +111,7 @@ const mc = checkTool({
   dir: 'tools/magic-circle',
   dict: 'i18n.magic-circle.js',
   scripts: ['app.js'],
+  styles: ['styles.css'],
   minHooks: 150
 });
 
@@ -141,6 +150,7 @@ const tp = checkTool({
   dir: 'tools/text-path',
   dict: 'i18n.text-path.js',
   scripts: ['app.js'],
+  styles: ['styles.css'],
   minHooks: 30
 });
 
@@ -158,6 +168,7 @@ const cl = checkTool({
   dir: 'tools/collage-letter',
   dict: 'i18n.collage-letter.js',
   scripts: ['app.js'],
+  styles: ['styles.css'],
   minHooks: 30
 });
 
@@ -179,6 +190,7 @@ const tw = checkTool({
   dir: 'tools/typewriter',
   dict: 'i18n.typewriter.js',
   scripts: ['script.js', 'webp-muxer.js'],
+  styles: ['style.css'],
   minHooks: 80,
   /* webp-muxer.js 是原封不動保留的二進位編碼函式庫（供他案共用，非本次翻譯範圍）。
    * 其註解為上游作者所寫、僅供開發者閱讀，允許保留韓文；但其原本 8 個 throw/reject
@@ -233,6 +245,7 @@ const em = checkTool({
   dir: 'tools/emotion-maker',
   dict: 'i18n.emotion-maker.js',
   scripts: ['app.js'],
+  styles: ['style.css'],
   minHooks: 40,
   licence: false,
   allowHangul: (line, n, file) => file === 'app.js' && EM_ID_LINE.test(line)
@@ -293,6 +306,11 @@ check('首頁標記僅引用已知 key',
   `unknown: ${[...new Set(homeKeys)].filter(k => !homeZh.has(k)).join(', ')}`);
 check('首頁無殘留韓文', !/[가-힣]/.test(homeHtml));
 check('首頁 html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(homeHtml));
+
+/* assets/home.js 與 assets/home.css 不屬於任何工具的 checkTool()，
+ * 韓文洩漏檢查需在此另外涵蓋，理由與各工具的 styles 掃描相同。 */
+check('assets/home.js 無殘留韓文', !HANGUL.test(read('assets/home.js')));
+check('assets/home.css 無殘留韓文', !HANGUL.test(read('assets/home.css')));
 
 /* 五個工具連結都要指得到。 */
 const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker'];
