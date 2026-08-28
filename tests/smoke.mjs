@@ -184,17 +184,26 @@ const tw = checkTool({
    * 其註解為上游作者所寫、僅供開發者閱讀，允許保留韓文；但其原本 8 個 throw/reject
    * 訊息屬使用者可能看見的文字，已改為穩定的英文錯誤代碼（見下方 webp-muxer error
    * codes 檢查），因此不在此豁免之列——只豁免整行皆為註解（// 或 * 開頭），或韓文
-   * 完全落在行內尾隨 // 註解之後的行；其餘任何行（含字串常值）仍須通過殘留韓文檢查，
-   * 確保日後若再引入未翻譯訊息會使建置失敗。
+   * 完全落在行內尾隨 // 註解、或完整落在同一行內的區塊註解之中的行；其餘任何行
+   * （含字串常值）仍須通過殘留韓文檢查，確保日後若再引入未翻譯訊息會使建置失敗。
    * script.js 中兩處字元類別 [^a-zA-Z0-9가-힣] 用於保留使用者輸入歌詞／字幕中的韓文
    * 字元以組成檔名，屬程式碼而非介面文字，同樣豁免。 */
   allowHangul: (line, lineNo, file) => {
     if (file === 'webp-muxer.js') {
       const trimmed = line.trimStart();
-      if (trimmed.startsWith('//') || trimmed.startsWith('*')) return true; /* 整行都是註解 */
-      const slashIdx = line.indexOf('//');
-      /* 行內尾隨註解：韓文必須完全落在 // 之後，前面的程式碼部分不得含韓文。 */
-      return slashIdx !== -1 && !/[가-힣]/.test(line.slice(0, slashIdx));
+      if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return true; /* 整行都是註解 */
+      /* 去除行內尾隨的 // 註解，以及完整落在同一行內的區塊註解後，若剩餘的程式碼
+       * 部分仍含韓文才視為洩漏。
+       * 已知限制：跨越多行、且續行不是以 * 開頭的區塊註解（例如開頭行的區塊註解
+       * 起始記號後面接韓文，收尾記號在後續行）不在此邏輯涵蓋範圍內——這種寫法目前
+       * 不存在於此檔案（唯一的區塊註解是每行皆以 * 開頭的 JSDoc，已由上面的
+       * startsWith('*') 涵蓋）。若日後新增這種格式的韓文註解，會被誤判為洩漏而使
+       * 建置失敗；屆時請改寫成每行以 * 開頭的慣例格式，或在此處另行處理。 */
+      const codeOnly = line
+        .replace(/\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\//g, '')
+        .replace(/\/\/.*/, ''); /* 不用 $ 錨點：來源檔為 CRLF 換行，行尾殘留的 \r
+                                    會讓 . 在無 /s 旗標時卡住，使 $ 永遠比對不到。 */
+      return !/[가-힣]/.test(codeOnly);
     }
     return /a-zA-Z0-9가-힣/.test(line);
   }

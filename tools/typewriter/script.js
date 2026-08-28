@@ -1703,7 +1703,7 @@ function copyTextToClipboard(text) {
         ta.value = text;
         ta.style.position = 'fixed'; ta.style.opacity = '0';
         document.body.appendChild(ta); ta.select();
-        try { document.execCommand('copy') ? resolve() : reject(new Error('複製失敗')); }
+        try { document.execCommand('copy') ? resolve() : reject(new Error('ERR_COPY_FAILED')); }
         catch (e) { reject(e); }
         finally { document.body.removeChild(ta); }
     });

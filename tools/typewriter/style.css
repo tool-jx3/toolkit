@@ -13,6 +13,23 @@ body { font-family: 'Noto Sans KR', sans-serif; background-color: #1e1e2e; color
 .btn-danger { background-color: #f38ba8; color: #11111b; }
 .btn-danger:hover { background-color: #eba0ac; }
 
+/* 語言切換器 */
+.locale-select {
+    min-height: 30px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    border: 1px solid #45475a;
+    background: #181825;
+    color: #cdd6f4;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+}
+.locale-select:hover {
+    background: #313244;
+    border-color: #89b4fa;
+}
+
 /* 色彩輸入欄 + HEX 色碼複製 */
 .color-row { display: flex; align-items: center; gap: 0.25rem; min-width: 0; }
 .color-row input[type="color"].color-swatch { flex: 0 0 auto; width: 2.75rem; padding: 0.15rem; cursor: pointer; }
