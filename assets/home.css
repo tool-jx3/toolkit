@@ -87,6 +87,7 @@ main { max-width: 72rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
   flex: 1;
 }
 
+.tool-icon { color: var(--accent); display: block; margin-bottom: .25rem; }
 .tool-card:hover { border-color: var(--accent); }
 .tool-card h2 { margin: 0 0 .5rem; font-size: 1.125rem; }
 .tool-card:hover h2 { color: var(--accent); }
