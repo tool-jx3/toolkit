@@ -305,4 +305,77 @@ check('首頁標示 emotion-maker 的未授權狀態',
   homeZh.has('license.unlicensed') && homeHtml.includes('license.unlicensed'));
 check('首頁標示原作者出處', homeHtml.includes('github.com/sotsotssi'));
 
+/* ---- 內嵌文字與 zh-TW 字典一致 ---- */
+/* 六個頁面（五個工具＋首頁）在 script 執行前顯示的畫面，其 HTML 內嵌文字必須
+ * 與該頁 zh-TW 字典值逐字相同——這正是頁面能在任何腳本執行前就正確顯示繁體中文
+ * 的原因。目前其餘檢查只驗證標記引用的 key「存在」，從未比對內嵌文字本身是否
+ * 等於字典值，兩者可能各自修改而悄悄分歧；一旦分歧，畫面會在 i18n 初始化時
+ * 「閃字」：使用者先看到一個字串，隨即被換成字典裡的另一個字串。
+ *
+ * 只比對「簡單形式」的 data-i18n：屬性值就是 key，元素內容是不含巢狀標籤的
+ * 純文字，例如 <h1 data-i18n="key">文字</h1>。刻意排除：
+ *   - data-i18n-node：內容本身是巢狀標籤組成的結構，並非單一文字節點；
+ *   - data-i18n-html：注入的是 HTML 片段而非純文字；
+ *   - data-i18n-title / data-i18n-aria-label / data-i18n-placeholder：
+ *     鎖定的是屬性值而非元素內文。
+ * 這幾種情況下，正規表示式無法可靠取得「應比對的那段文字」，勉強比對只會
+ * 產生假陽性或假陰性，因此不在此檢查範圍內。 */
+section('inline text vs zh-TW dictionary');
+
+/* 擷取 <tag ... data-i18n="key" ...>文字</tag>：
+ * - `\bdata-i18n="` 前後以 [^>]* 允許任意數量、任意順序的其他屬性（包含
+ *   同一元素上額外的 data-i18n-title 等變體），但literal "data-i18n=\""
+ *   這個子字串不會出現在 "data-i18n-title=\"" 之類的變體屬性中，故不會誤取。
+ * - 以反向參照 \1 要求收尾標籤與開頭標籤同名，確保 [^<]* 取到的文字沒有
+ *   跨過巢狀標籤——若內容含巢狀標籤，[^<]* 會在遇到內層的 `<` 時停止，
+ *   導致後面無法接上 `</同名標籤>`，該元素就不會被比對到（正確地略過，
+ *   而不是取到錯誤的片段文字）。 */
+const INLINE_TEXT_RE = /<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\sdata-i18n="([^"]+)"[^>]*>([^<]*)<\/\1>/g;
+
+function checkInlineText(label, htmlPath, dictPaths, minCompared) {
+  const html = read(htmlPath);
+  const dict = loadI18N(dictPaths).messages['zh-TW'];
+  let compared = 0;
+  const mismatches = [];
+  for (const m of html.matchAll(INLINE_TEXT_RE)) {
+    const key = m[2];
+    if (!(key in dict)) continue; /* 未知 key 已由其他檢查把關，這裡不重複報告 */
+    compared += 1;
+    const text = m[3].trim();
+    if (text !== dict[key]) mismatches.push(`${key}: html="${text}" 字典="${dict[key]}"`);
+  }
+  check(`${label} 內嵌文字與 zh-TW 字典一致（比對了 ${compared} 個元素）`,
+    mismatches.length === 0, mismatches.slice(0, 10).join('\n       '));
+  /* 比對數量若遠低於預期，代表 regex 沒抓到東西，比「頁面本身沒問題」更值得懷疑。 */
+  check(`${label} 比對數量達最低門檻 ${minCompared}`, compared >= minCompared, `got: ${compared}`);
+}
+
+checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
+checkInlineText('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 150);
+checkInlineText('tools/typewriter', 'tools/typewriter/index.html', ['tools/typewriter/i18n.typewriter.js'], 150);
+checkInlineText('tools/text-path', 'tools/text-path/index.html', ['tools/text-path/i18n.text-path.js'], 15);
+checkInlineText('tools/collage-letter', 'tools/collage-letter/index.html', ['tools/collage-letter/i18n.collage-letter.js'], 15);
+checkInlineText('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 15);
+
+/* ---- 文件 ---- */
+section('docs');
+check('ATTRIBUTION.md 存在', exists('ATTRIBUTION.md'));
+check('README.md 存在', exists('README.md'));
+check('根目錄 LICENSE 存在', exists('LICENSE'));
+check('.nojekyll 存在', exists('.nojekyll'));
+
+const attribution = read('ATTRIBUTION.md');
+for (const name of TOOLS) {
+  check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
+}
+for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '772d6c4']) {
+  check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
+}
+check('ATTRIBUTION.md 標明 emotion-maker 未授權',
+  /emotion-maker[\s\S]{0,600}(未授權|無授權)/.test(attribution));
+
+const pkg = JSON.parse(read('package.json'));
+check('package.json 無執行期相依',
+  !pkg.dependencies && !pkg.devDependencies);
+
 process.exit(summary() ? 1 : 0);
