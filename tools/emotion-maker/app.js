@@ -315,7 +315,7 @@ function clearDraft(){
 }
 function duplicate(id){
   const e=collection.find(x=>x.id===id); if(!e)return;
-  const c=JSON.parse(JSON.stringify(e)); c.id=uid(); c.tag=tagLabel(e.tag||"")+" (複製)";
+  const c=JSON.parse(JSON.stringify(e)); c.id=uid(); c.tag=tagLabel(e.tag||"")+T('duplicate.suffix');
   const idx=collection.findIndex(x=>x.id===id); collection.splice(idx+1,0,c);
   save(); renderCollection(); toast(T('toast.duplicated'));
 }

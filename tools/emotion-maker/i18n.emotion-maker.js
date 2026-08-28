@@ -92,6 +92,7 @@ I18N.register({
     'summary.textHidden': ' · 文字已隱藏',
     'btn.edit': '編輯',
     'btn.duplicate': '複製',
+    'duplicate.suffix': ' (複製)',
     'btn.delete': '刪除',
 
     /* ---- 確認對話框 ---- */
@@ -231,6 +232,7 @@ I18N.register({
     'summary.textHidden': ' · 텍스트숨김',
     'btn.edit': '편집',
     'btn.duplicate': '복제',
+    'duplicate.suffix': ' (복사)',
     'btn.delete': '삭제',
 
     /* ---- 확인 대화상자 ---- */
