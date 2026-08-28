@@ -22,6 +22,8 @@ sotsotssi 製作了一系列單機、無後端的網頁小工具，品質良好�
 
 繁中翻譯移植來源：`tool-jx3/magic-circle-maker` 分支 `zhtw`，commit `772d6c4`。
 
+該分支在抽取字串時移除了如尼文的韓文讀音（`RUNE_READINGS.ko` 為空物件，且 `RUNE_SETS` 元組的第四個韓文欄位被刪除），導致韓文介面只顯示拉丁名。本專案將韓文視為完整語言，故需自上游 `de40a68` 還原這 69 組韓文讀音。
+
 ### 授權狀態
 
 四個工具為 MIT，各自目錄保留原始 `LICENSE` 檔。
@@ -46,10 +48,10 @@ toolkit/
 │   │   ├── index.html script.js webp-muxer.js style.css LICENSE
 │   │   └── i18n.typewriter.js
 │   ├── text-path/
-│   │   ├── index.html LICENSE
+│   │   ├── index.html app.js styles.css LICENSE
 │   │   └── i18n.text-path.js
 │   ├── collage-letter/
-│   │   ├── index.html LICENSE
+│   │   ├── index.html app.js styles.css LICENSE
 │   │   └── i18n.collage-letter.js
 │   └── emotion-maker/
 │       ├── index.html app.js style.css
@@ -64,6 +66,8 @@ toolkit/
 
 網址對應：`/` → 首頁，`/tools/<name>/` → 各工具。
 
+`text-path` 與 `collage-letter` 原為單一 HTML 檔（內嵌 `<style>` 與約 560 行的 `<script>`）。收錄時將內嵌區塊抽出為 `styles.css` 與 `app.js`，理由有二：其一，韓文洩漏檢查需逐檔掃描，JS 混在 HTML 中會使白名單規則變得脆弱；其二，與其餘三個工具的檔案結構一致。抽出過程不更動任何一行程式邏輯。
+
 ## i18n 架構
 
 ### 引擎（`assets/i18n.js`）
@@ -74,6 +78,9 @@ toolkit/
 - 標記屬性：`data-i18n`（textContent）、`data-i18n-node`（僅第一個非空文字節點）、`data-i18n-html`（innerHTML）、`data-i18n-title`、`data-i18n-aria-label`、`data-i18n-placeholder`
 - `I18N.t(key, ...args)`：支援 `{0}` 位置參數，缺 key 時退到 fallback 語言，再缺則回傳 key 本身
 - `I18N.setLocale(locale)`、`I18N.onChange(listener)`、`I18N.applyStaticDom(root)`
+- `I18N.register(dictionaries)`、`I18N.mountSwitcher(selectElement)`
+
+參考實作中的 `I18N.runeReading(name)` 為 magic-circle 專屬，不納入共用引擎。如尼文讀音改用一般 key（`rune.Fehu` 等 69 組），由 magic-circle 的字典提供，呼叫端改為 `T('rune.' + name)`。
 
 與參考實作的三點差異：
 
