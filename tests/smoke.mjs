@@ -221,4 +221,59 @@ for (const locale of ['zh-TW', 'ko']) {
   check(`${locale} 每個 webp-muxer 錯誤代碼都有對應訊息`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
 
+/* ---- emotion-maker ---- */
+/* emotion-maker 的韓文為資料 ID，非顯示文字：MANIFEST 的 id、
+ * PRESETS 的部件引用、以及結構常數。tag 已改為 i18n key，不在白名單內。
+ * "피부"/"얼굴 틀"（膚色／臉型的 base id）在 MANIFEST 之外，仍以字面值出現於
+ * layerSrcs()／drawFace() 兩處（baseSrc("피부") 與 IMG.base["얼굴 틀"] 等），
+ * 故另外加入白名單，涵蓋這兩處合法的資料參照。 */
+const EM_ID_LINE = /\bid:\s*"[^"]*"|"눈"|"눈썹"|"입"|"꾸밈"|"피부"|"얼굴 틀"|\bCATS\b|\bSINGLE\b|\bDECO\b|\bDRAW_SINGLE\b|\bcustomParts\b|\bnewDraft\b/;
+
+const em = checkTool({
+  dir: 'tools/emotion-maker',
+  dict: 'i18n.emotion-maker.js',
+  scripts: ['app.js'],
+  minHooks: 40,
+  licence: false,
+  allowHangul: (line, n, file) => file === 'app.js' && EM_ID_LINE.test(line)
+});
+
+/* emotion-maker 無原始 LICENSE，checkTool 的該項檢查會失敗；
+ * 以 ATTRIBUTION.md 標示取代（見 Task 8）。此處單獨確認其確實沒有。 */
+section('tools/emotion-maker licence');
+check('emotion-maker 無原始 LICENSE（未授權，於 ATTRIBUTION.md 標示）',
+  !exists('tools/emotion-maker/LICENSE'));
+
+/* 資產完整性：MANIFEST 每個 file 對應的 PNG 必須存在。 */
+section('tools/emotion-maker assets');
+const emApp = read('tools/emotion-maker/app.js');
+const files = [...emApp.matchAll(/file:\s*"([^"]+)"/g)].map(m => m[1]);
+check('MANIFEST 解析出 39 個部件', files.length === 39, `found ${files.length}`);
+const missingPng = files.filter(f => !exists(`tools/emotion-maker/images/${f}.png`));
+check('每個部件的 PNG 都存在', missingPng.length === 0, `missing: ${missingPng.join(', ')}`);
+for (const locale of ['zh-TW', 'ko']) {
+  const missing = files.filter(f => !em.messages[locale][`part.${f.replace('/', '.')}`]);
+  check(`${locale} 每個部件都有顯示名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+/* 20 種內建 preset 的 tag 都要有譯文。 */
+section('tools/emotion-maker presets');
+const tags = [...emApp.matchAll(/tag:\s*"(preset\.[a-z]+)"/g)].map(m => m[1]);
+check('解析出 20 組 preset', tags.length === 20, `found ${tags.length}`);
+for (const locale of ['zh-TW', 'ko']) {
+  const missing = tags.filter(t => !em.messages[locale][t]);
+  check(`${locale} 每組 preset 都有名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+/* 分類標題以 T('cat.' + CAT_KEY[cat]) 動態組成，靜態掃描看不到，
+ * 需另外檢查這 4 個 key 是否兩語言都存在。 */
+section('tools/emotion-maker categories');
+const catBlock = emApp.match(/const CAT_KEY = \{([^}]*)\}/)[1];
+const catSuffixes = [...catBlock.matchAll(/:\s*"([a-z]+)"/g)].map(m => m[1]);
+check('解析出 4 個分類代稱', catSuffixes.length === 4, `found ${catSuffixes.length}`);
+for (const locale of ['zh-TW', 'ko']) {
+  const missing = catSuffixes.filter(s => !em.messages[locale][`cat.${s}`]);
+  check(`${locale} 每個分類都有顯示名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
 process.exit(summary() ? 1 : 0);

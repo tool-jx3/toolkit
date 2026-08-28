@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>表情產生器</title>
+<link rel="stylesheet" href="style.css">
+<script defer src="../../assets/i18n.js"></script>
+<script defer src="./i18n.emotion-maker.js"></script>
+<script defer src="./app.js"></script>
+</head>
+<body>
+<header>
+  <h1 data-i18n-node="app.title">表情產生器 <a href="https://x.com/bb_uu_t" target="_blank" style="color:inherit;text-decoration:underline;font-size:small;">@bb_uu_t</a></h1>
+  <span class="hint" id="countHint"></span>
+  <span class="spacer"></span>
+  <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+  <button id="btnPreset" class="ghost" data-i18n="btn.preset" data-i18n-title="btn.preset.title" title="一次載入 20 種內建情緒表情">🎨 情緒預設 20 種</button>
+  <button id="btnExport" class="ghost" data-i18n="btn.export" data-i18n-title="btn.export.title" title="將已儲存的表情匯出為 JSON 檔案">匯出 JSON</button>
+  <button id="btnImport" class="ghost" data-i18n="btn.import" data-i18n-title="btn.import.title" title="從 JSON 檔案匯入表情">匯入 JSON</button>
+  <button id="btnGrid" class="primary" data-i18n="btn.grid" data-i18n-title="btn.grid.title" title="將已勾選的表情合併為一張圖片">🖼️ 產生合併圖</button>
+  <input type="file" id="fileImport" accept="application/json" hidden>
+  <input type="file" id="filePart" accept="image/*" multiple hidden>
+</header>
+
+<div class="main">
+  <div class="col" id="paletteCol">
+    <h2 data-i18n="palette.heading">選擇部件</h2>
+    <div id="palette"></div>
+  </div>
+
+  <div class="col">
+    <h2 data-i18n="editor.heading">預覽．編輯</h2>
+    <div class="stage">
+      <div class="preview-wrap" id="preview"></div>
+      <div class="editor">
+        <div>
+          <div class="hint" style="margin-bottom:4px" data-i18n="deco.stackHeading">裝飾圖層（上方＝最前）</div>
+          <div class="deco-stack" id="decoStack"></div>
+        </div>
+        <div class="field">
+          <div class="hint" style="margin-bottom:4px" data-i18n="tag.fieldHint">標籤／下方文字</div>
+          <textarea id="tagInput" rows="2" data-i18n-placeholder="tag.placeholder" placeholder="例如：喜悅／燦笑的臉"></textarea>
+        </div>
+        <div class="row wrap">
+          <label class="inline" data-i18n-node="showText.label"><input type="checkbox" id="showText" checked> 顯示下方文字</label>
+        </div>
+        <div class="row">
+          <button class="primary" id="btnSave" style="flex:1" data-i18n="btn.save">＋ 儲存表情</button>
+          <button id="btnRandom" class="ghost" data-i18n="btn.random">🎲 隨機</button>
+          <button id="btnClear" class="ghost" data-i18n="btn.reset">重設</button>
+          <button id="btnCancelEdit" class="ghost" hidden data-i18n="btn.cancelEdit">取消編輯</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="coll-head">
+      <h2 style="margin:0" data-i18n-node="collection.heading">已儲存的表情 <span id="collCount" class="hint"></span></h2>
+      <div class="row">
+        <button id="btnAll" class="ghost" style="padding:4px 8px;font-size:12px" data-i18n="btn.selectAll">全選</button>
+        <button id="btnNone" class="ghost" style="padding:4px 8px;font-size:12px" data-i18n="btn.deselectAll">取消選取</button>
+      </div>
+    </div>
+    <div class="hint" style="margin-bottom:8px" data-i18n="collection.checkHint">勾選的表情將包含在圖片中。</div>
+    <div class="coll-tools">
+      <button id="btnDelSel" class="danger" data-i18n="btn.deleteSelected">🗑 刪除所選</button>
+      <button id="btnClearAll" class="danger" data-i18n="btn.clearAll">全部清空</button>
+    </div>
+    <div id="collection"></div>
+  </div>
+</div>
+
+<div class="modal" id="gridModal">
+  <div class="box">
+    <header>
+      <h1 style="font-size:15px" data-i18n="grid.modalHeading">🖼️ 表情合輯圖片</h1>
+      <span class="spacer"></span>
+      <button id="btnDownload" class="primary" data-i18n="grid.download">下載 PNG</button>
+      <button id="btnCloseModal" class="ghost" data-i18n="grid.close">關閉</button>
+    </header>
+    <div class="body">
+      <div class="opt">
+        <div class="field"><label data-i18n="grid.cols.label">欄數（0 = 自動正方形）</label><input type="number" id="optCols" value="0" min="0" max="20"></div>
+        <div class="field"><label data-i18n="grid.cell.label">格子大小 (px)</label><input type="number" id="optCell" value="300" min="80" max="800" step="10"></div>
+        <div class="field"><label data-i18n="grid.gap.label">間距 (px)</label><input type="number" id="optGap" value="14" min="0" max="120"></div>
+        <div class="field">
+          <label data-i18n="grid.bg.label">背景</label>
+          <div class="seg" id="optBg">
+            <button data-bg="transparent" class="on" data-i18n="grid.bg.transparent">透明</button>
+            <button data-bg="white" data-i18n="grid.bg.white">白色</button>
+            <button data-bg="custom" data-i18n="grid.bg.custom">顏色</button>
+          </div>
+          <input type="color" id="optBgColor" value="#ffffff" hidden>
+        </div>
+        <div class="field"><label data-i18n="grid.text.label">文字</label><label class="inline" data-i18n-node="grid.text.showCaption"><input type="checkbox" id="optText" checked> 顯示下方文字</label></div>
+        <div class="field"><label data-i18n="grid.font.label">文字大小 (px)</label><input type="number" id="optFont" value="26" min="8" max="120"></div>
+        <div class="field"><label data-i18n="grid.textColor.label">文字顏色</label><input type="color" id="optTextColor" value="#222222"></div>
+        <div class="hint" id="gridInfo"></div>
+        <div class="warn" id="serverWarn" hidden data-i18n-html="grid.serverWarn">⚠️ 若 PNG 儲存被封鎖（canvas 安全限制），請以本機伺服器執行資料夾。<br>例如：在資料夾內執行 <b>python -m http.server</b> 後以瀏覽器開啟。</div>
+      </div>
+      <div class="grid-preview-wrap"><canvas id="gridCanvas"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+</body>
+</html>
