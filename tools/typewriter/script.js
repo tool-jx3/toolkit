@@ -1334,6 +1334,24 @@ function autoSizeCanvas() {
 }
 
 // --- 匯出整合邏輯 ---
+/* webp-muxer.js 是獨立、不在地化的函式庫，例外訊息一律是穩定的英文錯誤代碼
+ * （例如 'WEBP_ERR_NO_FRAMES'），而非在地化文字，讓該檔案可獨立於本引擎重複使用。
+ * 這裡在顯示前，將代碼對照為目前語言的訊息；找不到對照時原樣顯示（例如瀏覽器
+ * 原生錯誤）。 */
+const WEBP_ERROR_KEYS = {
+    WEBP_ERR_PARSE: 'webpErr.parse',
+    WEBP_ERR_NO_IMAGE_DATA: 'webpErr.noImageData',
+    WEBP_ERR_NO_FRAMES: 'webpErr.noFrames',
+    WEBP_ERR_INVALID_SIZE: 'webpErr.invalidSize',
+    WEBP_ERR_SIZE_TOO_LARGE: 'webpErr.sizeTooLarge',
+    WEBP_ERR_FRAME_OUT_OF_BOUNDS: 'webpErr.frameOutOfBounds',
+    WEBP_ERR_ENCODE_FAILED: 'webpErr.encodeFailed',
+    WEBP_ERR_UNSUPPORTED: 'webpErr.unsupported'
+};
+function describeExportError(e) {
+    const key = e && WEBP_ERROR_KEYS[e.message];
+    return key ? T(key) : (e && e.message ? e.message : e);
+}
 const nextTick = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
 const setExportStatus = (text) => { exportOverlay.textContent = text; };
 
@@ -1509,7 +1527,7 @@ async function exportAnimation(format) {
         }
     } catch (e) {
         console.error(e);
-        alert(T('msg.exportFailed', label) + (e && e.message ? e.message : e));
+        alert(T('msg.exportFailed', label) + describeExportError(e));
     } finally {
         if (workerUrl) URL.revokeObjectURL(workerUrl);
         exportOverlay.classList.add('hidden');

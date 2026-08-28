@@ -175,16 +175,41 @@ for (const locale of ['zh-TW', 'ko']) {
 }
 
 /* ---- typewriter ---- */
-checkTool({
+const tw = checkTool({
   dir: 'tools/typewriter',
   dict: 'i18n.typewriter.js',
   scripts: ['script.js', 'webp-muxer.js'],
   minHooks: 80,
-  /* webp-muxer.js 是原封不動保留的二進位編碼函式庫（供他案共用，非本次翻譯範圍），
-   * 其註解與內部錯誤訊息不翻譯；script.js 中兩處字元類別 [^a-zA-Z0-9가-힣] 用於
-   * 保留使用者輸入歌詞／字幕中的韓文字元以組成檔名，屬程式碼而非介面文字。 */
-  allowHangul: (line, lineNo, file) =>
-    file === 'webp-muxer.js' || /a-zA-Z0-9가-힣/.test(line)
+  /* webp-muxer.js 是原封不動保留的二進位編碼函式庫（供他案共用，非本次翻譯範圍）。
+   * 其註解為上游作者所寫、僅供開發者閱讀，允許保留韓文；但其原本 8 個 throw/reject
+   * 訊息屬使用者可能看見的文字，已改為穩定的英文錯誤代碼（見下方 webp-muxer error
+   * codes 檢查），因此不在此豁免之列——只豁免整行皆為註解（// 或 * 開頭），或韓文
+   * 完全落在行內尾隨 // 註解之後的行；其餘任何行（含字串常值）仍須通過殘留韓文檢查，
+   * 確保日後若再引入未翻譯訊息會使建置失敗。
+   * script.js 中兩處字元類別 [^a-zA-Z0-9가-힣] 用於保留使用者輸入歌詞／字幕中的韓文
+   * 字元以組成檔名，屬程式碼而非介面文字，同樣豁免。 */
+  allowHangul: (line, lineNo, file) => {
+    if (file === 'webp-muxer.js') {
+      const trimmed = line.trimStart();
+      if (trimmed.startsWith('//') || trimmed.startsWith('*')) return true; /* 整行都是註解 */
+      const slashIdx = line.indexOf('//');
+      /* 行內尾隨註解：韓文必須完全落在 // 之後，前面的程式碼部分不得含韓文。 */
+      return slashIdx !== -1 && !/[가-힣]/.test(line.slice(0, slashIdx));
+    }
+    return /a-zA-Z0-9가-힣/.test(line);
+  }
 });
+
+/* webp-muxer.js 以穩定的英文錯誤代碼（非在地化文字）拋出例外，script.js 的
+ * WEBP_ERROR_KEYS 對照表在顯示前將代碼轉換為 T() 訊息；T(key) 的 key 是變數而非字面
+ * 常數，靜態掃描看不到，需另外檢查這些 key 是否兩語言都存在。 */
+section('tools/typewriter webp-muxer error codes');
+const webpErrorKeys = [...read('tools/typewriter/script.js')
+  .matchAll(/WEBP_ERR_\w+:\s*'([^']+)'/g)].map(m => m[1]);
+check('解析出 8 組 webp-muxer 錯誤代碼', webpErrorKeys.length === 8, `found ${webpErrorKeys.length}`);
+for (const locale of ['zh-TW', 'ko']) {
+  const missing = webpErrorKeys.filter(k => !tw.messages[locale][k]);
+  check(`${locale} 每個 webp-muxer 錯誤代碼都有對應訊息`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
 
 process.exit(summary() ? 1 : 0);

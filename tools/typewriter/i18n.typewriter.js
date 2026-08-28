@@ -188,6 +188,16 @@ I18N.register({
     'msg.notSupportedInCredit': '片尾字幕模式不支援此功能。',
     'msg.textAreaNotFound': '找不到文字範圍。',
 
+    /* ---- webp-muxer.js 錯誤代碼對照（見 script.js 的 WEBP_ERROR_KEYS） ---- */
+    'webpErr.parse': '無法解析 WebP 影格資料。',
+    'webpErr.noImageData': '在 WebP 影格中找不到影像資料。',
+    'webpErr.noFrames': '沒有影格。',
+    'webpErr.invalidSize': '畫布尺寸不正確。',
+    'webpErr.sizeTooLarge': '超過 WebP 支援的最大尺寸。',
+    'webpErr.frameOutOfBounds': '影格範圍超出畫布。',
+    'webpErr.encodeFailed': 'WebP 編碼失敗。',
+    'webpErr.unsupported': '此瀏覽器不支援 WebP 編碼。',
+
     /* ---- 音效訊息 ---- */
     'audio.generatingSfx': '正在產生音效...',
     'audio.silentRendering': '正在渲染靜音音訊...',
@@ -404,6 +414,16 @@ I18N.register({
     'msg.noText': '텍스트가 없습니다.',
     'msg.notSupportedInCredit': '엔딩 크레딧 모드에서는 지원되지 않는 기능입니다.',
     'msg.textAreaNotFound': '텍스트 영역을 찾을 수 없습니다.',
+
+    /* ---- webp-muxer.js 오류 코드 대응표 (script.js의 WEBP_ERROR_KEYS 참고) ---- */
+    'webpErr.parse': 'WebP 프레임 데이터를 해석할 수 없습니다.',
+    'webpErr.noImageData': 'WebP 프레임에서 이미지 데이터를 찾지 못했습니다.',
+    'webpErr.noFrames': '프레임이 없습니다.',
+    'webpErr.invalidSize': '캔버스 크기가 올바르지 않습니다.',
+    'webpErr.sizeTooLarge': 'WebP가 지원하는 최대 크기를 넘었습니다.',
+    'webpErr.frameOutOfBounds': '프레임 영역이 캔버스를 벗어났습니다.',
+    'webpErr.encodeFailed': 'WebP 인코딩에 실패했습니다.',
+    'webpErr.unsupported': '이 브라우저는 WebP 인코딩을 지원하지 않습니다.',
 
     /* ---- 오디오 메시지 ---- */
     'audio.generatingSfx': '효과음 생성 중입니다...',

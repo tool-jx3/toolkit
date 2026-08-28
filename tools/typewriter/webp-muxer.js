@@ -36,7 +36,7 @@
     function parseStillWebP(buffer) {
         const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
         if (u8.length < 16 || readTag(u8, 0) !== 'RIFF' || readTag(u8, 8) !== 'WEBP') {
-            throw new Error('WebP 프레임 데이터를 해석할 수 없습니다.');
+            throw new Error('WEBP_ERR_PARSE');
         }
         const view = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
         const end = Math.min(u8.length, 8 + view.getUint32(4, true));
@@ -68,7 +68,7 @@
             off += 8 + size + (size & 1);
         }
 
-        if (!parts.length) throw new Error('WebP 프레임에서 이미지 데이터를 찾지 못했습니다.');
+        if (!parts.length) throw new Error('WEBP_ERR_NO_IMAGE_DATA');
         return { parts: parts, hasAlpha: hasAlpha };
     }
 
@@ -80,10 +80,10 @@
      * @returns {Uint8Array}
      */
     function encodeAnimation(frames, options) {
-        if (!frames || !frames.length) throw new Error('프레임이 없습니다.');
+        if (!frames || !frames.length) throw new Error('WEBP_ERR_NO_FRAMES');
         const width = options.width, height = options.height;
-        if (!(width > 0 && height > 0)) throw new Error('캔버스 크기가 올바르지 않습니다.');
-        if (width > 0x1000000 || height > 0x1000000) throw new Error('WebP가 지원하는 최대 크기를 넘었습니다.');
+        if (!(width > 0 && height > 0)) throw new Error('WEBP_ERR_INVALID_SIZE');
+        if (width > 0x1000000 || height > 0x1000000) throw new Error('WEBP_ERR_SIZE_TOO_LARGE');
 
         const loop = options.loop == null ? 0 : options.loop;
         let anyAlpha = !!options.alpha;
@@ -98,7 +98,7 @@
             const fy = Math.max(0, (frame.y || 0)) & ~1;
             const fw = frame.width || width;
             const fh = frame.height || height;
-            if (fx + fw > width || fy + fh > height) throw new Error('프레임 영역이 캔버스를 벗어났습니다.');
+            if (fx + fw > width || fy + fh > height) throw new Error('WEBP_ERR_FRAME_OUT_OF_BOUNDS');
 
             const body = concat(parsed.parts.map(p => makeChunk(p.tag, p.data)));
             const header = new Uint8Array(16);
@@ -134,8 +134,8 @@
     function canvasToWebP(canvas, quality) {
         return new Promise((resolve, reject) => {
             canvas.toBlob((blob) => {
-                if (!blob) return reject(new Error('WebP 인코딩에 실패했습니다.'));
-                if (blob.type !== 'image/webp') return reject(new Error('이 브라우저는 WebP 인코딩을 지원하지 않습니다.'));
+                if (!blob) return reject(new Error('WEBP_ERR_ENCODE_FAILED'));
+                if (blob.type !== 'image/webp') return reject(new Error('WEBP_ERR_UNSUPPORTED'));
                 blob.arrayBuffer().then(resolve, reject);
             }, 'image/webp', quality);
         });
