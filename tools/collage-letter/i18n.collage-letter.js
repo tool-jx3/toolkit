@@ -45,19 +45,19 @@ I18N.register({
     /* ---- 預覽與匯出 ---- */
     'preview.heading': '預覽',
     'preview.hint': '結果過長或超出範圍時會自動換行。',
-    'action.downloadPng': 'PNG 下載',
+    'action.downloadPng': '下載 PNG',
     'action.downloadPng.title': '儲存為透明背景 PNG',
-    'action.downloadJpg': 'JPG 下載',
+    'action.downloadJpg': '下載 JPG',
     'action.downloadJpg.title': '儲存為紙張質感背景 JPG',
     'action.copyImage': '複製圖片',
     'action.copyImage.title': '複製圖片到剪貼簿',
     'action.copyHtml': '複製 HTML',
-    'action.copyHtml.title': '複製可用於 Tistory 等支援 HTML 的平台程式碼',
+    'action.copyHtml.title': '複製可用於支援 HTML 的平台程式碼',
     'action.copyRoll20': '複製 Roll20',
     'action.copyRoll20.title': '複製 Roll20 聊天室專用特殊格式文字',
 
     /* ---- Roll20 設定 ---- */
-    'roll20.basicFont.label': '複製 Roll20 時轉換為基本字型（明體／黑體／標楷體隨機）',
+    'roll20.basicFont.label': '複製 Roll20 時轉換為基本字型（隨機）',
     'roll20.fontSize.label': 'Roll20 文字大小：',
     'roll20.min.label': '最小',
     'roll20.max.label': '最大',
