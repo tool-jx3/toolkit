@@ -536,11 +536,6 @@ I18N.register({
     'lic.user.body': '你親手繪製的魔法陣、簽名以及匯出的圖片，其權利與本程式授權無關。但若使用了他人的字型、圖樣或圖片，請遵守該素材的使用條款。',
     'lic.note': '詳細的散布條件請參閱隨附的 <code>LICENSE</code> 與 <code>README_ZHTW.md</code>。',
 
-    /* app.js 以 T('rune.' + name) 動態組成如尼文讀音 key；靜態掃描只看得到
-     * 字串常值 'rune.' 本身，因此保留這個哨兵項目讓掃描視為已知 key。
-     * 執行期永遠會補上實際的如尼文拉丁名，不會查找到這個 key。 */
-    'rune.': '',
-
     /* ---- rune readings ---- */
     'rune.Fehu': '費胡',
     'rune.Uruz': '烏魯茲',
@@ -1147,11 +1142,6 @@ I18N.register({
     'lic.user.title': '사용자가 만든 결과물',
     'lic.user.body': '직접 그린 마법진·사인과 내보낸 이미지의 권리는 프로그램 라이선스와 별개입니다. 다만 타인의 글꼴·문양·이미지를 이용했다면 해당 자료의 이용 조건을 따르세요.',
     'lic.note': '자세한 배포 조건은 동봉된 <code>LICENSE</code>와 <code>README_KO.md</code>를 확인하세요.',
-
-    /* app.js 以 T('rune.' + name) 動態組成如尼文讀音 key；靜態掃描只看得到
-     * 字串常值 'rune.' 本身，因此保留這個哨兵項目讓掃描視為已知 key。
-     * 執行期永遠會補上實際的如尼文拉丁名，不會查找到這個 key。 */
-    'rune.': '',
 
     /* ---- rune readings ---- */
     'rune.Fehu': '페후',

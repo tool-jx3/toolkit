@@ -79,7 +79,10 @@ function checkTool({ dir, dict, scripts, minHooks, allowHangul = () => false, li
 
   for (const file of scripts) {
     const src = read(`${dir}/${file}`);
-    const keys = [...src.matchAll(/\bT\((['"`])([a-zA-Z][\w.]*)\1/g)].map(m => m[2]);
+    /* A capture ending in '.' isn't a real key — it's the static prefix of a
+     * runtime-concatenated call like T('rune.' + name). Skip those here;
+     * their coverage is asserted separately (see the rune checks below). */
+    const keys = [...src.matchAll(/\bT\((['"`])([a-zA-Z][\w.]*)\1/g)].map(m => m[2]).filter(k => !k.endsWith('.'));
     const unknown = [...new Set(keys)].filter(k => !zh.has(k));
     check(`${file} 僅引用已知 key`, unknown.length === 0, `unknown: ${unknown.join(', ')}`);
 
@@ -114,9 +117,9 @@ for (const locale of ['zh-TW', 'ko']) {
 }
 
 /* 除了 69 組如尼文讀音之外，字典中其餘 rune.* key 只應是介面固定字串（源自
- * ref-zhtw 原始字典，非本次移植新增），以及下方哨兵 key。任何不在這兩個
- * 集合內的 rune.* key，代表萃取腳本混入了無關資料（例如把 app.js 中巧合
- * 出現的其他 4 元素陣列也當成如尼文組別解析）——這正是本檢查要防範的缺陷。 */
+ * ref-zhtw 原始字典，非本次移植新增）。任何不在這兩個集合內的 rune.* key，
+ * 代表萃取腳本混入了無關資料（例如把 app.js 中巧合出現的其他 4 元素陣列
+ * 也當成如尼文組別解析）——這正是本檢查要防範的缺陷。 */
 const runeReadingKeys = new Set(runeNames.map(n => `rune.${n}`));
 const runeUiKeys = new Set([
   'rune.summary', 'rune.system',
@@ -125,9 +128,7 @@ const runeUiKeys = new Set([
   'rune.search', 'rune.search.placeholder',
   'rune.palette.aria', 'rune.palette.empty', 'rune.palette.status',
   'rune.converter.label', 'rune.converter.placeholder', 'rune.conversion.label',
-  'rune.replace', 'rune.insert', 'rune.converter.hint',
-  /* 哨兵：T('rune.' + name) 於靜態掃描中只看得到字串常值 'rune.'。 */
-  'rune.'
+  'rune.replace', 'rune.insert', 'rune.converter.hint'
 ]);
 for (const locale of ['zh-TW', 'ko']) {
   const stray = Object.keys(mc.messages[locale])
