@@ -487,4 +487,7 @@ I18N.onChange(() => {
   refreshEditor();       // 重繪面板（分類標題、部件標籤）、裝飾堆疊、預覽
   renderCollection();    // 重繪收藏清單（標籤、摘要）
   if (document.getElementById('gridModal').classList.contains('open')) buildGrid(); // 若合併圖視窗開啟中，重繪其文字
+  // applyStaticDom() 已依 data-i18n="btn.save" 把按鈕重設為「儲存」，
+  // 但編輯中（editingId 有值）時應顯示「完成編輯」，故在此依狀態覆寫回正確文字。
+  document.getElementById('btnSave').textContent = T(editingId ? 'btn.saveDone' : 'btn.save');
 });

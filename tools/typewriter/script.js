@@ -41,7 +41,10 @@ function getRandomGlitchChar(currentGlitchState) {
 let currentTab = 'typing'; // 'typing', 'glitch', 'credit', 'karaoke'
 
 const DEFAULT_STATE = {
-    text: T('sample.typingText'), fontFamilySelect: "Noto Sans KR", fontFamilyCustom: "", fontFamily: "Noto Sans KR",
+    // text 為 getter 而非固定值：{...DEFAULT_STATE} 每次展開時都會重新呼叫 T()，
+    // 確保語言切換後「重置」讀到的是當下語言的範例文字，而非模組載入當下的舊值。
+    get text() { return T('sample.typingText'); },
+    fontFamilySelect: "Noto Sans KR", fontFamilyCustom: "", fontFamily: "Noto Sans KR",
     fontSize: 48, scaleX: 100, letterSpacing: 0, lineHeight: 1.2, isBold: false, isItalic: false, isUnderline: false, isStrikethrough: false,
     writingMode: "horizontal", textAlign: "center", verticalAlign: "center", direction: "forward",
     shapeMode: "none", shapeSize: 100, shapeRotateSpeed: 0,
@@ -51,7 +54,8 @@ const DEFAULT_STATE = {
 };
 
 const GLITCH_DEFAULT_STATE = {
-    text: T('sample.glitchText'), fontFamilySelect: "Noto Sans KR", fontFamilyCustom: "", fontFamily: "Noto Sans KR",
+    get text() { return T('sample.glitchText'); },
+    fontFamilySelect: "Noto Sans KR", fontFamilyCustom: "", fontFamily: "Noto Sans KR",
     fontSize: 48, scaleX: 100, letterSpacing: 0, lineHeight: 1.2, isBold: true, isItalic: false, isUnderline: false, isStrikethrough: false,
     writingMode: "horizontal", textAlign: "center", verticalAlign: "center",
     useBackgroundColor: false, backgroundColor: "#000000", fillColor: "#ff0033", strokeColor: "#000000", strokeWidth: 2,
@@ -62,7 +66,7 @@ const GLITCH_DEFAULT_STATE = {
 };
 
 const CREDIT_DEFAULT_STATE = {
-    text: T('sample.creditText'),
+    get text() { return T('sample.creditText'); },
     fontFamilySelect: "Noto Sans KR", fontFamilyCustom: "", fontFamily: "Noto Sans KR",
     fontSize: 32, lineHeight: 1.5, textAlign: "center", isBold: false,
     useBackgroundColor: false, backgroundColor: "#000000", fillColor: "#ffffff", strokeColor: "#000000", strokeWidth: 2,
@@ -71,7 +75,7 @@ const CREDIT_DEFAULT_STATE = {
 };
 
 const KARAOKE_DEFAULT_STATE = {
-    text: T('sample.karaokeText'),
+    get text() { return T('sample.karaokeText'); },
     fontFamilySelect: "Noto Sans KR", fontFamilyCustom: "", fontFamily: "Noto Sans KR",
     fontSize: 48, scaleX: 100, letterSpacing: 0, lineHeight: 1.5, isBold: true, isItalic: false,
     textAlign: "center", verticalAlign: "center",
