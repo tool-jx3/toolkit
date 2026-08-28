@@ -1,0 +1,45 @@
+/* 首頁字典。載入前需先載入 ./i18n.js。 */
+I18N.register({
+  'zh-TW': {
+    'app.title': 'TRPG Toolkit — 網頁小工具合輯',
+    'lang.aria': '顯示語言',
+    'home.heading': 'TRPG Toolkit',
+    'home.tagline': 'sotsotssi 製作的網頁小工具合輯，附繁體中文介面',
+    'home.intro': '以下工具全部在瀏覽器本機執行，不上傳任何資料。',
+    'tool.magic-circle.name': '魔法陣製作器',
+    'tool.magic-circle.desc': '繪製魔法陣與簽名動態，支援對稱、貝茲曲線、時間軸與 GIF／APNG 匯出。',
+    'tool.typewriter.name': '打字機動畫產生器',
+    'tool.typewriter.desc': '輸入文字，產生逐字打出效果的 APNG／GIF／WebP 動畫圖。',
+    'tool.text-path.name': '文字軌跡產生器',
+    'tool.text-path.desc': '讓文字沿著自訂路徑排列，輸出為圖片。',
+    'tool.collage-letter.name': '匿名拼貼信產生器',
+    'tool.collage-letter.desc': '以剪報拼貼風格的字母組成信件圖片。',
+    'tool.emotion-maker.name': '表情產生器',
+    'tool.emotion-maker.desc': '組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖。',
+    'home.credits.heading': '來源與授權',
+    'home.credits.body': '本站工具皆由 sotsotssi 製作，此處為加上繁體中文介面的合併版本。',
+    'license.mit': 'MIT 授權',
+    'license.unlicensed': '未授權：原作者未釋出授權條款，此工具（含全部圖像素材）之權利屬原作者所有，僅供試用。'
+  },
+  ko: {
+    'app.title': 'TRPG Toolkit — 웹 도구 모음',
+    'lang.aria': '표시 언어',
+    'home.heading': 'TRPG Toolkit',
+    'home.tagline': 'sotsotssi 님이 만든 웹 도구 모음, 번체 중국어 UI 추가판',
+    'home.intro': '아래 도구는 모두 브라우저에서 로컬로 실행되며 데이터를 전송하지 않습니다.',
+    'tool.magic-circle.name': '마법진 제작기',
+    'tool.magic-circle.desc': '대칭·베지어·타임라인을 지원하는 마법진과 사인 모션 편집기. GIF·APNG 내보내기.',
+    'tool.typewriter.name': '텍스트 애니메이션 생성기',
+    'tool.typewriter.desc': '문장을 입력하면 타자기로 입력한 듯한 APNG·GIF·WebP 이미지를 만들어 줍니다.',
+    'tool.text-path.name': '텍스트 궤적 생성기',
+    'tool.text-path.desc': '글자를 원하는 경로를 따라 배치해 이미지로 저장합니다.',
+    'tool.collage-letter.name': '익명 콜라주 편지 생성기',
+    'tool.collage-letter.desc': '잡지 오려붙이기 느낌의 글자로 편지 이미지를 만듭니다.',
+    'tool.emotion-maker.name': '표정 메이커',
+    'tool.emotion-maker.desc': '눈·눈썹·입·꾸밈을 조합해 표정 차분과 합본 이미지를 만듭니다.',
+    'home.credits.heading': '출처 및 라이선스',
+    'home.credits.body': '이 사이트의 도구는 모두 sotsotssi 님의 작품이며, 번체 중국어 UI를 추가해 합친 버전입니다.',
+    'license.mit': 'MIT 라이선스',
+    'license.unlicensed': '라이선스 없음: 원작자가 라이선스를 명시하지 않았습니다. 이 도구(모든 이미지 소재 포함)의 권리는 원작자에게 있으며 시험용으로만 제공됩니다.'
+  }
+});

@@ -276,4 +276,33 @@ for (const locale of ['zh-TW', 'ko']) {
   check(`${locale} 每個分類都有顯示名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
 
+/* ---- 首頁 ---- */
+section('index.html');
+const home = loadI18N(['assets/i18n.home.js']);
+const homeZh = new Set(Object.keys(home.messages['zh-TW']));
+const homeKo = new Set(Object.keys(home.messages.ko));
+check('首頁字典定義了 app.title', homeZh.has('app.title'));
+check('首頁 ko 涵蓋所有 zh-TW key',
+  [...homeZh].every(k => homeKo.has(k)),
+  `missing: ${[...homeZh].filter(k => !homeKo.has(k)).join(', ')}`);
+
+const homeHtml = read('index.html');
+const homeKeys = [...homeHtml.matchAll(/data-i18n(?:-html|-node|-title|-aria-label|-placeholder)?="([^"]+)"/g)].map(m => m[1]);
+check('首頁標記僅引用已知 key',
+  [...new Set(homeKeys)].every(k => homeZh.has(k)),
+  `unknown: ${[...new Set(homeKeys)].filter(k => !homeZh.has(k)).join(', ')}`);
+check('首頁無殘留韓文', !/[가-힣]/.test(homeHtml));
+check('首頁 html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(homeHtml));
+
+/* 五個工具連結都要指得到。 */
+const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker'];
+for (const name of TOOLS) {
+  check(`連結 tools/${name}/ 有效`,
+    homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
+}
+
+check('首頁標示 emotion-maker 的未授權狀態',
+  homeZh.has('license.unlicensed') && homeHtml.includes('license.unlicensed'));
+check('首頁標示原作者出處', homeHtml.includes('github.com/sotsotssi'));
+
 process.exit(summary() ? 1 : 0);

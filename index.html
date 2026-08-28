@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TRPG Toolkit — 網頁小工具合輯</title>
+  <link rel="stylesheet" href="./assets/home.css">
+  <script defer src="./assets/i18n.js"></script>
+  <script defer src="./assets/i18n.home.js"></script>
+  <script defer src="./assets/home.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div>
+      <h1 data-i18n="home.heading">TRPG Toolkit</h1>
+      <p class="tagline" data-i18n="home.tagline">sotsotssi 製作的網頁小工具合輯，附繁體中文介面</p>
+    </div>
+    <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+  </header>
+
+  <main>
+    <p class="intro" data-i18n="home.intro">以下工具全部在瀏覽器本機執行，不上傳任何資料。</p>
+
+    <ul class="tool-grid">
+      <li class="tool-card">
+        <a href="./tools/magic-circle/">
+          <h2 data-i18n="tool.magic-circle.name">魔法陣製作器</h2>
+          <p data-i18n="tool.magic-circle.desc">繪製魔法陣與簽名動態，支援對稱、貝茲曲線、時間軸與 GIF／APNG 匯出。</p>
+        </a>
+        <span class="badge mit" data-i18n="license.mit">MIT 授權</span>
+      </li>
+
+      <li class="tool-card">
+        <a href="./tools/typewriter/">
+          <h2 data-i18n="tool.typewriter.name">打字機動畫產生器</h2>
+          <p data-i18n="tool.typewriter.desc">輸入文字，產生逐字打出效果的 APNG／GIF／WebP 動畫圖。</p>
+        </a>
+        <span class="badge mit" data-i18n="license.mit">MIT 授權</span>
+      </li>
+
+      <li class="tool-card">
+        <a href="./tools/text-path/">
+          <h2 data-i18n="tool.text-path.name">文字軌跡產生器</h2>
+          <p data-i18n="tool.text-path.desc">讓文字沿著自訂路徑排列，輸出為圖片。</p>
+        </a>
+        <span class="badge mit" data-i18n="license.mit">MIT 授權</span>
+      </li>
+
+      <li class="tool-card">
+        <a href="./tools/collage-letter/">
+          <h2 data-i18n="tool.collage-letter.name">匿名拼貼信產生器</h2>
+          <p data-i18n="tool.collage-letter.desc">以剪報拼貼風格的字母組成信件圖片。</p>
+        </a>
+        <span class="badge mit" data-i18n="license.mit">MIT 授權</span>
+      </li>
+
+      <li class="tool-card">
+        <a href="./tools/emotion-maker/">
+          <h2 data-i18n="tool.emotion-maker.name">表情產生器</h2>
+          <p data-i18n="tool.emotion-maker.desc">組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖。</p>
+        </a>
+        <span class="badge warn" data-i18n="license.unlicensed">未授權：原作者未釋出授權條款，此工具（含全部圖像素材）之權利屬原作者所有，僅供試用。</span>
+      </li>
+    </ul>
+
+    <section class="credits">
+      <h2 data-i18n="home.credits.heading">來源與授權</h2>
+      <p data-i18n="home.credits.body">本站工具皆由 sotsotssi 製作，此處為加上繁體中文介面的合併版本。</p>
+      <p><a href="https://github.com/sotsotssi" target="_blank" rel="noopener">github.com/sotsotssi</a></p>
+    </section>
+  </main>
+</body>
+</html>
