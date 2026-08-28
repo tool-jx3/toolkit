@@ -3,6 +3,7 @@ I18N.register({
   'zh-TW': {
     /* ---- shell ---- */
     'app.title': 'Magic circle Maker — 魔法陣・簽名動態製作器',
+    'nav.home': '← TRPG Toolkit',
     'brand.aria': 'Magic circle maker',
     'brand.tagline': '魔法陣 · 簽名動態製作器',
     'nav.aria': '文件操作',
@@ -534,7 +535,7 @@ I18N.register({
     'lic.export.body': 'PNG 與靜態 WebP 使用瀏覽器的 Canvas 功能。GIF、APNG 與動態 WebP 編碼器都內建在本程式中，不使用外部 CDN 或上傳伺服器。',
     'lic.user.title': '使用者建立的作品',
     'lic.user.body': '你親手繪製的魔法陣、簽名以及匯出的圖片，其權利與本程式授權無關。但若使用了他人的字型、圖樣或圖片，請遵守該素材的使用條款。',
-    'lic.note': '詳細的散布條件請參閱隨附的 <code>LICENSE</code> 與 <code>README_ZHTW.md</code>。',
+    'lic.note': '詳細的散布條件請參閱隨附的 <code>LICENSE</code> 與 <code>ATTRIBUTION.md</code>。',
 
     /* ---- rune readings ---- */
     'rune.Fehu': '費胡',
@@ -610,6 +611,7 @@ I18N.register({
   ko: {
     /* ---- shell ---- */
     'app.title': 'Magic circle Maker — 마법진·사인 모션 제작기',
+    'nav.home': '← TRPG Toolkit',
     'brand.aria': 'Magic circle maker',
     'brand.tagline': '마법진 · 사인 모션 제작기',
     'nav.aria': '문서 작업',
@@ -1141,7 +1143,7 @@ I18N.register({
     'lic.export.body': 'PNG·정지 WebP는 브라우저 Canvas 기능을 사용합니다. GIF·APNG·움직이는 WebP 인코더는 이 프로그램 안에 포함되어 있어 별도 CDN이나 업로드 서버를 사용하지 않습니다.',
     'lic.user.title': '사용자가 만든 결과물',
     'lic.user.body': '직접 그린 마법진·사인과 내보낸 이미지의 권리는 프로그램 라이선스와 별개입니다. 다만 타인의 글꼴·문양·이미지를 이용했다면 해당 자료의 이용 조건을 따르세요.',
-    'lic.note': '자세한 배포 조건은 동봉된 <code>LICENSE</code>와 <code>README_KO.md</code>를 확인하세요.',
+    'lic.note': '자세한 배포 조건은 동봉된 <code>LICENSE</code>와 <code>ATTRIBUTION.md</code>를 확인하세요.',
 
     /* ---- rune readings ---- */
     'rune.Fehu': '페후',
