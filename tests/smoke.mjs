@@ -174,4 +174,17 @@ for (const locale of ['zh-TW', 'ko']) {
   check(`${locale} 每個色彩標籤都存在`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
 
+/* ---- typewriter ---- */
+checkTool({
+  dir: 'tools/typewriter',
+  dict: 'i18n.typewriter.js',
+  scripts: ['script.js', 'webp-muxer.js'],
+  minHooks: 80,
+  /* webp-muxer.js 是原封不動保留的二進位編碼函式庫（供他案共用，非本次翻譯範圍），
+   * 其註解與內部錯誤訊息不翻譯；script.js 中兩處字元類別 [^a-zA-Z0-9가-힣] 用於
+   * 保留使用者輸入歌詞／字幕中的韓文字元以組成檔名，屬程式碼而非介面文字。 */
+  allowHangul: (line, lineNo, file) =>
+    file === 'webp-muxer.js' || /a-zA-Z0-9가-힣/.test(line)
+});
+
 process.exit(summary() ? 1 : 0);

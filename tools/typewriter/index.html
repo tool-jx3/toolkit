@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>打字機動畫圖片產生器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 用於 APNG 編碼的函式庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.min.js"></script>
+    <!-- GIF 編碼函式庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <!-- 動畫 WebP 混流器（本機檔案） -->
+    <script src="webp-muxer.js"></script>
+    <script defer src="../../assets/i18n.js"></script>
+    <script defer src="./i18n.typewriter.js"></script>
+    <script defer src="./script.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col items-center">
+
+    <header class="w-full max-w-6xl mb-4 flex justify-between items-end">
+        <div>
+            <h1 class="text-3xl font-bold text-white mb-2" data-i18n-node="app.title">打字機動畫圖片產生器 <a href="https://x.com/bb_uu_t" target="_blank" class="text-sm text-blue-400 hover:text-blue-300">@bb_uu_t</a></h1>
+            <p class="text-sm text-gray-400" data-i18n="app.subtitle">打字機 · 故障 · 片尾字幕 · 卡拉OK效果 / APNG · GIF · WebP 儲存</p>
+        </div>
+        <div class="flex gap-2 text-sm items-center">
+            <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+            <button id="btn-save-local" class="btn btn-secondary" data-i18n="btn.saveSettings">儲存設定</button>
+            <button id="btn-load-local" class="btn btn-secondary" data-i18n="btn.loadSettings">載入設定</button>
+            <button id="btn-reset" class="btn btn-danger" data-i18n="btn.reset">重置</button>
+        </div>
+    </header>
+
+    <!-- 分頁 UI -->
+    <div class="w-full max-w-6xl mb-6 flex gap-2 border-b border-[#45475a] pb-0 overflow-x-auto whitespace-nowrap">
+        <button class="tab-btn active px-6 py-3 font-bold text-white border-b-2 border-[#89b4fa]" data-target="typing" data-i18n="tab.typing">打字效果產生器</button>
+        <button class="tab-btn px-6 py-3 font-bold text-gray-400 border-b-2 border-transparent hover:text-gray-200" data-target="glitch" data-i18n="tab.glitch">故障效果產生器</button>
+        <button class="tab-btn px-6 py-3 font-bold text-gray-400 border-b-2 border-transparent hover:text-gray-200" data-target="credit" data-i18n="tab.credit">片尾字幕產生器</button>
+        <button class="tab-btn px-6 py-3 font-bold text-gray-400 border-b-2 border-transparent hover:text-gray-200" data-target="karaoke" data-i18n="tab.karaoke">卡拉OK效果產生器</button>
+    </div>
+
+    <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- 設定面板區域（左側） -->
+        <div class="lg:col-span-5 relative">
+
+            <!-- 〔分頁 1〕打字效果設定面板 -->
+            <div id="panel-typing" class="space-y-4 max-h-[80vh] overflow-y-auto pr-2 pb-4">
+                <div class="panel">
+                    <label class="label" data-i18n="field.textInput.label">文字輸入</label>
+                    <textarea id="val-text" class="input-base h-24 resize-none" data-i18n-placeholder="field.textInput.placeholder" placeholder="請在此輸入文字。">小唯，&#10;加油！</textarea>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div class="col-span-2 flex gap-2">
+                        <div class="flex-1">
+                            <label class="label" data-i18n="field.fontFamily.label">字型選擇</label>
+                            <select id="val-fontFamilySelect" class="input-base">
+                                <option value="Noto Sans KR" selected data-i18n="option.font.notoSansKR">Noto Sans KR（黑體）</option>
+                                <option value="Noto Serif KR" data-i18n="option.font.notoSerifKR">Noto Serif KR（明體）</option>
+                                <option value="Nanum Gothic" data-i18n="option.font.nanumGothic">Nanum Gothic</option>
+                                <option value="Nanum Myeongjo" data-i18n="option.font.nanumMyeongjo">Nanum Myeongjo</option>
+                                <option value="Jua" data-i18n="option.font.jua">Jua</option>
+                                <option value="Do Hyeon" data-i18n="option.font.doHyeon">Do Hyeon</option>
+                                <option value="Black Han Sans" data-i18n="option.font.blackHanSans">Black Han Sans</option>
+                                <option value="custom" data-i18n="option.font.custom">自行輸入（本機字型名稱）</option>
+                            </select>
+                        </div>
+                        <div class="flex-1" id="custom-font-container" style="display: none;">
+                            <label class="label" data-i18n="field.fontFamilyCustom.label">自行輸入</label>
+                            <input type="text" id="val-fontFamilyCustom" class="input-base" data-i18n-placeholder="field.fontFamilyCustom.placeholder" placeholder="請輸入字型名稱" value="">
+                        </div>
+                    </div>
+                    <div><label class="label" data-i18n="field.fontSize.label">字型大小 (px)</label><input type="number" id="val-fontSize" class="input-base" value="48"></div>
+                    <div><label class="label" data-i18n="field.scaleX.label">字寬縮放 (%)</label><input type="number" id="val-scaleX" class="input-base" value="100"></div>
+                    <div><label class="label" data-i18n="field.letterSpacing.label">字距 (px)</label><input type="number" id="val-letterSpacing" class="input-base" value="0"></div>
+                    <div><label class="label" data-i18n="field.lineHeight.label">行距倍數</label><input type="number" step="0.1" id="val-lineHeight" class="input-base" value="1.2"></div>
+                    <div class="col-span-2 grid grid-cols-4 gap-2 bg-[#181825] p-3 rounded-lg border border-[#45475a] mt-2">
+                        <div class="flex items-center gap-2"><input type="checkbox" id="val-isBold" class="w-4 h-4 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]"><label for="val-isBold" class="label mb-0 cursor-pointer" data-i18n="field.bold.label">粗體</label></div>
+                        <div class="flex items-center gap-2"><input type="checkbox" id="val-isItalic" class="w-4 h-4 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]"><label for="val-isItalic" class="label mb-0 cursor-pointer" data-i18n="field.italic.label">斜體</label></div>
+                        <div class="flex items-center gap-2"><input type="checkbox" id="val-isUnderline" class="w-4 h-4 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]"><label for="val-isUnderline" class="label mb-0 cursor-pointer" data-i18n="field.underline.label">底線</label></div>
+                        <div class="flex items-center gap-2"><input type="checkbox" id="val-isStrikethrough" class="w-4 h-4 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]"><label for="val-isStrikethrough" class="label mb-0 cursor-pointer" data-i18n="field.strikethrough.label">刪除線</label></div>
+                    </div>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="label" data-i18n="field.writingMode.label">書寫方向</label>
+                        <select id="val-writingMode" class="input-base"><option value="horizontal" data-i18n="option.writingMode.horizontal">橫式書寫</option><option value="vertical" data-i18n="option.writingMode.vertical">直式書寫</option></select>
+                    </div>
+                    <div>
+                        <label class="label" data-i18n="field.textAlign.label">水平對齊</label>
+                        <select id="val-textAlign" class="input-base"><option value="left" data-i18n="align.left.full">靠左對齊</option><option value="center" selected data-i18n="align.center.full">置中對齊</option><option value="right" data-i18n="align.right.full">靠右對齊</option></select>
+                    </div>
+                    <div>
+                        <label class="label" data-i18n="field.verticalAlign.label">垂直對齊</label>
+                        <select id="val-verticalAlign" class="input-base"><option value="top" data-i18n="valign.top">靠上對齊</option><option value="center" selected data-i18n="valign.center">置中對齊</option><option value="bottom" data-i18n="valign.bottom">靠下對齊</option></select>
+                    </div>
+                    <div>
+                        <label class="label" data-i18n="field.direction.label">出現方向</label>
+                        <select id="val-direction" class="input-base"><option value="forward" selected data-i18n="option.direction.forward">正向（從頭開始）</option><option value="backward" data-i18n="option.direction.backward">反向（從尾開始）</option></select>
+                    </div>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="label" data-i18n="field.shapeMode.label">圖形模式</label>
+                        <select id="val-shapeMode" class="input-base">
+                            <option value="none" selected data-i18n="option.shape.none">不使用（預設）</option>
+                            <option value="circle" data-i18n="option.shape.circle">圓形</option>
+                            <option value="square" data-i18n="option.shape.square">方形</option>
+                            <option value="triangle" data-i18n="option.shape.triangle">三角形</option>
+                        </select>
+                    </div>
+                    <div><label class="label" data-i18n="field.shapeSize.label">圖形大小</label><input type="number" id="val-shapeSize" class="input-base" value="100"></div>
+                    <div class="col-span-2">
+                        <label class="label" data-i18n="field.shapeRotateSpeed.label">每影格旋轉速度（度/影格）</label>
+                        <input type="number" step="0.5" id="val-shapeRotateSpeed" class="input-base" value="0">
+                    </div>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div class="col-span-2 flex flex-col gap-2 bg-[#181825] p-3 rounded-lg border border-[#45475a]">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="val-useBackgroundColor" class="w-5 h-5 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]">
+                            <label for="val-useBackgroundColor" class="label mb-0 cursor-pointer" data-i18n="typing.useBg.label">使用背景色（利於 GIF 匯出最佳化等）</label>
+                        </div>
+                        <div class="flex items-center gap-2 w-full">
+                            <label class="label w-24 mb-0" data-i18n="field.backgroundColor.label">背景色彩</label>
+                            <input type="color" id="val-backgroundColor" class="input-base h-10 p-1 flex-1" value="#000000">
+                        </div>
+                    </div>
+                    <div><label class="label" data-i18n="field.fillColor.label">填色</label><input type="color" id="val-fillColor" class="input-base h-10 p-1" value="#ffffff"></div>
+                    <div><label class="label" data-i18n="field.strokeColor.label">邊框色彩</label><input type="color" id="val-strokeColor" class="input-base h-10 p-1" value="#000000"></div>
+                    <div class="col-span-2"><label class="label" data-i18n="field.strokeWidth.label">邊框粗細 (px)</label><input type="number" id="val-strokeWidth" class="input-base" value="4"></div>
+                    <div><label class="label" data-i18n="field.shadowColor.label">陰影色彩</label><input type="color" id="val-shadowColor" class="input-base h-10 p-1" value="#000000"></div>
+                    <div><label class="label" data-i18n="field.shadowBlur.label">陰影擴散</label><input type="number" id="val-shadowBlur" class="input-base" value="4"></div>
+                    <div><label class="label" data-i18n="field.shadowOffsetX.label">陰影 X 偏移</label><input type="number" id="val-shadowOffsetX" class="input-base" value="2"></div>
+                    <div><label class="label" data-i18n="field.shadowOffsetY.label">陰影 Y 偏移</label><input type="number" id="val-shadowOffsetY" class="input-base" value="2"></div>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div><label class="label" data-i18n="field.fps.label">每秒影格數 (FPS)</label><input type="number" id="val-fps" class="input-base" value="12"></div>
+                    <div><label class="label" data-i18n="field.holdLast.label">完成後停留 (ms)</label><input type="number" id="val-holdLast" class="input-base" value="2000"></div>
+                    <div class="col-span-2 grid grid-cols-2 gap-4 bg-[#181825] p-3 rounded-lg border border-[#45475a]">
+                        <div>
+                            <label class="label" data-i18n="field.fadeMode.label">淡出模式</label>
+                            <select id="val-fadeMode" class="input-base">
+                                <option value="none" selected data-i18n="option.fade.none">不使用</option>
+                                <option value="global" data-i18n="option.fade.global">整體同時淡出</option>
+                                <option value="individual" data-i18n="option.fade.individual">逐字依序淡出</option>
+                            </select>
+                        </div>
+                        <div><label class="label" data-i18n="field.fadeOutDuration.label">淡出時間 (ms)</label><input type="number" id="val-fadeOutDuration" class="input-base" value="1000"></div>
+                    </div>
+                    <div><label class="label" data-i18n="field.canvasWidth.label">畫布寬度 (px)</label><input type="number" id="val-canvasWidth" class="input-base" value="600"></div>
+                    <div><label class="label" data-i18n="field.canvasHeight.label">畫布高度 (px)</label><input type="number" id="val-canvasHeight" class="input-base" value="300"></div>
+                    <div class="col-span-2 flex items-center gap-2 bg-[#181825] p-3 rounded-lg border border-[#45475a]">
+                        <input type="checkbox" id="val-apngCompress" class="w-5 h-5 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]" checked>
+                        <label for="val-apngCompress" class="label mb-0 cursor-pointer" data-i18n="field.apngCompress.label">APNG 壓縮（大幅減少檔案容量，限制 256 色）</label>
+                    </div>
+                    <div class="col-span-2">
+                        <button id="btn-auto-size" class="btn btn-secondary w-full text-sm" data-i18n="btn.autoSizeText">裁去文字留白</button>
+                    </div>
+                </div>
+
+                <div class="panel space-y-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-white" data-i18n="audio.heading">音效產生（選用）</h3>
+                        <p class="text-xs text-gray-400 mt-1 mb-3" data-i18n="audio.hint">請上傳將隨打字節奏播放的音效檔（mp3、wav 等）。</p>
+                        <input type="file" id="input-audio" accept="audio/*" class="input-base mb-3">
+                        <label class="label" data-i18n="audio.mode.label">音效播放方式</label>
+                        <select id="val-audioMode" class="input-base">
+                            <option value="overlap" selected data-i18n="option.audioMode.overlap">依影格播放（允許重疊）</option>
+                            <option value="smart" data-i18n="option.audioMode.smart">智慧模式（避免重疊，結束時淡出）</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="btn-generate-audio" class="btn btn-secondary flex-1" disabled data-i18n="btn.generateAudio">產生並試聽音效</button>
+                        <button id="btn-download-audio" class="btn btn-primary flex-1 hidden" data-i18n="btn.downloadAudio">下載 WAV</button>
+                    </div>
+                    <audio id="audio-preview" controls class="w-full mt-2 hidden" style="border-radius: 8px;"></audio>
+                </div>
+            </div>
+
+            <!-- 〔分頁 2〕故障效果設定面板 -->
+            <div id="panel-glitch" class="space-y-4 max-h-[80vh] overflow-y-auto pr-2 pb-4 hidden">
+                <div class="panel">
+                    <label class="label" data-i18n="field.textInput.label">文字輸入</label>
+                    <textarea id="val-glitch-text" class="input-base h-24 resize-none" data-i18n-placeholder="field.textInput.placeholder" placeholder="請在此輸入文字。">SYSTEM ERROR&#10;發生錯誤了。</textarea>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div class="col-span-2 flex gap-2">
+                        <div class="flex-1">
+                            <label class="label" data-i18n="field.fontFamily.label">字型選擇</label>
+                            <select id="val-glitch-fontFamilySelect" class="input-base">
+                                <option value="Noto Sans KR" selected data-i18n="option.font.notoSansKR">Noto Sans KR（黑體）</option>
+                                <option value="Noto Serif KR" data-i18n="option.font.notoSerifKR">Noto Serif KR（明體）</option>
+                                <option value="Nanum Gothic" data-i18n="option.font.nanumGothic">Nanum Gothic</option>
+                                <option value="Nanum Myeongjo" data-i18n="option.font.nanumMyeongjo">Nanum Myeongjo</option>
+                                <option value="Jua" data-i18n="option.font.jua">Jua</option>
+                                <option value="Do Hyeon" data-i18n="option.font.doHyeon">Do Hyeon</option>
+                                <option value="Black Han Sans" data-i18n="option.font.blackHanSans">Black Han Sans</option>
+                                <option value="custom" data-i18n="option.font.custom">自行輸入（本機字型名稱）</option>
+                            </select>
+                        </div>
+                        <div class="flex-1" id="custom-glitch-font-container" style="display: none;">
+                            <label class="label" data-i18n="field.fontFamilyCustom.label">自行輸入</label>
+                            <input type="text" id="val-glitch-fontFamilyCustom" class="input-base" data-i18n-placeholder="field.fontFamilyCustom.placeholder" placeholder="請輸入字型名稱" value="">
+                        </div>
+                    </div>
+                    <div><label class="label" data-i18n="field.fontSize.label">字型大小 (px)</label><input type="number" id="val-glitch-fontSize" class="input-base" value="48"></div>
+                    <div><label class="label" data-i18n="field.scaleX.label">字寬縮放 (%)</label><input type="number" id="val-glitch-scaleX" class="input-base" value="100"></div>
+                    <div><label class="label" data-i18n="field.letterSpacing.label">字距 (px)</label><input type="number" id="val-glitch-letterSpacing" class="input-base" value="0"></div>
+                    <div><label class="label" data-i18n="field.lineHeight.label">行距倍數</label><input type="number" step="0.1" id="val-glitch-lineHeight" class="input-base" value="1.2"></div>
+                    <div class="col-span-2 grid grid-cols-4 gap-2 bg-[#181825] p-3 rounded-lg border border-[#45475a] mt-2">
+                        <div class="flex items-center gap-2"><input type="checkbox" id="val-glitch-isBold" class="w-4 h-4 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]"><label for="val-glitch-isBold" class="label mb-0 cursor-pointer" data-i18n="field.bold.label">粗體</label></div>
+                        <div class="flex items-center gap-2"><input type="checkbox" id="val-glitch-isItalic" class="w-4 h-4 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]"><label for="val-glitch-isItalic" class="label mb-0 cursor-pointer" data-i18n="field.italic.label">斜體</label></div>
+                        <div class="flex items-center gap-2"><input type="checkbox" id="val-glitch-isUnderline" class="w-4 h-4 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]"><label for="val-glitch-isUnderline" class="label mb-0 cursor-pointer" data-i18n="field.underline.label">底線</label></div>
+                        <div class="flex items-center gap-2"><input type="checkbox" id="val-glitch-isStrikethrough" class="w-4 h-4 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]"><label for="val-glitch-isStrikethrough" class="label mb-0 cursor-pointer" data-i18n="field.strikethrough.label">刪除線</label></div>
+                    </div>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="label" data-i18n="field.writingMode.label">書寫方向</label>
+                        <select id="val-glitch-writingMode" class="input-base"><option value="horizontal" data-i18n="option.writingMode.horizontal">橫式書寫</option><option value="vertical" data-i18n="option.writingMode.vertical">直式書寫</option></select>
+                    </div>
+                    <div>
+                        <label class="label" data-i18n="field.textAlign.label">水平對齊</label>
+                        <select id="val-glitch-textAlign" class="input-base"><option value="left" data-i18n="align.left.full">靠左對齊</option><option value="center" selected data-i18n="align.center.full">置中對齊</option><option value="right" data-i18n="align.right.full">靠右對齊</option></select>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="label" data-i18n="field.verticalAlign.label">垂直對齊</label>
+                        <select id="val-glitch-verticalAlign" class="input-base"><option value="top" data-i18n="valign.top">靠上對齊</option><option value="center" selected data-i18n="valign.center">置中對齊</option><option value="bottom" data-i18n="valign.bottom">靠下對齊</option></select>
+                    </div>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div class="col-span-2 flex flex-col gap-2 bg-[#181825] p-3 rounded-lg border border-[#45475a]">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="val-glitch-useBackgroundColor" class="w-5 h-5 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]">
+                            <label for="val-glitch-useBackgroundColor" class="label mb-0 cursor-pointer" data-i18n="field.useBackgroundColor.label">使用背景色</label>
+                        </div>
+                        <div class="flex items-center gap-2 w-full">
+                            <label class="label w-24 mb-0" data-i18n="field.backgroundColor.label">背景色彩</label>
+                            <input type="color" id="val-glitch-backgroundColor" class="input-base h-10 p-1 flex-1" value="#000000">
+                        </div>
+                    </div>
+                    <div><label class="label" data-i18n="field.fillColor.label">填色</label><input type="color" id="val-glitch-fillColor" class="input-base h-10 p-1" value="#ff0033"></div>
+                    <div><label class="label" data-i18n="field.strokeColor.label">邊框色彩</label><input type="color" id="val-glitch-strokeColor" class="input-base h-10 p-1" value="#000000"></div>
+                    <div class="col-span-2"><label class="label" data-i18n="field.strokeWidth.label">邊框粗細 (px)</label><input type="number" id="val-glitch-strokeWidth" class="input-base" value="2"></div>
+                    <div><label class="label" data-i18n="field.shadowColor.label">陰影色彩</label><input type="color" id="val-glitch-shadowColor" class="input-base h-10 p-1" value="#ff0033"></div>
+                    <div><label class="label" data-i18n="field.shadowBlur.label">陰影擴散</label><input type="number" id="val-glitch-shadowBlur" class="input-base" value="8"></div>
+                    <div><label class="label" data-i18n="field.shadowOffsetX.label">陰影 X 偏移</label><input type="number" id="val-glitch-shadowOffsetX" class="input-base" value="0"></div>
+                    <div><label class="label" data-i18n="field.shadowOffsetY.label">陰影 Y 偏移</label><input type="number" id="val-glitch-shadowOffsetY" class="input-base" value="0"></div>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div class="col-span-2 bg-[#181825] p-3 rounded-lg border border-[#f38ba8]">
+                        <label class="label text-[#f38ba8] mb-2" data-i18n="glitch.charTypes.heading">故障字元類型</label>
+                        <div class="flex flex-wrap gap-4 mb-3">
+                            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-300" data-i18n-node="option.glitchRange.latin">
+                                <input type="checkbox" id="val-glitch-glitchRangeLatin" class="w-4 h-4 accent-[#f38ba8]"> 拉丁字母／特殊符號
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-300" data-i18n-node="option.glitchRange.kana">
+                                <input type="checkbox" id="val-glitch-glitchRangeKana" class="w-4 h-4 accent-[#f38ba8]"> 假名（日文）
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-300" data-i18n-node="option.glitchRange.hangul">
+                                <input type="checkbox" id="val-glitch-glitchRangeHangul" class="w-4 h-4 accent-[#f38ba8]"> 諺文
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-300" data-i18n-node="option.glitchRange.symbols">
+                                <input type="checkbox" id="val-glitch-glitchRangeSymbols" class="w-4 h-4 accent-[#f38ba8]"> 圖形／符號
+                            </label>
+                        </div>
+
+                        <div class="border-t border-[#45475a] my-3 pt-3">
+                            <label class="flex items-center gap-2 cursor-pointer text-sm text-[#f38ba8] font-bold mb-1" data-i18n-node="glitch.simultaneousMode.label">
+                                <input type="checkbox" id="val-glitch-simultaneousMode" class="w-5 h-5 accent-[#f38ba8] rounded bg-[#1e1e2e]">
+                                全部同時顯示故障後依序復原
+                            </label>
+                            <p class="text-xs text-gray-400" data-i18n="glitch.simultaneousMode.hint">勾選後，會依文字整體長度一次性輸出故障畫面，再逐字依序解讀回原本的文字。</p>
+                        </div>
+
+                        <label class="label text-[#f38ba8] mt-4" data-i18n="glitch.glitchCount.label">故障強度（每個字元的隨機字元影格數）</label>
+                        <input type="number" id="val-glitch-glitchCount" class="input-base border-[#f38ba8]" value="3">
+                        <p class="text-xs text-gray-400 mt-1" data-i18n="glitch.glitchCount.hint">文字恢復原貌之前，隨機字元閃過的影格數。</p>
+                    </div>
+                    <div><label class="label" data-i18n="field.fps.label">每秒影格數 (FPS)</label><input type="number" id="val-glitch-fps" class="input-base" value="15"></div>
+                    <div><label class="label" data-i18n="field.holdLast.label">完成後停留 (ms)</label><input type="number" id="val-glitch-holdLast" class="input-base" value="2000"></div>
+                    <div><label class="label" data-i18n="field.canvasWidth.label">畫布寬度 (px)</label><input type="number" id="val-glitch-canvasWidth" class="input-base" value="600"></div>
+                    <div><label class="label" data-i18n="field.canvasHeight.label">畫布高度 (px)</label><input type="number" id="val-glitch-canvasHeight" class="input-base" value="300"></div>
+                    <div class="col-span-2 flex items-center gap-2 bg-[#181825] p-3 rounded-lg border border-[#45475a]">
+                        <input type="checkbox" id="val-glitch-apngCompress" class="w-5 h-5 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]" checked>
+                        <label for="val-glitch-apngCompress" class="label mb-0 cursor-pointer" data-i18n="field.apngCompress.label">APNG 壓縮（大幅減少檔案容量，限制 256 色）</label>
+                    </div>
+                    <div class="col-span-2">
+                        <button id="btn-glitch-auto-size" class="btn btn-secondary w-full text-sm" data-i18n="btn.autoSizeText">裁去文字留白</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 〔分頁 3〕片尾字幕設定面板 -->
+            <div id="panel-credit" class="space-y-4 max-h-[80vh] overflow-y-auto pr-2 pb-4 hidden">
+                <div class="panel">
+                    <label class="label" data-i18n="credit.textInput.label">歌詞及字幕文字輸入</label>
+                    <textarea id="val-credit-text" class="input-base h-40 resize-none" data-i18n-placeholder="credit.textInput.placeholder" placeholder="可加入空白行來分段。">
+可以用空白行來分段喔
+
+會以「序號_歌詞_產生時間」的
+格式儲存。</textarea>
+                    <p class="text-xs text-gray-400 mt-2" data-i18n="credit.textInput.hint">可用兩次換行（空白行）來區分段落。</p>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div class="col-span-2 flex gap-2">
+                        <div class="flex-1">
+                            <label class="label" data-i18n="field.fontFamily.label">字型選擇</label>
+                            <select id="val-credit-fontFamilySelect" class="input-base">
+                                <option value="Noto Sans KR" selected data-i18n="option.font.notoSansKR">Noto Sans KR（黑體）</option>
+                                <option value="Noto Serif KR" data-i18n="option.font.notoSerifKR">Noto Serif KR（明體）</option>
+                                <option value="Nanum Gothic" data-i18n="option.font.nanumGothic">Nanum Gothic</option>
+                                <option value="Nanum Myeongjo" data-i18n="option.font.nanumMyeongjo">Nanum Myeongjo</option>
+                                <option value="Jua" data-i18n="option.font.jua">Jua</option>
+                                <option value="Do Hyeon" data-i18n="option.font.doHyeon">Do Hyeon</option>
+                                <option value="Black Han Sans" data-i18n="option.font.blackHanSans">Black Han Sans</option>
+                                <option value="custom" data-i18n="option.font.custom">自行輸入（本機字型名稱）</option>
+                            </select>
+                        </div>
+                        <div class="flex-1" id="custom-credit-font-container" style="display: none;">
+                            <label class="label" data-i18n="field.fontFamilyCustom.label">自行輸入</label>
+                            <input type="text" id="val-credit-fontFamilyCustom" class="input-base" data-i18n-placeholder="field.fontFamilyCustom.placeholder" placeholder="請輸入字型名稱" value="">
+                        </div>
+                    </div>
+                    <div><label class="label" data-i18n="field.fontSize.label">字型大小 (px)</label><input type="number" id="val-credit-fontSize" class="input-base" value="32"></div>
+                    <div><label class="label" data-i18n="field.lineHeight.label">行距倍數</label><input type="number" step="0.1" id="val-credit-lineHeight" class="input-base" value="1.5"></div>
+                    <div>
+                        <label class="label" data-i18n="field.textAlign.label">水平對齊</label>
+                        <select id="val-credit-textAlign" class="input-base">
+                            <option value="left" data-i18n="align.left.full">靠左對齊</option>
+                            <option value="center" selected data-i18n="align.center.full">置中對齊</option>
+                            <option value="right" data-i18n="align.right.full">靠右對齊</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center mt-6">
+                        <input type="checkbox" id="val-credit-isBold" class="w-5 h-5 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]">
+                        <label for="val-credit-isBold" class="label mb-0 ml-2 cursor-pointer" data-i18n="credit.bold.label">粗體字</label>
+                    </div>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div class="col-span-2 flex flex-col gap-2 bg-[#181825] p-3 rounded-lg border border-[#45475a]">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="val-credit-useBackgroundColor" class="w-5 h-5 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]">
+                            <label for="val-credit-useBackgroundColor" class="label mb-0 cursor-pointer" data-i18n="credit.useBg.label">使用背景色（利於 GIF 最佳化）</label>
+                        </div>
+                        <div class="flex items-center gap-2 w-full">
+                            <label class="label w-24 mb-0" data-i18n="field.backgroundColor.label">背景色彩</label>
+                            <input type="color" id="val-credit-backgroundColor" class="input-base h-10 p-1 flex-1" value="#000000">
+                        </div>
+                    </div>
+                    <div><label class="label" data-i18n="field.textColor.label">文字色彩</label><input type="color" id="val-credit-fillColor" class="input-base h-10 p-1" value="#ffffff"></div>
+                    <div><label class="label" data-i18n="field.strokeColor.label">邊框色彩</label><input type="color" id="val-credit-strokeColor" class="input-base h-10 p-1" value="#000000"></div>
+                    <div class="col-span-2"><label class="label" data-i18n="field.strokeWidth.label">邊框粗細 (px)</label><input type="number" id="val-credit-strokeWidth" class="input-base" value="2"></div>
+                    <div><label class="label" data-i18n="field.shadowColor.label">陰影色彩</label><input type="color" id="val-credit-shadowColor" class="input-base h-10 p-1" value="#000000"></div>
+                    <div><label class="label" data-i18n="field.shadowBlur.label">陰影擴散</label><input type="number" id="val-credit-shadowBlur" class="input-base" value="4"></div>
+                    <div><label class="label" data-i18n="field.shadowOffsetX.label">陰影 X 偏移</label><input type="number" id="val-credit-shadowOffsetX" class="input-base" value="2"></div>
+                    <div><label class="label" data-i18n="field.shadowOffsetY.label">陰影 Y 偏移</label><input type="number" id="val-credit-shadowOffsetY" class="input-base" value="2"></div>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="label" data-i18n="field.totalDuration.label">總播放時間（秒）</label>
+                        <input type="number" id="val-credit-totalDuration" class="input-base" value="20">
+                    </div>
+                    <div>
+                        <label class="label" data-i18n="field.fps.label">每秒影格數 (FPS)</label>
+                        <input type="number" id="val-credit-fps" class="input-base" value="12">
+                    </div>
+                    <div class="col-span-2 bg-[#181825] p-3 rounded-lg border border-[#45475a]">
+                        <label class="label mb-2" data-i18n="credit.exportMode.heading">圖片匯出與分割方式</label>
+                        <div class="flex flex-col gap-3">
+                            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-300" data-i18n-node="credit.splitMode.single">
+                                <input type="radio" name="val-credit-splitMode" value="false" checked class="w-4 h-4 accent-[#89b4fa]"> 單張完整圖片（全部文字）
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-300" data-i18n-node="credit.splitMode.multi">
+                                <input type="radio" name="val-credit-splitMode" value="true" class="w-4 h-4 accent-[#89b4fa]"> 依空白行分段，輸出多張圖片
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-2" data-i18n="credit.splitMode.hint">選擇分割模式時，會依各段文字量比例自動分配總時間，再依序輸出多張圖片。</p>
+                    </div>
+                    <div><label class="label" data-i18n="field.canvasWidth.label">畫布寬度 (px)</label><input type="number" id="val-credit-canvasWidth" class="input-base" value="600"></div>
+                    <div><label class="label" data-i18n="field.canvasHeight.label">畫布高度 (px)</label><input type="number" id="val-credit-canvasHeight" class="input-base" value="800"></div>
+                    <div class="col-span-2 flex items-center gap-2 bg-[#181825] p-3 rounded-lg border border-[#45475a]">
+                        <input type="checkbox" id="val-credit-apngCompress" class="w-5 h-5 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]" checked>
+                        <label for="val-credit-apngCompress" class="label mb-0 cursor-pointer" data-i18n="field.apngCompress.label">APNG 壓縮（大幅減少檔案容量，限制 256 色）</label>
+                    </div>
+                </div>
+
+                <div class="panel space-y-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-white" data-i18n="credit.silentAudio.heading">產生靜音音訊</h3>
+                        <p class="text-xs text-gray-400 mt-1 mb-3" data-i18n="credit.silentAudio.hint">產生與圖片長度相符的靜音音訊。</p>
+                        <label class="label" data-i18n="credit.silentAudioExtension.label">額外延長時間（秒）</label>
+                        <input type="number" id="val-credit-silentAudioExtension" class="input-base mb-3" value="0" step="0.1">
+                    </div>
+                    <button id="btn-generate-silent-audio" class="btn btn-secondary w-full" data-i18n="btn.generateSilentAudio">依段落下載靜音音訊</button>
+                </div>
+            </div>
+
+            <!-- 〔分頁 4〕卡拉OK效果設定面板 -->
+            <div id="panel-karaoke" class="space-y-4 max-h-[80vh] overflow-y-auto pr-2 pb-4 hidden">
+                <div class="panel">
+                    <label class="label" data-i18n="karaoke.textInput.label">歌詞輸入（一行 = 一句）</label>
+                    <textarea id="val-karaoke-text" class="input-base h-28 resize-none" data-i18n-placeholder="karaoke.textInput.placeholder" placeholder="請逐行輸入歌詞。"></textarea>
+                    <p class="text-xs text-gray-400 mt-2" data-i18n-html="karaoke.textInput.hint">在行尾加上 <code class="text-[#89b4fa]">| 2.5</code> 可直接指定該行的掃描時間（秒）。未指定時間的行，會自動平分剩餘時間。</p>
+                </div>
+
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div class="col-span-2 flex gap-2">
+                        <div class="flex-1">
+                            <label class="label" data-i18n="field.fontFamily.label">字型選擇</label>
+                            <select id="val-karaoke-fontFamilySelect" class="input-base">
+                                <option value="Noto Sans KR" selected data-i18n="option.font.notoSansKR">Noto Sans KR（黑體）</option>
+                                <option value="Noto Serif KR" data-i18n="option.font.notoSerifKR">Noto Serif KR（明體）</option>
+                                <option value="Nanum Gothic" data-i18n="option.font.nanumGothic">Nanum Gothic</option>
+                                <option value="Nanum Myeongjo" data-i18n="option.font.nanumMyeongjo">Nanum Myeongjo</option>
+                                <option value="Jua" data-i18n="option.font.jua">Jua</option>
+                                <option value="Do Hyeon" data-i18n="option.font.doHyeon">Do Hyeon</option>
+                                <option value="Black Han Sans" data-i18n="option.font.blackHanSans">Black Han Sans</option>
+                                <option value="custom" data-i18n="option.font.custom">自行輸入（本機字型名稱）</option>
+                            </select>
+                        </div>
+                        <div class="flex-1" id="custom-karaoke-font-container" style="display: none;">
+                            <label class="label" data-i18n="field.fontFamilyCustom.label">自行輸入</label>
+                            <input type="text" id="val-karaoke-fontFamilyCustom" class="input-base" data-i18n-placeholder="field.fontFamilyCustom.placeholder" placeholder="請輸入字型名稱" value="">
+                        </div>
+                    </div>
+                    <div><label class="label" data-i18n="field.fontSize.label">字型大小 (px)</label><input type="number" id="val-karaoke-fontSize" class="input-base" value="48"></div>
+                    <div><label class="label" data-i18n="field.scaleX.label">字寬縮放 (%)</label><input type="number" id="val-karaoke-scaleX" class="input-base" value="100"></div>
+                    <div><label class="label" data-i18n="field.letterSpacing.label">字距 (px)</label><input type="number" id="val-karaoke-letterSpacing" class="input-base" value="0"></div>
+                    <div><label class="label" data-i18n="field.lineHeight.label">行距倍數</label><input type="number" step="0.1" id="val-karaoke-lineHeight" class="input-base" value="1.5"></div>
+                    <div class="col-span-2 grid grid-cols-4 gap-2 bg-[#181825] p-3 rounded-lg border border-[#45475a] mt-2">
+                        <div class="flex items-center gap-2"><input type="checkbox" id="val-karaoke-isBold" class="w-4 h-4 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]" checked><label for="val-karaoke-isBold" class="label mb-0 cursor-pointer" data-i18n="field.bold.label">粗體</label></div>
+                        <div class="flex items-center gap-2"><input type="checkbox" id="val-karaoke-isItalic" class="w-4 h-4 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]"><label for="val-karaoke-isItalic" class="label mb-0 cursor-pointer" data-i18n="field.italic.label">斜體</label></div>
+                        <div class="col-span-2">
+                            <label class="label mb-0" data-i18n="field.textAlign.label">水平對齊</label>
+                            <select id="val-karaoke-textAlign" class="input-base mt-1"><option value="left" data-i18n="align.left">靠左</option><option value="center" selected data-i18n="align.center">置中</option><option value="right" data-i18n="align.right">靠右</option></select>
+                        </div>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="label" data-i18n="field.verticalAlign.label">垂直對齊</label>
+                        <select id="val-karaoke-verticalAlign" class="input-base"><option value="top" data-i18n="valign.top">靠上對齊</option><option value="center" selected data-i18n="valign.center">置中對齊</option><option value="bottom" data-i18n="valign.bottom">靠下對齊</option></select>
+                    </div>
+                </div>
+
+                <!-- 色彩設定 -->
+                <div class="panel space-y-4">
+                    <h3 class="text-lg font-bold text-white" data-i18n="karaoke.colorSection.heading">色彩（掃描前 / 後）</h3>
+
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <span class="label mb-0" data-i18n="karaoke.presetLabel">預設樣式</span>
+                        <button type="button" class="btn btn-secondary text-xs px-2 py-1 karaoke-preset" data-preset='{"fillColorBefore":"#ffffff","strokeColorBefore":"#333333","fillColorAfter":"#ffe66d","strokeColorAfter":"#ff2e63"}' data-i18n="karaoke.preset.default">基本卡拉OK</button>
+                        <button type="button" class="btn btn-secondary text-xs px-2 py-1 karaoke-preset" data-preset='{"fillColorBefore":"#cdd6f4","strokeColorBefore":"#1e1e2e","fillColorAfter":"#89b4fa","strokeColorAfter":"#11111b"}' data-i18n="karaoke.preset.blue">沉穩藍調</button>
+                        <button type="button" class="btn btn-secondary text-xs px-2 py-1 karaoke-preset" data-preset='{"fillColorBefore":"#ffffff","strokeColorBefore":"#7f0f4f","fillColorAfter":"#ff8ad8","strokeColorAfter":"#ffffff"}' data-i18n="karaoke.preset.pink">粉色霓虹</button>
+                        <button type="button" class="btn btn-secondary text-xs px-2 py-1 karaoke-preset" data-preset='{"fillColorBefore":"#8b8b8b","strokeColorBefore":"#000000","fillColorAfter":"#8bff9e","strokeColorAfter":"#003b17"}' data-i18n="karaoke.preset.green">復古綠</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2 flex flex-col gap-2 bg-[#181825] p-3 rounded-lg border border-[#45475a]">
+                            <div class="flex items-center gap-2">
+                                <input type="checkbox" id="val-karaoke-useBackgroundColor" class="w-5 h-5 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]">
+                                <label for="val-karaoke-useBackgroundColor" class="label mb-0 cursor-pointer" data-i18n="field.useBackgroundColor.label">使用背景色</label>
+                            </div>
+                            <div class="flex items-center gap-2 w-full">
+                                <label class="label w-24 mb-0" data-i18n="field.backgroundColor.label">背景色彩</label>
+                                <input type="color" id="val-karaoke-backgroundColor" class="input-base h-10 p-1 flex-1" value="#000000">
+                            </div>
+                        </div>
+
+                        <div class="col-span-2 bg-[#181825] p-3 rounded-lg border border-[#45475a] grid grid-cols-2 gap-3">
+                            <div class="col-span-2 text-sm font-bold text-[#bac2de]" data-i18n="karaoke.beforeScan.heading">掃描前（尚未唱到的文字）</div>
+                            <div><label class="label" data-i18n="field.textColor.label">文字色彩</label><input type="color" id="val-karaoke-fillColorBefore" class="input-base h-10 p-1" value="#ffffff"></div>
+                            <div><label class="label" data-i18n="field.strokeColor.label">邊框色彩</label><input type="color" id="val-karaoke-strokeColorBefore" class="input-base h-10 p-1" value="#333333"></div>
+                        </div>
+
+                        <div class="col-span-2 bg-[#181825] p-3 rounded-lg border border-[#f9e2af] grid grid-cols-2 gap-3">
+                            <div class="col-span-2 text-sm font-bold text-[#f9e2af]" data-i18n="karaoke.afterScan.heading">掃描後（已經唱過的文字）</div>
+                            <div><label class="label" data-i18n="field.textColor.label">文字色彩</label><input type="color" id="val-karaoke-fillColorAfter" class="input-base h-10 p-1" value="#ffe66d"></div>
+                            <div><label class="label" data-i18n="field.strokeColor.label">邊框色彩</label><input type="color" id="val-karaoke-strokeColorAfter" class="input-base h-10 p-1" value="#ff2e63"></div>
+                        </div>
+
+                        <div class="col-span-2"><label class="label" data-i18n="field.strokeWidth.label">邊框粗細 (px)</label><input type="number" id="val-karaoke-strokeWidth" class="input-base" value="6"></div>
+                        <div><label class="label" data-i18n="field.shadowColor.label">陰影色彩</label><input type="color" id="val-karaoke-shadowColor" class="input-base h-10 p-1" value="#000000"></div>
+                        <div><label class="label" data-i18n="field.shadowBlur.label">陰影擴散</label><input type="number" id="val-karaoke-shadowBlur" class="input-base" value="6"></div>
+                        <div><label class="label" data-i18n="field.shadowOffsetX.label">陰影 X 偏移</label><input type="number" id="val-karaoke-shadowOffsetX" class="input-base" value="2"></div>
+                        <div><label class="label" data-i18n="field.shadowOffsetY.label">陰影 Y 偏移</label><input type="number" id="val-karaoke-shadowOffsetY" class="input-base" value="2"></div>
+                    </div>
+                </div>
+
+                <!-- 掃描演出 -->
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div class="col-span-2 text-lg font-bold text-white" data-i18n="karaoke.scanHeading">掃描演出</div>
+                    <div>
+                        <label class="label" data-i18n="karaoke.scanDirection.label">掃描方向</label>
+                        <select id="val-karaoke-scanDirection" class="input-base">
+                            <option value="ltr" selected data-i18n="option.scanDirection.ltr">由左至右</option>
+                            <option value="rtl" data-i18n="option.scanDirection.rtl">由右至左</option>
+                        </select>
+                    </div>
+                    <div><label class="label" data-i18n="karaoke.scanSoftness.label">邊界柔化 (px)</label><input type="number" id="val-karaoke-scanSoftness" class="input-base" value="14"></div>
+                    <div class="col-span-2 bg-[#181825] p-3 rounded-lg border border-[#45475a] grid grid-cols-2 gap-3">
+                        <div class="col-span-2 flex items-center gap-2">
+                            <input type="checkbox" id="val-karaoke-scanGlow" class="w-5 h-5 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]" checked>
+                            <label for="val-karaoke-scanGlow" class="label mb-0 cursor-pointer" data-i18n="karaoke.scanGlow.label">掃描線發光效果</label>
+                        </div>
+                        <div><label class="label" data-i18n="karaoke.scanGlowColor.label">發光色彩</label><input type="color" id="val-karaoke-scanGlowColor" class="input-base h-10 p-1" value="#ffffff"></div>
+                        <div><label class="label" data-i18n="karaoke.scanGlowWidth.label">發光寬度 (px)</label><input type="number" id="val-karaoke-scanGlowWidth" class="input-base" value="26"></div>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="label" data-i18n="karaoke.lineMode.label">歌詞顯示方式</label>
+                        <select id="val-karaoke-lineMode" class="input-base">
+                            <option value="all" selected data-i18n="option.lineMode.all">所有行始終顯示</option>
+                            <option value="appear" data-i18n="option.lineMode.appear">依序出現後保留</option>
+                            <option value="active" data-i18n="option.lineMode.active">只顯示目前演唱的行</option>
+                            <option value="rolling" data-i18n="option.lineMode.rolling">固定行數・逐行替換（真實卡拉OK）</option>
+                            <option value="page" data-i18n="option.lineMode.page">固定行數・整頁替換</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2 bg-[#181825] p-3 rounded-lg border border-[#45475a] grid grid-cols-2 gap-3" id="karaoke-rolling-container" style="display: none;">
+                        <div class="col-span-2 text-sm font-bold text-[#f9e2af]" data-i18n="karaoke.rollingHeading">固定行數演出</div>
+                        <div><label class="label" data-i18n="karaoke.rollingLines.label">畫面行數</label><input type="number" min="1" max="10" id="val-karaoke-rollingLines" class="input-base" value="2"></div>
+                        <div><label class="label" data-i18n="karaoke.lineFade.label">替換淡化（秒）</label><input type="number" step="0.05" min="0" id="val-karaoke-lineFade" class="input-base" value="0.25"></div>
+                        <p class="col-span-2 text-xs text-gray-400" data-i18n-html="karaoke.rollingHint">會固定畫面行數的位置，唱完的行結束後，下一句歌詞會補上該位置。<b>逐行替換</b>是每唱完一句就只更新那一行（2 行時單、雙行交替更新），<b>整頁替換</b>則是畫面上的行全部唱完後才一次全部更新。</p>
+                    </div>
+                </div>
+
+                <!-- 時間與畫布 -->
+                <div class="panel grid grid-cols-2 gap-4">
+                    <div><label class="label" data-i18n="field.totalDuration.label">總播放時間（秒）</label><input type="number" step="0.1" id="val-karaoke-totalDuration" class="input-base" value="8"></div>
+                    <div>
+                        <label class="label" data-i18n="karaoke.timingMode.label">時間自動分配基準</label>
+                        <select id="val-karaoke-timingMode" class="input-base">
+                            <option value="chars" selected data-i18n="option.timingMode.chars">依字數比例</option>
+                            <option value="equal" data-i18n="option.timingMode.equal">每行平均分配</option>
+                        </select>
+                    </div>
+                    <div><label class="label" data-i18n="karaoke.leadIn.label">開始前等待（秒）</label><input type="number" step="0.1" id="val-karaoke-leadIn" class="input-base" value="0.5"></div>
+                    <div><label class="label" data-i18n="field.holdLast.label">完成後停留 (ms)</label><input type="number" id="val-karaoke-holdLast" class="input-base" value="1500"></div>
+                    <div><label class="label" data-i18n="field.fps.label">每秒影格數 (FPS)</label><input type="number" id="val-karaoke-fps" class="input-base" value="20"></div>
+                    <div></div>
+                    <div><label class="label" data-i18n="field.canvasWidth.label">畫布寬度 (px)</label><input type="number" id="val-karaoke-canvasWidth" class="input-base" value="720"></div>
+                    <div><label class="label" data-i18n="field.canvasHeight.label">畫布高度 (px)</label><input type="number" id="val-karaoke-canvasHeight" class="input-base" value="300"></div>
+                    <div class="col-span-2 flex items-center gap-2 bg-[#181825] p-3 rounded-lg border border-[#45475a]">
+                        <input type="checkbox" id="val-karaoke-apngCompress" class="w-5 h-5 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]" checked>
+                        <label for="val-karaoke-apngCompress" class="label mb-0 cursor-pointer" data-i18n="field.apngCompress.label">APNG 壓縮（大幅減少檔案容量，限制 256 色）</label>
+                    </div>
+                    <div class="col-span-2">
+                        <button id="btn-karaoke-auto-size" class="btn btn-secondary w-full text-sm" data-i18n="btn.autoSizeText">裁去文字留白</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 共用 JSON 設定 -->
+            <div class="panel flex gap-2 mt-4">
+                <button id="btn-export-json" class="btn btn-secondary flex-1" data-i18n="btn.exportSettings">匯出設定</button>
+                <label for="input-import-json" class="btn btn-secondary flex-1 m-0 text-center cursor-pointer" data-i18n-node="btn.loadSettings">
+                    載入設定
+                    <input type="file" id="input-import-json" accept=".json" class="hidden">
+                </label>
+            </div>
+
+        </div>
+
+        <!-- 預覽及結果面板（右側） -->
+        <div class="lg:col-span-7 flex flex-col space-y-4">
+            <div class="panel flex-1 flex flex-col">
+                <h2 class="text-xl font-bold mb-4 flex justify-between items-center">
+                    <span data-i18n="preview.heading">預覽</span>
+                    <span id="preview-status" class="text-sm font-normal text-gray-400" data-i18n="status.frame.initial">影格：0 / 0（預估：約 0.00MB）</span>
+                </h2>
+
+                <div class="flex-1 flex items-center justify-center bg-[#181825] rounded-lg overflow-hidden border border-[#45475a] p-4 min-h-[400px]">
+                    <canvas id="preview-canvas" class="max-w-full max-h-full object-contain" width="600" height="300"></canvas>
+                </div>
+
+                <div class="mt-4 border-t border-[#45475a] pt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                    <span class="label mb-0 font-bold" data-i18n="webp.optionsLabel">WebP 選項</span>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="val-export-webpLossless" class="w-4 h-4 accent-[#89b4fa] cursor-pointer rounded bg-[#1e1e2e]" checked>
+                        <span class="text-gray-300" data-i18n="webp.lossless.label">無損（建議搭配透明背景）</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <span class="text-gray-300" data-i18n="webp.quality.label">品質</span>
+                        <input type="number" id="val-export-webpQuality" min="1" max="100" class="input-base w-20 py-1" value="92">
+                    </label>
+                    <span id="webp-support-note" class="text-xs text-[#f38ba8] hidden" data-i18n="webp.unsupportedNote">此瀏覽器不支援 WebP 編碼。</span>
+                    <p class="w-full text-xs text-gray-400" data-i18n="webp.hint">只儲存變動的部分，因此容量較小。無損不會有畫質損失；取消勾選可再縮小容量，但字元邊緣可能出現壓縮痕跡。</p>
+                </div>
+
+                <div class="mt-3 flex justify-end gap-2 flex-wrap">
+                    <button id="btn-pause-preview" class="btn btn-secondary" data-i18n="btn.pausePreview">暫停</button>
+                    <button id="btn-resume-preview" class="btn btn-secondary" data-i18n="btn.resumePreview">繼續播放</button>
+                    <button id="btn-play-preview" class="btn btn-secondary" data-i18n="btn.playPreview">重新播放</button>
+                    <button id="btn-export-gif" class="btn btn-primary bg-emerald-500 hover:bg-emerald-400 text-gray-900" data-i18n="btn.exportGif">下載 GIF</button>
+                    <button id="btn-export-webp" class="btn btn-primary bg-[#f9e2af] hover:bg-[#f5d97a] text-gray-900" data-i18n="btn.exportWebp">下載 WebP</button>
+                    <button id="btn-export-apng" class="btn btn-primary px-8" data-i18n="btn.exportApng">下載 APNG</button>
+                </div>
+
+                <div id="export-overlay" class="hidden mt-4 bg-[#89b4fa] text-[#11111b] p-3 rounded-lg text-center font-bold animate-pulse" data-i18n="export.defaultStatus">
+                    正在渲染中，請稍候...
+                </div>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>
