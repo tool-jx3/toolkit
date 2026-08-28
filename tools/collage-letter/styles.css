@@ -35,6 +35,16 @@ body {
     flex-direction: column;
 }
 
+.home-link {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    text-decoration: none;
+}
+.home-link:hover {
+    color: #ef4444;
+    text-decoration: underline;
+}
+
 .canvas-container {
     width: 100%;
     overflow-x: auto;

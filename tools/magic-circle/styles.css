@@ -56,6 +56,8 @@ small { color: var(--muted); }
   background: rgba(16, 18, 29, .96);
   box-shadow: 0 3px 20px rgba(0, 0, 0, .22);
 }
+.home-link { color: var(--muted); font-size: 11px; text-decoration: none; margin-right: 12px; white-space: nowrap; }
+.home-link:hover { color: var(--text); text-decoration: underline; }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 210px; }
 .brand-mark {
   width: 34px; height: 34px; display: grid; place-items: center;

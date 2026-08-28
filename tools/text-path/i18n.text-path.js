@@ -3,6 +3,7 @@ I18N.register({
   'zh-TW': {
     /* ---- shell ---- */
     'app.title': '文字軌跡產生器',
+    'nav.home': '← TRPG Toolkit',
     'lang.aria': '顯示語言',
 
     /* ---- 輸入文字 ---- */
@@ -76,6 +77,7 @@ I18N.register({
   ko: {
     /* ---- shell ---- */
     'app.title': '텍스트 궤적 생성기',
+    'nav.home': '← TRPG Toolkit',
     'lang.aria': '표시 언어',
 
     /* ---- 輸入文字 ---- */

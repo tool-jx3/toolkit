@@ -5,6 +5,16 @@
             background-color: #f3f4f6;
         }
 
+        .home-link {
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-decoration: none;
+        }
+        .home-link:hover {
+            color: #2563eb;
+            text-decoration: underline;
+        }
+
         canvas {
             cursor: crosshair;
             touch-action: none; /* Prevent scrolling when drawing on touch devices */

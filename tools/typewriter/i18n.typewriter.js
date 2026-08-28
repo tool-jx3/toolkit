@@ -3,6 +3,7 @@ I18N.register({
   'zh-TW': {
     /* ---- shell ---- */
     'app.title': '打字機動畫圖片產生器',
+    'nav.home': '← TRPG Toolkit',
     'app.subtitle': '打字機 · 故障 · 片尾字幕 · 卡拉OK效果 / APNG · GIF · WebP 儲存',
     'lang.aria': '顯示語言',
     'btn.saveSettings': '儲存設定',
@@ -230,6 +231,7 @@ I18N.register({
   ko: {
     /* ---- shell ---- */
     'app.title': '텍스트 애니메이션 이미지 생성기',
+    'nav.home': '← TRPG Toolkit',
     'app.subtitle': '타자기 · 글리치 · 엔딩 크레딧 · 노래방 효과 / APNG · GIF · WebP 저장',
     'lang.aria': '표시 언어',
     'btn.saveSettings': '설정 저장',

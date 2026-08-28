@@ -16,6 +16,8 @@ header{
   background:var(--panel); border-bottom:1px solid var(--line); flex:none;
 }
 header h1{font-size:16px; margin:0; letter-spacing:.5px; white-space:nowrap}
+.home-link{color:var(--muted); font-size:11px; text-decoration:none; white-space:nowrap}
+.home-link:hover{color:var(--accent); text-decoration:underline}
 header .spacer{flex:1}
 .locale-select{
   min-height:30px; padding:2px 8px; border-radius:8px; border:1px solid var(--line);

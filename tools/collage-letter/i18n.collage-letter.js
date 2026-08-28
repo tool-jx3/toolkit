@@ -3,6 +3,7 @@ I18N.register({
   'zh-TW': {
     /* ---- shell ---- */
     'app.title': '拼貼信產生器',
+    'nav.home': '← TRPG Toolkit',
     'lang.aria': '顯示語言',
 
     /* ---- 信件內容 ---- */
@@ -82,6 +83,7 @@ I18N.register({
   ko: {
     /* ---- shell ---- */
     'app.title': '익명 콜라주 편지 생성기',
+    'nav.home': '← TRPG Toolkit',
     'lang.aria': '표시 언어',
 
     /* ---- 信件內容 ---- */

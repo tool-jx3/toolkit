@@ -5,6 +5,7 @@ I18N.register({
   'zh-TW': {
     /* ---- 外殼 ---- */
     'app.title': '表情產生器',
+    'nav.home': '← TRPG Toolkit',
     'lang.aria': '顯示語言',
     'btn.preset': '🎨 情緒預設 20 種',
     'btn.preset.title': '一次載入 20 種內建情緒表情',
@@ -137,6 +138,7 @@ I18N.register({
     'grid.font.label': '文字大小 (px)',
     'grid.textColor.label': '文字顏色',
     'grid.serverWarn': '⚠️ 若 PNG 儲存被封鎖（canvas 安全限制），請以本機伺服器執行資料夾。<br>例如：在資料夾內執行 <b>python -m http.server</b> 後以瀏覽器開啟。',
+    'grid.unlicensedNotice': '未授權：原作者未釋出授權條款，此工具（含全部圖像素材）之權利屬原作者所有，僅供試用。',
     'grid.download': '下載 PNG',
     'grid.close': '關閉',
     'grid.noneSelected': '尚未選擇表情',
@@ -145,6 +147,7 @@ I18N.register({
   ko: {
     /* ---- 외곽 ---- */
     'app.title': '표정 메이커',
+    'nav.home': '← TRPG Toolkit',
     'lang.aria': '표시 언어',
     'btn.preset': '🎨 감정 프리셋 20종',
     'btn.preset.title': '내장 감정 표정 20종을 한번에 불러옵니다',
@@ -277,6 +280,7 @@ I18N.register({
     'grid.font.label': '글자 크기 (px)',
     'grid.textColor.label': '글자 색',
     'grid.serverWarn': '⚠️ PNG 저장이 막히면(canvas 보안 제한) 폴더를 로컬 서버로 실행하세요.<br>예: 폴더에서 <b>python -m http.server</b> 후 브라우저로 접속.',
+    'grid.unlicensedNotice': '라이선스 없음: 원작자가 라이선스를 명시하지 않았습니다. 이 도구(모든 이미지 소재 포함)의 권리는 원작자에게 있으며 시험용으로만 제공됩니다.',
     'grid.download': 'PNG 다운로드',
     'grid.close': '닫기',
     'grid.noneSelected': '선택된 표정 없음',

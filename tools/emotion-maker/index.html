@@ -11,6 +11,7 @@
 </head>
 <body>
 <header>
+  <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
   <h1 data-i18n-node="app.title">表情產生器 <a href="https://x.com/bb_uu_t" target="_blank" style="color:inherit;text-decoration:underline;font-size:small;">@bb_uu_t</a></h1>
   <span class="hint" id="countHint"></span>
   <span class="spacer"></span>
@@ -99,6 +100,7 @@
         <div class="field"><label data-i18n="grid.textColor.label">文字顏色</label><input type="color" id="optTextColor" value="#222222"></div>
         <div class="hint" id="gridInfo"></div>
         <div class="warn" id="serverWarn" hidden data-i18n-html="grid.serverWarn">⚠️ 若 PNG 儲存被封鎖（canvas 安全限制），請以本機伺服器執行資料夾。<br>例如：在資料夾內執行 <b>python -m http.server</b> 後以瀏覽器開啟。</div>
+        <div class="warn" data-i18n="grid.unlicensedNotice">未授權：原作者未釋出授權條款，此工具（含全部圖像素材）之權利屬原作者所有，僅供試用。</div>
       </div>
       <div class="grid-preview-wrap"><canvas id="gridCanvas"></canvas></div>
     </div>
