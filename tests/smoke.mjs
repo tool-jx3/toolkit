@@ -136,4 +136,12 @@ for (const locale of ['zh-TW', 'ko']) {
   check(`${locale} 無多餘 rune.* key`, stray.length === 0, `stray: ${stray.join(', ')}`);
 }
 
+/* ---- text-path ---- */
+checkTool({
+  dir: 'tools/text-path',
+  dict: 'i18n.text-path.js',
+  scripts: ['app.js'],
+  minHooks: 30
+});
+
 process.exit(summary() ? 1 : 0);

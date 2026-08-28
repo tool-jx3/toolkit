@@ -1,0 +1,50 @@
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        canvas {
+            cursor: crosshair;
+            touch-action: none; /* Prevent scrolling when drawing on touch devices */
+        }
+
+        /* Monospace font is extremely important for ASCII art to align properly */
+        .monospace-output {
+            font-family: 'Gulim', 'Malgun Gothic', monospace;
+            line-height: 1.2;
+            letter-spacing: 0;
+            white-space: pre;
+        }
+
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e5e7eb; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #9ca3af; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        /* 語言切換器 */
+        .locale-select {
+            min-height: 30px;
+            padding: 2px 8px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #374151;
+            font-size: 12px;
+        }
+        .locale-select:hover {
+            background: #f3f4f6;
+        }
