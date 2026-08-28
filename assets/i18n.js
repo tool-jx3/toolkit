@@ -94,7 +94,7 @@ const I18N = {
   mountSwitcher(select) {
     if (!select) return;
     select.innerHTML = Object.entries(LOCALES)
-      .map(([code, meta]) => `<option value="${escapeHtml(code)}">${escapeHtml(meta.label)}</option>`)
+      .map(([code, meta]) => `<option value="${i18nEscapeHtml(code)}">${i18nEscapeHtml(meta.label)}</option>`)
       .join('');
     select.value = this.locale;
     select.addEventListener('change', () => {
@@ -108,7 +108,7 @@ const I18N = {
  * 但 README.md 的「新增語言」段落邀請他人直接編輯 LOCALES，一旦寫入的
  * 顯示名稱含 `<`、`&` 等字元，mountSwitcher() 的字串插值就會被當成標記
  * 解析，故在此逃逸以防患未然。 */
-function escapeHtml(s) {
+function i18nEscapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
