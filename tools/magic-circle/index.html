@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#111323" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%237866ff%22/%3E%3Cpath d=%22M32 7l5 19 20 6-20 6-5 19-5-19-20-6 20-6z%22 fill=%22white%22/%3E%3C/svg%3E" />
+  <title>Magic circle Maker — 魔法陣・簽名動態製作器</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script defer src="../../assets/i18n.js"></script>
+  <script defer src="./i18n.magic-circle.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div class="brand" data-i18n-aria-label="brand.aria" aria-label="Magic circle maker">
+        <div class="brand-mark" aria-hidden="true">✦</div>
+        <div>
+          <strong>Magic circle Maker</strong>
+          <span data-i18n="brand.tagline">魔法陣 · 簽名動態製作器</span>
+        </div>
+      </div>
+
+      <nav class="top-actions" data-i18n-aria-label="nav.aria" aria-label="文件操作">
+        <button class="ui-btn compact" id="newProjectBtn" data-i18n-title="btn.newProject.title" title="新文件 (Ctrl+N)" data-i18n="btn.newProject">新文件</button>
+        <button class="icon-btn" id="undoBtn" data-i18n-title="btn.undo.title" title="復原 (Ctrl+Z)" data-i18n-aria-label="btn.undo" aria-label="復原">↶</button>
+        <button class="icon-btn" id="redoBtn" data-i18n-title="btn.redo.title" title="重做 (Ctrl+Y)" data-i18n-aria-label="btn.redo" aria-label="重做">↷</button>
+        <span class="divider"></span>
+        <button class="ui-btn compact" id="saveProjectBtn" data-i18n-title="btn.saveProject.title" title="儲存專案 JSON (Ctrl+S)" data-i18n="btn.saveProject">儲存專案</button>
+        <button class="ui-btn compact" id="loadProjectBtn" data-i18n="btn.loadProject">開啟</button>
+        <input id="projectFileInput" type="file" accept=".json,application/json" hidden />
+        <span class="divider"></span>
+        <button class="ui-btn compact" id="helpBtn" data-i18n="btn.help">使用說明</button>
+        <button class="ui-btn accent" id="exportBtn" data-i18n="btn.export">匯出</button>
+        <span class="divider"></span>
+        <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+      </nav>
+    </header>
+
+    <div class="workspace">
+      <aside class="tool-rail" data-i18n-aria-label="toolRail.aria" aria-label="繪圖工具">
+        <button class="tool-btn active" data-tool="select" data-i18n-title="toolbar.select.title" title="選取・控制點編輯 (V)"><span>⌖</span><small data-i18n="toolbar.select">選取</small></button>
+        <button class="tool-btn" data-tool="pen" data-i18n-title="toolbar.pen.title" title="貝茲鋼筆 (P)"><span>⌁</span><small data-i18n="toolbar.pen">鋼筆</small></button>
+        <button class="tool-btn" data-tool="freehand" data-i18n-title="toolbar.freehand.title" title="手繪筆畫 (B)"><span>〰</span><small data-i18n="toolbar.freehand">手繪</small></button>
+        <button class="tool-btn" data-tool="line" data-i18n-title="toolbar.line.title" title="直線 (L)"><span>╱</span><small data-i18n="toolbar.line">直線</small></button>
+        <button class="tool-btn" data-tool="circle" data-i18n-title="toolbar.circle.title" title="圓形 (O)"><span>○</span><small data-i18n="toolbar.circle">圓形</small></button>
+        <button class="tool-btn" data-tool="polygon" data-i18n-title="toolbar.polygon.title" title="多邊形 (G)"><span>⬡</span><small data-i18n="toolbar.polygon">多邊形</small></button>
+        <button class="tool-btn" data-tool="star" data-i18n-title="toolbar.star.title" title="星形 (S)"><span>☆</span><small data-i18n="toolbar.star">星形</small></button>
+        <button class="tool-btn" data-tool="text" data-i18n-title="toolbar.text.title" title="文字・盧恩 (T)"><span>ᚱ</span><small data-i18n="toolbar.text">文字</small></button>
+        <span class="tool-spacer"></span>
+        <button class="tool-btn" data-tool="pan" data-i18n-title="toolbar.pan.title" title="平移畫面 (H 或 Space)"><span>✋</span><small data-i18n="toolbar.pan">平移</small></button>
+      </aside>
+
+      <main class="stage-column">
+        <div class="context-bar">
+          <div class="context-left">
+            <strong id="activeToolName" data-i18n="tool.select.name">選取</strong>
+            <span id="toolHint" data-i18n="tool.select.hint">拖曳元素即可移動。按住 Shift 或 Ctrl(⌘) 點擊可選取多個元素。</span>
+          </div>
+          <div id="toolOptions" class="tool-options" aria-live="polite"></div>
+          <div class="view-actions">
+            <button class="icon-btn" id="zoomOutBtn" data-i18n-title="view.zoomOut.title" title="縮小">−</button>
+            <button class="zoom-label" id="zoomLabel" data-i18n-title="view.zoomLabel.title" title="點擊以符合畫面">100%</button>
+            <button class="icon-btn" id="zoomInBtn" data-i18n-title="view.zoomIn.title" title="放大">＋</button>
+            <button class="ui-btn tiny" id="fitBtn" data-i18n="view.fit">符合</button>
+            <button class="icon-btn toggle-on" id="guideToggleBtn" data-i18n-title="view.guide.title" title="顯示輔助線" aria-pressed="true">⌗</button>
+          </div>
+        </div>
+
+        <div id="canvasWrap" class="canvas-wrap">
+          <canvas id="editorCanvas" tabindex="0" data-i18n-aria-label="canvas.aria" aria-label="魔法陣編輯畫布"></canvas>
+          <div id="snapBadge" class="snap-badge" hidden data-i18n="snap.badge">吸附</div>
+          <div id="emptyHint" class="empty-hint" hidden>
+            <strong data-i18n="empty.title">目前是空白畫布</strong>
+            <span data-i18n="empty.desc">用左側工具開始繪製，或從右側載入範本。</span>
+          </div>
+        </div>
+
+        <section id="timelinePanel" class="timeline-panel">
+          <div class="timeline-toolbar">
+            <div class="play-controls">
+              <button class="icon-btn" id="playBtn" data-i18n-title="tl.play.title" title="播放・暫停 (Space)">▶</button>
+              <button class="icon-btn" id="stopBtn" data-i18n-title="tl.stop.title" title="回到開頭">■</button>
+              <span id="timeReadout" class="time-readout">0.00 / 4.00秒</span>
+            </div>
+            <div class="timeline-global-controls">
+              <label><span data-i18n="tl.duration">長度</span> <input id="durationInput" type="number" min="0.5" max="60" step="0.1" value="4" /><span data-i18n="unit.sec">秒</span></label>
+              <label>FPS <input id="fpsInput" type="number" min="1" max="60" step="1" value="24" /></label>
+              <label class="check-label"><input id="loopInput" type="checkbox" checked /> <span data-i18n="tl.loop">循環</span></label>
+              <button class="ui-btn tiny" id="autoSequenceBtn" data-i18n-title="tl.autoSequence.title" title="依圖層順序排列開始時間" data-i18n="tl.autoSequence">依圖層排序</button>
+              <button class="ui-btn tiny" id="centerSequenceBtn" data-i18n-title="tl.centerSequence.title" title="從靠近中心的元素開始排列開始時間" data-i18n="tl.centerSequence">中心→外圍</button>
+              <button class="ui-btn tiny" id="reverseSequenceBtn" data-i18n="tl.reverseSequence">反轉順序</button>
+              <button class="icon-btn" id="collapseTimelineBtn" data-i18n-title="tl.collapse.title" title="收合時間軸">⌄</button>
+            </div>
+          </div>
+          <div class="timeline-scroll" id="timelineScroll">
+            <div class="timeline-ruler-row">
+              <div class="timeline-name-cell" data-i18n="tl.nameCell">元素</div>
+              <div class="timeline-track ruler-track" id="timelineRuler"></div>
+            </div>
+            <div id="timelineTracks" class="timeline-tracks"></div>
+          </div>
+        </section>
+      </main>
+
+      <aside class="right-panel">
+        <div class="panel-tabs" role="tablist" data-i18n-aria-label="panel.aria" aria-label="設定面板">
+          <button class="panel-tab active" data-tab="layers" role="tab" data-i18n="tab.layers">元素</button>
+          <button class="panel-tab" data-tab="style" role="tab" data-i18n="tab.style">樣式</button>
+          <button class="panel-tab" data-tab="geometry" role="tab" data-i18n="tab.geometry">形狀</button>
+          <button class="panel-tab" data-tab="animation" role="tab" data-i18n="tab.animation">動態</button>
+          <button class="panel-tab" data-tab="document" role="tab" data-i18n="tab.document">文件</button>
+        </div>
+
+        <div class="panel-content">
+          <section class="panel-page active" data-page="layers">
+            <div class="panel-heading">
+              <div><strong data-i18n="layers.heading">元素與筆畫順序</strong><small data-i18n="layers.subheading">越上方的元素顯示在越前面。</small></div>
+              <div class="button-cluster">
+                <button class="icon-btn" id="duplicateBtn" data-i18n-title="layers.duplicate.title" title="再製 (Ctrl+D)">⧉</button>
+                <button class="icon-btn danger" id="deleteBtn" data-i18n-title="layers.delete.title" title="刪除 (Delete)">⌫</button>
+              </div>
+            </div>
+            <details class="control-group alignment-panel" id="alignmentPanel" open>
+              <summary>
+                <span data-i18n="align.summary">對齊 · 等距分佈</span>
+                <output id="alignmentSelectionCount" aria-live="polite" data-i18n="align.count.none">已選取 0 個</output>
+              </summary>
+              <div class="alignment-panel-body">
+                <div class="alignment-selection-actions">
+                  <button class="ui-btn fill" id="selectAllElementsBtn" type="button" data-i18n-title="align.selectAll.title" title="選取所有可見且未鎖定的元素" data-i18n="align.selectAll">全選可編輯</button>
+                  <button class="ui-btn fill" id="clearElementSelectionBtn" type="button" data-i18n="align.clear">取消選取</button>
+                </div>
+                <label class="alignment-reference-row" for="alignmentReference" data-i18n-node="align.reference">對齊基準
+                  <select id="alignmentReference">
+                    <option value="canvas" data-i18n="align.ref.canvas">畫布</option>
+                    <option value="selection" data-i18n="align.ref.selection">選取範圍</option>
+                    <option value="key" data-i18n="align.ref.key">基準元素（最後選取）</option>
+                  </select>
+                </label>
+                <div class="alignment-button-grid" role="group" data-i18n-aria-label="align.group.bounds" aria-label="邊界與置中對齊">
+                  <button type="button" data-alignment-action="align-left" data-i18n-aria-label="align.left.title" aria-label="靠左對齊" data-i18n-title="align.left.title" title="靠左對齊"><span aria-hidden="true">⇤</span><small data-i18n="align.left">靠左</small></button>
+                  <button type="button" data-alignment-action="align-center-x" data-i18n-aria-label="align.centerX.title" aria-label="水平置中對齊" data-i18n-title="align.centerX.title" title="水平置中對齊"><span aria-hidden="true">↔</span><small data-i18n="align.centerX">水平置中</small></button>
+                  <button type="button" data-alignment-action="align-right" data-i18n-aria-label="align.right.title" aria-label="靠右對齊" data-i18n-title="align.right.title" title="靠右對齊"><span aria-hidden="true">⇥</span><small data-i18n="align.right">靠右</small></button>
+                  <button type="button" data-alignment-action="align-top" data-i18n-aria-label="align.top.title" aria-label="靠上對齊" data-i18n-title="align.top.title" title="靠上對齊"><span aria-hidden="true">↥</span><small data-i18n="align.top">靠上</small></button>
+                  <button type="button" data-alignment-action="align-center-y" data-i18n-aria-label="align.centerY.title" aria-label="垂直置中對齊" data-i18n-title="align.centerY.title" title="垂直置中對齊"><span aria-hidden="true">↕</span><small data-i18n="align.centerY">垂直置中</small></button>
+                  <button type="button" data-alignment-action="align-bottom" data-i18n-aria-label="align.bottom.title" aria-label="靠下對齊" data-i18n-title="align.bottom.title" title="靠下對齊"><span aria-hidden="true">↧</span><small data-i18n="align.bottom">靠下</small></button>
+                </div>
+                <div class="alignment-section-title" data-i18n="align.section.distribute">選取範圍等距</div>
+                <div class="alignment-distribute-grid" role="group" data-i18n-aria-label="align.group.distribute" aria-label="等距分佈">
+                  <button type="button" data-alignment-action="distribute-x"><span aria-hidden="true">↔</span><span data-i18n="align.distX">水平間距</span></button>
+                  <button type="button" data-alignment-action="distribute-y"><span aria-hidden="true">↕</span><span data-i18n="align.distY">垂直間距</span></button>
+                </div>
+                <div class="alignment-section-title" data-i18n="align.section.symmetry">以對稱尺為基準</div>
+                <div class="symmetry-alignment-grid" role="group" data-i18n-aria-label="align.group.symmetry" aria-label="對稱尺對齊">
+                  <button type="button" data-alignment-action="symmetry-center" data-i18n="align.symCenter">對稱中心</button>
+                  <button type="button" data-alignment-action="symmetry-guide" data-i18n="align.symGuide">最近對稱線</button>
+                  <button type="button" data-alignment-action="symmetry-sector" data-i18n="align.symSector">扇形中央</button>
+                  <button type="button" data-alignment-action="symmetry-radius" data-i18n="align.symRadius">基準半徑</button>
+                  <button type="button" data-alignment-action="symmetry-angle-space" data-i18n="align.symAngleSpace">角度等距</button>
+                  <button type="button" data-alignment-action="symmetry-radius-space" data-i18n="align.symRadiusSpace">半徑等距</button>
+                </div>
+                <small class="help-text" id="alignmentHelp" data-i18n="align.help.default">按住 Shift 或 Ctrl(⌘) 點擊可選取多個原始元素。鎖定的元素不會移動。</small>
+                <span class="sr-only" id="alignmentLiveStatus" aria-live="polite"></span>
+              </div>
+            </details>
+            <div id="layerList" class="layer-list"></div>
+            <div class="layer-actions">
+              <button class="ui-btn fill" id="moveLayerUpBtn" data-i18n-title="layers.moveUp.title" title="僅將基準元素往前移" data-i18n="layers.moveUp">基準元素上移</button>
+              <button class="ui-btn fill" id="moveLayerDownBtn" data-i18n-title="layers.moveDown.title" title="僅將基準元素往後移" data-i18n="layers.moveDown">基準元素下移</button>
+            </div>
+          </section>
+
+          <section class="panel-page" data-page="style">
+            <div id="noStyleSelection" class="selection-placeholder" data-i18n="style.placeholder">請選取要調整樣式的元素。</div>
+            <div id="styleInspector" class="inspector-grid" hidden>
+              <div class="control-group">
+                <div class="group-title" data-i18n="style.group.basic">基本線條與填色</div>
+                <label data-i18n-node="style.strokeColor">線條顏色 <span class="color-control"><input id="strokeColor" type="color" /><input id="strokeColorText" type="text" maxlength="9" /></span></label>
+                <label data-i18n-node="style.strokeWidth">線條粗細 <span class="number-with-unit"><input id="strokeWidth" type="number" min="0" max="200" step="0.5" /><em>px</em></span></label>
+                <label data-i18n-node="style.opacity">不透明度 <span class="range-pair"><input id="styleOpacity" type="range" min="0" max="1" step="0.01" /><output id="styleOpacityOutput"></output></span></label>
+                <label class="check-label wide"><input id="fillEnabled" type="checkbox" /> <span data-i18n="style.fillEnabled">填滿</span></label>
+                <label id="fillColorRow" data-i18n-node="style.fillColor">填色 <span class="color-control"><input id="fillColor" type="color" /><input id="fillColorText" type="text" maxlength="9" /></span></label>
+                <label data-i18n-node="style.lineCap">線端 <select id="lineCap"><option value="round" data-i18n="style.lineCap.round">圓頭</option><option value="butt" data-i18n="style.lineCap.butt">平頭</option><option value="square" data-i18n="style.lineCap.square">方頭</option></select></label>
+                <label data-i18n-node="style.lineJoin">轉角 <select id="lineJoin"><option value="round" data-i18n="style.lineCap.round">圓頭</option><option value="miter" data-i18n="style.lineJoin.miter">尖角</option><option value="bevel" data-i18n="style.lineJoin.bevel">斜角</option></select></label>
+                <label data-i18n-node="style.dash">虛線 <input id="dashPattern" type="text" data-i18n-placeholder="style.dash.placeholder" placeholder="例如：20, 10" /></label>
+                <label data-i18n-node="style.blend">混合 <select id="blendMode"><option value="source-over" data-i18n="style.blend.sourceOver">一般</option><option value="screen" data-i18n="style.blend.screen">濾色</option><option value="lighter" data-i18n="style.blend.lighter">加亮發光</option><option value="multiply" data-i18n="style.blend.multiply">色彩增值</option><option value="overlay" data-i18n="style.blend.overlay">覆蓋</option></select></label>
+              </div>
+
+              <div class="control-group">
+                <div class="group-title" data-i18n="style.group.shadow">陰影</div>
+                <label data-i18n-node="style.shadowColor">陰影顏色 <span class="color-control"><input id="shadowColor" type="color" /><input id="shadowColorText" type="text" maxlength="9" /></span></label>
+                <label data-i18n-node="style.shadowBlur">模糊 <span class="range-pair"><input id="shadowBlur" type="range" min="0" max="100" step="1" /><output id="shadowBlurOutput"></output></span></label>
+                <label data-i18n-node="style.shadowOffsetX">水平位移 <span class="number-with-unit"><input id="shadowOffsetX" type="number" min="-100" max="100" step="1" /><em>px</em></span></label>
+                <label data-i18n-node="style.shadowOffsetY">垂直位移 <span class="number-with-unit"><input id="shadowOffsetY" type="number" min="-100" max="100" step="1" /><em>px</em></span></label>
+              </div>
+
+              <div class="control-group glow-group">
+                <div class="group-title"><span data-i18n="style.group.glow">發光效果</span><label class="switch"><input id="glowEnabled" type="checkbox" /><span></span></label></div>
+                <label data-i18n-node="style.glowColor">發光顏色 <span class="color-control"><input id="glowColor" type="color" /><input id="glowColorText" type="text" maxlength="9" /></span></label>
+                <label data-i18n-node="style.glowBlur">發光範圍 <span class="range-pair"><input id="glowBlur" type="range" min="0" max="120" step="1" /><output id="glowBlurOutput"></output></span></label>
+                <label data-i18n-node="style.glowStrength">發光強度 <span class="range-pair"><input id="glowStrength" type="range" min="0" max="3" step="0.05" /><output id="glowStrengthOutput"></output></span></label>
+              </div>
+
+              <div class="style-presets">
+                <button data-style-preset="arcane-blue" data-i18n="preset.arcaneBlue">幽藍魔力</button>
+                <button data-style-preset="holy-gold" data-i18n="preset.holyGold">聖光金輝</button>
+                <button data-style-preset="blood-red" data-i18n="preset.bloodRed">赤紅咒術</button>
+                <button data-style-preset="ink" data-i18n="preset.ink">墨線簽名</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-page" data-page="geometry">
+            <div id="noGeometrySelection" class="selection-placeholder" data-i18n="geo.placeholder">請選取要編輯形狀的元素。</div>
+            <div id="geometryInspector" class="inspector-grid" hidden>
+              <div class="control-group">
+                <div class="group-title" data-i18n="geo.group.info">元素資訊</div>
+                <label data-i18n-node="geo.name">名稱 <input id="elementName" type="text" /></label>
+                <label class="check-label wide"><input id="elementSymmetry" type="checkbox" /> <span data-i18n="geo.symmetry">對此元素套用旋轉對稱</span></label>
+                <label class="check-label wide"><input id="elementVisible" type="checkbox" /> <span data-i18n="geo.visible">顯示</span></label>
+                <label class="check-label wide"><input id="elementLocked" type="checkbox" /> <span data-i18n="geo.locked">鎖定</span></label>
+              </div>
+              <div class="control-group" id="pathGeometryGroup">
+                <div class="group-title" data-i18n="geo.group.path">路徑</div>
+                <label class="check-label wide"><input id="pathClosed" type="checkbox" /> <span data-i18n="geo.pathClosed">閉合路徑</span></label>
+                <div class="two-buttons">
+                  <button class="ui-btn" id="smoothNodeBtn" data-i18n="geo.smoothNode">選取點平滑化</button>
+                  <button class="ui-btn" id="cornerNodeBtn" data-i18n="geo.cornerNode">選取點轉角化</button>
+                </div>
+                <button class="ui-btn fill" id="reversePathBtn" data-i18n="geo.reversePath">反轉筆畫方向</button>
+                <small class="help-text" data-i18n="geo.path.help">在鋼筆工具中拖曳控制點會產生左右兩側的曲線把手，之後可用選取工具再次調整把手。</small>
+              </div>
+              <div class="control-group" id="circleGeometryGroup" hidden>
+                <div class="group-title" data-i18n="geo.group.circle">圓形</div>
+                <label data-i18n-node="geo.centerX">中心 X <input id="circleX" type="number" step="1" /></label>
+                <label data-i18n-node="geo.centerY">中心 Y <input id="circleY" type="number" step="1" /></label>
+                <label data-i18n-node="geo.radiusX">半徑 X <input id="circleRX" type="number" min="1" step="1" /></label>
+                <label data-i18n-node="geo.radiusY">半徑 Y <input id="circleRY" type="number" min="1" step="1" /></label>
+              </div>
+              <div class="control-group" id="textGeometryGroup" hidden>
+                <div class="group-title" data-i18n="geo.group.text">文字・盧恩</div>
+                <label data-i18n-node="geo.textContent">內容 <textarea id="textContent" rows="3"></textarea></label>
+                <details class="rune-assistant" open>
+                  <summary data-i18n="rune.summary">盧恩字盤 · 拉丁字母轉換</summary>
+                  <div class="rune-assistant-body">
+                    <label class="rune-option-row" data-i18n-node="rune.system">文字系統
+                      <select id="runeSetSelect">
+                        <option value="elder" data-i18n="rune.setOption.elder">古弗薩克 24 字</option>
+                        <option value="younger" data-i18n="rune.setOption.younger">新弗薩克 16 字</option>
+                        <option value="futhorc" data-i18n="rune.setOption.futhorc">盎格魯撒克遜弗托克 29 字</option>
+                      </select>
+                    </label>
+                    <label class="rune-option-row" data-i18n-node="rune.search">搜尋
+                      <input id="runeSearchInput" type="search" data-i18n-placeholder="rune.search.placeholder" placeholder="盧恩名稱・讀音" autocomplete="off" />
+                    </label>
+                    <div id="runePalette" class="rune-palette" role="group" data-i18n-aria-label="rune.palette.aria" aria-label="盧恩字母清單"></div>
+                    <small id="runePaletteStatus" class="help-text" aria-live="polite"></small>
+                    <div class="rune-converter">
+                      <label for="latinRuneInput" data-i18n="rune.converter.label">拉丁字母近似轉換</label>
+                      <textarea id="latinRuneInput" rows="2" data-i18n-placeholder="rune.converter.placeholder" placeholder="例如：futhark, thing" aria-describedby="runeConverterHint"></textarea>
+                      <div class="rune-conversion-preview">
+                        <span id="runeConversionLabel" data-i18n="rune.conversion.label">轉換結果</span>
+                        <output id="runeConversionOutput" aria-labelledby="runeConversionLabel" aria-live="polite">—</output>
+                      </div>
+                      <div class="two-buttons">
+                        <button class="ui-btn" id="replaceWithRunesBtn" type="button" data-i18n="rune.replace">取代內容</button>
+                        <button class="ui-btn" id="insertRunesBtn" type="button" data-i18n="rune.insert">插入游標處</button>
+                      </div>
+                      <small class="help-text" id="runeConverterHint" data-i18n="rune.converter.hint">會依所選盧恩文字系統，將拉丁拼寫做近似轉換，並非歷史語言的正字法翻譯。</small>
+                    </div>
+                  </div>
+                </details>
+                <label data-i18n-node="geo.fontSize">大小 <span class="number-with-unit"><input id="fontSize" type="number" min="4" max="600" step="1" /><em>px</em></span></label>
+                <label data-i18n-node="geo.fontFamily">字型 <input id="fontFamily" type="text" placeholder="serif" /></label>
+                <label data-i18n-node="geo.textAlign">對齊 <select id="textAlign"><option value="left" data-i18n="geo.textAlign.left">靠左</option><option value="center" data-i18n="geo.textAlign.center">置中</option><option value="right" data-i18n="geo.textAlign.right">靠右</option></select></label>
+              </div>
+              <div class="control-group">
+                <div class="group-title" data-i18n="geo.group.nudge">微調位移</div>
+                <div class="nudge-grid">
+                  <span></span><button data-nudge="0,-1">↑</button><span></span>
+                  <button data-nudge="-1,0">←</button><button data-nudge="0,0" data-i18n-title="geo.nudge.center.title" title="移到對稱中心">◎</button><button data-nudge="1,0">→</button>
+                  <span></span><button data-nudge="0,1">↓</button><span></span>
+                </div>
+                <small class="help-text" data-i18n="geo.nudge.help">按住 Shift 再點擊，每次移動 10px。</small>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-page" data-page="animation">
+            <div id="noAnimationSelection" class="selection-placeholder" data-i18n="anim.placeholder">請選取要設定動態的元素。</div>
+            <div id="animationInspector" class="inspector-grid" hidden>
+              <div class="control-group">
+                <div class="group-title" data-i18n="anim.group.enter">出現方式</div>
+                <label data-i18n-node="anim.mode">效果 <select id="animationMode">
+                  <option value="none" data-i18n="anim.mode.none">一直顯示</option>
+                  <option value="draw" data-i18n="anim.mode.draw">依筆順繪製</option>
+                  <option value="drawGlow" data-i18n="anim.mode.drawGlow">邊繪製邊發光</option>
+                  <option value="fadeIn" data-i18n="anim.mode.fadeIn">淡入</option>
+                  <option value="fadeOut" data-i18n="anim.mode.fadeOut">淡出</option>
+                  <option value="centerSpread" data-i18n="anim.mode.centerSpread">由中心擴散</option>
+                  <option value="scaleIn" data-i18n="anim.mode.scaleIn">由中心放大</option>
+                  <option value="spinIn" data-i18n="anim.mode.spinIn">旋轉出現</option>
+                  <option value="pulse" data-i18n="anim.mode.pulse">脈動發光</option>
+                </select></label>
+                <label data-i18n-node="anim.start">開始 <span class="number-with-unit"><input id="animationStart" type="number" min="0" step="0.05" /><em data-i18n="unit.sec">秒</em></span></label>
+                <label data-i18n-node="anim.duration">持續 <span class="number-with-unit"><input id="animationDuration" type="number" min="0.05" step="0.05" /><em data-i18n="unit.sec">秒</em></span></label>
+                <label data-i18n-node="anim.easing">加速曲線 <select id="animationEasing"><option value="linear" data-i18n="anim.easing.linear">等速</option><option value="easeOut" data-i18n="anim.easing.easeOut">快進慢出</option><option value="easeIn" data-i18n="anim.easing.easeIn">慢進快出</option><option value="easeInOut" data-i18n="anim.easing.easeInOut">平滑進出</option><option value="overshoot" data-i18n="anim.easing.overshoot">彈跳</option></select></label>
+                <label data-i18n-node="anim.direction">筆畫方向 <select id="animationDirection"><option value="forward" data-i18n="anim.direction.forward">繪製方向</option><option value="reverse" data-i18n="anim.direction.reverse">反方向</option></select></label>
+              </div>
+              <div class="control-group">
+                <div class="group-title" data-i18n="anim.group.copies">對稱複本動態</div>
+                <label data-i18n-node="anim.copyStagger">複本間延遲 <span class="number-with-unit"><input id="copyStagger" type="number" min="0" max="10" step="0.01" /><em data-i18n="unit.sec">秒</em></span></label>
+                <label data-i18n-node="anim.copyOrder">複本順序 <select id="copyOrder"><option value="clockwise" data-i18n="anim.copyOrder.clockwise">順時針</option><option value="counter" data-i18n="anim.copyOrder.counter">逆時針</option><option value="alternate" data-i18n="anim.copyOrder.alternate">兩側交錯</option><option value="random" data-i18n="anim.copyOrder.random">固定隨機</option></select></label>
+                <label class="check-label wide"><input id="holdAfter" type="checkbox" /> <span data-i18n="anim.holdAfter">效果結束後保持顯示</span></label>
+              </div>
+              <div class="animation-presets">
+                <button data-motion-preset="trace" data-i18n="motionPreset.trace">繪製魔法陣</button>
+                <button data-motion-preset="burst" data-i18n="motionPreset.burst">中心爆發</button>
+                <button data-motion-preset="summon" data-i18n="motionPreset.summon">召喚旋轉</button>
+                <button data-motion-preset="vanish" data-i18n="motionPreset.vanish">消散</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-page" data-page="document">
+            <div class="control-group">
+              <div class="group-title" data-i18n="doc.group.canvas">畫布</div>
+              <label data-i18n-node="geo.name">名稱 <input id="documentName" type="text" /></label>
+              <label data-i18n-node="doc.width">寬度 <span class="number-with-unit"><input id="documentWidth" type="number" min="64" max="4096" step="1" /><em>px</em></span></label>
+              <label data-i18n-node="doc.height">高度 <span class="number-with-unit"><input id="documentHeight" type="number" min="64" max="4096" step="1" /><em>px</em></span></label>
+              <label class="check-label wide"><input id="transparentBackground" type="checkbox" /> <span data-i18n="doc.transparent">透明背景</span></label>
+              <label id="backgroundColorRow" data-i18n-node="doc.background">背景色 <span class="color-control"><input id="backgroundColor" type="color" /><input id="backgroundColorText" type="text" maxlength="9" /></span></label>
+            </div>
+
+            <div class="control-group">
+              <div class="group-title"><span data-i18n="doc.group.symmetry">對稱尺</span><label class="switch"><input id="symmetryEnabled" type="checkbox" /><span></span></label></div>
+              <label data-i18n-node="doc.symCount">對稱數量 <input id="symmetryCount" type="number" min="1" max="64" step="1" /></label>
+              <label data-i18n-node="doc.symOffset">旋轉起始角 <span class="number-with-unit"><input id="symmetryOffset" type="number" min="-360" max="360" step="1" /><em>°</em></span></label>
+              <label class="check-label wide"><input id="symmetryMirror" type="checkbox" /> <span data-i18n="doc.symMirror">奇數複本左右鏡射</span></label>
+              <label data-i18n-node="geo.centerX">中心 X <input id="symmetryCenterX" type="number" step="1" /></label>
+              <label data-i18n-node="geo.centerY">中心 Y <input id="symmetryCenterY" type="number" step="1" /></label>
+              <button class="ui-btn fill" id="centerSymmetryBtn" data-i18n="doc.centerSymmetry">移到畫布中央</button>
+            </div>
+
+            <div class="control-group">
+              <div class="group-title"><span data-i18n="doc.group.snap">吸附</span><label class="switch"><input id="snapEnabled" type="checkbox" /><span></span></label></div>
+              <label class="check-label wide"><input id="snapGrid" type="checkbox" /> <span data-i18n="doc.snapGrid">吸附格線</span></label>
+              <label data-i18n-node="doc.gridSize">格線間距 <span class="number-with-unit"><input id="gridSize" type="number" min="2" max="500" step="1" /><em>px</em></span></label>
+              <label class="check-label wide"><input id="snapCenter" type="checkbox" /> <span data-i18n="doc.snapCenter">吸附中心軸</span></label>
+              <label class="check-label wide"><input id="snapRadial" type="checkbox" /> <span data-i18n="doc.snapRadial">吸附對稱線</span></label>
+              <label class="check-label wide"><input id="snapAngles" type="checkbox" /> <span data-i18n="doc.snapAngles">吸附角度</span></label>
+              <label data-i18n-node="doc.angleStep">角度單位 <span class="number-with-unit"><input id="angleStep" type="number" min="1" max="90" step="1" /><em>°</em></span></label>
+              <label data-i18n-node="doc.snapThreshold">感應距離 <span class="number-with-unit"><input id="snapThreshold" type="number" min="2" max="40" step="1" /><em>px</em></span></label>
+            </div>
+
+            <div class="control-group">
+              <div class="group-title" data-i18n="doc.group.templates">快速範本</div>
+              <div class="template-grid">
+                <button data-template="classic"><span class="template-icon">✺</span><strong data-i18n="tpl.classic">古典魔法陣</strong><small data-i18n="tpl.classic.desc">同心圓・星形・盧恩</small></button>
+                <button data-template="rune"><span class="template-icon">ᛟ</span><strong data-i18n="tpl.rune">盧恩輪</strong><small data-i18n="tpl.rune.desc">以文字為中心的放射狀</small></button>
+                <button data-template="sigil"><span class="template-icon">〽</span><strong data-i18n="tpl.sigil">簽名・印記</strong><small data-i18n="tpl.sigil.desc">透明背景自由筆畫</small></button>
+                <button data-template="blank"><span class="template-icon">＋</span><strong data-i18n="tpl.blank">空白文件</strong><small data-i18n="tpl.blank.desc">保留設定並清空</small></button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="statusbar">
+      <span id="statusMessage" data-i18n="status.ready">準備就緒</span>
+      <span class="status-spacer"></span>
+      <span id="cursorPosition">X 0 · Y 0</span>
+      <span id="selectionStatus" data-i18n="status.noSelection">未選取</span>
+      <button id="licensesBtn" class="status-link" data-i18n="status.licenses">授權與格式聲明</button>
+    </footer>
+  </div>
+
+  <div id="modalBackdrop" class="modal-backdrop" hidden></div>
+
+  <dialog id="exportDialog" class="modal export-modal">
+    <form method="dialog">
+      <header class="modal-header">
+        <div><strong data-i18n="export.title">匯出圖片・動畫</strong><span data-i18n="export.subtitle">在本機算繪目前的專案。</span></div>
+        <button class="icon-btn" value="cancel" data-i18n-aria-label="btn.close" aria-label="關閉">×</button>
+      </header>
+      <div class="modal-body export-layout">
+        <div class="export-preview-wrap"><canvas id="exportPreview"></canvas><span id="exportPreviewLabel"></span></div>
+        <div class="export-settings">
+          <div class="control-group">
+            <div class="group-title" data-i18n="export.group.size">尺寸</div>
+            <label data-i18n-node="export.scale">倍率 <select id="exportScale"><option value="0.25">25%</option><option value="0.5">50%</option><option value="1" selected>100%</option><option value="1.5">150%</option><option value="2">200%</option></select></label>
+            <div class="export-size-readout" id="exportSizeReadout">1000 × 1000 px</div>
+            <label class="check-label wide"><input id="exportTransparent" type="checkbox" /> <span data-i18n="export.transparent">以透明背景儲存</span></label>
+          </div>
+          <div class="control-group">
+            <div class="group-title" data-i18n="export.group.animation">動畫</div>
+            <label data-i18n-node="export.duration">長度 <span class="number-with-unit"><input id="exportDuration" type="number" min="0.1" max="60" step="0.1" /><em data-i18n="unit.sec">秒</em></span></label>
+            <label>FPS <input id="exportFps" type="number" min="1" max="60" step="1" /></label>
+            <label data-i18n-node="export.quality">WebP 品質 <span class="range-pair"><input id="exportQuality" type="range" min="1" max="100" step="1" value="90" /><output id="exportQualityOutput">90</output></span></label>
+            <small class="help-text" data-i18n="export.gifNote">GIF 最多 256 色，半透明像素會轉換成單一透明色。APNG 與 WebP 則能保留平滑的透明度。</small>
+          </div>
+        </div>
+      </div>
+      <div id="exportProgressArea" class="export-progress-area" hidden>
+        <div class="progress-copy"><strong id="exportProgressTitle" data-i18n="export.progressTitle">影格算繪</strong><span id="exportProgressText">0%</span></div>
+        <progress id="exportProgress" max="1" value="0"></progress>
+        <button type="button" class="ui-btn" id="cancelExportBtn" data-i18n="btn.cancel">取消</button>
+      </div>
+      <footer class="modal-footer export-buttons">
+        <button type="button" class="format-btn" data-export="png"><strong>PNG</strong><span data-i18n="export.fmt.png.desc">目前影格 · 無損</span></button>
+        <button type="button" class="format-btn" data-export="static-webp"><strong>WebP</strong><span data-i18n="export.fmt.staticWebp.desc">目前影格 · 壓縮</span></button>
+        <button type="button" class="format-btn animated" data-export="gif"><strong>GIF</strong><span data-i18n="export.fmt.gif.desc">通用動畫</span></button>
+        <button type="button" class="format-btn animated" data-export="apng"><strong>APNG</strong><span data-i18n="export.fmt.apng.desc">高品質透明動態</span></button>
+        <button type="button" class="format-btn animated" data-export="webp"><strong data-i18n="export.fmt.webp">動態 WebP</strong><span data-i18n="export.fmt.webp.desc">高效率透明動態</span></button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="helpDialog" class="modal help-modal">
+    <form method="dialog">
+      <header class="modal-header"><div><strong data-i18n="help.title">快速使用說明</strong><span data-i18n="help.subtitle">從對稱筆畫到動態輸出</span></div><button class="icon-btn" value="cancel" data-i18n-aria-label="btn.close" aria-label="關閉">×</button></header>
+      <div class="modal-body help-content">
+        <article><b>1</b><div><strong data-i18n="help.1.title">先設定對稱尺與吸附</strong><p data-i18n="help.1.body">在「文件」分頁設定對稱數量、中心與左右鏡射。吸附可分別開關格線、中心軸、對稱線與角度。</p></div></article>
+        <article><b>2</b><div><strong data-i18n="help.2.title">用鋼筆畫出曲線與轉角</strong><p data-i18n="help.2.body">點擊會產生轉角點，點擊後拖曳會產生曲線把手。再次點擊起點或按 Enter 即可完成。</p></div></article>
+        <article><b>3</b><div><strong data-i18n="help.3.title">只編輯原始筆畫</strong><p data-i18n="help.3.body">對稱複本會自動產生，因此只要移動原始的一個控制點，所有複本都會同步更新。也可以針對個別元素關閉對稱。</p></div></article>
+        <article><b>4</b><div><strong data-i18n="help.4.title">挑選或轉換盧恩文字</strong><p data-i18n="help.4.body">用文字工具建立元素後，在「形狀」分頁選擇盧恩文字系統。可從清單直接輸入，也能把拉丁拼寫近似轉換成盧恩。</p></div></article>
+        <article><b>5</b><div><strong data-i18n="help.5.title">對齊元素並等距分佈</strong><p data-i18n="help.5.body">在「元素」分頁按住 Shift 或 Ctrl(⌘) 點擊，選取多個原始元素。可對齊畫布、選取範圍或最後的基準元素，也能在對稱線與扇形內分佈。</p></div></article>
+        <article><b>6</b><div><strong data-i18n="help.6.title">指定動態與順序</strong><p data-i18n="help.6.body">在「動態」分頁選擇效果，並在下方時間軸拖曳長條或兩端把手來調整開始時間與持續時間。</p></div></article>
+        <article><b>7</b><div><strong data-i18n="help.7.title">輸出成 PNG・GIF・WebP・APNG</strong><p data-i18n="help.7.body">在匯出視窗指定倍率與 FPS。所有算繪都在瀏覽器內完成，作品不會傳送到伺服器。</p></div></article>
+        <div class="shortcut-grid">
+          <span><kbd>V</kbd> <i data-i18n="help.sc.select">選取</i></span><span><kbd>P</kbd> <i data-i18n="help.sc.pen">鋼筆</i></span><span><kbd>B</kbd> <i data-i18n="help.sc.freehand">手繪筆畫</i></span><span><kbd>Enter</kbd> <i data-i18n="help.sc.finish">完成路徑</i></span><span><kbd>Esc</kbd> <i data-i18n="help.sc.cancel">取消</i></span><span><kbd>Ctrl A</kbd> <i data-i18n="help.sc.selectAll">全選可編輯元素</i></span><span><kbd>Delete</kbd> <i data-i18n="help.sc.delete">刪除選取</i></span><span><kbd>Ctrl Z</kbd> <i data-i18n="help.sc.undo">復原</i></span><span><kbd>Space</kbd> <i data-i18n="help.sc.space">播放／暫時平移</i></span>
+        </div>
+      </div>
+      <footer class="modal-footer"><button class="ui-btn accent" value="cancel" data-i18n="btn.ok">確定</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="licensesDialog" class="modal license-modal">
+    <form method="dialog">
+      <header class="modal-header"><div><strong data-i18n="lic.title">授權與格式聲明</strong><span data-i18n="lic.subtitle">這是不會把作品傳送到外部伺服器的本機編輯器。</span></div><button class="icon-btn" value="cancel" data-i18n-aria-label="btn.close" aria-label="關閉">×</button></header>
+      <div class="modal-body license-content">
+        <section><strong>Magic circle Maker</strong><p data-i18n="lic.app.body">本程式原始碼依隨附的 MIT License 條款使用。可自由修改、再散布與商業利用，但在再散布原始碼或軟體時必須保留著作權與授權聲明。</p></section>
+        <section><strong data-i18n="lic.export.title">圖片匯出</strong><p data-i18n="lic.export.body">PNG 與靜態 WebP 使用瀏覽器的 Canvas 功能。GIF、APNG 與動態 WebP 編碼器都內建在本程式中，不使用外部 CDN 或上傳伺服器。</p></section>
+        <section><strong data-i18n="lic.user.title">使用者建立的作品</strong><p data-i18n="lic.user.body">你親手繪製的魔法陣、簽名以及匯出的圖片，其權利與本程式授權無關。但若使用了他人的字型、圖樣或圖片，請遵守該素材的使用條款。</p></section>
+        <p class="license-note" data-i18n-html="lic.note">詳細的散布條件請參閱隨附的 <code>LICENSE</code> 與 <code>README_ZHTW.md</code>。</p>
+      </div>
+      <footer class="modal-footer"><button class="ui-btn accent" value="cancel" data-i18n="btn.ok">確定</button></footer>
+    </form>
+  </dialog>
+
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>
