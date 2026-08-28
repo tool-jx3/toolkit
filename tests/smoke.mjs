@@ -222,7 +222,7 @@ const tw = checkTool({
                                     會讓 . 在無 /s 旗標時卡住，使 $ 永遠比對不到。 */
       return !/[가-힣]/.test(codeOnly);
     }
-    return /a-zA-Z0-9가-힣/.test(line);
+    return /\[\^a-zA-Z0-9가-힣\]/.test(line);
   }
 });
 
