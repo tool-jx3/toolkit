@@ -234,12 +234,29 @@ for (const locale of ['zh-TW', 'ko']) {
 }
 
 /* ---- emotion-maker ---- */
-/* emotion-maker 的韓文為資料 ID，非顯示文字：MANIFEST 的 id、
- * PRESETS 的部件引用、以及結構常數。tag 已改為 i18n key，不在白名單內。
- * "피부"/"얼굴 틀"（膚色／臉型的 base id）在 MANIFEST 之外，仍以字面值出現於
- * layerSrcs()／drawFace() 兩處（baseSrc("피부") 與 IMG.base["얼굴 틀"] 等），
- * 故另外加入白名單，涵蓋這兩處合法的資料參照。 */
-const EM_ID_LINE = /\bid:\s*"[^"]*"|"눈"|"눈썹"|"입"|"꾸밈"|"피부"|"얼굴 틀"|\bCATS\b|\bSINGLE\b|\bDECO\b|\bDRAW_SINGLE\b|\bcustomParts\b|\bnewDraft\b/;
+const emApp = read('tools/emotion-maker/app.js');
+
+/* emotion-maker 的韓文為資料 ID，非顯示文字：MANIFEST 的 id（含 base 分類的
+ * "피부"/"얼굴 틀"）與四個分類鍵（"눈"／"눈썹"／"입"／"꾸밈"，用於 CATS、
+ * SINGLE、customParts、PRESETS 的部件引用等物件的鍵與陣列元素）。tag 已改為
+ * i18n key，不在白名單內。
+ *
+ * 不變量：該行內每一段被雙引號包住、且含韓文的字串，都必須完整等於上述
+ * 已知 ID 之一；且移除所有雙引號字串後，剩餘部分（含註解）不得再含韓文。
+ * 這比舊版「整行含 id: 這個子字串、或含特定引號字串，就放行整行」更精確——
+ * 舊版只要一行含 id:"..."（不論值為何）或恰好含 draft["입"] 這類子字串，
+ * 就會放行該行「全部」內容，即使同一行另有未包裝的韓文顯示字串（例如
+ * toast("입을 선택하세요")）也會被誤放行；新版逐一檢查每個引號字串本身
+ * 是否為已知 ID，並確保引號外沒有殘留韓文。 */
+const emKnownIds = new Set([
+  ...[...emApp.matchAll(/\bid:\s*"([^"]*)"/g)].map(m => m[1]),
+  '눈', '눈썹', '입', '꾸밈'
+]);
+function emLineAllowsHangul(line) {
+  const quoted = [...line.matchAll(/"([^"]*)"/g)].map(m => m[1]);
+  if (quoted.some(q => HANGUL.test(q) && !emKnownIds.has(q))) return false;
+  return !HANGUL.test(line.replace(/"[^"]*"/g, ''));
+}
 
 const em = checkTool({
   dir: 'tools/emotion-maker',
@@ -248,7 +265,7 @@ const em = checkTool({
   styles: ['style.css'],
   minHooks: 40,
   licence: false,
-  allowHangul: (line, n, file) => file === 'app.js' && EM_ID_LINE.test(line)
+  allowHangul: (line, n, file) => file === 'app.js' && emLineAllowsHangul(line)
 });
 
 /* emotion-maker 無原始 LICENSE，checkTool 的該項檢查會失敗；
@@ -259,7 +276,6 @@ check('emotion-maker 無原始 LICENSE（未授權，於 ATTRIBUTION.md 標示�
 
 /* 資產完整性：MANIFEST 每個 file 對應的 PNG 必須存在。 */
 section('tools/emotion-maker assets');
-const emApp = read('tools/emotion-maker/app.js');
 const files = [...emApp.matchAll(/file:\s*"([^"]+)"/g)].map(m => m[1]);
 check('MANIFEST 解析出 39 個部件', files.length === 39, `found ${files.length}`);
 const missingPng = files.filter(f => !exists(`tools/emotion-maker/images/${f}.png`));
