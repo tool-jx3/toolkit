@@ -1,0 +1,11 @@
+{
+  "name": "trpg-toolkit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "sotsotssi 製作的網頁小工具合輯，附繁體中文介面",
+  "scripts": {
+    "test": "node tests/smoke.mjs",
+    "serve": "npx --yes http-server -p 8080 -c-1 ."
+  },
+  "license": "MIT"
+}
