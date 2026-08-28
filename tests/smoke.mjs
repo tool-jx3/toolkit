@@ -313,13 +313,17 @@ check('首頁標示原作者出處', homeHtml.includes('github.com/sotsotssi'));
  * 「閃字」：使用者先看到一個字串，隨即被換成字典裡的另一個字串。
  *
  * 只比對「簡單形式」的 data-i18n：屬性值就是 key，元素內容是不含巢狀標籤的
- * 純文字，例如 <h1 data-i18n="key">文字</h1>。刻意排除：
+ * 純文字，例如 <h1 data-i18n="key">文字</h1>。刻意排除的僅剩兩者：
  *   - data-i18n-node：內容本身是巢狀標籤組成的結構，並非單一文字節點；
- *   - data-i18n-html：注入的是 HTML 片段而非純文字；
- *   - data-i18n-title / data-i18n-aria-label / data-i18n-placeholder：
- *     鎖定的是屬性值而非元素內文。
- * 這幾種情況下，正規表示式無法可靠取得「應比對的那段文字」，勉強比對只會
- * 產生假陽性或假陰性，因此不在此檢查範圍內。 */
+ *   - data-i18n-html：注入的是 HTML 片段而非純文字。
+ * 這兩種情況下，正規表示式無法可靠取得「應比對的那段文字」，勉強比對只會
+ * 產生假陽性或假陰性，因此不在此檢查範圍內。
+ *
+ * data-i18n-title / data-i18n-aria-label / data-i18n-placeholder 原先也被排除，
+ * 理由是「regex 無法可靠讀取」——這個理由其實不成立：這三者鎖定的是同一標籤上
+ * 的另一個屬性（title / aria-label / placeholder），屬性配對其實比對元素內文
+ * 更容易可靠比對，兩者都在同一個開始標籤的字串內，順序不拘，直接取出比對即可。
+ * 這三者改由下方獨立的「inline attribute vs zh-TW dictionary」檢查涵蓋。 */
 section('inline text vs zh-TW dictionary');
 
 /* 擷取 <tag ... data-i18n="key" ...>文字</tag>：
@@ -356,6 +360,72 @@ checkInlineText('tools/typewriter', 'tools/typewriter/index.html', ['tools/typew
 checkInlineText('tools/text-path', 'tools/text-path/index.html', ['tools/text-path/i18n.text-path.js'], 15);
 checkInlineText('tools/collage-letter', 'tools/collage-letter/index.html', ['tools/collage-letter/i18n.collage-letter.js'], 15);
 checkInlineText('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 15);
+
+/* ---- 內嵌屬性與 zh-TW 字典一致 ---- */
+/* data-i18n-title / data-i18n-aria-label / data-i18n-placeholder 各鎖定同一標籤上
+ * 的 title / aria-label / placeholder 屬性；那個屬性的靜態值同樣必須與 zh-TW
+ * 字典逐字相同，理由與上面的內嵌文字檢查一致（避免 script 執行前後「閃字」）。
+ *
+ * 做法：先用 ATTR_TAG_RE 逐一取出完整的開始標籤字串（例如
+ * `<button ... data-i18n-title="k" title="文字" ...>`），標籤內的屬性順序不拘，
+ * 兩個屬性都在同一段字串內，直接各自以 regex 取值再比較即可，不需要像內文
+ * 檢查那樣處理巢狀標籤或反向參照。
+ *
+ * 每個屬性值的 regex 前面加上 (?<![-a-z])，是為了避免：
+ *   - "title="  誤配到 "data-i18n-title=\"...\"" 尾端那段 "title=\"...\""
+ *     （其前一個字元是連字號 "-"，會被此負向後顧排除）；
+ *   - "aria-label=" 同理，避免誤配到 "data-i18n-aria-label=\"...\"" 尾端；
+ *     這裡比對的是完整字面值 "aria-label="，而非鬆散的 "label="，因此也不會
+ *     被其他帶有 "label" 的無關屬性誤配；
+ *   - "placeholder=" 同理，避免誤配到 "data-i18n-placeholder=\"...\"" 尾端。
+ * 三者皆與 data-i18n（不含 -title/-aria-label/-placeholder 後綴）的比對邏輯
+ * 相同：literal 子字串 "title=\""／"aria-label=\""／"placeholder=\"" 不會出現
+ * 在對應的 data-i18n-* 變體屬性名稱中間，只會出現在其「值」的部分，
+ * 負向後顧排除的正是這種情況。
+ *
+ * data-i18n-node 與 data-i18n-html 依然不在此檢查範圍內：見上方內嵌文字檢查的
+ * 說明，原因不變。 */
+section('inline attribute vs zh-TW dictionary');
+
+const ATTR_TAG_RE = /<[a-zA-Z][a-zA-Z0-9]*\b[^>]*>/g;
+const ATTR_PAIRS = [
+  { i18nAttr: /data-i18n-title="([^"]+)"/, valAttr: /(?<![-a-z])title="([^"]*)"/, name: 'title' },
+  { i18nAttr: /data-i18n-aria-label="([^"]+)"/, valAttr: /(?<![-a-z])aria-label="([^"]*)"/, name: 'aria-label' },
+  { i18nAttr: /data-i18n-placeholder="([^"]+)"/, valAttr: /(?<![-a-z])placeholder="([^"]*)"/, name: 'placeholder' }
+];
+
+function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
+  const html = read(htmlPath);
+  const dict = loadI18N(dictPaths).messages['zh-TW'];
+  let compared = 0;
+  const mismatches = [];
+  for (const tagMatch of html.matchAll(ATTR_TAG_RE)) {
+    const tag = tagMatch[0];
+    for (const { i18nAttr, valAttr, name } of ATTR_PAIRS) {
+      const keyM = tag.match(i18nAttr);
+      if (!keyM) continue;
+      const key = keyM[1];
+      if (!(key in dict)) continue; /* 未知 key 已由其他檢查把關，這裡不重複報告 */
+      compared += 1;
+      const valM = tag.match(valAttr);
+      const text = valM ? valM[1] : undefined;
+      if (text !== dict[key]) {
+        mismatches.push(`${name}[${key}]: html=${JSON.stringify(text)} 字典=${JSON.stringify(dict[key])}`);
+      }
+    }
+  }
+  check(`${label} 屬性內嵌值與 zh-TW 字典一致（比對了 ${compared} 組屬性）`,
+    mismatches.length === 0, mismatches.slice(0, 10).join('\n       '));
+  /* 比對數量若遠低於預期，代表 regex 沒抓到東西，比「頁面本身沒問題」更值得懷疑。 */
+  check(`${label} 屬性比對數量達最低門檻 ${minPairs}`, compared >= minPairs, `got: ${compared}`);
+}
+
+checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
+checkAttrPairs('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 50);
+checkAttrPairs('tools/typewriter', 'tools/typewriter/index.html', ['tools/typewriter/i18n.typewriter.js'], 5);
+checkAttrPairs('tools/text-path', 'tools/text-path/index.html', ['tools/text-path/i18n.text-path.js'], 3);
+checkAttrPairs('tools/collage-letter', 'tools/collage-letter/index.html', ['tools/collage-letter/i18n.collage-letter.js'], 5);
+checkAttrPairs('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 3);
 
 /* ---- 文件 ---- */
 section('docs');
