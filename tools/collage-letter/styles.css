@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=DotGothic16&family=Jua&family=Permanent+Marker&family=Rampart+One&display=swap');
+
+@font-face {
+    font-family: 'KCC-Chassam';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2302@1.0/KCCChassam.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'GmarketSansMedium';
+    src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'MaplestoryOTFLight';
+    src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@2.1/MaplestoryOTFLight.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'UhBeeSe_hyun';
+    src: url('https://gcore.jsdelivr.net/gh/projectnoonnu/noonfonts_five@.2.0/UhBeeSe_hyun.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+body {
+    background-color: #1a1a1a;
+    color: #f0f0f0;
+    font-family: 'Pretendard', 'Inter', sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.canvas-container {
+    width: 100%;
+    overflow-x: auto;
+    background: #2a2a2a;
+    border: 2px dashed #444;
+    border-radius: 0.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    min-height: 300px;
+}
+
+canvas {
+    max-width: 100%;
+    height: auto;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    background-color: #fff;
+}
+
+.canvas-container::-webkit-scrollbar {
+    height: 8px;
+}
+.canvas-container::-webkit-scrollbar-thumb {
+    background-color: #e60012;
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #6b7280;
+    border-radius: 3px;
+}
+
+#toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translate(-50%, 100%);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    z-index: 50;
+}
+#toast.show {
+    transform: translate(-50%, 0);
+    opacity: 1;
+}
+
+/* 語言切換器 */
+.locale-select {
+    min-height: 30px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    border: 1px solid #4b5563;
+    background: #374151;
+    color: #f3f4f6;
+    font-size: 12px;
+}
+.locale-select:hover {
+    background: #4b5563;
+}

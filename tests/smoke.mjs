@@ -137,11 +137,41 @@ for (const locale of ['zh-TW', 'ko']) {
 }
 
 /* ---- text-path ---- */
-checkTool({
+const tp = checkTool({
   dir: 'tools/text-path',
   dict: 'i18n.text-path.js',
   scripts: ['app.js'],
   minHooks: 30
 });
+
+/* 間距描述字以 T(densityDescriptorKey(val)) 動態組成，靜態掃描看不到，
+ * 需另外檢查這 5 個 key 是否兩語言都存在。 */
+section('tools/text-path density descriptors');
+const densityKeys = ['density.veryTight', 'density.tight', 'density.normal', 'density.loose', 'density.veryLoose'];
+for (const locale of ['zh-TW', 'ko']) {
+  const missing = densityKeys.filter(k => !tp.messages[locale][k]);
+  check(`${locale} 每個間距描述字都存在`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+/* ---- collage-letter ---- */
+const cl = checkTool({
+  dir: 'tools/collage-letter',
+  dict: 'i18n.collage-letter.js',
+  scripts: ['app.js'],
+  minHooks: 30
+});
+
+/* 色彩標籤以 T(opt.labelKey) 動態組成，靜態掃描看不到，
+ * 需另外檢查這些 key 是否兩語言都存在。 */
+section('tools/collage-letter color labels');
+const colorLabelKeys = [
+  'color.blackWhite', 'color.whiteBlack', 'color.redWhite', 'color.yellowBlack',
+  'color.magentaWhite', 'color.cyanBlack', 'color.grayBlack', 'color.darkYellow',
+  'color.custom'
+];
+for (const locale of ['zh-TW', 'ko']) {
+  const missing = colorLabelKeys.filter(k => !cl.messages[locale][k]);
+  check(`${locale} 每個色彩標籤都存在`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
 
 process.exit(summary() ? 1 : 0);
