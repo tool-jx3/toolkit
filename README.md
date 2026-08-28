@@ -34,7 +34,8 @@ npm test
 
 靜態檢查，無外部相依。檢查項目包含：字典 key 完整性、兩語言 key 集合對稱、
 `{n}` 佔位符一致、標記引用的 key 皆存在、**無殘留未翻譯的韓文**、
-emotion-maker 的圖片資產完整、首頁連結有效、**HTML 內嵌文字與 zh-TW 字典逐字相符**。
+emotion-maker 的圖片資產完整、首頁連結有效、
+**HTML 內嵌文字與 zh-TW 字典逐字相符**（含元素內文與 `title`／`aria-label`／`placeholder` 屬性兩類比對）。
 
 ## 語言
 
