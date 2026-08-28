@@ -34,3 +34,4 @@ magic-circle 的繁體中文翻譯移植自
 
 `assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔，
 以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
+`tools/emotion-maker/` 的其餘部分（含全部圖像素材）不在此範圍內，見上節。

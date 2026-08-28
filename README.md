@@ -51,8 +51,9 @@ emotion-maker 的圖片資產完整、首頁連結有效、**HTML 內嵌文字�
 
 ## 授權
 
-本 repo 新增的部分（`assets/`、`index.html`、`tests/`、各 `i18n.*.js`）為 MIT。
+根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：`assets/`、
+`index.html`、`tests/`、各 `i18n.*.js` 字典，以及 emotion-maker 的資產路徑改造。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
 **注意**：`emotion-maker` 的原始 repo 未附任何授權條款，其權利（含全部圖像素材）
-屬原作者所有，此處僅供試用。
+屬原作者所有，不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。

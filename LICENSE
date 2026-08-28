@@ -1,3 +1,17 @@
+Scope of this licence
+----------------------
+
+This MIT licence covers only what this repository adds on top of the
+bundled tools: `assets/`, `index.html`, `tests/`, each `tools/*/i18n.*.js`
+dictionary, and the emotion-maker asset-path restructure.
+
+Each bundled tool under `tools/` keeps its own upstream licence — see
+`ATTRIBUTION.md` for the per-tool source and licence status.
+
+`tools/emotion-maker/` is NOT covered by this licence. It is unlicensed
+upstream, and all rights — including its 39 image assets — remain with
+the original author.
+
 MIT License
 
 Copyright (c) 2026 tool-jx3
