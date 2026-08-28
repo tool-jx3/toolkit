@@ -73,6 +73,11 @@ function checkTool({ dir, dict, scripts, styles = [], minHooks, allowHangul = ()
   check('index.html 載入自身字典', html.includes(dict));
   check('html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(html));
 
+  const titleMatch = html.match(/<title>([^<]*)<\/title>/);
+  check('<title> 與 app.title 的 zh-TW 值一致',
+    !!titleMatch && titleMatch[1] === tool.messages['zh-TW']['app.title'],
+    `<title>="${titleMatch ? titleMatch[1] : '(none)'}" app.title="${tool.messages['zh-TW']['app.title']}"`);
+
   const leakedIn = (src, file) => src.split('\n')
     .map((line, i) => [i + 1, line])
     .filter(([n, line]) => HANGUL.test(line) && !allowHangul(line, n, file));
@@ -322,6 +327,11 @@ check('首頁標記僅引用已知 key',
   `unknown: ${[...new Set(homeKeys)].filter(k => !homeZh.has(k)).join(', ')}`);
 check('首頁無殘留韓文', !/[가-힣]/.test(homeHtml));
 check('首頁 html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(homeHtml));
+
+const homeTitleMatch = homeHtml.match(/<title>([^<]*)<\/title>/);
+check('首頁 <title> 與 app.title 的 zh-TW 值一致',
+  !!homeTitleMatch && homeTitleMatch[1] === home.messages['zh-TW']['app.title'],
+  `<title>="${homeTitleMatch ? homeTitleMatch[1] : '(none)'}" app.title="${home.messages['zh-TW']['app.title']}"`);
 
 /* assets/home.js 與 assets/home.css 不屬於任何工具的 checkTool()，
  * 韓文洩漏檢查需在此另外涵蓋，理由與各工具的 styles 掃描相同。 */
