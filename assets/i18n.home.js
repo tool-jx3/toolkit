@@ -16,10 +16,13 @@ I18N.register({
     'tool.collage-letter.desc': '以剪報拼貼風格的字母組成信件圖片。',
     'tool.emotion-maker.name': '表情產生器',
     'tool.emotion-maker.desc': '組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖。',
+    'tool.loading-maker.name': '讀取動畫產生器',
+    'tool.loading-maker.desc': '把角色動畫、讀取條與文字合成一張畫布，輸出為 APNG／WebP／GIF。',
     'home.credits.heading': '來源與授權',
     'home.credits.body': '本站工具皆由 sotsotssi 製作，此處為加上繁體中文介面的合併版本。',
     'license.mit': 'MIT 授權',
-    'license.unlicensed': '未授權：原作者未釋出授權條款，此工具（含全部圖像素材）之權利屬原作者所有，僅供試用。'
+    'license.unlicensed': '未授權：原作者未釋出授權條款，此工具之權利屬原作者所有，僅供試用。',
+    'license.unlicensed.assets': '未授權：原作者未釋出授權條款，此工具（含全部圖像素材）之權利屬原作者所有，僅供試用。'
   },
   ko: {
     'app.title': 'TRPG Toolkit — 웹 도구 모음',
@@ -37,9 +40,12 @@ I18N.register({
     'tool.collage-letter.desc': '잡지 오려붙이기 느낌의 글자로 편지 이미지를 만듭니다.',
     'tool.emotion-maker.name': '표정 메이커',
     'tool.emotion-maker.desc': '눈·눈썹·입·꾸밈을 조합해 표정 차분과 합본 이미지를 만듭니다.',
+    'tool.loading-maker.name': '로딩 메이커',
+    'tool.loading-maker.desc': '캐릭터 애니메이션과 로딩 연출, 문구를 한 캔버스에 합쳐 APNG·WebP·GIF로 저장합니다.',
     'home.credits.heading': '출처 및 라이선스',
     'home.credits.body': '이 사이트의 도구는 모두 sotsotssi 님의 작품이며, 번체 중국어 UI를 추가해 합친 버전입니다.',
     'license.mit': 'MIT 라이선스',
-    'license.unlicensed': '라이선스 없음: 원작자가 라이선스를 명시하지 않았습니다. 이 도구(모든 이미지 소재 포함)의 권리는 원작자에게 있으며 시험용으로만 제공됩니다.'
+    'license.unlicensed': '라이선스 없음: 원작자가 라이선스를 명시하지 않았습니다. 이 도구의 권리는 원작자에게 있으며 시험용으로만 제공됩니다.',
+    'license.unlicensed.assets': '라이선스 없음: 원작자가 라이선스를 명시하지 않았습니다. 이 도구(모든 이미지 소재 포함)의 권리는 원작자에게 있으며 시험용으로만 제공됩니다.'
   }
 });

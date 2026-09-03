@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>讀取動畫產生器</title>
+  <link rel="stylesheet" href="css/styles.css?v=20260904-apng-fallback">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">✦</div>
+      <div class="brand-copy">
+        <div class="brand-title-row">
+          <h1 data-i18n="app.title">讀取動畫產生器</h1>
+          <a class="brand-author" href="https://x.com/bb_uu_t" target="_blank" rel="noopener noreferrer" data-i18n-aria-label="header.author.aria" aria-label="@bb_uu_t 的 X 個人檔案（另開分頁）">@bb_uu_t</a>
+        </div>
+        <p data-i18n="header.tagline">製作讀取動畫，輸出為 APNG · WebP · GIF。</p>
+      </div>
+    </div>
+    <div class="header-actions" data-i18n-aria-label="header.menu.aria" aria-label="專案選單">
+      <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+      <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+      <button data-i18n="action.newProject" id="resetProjectButton" type="button" class="button ghost">新專案</button>
+      <button data-i18n="action.loadJson" id="loadProjectButton" type="button" class="button ghost">載入 JSON</button>
+      <button data-i18n="action.saveProject" id="saveProjectButton" type="button" class="button primary">儲存專案</button>
+      <input id="projectFile" type="file" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar sidebar-left" data-i18n-aria-label="aside.left.aria" aria-label="畫布與角色設定">
+      <details class="panel" open>
+        <summary>
+          <span data-i18n-node="panel.character"><span class="eyebrow">CHARACTER</span>角色</span>
+          <span class="summary-icon">⌄</span>
+        </summary>
+        <div class="details-body">
+          <div id="characterDropZone" class="drop-zone" role="button" tabindex="0">
+            <div class="drop-icon" aria-hidden="true">↥</div>
+            <strong data-i18n="char.drop.title">動畫檔或多張圖片</strong>
+            <span data-i18n="char.drop.formats">APNG · WebP · GIF · PNG／JPG 連續圖</span>
+            <button data-i18n="action.chooseFile" id="chooseCharacterButton" type="button" class="button compact">選擇檔案</button>
+            <input id="characterFiles" type="file" accept="image/*,.apng" multiple hidden>
+          </div>
+          <div id="sourceInfo" class="source-info">
+            <strong data-i18n="char.info.builtin">使用內建角色中</strong>
+            <span data-i18n="char.info.builtinHint">畫面上顯示所選的內建向量角色。</span>
+          </div>
+
+          <div class="field">
+            <label data-i18n="char.builtin.label" for="builtinCharacter">內建角色</label>
+            <select id="builtinCharacter" data-bind="character.builtin">
+              <option data-i18n="char.builtin.cloudCat" value="cloud-cat">雲朵</option>
+              <option data-i18n="char.builtin.slime" value="slime">薄荷史萊姆</option>
+              <option data-i18n="char.builtin.ghost" value="ghost">小幽靈</option>
+              <option data-i18n="char.builtin.star" value="star-bunny">星星</option>
+              <option data-i18n="char.builtin.chick" value="pixel-chick">像素小雞</option>
+            </select>
+          </div>
+          <button data-i18n="char.clearUpload" id="clearCharacterButton" type="button" class="button ghost full">移除上傳的角色</button>
+
+          <div class="control-grid two">
+            <label class="range-field">
+              <span data-i18n-node="char.x">X 位置 <output data-value-for="character.x" data-digits="0" data-suffix="%"></output></span>
+              <input type="range" min="-20" max="120" step="1" data-bind="character.x">
+            </label>
+            <label class="range-field">
+              <span data-i18n-node="char.y">Y 位置 <output data-value-for="character.y" data-digits="0" data-suffix="%"></output></span>
+              <input type="range" min="-20" max="120" step="1" data-bind="character.y">
+            </label>
+            <label class="range-field">
+              <span data-i18n-node="char.size">大小 <output data-value-for="character.size" data-digits="0" data-suffix="%"></output></span>
+              <input type="range" min="5" max="100" step="1" data-bind="character.size">
+            </label>
+            <label class="range-field">
+              <span data-i18n-node="char.rotation">旋轉 <output data-value-for="character.rotation" data-digits="0" data-suffix="°"></output></span>
+              <input type="range" min="-180" max="180" step="1" data-bind="character.rotation">
+            </label>
+          </div>
+          <label class="range-field">
+            <span data-i18n-node="char.opacity">不透明度 <output data-value-for="character.opacity" data-digits="2"></output></span>
+            <input type="range" min="0" max="1" step="0.01" data-bind="character.opacity">
+          </label>
+
+          <div class="conditional-stack follow-feature" data-visible="loader.type:bar">
+            <div class="divider"></div>
+            <label class="check-row feature-check">
+              <input type="checkbox" data-bind="character.followProgress">
+              <span data-i18n="char.follow">讓角色跟著讀取條已填滿的前端移動</span>
+            </label>
+            <div class="conditional-stack follow-settings" data-visible="character.followProgress:true">
+              <div class="field">
+                <label data-i18n="char.followPlacement" for="followPlacement">相對於讀取條的位置</label>
+                <select id="followPlacement" data-bind="character.followPlacement">
+                  <option data-i18n="char.followPlacement.above" value="above">在條的上方移動</option>
+                  <option data-i18n="char.followPlacement.center" value="center">沿著條的中央移動</option>
+                  <option data-i18n="char.followPlacement.below" value="below">在條的下方移動</option>
+                </select>
+              </div>
+              <div class="control-grid two">
+                <label class="range-field">
+                  <span data-i18n-node="char.followGap">與條的間距 <output data-value-for="character.followGap" data-digits="0" data-suffix="px"></output></span>
+                  <input type="range" min="-40" max="100" step="1" data-bind="character.followGap">
+                </label>
+                <label class="range-field">
+                  <span data-i18n-node="char.followOffsetX">前後微調 <output data-value-for="character.followOffsetX" data-digits="0" data-suffix="px"></output></span>
+                  <input type="range" min="-120" max="120" step="1" data-bind="character.followOffsetX">
+                </label>
+              </div>
+              <label class="range-field">
+                <span data-i18n-node="char.followOffsetY">上下微調 <output data-value-for="character.followOffsetY" data-digits="0" data-suffix="px"></output></span>
+                <input type="range" min="-120" max="120" step="1" data-bind="character.followOffsetY">
+              </label>
+              <label class="check-row">
+                <input type="checkbox" data-bind="character.followSnapToSegments">
+                <span data-i18n="char.followSnap">格子、愛心、泡泡樣式時以格為單位跟隨</span>
+              </label>
+              <label class="check-row">
+                <input type="checkbox" data-bind="character.followKeepInside">
+                <span data-i18n="char.followKeepInside">進度起訖時不讓角色被畫布切掉</span>
+              </label>
+              <label class="check-row">
+                <input type="checkbox" data-bind="character.followFlipX">
+                <span data-i18n="char.followFlipX">前進時左右翻轉角色</span>
+              </label>
+              <p data-i18n="char.follow.hint" class="hint">沿用「進度讀取條」的線性、緩動、階梯與不規則進度。在預覽中拖曳可改變前後／上下的微調值。</p>
+            </div>
+          </div>
+
+          <div class="field">
+            <label data-i18n="char.motion" for="motionType">附加動作</label>
+            <select id="motionType" data-bind="character.motion">
+              <option data-i18n="char.motion.none" value="none">無</option>
+              <option data-i18n="char.motion.float" value="float">輕輕漂浮</option>
+              <option data-i18n="char.motion.bounce" value="bounce">上下彈跳</option>
+              <option data-i18n="char.motion.sway" value="sway">左右搖擺</option>
+              <option data-i18n="char.motion.squish" value="squish">軟綿擠壓</option>
+              <option data-i18n="char.motion.step" value="step">像素踏步</option>
+              <option data-i18n="char.motion.wiggle" value="wiggle">左右擺頭</option>
+            </select>
+          </div>
+          <div class="control-grid two">
+            <label class="range-field">
+              <span data-i18n-node="char.motionAmount">動作幅度 <output data-value-for="character.motionAmount" data-digits="0"></output></span>
+              <input type="range" min="0" max="30" step="1" data-bind="character.motionAmount">
+            </label>
+            <label class="range-field">
+              <span data-i18n-node="char.motionSpeed">動作速度 <output data-value-for="character.motionSpeed" data-digits="2" data-suffix="×"></output></span>
+              <input type="range" min="0" max="4" step="0.05" data-bind="character.motionSpeed">
+            </label>
+          </div>
+
+          <div class="divider"></div>
+          <label class="check-row">
+            <input type="checkbox" data-bind="character.useOriginalTiming">
+            <span data-i18n="char.useOriginalTiming">使用動畫檔原本的影格間隔</span>
+          </label>
+          <div class="control-grid two">
+            <label class="range-field">
+              <span data-i18n-node="char.speed">播放速度 <output data-value-for="character.speed" data-digits="2" data-suffix="×"></output></span>
+              <input type="range" min="0.1" max="4" step="0.05" data-bind="character.speed">
+            </label>
+            <label class="range-field">
+              <span data-i18n-node="char.frameFps">連續圖 FPS <output data-value-for="character.frameFps" data-digits="0"></output></span>
+              <input type="range" min="1" max="30" step="1" data-bind="character.frameFps">
+            </label>
+          </div>
+          <label class="check-row">
+            <input type="checkbox" data-bind="character.shadow">
+            <span data-i18n="char.shadow">角色陰影</span>
+          </label>
+          <div class="control-grid three">
+            <label class="mini-field"><span data-i18n="char.shadowColor">顏色</span><input type="color" data-bind="character.shadowColor"></label>
+            <label class="mini-field"><span data-i18n="char.shadowBlur">暈染</span><input type="number" min="0" max="80" step="1" data-bind="character.shadowBlur"></label>
+            <label class="mini-field"><span>Y</span><input type="number" min="-50" max="80" step="1" data-bind="character.shadowOffsetY"></label>
+          </div>
+          <p data-i18n="char.dragHint" class="hint">可以在預覽中直接拖曳角色來改變位置。</p>
+        </div>
+      </details>
+
+      <details class="panel" open>
+        <summary>
+          <span data-i18n-node="panel.canvas"><span class="eyebrow">CANVAS</span>畫布</span>
+          <span class="summary-icon">⌄</span>
+        </summary>
+        <div class="details-body">
+          <div class="field">
+            <label data-i18n="canvas.preset" for="sizePreset">常用尺寸</label>
+            <select id="sizePreset">
+              <option value="640x360">640 × 360 (16:9)</option>
+              <option value="800x450">800 × 450 (16:9)</option>
+              <option value="960x540">960 × 540 (16:9)</option>
+              <option data-i18n="canvas.preset.square" value="512x512">512 × 512（正方形）</option>
+              <option data-i18n="canvas.preset.custom" value="custom">自訂</option>
+            </select>
+          </div>
+          <div class="control-grid two">
+            <label class="mini-field"><span data-i18n="canvas.width">寬度</span><input type="number" min="64" max="1920" step="1" data-bind="canvas.width"></label>
+            <label class="mini-field"><span data-i18n="canvas.height">高度</span><input type="number" min="64" max="1920" step="1" data-bind="canvas.height"></label>
+          </div>
+          <label class="check-row">
+            <input type="checkbox" data-bind="canvas.transparent">
+            <span data-i18n="canvas.transparent">以透明背景輸出</span>
+          </label>
+          <label class="mini-field">
+            <span data-i18n="canvas.background">背景色</span>
+            <input type="color" data-bind="canvas.background">
+          </label>
+          <div class="divider"></div>
+          <div class="field">
+            <label data-i18n="canvas.snap">拖曳吸附</label>
+            <div class="control-grid two">
+              <label class="check-row"><input type="checkbox" data-bind="ui.snapToCanvas"><span data-i18n="canvas.snapToCanvas">對齊畫布</span></label>
+              <label class="check-row"><input type="checkbox" data-bind="ui.snapToElements"><span data-i18n="canvas.snapToElements">對齊其他元素</span></label>
+            </div>
+          </div>
+          <p data-i18n="canvas.snap.hint" class="hint">角色、讀取動畫、文字與進度數字都可以拖曳。吸附會對齊各元素的邊緣與中央。</p>
+          <p data-i18n="canvas.transparent.hint" class="hint">透明背景在 APNG／WebP 上最自然。GIF 會把半透明簡化為 1 位元透明度。</p>
+        </div>
+      </details>
+    </aside>
+
+    <section class="preview-column" data-i18n-aria-label="preview.aria" aria-label="預覽">
+      <div class="preview-card">
+        <div class="preview-toolbar">
+          <div>
+            <span class="eyebrow">LIVE PREVIEW</span>
+            <strong id="canvasSizeLabel">640 × 360px</strong>
+          </div>
+          <button data-i18n="preview.downloadPng" id="downloadPngButton" type="button" class="button ghost compact">目前影格 PNG</button>
+        </div>
+        <div id="canvasStage" class="canvas-stage is-transparent">
+          <canvas id="previewCanvas" width="640" height="360" data-i18n-aria-label="preview.canvas.aria" aria-label="動畫預覽"></canvas>
+          <div id="snapGuideX" class="snap-guide snap-guide-x" hidden aria-hidden="true"></div>
+          <div id="snapGuideY" class="snap-guide snap-guide-y" hidden aria-hidden="true"></div>
+        </div>
+        <div class="timeline-controls">
+          <button data-i18n="preview.pause" id="playPauseButton" type="button" class="button compact" aria-pressed="true">⏸ 暫停</button>
+          <input id="timeScrubber" type="range" min="0" max="1000" value="0" data-i18n-aria-label="preview.time.aria" aria-label="預覽時間">
+          <output id="timeLabel">0.00 / 4.35 秒</output>
+        </div>
+      </div>
+
+      <div class="status-card" aria-live="polite">
+        <div id="capabilityBadges" class="capability-badges"></div>
+        <p data-i18n="status.preparing" id="statusMessage" data-type="ready">編輯器準備中。</p>
+        <div id="workProgressWrap" class="work-progress" hidden>
+          <progress id="workProgress" max="1" value="0"></progress>
+          <span data-i18n="status.processing" id="workProgressText">處理中…</span>
+        </div>
+      </div>
+
+    </section>
+
+    <aside class="sidebar sidebar-right" data-i18n-aria-label="aside.right.aria" aria-label="讀取動畫、文字與輸出設定">
+      <details class="panel" open>
+        <summary>
+          <span data-i18n-node="panel.loader"><span class="eyebrow">LOADER</span>讀取動畫</span>
+          <span class="summary-icon">⌄</span>
+        </summary>
+        <div class="details-body">
+          <div class="field">
+            <label data-i18n="loader.type" for="loaderType">種類</label>
+            <select id="loaderType" data-bind="loader.type">
+              <option data-i18n="loader.type.bar" value="bar">進度讀取條</option>
+              <option data-i18n="loader.type.loop" value="loop">循環動畫</option>
+              <option data-i18n="loader.type.imageRow" value="image-row">圖片變換列</option>
+              <option data-i18n="loader.type.none" value="none">隱藏</option>
+            </select>
+          </div>
+          <div class="control-grid two" data-visible="loader.type:bar|loop|image-row">
+            <label class="range-field">
+              <span>X <output data-value-for="loader.x" data-digits="0" data-suffix="%"></output></span>
+              <input type="range" min="-20" max="120" step="1" data-bind="loader.x">
+            </label>
+            <label class="range-field">
+              <span>Y <output data-value-for="loader.y" data-digits="0" data-suffix="%"></output></span>
+              <input type="range" min="-20" max="120" step="1" data-bind="loader.y">
+            </label>
+          </div>
+
+          <div class="conditional-stack" data-visible="loader.type:bar">
+            <div class="field">
+              <label data-i18n="loader.barStyle" for="barStyle">條的樣式</label>
+              <select id="barStyle" data-bind="loader.barStyle">
+                <option data-i18n="loader.barStyle.rounded" value="rounded">圓角長條</option>
+                <option data-i18n="loader.barStyle.segmented" value="segmented">分段膠囊</option>
+                <option data-i18n="loader.barStyle.pixel" value="pixel">像素格</option>
+                <option data-i18n="loader.barStyle.hearts" value="hearts">愛心列</option>
+                <option data-i18n="loader.barStyle.bubbles" value="bubbles">泡泡列</option>
+              </select>
+            </div>
+            <div class="field">
+              <label data-i18n="loader.progressMode" for="progressMode">進度方式</label>
+              <select id="progressMode" data-bind="loader.progressMode">
+                <option data-i18n="progress.linear" value="linear">等速</option>
+                <option data-i18n="progress.smooth" value="smooth">平滑</option>
+                <option data-i18n="progress.easeIn" value="ease-in">漸漸加速</option>
+                <option data-i18n="progress.easeOut" value="ease-out">漸漸減速</option>
+                <option data-i18n="progress.easeInOut" value="ease-in-out">慢 → 快 → 慢</option>
+                <option data-i18n="progress.steps" value="steps">階梯式</option>
+                <option data-i18n="progress.bounce" value="bounce">彈跳感</option>
+                <option data-i18n="progress.irregular" value="irregular">不規則但持續增加</option>
+                <option data-i18n="progress.keyframes" value="keyframes">自訂時間與百分比區間</option>
+              </select>
+            </div>
+
+            <div class="conditional-stack" data-visible="loader.progressMode:linear|smooth|ease-in|ease-out|ease-in-out|steps|bounce|irregular">
+              <div class="control-grid two">
+                <label class="mini-field"><span data-i18n="loader.progressStart">起始 %</span><input type="number" min="0" max="100" step="1" data-bind="loader.progressStart"></label>
+                <label class="mini-field"><span data-i18n="loader.progressEnd">結束 %</span><input type="number" min="0" max="100" step="1" data-bind="loader.progressEnd"></label>
+              </div>
+            </div>
+
+            <div class="dynamic-editor timeline-editor" data-visible="loader.progressMode:keyframes">
+              <div class="dynamic-editor-heading">
+                <div>
+                  <strong data-i18n="keyframe.heading">進度區間時間表</strong>
+                  <span id="progressKeyframeCount">4 個節點</span>
+                </div>
+                <div class="inline-actions compact-actions">
+                  <button data-i18n="keyframe.reset" id="resetKeyframesButton" type="button" class="button ghost compact">還原為範例</button>
+                  <button data-i18n="keyframe.add" id="addKeyframeButton" type="button" class="button compact">＋ 新增節點</button>
+                </div>
+              </div>
+              <p data-i18n="keyframe.hint" class="hint">例如：第 1 秒 30%、第 2 秒 70%。第一個節點固定為 0 秒 0%，最後一個節點固定為 100%，每個區間的緩動可以分別選擇。</p>
+              <div id="progressKeyframeEditor" class="keyframe-list" data-i18n-aria-label="keyframe.editor.aria" aria-label="進度區間時間表"></div>
+              <div id="progressKeyframeSummary" class="editor-summary"></div>
+            </div>
+
+            <div class="control-grid two">
+              <label class="range-field">
+                <span data-i18n-node="loader.width">寬度 <output data-value-for="loader.width" data-digits="0" data-suffix="%"></output></span>
+                <input type="range" min="5" max="100" step="1" data-bind="loader.width">
+              </label>
+              <label class="range-field">
+                <span data-i18n-node="loader.height">高度 <output data-value-for="loader.height" data-digits="1" data-suffix="%"></output></span>
+                <input type="range" min="1" max="20" step="0.5" data-bind="loader.height">
+              </label>
+            </div>
+
+            <div class="dynamic-editor fill-editor">
+              <div class="dynamic-editor-heading">
+                <div>
+                  <strong data-i18n="fill.heading">填滿顏色</strong>
+                  <span data-i18n="fill.subheading">單色或最多 7 色漸層</span>
+                </div>
+              </div>
+              <div class="field">
+                <label data-i18n="fill.mode" for="fillMode">填滿方式</label>
+                <select id="fillMode" data-bind="loader.fillMode">
+                  <option data-i18n="fill.mode.solid" value="solid">單色</option>
+                  <option data-i18n="fill.mode.gradient" value="gradient">漸層</option>
+                </select>
+              </div>
+              <div data-visible="loader.fillMode:solid">
+                <label class="mini-field"><span data-i18n="fill.color">填滿色</span><input type="color" data-bind="loader.fillColor"></label>
+              </div>
+              <div class="conditional-stack" data-visible="loader.fillMode:gradient">
+                <div class="dynamic-editor-heading nested-heading">
+                  <span id="gradientStopCount">顏色 3/7</span>
+                  <button data-i18n="gradient.add" id="addGradientStopButton" type="button" class="button compact">＋ 新增顏色</button>
+                </div>
+                <div id="gradientStopsEditor" class="gradient-stop-list" data-i18n-aria-label="gradient.editor.aria" aria-label="漸層顏色清單"></div>
+                <div class="control-grid two">
+                  <label class="range-field">
+                    <span data-i18n-node="gradient.angle">角度 <output data-value-for="loader.gradientAngle" data-digits="0" data-suffix="°"></output></span>
+                    <input type="range" min="-180" max="180" step="1" data-bind="loader.gradientAngle">
+                  </label>
+                  <label class="range-field">
+                    <span data-i18n-node="gradient.blur">顏色暈染 <output data-value-for="loader.gradientBlur" data-digits="0" data-suffix="px"></output></span>
+                    <input type="range" min="0" max="40" step="1" data-bind="loader.gradientBlur">
+                  </label>
+                </div>
+                <label class="check-row feature-check">
+                  <input type="checkbox" data-bind="loader.gradientAnimate">
+                  <span data-i18n="gradient.animate">讓漸層顏色流動</span>
+                </label>
+                <div class="control-grid two" data-visible="loader.gradientAnimate:true">
+                  <label class="range-field">
+                    <span data-i18n-node="gradient.speed">流動速度 <output data-value-for="loader.gradientSpeed" data-digits="2" data-suffix-key="unit.perSecond"></output></span>
+                    <input type="range" min="0.02" max="2" step="0.02" data-bind="loader.gradientSpeed">
+                  </label>
+                  <label class="mini-field">
+                    <span data-i18n="gradient.direction">流動方向</span>
+                    <select data-bind="loader.gradientDirection" data-type="number">
+                      <option data-i18n="gradient.direction.forward" value="1">正向</option>
+                      <option data-i18n="gradient.direction.reverse" value="-1">反向</option>
+                    </select>
+                  </label>
+                </div>
+                <p data-i18n="gradient.blur.hint" class="hint">顏色暈染與單色發光不同，會直接把實際的漸層顏色暈開。</p>
+              </div>
+            </div>
+
+            <div class="control-grid three">
+              <label class="mini-field"><span data-i18n="loader.trackColor">空條</span><input type="color" data-bind="loader.trackColor"></label>
+              <label class="mini-field"><span data-i18n="loader.borderColor">邊框</span><input type="color" data-bind="loader.borderColor"></label>
+              <label class="range-field">
+                <span data-i18n-node="loader.borderWidth">邊框 <output data-value-for="loader.borderWidth" data-digits="0" data-suffix="px"></output></span>
+                <input type="range" min="0" max="8" step="1" data-bind="loader.borderWidth">
+              </label>
+            </div>
+            <label class="check-row feature-check" data-visible="loader.barStyle:rounded">
+              <input type="checkbox" data-bind="loader.trackShimmer">
+              <span data-i18n="loader.trackShimmer">空條上的白色流光</span>
+            </label>
+            <label class="range-field">
+              <span data-i18n-node="loader.segments">格數 <output data-value-for="loader.segments" data-digits="0"></output></span>
+              <input type="range" min="2" max="30" step="1" data-bind="loader.segments">
+            </label>
+            <div class="inline-actions">
+              <label class="mini-field grow"><span data-i18n="loader.seed">不規則與演出亂數種子</span><input type="number" min="1" max="99999" step="1" data-bind="loader.seed"></label>
+              <button data-i18n="action.newPattern" id="randomizeSeedButton" type="button" class="button compact">換一組</button>
+            </div>
+            <label class="check-row">
+              <input type="checkbox" data-bind="loader.showPercent">
+              <span data-i18n="loader.showPercent">顯示進度數字</span>
+            </label>
+            <div class="conditional-stack follow-settings" data-visible="loader.showPercent:true">
+              <div class="control-grid two">
+                <label class="range-field">
+                  <span data-i18n-node="loader.percentOffsetX">數字 X 微調 <output data-value-for="loader.percentOffsetX" data-digits="0" data-suffix="px"></output></span>
+                  <input type="range" min="-320" max="320" step="1" data-bind="loader.percentOffsetX">
+                </label>
+                <label class="range-field">
+                  <span data-i18n-node="loader.percentOffsetY">數字 Y 微調 <output data-value-for="loader.percentOffsetY" data-digits="0" data-suffix="px"></output></span>
+                  <input type="range" min="-240" max="240" step="1" data-bind="loader.percentOffsetY">
+                </label>
+              </div>
+              <button data-i18n="loader.percentReset" id="resetPercentPositionButton" type="button" class="button ghost compact">重設數字位置</button>
+            </div>
+
+            <div class="divider"></div>
+            <div class="dynamic-editor entrance-editor">
+              <div class="dynamic-editor-heading">
+                <div>
+                  <strong data-i18n="fadeIn.heading">開場淡入</strong>
+                  <span data-i18n="fadeIn.subheading">整個畫面出現後才開始跑讀取進度。</span>
+                </div>
+                <button data-i18n="fadeIn.preview" id="previewFadeInButton" type="button" class="button ghost compact">預覽開場</button>
+              </div>
+              <label class="check-row feature-check">
+                <input type="checkbox" data-bind="loader.fadeIn">
+                <span data-i18n="fadeIn.enable">開場時使用淡入</span>
+              </label>
+              <div class="control-grid" data-visible="loader.fadeIn:true">
+                <label class="mini-field"><span data-i18n="fadeIn.duration">淡入時間（秒）</span><input type="number" min="0.1" max="10" step="0.05" data-bind="loader.fadeInDuration"></label>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+            <div class="dynamic-editor completion-editor">
+              <div class="dynamic-editor-heading">
+                <div>
+                  <strong data-i18n="completion.heading">100% 完成後</strong>
+                  <span data-i18n="completion.subheading">停留一段時間後，用結尾演出讓整個畫面消失。</span>
+                </div>
+                <button data-i18n="completion.preview" id="previewCompletionButton" type="button" class="button ghost compact">預覽結尾</button>
+              </div>
+              <div class="control-grid two">
+                <label class="mini-field"><span data-i18n="completion.delay">100% 停留時間（秒）</span><input type="number" min="0" max="20" step="0.05" data-bind="loader.completionDelay"></label>
+                <label class="mini-field">
+                  <span data-i18n="completion.motion">結尾動作</span>
+                  <select data-bind="loader.completionMotion">
+                    <option data-i18n="completion.motion.none" value="none">無</option>
+                    <option data-i18n="completion.motion.fade" value="fade">1. 平順淡出</option>
+                    <option data-i18n="completion.motion.sparkle" value="sparkle">2. 閃爍後消失</option>
+                    <option data-i18n="completion.motion.glitch" value="glitch">3. 伴隨雜訊消失</option>
+                    <option data-i18n="completion.motion.shards" value="shards">4. 碎片四散</option>
+                    <option data-i18n="completion.motion.pixelDissolve" value="pixel-dissolve">5. 以像素為單位消融</option>
+                    <option data-i18n="completion.motion.shrinkPop" value="shrink-pop">6. 彈跳後縮小</option>
+                    <option data-i18n="completion.motion.slideUp" value="slide-up">7. 向上飄升消失</option>
+                    <option data-i18n="completion.motion.wipe" value="wipe">8. 向中央抹除消失</option>
+                    <option data-i18n="completion.motion.spinVanish" value="spin-vanish">9. 旋轉並縮小</option>
+                    <option data-i18n="completion.motion.burst" value="burst">10. 伴隨光芒炸開消失</option>
+                  </select>
+                </label>
+              </div>
+              <div class="control-grid two" data-visible="loader.completionMotion:fade|sparkle|glitch|shards|pixel-dissolve|shrink-pop|slide-up|wipe|spin-vanish|burst">
+                <label class="mini-field"><span data-i18n="completion.motionDuration">動作時間（秒）</span><input type="number" min="0.1" max="10" step="0.05" data-bind="loader.completionMotionDuration"></label>
+                <label class="range-field">
+                  <span data-i18n-node="completion.intensity">演出強度 <output data-value-for="loader.completionIntensity" data-digits="2" data-suffix="×"></output></span>
+                  <input type="range" min="0.25" max="2.5" step="0.05" data-bind="loader.completionIntensity">
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="conditional-stack" data-visible="loader.type:image-row">
+            <div class="field">
+              <label data-i18n="row.baseMode" for="rowBaseMode">變換前的基本狀態</label>
+              <select id="rowBaseMode" data-bind="loader.rowBaseMode">
+                <option data-i18n="row.baseMode.shape" value="shape">各位置的一般圖形</option>
+                <option data-i18n="row.baseMode.images" value="images">上傳的圖片組</option>
+              </select>
+            </div>
+
+            <div class="dynamic-editor image-row-editor" data-visible="loader.rowBaseMode:images">
+              <div class="dynamic-editor-heading">
+                <div>
+                  <strong data-i18n="row.baseImages.heading">變換前的圖片組</strong>
+                  <span data-i18n="row.baseImages.subheading">登錄多張圖片，取代基本圖形作為一開始顯示的內容。</span>
+                </div>
+              </div>
+              <div id="rowBaseImageDropZone" class="drop-zone compact-drop-zone" role="button" tabindex="0">
+                <div class="drop-icon" aria-hidden="true">↥</div>
+                <strong data-i18n="row.drop.formats">PNG · JPG · WebP · AVIF 圖片</strong>
+                <span data-i18n="row.drop.hint">依檔名自然排序 · 重新選擇會取代目前的圖片組</span>
+                <button data-i18n="row.baseImages.choose" id="chooseRowBaseImagesButton" type="button" class="button compact">選擇變換前的圖片</button>
+                <input id="rowBaseImageFiles" type="file" accept=".png,.jpg,.jpeg,.webp,.avif,.bmp,image/png,image/jpeg,image/webp,image/avif,image/bmp" multiple hidden>
+              </div>
+              <div id="rowBaseImageInfo" class="source-info">
+                <strong data-i18n="row.baseImages.empty">尚未登錄變換前的圖片</strong>
+                <span data-i18n="row.baseImages.emptyHint">沒有圖片時會使用各位置的基本圖形。</span>
+              </div>
+              <div class="control-grid two">
+                <label class="mini-field">
+                  <span data-i18n="row.baseImageOrder">變換前圖片的排列</span>
+                  <select data-bind="loader.rowBaseImageOrder">
+                    <option data-i18n="row.imageOrder.sequential" value="sequential">依檔案順序重複</option>
+                    <option data-i18n="row.imageOrder.alternating" value="alternating">來回往返</option>
+                    <option data-i18n="row.imageOrder.random" value="random">亂數種子隨機</option>
+                  </select>
+                </label>
+                <label class="mini-field">
+                  <span data-i18n="row.baseImageFit">變換前圖片的縮放</span>
+                  <select data-bind="loader.rowBaseImageFit">
+                    <option data-i18n="row.imageFit.contain" value="contain">完整顯示整張圖</option>
+                    <option data-i18n="row.imageFit.cover" value="cover">填滿圖形範圍</option>
+                  </select>
+                </label>
+              </div>
+              <button data-i18n="row.baseImages.clear" id="clearRowBaseImagesButton" type="button" class="button ghost full">移除所有變換前的圖片</button>
+            </div>
+
+            <div class="dynamic-editor image-row-editor">
+              <div class="dynamic-editor-heading">
+                <div>
+                  <strong data-i18n="row.images.heading">變換後的圖片組</strong>
+                  <span data-i18n="row.images.subheading">登錄靜態圖片，讓基本狀態依序變換成這些圖片。</span>
+                </div>
+              </div>
+              <div id="rowImageDropZone" class="drop-zone compact-drop-zone" role="button" tabindex="0">
+                <div class="drop-icon" aria-hidden="true">↥</div>
+                <strong data-i18n="row.drop.formats">PNG · JPG · WebP · AVIF 圖片</strong>
+                <span data-i18n="row.drop.hint">依檔名自然排序 · 重新選擇會取代目前的圖片組</span>
+                <button data-i18n="row.images.choose" id="chooseRowImagesButton" type="button" class="button compact">選擇變換後的圖片</button>
+                <input id="rowImageFiles" type="file" accept=".png,.jpg,.jpeg,.webp,.avif,.bmp,image/png,image/jpeg,image/webp,image/avif,image/bmp" multiple hidden>
+              </div>
+              <div id="rowImageInfo" class="source-info">
+                <strong data-i18n="row.images.empty">尚未登錄變換後的圖片</strong>
+                <span data-i18n="row.images.emptyHint">沒有圖片時會以強調色圖形預覽變換順序。</span>
+              </div>
+              <button data-i18n="row.images.clear" id="clearRowImagesButton" type="button" class="button ghost full">移除所有變換後的圖片</button>
+            </div>
+
+            <div class="control-grid two">
+              <label class="mini-field">
+                <span data-i18n="row.mode">播放型態</span>
+                <select id="rowMode" data-bind="loader.rowMode">
+                  <option data-i18n="row.mode.progress" value="progress">進度型 · 全部變換完就結束</option>
+                  <option data-i18n="row.mode.loop" value="loop">循環型 · 回到起始狀態</option>
+                </select>
+              </label>
+              <label class="mini-field">
+                <span data-i18n="row.startPattern">奇偶格的起始狀態</span>
+                <select id="rowStartPattern" data-bind="loader.rowStartPattern">
+                  <option data-i18n="row.startPattern.allBase" value="all-base">全部從基本狀態開始</option>
+                  <option data-i18n="row.startPattern.oddBase" value="odd-base">奇數基本 · 偶數變換後</option>
+                  <option data-i18n="row.startPattern.oddImage" value="odd-image">奇數變換後 · 偶數基本</option>
+                </select>
+              </label>
+            </div>
+            <p data-i18n="row.startPattern.hint" class="hint">選擇奇偶交替時，第 1·3·5 格與第 2·4·6 格會以相反狀態開始並依序互換。循環型會回到一開始的奇偶排列。</p>
+            <div class="control-grid two">
+              <label class="range-field">
+                <span data-i18n-node="row.count">格數 <output data-value-for="loader.rowCount" data-digits="0"></output></span>
+                <input type="range" min="1" max="30" step="1" data-bind="loader.rowCount">
+              </label>
+              <label class="range-field">
+                <span data-i18n-node="row.length">整列長度 <output data-value-for="loader.rowLength" data-digits="0" data-suffix="%"></output></span>
+                <input type="range" min="8" max="120" step="1" data-bind="loader.rowLength">
+              </label>
+              <label class="range-field">
+                <span data-i18n-node="row.size">圖形與圖片大小 <output data-value-for="loader.rowSize" data-digits="0" data-suffix="px"></output></span>
+                <input type="range" min="4" max="64" step="1" data-bind="loader.rowSize">
+              </label>
+              <label class="mini-field">
+                <span data-i18n="row.imageFit">變換後圖片的縮放</span>
+                <select data-bind="loader.rowImageFit">
+                  <option data-i18n="row.imageFit.contain" value="contain">完整顯示整張圖</option>
+                  <option data-i18n="row.imageFit.cover" value="cover">填滿圖形範圍</option>
+                </select>
+              </label>
+            </div>
+            <p data-i18n="row.size.hint" class="hint">為了避免格子重疊，必要時大小會自動縮小。整列可以在預覽中拖曳移動。</p>
+
+            <div class="control-grid two">
+              <label class="mini-field">
+                <span data-i18n="row.order">變換順序</span>
+                <select data-bind="loader.rowOrder">
+                  <option data-i18n="row.order.sequential" value="sequential">從左到右依序</option>
+                  <option data-i18n="row.order.alternating" value="alternating">兩端交替</option>
+                  <option data-i18n="row.imageOrder.random" value="random">亂數種子隨機</option>
+                </select>
+              </label>
+              <label class="mini-field">
+                <span data-i18n="row.imageOrder">變換後圖片的排列</span>
+                <select data-bind="loader.rowImageOrder">
+                  <option data-i18n="row.imageOrder.sequential" value="sequential">依檔案順序重複</option>
+                  <option data-i18n="row.imageOrder.alternating" value="alternating">來回往返</option>
+                  <option data-i18n="row.imageOrder.random" value="random">亂數種子隨機</option>
+                </select>
+              </label>
+            </div>
+            <div id="rowRandomRepeatsWrap" class="conditional-stack">
+              <label class="range-field">
+                <span data-i18n-node="row.randomRepeats">隨機圖樣重複次數 <output data-value-for="loader.rowRandomRepeats" data-digits="0" data-suffix-key="unit.times"></output></span>
+                <input type="range" min="1" max="12" step="1" data-bind="loader.rowRandomRepeats">
+              </label>
+              <div class="inline-actions">
+                <label class="mini-field grow"><span data-i18n="row.seed">隨機種子</span><input type="number" min="1" max="99999" step="1" data-bind="loader.seed"></label>
+                <button data-i18n="action.newPattern" id="randomizeRowSeedButton" type="button" class="button compact">換一組</button>
+              </div>
+              <p data-i18n="row.random.hint" class="hint">變換順序每一輪都會把格子重新洗牌且不重複；圖片排列在用完全部檔案後，會以新的順序再洗牌重複。進度型會停在最後的變換狀態，循環型則每次都回到所選的起始排列。</p>
+            </div>
+
+            <div class="control-grid three">
+              <label class="mini-field"><span data-i18n="row.baseColor">基本圖形與替代色</span><input type="color" data-bind="loader.trackColor"></label>
+              <label class="mini-field"><span data-i18n="row.fillColor">變換後圖片的替代色</span><input type="color" data-bind="loader.fillColor"></label>
+              <label class="mini-field"><span data-i18n="loader.borderColor">邊框</span><input type="color" data-bind="loader.borderColor"></label>
+            </div>
+            <label class="range-field">
+              <span data-i18n-node="row.borderWidth">邊框粗細 <output data-value-for="loader.borderWidth" data-digits="0" data-suffix="px"></output></span>
+              <input type="range" min="0" max="8" step="1" data-bind="loader.borderWidth">
+            </label>
+
+            <div class="dynamic-editor row-shape-editor">
+              <div class="dynamic-editor-heading">
+                <div>
+                  <strong data-i18n="rowShape.heading">各位置的基本圖形</strong>
+                  <span id="rowShapeCount">8 個位置 · 沒有圖片或填滿時使用</span>
+                </div>
+              </div>
+              <div class="row-shape-toolbar">
+                <label class="mini-field grow"><span data-i18n="rowShape.applyAll.label">統一套用同一種圖形</span>
+                  <select id="rowShapeAll">
+                    <option data-i18n="shape.circle" value="circle">圓形</option>
+                    <option data-i18n="shape.square" value="square">方形</option>
+                    <option data-i18n="shape.diamond" value="diamond">菱形</option>
+                    <option data-i18n="shape.triangle" value="triangle">三角形</option>
+                    <option data-i18n="shape.star" value="star">星形</option>
+                    <option data-i18n="shape.heart" value="heart">愛心</option>
+                    <option data-i18n="shape.hexagon" value="hexagon">六角形</option>
+                  </select>
+                </label>
+                <button data-i18n="rowShape.applyAll" id="applyRowShapeButton" type="button" class="button compact">全部套用</button>
+              </div>
+              <div id="rowShapeEditor" class="row-shape-list" data-i18n-aria-label="rowShape.editor.aria" aria-label="各位置的基本圖形清單"></div>
+            </div>
+            <p data-i18n="row.mode.hint" class="hint">若想讓進度型只播放一次就結束，請在輸出設定中把重複次數指定為有限值。</p>
+          </div>
+
+          <div class="conditional-stack" data-visible="loader.type:loop">
+            <div class="field">
+              <label data-i18n="loop.style" for="loopStyle">組成圖形</label>
+              <select id="loopStyle" data-bind="loader.loopStyle">
+                <option data-i18n="loop.style.dots" value="dots">圓點</option>
+                <option data-i18n="loop.style.bubbles" value="bubbles">泡泡</option>
+                <option data-i18n="loop.style.stars" value="stars">星星</option>
+                <option data-i18n="loop.style.petals" value="petals">花瓣</option>
+                <option data-i18n="loop.style.squares" value="squares">方塊</option>
+                <option data-i18n="loop.style.hearts" value="hearts">愛心</option>
+                <option data-i18n="loop.style.ring" value="ring">圓弧</option>
+              </select>
+            </div>
+            <div class="control-grid two">
+              <label class="range-field">
+                <span data-i18n-node="loop.count">元素數量 <output data-value-for="loader.loopCount" data-digits="0"></output></span>
+                <input type="range" min="3" max="24" step="1" data-bind="loader.loopCount">
+              </label>
+              <label class="range-field">
+                <span data-i18n-node="loop.radius">半徑 <output data-value-for="loader.loopRadius" data-digits="0" data-suffix="px"></output></span>
+                <input type="range" min="6" max="90" step="1" data-bind="loader.loopRadius">
+              </label>
+              <label class="range-field">
+                <span data-i18n-node="loop.size">圖形大小 <output data-value-for="loader.loopSize" data-digits="0" data-suffix="px"></output></span>
+                <input type="range" min="2" max="30" step="1" data-bind="loader.loopSize">
+              </label>
+              <label class="range-field">
+                <span data-i18n-node="loop.speed">旋轉速度 <output data-value-for="loader.loopSpeed" data-digits="2" data-suffix="×"></output></span>
+                <input type="range" min="0.05" max="4" step="0.05" data-bind="loader.loopSpeed">
+              </label>
+            </div>
+            <div class="field">
+              <label data-i18n="loop.direction" for="loopDirection">旋轉方向</label>
+              <select id="loopDirection" data-bind="loader.loopDirection" data-type="number">
+                <option data-i18n="loop.direction.cw" value="1">順時針</option>
+                <option data-i18n="loop.direction.ccw" value="-1">逆時針</option>
+              </select>
+            </div>
+            <div class="control-grid two">
+              <label class="check-row"><input type="checkbox" data-bind="loader.loopTrail"><span data-i18n="loop.trail">殘影濃度</span></label>
+              <label class="check-row"><input type="checkbox" data-bind="loader.loopPulse"><span data-i18n="loop.pulse">大小脈動</span></label>
+            </div>
+            <button data-i18n="loop.fitSeamless" id="fitSeamlessLoopButton" type="button" class="button primary full">自動裁成無縫長度</button>
+            <p data-i18n="loop.fitSeamless.hint" class="hint">會對齊到目前長度內最後一個完整旋轉的位置。這只保證讀取動畫的旋轉無縫，角色動畫的循環點請另行調整。</p>
+            <div class="control-grid two">
+              <label class="mini-field"><span data-i18n="loop.trackColor">基本色</span><input type="color" data-bind="loader.trackColor"></label>
+              <label class="mini-field"><span data-i18n="loop.fillColor">強調色</span><input type="color" data-bind="loader.fillColor"></label>
+            </div>
+          </div>
+
+          <div data-visible="loader.type:bar|loop|image-row">
+            <label class="check-row"><input type="checkbox" data-bind="loader.glow"><span data-i18n="loader.glow">發光效果</span></label>
+            <div class="control-grid two">
+              <label class="mini-field"><span data-i18n="loader.glowColor">發光色</span><input type="color" data-bind="loader.glowColor"></label>
+              <label class="range-field">
+                <span data-i18n-node="loader.glowBlur">暈染 <output data-value-for="loader.glowBlur" data-digits="0" data-suffix="px"></output></span>
+                <input type="range" min="0" max="50" step="1" data-bind="loader.glowBlur">
+              </label>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel" open>
+        <summary>
+          <span data-i18n-node="panel.text"><span class="eyebrow">TEXT</span>文字與字型</span>
+          <span class="summary-icon">⌄</span>
+        </summary>
+        <div class="details-body">
+          <div class="font-upload-row">
+            <button data-i18n="font.load" id="chooseFontButton" type="button" class="button compact">載入本機字型</button>
+            <input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/*" hidden>
+            <span data-i18n="font.info.default" id="fontInfo">可以使用系統字型或上傳的字型。</span>
+          </div>
+
+          <fieldset class="text-settings">
+            <legend><label class="check-row"><input type="checkbox" data-bind="text.top.enabled"><span data-i18n="text.top">上方文字</span></label></legend>
+            <textarea rows="2" data-bind="text.top.text" data-i18n-aria-label="text.top" aria-label="上方文字"></textarea>
+            <label class="mini-field"><span data-i18n="text.fontFamily">字型名稱／CSS 字型串</span><input type="text" list="fontSuggestions" data-bind="text.top.fontFamily"></label>
+            <div class="control-grid two">
+              <label class="range-field"><span>X <output data-value-for="text.top.x" data-digits="0" data-suffix="%"></output></span><input type="range" min="-20" max="120" step="1" data-bind="text.top.x"></label>
+              <label class="range-field"><span>Y <output data-value-for="text.top.y" data-digits="0" data-suffix="%"></output></span><input type="range" min="0" max="100" step="1" data-bind="text.top.y"></label>
+              <label class="range-field"><span data-i18n-node="text.fontSize">大小 <output data-value-for="text.top.fontSize" data-digits="0" data-suffix="px"></output></span><input type="range" min="8" max="80" step="1" data-bind="text.top.fontSize"></label>
+              <label class="range-field"><span data-i18n-node="text.fontWeight">粗細 <output data-value-for="text.top.fontWeight" data-digits="0"></output></span><input type="range" min="100" max="900" step="50" data-bind="text.top.fontWeight"></label>
+              <label class="range-field"><span data-i18n-node="text.letterSpacing">字距 <output data-value-for="text.top.letterSpacing" data-digits="1" data-suffix="px"></output></span><input type="range" min="-2" max="12" step="0.5" data-bind="text.top.letterSpacing"></label>
+              <label class="range-field"><span data-i18n-node="text.rotation">旋轉 <output data-value-for="text.top.rotation" data-digits="0" data-suffix="°"></output></span><input type="range" min="-180" max="180" step="1" data-bind="text.top.rotation"></label>
+            </div>
+            <div class="control-grid three">
+              <label class="mini-field"><span data-i18n="text.color">文字色</span><input type="color" data-bind="text.top.color"></label>
+              <label class="mini-field"><span data-i18n="text.strokeColor">外框色</span><input type="color" data-bind="text.top.strokeColor"></label>
+              <label class="mini-field"><span data-i18n="text.strokeWidth">外框</span><input type="number" min="0" max="20" step="1" data-bind="text.top.strokeWidth"></label>
+            </div>
+          </fieldset>
+
+          <fieldset class="text-settings">
+            <legend><label class="check-row"><input type="checkbox" data-bind="text.bottom.enabled"><span data-i18n="text.bottom">下方文字</span></label></legend>
+            <textarea rows="2" data-bind="text.bottom.text" data-i18n-aria-label="text.bottom" aria-label="下方文字"></textarea>
+            <label class="mini-field"><span data-i18n="text.fontFamily">字型名稱／CSS 字型串</span><input type="text" list="fontSuggestions" data-bind="text.bottom.fontFamily"></label>
+            <div class="control-grid two">
+              <label class="range-field"><span>X <output data-value-for="text.bottom.x" data-digits="0" data-suffix="%"></output></span><input type="range" min="-20" max="120" step="1" data-bind="text.bottom.x"></label>
+              <label class="range-field"><span>Y <output data-value-for="text.bottom.y" data-digits="0" data-suffix="%"></output></span><input type="range" min="0" max="100" step="1" data-bind="text.bottom.y"></label>
+              <label class="range-field"><span data-i18n-node="text.fontSize">大小 <output data-value-for="text.bottom.fontSize" data-digits="0" data-suffix="px"></output></span><input type="range" min="8" max="80" step="1" data-bind="text.bottom.fontSize"></label>
+              <label class="range-field"><span data-i18n-node="text.fontWeight">粗細 <output data-value-for="text.bottom.fontWeight" data-digits="0"></output></span><input type="range" min="100" max="900" step="50" data-bind="text.bottom.fontWeight"></label>
+              <label class="range-field"><span data-i18n-node="text.letterSpacing">字距 <output data-value-for="text.bottom.letterSpacing" data-digits="1" data-suffix="px"></output></span><input type="range" min="-2" max="12" step="0.5" data-bind="text.bottom.letterSpacing"></label>
+              <label class="range-field"><span data-i18n-node="text.rotation">旋轉 <output data-value-for="text.bottom.rotation" data-digits="0" data-suffix="°"></output></span><input type="range" min="-180" max="180" step="1" data-bind="text.bottom.rotation"></label>
+            </div>
+            <div class="control-grid three">
+              <label class="mini-field"><span data-i18n="text.color">文字色</span><input type="color" data-bind="text.bottom.color"></label>
+              <label class="mini-field"><span data-i18n="text.strokeColor">外框色</span><input type="color" data-bind="text.bottom.strokeColor"></label>
+              <label class="mini-field"><span data-i18n="text.strokeWidth">外框</span><input type="number" min="0" max="20" step="1" data-bind="text.bottom.strokeWidth"></label>
+            </div>
+          </fieldset>
+          <datalist id="fontSuggestions">
+            <option value="Arial, sans-serif"></option>
+            <option value="'Malgun Gothic', sans-serif"></option>
+            <option value="'Noto Sans KR', sans-serif"></option>
+            <option value="'Nanum Gothic', sans-serif"></option>
+            <option value="monospace"></option>
+            <option value="serif"></option>
+          </datalist>
+        </div>
+      </details>
+
+      <details class="panel export-panel" open>
+        <summary>
+          <span data-i18n-node="panel.export"><span class="eyebrow">EXPORT</span>動畫輸出</span>
+          <span class="summary-icon">⌄</span>
+        </summary>
+        <div class="details-body">
+          <div class="control-grid two">
+            <label id="progressDurationField" class="mini-field"><span id="durationInputLabel">到達 100% 的時間（秒）</span><input type="number" min="0.25" max="120" step="any" data-bind="timing.duration"></label>
+            <div id="keyframeDurationField" class="mini-readout" hidden><span data-i18n="duration.keyframeLabel">到達 100% 的時間</span><strong id="keyframeDurationValue">3.00 秒</strong></div>
+            <label class="mini-field"><span data-i18n="export.previewSpeed">預覽速度</span><input type="number" min="0.1" max="4" step="0.1" data-bind="timing.previewSpeed"></label>
+          </div>
+          <div id="durationBreakdown" class="duration-breakdown"></div>
+          <div class="control-grid two">
+            <label class="mini-field">
+              <span data-i18n="export.format">格式</span>
+              <select data-bind="export.format">
+                <option value="apng">APNG</option>
+                <option value="webp">Animated WebP</option>
+                <option value="gif">GIF</option>
+              </select>
+            </label>
+            <label class="mini-field"><span>FPS</span><input type="number" min="2" max="60" step="1" data-bind="export.fps"></label>
+          </div>
+          <label class="range-field" data-visible="export.format:webp">
+            <span data-i18n-node="export.quality">WebP 品質 <output data-value-for="export.quality" data-digits="2"></output></span>
+            <input type="range" min="0.1" max="1" step="0.01" data-bind="export.quality">
+          </label>
+          <label class="range-field" data-visible="export.format:gif">
+            <span data-i18n-node="export.gifAlpha">GIF 透明判定 <output data-value-for="export.gifAlphaThreshold" data-digits="0"></output></span>
+            <input type="range" min="0" max="254" step="1" data-bind="export.gifAlphaThreshold">
+          </label>
+          <div class="control-grid two">
+            <label class="mini-field"><span data-i18n="export.loopCount">重複次數</span><input type="number" min="0" max="65535" step="1" data-bind="export.loopCount"></label>
+            <label class="mini-field"><span data-i18n="export.fileName">檔案名稱</span><input type="text" data-bind="export.fileName"></label>
+          </div>
+          <p data-i18n="export.hint" class="hint">重複次數 0 代表無限重複。APNG 會以 PNG 副檔名儲存。</p>
+          <div id="exportEstimate" class="estimate"></div>
+          <div class="export-actions">
+            <button id="exportButton" type="button" class="button export-button"><span id="exportButtonLabel">製作 APNG</span></button>
+            <button data-i18n="action.cancel" id="cancelExportButton" type="button" class="button danger" hidden>取消</button>
+          </div>
+          <label class="check-row project-assets-option">
+            <input type="checkbox" data-bind="ui.includeAssetsInProject">
+            <span data-i18n="export.includeAssets">專案 JSON 中包含角色、變換前後的圖片與字型</span>
+          </label>
+        </div>
+      </details>
+    </aside>
+  </main>
+
+  <footer class="app-footer">
+    <span data-i18n="footer.local">所有合成與編碼都在瀏覽器內完成。</span>
+    <span data-i18n="footer.stack">Vanilla JavaScript · 可靜態部署</span>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/pako@0.2.9/dist/pako.min.js"></script>
+  <script src="../../assets/i18n.js"></script>
+  <script src="./i18n.loading-maker.js"></script>
+  <script src="js/utils.js?v=20260904-apng-fallback"></script>
+  <script src="js/state.js?v=20260904-apng-fallback"></script>
+  <script src="js/decoders.js?v=20260904-apng-fallback"></script>
+  <script src="js/media.js?v=20260904-apng-fallback"></script>
+  <script src="js/renderer.js?v=20260904-apng-fallback"></script>
+  <script src="js/exporters.js?v=20260904-apng-fallback"></script>
+  <script src="js/app.js?v=20260904-apng-fallback"></script>
+</body>
+</html>
