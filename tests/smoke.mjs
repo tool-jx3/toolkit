@@ -310,6 +310,61 @@ for (const locale of ['zh-TW', 'ko']) {
   check(`${locale} 每個分類都有顯示名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
 
+/* ---- loading-maker ---- */
+const lm = checkTool({
+  dir: 'tools/loading-maker',
+  dict: 'i18n.loading-maker.js',
+  scripts: ['js/app.js', 'js/decoders.js', 'js/exporters.js', 'js/media.js', 'js/renderer.js', 'js/state.js', 'js/utils.js'],
+  styles: ['css/styles.css'],
+  minHooks: 250,
+  licence: false
+});
+
+/* loading-maker 無原始 LICENSE，與 emotion-maker 同為未授權收錄，於
+ * ATTRIBUTION.md 標示。此處單獨確認其確實沒有。 */
+section('tools/loading-maker licence');
+check('loading-maker 無原始 LICENSE（未授權，於 ATTRIBUTION.md 標示）',
+  !exists('tools/loading-maker/LICENSE'));
+check('保留第三方元件聲明（CDN 載入的 pako）',
+  read('tools/loading-maker/THIRD_PARTY_NOTICES.md').includes('pako'));
+
+/* 下列 key 由 JS 以變數或三元運算取得，靜態掃描（只認得 T('字面常數')）看不到，
+ * 需另外確認兩語言都有定義。 */
+section('tools/loading-maker dynamic keys');
+const lmDynamicKeys = [
+  /* T(EASING_KEYS[value])、T(SHAPE_KEYS[value]) */
+  'easing.linear', 'easing.smooth', 'easing.easeIn', 'easing.easeOut',
+  'easing.easeInOut', 'easing.steps', 'easing.bounce', 'easing.irregular',
+  'shape.circle', 'shape.square', 'shape.diamond', 'shape.triangle',
+  'shape.star', 'shape.heart', 'shape.hexagon',
+  /* 功能徽章：items 陣列的第一欄 */
+  'cap.input', 'cap.apng', 'cap.webp', 'cap.gif',
+  /* 三元運算選出的 key */
+  'duration.label.bar', 'duration.label.loop', 'duration.label.rowLoop',
+  'duration.label.rowProgress', 'duration.label.none',
+  'preview.play', 'preview.pause',
+  'keyframe.startPoint', 'keyframe.easing',
+  'msg.seamless', 'msg.seamless.extended',
+  'msg.projectSaved', 'msg.projectSaved.assets',
+  /* media.js 以 key 存入 source.warning，由 app.js 顯示 */
+  'warn.liveCapture',
+  /* 標記上的 data-suffix-key，由 syncUI() 取值 */
+  'unit.perSecond', 'unit.times'
+];
+for (const locale of ['zh-TW', 'ko']) {
+  const missing = lmDynamicKeys.filter(k => !lm.messages[locale][k]);
+  check(`${locale} 每個動態 key 都有定義`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+/* data-suffix-key 取代了原本寫死韓文的 data-suffix，兩者不應混用韓文。 */
+const lmHtml = read('tools/loading-maker/index.html');
+const suffixKeys = [...lmHtml.matchAll(/data-suffix-key="([^"]+)"/g)].map(m => m[1]);
+check('標記中的 data-suffix-key 皆為已知 key',
+  suffixKeys.length > 0 && suffixKeys.every(k => lm.messages['zh-TW'][k]),
+  `found: ${suffixKeys.join(', ')}`);
+check('index.html 掛上語言切換器與首頁連結',
+  lmHtml.includes('id="localeSelect"') && lmHtml.includes('data-i18n="nav.home"'));
+
 /* ---- 首頁 ---- */
 section('index.html');
 const home = loadI18N(['assets/i18n.home.js']);
@@ -338,15 +393,19 @@ check('首頁 <title> 與 app.title 的 zh-TW 值一致',
 check('assets/home.js 無殘留韓文', !HANGUL.test(read('assets/home.js')));
 check('assets/home.css 無殘留韓文', !HANGUL.test(read('assets/home.css')));
 
-/* 五個工具連結都要指得到。 */
-const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker'];
+/* 六個工具連結都要指得到。 */
+const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker', 'loading-maker'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
 }
 
-check('首頁標示 emotion-maker 的未授權狀態',
-  homeZh.has('license.unlicensed') && homeHtml.includes('license.unlicensed'));
+/* 兩個未授權工具各有一張卡片：emotion-maker 另含 39 張圖像素材，
+ * 故其徽章用 license.unlicensed.assets，loading-maker 用一般版本。 */
+check('首頁標示 emotion-maker 與 loading-maker 的未授權狀態',
+  homeZh.has('license.unlicensed') && homeZh.has('license.unlicensed.assets')
+  && homeHtml.includes('data-i18n="license.unlicensed"')
+  && homeHtml.includes('data-i18n="license.unlicensed.assets"'));
 check('首頁標示原作者出處', homeHtml.includes('github.com/sotsotssi'));
 
 /* ---- 內嵌文字與 zh-TW 字典一致 ---- */
@@ -404,6 +463,7 @@ checkInlineText('tools/typewriter', 'tools/typewriter/index.html', ['tools/typew
 checkInlineText('tools/text-path', 'tools/text-path/index.html', ['tools/text-path/i18n.text-path.js'], 15);
 checkInlineText('tools/collage-letter', 'tools/collage-letter/index.html', ['tools/collage-letter/i18n.collage-letter.js'], 15);
 checkInlineText('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 15);
+checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 200);
 
 /* ---- 內嵌屬性與 zh-TW 字典一致 ---- */
 /* data-i18n-title / data-i18n-aria-label / data-i18n-placeholder 各鎖定同一標籤上
@@ -470,6 +530,7 @@ checkAttrPairs('tools/typewriter', 'tools/typewriter/index.html', ['tools/typewr
 checkAttrPairs('tools/text-path', 'tools/text-path/index.html', ['tools/text-path/i18n.text-path.js'], 3);
 checkAttrPairs('tools/collage-letter', 'tools/collage-letter/index.html', ['tools/collage-letter/i18n.collage-letter.js'], 5);
 checkAttrPairs('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 3);
+checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 10);
 
 /* ---- 文件 ---- */
 section('docs');
@@ -482,11 +543,13 @@ const attribution = read('ATTRIBUTION.md');
 for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
-for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '772d6c4']) {
+for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
   /emotion-maker[\s\S]{0,600}(未授權|無授權)/.test(attribution));
+check('ATTRIBUTION.md 標明 loading-maker 未授權',
+  /loading-maker[\s\S]{0,600}(未授權|無授權)/.test(attribution));
 
 const pkg = JSON.parse(read('package.json'));
 check('package.json 無執行期相依',

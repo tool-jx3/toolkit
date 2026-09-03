@@ -1,6 +1,6 @@
 # 來源與授權
 
-本 repo 收錄 [sotsotssi](https://github.com/sotsotssi) 製作的五個網頁工具，
+本 repo 收錄 [sotsotssi](https://github.com/sotsotssi) 製作的六個網頁工具，
 並為其加上繁體中文介面。所有工具的原始著作權屬原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -12,14 +12,19 @@
 | text-path | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) | `b86cd28` | MIT |
 | collage-letter | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) | `ea08333` | MIT |
 | emotion-maker | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b455379` | **未授權** |
+| loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
 
 四個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
 
-## emotion-maker 的授權狀態
+## 未授權的兩個工具
 
-`sotsotssi/emotion-maker` 未附任何授權條款，GitHub 亦未標示授權。依著作權法預設，
-其權利（包含 `images/` 下全部 39 張手繪素材）保留予原作者，此處僅供試用。
-原作者如有異議，將立即移除。
+`sotsotssi/emotion-maker` 與 `sotsotssi/loading-maker` 皆未附任何授權條款，
+GitHub 亦未標示授權。依著作權法預設，其權利保留予原作者（`emotion-maker`
+包含 `images/` 下全部 39 張手繪素材），此處僅供試用。原作者如有異議，將立即移除。
+
+`loading-maker` 以 CDN 載入 pako 0.2.9（MIT，Copyright (C) 2014-2016 by
+Vitaly Puzrin）作為 APNG 壓縮／解壓縮之用，其出處與授權見
+[tools/loading-maker/THIRD_PARTY_NOTICES.md](tools/loading-maker/THIRD_PARTY_NOTICES.md)。
 
 ## 繁體中文翻譯
 
@@ -28,7 +33,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘四個工具的翻譯與 i18n 改造為本 repo 新增。
+其餘五個工具的翻譯與 i18n 改造為本 repo 新增。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；唯一例外是
 `tools/typewriter/webp-muxer.js`——這是原封不動保留的二進位格式編碼函式庫，
@@ -39,4 +44,5 @@ magic-circle 的繁體中文翻譯移植自
 
 `assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔，
 以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
-`tools/emotion-maker/` 的其餘部分（含全部圖像素材）不在此範圍內，見上節。
+`tools/emotion-maker/` 的其餘部分（含全部圖像素材）與 `tools/loading-maker/`
+的其餘部分不在此範圍內，見上節。

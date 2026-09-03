@@ -1,6 +1,6 @@
 # TRPG Toolkit
 
-[sotsotssi](https://github.com/sotsotssi) 製作的五個網頁小工具合輯，附繁體中文介面。
+[sotsotssi](https://github.com/sotsotssi) 製作的六個網頁小工具合輯，附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -11,6 +11,7 @@
 | [文字軌跡產生器](tools/text-path/) | 讓文字沿著自訂路徑排列，輸出為圖片 |
 | [匿名拼貼信產生器](tools/collage-letter/) | 以剪報拼貼風格的字母組成信件圖片 |
 | [表情產生器](tools/emotion-maker/) | 組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖 |
+| [讀取動畫產生器](tools/loading-maker/) | 把角色動畫、讀取條與上下文字合成一張畫布，輸出為 APNG／WebP／GIF |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -56,5 +57,6 @@ emotion-maker 的圖片資產完整、首頁連結有效、
 `index.html`、`tests/`、各 `i18n.*.js` 字典，以及 emotion-maker 的資產路徑改造。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
-**注意**：`emotion-maker` 的原始 repo 未附任何授權條款，其權利（含全部圖像素材）
-屬原作者所有，不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。
+**注意**：`emotion-maker` 與 `loading-maker` 的原始 repo 皆未附任何授權條款，
+其權利（`emotion-maker` 含全部圖像素材）屬原作者所有，不在根目錄 LICENSE
+涵蓋範圍內，此處僅供試用。
