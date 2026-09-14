@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>前景框產生器</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<header>
+  <div class="toolkit-bar">
+    <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+    <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+  </div>
+  <h1 data-i18n="app.title">前景框產生器</h1>
+  <p data-i18n="header.tagline">製作 CCFOLIA 前景用的「框」圖片。組合形狀、顏色與裝飾來設計，還能把天氣、時間帶等差分一次匯出。所有處理都在瀏覽器內完成，圖片不會傳送到任何地方。</p>
+</header>
+
+<main>
+  <div class="panel">
+    <nav class="tabbar" role="tablist">
+      <button data-i18n="tab.frame" type="button" role="tab" data-tab="frame" aria-selected="true">框</button>
+      <button data-i18n="tab.deco" type="button" role="tab" data-tab="deco" aria-selected="false">裝飾</button>
+      <button data-i18n="tab.layers" type="button" role="tab" data-tab="layers" aria-selected="false">素材與文字</button>
+      <button data-i18n="tab.variants" type="button" role="tab" data-tab="variants" aria-selected="false">差分</button>
+      <button data-i18n="tab.project" type="button" role="tab" data-tab="project" aria-selected="false">儲存與其他</button>
+    </nav>
+
+    <!-- ============================================================ frame -->
+    <section data-tab-panel="frame">
+      <fieldset>
+        <legend data-i18n="design.legend">設計範本</legend>
+        <div class="row wide"><span class="pair" style="grid-template-columns: 1fr auto;">
+          <select id="design" data-i18n-aria-label="design.aria" aria-label="設計範本"></select>
+          <button data-i18n="design.apply" type="button" id="applyDesign">套用</button>
+        </span></div>
+        <p class="desc" id="designDesc"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="size.legend">輸出尺寸</legend>
+        <div class="row"><label data-i18n="size.preset">尺寸</label><select id="sizePreset"></select></div>
+        <div class="row" id="customSize"><label data-i18n="size.custom">寬 × 高</label>
+          <span class="pair"><input type="number" data-bind="size.w" min="64" max="4096" step="1" data-i18n-aria-label="size.width.aria" aria-label="寬度"><input type="number" data-bind="size.h" min="64" max="4096" step="1" data-i18n-aria-label="size.height.aria" aria-label="高度"></span>
+        </div>
+        <p class="desc" id="sizeInfo"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="opening.legend">可見範圍（窗）</legend>
+        <div class="row"><label data-i18n="opening.shape">形狀</label>
+          <select data-bind="opening.shape"><option data-i18n="opening.shape.rect" value="rect">矩形</option><option data-i18n="opening.shape.ellipse" value="ellipse">橢圓</option></select>
+        </div>
+        <div class="row"><label data-i18n="opening.layout">快速設定</label><span class="btns" id="layoutButtons"></span></div>
+        <div class="row"><label></label><label class="check"><input data-i18n="opening.linkMargin" type="checkbox" data-bind="opening.linkMargin"> 上下左右一致</label></div>
+        <div class="row" data-show="opening.linkMargin=true"><label data-i18n="opening.margin.all">框的粗細</label>
+          <span class="with-value"><input type="range" data-bind="opening.margin.all" min="0" max="400"><output data-out="opening.margin.all"></output></span></div>
+        <div data-show="opening.linkMargin=false">
+          <div class="row"><label data-i18n="opening.margin.t">上</label><span class="with-value"><input type="range" data-bind="opening.margin.t" min="0" max="540"><output data-out="opening.margin.t"></output></span></div>
+          <div class="row"><label data-i18n="opening.margin.b">下</label><span class="with-value"><input type="range" data-bind="opening.margin.b" min="0" max="540"><output data-out="opening.margin.b"></output></span></div>
+          <div class="row"><label data-i18n="opening.margin.l">左</label><span class="with-value"><input type="range" data-bind="opening.margin.l" min="0" max="960"><output data-out="opening.margin.l"></output></span></div>
+          <div class="row"><label data-i18n="opening.margin.r">右</label><span class="with-value"><input type="range" data-bind="opening.margin.r" min="0" max="960"><output data-out="opening.margin.r"></output></span></div>
+        </div>
+        <p class="desc" id="openingInfo"></p>
+      </fieldset>
+
+      <fieldset data-show="opening.shape=rect">
+        <legend data-i18n="corner.legend">窗的圓角</legend>
+        <div class="row"><label></label><label class="check"><input data-i18n="corner.link" type="checkbox" data-bind="opening.linkCorners"> 四個角一致</label></div>
+        <div id="cornerRows"></div>
+        <div class="row"><label data-i18n="corner.outerRadius">外側圓角</label>
+          <span class="with-value"><input type="range" data-bind="opening.outerRadius" min="0" max="160"><output data-out="opening.outerRadius"></output></span></div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="colors.legend">顏色</legend>
+        <div class="row wide"><div class="colors4">
+          <label data-i18n-node="colors.frame1">框色 1<input type="color" data-bind="colors.frame1"></label>
+          <label data-i18n-node="colors.frame2">框色 2<input type="color" data-bind="colors.frame2"></label>
+          <label data-i18n-node="colors.accent">強調色<input type="color" data-bind="colors.accent"></label>
+          <label data-i18n-node="colors.text">文字<input type="color" data-bind="colors.text"></label>
+        </div></div>
+        <p class="desc" id="colorsNote"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="fill.legend">框的填色</legend>
+        <div class="row"><label data-i18n="fill.mode">填色方式</label>
+          <select data-bind="frame.fill">
+            <option data-i18n="fill.linear" value="linear">漸層（線性）</option>
+            <option data-i18n="fill.radial" value="radial">漸層（放射）</option>
+            <option data-i18n="fill.solid" value="solid">單色（框色 1）</option>
+            <option data-i18n="fill.none" value="none">不填色（只用素材）</option>
+          </select></div>
+        <div class="row" data-show="frame.fill=linear"><label data-i18n="fill.angle">方向</label>
+          <span class="with-value"><input type="range" data-bind="frame.angle" min="0" max="360" step="15"><output data-out="frame.angle" data-fmt="deg"></output></span></div>
+        <div data-show="frame.fill!=none">
+          <div class="row"><label data-i18n="common.opacity">不透明度</label>
+            <span class="with-value"><input type="range" data-bind="frame.opacity" min="0" max="1" step="0.01"><output data-out="frame.opacity" data-fmt="pct"></output></span></div>
+          <div class="row"><label data-i18n="fill.grain">顆粒感</label>
+            <span class="with-value"><input type="range" data-bind="frame.grain" min="0" max="1" step="0.05"><output data-out="frame.grain" data-fmt="pct"></output></span></div>
+        </div>
+        <p data-i18n="fill.grain.hint" class="desc">加入顆粒感會讓 PNG 變大（每張約 800KB）。</p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="line.legend">線條</legend>
+        <div class="row"><label data-i18n="line.inner">窗的邊</label><label class="check"><input data-i18n="line.draw" type="checkbox" data-bind="frame.innerLine.on"> 畫線</label></div>
+        <div data-show="frame.innerLine.on=true">
+          <div class="row sub"><label data-i18n="line.width">粗細</label><span class="with-value"><input type="range" data-bind="frame.innerLine.width" min="1" max="24"><output data-out="frame.innerLine.width"></output></span></div>
+          <div class="row sub"><label data-i18n="line.inner.gap">與窗的間距</label><span class="with-value"><input type="range" data-bind="frame.innerLine.gap" min="0" max="120"><output data-out="frame.innerLine.gap"></output></span></div>
+          <div class="row sub"><label data-i18n="line.double.label">雙線</label><label class="check"><input data-i18n="line.double" type="checkbox" data-bind="frame.innerLine.double"> 改為雙線</label></div>
+          <div class="row sub"><label data-i18n="common.color">顏色</label><span class="colorref" data-colorref="frame.innerLine.color"></span></div>
+        </div>
+        <div class="row"><label data-i18n="line.outer">畫面的邊</label><label class="check"><input data-i18n="line.draw" type="checkbox" data-bind="frame.outerLine.on"> 畫線</label></div>
+        <div data-show="frame.outerLine.on=true">
+          <div class="row sub"><label data-i18n="line.width">粗細</label><span class="with-value"><input type="range" data-bind="frame.outerLine.width" min="1" max="24"><output data-out="frame.outerLine.width"></output></span></div>
+          <div class="row sub"><label data-i18n="line.outer.gap">與邊的間距</label><span class="with-value"><input type="range" data-bind="frame.outerLine.gap" min="0" max="120"><output data-out="frame.outerLine.gap"></output></span></div>
+          <div class="row sub"><label>色</label><span class="colorref" data-colorref="frame.outerLine.color"></span></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="shadow.legend">窗的陰影</legend>
+        <div class="row"><label data-i18n="shadow.label">陰影</label><label class="check"><input data-i18n="shadow.on" type="checkbox" data-bind="frame.shadow.on"> 從框向窗投下陰影</label></div>
+        <div data-show="frame.shadow.on=true">
+          <div class="row sub"><label data-i18n="shadow.size">模糊</label><span class="with-value"><input type="range" data-bind="frame.shadow.size" min="1" max="160"><output data-out="frame.shadow.size"></output></span></div>
+          <div class="row sub"><label data-i18n="shadow.opacity">濃度</label><span class="with-value"><input type="range" data-bind="frame.shadow.opacity" min="0" max="1" step="0.01"><output data-out="frame.shadow.opacity" data-fmt="pct"></output></span></div>
+          <div class="row sub"><label>色</label><span class="colorref" data-colorref="frame.shadow.color"></span></div>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- ============================================================ decorations -->
+    <section data-tab-panel="deco" hidden>
+      <fieldset>
+        <legend data-i18n="deco.add.legend">新增裝飾</legend>
+        <div class="row wide"><span class="btns" id="decoAdd"></span></div>
+        <p data-i18n="deco.add.hint" class="desc">沿著框加上藤蔓、花朵等裝飾。同一種裝飾可以重疊多個，按「換一組圖樣」會改變排列方式。</p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="layer.order.legend">疊放順序（越上面越前面）</legend>
+        <ul class="item-list" id="decoList"></ul>
+        <p data-i18n="deco.empty" class="desc" id="decoEmpty">還沒有任何裝飾。請用上方按鈕新增，或到「框」分頁選一個範本（森林遺跡、恐怖等）。</p>
+      </fieldset>
+
+      <fieldset id="decoProps" hidden>
+        <legend data-i18n-node="deco.selected">選取中的裝飾：<span id="decoTitle"></span></legend>
+        <p class="desc" id="decoDesc" style="margin-top: 4px;"></p>
+        <div class="row" data-uses="placement"><label data-i18n="deco.placement">配置</label><select data-bind="deco.placement" data-placements></select></div>
+        <div class="row" data-uses="size"><label data-i18n="common.size">大小</label><span class="with-value"><input type="range" data-bind="deco.size" min="0.3" max="2.5" step="0.05"><output data-out="deco.size" data-fmt="x"></output></span></div>
+        <div class="row" data-uses="density"><label data-i18n="deco.density">密度</label><span class="with-value"><input type="range" data-bind="deco.density" min="0" max="1" step="0.05"><output data-out="deco.density" data-fmt="pct"></output></span></div>
+        <div class="row" data-uses="coverage"><label data-i18n="deco.coverage">延伸程度</label><span class="with-value"><input type="range" data-bind="deco.coverage" min="0.05" max="1" step="0.05"><output data-out="deco.coverage" data-fmt="pct"></output></span></div>
+        <div class="row" data-uses="offset"><label data-i18n="deco.offset">與窗的距離</label><span class="with-value"><input type="range" data-bind="deco.offset" min="-80" max="160" step="1"><output data-out="deco.offset"></output></span></div>
+        <p data-i18n="deco.offset.hint" class="desc" data-uses="offset" style="margin-top: 2px;">距離為負值時往窗的內側移動，為正值時往框的外側移動。</p>
+        <div class="row"><label data-i18n="deco.color1" id="decoColor1Label">顏色 1</label><span class="colorref" data-colorref="deco.color"></span></div>
+        <div class="row"><label data-i18n="deco.color2" id="decoColor2Label">顏色 2</label><span class="colorref" data-colorref="deco.color2"></span></div>
+        <div class="row"><label data-i18n="deco.clip.label">溢出</label><label class="check"><input data-i18n="deco.clipFrame" type="checkbox" data-bind="deco.clipFrame"> 不要溢出到窗上</label></div>
+        <div class="row"><label data-i18n="common.showIn">顯示於哪些差分</label><div class="chips" id="decoHide"></div></div>
+        <div class="row"><label></label><span class="btns">
+          <button data-i18n="deco.reseed" type="button" class="small" id="decoReseed">換一組圖樣</button>
+          <button data-i18n="common.duplicate" type="button" class="small" id="decoDup">複製</button>
+          <button data-i18n="common.delete" type="button" class="small danger" id="decoDelete">刪除</button>
+        </span></div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="ornament.legend">角落裝飾（線稿）</legend>
+        <div class="row"><label data-i18n="common.kind">種類</label>
+          <select data-bind="frame.ornament.type">
+            <option data-i18n="common.none" value="none">無</option><option data-i18n="ornament.bracket" value="bracket">折角線</option><option data-i18n="ornament.diamond" value="diamond">菱形</option>
+            <option data-i18n="ornament.star" value="star">閃爍</option><option data-i18n="ornament.flourish" value="flourish">唐草紋</option><option data-i18n="ornament.dots" value="dots">圓點</option>
+          </select></div>
+        <div data-show="frame.ornament.type!=none">
+          <div class="row sub"><label data-i18n="common.size">大小</label><span class="with-value"><input type="range" data-bind="frame.ornament.size" min="6" max="200"><output data-out="frame.ornament.size"></output></span></div>
+          <div class="row sub"><label data-i18n="ornament.gap">距離窗角</label><span class="with-value"><input type="range" data-bind="frame.ornament.gap" min="-60" max="120"><output data-out="frame.ornament.gap"></output></span></div>
+          <div class="row sub" data-show="frame.ornament.type=bracket|diamond|flourish"><label data-i18n="ornament.width">線條粗細</label><span class="with-value"><input type="range" data-bind="frame.ornament.width" min="1" max="16"><output data-out="frame.ornament.width"></output></span></div>
+          <div class="row sub"><label data-i18n="common.color">顏色</label><span class="colorref" data-colorref="frame.ornament.color"></span></div>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- ============================================================ layers -->
+    <section data-tab-panel="layers" hidden>
+      <fieldset>
+        <legend data-i18n="layers.add.legend">新增</legend>
+        <div class="row wide"><span class="btns">
+          <button data-i18n="layers.addImage" type="button" id="addImage">新增圖片</button>
+          <button data-i18n="layers.addText" type="button" id="addText">新增文字</button>
+        </span></div>
+        <p data-i18n-html="layers.add.hint" class="desc">可以使用 PNG、JPG、WebP 等格式。也可以直接拖放到畫面上，或用 <code>Ctrl+V</code> 貼上。使用他人發布的素材時，請遵守發布方的使用條款。</p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="layer.order.legend">疊放順序（越上面越前面）</legend>
+        <ul class="item-list" id="layerList"></ul>
+        <p data-i18n="layers.empty" class="desc" id="layerEmpty">還沒有任何項目。</p>
+      </fieldset>
+
+      <fieldset id="layerProps" hidden>
+        <legend data-i18n="layers.selected">選取中的素材</legend>
+        <div class="row"><label data-i18n="layers.name">名稱</label><input type="text" data-bind="layer.name"></div>
+
+        <div data-show="layer.kind=image">
+          <div class="row"><label data-i18n="layers.fit">擺放方式</label>
+            <select data-bind="layer.fit">
+              <option data-i18n="layers.fit.free" value="free">自由擺放</option>
+              <option data-i18n="layers.fit.stretch" value="stretch">鋪滿畫面（拉伸）</option>
+              <option data-i18n="layers.fit.cover" value="cover">鋪滿畫面（維持比例）</option>
+              <option data-i18n="layers.fit.tile" value="tile">平鋪（圖樣）</option>
+            </select></div>
+          <div class="row"><label data-i18n="layers.recolor">替換顏色</label><span class="colorref" data-colorref="layer.recolor" data-none-key="layers.recolor.none"></span></div>
+        </div>
+
+        <div data-show="layer.kind=text">
+          <div class="row"><label data-i18n="layers.text">文字</label><textarea data-bind="layer.text" rows="2"></textarea></div>
+          <p data-i18n-html="layers.text.hint" class="desc" style="margin-top: 4px;">製作差分時，<code>{差分}</code> 會換成「早晨」「雨」等名稱，<code>{英文}</code> 會換成「MORNING」等英文標示。</p>
+          <div class="row"><label data-i18n="common.font">字型</label><select data-bind="layer.font" data-fonts></select></div>
+          <div class="row sub" data-show="layer.font=name"><label data-i18n="common.fontName">字型名稱</label><input type="text" data-bind="layer.fontName" data-i18n-placeholder="layers.fontName.placeholder" placeholder="例）Noto Sans TC"></div>
+          <div class="row"><label data-i18n="layers.fontSize">文字大小</label><span class="with-value"><input type="range" data-bind="layer.size" min="8" max="400"><output data-out="layer.size"></output></span></div>
+          <div class="row"><label data-i18n="layers.style">書寫方式</label><span class="pair">
+            <label class="check"><input data-i18n="layers.bold" type="checkbox" data-bind="layer.bold"> 粗體</label>
+            <label class="check"><input data-i18n="layers.vertical" type="checkbox" data-bind="layer.vertical"> 直書</label></span></div>
+          <div class="row" data-show="layer.vertical=false"><label data-i18n="layers.align">對齊</label>
+            <select data-bind="layer.align"><option data-i18n="align.left" value="left">靠左</option><option data-i18n="align.center" value="center">置中</option><option data-i18n="align.right" value="right">靠右</option></select></div>
+          <div class="row"><label data-i18n="layers.spacing">字距</label><span class="with-value"><input type="range" data-bind="layer.spacing" min="-0.2" max="1" step="0.02"><output data-out="layer.spacing" data-fmt="x"></output></span></div>
+          <div class="row"><label data-i18n="layers.color">文字顏色</label><span class="colorref" data-colorref="layer.color"></span></div>
+          <div class="row"><label data-i18n="layers.stroke">外框</label><span class="with-value"><input type="range" data-bind="layer.strokeWidth" min="0" max="24"><output data-out="layer.strokeWidth"></output></span></div>
+          <div class="row sub" data-show="layer.strokeWidth!=0"><label data-i18n="layers.strokeColor">外框顏色</label><span class="colorref" data-colorref="layer.strokeColor"></span></div>
+          <div class="row"><label data-i18n="shadow.label">陰影</label><span class="with-value"><input type="range" data-bind="layer.shadow" min="0" max="40"><output data-out="layer.shadow"></output></span></div>
+        </div>
+
+        <div data-show="layer.kind=text|layer.fit=free|tile">
+          <div class="row"><label data-i18n="layers.x">水平位置</label><span class="with-value"><input type="range" data-bind="layer.x" min="-0.2" max="1.2" step="0.001"><output data-out="layer.x" data-fmt="pct"></output></span></div>
+          <div class="row"><label data-i18n="layers.y">垂直位置</label><span class="with-value"><input type="range" data-bind="layer.y" min="-0.2" max="1.2" step="0.001"><output data-out="layer.y" data-fmt="pct"></output></span></div>
+          <div class="row"><label data-i18n="layers.rotation">旋轉</label><span class="with-value"><input type="range" data-bind="layer.rotation" min="-180" max="180" step="1"><output data-out="layer.rotation" data-fmt="deg"></output></span></div>
+        </div>
+        <div class="row" data-show="layer.kind=image&layer.fit=free|tile"><label data-i18n="common.size">大小</label><span class="with-value"><input type="range" data-bind="layer.scale" min="0.02" max="4" step="0.01"><output data-out="layer.scale" data-fmt="pct"></output></span></div>
+        <div class="row" data-show="layer.kind=text|layer.fit=free"><label data-i18n="layers.flip.label">左右翻轉</label><label class="check"><input data-i18n="layers.flip" type="checkbox" data-bind="layer.flip"> 翻轉</label></div>
+        <div class="row"><label data-i18n="common.opacity">不透明度</label><span class="with-value"><input type="range" data-bind="layer.opacity" min="0" max="1" step="0.01"><output data-out="layer.opacity" data-fmt="pct"></output></span></div>
+        <div class="row"><label data-i18n="layers.blend">混合模式</label>
+          <select data-bind="layer.blend">
+            <option data-i18n="blend.normal" value="source-over">一般</option><option data-i18n="blend.multiply" value="multiply">色彩增值</option><option data-i18n="blend.screen" value="screen">濾色</option>
+            <option data-i18n="blend.overlay" value="overlay">覆蓋</option><option data-i18n="blend.softLight" value="soft-light">柔光</option><option data-i18n="blend.lighter" value="lighter">加亮</option>
+          </select></div>
+        <div class="row"><label data-i18n="layers.stack">疊放位置</label>
+          <select data-bind="layer.order">
+            <option data-i18n="layers.stack.front" value="front">最前面</option>
+            <option data-i18n="layers.stack.back" value="back">框的填色之上（在線條、裝飾與差分標示之後）</option>
+          </select></div>
+        <div class="row"><label data-i18n="layers.clip">繪製範圍</label>
+          <select data-bind="layer.clip">
+            <option data-i18n="layers.clip.none" value="none">不限制</option>
+            <option data-i18n="layers.clip.frame" value="frame">只畫在框上（窗維持透明）</option>
+            <option data-i18n="layers.clip.window" value="window">只畫在窗內</option>
+          </select></div>
+        <div class="row"><label data-i18n="common.showIn">顯示於哪些差分</label><div class="chips" id="layerHide"></div></div>
+        <div class="row"><label></label><span class="btns">
+          <button data-i18n="common.duplicate" type="button" class="small" id="dupLayer">複製</button>
+          <button data-i18n="common.delete" type="button" class="small danger" id="deleteLayer">刪除</button>
+        </span></div>
+      </fieldset>
+    </section>
+
+    <!-- ============================================================ variants -->
+    <section data-tab-panel="variants" hidden>
+      <fieldset>
+        <legend data-i18n="variants.legend">差分</legend>
+        <div class="row wide"><label class="switch"><input data-i18n="variants.enable" type="checkbox" data-bind="variants.enabled" data-i18n-aria-label="variants.enable.aria" aria-label="製作差分"> 製作差分</label></div>
+        <p data-i18n-html="variants.hint" class="desc">把同一個框，依天氣或時間帶等條件做出好幾張的功能。每個差分都能改變顏色、窗的效果（雨、雪等）與標示，並<b>打包成 ZIP 一次儲存</b>。素材與裝飾也能依差分分別顯示。</p>
+      </fieldset>
+
+      <div data-show="variants.enabled=true">
+        <fieldset>
+          <legend data-i18n="common.kind">種類</legend>
+          <div class="row wide"><select id="variantKind" data-i18n-aria-label="variants.kind.aria" aria-label="差分種類"></select></div>
+          <p class="desc" id="variantKindDesc"></p>
+          <p data-i18n="variants.kind.hint" class="desc">更換種類會整批替換下方的清單（可用 Ctrl+Z 復原）。不論哪一種，名稱與效果都能自由修改。</p>
+        </fieldset>
+
+        <fieldset>
+          <legend data-i18n="variants.list.legend">差分清單</legend>
+          <ul class="item-list" id="variantList"></ul>
+          <div class="row wide"><span class="btns"><button data-i18n="variants.add" type="button" class="small" id="addVariant">＋ 新增差分</button></span></div>
+          <p data-i18n="variants.list.hint" class="desc">點擊即可編輯與預覽。取消勾選的差分不會匯出。</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>「<span id="variantTitle"></span>」<span data-i18n="variants.edit.suffix">的設定</span></legend>
+          <div class="row"><label data-i18n="variant.name">顯示名稱</label><input type="text" data-bind="variant.name" maxlength="20"></div>
+          <div class="row"><label data-i18n="variant.sub">英文標示</label><input type="text" data-bind="variant.sub" maxlength="30"></div>
+          <div class="row"><label data-i18n="variant.icon">圖示</label><select data-bind="variant.icon" data-icons></select></div>
+          <div class="row sub" data-show="variant.icon=custom"><label data-i18n="common.image">圖片</label>
+            <span class="btns"><button data-i18n="common.chooseImage" type="button" class="small" id="slotIconPick">選擇圖片</button></span></div>
+          <div class="row"><label data-i18n="common.color">顏色</label><label class="check"><input data-i18n="variant.useColors" type="checkbox" data-bind="variant.useColors"> 只為這個差分設定顏色</label></div>
+          <div class="row wide" data-show="variant.useColors=true"><div class="colors4">
+            <label data-i18n-node="colors.frame1">框色 1<input type="color" data-bind="variant.frame1"></label>
+            <label data-i18n-node="colors.frame2">框色 2<input type="color" data-bind="variant.frame2"></label>
+            <label data-i18n-node="colors.accent">強調色<input type="color" data-bind="variant.accent"></label>
+            <label data-i18n-node="colors.text">文字<input type="color" data-bind="variant.text"></label>
+          </div></div>
+          <div class="row"><label data-i18n="variant.tint">窗的色彩覆蓋</label>
+            <span class="pair" style="grid-template-columns: 60px 1fr;"><input type="color" data-bind="variant.tint" data-i18n-aria-label="variant.tint.color.aria" aria-label="色彩覆蓋的顏色">
+              <span class="with-value"><input type="range" data-bind="variant.tintAlpha" min="0" max="0.7" step="0.01" data-i18n-aria-label="variant.tint.alpha.aria" aria-label="色彩覆蓋的強度"><output data-out="variant.tintAlpha" data-fmt="pct"></output></span></span></div>
+          <div class="row"><label data-i18n="variant.effect">窗的效果</label><select data-bind="variant.effect" data-effects></select></div>
+          <div class="row sub" data-show="variant.effect!=none"><label data-i18n="variant.effect.amount">強度</label>
+            <span class="with-value"><input type="range" data-bind="variant.effectAmount" min="0" max="1" step="0.05"><output data-out="variant.effectAmount" data-fmt="pct"></output></span></div>
+          <p data-i18n="variant.effect.hint" class="desc">色彩覆蓋與效果會疊在窗的部分。可以讓透過窗看到的背景在夜晚變暗、在雨天像隔著雨看一樣。</p>
+          <div class="row"><label></label><span class="btns"><button data-i18n="variant.copyColors" type="button" class="small" id="copyColors">把這組顏色套用到所有差分</button></span></div>
+        </fieldset>
+
+        <fieldset>
+          <legend data-i18n="variants.label.legend">差分標示</legend>
+          <div class="row"><label data-i18n="variants.label.style">樣式</label>
+            <select data-bind="variants.label.style">
+              <option data-i18n="variants.label.badge" value="badge">徽章</option><option data-i18n="variants.label.tabs" value="tabs">並排強調</option>
+              <option data-i18n="variants.label.dial" value="dial">軌道（適合時間帶）</option><option data-i18n="variants.label.textOnly" value="label">只有文字</option><option data-i18n="variants.label.none" value="none">不顯示</option>
+            </select></div>
+          <div data-show="variants.label.style!=none">
+            <div class="row"><label data-i18n="common.position">位置</label><span class="btns" id="posButtons"></span></div>
+            <div class="row"><label data-i18n="common.size">大小</label><span class="with-value"><input type="range" data-bind="variants.label.scale" min="0.4" max="3" step="0.05"><output data-out="variants.label.scale" data-fmt="x"></output></span></div>
+            <div class="row"><label data-i18n="variants.label.bgAlpha">背景濃度</label><span class="with-value"><input type="range" data-bind="variants.label.bgAlpha" min="0" max="1" step="0.05"><output data-out="variants.label.bgAlpha" data-fmt="pct"></output></span></div>
+            <div class="row" data-show="variants.label.style!=tabs"><label data-i18n="variant.sub">英文標示</label><label class="check"><input data-i18n="common.show" type="checkbox" data-bind="variants.label.showSub"> 顯示</label></div>
+            <div class="row"><label data-i18n="common.font">字型</label><select data-bind="variants.label.font" data-fonts></select></div>
+            <div class="row sub" data-show="variants.label.font=name"><label data-i18n="common.fontName">字型名稱</label><input type="text" data-bind="variants.label.fontName" data-i18n-placeholder="variants.label.fontName.placeholder" placeholder="例）Noto Serif TC"></div>
+          </div>
+          <p data-i18n="variants.label.dragHint" class="desc">也可以直接在預覽上拖曳移動。</p>
+        </fieldset>
+      </div>
+    </section>
+
+    <!-- ============================================================ project -->
+    <section data-tab-panel="project" hidden>
+      <fieldset>
+        <legend data-i18n="project.legend">專案</legend>
+        <div class="row wide"><span class="btns">
+          <button data-i18n="project.save" type="button" id="saveProject">儲存專案</button>
+          <button data-i18n="project.open" type="button" id="openProject">開啟</button>
+          <button data-i18n="project.reset" type="button" class="danger" id="resetAll">全部重來</button>
+        </span></div>
+        <p data-i18n="project.hint" class="desc">編輯內容會自動存在這個瀏覽器裡。要帶到別台電腦或備份時，請用「儲存專案」（載入的圖片與字型也會一起存進去）。</p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="common.font">字型</legend>
+        <div class="row wide"><span class="btns"><button data-i18n="font.load" type="button" id="addFont">載入字型檔</button></span></div>
+        <ul class="font-list" id="fontList"></ul>
+        <p data-i18n="font.hint" class="desc">支援 .ttf / .otf / .woff / .woff2。電腦上已安裝的字型，可以從字型欄的「以名稱指定」使用。</p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="previewBg.legend">預覽背景</legend>
+        <div class="row wide"><span class="btns">
+          <button data-i18n="previewBg.choose" type="button" id="bgImagePick">選擇背景圖片</button>
+          <button data-i18n="previewBg.clear" type="button" id="bgImageClear">移除圖片</button>
+        </span></div>
+        <p data-i18n="previewBg.hint" class="desc">放上打算用作房間背景的圖片，比較容易確認成品效果。背景不會包含在匯出的圖片裡。</p>
+      </fieldset>
+    </section>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="bar">
+      <span class="seg big" id="variantSeg" data-i18n-aria-label="variants.seg.aria" aria-label="差分" hidden></span>
+      <span class="spacer"></span>
+      <button data-i18n="action.undo" type="button" class="small" id="undo" data-i18n-title="action.undo.title" title="復原（Ctrl+Z）">↶ 復原</button>
+      <button data-i18n="action.redo" type="button" class="small" id="redo" data-i18n-title="action.redo.title" title="重做（Ctrl+Y）">↷ 重做</button>
+    </div>
+    <div class="stage bg-scenery" id="stage">
+      <canvas id="previewBg" aria-hidden="true"></canvas>
+      <canvas id="preview" tabindex="0" data-i18n-aria-label="preview.aria" aria-label="預覽（可拖曳移動素材與差分標示）"></canvas>
+    </div>
+    <div class="bar">
+      <span class="seg" id="bgSeg" data-i18n-aria-label="previewBg.aria" aria-label="預覽背景">
+        <button data-i18n="previewBg.scenery" type="button" data-bg="scenery">風景</button>
+        <button data-i18n="previewBg.checker" type="button" data-bg="checker">棋盤格</button>
+        <button data-i18n="previewBg.dark" type="button" data-bg="dark">深色</button>
+        <button data-i18n="previewBg.light" type="button" data-bg="light">白色</button>
+        <button data-i18n="common.image" type="button" data-bg="image">圖片</button>
+      </span>
+      <label class="check"><input data-i18n="preview.grid" type="checkbox" data-bind="preview.grid"> 格線</label>
+      <span class="spacer"></span>
+      <input type="text" data-bind="fileBase" data-i18n-aria-label="export.fileName.aria" aria-label="檔案名稱" data-i18n-placeholder="export.fileName" placeholder="檔案名稱">
+      <button data-i18n="export.png" type="button" class="primary" id="downloadPng">儲存為 PNG</button>
+      <button data-i18n="export.zip" type="button" class="primary" id="downloadZip" hidden>全部差分存成 ZIP</button>
+    </div>
+    <p data-i18n="status.loading" class="status" id="status">載入中…</p>
+    <div class="thumbs" id="thumbs" hidden></div>
+
+    <div class="note">
+      <h2 data-i18n="note.howto">使用方式</h2>
+      <ul>
+        <li data-i18n="note.howto.1">在「框」分頁決定形狀、顏色與線條，在「裝飾」分頁疊上藤蔓或花朵。選擇範本會整套一次替換。</li>
+        <li data-i18n="note.howto.2">自己的素材與文字請到「素材與文字」分頁。可以在預覽上拖曳移動（方向鍵微調、Shift 加大幅度、Delete 刪除）。</li>
+        <li data-i18n-html="note.howto.3">想依天氣或時間帶做出好幾張時，請到「差分」分頁打開<strong>製作差分</strong>。每個差分都能改變顏色與窗的效果，並打包成 ZIP 一次儲存。</li>
+        <li data-i18n="note.howto.4">預覽中的「風景」只是確認成品用的範例。匯出的圖片中，窗的部分會是透明的。</li>
+      </ul>
+      <h2 data-i18n="note.ccfolia">在 CCFOLIA 的設定</h2>
+      <ul>
+        <li data-i18n="note.ccfolia.1">在盤面的前景上按兩下（或按右鍵 →「變更前景／背景」），把匯出的 PNG 選為前景。</li>
+        <li data-i18n="note.ccfolia.2">前景的寬與高請填「框」分頁輸出尺寸下方顯示的格數（寬 1 = 24px）。比例不符時，自動裁切關閉會把圖片拉伸，開啟則會切掉邊緣。</li>
+        <li data-i18n="note.ccfolia.3">窗的部分是透明的，房間的背景圖片會透出來。</li>
+        <li data-i18n-html="note.ccfolia.4">為每個差分先建立一個<strong>場景</strong>，切換就只要一瞬間（場景會保存前景、背景、BGM 與標記面板）。</li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<div data-i18n="drop.hint" class="drop-hint" id="dropHint" hidden>放開以新增</div>
+<input type="file" id="imageFile" accept="image/*" multiple hidden>
+<input type="file" id="singleImageFile" accept="image/*" hidden>
+<input type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2" multiple hidden>
+<input type="file" id="projectFile" accept=".json,application/json" hidden>
+
+<footer>
+  <span data-i18n="footer.free">只靠瀏覽器就能運作的免費工具。做出來的圖片可以自由使用（載入的發布素材與字型，請各自遵守其使用條款）。</span><br>
+  <span data-i18n-html="footer.unofficial">設想用於 TRPG 線上團的工具，但與任何服務都沒有關係，是<strong>非官方</strong>工具。</span><br>
+  <span data-i18n="footer.version">v2 · 最後更新 2026-09-14</span>
+</footer>
+
+<script src="../../assets/i18n.js"></script>
+<script src="./i18n.foreground-frame.js"></script>
+<script src="zip.v1.js"></script>
+<script src="presets.v1.js"></script>
+<script src="icons.v1.js"></script>
+<script src="effects.v1.js"></script>
+<script src="deco.v1.js"></script>
+<script src="deco-extra.v1.js"></script>
+<script src="model.v2.js"></script>
+<script src="render.v2.js"></script>
+<script src="app.v2.js"></script>
+</body>
+</html>

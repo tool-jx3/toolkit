@@ -1,6 +1,6 @@
 # TRPG Toolkit
 
-[sotsotssi](https://github.com/sotsotssi) 製作的六個網頁小工具合輯，附繁體中文介面。
+[sotsotssi](https://github.com/sotsotssi) 與 [shiki365](https://github.com/shiki365) 製作的八個網頁小工具合輯，附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -12,6 +12,8 @@
 | [匿名拼貼信產生器](tools/collage-letter/) | 以剪報拼貼風格的字母組成信件圖片 |
 | [表情產生器](tools/emotion-maker/) | 組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖 |
 | [讀取動畫產生器](tools/loading-maker/) | 把角色動畫、讀取條與上下文字合成一張畫布，輸出為 APNG／WebP／GIF |
+| [前景框產生器](tools/foreground-frame/) | 設計 CCFOLIA 前景用的外框，加上裝飾與天氣、時間帶差分，一次匯出 |
+| [場景轉換素材產生器](tools/scene-transition/) | 製作暗轉、抹除、光圈等場景轉換動畫，輸出為透明背景的 APNG |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -34,19 +36,25 @@ npm test
 ```
 
 靜態檢查，無外部相依。檢查項目包含：字典 key 完整性、兩語言 key 集合對稱、
-`{n}` 佔位符一致、標記引用的 key 皆存在、**無殘留未翻譯的韓文**、
+`{n}` 佔位符一致、標記引用的 key 皆存在、**無殘留未翻譯的原文**
+（韓文查諺文，日文查平假名與片假名）、
 emotion-maker 的圖片資產完整、首頁連結有效、
 **HTML 內嵌文字與 zh-TW 字典逐字相符**（含元素內文與 `title`／`aria-label`／`placeholder` 屬性兩類比對）。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換為韓文。選擇記錄於 `localStorage`
-（key：`trpg-toolkit-locale`），首頁與各工具共用。
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的六個工具為韓文，
+shiki365 的兩個工具為日文。選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），
+首頁與各工具共用。
+
+語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，
+反之亦然。停在沒有該語言字典的頁面時會以繁體中文呈現，但不會覆寫使用者的選擇——
+回到有該語言的頁面時仍會恢復。
 
 ### 新增語言
 
 1. 在 `assets/i18n.js` 的 `LOCALES` 加入一筆，指定顯示名稱與 `lang` 屬性
-2. 在每個 `i18n.*.js` 字典中加入同名的語言區塊
+2. 在需要該語言的 `i18n.*.js` 字典中加入同名的語言區塊
 3. 執行 `npm test` 確認沒有漏 key
 
 不需更動任何 HTML 或工具程式碼。

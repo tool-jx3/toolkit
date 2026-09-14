@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>場景轉換素材產生器</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<header>
+  <div class="toolkit-bar">
+    <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+    <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+  </div>
+  <h1 data-i18n="app.title">場景轉換素材產生器</h1>
+  <p data-i18n="header.tagline">製作暗轉、抹除、光圈等場景轉換動畫（APNG）。改變設定就會立即預覽，按「下載」即可儲存。所有處理都在瀏覽器內完成，圖片不會傳送到任何地方。</p>
+</header>
+
+<main>
+  <form class="panel" id="form" autocomplete="off">
+    <fieldset>
+      <legend data-i18n="preset.legend">預設集</legend>
+      <div class="row wide">
+        <select id="preset"></select>
+      </div>
+      <p class="desc" id="desc"></p>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="look.legend">外觀</legend>
+      <div class="row"><label data-i18n="look.color" for="color">顏色</label><input type="color" id="color"></div>
+      <div class="row"><label data-i18n="look.size" for="size">輸出尺寸</label>
+        <select id="size">
+          <option value="1280x720">1280 × 720</option>
+          <option value="1920x1080">1920 × 1080</option>
+          <option value="960x540">960 × 540</option>
+          <option data-i18n="size.640x360" value="640x360">640 × 360（輕量）</option>
+        </select>
+      </div>
+      <div class="row"><label data-i18n="look.feather" for="feather">模糊</label>
+        <span class="with-value"><input type="range" id="feather" min="1" max="255" step="1"><output id="featherOut"></output></span>
+      </div>
+      <div class="row" id="rowDirection"><label data-i18n="look.direction" for="direction">方向</label>
+        <select id="direction">
+          <option data-i18n="direction.right" value="right">由左至右</option>
+          <option data-i18n="direction.left" value="left">由右至左</option>
+          <option data-i18n="direction.down" value="down">由上而下</option>
+          <option data-i18n="direction.up" value="up">由下而上</option>
+          <option data-i18n="direction.downRight" value="down-right">由左上至右下</option>
+          <option data-i18n="direction.downLeft" value="down-left">由右上至左下</option>
+          <option data-i18n="direction.upRight" value="up-right">由左下至右上</option>
+          <option data-i18n="direction.upLeft" value="up-left">由右下至左上</option>
+        </select>
+      </div>
+      <div class="row" id="rowAxis"><label data-i18n="look.axis" for="axis">軸向</label>
+        <select id="axis"><option data-i18n="axis.y" value="y">上下</option><option data-i18n="axis.x" value="x">左右</option></select>
+      </div>
+      <div class="row" id="rowCount"><label data-i18n="look.count" for="count">條數</label>
+        <span class="with-value"><input type="range" id="count" min="2" max="40" step="1"><output id="countOut"></output></span>
+      </div>
+      <div class="row" id="rowBlock"><label data-i18n="look.block" for="block">顆粒大小</label>
+        <span class="with-value"><input type="range" id="block" min="1" max="60" step="1"><output id="blockOut"></output></span>
+      </div>
+      <div class="row" id="rowIris"><label data-i18n="look.iris" for="iris">圓的形狀</label>
+        <select id="iris"><option data-i18n="iris.circle" value="circle">正圓</option><option data-i18n="iris.ellipse" value="ellipse">依畫面比例</option></select>
+      </div>
+      <div class="row" id="rowCenter"><label data-i18n="look.center" for="centerX">中心</label>
+        <span class="with-value" style="grid-template-columns: 1fr 1fr;">
+          <input type="range" id="centerX" min="0" max="1" step="0.05" data-i18n-title="center.x.title" title="水平位置">
+          <input type="range" id="centerY" min="0" max="1" step="0.05" data-i18n-title="center.y.title" title="垂直位置">
+        </span>
+      </div>
+      <div class="row" id="rowBand"><label data-i18n="look.band" for="band">帶狀寬度</label>
+        <span class="with-value"><input type="range" id="band" min="10" max="255" step="5"><output id="bandOut"></output></span>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="timing.legend">時間設定</legend>
+      <div class="row"><label data-i18n="timing.duration" for="duration">動作秒數</label>
+        <span class="with-value"><input type="range" id="duration" min="0.1" max="3" step="0.05"><output id="durationOut"></output></span>
+      </div>
+      <div class="row"><label data-i18n="timing.hold" for="hold">靜止秒數</label>
+        <span class="with-value"><input type="range" id="hold" min="0" max="3" step="0.1"><output id="holdOut"></output></span>
+      </div>
+      <div class="row"><label data-i18n="timing.ease" for="ease">速度變化</label>
+        <select id="ease">
+          <option data-i18n="ease.inOut" value="in-out">平滑</option>
+          <option data-i18n="ease.linear" value="linear">等速</option>
+          <option data-i18n="ease.in" value="in">漸漸加速</option>
+          <option data-i18n="ease.out" value="out">漸漸減速</option>
+        </select>
+      </div>
+      <div class="row"><label data-i18n="timing.fps" for="fps">流暢度</label>
+        <select id="fps">
+          <option value="24">24 fps</option>
+          <option value="30">30 fps</option>
+          <option value="15">15 fps</option>
+          <option data-i18n="fps.12" value="12">12 fps（輕量）</option>
+        </select>
+      </div>
+      <div class="row"><label data-i18n="timing.loop" for="loop">重複</label>
+        <span><input type="checkbox" id="loop"> <span data-i18n="timing.loop.note" class="note">一直循環播放</span></span>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="text.legend">字幕（留空則不顯示文字）</legend>
+      <div class="row wide"><textarea id="text" data-i18n-placeholder="text.placeholder" placeholder="例）——  隔天早上  ——"></textarea></div>
+      <div class="row"><label data-i18n="text.color" for="textColor">文字顏色</label><input type="color" id="textColor"></div>
+      <div class="row"><label data-i18n="text.size" for="fontSize">文字大小</label>
+        <span class="with-value"><input type="range" id="fontSize" min="16" max="200" step="2"><output id="fontSizeOut"></output></span>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="advanced.legend">進階</legend>
+      <div class="row"><label data-i18n="advanced.mode" for="mode">動作方式</label>
+        <select id="mode">
+          <option data-i18n="mode.cover" value="cover">覆蓋（遮住畫面）</option>
+          <option data-i18n="mode.uncover" value="uncover">展開（露出畫面）</option>
+          <option data-i18n="mode.sweep" value="sweep">通過</option>
+        </select>
+      </div>
+      <div class="row"><label data-i18n="advanced.invert" for="invert">反轉</label>
+        <span><input type="checkbox" id="invert"> <span data-i18n="advanced.invert.note" class="note">讓前進方向相反</span></span>
+      </div>
+    </fieldset>
+  </form>
+
+  <div class="stage-wrap">
+    <div class="bar">
+      <span class="seg" id="bgSeg">
+        <button data-i18n="bg.scene" type="button" data-bg="scene" aria-pressed="true">場景風</button>
+        <button data-i18n="bg.light" type="button" data-bg="light">白色</button>
+        <button data-i18n="bg.checker" type="button" data-bg="checker">棋盤格</button>
+      </span>
+      <span class="spacer"></span>
+      <button data-i18n="action.replay" type="button" id="replay">重新播放</button>
+      <button data-i18n="action.download" type="button" id="download" class="primary">下載</button>
+    </div>
+    <div class="stage scene" id="stage"><canvas id="preview"></canvas></div>
+    <p data-i18n="status.loading" class="status" id="status">載入中…</p>
+
+    <div class="note">
+      <h2 data-i18n="note.howto">使用方式</h2>
+      <ul>
+        <li data-i18n="note.howto.1">選擇預設集，調整顏色與秒數後按「下載」。</li>
+        <li data-i18n-html="note.howto.2">儲存下來的是 APNG（內容為動畫的 <code>.png</code>），可以直接當成圖片上傳。</li>
+        <li data-i18n="note.howto.3">預設是「只播放一次並停在最後一格」。暗轉會維持黑色，明轉則會變透明消失。</li>
+        <li data-i18n="note.howto.4">用暗轉遮住場面 → 換掉背景 → 用明轉露出畫面，兩張一組使用會銜接得很自然。</li>
+      </ul>
+      <h2 data-i18n="note.tips">製作訣竅</h2>
+      <ul>
+        <li data-i18n="note.tips.1">設想是鋪滿整個畫面使用。以純色為主的效果即使尺寸小也很漂亮，改成 640 × 360 檔案會輕很多。</li>
+        <li data-i18n="note.tips.2">調高「模糊」邊界會變柔和，調低則會變銳利。</li>
+        <li data-i18n="note.tips.3">「靜止秒數」是動作結束後停留在最後一張畫面的時間，可以用它來爭取換場的餘裕。</li>
+        <li data-i18n="note.tips.4">溶解因為顆粒是隨機的，檔案會比較大。調高「顆粒大小」就會變輕。</li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span data-i18n="footer.free">只靠瀏覽器就能運作的免費工具。做出來的素材不限用途皆可自由使用（也不需要標註出處）。</span><br>
+  <span data-i18n-html="footer.unofficial">設想用於 TRPG 線上團的工具，但與任何服務都沒有關係，是<strong>非官方</strong>工具。</span><br>
+  <span id="version">v1</span> <span data-i18n="footer.version">· 最後更新 2026-09-08</span>
+</footer>
+
+<script src="../../assets/i18n.js"></script>
+<script src="./i18n.scene-transition.js"></script>
+<script src="apng.v1.js"></script>
+<script src="app.v1.js"></script>
+</body>
+</html>

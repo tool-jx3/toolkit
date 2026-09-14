@@ -29,10 +29,11 @@ const I18N_DEFAULT = 'zh-TW';
 
 const LOCALES = {
   'zh-TW': { label: '繁體中文', lang: 'zh-Hant-TW' },
-  ko: { label: '한국어', lang: 'ko' }
+  ko: { label: '한국어', lang: 'ko' },
+  ja: { label: '日本語', lang: 'ja' }
 };
 
-const MESSAGES = { 'zh-TW': {}, ko: {} };
+const MESSAGES = { 'zh-TW': {}, ko: {}, ja: {} };
 
 /* 只採用使用者明示的選擇；不偵測瀏覽器語言。 */
 function storedLocale() {
@@ -56,6 +57,22 @@ const I18N = {
     }
   },
 
+  /* 這個頁面實際載入了字典的語言。各工具只會載入自己的字典，因此原文為
+   * 韓文的工具不會列出「日本語」，原文為日文的工具也不會列出「한국어」。
+   * 預設語言一律視為可用（所有頁面的內嵌文字都是繁體中文）。 */
+  availableLocales() {
+    return Object.keys(LOCALES)
+      .filter(code => code === I18N_DEFAULT || Object.keys(MESSAGES[code] || {}).length > 0);
+  },
+
+  /* 語言偏好全站共用，但各工具的原文語言不同。若目前頁面沒有該語言的字典，
+   * 就以預設語言呈現，且不動 localStorage 裡的偏好——回到有該語言的頁面時
+   * 仍會恢復成使用者選的語言。 */
+  resolveLocale() {
+    if (!this.availableLocales().includes(this.locale)) this.locale = I18N_DEFAULT;
+    return this.locale;
+  },
+
   t(key, ...args) {
     const table = MESSAGES[this.locale] || MESSAGES[I18N_DEFAULT];
     let value = table[key];
@@ -69,7 +86,7 @@ const I18N = {
   onChange(listener) { this.listeners.add(listener); },
 
   setLocale(locale, { silent = false } = {}) {
-    if (!MESSAGES[locale] || locale === this.locale) return false;
+    if (!this.availableLocales().includes(locale) || locale === this.locale) return false;
     this.locale = locale;
     try { localStorage.setItem(I18N_STORAGE_KEY, locale); } catch { /* 儲存空間不可用 */ }
     this.applyStaticDom();
@@ -90,11 +107,12 @@ const I18N = {
     for (const el of root.querySelectorAll('[data-i18n-placeholder]')) el.placeholder = this.t(el.dataset.i18nPlaceholder);
   },
 
-  /* 以可用語言填滿 <select> 並保持同步。六個頁面共用同一套切換邏輯。 */
+  /* 以該頁可用的語言填滿 <select> 並保持同步。各頁面共用同一套切換邏輯。 */
   mountSwitcher(select) {
     if (!select) return;
-    select.innerHTML = Object.entries(LOCALES)
-      .map(([code, meta]) => `<option value="${i18nEscapeHtml(code)}">${i18nEscapeHtml(meta.label)}</option>`)
+    this.resolveLocale();
+    select.innerHTML = this.availableLocales()
+      .map(code => `<option value="${i18nEscapeHtml(code)}">${i18nEscapeHtml(LOCALES[code].label)}</option>`)
       .join('');
     select.value = this.locale;
     select.addEventListener('change', () => {
@@ -133,4 +151,7 @@ window.T = I18N.t.bind(I18N);
 globalThis.I18N = I18N;
 globalThis.T = window.T;
 
-document.addEventListener('DOMContentLoaded', () => I18N.applyStaticDom());
+document.addEventListener('DOMContentLoaded', () => {
+  I18N.resolveLocale();
+  I18N.applyStaticDom();
+});
