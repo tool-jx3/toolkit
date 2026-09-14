@@ -6,15 +6,23 @@ section('i18n engine');
 const I18N = loadI18N();
 
 check('預設語言為 zh-TW', I18N.locale === 'zh-TW', `got: ${I18N.locale}`);
-check('註冊了 zh-TW 與 ko 兩種語言',
-  Object.keys(I18N.locales).join(',') === 'zh-TW,ko',
+check('註冊了 zh-TW、ko 與 ja 三種語言',
+  Object.keys(I18N.locales).join(',') === 'zh-TW,ko,ja',
   `got: ${Object.keys(I18N.locales).join(',')}`);
 check('每種語言都有顯示名稱與 lang 屬性',
   Object.values(I18N.locales).every(m => m.label && m.lang));
 check('初始字典為空', Object.keys(I18N.messages['zh-TW']).length === 0);
+check('未載入任何字典時只有預設語言可用',
+  I18N.availableLocales().join(',') === 'zh-TW',
+  `got: ${I18N.availableLocales().join(',')}`);
 
 I18N.register({ 'zh-TW': { greet: '你好 {0}', only: '僅繁中' }, ko: { greet: '안녕 {0}' } });
 check('register() 併入 zh-TW', I18N.t('greet') === '你好 {0}');
+/* 語言選單只列出該頁確實載入字典的語言：只註冊了 ko，就不該出現 ja。 */
+check('只列出已載入字典的語言',
+  I18N.availableLocales().join(',') === 'zh-TW,ko',
+  `got: ${I18N.availableLocales().join(',')}`);
+check('切換至沒有字典的語言回傳 false', I18N.setLocale('ja') === false);
 check('t() 代入位置參數', I18N.t('greet', '世界') === '你好 世界');
 check('未知 key 回傳 key 本身', I18N.t('no.such.key') === 'no.such.key');
 
@@ -23,6 +31,13 @@ check('切換後查得 ko 值', I18N.t('greet', '세계') === '안녕 세계');
 check('ko 缺 key 時退回 zh-TW', I18N.t('only') === '僅繁中');
 check('切換至相同語言回傳 false', I18N.setLocale('ko') === false);
 check('切換至未知語言回傳 false', I18N.setLocale('en') === false);
+
+/* 偏好全站共用，但工具只載入自己的原文語言字典：停在沒有該語言字典的
+ * 頁面時，resolveLocale() 應退回預設語言呈現。 */
+check('頁面缺少該語言字典時退回預設語言',
+  I18N.resolveLocale() === 'ko' && (I18N.locale = 'ja', I18N.resolveLocale()) === 'zh-TW',
+  `got: ${I18N.locale}`);
+I18N.setLocale('ko');
 
 let notified = null;
 I18N.onChange(locale => { notified = locale; });
@@ -35,32 +50,40 @@ check('register() 可多次呼叫且不覆蓋既有內容',
 
 /* ---- 各工具共用檢查 ---- */
 const HANGUL = /[가-힣]/;
+/* 日文只查平假名與片假名「字母」：漢字與中文重疊，不能當判準；片假名區塊裡的
+ * 中點「・」與長音符「ー」也排除在外——前者中文同樣會用到，會把正常譯文誤判為
+ * 未翻譯（真正的片假名詞一定帶有假名字母，不會因此漏掉）。 */
+const KANA = /[\u3041-\u3096\u30A1-\u30FA\uFF66-\uFF9D]/;
 
 /* dir: 'tools/magic-circle'；dict: 字典檔名；
- * scripts: 需掃描的 JS 檔名陣列；styles: 需掃描韓文洩漏的 CSS 檔名陣列
+ * locale: 該工具原文語言的字典代碼（sotsotssi 的工具為 ko，shiki365 的為 ja）；
+ * scripts: 需掃描的 JS 檔名陣列；styles: 需掃描原文洩漏的 CSS 檔名陣列
  * （不檢查 T() key 引用，CSS 本來就不會呼叫 T()）；
  * minHooks: 標記中 i18n 掛勾的最低數量；
- * allowHangul(line, lineNo, file): 回傳 true 表示該行允許出現韓文。 */
-function checkTool({ dir, dict, scripts, styles = [], minHooks, allowHangul = () => false, licence = true }) {
+ * allowSource(line, lineNo, file): 回傳 true 表示該行允許出現原文字元。 */
+function checkTool({ dir, dict, locale = 'ko', scripts, styles = [], minHooks, allowSource = () => false, licence = true }) {
   section(dir);
   const tool = loadI18N([`${dir}/${dict}`]);
   const zh = new Set(Object.keys(tool.messages['zh-TW']));
-  const ko = new Set(Object.keys(tool.messages.ko));
+  const ko = new Set(Object.keys(tool.messages[locale]));
+  /* 原文洩漏的判準隨語言而異：韓文查諺文，日文查平假名與片假名——漢字
+   * 與中文重疊，拿來當判準會把正常的譯文誤判為未翻譯。 */
+  const SOURCE_CHARS = { ko: HANGUL, ja: KANA }[locale];
 
-  check('僅註冊 zh-TW 與 ko 兩種語言',
-    Object.keys(tool.messages).join(',') === 'zh-TW,ko',
-    `got: ${Object.keys(tool.messages).join(',')}`);
+  check(`只載入 zh-TW 與 ${locale} 兩種語言的字典`,
+    Object.keys(tool.messages).filter(l => Object.keys(tool.messages[l]).length).join(',') === `zh-TW,${locale}`,
+    `got: ${Object.keys(tool.messages).filter(l => Object.keys(tool.messages[l]).length).join(',')}`);
 
   check('字典非空', zh.size > 0, `zh-TW keys: ${zh.size}`);
   check('定義了 app.title', zh.has('app.title'));
 
   const missingKo = [...zh].filter(k => !ko.has(k));
   const extraKo = [...ko].filter(k => !zh.has(k));
-  check('ko 涵蓋所有 zh-TW key', missingKo.length === 0, `missing: ${missingKo.join(', ')}`);
-  check('ko 無多餘 key', extraKo.length === 0, `unknown: ${extraKo.join(', ')}`);
+  check(`${locale} 涵蓋所有 zh-TW key`, missingKo.length === 0, `missing: ${missingKo.join(', ')}`);
+  check(`${locale} 無多餘 key`, extraKo.length === 0, `unknown: ${extraKo.join(', ')}`);
 
   const ph = v => [...new Set(String(v).match(/\{\d+\}/g) || [])].sort().join(',');
-  const badPh = [...zh].filter(k => ph(tool.messages['zh-TW'][k]) !== ph(tool.messages.ko[k] ?? ''));
+  const badPh = [...zh].filter(k => ph(tool.messages['zh-TW'][k]) !== ph(tool.messages[locale][k] ?? ''));
   check('兩語言的 {n} 佔位符一致', badPh.length === 0, `mismatched: ${badPh.join(', ')}`);
 
   const html = read(`${dir}/index.html`);
@@ -80,7 +103,7 @@ function checkTool({ dir, dict, scripts, styles = [], minHooks, allowHangul = ()
 
   const leakedIn = (src, file) => src.split('\n')
     .map((line, i) => [i + 1, line])
-    .filter(([n, line]) => HANGUL.test(line) && !allowHangul(line, n, file));
+    .filter(([n, line]) => SOURCE_CHARS.test(line) && !allowSource(line, n, file));
   const report = rows => rows.slice(0, 5)
     .map(([n, l]) => `L${n}: ${l.trim().slice(0, 80)}`).join('\n       ');
 
@@ -94,16 +117,16 @@ function checkTool({ dir, dict, scripts, styles = [], minHooks, allowHangul = ()
     check(`${file} 僅引用已知 key`, unknown.length === 0, `unknown: ${unknown.join(', ')}`);
 
     const leaked = leakedIn(src, file);
-    check(`${file} 無殘留韓文`, leaked.length === 0, report(leaked));
+    check(`${file} 無殘留原文`, leaked.length === 0, report(leaked));
   }
 
   const htmlLeaked = leakedIn(html, 'index.html');
-  check('index.html 無殘留韓文', htmlLeaked.length === 0, report(htmlLeaked));
+  check('index.html 無殘留原文', htmlLeaked.length === 0, report(htmlLeaked));
 
   for (const file of styles) {
     const src = read(`${dir}/${file}`);
     const leaked = leakedIn(src, file);
-    check(`${file} 無殘留韓文`, leaked.length === 0, report(leaked));
+    check(`${file} 無殘留原文`, leaked.length === 0, report(leaked));
   }
 
   /* emotion-maker 無原始 LICENSE，該工具傳入 licence: false。 */
@@ -205,7 +228,7 @@ const tw = checkTool({
    * （含字串常值）仍須通過殘留韓文檢查，確保日後若再引入未翻譯訊息會使建置失敗。
    * script.js 中兩處字元類別 [^a-zA-Z0-9가-힣] 用於保留使用者輸入歌詞／字幕中的韓文
    * 字元以組成檔名，屬程式碼而非介面文字，同樣豁免。 */
-  allowHangul: (line, lineNo, file) => {
+  allowSource: (line, lineNo, file) => {
     if (file === 'webp-muxer.js') {
       const trimmed = line.trimStart();
       if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return true; /* 整行都是註解 */
@@ -270,7 +293,7 @@ const em = checkTool({
   styles: ['style.css'],
   minHooks: 40,
   licence: false,
-  allowHangul: (line, n, file) => file === 'app.js' && emLineAllowsHangul(line)
+  allowSource: (line, n, file) => file === 'app.js' && emLineAllowsHangul(line)
 });
 
 /* emotion-maker 無原始 LICENSE，checkTool 的該項檢查會失敗；
@@ -365,6 +388,87 @@ check('標記中的 data-suffix-key 皆為已知 key',
 check('index.html 掛上語言切換器與首頁連結',
   lmHtml.includes('id="localeSelect"') && lmHtml.includes('data-i18n="nav.home"'));
 
+/* ---- foreground-frame ---- */
+const ff = checkTool({
+  dir: 'tools/foreground-frame',
+  dict: 'i18n.foreground-frame.js',
+  locale: 'ja',
+  scripts: ['app.v2.js', 'presets.v1.js', 'model.v2.js', 'render.v2.js',
+    'deco.v1.js', 'deco-extra.v1.js', 'effects.v1.js', 'icons.v1.js', 'zip.v1.js'],
+  styles: ['styles.css'],
+  minHooks: 200,
+  /* presets.v1.js 的 CSS font-family 串中含日文字型名（"UD デジタル 教科書体 NK-R"）。
+   * 那是使用者電腦上實際安裝的字型名稱，翻譯它會讓字型指定失效，故豁免該行。 */
+  allowSource: (line, n, file) => file === 'presets.v1.js' && line.includes('stack:')
+});
+
+/* 下列 key 由 JS 以變數取得（presets 的 getter、items 的名稱欄、常數表），
+ * 靜態掃描（只認得 T('字面常數')）看不到，需另外確認兩語言都有定義。 */
+section('tools/foreground-frame dynamic keys');
+const ffPresetKeys = [
+  ...['simple', 'mansion', 'forest', 'horror', 'steampunk', 'winter', 'sakura', 'cinema',
+    'novel', 'cyber', 'wa'].flatMap(id => [`design.${id}.label`, `design.${id}.desc`]),
+  ...['time', 'weather', 'season', 'scene', 'sanity', 'chapter', 'custom']
+    .flatMap(id => [`variantKind.${id}.label`, `variantKind.${id}.desc`]),
+  ...['ivy', 'flowers', 'thorns', 'sakura', 'grass', 'stars', 'cobweb', 'chain', 'gears',
+    'circuit', 'snowcap', 'drips']
+    .flatMap(id => [`deco.${id}.label`, `deco.${id}.desc`, `deco.${id}.color1`, `deco.${id}.color2`]),
+  ...['thin', 'normal', 'thick', 'cinema', 'novel', 'side'].map(id => `layout.${id}`),
+  ...['gothic', 'mincho', 'kyokasho', 'serif', 'sans'].map(id => `font.${id}`),
+  ...['tl', 'tc', 'tr', 'bl', 'bc', 'br'].map(id => `pos.${id}`),
+  ...['square', 'round', 'chamfer', 'scoop', 'notch'].map(id => `cornerType.${id}`)
+];
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = ffPresetKeys.filter(k => !ff.messages[locale][k]);
+  check(`${locale} 每個預設資料的顯示名稱都存在`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+/* presets.v1.js 的清單資料（效果、圖示、配置、顏色參照、差分項目、尺寸）第二欄
+ * 存的就是 key，逐一比對可確保資料與字典不會各自漂移。 */
+const ffPresets = read('tools/foreground-frame/presets.v1.js');
+const listedKeys = [...ffPresets.matchAll(/\["[\w-]+", "((?:effect|icon|placement|colorRef|variantKind)\.[\w.-]+)"\]/g)]
+  .map(m => m[1]);
+const sizeKeys = [...ffPresets.matchAll(/T\("(size\.[\w]+)"\)/g)].map(m => m[1]);
+check('presets.v1.js 解析出清單 key', listedKeys.length >= 45, `found ${listedKeys.length}`);
+check('presets.v1.js 解析出尺寸 key', sizeKeys.length === 7, `found ${sizeKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = [...new Set([...listedKeys, ...sizeKeys])].filter(k => !ff.messages[locale][k]);
+  check(`${locale} 每個清單 key 都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+/* 文字圖層的佔位符：日文寫法是原版與既有專案檔的格式，必須保留；
+ * 繁中寫法則是本 repo 介面提示所顯示的。兩者都要被 render 接受。 */
+section('tools/foreground-frame text tokens');
+const ffRender = read('tools/foreground-frame/render.v2.js');
+check('render 同時接受日文與繁中佔位符',
+  ffRender.includes('(差分|時間帯)') && ffRender.includes('(英語|英文)'));
+check('繁中提示用的佔位符與 render 接受的一致',
+  ff.messages['zh-TW']['layers.text.hint'].includes('{差分}')
+  && ff.messages['zh-TW']['layers.text.hint'].includes('{英文}'));
+
+/* ---- scene-transition ---- */
+const st = checkTool({
+  dir: 'tools/scene-transition',
+  dict: 'i18n.scene-transition.js',
+  locale: 'ja',
+  scripts: ['app.v1.js', 'apng.v1.js'],
+  styles: ['styles.css'],
+  minHooks: 60
+});
+
+/* 18 種預設集的說明以 T(p.descKey) 取得，key 存在資料裡，靜態掃描看不到。 */
+section('tools/scene-transition presets');
+const stPresetKeys = [...read('tools/scene-transition/app.v1.js')
+  .matchAll(/descKey: "(preset\.[\w-]+)"/g)].map(m => m[1]);
+check('解析出 18 組預設集', stPresetKeys.length === 18, `found ${stPresetKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = stPresetKeys.filter(k => !st.messages[locale][k]);
+  check(`${locale} 每組預設集都有說明`, missing.length === 0, `missing: ${missing.join(', ')}`);
+  /* 選單標籤取「：」前半段，因此每則說明都必須含全形冒號。 */
+  const noColon = stPresetKeys.filter(k => !String(st.messages[locale][k]).includes('：'));
+  check(`${locale} 每組預設集說明都有全形冒號`, noColon.length === 0, `missing: ${noColon.join(', ')}`);
+}
+
 /* ---- 首頁 ---- */
 section('index.html');
 const home = loadI18N(['assets/i18n.home.js']);
@@ -393,8 +497,9 @@ check('首頁 <title> 與 app.title 的 zh-TW 值一致',
 check('assets/home.js 無殘留韓文', !HANGUL.test(read('assets/home.js')));
 check('assets/home.css 無殘留韓文', !HANGUL.test(read('assets/home.css')));
 
-/* 六個工具連結都要指得到。 */
-const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker', 'loading-maker'];
+/* 八個工具連結都要指得到。 */
+const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker',
+  'loading-maker', 'foreground-frame', 'scene-transition'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -464,6 +569,8 @@ checkInlineText('tools/text-path', 'tools/text-path/index.html', ['tools/text-pa
 checkInlineText('tools/collage-letter', 'tools/collage-letter/index.html', ['tools/collage-letter/i18n.collage-letter.js'], 15);
 checkInlineText('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 15);
 checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 200);
+checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
+checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 50);
 
 /* ---- 內嵌屬性與 zh-TW 字典一致 ---- */
 /* data-i18n-title / data-i18n-aria-label / data-i18n-placeholder 各鎖定同一標籤上
@@ -531,6 +638,8 @@ checkAttrPairs('tools/text-path', 'tools/text-path/index.html', ['tools/text-pat
 checkAttrPairs('tools/collage-letter', 'tools/collage-letter/index.html', ['tools/collage-letter/i18n.collage-letter.js'], 5);
 checkAttrPairs('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 3);
 checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 10);
+checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
+checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 2);
 
 /* ---- 文件 ---- */
 section('docs');
@@ -543,7 +652,8 @@ const attribution = read('ATTRIBUTION.md');
 for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
-for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b', '772d6c4']) {
+for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
+  '5175934', 'a6621e2', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
