@@ -1,0 +1,384 @@
+    :root {
+        --bg-color: #121214;
+        --panel-bg: #1e1e24;
+        --border-color: #2b2b36;
+        --primary-color: #ff4757;
+        --primary-hover: #ff6b81;
+        --text-color: #f1f2f6;
+        --text-muted: #a4b0be;
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+    }
+
+    body {
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        height: 100vh;
+        display: flex;
+        overflow: hidden;
+    }
+
+    .container {
+        display: flex;
+        width: 100vw;
+        height: 100vh;
+    }
+
+    /* TRPG Toolkit 合輯：首頁連結與語言切換器 */
+.toolkit-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.home-link { color: var(--text-muted, #9a9aa5); font-size: 12px; text-decoration: none; white-space: nowrap; }
+.home-link:hover { color: var(--primary-color); text-decoration: underline; }
+.locale-select {
+  width: auto; min-width: 92px; padding: 4px 8px; font-size: 12px; cursor: pointer;
+  color: var(--text-color); background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px;
+}
+
+.sidebar {
+        width: 340px;
+        min-width: 340px;
+        background-color: var(--panel-bg);
+        border-right: 1px solid var(--border-color);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        z-index: 10;
+        box-shadow: 4px 0 12px rgba(0,0,0,0.3);
+        overflow-y: auto;
+    }
+
+    .title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        letter-spacing: 1px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .drop-zone {
+        border: 2px dashed var(--border-color);
+        border-radius: 8px;
+        padding: 16px 12px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+        border-color: var(--primary-color);
+        background-color: rgba(255, 71, 87, 0.05);
+    }
+
+    .drop-zone p {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 6px;
+        line-height: 1.4;
+    }
+
+    .drop-zone .icon {
+        font-size: 1.6rem;
+    }
+
+    .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .control-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .nav-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: var(--bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 6px 10px;
+    }
+
+    .nav-btn {
+        background: none;
+        border: none;
+        color: var(--text-color);
+        font-size: 1rem;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .nav-btn:hover:not(:disabled) {
+        background-color: var(--border-color);
+        color: var(--primary-color);
+    }
+
+    .nav-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .nav-info {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-muted);
+    }
+
+    .ratio-options {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .btn-radio {
+        background-color: var(--bg-color);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        padding: 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+        text-align: center;
+    }
+
+    .btn-radio.active {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        color: #fff;
+    }
+
+    .slider-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    input[type="range"] {
+        flex: 1;
+        accent-color: var(--primary-color);
+        cursor: pointer;
+    }
+
+    .slider-value {
+        font-size: 0.85rem;
+        font-weight: 600;
+        width: 45px;
+        text-align: right;
+    }
+
+    .color-picker-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    input[type="color"] {
+        -webkit-appearance: none;
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        cursor: pointer;
+        background: none;
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch {
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        color: var(--text-color);
+    }
+
+    .checkbox-label input[type="checkbox"] {
+        accent-color: var(--primary-color);
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    .btn-secondary {
+        background-color: var(--bg-color);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        padding: 10px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+    }
+
+    .btn-secondary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .action-group {
+        margin-top: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .btn-action {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .btn-action:hover:not(:disabled) {
+        background-color: var(--primary-hover);
+    }
+
+    .btn-action:disabled {
+        background-color: var(--border-color);
+        color: var(--text-muted);
+        cursor: not-allowed;
+    }
+
+    .preview-area {
+        flex: 1;
+        background-color: var(--bg-color);
+        background-image: 
+            linear-gradient(45deg, #18181c 25%, transparent 25%), 
+            linear-gradient(-45deg, #18181c 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, #18181c 75%),
+            linear-gradient(-45deg, transparent 75%, #18181c 75%);
+        background-size: 24px 24px;
+        background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+        cursor: grab;
+    }
+
+    .preview-area:active { cursor: grabbing; }
+
+    .viewport {
+        position: absolute;
+        transform-origin: center center;
+        will-change: transform;
+    }
+
+    .stage {
+        position: relative;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        display: inline-block;
+    }
+
+    #sourceCanvas {
+        display: block;
+        max-width: calc(100vw - 400px);
+        max-height: 92vh;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        transition: filter 0.15s ease;
+    }
+
+    .crop-box {
+        position: absolute;
+        border: 2px solid var(--primary-color);
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        cursor: ew-resize;
+        box-sizing: border-box;
+        z-index: 5;
+    }
+
+    .crop-box::after {
+        /* TRPG Toolkit 合輯：content: 的字串引擎接不到，改由 app.js 寫入的 data-hint 取值。 */
+        content: attr(data-hint);
+        position: absolute;
+        top: -26px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--primary-color);
+        color: white;
+        font-size: 11px;
+        font-weight: bold;
+        padding: 3px 8px;
+        border-radius: 4px;
+        white-space: nowrap;
+        pointer-events: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .zoom-controls {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(30, 30, 36, 0.85);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        z-index: 20;
+        font-size: 0.85rem;
+    }
+
+    .btn-reset-zoom {
+        background: var(--bg-color);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+    }
+
+    .btn-reset-zoom:hover { background: var(--border-color); }
+    #fileInput { display: none; }
+
+    .select-control { width:100%; padding:9px 10px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-size:.9rem; }
+    .outline-panel .slider-container { margin-top:8px; }
+    .outline-panel input[type="range"] { width:100%; }
+    .color-picker-wrapper { display:flex; align-items:center; gap:8px; }
+    .color-picker-wrapper input[type="color"] { width:34px; height:28px; padding:2px; border:1px solid var(--border); border-radius:6px; background:transparent; }

@@ -1,5 +1,5 @@
 /* 靜態 smoke 檢查。以 `npm test` 執行。 */
-import { check, section, summary, loadI18N, read, exists } from './harness.mjs';
+import { check, section, summary, loadI18N, read, exists, listFiles } from './harness.mjs';
 
 /* ---- 引擎行為 ---- */
 section('i18n engine');
@@ -469,6 +469,125 @@ for (const locale of ['zh-TW', 'ja']) {
   check(`${locale} 每組預設集說明都有全形冒號`, noColon.length === 0, `missing: ${noColon.join(', ')}`);
 }
 
+
+/* ---- status-bar ---- */
+const sb = checkTool({
+  dir: 'tools/status-bar',
+  dict: 'i18n.status-bar.js',
+  locale: 'ja',
+  scripts: ['app.v1.js', 'presets.v1.js', 'css.v1.js', 'deco.v1.js',
+    'model.v1.js', 'mock.v1.js', 'shapes.v1.js'],
+  styles: ['styles.css'],
+  minHooks: 200
+});
+
+/* presets.v1.js 的清單資料第二欄存的就是 key（設計範本、形狀、字型、動畫……），
+ * 由 optionsHtml() 等單一出口統一 T()，靜態掃描看不到，需另外比對。 */
+section('tools/status-bar preset keys');
+const sbPresets = read('tools/status-bar/presets.v1.js');
+const sbListKeys = [...sbPresets.matchAll(/\["[\w-]+", "([\w]+\.[\w.-]+)"/g)].map(m => m[1]);
+check('presets.v1.js 解析出清單 key', sbListKeys.length >= 60, `found ${sbListKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = [...new Set(sbListKeys)].filter(k => !sb.messages[locale][k]);
+  check(`${locale} 每個清單 key 都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+/* 狀態列會把目前狀態存成 {key, args} 再於語言切換時重繪，因此這些 key 只會以
+ * 變數形式傳進 T()，靜態掃描看不到。掃 app.v1.js 的 status()／statusError()
+ * 呼叫取得實際用到的集合，逐一確認兩語言都有譯文。 */
+section('tools/status-bar status messages');
+const sbApp = read('tools/status-bar/app.v1.js');
+const sbStatusKeys = [...new Set([
+  ...[...sbApp.matchAll(/\bstatus(?:Error)?\("([\w]+\.[\w.]+)"/g)].map(m => m[1]),
+  'status.loading'
+])];
+check('解析出狀態列訊息 key', sbStatusKeys.length >= 12, `found ${sbStatusKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = sbStatusKeys.filter(k => !sb.messages[locale][k]);
+  check(`${locale} 狀態列訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+/* ---- ccfolia-cropper ---- */
+checkTool({
+  dir: 'tools/ccfolia-cropper',
+  dict: 'i18n.ccfolia-cropper.js',
+  scripts: ['app.js'],
+  styles: ['styles.css'],
+  minHooks: 25,
+  /* 上游未附任何授權條款，狀態記於 ATTRIBUTION.md。 */
+  licence: false
+});
+
+/* 未授權，故不應有 LICENSE；理由同 emotion-maker 與 loading-maker。 */
+check('ccfolia-cropper 無原始 LICENSE（未授權，於 ATTRIBUTION.md 標示）',
+  !exists('tools/ccfolia-cropper/LICENSE'));
+
+section('tools/ccfolia-cropper crop hint');
+/* 裁切框的提示由 CSS 的 content: attr(data-hint) 顯示。::after 沒有 data-i18n
+ * 掛勾可掛，改由 app.js 在語言切換時寫入；HTML 裡的初始值仍須與字典一致，
+ * 否則腳本執行前後會閃字。 */
+const ccHtml = read('tools/ccfolia-cropper/index.html');
+const ccDict = loadI18N(['tools/ccfolia-cropper/i18n.ccfolia-cropper.js']).messages['zh-TW'];
+const ccHint = ccHtml.match(/data-hint="([^"]*)"/);
+check('裁切框提示的內嵌值與 zh-TW 字典一致',
+  !!ccHint && ccHint[1] === ccDict['crop.dragHint'],
+  `data-hint="${ccHint ? ccHint[1] : '(none)'}" 字典="${ccDict['crop.dragHint']}"`);
+check('app.js 在語言切換時更新裁切框提示',
+  read('tools/ccfolia-cropper/app.js').includes("I18N.onChange(applyCropHint)"));
+
+/* ---- cutin ---- */
+/* 唯一需要建置的工具：原始碼在 vendor/cutin-maker/，畫面全部由 React 算繪，
+ * 因此 index.html 只有外殼那三個掛勾，沒有內嵌文字可比對。改為檢查
+ * 「已提交的建置產物」與「原始碼引用的 key」兩邊都對得上。 */
+const cutin = checkTool({
+  dir: 'tools/cutin',
+  dict: 'i18n.cutin.js',
+  locale: 'ja',
+  scripts: [],
+  minHooks: 3
+});
+
+section('tools/cutin build output');
+const cutinZh = new Set(Object.keys(cutin.messages['zh-TW']));
+/* 只由 index.html 或 i18n 引擎使用，不會出現在 React 原始碼裡。 */
+const CUTIN_SHELL_KEYS = ['app.title', 'nav.home', 'lang.aria', 'noscript'];
+/* MOTIONS 以 `motion.${id}` 動態組成，原始碼裡沒有字面常數。 */
+const CUTIN_DYNAMIC_KEYS = ['motion.none', 'motion.pulse', 'motion.bounce',
+  'motion.shake', 'motion.rotate', 'motion.wave'];
+/* TEXT_PRESETS（一次匯出多張用的文案組）在上游是 export 出來但還沒接到畫面上的
+ * 資料，Rollup 會把它整段搖掉，因此這幾個 key 不會出現在 bundle 裡。保留字典
+ * 條目是為了讓 vendor/ 的原始碼維持與上游一致。 */
+const CUTIN_TREE_SHAKEN_KEYS = ['textPreset.coc', 'textPreset.simple',
+  'textPreset.battle', 'textPreset.kp'];
+
+const cutinSrc = listFiles('vendor/cutin-maker/src')
+  .filter(f => /\.tsx?$/.test(f))
+  .map(f => read(f))
+  .join('\n');
+const cutinUsed = [...cutinZh].filter(k => cutinSrc.includes(`'${k}'`));
+check('原始碼引用了字典中的大多數 key', cutinUsed.length >= 200, `found ${cutinUsed.length}`);
+
+const stale = [...cutinZh].filter(k =>
+  !cutinUsed.includes(k) && !CUTIN_SHELL_KEYS.includes(k) && !CUTIN_DYNAMIC_KEYS.includes(k));
+check('字典沒有原始碼用不到的 key', stale.length === 0, `stale: ${stale.join(', ')}`);
+
+const cutinMissing = CUTIN_DYNAMIC_KEYS.filter(k => !cutinZh.has(k));
+check('動態組出來的 key 都有譯文', cutinMissing.length === 0, `missing: ${cutinMissing.join(', ')}`);
+
+/* 建置產物是提交進 repo 的，改了原始碼卻忘記 `npm run build` 時，
+ * 新加的 key 就不會出現在 bundle 裡——這項檢查會抓到。 */
+const cutinBundle = read('tools/cutin/assets/app.js');
+const notBuilt = cutinUsed
+  .filter(k => !CUTIN_TREE_SHAKEN_KEYS.includes(k))
+  .filter(k => !cutinBundle.includes(k));
+check('建置產物是最新的（原始碼的 key 都在 bundle 裡）',
+  notBuilt.length === 0, `missing from bundle: ${notBuilt.slice(0, 10).join(', ')}`);
+
+/* 畫面文字全部來自字典，因此 bundle 裡不該留有任何假名。 */
+for (const file of ['assets/app.js', 'assets/encode.worker.js', 'assets/index.css']) {
+  check(`${file} 無殘留原文`, !KANA.test(read(`tools/cutin/${file}`)));
+}
+
 /* ---- 首頁 ---- */
 section('index.html');
 const home = loadI18N(['assets/i18n.home.js']);
@@ -497,9 +616,10 @@ check('首頁 <title> 與 app.title 的 zh-TW 值一致',
 check('assets/home.js 無殘留韓文', !HANGUL.test(read('assets/home.js')));
 check('assets/home.css 無殘留韓文', !HANGUL.test(read('assets/home.css')));
 
-/* 八個工具連結都要指得到。 */
+/* 11 個工具連結都要指得到。 */
 const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker',
-  'loading-maker', 'foreground-frame', 'scene-transition'];
+  'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
+  'ccfolia-cropper'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -511,7 +631,9 @@ check('首頁標示 emotion-maker 與 loading-maker 的未授權狀態',
   homeZh.has('license.unlicensed') && homeZh.has('license.unlicensed.assets')
   && homeHtml.includes('data-i18n="license.unlicensed"')
   && homeHtml.includes('data-i18n="license.unlicensed.assets"'));
-check('首頁標示原作者出處', homeHtml.includes('github.com/sotsotssi'));
+check('首頁標示原作者出處',
+  ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker']
+    .every(a => homeHtml.includes(`github.com/${a}`)));
 
 /* ---- 內嵌文字與 zh-TW 字典一致 ---- */
 /* 六個頁面（五個工具＋首頁）在 script 執行前顯示的畫面，其 HTML 內嵌文字必須
@@ -571,6 +693,8 @@ checkInlineText('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools
 checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 200);
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 50);
+checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
+checkInlineText('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 20);
 
 /* ---- 內嵌屬性與 zh-TW 字典一致 ---- */
 /* data-i18n-title / data-i18n-aria-label / data-i18n-placeholder 各鎖定同一標籤上
@@ -640,6 +764,9 @@ checkAttrPairs('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/
 checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 10);
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 2);
+checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
+checkAttrPairs('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 1);
+checkAttrPairs('tools/cutin', 'tools/cutin/index.html', ['tools/cutin/i18n.cutin.js'], 1);
 
 /* ---- 文件 ---- */
 section('docs');
@@ -653,13 +780,20 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  '5175934', 'a6621e2', '772d6c4']) {
+  '5175934', 'a6621e2', '1670549', '7e9c70d', 'f149b4e', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
   /emotion-maker[\s\S]{0,600}(未授權|無授權)/.test(attribution));
 check('ATTRIBUTION.md 標明 loading-maker 未授權',
   /loading-maker[\s\S]{0,600}(未授權|無授權)/.test(attribution));
+check('ATTRIBUTION.md 標明 ccfolia-cropper 未授權',
+  /ccfolia-cropper[\s\S]{0,600}(未授權|無授權)/.test(attribution));
+/* cutin 需要建置，說明其原始碼位置與重建方式。 */
+check('ATTRIBUTION.md 說明 cutin 的建置流程',
+  attribution.includes('vendor/cutin-maker'));
+check('README.md 說明 cutin 的建置流程',
+  read('README.md').includes('vendor/cutin-maker'));
 
 const pkg = JSON.parse(read('package.json'));
 check('package.json 無執行期相依',
