@@ -20,7 +20,21 @@ const RATIOS: Record<string, number> = {
   rocknroll: 0.98,
   'shippori-b1': 1.0,
   dotgothic: 1.0,
+  /* 【TRPG Toolkit 収録時の追加】繁体字中国語の5書体。
+   * いずれも全角の字送りは 1em なので 1.0。 */
+  'noto-tc': 1.0,
+  'serif-tc': 1.0,
+  'wenkai-tc': 1.0,
+  'choco-tc': 1.0,
+  'cactus-tc': 1.0,
 };
+
+/* 書体を足したのに RATIOS を足し忘れると stub(undefined) で全部 NaN になり、
+ * 「枠内に収まる」が全滅して原因が分かりにくい。ここで先に落としておく。 */
+const missingRatios = FONTS.filter((f) => typeof RATIOS[f.id] !== 'number').map((f) => f.id);
+if (missingRatios.length) {
+  throw new Error(`RATIOS に未登録の書体があります: ${missingRatios.join(', ')}`);
+}
 
 describe('layoutText', () => {
   const sizes = [

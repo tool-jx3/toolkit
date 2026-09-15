@@ -776,11 +776,16 @@
               <label class="mini-field"><span data-i18n="text.strokeWidth">外框</span><input type="number" min="0" max="20" step="1" data-bind="text.bottom.strokeWidth"></label>
             </div>
           </fieldset>
+          <!-- 這個工具不載入網頁字型，清單裡是觀看者電腦上可能裝有的字型。
+               後三筆為 TRPG Toolkit 合輯追加的台灣常見系統字型。 -->
           <datalist id="fontSuggestions">
             <option value="Arial, sans-serif"></option>
             <option value="'Malgun Gothic', sans-serif"></option>
             <option value="'Noto Sans KR', sans-serif"></option>
             <option value="'Nanum Gothic', sans-serif"></option>
+            <option value="'Microsoft JhengHei', 'PingFang TC', sans-serif"></option>
+            <option value="'PMingLiU', 'Songti TC', serif"></option>
+            <option value="'DFKai-SB', 'BiauKai', serif"></option>
             <option value="monospace"></option>
             <option value="serif"></option>
           </datalist>

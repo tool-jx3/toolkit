@@ -58,6 +58,41 @@ shiki365 的三個工具與 `cutin` 原文為日文，收錄時另有以下調�
 「關於這個工具」仍會連到 OFL 全文）；上游的 vitest 有一項斷言比對驗證訊息中的
 日文字串，改為比對其 i18n key。上游 240 項單元測試全數通過。
 
+## 繁體中文字型
+
+上游工具的字型清單都是為原文語言挑的：sotsotssi 與 kimtaehee2018-maker 的工具用
+韓文字型，shiki365 與 Taku_Taku_Taku 的用日文字型。這些字型大多含漢字，因此中文
+「看得到」，但字形走的是韓文或日文的慣例（骨、每、直、真等字尤其明顯），而且
+像「擲」「骰」這種只有中文在用的字，韓文字型多半直接缺字。
+
+因此在有字型清單的工具裡，各補上同一組五套繁體中文字型。原有的選項一個都沒動，
+預設值也維持原樣——範本是照原本那些字型的味道設計的，換掉會整個變樣。
+
+| 字型 | 設計者 | 授權 | 用途 |
+|---|---|---|---|
+| [Noto Sans TC](https://fonts.google.com/specimen/Noto+Sans+TC) | Google | SIL OFL 1.1 | 黑體 |
+| [Noto Serif TC](https://fonts.google.com/specimen/Noto+Serif+TC) | Google | SIL OFL 1.1 | 明體 |
+| [LXGW WenKai TC 霞鶩文楷](https://fonts.google.com/specimen/LXGW+WenKai+TC) | LXGW | SIL OFL 1.1 | 楷體 |
+| [Chocolate Classical Sans 巧克力黑體](https://fonts.google.com/specimen/Chocolate+Classical+Sans) | Moonlit Owen | SIL OFL 1.1 | 古典黑體 |
+| [Cactus Classical Serif 仙人掌明體](https://fonts.google.com/specimen/Cactus+Classical+Serif) | Henry Chan、Tian Haidong、Moonlit Owen | SIL OFL 1.1 | 古典明體 |
+
+五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
+因此沒有隨附 OFL 全文——與 `cutin` 的其他六套日文字型同樣的處理方式。
+收錄的工具：`cutin`、`status-bar`、`typewriter`、`collage-letter`。
+
+`foreground-frame`、`loading-maker`、`text-path` 沒有網頁字型的載入機制（前兩者
+的字型清單指的是觀看者電腦上已安裝的字型，後者是寫死的單一字型），因此改為：
+
+- `foreground-frame` 的字型表補上正黑體／明體／標楷體三組台灣系統字型堆疊；
+- `loading-maker` 的字型建議清單補上同樣三組；
+- `text-path` 的 `@import` 與繪製用的字型堆疊補上 Noto Sans TC，並排在
+  Noto Sans KR 前面。Noto Sans TC 沒有諺文，韓文仍會落到 Noto Sans KR，
+  所以兩種語言都不會缺字。
+
+各工具宣告的字重都逐一對 `fonts.googleapis.com/css2` 驗證過——Google Fonts 對
+不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
+`tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
+
 ## 未授權的三個工具
 
 `sotsotssi/emotion-maker`、`sotsotssi/loading-maker` 與

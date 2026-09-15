@@ -519,7 +519,9 @@
             const ch = canvas.height / rows;
 
             ctx.fillStyle = '#1f2937'; // gray-800
-            ctx.font = `bold ${Math.min(cw, ch) * 0.8}px Noto Sans KR`;
+            /* 合輯追加繁中字型：Noto Sans TC 沒有諺文，韓文仍會落到 Noto Sans KR，
+               因此兩種語言的字都畫得出來，中文也不會被畫成韓文的漢字字形。 */
+            ctx.font = `bold ${Math.min(cw, ch) * 0.8}px "Noto Sans TC", "Noto Sans KR", sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 

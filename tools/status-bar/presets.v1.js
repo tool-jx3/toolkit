@@ -12,6 +12,11 @@
 
   const SANS = '"Yu Gothic UI","Yu Gothic","Meiryo",sans-serif';
   const SERIF = '"Yu Mincho","YuMincho","Hiragino Mincho ProN",serif';
+  /* TRPG Toolkit 合輯：繁體中文字型的後備堆疊。網頁字型載不到時，
+     退回觀看者電腦上的台灣系統字型，而不是日文字型。 */
+  const TC_SANS = '"Microsoft JhengHei","微軟正黑體","PingFang TC","Heiti TC",sans-serif';
+  const TC_SERIF = '"PMingLiU","新細明體","Songti TC",serif';
+  const TC_KAI = '"DFKai-SB","標楷體","BiauKai","Kaiti TC",serif';
 
   // weights: verified against fonts.googleapis.com/css2 (2026-09-14). null = installed font, no import.
   const FONTS = {
@@ -38,6 +43,12 @@
     yujiboku: { label: "font.yujiboku", family: "Yuji Boku", weights: [400], stack: SERIF },
     zenantique: { label: "font.zenantique", family: "Zen Antique", weights: [400], stack: SERIF },
     kurenaido: { label: "font.kurenaido", family: "Zen Kurenaido", weights: [400], stack: SANS },
+    // TRPG Toolkit 合輯追加：繁體中文。weights 同樣逐一對 fonts.googleapis.com/css2 驗證過
+    notosanstc: { label: "font.notosanstc", family: "Noto Sans TC", weights: [400, 500, 700, 800, 900], stack: TC_SANS },
+    notoseriftc: { label: "font.notoseriftc", family: "Noto Serif TC", weights: [400, 500, 700, 800, 900], stack: TC_SERIF },
+    wenkaitc: { label: "font.wenkaitc", family: "LXGW WenKai TC", weights: [300, 400, 700], stack: TC_KAI },
+    chocolatetc: { label: "font.chocolatetc", family: "Chocolate Classical Sans", weights: [400], stack: TC_SANS },
+    cactustc: { label: "font.cactustc", family: "Cactus Classical Serif", weights: [400], stack: TC_SERIF },
     orbitron: { label: "font.orbitron", family: "Orbitron", weights: [400, 500, 700, 800, 900], stack: SANS },
     rajdhani: { label: "font.rajdhani", family: "Rajdhani", weights: [400, 500, 600, 700], stack: SANS },
     oswald: { label: "font.oswald", family: "Oswald", weights: [400, 500, 600, 700], stack: SANS },
