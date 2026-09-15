@@ -589,6 +589,56 @@ for (const file of ['assets/app.js', 'assets/encode.worker.js', 'assets/index.cs
 }
 
 
+
+/* ---- character-select ---- */
+const cs = checkTool({
+  dir: 'tools/character-select',
+  dict: 'i18n.character-select.js',
+  scripts: ['app.js', 'crop.js', 'fonts.js', 'video-export.js'],
+  styles: ['styles.css', 'crop.css', 'fonts.css'],
+  minHooks: 220,
+  /* 上游未附任何授權條款，狀態記於 ATTRIBUTION.md。 */
+  licence: false
+});
+check('character-select 無原始 LICENSE（未授權，於 ATTRIBUTION.md 標示）',
+  !exists('tools/character-select/LICENSE'));
+
+/* 清單、玩家面板、裁切編輯器的文字都是 JS 組出來的，標記上沒有 data-i18n 掛勾，
+ * 所以 key 幾乎都以字面常數傳進 T()——但也有幾組是存在資料表裡再取出來用的，
+ * 靜態掃描看不到，逐一確認兩語言都有定義。 */
+section('tools/character-select dynamic keys');
+const csApp = read('tools/character-select/app.js');
+const csDynamicKeys = [
+  /* 分頁提示：guides 表存的是 key 對 */
+  ...['guide.title', 'guide.copy'],
+  ...['appearance', 'motion', 'export'].flatMap(t => [`guide.${t}.title`, `guide.${t}.copy`]),
+  /* 玩家列的 aria-label 後綴，改版後由 key 取代原本的字面後綴 */
+  'player.colorAria', 'player.targetCharAria', 'route.startAria', 'route.modeAria',
+];
+for (const locale of ['zh-TW', 'ko']) {
+  const missing = csDynamicKeys.filter(k => !cs.messages[locale][k]);
+  check(`${locale} 每個動態 key 都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+check('app.js 的 guides 表存的是 key 而非譯文',
+  csApp.includes('characters: ["guide.title", "guide.copy"]'));
+
+/* 語言切換時整批重畫：清單與面板沒有 data-i18n 掛勾，引擎的 applyStaticDom()
+ * 碰不到，漏了這段就會停在舊語言。 */
+check('app.js 在語言切換時重畫 JS 產生的區塊',
+  ['renderCharacterList()', 'renderPlayerList()', 'renderPreviewPlayers()', 'updateExportEstimate()']
+    .every(call => new RegExp(`I18N\\.onChange\\([\\s\\S]{0,600}${call.replace('(', '\\(').replace(')', '\\)')}`).test(csApp)));
+/* initializeTheme() 會綁 click，重畫時只能改按鈕文字，不能整個再跑一次。 */
+check('語言切換時不重複綁定主題按鈕',
+  !/I18N\.onChange\([\s\S]{0,600}initializeTheme\(\)/.test(csApp));
+check('app.js 掛上語言切換器', csApp.includes('I18N.mountSwitcher($("#localeSelect"))'));
+
+/* video-export.js 的兩則訊息原本是模組載入時就固定的字串常數，改成函式才會
+ * 在拋出當下取譯文；寫回常數就會永遠停在載入時的語言。 */
+const csVideo = read('tools/character-select/video-export.js');
+check('video-export.js 的訊息在拋出時才取譯文',
+  /const MP4_UNAVAILABLE = \(\) =>/.test(csVideo) && /const TOO_LARGE = \(\) =>/.test(csVideo)
+  && !/new Error\(TOO_LARGE\)/.test(csVideo) && !/new Error\(MP4_UNAVAILABLE\)/.test(csVideo));
+
 /* ---- 繁體中文網頁字型 ---- */
 /* 五套字型分散在四個工具裡，各自用不同的寫法要求 Google Fonts。字重寫錯會讓
  * 整個 family 的 @font-face 靜靜地不見（Google Fonts 對不存在的字重回 400，
@@ -722,10 +772,10 @@ check('首頁 <title> 與 app.title 的 zh-TW 值一致',
 check('assets/home.js 無殘留韓文', !HANGUL.test(read('assets/home.js')));
 check('assets/home.css 無殘留韓文', !HANGUL.test(read('assets/home.css')));
 
-/* 11 個工具連結都要指得到。 */
+/* 12 個工具連結都要指得到。 */
 const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker',
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
-  'ccfolia-cropper'];
+  'ccfolia-cropper', 'character-select'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -801,6 +851,7 @@ checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', [
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 50);
 checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
 checkInlineText('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 20);
+checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
 
 /* ---- 內嵌屬性與 zh-TW 字典一致 ---- */
 /* data-i18n-title / data-i18n-aria-label / data-i18n-placeholder 各鎖定同一標籤上
@@ -873,6 +924,7 @@ checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['
 checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
 checkAttrPairs('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 1);
 checkAttrPairs('tools/cutin', 'tools/cutin/index.html', ['tools/cutin/i18n.cutin.js'], 1);
+checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
 
 /* ---- 文件 ---- */
 section('docs');
@@ -886,7 +938,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  '5175934', 'a6621e2', '1670549', '7e9c70d', 'f149b4e', '772d6c4']) {
+  'c24f0a2', '52426f5', '1670549', '7e9c70d', 'f149b4e', '883f48b', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
@@ -895,6 +947,8 @@ check('ATTRIBUTION.md 標明 loading-maker 未授權',
   /loading-maker[\s\S]{0,600}(未授權|無授權)/.test(attribution));
 check('ATTRIBUTION.md 標明 ccfolia-cropper 未授權',
   /ccfolia-cropper[\s\S]{0,600}(未授權|無授權)/.test(attribution));
+check('ATTRIBUTION.md 標明 character-select 未授權',
+  /character-select[\s\S]{0,900}(未授權|無授權)/.test(attribution));
 /* cutin 需要建置，說明其原始碼位置與重建方式。 */
 check('ATTRIBUTION.md 說明 cutin 的建置流程',
   attribution.includes('vendor/cutin-maker'));

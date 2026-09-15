@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="zh-Hant-TW" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>選角畫面產生器</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="fonts.css">
+  <link rel="stylesheet" href="crop.css">
+  <!-- 合輯共用的 i18n 引擎與本工具字典。app.js 可在 top-level 直接呼叫 T()。 -->
+  <script src="../../assets/i18n.js"></script>
+  <script src="./i18n.character-select.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-block">
+      <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="11" r="7" fill="currentColor"/><path d="M4 29a12 12 0 0 1 24 0Z" fill="currentColor"/><path d="M13 12q3 3 6 0" stroke="#bdf4de" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+      <div><a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a><div class="brand-title"><h1>Character Select <span>Motion Studio</span></h1><a class="creator-link" href="https://x.com/bb_uu_t" target="_blank" rel="noopener noreferrer" data-i18n-aria-label="brand.creatorAria" aria-label="在 X 上查看 @bb_uu_t">@bb_uu_t <span aria-hidden="true">↗</span></a></div><p data-i18n="brand.tagline">做一個自己的選角畫面</p></div>
+    </div>
+    <div class="top-actions">
+      <button data-i18n="top.openProject" type="button" class="button ghost" id="loadProjectButton">開啟專案</button>
+      <button data-i18n="top.saveProject" type="button" class="button secondary" id="saveProjectButton">儲存專案</button>
+      <button data-i18n="top.reset" type="button" class="button ghost small" id="resetProjectButton">重設</button>
+      <button data-i18n="top.themeLight" type="button" class="button ghost small theme-toggle" id="themeToggleButton" data-i18n-aria-label="top.themeAria" aria-label="切換為亮色主題" aria-pressed="false">☀ 亮色主題</button>
+      <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+      <input type="file" id="projectFileInput" accept="application/json,.json" hidden>
+    </div>
+  </header>
+  <main class="studio">
+    <nav class="workflow-tabs" role="tablist" data-i18n-aria-label="tabs.aria" aria-label="編輯步驟">
+      <button type="button" id="tab-characters" role="tab" aria-selected="true" aria-controls="editor-characters" data-editor-tab="characters"><span class="step-number">01</span><span><strong data-i18n="tab.characters">角色</strong><small data-i18n="tab.characters.sub">新增與替換圖片</small></span></button>
+      <button type="button" id="tab-appearance" role="tab" aria-selected="false" aria-controls="editor-appearance" tabindex="-1" data-editor-tab="appearance"><span class="step-number">02</span><span><strong data-i18n="tab.appearance">畫面樣式</strong><small data-i18n="tab.appearance.sub">背景・排列・樣式</small></span></button>
+      <button type="button" id="tab-motion" role="tab" aria-selected="false" aria-controls="editor-motion" tabindex="-1" data-editor-tab="motion"><span class="step-number">03</span><span><strong data-i18n="tab.motion">選擇演出</strong><small data-i18n="tab.motion.sub">玩家・移動路徑</small></span></button>
+      <button type="button" id="tab-export" role="tab" aria-selected="false" aria-controls="editor-export" tabindex="-1" data-editor-tab="export"><span class="step-number">04</span><span><strong data-i18n="tab.export">匯出</strong><small data-i18n="tab.export.sub">動態圖片・HTML</small></span></button>
+    </nav>
+    <div class="app-shell">
+      <aside class="editor-panel" data-i18n-aria-label="editor.aria" aria-label="編輯工具">
+        <section id="editor-characters" class="editor-page" role="tabpanel" aria-labelledby="tab-characters" tabindex="0">
+          <div class="editor-heading"><div><h2 data-i18n="chara.heading">角色圖片</h2><p data-i18n="chara.lead">可以先用內建角色，也可以放進自己的圖片。</p></div><span class="count-badge" id="characterCount">0 人</span></div>
+          <label class="drop-zone" id="dropZone" for="characterFileInput" tabindex="0" role="button" data-i18n-aria-label="chara.dropAria" aria-label="新增角色圖片">
+            <input type="file" id="characterFileInput" accept="image/*" multiple hidden>
+            <span class="drop-icon" aria-hidden="true">＋</span><strong data-i18n="chara.dropTitle">新增角色圖片</strong><span data-i18n="chara.dropHint">點一下，或把圖片拖到這裡</span><small data-i18n="chara.dropFormats">PNG · JPG · WebP · GIF · SVG／可一次選多張</small>
+          </label>
+          <input type="file" id="replaceCharacterFileInput" accept="image/*" hidden>
+          <p data-i18n-html="chara.uploadHelp" class="help-text upload-help">新增的圖片會排在清單最後。原有的圖片可以用下面的<strong>替換圖片</strong>來換掉。</p>
+          <div class="list-heading"><h3 data-i18n="chara.listHeading">我的角色</h3><span data-i18n="chara.listHint">會照清單順序排進畫面</span></div>
+          <div id="characterList" class="character-list"></div>
+          <details class="list-management"><summary data-i18n="chara.manage">還原內建角色・全部刪除</summary><div class="inline-actions"><button data-i18n="chara.restoreDemo" type="button" class="button ghost small" id="demoButton">還原成內建角色</button><button data-i18n="chara.clearAll" type="button" class="button danger ghost small" id="clearCharactersButton">全部刪除</button></div></details>
+          <button data-i18n-node="chara.next" type="button" class="button next-step" data-go-tab="appearance">下一步：畫面樣式 <span aria-hidden="true">→</span></button>
+        </section>
+        <section id="editor-appearance" class="editor-page" role="tabpanel" aria-labelledby="tab-appearance" tabindex="0" hidden>
+          <div class="editor-heading"><div><h2 data-i18n="look.heading">畫面樣式</h2><p data-i18n="look.lead">調整設定後，預覽會立刻跟著變。</p></div></div>
+      <details class="panel-section" open>
+        <summary><span data-i18n="comp.legend">畫面構成</span><span class="summary-hint" id="compositionBadge">格狀</span></summary>
+        <div class="section-body">
+          <label class="field"><span data-i18n="comp.mode">選角框形式</span><select data-bind="mainPanel.enabled"><option data-i18n="comp.mode.grid" value="false">角色格狀排列</option><option data-i18n="comp.mode.main" value="true">大主格 ＋ 小清單</option></select></label>
+          <div class="composition-presets" data-i18n-aria-label="comp.presetAria" aria-label="主格版型">
+            <button type="button" class="composition-preset" data-showcase-preset="portrait" aria-pressed="false">
+              <svg viewBox="0 0 120 76" aria-hidden="true"><rect class="diagram-main" x="34" y="4" width="52" height="43" rx="4"/><path d="M34 54h52M34 66h52M46 54v17M60 54v17M74 54v17"/><rect x="34" y="53" width="52" height="18" rx="2"/></svg>
+              <strong data-i18n="comp.preset.portrait">主格在上・清單在下</strong><small data-i18n="comp.preset.portrait.sub">直式 960 × 1280</small>
+            </button>
+            <button type="button" class="composition-preset" data-showcase-preset="landscape" aria-pressed="false">
+              <svg viewBox="0 0 120 76" aria-hidden="true"><rect class="diagram-main" x="9" y="12" width="65" height="52" rx="4"/><rect x="82" y="12" width="28" height="52" rx="2"/><path d="M96 12v52M82 25h28M82 38h28M82 51h28"/></svg>
+              <strong data-i18n="comp.preset.landscape">主格在左・清單在右</strong><small data-i18n="comp.preset.landscape.sub">橫式 1280 × 720</small>
+            </button>
+          </div>
+          <div id="mainPanelSettings" class="main-panel-settings" hidden>
+            <p class="help-text" id="mainPanelFillHelp">確定選擇後，大格就會填上該角色。下一位確定選擇時會換成新的角色。</p>
+            <div class="main-grid-settings">
+              <p data-i18n="comp.slots" class="mini-title">大格的數量與排列</p>
+              <div class="preset-row" data-i18n-aria-label="comp.slotsAria" aria-label="大格快速排列">
+                <button data-i18n="comp.slots.one" type="button" class="chip" data-main-grid-preset="1,1" aria-pressed="true">1 格</button>
+                <button data-i18n="comp.slots.row2" type="button" class="chip" data-main-grid-preset="2,2" aria-pressed="false">橫向 2 格</button>
+                <button data-i18n="comp.slots.col2" type="button" class="chip" data-main-grid-preset="2,1" aria-pressed="false">直向 2 格</button>
+                <button type="button" class="chip" data-main-grid-preset="4,2" aria-pressed="false">2 × 2</button>
+              </div>
+              <div class="three-columns">
+                <label class="field compact"><span data-i18n="comp.slotCount">大格數量</span><input type="number" min="1" max="12" step="1" data-bind="mainPanel.count" value="1"></label>
+                <label class="field compact"><span data-i18n="comp.slotCols">欄</span><input type="number" min="1" max="12" step="1" data-bind="mainPanel.columns" value="1"></label>
+                <label class="field compact"><span data-i18n="comp.slotRows">列（自動）</span><input type="number" id="mainPanelRows" value="1" readonly tabindex="-1"></label>
+              </div>
+              <p data-i18n="comp.slotHelp" class="help-text">最多可以做到 12 格。指定欄數後，需要幾列會自動算出來。</p>
+              <label class="field range-field"><span data-i18n-node="comp.slotGap">大格之間的間距 <output data-output="mainPanel.slotGap">16px</output></span><input type="range" min="0" max="120" step="1" data-bind="mainPanel.slotGap" value="16"></label>
+            </div>
+            <div class="two-columns">
+              <label class="field"><span data-i18n="comp.slotArea">大格區域的位置</span><select data-bind="mainPanel.position"><option data-i18n="comp.slotArea.top" value="top">清單上方</option><option data-i18n="comp.slotArea.left" value="left">清單左邊</option><option data-i18n="comp.slotArea.right" value="right">清單右邊</option></select></label>
+              <label class="field"><span data-i18n="comp.showWhen">顯示時機</span><select data-bind="mainPanel.reveal"><option data-i18n="comp.showWhen.confirm" value="confirm">確定選擇的當下</option><option data-i18n="comp.showWhen.browse" value="hover">游標移動時就先顯示</option></select></label>
+            </div>
+            <details class="main-panel-adjustments"><summary data-i18n="comp.tune">大小・圖片・名牌的調整</summary><div class="section-body">
+              <label class="field range-field"><span data-i18n-node="comp.mainRatio">大格所佔比重 <output data-output="mainPanel.size">62%</output></span><input type="range" min="35" max="80" step="1" data-bind="mainPanel.size" value="62"></label>
+              <label class="field range-field"><span data-i18n-node="comp.mainGap">主格與清單的間距 <output data-output="mainPanel.gap">24px</output></span><input type="range" min="0" max="120" step="1" data-bind="mainPanel.gap" value="24"></label>
+              <label class="field"><span data-i18n="comp.mainFit">大格的圖片縮放</span><select data-bind="mainPanel.fit"><option data-i18n="fit.contain" value="contain">完整顯示</option><option data-i18n="fit.cover" value="cover">填滿格子</option></select></label>
+              <p class="help-text">大格用的是原圖的全部範圍。小清單那邊的縮放與位置調整不會套用到大格。</p>
+              <label class="check-field"><input type="checkbox" data-bind="mainPanel.showName" checked><span data-i18n="comp.mainNames">在大格顯示玩家與角色名稱</span></label>
+              <label class="check-field"><input type="checkbox" data-bind="mainPanel.effects" checked><span data-i18n="comp.mainHighlight">主格也套用選取強調效果</span></label>
+              <p data-i18n="comp.mainHighlightHelp" class="help-text">會一併套用選取效果的色調、放大、光暈、外框，以及確定當下的閃爍。</p>
+              <label class="field"><span data-i18n="comp.placeholderLabel">尚未選擇時的提示文字</span><input type="text" maxlength="100" data-bind="mainPanel.placeholder" value="請選擇角色" data-i18n-placeholder="comp.placeholderHint" placeholder="留空就不顯示文字"></label>
+            </div></details>
+          </div>
+        </div>
+      </details>
+<details class="panel-section">
+        <summary><span data-i18n="layout.legend">畫面尺寸與角色排列</span><span class="summary-hint">區域</span></summary>
+        <div class="section-body">
+          <div class="two-columns">
+            <label class="field compact"><span data-i18n="size.width">寬</span><input type="number" min="240" max="4096" step="1" data-bind="canvas.width" value="960"></label>
+            <label class="field compact"><span data-i18n="size.height">高</span><input type="number" min="180" max="4096" step="1" data-bind="canvas.height" value="540"></label>
+          </div>
+          <div class="preset-row" data-i18n-aria-label="layout.presetAria" aria-label="畫布比例版型">
+            <button type="button" class="chip" data-canvas-preset="960,540">16:9</button>
+            <button type="button" class="chip" data-canvas-preset="1000,1000">1:1</button>
+            <button data-i18n="layout.preset.blog" type="button" class="chip" data-canvas-preset="1200,630">部落格</button>
+            <button type="button" class="chip" data-canvas-preset="1280,720">HD</button>
+            <button data-i18n="layout.preset.p8" type="button" class="chip" data-canvas-preset="960,1280" data-grid-preset="2,4" data-i18n-title="layout.preset.p8.title" title="直式畫面 960 × 1280px・8 格">直式・2 欄 4 列</button>
+            <button data-i18n="layout.preset.p5" type="button" class="chip" data-canvas-preset="720,1280" data-grid-preset="1,5" data-i18n-title="layout.preset.p5.title" title="直式畫面 720 × 1280px・5 格">直式・1 欄 5 列</button>
+          </div>
+          <p class="mini-title" id="layoutAreaLabel">角色擺放的區域（px）</p>
+          <div class="four-columns">
+            <label class="field compact"><span>X</span><input type="number" min="0" step="1" data-bind="layout.x" value="64"></label>
+            <label class="field compact"><span>Y</span><input type="number" min="0" step="1" data-bind="layout.y" value="124"></label>
+            <label class="field compact"><span data-i18n="layout.areaWidth">寬</span><input type="number" min="20" step="1" data-bind="layout.width" value="832"></label>
+            <label class="field compact"><span data-i18n="layout.areaHeight">高</span><input type="number" min="20" step="1" data-bind="layout.height" value="328"></label>
+          </div>
+          <div class="three-columns">
+            <label class="field compact"><span data-i18n="layout.cols">欄</span><input type="number" min="1" max="12" step="1" data-bind="layout.columns" value="4"></label>
+            <label class="field compact"><span id="layoutRowsLabel">最少列數</span><input type="number" min="1" max="12" step="1" data-bind="layout.rows" value="2"></label>
+            <label class="field compact"><span data-i18n="layout.gap">間距</span><input type="number" min="0" max="120" step="1" data-bind="layout.gap" value="14"></label>
+          </div>
+          <label class="check-field"><input type="checkbox" data-bind="layout.autoGap" checked><span data-i18n="layout.autoGap">依畫面比例與格數自動調整間距</span></label>
+          <label class="check-field"><input type="checkbox" data-bind="layout.autoRows" checked><span data-i18n="layout.autoRows">圖片變多時自動加列</span></label>
+          <p class="help-text" id="layoutCapacityHelp" hidden></p>
+          <label class="field range-field">
+            <span data-i18n-node="layout.radius">方格圓角 <output data-output="layout.radius">24px</output></span>
+            <input type="range" min="0" max="120" step="1" data-bind="layout.radius" value="24">
+          </label>
+          <div class="two-columns">
+            <label class="field compact"><span data-i18n="layout.fit">圖片縮放</span>
+              <select data-bind="layout.fit"><option data-i18n="fit.cover2" value="cover">填滿</option><option data-i18n="fit.contain2" value="contain">完整顯示</option></select>
+            </label>
+            <label class="field compact"><span data-i18n="layout.border">預設外框</span><input type="number" min="0" max="20" step="1" data-bind="layout.borderWidth" value="2"></label>
+          </div>
+          <label class="check-field"><input type="checkbox" data-bind="ui.showGuides" checked><span data-i18n="layout.guides">顯示編輯用的參考線（不會匯出）</span></label>
+        </div>
+      </details>
+<details class="panel-section" open><summary><span data-i18n="bg.legend">背景</span></summary><div class="section-body">
+          <div class="field-group">
+            <label data-i18n="bg.mode" class="field-label" for="backgroundType">背景方式</label>
+            <select id="backgroundType" data-bind="background.type">
+              <option data-i18n="bg.gradient" value="gradient">漸層</option>
+              <option data-i18n="bg.solid" value="solid">單色</option>
+              <option data-i18n="bg.image" value="image">背景圖片</option>
+              <option data-i18n="bg.transparent" value="transparent">透明</option>
+            </select>
+          </div>
+          <div class="two-columns" data-background-options="gradient solid">
+            <label class="field compact"><span data-i18n="bg.colorA">顏色 A</span><input type="color" data-bind="background.colorA" value="#111827"></label>
+            <label class="field compact" data-background-options="gradient"><span data-i18n="bg.colorB">顏色 B</span><input type="color" data-bind="background.colorB" value="#3b1d5a"></label>
+          </div>
+          <label class="field range-field" data-background-options="gradient">
+            <span data-i18n-node="bg.angle">漸層角度 <output data-output="background.angle">135°</output></span>
+            <input type="range" min="0" max="360" step="1" data-bind="background.angle" value="135">
+          </label>
+          <label class="file-button" data-background-options="image" tabindex="0" role="button">
+            <input type="file" id="backgroundFileInput" accept="image/*" hidden>
+            <span id="backgroundFileLabel">選擇背景圖片</span>
+          </label>
+          <button data-i18n="bg.clearImage" type="button" class="button ghost small full" id="clearBackgroundButton" data-background-options="image">移除背景圖片</button>
+          <label class="field range-field" data-background-options="image">
+            <span data-i18n-node="bg.imageDim">背景圖片的暗度 <output data-output="background.imageDim">24%</output></span>
+            <input type="range" min="0" max="90" step="1" data-bind="background.imageDim" value="24">
+          </label>
+          <label class="field range-field">
+            <span data-i18n-node="bg.vignette">暗角 <output data-output="background.vignette">38%</output></span>
+            <input type="range" min="0" max="80" step="1" data-bind="background.vignette" value="38">
+          </label>
+          <label class="check-field"><input type="checkbox" data-bind="background.pattern" checked><span data-i18n="bg.pattern">遊戲畫面感的細紋</span></label>
+        </div>
+      </details>
+<details class="panel-section">
+        <summary><span data-i18n="title.legend">標題與名牌</span><span class="summary-hint">文字</span></summary>
+        <div class="section-body">
+          <div class="font-controls" id="fontControls" role="group" data-i18n-aria-label="font.groupAria" aria-label="畫面字型" aria-busy="false">
+            <label class="field" for="fontFamilyInput"><span data-i18n="font.label">畫面字型</span></label>
+            <div class="font-family-row"><input type="text" id="fontFamilyInput" data-i18n-placeholder="font.placeholder" placeholder="已安裝的字型名稱・例：微軟正黑體" maxlength="160" autocomplete="off"><button data-i18n="font.apply" type="button" class="button secondary small" id="applyFontFamilyButton">套用</button></div>
+            <div class="font-file-actions"><button data-i18n="font.loadFile" type="button" class="button ghost small" id="loadFontFileButton">載入字型檔</button><button data-i18n="font.reset" type="button" class="button ghost small" id="resetFontButton">預設字型</button></div>
+            <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden>
+            <span class="font-file-name" id="fontFileName" hidden></span>
+            <p class="font-status" id="fontStatus" role="status" aria-live="polite">目前使用預設字型。</p>
+            <p data-i18n="font.sample" class="font-sample" id="fontSample" data-i18n-aria-label="font.sampleAria" aria-label="字型預覽">中文字型 ABC 123</p>
+            <p data-i18n="font.help" class="help-text">可以輸入電腦上已安裝的字型名稱，或載入 TTF · OTF · WOFF · WOFF2 檔案。字型檔會跟著專案與 HTML 一起存下來。</p>
+          </div>
+          <label class="check-field"><input type="checkbox" data-bind="text.showTitle" checked><span data-i18n="title.show">顯示上方標題</span></label>
+          <label class="field"><span data-i18n="title.main">主標題</span><input type="text" data-bind="text.title" value="SELECT YOUR CHARACTER" maxlength="80"></label>
+          <label class="field"><span data-i18n="title.sub">副標題</span><input type="text" data-bind="text.subtitle" value="CHOOSE YOUR FIGHTER" maxlength="100"></label>
+          <div class="two-columns">
+            <label class="field compact"><span data-i18n="title.size">標題大小</span><input type="number" min="10" max="120" data-bind="text.titleSize" value="30"></label>
+            <label class="field compact"><span data-i18n="title.align">對齊</span><select data-bind="text.align"><option data-i18n="align.left" value="left">靠左</option><option data-i18n="align.center" value="center" selected>置中</option><option data-i18n="align.right" value="right">靠右</option></select></label>
+          </div>
+          <label class="check-field"><input type="checkbox" data-bind="labels.show" checked><span data-i18n="label.show">顯示角色名牌</span></label>
+          <div class="two-columns">
+            <label class="field compact"><span data-i18n="label.height">名牌高度</span><input type="number" min="0" max="160" data-bind="labels.height" value="46"></label>
+            <label class="field compact"><span data-i18n="label.fontSize">文字大小</span><input type="number" min="8" max="60" data-bind="labels.fontSize" value="17"></label>
+          </div>
+        </div>
+      </details>
+<details class="panel-section">
+        <summary><span data-i18n="fx.legend">選取前後的效果</span><span class="summary-hint">樣式</span></summary>
+        <div class="section-body">
+          <p data-i18n="fx.idle" class="mini-title">未選取狀態</p>
+          <div class="two-columns">
+            <label class="field compact"><span data-i18n="fx.filter">濾鏡</span>
+              <select data-bind="idle.mode"><option data-i18n="fx.filter.none" value="normal">正常</option><option data-i18n="fx.filter.gray" value="grayscale" selected>黑白</option><option data-i18n="fx.filter.sepia" value="sepia">深褐</option></select>
+            </label>
+            <label class="field compact"><span data-i18n="fx.filterStrength">濾鏡強度</span><input type="number" min="0" max="100" data-bind="idle.amount" value="88"></label>
+          </div>
+          <label class="field range-field"><span data-i18n-node="fx.idle.brightness">亮度 <output data-output="idle.brightness">68%</output></span><input type="range" min="20" max="140" data-bind="idle.brightness" value="68"></label>
+          <label class="field range-field"><span data-i18n-node="fx.idle.saturation">彩度 <output data-output="idle.saturation">62%</output></span><input type="range" min="0" max="180" data-bind="idle.saturation" value="62"></label>
+          <label class="field range-field"><span data-i18n-node="fx.idle.overlay">暗色遮罩 <output data-output="idle.overlayAlpha">18%</output></span><input type="range" min="0" max="80" data-bind="idle.overlayAlpha" value="18"></label>
+
+          <p data-i18n="fx.active" class="mini-title separated">選取狀態</p>
+          <label class="field"><span data-i18n="fx.tintMode">色調方式</span>
+            <select data-bind="selected.tintMode"><option data-i18n="fx.tint.none" value="none">只還原成原色</option><option data-i18n="fx.tint.fixed" value="fixed">固定色調</option><option data-i18n="fx.tint.player" value="player" selected>玩家色調</option></select>
+          </label>
+          <div class="two-columns">
+            <label class="field compact" id="fixedTintField"><span data-i18n="fx.fixedColor">固定顏色</span><input type="color" data-bind="selected.tint" value="#64e4ff"></label>
+            <label class="field compact"><span data-i18n="fx.tintStrength">色調強度</span><input type="number" min="0" max="80" data-bind="selected.tintAlpha" value="18"></label>
+          </div>
+          <div class="two-columns">
+            <label class="field compact"><span data-i18n="fx.active.brightness">亮度</span><input type="number" min="20" max="180" data-bind="selected.brightness" value="108"></label>
+            <label class="field compact"><span data-i18n="fx.active.saturation">彩度</span><input type="number" min="0" max="240" data-bind="selected.saturation" value="124"></label>
+          </div>
+          <label class="field range-field"><span data-i18n-node="fx.scale">放大 <output data-output="selected.scale">1.06×</output></span><input type="range" min="1" max="1.18" step="0.005" data-bind="selected.scale" value="1.06"></label>
+          <label class="field range-field"><span data-i18n-node="fx.glow">光暈 <output data-output="selected.glow">30px</output></span><input type="range" min="0" max="80" data-bind="selected.glow" value="30"></label>
+          <label class="field range-field"><span data-i18n-node="fx.outline">選取外框 <output data-output="selected.borderWidth">5px</output></span><input type="range" min="1" max="16" data-bind="selected.borderWidth" value="5"></label>
+          <div class="field"><span data-i18n="fx.outlineShape">外框樣式</span>
+            <div class="border-presets" role="group" data-i18n-aria-label="fx.outlineShapeAria" aria-label="外框樣式">
+              <button data-i18n-node="fx.outline.solid" type="button" class="chip border-preset" data-border-preset="solid" aria-pressed="true"><span class="border-sample solid" aria-hidden="true"></span>單線</button>
+              <button data-i18n-node="fx.outline.corners" type="button" class="chip border-preset" data-border-preset="corners" aria-pressed="false"><span class="border-sample corners" aria-hidden="true"></span>四個角</button>
+              <button data-i18n-node="fx.outline.dashed" type="button" class="chip border-preset" data-border-preset="dashed" aria-pressed="false"><span class="border-sample dashed" aria-hidden="true"></span>虛線</button>
+              <button data-i18n-node="fx.outline.double" type="button" class="chip border-preset" data-border-preset="double" aria-pressed="false"><span class="border-sample double" aria-hidden="true"></span>雙線</button>
+            </div>
+          </div>
+          <p data-i18n="fx.outlineHelp" class="help-text">會套用到小清單與已填入的主格。線的粗細與圓角沿用原本的設定。</p>
+          <div class="preset-row">
+            <button data-i18n="fx.preset.gray" type="button" class="chip" data-style-preset="gray">黑白→原色</button>
+            <button data-i18n="fx.preset.sepia" type="button" class="chip" data-style-preset="sepia">深褐→原色</button>
+            <button data-i18n="fx.preset.player" type="button" class="chip" data-style-preset="playerTint">黑白→玩家色</button>
+          </div>
+        </div>
+      </details>
+          <button data-i18n-node="look.next" type="button" class="button next-step" data-go-tab="motion">下一步：選擇演出 <span aria-hidden="true">→</span></button>
+        </section>
+        <section id="editor-motion" class="editor-page" role="tabpanel" aria-labelledby="tab-motion" tabindex="0" hidden>
+          <div class="editor-heading"><div><h2 data-i18n="motion.heading">選擇演出</h2><p data-i18n="motion.lead">決定誰要選哪個角色。</p></div></div>
+<details class="panel-section" open>
+        <summary><span data-i18n="player.legend">玩家設定</span><span class="summary-hint" id="selectionModeBadge">依序 4 人</span></summary>
+        <div class="section-body">
+          <label class="field"><span data-i18n="player.mode">選擇方式</span><select data-bind="players.selectionMode"><option data-i18n="player.mode.sequence" value="sequence">全部依序選擇</option><option data-i18n="player.mode.single" value="single">只讓某一號選擇</option></select></label>
+          <div id="singlePlayerSettings" class="single-player-settings" hidden>
+            <label class="field"><span data-i18n="player.singleNumber">要選擇的玩家編號</span><div class="number-with-unit"><input type="number" min="1" max="99" step="1" data-bind="players.singleNumber" value="1"><span data-i18n="unit.number" aria-hidden="true">號</span></div></label>
+            <div class="preset-row" data-i18n-aria-label="player.quickAria" aria-label="玩家編號快速選擇"><button type="button" class="chip" data-single-number="1">1P</button><button type="button" class="chip" data-single-number="2">2P</button><button type="button" class="chip" data-single-number="3">3P</button><button type="button" class="chip" data-single-number="4">4P</button></div>
+            <p data-i18n="player.singleHelp" class="help-text">可以指定 1–99 之間的編號。該編號的顯示名稱可以在下面改。</p>
+          </div>
+          <p data-i18n="player.layoutNote" class="help-text" id="layoutGridHelp" hidden>欄、列與格子間距套用的是小的角色清單。大格的比重請到上面的「畫面構成」調整。</p>
+          <div class="two-columns" id="sequencePlayerSettings">
+            <label class="field compact"><span data-i18n="player.count">依序選擇的人數</span><div class="number-with-unit"><input type="number" min="1" max="99" step="1" data-bind="players.count" value="4"><span data-i18n="unit.people" aria-hidden="true">人</span></div></label>
+            <label class="field compact"><span data-i18n="player.rule">選擇規則</span><select data-bind="players.allowDuplicate"><option data-i18n="player.rule.unique" value="false" selected>不可重複</option><option data-i18n="player.rule.duplicate" value="true">允許重複</option></select></label>
+          </div>
+          <p class="help-text" id="selectionModeHelp">從 1P 開始依序選擇。挑好目標角色後，細部的移動可以在各玩家的「游標路徑設定」裡調。</p>
+          <div id="selectionIssue" class="selection-issue" role="status" hidden><p id="selectionIssueText"></p><button data-i18n="player.switchDuplicate" type="button" id="allowDuplicateButton" class="button ghost small">改成允許重複</button></div>
+          <p data-i18n="player.nameHelp" class="help-text">最多可以設到 99 人。顯示名稱最長 24 個字，留空就會顯示 1P、2P 這樣的預設編號。</p>
+          <div id="playerList" class="player-list"></div>
+        </div>
+      </details>
+<details class="panel-section">
+        <summary><span data-i18n="time.legend">播放時間與速度</span><span class="summary-hint">時間</span></summary>
+        <div class="section-body">
+          <label class="field range-field"><span data-i18n-node="time.lead">開場等待 <output data-output="animation.initialHold">650ms</output></span><input type="range" min="0" max="3000" step="50" data-bind="animation.initialHold" value="650"></label>
+          <label class="field range-field"><span data-i18n-node="time.browse">游標移動 <output data-output="animation.searchDuration">900ms</output></span><input type="range" min="100" max="4000" step="50" data-bind="animation.searchDuration" value="900"></label>
+          <label class="field range-field"><span data-i18n-node="time.confirm">確定演出 <output data-output="animation.confirmDuration">650ms</output></span><input type="range" min="100" max="3000" step="50" data-bind="animation.confirmDuration" value="650"></label>
+          <label class="field range-field"><span data-i18n-node="time.hold">結尾停留 <output data-output="animation.endHold">1600ms</output></span><input type="range" min="100" max="6000" step="50" data-bind="animation.endHold" value="1600"></label>
+          <label class="field range-field"><span data-i18n-node="time.waypoints">自動經過的格數 <output data-output="animation.hops">3 次</output></span><input type="range" min="0" max="10" step="1" data-bind="animation.hops" value="3"></label>
+          <label class="check-field"><input type="checkbox" data-bind="animation.loop" checked><span data-i18n="time.loop">無限循環</span></label>
+        </div>
+      </details>
+          <button data-i18n-node="motion.next" type="button" class="button next-step" data-go-tab="export">下一步：匯出 <span aria-hidden="true">→</span></button>
+        </section>
+        <section id="editor-export" class="editor-page" role="tabpanel" aria-labelledby="tab-export" tabindex="0" hidden>
+          <div class="editor-heading"><div><h2 data-i18n="export.heading">儲存完成的畫面</h2><p data-i18n="export.lead">按下格式按鈕就會開始產生檔案。</p></div></div>
+<section class="export-card">
+        <div class="export-heading">
+          <div>
+            <h3 data-i18n="export.formatHeading">選擇檔案格式</h3>
+            <p id="exportEstimate">正在計算輸出尺寸與影格數。</p>
+          </div>
+          <div class="export-options">
+            <label><span data-i18n="export.scale">尺寸</span><select data-bind="export.scale"><option value="0.5">50%</option><option value="0.75" selected>75%</option><option value="1">100%</option><option value="1.5">150%</option><option value="2">200%</option></select></label>
+            <label><span>FPS</span><select data-bind="animation.fps"><option value="6">6</option><option value="8">8</option><option value="10" selected>10</option><option value="12">12</option><option value="15">15</option><option value="20">20</option><option value="24">24</option><option value="30">30</option><option value="48">48</option><option value="50">50</option><option value="60">60</option></select></label>
+            <label><span data-i18n="export.webpQuality">WebP 品質</span><select data-bind="export.webpQuality"><option value="0.7">70</option><option value="0.82">82</option><option value="0.9" selected>90</option><option value="0.96">96</option><option value="1">100</option></select></label>
+          </div>
+        </div>
+        <div class="export-buttons">
+          <button type="button" class="format-button apng" data-export="apng"><strong>APNG</strong><span data-i18n="export.apng.sub">透明・無損</span></button>
+          <button type="button" class="format-button webp" data-export="webp"><strong>Animated WebP</strong><span data-i18n="export.webp.sub">容量小・畫質高</span></button>
+          <button type="button" class="format-button gif" data-export="gif"><strong>GIF</strong><span data-i18n="export.gif.sub">依場景配色・最多 256 色</span></button>
+          <button type="button" class="format-button mp4" data-export="mp4"><strong>MP4</strong><span data-i18n="export.mp4.sub">影片・H.264</span></button>
+          <button type="button" class="format-button avi" data-export="avi"><strong>AVI</strong><span data-i18n="export.avi.sub">影片・MJPEG</span></button>
+          <button type="button" class="format-button html" data-export="html"><strong data-i18n="export.html">HTML 程式碼</strong><span data-i18n="export.html.sub">可用鍵盤與滑鼠選擇</span></button>
+        </div>
+        <div class="export-progress" id="exportProgress" hidden>
+          <div class="progress-copy"><span id="exportProgressLabel">準備中</span><span id="exportProgressPercent">0%</span></div>
+          <div class="progress-track"><div id="exportProgressBar"></div></div>
+          <button data-i18n="export.cancel" type="button" class="button ghost small" id="cancelExportButton">取消</button>
+        </div>
+        <p data-i18n="export.note.video" class="video-note">AVI 與 MP4 會照設定的 FPS 逐格存下所有影格。透明的地方會存成黑色；MP4 只能在支援的 Chrome、Edge 上使用。</p>
+        <p data-i18n="export.note.gif" class="video-note">GIF 會依場景挑選顏色並加上抖色，減少色塊斷層。最高 50FPS，半透明的表現有限。想原樣保留顏色與半透明的話請選 APNG。</p>
+        <p data-i18n="export.note.local" class="compatibility-note">圖片與專案都在這個瀏覽器裡處理。想用原始解析度輸出的話，尺寸請選 100%。</p>
+      </section>
+          <div class="export-help"><strong data-i18n="export.resumeTitle">想之後再繼續編輯？</strong><p data-i18n="export.resumeBody">用上方的「儲存專案」，圖片與設定會一起保存下來。</p></div>
+        </section>
+      </aside>
+      <section class="workspace" data-i18n-aria-label="preview.aria" aria-label="預覽">
+        <div class="preview-card">
+          <div class="preview-heading"><div><span class="live-dot" aria-hidden="true"></span><h2 data-i18n="preview.heading">預覽</h2><span id="previewDimensions" class="dimension-badge">960 × 540</span></div><button data-i18n="preview.interactive" type="button" class="button ghost small" id="interactivePreviewButton">自己試著選選看 ↗</button></div>
+          <div class="canvas-stage" id="canvasStage"><canvas id="previewCanvas" width="960" height="540" data-i18n-aria-label="preview.canvasAria" aria-label="選角動畫預覽"></canvas></div>
+          <div class="preview-targets"><span data-i18n="preview.targetLabel">指定目標</span><div id="previewPlayerButtons" class="preview-player-buttons" data-i18n-aria-label="preview.targetAria" aria-label="要指定目標的玩家"></div><p class="canvas-tip" id="canvasTip">選好 1P 之後點一下角色。</p></div>
+          <div class="preview-toolbar"><div class="toolbar-group"><button type="button" class="button play-button" id="playButton" data-i18n-aria-label="preview.playAria" aria-label="播放">▶ 播放</button><button type="button" class="icon-button" id="restartButton" data-i18n-aria-label="preview.restartAria" aria-label="從頭播放" data-i18n-title="preview.restartTitle" title="從頭播放">↺</button><span class="time-readout" id="timeReadout">00:00.0 / 00:00.0</span></div><button data-i18n="preview.savePng" type="button" class="button ghost small" id="snapshotButton">儲存目前畫面為 PNG</button></div>
+          <div class="scrub-row"><input type="range" id="scrubber" min="0" max="1000" value="0" data-i18n-aria-label="preview.scrubAria" aria-label="動畫播放位置"><div class="timeline-labels"><span data-i18n="preview.timeStart">開始</span><span id="timelineModeLabel">玩家依序選擇</span><span data-i18n="preview.timeEnd">完成</span></div></div>
+        </div>
+        <div class="workspace-footer"><span data-i18n="preview.liveNote">改過的設定會立刻反映在預覽上。</span><button data-i18n-node="preview.goExport" type="button" class="button secondary" data-go-tab="export">匯出 <span aria-hidden="true">↗</span></button></div>
+        <div class="quick-guide"><span class="guide-icon" aria-hidden="true">✦</span><div><h3 id="guideTitle">想換成自己的圖片？</h3><p id="guideCopy">按角色清單裡的「替換圖片」就行了。名稱與玩家設定都會留著。</p></div></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="modal-backdrop" id="codeModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="codeModalTitle">
+      <header class="modal-header">
+        <div><h2 data-i18n="html.title" id="codeModalTitle">可互動的 HTML（Tistory 用）</h2><p data-i18n="html.lead">圖片以 data URL 內嵌，是一份獨立的程式碼。</p></div>
+        <button type="button" class="icon-button" id="closeCodeModalButton" data-i18n-aria-label="html.close" aria-label="關閉">×</button>
+      </header>
+      <div data-i18n-node="html.note" class="modal-note">
+        可以貼進 Tistory 寫文章時的 HTML 模式。如果佈景或編輯器會把腳本移除，就把下面的獨立 HTML 放到靜態空間，再用 iframe 嵌入。
+      </div>
+      <textarea id="htmlCodeOutput" spellcheck="false" data-i18n-aria-label="html.outputAria" aria-label="產生的 HTML 程式碼"></textarea>
+      <footer class="modal-actions">
+        <button data-i18n="html.copy" type="button" class="button secondary" id="copyHtmlButton">複製程式碼</button>
+        <button data-i18n="html.download" type="button" class="button secondary" id="downloadHtmlButton">儲存獨立 HTML</button>
+        <button data-i18n="html.preview" type="button" class="button ghost" id="openHtmlPreviewButton">開新視窗試用</button>
+      </footer>
+    </section>
+  </div>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+  <canvas id="exportCanvas" hidden></canvas>
+  <script src="video-export.js"></script>
+  <script src="crop.js"></script>
+  <script src="fonts.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

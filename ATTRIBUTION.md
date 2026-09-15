@@ -3,7 +3,7 @@
 本 repo 收錄 [sotsotssi](https://github.com/sotsotssi)、
 [shiki365](https://github.com/shiki365)、
 [Taku_Taku_Taku](https://github.com/Taku-Taku-Taku) 與
-[kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 製作的 11 個網頁工具，
+[kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 製作的 12 個網頁工具，
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -16,11 +16,12 @@
 | collage-letter | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) | `ea08333` | MIT |
 | emotion-maker | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b455379` | **未授權** |
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
-| foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `5175934` | MIT |
-| scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `a6621e2` | MIT |
+| foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `c24f0a2` | MIT |
+| scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `52426f5` | MIT |
 | status-bar | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `1670549` | MIT |
 | cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
 | ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
+| character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 
 八個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
 
@@ -33,10 +34,12 @@ shiki365 的三個工具與 `cutin` 原文為日文，收錄時另有以下調�
 - 這四個工具都移除了指向原作者站台的 OG／Twitter meta 與
   `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
   `<title>` 只留工具名，捨去 SEO 後綴。
+- shiki365 的三個工具頁尾都有回作者工具站的兩條連結，原樣保留並翻譯；
+  但頁首那條同樣指向工具站的連結不收——那個位置放的是合輯的首頁連結。
 
 ## cutin：唯一需要建置的工具
 
-`cutin` 的上游是 React + TypeScript + Vite 專案，不像其餘十個工具可以直接
+`cutin` 的上游是 React + TypeScript + Vite 專案，不像其餘十一個工具可以直接
 把檔案放進 `tools/` 就能跑。因此原始碼快照收在 `vendor/cutin-maker/`，
 建置產物提交在 `tools/cutin/`，重建方式見 [README](README.md#重新建置-cutin)。
 `vendor/` 不參與網站發佈。
@@ -93,12 +96,16 @@ shiki365 的三個工具與 `cutin` 原文為日文，收錄時另有以下調�
 不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
 `tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
 
-## 未授權的三個工具
+## 未授權的四個工具
 
-`sotsotssi/emotion-maker`、`sotsotssi/loading-maker` 與
-`kimtaehee2018-maker/ccfolia-cropper` 皆未附任何授權條款，
-GitHub 亦未標示授權。依著作權法預設，其權利保留予原作者（`emotion-maker`
-包含 `images/` 下全部 39 張手繪素材），此處僅供試用。原作者如有異議，將立即移除。
+`sotsotssi/emotion-maker`、`sotsotssi/loading-maker`、
+`kimtaehee2018-maker/ccfolia-cropper` 與 `sotsotssi/select-your-chara`
+皆未附任何授權條款，GitHub 亦未標示授權。依著作權法預設，其權利保留予原作者
+（`emotion-maker` 包含 `images/` 下全部 39 張手繪素材），此處僅供試用。
+原作者如有異議，將立即移除。
+
+`character-select` 的上游建立於收錄前一天，只有一次提交，往後很可能還會變動；
+此處的快照固定在 `883f48b`，不與上游同步。
 
 `loading-maker` 以 CDN 載入 pako 0.2.9（MIT，Copyright (C) 2014-2016 by
 Vitaly Puzrin）作為 APNG 壓縮／解壓縮之用，其出處與授權見
@@ -111,7 +118,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘十個工具的翻譯與 i18n 改造為本 repo 新增。
+其餘十一個工具的翻譯與 i18n 改造為本 repo 新增。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：
@@ -128,5 +135,5 @@ magic-circle 的繁體中文翻譯移植自
 
 `assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔，
 以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
-`tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/` 與
-`tools/ccfolia-cropper/` 的其餘部分不在此範圍內，見上節。
+`tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、
+`tools/ccfolia-cropper/` 與 `tools/character-select/` 的其餘部分不在此範圍內，見上節。

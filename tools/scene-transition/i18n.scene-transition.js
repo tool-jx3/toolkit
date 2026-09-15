@@ -86,6 +86,8 @@ I18N.register({
     /* ---- 頁尾 ---- */
     'footer.free': '只靠瀏覽器就能運作的免費工具。做出來的素材不限用途皆可自由使用（也不需要標註出處）。',
     'footer.unofficial': '設想用於 TRPG 線上團的工具，但與任何服務都沒有關係，是<strong>非官方</strong>工具。',
+    'footer.moreTools': '看看其他工具（shiki365 的工具集）',
+    'footer.feedback': '問題回報與意見',
     'footer.version': '· 最後更新 2026-09-08',
 
     /* ---- 預設集 ---- */
@@ -204,6 +206,8 @@ I18N.register({
     /* ---- 頁尾 ---- */
     'footer.free': 'ブラウザだけで動く無料ツールです。作った素材は用途を問わず自由に使えます（クレジット表記も不要です）。',
     'footer.unofficial': 'TRPG オンラインセッションツールでの利用を想定していますが、いずれのサービスとも関係のない<strong>非公式</strong>のツールです。',
+    'footer.moreTools': 'ほかのツールも見る（shiki365 のツール置き場）',
+    'footer.feedback': '不具合の報告・感想',
     'footer.version': '・ 最終更新 2026-09-08',
 
     /* ---- 預設集 ---- */
