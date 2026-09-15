@@ -414,7 +414,7 @@ const ffPresetKeys = [
     'circuit', 'snowcap', 'drips']
     .flatMap(id => [`deco.${id}.label`, `deco.${id}.desc`, `deco.${id}.color1`, `deco.${id}.color2`]),
   ...['thin', 'normal', 'thick', 'cinema', 'novel', 'side'].map(id => `layout.${id}`),
-  ...['gothic', 'mincho', 'kyokasho', 'serif', 'sans'].map(id => `font.${id}`),
+  ...['gothic', 'mincho', 'kyokasho', 'serif', 'sans', 'tcgothic', 'tcmincho', 'tckai'].map(id => `font.${id}`),
   ...['tl', 'tc', 'tr', 'bl', 'bc', 'br'].map(id => `pos.${id}`),
   ...['square', 'round', 'chamfer', 'scoop', 'notch'].map(id => `cornerType.${id}`)
 ];
@@ -587,6 +587,112 @@ check('建置產物是最新的（原始碼的 key 都在 bundle 裡）',
 for (const file of ['assets/app.js', 'assets/encode.worker.js', 'assets/index.css']) {
   check(`${file} 無殘留原文`, !KANA.test(read(`tools/cutin/${file}`)));
 }
+
+
+/* ---- 繁體中文網頁字型 ---- */
+/* 五套字型分散在四個工具裡，各自用不同的寫法要求 Google Fonts。字重寫錯會讓
+ * 整個 family 的 @font-face 靜靜地不見（Google Fonts 對不存在的字重回 400，
+ * 整個 css2 請求就失敗），畫面上看起來只是「字型沒套用」，很難追。
+ * 下面把各處宣告的字重跟這張驗證過的表對起來，寫錯就會在這裡被擋下。 */
+section('Traditional Chinese webfonts');
+
+/* 以 fonts.googleapis.com/css2 逐一驗證過（2026-09-15）。 */
+const TC_WEIGHTS = {
+  'Noto Sans TC': [100, 200, 300, 400, 500, 600, 700, 800, 900],
+  'Noto Serif TC': [200, 300, 400, 500, 600, 700, 800, 900],
+  'LXGW WenKai TC': [300, 400, 700],
+  'Chocolate Classical Sans': [400],
+  'Cactus Classical Serif': [400],
+};
+const TC_FAMILIES = Object.keys(TC_WEIGHTS);
+
+/* css2 的網址裡，family 用 + 連字，字重寫在 :wght@ 後面並以 ; 分隔。 */
+function checkCss2Url(label, url) {
+  for (const m of url.matchAll(/family=([^&:]+)(?::wght@([\d;]+))?/g)) {
+    const family = decodeURIComponent(m[1]).replace(/\+/g, ' ');
+    if (!TC_FAMILIES.includes(family)) continue; /* 日／韓／拉丁字型不在這張表裡 */
+    const asked = (m[2] ?? '').split(';').filter(Boolean).map(Number);
+    const bad = asked.filter(w => !TC_WEIGHTS[family].includes(w));
+    check(`${label}：${family} 要求的字重都存在`, bad.length === 0,
+      `不存在的字重: ${bad.join(', ')}（可用: ${TC_WEIGHTS[family].join(', ')}）`);
+  }
+}
+
+/* cutin：FONTS 的 family 與 FONT_CSS 的網址要一一對上。 */
+const cutinFonts = read('vendor/cutin-maker/src/core/fonts.ts');
+const cutinTcIds = ['noto-tc', 'serif-tc', 'wenkai-tc', 'choco-tc', 'cactus-tc'];
+for (const id of cutinTcIds) {
+  check(`cutin 字典有 font.${id}`, cutinZh.has(`font.${id}`));
+  check(`cutin 的 FONTS 有 ${id}`, cutinFonts.includes(`id: '${id}'`));
+}
+for (const m of cutinFonts.matchAll(/'([\w-]+)': '(https:\/\/fonts\.googleapis\.com\/css2\?[^']+)'/g)) {
+  checkCss2Url(`cutin FONT_CSS ${m[1]}`, m[2]);
+}
+/* FONTS 裡宣告的 weight 就是實際畫圖時用的字重，必須也在 FONT_CSS 要得到。 */
+const cutinWeights = [...cutinFonts.matchAll(/id: '([\w-]+)',[^\n]*family: '"([^"]+)"',\s*weight: (\d+)/g)];
+check('cutin 解析出 11 套字型', cutinWeights.length === 11, `found ${cutinWeights.length}`);
+for (const [, id, family, weight] of cutinWeights) {
+  if (!TC_FAMILIES.includes(family)) continue;
+  check(`cutin ${id} 的 weight ${weight} 存在於 ${family}`,
+    TC_WEIGHTS[family].includes(Number(weight)),
+    `可用: ${TC_WEIGHTS[family].join(', ')}`);
+  /* 單一字重的字型不接受 :wght@，多字重的則必須指名畫圖時要用的那個字重。 */
+  const css = cutinFonts.match(new RegExp(`'${id}': '([^']+)'`));
+  const wantsAxis = TC_WEIGHTS[family].length > 1;
+  check(`cutin ${id} 的 FONT_CSS 要求同一個字重`,
+    !!css && css[1].includes(`wght@${weight}`) === wantsAxis,
+    css ? css[1] : '(找不到 FONT_CSS)');
+}
+
+/* 上游的 vitest 會把 FONTS 逐一代進版面測試，字幅比存在測試檔自己的 RATIOS 表裡。
+ * 加了字型卻忘記補這張表，stub 會拿到 undefined，整批測試變成 NaN 比較而全滅。
+ * 那套測試需要 npm install，不在根目錄 npm test 的範圍內，所以在這裡靜態比對一次。 */
+const cutinLayoutTest = read('vendor/cutin-maker/tests/layout.test.ts');
+const ratioIds = [...cutinLayoutTest.matchAll(/^\s+'?([\w-]+)'?: [\d.]+,$/gm)].map(m => m[1]);
+const noRatio = cutinWeights.map(m => m[1]).filter(id => !ratioIds.includes(id));
+check('cutin 的每套字型在版面測試的 RATIOS 都有字幅比', noRatio.length === 0, `missing: ${noRatio.join(', ')}`);
+
+/* status-bar：FONTS 表的 weights 陣列直接餵給 css2，錯一個就整批 import 失敗。 */
+const sbFonts = read('tools/status-bar/presets.v1.js');
+for (const m of sbFonts.matchAll(/family: "([^"]+)", weights: \[([\d, ]+)\]/g)) {
+  if (!TC_FAMILIES.includes(m[1])) continue;
+  const bad = m[2].split(',').map(w => Number(w.trim())).filter(w => !TC_WEIGHTS[m[1]].includes(w));
+  check(`status-bar：${m[1]} 的 weights 都存在`, bad.length === 0,
+    `不存在的字重: ${bad.join(', ')}（可用: ${TC_WEIGHTS[m[1]].join(', ')}）`);
+}
+const sbTcKeys = ['font.notosanstc', 'font.notoseriftc', 'font.wenkaitc', 'font.chocolatetc', 'font.cactustc'];
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = sbTcKeys.filter(k => !sb.messages[locale][k]);
+  check(`status-bar ${locale} 每套繁中字型都有標籤`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+/* collage-letter：@import 的字重，以及字型池與 @import 的一致性。 */
+const clCss = read('tools/collage-letter/styles.css');
+checkCss2Url('collage-letter @import', clCss);
+const clApp = read('tools/collage-letter/app.js');
+for (const family of TC_FAMILIES) {
+  check(`collage-letter 的字型池有 ${family}`, clApp.includes(`{ name: '${family}'`));
+  check(`collage-letter 的 @import 有 ${family}`, clCss.includes(family.replace(/ /g, '+')));
+}
+
+/* typewriter：四個分頁的字型選單都要有同一組繁中選項。 */
+const twHtml = read('tools/typewriter/index.html');
+for (const family of TC_FAMILIES) {
+  const n = [...twHtml.matchAll(new RegExp(`<option value="${family}"`, 'g'))].length;
+  check(`typewriter 四個選單都有 ${family}`, n === 4, `found ${n}`);
+}
+/* loadFont() 不帶字重，拿到的是各字型的預設字重（400）——五套都有 400 才行。 */
+const twMissing400 = TC_FAMILIES.filter(f => !TC_WEIGHTS[f].includes(400));
+check('typewriter 依賴的 400 字重五套都有', twMissing400.length === 0, `missing: ${twMissing400.join(', ')}`);
+
+/* text-path：畫格線預覽與版面都要把繁中字型排在韓文字型前面。 */
+const tpCss = read('tools/text-path/styles.css');
+checkCss2Url('text-path @import', tpCss);
+check('text-path 的 @import 有 Noto Sans TC', tpCss.includes('Noto+Sans+TC'));
+check('text-path 繁中介面時繁中字型優先',
+  /html\[lang\^="zh"\][\s\S]{0,120}'Noto Sans TC',\s*'Noto Sans KR'/.test(tpCss));
+check('text-path 的格線預覽同時涵蓋繁中與韓文',
+  read('tools/text-path/app.js').includes(`"Noto Sans TC", "Noto Sans KR"`));
 
 /* ---- 首頁 ---- */
 section('index.html');

@@ -296,6 +296,15 @@
     kyokasho: { get label() { return T("font.kyokasho"); }, stack: '"UD Digi Kyokasho NK-R","UD デジタル 教科書体 NK-R","Yu Mincho",serif' },
     serif: { get label() { return T("font.serif"); }, stack: 'Georgia,"Times New Roman",serif' },
     sans: { get label() { return T("font.sans"); }, stack: '"Segoe UI","Helvetica Neue",Arial,sans-serif' },
+    /* TRPG Toolkit collection: Traditional Chinese stacks. The five above name
+       Japanese system fonts, which a Taiwanese machine does not have, so the
+       renderer silently drops to the generic fallback. These name the fonts
+       that are actually installed there. Like the rest of this table they are
+       installed fonts, not webfonts — the renderer draws straight to canvas
+       and never waits for a font to load. */
+    tcgothic: { get label() { return T("font.tcgothic"); }, stack: '"Microsoft JhengHei","微軟正黑體","PingFang TC","Heiti TC",sans-serif' },
+    tcmincho: { get label() { return T("font.tcmincho"); }, stack: '"PMingLiU","新細明體","Songti TC",serif' },
+    tckai: { get label() { return T("font.tckai"); }, stack: '"DFKai-SB","標楷體","BiauKai","Kaiti TC",serif' },
   };
 
   const COLOR_REFS = [["accent", "colorRef.accent"], ["text", "colorRef.text"], ["frame1", "colorRef.frame1"], ["frame2", "colorRef.frame2"]];

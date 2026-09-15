@@ -27,7 +27,14 @@
             { name: 'KCC-Chassam', checked: true },
             { name: 'GmarketSansMedium', checked: true },
             { name: 'MaplestoryOTFLight', checked: true },
-            { name: 'UhBeeSe_hyun', checked: true }
+            { name: 'UhBeeSe_hyun', checked: true },
+            /* TRPG Toolkit 合輯追加的繁體中文字型。預設不勾選，讓隨機字型池
+               維持與上游相同；要做中文拼貼信時自行勾起來即可。 */
+            { name: 'Noto Sans TC', checked: false },
+            { name: 'Noto Serif TC', checked: false },
+            { name: 'LXGW WenKai TC', checked: false },
+            { name: 'Chocolate Classical Sans', checked: false },
+            { name: 'Cactus Classical Serif', checked: false }
         ];
 
         /* labelKey 對應字典中的 color.* key，於算繪時以 T() 取值，

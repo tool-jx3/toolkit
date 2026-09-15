@@ -432,6 +432,9 @@ I18N.register({
     'font.kyokasho': '教科書體',
     'font.serif': '英文襯線',
     'font.sans': '英文無襯線',
+    'font.tcgothic': '正黑體（繁中）',
+    'font.tcmincho': '明體（繁中）',
+    'font.tckai': '標楷體（繁中）',
     'font.loaded': '已載入：{0}',
     'font.byName': '以名稱指定（電腦的字型）',
 
@@ -946,6 +949,9 @@ I18N.register({
     'font.kyokasho': '教科書体',
     'font.serif': '英字セリフ',
     'font.sans': '英字サンセリフ',
+    'font.tcgothic': '正黒体（繁体字）',
+    'font.tcmincho': '明朝（繁体字）',
+    'font.tckai': '楷書（繁体字）',
     'font.loaded': '読込: {0}',
     'font.byName': '名前で指定（PCのフォント）',
 

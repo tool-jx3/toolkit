@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=DotGothic16&family=Jua&family=Permanent+Marker&family=Rampart+One&display=swap');
+/* TRPG Toolkit 合輯：後半五套為繁體中文字型（字重皆對 fonts.googleapis.com 驗證過）。 */
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=DotGothic16&family=Jua&family=Permanent+Marker&family=Rampart+One&family=Noto+Sans+TC:wght@900&family=Noto+Serif+TC:wght@900&family=LXGW+WenKai+TC:wght@700&family=Chocolate+Classical+Sans&family=Cactus+Classical+Serif&display=swap');
 
 @font-face {
     font-family: 'KCC-Chassam';

@@ -1,8 +1,16 @@
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
-        
+        /* 合輯追加 Noto Sans TC：這個工具會把使用者輸入的字排進軌跡，
+           只有 Noto Sans KR 的話，中文會用韓文的漢字字形來畫。 */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
         body {
             font-family: 'Noto Sans KR', sans-serif;
             background-color: #f3f4f6;
+        }
+
+        /* 介面語言是繁體中文時，繁中字型排在前面。Noto Sans TC 沒有諺文，
+           所以韓文仍會落到 Noto Sans KR，兩種語言都不會有缺字。 */
+        html[lang^="zh"] body {
+            font-family: 'Noto Sans TC', 'Noto Sans KR', sans-serif;
         }
 
         .home-link {
@@ -22,7 +30,8 @@
 
         /* Monospace font is extremely important for ASCII art to align properly */
         .monospace-output {
-            font-family: 'Gulim', 'Malgun Gothic', monospace;
+            /* 後兩筆為合輯追加：全形中文要對齊，需要等寬的中文字型。 */
+            font-family: 'Gulim', 'Malgun Gothic', 'MingLiU', '細明體', monospace;
             line-height: 1.2;
             letter-spacing: 0;
             white-space: pre;

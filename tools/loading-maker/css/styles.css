@@ -14,7 +14,8 @@
   --danger: #bd405d;
   --shadow: 0 14px 42px rgba(67, 45, 76, 0.11);
   --radius: 18px;
-  font-family: Inter, Pretendard, "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  /* 後兩筆為合輯追加：介面改為繁體中文後，台灣的電腦上要有字可用。 */
+  font-family: Inter, Pretendard, "Malgun Gothic", "Noto Sans KR", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
   color: var(--ink);
   background: var(--bg);
 }

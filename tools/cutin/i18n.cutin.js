@@ -95,6 +95,12 @@ I18N.register({
     'font.rocknroll': '手寫風',
     'font.shippori-b1': '明體（粗）',
     'font.dotgothic': '點陣',
+    /* 合輯追加的繁體中文字型 */
+    'font.noto-tc': '黑體（繁中）',
+    'font.serif-tc': '明體（繁中）',
+    'font.wenkai-tc': '文楷（繁中）',
+    'font.choco-tc': '巧克力黑體',
+    'font.cactus-tc': '仙人掌明體',
 
     /* ---- 外觀：文字加工 ---- */
     'look.deco': '文字加工',
@@ -371,6 +377,12 @@ I18N.register({
     'font.rocknroll': '手書き風',
     'font.shippori-b1': '明朝（太）',
     'font.dotgothic': 'ドット',
+    /* この合輯で追加した繁体字中国語の書体 */
+    'font.noto-tc': 'ゴシック（繁体字）',
+    'font.serif-tc': '明朝（繁体字）',
+    'font.wenkai-tc': '楷書（繁体字）',
+    'font.choco-tc': 'チョコレート（繁体字）',
+    'font.cactus-tc': 'サボテン明朝（繁体字）',
 
     /* ---- 見た目：文字の加工 ---- */
     'look.deco': '文字の加工',

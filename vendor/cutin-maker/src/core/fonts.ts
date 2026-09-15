@@ -18,6 +18,14 @@ export const FONTS: FontDef[] = [
   { id: 'rocknroll',    get label() { return t('font.rocknroll'); },   family: '"RocknRoll One"',      weight: 400, strokeScale: 1.1, recommendedMaxChars: 16 },
   { id: 'shippori-b1',  get label() { return t('font.shippori-b1'); }, family: '"Shippori Mincho B1"', weight: 800, strokeScale: 1.2, recommendedMaxChars: 16 },
   { id: 'dotgothic',    get label() { return t('font.dotgothic'); },   family: '"DotGothic16"',        weight: 400, strokeScale: 1.4, recommendedMaxChars: 12 },
+  /* 【TRPG Toolkit 収録時の追加】繁体字中国語の書体。
+   * 上流の6書体は日本語用で、繁体字にしかない字形（骰・擾など）は持っていても
+   * 字形の慣習が日本語のものになる。繁中UIで使うぶんにはこちらが素直。 */
+  { id: 'noto-tc',      get label() { return t('font.noto-tc'); },      family: '"Noto Sans TC"',              weight: 900, strokeScale: 1.0, recommendedMaxChars: 20 },
+  { id: 'serif-tc',     get label() { return t('font.serif-tc'); },     family: '"Noto Serif TC"',             weight: 900, strokeScale: 1.2, recommendedMaxChars: 16 },
+  { id: 'wenkai-tc',    get label() { return t('font.wenkai-tc'); },    family: '"LXGW WenKai TC"',            weight: 700, strokeScale: 1.3, recommendedMaxChars: 14 },
+  { id: 'choco-tc',     get label() { return t('font.choco-tc'); },     family: '"Chocolate Classical Sans"',  weight: 400, strokeScale: 1.2, recommendedMaxChars: 14 },
+  { id: 'cactus-tc',    get label() { return t('font.cactus-tc'); },    family: '"Cactus Classical Serif"',    weight: 400, strokeScale: 1.3, recommendedMaxChars: 14 },
 ];
 
 export const DEFAULT_FONT_ID = 'noto-black';
@@ -51,6 +59,13 @@ const FONT_CSS: Record<string, string> = {
   'rocknroll': 'https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap',
   'shippori-b1': 'https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&display=swap',
   'dotgothic': 'https://fonts.googleapis.com/css2?family=DotGothic16&display=swap',
+  /* 繁体字中国語。weights は fonts.googleapis.com/css2 で実在を確認済み
+   * （存在しない太さを混ぜると、その family の @font-face が丸ごと落ちる）。 */
+  'noto-tc': 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@900&display=swap',
+  'serif-tc': 'https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap',
+  'wenkai-tc': 'https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@700&display=swap',
+  'choco-tc': 'https://fonts.googleapis.com/css2?family=Chocolate+Classical+Sans&display=swap',
+  'cactus-tc': 'https://fonts.googleapis.com/css2?family=Cactus+Classical+Serif&display=swap',
 };
 
 const cssLoaded = new Map<string, Promise<void>>();
