@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>立繪裁切器</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="toolkit-bar">
+                <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+                <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+            </div>
+            <div class="title">
+                <span>⚔️</span> CCFOLIA CROPPER
+            </div>
+
+            <div class="drop-zone" id="dropZone">
+                <div class="icon">📂</div>
+                <p data-i18n-html="drop.hint"><strong>選擇 PNG 圖片／拖放／Ctrl+V</strong><br>一次載入多張時可在清單中預覽</p>
+            </div>
+            <input type="file" id="fileInput" accept="image/png" multiple>
+
+            <!-- 圖片瀏覽列 -->
+            <div class="control-group">
+                <label data-i18n="nav.label" class="control-label">瀏覽圖片清單（A／D）</label>
+                <div class="nav-container">
+                    <button data-i18n="nav.prev" class="nav-btn" id="prevBtn" disabled>◀ 上一張</button>
+                    <span class="nav-info" id="fileIndexInfo">0 / 0</span>
+                    <button data-i18n="nav.next" class="nav-btn" id="nextBtn" disabled>下一張 ▶</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label data-i18n="ratio.label" class="control-label">選擇比例</label>
+                <div class="ratio-options">
+                    <button class="btn-radio" data-ratio="3:4">3 : 4</button>
+                    <button class="btn-radio" data-ratio="1:1">1 : 1</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label data-i18n="crop.range" class="control-label">裁切範圍</label>
+                <div class="slider-container">
+                    <input type="range" id="cropRange" min="10" max="100" value="60">
+                    <span class="slider-value" id="rangeVal">60%</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label data-i18n="basis.label" class="control-label">✨ 自動裁切基準</label>
+                <select id="cropBasis" class="select-control">
+                    <option data-i18n="basis.head" value="head">以頭部為準</option>
+                    <option data-i18n="basis.character" value="character">角色中央</option>
+                    <option data-i18n="basis.upper" value="upper">上半身中央</option>
+                    <option data-i18n="basis.image" value="image">圖片中央</option>
+                    <option data-i18n="basis.manual" value="manual">手動指定</option>
+                </select>
+                <label data-i18n-node="basis.applyAll" class="checkbox-label" style="margin-top:8px;">
+                    <input type="checkbox" id="applyBasisAll"> 所有圖片套用相同基準
+                </label>
+            </div>
+
+            <div class="control-group outline-panel">
+                <label data-i18n="outline.legend" class="control-label">✨ 外框線</label>
+                <label data-i18n-node="outline.enable" class="checkbox-label">
+                    <input type="checkbox" id="shadowEnable"> 套用外框線效果
+                </label>
+
+                <select id="outlineMode" class="select-control" style="margin-top:8px;">
+                    <option data-i18n="outline.solid" value="solid">一般外框線</option>
+                    <option data-i18n="outline.soft" value="soft">柔和外框線</option>
+                    <option data-i18n="outline.glow" value="glow">發光外框線</option>
+                    <option data-i18n="outline.shadow" value="shadow">陰影</option>
+                </select>
+
+                <div class="color-picker-wrapper" style="margin-top:8px;">
+                    <input type="color" id="shadowColor" value="#ffffff">
+                    <span data-i18n="outline.color">外框線顏色</span>
+                </div>
+
+                <div class="slider-container">
+                    <input type="range" id="outlineWidth" min="1" max="30" value="5">
+                    <span class="slider-value" id="outlineWidthVal">5px</span>
+                </div>
+
+                <div class="slider-container" id="outlineBlurRow">
+                    <input type="range" id="shadowBlur" min="0" max="40" value="12">
+                    <span class="slider-value" id="blurVal">12px</span>
+                </div>
+
+                <div class="slider-container" id="shadowOffsetRow" style="display:none;">
+                    <input type="range" id="shadowOffset" min="0" max="30" value="8">
+                    <span class="slider-value" id="shadowOffsetVal">8px</span>
+                </div>
+
+                <div class="slider-container" id="outlineOpacityRow">
+                    <input type="range" id="outlineOpacity" min="0" max="100" value="100">
+                    <span class="slider-value" id="outlineOpacityVal">100%</span>
+                </div>
+            </div>
+
+            <button data-i18n="action.centerUpper" class="btn-secondary" id="centerHBtn" disabled>🎯 上半身置中對齊（C）</button>
+
+            <div class="action-group">
+                <button data-i18n="action.download" class="btn-action" id="downloadBtn" disabled>下載目前圖片（Ctrl+S）</button>
+                <button data-i18n="action.downloadAll" class="btn-secondary" id="downloadAllBtn" disabled>📦 全部批次下載</button>
+            </div>
+        </div>
+
+        <div class="preview-area" id="previewArea">
+            <div class="viewport" id="viewport">
+                <div class="stage" id="stage" style="display: none;">
+                    <canvas id="sourceCanvas"></canvas>
+                    <div class="crop-box" id="cropBox" data-hint="↔ 左右拖曳"></div>
+                </div>
+            </div>
+
+            <div class="zoom-controls">
+                <span data-i18n-node="zoom.label">縮放： <strong id="zoomVal">100%</strong></span>
+                <button data-i18n="zoom.reset" class="btn-reset-zoom" id="resetZoomBtn">重設縮放與位置（R）</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../assets/i18n.js"></script>
+    <script src="./i18n.ccfolia-cropper.js"></script>
+    <script src="./app.js"></script>
+</body>
+</html>

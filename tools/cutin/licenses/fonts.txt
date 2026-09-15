@@ -1,0 +1,8 @@
+Noto Sans JP — Google Inc. (OFL-1.1)
+M PLUS Rounded 1c — Copyright 2016 The Rounded M+ Project Authors. (OFL-1.1)
+Reggae One — Copyright 2020 The Reggae Project Authors (https://github.com/fontworks-fonts/Reggae/), all rights reserved. (OFL-1.1)
+RocknRoll One — Copyright 2020 The RocknRoll Project Authors (https://github.com/fontworks-fonts/RocknRoll) (OFL-1.1)
+Shippori Mincho B1 — Copyright 2021 The Shippori Mincho Project Authors (https://github.com/fontdasu/ShipporiMincho) (OFL-1.1)
+DotGothic16 — Copyright 2020 The DotGothic16 Project Authors (https://github.com/fontworks-fonts/DotGothic16/) (OFL-1.1)
+
+いずれも SIL Open Font License 1.1（OFL.txt）で配布されています。

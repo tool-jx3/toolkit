@@ -1,6 +1,8 @@
 # TRPG Toolkit
 
-[sotsotssi](https://github.com/sotsotssi) 與 [shiki365](https://github.com/shiki365) 製作的八個網頁小工具合輯，附繁體中文介面。
+[sotsotssi](https://github.com/sotsotssi)、[shiki365](https://github.com/shiki365)、
+[Taku_Taku_Taku](https://github.com/Taku-Taku-Taku) 與
+[kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 製作的 11 個網頁小工具合輯，附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -14,12 +16,16 @@
 | [讀取動畫產生器](tools/loading-maker/) | 把角色動畫、讀取條與上下文字合成一張畫布，輸出為 APNG／WebP／GIF |
 | [前景框產生器](tools/foreground-frame/) | 設計 CCFOLIA 前景用的外框，加上裝飾與天氣、時間帶差分，一次匯出 |
 | [場景轉換素材產生器](tools/scene-transition/) | 製作暗轉、抹除、光圈等場景轉換動畫，輸出為透明背景的 APNG |
+| [狀態條產生器](tools/status-bar/) | 產生自訂 CSS，把 CCFOLIA 角色的 HP、MP、SAN 以喜歡的樣式顯示在 OBS 上 |
+| [切入素材產生器](tools/cutin/) | 把文字做成集中線、描邊字與彩虹漸層的循環動畫，輸出為 APNG／GIF／PNG |
+| [立繪裁切器](tools/ccfolia-cropper/) | 依 CCFOLIA 的版面比例自動對齊頭部或角色中央，批次裁切立繪 |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
 ## 本機執行
 
-無建置步驟。直接以瀏覽器開啟 `index.html` 即可，或啟動本機伺服器：
+發佈出去的檔案全部是靜態的，沒有建置步驟。直接以瀏覽器開啟 `index.html` 即可，
+或啟動本機伺服器：
 
 ```
 npm run serve
@@ -28,6 +34,22 @@ npm run serve
 然後開啟 http://localhost:8080/
 
 （`emotion-maker` 的合本圖片產生功能受 canvas 安全限制影響，需以伺服器方式開啟。）
+
+### 重新建置 cutin
+
+十一個工具裡只有 `cutin` 的上游是 React + TypeScript 專案，沒辦法直接放進
+`tools/` 裡執行。原始碼收在 `vendor/cutin-maker/`，建置產物（已提交進 repo）
+輸出到 `tools/cutin/`。改動原始碼後要重新建置：
+
+```
+cd vendor/cutin-maker
+npm install
+npm run build
+```
+
+`npm run build` 會先跑 `tsc --noEmit`，再由 Vite 把產物寫進 `tools/cutin/`
+（`emptyOutDir: false`，不會動到同目錄下的 `i18n.cutin.js` 與 `LICENSE`）。
+`vendor/` 不參與網站發佈。
 
 ## 測試
 
@@ -41,11 +63,19 @@ npm test
 emotion-maker 的圖片資產完整、首頁連結有效、
 **HTML 內嵌文字與 zh-TW 字典逐字相符**（含元素內文與 `title`／`aria-label`／`placeholder` 屬性兩類比對）。
 
+`cutin` 沒有內嵌文字可比對（畫面全部由 React 算繪），因此改為檢查已提交的建置產物：
+`tools/cutin/assets/*.js` 裡不得殘留任何假名，且原始碼引用的每個 key 都必須出現在
+bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項檢查會抓到。
+
+`cutin` 的上游另有一套 vitest 單元測試（色彩、排版、動態、分享網址共 240 項），
+一併收錄在 `vendor/cutin-maker/tests/`，以 `cd vendor/cutin-maker && npm test` 執行。
+那套測試不在根目錄的 `npm test` 範圍內（根目錄的檢查刻意保持無外部相依）。
+
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的六個工具為韓文，
-shiki365 的兩個工具為日文。選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），
-首頁與各工具共用。
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的六個工具與
+`ccfolia-cropper` 為韓文，shiki365 的三個工具與 `cutin` 為日文。
+選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），首頁與各工具共用。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，
 反之亦然。停在沒有該語言字典的頁面時會以繁體中文呈現，但不會覆寫使用者的選擇——
@@ -65,6 +95,6 @@ shiki365 的兩個工具為日文。選擇記錄於 `localStorage`（key：`trpg
 `index.html`、`tests/`、各 `i18n.*.js` 字典，以及 emotion-maker 的資產路徑改造。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
-**注意**：`emotion-maker` 與 `loading-maker` 的原始 repo 皆未附任何授權條款，
-其權利（`emotion-maker` 含全部圖像素材）屬原作者所有，不在根目錄 LICENSE
-涵蓋範圍內，此處僅供試用。
+**注意**：`emotion-maker`、`loading-maker` 與 `ccfolia-cropper` 的原始 repo
+皆未附任何授權條款，其權利（`emotion-maker` 含全部圖像素材）屬原作者所有，
+不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。
