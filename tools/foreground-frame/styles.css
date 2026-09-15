@@ -127,3 +127,4 @@
   .drop-hint { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(20, 22, 40, .72);
                color: #fff; font-size: 20px; font-weight: 700; z-index: 10; pointer-events: none; }
   footer { border-top: 1px solid var(--line); padding: 16px 24px 40px; color: var(--muted); font-size: 12px; line-height: 1.9; }
+  footer a { color: #a8abff; }
