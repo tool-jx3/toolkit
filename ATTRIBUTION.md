@@ -3,7 +3,8 @@
 本 repo 收錄 [sotsotssi](https://github.com/sotsotssi)、
 [shiki365](https://github.com/shiki365)、
 [Taku_Taku_Taku](https://github.com/Taku-Taku-Taku) 與
-[kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 製作的 12 個網頁工具，
+[kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 與
+[巡涯学派](https://github.com/organon-torah) 製作的 13 個網頁工具，
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -22,6 +23,7 @@
 | cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
 | ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
+| character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
 
 八個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
 
@@ -37,12 +39,19 @@ shiki365 的三個工具與 `cutin` 原文為日文，收錄時另有以下調�
 - shiki365 的三個工具頁尾都有回作者工具站的兩條連結，原樣保留並翻譯；
   但頁首那條同樣指向工具站的連結不收——那個位置放的是合輯的首頁連結。
 
-## cutin：唯一需要建置的工具
+## 需要建置的兩個工具
 
-`cutin` 的上游是 React + TypeScript + Vite 專案，不像其餘十一個工具可以直接
-把檔案放進 `tools/` 就能跑。因此原始碼快照收在 `vendor/cutin-maker/`，
-建置產物提交在 `tools/cutin/`，重建方式見 [README](README.md#重新建置-cutin)。
-`vendor/` 不參與網站發佈。
+`cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，
+不像其餘十一個工具可以直接把檔案放進 `tools/` 就能跑。因此原始碼快照收在
+`vendor/` 底下，建置產物提交在各自的 `tools/` 目錄，重建方式見
+[README](README.md#重新建置-cutin-與-character-editor)。`vendor/` 不參與網站發佈。
+
+`character-editor` 另有一點必須留意：`src/lib/editScreenText.ts` 的日文字面常數
+幾乎全是**解析用的錨點**，用來切分使用者從 CCFOLIA 編輯畫面複製貼上的文字
+（`ステータス`、`イニシアティブ`、`駒サイズ`、`ラベル` 等）。那些不是畫面上的
+文字，翻譯了會與輸入對不起來、解析直接壞掉，因此原樣保留；該檔只翻了使用者
+會看到的那一則錯誤訊息。`tests/smoke.mjs` 會檢查建置產物裡殘存的每一段日文
+都屬於這批錨點（或作者署名），多出任何一段就會被擋下。
 
 除了把使用者可見的字串改成 i18n key 之外，另有兩點與上游不同：
 
@@ -96,13 +105,13 @@ shiki365 的三個工具與 `cutin` 原文為日文，收錄時另有以下調�
 不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
 `tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
 
-## 未授權的四個工具
+## 未授權的五個工具
 
 `sotsotssi/emotion-maker`、`sotsotssi/loading-maker`、
-`kimtaehee2018-maker/ccfolia-cropper` 與 `sotsotssi/select-your-chara`
-皆未附任何授權條款，GitHub 亦未標示授權。依著作權法預設，其權利保留予原作者
-（`emotion-maker` 包含 `images/` 下全部 39 張手繪素材），此處僅供試用。
-原作者如有異議，將立即移除。
+`kimtaehee2018-maker/ccfolia-cropper`、`sotsotssi/select-your-chara` 與
+`organon-torah/ccfoliaCharacterEditor` 皆未附任何授權條款，GitHub 亦未標示授權。
+依著作權法預設，其權利保留予原作者（`emotion-maker` 包含 `images/` 下全部
+39 張手繪素材），此處僅供試用。原作者如有異議，將立即移除。
 
 `character-select` 的上游建立於收錄前一天，只有一次提交，往後很可能還會變動；
 此處的快照固定在 `883f48b`，不與上游同步。
@@ -118,7 +127,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘十一個工具的翻譯與 i18n 改造為本 repo 新增。
+其餘十二個工具的翻譯與 i18n 改造為本 repo 新增。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：
@@ -136,4 +145,5 @@ magic-circle 的繁體中文翻譯移植自
 `assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔，
 以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
 `tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、
-`tools/ccfolia-cropper/` 與 `tools/character-select/` 的其餘部分不在此範圍內，見上節。
+`tools/ccfolia-cropper/`、`tools/character-select/` 與 `tools/character-editor/`
+的其餘部分不在此範圍內，見上節。
