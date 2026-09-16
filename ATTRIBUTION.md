@@ -4,7 +4,7 @@
 [shiki365](https://github.com/shiki365)、
 [Taku_Taku_Taku](https://github.com/Taku-Taku-Taku) 與
 [kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 與
-[巡涯学派](https://github.com/organon-torah) 製作的 13 個網頁工具，
+[巡涯学派](https://github.com/organon-torah) 製作的 14 個網頁工具，
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -24,20 +24,36 @@
 | ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
+| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `dda2ea9` | MIT |
 
-八個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
+九個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
 
-shiki365 的三個工具與 `cutin` 原文為日文，收錄時另有以下調整：
+shiki365 的四個工具與 `cutin` 原文為日文，收錄時另有以下調整：
 
 - `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
   `docs/` 底下的瀏覽器版（合輯只收純靜態、免安裝的網頁工具）。
-- `foreground-frame` 與 `scene-transition` 的 `<style>` 區塊抽出為 `styles.css`
-  （理由同 text-path 與 collage-letter）。
-- 這四個工具都移除了指向原作者站台的 OG／Twitter meta 與
+- `foreground-frame`、`scene-transition` 與 `chat-window` 的 `<style>` 區塊抽出為
+  `styles.css`（理由同 text-path 與 collage-letter）。
+- 這五個工具都移除了指向原作者站台的 OG／Twitter meta 與
   `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
   `<title>` 只留工具名，捨去 SEO 後綴。
-- shiki365 的三個工具頁尾都有回作者工具站的兩條連結，原樣保留並翻譯；
-  但頁首那條同樣指向工具站的連結不收——那個位置放的是合輯的首頁連結。
+- shiki365 的四個工具頁尾都有回作者工具站的連結（`chat-window` 另有一條許願用的
+  Marshmallow），原樣保留並翻譯；但頁首那條同樣指向工具站的連結不收——那個位置
+  放的是合輯的首頁連結。
+- `status-bar` 與 `chat-window` 的上游都附了自家站台的 `ogp.png`（各約 0.5 MB），
+  收錄版沒有用到那張圖（`og:image` 指的是絕對網址），因此不收。
+
+## chat-window：預覽刻意保留的日文
+
+`chat-window` 的預覽（`mock.v1.js`）是把 CCFOLIA 的聊天畫面照著重畫一遍，
+好讓使用者在調整 CSS 時看到的就是 OBS 上會出現的樣子。因此那個檔案裡的日文
+（`ルームチャット`、`メイン`、`メッセージを入力` 等九處，以及四個 `aria-label`）
+**原樣保留**——CCFOLIA 只有日文介面，翻掉的話預覽就不是實際畫面了。
+
+同理，範例訊息裡的骰子結果（`成功`、`失敗`、`決定的成功/スペシャル`、
+`致命的失敗`、`Secret dice 🎲`）是 BCDice 與 CCFOLIA 的實際輸出，也不翻；
+但角色名與聊天內容是作者自己編的示範資料，照常翻成繁體中文。
+`tests/smoke.mjs` 把這批該留的日文釘成一份清單，三個方向互相箝制。
 
 ## 需要建置的兩個工具
 
@@ -127,7 +143,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘十二個工具的翻譯與 i18n 改造為本 repo 新增。
+其餘十三個工具的翻譯與 i18n 改造為本 repo 新增。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：

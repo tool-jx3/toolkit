@@ -3,7 +3,7 @@
 [sotsotssi](https://github.com/sotsotssi)、[shiki365](https://github.com/shiki365)、
 [Taku_Taku_Taku](https://github.com/Taku-Taku-Taku) 與
 [kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 與
-[巡涯学派](https://github.com/organon-torah) 製作的 13 個網頁小工具合輯，附繁體中文介面。
+[巡涯学派](https://github.com/organon-torah) 製作的 14 個網頁小工具合輯，附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -22,6 +22,7 @@
 | [立繪裁切器](tools/ccfolia-cropper/) | 依 CCFOLIA 的版面比例自動對齊頭部或角色中央，批次裁切立繪 |
 | [選角畫面產生器](tools/character-select/) | 做出格鬥遊戲那樣的選角畫面，1P～4P 游標依序挑角色，輸出成動畫或可互動的 HTML |
 | [角色資料編輯器](tools/character-editor/) | 在 CCFOLIA 外編輯角色的 JSON：狀態、參數、聊天面板都能改，也能直接讀編輯畫面貼上的文字 |
+| [聊天視窗產生器](tools/chat-window/) | 做出自訂 CSS，把 CCFOLIA 的骰子結果與秘匿聊天以喜歡的樣式顯示在 OBS 上，可在預覽中一邊送訊息一邊調整 |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -40,7 +41,7 @@ npm run serve
 
 ### 重新建置 cutin 與 character-editor
 
-十三個工具裡有兩個的上游是 React + TypeScript 專案，沒辦法直接放進 `tools/`
+十四個工具裡有兩個的上游是 React + TypeScript 專案，沒辦法直接放進 `tools/`
 裡執行。原始碼收在 `vendor/` 底下，建置產物（已提交進 repo）輸出到各自的
 `tools/` 目錄。改動原始碼後要重新建置：
 
@@ -86,7 +87,7 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 ## 語言
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的七個工具與
-`ccfolia-cropper` 為韓文，shiki365 的三個工具、`cutin` 與 `character-editor` 為日文。
+`ccfolia-cropper` 為韓文，shiki365 的四個工具、`cutin` 與 `character-editor` 為日文。
 選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），首頁與各工具共用。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，

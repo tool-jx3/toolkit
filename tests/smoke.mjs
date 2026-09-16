@@ -510,6 +510,104 @@ for (const locale of ['zh-TW', 'ja']) {
   check(`${locale} 狀態列訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
 
+/* ---- chat-window ---- */
+/* 這個工具刻意留著一批日文，分兩類：
+ *   1. mock.v1.js 是把 CCFOLIA 的聊天畫面照著重畫一遍，好讓使用者看到的預覽
+ *      就是 OBS 上會出現的樣子。CCFOLIA 只有日文介面，翻掉預覽就不是實際畫面。
+ *   2. 骰子結果是 BCDice 與 CCFOLIA 的實際輸出，使用者的房間也是印這些字。
+ * 清單釘死在這裡，不從原始碼推導——推導出來的清單會跟著被翻掉的字一起變，
+ * 等於自己給自己開後門。釘死之後兩個方向都要對得上：
+ *   每個字串都還在（翻掉就會掉），且原始碼裡每一段帶假名的文字都屬於這份清單
+ *   （多出一段就是有介面文字沒被抽進字典）。 */
+const CW_KEPT_JA = {
+  'mock.v1.js': ['ルームチャット', 'メッセージを入力', 'メイン', '情報', '雑談',
+    'チャットウィンドウをとじる', 'チャットタブを追加する', 'チャットを編集する', 'チャットに参加中のユーザー'],
+  'presets.v1.js': ['メイン', '決定的成功/スペシャル', '致命的失敗'],
+  'index.html': ['メイン', 'スペシャル'],
+  /* 上游以英文註解記下 CCFOLIA 的 DOM 結構，其中引用了畫面上的日文字。 */
+  'css.v1.js': ['ルームチャット', 'メイン']
+};
+const CW_KANA_RUN = /[ぁ-ゖァ-ヺｦ-ﾝ・ー一-鿿]+/g;
+
+const cw = checkTool({
+  dir: 'tools/chat-window',
+  dict: 'i18n.chat-window.js',
+  locale: 'ja',
+  scripts: ['app.v1.js', 'presets.v1.js', 'css.v1.js', 'model.v1.js', 'mock.v1.js'],
+  styles: ['styles.css'],
+  minHooks: 180,
+  /* 只有整行的每一段日文都在清單裡才放行：同一行多出一段新的原文仍然會被擋下。 */
+  allowSource: (line, lineNo, file) => {
+    const allowed = CW_KEPT_JA[file];
+    if (!allowed) return false;
+    return (line.match(CW_KANA_RUN) || [])
+      .filter(run => KANA.test(run))
+      /* 必須是允許字串的一部分。反過來放行的話，「メインメニューを開く」這種
+       * 包住允許字串的新原文就會混過去。 */
+      .every(run => allowed.some(keep => keep.includes(run)));
+  }
+});
+
+section('tools/chat-window kept Japanese');
+for (const [file, keeps] of Object.entries(CW_KEPT_JA)) {
+  const src = read(`tools/chat-window/${file}`);
+  for (const keep of keeps) {
+    check(`${file} 仍保留「${keep}」`, src.includes(keep));
+  }
+}
+/* 反向：把清單縮成「重畫 CCFOLIA 介面」那幾條，確認它們真的在 mock.v1.js 裡而不是別處。 */
+const cwMock = read('tools/chat-window/mock.v1.js');
+check('CCFOLIA 介面的重現都落在 mock.v1.js',
+  CW_KEPT_JA['mock.v1.js'].every(k => cwMock.includes(k)));
+
+/* presets.v1.js 的清單資料第二欄存 key，由 optionsHtml() 統一 T()，靜態掃描看不到。 */
+section('tools/chat-window preset keys');
+const cwPresets = read('tools/chat-window/presets.v1.js');
+const cwListKeys = [
+  ...[...cwPresets.matchAll(/\["[\w-]+", "([\w]+\.[\w.-]+)"\]/g)].map(m => m[1]),
+  ...[...cwPresets.matchAll(/\[\d+, "([\w]+\.[\w.-]+)"\]/g)].map(m => m[1]),
+  ...[...cwPresets.matchAll(/(?:label|desc|text|name): "([\w]+\.[\w.-]+)"/g)].map(m => m[1])
+];
+check('presets.v1.js 解析出清單 key', cwListKeys.length >= 120, `found ${cwListKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = [...new Set(cwListKeys)].filter(k => !cw.messages[locale][k]);
+  check(`${locale} 每個清單 key 都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+section('tools/chat-window status messages');
+const cwApp = read('tools/chat-window/app.v1.js');
+const cwStatusKeys = [...new Set([
+  ...[...cwApp.matchAll(/\bstatus(?:Error)?\("([\w]+\.[\w.]+)"/g)].map(m => m[1]),
+  'status.loading'
+])];
+check('解析出狀態列訊息 key', cwStatusKeys.length >= 14, `found ${cwStatusKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = cwStatusKeys.filter(k => !cw.messages[locale][k]);
+  check(`${locale} 狀態列訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+/* css.v1.js 把譯文寫進產出的 CSS。那個檔案有好幾處把 st.title 取名為 T，
+ * 直接呼叫全域 T() 會被蓋掉，因此一律走 TX()；寫回 T() 會靜靜地拿到錯的東西。 */
+const cwCss = read('tools/chat-window/css.v1.js');
+check('css.v1.js 以 TX() 取譯文，避開被區域變數 T 蓋掉',
+  cwCss.includes('const TX = (key, ...args) => window.T(key, ...args);')
+  && !/[^.\w]T\((["'`])[a-zA-Z]/.test(cwCss));
+const cwCssKeys = [...new Set([...cwCss.matchAll(/\bTX\("([\w]+\.[\w.]+)"/g)].map(m => m[1]))];
+check('解析出產出 CSS 的註解 key', cwCssKeys.length >= 20, `found ${cwCssKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = cwCssKeys.filter(k => !cw.messages[locale][k]);
+  check(`${locale} 產出 CSS 的註解齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
+/* 預覽是 append-only 算繪：只比對 id 的話，切語言時 id 沒變、文字換了一套，
+ * 預覽會停在舊語言。文字與骰子結果都要進比對條件。 */
+check('mock.v1.js 沿用舊節點前會比對文字',
+  /appendOnly[\s\S]{0,400}m\.text === data\.messages\[i\]\.text/.test(cwMock));
+
+/* 範本裡的兩個文字欄位存 i18n key，套用當下才取譯文。 */
+check('model.v1.js 套用範本時解析文字欄位的 key',
+  read('tools/chat-window/model.v1.js').includes('function localizeLook'));
+
 /* ---- ccfolia-cropper ---- */
 checkTool({
   dir: 'tools/ccfolia-cropper',
@@ -817,6 +915,25 @@ for (const locale of ['zh-TW', 'ja']) {
   check(`status-bar ${locale} 每套繁中字型都有標籤`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
 
+/* chat-window：字型清單與 status-bar 同一份（上游原始碼自己就這麼註明），
+ * 同樣把 weights 直接餵給 css2，錯一個就整批 import 失敗。 */
+const cwFonts = read('tools/chat-window/presets.v1.js');
+for (const m of cwFonts.matchAll(/family: "([^"]+)", weights: \[([\d, ]+)\]/g)) {
+  if (!TC_FAMILIES.includes(m[1])) continue;
+  const bad = m[2].split(',').map(w => Number(w.trim())).filter(w => !TC_WEIGHTS[m[1]].includes(w));
+  check(`chat-window：${m[1]} 的 weights 都存在`, bad.length === 0,
+    `不存在的字重: ${bad.join(', ')}（可用: ${TC_WEIGHTS[m[1]].join(', ')}）`);
+}
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = sbTcKeys.filter(k => !cw.messages[locale][k]);
+  check(`chat-window ${locale} 每套繁中字型都有標籤`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+/* 兩個工具的字型清單必須逐一對得上——上游說是同一份，漂掉就不再是同一份。 */
+const fontIds = src => [...src.matchAll(/^\s{4}(\w+): \{ label: "font\./gm)].map(m => m[1]);
+check('chat-window 與 status-bar 的字型清單一致',
+  fontIds(cwFonts).join(',') === fontIds(sbFonts).join(','),
+  `chat-window: ${fontIds(cwFonts).length}, status-bar: ${fontIds(sbFonts).length}`);
+
 /* collage-letter：@import 的字重，以及字型池與 @import 的一致性。 */
 const clCss = read('tools/collage-letter/styles.css');
 checkCss2Url('collage-letter @import', clCss);
@@ -873,10 +990,10 @@ check('首頁 <title> 與 app.title 的 zh-TW 值一致',
 check('assets/home.js 無殘留韓文', !HANGUL.test(read('assets/home.js')));
 check('assets/home.css 無殘留韓文', !HANGUL.test(read('assets/home.css')));
 
-/* 13 個工具連結都要指得到。 */
+/* 14 個工具連結都要指得到。 */
 const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker',
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
-  'ccfolia-cropper', 'character-select', 'character-editor'];
+  'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -962,6 +1079,7 @@ checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 50);
 checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
+checkInlineText('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 150);
 checkInlineText('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 20);
 checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
 
@@ -1034,6 +1152,7 @@ checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 2);
 checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
+checkAttrPairs('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 15);
 checkAttrPairs('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 1);
 checkAttrPairs('tools/cutin', 'tools/cutin/index.html', ['tools/cutin/i18n.cutin.js'], 1);
 checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
@@ -1051,7 +1170,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  'c24f0a2', '52426f5', '1670549', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '772d6c4']) {
+  'c24f0a2', '52426f5', '1670549', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', 'dda2ea9', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
@@ -1066,6 +1185,8 @@ check('ATTRIBUTION.md 標明 character-editor 未授權',
   /character-editor[\s\S]{0,1200}(未授權|無授權)/.test(attribution));
 check('ATTRIBUTION.md 說明解析錨點為何不翻譯',
   attribution.includes('editScreenText.ts'));
+check('ATTRIBUTION.md 說明 chat-window 為何保留日文',
+  /chat-window[\s\S]{0,600}mock\.v1\.js/.test(attribution) && attribution.includes('BCDice'));
 /* cutin 需要建置，說明其原始碼位置與重建方式。 */
 check('ATTRIBUTION.md 說明 cutin 的建置流程',
   attribution.includes('vendor/cutin-maker'));
