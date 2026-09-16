@@ -54,6 +54,9 @@ const HANGUL = /[가-힣]/;
  * 中點「・」與長音符「ー」也排除在外——前者中文同樣會用到，會把正常譯文誤判為
  * 未翻譯（真正的片假名詞一定帶有假名字母，不會因此漏掉）。 */
 const KANA = /[\u3041-\u3096\u30A1-\u30FA\uFF66-\uFF9D]/;
+/* 假名或漢字。character-editor 的解析錨點有純漢字的（「名前」「現在値」），
+ * 只查假名會漏掉。僅用於那個工具的錨點比對，不當作原文洩漏的判準。 */
+const JAPANESE = /[\u3041-\u3096\u30A1-\u30FA\uFF66-\uFF9D\u4E00-\u9FFF]/;
 
 /* dir: 'tools/magic-circle'；dict: 字典檔名；
  * locale: 該工具原文語言的字典代碼（sotsotssi 的工具為 ko，shiki365 的為 ja）；
@@ -639,6 +642,104 @@ check('video-export.js 的訊息在拋出時才取譯文',
   /const MP4_UNAVAILABLE = \(\) =>/.test(csVideo) && /const TOO_LARGE = \(\) =>/.test(csVideo)
   && !/new Error\(TOO_LARGE\)/.test(csVideo) && !/new Error\(MP4_UNAVAILABLE\)/.test(csVideo));
 
+
+/* ---- character-editor ---- */
+/* 第二個需要建置的工具。畫面全由 React 算繪，index.html 只有外殼那三個掛勾。 */
+const ce = checkTool({
+  dir: 'tools/character-editor',
+  dict: 'i18n.character-editor.js',
+  locale: 'ja',
+  scripts: [],
+  minHooks: 3,
+  /* 上游未附任何授權條款，狀態記於 ATTRIBUTION.md。 */
+  licence: false
+});
+check('character-editor 無原始 LICENSE（未授權，於 ATTRIBUTION.md 標示）',
+  !exists('tools/character-editor/LICENSE'));
+
+section('tools/character-editor build output');
+const ceZh = new Set(Object.keys(ce.messages['zh-TW']));
+const CE_SHELL_KEYS = ['app.title', 'nav.home', 'lang.aria', 'noscript'];
+/* prepareImport() 以字串常數傳進來，不是 t() 呼叫，靜態掃描看不到。 */
+const CE_INDIRECT_KEYS = ['source.json', 'source.editText'];
+
+const ceSrc = listFiles('vendor/ccfolia-character-editor/src')
+  .filter(f => /\.tsx?$/.test(f) && !/\.test\./.test(f))
+  .map(f => read(f))
+  .join('\n');
+const ceUsed = [...ceZh].filter(k => ceSrc.includes(`"${k}"`));
+check('原始碼引用了字典中的大多數 key', ceUsed.length >= 60, `found ${ceUsed.length}`);
+const ceStale = [...ceZh].filter(k =>
+  !ceUsed.includes(k) && !CE_SHELL_KEYS.includes(k) && !CE_INDIRECT_KEYS.includes(k));
+check('字典沒有原始碼用不到的 key', ceStale.length === 0, `stale: ${ceStale.join(', ')}`);
+
+const ceBundle = read('tools/character-editor/assets/app.js');
+const ceNotBuilt = ceUsed.filter(k => !ceBundle.includes(k));
+check('建置產物是最新的（原始碼的 key 都在 bundle 裡）',
+  ceNotBuilt.length === 0, `missing from bundle: ${ceNotBuilt.slice(0, 10).join(', ')}`);
+
+/* editScreenText.ts 的日文字面常數幾乎都是解析錨點——使用者從 CCFOLIA 編輯畫面
+ * 複製貼上的文字要靠它們切分，翻譯了就對不起來。因此這個工具不能像 cutin 那樣
+ * 一律禁止假名。
+ *
+ * 錨點清單釘死在這裡，不從 editScreenText.ts 推導：推導出來的清單會隨著被翻譯的
+ * 錨點一起變，等於自己給自己開後門（把錨點翻掉，它就自動進了允許名單）。釘死之後
+ * 三個方向都要對得上：
+ *   1. 原始碼裡的日文字面常數，恰好就是這份清單（多了代表上游新增了沒審過的錨點，
+ *      少了代表有錨點被翻掉或刪掉）；
+ *   2. 每個錨點原封不動出現在 bundle 裡（翻掉或建置沒更新都會掉）；
+ *   3. bundle 裡殘存的每一段日文，都必須是某個錨點的一部分（或作者署名）。
+ *      多出任何一段，就代表有介面文字沒被抽進字典。 */
+const CE_ANCHORS = [
+  '1d100 などのダイスコマンドやキャラクターに紐づくチャットコマンドを改行区切りで登録します。',
+  'HPやMPなどのキャラクターに連動して変動するステータスを設定します。',
+  'イニシアティブ',
+  'キャラクターに対してめったに変動しないパラメータを設定します。',
+  'キャラクター編集',
+  'ステータス',
+  'ステータスを非公開にする',
+  'チャットパレット',
+  'パラメータ',
+  'ラベル',
+  '値',
+  '参照URL',
+  '名前',
+  '最大値',
+  '現在値',
+  '発言時キャラクターを表示しない',
+  '盤面キャラクター一覧に表示しない',
+  '秘匿NPC・敵キャラクターなど',
+  '立ち絵・差分',
+  '駒サイズ'
+];
+const ceAnchorSrc = read('vendor/ccfolia-character-editor/src/lib/editScreenText.ts');
+/* 空字串 "" 也要吃得下，否則引號會配對錯位、錨點少抓一半。 */
+const ceFound = [...new Set([...ceAnchorSrc.matchAll(/"([^"]*)"/g)]
+  .map(m => m[1]).filter(a => JAPANESE.test(a)))].sort();
+const ceExpected = [...CE_ANCHORS].sort();
+const ceAdded = ceFound.filter(a => !ceExpected.includes(a));
+const ceGone = ceExpected.filter(a => !ceFound.includes(a));
+check('editScreenText.ts 的日文字面常數與釘死的錨點清單一致',
+  ceAdded.length === 0 && ceGone.length === 0,
+  `unexpected: ${ceAdded.join(' / ')} | missing: ${ceGone.join(' / ')}`);
+for (const anchor of CE_ANCHORS) {
+  check(`解析錨點「${anchor.slice(0, 12)}」原封不動留在 bundle 裡`, ceBundle.includes(anchor));
+}
+const CE_ALLOWED_JP = ['巡涯学派']; /* 作者署名。固有名詞なので訳さない。 */
+const ceRuns = [...new Set(ceBundle.match(/[\u3041-\u3096\u30A1-\u30FA\u30FB\u30FC\u4E00-\u9FFF]+/g) || [])];
+const ceStray = ceRuns.filter(r => !CE_ALLOWED_JP.includes(r) && !CE_ANCHORS.some(a => a.includes(r)));
+check('bundle 裡的日文只剩解析錨點與作者署名',
+  ceStray.length === 0, `stray: ${ceStray.join(' / ')}`);
+
+/* 上游測試靠畫面的日文標籤找元素，收錄版把 ja 字典注入 window.T 才能通過。 */
+check('上游 vitest 的 setup 會注入 ja 字典',
+  read('vendor/ccfolia-character-editor/src/test/setup.ts').includes('i18n.character-editor.js'));
+/* 訊息的錯誤判定原本靠字串比對，改成明示的 isError；寫回字串比對就會靜靜失效。 */
+const ceApp = read('vendor/ccfolia-character-editor/src/App.tsx');
+check('訊息以 isError 判定，而非比對譯文內容',
+  ceApp.includes('isError: boolean') && !/Message\.includes\(|Message\.includes\s*\(/.test(ceApp)
+  && !ceApp.includes('parseMessage.includes('));
+
 /* ---- 繁體中文網頁字型 ---- */
 /* 五套字型分散在四個工具裡，各自用不同的寫法要求 Google Fonts。字重寫錯會讓
  * 整個 family 的 @font-face 靜靜地不見（Google Fonts 對不存在的字重回 400，
@@ -772,23 +873,34 @@ check('首頁 <title> 與 app.title 的 zh-TW 值一致',
 check('assets/home.js 無殘留韓文', !HANGUL.test(read('assets/home.js')));
 check('assets/home.css 無殘留韓文', !HANGUL.test(read('assets/home.css')));
 
-/* 12 個工具連結都要指得到。 */
+/* 13 個工具連結都要指得到。 */
 const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker',
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
-  'ccfolia-cropper', 'character-select'];
+  'ccfolia-cropper', 'character-select', 'character-editor'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
 }
 
-/* 兩個未授權工具各有一張卡片：emotion-maker 另含 39 張圖像素材，
- * 故其徽章用 license.unlicensed.assets，loading-maker 用一般版本。 */
-check('首頁標示 emotion-maker 與 loading-maker 的未授權狀態',
-  homeZh.has('license.unlicensed') && homeZh.has('license.unlicensed.assets')
-  && homeHtml.includes('data-i18n="license.unlicensed"')
-  && homeHtml.includes('data-i18n="license.unlicensed.assets"'));
+/* 每張卡片的授權徽章都要跟該工具目錄裡有沒有 LICENSE 對得上。徽章是手寫的，
+ * 新增工具時很容易沿用上一張卡片而標錯（把未授權的標成 MIT 就是誤導）。
+ * emotion-maker 另含 39 張圖像素材，故其徽章用 license.unlicensed.assets。 */
+check('首頁字典有三種授權徽章',
+  ['license.mit', 'license.unlicensed', 'license.unlicensed.assets'].every(k => homeZh.has(k)));
+const homeCards = [...homeHtml.matchAll(/<li class="tool-card">([\s\S]*?)<\/li>/g)].map(m => m[1]);
+check('首頁卡片數與工具數一致', homeCards.length === TOOLS.length,
+  `cards: ${homeCards.length}, tools: ${TOOLS.length}`);
+for (const card of homeCards) {
+  const name = (card.match(/href="\.\/tools\/([^/]+)\//) || [])[1];
+  const badge = (card.match(/class="badge [^"]*" data-i18n="([^"]+)"/) || [])[1];
+  const expected = exists(`tools/${name}/LICENSE`)
+    ? ['license.mit']
+    : ['license.unlicensed', 'license.unlicensed.assets'];
+  check(`首頁 ${name} 的授權徽章與目錄裡的 LICENSE 相符`,
+    !!name && expected.includes(badge), `badge: ${badge}`);
+}
 check('首頁標示原作者出處',
-  ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker']
+  ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah']
     .every(a => homeHtml.includes(`github.com/${a}`)));
 
 /* ---- 內嵌文字與 zh-TW 字典一致 ---- */
@@ -925,6 +1037,7 @@ checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status
 checkAttrPairs('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 1);
 checkAttrPairs('tools/cutin', 'tools/cutin/index.html', ['tools/cutin/i18n.cutin.js'], 1);
 checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
+checkAttrPairs('tools/character-editor', 'tools/character-editor/index.html', ['tools/character-editor/i18n.character-editor.js'], 1);
 
 /* ---- 文件 ---- */
 section('docs');
@@ -938,7 +1051,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  'c24f0a2', '52426f5', '1670549', '7e9c70d', 'f149b4e', '883f48b', '772d6c4']) {
+  'c24f0a2', '52426f5', '1670549', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
@@ -949,11 +1062,15 @@ check('ATTRIBUTION.md 標明 ccfolia-cropper 未授權',
   /ccfolia-cropper[\s\S]{0,600}(未授權|無授權)/.test(attribution));
 check('ATTRIBUTION.md 標明 character-select 未授權',
   /character-select[\s\S]{0,900}(未授權|無授權)/.test(attribution));
+check('ATTRIBUTION.md 標明 character-editor 未授權',
+  /character-editor[\s\S]{0,1200}(未授權|無授權)/.test(attribution));
+check('ATTRIBUTION.md 說明解析錨點為何不翻譯',
+  attribution.includes('editScreenText.ts'));
 /* cutin 需要建置，說明其原始碼位置與重建方式。 */
 check('ATTRIBUTION.md 說明 cutin 的建置流程',
   attribution.includes('vendor/cutin-maker'));
-check('README.md 說明 cutin 的建置流程',
-  read('README.md').includes('vendor/cutin-maker'));
+check('README.md 說明兩個工具的建置流程',
+  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor'].every(p => read('README.md').includes(p)));
 
 const pkg = JSON.parse(read('package.json'));
 check('package.json 無執行期相依',

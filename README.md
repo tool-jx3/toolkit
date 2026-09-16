@@ -2,7 +2,8 @@
 
 [sotsotssi](https://github.com/sotsotssi)、[shiki365](https://github.com/shiki365)、
 [Taku_Taku_Taku](https://github.com/Taku-Taku-Taku) 與
-[kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 製作的 12 個網頁小工具合輯，附繁體中文介面。
+[kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 與
+[巡涯学派](https://github.com/organon-torah) 製作的 13 個網頁小工具合輯，附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -20,6 +21,7 @@
 | [切入素材產生器](tools/cutin/) | 把文字做成集中線、描邊字與彩虹漸層的循環動畫，輸出為 APNG／GIF／PNG |
 | [立繪裁切器](tools/ccfolia-cropper/) | 依 CCFOLIA 的版面比例自動對齊頭部或角色中央，批次裁切立繪 |
 | [選角畫面產生器](tools/character-select/) | 做出格鬥遊戲那樣的選角畫面，1P～4P 游標依序挑角色，輸出成動畫或可互動的 HTML |
+| [角色資料編輯器](tools/character-editor/) | 在 CCFOLIA 外編輯角色的 JSON：狀態、參數、聊天面板都能改，也能直接讀編輯畫面貼上的文字 |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -36,21 +38,25 @@ npm run serve
 
 （`emotion-maker` 的合本圖片產生功能受 canvas 安全限制影響，需以伺服器方式開啟。）
 
-### 重新建置 cutin
+### 重新建置 cutin 與 character-editor
 
-十二個工具裡只有 `cutin` 的上游是 React + TypeScript 專案，沒辦法直接放進
-`tools/` 裡執行。原始碼收在 `vendor/cutin-maker/`，建置產物（已提交進 repo）
-輸出到 `tools/cutin/`。改動原始碼後要重新建置：
+十三個工具裡有兩個的上游是 React + TypeScript 專案，沒辦法直接放進 `tools/`
+裡執行。原始碼收在 `vendor/` 底下，建置產物（已提交進 repo）輸出到各自的
+`tools/` 目錄。改動原始碼後要重新建置：
 
 ```
-cd vendor/cutin-maker
-npm install
+cd vendor/cutin-maker              # 或 vendor/ccfolia-character-editor
+npm install                        # character-editor 請用 npm ci
 npm run build
 ```
 
-`npm run build` 會先跑 `tsc --noEmit`，再由 Vite 把產物寫進 `tools/cutin/`
-（`emptyOutDir: false`，不會動到同目錄下的 `i18n.cutin.js` 與 `LICENSE`）。
+`npm run build` 會先跑 `tsc --noEmit`，再由 Vite 把產物寫進對應的 `tools/`
+目錄（`emptyOutDir: false`，不會動到同目錄下的 `i18n.*.js` 與 `LICENSE`）。
 `vendor/` 不參與網站發佈。
+
+`character-editor` 請用 `npm ci`：`npm install` 在解析 vitest 的 peer
+相依時會踩到 npm 10.9 的一個錯誤（`Cannot read properties of null`），
+上游的 lockfile 則可以正常安裝。
 
 ## 測試
 
@@ -68,8 +74,11 @@ emotion-maker 的圖片資產完整、首頁連結有效、
 `tools/cutin/assets/*.js` 裡不得殘留任何假名，且原始碼引用的每個 key 都必須出現在
 bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項檢查會抓到。
 
-`cutin` 的上游另有一套 vitest 單元測試（色彩、排版、動態、分享網址共 420 項），
-一併收錄在 `vendor/cutin-maker/tests/`，以 `cd vendor/cutin-maker && npm test` 執行。
+`cutin` 與 `character-editor` 的上游各有一套 vitest 單元測試（420 項與 30 項），
+一併收錄在 `vendor/` 底下，以 `cd vendor/<工具> && npm test` 執行。
+`character-editor` 那套是用畫面上的日文標籤找元素的，收錄版把 `ja` 字典注入
+`window.T`，因此測試一行都沒改就能通過——順帶還會驗證 `ja` 的譯文與上游原文
+是否一字不差。
 那套測試需要 `npm install`，不在根目錄的 `npm test` 範圍內（根目錄的檢查刻意保持
 無外部相依）；因此兩者之間容易漂移的地方，改由根目錄的靜態檢查看著——例如版面
 測試的字幅比表有沒有跟上字型清單。
@@ -77,7 +86,7 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 ## 語言
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的七個工具與
-`ccfolia-cropper` 為韓文，shiki365 的三個工具與 `cutin` 為日文。
+`ccfolia-cropper` 為韓文，shiki365 的三個工具、`cutin` 與 `character-editor` 為日文。
 選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），首頁與各工具共用。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，
