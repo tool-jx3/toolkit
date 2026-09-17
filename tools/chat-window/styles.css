@@ -89,8 +89,11 @@
   .size-note { color: var(--fg); font-size: 13px; }
   .size-note b { font-size: 15px; }
 
-  .tester { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
-  .tester h2 { margin: 0; font-size: 12px; color: var(--muted); font-weight: 400; }
+  .tester, .source-url { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
+  .tester h2, .source-url h2 { margin: 0; font-size: 12px; color: var(--muted); font-weight: 400; }
+  .source-url .missing { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .source-url .warn { color: #ffb86b; font-size: 12px; line-height: 1.7; }
+  .row.sub > label { padding-left: 12px; }
   .custom { display: grid; grid-template-columns: 130px 110px minmax(0, 1fr); gap: 6px; align-items: center; }
   .custom input[type=text] { width: 100%; }
   @media (max-width: 560px) { .custom { grid-template-columns: 1fr 1fr; } .custom .grow { grid-column: 1 / -1; } }

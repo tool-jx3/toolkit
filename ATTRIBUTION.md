@@ -17,14 +17,14 @@
 | collage-letter | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) | `ea08333` | MIT |
 | emotion-maker | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b455379` | **未授權** |
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
-| foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `c24f0a2` | MIT |
+| foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `6e9a5b5` | MIT |
 | scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `52426f5` | MIT |
-| status-bar | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `1670549` | MIT |
+| status-bar | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `b86a0d0` | MIT |
 | cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
 | ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
-| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `dda2ea9` | MIT |
+| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `3365696` | MIT |
 
 九個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
 
@@ -42,6 +42,17 @@ shiki365 的四個工具與 `cutin` 原文為日文，收錄時另有以下調�
   放的是合輯的首頁連結。
 - `status-bar` 與 `chat-window` 的上游都附了自家站台的 `ogp.png`（各約 0.5 MB），
   收錄版沒有用到那張圖（`og:image` 指的是絕對網址），因此不收。
+
+## 三個工具共用的 pcfonts.v1.js
+
+`status-bar`、`chat-window` 與 `foreground-frame` 的字型欄都可以改填「以名稱指定」，
+使用觀看者電腦上已安裝的字型；Chrome／Edge 還能用 Local Font Access API
+（`queryLocalFonts()`）開出一份附樣張的清單來挑。那個對話框是 `pcfonts.v1.js`，
+上游在三個 repo 底下各放一份完全相同的檔案，收錄版照做，`tests/smoke.mjs` 會檢查
+三份沒有漂開。對話框是延遲建立的單例，切換語言時整個丟掉重建。
+
+這個功能在 OBS 端有個前提：OBS 是用它自己那台電腦的字型算繪的，所以那台也要裝同一套
+字型。上游把這件事寫在說明與產出的 CSS 開頭，收錄版一併翻譯保留。
 
 ## chat-window：預覽刻意保留的日文
 

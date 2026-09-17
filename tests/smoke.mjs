@@ -397,7 +397,7 @@ const ff = checkTool({
   dict: 'i18n.foreground-frame.js',
   locale: 'ja',
   scripts: ['app.v2.js', 'presets.v1.js', 'model.v2.js', 'render.v2.js',
-    'deco.v1.js', 'deco-extra.v1.js', 'effects.v1.js', 'icons.v1.js', 'zip.v1.js'],
+    'deco.v1.js', 'deco-extra.v1.js', 'effects.v1.js', 'icons.v1.js', 'zip.v1.js', 'pcfonts.v1.js'],
   styles: ['styles.css'],
   minHooks: 200,
   /* presets.v1.js 的 CSS font-family 串中含日文字型名（"UD デジタル 教科書体 NK-R"）。
@@ -479,7 +479,7 @@ const sb = checkTool({
   dict: 'i18n.status-bar.js',
   locale: 'ja',
   scripts: ['app.v1.js', 'presets.v1.js', 'css.v1.js', 'deco.v1.js',
-    'model.v1.js', 'mock.v1.js', 'shapes.v1.js'],
+    'model.v1.js', 'mock.v1.js', 'shapes.v1.js', 'pcfonts.v1.js'],
   styles: ['styles.css'],
   minHooks: 200
 });
@@ -498,6 +498,16 @@ for (const locale of ['zh-TW', 'ja']) {
 /* 狀態列會把目前狀態存成 {key, args} 再於語言切換時重繪，因此這些 key 只會以
  * 變數形式傳進 T()，靜態掃描看不到。掃 app.v1.js 的 status()／statusError()
  * 呼叫取得實際用到的集合，逐一確認兩語言都有譯文。 */
+/* status-bar 的 css.v1.js 把 st.text 取名為 TX（T 留給全域的 i18n 函式）。
+ * 收錄時改名改漏了 textShadow(T) 兩處，描邊設定整個失效——四個選項都產出
+ * text-shadow: none，而且靜態檢查與型別都看不出來。這裡擋住同一類寫法：
+ * 這個檔案裡的 T 只能被呼叫，不能當成值傳出去或取屬性。 */
+const sbCss = read('tools/status-bar/css.v1.js');
+const sbBareT = [...sbCss.matchAll(/(?<![\w.$])T(?!\s*\()(?![\w$])/g)]
+  .map(m => sbCss.slice(Math.max(0, m.index - 40), m.index + 20).replace(/\n/g, ' '));
+check('status-bar 的 css.v1.js 沒有把 T 當成值使用',
+  sbBareT.length === 0, sbBareT.slice(0, 3).join(' / '));
+
 section('tools/status-bar status messages');
 const sbApp = read('tools/status-bar/app.v1.js');
 const sbStatusKeys = [...new Set([
@@ -533,7 +543,7 @@ const cw = checkTool({
   dir: 'tools/chat-window',
   dict: 'i18n.chat-window.js',
   locale: 'ja',
-  scripts: ['app.v1.js', 'presets.v1.js', 'css.v1.js', 'model.v1.js', 'mock.v1.js'],
+  scripts: ['app.v1.js', 'presets.v1.js', 'css.v1.js', 'model.v1.js', 'mock.v1.js', 'pcfonts.v1.js'],
   styles: ['styles.css'],
   minHooks: 180,
   /* 只有整行的每一段日文都在清單裡才放行：同一行多出一段新的原文仍然會被擋下。 */
@@ -837,6 +847,39 @@ const ceApp = read('vendor/ccfolia-character-editor/src/App.tsx');
 check('訊息以 isError 判定，而非比對譯文內容',
   ceApp.includes('isError: boolean') && !/Message\.includes\(|Message\.includes\s*\(/.test(ceApp)
   && !ceApp.includes('parseMessage.includes('));
+
+/* ---- PC 字型挑選器 ---- */
+/* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
+ * 只改其中一份的話，另外兩個工具的對話框就會停在舊版本。 */
+section('pcfonts.v1.js');
+const PCFONT_TOOLS = ['foreground-frame', 'status-bar', 'chat-window'];
+const pcfSources = PCFONT_TOOLS.map(t => read(`tools/${t}/pcfonts.v1.js`));
+const pcfDiffer = PCFONT_TOOLS.filter((t, i) => pcfSources[i] !== pcfSources[0]);
+check('三個工具的 pcfonts.v1.js 完全相同', pcfDiffer.length === 0, `differs: ${pcfDiffer.join(', ')}`);
+for (const tool of PCFONT_TOOLS) {
+  const html = read(`tools/${tool}/index.html`);
+  check(`${tool} 載入 pcfonts.v1.js`, /<script src="pcfonts\.v1\.js/.test(html));
+  check(`${tool} 的字型欄有「從清單選」按鈕`, html.includes('data-pc-fonts'));
+  /* 對話框是延遲建立的單例，切語言時要整個丟掉重建，否則裡面的文字會停在舊語言。 */
+  check(`${tool} 的挑選器會在切換語言時重建`,
+    read(`tools/${tool}/pcfonts.v1.js`).includes('I18N.onChange(() => {'));
+}
+/* 這三個工具的字典都要能餵飽同一份 pcfonts.v1.js。 */
+/* 兩個 key 是以三元運算傳進 T() 的（refused ? … : …），掃 T(" 會漏掉，改抓字面常數。 */
+const pcfKeys = [...new Set([...pcfSources[0].matchAll(/"(pcf\.[\w.]+)"/g)].map(m => m[1]))];
+check('解析出挑選器的 key', pcfKeys.length >= 13, `found ${pcfKeys.length}`);
+for (const [tool, dict] of [['foreground-frame', ff], ['status-bar', sb], ['chat-window', cw]]) {
+  for (const locale of ['zh-TW', 'ja']) {
+    const missing = pcfKeys.filter(k => !dict.messages[locale][k]);
+    check(`${tool} ${locale} 的挑選器譯文齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
+  }
+}
+/* 樣張文字用「永」示範字型有沒有漢字，說明文也是這樣寫的。 */
+for (const [tool, dict] of [['foreground-frame', ff], ['status-bar', sb], ['chat-window', cw]]) {
+  for (const locale of ['zh-TW', 'ja']) {
+    check(`${tool} ${locale} 的樣張含「永」`, (dict.messages[locale]['pcf.sample'] || '').includes('永'));
+  }
+}
 
 /* ---- 繁體中文網頁字型 ---- */
 /* 五套字型分散在四個工具裡，各自用不同的寫法要求 Google Fonts。字重寫錯會讓
@@ -1170,7 +1213,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  'c24f0a2', '52426f5', '1670549', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', 'dda2ea9', '772d6c4']) {
+  '6e9a5b5', '52426f5', 'b86a0d0', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '3365696', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',

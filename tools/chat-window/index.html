@@ -95,6 +95,8 @@
           <div class="row" data-show="title.source=text|textTab"><label data-i18n="title.text">文字</label><input type="text" data-bind="title.text" data-i18n-placeholder="title.textPlaceholder" placeholder="例：DICE ROLL"></div>
           <div class="row"><label data-i18n="title.style">樣式</label><select data-bind="title.style" data-options="TITLE_STYLES"></select></div>
           <div class="row"><label data-i18n="title.font">字型</label><select data-bind="title.font" data-options="FONTS"></select></div>
+          <div class="row sub" data-show="title.font=pc"><label data-i18n="font.name">字型名稱</label><span class="pc-font">
+            <input type="text" data-bind="title.fontName" placeholder="例）Noto Sans TC" data-i18n-placeholder="font.name.placeholder" data-i18n-aria-label="font.name.title.aria" aria-label="標題的字型名稱" autocomplete="off" spellcheck="false"><button type="button" class="small" data-pc-fonts data-i18n="font.pick">從清單選</button></span></div>
           <div class="row"><label data-i18n="title.weight">字重</label><select data-bind="title.weight" data-options="WEIGHTS" data-number></select></div>
           <div class="row"><label data-i18n="title.size">大小</label>
             <span class="with-value"><input type="range" data-bind="title.size" min="10" max="40" step="1"><output data-out="title.size" data-fmt="px"></output></span></div>
@@ -185,6 +187,8 @@
         <div data-show="name.show=true">
           <div class="row"><label data-i18n="name.style">樣式</label><select data-bind="name.style" data-options="NAME_STYLES"></select></div>
           <div class="row"><label data-i18n="name.font">字型</label><select data-bind="name.font" data-options="FONTS"></select></div>
+          <div class="row sub" data-show="name.font=pc"><label data-i18n="font.name">字型名稱</label><span class="pc-font">
+            <input type="text" data-bind="name.fontName" placeholder="例）Noto Sans TC" data-i18n-placeholder="font.name.placeholder" data-i18n-aria-label="font.name.name.aria" aria-label="名稱的字型名稱" autocomplete="off" spellcheck="false"><button type="button" class="small" data-pc-fonts data-i18n="font.pick">從清單選</button></span></div>
           <div class="row"><label data-i18n="name.weight">字重</label><select data-bind="name.weight" data-options="WEIGHTS" data-number></select></div>
           <div class="row"><label data-i18n="name.size">大小</label>
             <span class="with-value"><input type="range" data-bind="name.size" min="8" max="40" step="1"><output data-out="name.size" data-fmt="px"></output></span></div>
@@ -205,6 +209,8 @@
       <fieldset>
         <legend data-i18n="text.legend">內文</legend>
         <div class="row"><label data-i18n="text.font">字型</label><select data-bind="text.font" data-options="FONTS"></select></div>
+        <div class="row sub" data-show="text.font=pc"><label data-i18n="font.name">字型名稱</label><span class="pc-font">
+          <input type="text" data-bind="text.fontName" placeholder="例）Noto Sans TC" data-i18n-placeholder="font.name.placeholder" data-i18n-aria-label="font.name.text.aria" aria-label="內文的字型名稱" autocomplete="off" spellcheck="false"><button type="button" class="small" data-pc-fonts data-i18n="font.pick">從清單選</button></span></div>
         <div class="row"><label data-i18n="text.weight">字重</label><select data-bind="text.weight" data-options="WEIGHTS" data-number></select></div>
         <div class="row"><label data-i18n="text.size">大小</label>
           <span class="with-value"><input type="range" data-bind="text.size" min="8" max="48" step="1"><output data-out="text.size" data-fmt="px"></output></span></div>
@@ -226,6 +232,9 @@
       <fieldset>
         <legend data-i18n="result.legend">骰子結果</legend>
         <div class="row"><label data-i18n="result.font">字型</label><select data-bind="result.font" data-options="FONTS"></select></div>
+        <div class="row sub" data-show="result.font=pc"><label data-i18n="font.name">字型名稱</label><span class="pc-font">
+          <input type="text" data-bind="result.fontName" placeholder="例）Noto Sans TC" data-i18n-placeholder="font.name.placeholder" data-i18n-aria-label="font.name.result.aria" aria-label="骰子結果的字型名稱" autocomplete="off" spellcheck="false"><button type="button" class="small" data-pc-fonts data-i18n="font.pick">從清單選</button></span></div>
+        <p class="desc" data-show="title.font=pc|name.font=pc|text.font=pc|result.font=pc" data-i18n-html="font.pcHint">選「以名稱指定（電腦字型）」時，可以使用這台電腦上安裝的字型。<b>跑 OBS 的那台電腦也必須裝有同一套字型。</b></p>
         <div class="row"><label data-i18n="result.weight">字重</label><select data-bind="result.weight" data-options="WEIGHTS" data-number></select></div>
         <div class="row"><label data-i18n="result.size">大小</label>
           <span class="with-value"><input type="range" data-bind="result.size" min="8" max="64" step="1"><output data-out="result.size" data-fmt="px"></output></span></div>
@@ -355,6 +364,18 @@
       </div>
     </div>
 
+    <div class="source-url">
+      <h2 data-i18n="sourceUrl.heading">OBS 瀏覽器來源要填的網址（結尾是 /chat 的聊天畫面，不是房間網址）</h2>
+      <span class="pair" id="sourceUrlSet" style="grid-template-columns: 1fr auto;">
+        <input type="text" id="chatUrlMain" readonly data-i18n-aria-label="room.chatUrlAria" aria-label="要填進瀏覽器來源的網址">
+        <button type="button" class="small" id="copyUrlMain" data-i18n="room.copyUrl">複製網址</button>
+      </span>
+      <div class="missing" id="sourceUrlMissing">
+        <span class="warn" data-i18n="sourceUrl.warn">把房間網址直接填進 OBS，整個房間的畫面（背景與棋子）都會被映出來。填入房間網址後，這裡就會產生給 OBS 用的網址。</span>
+        <button type="button" class="small" id="gotoRoom" data-i18n="sourceUrl.goto">去填房間網址</button>
+      </div>
+    </div>
+
     <div class="bar">
       <input type="text" data-bind="fileBase" data-i18n-aria-label="out.fileAria" aria-label="檔案名稱" data-i18n-placeholder="out.filePlaceholder" placeholder="檔案名稱">
       <span class="spacer"></span>
@@ -396,7 +417,7 @@
   <span data-i18n="footer.free">只靠瀏覽器就能運作的免費工具。做出來的 CSS 可以自由使用。</span><br>
   <span data-i18n-html="footer.unofficial">CCFOLIA 的畫面結構若有變動，顯示可能會跑版。這是與任何服務都沒有關係的<strong>非官方</strong>工具。</span><br>
   <a data-i18n="footer.moreTools" href="https://shiki365.github.io/">看看其他工具（shiki365 的工具集）</a> · <a data-i18n="footer.feedback" href="https://shiki365.github.io/#contact">問題回報與意見</a> · <a data-i18n="footer.request" href="https://marshmallow-qa.com/jisg2c3imbza76d">工具許願（Marshmallow）</a><br>
-  <span data-i18n="footer.version">v1.0 · 最後更新 2026-09-16</span>
+  <span data-i18n="footer.version">v1.2 · 最後更新 2026-09-17</span>
 </footer>
 
 <script src="../../assets/i18n.js"></script>
@@ -405,6 +426,7 @@
 <script src="model.v1.js?v=1"></script>
 <script src="css.v1.js?v=1"></script>
 <script src="mock.v1.js?v=1"></script>
+<script src="pcfonts.v1.js?v=1"></script>
 <script src="app.v1.js?v=1"></script>
 </body>
 </html>

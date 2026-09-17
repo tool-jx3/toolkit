@@ -218,7 +218,7 @@
           <div class="row"><label data-i18n="layers.text">文字</label><textarea data-bind="layer.text" rows="2"></textarea></div>
           <p data-i18n-html="layers.text.hint" class="desc" style="margin-top: 4px;">製作差分時，<code>{差分}</code> 會換成「早晨」「雨」等名稱，<code>{英文}</code> 會換成「MORNING」等英文標示。</p>
           <div class="row"><label data-i18n="common.font">字型</label><select data-bind="layer.font" data-fonts></select></div>
-          <div class="row sub" data-show="layer.font=name"><label data-i18n="common.fontName">字型名稱</label><input type="text" data-bind="layer.fontName" data-i18n-placeholder="layers.fontName.placeholder" placeholder="例）Noto Sans TC"></div>
+          <div class="row sub" data-show="layer.font=name"><label data-i18n="common.fontName">字型名稱</label><span class="pc-font"><input type="text" data-bind="layer.fontName" data-i18n-placeholder="layers.fontName.placeholder" placeholder="例）Noto Sans TC" data-i18n-aria-label="layers.fontName.aria" aria-label="文字的字型名稱" autocomplete="off" spellcheck="false"><button type="button" class="small" data-pc-fonts data-i18n="font.pick">從清單選</button></span></div>
           <div class="row"><label data-i18n="layers.fontSize">文字大小</label><span class="with-value"><input type="range" data-bind="layer.size" min="8" max="400"><output data-out="layer.size"></output></span></div>
           <div class="row"><label data-i18n="layers.style">書寫方式</label><span class="pair">
             <label class="check"><input data-i18n="layers.bold" type="checkbox" data-bind="layer.bold"> 粗體</label>
@@ -324,7 +324,7 @@
             <div class="row"><label data-i18n="variants.label.bgAlpha">背景濃度</label><span class="with-value"><input type="range" data-bind="variants.label.bgAlpha" min="0" max="1" step="0.05"><output data-out="variants.label.bgAlpha" data-fmt="pct"></output></span></div>
             <div class="row" data-show="variants.label.style!=tabs"><label data-i18n="variant.sub">英文標示</label><label class="check"><input data-i18n="common.show" type="checkbox" data-bind="variants.label.showSub"> 顯示</label></div>
             <div class="row"><label data-i18n="common.font">字型</label><select data-bind="variants.label.font" data-fonts></select></div>
-            <div class="row sub" data-show="variants.label.font=name"><label data-i18n="common.fontName">字型名稱</label><input type="text" data-bind="variants.label.fontName" data-i18n-placeholder="variants.label.fontName.placeholder" placeholder="例）Noto Serif TC"></div>
+            <div class="row sub" data-show="variants.label.font=name"><label data-i18n="common.fontName">字型名稱</label><span class="pc-font"><input type="text" data-bind="variants.label.fontName" data-i18n-placeholder="variants.label.fontName.placeholder" placeholder="例）Noto Serif TC" data-i18n-aria-label="variants.label.fontName.aria" aria-label="差分標示的字型名稱" autocomplete="off" spellcheck="false"><button type="button" class="small" data-pc-fonts data-i18n="font.pick">從清單選</button></span></div>
           </div>
           <p data-i18n="variants.label.dragHint" class="desc">也可以直接在預覽上拖曳移動。</p>
         </fieldset>
@@ -347,7 +347,7 @@
         <legend data-i18n="common.font">字型</legend>
         <div class="row wide"><span class="btns"><button data-i18n="font.load" type="button" id="addFont">載入字型檔</button></span></div>
         <ul class="font-list" id="fontList"></ul>
-        <p data-i18n="font.hint" class="desc">支援 .ttf / .otf / .woff / .woff2。電腦上已安裝的字型，可以從字型欄的「以名稱指定」使用。</p>
+        <p data-i18n="font.hint" class="desc">支援 .ttf / .otf / .woff / .woff2。電腦上已安裝的字型，可以從字型欄的「以名稱指定」使用（Chrome／Edge 可用「從清單選」邊看樣子邊挑）。</p>
       </fieldset>
 
       <fieldset>
@@ -418,7 +418,7 @@
   <span data-i18n="footer.free">只靠瀏覽器就能運作的免費工具。做出來的圖片可以自由使用（載入的發布素材與字型，請各自遵守其使用條款）。</span><br>
   <span data-i18n-html="footer.unofficial">設想用於 TRPG 線上團的工具，但與任何服務都沒有關係，是<strong>非官方</strong>工具。</span><br>
   <a href="https://shiki365.github.io/" data-i18n="footer.moreTools">看看其他工具（shiki365 的工具集）</a> · <a href="https://shiki365.github.io/#contact" data-i18n="footer.feedback">問題回報與意見</a><br>
-  <span data-i18n="footer.version">v2 · 最後更新 2026-09-14</span>
+  <span data-i18n="footer.version">v2.1 · 最後更新 2026-09-17</span>
 </footer>
 
 <script src="../../assets/i18n.js"></script>
@@ -431,6 +431,7 @@
 <script src="deco-extra.v1.js"></script>
 <script src="model.v2.js"></script>
 <script src="render.v2.js"></script>
+<script src="pcfonts.v1.js"></script>
 <script src="app.v2.js"></script>
 </body>
 </html>

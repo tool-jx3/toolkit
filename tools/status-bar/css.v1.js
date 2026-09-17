@@ -82,7 +82,22 @@
     return list.reduce((best, w) => (Math.abs(w - wanted) < Math.abs(best - wanted) ? w : best), list[0]);
   }
 
-  const family = key => `"${font(key).family}", ${font(key).stack}`;
+  // name: the typed family for the "pc" font (a font installed on the PC; no import).
+  function family(key, name) {
+    const f = font(key);
+    if (key !== "pc") return `"${f.family}", ${f.stack}`;
+    const typed = pcName(name);
+    return typed ? `${cssString(typed)}, ${f.stack}` : f.stack;
+  }
+
+  const pcName = name => String(name || "").replace(/[\r\n]+/g, " ").trim();
+
+  // uses: [key, weight, typedName]. A PC font shows up only if OBS's PC has it too.
+  function pcFontNote(uses) {
+    const names = [...new Set(uses.filter(([key]) => key === "pc").map(([, , name]) => pcName(name)).filter(Boolean))];
+    if (!names.length) return [];
+    return [`   ■ ${T("css.header.pcFont")}`, `       ${safeComment(names.join(" / "))}`];
+  }
 
   function fontImports(uses) {
     const map = new Map();
@@ -207,9 +222,9 @@
     const auto = N.style === "tab" || N.style === "badge";
     const decls = {
       content: "var(--name)", display: "block", margin: "0", "box-sizing": "border-box",
-      "font-family": family(N.font), "font-size": px(N.size), "font-weight": weightOf(N.font, N.weight),
+      "font-family": family(N.font, N.fontName), "font-size": px(N.size), "font-weight": weightOf(N.font, N.weight),
       color: N.color, "line-height": "1.3", "letter-spacing": "0.04em", "font-feature-settings": '"palt"', "text-align": N.align,
-      "text-shadow": N.style === "text" || N.style === "underline" ? textShadow(T) : TX.outline === "none" ? "none" : "0 1px 2px rgba(0, 0, 0, 0.55)",
+      "text-shadow": N.style === "text" || N.style === "underline" ? textShadow(TX) : TX.outline === "none" ? "none" : "0 1px 2px rgba(0, 0, 0, 0.55)",
     };
     Object.assign(decls, {
       plate: { padding: "0.4em 0.7em", background: rgba(N.bg, N.bgAlpha), border: B.borderW > 0 ? `${px(B.borderW)} solid ${rgba(B.borderColor, B.borderAlpha)}` : "none", "border-radius": px(B.shape === "pill" ? 999 : Math.min(B.radius, 12)) },
@@ -282,6 +297,12 @@
       ctx.keyframe("sb-stripes", "to { background-position: 24px 0; }");
     }
 
+    /* 產出 CSS 的開頭要列出用到的 PC 字型，所以 uses 要先算出來。 */
+    const uses = [];
+    if (TX.showLabel) uses.push([TX.labelFont, TX.weight, TX.labelFontName]);
+    if (TX.valueMode !== "none" || I.show) uses.push([TX.valueFont, TX.weight, TX.valueFontName]);
+    if (showName) uses.push([N.font, N.weight, N.fontName]);
+
     const w = new Writer();
     const design = P.DESIGNS[st.design];
     w.raw([
@@ -294,13 +315,10 @@
       ...(opts.size ? [`   ■ ${T("css.header.size")}`, `       ${T("css.header.sizeValue", opts.size.w, opts.size.h)}${opts.sizeNote ? `（${safeComment(opts.sizeNote)}）` : ""}`] : []),
       `   ■ ${T("css.header.ccfolia")}`,
       `       ${T("css.header.order")}`,
+      ...pcFontNote(uses),
       "   ========================================================================== */",
     ].join("\n"));
 
-    const uses = [];
-    if (TX.showLabel) uses.push([TX.labelFont, TX.weight]);
-    if (TX.valueMode !== "none" || I.show) uses.push([TX.valueFont, TX.weight]);
-    if (showName) uses.push([N.font, N.weight]);
     const imports = fontImports(uses);
     if (imports.length) w.raw(imports.join("\n"));
 
@@ -343,7 +361,7 @@
         bl: { bottom: off, left: off, top: "auto", right: "auto" }, br: { bottom: off, right: off, top: "auto", left: "auto" } }[I.corner];
       w.add(SEL.initiative, Object.assign({
         display: "flex", "min-width": px(I.size), height: px(I.size), padding: `0 ${px(I.size * 0.25)}`, "border-radius": px(I.size / 2),
-        "font-family": family(TX.valueFont), "font-size": px(I.size * 0.58), "font-weight": weightOf(TX.valueFont, TX.weight), "line-height": "1",
+        "font-family": family(TX.valueFont, TX.valueFontName), "font-size": px(I.size * 0.58), "font-weight": weightOf(TX.valueFont, TX.weight), "line-height": "1",
         color: I.color, background: I.bg, transform: "none", "z-index": "2", "box-shadow": "0 1px 3px rgba(0, 0, 0, 0.5)",
       }, corner));
       w.add(`${SEL.badge} > .MuiBadge-invisible`, { display: "none" });
@@ -378,7 +396,7 @@
     w.comment(T("css.comment.labelValue"));
     w.add([SEL.row + PART.label, SEL.row + PART.value], {
       position: "relative", "z-index": "2", display: "block", margin: "0", padding: "0", overflow: "visible",
-      "white-space": "nowrap", "line-height": "1", "letter-spacing": `${TX.spacing}em`, "text-shadow": textShadow(T),
+      "white-space": "nowrap", "line-height": "1", "letter-spacing": `${TX.spacing}em`, "text-shadow": textShadow(TX),
     });
     const labelHidden = !TX.showLabel || (L.textLayout === "overlay" && L.align === "center");
     const labelPlace = {
@@ -392,7 +410,7 @@
       w.add(SEL.row + PART.label, { display: "none" });
     } else {
       w.add(SEL.row + PART.label, Object.assign({
-        "font-family": family(TX.labelFont), "font-size": px(TX.labelSize), "font-weight": weightOf(TX.labelFont, TX.weight),
+        "font-family": family(TX.labelFont, TX.labelFontName), "font-size": px(TX.labelSize), "font-weight": weightOf(TX.labelFont, TX.weight),
         color: TX.labelByBar ? "var(--c1)" : TX.color,
       }, labelPlace));
       st.bars.slice(0, g.count).forEach((b, i) => {
@@ -412,7 +430,7 @@
       w.add(SEL.row + PART.value, { display: "none" });
     } else {
       w.add(SEL.row + PART.value, Object.assign({
-        "font-family": family(TX.valueFont), "font-size": TX.valueMode === "both" ? px(TX.maxSize) : "0", "font-weight": weightOf(TX.valueFont, TX.weight),
+        "font-family": family(TX.valueFont, TX.valueFontName), "font-size": TX.valueMode === "both" ? px(TX.maxSize) : "0", "font-weight": weightOf(TX.valueFont, TX.weight),
         color: rgba(TX.subColor, TX.subAlpha), "font-variant-numeric": "tabular-nums",
       }, valuePlace));
       w.add(SEL.row + PART.current, {
