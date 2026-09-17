@@ -520,6 +520,35 @@ for (const locale of ['zh-TW', 'ja']) {
   check(`${locale} 狀態列訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
 
+/* ---- portrait-size ---- */
+const ps = checkTool({
+  dir: 'tools/portrait-size',
+  dict: 'i18n.portrait-size.js',
+  locale: 'ja',
+  scripts: ['app.js'],
+  styles: ['styles.css'],
+  minHooks: 40
+});
+
+section('tools/portrait-size');
+/* 上游頁面掛了 Google Analytics，收錄版整組移除；說明區與頁尾原本各有一句告知
+ * 使用者這件事，留著就是在說一件本站不存在的事，因此一併拿掉。 */
+for (const file of ['index.html', 'app.js', 'styles.css']) {
+  const src = read(`tools/portrait-size/${file}`);
+  check(`${file} 沒有存取分析的殘留`,
+    !/googletagmanager|gtag\(|Google Analytics/.test(src));
+}
+/* 狀態訊息記住 key 與參數，切語言時重寫；寫回字面字串就會停在舊語言。 */
+const psApp = read('tools/portrait-size/app.js');
+check('狀態訊息以 key 呈現並在切換語言時重寫',
+  psApp.includes('function renderStatus()') && psApp.includes('I18N.onChange(renderStatus)'));
+const psStatusKeys = [...new Set([...psApp.matchAll(/\bshowStatus\('([\w]+\.[\w]+)'/g)].map(m => m[1]))];
+check('解析出狀態訊息 key', psStatusKeys.length >= 10, `found ${psStatusKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = psStatusKeys.filter(k => !ps.messages[locale][k]);
+  check(`${locale} 狀態訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
 /* ---- chat-window ---- */
 /* 這個工具刻意留著一批日文，分兩類：
  *   1. mock.v1.js 是把 CCFOLIA 的聊天畫面照著重畫一遍，好讓使用者看到的預覽
@@ -1033,10 +1062,10 @@ check('首頁 <title> 與 app.title 的 zh-TW 值一致',
 check('assets/home.js 無殘留韓文', !HANGUL.test(read('assets/home.js')));
 check('assets/home.css 無殘留韓文', !HANGUL.test(read('assets/home.css')));
 
-/* 14 個工具連結都要指得到。 */
+/* 15 個工具連結都要指得到。 */
 const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker',
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
-  'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window'];
+  'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -1094,6 +1123,9 @@ section('inline text vs zh-TW dictionary');
  *   而不是取到錯誤的片段文字）。 */
 const INLINE_TEXT_RE = /<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\sdata-i18n="([^"]+)"[^>]*>([^<]*)<\/\1>/g;
 
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: '\u00a0' };
+const decodeEntities = text => text.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, name) => ENTITIES[name]);
+
 function checkInlineText(label, htmlPath, dictPaths, minCompared) {
   const html = read(htmlPath);
   const dict = loadI18N(dictPaths).messages['zh-TW'];
@@ -1103,7 +1135,8 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
     const key = m[2];
     if (!(key in dict)) continue; /* 未知 key 已由其他檢查把關，這裡不重複報告 */
     compared += 1;
-    const text = m[3].trim();
+    /* data-i18n 走 textContent，所以要比的是瀏覽器算繪後的文字，不是原始標記。 */
+    const text = decodeEntities(m[3].trim());
     if (text !== dict[key]) mismatches.push(`${key}: html="${text}" 字典="${dict[key]}"`);
   }
   check(`${label} 內嵌文字與 zh-TW 字典一致（比對了 ${compared} 個元素）`,
@@ -1123,6 +1156,7 @@ checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', [
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 50);
 checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
 checkInlineText('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 150);
+checkInlineText('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 20);
 checkInlineText('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 20);
 checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
 
@@ -1196,6 +1230,7 @@ checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 2);
 checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
 checkAttrPairs('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 15);
+checkAttrPairs('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 2);
 checkAttrPairs('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 1);
 checkAttrPairs('tools/cutin', 'tools/cutin/index.html', ['tools/cutin/i18n.cutin.js'], 1);
 checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
@@ -1213,7 +1248,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  '6e9a5b5', '52426f5', 'b86a0d0', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '3365696', '772d6c4']) {
+  '6e9a5b5', '52426f5', 'b86a0d0', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '3365696', 'fc05c98', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',

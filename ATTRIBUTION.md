@@ -4,7 +4,8 @@
 [shiki365](https://github.com/shiki365)、
 [Taku_Taku_Taku](https://github.com/Taku-Taku-Taku) 與
 [kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 與
-[巡涯学派](https://github.com/organon-torah) 製作的 14 個網頁工具，
+[巡涯学派](https://github.com/organon-torah) 與
+[Wool&Wag](https://github.com/woolwag3338) 製作的 15 個網頁工具，
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -25,16 +26,17 @@
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
 | chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `3365696` | MIT |
+| portrait-size | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `fc05c98` | MIT |
 
-九個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
+十個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
 
-shiki365 的四個工具與 `cutin` 原文為日文，收錄時另有以下調整：
+shiki365 的四個工具、`cutin` 與 `portrait-size` 原文為日文，收錄時另有以下調整：
 
 - `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
   `docs/` 底下的瀏覽器版（合輯只收純靜態、免安裝的網頁工具）。
 - `foreground-frame`、`scene-transition` 與 `chat-window` 的 `<style>` 區塊抽出為
   `styles.css`（理由同 text-path 與 collage-letter）。
-- 這五個工具都移除了指向原作者站台的 OG／Twitter meta 與
+- 這六個工具都移除了指向原作者站台的 OG／Twitter meta 與
   `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
   `<title>` 只留工具名，捨去 SEO 後綴。
 - shiki365 的四個工具頁尾都有回作者工具站的連結（`chat-window` 另有一條許願用的
@@ -42,6 +44,17 @@ shiki365 的四個工具與 `cutin` 原文為日文，收錄時另有以下調�
   放的是合輯的首頁連結。
 - `status-bar` 與 `chat-window` 的上游都附了自家站台的 `ogp.png`（各約 0.5 MB），
   收錄版沒有用到那張圖（`og:image` 指的是絕對網址），因此不收。
+
+## portrait-size：移除了原站的存取分析
+
+`character-image-size` 的上游頁面掛了 Google Analytics，說明區與頁尾也各有一句
+告知使用者這件事。收錄版把 `gtag` 的載入一併移除，因此那兩句話也拿掉了——
+留著就是在說一件本站不存在的事。`<style>` 與內嵌 `<script>` 照慣例抽成
+`styles.css` 與 `app.js`。
+
+這個工具與 `ccfolia-cropper` 不重疊：後者按 CCFOLIA 的版面比例裁切、對齊頭部或
+角色中央；這個是把同一角色的差分立繪裁掉透明邊之後統一寬度——CCFOLIA 是用圖片
+寬度決定棋子大小的，寬度不一致，切換立繪時棋子就會忽大忽小。
 
 ## 三個工具共用的 pcfonts.v1.js
 
@@ -154,7 +167,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘十三個工具的翻譯與 i18n 改造為本 repo 新增。
+其餘十四個工具的翻譯與 i18n 改造為本 repo 新增。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：

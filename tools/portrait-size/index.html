@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>立繪尺寸統一器</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<div class="toolkit-bar">
+  <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+  <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+</div>
+
+    <div class="container">
+        <h1 data-i18n="app.heading">立繪尺寸統一器</h1>
+
+        <p data-i18n="disclaimer" class="disclaimer">本工具由有志者製作，是非官方工具，與 CCFOLIA 官方沒有關係。</p>
+
+        <div class="header-links">
+            <a data-i18n="changelog.link" href="#" id="changelogLink" style="display: none;">更新紀錄</a>
+        </div>
+
+        <button class="description-toggle" id="descriptionToggle">
+            <span data-i18n-html="desc.toggle">使用方式與工具說明<span class="wide-only">（點一下展開／收合）</span></span>
+        </button>
+
+        <div class="description" id="description">
+            <h2 data-i18n="desc.what">這個工具能做什麼</h2>
+            <p data-i18n-html="desc.intro">解決在 CCFOLIA 切換角色立繪時，<strong>棋子圖突然變大或變小的問題</strong>。<br>檔案全部在你的瀏覽器裡處理，不會傳送到任何伺服器。</p>
+
+            <h3 data-i18n="desc.why">◆為什麼尺寸會變</h3>
+            <p data-i18n-html="desc.why.body">CCFOLIA 是用圖片的<strong>寬度</strong>決定棋子圖大小的</p>
+            <div data-i18n-html="desc.example" class="example">舉例：<br>• 一般立繪：寬 500px → 棋子圖大小正常<br>• 戰鬥立繪（拿著武器）：寬 700px → 會被縮小到與一般立繪相同，棋子圖因此變小<br>• 幼年差分：寬 300px → 會被放大到與一般立繪相同，棋子圖因此變大</div>
+            <p data-i18n="desc.why.tail">就算是同一個角色，只要姿勢或差分的寬度不同，每次切換立繪棋子圖的大小就會跟著變</p>
+
+            <h3 data-i18n="desc.how">◆使用方式</h3>
+            <ul>
+                <li data-i18n-html="desc.how.1"><strong>一次載入多張圖片</strong> — 把同一角色的差分（一般、戰鬥、幼年等）全部選起來</li>
+                <li data-i18n-html="desc.how.2"><strong>按下「處理圖片」</strong> — 刪掉透明留白，再統一成最寬那張的寬度</li>
+                <li data-i18n-html="desc.how.3"><strong>用「全部下載」儲存</strong> — 把處理好的圖片一次存下來</li>
+            </ul>
+
+            <p data-i18n-html="desc.result"><strong>結果：</strong>所有圖片的寬度一致，切換立繪時<strong>棋子圖的大小不會變，身高差與姿勢也照原樣保留</strong></p>
+
+            <h3 data-i18n="desc.notes">◆備註</h3>
+            <ul>
+                <li data-i18n-html="desc.notes.1">前提是立繪本來就<strong>以同一比例繪製</strong>。若不是這樣（例如小孩畫在大畫布、大人畫在小畫布），只統一寬度反而會讓實際的體型差跑掉</li>
+                <li data-i18n="desc.notes.2">同時也會裁掉圖片的透明部分</li>
+                <li data-i18n-html="desc.notes.3">也可以只放一張圖，單純拿來<strong>裁掉透明部分並縮減檔案大小</strong></li>
+            </ul>
+
+            <h3 data-i18n="desc.privacy">◆關於隱私</h3>
+            <ul>
+                <li data-i18n-html="desc.privacy.1">載入的圖片<strong>全部在瀏覽器內處理</strong>，不會上傳到任何地方</li>
+            </ul>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-text">
+                <span data-i18n="upload.pointer" class="upload-text-pointer">📁 點擊或拖放來選擇圖片</span>
+                <span data-i18n="upload.touch" class="upload-text-touch">📁 點一下選擇圖片</span>
+            </div>
+            <div data-i18n="upload.hint" class="upload-hint">支援 PNG 與 WebP（可多選）</div>
+            <input type="file" id="fileInput" accept=".png,.webp" multiple>
+        </div>
+
+        <div class="options">
+            <button type="button" class="advanced-toggle" id="advancedToggle" data-i18n-aria-label="options.advancedAria" aria-label="進階設定" data-i18n-title="options.advancedTitle" title="進階設定">⚙️</button>
+            <div class="advanced-popup" id="advancedPopup">
+                <div data-i18n="options.advanced" class="advanced-popup-title">進階設定</div>
+                <div class="option-group">
+                    <label data-i18n-node="options.trim">
+                        <input type="checkbox" id="trimTransparent" checked> 裁掉透明部分</label>
+                </div>
+                <div class="option-group">
+                    <label data-i18n-node="options.unify">
+                        <input type="checkbox" id="unifyWidth" checked> 統一寬度</label>
+                </div>
+                <div data-i18n-html="options.advancedHint" class="advanced-popup-hint">關掉之後會保留原本的留白與尺寸。<br>一般維持兩個都開啟即可</div>
+            </div>
+            <div class="option-group">
+                <label>
+                    <input type="checkbox" id="convertWebP" checked>
+                    <span data-i18n-html="options.webp">轉成 WebP 格式再下載<span class="wide-only">（檔案會比 PNG 小）</span></span>
+                </label>
+            </div>
+            <div data-i18n="options.webpHint" class="options-hint">取消勾選就維持原本的格式輸出</div>
+            <div class="quality-option">
+                <div class="quality-controls">
+                    <label data-i18n="options.quality" for="qualitySelect">品質設定：</label>
+                    <select id="qualitySelect">
+                        <option data-i18n="options.lossless" value="lossless" selected>Lossless（無損）</option>
+                        <option data-i18n="options.custom" value="slider">指定品質</option>
+                    </select>
+                </div>
+            </div>
+            <div class="quality-slider-container" id="qualitySliderContainer">
+                <input type="range" id="qualitySlider" min="50" max="100" value="90" step="1">
+                <span class="quality-value" id="qualityValue">90%</span>
+            </div>
+        </div>
+
+        <div class="preview-area" id="previewArea"></div>
+
+        <div class="buttons">
+            <button data-i18n="action.process" class="btn-process" id="processBtn" disabled>處理圖片</button>
+            <button data-i18n="action.download" class="btn-download" id="downloadBtn" disabled>全部下載</button>
+            <button data-i18n="action.clear" class="btn-clear" id="clearBtn" disabled>清除</button>
+        </div>
+
+        <div id="status"></div>
+
+        <div class="footer">
+            <div class="footer-content">
+                <span data-i18n-html="footer.author">製作：<a href="https://x.com/WW_3338" target="_blank" rel="noopener noreferrer">Wool&amp;Wag</a></span>
+            </div>
+            <p data-i18n="footer.note" class="footer-note">圖片在瀏覽器內處理，不會傳送到伺服器</p>
+        </div>
+    </div>
+
+<script src="../../assets/i18n.js"></script>
+<script src="./i18n.portrait-size.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
