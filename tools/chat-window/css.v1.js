@@ -104,7 +104,22 @@
     return list.reduce((best, w) => (Math.abs(w - wanted) < Math.abs(best - wanted) ? w : best), list[0]);
   }
 
-  const family = key => `"${font(key).family}", ${font(key).stack}`;
+  // name: the typed family for the "pc" font (a font installed on the PC; no import).
+  function family(key, name) {
+    const f = font(key);
+    if (key !== "pc") return `"${f.family}", ${f.stack}`;
+    const typed = pcName(name);
+    return typed ? `${cssString(typed)}, ${f.stack}` : f.stack;
+  }
+
+  const pcName = name => String(name || "").replace(/[\r\n]+/g, " ").trim();
+
+  // uses: [key, weight, typedName]. A PC font shows up only if OBS's PC has it too.
+  function pcFontNote(uses) {
+    const names = [...new Set(uses.filter(([key]) => key === "pc").map(([, , name]) => pcName(name)).filter(Boolean))];
+    if (!names.length) return [];
+    return [`   ■ ${TX("css.head.pcFont")}`, `       ${safeComment(names.join(" / "))}`];
+  }
 
   function fontImports(uses) {
     const map = new Map();
@@ -335,7 +350,7 @@
     }
     const fill = N.colorMode === "fixed" ? N.color : null;
     const decls = {
-      "font-family": family(N.font), "font-size": px(N.size), "font-weight": weightOf(N.font, N.weight),
+      "font-family": family(N.font, N.fontName), "font-size": px(N.size), "font-weight": weightOf(N.font, N.weight),
       "line-height": "1.35", "letter-spacing": "0.02em", "text-shadow": N.style === "badge" ? "none" : textShadow(T),
       margin: colon ? "0" : `0 0 ${px(N.gap)}`, padding: "0", background: "none", border: "none",
       "-webkit-text-fill-color": fill || "currentColor", "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis",
@@ -357,7 +372,7 @@
     const T = st.text, colon = st.name.show && st.name.style === "colon", BODY = E + PART.body;
     w.comment(TX("css.text"));
     const decls = {
-      "font-family": family(T.font), "font-size": px(T.size), "font-weight": weightOf(T.font, T.weight),
+      "font-family": family(T.font, T.fontName), "font-size": px(T.size), "font-weight": weightOf(T.font, T.weight),
       color: T.color, "-webkit-text-fill-color": T.color, "line-height": String(T.lineHeight), "letter-spacing": `${T.spacing}em`,
       "text-shadow": textShadow(T), margin: "0", padding: "0", "white-space": "pre-wrap", "overflow-wrap": "anywhere", display: colon ? "inline" : "block",
     };
@@ -371,7 +386,7 @@
     const RS = st.result, T = st.text, RESULT = E + PART.result;
     w.comment(TX("css.result"));
     const decls = {
-      "font-family": family(RS.font), "font-size": px(RS.size), "font-weight": weightOf(RS.font, RS.weight),
+      "font-family": family(RS.font, RS.fontName), "font-size": px(RS.size), "font-weight": weightOf(RS.font, RS.weight),
       "line-height": "1.35", "letter-spacing": "0.02em", display: RS.newLine ? (RS.style === "text" ? "block" : "table") : "inline",
       "margin-top": RS.newLine ? "0.15em" : "0", "white-space": "pre-wrap",
       // The message sets word-break: break-all inline; keep 失敗 / 成功 in one piece and break at the spaces.
@@ -408,7 +423,7 @@
 
   function titleTextDecls(T) {
     const decls = {
-      "font-family": family(T.font), "font-size": px(T.size), "font-weight": weightOf(T.font, T.weight), color: T.color,
+      "font-family": family(T.font, T.fontName), "font-size": px(T.size), "font-weight": weightOf(T.font, T.weight), color: T.color,
       "-webkit-text-fill-color": T.color, "line-height": "1.35", "letter-spacing": "0.06em", "text-transform": "none",
       "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis", "min-width": "0", flex: "0 1 auto",
     };
@@ -497,7 +512,7 @@
       gap: "0.5em", "min-height": "0", padding: "0", margin: textTitle ? "6px 0 0" : `0 0 ${px(T.gap)}`, background: "none",
     });
     if (MB.label) {
-      w.add(`${ROW}::before`, { content: cssString(MB.label), "font-family": family(T.font), "font-size": px(MB.labelSize),
+      w.add(`${ROW}::before`, { content: cssString(MB.label), "font-family": family(T.font, T.fontName), "font-size": px(MB.labelSize),
         "font-weight": weightOf(T.font, T.weight), color: T.color, "letter-spacing": "0.06em", "line-height": "1", "white-space": "nowrap" });
     }
     w.add(`${ROW} .MuiAvatarGroup-root`, { display: "flex", "flex-direction": "row-reverse", margin: "0" });
@@ -560,6 +575,11 @@
     const usesTab = T.source === "tab" || T.source === "textTab";
     const needs31 = st.list.diceOnly || st.list.hideSystem || st.card.accent === "result" || st.card.resultBorder;
 
+    /* 產出 CSS 的開頭要列出用到的 PC 字型，所以 uses 要先算出來。 */
+    const uses = [[st.text.font, st.text.weight, st.text.fontName], [st.result.font, st.result.weight, st.result.fontName]];
+    if (st.name.show) uses.push([st.name.font, st.name.weight, st.name.fontName]);
+    if (T.source !== "none" || (st.members.show && st.members.label)) uses.push([T.font, T.weight, T.fontName]);
+
     w.raw([
       "/* ==========================================================================",
       `   ${TX("css.head.title")}`,
@@ -567,17 +587,16 @@
       "   --------------------------------------------------------------------------",
       `   ■ ${TX("css.head.url")}`,
       `       ${safeComment(opts.url || TX("css.head.urlSample"))}`,
+      `       ${TX("css.head.urlNote")}`,
       `   ■ ${TX("css.head.size", st.source.w, st.source.h)}`,
       `   ■ ${TX("css.head.otherTabs")}`,
       `       ${TX("css.head.otherTabs1")}`,
       `       ${TX("css.head.otherTabs2")}`,
       ...(needs31 ? [`   ■ ${TX("css.head.needs31")}`] : []),
+      ...pcFontNote(uses),
       "   ========================================================================== */",
     ].join("\n"));
 
-    const uses = [[st.text.font, st.text.weight], [st.result.font, st.result.weight]];
-    if (st.name.show) uses.push([st.name.font, st.name.weight]);
-    if (T.source !== "none" || (st.members.show && st.members.label)) uses.push([T.font, T.weight]);
     const imports = fontImports(uses);
     if (imports.length) w.raw(imports.join("\n"));
 

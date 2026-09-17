@@ -88,6 +88,12 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的七個工具與
 `ccfolia-cropper` 為韓文，shiki365 的四個工具、`cutin` 與 `character-editor` 為日文。
+
+`status-bar`、`chat-window` 與 `foreground-frame` 的字型欄可以改填「以名稱指定」，
+使用觀看者電腦上已安裝的字型。Chrome／Edge 還能用「從清單選」開出一份附樣張的清單
+（Local Font Access API，第一次會詢問權限）；其餘瀏覽器隱藏該按鈕，直接輸入名稱同樣可用。
+那個對話框是三個工具共用的 `pcfonts.v1.js`，三份必須完全相同，詳見
+[ATTRIBUTION](ATTRIBUTION.md#三個工具共用的-pcfontsv1js)。
 選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），首頁與各工具共用。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，

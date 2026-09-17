@@ -26,6 +26,7 @@
   section > fieldset:first-child { border-top: 0; }
   legend { padding: 0; color: var(--muted); font-size: 11px; letter-spacing: .08em; }
   .row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; align-items: center; margin-top: 10px; }
+  .row.sub > label { padding-left: 12px; }
   .row > label { color: var(--muted); }
   .row.wide { grid-template-columns: 1fr; }
   .with-value { display: grid; grid-template-columns: minmax(0, 1fr) 52px; gap: 8px; align-items: center; }

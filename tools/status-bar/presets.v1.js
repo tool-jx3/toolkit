@@ -2,7 +2,8 @@
  * presets.v1.js - static data: fonts, icons, shapes, decorations, design templates
  *
  * Adding things:
- *   - a font:       add an entry to FONTS (weights must exist on Google Fonts, or the whole import fails)
+ *   - a font:       add an entry to FONTS (weights must exist on Google Fonts, or the whole import fails).
+ *                   The "pc" entry is special: its family is the name the user typed.
  *   - a shape:      add a label here and a path function in shapes.v1.js (BarShapes.PATHS)
  *   - a decoration: add an entry to DECO_TYPES and a CSS function in css.v1.js (BarCss.DECOS)
  *   - a design:     add an entry to DESIGNS; it is merged over BASE_LOOK
@@ -66,6 +67,8 @@
     yugothic: { label: "font.yugothic", family: "Yu Gothic UI", weights: null, stack: SANS },
     meiryo: { label: "font.meiryo", family: "Meiryo", weights: null, stack: SANS },
     yumincho: { label: "font.yumincho", family: "Yu Mincho", weights: null, stack: SERIF },
+    // family comes from the typed name (text.labelFontName etc.)
+    pc: { label: "font.pc", family: "", weights: null, stack: SANS },
   };
 
   const WEIGHTS = [[400, "weight.400"], [500, "weight.500"], [600, "weight.600"], [700, "weight.700"], [800, "weight.800"], [900, "weight.900"]];
@@ -199,10 +202,10 @@
       fill: "vgrad", flow: false, segments: 0, segGap: 2, speed: 0.25, shadow: 0.45 },
     colors: BAR_COLORS.map(([c1, c2, icon]) => ({ c1, c2, icon })),
     icons: { show: false, size: 20, gap: 6 },
-    text: { labelFont: "notosans", valueFont: "notosans", weight: 700, labelSize: 17, valueSize: 18, maxSize: 12, spacing: 0.04,
-      color: "#f2efe6", subColor: "#f2efe6", subAlpha: 0.7, labelByBar: false,
+    text: { labelFont: "notosans", valueFont: "notosans", labelFontName: "", valueFontName: "",
+      weight: 700, labelSize: 17, valueSize: 18, maxSize: 12, spacing: 0.04, color: "#f2efe6", subColor: "#f2efe6", subAlpha: 0.7, labelByBar: false,
       outline: "shadow", outlineColor: "#000000", outlineAlpha: 0.9, outlineW: 2, showLabel: true, valueMode: "both" },
-    name: { pos: "top", style: "plate", font: "notosans", weight: 700, size: 17, color: "#f2efe6", bg: "#080a0e", bgAlpha: 0.88,
+    name: { pos: "top", style: "plate", font: "notosans", fontName: "", weight: 700, size: 17, color: "#f2efe6", bg: "#080a0e", bgAlpha: 0.88,
       accent: "#c8a45c", useCharColor: false, align: "left", vertical: false, fitHeight: true, overflow: "ellipsis", gap: 6 },
     alert: { red80: true, redColor: "#ff5b5b", redBlink: false,
       lowOn: true, lowAt: 25, lowColor: "#ff3b3b", lowFill: false, lowPulse: true, lowBlink: false, lowShake: false, lowText: true,

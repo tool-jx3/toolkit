@@ -239,10 +239,20 @@
     return list.map(([value, text]) => `<option value="${esc(value)}">${esc(T(text))}</option>`).join("");
   }
 
+  // Shown in the OBS tab and above the CSS buttons: pasting the room URL itself shows the whole room in OBS.
   function updateChatUrl() {
     const url = M.chatUrl(state.source.room);
     $("#chatUrl").value = url;
     $("#copyUrl").disabled = !url;
+    $("#chatUrlMain").value = url;
+    $("#sourceUrlSet").hidden = !url;
+    $("#sourceUrlMissing").hidden = !!url;
+  }
+
+  function copyChatUrl() {
+    const url = M.chatUrl(state.source.room);
+    if (!url) return;
+    copyText(url).then(ok => (ok ? status("msg.urlCopied") : statusError("msg.copyFailed")));
   }
 
   // ---------------------------------------------------------------- preview
@@ -317,7 +327,8 @@
   function copyCss() {
     copyText(currentCss()).then(ok => {
       if (!ok) { statusError("msg.copyFailedCss"); return; }
-      status("msg.cssCopied", state.source.w, state.source.h);
+      const urlNote = M.chatUrl(state.source.room) ? "" : T("msg.cssCopied.urlNote");
+      status("msg.cssCopied", state.source.w, state.source.h, urlNote);
     });
   }
 
@@ -506,10 +517,13 @@
 
     $("#copyCss").addEventListener("click", copyCss);
     $("#downloadCss").addEventListener("click", downloadCss);
-    $("#copyUrl").addEventListener("click", () => {
-      const url = M.chatUrl(state.source.room);
-      if (!url) return;
-      copyText(url).then(ok => (ok ? status("msg.urlCopied") : statusError("msg.copyFailed")));
+    $("#copyUrl").addEventListener("click", copyChatUrl);
+    $("#copyUrlMain").addEventListener("click", copyChatUrl);
+    $("#gotoRoom").addEventListener("click", () => {
+      switchTab("obs");
+      const input = $('[data-bind="source.room"]');
+      input.scrollIntoView({ block: "center" });
+      input.focus();
     });
 
     $("#saveProject").addEventListener("click", saveProject);
