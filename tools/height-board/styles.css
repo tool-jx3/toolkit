@@ -1,0 +1,825 @@
+  :root {
+    /* 道具側はあたたかいクリーム、盤面だけ白。
+       「どこが作品でどこが道具か」を階調で分けつつ、道具側の印象をやわらかくする。
+       面（--panel）は明度 94% に置く。白に寄せすぎると、下のハイライトが載らない */
+    --bg: #f0e4da;          /* 一番外側 */
+    --panel: #f7eee7;       /* ツールバー・インスペクタ */
+    /* ボタン・入力欄は面と同じ色（--panel）を使う。塗り分けはしない */
+    --artboard: #ffffff;    /* 盤面（無彩色のまま据え置く） */
+    --border: #e9dbcf;
+    --border-strong: #dcc0ae;
+    --text: #4a3a34;
+    --muted: #6b564e;       /* 小さい文字が滲まないよう、やや濃いめに取る */
+    --disabled: #bda89d;    /* 無効表示。不透明度で薄めると輪郭まで溶けるため専用色にする */
+    --accent: #e8677f;      /* 枠・選択など、文字以外の強調 */
+    --accent-text: #c8425f; /* 文字として使う差し色 */
+    --accent-btn: #f4909f;  /* 主ボタンの地（白文字を載せる） */
+    --accent-btn-dark: #e8677f;
+    --accent-soft: #fbe4e9; /* 選択行の地 */
+    --danger: #c8394f;
+    --axis-w: 58px;
+
+    /* 余白は 4px グリッドに載せる。群の内側は --sp-2、群と群の間は --sp-4 と、
+       「余白の比」でまとまりを示す（囲む線やくぼみは使わない） */
+    --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px;
+    --ctl-h: 36px;          /* ボタン・入力欄の高さはこれ 1 種類に統一する */
+    /* 角丸は要素の大きさに比例させる */
+    --radius: 16px;         /* 面・メニュー */
+    --radius-sm: 12px;      /* 操作（ボタン・入力欄） */
+    --radius-thumb: 10px;   /* サムネイル画像 */
+
+    /* ニューモーフィズム：ボタンも入力欄も面と同じ色にし、
+       明暗 2 灯の影だけで浮き沈みを表す。
+       白側 +6% / 暗側 -11% と明度差をおおむね揃えることで、両側の影が見える状態にする。
+       輪郭のコントラストは 3:1 の基準には届かない（承知のうえで採用） */
+    --shadow-light: #ffffff;
+    --shadow-dark: #ddc9b9;
+    --raise: -3px -3px 9px var(--shadow-light), 3px 3px 9px var(--shadow-dark);
+    --raise-sm: -2px -2px 5px var(--shadow-light), 2px 2px 5px var(--shadow-dark);
+    --raise-lg: -4px -4px 12px var(--shadow-light), 5px 5px 16px var(--shadow-dark);
+    /* 押下は浅く、入力の器は深く。深さの差で「押されたボタン」と「入力欄」を区別する */
+    --press: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 3px var(--shadow-light);
+    --well: inset 3px 3px 7px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
+    --sunk: inset 1px 1px 3px var(--shadow-dark), inset -1px -1px 2px var(--shadow-light);
+    /* フォーカスの環。ボタンも入力欄もこれ 1 種類で示す。
+       淡い地（--accent-soft）だけでは面との差が 1.06:1 でほぼ見えないため、
+       外側に --accent の細線を重ねて輪郭を作る */
+    --ring: 0 0 0 3px var(--accent-soft), 0 0 0 4px var(--accent);
+    /* 面そのものにも光源方向（145°）の微グラデーションを入れ、膨らみを補強する */
+    --face: linear-gradient(145deg, #fbf5f0, #f2e7de);
+    --face-press: linear-gradient(145deg, #f2e7de, #fbf5f0);
+
+    /* 丸ゴシック。HG丸ｺﾞｼｯｸ は小さいサイズで輪郭が粗いため Web フォントを先に置く。
+       読み込めない環境ではローカルの丸ゴシックに落ちる */
+    --font-ui: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "HGMaruGothicMPRO",
+               "HG丸ｺﾞｼｯｸM-PRO", "Segoe UI", "Yu Gothic UI", "Hiragino Kaku Gothic ProN",
+               Meiryo, sans-serif;
+    /* 数値も同じ書体で揃える（M PLUS Rounded 1c の数字は等幅なので桁がずれない） */
+    --font-num: var(--font-ui);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+
+  /* ---- スクロールバー ----
+     既定の灰色のバーは配色から浮くうえ、矢印ボタンが盤面の角丸を四角く塗り潰す。
+     つまみだけを面の影の色で描き、透明ボーダーで内側に寄せて細く見せる。
+     注意：この指定は OS 既定の幅（Chrome/Windows で 15px）を 12px に上書きする。
+     JS 側の measureScrollbar() も同じ class で測ること（→ 盤面の寸法が 3px ずれる） */
+  .nm-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+  .nm-scroll::-webkit-scrollbar-track { background: transparent; }
+  .nm-scroll::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  .nm-scroll::-webkit-scrollbar-corner { background: transparent; }
+  /* つまみは --shadow-dark のままだと面との差が 1.40:1 でほぼ見えず、
+     スクロールできること自体が伝わらない。一段だけ濃く取る */
+  .nm-scroll::-webkit-scrollbar-thumb {
+    background: #d3bca9;
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 6px;
+  }
+  .nm-scroll::-webkit-scrollbar-thumb:hover { background: #cdb49f; background-clip: content-box; }
+  body {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  /* 数値は等幅で桁を揃える */
+  .num, input[type="number"], #zoom-label, #tooltip .h {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+  }
+  /* 増減ボタンは幅を食い、一括入力では placeholder と重なる。
+     場所によって出たり消えたりしないよう、どこでも隠す（上下キーでの増減は残る） */
+  input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  /* ---- ツールバー ---- */
+  #toolbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    /* 群と群の間は gap で与える。margin で足すと折返し後の行頭にも効いてしまい、
+       2 行目だけ 16px 右にずれる */
+    column-gap: var(--sp-4);
+    row-gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  #toolbar .title {
+    font-weight: 700;
+    font-size: 16px;
+    white-space: nowrap;
+    letter-spacing: .01em;
+    padding-left: 2px;
+  }
+  /* 冠は日本語なので字間を詰める（欧文大文字向けの .08em では間延びする）。
+     本体より小さいぶん、わずかに持ち上げて上辺を揃える */
+  #toolbar .title-sub {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: .02em;
+    margin-right: 6px;
+    vertical-align: 1px;
+  }
+  /* タイトルとボタン群の間だけ余白で切る。線は引かない
+     （群を線やくぼみで囲うと、ボタンの影と重なって暗部が濁るため）。
+     幅 0 の要素を挟むことで、両隣の gap が足されて 32px になる */
+  #toolbar .tb-divider { width: 0; margin: 0; flex: none; }
+  #toolbar .spacer { flex: 1; }
+  /* 関連する操作をひとまとまりに見せる。
+     囲まず、「群の内側 8px ／ 群と群の間 16px」という余白の比だけでまとまりを作る */
+  .tb-group {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+  /* 倍率は「値の表示窓」なので、浅いくぼみにして凸のボタンと形で役割を分ける。
+     ただし等倍に戻す操作を持つので、要素としては button にしてキーボードから届くようにする */
+  #zoom-label {
+    min-width: 58px;
+    padding: 0 var(--sp-2);
+    background: var(--panel);
+    color: var(--muted);
+    user-select: none;
+    box-shadow: var(--sunk);
+  }
+  /* 凹んだままを保つ（凸に変えると値の窓ではなくボタンに見えてしまう） */
+  #zoom-label:hover:not(:disabled) { box-shadow: var(--sunk); color: var(--accent-text); }
+  #zoom-label:active:not(:disabled) {
+    box-shadow: var(--press);
+    background: var(--panel);
+    transform: none;
+  }
+
+  /* ボタンは面と同じ色。影だけで浮かせる（凸＝押せるもの） */
+  button {
+    font: inherit;
+    font-size: 14px;
+    height: var(--ctl-h);
+    padding: 0 var(--sp-4);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--face);
+    color: var(--text);
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: var(--raise-sm);
+    transition: box-shadow .22s ease-out, background .22s ease-out,
+                color .22s ease-out, transform .12s ease-out;
+  }
+  /* 同色なので、ホバーは影を強めて「より浮く」ことで示す */
+  button:hover:not(:disabled) { box-shadow: var(--raise); }
+  /* 押したらへこむ。グラデーションも反転させ、わずかに縮める */
+  button:active:not(:disabled) {
+    box-shadow: var(--press);
+    background: var(--face-press);
+    transform: scale(.98);
+  }
+  /* 無効は平らにする。へこませると「押下中」と紛れるため、形ではなく文字色で示す */
+  button:disabled {
+    cursor: default;
+    background: none;
+    box-shadow: none;
+    color: var(--disabled);
+  }
+  /* キーボードのフォーカスは入力欄と同じ環で示す。
+     既定の黒い枠は暖色の配色から浮くうえ、入力欄と表現が食い違う。
+     :hover と同じ詳細度にしたうえで後に置き、ホバーより優先させる */
+  button:focus-visible:not(:disabled) {
+    outline: none;
+    box-shadow: var(--raise), var(--ring);
+  }
+  #zoom-label:focus-visible { box-shadow: var(--sunk), var(--ring); }
+  /* 主ボタンだけ色の面にする。影は地に落ちるので --raise-sm はそのまま使える */
+  button.primary {
+    background: linear-gradient(145deg, var(--accent-btn), var(--accent-btn-dark));
+    color: #fff;
+    font-weight: 700;
+    box-shadow: var(--raise-sm), inset 0 1px 0 rgba(255, 255, 255, .35);
+  }
+  button.primary:hover:not(:disabled) {
+    box-shadow: var(--raise), inset 0 1px 0 rgba(255, 255, 255, .35);
+  }
+  /* 色面の押下は、地の影（ベージュ）ではなく面の色を暗くした影でへこませる */
+  button.primary:active:not(:disabled) {
+    background: linear-gradient(145deg, #e2607a, #ef8698);
+    box-shadow: inset 2px 2px 5px rgba(146, 42, 66, .45),
+                inset -2px -2px 4px rgba(255, 255, 255, .28);
+  }
+  /* 破壊的な操作は、誤クリックを誘わないよう面は着色せず、太さだけで存在感を出す */
+  button.danger { color: var(--danger); font-weight: 700; }
+  .tb-group button { padding: 0 var(--sp-3); }
+  button.icon {
+    padding: 0;
+    width: var(--ctl-h);
+    height: var(--ctl-h);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  button.icon svg { width: 18px; height: 18px; display: block; }
+
+  /* ---- 本体レイアウト ---- */
+  #main { flex: 1; display: flex; min-height: 0; }
+
+  /* 盤面はクリームの地に置かれた「紙」として見せる。
+     余白は #stage の inset で与える。JS 側は #stage の実寸を測るので自動追従する */
+  #stage-wrap { flex: 1; position: relative; min-width: 0; background: var(--bg); }
+  #stage {
+    position: absolute;
+    inset: var(--sp-4); /* 四辺そろえる。区切り線と盤面が接すると線が枠に見えてしまう */
+    overflow: auto;
+    background: var(--artboard);
+    border: none;
+    border-radius: var(--radius);
+    z-index: 1;
+  }
+  /* 紙をくぼみに落とし込む（凹＝受け止める器）。
+     盤面の「上」に影を重ねるとスクロールバーと同じ場所を奪い合うので、
+     盤面より一回り大きい面を裏に敷き、はみ出した縁だけを溝として見せる */
+  #stage-wrap::before {
+    content: "";
+    position: absolute;
+    inset: calc(var(--sp-4) - 5px);
+    border-radius: calc(var(--radius) + 5px);
+    box-shadow: var(--well);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ---- その他の操作（破壊的な操作をここに隔離する） ---- */
+  .menu { position: relative; }
+  .menu > summary {
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--ctl-h);
+    height: var(--ctl-h);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--face);
+    cursor: pointer;
+    box-shadow: var(--raise-sm);
+    transition: box-shadow .22s ease-out, background .22s ease-out;
+  }
+  .menu > summary::-webkit-details-marker { display: none; }
+  .menu > summary:hover { box-shadow: var(--raise); }
+  /* 開いている間はへこませる（押下＝いま作用している状態） */
+  .menu[open] > summary { box-shadow: var(--press); background: var(--face-press); }
+  /* 開閉どちらでもフォーカスが分かるよう、[open] の後に置く */
+  .menu > summary:focus-visible { outline: none; box-shadow: var(--raise), var(--ring); }
+  .menu[open] > summary:focus-visible { box-shadow: var(--press), var(--ring); }
+  .menu > summary svg { width: 18px; height: 18px; display: block; }
+  .menu-body {
+    position: absolute;
+    right: 0;
+    top: calc(100% + var(--sp-2));
+    background: var(--panel);
+    border-radius: var(--radius);
+    box-shadow: var(--raise-lg), 0 10px 24px rgba(74, 58, 52, .14);
+    padding: var(--sp-3);
+    z-index: 30;
+    min-width: 230px;
+    /* 項目どうしは gap で離す。詰めて置くと、上下のボタンの影が同じ継ぎ目で
+       ぶつかり合い、1 枚に溶けて見える。値はツールバーの row-gap と揃える */
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .menu-body button { width: 100%; text-align: left; }
+  /* 目盛り軸は左に貼り付いたまま、縦スクロールには追従させる */
+  #board-wrap { display: flex; width: max-content; }
+  #axis {
+    position: sticky;
+    left: 0;
+    flex: none;
+    width: var(--axis-w);
+    z-index: 2;
+    pointer-events: none;
+  }
+  #board { display: block; flex: none; touch-action: none; cursor: grab; }
+  #empty-msg {
+    position: absolute;
+    inset: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 16px;
+    text-align: center;
+    line-height: 2;
+    pointer-events: none;
+    z-index: 2; /* #stage に重ね順を持たせたので、その上に出す */
+  }
+  /* 作成者とプライバシーの断り書き。
+     ツールバーにもインスペクタにも常設の場所は作れない（どちらも高さを一覧に回している）ため、
+     キャラが 1 体もいないあいだだけ、案内文の下に置く。
+     使い始めれば #empty-msg ごと消えるので、盤面の高さは 1px も減らない。
+     常設の導線は「その他」メニューの「このツールについて」が持つ */
+  #empty-msg .credit {
+    margin-top: var(--sp-6);
+    /* 読ませる文章はすべて 14px。補足であることは色（--muted）が示すので、
+       サイズを落とす必要はない（→ 仕様 8 章） */
+    font-size: 14px;
+    line-height: 1.9;
+    /* 親が pointer-events: none なので、リンクを拾えるようここだけ戻す */
+    pointer-events: auto;
+  }
+  #empty-msg .credit a { color: var(--accent-text); }
+  #tooltip {
+    position: absolute;
+    padding: 7px 12px;
+    background: rgba(74, 58, 52, .94);
+    color: #fff;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    line-height: 1.5;
+    pointer-events: none;
+    white-space: nowrap;
+    transform: translate(-50%, -100%);
+    display: none;
+    z-index: 5;
+  }
+  /* 名前と身長が空白 1 つで続くと「子供1 128 cm」のように読み取りにくい。
+     細い縦線で区切る */
+  #tooltip .h {
+    color: #ffc0cd;
+    margin-left: var(--sp-2);
+    padding-left: var(--sp-2);
+    border-left: 1px solid rgba(255, 255, 255, .28);
+  }
+
+  /* ---- インスペクタ ---- */
+  #inspector {
+    flex: none;
+    width: 336px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  #inspector h2 {
+    font-size: 14px;
+    margin: 0 0 var(--sp-3);
+    color: var(--muted);
+    font-weight: 700;
+    letter-spacing: .02em;
+  }
+  /* 一覧は内容ぶんだけ使い、余った縦は設定側に渡す。
+     flex:1 で伸ばすと、一覧が空でも場所を占めたまま設定側だけがあふれる */
+  /* 一覧は余りを全部もらう。内容ぶんで伸ばすと、体数や選択の有無で
+     設定欄との境目が上下に動き、操作のたびにボタンの位置が変わってしまう */
+  #list-section {
+    flex: 1 1 auto;
+    min-height: 96px;
+    display: flex;
+    flex-direction: column;
+    padding: var(--sp-4) var(--sp-4) var(--sp-3);
+    border-bottom: 1px solid var(--border);
+  }
+  /* 件数。絞り込み中は「12 / 240」と出して、一部だけ見ていることを示す */
+  #list-count { float: right; font-weight: 400; color: var(--muted); }
+
+  /* ---- 一覧の絞り込み ---- */
+  #list-tools { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+  /* 検索欄は「値を受け止める器」なので他の入力欄と同じくへこませる */
+  #filter-box {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    height: var(--ctl-h);
+    padding: 0 var(--sp-2) 0 var(--sp-3);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--well);
+  }
+  #filter-box:focus-within { box-shadow: var(--well), var(--ring); }
+  #filter-box .ico { width: 16px; height: 16px; flex: none; color: var(--muted); }
+  #list-filter {
+    font: inherit;
+    font-size: 14px;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: none;
+    background: none;
+    color: var(--text);
+    outline: none;
+  }
+  /* 既定の×は配色から浮くので、自前のボタンに置き換える */
+  #list-filter::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+  #filter-clear {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: var(--sp-2);
+    background: none;
+    box-shadow: none;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* display を指定すると hidden 属性（UA の display:none）を打ち消してしまう */
+  #filter-clear[hidden] { display: none; }
+  #filter-clear svg { width: 14px; height: 14px; display: block; }
+  #filter-clear:hover:not(:disabled) { box-shadow: var(--raise-sm); color: var(--text); }
+  /* 効いている間はへこませる（.menu[open] と同じ「作用中」の文法） */
+  #filter-visible[aria-pressed="true"],
+  #list-density[aria-pressed="true"] {
+    box-shadow: var(--press);
+    background: var(--face-press);
+    color: var(--accent-text);
+  }
+  #list-none { color: var(--muted); font-size: 14px; line-height: 1.9; }
+
+  /* ---- 行を詰めた表示 ----
+     体数が増えると、見やすさより「何行見渡せるか」が効いてくる。
+     常時この密度にはせず、切り替えにして少数のときの見やすさを残す。
+     行 70px → 44px（1440×900 で 5 行 → 8 行）。
+
+     **13px を使うのはここだけ。** 読ませる文章は補足でも 14px に揃えてある。
+     ここは「読みやすさを意図的に手放して行数を稼ぐ」場所なので、
+     サムネイル（36×50 → 24×34）と一貫して文字も落とす */
+  #char-list.dense li { padding: var(--sp-1) var(--sp-2); gap: var(--sp-2); }
+  #char-list.dense li + li { margin-top: 2px; }
+  #char-list.dense li.sel::before { top: var(--sp-1); bottom: var(--sp-1); }
+  #char-list.dense img { width: 24px; height: 34px; border-radius: 8px; }
+  #char-list.dense .nm { font-size: 13px; }
+  #char-list.dense .ht { height: 24px; width: 54px; font-size: 13px; padding: 0 var(--sp-1); }
+  #char-list.dense .vis { width: 26px; height: 26px; }
+  #char-list.dense .vis svg { width: 16px; height: 16px; }
+
+  #char-list { flex: 1; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+  /* 絞り込み中は見えていない行を飛び越えることになるため、並べ替えを禁じる */
+  #char-list.filtered li { cursor: pointer; }
+  /* 行は押せるものではないので平らに保つ（凸はボタンだけに使う） */
+  #char-list li {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2);
+    border-radius: var(--radius-sm);
+    cursor: grab;
+    border: 1px solid transparent;
+    user-select: none;
+    touch-action: none;
+    transition: background .18s;
+  }
+  #char-list li + li { margin-top: var(--sp-1); }
+  #char-list li:hover { background: rgba(74, 58, 52, .045); }
+  /* 選択は「浮かせる」のではなく、差し色の地と左端のバーで示す */
+  #char-list li.sel {
+    background: var(--accent-soft);
+    border-color: transparent;
+    box-shadow: none;
+  }
+  #char-list li.sel::before {
+    content: "";
+    position: absolute;
+    left: 0; top: var(--sp-2); bottom: var(--sp-2);
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  #char-list li.dragging {
+    cursor: grabbing;
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    box-shadow: 0 3px 10px rgba(74, 58, 52, .2);
+  }
+  /* 立ち絵は透過 PNG なので、地を白にしないと輪郭がクリームに沈む。
+     くぼみの影は内側に落とし、「白い紙がはまっている」状態にする */
+  #char-list img {
+    width: 36px; height: 50px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: var(--radius-thumb);
+    box-shadow: var(--sunk);
+    flex: none;
+  }
+  #char-list .nm {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #char-list .ht {
+    font: inherit;
+    font-size: 14px;
+    width: 62px;
+    flex: none;
+    height: 28px;
+    padding: 0 var(--sp-2);
+    text-align: right;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    border-radius: var(--sp-2);
+    /* その場で編集できることが要になる欄なので、ホバーを待たずに器の形を見せる。
+       単位を添える案もあるが、336px の幅では名前の省略がそのぶん早まる */
+    box-shadow: var(--sunk);
+    cursor: text;
+  }
+  /* 盤面への表示・非表示の切り替え */
+  #char-list .vis {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: var(--sp-2);
+    background: none;
+    box-shadow: none;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #char-list .vis svg { width: 18px; height: 18px; display: block; }
+  #char-list .vis:hover:not(:disabled) { box-shadow: var(--raise-sm); color: var(--text); }
+  #char-list .vis:active:not(:disabled) { box-shadow: var(--press); }
+  /* 非表示のキャラは行ごと薄くして、盤面にいないことを示す */
+  #char-list li.is-hidden img,
+  #char-list li.is-hidden .nm,
+  #char-list li.is-hidden .ht { opacity: .42; }
+  #char-list li.is-hidden .nm { text-decoration: line-through; }
+  /* 非表示は「押されたまま」の形で示す（.menu[open] と同じ文法）。
+     行は平らに保つ方針なので、通常状態を凸にはしない */
+  #char-list li.is-hidden .vis { box-shadow: var(--press); }
+  #char-list .ht:hover { color: var(--text); }
+  #char-list .ht:focus {
+    color: var(--text);
+    outline: none;
+    box-shadow: var(--sunk), var(--ring);
+  }
+  #list-empty { color: var(--muted); font-size: 14px; line-height: 1.9; }
+
+  /* パネルの下端に固定する。伸び縮みさせると境目が動き、
+     同じボタンが操作のたびに違う位置に来る。
+     比だけで決めると、中身が要る量は固定なのに割当が画面の高さに比例し、
+     高い画面では余り、低い画面では足りなくなる。
+     px の上限と比の小さいほうを採り、余った縦は一覧に回す。
+     上の padding は h2 が持つ（スクロールしても見出しが残るようにするため）。
+
+     **上限は中身の実測値（選択中で 418px）より大きく取ること。**
+     420px にしていたときは余裕が 1.5px しかなく、比の側が効きはじめた瞬間に
+     「8px しか隠れていないのにスクロールバーが出る」状態になっていた
+     （画面高 900px を下回ると発生）。440px にして 22px の余裕を持たせ、
+     比も 65% に上げてある。これでバーが出はじめるのは画面高 737px から。
+     中身が増えたらこの 440px も見直すこと。ui_check.py が実測して検証する */
+  #detail-section {
+    flex: 0 0 min(440px, 65%);
+    padding: 0 var(--sp-4) var(--sp-4);
+    overflow-y: auto;
+  }
+  /* スクロールで見出しと「名前」欄まで消えると、何を編集しているのか分からなくなる */
+  #detail-section h2 {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--panel);
+    margin: 0 0 var(--sp-2);
+    padding: var(--sp-3) 0 var(--sp-1);
+  }
+  .field { margin-bottom: var(--sp-4); }
+  .field label { display: block; font-size: 14px; color: var(--muted); margin-bottom: var(--sp-2); }
+  /* 名前と身長を横に並べる。身長は 3 桁＋小数が入れば足りる */
+  .field-row { display: flex; gap: var(--sp-3); }
+  .field-row .field { margin-bottom: var(--sp-3); }
+  .field-row .field { flex: 1; min-width: 0; }
+  .field-row .f-height { flex: none; width: 96px; }
+  /* スライダーは値が右のラベルに出るので、欄の間隔を詰めても読み違えない */
+  .field-slider { margin-bottom: var(--sp-2); }
+  .field-slider label { margin-bottom: var(--sp-1); }
+  .field input[type="text"], .field input[type="number"] {
+    font: inherit;
+    font-size: 14px;
+    width: 100%;
+    height: var(--ctl-h);
+    padding: 0 var(--sp-3);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text);
+    /* 入力欄は「値を受け止める器」。最も深いくぼみにして、浮いているボタンと区別する */
+    box-shadow: var(--well);
+  }
+  /* フォーカスリングはくぼみの器にだけ付ける。
+     input:focus だけだと range にも当たり、スライダー全体が枠で囲まれてしまう */
+  .field input[type="text"]:focus,
+  .field input[type="number"]:focus {
+    outline: none;
+    box-shadow: var(--well), var(--ring);
+  }
+  .field .val { float: right; color: var(--text); font-size: 14px; }
+  .hint { font-size: 14px; color: var(--muted); line-height: 1.7; margin: -4px 0 var(--sp-2); }
+  .btn-row { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+  .btn-row button { flex: 1; padding: 0 var(--sp-1); font-size: 14px; }
+  /* 重なり順はラベルを横に置いて 1 行に収める（縦に積むと 2 行ぶん使う） */
+  .z-field { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
+  .z-field label { flex: none; font-size: 14px; color: var(--muted); }
+  .z-row { display: flex; gap: var(--sp-2); flex: 1; justify-content: flex-end; }
+  #no-selection { color: var(--muted); font-size: 14px; line-height: 1.9; }
+
+  /* 既定のスライダーは細くて掴みにくいので太くする。
+     溝＝値を受け止める器なので「凹」、つまみ＝掴めるものなので「凸」とし、
+     白フチと落ち影はやめて、凹凸の文法だけで表す */
+  .field input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    margin: 0;
+    height: 24px;
+  }
+  .field input[type="range"]:focus { outline: none; }
+  .field input[type="range"]::-webkit-slider-runnable-track {
+    height: 10px;
+    border-radius: 5px;
+    background: var(--panel);
+    box-shadow: inset 2px 2px 5px var(--shadow-dark),
+                inset -2px -2px 4px var(--shadow-light);
+  }
+  .field input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, var(--accent-btn), var(--accent-btn-dark));
+    border: none;
+    box-shadow: var(--raise-sm), inset 0 1px 0 rgba(255, 255, 255, .4);
+    cursor: pointer;
+    transition: box-shadow .18s ease-out;
+  }
+  .field input[type="range"]:hover::-webkit-slider-thumb {
+    box-shadow: var(--raise), inset 0 1px 0 rgba(255, 255, 255, .4);
+  }
+  .field input[type="range"]::-moz-range-track {
+    height: 10px; border-radius: 5px; background: var(--panel);
+    box-shadow: inset 2px 2px 5px var(--shadow-dark),
+                inset -2px -2px 4px var(--shadow-light);
+  }
+  .field input[type="range"]::-moz-range-thumb {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: linear-gradient(145deg, var(--accent-btn), var(--accent-btn-dark));
+    border: none;
+    box-shadow: var(--raise-sm), inset 0 1px 0 rgba(255, 255, 255, .4);
+    cursor: pointer;
+  }
+
+  /* ---- ダイアログ ---- */
+  dialog {
+    border: none;
+    border-radius: 20px;
+    padding: 0;
+    max-width: 400px;
+    width: 90%;
+    color: var(--text);
+    background: var(--panel);
+    box-shadow: 0 16px 40px rgba(74, 58, 52, .24);
+  }
+  dialog::backdrop { background: rgba(74, 58, 52, .32); }
+  .dlg-body { padding: var(--sp-5); }
+  .dlg-body h3 { margin: 0 0 var(--sp-4); font-size: 16px; }
+  /* 立ち絵は透過 PNG なので、一覧のサムネイルと同じく地を白にする */
+  .dlg-preview {
+    width: 100%;
+    height: 150px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--sunk);
+    margin-bottom: var(--sp-4);
+  }
+  .dlg-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+
+  /* このツールについて。読み物なので、入力欄のある他のダイアログより幅を広く取る */
+  #dlg-about { max-width: 480px; }
+  #dlg-about .about-lead { font-size: 14px; line-height: 1.9; margin-bottom: var(--sp-4); }
+  .about { font-size: 14px; line-height: 1.9; margin-bottom: var(--sp-5); }
+  /* 見出しは色ではなく太さで示す。差し色はリンクに取っておく */
+  .about dt { font-weight: 700; margin-top: var(--sp-3); }
+  .about dt:first-child { margin-top: 0; }
+  .about dd { margin: 0; color: var(--muted); }
+  .about a { color: var(--accent-text); }
+
+  /* まとめて追加するときの一覧 */
+  #dlg-batch { max-width: 560px; }
+  #batch-rows { max-height: 46vh; overflow-y: auto; margin-bottom: var(--sp-4); }
+  .batch-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) 2px;
+    border-bottom: 1px solid var(--border);
+  }
+  /* 最終行の線はボタン列との間に余計な区切りとして残るので消す */
+  .batch-row:last-child { border-bottom: none; }
+  .batch-row img {
+    width: 38px; height: 54px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: var(--radius-thumb);
+    box-shadow: var(--sunk);
+    flex: none;
+  }
+  .batch-row .b-name { flex: 1; min-width: 0; }
+  .batch-row .b-height { width: 94px; flex: none; }
+  .batch-row input {
+    font: inherit;
+    font-size: 14px;
+    width: 100%;
+    height: var(--ctl-h);
+    padding: 0 var(--sp-3);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    color: var(--text);
+    box-shadow: var(--well);
+  }
+  .batch-row input:focus {
+    outline: none;
+    box-shadow: var(--well), var(--ring);
+  }
+
+  /* ---- ドロップ表示 ---- */
+  #drop-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(232, 103, 127, .12);
+    border: 4px dashed var(--accent);
+    border-radius: 18px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent-text);
+    z-index: 100;
+    pointer-events: none;
+  }
+  body.dragging #drop-overlay { display: flex; }
+
+  #status {
+    position: fixed;
+    left: var(--sp-4); bottom: var(--sp-4);
+    background: var(--panel);
+    border: none;
+    color: var(--text);
+    font-size: 14px;
+    padding: var(--sp-2) var(--sp-4);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--raise-lg), 0 6px 18px rgba(74, 58, 52, .16);
+    display: none;
+    z-index: 50;
+  }
+
+  /* 動きを減らす設定のときは、影の移り変わりと押下時の縮みを止める。
+     位置決めの transform（ツールチップ）は残す */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition-duration: .01ms !important;
+      animation-duration: .01ms !important;
+    }
+    button:active:not(:disabled) { transform: none; }
+  }
+
+/* TRPG Toolkit 合輯：首頁連結與語言切換器 */
+.toolkit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px 0;
+}
+.home-link {
+  color: var(--muted, #7a7f86);
+  font-size: 12px;
+  text-decoration: none;
+}
+.home-link:hover { text-decoration: underline; }
+.home-link:focus-visible { outline: 2px solid var(--accent, #f08a7a); outline-offset: 2px; }
+.locale-select {
+  width: auto;
+  min-width: 92px;
+  padding: 3px 6px;
+  font-size: 12px;
+}

@@ -5,7 +5,7 @@
 [Taku_Taku_Taku](https://github.com/Taku-Taku-Taku) 與
 [kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 與
 [巡涯学派](https://github.com/organon-torah) 與
-[Wool&Wag](https://github.com/woolwag3338) 製作的 15 個網頁工具，
+[Wool&Wag](https://github.com/woolwag3338) 製作的 16 個網頁工具，
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -20,23 +20,24 @@
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
 | foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `6e9a5b5` | MIT |
 | scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `52426f5` | MIT |
-| status-bar | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `b86a0d0` | MIT |
+| status-bar | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `2f50d75` | MIT |
 | cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
 | ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
-| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `3365696` | MIT |
+| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `9459aa7` | MIT |
 | portrait-size | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `fc05c98` | MIT |
+| height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
 
-十個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
+十一個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
 
-shiki365 的四個工具、`cutin` 與 `portrait-size` 原文為日文，收錄時另有以下調整：
+shiki365 的四個工具、`cutin`、`portrait-size` 與 `height-board` 原文為日文，收錄時另有以下調整：
 
 - `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
   `docs/` 底下的瀏覽器版（合輯只收純靜態、免安裝的網頁工具）。
 - `foreground-frame`、`scene-transition` 與 `chat-window` 的 `<style>` 區塊抽出為
   `styles.css`（理由同 text-path 與 collage-letter）。
-- 這六個工具都移除了指向原作者站台的 OG／Twitter meta 與
+- 這七個工具都移除了指向原作者站台的 OG／Twitter meta 與
   `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
   `<title>` 只留工具名，捨去 SEO 後綴。
 - shiki365 的四個工具頁尾都有回作者工具站的連結（`chat-window` 另有一條許願用的
@@ -45,16 +46,17 @@ shiki365 的四個工具、`cutin` 與 `portrait-size` 原文為日文，收錄�
 - `status-bar` 與 `chat-window` 的上游都附了自家站台的 `ogp.png`（各約 0.5 MB），
   收錄版沒有用到那張圖（`og:image` 指的是絕對網址），因此不收。
 
-## portrait-size：移除了原站的存取分析
+## portrait-size 與 height-board：移除了原站的存取分析
 
-`character-image-size` 的上游頁面掛了 Google Analytics，說明區與頁尾也各有一句
-告知使用者這件事。收錄版把 `gtag` 的載入一併移除，因此那兩句話也拿掉了——
-留著就是在說一件本站不存在的事。`<style>` 與內嵌 `<script>` 照慣例抽成
-`styles.css` 與 `app.js`。
+Wool&Wag 的兩個工具（`character-image-size`、`character-height-board`）上游頁面
+都掛了 Google Analytics，說明區與頁尾也各有一句告知使用者這件事。收錄版把 `gtag`
+的載入一併移除，因此那兩句話也拿掉了——留著就是在說一件本站不存在的事。
+`<style>` 與內嵌 `<script>` 照慣例抽成 `styles.css` 與 `app.js`。
 
-這個工具與 `ccfolia-cropper` 不重疊：後者按 CCFOLIA 的版面比例裁切、對齊頭部或
-角色中央；這個是把同一角色的差分立繪裁掉透明邊之後統一寬度——CCFOLIA 是用圖片
-寬度決定棋子大小的，寬度不一致，切換立繪時棋子就會忽大忽小。
+三個處理立繪的工具各管一件事，互不重疊：`ccfolia-cropper` 按 CCFOLIA 的版面比例
+裁切、對齊頭部或角色中央；`portrait-size` 把同一角色的差分裁掉透明邊之後統一寬度
+——CCFOLIA 是用圖片寬度決定棋子大小的，寬度不一致，切換立繪時棋子就會忽大忽小；
+`height-board` 則是依身高統一縮尺，把不同角色並排比較高矮。
 
 ## 三個工具共用的 pcfonts.v1.js
 
@@ -167,7 +169,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘十四個工具的翻譯與 i18n 改造為本 repo 新增。
+其餘十五個工具的翻譯與 i18n 改造為本 repo 新增。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：
@@ -179,6 +181,13 @@ magic-circle 的繁體中文翻譯移植自
   分割、記憶體上限推導等），逐句轉譯風險大於效益，故維持日文原文；只有使用者
   看得到的字串與本 repo 新增的註解為中文。這些註解不會出現在 `tools/cutin/`
   的建置產物裡。
+- `tools/height-board/`——同樣的理由。392 行註解多為 Canvas 縮放、記憶體上限、
+  `.hboard` 的檔案佈局、拖曳門檻、為什麼某個按鈕要 `type="button"` 之類的取捨說明，
+  維持日文原文。與 `cutin` 不同的是這些註解會隨著檔案發佈，因此 `tests/smoke.mjs`
+  把「只有註解可以是日文」變成可檢查的規則：把註解整段抹成空白（保留行結構）之後
+  再掃一次，程式碼與標記裡只要出現假名就會被擋下。`styles.css` 裡的
+  `HG丸ｺﾞｼｯｸM-PRO` 是 Windows 的字型名稱，屬於要原樣寫給瀏覽器看的識別字，
+  另外列為例外並檢查它還在。
 
 ## 本 repo 新增的部分
 

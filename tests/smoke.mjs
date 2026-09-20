@@ -520,6 +520,78 @@ for (const locale of ['zh-TW', 'ja']) {
   check(`${locale} 狀態列訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
 
+/* ---- height-board ---- */
+/* 這個工具的註解密度很高，而且多半是演算法與版面取捨的說明（Canvas 縮放、記憶體
+ * 上限、.hboard 的檔案佈局、拖曳門檻、為什麼要 type="button"…），共 392 行。
+ * 逐句轉譯的風險大於效益，比照 vendor/cutin-maker 的處理保留日文原文。
+ *
+ * 但「只有註解可以是日文」這件事要能被檢查，否則就等於放行。做法是把註解整段
+ * 抹成空白（保留行結構）之後再掃一次：程式碼與標記裡只要出現假名就會被擋下。 */
+function stripComments(src, kind) {
+  const blank = text => text.replace(/[^\n]/g, ' ');
+  let out = src;
+  if (kind === 'html') out = out.replace(/<!--[\s\S]*?-->/g, blank);
+  else {
+    out = out.replace(/\/\*[\s\S]*?\*\//g, blank);
+    if (kind === 'js') out = out.replace(/(^|[^:\\])\/\/[^\n]*/g, (m, p) => p + blank(m.slice(p.length)));
+  }
+  return out;
+}
+
+const HB_KINDS = { 'index.html': 'html', 'styles.css': 'css', 'app.js': 'js' };
+const hbCode = Object.fromEntries(Object.entries(HB_KINDS)
+  .map(([file, kind]) => [file, stripComments(read(`tools/height-board/${file}`), kind).split('\n')]));
+
+const hb = checkTool({
+  dir: 'tools/height-board',
+  dict: 'i18n.height-board.js',
+  locale: 'ja',
+  scripts: ['app.js'],
+  styles: ['styles.css'],
+  minHooks: 70,
+  /* 只放行「抹掉註解之後就沒有假名」的行。程式碼裡真的有日文就會落下。
+   * 另外放行 font-family 裡的「HG丸ｺﾞｼｯｸM-PRO」——那是 Windows 的字型名稱，
+   * 是要原樣寫給瀏覽器看的識別字，不是可翻譯的文字。 */
+  allowSource: (line, lineNo, file) => {
+    const code = hbCode[file];
+    if (!code) return false;
+    const rest = (code[lineNo - 1] || '').replace('HG丸ｺﾞｼｯｸM-PRO', '');
+    return !KANA.test(rest);
+  }
+});
+
+section('tools/height-board');
+/* 上游頁面掛了 Google Analytics，收錄版整組移除；說明區與頁尾原本各有一句告知
+ * 使用者這件事，留著就是在說一件本站不存在的事，因此一併拿掉。 */
+for (const file of ['index.html', 'app.js', 'styles.css']) {
+  check(`${file} 沒有存取分析的殘留`,
+    !/googletagmanager|gtag\(|Google.{0,7}Analytics/.test(read(`tools/height-board/${file}`)));
+}
+/* 保留日文註解是刻意的，但僅限註解——這裡把規則本身也測一次，
+ * 免得 stripComments 哪天失效，整個放行條件就變成空殼。 */
+check('stripComments 會抹掉註解裡的假名',
+  !KANA.test(stripComments('/* 日本語のコメント */ var a = 1', 'js')));
+check('stripComments 不會抹掉程式碼裡的假名',
+  KANA.test(stripComments('var a = "日本語のリテラル"; // メモ', 'js')));
+check('height-board 保留 Windows 的字型名稱',
+  read('tools/height-board/styles.css').includes('HG丸ｺﾞｼｯｸM-PRO'));
+check('height-board 的註解確實還是日文（沒有被誤翻掉）',
+  /[\u3041-\u3096\u30A1-\u30FA]/.test(read('tools/height-board/app.js')));
+
+/* 狀態訊息記住 key 與參數，切語言時重寫。 */
+const hbApp = read('tools/height-board/app.js');
+check('狀態訊息以 key 呈現並在切換語言時重寫',
+  hbApp.includes('function renderStatus()') && hbApp.includes('I18N.onChange('));
+const hbKeys = [...new Set([
+  ...[...hbApp.matchAll(/\bshowStatus\('([\w]+\.[\w]+)'/g)].map(m => m[1]),
+  ...[...hbApp.matchAll(/\bT\('([\w]+\.[\w]+)'/g)].map(m => m[1])
+])];
+check('解析出 app.js 的 key', hbKeys.length >= 25, `found ${hbKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = hbKeys.filter(k => !hb.messages[locale][k]);
+  check(`${locale} app.js 的譯文齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+
 /* ---- portrait-size ---- */
 const ps = checkTool({
   dir: 'tools/portrait-size',
@@ -1062,10 +1134,11 @@ check('首頁 <title> 與 app.title 的 zh-TW 值一致',
 check('assets/home.js 無殘留韓文', !HANGUL.test(read('assets/home.js')));
 check('assets/home.css 無殘留韓文', !HANGUL.test(read('assets/home.css')));
 
-/* 15 個工具連結都要指得到。 */
+/* 16 個工具連結都要指得到。 */
 const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker',
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
-  'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size'];
+  'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
+  'height-board'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -1157,6 +1230,7 @@ checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', [
 checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
 checkInlineText('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 150);
 checkInlineText('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 20);
+checkInlineText('tools/height-board', 'tools/height-board/index.html', ['tools/height-board/i18n.height-board.js'], 25);
 checkInlineText('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 20);
 checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
 
@@ -1231,6 +1305,7 @@ checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['
 checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
 checkAttrPairs('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 15);
 checkAttrPairs('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 2);
+checkAttrPairs('tools/height-board', 'tools/height-board/index.html', ['tools/height-board/i18n.height-board.js'], 20);
 checkAttrPairs('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 1);
 checkAttrPairs('tools/cutin', 'tools/cutin/index.html', ['tools/cutin/i18n.cutin.js'], 1);
 checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
@@ -1248,7 +1323,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  '6e9a5b5', '52426f5', 'b86a0d0', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '3365696', 'fc05c98', '772d6c4']) {
+  '6e9a5b5', '52426f5', '2f50d75', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '9459aa7', 'fc05c98', '90f8442', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
