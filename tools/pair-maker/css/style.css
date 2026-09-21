@@ -1,0 +1,426 @@
+:root {
+  --nav-background: #f1f3f5;
+  --nav-icon: #d8d8d8;
+  --text: #2b2b2b;
+  --card-border: #bfc0c2;
+  --gallery-width: 1264px;
+  --bug-dialog-width: 720px;
+  --guide-dialog-width: 640px;
+}
+
+* { box-sizing: border-box; }
+
+html { min-width: 320px; }
+
+/* 主頁與編輯器的預設字型 */
+body,
+body.editor {
+  font-family: "Pretendard", sans-serif;
+}
+
+/* 按鈕與輸入框也套用同一套字型 */
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+/* 共用導覽列 */
+.site-nav {
+  position: fixed;
+  z-index: 100;
+  top: 10px;
+  bottom: 15px;
+  left: 8px;
+  width: 76px;
+  padding: 0 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  border-radius: 10px;
+  background: var(--nav-background);
+}
+
+.nav-item {
+  color: #333;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.nav-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 8px;
+  border-radius: 10px;
+  background: #323232;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  transition: background-color 0.3s ease;
+}
+.nav-icon .bi,
+.nav-icon .bi::before { display: block; line-height: 1; }
+.nav-item:hover .nav-icon,
+.nav-item:focus-visible .nav-icon { background-color: #000; }
+
+/* 主畫面的浮動視窗 */
+.site-dialog {
+  position: fixed;
+  max-height: min(90dvh, 720px);
+  margin: auto;
+  padding: 22px 44px 32px;
+  border: 0;
+  border-radius: 10px;
+  background: #fff;
+  color: #323232;
+  box-shadow: 0 10px 35px #0004;
+  overflow: auto;
+}
+.form-dialog { width: min(var(--bug-dialog-width), calc(100vw - 32px)); }
+.guide-dialog { width: min(var(--guide-dialog-width), calc(100vw - 32px)); }
+.site-dialog::backdrop { background: rgba(0, 0, 0, 0.66); backdrop-filter: blur(4px); }
+.site-dialog h2 { margin: 0 0 26px; text-align: center; font-size: 22px; line-height: 1.3; }
+.site-dialog .floating-close {
+  position: absolute; z-index: 2; top: 14px; right: 14px;
+  display: grid; place-items: center;
+  width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%;
+  background: #f0f0f0; color: #333; font-size: 25px; line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+.site-dialog .floating-close:hover,
+.site-dialog .floating-close:focus-visible { background-color: #e53935; color: #fff; }
+.site-dialog .floating-close .bi,
+.site-dialog .floating-close .bi::before { display: block; line-height: 1; }
+.guide-content section + section { margin-top: 32px; }
+.guide-content h3 { margin: 0 0 8px; font-size: 16px; line-height: 1.5; }
+.guide-content ol { margin: 0; padding-left: 1.35em; }
+.guide-content li { margin-bottom: 15px; color: #555; font-size: 13px; line-height: 1.55; }
+.google-form-container { width: 100%; height: min(70dvh, 560px); overflow: hidden; }
+.google-form-container iframe { display: block; width: 100%; height: 100%; border: 0; }
+body.has-site-dialog { overflow: hidden; }
+
+/* 主頁／簡介 */
+.main-page {
+  min-height: 100vh;
+  margin-left: 95px;
+  padding: 83px 34px 40px;
+}
+
+.intro {
+  margin: 0 auto 40px;
+  text-align: center;
+}
+
+.intro h1 {
+  margin: 0 0 20px;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.intro p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* Justified gallery */
+/* TRPG Toolkit 合輯：上游用 jQuery ＋ justifiedGallery 把作品集樣張排成
+ * 等高的瀑布流。收錄版不收那些樣張（裡面是別人的角色插圖），卡片圖改成
+ * 由工具自己算繪的空白版型預覽，尺寸整齊，用 grid 排就夠了——順便少載
+ * 兩個函式庫。上游手機版本來就是不走 justifiedGallery 的。 */
+#template-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  width: min(100%, var(--gallery-width));
+  margin: 0 auto;
+  padding: 2px;
+}
+
+.template-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.template-card {
+  position: relative;
+  overflow: hidden;
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+
+.template-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.template-tag {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  left: 12px;
+  padding: 5px 10px;
+  border: 1px solid #075cff;
+  border-radius: 999px;
+  color: #075cff;
+  background: #ffffff;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.template-tag--red {
+  border-color: #ff3030;
+  background-color: #ffffff;
+  color: #ff3030;
+}
+
+.template-tag--green {
+  border-color: #006909;
+  background-color: #ffffff;
+  color: #006909;
+}
+
+.template-tag--purple {
+  border-color: #5600e0;
+  background-color: #ffffff;
+  color: #5600e0;
+}
+
+.template-title {
+  position: absolute;
+  z-index: 5;
+
+  right: 0;
+  bottom: 0;
+  left: 0;
+
+  padding: 60px 12px 14px;
+
+  color: #fff;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+
+  text-align: center;
+  font-size: 15px;
+  font-weight: 400;
+
+  opacity: 0;
+  transform: translateY(8px);
+
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+
+  pointer-events: none;
+}
+
+.template-card:hover .template-title,
+.template-card:focus-visible .template-title {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.template-card img {
+  transition: filter 0.2s ease;
+}
+
+.template-card:hover img,
+.template-card:focus-visible img {
+  filter: brightness(0.92);
+}
+
+.google-form-container {
+  position: relative;
+  min-height: 503px;
+}
+
+.google-form-loading {
+  position: absolute;
+  inset: 0;
+
+  display: grid;
+  place-items: center;
+
+  color: #777;
+  background: #fff;
+}
+
+.google-form-loading[hidden] {
+  display: none;
+}
+
+.google-form-container iframe {
+  display: block;
+  width: 100%;
+  height: 503px;
+  border: 0;
+}
+
+
+/*---------------------------
+      平板（769～1024）
+----------------------------*/
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main-page {
+    margin-left: 95px;
+    padding: 61px 40px 40px 16px;
+  }
+
+  .intro { margin-bottom: 40px; }
+}
+
+
+/*---------------------------
+      手機 768 以下
+----------------------------*/
+@media (max-width: 768px) {
+  .site-nav {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    bottom: auto;
+    left: 14px;
+    width: auto;
+    height: 57px;
+    padding: 5px 0 3px;
+    border-radius: 10px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 27px;
+  }
+
+  .nav-item { font-size: 10px; }
+
+  .nav-icon {
+    width: 31px;
+    height: 31px;
+    margin-bottom: 2px;
+    border-radius: 8px;
+  }
+  .site-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); padding: 20px 20px 28px; }
+  .site-dialog h2 { padding: 0 38px; margin-bottom: 22px; font-size: 20px; }
+  .site-dialog .floating-close { top: 10px; right: 10px; }
+  .guide-content li { font-size: 12px; }
+
+  .main-page {
+    min-height: 100vh;
+    margin-left: 0;
+    padding: 99px 14px 40px;
+  }
+
+  .intro { margin-bottom: 40px; }
+
+  .intro h1 {
+    margin-bottom: 18px;
+    font-size: 22px;
+  }
+
+  .intro p { font-size: 14px; }
+
+  #template-gallery {
+    display: flex;
+    width: 100%;
+    max-width: 345px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .template-card,
+  #template-gallery > .template-card {
+    display: block;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+  }
+
+  .template-card img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  .template-tag {
+    top: 11px;
+    left: 11px;
+  }
+}
+
+/* 主導覽列：半透明的灰色玻璃 */
+.site-nav {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(241, 243, 245, 0.4));
+  box-shadow: inset 0 0 0 1px rgba(207, 212, 220, .85),
+              inset 0 1px 0 rgba(255, 255, 255, .8),
+              0 4px 16px rgba(35, 43, 58, .055);
+}
+@media (max-width: 1024px) {
+  .site-nav { background: rgba(241, 243, 245, .9); }
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .site-nav {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(241, 243, 245, 0.4));
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+    }
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .site-nav { background: #f1f3f5; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* ---------- TRPG Toolkit 合輯：回首頁與語言切換 ---------- */
+.toolkit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  /* 左邊那條導覽是 position:fixed，所以要跟 .main-page 一樣讓開 95px */
+  margin-left: 95px;
+  padding: 12px 34px 0;
+}
+.toolkit-home {
+  color: #6b7280;
+  font-size: 12px;
+  text-decoration: none;
+}
+.toolkit-home:hover { text-decoration: underline; }
+.toolkit-home:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.locale-select {
+  width: auto;
+  min-width: 92px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+/* 工具列佔掉了頂端一條，把上游原本留給介紹區的上方留白相應縮小。 */
+.main-page { padding-top: 45px; }
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .toolkit-bar { padding: 12px 40px 0 16px; }
+  .main-page { padding-top: 26px; }
+}
+
+@media (max-width: 768px) {
+  /* 手機版的導覽變成頂端的橫條（absolute，top:10px、高 57px），要讓開。 */
+  .toolkit-bar { margin-left: 0; padding: 79px 14px 0; }
+  .main-page { padding-top: 14px; }
+}

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
+    <link 
+    rel="stylesheet" 
+    crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css">
+
+    <title>角色介紹圖產生器</title>
+    <script src="../../assets/i18n.js"></script>
+    <script src="./i18n.pair-maker.js"></script>
+</head>
+<body>
+<div class="toolkit-bar">
+  <a class="toolkit-home" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+  <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+</div>
+    <nav class="site-nav" data-i18n-aria-label="nav.aria" aria-label="快速前往">
+        <a href="https://x.com/bae1577" class="nav-item" target="_blank" rel="noopener noreferrer">
+            <span class="nav-icon" aria-hidden="true"><i class="bi bi-twitter-x"></i></span>
+            <span data-i18n="nav.twitter">Twitter(X)</span>
+        </a>
+        <a href="#bug-dialog" class="nav-item" data-open-dialog="bug-dialog">
+            <span class="nav-icon" aria-hidden="true"><i class="bi bi-bug"></i></span>
+            <span data-i18n="nav.bug">問題回報</span>
+        </a>
+        <a href="#guide-dialog" class="nav-item" data-open-dialog="guide-dialog">
+            <span class="nav-icon" aria-hidden="true"><i class="bi bi-card-text"></i></span>
+            <span data-i18n="nav.guide">使用說明</span>
+        </a>
+    </nav>
+
+    <main class="main-page">
+        <section class="intro">
+            <h1 data-i18n="intro.heading">baegop 的介紹圖！</h1>
+            <p data-i18n-html="intro.body">不用修圖軟體，直接把介紹圖填滿吧！<br>
+                作者一無聊就會再多做一個……</p>
+        </section>
+
+        <section id="template-gallery" data-i18n-aria-label="gallery.aria" aria-label="介紹圖清單">
+            <!-- 簡易雙人整理 -->
+            <a href="editor.html?id=2p-simple" class="template-card">
+                <img src="previews/2p-simple.png" data-i18n-alt="tpl.simple" alt="簡易雙人整理" loading="lazy">
+                <span class="template-tag template-tag--red" data-i18n="tag.data">#資料整理</span>
+                <strong class="template-title" data-i18n="tpl.simple">簡易雙人整理</strong>
+            </a>
+            <!-- 雙人整理 1 -->
+            <a href="editor.html?id=2p-pair1" class="template-card">
+                <img src="previews/2p-pair1.png" data-i18n-alt="tpl.pair1" alt="baegop 雙人整理 1" loading="lazy">
+                <span class="template-tag template-tag--red" data-i18n="tag.data">#資料整理</span>
+                <strong class="template-title" data-i18n="tpl.pair1">baegop 雙人整理 1</strong>
+            </a>
+            <!-- 圖樣橫幅 -->
+            <a href="editor.html?id=pattern-header" class="template-card">
+                <img src="previews/pattern-header.png" data-i18n-alt="tpl.header" alt="圖樣橫幅" loading="lazy">
+                <span class="template-tag template-tag--green" data-i18n="tag.header">#橫幅</span>
+                <strong class="template-title" data-i18n="tpl.header">圖樣橫幅</strong>
+            </a>
+            <!-- 30 人資料框 -->
+            <a href="editor.html?id=30p-pair" class="template-card">
+                <img src="previews/30p-pair.png" data-i18n-alt="tpl.p30" alt="多人資料框（1～30 人）" loading="lazy">
+                <span class="template-tag template-tag--red" data-i18n="tag.data">#資料整理</span>
+                <strong class="template-title" data-i18n="tpl.p30">多人資料框（1～30 人）</strong>
+            </a>
+            <a href="editor.html?id=main-tweet" class="template-card">
+                <img src="previews/main-tweet.png" data-i18n-alt="tpl.tweet" alt="置頂推文產生器" loading="lazy">
+                <span class="template-tag template-tag--purple" data-i18n="tag.tweet">#置頂推文</span>
+                <strong class="template-title" data-i18n="tpl.tweet">置頂推文產生器</strong>
+            </a>
+        </section>
+    </main>
+
+    <dialog class="site-dialog form-dialog" id="bug-dialog" aria-labelledby="bug-dialog-title">
+        <button class="floating-close" type="button" data-close-dialog data-i18n-aria-label="bug.close" aria-label="關閉問題回報視窗">
+            <i class="bi bi-x" aria-hidden="true"></i>
+        </button>
+        <h2 id="bug-dialog-title" data-i18n="nav.bug">問題回報</h2>
+        <div class="guide-content">
+            <p data-i18n="bug.body1">這個頁面是 TRPG Toolkit 把原作快照下來、加上繁體中文介面的版本。</p>
+            <p data-i18n-html="bug.body2">只有這個版本才會發生的問題，請到 <a href="https://github.com/tool-jx3/toolkit/issues" target="_blank" rel="noopener noreferrer">TRPG Toolkit 的 repo</a>；工具本身的意見，請找原作者 <a href="https://x.com/bae1577" target="_blank" rel="noopener noreferrer">배고픔</a>。</p>
+        </div>
+    </dialog>
+
+    <dialog class="site-dialog guide-dialog" id="guide-dialog" aria-labelledby="guide-dialog-title">
+        <button class="floating-close" type="button" data-close-dialog data-i18n-aria-label="guide.close" aria-label="關閉使用說明視窗">
+            <i class="bi bi-x" aria-hidden="true"></i>
+        </button>
+        <h2 id="guide-dialog-title" data-i18n="nav.guide">使用說明</h2>
+        <div class="guide-content">
+            <section>
+                <h3 data-i18n="guide.h1">第 1 章　個人資料處理方針</h3>
+                <ol>
+                    <li data-i18n-html="guide.p1">個人資料的蒐集與利用<br>這個工具沒有註冊流程，也不會把使用者的姓名、電子郵件、聯絡方式等任何可識別個人的資料傳送到伺服器或加以蒐集。</li>
+                    <li data-i18n-html="guide.p2">作業資料的儲存<br>你在畫布上編輯中的圖片與設定值，會暫時存在你自己裝置的瀏覽器裡（localStorage 與快取）。清掉瀏覽器快取或使用無痕模式時，作業內容會永久消失；營運方完全無法存取你的作品。</li>
+                </ol>
+            </section>
+            <section>
+                <h3 data-i18n="guide.h2">第 2 章　服務使用條款</h3>
+                <ol>
+                    <li data-i18n-html="guide.p3">資料遺失的免責（責任限制）<br>本服務的所有作業狀態都依賴使用者裝置的本機環境儲存。因更換裝置、清除瀏覽器快取、非預期的錯誤等造成的資料遺失，營運方不負任何責任。完成的或重要的作品，請務必用下載或匯出功能存成檔案備份到自己的裝置上。</li>
+                    <li data-i18n-html="guide.p4">著作權與使用責任<br>用這個工具產出的成品，以及編輯時使用者自行上傳的圖片（包含肖像權、著作權、商標權等），一切法律責任都由使用者本人承擔。因產生侵害他人權利的圖片而衍生的問題，營運方不負責任。</li>
+                    <li data-i18n="guide.p5">條款的變更　本條款與個人資料處理方針可能隨服務更新或法令變更而修訂，內容變更時會在網站下方公告。</li>
+                </ol>
+            </section>
+            <section>
+                <h3 data-i18n="guide.h3">更新紀錄</h3>
+                <ol>
+                    <li data-i18n-html="guide.p6">Ver: 1.0.0（updated 2026.09.21）<br>網站上線。</li>
+                </ol>
+            </section>
+        </div>
+    </dialog>
+
+    <script src="js/script.js"></script>
+</body>
+</html>

@@ -18,6 +18,7 @@
  *   data-i18n-html        → innerHTML（僅限開發者撰寫的標記）
  *   data-i18n-title       → title 屬性
  *   data-i18n-aria-label  → aria-label 屬性
+ *   data-i18n-alt         → alt 屬性
  *   data-i18n-placeholder → placeholder 屬性
  *
  * HTML 內嵌文字以預設語言 zh-TW 撰寫，因此頁面在任何腳本執行前
@@ -105,6 +106,7 @@ const I18N = {
     for (const el of root.querySelectorAll('[data-i18n-title]')) el.title = this.t(el.dataset.i18nTitle);
     for (const el of root.querySelectorAll('[data-i18n-aria-label]')) el.setAttribute('aria-label', this.t(el.dataset.i18nAriaLabel));
     for (const el of root.querySelectorAll('[data-i18n-placeholder]')) el.placeholder = this.t(el.dataset.i18nPlaceholder);
+    for (const el of root.querySelectorAll('[data-i18n-alt]')) el.alt = this.t(el.dataset.i18nAlt);
   },
 
   /* 以該頁可用的語言填滿 <select> 並保持同步。各頁面共用同一套切換邏輯。 */

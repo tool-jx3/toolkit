@@ -1,0 +1,420 @@
+/* 共用 */
+*, *::before, *::after { box-sizing: border-box; }
+:root {
+  --panel: #eef0f3;
+  --ink: #333;
+  --sidebar-width: 240px;
+  --toolbar-width: 74px;
+  --preview-max-width: 1300px; /* 沿用最新的附件值。可改成 1100px */
+}
+html { height: 100%; overflow: hidden; }
+body.editor {
+  margin: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  color: var(--ink);
+  background: #fff;
+  font-family: "Pretendard", sans-serif;
+}
+button, input, textarea, select { font-family: inherit; }
+button { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+a { color: inherit; }
+button:focus-visible, a:focus-visible { outline: 3px solid #476ce4; outline-offset: 3px; }
+[hidden] { display: none !important; }
+
+/* 電腦版：扣掉側邊欄之後的工作區。整份文件不會出現捲軸 */
+.editor-main {
+  height: 100%;
+  min-width: 0;
+  margin-left: calc(var(--sidebar-width) + 60px);
+  margin-right: calc(var(--toolbar-width) + 22px);
+  padding: 0 35px 24px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  transition: margin-left 0.3s ease;
+}
+.editor-header {
+  position: relative;
+  min-width: 0;
+  padding: clamp(12px, 4dvh, 40px) 0 clamp(1px, 3dvh, 10px);
+  text-align: center;
+}
+.editor-tag {
+  display: inline-block;
+  padding: 4px 9px;
+  border: 1px solid #075cff;
+  border-radius: 999px;
+  color: #075cff;
+  background: #fff;
+  font-size: 13px;
+  line-height: 1.2;
+}
+.editor-tag--red { border-color: #ff3030; color: #ff3030; }
+.editor-header h1 {
+  margin: 8px 0 5px;
+  font-size: 24px;
+  line-height: 1.3;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.editor-credit {
+  margin: 0;
+  color: #777;
+  font-size: 10pt; /* 所有畫面一致 */
+  line-height: 1.5;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+#editor-status { margin: 4px 0; font-size: 13px; }
+.compact-back { display: none; }
+.canvas-area {
+  width: 100%;
+  max-width: var(--preview-max-width);
+  min-width: 0;
+  min-height: 0;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+#konva-container {
+  /* 由 JS 在保持原始比例的前提下，算出寬高都放得下的尺寸 */
+  width: 0;
+  height: 0;
+  flex: none;
+  background: transparent;
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  padding: 0;
+  outline: none;
+}
+/* 疊在內側繪製，就不會被父層的 overflow:hidden 切掉，也不會被圖片蓋住。 */
+#konva-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  border: 1px solid #b4b4b4;
+  pointer-events: none;
+}
+.input-panel { display: none; }
+
+/* 左側清單：只有清單內部捲動 */
+.template-sidebar {
+  position: fixed;
+  inset: 15px auto 9px 10px;
+  width: var(--sidebar-width);
+  padding: 20px 15px 20px;
+  border-radius: 11px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(0);
+  transition: transform 0.3s ease, visibility 0.3s;
+}
+.home-link { flex: none; font-size: 20px; font-weight: 700; text-decoration: none; }
+.template-sidebar > p { flex: none; margin: 10px 0 16px; font-size: 14px; line-height: 1.5; }
+#list-status:empty { display: none; }
+#related-templates { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; overscroll-behavior: contain; }
+.related-card {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 1px solid #bbb;
+  border-radius: 10px;
+  background: #fff;
+  text-decoration: none;
+}
+.related-card img { display: block; width: 100%; height: auto; }
+.related-card .missing-image { display: block; padding: 40px 14px; text-align: center; }
+.related-card .template-tag {
+  position: absolute; z-index: 2; top: 12px; left: 12px;
+  max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis;
+  padding: 5px 10px; border: 1px solid #075cff; border-radius: 999px;
+  background: #fff; color: #075cff; font-size: 12px; line-height: 1;
+  white-space: nowrap; pointer-events: none;
+}
+.related-card .template-tag--red { border-color: #ff3030; color: #ff3030; }
+.related-card .template-title {
+  position: absolute; z-index: 1; right: 0; bottom: 0; left: 0;
+  padding: 60px 12px 14px; color: #fff;
+  background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.7));
+  text-align: center; font-size: 15px; font-weight: 400; line-height: 1.4;
+  overflow-wrap: anywhere; pointer-events: none;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.related-card:hover .template-title,
+.related-card:focus-visible .template-title { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .related-card .template-title { transition: none; transform: none; }
+}
+.sidebar-toggle {
+  position: fixed;
+  left: calc(var(--sidebar-width) + 20px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink);
+  line-height: 1;
+  cursor: pointer;
+  transition: left 0.3s ease;
+}
+.sidebar-toggle > i.bi {
+  display: grid; place-items: center;
+  width: 24px; height: 24px; font-size: 24px; line-height: 1;
+}
+.sidebar-toggle > i.bi::before {
+  display: block; line-height: 1; vertical-align: 0;
+  transform: rotate(0deg); transform-origin: center;
+  transition: transform 0.5s ease;
+}
+.sidebar-toggle[aria-expanded="false"] > i.bi::before { transform: rotate(180deg); }
+.editor.sidebar-collapsed .template-sidebar {
+  transform: translateX(calc(-100% - 10px)); visibility: hidden; pointer-events: none;
+}
+.editor.sidebar-collapsed .sidebar-toggle { left: 10px; }
+.editor.sidebar-collapsed .editor-main { margin-left: 50px; }
+
+/* 右側工具 */
+.editor-tools {
+  position: fixed;
+  inset: 15px 11px 9px auto;
+  width: var(--toolbar-width);
+  padding: 24px 0;
+  border-radius: 11px;
+  background: var(--panel);
+}
+.tool-list {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+.tool-button {
+  flex: none;
+  border: 0; padding: 0; background: none; color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-size: 13px; white-space: nowrap;
+}
+.tool-button:disabled { opacity: 1; cursor: not-allowed; }
+.tool-button-base {
+  display: grid; place-items: center; flex: none;
+  width: 48px; height: 48px; border-radius: 50%; background: #333; color: #fff;
+}
+.tool-button-base > .bi, .tools-toggle > .bi {
+  display: grid; place-items: center; font-size: 20px; line-height: 1;
+}
+.tool-button-base > .bi::before, .tools-toggle > .bi::before {
+  display: block; line-height: 1; vertical-align: 0;
+}
+.download-tool { margin-top: auto; }
+.tools-toggle {
+  display: none; place-items: center; flex: none;
+  width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%;
+  background: #333; color: #fff; line-height: 1; cursor: pointer;
+}
+
+/* 輸入區：平板 50%、手機 55% */
+@media (max-width: 1024px) {
+  /* 上游在這裡把整塊側邊欄藏起來。合輯的語言切換器在那塊裡面，見檔尾的覆寫。 */
+  .sidebar-toggle { display: none; }
+  .editor-main, .editor.sidebar-collapsed .editor-main {
+    margin: 0;
+    padding: 0;
+    grid-template-rows: auto minmax(0, 1fr) 50%;
+  }
+  .editor-header { padding: clamp(8px, 2dvh, 24px) 60px 10px; }
+  .compact-back {
+    display: grid; place-items: center;
+    position: absolute; top: 12px; left: 8px;
+    width: 40px; height: 44px;
+    text-decoration: none; font-size: 28px;
+  }
+  .canvas-area { padding: 0 23px 14px; max-width: none; }
+  .input-panel {
+    display: block;
+    min-height: 0;
+    min-width: 0;
+    margin: 0;
+    padding: 16px 104px max(16px, env(safe-area-inset-bottom)) 20px;
+    border-radius: 11px 11px 0 0;
+    background: var(--panel);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .editor-tools {
+    inset: auto 20px max(16px, env(safe-area-inset-bottom)) auto;
+    width: 68px;
+    max-height: none;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .tool-list {
+    flex: none; width: 100%; height: auto; overflow: visible;
+    padding: 12px 8px; gap: 18px;
+    border: 1px solid #d1d4d8; border-radius: 12px;
+    background: var(--panel); box-shadow: 0 0 3px #0002;
+  }
+  .sticker-tool { display: none; }
+  .download-tool { margin-top: 0; }
+  .tools-toggle { display: grid; margin: 0; margin-bottom: 12px; width: 48px; height: 48px; }
+  .editor.tools-collapsed .tool-list { display: none; }
+}
+@media (max-width: 768px) {
+  .editor-main, .editor.sidebar-collapsed .editor-main { grid-template-rows: auto minmax(0, 1fr) 55%; }
+  .editor-header { padding: clamp(6px, 2dvh, 16px) 55px 8px; }
+  .editor-header h1 { font-size: 20px; margin: 6px 0 3px; }
+  .compact-back { top: 8px; }
+  .canvas-area { padding: 0 19px 12px; }
+  .input-panel { padding-left: 16px; padding-right: 88px; }
+  .editor-tools { right: 8px; width: 73px; gap: 10px; }
+  .tool-list { padding: 10px 7px; gap: 14px; border-radius: 10px; }
+  .tool-button { font-size: 10px; gap: 6px; }
+  .tools-toggle { width: 46px; height: 46px; }
+}
+/* 畫面高度不夠時縮小留白與工具按鈕，挪出工作空間 */
+@media (max-height: 560px) {
+  .editor-header { padding-top: 6px; padding-bottom: 6px; }
+  .editor-header h1 { margin-top: 4px; margin-bottom: 2px; font-size: 18px; }
+  .editor-tag { padding: 2px 7px; font-size: 12px; }
+  .tool-list { gap: 10px; }
+  .tool-button-base { width: 34px; height: 34px; }
+  .tool-button { gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .template-sidebar, .sidebar-toggle, .sidebar-toggle > i.bi::before, .editor-main { transition: none; }
+}
+
+/* 淡淡的玻璃面板——濃度與陰影都在這一段調。 */
+:root {
+  /* 玻璃擬態的元素不用單一顏色，改用半透明漸層 */
+  --glass-panel: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(238, 240, 243, 0.4));
+  --glass-edge: rgba(207, 212, 220, .85);
+  --glass-shadow: 0 4px 16px rgba(35, 43, 58, .055);
+  --glass-blur: 10px;
+}
+.template-sidebar,
+.sidebar-toggle {
+  background: var(--glass-panel);
+  /* 內側邊框：維持原本面板的大小與排版 */
+  box-shadow: inset 0 0 0 1px var(--glass-edge),
+              inset 0 1px 0 rgba(255, 255, 255, .75), var(--glass-shadow);
+}
+@media (min-width: 1025px) {
+  .editor-tools {
+    background: var(--glass-panel);
+    box-shadow: inset 0 0 0 1px var(--glass-edge),
+                inset 0 1px 0 rgba(255, 255, 255, .75), var(--glass-shadow);
+  }
+}
+@media (max-width: 1024px) {
+  .input-panel {
+    background: var(--glass-panel);
+    box-shadow: inset 0 1px 0 var(--glass-edge), 0 -3px 14px rgba(35, 43, 58, .045);
+  }
+  .tool-list {
+    /* 手機版 tool-list 的預設填滿設為 70% */
+    background: rgba(238, 240, 243, 0.7);
+    border-color: var(--glass-edge);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), var(--glass-shadow);
+  }
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .template-sidebar {
+      background: var(--glass-panel);
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      backdrop-filter: blur(var(--glass-blur));
+    }
+    .tool-list {
+      /* 手機版 tool-list 套用約 70% 半透明的漸層與模糊 */
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.75), rgba(238, 240, 243, 0.65));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      backdrop-filter: blur(var(--glass-blur));
+    }
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .template-sidebar, .sidebar-toggle { background: #eef0f3; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (min-width: 1025px) and (prefers-reduced-transparency: reduce) {
+  .editor-tools { background: #eef0f3; }
+}
+@media (max-width: 1024px) and (prefers-reduced-transparency: reduce) {
+  .input-panel, .tool-list { background: #eef0f3; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* ---------- TRPG Toolkit 合輯：回首頁與語言切換 ----------
+ * body.editor 是 100vh ＋ overflow:hidden，整頁都靠 position:fixed 排版，
+ * 頂端塞不下一條列，所以放進左側邊欄最上面。 */
+.template-sidebar > .toolkit-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.toolkit-home {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 400;
+  text-decoration: none;
+}
+.toolkit-home:hover { text-decoration: underline; }
+.locale-select {
+  width: auto;
+  min-width: 88px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+/* 平板與手機：上游把整塊側邊欄 display:none，語言切換器也會跟著不見——其餘
+ * 工具在任何寬度都切得了語言，這裡不能是例外。改成只留語言選單，縮成右上角
+ * 一小塊（那個角落是空的，見 .editor-header 的 60px 右內距）。回首頁的連結
+ * 讓位給標題；index.html 上那條還在，← 退回去就看得到。
+ * 這幾條要壓在上面的玻璃擬態與收合位移之上，所以放在檔尾並連 .sidebar-collapsed
+ * 一起列出（那個 class 只有電腦版切得到，但改變視窗寬度時會留下來）。 */
+@media (max-width: 1024px) {
+  .template-sidebar,
+  .editor.sidebar-collapsed .template-sidebar {
+    inset: 8px 10px auto auto;
+    z-index: 30;
+    width: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    transform: none;
+    transition: none;
+    visibility: visible;
+  }
+  .template-sidebar > :not(.toolkit-bar) { display: none; }
+  .template-sidebar > .toolkit-bar { margin: 0; }
+  .template-sidebar .toolkit-home { display: none; }
+}
