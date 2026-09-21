@@ -6,7 +6,8 @@
 [kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 與
 [巡涯学派](https://github.com/organon-torah) 與
 [Wool&Wag](https://github.com/woolwag3338) 與
-[johnko00](https://github.com/johnko00) 製作的 17 個網頁工具，
+[johnko00](https://github.com/johnko00) 與
+[baegop157902](https://github.com/baegop157902) 製作的 18 個網頁工具，
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -30,6 +31,7 @@
 | portrait-size | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `fc05c98` | MIT |
 | height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
+| pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `aad63b1` | **未授權** |
 
 十一個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
 
@@ -153,6 +155,84 @@ Wool&Wag 的兩個工具（`character-image-size`、`character-height-board`）�
 語言不會改；判斷「使用者還沒自己取過名字」時，三種語言的預設名都要算進去，
 見 `isUntouchedProjectName()`。
 
+## pair-maker：不收作品集樣張，卡片圖改由工具自己算繪
+
+上游 `baegop157902/PairMaker` 是一個 Konva 畫布編輯器。五種版型（簡易雙人整理、
+baegop 雙人整理 1、圖樣橫幅、多人資料框、置頂推文產生器）各自是一支 ES module，
+`index.html` 是版型選單，`editor.html?id=<版型>` 才是編輯畫面——這是合輯裡第一個
+有兩頁的工具。
+
+`images/` 底下 33 張圖，工具本身只用到 4 張（`2p-pair1` 的日夜底圖與 `main-tweet`
+的兩張主題底圖，共 512 KB）。其餘 29 張、約 36.5 MB 是首頁卡片用的作品集樣張，
+內容是已經完成的介紹圖，也就是別人的角色插圖；那些不是上游作者的創作，收錄版不
+散布。`favicon/` 與指向原站的 OG／Twitter meta 同樣不收（後者的處理與其餘工具一致）。
+
+卡片圖改成由工具自己算繪：逐一開啟五個版型的空白編輯畫面，把畫布匯出成 PNG
+（共 244 KB，收在 `previews/`）。畫面上看到的就是這個工具的實際輸出，不含任何
+第三方素材。首頁的版型清單原本是 jQuery ＋ justifiedGallery 排成等高的瀑布流；
+卡片圖既然換成尺寸整齊的預覽圖，改用 CSS grid 就夠了，兩個函式庫一併不載入
+（上游的手機版本來就不走 justifiedGallery）。
+
+另外移除兩項與本站無關的東西：
+
+- 兩頁頁尾的 Cloudflare Web Analytics beacon（`static.cloudflareinsights.com`，
+  帶著上游站台的 token）。理由同 `portrait-size` 與 `height-board` 的 GA。
+- 「버그&문의」對話框裡嵌的 Google 表單 iframe。那張表單收到的會是這份收錄版的
+  問題，送達的卻是原作者的信箱。改成一段說明：只有這個版本才會發生的問題請開在
+  本 repo 的 issues，工具本身的意見請找原作者。原作者的署名「배고픔」三種語言都
+  照原樣顯示——那是名字，不是介面文字；`tests/smoke.mjs` 把它列為唯一放行的諺文。
+
+`vendor/` 底下六套函式庫與 Pretendard 原樣保留（與上游一位元組不差），出處與授權
+見 [tools/pair-maker/THIRD_PARTY_NOTICES.md](tools/pair-maker/THIRD_PARTY_NOTICES.md)。
+字型清單依慣例補上五套繁體中文字型（見下節）——上游的清單只有韓／英／日字型，
+中文會掉回系統預設。
+
+### 兩頁共用一份字典，側邊欄的版型名稱要照 key 翻
+
+`editor.html` 的側邊欄要列出「其他版型」，上游的做法是 `fetch("index.html")` 把
+首頁抓回來，再從標記裡讀卡片的圖、標題與標籤。收錄版首頁的內嵌文字是繁體中文，
+照著讀就等於把繁中硬寫進編輯器；因此改讀同一個元素上的 `data-i18n`，拿 key 去翻
+（`translated()`）。切語言時整份清單重建，重建前先 `list.replaceChildren()`，
+否則每切一次就多長一份。
+
+編輯器本體（分頁名稱、欄位標籤、畫布上的預設文字）是版型在建立當下算好的，不會
+自己跟著語言走；切語言時改用 store 的 `'structure'` 事件整個重跑一次——那條路徑
+本來就是給「版型結構變了」用的。重跑前後會把 `dirty` 還原，免得只是換個語言就被
+當成有未儲存的變更。
+
+還有三個只在瀏覽器裡才看得出來的坑：
+
+- 編輯頁的 `<title>` 要等 `index.html` 抓回來才知道是哪個版型，而 i18n 引擎會在
+  DOMContentLoaded 把 `document.title` 換成 `app.title`——兩者會賽跑，`fetch` 早
+  一步完成時標題就被蓋掉。收錄版把標題記在模組變數裡，另外註冊一個
+  DOMContentLoaded 監聽器（註冊得比引擎晚，就一定跑在它後面）補設一次。
+- 兩個收合鈕的 `aria-label` 跟著收合狀態走，因此不掛 `data-i18n-aria-label`——
+  那個掛勾會在切語言時一律寫回標記裡那一種狀態的字。改成依現況重算
+  （`syncToggleLabels()`），開頭與切語言時各跑一次。
+- 首頁五張卡片圖的 `alt` 也要跟著語言走，所以共用引擎補了一個 `data-i18n-alt`
+  掛勾，與既有的 `-title`／`-aria-label`／`-placeholder` 同一套寫法。
+- 平板與手機上，上游把整塊左側邊欄 `display:none`——語言切換器就在那塊裡面，
+  藏起來就沒得切了。收錄版在 1024px 以下把那塊縮成右上角的語言選單，其餘子元素
+  照樣不顯示（回首頁的連結讓位給標題，退回 `index.html` 就看得到）。
+
+### 版型模組的常數會凍在載入當下的語言
+
+ES module 只求值一次，所以版型模組最外層寫成值的常數——署名（`author`）、欄位
+分組（`groups`）、分頁（`tabs`）、字型標籤（`fontLabels`）——會把第一次載入時的
+語言凍進去，切語言時 `'structure'` 事件重跑的是函式，不會重新求值它們。收錄版
+一律改成函式：消費端（`state.js`、`FormScript.js`、`registry.js`）本來就同時吃
+陣列與函式，所以除了署名與字型標籤要在取用處多一個 `typeof` 判斷之外，沒有動到
+別的地方。`tests/smoke.mjs` 會擋下新冒出來的同類常數。
+
+同理，只建立一次、之後只切 `hidden` 的控制項（貼紙的出處欄與圖層鈕、手機的鍵盤
+列、多人資料框畫布上的那組按鈕）不會經過任何重畫的路徑，標籤集中成一個函式並
+掛在 `I18N.onChange` 上重套。
+
+有一類字刻意不跟著語言走：版型 `initialState()` 給的預設內容（「名字」「在這裡
+寫說明。」「#關鍵字」之類畫在圖上的字）。那是使用者的作品內容，不是介面文字——
+一載入就寫進存檔並自動存進 IndexedDB，切個語言就覆寫使用者可能已經改過的字，
+比留著原語言糟得多。這與 `room-zip` 的專案預設名稱是同一個判斷。
+
 ## 需要建置的兩個工具
 
 `cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，
@@ -204,7 +284,7 @@ Wool&Wag 的兩個工具（`character-image-size`、`character-height-board`）�
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
 因此沒有隨附 OFL 全文——與 `cutin` 的其他六套日文字型同樣的處理方式。
-收錄的工具：`cutin`、`status-bar`、`typewriter`、`collage-letter`。
+收錄的工具：`cutin`、`status-bar`、`typewriter`、`collage-letter`、`pair-maker`。
 
 `foreground-frame`、`loading-maker`、`text-path` 沒有網頁字型的載入機制（前兩者
 的字型清單指的是觀看者電腦上已安裝的字型，後者是寫死的單一字型），因此改為：
@@ -219,12 +299,12 @@ Wool&Wag 的兩個工具（`character-image-size`、`character-height-board`）�
 不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
 `tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
 
-## 未授權的六個工具
+## 未授權的七個工具
 
 `sotsotssi/emotion-maker`、`sotsotssi/loading-maker`、
 `kimtaehee2018-maker/ccfolia-cropper`、`sotsotssi/select-your-chara`、
-`organon-torah/ccfoliaCharacterEditor` 與 `johnko00/ccfolia-room-zip-maker-demo`
-皆未附任何授權條款，GitHub 亦未標示授權。
+`organon-torah/ccfoliaCharacterEditor`、`johnko00/ccfolia-room-zip-maker-demo`
+與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
 依著作權法預設，其權利保留予原作者（`emotion-maker` 包含 `images/` 下全部
 39 張手繪素材），此處僅供試用。原作者如有異議，將立即移除。
 
@@ -242,7 +322,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘十六個工具的翻譯與 i18n 改造為本 repo 新增。
+其餘十七個工具的翻譯與 i18n 改造為本 repo 新增。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：
@@ -271,5 +351,5 @@ magic-circle 的繁體中文翻譯移植自
 `assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔，
 以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
 `tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、
-`tools/ccfolia-cropper/`、`tools/character-select/`、`tools/character-editor/`
-與 `tools/room-zip/` 的其餘部分不在此範圍內，見上節。
+`tools/ccfolia-cropper/`、`tools/character-select/`、`tools/character-editor/`、
+`tools/room-zip/` 與 `tools/pair-maker/` 的其餘部分不在此範圍內，見上節。

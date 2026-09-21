@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>介紹圖編輯</title>
+    <script src="../../assets/i18n.js"></script>
+    <script src="./i18n.pair-maker.js"></script>
+    <link rel="stylesheet" href="css/editor.css">
+    <script type="module" src="js/editor.js"></script>
+    <link rel="stylesheet" href="vendor/cropper.min.css">
+    <link rel="stylesheet" href="vendor/monolith.min.css">
+    <link rel="stylesheet" href="css/editing.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Song+Myung&family=Tektur:wght@400;800&family=Lilita+One&family=Iansui&family=Dela+Gothic+One&family=Kaisei+Decol&display=swap">
+    <!-- TRPG Toolkit 合輯：上游的字型清單沒有繁中，補上合輯其餘工具共用的五套。 -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&family=LXGW+WenKai+TC:wght@400;700&family=Chocolate+Classical+Sans&family=Cactus+Classical+Serif&display=swap">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/fonts-archive/AppleSDGothicNeo/AppleSDGothicNeo.css" type="text/css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/fonts-archive/GrandifloraOne/GrandifloraOne.css" type="text/css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/fonts-archive/Cafe24PROUP/Cafe24PROUP.css" type="text/css"/>
+    <link href="https://fonts.cdnfonts.com/css/gofire" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/top-speed" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/orandakan-kana" rel="stylesheet">
+    <link
+      rel="stylesheet"
+      href="vendor/bootstrap-icons.min.css"
+    >
+    <link 
+    rel="stylesheet" 
+    href="vendor/fonts.css">
+
+</head>
+
+<body class="editor tools-collapsed">
+
+
+  <aside class="template-sidebar" id="template-sidebar" data-i18n-aria-label="ed.sidebar.aria" aria-label="其他介紹圖">
+    <div class="toolkit-bar">
+      <a class="toolkit-home" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+      <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+    </div>
+    <a href="index.html" class="home-link">
+      <i class="bi bi-arrow-left-short" aria-hidden="true"></i>
+      <span data-i18n="ed.back">回到主頁</span>
+    </a>
+    <p data-i18n="ed.sidebar.note">也可以做做看其他介紹圖。</p>
+    <nav id="related-templates" data-i18n-aria-label="ed.related.aria" aria-label="其他介紹圖的清單"></nav>
+    <p id="list-status" role="status"></p>
+  </aside>
+  <button class="sidebar-toggle" type="button" aria-controls="template-sidebar"
+    aria-expanded="true" aria-label="收合其他介紹圖的清單">
+    <i class="bi bi-arrow-left-short" aria-hidden="true"></i>
+  </button>
+
+  <main class="editor-main">
+    <header class="editor-header">
+      <a class="compact-back" href="index.html" data-i18n-aria-label="ed.back" aria-label="回到主頁"><i class="bi bi-arrow-left-short" aria-hidden="true"></i></a>
+      <span class="editor-tag" id="editor-tag" hidden></span>
+      <h1 id="editor-title">介紹圖編輯</h1>
+      <p class="editor-credit" id="editor-credit" hidden></p>
+      <p id="editor-status" role="status" hidden></p>
+    </header>
+    <section class="canvas-area" data-i18n-aria-label="ed.canvas.aria" aria-label="編輯預覽">
+      <!-- runtime.js 會把 Konva Stage 接到這個元素上。 -->
+      <div id="konva-container"></div>
+    </section>
+    <!-- FormScript.js 會依畫面大小組出輸入表單。 -->
+    <section class="input-panel" id="editor-inputs" data-i18n-aria-label="ed.inputs.aria" aria-label="編輯輸入區"></section>
+  </main>
+
+  <aside class="editor-tools" data-i18n-aria-label="ed.tools.aria" aria-label="編輯工具">
+    <div class="tool-list" id="tool-list">
+      <button class="tool-button reset-tool" type="button" data-action="reset">
+        <span class="tool-button-base"><i class="bi bi-x" aria-hidden="true"></i></span>
+        <span data-i18n="ed.reset">重設</span>
+      </button>
+      <!-- 各個工具分別由 SaveBtn.js 與 runtime.js 接上。 -->
+      <button class="tool-button" type="button" data-action="slots">
+        <span class="tool-button-base">
+          <i class="bi bi-floppy2-fill" aria-hidden="true"></i>
+        </span>
+        <span data-i18n="ed.slots">存檔槽</span>
+      </button>
+      <button class="tool-button" type="button" data-action="export">
+        <span class="tool-button-base">
+          <i class="bi bi-upload" aria-hidden="true"></i>
+        </span>
+        <span data-i18n="ed.export">匯出</span>
+      </button>
+      <button class="tool-button sticker-tool" type="button" data-action="sticker">
+        <span class="tool-button-base">
+          <i class="bi bi-sticky-fill" aria-hidden="true"></i>
+        </span>
+        <span data-i18n="ed.sticker">加入貼紙</span>
+      </button>
+      <button class="tool-button download-tool" type="button" data-action="download">
+        <span class="tool-button-base">
+          <i class="bi bi-download" aria-hidden="true"></i>
+        </span>
+        <span data-i18n="ed.download">下載</span>
+      </button>
+    </div>
+    <button class="tools-toggle" type="button" aria-label="開啟編輯工具"
+      aria-expanded="false" aria-controls="tool-list"><i class="bi bi-list" aria-hidden="true"></i></button>
+  </aside>
+  <div id="editor-notice" role="status" aria-live="polite"></div>
+  <script src="vendor/konva.min.js"></script>
+  <script src="vendor/cropper.min.js"></script>
+  <script src="vendor/pickr.min.js"></script>
+  <script src="vendor/fflate.min.js"></script>
+  <script type="module" src="js/runtime.js"></script>
+</body>
+</html>

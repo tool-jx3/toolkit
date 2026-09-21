@@ -5,7 +5,8 @@
 [kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 與
 [巡涯学派](https://github.com/organon-torah) 與
 [Wool&Wag](https://github.com/woolwag3338) 與
-[johnko00](https://github.com/johnko00) 製作的 17 個網頁小工具合輯，附繁體中文介面。
+[johnko00](https://github.com/johnko00) 與
+[baegop157902](https://github.com/baegop157902) 製作的 18 個網頁小工具合輯，附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -28,6 +29,7 @@
 | [立繪尺寸統一器](tools/portrait-size/) | 把同一角色的差分立繪裁掉透明邊並統一寬度，切換立繪時棋子圖就不會忽大忽小；也能單張拿來裁邊與轉 WebP |
 | [立繪身高比較板](tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
 | [房間 ZIP 產生器](tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；工作進度可存成 .ccproj 檔 |
+| [角色介紹圖產生器](tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；可存到存檔槽或匯出成編輯檔 |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -46,7 +48,7 @@ npm run serve
 
 ### 重新建置 cutin 與 character-editor
 
-十六個工具裡有兩個的上游是 React + TypeScript 專案，沒辦法直接放進 `tools/`
+十八個工具裡有兩個的上游是 React + TypeScript 專案，沒辦法直接放進 `tools/`
 裡執行。原始碼收在 `vendor/` 底下，建置產物（已提交進 repo）輸出到各自的
 `tools/` 目錄。改動原始碼後要重新建置：
 
@@ -91,9 +93,10 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的七個工具與
-`ccfolia-cropper` 為韓文，shiki365 的四個工具、`cutin`、`character-editor` 與
-`portrait-size` 與 `height-board` 為日文。
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的七個工具、
+`ccfolia-cropper` 與 `pair-maker` 為韓文，shiki365 的四個工具、`cutin`、
+`character-editor`、`portrait-size` 與 `height-board` 為日文；`room-zip`
+原文為日文，另外附了一份韓文。
 
 `status-bar`、`chat-window` 與 `foreground-frame` 的字型欄可以改填「以名稱指定」，
 使用觀看者電腦上已安裝的字型。Chrome／Edge 還能用「從清單選」開出一份附樣張的清單
@@ -128,6 +131,7 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 `index.html`、`tests/`、各 `i18n.*.js` 字典，以及 emotion-maker 的資產路徑改造。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
-**注意**：`emotion-maker`、`loading-maker`、`ccfolia-cropper` 與 `character-select`
-的原始 repo 皆未附任何授權條款，其權利（`emotion-maker` 含全部圖像素材）屬原作者所有，
+**注意**：`emotion-maker`、`loading-maker`、`ccfolia-cropper`、`character-select`、
+`character-editor`、`room-zip` 與 `pair-maker` 的原始 repo 皆未附任何授權條款，
+其權利（`emotion-maker` 含全部圖像素材）屬原作者所有，
 不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。
