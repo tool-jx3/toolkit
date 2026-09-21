@@ -5,7 +5,8 @@
 [Taku_Taku_Taku](https://github.com/Taku-Taku-Taku) 與
 [kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 與
 [巡涯学派](https://github.com/organon-torah) 與
-[Wool&Wag](https://github.com/woolwag3338) 製作的 16 個網頁工具，
+[Wool&Wag](https://github.com/woolwag3338) 與
+[johnko00](https://github.com/johnko00) 製作的 17 個網頁工具，
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -28,10 +29,12 @@
 | chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `9459aa7` | MIT |
 | portrait-size | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `fc05c98` | MIT |
 | height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
+| room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
 
 十一個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
 
-shiki365 的四個工具、`cutin`、`portrait-size` 與 `height-board` 原文為日文，收錄時另有以下調整：
+shiki365 的四個工具、`cutin`、`portrait-size`、`height-board` 與 `room-zip` 原文為日文，
+收錄時另有以下調整：
 
 - `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
   `docs/` 底下的瀏覽器版（合輯只收純靜態、免安裝的網頁工具）。
@@ -80,6 +83,75 @@ Wool&Wag 的兩個工具（`character-image-size`、`character-height-board`）�
 `致命的失敗`、`Secret dice 🎲`）是 BCDice 與 CCFOLIA 的實際輸出，也不翻；
 但角色名與聊天內容是作者自己編的示範資料，照常翻成繁體中文。
 `tests/smoke.mjs` 把這批該留的日文釘成一份清單，三個方向互相箝制。
+
+## room-zip：拆掉上游的 Web DEMO 外層
+
+上游 `johnko00/ccfolia-room-zip-maker-demo` 只有一次提交、兩個檔案：868 KB 的單一
+`index.html` 與 48 KB 的 `sample.ccproj`。名字裡的 DEMO 不是功能閹割版：
+
+- `index.html` 開頭的 `window.__CCFOLIA_BUILD__ = { variant: "demo", … }` 只影響
+  儲存空間的命名空間。`variant === "demo"` 全檔用在兩處（`scopedStorageKey()` 與
+  `favDb()`），作用是把 localStorage 的鍵前綴與 IndexedDB 的資料庫名換掉，
+  **沒有任何功能被鎖住**。
+- 檔尾 L11578–11839 是一段獨立的 IIFE，開頭寫著
+  `/* Web公開用デモ。通常ビルドには同封しない。 */`，並以
+  `if (BUILD.variant !== "demo") return` 自我關閉。它只加東西：頂端的 DEMO 橫幅、
+  開場卡、逐步導覽與「最初に戻す」。
+- 但那段的最後一行是無條件執行的 `loadSample()`：每次開啟頁面都會抓
+  `sample.ccproj` 呼叫 `loadProject()`，而 `loadProject()` 會整包覆寫
+  `state.project` / `settings` / `room` / `images` / `scenes`。也就是說做到一半
+  重新整理，全部會被範例房間蓋掉——這才是 DEMO 版不能當工具用的原因。
+
+所以收錄版就是作者自己說的「通常ビルド」：刪掉那段 IIFE，連同 `variant: "demo"`
+的設定一起拿掉（`storagePrefix` 與 `samplePath` 上游其實沒用到，`scopedStorageKey()`
+是寫死字串的）。除此之外沒有動任何功能。
+
+`sample.ccproj` 照抄保留，但改成製作首頁上的一顆「🎁 載入範例房間」——要看範例才
+載入，而且手上已經有東西時會先問一次。範例檔裡的專案名是
+「ココフォリアZIPメーカー DEMO」，載入後會改成字典裡的「範例房間」：這份收錄版
+已經不是 DEMO 了，留著那個名字只會誤導。範例的素材與場景名維持日文原文不動。
+
+依慣例，`<style>` 與五個 `<script>` 區塊抽成獨立檔案：`styles.css`、
+`jszip.min.js`、`upng.js`（兩套第三方函式庫原樣保留，見
+[tools/room-zip/THIRD_PARTY_NOTICES.md](tools/room-zip/THIRD_PARTY_NOTICES.md)）、
+`apng.v1.js`、`core.v1.js`、`app.v1.js`。檔尾兩塊寫在 `</html>` 之後的
+`<style id="v492-room-fixes*">` 也併進 `styles.css`，順序照舊（後面的要壓在前面上）。
+
+### 刻意留著日文的部分
+
+`i18n.room-zip.js` 有 1,400 個 key，但有幾類字串刻意不進字典——它們是資料，不是
+介面文字：
+
+- **素材標籤（`ROLES`）的七個值**「前景 / 立ち絵 / パネル / 枠 / 駒アイコン /
+  演出 / その他」與舊檔用的「背景」。這些值會寫進 localStorage 的存檔、`.ccproj`
+  以及匯出的房間，程式本身也拿它們互相比對；翻掉就等於換了一套檔案格式。
+  收錄版加了一個 `roleName()`，只在要顯示給人看的時候才翻。
+- **`KPDEF` 的聊天面板預設內容**（`main` / `scene` / `memo`）。那是混著 BCDice
+  指令的面板範本（`:ラウンド+1`、`choice 表 裏`、`sCCB<= 【探索者の心理学】`
+  之類），使用者拿到之後本來就會自己改；同一份東西裡指令與說明文字交錯，
+  逐句拆開翻譯的風險大於效益。同一個物件裡的 `skillLabel` / `dodgeLabel`
+  是輸入欄標籤，改成存 key、顯示時才翻。
+- **外部搜尋網址與其中的 `{検索ワード}`**。那是 URL 裡的佔位記號，使用者可以在
+  工具設定裡自己編輯網址；記號翻掉就接不起來。工具設定裡解說這個記號的那句話，
+  也照樣顯示 `検索ワード`，不然講的就不是同一個東西了。網站名稱只有
+  「Google 画像」與「ココフォリア素材」有翻，`いらすとや`、`写真AC`、`ぱくたそ`
+  是站名本身，維持原文。
+
+`tests/smoke.mjs` 把這幾類列成清單逐一檢查，避免哪天被順手「翻乾淨」。
+
+### 切換語言時才看得出來的三個坑
+
+這個工具幾乎整個畫面都是 `render()` 重畫出來的，所以語言切換只要重畫一次就好。
+但有六個常數是在 IIFE 最外層就算好的，裡面含 `T()`，於是整份凍在第一次載入的
+語言：`MENU_GROUPS`（左側選單）、`KEY_GROUPS`（快速鍵一覽）、`FSIZES`（盤面尺寸
+預設）、`IMAGE_MAKER_FONT_PRESETS`（字型分類）、`EXSITES`（搜尋網站）與 `KPDEF`。
+收錄版把前五個改成函式、`KPDEF` 的兩個標籤改成存 key。`EXSITES` 只影響第一次
+的預設值——它會寫進工具設定並由使用者自行編輯，之後就不再跟著語言走，這與
+專案名稱一樣，屬於使用者資料。
+
+另外兩件事同理：專案的預設名稱（「我的房間」）會隨建立時的語言存下來，之後切換
+語言不會改；判斷「使用者還沒自己取過名字」時，三種語言的預設名都要算進去，
+見 `isUntouchedProjectName()`。
 
 ## 需要建置的兩個工具
 
@@ -147,16 +219,17 @@ Wool&Wag 的兩個工具（`character-image-size`、`character-height-board`）�
 不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
 `tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
 
-## 未授權的五個工具
+## 未授權的六個工具
 
 `sotsotssi/emotion-maker`、`sotsotssi/loading-maker`、
-`kimtaehee2018-maker/ccfolia-cropper`、`sotsotssi/select-your-chara` 與
-`organon-torah/ccfoliaCharacterEditor` 皆未附任何授權條款，GitHub 亦未標示授權。
+`kimtaehee2018-maker/ccfolia-cropper`、`sotsotssi/select-your-chara`、
+`organon-torah/ccfoliaCharacterEditor` 與 `johnko00/ccfolia-room-zip-maker-demo`
+皆未附任何授權條款，GitHub 亦未標示授權。
 依著作權法預設，其權利保留予原作者（`emotion-maker` 包含 `images/` 下全部
 39 張手繪素材），此處僅供試用。原作者如有異議，將立即移除。
 
-`character-select` 的上游建立於收錄前一天，只有一次提交，往後很可能還會變動；
-此處的快照固定在 `883f48b`，不與上游同步。
+`character-select` 與 `room-zip` 的上游都是收錄前一兩天才建立、只有一次提交，
+往後很可能還會變動；此處的快照分別固定在 `883f48b` 與 `a9a522c`，不與上游同步。
 
 `loading-maker` 以 CDN 載入 pako 0.2.9（MIT，Copyright (C) 2014-2016 by
 Vitaly Puzrin）作為 APNG 壓縮／解壓縮之用，其出處與授權見
@@ -169,7 +242,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘十五個工具的翻譯與 i18n 改造為本 repo 新增。
+其餘十六個工具的翻譯與 i18n 改造為本 repo 新增。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：
@@ -188,11 +261,15 @@ magic-circle 的繁體中文翻譯移植自
   再掃一次，程式碼與標記裡只要出現假名就會被擋下。`styles.css` 裡的
   `HG丸ｺﾞｼｯｸM-PRO` 是 Windows 的字型名稱，屬於要原樣寫給瀏覽器看的識別字，
   另外列為例外並檢查它還在。
+- `tools/room-zip/`——同樣的理由，而且量更大：app.v1.js 一萬多行裡有 156 行
+  註解是日文。同樣用 `stripComments` 的規則把關，另外列出一份「刻意留著的資料」
+  清單（素材標籤的值、`{検索ワード}`、KPDEF 的聊天面板預設內容、CSV 標題列的
+  辨識字、CCFOLIA 的三個預設頻道名），清單以外的日文一律擋下。
 
 ## 本 repo 新增的部分
 
 `assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔，
 以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
 `tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、
-`tools/ccfolia-cropper/`、`tools/character-select/` 與 `tools/character-editor/`
-的其餘部分不在此範圍內，見上節。
+`tools/ccfolia-cropper/`、`tools/character-select/`、`tools/character-editor/`
+與 `tools/room-zip/` 的其餘部分不在此範圍內，見上節。

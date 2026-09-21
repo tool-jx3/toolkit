@@ -4,7 +4,8 @@
 [Taku_Taku_Taku](https://github.com/Taku-Taku-Taku) 與
 [kimtaehee2018-maker](https://github.com/kimtaehee2018-maker) 與
 [巡涯学派](https://github.com/organon-torah) 與
-[Wool&Wag](https://github.com/woolwag3338) 製作的 16 個網頁小工具合輯，附繁體中文介面。
+[Wool&Wag](https://github.com/woolwag3338) 與
+[johnko00](https://github.com/johnko00) 製作的 17 個網頁小工具合輯，附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -26,6 +27,7 @@
 | [聊天視窗產生器](tools/chat-window/) | 做出自訂 CSS，把 CCFOLIA 的骰子結果與秘匿聊天以喜歡的樣式顯示在 OBS 上，可在預覽中一邊送訊息一邊調整 |
 | [立繪尺寸統一器](tools/portrait-size/) | 把同一角色的差分立繪裁掉透明邊並統一寬度，切換立繪時棋子圖就不會忽大忽小；也能單張拿來裁邊與轉 WebP |
 | [立繪身高比較板](tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
+| [房間 ZIP 產生器](tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；工作進度可存成 .ccproj 檔 |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 

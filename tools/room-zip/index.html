@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CCFOLIA 房間 ZIP 產生器</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body class="right-open right-pinned">
+
+<div class="toolkit-bar">
+  <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+  <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+</div>
+
+<header>
+  <div class="brand" data-i18n-node="hdr.brand">CCFOLIA 房間 ZIP 產生器<small data-i18n="hdr.brand.sub">放入圖片、按下按鈕，就會產生可匯入的 ZIP</small></div>
+  <span id="projTitle"></span>
+  <div class="spacer"></div>
+  <span id="summary"></span>
+  <button class="hbtn themequick" id="themeQuick" title="切換顯示配色">🌙</button>
+  <button class="hbtn" id="undoBtn" data-i18n="hdr.undo" data-i18n-title="hdr.undo.title" data-i18n-aria-label="hdr.undo.title" aria-label="復原上一步（⌘Z）" title="復原上一步（⌘Z）" disabled>↶ 復原</button>
+  <button class="hbtn" id="redoBtn" data-i18n="hdr.redo" data-i18n-title="hdr.redo.title" data-i18n-aria-label="hdr.redo.title" aria-label="重做（⌘⇧Z / Ctrl+Y）" title="重做（⌘⇧Z / Ctrl+Y）" disabled>↷ 重做</button>
+  <button class="hbtn" id="hSave" data-i18n="hdr.save" data-i18n-title="hdr.save.title" data-i18n-aria-label="hdr.save.title" aria-label="覆蓋存回同一個檔案（⌘S）" title="覆蓋存回同一個檔案（⌘S）">💾 儲存</button>
+  <button class="hbtn" id="hSaveAs" data-i18n="hdr.saveAs" data-i18n-title="hdr.saveAs.title" data-i18n-aria-label="hdr.saveAs.title" aria-label="用別的名稱儲存（⌘⇧S）" title="用別的名稱儲存（⌘⇧S）">📝 另存新檔</button>
+  <label class="hbtn" data-i18n-node="hdr.load" data-i18n-title="hdr.load.title" data-i18n-aria-label="hdr.load.title" aria-label="讀取存檔" title="讀取存檔">📂 讀取<input type="file" id="hLoad" accept=".ccproj,.json" hidden></label>
+  <button id="export" data-i18n="hdr.export">匯出房間 ZIP</button>
+</header>
+
+<div class="shell">
+  <nav id="side"></nav>
+  <div id="sideHoverTip" role="tooltip"></div>
+  <main id="main"></main>
+  <aside id="right">
+    <div class="rgrip" id="rgrip"></div>
+    <div class="rhead">
+      <button class="rtab" data-rtab="media" data-i18n="right.tab.media">素材</button>
+      <button class="rtab" data-rtab="preview" data-i18n="right.tab.preview">預覽</button>
+      <div class="spacer"></div>
+      <button class="ricon" id="rpin" data-i18n-title="right.pin" data-i18n-aria-label="right.pin" aria-label="釘選（一直顯示）" title="釘選（一直顯示）">📌</button>
+      <button class="ricon" id="rclose" data-i18n-title="right.close" data-i18n-aria-label="right.close" aria-label="關閉" title="關閉">✕</button>
+    </div>
+    <div id="rbody"></div>
+  </aside>
+  <button id="ropen" data-i18n="right.open">面板</button>
+</div>
+
+<div id="bottom">
+  <div class="bhead">
+    <button id="btoggle">▴ 備忘與待辦</button>
+    <span id="bsum"></span>
+  </div>
+  <div class="bbody">
+    <div class="bcol">
+      <h3 data-i18n="bottom.memo">整體備忘</h3>
+      <textarea id="gmemo" data-i18n-placeholder="bottom.memo.ph" placeholder="這個房間的整體筆記，會自動儲存"></textarea>
+    </div>
+    <div class="bcol">
+      <h3 data-i18n="bottom.todo">待辦事項</h3>
+      <ul id="tasklist"></ul>
+      <input id="newtask" data-i18n-placeholder="bottom.todo.ph" placeholder="輸入待辦事項後按 Enter">
+    </div>
+  </div>
+</div>
+
+<div id="picker" class="modal">
+  <div class="sheet">
+    <div class="head">
+      <b data-i18n="picker.title">選擇圖片</b>
+      <input id="pfilter" data-i18n-placeholder="picker.filter" placeholder="以名稱或種類篩選">
+      <label class="btn pri" data-i18n-node="picker.upload">＋ 載入圖片<input type="file" id="pupload" accept="image/*" multiple hidden></label>
+      <button class="x" id="pclose" data-i18n="picker.close">關閉</button>
+    </div>
+    <div id="pgrid"></div>
+  </div>
+</div>
+<div id="modal2" class="modal">
+  <div class="sheet">
+    <div class="head">
+      <b id="m2title">追加功能</b>
+      <div class="spacer"></div>
+      <button class="x" id="m2close" data-i18n="modal.close">關閉</button>
+    </div>
+    <div id="m2body" style="overflow:auto"></div>
+  </div>
+</div>
+<div id="busy" role="status" aria-live="polite"><div class="busybox"><div class="busyspin"></div><div id="busyText">處理中…</div><div id="busySub">請稍候</div><div class="busytrack"><i id="busyBar"></i></div></div></div>
+<div id="toast" class="toast"></div>
+
+<script src="./jszip.min.js"></script>
+<script src="./upng.js"></script>
+<script src="../../assets/i18n.js"></script>
+<script src="./i18n.room-zip.js"></script>
+<script src="./apng.v1.js"></script>
+<script src="./core.v1.js"></script>
+<script src="./app.v1.js"></script>
+</body>
+</html>
