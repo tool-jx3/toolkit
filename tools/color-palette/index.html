@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>角色配色條產生器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./styles.css">
+    <script defer src="../../assets/i18n.js"></script>
+    <script defer src="./i18n.color-palette.js"></script>
+    <script defer src="./app.js"></script>
+</head>
+<body class="bg-gray-100 h-screen flex overflow-hidden font-sans text-gray-800">
+
+    <!-- 左：控制面板 -->
+    <div class="w-96 bg-white border-r border-gray-200 flex flex-col h-full shadow-lg z-20 shrink-0">
+        <div class="toolkit-bar">
+            <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+            <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+        </div>
+        <div class="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center shrink-0">
+            <h1 class="text-lg font-bold text-gray-700" data-i18n-node="app.title">角色配色條產生器 <a href="https://x.com/bb_uu_t" target="_blank" class="text-blue-500 hover:text-blue-700"> @bb_uu_t</a></h1>
+            <div class="flex gap-2">
+                <button onclick="downloadPNG(true)" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded hover:bg-indigo-700 transition" data-i18n-title="save.crop.title" title="只留配色條周圍的留白，裁掉其餘再存。">
+                    <span data-i18n="save.crop">裁邊儲存</span>
+                </button>
+                <button onclick="downloadPNG(false)" class="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700 transition" data-i18n-title="save.full.title" title="連整個畫布範圍一起存。">
+                    <span data-i18n="save.full">整張儲存</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-6">
+            
+            <!-- 全域設定 -->
+            <section class="space-y-4">
+                <h2 class="text-md font-semibold border-b pb-2 text-gray-700" data-i18n="design.heading">樣式設定</h2>
+                
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <label class="block text-gray-600 mb-1" data-i18n="design.bg">背景色</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" id="bgColor" class="w-8 h-8 rounded cursor-pointer border border-gray-300">
+                            <input type="text" id="bgColorHex" class="w-full border border-gray-300 rounded px-2 py-1 text-xs uppercase" readonly>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-gray-600 mb-1" data-i18n="design.thickness">線條粗細（px）</label>
+                        <input type="number" id="thickness" min="1" max="100" class="w-full border border-gray-300 rounded px-2 py-1">
+                    </div>
+                    <div>
+                        <label class="block text-gray-600 mb-1" data-i18n-title="design.base.title" title="其他線條的長度都由這個基準長度換算。" data-i18n="design.base">基準長度（px）</label>
+                        <input type="number" id="baseLength" min="10" max="4000" class="w-full border border-gray-300 rounded px-2 py-1">
+                    </div>
+                    <div>
+                        <label class="block text-gray-600 mb-1" data-i18n-title="design.scale.title" title="對應基準長度的倍率（例如基準身高 160）" data-i18n="design.scale">基準倍率</label>
+                        <input type="number" id="baseRatio" min="1" step="0.1" class="w-full border border-gray-300 rounded px-2 py-1">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 畫布尺寸與留白 -->
+            <section class="space-y-3 bg-gray-50 p-3 rounded border border-gray-200">
+                <div class="flex justify-between items-center mb-1">
+                    <h2 class="text-sm font-semibold text-gray-700" data-i18n="size.heading">畫布尺寸與留白</h2>
+                    <label class="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
+                        <input type="checkbox" id="autoSizeToggle" class="rounded border-gray-300">
+                        <span data-i18n="size.auto">自動調整</span>
+                    </label>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-2 text-sm" id="manualSizeFields">
+                    <div>
+                        <label class="block text-gray-600 mb-1 text-xs" data-i18n="size.width">寬（px）</label>
+                        <input type="number" id="canvasW" min="100" max="5000" class="w-full border border-gray-300 rounded px-2 py-1">
+                    </div>
+                    <div>
+                        <label class="block text-gray-600 mb-1 text-xs" data-i18n="size.height">高（px）</label>
+                        <input type="number" id="canvasH" min="100" max="5000" class="w-full border border-gray-300 rounded px-2 py-1">
+                    </div>
+                    <div>
+                        <label class="block text-gray-600 mb-1 text-xs" data-i18n-title="size.pad.title" title="自動調整尺寸與裁邊時，周圍要留的空白" data-i18n="size.pad">留白（px）</label>
+                        <input type="number" id="cropPadding" min="0" max="500" class="w-full border border-gray-300 rounded px-2 py-1">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 角色清單 -->
+            <section>
+                <div class="flex justify-between items-center border-b pb-2 mb-4">
+                    <h2 class="text-md font-semibold text-gray-700"><span data-i18n="char.heading">角色線條</span>（<span id="charCount">0</span>/24）</h2>
+                    <div class="flex items-center gap-2">
+                        <!-- 直接在畫布上調整的開關 -->
+                        <label class="flex items-center gap-1 text-xs text-blue-700 font-bold bg-blue-50 px-2 py-1 rounded cursor-pointer border border-blue-200 shadow-sm">
+                            <input type="checkbox" id="canvasEditToggle" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span data-i18n="char.editMode">在畫布上調分段</span>
+                        </label>
+                        <button id="addCharBtn" class="text-sm px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded font-medium transition">
+                            <span data-i18n="char.add">＋ 加一條</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="characterList" class="space-y-4">
+                    <!-- 角色項目由程式動態加入 -->
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- 右：畫布視區（預覽與捲動範圍） -->
+    <div class="flex-1 flex flex-col relative bg-gray-200 overflow-hidden">
+        <!-- 上方工具列 -->
+        <div class="absolute top-4 right-4 bg-white/90 backdrop-blur shadow-md rounded-lg p-3 z-30 flex items-center gap-4 border border-gray-200">
+            <span class="text-sm font-medium text-gray-600" data-i18n="view.zoom">預覽倍率</span>
+            <input type="range" id="zoomSlider" min="0.1" max="3" step="0.05" class="w-32 cursor-pointer">
+            <span id="zoomValue" class="text-sm font-mono text-gray-600 w-12 text-right">100%</span>
+        </div>
+
+        <!-- 可捲動的畫布容器 -->
+        <div class="flex-1 overflow-auto canvas-bg-pattern p-10 flex" id="scrollContainer">
+            <div class="bg-white shadow-2xl relative transition-shadow shrink-0 m-auto" id="canvasWrapper">
+                <!-- 真正的畫布 -->
+                <canvas id="mainCanvas" class="block w-full h-full object-contain"></canvas>
+                <!-- 供直接拖曳修改的覆蓋層 -->
+                <div id="canvasEditOverlay" class="absolute inset-0 z-20 pointer-events-none hidden overflow-hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 從圖片取色的對話框 -->
+    <div id="imageModal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-[800px] max-h-[95vh] h-full max-w-full flex flex-col">
+            
+            <div class="p-5 border-b border-gray-200 flex justify-between items-center shrink-0">
+                <div class="flex gap-6 text-lg font-bold" id="modalTabs">
+                    <button onclick="switchTab('manual')" id="tabManual" class="pb-1 border-b-2 border-blue-600 text-blue-600 transition" data-i18n="tab.manual">手動滴管</button>
+                    <button onclick="switchTab('auto')" id="tabAuto" class="pb-1 border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition" data-i18n="tab.auto">自動取色</button>
+                </div>
+                <button onclick="closeImageModal()" class="text-gray-400 hover:text-gray-700 text-2xl font-bold leading-none">×</button>
+            </div>
+            
+            <div class="p-5 flex flex-col shrink-0 bg-gray-50 border-b border-gray-200">
+                <input type="file" id="imageInput" accept="image/*" class="mb-4 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer">
+                
+                <div class="flex flex-wrap gap-4 items-end text-sm">
+                    <div>
+                        <label class="block text-gray-600 mb-1 font-semibold" data-i18n="ext.count">取色段數／顏色數</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="extractSegments" value="5" min="1" max="20" class="w-24 border border-gray-300 rounded px-2 py-1">
+                            <button onclick="initSegmentLines()" class="px-3 py-1 bg-gray-200 text-xs rounded hover:bg-gray-300 transition shadow-sm" data-i18n="ext.reset">重設分段與選取</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 只有自動模式用得到的選項 -->
+                    <div id="autoOptions" class="hidden">
+                        <label class="block text-gray-600 mb-1" data-i18n-title="ext.tol.title" title="數字越大，越會把相近的顏色併在一起算。" data-i18n="ext.tol">誤差容許度（1～50）</label>
+                        <input type="number" id="extractTolerance" value="20" min="1" max="50" class="w-24 border border-gray-300 rounded px-2 py-1">
+                    </div>
+
+                    <!-- 只有手動模式用得到的狀態列 -->
+                    <div id="manualOptions" class="flex-1 pl-4 border-l border-gray-300 flex flex-col justify-end">
+                        <div class="mb-1" id="manualStatusText">點一下圖片就能取色。</div>
+                        <div id="colorSwatches" class="flex gap-1">
+                            <!-- 滴管取到的顏色格 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 包住可捲動、可縮放的圖片區 -->
+            <div class="flex-1 relative flex flex-col overflow-hidden min-h-[300px]">
+                
+                <!-- 縮放控制 -->
+                <div class="absolute top-4 right-4 bg-white/90 backdrop-blur rounded shadow p-2 flex items-center gap-2 z-20 border border-gray-300">
+                    <span class="text-xs font-semibold text-gray-600" data-i18n="ext.zoom">預覽放大</span>
+                    <input type="range" id="modalZoomSlider" min="0.2" max="5" step="0.1" value="1" class="w-24 cursor-pointer">
+                </div>
+
+                <!-- 圖片的捲動範圍 -->
+                <div class="flex-1 bg-gray-200 overflow-auto p-4 flex relative" id="imageModalScroll">
+                    
+                    <!-- 圖片容器 -->
+                    <div id="imageOverlayContainer" class="relative hidden bg-white shadow-lg transition-all origin-top-left shrink-0 m-auto">
+                        <img id="modalPreviewImg" class="block w-full h-full pointer-events-none select-none">
+                        <canvas id="hiddenImageCanvas" class="hidden"></canvas>
+                        <!-- 拖曳把手 -->
+                        <div id="handleContainer" class="absolute inset-0 z-10 pointer-events-none"></div>
+                    </div>
+                    
+                    <span id="imagePlaceholder" class="text-gray-400 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-medium pointer-events-none" data-i18n="ext.placeholder">請先載入圖片檔。</span>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-gray-200 flex justify-end gap-2 shrink-0 bg-gray-50 rounded-b-xl">
+                <button onclick="closeImageModal()" class="px-5 py-2 bg-white border border-gray-300 text-gray-700 font-medium rounded shadow-sm hover:bg-gray-100 transition" data-i18n="ext.cancel">取消</button>
+                <button onclick="applyExtraction()" class="px-5 py-2 bg-blue-600 text-white font-medium rounded shadow-sm hover:bg-blue-700 transition" data-i18n="ext.apply">套用取色</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 邏輯在 app.js，已在 head 以 defer 載入（字典之後）。 -->
+</body>
+</html>

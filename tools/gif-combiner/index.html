@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIF 接合器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <link rel="stylesheet" href="./styles.css">
+    <script defer src="../../assets/i18n.js"></script>
+    <script defer src="./i18n.gif-combiner.js"></script>
+    <script type="module" src="./app.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen p-6 font-sans">
+    <div class="max-w-7xl mx-auto w-full flex justify-between items-center mb-2">
+        <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+        <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+    </div>
+
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden flex flex-col md:flex-row">
+        
+        <!-- 左：設定面板 -->
+        <div class="w-full md:w-80 bg-gray-100 p-6 flex flex-col gap-6 border-r border-gray-200 overflow-y-auto">
+            <div>
+                <h1 class="text-xl font-bold text-gray-900 mb-1" data-i18n-node="app.title">GIF 接合器
+                    <a href="https://x.com/bb_uu_t" target="_blank" class="text-sm text-blue-500 hover:text-blue-700">@bb_uu_t</a>
+                </h1>
+                <p class="text-sm text-gray-600" data-i18n="app.tagline">把多張 GIF 的影格對齊時間軸，合成一張。</p>
+            </div>
+
+            <!-- 檔案上傳 -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700" data-i18n="file.add">加入 GIF</label>
+                <div class="flex items-center justify-center w-full">
+                    <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <p class="text-sm text-gray-500"><span class="font-semibold" data-i18n="file.pick">點一下選檔案</span></p>
+                        </div>
+                        <input type="file" id="fileInput" accept="image/gif" multiple class="hidden" />
+                    </label>
+                </div>
+            </div>
+
+            <!-- 已上傳的檔案清單（排序與刪除） -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-end">
+                    <label class="block text-sm font-medium text-gray-700" data-i18n="file.list">檔案清單</label>
+                    <span class="text-xs text-gray-400" data-i18n="file.reorder">可調順序與刪除</span>
+                </div>
+                <ul id="fileList" class="space-y-1 max-h-32 overflow-y-auto border border-gray-200 rounded p-2 bg-white empty:hidden">
+                    <!-- 由程式加入 -->
+                </ul>
+            </div>
+
+            <!-- 畫面設定 -->
+            <div class="space-y-3">
+                <h3 class="text-sm font-medium text-gray-700 border-b pb-1" data-i18n="canvas.heading">畫面尺寸（px）</h3>
+                <div class="flex gap-2">
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500" data-i18n="canvas.width">寬（Width）</label>
+                        <input type="number" id="canvasWidth" value="800" class="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500" data-i18n="canvas.height">高（Height）</label>
+                        <input type="number" id="canvasHeight" value="600" class="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 格線排列設定 -->
+            <div class="space-y-3">
+                <h3 class="text-sm font-medium text-gray-700 border-b pb-1" data-i18n="grid.heading">格線自動排列</h3>
+                <div class="flex gap-2 items-end">
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500" data-i18n="grid.cols">橫向格數</label>
+                        <input type="number" id="gridCols" value="3" min="1" class="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500" data-i18n="grid.rows">縱向格數</label>
+                        <input type="number" id="gridRows" value="2" min="1" class="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    </div>
+                    <button id="applyGridBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium py-2 px-3 rounded transition-colors" data-i18n-title="grid.apply.title" title="依現在的畫面尺寸排列">
+                        <span data-i18n="grid.apply">排列</span>
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <button id="autoFitBtn" class="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-sm font-medium py-2 px-2 rounded transition-colors" data-i18n-title="grid.ratio.title" title="維持原比例塞進格子">
+                        <span data-i18n="grid.ratio">1:1 比例</span>
+                    </button>
+                    <button id="tightFitBtn" class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-sm font-medium py-2 px-2 rounded transition-colors" data-i18n-title="grid.tight.title" title="以第一張圖為準，不留邊填滿">
+                        <span data-i18n="grid.tight">去掉留白</span>
+                    </button>
+                </div>
+                <p class="text-xs text-gray-400" data-i18n="grid.note">排列時不會把比例壓扁。</p>
+            </div>
+
+            <!-- 合成設定 -->
+            <div class="space-y-3">
+                <h3 class="text-sm font-medium text-gray-700 border-b pb-1" data-i18n="out.heading">合成設定</h3>
+                
+                <div class="flex gap-2">
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500" data-i18n="out.scale">輸出倍率（%）</label>
+                        <input type="number" id="outputScale" value="100" min="10" max="200" class="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500" data-i18n="out.fps">輸出影格率</label>
+                        <input type="number" id="outputFps" value="20" class="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 mt-1" data-i18n="out.note">倍率調小有助於縮減檔案大小。</p>
+
+                <div>
+                    <label class="block text-xs text-gray-500" data-i18n="out.duration">總播放時間（ms）</label>
+                    <input type="number" id="outputDuration" value="3000" class="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-xs text-gray-500" data-i18n="out.bg">背景色</label>
+                    <div class="flex items-center gap-2 mt-1">
+                        <input type="color" id="bgColor" value="#00FF00" class="w-8 h-8 rounded cursor-pointer border-0 p-0">
+                        <!-- <label class="flex items-center gap-1 text-sm">
+                            <input type="checkbox" id="isTransparent" checked class="rounded text-blue-500">
+                            透明處理（色鍵）
+                        </label> -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-auto pt-4">
+                <button id="generateBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors shadow-sm">
+                    產生 GIF
+                </button>
+            </div>
+        </div>
+
+        <!-- 右：工作區與結果 -->
+        <div class="flex-1 p-6 flex flex-col bg-gray-50 min-h-[600px] overflow-hidden relative">
+            <div class="mb-4 flex justify-between items-end">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-800" data-i18n="work.heading">排版區</h2>
+                    <p class="text-sm text-gray-500" data-i18n="work.note">可以拖曳，也可以調整大小。</p>
+                </div>
+                <!-- 縮放控制 -->
+                <div class="flex items-center gap-2 bg-white border border-gray-300 rounded px-2 py-1 shadow-sm">
+                    <button id="zoomOutBtn" class="px-2 text-gray-600 hover:text-blue-600 font-bold" data-i18n-title="zoom.out" title="縮小">-</button>
+                    <span id="zoomLabel" class="text-xs font-medium w-10 text-center">100%</span>
+                    <button id="zoomInBtn" class="px-2 text-gray-600 hover:text-blue-600 font-bold" data-i18n-title="zoom.in" title="放大">+</button>
+                    <div class="w-px h-4 bg-gray-300 mx-1"></div>
+                    <button id="zoomFitBtn" class="px-2 text-xs text-gray-600 hover:text-blue-600" data-i18n-title="zoom.fit.title" title="縮到整個畫面看得完">
+                        <span data-i18n="zoom.fit">配合畫面</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 畫布容器（可捲動） -->
+            <div id="workspaceContainer" class="flex-1 overflow-auto bg-gray-200 border border-gray-300 rounded-lg p-4 flex">
+                <!-- 透明的佔位層：吃掉縮放後的實際尺寸，捲軸與置中才不會跑掉 -->
+                <div id="workspaceSizer" class="relative m-auto flex-shrink-0" style="width: 800px; height: 600px;">
+                    <!-- 真正的畫布工作區（尺寸固定，縮放交給 CSS transform） -->
+                    <div id="workspace" class="workspace-grid absolute top-0 left-0 bg-white shadow-md transform-gpu" style="width: 800px; height: 600px; transform-origin: top left;">
+                        <!-- GIF 項目會加在這裡 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 成品輸出區 -->
+            <div id="resultContainer" class="mt-6 hidden bg-white p-4 border border-gray-200 rounded-lg shadow-sm">
+                <h3 class="text-md font-medium text-gray-800 mb-3" data-i18n="result.heading">產生完成</h3>
+                <div class="flex flex-col items-center">
+                    <img id="resultImg" class="max-w-full h-auto border border-gray-200 rounded mb-4" />
+                    <a id="downloadBtn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg transition-colors inline-block text-center cursor-pointer">
+                        <span data-i18n="result.download">下載成品</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 邏輯在 app.js，type="module" 自動 defer，所以一定跑在字典之後。 -->
+</body>
+</html>
