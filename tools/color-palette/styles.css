@@ -1,0 +1,83 @@
+/* 角色配色條產生器（CharColorPalette）。上游寫在 index.html 的 <style> 區塊，
+ * 依慣例抽成獨立檔案。版面本體是 Tailwind 的工具類別。 */
+
+/* 自訂捲軸 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* 預覽區的方格底（看得出哪裡是透明的） */
+.canvas-bg-pattern {
+    background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%), 
+                      linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), 
+                      linear-gradient(45deg, transparent 75%, #e5e7eb 75%), 
+                      linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}
+
+/* 在圖片上調整分段的把手線 */
+.segment-handle {
+    position: absolute;
+    left: 0; right: 0;
+    height: 4px;
+    background-color: rgba(239, 68, 68, 0.8);
+    cursor: ns-resize;
+    z-index: 10;
+    transform: translateY(-50%);
+}
+.segment-handle:hover, .segment-handle.dragging {
+    background-color: rgba(220, 38, 38, 1);
+    height: 6px;
+}
+
+/* 手動滴管的位置標記 */
+.point-marker {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    margin-left: -8px;
+    margin-top: -8px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 3px rgba(0,0,0,0.5);
+    cursor: move;
+    z-index: 20;
+}
+
+/* 十字游標（滴管用） */
+.cursor-crosshair { cursor: crosshair; }
+
+/* ---------- TRPG Toolkit 合輯：回首頁與語言切換 ---------- */
+/* 版面是左右兩欄、body 本身 overflow:hidden，頂端塞不下一條列，所以放進
+ * 左側面板最上面。 */
+.toolkit-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex: none;
+    padding: 8px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+.home-link {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-decoration: none;
+}
+.home-link:hover {
+    color: #4f46e5;
+    text-decoration: underline;
+}
+.locale-select {
+    min-height: 28px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #374151;
+    font-size: 12px;
+}
+.locale-select:hover { background: #f3f4f6; }

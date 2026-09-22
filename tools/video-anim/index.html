@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>影片轉動圖工具</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Pako (Zlib compression for PNG) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <!-- UPNG.js (Ultra fast lossless APNG encoder) -->
+    <script src="https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js"></script>
+    <!-- Gifshot fallback encoder -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.3.2/gifshot.min.js"></script>
+    <link rel="stylesheet" href="./styles.css">
+    <script defer src="../../assets/i18n.js"></script>
+    <script defer src="./i18n.video-anim.js"></script>
+    <script defer src="./app.js"></script>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="border-b border-slate-800 glass-panel sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg glow-effect">
+                    <i class="fa-solid font-bold fa-film text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-indigo-300">
+                        Video to Pic Converter
+                    </h1>
+                    <a href="https://x.com/bb_uu_t" target="_blank" class="text-xs text-slate-400">@bb_uu_t</a>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+                <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+                <button id="btnSampleVideo" class="px-3.5 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 transition flex items-center gap-2" data-i18n-node="hdr.sample">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> 產生範例影片
+                </button>
+                <div class="hidden sm:flex items-center gap-2 text-xs bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300">
+                    <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+                    <span data-i18n="hdr.local">100% 在瀏覽器本機處理</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
+
+        <!-- Dropzone Section -->
+        <section id="dropZone" class="glass-panel rounded-2xl p-8 border-2 border-dashed border-slate-700 hover:border-indigo-500 transition-all cursor-pointer text-center relative overflow-hidden group">
+            <input type="file" id="videoFileInput" accept="video/*" class="hidden">
+            <div class="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+            
+            <div class="max-w-md mx-auto space-y-4 relative z-10 pointer-events-none">
+                <div class="w-16 h-16 mx-auto rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-indigo-400 group-hover:scale-110 group-hover:text-indigo-300 transition-all">
+                    <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-white" data-i18n="drop.heading">把影片檔拖到這裡，或點一下選檔案</h2>
+                    <p class="text-xs text-slate-400 mt-1" data-i18n="drop.formats">支援 MP4、WebM、MOV、AVI 等主要影片格式</p>
+                </div>
+                <div class="flex flex-wrap justify-center gap-2 text-[11px] text-slate-400">
+                    <span class="px-2.5 py-1 rounded-full bg-slate-800/80 border border-slate-700" data-i18n="badge.apng">★ 100% 無損 APNG</span>
+                    <span class="px-2.5 py-1 rounded-full bg-slate-800/80 border border-slate-700" data-i18n="badge.webp">★ 高效率 Animated WebP</span>
+                    <span class="px-2.5 py-1 rounded-full bg-slate-800/80 border border-slate-700" data-i18n="badge.gif">★ 256 色最佳化 GIF</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Studio Workspace (Hidden by default until video loaded) -->
+        <div id="studioWorkspace" class="hidden space-y-8">
+            
+            <!-- Video & Timeline Card -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Left: Video Preview & Crop Panel -->
+                <div class="lg:col-span-7 glass-panel rounded-2xl p-5 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-display text-indigo-400"></i>
+                            <h3 class="font-semibold text-sm text-slate-200" data-i18n="prev.heading">影片預覽與選取範圍</h3>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                            <button id="btnToggleCrop" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-crop-simple text-indigo-400"></i>
+                                <span id="cropStatusText">開啟範圍裁切</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Media Container -->
+                    <div class="relative bg-black rounded-xl overflow-hidden flex items-center justify-center min-h-[260px] max-h-[460px] border border-slate-800 group">
+                        <video id="mainVideo" class="max-h-[440px] max-w-full object-contain" preload="metadata" playsinline></video>
+                        <canvas id="cropOverlayCanvas" class="absolute inset-0 pointer-events-auto cursor-crosshair hidden"></canvas>
+                    </div>
+
+                    <!-- Video Controls Strip -->
+                    <div class="space-y-3 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
+                        <!-- Playback Scrub & Trim Sliders -->
+                        <div class="space-y-1.5">
+                            <div class="flex justify-between text-xs text-slate-400">
+                                <span data-i18n-node="trim.start">開始：<strong id="lblStartTime" class="text-indigo-400">0.00s</strong></span>
+                                <span data-i18n-node="trim.current">目前：<strong id="lblCurrentTime" class="text-white">0.00s</strong></span>
+                                <span data-i18n-node="trim.end">結束：<strong id="lblEndTime" class="text-indigo-400">0.00s</strong></span>
+                            </div>
+                            <!-- Range Slider Track -->
+                            <div class="relative w-full h-3 bg-slate-800 rounded-lg overflow-hidden flex items-center">
+                                <div id="trimTrackHighlight" class="absolute h-full bg-indigo-600/40 border-x-2 border-indigo-500"></div>
+                                <input type="range" id="videoScrubber" min="0" max="100" value="0" step="0.01" class="w-full opacity-80 accent-indigo-500 cursor-pointer z-10">
+                            </div>
+                        </div>
+
+                        <!-- Trimmer Controls -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+                            <div class="flex items-center gap-2">
+                                <button id="btnPlayPause" class="w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition">
+                                    <i class="fa-solid fa-play" id="iconPlay"></i>
+                                </button>
+                                <button id="btnSetStart" class="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-i18n-node="trim.setStart">
+                                    [ 以目前位置為起點
+                                </button>
+                                <button id="btnSetEnd" class="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-i18n-node="trim.setEnd">
+                                    ] 以目前位置為終點
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-2 text-slate-400">
+                                <span data-i18n-node="trim.selected">選取區間：<strong id="lblDuration" class="text-emerald-400">0.00s</strong></span>
+                                <button id="btnResetTrim" class="text-slate-400 hover:text-white underline text-[11px] ml-2" data-i18n="trim.reset">還原成整段</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Conversion Options Panel -->
+                <div class="lg:col-span-5 glass-panel rounded-2xl p-5 space-y-5 flex flex-col justify-between">
+                    <div class="space-y-5">
+                        <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-sliders text-indigo-400"></i>
+                                <h3 class="font-semibold text-sm text-slate-200" data-i18n="opt.heading">轉換選項與畫質設定</h3>
+                            </div>
+                            <span id="videoInfoBadge" class="text-[11px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                1920x1080
+                            </span>
+                        </div>
+
+                        <!-- Format Selector Tabs -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-medium text-slate-300 block" data-i18n="opt.format">選擇輸出格式</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button data-format="apng" class="format-btn active px-3 py-2.5 rounded-xl border text-left transition flex flex-col justify-between h-20 border-indigo-500 bg-indigo-600/10 text-white">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-bold text-sm">APNG</span>
+                                        <i class="fa-solid fa-shield-cat text-xs text-indigo-400"></i>
+                                    </div>
+                                    <p class="text-[10px] text-slate-300 leading-tight" data-i18n-html="fmt.apng.desc">100% 無損<br>24 位元＋Alpha</p>
+                                </button>
+                                <button data-format="webp" class="format-btn px-3 py-2.5 rounded-xl border text-left transition flex flex-col justify-between h-20 border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-bold text-sm">WebP</span>
+                                        <i class="fa-solid fa-bolt text-xs text-amber-400"></i>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 leading-tight" data-i18n-html="fmt.webp.desc">高壓縮高畫質<br>檔案小</p>
+                                </button>
+                                <button data-format="gif" class="format-btn px-3 py-2.5 rounded-xl border text-left transition flex flex-col justify-between h-20 border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-bold text-sm">GIF</span>
+                                        <i class="fa-solid fa-globe text-xs text-emerald-400"></i>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 leading-tight" data-i18n-html="fmt.gif.desc">相容性最廣<br>256 色調色盤</p>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Lossless Mode Toggle & Quality Slider -->
+                        <div class="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span class="text-xs font-semibold text-white flex items-center gap-1.5" data-i18n-node="opt.lossless">
+                                        <i class="fa-solid fa-gem text-indigo-400"></i> 100% 無損（Lossless）模式
+                                    </span>
+                                    <p class="text-[11px] text-slate-400 mt-0.5" id="losslessDesc">照原畫質轉換，不損失任何顏色。</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="chkLossless" class="sr-only peer" checked>
+                                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+
+                            <!-- Quality Slider (Enabled when Lossless is off) -->
+                            <div id="qualitySliderBox" class="space-y-1 opacity-50 pointer-events-none transition-opacity pt-2 border-t border-slate-800/60">
+                                <div class="flex justify-between text-xs text-slate-300">
+                                    <span data-i18n="opt.quality">畫質／壓縮率</span>
+                                    <strong id="lblQualityVal" class="text-indigo-400">95%</strong>
+                                </div>
+                                <input type="range" id="inputQuality" min="10" max="100" value="95" class="w-full accent-indigo-500 cursor-pointer">
+                            </div>
+                        </div>
+
+                        <!-- Frame Rate & Resolution Settings -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-1.5">
+                                <label class="text-xs font-medium text-slate-300" data-i18n="opt.fps">影格率（FPS）</label>
+                                <select id="selectFps" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                                    <option value="60" data-i18n="fps.60">60 FPS（超順、高畫質）</option>
+                                    <option value="30" selected data-i18n="fps.30">30 FPS（標準高畫質）</option>
+                                    <option value="24" data-i18n="fps.24">24 FPS（電影感）</option>
+                                    <option value="15" data-i18n="fps.15">15 FPS（想省容量選這個）</option>
+                                    <option value="10" data-i18n="fps.10">10 FPS（網頁輕量化）</option>
+                                </select>
+                            </div>
+
+                            <div class="space-y-1.5">
+                                <label class="text-xs font-medium text-slate-300" data-i18n="opt.scale">解析度比例</label>
+                                <select id="selectScale" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                                    <option value="1.0" selected data-i18n="scale.100">100%（維持原解析度）</option>
+                                    <option value="0.75" data-i18n="scale.75">縮到 75%</option>
+                                    <option value="0.5" data-i18n="scale.50">縮到 50%</option>
+                                    <option value="0.33" data-i18n="scale.33">縮到 33%</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- GIF Options Box (Visible only when GIF is selected) -->
+                        <div id="gifOptionsBox" class="hidden p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/20 space-y-3">
+                            <div class="text-xs font-semibold text-emerald-300 flex items-center gap-1.5" data-i18n-node="gif.heading">
+                                <i class="fa-solid fa-palette"></i> GIF 調色盤與抖色最佳化
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                    <label class="text-slate-400 block mb-1" data-i18n="gif.colors">顏色數上限</label>
+                                    <select id="selectGifColors" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+                                        <option value="256" selected data-i18n="gif.c256">256 色（最高品質）</option>
+                                        <option value="128" data-i18n="gif.c128">128 色</option>
+                                        <option value="64" data-i18n="gif.c64">64 色</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-slate-400 block mb-1" data-i18n="gif.dither">抖色濾鏡</label>
+                                    <select id="selectDither" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+                                        <option value="floyd" selected data-i18n="gif.floyd">Floyd-Steinberg（平滑）</option>
+                                        <option value="none" data-i18n="gif.none">不用（像素清晰）</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Playback Speed -->
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-medium text-slate-300" data-i18n="opt.speed">播放速度倍率</label>
+                            <div class="grid grid-cols-4 gap-2 text-xs">
+                                <button data-speed="0.5" class="speed-btn px-2 py-1.5 rounded bg-slate-800 border border-slate-700 text-slate-300 hover:border-indigo-500">0.5x</button>
+                                <button data-speed="1.0" class="speed-btn active px-2 py-1.5 rounded bg-indigo-600/20 border border-indigo-500 text-white font-bold">1.0x</button>
+                                <button data-speed="1.5" class="speed-btn px-2 py-1.5 rounded bg-slate-800 border border-slate-700 text-slate-300 hover:border-indigo-500">1.5x</button>
+                                <button data-speed="2.0" class="speed-btn px-2 py-1.5 rounded bg-slate-800 border border-slate-700 text-slate-300 hover:border-indigo-500">2.0x</button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Convert Action Button -->
+                    <button id="btnStartConvert" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-sm shadow-lg glow-effect transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-play"></i>
+                        <span data-i18n="run">以選定格式開始高畫質轉換</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Frame Inspector Expander -->
+            <div class="glass-panel rounded-2xl p-5 space-y-4">
+                <div class="flex items-center justify-between cursor-pointer" id="btnToggleInspector">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-images text-indigo-400"></i>
+                        <h3 class="font-semibold text-sm text-slate-200" data-i18n="frame.heading">逐格檢視與編輯</h3>
+                        <span id="lblFrameCountBadge" class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700" data-i18n="frame.countZero">0 格</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down text-slate-400 transition-transform" id="iconInspectChevron"></i>
+                </div>
+
+                <div id="inspectorContent" class="hidden space-y-4 pt-3 border-t border-slate-800">
+                    <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <p class="text-slate-400" data-i18n="frame.note">這是從選取區間抽出的全部影格，可以檢查或刪掉不要的。</p>
+                        <button id="btnExtractFrames" class="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition flex items-center gap-1.5" data-i18n-node="frame.refresh">
+                            <i class="fa-solid fa-camera"></i> 重新產生影格時間軸
+                        </button>
+                    </div>
+
+                    <!-- Grid Gallery -->
+                    <div id="frameGallery" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 max-h-72 overflow-y-auto p-2 bg-slate-900/60 rounded-xl border border-slate-800">
+                        <p class="col-span-full text-center py-8 text-slate-500 text-xs" data-i18n="frame.empty">按上面的「重新產生影格時間軸」就能逐格檢視。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Result Output Section (Hidden initially) -->
+            <div id="resultCard" class="hidden glass-panel rounded-2xl p-6 border border-emerald-500/30 space-y-6">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                            <i class="fa-solid fa-circle-check text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-base text-white" data-i18n="res.heading">轉換完成！</h3>
+                            <p class="text-xs text-slate-400" data-i18n="res.note">已產生畫質損失最小的動畫檔。</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <a id="btnDownload" download="output.png" class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg transition flex items-center gap-2" data-i18n-node="res.download">
+                            <i class="fa-solid fa-download"></i> 下載檔案
+                        </a>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                    <!-- Left: Animation Result Preview -->
+                    <div class="md:col-span-6 bg-slate-950/80 rounded-xl p-3 border border-slate-800 flex flex-col items-center justify-center min-h-[220px]">
+                        <img id="resultImagePreview" class="max-h-[320px] max-w-full rounded object-contain" alt="Output Preview">
+                        <span class="text-[11px] text-slate-400 mt-2 flex items-center gap-1.5" data-i18n-node="res.loop">
+                            <i class="fa-solid fa-rotate"></i> 無限循環播放的預覽
+                        </span>
+                    </div>
+
+                    <!-- Right: File Details & Comparison Matrix -->
+                    <div class="md:col-span-6 space-y-4 text-xs">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-1">
+                                <span class="text-slate-400" data-i18n="res.format">輸出檔案格式</span>
+                                <p id="lblResFormat" class="font-bold text-sm text-indigo-300">APNG（無損）</p>
+                            </div>
+                            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-1">
+                                <span class="text-slate-400" data-i18n="res.size">產生的檔案大小</span>
+                                <p id="lblResFileSize" class="font-bold text-sm text-emerald-400">2.4 MB</p>
+                            </div>
+                            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-1">
+                                <span class="text-slate-400" data-i18n="res.dim">解析度／影格數</span>
+                                <p id="lblResDimFrames" class="font-bold text-slate-200">800x450（45 格）</p>
+                            </div>
+                            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-1">
+                                <span class="text-slate-400" data-i18n="res.time">編碼花費時間</span>
+                                <p id="lblResEncodeTime" class="font-bold text-slate-200">1.2 秒</p>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex flex-wrap gap-2 pt-2">
+                            <button id="btnOpenNewTab" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5" data-i18n-node="res.newTab">
+                                <i class="fa-solid fa-arrow-up-right-from-square text-indigo-400"></i> 在新分頁開啟
+                            </button>
+                            <button id="btnCopyDataUrl" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5" data-i18n-node="res.copyUrl">
+                                <i class="fa-solid fa-copy text-indigo-400"></i> 複製資料網址
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Format Comparison & Knowledge Guide -->
+        <section class="glass-panel rounded-2xl p-6 space-y-6">
+            <div class="border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-base text-white flex items-center gap-2" data-i18n-node="guide.heading">
+                    <i class="fa-solid fa-circle-info text-indigo-400"></i> APNG／WebP／GIF 格式完整比較
+                </h3>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs text-left text-slate-300">
+                    <thead class="text-slate-400 bg-slate-900/80 uppercase border-b border-slate-800">
+                        <tr>
+                            <th class="px-4 py-3" data-i18n="tbl.feature">格式特性</th>
+                            <th class="px-4 py-3 text-indigo-300">APNG (Animated PNG)</th>
+                            <th class="px-4 py-3 text-amber-300">Animated WebP</th>
+                            <th class="px-4 py-3 text-emerald-300">GIF</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                        <tr>
+                            <td class="px-4 py-2.5 font-semibold text-slate-200" data-i18n="tbl.loss">是否掉畫質</td>
+                            <td class="px-4 py-2.5 text-emerald-400 font-bold" data-i18n="tbl.loss.apng">100% 無損（完全不掉畫質）</td>
+                            <td class="px-4 py-2.5 text-slate-300" data-i18n="tbl.loss.webp">無損／有損可選</td>
+                            <td class="px-4 py-2.5 text-amber-400" data-i18n="tbl.loss.gif">受 256 色限制，顏色會掉</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 font-semibold text-slate-200" data-i18n="tbl.depth">顏色數（Color Depth）</td>
+                            <td class="px-4 py-2.5" data-i18n="tbl.depth.true">24 位元全彩（1,670 萬色）</td>
+                            <td class="px-4 py-2.5" data-i18n="tbl.depth.true">24 位元全彩（1,670 萬色）</td>
+                            <td class="px-4 py-2.5" data-i18n="tbl.depth.gif">最多 256 色（調色盤）</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 font-semibold text-slate-200" data-i18n="tbl.alpha">Alpha 通道（透明度）</td>
+                            <td class="px-4 py-2.5 text-emerald-400" data-i18n="tbl.alpha.full">完整支援 8 位元半透明</td>
+                            <td class="px-4 py-2.5 text-emerald-400" data-i18n="tbl.alpha.full">完整支援 8 位元半透明</td>
+                            <td class="px-4 py-2.5 text-rose-400" data-i18n="tbl.alpha.gif">只支援 1 位元的單一透明色</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 font-semibold text-slate-200" data-i18n="tbl.size">容量效率</td>
+                            <td class="px-4 py-2.5" data-i18n="tbl.size.apng">以畫質為先，檔案偏大</td>
+                            <td class="px-4 py-2.5 text-emerald-400 font-bold" data-i18n="tbl.size.webp">比 GIF 小 50～70%（最佳）</td>
+                            <td class="px-4 py-2.5" data-i18n="tbl.size.gif">以畫質換算容量並不划算</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 font-semibold text-slate-200" data-i18n="tbl.use">建議用途</td>
+                            <td class="px-4 py-2.5" data-i18n="tbl.use.apng">UI 動畫、標誌、高畫質擷圖</td>
+                            <td class="px-4 py-2.5" data-i18n="tbl.use.webp">網站張貼、高畫質梗圖、聊天軟體</td>
+                            <td class="px-4 py-2.5" data-i18n="tbl.use.gif">舊系統與編輯器的相容性</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Processing Progress Modal -->
+    <div id="progressModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-indigo-500/30 space-y-5 text-center shadow-2xl">
+            <div class="w-16 h-16 mx-auto rounded-full bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-2xl animate-spin">
+                <i class="fa-solid fa-circle-notch"></i>
+            </div>
+            <div class="space-y-1">
+                <h3 id="progressTitle" class="text-base font-bold text-white" data-i18n="prog.title">影片影格轉換中……</h3>
+                <p id="progressSubtitle" class="text-xs text-slate-400" data-i18n="prog.subtitle">正在抽出影格並產生高畫質動畫。</p>
+            </div>
+
+            <!-- Canvas Live Preview Frame during encoding -->
+            <div class="w-32 h-20 mx-auto bg-black rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center">
+                <canvas id="encodingLiveCanvas" class="max-w-full max-h-full object-contain"></canvas>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between text-xs text-slate-300">
+                    <span id="lblProgressStatus">0 / 0 格</span>
+                    <strong id="lblProgressPercent" class="text-indigo-400">0%</strong>
+                </div>
+                <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div id="progressBarFill" class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 w-0 transition-all duration-75"></div>
+                </div>
+            </div>
+
+            <button id="btnCancelConvert" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition" data-i18n="prog.cancel">
+                取消轉換
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
+        <p>© UltraConvert - Lossless Video to APNG / WebP / GIF Local Converter Engine</p>
+    </footer>
+
+    <!-- 邏輯在 app.js，已在 head 以 defer 載入（字典之後）。 -->
+</body>
+</html>

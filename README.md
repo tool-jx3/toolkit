@@ -6,7 +6,7 @@
 [巡涯学派](https://github.com/organon-torah) 與
 [Wool&Wag](https://github.com/woolwag3338) 與
 [johnko00](https://github.com/johnko00) 與
-[baegop157902](https://github.com/baegop157902) 製作的 18 個網頁小工具合輯，附繁體中文介面。
+[baegop157902](https://github.com/baegop157902) 製作的 22 個網頁小工具合輯，附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -30,6 +30,10 @@
 | [立繪身高比較板](tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
 | [房間 ZIP 產生器](tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；工作進度可存成 .ccproj 檔 |
 | [角色介紹圖產生器](tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；可存到存檔槽或匯出成編輯檔 |
+| [角色配色條產生器](tools/color-palette/) | 把角色的配色排成一條色塊圖，可直接從立繪取色（手動滴管或自動抓主色），輸出 PNG |
+| [壓克力周邊工房](tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光，匯出 APNG／GIF／WebM 或 .glb 模型 |
+| [影片轉動圖工具](tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
+| [GIF 接合器](tools/gif-combiner/) | 把多張 GIF 的影格對齊時間軸排進同一張畫面，拖曳排版後合成一張 GIF |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -48,7 +52,7 @@ npm run serve
 
 ### 重新建置 cutin 與 character-editor
 
-十八個工具裡有兩個的上游是 React + TypeScript 專案，沒辦法直接放進 `tools/`
+二十二個工具裡有兩個的上游是 React + TypeScript 專案，沒辦法直接放進 `tools/`
 裡執行。原始碼收在 `vendor/` 底下，建置產物（已提交進 repo）輸出到各自的
 `tools/` 目錄。改動原始碼後要重新建置：
 
@@ -93,7 +97,7 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的七個工具、
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的十一個工具、
 `ccfolia-cropper` 與 `pair-maker` 為韓文，shiki365 的四個工具、`cutin`、
 `character-editor`、`portrait-size` 與 `height-board` 為日文；`room-zip`
 原文為日文，另外附了一份韓文。

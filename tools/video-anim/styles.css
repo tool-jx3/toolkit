@@ -1,0 +1,53 @@
+/* 影片轉動圖工具（video-to-pic）。上游寫在 index.html 的 <style> 區塊，
+ * 依慣例抽成獨立檔案。版面本體是 Tailwind 的工具類別。 */
+
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
+body {
+    font-family: 'Pretendard', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #0f172a;
+    color: #f8fafc;
+}
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #1e293b;
+}
+::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+.glass-panel {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.glow-effect {
+    box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.3);
+}
+
+/* ---------- TRPG Toolkit 合輯：回首頁與語言切換 ---------- */
+.home-link {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    text-decoration: none;
+}
+.home-link:hover {
+    color: #a5b4fc;
+    text-decoration: underline;
+}
+.locale-select {
+    min-height: 28px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #1e293b;
+    color: #e2e8f0;
+    font-size: 12px;
+}
+.locale-select:hover { background: #334155; }

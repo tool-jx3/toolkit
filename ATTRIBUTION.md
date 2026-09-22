@@ -7,7 +7,7 @@
 [巡涯学派](https://github.com/organon-torah) 與
 [Wool&Wag](https://github.com/woolwag3338) 與
 [johnko00](https://github.com/johnko00) 與
-[baegop157902](https://github.com/baegop157902) 製作的 18 個網頁工具，
+[baegop157902](https://github.com/baegop157902) 製作的 22 個網頁工具，
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -32,8 +32,12 @@
 | height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `aad63b1` | **未授權** |
+| color-palette | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette) | `75840e6` | MIT |
+| acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
+| video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
+| gif-combiner | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `3aa7de8` | MIT |
 
-十一個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
+十五個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
 
 shiki365 的四個工具、`cutin`、`portrait-size`、`height-board` 與 `room-zip` 原文為日文，
 收錄時另有以下調整：
@@ -233,6 +237,61 @@ ES module 只求值一次，所以版型模組最外層寫成值的常數——�
 一載入就寫進存檔並自動存進 IndexedDB，切個語言就覆寫使用者可能已經改過的字，
 比留著原語言糟得多。這與 `room-zip` 的專案預設名稱是同一個判斷。
 
+## sotsotssi 的四個角色美術周邊工具
+
+`color-palette`、`acrylic-goods`、`video-anim`、`gif-combiner` 是一批同時收錄的
+MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也都是純靜態頁面：
+
+| 目錄 | 上游名稱 | 做什麼 |
+|---|---|---|
+| `color-palette` | `CharColorPalette`（캐릭터 컬파 막대 메이커） | 角色配色條。可從立繪取色：手動滴管逐點選，或自動抓主色（演算法把彩度與明度當權重，無彩色與過暗過亮都扣分） |
+| `acrylic-goods` | `acrylic-goods`（사이버 아크릴 굿즈 공방） | 3D 壓克力立牌／搖搖樂／立體透視。搖搖樂裡的零件走 cannon.js 物理，手機上可用陀螺儀傾倒 |
+| `video-anim` | `video-to-pic`（동영상→이미지 변환기） | 影片選段轉無損 APNG／Animated WebP／256 色 GIF |
+| `gif-combiner` | `GIF-Combiner`（GIF 이어붙이기 툴） | 多張 GIF 對齊時間軸後合成一張 |
+
+`acrylic-goods` 同作者另有一個 `acrylic-stand`，功能是 `acrylic-goods` 的子集
+（只有立牌），因此只收後者。
+
+依慣例，寫在 `index.html` 裡的 `<style>` 與 `<script>` 區塊抽成 `styles.css` 與
+`app.js`；`acrylic-goods` 上游本來就分開，只是把 `style.css`／`script.js` 改名對齊
+其餘工具。`video-anim` 的 `tailwind.config` 留在 `<head>` 內嵌——那是給 Play CDN
+讀的設定，不是程式。指向原作者 X 帳號的 `@bb_uu_t` 連結照 sotsotssi 其餘工具的
+做法保留，標題改用 `data-i18n-node` 只換文字、留著連結。
+
+### 函式庫照上游走 CDN，沒有改成同捆
+
+這四個工具的外部相依（Tailwind Play CDN、three.js、cannon.js、gif.js、gifuct-js、
+gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，本 repo 不散布
+它們的檔案；各工具目錄下的 `THIRD_PARTY_NOTICES.md` 列出版本、來源與授權。
+合輯本來就是這個做法（`loading-maker` 的 pako，`collage-letter`／`text-path`／
+`typewriter` 的 Tailwind），README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
+
+`acrylic-goods` 另外自帶一個「開源授權」對話框，把同一份清單顯示給使用者看，
+那是上游就有的，收錄版只把兩句說明譯成繁中。
+
+### 刻意保留的一處署名
+
+`acrylic-goods` 會在 3D 畫面右下角燒一行浮水印進輸出的圖片。那是原作者在自己
+工具的成品上署名，照樣保留；工具名跟著介面語言走，`@bb_uu_t` 不動，因此它是
+字典裡的 `watermark`（繁中「壓克力周邊工房 @bb_uu_t」／韓文原文）。切語言時
+`updateBackground()` 會重畫這張貼圖。
+
+### 切語言時要重跑的幾處
+
+四個工具的固定文字都走 `data-i18n`，但各有一些是程式寫進去的，切語言時得自己
+重寫；每個工具的 `I18N.onChange` 就是在做這件事：
+
+- `gif-combiner`：產生鈕的字（合成途中會被進度覆寫，所以只在閒置時重寫）與整份
+  檔案清單。
+- `color-palette`：左側面板與畫布由 `render()` 重畫；取色對話框那條狀態文字
+  即使對話框關著也要換掉，不然下次打開是上一個語言的字。
+- `video-anim`：裁切狀態、無損模式說明、影片資訊，以及結果卡上那四行——結果卡
+  的數字另外記在 `state.lastResult` 裡，才有辦法用新語言重排。
+- `acrylic-goods`：兩份動態清單（搖搖樂零件、立體透視圖層）與畫布上的浮水印。
+  3D 場景本身不含文字，不用重建。
+
+已經彈出去的 toast 不重寫——那是過去事件的訊息，回頭改寫它的語言只會讓人困惑。
+
 ## 需要建置的兩個工具
 
 `cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，
@@ -322,7 +381,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘十七個工具的翻譯與 i18n 改造為本 repo 新增。
+其餘二十一個工具的翻譯與 i18n 改造為本 repo 新增。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：

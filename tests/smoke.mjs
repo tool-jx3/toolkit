@@ -885,6 +885,84 @@ for (const [lib, licenceFile] of [
   check(`THIRD_PARTY_NOTICES 記載 ${lib}`, pmNotices.includes(lib) && pmNotices.includes(licenceFile));
 }
 
+/* ---- sotsotssi 的四個角色美術周邊工具 ---- */
+/* 一批同時收錄、做法一致的小工具：純靜態、MIT、函式庫照上游走 CDN。
+ * 共通的檢查寫成迴圈，各自的特別之處放在後面。 */
+const SOTSOT_FOUR = [
+  /* authorLink：上游在標題旁放了 @bb_uu_t 的連結。acrylic-goods 沒有——
+   * 那個工具的署名只出現在燒進輸出圖片的浮水印上（見下方的 watermark 檢查）。 */
+  { dir: 'tools/color-palette', dict: 'i18n.color-palette.js', minHooks: 25, inline: 20, attrs: 6, authorLink: true },
+  { dir: 'tools/acrylic-goods', dict: 'i18n.acrylic-goods.js', minHooks: 50, inline: 35, attrs: 4, authorLink: false },
+  { dir: 'tools/video-anim', dict: 'i18n.video-anim.js', minHooks: 60, inline: 50, attrs: 1, authorLink: true },
+  { dir: 'tools/gif-combiner', dict: 'i18n.gif-combiner.js', minHooks: 25, inline: 20, attrs: 5, authorLink: true },
+];
+for (const t of SOTSOT_FOUR) {
+  checkTool({ dir: t.dir, dict: t.dict, scripts: ['app.js'], styles: ['styles.css'], minHooks: t.minHooks });
+}
+
+section('sotsotssi 的四個角色美術周邊工具');
+/* 上游把函式庫掛在 CDN 上，收錄版照舊（理由見 ATTRIBUTION）。既然不同捆，
+ * 版本與出處就只剩 THIRD_PARTY_NOTICES.md 記著——漏記等於查不到來源。 */
+const CDN_HOSTS = /https:\/\/(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|esm\.sh|cdn\.tailwindcss\.com)[^"'`) ]*/g;
+for (const t of SOTSOT_FOUR) {
+  check(`${t.dir} 有第三方函式庫的出處說明`, exists(`${t.dir}/THIRD_PARTY_NOTICES.md`));
+  const notices = read(`${t.dir}/THIRD_PARTY_NOTICES.md`);
+  const urls = new Set();
+  for (const f of ['index.html', 'app.js']) {
+    for (const m of read(`${t.dir}/${f}`).matchAll(CDN_HOSTS)) urls.add(m[0]);
+  }
+  check(`${t.dir} 確實有 CDN 相依`, urls.size > 0, `found ${urls.size}`);
+  const undocumented = [...urls].filter(u => {
+    if (u.startsWith('https://cdn.tailwindcss.com')) return !notices.includes('cdn.tailwindcss.com');
+    const m = u.match(/@(\d+\.\d+\.\d+)|\/(\d+\.\d+\.\d+)\/|\/(r\d+)\//);
+    const version = m && (m[1] || m[2] || m[3]);
+    return !version || !notices.includes(version);
+  });
+  check(`${t.dir} 的 CDN 相依都記在 THIRD_PARTY_NOTICES`, undocumented.length === 0,
+    `未記載: ${undocumented.join(', ')}`);
+  /* 切語言時，程式自己寫進畫面的文字要重寫一次；四個工具都靠 onChange 做這件事。 */
+  const app = read(`${t.dir}/app.js`);
+  check(`${t.dir} 掛了語言切換器`, app.includes("I18N.mountSwitcher(document.getElementById('localeSelect'))"));
+  check(`${t.dir} 切語言時重寫程式畫出來的文字`, /I18N\.onChange\(\(\) => \{/.test(app));
+  /* 原作者的 X 連結照 sotsotssi 其餘工具的做法保留（有的工具上游就沒有）。 */
+  check(`${t.dir} ${t.authorLink ? '保留' : '本來就沒有'}原作者的連結`,
+    read(`${t.dir}/index.html`).includes('https://x.com/bb_uu_t') === t.authorLink);
+}
+
+/* gif-combiner：gif.js 的 worker 在別的網域，要先抓成 Blob 才能當 workerScript。 */
+const gcApp = read('tools/gif-combiner/app.js');
+check('gif-combiner 把 gif.js 的 worker 包成 Blob（跨網域 CORS）',
+  gcApp.includes('gif.worker.js') && gcApp.includes('URL.createObjectURL(blob)'));
+check('gif-combiner 閒置時才重寫產生鈕的字',
+  gcApp.includes("if (!generateBtn.disabled) generateBtn.innerText = T('gen.run')"));
+
+/* color-palette：取色對話框關著時也要換掉那條狀態文字。 */
+check('color-palette 切語言時連關著的對話框一起換',
+  read('tools/color-palette/app.js').includes('render();\n    renderSwatches();'));
+
+/* video-anim：結果卡上的數字要留著，換語言才排得出新句子。 */
+const vaApp = read('tools/video-anim/app.js');
+check('video-anim 把結果的數字記下來', vaApp.includes('state.lastResult = {'));
+check('video-anim 用記下的數字重排結果卡', vaApp.includes('function applyResultLabels()'));
+
+/* acrylic-goods：畫布上的浮水印是作者署名，走字典而不是寫死。 */
+const agApp = read('tools/acrylic-goods/app.js');
+check('acrylic-goods 的浮水印走字典', agApp.includes("ctx.fillText(T('watermark'), 390, 35)"));
+const agDict = loadI18N(['tools/acrylic-goods/i18n.acrylic-goods.js']).messages;
+for (const locale of ['zh-TW', 'ko']) {
+  check(`acrylic-goods ${locale} 的浮水印保留原作者署名`,
+    (agDict[locale]['watermark'] || '').includes('@bb_uu_t'), agDict[locale]['watermark']);
+}
+/* 工具自己那個「開源授權」對話框與 THIRD_PARTY_NOTICES 講的是同一批函式庫。 */
+const agHtml = read('tools/acrylic-goods/index.html');
+const agNotices = read('tools/acrylic-goods/THIRD_PARTY_NOTICES.md');
+for (const lib of ['Three.js', 'Cannon.js', 'GIF.js', 'UPNG.js', 'Pako']) {
+  check(`acrylic-goods 的授權對話框列了 ${lib}`, agHtml.includes(`<strong>${lib}</strong>`));
+}
+for (const lib of ['three.js', 'cannon.js', 'gif.js', 'upng-js', 'pako', 'GLTFExporter', 'OrbitControls']) {
+  check(`acrylic-goods 的 THIRD_PARTY_NOTICES 列了 ${lib}`, agNotices.includes(lib));
+}
+
 /* ---- chat-window ---- */
 /* 這個工具刻意留著一批日文，分兩類：
  *   1. mock.v1.js 是把 CCFOLIA 的聊天畫面照著重畫一遍，好讓使用者看到的預覽
@@ -1415,7 +1493,8 @@ check('assets/home.css 無殘留韓文', !HANGUL.test(read('assets/home.css')));
 const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker',
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
-  'height-board', 'room-zip', 'pair-maker'];
+  'height-board', 'room-zip', 'pair-maker',
+  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -1514,6 +1593,9 @@ checkInlineText('tools/room-zip', 'tools/room-zip/index.html', ['tools/room-zip/
 /* pair-maker 有兩頁，兩頁都要比。 */
 checkInlineText('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 15);
 checkInlineText('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
+for (const t of SOTSOT_FOUR) {
+  checkInlineText(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.inline);
+}
 
 /* ---- 內嵌屬性與 zh-TW 字典一致 ---- */
 /* data-i18n-title / data-i18n-aria-label / data-i18n-placeholder 各鎖定同一標籤上
@@ -1595,6 +1677,9 @@ checkAttrPairs('tools/character-editor', 'tools/character-editor/index.html', ['
 checkAttrPairs('tools/room-zip', 'tools/room-zip/index.html', ['tools/room-zip/i18n.room-zip.js'], 10);
 checkAttrPairs('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 9);
 checkAttrPairs('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
+for (const t of SOTSOT_FOUR) {
+  checkAttrPairs(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.attrs);
+}
 
 /* ---- 文件 ---- */
 section('docs');
@@ -1609,7 +1694,8 @@ for (const name of TOOLS) {
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
   '6e9a5b5', '52426f5', '2f50d75', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '9459aa7', 'fc05c98',
-  '90f8442', 'a9a522c', 'aad63b1', '772d6c4']) {
+  '90f8442', 'a9a522c', 'aad63b1',
+  '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
@@ -1646,6 +1732,15 @@ check('ATTRIBUTION.md 說明 pair-maker 的第三方函式庫',
 check('ATTRIBUTION.md 說明 pair-maker 為何保留原作者署名', attribution.includes('배고픔'));
 check('ATTRIBUTION.md 說明版型常數為何要寫成函式',
   /pair-maker[\s\S]*ES module 只求值一次/.test(attribution) && attribution.includes('fontLabels'));
+/* 四個新工具的函式庫沒有同捆，理由與出處要寫下來才查得到。 */
+check('ATTRIBUTION.md 說明四個工具的函式庫為何走 CDN',
+  /sotsotssi 的四個角色美術周邊工具[\s\S]{0,2500}沒有改成同捆/.test(attribution));
+check('ATTRIBUTION.md 說明 acrylic-goods 的浮水印為何保留',
+  attribution.includes('watermark') && /浮水印[\s\S]{0,300}@bb_uu_t/.test(attribution));
+for (const dir of ['color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner']) {
+  check(`ATTRIBUTION.md 記載 ${dir} 的上游`, new RegExp(`\\| ${dir} \\| \\[sotsotssi/`).test(attribution));
+}
+
 check('ATTRIBUTION.md 說明哪些字刻意不跟著語言走',
   attribution.includes('initialState()') && /initialState\(\)[\s\S]{0,400}room-zip/.test(attribution));
 
