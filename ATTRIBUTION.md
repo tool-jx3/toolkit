@@ -20,14 +20,14 @@
 | collage-letter | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) | `ea08333` | MIT |
 | emotion-maker | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b455379` | **未授權** |
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
-| foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `6e9a5b5` | MIT |
-| scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `52426f5` | MIT |
-| status-bar | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `2f50d75` | MIT |
+| foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
+| scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `0162787` | MIT |
+| status-bar | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `dab4fb9` | MIT |
 | cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
 | ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
-| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `9459aa7` | MIT |
+| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `d3bdf3c` | MIT |
 | portrait-size | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `fc05c98` | MIT |
 | height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
@@ -50,8 +50,12 @@ shiki365 的四個工具、`cutin`、`portrait-size`、`height-board` 與 `room-
   `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
   `<title>` 只留工具名，捨去 SEO 後綴。
 - shiki365 的四個工具頁尾都有回作者工具站的連結（`chat-window` 另有一條許願用的
-  Marshmallow），原樣保留並翻譯；但頁首那條同樣指向工具站的連結不收——那個位置
-  放的是合輯的首頁連結。
+  Marshmallow），以及後來加上的「支持開發（BOOTH）」，都原樣保留並翻譯；但頁首那條
+  同樣指向工具站的連結不收——那個位置放的是合輯的首頁連結。
+- 上游後來替四個工具加了 `favicon.svg`，收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
+  分頁圖示，不各自掛作者的站台圖示。
+- `chat-window` 上游有兩句說明把「映す件数」「並び順」寫成在「メッセージ」分頁，
+  實際上兩者都在「窓・見出し」分頁；收錄版的繁中與日文都照實際位置寫。
 - `status-bar` 與 `chat-window` 的上游都附了自家站台的 `ogp.png`（各約 0.5 MB），
   收錄版沒有用到那張圖（`og:image` 指的是絕對網址），因此不收。
 

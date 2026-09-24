@@ -23,7 +23,9 @@
  *
  * Showing "the latest N": every message but the last N is display:none. The virtualizer then
  * measures those as 0px, so its visible range always reaches the newest message (N <= 30 < overscan 50).
- * The list is not scrolled at all; flex alignment decides which side overflows.
+ * The list must not scroll, so flex alignment alone decides which side overflows: it gets
+ * overflow: clip, not hidden. CCFOLIA scrolls the list to the newest message, and a hidden box
+ * keeps that scroll offset, which hid the start of any message taller than the window.
  *
  * Every declaration gets !important, except properties that animations move (an !important
  * declaration wins over the animation). Those are only set on div[data-index], which the page
@@ -184,7 +186,7 @@
   // ---------------------------------------------------------------- parts
 
   function panelRules(st, w) {
-    const L = st.panel, M = px(L.margin), fit = L.mode === "fit";
+    const L = st.panel, M = px(L.margin), fit = L.mode === "fit" && !scrolls(st);
     const images = [], sizes = [];
     if (L.texture === "paper") {
       images.push("radial-gradient(ellipse at 50% 35%, rgba(255, 255, 255, 0.22), transparent 60%)",
@@ -227,18 +229,24 @@
 
   function listRules(st, w) {
     const L = st.list, A = st.panel, newBottom = L.order === "newBottom";
+    const scroll = scrolls(st), fit = A.mode === "fit" && !scroll;
     w.comment(TX("css.list"));
     w.add(SEL.list, {
       // The virtualizer renders nothing while the list is 0px tall (and then it never grows), so keep 1px.
-      flex: A.mode === "fit" ? "0 1 auto" : "1 1 auto", "min-height": "1px", height: "auto", width: "auto",
-      margin: "0", padding: "0", overflow: "hidden", display: "flex", "flex-direction": "column",
+      flex: fit ? "0 1 auto" : "1 1 auto", "min-height": "1px", height: "auto", width: "auto",
+      // clip, not hidden: a hidden box stays scrolled to the newest message and cuts off the top
+      // of a message taller than the window (Chromium 90 and later, so OBS 30 too).
+      margin: "0", padding: "0", overflow: "clip", display: "flex", "flex-direction": "column",
       // The old side overflows and gets cut off: the top when new messages come at the bottom.
-      "justify-content": newBottom ? "flex-end" : "flex-start",
+      // A scrolling message starts from its top, whatever the order (there is only one).
+      "justify-content": newBottom && !scroll ? "flex-end" : "flex-start",
+      // Lets the message measure the window with cqh units (Chromium 105 and later, so OBS 31).
+      "container-type": scroll ? "size" : undefined,
       background: "transparent", "scrollbar-width": "none", position: "relative", "z-index": "1",
     });
     w.add(`${SEL.list} > :not(div)`, { display: "none" });
     // An auto margin only takes free space, so it moves short content without changing which side overflows.
-    const auto = newBottom ? (A.anchor === "top" ? { "margin-bottom": "auto" } : {}) : (A.anchor === "bottom" ? { "margin-top": "auto" } : {});
+    const auto = scroll ? {} : newBottom ? (A.anchor === "top" ? { "margin-bottom": "auto" } : {}) : (A.anchor === "bottom" ? { "margin-top": "auto" } : {});
     w.add(SEL.outer, Object.assign({ height: "auto", width: "100%", position: "relative", flex: "none", margin: "0" }, auto));
     w.add(SEL.inner, {
       position: "static", transform: "none", width: "100%", height: "auto", display: "flex",
@@ -271,7 +279,7 @@
 
     w.comment(TX("css.card"));
     w.add(ITEM, Object.assign({
-      display: "flex", "align-items": AV.align === "center" ? "center" : "flex-start", gap: AV.show ? px(AV.gap) : "0",
+      display: "flex", "align-items": AV.align === "center" && !scrolls(st) ? "center" : "flex-start", gap: AV.show ? px(AV.gap) : "0",
       width: "100%", margin: "0", "box-sizing": "border-box", position: "relative", "min-height": "0", "text-align": "left",
       padding: bubble ? "0" : `${px(C.padY)} ${px(C.padX)} ${px(C.padY)} ${px(C.padX + (plain ? accentW + (accentW ? 6 : 0) : accentW))}`,
     }, bubble || plain ? { background: "transparent", border: "none", "border-radius": "0", "box-shadow": "none" } : box));
@@ -307,8 +315,13 @@
     if (C.accent === "char") {
       // The name keeps the character color as `color` (its text is painted with -webkit-text-fill-color),
       // so a pseudo-element of the name can draw a line in that color across the whole box.
+      // A scrolling text column has a transform, so it becomes the line's containing block instead of
+      // the box: reach back over the box padding and the icon.
+      const shifted = scrollsText(st) && !bubble;
+      const padL = C.padX + (plain ? accentW + (accentW ? 6 : 0) : accentW);
       w.add(E + PART.name + "::before", {
-        content: '""', position: "absolute", left: "0", top: "0", bottom: "0", width: px(C.accentW),
+        content: '""', position: "absolute", width: px(C.accentW),
+        left: shifted ? px(-(padL + AV.size + AV.gap)) : "0", top: shifted ? px(-C.padY) : "0", bottom: shifted ? px(-C.padY) : "0",
         background: "currentColor", "border-radius": `${px(C.radius)} 0 0 ${px(C.radius)}`, "pointer-events": "none",
       });
     } else if (C.accent === "fixed" || C.accent === "result") {
@@ -547,19 +560,40 @@
     blur: "from { opacity: 0; filter: blur(8px); }",
   };
 
+  // Scrolling a long message only works with one message on screen: with more, it would slide over the others.
+  const scrolls = st => !!st.motion.scroll && Math.round(st.list.count) === 1;
+  // With an icon, only the text column scrolls and the icon stays put.
+  const scrollsText = st => scrolls(st) && !!st.avatar.show;
+
   function motionRules(st, w, keyframe) {
-    const MO = st.motion, list = [];
+    const MO = st.motion, list = [], scroll = scrolls(st);
+    // "Fade out after N s" counts from the end of the scroll, so a long message is not cut off halfway.
+    const exitAt = MO.exitAfter + (scroll ? MO.scrollWait + MO.scrollDur : 0);
     if (MO.enter !== "none" && ENTER_FRAMES[MO.enter]) {
       list.push(`cw-in-${MO.enter} ${round(MO.enterDur)}s ease-out both`);
       keyframe(`cw-in-${MO.enter}`, ENTER_FRAMES[MO.enter]);
     }
+    if (scroll) {
+      w.comment(TX("css.scroll", round(MO.scrollWait, 10), round(MO.scrollDur, 10)));
+      // Moves by (window height - message height), never down: 100cqh is the list, 100% the moving box itself.
+      // "both" keeps a transform during the wait too, so the containing block of the accent line never changes.
+      // It runs inside the entry, so it does not fight the entry's own animations over transform.
+      // With an icon only the text column moves, so the box padding and border around it are added back.
+      const C = st.card, text = scrollsText(st), bubble = C.style === "bubble";
+      const around = text && !bubble ? 2 * C.padY + (C.style === "card" && C.borderW > 0 ? 2 * C.borderW : 0) : 0;
+      const to = around ? `calc(100cqh - 100% - ${px(around)})` : "calc(100cqh - 100%)";
+      keyframe("cw-scroll", `from { transform: translateY(0); } to { transform: translateY(min(0px, ${to})); }`);
+      w.add(E + (text ? PART.textCol : PART.item), { animation: `cw-scroll ${round(MO.scrollDur, 10)}s linear ${round(MO.scrollWait, 10)}s both` }, ["animation"]);
+      // The text leaves through the top of its box, not over the box's border (a bubble is the moving box itself).
+      if (text && !bubble) w.add(E + PART.item, { "overflow-x": "visible", "overflow-y": "clip" });
+    }
     if (MO.exit) {
-      list.push(`cw-out ${round(MO.exitDur)}s ease-in ${round(MO.exitAfter, 10)}s forwards`);
+      list.push(`cw-out ${round(MO.exitDur)}s ease-in ${round(exitAt, 10)}s forwards`);
       // Fades first, then gives its space back to the other messages.
       keyframe("cw-out", `0% { opacity: 1; max-height: 1200px; } 75% { opacity: 0; max-height: 1200px; margin-top: ${px(st.list.gap)}; } 100% { opacity: 0; max-height: 0; margin-top: 0; visibility: hidden; }`);
     }
     if (!list.length) return;
-    w.comment(MO.exit ? TX("css.motionExit", round(MO.exitAfter, 10)) : TX("css.motion"));
+    w.comment(MO.exit ? TX("css.motionExit", round(exitAt, 10)) : TX("css.motion"));
     w.add(E, { animation: list.join(", "), "transform-origin": "center center" }, ["animation", "transform-origin"]);
   }
 
@@ -593,6 +627,7 @@
       `       ${TX("css.head.otherTabs1")}`,
       `       ${TX("css.head.otherTabs2")}`,
       ...(needs31 ? [`   ■ ${TX("css.head.needs31")}`] : []),
+      ...(scrolls(st) ? [`   ■ ${TX("css.head.scroll31")}`] : []),
       ...pcFontNote(uses),
       "   ========================================================================== */",
     ].join("\n"));

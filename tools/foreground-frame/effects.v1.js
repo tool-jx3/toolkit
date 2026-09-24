@@ -37,6 +37,15 @@
     c.fillRect(r.x0, r.y0, r.w, r.h);
   }
 
+  // Sparkles must read as light. A dark accent (wa, horror, mansion) would scatter dark specks,
+  // so it is lifted toward white by however much brightness it lacks.
+  function lightTint(hex) {
+    const n = parseInt(String(hex).replace("#", "").slice(0, 6), 16) || 0;
+    const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    const t = Math.max(0, 0.8 - (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255);
+    return `rgb(${rgb.map(v => Math.round(v + (255 - v) * t)).join(",")})`;
+  }
+
   function sparkle(c, x, y, s) {
     c.beginPath();
     c.moveTo(x, y - s);
@@ -162,11 +171,12 @@
     },
     sparkle(c, r, amt, rand, g) {
       c.save();
-      c.shadowColor = g.slot.accent;
+      const tint = lightTint(g.slot.accent);
+      c.shadowColor = tint;
       c.shadowBlur = 10 * g.k;
       for (let i = 0, n = particles(r, 60000, amt); i < n; i++) {
         c.globalAlpha = 0.4 + rand() * 0.6;
-        c.fillStyle = rand() < 0.5 ? "#ffffff" : g.slot.accent;
+        c.fillStyle = rand() < 0.5 ? "#ffffff" : tint;
         sparkle(c, r.x0 + rand() * r.w, r.y0 + rand() * r.h, 4 + Math.pow(rand(), 2) * 14);
       }
       c.restore();

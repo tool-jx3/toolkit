@@ -22,7 +22,7 @@
     <fieldset>
       <legend data-i18n="preset.legend">預設集</legend>
       <div class="row wide">
-        <select id="preset"></select>
+        <select id="preset" data-i18n-aria-label="preset.legend" aria-label="預設集"></select>
       </div>
       <p class="desc" id="desc"></p>
     </fieldset>
@@ -107,7 +107,7 @@
 
     <fieldset>
       <legend data-i18n="text.legend">字幕（留空則不顯示文字）</legend>
-      <div class="row wide"><textarea id="text" data-i18n-placeholder="text.placeholder" placeholder="例）——  隔天早上  ——"></textarea></div>
+      <div class="row wide"><textarea id="text" data-i18n-placeholder="text.placeholder" placeholder="例）——  隔天早上  ——" data-i18n-aria-label="text.aria" aria-label="字幕文字"></textarea></div>
       <div class="row"><label data-i18n="text.color" for="textColor">文字顏色</label><input type="color" id="textColor"></div>
       <div class="row"><label data-i18n="text.size" for="fontSize">文字大小</label>
         <span class="with-value"><input type="range" id="fontSize" min="16" max="200" step="2"><output id="fontSizeOut"></output></span>
@@ -137,18 +137,20 @@
         <button data-i18n="bg.checker" type="button" data-bg="checker">棋盤格</button>
       </span>
       <span class="spacer"></span>
+      <button data-i18n="action.undo" type="button" class="small" id="undo" data-i18n-title="action.undo.title" title="復原 (Ctrl+Z)">↶ 復原</button>
+      <button data-i18n="action.redo" type="button" class="small" id="redo" data-i18n-title="action.redo.title" title="重做 (Ctrl+Y)">↷ 重做</button>
       <button data-i18n="action.replay" type="button" id="replay">重新播放</button>
       <button data-i18n="action.download" type="button" id="download" class="primary">下載</button>
     </div>
     <div class="stage scene" id="stage"><canvas id="preview"></canvas></div>
-    <p data-i18n="status.loading" class="status" id="status">載入中…</p>
+    <p class="status" id="status">載入中…</p>
 
     <div class="note">
       <h2 data-i18n="note.howto">使用方式</h2>
       <ul>
         <li data-i18n="note.howto.1">選擇預設集，調整顏色與秒數後按「下載」。</li>
         <li data-i18n-html="note.howto.2">儲存下來的是 APNG（內容為動畫的 <code>.png</code>），可以直接當成圖片上傳。</li>
-        <li data-i18n="note.howto.3">預設是「只播放一次並停在最後一格」。暗轉會維持黑色，明轉則會變透明消失。</li>
+        <li data-i18n="note.howto.3">預設是「只播放一次並停在最後一格」。暗轉會維持黑色，明轉則會變透明消失（為了方便確認，預覽會重複播放）。</li>
         <li data-i18n="note.howto.4">用暗轉遮住場面 → 換掉背景 → 用明轉露出畫面，兩張一組使用會銜接得很自然。</li>
       </ul>
       <h2 data-i18n="note.tips">製作訣竅</h2>
@@ -157,6 +159,7 @@
         <li data-i18n="note.tips.2">調高「模糊」邊界會變柔和，調低則會變銳利。</li>
         <li data-i18n="note.tips.3">「靜止秒數」是動作結束後停留在最後一張畫面的時間，可以用它來爭取換場的餘裕。</li>
         <li data-i18n="note.tips.4">溶解因為顆粒是隨機的，檔案會比較大。調高「顆粒大小」就會變輕。</li>
+        <li data-i18n="note.tips.5">CCFOLIA 能上傳的圖片最大 5MB。超過時會在儲存後提醒，請調低輸出尺寸、流暢度或秒數。</li>
       </ul>
     </div>
   </div>
@@ -165,13 +168,13 @@
 <footer>
   <span data-i18n="footer.free">只靠瀏覽器就能運作的免費工具。做出來的素材不限用途皆可自由使用（也不需要標註出處）。</span><br>
   <span data-i18n-html="footer.unofficial">設想用於 TRPG 線上團的工具，但與任何服務都沒有關係，是<strong>非官方</strong>工具。</span><br>
-  <a href="https://shiki365.github.io/" data-i18n="footer.moreTools">看看其他工具（shiki365 的工具集）</a> · <a href="https://shiki365.github.io/#contact" data-i18n="footer.feedback">問題回報與意見</a><br>
-  <span id="version">v1</span> <span data-i18n="footer.version">· 最後更新 2026-09-08</span>
+  <a href="https://shiki365.github.io/" data-i18n="footer.moreTools">看看其他工具（shiki365 的工具集）</a> · <a href="https://shiki365.github.io/#contact" data-i18n="footer.feedback">問題回報與意見</a> · <a href="https://sabunomisogi.booth.pm/items/8891048" data-i18n="footer.support">支持開發（BOOTH）</a><br>
+  <span id="version">v1.1</span> <span data-i18n="footer.version">· 最後更新 2026-09-24</span>
 </footer>
 
 <script src="../../assets/i18n.js"></script>
 <script src="./i18n.scene-transition.js"></script>
-<script src="apng.v1.js"></script>
-<script src="app.v1.js"></script>
+<script src="apng.v2.js"></script>
+<script src="app.v2.js"></script>
 </body>
 </html>

@@ -154,39 +154,48 @@
   function geometry(st) {
     const L = st.layout, TX = st.text, A = st.avatar;
     const count = Math.min(8, Math.max(1, L.count));
-    const iconCol = st.icons.show ? st.icons.size + st.icons.gap : 0;
+    const D = st.damage || {};
+    const itemCount = D.items ? Math.max(1, Math.min(20, Math.round(D.count) || 1)) : 0;
+    const itemsW = itemCount ? itemCount * D.size + (itemCount - 1) * D.itemGap : 0;
+    // Items widen the row, so the bar keeps its length; symbols (符號) share the row's width instead.
+    const itemCol = itemCount ? itemsW + D.gap : 0;
+    const iconCol = st.icons.show && !itemCount ? st.icons.size + st.icons.gap : 0;
+    const rowW = L.width + itemCol;
     let qW = L.width - iconCol;
     if (L.textLayout === "side") qW -= L.labelW + L.valueW + L.textGap * 2;
     if (L.textLayout === "labelSide") qW -= L.labelW + L.textGap;
     qW = Math.max(16, qW);
     const textH = Math.ceil(Math.max(TX.showLabel ? TX.labelSize : 0, TX.valueMode !== "none" ? TX.valueSize : 0) * 1.15);
     const stacked = L.textLayout === "above" || L.textLayout === "below";
-    const rowH = stacked ? textH + L.textGap + L.height : L.textLayout === "overlay" ? L.height : Math.max(L.height, textH);
-    let barsW = L.width, barsH = count * rowH + (count - 1) * L.gap;
+    const rowH = Math.max(itemCount ? D.size : 0,
+      stacked ? textH + L.textGap + L.height : L.textLayout === "overlay" ? L.height : Math.max(L.height, textH));
+    let barsW = rowW, barsH = count * rowH + (count - 1) * L.gap;
     if (L.direction === "row") {
-      barsW = count * L.width + (count - 1) * L.gap;
+      barsW = count * rowW + (count - 1) * L.gap;
       barsH = rowH;
     }
     if (L.direction === "grid") {
       const cols = Math.min(L.columns, count), rows = Math.ceil(count / cols);
-      barsW = cols * L.width + (cols - 1) * L.gap;
+      barsW = cols * rowW + (cols - 1) * L.gap;
       barsH = rows * rowH + (rows - 1) * L.gap;
     }
     const itemW = !A.show ? barsW : A.pos === "top" ? Math.max(A.w, barsW) : A.w + A.gap + barsW;
     const itemH = !A.show ? barsH : A.pos === "top" ? A.h + A.gap + barsH : Math.max(A.h, barsH);
-    return { count, iconCol, qW, textH, rowH, barsW, barsH, itemW, itemH };
+    return { count, iconCol, itemCount, itemsW, itemCol, rowW, qW, textH, rowH, barsW, barsH, itemW, itemH };
   }
 
   function rowTemplate(st, g) {
-    const L = st.layout, icon = g.iconCol > 0;
-    const H = px(L.height), gap = px(L.textGap), ic = icon ? px(g.iconCol) + " " : "";
-    const a = text => `"${icon ? "i " : ""}${text}"`;
+    const L = st.layout, extra = g.itemCol || g.iconCol;
+    const right = g.itemCol > 0 && st.damage.side === "right";
+    const H = px(L.height), gap = px(L.textGap);
+    const a = text => `"${extra && !right ? "i " : ""}${text}${extra && right ? " i" : ""}"`;
+    const c = cols => `${extra && !right ? px(extra) + " " : ""}${cols}${extra && right ? " " + px(extra) : ""}`;
     switch (L.textLayout) {
-      case "above": return { areas: `${a("l n")} ${a(". .")} ${a("q q")}`, cols: `${ic}minmax(0, 1fr) auto`, rows: `auto ${gap} ${H}` };
-      case "below": return { areas: `${a("q q")} ${a(". .")} ${a("l n")}`, cols: `${ic}minmax(0, 1fr) auto`, rows: `${H} ${gap} auto` };
-      case "side": return { areas: a("l . q . n"), cols: `${ic}${px(L.labelW)} ${gap} ${px(g.qW)} ${gap} ${px(L.valueW)}`, rows: `minmax(${H}, auto)` };
-      case "labelSide": return { areas: a("l . q"), cols: `${ic}${px(L.labelW)} ${gap} ${px(g.qW)}`, rows: `minmax(${H}, auto)` };
-      default: return { areas: a("q"), cols: `${ic}${px(g.qW)}`, rows: H };
+      case "above": return { areas: `${a("l n")} ${a(". .")} ${a("q q")}`, cols: c("minmax(0, 1fr) auto"), rows: `auto ${gap} ${H}` };
+      case "below": return { areas: `${a("q q")} ${a(". .")} ${a("l n")}`, cols: c("minmax(0, 1fr) auto"), rows: `${H} ${gap} auto` };
+      case "side": return { areas: a("l . q . n"), cols: c(`${px(L.labelW)} ${gap} ${px(g.qW)} ${gap} ${px(L.valueW)}`), rows: `minmax(${H}, auto)` };
+      case "labelSide": return { areas: a("l . q"), cols: c(`${px(L.labelW)} ${gap} ${px(g.qW)}`), rows: `minmax(${H}, auto)` };
+      default: return { areas: a("q"), cols: c(px(g.qW)), rows: `minmax(${H}, auto)` };
     }
   }
 
@@ -372,14 +381,14 @@
     w.comment(T("css.comment.barLayout"));
     w.add(SEL.side, { flex: "none", display: "flex", "flex-direction": "column", gap: showName && N.pos === "barsTop" ? px(N.gap) : "0", margin: "0", padding: "0" });
     const barsDecl = { margin: "0", padding: "0", "max-width": "none", gap: px(L.gap) };
-    if (L.direction === "grid") Object.assign(barsDecl, { display: "grid", "grid-template-columns": `repeat(${Math.min(L.columns, g.count)}, ${px(L.width)})` });
+    if (L.direction === "grid") Object.assign(barsDecl, { display: "grid", "grid-template-columns": `repeat(${Math.min(L.columns, g.count)}, ${px(g.rowW)})` });
     else Object.assign(barsDecl, { display: "flex", "flex-direction": L.direction === "row" ? "row" : "column", "flex-wrap": "nowrap" });
     w.add(SEL.bars, barsDecl);
 
     w.comment(T("css.comment.barColors"));
     st.bars.forEach((b, i) => {
       const vars = { "--c1": b.c1, "--c2": b.c2 };
-      if (st.icons.show) vars["--icon"] = S.iconUrl(b.icon);
+      if (g.iconCol > 0) vars["--icon"] = S.iconUrl(b.icon);
       w.add(row(i + 1), vars);
     });
     if (L.hideExtra) w.add(`${SEL.row}:nth-child(n+${g.count + 1})`, { display: "none" });
@@ -388,7 +397,7 @@
     const tpl = rowTemplate(st, g);
     w.add(SEL.row, {
       display: "grid", "grid-template-areas": tpl.areas, "grid-template-columns": tpl.cols, "grid-template-rows": tpl.rows,
-      gap: "0", "align-items": "center", width: px(L.width), height: "auto", margin: "0", padding: "0", "box-sizing": "border-box",
+      gap: "0", "align-items": "center", width: px(g.rowW), height: "auto", margin: "0", padding: "0", "box-sizing": "border-box",
       position: "relative", cursor: "default",
     });
     w.add(SEL.row + PART.text, { display: "contents" });
@@ -464,16 +473,27 @@
       layers.push({ image: S.borderUrl(d, g.qW, L.height, { width: B.borderW, color: B.borderColor, alpha: B.borderAlpha, double: B.double }), size: "100% 100%", position: "0 0", repeat: "no-repeat" });
     }
     layers.push(...ctx.boxLayers);
-    if (layers.length) {
+    ctx.overlayLayers = layers;
+    if (layers.length || (st.damage && st.damage.cracks)) {
       w.add(SEL.row + PART.box + "::after", {
         content: '""', position: "absolute", left: "0", top: "0", width: "100%", height: "100%", "pointer-events": "none", "z-index": "2",
-        "clip-path": clip, "background-image": layers.map(l => l.image).join(", "),
+        "clip-path": clip, "background-image": layers.length ? layers.map(l => l.image).join(", ") : "none",
         "background-size": layers.map(l => l.size).join(", "), "background-position": layers.map(l => l.position).join(", "),
         "background-repeat": layers.map(l => l.repeat).join(", "),
       });
     }
 
-    if (st.icons.show) {
+    if (g.itemCount) {
+      const D = st.damage, size = px(D.size);
+      w.comment(T("css.comment.items"));
+      w.add(SEL.row + "::before", {
+        content: '""', "grid-area": "i", display: "block", width: px(g.itemsW), height: size, "align-self": "center",
+        "justify-self": D.side === "right" ? "end" : "start",
+        "background-image": Array(g.itemCount).fill("var(--i0)").join(", "),
+        "background-size": `${size} ${size}`, "background-repeat": "no-repeat",
+        "background-position": Array.from({ length: g.itemCount }, (_, j) => `${px(j * (D.size + D.itemGap))} 50%`).join(", "),
+      });
+    } else if (g.iconCol > 0) {
       w.comment(T("css.comment.icon"));
       w.add(SEL.row + "::before", {
         content: '""', "grid-area": "i", display: "block", width: px(st.icons.size), height: px(st.icons.size), "align-self": "center",
@@ -490,7 +510,10 @@
       w.out.push(...extra.out);
     }
     ctx.w = w;
-    if (window.BarDeco) window.BarDeco.alerts(ctx);
+    if (window.BarDeco) {
+      window.BarDeco.damage(ctx);
+      window.BarDeco.alerts(ctx);
+    }
 
     for (const [name, body] of ctx.keyframes) w.raw(`@keyframes ${name} { ${body} }`);
     return w.out.join("\n") + "\n";

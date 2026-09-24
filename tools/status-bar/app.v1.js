@@ -91,6 +91,8 @@
     if (path === "layout.count") {
       renderBarList();
       renderTester();
+    } else if (/^bars\.\d+\.label$/.test(path)) {
+      renderItemList();
     } else if (/^preview\.statuses\.\d+\.2$/.test(path)) {
       const i = Number(path.split(".")[2]);
       const range = $(`[data-bind="preview.statuses.${i}.1"]`);
@@ -131,6 +133,7 @@
       case "em": return r.toFixed(2);
       case "bars": return value + T("unit.bars");
       case "seg": return value > 1 ? value + T("unit.count") : T("unit.none");
+      case "count": return value + T("unit.count");
       case "under": return value + T("unit.under");
       default: return String(r);
     }
@@ -202,6 +205,16 @@
         <select data-bind="bars.${i}.icon" aria-label="${esc(T("bars.aria.icon", i + 1))}">${optionsHtml(P.ICONS)}</select>
         <input type="checkbox" data-bind="bars.${i}.low" aria-label="${esc(T("bars.aria.alert", i + 1))}">
       </div>`).join("");
+    bindControls(box);
+    renderItemList();
+  }
+
+  // Which item sits beside each bar (the wearing-away effect).
+  function renderItemList() {
+    const box = $("#itemList");
+    box.innerHTML = state.bars.slice(0, state.layout.count).map((b, i) => `
+      <div class="row"><label>${esc(T("damage.itemFor", i + 1, b.label || state.preview.statuses[i][0]))}</label>
+        <select data-bind="bars.${i}.item">${optionsHtml(P.ITEM_TYPES)}</select></div>`).join("");
     bindControls(box);
     syncControls();
   }
@@ -596,6 +609,16 @@
 
   function wireEvents() {
     for (const btn of $$("[data-tab]")) btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+    // Arrow keys / Home / End move between the tabs, as in the WAI-ARIA tabs pattern.
+    $(".tabbar").addEventListener("keydown", ev => {
+      const tabs = $$("[data-tab]"), i = tabs.indexOf(document.activeElement);
+      const next = i < 0 ? undefined : { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[ev.key];
+      if (next === undefined) return;
+      ev.preventDefault();
+      const tab = tabs[(next + tabs.length) % tabs.length];
+      tab.focus();
+      switchTab(tab.dataset.tab);
+    });
     $("#design").addEventListener("change", showDesignDesc);
     $("#applyDesign").addEventListener("click", () => {
       const key = $("#design").value;
@@ -607,7 +630,7 @@
     $("#undo").addEventListener("click", undo);
     $("#redo").addEventListener("click", redo);
     document.addEventListener("keydown", ev => {
-      if (!(ev.ctrlKey || ev.metaKey) || ev.target.matches("input[type=text], textarea")) return;
+      if (!(ev.ctrlKey || ev.metaKey) || ev.target.matches("input[type=text], input[type=number], textarea")) return;
       const key = ev.key.toLowerCase();
       if (key === "z" && !ev.shiftKey) { ev.preventDefault(); undo(); }
       else if (key === "y" || (key === "z" && ev.shiftKey)) { ev.preventDefault(); redo(); }

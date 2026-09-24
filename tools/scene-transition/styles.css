@@ -2,6 +2,7 @@
     color-scheme: dark;
     --bg: #15161a; --panel: #1e1f26; --line: #303240; --line-soft: #282a36;
     --fg: #e7e7ea; --muted: #9a9aa5; --accent: #6b70ff;
+    --button: #575cf5; /* darker than --accent so white text passes 4.5:1 */
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg);
@@ -46,8 +47,9 @@
   button { background: #2f3140; color: var(--fg); border: 1px solid #464a5e;
            border-radius: 6px; padding: 7px 14px; font: inherit; cursor: pointer; }
   button:hover { background: #3a3d4f; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
-  button.primary:hover { background: #575cf5; }
+  button.primary { background: var(--button); border-color: var(--button); color: #fff; font-weight: 700; }
+  button.primary:hover { background: #4a4fe0; }
+  button.small { padding: 4px 9px; font-size: 12px; }
   button:disabled { opacity: .5; cursor: default; }
 
   .stage-wrap { position: sticky; top: 20px; display: grid; gap: 12px; }

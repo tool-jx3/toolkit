@@ -1,5 +1,5 @@
 /*!
- * deco.v1.js - decorations and alerts, called from BarCss.build()
+ * deco.v1.js - decorations, the wearing-away effect and alerts, called from BarCss.build()
  *
  * Each decoration gets (ctx, options) and may:
  *   ctx.boxLayers.push({ image, size, position, repeat })   an overlay on the bar, clipped to its shape
@@ -10,8 +10,8 @@
  *   ctx.keyframe(name, body)                                 a @keyframes block
  *
  * Pseudo-elements in use, so decorations don't collide:
- *   bar box ::after  = border + boxLayers (core)     fill ::before = sheen    fill ::after = tip
- *   row ::before     = icon (core)                   row ::after   = brackets
+ *   bar box ::after  = border + boxLayers + cracks   fill ::before = sheen    fill ::after = tip
+ *   row ::before     = icon or item strip (core)     row ::after   = brackets
  *   #root ::before   = frame                         #root ::after = (free)
  *   #root > div ::before / ::after, side ::before, badge ::after = name (core)
  */
@@ -160,14 +160,103 @@
     }
   }
 
-  // ---------------------------------------------------------------- alerts
+  // ---------------------------------------------------------------- remaining ratio
 
-  // The fill's style is "width: 12.3456%;" -> anything below `at` percent.
-  function lowIs(at) {
-    const list = [];
-    for (let v = 0; v < at; v++) list.push(`[style^="width: ${v}%"]`, `[style^="width: ${v}."]`);
-    return `:is(${list.join(", ")})`;
+  const ZERO = ':where([style^="width: 0%"])';
+
+  // The fill's style is "width: 12.3456%;". below(b) matches every width under b percent (b: whole
+  // number). Leading digits keep the list short: "width: 2" alone covers 2, 2.x and 20-29.x. Only
+  // "width: 1…" also hits 100, so it excludes that. :where() gives every threshold rule the same
+  // specificity, so among several matching thresholds the one written last wins.
+  const pre = v => `[style^="width: ${v}"]`;
+
+  function belowList(b) {
+    b = Math.round(b);
+    if (b <= 0) return [":not(*)"];
+    if (b >= 101) return ["*"];
+    if (b === 100) return [`:not(${pre(100)})`];
+    const list = [pre(0)];
+    // TN = tens digit (not T: that name is the global i18n function).
+    const TN = Math.floor(b / 10), u = b % 10;
+    for (let d = Math.max(1, TN); d <= Math.min(9, b - 1); d++) list.push(pre(d + "%"), pre(d + "."));
+    for (let t = 1; t < TN; t++) list.push(t === 1 ? `${pre(1)}:not(${pre(100)})` : pre(t));
+    if (TN >= 1) for (let v = 0; v < u; v++) list.push(TN === 1 && v === 0 ? `${pre(10)}:not(${pre(100)})` : pre(`${TN}${v}`));
+    return list;
   }
+
+  const below = b => `:where(${belowList(b).join(", ")})`;
+
+  // The fill's width p <= t (t: any number from 0 to 100). A whole t is exact (below t, or exactly t);
+  // otherwise it rounds up to the next whole number, off by less than 1 % of the bar.
+  // eff orders the conditions: a condition holds whenever one with a smaller eff holds.
+  function atMost(t) {
+    if (t <= 0) return { eff: 0, sel: ZERO };
+    const r = Math.round(t);
+    if (Math.abs(t - r) < 1e-6) return { eff: r + 0.5, sel: `:where(${[...belowList(r), pre(r + "%")].join(", ")})` };
+    return { eff: Math.ceil(t), sel: below(Math.ceil(t)) };
+  }
+
+  const fillIs = cond => `:has(> div:nth-child(2) > div:nth-child(2)${cond})`;
+
+  // ---------------------------------------------------------------- wearing away
+
+  // As the remaining ratio falls, the bar cracks (75 / 50 / 25 %, shattered at 0) and the items
+  // beside it break one by one from the right. Each look is a range of the fill's width. Every range
+  // uses its own animation name, so entering a range plays the "just broke" flash once.
+  function damage(ctx) {
+    const { st, w, SEL, PART, g } = ctx, D = st.damage, I = window.BarItems;
+    if (!D || !I || (!D.cracks && !g.itemCount)) return;
+
+    w.comment(T("css.comment.damage"));
+    st.bars.slice(0, g.count).forEach((b, i) => {
+      const vars = {};
+      if (g.itemCount) I.frames(b.item, b).forEach((url, f) => { vars[`--i${f}`] = url; });
+      if (D.cracks) for (let s = 1; s <= 4; s++) vars[`--k${s}`] = I.crackUrl(g.qW, st.layout.height, s, i + 1, D.crackColor, D.crackAlpha);
+      w.add(ctx.row(i + 1), vars);
+    });
+
+    if (D.cracks) {
+      w.comment(T("css.comment.cracks"));
+      // Every stage restates the whole overlay; long images (the border) go into variables written once.
+      const base = ctx.overlayLayers.map((l, i) => (l.image.startsWith("url(") ? Object.assign({}, l, { image: `var(--ov${i})`, raw: l.image }) : l));
+      const saved = base.filter(l => l.raw);
+      if (saved.length) w.add(SEL.row, Object.fromEntries(saved.map(l => [l.image.slice(4, -1), l.raw])));
+      const at = st.bar.borderW > 0 ? 1 : 0;
+      [[1, below(75)], [2, below(50)], [3, below(25)], [4, ZERO]].forEach(([s, cond]) => {
+        const list = base.slice();
+        list.splice(at, 0, { image: `var(--k${s})`, size: "100% 100%", position: "0 0", repeat: "no-repeat" });
+        w.add(SEL.row + fillIs(cond) + PART.box + "::after", {
+          "background-image": list.map(l => l.image).join(", "), "background-size": list.map(l => l.size).join(", "),
+          "background-position": list.map(l => l.position).join(", "), "background-repeat": list.map(l => l.repeat).join(", "),
+          animation: D.flash ? `sb-crack${s} 0.6s ease-out` : "none",
+        });
+        if (D.flash) ctx.keyframe(`sb-crack${s}`, "0% { filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 4px #fff) brightness(1.6); }");
+      });
+    }
+
+    if (g.itemCount) {
+      w.comment(T("css.comment.itemsBreak"));
+      const n = g.itemCount, keys = [];
+      // Item j (1..n) holds the share (j-1)/n .. j/n of the bar; f = how much of that share is left.
+      // Frame k (1..4) begins when f <= (4-k)/4, i.e. when the remaining width p <= t.
+      for (let j = 1; j <= n; j++) {
+        for (let k = 1; k <= 4; k++) keys.push(Object.assign({ j, k }, atMost(100 * (j - 1 + (4 - k) / 4) / n)));
+      }
+      // Loosest condition first: when several hold, the tighter one written later wins.
+      const bounds = [...new Map(keys.map(x => [x.eff, x.sel]))].sort((a, b) => b[0] - a[0]);
+      bounds.forEach(([eff, sel], idx) => {
+        const frames = Array.from({ length: n }, (_, j0) =>
+          Math.max(0, ...keys.filter(x => x.j === j0 + 1 && x.eff >= eff).map(x => x.k)));
+        w.add(SEL.row + fillIs(sel) + "::before", {
+          "background-image": frames.map(f => `var(--i${f})`).join(", "),
+          animation: D.flash ? `sb-item${idx} 0.5s ease-out` : "none",
+        });
+        if (D.flash) ctx.keyframe(`sb-item${idx}`, "0% { transform: scale(1.3); filter: brightness(1.8); }");
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------- alerts
 
   const BLINK = "50% { opacity: 0.25; }";
 
@@ -186,7 +275,7 @@
     const targets = st.bars.slice(0, g.count).map((b, i) => (b.low ? i + 1 : 0)).filter(Boolean);
     if (A.lowOn && targets.length) {
       const at = Math.min(99, Math.max(1, Math.round(A.lowAt)));
-      const has = `:has(> div:nth-child(2) > div:nth-child(2)${lowIs(at)})`;
+      const has = fillIs(below(at));
       const rows = targets.length === g.count ? [SEL.row] : targets.map(i => row(i));
       const low = rows.map(s => s + has);
       w.comment(T("css.comment.low", at));
@@ -208,7 +297,7 @@
     }
 
     if (A.zeroOn && (A.zeroGray || A.zeroBlink)) {
-      const zero = `${SEL.row}:has(> div:nth-child(2) > div:nth-child(2)[style^="width: 0%"])`;
+      const zero = SEL.row + fillIs(ZERO);
       w.comment(T("css.comment.zero"));
       if (A.zeroGray) w.add(zero, { filter: "grayscale(1) brightness(0.8)" });
       if (A.zeroBlink) {
@@ -218,5 +307,5 @@
     }
   }
 
-  window.BarDeco = { DECOS, decorate, alerts, lowIs };
+  window.BarDeco = { DECOS, decorate, damage, alerts, below };
 })();

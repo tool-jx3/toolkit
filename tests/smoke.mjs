@@ -462,14 +462,15 @@ const st = checkTool({
   dir: 'tools/scene-transition',
   dict: 'i18n.scene-transition.js',
   locale: 'ja',
-  scripts: ['app.v1.js', 'apng.v1.js'],
+  scripts: ['app.v2.js', 'apng.v2.js'],
   styles: ['styles.css'],
   minHooks: 60
 });
 
 /* 18 種預設集的說明以 T(p.descKey) 取得，key 存在資料裡，靜態掃描看不到。 */
 section('tools/scene-transition presets');
-const stPresetKeys = [...read('tools/scene-transition/app.v1.js')
+const stApp = read('tools/scene-transition/app.v2.js');
+const stPresetKeys = [...stApp
   .matchAll(/descKey: "(preset\.[\w-]+)"/g)].map(m => m[1]);
 check('解析出 18 組預設集', stPresetKeys.length === 18, `found ${stPresetKeys.length}`);
 for (const locale of ['zh-TW', 'ja']) {
@@ -479,6 +480,18 @@ for (const locale of ['zh-TW', 'ja']) {
   const noColon = stPresetKeys.filter(k => !String(st.messages[locale][k]).includes('：'));
   check(`${locale} 每組預設集說明都有全形冒號`, noColon.length === 0, `missing: ${noColon.join(', ')}`);
 }
+/* 換預設集時，使用者自己打的字幕要留著、範例字幕要換掉。範例字幕跟著語言走，
+ * 所以切換語言後，舊語言的範例字幕也得算範例，不然會被誤當成使用者輸入。 */
+check('換預設集時，任何語言的範例字幕都算範例',
+  stApp.includes('return name === "caption" && Object.values(I18N.messages).some(dict => dict["preset.caption.text"] === value);')
+  && stApp.includes('const keepText = !first && !isSampleText(currentPreset, el.text.value.trim());'));
+/* 狀態列是 JS 寫的（輸出尺寸、格數……）。掛了 data-i18n 的話，DOMContentLoaded 時
+ * 引擎會把它蓋回「載入中…」，而且要等使用者動了設定才會再出現。 */
+check('scene-transition 的狀態列不掛 data-i18n',
+  /<p class="status" id="status">/.test(read('tools/scene-transition/index.html'))
+  && !/data-i18n="[^"]*"[^>]*id="status"|id="status"[^>]*data-i18n=/.test(read('tools/scene-transition/index.html')));
+check('切換語言時連同「設定會保留」的附註一起換',
+  /I18N\.onChange\([\s\S]{0,300}descKey\) \+ keepNote\(\)/.test(stApp));
 
 
 /* ---- status-bar ---- */
@@ -487,7 +500,7 @@ const sb = checkTool({
   dict: 'i18n.status-bar.js',
   locale: 'ja',
   scripts: ['app.v1.js', 'presets.v1.js', 'css.v1.js', 'deco.v1.js',
-    'model.v1.js', 'mock.v1.js', 'shapes.v1.js', 'pcfonts.v1.js'],
+    'model.v1.js', 'mock.v1.js', 'shapes.v1.js', 'items.v1.js', 'pcfonts.v1.js'],
   styles: ['styles.css'],
   minHooks: 200
 });
@@ -502,6 +515,15 @@ for (const locale of ['zh-TW', 'ja']) {
   const missing = [...new Set(sbListKeys)].filter(k => !sb.messages[locale][k]);
   check(`${locale} 每個清單 key 都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
+/* 設計範本的名稱與說明同樣只以 key 存在資料裡。 */
+const sbDesignKeys = [...sbPresets.matchAll(/label: "(design\.[\w-]+)", desc: "(design\.[\w.-]+)"/g)]
+  .flatMap(m => [m[1], m[2]]);
+check('presets.v1.js 解析出 10 組設計範本', sbDesignKeys.length === 20, `found ${sbDesignKeys.length / 2}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = sbDesignKeys.filter(k => !sb.messages[locale][k]);
+  check(`${locale} 每組設計範本都有名稱與說明`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+check('損壞演出的道具清單走字典', /const ITEM_TYPES = \[\s*\["none", "item\.none"\], \["gem", "item\.gem"\]/.test(sbPresets));
 
 /* 狀態列會把目前狀態存成 {key, args} 再於語言切換時重繪，因此這些 key 只會以
  * 變數形式傳進 T()，靜態掃描看不到。掃 app.v1.js 的 status()／statusError()
@@ -515,6 +537,11 @@ const sbBareT = [...sbCss.matchAll(/(?<![\w.$])T(?!\s*\()(?![\w$])/g)]
   .map(m => sbCss.slice(Math.max(0, m.index - 40), m.index + 20).replace(/\n/g, ' '));
 check('status-bar 的 css.v1.js 沒有把 T 當成值使用',
   sbBareT.length === 0, sbBareT.slice(0, 3).join(' / '));
+/* deco.v1.js 的 belowList() 在上游用 T 當十位數，收錄時改名為 TN：同一個函式裡
+ * 只要有人加一句 T(...)，就會拿數字去呼叫而當掉。 */
+const sbDeco = read('tools/status-bar/deco.v1.js');
+check('status-bar 的 deco.v1.js 沒有用 T 當變數名',
+  !/\b(?:const|let|var)\s+T\b|[,{]\s*T\s*=/.test(sbDeco));
 
 section('tools/status-bar status messages');
 const sbApp = read('tools/status-bar/app.v1.js');
@@ -523,6 +550,10 @@ const sbStatusKeys = [...new Set([
   'status.loading'
 ])];
 check('解析出狀態列訊息 key', sbStatusKeys.length >= 12, `found ${sbStatusKeys.length}`);
+/* 改了條的顯示名稱，「越少越損壞」裡每條的道具標題也要跟著換（上游 dab4fb9 修的就是這個 regex 少了反斜線）。 */
+check('改條的顯示名稱時重繪道具清單',
+  sbApp.includes('} else if (/^bars\\.\\d+\\.label$/.test(path)) {\n      renderItemList();')
+  && /function renderItemList\(\)[\s\S]{0,200}T\("damage\.itemFor"/.test(sbApp));
 for (const locale of ['zh-TW', 'ja']) {
   const missing = sbStatusKeys.filter(k => !sb.messages[locale][k]);
   check(`${locale} 狀態列訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
@@ -1693,7 +1724,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  '6e9a5b5', '52426f5', '2f50d75', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '9459aa7', 'fc05c98',
+  '586b273', '0162787', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', 'd3bdf3c', 'fc05c98',
   '90f8442', 'a9a522c', 'aad63b1',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
