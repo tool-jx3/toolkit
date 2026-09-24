@@ -5,15 +5,19 @@
        サイト定数
        URL や外部リンクをまとめて管理する
     ---------------------------------------------------------------- */
+    /* 收錄版：上游的站台就是這個 repo 的根目錄，路徑一律寫 '/'。這裡改成相對於
+     * 本檔所在的 lab 根目錄，trpg_map_maker/ 底下的頁面也能找到同一組連結。
+     * 上游的隱私權政策只在說明 Google Analytics，收錄版拿掉了分析，連結也一併拿掉。 */
+    const LAB_ROOT = new URL('.', document.currentScript.src).href;
     const SITE = {
-        name: '違法建築のTRPGラボ',
-        home: '/',
+        home: LAB_ROOT,
+        toolkitHome: new URL('../../', LAB_ROOT).href,
         twitter: 'https://twitter.com/ihoukentiku',
         github: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
         githubLicense: 'https://github.com/ihoukentiku/ihoukentiku.github.io/blob/main/LICENSE',
-        thirdPartyLicense: '/third-party-licenses.html',
-        privacyPolicy: '/privacy-policy.html',
+        thirdPartyLicense: LAB_ROOT + 'third-party-licenses.html',
     };
+    const T = window.T;
 
     /* ----------------------------------------------------------------
        ヘッダー構築
@@ -23,27 +27,32 @@
         const header = document.getElementById('site-header');
         if (!header) return;
 
+        /* 文字先用 T() 填好，另外掛上 data-i18n：之後切換語言時由共用引擎重套，
+         * 不必整個重建（重建會把語言選單換掉）。 */
         header.innerHTML = `
       <div class="header-inner">
-        <a href="${SITE.home}" class="site-logo" aria-label="ホームへ戻る">
+        <a href="${SITE.home}" class="site-logo" data-i18n-aria-label="lab.homeAria" aria-label="${T('lab.homeAria')}">
           <span class="logo-en">TRPG Laboratory</span>
-          <span class="logo-text">違法建築の<span class="logo-trpg">TRPG</span>ラボ</span>
+          <span class="logo-text" data-i18n-html="lab.logo">${T('lab.logo')}</span>
         </a>
-        <nav class="header-nav" aria-label="サイトナビゲーション">
-          <button class="hbtn" id="btn-guide" aria-label="使い方ガイド" title="使い方ガイド">
+        <nav class="header-nav" data-i18n-aria-label="lab.navAria" aria-label="${T('lab.navAria')}">
+          <a class="toolkit-home" href="${SITE.toolkitHome}" data-i18n="nav.home">${T('nav.home')}</a>
+          <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="${T('lang.aria')}"></select>
+          <button class="hbtn" id="btn-guide" data-i18n-aria-label="lab.guide" aria-label="${T('lab.guide')}" data-i18n-title="lab.guide" title="${T('lab.guide')}">
             <span class="material-symbols-outlined">question_mark</span>
           </button>
           <a class="hbtn" id="btn-twitter" href="${SITE.twitter}" target="_blank"
-             rel="noopener noreferrer" aria-label="作者Twitter">
+             rel="noopener noreferrer" data-i18n-aria-label="lab.twitter" aria-label="${T('lab.twitter')}">
             <i class="fab fa-twitter" id="icon-bird"></i>
             <i class="fab fa-x-twitter" id="icon-x" style="display:none"></i>
           </a>
-          <button class="hbtn" id="theme-toggle" aria-label="テーマ切り替え" title="テーマ切り替え">
+          <button class="hbtn" id="theme-toggle" data-i18n-aria-label="lab.theme" aria-label="${T('lab.theme')}" data-i18n-title="lab.theme" title="${T('lab.theme')}">
             <span class="material-symbols-outlined fill" id="theme-icon">light_mode</span>
           </button>
         </nav>
       </div>
     `;
+        I18N.mountSwitcher(document.getElementById('localeSelect'));
 
         applyTheme(getSavedTheme());
         bindHeaderEvents();
@@ -167,12 +176,11 @@
         const linksEl = document.createElement('div');
         linksEl.className = 'guide-legal-links';
         linksEl.innerHTML = `
-      <a href="${SITE.privacyPolicy}">プライバシーポリシー</a>
       <a href="${SITE.githubLicense}" target="_blank" rel="noopener">
         <i class="fab fa-github"></i> MIT License
       </a>
-      <a href="${SITE.thirdPartyLicense}">サードパーティライセンス</a>
-      <span class="guide-legal-copy">&copy; 2025 違法建築 | 違法建築のTRPGラボ</span>
+      <a href="${SITE.thirdPartyLicense}" data-i18n="lab.thirdParty">${T('lab.thirdParty')}</a>
+      <span class="guide-legal-copy" data-i18n="lab.copyright">${T('lab.copyright')}</span>
     `;
         guideContent.appendChild(linksEl);
     }
@@ -187,13 +195,12 @@
         footer.innerHTML = `
       <div class="footer-inner">
         <div class="footer-links">
-          <a href="${SITE.privacyPolicy}">プライバシーポリシー</a>
           <a href="${SITE.githubLicense}" target="_blank" rel="noopener">
             <i class="fab fa-github"></i> MIT License
           </a>
-          <a href="${SITE.thirdPartyLicense}">サードパーティライセンス</a>
+          <a href="${SITE.thirdPartyLicense}" data-i18n="lab.thirdParty">${T('lab.thirdParty')}</a>
         </div>
-        <p class="footer-copy">&copy; 2025 違法建築 | 違法建築のTRPGラボ</p>
+        <p class="footer-copy" data-i18n="lab.copyright">${T('lab.copyright')}</p>
       </div>
     `;
     }
@@ -240,7 +247,8 @@
             btnDec.type = 'button';
             btnDec.className = 'num-btn num-btn-dec';
             btnDec.textContent = '−';
-            btnDec.setAttribute('aria-label', '減らす');
+            btnDec.setAttribute('aria-label', T('lab.decrease'));
+            btnDec.dataset.i18nAriaLabel = 'lab.decrease';
             btnDec.tabIndex = -1;
 
             /* ＋ ボタン */
@@ -248,7 +256,8 @@
             btnInc.type = 'button';
             btnInc.className = 'num-btn num-btn-inc';
             btnInc.textContent = '＋';
-            btnInc.setAttribute('aria-label', '増やす');
+            btnInc.setAttribute('aria-label', T('lab.increase'));
+            btnInc.dataset.i18nAriaLabel = 'lab.increase';
             btnInc.tabIndex = -1;
 
             /* input をラッパーに移す */
