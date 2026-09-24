@@ -1,5 +1,5 @@
 /*!
- * app.v1.js - 場景轉換素材產生器（瀏覽器版）
+ * app.v2.js - 場景轉換素材產生器（瀏覽器版）
  *
  * Effects are not drawn one by one. Each one is a "progress field": a
  * greyscale image whose pixel value says when that pixel is reached
@@ -67,6 +67,9 @@
   };
 
   const PREVIEW_WIDTH = 480;
+  const PREVIEW_PAUSE = 1200;                       // ms on the last frame before the preview repeats
+  const CCFOLIA_LIMIT = 5 * 1024 * 1024;            // CCFOLIA rejects image uploads of 5 MB or more (its bundle, 2026-09-24)
+  const SAVE_KEY = "ccf-scene-transition.state";
   const FONT_STACK = '"Yu Gothic UI","Yu Gothic","Hiragino Kaku Gothic ProN","Meiryo",sans-serif';
 
   // ---------------------------------------------------------------- fields
@@ -236,14 +239,16 @@
     return true;
   }
 
-  function renderFrames(spec) {
+  const frameCount = spec => Math.max(2, Math.round(spec.duration * spec.fps));
+
+  /** Every frame in order as { pixels, delay }. The hold is added to the last one. */
+  function* frameStream(spec) {
     const [w, h] = spec.size;
     const { field, lo, hi } = buildField(spec);
     const [r, g, b] = parseColor(spec.color);
     const ease = EASINGS[spec.ease] || EASINGS["in-out"];
     const layer = spec.text ? textLayer(spec) : null;
-    const count = Math.max(2, Math.round(spec.duration * spec.fps));
-    const frames = [], delays = [];
+    const count = frameCount(spec);
 
     for (let i = 0; i < count; i++) {
       const p = i / (count - 1);
@@ -262,16 +267,24 @@
         const alpha = textAlpha(spec.mode, p);
         if (alpha) compose(pixels, layer, alpha);
       }
+      const hold = i === count - 1 && spec.hold > 0 ? spec.hold * 1000 : 0;
+      yield { pixels, delay: 1000 / spec.fps + hold };
+    }
+  }
+
+  /** All frames at once, for the preview. */
+  function renderFrames(spec) {
+    const frames = [], delays = [];
+    for (const { pixels, delay } of frameStream(spec)) {
       // A frame that changes nothing just extends the previous one's delay.
       if (frames.length && identical(frames[frames.length - 1], pixels)) {
-        delays[delays.length - 1] += 1000 / spec.fps;
+        delays[delays.length - 1] += delay;
         continue;
       }
       frames.push(pixels);
-      delays.push(1000 / spec.fps);
+      delays.push(delay);
     }
-    if (spec.hold > 0) delays[delays.length - 1] += spec.hold * 1000;
-    return { frames, delays, width: w, height: h };
+    return { frames, delays, width: spec.size[0], height: spec.size[1] };
   }
 
   // ------------------------------------------------------------- previewing
@@ -310,8 +323,10 @@
       const { frames, delays, width, height } = this.render;
       this.context.putImageData(new ImageData(frames[index], width, height), 0, 0);
       const last = index === frames.length - 1;
-      if (last && this.loop !== 0) return;              // hold the final frame
-      this.timer = setTimeout(() => this.step(last ? 0 : index + 1), delays[index]);
+      // The file itself may play once and stop, but the preview starts over after a pause,
+      // so a fade-out never just sits there as a black box.
+      const wait = delays[index] + (last && this.loop !== 0 ? PREVIEW_PAUSE : 0);
+      this.timer = setTimeout(() => this.step(last ? 0 : index + 1), wait);
     }
     stop() {
       if (this.timer) clearTimeout(this.timer);
@@ -338,18 +353,41 @@
     rowIris: ["radial"],
     rowCenter: ["radial"],
   };
+  const keepNote = () => T("preset.keepNote");
   let timer = null;
+  let currentPreset = null;
 
   function preset(name) {
     return Object.assign({}, DEFAULTS, PRESETS[name]);
   }
 
+  /* 預設集的範例字幕不論是哪種語言都算範例：切換語言之後再換預設集，照樣會被換掉。 */
+  function isSampleText(name, value) {
+    if (value === preset(name).text) return true;
+    return name === "caption" && Object.values(I18N.messages).some(dict => dict["preset.caption.text"] === value);
+  }
+
+  const outputHeight = () => Number(el.size.value.split("x")[1]) || 720;
+
+  // The output settings belong to the user, not to the effect, so switching presets keeps them.
+  // A caption the user typed stays as well; a preset's own sample caption is swapped like any other value.
   function applyPreset(name) {
     const p = preset(name);
-    el.desc.textContent = T(p.descKey);
+    const first = currentPreset === null;
+    const keepText = !first && !isSampleText(currentPreset, el.text.value.trim());
+    currentPreset = name;
+    el.desc.textContent = T(p.descKey) + keepNote();
     el.color.value = p.color;
-    el.textColor.value = p.textColor;
-    el.size.value = p.size.join("x");
+    if (first) {
+      el.size.value = p.size.join("x");
+      el.fps.value = p.fps;
+      el.loop.checked = p.loop === 0;
+    }
+    if (!keepText) {
+      el.text.value = p.text;
+      el.textColor.value = p.textColor;
+      el.fontSize.value = p.fontSize || Math.round(outputHeight() * 0.09);
+    }
     el.feather.value = p.feather;
     el.direction.value = p.direction;
     el.axis.value = p.axis;
@@ -362,10 +400,6 @@
     el.duration.value = p.duration;
     el.hold.value = p.hold;
     el.ease.value = p.ease;
-    el.fps.value = p.fps;
-    el.loop.checked = p.loop === 0;
-    el.text.value = p.text;
-    el.fontSize.value = p.fontSize || Math.round(p.size[1] * 0.09);
     el.mode.value = p.mode;
     el.invert.checked = p.invert;
     syncRows();
@@ -429,6 +463,67 @@
     timer = setTimeout(refresh, 120);
   }
 
+  // ------------------------------------------------------ undo & autosave
+
+  // The whole form is the project: undo, redo and autosave are snapshots of its values.
+  const history = { undo: [], redo: [], last: null };
+  const FIELDS = Object.keys(el).filter(id => id !== "preset" && id !== "desc");
+
+  function snapshot() {
+    const out = { preset: el.preset.value };
+    for (const id of FIELDS) out[id] = el[id].type === "checkbox" ? el[id].checked : el[id].value;
+    return JSON.stringify(out);
+  }
+
+  function restore(snap) {
+    let data;
+    try { data = JSON.parse(snap); } catch (err) { return false; }
+    if (!data || !PRESETS[data.preset]) return false;
+    el.preset.value = currentPreset = data.preset;
+    el.desc.textContent = T(PRESETS[data.preset].descKey) + keepNote();
+    for (const id of FIELDS) {
+      if (!(id in data)) continue;
+      const input = el[id];
+      if (input.type === "checkbox") input.checked = !!data[id];
+      else input.value = data[id];
+      if (input.tagName === "SELECT" && input.selectedIndex < 0) input.selectedIndex = 0;
+    }
+    syncRows();
+    return true;
+  }
+
+  function save(snap) {
+    try { localStorage.setItem(SAVE_KEY, snap); } catch (err) { /* storage may be blocked */ }
+  }
+
+  function updateHistoryButtons() {
+    $("undo").disabled = !history.undo.length;
+    $("redo").disabled = !history.redo.length;
+  }
+
+  function commit() {
+    const snap = snapshot();
+    if (snap === history.last) return;
+    if (history.last !== null) {
+      history.undo.push(history.last);
+      if (history.undo.length > 150) history.undo.shift();
+    }
+    history.redo.length = 0;
+    history.last = snap;
+    updateHistoryButtons();
+    save(snap);
+  }
+
+  function jump(from, to) {
+    if (!from.length) return;
+    to.push(history.last);
+    history.last = from.pop();
+    restore(history.last);
+    updateHistoryButtons();
+    save(history.last);
+    refresh();
+  }
+
   $("form").addEventListener("input", event => {
     if (event.target === el.preset) {
       applyPreset(el.preset.value);
@@ -436,6 +531,16 @@
     } else {
       schedule();
     }
+  });
+  // "change" fires once a value is settled (slider released, text field left), which makes one undo step.
+  $("form").addEventListener("change", commit);
+  $("undo").addEventListener("click", () => jump(history.undo, history.redo));
+  $("redo").addEventListener("click", () => jump(history.redo, history.undo));
+  document.addEventListener("keydown", event => {
+    if (!(event.ctrlKey || event.metaKey) || event.target.matches("input[type=text], textarea")) return;
+    const key = event.key.toLowerCase();
+    if (key === "z" && !event.shiftKey) { event.preventDefault(); jump(history.undo, history.redo); }
+    else if (key === "y" || (key === "z" && event.shiftKey)) { event.preventDefault(); jump(history.redo, history.undo); }
   });
   $("replay").addEventListener("click", () => player.play());
   $("bgSeg").addEventListener("click", event => {
@@ -455,9 +560,15 @@
     await new Promise(resolve => setTimeout(resolve, 30));   // let the message paint
     try {
       const spec = currentSpec();
-      const render = renderFrames(spec);
-      const result = await APNG.encode(render.frames, render.width, render.height,
-        render.delays, spec.loop);
+      // Frames go to the encoder one by one, so only the previous one stays in memory.
+      const encoder = APNG.encoder(spec.size[0], spec.size[1], spec.loop);
+      const count = frameCount(spec);
+      let done = 0;
+      for (const { pixels, delay } of frameStream(spec)) {
+        await encoder.add(pixels, delay);
+        status.textContent = T("status.exportingProgress", ++done, count);
+      }
+      const result = encoder.finish();
       const name = el.preset.value + ".png";
       const url = URL.createObjectURL(result.blob);
       const link = document.createElement("a");
@@ -467,8 +578,13 @@
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
-      status.textContent = T("status.saved", name, spec.size.join("x"), result.frames,
-        (result.blob.size / 1024).toFixed(1));
+      const bytes = result.blob.size;
+      const sizeText = bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + " MB" : (bytes / 1024).toFixed(1) + " KB";
+      status.textContent = T("status.saved", name, spec.size.join("x"), result.frames, sizeText);
+      if (bytes >= CCFOLIA_LIMIT) {
+        status.classList.add("error");
+        status.textContent += T("status.tooBig", spec.shape === "noise" ? T("status.tooBig.grain") : "");
+      }
     } catch (error) {
       status.classList.add("error");
       status.textContent = T("status.error", error.message);
@@ -482,7 +598,7 @@
     const value = el.preset.value;
     el.preset.textContent = "";
     for (const name of Object.keys(PRESETS)) {
-      el.preset.append(new Option(name + " — " + T(PRESETS[name].descKey).split("：")[0], name));
+      el.preset.append(new Option(T(PRESETS[name].descKey).split("：")[0], name));
     }
     if (value) el.preset.value = value;
   }
@@ -491,12 +607,18 @@
   I18N.onChange(() => {
     fillPresetOptions();
     /* 只換說明文字，不呼叫 applyPreset()——那會把使用者調過的設定重設回預設值。 */
-    el.desc.textContent = T(preset(el.preset.value).descKey);
+    el.desc.textContent = T(preset(el.preset.value).descKey) + keepNote();
     refresh();
   });
-  el.preset.value = "fade-out";
-  applyPreset("fade-out");
+  let saved = null;
+  try { saved = localStorage.getItem(SAVE_KEY); } catch (err) { /* storage may be blocked */ }
+  if (!saved || !restore(saved)) {
+    el.preset.value = "fade-out";
+    applyPreset("fade-out");
+  }
+  history.last = snapshot();
+  updateHistoryButtons();
   refresh();
 
-  window.SCENE_TOOL = { renderFrames, buildField, preset, PRESETS, DEFAULTS };
+  window.SCENE_TOOL = { renderFrames, frameStream, buildField, preset, PRESETS, DEFAULTS };
 })();

@@ -53,6 +53,7 @@ I18N.register({
     /* ---- 字幕與細節 ---- */
     'text.legend': '字幕（留空則不顯示文字）',
     'text.placeholder': '例）——  隔天早上  ——',
+    'text.aria': '字幕文字',
     'text.color': '文字顏色',
     'text.size': '文字大小',
     'advanced.legend': '進階',
@@ -67,6 +68,10 @@ I18N.register({
     'bg.scene': '場景風',
     'bg.light': '白色',
     'bg.checker': '棋盤格',
+    'action.undo': '↶ 復原',
+    'action.undo.title': '復原 (Ctrl+Z)',
+    'action.redo': '↷ 重做',
+    'action.redo.title': '重做 (Ctrl+Y)',
     'action.replay': '重新播放',
     'action.download': '下載',
     'status.loading': '載入中…',
@@ -75,20 +80,22 @@ I18N.register({
     'note.howto': '使用方式',
     'note.howto.1': '選擇預設集，調整顏色與秒數後按「下載」。',
     'note.howto.2': '儲存下來的是 APNG（內容為動畫的 <code>.png</code>），可以直接當成圖片上傳。',
-    'note.howto.3': '預設是「只播放一次並停在最後一格」。暗轉會維持黑色，明轉則會變透明消失。',
+    'note.howto.3': '預設是「只播放一次並停在最後一格」。暗轉會維持黑色，明轉則會變透明消失（為了方便確認，預覽會重複播放）。',
     'note.howto.4': '用暗轉遮住場面 → 換掉背景 → 用明轉露出畫面，兩張一組使用會銜接得很自然。',
     'note.tips': '製作訣竅',
     'note.tips.1': '設想是鋪滿整個畫面使用。以純色為主的效果即使尺寸小也很漂亮，改成 640 × 360 檔案會輕很多。',
     'note.tips.2': '調高「模糊」邊界會變柔和，調低則會變銳利。',
     'note.tips.3': '「靜止秒數」是動作結束後停留在最後一張畫面的時間，可以用它來爭取換場的餘裕。',
     'note.tips.4': '溶解因為顆粒是隨機的，檔案會比較大。調高「顆粒大小」就會變輕。',
+    'note.tips.5': 'CCFOLIA 能上傳的圖片最大 5MB。超過時會在儲存後提醒，請調低輸出尺寸、流暢度或秒數。',
 
     /* ---- 頁尾 ---- */
     'footer.free': '只靠瀏覽器就能運作的免費工具。做出來的素材不限用途皆可自由使用（也不需要標註出處）。',
     'footer.unofficial': '設想用於 TRPG 線上團的工具，但與任何服務都沒有關係，是<strong>非官方</strong>工具。',
     'footer.moreTools': '看看其他工具（shiki365 的工具集）',
     'footer.feedback': '問題回報與意見',
-    'footer.version': '· 最後更新 2026-09-08',
+    'footer.support': '支持開發（BOOTH）',
+    'footer.version': '· 最後更新 2026-09-24',
 
     /* ---- 預設集 ---- */
     'preset.fade-out': '暗轉：以黑色淡出（最後維持全黑）',
@@ -110,13 +117,17 @@ I18N.register({
     'preset.band-sweep': '帶狀掃過：黑色帶狀由左往右通過（適合輕度換場）',
     'preset.caption': '字幕：暗轉後顯示文字',
     'preset.caption.text': '場景轉換',
+    'preset.keepNote': '（切換時，輸出尺寸、流暢度、重複設定與自己輸入的字幕都會保留）',
 
     /* ---- 狀態訊息 ---- */
     'status.output': '輸出 {0} / {1} 格 / {2} 秒 / {3}',
     'status.loopForever': '一直循環',
-    'status.playOnce': '只播放一次',
+    'status.playOnce': '只播放一次（預覽會重複播放）',
     'status.exporting': '匯出中…',
-    'status.saved': '已儲存 {0}（{1} / {2} 格 / {3} KB）',
+    'status.exportingProgress': '匯出中… {0} / {1} 格',
+    'status.saved': '已儲存 {0}（{1} / {2} 格 / {3}）',
+    'status.tooBig': '。不過檔案有 5MB 以上，無法上傳到 CCFOLIA。把輸出尺寸調小、降低流暢度、縮短動作秒數{0}，檔案就會變輕。',
+    'status.tooBig.grain': '、把顆粒調大',
     'status.error': '錯誤：{0}',
     'err.noCompressionStream': '這個瀏覽器不支援匯出（需要 CompressionStream）。請改用較新版的 Chrome / Edge / Firefox / Safari。'
   },
@@ -173,6 +184,7 @@ I18N.register({
     /* ---- 字幕與細節 ---- */
     'text.legend': 'テロップ（空欄なら文字なし）',
     'text.placeholder': '例）――  翌朝  ――',
+    'text.aria': 'テロップの文字',
     'text.color': '文字色',
     'text.size': '文字サイズ',
     'advanced.legend': '詳細',
@@ -187,6 +199,10 @@ I18N.register({
     'bg.scene': 'シーン風',
     'bg.light': '白',
     'bg.checker': '市松',
+    'action.undo': '↶ 戻す',
+    'action.undo.title': '元に戻す (Ctrl+Z)',
+    'action.redo': '↷ 進む',
+    'action.redo.title': 'やり直す (Ctrl+Y)',
     'action.replay': 'もう一度再生',
     'action.download': 'ダウンロード',
     'status.loading': '読み込み中...',
@@ -195,20 +211,22 @@ I18N.register({
     'note.howto': '使い方',
     'note.howto.1': 'プリセットを選び、色や秒数を調整して「ダウンロード」を押します。',
     'note.howto.2': '保存されるのは APNG（中身がアニメーションの <code>.png</code>）です。そのまま画像としてアップロードできます。',
-    'note.howto.3': '既定は「1 回だけ再生して最後のコマで止まる」動きです。暗転は黒いまま残り、明転は透明になって消えます。',
+    'note.howto.3': '既定は「1 回だけ再生して最後のコマで止まる」動きです。暗転は黒いまま残り、明転は透明になって消えます（プレビューは確かめやすいように、くり返し表示します）。',
     'note.howto.4': '暗転で場面を隠す → 背景を差し替える → 明転で見せる、と 2 枚 1 組で使うと自然につながります。',
     'note.tips': 'うまく作るコツ',
     'note.tips.1': '画面いっぱいに広げて使う想定です。ベタ塗り中心の効果なら小さいサイズでもきれいなので、640 × 360 にするとファイルがかなり軽くなります。',
     'note.tips.2': '「ぼかし」を上げると境界がやわらかく、下げるとくっきりします。',
     'note.tips.3': '「静止の秒数」は、動きが終わったあと最後の絵を出しておく時間です。場面を差し替える余裕をここで作ります。',
     'note.tips.4': 'ディゾルブは粒がランダムなぶんファイルが重くなります。「粒の大きさ」を上げると軽くなります。',
+    'note.tips.5': 'ココフォリアに上げられる画像は 5MB までです。超えたときは保存したあとに知らせるので、サイズ・なめらかさ・秒数を下げてください。',
 
     /* ---- 頁尾 ---- */
     'footer.free': 'ブラウザだけで動く無料ツールです。作った素材は用途を問わず自由に使えます（クレジット表記も不要です）。',
     'footer.unofficial': 'TRPG オンラインセッションツールでの利用を想定していますが、いずれのサービスとも関係のない<strong>非公式</strong>のツールです。',
     'footer.moreTools': 'ほかのツールも見る（shiki365 のツール置き場）',
     'footer.feedback': '不具合の報告・感想',
-    'footer.version': '・ 最終更新 2026-09-08',
+    'footer.support': '開発を応援する（BOOTH）',
+    'footer.version': '・ 最終更新 2026-09-24',
 
     /* ---- 預設集 ---- */
     'preset.fade-out': '暗転：黒でフェードアウト（最後は真っ黒のまま残る）',
@@ -230,13 +248,17 @@ I18N.register({
     'preset.band-sweep': '帯スイープ：黒帯が左から右へ通過する（軽い場面切替に）',
     'preset.caption': 'テロップ：暗転して文字を表示',
     'preset.caption.text': '場面転換',
+    'preset.keepNote': '（切り替えても、出力サイズ・なめらかさ・くり返し・入力したテロップはそのまま）',
 
     /* ---- 狀態訊息 ---- */
     'status.output': '出力 {0} / {1}コマ / {2}秒 / {3}',
     'status.loopForever': 'ずっとループ',
-    'status.playOnce': '1回だけ再生',
+    'status.playOnce': '1回だけ再生（プレビューはくり返し表示）',
     'status.exporting': '書き出し中...',
-    'status.saved': '{0} を保存しました（{1} / {2}コマ / {3} KB）',
+    'status.exportingProgress': '書き出し中... {0} / {1} コマ',
+    'status.saved': '{0} を保存しました（{1} / {2}コマ / {3}）',
+    'status.tooBig': '。ただし 5MB 以上あるため、ココフォリアにはアップロードできません。出力サイズを小さくする・なめらかさを下げる・動きの秒数を短くする{0}と軽くなります。',
+    'status.tooBig.grain': '・粒を大きくする',
     'status.error': 'エラー: {0}',
     'err.noCompressionStream': 'このブラウザは書き出しに対応していません（CompressionStream が必要です）。Chrome / Edge / Firefox / Safari の新しい版でお試しください。'
   }

@@ -1,7 +1,8 @@
 /*!
  * model.v1.js - project state: defaults, design templates, loading, CCFOLIA URLs
  *
- * A design ("look") replaces layout, bar, text, name, alert and decorations.
+ * A design ("look") replaces layout, bar, text, name, alert, the wearing-away effect, decorations
+ * and the bar colors and items.
  * The number of statuses, per-bar label overrides, the preview values and the
  * character list belong to the user and survive a design change.
  */
@@ -11,7 +12,7 @@
   const P = window.BarPresets;
   const clone = value => JSON.parse(JSON.stringify(value));
   const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
-  const LOOK_KEYS = ["layout", "avatar", "initiative", "bar", "icons", "text", "name", "alert", "decos"];
+  const LOOK_KEYS = ["layout", "avatar", "initiative", "bar", "icons", "text", "name", "alert", "damage", "decos"];
   const MAX_BARS = 8;
 
   let counter = 0;
@@ -41,13 +42,14 @@
     look.layout.count = state.layout.count;
     look.layout.hideExtra = state.layout.hideExtra;
     for (const k of LOOK_KEYS) state[k] = look[k];
-    state.bars = state.bars.map((bar, i) => Object.assign({}, bar, look.colors[i]));
+    const items = P.DESIGNS[key].items || P.DEFAULT_ITEMS;
+    state.bars = state.bars.map((bar, i) => Object.assign({}, bar, look.colors[i], { item: items[i] }));
     state.design = key;
   }
 
   function barItem(i) {
     const c = P.BASE_LOOK.colors[i];
-    return { label: "", c1: c.c1, c2: c.c2, icon: c.icon, low: true };
+    return { label: "", c1: c.c1, c2: c.c2, icon: c.icon, item: P.DEFAULT_ITEMS[i], low: true };
   }
 
   function newCharacter(index) {

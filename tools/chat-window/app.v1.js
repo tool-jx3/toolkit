@@ -89,7 +89,7 @@
 
   const KIND_LABEL = {
     chat: "kind.chat", success: "kind.success", failure: "kind.failure", neutral: "kind.neutral",
-    secret: "kind.secret", system: "kind.system",
+    secret: "kind.secret", system: "kind.system", long: "kind.long",
   };
 
   // Say why a sent message stays hidden, so an active filter is not taken for a broken button.
@@ -98,6 +98,7 @@
     const dice = kind === "success" || kind === "failure" || kind === "neutral";
     if (state.list.diceOnly && !dice) status("msg.sentHiddenDiceOnly", label);
     else if (kind === "system" && state.list.hideSystem) status("msg.sentHiddenSystem", label);
+    else if (kind === "long" && !state.motion.scroll) status("msg.sentLongNoScroll", label);
     else status("msg.sent", label);
   }
 
@@ -150,6 +151,13 @@
       syncControls();
     } else if (path === "source.room") {
       updateChatUrl();
+    } else if (path === "motion.scroll" && state.motion.scroll) {
+      // Scrolling needs one message in a window that fills the source.
+      const changed = state.list.count !== 1 || state.panel.mode !== "fixed";
+      state.list.count = 1;
+      state.panel.mode = "fixed";
+      syncControls();
+      if (changed) status("msg.scrollAdjusted");
     }
     updateVisibility();
     updateOutputs();
@@ -472,6 +480,16 @@
 
   function wireEvents() {
     for (const btn of $$("[data-tab]")) btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+    // Arrow keys / Home / End move between the tabs, as in the WAI-ARIA tabs pattern.
+    $(".tabbar").addEventListener("keydown", ev => {
+      const tabs = $$("[data-tab]"), i = tabs.indexOf(document.activeElement);
+      const next = i < 0 ? undefined : { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[ev.key];
+      if (next === undefined) return;
+      ev.preventDefault();
+      const tab = tabs[(next + tabs.length) % tabs.length];
+      tab.focus();
+      switchTab(tab.dataset.tab);
+    });
     $("#design").addEventListener("change", showDesignDesc);
     $("#applyDesign").addEventListener("click", () => {
       const key = $("#design").value;

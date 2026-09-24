@@ -5,7 +5,8 @@
  *   - a font:       add an entry to FONTS (weights must exist on Google Fonts, or the whole import fails).
  *                   The "pc" entry is special: its family is the name the user typed.
  *   - a shape:      add a label here and a path function in shapes.v1.js (BarShapes.PATHS)
- *   - a decoration: add an entry to DECO_TYPES and a CSS function in css.v1.js (BarCss.DECOS)
+ *   - a decoration: add an entry to DECO_TYPES and a CSS function in deco.v1.js (BarDeco.DECOS)
+ *   - an item:      add a label to ITEM_TYPES and a draw function in items.v1.js (BarItems.ITEMS)
  *   - a design:     add an entry to DESIGNS; it is merged over BASE_LOOK
  */
 (function () {
@@ -190,6 +191,13 @@
     ["#7fd6d6", "#2a8080", "moon"], ["#c9c9c9", "#6b6b6b", "dot"],
   ];
 
+  // Items beside a bar that wear away as it falls. The drawing of each is in items.v1.js (BarItems.ITEMS).
+  const ITEM_TYPES = [
+    ["none", "item.none"], ["gem", "item.gem"], ["flower", "item.flower"], ["moon", "item.moon"],
+    ["star", "item.star"], ["candle", "item.candle"], ["heart", "item.heart"],
+  ];
+  const DEFAULT_ITEMS = ["gem", "star", "moon", "flower", "candle", "heart", "gem", "star"];
+
   // The look of the default design ("design.standard"). Other designs are patches over this.
   const BASE_LOOK = {
     layout: { direction: "column", columns: 2, width: 320, height: 34, gap: 6, textLayout: "overlay", align: "split",
@@ -210,6 +218,8 @@
     alert: { red80: true, redColor: "#ff5b5b", redBlink: false,
       lowOn: true, lowAt: 25, lowColor: "#ff3b3b", lowFill: false, lowPulse: true, lowBlink: false, lowShake: false, lowText: true,
       zeroOn: true, zeroGray: true, zeroBlink: false },
+    damage: { cracks: false, crackColor: "#0c0e14", crackAlpha: 0.85, items: false, count: 1, size: 26, itemGap: 3, gap: 8,
+      side: "left", flash: true },
     decos: Object.fromEntries(Object.entries(DECO_TYPES).map(([k, t]) => [k, Object.assign({}, t.defaults)])),
   };
 
@@ -320,6 +330,21 @@
       decos: { panel: on({ color: "#0e1016", alpha: 0.86, radius: 12, borderW: 1, borderColor: "#ffffff", borderAlpha: 0.12, pad: 10, accentLine: true }),
         gloss: on({ alpha: 0.22 }) },
     },
+    crystal: {
+      label: "design.crystal", desc: "design.crystal.desc",
+      layout: { width: 270, height: 20, gap: 10, textLayout: "overlay", pad: 10 },
+      bar: { shape: "chamfer", cut: 6, borderW: 1, borderColor: "#dfeaff", borderAlpha: 0.6, track: "tint", trackColor: "#070a16", trackAlpha: 0.85, tint: 0.16,
+        fill: "gloss", shadow: 0.5 },
+      colors: colors([["#ff5a70", "#9e1230", "heart"], ["#5aa8ff", "#1c3c9a", "star"], ["#c48cff", "#5a2a9e", "moon"], ["#ffd36b", "#a8740e", "clover"],
+        ["#5ee0a0", "#127a4a", "bolt"], ["#ff9ec4", "#a83c68", "sparkle"], ["#7ff0ea", "#1a8480", "drop"], ["#dfe3ee", "#727888", "dot"]]),
+      items: ["gem", "star", "moon", "flower", "candle", "heart", "gem", "star"],
+      text: { labelFont: "cinzel", valueFont: "cinzel", weight: 700, labelSize: 14, valueSize: 17, maxSize: 11, spacing: 0.06,
+        color: "#f5f2ff", subColor: "#d9d2ff", subAlpha: 0.8, outline: "shadow", outlineColor: "#05030d", outlineAlpha: 0.95 },
+      name: { style: "underline", font: "shippori", weight: 700, size: 19, color: "#f5f2ff", accent: "#9fc3ff", gap: 8 },
+      alert: { red80: false, lowColor: "#ff5a7a", lowPulse: true, lowText: true },
+      damage: { cracks: true, crackColor: "#05060c", crackAlpha: 0.9, items: true, count: 1, size: 30, gap: 8, side: "left" },
+      decos: { panel: on({ color: "#0b0e1e", alpha: 0.84, radius: 10, borderW: 1, borderColor: "#9fc3ff", borderAlpha: 0.22, pad: 12 }) },
+    },
   };
 
   /* 預覽用的範例狀態名。第一欄是 i18n key（HP・MP・SAN 沒有對應項目，T() 會原樣回傳），
@@ -331,7 +356,7 @@
 
   window.BarPresets = {
     FONTS, WEIGHTS, ICONS, SHAPES, FILLS, TRACKS, TEXT_LAYOUTS, ALIGNS, VALUE_MODES, OUTLINES,
-    NAME_POS, NAME_STYLES, DECO_TYPES, BASE_LOOK, DESIGNS, CHAR_COLORS,
+    NAME_POS, NAME_STYLES, DECO_TYPES, ITEM_TYPES, DEFAULT_ITEMS, BASE_LOOK, DESIGNS, CHAR_COLORS,
     get SAMPLE_STATUS() { return SAMPLE_STATUS_DEFS.map(([key, now, max]) => [T(key), now, max]); },
   };
 })();

@@ -2,6 +2,7 @@
     color-scheme: dark;
     --bg: #15161a; --panel: #1e1f26; --line: #303240; --line-soft: #282a36;
     --fg: #e7e7ea; --muted: #9a9aa5; --accent: #6b70ff;
+    --button: #575cf5; /* darker than --accent so white text passes 4.5:1 */
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -54,8 +55,8 @@
   button { background: #2f3140; color: var(--fg); border: 1px solid #464a5e;
            border-radius: 6px; padding: 7px 14px; font: inherit; cursor: pointer; }
   button:hover { background: #3a3d4f; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
-  button.primary:hover { background: #575cf5; }
+  button.primary { background: var(--button); border-color: var(--button); color: #fff; font-weight: 700; }
+  button.primary:hover { background: #4a4fe0; }
   button.small { padding: 4px 9px; font-size: 12px; }
   button.danger:hover { background: #5a2f36; border-color: #8a4a55; }
   button:disabled { opacity: .45; cursor: default; }
@@ -93,6 +94,7 @@
   .tester h2, .source-url h2 { margin: 0; font-size: 12px; color: var(--muted); font-weight: 400; }
   .source-url .missing { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
   .source-url .warn { color: #ffb86b; font-size: 12px; line-height: 1.7; }
+  .desc.warn-text { color: #ffb86b; }
   .row.sub > label { padding-left: 12px; }
   .custom { display: grid; grid-template-columns: 130px 110px minmax(0, 1fr); gap: 6px; align-items: center; }
   .custom input[type=text] { width: 100%; }

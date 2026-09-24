@@ -295,6 +295,29 @@
       </fieldset>
 
       <fieldset>
+        <legend data-i18n="damage.legend">越少越損壞</legend>
+        <div class="row"><label></label><label data-i18n-node="damage.cracks" class="check"><input type="checkbox" data-bind="damage.cracks"> 在條上加裂痕</label></div>
+        <div class="row" data-show="damage.cracks=true"><label data-i18n="damage.crackColor">裂痕顏色</label>
+          <span class="color-alpha"><input type="color" data-bind="damage.crackColor"><input type="range" data-bind="damage.crackAlpha" min="0.1" max="1" step="0.05"><output data-out="damage.crackAlpha" data-fmt="pct"></output></span></div>
+        <div class="row"><label></label><label data-i18n-node="damage.items" class="check"><input type="checkbox" data-bind="damage.items"> 在條旁邊放道具</label></div>
+        <div data-show="damage.items=true">
+          <div id="itemList"></div>
+          <div class="row"><label data-i18n="damage.count">排列數量</label>
+            <span class="with-value"><input type="range" data-bind="damage.count" min="1" max="20" step="1"><output data-out="damage.count" data-fmt="count"></output></span></div>
+          <div class="row"><label data-i18n="damage.size">大小</label>
+            <span class="with-value"><input type="range" data-bind="damage.size" min="12" max="64" step="1"><output data-out="damage.size" data-fmt="px"></output></span></div>
+          <div class="row" data-show="damage.count!=1"><label data-i18n="damage.itemGap">道具間距</label>
+            <span class="with-value"><input type="range" data-bind="damage.itemGap" min="-8" max="16" step="1"><output data-out="damage.itemGap" data-fmt="px"></output></span></div>
+          <div class="row"><label data-i18n="damage.side">位置</label>
+            <select data-bind="damage.side"><option data-i18n="damage.side.left" value="left">條的左邊</option><option data-i18n="damage.side.right" value="right">條的右邊</option></select></div>
+          <div class="row"><label data-i18n="damage.gap">與條的間距</label>
+            <span class="with-value"><input type="range" data-bind="damage.gap" min="0" max="30" step="1"><output data-out="damage.gap" data-fmt="px"></output></span></div>
+        </div>
+        <div class="row" data-show="damage.cracks=true|damage.items=true"><label></label><label data-i18n-node="damage.flash" class="check"><input type="checkbox" data-bind="damage.flash"> 損壞的瞬間發光</label></div>
+        <p data-i18n-html="damage.desc" class="desc">剩餘量每低於 75%・50%・25%，裂痕就會增加，歸零時碎裂。道具會從右邊依序損壞。<b>把排列數量設成與最大值相同，每減少 1 點就會壞掉 1 個</b>（HP 12 就是 12 個）。放了道具之後，條左邊的「符號」就不會顯示。</p>
+      </fieldset>
+
+      <fieldset>
         <legend data-i18n="alert.red.legend">CCFOLIA 的紅色數字</legend>
         <div class="row"><label></label><label data-i18n-node="alert.red80" class="check"><input type="checkbox" data-bind="alert.red80"> 使用紅色數字</label></div>
         <div data-show="alert.red80=true">
@@ -308,7 +331,7 @@
         <legend data-i18n="deco.legend">裝飾</legend>
         <div id="decoList"></div>
       </fieldset>
-      <p data-i18n="effects.hint" class="desc">危急與歸零的演出需要 OBS 30 以上才會動作（更舊的 OBS 只有演出不會顯示）。</p>
+      <p data-i18n="effects.hint" class="desc">危急、歸零與損壞的演出需要 OBS 31 以上才會動作（更舊的 OBS 只有演出不會顯示）。</p>
     </section>
 
     <!-- ============================================================ chars -->
@@ -421,20 +444,21 @@
 <footer>
   <span data-i18n="footer.free">只靠瀏覽器就能運作的免費工具。做出來的 CSS 可以自由使用。</span><br>
   <span data-i18n-html="footer.unofficial">CCFOLIA 的畫面結構若有變動，顯示可能會跑版。這是與任何服務都沒有關係的<strong>非官方</strong>工具。</span><br>
-  <a href="https://shiki365.github.io/" data-i18n="footer.moreTools">看看其他工具（shiki365 的工具集）</a> · <a href="https://shiki365.github.io/#contact" data-i18n="footer.feedback">問題回報與意見</a><br>
-  <span data-i18n="footer.version">v1.3 · 最後更新 2026-09-19</span>
+  <a href="https://shiki365.github.io/" data-i18n="footer.moreTools">看看其他工具（shiki365 的工具集）</a> · <a href="https://shiki365.github.io/#contact" data-i18n="footer.feedback">問題回報與意見</a> · <a href="https://sabunomisogi.booth.pm/items/8891048" data-i18n="footer.support">支持開發（BOOTH）</a><br>
+  <span data-i18n="footer.version">v1.5 · 最後更新 2026-09-24</span>
 </footer>
 
 <!-- ?v= keeps GitHub Pages' cache from mixing old and new files after an update -->
 <script src="../../assets/i18n.js"></script>
 <script src="./i18n.status-bar.js"></script>
-<script src="presets.v1.js?v=2"></script>
+<script src="presets.v1.js?v=3"></script>
 <script src="shapes.v1.js?v=2"></script>
-<script src="model.v1.js?v=2"></script>
-<script src="deco.v1.js?v=2"></script>
-<script src="css.v1.js?v=2"></script>
+<script src="items.v1.js?v=1"></script>
+<script src="model.v1.js?v=3"></script>
+<script src="deco.v1.js?v=3"></script>
+<script src="css.v1.js?v=3"></script>
 <script src="mock.v1.js?v=2"></script>
 <script src="pcfonts.v1.js?v=1"></script>
-<script src="app.v1.js?v=3"></script>
+<script src="app.v1.js?v=4"></script>
 </body>
 </html>

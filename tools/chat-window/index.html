@@ -227,6 +227,7 @@
         <div class="row" data-show="text.outline=stroke"><label data-i18n="text.outlineW">描邊粗細</label>
           <span class="with-value"><input type="range" data-bind="text.outlineW" min="1" max="5" step="0.5"><output data-out="text.outlineW" data-fmt="px"></output></span></div>
         <p data-i18n="text.desc" class="desc">把「長訊息」設為 1 以上時，超過該行數的訊息會以「…」截斷。描邊也會套用到名稱與骰子結果。</p>
+        <p class="desc" data-show="title.font=pc|name.font=pc|text.font=pc|result.font=pc" data-i18n-html="font.pcHint">選「以名稱指定（電腦字型）」時，可以使用這台電腦上安裝的字型。<b>跑 OBS 的那台電腦也必須裝有同一套字型。</b></p>
       </fieldset>
 
       <fieldset>
@@ -234,7 +235,6 @@
         <div class="row"><label data-i18n="result.font">字型</label><select data-bind="result.font" data-options="FONTS"></select></div>
         <div class="row sub" data-show="result.font=pc"><label data-i18n="font.name">字型名稱</label><span class="pc-font">
           <input type="text" data-bind="result.fontName" placeholder="例）Noto Sans TC" data-i18n-placeholder="font.name.placeholder" data-i18n-aria-label="font.name.result.aria" aria-label="骰子結果的字型名稱" autocomplete="off" spellcheck="false"><button type="button" class="small" data-pc-fonts data-i18n="font.pick">從清單選</button></span></div>
-        <p class="desc" data-show="title.font=pc|name.font=pc|text.font=pc|result.font=pc" data-i18n-html="font.pcHint">選「以名稱指定（電腦字型）」時，可以使用這台電腦上安裝的字型。<b>跑 OBS 的那台電腦也必須裝有同一套字型。</b></p>
         <div class="row"><label data-i18n="result.weight">字重</label><select data-bind="result.weight" data-options="WEIGHTS" data-number></select></div>
         <div class="row"><label data-i18n="result.size">大小</label>
           <span class="with-value"><input type="range" data-bind="result.size" min="8" max="64" step="1"><output data-out="result.size" data-fmt="px"></output></span></div>
@@ -261,6 +261,19 @@
         <div class="row"><label data-i18n="motion.enter">動態</label><select data-bind="motion.enter" data-options="ENTERS"></select></div>
         <div class="row" data-show="motion.enter!=none"><label data-i18n="motion.enterDur">花費時間</label>
           <span class="with-value"><input type="range" data-bind="motion.enterDur" min="0.1" max="2" step="0.05"><output data-out="motion.enterDur" data-fmt="sec"></output></span></div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="motion.scrollLegend">長訊息慢慢捲動</legend>
+        <div class="row"><label></label><label data-i18n-node="motion.scroll" class="check"><input type="checkbox" data-bind="motion.scroll"> 把視窗放不下的內文，由上往下慢慢捲動（頭像保持不動）<span class="tag31">OBS 31〜</span></label></div>
+        <div data-show="motion.scroll=true">
+          <div class="row"><label data-i18n="motion.scrollWait">開始捲動前</label>
+            <span class="with-value"><input type="range" data-bind="motion.scrollWait" min="0" max="10" step="0.5"><output data-out="motion.scrollWait" data-fmt="sec"></output></span></div>
+          <div class="row"><label data-i18n="motion.scrollDur">捲完所需時間</label>
+            <span class="with-value"><input type="range" data-bind="motion.scrollDur" min="5" max="120" step="1"><output data-out="motion.scrollDur" data-fmt="sec"></output></span></div>
+          <p data-i18n-html="motion.scrollWarn" class="desc warn-text" data-show="list.count!=1">只有在要顯示的則數為 <b>1 則</b>時才會捲動（「視窗與標題」分頁的「要顯示的訊息」）。</p>
+        </div>
+        <p data-i18n-html="motion.scrollDesc" class="desc">讓日記或信件這類長篇內文，先從開頭讀起，再一路捲到結尾。放得進視窗的內文不會動。<br><b>只有顯示 1 則時</b>才會動，而且視窗會填滿整個來源。開啟時會一併調整則數與視窗大小。<br>速度不會隨長度調整，所以內文越長捲得越快。「過一段時間後消失」會從捲完之後才開始計時。</p>
       </fieldset>
 
       <fieldset>
@@ -345,6 +358,7 @@
         <button data-i18n="tester.failure" type="button" class="small" data-send="failure">骰子：失敗</button>
         <button data-i18n="tester.neutral" type="button" class="small" data-send="neutral">骰子：無成敗</button>
         <button data-i18n="tester.secret" type="button" class="small" data-send="secret">秘密骰</button>
+        <button data-i18n="tester.long" type="button" class="small" data-send="long" data-i18n-title="tester.longTitle" title="日記或信件這類長篇內文，可以用來試「長訊息慢慢捲動」">長文（日記・信件）</button>
         <button data-i18n="tester.system" type="button" class="small" data-send="system" data-i18n-title="tester.systemTitle" title="改動 HP 或 SAN 時 CCFOLIA 自動送出、沒有名稱也沒有頭像的通知">系統（數值變動）</button>
         <span class="spacer" style="flex: 1"></span>
         <button data-i18n="tester.reset" type="button" class="small" id="resetMessages">回到初始狀態</button>
@@ -393,18 +407,30 @@
     <div class="note">
       <h2 data-i18n="note.obs.heading">OBS 的設定</h2>
       <ol>
-        <li data-i18n-html="note.obs.1">新增來源 →「瀏覽器」。網址填聊天畫面的網址：<br><code>https://ccfolia.com/rooms/{房間ID}/chat</code></li>
+        <li data-i18n-html="note.obs.1">新增來源 →「瀏覽器」。網址填聊天畫面的網址（<b>結尾是 /chat</b>）：<br><code>https://ccfolia.com/rooms/{房間ID}/chat</code><br>不是瀏覽器網址列上的房間網址。可以從上面的「OBS 瀏覽器來源要填的網址」複製。</li>
         <li data-i18n-html="note.obs.2">寬與高填上面顯示的 <b>瀏覽器來源大小</b>。</li>
         <li data-i18n="note.obs.3">把「自訂 CSS」的內容全部清空，貼上複製好的 CSS。</li>
-        <li data-i18n-html="note.obs.4">如果什麼都沒顯示，或是要顯示秘匿分頁，就必須先登入 CCFOLIA。先把網址改成 <code>https://ccfolia.com/</code>，對來源按右鍵 →「互動」登入之後，再把網址改回來（做過一次就會記住）。</li>
+        <li data-i18n-html="note.obs.4">如果什麼都沒顯示，或是要顯示秘匿分頁，就必須先登入 CCFOLIA。先把網址改成 <code>https://ccfolia.com/</code>，對來源按右鍵 →「互動」登入之後，再把網址改回來（做過一次就會記住）。<b>在「互動」裡只要登入就好，不要進入房間。</b></li>
         <li data-i18n-html="note.obs.5">主分頁以外的分頁，要開啟「互動」並把滑鼠移到視窗上，再從出現的分頁裡選。<b>分頁的選擇不會被保存</b>，所以重新啟動 OBS 後要再選一次。</li>
       </ol>
+      <h2 data-i18n="note.trouble.heading">顯示不正常時</h2>
+      <ul>
+        <li data-i18n-html="note.trouble.1"><b>連房間的背景、螢幕面板、棋子、縮放按鈕都映出來了</b> → 開的是房間畫面，不是聊天畫面。請在來源的屬性裡確認網址結尾是 <code>/chat</code>。如果在「互動」裡不小心進了房間，先把網址改成 <code>https://ccfolia.com/</code> 按確定 → 再改回聊天畫面的網址按確定，就會恢復。</li>
+        <li data-i18n-html="note.trouble.2"><b>什麼都沒顯示</b> → 必須先登入 CCFOLIA（上面的步驟 4）。</li>
+        <li data-i18n-html="note.trouble.3"><b>長訊息的開頭看不到</b>（日記、信件等） → 視窗放不下的部分會被切掉。把「視窗與標題」分頁的<b>排列順序改成「新的在上」</b>，就會從開頭顯示（改成切掉結尾）。把則數設為 1、調高瀏覽器來源的高度、把字縮小，都會比較容易放得下。</li>
+      </ul>
       <h2 data-i18n="note.both.heading">同時顯示骰子用與秘匿聊天用時</h2>
       <ul>
         <li data-i18n-html="note.both.1"><b>瀏覽器來源受 OBS 的限制無法複製</b>（右鍵的「貼上複本」一直是灰的）。請<b>用「新增來源」→「瀏覽器」另外建第二個</b>，填入同一個聊天畫面的網址，再各自貼上這個工具做好的 CSS。只有秘匿聊天那一份要用「互動」選秘匿分頁。</li>
         <li data-i18n-html="note.both.1b">登入狀態是所有瀏覽器來源共用的，第二個不必重新登入。大小與位置可以用右鍵 →「複製變換」→ 在另一個上「貼上變換」對齊。</li>
         <li data-i18n="note.both.2">秘匿分頁只有用該分頁的參加帳號（例如 GM）登入時才看得到。</li>
         <li data-i18n="note.both.3">若在瀏覽器來源的設定裡開啟「不顯示時關閉來源」「場景啟用時重新整理瀏覽器」，每次切換場景分頁都會退回主分頁。</li>
+      </ul>
+      <h2 data-i18n="note.pc.heading">使用電腦上安裝的字型時</h2>
+      <ul>
+        <li data-i18n="note.pc.1">在字型欄選「以名稱指定（電腦字型）」，再填入字型名稱。在 Chrome / Edge 可以按「從清單選」，看著外觀挑選電腦上安裝的字型（第一次會詢問是否允許使用字型）。</li>
+        <li data-i18n-html="note.pc.2">OBS 是用它所在那台電腦的字型來顯示，所以<b>跑 OBS 的電腦也要安裝同一套字型</b>。沒有安裝的話，會顯示成一般的黑體。</li>
+        <li data-i18n="note.pc.3">字型沒有收錄漢字時，只有漢字的部分會變成一般的黑體（可以用清單樣張裡的「永」字確認）。</li>
       </ul>
       <h2 data-i18n="note.about.heading">關於這個工具</h2>
       <p data-i18n-html="note.about.body" style="margin: 0">這個工具源自讀者的許願：「想要一邊預覽一邊自訂骰子視窗與秘匿聊天」。「希望有這樣的工具」「這裡不好用」之類的意見，也歡迎透過 <a href="https://marshmallow-qa.com/jisg2c3imbza76d">Marshmallow</a> 告訴作者。</p>
@@ -417,8 +443,8 @@
 <footer>
   <span data-i18n="footer.free">只靠瀏覽器就能運作的免費工具。做出來的 CSS 可以自由使用。</span><br>
   <span data-i18n-html="footer.unofficial">CCFOLIA 的畫面結構若有變動，顯示可能會跑版。這是與任何服務都沒有關係的<strong>非官方</strong>工具。</span><br>
-  <a data-i18n="footer.moreTools" href="https://shiki365.github.io/">看看其他工具（shiki365 的工具集）</a> · <a data-i18n="footer.feedback" href="https://shiki365.github.io/#contact">問題回報與意見</a> · <a data-i18n="footer.request" href="https://marshmallow-qa.com/jisg2c3imbza76d">工具許願（Marshmallow）</a><br>
-  <span data-i18n="footer.version">v1.4 · 最後更新 2026-09-19</span>
+  <a data-i18n="footer.moreTools" href="https://shiki365.github.io/">看看其他工具（shiki365 的工具集）</a> · <a data-i18n="footer.feedback" href="https://shiki365.github.io/#contact">問題回報與意見</a> · <a data-i18n="footer.request" href="https://marshmallow-qa.com/jisg2c3imbza76d">工具許願（Marshmallow）</a> · <a data-i18n="footer.support" href="https://sabunomisogi.booth.pm/items/8891048">支持開發（BOOTH）</a><br>
+  <span data-i18n="footer.version">v1.9 · 最後更新 2026-09-24</span>
 </footer>
 
 <script src="../../assets/i18n.js"></script>

@@ -1147,8 +1147,11 @@
     return String(state.fileBase || "").replace(/[\\/:*?"<>|]/g, "_").trim() || "frame";
   }
 
+  // Variant files carry the variant's own name ("frame_3_雨夜.png"); the number keeps them unique and in order.
   function exportName(item) {
-    return item ? `${baseName()}_${state.variants.items.indexOf(item) + 1}_${item.id}.png` : `${baseName()}.png`;
+    if (!item) return `${baseName()}.png`;
+    const label = String(item.name || "").replace(/[\\/:*?"<>|\s]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || item.id;
+    return `${baseName()}_${state.variants.items.indexOf(item) + 1}_${label}.png`;
   }
 
   async function downloadPng() {
@@ -1347,6 +1350,16 @@
 
   function wireEvents() {
     for (const btn of $$("[data-tab]")) btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+    // Arrow keys / Home / End move between the tabs, as in the WAI-ARIA tabs pattern.
+    $(".tabbar").addEventListener("keydown", ev => {
+      const tabs = $$("[data-tab]"), i = tabs.indexOf(document.activeElement);
+      const next = i < 0 ? undefined : { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[ev.key];
+      if (next === undefined) return;
+      ev.preventDefault();
+      const tab = tabs[(next + tabs.length) % tabs.length];
+      tab.focus();
+      switchTab(tab.dataset.tab);
+    });
     $("#undo").addEventListener("click", undo);
     $("#redo").addEventListener("click", redo);
     $('[data-bind="opening.linkCorners"]').addEventListener("change", renderCornerRows);
