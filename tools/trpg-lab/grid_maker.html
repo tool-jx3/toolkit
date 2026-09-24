@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="ja" data-theme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>グリッド作成ツール | 違法建築のTRPGラボ</title>
+
+
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.9.1/dist/themes/nano.min.css" />
+        <link rel="stylesheet" href="common.css" />
+
+        <link rel="stylesheet" href="grid_maker.css" />
+    </head>
+    <body>
+        <header id="site-header"></header>
+
+        <main id="main">
+            <!-- ====== 設定パネル ====== -->
+            <div id="settings-panel">
+                <!-- 左列: 基本設定 + 線スタイル -->
+                <div class="panel-col panel-col-left">
+                    <!-- 基本設定 -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined fill">settings</span>基本設定</div>
+                        <div class="f">
+                            <span class="fl">列数（横）</span>
+                            <input type="number" id="cols" value="15" min="1" max="1000" class="custom-spinner" />
+                        </div>
+                        <div class="f">
+                            <span class="fl">行数（縦）</span>
+                            <input type="number" id="rows" value="15" min="1" max="1000" class="custom-spinner" />
+                        </div>
+                        <div class="f">
+                            <span class="fl">サイズ</span>
+                            <div class="row">
+                                <input type="number" id="cellSize" value="48" min="10" max="500" class="custom-spinner" />
+                                <span class="unit">px</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 線スタイル -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined fill">brush</span>線スタイル</div>
+                        <div class="f">
+                            <span class="fl">色 / 不透明度</span>
+                            <div id="lineColorPicker"></div>
+                        </div>
+                        <div class="f">
+                            <span class="fl">太さ</span>
+                            <div class="row">
+                                <input type="number" id="lineWidth" value="2" min="1" max="20" class="custom-spinner" />
+                                <span class="unit">px</span>
+                            </div>
+                        </div>
+                        <div class="f">
+                            <span class="fl">線種</span>
+                            <div class="seg">
+                                <input type="radio" name="ls" id="ls-s" value="solid" checked /><label for="ls-s">実線</label> <input type="radio" name="ls" id="ls-d" value="dashed" /><label
+                                    for="ls-d"
+                                    >破線</label
+                                >
+                                <input type="radio" name="ls" id="ls-t" value="dotted" /><label for="ls-t">点線</label>
+                            </div>
+                        </div>
+                        <div class="f">
+                            <label class="tog"><input type="checkbox" id="glowEffect" /><span class="tl">グロー効果</span></label>
+                        </div>
+                    </div>
+                </div>
+                <!-- /panel-col-left -->
+
+                <!-- 右列: グリッドスタイル + 座標 -->
+                <div class="panel-col panel-col-right">
+                    <!-- グリッドスタイル -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined">grid_on</span>グリッドスタイル</div>
+                        <div class="f f-col">
+                            <div class="f-sb">
+                                <span class="fl">縮小率</span>
+                                <div class="row">
+                                    <input type="number" id="gridScaleNum" value="100" min="10" max="100" class="custom-spinner" />
+                                    <span class="unit">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="gridScale" value="100" min="10" max="100" step="1" />
+                        </div>
+                        <div class="f">
+                            <span class="fl">角丸</span>
+                            <div class="row">
+                                <input type="number" id="cornerRadius" value="0" min="0" max="999" class="custom-spinner" />
+                                <span class="unit">px</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 座標 -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined">tag</span>座標</div>
+                        <div class="f">
+                            <label class="tog"><input type="checkbox" id="showCoords" checked /><span class="tl">座標を表示</span></label>
+                        </div>
+                        <div class="f" id="coordColorRow">
+                            <span class="fl">色 / 不透明度</span>
+                            <div id="coordColorPicker"></div>
+                        </div>
+                        <div id="coordOpts">
+                            <div class="f">
+                                <span class="fl">座標形式</span>
+                                <select id="coordFmt">
+                                    <option value="hyphen">1-1</option>
+                                    <option value="comma">1,1</option>
+                                    <option value="zero">0101</option>
+                                    <option value="letter">A1</option>
+                                    <option value="serial">連番</option>
+                                </select>
+                            </div>
+                            <div class="f">
+                                <span class="fl">起点</span>
+                                <select id="coordOrigin">
+                                    <option value="tl">左上</option>
+                                    <option value="bl">左下</option>
+                                    <option value="tr">右上</option>
+                                    <option value="br">右下</option>
+                                </select>
+                            </div>
+                            <div class="f">
+                                <span class="fl">開始番号</span>
+                                <div class="seg">
+                                    <input type="radio" name="cstart" id="cs-0" value="0" checked /><label for="cs-0">0から</label> <input type="radio" name="cstart" id="cs-1" value="1" /><label
+                                        for="cs-1"
+                                        >1から</label
+                                    >
+                                </div>
+                            </div>
+                            <div class="f">
+                                <span class="fl">位置</span>
+                                <div class="seg">
+                                    <input type="radio" name="cpos" id="cp-t" value="top" /><label for="cp-t">上</label> <input type="radio" name="cpos" id="cp-m" value="middle" checked /><label
+                                        for="cp-m"
+                                        >中</label
+                                    >
+                                    <input type="radio" name="cpos" id="cp-b" value="bottom" /><label for="cp-b">下</label>
+                                </div>
+                            </div>
+                            <div class="f" id="coordOffsetRow">
+                                <span class="fl">辺からのオフセット</span>
+                                <div class="row">
+                                    <input type="number" id="coordOffset" value="8" min="-999" max="999" class="custom-spinner" />
+                                    <span class="unit">px</span>
+                                </div>
+                            </div>
+                            <div class="f">
+                                <span class="fl">文字サイズ</span>
+                                <div class="row">
+                                    <input type="number" id="coordFontSize" value="12" min="6" max="100" class="custom-spinner" />
+                                    <span class="unit">px</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- /座標 -->
+                </div>
+                <!-- /panel-col-right -->
+
+                <!-- DL -->
+                <div class="s-sec panel-dl">
+                    <button class="btn-dl" onclick="downloadGrid()"><span class="material-symbols-outlined">download</span>PNG ダウンロード</button>
+                </div>
+            </div>
+
+            <!-- ====== プレビュー ====== -->
+            <div id="preview-area">
+                <div class="cv-wrap">
+                    <canvas id="gridCanvas"></canvas>
+                </div>
+            </div>
+        </main>
+
+        <!-- ====== ガイドモーダル ====== -->
+        <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title" id="guide-title">使い方ガイド</span>
+                    <button class="modal-close" aria-label="閉じる"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="modal-body">
+                    <div class="guide-body" id="guide-content">
+                        <h3>基本操作</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">tune</span>
+                            <div>
+                                <dt>リアルタイムプレビュー</dt>
+                                <dd>設定パネルの値を変えると右のプレビューに即時反映されます。</dd>
+                            </div>
+                            <span class="mi">download</span>
+                            <div>
+                                <dt>PNG ダウンロード</dt>
+                                <dd>現在のプレビューをそのままPNG画像として保存します。背景は透過です。</dd>
+                            </div>
+                        </dl>
+
+                        <h3>基本設定</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">grid_3x3</span>
+                            <div>
+                                <dt>列数・行数</dt>
+                                <dd>グリッドの横方向・縦方向のマス数を指定します。</dd>
+                            </div>
+                            <span class="mi">straighten</span>
+                            <div>
+                                <dt>サイズ</dt>
+                                <dd>1マスの一辺の長さ（px）です。ダウンロードされるPNG画像のマスサイズに直接対応します。</dd>
+                            </div>
+                        </dl>
+
+                        <h3>線スタイル</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">palette</span>
+                            <div>
+                                <dt>色 / 不透明度</dt>
+                                <dd>カラーパレットで線の色と透明度を設定します。</dd>
+                            </div>
+                            <span class="mi">line_weight</span>
+                            <div>
+                                <dt>太さ</dt>
+                                <dd>線の太さ（px）です。グロー効果をONにしている場合、太さに比例して発光範囲も広がります。</dd>
+                            </div>
+                            <span class="mi">more_horiz</span>
+                            <div>
+                                <dt>線種</dt>
+                                <dd>実線・破線・点線を選択できます。縮小率100%未満または角丸ありのとき、セル個別描画モードになります。</dd>
+                            </div>
+                            <span class="mi">flare</span>
+                            <div>
+                                <dt>グロー効果</dt>
+                                <dd>線に発光エフェクトをかけます。暗い背景で映えます。ダウンロード時も反映されます。</dd>
+                            </div>
+                        </dl>
+
+                        <h3>グリッドスタイル</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">photo_size_select_small</span>
+                            <div>
+                                <dt>縮小率</dt>
+                                <dd>マス目の占有領域はそのままに、描画するセルの大きさを縮小します。100%未満にするとマス間に隙間が生まれます。</dd>
+                            </div>
+                            <span class="mi">rounded_corner</span>
+                            <div>
+                                <dt>角丸</dt>
+                                <dd>セルの角の丸みを設定します（px）。0で直角、値を大きくするほど丸くなります。角丸を設定すると自動的にセル個別描画モードになります。</dd>
+                            </div>
+                        </dl>
+
+                        <h3>座標表示</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">format_list_numbered</span>
+                            <div>
+                                <dt>座標形式</dt>
+                                <dd>
+                                    <strong>1-1</strong
+                                    >（ハイフン区切り）、<strong>1,1</strong>（カンマ区切り）、<strong>0101</strong>（4桁ゼロ埋め）、<strong>A1</strong>（列をアルファベット・行を数字）、<strong>連番</strong>（起点から順番に数字）の5種類。
+                                </dd>
+                            </div>
+                            <span class="mi">my_location</span>
+                            <div>
+                                <dt>起点</dt>
+                                <dd>座標の基点を左上・左下・右上・右下から選べます。</dd>
+                            </div>
+                            <span class="mi">vertical_align_center</span>
+                            <div>
+                                <dt>位置とオフセット</dt>
+                                <dd>
+                                    座標テキストをセル内の上・中・下のどこに配置するか選びます。上・下を選んだときは「辺からのオフセット」で距離を調整できます。正の値でセル中心に近づき、負の値でセル外側に出ます。
+                                </dd>
+                            </div>
+                        </dl>
+
+                        <h3>ファイル名について</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">info</span>
+                            <div>
+                                <dt>ダウンロードファイル名</dt>
+                                <dd>ファイル名は <code>grid_{列数}x{行数}_{サイズ}px.png</code> の形式です（例: <code>grid_10x10_80px.png</code>）。</dd>
+                            </div>
+                        </dl>
+                        <!-- ↓ common.js の buildGuideLinks() がここにリンクブロックを追加する -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.9.1/dist/pickr.min.js"></script>
+        <script src="common.js"></script>
+        <script src="grid_maker.js"></script>
+    </body>
+</html>

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ja" data-theme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>TRPGマップエディタ | 違法建築のTRPGラボ</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <link rel="stylesheet" href="../common.css" />
+        <link rel="stylesheet" href="map_list.css" />
+    </head>
+    <body>
+        <header id="site-header"></header>
+        <main class="list-main">
+            <h1 class="page-title">TRPGマップエディタ</h1>
+            <p class="page-subtitle">TRPG MAP MAKER</p>
+
+            <section class="intro">
+                <p>
+                    ブラウザだけで TRPG のマップが描けるツールです。マス目に沿って地面・壁・部屋を引き、ベッドや机などの家具スタンプを置くだけ。スクエアもヘクスも対応しています。描いたマップは PNG / JPEG / SVG
+                    で書き出して、ココフォリアなどのオンラインセッションツールにそのまま持ち込めます。
+                </p>
+                <p>データはブラウザに自動保存されるので、続きはいつでも再開できます。下の「新規マップ」から始めてください。</p>
+            </section>
+
+            <div class="action-bar">
+                <button class="action-btn" id="btn-new"><span class="material-symbols-outlined">add</span>新規マップ</button>
+                <button class="action-btn secondary" id="btn-import"><span class="material-symbols-outlined">file_upload</span>JSONから読込</button>
+                <input type="file" id="import-file" accept=".json" style="display: none" />
+            </div>
+
+            <div id="map-grid" class="map-grid"></div>
+            <div id="empty-state" class="empty-state" style="display: none">
+                <span class="material-symbols-outlined">map</span>
+                <div>保存されたマップはまだありません</div>
+            </div>
+        </main>
+        <footer class="site-footer"><div class="container"></div></footer>
+
+        <!-- 新規マップ作成ウィザード -->
+        <div class="modal-overlay" id="create-modal">
+            <div class="modal" style="max-width: 520px">
+                <div class="modal-header">
+                    <span class="modal-title" id="wizard-title">新規マップ作成</span>
+                    <button class="modal-close" onclick="closeCreateModal()"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="modal-body wizard-body">
+                    <!-- Step 1: スクエア / ヘクス -->
+                    <div class="wizard-step active" data-step="1">
+                        <p class="wizard-prompt">マップの種類を選択してください</p>
+                        <div class="wizard-tiles">
+                            <button class="wizard-tile" data-grid-type="square">
+                                <span class="material-symbols-outlined">grid_on</span>
+                                <span class="tile-label">スクエア</span>
+                                <span class="tile-sub">正方形マス</span>
+                            </button>
+                            <button class="wizard-tile" data-grid-type="hex">
+                                <span class="material-symbols-outlined">hexagon</span>
+                                <span class="tile-label">ヘクス</span>
+                                <span class="tile-sub">六角形マス</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: フラットトップ / ポインティトップ (ヘクス時のみ) -->
+                    <div class="wizard-step" data-step="2">
+                        <p class="wizard-prompt">ヘクスの向きを選択してください</p>
+                        <div class="wizard-tiles">
+                            <button class="wizard-tile" data-orientation="flat">
+                                <span class="material-symbols-outlined">hexagon</span>
+                                <span class="tile-label">フラットトップ</span>
+                                <span class="tile-sub">上下が平らな辺</span>
+                            </button>
+                            <button class="wizard-tile" data-orientation="pointy">
+                                <span class="material-symbols-outlined" style="transform: rotate(30deg)">hexagon</span>
+                                <span class="tile-label">ポインティトップ</span>
+                                <span class="tile-sub">上下が頂点</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: 名前入力 (+ ヘクス時のみ fit オプション) -->
+                    <div class="wizard-step" data-step="3">
+                        <p class="wizard-prompt">マップ情報を入力してください</p>
+                        <div class="wizard-form-row">
+                            <label for="wizard-name">マップ名</label>
+                            <input type="text" id="wizard-name" maxlength="60" />
+                        </div>
+                        <label class="wizard-checkbox-row" id="wizard-fit-row" style="display: none">
+                            <input type="checkbox" id="wizard-fit" />
+                            <div>
+                                <div class="ck-label">ココフォリア等で使う (グリッド整合)</div>
+                                <div class="ck-desc">ヘクスを少し変形させて方眼グリッドに合わせます</div>
+                            </div>
+                        </label>
+                        <button class="wizard-create-btn" id="wizard-create-btn">作成して開く</button>
+                    </div>
+
+                    <div class="wizard-nav">
+                        <button class="wizard-back-btn" id="wizard-back-btn" disabled>
+                            <span class="material-symbols-outlined" style="font-size: 0.9rem; vertical-align: middle">arrow_back</span> 戻る
+                        </button>
+                        <span class="wizard-summary" id="wizard-summary"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+
+        <script src="../common.js"></script>
+        <script src="map_storage.js"></script>
+        <script src="map_list.js"></script>
+    </body>
+</html>

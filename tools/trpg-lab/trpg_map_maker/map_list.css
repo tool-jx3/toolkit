@@ -1,0 +1,367 @@
+:root {
+    --page-width: 1100px;
+}
+
+main.list-main {
+    max-width: var(--page-width);
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+    min-height: calc(100dvh - var(--header-h, 60px) - 4rem);
+}
+
+.page-title {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    color: var(--text-bright);
+    margin: 0 0 0.3rem;
+    letter-spacing: 0.06em;
+}
+.page-subtitle {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 1.2rem;
+}
+
+.action-bar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.2rem;
+}
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    background: linear-gradient(135deg, var(--blue-mid), var(--blue-dark));
+    color: #fff;
+    border: 1px solid rgba(33, 150, 243, 0.45);
+    border-radius: var(--r);
+    cursor: pointer;
+    transition:
+        background var(--t),
+        box-shadow var(--t);
+}
+.action-btn:hover {
+    background: linear-gradient(135deg, #42a5f5, var(--blue-mid));
+    box-shadow: var(--glow-blue);
+}
+.action-btn.secondary {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border-bright);
+}
+.action-btn.secondary:hover {
+    background: var(--cyan-muted);
+    color: var(--cyan);
+    border-color: var(--cyan);
+}
+.action-btn .material-symbols-outlined {
+    font-size: 1rem;
+}
+
+/* ---- ツール概要 (intro) ---- */
+.intro {
+    margin: 0 0 1.4rem;
+    line-height: 1.75;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+}
+.intro p {
+    margin: 0 0 0.55rem;
+}
+.intro p:last-child {
+    margin-bottom: 0;
+}
+
+.map-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 1rem;
+}
+.map-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition:
+        border-color var(--t),
+        box-shadow var(--t),
+        transform var(--t);
+}
+.map-card:hover {
+    border-color: var(--cyan);
+    box-shadow: var(--glow-card);
+}
+.map-card .thumb-wrap {
+    aspect-ratio: 4 / 3;
+    background: repeating-conic-gradient(#444 0% 25%, #555 25% 50%);
+    background-size: 12px 12px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+.map-card .thumb-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.map-card .grid-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    background: rgba(0, 0, 0, 0.6);
+    color: var(--cyan);
+    border: 1px solid var(--cyan);
+    letter-spacing: 0.08em;
+}
+.map-card .info {
+    padding: 0.6rem 0.8rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+.map-card .name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-bright);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.map-card .date {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+}
+.map-card .actions {
+    display: flex;
+    gap: 2px;
+    padding: 0 0.4rem 0.4rem;
+    justify-content: flex-end;
+}
+.map-card .actions button {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    background: transparent;
+    border-radius: 4px;
+    color: var(--text-dim);
+    transition:
+        background var(--t),
+        color var(--t);
+}
+.map-card .actions button:hover {
+    background: var(--cyan-muted);
+    color: var(--cyan);
+}
+.map-card .actions .material-symbols-outlined {
+    font-size: 1rem;
+}
+
+/* ---- 新規作成ウィザード ---- */
+.wizard-body {
+    padding: 1rem 1.2rem 1.2rem;
+}
+.wizard-step {
+    display: none;
+}
+.wizard-step.active {
+    display: block;
+}
+.wizard-prompt {
+    font-size: 0.95rem;
+    color: var(--text-bright);
+    margin: 0 0 1rem;
+    text-align: center;
+}
+.wizard-tiles {
+    display: grid;
+    gap: 0.8rem;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    margin-bottom: 0.8rem;
+}
+.wizard-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 1.2rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    background: var(--bg3);
+    color: var(--text);
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.3;
+    transition:
+        background var(--t),
+        border-color var(--t),
+        color var(--t),
+        transform var(--t);
+}
+.wizard-tile:hover:not(:disabled) {
+    background: var(--cyan-muted);
+    border-color: var(--cyan);
+    color: var(--cyan);
+    transform: translateY(-2px);
+}
+.wizard-tile:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.wizard-tile .material-symbols-outlined,
+.wizard-tile .fa-solid {
+    font-size: 2rem;
+}
+.wizard-tile .tile-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+.wizard-tile .tile-sub {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+}
+.wizard-tile .tile-coming-soon {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.06em;
+}
+.wizard-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border);
+}
+.wizard-summary {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+}
+.wizard-back-btn {
+    background: transparent;
+    color: var(--text-dim);
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    transition:
+        background var(--t),
+        color var(--t);
+}
+.wizard-back-btn:hover {
+    background: var(--cyan-muted);
+    color: var(--cyan);
+}
+.wizard-back-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.wizard-form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 0.8rem;
+}
+.wizard-form-row label {
+    font-size: 0.8rem;
+    color: var(--text);
+}
+.wizard-form-row input[type='text'] {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(33, 150, 243, 0.3);
+    border-radius: 4px;
+    padding: 0.45rem 0.6rem;
+    color: var(--text-bright);
+    font-size: 0.9rem;
+    font-family: var(--font-main);
+}
+.wizard-form-row input[type='text']:focus {
+    outline: none;
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.12);
+}
+.wizard-checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 0.8rem;
+    cursor: pointer;
+}
+.wizard-checkbox-row:hover {
+    background: var(--bg3);
+}
+.wizard-checkbox-row input[type='checkbox'] {
+    cursor: pointer;
+}
+.wizard-checkbox-row .ck-label {
+    font-size: 0.85rem;
+    color: var(--text);
+}
+.wizard-checkbox-row .ck-desc {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+}
+
+.wizard-create-btn {
+    display: block;
+    width: 100%;
+    padding: 0.6rem;
+    margin-top: 0.5rem;
+    background: linear-gradient(135deg, var(--blue-mid), var(--blue-dark));
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    letter-spacing: 0.06em;
+    border: 1px solid rgba(33, 150, 243, 0.45);
+    border-radius: var(--r);
+    cursor: pointer;
+    transition:
+        background var(--t),
+        box-shadow var(--t);
+}
+.wizard-create-btn:hover {
+    background: linear-gradient(135deg, #42a5f5, var(--blue-mid));
+    box-shadow: var(--glow-blue);
+}
+.wizard-create-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ---- 空状態 ---- */
+.empty-state {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: var(--text-dim);
+}
+.empty-state .material-symbols-outlined {
+    font-size: 4rem;
+    opacity: 0.4;
+    margin-bottom: 1rem;
+}
+

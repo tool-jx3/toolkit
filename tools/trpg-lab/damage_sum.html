@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>BCDiceダメージ自動計算ツール | 違法建築のTRPGラボ</title>
+		<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet" />
+		<link rel="stylesheet" href="damage_sum.css" />
+	</head>
+	<body>
+		<div style="position: relative">
+			<h1 style="margin: 0">BCDiceダメージ自動計算ツール</h1>
+			<a href="https://ihoukentiku.github.io" target="_blank" style="position: absolute; bottom: 10px; right: 0">
+				<button style="padding: 6px 12px">ホームページへ</button>
+			</a>
+		</div>
+
+		<div class="section">
+			<label for="armorValue">装甲値を入力してください</label>
+			<input type="number" id="armorValue" value="0" />
+
+			<label for="damageRolls">BCDiceのダメージロール結果を入力してください</label>
+			<textarea
+				id="damageRolls"
+				rows="10"
+				placeholder="例：
+ランドルフ・カーター - 今日 00:00
+x3 1D10+2 拳銃 #1
+(1D10+2) ＞ 3[3]+2 ＞ 5
+
+#2
+(1D10+2) ＞ 7[7]+2 ＞ 9
+
+#3
+(1D10+2) ＞ 4[4]+2 ＞ 6"
+			></textarea>
+
+			<button id="calculateBtn">計算実行</button>
+		</div>
+
+		<div class="section">
+			<div class="result" id="result"></div>
+			<div id="commandOutput"></div>
+			<div id="copyMessage">コマンドをコピーしました！</div>
+		</div>
+
+		<script src="damage_sum.js"></script>
+	</body>
+</html>

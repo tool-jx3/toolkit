@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="ja" data-theme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>グリッド定規作成ツール | 違法建築のTRPGラボ</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.9.1/dist/themes/nano.min.css" />
+        <link rel="stylesheet" href="common.css" />
+
+        <link rel="stylesheet" href="grid_ruler.css" />
+    </head>
+    <body>
+        <header id="site-header"></header>
+
+        <div id="main">
+            <!-- ── 設定パネル ── -->
+            <div id="settings-panel">
+                <div class="panel-col panel-col-left">
+                    <!-- 基本設定 -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined">tune</span>基本設定</div>
+                        <div class="f">
+                            <span class="fl">セルサイズ</span>
+                            <div class="row">
+                                <input type="number" id="cellSize" min="10" max="200" value="48" class="custom-spinner" />
+                                <span class="unit">px</span>
+                            </div>
+                        </div>
+                        <div class="f">
+                            <span class="fl">範囲</span>
+                            <div class="row">
+                                <input type="number" id="range" min="1" max="20" value="5" class="custom-spinner" />
+                                <span class="unit">マス</span>
+                            </div>
+                        </div>
+                        <div class="f">
+                            <span class="fl">距離計測</span>
+                            <select id="distanceMethod">
+                                <option value="manhattan">マンハッタン</option>
+                                <option value="chebyshev">チェビシェフ</option>
+                                <option value="ceil">切り上げ</option>
+                                <option value="round">四捨五入</option>
+                                <option value="floor">切り捨て</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- セルの色 -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined fill">palette</span>セルの色</div>
+
+                        <div class="f" style="margin-top: 0.3rem">
+                            <span class="fl">スキーム</span>
+                            <select id="colorScheme">
+                                <option value="rainbow">レインボー</option>
+                                <option value="heat">熱 (赤→黄)</option>
+                                <option value="cold">寒 (青→紺)</option>
+                                <option value="mono">モノクロ</option>
+                                <option value="none">無色</option>
+                                <option value="custom">カスタム</option>
+                            </select>
+                        </div>
+                        <div id="colorPickerWrap"></div>
+                        <div class="f f-col">
+                            <div class="f-sb">
+                                <span class="fl">不透明度</span>
+                                <div class="row">
+                                    <input type="number" id="cellOpacityNum" min="0" max="100" value="100" class="custom-spinner" />
+                                    <span class="unit">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="cellOpacity" min="0" max="100" step="1" value="100" />
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-col panel-col-right">
+                    <!-- カスタムセル -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined">edit</span>カスタムセル</div>
+                        <div class="custom-cell-info">プレビュー上のマスをクリックして<br />テキスト・色を個別設定できます。</div>
+                        <div class="f" style="margin-top: 0.5rem">
+                            <span class="fl">設定数: <span class="custom-cell-count" id="customCount">0</span></span>
+                            <button class="btn-sub" id="clearCustomBtn">すべて解除</button>
+                        </div>
+                    </div>
+
+                    <!-- テキスト -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined">text_fields</span>テキスト</div>
+                        <div class="f">
+                            <span class="fl">文字色</span>
+                            <div id="textColorPicker"></div>
+                        </div>
+                        <div class="f" style="margin-top: 0.3rem">
+                            <span class="fl">文字サイズ</span>
+                            <div class="row">
+                                <input type="number" id="fontSize" min="6" max="200" value="24" class="custom-spinner" />
+                                <span class="unit">px</span>
+                            </div>
+                        </div>
+
+                        <div class="f f-col">
+                            <div class="f-sb">
+                                <span class="fl">不透明度</span>
+                                <div class="row">
+                                    <input type="number" id="textOpacityNum" min="0" max="100" value="100" class="custom-spinner" />
+                                    <span class="unit">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="textOpacity" min="0" max="100" step="1" value="100" />
+                        </div>
+                        <div class="f">
+                            <label class="tog">
+                                <input type="checkbox" id="strokeEnabled" checked />
+                                <span class="tl">縁取り</span>
+                            </label>
+                            <div id="strokeColorRow" class="row" style="opacity: 1; transition: opacity 0.25s">
+                                <span class="fl">色</span>
+                                <div id="strokeColorPicker"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ダウンロード -->
+                    <div class="s-sec panel-dl">
+                        <button class="btn-dl" id="downloadBtn"><span class="material-symbols-outlined">download</span>PNG ダウンロード</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── プレビュー ── -->
+            <div id="preview-area">
+                <div class="cv-wrap" id="cvWrap">
+                    <canvas id="rulerCanvas"></canvas>
+                    <div class="canvas-hint">クリックでセルを編集</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── セル編集ポップアップ ── -->
+        <div id="cell-popup">
+            <div class="cp-header">
+                <span class="cp-title">セルを編集</span>
+                <button class="cp-close" id="cpClose">✕</button>
+            </div>
+            <div class="cp-coord" id="cpCoord"></div>
+            <div class="cp-field">
+                <span class="cp-label">テキスト</span>
+                <input type="text" id="cp-text" placeholder="距離の数字" maxlength="8" />
+            </div>
+            <hr class="cp-divider" />
+            <div class="cp-field">
+                <span class="cp-label">セルの色</span>
+                <div id="popupCellColorPicker"></div>
+            </div>
+            <div class="cp-field">
+                <span class="cp-label">文字色</span>
+                <div id="popupTextColorPicker"></div>
+            </div>
+            <div class="cp-field">
+                <span class="cp-label">文字サイズ</span>
+                <div class="row">
+                    <input type="number" id="cp-fontSize" min="6" max="200" value="40" class="custom-spinner" />
+                    <span class="unit">px</span>
+                </div>
+            </div>
+            <div class="cp-btns">
+                <button class="cp-btn-reset" id="cpReset">このセルをリセット</button>
+            </div>
+        </div>
+
+        <!-- ====== ガイドモーダル ====== -->
+        <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title" id="guide-title">使い方ガイド</span>
+                    <button class="modal-close" aria-label="閉じる"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="modal-body">
+                    <div class="guide-body" id="guide-content">
+                        <h3>基本操作</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">tune</span>
+                            <div>
+                                <dt>リアルタイムプレビュー</dt>
+                                <dd>設定パネルの値を変えると右のプレビューに即時反映されます。</dd>
+                            </div>
+                            <span class="mi">edit</span>
+                            <div>
+                                <dt>カスタムセル編集</dt>
+                                <dd>プレビュー上のマスをクリックすると、そのセルのテキスト・色・文字色・文字サイズを個別に設定できます。変更は即時反映されます。</dd>
+                            </div>
+                            <span class="mi">download</span>
+                            <div>
+                                <dt>PNG ダウンロード</dt>
+                                <dd>現在のプレビューをそのままPNG画像として保存します。背景は透過です。</dd>
+                            </div>
+                        </dl>
+
+                        <h3>基本設定</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">grid_3x3</span>
+                            <div>
+                                <dt>範囲</dt>
+                                <dd>中心マスからの最大距離（マス数）を設定します。</dd>
+                            </div>
+                            <span class="mi">straighten</span>
+                            <div>
+                                <dt>距離計測方法</dt>
+                                <dd>
+                                    <strong>マンハッタン</strong>（縦横移動の合計）、 <strong>チェビシェフ</strong>（縦・横・斜めの最大値、8方向移動に対応）、
+                                    <strong>切り上げ／四捨五入／切り捨て</strong>（直線距離をそれぞれ処理）。
+                                </dd>
+                            </div>
+                        </dl>
+
+                        <h3>セルの色</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">opacity</span>
+                            <div>
+                                <dt>不透明度（グローバル）</dt>
+                                <dd>全マスの色の不透明度を一括で調整します。各距離のカラーピッカーで設定したα値にこの値が乗算されます。</dd>
+                            </div>
+                            <span class="mi">palette</span>
+                            <div>
+                                <dt>スキーム</dt>
+                                <dd>レインボー・熱・寒・モノクロ・無色（全て透明）・カスタムから選択。スキームを変えると各距離のカラーピッカーの色が一括更新されます。</dd>
+                            </div>
+                            <span class="mi">colorize</span>
+                            <div>
+                                <dt>距離ごとの色</dt>
+                                <dd>各距離（0=中心〜N）の色を個別にカラーピッカーで設定できます。アルファチャンネルで距離ごとの透明度も設定可能です。</dd>
+                            </div>
+                        </dl>
+
+                        <h3>テキスト</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">opacity</span>
+                            <div>
+                                <dt>不透明度（グローバル）</dt>
+                                <dd>全テキストの不透明度を一括調整。カラーピッカーのα値に乗算されます。</dd>
+                            </div>
+                            <span class="mi">format_size</span>
+                            <div>
+                                <dt>文字サイズ</dt>
+                                <dd>デフォルトの文字サイズ（px）です。カスタムセルで個別上書き可能です。</dd>
+                            </div>
+                            <span class="mi">text_fields</span>
+                            <div>
+                                <dt>縁取り</dt>
+                                <dd>テキストに縁取りを付けます。背景が透明な場合でも文字を見やすくできます。</dd>
+                            </div>
+                        </dl>
+
+                        <h3>ダウンロードファイル名</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">info</span>
+                            <div>
+                                <dt>ファイル名形式</dt>
+                                <dd><code>grid_ruler_{縦横マス数}x{縦横マス数}.png</code>（例: <code>grid_ruler_11x11.png</code>）</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="site-footer"><div class="container"></div></footer>
+        <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.9.1/dist/pickr.min.js"></script>
+        <script src="common.js"></script>
+        <script src="grid_ruler.js"></script>
+    </body>
+</html>

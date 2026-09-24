@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ja" data-theme="dark" prefix="og: http://ogp.me/ns#">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <title>クトゥルフ7版 ダイスツール | 違法建築のTRPGラボ</title>
+
+
+
+        <!-- Google Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+
+        <!-- Material Symbols -->
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+        <!-- Font Awesome -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+            integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"
+        />
+
+        <link rel="stylesheet" href="common.css" />
+
+        <audio id="dice-sound" preload="auto">
+            <source src="dice_sound.wav" type="audio/mpeg" />
+        </audio>
+
+        <link rel="stylesheet" href="coc7_dice.css" />
+    </head>
+    <body>
+        <header id="site-header"></header>
+
+        <main id="main" aria-label="ダイスツール">
+            <!-- 上部：技能ロール -->
+            <div class="dice-card section-top" role="region" aria-label="技能ロール">
+                <div class="top-inputs">
+                    <div class="dice-input-group" aria-label="ボーナス・ペナルティダイス">
+                        <button id="bd-minus-btn" class="dice-btn" aria-label="BD/PD を減らす">
+                            <span class="material-symbols-outlined">remove</span>
+                        </button>
+                        <input type="text" id="bd-input" class="bd-input" value="0" readonly aria-label="BD/PD 値" />
+                        <button id="bd-plus-btn" class="dice-btn" aria-label="BD/PD を増やす">
+                            <span class="material-symbols-outlined">add</span>
+                        </button>
+                    </div>
+                    <div class="skill-input-group" aria-label="技能値入力">
+                        <button id="skill-minus-btn" class="dice-btn" aria-label="技能値を減らす">
+                            <span class="material-symbols-outlined">remove</span>
+                        </button>
+                        <input type="number" id="skill-input" class="skill-input" placeholder="技能値" aria-label="技能値" />
+                        <button id="skill-plus-btn" class="dice-btn" aria-label="技能値を増やす">
+                            <span class="material-symbols-outlined">add</span>
+                        </button>
+                    </div>
+                    <button id="roll-btn" class="roll-button" aria-label="技能ロールを実行">
+                        <i class="fa-solid fa-dice"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 中央：結果表示 -->
+            <div class="dice-card section-middle" role="region" aria-label="ロール結果">
+                <button id="log-button" class="log-button" title="ログを開く" aria-label="ログを開く">
+                    <span class="material-symbols-outlined">history</span>
+                </button>
+                <div id="result-container" class="result-container" aria-live="polite">
+                    <div id="dice-display" class="dice-display"></div>
+                    <div id="result-text" class="result-text"></div>
+                    <div id="success-level" class="success-level"></div>
+                </div>
+                <!-- ログカード（オーバーレイ） -->
+                <div id="log-card" class="log-card" role="log" aria-label="ロールログ">
+                    <ul id="log-list"></ul>
+                    <div class="log-footer">
+                        <button id="log-clear-btn" class="log-footer-btn" title="ログをすべて削除" aria-label="ログを削除">
+                            <span class="material-symbols-outlined">delete_outline</span>
+                        </button>
+                        <button id="log-close-btn" class="log-footer-btn" title="ログを閉じる" aria-label="ログを閉じる">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 下部：カスタムロール -->
+            <div class="dice-card section-bottom" role="region" aria-label="カスタムロール">
+                <div class="custom-roll">
+                    <div class="custom-roll-input">
+                        <input type="text" id="custom-roll-input" placeholder="例: 1D6+1D4+2" aria-label="ダイスコマンド入力" />
+                        <button id="custom-clear-btn" class="custom-clear-btn" aria-label="入力をクリア">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                    <button id="custom-roll-btn" class="custom-roll-button" aria-label="カスタムロールを実行">
+                        <i class="fa-solid fa-dice"></i>
+                    </button>
+                </div>
+                <div class="dice-buttons" id="dice-buttons-container" aria-label="ダイス追加ボタン">
+                    <button class="add-dice-btn" data-dice-type="1">+1</button>
+                    <button class="add-dice-btn" data-dice-type="1D3">+1D3</button>
+                    <button class="add-dice-btn" data-dice-type="1D4">+1D4</button>
+                    <button class="add-dice-btn" data-dice-type="1D6">+1D6</button>
+                    <button class="add-dice-btn" data-dice-type="1D8">+1D8</button>
+                    <button class="add-dice-btn" data-dice-type="1D10">+1D10</button>
+                    <button class="add-dice-btn" data-dice-type="1D12">+1D12</button>
+                    <button class="add-dice-btn" data-dice-type="1D20">+1D20</button>
+                    <button class="add-dice-btn" data-dice-type="1D100">+1D100</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- 使い方ガイドモーダル（common.js の buildGuideLinks が末尾リンクを追加） -->
+        <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title" id="guide-modal-title">使い方ガイド</span>
+                    <button class="modal-close" aria-label="閉じる"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="modal-body" id="guide-content">
+                    <div class="guide-body">
+                        <p>
+                            <strong style="color: var(--blue)">CoC7 ダイスツール</strong>
+                            は、新クトゥルフ神話TRPG（CoC7）のセッションで使えるWEBダイスツールです。 技能ロール・カスタムロール・ダイスログの3つの機能を備えています。
+                        </p>
+
+                        <h3>技能ロール（画面上部）</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">tune</span>
+                                <span>左側の <strong>BD/PD</strong> 欄で、ボーナスダイス（正の値）とペナルティダイス（負の値）の数を設定します。±ボタンで −2 〜 +2 の範囲で調整できます。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">edit</span>
+                                <span>中央の <strong>技能値</strong> 欄に判定したい技能値を入力します。±ボタンのほか、直接数値を入力することもできます。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined fill" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">casino</span>
+                                <span
+                                    >右側の
+                                    <strong>ロールボタン</strong>
+                                    を押すと1D100を振り、技能値を入力している場合はクリティカル／イクストリーム成功／ハード成功／レギュラー成功／失敗／ファンブルを自動判定します。技能値が未入力でもロール自体は可能です。</span
+                                >
+                            </li>
+                        </ul>
+
+                        <h3>カスタムロール（画面下部）</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined fill" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">keyboard</span>
+                                <span>入力欄にダイスコマンド（例: <code>2D6+1D4+3</code>）を入力し、ロールボタンを押すと結果が表示されます。全角文字・全角数字にも対応しています。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">add_circle_outline</span>
+                                <span
+                                    >入力欄の下に並ぶ <strong>ダイス追加ボタン</strong>（+1D6
+                                    など）を押すと、そのダイスがコマンドに自動で追記されます。同じ面数のダイスは合算されるため、素早くコマンドを組み立てられます。</span
+                                >
+                            </li>
+                        </ul>
+
+                        <h3>ログ（画面中央 右下ボタン）</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">history</span>
+                                <span>右下の <strong>履歴ボタン</strong> を押すと、これまでのロール結果をまとめて確認できます。ログは新しいものが上に追加されます。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">delete_outline</span>
+                                <span>ログ表示中に左下の <strong>削除ボタン</strong> を押すと、確認ダイアログの後にすべてのログを消去できます。</span>
+                            </li>
+                        </ul>
+
+                        <h3>免責・権利表記</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.7; border-left: 2px solid var(--border); padding-left: 0.8rem">
+                            本作は、「株式会社アークライト」及び「株式会社KADOKAWA」が権利を有する『クトゥルフ神話TRPG』シリーズの二次創作物です。<br /><br />
+                            Call of Cthulhu is copyright ©1981, 2015, 2019 by Chaosium Inc.; all rights reserved. Arranged by Arclight Inc.<br />
+                            Call of Cthulhu is a registered trademark of Chaosium Inc.<br />
+                            PUBLISHED BY KADOKAWA CORPORATION 「クトゥルフ神話TRPG」「新クトゥルフ神話TRPG」
+                        </p>
+
+                        <!-- ↓ common.js の buildGuideLinks() がここにリンクブロックを追加する -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="common.js"></script>
+        <script src="coc7_dice.js"></script>
+    </body>
+</html>

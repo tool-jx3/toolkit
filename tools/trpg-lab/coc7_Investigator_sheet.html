@@ -1,0 +1,1578 @@
+<!doctype html>
+<html lang="ja" data-theme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <title>クトゥルフ7版 カスタム探索者シート | 違法建築のTRPGラボ</title>
+
+
+
+        <!-- Google Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+
+        <!-- Material Symbols -->
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+        <!-- Font Awesome -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+            integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"
+        />
+
+        <link rel="stylesheet" href="common.css" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.2.4/fabric.min.js"></script>
+
+        <link rel="stylesheet" href="coc7_Investigator_sheet.css" />
+    </head>
+    <body>
+        <header id="site-header"></header>
+
+        <div class="card-section">
+            <div class="card">
+                <button id="saveBtn"><span class="material-symbols-outlined">save</span>保存</button>
+                <select id="saveList">
+                    <option value="">（保存一覧）</option>
+                </select>
+
+                <button id="loadBtn"><span class="material-symbols-outlined">folder_open</span>読み込み</button>
+                <button id="deleteBtn"><span class="material-symbols-outlined">delete</span> 削除</button>
+            </div>
+            <div class="card">
+                <button id="printBtn"><span class="material-symbols-outlined fill">print</span> 印刷</button>
+                <button id="clearBtn"><span class="material-symbols-outlined">refresh</span>クリア</button>
+            </div>
+        </div>
+
+        <main id="main">
+            <div id="a4-wrapper">
+                <div class="a4-sheet">
+                    <div class="main-data">
+                        <div class="investigator-container">
+                            <div>探索者シート</div>
+                            <div class="investigator-info">
+                                <div>
+                                    <label contenteditable="true">名前</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div>
+                                    <label contenteditable="true">プレイヤー</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div>
+                                    <label contenteditable="true">職業</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div>
+                                    <div>
+                                        <label contenteditable="true">年齢</label>
+                                        <span contenteditable="true"></span>
+                                    </div>
+                                    <div>
+                                        <label contenteditable="true">性別</label>
+                                        <span contenteditable="true"></span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label contenteditable="true">住所</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div>
+                                    <label contenteditable="true">出身</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="abilitie-container">
+                            <div>能力値</div>
+                            <div class="abilitie-grid">
+                                <div class="abilitie">
+                                    <label>STR</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <label>DEX</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <div class="alias-abilitie">
+                                        <label>INT</label>
+                                        <label>アイデア</label>
+                                    </div>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <label>CON</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <label>APP</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <label>POW</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <label>SIZ</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <div class="alias-abilitie">
+                                        <label>EDU</label>
+                                        <label>知識</label>
+                                    </div>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie-mov">
+                                    <label style="font-size: 16px; transform: scaleX(0.9)">移動率</label>
+                                    <div class="mov-container">
+                                        <div class="mov" contenteditable="true"></div>
+                                        <div class="mov-puls">+1</div>
+                                        <div class="mov-minus">-1</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="img-container">
+                            <button id="img-select-btn">画像選択</button>
+                            <button id="img-remove-btn">×</button>
+                        </div>
+                        <input type="file" id="file-input" accept="image/*" style="display: none" />
+                    </div>
+                    <div class="sub-data">
+                        <div class="custom-box">
+                            <div contenteditable="true">カスタム</div>
+                            <div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                        </div>
+                        <div class="status-container">
+                            <div class="hp-san">
+                                <div class="hp-box">
+                                    <div>耐久力</div>
+                                    <div class="hp-header">
+                                        <label style="margin-right: 4px">重傷</label>
+                                        <div class="jyusho-box" style="margin-right: 10px"></div>
+                                        <label style="margin-right: 4px">最大値</label>
+                                        <span class="max-hp" contenteditable="true"></span>
+                                    </div>
+                                    <div class="hp-value">
+                                        <div style="grid-column: 1/3; grid-row: 1/3">
+                                            <div class="hinshi">瀕死</div>
+                                            <div class="ishiki-humei"><span>意識不明</span></div>
+                                            <div class="zero-border"></div>
+                                        </div>
+                                        <span>00</span>
+                                        <span>01</span>
+                                        <span>02</span>
+                                        <span>03</span>
+                                        <span>04</span>
+                                        <span>05</span>
+                                        <span>06</span>
+                                        <span>07</span>
+                                        <span>08</span>
+                                        <span>09</span>
+                                        <span>10</span>
+                                        <span>11</span>
+                                        <span>12</span>
+                                        <span>13</span>
+                                        <span>14</span>
+                                        <span>15</span>
+                                        <span>16</span>
+                                        <span>17</span>
+                                        <span>18</span>
+                                        <span>19</span>
+                                        <span>20</span>
+                                        <span>21</span>
+                                        <span>22</span>
+                                        <span>23</span>
+                                        <span>24</span>
+                                        <span>25</span>
+                                        <span>26</span>
+                                        <span>27</span>
+                                        <span>28</span>
+                                        <span>29</span>
+                                        <span>30</span>
+                                        <span>31</span>
+                                        <span>32</span>
+                                        <span>33</span>
+                                        <span>34</span>
+                                        <span>35</span>
+                                        <span>36</span>
+                                        <span>37</span>
+                                        <span>38</span>
+                                        <span>39</span>
+                                        <span>40</span>
+                                        <span>41</span>
+                                        <span>42</span>
+                                        <span>43</span>
+                                    </div>
+                                </div>
+                                <div class="san-box">
+                                    <div class="san-header">
+                                        <label style="margin-right: 4px">一時的狂気</label>
+                                        <div class="kyouki-box" style="margin-right: 10px"></div>
+                                        <label style="margin-right: 4px">不定の狂気</label>
+                                        <div class="kyouki-box" style="margin-right: 10px"></div>
+                                        <label style="margin-right: 4px">開始時</label>
+                                        <span class="start-san" contenteditable="true" style="margin-right: 10px"></span>
+                                        <label style="margin-right: 4px">最大値</label>
+                                        <span class="max-san" contenteditable="true"></span>
+                                    </div>
+                                    <div class="san-value">
+                                        <span style="grid-column: 1/4; text-align: center">発狂</span>
+                                        <span>01</span>
+                                        <span>02</span>
+                                        <span>03</span>
+                                        <span>04</span>
+                                        <span>05</span>
+                                        <span>06</span>
+                                        <span>07</span>
+                                        <span>08</span>
+                                        <span>09</span>
+                                        <span>10</span>
+                                        <span>11</span>
+                                        <span>12</span>
+                                        <span>13</span>
+                                        <span>14</span>
+                                        <span>15</span>
+                                        <span>16</span>
+                                        <span>17</span>
+                                        <span>18</span>
+                                        <span>19</span>
+                                        <span>20</span>
+                                        <span>21</span>
+                                        <span>22</span>
+                                        <span>23</span>
+                                        <span>24</span>
+                                        <span>25</span>
+                                        <span>26</span>
+                                        <span>27</span>
+                                        <span>28</span>
+                                        <span>29</span>
+                                        <span>30</span>
+                                        <span>31</span>
+                                        <span>32</span>
+                                        <span>33</span>
+                                        <span>34</span>
+                                        <span>35</span>
+                                        <span>36</span>
+                                        <span>37</span>
+                                        <span>38</span>
+                                        <span>39</span>
+                                        <span>40</span>
+                                        <span>41</span>
+                                        <span>42</span>
+                                        <span>43</span>
+                                        <span>44</span>
+                                        <span>45</span>
+                                        <span>46</span>
+                                        <span>47</span>
+                                        <span>48</span>
+                                        <span>49</span>
+                                        <span>50</span>
+                                        <span>51</span>
+                                        <span>52</span>
+                                        <span>53</span>
+                                        <span>54</span>
+                                        <span>55</span>
+                                        <span>56</span>
+                                        <span>57</span>
+                                        <span>58</span>
+                                        <span>59</span>
+                                        <span>60</span>
+                                        <span>61</span>
+                                        <span>62</span>
+                                        <span>63</span>
+                                        <span>64</span>
+                                        <span>65</span>
+                                        <span>66</span>
+                                        <span>67</span>
+                                        <span>68</span>
+                                        <span>69</span>
+                                        <span>70</span>
+                                        <span>71</span>
+                                        <span>72</span>
+                                        <span>73</span>
+                                        <span>74</span>
+                                        <span>75</span>
+                                        <span>76</span>
+                                        <span>77</span>
+                                        <span>78</span>
+                                        <span>79</span>
+                                        <span>80</span>
+                                        <span>81</span>
+                                        <span>82</span>
+                                        <span>83</span>
+                                        <span>84</span>
+                                        <span>85</span>
+                                        <span>86</span>
+                                        <span>87</span>
+                                        <span>88</span>
+                                        <span>89</span>
+                                        <span>90</span>
+                                        <span>91</span>
+                                        <span>92</span>
+                                        <span>93</span>
+                                        <span>94</span>
+                                        <span>95</span>
+                                        <span>96</span>
+                                        <span>97</span>
+                                        <span>98</span>
+                                        <span>99</span>
+                                    </div>
+                                    <div>正気度</div>
+                                </div>
+                            </div>
+                            <div class="luk-mp">
+                                <div class="luk-box">
+                                    <div>幸運</div>
+                                    <!-- <div class="luk-header"></div> -->
+                                    <div class="luk-value">
+                                        <span style="grid-column: 1/7; text-align: center">運の尽き</span>
+                                        <span>01</span>
+                                        <span>02</span>
+                                        <span>03</span>
+                                        <span>04</span>
+                                        <span>05</span>
+                                        <span>06</span>
+                                        <span>07</span>
+                                        <span>08</span>
+                                        <span>09</span>
+                                        <span>10</span>
+                                        <span>11</span>
+                                        <span>12</span>
+                                        <span>13</span>
+                                        <span>14</span>
+                                        <span>15</span>
+                                        <span>16</span>
+                                        <span>17</span>
+                                        <span>18</span>
+                                        <span>19</span>
+                                        <span>20</span>
+                                        <span>21</span>
+                                        <span>22</span>
+                                        <span>23</span>
+                                        <span>24</span>
+                                        <span>25</span>
+                                        <span>26</span>
+                                        <span>27</span>
+                                        <span>28</span>
+                                        <span>29</span>
+                                        <span>30</span>
+                                        <span>31</span>
+                                        <span>32</span>
+                                        <span>33</span>
+                                        <span>34</span>
+                                        <span>35</span>
+                                        <span>36</span>
+                                        <span>37</span>
+                                        <span>38</span>
+                                        <span>39</span>
+                                        <span>40</span>
+                                        <span>41</span>
+                                        <span>42</span>
+                                        <span>43</span>
+                                        <span>44</span>
+                                        <span>45</span>
+                                        <span>46</span>
+                                        <span>47</span>
+                                        <span>48</span>
+                                        <span>49</span>
+                                        <span>50</span>
+                                        <span>51</span>
+                                        <span>52</span>
+                                        <span>53</span>
+                                        <span>54</span>
+                                        <span>55</span>
+                                        <span>56</span>
+                                        <span>57</span>
+                                        <span>58</span>
+                                        <span>59</span>
+                                        <span>60</span>
+                                        <span>61</span>
+                                        <span>62</span>
+                                        <span>63</span>
+                                        <span>64</span>
+                                        <span>65</span>
+                                        <span>66</span>
+                                        <span>67</span>
+                                        <span>68</span>
+                                        <span>69</span>
+                                        <span>70</span>
+                                        <span>71</span>
+                                        <span>72</span>
+                                        <span>73</span>
+                                        <span>74</span>
+                                        <span>75</span>
+                                        <span>76</span>
+                                        <span>77</span>
+                                        <span>78</span>
+                                        <span>79</span>
+                                        <span>80</span>
+                                        <span>81</span>
+                                        <span>82</span>
+                                        <span>83</span>
+                                        <span>84</span>
+                                        <span>85</span>
+                                        <span>86</span>
+                                        <span>87</span>
+                                        <span>88</span>
+                                        <span>89</span>
+                                        <span>90</span>
+                                        <span>91</span>
+                                        <span>92</span>
+                                        <span>93</span>
+                                        <span>94</span>
+                                        <span>95</span>
+                                        <span>96</span>
+                                        <span>97</span>
+                                        <span>98</span>
+                                        <span>99</span>
+                                    </div>
+                                </div>
+                                <div class="mp-box">
+                                    <div><span>マジック・ポイント</span></div>
+                                    <div class="mp-header">
+                                        <label style="margin-right: 4px">最大値</label>
+                                        <span class="max-mp" contenteditable="true"></span>
+                                    </div>
+                                    <div class="mp-value">
+                                        <span>00</span>
+                                        <span>01</span>
+                                        <span>02</span>
+                                        <span>03</span>
+                                        <span>04</span>
+                                        <span>05</span>
+                                        <span>06</span>
+                                        <span>07</span>
+                                        <span>08</span>
+                                        <span>09</span>
+                                        <span>10</span>
+                                        <span>11</span>
+                                        <span>12</span>
+                                        <span>13</span>
+                                        <span>14</span>
+                                        <span>15</span>
+                                        <span>16</span>
+                                        <span>17</span>
+                                        <span>18</span>
+                                        <span>19</span>
+                                        <span>20</span>
+                                        <span>21</span>
+                                        <span>22</span>
+                                        <span>23</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="skill-section">
+                        <div>技能</div>
+                        <div class="skill-grid">
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">威圧 (15%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">言いくるめ (5%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">医学 (1%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">運転(自動車) (20%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">応急手当 (30%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">オカルト (5%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">隠密 (20%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">回避 (DEX×½)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true">科学 (1%)</label>
+                                    <label contenteditable="true" class="skill-name"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">鍵開け (1%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">鑑定 (5%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">機械修理 (10%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">聞き耳 (20%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">近接戦闘(格闘) (25%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check" style="border-color: transparent"></div>
+                                <label contenteditable="true">クトゥルフ神話 (0%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true">芸術／製作 (5%)</label>
+                                    <label contenteditable="true" class="skill-name"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">経理 (5%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">考古学 (1%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">コンピューター (5%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true">サバイバル (10%)</label>
+                                    <label contenteditable="true" class="skill-name"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">自然 (10%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">射撃(拳銃) (20%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">射撃<br />(ﾗｲﾌﾙ/ｼｮｯﾄｶﾞﾝ) (25%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">重機械操作 (1%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check" style="border-color: transparent"></div>
+                                <label contenteditable="true">信用 (0%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">心理学 (10%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">人類学 (1%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">水泳 (20%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">精神分析 (1%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">説得 (10%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true">操縦 (1%)</label>
+                                    <label contenteditable="true" class="skill-name"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">跳躍 (20%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">追跡 (10%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">手さばき (10%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">電気修理 (10%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">電子工学 (1%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">投擲 (20%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">登攀 (20%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">図書館 (20%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">ナビゲート (10%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">変装 (5%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">法律 (5%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true">ほかの言語 (1%)</label>
+                                    <label contenteditable="true" class="skill-name"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true">母国語 (EDU%)</label>
+                                    <label contenteditable="true"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">魅惑 (15%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">目星 (25%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true">歴史 (5%)</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="weapon-combat">
+                        <div class="weapon-container">
+                            <div>武器</div>
+                            <div class="weapon">
+                                <label class="weapon-name" style="text-align: start">武器</label>
+                                <label class="weapon-regular">ﾚｷﾞｭﾗｰ</label>
+                                <label class="weapon-hard">ハード</label>
+                                <label class="weapon-extreme">ｲｸｽﾄﾘｰﾑ</label>
+                                <label class="weapon-damage">ダメージ</label>
+                                <label class="weapon-range">射程</label>
+                                <label class="weapon-times">攻撃回数</label>
+                                <label class="weapon-bullets">装弾数</label>
+                                <label class="weapon-break">故障</label>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true">素手</span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true">1D3 + DB</span>
+                                <span class="weapon-range" contenteditable="true">─</span>
+                                <span class="weapon-times" contenteditable="true">1</span>
+                                <span class="weapon-bullets" contenteditable="true">─</span>
+                                <span class="weapon-break" contenteditable="true">─</span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                        </div>
+                        <div class="combat-container">
+                            <div>戦闘</div>
+                            <div>
+                                <label>ダメージ・<br />ボーナス</label>
+                                <div class="db" contenteditable="true"></div>
+                            </div>
+                            <div>
+                                <label>ビルド</label>
+                                <div class="build" contenteditable="true"></div>
+                            </div>
+                            <div>
+                                <label>回避</label>
+                                <div class="roll-container">
+                                    <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                    <div class="abilitie-box abilitie-hard"></div>
+                                    <div class="abilitie-box abilitie-extreme"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="a4-sheet">
+                    <div class="backstory-container">
+                        <div>バックストーリー</div>
+                        <div class="backstory-left">
+                            <div class="backstory sentence">
+                                <div>
+                                    <label>容姿の描写</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+
+                            <div class="backstory sentence">
+                                <div>
+                                    <label>イデオロギー/信念</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+
+                            <div class="backstory sentence">
+                                <div>
+                                    <label>重要な人々</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+
+                            <div class="backstory sentence">
+                                <div>
+                                    <label>意味のある場所</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                            <div class="backstory sentence">
+                                <div>
+                                    <label>秘蔵の品</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                        </div>
+                        <div class="backstory-right">
+                            <div class="backstory sentence">
+                                <div>
+                                    <label>特徴</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                            <div class="backstory sentence">
+                                <div>
+                                    <label>負傷、傷跡</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                            <div class="backstory sentence">
+                                <div>
+                                    <label>恐怖症、マニア</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+
+                            <div class="backstory sentence">
+                                <div>
+                                    <label>魔導書、呪文、アーティファクト</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                            <div class="backstory sentence">
+                                <div>
+                                    <label>遭遇した超自然の存在</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="item-asset">
+                        <div class="item-container">
+                            <div>装備と所持品</div>
+                            <div class="items" id="item-left">
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                            <div class="items" id="item-right">
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                        </div>
+                        <div class="asset-container">
+                            <div>装備と所持品</div>
+                            <div id="assets" class="items">
+                                <div class="label-asset">
+                                    <label>支出レベル</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div class="label-asset">
+                                    <label>現金</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div class="label-asset">
+                                    <label>資産</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="memo-container">
+                        <div>メモ</div>
+                        <div class="memo sentence">
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- サイトフッター（共通） -->
+        <footer class="site-footer" aria-label="サイトフッター">
+            <div class="container"></div>
+        </footer>
+
+        <!-- 使い方ガイド モーダル -->
+        <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title" id="guide-modal-title">使い方ガイド</span>
+                    <button class="modal-close" aria-label="閉じる"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="modal-body" id="guide-content">
+                    <div class="guide-body">
+                        <p>
+                            <strong style="color: var(--blue)">CoC7 カスタム探索者シート</strong>
+                            は、新クトゥルフ神話TRPG（CoC7）用のキャラクターシートです。ブラウザ上で入力してそのままA4印刷できます。
+                        </p>
+
+                        <h3>基本の入力</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">edit</span>
+                                各フィールドを直接クリックして入力できます。探索者名・年齢・職業などの基本情報から、能力値・技能・装備・バックストーリーまですべてブラウザ上で記入可能です。
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined fill" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">calculate</span>
+                                能力値ボックスは通常値を入力すると、1/2値・1/5値を自動計算して表示します。
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">add_circle</span>
+                                <span>特殊技能はカーソルを合わせて <kbd>Enter</kbd> キーを押すと追加できます。不要な行は空欄で <kbd>Backspaceキーで</kbd> 削除が可能です。</span>
+                            </li>
+                        </ul>
+
+                        <h3>顔写真の設定</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">add_photo_alternate</span>
+                                シート右上の画像枠をクリックしてファイルを選択してください。アップロード後にトリミング調整ができます。「決定」で確定、「×」で削除できます。
+                            </li>
+                        </ul>
+
+                        <h3>保存・読み込み</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">save</span>
+                                <strong>保存</strong>：名前を付けてブラウザのローカルストレージに保存します。同名で上書き保存も可能です。
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">folder_open</span>
+                                <strong>読み込み</strong>：保存一覧から選択して「読み込み」を押すと復元できます。
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">delete</span>
+                                <strong>削除</strong>：保存一覧で選択した探索者データを削除します。
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">autorenew</span>
+                                入力内容は自動でオートセーブされます。ページを閉じても次回アクセス時に復元されます。
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">refresh</span>
+                                <strong>クリア</strong>：シートを初期状態に戻します。オートセーブも消去されます（元に戻せません）。
+                            </li>
+                        </ul>
+                        <ul>
+                            <li style="background: var(--cyan-muted); border: 1px solid var(--border); border-radius: var(--r); padding: 0.5rem 0.7rem; font-size: 0.85rem; color: var(--text-dim)">
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">info</span>
+                                <span style="color: var(--text)"
+                                    >保存データはブラウザのローカルストレージに記録されます。別のブラウザや端末では表示されません。ブラウザのデータ消去により失われる場合があります。</span
+                                >
+                            </li>
+                        </ul>
+
+                        <h3>印刷</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined fill" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">print</span>
+                                「印刷」ボタンを押すと印刷ダイアログが開きます。用紙サイズは A4・余白なし・背景のグラフィックを有効にして印刷してください。
+                            </li>
+                        </ul>
+
+                        <h3>免責・権利表記</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.7; border-left: 2px solid var(--border); padding-left: 0.8rem">
+                            本作は、「株式会社アークライト」及び「株式会社KADOKAWA」が権利を有する『クトゥルフ神話TRPG』シリーズの二次創作物です。<br /><br />
+                            Call of Cthulhu is copyright ©1981, 2015, 2019 by Chaosium Inc.; all rights reserved. Arranged by Arclight Inc.<br />
+                            Call of Cthulhu is a registered trademark of Chaosium Inc.<br />
+                            PUBLISHED BY KADOKAWA CORPORATION 「クトゥルフ神話TRPG」「新クトゥルフ神話TRPG」
+                        </p>
+
+                        <!-- common.js の buildGuideLinks() がここにリンクブロックを追加する -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 画像トリミングモーダル -->
+        <div id="image-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="img-modal-title">
+            <div id="img-modal-content">
+                <div class="img-modal-header">
+                    <span class="modal-title" id="img-modal-title">顔写真のトリミング</span>
+                    <button id="img-modal-close-btn" class="modal-close" aria-label="閉じる">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <div class="img-modal-body">
+                    <p class="img-canvas-hint">画像をドラッグ・スケールして枠内に合わせてください</p>
+                    <!-- canvas-size-box: transform: scale() はレイアウトに影響しないため、
+                         この要素で「視覚上の表示サイズ」を確保する外枠として使う -->
+                    <div id="canvas-size-box">
+                        <div class="img-canvas-wrap">
+                            <canvas id="modal-canvas"> </canvas>
+                            <div id="clip-frame"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="img-modal-footer">
+                    <button id="modal-cancel"><span class="material-symbols-outlined">close</span>キャンセル</button>
+                    <button id="modal-ok"><span class="material-symbols-outlined">crop</span>決定</button>
+                </div>
+            </div>
+        </div>
+
+        <script src="common.js"></script>
+        <script src="coc7_Investigator_sheet.js"></script>
+    </body>
+</html>
