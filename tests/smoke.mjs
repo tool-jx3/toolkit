@@ -1419,7 +1419,8 @@ check('trpg-lab 的頁首掛了語言選單', labCommon.includes("I18N.mountSwit
 const LAB_HEADER_HOOKS = { 'lab.homeAria': 1, 'lab.logo': 1, 'lab.navAria': 1, 'nav.home': 1, 'lang.aria': 1,
   'lab.guide': 2, 'lab.twitter': 1, 'lab.theme': 2, 'lab.thirdParty': 2, 'lab.copyright': 2 };
 const labHookMiss = Object.entries(LAB_HEADER_HOOKS)
-  .filter(([k, n]) => labCommon.split(`="${k}"`).length - 1 !== n).map(([k]) => k);
+  .filter(([k, n]) => [...labCommon.matchAll(new RegExp(`data-i18n(?:-[a-z-]+)?="${k.replace('.', '\\.')}"`, 'g'))].length !== n)
+  .map(([k]) => k);
 check('trpg-lab 的頁首文字切語言時由共用引擎重套（掛了 data-i18n）', labHookMiss.length === 0,
   `次數不對: ${labHookMiss.join(', ')}`);
 check('trpg-lab 拿掉了隱私權政策的連結（那頁只在說明已移除的存取分析）', !labCommon.includes('privacyPolicy'));
