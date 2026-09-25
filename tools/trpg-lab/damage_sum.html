@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>BCDice 傷害自動計算工具</title>
+        <script src="../../assets/i18n.js"></script>
+        <script src="i18n.damage_sum.js"></script>
+		<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet" />
+		<link rel="stylesheet" href="damage_sum.css" />
+	</head>
+	<body>
+		<!-- 收錄版：這頁沒有實驗室的共用頁首，另外補一條導覽列放語言選單 -->
+		<div class="toolkit-bar">
+			<a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+			<select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+		</div>
+
+		<div style="position: relative">
+			<h1 style="margin: 0" data-i18n="app.title">BCDice 傷害自動計算工具</h1>
+			<!-- 收錄版：上游連到作者的網站（另開分頁）；這裡改連同目錄的實驗室首頁 -->
+			<a href="index.html" style="position: absolute; bottom: 10px; right: 0">
+				<button style="padding: 6px 12px" data-i18n="nav.labHome">回到實驗室首頁</button>
+			</a>
+		</div>
+
+		<div class="section">
+			<label for="armorValue" data-i18n="form.armor">請輸入護甲值</label>
+			<input type="number" id="armorValue" value="0" />
+
+			<label for="damageRolls" data-i18n="form.rolls">請輸入 BCDice 的傷害擲骰結果</label>
+			<textarea
+				id="damageRolls"
+				rows="10"
+				data-i18n-placeholder="form.rollsPlaceholder"
+				placeholder="例：
+藍道夫·卡特 - 今天 00:00
+x3 1D10+2 手槍 #1
+(1D10+2) ＞ 3[3]+2 ＞ 5
+
+#2
+(1D10+2) ＞ 7[7]+2 ＞ 9
+
+#3
+(1D10+2) ＞ 4[4]+2 ＞ 6"
+			></textarea>
+
+			<button id="calculateBtn" data-i18n="form.calculate">計算</button>
+		</div>
+
+		<div class="section">
+			<div class="result" id="result"></div>
+			<div id="commandOutput"></div>
+			<div id="copyMessage" data-i18n="result.copied">已複製指令！</div>
+		</div>
+
+		<script src="damage_sum.js"></script>
+	</body>
+</html>

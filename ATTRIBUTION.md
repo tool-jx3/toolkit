@@ -7,7 +7,8 @@
 [巡涯学派](https://github.com/organon-torah) 與
 [Wool&Wag](https://github.com/woolwag3338) 與
 [johnko00](https://github.com/johnko00) 與
-[baegop157902](https://github.com/baegop157902) 製作的 22 個網頁工具，
+[baegop157902](https://github.com/baegop157902) 與
+[違法建築](https://github.com/ihoukentiku) 製作的 23 個網頁工具，
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -36,8 +37,9 @@
 | acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
 | video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
 | gif-combiner | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `3aa7de8` | MIT |
+| trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
 
-十五個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
+十六個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
 
 shiki365 的四個工具、`cutin`、`portrait-size`、`height-board` 與 `room-zip` 原文為日文，
 收錄時另有以下調整：
@@ -296,6 +298,119 @@ gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，
 
 已經彈出去的 toast 不重寫——那是過去事件的訊息，回頭改寫它的語言只會讓人困惑。
 
+## trpg-lab：違法建築的 TRPG 實驗室
+
+上游 `ihoukentiku/ihoukentiku.github.io` 是一整個網站（違法建築のTRPGラボ），首頁
+（hub）列出九個工具，收錄版照原樣收成一個多頁的工具，首頁卡片只佔一張：
+
+| 頁面 | 上游名稱 | 做什麼 |
+|---|---|---|
+| `index.html` | トップページ | 工具卡片、更新資訊、使用說明 |
+| `coc7_dice.html` | CoC7 ダイスツール | 新克蘇魯神話 TRPG 的技能檢定、自訂擲骰與擲骰紀錄 |
+| `coc7_Investigator_sheet.html` | CoC7 探索者シート | 可列印、存在瀏覽器裡的調查員角色卡 |
+| `coc_npc_token.html` | CoC NPC作成/管理ツール | CoC 7／6 版 NPC 的清單管理、擲屬性與 CCFOLIA 輸出 |
+| `trpg_map_maker/` | TRPGマップエディタ | 地圖清單（`map_list.html`）與編輯器（`map_editor.html`） |
+| `grid_maker.html`／`hex_maker.html` | グリッド作成／ヘクス作成 | 方格與六角格的網格圖片 |
+| `grid_ruler.html`／`hex_ruler.html` | グリッド定規作成／ヘクス定規作成 | 依距離分色的量尺圖片 |
+| `damage_sum.html` | BCDice ダメージ計算 | 從 BCDice 的傷害擲骰紀錄算出扣掉護甲後的總傷害 |
+| `third-party-licenses.html` | サードパーティライセンス | 函式庫、字型與裝飾圖章的授權說明 |
+
+上游 repo 裡另有一個 `grid_paint.html`，站上沒有任何連結指向它（功能已由地圖編輯器
+取代），不收。
+
+### 作者保留權利的素材不收
+
+程式碼是 MIT（repo 的 `LICENSE` 與站上的授權頁都這麼寫），但授權頁另外聲明：網站
+管理者自製的素材（間取り図 SVG、AI 生成的貼圖、各工具的設計等）權利歸作者，商業
+使用與再散布請先聯絡。收錄版因此只收程式碼與可再散布的第三方圖示，下列檔案不收：
+
+- 地圖編輯器內建的 14 張地面／牆壁貼圖（`trpg_map_maker/patterns/`，AI 生成）。
+  `PATTERNS` 清成空陣列；使用者自己上傳的貼圖照常可用，存檔裡引用了內建貼圖的，
+  讀進來時由上游本來就有的 `normalizePatternState()` 退回單色。
+- 15 個格局圖（間取り図）用的 SVG：授權頁點名的 `fp-*` 四個，以及授權頁沒有列出
+  來源、同屬「floorplan」分類的床、桌椅、廁所、廚房、窗戶、直梯十一個——它們是作者
+  自己畫的（檔案裡的註解寫著「fp-door と同サイズの枠」這類製作筆記）。裝飾圖章的
+  登錄表一併拿掉這些項目。
+- 擲骰工具的音效 `dice_sound.wav`：出自ニコニ・コモンズ，素材本身不得再散布。音效的
+  開關與說明一併拿掉。
+- 網站 Logo、OGP 圖片、`favicon.ico`，以及 Google Search Console 的驗證檔。
+
+留下的 56 個裝飾圖章（game-icons.net 的 16 個、openstreetmap/map-icons 的 40 個
+`jp-*`）的出處見 `tools/trpg-lab/THIRD_PARTY_NOTICES.md`。
+
+「各工具的設計」這句跟 MIT 有點打架：設計就寫在以 MIT 釋出的 HTML／CSS 裡。收錄版
+的判斷是程式碼照 MIT 收，作者點名的素材檔一律不收；若作者另有意見，以作者為準。
+
+因為少了音效與內建貼圖，首頁卡片的說明（擲骰工具的「効果音に対応」、地圖編輯器的
+「テクスチャパターン」）兩種語言都改成不再宣稱這兩項，第三方授權頁也拿掉了貼圖、
+音源與存取分析三段。
+
+### 存取分析、路徑與頁首
+
+- 上游每頁都載入 `analytics.js`（只在 `ihoukentiku.github.io` 上啟用 gtag），收錄版
+  拿掉；只在說明分析的隱私權政策頁也不收，頁尾與說明視窗裡指向它的連結一併拿掉。
+- 上游的站台就是 repo 根目錄，`common.js` 的連結一律寫 `/`。收錄版改成相對於
+  `common.js` 所在的目錄，`trpg_map_maker/` 底下的頁面也找得到同一組連結；地圖編輯器
+  指向網格產生器的兩個連結同樣改成相對路徑。
+- 各工具頁的版面是「整個視窗減掉頁首高度」，另加一條合輯列會撐出捲軸，所以
+  「← TRPG Toolkit」與語言選單放進 lab 自己的頁首。窄螢幕上站名改成兩行、按鈕縮小，
+  360px 寬也放得下。`damage_sum.html` 是上游的舊式單頁，沒有共用頁首，自己帶一組。
+- `<style>` 與內嵌 `<script>` 依慣例抽成同名的 `.css`／`.js`；OG／Twitter meta 與
+  `<meta name="description">` 拿掉，`<title>` 只留工具名。
+- 地圖編輯器載入 Pickr 時沒寫版本，其餘頁面都用 1.9.1，收錄版把它也釘在 1.9.1。
+- 函式庫照上游以 CDN 載入，版本與授權見 `THIRD_PARTY_NOTICES.md`。
+- 頁首的 X 連結與首頁的意見表單照舊指向原作者；表單是日文的，繁中說明裡註明了這點。
+
+### 字典與註解
+
+每頁一份字典（`i18n.<頁面>.js`），頁首、頁尾、說明視窗底下的授權連結與數字欄的
+加減按鈕這些共用字串放在 `i18n.trpg-lab.js`。共用頁首是 `common.js` 用 innerHTML
+組出來的，文字先用 `T()` 填好、同時掛上 `data-i18n`，切換語言時交給共用引擎重套，
+不必整個重建（重建會把語言選單換掉）。
+
+上游註解維持日文（`map_editor.js` 一檔就有上千行），理由與 `height-board`、`room-zip`
+相同，規則也相同：`tests/smoke.mjs` 把註解抹掉之後再掃，程式碼與標記裡不准有假名。
+
+介面是繁中時，各頁字型改用 Noto Sans TC（`common.css` 依 `<html lang>` 切換，每頁的
+Google Fonts 連結一併載入）；Noto Sans JP 雖然有漢字，字形是日文的寫法。日文介面維持
+上游的字型。
+
+### 各頁的取捨
+
+- **存檔相容**：角色卡把整個 `<main>` 的 innerHTML 存進 localStorage，預設標籤本身
+  就是存檔內容，而且多半可以直接改寫。收錄版讓標籤帶著 `data-i18n` 一起存，讀檔後
+  依目前語言重套；使用者改寫過的標籤會拿掉掛勾，之後不再被翻譯蓋掉。上游格式的舊存檔
+  沒有掛勾，照存檔時的文字顯示。NPC 工具的存檔鍵與欄位名稱都沒動，舊存檔裡的日文名稱
+  照舊顯示；新建 NPC 的預設名稱跟著當下語言。
+- **給 CCFOLIA 的輸出**：NPC 工具複製出去的 JSON 與聊天面板，結構與指令語法不動，
+  可讀的標籤（體格、移動力、理智檢定、技能名稱）跟著複製當下的語言；參數名稱與聊天
+  面板裡 `{體格}` 這類參照用的是同一個 key，不會對不上。HP、MP、SAN、DB、MOV 與
+  STR～EDU 維持原樣。BCDice 傷害計算解析的是 BCDice 的實際輸出（全形 `＞`），照舊。
+- **擲骰紀錄**：已經寫進紀錄的結果保留當時的語言，新的紀錄用新語言。
+- **量尺與網格**：Pickr 取色器的「確定」、距離標籤與編輯視窗的座標列都在切換語言時
+  就地重寫，不重建取色器，已選的顏色不會跑掉。日文的「列」是直的、「行」是橫的，
+  台灣正好相反，所以「列数（横）／行数（縦）」譯成「欄數（橫）／列數（縱）」。
+- **照內容修正的上游小錯**（只改繁中，日文照上游）：六角格頁的說明提到的勾選項名稱
+  與畫面上的不一致、座標格式寫「4 種」但列了 5 種、「ここフォリア」的錯字；角色卡右下
+  那欄標題與左欄重複寫成「装備と所持品」，繁中依內容譯成「現金與資產」。
+- **地圖編輯器**：
+  - 內建貼圖拿掉之後，地面與牆壁的貼圖分類只剩「全部」與「自訂」，沒有貼圖的分類不顯示，
+    還沒上傳過貼圖時會出現一行提示。舊地圖裡用到內建貼圖的地方，讀檔前先由
+    `replaceRemovedPatterns()` 換成上游本來就為每款貼圖準備的備用色
+    （`REMOVED_PATTERN_COLORS`，只有 id 與色碼），不去抓不存在的圖檔。
+  - 裝飾圖章的「格局圖」分類整個拿掉，空分類一律不顯示；存檔裡選著已移除圖章的，讀進來時清空。
+  - 說明裡講到地面貼圖（「草・水・石畳など」）與格局圖家具的句子，兩種語言都改成描述
+    收錄版實際有的東西。
+  - 文字工具的字型選單最上面加了「繁體中文」一組五套字型，預設字型維持上游的 Noto Sans JP。
+    `<optgroup>` 的 label 共用引擎管不到，改掛 `data-label-key` 由程式在切換語言時套。
+  - 新增圖層的預設名稱跟著當下語言；已經存在的圖層名稱是使用者的資料，不改。
+  - 上游程式把匯出面板裡通往網格／量尺產生器的連結改寫成站台根目錄（`/hex_maker.html`），
+    在這個 repo 裡會失效，改成 `../`。
+- **兩處上游的小毛病順手修了**：NPC 工具在 1.6 秒內連按兩次「複製」會讓按鈕卡在
+  「コピー完了 ✓」（補了 `clearTimeout`）；五個頁面的說明視窗把圖示字型寫成
+  `'Material Symbols'`，對不上實際載入的 `Material Symbols Outlined`，圖示會顯示成
+  英文單字。
+
 ## 需要建置的兩個工具
 
 `cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，
@@ -347,7 +462,8 @@ gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
 因此沒有隨附 OFL 全文——與 `cutin` 的其他六套日文字型同樣的處理方式。
-收錄的工具：`cutin`、`status-bar`、`typewriter`、`collage-letter`、`pair-maker`。
+收錄的工具：`cutin`、`status-bar`、`typewriter`、`collage-letter`、`pair-maker`，
+以及 `trpg-lab` 地圖編輯器的文字字型清單。
 
 `foreground-frame`、`loading-maker`、`text-path` 沒有網頁字型的載入機制（前兩者
 的字型清單指的是觀看者電腦上已安裝的字型，後者是寫死的單一字型），因此改為：
@@ -385,7 +501,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘二十一個工具的翻譯與 i18n 改造為本 repo 新增。
+其餘二十二個工具的翻譯與 i18n 改造為本 repo 新增。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：

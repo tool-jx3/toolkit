@@ -1,0 +1,602 @@
+/* ----------------------------------------------------------------
+    ページ固有 CSS 変数
+---------------------------------------------------------------- */
+:root {
+    --input-bg: rgba(255, 255, 255, 0.06);
+    --btn-hover-bg: rgba(0, 229, 255, 0.08);
+    --page-width: 1200px;
+}
+[data-theme='light'] {
+    --input-bg: rgba(0, 0, 0, 0.06);
+    --btn-hover-bg: rgba(33, 150, 243, 0.08);
+}
+
+/* ----------------------------------------------------------------
+    レイアウト：ビューポートいっぱいに3段構成
+---------------------------------------------------------------- */
+html,
+body {
+    height: 100dvh;
+    overflow: hidden;
+}
+
+#main {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1.5vw, 10px);
+    height: calc(100dvh - var(--header-h, 56px));
+    padding: clamp(6px, 1.5vw, 12px) clamp(0.5rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem);
+    max-width: 860px;
+    width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+/* ----------------------------------------------------------------
+    セクション共通：カードスタイル
+---------------------------------------------------------------- */
+.dice-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: clamp(10px, 2vw, 16px);
+    backdrop-filter: blur(6px);
+    transition: border-color var(--t);
+}
+
+/* ================================================================
+    アニメーション定義
+================================================================ */
+
+/* ダイスシンボルのポップイン */
+@keyframes dice-pop-in {
+    from {
+        opacity: 0;
+        transform: scale(0.45);
+    }
+    to {
+        transform: scale(1);
+    }
+}
+
+/* 結果数字・成功レベルのバウンス */
+@keyframes result-bounce {
+    0% {
+        opacity: 0;
+        transform: scale(0.55) translateY(8px);
+    }
+    55% {
+        transform: scale(1.07) translateY(-2px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+.result-pop {
+    animation: result-bounce 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ログ行の登場 */
+@keyframes log-line-in {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ----------------------------------------------------------------
+    上部セクション：技能ロール入力
+---------------------------------------------------------------- */
+.section-top {
+    flex-shrink: 0;
+}
+
+.section-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.16em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 0.6em;
+}
+
+.top-inputs {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 2vw, 12px);
+    flex-wrap: wrap;
+    font-size: clamp(16px, 6.1vw, 38px);
+}
+
+/* BD/PD・技能値 入力グループ共通 */
+.dice-input-group,
+.skill-input-group {
+    display: flex;
+    align-items: stretch;
+}
+
+/* ±ボタン */
+.dice-btn {
+    width: 1.5em;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition:
+        background var(--t),
+        color var(--t),
+        border-color var(--t);
+}
+.dice-btn .material-symbols-outlined {
+    font-size: 1em;
+}
+.dice-btn:hover {
+    background: var(--btn-hover-bg);
+    color: var(--text-bright);
+    border-color: var(--border-bright);
+}
+#bd-minus-btn {
+    border-radius: var(--r) 0 0 var(--r);
+}
+#bd-plus-btn {
+    border-radius: 0 var(--r) var(--r) 0;
+}
+#skill-minus-btn {
+    border-radius: var(--r) 0 0 var(--r);
+}
+#skill-plus-btn {
+    border-radius: 0 var(--r) var(--r) 0;
+}
+
+/* BD/PD 表示フィールド */
+.bd-input {
+    height: 1.9em;
+    width: 2.2em;
+    border: 1px solid var(--border);
+    border-left: none;
+    border-right: none;
+    background: var(--input-bg);
+    color: var(--text-bright);
+    font-family: var(--font-mono);
+    font-size: 1.1em;
+    text-align: center;
+}
+
+/* 技能値 入力フィールド */
+.skill-input {
+    height: 1.9em;
+    width: 3em;
+    border: 1px solid var(--border);
+    border-left: none;
+    border-right: none;
+    background: var(--input-bg);
+    color: var(--text-bright);
+    font-family: var(--font-mono);
+    font-size: 1.1em;
+    text-align: center;
+}
+.skill-input::placeholder {
+    color: var(--text-dim);
+    font-size: 0.7em;
+}
+.skill-input::-webkit-outer-spin-button,
+.skill-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.skill-input {
+    -moz-appearance: textfield;
+}
+
+/* ロールボタン */
+.roll-button {
+    height: 2em;
+    width: 2em;
+    border: none;
+    border-radius: var(--r);
+    background: var(--blue);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1em;
+    transition:
+        background var(--t),
+        box-shadow var(--t),
+        transform var(--t);
+    flex-shrink: 0;
+}
+.roll-button:hover {
+    background: var(--blue-light);
+    box-shadow: var(--glow-blue);
+}
+.roll-button:active {
+    transform: scale(0.96);
+}
+
+/* ----------------------------------------------------------------
+    中央セクション：ロール結果表示
+---------------------------------------------------------------- */
+.section-middle {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    background: none;
+    backdrop-filter: none;
+    border: none;
+}
+
+/* ログボタン（右下）
+   ログカード表示中は JS で display:none に切り替える */
+.log-button {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    z-index: 4;
+    padding: 4px;
+    background: none;
+    border: none;
+    border-radius: 50%;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        color var(--t),
+        background var(--t),
+        transform var(--t);
+}
+.log-button .material-symbols-outlined {
+    font-size: clamp(16px, 7vw, 38px);
+}
+.log-button:hover {
+    color: var(--blue-light);
+    background: var(--btn-hover-bg);
+    transform: scale(1.1);
+}
+
+/* 結果コンテナ */
+.result-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow-y: auto;
+    gap: clamp(0.5rem, 2vw, 1rem);
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+/* ダイス目表示エリア */
+.dice-display {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: clamp(6px, 1.5vw, 12px);
+}
+
+/* 個々のダイスシンボル */
+.dice-symbol {
+    font-family: var(--font-mono);
+    font-size: clamp(16px, 9vw, 54px);
+    font-weight: 700;
+    width: 1.8em;
+    height: 1.8em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--r) * 0.7);
+    background: var(--bg-card);
+    color: var(--text-bright);
+    transition:
+        border-color var(--t),
+        opacity 0.35s ease,
+        color 0.35s ease,
+        box-shadow 0.35s ease;
+}
+
+/* BD/PD ロール：参照されなかった十の位ダイス */
+.dice-symbol.dimmed {
+    opacity: 0.7;
+    color: var(--text-dim);
+    border-color: var(--border);
+}
+
+/* ロール結果（数字大） */
+.result-text {
+    font-family: var(--font-mono);
+    font-size: clamp(20px, 14vw, 90px);
+    font-weight: 700;
+    color: var(--text-bright);
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+
+/* 成功レベル */
+.success-level {
+    font-family: var(--font-mono);
+    font-size: clamp(14px, 8vw, 50px);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    transition: color var(--t);
+}
+.success-level.critical {
+    color: #ff9f0a;
+}
+.success-level.extreme {
+    color: var(--cyan);
+}
+.success-level.hard {
+    color: var(--blue-light);
+}
+.success-level.regular {
+    color: #4caf50;
+}
+.success-level.failure {
+    color: var(--text-dim);
+}
+.success-level.fumble {
+    color: #ff453a;
+}
+
+/* ----------------------------------------------------------------
+    ログカード（中央セクション内に絶対配置）
+---------------------------------------------------------------- */
+.log-card {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: clamp(8px, 2vw, 14px);
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    backdrop-filter: blur(10px);
+    /* 閉じた状態 */
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+    pointer-events: none;
+    transition:
+        opacity 0.22s ease,
+        transform 0.22s ease,
+        visibility 0s linear 0.22s;
+}
+/* 開いた状態 */
+.log-card.log-open {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    transition:
+        opacity 0.22s ease,
+        transform 0.22s ease;
+}
+
+#log-list {
+    flex: 1;
+    overflow-y: auto;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+}
+
+.log-line {
+    display: flex;
+    align-items: start;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: clamp(9px, 3.5vw, 16px);
+    padding: 0.3em 0;
+    color: var(--text);
+    animation: log-line-in 0.22s ease both;
+}
+.log-line:last-child {
+    border-bottom: none;
+}
+
+.timestamp {
+    flex-shrink: 0;
+    color: var(--text-dim);
+    margin-top: 0.3em;
+}
+
+.log-text {
+    flex: 1;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.log-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.log-footer-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        color var(--t),
+        background var(--t),
+        transform var(--t);
+}
+.log-footer-btn .material-symbols-outlined {
+    font-size: clamp(16px, 7vw, 36px);
+}
+.log-footer-btn:hover {
+    color: var(--text-bright);
+    background: var(--btn-hover-bg);
+    transform: scale(1.1);
+}
+
+/* ----------------------------------------------------------------
+    下部セクション：カスタムロール入力
+---------------------------------------------------------------- */
+.section-bottom {
+    flex-shrink: 0;
+}
+
+/* 入力行 */
+.custom-roll {
+    display: flex;
+    gap: clamp(6px, 1.5vw, 10px);
+    align-items: stretch;
+    font-size: clamp(10px, 5vw, 30px);
+    margin-bottom: 0.6em;
+}
+
+.custom-roll-input {
+    position: relative;
+    flex: 1;
+}
+.custom-roll-input input {
+    width: 100%;
+    height: 1.9em;
+    padding: 0 1.8em 0 0.6em;
+    border-radius: var(--r);
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text-bright);
+    font-family: var(--font-mono);
+    font-size: 1em;
+    box-sizing: border-box;
+    transition: border-color var(--t);
+}
+.custom-roll-input input:focus {
+    outline: none;
+    border-color: var(--border-bright);
+}
+.custom-roll-input input::placeholder {
+    color: var(--text-dim);
+    font-size: 0.7em;
+}
+
+.custom-clear-btn {
+    position: absolute;
+    top: 50%;
+    right: 0.3em;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 0.1em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition:
+        color var(--t),
+        background var(--t);
+}
+.custom-clear-btn .material-symbols-outlined {
+    font-size: 1em;
+}
+.custom-clear-btn:hover {
+    color: var(--text-bright);
+    background: var(--btn-hover-bg);
+}
+
+.custom-roll-button {
+    height: 1.9em;
+    width: 1.9em;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: var(--r);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition:
+        background var(--t),
+        box-shadow var(--t),
+        transform var(--t);
+}
+.custom-roll-button:hover {
+    background: var(--blue-light);
+    box-shadow: var(--glow-blue);
+    transform: scale(1.05);
+}
+.custom-roll-button:active {
+    transform: scale(0.96);
+}
+
+/* ダイス追加ボタン群 */
+.dice-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(4px, 1vw, 8px);
+    font-size: clamp(10px, 4.5vw, 26px);
+}
+
+.add-dice-btn {
+    padding: 0.3em clamp(6px, 2vw, 14px);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 1.5em;
+    cursor: pointer;
+    transition:
+        background var(--t),
+        color var(--t),
+        border-color var(--t);
+    white-space: nowrap;
+}
+.add-dice-btn:hover {
+    background: var(--btn-hover-bg);
+    color: var(--text-bright);
+    border-color: var(--border-bright);
+}
+
+@media (max-width: 786px) {
+    .add-dice-btn {
+        flex: 1 1 calc((100% - 8px * 2) / 3);
+    }
+}
+@media (min-width: 787px) {
+    .add-dice-btn:nth-child(-n + 5) {
+        flex: 1 1 calc((100% - 8px * 4) / 5);
+    }
+    .add-dice-btn:nth-child(n + 6) {
+        flex: 1 1 calc((100% - 8px * 3) / 4);
+    }
+}
+
+
+/* 使用說明開頭的工具名稱。上游寫成 inline style，收錄版為了讓整段文字進字典
+ * （data-i18n-html），把顏色移到這裡。 */
+.guide-app-name {
+    color: var(--blue);
+}

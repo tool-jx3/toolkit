@@ -1,0 +1,582 @@
+:root {
+    --page-width: var(--container);
+}
+#main {
+    max-width: var(--container);
+    margin: auto;
+}
+/* ----------------------------------------------------------------
+    ヒーローセクション
+    キャッチコピーとサブテキストを画面中央に配置する
+    ---------------------------------------------------------------- */
+.hero {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: clamp(1rem, 3vw, 2rem) 1rem;
+}
+
+[data-theme='light'] #hero-canvas {
+    opacity: 0.07;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 5;
+    text-align: center;
+}
+
+/* キャッチコピー全体 */
+.hero-catchcopy {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0 0.35em;
+    font-size: clamp(1.55rem, 5vw, 2.8rem);
+    font-weight: 700;
+    color: var(--text-bright);
+    line-height: 1.25;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    animation: fadeInUp 0.7s ease 0.3s forwards;
+}
+
+/* "TRPG" 部分：Orbitron フォント＋ブルー */
+.hero-catchcopy .catch-trpg {
+    font-family: var(--font-display);
+    color: var(--blue);
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    position: relative;
+    display: inline-block;
+}
+
+/* グリッチアニメーション用の疑似要素 */
+.hero-catchcopy .catch-trpg::before,
+.hero-catchcopy .catch-trpg::after {
+    content: attr(data-text);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    font-family: var(--font-display);
+    font-weight: 900;
+}
+/* シアン色の上ズレ */
+.hero-catchcopy .catch-trpg::before {
+    color: var(--cyan);
+    animation: glitch-top 4s steps(1) infinite;
+}
+/* 赤色の下ズレ */
+.hero-catchcopy .catch-trpg::after {
+    color: #ff2d55;
+    animation: glitch-bot 4s steps(1) 0.3s infinite;
+}
+
+@keyframes glitch-top {
+    0%,
+    92%,
+    100% {
+        opacity: 0;
+        transform: none;
+    }
+    93% {
+        opacity: 0.8;
+        clip-path: inset(10% 0 70% 0);
+        transform: translateX(-3px);
+    }
+    94% {
+        clip-path: inset(50% 0 20% 0);
+        transform: translateX(3px);
+    }
+    95% {
+        clip-path: inset(30% 0 45% 0);
+        transform: translateX(-2px);
+    }
+    96% {
+        opacity: 0;
+    }
+}
+@keyframes glitch-bot {
+    0%,
+    90%,
+    100% {
+        opacity: 0;
+        transform: none;
+    }
+    91% {
+        opacity: 0.7;
+        clip-path: inset(60% 0 10% 0);
+        transform: translateX(3px);
+    }
+    92% {
+        clip-path: inset(20% 0 60% 0);
+        transform: translateX(-3px);
+    }
+    93% {
+        opacity: 0;
+    }
+}
+
+/* サブテキスト（英文キャッチ + 点滅カーソル） */
+.hero-sub {
+    margin-top: 0.9rem;
+    font-family: var(--font-mono);
+    font-size: clamp(0.6rem, 1.4vw, 0.72rem);
+    color: var(--text-dim);
+    letter-spacing: 0.14em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    opacity: 0;
+    animation: fadeIn 0.6s ease 1s forwards;
+}
+
+/* 点滅カーソル */
+.cursor-blink {
+    display: inline-block;
+    width: 7px;
+    height: 1em;
+    background: var(--cyan);
+    animation: blink-cursor 0.9s step-end infinite;
+    vertical-align: -1px;
+    margin-left: 2px;
+}
+
+/* ----------------------------------------------------------------
+    インフォバー（2カラム：更新情報 | フィードバック）
+    ---------------------------------------------------------------- */
+.info-bar {
+    position: relative;
+    z-index: 10;
+    margin-top: clamp(1rem, 3vw, 2.5rem);
+}
+
+.info-bar-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(0.75rem, 2vw, 1.25rem);
+}
+
+/* スマートフォンでは縦積み */
+@media (max-width: 640px) {
+    .info-bar-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* カード共通スタイル */
+.info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 1rem 1.2rem 1.1rem;
+    backdrop-filter: blur(8px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    min-width: 0;
+    justify-content: space-between;
+}
+
+.info-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.info-card-icon {
+    font-size: 1rem !important;
+    color: var(--cyan);
+}
+
+.info-card-title {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+
+/* 更新情報カード内の最新アイテム */
+.news-latest .news-item {
+    padding: 0;
+    border-bottom: none;
+}
+
+.news-more-link {
+    margin-top: 0.1rem;
+}
+
+/* ----------------------------------------------------------------
+    更新情報アイテム
+    ---------------------------------------------------------------- */
+.news-item {
+    border-bottom: 1px solid var(--border);
+    padding: 0.8rem 0;
+}
+.news-item-upper {
+    display: flex;
+    align-items: start;
+    gap: 0.6rem;
+    padding-bottom: 0.4rem;
+}
+.news-item:last-child {
+    border-bottom: none;
+}
+
+@media (max-width: 480px) {
+    .news-item {
+        grid-template-columns: 1fr;
+        gap: 0.2rem;
+    }
+}
+
+.news-date {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    padding-top: 0.1rem;
+}
+
+.news-tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 2px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 0.05em;
+    align-self: start;
+    white-space: nowrap;
+}
+
+/* タグ別カラー */
+.tag-NEW {
+    background: rgba(0, 230, 118, 0.18);
+    color: #00e676;
+    border: 1px solid rgba(0, 230, 118, 0.4);
+}
+.tag-FIX {
+    background: rgba(255, 179, 0, 0.18);
+    color: #ffb300;
+    border: 1px solid rgba(255, 179, 0, 0.4);
+}
+.tag-UPDATE {
+    background: rgba(33, 150, 243, 0.18);
+    color: #64b5f6;
+    border: 1px solid rgba(33, 150, 243, 0.4);
+}
+.tag-INFO {
+    background: rgba(0, 229, 255, 0.12);
+    color: var(--cyan);
+    border: 1px solid rgba(0, 229, 255, 0.3);
+}
+
+/* 更新テキスト
+    最新1件表示カードでは1行に収め、はみ出したら「...」で省略する */
+.news-text {
+    font-size: 0.875rem;
+    color: var(--text);
+    line-height: 1.5;
+}
+
+/* インフォバーの最新1件のみ省略表示*/
+.news-latest {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.news-latest .news-item {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.news-latest .news-text {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+/* フィードバックカード */
+.feedback-desc {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    line-height: 1.65;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.btn-feedback {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    transition:
+        color var(--t),
+        border-color var(--t),
+        box-shadow var(--t),
+        background var(--t);
+    align-self: flex-start;
+}
+.btn-feedback:hover {
+    color: var(--cyan);
+    border-color: var(--border-bright);
+    background: var(--cyan-muted);
+    box-shadow: var(--glow-card);
+}
+.btn-feedback .material-symbols-outlined {
+    font-size: 1rem;
+}
+
+/* ----------------------------------------------------------------
+    ツールセクション
+    ---------------------------------------------------------------- */
+.tools-section {
+    position: relative;
+    z-index: 10;
+    margin-top: clamp(1.5rem, 4vw, 4rem);
+}
+
+/* セクション見出し行 */
+.section-head {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: clamp(1.25rem, 3vw, 2rem);
+}
+
+.section-head-title {
+    font-family: var(--font-mono);
+    font-size: clamp(1rem, 2.5vw, 1.2rem);
+    color: var(--text-bright);
+    letter-spacing: 0.12em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+.section-head-title .material-symbols-outlined {
+    font-size: 1.2em;
+    color: var(--cyan);
+}
+
+/* 見出し右の区切り線 */
+.section-head-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border-bright), transparent);
+    opacity: 0.5;
+}
+
+.section-head-count {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------
+    ツールグリッド
+    340px を最小幅として auto-fill で並べる
+    ---------------------------------------------------------------- */
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+    gap: clamp(0.875rem, 2vw, 1.25rem);
+}
+
+/* ----------------------------------------------------------------
+    ツールカード
+    ホバー時に浮き上がりとグロー効果を付ける
+    ---------------------------------------------------------------- */
+.tool-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 1.25rem;
+    cursor: pointer;
+    transition:
+        border-color var(--t),
+        box-shadow var(--t),
+        transform var(--t),
+        background var(--t);
+    backdrop-filter: blur(6px);
+    overflow: hidden;
+    animation: fadeInUp 0.5s ease both;
+    text-decoration: none;
+    color: inherit;
+}
+
+/* ホバー時のシアングラデーション */
+.tool-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.04), transparent 60%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--t);
+}
+.tool-card:hover {
+    border-color: var(--border-bright);
+    box-shadow: var(--glow-card);
+    transform: translateY(-4px);
+}
+.tool-card:hover::before {
+    opacity: 1;
+}
+.tool-card:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+}
+
+/* カード上部（アイコン + タイトル） */
+.card-top {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.9rem;
+}
+
+/* アイコンボックス */
+.card-icon-wrap {
+    width: 2.6rem;
+    height: 2.6rem;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    background: rgba(33, 150, 243, 0.08);
+    transition:
+        border-color var(--t),
+        box-shadow var(--t),
+        background var(--t);
+}
+.card-icon-wrap .material-symbols-outlined {
+    font-size: 1.3rem;
+    color: var(--cyan);
+    transition: color var(--t);
+}
+.tool-card:hover .card-icon-wrap {
+    border-color: var(--border-bright);
+    background: rgba(0, 229, 255, 0.12);
+    box-shadow: var(--glow-blue);
+}
+
+/* カードテキスト */
+.card-body {
+    flex: 1;
+}
+
+/* 英語サブタイトル */
+.card-title-en {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 0.2rem;
+    transition: color var(--t);
+}
+.tool-card:hover .card-title-en {
+    color: var(--border-bright);
+}
+
+/* 日本語メインタイトル */
+.card-title-ja {
+    font-size: clamp(0.95rem, 2vw, 1.05rem);
+    font-weight: 700;
+    color: var(--text-bright);
+    line-height: 1.3;
+}
+
+/* 説明文 */
+.card-desc {
+    font-size: clamp(0.78rem, 1.5vw, 0.84rem);
+    color: var(--text-dim);
+    line-height: 1.65;
+}
+
+/* ホバー時に右端から現れる「OPEN →」矢印 */
+.card-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+    color: var(--border-bright);
+    opacity: 0;
+    transform: translateX(-8px);
+    transition:
+        opacity var(--t),
+        transform var(--t),
+        color var(--t);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    gap: 0.35rem;
+}
+.card-arrow .material-symbols-outlined {
+    font-size: 1.1rem;
+}
+.tool-card:hover .card-arrow {
+    opacity: 1;
+    transform: translateX(0);
+    color: var(--border-bright);
+}
+
+/* カード表示のスタッガーアニメーション */
+.tool-card:nth-child(1) {
+    animation-delay: 0.05s;
+}
+.tool-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+.tool-card:nth-child(3) {
+    animation-delay: 0.15s;
+}
+.tool-card:nth-child(4) {
+    animation-delay: 0.2s;
+}
+.tool-card:nth-child(5) {
+    animation-delay: 0.25s;
+}
+.tool-card:nth-child(6) {
+    animation-delay: 0.3s;
+}
+.tool-card:nth-child(7) {
+    animation-delay: 0.35s;
+}
+.tool-card:nth-child(8) {
+    animation-delay: 0.4s;
+}
+
+/* ----------------------------------------------------------------
+    更新情報モーダル内のリスト
+    ---------------------------------------------------------------- */
+#all-news-list .news-item {
+    border-bottom: 1px solid var(--border);
+}
+#all-news-list .news-item:last-child {
+    border-bottom: none;
+}
+

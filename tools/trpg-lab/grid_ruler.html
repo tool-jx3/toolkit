@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh-Hant-TW" data-theme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>網格量尺產生器</title>
+        <script src="../../assets/i18n.js"></script>
+        <script src="i18n.trpg-lab.js"></script>
+        <script src="i18n.grid_ruler.js"></script>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.9.1/dist/themes/nano.min.css" />
+        <link rel="stylesheet" href="common.css" />
+
+        <link rel="stylesheet" href="grid_ruler.css" />
+    </head>
+    <body>
+        <header id="site-header"></header>
+
+        <div id="main">
+            <!-- ── 設定パネル ── -->
+            <div id="settings-panel">
+                <div class="panel-col panel-col-left">
+                    <!-- 基本設定 -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined">tune</span><span data-i18n="sec.basic">基本設定</span></div>
+                        <div class="f">
+                            <span class="fl" data-i18n="field.cellSize">格子大小</span>
+                            <div class="row">
+                                <input type="number" id="cellSize" min="10" max="200" value="48" class="custom-spinner" />
+                                <span class="unit">px</span>
+                            </div>
+                        </div>
+                        <div class="f">
+                            <span class="fl" data-i18n="field.range">範圍</span>
+                            <div class="row">
+                                <input type="number" id="range" min="1" max="20" value="5" class="custom-spinner" />
+                                <span class="unit" data-i18n="unit.cells">格</span>
+                            </div>
+                        </div>
+                        <div class="f">
+                            <span class="fl" data-i18n="field.distance">距離計算</span>
+                            <select id="distanceMethod">
+                                <option value="manhattan" data-i18n="dist.manhattan">曼哈頓</option>
+                                <option value="chebyshev" data-i18n="dist.chebyshev">切比雪夫</option>
+                                <option value="ceil" data-i18n="dist.ceil">無條件進位</option>
+                                <option value="round" data-i18n="dist.round">四捨五入</option>
+                                <option value="floor" data-i18n="dist.floor">無條件捨去</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- セルの色 -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined fill">palette</span><span data-i18n="sec.cellColor">格子顏色</span></div>
+
+                        <div class="f" style="margin-top: 0.3rem">
+                            <span class="fl" data-i18n="field.scheme">配色</span>
+                            <select id="colorScheme">
+                                <option value="rainbow" data-i18n="scheme.rainbow">彩虹</option>
+                                <option value="heat" data-i18n="scheme.heat">暖色（紅→黃）</option>
+                                <option value="cold" data-i18n="scheme.cold">冷色（藍→深藍）</option>
+                                <option value="mono" data-i18n="scheme.mono">灰階</option>
+                                <option value="none" data-i18n="scheme.none">無色</option>
+                                <option value="custom" data-i18n="scheme.custom">自訂</option>
+                            </select>
+                        </div>
+                        <div id="colorPickerWrap"></div>
+                        <div class="f f-col">
+                            <div class="f-sb">
+                                <span class="fl" data-i18n="field.opacity">不透明度</span>
+                                <div class="row">
+                                    <input type="number" id="cellOpacityNum" min="0" max="100" value="100" class="custom-spinner" />
+                                    <span class="unit">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="cellOpacity" min="0" max="100" step="1" value="100" />
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-col panel-col-right">
+                    <!-- カスタムセル -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined">edit</span><span data-i18n="sec.customCell">自訂格子</span></div>
+                        <div class="custom-cell-info" data-i18n-html="customCell.info">點擊預覽中的格子，<br />即可個別設定文字與顏色。</div>
+                        <div class="f" style="margin-top: 0.5rem">
+                            <span class="fl"><span data-i18n="customCell.count">自訂格數</span> <span class="custom-cell-count" id="customCount">0</span></span>
+                            <button class="btn-sub" id="clearCustomBtn" data-i18n="customCell.clearAll">全部清除</button>
+                        </div>
+                    </div>
+
+                    <!-- テキスト -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined">text_fields</span><span data-i18n="field.text">文字</span></div>
+                        <div class="f">
+                            <span class="fl" data-i18n="field.textColor">文字顏色</span>
+                            <div id="textColorPicker"></div>
+                        </div>
+                        <div class="f" style="margin-top: 0.3rem">
+                            <span class="fl" data-i18n="field.fontSize">文字大小</span>
+                            <div class="row">
+                                <input type="number" id="fontSize" min="6" max="200" value="24" class="custom-spinner" />
+                                <span class="unit">px</span>
+                            </div>
+                        </div>
+
+                        <div class="f f-col">
+                            <div class="f-sb">
+                                <span class="fl" data-i18n="field.opacity">不透明度</span>
+                                <div class="row">
+                                    <input type="number" id="textOpacityNum" min="0" max="100" value="100" class="custom-spinner" />
+                                    <span class="unit">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="textOpacity" min="0" max="100" step="1" value="100" />
+                        </div>
+                        <div class="f">
+                            <label class="tog">
+                                <input type="checkbox" id="strokeEnabled" checked />
+                                <span class="tl" data-i18n="field.stroke">描邊</span>
+                            </label>
+                            <div id="strokeColorRow" class="row" style="opacity: 1; transition: opacity 0.25s">
+                                <span class="fl" data-i18n="field.color">顏色</span>
+                                <div id="strokeColorPicker"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ダウンロード -->
+                    <div class="s-sec panel-dl">
+                        <button class="btn-dl" id="downloadBtn"><span class="material-symbols-outlined">download</span><span data-i18n="download.png">下載 PNG</span></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── プレビュー ── -->
+            <div id="preview-area">
+                <div class="cv-wrap" id="cvWrap">
+                    <canvas id="rulerCanvas"></canvas>
+                    <div class="canvas-hint" data-i18n="canvas.hint">點擊格子即可編輯</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── セル編集ポップアップ ── -->
+        <div id="cell-popup">
+            <div class="cp-header">
+                <span class="cp-title" data-i18n="popup.title">編輯格子</span>
+                <button class="cp-close" id="cpClose">✕</button>
+            </div>
+            <div class="cp-coord" id="cpCoord"></div>
+            <div class="cp-field">
+                <span class="cp-label" data-i18n="field.text">文字</span>
+                <input type="text" id="cp-text" data-i18n-placeholder="popup.textPlaceholder" placeholder="距離數字" maxlength="8" />
+            </div>
+            <hr class="cp-divider" />
+            <div class="cp-field">
+                <span class="cp-label" data-i18n="sec.cellColor">格子顏色</span>
+                <div id="popupCellColorPicker"></div>
+            </div>
+            <div class="cp-field">
+                <span class="cp-label" data-i18n="field.textColor">文字顏色</span>
+                <div id="popupTextColorPicker"></div>
+            </div>
+            <div class="cp-field">
+                <span class="cp-label" data-i18n="field.fontSize">文字大小</span>
+                <div class="row">
+                    <input type="number" id="cp-fontSize" min="6" max="200" value="40" class="custom-spinner" />
+                    <span class="unit">px</span>
+                </div>
+            </div>
+            <div class="cp-btns">
+                <button class="cp-btn-reset" id="cpReset" data-i18n="popup.reset">重設這一格</button>
+            </div>
+        </div>
+
+        <!-- ====== ガイドモーダル ====== -->
+        <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title" id="guide-title" data-i18n="lab.guide">使用說明</span>
+                    <button class="modal-close" data-i18n-aria-label="lab.close" aria-label="關閉"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="modal-body">
+                    <div class="guide-body" id="guide-content">
+                        <h3 data-i18n="guide.basics">基本操作</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">tune</span>
+                            <div>
+                                <dt data-i18n="guide.preview.title">即時預覽</dt>
+                                <dd data-i18n="guide.preview.desc">變更設定面板的數值，右側的預覽會立即更新。</dd>
+                            </div>
+                            <span class="mi">edit</span>
+                            <div>
+                                <dt data-i18n="guide.customCell.title">編輯自訂格子</dt>
+                                <dd data-i18n="guide.customCell.desc">點擊預覽中的格子，就能個別設定該格的文字、顏色、文字顏色與文字大小，變更會立即反映。</dd>
+                            </div>
+                            <span class="mi">download</span>
+                            <div>
+                                <dt data-i18n="download.png">下載 PNG</dt>
+                                <dd data-i18n="guide.download.desc">將目前的預覽直接存成 PNG 圖片，背景為透明。</dd>
+                            </div>
+                        </dl>
+
+                        <h3 data-i18n="sec.basic">基本設定</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">grid_3x3</span>
+                            <div>
+                                <dt data-i18n="field.range">範圍</dt>
+                                <dd data-i18n="guide.range.desc">設定從中心格算起的最大距離（格數）。</dd>
+                            </div>
+                            <span class="mi">straighten</span>
+                            <div>
+                                <dt data-i18n="guide.distance.title">距離計算方式</dt>
+                                <dd data-i18n-html="guide.distance.desc">
+                                    <strong>曼哈頓</strong>（縱橫移動距離的總和）、<strong>切比雪夫</strong>（縱、橫、斜向中的最大值，適用於 8 方向移動）、<strong>無條件進位／四捨五入／無條件捨去</strong>（分別處理直線距離）。
+                                </dd>
+                            </div>
+                        </dl>
+
+                        <h3 data-i18n="sec.cellColor">格子顏色</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">opacity</span>
+                            <div>
+                                <dt data-i18n="guide.opacity.title">不透明度（整體）</dt>
+                                <dd data-i18n="guide.cellOpacity.desc">一次調整所有格子顏色的不透明度。這個值會乘上各距離顏色選擇器所設定的 α 值。</dd>
+                            </div>
+                            <span class="mi">palette</span>
+                            <div>
+                                <dt data-i18n="field.scheme">配色</dt>
+                                <dd data-i18n="guide.scheme.desc">可以選擇彩虹、暖色、冷色、灰階、無色（全透明）或自訂。切換配色時，各距離顏色選擇器的顏色會一併更新。</dd>
+                            </div>
+                            <span class="mi">colorize</span>
+                            <div>
+                                <dt data-i18n="guide.distColor.title">各距離的顏色</dt>
+                                <dd data-i18n="guide.distColor.desc">可以用顏色選擇器個別設定每個距離（0 = 中心～N）的顏色，也能用 Alpha 通道為各距離設定透明度。</dd>
+                            </div>
+                        </dl>
+
+                        <h3 data-i18n="field.text">文字</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">opacity</span>
+                            <div>
+                                <dt data-i18n="guide.opacity.title">不透明度（整體）</dt>
+                                <dd data-i18n="guide.textOpacity.desc">一次調整所有文字的不透明度，會乘上顏色選擇器的 α 值。</dd>
+                            </div>
+                            <span class="mi">format_size</span>
+                            <div>
+                                <dt data-i18n="field.fontSize">文字大小</dt>
+                                <dd data-i18n="guide.fontSize.desc">預設的文字大小（px），可以在自訂格子中個別覆寫。</dd>
+                            </div>
+                            <span class="mi">text_fields</span>
+                            <div>
+                                <dt data-i18n="field.stroke">描邊</dt>
+                                <dd data-i18n="guide.stroke.desc">為文字加上描邊，即使背景透明也能讓文字清楚易讀。</dd>
+                            </div>
+                        </dl>
+
+                        <h3 data-i18n="guide.fileName">下載檔名</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">info</span>
+                            <div>
+                                <dt data-i18n="guide.fileName.title">檔名格式</dt>
+                                <dd data-i18n-html="guide.fileName.desc"><code>grid_ruler_{每邊格數}x{每邊格數}.png</code>（例如 <code>grid_ruler_11x11.png</code>）</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="site-footer"><div class="container"></div></footer>
+        <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.9.1/dist/pickr.min.js"></script>
+        <script src="common.js"></script>
+        <script src="grid_ruler.js"></script>
+    </body>
+</html>

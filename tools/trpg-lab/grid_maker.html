@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="zh-Hant-TW" data-theme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>網格產生器</title>
+        <script src="../../assets/i18n.js"></script>
+        <script src="i18n.trpg-lab.js"></script>
+        <script src="i18n.grid_maker.js"></script>
+
+
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.9.1/dist/themes/nano.min.css" />
+        <link rel="stylesheet" href="common.css" />
+
+        <link rel="stylesheet" href="grid_maker.css" />
+    </head>
+    <body>
+        <header id="site-header"></header>
+
+        <main id="main">
+            <!-- ====== 設定パネル ====== -->
+            <div id="settings-panel">
+                <!-- 左列: 基本設定 + 線スタイル -->
+                <div class="panel-col panel-col-left">
+                    <!-- 基本設定 -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined fill">settings</span><span data-i18n="sec.basic">基本設定</span></div>
+                        <div class="f">
+                            <span class="fl" data-i18n="field.cols">欄數（橫）</span>
+                            <input type="number" id="cols" value="15" min="1" max="1000" class="custom-spinner" />
+                        </div>
+                        <div class="f">
+                            <span class="fl" data-i18n="field.rows">列數（縱）</span>
+                            <input type="number" id="rows" value="15" min="1" max="1000" class="custom-spinner" />
+                        </div>
+                        <div class="f">
+                            <span class="fl" data-i18n="field.cellSize">格子大小</span>
+                            <div class="row">
+                                <input type="number" id="cellSize" value="48" min="10" max="500" class="custom-spinner" />
+                                <span class="unit">px</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 線スタイル -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined fill">brush</span><span data-i18n="sec.line">線條樣式</span></div>
+                        <div class="f">
+                            <span class="fl" data-i18n="field.colorOpacity">顏色／不透明度</span>
+                            <div id="lineColorPicker"></div>
+                        </div>
+                        <div class="f">
+                            <span class="fl" data-i18n="field.lineWidth">線寬</span>
+                            <div class="row">
+                                <input type="number" id="lineWidth" value="2" min="1" max="20" class="custom-spinner" />
+                                <span class="unit">px</span>
+                            </div>
+                        </div>
+                        <div class="f">
+                            <span class="fl" data-i18n="field.lineStyle">線型</span>
+                            <div class="seg">
+                                <input type="radio" name="ls" id="ls-s" value="solid" checked /><label for="ls-s" data-i18n="lineStyle.solid">實線</label>
+                                <input type="radio" name="ls" id="ls-d" value="dashed" /><label for="ls-d" data-i18n="lineStyle.dashed">虛線</label>
+                                <input type="radio" name="ls" id="ls-t" value="dotted" /><label for="ls-t" data-i18n="lineStyle.dotted">點線</label>
+                            </div>
+                        </div>
+                        <div class="f">
+                            <label class="tog"><input type="checkbox" id="glowEffect" /><span class="tl" data-i18n="field.glow">發光效果</span></label>
+                        </div>
+                    </div>
+                </div>
+                <!-- /panel-col-left -->
+
+                <!-- 右列: グリッドスタイル + 座標 -->
+                <div class="panel-col panel-col-right">
+                    <!-- グリッドスタイル -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined">grid_on</span><span data-i18n="sec.gridStyle">網格樣式</span></div>
+                        <div class="f f-col">
+                            <div class="f-sb">
+                                <span class="fl" data-i18n="field.scale">縮小比例</span>
+                                <div class="row">
+                                    <input type="number" id="gridScaleNum" value="100" min="10" max="100" class="custom-spinner" />
+                                    <span class="unit">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="gridScale" value="100" min="10" max="100" step="1" />
+                        </div>
+                        <div class="f">
+                            <span class="fl" data-i18n="field.cornerRadius">圓角</span>
+                            <div class="row">
+                                <input type="number" id="cornerRadius" value="0" min="0" max="999" class="custom-spinner" />
+                                <span class="unit">px</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 座標 -->
+                    <div class="s-sec">
+                        <div class="s-ttl"><span class="material-symbols-outlined">tag</span><span data-i18n="sec.coords">座標</span></div>
+                        <div class="f">
+                            <label class="tog"><input type="checkbox" id="showCoords" checked /><span class="tl" data-i18n="coord.show">顯示座標</span></label>
+                        </div>
+                        <div class="f" id="coordColorRow">
+                            <span class="fl" data-i18n="field.colorOpacity">顏色／不透明度</span>
+                            <div id="coordColorPicker"></div>
+                        </div>
+                        <div id="coordOpts">
+                            <div class="f">
+                                <span class="fl" data-i18n="coord.format">座標格式</span>
+                                <select id="coordFmt">
+                                    <option value="hyphen">1-1</option>
+                                    <option value="comma">1,1</option>
+                                    <option value="zero">0101</option>
+                                    <option value="letter">A1</option>
+                                    <option value="serial" data-i18n="coord.format.serial">流水號</option>
+                                </select>
+                            </div>
+                            <div class="f">
+                                <span class="fl" data-i18n="coord.origin">起點</span>
+                                <select id="coordOrigin">
+                                    <option value="tl" data-i18n="coord.origin.tl">左上</option>
+                                    <option value="bl" data-i18n="coord.origin.bl">左下</option>
+                                    <option value="tr" data-i18n="coord.origin.tr">右上</option>
+                                    <option value="br" data-i18n="coord.origin.br">右下</option>
+                                </select>
+                            </div>
+                            <div class="f">
+                                <span class="fl" data-i18n="coord.start">起始編號</span>
+                                <div class="seg">
+                                    <input type="radio" name="cstart" id="cs-0" value="0" checked /><label for="cs-0" data-i18n="coord.start.0">從 0</label>
+                                    <input type="radio" name="cstart" id="cs-1" value="1" /><label for="cs-1" data-i18n="coord.start.1">從 1</label>
+                                </div>
+                            </div>
+                            <div class="f">
+                                <span class="fl" data-i18n="coord.pos">位置</span>
+                                <div class="seg">
+                                    <input type="radio" name="cpos" id="cp-t" value="top" /><label for="cp-t" data-i18n="coord.pos.top">上</label>
+                                    <input type="radio" name="cpos" id="cp-m" value="middle" checked /><label for="cp-m" data-i18n="coord.pos.middle">中</label>
+                                    <input type="radio" name="cpos" id="cp-b" value="bottom" /><label for="cp-b" data-i18n="coord.pos.bottom">下</label>
+                                </div>
+                            </div>
+                            <div class="f" id="coordOffsetRow">
+                                <span class="fl" data-i18n="coord.offset">邊緣偏移</span>
+                                <div class="row">
+                                    <input type="number" id="coordOffset" value="8" min="-999" max="999" class="custom-spinner" />
+                                    <span class="unit">px</span>
+                                </div>
+                            </div>
+                            <div class="f">
+                                <span class="fl" data-i18n="coord.fontSize">文字大小</span>
+                                <div class="row">
+                                    <input type="number" id="coordFontSize" value="12" min="6" max="100" class="custom-spinner" />
+                                    <span class="unit">px</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- /座標 -->
+                </div>
+                <!-- /panel-col-right -->
+
+                <!-- DL -->
+                <div class="s-sec panel-dl">
+                    <button class="btn-dl" onclick="downloadGrid()"><span class="material-symbols-outlined">download</span><span data-i18n="download.png">下載 PNG</span></button>
+                </div>
+            </div>
+
+            <!-- ====== プレビュー ====== -->
+            <div id="preview-area">
+                <div class="cv-wrap">
+                    <canvas id="gridCanvas"></canvas>
+                </div>
+            </div>
+        </main>
+
+        <!-- ====== ガイドモーダル ====== -->
+        <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title" id="guide-title" data-i18n="lab.guide">使用說明</span>
+                    <button class="modal-close" data-i18n-aria-label="lab.close" aria-label="關閉"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="modal-body">
+                    <div class="guide-body" id="guide-content">
+                        <h3 data-i18n="guide.basics">基本操作</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">tune</span>
+                            <div>
+                                <dt data-i18n="guide.preview.title">即時預覽</dt>
+                                <dd data-i18n="guide.preview.desc">變更設定面板的數值，右側的預覽會立即更新。</dd>
+                            </div>
+                            <span class="mi">download</span>
+                            <div>
+                                <dt data-i18n="download.png">下載 PNG</dt>
+                                <dd data-i18n="guide.download.desc">將目前的預覽直接存成 PNG 圖片，背景為透明。</dd>
+                            </div>
+                        </dl>
+
+                        <h3 data-i18n="sec.basic">基本設定</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">grid_3x3</span>
+                            <div>
+                                <dt data-i18n="guide.size.title">欄數、列數</dt>
+                                <dd data-i18n="guide.size.desc">指定網格橫向與縱向的格數。</dd>
+                            </div>
+                            <span class="mi">straighten</span>
+                            <div>
+                                <dt data-i18n="field.cellSize">格子大小</dt>
+                                <dd data-i18n="guide.cellSize.desc">每一格的邊長（px），直接對應下載的 PNG 圖片中的格子大小。</dd>
+                            </div>
+                        </dl>
+
+                        <h3 data-i18n="sec.line">線條樣式</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">palette</span>
+                            <div>
+                                <dt data-i18n="field.colorOpacity">顏色／不透明度</dt>
+                                <dd data-i18n="guide.color.desc">用調色盤設定線條的顏色與透明度。</dd>
+                            </div>
+                            <span class="mi">line_weight</span>
+                            <div>
+                                <dt data-i18n="field.lineWidth">線寬</dt>
+                                <dd data-i18n="guide.lineWidth.desc">線條的寬度（px）。開啟發光效果時，發光範圍也會隨線寬等比例擴大。</dd>
+                            </div>
+                            <span class="mi">more_horiz</span>
+                            <div>
+                                <dt data-i18n="field.lineStyle">線型</dt>
+                                <dd data-i18n="guide.lineStyle.desc">可以選擇實線、虛線或點線。縮小比例低於 100% 或設定了圓角時，會改為逐格繪製模式。</dd>
+                            </div>
+                            <span class="mi">flare</span>
+                            <div>
+                                <dt data-i18n="field.glow">發光效果</dt>
+                                <dd data-i18n="guide.glow.desc">讓線條發光，在深色背景上特別醒目。下載的圖片也會套用。</dd>
+                            </div>
+                        </dl>
+
+                        <h3 data-i18n="sec.gridStyle">網格樣式</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">photo_size_select_small</span>
+                            <div>
+                                <dt data-i18n="field.scale">縮小比例</dt>
+                                <dd data-i18n="guide.scale.desc">維持每一格所占的範圍不變，只縮小實際畫出的格子。低於 100% 時，格子之間會出現間隙。</dd>
+                            </div>
+                            <span class="mi">rounded_corner</span>
+                            <div>
+                                <dt data-i18n="field.cornerRadius">圓角</dt>
+                                <dd data-i18n="guide.cornerRadius.desc">設定格子四角的圓弧程度（px）。0 為直角，數值越大越圓。設定圓角後會自動改為逐格繪製模式。</dd>
+                            </div>
+                        </dl>
+
+                        <h3 data-i18n="guide.coords">座標顯示</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">format_list_numbered</span>
+                            <div>
+                                <dt data-i18n="coord.format">座標格式</dt>
+                                <dd data-i18n-html="guide.format.desc">
+                                    共 5 種：<strong>1-1</strong>（以連字號分隔）、<strong>1,1</strong>（以逗號分隔）、<strong>0101</strong>（補零成 4 位數）、<strong>A1</strong>（欄用英文字母、列用數字）、<strong>流水號</strong>（從起點依序編號）。
+                                </dd>
+                            </div>
+                            <span class="mi">my_location</span>
+                            <div>
+                                <dt data-i18n="coord.origin">起點</dt>
+                                <dd data-i18n="guide.origin.desc">可以從左上、左下、右上、右下中選擇座標的起點。</dd>
+                            </div>
+                            <span class="mi">vertical_align_center</span>
+                            <div>
+                                <dt data-i18n="guide.position.title">位置與偏移</dt>
+                                <dd data-i18n="guide.position.desc">選擇座標文字要放在格子內的上、中或下。選擇上或下時，可以用「邊緣偏移」調整距離：正值會往格子中心靠近，負值則會移到格子外側。</dd>
+                            </div>
+                        </dl>
+
+                        <h3 data-i18n="guide.fileName">關於檔名</h3>
+                        <dl class="guide-dl">
+                            <span class="mi">info</span>
+                            <div>
+                                <dt data-i18n="guide.fileName.title">下載檔名</dt>
+                                <dd data-i18n-html="guide.fileName.desc">檔名格式為 <code>grid_{欄數}x{列數}_{格子大小}px.png</code>（例如 <code>grid_10x10_80px.png</code>）。</dd>
+                            </div>
+                        </dl>
+                        <!-- ↓ common.js の buildGuideLinks() がここにリンクブロックを追加する -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.9.1/dist/pickr.min.js"></script>
+        <script src="common.js"></script>
+        <script src="grid_maker.js"></script>
+    </body>
+</html>

@@ -1,0 +1,672 @@
+:root {
+    --page-width: 1300px;
+    --list-w: 210px;
+    --prev-w: 295px;
+    --input-bg: rgba(255, 255, 255, 0.06);
+    --input-bd: rgba(33, 150, 243, 0.3);
+    --ph-h: 44px;
+    --inp-h: 2.1rem; /* 全input共通高さ */
+}
+[data-theme='light'] {
+    --input-bg: rgba(0, 0, 0, 0.05);
+    --input-bd: rgba(33, 150, 243, 0.4);
+}
+
+html,
+body {
+    height: 100dvh;
+    overflow: hidden;
+}
+
+#main {
+    display: grid;
+    grid-template-columns: var(--list-w) 1fr var(--prev-w);
+    height: calc(100dvh - var(--header-h, 60px));
+    max-width: var(--page-width);
+    margin: 0 auto;
+    gap: 0.5rem;
+    padding: 0.5rem clamp(0.4rem, 2vw, 0.8rem);
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+/* ── Panel ── */
+.panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+}
+.ph {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 0.75rem;
+    height: var(--ph-h);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.ph-title {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    color: var(--cyan);
+}
+.pb {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.65rem 0.75rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-bright) transparent;
+}
+
+/* ── NPC List ── */
+#addNpcBtn {
+    margin-left: auto;
+    font-size: 0.8rem;
+    padding: 0.2rem 0.6rem;
+    background: rgba(0, 229, 255, 0.1);
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    border-radius: calc(var(--r) - 2px);
+    color: var(--cyan);
+    cursor: pointer;
+    transition: background var(--t);
+}
+#addNpcBtn:hover {
+    background: rgba(0, 229, 255, 0.2);
+}
+
+.npc-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: calc(var(--r) - 2px);
+    cursor: pointer;
+    margin-bottom: 0.25rem;
+    border: 1px solid transparent;
+    transition:
+        background var(--t),
+        border-color var(--t);
+}
+.npc-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+.npc-item.active {
+    background: rgba(0, 229, 255, 0.08);
+    border-color: rgba(0, 229, 255, 0.28);
+}
+.npc-name {
+    flex: 1;
+    font-size: 0.88rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ver-badge {
+    font-size: 0.6rem;
+    font-family: var(--font-mono);
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(0, 229, 255, 0.1);
+    color: var(--cyan);
+    flex-shrink: 0;
+}
+.npc-del {
+    opacity: 0;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition:
+        background var(--t),
+        opacity var(--t);
+    flex-shrink: 0;
+}
+.npc-item:hover .npc-del {
+    opacity: 1;
+}
+.npc-del:hover {
+    background: rgba(255, 80, 80, 0.15);
+    color: #f55;
+}
+
+/* ── Form Sections ── */
+.s-sec {
+    background: var(--bg1);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--r) - 1px);
+    padding: 0.65rem 0.8rem;
+    margin-bottom: 0.5rem;
+}
+.s-sec:last-child {
+    margin-bottom: 0;
+}
+.s-ttl {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.s-ttl .material-symbols-outlined {
+    font-size: 0.88rem;
+}
+
+.f-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+.f-row:last-child {
+    margin-bottom: 0;
+}
+.f-label {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    min-width: 4rem;
+}
+
+/* ── 共通 input スタイル ── */
+.inp,
+.ab-dice,
+.ab-val,
+.derived-val {
+    height: var(--inp-h);
+    background: var(--input-bg);
+    border: 1px solid var(--input-bd);
+    border-radius: calc(var(--r) - 3px);
+    padding: 0 0.5rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color var(--t);
+    box-sizing: border-box;
+}
+.inp:focus,
+.ab-dice:focus,
+.ab-val:focus,
+.derived-val:focus {
+    border-color: var(--cyan);
+}
+
+/* .inp 固有 */
+.inp {
+    flex: 1;
+    font-family: var(--font-main);
+    font-size: 0.9rem;
+    min-width: 0;
+}
+.inp-mono {
+    font-family: var(--font-mono);
+    font-size: 0.83rem;
+}
+textarea.inp {
+    height: auto;
+    min-height: 5rem;
+    padding: 0.4rem 0.5rem;
+    line-height: 1.55;
+    resize: vertical;
+    width: 100%;
+    display: block;
+    box-sizing: border-box;
+}
+
+/* ── 能力値グリッド (コンテナクエリで自身の幅基準) ── */
+.s-sec {
+    container-type: inline-size;
+}
+.ab-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.32rem 0.6rem;
+}
+@container (min-width: 470px) {
+    .ab-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+.ab-row {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr var(--inp-h) 4rem;
+    align-items: center;
+    gap: 0.28rem;
+}
+.ab-label {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--cyan);
+    text-align: right;
+    padding-right: 0.15rem;
+}
+/* ab-dice / ab-val は共通input継承 */
+.ab-dice {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    width: 100%;
+}
+.ab-val {
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    text-align: center;
+    color: var(--text-bright);
+    width: 100%;
+}
+.ab-roll {
+    background: rgba(0, 229, 255, 0.08);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    border-radius: calc(var(--r) - 3px);
+    color: var(--cyan);
+    cursor: pointer;
+    padding: 0;
+    width: var(--inp-h);
+    height: var(--inp-h);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--t);
+    flex-shrink: 0;
+}
+.ab-roll:hover {
+    background: rgba(0, 229, 255, 0.18);
+}
+.ab-roll .material-symbols-outlined {
+    font-size: 0.9rem;
+}
+
+.ab-footer {
+    display: flex;
+    align-items: center;
+    margin-top: 0.55rem;
+}
+
+/* ── 派生値 ── */
+.derived-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.6rem;
+}
+.derived-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    width: 80px;
+}
+.derived-label {
+    font-size: 0.68rem;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+}
+/* derived-val は共通input継承、幅はcellに依存 */
+.derived-val {
+    text-align: center;
+    color: var(--text-bright);
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    width: 100%;
+}
+/* ── Dynamic rows ── */
+.dyn-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.dyn-row {
+    display: grid;
+    gap: 0.3rem;
+    align-items: center;
+}
+.dyn-row-skill {
+    grid-template-columns: 1fr 4rem var(--inp-h);
+}
+.dyn-row-cmd {
+    grid-template-columns: 10rem 1fr var(--inp-h);
+}
+.dyn-del {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--r) - 3px);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.7rem;
+    width: var(--inp-h);
+    height: var(--inp-h);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        background var(--t),
+        color var(--t),
+        border-color var(--t);
+    box-sizing: border-box;
+}
+.dyn-del:hover {
+    background: rgba(255, 80, 80, 0.12);
+    color: #f55;
+    border-color: rgba(255, 80, 80, 0.3);
+}
+.dyn-add {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.45rem;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: calc(var(--r) - 3px);
+    padding: 0.28rem 0.7rem;
+    cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
+    transition:
+        color var(--t),
+        border-color var(--t);
+}
+.dyn-add:hover {
+    color: var(--cyan);
+    border-color: rgba(0, 229, 255, 0.4);
+}
+.dyn-add .material-symbols-outlined {
+    font-size: 0.9rem;
+}
+
+/* ── トグルスイッチ ── */
+.tog {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    cursor: pointer;
+}
+.tog input[type='checkbox'] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 30px;
+    height: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--input-bd);
+    background: var(--input-bg);
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition:
+        background var(--t),
+        border-color var(--t);
+}
+.tog input[type='checkbox']::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    top: 2px;
+    left: 2px;
+    transition:
+        transform var(--t),
+        background var(--t);
+}
+.tog input[type='checkbox']:checked {
+    background: rgba(0, 229, 255, 0.18);
+    border-color: var(--cyan);
+}
+.tog input[type='checkbox']:checked::after {
+    background: var(--cyan);
+    transform: translateX(14px);
+}
+.tl {
+    font-size: 0.78rem;
+    color: var(--text);
+    user-select: none;
+}
+
+/* ── Segment / Toggle ── */
+.seg {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--r) - 2px);
+    overflow: hidden;
+}
+.seg input[type='radio'] {
+    display: none;
+}
+.seg label {
+    padding: 0.24rem 0.65rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: var(--text-dim);
+    border-right: 1px solid var(--border);
+    transition:
+        background var(--t),
+        color var(--t);
+    user-select: none;
+}
+.seg label:last-child {
+    border-right: none;
+}
+.seg input[type='radio']:checked + label {
+    background: rgba(0, 229, 255, 0.14);
+    color: var(--cyan);
+}
+
+/* ── Preview Panel ── */
+.pv-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.pv-tab {
+    padding: 0.45rem 1rem;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition:
+        color var(--t),
+        border-color var(--t);
+}
+.pv-tab.active {
+    color: var(--cyan);
+    border-bottom-color: var(--cyan);
+}
+.pv-out {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.65rem 0.75rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-bright) transparent;
+}
+.pv-text {
+    font-family: var(--font-mono);
+    font-size: 0.73rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--text-dim);
+    margin: 0;
+    line-height: 1.65;
+}
+.pv-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.btn-copy,
+.btn-roll-copy {
+    width: 100%;
+    padding: 0.46rem;
+    border-radius: calc(var(--r) - 2px);
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: var(--font-main);
+    transition: background var(--t);
+}
+.btn-copy {
+    background: rgba(0, 229, 255, 0.12);
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    color: var(--cyan);
+}
+.btn-copy:hover {
+    background: rgba(0, 229, 255, 0.22);
+}
+.btn-roll-copy {
+    background: rgba(33, 150, 243, 0.12);
+    border: 1px solid rgba(33, 150, 243, 0.3);
+    color: var(--blue);
+}
+.btn-roll-copy:hover {
+    background: rgba(33, 150, 243, 0.22);
+}
+
+/* Roll-all button */
+.btn-roll-all {
+    background: rgba(0, 229, 255, 0.08);
+    border: 1px solid rgba(0, 229, 255, 0.25);
+    border-radius: calc(var(--r) - 2px);
+    color: var(--cyan);
+    cursor: pointer;
+    font-size: 0.82rem;
+    padding: 0.28rem 0.7rem;
+    display: flex;
+    align-items: center;
+    gap: 0.28rem;
+    transition: background var(--t);
+}
+.btn-roll-all:hover {
+    background: rgba(0, 229, 255, 0.18);
+}
+.btn-roll-all .material-symbols-outlined {
+    font-size: 0.95rem;
+}
+
+/* ── 折り畳み (NPCリスト) ── */
+#listPanel.list-collapsed .pb {
+    display: none;
+}
+#toggleListBtn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    border-radius: 4px;
+    transition: color var(--t);
+}
+#toggleListBtn:hover {
+    color: var(--cyan);
+}
+#toggleListBtn .material-symbols-outlined {
+    font-size: 1.1rem;
+}
+
+/* ── 縦並びレイアウト (≤900px) ── */
+#mob-tabs {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    html,
+    body {
+        height: auto;
+        overflow: auto;
+    }
+
+    #main {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        overflow: visible;
+        padding: 0.5rem clamp(0.4rem, 2vw, 0.8rem);
+        gap: 0.5rem;
+    }
+
+    .panel {
+        height: auto;
+        overflow: visible;
+    }
+    .pb {
+        max-height: none;
+        height: auto;
+        overflow-y: visible;
+    }
+    .pv-out {
+        overflow-y: visible;
+        height: auto;
+        min-height: 200px;
+    }
+}
+
+@media (max-width: 600px) {
+    .dyn-row-cmd {
+        grid-template-columns: 7rem 1fr var(--inp-h);
+    }
+}
+
+@media (max-width: 420px) {
+    .dyn-row-cmd {
+        grid-template-columns: 5.5rem 1fr var(--inp-h);
+    }
+}
+/* ── ガイド内 dl ── */
+.guide-dl {
+    display: grid;
+    grid-template-columns: 1.4rem 1fr;
+    gap: 0.55rem 0.5rem;
+    align-items: start;
+    line-height: 1.6;
+}
+.guide-dl .mi {
+    /* 收錄版：上游寫成 'Material Symbols'，對不上實際載入的字型，圖示會顯示成英文單字。 */
+    font-family: 'Material Symbols Outlined';
+    font-size: 1.05rem;
+    color: var(--cyan);
+    margin-top: 0.1rem;
+}
+.guide-dl dt {
+    font-weight: bold;
+    color: var(--text-bright);
+}
+.guide-dl dd {
+    margin: 0;
+    color: var(--text);
+    font-size: 0.85rem;
+}
+.guide-copyright {
+    margin-top: 1rem;
+    padding: 0.75rem 0.85rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--r) - 2px);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+}
+.guide-copyright p {
+    margin: 0 0 0.4rem;
+}
+.guide-copyright p:last-child {
+    margin: 0;
+}
+.guide-copyright strong {
+    color: var(--text);
+}
+

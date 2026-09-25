@@ -1,0 +1,1576 @@
+<!doctype html>
+<html lang="zh-Hant-TW" data-theme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <title>CoC 7 版自訂調查員角色卡</title>
+        <script src="../../assets/i18n.js"></script>
+        <script src="i18n.trpg-lab.js"></script>
+        <script src="i18n.coc7_Investigator_sheet.js"></script>
+
+
+
+        <!-- Google Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+
+        <!-- Material Symbols -->
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+        <!-- Font Awesome -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+            integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"
+        />
+
+        <link rel="stylesheet" href="common.css" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.2.4/fabric.min.js"></script>
+
+        <link rel="stylesheet" href="coc7_Investigator_sheet.css" />
+    </head>
+    <body>
+        <header id="site-header"></header>
+
+        <div class="card-section">
+            <div class="card">
+                <button id="saveBtn"><span class="material-symbols-outlined">save</span><span data-i18n="toolbar.save">儲存</span></button>
+                <select id="saveList">
+                    <option value="" data-i18n="toolbar.saveList">（儲存清單）</option>
+                </select>
+
+                <button id="loadBtn"><span class="material-symbols-outlined">folder_open</span><span data-i18n="toolbar.load">讀取</span></button>
+                <button id="deleteBtn"><span class="material-symbols-outlined">delete</span> <span data-i18n="toolbar.delete">刪除</span></button>
+            </div>
+            <div class="card">
+                <button id="printBtn"><span class="material-symbols-outlined fill">print</span> <span data-i18n="toolbar.print">列印</span></button>
+                <button id="clearBtn"><span class="material-symbols-outlined">refresh</span><span data-i18n="toolbar.clear">清除</span></button>
+            </div>
+        </div>
+
+        <main id="main">
+            <div id="a4-wrapper">
+                <div class="a4-sheet">
+                    <div class="main-data">
+                        <div class="investigator-container">
+                            <div data-i18n="sheet.title">調查員角色卡</div>
+                            <div class="investigator-info">
+                                <div>
+                                    <label contenteditable="true" data-i18n="sheet.info.name">姓名</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div>
+                                    <label contenteditable="true" data-i18n="sheet.info.player">玩家</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div>
+                                    <label contenteditable="true" data-i18n="sheet.info.occupation">職業</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div>
+                                    <div>
+                                        <label contenteditable="true" data-i18n="sheet.info.age">年齡</label>
+                                        <span contenteditable="true"></span>
+                                    </div>
+                                    <div>
+                                        <label contenteditable="true" data-i18n="sheet.info.sex">性別</label>
+                                        <span contenteditable="true"></span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label contenteditable="true" data-i18n="sheet.info.residence">居住地</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div>
+                                    <label contenteditable="true" data-i18n="sheet.info.birthplace">出生地</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="abilitie-container">
+                            <div data-i18n="sheet.characteristics">屬性</div>
+                            <div class="abilitie-grid">
+                                <div class="abilitie">
+                                    <label>STR</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <label>DEX</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <div class="alias-abilitie">
+                                        <label>INT</label>
+                                        <label data-i18n="sheet.idea">靈感</label>
+                                    </div>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <label>CON</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <label>APP</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <label>POW</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <label>SIZ</label>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie">
+                                    <div class="alias-abilitie">
+                                        <label>EDU</label>
+                                        <label data-i18n="sheet.know">知識</label>
+                                    </div>
+                                    <div class="roll-container">
+                                        <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                        <div class="abilitie-box abilitie-hard"></div>
+                                        <div class="abilitie-box abilitie-extreme"></div>
+                                    </div>
+                                </div>
+                                <div class="abilitie-mov">
+                                    <label style="font-size: 16px; transform: scaleX(0.9)" data-i18n="sheet.mov">移動力</label>
+                                    <div class="mov-container">
+                                        <div class="mov" contenteditable="true"></div>
+                                        <div class="mov-puls">+1</div>
+                                        <div class="mov-minus">-1</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="img-container">
+                            <button id="img-select-btn" data-i18n="sheet.image.select">選擇圖片</button>
+                            <button id="img-remove-btn">×</button>
+                        </div>
+                        <input type="file" id="file-input" accept="image/*" style="display: none" />
+                    </div>
+                    <div class="sub-data">
+                        <div class="custom-box">
+                            <div contenteditable="true" data-i18n="sheet.custom">自訂</div>
+                            <div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                        </div>
+                        <div class="status-container">
+                            <div class="hp-san">
+                                <div class="hp-box">
+                                    <div data-i18n="sheet.hp">生命值</div>
+                                    <div class="hp-header">
+                                        <label style="margin-right: 4px" data-i18n="sheet.hp.majorWound">重傷</label>
+                                        <div class="jyusho-box" style="margin-right: 10px"></div>
+                                        <label style="margin-right: 4px" data-i18n="sheet.max">最大值</label>
+                                        <span class="max-hp" contenteditable="true"></span>
+                                    </div>
+                                    <div class="hp-value">
+                                        <div style="grid-column: 1/3; grid-row: 1/3">
+                                            <div class="hinshi" data-i18n="sheet.hp.dying">瀕死</div>
+                                            <div class="ishiki-humei"><span data-i18n="sheet.hp.unconscious">昏迷</span></div>
+                                            <div class="zero-border"></div>
+                                        </div>
+                                        <span>00</span>
+                                        <span>01</span>
+                                        <span>02</span>
+                                        <span>03</span>
+                                        <span>04</span>
+                                        <span>05</span>
+                                        <span>06</span>
+                                        <span>07</span>
+                                        <span>08</span>
+                                        <span>09</span>
+                                        <span>10</span>
+                                        <span>11</span>
+                                        <span>12</span>
+                                        <span>13</span>
+                                        <span>14</span>
+                                        <span>15</span>
+                                        <span>16</span>
+                                        <span>17</span>
+                                        <span>18</span>
+                                        <span>19</span>
+                                        <span>20</span>
+                                        <span>21</span>
+                                        <span>22</span>
+                                        <span>23</span>
+                                        <span>24</span>
+                                        <span>25</span>
+                                        <span>26</span>
+                                        <span>27</span>
+                                        <span>28</span>
+                                        <span>29</span>
+                                        <span>30</span>
+                                        <span>31</span>
+                                        <span>32</span>
+                                        <span>33</span>
+                                        <span>34</span>
+                                        <span>35</span>
+                                        <span>36</span>
+                                        <span>37</span>
+                                        <span>38</span>
+                                        <span>39</span>
+                                        <span>40</span>
+                                        <span>41</span>
+                                        <span>42</span>
+                                        <span>43</span>
+                                    </div>
+                                </div>
+                                <div class="san-box">
+                                    <div class="san-header">
+                                        <label style="margin-right: 4px" data-i18n="sheet.san.temporary">臨時瘋狂</label>
+                                        <div class="kyouki-box" style="margin-right: 10px"></div>
+                                        <label style="margin-right: 4px" data-i18n="sheet.san.indefinite">不定期瘋狂</label>
+                                        <div class="kyouki-box" style="margin-right: 10px"></div>
+                                        <label style="margin-right: 4px" data-i18n="sheet.san.start">初始</label>
+                                        <span class="start-san" contenteditable="true" style="margin-right: 10px"></span>
+                                        <label style="margin-right: 4px" data-i18n="sheet.max">最大值</label>
+                                        <span class="max-san" contenteditable="true"></span>
+                                    </div>
+                                    <div class="san-value">
+                                        <span style="grid-column: 1/4; text-align: center" data-i18n="sheet.san.insane">永久瘋狂</span>
+                                        <span>01</span>
+                                        <span>02</span>
+                                        <span>03</span>
+                                        <span>04</span>
+                                        <span>05</span>
+                                        <span>06</span>
+                                        <span>07</span>
+                                        <span>08</span>
+                                        <span>09</span>
+                                        <span>10</span>
+                                        <span>11</span>
+                                        <span>12</span>
+                                        <span>13</span>
+                                        <span>14</span>
+                                        <span>15</span>
+                                        <span>16</span>
+                                        <span>17</span>
+                                        <span>18</span>
+                                        <span>19</span>
+                                        <span>20</span>
+                                        <span>21</span>
+                                        <span>22</span>
+                                        <span>23</span>
+                                        <span>24</span>
+                                        <span>25</span>
+                                        <span>26</span>
+                                        <span>27</span>
+                                        <span>28</span>
+                                        <span>29</span>
+                                        <span>30</span>
+                                        <span>31</span>
+                                        <span>32</span>
+                                        <span>33</span>
+                                        <span>34</span>
+                                        <span>35</span>
+                                        <span>36</span>
+                                        <span>37</span>
+                                        <span>38</span>
+                                        <span>39</span>
+                                        <span>40</span>
+                                        <span>41</span>
+                                        <span>42</span>
+                                        <span>43</span>
+                                        <span>44</span>
+                                        <span>45</span>
+                                        <span>46</span>
+                                        <span>47</span>
+                                        <span>48</span>
+                                        <span>49</span>
+                                        <span>50</span>
+                                        <span>51</span>
+                                        <span>52</span>
+                                        <span>53</span>
+                                        <span>54</span>
+                                        <span>55</span>
+                                        <span>56</span>
+                                        <span>57</span>
+                                        <span>58</span>
+                                        <span>59</span>
+                                        <span>60</span>
+                                        <span>61</span>
+                                        <span>62</span>
+                                        <span>63</span>
+                                        <span>64</span>
+                                        <span>65</span>
+                                        <span>66</span>
+                                        <span>67</span>
+                                        <span>68</span>
+                                        <span>69</span>
+                                        <span>70</span>
+                                        <span>71</span>
+                                        <span>72</span>
+                                        <span>73</span>
+                                        <span>74</span>
+                                        <span>75</span>
+                                        <span>76</span>
+                                        <span>77</span>
+                                        <span>78</span>
+                                        <span>79</span>
+                                        <span>80</span>
+                                        <span>81</span>
+                                        <span>82</span>
+                                        <span>83</span>
+                                        <span>84</span>
+                                        <span>85</span>
+                                        <span>86</span>
+                                        <span>87</span>
+                                        <span>88</span>
+                                        <span>89</span>
+                                        <span>90</span>
+                                        <span>91</span>
+                                        <span>92</span>
+                                        <span>93</span>
+                                        <span>94</span>
+                                        <span>95</span>
+                                        <span>96</span>
+                                        <span>97</span>
+                                        <span>98</span>
+                                        <span>99</span>
+                                    </div>
+                                    <div data-i18n="sheet.san">理智</div>
+                                </div>
+                            </div>
+                            <div class="luk-mp">
+                                <div class="luk-box">
+                                    <div data-i18n="sheet.luck">幸運</div>
+                                    <!-- <div class="luk-header"></div> -->
+                                    <div class="luk-value">
+                                        <span style="grid-column: 1/7; text-align: center" data-i18n="sheet.luck.out">運氣耗盡</span>
+                                        <span>01</span>
+                                        <span>02</span>
+                                        <span>03</span>
+                                        <span>04</span>
+                                        <span>05</span>
+                                        <span>06</span>
+                                        <span>07</span>
+                                        <span>08</span>
+                                        <span>09</span>
+                                        <span>10</span>
+                                        <span>11</span>
+                                        <span>12</span>
+                                        <span>13</span>
+                                        <span>14</span>
+                                        <span>15</span>
+                                        <span>16</span>
+                                        <span>17</span>
+                                        <span>18</span>
+                                        <span>19</span>
+                                        <span>20</span>
+                                        <span>21</span>
+                                        <span>22</span>
+                                        <span>23</span>
+                                        <span>24</span>
+                                        <span>25</span>
+                                        <span>26</span>
+                                        <span>27</span>
+                                        <span>28</span>
+                                        <span>29</span>
+                                        <span>30</span>
+                                        <span>31</span>
+                                        <span>32</span>
+                                        <span>33</span>
+                                        <span>34</span>
+                                        <span>35</span>
+                                        <span>36</span>
+                                        <span>37</span>
+                                        <span>38</span>
+                                        <span>39</span>
+                                        <span>40</span>
+                                        <span>41</span>
+                                        <span>42</span>
+                                        <span>43</span>
+                                        <span>44</span>
+                                        <span>45</span>
+                                        <span>46</span>
+                                        <span>47</span>
+                                        <span>48</span>
+                                        <span>49</span>
+                                        <span>50</span>
+                                        <span>51</span>
+                                        <span>52</span>
+                                        <span>53</span>
+                                        <span>54</span>
+                                        <span>55</span>
+                                        <span>56</span>
+                                        <span>57</span>
+                                        <span>58</span>
+                                        <span>59</span>
+                                        <span>60</span>
+                                        <span>61</span>
+                                        <span>62</span>
+                                        <span>63</span>
+                                        <span>64</span>
+                                        <span>65</span>
+                                        <span>66</span>
+                                        <span>67</span>
+                                        <span>68</span>
+                                        <span>69</span>
+                                        <span>70</span>
+                                        <span>71</span>
+                                        <span>72</span>
+                                        <span>73</span>
+                                        <span>74</span>
+                                        <span>75</span>
+                                        <span>76</span>
+                                        <span>77</span>
+                                        <span>78</span>
+                                        <span>79</span>
+                                        <span>80</span>
+                                        <span>81</span>
+                                        <span>82</span>
+                                        <span>83</span>
+                                        <span>84</span>
+                                        <span>85</span>
+                                        <span>86</span>
+                                        <span>87</span>
+                                        <span>88</span>
+                                        <span>89</span>
+                                        <span>90</span>
+                                        <span>91</span>
+                                        <span>92</span>
+                                        <span>93</span>
+                                        <span>94</span>
+                                        <span>95</span>
+                                        <span>96</span>
+                                        <span>97</span>
+                                        <span>98</span>
+                                        <span>99</span>
+                                    </div>
+                                </div>
+                                <div class="mp-box">
+                                    <div><span data-i18n="sheet.mp">魔法值</span></div>
+                                    <div class="mp-header">
+                                        <label style="margin-right: 4px" data-i18n="sheet.max">最大值</label>
+                                        <span class="max-mp" contenteditable="true"></span>
+                                    </div>
+                                    <div class="mp-value">
+                                        <span>00</span>
+                                        <span>01</span>
+                                        <span>02</span>
+                                        <span>03</span>
+                                        <span>04</span>
+                                        <span>05</span>
+                                        <span>06</span>
+                                        <span>07</span>
+                                        <span>08</span>
+                                        <span>09</span>
+                                        <span>10</span>
+                                        <span>11</span>
+                                        <span>12</span>
+                                        <span>13</span>
+                                        <span>14</span>
+                                        <span>15</span>
+                                        <span>16</span>
+                                        <span>17</span>
+                                        <span>18</span>
+                                        <span>19</span>
+                                        <span>20</span>
+                                        <span>21</span>
+                                        <span>22</span>
+                                        <span>23</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="skill-section">
+                        <div data-i18n="sheet.skills">技能</div>
+                        <div class="skill-grid">
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.intimidate">恐嚇（15%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.fastTalk">話術（5%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.medicine">醫學（1%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.driveAuto">汽車駕駛（20%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.firstAid">急救（30%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.occult">神秘學（5%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.stealth">潛行（20%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.dodge">閃避（DEX×½）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true" data-i18n="sheet.skill.science">科學（1%）</label>
+                                    <label contenteditable="true" class="skill-name"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.locksmith">鎖匠（1%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.appraise">估價（5%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.mechRepair">機械維修（10%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.listen">聆聽（20%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.fightingBrawl">格鬥（鬥毆）（25%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check" style="border-color: transparent"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.cthulhuMythos">克蘇魯神話（0%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true" data-i18n="sheet.skill.artCraft">藝術／手藝（5%）</label>
+                                    <label contenteditable="true" class="skill-name"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.accounting">會計（5%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.archaeology">考古學（1%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.computerUse">電腦使用（5%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true" data-i18n="sheet.skill.survival">生存（10%）</label>
+                                    <label contenteditable="true" class="skill-name"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.naturalWorld">博物學（10%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.firearmsHandgun">射擊（手槍）（20%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n-html="sheet.skill.firearmsRifle">射擊（步槍／霰彈槍）<br />（25%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.heavyMachinery">操作重型機械（1%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check" style="border-color: transparent"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.creditRating">信用評級（0%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.psychology">心理學（10%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.anthropology">人類學（1%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.swim">游泳（20%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.psychoanalysis">精神分析（1%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.persuade">說服（10%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true" data-i18n="sheet.skill.pilot">駕駛（1%）</label>
+                                    <label contenteditable="true" class="skill-name"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.jump">跳躍（20%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.track">追蹤（10%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.sleightOfHand">妙手（10%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.elecRepair">電氣維修（10%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.electronics">電子學（1%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.throw">投擲（20%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.climb">攀爬（20%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.libraryUse">圖書館使用（20%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.navigate">導航（10%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.disguise">喬裝（5%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.law">法律（5%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true" data-i18n="sheet.skill.otherLanguage">外語（1%）</label>
+                                    <label contenteditable="true" class="skill-name"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="add-special-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" class="skill-name"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="special-skill">
+                                <div class="skill-check"></div>
+                                <div>
+                                    <label contenteditable="true" data-i18n="sheet.skill.ownLanguage">母語（EDU%）</label>
+                                    <label contenteditable="true"></label>
+                                </div>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.charm">魅惑（15%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.spotHidden">偵查（25%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true" data-i18n="sheet.skill.history">歷史（5%）</label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                            <div class="free-skill">
+                                <div class="skill-check"></div>
+                                <label contenteditable="true"></label>
+                                <div class="skill-container">
+                                    <div class="skill-box skill-regular" contenteditable="true"></div>
+                                    <div class="skill-box skill-hard"></div>
+                                    <div class="skill-box skill-extreme"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="weapon-combat">
+                        <div class="weapon-container">
+                            <div data-i18n="sheet.weapons">武器</div>
+                            <div class="weapon">
+                                <label class="weapon-name" style="text-align: start" data-i18n="sheet.weapon.name">武器</label>
+                                <label class="weapon-regular" data-i18n="sheet.weapon.regular">一般</label>
+                                <label class="weapon-hard" data-i18n="sheet.weapon.hard">困難</label>
+                                <label class="weapon-extreme" data-i18n="sheet.weapon.extreme">極限</label>
+                                <label class="weapon-damage" data-i18n="sheet.weapon.damage">傷害</label>
+                                <label class="weapon-range" data-i18n="sheet.weapon.range">射程</label>
+                                <label class="weapon-times" data-i18n="sheet.weapon.attacks">攻擊次數</label>
+                                <label class="weapon-bullets" data-i18n="sheet.weapon.ammo">裝彈數</label>
+                                <label class="weapon-break" data-i18n="sheet.weapon.malfunction">故障</label>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true" data-i18n="sheet.weapon.unarmed">徒手</span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true">1D3 + DB</span>
+                                <span class="weapon-range" contenteditable="true">─</span>
+                                <span class="weapon-times" contenteditable="true">1</span>
+                                <span class="weapon-bullets" contenteditable="true">─</span>
+                                <span class="weapon-break" contenteditable="true">─</span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                            <div class="weapon weapon-data">
+                                <span class="weapon-name" contenteditable="true"></span>
+                                <span class="weapon-regular" contenteditable="true"></span>
+                                <span class="weapon-hard" contenteditable="true"></span>
+                                <span class="weapon-extreme" contenteditable="true"></span>
+                                <span class="weapon-damage" contenteditable="true"></span>
+                                <span class="weapon-range" contenteditable="true"></span>
+                                <span class="weapon-times" contenteditable="true"></span>
+                                <span class="weapon-bullets" contenteditable="true"></span>
+                                <span class="weapon-break" contenteditable="true"></span>
+                            </div>
+                        </div>
+                        <div class="combat-container">
+                            <div data-i18n="sheet.combat">戰鬥</div>
+                            <div>
+                                <label data-i18n-html="sheet.combat.db">傷害<br />加值</label>
+                                <div class="db" contenteditable="true"></div>
+                            </div>
+                            <div>
+                                <label data-i18n="sheet.combat.build">體格</label>
+                                <div class="build" contenteditable="true"></div>
+                            </div>
+                            <div>
+                                <label data-i18n="sheet.combat.dodge">閃避</label>
+                                <div class="roll-container">
+                                    <div class="abilitie-box abilitie-regular" contenteditable="true"></div>
+                                    <div class="abilitie-box abilitie-hard"></div>
+                                    <div class="abilitie-box abilitie-extreme"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="a4-sheet">
+                    <div class="backstory-container">
+                        <div data-i18n="sheet.backstory">背景故事</div>
+                        <div class="backstory-left">
+                            <div class="backstory sentence">
+                                <div>
+                                    <label data-i18n="sheet.backstory.description">外貌描述</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+
+                            <div class="backstory sentence">
+                                <div>
+                                    <label data-i18n="sheet.backstory.ideology">思想／信念</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+
+                            <div class="backstory sentence">
+                                <div>
+                                    <label data-i18n="sheet.backstory.people">重要之人</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+
+                            <div class="backstory sentence">
+                                <div>
+                                    <label data-i18n="sheet.backstory.locations">意義非凡之地</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                            <div class="backstory sentence">
+                                <div>
+                                    <label data-i18n="sheet.backstory.possessions">寶貴之物</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                        </div>
+                        <div class="backstory-right">
+                            <div class="backstory sentence">
+                                <div>
+                                    <label data-i18n="sheet.backstory.traits">特質</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                            <div class="backstory sentence">
+                                <div>
+                                    <label data-i18n="sheet.backstory.injuries">傷口、疤痕</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                            <div class="backstory sentence">
+                                <div>
+                                    <label data-i18n="sheet.backstory.phobias">恐懼症、躁狂症</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+
+                            <div class="backstory sentence">
+                                <div>
+                                    <label data-i18n="sheet.backstory.tomes">魔法書、咒文、神器</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                            <div class="backstory sentence">
+                                <div>
+                                    <label data-i18n="sheet.backstory.encounters">遭遇過的超自然存在</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="item-asset">
+                        <div class="item-container">
+                            <div data-i18n="sheet.gear">裝備與隨身物品</div>
+                            <div class="items" id="item-left">
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                            <div class="items" id="item-right">
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                        </div>
+                        <div class="asset-container">
+                            <div data-i18n="sheet.assets">現金與資產</div>
+                            <div id="assets" class="items">
+                                <div class="label-asset">
+                                    <label data-i18n="sheet.assets.spending">消費水準</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div class="label-asset">
+                                    <label data-i18n="sheet.assets.cash">現金</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <div class="label-asset">
+                                    <label data-i18n="sheet.assets.assets">資產</label>
+                                    <span contenteditable="true"></span>
+                                </div>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                                <span contenteditable="true"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="memo-container">
+                        <div data-i18n="sheet.memo">備註</div>
+                        <div class="memo sentence">
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                            <span contenteditable="true"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- サイトフッター（共通） -->
+        <footer class="site-footer" data-i18n-aria-label="lab.footerAria" aria-label="網站頁尾">
+            <div class="container"></div>
+        </footer>
+
+        <!-- 使い方ガイド モーダル -->
+        <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title" id="guide-modal-title" data-i18n="lab.guide">使用說明</span>
+                    <button class="modal-close" data-i18n-aria-label="lab.close" aria-label="關閉"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="modal-body" id="guide-content">
+                    <div class="guide-body">
+                        <p data-i18n-html="guide.intro"><strong class="guide-app-name">CoC 7 版自訂調查員角色卡</strong>是新克蘇魯神話 TRPG（CoC 7 版）用的角色卡。在瀏覽器上填好，就能直接以 A4 列印。</p>
+
+                        <h3 data-i18n="guide.basic.title">基本填寫</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">edit</span>
+                                <span data-i18n="guide.basic.edit">直接點擊各欄位即可輸入。從調查員姓名、年齡、職業等基本資料，到屬性、技能、裝備、背景故事，全部都能在瀏覽器上填寫。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined fill" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">calculate</span>
+                                <span data-i18n="guide.basic.calc">在屬性欄輸入一般值後，會自動算出並顯示 1/2 值與 1/5 值。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">add_circle</span>
+                                <span data-i18n-html="guide.basic.addSkill">把游標放在特殊技能欄，按 <kbd>Enter</kbd> 鍵就能新增一行。不需要的行，清空後按 <kbd>Backspace</kbd> 鍵即可刪除。</span>
+                            </li>
+                        </ul>
+
+                        <h3 data-i18n="guide.portrait.title">設定頭像</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">add_photo_alternate</span>
+                                <span data-i18n="guide.portrait.body">點擊角色卡右上角的圖片框並選擇檔案，上傳後可以調整裁切範圍。按「確定」套用，按「×」刪除。</span>
+                            </li>
+                        </ul>
+
+                        <h3 data-i18n="guide.storage.title">儲存與讀取</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">save</span>
+                                <strong data-i18n="toolbar.save">儲存</strong><span data-i18n="guide.storage.save">：命名後儲存在瀏覽器的本機儲存空間裡，也可以用同一個名稱覆寫。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">folder_open</span>
+                                <strong data-i18n="toolbar.load">讀取</strong><span data-i18n="guide.storage.load">：在儲存清單中選好後按「讀取」，即可還原。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">delete</span>
+                                <strong data-i18n="toolbar.delete">刪除</strong><span data-i18n="guide.storage.delete">：刪除在儲存清單中選取的調查員資料。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">autorenew</span>
+                                <span data-i18n="guide.storage.autosave">輸入的內容會自動儲存，關掉頁面後，下次開啟時也會還原。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">refresh</span>
+                                <strong data-i18n="toolbar.clear">清除</strong><span data-i18n="guide.storage.clear">：把角色卡恢復成初始狀態，自動儲存的內容也會一併清除（無法復原）。</span>
+                            </li>
+                        </ul>
+                        <ul>
+                            <li style="background: var(--cyan-muted); border: 1px solid var(--border); border-radius: var(--r); padding: 0.5rem 0.7rem; font-size: 0.85rem; color: var(--text-dim)">
+                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">info</span>
+                                <span style="color: var(--text)" data-i18n="guide.storage.note">儲存的資料記錄在瀏覽器的本機儲存空間裡，在其他瀏覽器或裝置上不會顯示；清除瀏覽器資料時也可能會遺失。</span>
+                            </li>
+                        </ul>
+
+                        <h3 data-i18n="guide.print.title">列印</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined fill" style="font-size: 1rem; color: var(--blue-light); flex-shrink: 0">print</span>
+                                <span data-i18n="guide.print.body">按下「列印」按鈕會開啟列印對話框。請將紙張大小設為 A4、邊界設為「無」，並開啟「背景圖形」後再列印。</span>
+                            </li>
+                        </ul>
+
+                        <h3 data-i18n="guide.legal.title">免責聲明與權利標示</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.7; border-left: 2px solid var(--border); padding-left: 0.8rem">
+                            <span data-i18n="guide.legal.fanwork">本作品為『克蘇魯神話 TRPG』系列的二次創作，該系列的權利屬於「株式會社 Arclight」及「株式會社 KADOKAWA」。</span><br /><br />
+                            Call of Cthulhu is copyright ©1981, 2015, 2019 by Chaosium Inc.; all rights reserved. Arranged by Arclight Inc.<br />
+                            Call of Cthulhu is a registered trademark of Chaosium Inc.<br />
+                            PUBLISHED BY KADOKAWA CORPORATION <span data-i18n="guide.legal.titles">「克蘇魯神話 TRPG」「新克蘇魯神話 TRPG」</span>
+                        </p>
+
+                        <!-- common.js の buildGuideLinks() がここにリンクブロックを追加する -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 画像トリミングモーダル -->
+        <div id="image-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="img-modal-title">
+            <div id="img-modal-content">
+                <div class="img-modal-header">
+                    <span class="modal-title" id="img-modal-title" data-i18n="image.title">裁切頭像</span>
+                    <button id="img-modal-close-btn" class="modal-close" data-i18n-aria-label="lab.close" aria-label="關閉">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <div class="img-modal-body">
+                    <p class="img-canvas-hint" data-i18n="image.hint">請拖曳、縮放圖片，讓它對齊框線</p>
+                    <!-- canvas-size-box: transform: scale() はレイアウトに影響しないため、
+                         この要素で「視覚上の表示サイズ」を確保する外枠として使う -->
+                    <div id="canvas-size-box">
+                        <div class="img-canvas-wrap">
+                            <canvas id="modal-canvas"> </canvas>
+                            <div id="clip-frame"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="img-modal-footer">
+                    <button id="modal-cancel"><span class="material-symbols-outlined">close</span><span data-i18n="image.cancel">取消</span></button>
+                    <button id="modal-ok"><span class="material-symbols-outlined">crop</span><span data-i18n="image.ok">確定</span></button>
+                </div>
+            </div>
+        </div>
+
+        <script src="common.js"></script>
+        <script src="coc7_Investigator_sheet.js"></script>
+    </body>
+</html>

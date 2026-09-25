@@ -68,9 +68,11 @@ const JAPANESE = /[\u3041-\u3096\u30A1-\u30FA\uFF66-\uFF9D\u4E00-\u9FFF]/;
  * （不檢查 T() key 引用，CSS 本來就不會呼叫 T()）；
  * minHooks: 標記中 i18n 掛勾的最低數量；
  * allowSource(line, lineNo, file): 回傳 true 表示該行允許出現原文字元。 */
-function checkTool({ dir, dict, locale = 'ko', locales, scripts, styles = [], minHooks, allowSource = () => false, licence = true }) {
-  section(dir);
-  const tool = loadI18N([`${dir}/${dict}`]);
+/* html 與 shared 給多頁工具用：同一個目錄裡的每一頁各自檢查一次，shared 是
+ * 各頁都先載入的共用字典（路徑相對於 dir）。 */
+function checkTool({ dir, dict, html: page = 'index.html', shared = [], locale = 'ko', locales, scripts, styles = [], minHooks, allowSource = () => false, licence = true }) {
+  section(page === 'index.html' ? dir : `${dir}/${page}`);
+  const tool = loadI18N([...shared.map(f => `${dir}/${f}`), `${dir}/${dict}`]);
   const zh = new Set(Object.keys(tool.messages['zh-TW']));
   /* 大多數工具只有「繁中＋原文」兩種語言；room-zip 另外補了韓文，
    * 因此語言清單可以由呼叫端指定。 */
@@ -97,14 +99,15 @@ function checkTool({ dir, dict, locale = 'ko', locales, scripts, styles = [], mi
     check(`zh-TW 與 ${other} 的 {n} 佔位符一致`, badPh.length === 0, `mismatched: ${badPh.join(', ')}`);
   }
 
-  const html = read(`${dir}/index.html`);
+  const html = read(`${dir}/${page}`);
   const htmlKeys = [...html.matchAll(/data-i18n(?:-html|-node|-title|-aria-label|-placeholder|-alt)?="([^"]+)"/g)].map(m => m[1]);
   const unknownHtml = [...new Set(htmlKeys)].filter(k => !zh.has(k));
   check('標記僅引用已知 key', unknownHtml.length === 0, `unknown: ${unknownHtml.join(', ')}`);
   check(`標記帶有至少 ${minHooks} 個 i18n 掛勾`, htmlKeys.length >= minHooks, `found ${htmlKeys.length}`);
 
-  check('index.html 載入共用引擎', html.includes('assets/i18n.js'));
-  check('index.html 載入自身字典', html.includes(dict));
+  check(`${page} 載入共用引擎`, html.includes('assets/i18n.js'));
+  check(`${page} 載入自身字典`, html.includes(dict.split('/').pop()));
+  for (const f of shared) check(`${page} 載入共用字典 ${f}`, html.includes(f.replace(/^(\.\.\/)+/, '')));
   check('html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(html));
 
   const titleMatch = html.match(/<title>([^<]*)<\/title>/);
@@ -131,8 +134,8 @@ function checkTool({ dir, dict, locale = 'ko', locales, scripts, styles = [], mi
     check(`${file} 無殘留原文`, leaked.length === 0, report(leaked));
   }
 
-  const htmlLeaked = leakedIn(html, 'index.html');
-  check('index.html 無殘留原文', htmlLeaked.length === 0, report(htmlLeaked));
+  const htmlLeaked = leakedIn(html, page);
+  check(`${page} 無殘留原文`, htmlLeaked.length === 0, report(htmlLeaked));
 
   for (const file of styles) {
     const src = read(`${dir}/${file}`);
@@ -1322,6 +1325,134 @@ check('訊息以 isError 判定，而非比對譯文內容',
   ceApp.includes('isError: boolean') && !/Message\.includes\(|Message\.includes\s*\(/.test(ceApp)
   && !ceApp.includes('parseMessage.includes('));
 
+/* ---- trpg-lab（違法建築的 TRPG 實驗室）---- */
+/* 合輯裡頁數最多的工具：一個目錄裝了 hub（index.html）、九個工具頁、第三方授權頁，
+ * 以及 trpg_map_maker/ 底下的地圖清單與地圖編輯器。每頁一份字典，頁首、頁尾與說明
+ * 視窗底下的授權連結等共用字串放在 i18n.trpg-lab.js，各頁先載入它。
+ *
+ * 上游的註解維持日文（map_editor.js 一檔就有上千行），理由與 height-board、room-zip
+ * 相同；規則也相同：把註解抹成空白之後，程式碼與標記裡不准再出現假名。 */
+const LAB = 'tools/trpg-lab';
+const LAB_PAGES = [
+  { html: 'index.html', scripts: ['index.js', 'common.js'], styles: ['index.css', 'common.css'], hooks: 23, inline: 10, attrs: 9 },
+  { html: 'coc7_dice.html', scripts: ['coc7_dice.js'], styles: ['coc7_dice.css'], hooks: 42, inline: 7, attrs: 27 },
+  { html: 'coc7_Investigator_sheet.html', scripts: ['coc7_Investigator_sheet.js'], styles: ['coc7_Investigator_sheet.css'], hooks: 140, inline: 135, attrs: 3 },
+  { html: 'coc_npc_token.html', scripts: ['coc_npc_token.js'], styles: ['coc_npc_token.css'], hooks: 48, inline: 32, attrs: 4 },
+  { html: 'damage_sum.html', scripts: ['damage_sum.js'], styles: ['damage_sum.css'], hooks: 9, inline: 7, attrs: 2, standalone: true },
+  { html: 'grid_maker.html', scripts: ['grid_maker.js'], styles: ['grid_maker.css'], hooks: 71, inline: 68, attrs: 1 },
+  { html: 'grid_ruler.html', scripts: ['grid_ruler.js'], styles: ['grid_ruler.css'], hooks: 69, inline: 64, attrs: 2 },
+  { html: 'hex_maker.html', scripts: ['hex_maker.js'], styles: ['hex_maker.css'], hooks: 85, inline: 80, attrs: 1 },
+  { html: 'hex_ruler.html', scripts: ['hex_ruler.js'], styles: ['hex_ruler.css'], hooks: 70, inline: 63, attrs: 2 },
+  { html: 'third-party-licenses.html', scripts: [], styles: ['third-party-licenses.css'], hooks: 45, inline: 38, attrs: 4 },
+  { html: 'trpg_map_maker/map_list.html', scripts: ['trpg_map_maker/map_list.js', 'trpg_map_maker/map_storage.js'],
+    styles: ['trpg_map_maker/map_list.css'], hooks: 23, inline: 19, attrs: 1 },
+  { html: 'trpg_map_maker/map_editor.html', scripts: ['trpg_map_maker/map_editor.js', 'trpg_map_maker/map_grid.js'],
+    styles: ['trpg_map_maker/map_editor.css'], hooks: 350, inline: 247, attrs: 57 },
+];
+const labDict = page => page.html.replace(/[^/]+\.html$/, f => `i18n.${f.replace(/\.html$/, '')}.js`);
+const labDicts = page => [...(page.standalone ? [] : [`${LAB}/i18n.trpg-lab.js`]), `${LAB}/${labDict(page)}`];
+
+const LAB_KINDS = {};
+for (const page of LAB_PAGES) {
+  LAB_KINDS[page.html] = 'html';
+  for (const f of page.scripts) LAB_KINDS[f] = 'js';
+  for (const f of page.styles) LAB_KINDS[f] = 'css';
+}
+const labCode = Object.fromEntries(Object.entries(LAB_KINDS)
+  .map(([file, kind]) => [file, stripComments(read(`${LAB}/${file}`), kind).split('\n')]));
+const labAllow = (line, lineNo, file) => {
+  const code = labCode[file];
+  return !!code && !KANA.test(code[lineNo - 1] || '');
+};
+
+const labTools = LAB_PAGES.map(page => ({ page, tool: checkTool({
+  dir: LAB,
+  html: page.html,
+  dict: labDict(page),
+  shared: page.standalone ? [] : ['i18n.trpg-lab.js'],
+  locale: 'ja',
+  scripts: page.scripts,
+  styles: page.styles,
+  minHooks: page.hooks,
+  allowSource: labAllow,
+  licence: page.html === 'index.html'
+}) }));
+
+section('tools/trpg-lab');
+const labFiles = listFiles(LAB).map(f => f.replace(`${LAB}/`, ''));
+/* 上游只在 ihoukentiku.github.io 上載入 gtag；收錄版整組拿掉，連同只在說明分析的
+ * 隱私權政策頁。 */
+check('trpg-lab 沒有任何存取分析',
+  !labFiles.some(f => /analytics|googlead|privacy-policy/.test(f))
+  && !labFiles.filter(f => /\.(html|js)$/.test(f)).some(f => /gtag|googletagmanager|analytics\.js/.test(read(`${LAB}/${f}`))));
+/* 作者在授權頁保留了自製素材的權利（間取り図 SVG、AI 生成的貼圖），擲骰音效出自
+ * ニコニ・コモンズ；這些都不收。 */
+const LAB_FLOORPLAN = ['fp-door', 'fp-door-large', 'fp-door-open', 'fp-door-double-open', 'bed_single', 'bed_double',
+  'bed_queen', 'chair', 'toilet', 'table_4', 'table_chair_6', 'kitchen', 'window_single', 'window_double', 'stairs_straight'];
+check('trpg-lab 不收作者保留權利的素材',
+  !labFiles.some(f => f.startsWith('trpg_map_maker/patterns/') || /\.(webp|wav|mp3|ico)$/.test(f)
+    || LAB_FLOORPLAN.some(n => f === `trpg_map_maker/decors/svg/${n}.svg`)));
+check('trpg-lab 收了 56 個可再散布的裝飾 SVG',
+  labFiles.filter(f => f.startsWith('trpg_map_maker/decors/svg/')).length === 56);
+check('trpg-lab 各頁都走相對路徑（沒有指向站台根目錄的連結）',
+  LAB_PAGES.every(p => !/(?:href|src)="\/(?!\/)/.test(read(`${LAB}/${p.html}`))));
+/* 函式庫照上游走 CDN，版本與出處只剩 THIRD_PARTY_NOTICES.md 記著。 */
+const labNotices = read(`${LAB}/THIRD_PARTY_NOTICES.md`);
+const labCdn = new Set();
+for (const page of LAB_PAGES) {
+  for (const f of [page.html, ...page.scripts]) for (const m of read(`${LAB}/${f}`).matchAll(CDN_HOSTS)) labCdn.add(m[0]);
+}
+check('trpg-lab 確實有 CDN 相依', labCdn.size >= 6, `found ${labCdn.size}`);
+const labUndocumented = [...labCdn].filter(u => {
+  const m = u.match(/@(\d+\.\d+\.\d+)|\/(\d+\.\d+\.\d+)\//);
+  const version = m && (m[1] || m[2]);
+  return !version || !labNotices.includes(version);
+});
+check('trpg-lab 的 CDN 相依都有版本且記在 THIRD_PARTY_NOTICES', labUndocumented.length === 0,
+  `未記載: ${labUndocumented.join(', ')}`);
+/* 各工具頁是「整個視窗減掉頁首高度」的版面，合輯的回首頁連結與語言選單放在 lab 自己的頁首。 */
+const labCommon = read(`${LAB}/common.js`);
+check('trpg-lab 的頁首有回合輯首頁的連結',
+  labCommon.includes("toolkitHome: new URL('../../', LAB_ROOT).href") && labCommon.includes('data-i18n="nav.home"'));
+check('trpg-lab 的頁首掛了語言選單', labCommon.includes("I18N.mountSwitcher(document.getElementById('localeSelect'))"));
+/* 次數也要對：說明視窗底下與頁尾各有一組授權連結與版權列，說明與主題按鈕各掛了 aria-label 與 title。 */
+const LAB_HEADER_HOOKS = { 'lab.homeAria': 1, 'lab.logo': 1, 'lab.navAria': 1, 'nav.home': 1, 'lang.aria': 1,
+  'lab.guide': 2, 'lab.twitter': 1, 'lab.theme': 2, 'lab.thirdParty': 2, 'lab.copyright': 2 };
+const labHookMiss = Object.entries(LAB_HEADER_HOOKS)
+  .filter(([k, n]) => [...labCommon.matchAll(new RegExp(`data-i18n(?:-[a-z-]+)?="${k.replace('.', '\\.')}"`, 'g'))].length !== n)
+  .map(([k]) => k);
+check('trpg-lab 的頁首文字切語言時由共用引擎重套（掛了 data-i18n）', labHookMiss.length === 0,
+  `次數不對: ${labHookMiss.join(', ')}`);
+check('trpg-lab 拿掉了隱私權政策的連結（那頁只在說明已移除的存取分析）', !labCommon.includes('privacyPolicy'));
+
+/* 地圖編輯器：內建貼圖與格局圖 SVG 不收，登錄表也要清掉，否則挑選器會一直要 404。 */
+const mapEditor = read(`${LAB}/trpg_map_maker/map_editor.js`);
+const mapEditorCode = stripComments(mapEditor, 'js');
+check('地圖編輯器沒有內建貼圖', /\nconst PATTERNS = \[\];/.test(mapEditor) && !/patterns\/(full|thumb)|\.webp'/.test(mapEditorCode));
+const mapDecorFiles = [...mapEditorCode.matchAll(/type: 'svg', file: '([\w-]+\.svg)'/g)].map(m => m[1]);
+check('地圖編輯器的裝飾登錄表剛好對上收錄的 56 個 SVG',
+  mapDecorFiles.length === 56 && mapDecorFiles.every(f => labFiles.includes(`trpg_map_maker/decors/svg/${f}`)),
+  `entries: ${mapDecorFiles.length}`);
+check('地圖編輯器沒有格局圖（floorplan）分類', !/'floorplan'/.test(mapEditorCode));
+/* 存檔裡引用了內建貼圖的，讀進來時換成上游本來的備用色，不去要那張圖。 */
+check('地圖編輯器把舊存檔裡的內建貼圖換成單色', /function replaceRemovedPatterns\(/.test(mapEditor)
+  && /replaceRemovedPatterns\(data\.canvas\);/.test(mapEditorCode)
+  && /const REMOVED_PATTERN_COLORS = \{[\s\S]{0,600}grass: '#4a8c3f'[\s\S]{0,600}gravel: '#9a948a'/.test(mapEditor));
+/* 上游把匯出面板的連結改寫成站台根目錄的 /hex_maker.html 等，收錄版要相對路徑。 */
+check('地圖編輯器匯出面板的連結是相對路徑',
+  mapEditor.includes("gridLink.href = isHex ? '../hex_maker.html' : '../grid_maker.html'")
+  && mapEditor.includes("rulerLink.href = isHex ? '../hex_ruler.html' : '../grid_ruler.html'"));
+/* 文字工具的字型清單加了五套繁中字型；optgroup 的 label 引擎管不到，改由 data-label-key 交給程式套。 */
+const mapEditorHtml = read(`${LAB}/trpg_map_maker/map_editor.html`);
+check('地圖編輯器的字型清單有五套繁中字型',
+  ['Noto Sans TC', 'Noto Serif TC', 'LXGW WenKai TC', 'Chocolate Classical Sans', 'Cactus Classical Serif']
+    .every(f => mapEditorHtml.includes(`<option value="${f}"`)));
+const mapEditorDict = labTools.find(t => t.page.html === 'trpg_map_maker/map_editor.html').tool.messages;
+const mapLabelKeys = [...mapEditorHtml.matchAll(/data-label-key="([^"]+)"/g)].map(m => m[1]);
+check('地圖編輯器的 optgroup 標籤都有兩種語言的譯文', mapLabelKeys.length >= 6
+  && mapLabelKeys.every(k => mapEditorDict['zh-TW'][k] && mapEditorDict.ja[k]), `keys: ${mapLabelKeys.length}`);
+check('地圖編輯器切語言時重套 optgroup 標籤', /data-label-key/.test(mapEditor));
+
 /* ---- PC 字型挑選器 ---- */
 /* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
  * 只改其中一份的話，另外兩個工具的對話框就會停在舊版本。 */
@@ -1486,6 +1617,17 @@ check('main-tweet 的字型清單沿用 2p-simple 的那一份',
 /* text-path：畫格線預覽與版面都要把繁中字型排在韓文字型前面。 */
 const tpCss = read('tools/text-path/styles.css');
 checkCss2Url('text-path @import', tpCss);
+
+/* trpg-lab：介面是繁中時改用 Noto Sans TC（common.css 依 <html lang> 切換），每頁的
+ * Google Fonts 連結都要一起載入它，字重也要真的存在。 */
+for (const page of LAB_PAGES) {
+  const html = read(`${LAB}/${page.html}`);
+  const links = [...html.matchAll(/href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&'));
+  check(`trpg-lab ${page.html} 載入 Noto Sans TC`, links.some(u => u.includes('family=Noto+Sans+TC')));
+  links.forEach((u, i) => checkCss2Url(`trpg-lab ${page.html} 字型連結 ${i + 1}`, u));
+}
+check('trpg-lab 的介面字型在繁中時改用 Noto Sans TC',
+  read(`${LAB}/common.css`).includes(":root:lang(zh) {\n    --font-main: 'Noto Sans TC', 'Noto Sans JP', sans-serif;"));
 check('text-path 的 @import 有 Noto Sans TC', tpCss.includes('Noto+Sans+TC'));
 check('text-path 繁中介面時繁中字型優先',
   /html\[lang\^="zh"\][\s\S]{0,120}'Noto Sans TC',\s*'Noto Sans KR'/.test(tpCss));
@@ -1525,7 +1667,7 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
-  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner'];
+  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -1550,7 +1692,7 @@ for (const card of homeCards) {
 }
 check('首頁標示原作者出處',
   ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
-    'woolwag3338', 'johnko00', 'baegop157902'].every(a => homeHtml.includes(`github.com/${a}`)));
+    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku'].every(a => homeHtml.includes(`github.com/${a}`)));
 
 /* ---- 內嵌文字與 zh-TW 字典一致 ---- */
 /* 六個頁面（五個工具＋首頁）在 script 執行前顯示的畫面，其 HTML 內嵌文字必須
@@ -1626,6 +1768,9 @@ checkInlineText('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-
 checkInlineText('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
 for (const t of SOTSOT_FOUR) {
   checkInlineText(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.inline);
+}
+for (const page of LAB_PAGES) {
+  checkInlineText(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.inline);
 }
 
 /* ---- 內嵌屬性與 zh-TW 字典一致 ---- */
@@ -1711,6 +1856,9 @@ checkAttrPairs('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tool
 for (const t of SOTSOT_FOUR) {
   checkAttrPairs(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.attrs);
 }
+for (const page of LAB_PAGES) {
+  checkAttrPairs(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.attrs);
+}
 
 /* ---- 文件 ---- */
 section('docs');
@@ -1726,7 +1874,7 @@ for (const name of TOOLS) {
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
   '586b273', '0162787', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', 'd3bdf3c', 'fc05c98',
   '90f8442', 'a9a522c', 'aad63b1',
-  '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', '772d6c4']) {
+  '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',

@@ -6,7 +6,8 @@
 [巡涯学派](https://github.com/organon-torah) 與
 [Wool&Wag](https://github.com/woolwag3338) 與
 [johnko00](https://github.com/johnko00) 與
-[baegop157902](https://github.com/baegop157902) 製作的 22 個網頁小工具合輯，附繁體中文介面。
+[baegop157902](https://github.com/baegop157902) 與
+[違法建築](https://github.com/ihoukentiku) 製作的 23 個網頁小工具合輯，附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -34,6 +35,7 @@
 | [壓克力周邊工房](tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光，匯出 APNG／GIF／WebM 或 .glb 模型 |
 | [影片轉動圖工具](tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
 | [GIF 接合器](tools/gif-combiner/) | 把多張 GIF 的影格對齊時間軸排進同一張畫面，拖曳排版後合成一張 GIF |
+| [違法建築的 TRPG 實驗室](tools/trpg-lab/) | 一站收齊九個跑團工具：CoC 7 版擲骰、調查員角色卡、NPC 製作／管理、TRPG 地圖編輯器、網格／六角格產生器與量尺產生器、BCDice 傷害計算 |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 

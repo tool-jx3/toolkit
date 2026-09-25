@@ -1,0 +1,141 @@
+body {
+	font-family: "Noto Sans JP", sans-serif;
+	background: #f7f8fa;
+	margin: auto;
+	padding: 20px;
+	max-width: 800px;
+	color: #333;
+}
+
+h1 {
+	font-size: 28px;
+	border-bottom: 2px solid #ccc;
+	padding-bottom: 5px;
+	margin-bottom: 20px;
+	margin-top: 10px;
+}
+
+.section {
+	background: white;
+	padding: 15px;
+	border-radius: 5px;
+	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+	margin-bottom: 20px;
+}
+
+label {
+	display: block;
+	margin-bottom: 8px;
+	font-weight: bold;
+}
+
+input[type="number"],
+textarea {
+	width: calc(100% - 22px);
+	padding: 10px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	margin-bottom: 15px;
+	box-sizing: border-box;
+	font-size: 16px;
+}
+
+textarea {
+	min-height: 100px;
+	resize: vertical;
+}
+
+button {
+	background-color: #448ad4;
+	color: white;
+	padding: 10px 20px;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background-color 0.2s;
+	font-weight: bold;
+	/* display: block; */
+	width: 100%;
+	box-sizing: border-box;
+}
+
+button:hover {
+	background-color: #3d7bcd;
+}
+
+.result {
+	margin-top: 20px;
+	padding: 15px;
+	background-color: #e9e9e9;
+	border-radius: 4px;
+	font-weight: bold;
+	border: 1px solid #ccc;
+}
+
+#commandOutput {
+	margin-top: 10px;
+	padding: 10px;
+	background-color: #e0f2ff; /* Light blue background for command */
+	border: 1px solid #b3e5fc; /* Slightly darker blue border */
+	border-radius: 4px;
+	font-weight: bold;
+	cursor: pointer;
+	display: none;
+	word-break: break-all;
+	color: #01579b; /* Darker blue text color */
+}
+
+#commandOutput:hover {
+	background-color: #b3e5fc; /* Darker blue on hover */
+}
+
+#copyMessage {
+	margin-top: 5px;
+	font-size: 0.9em;
+	color: #1976d2; /* Blue color for message */
+	display: none;
+}
+
+
+/* 收錄版：頁面頂端的導覽列（回到合輯首頁的連結與語言選單）。
+ * 這頁沒有實驗室的共用頁首，配色沿用本頁的灰階與按鈕藍。 */
+.toolkit-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.home-link {
+	color: #666;
+	font-size: 13px;
+	text-decoration: none;
+}
+
+.home-link:hover {
+	color: #333;
+	text-decoration: underline;
+}
+
+.home-link:focus-visible,
+.locale-select:focus-visible {
+	outline: 2px solid #448ad4;
+	outline-offset: 2px;
+}
+
+.locale-select {
+	padding: 4px 8px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	background: white;
+	color: #333;
+	font-family: inherit;
+	font-size: 13px;
+	cursor: pointer;
+}
+
+/* 收錄版：介面是繁中時改用 Noto Sans TC（Noto Sans JP 的漢字是日文字形）。 */
+:root:lang(zh) body {
+	font-family: "Noto Sans TC", "Noto Sans JP", sans-serif;
+}

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-Hant-TW" data-theme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <title>CoC 7 版擲骰工具</title>
+        <script src="../../assets/i18n.js"></script>
+        <script src="i18n.trpg-lab.js"></script>
+        <script src="i18n.coc7_dice.js"></script>
+
+
+
+        <!-- Google Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+
+        <!-- Material Symbols -->
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+        <!-- Font Awesome -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+            integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"
+        />
+
+        <link rel="stylesheet" href="common.css" />
+
+        <link rel="stylesheet" href="coc7_dice.css" />
+    </head>
+    <body>
+        <header id="site-header"></header>
+
+        <main id="main" data-i18n-aria-label="main.aria" aria-label="擲骰工具">
+            <!-- 上部：技能ロール -->
+            <div class="dice-card section-top" role="region" data-i18n-aria-label="skill.region" aria-label="技能擲骰">
+                <div class="top-inputs">
+                    <div class="dice-input-group" data-i18n-aria-label="skill.bdGroup" aria-label="獎勵骰／懲罰骰">
+                        <button id="bd-minus-btn" class="dice-btn" data-i18n-aria-label="skill.bdMinus" aria-label="減少 BD/PD">
+                            <span class="material-symbols-outlined">remove</span>
+                        </button>
+                        <input type="text" id="bd-input" class="bd-input" value="0" readonly data-i18n-aria-label="skill.bdValue" aria-label="BD/PD 值" />
+                        <button id="bd-plus-btn" class="dice-btn" data-i18n-aria-label="skill.bdPlus" aria-label="增加 BD/PD">
+                            <span class="material-symbols-outlined">add</span>
+                        </button>
+                    </div>
+                    <div class="skill-input-group" data-i18n-aria-label="skill.valueGroup" aria-label="輸入技能值">
+                        <button id="skill-minus-btn" class="dice-btn" data-i18n-aria-label="skill.valueMinus" aria-label="減少技能值">
+                            <span class="material-symbols-outlined">remove</span>
+                        </button>
+                        <input type="number" id="skill-input" class="skill-input" data-i18n-placeholder="skill.value" placeholder="技能值" data-i18n-aria-label="skill.value" aria-label="技能值" />
+                        <button id="skill-plus-btn" class="dice-btn" data-i18n-aria-label="skill.valuePlus" aria-label="增加技能值">
+                            <span class="material-symbols-outlined">add</span>
+                        </button>
+                    </div>
+                    <button id="roll-btn" class="roll-button" data-i18n-aria-label="skill.roll" aria-label="進行技能擲骰">
+                        <i class="fa-solid fa-dice"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 中央：結果表示 -->
+            <div class="dice-card section-middle" role="region" data-i18n-aria-label="result.region" aria-label="擲骰結果">
+                <button id="log-button" class="log-button" data-i18n-title="log.open" title="開啟紀錄" data-i18n-aria-label="log.open" aria-label="開啟紀錄">
+                    <span class="material-symbols-outlined">history</span>
+                </button>
+                <div id="result-container" class="result-container" aria-live="polite">
+                    <div id="dice-display" class="dice-display"></div>
+                    <div id="result-text" class="result-text"></div>
+                    <div id="success-level" class="success-level"></div>
+                </div>
+                <!-- ログカード（オーバーレイ） -->
+                <div id="log-card" class="log-card" role="log" data-i18n-aria-label="log.region" aria-label="擲骰紀錄">
+                    <ul id="log-list"></ul>
+                    <div class="log-footer">
+                        <button id="log-clear-btn" class="log-footer-btn" data-i18n-title="log.clearAll" title="刪除所有紀錄" data-i18n-aria-label="log.clear" aria-label="刪除紀錄">
+                            <span class="material-symbols-outlined">delete_outline</span>
+                        </button>
+                        <button id="log-close-btn" class="log-footer-btn" data-i18n-title="log.close" title="關閉紀錄" data-i18n-aria-label="log.close" aria-label="關閉紀錄">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 下部：カスタムロール -->
+            <div class="dice-card section-bottom" role="region" data-i18n-aria-label="custom.region" aria-label="自訂擲骰">
+                <div class="custom-roll">
+                    <div class="custom-roll-input">
+                        <input type="text" id="custom-roll-input" data-i18n-placeholder="custom.placeholder" placeholder="例：1D6+1D4+2" data-i18n-aria-label="custom.input" aria-label="輸入擲骰指令" />
+                        <button id="custom-clear-btn" class="custom-clear-btn" data-i18n-aria-label="custom.clear" aria-label="清除輸入">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                    <button id="custom-roll-btn" class="custom-roll-button" data-i18n-aria-label="custom.roll" aria-label="進行自訂擲骰">
+                        <i class="fa-solid fa-dice"></i>
+                    </button>
+                </div>
+                <div class="dice-buttons" id="dice-buttons-container" data-i18n-aria-label="custom.addDice" aria-label="加骰按鈕">
+                    <button class="add-dice-btn" data-dice-type="1">+1</button>
+                    <button class="add-dice-btn" data-dice-type="1D3">+1D3</button>
+                    <button class="add-dice-btn" data-dice-type="1D4">+1D4</button>
+                    <button class="add-dice-btn" data-dice-type="1D6">+1D6</button>
+                    <button class="add-dice-btn" data-dice-type="1D8">+1D8</button>
+                    <button class="add-dice-btn" data-dice-type="1D10">+1D10</button>
+                    <button class="add-dice-btn" data-dice-type="1D12">+1D12</button>
+                    <button class="add-dice-btn" data-dice-type="1D20">+1D20</button>
+                    <button class="add-dice-btn" data-dice-type="1D100">+1D100</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- 使い方ガイドモーダル（common.js の buildGuideLinks が末尾リンクを追加） -->
+        <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title" id="guide-modal-title" data-i18n="lab.guide">使用說明</span>
+                    <button class="modal-close" data-i18n-aria-label="lab.close" aria-label="關閉"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="modal-body" id="guide-content">
+                    <div class="guide-body">
+                        <p data-i18n-html="guide.intro"><strong class="guide-app-name">CoC 7 版擲骰工具</strong>是可以在新克蘇魯神話 TRPG（CoC 7 版）跑團時使用的網頁擲骰工具，具備技能擲骰、自訂擲骰、擲骰紀錄三項功能。</p>
+
+                        <h3 data-i18n="guide.skill.title">技能擲骰（畫面上方）</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">tune</span>
+                                <span data-i18n-html="guide.skill.bdpd">在左側的 <strong>BD/PD</strong> 欄設定獎勵骰（正值）與懲罰骰（負值）的數量。可以用 ± 按鈕在 −2～+2 的範圍內調整。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">edit</span>
+                                <span data-i18n-html="guide.skill.value">在中間的 <strong>技能值</strong> 欄輸入要檢定的技能值。除了 ± 按鈕，也可以直接輸入數值。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined fill" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">casino</span>
+                                <span data-i18n-html="guide.skill.roll">按下右側的 <strong>擲骰按鈕</strong> 會擲 1D100；有輸入技能值時，會自動判定大成功／極限成功／困難成功／一般成功／失敗／大失敗。沒有輸入技能值也可以擲骰。</span>
+                            </li>
+                        </ul>
+
+                        <h3 data-i18n="guide.custom.title">自訂擲骰（畫面下方）</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined fill" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">keyboard</span>
+                                <span data-i18n-html="guide.custom.command">在輸入欄輸入擲骰指令（例：<code>2D6+1D4+3</code>），按下擲骰按鈕就會顯示結果。也支援全形文字與全形數字。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">add_circle_outline</span>
+                                <span data-i18n-html="guide.custom.addDice">按下輸入欄下方的 <strong>加骰按鈕</strong>（+1D6 等），該骰子就會自動加進指令。相同面數的骰子會合併計算，可以快速組出指令。</span>
+                            </li>
+                        </ul>
+
+                        <h3 data-i18n="guide.log.title">紀錄（畫面中央右下角的按鈕）</h3>
+                        <ul>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">history</span>
+                                <span data-i18n-html="guide.log.open">按下右下角的 <strong>歷史紀錄按鈕</strong>，可以一次查看到目前為止的擲骰結果。新的紀錄會加在最上面。</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--blue-light); flex-shrink: 0">delete_outline</span>
+                                <span data-i18n-html="guide.log.clear">顯示紀錄時按下左下角的 <strong>刪除按鈕</strong>，確認後即可清除所有紀錄。</span>
+                            </li>
+                        </ul>
+
+                        <h3 data-i18n="guide.legal.title">免責聲明與權利標示</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.7; border-left: 2px solid var(--border); padding-left: 0.8rem">
+                            <span data-i18n="guide.legal.fanwork">本作品為『克蘇魯神話 TRPG』系列的二次創作，該系列的權利屬於「株式會社 Arclight」及「株式會社 KADOKAWA」。</span><br /><br />
+                            Call of Cthulhu is copyright ©1981, 2015, 2019 by Chaosium Inc.; all rights reserved. Arranged by Arclight Inc.<br />
+                            Call of Cthulhu is a registered trademark of Chaosium Inc.<br />
+                            PUBLISHED BY KADOKAWA CORPORATION <span data-i18n="guide.legal.titles">「克蘇魯神話 TRPG」「新克蘇魯神話 TRPG」</span>
+                        </p>
+
+                        <!-- ↓ common.js の buildGuideLinks() がここにリンクブロックを追加する -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="common.js"></script>
+        <script src="coc7_dice.js"></script>
+    </body>
+</html>
