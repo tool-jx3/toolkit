@@ -1396,6 +1396,33 @@ check('trpg-lab 收了 56 個可再散布的裝飾 SVG',
   labFiles.filter(f => f.startsWith('trpg_map_maker/decors/svg/')).length === 56);
 check('trpg-lab 各頁都走相對路徑（沒有指向站台根目錄的連結）',
   LAB_PAGES.every(p => !/(?:href|src)="\/(?!\/)/.test(read(`${LAB}/${p.html}`))));
+/* 函式庫照上游走 CDN，版本與出處只剩 THIRD_PARTY_NOTICES.md 記著。 */
+const labNotices = read(`${LAB}/THIRD_PARTY_NOTICES.md`);
+const labCdn = new Set();
+for (const page of LAB_PAGES) {
+  for (const f of [page.html, ...page.scripts]) for (const m of read(`${LAB}/${f}`).matchAll(CDN_HOSTS)) labCdn.add(m[0]);
+}
+check('trpg-lab 確實有 CDN 相依', labCdn.size >= 6, `found ${labCdn.size}`);
+const labUndocumented = [...labCdn].filter(u => {
+  const m = u.match(/@(\d+\.\d+\.\d+)|\/(\d+\.\d+\.\d+)\//);
+  const version = m && (m[1] || m[2]);
+  return !version || !labNotices.includes(version);
+});
+check('trpg-lab 的 CDN 相依都有版本且記在 THIRD_PARTY_NOTICES', labUndocumented.length === 0,
+  `未記載: ${labUndocumented.join(', ')}`);
+/* 各工具頁是「整個視窗減掉頁首高度」的版面，合輯的回首頁連結與語言選單放在 lab 自己的頁首。 */
+const labCommon = read(`${LAB}/common.js`);
+check('trpg-lab 的頁首有回合輯首頁的連結',
+  labCommon.includes("toolkitHome: new URL('../../', LAB_ROOT).href") && labCommon.includes('data-i18n="nav.home"'));
+check('trpg-lab 的頁首掛了語言選單', labCommon.includes("I18N.mountSwitcher(document.getElementById('localeSelect'))"));
+/* 次數也要對：說明視窗底下與頁尾各有一組授權連結與版權列，說明與主題按鈕各掛了 aria-label 與 title。 */
+const LAB_HEADER_HOOKS = { 'lab.homeAria': 1, 'lab.logo': 1, 'lab.navAria': 1, 'nav.home': 1, 'lang.aria': 1,
+  'lab.guide': 2, 'lab.twitter': 1, 'lab.theme': 2, 'lab.thirdParty': 2, 'lab.copyright': 2 };
+const labHookMiss = Object.entries(LAB_HEADER_HOOKS)
+  .filter(([k, n]) => labCommon.split(`="${k}"`).length - 1 !== n).map(([k]) => k);
+check('trpg-lab 的頁首文字切語言時由共用引擎重套（掛了 data-i18n）', labHookMiss.length === 0,
+  `次數不對: ${labHookMiss.join(', ')}`);
+check('trpg-lab 拿掉了隱私權政策的連結（那頁只在說明已移除的存取分析）', !labCommon.includes('privacyPolicy'));
 
 /* ---- PC 字型挑選器 ---- */
 /* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
