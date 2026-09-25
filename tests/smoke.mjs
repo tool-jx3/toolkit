@@ -1763,7 +1763,7 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
-  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab'];
+  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -1788,7 +1788,7 @@ for (const card of homeCards) {
 }
 check('首頁標示原作者出處',
   ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
-    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku'].every(a => homeHtml.includes(`github.com/${a}`)));
+    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa'].every(a => homeHtml.includes(`github.com/${a}`)));
 
 /* ---- 內嵌文字與 zh-TW 字典一致 ---- */
 /* 六個頁面（五個工具＋首頁）在 script 執行前顯示的畫面，其 HTML 內嵌文字必須
@@ -1970,7 +1970,7 @@ for (const name of TOOLS) {
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
   '586b273', '0162787', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', 'd3bdf3c', 'fc05c98',
   '90f8442', 'a9a522c', 'aad63b1',
-  '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '772d6c4']) {
+  '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
@@ -2022,8 +2022,19 @@ check('ATTRIBUTION.md 說明哪些字刻意不跟著語言走',
 /* cutin 需要建置，說明其原始碼位置與重建方式。 */
 check('ATTRIBUTION.md 說明 cutin 的建置流程',
   attribution.includes('vendor/cutin-maker'));
-check('README.md 說明兩個工具的建置流程',
-  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor'].every(p => read('README.md').includes(p)));
+check('README.md 說明三個工具的建置流程',
+  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor', 'python3 vendor/jizura/build_toolkit.py']
+    .every(p => read('README.md').includes(p)));
+/* ATTRIBUTION 與 README 之間的錨點連結：標題改了就會失效。 */
+check('ATTRIBUTION.md 指向 README 建置段落的錨點仍然有效',
+  attribution.includes('README.md#重新建置-cutincharacter-editor-與-jizura')
+  && read('README.md').includes('### 重新建置 cutin、character-editor 與 jizura'));
+check('ATTRIBUTION.md 說明 jizura 為何照上游的方式建置，以及不收 AE 外掛',
+  /## jizura：JIZURA 字面(?=[\s\S]*app\/english\.py)(?=[\s\S]*JIZURA_CEP)/.test(attribution));
+check('jizura 的建置產物目錄裡有上游的 LICENSE', read('tools/jizura/LICENSE') === read('vendor/jizura/LICENSE'));
+check('ATTRIBUTION.md 說明 anime-rig 不收範例 PSD、OBS 中繼伺服器與 MediaPipe 同捆檔',
+  /## anime-rig：Anime2\.5DRig[\s\S]*sample\.psd[\s\S]*obs_server\.py/.test(attribution)
+  && /## anime-rig[\s\S]*lib\/vendor\/face_mesh/.test(attribution));
 
 const pkg = JSON.parse(read('package.json'));
 check('package.json 無執行期相依',

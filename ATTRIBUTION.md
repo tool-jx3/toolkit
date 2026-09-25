@@ -42,8 +42,8 @@
 | jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | `1b48bea` | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 
-十八個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中（`jizura` 的在 `vendor/jizura/`，
-建置出來的單檔頁面裡另有一份署名註解）。
+十八個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中（`jizura` 的由建置腳本從 `vendor/jizura/`
+複製過去，單檔頁面裡也另外附了一份）。
 
 shiki365 的四個工具、`cutin`、`portrait-size`、`height-board` 與 `room-zip` 原文為日文，
 收錄時另有以下調整：

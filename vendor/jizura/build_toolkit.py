@@ -14,7 +14,7 @@
 - 拿掉 canonical、hreflang 與 OG／Twitter meta（那是原作者站台的識別）。
 - 繁中版的介面字型改用 Noto Sans TC（IBM Plex Sans JP 的漢字是日文字形）。
 """
-import glob, os, sys
+import glob, os, shutil, sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(ROOT))
@@ -132,3 +132,5 @@ JIZURA 字面 https://github.com/852wa/JIZURA
 
 build('zh-TW')
 build('ja')
+# 首頁的授權徽章與測試都看 tools/<工具>/LICENSE；單檔頁面裡也附了一份。
+shutil.copyfile(os.path.join(ROOT, 'LICENSE'), os.path.join(REPO, 'tools', 'jizura', 'LICENSE'))
