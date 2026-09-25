@@ -1702,6 +1702,9 @@ checkInlineText('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['too
 for (const t of SOTSOT_FOUR) {
   checkInlineText(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.inline);
 }
+for (const page of LAB_PAGES) {
+  checkInlineText(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.inline);
+}
 
 /* ---- 內嵌屬性與 zh-TW 字典一致 ---- */
 /* data-i18n-title / data-i18n-aria-label / data-i18n-placeholder 各鎖定同一標籤上
@@ -1785,6 +1788,9 @@ checkAttrPairs('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-m
 checkAttrPairs('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
 for (const t of SOTSOT_FOUR) {
   checkAttrPairs(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.attrs);
+}
+for (const page of LAB_PAGES) {
+  checkAttrPairs(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.attrs);
 }
 
 /* ---- 文件 ---- */
