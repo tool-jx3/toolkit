@@ -19,6 +19,7 @@ import glob, os, sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(ROOT))
 sys.path.insert(0, ROOT)
+sys.dont_write_bytecode = True  # 不在 vendor/ 底下留 __pycache__
 from app.chinese import localize_body, localize_js  # noqa: E402
 
 read = lambda p: open(os.path.join(ROOT, p), encoding='utf-8').read()
