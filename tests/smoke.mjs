@@ -68,9 +68,11 @@ const JAPANESE = /[\u3041-\u3096\u30A1-\u30FA\uFF66-\uFF9D\u4E00-\u9FFF]/;
  * （不檢查 T() key 引用，CSS 本來就不會呼叫 T()）；
  * minHooks: 標記中 i18n 掛勾的最低數量；
  * allowSource(line, lineNo, file): 回傳 true 表示該行允許出現原文字元。 */
-function checkTool({ dir, dict, locale = 'ko', locales, scripts, styles = [], minHooks, allowSource = () => false, licence = true }) {
-  section(dir);
-  const tool = loadI18N([`${dir}/${dict}`]);
+/* html 與 shared 給多頁工具用：同一個目錄裡的每一頁各自檢查一次，shared 是
+ * 各頁都先載入的共用字典（路徑相對於 dir）。 */
+function checkTool({ dir, dict, html: page = 'index.html', shared = [], locale = 'ko', locales, scripts, styles = [], minHooks, allowSource = () => false, licence = true }) {
+  section(page === 'index.html' ? dir : `${dir}/${page}`);
+  const tool = loadI18N([...shared.map(f => `${dir}/${f}`), `${dir}/${dict}`]);
   const zh = new Set(Object.keys(tool.messages['zh-TW']));
   /* 大多數工具只有「繁中＋原文」兩種語言；room-zip 另外補了韓文，
    * 因此語言清單可以由呼叫端指定。 */
@@ -97,14 +99,15 @@ function checkTool({ dir, dict, locale = 'ko', locales, scripts, styles = [], mi
     check(`zh-TW 與 ${other} 的 {n} 佔位符一致`, badPh.length === 0, `mismatched: ${badPh.join(', ')}`);
   }
 
-  const html = read(`${dir}/index.html`);
+  const html = read(`${dir}/${page}`);
   const htmlKeys = [...html.matchAll(/data-i18n(?:-html|-node|-title|-aria-label|-placeholder|-alt)?="([^"]+)"/g)].map(m => m[1]);
   const unknownHtml = [...new Set(htmlKeys)].filter(k => !zh.has(k));
   check('標記僅引用已知 key', unknownHtml.length === 0, `unknown: ${unknownHtml.join(', ')}`);
   check(`標記帶有至少 ${minHooks} 個 i18n 掛勾`, htmlKeys.length >= minHooks, `found ${htmlKeys.length}`);
 
-  check('index.html 載入共用引擎', html.includes('assets/i18n.js'));
-  check('index.html 載入自身字典', html.includes(dict));
+  check(`${page} 載入共用引擎`, html.includes('assets/i18n.js'));
+  check(`${page} 載入自身字典`, html.includes(dict.split('/').pop()));
+  for (const f of shared) check(`${page} 載入共用字典 ${f}`, html.includes(f.replace(/^(\.\.\/)+/, '')));
   check('html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(html));
 
   const titleMatch = html.match(/<title>([^<]*)<\/title>/);
@@ -131,8 +134,8 @@ function checkTool({ dir, dict, locale = 'ko', locales, scripts, styles = [], mi
     check(`${file} 無殘留原文`, leaked.length === 0, report(leaked));
   }
 
-  const htmlLeaked = leakedIn(html, 'index.html');
-  check('index.html 無殘留原文', htmlLeaked.length === 0, report(htmlLeaked));
+  const htmlLeaked = leakedIn(html, page);
+  check(`${page} 無殘留原文`, htmlLeaked.length === 0, report(htmlLeaked));
 
   for (const file of styles) {
     const src = read(`${dir}/${file}`);
@@ -1321,6 +1324,78 @@ const ceApp = read('vendor/ccfolia-character-editor/src/App.tsx');
 check('訊息以 isError 判定，而非比對譯文內容',
   ceApp.includes('isError: boolean') && !/Message\.includes\(|Message\.includes\s*\(/.test(ceApp)
   && !ceApp.includes('parseMessage.includes('));
+
+/* ---- trpg-lab（違法建築的 TRPG 實驗室）---- */
+/* 合輯裡頁數最多的工具：一個目錄裝了 hub（index.html）、九個工具頁、第三方授權頁，
+ * 以及 trpg_map_maker/ 底下的地圖清單與地圖編輯器。每頁一份字典，頁首、頁尾與說明
+ * 視窗底下的授權連結等共用字串放在 i18n.trpg-lab.js，各頁先載入它。
+ *
+ * 上游的註解維持日文（map_editor.js 一檔就有上千行），理由與 height-board、room-zip
+ * 相同；規則也相同：把註解抹成空白之後，程式碼與標記裡不准再出現假名。 */
+const LAB = 'tools/trpg-lab';
+const LAB_PAGES = [
+  { html: 'index.html', scripts: ['index.js', 'common.js'], styles: ['index.css', 'common.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'coc7_dice.html', scripts: ['coc7_dice.js'], styles: ['coc7_dice.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'coc7_Investigator_sheet.html', scripts: ['coc7_Investigator_sheet.js'], styles: ['coc7_Investigator_sheet.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'coc_npc_token.html', scripts: ['coc_npc_token.js'], styles: ['coc_npc_token.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'damage_sum.html', scripts: ['damage_sum.js'], styles: ['damage_sum.css'], hooks: 0, inline: 0, attrs: 0, standalone: true },
+  { html: 'grid_maker.html', scripts: ['grid_maker.js'], styles: ['grid_maker.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'grid_ruler.html', scripts: ['grid_ruler.js'], styles: ['grid_ruler.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'hex_maker.html', scripts: ['hex_maker.js'], styles: ['hex_maker.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'hex_ruler.html', scripts: ['hex_ruler.js'], styles: ['hex_ruler.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'third-party-licenses.html', scripts: [], styles: ['third-party-licenses.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'trpg_map_maker/map_list.html', scripts: ['trpg_map_maker/map_list.js', 'trpg_map_maker/map_storage.js'],
+    styles: ['trpg_map_maker/map_list.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'trpg_map_maker/map_editor.html', scripts: ['trpg_map_maker/map_editor.js', 'trpg_map_maker/map_grid.js'],
+    styles: ['trpg_map_maker/map_editor.css'], hooks: 0, inline: 0, attrs: 0 },
+];
+const labDict = page => page.html.replace(/[^/]+\.html$/, f => `i18n.${f.replace(/\.html$/, '')}.js`);
+const labDicts = page => [...(page.standalone ? [] : [`${LAB}/i18n.trpg-lab.js`]), `${LAB}/${labDict(page)}`];
+
+const LAB_KINDS = {};
+for (const page of LAB_PAGES) {
+  LAB_KINDS[page.html] = 'html';
+  for (const f of page.scripts) LAB_KINDS[f] = 'js';
+  for (const f of page.styles) LAB_KINDS[f] = 'css';
+}
+const labCode = Object.fromEntries(Object.entries(LAB_KINDS)
+  .map(([file, kind]) => [file, stripComments(read(`${LAB}/${file}`), kind).split('\n')]));
+const labAllow = (line, lineNo, file) => {
+  const code = labCode[file];
+  return !!code && !KANA.test(code[lineNo - 1] || '');
+};
+
+const labTools = LAB_PAGES.map(page => ({ page, tool: checkTool({
+  dir: LAB,
+  html: page.html,
+  dict: labDict(page),
+  shared: page.standalone ? [] : ['i18n.trpg-lab.js'],
+  locale: 'ja',
+  scripts: page.scripts,
+  styles: page.styles,
+  minHooks: page.hooks,
+  allowSource: labAllow,
+  licence: page.html === 'index.html'
+}) }));
+
+section('tools/trpg-lab');
+const labFiles = listFiles(LAB).map(f => f.replace(`${LAB}/`, ''));
+/* 上游只在 ihoukentiku.github.io 上載入 gtag；收錄版整組拿掉，連同只在說明分析的
+ * 隱私權政策頁。 */
+check('trpg-lab 沒有任何存取分析',
+  !labFiles.some(f => /analytics|googlead|privacy-policy/.test(f))
+  && !labFiles.filter(f => /\.(html|js)$/.test(f)).some(f => /gtag|googletagmanager|analytics\.js/.test(read(`${LAB}/${f}`))));
+/* 作者在授權頁保留了自製素材的權利（間取り図 SVG、AI 生成的貼圖），擲骰音效出自
+ * ニコニ・コモンズ；這些都不收。 */
+const LAB_FLOORPLAN = ['fp-door', 'fp-door-large', 'fp-door-open', 'fp-door-double-open', 'bed_single', 'bed_double',
+  'bed_queen', 'chair', 'toilet', 'table_4', 'table_chair_6', 'kitchen', 'window_single', 'window_double', 'stairs_straight'];
+check('trpg-lab 不收作者保留權利的素材',
+  !labFiles.some(f => f.startsWith('trpg_map_maker/patterns/') || /\.(webp|wav|mp3|ico)$/.test(f)
+    || LAB_FLOORPLAN.some(n => f === `trpg_map_maker/decors/svg/${n}.svg`)));
+check('trpg-lab 收了 56 個可再散布的裝飾 SVG',
+  labFiles.filter(f => f.startsWith('trpg_map_maker/decors/svg/')).length === 56);
+check('trpg-lab 各頁都走相對路徑（沒有指向站台根目錄的連結）',
+  LAB_PAGES.every(p => !/(?:href|src)="\/(?!\/)/.test(read(`${LAB}/${p.html}`))));
 
 /* ---- PC 字型挑選器 ---- */
 /* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
