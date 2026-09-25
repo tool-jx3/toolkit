@@ -1336,13 +1336,13 @@ const LAB = 'tools/trpg-lab';
 const LAB_PAGES = [
   { html: 'index.html', scripts: ['index.js', 'common.js'], styles: ['index.css', 'common.css'], hooks: 23, inline: 10, attrs: 9 },
   { html: 'coc7_dice.html', scripts: ['coc7_dice.js'], styles: ['coc7_dice.css'], hooks: 42, inline: 7, attrs: 27 },
-  { html: 'coc7_Investigator_sheet.html', scripts: ['coc7_Investigator_sheet.js'], styles: ['coc7_Investigator_sheet.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'coc7_Investigator_sheet.html', scripts: ['coc7_Investigator_sheet.js'], styles: ['coc7_Investigator_sheet.css'], hooks: 140, inline: 135, attrs: 3 },
   { html: 'coc_npc_token.html', scripts: ['coc_npc_token.js'], styles: ['coc_npc_token.css'], hooks: 48, inline: 32, attrs: 4 },
   { html: 'damage_sum.html', scripts: ['damage_sum.js'], styles: ['damage_sum.css'], hooks: 9, inline: 7, attrs: 2, standalone: true },
   { html: 'grid_maker.html', scripts: ['grid_maker.js'], styles: ['grid_maker.css'], hooks: 71, inline: 68, attrs: 1 },
   { html: 'grid_ruler.html', scripts: ['grid_ruler.js'], styles: ['grid_ruler.css'], hooks: 69, inline: 64, attrs: 2 },
-  { html: 'hex_maker.html', scripts: ['hex_maker.js'], styles: ['hex_maker.css'], hooks: 0, inline: 0, attrs: 0 },
-  { html: 'hex_ruler.html', scripts: ['hex_ruler.js'], styles: ['hex_ruler.css'], hooks: 0, inline: 0, attrs: 0 },
+  { html: 'hex_maker.html', scripts: ['hex_maker.js'], styles: ['hex_maker.css'], hooks: 85, inline: 80, attrs: 1 },
+  { html: 'hex_ruler.html', scripts: ['hex_ruler.js'], styles: ['hex_ruler.css'], hooks: 70, inline: 63, attrs: 2 },
   { html: 'third-party-licenses.html', scripts: [], styles: ['third-party-licenses.css'], hooks: 45, inline: 38, attrs: 4 },
   { html: 'trpg_map_maker/map_list.html', scripts: ['trpg_map_maker/map_list.js', 'trpg_map_maker/map_storage.js'],
     styles: ['trpg_map_maker/map_list.css'], hooks: 0, inline: 0, attrs: 0 },
@@ -1589,6 +1589,17 @@ check('main-tweet 的字型清單沿用 2p-simple 的那一份',
 /* text-path：畫格線預覽與版面都要把繁中字型排在韓文字型前面。 */
 const tpCss = read('tools/text-path/styles.css');
 checkCss2Url('text-path @import', tpCss);
+
+/* trpg-lab：介面是繁中時改用 Noto Sans TC（common.css 依 <html lang> 切換），每頁的
+ * Google Fonts 連結都要一起載入它，字重也要真的存在。 */
+for (const page of LAB_PAGES) {
+  const html = read(`${LAB}/${page.html}`);
+  const links = [...html.matchAll(/href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&'));
+  check(`trpg-lab ${page.html} 載入 Noto Sans TC`, links.some(u => u.includes('family=Noto+Sans+TC')));
+  links.forEach((u, i) => checkCss2Url(`trpg-lab ${page.html} 字型連結 ${i + 1}`, u));
+}
+check('trpg-lab 的介面字型在繁中時改用 Noto Sans TC',
+  read(`${LAB}/common.css`).includes(":root:lang(zh) {\n    --font-main: 'Noto Sans TC', 'Noto Sans JP', sans-serif;"));
 check('text-path 的 @import 有 Noto Sans TC', tpCss.includes('Noto+Sans+TC'));
 check('text-path 繁中介面時繁中字型優先',
   /html\[lang\^="zh"\][\s\S]{0,120}'Noto Sans TC',\s*'Noto Sans KR'/.test(tpCss));

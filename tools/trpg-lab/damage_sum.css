@@ -134,3 +134,8 @@ button:hover {
 	font-size: 13px;
 	cursor: pointer;
 }
+
+/* 收錄版：介面是繁中時改用 Noto Sans TC（Noto Sans JP 的漢字是日文字形）。 */
+:root:lang(zh) body {
+	font-family: "Noto Sans TC", "Noto Sans JP", sans-serif;
+}

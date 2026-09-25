@@ -523,7 +523,8 @@ input[type='range']::-moz-range-thumb {
     line-height: 1.6;
 }
 .guide-dl .mi {
-    font-family: 'Material Symbols';
+    /* 收錄版：上游寫成 'Material Symbols'，對不上實際載入的字型，圖示會顯示成英文單字。 */
+    font-family: 'Material Symbols Outlined';
     font-size: 1.05rem;
     color: var(--cyan);
     align-self: start;

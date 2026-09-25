@@ -13,7 +13,7 @@
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
         <!-- TRPGマップ用拡張フォント (テキストツールで選択可能) -->
         <link
-            href="https://fonts.googleapis.com/css2?family=Aoboshi+One&family=Bebas+Neue&family=Cinzel:wght@400;700&family=Dela+Gothic+One&family=DotGothic16&family=Eater&family=Hina+Mincho&family=Kaisei+Decol:wght@400;700&family=Klee+One:wght@400;600&family=M+PLUS+1p:wght@400;700&family=MedievalSharp&family=Mochiy+Pop+One&family=Noto+Serif+JP:wght@400;700&family=Orbitron:wght@400;700&family=Pirata+One&family=Reggae+One&family=Sawarabi+Gothic&family=Sawarabi+Mincho&family=Shippori+Mincho:wght@400;700&family=Special+Elite&family=Stick&family=UnifrakturMaguntia&family=Yomogi&family=Yuji+Boku&family=Yuji+Syuku&family=Yusei+Magic&family=Zen+Kaku+Gothic+New:wght@400;700&family=Zen+Kurenaido&family=Zen+Maru+Gothic:wght@400;700&family=Zen+Old+Mincho:wght@400;700&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Aoboshi+One&family=Bebas+Neue&family=Cinzel:wght@400;700&family=Dela+Gothic+One&family=DotGothic16&family=Eater&family=Hina+Mincho&family=Kaisei+Decol:wght@400;700&family=Klee+One:wght@400;600&family=M+PLUS+1p:wght@400;700&family=MedievalSharp&family=Mochiy+Pop+One&family=Noto+Serif+JP:wght@400;700&family=Orbitron:wght@400;700&family=Pirata+One&family=Reggae+One&family=Sawarabi+Gothic&family=Sawarabi+Mincho&family=Shippori+Mincho:wght@400;700&family=Special+Elite&family=Stick&family=UnifrakturMaguntia&family=Yomogi&family=Yuji+Boku&family=Yuji+Syuku&family=Yusei+Magic&family=Zen+Kaku+Gothic+New:wght@400;700&family=Zen+Kurenaido&family=Zen+Maru+Gothic:wght@400;700&family=Zen+Old+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&family=LXGW+WenKai+TC:wght@400;700&family=Chocolate+Classical+Sans&family=Cactus+Classical+Serif&display=swap"
             rel="stylesheet"
         />
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
@@ -30,34 +30,34 @@
         <main id="main">
             <!-- ツールバー -->
             <div id="toolbar">
-                <button class="tb-btn" data-tool="settings" title="設定"><span class="material-symbols-outlined fill">settings</span><span class="tb-label">設定</span></button>
+                <button class="tb-btn" data-tool="settings" data-i18n-title="tool.settings" title="設定"><span class="material-symbols-outlined fill">settings</span><span class="tb-label" data-i18n="tool.settings">設定</span></button>
                 <div class="tb-sep"></div>
-                <button class="tb-btn active" data-tool="select" title="選択 (V)"><span class="material-symbols-outlined fill">near_me</span><span class="tb-label">選択</span></button>
+                <button class="tb-btn active" data-tool="select" data-i18n-title="tool.selectTip" title="選取 (V)"><span class="material-symbols-outlined fill">near_me</span><span class="tb-label" data-i18n="tool.select">選取</span></button>
                 <div class="tb-sep"></div>
                 <!-- 基本図形 -->
-                <button class="tb-btn" data-tool="cell" data-mode="simple" title="セル塗り (B)"><span class="material-symbols-outlined">crossword</span><span class="tb-label">セル</span></button>
-                <button class="tb-btn" data-tool="rect" data-mode="simple" title="矩形 (R)"><span class="material-symbols-outlined">crop_square</span><span class="tb-label">矩形</span></button>
-                <button class="tb-btn" data-tool="ellipse" data-mode="simple" title="楕円 (E)"><span class="material-symbols-outlined">circle</span><span class="tb-label">楕円</span></button>
-                <button class="tb-btn" data-tool="line" data-mode="simple" title="直線 (L)"><span class="material-symbols-outlined">horizontal_rule</span><span class="tb-label">直線</span></button>
-                <button class="tb-btn" data-tool="path" data-mode="simple" title="折線 (P)"><span class="material-symbols-outlined">timeline</span><span class="tb-label">折線</span></button>
-                <button class="tb-btn" data-tool="polygon" data-mode="simple" title="多角形 (G)"><span class="material-symbols-outlined">pentagon</span><span class="tb-label">多角形</span></button>
-                <button class="tb-btn" data-tool="curve" data-mode="simple" title="曲線 (C)"><span class="material-symbols-outlined">conversion_path</span><span class="tb-label">曲線</span></button>
-                <button class="tb-btn" data-tool="curve-closed" data-mode="simple" title="閉曲線 (Shift+C)">
-                    <span class="material-symbols-outlined">all_inclusive</span><span class="tb-label">閉曲線</span>
+                <button class="tb-btn" data-tool="cell" data-mode="simple" data-i18n-title="tool.cellTip" title="格子填色 (B)"><span class="material-symbols-outlined">crossword</span><span class="tb-label" data-i18n="tool.cell">格子</span></button>
+                <button class="tb-btn" data-tool="rect" data-mode="simple" data-i18n-title="tool.rectTip" title="矩形 (R)"><span class="material-symbols-outlined">crop_square</span><span class="tb-label" data-i18n="tool.rect">矩形</span></button>
+                <button class="tb-btn" data-tool="ellipse" data-mode="simple" data-i18n-title="tool.ellipseTip" title="橢圓 (E)"><span class="material-symbols-outlined">circle</span><span class="tb-label" data-i18n="tool.ellipse">橢圓</span></button>
+                <button class="tb-btn" data-tool="line" data-mode="simple" data-i18n-title="tool.lineTip" title="直線 (L)"><span class="material-symbols-outlined">horizontal_rule</span><span class="tb-label" data-i18n="tool.line">直線</span></button>
+                <button class="tb-btn" data-tool="path" data-mode="simple" data-i18n-title="tool.pathTip" title="折線 (P)"><span class="material-symbols-outlined">timeline</span><span class="tb-label" data-i18n="tool.path">折線</span></button>
+                <button class="tb-btn" data-tool="polygon" data-mode="simple" data-i18n-title="tool.polygonTip" title="多邊形 (G)"><span class="material-symbols-outlined">pentagon</span><span class="tb-label" data-i18n="tool.polygon">多邊形</span></button>
+                <button class="tb-btn" data-tool="curve" data-mode="simple" data-i18n-title="tool.curveTip" title="曲線 (C)"><span class="material-symbols-outlined">conversion_path</span><span class="tb-label" data-i18n="tool.curve">曲線</span></button>
+                <button class="tb-btn" data-tool="curve-closed" data-mode="simple" data-i18n-title="tool.curveClosedTip" title="封閉曲線 (Shift+C)">
+                    <span class="material-symbols-outlined">all_inclusive</span><span class="tb-label" data-i18n="tool.curveClosed">封閉曲線</span>
                 </button>
                 <div class="tb-sep"></div>
                 <!-- 地図 -->
-                <button class="tb-btn" data-tool="ground" data-mode="map" title="地面"><span class="material-symbols-outlined">landscape</span><span class="tb-label">地面</span></button>
-                <button class="tb-btn" data-tool="wall" data-mode="map" title="壁"><span class="material-symbols-outlined">outdoor_garden</span><span class="tb-label">壁</span></button>
-                <button class="tb-btn" data-tool="room" data-mode="map" title="部屋"><span class="material-symbols-outlined">home</span><span class="tb-label">部屋</span></button>
-                <button class="tb-btn" data-tool="decor" data-mode="map" title="装飾"><span class="material-symbols-outlined">chair</span><span class="tb-label">装飾</span></button>
+                <button class="tb-btn" data-tool="ground" data-mode="map" data-i18n-title="tool.ground" title="地面"><span class="material-symbols-outlined">landscape</span><span class="tb-label" data-i18n="tool.ground">地面</span></button>
+                <button class="tb-btn" data-tool="wall" data-mode="map" data-i18n-title="tool.wall" title="牆壁"><span class="material-symbols-outlined">outdoor_garden</span><span class="tb-label" data-i18n="tool.wall">牆壁</span></button>
+                <button class="tb-btn" data-tool="room" data-mode="map" data-i18n-title="tool.room" title="房間"><span class="material-symbols-outlined">home</span><span class="tb-label" data-i18n="tool.room">房間</span></button>
+                <button class="tb-btn" data-tool="decor" data-mode="map" data-i18n-title="tool.decor" title="裝飾"><span class="material-symbols-outlined">chair</span><span class="tb-label" data-i18n="tool.decor">裝飾</span></button>
                 <div class="tb-sep"></div>
                 <!-- 共通 -->
-                <button class="tb-btn" data-tool="freehand" title="フリーハンド (D)"><span class="material-symbols-outlined">draw</span><span class="tb-label">自由線</span></button>
-                <button class="tb-btn" data-tool="text" title="テキスト (T)"><span class="material-symbols-outlined">title</span><span class="tb-label">文字</span></button>
-                <button class="tb-btn" data-tool="image" title="画像 (I)"><span class="material-symbols-outlined">image</span><span class="tb-label">画像</span></button>
+                <button class="tb-btn" data-tool="freehand" data-i18n-title="tool.freehandTip" title="手繪 (D)"><span class="material-symbols-outlined">draw</span><span class="tb-label" data-i18n="tool.freehandShort">自由線</span></button>
+                <button class="tb-btn" data-tool="text" data-i18n-title="tool.textTip" title="文字 (T)"><span class="material-symbols-outlined">title</span><span class="tb-label" data-i18n="tool.textShort">文字</span></button>
+                <button class="tb-btn" data-tool="image" data-i18n-title="tool.imageTip" title="圖片 (I)"><span class="material-symbols-outlined">image</span><span class="tb-label" data-i18n="tool.image">圖片</span></button>
                 <div class="tb-sep"></div>
-                <button class="tb-btn" id="tb-export" title="画像出力"><span class="material-symbols-outlined">download</span><span class="tb-label">出力</span></button>
+                <button class="tb-btn" id="tb-export" data-i18n-title="tool.exportTip" title="匯出圖片"><span class="material-symbols-outlined">download</span><span class="tb-label" data-i18n="tool.export">匯出</span></button>
             </div>
 
             <!-- プロパティパネル -->
@@ -65,77 +65,77 @@
                 <!-- 設定 -->
                 <div class="prop-group" data-prop="settings">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">grid_4x4</span>グリッド</div>
+                        <div class="s-ttl" data-i18n-node="set.grid"><span class="material-symbols-outlined">grid_4x4</span>網格</div>
                         <div class="f">
-                            <label class="tog"><input type="checkbox" id="grid-visible" checked /><span class="tl">グリッドを表示</span></label>
+                            <label class="tog"><input type="checkbox" id="grid-visible" checked /><span class="tl" data-i18n="set.gridVisible">顯示網格</span></label>
                         </div>
                         <div class="f">
-                            <span class="fl">色</span>
+                            <span class="fl" data-i18n="common.color">顏色</span>
                             <div id="grid-color-picker"></div>
                         </div>
                         <div class="f">
-                            <span class="fl">太さ</span>
+                            <span class="fl" data-i18n="set.gridWidth">粗細</span>
                             <div class="row"><input type="number" id="grid-line-width" value="1" min="1" max="10" class="custom-spinner" /><span class="unit">px</span></div>
                         </div>
                         <div class="f">
-                            <span class="fl">線種</span>
+                            <span class="fl" data-i18n="common.lineStyle">線條樣式</span>
                             <div class="seg">
-                                <input type="radio" name="grid-style" id="gs-solid" value="solid" /><label for="gs-solid">実線</label>
-                                <input type="radio" name="grid-style" id="gs-dash" value="dashed" checked /><label for="gs-dash">破線</label>
-                                <input type="radio" name="grid-style" id="gs-dot" value="dotted" /><label for="gs-dot">点線</label>
+                                <input type="radio" name="grid-style" id="gs-solid" value="solid" /><label for="gs-solid" data-i18n="common.solid">實線</label>
+                                <input type="radio" name="grid-style" id="gs-dash" value="dashed" checked /><label for="gs-dash" data-i18n="common.dashed">虛線</label>
+                                <input type="radio" name="grid-style" id="gs-dot" value="dotted" /><label for="gs-dot" data-i18n="common.dotted">點線</label>
                             </div>
                         </div>
                     </div>
                     <!-- スナップ設定 (設定タブにのみ表示) -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">grid_goldenratio</span>スナップ</div>
+                        <div class="s-ttl" data-i18n-node="set.snap"><span class="material-symbols-outlined">grid_goldenratio</span>吸附</div>
                         <div class="f">
                             <label class="tog"
-                                ><input type="checkbox" id="snap-enabled" checked /><span class="tl"
-                                    >スナップ有効 <kbd style="font-size: 0.6rem; opacity: 0.5; margin-left: 0.3rem">Shift: 一時無効</kbd></span
+                                ><input type="checkbox" id="snap-enabled" checked /><span class="tl" data-i18n-node="set.snapEnabled"
+                                    >啟用吸附 <kbd style="font-size: 0.6rem; opacity: 0.5; margin-left: 0.3rem" data-i18n="set.snapShift">Shift：暫時停用</kbd></span
                                 ></label
                             >
                         </div>
                         <div id="snap-targets">
                             <div class="f">
-                                <label class="tog"><input type="checkbox" id="snap-intersection" checked /><span class="tl">交点 (格子点)</span></label>
+                                <label class="tog"><input type="checkbox" id="snap-intersection" checked /><span class="tl" data-i18n="set.snapIntersection">交點（格點）</span></label>
                             </div>
                             <div class="f">
-                                <label class="tog"><input type="checkbox" id="snap-center" checked /><span class="tl">セル中心</span></label>
+                                <label class="tog"><input type="checkbox" id="snap-center" checked /><span class="tl" data-i18n="set.snapCenter">格子中心</span></label>
                             </div>
                             <div class="f">
-                                <label class="tog"><input type="checkbox" id="snap-midpoint" checked /><span class="tl">辺の中点</span></label>
+                                <label class="tog"><input type="checkbox" id="snap-midpoint" checked /><span class="tl" data-i18n="set.snapMidpoint">邊的中點</span></label>
                             </div>
                         </div>
                     </div>
                     <!-- 自動保存 -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">save</span>保存</div>
+                        <div class="s-ttl" data-i18n-node="set.save"><span class="material-symbols-outlined">save</span>儲存</div>
                         <div class="f">
-                            <label class="tog"><input type="checkbox" id="auto-save-enabled" checked /><span class="tl">自動保存</span></label>
+                            <label class="tog"><input type="checkbox" id="auto-save-enabled" checked /><span class="tl" data-i18n="set.autoSave">自動儲存</span></label>
                         </div>
                     </div>
                 </div>
                 <!-- 選択ツール -->
                 <div class="prop-group active" data-prop="select">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined fill">near_me</span>選択ツール</div>
+                        <div class="s-ttl" data-i18n-node="sel.title"><span class="material-symbols-outlined fill">near_me</span>選取工具</div>
                         <div id="sel-info" class="s-sub-body">
-                            <p class="fl" style="opacity: 0.5" id="sel-none">オブジェクトを選択してください</p>
+                            <p class="fl" style="opacity: 0.5" id="sel-none" data-i18n="sel.none">請選取物件</p>
                         </div>
                     </div>
                 </div>
                 <!-- セル塗り -->
                 <div class="prop-group" data-prop="cell">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">crossword</span>セル塗り</div>
+                        <div class="s-ttl" data-i18n-node="tool.cellPaint"><span class="material-symbols-outlined">crossword</span>格子填色</div>
                         <div id="cell-tools-block">
                             <div class="tool-tiles" id="cell-tool-tiles">
-                                <div class="tool-tile active" data-cell-tool="pen" title="ペン"><span class="material-symbols-outlined">edit</span><span>ペン</span></div>
-                                <div class="tool-tile" data-cell-tool="eraser" title="消しゴム"><i class="fa-solid fa-eraser"></i><span>消しゴム</span></div>
-                                <div class="tool-tile" data-cell-tool="fill" title="塗りつぶし"><span class="material-symbols-outlined">format_color_fill</span><span>塗潰し</span></div>
-                                <div class="tool-tile" data-cell-action="add-layer" title="セルレイヤーを追加">
-                                    <span class="material-symbols-outlined">add</span><span>レイヤーを<br />追加</span>
+                                <div class="tool-tile active" data-cell-tool="pen" data-i18n-title="tile.pen" title="畫筆"><span class="material-symbols-outlined">edit</span><span data-i18n="tile.pen">畫筆</span></div>
+                                <div class="tool-tile" data-cell-tool="eraser" data-i18n-title="tile.eraser" title="橡皮擦"><i class="fa-solid fa-eraser"></i><span data-i18n="tile.eraser">橡皮擦</span></div>
+                                <div class="tool-tile" data-cell-tool="fill" data-i18n-title="tile.fill" title="填滿"><span class="material-symbols-outlined">format_color_fill</span><span data-i18n="tile.fillShort">填滿</span></div>
+                                <div class="tool-tile" data-cell-action="add-layer" data-i18n-title="tile.addCellLayer" title="新增格子圖層">
+                                    <span class="material-symbols-outlined">add</span><span data-i18n-html="tile.addLayer">新增<br />圖層</span>
                                 </div>
                             </div>
                         </div>
@@ -144,79 +144,79 @@
                 <!-- 矩形 -->
                 <div class="prop-group" data-prop="rect">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">crop_square</span>矩形</div>
+                        <div class="s-ttl" data-i18n-node="tool.rect"><span class="material-symbols-outlined">crop_square</span>矩形</div>
                     </div>
                 </div>
                 <!-- 楕円 -->
                 <div class="prop-group" data-prop="ellipse">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">circle</span>楕円</div>
+                        <div class="s-ttl" data-i18n-node="tool.ellipse"><span class="material-symbols-outlined">circle</span>橢圓</div>
                     </div>
                 </div>
                 <!-- 直線 -->
                 <div class="prop-group" data-prop="line">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">horizontal_rule</span>直線</div>
+                        <div class="s-ttl" data-i18n-node="tool.line"><span class="material-symbols-outlined">horizontal_rule</span>直線</div>
                     </div>
                 </div>
                 <!-- 折線 -->
                 <div class="prop-group" data-prop="path">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">timeline</span>折線 (ポリライン)</div>
+                        <div class="s-ttl" data-i18n-node="prop.path"><span class="material-symbols-outlined">timeline</span>折線（Polyline）</div>
                     </div>
                 </div>
                 <!-- 多角形 -->
                 <div class="prop-group" data-prop="polygon">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">pentagon</span>多角形 (ポリゴン)</div>
+                        <div class="s-ttl" data-i18n-node="prop.polygon"><span class="material-symbols-outlined">pentagon</span>多邊形（Polygon）</div>
                     </div>
                 </div>
                 <!-- 曲線 -->
                 <div class="prop-group" data-prop="curve">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">conversion_path</span>曲線 (ベジェ)</div>
+                        <div class="s-ttl" data-i18n-node="prop.curve"><span class="material-symbols-outlined">conversion_path</span>曲線（貝茲）</div>
                     </div>
                 </div>
                 <!-- 閉曲線 -->
                 <div class="prop-group" data-prop="curve-closed">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">all_inclusive</span>閉曲線 (ベジェ・閉)</div>
+                        <div class="s-ttl" data-i18n-node="prop.curveClosed"><span class="material-symbols-outlined">all_inclusive</span>封閉曲線（貝茲）</div>
                     </div>
                 </div>
                 <!-- 地図モード: 地面 -->
                 <div class="prop-group" data-prop="ground">
                     <!-- 地面: ツール選択 (+ セル時は cell-tools-block が JS で挿入) -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">landscape</span>地面</div>
+                        <div class="s-ttl" data-i18n-node="tool.ground"><span class="material-symbols-outlined">landscape</span>地面</div>
                         <div class="tool-tiles" id="ground-tool-tiles">
-                            <div class="tool-tile" data-ground-tool="cell" title="セル塗り"><span class="material-symbols-outlined">crossword</span><span>セル</span></div>
-                            <div class="tool-tile" data-ground-tool="rect" title="矩形"><span class="material-symbols-outlined">crop_square</span><span>矩形</span></div>
-                            <div class="tool-tile" data-ground-tool="ellipse" title="楕円"><span class="material-symbols-outlined">circle</span><span>楕円</span></div>
-                            <div class="tool-tile" data-ground-tool="polygon" title="多角形"><span class="material-symbols-outlined">pentagon</span><span>多角形</span></div>
-                            <div class="tool-tile" data-ground-tool="curve-closed" title="閉曲線"><span class="material-symbols-outlined">all_inclusive</span><span>閉曲線</span></div>
+                            <div class="tool-tile" data-ground-tool="cell" data-i18n-title="tool.cellPaint" title="格子填色"><span class="material-symbols-outlined">crossword</span><span data-i18n="tool.cell">格子</span></div>
+                            <div class="tool-tile" data-ground-tool="rect" data-i18n-title="tool.rect" title="矩形"><span class="material-symbols-outlined">crop_square</span><span data-i18n="tool.rect">矩形</span></div>
+                            <div class="tool-tile" data-ground-tool="ellipse" data-i18n-title="tool.ellipse" title="橢圓"><span class="material-symbols-outlined">circle</span><span data-i18n="tool.ellipse">橢圓</span></div>
+                            <div class="tool-tile" data-ground-tool="polygon" data-i18n-title="tool.polygon" title="多邊形"><span class="material-symbols-outlined">pentagon</span><span data-i18n="tool.polygon">多邊形</span></div>
+                            <div class="tool-tile" data-ground-tool="curve-closed" data-i18n-title="tool.curveClosed" title="封閉曲線"><span class="material-symbols-outlined">all_inclusive</span><span data-i18n="tool.curveClosed">封閉曲線</span></div>
                         </div>
                     </div>
                     <!-- パターン -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">texture</span>パターン</div>
+                        <div class="s-ttl" data-i18n-node="pat.title"><span class="material-symbols-outlined">texture</span>圖樣</div>
                         <div class="pattern-picker" id="ground-pattern-picker"></div>
                         <div class="s-sub-section collapsible collapsed">
-                            <div class="s-sub-ttl"><span class="material-symbols-outlined">tune</span>パターン詳細<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
+                            <div class="s-sub-ttl" data-i18n-node="pat.detail"><span class="material-symbols-outlined">tune</span>圖樣細節<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
                             <div class="s-sub-body">
                                 <div class="f">
-                                    <span class="fl">オフセットX</span>
+                                    <span class="fl" data-i18n="common.offsetX">偏移 X</span>
                                     <div class="row"><input type="number" id="ground-pattern-offset-x" value="0" class="custom-spinner" /><span class="unit">px</span></div>
                                 </div>
                                 <div class="f">
-                                    <span class="fl">オフセットY</span>
+                                    <span class="fl" data-i18n="common.offsetY">偏移 Y</span>
                                     <div class="row"><input type="number" id="ground-pattern-offset-y" value="0" class="custom-spinner" /><span class="unit">px</span></div>
                                 </div>
                                 <div class="f">
-                                    <span class="fl">回転</span>
+                                    <span class="fl" data-i18n="common.rotation">旋轉</span>
                                     <div class="row"><input type="number" id="ground-pattern-rotation" value="0" min="-360" max="360" class="custom-spinner" /><span class="unit">°</span></div>
                                 </div>
                                 <div class="f">
-                                    <span class="fl">倍率</span>
+                                    <span class="fl" data-i18n="common.scale">縮放</span>
                                     <div class="row"><input type="number" id="ground-pattern-scale" value="100" min="10" max="2000" step="10" class="custom-spinner" /><span class="unit">%</span></div>
                                 </div>
                             </div>
@@ -229,38 +229,38 @@
                 <div class="prop-group" data-prop="wall">
                     <!-- 壁: ツール選択 -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">outdoor_garden</span>壁</div>
+                        <div class="s-ttl" data-i18n-node="tool.wall"><span class="material-symbols-outlined">outdoor_garden</span>牆壁</div>
                         <div class="tool-tiles" id="wall-tool-tiles">
-                            <div class="tool-tile" data-wall-tool="rect" title="矩形"><span class="material-symbols-outlined">crop_square</span><span>矩形</span></div>
-                            <div class="tool-tile" data-wall-tool="ellipse" title="楕円"><span class="material-symbols-outlined">circle</span><span>楕円</span></div>
-                            <div class="tool-tile" data-wall-tool="line" title="直線"><span class="material-symbols-outlined">horizontal_rule</span><span>直線</span></div>
-                            <div class="tool-tile" data-wall-tool="path" title="折線"><span class="material-symbols-outlined">timeline</span><span>折線</span></div>
-                            <div class="tool-tile" data-wall-tool="polygon" title="多角形"><span class="material-symbols-outlined">pentagon</span><span>多角形</span></div>
-                            <div class="tool-tile" data-wall-tool="curve" title="曲線"><span class="material-symbols-outlined">conversion_path</span><span>曲線</span></div>
-                            <div class="tool-tile" data-wall-tool="curve-closed" title="閉曲線"><span class="material-symbols-outlined">all_inclusive</span><span>閉曲線</span></div>
+                            <div class="tool-tile" data-wall-tool="rect" data-i18n-title="tool.rect" title="矩形"><span class="material-symbols-outlined">crop_square</span><span data-i18n="tool.rect">矩形</span></div>
+                            <div class="tool-tile" data-wall-tool="ellipse" data-i18n-title="tool.ellipse" title="橢圓"><span class="material-symbols-outlined">circle</span><span data-i18n="tool.ellipse">橢圓</span></div>
+                            <div class="tool-tile" data-wall-tool="line" data-i18n-title="tool.line" title="直線"><span class="material-symbols-outlined">horizontal_rule</span><span data-i18n="tool.line">直線</span></div>
+                            <div class="tool-tile" data-wall-tool="path" data-i18n-title="tool.path" title="折線"><span class="material-symbols-outlined">timeline</span><span data-i18n="tool.path">折線</span></div>
+                            <div class="tool-tile" data-wall-tool="polygon" data-i18n-title="tool.polygon" title="多邊形"><span class="material-symbols-outlined">pentagon</span><span data-i18n="tool.polygon">多邊形</span></div>
+                            <div class="tool-tile" data-wall-tool="curve" data-i18n-title="tool.curve" title="曲線"><span class="material-symbols-outlined">conversion_path</span><span data-i18n="tool.curve">曲線</span></div>
+                            <div class="tool-tile" data-wall-tool="curve-closed" data-i18n-title="tool.curveClosed" title="封閉曲線"><span class="material-symbols-outlined">all_inclusive</span><span data-i18n="tool.curveClosed">封閉曲線</span></div>
                         </div>
                     </div>
                     <!-- パターン -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">texture</span>パターン</div>
+                        <div class="s-ttl" data-i18n-node="pat.title"><span class="material-symbols-outlined">texture</span>圖樣</div>
                         <div class="pattern-picker" id="wall-pattern-picker"></div>
                         <div class="s-sub-section collapsible collapsed">
-                            <div class="s-sub-ttl"><span class="material-symbols-outlined">tune</span>パターン詳細<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
+                            <div class="s-sub-ttl" data-i18n-node="pat.detail"><span class="material-symbols-outlined">tune</span>圖樣細節<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
                             <div class="s-sub-body">
                                 <div class="f">
-                                    <span class="fl">オフセットX</span>
+                                    <span class="fl" data-i18n="common.offsetX">偏移 X</span>
                                     <div class="row"><input type="number" id="wall-pattern-offset-x" value="0" class="custom-spinner" /><span class="unit">px</span></div>
                                 </div>
                                 <div class="f">
-                                    <span class="fl">オフセットY</span>
+                                    <span class="fl" data-i18n="common.offsetY">偏移 Y</span>
                                     <div class="row"><input type="number" id="wall-pattern-offset-y" value="0" class="custom-spinner" /><span class="unit">px</span></div>
                                 </div>
                                 <div class="f">
-                                    <span class="fl">回転</span>
+                                    <span class="fl" data-i18n="common.rotation">旋轉</span>
                                     <div class="row"><input type="number" id="wall-pattern-rotation" value="0" min="-360" max="360" class="custom-spinner" /><span class="unit">°</span></div>
                                 </div>
                                 <div class="f">
-                                    <span class="fl">倍率</span>
+                                    <span class="fl" data-i18n="common.scale">縮放</span>
                                     <div class="row"><input type="number" id="wall-pattern-scale" value="100" min="10" max="2000" step="10" class="custom-spinner" /><span class="unit">%</span></div>
                                 </div>
                             </div>
@@ -272,42 +272,42 @@
                 <!-- 地図モード: 部屋 -->
                 <div class="prop-group" data-prop="room">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">home</span>部屋</div>
+                        <div class="s-ttl" data-i18n-node="tool.room"><span class="material-symbols-outlined">home</span>房間</div>
                         <div class="tool-tiles" id="room-tool-tiles">
-                            <div class="tool-tile" data-room-tool="rect" title="矩形"><span class="material-symbols-outlined">crop_square</span><span>矩形</span></div>
-                            <div class="tool-tile" data-room-tool="ellipse" title="楕円"><span class="material-symbols-outlined">circle</span><span>楕円</span></div>
-                            <div class="tool-tile" data-room-tool="polygon" title="多角形"><span class="material-symbols-outlined">pentagon</span><span>多角形</span></div>
-                            <div class="tool-tile" data-room-tool="curve-closed" title="閉曲線"><span class="material-symbols-outlined">all_inclusive</span><span>閉曲線</span></div>
-                            <div class="tool-tile" data-room-tool="path" title="折線 (自動で閉じる)"><span class="material-symbols-outlined">timeline</span><span>折線</span></div>
-                            <div class="tool-tile" data-room-tool="curve" title="曲線 (自動で閉じる)"><span class="material-symbols-outlined">conversion_path</span><span>曲線</span></div>
+                            <div class="tool-tile" data-room-tool="rect" data-i18n-title="tool.rect" title="矩形"><span class="material-symbols-outlined">crop_square</span><span data-i18n="tool.rect">矩形</span></div>
+                            <div class="tool-tile" data-room-tool="ellipse" data-i18n-title="tool.ellipse" title="橢圓"><span class="material-symbols-outlined">circle</span><span data-i18n="tool.ellipse">橢圓</span></div>
+                            <div class="tool-tile" data-room-tool="polygon" data-i18n-title="tool.polygon" title="多邊形"><span class="material-symbols-outlined">pentagon</span><span data-i18n="tool.polygon">多邊形</span></div>
+                            <div class="tool-tile" data-room-tool="curve-closed" data-i18n-title="tool.curveClosed" title="封閉曲線"><span class="material-symbols-outlined">all_inclusive</span><span data-i18n="tool.curveClosed">封閉曲線</span></div>
+                            <div class="tool-tile" data-room-tool="path" data-i18n-title="tile.pathAutoClose" title="折線（自動封閉）"><span class="material-symbols-outlined">timeline</span><span data-i18n="tool.path">折線</span></div>
+                            <div class="tool-tile" data-room-tool="curve" data-i18n-title="tile.curveAutoClose" title="曲線（自動封閉）"><span class="material-symbols-outlined">conversion_path</span><span data-i18n="tool.curve">曲線</span></div>
                         </div>
                     </div>
 
                     <!-- 地面セクション (折りたたみ可) -->
                     <div class="s-sec collapsible">
-                        <div class="s-ttl"><span class="material-symbols-outlined">landscape</span>地面<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
+                        <div class="s-ttl" data-i18n-node="tool.ground"><span class="material-symbols-outlined">landscape</span>地面<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
                         <div class="s-body">
                             <div class="pattern-picker" id="room-ground-pattern-picker"></div>
 
                             <div class="s-sub-section collapsible collapsed">
-                                <div class="s-sub-ttl"><span class="material-symbols-outlined">tune</span>パターン詳細<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
+                                <div class="s-sub-ttl" data-i18n-node="pat.detail"><span class="material-symbols-outlined">tune</span>圖樣細節<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
                                 <div class="s-sub-body">
                                     <div class="f">
-                                        <span class="fl">オフセットX</span>
+                                        <span class="fl" data-i18n="common.offsetX">偏移 X</span>
                                         <div class="row"><input type="number" id="room-ground-pattern-offset-x" value="0" class="custom-spinner" /><span class="unit">px</span></div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">オフセットY</span>
+                                        <span class="fl" data-i18n="common.offsetY">偏移 Y</span>
                                         <div class="row"><input type="number" id="room-ground-pattern-offset-y" value="0" class="custom-spinner" /><span class="unit">px</span></div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">回転</span>
+                                        <span class="fl" data-i18n="common.rotation">旋轉</span>
                                         <div class="row">
                                             <input type="number" id="room-ground-pattern-rotation" value="0" min="-360" max="360" class="custom-spinner" /><span class="unit">°</span>
                                         </div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">倍率</span>
+                                        <span class="fl" data-i18n="common.scale">縮放</span>
                                         <div class="row">
                                             <input type="number" id="room-ground-pattern-scale" value="100" min="10" max="2000" step="10" class="custom-spinner" /><span class="unit">%</span>
                                         </div>
@@ -316,25 +316,25 @@
                             </div>
 
                             <div class="s-sub-section collapsible collapsed">
-                                <div class="s-sub-ttl"><span class="material-symbols-outlined">shadow</span>影<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
+                                <div class="s-sub-ttl" data-i18n-node="common.shadow"><span class="material-symbols-outlined">shadow</span>陰影<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
                                 <div class="s-sub-body">
                                     <div class="f">
-                                        <label class="tog"><input type="checkbox" id="room-ground-shadow-enabled" /><span class="tl">影を付ける</span></label>
+                                        <label class="tog"><input type="checkbox" id="room-ground-shadow-enabled" /><span class="tl" data-i18n="common.addShadow">加上陰影</span></label>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">色</span>
+                                        <span class="fl" data-i18n="common.color">顏色</span>
                                         <div id="room-ground-shadow-color"></div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">ぼかし</span>
+                                        <span class="fl" data-i18n="common.blur">模糊</span>
                                         <div class="row"><input type="number" id="room-ground-shadow-blur" value="8" min="0" max="50" class="custom-spinner" /><span class="unit">px</span></div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">オフセットX</span>
+                                        <span class="fl" data-i18n="common.offsetX">偏移 X</span>
                                         <div class="row"><input type="number" id="room-ground-shadow-offset-x" value="0" min="-50" max="50" class="custom-spinner" /><span class="unit">px</span></div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">オフセットY</span>
+                                        <span class="fl" data-i18n="common.offsetY">偏移 Y</span>
                                         <div class="row"><input type="number" id="room-ground-shadow-offset-y" value="0" min="-50" max="50" class="custom-spinner" /><span class="unit">px</span></div>
                                     </div>
                                 </div>
@@ -344,58 +344,58 @@
 
                     <!-- 壁セクション (折りたたみ可) -->
                     <div class="s-sec collapsible">
-                        <div class="s-ttl"><span class="material-symbols-outlined">outdoor_garden</span>壁<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
+                        <div class="s-ttl" data-i18n-node="tool.wall"><span class="material-symbols-outlined">outdoor_garden</span>牆壁<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
                         <div class="s-body">
                             <div class="pattern-picker" id="room-wall-pattern-picker"></div>
 
                             <div class="f">
-                                <span class="fl">壁の厚み</span>
+                                <span class="fl" data-i18n="common.wallThickness">牆壁厚度</span>
                                 <div class="row"><input type="number" id="room-wall-thickness" value="12" min="1" max="200" class="custom-spinner" /><span class="unit">px</span></div>
                             </div>
                             <div class="f">
-                                <span class="fl">線種</span>
+                                <span class="fl" data-i18n="common.lineStyle">線條樣式</span>
                                 <div class="seg">
-                                    <input type="radio" name="room-wall-stroke-style" id="rwss-solid" value="solid" checked /><label for="rwss-solid">実線</label>
-                                    <input type="radio" name="room-wall-stroke-style" id="rwss-dash" value="dashed" /><label for="rwss-dash">破線</label>
-                                    <input type="radio" name="room-wall-stroke-style" id="rwss-dot" value="dotted" /><label for="rwss-dot">点線</label>
-                                    <input type="radio" name="room-wall-stroke-style" id="rwss-dashdot" value="dashdot" /><label for="rwss-dashdot">一点鎖</label>
-                                    <input type="radio" name="room-wall-stroke-style" id="rwss-longdash" value="longdash" /><label for="rwss-longdash">長破線</label>
+                                    <input type="radio" name="room-wall-stroke-style" id="rwss-solid" value="solid" checked /><label for="rwss-solid" data-i18n="common.solid">實線</label>
+                                    <input type="radio" name="room-wall-stroke-style" id="rwss-dash" value="dashed" /><label for="rwss-dash" data-i18n="common.dashed">虛線</label>
+                                    <input type="radio" name="room-wall-stroke-style" id="rwss-dot" value="dotted" /><label for="rwss-dot" data-i18n="common.dotted">點線</label>
+                                    <input type="radio" name="room-wall-stroke-style" id="rwss-dashdot" value="dashdot" /><label for="rwss-dashdot" data-i18n="common.dashdot">點劃線</label>
+                                    <input type="radio" name="room-wall-stroke-style" id="rwss-longdash" value="longdash" /><label for="rwss-longdash" data-i18n="common.longdash">長虛線</label>
                                 </div>
                             </div>
                             <div class="f">
-                                <span class="fl">線継目</span>
+                                <span class="fl" data-i18n="common.lineJoin">轉角</span>
                                 <select id="room-wall-stroke-line-join">
-                                    <option value="miter">角 (miter)</option>
-                                    <option value="round">丸 (round)</option>
-                                    <option value="bevel">面取 (bevel)</option>
+                                    <option value="miter" data-i18n="join.miter">尖角 (miter)</option>
+                                    <option value="round" data-i18n="join.round">圓角 (round)</option>
+                                    <option value="bevel" data-i18n="join.bevel">斜角 (bevel)</option>
                                 </select>
                             </div>
                             <div class="f">
-                                <span class="fl">線端</span>
+                                <span class="fl" data-i18n="common.lineCap">線端</span>
                                 <select id="room-wall-stroke-line-cap">
-                                    <option value="butt">なし (butt)</option>
-                                    <option value="round">丸 (round)</option>
-                                    <option value="square">角 (square)</option>
+                                    <option value="butt" data-i18n="cap.butt">平頭 (butt)</option>
+                                    <option value="round" data-i18n="cap.round">圓頭 (round)</option>
+                                    <option value="square" data-i18n="cap.square">方頭 (square)</option>
                                 </select>
                             </div>
 
                             <div class="s-sub-section collapsible collapsed">
-                                <div class="s-sub-ttl"><span class="material-symbols-outlined">tune</span>パターン詳細<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
+                                <div class="s-sub-ttl" data-i18n-node="pat.detail"><span class="material-symbols-outlined">tune</span>圖樣細節<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
                                 <div class="s-sub-body">
                                     <div class="f">
-                                        <span class="fl">オフセットX</span>
+                                        <span class="fl" data-i18n="common.offsetX">偏移 X</span>
                                         <div class="row"><input type="number" id="room-wall-pattern-offset-x" value="0" class="custom-spinner" /><span class="unit">px</span></div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">オフセットY</span>
+                                        <span class="fl" data-i18n="common.offsetY">偏移 Y</span>
                                         <div class="row"><input type="number" id="room-wall-pattern-offset-y" value="0" class="custom-spinner" /><span class="unit">px</span></div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">回転</span>
+                                        <span class="fl" data-i18n="common.rotation">旋轉</span>
                                         <div class="row"><input type="number" id="room-wall-pattern-rotation" value="0" min="-360" max="360" class="custom-spinner" /><span class="unit">°</span></div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">倍率</span>
+                                        <span class="fl" data-i18n="common.scale">縮放</span>
                                         <div class="row">
                                             <input type="number" id="room-wall-pattern-scale" value="100" min="10" max="2000" step="10" class="custom-spinner" /><span class="unit">%</span>
                                         </div>
@@ -404,25 +404,25 @@
                             </div>
 
                             <div class="s-sub-section collapsible collapsed">
-                                <div class="s-sub-ttl"><span class="material-symbols-outlined">shadow</span>影<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
+                                <div class="s-sub-ttl" data-i18n-node="common.shadow"><span class="material-symbols-outlined">shadow</span>陰影<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
                                 <div class="s-sub-body">
                                     <div class="f">
-                                        <label class="tog"><input type="checkbox" id="room-wall-shadow-enabled" checked /><span class="tl">影を付ける</span></label>
+                                        <label class="tog"><input type="checkbox" id="room-wall-shadow-enabled" checked /><span class="tl" data-i18n="common.addShadow">加上陰影</span></label>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">色</span>
+                                        <span class="fl" data-i18n="common.color">顏色</span>
                                         <div id="room-wall-shadow-color"></div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">ぼかし</span>
+                                        <span class="fl" data-i18n="common.blur">模糊</span>
                                         <div class="row"><input type="number" id="room-wall-shadow-blur" value="8" min="0" max="50" class="custom-spinner" /><span class="unit">px</span></div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">オフセットX</span>
+                                        <span class="fl" data-i18n="common.offsetX">偏移 X</span>
                                         <div class="row"><input type="number" id="room-wall-shadow-offset-x" value="0" min="-50" max="50" class="custom-spinner" /><span class="unit">px</span></div>
                                     </div>
                                     <div class="f">
-                                        <span class="fl">オフセットY</span>
+                                        <span class="fl" data-i18n="common.offsetY">偏移 Y</span>
                                         <div class="row"><input type="number" id="room-wall-shadow-offset-y" value="0" min="-50" max="50" class="custom-spinner" /><span class="unit">px</span></div>
                                     </div>
                                 </div>
@@ -433,31 +433,31 @@
                 <!-- 地図モード: 装飾 -->
                 <div class="prop-group" data-prop="decor">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">chair</span>装飾</div>
+                        <div class="s-ttl" data-i18n-node="tool.decor"><span class="material-symbols-outlined">chair</span>裝飾</div>
                         <div class="decor-picker" id="decor-picker" style="margin-bottom: 0.7rem"></div>
                         <div class="f">
-                            <span class="fl">サイズ</span>
+                            <span class="fl" data-i18n="common.size">大小</span>
                             <div class="row"><input type="number" id="decor-scale" value="100" min="10" max="1000" step="10" class="custom-spinner" /><span class="unit">%</span></div>
                         </div>
                         <div class="f">
-                            <span class="fl">回転</span>
+                            <span class="fl" data-i18n="common.rotation">旋轉</span>
                             <div class="row"><input type="number" id="decor-rotation" value="0" min="-360" max="360" step="1" class="custom-spinner" /><span class="unit">°</span></div>
                         </div>
                         <div class="f">
-                            <span class="fl">反転</span>
+                            <span class="fl" data-i18n="decor.flip">翻轉</span>
                             <div style="display: flex; gap: 0.8rem">
-                                <label class="tog"><input type="checkbox" id="decor-flip-x" /><span class="tl">水平</span></label>
-                                <label class="tog"><input type="checkbox" id="decor-flip-y" /><span class="tl">垂直</span></label>
+                                <label class="tog"><input type="checkbox" id="decor-flip-x" /><span class="tl" data-i18n="decor.flipX">水平</span></label>
+                                <label class="tog"><input type="checkbox" id="decor-flip-y" /><span class="tl" data-i18n="decor.flipY">垂直</span></label>
                             </div>
                         </div>
                         <!-- SVG 選択時のみ表示 -->
                         <div id="decor-color-sec" style="display: none">
                             <div class="f" id="decor-fill-row">
-                                <span class="fl">フィル</span>
+                                <span class="fl" data-i18n="common.fill">填色</span>
                                 <div id="decor-fill-picker"></div>
                             </div>
                             <div class="f" id="decor-stroke-row">
-                                <span class="fl">ストローク</span>
+                                <span class="fl" data-i18n="common.stroke">描邊</span>
                                 <div id="decor-stroke-picker"></div>
                             </div>
                         </div>
@@ -466,28 +466,28 @@
                 <!-- フリーハンド (Fabric brushes + 圧力検知 + Shift で直線) -->
                 <div class="prop-group" data-prop="freehand">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">draw</span>フリーハンド</div>
+                        <div class="s-ttl" data-i18n-node="tool.freehand"><span class="material-symbols-outlined">draw</span>手繪</div>
                         <div class="tool-tiles" id="freehand-brush-tiles">
-                            <div class="tool-tile active" data-freehand-brush="pencil" title="ペン"><span class="material-symbols-outlined">edit</span><span>ペン</span></div>
+                            <div class="tool-tile active" data-freehand-brush="pencil" data-i18n-title="tile.pen" title="畫筆"><span class="material-symbols-outlined">edit</span><span data-i18n="tile.pen">畫筆</span></div>
                             <!-- ドット (CircleBrush) は一旦非表示。復活させたい時は下行のコメントを外すだけ
                             <div class="tool-tile" data-freehand-brush="circle" title="ドット"><span class="material-symbols-outlined fill">scatter_plot</span><span>ドット</span></div>
                             -->
-                            <div class="tool-tile" data-freehand-brush="spray" title="スプレー"><span class="material-symbols-outlined fill">shower</span><span>スプレー</span></div>
-                            <div class="tool-tile" data-freehand-brush="eraser" title="消しゴム"><i class="fa-solid fa-eraser"></i><span>消しゴム</span></div>
-                            <div class="tool-tile" data-freehand-action="add-layer" title="フリーハンドレイヤーを追加">
-                                <span class="material-symbols-outlined">add</span><span>レイヤーを<br />追加</span>
+                            <div class="tool-tile" data-freehand-brush="spray" data-i18n-title="tile.spray" title="噴槍"><span class="material-symbols-outlined fill">shower</span><span data-i18n="tile.spray">噴槍</span></div>
+                            <div class="tool-tile" data-freehand-brush="eraser" data-i18n-title="tile.eraser" title="橡皮擦"><i class="fa-solid fa-eraser"></i><span data-i18n="tile.eraser">橡皮擦</span></div>
+                            <div class="tool-tile" data-freehand-action="add-layer" data-i18n-title="tile.addFreehandLayer" title="新增手繪圖層">
+                                <span class="material-symbols-outlined">add</span><span data-i18n-html="tile.addLayer">新增<br />圖層</span>
                             </div>
                         </div>
                         <div class="f" id="freehand-color-row">
-                            <span class="fl">色</span>
+                            <span class="fl" data-i18n="common.color">顏色</span>
                             <div id="freehand-color-picker"></div>
                         </div>
                         <div class="f">
-                            <span class="fl">線幅</span>
+                            <span class="fl" data-i18n="common.strokeWidth">線寬</span>
                             <div class="row"><input type="number" id="freehand-width" value="3" min="1" max="100" class="custom-spinner" /><span class="unit">px</span></div>
                         </div>
                         <div class="f">
-                            <span class="fl">平滑化</span>
+                            <span class="fl" data-i18n="freehand.smoothing">平滑化</span>
                             <div class="row"><input type="number" id="freehand-decimation" value="4" min="0" max="20" class="custom-spinner" /><span class="unit">px</span></div>
                         </div>
                     </div>
@@ -495,88 +495,95 @@
                 <!-- テキスト -->
                 <div class="prop-group" data-prop="text">
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">title</span>テキスト</div>
+                        <div class="s-ttl" data-i18n-node="tool.text"><span class="material-symbols-outlined">title</span>文字</div>
                         <div class="f">
-                            <span class="fl">フォント</span
-                            ><select id="text-font">
-                                <optgroup label="ゴシック">
+                            <span class="fl" data-i18n="text.font">字型</span>
+                            <select id="text-font">
+                                <optgroup label="繁體中文" data-label-key="font.group.tc">
+                                    <option value="Noto Sans TC">Noto Sans TC</option>
+                                    <option value="Noto Serif TC">Noto Serif TC</option>
+                                    <option value="LXGW WenKai TC">LXGW WenKai TC</option>
+                                    <option value="Chocolate Classical Sans">Chocolate Classical Sans</option>
+                                    <option value="Cactus Classical Serif">Cactus Classical Serif</option>
+                                </optgroup>
+                                <optgroup label="黑體（日文）" data-label-key="font.group.gothic">
                                     <option value="Noto Sans JP">Noto Sans JP</option>
-                                    <option value="Zen Kaku Gothic New">ZEN 角ゴシック New</option>
-                                    <option value="Sawarabi Gothic">さわらびゴシック</option>
+                                    <option value="Zen Kaku Gothic New" data-i18n="font.zenKaku">Zen Kaku Gothic New</option>
+                                    <option value="Sawarabi Gothic" data-i18n="font.sawarabiGothic">Sawarabi Gothic</option>
                                     <option value="M PLUS 1p">M PLUS 1p</option>
                                 </optgroup>
-                                <optgroup label="明朝">
+                                <optgroup label="明體（日文）" data-label-key="font.group.mincho">
                                     <option value="Noto Serif JP">Noto Serif JP</option>
-                                    <option value="Zen Old Mincho">ZEN オールド明朝</option>
-                                    <option value="Shippori Mincho">しっぽり明朝</option>
-                                    <option value="Sawarabi Mincho">さわらび明朝</option>
-                                    <option value="Hina Mincho">ヒナ明朝</option>
+                                    <option value="Zen Old Mincho" data-i18n="font.zenOldMincho">Zen Old Mincho</option>
+                                    <option value="Shippori Mincho" data-i18n="font.shipporiMincho">Shippori Mincho</option>
+                                    <option value="Sawarabi Mincho" data-i18n="font.sawarabiMincho">Sawarabi Mincho</option>
+                                    <option value="Hina Mincho" data-i18n="font.hinaMincho">Hina Mincho</option>
                                 </optgroup>
-                                <optgroup label="丸ゴシック / ポップ">
-                                    <option value="Zen Maru Gothic">ZEN 丸ゴシック</option>
-                                    <option value="Mochiy Pop One">モッチーポップ</option>
+                                <optgroup label="圓體／流行（日文）" data-label-key="font.group.round">
+                                    <option value="Zen Maru Gothic" data-i18n="font.zenMaru">Zen Maru Gothic</option>
+                                    <option value="Mochiy Pop One" data-i18n="font.mochiy">Mochiy Pop One</option>
                                     <option value="Reggae One">Reggae One</option>
-                                    <option value="Aoboshi One">あおぼし</option>
+                                    <option value="Aoboshi One" data-i18n="font.aoboshi">Aoboshi One</option>
                                 </optgroup>
-                                <optgroup label="楷書 / 手書き">
-                                    <option value="Klee One">クレー One</option>
-                                    <option value="Yomogi">よもぎ</option>
-                                    <option value="Zen Kurenaido">ZEN 紅道</option>
+                                <optgroup label="楷書／手寫（日文）" data-label-key="font.group.hand">
+                                    <option value="Klee One" data-i18n="font.klee">Klee One</option>
+                                    <option value="Yomogi" data-i18n="font.yomogi">Yomogi</option>
+                                    <option value="Zen Kurenaido" data-i18n="font.kurenaido">Zen Kurenaido</option>
                                     <option value="Yuji Syuku">Yuji Syuku</option>
                                     <option value="Yuji Boku">Yuji Boku</option>
-                                    <option value="Yusei Magic">油性マジック</option>
+                                    <option value="Yusei Magic" data-i18n="font.yusei">Yusei Magic</option>
                                 </optgroup>
-                                <optgroup label="装飾 / 特殊">
-                                    <option value="Dela Gothic One">デラゴシックワン</option>
-                                    <option value="Kaisei Decol">解星デコール</option>
-                                    <option value="DotGothic16">ドットゴシック 16</option>
+                                <optgroup label="裝飾／特殊（日文）" data-label-key="font.group.deco">
+                                    <option value="Dela Gothic One" data-i18n="font.dela">Dela Gothic One</option>
+                                    <option value="Kaisei Decol" data-i18n="font.kaisei">Kaisei Decol</option>
+                                    <option value="DotGothic16" data-i18n="font.dotGothic">DotGothic16</option>
                                     <option value="Stick">Stick</option>
                                 </optgroup>
-                                <optgroup label="欧文 / ファンタジー">
+                                <optgroup label="西文／奇幻" data-label-key="font.group.fantasy">
                                     <option value="Cinzel">Cinzel</option>
                                     <option value="MedievalSharp">MedievalSharp</option>
                                     <option value="UnifrakturMaguntia">UnifrakturMaguntia</option>
                                     <option value="Pirata One">Pirata One</option>
                                 </optgroup>
-                                <optgroup label="欧文 / ホラー・SF">
+                                <optgroup label="西文／恐怖・科幻" data-label-key="font.group.horror">
                                     <option value="Special Elite">Special Elite</option>
                                     <option value="Eater">Eater</option>
                                     <option value="Orbitron">Orbitron</option>
                                 </optgroup>
-                                <optgroup label="欧文 / 等幅・モダン">
+                                <optgroup label="西文／等寬・現代" data-label-key="font.group.mono">
                                     <option value="Share Tech Mono">Share Tech Mono</option>
                                     <option value="Bebas Neue">Bebas Neue</option>
                                 </optgroup>
                             </select>
                         </div>
                         <div class="f">
-                            <span class="fl">サイズ</span>
+                            <span class="fl" data-i18n="common.size">大小</span>
                             <div class="row"><input type="number" id="text-size" value="48" min="6" max="500" class="custom-spinner" /><span class="unit">px</span></div>
                         </div>
                         <!-- スタイルトグル (ボールド/イタリック/下線/取消線) — コンパクトサイズ -->
                         <div class="f" id="text-style-row">
-                            <span class="fl">スタイル</span>
+                            <span class="fl" data-i18n="text.style">樣式</span>
                             <div id="text-style-tiles" style="display: grid; grid-template-columns: repeat(4, 24px); gap: 3px">
-                                <div class="tool-tile text-style-mini" data-text-style="bold" title="太字 (Ctrl+B)"><span class="material-symbols-outlined">format_bold</span></div>
-                                <div class="tool-tile text-style-mini" data-text-style="italic" title="斜体 (Ctrl+I)"><span class="material-symbols-outlined">format_italic</span></div>
-                                <div class="tool-tile text-style-mini" data-text-style="underline" title="下線 (Ctrl+U)"><span class="material-symbols-outlined">format_underlined</span></div>
-                                <div class="tool-tile text-style-mini" data-text-style="linethrough" title="取り消し線"><span class="material-symbols-outlined">format_strikethrough</span></div>
+                                <div class="tool-tile text-style-mini" data-text-style="bold" data-i18n-title="text.bold" title="粗體 (Ctrl+B)"><span class="material-symbols-outlined">format_bold</span></div>
+                                <div class="tool-tile text-style-mini" data-text-style="italic" data-i18n-title="text.italic" title="斜體 (Ctrl+I)"><span class="material-symbols-outlined">format_italic</span></div>
+                                <div class="tool-tile text-style-mini" data-text-style="underline" data-i18n-title="text.underline" title="底線 (Ctrl+U)"><span class="material-symbols-outlined">format_underlined</span></div>
+                                <div class="tool-tile text-style-mini" data-text-style="linethrough" data-i18n-title="text.strike" title="刪除線"><span class="material-symbols-outlined">format_strikethrough</span></div>
                             </div>
                         </div>
                     </div>
                     <!-- テキスト専用フィル/ストローク (シンプル描画とは独立) -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined fill">palette</span>色設定</div>
+                        <div class="s-ttl" data-i18n-node="text.colors"><span class="material-symbols-outlined fill">palette</span>顏色設定</div>
                         <div class="f">
-                            <span class="fl">フィル</span>
+                            <span class="fl" data-i18n="common.fill">填色</span>
                             <div id="text-fill-picker"></div>
                         </div>
                         <div class="f">
-                            <span class="fl">ストローク</span>
+                            <span class="fl" data-i18n="common.stroke">描邊</span>
                             <div id="text-stroke-picker"></div>
                         </div>
                         <div class="f">
-                            <span class="fl">線幅</span>
+                            <span class="fl" data-i18n="common.strokeWidth">線寬</span>
                             <div class="row"><input type="number" id="text-stroke-width" value="0" min="0" max="100" class="custom-spinner" /><span class="unit">px</span></div>
                         </div>
                     </div>
@@ -585,58 +592,58 @@
                 <input type="file" id="image-upload" accept="image/*" style="display: none" />
                 <!-- フィル / ストローク -->
                 <div id="fill-stroke-sec" class="s-sec" style="display: none">
-                    <div class="s-ttl" id="fill-stroke-title"><span class="material-symbols-outlined fill">palette</span>フィル / ストローク</div>
+                    <div class="s-ttl" id="fill-stroke-title" data-i18n-node="fs.title"><span class="material-symbols-outlined fill">palette</span>填色／描邊</div>
                     <div class="f" id="fill-color-row">
-                        <span class="fl">フィル</span>
+                        <span class="fl" data-i18n="common.fill">填色</span>
                         <div id="fill-color-picker"></div>
                     </div>
                     <div class="f" id="stroke-color-row">
-                        <span class="fl">ストローク</span>
+                        <span class="fl" data-i18n="common.stroke">描邊</span>
                         <div id="stroke-color-picker"></div>
                     </div>
                     <div class="f" id="stroke-width-row">
-                        <span class="fl">線幅</span>
+                        <span class="fl" data-i18n="common.strokeWidth">線寬</span>
                         <div class="row"><input type="number" id="stroke-width" value="4" min="0" max="100" class="custom-spinner" /><span class="unit">px</span></div>
                     </div>
                     <div class="f" id="wall-thickness-row" style="display: none">
-                        <span class="fl">壁の厚み</span>
+                        <span class="fl" data-i18n="common.wallThickness">牆壁厚度</span>
                         <div class="row"><input type="number" id="wall-thickness" value="12" min="1" max="200" class="custom-spinner" /><span class="unit">px</span></div>
                     </div>
                     <div class="f" id="stroke-style-row">
-                        <span class="fl">線種</span>
+                        <span class="fl" data-i18n="common.lineStyle">線條樣式</span>
                         <div class="seg">
-                            <input type="radio" name="stroke-style" id="ss-solid" value="solid" checked /><label for="ss-solid">実線</label>
-                            <input type="radio" name="stroke-style" id="ss-dash" value="dashed" /><label for="ss-dash">破線</label>
-                            <input type="radio" name="stroke-style" id="ss-dot" value="dotted" /><label for="ss-dot">点線</label>
-                            <input type="radio" name="stroke-style" id="ss-dashdot" value="dashdot" /><label for="ss-dashdot">一点鎖</label>
-                            <input type="radio" name="stroke-style" id="ss-longdash" value="longdash" /><label for="ss-longdash">長破線</label>
+                            <input type="radio" name="stroke-style" id="ss-solid" value="solid" checked /><label for="ss-solid" data-i18n="common.solid">實線</label>
+                            <input type="radio" name="stroke-style" id="ss-dash" value="dashed" /><label for="ss-dash" data-i18n="common.dashed">虛線</label>
+                            <input type="radio" name="stroke-style" id="ss-dot" value="dotted" /><label for="ss-dot" data-i18n="common.dotted">點線</label>
+                            <input type="radio" name="stroke-style" id="ss-dashdot" value="dashdot" /><label for="ss-dashdot" data-i18n="common.dashdot">點劃線</label>
+                            <input type="radio" name="stroke-style" id="ss-longdash" value="longdash" /><label for="ss-longdash" data-i18n="common.longdash">長虛線</label>
                         </div>
                     </div>
                     <div class="f" id="stroke-line-join-row">
-                        <span class="fl">線継目</span>
+                        <span class="fl" data-i18n="common.lineJoin">轉角</span>
                         <select id="stroke-line-join">
-                            <option value="miter">角 (miter)</option>
-                            <option value="round">丸 (round)</option>
-                            <option value="bevel">面取 (bevel)</option>
+                            <option value="miter" data-i18n="join.miter">尖角 (miter)</option>
+                            <option value="round" data-i18n="join.round">圓角 (round)</option>
+                            <option value="bevel" data-i18n="join.bevel">斜角 (bevel)</option>
                         </select>
                     </div>
                     <div class="f" id="stroke-line-cap-row">
-                        <span class="fl">線端</span>
+                        <span class="fl" data-i18n="common.lineCap">線端</span>
                         <select id="stroke-line-cap">
-                            <option value="butt">なし (butt)</option>
-                            <option value="round">丸 (round)</option>
-                            <option value="square">角 (square)</option>
+                            <option value="butt" data-i18n="cap.butt">平頭 (butt)</option>
+                            <option value="round" data-i18n="cap.round">圓頭 (round)</option>
+                            <option value="square" data-i18n="cap.square">方頭 (square)</option>
                         </select>
                     </div>
                     <div class="f" id="corner-radius-row">
-                        <span class="fl">角丸</span>
+                        <span class="fl" data-i18n="common.cornerRadius">圓角</span>
                         <div class="row"><input type="number" id="corner-radius" value="0" min="0" max="500" class="custom-spinner" /><span class="unit">px</span></div>
                     </div>
                     <div class="f" id="ellipse-mode-row" style="display: none">
-                        <span class="fl">作図</span>
+                        <span class="fl" data-i18n="ellipse.mode">畫法</span>
                         <div class="seg">
-                            <input type="radio" name="ellipse-mode" id="em-bbox" value="bbox" checked /><label for="em-bbox" title="2点(枠)で内接楕円">枠</label>
-                            <input type="radio" name="ellipse-mode" id="em-center" value="center" /><label for="em-center" title="中心→半径で正円">中心→半径</label>
+                            <input type="radio" name="ellipse-mode" id="em-bbox" value="bbox" checked /><label for="em-bbox" data-i18n-title="ellipse.bboxTip" title="以 2 點（外框）畫內切橢圓" data-i18n="ellipse.bbox">外框</label>
+                            <input type="radio" name="ellipse-mode" id="em-center" value="center" /><label for="em-center" data-i18n-title="ellipse.centerTip" title="從中心拉半徑畫正圓" data-i18n="ellipse.center">中心→半徑</label>
                         </div>
                     </div>
                 </div>
@@ -645,25 +652,25 @@
                      対応 prop-group 内の .shadow-mount に動的に移される。-->
                 <div id="shadow-home">
                     <div id="shadow-sec" class="s-sec collapsible collapsed" style="display: none">
-                        <div class="s-ttl"><span class="material-symbols-outlined">shadow</span>影<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
+                        <div class="s-ttl" data-i18n-node="common.shadow"><span class="material-symbols-outlined">shadow</span>陰影<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
                         <div class="s-body">
                             <div class="f">
-                                <label class="tog"><input type="checkbox" id="shadow-enabled" /><span class="tl">影を付ける</span></label>
+                                <label class="tog"><input type="checkbox" id="shadow-enabled" /><span class="tl" data-i18n="common.addShadow">加上陰影</span></label>
                             </div>
                             <div class="f">
-                                <span class="fl">色</span>
+                                <span class="fl" data-i18n="common.color">顏色</span>
                                 <div id="shadow-color"></div>
                             </div>
                             <div class="f">
-                                <span class="fl">ぼかし</span>
+                                <span class="fl" data-i18n="common.blur">模糊</span>
                                 <div class="row"><input type="number" id="shadow-blur" value="8" min="0" max="50" class="custom-spinner" /><span class="unit">px</span></div>
                             </div>
                             <div class="f">
-                                <span class="fl">オフセットX</span>
+                                <span class="fl" data-i18n="common.offsetX">偏移 X</span>
                                 <div class="row"><input type="number" id="shadow-offset-x" value="0" min="-50" max="50" class="custom-spinner" /><span class="unit">px</span></div>
                             </div>
                             <div class="f">
-                                <span class="fl">オフセットY</span>
+                                <span class="fl" data-i18n="common.offsetY">偏移 Y</span>
                                 <div class="row"><input type="number" id="shadow-offset-y" value="0" min="-50" max="50" class="custom-spinner" /><span class="unit">px</span></div>
                             </div>
                         </div>
@@ -676,8 +683,8 @@
                 <canvas id="main-canvas"></canvas>
                 <!-- 折線/多角形/曲線の確定・取消 (タッチでEnter/Escの代わり)。作図中のみ表示 -->
                 <div id="draw-finish-bar" style="display: none">
-                    <button id="draw-finish-cancel" type="button" title="取消 (Esc)"><span class="material-symbols-outlined">close</span>取消</button>
-                    <button id="draw-finish-ok" type="button" title="確定 (Enter)"><span class="material-symbols-outlined">check</span>確定</button>
+                    <button id="draw-finish-cancel" type="button" data-i18n-title="draw.cancelTip" title="取消 (Esc)" data-i18n-node="draw.cancel"><span class="material-symbols-outlined">close</span>取消</button>
+                    <button id="draw-finish-ok" type="button" data-i18n-title="draw.okTip" title="確定 (Enter)" data-i18n-node="draw.ok"><span class="material-symbols-outlined">check</span>確定</button>
                 </div>
             </div>
 
@@ -686,43 +693,43 @@
                 <div class="lp-header">
                     <span class="lp-title">Layers</span>
                     <div class="lp-actions">
-                        <button class="lp-btn" id="layer-add" title="レイヤー追加"><span class="material-symbols-outlined">add</span></button>
-                        <button class="lp-btn" id="layer-group" title="グループ化 / 解除 (Ctrl+G / Ctrl+Shift+G)"><span class="material-symbols-outlined">folder</span></button>
-                        <button class="lp-btn" id="layer-delete" title="削除"><span class="material-symbols-outlined">delete_outline</span></button>
+                        <button class="lp-btn" id="layer-add" data-i18n-title="layer.addTip" title="新增圖層"><span class="material-symbols-outlined">add</span></button>
+                        <button class="lp-btn" id="layer-group" data-i18n-title="layer.groupTip" title="群組／解散群組 (Ctrl+G / Ctrl+Shift+G)"><span class="material-symbols-outlined">folder</span></button>
+                        <button class="lp-btn" id="layer-delete" data-i18n-title="common.delete" title="刪除"><span class="material-symbols-outlined">delete_outline</span></button>
                     </div>
                 </div>
                 <div id="layer-list"></div>
                 <div id="layer-props">
-                    <div class="f"><span class="fl">不透明度</span><span class="unit" id="layer-opacity-val">100%</span></div>
+                    <div class="f"><span class="fl" data-i18n="layer.opacity">不透明度</span><span class="unit" id="layer-opacity-val">100%</span></div>
                     <input type="range" id="layer-opacity" value="1" min="0" max="1" step="0.01" />
                     <div class="f" style="margin-top: 0.6rem">
-                        <span class="fl">ブレンド</span>
+                        <span class="fl" data-i18n="layer.blend">混合模式</span>
                         <select id="layer-blend">
-                            <optgroup label="基本">
-                                <option value="source-over">通常</option>
-                                <option value="source-atop">上重ね</option>
-                                <option value="destination-out">切り抜き</option>
-                                <option value="source-in">共通部分</option>
+                            <optgroup label="基本" data-label-key="blend.group.basic">
+                                <option value="source-over" data-i18n="blend.normal">正常</option>
+                                <option value="source-atop" data-i18n="blend.atop">覆蓋於上</option>
+                                <option value="destination-out" data-i18n="blend.cutout">挖空</option>
+                                <option value="source-in" data-i18n="blend.sourceIn">交集</option>
                                 <option value="xor">XOR</option>
                             </optgroup>
-                            <optgroup label="明暗">
-                                <option value="multiply">乗算</option>
-                                <option value="screen">スクリーン</option>
-                                <option value="overlay">オーバーレイ</option>
-                                <option value="darken">暗比較</option>
-                                <option value="lighten">明比較</option>
-                                <option value="color-dodge">覆い焼き</option>
-                                <option value="color-burn">焼き込み</option>
-                                <option value="hard-light">ハード</option>
-                                <option value="soft-light">ソフト</option>
+                            <optgroup label="明暗" data-label-key="blend.group.light">
+                                <option value="multiply" data-i18n="blend.multiply">色彩增值</option>
+                                <option value="screen" data-i18n="blend.screen">濾色</option>
+                                <option value="overlay" data-i18n="blend.overlay">覆蓋</option>
+                                <option value="darken" data-i18n="blend.darken">變暗</option>
+                                <option value="lighten" data-i18n="blend.lighten">變亮</option>
+                                <option value="color-dodge" data-i18n="blend.dodge">加亮顏色</option>
+                                <option value="color-burn" data-i18n="blend.burn">加深顏色</option>
+                                <option value="hard-light" data-i18n="blend.hardLight">實光</option>
+                                <option value="soft-light" data-i18n="blend.softLight">柔光</option>
                             </optgroup>
-                            <optgroup label="差分・色">
-                                <option value="difference">差分</option>
-                                <option value="exclusion">除外</option>
-                                <option value="hue">色相</option>
-                                <option value="saturation">彩度</option>
-                                <option value="color">カラー</option>
-                                <option value="luminosity">輝度</option>
+                            <optgroup label="差異・色彩" data-label-key="blend.group.diff">
+                                <option value="difference" data-i18n="blend.difference">差異化</option>
+                                <option value="exclusion" data-i18n="blend.exclusion">排除</option>
+                                <option value="hue" data-i18n="blend.hue">色相</option>
+                                <option value="saturation" data-i18n="blend.saturation">飽和度</option>
+                                <option value="color" data-i18n="blend.color">顏色</option>
+                                <option value="luminosity" data-i18n="blend.luminosity">明度</option>
                             </optgroup>
                         </select>
                     </div>
@@ -741,28 +748,28 @@
 
         <!-- 右クリックメニュー -->
         <div id="ctx-menu">
-            <div class="ctx-item" data-action="rename"><span class="material-symbols-outlined">edit</span>名前を変更</div>
-            <div class="ctx-item" data-action="duplicate"><span class="material-symbols-outlined">content_copy</span>複製</div>
+            <div class="ctx-item" data-action="rename" data-i18n-node="ctx.rename"><span class="material-symbols-outlined">edit</span>重新命名</div>
+            <div class="ctx-item" data-action="duplicate" data-i18n-node="ctx.duplicate"><span class="material-symbols-outlined">content_copy</span>複製</div>
             <div class="ctx-sep"></div>
-            <div class="ctx-item" data-action="bring-front"><span class="material-symbols-outlined">flip_to_front</span>最前面へ</div>
-            <div class="ctx-item" data-action="send-back"><span class="material-symbols-outlined">flip_to_back</span>最背面へ</div>
+            <div class="ctx-item" data-action="bring-front" data-i18n-node="ctx.front"><span class="material-symbols-outlined">flip_to_front</span>移到最上層</div>
+            <div class="ctx-item" data-action="send-back" data-i18n-node="ctx.back"><span class="material-symbols-outlined">flip_to_back</span>移到最下層</div>
             <div class="ctx-sep"></div>
-            <div class="ctx-item" data-action="lock"><span class="material-symbols-outlined">lock</span>ロック</div>
-            <div class="ctx-item" data-action="delete"><span class="material-symbols-outlined">delete</span>削除</div>
+            <div class="ctx-item" data-action="lock" data-i18n-node="ctx.lock"><span class="material-symbols-outlined">lock</span>鎖定</div>
+            <div class="ctx-item" data-action="delete" data-i18n-node="common.delete"><span class="material-symbols-outlined">delete</span>刪除</div>
         </div>
 
         <!-- 出力モーダル -->
         <div class="modal-overlay" id="export-modal">
             <div class="modal" style="max-width: 960px; width: 92vw">
                 <div class="modal-header">
-                    <span class="modal-title">画像出力</span><button class="modal-close" onclick="IKLab.closeModal('export-modal')"><span class="material-symbols-outlined">close</span></button>
+                    <span class="modal-title" data-i18n="tool.exportTip">匯出圖片</span><button class="modal-close" onclick="IKLab.closeModal('export-modal')" data-i18n-aria-label="lab.close" aria-label="關閉"><span class="material-symbols-outlined">close</span></button>
                 </div>
                 <div class="modal-body" style="padding: 1rem">
                     <!-- 左: 設定縦並び / 右: プレビュー -->
                     <div style="display: grid; grid-template-columns: 220px 1fr; gap: 1rem; align-items: start">
                         <div class="export-settings" style="display: flex; flex-direction: column; gap: 0.7rem">
                             <div class="f" style="margin: 0; flex-direction: column; align-items: flex-start; gap: 0.3rem">
-                                <span class="fl">形式</span>
+                                <span class="fl" data-i18n="export.format">格式</span>
                                 <div class="seg">
                                     <input type="radio" name="export-format" id="ef-png" value="png" checked /><label for="ef-png">PNG</label
                                     ><input type="radio" name="export-format" id="ef-jpeg" value="jpeg" /><label for="ef-jpeg">JPEG</label
@@ -770,20 +777,19 @@
                                 </div>
                             </div>
                             <div class="f" style="margin: 0; flex-direction: column; align-items: flex-start; gap: 0.3rem">
-                                <span class="fl">背景</span>
+                                <span class="fl" data-i18n="export.bg">背景</span>
                                 <div class="seg">
-                                    <input type="radio" name="export-bg" id="eb-trans" value="transparent" checked /><label for="eb-trans">透明</label
-                                    ><input type="radio" name="export-bg" id="eb-white" value="white" /><label for="eb-white">白</label>
+                                    <input type="radio" name="export-bg" id="eb-trans" value="transparent" checked /><label for="eb-trans" data-i18n="export.transparent">透明</label><input type="radio" name="export-bg" id="eb-white" value="white" /><label for="eb-white" data-i18n="export.white">白色</label>
                                 </div>
                             </div>
-                            <label class="tog" style="margin: 0"><input type="checkbox" id="export-grid" checked /><span class="tl">グリッド</span></label>
+                            <label class="tog" style="margin: 0"><input type="checkbox" id="export-grid" checked /><span class="tl" data-i18n="set.grid">網格</span></label>
                             <div class="f" style="margin: 0; flex-direction: column; align-items: flex-start; gap: 0.3rem">
-                                <span class="fl">セル解像度</span>
-                                <div class="row"><input type="number" id="export-cell-px" value="50" min="10" max="500" step="10" class="custom-spinner" /><span class="unit">px/セル</span></div>
+                                <span class="fl" data-i18n="export.cellRes">每格解析度</span>
+                                <div class="row"><input type="number" id="export-cell-px" value="50" min="10" max="500" step="10" class="custom-spinner" /><span class="unit" data-i18n="export.pxPerCell">px／格</span></div>
                             </div>
                             <span id="export-output-size" style="font-size: 0.65rem; color: var(--text-dim)"></span>
-                            <button class="btn-action" id="export-btn" style="width: 100%; padding: 0.5rem; margin-top: auto">
-                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: middle; margin-right: 0.3rem">download</span>ダウンロード
+                            <button class="btn-action" id="export-btn" style="width: 100%; padding: 0.5rem; margin-top: auto" data-i18n-node="export.download">
+                                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: middle; margin-right: 0.3rem">download</span>下載
                             </button>
                         </div>
                         <div>
@@ -807,20 +813,20 @@
                     </div>
                     <!-- 他ツールへの誘導 (このマップに合わせて座標グリッド/定規を作成) -->
                     <div class="export-tools">
-                        <div class="export-tools-label">このマップに重ねる素材も作れます（別タブで開きます）</div>
+                        <div class="export-tools-label" data-i18n="export.toolsLabel">也可以做疊在這張地圖上的素材（在新分頁開啟）</div>
                         <div class="export-tools-grid">
                             <a id="export-link-grid" class="export-tool-btn" href="../grid_maker.html" target="_blank" rel="noopener">
                                 <span class="material-symbols-outlined">grid_on</span>
                                 <span class="ett-text">
-                                    <span class="ett-title">座標グリッド作成</span>
-                                    <span class="ett-sub" id="export-link-grid-sub">スクエア</span>
+                                    <span class="ett-title" data-i18n="export.gridTool">製作座標網格</span>
+                                    <span class="ett-sub" id="export-link-grid-sub">方格</span>
                                 </span>
                             </a>
                             <a id="export-link-ruler" class="export-tool-btn" href="../grid_ruler.html" target="_blank" rel="noopener">
                                 <span class="material-symbols-outlined">straighten</span>
                                 <span class="ett-text">
-                                    <span class="ett-title">定規作成</span>
-                                    <span class="ett-sub" id="export-link-ruler-sub">スクエア</span>
+                                    <span class="ett-title" data-i18n="export.rulerTool">製作量尺</span>
+                                    <span class="ett-sub" id="export-link-ruler-sub">方格</span>
                                 </span>
                             </a>
                         </div>
@@ -833,191 +839,179 @@
         <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
             <div class="modal" style="max-width: 760px">
                 <div class="modal-header">
-                    <span class="modal-title" id="guide-title">使い方ガイド</span>
+                    <span class="modal-title" id="guide-title" data-i18n="lab.guide">使用說明</span>
                     <button class="modal-close" data-i18n-aria-label="lab.close" aria-label="關閉"><span class="material-symbols-outlined">close</span></button>
                 </div>
                 <div class="modal-body">
                     <div class="guide-body" id="guide-content">
-                        <h3>ツールバー</h3>
+                        <h3 data-i18n="guide.toolbar">工具列</h3>
                         <dl class="guide-dl">
                             <span class="material-symbols-outlined">build</span>
                             <div>
-                                <dt>ツールの構成</dt>
-                                <dd>左のツールバーに全ツールを「基本図形 / 地図 / 共通」のセクションで配置。どのツールもいつでも使えます。</dd>
+                                <dt data-i18n="guide.layout.t">工具配置</dt>
+                                <dd data-i18n="guide.layout.d">左側工具列依「基本圖形／地圖／共通」分區排列所有工具，任何工具隨時都能使用。</dd>
                             </div>
                         </dl>
 
-                        <h3>基本図形ツール</h3>
+                        <h3 data-i18n="guide.basic">基本圖形工具</h3>
                         <dl class="guide-dl">
                             <span class="material-symbols-outlined">crossword</span>
                             <div>
-                                <dt>セル塗り (B)</dt>
-                                <dd>ペン / 消しゴム / 塗りつぶしの 3 モード。グリッドのマス単位で塗る。同色は自動でまとまった面として描かれる。</dd>
+                                <dt data-i18n="guide.cell.t">格子填色 (B)</dt>
+                                <dd data-i18n="guide.cell.d">有畫筆／橡皮擦／填滿 3 種模式，以網格的格子為單位上色。同一種顏色會自動合併成一整塊。</dd>
                             </div>
                             <span class="material-symbols-outlined">crop_square</span>
                             <div>
-                                <dt>矩形 / 楕円 (R / E)</dt>
-                                <dd>1 クリック目で開始点、2 クリック目で対角を確定。楕円は「枠 / 中心→半径 (正円)」を設定パネルで切替可。塗り色・線色・線幅・角丸を指定。</dd>
+                                <dt data-i18n="guide.rect.t">矩形／橢圓 (R / E)</dt>
+                                <dd data-i18n="guide.rect.d">第 1 次點擊決定起點，第 2 次點擊決定對角。橢圓可以在設定面板切換「外框／中心→半徑（正圓）」。可指定填色、線條顏色、線寬與圓角。</dd>
                             </div>
                             <span class="material-symbols-outlined">timeline</span>
                             <div>
-                                <dt>直線 / 折線 / 多角形 / 曲線 / 閉曲線 (L / P / G / C / Shift+C)</dt>
-                                <dd>クリックで頂点追加 → Enter で確定 / Esc でキャンセル。折線・多角形は設定パネルの「角丸」で角を丸められます。スナップ点 (頂点 / 中点) に吸着。</dd>
+                                <dt data-i18n="guide.lines.t">直線／折線／多邊形／曲線／封閉曲線 (L / P / G / C / Shift+C)</dt>
+                                <dd data-i18n="guide.lines.d">點擊新增頂點 → 按 Enter 確定／按 Esc 取消。折線與多邊形可以用設定面板的「圓角」把轉角修圓。會吸附到吸附點（頂點／中點）。</dd>
                             </div>
                         </dl>
 
-                        <h3>地図ツール</h3>
+                        <h3 data-i18n="guide.map">地圖工具</h3>
                         <dl class="guide-dl">
                             <span class="material-symbols-outlined">landscape</span>
                             <div>
-                                <dt>地面</dt>
-                                <dd>セル / 矩形 / 楕円 / 多角形 / 閉曲線 で床面を塗ります。パターン (草・水・石畳など) または単色を選択。</dd>
+                                <dt data-i18n="guide.ground.t">地面</dt>
+                                <dd data-i18n="guide.ground.d">用格子／矩形／橢圓／多邊形／封閉曲線塗滿地板。可以選單色，或是自己上傳的圖樣。</dd>
                             </div>
                             <span class="material-symbols-outlined">outdoor_garden</span>
                             <div>
-                                <dt>壁</dt>
-                                <dd>矩形 / 楕円 / 直線 / 折線 / 多角形 / 曲線 / 閉曲線 で壁を線として描画。太さとパターンを設定可能。</dd>
+                                <dt data-i18n="guide.wall.t">牆壁</dt>
+                                <dd data-i18n="guide.wall.d">用矩形／橢圓／直線／折線／多邊形／曲線／封閉曲線把牆壁畫成線條，可以設定粗細與圖樣。</dd>
                             </div>
                             <span class="material-symbols-outlined">home</span>
                             <div>
-                                <dt>部屋</dt>
-                                <dd>矩形 / 楕円 / 多角形 / 閉曲線 を描くと「地面 + 外周壁」がセットで生成されてグループ化。地面と壁のパターンは独立設定可。</dd>
+                                <dt data-i18n="guide.room.t">房間</dt>
+                                <dd data-i18n="guide.room.d">畫出矩形／橢圓／多邊形／封閉曲線後，會一起產生「地面＋外圍牆壁」並組成群組。地面與牆壁的圖樣可以分開設定。</dd>
                             </div>
                             <span class="material-symbols-outlined">chair</span>
                             <div>
-                                <dt>装飾</dt>
-                                <dd>家具 (ベッド・椅子・机・トイレ・テーブル等)・ドア・木・地図記号などの SVG / 画像スタンプを配置。SVG はピッカーで色変更、サイズ・回転・反転も自由。間取り図の家具は実寸スケールで揃えてあります。</dd>
+                                <dt data-i18n="guide.decor.t">裝飾</dt>
+                                <dd data-i18n="guide.decor.d">放置家具（床、書桌、書架等）、門、樹木、地圖符號等 SVG／圖片圖章。SVG 可以用顏色選擇器改色，大小、旋轉、翻轉也能自由調整。</dd>
                             </div>
                         </dl>
 
-                        <h3>共通ツール</h3>
+                        <h3 data-i18n="guide.common">共通工具</h3>
                         <dl class="guide-dl">
                             <span class="material-symbols-outlined">draw</span>
                             <div>
-                                <dt>フリーハンド (D)</dt>
-                                <dd>マウス/タッチドラッグでブラシ描画。ブラシ種 (鉛筆 / 円 / スプレー / 消しゴム) や線幅・色・平滑化を設定可能。</dd>
+                                <dt data-i18n="guide.freehand.t">手繪 (D)</dt>
+                                <dd data-i18n="guide.freehand.d">用滑鼠或觸控拖曳以筆刷作畫。可以設定筆刷種類（鉛筆／圓點／噴槍／橡皮擦）、線寬、顏色與平滑化。</dd>
                             </div>
                             <span class="material-symbols-outlined">title</span>
                             <div>
-                                <dt>テキスト / 画像 (T / I)</dt>
-                                <dd>テキストは書式 (太字・斜体・下線・取消線) を部分適用可。画像は読み込んで配置・拡縮できます。</dd>
+                                <dt data-i18n="guide.textImage.t">文字／圖片 (T / I)</dt>
+                                <dd data-i18n="guide.textImage.d">文字可以只對部分內容套用格式（粗體、斜體、底線、刪除線）。圖片讀取後可以放置並縮放。</dd>
                             </div>
                         </dl>
 
-                        <h3>作図の便利機能</h3>
+                        <h3 data-i18n="guide.assist">繪圖輔助功能</h3>
                         <dl class="guide-dl">
                             <span class="material-symbols-outlined">square_foot</span>
                             <div>
-                                <dt>計測表示 (HUD)</dt>
-                                <dd>作図中、図形に沿って寸法を表示。矩形 / 楕円は縦横のマス数、正円は半径、直線 / 折線 / 多角形は長さ・角度・縦横マス数、曲線は制御点とマス数。マスを数えずに作図できます。</dd>
+                                <dt data-i18n="guide.hud.t">測量顯示（HUD）</dt>
+                                <dd data-i18n="guide.hud.d">繪製時會沿著圖形顯示尺寸：矩形／橢圓顯示長寬格數，正圓顯示半徑，直線／折線／多邊形顯示長度、角度與長寬格數，曲線顯示控制點與格數。不用數格子也能畫。</dd>
                             </div>
                             <span class="material-symbols-outlined">rounded_corner</span>
                             <div>
-                                <dt>角丸 (フィレット)</dt>
-                                <dd>矩形に加え、折線・多角形も設定パネルの「角丸」で角を丸められます。</dd>
+                                <dt data-i18n="guide.fillet.t">圓角（Fillet）</dt>
+                                <dd data-i18n="guide.fillet.d">除了矩形，折線與多邊形也能用設定面板的「圓角」把轉角修圓。</dd>
                             </div>
                             <span class="material-symbols-outlined">grid_goldenratio</span>
                             <div>
-                                <dt>スナップ</dt>
-                                <dd>交点 (格子点) / セル中心 / 辺の中点に吸着。設定パネルで対象を切替。<kbd>Shift</kbd> 押下中は一時無効。移動時のスナップはオブジェクト中心が基準です。</dd>
+                                <dt data-i18n="guide.snap.t">吸附</dt>
+                                <dd data-i18n-html="guide.snap.d">吸附到交點（格點）／格子中心／邊的中點，可以在設定面板切換對象。按住 <kbd>Shift</kbd> 時暫時停用。移動物件時以物件中心為吸附基準。</dd>
                             </div>
                         </dl>
 
-                        <h3>パターン・装飾</h3>
+                        <h3 data-i18n="guide.patterns">圖樣・裝飾</h3>
                         <dl class="guide-dl">
                             <span class="material-symbols-outlined">texture</span>
                             <div>
-                                <dt>パターン選択</dt>
-                                <dd>各タブのパターンピッカーでテクスチャを選択。「単色」ピックでカラー指定も可。パターン詳細でオフセット・回転・倍率を微調整。</dd>
+                                <dt data-i18n="guide.pickPattern.t">選擇圖樣</dt>
+                                <dd data-i18n="guide.pickPattern.d">在各分頁的圖樣選擇器挑選紋理，也可以點「單色」指定顏色。在「圖樣細節」可以微調偏移、旋轉與縮放。</dd>
                             </div>
                             <span class="material-symbols-outlined">upload</span>
                             <div>
-                                <dt>ユーザー素材アップロード</dt>
-                                <dd>パターン / 装飾の「ユーザー」ジャンルにある「＋」タイルから PNG / JPG / WebP / SVG を追加。マップごとに保存され、次回もそのまま使えます。</dd>
+                                <dt data-i18n="guide.upload.t">上傳自訂素材</dt>
+                                <dd data-i18n="guide.upload.d">從圖樣／裝飾「自訂」分類裡的「＋」方塊加入 PNG／JPG／WebP／SVG。素材會跟著每張地圖一起儲存，下次開啟也能直接使用。</dd>
                             </div>
                         </dl>
 
-                        <h3>レイヤー / 選択</h3>
+                        <h3 data-i18n="guide.layers">圖層／選取</h3>
                         <dl class="guide-dl">
                             <span class="material-symbols-outlined">layers</span>
                             <div>
-                                <dt>レイヤーパネル</dt>
-                                <dd>右側のパネルでオブジェクト一覧を確認、表示/非表示・並び替え・名前変更・削除。ダブルクリックで名前編集。</dd>
+                                <dt data-i18n="guide.layerPanel.t">圖層面板</dt>
+                                <dd data-i18n="guide.layerPanel.d">在右側面板查看物件清單，可以顯示／隱藏、調整順序、重新命名與刪除。雙擊可以編輯名稱。</dd>
                             </div>
                             <span class="material-symbols-outlined">content_copy</span>
                             <div>
-                                <dt>アクションバー</dt>
-                                <dd>選択枠の上に表示。複製 (複製元のすぐ上に配置) / 表示・非表示 / ロック / 最前面・最背面 / 削除。複数選択時はグループ化やブール演算も。</dd>
+                                <dt data-i18n="guide.actionBar.t">動作列</dt>
+                                <dd data-i18n="guide.actionBar.d">顯示在選取框上方：複製（放在原物件的正上一層）／顯示・隱藏／鎖定／移到最上層・最下層／刪除。多選時還可以群組或做布林運算。</dd>
                             </div>
                             <span class="material-symbols-outlined">folder</span>
                             <div>
-                                <dt>グループ化 (Ctrl+G / Ctrl+Shift+G)</dt>
-                                <dd>選択ツールで複数選択 → アクションバーのフォルダボタンまたは Ctrl+G でグループ化。Ctrl+Shift+G で解除。</dd>
+                                <dt data-i18n="guide.group.t">群組 (Ctrl+G / Ctrl+Shift+G)</dt>
+                                <dd data-i18n="guide.group.d">用選取工具多選 → 按動作列的資料夾按鈕或 Ctrl+G 建立群組，Ctrl+Shift+G 解散群組。</dd>
                             </div>
                             <span class="material-symbols-outlined">join_full</span>
                             <div>
-                                <dt>ブール演算</dt>
-                                <dd>同種の図形を 2 つ以上選択 → 選択枠上のバーで「合体 / 交差 / 差 / 排他」を実行。複雑な形を効率的に作れます。</dd>
+                                <dt data-i18n="guide.bool.t">布林運算</dt>
+                                <dd data-i18n="guide.bool.d">選取 2 個以上同類的圖形 → 用選取框上方的列執行「聯集／交集／差集／互斥」，可以有效率地做出複雜形狀。</dd>
                             </div>
                             <span class="material-symbols-outlined">opacity</span>
                             <div>
-                                <dt>不透明度 / ブレンド</dt>
-                                <dd>レイヤーパネルから個別に不透明度・ブレンドモード (通常 / 上重ね / 切り抜き / XOR / 乗算など多数) を設定。</dd>
+                                <dt data-i18n="guide.blend.t">不透明度／混合模式</dt>
+                                <dd data-i18n="guide.blend.d">在圖層面板個別設定不透明度與混合模式（正常／覆蓋於上／挖空／XOR／色彩增值等多種）。</dd>
                             </div>
                             <span class="material-symbols-outlined">content_cut</span>
                             <div>
-                                <dt>グループ内だけ切り抜き</dt>
-                                <dd>「切り抜き」などのブレンドはそのままだと下の全レイヤーに効きますが、対象をグループ化するとグループ内だけに限定できます。</dd>
+                                <dt data-i18n="guide.clip.t">只在群組內挖空</dt>
+                                <dd data-i18n="guide.clip.d">「挖空」等混合模式直接使用時會作用到下方所有圖層；把對象組成群組後，就能只在群組內生效。</dd>
                             </div>
                         </dl>
 
-                        <h3>保存と出力</h3>
+                        <h3 data-i18n="guide.saveExport">儲存與匯出</h3>
                         <dl class="guide-dl">
                             <span class="material-symbols-outlined">save</span>
                             <div>
-                                <dt>自動保存</dt>
-                                <dd>編集中は約 2.5 秒間隔で IndexedDB に自動保存。ヘッダーの「保存済み / 未保存」表示で状態を確認できます。Ctrl+S で即時保存 + サムネ再生成。設定パネルの「自動保存」をオフにすると自動保存しません (Ctrl+S で手動保存)。</dd>
+                                <dt data-i18n="guide.autoSave.t">自動儲存</dt>
+                                <dd data-i18n="guide.autoSave.d">編輯時大約每 2.5 秒自動儲存到 IndexedDB，可以從頁首的「已儲存／未儲存」確認狀態。按 Ctrl+S 會立即儲存並重新產生縮圖。在設定面板關閉「自動儲存」後就不會自動儲存（請用 Ctrl+S 手動儲存）。</dd>
                             </div>
                             <span class="material-symbols-outlined">download</span>
                             <div>
-                                <dt>画像出力</dt>
-                                <dd>ツールバーの「出力」を押して範囲をドラッグ → PNG / JPEG / SVG でダウンロード。背景の透明 / 白、グリッド表示、解像度を選択可。</dd>
+                                <dt data-i18n="guide.export.t">匯出圖片</dt>
+                                <dd data-i18n="guide.export.d">按工具列的「匯出」後拖曳出範圍 → 以 PNG／JPEG／SVG 下載。可以選擇背景透明或白色、是否顯示網格與解析度。</dd>
                             </div>
                             <span class="material-symbols-outlined">undo</span>
                             <div>
-                                <dt>Undo / Redo</dt>
-                                <dd>Ctrl+Z で取消、Ctrl+Shift+Z または Ctrl+Y でやり直し。最大 50 ステップ保持。</dd>
+                                <dt data-i18n="guide.undo.t">復原／重做</dt>
+                                <dd data-i18n="guide.undo.d">按 Ctrl+Z 復原，按 Ctrl+Shift+Z 或 Ctrl+Y 重做，最多保留 50 步。</dd>
                             </div>
                         </dl>
 
-                        <h3>主要ショートカット</h3>
+                        <h3 data-i18n="guide.shortcuts">常用快捷鍵</h3>
                         <dl class="guide-dl">
                             <span class="material-symbols-outlined">keyboard</span>
                             <div>
-                                <dt>編集</dt>
-                                <dd>
-                                    <code>Ctrl+Z</code> / <code>Ctrl+Shift+Z</code> 取消・やり直し<br />
-                                    <code>Ctrl+S</code> 即時保存<br />
-                                    <code>Ctrl+G</code> / <code>Ctrl+Shift+G</code> グループ化 / 解除<br />
-                                    <code>Delete</code> 選択削除
-                                </dd>
+                                <dt data-i18n="guide.keysEdit.t">編輯</dt>
+                                <dd data-i18n-html="guide.keysEdit.d"><code>Ctrl+Z</code> / <code>Ctrl+Shift+Z</code> 復原・重做<br /><code>Ctrl+S</code> 立即儲存<br /><code>Ctrl+G</code> / <code>Ctrl+Shift+G</code> 群組／解散群組<br /><code>Delete</code> 刪除選取的物件</dd>
                             </div>
                             <span class="material-symbols-outlined">ads_click</span>
                             <div>
-                                <dt>ツール切替</dt>
-                                <dd>
-                                    <code>V</code> 選択 / <code>B</code> セル / <code>R</code> 矩形 / <code>E</code> 楕円 / <code>L</code> 直線<br />
-                                    <code>P</code> 折線 / <code>G</code> 多角形 / <code>C</code> 曲線 / <code>Shift+C</code> 閉曲線<br />
-                                    <code>D</code> フリーハンド / <code>T</code> テキスト / <code>I</code> 画像
-                                </dd>
+                                <dt data-i18n="guide.keysTools.t">切換工具</dt>
+                                <dd data-i18n-html="guide.keysTools.d"><code>V</code> 選取 / <code>B</code> 格子 / <code>R</code> 矩形 / <code>E</code> 橢圓 / <code>L</code> 直線<br /><code>P</code> 折線 / <code>G</code> 多邊形 / <code>C</code> 曲線 / <code>Shift+C</code> 封閉曲線<br /><code>D</code> 手繪 / <code>T</code> 文字 / <code>I</code> 圖片</dd>
                             </div>
                             <span class="material-symbols-outlined">pan_tool</span>
                             <div>
-                                <dt>キャンバス操作</dt>
-                                <dd>
-                                    <kbd>Space</kbd> ドラッグで移動 / マウスホイールでズーム<br />
-                                    <kbd>Shift</kbd> 押下中はスナップ一時無効
-                                </dd>
+                                <dt data-i18n="guide.keysCanvas.t">畫布操作</dt>
+                                <dd data-i18n-html="guide.keysCanvas.d">按住 <kbd>Space</kbd> 拖曳可以移動／滑鼠滾輪縮放<br />按住 <kbd>Shift</kbd> 時暫時停用吸附</dd>
                             </div>
                         </dl>
                         <!-- ↓ common.js の buildGuideLinks() がここにリンクブロックを追加する -->
