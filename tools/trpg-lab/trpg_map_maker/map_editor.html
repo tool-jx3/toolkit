@@ -10,10 +10,11 @@
         <!-- 編集画面は直接 URL でアクセスされる導線が無いため description / OG / Twitter カードは省略 (map_list.html が代表ページ) -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Noto+Sans+TC:wght@300;400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
         <!-- TRPGマップ用拡張フォント (テキストツールで選択可能) -->
+        <!-- 文字工具的繁體中文字型：Noto Sans TC 已由上一行（介面字型）載入，這裡補其餘四套 -->
         <link
-            href="https://fonts.googleapis.com/css2?family=Aoboshi+One&family=Bebas+Neue&family=Cinzel:wght@400;700&family=Dela+Gothic+One&family=DotGothic16&family=Eater&family=Hina+Mincho&family=Kaisei+Decol:wght@400;700&family=Klee+One:wght@400;600&family=M+PLUS+1p:wght@400;700&family=MedievalSharp&family=Mochiy+Pop+One&family=Noto+Serif+JP:wght@400;700&family=Orbitron:wght@400;700&family=Pirata+One&family=Reggae+One&family=Sawarabi+Gothic&family=Sawarabi+Mincho&family=Shippori+Mincho:wght@400;700&family=Special+Elite&family=Stick&family=UnifrakturMaguntia&family=Yomogi&family=Yuji+Boku&family=Yuji+Syuku&family=Yusei+Magic&family=Zen+Kaku+Gothic+New:wght@400;700&family=Zen+Kurenaido&family=Zen+Maru+Gothic:wght@400;700&family=Zen+Old+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&family=LXGW+WenKai+TC:wght@400;700&family=Chocolate+Classical+Sans&family=Cactus+Classical+Serif&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Aoboshi+One&family=Bebas+Neue&family=Cinzel:wght@400;700&family=Dela+Gothic+One&family=DotGothic16&family=Eater&family=Hina+Mincho&family=Kaisei+Decol:wght@400;700&family=Klee+One:wght@400;600&family=M+PLUS+1p:wght@400;700&family=MedievalSharp&family=Mochiy+Pop+One&family=Noto+Serif+JP:wght@400;700&family=Orbitron:wght@400;700&family=Pirata+One&family=Reggae+One&family=Sawarabi+Gothic&family=Sawarabi+Mincho&family=Shippori+Mincho:wght@400;700&family=Special+Elite&family=Stick&family=UnifrakturMaguntia&family=Yomogi&family=Yuji+Boku&family=Yuji+Syuku&family=Yusei+Magic&family=Zen+Kaku+Gothic+New:wght@400;700&family=Zen+Kurenaido&family=Zen+Maru+Gothic:wght@400;700&family=Zen+Old+Mincho:wght@400;700&family=Noto+Serif+TC:wght@400;700&family=LXGW+WenKai+TC:wght@400;700&family=Chocolate+Classical+Sans&family=Cactus+Classical+Serif&display=swap"
             rel="stylesheet"
         />
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
@@ -78,7 +79,7 @@
                             <div class="row"><input type="number" id="grid-line-width" value="1" min="1" max="10" class="custom-spinner" /><span class="unit">px</span></div>
                         </div>
                         <div class="f">
-                            <span class="fl" data-i18n="common.lineStyle">線條樣式</span>
+                            <span class="fl" data-i18n="common.lineStyle">線型</span>
                             <div class="seg">
                                 <input type="radio" name="grid-style" id="gs-solid" value="solid" /><label for="gs-solid" data-i18n="common.solid">實線</label>
                                 <input type="radio" name="grid-style" id="gs-dash" value="dashed" checked /><label for="gs-dash" data-i18n="common.dashed">虛線</label>
@@ -353,7 +354,7 @@
                                 <div class="row"><input type="number" id="room-wall-thickness" value="12" min="1" max="200" class="custom-spinner" /><span class="unit">px</span></div>
                             </div>
                             <div class="f">
-                                <span class="fl" data-i18n="common.lineStyle">線條樣式</span>
+                                <span class="fl" data-i18n="common.lineStyle">線型</span>
                                 <div class="seg">
                                     <input type="radio" name="room-wall-stroke-style" id="rwss-solid" value="solid" checked /><label for="rwss-solid" data-i18n="common.solid">實線</label>
                                     <input type="radio" name="room-wall-stroke-style" id="rwss-dash" value="dashed" /><label for="rwss-dash" data-i18n="common.dashed">虛線</label>
@@ -507,7 +508,8 @@
                                     <option value="Cactus Classical Serif">Cactus Classical Serif</option>
                                 </optgroup>
                                 <optgroup label="黑體（日文）" data-label-key="font.group.gothic">
-                                    <option value="Noto Sans JP">Noto Sans JP</option>
+                                    <!-- 繁體中文字型群組排在最上面，但預設字型維持上游的 Noto Sans JP -->
+                                    <option value="Noto Sans JP" selected>Noto Sans JP</option>
                                     <option value="Zen Kaku Gothic New" data-i18n="font.zenKaku">Zen Kaku Gothic New</option>
                                     <option value="Sawarabi Gothic" data-i18n="font.sawarabiGothic">Sawarabi Gothic</option>
                                     <option value="M PLUS 1p">M PLUS 1p</option>
@@ -610,7 +612,7 @@
                         <div class="row"><input type="number" id="wall-thickness" value="12" min="1" max="200" class="custom-spinner" /><span class="unit">px</span></div>
                     </div>
                     <div class="f" id="stroke-style-row">
-                        <span class="fl" data-i18n="common.lineStyle">線條樣式</span>
+                        <span class="fl" data-i18n="common.lineStyle">線型</span>
                         <div class="seg">
                             <input type="radio" name="stroke-style" id="ss-solid" value="solid" checked /><label for="ss-solid" data-i18n="common.solid">實線</label>
                             <input type="radio" name="stroke-style" id="ss-dash" value="dashed" /><label for="ss-dash" data-i18n="common.dashed">虛線</label>
@@ -754,7 +756,8 @@
             <div class="ctx-item" data-action="bring-front" data-i18n-node="ctx.front"><span class="material-symbols-outlined">flip_to_front</span>移到最上層</div>
             <div class="ctx-item" data-action="send-back" data-i18n-node="ctx.back"><span class="material-symbols-outlined">flip_to_back</span>移到最下層</div>
             <div class="ctx-sep"></div>
-            <div class="ctx-item" data-action="lock" data-i18n-node="ctx.lock"><span class="material-symbols-outlined">lock</span>鎖定</div>
+            <!-- 「鎖定／解除鎖定」由 showContextMenu() 依對象狀態寫入，不掛 data-i18n -->
+            <div class="ctx-item" data-action="lock"><span class="material-symbols-outlined">lock</span>鎖定</div>
             <div class="ctx-item" data-action="delete" data-i18n-node="common.delete"><span class="material-symbols-outlined">delete</span>刪除</div>
         </div>
 
@@ -785,7 +788,7 @@
                             <label class="tog" style="margin: 0"><input type="checkbox" id="export-grid" checked /><span class="tl" data-i18n="set.grid">網格</span></label>
                             <div class="f" style="margin: 0; flex-direction: column; align-items: flex-start; gap: 0.3rem">
                                 <span class="fl" data-i18n="export.cellRes">每格解析度</span>
-                                <div class="row"><input type="number" id="export-cell-px" value="50" min="10" max="500" step="10" class="custom-spinner" /><span class="unit" data-i18n="export.pxPerCell">px／格</span></div>
+                                <div class="row"><input type="number" id="export-cell-px" value="50" min="10" max="500" step="10" class="custom-spinner" /><span class="unit" data-i18n="export.pxPerCell">px/格</span></div>
                             </div>
                             <span id="export-output-size" style="font-size: 0.65rem; color: var(--text-dim)"></span>
                             <button class="btn-action" id="export-btn" style="width: 100%; padding: 0.5rem; margin-top: auto" data-i18n-node="export.download">

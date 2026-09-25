@@ -456,6 +456,13 @@ body {
 .pp-solid-trigger .pickr {
     width: 100%;
 }
+/* 收錄版沒有內建圖樣：還沒上傳任何圖樣時，在方塊下方顯示的提示 */
+.pp-empty-hint {
+    margin: 6px 0 0;
+    font-size: 0.62rem;
+    line-height: 1.5;
+    color: var(--text-dim);
+}
 
 /* ---- プロパティパネル ---- */
 #prop-panel {

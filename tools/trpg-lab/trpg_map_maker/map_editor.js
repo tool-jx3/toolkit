@@ -673,7 +673,7 @@ function initPickr() {
         const textTarget = getTextStyleTarget();
         if (textTarget && textTarget.selStart !== undefined) {
             applyTextStyle({ fill: fillStr });
-            pushHistoryDebounced('テキスト色を変更');
+            pushHistoryDebounced(T('hist.textColor'));
             return;
         }
         if (App.activeTool === 'select') {
@@ -681,7 +681,7 @@ function initPickr() {
             if (targets.length === 0) return;
             targets.forEach((o) => o.set({ fill: fillStr }));
             App.canvas.renderAll();
-            pushHistoryDebounced('フィル色を変更');
+            pushHistoryDebounced(T('hist.fillColor'));
         }
     });
 
@@ -696,7 +696,7 @@ function initPickr() {
             if (targets.length === 0) return;
             targets.forEach((o) => o.set({ stroke: rgba(App.strokeColor, App.strokeOpacity) }));
             App.canvas.renderAll();
-            pushHistoryDebounced('ストローク色を変更');
+            pushHistoryDebounced(T('hist.strokeColor'));
         }
     });
 
@@ -812,7 +812,7 @@ function attachEyedropper(pickr) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'pcr-eyedropper';
-    btn.title = '画面から色を抽出 (スポイト)';
+    btn.title = T('color.eyedropper');
     btn.innerHTML = '<span class="material-symbols-outlined fill">colorize</span>';
     btn.addEventListener('click', async (e) => {
         e.preventDefault();
@@ -1075,7 +1075,7 @@ function initCanvas() {
                         const style = getCurrentDrawStyle();
                         const subtool = activeSubtool();
                         if (App.activeTool === 'room') {
-                            addRoom('部屋_' + (subtool === 'rect' ? '矩形' : '楕円'), (st) => {
+                            addRoom(T('layer.prefix.room') + T(subtool === 'rect' ? 'tool.rect' : 'tool.ellipse'), (st) => {
                                 // stroke を持つ壁のみオフセット補正 (fabric は bbox に stroke を含むため)。
                                 // 地面 (strokeWidth=0) はオフセット 0 で純粋な矩形/楕円のまま。
                                 const hsw = (st.strokeWidth || 0) / 2;
@@ -1130,7 +1130,7 @@ function initCanvas() {
                                           ...commonStroke,
                                           objectCaching: false,
                                       });
-                            addCategoryLayer(style.namePrefix + (subtool === 'rect' ? '矩形' : '楕円'), obj, style.flag);
+                            addCategoryLayer(style.namePrefix + T(subtool === 'rect' ? 'tool.rect' : 'tool.ellipse'), obj, style.flag);
                         }
                     }
                     App._drawing = null;
@@ -1169,7 +1169,7 @@ function initCanvas() {
                         evented: false,
                         objectCaching: false,
                     });
-                    addCategoryLayer(style.namePrefix + '直線', line, style.flag);
+                    addCategoryLayer(style.namePrefix + T('tool.line'), line, style.flag);
                     removePreview();
                     App._lineStart = null;
                 }
@@ -1267,7 +1267,7 @@ function initCanvas() {
                     cursorWidth: 3,
                     selectionColor: 'rgba(0,229,255,0.35)',
                 });
-                addLayerObject('テキスト', tb);
+                addLayerObject(T('tool.text'), tb);
                 App.canvas.setActiveObject(tb);
                 tb.enterEditing();
                 App.canvas.renderAll();
@@ -1557,7 +1557,7 @@ function initCanvas() {
             App._drawing = null;
         }
         if (App._cellStrokeActive) {
-            const cat = App._cellStrokeCategory === 'ground' ? '地面_セル' : 'セル';
+            const cat = T(App._cellStrokeCategory === 'ground' ? 'layer.groundCell' : 'layer.cell');
             const layer =
                 App._cellStrokeCategory === 'ground'
                     ? getMapLayers()
@@ -1569,7 +1569,7 @@ function initCanvas() {
             App._cellStrokeActive = false;
             App._cellStrokeCategory = null;
             if (layer) commitCellLayer(layer);
-            pushHistory(`${cat}塗り`);
+            pushHistory(T('hist.paint', cat));
         }
     });
 
@@ -1587,13 +1587,13 @@ function initCanvas() {
             App.canvas.discardActiveObject();
             renderLayerList();
             App.canvas.renderAll();
-            if (before !== null && before !== '') pushHistory('テキストを削除');
+            if (before !== null && before !== '') pushHistory(T('hist.textDelete'));
             refreshTextStyleButtons();
             return;
         }
         renderLayerList();
         App.canvas.renderAll();
-        if (before !== null && t && before !== t.text) pushHistory('テキスト編集');
+        if (before !== null && t && before !== t.text) pushHistory(T('hist.textEdit'));
         refreshTextStyleButtons();
     });
     // テキスト編集中の選択範囲が変わったらスタイルボタンの active 表示を更新
@@ -1639,8 +1639,8 @@ function initCanvas() {
         // 移動・リサイズ・回転の確定で履歴を積む (テキスト編集による modified は無視)
         if (App._isRestoring) return;
         if (!t || (t._isMapText && t.isEditing)) return;
-        const name = t?._layerName || 'オブジェクト';
-        pushHistory(`${name}を変更`);
+        const name = t?._layerName || T('layer.object');
+        pushHistory(T('hist.modify', name));
     });
     App.canvas.on('object:moving', function (opt) {
         const obj = opt.target;
@@ -1688,7 +1688,7 @@ function initCanvas() {
             renderLayerList();
         }
         App.canvas.renderAll();
-        pushHistory(isEraser ? '消しゴム' : 'フリーハンドを追加');
+        pushHistory(T(isEraser ? 'hist.eraser' : 'hist.freehandAdd'));
     });
 
     window.addEventListener('resize', () => {
@@ -1817,7 +1817,7 @@ function addSegmentDims(x1, y1, x2, y2, withLenAngle = true) {
     const off = 12 / z;
     const mx = (x1 + x2) / 2 + (dy / len) * off;
     const my = (y1 + y2) / 2 + (-dx / len) * off;
-    App.canvas.add(makeDimLabel(`${fmtCells(len)}マス ∠${ang}°`, mx, my, ta));
+    App.canvas.add(makeDimLabel(T('hud.length', fmtCells(len), ang), mx, my, ta));
 }
 /** 曲線: 過去の制御点 (白丸マーカー) とそれを順につなぐ直線をプレビュー表示。
  *  closed=true なら最後 (マウス位置) から最初の点へも破線でつなぎループを閉じる。 */
@@ -1955,6 +1955,7 @@ function _initGridRenderer() {
  * 一意な _layerId と種別連番付きの _layerName を付与してレイヤーパネルに反映する。
  * フリーハンド等で既に canvas 上にあるオブジェクトには再追加しない。
  * @param {string} typeName - 種別名 (例: '矩形', 'セル')。連番に使われる。
+ *   收錄版傳進來的是目前語言的顯示名稱（T() 的結果），連番也以該名稱計數；已存地圖的名稱不變。
  * @param {fabric.Object} obj
  */
 function addLayerObject(typeName, obj, opts = {}) {
@@ -1987,7 +1988,7 @@ function addLayerObject(typeName, obj, opts = {}) {
     renderLayerList();
     App.canvas.renderAll();
     // 呼び出し側が独自に履歴を積む場合 (ブール演算等) はここをスキップして二重登録を避ける
-    if (!opts.skipHistory) pushHistory(`${typeName}を追加`);
+    if (!opts.skipHistory) pushHistory(T('hist.add', typeName));
 }
 
 /**
@@ -1998,21 +1999,22 @@ function addLayerObject(typeName, obj, opts = {}) {
 function groupSelected() {
     const active = App.canvas.getActiveObject();
     if (!active || active.type !== 'activeSelection') {
-        setTransientStatus('2個以上選択してください');
+        setTransientStatus(T('status.selectTwo'));
         return;
     }
     const items = active.getObjects();
     if (items.some((o) => o._isCellLayer || o._isTerrainLayer || o._isFreehandLayer)) {
-        setTransientStatus('セル/地形/フリーハンドレイヤーはグループ化できません');
+        setTransientStatus(T('status.cannotGroup'));
         return;
     }
     const group = active.toGroup();
     const id = App.nextLayerId++;
-    App.layerCounters['グループ'] = (App.layerCounters['グループ'] || 0) + 1;
+    const groupType = T('layer.group');
+    App.layerCounters[groupType] = (App.layerCounters[groupType] || 0) + 1;
     group.set({
         _layerId: id,
         _isMapLayer: true,
-        _layerName: `グループ${App.layerCounters['グループ']}`,
+        _layerName: `${groupType}${App.layerCounters[groupType]}`,
         selectable: true,
         evented: true,
         // [#4] グループ内でブレンド(切り抜き等)を完結させる。noScaleCache:false で zoom 毎に再キャッシュ。
@@ -2023,7 +2025,7 @@ function groupSelected() {
     App.selectedLayerIds = [id];
     renderLayerList();
     App.canvas.renderAll();
-    pushHistory('グループ化');
+    pushHistory(T('hist.group'));
 }
 
 /**
@@ -2033,11 +2035,11 @@ function groupSelected() {
 function ungroupSelected() {
     const active = App.canvas.getActiveObject();
     if (!active || active.type !== 'group') {
-        setTransientStatus('グループを選択してください');
+        setTransientStatus(T('status.selectGroup'));
         return;
     }
     if (active._isCellLayer || active._isTerrainLayer || active._isFreehandLayer) {
-        setTransientStatus('セル/地形/フリーハンドレイヤーは解除できません');
+        setTransientStatus(T('status.cannotUngroup'));
         return;
     }
     const items = active.getObjects().slice();
@@ -2046,11 +2048,12 @@ function ungroupSelected() {
     items.forEach((o) => {
         if (!o._layerId) {
             const id = App.nextLayerId++;
-            App.layerCounters['解除'] = (App.layerCounters['解除'] || 0) + 1;
+            const ungroupType = T('layer.ungrouped');
+            App.layerCounters[ungroupType] = (App.layerCounters[ungroupType] || 0) + 1;
             o.set({
                 _layerId: id,
                 _isMapLayer: true,
-                _layerName: `解除${App.layerCounters['解除']}`,
+                _layerName: `${ungroupType}${App.layerCounters[ungroupType]}`,
             });
         }
         o.set({ selectable: true, evented: true });
@@ -2058,7 +2061,7 @@ function ungroupSelected() {
     App.selectedLayerIds = items.map((o) => o._layerId);
     renderLayerList();
     App.canvas.renderAll();
-    pushHistory('グループ化を解除');
+    pushHistory(T('hist.ungroup'));
 }
 
 /* ================================================================
@@ -2203,6 +2206,12 @@ function pathToRings(obj, off, apply) {
     return rings;
 }
 
+/** ブール演算の種類 → 圖層名稱用的顯示文字（目前語言）。 */
+function boolOpLabel(op) {
+    const key = { union: 'layer.boolUnion', intersection: 'layer.boolIntersection', difference: 'layer.boolDifference', xor: 'layer.boolXor' }[op];
+    return key ? T(key) : op;
+}
+
 /** fabric.Object がブール演算の対象になりうるか */
 function isBooleanTarget(o) {
     if (!o) return false;
@@ -2218,23 +2227,23 @@ function isBooleanTarget(o) {
  */
 function performBooleanOp(op) {
     if (typeof polygonClipping === 'undefined') {
-        setTransientStatus('polygon-clipping ライブラリが読み込まれていません');
+        setTransientStatus(T('status.noClipLib'));
         return;
     }
     const active = App.canvas.getActiveObject();
     if (!active || active.type !== 'activeSelection') {
-        setTransientStatus('2 個以上の図形を選択してください');
+        setTransientStatus(T('status.selectTwoShapes'));
         return;
     }
     const objs = active.getObjects().filter(isBooleanTarget);
     if (objs.length < 2) {
-        setTransientStatus('ブール演算可能な図形を 2 個以上選んでください');
+        setTransientStatus(T('status.selectTwoBool'));
         return;
     }
     // カテゴリチェック (シンプル/地面/壁/部屋は混在不可)
     const cat = boolCategory(objs[0]);
     if (!objs.every((o) => boolCategory(o) === cat)) {
-        setTransientStatus('同じ種類 (シンプル/地面/壁/部屋) の図形だけを選んでください');
+        setTransientStatus(T('status.sameKind'));
         return;
     }
     if (cat === 'room') {
@@ -2245,7 +2254,7 @@ function performBooleanOp(op) {
     // 解除前にここで多角形化する。
     const polys = objs.map(shapeToWorldRings).filter((r) => r && r.length > 0);
     if (polys.length < 2) {
-        setTransientStatus('変換できる図形が足りません');
+        setTransientStatus(T('status.notEnoughShapes'));
         return;
     }
     let result;
@@ -2253,11 +2262,11 @@ function performBooleanOp(op) {
         result = polygonClipping[op](polys[0], ...polys.slice(1));
     } catch (e) {
         console.error(e);
-        setTransientStatus('ブール演算に失敗しました');
+        setTransientStatus(T('status.boolFailed'));
         return;
     }
     if (!result || result.length === 0) {
-        setTransientStatus('結果が空です');
+        setTransientStatus(T('status.emptyResult'));
         return;
     }
     // 結果を fabric.Path に
@@ -2288,12 +2297,12 @@ function performBooleanOp(op) {
     App.canvas.discardActiveObject();
     const zIndex = App.canvas.getObjects().indexOf(src);
     App.canvas.remove(...objs);
-    const opLabel = { union: '合体', intersection: '交差', difference: '差', xor: '排他' }[op] || op;
+    const opLabel = boolOpLabel(op);
     addLayerObject(opLabel, path, { skipHistory: true });
     if (zIndex >= 0) App.canvas.moveTo(path, zIndex);
     App.canvas.setActiveObject(path);
     App.canvas.renderAll();
-    pushHistory(`ブール演算: ${opLabel}`);
+    pushHistory(T('hist.bool', opLabel));
 }
 
 /**
@@ -2306,12 +2315,12 @@ function performBooleanOp(op) {
  */
 function performBooleanOpRoom(op, rooms) {
     if (typeof polygonClipping === 'undefined') {
-        setTransientStatus('polygon-clipping ライブラリが読み込まれていません');
+        setTransientStatus(T('status.noClipLib'));
         return;
     }
     const polys = rooms.map(shapeToWorldRings).filter((r) => r && r.length > 0);
     if (polys.length < 2) {
-        setTransientStatus('変換できる部屋が足りません');
+        setTransientStatus(T('status.notEnoughRooms'));
         return;
     }
     let result;
@@ -2319,11 +2328,11 @@ function performBooleanOpRoom(op, rooms) {
         result = polygonClipping[op](polys[0], ...polys.slice(1));
     } catch (e) {
         console.error(e);
-        setTransientStatus('ブール演算に失敗しました');
+        setTransientStatus(T('status.boolFailed'));
         return;
     }
     if (!result || result.length === 0) {
-        setTransientStatus('結果が空です');
+        setTransientStatus(T('status.emptyResult'));
         return;
     }
     let d = '';
@@ -2374,12 +2383,12 @@ function performBooleanOpRoom(op, rooms) {
     const group = sel.toGroup();
     group.set({ _isRoomGroup: true, objectCaching: false, subTargetCheck: false }); // 部屋はキャッシュ無効 (影崩れ回避)
     App.canvas.discardActiveObject();
-    const opLabel = { union: '合体', intersection: '交差', difference: '差', xor: '排他' }[op] || op;
-    addLayerObject(opLabel + '_部屋', group, { skipHistory: true });
+    const opLabel = boolOpLabel(op);
+    addLayerObject(T('layer.boolRoom', opLabel), group, { skipHistory: true });
     if (zIndex >= 0) App.canvas.moveTo(group, zIndex);
     App.canvas.setActiveObject(group);
     App.canvas.renderAll();
-    pushHistory(`部屋のブール演算: ${opLabel}`);
+    pushHistory(T('hist.boolRoom', opLabel));
 }
 
 function getActionsForTarget(t) {
@@ -2391,36 +2400,36 @@ function getActionsForTarget(t) {
     if (isActiveSel) {
         const objs = typeof t.getObjects === 'function' ? t.getObjects() : [];
         if (!objs.some((o) => o._isCellLayer || o._isTerrainLayer || o._isFreehandLayer)) {
-            actions.push({ icon: 'create_new_folder', title: 'グループ化', onClick: () => groupSelected() });
+            actions.push({ icon: 'create_new_folder', title: T('action.group'), onClick: () => groupSelected() });
         }
     } else if (isGroup) {
-        actions.push({ icon: 'folder_open', title: 'グループ解除', onClick: () => ungroupSelected() });
+        actions.push({ icon: 'folder_open', title: T('action.ungroup'), onClick: () => ungroupSelected() });
     }
     // 全選択タイプ共通の操作
-    actions.push({ icon: 'content_copy', title: '複製', onClick: (tt) => duplicateActive(tt) });
-    actions.push({ icon: t.visible ? 'visibility' : 'visibility_off', title: '表示/非表示', onClick: (tt) => toggleVisibilityActive(tt) });
-    actions.push({ icon: t.lockMovementX ? 'lock' : 'lock_open', title: 'ロック切替', onClick: (tt) => toggleLockActive(tt) });
+    actions.push({ icon: 'content_copy', title: T('ctx.duplicate'), onClick: (tt) => duplicateActive(tt) });
+    actions.push({ icon: t.visible ? 'visibility' : 'visibility_off', title: T('action.visibility'), onClick: (tt) => toggleVisibilityActive(tt) });
+    actions.push({ icon: t.lockMovementX ? 'lock' : 'lock_open', title: T('action.lock'), onClick: (tt) => toggleLockActive(tt) });
     actions.push({
         icon: 'flip_to_front',
-        title: '最前面へ',
+        title: T('ctx.front'),
         onClick: (tt) => {
             App.canvas.bringToFront(tt);
             App.canvas.renderAll();
             renderLayerList();
-            pushHistory('最前面へ');
+            pushHistory(T('hist.front'));
         },
     });
     actions.push({
         icon: 'flip_to_back',
-        title: '最背面へ',
+        title: T('ctx.back'),
         onClick: (tt) => {
             App.canvas.sendToBack(tt);
             App.canvas.renderAll();
             renderLayerList();
-            pushHistory('最背面へ');
+            pushHistory(T('hist.back'));
         },
     });
-    actions.push({ icon: 'delete', title: '削除', onClick: (tt) => deleteActive(tt) });
+    actions.push({ icon: 'delete', title: T('common.delete'), onClick: (tt) => deleteActive(tt) });
     return actions;
 }
 
@@ -2435,7 +2444,7 @@ function toggleLockActive(t) {
     t.set(props);
     App.canvas.renderAll();
     renderLayerList();
-    pushHistory(lock ? 'ロック' : 'ロック解除');
+    pushHistory(T(lock ? 'hist.lock' : 'hist.unlock'));
 }
 
 /** 表示/非表示トグル: activeSelection なら子全部、それ以外は単体。 */
@@ -2454,7 +2463,7 @@ function toggleVisibilityActive(t) {
     App.canvas.renderAll();
     renderLayerList();
     updateSelectionInfo();
-    pushHistory(vis ? '表示' : '非表示');
+    pushHistory(T(vis ? 'hist.show' : 'hist.hide'));
 }
 
 /** 削除: activeSelection なら子全部、それ以外は単体。 */
@@ -2467,7 +2476,7 @@ function deleteActive(t) {
     renderLayerList();
     App.canvas.renderAll();
     updateSelectionInfo();
-    pushHistory(targets.length === 1 ? `${targets[0]._layerName || '要素'}を削除` : `${targets.length}個削除`);
+    pushHistory(targets.length === 1 ? T('hist.delete', targets[0]._layerName || T('layer.element')) : T('hist.deleteN', targets.length));
 }
 
 /** 複製: cloneAsync で位置をずらしてレイヤー化。 */
@@ -2481,7 +2490,7 @@ function duplicateActive(t) {
             // ずらし量は半セル。中途半端な px だとスナップ点 (交点/セル中心) から外れて座標がずれるため。
             const dupOffset = (App.cellSize || 72) / 2;
             cloned.set({ left: (cloned.left || 0) + dupOffset, top: (cloned.top || 0) + dupOffset });
-            addLayerObject((o._layerName || '要素') + ' コピー', cloned, { skipHistory: true });
+            addLayerObject(T('layer.copyOf', o._layerName || T('layer.element')), cloned, { skipHistory: true });
             // 最前面ではなく複製元のすぐ上に配置する (addLayerObject は最前面に積むので移動し直す)
             const srcIdx = App.canvas.getObjects().indexOf(o);
             if (srcIdx >= 0) App.canvas.moveTo(cloned, srcIdx + 1);
@@ -2495,7 +2504,7 @@ function duplicateActive(t) {
                     App.canvas.setActiveObject(sel);
                 }
                 App.canvas.renderAll();
-                pushHistory(targets.length === 1 ? '複製' : `${targets.length}個複製`);
+                pushHistory(targets.length === 1 ? T('hist.duplicate') : T('hist.duplicateN', targets.length));
             }
         }, SAVE_CUSTOM_PROPS);
     });
@@ -2707,11 +2716,12 @@ function actionBarHitIndex(localX, actions) {
 
     // ブール演算バー (アクションバーの更に上に独立配置、2+ の対象図形が選ばれているときだけ表示)
     const BOOL_BAR_OFFSET_Y = ACTION_BAR_OFFSET_Y - (ACTION_BAR_HEIGHT + 6);
+    // title は表示時に T() で引く (辞書キーを保持)
     const boolActions = [
-        { op: 'union', title: '合体 (union)' },
-        { op: 'intersection', title: '交差 (intersection)' },
-        { op: 'difference', title: '差 (difference)' },
-        { op: 'xor', title: '排他 (xor)' },
+        { op: 'union', titleKey: 'bool.union' },
+        { op: 'intersection', titleKey: 'bool.intersection' },
+        { op: 'difference', titleKey: 'bool.difference' },
+        { op: 'xor', titleKey: 'bool.xor' },
     ];
     const boolActionsForTarget = (t) => {
         if (!t || t.type !== 'activeSelection') return [];
@@ -2723,7 +2733,7 @@ function actionBarHitIndex(localX, actions) {
         if (!usable.every((o) => boolCategory(o) === cat)) return [];
         return boolActions.map((a) => ({
             draw: (ctx, x, y, s, col) => drawBoolIcon(ctx, x, y, s, col, a.op),
-            title: a.title,
+            title: T(a.titleKey),
             onClick: () => performBooleanOp(a.op),
         }));
     };
@@ -2872,7 +2882,7 @@ function createFreehandLayer() {
         noScaleCache: false,
         _isFreehandLayer: true,
     });
-    addLayerObject('フリーハンド', group);
+    addLayerObject(T('tool.freehand'), group);
     App.selectedLayerIds = [group._layerId];
     renderLayerList();
     return group;
@@ -2916,13 +2926,13 @@ function renderLayerList() {
             obj.set({ visible: !obj.visible });
             App.canvas.renderAll();
             renderLayerList();
-            pushHistory(obj.visible ? `${obj._layerName}を表示` : `${obj._layerName}を非表示`);
+            pushHistory(T(obj.visible ? 'hist.showLayer' : 'hist.hideLayer', obj._layerName));
         });
 
         // 名前
         const name = document.createElement('span');
         name.className = 'layer-name';
-        name.textContent = obj._layerName || 'レイヤー';
+        name.textContent = obj._layerName || T('layer.layer');
 
         item.appendChild(vis);
         item.appendChild(name);
@@ -2932,7 +2942,7 @@ function renderLayerList() {
             const lockIcon = document.createElement('span');
             lockIcon.className = 'material-symbols-outlined layer-lock-icon';
             lockIcon.textContent = 'lock';
-            lockIcon.title = 'ロック中 (クリックで解除)';
+            lockIcon.title = T('layer.lockedTip');
             lockIcon.addEventListener('click', (e) => {
                 e.stopPropagation();
                 obj.set({
@@ -2945,7 +2955,7 @@ function renderLayerList() {
                 });
                 App.canvas.renderAll();
                 renderLayerList();
-                pushHistory(`${obj._layerName}をロック解除`);
+                pushHistory(T('hist.unlockLayer', obj._layerName));
             });
             item.appendChild(lockIcon);
         }
@@ -2993,7 +3003,7 @@ function renderLayerList() {
                 const newName = input.value || before;
                 obj._layerName = newName;
                 renderLayerList();
-                if (newName !== before) pushHistory(`${before} → ${newName} に改名`);
+                if (newName !== before) pushHistory(T('hist.rename', before, newName));
             };
             input.addEventListener('blur', commit);
             input.addEventListener('keydown', (ev) => {
@@ -3064,7 +3074,7 @@ function renderLayerList() {
 
             renderLayerList();
             App.canvas.renderAll();
-            pushHistory('レイヤーを並べ替え');
+            pushHistory(T('hist.reorder'));
         });
 
         list.appendChild(item);
@@ -3172,7 +3182,7 @@ function updateSelectionInfo() {
     destroySelInfoPickrs();
     const active = App.canvas.getActiveObjects().filter((o) => o._isMapLayer);
     if (active.length === 0) {
-        info.innerHTML = '<p class="fl" style="opacity:0.5" id="sel-none">オブジェクトを選択してください</p>';
+        info.innerHTML = `<p class="fl" style="opacity:0.5" id="sel-none">${escMapHtml(T('sel.none'))}</p>`;
         return;
     }
     info.innerHTML = '';
@@ -3183,26 +3193,26 @@ function updateSelectionInfo() {
     if (active.length === 1) {
         const o = active[0];
         basic.innerHTML = `
-            <div class="f"><span class="fl">名前</span><span class="unit">${o._layerName || ''}</span></div>
+            <div class="f"><span class="fl">${T('sel.name')}</span><span class="unit">${o._layerName || ''}</span></div>
             <div class="f"><span class="fl">X</span><input type="number" id="si-x" value="${Math.round(o.left)}" class="custom-spinner" /></div>
             <div class="f"><span class="fl">Y</span><input type="number" id="si-y" value="${Math.round(o.top)}" class="custom-spinner" /></div>
-            <div class="f"><span class="fl">幅</span><span class="unit">${Math.round(o.width * (o.scaleX || 1))}</span></div>
-            <div class="f"><span class="fl">高さ</span><span class="unit">${Math.round(o.height * (o.scaleY || 1))}</span></div>
-            <div class="f"><span class="fl">回転</span><span class="unit">${Math.round(o.angle || 0)}°</span></div>`;
+            <div class="f"><span class="fl">${T('sel.width')}</span><span class="unit">${Math.round(o.width * (o.scaleX || 1))}</span></div>
+            <div class="f"><span class="fl">${T('sel.height')}</span><span class="unit">${Math.round(o.height * (o.scaleY || 1))}</span></div>
+            <div class="f"><span class="fl">${T('common.rotation')}</span><span class="unit">${Math.round(o.angle || 0)}°</span></div>`;
         basic.querySelector('#si-x')?.addEventListener('change', function () {
             o.set({ left: parseInt(this.value) });
             o.setCoords();
             App.canvas.renderAll();
-            pushHistory(`${o._layerName}のXを変更`);
+            pushHistory(T('hist.moveX', o._layerName));
         });
         basic.querySelector('#si-y')?.addEventListener('change', function () {
             o.set({ top: parseInt(this.value) });
             o.setCoords();
             App.canvas.renderAll();
-            pushHistory(`${o._layerName}のYを変更`);
+            pushHistory(T('hist.moveY', o._layerName));
         });
     } else {
-        basic.innerHTML = `<div class="fl" style="opacity:0.6">${active.length} 個のオブジェクトを選択中</div>`;
+        basic.innerHTML = `<div class="fl" style="opacity:0.6">${T('sel.count', active.length)}</div>`;
     }
     info.appendChild(basic);
 
@@ -3215,9 +3225,9 @@ function updateSelectionInfo() {
         editable.forEach((e) => {
             (byKind[e.kind] = byKind[e.kind] || []).push(e);
         });
-        const LABELS = { ground: '地面', wall: '壁', 'room-ground': '部屋の地面', 'room-wall': '部屋の壁' };
+        const LABELS = { ground: 'sel.kind.ground', wall: 'sel.kind.wall', 'room-ground': 'sel.kind.roomGround', 'room-wall': 'sel.kind.roomWall' };
         Object.entries(byKind).forEach(([kind, entries]) => {
-            info.appendChild(buildSelPatternSection(kind, LABELS[kind], entries, info, sectionIndex++ === 0));
+            info.appendChild(buildSelPatternSection(kind, T(LABELS[kind]), entries, info, sectionIndex++ === 0));
         });
     }
 
@@ -3254,15 +3264,15 @@ function buildSelPatternSection(kind, label, entries, infoRoot, isFirst) {
     const sec = document.createElement('div');
     sec.className = 's-sub-body';
     sec.innerHTML = `
-        <div class="s-sub-ttl${isFirst ? ' first' : ''}"><span class="material-symbols-outlined fill">palette</span>${label}の${fillSide ? '塗り' : '輪郭'}</div>
+        <div class="s-sub-ttl${isFirst ? ' first' : ''}"><span class="material-symbols-outlined fill">palette</span>${T(fillSide ? 'sel.fillOf' : 'sel.strokeOf', label)}</div>
         <div class="sel-pattern-picker pattern-picker"></div>
         <div class="s-sub-section collapsible collapsed">
-            <div class="s-sub-ttl"><span class="material-symbols-outlined">tune</span>パターン詳細<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
+            <div class="s-sub-ttl"><span class="material-symbols-outlined">tune</span>${T('pat.detail')}<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
             <div class="s-sub-body">
-                <div class="f"><span class="fl">オフセットX</span><div class="row"><input type="number" class="custom-spinner sel-pat-offx" value="${first._patternOffsetX || 0}" /><span class="unit">px</span></div></div>
-                <div class="f"><span class="fl">オフセットY</span><div class="row"><input type="number" class="custom-spinner sel-pat-offy" value="${first._patternOffsetY || 0}" /><span class="unit">px</span></div></div>
-                <div class="f"><span class="fl">回転</span><div class="row"><input type="number" min="-360" max="360" class="custom-spinner sel-pat-rot" value="${first._patternRotation || 0}" /><span class="unit">°</span></div></div>
-                <div class="f"><span class="fl">倍率</span><div class="row"><input type="number" min="10" max="2000" step="10" class="custom-spinner sel-pat-scale" value="${userScalePct}" /><span class="unit">%</span></div></div>
+                <div class="f"><span class="fl">${T('common.offsetX')}</span><div class="row"><input type="number" class="custom-spinner sel-pat-offx" value="${first._patternOffsetX || 0}" /><span class="unit">px</span></div></div>
+                <div class="f"><span class="fl">${T('common.offsetY')}</span><div class="row"><input type="number" class="custom-spinner sel-pat-offy" value="${first._patternOffsetY || 0}" /><span class="unit">px</span></div></div>
+                <div class="f"><span class="fl">${T('common.rotation')}</span><div class="row"><input type="number" min="-360" max="360" class="custom-spinner sel-pat-rot" value="${first._patternRotation || 0}" /><span class="unit">°</span></div></div>
+                <div class="f"><span class="fl">${T('common.scale')}</span><div class="row"><input type="number" min="10" max="2000" step="10" class="custom-spinner sel-pat-scale" value="${userScalePct}" /><span class="unit">%</span></div></div>
             </div>
         </div>
     `;
@@ -3277,7 +3287,7 @@ function buildSelPatternSection(kind, label, entries, infoRoot, isFirst) {
             Object.assign(sharedState, s);
             entries.forEach((e) => applyPatternStateToTarget(e.target, e.kind, sharedState));
             App.canvas.requestRenderAll();
-            pushHistoryDebounced(label + 'のパターンを変更');
+            pushHistoryDebounced(T('hist.selPattern', label));
         },
     });
     if (pickerRoot._pickr) (infoRoot._pickrs = infoRoot._pickrs || []).push(pickerRoot._pickr);
@@ -3298,7 +3308,7 @@ function buildSelPatternSection(kind, label, entries, infoRoot, isFirst) {
             e.target._patternScale = eDefScale * userScale;
         });
         refreshTransform();
-        pushHistoryDebounced(label + 'の倍率を変更');
+        pushHistoryDebounced(T('hist.selScale', label));
     });
     sec.querySelector('.sel-pat-offx').addEventListener('input', function () {
         const v = parseFloat(this.value) || 0;
@@ -3306,7 +3316,7 @@ function buildSelPatternSection(kind, label, entries, infoRoot, isFirst) {
             e.target._patternOffsetX = v;
         });
         refreshTransform();
-        pushHistoryDebounced(label + 'のオフセットXを変更');
+        pushHistoryDebounced(T('hist.selOffsetX', label));
     });
     sec.querySelector('.sel-pat-offy').addEventListener('input', function () {
         const v = parseFloat(this.value) || 0;
@@ -3314,7 +3324,7 @@ function buildSelPatternSection(kind, label, entries, infoRoot, isFirst) {
             e.target._patternOffsetY = v;
         });
         refreshTransform();
-        pushHistoryDebounced(label + 'のオフセットYを変更');
+        pushHistoryDebounced(T('hist.selOffsetY', label));
     });
     sec.querySelector('.sel-pat-rot').addEventListener('input', function () {
         const v = parseFloat(this.value) || 0;
@@ -3322,7 +3332,7 @@ function buildSelPatternSection(kind, label, entries, infoRoot, isFirst) {
             e.target._patternRotation = v;
         });
         refreshTransform();
-        pushHistoryDebounced(label + 'の回転を変更');
+        pushHistoryDebounced(T('hist.selRotation', label));
     });
     return sec;
 }
@@ -3345,13 +3355,13 @@ function buildSelShadowSection(active, infoRoot, isFirst) {
     const sec = document.createElement('div');
     sec.className = 's-sub-section collapsible collapsed';
     sec.innerHTML = `
-        <div class="s-sub-ttl"><span class="material-symbols-outlined">shadow</span>影<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
+        <div class="s-sub-ttl"><span class="material-symbols-outlined">shadow</span>${T('common.shadow')}<span class="s-chevron material-symbols-outlined">chevron_right</span></div>
         <div class="s-sub-body">
-            <div class="f"><label class="tog"><input type="checkbox" class="sel-shadow-on" ${enabled ? 'checked' : ''} /><span class="tl">影を付ける</span></label></div>
-            <div class="f"><span class="fl">色</span><div class="sel-shadow-color"></div></div>
-            <div class="f"><span class="fl">ぼかし</span><div class="row"><input type="number" min="0" class="custom-spinner sel-shadow-blur" value="${blur}" /><span class="unit">px</span></div></div>
-            <div class="f"><span class="fl">オフセットX</span><div class="row"><input type="number" class="custom-spinner sel-shadow-offx" value="${offX}" /><span class="unit">px</span></div></div>
-            <div class="f"><span class="fl">オフセットY</span><div class="row"><input type="number" class="custom-spinner sel-shadow-offy" value="${offY}" /><span class="unit">px</span></div></div>
+            <div class="f"><label class="tog"><input type="checkbox" class="sel-shadow-on" ${enabled ? 'checked' : ''} /><span class="tl">${T('common.addShadow')}</span></label></div>
+            <div class="f"><span class="fl">${T('common.color')}</span><div class="sel-shadow-color"></div></div>
+            <div class="f"><span class="fl">${T('common.blur')}</span><div class="row"><input type="number" min="0" class="custom-spinner sel-shadow-blur" value="${blur}" /><span class="unit">px</span></div></div>
+            <div class="f"><span class="fl">${T('common.offsetX')}</span><div class="row"><input type="number" class="custom-spinner sel-shadow-offx" value="${offX}" /><span class="unit">px</span></div></div>
+            <div class="f"><span class="fl">${T('common.offsetY')}</span><div class="row"><input type="number" class="custom-spinner sel-shadow-offy" value="${offY}" /><span class="unit">px</span></div></div>
         </div>
     `;
     let currentColor = color;
@@ -3391,7 +3401,7 @@ function buildSelShadowSection(active, infoRoot, isFirst) {
             o.dirty = true;
         });
         App.canvas.requestRenderAll();
-        pushHistoryDebounced('影を変更');
+        pushHistoryDebounced(T('hist.shadow'));
     }
     sec.querySelector('.sel-shadow-on').addEventListener('change', apply);
     sec.querySelector('.sel-shadow-blur').addEventListener('input', apply);
@@ -3447,7 +3457,7 @@ function createCellLayer() {
         lockRotation: true,
         hasControls: false,
     });
-    addLayerObject('セル', group);
+    addLayerObject(T('layer.cell'), group);
     // 作成直後に選択状態にする
     App.selectedLayerIds = [group._layerId];
     renderLayerList();
@@ -3511,7 +3521,7 @@ function createGroundCellLayer() {
         lockRotation: true,
         hasControls: false,
     });
-    addCategoryLayer('地面_セル', group, '_isGroundLayer');
+    addCategoryLayer(T('layer.groundCell'), group, '_isGroundLayer');
     App.selectedLayerIds = [group._layerId];
     renderLayerList();
     return group;
@@ -3746,7 +3756,7 @@ const FILL_MAX_CELLS = 10000;
  */
 function fillCells(col, row, layer, _unused) {
     if (!layer._cellData || layer._cellData.size === 0) {
-        setTransientStatus('セルレイヤーが空です');
+        setTransientStatus(T('status.cellLayerEmpty'));
         return;
     }
     const adapter = gridAdapter();
@@ -3763,7 +3773,7 @@ function fillCells(col, row, layer, _unused) {
         if (e.row > maxR) maxR = e.row;
     }
     if (col < minC || col > maxC || row < minR || row > maxR) {
-        setTransientStatus('セルレイヤーの範囲外です');
+        setTransientStatus(T('status.outOfCellLayer'));
         return;
     }
 
@@ -3795,7 +3805,7 @@ function fillCells(col, row, layer, _unused) {
         if (cellFillKey !== targetFillKey) continue;
         toFill.push([c, r]);
         if (toFill.length > FILL_MAX_CELLS) {
-            setTransientStatus(`塗りつぶし上限 (${FILL_MAX_CELLS}セル) を超えました`);
+            setTransientStatus(T('status.fillLimit', FILL_MAX_CELLS));
             return;
         }
         for (const [nc, nr] of adapter.cellNeighbors(c, r)) {
@@ -3811,7 +3821,7 @@ function fillCells(col, row, layer, _unused) {
         layer._cellData.set(adapter.cellKey(c, r), newEntryAt(c, r));
     }
     commitCellLayer(layer);
-    pushHistory(`塗りつぶし (${toFill.length}セル)`);
+    pushHistory(T('hist.fillCells', toFill.length));
 }
 
 /* ================================================================
@@ -4237,7 +4247,7 @@ function refreshDecorPreview() {
 /** 装飾をキャンバスに配置 (確定)。 */
 function placeDecorAt(ptr) {
     if (!App.decorId) {
-        setTransientStatus('装飾を選択してください');
+        setTransientStatus(T('status.selectDecor'));
         return;
     }
     const center = decorPlacementCenter(ptr);
@@ -4245,7 +4255,7 @@ function placeDecorAt(ptr) {
         if (!obj) return;
         if (App.decorShadowEnabled) obj.set('shadow', makeShadowFromApp());
         const def = getDecorDef(App.decorId);
-        addLayerObject('装飾_' + (def?.name || App.decorId), obj);
+        addLayerObject(T('layer.prefix.decor') + (def ? decorName(def) : App.decorId), obj);
     });
 }
 
@@ -4255,13 +4265,15 @@ function placeDecorAt(ptr) {
 function mountDecorPicker(root) {
     if (!root) return;
     root.innerHTML = '';
-    // ジャンルタブ
+    // ジャンルタブ (素材が無いジャンルは出さない。保存されていたジャンルが消えていれば「全て」へ)
+    const visibleGenres = visibleDecorGenres();
+    if (!visibleGenres.some((g) => g.id === App.decorGenreId)) App.decorGenreId = 'all';
     const genres = document.createElement('div');
     genres.className = 'pp-genres';
-    DECOR_GENRES.forEach((g) => {
+    visibleGenres.forEach((g) => {
         const b = document.createElement('button');
         b.className = 'pp-genre' + (g.id === App.decorGenreId ? ' active' : '');
-        b.textContent = g.name;
+        b.textContent = T(g.nameKey);
         b.addEventListener('click', () => {
             App.decorGenreId = g.id;
             mountDecorPicker(root);
@@ -4279,7 +4291,7 @@ function mountDecorPicker(root) {
     if (App.decorGenreId === 'all') {
         const addAll = document.createElement('div');
         addAll.className = 'pp-tile pp-tile-add';
-        addAll.title = 'ユーザー装飾を追加';
+        addAll.title = T('decor.addUser');
         addAll.innerHTML = '<span class="material-symbols-outlined" style="font-size:1.6rem">add</span>';
         addAll.addEventListener('click', () => openDecorUploadDialog());
         tiles.appendChild(addAll);
@@ -4287,7 +4299,7 @@ function mountDecorPicker(root) {
     decorsForGenre(App.decorGenreId).forEach((d) => {
         const t = document.createElement('div');
         t.className = 'pp-tile' + (d.id === App.decorId ? ' active' : '');
-        t.title = d.name;
+        t.title = decorName(d);
         // サムネ src 判定:
         //   ユーザー素材: d.dataUrl を直接使用
         //   組み込み SVG: decors/svg/{file} (SVG はそのまま <img> に表示可)
@@ -4302,7 +4314,7 @@ function mountDecorPicker(root) {
         t.appendChild(img);
         const lbl = document.createElement('div');
         lbl.className = 'pp-label';
-        lbl.textContent = d.name;
+        lbl.textContent = decorName(d);
         t.appendChild(lbl);
         t.addEventListener('click', () => {
             App.decorId = d.id;
@@ -4318,14 +4330,14 @@ function mountDecorPicker(root) {
             mountDecorPicker(root);
             refreshDecorColorSection();
             refreshDecorPreview();
-            pushHistoryDebounced('装飾を選択');
+            pushHistoryDebounced(T('hist.decorSelect'));
         });
         // ユーザー素材タイルには削除ボタン overlay
         if (isUserDecor(d.id)) {
             const del = document.createElement('button');
             del.type = 'button';
             del.className = 'pp-tile-del';
-            del.title = '一覧から削除';
+            del.title = T('decor.removeFromList');
             del.innerHTML = '<span class="material-symbols-outlined">close</span>';
             del.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -4339,7 +4351,7 @@ function mountDecorPicker(root) {
     if (App.decorGenreId === 'user') {
         const add = document.createElement('div');
         add.className = 'pp-tile pp-tile-add';
-        add.title = 'ユーザー装飾を追加';
+        add.title = T('decor.addUser');
         add.innerHTML = '<span class="material-symbols-outlined" style="font-size:1.6rem">add</span>';
         add.addEventListener('click', () => openDecorUploadDialog());
         tiles.appendChild(add);
@@ -4371,7 +4383,7 @@ function getCurrentDrawStyle() {
             stroke: null,
             strokeWidth: 0,
             strokeDashArray: null,
-            namePrefix: '地面_',
+            namePrefix: T('layer.prefix.ground'),
             flag: '_isGroundLayer',
         };
     }
@@ -4383,7 +4395,7 @@ function getCurrentDrawStyle() {
             strokeDashArray: App.strokeDashArray,
             strokeLineJoin: App.strokeLineJoin || 'miter',
             strokeLineCap: App.strokeLineCap || 'butt',
-            namePrefix: '壁_',
+            namePrefix: T('layer.prefix.wall'),
             flag: '_isWallLayer',
         };
     }
@@ -4394,7 +4406,7 @@ function getCurrentDrawStyle() {
             stroke: getRoomWallStroke(),
             strokeWidth: App.roomWallThickness || 12,
             strokeDashArray: null,
-            namePrefix: '部屋_',
+            namePrefix: T('layer.prefix.room'),
             flag: null,
         };
     }
@@ -4491,6 +4503,43 @@ function currentPatternDef() {
     if (App.activeTool === 'wall') return getPatternDef(App.wallPattern?.id);
     if (App.activeTool === 'ground') return getPatternDef(App.groundPattern?.id);
     return null;
+}
+
+/**
+ * 舊地圖若用了收錄版已移除的內建圖樣，把它換成單色（上游內建圖樣本身的代替色），不去讀不存在的圖檔。
+ * 對象是 loadFromJSON 之前的畫布 JSON：物件的 _patternState、fill／stroke 裡的 fabric Pattern，
+ * 以及格子圖層的 _cellEntries。使用者上傳的圖樣（來源是 data: URL）不受影響。
+ * @param {object} canvasJson - buildSaveData().canvas
+ */
+function replaceRemovedPatterns(canvasJson) {
+    const colorOf = (id, fallback) => REMOVED_PATTERN_COLORS[id] || fallback;
+    const isPattern = (v) => !!v && typeof v === 'object' && v.type === 'pattern';
+    // 使用者圖樣一律以 data: URL 存檔；來源是一般網址的 Pattern 只可能是上游的內建圖樣
+    const isRemovedSource = (v) => isPattern(v) && typeof v.source === 'string' && !v.source.startsWith('data:');
+    const walk = (o) => {
+        if (!o || typeof o !== 'object') return;
+        const st = o._patternState;
+        let solid = null;
+        if (st && st.mode === 'pattern' && !getPatternDef(st.id)) {
+            solid = colorOf(st.id, st.solidColor || null);
+            o._patternState = { ...st, mode: 'solid', id: null, solidColor: solid || st.solidColor };
+        }
+        ['fill', 'stroke'].forEach((prop) => {
+            if (isRemovedSource(o[prop]) || (solid && isPattern(o[prop]))) {
+                o[prop] = solid || (prop === 'fill' ? '#888888' : '#333333');
+            }
+        });
+        if (Array.isArray(o._cellEntries)) {
+            o._cellEntries = o._cellEntries.map((e) => {
+                if (!e || e.mode !== 'pattern' || getPatternDef(e.patternId)) return e;
+                const c = colorOf(e.patternId, '#888888');
+                return { col: e.col, row: e.row, fillKey: 'solid:' + c, mode: 'solid', solidColor: c };
+            });
+        }
+        if (Array.isArray(o.objects)) o.objects.forEach(walk);
+        if (o.clipPath) walk(o.clipPath);
+    };
+    (canvasJson?.objects || []).forEach(walk);
 }
 
 /** state.mode === 'pattern' なのに id が PATTERNS に無い場合、単色モードに矯正する。 */
@@ -4675,7 +4724,7 @@ function showContextMenu(x, y, target) {
     if (lockItem) {
         const icon = lockItem.querySelector('.material-symbols-outlined');
         icon.textContent = target.lockMovementX ? 'lock_open' : 'lock';
-        lockItem.childNodes[1].textContent = target.lockMovementX ? 'ロック解除' : 'ロック';
+        lockItem.childNodes[1].textContent = T(target.lockMovementX ? 'ctx.unlock' : 'ctx.lock');
     }
 }
 /** 右クリックメニューを閉じ、ctxTarget をクリアする。 */
@@ -4700,7 +4749,7 @@ function handleContextAction(action) {
         case 'duplicate': {
             ctxTarget.clone(function (cloned) {
                 cloned.set({ left: cloned.left + 20, top: cloned.top + 20 });
-                addLayerObject(ctxTarget._layerName + ' コピー', cloned);
+                addLayerObject(T('layer.copyOf', ctxTarget._layerName), cloned);
             });
             break;
         }
@@ -4708,14 +4757,14 @@ function handleContextAction(action) {
             App.canvas.bringToFront(ctxTarget);
             renderLayerList();
             App.canvas.renderAll();
-            pushHistory(`${ctxTarget._layerName}を最前面へ`);
+            pushHistory(T('hist.frontLayer', ctxTarget._layerName));
             break;
         }
         case 'send-back': {
             App.canvas.sendToBack(ctxTarget);
             renderLayerList();
             App.canvas.renderAll();
-            pushHistory(`${ctxTarget._layerName}を最背面へ`);
+            pushHistory(T('hist.backLayer', ctxTarget._layerName));
             break;
         }
         case 'lock': {
@@ -4723,7 +4772,7 @@ function handleContextAction(action) {
             ctxTarget.set({ lockMovementX: locked, lockMovementY: locked, lockRotation: locked, lockScalingX: locked, lockScalingY: locked, hasControls: !locked });
             App.canvas.renderAll();
             renderLayerList();
-            pushHistory(locked ? `${ctxTarget._layerName}をロック` : `${ctxTarget._layerName}をロック解除`);
+            pushHistory(T(locked ? 'hist.lockLayer' : 'hist.unlockLayer', ctxTarget._layerName));
             break;
         }
         case 'delete': {
@@ -4733,7 +4782,7 @@ function handleContextAction(action) {
             App.selectedLayerIds = App.selectedLayerIds.filter((id) => id !== ctxTarget._layerId);
             renderLayerList();
             App.canvas.renderAll();
-            pushHistory(`${name}を削除`);
+            pushHistory(T('hist.delete', name));
             break;
         }
     }
@@ -4796,7 +4845,7 @@ function sanitizeSvgString(svgText) {
 async function readUserAssetFile(file) {
     if (!file) return null;
     if (file.size > USER_ASSET_MAX_BYTES) {
-        setTransientStatus(`ファイルが大きすぎます (上限 ${Math.round(USER_ASSET_MAX_BYTES / 1024 / 1024)}MB)`);
+        setTransientStatus(T('status.fileTooLarge', Math.round(USER_ASSET_MAX_BYTES / 1024 / 1024)));
         return null;
     }
     const isSvg = file.type === 'image/svg+xml' || /\.svg$/i.test(file.name);
@@ -4820,7 +4869,7 @@ async function readUserAssetFile(file) {
 async function uploadUserPattern(file) {
     const parsed = await readUserAssetFile(file);
     if (!parsed) return;
-    const name = file.name.replace(/\.[^.]+$/, '').slice(0, 24) || 'パターン';
+    const name = file.name.replace(/\.[^.]+$/, '').slice(0, 24) || T('pat.defaultName');
     const def = {
         id: genUserAssetId('user-pat'),
         name,
@@ -4833,7 +4882,7 @@ async function uploadUserPattern(file) {
     };
     App.userPatterns.push(def);
     refreshPatternPickers();
-    pushHistory(`ユーザーパターンを追加: ${name}`);
+    pushHistory(T('hist.userPatternAdd', name));
 }
 
 /** id 指定でユーザーパターンを削除。使用中の場合は単色に戻す。 */
@@ -4841,14 +4890,14 @@ function deleteUserPattern(id) {
     const idx = (App.userPatterns || []).findIndex((p) => p.id === id);
     if (idx < 0) return;
     const name = App.userPatterns[idx].name;
-    if (!confirm(`パターン「${name}」を削除しますか？ (使用中のオブジェクトは単色に戻ります)`)) return;
+    if (!confirm(T('pat.deleteConfirm', name))) return;
     App.userPatterns.splice(idx, 1);
     _patternImageCache.delete(id);
     // 現在の選択がこの id ならクリア
     if (App.groundPattern?.id === id) App.groundPattern = { ...App.groundPattern, mode: 'solid', id: null };
     if (App.wallPattern?.id === id) App.wallPattern = { ...App.wallPattern, mode: 'solid', id: null };
     refreshPatternPickers();
-    pushHistory(`ユーザーパターンを削除: ${name}`);
+    pushHistory(T('hist.userPatternDelete', name));
 }
 
 /** ファイル選択ダイアログを開いてユーザーパターンをアップロード */
@@ -4863,7 +4912,7 @@ function openPatternUploadDialog() {
                 await uploadUserPattern(f);
             } catch (e) {
                 console.error(e);
-                setTransientStatus('パターン読み込みに失敗しました');
+                setTransientStatus(T('status.patternLoadFailed'));
             }
         }
     });
@@ -4874,7 +4923,7 @@ function openPatternUploadDialog() {
 async function uploadUserDecor(file) {
     const parsed = await readUserAssetFile(file);
     if (!parsed) return;
-    const name = file.name.replace(/\.[^.]+$/, '').slice(0, 24) || '装飾';
+    const name = file.name.replace(/\.[^.]+$/, '').slice(0, 24) || T('decor.defaultName');
     const def = {
         id: genUserAssetId('user-dec'),
         name,
@@ -4890,7 +4939,7 @@ async function uploadUserDecor(file) {
     // 即時ロードしてキャッシュに置く (装飾ピッカーのサムネ表示と即時使用のため)
     loadDecorAsset(def.id);
     if (typeof mountDecorPicker === 'function') mountDecorPicker(document.getElementById('decor-picker'));
-    pushHistory(`ユーザー装飾を追加: ${name}`);
+    pushHistory(T('hist.userDecorAdd', name));
 }
 
 /** id 指定でユーザー装飾を削除。使用中のレイヤーには影響しない (画像/SVG は埋め込み済みのため)。 */
@@ -4898,12 +4947,12 @@ function deleteUserDecor(id) {
     const idx = (App.userDecors || []).findIndex((d) => d.id === id);
     if (idx < 0) return;
     const name = App.userDecors[idx].name;
-    if (!confirm(`装飾「${name}」を一覧から削除しますか？ (既に配置したものはそのまま残ります)`)) return;
+    if (!confirm(T('decor.deleteConfirm', name))) return;
     App.userDecors.splice(idx, 1);
     _decorCache.delete(id);
     if (App.decorId === id) App.decorId = null;
     if (typeof mountDecorPicker === 'function') mountDecorPicker(document.getElementById('decor-picker'));
-    pushHistory(`ユーザー装飾を削除: ${name}`);
+    pushHistory(T('hist.userDecorDelete', name));
 }
 
 /** ファイル選択ダイアログを開いてユーザー装飾をアップロード */
@@ -4918,7 +4967,7 @@ function openDecorUploadDialog() {
                 await uploadUserDecor(f);
             } catch (e) {
                 console.error(e);
-                setTransientStatus('装飾読み込みに失敗しました');
+                setTransientStatus(T('status.decorLoadFailed'));
             }
         }
     });
@@ -4933,17 +4982,21 @@ function openDecorUploadDialog() {
  */
 function renderPatternPickerContent(root, opts) {
     const state = opts.getState();
-    const genreId = state.genreId || 'all';
+    const cat = opts.category;
+    // 分類分頁只顯示有圖樣的（「全部」「自訂」一定顯示）。舊地圖存的分類（例如上游內建圖樣的
+    // 室內／戶外）已經不存在時，改用「全部」，不會出現空白的分頁。
+    const visibleGenres = opts.genres.filter((g) => g.id === 'all' || g.id === 'user' || opts.patterns.some((p) => p[cat] === g.id));
+    const genreId = visibleGenres.some((g) => g.id === state.genreId) ? state.genreId : 'all';
     const content = root.querySelector('.pp-content');
     content.innerHTML = '';
     // ジャンルタブ
     const genresEl = document.createElement('div');
     genresEl.className = 'pp-genres';
-    opts.genres.forEach((g) => {
+    visibleGenres.forEach((g) => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'pp-genre' + (g.id === genreId ? ' active' : '');
-        btn.textContent = g.name;
+        btn.textContent = T(g.nameKey);
         btn.addEventListener('click', () => {
             opts.setState({ ...opts.getState(), genreId: g.id });
             renderPatternPickerContent(root, opts);
@@ -4962,14 +5015,14 @@ function renderPatternPickerContent(root, opts) {
     if (genreId === 'all') {
         const solid = document.createElement('div');
         solid.className = 'pp-tile pp-tile-solid' + (state.mode === 'solid' ? ' active' : '');
-        solid.title = '単色';
+        solid.title = T('pat.solid');
         const swatch = document.createElement('div');
         swatch.className = 'pp-solid-swatch';
         swatch.style.background = state.solidColor || '#888888';
         solid.appendChild(swatch);
         const solidLabel = document.createElement('div');
         solidLabel.className = 'pp-label';
-        solidLabel.textContent = '単色';
+        solidLabel.textContent = T('pat.solid');
         solid.appendChild(solidLabel);
         solid.addEventListener('click', () => {
             opts.setState({ ...opts.getState(), mode: 'solid' });
@@ -4980,7 +5033,7 @@ function renderPatternPickerContent(root, opts) {
         // 全てタブでは「+追加」タイルを単色の直後に
         const addAll = document.createElement('div');
         addAll.className = 'pp-tile pp-tile-add';
-        addAll.title = 'ユーザーパターンを追加';
+        addAll.title = T('pat.addUser');
         addAll.innerHTML = '<span class="material-symbols-outlined" style="font-size:1.6rem">add</span>';
         addAll.addEventListener('click', () => openPatternUploadDialog());
         tilesEl.appendChild(addAll);
@@ -4988,7 +5041,6 @@ function renderPatternPickerContent(root, opts) {
 
     // パターンタイル (フィルタ済み)。opts.category ('ground' | 'wall') 側のジャンルでフィルタ。
     // ユーザー素材は ground='user' / wall='user' で常に対象、ジャンル 'user' で絞り込み。
-    const cat = opts.category;
     const filtered = opts.patterns.filter((p) => {
         if (p[cat] !== 'user' && !p[cat]) return false;
         if (genreId === 'all') return true;
@@ -5020,7 +5072,7 @@ function renderPatternPickerContent(root, opts) {
             const del = document.createElement('button');
             del.type = 'button';
             del.className = 'pp-tile-del';
-            del.title = '削除';
+            del.title = T('common.delete');
             del.innerHTML = '<span class="material-symbols-outlined">close</span>';
             del.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -5035,12 +5087,19 @@ function renderPatternPickerContent(root, opts) {
     if (genreId === 'user') {
         const add = document.createElement('div');
         add.className = 'pp-tile pp-tile-add';
-        add.title = 'ユーザーパターンを追加';
+        add.title = T('pat.addUser');
         add.innerHTML = '<span class="material-symbols-outlined" style="font-size:1.6rem">add</span>';
         add.addEventListener('click', () => openPatternUploadDialog());
         tilesEl.appendChild(add);
     }
     content.appendChild(tilesScroll);
+    // 收錄版沒有內建圖樣：一張圖樣都還沒上傳時，提示可以按「＋」上傳自己的圖片。
+    if (filtered.length === 0) {
+        const hint = document.createElement('p');
+        hint.className = 'pp-empty-hint';
+        hint.textContent = T('pat.emptyHint');
+        content.appendChild(hint);
+    }
 }
 
 /** 単色行 (.pp-solid-row) の表示/非表示を state.mode に合わせて更新する。 */
@@ -5060,7 +5119,7 @@ function mountPatternPicker(root, opts) {
         updatePatternSolidRow(root, opts);
         return;
     }
-    root.innerHTML = '<div class="pp-content"></div><div class="pp-solid-row hidden"><span>色</span><div class="pp-solid-trigger"></div></div>';
+    root.innerHTML = `<div class="pp-content"></div><div class="pp-solid-row hidden"><span class="pp-solid-label">${escMapHtml(T('common.color'))}</span><div class="pp-solid-trigger"></div></div>`;
     const triggerEl = root.querySelector('.pp-solid-trigger');
     const state0 = opts.getState();
     const pickr = Pickr.create({
@@ -5100,7 +5159,7 @@ function refreshPatternPickers() {
             getState: () => App.groundPattern,
             setState: (s) => {
                 App.groundPattern = s;
-                pushHistoryDebounced('地面パターンを変更');
+                pushHistoryDebounced(T('hist.groundPattern'));
             },
         });
         if (groundRoot._pickr) {
@@ -5120,7 +5179,7 @@ function refreshPatternPickers() {
             getState: () => App.wallPattern,
             setState: (s) => {
                 App.wallPattern = s;
-                pushHistoryDebounced('壁パターンを変更');
+                pushHistoryDebounced(T('hist.wallPattern'));
             },
         });
         if (wallRoot._pickr) {
@@ -5141,7 +5200,7 @@ function refreshPatternPickers() {
             getState: () => App.groundPattern,
             setState: (s) => {
                 App.groundPattern = s;
-                pushHistoryDebounced('地面パターンを変更');
+                pushHistoryDebounced(T('hist.groundPattern'));
             },
         });
         if (roomGroundRoot._pickr) {
@@ -5161,7 +5220,7 @@ function refreshPatternPickers() {
             getState: () => App.wallPattern,
             setState: (s) => {
                 App.wallPattern = s;
-                pushHistoryDebounced('壁パターンを変更');
+                pushHistoryDebounced(T('hist.wallPattern'));
             },
         });
         if (roomWallRoot._pickr) {
@@ -5428,7 +5487,7 @@ function applyTextStyleToActiveText() {
         strokeWidth: App.textStrokeWidth > 0 ? App.textStrokeWidth : 0,
     };
     if (applyTextStyle(styleObj)) {
-        pushHistoryDebounced('文字スタイル変更');
+        pushHistoryDebounced(T('hist.textLook'));
     }
 }
 
@@ -5484,7 +5543,7 @@ function handleImageUpload(e) {
     reader.onload = (evt) => {
         fabric.Image.fromURL(evt.target.result, (img) => {
             img.set({ left: 0, top: 0, objectCaching: false });
-            addLayerObject('画像', img);
+            addLayerObject(T('tool.image'), img);
         });
     };
     reader.readAsDataURL(file);
@@ -5595,26 +5654,37 @@ function openExportModal() {
     const r = App._exportRect;
     if (!r || r.w < 1 || r.h < 1) return;
     const cs = App.cellSize;
-    document.getElementById('export-modal-info').textContent = `${(r.w / cs).toFixed(1)} × ${(r.h / cs).toFixed(1)} マス  (内部: ${Math.round(r.w)} × ${Math.round(r.h)} px)`;
     const cellPxEl = document.getElementById('export-cell-px');
     if (cellPxEl && !cellPxEl._userChanged) cellPxEl.value = cs;
-    updateExportOutputSize();
+    renderExportModalText();
     updateExportPreview();
-    // 誘導ボタン: マップのグリッド種別に合わせて飛び先を切替 (スクエア⇔ヘクス)
-    {
-        const isHex = (App.gridType || 'square').startsWith('hex');
-        const kind = isHex ? 'ヘクス' : 'スクエア';
-        const gridLink = document.getElementById('export-link-grid');
-        const rulerLink = document.getElementById('export-link-ruler');
-        const gridSub = document.getElementById('export-link-grid-sub');
-        const rulerSub = document.getElementById('export-link-ruler-sub');
-        if (gridLink) gridLink.href = isHex ? '/hex_maker.html' : '/grid_maker.html';
-        if (rulerLink) rulerLink.href = isHex ? '/hex_ruler.html' : '/grid_ruler.html';
-        if (gridSub) gridSub.textContent = kind;
-        if (rulerSub) rulerSub.textContent = kind;
-    }
     IKLab.openModal('export-modal');
     IKLab.initNumSpinners(document.getElementById('export-modal'));
+}
+
+/**
+ * 出力モーダル内の JS 生成テキスト (範囲情報・出力サイズ・誘導ボタン) を現在の言語で書き直す。
+ * モーダルを開くときと、言語を切り替えたときに呼ぶ。
+ */
+function renderExportModalText() {
+    const r = App._exportRect;
+    if (r && r.w >= 1 && r.h >= 1) {
+        const cs = App.cellSize;
+        document.getElementById('export-modal-info').textContent = T('export.info', (r.w / cs).toFixed(1), (r.h / cs).toFixed(1), Math.round(r.w), Math.round(r.h));
+    }
+    updateExportOutputSize();
+    // 誘導ボタン: マップのグリッド種別に合わせて飛び先を切替 (スクエア⇔ヘクス)
+    // 收錄版的其他工具頁在上一層目錄（上游寫的是站台根目錄的絕對路徑）。
+    const isHex = (App.gridType || 'square').startsWith('hex');
+    const kind = T(isHex ? 'export.hex' : 'export.square');
+    const gridLink = document.getElementById('export-link-grid');
+    const rulerLink = document.getElementById('export-link-ruler');
+    const gridSub = document.getElementById('export-link-grid-sub');
+    const rulerSub = document.getElementById('export-link-ruler-sub');
+    if (gridLink) gridLink.href = isHex ? '../hex_maker.html' : '../grid_maker.html';
+    if (rulerLink) rulerLink.href = isHex ? '../hex_ruler.html' : '../grid_ruler.html';
+    if (gridSub) gridSub.textContent = kind;
+    if (rulerSub) rulerSub.textContent = kind;
 }
 
 /**
@@ -5636,7 +5706,7 @@ function updateExportOutputSize() {
         return;
     }
     const scale = getExportScale();
-    el.textContent = `出力サイズ: ${Math.round(r.w * scale)} × ${Math.round(r.h * scale)} px`;
+    el.textContent = T('export.size', Math.round(r.w * scale), Math.round(r.h * scale));
 }
 
 /**
@@ -5680,7 +5750,7 @@ function exportDimSuffix(r) {
 function handleExport() {
     const r = App._exportRect;
     if (!r || r.w < 1 || r.h < 1) {
-        alert('出力範囲を指定してください');
+        alert(T('export.noRange'));
         return;
     }
     const dimSuffix = exportDimSuffix(r); // 例: "_8x6"
@@ -5901,6 +5971,10 @@ function restoreSaveData(data) {
     // 旧版で保存された未知パターン ID は単色にフォールバックして UI と実状態の食い違いを防ぐ
     normalizePatternState(App.groundPattern);
     normalizePatternState(App.wallPattern);
+    // 收錄版拿掉了平面圖裝飾：選取中的裝飾若已不存在就取消選取；
+    // 畫布上用到已移除內建圖樣的物件改成單色（在 loadFromJSON 前處理，才不會去抓不存在的圖檔）。
+    if (App.decorId && !getDecorDef(App.decorId)) App.decorId = null;
+    replaceRemovedPatterns(data.canvas);
     if (typeof data.wallThickness === 'number') App.wallThickness = data.wallThickness;
     const wt = document.getElementById('wall-thickness');
     if (wt) wt.value = App.wallThickness;
@@ -6097,7 +6171,7 @@ async function loadMapFromUrl() {
     App.mapCreatedAt = rec.createdAt;
     const nameEl = document.getElementById('map-name-display');
     if (nameEl) nameEl.textContent = rec.name;
-    document.title = `${rec.name} | TRPGマップエディタ | 違法建築のTRPGラボ`;
+    document.title = T('editor.docTitle', rec.name);
     restoreSaveData(rec.data);
     setSaveStatus('saved');
 }
@@ -6164,13 +6238,8 @@ function setSaveStatus(status) {
     const el = document.getElementById('save-status');
     if (!el) return;
     el.className = 'save-status ' + status;
-    el.textContent =
-        {
-            saved: '保存済み',
-            dirty: '未保存',
-            saving: '保存中…',
-            error: '保存エラー',
-        }[status] || status;
+    const key = { saved: 'editor.saved', dirty: 'editor.dirty', saving: 'editor.saving', error: 'editor.saveError' }[status];
+    el.textContent = key ? T(key) : status;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -6336,14 +6405,14 @@ function undo() {
     if (App._history.length === 0) return;
     const top = App._history.pop();
     App._redoStack.push(top);
-    const target = App._history.length > 0 ? App._history[App._history.length - 1] : { snapshot: App._historyInitial, name: '初期状態' };
+    const target = App._history.length > 0 ? App._history[App._history.length - 1] : { snapshot: App._historyInitial, name: T('hist.initial') };
     if (!target.snapshot) {
         // セーフティ: 初期スナップショット未取得時は何もしない
         App._history.push(top);
         App._redoStack.pop();
         return;
     }
-    restoreHistorySnapshot(target.snapshot, `元に戻す: ${top.name}`);
+    restoreHistorySnapshot(target.snapshot, T('hist.undo', top.name));
 }
 
 /**
@@ -6355,7 +6424,7 @@ function redo() {
     if (App._redoStack.length === 0) return;
     const entry = App._redoStack.pop();
     App._history.push(entry);
-    restoreHistorySnapshot(entry.snapshot, `やり直し: ${entry.name}`);
+    restoreHistorySnapshot(entry.snapshot, T('hist.redo', entry.name));
 }
 
 /**
@@ -6409,7 +6478,7 @@ function finishMultiPointDraw() {
         removePreview();
         if (App.activeTool === 'room') {
             const pts = App._pathPoints.map((p) => ({ x: p.x, y: p.y }));
-            addRoom('部屋_折線', (st) => {
+            addRoom(T('layer.prefix.room') + T('tool.path'), (st) => {
                 const isWall = (st.strokeWidth || 0) > 0;
                 if (isWall) {
                     const rd = roundedPolyPath(pts, false, App.cornerRadius);
@@ -6423,7 +6492,7 @@ function finishMultiPointDraw() {
             const common = { stroke: style.stroke, strokeWidth: style.strokeWidth, strokeDashArray: style.strokeDashArray, strokeLineJoin: style.strokeLineJoin || 'miter', strokeLineCap: style.strokeLineCap || 'butt', fill: '', selectable: false, evented: false, objectCaching: false };
             const rd = roundedPolyPath(App._pathPoints, false, App.cornerRadius);
             const obj = rd ? new fabric.Path(rd, common) : new fabric.Polyline(App._pathPoints, common);
-            addCategoryLayer(style.namePrefix + '折線', obj, style.flag);
+            addCategoryLayer(style.namePrefix + T('tool.path'), obj, style.flag);
         }
         App._pathPoints = [];
         updateDrawFinishBar();
@@ -6433,7 +6502,7 @@ function finishMultiPointDraw() {
         removePreview();
         if (App.activeTool === 'room') {
             const pts = App._polygonPoints.map((p) => ({ x: p.x, y: p.y }));
-            addRoom('部屋_多角形', (st) => {
+            addRoom(T('layer.prefix.room') + T('tool.polygon'), (st) => {
                 const opt = { ...st, selectable: false, evented: false, objectCaching: false };
                 const rd = roundedPolyPath(pts, true, App.cornerRadius);
                 return rd ? new fabric.Path(rd, opt) : new fabric.Polygon(pts, opt);
@@ -6443,7 +6512,7 @@ function finishMultiPointDraw() {
             const common = { stroke: style.stroke, strokeWidth: style.strokeWidth, strokeDashArray: style.strokeDashArray, strokeLineJoin: style.strokeLineJoin || 'miter', strokeLineCap: style.strokeLineCap || 'butt', fill: style.fill, selectable: false, evented: false, objectCaching: false };
             const rd = roundedPolyPath(App._polygonPoints, true, App.cornerRadius);
             const obj = rd ? new fabric.Path(rd, common) : new fabric.Polygon(App._polygonPoints, common);
-            addCategoryLayer(style.namePrefix + '多角形', obj, style.flag);
+            addCategoryLayer(style.namePrefix + T('tool.polygon'), obj, style.flag);
         }
         App._polygonPoints = [];
         updateDrawFinishBar();
@@ -6454,14 +6523,14 @@ function finishMultiPointDraw() {
         const d = buildBezierPath(App._curvePoints);
         if (d) {
             if (App.activeTool === 'room') {
-                addRoom('部屋_曲線', (st) => {
+                addRoom(T('layer.prefix.room') + T('tool.curve'), (st) => {
                     const isWall = (st.strokeWidth || 0) > 0;
                     return isWall ? new fabric.Path(d, { ...st, fill: '', objectCaching: false }) : new fabric.Path(d, { ...st, objectCaching: false });
                 });
             } else {
                 const style = getCurrentDrawStyle();
                 addCategoryLayer(
-                    style.namePrefix + '曲線',
+                    style.namePrefix + T('tool.curve'),
                     new fabric.Path(d, { stroke: style.stroke, strokeWidth: style.strokeWidth, strokeDashArray: style.strokeDashArray, strokeLineJoin: style.strokeLineJoin || 'miter', strokeLineCap: style.strokeLineCap || 'butt', fill: '', objectCaching: false }),
                     style.flag
                 );
@@ -6476,11 +6545,11 @@ function finishMultiPointDraw() {
         const d = buildClosedBezierPath(App._curvePoints);
         if (d) {
             if (App.activeTool === 'room') {
-                addRoom('部屋_閉曲線', (st) => new fabric.Path(d, { ...st, objectCaching: false }));
+                addRoom(T('layer.prefix.room') + T('tool.curveClosed'), (st) => new fabric.Path(d, { ...st, objectCaching: false }));
             } else {
                 const style = getCurrentDrawStyle();
                 addCategoryLayer(
-                    style.namePrefix + '閉曲線',
+                    style.namePrefix + T('tool.curveClosed'),
                     new fabric.Path(d, { stroke: style.stroke, strokeWidth: style.strokeWidth, strokeDashArray: style.strokeDashArray, strokeLineJoin: style.strokeLineJoin || 'miter', strokeLineCap: style.strokeLineCap || 'butt', fill: style.fill, objectCaching: false }),
                     style.flag
                 );
@@ -6528,6 +6597,13 @@ function updateDrawFinishBar() {
     bar.style.display = active ? 'flex' : 'none';
     const ok = document.getElementById('draw-finish-ok');
     if (ok) ok.disabled = !canFinish;
+}
+
+/** <optgroup> 的 label 依 data-label-key 套用目前語言。 */
+function applyOptgroupLabels() {
+    document.querySelectorAll('optgroup[data-label-key]').forEach((g) => {
+        g.label = T(g.dataset.labelKey);
+    });
 }
 
 /* ================================================================
@@ -6613,7 +6689,7 @@ document.addEventListener('keydown', (e) => {
                 obj.setCoords();
                 App.canvas.renderAll();
                 updateSelectionInfo();
-                pushHistory('回転');
+                pushHistory(T('hist.rotate'));
             }
             return;
         }
@@ -6637,7 +6713,7 @@ document.addEventListener('keydown', (e) => {
         renderLayerList();
         App.canvas.renderAll();
         updateSelectionInfo();
-        pushHistory(targets.length === 1 ? `${targets[0]._layerName}を削除` : `${targets.length}個のオブジェクトを削除`);
+        pushHistory(targets.length === 1 ? T('hist.delete', targets[0]._layerName) : T('hist.deleteObjects', targets.length));
     }
 });
 
@@ -6685,7 +6761,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targets.length === 0) return;
             targets.forEach((o) => o.set({ strokeWidth: App.wallThickness }));
             App.canvas.renderAll();
-            pushHistoryDebounced('壁の厚みを変更');
+            pushHistoryDebounced(T('hist.wallThickness'));
         }
     });
 
@@ -6699,7 +6775,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targets.length === 0) return;
             targets.forEach((o) => o.set({ strokeWidth: App.strokeWidth, strokeDashArray: App.strokeDashArray }));
             App.canvas.renderAll();
-            pushHistoryDebounced('線幅を変更');
+            pushHistoryDebounced(T('hist.strokeWidth'));
         }
     });
 
@@ -6714,7 +6790,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (targets.length === 0) return;
                 targets.forEach((o) => o.set({ strokeDashArray: App.strokeDashArray }));
                 App.canvas.renderAll();
-                pushHistory('線種を変更');
+                pushHistory(T('hist.lineStyle'));
             }
         })
     );
@@ -6727,7 +6803,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targets.length === 0) return;
             targets.forEach((o) => o.set({ rx: App.cornerRadius, ry: App.cornerRadius }));
             App.canvas.renderAll();
-            pushHistoryDebounced('角丸を変更');
+            pushHistoryDebounced(T('hist.cornerRadius'));
         }
     });
 
@@ -6744,7 +6820,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('grid-visible')?.addEventListener('change', function () {
         App.gridVisible = this.checked;
         drawGrid();
-        pushHistoryDebounced('グリッド表示を変更');
+        pushHistoryDebounced(T('hist.gridVisible'));
     });
     document.getElementById('grid-line-width').addEventListener('input', function () {
         App.gridLineWidth = parseInt(this.value) || 1;
@@ -6765,14 +6841,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targets.length === 0) return;
         targets.forEach((o) => o.set({ opacity: val }));
         App.canvas.renderAll();
-        pushHistoryDebounced('不透明度を変更');
+        pushHistoryDebounced(T('hist.opacity'));
     });
     document.getElementById('layer-blend').addEventListener('change', function () {
         const targets = App.canvas.getActiveObjects();
         if (targets.length === 0) return;
         targets.forEach((o) => o.set({ globalCompositeOperation: this.value }));
         App.canvas.renderAll();
-        pushHistory('ブレンドモードを変更');
+        pushHistory(T('hist.blend'));
     });
 
     // フリーハンド: ブラシ種類タイル (add-layer タイルは active 対象外、即アクション)
@@ -6838,7 +6914,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // レイヤー追加（空グループ）
     document.getElementById('layer-add')?.addEventListener('click', () => {
         const group = new fabric.Group([], { selectable: true, evented: true, objectCaching: false });
-        addLayerObject('レイヤー', group);
+        addLayerObject(T('layer.layer'), group);
     });
 
     // グループ化 / 解除 (folder ボタン: 選択がグループならば解除、そうでなければグループ化)
@@ -6937,18 +7013,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targets.length === 0) return;
             targets.forEach((o) => o.set({ strokeWidth: App.roomWallThickness }));
             App.canvas.renderAll();
-            pushHistoryDebounced('部屋・壁の厚みを変更');
+            pushHistoryDebounced(T('hist.roomWallThickness'));
         }
     });
 
     // 部屋・影トグル
     document.getElementById('room-ground-shadow-enabled')?.addEventListener('change', function () {
         App.roomGroundShadowEnabled = this.checked;
-        pushHistoryDebounced('部屋・地面影設定を変更');
+        pushHistoryDebounced(T('hist.roomGroundShadow'));
     });
     document.getElementById('room-wall-shadow-enabled')?.addEventListener('change', function () {
         App.roomWallShadowEnabled = this.checked;
-        pushHistoryDebounced('部屋・壁影設定を変更');
+        pushHistoryDebounced(T('hist.roomWallShadow'));
     });
 
     // ---- 部屋: パターン詳細 / 影 / 壁ストロークの各入力 ----
@@ -7071,7 +7147,7 @@ document.addEventListener('DOMContentLoaded', () => {
             App.decorFill = c.toHEXA().toString().slice(0, 7);
             instance.applyColor(true);
             refreshDecorPreview();
-            pushHistoryDebounced('装飾フィル色を変更');
+            pushHistoryDebounced(T('hist.decorFill'));
         });
     }
     const dsEl = document.getElementById('decor-stroke-picker');
@@ -7088,7 +7164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             App.decorStroke = c.toHEXA().toString().slice(0, 7);
             instance.applyColor(true);
             refreshDecorPreview();
-            pushHistoryDebounced('装飾ストローク色を変更');
+            pushHistoryDebounced(T('hist.decorStroke'));
         });
     }
     // ピッカーの初期 change イベント (default 設定で発火する) を全部消化したら抑制解除
@@ -7144,20 +7220,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const props = computeToggleProps(s, current);
             if (applyTextStyle(props)) {
                 refreshTextStyleButtons();
-                pushHistoryDebounced(`テキストスタイル変更`);
+                pushHistoryDebounced(T('hist.textStyle'));
             }
         });
     });
     // フォント/サイズ変更も対象テキストに即時適用
     document.getElementById('text-font')?.addEventListener('change', function () {
         if (applyTextStyle({ fontFamily: this.value })) {
-            pushHistoryDebounced('フォント変更');
+            pushHistoryDebounced(T('hist.font'));
         }
     });
     document.getElementById('text-size')?.addEventListener('input', function () {
         const sz = parseInt(this.value) || 48;
         if (applyTextStyle({ fontSize: sz })) {
-            pushHistoryDebounced('文字サイズ変更');
+            pushHistoryDebounced(T('hist.fontSize'));
         }
     });
     // テキスト専用線幅
@@ -7180,7 +7256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const props = computeToggleProps(s, readTextStyle(key));
         if (applyTextStyle(props)) {
             refreshTextStyleButtons();
-            pushHistoryDebounced('テキストスタイル変更');
+            pushHistoryDebounced(T('hist.textStyle'));
         }
     });
 
@@ -7217,10 +7293,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     document.getElementById('stroke-line-join')?.addEventListener('change', function () {
-        applyStrokeMod('strokeLineJoin', this.value, '線継ぎ目を変更');
+        applyStrokeMod('strokeLineJoin', this.value, T('hist.lineJoin'));
     });
     document.getElementById('stroke-line-cap')?.addEventListener('change', function () {
-        applyStrokeMod('strokeLineCap', this.value, '線端を変更');
+        applyStrokeMod('strokeLineCap', this.value, T('hist.lineCap'));
     });
 
     // 折りたたみセクション (パターン / 影) — クリックで s-sec.collapsed を切替
@@ -7249,7 +7325,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderLayerList();
         App.canvas.renderAll();
         updateSelectionInfo();
-        pushHistory(targets.length === 1 ? `${targets[0]._layerName}を削除` : `${targets.length}個のオブジェクトを削除`);
+        pushHistory(targets.length === 1 ? T('hist.delete', targets[0]._layerName) : T('hist.deleteObjects', targets.length));
     });
 
     // レイヤーリスト空白クリック → 選択解除
@@ -7272,6 +7348,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.addEventListener('contextmenu', (e) => {
         if (!e.target.closest('#layer-list') && !e.target.closest('.canvas-container')) hideContextMenu();
+    });
+
+    // 字型選單與混合模式選單的 <optgroup label> 沒有共用引擎的掛勾，由這裡套用目前語言
+    applyOptgroupLabels();
+
+    // 切換語言：由 JS 產生的文字重畫一次（靜態標記由共用引擎重套）
+    I18N.onChange(() => {
+        applyOptgroupLabels();
+        setSaveStatus(App._saveStatus);
+        if (App.mapName) document.title = T('editor.docTitle', App.mapName);
+        document.querySelectorAll('.pcr-eyedropper').forEach((b) => (b.title = T('color.eyedropper')));
+        document.querySelectorAll('.pp-solid-label').forEach((el) => (el.textContent = T('common.color')));
+        // 右鍵選單的「鎖定／解除鎖定」每次開啟時才依對象寫入；先關掉選單並換成目前語言
+        hideContextMenu();
+        const lockItem = document.querySelector('#ctx-menu [data-action="lock"]');
+        if (lockItem?.childNodes[1]) lockItem.childNodes[1].textContent = T('ctx.lock');
+        renderLayerList();
+        updateSelectionInfo();
+        refreshPatternPickers();
+        mountDecorPicker(document.getElementById('decor-picker'));
+        renderExportModalText();
     });
 
     // 初期ツール適用

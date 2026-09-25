@@ -1345,9 +1345,9 @@ const LAB_PAGES = [
   { html: 'hex_ruler.html', scripts: ['hex_ruler.js'], styles: ['hex_ruler.css'], hooks: 70, inline: 63, attrs: 2 },
   { html: 'third-party-licenses.html', scripts: [], styles: ['third-party-licenses.css'], hooks: 45, inline: 38, attrs: 4 },
   { html: 'trpg_map_maker/map_list.html', scripts: ['trpg_map_maker/map_list.js', 'trpg_map_maker/map_storage.js'],
-    styles: ['trpg_map_maker/map_list.css'], hooks: 0, inline: 0, attrs: 0 },
+    styles: ['trpg_map_maker/map_list.css'], hooks: 23, inline: 19, attrs: 1 },
   { html: 'trpg_map_maker/map_editor.html', scripts: ['trpg_map_maker/map_editor.js', 'trpg_map_maker/map_grid.js'],
-    styles: ['trpg_map_maker/map_editor.css'], hooks: 0, inline: 0, attrs: 0 },
+    styles: ['trpg_map_maker/map_editor.css'], hooks: 350, inline: 247, attrs: 57 },
 ];
 const labDict = page => page.html.replace(/[^/]+\.html$/, f => `i18n.${f.replace(/\.html$/, '')}.js`);
 const labDicts = page => [...(page.standalone ? [] : [`${LAB}/i18n.trpg-lab.js`]), `${LAB}/${labDict(page)}`];
@@ -1424,6 +1424,34 @@ const labHookMiss = Object.entries(LAB_HEADER_HOOKS)
 check('trpg-lab 的頁首文字切語言時由共用引擎重套（掛了 data-i18n）', labHookMiss.length === 0,
   `次數不對: ${labHookMiss.join(', ')}`);
 check('trpg-lab 拿掉了隱私權政策的連結（那頁只在說明已移除的存取分析）', !labCommon.includes('privacyPolicy'));
+
+/* 地圖編輯器：內建貼圖與格局圖 SVG 不收，登錄表也要清掉，否則挑選器會一直要 404。 */
+const mapEditor = read(`${LAB}/trpg_map_maker/map_editor.js`);
+const mapEditorCode = stripComments(mapEditor, 'js');
+check('地圖編輯器沒有內建貼圖', /\nconst PATTERNS = \[\];/.test(mapEditor) && !/patterns\/(full|thumb)|\.webp'/.test(mapEditorCode));
+const mapDecorFiles = [...mapEditorCode.matchAll(/type: 'svg', file: '([\w-]+\.svg)'/g)].map(m => m[1]);
+check('地圖編輯器的裝飾登錄表剛好對上收錄的 56 個 SVG',
+  mapDecorFiles.length === 56 && mapDecorFiles.every(f => labFiles.includes(`trpg_map_maker/decors/svg/${f}`)),
+  `entries: ${mapDecorFiles.length}`);
+check('地圖編輯器沒有格局圖（floorplan）分類', !/'floorplan'/.test(mapEditorCode));
+/* 存檔裡引用了內建貼圖的，讀進來時換成上游本來的備用色，不去要那張圖。 */
+check('地圖編輯器把舊存檔裡的內建貼圖換成單色', /function replaceRemovedPatterns\(/.test(mapEditor)
+  && /replaceRemovedPatterns\(data\.canvas\);/.test(mapEditorCode)
+  && /const REMOVED_PATTERN_COLORS = \{[\s\S]{0,600}grass: '#4a8c3f'[\s\S]{0,600}gravel: '#9a948a'/.test(mapEditor));
+/* 上游把匯出面板的連結改寫成站台根目錄的 /hex_maker.html 等，收錄版要相對路徑。 */
+check('地圖編輯器匯出面板的連結是相對路徑',
+  mapEditor.includes("gridLink.href = isHex ? '../hex_maker.html' : '../grid_maker.html'")
+  && mapEditor.includes("rulerLink.href = isHex ? '../hex_ruler.html' : '../grid_ruler.html'"));
+/* 文字工具的字型清單加了五套繁中字型；optgroup 的 label 引擎管不到，改由 data-label-key 交給程式套。 */
+const mapEditorHtml = read(`${LAB}/trpg_map_maker/map_editor.html`);
+check('地圖編輯器的字型清單有五套繁中字型',
+  ['Noto Sans TC', 'Noto Serif TC', 'LXGW WenKai TC', 'Chocolate Classical Sans', 'Cactus Classical Serif']
+    .every(f => mapEditorHtml.includes(`<option value="${f}"`)));
+const mapEditorDict = labTools.find(t => t.page.html === 'trpg_map_maker/map_editor.html').tool.messages;
+const mapLabelKeys = [...mapEditorHtml.matchAll(/data-label-key="([^"]+)"/g)].map(m => m[1]);
+check('地圖編輯器的 optgroup 標籤都有兩種語言的譯文', mapLabelKeys.length >= 6
+  && mapLabelKeys.every(k => mapEditorDict['zh-TW'][k] && mapEditorDict.ja[k]), `keys: ${mapLabelKeys.length}`);
+check('地圖編輯器切語言時重套 optgroup 標籤', /data-label-key/.test(mapEditor));
 
 /* ---- PC 字型挑選器 ---- */
 /* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
