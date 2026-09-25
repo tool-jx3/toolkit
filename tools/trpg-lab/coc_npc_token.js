@@ -88,7 +88,7 @@
         return {
             id: uid(),
             version,
-            name: '新規NPC',
+            name: T('npc.defaultName'),
             externalUrl: '',
             abilities,
             hp: 0,
@@ -185,15 +185,15 @@
 
         const params = STATS.map((s) => ({ label: s, value: String(v(s)) }));
         params.push({ label: 'DB', value: npc.db });
-        if (npc.version === '7') params.push({ label: 'ビルド', value: String(npc.build) });
+        if (npc.version === '7') params.push({ label: T('stat.build'), value: String(npc.build) });
         const movVal = parseInt(npc.mov);
-        if (!isNaN(movVal) && npc.mov !== '') params.push({ label: npc.version === '7' ? 'MOV' : '移動率', value: String(movVal) });
+        if (!isNaN(movVal) && npc.mov !== '') params.push({ label: movLabel(npc.version), value: String(movVal) });
 
         return JSON.stringify(
             {
                 kind: 'character',
                 data: {
-                    name: npc.name || '名無し',
+                    name: npc.name || T('npc.unnamed'),
                     initiative: v('DEX'),
                     externalUrl: npc.externalUrl || '',
                     status,
@@ -213,7 +213,7 @@
         const av = (s) => (npc.version === '6' ? v(s) * 5 : v(s));
         const ct = npc.version === '7' ? 'CC' : npc.commandType || 'CC';
         const lines = [];
-        if (npc.sanEnabled) lines.push(`${ct}<=${npc.san} 正気度ロール`);
+        if (npc.sanEnabled) lines.push(`${ct}<=${npc.san} ${T('output.sanRoll')}`);
         STATS.forEach((s) => lines.push(`${ct}<=${av(s)} ${s}`));
         npc.skills.filter((s) => s.name).forEach((s) => lines.push(`${ct}<=${s.value} ${s.name}`));
         npc.commands
@@ -225,8 +225,8 @@
         lines.push(`//HP=${npc.hp}`, `//MP=${npc.mp}`);
         if (npc.sanEnabled) lines.push(`//SAN=${npc.san}`);
         lines.push(`//DB=${npc.db}`);
-        if (npc.version === '7') lines.push(`//ビルド=${npc.build}`);
-        if (npc.mov !== '') lines.push(`//${npc.version === '7' ? 'MOV' : '移動率'}=${npc.mov}`);
+        if (npc.version === '7') lines.push(`//${T('stat.build')}=${npc.build}`);
+        if (npc.mov !== '') lines.push(`//${movLabel(npc.version)}=${npc.mov}`);
         STATS.forEach((s) => lines.push(`//${s}=${v(s)}`));
         return lines.join('\n');
     }
@@ -242,8 +242,8 @@
             el.className = 'npc-item' + (npc.id === currentId ? ' active' : '');
             el.innerHTML =
                 `<span class="ver-badge">${npc.version === '7' ? 'CoC7' : 'CoC6'}</span>` +
-                `<span class="npc-name">${esc(npc.name || '名無し')}</span>` +
-                `<button class="npc-del" data-id="${npc.id}" title="削除">✕</button>`;
+                `<span class="npc-name">${esc(npc.name || T('npc.unnamed'))}</span>` +
+                `<button class="npc-del" data-id="${npc.id}" title="${esc(T('action.delete'))}">✕</button>`;
             el.addEventListener('click', (e) => {
                 if (!e.target.classList.contains('npc-del')) selectNpc(npc.id);
             });
@@ -316,7 +316,7 @@
     function applyVerUI(ver) {
         document.getElementById('buildCell').style.display = ver === '7' ? '' : 'none';
         document.getElementById('cmdTypeRow').style.display = ver === '6' ? '' : 'none';
-        document.getElementById('movLabel').textContent = ver === '7' ? 'MOV' : '移動率';
+        document.getElementById('movLabel').textContent = movLabel(ver);
     }
 
     function updateSanUI(enabled) {
@@ -340,9 +340,9 @@
         const el = document.createElement('div');
         el.className = 'dyn-row dyn-row-skill';
         el.innerHTML =
-            `<input type="text" class="inp sk-name" value="${esc(String(name))}" placeholder="技能名" />` +
+            `<input type="text" class="inp sk-name" value="${esc(String(name))}" placeholder="${esc(T('edit.skillName'))}" />` +
             `<input type="number" class="inp sk-val" value="${value}" min="0" max="999" />` +
-            `<button class="dyn-del" title="削除">✕</button>`;
+            `<button class="dyn-del" title="${esc(T('action.delete'))}">✕</button>`;
         el.querySelector('.dyn-del').addEventListener('click', () => {
             el.remove();
             onChange();
@@ -356,9 +356,9 @@
         const el = document.createElement('div');
         el.className = 'dyn-row dyn-row-cmd';
         el.innerHTML =
-            `<input type="text" class="inp cmd-name" value="${esc(String(name))}" placeholder="名前" />` +
+            `<input type="text" class="inp cmd-name" value="${esc(String(name))}" placeholder="${esc(T('edit.cmdName'))}" />` +
             `<input type="text" class="inp inp-mono cmd-expr" value="${esc(String(expr))}" placeholder="1D6+2+DB" />` +
-            `<button class="dyn-del" title="削除">✕</button>`;
+            `<button class="dyn-del" title="${esc(T('action.delete'))}">✕</button>`;
         el.querySelector('.dyn-del').addEventListener('click', () => {
             el.remove();
             onChange();
@@ -484,12 +484,23 @@
         scheduleSave();
     }
 
+    /* 按鈕 id → 平常顯示的字典 key。「已複製」之後復原、切換語言時都從這裡取，
+       不再記住按下當時的文字（否則切換語言後會復原成舊語言）。 */
+    const COPY_LABELS = { copyBtn: 'output.copy', rollCopyBtn: 'output.rollCopy' };
+    const copyTimers = {};
+
+    function renderCopyLabel(btn) {
+        btn.textContent = btn.dataset.copied ? T('output.copied') : T(COPY_LABELS[btn.id]);
+    }
+
     function copyText(text, btn) {
-        const orig = btn.textContent;
         const ok = () => {
-            btn.textContent = 'コピー完了 ✓';
-            setTimeout(() => {
-                btn.textContent = orig;
+            btn.dataset.copied = '1';
+            renderCopyLabel(btn);
+            clearTimeout(copyTimers[btn.id]);
+            copyTimers[btn.id] = setTimeout(() => {
+                delete btn.dataset.copied;
+                renderCopyLabel(btn);
             }, 1600);
         };
         if (navigator.clipboard) {
@@ -629,6 +640,28 @@
     /* ================================================================
        ユーティリティ
     ================================================================ */
+    /* CoC 7 版是 MOV，CoC 6 版是移動力。畫面標籤、CCFOLIA 的 params 與聊天面板的 //名稱= 共用同一個值，
+       使用者在指令裡寫 {移動力} 才對得上。 */
+    function movLabel(ver) {
+        return ver === '7' ? 'MOV' : T('stat.mov6');
+    }
+
+    /* 由 JS 寫上的文字（擲骰按鈕的 title、複製按鈕、動態列的 placeholder／title），
+       初始化與切換語言時各套一次。這些元素不掛 data-i18n。 */
+    function applyLocaleLabels() {
+        STATS.forEach((s) => {
+            const b = document.getElementById(`roll-${s}`);
+            if (b) b.title = T('edit.rollAbility', s);
+        });
+        Object.keys(COPY_LABELS).forEach((id) => {
+            const b = document.getElementById(id);
+            if (b) renderCopyLabel(b);
+        });
+        document.querySelectorAll('#skillsBody .sk-name').forEach((el) => (el.placeholder = T('edit.skillName')));
+        document.querySelectorAll('#cmdsBody .cmd-name').forEach((el) => (el.placeholder = T('edit.cmdName')));
+        document.querySelectorAll('#skillsBody .dyn-del, #cmdsBody .dyn-del').forEach((el) => (el.title = T('action.delete')));
+    }
+
     function esc(s) {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
@@ -648,9 +681,19 @@
         renderList();
         renderForm(getCurrentNpc());
         renderPreview();
+        applyLocaleLabels();
         initEvents();
         initCollapsibleList();
         if (window.IKLab?.initNumSpinners) IKLab.initNumSpinners();
+
+        /* 切換語言：重畫 JS 產生的文字與輸出預覽。NPC 資料本身（含已存的名稱）不動。 */
+        I18N.onChange(() => {
+            applyLocaleLabels();
+            const npc = getCurrentNpc();
+            applyVerUI(npc ? npc.version : document.querySelector('input[name="ver"]:checked')?.value || '7');
+            renderList();
+            renderPreview();
+        });
     });
 })();
 

@@ -28,31 +28,30 @@
                 <div class="panel-col panel-col-left">
                     <!-- 基本設定 -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">tune</span>基本設定</div>
+                        <div class="s-ttl" data-i18n-node="basic.title"><span class="material-symbols-outlined">tune</span>基本設定</div>
                         <div class="f">
-                            <span class="fl">向き</span>
+                            <span class="fl" data-i18n="basic.orientation">方向</span>
                             <div class="seg">
-                                <input type="radio" name="ori" id="oriH" value="h" checked /><label for="oriH">横向き</label> <input type="radio" name="ori" id="oriV" value="v" /><label for="oriV"
-                                    >縦向き</label
-                                >
+                                <input type="radio" name="ori" id="oriH" value="h" checked /><label for="oriH" data-i18n="basic.horizontal">橫向</label>
+                                <input type="radio" name="ori" id="oriV" value="v" /><label for="oriV" data-i18n="basic.vertical">直向</label>
                             </div>
                         </div>
                         <div class="f">
-                            <span class="fl">範囲</span>
+                            <span class="fl" data-i18n="basic.range">範圍</span>
                             <div class="row">
                                 <input type="number" id="range" min="1" max="20" value="5" class="custom-spinner" />
-                                <span class="unit">ヘクス</span>
+                                <span class="unit" data-i18n="basic.rangeUnit">格</span>
                             </div>
                         </div>
                         <div class="f">
-                            <span class="fl">距離計測</span>
+                            <span class="fl" data-i18n="basic.method">距離計算</span>
                             <div class="seg">
-                                <input type="radio" name="method" id="methMhtn" value="manhattan" checked /><label for="methMhtn">マス数</label>
-                                <input type="radio" name="method" id="methEucl" value="euclidean" /><label for="methEucl">直線</label>
+                                <input type="radio" name="method" id="methMhtn" value="manhattan" checked /><label for="methMhtn" data-i18n="basic.method.steps">格數</label>
+                                <input type="radio" name="method" id="methEucl" value="euclidean" /><label for="methEucl" data-i18n="basic.method.straight">直線</label>
                             </div>
                         </div>
                         <div class="f">
-                            <span class="fl">ヘクスサイズ</span>
+                            <span class="fl" data-i18n="basic.hexSize">六角格大小</span>
                             <div class="row">
                                 <input type="number" id="cellSize" min="10" max="200" value="48" class="custom-spinner" />
                                 <span class="unit">px</span>
@@ -61,29 +60,29 @@
                         <div class="f">
                             <label class="tog">
                                 <input type="checkbox" id="fitGrid" checked />
-                                <span class="tl">グリッドを使う (ココフォリア等)</span>
+                                <span class="tl" data-i18n="basic.fitGrid">使用網格（CCFOLIA 等）</span>
                             </label>
                         </div>
                     </div>
 
                     <!-- セルの色 -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined fill">palette</span>セルの色</div>
+                        <div class="s-ttl" data-i18n-node="cellColor.title"><span class="material-symbols-outlined fill">palette</span>格子顏色</div>
                         <div class="f" style="margin-top: 0.3rem">
-                            <span class="fl">スキーム</span>
+                            <span class="fl" data-i18n="cellColor.scheme">配色</span>
                             <select id="colorScheme">
-                                <option value="rainbow">レインボー</option>
-                                <option value="heat">熱 (赤→黄)</option>
-                                <option value="cold">寒 (青→紺)</option>
-                                <option value="mono">モノクロ</option>
-                                <option value="none">無色</option>
-                                <option value="custom">カスタム</option>
+                                <option value="rainbow" data-i18n="cellColor.scheme.rainbow">彩虹</option>
+                                <option value="heat" data-i18n="cellColor.scheme.heat">暖色（紅→黃）</option>
+                                <option value="cold" data-i18n="cellColor.scheme.cold">冷色（藍→深藍）</option>
+                                <option value="mono" data-i18n="cellColor.scheme.mono">灰階</option>
+                                <option value="none" data-i18n="cellColor.scheme.none">無色</option>
+                                <option value="custom" data-i18n="cellColor.scheme.custom">自訂</option>
                             </select>
                         </div>
                         <div id="colorPickerWrap"></div>
                         <div class="f f-col">
                             <div class="f-sb">
-                                <span class="fl">不透明度</span>
+                                <span class="fl" data-i18n="field.opacity">不透明度</span>
                                 <div class="row">
                                     <input type="number" id="cellOpacityNum" min="0" max="100" value="100" class="custom-spinner" />
                                     <span class="unit">%</span>
@@ -97,23 +96,23 @@
                 <div class="panel-col panel-col-right">
                     <!-- カスタムセル（折り返し時に右列の先頭） -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">edit</span>カスタムセル</div>
-                        <div class="custom-cell-info">プレビュー上のヘクスをクリックして<br />テキスト・色・文字色を個別設定できます。</div>
+                        <div class="s-ttl" data-i18n-node="custom.title"><span class="material-symbols-outlined">edit</span>自訂格子</div>
+                        <div class="custom-cell-info" data-i18n-html="custom.info">點選預覽上的六角格，<br />就能個別設定文字、顏色與文字顏色。</div>
                         <div class="f" style="margin-top: 0.5rem">
-                            <span class="fl">カスタム数: <span class="custom-cell-count" id="customCount">0</span></span>
-                            <button class="btn-sub" id="clearCustomBtn">すべて解除</button>
+                            <span class="fl"><span data-i18n="custom.count">自訂格數：</span><span class="custom-cell-count" id="customCount">0</span></span>
+                            <button class="btn-sub" id="clearCustomBtn" data-i18n="custom.clearAll">全部解除</button>
                         </div>
                     </div>
 
                     <!-- テキスト -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">text_fields</span>テキスト</div>
+                        <div class="s-ttl" data-i18n-node="text.title"><span class="material-symbols-outlined">text_fields</span>文字</div>
                         <div class="f">
-                            <span class="fl">文字色</span>
+                            <span class="fl" data-i18n="text.color">文字顏色</span>
                             <div id="textColorPicker"></div>
                         </div>
                         <div class="f" style="margin-top: 0.3rem">
-                            <span class="fl">文字サイズ</span>
+                            <span class="fl" data-i18n="text.fontSize">文字大小</span>
                             <div class="row">
                                 <input type="number" id="fontSize" min="6" max="200" value="20" class="custom-spinner" />
                                 <span class="unit">px</span>
@@ -121,7 +120,7 @@
                         </div>
                         <div class="f f-col">
                             <div class="f-sb">
-                                <span class="fl">不透明度</span>
+                                <span class="fl" data-i18n="field.opacity">不透明度</span>
                                 <div class="row">
                                     <input type="number" id="textOpacityNum" min="0" max="100" value="100" class="custom-spinner" />
                                     <span class="unit">%</span>
@@ -132,10 +131,10 @@
                         <div class="f">
                             <label class="tog">
                                 <input type="checkbox" id="strokeEnabled" checked />
-                                <span class="tl">縁取り</span>
+                                <span class="tl" data-i18n="text.stroke">描邊</span>
                             </label>
                             <div id="strokeColorRow" class="row" style="opacity: 1; transition: opacity 0.25s">
-                                <span class="fl">色</span>
+                                <span class="fl" data-i18n="text.strokeColor">顏色</span>
                                 <div id="strokeColorPicker"></div>
                             </div>
                         </div>
@@ -143,7 +142,7 @@
 
                     <!-- ダウンロード -->
                     <div class="s-sec panel-dl">
-                        <button class="btn-dl" id="downloadBtn"><span class="material-symbols-outlined">download</span>PNG ダウンロード</button>
+                        <button class="btn-dl" id="downloadBtn" data-i18n-node="download.png"><span class="material-symbols-outlined">download</span>下載 PNG</button>
                     </div>
                 </div>
             </div>
@@ -152,7 +151,7 @@
             <div id="preview-area">
                 <div class="cv-wrap" id="cvWrap">
                     <canvas id="rulerCanvas"></canvas>
-                    <div class="canvas-hint">クリックでヘクスを編集</div>
+                    <div class="canvas-hint" data-i18n="preview.hint">點一下即可編輯六角格</div>
                 </div>
             </div>
         </div>
@@ -160,32 +159,32 @@
         <!-- ── セル編集ポップアップ ── -->
         <div id="cell-popup">
             <div class="cp-header">
-                <span class="cp-title">ヘクスを編集</span>
+                <span class="cp-title" data-i18n="popup.title">編輯六角格</span>
                 <button class="cp-close" id="cpClose">✕</button>
             </div>
             <div class="cp-coord" id="cpCoord"></div>
             <div class="cp-field">
-                <span class="cp-label">テキスト</span>
-                <input type="text" id="cp-text" placeholder="距離の数字" maxlength="8" />
+                <span class="cp-label" data-i18n="text.title">文字</span>
+                <input type="text" id="cp-text" data-i18n-placeholder="popup.textPlaceholder" placeholder="距離數字" maxlength="8" />
             </div>
             <hr class="cp-divider" />
             <div class="cp-field">
-                <span class="cp-label">セルの色</span>
+                <span class="cp-label" data-i18n="cellColor.title">格子顏色</span>
                 <div id="popupCellColorPicker"></div>
             </div>
             <div class="cp-field">
-                <span class="cp-label">文字色</span>
+                <span class="cp-label" data-i18n="text.color">文字顏色</span>
                 <div id="popupTextColorPicker"></div>
             </div>
             <div class="cp-field">
-                <span class="cp-label">文字サイズ</span>
+                <span class="cp-label" data-i18n="text.fontSize">文字大小</span>
                 <div class="row">
                     <input type="number" id="cp-fontSize" min="6" max="200" value="20" class="custom-spinner" />
                     <span class="unit">px</span>
                 </div>
             </div>
             <div class="cp-btns">
-                <button class="cp-btn-reset" id="cpReset">このヘクスをリセット</button>
+                <button class="cp-btn-reset" id="cpReset" data-i18n="popup.reset">重設這個六角格</button>
             </div>
         </div>
 
@@ -193,99 +192,99 @@
         <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
             <div class="modal">
                 <div class="modal-header">
-                    <span class="modal-title" id="guide-title">使い方ガイド</span>
+                    <span class="modal-title" id="guide-title" data-i18n="lab.guide">使用說明</span>
                     <button class="modal-close" data-i18n-aria-label="lab.close" aria-label="關閉"><span class="material-symbols-outlined">close</span></button>
                 </div>
                 <div class="modal-body">
                     <div class="guide-body" id="guide-content">
                         <!-- ↓ common.js の buildGuideLinks() がここにリンクブロックを追加する -->
-                        <h3>基本操作</h3>
+                        <h3 data-i18n="guide.basics">基本操作</h3>
                         <dl class="guide-dl">
                             <span class="mi">tune</span>
                             <div>
-                                <dt>リアルタイムプレビュー</dt>
-                                <dd>設定パネルの値を変えると右のプレビューに即時反映されます。</dd>
+                                <dt data-i18n="guide.preview">即時預覽</dt>
+                                <dd data-i18n="guide.preview.desc">調整設定面板的數值，右側預覽會立即更新。</dd>
                             </div>
                             <span class="mi">edit</span>
                             <div>
-                                <dt>カスタムヘクス編集</dt>
-                                <dd>プレビュー上のヘクスをクリックすると、そのヘクスのテキスト・色・文字色・文字サイズを個別に設定できます。変更は即時反映されます。</dd>
+                                <dt data-i18n="guide.customEdit">個別編輯六角格</dt>
+                                <dd data-i18n="guide.customEdit.desc">點選預覽上的六角格，就能個別設定該格的文字、顏色、文字顏色與文字大小。變更會立即反映。</dd>
                             </div>
                             <span class="mi">download</span>
                             <div>
-                                <dt>PNG ダウンロード</dt>
-                                <dd>現在のプレビューをそのままPNG画像として保存します。背景は透過です。</dd>
+                                <dt data-i18n="download.png">下載 PNG</dt>
+                                <dd data-i18n="guide.download.desc">把目前的預覽直接存成 PNG 圖片，背景是透明的。</dd>
                             </div>
                         </dl>
 
-                        <h3>基本設定</h3>
+                        <h3 data-i18n="basic.title">基本設定</h3>
                         <dl class="guide-dl">
                             <span class="mi">view_module</span>
                             <div>
-                                <dt>向き</dt>
-                                <dd><strong>横向き</strong>はフラットトップ、<strong>縦向き</strong>はポインティートップのヘクスを描画します。</dd>
+                                <dt data-i18n="basic.orientation">方向</dt>
+                                <dd data-i18n-html="guide.orientation.desc"><strong>橫向</strong>會畫出平頂（flat-top）六角格，<strong>直向</strong>則是尖頂（pointy-top）六角格。</dd>
                             </div>
                             <span class="mi">grid_3x3</span>
                             <div>
-                                <dt>範囲</dt>
-                                <dd>中心ヘクスからの最大距離（ヘクス数）を設定します。</dd>
+                                <dt data-i18n="basic.range">範圍</dt>
+                                <dd data-i18n="guide.range.desc">設定從中心六角格算起的最大距離（格數）。</dd>
                             </div>
                             <span class="mi">straighten</span>
                             <div>
-                                <dt>距離計測方法</dt>
-                                <dd><strong>マス数</strong>はヘクスの移動数（立方座標距離）、<strong>直線</strong>はピクセルベースの直線距離です。</dd>
+                                <dt data-i18n="guide.method">距離計算方式</dt>
+                                <dd data-i18n-html="guide.method.desc"><strong>格數</strong>是在六角格之間移動的步數（立方座標距離），<strong>直線</strong>是以像素為準的直線距離。</dd>
                             </div>
                             <span class="mi">grid_on</span>
                             <div>
-                                <dt>グリッドを使う</dt>
-                                <dd>ONにするとヘクスを正方形グリッドに収まるよう横に引き伸ばします。ココフォリア等のグリッドのみに対応したオンラインセッションツールで使用する場合に使用します。</dd>
+                                <dt data-i18n="guide.fitGrid">使用網格</dt>
+                                <dd data-i18n="guide.fitGrid.desc">開啟後會把六角格橫向拉長，讓它剛好對齊正方形網格。在 CCFOLIA 這類只支援網格的線上團工具中使用時請開啟。</dd>
                             </div>
                         </dl>
 
-                        <h3>セルの色</h3>
+                        <h3 data-i18n="cellColor.title">格子顏色</h3>
                         <dl class="guide-dl">
                             <span class="mi">opacity</span>
                             <div>
-                                <dt>不透明度（グローバル）</dt>
-                                <dd>全ヘクスの色の不透明度を一括で調整します。各距離のカラーピッカーで設定したα値にこの値が乗算されます。</dd>
+                                <dt data-i18n="guide.globalOpacity">不透明度（整體）</dt>
+                                <dd data-i18n="guide.cellOpacity.desc">一次調整所有六角格顏色的不透明度。各距離在顏色選擇器中設定的 α 值會再乘上這個值。</dd>
                             </div>
                             <span class="mi">palette</span>
                             <div>
-                                <dt>スキーム</dt>
-                                <dd>レインボー・熱・寒・モノクロ・無色（全て透明）・カスタムから選択。スキームを変えると各距離のカラーピッカーの色が一括更新されます。</dd>
+                                <dt data-i18n="cellColor.scheme">配色</dt>
+                                <dd data-i18n="guide.scheme.desc">可從彩虹、暖色、冷色、灰階、無色（全透明）、自訂中選擇。切換配色時，各距離的顏色選擇器會一起更新。</dd>
                             </div>
                             <span class="mi">colorize</span>
                             <div>
-                                <dt>距離ごとの色</dt>
-                                <dd>各距離（0=中心〜N）の色を個別にカラーピッカーで設定できます。アルファチャンネルで距離ごとの透明度も設定可能です。</dd>
+                                <dt data-i18n="guide.distColor">各距離的顏色</dt>
+                                <dd data-i18n="guide.distColor.desc">可以用顏色選擇器分別設定各距離（0＝中心～N）的顏色，也能透過 Alpha 色版設定每個距離的透明度。</dd>
                             </div>
                         </dl>
 
-                        <h3>テキスト</h3>
+                        <h3 data-i18n="text.title">文字</h3>
                         <dl class="guide-dl">
                             <span class="mi">opacity</span>
                             <div>
-                                <dt>不透明度（グローバル）</dt>
-                                <dd>全テキストの不透明度を一括調整。カラーピッカーのα値に乗算されます。</dd>
+                                <dt data-i18n="guide.globalOpacity">不透明度（整體）</dt>
+                                <dd data-i18n="guide.textOpacity.desc">一次調整所有文字的不透明度，會乘上顏色選擇器的 α 值。</dd>
                             </div>
                             <span class="mi">format_size</span>
                             <div>
-                                <dt>文字サイズ</dt>
-                                <dd>デフォルトの文字サイズ（px）です。カスタムヘクスで個別上書き可能です。</dd>
+                                <dt data-i18n="text.fontSize">文字大小</dt>
+                                <dd data-i18n="guide.fontSize.desc">預設的文字大小（px），可以在個別編輯六角格時另外覆寫。</dd>
                             </div>
                             <span class="mi">text_fields</span>
                             <div>
-                                <dt>縁取り</dt>
-                                <dd>テキストに縁取りを付けます。背景が透明な場合でも文字を見やすくできます。</dd>
+                                <dt data-i18n="text.stroke">描邊</dt>
+                                <dd data-i18n="guide.stroke.desc">為文字加上描邊，背景透明時也能看清楚文字。</dd>
                             </div>
                         </dl>
 
-                        <h3>ダウンロードファイル名</h3>
+                        <h3 data-i18n="guide.fileName">下載檔名</h3>
                         <dl class="guide-dl">
                             <span class="mi">info</span>
                             <div>
-                                <dt>ファイル名形式</dt>
-                                <dd><code>hex_ruler_{横}x{縦}.png</code>（グリッドに合わせる ON 時）、それ以外は <code>hex_ruler.png</code></dd>
+                                <dt data-i18n="guide.fileFormat">檔名格式</dt>
+                                <dd data-i18n-html="guide.fileFormat.desc"><code>hex_ruler_{橫}x{直}.png</code>（開啟「使用網格」時），其他情況為 <code>hex_ruler.png</code></dd>
                             </div>
                         </dl>
                     </div>

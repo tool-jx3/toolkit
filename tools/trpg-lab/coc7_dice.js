@@ -24,7 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const logClearBtn = document.getElementById('log-clear-btn');
     const logCloseBtn = document.getElementById('log-close-btn');
 
-    const diceSound = document.getElementById('dice-sound');
+    /* 收錄版不附上游的擲骰音效 dice_sound.wav（ニコニ・コモンズ素材，不得再散布），
+     * 對應的 <audio> 與播放程式一併拿掉。 */
 
     /* ---- BD/PD ボタン ---- */
     bdMinusBtn.addEventListener('click', () => {
@@ -52,15 +53,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return Math.floor(Math.random() * sides) + 1;
     }
 
+    /* 回傳字典 key 而不是文字：顯示時才 T()，切換語言時才能重畫。 */
     function getSuccessLevel(roll, skill) {
-        if (roll === 1) return { text: 'クリティカル', cls: 'critical' };
-        if (skill < 50 && roll >= 96) return { text: 'ファンブル', cls: 'fumble' };
-        if (skill >= 50 && roll === 100) return { text: 'ファンブル', cls: 'fumble' };
-        if (roll <= Math.floor(skill / 5)) return { text: 'イクストリーム成功', cls: 'extreme' };
-        if (roll <= Math.floor(skill / 2)) return { text: 'ハード成功', cls: 'hard' };
-        if (roll <= skill) return { text: 'レギュラー成功', cls: 'regular' };
-        return { text: '失敗', cls: 'failure' };
+        if (roll === 1) return { key: 'level.critical', cls: 'critical' };
+        if (skill < 50 && roll >= 96) return { key: 'level.fumble', cls: 'fumble' };
+        if (skill >= 50 && roll === 100) return { key: 'level.fumble', cls: 'fumble' };
+        if (roll <= Math.floor(skill / 5)) return { key: 'level.extreme', cls: 'extreme' };
+        if (roll <= Math.floor(skill / 2)) return { key: 'level.hard', cls: 'hard' };
+        if (roll <= skill) return { key: 'level.regular', cls: 'regular' };
+        return { key: 'level.failure', cls: 'failure' };
     }
+
+    /* 目前畫面上的成功等級（字典 key），切換語言時用來重畫 */
+    let shownLevelKey = null;
+    I18N.onChange(() => {
+        if (shownLevelKey) successLevel.textContent = T(shownLevelKey);
+    });
 
     function createDiceSymbol(value, isPercent = false, index = 0) {
         const span = document.createElement('span');
@@ -88,12 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }, interval);
     }
 
-    function playSoundAndClear() {
+    function clearDiceDisplay() {
         diceDisplay.innerHTML = '';
-        if (diceSound) {
-            diceSound.currentTime = 0;
-            diceSound.play().catch(() => {});
-        }
     }
 
     /* ---- ローカルストレージ履歴管理 ---- */
@@ -188,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         /* 表示更新 */
-        playSoundAndClear();
+        clearDiceDisplay();
 
         // %ダイスのspanを配列で保持して後からハイライト適用できるようにする
         const percentSpans = [];
@@ -206,14 +210,16 @@ document.addEventListener('DOMContentLoaded', () => {
         resultText.classList.remove('result-pop');
         successLevel.textContent = '';
         successLevel.className = 'success-level';
+        shownLevelKey = null;
 
         setTimeout(() => {
             resultText.textContent = `${finalRoll}`;
             void resultText.offsetWidth;
             resultText.classList.add('result-pop');
             if (skill) {
-                const { text, cls } = getSuccessLevel(finalRoll, skill);
-                successLevel.textContent = text;
+                const { key, cls } = getSuccessLevel(finalRoll, skill);
+                shownLevelKey = key;
+                successLevel.textContent = T(key);
                 successLevel.className = `success-level ${cls} result-pop`;
             }
             // BD/PDがある場合のみ採用・非採用のハイライトを付ける
@@ -230,8 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const skillText = skill !== null ? `[${skill}]` : '[]';
         const bdText = `BD/PD[${bd_pd}]`;
         const candidatesText = candidates.join(', ');
-        const successText = skill ? ` ＞ ${getSuccessLevel(finalRoll, skill).text}` : '';
-        appendLog(`技能値${skillText} ${bdText} ＞ ${candidatesText} ＞ ${finalRoll}${successText}`);
+        const successText = skill ? ` ＞ ${T(getSuccessLevel(finalRoll, skill).key)}` : '';
+        appendLog(`${T('log.skill')}${skillText} ${bdText} ＞ ${candidatesText} ＞ ${finalRoll}${successText}`);
     });
 
     /* ---- カスタムロール ---- */
@@ -280,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             /* ダイス表示 */
-            playSoundAndClear();
+            clearDiceDisplay();
             let diceIdx = 0;
             diceResults.forEach((item) => {
                 if (!item.rolls.length) return;
@@ -306,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resultText.classList.remove('result-pop');
             successLevel.textContent = '';
             successLevel.className = 'success-level';
+            shownLevelKey = null;
             setTimeout(() => {
                 resultText.textContent = total;
                 void resultText.offsetWidth;
@@ -331,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 .join('');
             appendLog(`${command} ＞ ${detail} ＞ ${total}`);
         } catch (e) {
-            alert('無効なダイスコマンドです。\n例: 2D6+1D4+3');
+            alert(T('custom.invalid'));
         }
     });
 
@@ -403,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     logClearBtn.addEventListener('click', () => {
         if (!logList.children.length) return;
-        if (confirm('すべてのログを削除しますか？')) {
+        if (confirm(T('log.confirmClear'))) {
             logList.innerHTML = '';
             try {
                 localStorage.removeItem(HISTORY_KEY);

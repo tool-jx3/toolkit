@@ -594,3 +594,9 @@ body {
     }
 }
 
+
+/* 使用說明開頭的工具名稱。上游寫成 inline style，收錄版為了讓整段文字進字典
+ * （data-i18n-html），把顏色移到這裡。 */
+.guide-app-name {
+    color: var(--blue);
+}

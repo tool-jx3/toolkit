@@ -30,66 +30,64 @@
                 <div class="panel-col panel-col-left">
                     <!-- 基本設定 -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined fill">settings</span>基本設定</div>
+                        <div class="s-ttl" data-i18n-node="basic.title"><span class="material-symbols-outlined fill">settings</span>基本設定</div>
                         <div class="f">
-                            <span class="fl">向き</span>
+                            <span class="fl" data-i18n="basic.orientation">方向</span>
                             <div class="seg">
-                                <input type="radio" name="ori" id="ori-h" value="horizontal" checked /><label for="ori-h">横向き</label>
-                                <input type="radio" name="ori" id="ori-v" value="vertical" /><label for="ori-v">縦向き</label>
+                                <input type="radio" name="ori" id="ori-h" value="horizontal" checked /><label for="ori-h" data-i18n="basic.horizontal">橫向</label>
+                                <input type="radio" name="ori" id="ori-v" value="vertical" /><label for="ori-v" data-i18n="basic.vertical">直向</label>
                             </div>
                         </div>
                         <div class="f">
-                            <span class="fl">列数（横）</span>
+                            <span class="fl" data-i18n="basic.cols">欄數（橫）</span>
                             <input type="number" id="cols" value="15" min="1" max="1000" class="custom-spinner" />
                         </div>
                         <div class="f">
-                            <span class="fl">行数（縦）</span>
+                            <span class="fl" data-i18n="basic.rows">列數（直）</span>
                             <input type="number" id="rows" value="21" min="1" max="1000" class="custom-spinner" />
                         </div>
                         <div class="f">
-                            <span class="fl">サイズ</span>
+                            <span class="fl" data-i18n="basic.size">大小</span>
                             <div class="row">
                                 <input type="number" id="cellSize" value="48" min="10" max="500" class="custom-spinner" />
                                 <span class="unit">px</span>
                             </div>
                         </div>
                         <div class="f">
-                            <label class="tog"><input type="checkbox" id="shiftCheck" /><span class="tl">1列目をずらす</span></label>
+                            <label class="tog"><input type="checkbox" id="shiftCheck" /><span class="tl" data-i18n="basic.shift">錯開第 1 欄</span></label>
                         </div>
                         <div class="f">
-                            <label class="tog"><input type="checkbox" id="drawOuter" /><span class="tl">外周ヘクスを描画</span></label>
+                            <label class="tog"><input type="checkbox" id="drawOuter" /><span class="tl" data-i18n="basic.outer">繪製外圈六角格</span></label>
                         </div>
                         <div class="f">
-                            <label class="tog"><input type="checkbox" id="fitGridCheck" /><span class="tl">ココフォリアで使う (グリッド化)</span></label>
+                            <label class="tog"><input type="checkbox" id="fitGridCheck" /><span class="tl" data-i18n="basic.fitGrid">用於 CCFOLIA（網格化）</span></label>
                         </div>
                     </div>
 
                     <!-- 線スタイル -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined fill">brush</span>線スタイル</div>
+                        <div class="s-ttl" data-i18n-node="line.title"><span class="material-symbols-outlined fill">brush</span>線條樣式</div>
                         <div class="f">
-                            <span class="fl">色 / 不透明度</span>
+                            <span class="fl" data-i18n="field.colorOpacity">顏色／不透明度</span>
                             <div id="hexColorPicker"></div>
                         </div>
                         <div class="f">
-                            <span class="fl">太さ</span>
+                            <span class="fl" data-i18n="line.width">線寬</span>
                             <div class="row">
                                 <input type="number" id="lineWidth" value="2" min="1" max="20" class="custom-spinner" />
                                 <span class="unit">px</span>
                             </div>
                         </div>
                         <div class="f">
-                            <span class="fl">線種</span>
+                            <span class="fl" data-i18n="line.style">線型</span>
                             <div class="seg">
-                                <input type="radio" name="ls" id="ls-s" value="solid" checked /><label for="ls-s">実線</label> <input type="radio" name="ls" id="ls-d" value="dashed" /><label
-                                    for="ls-d"
-                                    >破線</label
-                                >
-                                <input type="radio" name="ls" id="ls-t" value="dotted" /><label for="ls-t">点線</label>
+                                <input type="radio" name="ls" id="ls-s" value="solid" checked /><label for="ls-s" data-i18n="line.solid">實線</label>
+                                <input type="radio" name="ls" id="ls-d" value="dashed" /><label for="ls-d" data-i18n="line.dashed">虛線</label>
+                                <input type="radio" name="ls" id="ls-t" value="dotted" /><label for="ls-t" data-i18n="line.dotted">點線</label>
                             </div>
                         </div>
                         <div class="f">
-                            <label class="tog"><input type="checkbox" id="glowEffect" /><span class="tl">グロー効果</span></label>
+                            <label class="tog"><input type="checkbox" id="glowEffect" /><span class="tl" data-i18n="line.glow">發光效果</span></label>
                         </div>
                     </div>
                     <!-- /線スタイル -->
@@ -100,10 +98,10 @@
                 <div class="panel-col panel-col-right">
                     <!-- ヘクス縮小 -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">photo_size_select_small</span>ヘクス縮小</div>
+                        <div class="s-ttl" data-i18n-node="shrink.title"><span class="material-symbols-outlined">photo_size_select_small</span>六角格縮小</div>
                         <div class="f f-col">
                             <div class="f-sb">
-                                <span class="fl">縮小率</span>
+                                <span class="fl" data-i18n="shrink.rate">縮小比例</span>
                                 <div class="row">
                                     <input type="number" id="hexScaleNum" value="100" min="10" max="100" class="custom-spinner" />
                                     <span class="unit">%</span>
@@ -115,69 +113,66 @@
 
                     <!-- 座標 -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">tag</span>座標</div>
+                        <div class="s-ttl" data-i18n-node="coord.title"><span class="material-symbols-outlined">tag</span>座標</div>
                         <div class="f">
-                            <label class="tog"><input type="checkbox" id="showCoords" checked /><span class="tl">座標を表示</span></label>
+                            <label class="tog"><input type="checkbox" id="showCoords" checked /><span class="tl" data-i18n="coord.show">顯示座標</span></label>
                         </div>
                         <div class="f" style="margin-top: 0.42rem">
-                            <span class="fl">色 / 不透明度</span>
+                            <span class="fl" data-i18n="field.colorOpacity">顏色／不透明度</span>
                             <div id="coordColorPicker"></div>
                         </div>
                         <div id="coordOpts">
                             <div class="f">
-                                <span class="fl">座標形式</span>
+                                <span class="fl" data-i18n="coord.format">座標格式</span>
                                 <select id="coordFmt">
                                     <option value="hyphen">1-1</option>
                                     <option value="comma">1, 1</option>
                                     <option value="zero">0101</option>
                                     <option value="letter">A1</option>
-                                    <option value="serial">連番</option>
+                                    <option value="serial" data-i18n="coord.format.serial">流水號</option>
                                 </select>
                             </div>
                             <div class="f">
-                                <span class="fl">起点</span>
+                                <span class="fl" data-i18n="coord.origin">起點</span>
                                 <select id="coordOrigin">
-                                    <option value="tl">左上</option>
-                                    <option value="bl">左下</option>
-                                    <option value="tr">右上</option>
-                                    <option value="br">右下</option>
+                                    <option value="tl" data-i18n="coord.origin.tl">左上</option>
+                                    <option value="bl" data-i18n="coord.origin.bl">左下</option>
+                                    <option value="tr" data-i18n="coord.origin.tr">右上</option>
+                                    <option value="br" data-i18n="coord.origin.br">右下</option>
                                 </select>
                             </div>
                             <div class="f" id="cmodeRow">
-                                <span class="fl">行座標の扱い</span>
+                                <span class="fl" data-i18n="coord.rowMode">列座標處理</span>
                                 <div class="seg">
-                                    <input type="radio" name="cmode" id="cm-seq" value="seq" checked /><label for="cm-seq">圧縮する</label>
-                                    <input type="radio" name="cmode" id="cm-skip" value="skip" /><label for="cm-skip">半行ずつ</label>
+                                    <input type="radio" name="cmode" id="cm-seq" value="seq" checked /><label for="cm-seq" data-i18n="coord.rowMode.compress">壓縮</label>
+                                    <input type="radio" name="cmode" id="cm-skip" value="skip" /><label for="cm-skip" data-i18n="coord.rowMode.half">以半列計</label>
                                 </div>
                             </div>
 
                             <div class="f">
-                                <span class="fl">開始番号</span>
+                                <span class="fl" data-i18n="coord.start">起始編號</span>
                                 <div class="seg">
-                                    <input type="radio" name="cstart" id="cs-0" value="0" checked /><label for="cs-0">0から</label> <input type="radio" name="cstart" id="cs-1" value="1" /><label
-                                        for="cs-1"
-                                        >1から</label
-                                    >
+                                    <input type="radio" name="cstart" id="cs-0" value="0" checked /><label for="cs-0" data-i18n="coord.start.0">從 0 開始</label>
+                                    <input type="radio" name="cstart" id="cs-1" value="1" /><label for="cs-1" data-i18n="coord.start.1">從 1 開始</label>
                                 </div>
                             </div>
                             <div class="f">
-                                <span class="fl">位置</span>
+                                <span class="fl" data-i18n="coord.position">位置</span>
                                 <div class="seg">
-                                    <input type="radio" name="cpos" id="cp-t" value="top" /><label for="cp-t">上</label> <input type="radio" name="cpos" id="cp-m" value="middle" /><label for="cp-m"
-                                        >中</label
-                                    >
-                                    <input type="radio" name="cpos" id="cp-b" value="bottom" checked /><label for="cp-b">下</label>
+                                    <input type="radio" name="cpos" id="cp-t" value="top" /><label for="cp-t" data-i18n="coord.position.top">上</label>
+                                    <input type="radio" name="cpos" id="cp-m" value="middle" /><label for="cp-m" data-i18n="coord.position.middle">中</label>
+                                    <input type="radio" name="cpos" id="cp-b" value="bottom" checked /><label for="cp-b" data-i18n="coord.position.bottom">下</label>
                                 </div>
                             </div>
                             <div class="f" id="coordOffsetRow">
-                                <span class="fl">辺からのオフセット</span>
+                                <span class="fl" data-i18n="coord.offset">距邊偏移</span>
                                 <div class="row">
                                     <input type="number" id="coordOffset" value="8" min="-999" max="999" class="custom-spinner" />
                                     <span class="unit">px</span>
                                 </div>
                             </div>
                             <div class="f">
-                                <span class="fl">文字サイズ</span>
+                                <span class="fl" data-i18n="coord.fontSize">文字大小</span>
                                 <div class="row">
                                     <input type="number" id="coordFontSize" value="12" min="6" max="100" class="custom-spinner" />
                                     <span class="unit">px</span>
@@ -191,7 +186,7 @@
 
                 <!-- DL -->
                 <div class="s-sec panel-dl">
-                    <button class="btn-dl" onclick="downloadHex()"><span class="material-symbols-outlined">download</span>PNG ダウンロード</button>
+                    <button class="btn-dl" onclick="downloadHex()" data-i18n-node="download.png"><span class="material-symbols-outlined">download</span>下載 PNG</button>
                 </div>
             </div>
 
@@ -207,138 +202,128 @@
         <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
             <div class="modal">
                 <div class="modal-header">
-                    <span class="modal-title" id="guide-title">使い方ガイド</span>
+                    <span class="modal-title" id="guide-title" data-i18n="lab.guide">使用說明</span>
                     <button class="modal-close" data-i18n-aria-label="lab.close" aria-label="關閉"><span class="material-symbols-outlined">close</span></button>
                 </div>
                 <div class="modal-body">
                     <div class="guide-body" id="guide-content">
-                        <h3>基本操作</h3>
+                        <h3 data-i18n="guide.basics">基本操作</h3>
                         <dl class="guide-dl">
                             <span class="mi">tune</span>
                             <div>
-                                <dt>リアルタイムプレビュー</dt>
-                                <dd>設定パネルの値を変えると右のプレビューに即時反映されます。</dd>
+                                <dt data-i18n="guide.preview">即時預覽</dt>
+                                <dd data-i18n="guide.preview.desc">調整設定面板的數值，右側預覽會立即更新。</dd>
                             </div>
                             <span class="mi">download</span>
                             <div>
-                                <dt>PNG ダウンロード</dt>
-                                <dd>現在のプレビューをそのままPNG画像として保存します。背景は透過です。</dd>
+                                <dt data-i18n="download.png">下載 PNG</dt>
+                                <dd data-i18n="guide.download.desc">把目前的預覽直接存成 PNG 圖片，背景是透明的。</dd>
                             </div>
                             <span class="mi">light_mode</span>
                             <div>
-                                <dt>テーマ切り替え</dt>
-                                <dd>ヘッダー右端のボタンでダーク／ライトを切り替えられます（設定は保存されます）。</dd>
+                                <dt data-i18n="lab.theme">切換深色／淺色</dt>
+                                <dd data-i18n="guide.theme.desc">用頁首最右邊的按鈕切換深色／淺色（設定會保存下來）。</dd>
                             </div>
                         </dl>
 
-                        <h3>基本設定</h3>
+                        <h3 data-i18n="basic.title">基本設定</h3>
                         <dl class="guide-dl">
                             <span class="mi">swap_horiz</span>
                             <div>
-                                <dt>向き</dt>
-                                <dd>「横向き」はフラットトップ型。「縦向き」は上下に尖端が出るポインティートップ型です。</dd>
+                                <dt data-i18n="basic.orientation">方向</dt>
+                                <dd data-i18n="guide.orientation.desc">「橫向」是平頂（flat-top）六角格；「直向」是上下各有一個尖角的尖頂（pointy-top）六角格。</dd>
                             </div>
                             <span class="mi">grid_3x3</span>
                             <div>
-                                <dt>列数・行数</dt>
-                                <dd>描画するヘクスの数を指定します。行数は偶数列と奇数列が交互に増えます</dd>
+                                <dt data-i18n="guide.colsRows">欄數、列數</dt>
+                                <dd data-i18n="guide.colsRows.desc">設定要畫幾個六角格。列數每加 1，會輪流在偶數欄或奇數欄多出一格。</dd>
                             </div>
                             <span class="mi">straighten</span>
                             <div>
-                                <dt>サイズ</dt>
-                                <dd>ヘクス1つの高さの基準サイズ（px）です。「グリッドを使う」ON時はセル幅がこの値と一致します。ココフォリアで使用する際は、24の倍数に設定することを推奨します。</dd>
+                                <dt data-i18n="basic.size">大小</dt>
+                                <dd data-i18n="guide.size.desc">單一六角格高度的基準尺寸（px）。開啟「用於 CCFOLIA」時，格子寬度會等於這個值。在 CCFOLIA 使用時，建議設成 24 的倍數。</dd>
                             </div>
                             <span class="mi">view_column</span>
                             <div>
-                                <dt>1列目をずらす</dt>
-                                <dd>奇数列をオフセットするか偶数列をオフセットするかを切り替えます。</dd>
+                                <dt data-i18n="basic.shift">錯開第 1 欄</dt>
+                                <dd data-i18n="guide.shift.desc">切換要錯開奇數欄還是偶數欄。</dd>
                             </div>
                             <span class="mi">border_outer</span>
                             <div>
-                                <dt>外周ヘクスを描画</dt>
-                                <dd>外側にもう1周分のヘクスを描画します。ONのほうがマップ端の見た目が整います。</dd>
+                                <dt data-i18n="basic.outer">繪製外圈六角格</dt>
+                                <dd data-i18n="guide.outer.desc">在外側多畫一圈六角格。開啟後地圖邊緣看起來會比較整齊。</dd>
                             </div>
                         </dl>
 
-                        <h3>オンセツールで使う</h3>
+                        <h3 data-i18n="guide.online">在線上團工具中使用</h3>
                         <dl class="guide-dl">
                             <span class="mi">devices</span>
                             <div>
-                                <dt>ココフォリアで使う (グリッド化)</dt>
-                                <dd>ONにするとヘクスを正方形グリッドに収まるよう横に引き伸ばします。ココフォリア等のグリッドのみに対応したオンラインセッションツールで使用する場合に使用します。</dd>
+                                <dt data-i18n="basic.fitGrid">用於 CCFOLIA（網格化）</dt>
+                                <dd data-i18n="guide.fitGrid.desc">開啟後會把六角格橫向拉長，讓它剛好對齊正方形網格。在 CCFOLIA 這類只支援網格的線上團工具中使用時請開啟。</dd>
                             </div>
                             <span class="mi">info</span>
                             <div>
-                                <dt>ファイル名について</dt>
-                                <dd>
-                                    「ココフォリアで使う」がONのとき、ダウンロードファイル名は <code>hex_CxR.png</code>（例:
-                                    hex_30x30.png）の形式になります。ココフォリアなどで使用する際は、パネルや前景のサイズをこの数字に合わせてください。
-                                </dd>
+                                <dt data-i18n="guide.fileName">關於檔名</dt>
+                                <dd data-i18n-html="guide.fileName.desc">開啟「用於 CCFOLIA」時，下載的檔名會是 <code>hex_CxR.png</code>（例：hex_30x30.png）的格式。在 CCFOLIA 等工具中使用時，請把面板或前景的大小設成這組數字。</dd>
                             </div>
                         </dl>
 
-                        <h3>線スタイル</h3>
+                        <h3 data-i18n="line.title">線條樣式</h3>
                         <dl class="guide-dl">
                             <span class="mi">palette</span>
                             <div>
-                                <dt>色 / 不透明度</dt>
-                                <dd>カラーパレットから色と透明度を設定します。縮小率100%のとき、隣接辺の重複を避けるため各ヘクスは3辺のみ描画しています（不透明度がそのまま反映されます）。</dd>
+                                <dt data-i18n="field.colorOpacity">顏色／不透明度</dt>
+                                <dd data-i18n="guide.color.desc">從調色盤設定顏色與不透明度。縮小比例為 100% 時，為了避免相鄰的邊重疊，每個六角格只畫 3 條邊（因此不透明度會原樣呈現）。</dd>
                             </div>
                             <span class="mi">line_weight</span>
                             <div>
-                                <dt>太さ</dt>
-                                <dd>線の太さ（px）です。グロー効果をONにしている場合、太さに比例して発光範囲も広がります。</dd>
+                                <dt data-i18n="line.width">線寬</dt>
+                                <dd data-i18n="guide.width.desc">線的寬度（px）。開啟發光效果時，發光範圍也會隨線寬等比例擴大。</dd>
                             </div>
                             <span class="mi">more_horiz</span>
                             <div>
-                                <dt>線種</dt>
-                                <dd>実線・破線・点線を選択できます。縮小率を下げると全6辺が描画されるため、破線や点線の見た目が変わります。</dd>
+                                <dt data-i18n="line.style">線型</dt>
+                                <dd data-i18n="guide.style.desc">可以選擇實線、虛線或點線。調低縮小比例後會畫出全部 6 條邊，虛線與點線的樣子也會跟著改變。</dd>
                             </div>
                             <span class="mi">flare</span>
                             <div>
-                                <dt>グロー効果</dt>
-                                <dd>線に発光エフェクトをかけます。暗い背景で映えます。ダウンロード時も反映されます。</dd>
+                                <dt data-i18n="line.glow">發光效果</dt>
+                                <dd data-i18n="guide.glow.desc">讓線條發光，在深色背景上特別顯眼。下載的圖片也會套用。</dd>
                             </div>
                         </dl>
 
-                        <h3>ヘクス縮小</h3>
+                        <h3 data-i18n="shrink.title">六角格縮小</h3>
                         <dl class="guide-dl">
                             <span class="mi">photo_size_select_small</span>
                             <div>
-                                <dt>縮小率</dt>
-                                <dd>
-                                    ヘクス間距離（セルの占有領域）はそのままに、ヘクスの描画サイズだけを縮小します。100%未満にすると辺が重複しなくなり全6辺を描画します。ここフォリアでヘクス間に隙間を作るときに便利です。
-                                </dd>
+                                <dt data-i18n="shrink.rate">縮小比例</dt>
+                                <dd data-i18n="guide.shrink.desc">六角格之間的距離（每格占用的範圍）不變，只縮小六角格本身畫出來的大小。低於 100% 時邊不再重疊，會畫出全部 6 條邊。想在 CCFOLIA 上讓六角格之間留出空隙時很方便。</dd>
                             </div>
                         </dl>
 
-                        <h3>座標表示</h3>
+                        <h3 data-i18n="guide.coord">座標顯示</h3>
                         <dl class="guide-dl">
                             <span class="mi">format_list_numbered</span>
                             <div>
-                                <dt>座標形式</dt>
-                                <dd>
-                                    座標の表示スタイルを選択できます。<strong>1-1</strong>（ハイフン区切り）、<strong>1, 1</strong
-                                    >（カンマ区切り）、<strong>0101</strong>（4桁ゼロ埋め）、<strong>A1</strong>（列をアルファベット、行を数字）、<strong>連番</strong>（座標を使わず、順番に数字を付ける）の4種類。
-                                </dd>
+                                <dt data-i18n="coord.format">座標格式</dt>
+                                <dd data-i18n-html="guide.format.desc">可以選擇座標的顯示樣式：<strong>1-1</strong>（連字號分隔）、<strong>1, 1</strong>（逗號分隔）、<strong>0101</strong>（補零成 4 位數）、<strong>A1</strong>（欄用英文字母、列用數字）、<strong>流水號</strong>（不用座標，依序編號）。</dd>
                             </div>
                             <span class="mi">compress</span>
                             <div>
-                                <dt>行座標を圧縮する</dt>
-                                <dd>ズレた行を同じ行とみなし、連続した整数で番号を振ります（例: 0-0, 0-1, 1-0...）。起点は左上・左下・右上・右下から選択可能です。</dd>
+                                <dt data-i18n="guide.compress">壓縮列座標</dt>
+                                <dd data-i18n="guide.compress.desc">把錯開的列視為同一列，以連續整數編號（例：0-0, 0-1, 1-0...）。起點可以從左上、左下、右上、右下中選擇。</dd>
                             </div>
                             <span class="mi">linear_scale</span>
                             <div>
-                                <dt>半行ずつ</dt>
-                                <dd>ヘクスのオフセット構造をそのまま反映し、行番号が2ずつ増えます（例: 0-0, 0-2, 1-1...）。ずらしの構造を座標に忠実に反映したいときに使います。</dd>
+                                <dt data-i18n="coord.rowMode.half">以半列計</dt>
+                                <dd data-i18n="guide.half.desc">直接反映六角格的錯位結構，列號每次加 2（例：0-0, 0-2, 1-1...）。想讓座標忠實呈現錯位結構時使用。</dd>
                             </div>
 
                             <span class="mi">vertical_align_center</span>
                             <div>
-                                <dt>位置とオフセット</dt>
-                                <dd>
-                                    座標テキストを上・中・下のどこに配置するか選びます。上・下を選んだときは「辺からのオフセット」で辺との距離（px）を調整できます。<strong>正の値で中心に近づき</strong>、負の値でヘクスの外側に出ます。縮小率に連動します。
-                                </dd>
+                                <dt data-i18n="guide.posOffset">位置與偏移</dt>
+                                <dd data-i18n-html="guide.posOffset.desc">選擇座標文字要放在上、中、下哪個位置。選「上」或「下」時，可以用「距邊偏移」調整文字與邊的距離（px）。<strong>正值會往中心靠近</strong>，負值則會移到六角格外側。這個距離會隨縮小比例連動。</dd>
                             </div>
                         </dl>
                     </div>

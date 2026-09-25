@@ -96,3 +96,41 @@ button:hover {
 	display: none;
 }
 
+
+/* 收錄版：頁面頂端的導覽列（回到合輯首頁的連結與語言選單）。
+ * 這頁沒有實驗室的共用頁首，配色沿用本頁的灰階與按鈕藍。 */
+.toolkit-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.home-link {
+	color: #666;
+	font-size: 13px;
+	text-decoration: none;
+}
+
+.home-link:hover {
+	color: #333;
+	text-decoration: underline;
+}
+
+.home-link:focus-visible,
+.locale-select:focus-visible {
+	outline: 2px solid #448ad4;
+	outline-offset: 2px;
+}
+
+.locale-select {
+	padding: 4px 8px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	background: white;
+	color: #333;
+	font-family: inherit;
+	font-size: 13px;
+	cursor: pointer;
+}

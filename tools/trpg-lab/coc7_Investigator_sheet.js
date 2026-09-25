@@ -364,7 +364,11 @@ function getAllSheets() {
 // セレクト更新
 function updateSelectList() {
     const sheets = getAllSheets();
-    saveList.innerHTML = '<option value="">（保存一覧）</option>';
+    saveList.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = T('toolbar.saveList');
+    saveList.appendChild(placeholder);
     for (const name of Object.keys(sheets)) {
         const opt = document.createElement('option');
         opt.value = name;
@@ -378,17 +382,14 @@ saveBtn.addEventListener('click', () => {
     const selectedName = saveList.value || '';
 
     // プロンプトで入力を求める（初期値に selectedName をセット）
-    const name = prompt(
-        '保存名を入力してください。\n\n' + '※保存した探索者シートはお使いのブラウザのローカルストレージに保存されます。\n' + '別のブラウザや端末では表示されません。',
-        selectedName
-    );
+    const name = prompt(T('msg.savePrompt'), selectedName);
     if (!name) return;
 
     const sheets = getAllSheets();
 
     // 同名確認
     if (sheets[name]) {
-        const overwrite = confirm(`「${name}」はすでに存在します。上書きしてもよいですか？`);
+        const overwrite = confirm(T('msg.overwrite', name));
         if (!overwrite) return;
     }
 
@@ -402,23 +403,24 @@ saveBtn.addEventListener('click', () => {
 loadBtn.addEventListener('click', () => {
     const selected = saveList.value;
     if (!selected) {
-        alert('読み込む探索者シートを選択してください。');
+        alert(T('msg.selectToLoad'));
         return;
     }
-    if (!confirm(`「${selected}」を現在の内容に上書きして読み込みますか？`)) return;
+    if (!confirm(T('msg.confirmLoad', selected))) return;
     const sheets = getAllSheets();
     main.innerHTML = sheets[selected] || '';
     localStorage.setItem(AUTOSAVE_KEY, main.innerHTML); // オートセーブ更新
+    localizeSheet();
     restoreAllEventListeners();
 });
 
 deleteBtn.addEventListener('click', () => {
     const selected = saveList.value;
     if (!selected) {
-        alert('削除する探索者シートを選択してください。');
+        alert(T('msg.selectToDelete'));
         return;
     }
-    if (!confirm(`「${selected}」を削除してもよいですか？`)) return;
+    if (!confirm(T('msg.confirmDelete', selected))) return;
     const sheets = getAllSheets();
     delete sheets[selected];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sheets));
@@ -432,7 +434,7 @@ main.addEventListener('input', () => {
     clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(() => {
         localStorage.setItem(AUTOSAVE_KEY, main.innerHTML);
-        console.log('オートセーブ完了');
+        console.log('Autosave complete');
     }, 1000);
 });
 
@@ -442,19 +444,43 @@ window.addEventListener('DOMContentLoaded', () => {
     const autosaveData = localStorage.getItem(AUTOSAVE_KEY);
     if (autosaveData) {
         main.innerHTML = autosaveData;
+        localizeSheet();
         restoreAllEventListeners();
-        console.log('オートセーブを復元しました');
+        console.log('Autosave restored');
     }
 });
 
 clearBtn.addEventListener('click', () => {
-    if (!confirm('探索者シートを初期状態に戻しますか？')) return;
+    if (!confirm(T('msg.confirmClear'))) return;
     localStorage.removeItem(AUTOSAVE_KEY);
     location.reload(); // ← ページ全体をリロード
 });
 
 printBtn.addEventListener('click', () => {
     window.print();
+});
+
+/* 收錄版的語言切換：
+ * 角色卡上的預設標籤（姓名、技能名、「徒手」…）都掛了 data-i18n，切換語言時由共用引擎重套。
+ * 但這些標籤多半可以直接點擊改寫（contenteditable），而且存檔與自動儲存都是把 main.innerHTML
+ * 原樣存進 localStorage——掛勾會跟著存進去，讀回來時再依目前語言重套一次。
+ * 使用者改寫過的標籤就拔掉掛勾，免得切換語言或讀檔時被蓋回預設文字。
+ * 沒有掛勾的舊存檔（例如上游產生的）維持存檔當時的文字，照舊讀得進來。 */
+const I18N_HOOK_ATTRS = ['data-i18n', 'data-i18n-html', 'data-i18n-node'];
+main.addEventListener('input', (e) => {
+    const el = e.target;
+    if (el instanceof Element) I18N_HOOK_ATTRS.forEach((attr) => el.removeAttribute(attr));
+});
+
+function localizeSheet() {
+    I18N.applyStaticDom(main);
+}
+
+/* 儲存清單的第一個選項由 updateSelectList() 產生，切換語言時重畫並保留目前的選取。 */
+I18N.onChange(() => {
+    const selected = saveList.value;
+    updateSelectList();
+    saveList.value = selected;
 });
 
 function restoreAllEventListeners() {

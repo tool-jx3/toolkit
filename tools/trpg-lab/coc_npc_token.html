@@ -26,8 +26,8 @@
                 <div class="ph">
                     <span class="material-symbols-outlined fill" style="font-size: 1rem; color: var(--cyan)">groups</span>
                     <span class="ph-title">NPC LIST</span>
-                    <button id="addNpcBtn">＋ 新規</button>
-                    <button id="toggleListBtn" title="折り畳む"><span class="material-symbols-outlined">expand_less</span></button>
+                    <button id="addNpcBtn" data-i18n="list.add">＋ 新增</button>
+                    <button id="toggleListBtn" data-i18n-title="list.collapse" title="收合"><span class="material-symbols-outlined">expand_less</span></button>
                 </div>
                 <div class="pb" id="npcListBody"></div>
             </div>
@@ -48,83 +48,83 @@
                 <div class="pb" id="editBody">
                     <!-- 基本情報 -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined fill">person</span>基本情報</div>
+                        <div class="s-ttl" data-i18n-node="edit.basic"><span class="material-symbols-outlined fill">person</span>基本資料</div>
                         <div class="f-row">
-                            <label class="f-label" for="npcName">名前</label>
-                            <input id="npcName" type="text" class="inp" placeholder="NPC名" />
+                            <label class="f-label" for="npcName" data-i18n="edit.name">名稱</label>
+                            <input id="npcName" type="text" class="inp" data-i18n-placeholder="edit.namePlaceholder" placeholder="NPC 名稱" />
                         </div>
                     </div>
 
                     <!-- 能力値 -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">fitness_center</span>能力値</div>
+                        <div class="s-ttl" data-i18n-node="edit.abilities"><span class="material-symbols-outlined">fitness_center</span>屬性</div>
                         <div class="ab-grid" id="abGrid">
                             <!-- STR -->
                             <div class="ab-row">
                                 <span class="ab-label">STR</span>
                                 <input type="text" id="dice-STR" class="ab-dice" value="" placeholder="3D6" />
-                                <button class="ab-roll" id="roll-STR" title="STRロール"><span class="material-symbols-outlined fill">casino</span></button>
+                                <button class="ab-roll" id="roll-STR" title="STR 擲骰"><span class="material-symbols-outlined fill">casino</span></button>
                                 <input type="number" id="val-STR" class="ab-val" value="0" min="0" max="999" />
                             </div>
                             <!-- CON -->
                             <div class="ab-row">
                                 <span class="ab-label">CON</span>
                                 <input type="text" id="dice-CON" class="ab-dice" value="" />
-                                <button class="ab-roll" id="roll-CON" title="CONロール"><span class="material-symbols-outlined fill">casino</span></button>
+                                <button class="ab-roll" id="roll-CON" title="CON 擲骰"><span class="material-symbols-outlined fill">casino</span></button>
                                 <input type="number" id="val-CON" class="ab-val" value="0" min="0" max="999" />
                             </div>
                             <!-- POW -->
                             <div class="ab-row">
                                 <span class="ab-label">POW</span>
                                 <input type="text" id="dice-POW" class="ab-dice" value="" />
-                                <button class="ab-roll" id="roll-POW" title="POWロール"><span class="material-symbols-outlined fill">casino</span></button>
+                                <button class="ab-roll" id="roll-POW" title="POW 擲骰"><span class="material-symbols-outlined fill">casino</span></button>
                                 <input type="number" id="val-POW" class="ab-val" value="0" min="0" max="999" />
                             </div>
                             <!-- DEX -->
                             <div class="ab-row">
                                 <span class="ab-label">DEX</span>
                                 <input type="text" id="dice-DEX" class="ab-dice" value="" />
-                                <button class="ab-roll" id="roll-DEX" title="DEXロール"><span class="material-symbols-outlined fill">casino</span></button>
+                                <button class="ab-roll" id="roll-DEX" title="DEX 擲骰"><span class="material-symbols-outlined fill">casino</span></button>
                                 <input type="number" id="val-DEX" class="ab-val" value="0" min="0" max="999" />
                             </div>
                             <!-- APP -->
                             <div class="ab-row">
                                 <span class="ab-label">APP</span>
                                 <input type="text" id="dice-APP" class="ab-dice" value="" />
-                                <button class="ab-roll" id="roll-APP" title="APPロール"><span class="material-symbols-outlined fill">casino</span></button>
+                                <button class="ab-roll" id="roll-APP" title="APP 擲骰"><span class="material-symbols-outlined fill">casino</span></button>
                                 <input type="number" id="val-APP" class="ab-val" value="0" min="0" max="999" />
                             </div>
                             <!-- SIZ -->
                             <div class="ab-row">
                                 <span class="ab-label">SIZ</span>
                                 <input type="text" id="dice-SIZ" class="ab-dice" value="" />
-                                <button class="ab-roll" id="roll-SIZ" title="SIZロール"><span class="material-symbols-outlined fill">casino</span></button>
+                                <button class="ab-roll" id="roll-SIZ" title="SIZ 擲骰"><span class="material-symbols-outlined fill">casino</span></button>
                                 <input type="number" id="val-SIZ" class="ab-val" value="0" min="0" max="999" />
                             </div>
                             <!-- INT -->
                             <div class="ab-row">
                                 <span class="ab-label">INT</span>
                                 <input type="text" id="dice-INT" class="ab-dice" value="" />
-                                <button class="ab-roll" id="roll-INT" title="INTロール"><span class="material-symbols-outlined fill">casino</span></button>
+                                <button class="ab-roll" id="roll-INT" title="INT 擲骰"><span class="material-symbols-outlined fill">casino</span></button>
                                 <input type="number" id="val-INT" class="ab-val" value="0" min="0" max="999" />
                             </div>
                             <!-- EDU -->
                             <div class="ab-row">
                                 <span class="ab-label">EDU</span>
                                 <input type="text" id="dice-EDU" class="ab-dice" value="" />
-                                <button class="ab-roll" id="roll-EDU" title="EDUロール"><span class="material-symbols-outlined fill">casino</span></button>
+                                <button class="ab-roll" id="roll-EDU" title="EDU 擲骰"><span class="material-symbols-outlined fill">casino</span></button>
                                 <input type="number" id="val-EDU" class="ab-val" value="0" min="0" max="999" />
                             </div>
                         </div>
                         <div class="ab-footer">
-                            <button class="btn-roll-all" id="rollAllBtn"><span class="material-symbols-outlined fill">casino</span>全ロール</button>
+                            <button class="btn-roll-all" id="rollAllBtn" data-i18n-node="edit.rollAll"><span class="material-symbols-outlined fill">casino</span>全部擲骰</button>
                         </div>
                     </div>
 
                     <!-- 派生値 -->
                     <div class="s-sec">
-                        <div class="s-ttl">
-                            <span class="material-symbols-outlined fill">monitor_heart</span>派生値
+                        <div class="s-ttl" data-i18n-node="edit.derived">
+                            <span class="material-symbols-outlined fill">monitor_heart</span>衍生屬性
                             <label class="tog" style="margin-left: 0.6rem">
                                 <input type="checkbox" id="sanToggle" checked />
                                 <span class="tl">SAN</span>
@@ -148,7 +148,7 @@
                                 <input type="text" id="npcDb" class="derived-val inp-mono" value="0" />
                             </div>
                             <div class="derived-cell" id="buildCell">
-                                <span class="derived-label">ビルド</span>
+                                <span class="derived-label" data-i18n="stat.build">體格</span>
                                 <input type="number" id="npcBuild" class="derived-val" value="0" />
                             </div>
                             <div class="derived-cell">
@@ -160,10 +160,10 @@
 
                     <!-- 技能 -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">psychology</span>技能</div>
+                        <div class="s-ttl" data-i18n-node="edit.skills"><span class="material-symbols-outlined">psychology</span>技能</div>
                         <!-- CoC6のみ: コマンド種別 -->
                         <div class="f-row" id="cmdTypeRow" style="display: none; margin-bottom: 0.5rem">
-                            <label class="f-label">判定</label>
+                            <label class="f-label" data-i18n="edit.check">檢定</label>
                             <div class="seg">
                                 <input type="radio" name="cmdType" id="cmdCC" value="CC" checked /><label for="cmdCC">CC</label> <input type="radio" name="cmdType" id="cmdCCB" value="CCB" /><label
                                     for="cmdCCB"
@@ -172,20 +172,20 @@
                             </div>
                         </div>
                         <div class="dyn-list" id="skillsBody"></div>
-                        <button class="dyn-add" id="addSkillBtn"><span class="material-symbols-outlined">add</span>技能を追加</button>
+                        <button class="dyn-add" id="addSkillBtn" data-i18n-node="edit.addSkill"><span class="material-symbols-outlined">add</span>新增技能</button>
                     </div>
 
                     <!-- コマンド -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">code</span>コマンド / ダメージ</div>
+                        <div class="s-ttl" data-i18n-node="edit.commands"><span class="material-symbols-outlined">code</span>指令／傷害</div>
                         <div class="dyn-list" id="cmdsBody"></div>
-                        <button class="dyn-add" id="addCmdBtn"><span class="material-symbols-outlined">add</span>コマンドを追加</button>
+                        <button class="dyn-add" id="addCmdBtn" data-i18n-node="edit.addCmd"><span class="material-symbols-outlined">add</span>新增指令</button>
                     </div>
 
                     <!-- メモ -->
                     <div class="s-sec">
-                        <div class="s-ttl"><span class="material-symbols-outlined">notes</span>メモ</div>
-                        <textarea id="npcMemo" class="inp" rows="4" placeholder="自由記入欄"></textarea>
+                        <div class="s-ttl" data-i18n-node="edit.memo"><span class="material-symbols-outlined">notes</span>備註</div>
+                        <textarea id="npcMemo" class="inp" rows="4" data-i18n-placeholder="edit.memoPlaceholder" placeholder="自由填寫"></textarea>
                     </div>
                 </div>
             </div>
@@ -197,12 +197,12 @@
                     <span class="ph-title">OUTPUT</span>
                 </div>
                 <div class="pv-tabs">
-                    <button class="pv-tab active" data-pv="json">ココフォリア</button>
-                    <button class="pv-tab" data-pv="chapare">チャパレ</button>
+                    <button class="pv-tab active" data-pv="json" data-i18n="output.ccfolia">CCFOLIA</button>
+                    <button class="pv-tab" data-pv="chapare" data-i18n="output.chatPalette">聊天面板</button>
                 </div>
                 <div class="pv-actions">
-                    <button class="btn-copy" id="copyBtn">コピー</button>
-                    <button class="btn-roll-copy" id="rollCopyBtn">ロール＆コピー</button>
+                    <button class="btn-copy" id="copyBtn">複製</button>
+                    <button class="btn-roll-copy" id="rollCopyBtn">擲骰並複製</button>
                 </div>
                 <div class="pv-out" id="pvOut">
                     <pre class="pv-text" id="pvText"></pre>
@@ -214,92 +214,89 @@
         <div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
             <div class="modal">
                 <div class="modal-header">
-                    <span class="modal-title" id="guide-title">使い方ガイド</span>
+                    <span class="modal-title" id="guide-title" data-i18n="lab.guide">使用說明</span>
                     <button class="modal-close" data-i18n-aria-label="lab.close" aria-label="關閉"><span class="material-symbols-outlined">close</span></button>
                 </div>
                 <div class="modal-body">
                     <div class="guide-body" id="guide-content">
-                        <h3>基本的な流れ</h3>
+                        <h3 data-i18n="guide.flow">基本流程</h3>
                         <dl class="guide-dl">
                             <span class="mi">add_circle</span>
                             <div>
-                                <dt>NPCを追加する</dt>
-                                <dd>左パネルの「＋ 新規」ボタンで NPC を追加。リストの項目をクリックして切り替えます。不要な NPC は ✕ で削除できます（1体は残ります）。</dd>
+                                <dt data-i18n="guide.addNpc.title">新增 NPC</dt>
+                                <dd data-i18n="guide.addNpc.body">用左側面板的「＋ 新增」按鈕新增 NPC，點清單裡的項目即可切換。不需要的 NPC 可以按 ✕ 刪除（至少會留下 1 個）。</dd>
                             </div>
                             <span class="mi">tune</span>
                             <div>
-                                <dt>バージョンを選ぶ</dt>
-                                <dd>EDIT パネル右上の <strong>CoC7 / CoC6</strong> で版を切り替えます。切り替えると派生値（HP・DB など）が自動で再計算されます。</dd>
+                                <dt data-i18n="guide.version.title">選擇版本</dt>
+                                <dd data-i18n-html="guide.version.body">用 EDIT 面板右上角的 <strong>CoC7 / CoC6</strong> 切換版本。切換後，衍生屬性（HP、DB 等）會自動重新計算。</dd>
                             </div>
                             <span class="mi">casino</span>
                             <div>
-                                <dt>能力値を入力 / ロールする</dt>
-                                <dd>
-                                    ダイス欄に式（例：3D6）を入力して各
-                                    <span class="material-symbols-outlined fill" style="font-size: 0.9rem; vertical-align: middle">casino</span> ボタンで個別ロール、または「全ロール」で一括ロールできます。CoC7
-                                    では結果が自動的に×5されます。
+                                <dt data-i18n="guide.abilities.title">輸入屬性／擲骰</dt>
+                                <dd data-i18n-html="guide.abilities.body">
+                                    在骰子欄輸入算式（例：3D6），按各欄的 <span class="material-symbols-outlined fill" style="font-size: 0.9rem; vertical-align: middle">casino</span> 按鈕個別擲骰，或按「全部擲骰」一次擲完。CoC 7 版的結果會自動 ×5。
                                 </dd>
                             </div>
                             <span class="mi">monitor_heart</span>
                             <div>
-                                <dt>派生値を確認・編集する</dt>
-                                <dd>HP・MP・DB などは能力値から自動計算されます。手動で上書きすることも可能です。SAN トグルで正気度の出力のオン／オフを切り替えられます。</dd>
+                                <dt data-i18n="guide.derived.title">確認／編輯衍生屬性</dt>
+                                <dd data-i18n="guide.derived.body">HP、MP、DB 等會由屬性自動計算，也可以手動覆寫。用 SAN 開關可以切換要不要輸出理智。</dd>
                             </div>
                             <span class="mi">psychology</span>
                             <div>
-                                <dt>技能を追加する</dt>
-                                <dd>「技能を追加」ボタンで技能行を追加。技能名と成功値（%）を入力します。CoC6 の場合は判定タイプ（CC / CCB）も選択してください。</dd>
+                                <dt data-i18n="guide.skills.title">新增技能</dt>
+                                <dd data-i18n="guide.skills.body">用「新增技能」按鈕新增一列技能，輸入技能名稱與成功率（%）。CoC 6 版還要選擇檢定類型（CC / CCB）。</dd>
                             </div>
                             <span class="mi">code</span>
                             <div>
-                                <dt>コマンド / ダメージを追加する</dt>
-                                <dd>
-                                    武器攻撃などのダイス式を登録します。式中に <code>DB</code>・<code>db</code>
-                                    と書くとダメージボーナスの参照に変換されます（例：<code>1D6+2+DB</code>）。
+                                <dt data-i18n="guide.commands.title">新增指令／傷害</dt>
+                                <dd data-i18n-html="guide.commands.body">
+                                    登錄武器攻擊等的骰子算式。在算式中寫 <code>DB</code> 或 <code>db</code>，會轉換成對傷害加值的參照（例：<code>1D6+2+DB</code>）。
                                 </dd>
                             </div>
                         </dl>
 
-                        <h3>出力パネル</h3>
+                        <h3 data-i18n="guide.output">輸出面板</h3>
                         <dl class="guide-dl">
                             <span class="mi">data_object</span>
                             <div>
-                                <dt>JSON タブ</dt>
-                                <dd>ココフォリアなどにそのまま貼り付けられるキャラクター JSON を出力します。「コピー」ボタンでクリップボードにコピーできます。</dd>
+                                <dt data-i18n="guide.json.title">CCFOLIA（JSON）分頁</dt>
+                                <dd data-i18n="guide.json.body">輸出可以直接貼到 CCFOLIA 等處的角色 JSON。按「複製」按鈕即可複製到剪貼簿。</dd>
                             </div>
                             <span class="mi">chat</span>
                             <div>
-                                <dt>チャパレ タブ</dt>
-                                <dd>BCDice 用チャットパレットを出力します。能力値・技能・コマンド・ステータスコメントが含まれます。</dd>
+                                <dt data-i18n="guide.palette.title">聊天面板分頁</dt>
+                                <dd data-i18n="guide.palette.body">輸出 BCDice 用的聊天面板，內含屬性、技能、指令與狀態註解。</dd>
                             </div>
                             <span class="mi">replay</span>
                             <div>
-                                <dt>ロール＆コピー</dt>
-                                <dd>全能力値を一括ロールしてから即座にコピーします。NPCを量産する際に便利です。</dd>
+                                <dt data-i18n="output.rollCopy">擲骰並複製</dt>
+                                <dd data-i18n="guide.rollCopy.body">一次擲完所有屬性後立刻複製，大量製作 NPC 時很方便。</dd>
                             </div>
                         </dl>
 
-                        <h3>データの保存</h3>
+                        <h3 data-i18n="guide.data">資料儲存</h3>
                         <dl class="guide-dl">
                             <span class="mi">save</span>
                             <div>
-                                <dt>自動保存</dt>
-                                <dd>入力内容はブラウザのローカルストレージに自動保存されます。ページを閉じても次回アクセス時に復元されます。</dd>
+                                <dt data-i18n="guide.autosave.title">自動儲存</dt>
+                                <dd data-i18n="guide.autosave.body">輸入的內容會自動儲存在瀏覽器裡（localStorage），關閉頁面後，下次開啟時會還原。</dd>
                             </div>
                             <span class="mi">warning</span>
                             <div>
-                                <dt>注意</dt>
-                                <dd>ブラウザのデータを削除するとNPCデータも消えます。重要なキャラクターは JSON をコピーして手元に保管してください。</dd>
+                                <dt data-i18n="guide.caution.title">注意</dt>
+                                <dd data-i18n="guide.caution.body">清除瀏覽器資料時，NPC 資料也會一起消失。重要的角色請複製 JSON 另外保存。</dd>
                             </div>
                         </dl>
 
                         <div class="guide-copyright">
-                            <p><strong>権利表示</strong></p>
-                            <p>本作は、「株式会社アークライト」及び「株式会社KADOKAWA」が権利を有する『クトゥルフ神話TRPG』シリーズの二次創作物です。</p>
+                            <p><strong data-i18n="guide.rights.title">權利聲明</strong></p>
+                            <p data-i18n="guide.rights.body">本作品為『克蘇魯神話 TRPG』系列的二次創作，該系列的權利屬於「株式會社 Arclight」及「株式會社 KADOKAWA」。</p>
                             <p>
                                 Call of Cthulhu is copyright ©1981, 2015, 2019 by Chaosium Inc. ;all rights reserved. Arranged by Arclight Inc.<br />
                                 Call of Cthulhu is a registered trademark of Chaosium Inc.<br />
-                                PUBLISHED BY KADOKAWA CORPORATION　「クトゥルフ神話TRPG」「新クトゥルフ神話TRPG」
+                                PUBLISHED BY KADOKAWA CORPORATION　<span data-i18n="guide.rights.titles">「克蘇魯神話 TRPG」「新克蘇魯神話 TRPG」</span>
                             </p>
                         </div>
                     </div>

@@ -18,10 +18,15 @@ const Wizard = {
     fit: false,           // ココフォリア整合
 };
 
+/** 日付表示に使うロケール (表示言語に合わせる)。 */
+function dateLocale() {
+    return I18N.locale === 'ja' ? 'ja-JP' : 'zh-TW';
+}
+
 /* ----------------------------------------------------------------
    カードグリッドのレンダリング
 ---------------------------------------------------------------- */
-async function renderList() {
+async function renderList({ autoOpen = true } = {}) {
     const grid = document.getElementById('map-grid');
     const empty = document.getElementById('empty-state');
     const records = await dbGetAll();
@@ -31,7 +36,8 @@ async function renderList() {
     if (records.length === 0) {
         empty.style.display = '';
         // 空状態 → 自動的にウィザード起動 (Q6)
-        openCreateModal();
+        // 切換語言時只重畫清單，不重新開啟（並重設）精靈。
+        if (autoOpen) openCreateModal();
         return;
     }
     empty.style.display = 'none';
@@ -47,13 +53,13 @@ async function renderList() {
             </div>
             <div class="info">
                 <div class="name">${escMapHtml(rec.name)}</div>
-                <div class="date">更新: ${fmtMapDate(rec.updatedAt)}</div>
+                <div class="date">${escMapHtml(T('list.updated', fmtMapDate(rec.updatedAt)))}</div>
             </div>
             <div class="actions">
-                <button title="複製" data-act="dup"><span class="material-symbols-outlined">content_copy</span></button>
-                <button title="名前変更" data-act="rename"><span class="material-symbols-outlined">edit</span></button>
-                <button title="JSON出力" data-act="export"><span class="material-symbols-outlined">file_download</span></button>
-                <button title="削除" data-act="delete"><span class="material-symbols-outlined">delete</span></button>
+                <button title="${escMapHtml(T('list.duplicate'))}" data-act="dup"><span class="material-symbols-outlined">content_copy</span></button>
+                <button title="${escMapHtml(T('list.rename'))}" data-act="rename"><span class="material-symbols-outlined">edit</span></button>
+                <button title="${escMapHtml(T('list.exportJson'))}" data-act="export"><span class="material-symbols-outlined">file_download</span></button>
+                <button title="${escMapHtml(T('list.delete'))}" data-act="delete"><span class="material-symbols-outlined">delete</span></button>
             </div>`;
 
         // サムネクリック / info クリックで編集画面へ
@@ -73,11 +79,11 @@ async function renderList() {
 /** gridType 文字列を表示用ラベルに変換。 */
 function gridTypeLabel(gt) {
     switch (gt) {
-        case 'square': return 'スクエア';
-        case 'hex-flat': return 'フラット';
-        case 'hex-flat-fit': return 'フラット (fit)';
-        case 'hex-pointy': return 'ポインティ';
-        case 'hex-pointy-fit': return 'ポインティ (fit)';
+        case 'square': return T('grid.square');
+        case 'hex-flat': return T('grid.flat');
+        case 'hex-flat-fit': return T('grid.flatFit');
+        case 'hex-pointy': return T('grid.pointy');
+        case 'hex-pointy-fit': return T('grid.pointyFit');
         default: return gt;
     }
 }
@@ -89,7 +95,7 @@ async function duplicateMap(rec) {
     const newRec = {
         ...rec,
         id: generateMapId(),
-        name: rec.name + ' (コピー)',
+        name: T('list.copyName', rec.name),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
     };
@@ -98,7 +104,7 @@ async function duplicateMap(rec) {
 }
 
 async function renameMap(rec) {
-    const newName = prompt('新しい名前', rec.name);
+    const newName = prompt(T('list.renamePrompt'), rec.name);
     if (!newName || newName === rec.name) return;
     rec.name = newName;
     rec.updatedAt = new Date().toISOString();
@@ -107,7 +113,7 @@ async function renameMap(rec) {
 }
 
 async function deleteMap(rec) {
-    if (!confirm(`「${rec.name}」を削除しますか？\nこの操作は元に戻せません。`)) return;
+    if (!confirm(T('list.deleteConfirm', rec.name))) return;
     await dbDelete(rec.id);
     renderList();
 }
@@ -126,11 +132,11 @@ async function importMapJSON(file) {
     try {
         const text = await file.text();
         const data = JSON.parse(text);
-        if (!data.canvas) { alert('無効なファイル形式です'); return; }
+        if (!data.canvas) { alert(T('list.invalidFile')); return; }
         const baseName = file.name.replace(/\.json$/i, '');
         const rec = {
             id: generateMapId(),
-            name: baseName || `インポート ${new Date().toLocaleDateString('ja-JP')}`,
+            name: baseName || T('list.importName', new Date().toLocaleDateString(dateLocale())),
             gridType: data.gridType || 'square',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -140,7 +146,7 @@ async function importMapJSON(file) {
         await dbPut(rec);
         renderList();
     } catch (err) {
-        alert('読込エラー: ' + err.message);
+        alert(T('list.importError', err.message));
     }
 }
 
@@ -153,7 +159,7 @@ function openCreateModal() {
     Wizard.gridKind = null;
     Wizard.orientation = null;
     Wizard.fit = false;
-    document.getElementById('wizard-name').value = `マップ ${new Date().toLocaleDateString('ja-JP')}`;
+    document.getElementById('wizard-name').value = T('list.defaultName', new Date().toLocaleDateString(dateLocale()));
     document.getElementById('wizard-fit').checked = false;
     updateWizardUI();
     IKLab.openModal('create-modal');
@@ -173,8 +179,8 @@ function updateWizardUI() {
     // 戻るボタン
     document.getElementById('wizard-back-btn').disabled = (Wizard.step === 1);
     // タイトル
-    const titles = { 1: '新規マップ作成 — 種類', 2: '新規マップ作成 — 向き', 3: '新規マップ作成 — 名前' };
-    document.getElementById('wizard-title').textContent = titles[Wizard.step] || '新規マップ作成';
+    const titles = { 1: 'wizard.titleType', 2: 'wizard.titleOrientation', 3: 'wizard.titleName' };
+    document.getElementById('wizard-title').textContent = T(titles[Wizard.step] || 'wizard.title');
     // 要約
     document.getElementById('wizard-summary').textContent = composeWizardSummary();
     // Step 3 の fit 行 (ヘクス時のみ)
@@ -183,12 +189,12 @@ function updateWizardUI() {
 
 function composeWizardSummary() {
     const parts = [];
-    if (Wizard.gridKind === 'square') parts.push('スクエア');
+    if (Wizard.gridKind === 'square') parts.push(T('grid.square'));
     if (Wizard.gridKind === 'hex') {
-        parts.push('ヘクス');
-        if (Wizard.orientation === 'flat') parts.push('フラットトップ');
-        if (Wizard.orientation === 'pointy') parts.push('ポインティトップ');
-        if (Wizard.step >= 3 && Wizard.fit) parts.push('+ ココフォリア整合');
+        parts.push(T('grid.hex'));
+        if (Wizard.orientation === 'flat') parts.push(T('grid.flatTop'));
+        if (Wizard.orientation === 'pointy') parts.push(T('grid.pointyTop'));
+        if (Wizard.step >= 3 && Wizard.fit) parts.push(T('wizard.summaryFit'));
     }
     return parts.join(' / ');
 }
@@ -218,7 +224,7 @@ function composeGridType() {
 
 async function handleCreate() {
     const name = (document.getElementById('wizard-name').value || '').trim();
-    if (!name) { alert('マップ名を入力してください'); return; }
+    if (!name) { alert(T('wizard.nameRequired')); return; }
     Wizard.fit = document.getElementById('wizard-fit').checked;
     const gridType = composeGridType();
     const rec = {
@@ -276,6 +282,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('wizard-back-btn').addEventListener('click', wizardBack);
+    // 切換語言：JS 產生的卡片、精靈標題與摘要重畫一次。
+    I18N.onChange(() => {
+        renderList({ autoOpen: false });
+        updateWizardUI();
+    });
     document.getElementById('wizard-create-btn').addEventListener('click', handleCreate);
     document.getElementById('wizard-name').addEventListener('keydown', e => {
         if (e.key === 'Enter') { e.preventDefault(); handleCreate(); }

@@ -340,8 +340,11 @@
         return `#${toHex(r)}${toHex(g)}${toHex(b)}${alphaHex}`;
     }
 
+    /* 收錄版：留住 Pickr 實例，切換語言時改寫「確定」鈕的文字（選好的顏色不受影響）。 */
+    const pickrs = [];
+
     function initPickr(elId, colObj) {
-        Pickr.create({
+        const pickr = Pickr.create({
             el: `#${elId}`,
             theme: 'nano',
             default: rgbaToHex(colObj.r, colObj.g, colObj.b, colObj.a), // ← HEX8形式 (#rrggbbaa)
@@ -351,7 +354,7 @@
                 hue: true,
                 interaction: { input: true, save: true },
             },
-            i18n: { 'btn:save': '確定' },
+            i18n: { 'btn:save': T('pickr.save') },
         })
             .on('change', (color) => {
                 const [r, g, b, a] = color.toRGBA();
@@ -362,7 +365,15 @@
                 generateHex();
             })
             .on('save', (_, p) => p.hide());
+        pickrs.push(pickr);
     }
+
+    I18N.onChange(() => {
+        for (const pickr of pickrs) {
+            const save = pickr.getRoot()?.interaction?.save;
+            if (save) save.value = T('pickr.save');
+        }
+    });
     /* ================================================================
    DOMContentLoaded
 ================================================================ */

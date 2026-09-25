@@ -221,8 +221,11 @@
         return `#${toHex(r)}${toHex(g)}${toHex(b)}${toHex(Math.round(a * 255))}`;
     }
 
+    /* 切換語言時要改寫「確定」按鈕，所以留著每個 Pickr 的參照。 */
+    const pickrs = [];
+
     function initPickr(elId, colObj) {
-        Pickr.create({
+        const p = Pickr.create({
             el: `#${elId}`,
             theme: 'nano',
             default: rgbaToHex(colObj.r, colObj.g, colObj.b, colObj.a),
@@ -232,17 +235,17 @@
                 hue: true,
                 interaction: { input: true, save: true },
             },
-            i18n: { 'btn:save': '確定' },
-        })
-            .on('change', (color) => {
-                const [r, g, b, a] = color.toRGBA();
-                colObj.r = r;
-                colObj.g = g;
-                colObj.b = b;
-                colObj.a = a;
-                generateGrid();
-            })
-            .on('save', (_, p) => p.hide());
+            i18n: { 'btn:save': T('picker.save') },
+        });
+        pickrs.push(p);
+        p.on('change', (color) => {
+            const [r, g, b, a] = color.toRGBA();
+            colObj.r = r;
+            colObj.g = g;
+            colObj.b = b;
+            colObj.a = a;
+            generateGrid();
+        }).on('save', (_, inst) => inst.hide());
     }
 
     /* ================================================================
@@ -299,6 +302,15 @@
         updateOffsetVis();
 
         generateGrid();
+
+        /* 靜態文字由共用引擎重套；這裡只剩 Pickr 自己產生的「確定」按鈕。
+         * 直接改按鈕文字，不重建 Pickr，選好的顏色就不會跑掉。 */
+        I18N.onChange(() => {
+            pickrs.forEach((p) => {
+                const save = p.getRoot()?.interaction?.save;
+                if (save) save.value = T('picker.save');
+            });
+        });
     });
 })();
 

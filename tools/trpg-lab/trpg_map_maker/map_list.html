@@ -18,27 +18,24 @@
     <body>
         <header id="site-header"></header>
         <main class="list-main">
-            <h1 class="page-title">TRPGマップエディタ</h1>
+            <h1 class="page-title" data-i18n="app.title">TRPG 地圖編輯器</h1>
             <p class="page-subtitle">TRPG MAP MAKER</p>
 
             <section class="intro">
-                <p>
-                    ブラウザだけで TRPG のマップが描けるツールです。マス目に沿って地面・壁・部屋を引き、ベッドや机などの家具スタンプを置くだけ。スクエアもヘクスも対応しています。描いたマップは PNG / JPEG / SVG
-                    で書き出して、ココフォリアなどのオンラインセッションツールにそのまま持ち込めます。
-                </p>
-                <p>データはブラウザに自動保存されるので、続きはいつでも再開できます。下の「新規マップ」から始めてください。</p>
+                <p data-i18n="list.intro1">只要有瀏覽器就能畫 TRPG 地圖。沿著格子拉出地面、牆壁與房間，再放上床、書桌等家具圖章就完成了，方格與六角格都支援。畫好的地圖可以匯出成 PNG、JPEG 或 SVG，直接帶進 CCFOLIA 等線上團工具使用。</p>
+                <p data-i18n="list.intro2">資料會自動儲存在瀏覽器裡，隨時都能接著畫。請從下方的「新增地圖」開始。</p>
             </section>
 
             <div class="action-bar">
-                <button class="action-btn" id="btn-new"><span class="material-symbols-outlined">add</span>新規マップ</button>
-                <button class="action-btn secondary" id="btn-import"><span class="material-symbols-outlined">file_upload</span>JSONから読込</button>
+                <button class="action-btn" id="btn-new" data-i18n-node="list.new"><span class="material-symbols-outlined">add</span>新增地圖</button>
+                <button class="action-btn secondary" id="btn-import" data-i18n-node="list.import"><span class="material-symbols-outlined">file_upload</span>讀取 JSON</button>
                 <input type="file" id="import-file" accept=".json" style="display: none" />
             </div>
 
             <div id="map-grid" class="map-grid"></div>
             <div id="empty-state" class="empty-state" style="display: none">
                 <span class="material-symbols-outlined">map</span>
-                <div>保存されたマップはまだありません</div>
+                <div data-i18n="list.empty">還沒有儲存的地圖</div>
             </div>
         </main>
         <footer class="site-footer"><div class="container"></div></footer>
@@ -47,64 +44,64 @@
         <div class="modal-overlay" id="create-modal">
             <div class="modal" style="max-width: 520px">
                 <div class="modal-header">
-                    <span class="modal-title" id="wizard-title">新規マップ作成</span>
-                    <button class="modal-close" onclick="closeCreateModal()"><span class="material-symbols-outlined">close</span></button>
+                    <span class="modal-title" id="wizard-title">建立新地圖</span>
+                    <button class="modal-close" onclick="closeCreateModal()" data-i18n-aria-label="lab.close" aria-label="關閉"><span class="material-symbols-outlined">close</span></button>
                 </div>
                 <div class="modal-body wizard-body">
                     <!-- Step 1: スクエア / ヘクス -->
                     <div class="wizard-step active" data-step="1">
-                        <p class="wizard-prompt">マップの種類を選択してください</p>
+                        <p class="wizard-prompt" data-i18n="wizard.pickType">請選擇地圖類型</p>
                         <div class="wizard-tiles">
                             <button class="wizard-tile" data-grid-type="square">
                                 <span class="material-symbols-outlined">grid_on</span>
-                                <span class="tile-label">スクエア</span>
-                                <span class="tile-sub">正方形マス</span>
+                                <span class="tile-label" data-i18n="grid.square">方格</span>
+                                <span class="tile-sub" data-i18n="wizard.squareSub">正方形格子</span>
                             </button>
                             <button class="wizard-tile" data-grid-type="hex">
                                 <span class="material-symbols-outlined">hexagon</span>
-                                <span class="tile-label">ヘクス</span>
-                                <span class="tile-sub">六角形マス</span>
+                                <span class="tile-label" data-i18n="grid.hex">六角格</span>
+                                <span class="tile-sub" data-i18n="wizard.hexSub">六角形格子</span>
                             </button>
                         </div>
                     </div>
 
                     <!-- Step 2: フラットトップ / ポインティトップ (ヘクス時のみ) -->
                     <div class="wizard-step" data-step="2">
-                        <p class="wizard-prompt">ヘクスの向きを選択してください</p>
+                        <p class="wizard-prompt" data-i18n="wizard.pickOrientation">請選擇六角格的方向</p>
                         <div class="wizard-tiles">
                             <button class="wizard-tile" data-orientation="flat">
                                 <span class="material-symbols-outlined">hexagon</span>
-                                <span class="tile-label">フラットトップ</span>
-                                <span class="tile-sub">上下が平らな辺</span>
+                                <span class="tile-label" data-i18n="grid.flatTop">平頂</span>
+                                <span class="tile-sub" data-i18n="wizard.flatSub">上下是平邊</span>
                             </button>
                             <button class="wizard-tile" data-orientation="pointy">
                                 <span class="material-symbols-outlined" style="transform: rotate(30deg)">hexagon</span>
-                                <span class="tile-label">ポインティトップ</span>
-                                <span class="tile-sub">上下が頂点</span>
+                                <span class="tile-label" data-i18n="grid.pointyTop">尖頂</span>
+                                <span class="tile-sub" data-i18n="wizard.pointySub">上下是頂點</span>
                             </button>
                         </div>
                     </div>
 
                     <!-- Step 3: 名前入力 (+ ヘクス時のみ fit オプション) -->
                     <div class="wizard-step" data-step="3">
-                        <p class="wizard-prompt">マップ情報を入力してください</p>
+                        <p class="wizard-prompt" data-i18n="wizard.enterInfo">請輸入地圖資訊</p>
                         <div class="wizard-form-row">
-                            <label for="wizard-name">マップ名</label>
+                            <label for="wizard-name" data-i18n="wizard.name">地圖名稱</label>
                             <input type="text" id="wizard-name" maxlength="60" />
                         </div>
                         <label class="wizard-checkbox-row" id="wizard-fit-row" style="display: none">
                             <input type="checkbox" id="wizard-fit" />
                             <div>
-                                <div class="ck-label">ココフォリア等で使う (グリッド整合)</div>
-                                <div class="ck-desc">ヘクスを少し変形させて方眼グリッドに合わせます</div>
+                                <div class="ck-label" data-i18n="wizard.fit">用於 CCFOLIA 等工具（對齊網格）</div>
+                                <div class="ck-desc" data-i18n="wizard.fitDesc">稍微變形六角格，讓它對齊方格網格</div>
                             </div>
                         </label>
-                        <button class="wizard-create-btn" id="wizard-create-btn">作成して開く</button>
+                        <button class="wizard-create-btn" id="wizard-create-btn" data-i18n="wizard.create">建立並開啟</button>
                     </div>
 
                     <div class="wizard-nav">
-                        <button class="wizard-back-btn" id="wizard-back-btn" disabled>
-                            <span class="material-symbols-outlined" style="font-size: 0.9rem; vertical-align: middle">arrow_back</span> 戻る
+                        <button class="wizard-back-btn" id="wizard-back-btn" data-i18n-node="wizard.back" disabled>
+                            <span class="material-symbols-outlined" style="font-size: 0.9rem; vertical-align: middle">arrow_back</span> 返回
                         </button>
                         <span class="wizard-summary" id="wizard-summary"></span>
                     </div>

@@ -129,6 +129,11 @@
     /* ================================================================
    距離ごとカラーピッカー構築
 ================================================================ */
+    /* 各距離顏色列的標籤。切換語言時只改這段文字，不重建 Pickr（重建會把自訂的顏色洗回配色）。 */
+    function distLabel(d) {
+        return d === 0 ? T('dist.center') : T('dist.label', d);
+    }
+
     function buildColorPickers() {
         distPickrs.forEach((p) => {
             try {
@@ -151,7 +156,7 @@
             row.className = 'color-row';
             const label = document.createElement('span');
             label.className = 'color-d-label';
-            label.textContent = d === 0 ? '中心' : `距離 ${d}`;
+            label.textContent = distLabel(d);
             const pickrEl = document.createElement('div');
             row.appendChild(label);
             row.appendChild(pickrEl);
@@ -163,7 +168,7 @@
                     theme: 'nano',
                     default: colToPickrStr(initCol),
                     components: { preview: true, opacity: true, hue: true, interaction: { input: true, save: true } },
-                    i18n: { 'btn:save': '確定' },
+                    i18n: { 'btn:save': T('picker.save') },
                 });
                 p.on('change', (color) => {
                     distColors[idx] = pickrToCol(color);
@@ -273,7 +278,7 @@
         const custom = customCells.get(`${x},${y}`);
 
         document.getElementById('cp-text').value = custom?.text ?? String(defaultDist);
-        document.getElementById('cpCoord').textContent = `マス (${x}, ${y})  / デフォルト距離: ${defaultDist}`;
+        renderCoordLabel();
 
         // セルの色デフォルト
         const defaultCellCol = distColors[defaultDist] ?? { r: 128, g: 128, b: 128, a: 1 };
@@ -304,6 +309,12 @@
         popup.style.top = Math.max(8, top) + 'px';
 
         render();
+    }
+
+    /* 浮動視窗上方的「格子 (x, y)／預設距離」。切換語言時也從這裡重寫。 */
+    function renderCoordLabel() {
+        if (!editingCell) return;
+        document.getElementById('cpCoord').textContent = T('popup.coord', editingCell.x, editingCell.y, editingCell.defaultDist);
     }
 
     function closeCellPopup() {
@@ -352,7 +363,7 @@
             theme: 'nano',
             default: colToPickrStr(textCol),
             components: { preview: true, opacity: true, hue: true, interaction: { input: true, save: true } },
-            i18n: { 'btn:save': '確定' },
+            i18n: { 'btn:save': T('picker.save') },
         });
         textPickr
             .on('change', (color) => {
@@ -366,7 +377,7 @@
             theme: 'nano',
             default: colToPickrStr(strokeCol),
             components: { preview: true, opacity: true, hue: true, interaction: { input: true, save: true } },
-            i18n: { 'btn:save': '確定' },
+            i18n: { 'btn:save': T('picker.save') },
         });
         strokePickr
             .on('change', (color) => {
@@ -382,7 +393,7 @@
             theme: 'nano',
             default: colToPickrStr(popupCellCol),
             components: { preview: true, opacity: true, hue: true, interaction: { input: true, save: true } },
-            i18n: { 'btn:save': '確定' },
+            i18n: { 'btn:save': T('picker.save') },
         });
         popupCellPickr
             .on('change', (color) => {
@@ -397,7 +408,7 @@
             theme: 'nano',
             default: colToPickrStr(popupTextCol),
             components: { preview: true, opacity: true, hue: true, interaction: { input: true, save: true } },
-            i18n: { 'btn:save': '確定' },
+            i18n: { 'btn:save': T('picker.save') },
         });
         popupTextPickr
             .on('change', (color) => {
@@ -473,6 +484,21 @@
         });
 
         render();
+
+        /* 靜態文字由共用引擎重套；這裡處理 JS 產生的部分：各距離的標籤、
+         * 浮動視窗的座標列，以及 Pickr 自己產生的「確定」按鈕。
+         * Pickr 不重建，只改按鈕文字，選好的顏色就不會跑掉。
+         * 畫布上的字是距離數字或使用者輸入的文字，與語言無關，不必重畫。 */
+        I18N.onChange(() => {
+            document.querySelectorAll('#colorPickerWrap .color-d-label').forEach((el, d) => {
+                el.textContent = distLabel(d);
+            });
+            renderCoordLabel();
+            [textPickr, strokePickr, popupCellPickr, popupTextPickr, ...distPickrs].forEach((p) => {
+                const save = p?.getRoot()?.interaction?.save;
+                if (save) save.value = T('picker.save');
+            });
+        });
     });
 })();
 

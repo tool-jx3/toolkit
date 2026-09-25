@@ -1549,3 +1549,7 @@
              z-index: 10;
          }
 
+         /* 使用說明開頭的工具名稱（上游寫在 <strong> 的 style 屬性裡；收錄版整段交給字典，改用 class） */
+         .guide-app-name {
+             color: var(--blue);
+         }

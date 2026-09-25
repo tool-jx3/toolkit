@@ -2,20 +2,36 @@ const resultEl = document.getElementById("result");
 const commandOutputEl = document.getElementById("commandOutput");
 const copyMessageEl = document.getElementById("copyMessage");
 
+/* 收錄版：這頁沒有共用頁首，語言選單在頁面頂端的導覽列裡，由這裡掛上。 */
+I18N.mountSwitcher(document.getElementById("localeSelect"));
+
+/* 結果欄的文字由函式產生並記下來，切換語言時重新呼叫它重畫。 */
+let renderResult = null;
+
+function showResult(render) {
+	renderResult = render;
+	resultEl.innerText = render ? render() : "";
+}
+
+I18N.onChange(() => {
+	if (renderResult) resultEl.innerText = renderResult();
+});
+
 document.getElementById("calculateBtn").addEventListener("click", function () {
 	const armorValue = parseInt(document.getElementById("armorValue").value);
 	const damageRollsInput = document.getElementById("damageRolls").value;
 
-	resultEl.innerText = "";
+	showResult(null);
 	commandOutputEl.innerText = "";
 	commandOutputEl.style.display = "none";
 	copyMessageEl.style.display = "none";
 
 	if (isNaN(armorValue)) {
-		resultEl.innerText = "装甲値を正しく入力してください";
+		showResult(() => T("error.armor"));
 		return;
 	}
 
+	/* BCDice 的輸出固定用全形「＞」，這裡照原樣比對，與介面語言無關。 */
 	const damageRolls = [];
 	const matches = damageRollsInput.match(/＞\s*(\d+)\s*$/gm);
 	if (matches) {
@@ -24,14 +40,14 @@ document.getElementById("calculateBtn").addEventListener("click", function () {
 			damageRolls.push(number);
 		});
 	} else {
-		resultEl.innerText = "ダメージロール結果が見つかりませんでした";
+		showResult(() => T("error.noRolls"));
 		return;
 	}
 
 	const adjustedDamage = damageRolls.map((roll) => Math.max(0, roll - armorValue));
 	const totalDamage = adjustedDamage.reduce((sum, value) => sum + value, 0);
 
-	resultEl.innerText = `ダメージ合計: ${totalDamage}`;
+	showResult(() => T("result.total", totalDamage));
 
 	const command = `:HP-${totalDamage}`;
 	commandOutputEl.innerText = command;
@@ -49,7 +65,6 @@ commandOutputEl.addEventListener("click", function () {
 			}, 2000);
 		})
 		.catch(function (err) {
-			console.error("コピーに失敗しました: ", err);
+			console.error("Copy failed: ", err);
 		});
 });
-
