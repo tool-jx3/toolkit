@@ -1549,6 +1549,80 @@ if (jzCtx.J) {
     && jzBody.includes(J.SAMPLE_LYRICS.split('\n')[0]));
 }
 
+/* ---- anime-rig ---- */
+/* Anime2.5DRig：rigger.js 裡比對 PSD 圖層名稱的日文別名表（ALIAS_GROUPS），以及處理
+ * Photoshop 自動命名（「のコピー」「レイヤー 1」「閉じ目2」）的幾行是解析用的資料，
+ * 不是介面文字，原樣保留。只放行這幾處，其餘程式碼（連註解）都不准有假名。 */
+const RIG = 'tools/anime-rig';
+const rigRigger = read(`${RIG}/lib/rigger.js`).split('\n');
+const rigAliasStart = rigRigger.findIndex(l => /^\s*var ALIAS_GROUPS = \{$/.test(l));
+const rigAliasEnd = rigRigger.findIndex((l, i) => i > rigAliasStart && /^\s*\};$/.test(l));
+const RIG_KEPT = ['のコピー', "'レイヤー 1'", '閉じ目)2$/', '"閉じ目2" select the long closed-eye variant'];
+const rigAllow = (line, lineNo, file) => file === 'lib/rigger.js'
+  && ((rigAliasStart >= 0 && lineNo - 1 > rigAliasStart && lineNo - 1 < rigAliasEnd) || RIG_KEPT.some(k => line.includes(k)));
+const RIG_SCRIPTS = ['lib/app.js', 'lib/rigger.js', 'lib/runtime.js', 'lib/devices.js', 'lib/recorder.js',
+  'lib/renderer.js', 'lib/obs-sync.js', 'lib/psd-worker.js', 'lib/face-features.js'];
+const rig = checkTool({
+  dir: RIG,
+  dict: 'i18n.anime-rig.js',
+  locale: 'ja',
+  scripts: RIG_SCRIPTS,
+  styles: ['lib/app.css'],
+  minHooks: 150,
+  allowSource: rigAllow
+});
+section('tools/anime-rig');
+check('rigger.js 的圖層別名表還在（放行範圍有對到東西）',
+  rigAliasStart > 0 && rigAliasEnd - rigAliasStart >= 25 && rigRigger[rigAliasStart + 1].includes('前髪'),
+  `ALIAS_GROUPS: ${rigAliasStart}–${rigAliasEnd}`);
+check('rigger.js 放行的四處 Photoshop 命名處理都還在', RIG_KEPT.every(k => rigRigger.some(l => l.includes(k))));
+/* rigger.js、runtime.js 也在 worker 裡跑，用自己的 tr() 包裝；警告存成 {key, args}，顯示時才翻。 */
+const rigZh = rig.messages['zh-TW'];
+const rigLibKeys = ['lib/rigger.js', 'lib/runtime.js'].flatMap(f => [
+  ...[...read(`${RIG}/${f}`).matchAll(/\btr\('([\w.]+)'/g)].map(m => m[1]),
+  ...[...read(`${RIG}/${f}`).matchAll(/\bkey: '([\w.]+)'/g)].map(m => m[1])
+]);
+const rigLibMissing = [...new Set(rigLibKeys)].filter(k => !rigZh[k] && !k.endsWith('.'));
+check('rigger.js／runtime.js 的訊息 key 都有定義', rigLibKeys.length >= 30 && rigLibMissing.length === 0,
+  `found ${rigLibKeys.length}; missing: ${rigLibMissing.join(', ')}`);
+check('rigger.js 不再拋出或推入寫死的字串',
+  !/throw new Error\('|warnings\.push\('/.test(stripComments(read(`${RIG}/lib/rigger.js`), 'js')));
+const rigRoles = [...read(`${RIG}/lib/rigger.js`).match(/var ROLE_LABELS = \{([\s\S]*?)\};/)[1].matchAll(/: '(\w+)'/g)].map(m => m[1]);
+check('每個部件角色都有兩種語言的名稱（role.*）', rigRoles.length >= 29
+  && rigRoles.every(r => rigZh[`role.${r}`] && rig.messages.ja[`role.${r}`]), `roles: ${rigRoles.length}`);
+check('未知圖層的頭／身體分類有兩種語言的名稱', ['group.head', 'group.body'].every(k => rigZh[k] && rig.messages.ja[k]));
+check('worker 由主執行緒拿到目前語言的字典', read(`${RIG}/lib/app.js`).includes("messages:Object.assign({},I18N.messages['zh-TW'],I18N.messages[I18N.locale])")
+  && read(`${RIG}/lib/psd-worker.js`).includes('messages=ev.data.messages||{}'));
+check('app.js 的區域變數 T 已改名，沒有遮蔽 i18n 的 T()', !/\bconst T\s*=/.test(read(`${RIG}/lib/app.js`)));
+check('拖放提示改由 data-drop-label 依語言設定', read(`${RIG}/lib/app.css`).includes('content:attr(data-drop-label)')
+  && read(`${RIG}/lib/app.js`).includes("dataset.dropLabel=T('stage.drop')"));
+/* 範例 PSD 的圖畫權利屬於各自的作者；閉眼閉嘴原圖、OBS 中繼伺服器、測試與 MediaPipe 同捆檔都不收。 */
+const rigFiles = listFiles(RIG).map(f => f.replace(`${RIG}/`, ''));
+check('anime-rig 沒有任何 PSD 檔', !rigFiles.some(f => /\.psd$/i.test(f)));
+check('anime-rig 不收 OBS 中繼伺服器、測試與 MediaPipe 同捆檔',
+  !rigFiles.some(f => /obs_server|start_obs|^tests\/|package\.json|lib\/vendor\//.test(f)));
+const rigApp = stripComments(read(`${RIG}/lib/app.js`), 'js');
+const rigHtml = read(`${RIG}/index.html`);
+check('頁面不再去抓範例 PSD、閉眼閉嘴原圖或 README.md',
+  !/sample2?\.psd|data-sample|eye_close\.psd|mouth_close\.psd|'README\.md'/.test(rigApp + rigHtml));
+check('使用說明兩種語言都在，由字典指定檔名', exists(`${RIG}/guide.zh-TW.md`) && exists(`${RIG}/guide.ja.md`)
+  && rigZh['guide.file'] === 'guide.zh-TW.md' && rig.messages.ja['guide.file'] === 'guide.ja.md');
+check('繁中使用說明沒有殘留假名（圖層別名與 Photoshop 命名除外）',
+  read(`${RIG}/guide.zh-TW.md`).split('\n').filter(l => KANA.test(l))
+    .every(l => /^\| `/.test(l) || /`[^`]*[ぁ-ゖァ-ヺ][^`]*`|「のコピー」/.test(l)));
+check('OBS 區塊說明需要原作的本機伺服器，同步開關只在有中繼伺服器時顯示',
+  /id="obsKit" data-i18n-html="obs\.kit"/.test(rigHtml) && /<div id="obsControls" hidden>/.test(rigHtml)
+  && rigApp.includes("$('obsControls').hidden=!st.relay;$('obsKit').hidden=st.relay;")
+  && rigZh['obs.kit'].includes('https://github.com/852wa/Anime2.5DRig'));
+check('頁首有回合輯首頁的連結與語言選單', rigHtml.includes('<a class="tk-home" href="../../" data-i18n="nav.home">')
+  && read(`${RIG}/lib/app.js`).includes("I18N.mountSwitcher($('langSwitch'))"));
+/* MediaPipe 走 CDN：版本要與 THIRD_PARTY_NOTICES 對得上；ag-psd 是同捆的，版本也要記著。 */
+const rigNotices = read(`${RIG}/THIRD_PARTY_NOTICES.md`);
+const rigFm = (read(`${RIG}/lib/devices.js`).match(/const FM_VERSION='([\d.]+)'/) || [])[1];
+check('MediaPipe 從 jsDelivr 載入，版本記在 THIRD_PARTY_NOTICES', !!rigFm && rigNotices.includes(rigFm)
+  && read(`${RIG}/lib/devices.js`).includes("'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@'+FM_VERSION+'/'"));
+check('同捆的 ag-psd 附上 MIT 授權', rigNotices.includes('ag-psd 31.0.2') && rigNotices.includes('Copyright (c) 2016 Agamnentzar'));
+
 /* ---- PC 字型挑選器 ---- */
 /* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
  * 只改其中一份的話，另外兩個工具的對話框就會停在舊版本。 */
@@ -1862,6 +1936,7 @@ checkInlineText('tools/room-zip', 'tools/room-zip/index.html', ['tools/room-zip/
 /* pair-maker 有兩頁，兩頁都要比。 */
 checkInlineText('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 15);
 checkInlineText('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
+checkInlineText('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 110);
 for (const t of SOTSOT_FOUR) {
   checkInlineText(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.inline);
 }
@@ -1949,6 +2024,7 @@ checkAttrPairs('tools/character-editor', 'tools/character-editor/index.html', ['
 checkAttrPairs('tools/room-zip', 'tools/room-zip/index.html', ['tools/room-zip/i18n.room-zip.js'], 10);
 checkAttrPairs('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 9);
 checkAttrPairs('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
+checkAttrPairs('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 24);
 for (const t of SOTSOT_FOUR) {
   checkAttrPairs(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.attrs);
 }
