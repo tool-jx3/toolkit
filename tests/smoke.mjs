@@ -1,5 +1,6 @@
 /* 靜態 smoke 檢查。以 `npm test` 執行。 */
 import { check, section, summary, loadI18N, read, exists, listFiles } from './harness.mjs';
+import vm from 'node:vm';
 
 /* ---- 引擎行為 ---- */
 section('i18n engine');
@@ -1453,6 +1454,175 @@ check('地圖編輯器的 optgroup 標籤都有兩種語言的譯文', mapLabelK
   && mapLabelKeys.every(k => mapEditorDict['zh-TW'][k] && mapEditorDict.ja[k]), `keys: ${mapLabelKeys.length}`);
 check('地圖編輯器切語言時重套 optgroup 標籤', /data-label-key/.test(mapEditor));
 
+/* ---- jizura ---- */
+/* JIZURA 照上游產生英文版的方式建置：日文原始碼為準，建置時以 app/chinese.py 的翻譯表
+ * 取代 12_ui.js、11_export.js 與介面標記裡的字串，部件、風格與氛圍的名稱由 app/chinese.js
+ * 在執行時改寫。其餘模組原樣串進頁面——那些模組裡的日文是部件的預設名稱（會被
+ * chinese.js 蓋掉）、假名判斷表與羅馬字對照這類資料，因此不能整頁掃假名，而是分段檢查。 */
+section('tools/jizura');
+const JZ = 'vendor/jizura';
+const jzZh = read('tools/jizura/index.html');
+const jzJa = read('tools/jizura/ja/index.html');
+const jzFiles = listFiles(`${JZ}/src`).filter(f => f.endsWith('.js')).map(f => f.split('/').pop());
+const jzSrc = Object.fromEntries(jzFiles.map(f => [f, read(`${JZ}/src/${f}`)]));
+const JZ_LOCALIZED = ['11_export.js', '12_ui.js'];
+const jzStale = jzFiles.filter(f => !JZ_LOCALIZED.includes(f) && !jzZh.includes(jzSrc[f]));
+check('繁中頁由目前的原始碼建置（未翻譯的模組原樣收錄）', jzFiles.length >= 30 && jzStale.length === 0,
+  `與原始碼不符（改了 vendor/jizura 之後要重跑 build_toolkit.py）: ${jzStale.join(', ')}`);
+check('日文頁由目前的原始碼建置（所有模組原樣收錄）', jzFiles.every(f => jzJa.includes(jzSrc[f])));
+check('繁中頁收了 app/chinese.js，日文頁沒有', jzZh.includes(read(`${JZ}/app/chinese.js`))
+  && !jzJa.includes(read(`${JZ}/app/chinese.js`)));
+check('兩頁都附上 JIZURA 的 MIT 授權全文', [jzZh, jzJa].every(h => h.includes(read(`${JZ}/LICENSE`).trim())));
+check('mp4-muxer 的署名留在頁面裡', [jzZh, jzJa].every(h => h.includes('mp4-muxer v5.2.2 | MIT License')));
+check('html lang 分別為 zh-Hant-TW 與 ja', /<html lang="zh-Hant-TW">/.test(jzZh) && /<html lang="ja">/.test(jzJa));
+/* 在兩頁之間換頁的是一般連結；記下選擇的是 head 裡那段小腳本。 */
+check('繁中頁的頁首：回合輯首頁、連到日文頁', jzZh.includes('<a class="tk-home" href="../../">')
+  && jzZh.includes('<a href="ja/" lang="ja" data-locale="ja">日本語</a>'));
+check('日文頁的頁首：回合輯首頁、連回繁中頁', jzJa.includes('<a class="tk-home" href="../../../">')
+  && jzJa.includes('<a href="../" lang="zh-Hant-TW" data-locale="zh-TW">繁體中文</a>'));
+check('兩頁都依合輯共用的語言設定換頁', [jzZh, jzJa].every(h => h.includes("var KEY = 'trpg-toolkit-locale';"))
+  && jzZh.includes("if (l === 'ja') location.replace('ja/'") && jzJa.includes("if (l && l !== 'ja') location.replace('../'"));
+check('拿掉了原作者站台的 canonical、hreflang 與 OG meta',
+  [jzZh, jzJa].every(h => !/rel="canonical"|hreflang=|property="og:|name="twitter:/.test(h)));
+check('繁中頁的介面字型改用 Noto Sans TC', jzZh.includes('--ui: "Noto Sans TC"') && jzZh.includes('family=Noto+Sans+TC'));
+
+const jzStrip = text => stripComments(text, 'js');
+const jzBody = jzZh.slice(jzZh.indexOf('<body>'), jzZh.indexOf('<script>', jzZh.indexOf('<body>')));
+check('繁中頁的介面標記沒有假名', jzBody.length > 5000 && !KANA.test(stripComments(jzBody, 'html')),
+  (stripComments(jzBody, 'html').match(/.{0,20}[ぁ-ゖァ-ヺ].{0,20}/) || [''])[0]);
+/* 套過翻譯表的兩個模組：從各自的檔頭（未翻譯）切到下一個模組的開頭（原樣收錄）。 */
+const jzSegment = file => {
+  const head = jzSrc[file].split('\n').slice(0, 2).join('\n');
+  const next = jzFiles[jzFiles.indexOf(file) + 1];
+  const start = jzZh.indexOf(head);
+  const end = next ? jzZh.indexOf(jzSrc[next], start) : jzZh.indexOf('</script>', start);
+  return start >= 0 && end > start ? jzZh.slice(start, end) : '';
+};
+for (const file of JZ_LOCALIZED) {
+  const seg = jzSegment(file);
+  const leaked = jzStrip(seg).split('\n').filter(l => KANA.test(l)).map(l => l.trim().slice(0, 80));
+  check(`繁中頁的 ${file} 套過翻譯表，沒有殘留假名`, seg.length > 5000 && leaked.length === 0,
+    `${seg.length ? '' : '找不到這一段；'}${leaked.slice(0, 5).join('\n       ')}`);
+}
+
+/* 部件名稱：在 vm 裡載入 12_ui.js 以外的模組（DOM 用一個什麼都吞的替身），再執行 chinese.js。 */
+const jzNoop = () => new Proxy(function () {}, {
+  get: (t, k) => (k === Symbol.toPrimitive ? () => '' : jzNoop()),
+  apply: () => jzNoop(), construct: () => jzNoop(), set: () => true
+});
+const jzCtx = vm.createContext({ console, performance: { now: () => 0 }, setTimeout, clearTimeout,
+  document: jzNoop(), FontFace: jzNoop(), OffscreenCanvas: jzNoop(), Path2D: jzNoop() });
+jzCtx.window = jzCtx; jzCtx.self = jzCtx;
+let jzLoadError = '';
+for (const f of jzFiles.filter(f => f !== '12_ui.js')) {
+  try { vm.runInContext(jzSrc[f], jzCtx, { filename: f }); } catch (e) { jzLoadError = `${f}: ${e.message}`; break; }
+}
+check('JIZURA 的模組能在 Node 裡載入（部件登錄表）', !jzLoadError && !!jzCtx.J, jzLoadError);
+if (jzCtx.J) {
+  const J = jzCtx.J;
+  const jaNames = {};
+  for (const g of J.GROUP_KEYS) for (const k of J.order(g)) jaNames[`${g}.${k}`] = J.registry(g)[k].name;
+  const jaStyles = Object.keys(J.STYLES), jaMoods = Object.keys(J.MOODS);
+  const zhSource = read(`${JZ}/app/chinese.js`);
+  const literal = name => {
+    const m = zhSource.match(new RegExp(`const ${name} = (\\{[\\s\\S]*?\\n  \\});`));
+    return m ? vm.runInNewContext(`(${m[1]})`) : {};
+  };
+  const titles = literal('titles'), styles = literal('styles'), moods = literal('moods');
+  const parts = Object.keys(jaNames);
+  check('部件登錄表有七百個以上的部件', parts.length >= 700, `found ${parts.length}`);
+  const missing = parts.filter(p => { const [g, k] = p.split('.'); return !(titles[g] && titles[g][k]); });
+  check('每個部件都有繁中名稱', missing.length === 0, `缺: ${missing.slice(0, 10).join(', ')}（共 ${missing.length} 個）`);
+  const stale = Object.entries(titles).flatMap(([g, t]) => Object.keys(t).map(k => `${g}.${k}`)).filter(p => !(p in jaNames));
+  check('chinese.js 沒有多出上游已移除的部件', stale.length === 0, stale.join(', '));
+  check('每種風格都有繁中名稱與說明', jaStyles.length >= 24 && jaStyles.every(k => styles[k] && styles[k].length === 2)
+    && Object.keys(styles).every(k => jaStyles.includes(k)), `styles: ${jaStyles.length}`);
+  check('每種氛圍都有繁中名稱', jaMoods.length >= 7 && jaMoods.every(k => moods[k]) && Object.keys(moods).every(k => jaMoods.includes(k)));
+  vm.runInContext(zhSource, jzCtx, { filename: 'app/chinese.js' });
+  const kanaNames = [
+    ...parts.filter(p => { const [g, k] = p.split('.'); return KANA.test(J.registry(g)[k].name); }),
+    ...jaStyles.filter(k => KANA.test(J.STYLES[k].name + J.STYLES[k].desc)),
+    ...jaMoods.filter(k => KANA.test(J.MOODS[k].name))
+  ];
+  check('執行 chinese.js 之後，部件、風格、氛圍的名稱都沒有假名', kanaNames.length === 0, kanaNames.slice(0, 10).join(', '));
+  check('繁中頁的範例歌詞是繁中', !KANA.test(J.SAMPLE_LYRICS) && J.SAMPLE_LYRICS.split('\n').length === 4
+    && jzBody.includes(J.SAMPLE_LYRICS.split('\n')[0]));
+}
+
+/* ---- anime-rig ---- */
+/* Anime2.5DRig：rigger.js 裡比對 PSD 圖層名稱的日文別名表（ALIAS_GROUPS），以及處理
+ * Photoshop 自動命名（「のコピー」「レイヤー 1」「閉じ目2」）的幾行是解析用的資料，
+ * 不是介面文字，原樣保留。只放行這幾處，其餘程式碼（連註解）都不准有假名。 */
+const RIG = 'tools/anime-rig';
+const rigRigger = read(`${RIG}/lib/rigger.js`).split('\n');
+const rigAliasStart = rigRigger.findIndex(l => /^\s*var ALIAS_GROUPS = \{$/.test(l));
+const rigAliasEnd = rigRigger.findIndex((l, i) => i > rigAliasStart && /^\s*\};$/.test(l));
+const RIG_KEPT = ['のコピー', "'レイヤー 1'", '閉じ目)2$/', '"閉じ目2" select the long closed-eye variant'];
+const rigAllow = (line, lineNo, file) => file === 'lib/rigger.js'
+  && ((rigAliasStart >= 0 && lineNo - 1 > rigAliasStart && lineNo - 1 < rigAliasEnd) || RIG_KEPT.some(k => line.includes(k)));
+const RIG_SCRIPTS = ['lib/app.js', 'lib/rigger.js', 'lib/runtime.js', 'lib/devices.js', 'lib/recorder.js',
+  'lib/renderer.js', 'lib/obs-sync.js', 'lib/psd-worker.js', 'lib/face-features.js'];
+const rig = checkTool({
+  dir: RIG,
+  dict: 'i18n.anime-rig.js',
+  locale: 'ja',
+  scripts: RIG_SCRIPTS,
+  styles: ['lib/app.css'],
+  minHooks: 150,
+  allowSource: rigAllow
+});
+section('tools/anime-rig');
+check('rigger.js 的圖層別名表還在（放行範圍有對到東西）',
+  rigAliasStart > 0 && rigAliasEnd - rigAliasStart >= 25 && rigRigger[rigAliasStart + 1].includes('前髪'),
+  `ALIAS_GROUPS: ${rigAliasStart}–${rigAliasEnd}`);
+check('rigger.js 放行的四處 Photoshop 命名處理都還在', RIG_KEPT.every(k => rigRigger.some(l => l.includes(k))));
+/* rigger.js、runtime.js 也在 worker 裡跑，用自己的 tr() 包裝；警告存成 {key, args}，顯示時才翻。 */
+const rigZh = rig.messages['zh-TW'];
+const rigLibKeys = ['lib/rigger.js', 'lib/runtime.js'].flatMap(f => [
+  ...[...read(`${RIG}/${f}`).matchAll(/\btr\('([\w.]+)'/g)].map(m => m[1]),
+  ...[...read(`${RIG}/${f}`).matchAll(/\bkey: '([\w.]+)'/g)].map(m => m[1])
+]);
+const rigLibMissing = [...new Set(rigLibKeys)].filter(k => !rigZh[k] && !k.endsWith('.'));
+check('rigger.js／runtime.js 的訊息 key 都有定義', rigLibKeys.length >= 30 && rigLibMissing.length === 0,
+  `found ${rigLibKeys.length}; missing: ${rigLibMissing.join(', ')}`);
+check('rigger.js 不再拋出或推入寫死的字串',
+  !/throw new Error\('|warnings\.push\('/.test(stripComments(read(`${RIG}/lib/rigger.js`), 'js')));
+const rigRoles = [...read(`${RIG}/lib/rigger.js`).match(/var ROLE_LABELS = \{([\s\S]*?)\};/)[1].matchAll(/: '(\w+)'/g)].map(m => m[1]);
+check('每個部件角色都有兩種語言的名稱（role.*）', rigRoles.length >= 29
+  && rigRoles.every(r => rigZh[`role.${r}`] && rig.messages.ja[`role.${r}`]), `roles: ${rigRoles.length}`);
+check('未知圖層的頭／身體分類有兩種語言的名稱', ['group.head', 'group.body'].every(k => rigZh[k] && rig.messages.ja[k]));
+check('worker 由主執行緒拿到目前語言的字典', read(`${RIG}/lib/app.js`).includes("messages:Object.assign({},I18N.messages['zh-TW'],I18N.messages[I18N.locale])")
+  && read(`${RIG}/lib/psd-worker.js`).includes('messages=ev.data.messages||{}'));
+check('app.js 的區域變數 T 已改名，沒有遮蔽 i18n 的 T()', !/\bconst T\s*=/.test(read(`${RIG}/lib/app.js`)));
+check('拖放提示改由 data-drop-label 依語言設定', read(`${RIG}/lib/app.css`).includes('content:attr(data-drop-label)')
+  && read(`${RIG}/lib/app.js`).includes("dataset.dropLabel=T('stage.drop')"));
+/* 範例 PSD 的圖畫權利屬於各自的作者；閉眼閉嘴原圖、OBS 中繼伺服器、測試與 MediaPipe 同捆檔都不收。 */
+const rigFiles = listFiles(RIG).map(f => f.replace(`${RIG}/`, ''));
+check('anime-rig 沒有任何 PSD 檔', !rigFiles.some(f => /\.psd$/i.test(f)));
+check('anime-rig 不收 OBS 中繼伺服器、測試與 MediaPipe 同捆檔',
+  !rigFiles.some(f => /obs_server|start_obs|^tests\/|package\.json|lib\/vendor\//.test(f)));
+const rigApp = stripComments(read(`${RIG}/lib/app.js`), 'js');
+const rigHtml = read(`${RIG}/index.html`);
+check('頁面不再去抓範例 PSD、閉眼閉嘴原圖或 README.md',
+  !/sample2?\.psd|data-sample|eye_close\.psd|mouth_close\.psd|'README\.md'/.test(rigApp + rigHtml));
+check('使用說明兩種語言都在，由字典指定檔名', exists(`${RIG}/guide.zh-TW.md`) && exists(`${RIG}/guide.ja.md`)
+  && rigZh['guide.file'] === 'guide.zh-TW.md' && rig.messages.ja['guide.file'] === 'guide.ja.md');
+check('繁中使用說明沒有殘留假名（圖層別名與 Photoshop 命名除外）',
+  read(`${RIG}/guide.zh-TW.md`).split('\n').filter(l => KANA.test(l))
+    .every(l => /^\| `/.test(l) || /`[^`]*[ぁ-ゖァ-ヺ][^`]*`|「のコピー」/.test(l)));
+check('OBS 區塊說明需要原作的本機伺服器，同步開關只在有中繼伺服器時顯示',
+  /id="obsKit" data-i18n-html="obs\.kit"/.test(rigHtml) && /<div id="obsControls" hidden>/.test(rigHtml)
+  && rigApp.includes("$('obsControls').hidden=!st.relay;$('obsKit').hidden=st.relay;")
+  && rigZh['obs.kit'].includes('https://github.com/852wa/Anime2.5DRig'));
+check('頁首有回合輯首頁的連結與語言選單', rigHtml.includes('<a class="tk-home" href="../../" data-i18n="nav.home">')
+  && read(`${RIG}/lib/app.js`).includes("I18N.mountSwitcher($('langSwitch'))"));
+/* MediaPipe 走 CDN：版本要與 THIRD_PARTY_NOTICES 對得上；ag-psd 是同捆的，版本也要記著。 */
+const rigNotices = read(`${RIG}/THIRD_PARTY_NOTICES.md`);
+const rigFm = (read(`${RIG}/lib/devices.js`).match(/const FM_VERSION='([\d.]+)'/) || [])[1];
+check('MediaPipe 從 jsDelivr 載入，版本記在 THIRD_PARTY_NOTICES', !!rigFm && rigNotices.includes(rigFm)
+  && read(`${RIG}/lib/devices.js`).includes("'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@'+FM_VERSION+'/'"));
+check('同捆的 ag-psd 附上 MIT 授權', rigNotices.includes('ag-psd 31.0.2') && rigNotices.includes('Copyright (c) 2016 Agamnentzar'));
+
 /* ---- PC 字型挑選器 ---- */
 /* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
  * 只改其中一份的話，另外兩個工具的對話框就會停在舊版本。 */
@@ -1667,7 +1837,7 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
-  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab'];
+  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -1692,7 +1862,7 @@ for (const card of homeCards) {
 }
 check('首頁標示原作者出處',
   ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
-    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku'].every(a => homeHtml.includes(`github.com/${a}`)));
+    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa'].every(a => homeHtml.includes(`github.com/${a}`)));
 
 /* ---- 內嵌文字與 zh-TW 字典一致 ---- */
 /* 六個頁面（五個工具＋首頁）在 script 執行前顯示的畫面，其 HTML 內嵌文字必須
@@ -1766,6 +1936,7 @@ checkInlineText('tools/room-zip', 'tools/room-zip/index.html', ['tools/room-zip/
 /* pair-maker 有兩頁，兩頁都要比。 */
 checkInlineText('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 15);
 checkInlineText('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
+checkInlineText('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 110);
 for (const t of SOTSOT_FOUR) {
   checkInlineText(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.inline);
 }
@@ -1853,6 +2024,7 @@ checkAttrPairs('tools/character-editor', 'tools/character-editor/index.html', ['
 checkAttrPairs('tools/room-zip', 'tools/room-zip/index.html', ['tools/room-zip/i18n.room-zip.js'], 10);
 checkAttrPairs('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 9);
 checkAttrPairs('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
+checkAttrPairs('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 24);
 for (const t of SOTSOT_FOUR) {
   checkAttrPairs(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.attrs);
 }
@@ -1874,7 +2046,7 @@ for (const name of TOOLS) {
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
   '586b273', '0162787', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', 'd3bdf3c', 'fc05c98',
   '90f8442', 'a9a522c', 'aad63b1',
-  '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '772d6c4']) {
+  '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
@@ -1926,8 +2098,19 @@ check('ATTRIBUTION.md 說明哪些字刻意不跟著語言走',
 /* cutin 需要建置，說明其原始碼位置與重建方式。 */
 check('ATTRIBUTION.md 說明 cutin 的建置流程',
   attribution.includes('vendor/cutin-maker'));
-check('README.md 說明兩個工具的建置流程',
-  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor'].every(p => read('README.md').includes(p)));
+check('README.md 說明三個工具的建置流程',
+  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor', 'python3 vendor/jizura/build_toolkit.py']
+    .every(p => read('README.md').includes(p)));
+/* ATTRIBUTION 與 README 之間的錨點連結：標題改了就會失效。 */
+check('ATTRIBUTION.md 指向 README 建置段落的錨點仍然有效',
+  attribution.includes('README.md#重新建置-cutincharacter-editor-與-jizura')
+  && read('README.md').includes('### 重新建置 cutin、character-editor 與 jizura'));
+check('ATTRIBUTION.md 說明 jizura 為何照上游的方式建置，以及不收 AE 外掛',
+  /## jizura：JIZURA 字面(?=[\s\S]*app\/english\.py)(?=[\s\S]*JIZURA_CEP)/.test(attribution));
+check('jizura 的建置產物目錄裡有上游的 LICENSE', read('tools/jizura/LICENSE') === read('vendor/jizura/LICENSE'));
+check('ATTRIBUTION.md 說明 anime-rig 不收範例 PSD、OBS 中繼伺服器與 MediaPipe 同捆檔',
+  /## anime-rig：Anime2\.5DRig[\s\S]*sample\.psd[\s\S]*obs_server\.py/.test(attribution)
+  && /## anime-rig[\s\S]*lib\/vendor\/face_mesh/.test(attribution));
 
 const pkg = JSON.parse(read('package.json'));
 check('package.json 無執行期相依',

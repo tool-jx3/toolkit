@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="只要拖入分好部件的 PSD，就會自動綁定並動起來的 2.5D 虛擬形象工具">
+<title>Anime2.5DRig — 拖入 PSD 就會動的虛擬形象</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23421827'/%3E%3Ctext x='16' y='23' font-size='20' font-family='sans-serif' font-weight='800' text-anchor='middle' fill='%23ff9cb0'%3EA%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="lib/app.css">
+</head>
+<body>
+<header>
+  <a class="tk-home" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+  <div class="brand"><span class="brand-mark" aria-hidden="true">A</span><div><h1>Anime2.5DRig</h1><span>2.5D AVATAR STUDIO · <span id="appVersion">v2.0</span></span></div></div>
+  <span id="modelName">未讀取模型</span>
+  <button class="obs-chip" type="button" id="obsChip" hidden data-i18n-title="hdr.obsChip.title" title="開啟 OBS 連動設定">OBS</button>
+  <div class="header-actions">
+    <button class="btn primary" type="button" id="btnOpen" data-i18n="hdr.open" data-i18n-title="hdr.open.title" title="開啟 PSD（Ctrl+O）">開啟 PSD</button>
+    <div class="btn-group" role="group" data-i18n-aria-label="hdr.history" aria-label="操作記錄">
+      <button class="btn icon" type="button" id="btnUndo" disabled data-i18n-title="hdr.undo.title" title="復原（Ctrl+Z）" data-i18n-aria-label="hdr.undo" aria-label="復原">↶</button>
+      <button class="btn icon" type="button" id="btnRedo" disabled data-i18n-title="hdr.redo.title" title="重做（Ctrl+Shift+Z）" data-i18n-aria-label="hdr.redo" aria-label="重做">↷</button>
+    </div>
+    <button class="btn" type="button" id="btnPause" data-model-action disabled aria-pressed="false" data-i18n-title="hdr.pause.title" title="暫停（Space）">暫停</button>
+    <button class="btn" type="button" id="btnPng" data-model-action disabled data-i18n="hdr.png" data-i18n-title="hdr.png.title" title="把目前的姿勢存成透明背景的 PNG">儲存 PNG</button>
+    <button class="btn" type="button" id="btnRecord" data-model-action disabled data-i18n-title="hdr.record.title" title="把動作存成影片">錄影</button>
+    <button class="btn" type="button" id="btnReadme" data-i18n="hdr.readme">使用說明</button>
+    <select class="tk-lang" id="langSwitch" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+  </div>
+</header>
+<div id="main">
+  <div id="stage" class="checker">
+    <div id="viewport">
+      <canvas id="cv" data-i18n-aria-label="stage.aria" aria-label="虛擬形象的預覽"></canvas>
+      <svg id="overlay" aria-hidden="true"></svg>
+    </div>
+    <div id="stageLabel">PREVIEW <span data-i18n="stage.checkerNote">背景的棋盤格不會輸出</span></div>
+    <div id="stageTools">
+      <span id="recBadge" hidden>● REC</span>
+      <button class="stage-btn" type="button" id="btnAnchorMode" data-model-action disabled aria-pressed="false" data-i18n="stage.anchor" data-i18n-title="stage.anchor.title" title="編輯錨點（E）">編輯錨點</button>
+      <button class="stage-btn" type="button" id="btnZoom" data-i18n-title="stage.zoom.title" title="滾輪放大、拖曳移動。按一下顯示全圖（F）">全圖</button>
+      <span id="fps" aria-hidden="true"></span>
+    </div>
+    <div id="anchorHint" hidden data-i18n="stage.anchorHint">拖曳圓點調整基準位置（方向鍵移動 1 px，Shift＋方向鍵移動 10 px）。按 Esc 或 E 結束</div>
+    <div id="camPreview" hidden>
+      <canvas id="camCanvas" width="192" height="144" data-i18n-aria-label="stage.cam.aria" aria-label="攝影機畫面的預覽"></canvas>
+      <button type="button" id="camPreviewClose" data-i18n-aria-label="stage.cam.hide" aria-label="隱藏攝影機畫面" data-i18n-title="stage.cam.hide" title="隱藏攝影機畫面">✕</button>
+    </div>
+    <div id="appStatus" role="status" aria-live="polite">讀取 PSD 後就能開始編輯</div>
+    <div id="drop">
+      <div class="drop-symbol" aria-hidden="true">＋</div><p class="eyebrow">YOUR ART, IN MOTION</p>
+      <h2 data-i18n="drop.title">讓插畫動起來。</h2>
+      <p data-i18n-html="drop.lead">拖入分好部件的 PSD。<br>自動讀取眼睛、嘴巴和頭髮，當場動起來。</p>
+      <p class="drop-hint" data-i18n-html="drop.hint">RGB / 8 位元 PSD，最大 128 MB<br>圖層名稱用 face / eyewhite / mouth_open，或「顔・白目・前髪」等日文名稱。也支援資料夾。</p>
+      <div class="btns drop-actions">
+        <button class="btn primary" type="button" id="btnFile" data-i18n="drop.file">選擇 PSD 檔案</button>
+        <button class="btn" type="button" id="btnReadme2" data-i18n="drop.readme">閱讀使用說明</button>
+      </div>
+      <div class="progress" id="loadProgress" hidden><span></span></div>
+      <p id="dropStatus"></p>
+      <button class="btn" type="button" id="btnCancelLoad" hidden data-i18n="drop.cancel">中止讀取</button>
+      <input type="file" id="fileInput" accept=".psd,.json,application/json" hidden>
+    </div>
+  </div>
+  <div id="panel">
+    <div class="panel-head"><div><p class="eyebrow">WORKSPACE</p><h2 data-i18n="panel.title">調整模型</h2></div>
+      <div class="panel-head-actions"><button class="btn compact" type="button" id="btnShortcuts" data-i18n="panel.shortcuts" data-i18n-title="panel.shortcuts.title" title="鍵盤快捷鍵（?）">快捷鍵</button><button class="btn compact" type="button" id="btnCollapse">全部收合</button></div></div>
+    <label class="search-box" data-i18n-node="panel.search">搜尋設定<input type="search" id="controlSearch" data-i18n-placeholder="panel.search.placeholder" placeholder="眼睛、頭髮、嘴巴、圖層…" autocomplete="off"></label>
+    <p id="searchEmpty" hidden data-i18n="panel.searchEmpty">沒有符合的設定</p>
+
+    <section class="sec" data-sec="auto"><h2 data-i18n="sec.auto">自動</h2>
+      <div class="toggles">
+        <button type="button" class="tg on" id="tgIdle" data-i18n="auto.idle">待機動作</button>
+        <button type="button" class="tg on" id="tgBlink" data-i18n="auto.blink">自動眨眼</button>
+        <button type="button" class="tg on" id="tgRand" data-i18n="auto.rand">隨機動作</button>
+        <button type="button" class="tg on" id="tgTalk" data-i18n="auto.talk">隨機嘴型</button>
+        <button type="button" class="tg" id="tgCam">攝影機追蹤</button>
+        <button type="button" class="tg" id="tgMouse" data-i18n="auto.mouse">滑鼠追蹤</button>
+        <button type="button" class="tg" id="tgMic">麥克風嘴型</button>
+        <button type="button" class="tg on" id="tgPhys" data-i18n="auto.phys">頭髮物理</button>
+      </div>
+    </section>
+    <section class="sec" data-sec="preset"><h2 data-i18n="sec.preset">表情預設</h2>
+      <div class="btns presets">
+        <button class="btn" type="button" data-preset="neutral" data-i18n-node="preset.neutral">一般<kbd>1</kbd></button>
+        <button class="btn" type="button" data-preset="smile" data-i18n-node="preset.smile">笑臉<kbd>2</kbd></button>
+        <button class="btn" type="button" data-preset="usume" data-i18n-node="preset.usume">瞇眼<kbd>3</kbd></button>
+        <button class="btn" type="button" data-preset="surprise" data-i18n-node="preset.surprise">驚訝<kbd>4</kbd></button>
+        <button class="btn" type="button" data-preset="jito" data-i18n-node="preset.jito">鄙視眼<kbd>5</kbd></button>
+        <button class="btn" type="button" data-preset="winkL" data-i18n-node="preset.winkL">左眼眨眼<kbd>6</kbd></button>
+        <button class="btn" type="button" data-preset="winkR" data-i18n-node="preset.winkR">右眼眨眼<kbd>7</kbd></button>
+      </div>
+      <p class="section-hint" data-i18n-html="preset.hint">再按一次同一個按鈕或按鍵即可解除。按 <kbd>0</kbd> 解除。</p>
+    </section>
+    <section class="sec" data-sec="head"><h2 data-i18n="sec.head">臉部朝向</h2>
+      <div class="row"><label data-i18n="p.angleX">角度 X</label><input type="range" id="pAngleX" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.angleY">角度 Y</label><input type="range" id="pAngleY" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.angleZ">角度 Z</label><input type="range" id="pAngleZ" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+    </section>
+    <section class="sec" data-sec="eyes"><h2 data-i18n="sec.eyes">眼睛</h2>
+      <div class="row"><label data-i18n="p.eyeOpenL">左眼張開度</label><input type="range" id="pEyeL" min="0" max="1" step="0.01" value="1"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.eyeOpenR">右眼張開度</label><input type="range" id="pEyeR" min="0" max="1" step="0.01" value="1"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.eyeX">視線 X</label><input type="range" id="pEyeX" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.eyeY">視線 Y</label><input type="range" id="pEyeY" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.irisScale">瞳孔縮放</label><input type="range" id="pIrisScale" min="0.5" max="1.3" step="0.01" value="1"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.eyeScaleL">閉眼縮放 左</label><input type="range" id="pEyeScaleL" min="0.5" max="1.5" step="0.01" value="1"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.eyeScaleR">閉眼縮放 右</label><input type="range" id="pEyeScaleR" min="0.5" max="1.5" step="0.01" value="1"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.eyeEase">閉合難易度</label><input type="range" id="pEyeEase" min="0" max="1" step="0.01" value="0.3"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.eyeCY">差分 上下</label><input type="range" id="pEyeCY" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.eyeCAng">差分 角度</label><input type="range" id="pEyeCAng" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+    </section>
+    <section class="sec" data-sec="brow"><h2 data-i18n="sec.brow">眉毛</h2>
+      <div class="row"><label data-i18n="p.brow">眉毛（上下）</label><input type="range" id="pBrow" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.browAngSym">眉毛角度 對稱</label><input type="range" id="pBrowAngSym" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.browAngL">眉毛角度 左</label><input type="range" id="pBrowAngL" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.browAngR">眉毛角度 右</label><input type="range" id="pBrowAngR" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+    </section>
+    <section class="sec" data-sec="mouth"><h2 data-i18n="sec.mouth">嘴巴</h2>
+      <div class="row"><label data-i18n="p.mouthOpen">張開</label><input type="range" id="pMouthOpen" min="0" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.mouthForm">形狀（笑）</label><input type="range" id="pMouthForm" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.mouthCY">閉嘴 上下</label><input type="range" id="pMouthCY" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.mouthEase">閉合難易度</label><input type="range" id="pMouthEase" min="0" max="1" step="0.01" value="0.72"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.mouthCAng">閉嘴 角度</label><input type="range" id="pMouthCAng" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.mouthScale">嘴巴縮放</label><input type="range" id="pMouthScale" min="0.5" max="1.5" step="0.01" value="1"><span class="val"></span></div>
+    </section>
+    <section class="sec" data-sec="bangs"><h2 data-i18n="sec.bangs">瀏海</h2>
+      <div class="row"><label data-i18n="p.fhAmp">擺動</label><input type="range" id="pFhAmp" min="0" max="3" step="0.01" value="2"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.fhSoft">柔軟度</label><input type="range" id="pFhSoft" min="0" max="2" step="0.01" value="0.4"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.bangL">區塊 左</label><input type="range" id="pBangL" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.bangC">區塊 中央</label><input type="range" id="pBangC" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.bangR">區塊 右</label><input type="range" id="pBangR" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+    </section>
+    <section class="sec" data-sec="body"><h2 data-i18n="sec.body">身體與物理</h2>
+      <div class="row"><label data-i18n="p.body">身體傾斜</label><input type="range" id="pBody" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.armY">手臂高度</label><input type="range" id="pArmY" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.armPos">手臂位置修正</label><input type="range" id="pArmPos" min="-1" max="1" step="0.01" value="0"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.bust">胸部晃動</label><input type="range" id="pBust" min="0" max="4" step="0.01" value="2.5"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.bustY">胸部位置 上下</label><input type="range" id="pBustY" min="-3" max="3" step="0.01" value="1"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.physAmp">後髮擺動</label><input type="range" id="pPhysAmp" min="0" max="3" step="0.01" value="2"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.soft">後髮柔軟度</label><input type="range" id="pSoft" min="0" max="3" step="0.01" value="2"><span class="val"></span></div>
+      <div class="row"><label data-i18n="p.accAmp">小物擺動</label><input type="range" id="pAccAmp" min="0" max="3" step="0.01" value="1"><span class="val"></span></div>
+    </section>
+    <section class="sec" data-sec="anchors"><h2 data-i18n="sec.anchors">錨點（基準點）</h2>
+      <p class="section-hint" data-i18n="anchor.hint">眼睛、嘴巴、脖子等自動偵測的位置有偏差時，可以在預覽上拖曳修正。</p>
+      <div class="btns">
+        <button class="btn" type="button" id="btnAnchorMode2" data-model-action disabled aria-pressed="false" data-i18n-node="anchor.edit">編輯錨點<kbd>E</kbd></button>
+        <button class="btn" type="button" id="btnResetAnchors" data-model-action disabled data-i18n="anchor.reset">還原成自動偵測的位置</button>
+      </div>
+      <p class="section-hint" id="anchorSummary"></p>
+    </section>
+    <section class="sec" data-sec="tracking"><h2 data-i18n="sec.tracking">攝影機與麥克風</h2>
+      <p class="section-hint" data-i18n="track.hint">攝影機追蹤會從臉部特徵點讀取頭部朝向、眨眼、視線、嘴巴、眉毛與笑臉。</p>
+      <div class="btns">
+        <button class="btn" type="button" id="btnCalibrate" disabled data-i18n="track.calibrate" data-i18n-title="track.calibrate.title" title="請在攝影機追蹤時面向正前方，以自然的表情按下">記錄正面（校正）</button>
+        <button class="btn" type="button" id="btnClearCalibration" disabled data-i18n="track.clear">清除記錄</button>
+      </div>
+      <p class="section-hint" id="calibrationStatus">未記錄（以標準的臉部比例判定）</p>
+      <label class="check-row" data-i18n-node="track.linkEyes"><input type="checkbox" id="prefLinkEyes"> 左右眼同步眨眼（關閉時可偵測單眼眨眼）</label>
+      <label class="check-row" data-i18n-node="track.brow"><input type="checkbox" id="prefTrackBrow"> 追蹤眉毛</label>
+      <label class="check-row" data-i18n-node="track.smile"><input type="checkbox" id="prefTrackSmile"> 追蹤笑臉（嘴巴形狀）</label>
+      <label class="check-row" data-i18n-node="track.camPreview"><input type="checkbox" id="prefCamPreview"> 顯示攝影機小畫面</label>
+      <div class="row"><label data-i18n="track.headGain">頭部靈敏度</label><input type="range" id="prefHeadGain" min="0.3" max="2" step="0.01"><span class="val"></span></div>
+      <div class="row"><label data-i18n="track.eyeGain">眨眼靈敏度</label><input type="range" id="prefEyeGain" min="0.5" max="2" step="0.01"><span class="val"></span></div>
+      <div class="row"><label data-i18n="track.mouthGain">嘴巴靈敏度</label><input type="range" id="prefMouthGain" min="0.5" max="2.5" step="0.01"><span class="val"></span></div>
+      <div class="row"><label data-i18n="track.browGain">眉毛靈敏度</label><input type="range" id="prefBrowGain" min="0" max="2" step="0.01"><span class="val"></span></div>
+      <div class="row"><label data-i18n="track.gazeGain">視線靈敏度</label><input type="range" id="prefGazeGain" min="0" max="2" step="0.01"><span class="val"></span></div>
+      <div class="row"><label data-i18n="track.smoothing">平滑度</label><input type="range" id="prefSmoothing" min="0" max="1" step="0.01"><span class="val"></span></div>
+      <div class="row"><label data-i18n="track.micGain">麥克風靈敏度</label><input type="range" id="prefMicGain" min="0.25" max="4" step="0.01"><span class="val"></span></div>
+      <div class="row"><label data-i18n="track.micGate">噪音閘門</label><input type="range" id="prefMicGate" min="0" max="0.5" step="0.01"><span class="val"></span></div>
+      <div class="meter" id="micMeter" data-i18n-title="track.meter.title" title="麥克風輸入（線條是噪音閘門）"><span class="meter-level"></span><span class="meter-gate"></span></div>
+    </section>
+    <section class="sec" data-sec="obs"><h2 data-i18n="sec.obs">OBS 連動</h2>
+      <p class="section-hint" id="obsStatus">未連線到 OBS 中繼伺服器。</p>
+      <p class="section-hint" id="obsKit" data-i18n-html="obs.kit">OBS 連動需要原作者發布的套件裡附的本機伺服器（start_obs.bat / obs_server.py），TRPG Toolkit 的網頁版沒有收錄。請到<a href="https://github.com/852wa/Anime2.5DRig" target="_blank" rel="noopener">原作者的 GitHub</a> 下載整套套件後使用。</p>
+      <div id="obsControls" hidden>
+      <label class="check-row" data-i18n-node="obs.sync"><input type="checkbox" id="prefObsSync"> 同步到 OBS 顯示</label>
+      <div class="copy-row"><input type="text" id="obsUrl" readonly data-i18n-aria-label="obs.url.aria" aria-label="OBS 瀏覽器來源的 URL"><button class="btn compact" type="button" id="btnCopyObsUrl" data-i18n="obs.copy">複製</button></div>
+      <p class="section-hint" data-i18n="obs.urlHint">在 OBS 的「瀏覽器」來源設定上方的 URL。寬度與高度請配合 PSD 的尺寸。</p>
+      </div>
+    </section>
+    <section class="sec" data-sec="export"><h2 data-i18n="sec.export">匯出</h2>
+      <div class="field-row"><label for="prefExportBg" data-i18n="exp.bg">背景</label><select id="prefExportBg"><option value="transparent" data-i18n="exp.bg.transparent">透明</option><option value="green" data-i18n="exp.bg.green">綠幕</option><option value="dark" data-i18n="exp.bg.dark">深色</option></select></div>
+      <div class="field-row"><label for="prefRecSeconds" data-i18n="exp.length">錄影長度</label><select id="prefRecSeconds"><option value="3" data-i18n="exp.len.3">3 秒</option><option value="5" data-i18n="exp.len.5">5 秒</option><option value="10" data-i18n="exp.len.10">10 秒</option><option value="15" data-i18n="exp.len.15">15 秒</option><option value="30" data-i18n="exp.len.30">30 秒</option><option value="60" data-i18n="exp.len.60">60 秒</option></select></div>
+      <div class="field-row"><label for="prefRecFps" data-i18n="exp.fps">影格率</label><select id="prefRecFps"><option value="30">30fps</option><option value="60">60fps</option></select></div>
+      <div class="field-row"><label for="prefRecFormat" data-i18n="exp.format">格式</label><select id="prefRecFormat"></select></div>
+      <div class="btns">
+        <button class="btn" type="button" id="btnPng2" data-model-action disabled data-i18n="exp.png">儲存 PNG</button>
+        <button class="btn" type="button" id="btnRecord2" data-model-action disabled>開始錄影</button>
+      </div>
+      <p class="section-hint" id="recordStatus">影片會以原始的 PSD 尺寸匯出。WebM（Chrome / Edge）可以保留透明背景。</p>
+    </section>
+    <section class="sec" data-sec="save"><h2 data-i18n="sec.save">儲存與設定</h2>
+      <div class="btns">
+        <button class="btn" type="button" id="btnSaveSettings" data-model-action disabled title="儲存到這個瀏覽器（Ctrl+S）">儲存調整</button>
+        <button class="btn" type="button" id="btnRestoreSettings" data-model-action disabled data-i18n="save.restore">還原成已儲存的狀態</button>
+        <button class="btn" type="button" id="btnExportSettings" data-model-action disabled data-i18n="save.exportJson">匯出設定 JSON</button>
+        <button class="btn" type="button" id="btnImportSettings" data-model-action disabled data-i18n="save.importJson">讀取設定 JSON</button>
+        <button class="btn" type="button" id="btnReset" data-i18n="save.resetParams">重設數值</button>
+        <button class="btn" type="button" id="btnSavePsd" data-model-action disabled data-i18n="save.psd">儲存輕量 PSD</button>
+      </div>
+      <p class="section-hint" data-i18n="save.hint">調整會依模型分別儲存在這個瀏覽器。要帶到其他環境可以用 JSON（把 JSON 拖到預覽區也能讀取）。</p>
+      <input type="file" id="settingsInput" accept=".json,application/json" hidden>
+      <div id="utilStatus" role="status" aria-live="polite"></div>
+    </section>
+    <section class="sec" data-sec="background"><h2 data-i18n="sec.background">背景</h2>
+      <div class="btns">
+        <button class="btn" type="button" data-bg="checker" data-i18n="bg.checker">透明</button>
+        <button class="btn" type="button" data-bg="green" data-i18n="bg.green">綠幕</button>
+        <button class="btn" type="button" data-bg="dark" data-i18n="bg.dark">深色</button>
+      </div>
+    </section>
+    <section class="sec" data-sec="layers"><h2 data-i18n="sec.layers">圖層</h2><p class="section-hint" data-i18n="layers.hint">上方在後、下方在前。拖曳或按 ↑↓ 調整順序，按 ▸ 調整濃度與深度。</p><button class="btn compact" type="button" id="btnResetLayers" data-model-action disabled data-i18n="layers.reset">重設圖層設定</button><div id="layers"><p class="section-hint">讀取 PSD 後會顯示在這裡</p></div></section>
+    <section class="sec" data-sec="info"><h2 data-i18n="sec.info">模型資訊與診斷</h2><div id="rigInfo">未讀取模型</div><ul id="diagnostics"></ul></section>
+  </div>
+</div>
+<div class="overlay-dialog" id="readmeOverlay" role="dialog" aria-modal="true" aria-labelledby="readmeTitle"><div class="dialog-win">
+  <div class="dialog-head"><b id="readmeTitle" data-i18n="hdr.readme">使用說明</b><button class="btn" type="button" id="readmeClose" data-i18n-aria-label="dlg.readme.close" aria-label="關閉使用說明">✕</button></div>
+  <div class="dialog-body" id="readmeBody"></div>
+</div></div>
+<div class="overlay-dialog" id="shortcutOverlay" role="dialog" aria-modal="true" aria-labelledby="shortcutTitle"><div class="dialog-win narrow">
+  <div class="dialog-head"><b id="shortcutTitle" data-i18n="dlg.shortcuts.title">鍵盤快捷鍵</b><button class="btn" type="button" id="shortcutClose" data-i18n-aria-label="dlg.shortcuts.close" aria-label="關閉快捷鍵">✕</button></div>
+  <div class="dialog-body"><table class="shortcut-table" id="shortcutTable"></table></div>
+</div></div>
+<script src="../../assets/i18n.js"></script>
+<script src="i18n.anime-rig.js"></script>
+<script src="lib/ag-psd.min.js"></script>
+<script src="lib/rigger.js"></script>
+<script src="lib/genericparts.js"></script>
+<script src="lib/runtime.js"></script>
+<script src="lib/face-features.js"></script>
+<script src="lib/renderer.js"></script>
+<script src="lib/devices.js"></script>
+<script src="lib/recorder.js"></script>
+<script src="lib/obs-sync.js"></script>
+<script src="lib/app.js"></script>
+</body>
+</html>
