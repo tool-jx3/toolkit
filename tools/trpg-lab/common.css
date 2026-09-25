@@ -747,3 +747,32 @@ input[type='number']::-webkit-outer-spin-button {
         font-size: 1rem;
     }
 }
+/* 多了兩個控制項，窄螢幕放不下原本一行的站名：讓站名換成兩行、按鈕與選單縮一點。 */
+@media (max-width: 480px) {
+    .header-nav {
+        gap: 0.25rem;
+    }
+    .hbtn {
+        min-width: 2rem;
+        height: 2rem;
+        padding: 0 0.35rem;
+    }
+    .locale-select {
+        max-width: 5rem;
+        height: 2rem;
+        font-size: 0.75rem;
+        padding: 0 0.2rem;
+    }
+    .logo-text {
+        white-space: normal;
+        font-size: 0.85rem;
+        line-height: 1.15;
+        max-width: 7em;
+    }
+    .logo-en {
+        letter-spacing: 0.08em;
+    }
+    .header-inner {
+        gap: 0.5rem;
+    }
+}
