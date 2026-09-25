@@ -1600,7 +1600,7 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
-  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner'];
+  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -1625,7 +1625,7 @@ for (const card of homeCards) {
 }
 check('首頁標示原作者出處',
   ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
-    'woolwag3338', 'johnko00', 'baegop157902'].every(a => homeHtml.includes(`github.com/${a}`)));
+    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku'].every(a => homeHtml.includes(`github.com/${a}`)));
 
 /* ---- 內嵌文字與 zh-TW 字典一致 ---- */
 /* 六個頁面（五個工具＋首頁）在 script 執行前顯示的畫面，其 HTML 內嵌文字必須
@@ -1807,7 +1807,7 @@ for (const name of TOOLS) {
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
   '586b273', '0162787', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', 'd3bdf3c', 'fc05c98',
   '90f8442', 'a9a522c', 'aad63b1',
-  '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', '772d6c4']) {
+  '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
