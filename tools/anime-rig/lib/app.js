@@ -17,11 +17,20 @@ function smooth(t){t=clamp(t,0,1);return t*t*(3-2*t);}
 const round2=v=>Math.round(v*1000)/1000;
 $('appVersion').textContent='v'+APP_VERSION.replace(/\.0$/,'');
 I18N.mountSwitcher($('langSwitch'));
+// 收錄版：app.js 在 DOMContentLoaded 之前執行，先把標記換成目前的語言，
+// 之後從畫面讀取的文字（數值框的 aria-label、設定搜尋）才會是同一種語言。
+I18N.applyStaticDom();
+// 拖放區下方的訊息：傳入函式時存起來，切換語言時重新產生；傳入字串（讀取進度等）就照原樣顯示。
+let dropMessage=null;
+function setDropStatus(v){dropMessage=typeof v==='function'?v:null;$('dropStatus').textContent=dropMessage?dropMessage():v;}
+I18N.onChange(()=>{if(dropMessage)$('dropStatus').textContent=dropMessage();});
 
 // ---------- small helpers ----------
-const statusEl=$('appStatus');let statusTimer=null;
+// 收錄版：message 可以是函式，切換語言時會重新產生（見 renderLocale）；字串則照原樣顯示。
+const statusEl=$('appStatus');let statusTimer=null,statusShown=false,statusFn=null;
 function status(message,error=false){
-  statusEl.textContent=message;statusEl.classList.toggle('error',error);statusEl.classList.remove('fade');
+  statusShown=true;statusFn=typeof message==='function'?message:null;
+  statusEl.textContent=statusFn?statusFn():message;statusEl.classList.toggle('error',error);statusEl.classList.remove('fade');
   clearTimeout(statusTimer);if(!error)statusTimer=setTimeout(()=>statusEl.classList.add('fade'),6000);
 }
 function download(blob,name){
@@ -35,15 +44,16 @@ function baseFileName(){return RT.safeFileName(modelName,'avatar');}
 // ---------- WebGL ----------
 const cv=$('cv');
 const gl=cv.getContext('webgl',{alpha:true,antialias:true,premultipliedAlpha:true,preserveDrawingBuffer:false});
-if(!gl){$('dropStatus').textContent='このブラウザではWebGLを使用できません。ハードウェアアクセラレーションを有効にしてください。';return;}
+if(!gl){setDropStatus(()=>T('load.err.webgl'));return;}
 let renderer;
-try{renderer=window.RigRenderer.create(gl);}catch(err){$('dropStatus').textContent='描画の初期化に失敗しました: '+err.message;return;}
+try{renderer=window.RigRenderer.create(gl);}catch(err){const message=err.message;setDropStatus(()=>T('load.err.glInit',message));return;}
 const EXPORT_BG={transparent:[0,0,0,0],green:[0,177/255,64/255,1],dark:[20/255,21/255,28/255,1]};
 
 // ---------- model state (rebuilt per PSD) ----------
 let modelId='',modelName='',currentRig=null,background='checker',paused=false,contextLost=false,lastFrame=null,capturePending=false,dirty=true;
 let layers=[],A=null,baseAnchors=null,anchorOffsets={},CW=768,CH=768,FS=1,NP=null,BP=null,FC=null,CHEST=null,hasEyeClose2=false;
 let lastPsd=null,lastPre=null,anchorMode=false,anchorPreview=null,highlightLayer=null;
+let rigNoise=null;   // [noisy, total] from the last PSD load, shown under #rigInfo
 const bounce={x:0,v:0,dy:0};
 function invalidate(){dirty=true;}
 
@@ -59,10 +69,10 @@ function makeThumb(img){
 function prepareLayers(rig){
   const prepared=[],W=rig.canvas.w;
   const maxTexture=gl.getParameter(gl.MAX_TEXTURE_SIZE),maxViewport=gl.getParameter(gl.MAX_VIEWPORT_DIMS);
-  if(rig.canvas.w>maxViewport[0]||rig.canvas.h>maxViewport[1]||rig.canvas.w>maxTexture||rig.canvas.h>maxTexture)throw new Error('この端末の描画サイズ（'+Math.min(maxViewport[0],maxTexture)+'px）を超えています。PSDを縮小してください');
+  if(rig.canvas.w>maxViewport[0]||rig.canvas.h>maxViewport[1]||rig.canvas.w>maxTexture||rig.canvas.h>maxTexture)throw new Error(T('load.err.viewport',Math.min(maxViewport[0],maxTexture)));
   try{
     for(const Lr of rig.layers){
-      if(Lr.w>maxTexture||Lr.h>maxTexture)throw new Error('画像パーツがこの端末の上限 '+maxTexture+'px を超えています');
+      if(Lr.w>maxTexture||Lr.h>maxTexture)throw new Error(T('load.err.texture',maxTexture));
       const L=Object.assign({visible:true,opacity:1},Lr,{id:String(Lr.z)+':'+Lr.name});
       delete L.img;
       L.defaultDepth=L.depth;L.defaultOpacity=L.opacity;
@@ -117,12 +127,15 @@ function applyAnchors(){
   const ch=off('chest'),fh=A.face.y1-A.face.y0;
   CHEST={cx:NP.cx+(ch.dx||0),cy:A.neckBottom+fh*0.60+(ch.dy||0),rx:Math.max(1,(A.face.x1-A.face.x0)*0.60),ry:Math.max(1,fh*0.45)};
   for(const L of layers)buildBangWeights(L);
-  const n=Object.keys(anchorOffsets).length;
-  $('anchorSummary').textContent=n?n+'か所を手動で調整中':'すべて自動検出の位置です';
+  renderAnchorSummary();
   renderOverlay();invalidate();
 }
+function renderAnchorSummary(){
+  const n=Object.keys(anchorOffsets).length;
+  $('anchorSummary').textContent=n?T('anchor.summary.manual',n):T('anchor.summary.auto');
+}
 function applyRig(rig){
-  if(contextLost)throw new Error('描画の復旧を待ってから読み込んでください');
+  if(contextLost)throw new Error(T('load.err.contextLost'));
   const prepared=prepareLayers(rig);
   layers.forEach(renderer.dispose);layers=prepared;currentRig=rig;
   CW=rig.canvas.w;CH=rig.canvas.h;
@@ -133,7 +146,7 @@ function applyRig(rig){
   cv.width=CW;cv.height=CH;
   $('overlay').setAttribute('viewBox','0 0 '+CW+' '+CH);
   resetView();fit();
-  expandedLayers.clear();renderLayerList();renderDiagnostics(rig);
+  expandedLayers.clear();renderLayerList();rigNoise=null;renderDiagnostics(rig);
   $('drop').classList.add('hidden');
   document.querySelectorAll('[data-model-action]').forEach(b=>b.disabled=false);
   updateRecordAvailability();
@@ -149,9 +162,9 @@ function cancelLoad(){
   loaderWorker?.terminate();loaderWorker=null;
   cancelWorker?.(new DOMException('中止','AbortError'));cancelWorker=null;
   setLoading(false);
-  dropEl.classList.toggle('hidden',!!layers.length);dropStatus.textContent='';
+  dropEl.classList.toggle('hidden',!!layers.length);setDropStatus('');
 }
-function loadProgress(message){dropStatus.textContent=message;status(message);}
+function loadProgress(message){setDropStatus(message);status(message);}
 async function parseModel(buffer,generic,ticket){
   if(location.protocol!=='file:'&&typeof Worker!=='undefined'){
     return new Promise((resolve,reject)=>{
@@ -162,7 +175,7 @@ async function parseModel(buffer,generic,ticket){
         loaderWorker.terminate();loaderWorker=null;cancelWorker=null;
         if(ev.data.error)reject(new Error(ev.data.error));else resolve(ev.data);
       };
-      loaderWorker.onerror=ev=>{ev.preventDefault?.();loaderWorker?.terminate();loaderWorker=null;cancelWorker=null;reject(new Error('PSD解析を開始できません（メモリ不足の可能性があります）。localhostで開き直すか、PSDを縮小してください'));};
+      loaderWorker.onerror=ev=>{ev.preventDefault?.();loaderWorker?.terminate();loaderWorker=null;cancelWorker=null;reject(new Error(T('load.err.worker')));};
       // worker 裡沒有合輯的 i18n 引擎：把目前語言的字典一起傳過去，rigger.js 等的訊息才能翻譯。
       loaderWorker.postMessage({buffer,generic,messages:Object.assign({},I18N.messages['zh-TW'],I18N.messages[I18N.locale])},[buffer]);
     });
@@ -181,10 +194,10 @@ async function loadModel(source,name,opts={}){
   cancelLoad();const ticket=loadTicket;
   loadController=new AbortController();const signal=loadController.signal;
   setLoading(true);
-  dropEl.classList.remove('hidden');loadProgress(name+' を読み込み中…');
+  dropEl.classList.remove('hidden');loadProgress(T('load.reading',name));
   try{
-    if(!window.agPsd)throw new Error('lib/ag-psd.min.js が未読込です。ZIPを展開してから開く / lib フォルダを index.html と同じ階層に配置してください');
-    if(!window.Rigger)throw new Error('lib/rigger.js が未読込です。lib フォルダの配置を確認してください');
+    if(!window.agPsd)throw new Error(T('load.err.agPsd'));
+    if(!window.Rigger)throw new Error(T('load.err.rigger'));
     const got=await source(signal);
     let buf=got,displayName=name;
     if(got&&!(got instanceof ArrayBuffer)&&got.buffer instanceof ArrayBuffer){buf=got.buffer;displayName=got.name||name;}
@@ -203,21 +216,21 @@ async function loadModel(source,name,opts={}){
     document.title=(OBS_MODE?'OBS · ':'')+displayName+' — Anime2.5DRig';
     resetParams();restoreSettings(true);
     history.reset(historySnapshot());savedSettings=comparableSettings();updateHistoryButtons();updateDirty();
-    if(parsed.pre.noisy>0)$('rigInfo').textContent+='\nノイズ除去: '+parsed.pre.noisy+'/'+parsed.pre.layers+'レイヤー';
-    dropStatus.textContent='';
-    status(displayName+' を読み込みました');
+    if(parsed.pre.noisy>0){rigNoise=[parsed.pre.noisy,parsed.pre.layers];renderRigInfo();}
+    setDropStatus('');
+    status(()=>T('load.done',displayName));
     if(relayCopy)sync.publishModel(relayCopy,displayName,modelId);
     syncState(true);
     if(OBS_MODE)afterObsModel();
   }catch(err){
     if(ticket!==loadTicket||err.name==='AbortError')return;
-    dropStatus.textContent='エラー: '+err.message;status(dropStatus.textContent,true);
+    const message=err.message;setDropStatus(()=>T('load.error',message));status(()=>T('load.error',message),true);
     dropEl.classList.toggle('hidden',!!layers.length);
   }finally{
     if(ticket===loadTicket){setLoading(false);loadController=null;}
   }
 }
-$('btnCancelLoad').addEventListener('click',()=>{cancelLoad();status('読み込みを中止しました');});
+$('btnCancelLoad').addEventListener('click',()=>{cancelLoad();status(()=>T('load.cancelled'));});
 // 上游會先試著讀取 eye_close.psd／mouth_close.psd 當閉眼、閉嘴差分的原圖；
 // 收錄版不附這兩個檔案，一律使用 genericparts.js 內建的差分。
 const customGeneric=null;
@@ -232,8 +245,8 @@ $('btnFile').addEventListener('click',()=>$('fileInput').click());
 $('btnOpen').addEventListener('click',()=>$('fileInput').click());
 function loadFile(f){
   return loadModel(async()=>{
-    if(!/\.psd$/i.test(f.name))throw new Error('拡張子が .psd のファイルを選んでください');
-    if(f.size>RT.MAX_FILE_BYTES)throw new Error('PSDは128MB以下にしてください');
+    if(!/\.psd$/i.test(f.name))throw new Error(T('load.err.ext'));
+    if(f.size>RT.MAX_FILE_BYTES)throw new Error(T('load.err.tooLarge'));
     return f.arrayBuffer();
   },f.name);
 }
@@ -242,14 +255,14 @@ $('fileInput').addEventListener('change',ev=>{const f=ev.target.files[0];ev.targ
 function fetchSource(path){
   return async signal=>{
     const r=await fetch(path,{signal});
-    if(!r.ok)throw new Error(path+' が見つかりません（HTTP '+r.status+'）');
-    if(Number(r.headers.get('Content-Length'))>RT.MAX_FILE_BYTES)throw new Error('PSDは128MB以下にしてください');
+    if(!r.ok)throw new Error(T('load.err.notFound',path,r.status));
+    if(Number(r.headers.get('Content-Length'))>RT.MAX_FILE_BYTES)throw new Error(T('load.err.tooLarge'));
     return r.arrayBuffer();
   };
 }
 (function(){const miss=[];
   if(!window.agPsd)miss.push('ag-psd.min.js');if(!window.Rigger)miss.push('rigger.js');if(!window.GenericParts)miss.push('genericparts.js');
-  if(miss.length)dropStatus.textContent='⚠ lib/'+miss.join(', lib/')+' が読み込めていません（ZIP展開・libフォルダの配置を確認）';
+  if(miss.length){const list=miss.join(', lib/');setDropStatus(()=>T('load.err.libMissing',list));}
 })();
 // Drag & drop: PSD opens a model, JSON imports settings.
 let dragDepth=0;
@@ -286,11 +299,12 @@ const sliders={pAngleX:'angleX',pAngleY:'angleY',pAngleZ:'angleZ',pEyeL:'eyeOpen
   pEyeScaleL:'eyeScaleL',pEyeScaleR:'eyeScaleR',pMouthScale:'mouthScale',pAccAmp:'accAmp'};
 const sliderOf={};
 const parameterRanges={};
+const rangeBindings=[];   // 收錄版：切換語言時重設滑桿的 title 與數值框的 aria-label
 // Attach a number box to every range row. onValue(value, final) is called on edits.
 function bindRange(el,onValue){
   const v=el.parentNode.querySelector('.val'),label=el.parentNode.querySelector('label');label.htmlFor=el.id;
   const number=document.createElement('input');number.type='number';number.className='val';number.min=el.min;number.max=el.max;number.step=el.step;number.value=el.value;
-  number.setAttribute('aria-label',label.textContent+'の数値');v.replaceWith(number);
+  number.setAttribute('aria-label',T('p.number',label.textContent));v.replaceWith(number);rangeBindings.push({el,number,label});
   const range=[Number(el.min),Number(el.max)];
   el.addEventListener('input',()=>{number.value=el.value;onValue(Number(el.value),false);});
   el.addEventListener('change',()=>onValue(Number(el.value),true));
@@ -308,7 +322,7 @@ for(const id in sliders){
   });
   sliderOf[key]=b;parameterRanges[key]=b.range;
   el.addEventListener('dblclick',()=>{TGT[key]=b.set(DEFAULTS[key]);if(paused&&lastFrame)lastFrame[key]=TGT[key];invalidate();commitHistory();});
-  el.title='ダブルクリックで初期値に戻す';TGT[key]=Number(el.value);
+  el.title=T('p.dblclick');TGT[key]=Number(el.value);
 }
 function setSlider(key,val){
   const b=sliderOf[key];if(!b)return;
@@ -316,7 +330,7 @@ function setSlider(key,val){
 }
 
 const toggleIds={idle:'tgIdle',blink:'tgBlink',rand:'tgRand',talk:'tgTalk',cam:'tgCam',mouse:'tgMouse',mic:'tgMic',phys:'tgPhys'};
-const toggleLabels={cam:'カメラ追従',mic:'マイク口パク'};
+const toggleLabels={cam:'auto.cam',mic:'auto.mic'};   // dictionary keys
 function syncToggle(key){const el=$(toggleIds[key]);el.classList.toggle('on',auto[key]);el.setAttribute('aria-pressed',String(auto[key]));}
 function setAuto(key,value){
   const changed=auto[key]!==value;
@@ -353,17 +367,19 @@ function resetParams(){
   for(const key in sliderOf)setSlider(key,DEFAULTS[key]);
   Object.assign(cur,TGT);
 }
-$('btnReset').addEventListener('click',()=>{resetParams();commitHistory();$('utilStatus').textContent='全パラメータを初期値に戻しました';});
+// #utilStatus 的訊息存成函式，切換語言時重新產生。
+let utilMessage=null;
+function setUtilStatus(fn){utilMessage=fn;$('utilStatus').textContent=fn();}
+$('btnReset').addEventListener('click',()=>{resetParams();commitHistory();setUtilStatus(()=>T('save.resetDone'));});
 $('btnSavePsd').addEventListener('click',()=>{
-  const st=$('utilStatus');
-  if(!lastPsd){st.textContent='先にPSDを読み込んでください';return;}
+  if(!lastPsd){setUtilStatus(()=>T('save.noModel'));return;}
   try{
-    st.textContent='書き出し中…';
+    setUtilStatus(()=>T('save.exporting'));
     const out=window.agPsd.writePsd(lastPsd,{generateThumbnail:false});
     const blob=new Blob([out],{type:'application/octet-stream'});
     download(blob,baseFileName()+'_clean.psd');
-    st.textContent='軽量PSDを保存しました（'+(blob.size/1e6).toFixed(1)+'MB / ノイズ除去+トリム済み）';
-  }catch(err){st.textContent='書き出しエラー: '+err.message;}
+    const mb=(blob.size/1e6).toFixed(1);setUtilStatus(()=>T('save.psdDone',mb));
+  }catch(err){const message=err.message;setUtilStatus(()=>T('save.exportError',message));}
 });
 function setBackground(value){
   background=RT.BACKGROUNDS.includes(value)?value:'checker';
@@ -399,37 +415,37 @@ function applySettings(value,opts={}){
   setBackground(data.background);renderLayerList();invalidate();
   return data;
 }
-function layerDiffNote(data){const n=data.missingLayers+data.unknownLayers;return n?'（レイヤー構成の違い '+n+' 件は初期値のまま）':'';}
+function layerDiffNote(data){const n=data.missingLayers+data.unknownLayers;return n?T('save.layerDiff',n):'';}
 function restoreSettings(quiet=false){
   try{
     if(quiet)for(const k of RT.AUTO_KEYS)setAuto(k,autoDefaults[k]);
     const saved=storageGet('anime25d.settings.'+modelId);
-    if(!saved){if(!quiet)status('このモデルの保存済み調整はありません');return false;}
+    if(!saved){if(!quiet)status(()=>T('save.noneSaved'));return false;}
     const data=applySettings(JSON.parse(saved));
-    $('utilStatus').textContent='保存した調整を復元しました'+layerDiffNote(data);
+    setUtilStatus(()=>T('save.restored')+layerDiffNote(data));
     if(!quiet){commitHistory();savedSettings=comparableSettings();updateDirty();syncState(true);}
     return true;
-  }catch(err){$('utilStatus').textContent='調整を復元できません: '+err.message;return false;}
+  }catch(err){const message=err.message;setUtilStatus(()=>T('save.restoreError',message));return false;}
 }
 function saveSettings(){
   if(!layers.length)return;
-  try{storageSet('anime25d.settings.'+modelId,JSON.stringify(settingsSnapshot()));savedSettings=comparableSettings();updateDirty();status('このモデルの調整をブラウザに保存しました');}
-  catch(err){status('ブラウザに保存できません。設定JSONを書き出してください',true);}
+  try{storageSet('anime25d.settings.'+modelId,JSON.stringify(settingsSnapshot()));savedSettings=comparableSettings();updateDirty();status(()=>T('save.saved'));}
+  catch(err){status(()=>T('save.saveError'),true);}
 }
 $('btnSaveSettings').addEventListener('click',saveSettings);
 $('btnRestoreSettings').addEventListener('click',()=>restoreSettings());
-$('btnExportSettings').addEventListener('click',()=>{download(new Blob([JSON.stringify(settingsSnapshot(),null,2)],{type:'application/json'}),baseFileName()+'.rig.json');status('設定JSONを書き出しました');});
+$('btnExportSettings').addEventListener('click',()=>{download(new Blob([JSON.stringify(settingsSnapshot(),null,2)],{type:'application/json'}),baseFileName()+'.rig.json');status(()=>T('save.jsonExported'));});
 $('btnImportSettings').addEventListener('click',()=>$('settingsInput').click());
 async function importSettingsFile(f){
   const id=modelId;
   try{
-    if(!layers.length)throw new Error('先にPSDを読み込んでください');
-    if(f.size>1024*1024)throw new Error('設定JSONは1MB以下にしてください');
+    if(!layers.length)throw new Error(T('save.noModel'));
+    if(f.size>1024*1024)throw new Error(T('save.jsonTooLarge'));
     const value=JSON.parse(await f.text());
-    if(id!==modelId)throw new Error('モデルが切り替わりました。設定を選び直してください');
+    if(id!==modelId)throw new Error(T('save.modelChanged'));
     const data=applySettings(value);commitHistory();syncState(true);
-    status('設定を読み込みました'+layerDiffNote(data)+'。「調整を保存」で記憶できます');
-  }catch(err){status('設定を読み込めません: '+err.message,true);}
+    status(()=>T('save.imported',layerDiffNote(data)));
+  }catch(err){status(()=>T('save.importError',err.message),true);}
 }
 $('settingsInput').addEventListener('change',ev=>{const f=ev.target.files[0];ev.target.value='';if(f)importSettingsFile(f);});
 
@@ -455,25 +471,25 @@ function restoreHistory(snap,label){
   renderLayerList();invalidate();updateHistoryButtons();updateDirty();syncState(true);
   status(label);
 }
-function undo(){if(history.canUndo)restoreHistory(history.undo(),'元に戻しました');}
-function redo(){if(history.canRedo)restoreHistory(history.redo(),'やり直しました');}
+function undo(){if(history.canUndo)restoreHistory(history.undo(),()=>T('hist.undone'));}
+function redo(){if(history.canRedo)restoreHistory(history.redo(),()=>T('hist.redone'));}
 function updateHistoryButtons(){$('btnUndo').disabled=!history.canUndo;$('btnRedo').disabled=!history.canRedo;}
 $('btnUndo').addEventListener('click',undo);$('btnRedo').addEventListener('click',redo);
 function updateDirty(){
   unsaved=!!layers.length&&!OBS_MODE&&comparableSettings()!==savedSettings;
-  const b=$('btnSaveSettings');b.textContent=unsaved?'調整を保存 ●':'調整を保存';
-  b.title=unsaved?'未保存の変更があります（Ctrl+S）':'このブラウザに保存（Ctrl+S）';
+  const b=$('btnSaveSettings');b.textContent=T('save.btn')+(unsaved?' ●':'');
+  b.title=T(unsaved?'save.titleDirty':'save.title');
 }
 window.addEventListener('beforeunload',e=>{if(unsaved){e.preventDefault();e.returnValue='';}});
 
 function togglePause(){
-  paused=!paused;const b=$('btnPause');b.textContent=paused?'再生':'一時停止';b.setAttribute('aria-pressed',String(paused));
-  invalidate();status(paused?'一時停止中 — 数値を調整して静止画を保存できます':'再生中');
+  paused=!paused;const b=$('btnPause');b.textContent=T(paused?'hdr.play':'hdr.pause');b.setAttribute('aria-pressed',String(paused));
+  const now=paused;invalidate();status(()=>T(now?'msg.paused':'msg.playing'));
 }
 $('btnPause').addEventListener('click',togglePause);
 $('btnResetLayers').addEventListener('click',()=>{
   layers.sort((a,b)=>a.z-b.z);for(const L of layers){L.visible=true;L.depth=L.defaultDepth;L.opacity=L.defaultOpacity;}
-  renderLayerList();invalidate();commitHistory();status('レイヤー設定を初期化しました');
+  renderLayerList();invalidate();commitHistory();status(()=>T('layers.resetDone'));
 });
 
 // ---------- export: PNG / video ----------
@@ -485,10 +501,13 @@ function updateRecordAvailability(){
   const formats=window.RigRecorder?window.RigRecorder.formats():[];
   const ok=formats.length&&typeof cv.captureStream==='function';
   for(const id of ['btnRecord','btnRecord2'])if(!ok)$(id).disabled=true;
-  if(!ok)$('recordStatus').textContent='このブラウザは動画書き出しに対応していません（Chrome / Edge / Firefox を使用してください）';
+  if(!ok){recordUnsupported=true;renderRecordStatus();}
 }
+let recordUnsupported=false,recordingUi=false;
+function renderRecordStatus(){$('recordStatus').textContent=T(recordUnsupported?'rec.unsupported':'exp.hint');}
 function setRecordingUi(on){
-  $('btnRecord').textContent=on?'録画を停止':'録画';$('btnRecord2').textContent=on?'録画を停止して保存':'録画を開始';
+  recordingUi=on;
+  $('btnRecord').textContent=T(on?'hdr.recordStop':'hdr.record');$('btnRecord2').textContent=T(on?'exp.recordStop':'exp.recordStart');
   $('btnRecord').classList.toggle('recording',on);$('btnRecord2').classList.toggle('recording',on);$('recBadge').hidden=!on;
 }
 async function toggleRecording(){
@@ -500,10 +519,10 @@ async function toggleRecording(){
     const res=await recorder.start({seconds:prefs.recSeconds,fps:prefs.recFps,format:fmt,
       onProgress:(t,total)=>{$('recBadge').textContent='● REC '+t.toFixed(1)+' / '+total+'s';}});
     download(res.blob,baseFileName()+'.'+res.format.ext);
-    const note=prefs.exportBg==='transparent'&&!res.format.alpha?'（この形式は透過を保持しません）':'';
-    status('動画を書き出しました（'+CW+' × '+CH+'px・'+res.seconds.toFixed(1)+'秒・'+(res.blob.size/1e6).toFixed(1)+'MB）'+note);
+    const noAlpha=prefs.exportBg==='transparent'&&!res.format.alpha,w=CW,h=CH,sec=res.seconds.toFixed(1),mb=(res.blob.size/1e6).toFixed(1);
+    status(()=>T('rec.done',w,h,sec,mb,noAlpha?T('rec.noAlpha'):''));
   }catch(err){
-    if(err.name==='AbortError')status('録画を中止しました');else status('録画できません: '+err.message,true);
+    if(err.name==='AbortError')status(()=>T('rec.cancelled'));else status(()=>T('rec.error',err.message),true);
   }finally{setRecordingUi(false);invalidate();}
 }
 $('btnRecord').addEventListener('click',toggleRecording);$('btnRecord2').addEventListener('click',toggleRecording);
@@ -574,13 +593,17 @@ I18N.onChange(()=>{if($('readmeOverlay').classList.contains('show'))loadReadme()
 $('btnReadme').addEventListener('click',openReadme);$('btnReadme2').addEventListener('click',openReadme);
 $('readmeClose').addEventListener('click',closeDialog);$('shortcutClose').addEventListener('click',closeDialog);
 document.querySelectorAll('.overlay-dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d)closeDialog();}));
+// 收錄版：說明存成字典 key，顯示時才以 T() 取得（切換語言時重畫）；{key} 是要翻譯的按鍵名稱。
 const SHORTCUTS=[
-  [['Space'],'一時停止 / 再生'],[['1','〜','7'],'表情プリセット（同じキーで解除）'],[['0'],'表情プリセットを解除'],
-  [['Ctrl','Z'],'元に戻す'],[['Ctrl','Shift','Z'],'やり直す（Ctrl+Y も可）'],[['Ctrl','S'],'調整をブラウザに保存'],
-  [['Ctrl','O'],'PSDを開く'],[['E'],'アンカー編集モード'],[['F'],'プレビューを全体表示に戻す'],
-  [['B'],'背景を切り替え'],[['ホイール'],'プレビューの拡大・縮小'],[['ドラッグ'],'拡大中のプレビューを移動'],
-  [['ダブルクリック'],'プレビューを全体表示に戻す'],[['?'],'この一覧を表示'],[['Esc'],'ダイアログ・アンカー編集を閉じる']];
-$('shortcutTable').innerHTML=SHORTCUTS.map(([keys,desc])=>'<tr><td>'+keys.map(k=>k==='〜'?'〜':'<kbd>'+k+'</kbd>').join(' ')+'</td><td>'+desc+'</td></tr>').join('');
+  [['Space'],'sc.pause'],[['1','〜','7'],'sc.preset'],[['0'],'sc.presetClear'],
+  [['Ctrl','Z'],'hdr.undo'],[['Ctrl','Shift','Z'],'sc.redo'],[['Ctrl','S'],'sc.save'],
+  [['Ctrl','O'],'hdr.open'],[['E'],'sc.anchor'],[['F'],'sc.fit'],
+  [['B'],'sc.bg'],[[{key:'sc.key.wheel'}],'sc.zoom'],[[{key:'sc.key.drag'}],'sc.pan'],
+  [[{key:'sc.key.dblclick'}],'sc.fit'],[['?'],'sc.help'],[['Esc'],'sc.esc']];
+function renderShortcuts(){
+  $('shortcutTable').innerHTML=SHORTCUTS.map(([keys,desc])=>'<tr><td>'+keys.map(k=>k==='〜'?'〜':'<kbd>'+(typeof k==='string'?k:T(k.key))+'</kbd>').join(' ')+'</td><td>'+T(desc)+'</td></tr>').join('');
+}
+renderShortcuts();
 $('btnShortcuts').addEventListener('click',()=>openDialog('shortcutOverlay','shortcutClose'));
 
 // ---------- keyboard ----------
@@ -627,10 +650,10 @@ const expandedLayers=new Set();let dragLayerIndex=-1;
 function layerRole(L){
   const parts=[];
   const role=window.Rigger.roleLabel?window.Rigger.roleLabel(L.bn):null;
-  parts.push(role||(L.unknown?'未分類 → '+(L.group==='head'?'頭':'体')+'に追従':L.bn));
-  if(L.side)parts.push(L.side==='L'?'左':'右');
-  if(L.strands&&L.strands.length)parts.push((L.phys==='sway'?'揺れ':'房')+L.strands.length);
-  if(L.synthetic)parts.push('自動生成');
+  parts.push(role||(L.unknown?T('layers.unknown',T(L.group==='head'?'group.head':'group.body')):L.bn));
+  if(L.side)parts.push(T(L.side==='L'?'layers.side.L':'layers.side.R'));
+  if(L.strands&&L.strands.length)parts.push(T(L.phys==='sway'?'layers.sway':'layers.strands',L.strands.length));
+  if(L.synthetic)parts.push(T('layers.synthetic'));
   return parts.join(' · ');
 }
 function moveLayer(from,to){
@@ -643,14 +666,14 @@ function renderLayerList(){
   layers.forEach((L,i)=>{
     const card=document.createElement('div');card.className='layer-card';card.classList.toggle('is-hidden',!L.visible);card.dataset.index=i;
     const top=document.createElement('div');top.className='layer-top';
-    const thumb=document.createElement('img');thumb.className='layer-thumb';thumb.alt='';thumb.draggable=true;thumb.title='ドラッグで並べ替え';
+    const thumb=document.createElement('img');thumb.className='layer-thumb';thumb.alt='';thumb.draggable=true;thumb.title=T('layers.drag');
     if(L.thumb)thumb.src=L.thumb;
     thumb.addEventListener('dragstart',e=>{dragLayerIndex=i;card.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/x-anime25d-layer',String(i));});
     thumb.addEventListener('dragend',()=>{dragLayerIndex=-1;card.classList.remove('dragging');container.querySelectorAll('.drag-over').forEach(c=>c.classList.remove('drag-over'));});
     card.addEventListener('dragover',e=>{if(dragLayerIndex<0)return;e.preventDefault();card.classList.add('drag-over');});
     card.addEventListener('dragleave',()=>card.classList.remove('drag-over'));
     card.addEventListener('drop',e=>{if(dragLayerIndex<0)return;e.preventDefault();e.stopPropagation();moveLayer(dragLayerIndex,i);});
-    const visible=document.createElement('input');visible.type='checkbox';visible.checked=L.visible;visible.setAttribute('aria-label',(L.source||L.name)+'を表示');
+    const visible=document.createElement('input');visible.type='checkbox';visible.checked=L.visible;visible.setAttribute('aria-label',T('layers.show',L.source||L.name));
     visible.addEventListener('change',()=>{L.visible=visible.checked;card.classList.toggle('is-hidden',!L.visible);invalidate();commitHistory();});
     const text=document.createElement('div');text.className='layer-text';
     const name=document.createElement('span');name.className='layer-name';name.textContent=L.source||L.name;name.title=(L.source||L.name)+(L.source&&L.source!==L.name?' → '+L.name:'');
@@ -659,19 +682,20 @@ function renderLayerList(){
     top.append(thumb,visible,text);
     for(const d of [-1,1]){
       const b=document.createElement('button');b.type='button';b.className='ord';b.textContent=d<0?'↑':'↓';
-      b.setAttribute('aria-label',(L.source||L.name)+(d<0?'を奥へ':'を手前へ'));b.disabled=i+d<0||i+d>=layers.length;
+      b.setAttribute('aria-label',T(d<0?'layers.back':'layers.front',L.source||L.name));b.disabled=i+d<0||i+d>=layers.length;
       b.addEventListener('click',()=>{moveLayer(i,i+d);container.children[i+d]?.querySelector(d<0?'.ord':'.ord:nth-of-type(2)')?.focus();});
       top.append(b);
     }
     const more=document.createElement('button');more.type='button';more.className='more';
-    const open=expandedLayers.has(L.id);more.textContent=open?'▾':'▸';more.setAttribute('aria-expanded',String(open));more.setAttribute('aria-label',(L.source||L.name)+'の詳細');
+    const open=expandedLayers.has(L.id);more.textContent=open?'▾':'▸';more.setAttribute('aria-expanded',String(open));more.setAttribute('aria-label',T('layers.details',L.source||L.name));
     top.append(more);card.append(top);
     const details=document.createElement('div');details.className='layer-details';details.hidden=!open;
     more.addEventListener('click',()=>{const now=!expandedLayers.has(L.id);if(now)expandedLayers.add(L.id);else expandedLayers.delete(L.id);details.hidden=!now;more.textContent=now?'▾':'▸';more.setAttribute('aria-expanded',String(now));});
-    for(const [key,label,max] of [['opacity','濃さ',1],['depth','奥行き',2]]){
+    for(const [key,labelKey,max] of [['opacity','layers.opacity',1],['depth','layers.depth',2]]){
+      const label=T(labelKey);
       const row=document.createElement('div');row.className='row';const caption=document.createElement('label');caption.textContent=label;
-      const range=document.createElement('input');range.type='range';range.min='0';range.max=String(max);range.step='0.01';range.value=L[key];range.id='layer-'+i+'-'+key;caption.htmlFor=range.id;range.setAttribute('aria-label',(L.source||L.name)+'の'+label);
-      const value=document.createElement('input');value.type='number';value.min='0';value.max=String(max);value.step='0.01';value.value=L[key];value.setAttribute('aria-label',(L.source||L.name)+'の'+label+'の数値');
+      const range=document.createElement('input');range.type='range';range.min='0';range.max=String(max);range.step='0.01';range.value=L[key];range.id='layer-'+i+'-'+key;caption.htmlFor=range.id;range.setAttribute('aria-label',T('layers.param',L.source||L.name,label));
+      const value=document.createElement('input');value.type='number';value.min='0';value.max=String(max);value.step='0.01';value.value=L[key];value.setAttribute('aria-label',T('layers.paramNumber',L.source||L.name,label));
       range.addEventListener('input',()=>{L[key]=Number(range.value);value.value=range.value;invalidate();syncState();});
       range.addEventListener('change',commitHistory);
       value.addEventListener('input',()=>{if(value.value!==''&&Number.isFinite(value.valueAsNumber)){L[key]=RT.clamp(value.valueAsNumber,0,max);range.value=L[key];invalidate();}});
@@ -683,34 +707,41 @@ function renderLayerList(){
     card.addEventListener('mouseleave',()=>{if(highlightLayer===L.id){highlightLayer=null;renderOverlay();}});
     container.append(card);
   });
-  if(!layers.length){const p=document.createElement('p');p.className='section-hint';p.textContent='PSDの読み込み後に表示されます';container.append(p);}
+  if(!layers.length){const p=document.createElement('p');p.className='section-hint';p.textContent=T('layers.empty');container.append(p);}
   applySearch();
 }
 
 // ---------- diagnostics ----------
+// 上游以訊息文字挑出「空白圖層」與「錨點不完整」兩種警告；收錄版的警告是 { key, args }，改比對 key。
+const SHOWN_WARNINGS=['rig.warn.emptyLayer','rig.warn.eyeAnchor'];
+function warningText(w){return T(w.key,...(w.args||[]).map(a=>a&&typeof a==='object'?T(a.key):a));}
+function renderRigInfo(){
+  if(!currentRig){$('rigInfo').textContent=T('model.none');return;}
+  const nStr=layers.reduce((s,L)=>s+(L.strands?L.strands.length:0),0);
+  $('rigInfo').textContent=T('diag.summary',layers.length,nStr,CW,CH)+(rigNoise?'\n'+T('diag.noise',rigNoise[0],rigNoise[1]):'');
+}
 function renderDiagnostics(rig){
   const list=$('diagnostics');list.replaceChildren();
   const real=bn=>layers.filter(L=>L.bn===bn&&!L.synthetic),synth=bn=>layers.some(L=>L.bn===bn&&L.synthetic);
   const sides=bn=>new Set(real(bn).map(L=>L.side).filter(Boolean)).size;
   const add=(cls,text,note)=>{const li=document.createElement('li');li.className=cls;li.textContent=text;if(note){const s=document.createElement('small');s.textContent=' — '+note;li.append(s);}list.append(li);};
-  const eyePart=(bn,label,required)=>{const n=sides(bn);if(n>=2)add('ok',label);else if(n===1)add('warn',label,'片側だけ見つかりました');else add(required?'bad':'warn',label,'見つかりません');};
-  add(real('face').length?'ok':'bad','顔（face）',real('face').length?'':'見つからないため顔の位置を推定しています');
-  eyePart('eyewhite','白目（eyewhite）',true);eyePart('irides','瞳（irides）',true);eyePart('eyelash','まつ毛（eyelash）',false);
+  const eyePart=(bn,label,required)=>{const n=sides(bn);if(n>=2)add('ok',label);else if(n===1)add('warn',label,T('diag.oneSide'));else add(required?'bad':'warn',label,T('diag.missing'));};
+  add(real('face').length?'ok':'bad',T('diag.face'),real('face').length?'':T('diag.faceGuess'));
+  eyePart('eyewhite',T('diag.eyewhite'),true);eyePart('irides',T('diag.irides'),true);eyePart('eyelash',T('diag.eyelash'),false);
   const ec=sides('eye_close');
-  if(ec>=2)add('ok','閉じ目（eye_close）');else if(synth('eye_close'))add('auto','閉じ目','汎用差分を自動配置（「目」の差分バーで調整可）');else add('warn','閉じ目（eye_close）','まぶたの圧縮だけでまばたきします');
-  if(layers.some(L=>L.bn==='eye_close2'))add('ok','長い閉じ目（eye_close2）');
-  eyePart('eyebrow','眉（eyebrow）',false);
-  add(real('mouth_open').length?'ok':'bad','開き口（mouth_open）',real('mouth_open').length?'':'口パクできません');
-  if(real('mouth_close').length)add('ok','閉じ口（mouth_close）');else if(synth('mouth_close'))add('auto','閉じ口','汎用差分を自動配置（「口」のバーで調整可）');else add('warn','閉じ口（mouth_close）','見つかりません');
+  if(ec>=2)add('ok',T('diag.eyeClose'));else if(synth('eye_close'))add('auto',T('diag.eyeCloseShort'),T('diag.eyeCloseAuto'));else add('warn',T('diag.eyeClose'),T('diag.eyeCloseNone'));
+  if(layers.some(L=>L.bn==='eye_close2'))add('ok',T('diag.eyeClose2'));
+  eyePart('eyebrow',T('diag.eyebrow'),false);
+  add(real('mouth_open').length?'ok':'bad',T('diag.mouthOpen'),real('mouth_open').length?'':T('diag.noLipSync'));
+  if(real('mouth_close').length)add('ok',T('diag.mouthClose'));else if(synth('mouth_close'))add('auto',T('diag.mouthCloseShort'),T('diag.mouthCloseAuto'));else add('warn',T('diag.mouthClose'),T('diag.missing'));
   const strands=bn=>layers.filter(L=>L.bn===bn).reduce((s,L)=>s+(L.strands?L.strands.length:0),0);
   const hair=['front hair','side hair','ahoge','back hair'].filter(bn=>layers.some(L=>L.bn===bn));
-  if(hair.length)add('ok','髪の物理',hair.map(bn=>(Rigger.roleLabel(bn)||bn)+' '+strands(bn)+'房').join('・'));
-  else add('warn','髪の物理','front hair / back hair（前髪・後ろ髪）が見つかりません');
+  if(hair.length)add('ok',T('diag.hair'),hair.map(bn=>T('diag.hairStrands',Rigger.roleLabel(bn)||bn,strands(bn))).join(T('diag.hairSep')));
+  else add('warn',T('diag.hair'),T('diag.hairNone'));
   const unknown=layers.filter(L=>L.unknown);
-  if(unknown.length)add('warn','未分類のレイヤー '+unknown.length+'件',unknown.map(L=>L.source||L.name).join('、')+'（名前を規約に合わせると動きが付きます）');
-  for(const w of rig.warnings)if(/空のレイヤー|アンカー/.test(w))add('warn',w);
-  const nStr=layers.reduce((s,L)=>s+(L.strands?L.strands.length:0),0);
-  $('rigInfo').textContent=layers.length+'パーツ / 揺れもの'+nStr+'本を自動リグ\n'+CW+' × '+CH+'px';
+  if(unknown.length)add('warn',T('diag.unknown',unknown.length),T('diag.unknownNote',unknown.map(L=>L.source||L.name).join('、')));
+  for(const w of rig.warnings)if(SHOWN_WARNINGS.includes(w.key))add('warn',warningText(w));
+  renderRigInfo();
 }
 
 // ---------- panel: collapse & search ----------
@@ -720,9 +751,11 @@ document.querySelectorAll('#panel .sec > h2').forEach(h=>{
   h.addEventListener('click',()=>{collapseSection(h.parentNode,!h.parentNode.classList.contains('collapsed'));saveCollapsed();});
   h.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();h.click();}});
 });
+let collapseLabel='panel.collapseAll';   // 目前「全部收合／全部展開」按鈕的字典 key
 function saveCollapsed(){
   prefs.collapsed=[...document.querySelectorAll('#panel .sec.collapsed')].map(s=>s.dataset.sec);savePrefs();
-  const all=[...document.querySelectorAll('#panel .sec')];$('btnCollapse').textContent=all.every(s=>s.classList.contains('collapsed'))?'すべて開く':'すべて畳む';
+  const all=[...document.querySelectorAll('#panel .sec')];collapseLabel=all.every(s=>s.classList.contains('collapsed'))?'panel.expandAll':'panel.collapseAll';
+  $('btnCollapse').textContent=T(collapseLabel);
 }
 $('btnCollapse').addEventListener('click',()=>{const all=[...document.querySelectorAll('#panel .sec')],value=all.some(s=>!s.classList.contains('collapsed'));for(const s of all)collapseSection(s,value);saveCollapsed();});
 const FILTER_ITEMS='.row,.toggles>*,.btns>*,.layer-card,.check-row,.field-row,.copy-row,.meter';
@@ -756,7 +789,7 @@ function fit(){
 function applyView(){
   vp.style.transform='translate('+(baseLeft+view.x)+'px,'+(baseTop+view.y)+'px) scale('+view.z+')';
   const isFit=view.z===1&&!view.x&&!view.y;
-  $('btnZoom').textContent=isFit?'全体':Math.round(fitScale*view.z*100)+'%';
+  $('btnZoom').textContent=isFit?T('stage.fit'):Math.round(fitScale*view.z*100)+'%';
   renderOverlay();
 }
 function resetView(){view.z=1;view.x=0;view.y=0;applyView();}
@@ -802,15 +835,15 @@ const overlay=$('overlay'),SVG_NS='http://www.w3.org/2000/svg';
 function svg(tag,attrs){const el=document.createElementNS(SVG_NS,tag);for(const k in attrs)el.setAttribute(k,attrs[k]);return el;}
 function anchorHandles(){
   const out=[];if(!A)return out;
-  out.push({key:'face',label:'顔の中心',x:A.face.cx,y:A.face.cy,axes:['dx','dy']});
+  out.push({key:'face',label:T('anchor.face'),x:A.face.cx,y:A.face.cy,axes:['dx','dy']});
   for(const s of ['L','R']){
-    const e=A['eye'+s];if(!e)continue;const name=s==='L'?'左目':'右目';
+    const e=A['eye'+s];if(!e)continue;const name=T(s==='L'?'anchor.eyeL':'anchor.eyeR');
     out.push({key:'eye'+s,label:name,x:e.icx,y:e.icy,axes:['dx','dy'],place:'above'});
-    out.push({key:'eye'+s+'Close',label:name+' 閉じ位置',x:s==='L'?e.x0-4:e.x1+4,y:e.closeY,axes:['dy'],cls:'close',guide:[e.x0,e.x1],place:s==='L'?'left':'right'});
+    out.push({key:'eye'+s+'Close',label:T('anchor.close',name),x:s==='L'?e.x0-4:e.x1+4,y:e.closeY,axes:['dy'],cls:'close',guide:[e.x0,e.x1],place:s==='L'?'left':'right'});
   }
-  out.push({key:'mouth',label:'口',x:A.mouth.cx,y:A.mouth.cy,axes:['dx','dy']});
-  out.push({key:'neck',label:'首の回転軸',x:NP.cx,y:NP.cy,axes:['dx','dy']});
-  if(layers.some(L=>L.bn==='topwear'))out.push({key:'chest',label:'胸',x:CHEST.cx,y:CHEST.cy+TGT.bustY*70*FS,axes:['dx','dy'],cls:'chest'});
+  out.push({key:'mouth',label:T('anchor.mouth'),x:A.mouth.cx,y:A.mouth.cy,axes:['dx','dy']});
+  out.push({key:'neck',label:T('anchor.neck'),x:NP.cx,y:NP.cy,axes:['dx','dy']});
+  if(layers.some(L=>L.bn==='topwear'))out.push({key:'chest',label:T('anchor.chest'),x:CHEST.cx,y:CHEST.cy+TGT.bustY*70*FS,axes:['dx','dy'],cls:'chest'});
   return out;
 }
 let dragAnchor=null;
@@ -825,7 +858,7 @@ function renderOverlay(){
   if(!anchorMode)return;
   for(const h of anchorHandles()){
     if(h.guide)overlay.append(svg('line',{class:'guide',x1:h.guide[0],x2:h.guide[1],y1:h.y,y2:h.y,'stroke-width':u,'stroke-dasharray':4*u+' '+4*u}));
-    const g=svg('g',{class:'handle'+(h.cls?' '+h.cls:''),tabindex:'0',role:'button','aria-label':h.label+'（ドラッグまたは矢印キーで移動）','data-key':h.key});
+    const g=svg('g',{class:'handle'+(h.cls?' '+h.cls:''),tabindex:'0',role:'button','aria-label':T('anchor.handle',h.label),'data-key':h.key});
     if(dragAnchor&&dragAnchor.key===h.key)g.classList.add('dragging');
     g.append(svg('circle',{cx:h.x,cy:h.y,r:7*u,'stroke-width':2*u}));
     const place=h.place||'right';
@@ -883,11 +916,11 @@ function setAnchorMode(on){
   $('anchorHint').hidden=!on;
   if(!on)Object.assign(cur,TGT);
   renderOverlay();invalidate();
-  if(on)status('アンカー編集中 — 静止したポーズで基準点を調整します');
+  if(on)status(()=>T('anchor.editing'));
 }
 $('btnAnchorMode').addEventListener('click',()=>setAnchorMode(!anchorMode));
 $('btnAnchorMode2').addEventListener('click',()=>setAnchorMode(!anchorMode));
-$('btnResetAnchors').addEventListener('click',()=>{anchorOffsets={};applyAnchors();commitHistory();syncState(true);status('アンカーを自動検出の位置に戻しました');});
+$('btnResetAnchors').addEventListener('click',()=>{anchorOffsets={};applyAnchors();commitHistory();syncState(true);status(()=>T('anchor.resetDone'));});
 
 // ---------- preferences (per browser) ----------
 const PREF_SCHEMA={
@@ -907,7 +940,7 @@ for(const [id,key] of Object.entries(prefSliders)){
   const el=$(id);el.value=prefs[key];
   const b=bindRange(el,value=>{prefs[key]=value;savePrefs();tracker.setOptions(trackerOptions());});
   el.addEventListener('dblclick',()=>{prefs[key]=b.set(PREF_SCHEMA[key][2]);savePrefs();tracker.setOptions(trackerOptions());});
-  el.title='ダブルクリックで初期値に戻す';
+  el.title=T('p.dblclick');
 }
 const prefChecks={prefLinkEyes:'linkEyes',prefTrackBrow:'trackBrow',prefTrackSmile:'trackSmile',prefCamPreview:'camPreview',prefObsSync:'obsSync'};
 for(const [id,key] of Object.entries(prefChecks)){
@@ -915,8 +948,11 @@ for(const [id,key] of Object.entries(prefChecks)){
   el.addEventListener('change',()=>{prefs[key]=el.checked;savePrefs();tracker.setOptions(trackerOptions());if(key==='camPreview')updateCamPreview();if(key==='obsSync'){sync.setEnabled(el.checked);syncState(true);}});
 }
 const formatSelect=$('prefRecFormat');
-(window.RigRecorder?window.RigRecorder.formats():[]).forEach(f=>{const o=document.createElement('option');o.value=f.mime;o.textContent=f.label;formatSelect.append(o);});
-if(!formatSelect.options.length){const o=document.createElement('option');o.textContent='（非対応）';formatSelect.append(o);formatSelect.disabled=true;}
+// 收錄版：選項文字存成字典 key（data-label-key），切換語言時重畫。「不支援」的選項明訂 value=''，
+// 儲存的偏好設定才不會隨介面語言改變。
+(window.RigRecorder?window.RigRecorder.formats():[]).forEach(f=>{const o=document.createElement('option');o.value=f.mime;o.dataset.labelKey=f.labelKey;o.textContent=T(f.labelKey);formatSelect.append(o);});
+if(!formatSelect.options.length){const o=document.createElement('option');o.value='';o.dataset.labelKey='exp.formatNone';o.textContent=T('exp.formatNone');formatSelect.append(o);formatSelect.disabled=true;}
+function renderFormatOptions(){for(const o of formatSelect.options)if(o.dataset.labelKey)o.textContent=T(o.dataset.labelKey);}
 if([...formatSelect.options].some(o=>o.value===prefs.recFormat))formatSelect.value=prefs.recFormat;else prefs.recFormat=formatSelect.value;
 $('prefExportBg').value=prefs.exportBg;$('prefRecSeconds').value=String(prefs.recSeconds);$('prefRecFps').value=String(prefs.recFps);
 if(!$('prefRecSeconds').value)$('prefRecSeconds').value='5';
@@ -937,12 +973,13 @@ const tracker=new FF.Tracker(trackerOptions());
 tracker.setCalibration(prefs.calibration);
 const cam={live:false,ax:0,ay:0,az:0,eL:1,eR:1,mo:0,ex:0,ey:0,br:0,mf:0};
 let lastTrackingAt=0,camPhysScale=1,remoteMic=0,remoteMicAt=0,micLevel=0;
-function camChip(text,busy){const el=$('tgCam');el.textContent=text;el.classList.toggle('busy',!!busy);}
+let camChipKey=toggleLabels.cam,camChipBusy=false;
+function camChip(key,busy){camChipKey=key;camChipBusy=!!busy;const el=$('tgCam');el.textContent=T(key);el.classList.toggle('busy',!!busy);}
 const camera=window.RigDevices.createCamera({
   preview:$('camCanvas'),
   onState:(s,msg)=>{
-    if(s==='loading')camChip('カメラ準備中…',true);
-    else if(s==='on'){camChip('カメラ追従中');tracker.reset();}
+    if(s==='loading')camChip('auto.camLoading',true);
+    else if(s==='on'){camChip('auto.camOn');tracker.reset();}
     else camChip(toggleLabels.cam);
     if(s==='error'){auto.cam=false;syncToggle('cam');status(msg,true);cam.live=false;sync.publishTracking(liveTracking(),true);updateLiveTicker();}
     $('btnCalibrate').disabled=s!=='on';updateCamPreview();
@@ -955,8 +992,8 @@ const camera=window.RigDevices.createCamera({
   }
 });
 function startCam(){
-  if(OBS_MODE){status('通常ブラウザからの追跡を待っています');return;}
-  camera.start().catch(err=>{auto.cam=false;syncToggle('cam');camChip(toggleLabels.cam);status('カメラを開始できません: '+err.message,true);updateLiveTicker();});
+  if(OBS_MODE){status(()=>T('cam.obsWaiting'));return;}
+  camera.start().catch(err=>{auto.cam=false;syncToggle('cam');camChip(toggleLabels.cam);status(()=>T('cam.startError',err.message),true);updateLiveTicker();});
 }
 function stopCam(){
   if(OBS_MODE)return;
@@ -964,11 +1001,11 @@ function stopCam(){
 }
 function updateCamPreview(){$('camPreview').hidden=OBS_MODE||!prefs.camPreview||!camera.active;}
 $('camPreviewClose').addEventListener('click',()=>{prefs.camPreview=false;$('prefCamPreview').checked=false;savePrefs();updateCamPreview();});
-function calibrationText(){$('calibrationStatus').textContent=prefs.calibration?'記録済み（あなたの自然な表情を基準に判定します）':'未記録（標準の顔の比率で判定します）';$('btnClearCalibration').disabled=!prefs.calibration;}
+function calibrationText(){$('calibrationStatus').textContent=T(prefs.calibration?'cal.done':'cal.none');$('btnClearCalibration').disabled=!prefs.calibration;}
 calibrationText();
 $('btnCalibrate').addEventListener('click',()=>{
   if(!camera.active)return;
-  tracker.startCalibration();$('btnCalibrate').disabled=true;status('正面を向いて、自然な表情のまま1秒ほどお待ちください…');
+  tracker.startCalibration();$('btnCalibrate').disabled=true;status(()=>T('cal.hold'));
   // Average at least 1 s and 5 frames (slow PCs track fewer frames per second).
   const started=performance.now();
   const poll=setInterval(()=>{
@@ -976,20 +1013,21 @@ $('btnCalibrate').addEventListener('click',()=>{
     if(camera.active&&elapsed<6000&&(elapsed<1000||n<5))return;
     clearInterval(poll);
     const c=tracker.finishCalibration();$('btnCalibrate').disabled=!camera.active;
-    if(!c){status('顔を検出できなかったため記録できませんでした',true);return;}
-    prefs.calibration=c;savePrefs();calibrationText();tracker.reset();status('正面の表情を記録しました（'+n+'フレーム）');
+    if(!c){status(()=>T('cal.failed'),true);return;}
+    prefs.calibration=c;savePrefs();calibrationText();tracker.reset();status(()=>T('cal.saved',n));
   },100);
 });
-$('btnClearCalibration').addEventListener('click',()=>{prefs.calibration=null;tracker.setCalibration(null);savePrefs();calibrationText();status('キャリブレーションを消去しました');});
+$('btnClearCalibration').addEventListener('click',()=>{prefs.calibration=null;tracker.setCalibration(null);savePrefs();calibrationText();status(()=>T('cal.cleared'));});
 
-function micChip(text,busy){const el=$('tgMic');el.textContent=text;el.classList.toggle('busy',!!busy);}
+let micChipKey=toggleLabels.mic,micChipBusy=false;
+function micChip(key,busy){micChipKey=key;micChipBusy=!!busy;const el=$('tgMic');el.textContent=T(key);el.classList.toggle('busy',!!busy);}
 const mic=window.RigDevices.createMic({onState:(s,msg)=>{
-  if(s==='loading')micChip('マイク準備中…',true);
-  else if(s==='on')micChip('マイク使用中');
+  if(s==='loading')micChip('auto.micLoading',true);
+  else if(s==='on')micChip('auto.micOn');
   else micChip(toggleLabels.mic);
   if(s==='error'){auto.mic=false;syncToggle('mic');status(msg,true);updateLiveTicker();}
 }});
-function startMic(){mic.start().catch(err=>{auto.mic=false;syncToggle('mic');micChip(toggleLabels.mic);status('マイクを開始できません: '+err.message,true);updateLiveTicker();});}
+function startMic(){mic.start().catch(err=>{auto.mic=false;syncToggle('mic');micChip(toggleLabels.mic);status(()=>T('mic.startError',err.message),true);updateLiveTicker();});}
 let meterAt=0;
 function updateMeter(now){
   if(now-meterAt<50)return;meterAt=now;
@@ -1025,7 +1063,7 @@ function receiveState(state){
 }
 async function loadFromRelay(id){
   relayLoadingId=id||'?';
-  try{await loadModel(async()=>sync.fetchModel(),'OBS用モデル',{relay:false});}
+  try{await loadModel(async()=>sync.fetchModel(),T('obs.modelName'),{relay:false});}
   finally{if(relayLoadingId===(id||'?'))relayLoadingId=null;}
 }
 function receiveModel(info){
@@ -1040,8 +1078,9 @@ async function afterObsModel(){
   if(path){try{const r=await fetch(path);if(r.ok)applySettings(await r.json(),{anyModel:true});}catch(err){console.warn('settings:',err.message);}}
 }
 const obsUrl=location.origin+location.pathname.replace(/[^/]*$/,'')+'?obs=1';
-$('obsUrl').value=location.protocol.startsWith('http')?obsUrl:'（start_obs.bat で起動すると表示されます）';
-$('btnCopyObsUrl').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('obsUrl').value);status('OBS用のURLをコピーしました');}catch(err){$('obsUrl').select();status('URLを選択しました。Ctrl+C でコピーしてください');}});
+function renderObsUrl(){$('obsUrl').value=location.protocol.startsWith('http')?obsUrl:T('obs.urlNone');}
+renderObsUrl();
+$('btnCopyObsUrl').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('obsUrl').value);status(()=>T('obs.copied'));}catch(err){$('obsUrl').select();status(()=>T('obs.selected'));}});
 $('obsChip').addEventListener('click',()=>{const s=document.querySelector('.sec[data-sec="obs"]');collapseSection(s,false);s.scrollIntoView({behavior:'smooth',block:'start'});});
 function renderObsStatus(st){
   if(OBS_MODE)return;
@@ -1049,13 +1088,14 @@ function renderObsStatus(st){
   chip.hidden=!st.relay;
   // 收錄版不附 obs_server.py：沒有中繼伺服器時只顯示說明，同步開關與 URL 收起來。
   $('obsControls').hidden=!st.relay;$('obsKit').hidden=st.relay;
-  if(!st.relay){text.textContent='OBS中継サーバーに接続していません。start_obs.bat（python obs_server.py）で開くと、このブラウザで開いたPSD・調整・表情がOBSへ自動で反映されます。';return;}
-  if(!st.features.includes('model')){chip.textContent='OBS';chip.className='obs-chip busy';text.textContent='古い obs_server.py です。表情・モデルの同期には最新版に置き換えてください（顔追跡のみ中継します）。';return;}
+  // 詳細的說明（需要原作的 start_obs.bat / obs_server.py）已經在 #obsKit，這裡只顯示一句狀態。
+  if(!st.relay){text.textContent=T('obs.status.noRelay');return;}
+  if(!st.features.includes('model')){chip.textContent='OBS';chip.className='obs-chip busy';text.textContent=T('obs.status.old');return;}
   const viewers=st.viewers|0;
   chip.className='obs-chip'+(!st.enabled?' off':st.uploading?' busy':'');
-  chip.textContent=!st.enabled?'OBS 同期OFF':st.uploading?'OBS 送信中…':viewers?'OBS ● 表示中 '+viewers:'OBS 待機中';
-  text.textContent=st.error?st.error:!st.enabled?'同期はOFFです。OBSには最後に送った状態が表示されます。':
-    '中継サーバーに接続中 · OBS表示 '+viewers+'件 · '+(st.uploaded&&st.uploaded===modelId?'このモデルを送信済み':layers.length?'モデル送信待ち':'モデル未読込');
+  chip.textContent=!st.enabled?T('obs.chip.off'):st.uploading?T('obs.chip.sending'):viewers?T('obs.chip.viewing',viewers):T('obs.chip.idle');
+  text.textContent=st.error?st.error:!st.enabled?T('obs.status.off'):
+    T('obs.status.connected',viewers,st.uploaded&&st.uploaded===modelId?T('obs.status.sent'):layers.length?T('obs.status.waiting'):T('model.none'));
 }
 
 // ---------- animation ----------
@@ -1284,7 +1324,7 @@ function render(e){
   try{renderer.draw(frame);}
   catch(err){
     if(maskFailed)throw err;
-    maskFailed=true;status(err.message+'（瞳の切り抜きを無効にしました）',true);
+    maskFailed=true;status(()=>T('gl.maskDisabled',err.message),true);
     frame.masks=[];renderer.draw(frame);
   }
 }
@@ -1299,18 +1339,18 @@ function tick(now){
   if(dirty||capturePending||(recorder&&recorder.active)){render(lastFrame);dirty=false;}
   if(capturePending){
     capturePending=false;
-    cv.toBlob(blob=>{if(blob){download(blob,baseFileName()+'.png');status('PNGを書き出しました（'+CW+' × '+CH+'px'+(prefs.exportBg==='transparent'?'・透過':'')+'）');}else status('PNGを書き出せませんでした',true);},'image/png');
+    cv.toBlob(blob=>{if(blob){download(blob,baseFileName()+'.png');const w=CW,h=CH,clear=prefs.exportBg==='transparent';status(()=>T('png.done',w,h,clear?T('png.transparent'):''));}else status(()=>T('png.failed'),true);},'image/png');
     invalidate();
   }
   fpsN++;if(now-fpsT>500){$('fps').textContent=Math.round(fpsN*1000/(now-fpsT))+' fps';fpsN=0;fpsT=now;}
 }
-cv.addEventListener('webglcontextlost',ev=>{ev.preventDefault();contextLost=true;capturePending=false;recorder?.cancel();status('描画が一時停止しました。復旧を待っています',true);});
+cv.addEventListener('webglcontextlost',ev=>{ev.preventDefault();contextLost=true;capturePending=false;recorder?.cancel();status(()=>T('gl.lost'),true);});
 cv.addEventListener('webglcontextrestored',()=>{
   try{
     const saved=currentRig?settingsSnapshot():null;layers=[];renderer.init();contextLost=false;
     if(currentRig){applyRig(currentRig);applySettings(saved);}
-    status('描画を復旧しました');
-  }catch(err){contextLost=true;status('描画の復旧に失敗しました。ページを再読み込みしてください',true);}
+    status(()=>T('gl.restored'));
+  }catch(err){contextLost=true;status(()=>T('gl.restoreFailed'),true);}
 });
 window.addEventListener('pagehide',()=>{mic.stop(true);camera.stop(true);liveTicker?.stop();liveTicker=null;sync.close();cancelLoad();recorder?.cancel();});
 
@@ -1333,6 +1373,33 @@ Object.defineProperty(window,'Anime25D',{value:Object.freeze({version:APP_VERSIO
     cam:Object.assign({},cam),camLive:cam.live&&performance.now()-lastTrackingAt<1200,calibrated:!!prefs.calibration,
     view:Object.assign({},view),obs:sync.status,recording:!!(recorder&&recorder.active)};
 }})});
+
+// ---------- language ----------
+// 收錄版：切換語言時，引擎只會重套 data-i18n 掛勾；由 JS 寫進畫面的文字都在這裡重畫。
+// 載入時也先跑一次：日文模式下，這些元素在 HTML 裡的內嵌文字是繁中。
+function renderLocale(){
+  $('stage').dataset.dropLabel=T('stage.drop');
+  if(statusFn)statusEl.textContent=statusFn();else if(!statusShown)statusEl.textContent=T('stage.ready');
+  if(modelName)document.title=(OBS_MODE?'OBS · ':'')+modelName+' — Anime2.5DRig';
+  else $('modelName').textContent=T('model.none');
+  $('btnPause').textContent=T(paused?'hdr.play':'hdr.pause');
+  setRecordingUi(recordingUi);
+  updateDirty();
+  $('btnCollapse').textContent=T(collapseLabel);
+  for(const b of rangeBindings){b.el.title=T('p.dblclick');b.number.setAttribute('aria-label',T('p.number',b.label.textContent));}
+  camChip(camChipKey,camChipBusy);micChip(micChipKey,micChipBusy);
+  calibrationText();
+  if(baseAnchors)renderAnchorSummary();
+  renderRecordStatus();renderFormatOptions();
+  if(utilMessage)$('utilStatus').textContent=utilMessage();
+  renderShortcuts();
+  renderObsUrl();renderObsStatus(sync.status);
+  if(currentRig)renderDiagnostics(currentRig);else renderRigInfo();
+  renderLayerList();
+  applyView();   // zoom button text and anchor handle labels
+}
+renderLocale();
+I18N.onChange(renderLocale);
 
 // ---------- start ----------
 if(OBS_MODE){

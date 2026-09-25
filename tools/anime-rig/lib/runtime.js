@@ -4,6 +4,9 @@
   else root.RigRuntime = factory();
 })(typeof self !== 'undefined' ? self : this, function() {
   'use strict';
+  // 訊息走 TRPG Toolkit 的 i18n：主執行緒用全域 T()，worker 裡用 psd-worker.js 提供的 T()；
+  // 在 Node 裡單獨載入（上游的測試）時沒有 T()，就直接回傳 key。
+  const tr = (key, ...args) => typeof T === 'function' ? T(key, ...args) : key;
   const MAX_FILE_BYTES = 128 * 1024 * 1024;
   const SETTINGS_FORMAT = 'anime25d-settings';
   const SETTINGS_VERSION = 2;
@@ -16,13 +19,13 @@
   const isNum = v => typeof v === 'number' && Number.isFinite(v);
 
   function validateHeader(buffer) {
-    if (!buffer || buffer.byteLength < 26) throw new Error('PSDファイルが短すぎます');
-    if (buffer.byteLength > MAX_FILE_BYTES) throw new Error('PSDは128MB以下にしてください');
+    if (!buffer || buffer.byteLength < 26) throw new Error(tr('rt.err.short'));
+    if (buffer.byteLength > MAX_FILE_BYTES) throw new Error(tr('load.err.tooLarge'));
     const v = new DataView(buffer);
-    if (v.getUint32(0) !== 0x38425053 || v.getUint16(4) !== 1) throw new Error('対応するPSDファイルではありません（PSBは未対応）');
+    if (v.getUint32(0) !== 0x38425053 || v.getUint16(4) !== 1) throw new Error(tr('rt.err.notPsd'));
     const h = v.getUint32(14), w = v.getUint32(18);
-    if (w < 2 || h < 2 || w*h > 24000000 || Math.max(w,h) > 16384) throw new Error('PSDのサイズは一辺16384px・2400万画素以内にしてください');
-    if (v.getUint16(22) !== 8 || v.getUint16(24) !== 3) throw new Error('PSDをRGB・8bit/チャンネルで保存し直してください');
+    if (w < 2 || h < 2 || w*h > 24000000 || Math.max(w,h) > 16384) throw new Error(tr('rt.err.size'));
+    if (v.getUint16(22) !== 8 || v.getUint16(24) !== 3) throw new Error(tr('rt.err.depth'));
     return {w,h};
   }
   function fingerprint(buffer) {
@@ -65,16 +68,16 @@
   function anchors(value, limit) {
     const out={};
     if(value==null) return out;
-    if(typeof value!=='object' || Array.isArray(value)) throw new Error('アンカー設定が不正です');
+    if(typeof value!=='object' || Array.isArray(value)) throw new Error(tr('rt.err.anchors'));
     const lim=isNum(limit)&&limit>0?limit:16384;
     for(const [key,axes] of Object.entries(ANCHOR_KEYS)) {
       const rec=value[key];
       if(rec==null) continue;
-      if(typeof rec!=='object') throw new Error('アンカー設定が不正です: '+key);
+      if(typeof rec!=='object') throw new Error(tr('rt.err.anchorKey',key));
       const clean={};
       for(const axis of axes) {
         if(rec[axis]===undefined) continue;
-        if(!isNum(rec[axis])) throw new Error('アンカー設定が不正です: '+key);
+        if(!isNum(rec[axis])) throw new Error(tr('rt.err.anchorKey',key));
         const n=clamp(rec[axis],-lim,lim);
         if(n!==0) clean[axis]=Math.round(n*100)/100;
       }
@@ -84,27 +87,27 @@
   }
   function settings(value,modelId,ranges,layerIds,defaults,options) {
     const opts=options||{};
-    if (!value || value.format!==SETTINGS_FORMAT || !(value.version===1 || value.version===2)) throw new Error('対応する設定ファイルではありません');
-    if (!opts.anyModel && value.modelId!==modelId) throw new Error('別のPSD用の設定です。保存時と同じPSDを読み込んでください');
-    if(!value.params || typeof value.params!=='object' || !Array.isArray(value.layers)) throw new Error('設定の構造が不正です');
+    if (!value || value.format!==SETTINGS_FORMAT || !(value.version===1 || value.version===2)) throw new Error(tr('rt.err.format'));
+    if (!opts.anyModel && value.modelId!==modelId) throw new Error(tr('rt.err.otherModel'));
+    if(!value.params || typeof value.params!=='object' || !Array.isArray(value.layers)) throw new Error(tr('rt.err.shape'));
     const out={params:{},auto:{},layers:[],background:'checker',preset:null,anchors:{},missingLayers:0,unknownLayers:0};
     if(PRESETS.includes(value.preset))out.preset=value.preset;
     for(const [key,range] of Object.entries(ranges)) {
       const n=value.params[key];
       if(n===undefined){ if(defaults&&isNum(defaults[key]))out.params[key]=clamp(defaults[key],...range); continue; }
-      if(!isNum(n)) throw new Error('数値設定が不正です: '+key);
+      if(!isNum(n)) throw new Error(tr('rt.err.param',key));
       out.params[key]=clamp(n,...range);
     }
     for(const key of AUTO_KEYS) {
       const v=value.auto?.[key];
       if(v===undefined) continue;
-      if(typeof v!=='boolean') throw new Error('自動動作の設定が不正です');
+      if(typeof v!=='boolean') throw new Error(tr('rt.err.auto'));
       out.auto[key]=v;
     }
     const known=new Set(layerIds), seen=new Set();
     for(const l of value.layers) {
       if(!l || typeof l.id!=='string' || seen.has(l.id) || typeof l.visible!=='boolean' ||
-        !isNum(l.opacity) || !isNum(l.depth)) throw new Error('レイヤー設定が不正です');
+        !isNum(l.opacity) || !isNum(l.depth)) throw new Error(tr('rt.err.layers'));
       seen.add(l.id);
       if(!known.has(l.id)){out.unknownLayers++;continue;}
       out.layers.push({id:l.id,visible:l.visible,opacity:clamp(l.opacity,0,1),depth:clamp(l.depth,0,2)});
@@ -178,7 +181,7 @@
   }
   function formatTime(seconds) {
     const s=Math.max(0,seconds);
-    return (s<10?s.toFixed(1):Math.round(s))+'秒';
+    return tr('rt.seconds', s<10?s.toFixed(1):Math.round(s));
   }
 
   return {MAX_FILE_BYTES,SETTINGS_FORMAT,SETTINGS_VERSION,PRESETS,AUTO_KEYS,BACKGROUNDS,ANCHOR_KEYS,

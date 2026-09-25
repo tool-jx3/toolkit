@@ -10,6 +10,12 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  // 訊息走 TRPG Toolkit 的 i18n：主執行緒用全域 T()，worker 裡用 psd-worker.js 提供的 T()；
+  // 在 Node 裡單獨載入（上游的測試）時沒有 T()，就直接回傳 key。
+  function tr(key) {
+    return typeof T === 'function' ? T.apply(null, arguments) : key;
+  }
+
   // ---------- layer naming ----------
   // Aliases are keyed by a "squashed" form (NFKC, lower case, no spaces,
   // underscores, hyphens or middle dots) so that "Front_Hair", "front-hair",
@@ -93,26 +99,26 @@
 
   function validatePsd(psd) {
     if (!psd || !Number.isInteger(psd.width) || !Number.isInteger(psd.height) || psd.width < 2 || psd.height < 2)
-      throw new Error('PSDのキャンバスサイズが不正です');
+      throw new Error(tr('rig.err.canvasSize'));
     if (psd.width * psd.height > 24000000 || Math.max(psd.width, psd.height) > 16384)
-      throw new Error('キャンバスが大きすぎます（最大2400万画素・一辺16384px）');
+      throw new Error(tr('rig.err.canvasTooBig'));
     var pixels = 0, count = 0;
     function visit(nodes, depth) {
-      if (depth > 64) throw new Error('フォルダの階層が深すぎます');
+      if (depth > 64) throw new Error(tr('rig.err.tooDeep'));
       (nodes || []).forEach(function (c) {
-        if (++count > 1000) throw new Error('レイヤー数が多すぎます（最大1000）');
+        if (++count > 1000) throw new Error(tr('rig.err.tooManyLayers'));
         if (c.children) visit(c.children, depth + 1);
         var w = c.imageData ? c.imageData.width : Math.max(0, (c.right || 0) - (c.left || 0));
         var h = c.imageData ? c.imageData.height : Math.max(0, (c.bottom || 0) - (c.top || 0));
         if (!Number.isInteger(w) || !Number.isInteger(h) || w < 0 || h < 0 || w * h > 24000000)
-          throw new Error('画像レイヤーのサイズが不正または過大です');
+          throw new Error(tr('rig.err.layerSize'));
         pixels += w * h;
         if (c.imageData && (!c.imageData.data || c.imageData.data.length !== w * h * 4))
-          throw new Error('画像レイヤーの画素データが不正です');
+          throw new Error(tr('rig.err.layerData'));
       });
     }
     visit(psd.children, 0);
-    if (pixels > 96000000) throw new Error('レイヤー画像の合計が大きすぎます（最大9600万画素）');
+    if (pixels > 96000000) throw new Error(tr('rig.err.totalPixels'));
     return psd;
   }
 
@@ -148,14 +154,15 @@
     'ahoge':       { depth: 1.30, group: 'head', phys: 'hair' }
   };
   // Human readable role names used by the editor and diagnostics.
+  // 收錄版：值是字典 key 'role.*' 的後綴，顯示名稱由 roleLabel() 依目前語言取得。
   var ROLE_LABELS = {
-    'wings': '翼', 'tail': '尻尾', 'back hair': '後髪', 'footwear': '靴', 'legwear': '脚',
-    'bottomwear': '下半身の服', 'neck': '首', 'topwear': '上半身の服', 'neckwear': '首元',
-    'handwear': '腕・手', 'objects': '小物', 'earwear': '耳飾り', 'ears': '耳', 'face': '顔',
-    'facedetail': '顔の細部', 'headwear': '頭の飾り', 'mouth_close': '閉じ口', 'mouth_open': '開き口',
-    'nose': '鼻', 'eyewhite': '白目', 'eyebrow': '眉', 'irides': '瞳', 'eyelash': 'まつ毛',
-    'eye_close': '閉じ目', 'eye_close2': '長い閉じ目', 'eyewear': '眼鏡', 'side hair': '横髪',
-    'front hair': '前髪', 'ahoge': 'アホ毛'
+    'wings': 'wings', 'tail': 'tail', 'back hair': 'backHair', 'footwear': 'footwear', 'legwear': 'legwear',
+    'bottomwear': 'bottomwear', 'neck': 'neck', 'topwear': 'topwear', 'neckwear': 'neckwear',
+    'handwear': 'handwear', 'objects': 'objects', 'earwear': 'earwear', 'ears': 'ears', 'face': 'face',
+    'facedetail': 'faceDetail', 'headwear': 'headwear', 'mouth_close': 'mouthClose', 'mouth_open': 'mouthOpen',
+    'nose': 'nose', 'eyewhite': 'eyewhite', 'eyebrow': 'eyebrow', 'irides': 'irides', 'eyelash': 'eyelash',
+    'eye_close': 'eyeClose', 'eye_close2': 'eyeClose2', 'eyewear': 'eyewear', 'side hair': 'sideHair',
+    'front hair': 'frontHair', 'ahoge': 'ahoge'
   };
 
   // ---------- image ops (full-canvas alpha as Uint8Array) ----------
@@ -521,20 +528,22 @@
     opts = opts || {};
     validatePsd(psd);
     var W = psd.width, H = psd.height;
+    // 收錄版：警告存成 { key, args }，由 app.js 顯示時才翻譯，切換語言後診斷清單能重畫。
+    // args 裡的 { key } 也是字典 key（例如跟隨頭部／身體）。
     var warnings = [];
     var kids = imageLayersOf(psd);
-    if (!kids.length) throw new Error('表示可能な画像レイヤーが見つかりません');
-    if (kids.length * W * H > 128000000) throw new Error('リグ解析に必要なメモリが大きすぎます。レイヤー数または解像度を減らしてください');
+    if (!kids.length) throw new Error(tr('rig.err.noLayers'));
+    if (kids.length * W * H > 128000000) throw new Error(tr('rig.err.memory'));
 
     // full alphas, cleaned
     var entries = [];
     for (var i = 0; i < kids.length; i++) {
       var name = normName(kids[i].name);
       var fa = cleanAlpha(fullAlphaOf(kids[i], W, H), W, H, 40);
-      if (!bboxOf(fa, W, H, 8)) { warnings.push('空のレイヤー "' + name + '" をスキップしました'); continue; }
+      if (!bboxOf(fa, W, H, 8)) { warnings.push({ key: 'rig.warn.emptyLayer', args: [name] }); continue; }
       entries.push({ name: name, layer: kids[i], alpha: fa });
     }
-    if (!entries.length) throw new Error('キャンバス内に表示可能な画素がありません');
+    if (!entries.length) throw new Error(tr('rig.err.noPixels'));
     // A plain "hair" layer is split by the painter's order: above the face it
     // is front hair, below it back hair (see-through emits both as "hair").
     var faceIndex = -1;
@@ -558,7 +567,7 @@
       var fb = bboxOf(faceAlpha, W, H, 8), fc = centroidOf(faceAlpha, W, H);
       FACE = { cx: fc.cx, cy: fc.cy, x0: fb.x0, x1: fb.x1, y0: fb.y0, y1: fb.y1 };
     } else {
-      warnings.push('face レイヤーがありません — キャンバス中央を顔とみなします');
+      warnings.push({ key: 'rig.warn.noFace', args: [] });
       FACE = { cx: W / 2, cy: H * 0.3, x0: W * 0.35, x1: W * 0.65, y0: H * 0.1, y1: H * 0.5 };
     }
 
@@ -571,7 +580,7 @@
       if (!slot || slot.group === 'auto') {
         var c0 = centroidOf(e.alpha, W, H);
         var guessed = (c0 && c0.cy < FACE.y1) ? 'head' : 'body';
-        if (!slot) warnings.push('未知のレイヤー名 "' + e.name + '" — ' + (guessed === 'head' ? '頭' : '体') + 'に追従させます');
+        if (!slot) warnings.push({ key: 'rig.warn.unknownLayer', args: [e.name, { key: 'group.' + guessed }] });
         slot = { depth: slot ? slot.depth : 1.0, group: guessed, unknown: !slot };
       }
       if (slot.split) {
@@ -590,7 +599,7 @@
             got = true;
           }
         });
-        if (!got) warnings.push('"' + e.name + '" の左右分離に失敗（空レイヤー？）');
+        if (!got) warnings.push({ key: 'rig.warn.splitFailed', args: [e.name] });
       } else if (slot.phys === 'hair') {
         var isPart = /_\d+$/.test(e.name);
         var bb2 = bboxOf(e.alpha, W, H, 16);
@@ -629,14 +638,14 @@
         anchors[K] = a;
       }
     });
-    if (!anchors.eyeL || !anchors.eyeR) warnings.push('目のアンカーが不完全です（eyewhite/irides を確認）');
+    if (!anchors.eyeL || !anchors.eyeR) warnings.push({ key: 'rig.warn.eyeAnchor', args: [] });
 
     var mouthAlpha = merged('mouth_open') || merged('mouth_close');
     if (mouthAlpha) {
       var mb = bboxOf(mouthAlpha, W, H, 8), mc = centroidOf(mouthAlpha, W, H);
       anchors.mouth = { x0: mb.x0, x1: mb.x1, y0: mb.y0, y1: mb.y1, cx: mc.cx, cy: mc.cy };
     } else {
-      warnings.push('mouth_open / mouth_close がありません');
+      warnings.push({ key: 'rig.warn.noMouth', args: [] });
       anchors.mouth = { x0: FACE.cx - 20, x1: FACE.cx + 20, y0: FACE.cy + 40, y1: FACE.cy + 60, cx: FACE.cx, cy: FACE.cy + 50 };
     }
 
@@ -677,7 +686,7 @@
             synth.eye = true;
           }
         });
-        if (synth.eye) warnings.push('不足する閉じ目を自動配置しました（「目」の差分バーで調整可）');
+        if (synth.eye) warnings.push({ key: 'rig.warn.synthEye', args: [] });
       }
       // mouth
       if (G.mouth && !findPart('mouth_close').length && merged('mouth_open')) {
@@ -691,7 +700,7 @@
         if (idxM < 0) idxM = lastIndexWhere(parts, function (p) { return p.name === 'face'; });
         parts.splice(idxM + 1, 0, mc);
         synth.mouth = true;
-        warnings.push('mouth_close が無いため汎用閉じ口を自動配置しました（「口」のバーで調整可）');
+        warnings.push({ key: 'rig.warn.synthMouth', args: [] });
       }
     }
     for (var zi = 0; zi < parts.length; zi++) parts[zi].z = zi;
@@ -733,7 +742,9 @@
     return stats;
   }
 
-  function roleLabel(bn) { return ROLE_LABELS[bn] || null; }
+  function roleLabel(bn) {
+    return Object.prototype.hasOwnProperty.call(ROLE_LABELS, bn) ? tr('role.' + ROLE_LABELS[bn]) : null;
+  }
 
   return { buildRig: buildRig, normName: normName, baseName: baseName, cleanPsdLayers: cleanPsdLayers, validatePsd: validatePsd,
            flattenPsdToImg: flattenPsdToImg, splitImgLR: splitImgLR, roleLabel: roleLabel,

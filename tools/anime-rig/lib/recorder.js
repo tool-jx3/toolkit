@@ -7,12 +7,13 @@
  */
 (function(root){
 'use strict';
+// 收錄版：顯示名稱改存字典 key（labelKey），由 app.js 依目前語言以 T() 取得。
 const CANDIDATES=[
-  {mime:'video/webm;codecs=vp9',ext:'webm',label:'WebM（VP9・透過対応）',alpha:true},
-  {mime:'video/webm;codecs=vp8',ext:'webm',label:'WebM（VP8・透過対応）',alpha:true},
-  {mime:'video/webm',ext:'webm',label:'WebM',alpha:true},
-  {mime:'video/mp4;codecs=avc1',ext:'mp4',label:'MP4（H.264・透過なし）',alpha:false},
-  {mime:'video/mp4',ext:'mp4',label:'MP4（透過なし）',alpha:false}
+  {mime:'video/webm;codecs=vp9',ext:'webm',labelKey:'rec.fmt.vp9',alpha:true},
+  {mime:'video/webm;codecs=vp8',ext:'webm',labelKey:'rec.fmt.vp8',alpha:true},
+  {mime:'video/webm',ext:'webm',labelKey:'rec.fmt.webm',alpha:true},
+  {mime:'video/mp4;codecs=avc1',ext:'mp4',labelKey:'rec.fmt.h264',alpha:false},
+  {mime:'video/mp4',ext:'mp4',labelKey:'rec.fmt.mp4',alpha:false}
 ];
 function formats(){
   if(typeof MediaRecorder==='undefined'||typeof MediaRecorder.isTypeSupported!=='function')return [];
@@ -23,10 +24,10 @@ function create(canvas){
   function cleanup(){clearTimeout(timer);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;rec=null;chunks=[];}
   /** Resolves with {blob, format, seconds}; rejects with AbortError when cancelled. */
   function start(opts){
-    if(rec)return Promise.reject(new Error('録画中です'));
-    if(typeof canvas.captureStream!=='function')return Promise.reject(new Error('このブラウザは動画書き出しに対応していません'));
+    if(rec)return Promise.reject(new Error(T('rec.err.busy')));
+    if(typeof canvas.captureStream!=='function')return Promise.reject(new Error(T('rec.err.unsupported')));
     const list=formats(),f=list.find(x=>x.mime===opts.format)||list[0];
-    if(!f)return Promise.reject(new Error('このブラウザで使える動画形式がありません'));
+    if(!f)return Promise.reject(new Error(T('rec.err.noFormat')));
     const seconds=Math.max(0.5,opts.seconds||5),fps=opts.fps||30;
     const pixels=canvas.width*canvas.height;
     const bits=opts.bitsPerSecond||Math.round(Math.min(40e6,Math.max(4e6,pixels*fps*0.12)));
@@ -35,12 +36,12 @@ function create(canvas){
     chunks=[];cancelled=false;
     return new Promise((resolve,reject)=>{
       rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
-      rec.onerror=e=>{const err=e.error||new Error('録画に失敗しました');cleanup();reject(err);};
+      rec.onerror=e=>{const err=e.error||new Error(T('rec.err.failed'));cleanup();reject(err);};
       rec.onstop=()=>{
         const blob=new Blob(chunks,{type:f.mime.split(';')[0]}),wasCancelled=cancelled,dur=(performance.now()-startedAt)/1000;
         cleanup();
-        if(wasCancelled)reject(new DOMException('録画を中止しました','AbortError'));
-        else if(!blob.size)reject(new Error('動画データが空です'));
+        if(wasCancelled)reject(new DOMException(T('rec.cancelled'),'AbortError'));
+        else if(!blob.size)reject(new Error(T('rec.err.empty')));
         else resolve({blob,format:f,seconds:dur});
       };
       rec.start(250);startedAt=performance.now();

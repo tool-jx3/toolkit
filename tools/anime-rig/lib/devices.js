@@ -16,9 +16,9 @@ const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 function loadScript(url,timeout){
   return new Promise((resolve,reject)=>{
     const s=document.createElement('script');s.src=url;s.async=true;
-    const timer=setTimeout(()=>{s.remove();reject(new Error('顔追跡モデルの読み込みがタイムアウトしました'));},timeout||20000);
+    const timer=setTimeout(()=>{s.remove();reject(new Error(T('dev.err.fmTimeout')));},timeout||20000);
     s.onload=()=>{clearTimeout(timer);resolve();};
-    s.onerror=()=>{clearTimeout(timer);s.remove();reject(new Error('顔追跡モデルを取得できません'));};
+    s.onerror=()=>{clearTimeout(timer);s.remove();reject(new Error(T('dev.err.fmFetch')));};
     document.head.appendChild(s);
   });
 }
@@ -30,10 +30,10 @@ function loadFaceMesh(){
 function locateFile(file){return CDN_BASE+file;}
 function cameraError(err){
   const n=err&&err.name;
-  if(n==='NotAllowedError'||n==='PermissionDeniedError')return 'ブラウザのカメラ許可を確認してください';
-  if(n==='NotReadableError'||n==='TrackStartError')return '他のアプリがカメラを使用中です';
-  if(n==='NotFoundError'||n==='DevicesNotFoundError')return 'カメラが見つかりません';
-  if(typeof isSecureContext!=='undefined'&&!isSecureContext)return 'https または localhost で開いてください';
+  if(n==='NotAllowedError'||n==='PermissionDeniedError')return T('dev.err.camPermission');
+  if(n==='NotReadableError'||n==='TrackStartError')return T('dev.err.camBusy');
+  if(n==='NotFoundError'||n==='DevicesNotFoundError')return T('dev.err.camNotFound');
+  if(typeof isSecureContext!=='undefined'&&!isSecureContext)return T('dev.err.insecure');
   return (err&&err.message)||String(err);
 }
 
@@ -70,7 +70,7 @@ function createCamera(opts){
     try{ctx.drawImage(video,0,0,w,h);}catch(err){}
     if(lm){ctx.fillStyle='#ff6f91';for(const i of PREVIEW_POINTS){const p=lm[i];if(p)ctx.fillRect(p.x*w-1.5,p.y*h-1.5,3,3);}}
     ctx.restore();
-    if(!lm){ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,h-22,w,22);ctx.fillStyle='#ffb3c4';ctx.font='12px sans-serif';ctx.fillText('顔を検出できません',8,h-7);}
+    if(!lm){ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,h-22,w,22);ctx.fillStyle='#ffb3c4';ctx.font='12px sans-serif';ctx.fillText(T('dev.noFace'),8,h-7);}
   }
   function loop(s,token){
     let busy=false,nextAt=0;
@@ -82,7 +82,7 @@ function createCamera(opts){
       if(t0<nextAt||v.readyState<2||v.currentTime===s.lastTime)return;
       busy=true;
       try{s.lastTime=v.currentTime;s.pending=s.fm.send({image:v});await s.pending;}
-      catch(err){if(token===gen){stop();state('error','顔追跡が停止しました。カメラを再度ONにしてください');}}
+      catch(err){if(token===gen){stop();state('error',T('dev.err.trackingStopped'));}}
       finally{busy=false;const t1=performance.now();nextAt=t1+Math.max(8,(t1-t0)*0.5);}
     };
     s.ticker=createTicker(16,step);
@@ -90,7 +90,7 @@ function createCamera(opts){
   async function start(){
     const token=++gen;let stream=null;
     try{
-      if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('https または localhost で開いてください');
+      if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error(T('dev.err.insecure'));
       state('loading');
       if(!root.FaceMesh)await loadFaceMesh();
       if(token!==gen)return false;
@@ -112,7 +112,7 @@ function createCamera(opts){
         drawPreview(video,lm);
         o.onResults&&o.onResults(lm,video);
       });
-      stream.getTracks().forEach(t=>t.addEventListener('ended',()=>{if(token===gen){stop();state('error','カメラが切断されました');}}));
+      stream.getTracks().forEach(t=>t.addEventListener('ended',()=>{if(token===gen){stop();state('error',T('dev.err.camDisconnected'));}}));
       state('on');
       loop(s,token);
       return true;
@@ -144,7 +144,7 @@ function createMic(opts){
   async function start(){
     const token=++gen;let st=null,ac=null;
     try{
-      if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('https または localhost で開いてください');
+      if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error(T('dev.err.insecure'));
       state('loading');
       st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:false}});
       if(token!==gen){st.getTracks().forEach(t=>t.stop());return false;}
@@ -154,7 +154,7 @@ function createMic(opts){
       if(token!==gen){st.getTracks().forEach(t=>t.stop());if(ac.state!=='closed')await ac.close();return false;}
       const src=ac.createMediaStreamSource(st);analyser=ac.createAnalyser();analyser.fftSize=512;
       buf=new Uint8Array(analyser.frequencyBinCount);src.connect(analyser);
-      st.getTracks().forEach(t=>t.addEventListener('ended',()=>{if(token===gen){stop(true);state('error','マイクが切断されました');}}));
+      st.getTracks().forEach(t=>t.addEventListener('ended',()=>{if(token===gen){stop(true);state('error',T('dev.err.micDisconnected'));}}));
       state('on');
       return true;
     }catch(err){
@@ -162,7 +162,7 @@ function createMic(opts){
       if(ac&&ac.state!=='closed')ac.close().catch(()=>{});
       if(token!==gen)return false;
       stop(true);
-      throw new Error(err.name==='NotAllowedError'?'ブラウザのマイク許可を確認してください':err.message);
+      throw new Error(err.name==='NotAllowedError'?T('dev.err.micPermission'):err.message);
     }
   }
   function stop(quiet){
