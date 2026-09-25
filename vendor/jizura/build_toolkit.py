@@ -94,6 +94,12 @@ def build(lang):
     font_link = ('<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">\n'
                  if zh else '')
     html = f'''<!doctype html>
+<!--
+JIZURA 字面 https://github.com/852wa/JIZURA
+本檔由 TRPG Toolkit 的 vendor/jizura/build_toolkit.py 產生；要修改請改原始碼後重新建置。
+
+{read('LICENSE').strip()}
+-->
 <html lang="{'zh-Hant-TW' if zh else 'ja'}">
 <head>
 <meta charset="utf-8">

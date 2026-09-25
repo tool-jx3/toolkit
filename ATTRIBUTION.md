@@ -8,7 +8,8 @@
 [Wool&Wag](https://github.com/woolwag3338) 與
 [johnko00](https://github.com/johnko00) 與
 [baegop157902](https://github.com/baegop157902) 與
-[違法建築](https://github.com/ihoukentiku) 製作的 23 個網頁工具，
+[違法建築](https://github.com/ihoukentiku) 與
+[hakoniwa](https://github.com/852wa) 製作的 25 個網頁工具，
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -38,8 +39,11 @@
 | video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
 | gif-combiner | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `3aa7de8` | MIT |
 | trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
+| jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | `1b48bea` | MIT |
+| anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 
-十六個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中。
+十八個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中（`jizura` 的在 `vendor/jizura/`，
+建置出來的單檔頁面裡另有一份署名註解）。
 
 shiki365 的四個工具、`cutin`、`portrait-size`、`height-board` 與 `room-zip` 原文為日文，
 收錄時另有以下調整：
@@ -411,12 +415,107 @@ Google Fonts 連結一併載入）；Noto Sans JP 雖然有漢字，字形是日
   `'Material Symbols'`，對不上實際載入的 `Material Symbols Outlined`，圖示會顯示成
   英文單字。
 
-## 需要建置的兩個工具
+## jizura：JIZURA 字面
 
-`cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，
-不像其餘十一個工具可以直接把檔案放進 `tools/` 就能跑。因此原始碼快照收在
-`vendor/` 底下，建置產物提交在各自的 `tools/` 目錄，重建方式見
-[README](README.md#重新建置-cutin-與-character-editor)。`vendor/` 不參與網站發佈。
+上游 `852wa/JIZURA`（hakoniwa）是單檔 HTML 的歌詞動態影片產生器：貼上歌詞、點按拍點，
+就自動替每一行排出版面、登場／退場動畫、裝飾與鏡頭，匯出 MP4、綠幕、黑幕或 PNG 序列。
+它自己的 README 說明了「文字 PV」的做法與每個選項，本 repo 不另寫說明。
+
+### 收了什麼
+
+原始碼快照收在 `vendor/jizura/`：`src/`（三十一個模組，約 1.8 MB）、`app/`（介面標記、樣式與
+上游的英文翻譯表）、`vendor/mp4-muxer.min.js`（MIT，授權見 `vendor/jizura/THIRD_PARTY_NOTICES.md`）、
+`build.py`、`docs/`、`tools/`、`LICENSE` 與兩份 README。下列檔案不收：
+
+- After Effects 的腳本與 CEP 面板（`JIZURA_AE*.jsx`、`JIZURA_CEP*.zip`、`ae/`、`cep/`、
+  `build_ae.py`、`build_cep.py`）：那是 AE 的外掛，不是網頁工具。頁面上的「匯出給 AE」照留，
+  匯出的 JSON 要搭配上游的 AE 面板使用，面板請到上游下載。
+- `index.html` 與 `en/`：上游的建置產物（日文版、英文版），收錄版自己建。
+- `dev/`：上游的開發測試腳本（Node 與 Python，會用到 AE 的模擬環境）。
+
+### 繁中版照上游產生英文版的方式建置
+
+上游的日文字串散在近三萬行程式碼裡，英文版不是改成 i18n key，而是建置時做字串取代
+（`app/english.py` 的替換表），部件、風格與氛圍的名稱則在各表現包登錄完、編輯器啟動前
+改寫（`app/english.js`）。收錄版照同一套機制加上繁中：`app/chinese.py`（鍵與 `english.py`
+完全相同，值換成繁中）與 `app/chinese.js`（七百多個部件、24 種風格、7 種氛圍與範例歌詞），
+由 `build_toolkit.py` 產生兩個頁面：
+
+- `tools/jizura/index.html`：繁中版。
+- `tools/jizura/ja/index.html`：日文版，除了頁首之外與上游的 `index.html` 相同。
+
+這樣上游更新時，只要把新的原始碼放進 `vendor/jizura/`、補上新的翻譯再重建即可；
+`tests/smoke.mjs` 會檢查繁中版裡沒有殘留假名、每個部件都有譯名。內部 ID 與專案 JSON
+不隨語言改變，繁中版、日文版與上游存出來的專案檔可以互相開啟。
+
+與上游 `build.py` 不同的地方：
+
+- 不輸出英文版。頁首的英文切換換成「← TRPG Toolkit」與繁中／日文兩頁的連結；選擇記在
+  合輯共用的 `trpg-toolkit-locale`，在合輯裡選過日文，開啟繁中頁時會直接換到日文頁。
+- 拿掉 canonical、hreflang 與 OG／Twitter meta（原作者站台的識別）。
+- 頁面最前面加了一段註解，附上 JIZURA 的 MIT 授權全文：單檔頁面離開這個 repo 也帶著授權。
+- 繁中版的介面字型改用 Noto Sans TC（IBM Plex Sans JP 的漢字是日文字形）。
+
+畫面上的歌詞字型不用另外處理：上游本來就會判斷歌詞的語言（有假名是日文；只有漢字時看
+繁簡特有字），繁中歌詞會自動換成 Noto Sans TC、Noto Serif TC、霞鶩文楷等繁中字型。
+繁中版的範例歌詞也改成繁中，所以一開頁面看到的就是繁中字型的效果。
+
+## anime-rig：Anime2.5DRig
+
+上游 `852wa/Anime2.5DRig`（hakoniwa）把分好部件的 PSD 自動綁定成 2.5D 虛擬形象：眨眼、嘴型、
+頭髮物理、攝影機臉部追蹤與麥克風嘴型，可匯出透明 PNG 與影片。
+
+### 收了什麼
+
+`index.html`、`lib/` 的程式與樣式、`LICENSE`。下列檔案不收，細節見
+`tools/anime-rig/THIRD_PARTY_NOTICES.md`：
+
+- 範例模型 `sample.psd`、`sample2.psd`：上游 README 寫明範例 PSD 的圖畫權利屬於各自的作者。
+  頁首與拖放區的「讀取範例 A／B」按鈕一併拿掉；OBS 專用畫面（`?obs=1`）沒有指定模型時，
+  上游會載入 `sample.psd`，收錄版改成不載入。
+- 閉眼、閉嘴差分的原圖 `eye_close.psd`、`mouth_close.psd`：上游讀不到這兩個檔時本來就會
+  改用 `lib/genericparts.js` 內建的差分，收錄版直接用內建的，不去抓不存在的檔案。
+- MediaPipe Face Mesh 的同捆檔（`lib/vendor/face_mesh/`，約 11 MB）：改走上游原本就有的
+  jsDelivr 備援路徑（同一個鎖定版本），第一次開啟攝影機追蹤時需要連網。
+- OBS 連動用的本機中繼伺服器（`obs_server.py`、`start_obs.bat`）、`tests/`、`package.json`、
+  `IMPROVEMENTS.md`。
+
+### OBS 連動
+
+上游的 OBS 連動要在自己的電腦上用 Python 跑 `obs_server.py`，由它在編輯畫面與 OBS 的瀏覽器
+來源之間轉送 PSD、設定與追蹤數值；網頁版做不到。收錄版的「OBS 連動」區塊改成說明這件事並
+連到上游，同步開關與 OBS 用網址只在偵測到中繼伺服器時才顯示（程式照上游保留，把收錄版
+放進上游的整套裡仍然能用）。只用網頁版的話，可以用綠幕背景加 OBS 的視窗擷取，或匯出透明
+WebM。
+
+### 使用說明
+
+上游的「使い方」視窗直接顯示 `README.md`。收錄版改成依介面語言讀 `guide.zh-TW.md` 或
+`guide.ja.md`：日文版以 README 為底，拿掉範例 PSD、本機伺服器與開發測試等收錄版用不到的
+段落，並改寫 MediaPipe 與 OBS 的說明；繁中版由日文版翻譯。圖層命名規約表裡的別名
+（`前髪`、`白目`、`bangs` 等）是工具實際比對的字，兩種語言都照原樣列出——工具不認得中文
+的圖層名稱。
+
+### i18n 的幾處改造
+
+- 上游 `app.js` 用一個叫 `T` 的區域變數存各參數的目標值，會遮蔽合輯 i18n 的全域 `T()`，
+  改名為 `TGT`。
+- PSD 在 Web Worker 裡解析（`lib/psd-worker.js`），worker 載入不了合輯的 i18n 引擎（它用到
+  `window` 與 `document`）。主執行緒把目前語言的字典隨 PSD 一起傳過去，worker 提供一個同樣
+  介面的 `T()`，`rigger.js`、`runtime.js` 在兩邊都用同一組 key。
+- 自動綁定的警告原本是日文字串，`app.js` 再用正規表示式挑出要顯示在診斷清單裡的幾則；
+  改成帶 key 與參數的物件，顯示時才翻譯，切換語言時診斷清單跟著重畫。
+- `rigger.js` 裡比對 PSD 圖層名稱的日文別名表（`前髪 まえがみ`、`閉じ目` 等）與
+  `のコピー`、`レイヤー 1` 這類 Photoshop 自動命名的處理是解析用的資料，不是介面文字，
+  原樣保留；`tests/smoke.mjs` 只放行這幾行。
+
+## 需要建置的三個工具
+
+`cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，`jizura`
+的上游則用 Python 腳本把原始碼串成單檔 HTML，都不能直接把檔案放進 `tools/` 就跑。
+因此原始碼快照收在 `vendor/` 底下，建置產物提交在各自的 `tools/` 目錄，重建方式見
+[README](README.md#重新建置-cutincharacter-editor-與-jizura)。`vendor/` 不參與網站發佈。
+`jizura` 的做法見上面的 [jizura 一節](#jizurajizura-字面)，以下兩段只講 React 的兩個工具。
 
 `character-editor` 另有一點必須留意：`src/lib/editScreenText.ts` 的日文字面常數
 幾乎全是**解析用的錨點**，用來切分使用者從 CCFOLIA 編輯畫面複製貼上的文字
@@ -501,7 +600,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘二十二個工具的翻譯與 i18n 改造為本 repo 新增。
+其餘二十四個工具的翻譯與 i18n 改造為本 repo 新增。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：
@@ -527,8 +626,9 @@ magic-circle 的繁體中文翻譯移植自
 
 ## 本 repo 新增的部分
 
-`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔，
-以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
+`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`jizura` 的繁中翻譯表與
+建置腳本（`vendor/jizura/app/chinese.py`、`app/chinese.js`、`build_toolkit.py`）、`anime-rig` 的
+`guide.zh-TW.md`，以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
 `tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、
 `tools/ccfolia-cropper/`、`tools/character-select/`、`tools/character-editor/`、
 `tools/room-zip/` 與 `tools/pair-maker/` 的其餘部分不在此範圍內，見上節。

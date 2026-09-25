@@ -7,7 +7,8 @@
 [Wool&Wag](https://github.com/woolwag3338) 與
 [johnko00](https://github.com/johnko00) 與
 [baegop157902](https://github.com/baegop157902) 與
-[違法建築](https://github.com/ihoukentiku) 製作的 23 個網頁小工具合輯，附繁體中文介面。
+[違法建築](https://github.com/ihoukentiku) 與
+[hakoniwa](https://github.com/852wa) 製作的 25 個網頁小工具合輯，附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -36,6 +37,8 @@
 | [影片轉動圖工具](tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
 | [GIF 接合器](tools/gif-combiner/) | 把多張 GIF 的影格對齊時間軸排進同一張畫面，拖曳排版後合成一張 GIF |
 | [違法建築的 TRPG 實驗室](tools/trpg-lab/) | 一站收齊九個跑團工具：CoC 7 版擲骰、調查員角色卡、NPC 製作／管理、TRPG 地圖編輯器、網格／六角格產生器與量尺產生器、BCDice 傷害計算 |
+| [JIZURA 字面](tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列 |
+| [Anime2.5DRig](tools/anime-rig/) | 把分好部件的 PSD 拖進來就自動綁定成 2.5D 虛擬形象：眨眼、嘴型、頭髮物理、攝影機臉部追蹤與麥克風嘴型，可匯出透明 PNG 與 WebM／MP4 |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -52,11 +55,12 @@ npm run serve
 
 （`emotion-maker` 的合本圖片產生功能受 canvas 安全限制影響，需以伺服器方式開啟。）
 
-### 重新建置 cutin 與 character-editor
+### 重新建置 cutin、character-editor 與 jizura
 
-二十二個工具裡有兩個的上游是 React + TypeScript 專案，沒辦法直接放進 `tools/`
-裡執行。原始碼收在 `vendor/` 底下，建置產物（已提交進 repo）輸出到各自的
-`tools/` 目錄。改動原始碼後要重新建置：
+二十五個工具裡有三個要先建置才能放進 `tools/`。原始碼收在 `vendor/` 底下，
+建置產物（已提交進 repo）輸出到各自的 `tools/` 目錄，`vendor/` 不參與網站發佈。
+
+`cutin` 與 `character-editor` 的上游是 React + TypeScript 專案。改動原始碼後要重新建置：
 
 ```
 cd vendor/cutin-maker              # 或 vendor/ccfolia-character-editor
@@ -66,11 +70,23 @@ npm run build
 
 `npm run build` 會先跑 `tsc --noEmit`，再由 Vite 把產物寫進對應的 `tools/`
 目錄（`emptyOutDir: false`，不會動到同目錄下的 `i18n.*.js` 與 `LICENSE`）。
-`vendor/` 不參與網站發佈。
 
 `character-editor` 請用 `npm ci`：`npm install` 在解析 vitest 的 peer
 相依時會踩到 npm 10.9 的一個錯誤（`Cannot read properties of null`），
 上游的 lockfile 則可以正常安裝。
+
+`jizura` 的上游用一支 Python 腳本把 `src/*.js`、樣式與 mp4-muxer 串成單檔 HTML，
+英文版是建置時套翻譯表做出來的。收錄版照同一套做法產生繁中版與日文版兩頁，
+只需要 Python 3，沒有其他相依：
+
+```
+python3 vendor/jizura/build_toolkit.py
+```
+
+輸出 `tools/jizura/index.html`（繁中）與 `tools/jizura/ja/index.html`（日文）。
+繁中的介面字串在 `vendor/jizura/app/chinese.py`，部件、風格與氛圍的名稱在
+`app/chinese.js`；上游改了日文原文而翻譯表沒跟上時，那段字串會留在日文，
+`npm test` 會抓到。
 
 ## 測試
 
@@ -101,8 +117,12 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的十一個工具、
 `ccfolia-cropper` 與 `pair-maker` 為韓文，shiki365 的四個工具、`cutin`、
-`character-editor`、`portrait-size` 與 `height-board` 為日文；`room-zip`
-原文為日文，另外附了一份韓文。
+`character-editor`、`portrait-size`、`height-board`、`trpg-lab`、`jizura` 與
+`anime-rig` 為日文；`room-zip` 原文為日文，另外附了一份韓文。
+
+`jizura` 是建置出繁中、日文兩個頁面（`tools/jizura/` 與 `tools/jizura/ja/`），
+頁首的語言連結直接換頁；選擇同樣記在下面這個共用的 key，在合輯裡選過日文，
+開啟 `jizura` 時就會直接進日文版。
 
 `status-bar`、`chat-window` 與 `foreground-frame` 的字型欄可以改填「以名稱指定」，
 使用觀看者電腦上已安裝的字型。Chrome／Edge 還能用「從清單選」開出一份附樣張的清單
@@ -134,7 +154,9 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 ## 授權
 
 根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：`assets/`、
-`index.html`、`tests/`、各 `i18n.*.js` 字典，以及 emotion-maker 的資產路徑改造。
+`index.html`、`tests/`、各 `i18n.*.js` 字典、`jizura` 的繁中翻譯表與建置腳本
+（`vendor/jizura/app/chinese.*`、`vendor/jizura/build_toolkit.py`）、`anime-rig`
+的繁中使用說明，以及 emotion-maker 的資產路徑改造。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
 **注意**：`emotion-maker`、`loading-maker`、`ccfolia-cropper`、`character-select`、
