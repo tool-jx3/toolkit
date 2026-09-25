@@ -32,9 +32,9 @@ I18N.register({
 
     /* ---- 自訂格子 ---- */
     'custom.title': '自訂格子',
-    'custom.info': '點選預覽上的六角格，<br />就能個別設定文字、顏色與文字顏色。',
-    'custom.count': '自訂格數：',
-    'custom.clearAll': '全部解除',
+    'custom.info': '點擊預覽中的六角格，<br />即可個別設定文字、顏色與文字顏色。',
+    'custom.count': '自訂格數',
+    'custom.clearAll': '全部清除',
 
     /* ---- 文字 ---- */
     'text.title': '文字',
@@ -45,7 +45,7 @@ I18N.register({
 
     /* ---- 下載、預覽 ---- */
     'download.png': '下載 PNG',
-    'preview.hint': '點一下即可編輯六角格',
+    'preview.hint': '點擊六角格即可編輯',
 
     /* ---- 編輯單格的浮動視窗；{0}, {1} 是格子座標，{2} 是原本的距離 ---- */
     'popup.title': '編輯六角格',
@@ -59,10 +59,10 @@ I18N.register({
     /* ---- 使用說明 ---- */
     'guide.basics': '基本操作',
     'guide.preview': '即時預覽',
-    'guide.preview.desc': '調整設定面板的數值，右側預覽會立即更新。',
-    'guide.customEdit': '個別編輯六角格',
-    'guide.customEdit.desc': '點選預覽上的六角格，就能個別設定該格的文字、顏色、文字顏色與文字大小。變更會立即反映。',
-    'guide.download.desc': '把目前的預覽直接存成 PNG 圖片，背景是透明的。',
+    'guide.preview.desc': '變更設定面板的數值，右側的預覽會立即更新。',
+    'guide.customEdit': '編輯自訂六角格',
+    'guide.customEdit.desc': '點擊預覽中的六角格，就能個別設定該格的文字、顏色、文字顏色與文字大小，變更會立即反映。',
+    'guide.download.desc': '將目前的預覽直接存成 PNG 圖片，背景為透明。',
     'guide.orientation.desc': '<strong>橫向</strong>會畫出平頂（flat-top）六角格，<strong>直向</strong>則是尖頂（pointy-top）六角格。',
     'guide.range.desc': '設定從中心六角格算起的最大距離（格數）。',
     'guide.method': '距離計算方式',
@@ -70,16 +70,16 @@ I18N.register({
     'guide.fitGrid': '使用網格',
     'guide.fitGrid.desc': '開啟後會把六角格橫向拉長，讓它剛好對齊正方形網格。在 CCFOLIA 這類只支援網格的線上團工具中使用時請開啟。',
     'guide.globalOpacity': '不透明度（整體）',
-    'guide.cellOpacity.desc': '一次調整所有六角格顏色的不透明度。各距離在顏色選擇器中設定的 α 值會再乘上這個值。',
-    'guide.scheme.desc': '可從彩虹、暖色、冷色、灰階、無色（全透明）、自訂中選擇。切換配色時，各距離的顏色選擇器會一起更新。',
+    'guide.cellOpacity.desc': '一次調整所有六角格顏色的不透明度。這個值會乘上各距離顏色選擇器所設定的 α 值。',
+    'guide.scheme.desc': '可以選擇彩虹、暖色、冷色、灰階、無色（全透明）或自訂。切換配色時，各距離顏色選擇器的顏色會一併更新。',
     'guide.distColor': '各距離的顏色',
-    'guide.distColor.desc': '可以用顏色選擇器分別設定各距離（0＝中心～N）的顏色，也能透過 Alpha 色版設定每個距離的透明度。',
+    'guide.distColor.desc': '可以用顏色選擇器個別設定每個距離（0 = 中心～N）的顏色，也能用 Alpha 通道為各距離設定透明度。',
     'guide.textOpacity.desc': '一次調整所有文字的不透明度，會乘上顏色選擇器的 α 值。',
-    'guide.fontSize.desc': '預設的文字大小（px），可以在個別編輯六角格時另外覆寫。',
-    'guide.stroke.desc': '為文字加上描邊，背景透明時也能看清楚文字。',
+    'guide.fontSize.desc': '預設的文字大小（px），可以在自訂六角格中個別覆寫。',
+    'guide.stroke.desc': '為文字加上描邊，即使背景透明也能讓文字清楚易讀。',
     'guide.fileName': '下載檔名',
     'guide.fileFormat': '檔名格式',
-    'guide.fileFormat.desc': '<code>hex_ruler_{橫}x{直}.png</code>（開啟「使用網格」時），其他情況為 <code>hex_ruler.png</code>'
+    'guide.fileFormat.desc': '<code>hex_ruler_{橫}x{縱}.png</code>（開啟「使用網格」時），其他情況為 <code>hex_ruler.png</code>'
   },
   ja: {
     'app.title': 'ヘクス定規作成ツール',
@@ -114,7 +114,7 @@ I18N.register({
     /* ---- 自訂格子 ---- */
     'custom.title': 'カスタムセル',
     'custom.info': 'プレビュー上のヘクスをクリックして<br />テキスト・色・文字色を個別設定できます。',
-    'custom.count': 'カスタム数: ',
+    'custom.count': 'カスタム数:',
     'custom.clearAll': 'すべて解除',
 
     /* ---- 文字 ---- */

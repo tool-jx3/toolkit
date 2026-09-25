@@ -69,6 +69,8 @@
 
     const customCells = new Map(); // key:"c,r" → {text, color, textColor, fontSize}
     let editingCell = null;
+    /* 收錄版：記住浮動視窗裡顯示的預設距離，切換語言時才能重畫那一行。 */
+    let editingDist = 0;
 
     /* ================================================================
        ゲッター
@@ -255,7 +257,8 @@
         const custom = customCells.get(`${c},${r}`);
 
         document.getElementById('cp-text').value = custom?.text ?? String(defaultDist);
-        document.getElementById('cpCoord').textContent = `ヘクス (${c}, ${r})  / デフォルト距離: ${defaultDist}`;
+        editingDist = defaultDist;
+        renderPopupCoord();
         document.getElementById('cp-fontSize').value = custom?.fontSize ?? getGlobalFontSize();
 
         const defaultCellCol = distColors[defaultDist] ?? { r: 128, g: 128, b: 128, a: 1 };
@@ -278,6 +281,11 @@
         popup.style.left = Math.max(8, left) + 'px';
         popup.style.top = Math.max(8, top) + 'px';
         render();
+    }
+
+    function renderPopupCoord() {
+        if (!editingCell) return;
+        document.getElementById('cpCoord').textContent = T('popup.coord', editingCell.c, editingCell.r, editingDist);
     }
 
     function closeCellPopup() {
@@ -359,6 +367,10 @@
     /* ================================================================
        距離ごとカラーピッカー構築
     ================================================================ */
+    function distLabel(d) {
+        return d === 0 ? T('dist.center') : T('dist.n', d);
+    }
+
     function buildColorPickers() {
         distPickrs.forEach((p) => {
             try {
@@ -381,7 +393,8 @@
             row.className = 'color-row';
             const label = document.createElement('span');
             label.className = 'color-d-label';
-            label.textContent = d === 0 ? '中心' : `距離 ${d}`;
+            label.dataset.d = d;
+            label.textContent = distLabel(d);
             const pickrEl = document.createElement('div');
             row.appendChild(label);
             row.appendChild(pickrEl);
@@ -393,7 +406,7 @@
                     theme: 'nano',
                     default: colToPickrStr(initCol),
                     components: { preview: true, opacity: true, hue: true, interaction: { input: true, save: true } },
-                    i18n: { 'btn:save': '確定' },
+                    i18n: { 'btn:save': T('pickr.save') },
                 });
                 p.on('change', (color) => {
                     distColors[idx] = pickrToCol(color);
@@ -424,7 +437,7 @@
             theme: 'nano',
             default: colToPickrStr(textCol),
             components: { preview: true, opacity: true, hue: true, interaction: { input: true, save: true } },
-            i18n: { 'btn:save': '確定' },
+            i18n: { 'btn:save': T('pickr.save') },
         });
         textPickr
             .on('change', (color) => {
@@ -438,7 +451,7 @@
             theme: 'nano',
             default: colToPickrStr(strokeCol),
             components: { preview: true, opacity: true, hue: true, interaction: { input: true, save: true } },
-            i18n: { 'btn:save': '確定' },
+            i18n: { 'btn:save': T('pickr.save') },
         });
         strokePickr
             .on('change', (color) => {
@@ -454,7 +467,7 @@
             theme: 'nano',
             default: colToPickrStr(popupCellCol),
             components: { preview: true, opacity: true, hue: true, interaction: { input: true, save: true } },
-            i18n: { 'btn:save': '確定' },
+            i18n: { 'btn:save': T('pickr.save') },
         });
         popupCellPickr
             .on('change', (color) => {
@@ -469,7 +482,7 @@
             theme: 'nano',
             default: colToPickrStr(popupTextCol),
             components: { preview: true, opacity: true, hue: true, interaction: { input: true, save: true } },
-            i18n: { 'btn:save': '確定' },
+            i18n: { 'btn:save': T('pickr.save') },
         });
         popupTextPickr
             .on('change', (color) => {
@@ -545,6 +558,22 @@
         }
         link.href = canvas.toDataURL('image/png');
         link.click();
+    });
+
+    /* ================================================================
+       切換語言（收錄版）
+       由 JS 寫進畫面的文字在這裡重畫：各距離的標籤、浮動視窗的座標列、
+       Pickr 的「確定」鈕。Pickr 不重建，選好的顏色保持不變。
+    ================================================================ */
+    I18N.onChange(() => {
+        document.querySelectorAll('#colorPickerWrap .color-d-label').forEach((el) => {
+            el.textContent = distLabel(Number(el.dataset.d));
+        });
+        renderPopupCoord();
+        [textPickr, strokePickr, popupCellPickr, popupTextPickr, ...distPickrs].forEach((pickr) => {
+            const save = pickr?.getRoot()?.interaction?.save;
+            if (save) save.value = T('pickr.save');
+        });
     });
 
     /* ================================================================

@@ -97,10 +97,10 @@
                     <!-- カスタムセル（折り返し時に右列の先頭） -->
                     <div class="s-sec">
                         <div class="s-ttl" data-i18n-node="custom.title"><span class="material-symbols-outlined">edit</span>自訂格子</div>
-                        <div class="custom-cell-info" data-i18n-html="custom.info">點選預覽上的六角格，<br />就能個別設定文字、顏色與文字顏色。</div>
+                        <div class="custom-cell-info" data-i18n-html="custom.info">點擊預覽中的六角格，<br />即可個別設定文字、顏色與文字顏色。</div>
                         <div class="f" style="margin-top: 0.5rem">
-                            <span class="fl"><span data-i18n="custom.count">自訂格數：</span><span class="custom-cell-count" id="customCount">0</span></span>
-                            <button class="btn-sub" id="clearCustomBtn" data-i18n="custom.clearAll">全部解除</button>
+                            <span class="fl"><span data-i18n="custom.count">自訂格數</span> <span class="custom-cell-count" id="customCount">0</span></span>
+                            <button class="btn-sub" id="clearCustomBtn" data-i18n="custom.clearAll">全部清除</button>
                         </div>
                     </div>
 
@@ -151,7 +151,7 @@
             <div id="preview-area">
                 <div class="cv-wrap" id="cvWrap">
                     <canvas id="rulerCanvas"></canvas>
-                    <div class="canvas-hint" data-i18n="preview.hint">點一下即可編輯六角格</div>
+                    <div class="canvas-hint" data-i18n="preview.hint">點擊六角格即可編輯</div>
                 </div>
             </div>
         </div>
@@ -203,17 +203,17 @@
                             <span class="mi">tune</span>
                             <div>
                                 <dt data-i18n="guide.preview">即時預覽</dt>
-                                <dd data-i18n="guide.preview.desc">調整設定面板的數值，右側預覽會立即更新。</dd>
+                                <dd data-i18n="guide.preview.desc">變更設定面板的數值，右側的預覽會立即更新。</dd>
                             </div>
                             <span class="mi">edit</span>
                             <div>
-                                <dt data-i18n="guide.customEdit">個別編輯六角格</dt>
-                                <dd data-i18n="guide.customEdit.desc">點選預覽上的六角格，就能個別設定該格的文字、顏色、文字顏色與文字大小。變更會立即反映。</dd>
+                                <dt data-i18n="guide.customEdit">編輯自訂六角格</dt>
+                                <dd data-i18n="guide.customEdit.desc">點擊預覽中的六角格，就能個別設定該格的文字、顏色、文字顏色與文字大小，變更會立即反映。</dd>
                             </div>
                             <span class="mi">download</span>
                             <div>
                                 <dt data-i18n="download.png">下載 PNG</dt>
-                                <dd data-i18n="guide.download.desc">把目前的預覽直接存成 PNG 圖片，背景是透明的。</dd>
+                                <dd data-i18n="guide.download.desc">將目前的預覽直接存成 PNG 圖片，背景為透明。</dd>
                             </div>
                         </dl>
 
@@ -246,17 +246,17 @@
                             <span class="mi">opacity</span>
                             <div>
                                 <dt data-i18n="guide.globalOpacity">不透明度（整體）</dt>
-                                <dd data-i18n="guide.cellOpacity.desc">一次調整所有六角格顏色的不透明度。各距離在顏色選擇器中設定的 α 值會再乘上這個值。</dd>
+                                <dd data-i18n="guide.cellOpacity.desc">一次調整所有六角格顏色的不透明度。這個值會乘上各距離顏色選擇器所設定的 α 值。</dd>
                             </div>
                             <span class="mi">palette</span>
                             <div>
                                 <dt data-i18n="cellColor.scheme">配色</dt>
-                                <dd data-i18n="guide.scheme.desc">可從彩虹、暖色、冷色、灰階、無色（全透明）、自訂中選擇。切換配色時，各距離的顏色選擇器會一起更新。</dd>
+                                <dd data-i18n="guide.scheme.desc">可以選擇彩虹、暖色、冷色、灰階、無色（全透明）或自訂。切換配色時，各距離顏色選擇器的顏色會一併更新。</dd>
                             </div>
                             <span class="mi">colorize</span>
                             <div>
                                 <dt data-i18n="guide.distColor">各距離的顏色</dt>
-                                <dd data-i18n="guide.distColor.desc">可以用顏色選擇器分別設定各距離（0＝中心～N）的顏色，也能透過 Alpha 色版設定每個距離的透明度。</dd>
+                                <dd data-i18n="guide.distColor.desc">可以用顏色選擇器個別設定每個距離（0 = 中心～N）的顏色，也能用 Alpha 通道為各距離設定透明度。</dd>
                             </div>
                         </dl>
 
@@ -270,12 +270,12 @@
                             <span class="mi">format_size</span>
                             <div>
                                 <dt data-i18n="text.fontSize">文字大小</dt>
-                                <dd data-i18n="guide.fontSize.desc">預設的文字大小（px），可以在個別編輯六角格時另外覆寫。</dd>
+                                <dd data-i18n="guide.fontSize.desc">預設的文字大小（px），可以在自訂六角格中個別覆寫。</dd>
                             </div>
                             <span class="mi">text_fields</span>
                             <div>
                                 <dt data-i18n="text.stroke">描邊</dt>
-                                <dd data-i18n="guide.stroke.desc">為文字加上描邊，背景透明時也能看清楚文字。</dd>
+                                <dd data-i18n="guide.stroke.desc">為文字加上描邊，即使背景透明也能讓文字清楚易讀。</dd>
                             </div>
                         </dl>
 
@@ -284,7 +284,7 @@
                             <span class="mi">info</span>
                             <div>
                                 <dt data-i18n="guide.fileFormat">檔名格式</dt>
-                                <dd data-i18n-html="guide.fileFormat.desc"><code>hex_ruler_{橫}x{直}.png</code>（開啟「使用網格」時），其他情況為 <code>hex_ruler.png</code></dd>
+                                <dd data-i18n-html="guide.fileFormat.desc"><code>hex_ruler_{橫}x{縱}.png</code>（開啟「使用網格」時），其他情況為 <code>hex_ruler.png</code></dd>
                             </div>
                         </dl>
                     </div>

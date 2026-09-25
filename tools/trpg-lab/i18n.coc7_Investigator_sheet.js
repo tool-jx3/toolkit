@@ -79,7 +79,7 @@ I18N.register({
     'sheet.skill.survival': '生存（10%）',
     'sheet.skill.naturalWorld': '博物學（10%）',
     'sheet.skill.firearmsHandgun': '射擊（手槍）（20%）',
-    'sheet.skill.firearmsRifle': '射擊<br />（步槍／霰彈槍）（25%）',
+    'sheet.skill.firearmsRifle': '射擊（步槍／霰彈槍）<br />（25%）',
     'sheet.skill.heavyMachinery': '操作重型機械（1%）',
     'sheet.skill.creditRating': '信用評級（0%）',
     'sheet.skill.psychology': '心理學（10%）',

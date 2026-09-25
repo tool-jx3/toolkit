@@ -43,7 +43,7 @@
                             <input type="number" id="cols" value="15" min="1" max="1000" class="custom-spinner" />
                         </div>
                         <div class="f">
-                            <span class="fl" data-i18n="basic.rows">列數（直）</span>
+                            <span class="fl" data-i18n="basic.rows">列數（縱）</span>
                             <input type="number" id="rows" value="21" min="1" max="1000" class="custom-spinner" />
                         </div>
                         <div class="f">
@@ -152,8 +152,8 @@
                             <div class="f">
                                 <span class="fl" data-i18n="coord.start">起始編號</span>
                                 <div class="seg">
-                                    <input type="radio" name="cstart" id="cs-0" value="0" checked /><label for="cs-0" data-i18n="coord.start.0">從 0 開始</label>
-                                    <input type="radio" name="cstart" id="cs-1" value="1" /><label for="cs-1" data-i18n="coord.start.1">從 1 開始</label>
+                                    <input type="radio" name="cstart" id="cs-0" value="0" checked /><label for="cs-0" data-i18n="coord.start.0">從 0</label>
+                                    <input type="radio" name="cstart" id="cs-1" value="1" /><label for="cs-1" data-i18n="coord.start.1">從 1</label>
                                 </div>
                             </div>
                             <div class="f">
@@ -165,7 +165,7 @@
                                 </div>
                             </div>
                             <div class="f" id="coordOffsetRow">
-                                <span class="fl" data-i18n="coord.offset">距邊偏移</span>
+                                <span class="fl" data-i18n="coord.offset">邊緣偏移</span>
                                 <div class="row">
                                     <input type="number" id="coordOffset" value="8" min="-999" max="999" class="custom-spinner" />
                                     <span class="unit">px</span>
@@ -212,12 +212,12 @@
                             <span class="mi">tune</span>
                             <div>
                                 <dt data-i18n="guide.preview">即時預覽</dt>
-                                <dd data-i18n="guide.preview.desc">調整設定面板的數值，右側預覽會立即更新。</dd>
+                                <dd data-i18n="guide.preview.desc">變更設定面板的數值，右側的預覽會立即更新。</dd>
                             </div>
                             <span class="mi">download</span>
                             <div>
                                 <dt data-i18n="download.png">下載 PNG</dt>
-                                <dd data-i18n="guide.download.desc">把目前的預覽直接存成 PNG 圖片，背景是透明的。</dd>
+                                <dd data-i18n="guide.download.desc">將目前的預覽直接存成 PNG 圖片，背景為透明。</dd>
                             </div>
                             <span class="mi">light_mode</span>
                             <div>
@@ -274,12 +274,12 @@
                             <span class="mi">palette</span>
                             <div>
                                 <dt data-i18n="field.colorOpacity">顏色／不透明度</dt>
-                                <dd data-i18n="guide.color.desc">從調色盤設定顏色與不透明度。縮小比例為 100% 時，為了避免相鄰的邊重疊，每個六角格只畫 3 條邊（因此不透明度會原樣呈現）。</dd>
+                                <dd data-i18n="guide.color.desc">用調色盤設定顏色與透明度。縮小比例為 100% 時，為了避免相鄰的邊重疊，每個六角格只畫 3 條邊（因此不透明度會原樣呈現）。</dd>
                             </div>
                             <span class="mi">line_weight</span>
                             <div>
                                 <dt data-i18n="line.width">線寬</dt>
-                                <dd data-i18n="guide.width.desc">線的寬度（px）。開啟發光效果時，發光範圍也會隨線寬等比例擴大。</dd>
+                                <dd data-i18n="guide.width.desc">線條的寬度（px）。開啟發光效果時，發光範圍也會隨線寬等比例擴大。</dd>
                             </div>
                             <span class="mi">more_horiz</span>
                             <div>
@@ -289,7 +289,7 @@
                             <span class="mi">flare</span>
                             <div>
                                 <dt data-i18n="line.glow">發光效果</dt>
-                                <dd data-i18n="guide.glow.desc">讓線條發光，在深色背景上特別顯眼。下載的圖片也會套用。</dd>
+                                <dd data-i18n="guide.glow.desc">讓線條發光，在深色背景上特別醒目。下載的圖片也會套用。</dd>
                             </div>
                         </dl>
 
@@ -298,7 +298,7 @@
                             <span class="mi">photo_size_select_small</span>
                             <div>
                                 <dt data-i18n="shrink.rate">縮小比例</dt>
-                                <dd data-i18n="guide.shrink.desc">六角格之間的距離（每格占用的範圍）不變，只縮小六角格本身畫出來的大小。低於 100% 時邊不再重疊，會畫出全部 6 條邊。想在 CCFOLIA 上讓六角格之間留出空隙時很方便。</dd>
+                                <dd data-i18n="guide.shrink.desc">維持六角格之間的距離（每一格所占的範圍）不變，只縮小實際畫出的六角格。低於 100% 時邊不再重疊，會畫出全部 6 條邊。想在 CCFOLIA 上讓六角格之間留出空隙時很方便。</dd>
                             </div>
                         </dl>
 
@@ -307,7 +307,7 @@
                             <span class="mi">format_list_numbered</span>
                             <div>
                                 <dt data-i18n="coord.format">座標格式</dt>
-                                <dd data-i18n-html="guide.format.desc">可以選擇座標的顯示樣式：<strong>1-1</strong>（連字號分隔）、<strong>1, 1</strong>（逗號分隔）、<strong>0101</strong>（補零成 4 位數）、<strong>A1</strong>（欄用英文字母、列用數字）、<strong>流水號</strong>（不用座標，依序編號）。</dd>
+                                <dd data-i18n-html="guide.format.desc">可以選擇座標的顯示樣式，共 5 種：<strong>1-1</strong>（以連字號分隔）、<strong>1, 1</strong>（以逗號分隔）、<strong>0101</strong>（補零成 4 位數）、<strong>A1</strong>（欄用英文字母、列用數字）、<strong>流水號</strong>（不用座標，依序編號）。</dd>
                             </div>
                             <span class="mi">compress</span>
                             <div>
@@ -323,7 +323,7 @@
                             <span class="mi">vertical_align_center</span>
                             <div>
                                 <dt data-i18n="guide.posOffset">位置與偏移</dt>
-                                <dd data-i18n-html="guide.posOffset.desc">選擇座標文字要放在上、中、下哪個位置。選「上」或「下」時，可以用「距邊偏移」調整文字與邊的距離（px）。<strong>正值會往中心靠近</strong>，負值則會移到六角格外側。這個距離會隨縮小比例連動。</dd>
+                                <dd data-i18n-html="guide.posOffset.desc">選擇座標文字要放在六角格內的上、中或下。選擇上或下時，可以用「邊緣偏移」調整與邊的距離（px）。<strong>正值會往中心靠近</strong>，負值則會移到六角格外側。這個距離會隨縮小比例連動。</dd>
                             </div>
                         </dl>
                     </div>
