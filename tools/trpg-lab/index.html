@@ -37,7 +37,7 @@
             <!-- ヒーロー -->
             <section class="hero">
                 <div class="hero-content">
-                    <h1 class="hero-catchcopy"><span class="catch-trpg" data-text="TRPG">TRPG</span>をもっと便利に</h1>
+                    <h1 class="hero-catchcopy" data-i18n-html="hub.catch">讓<span class="catch-trpg" data-text="TRPG">TRPG</span>更方便</h1>
                     <div class="hero-sub" aria-hidden="true">
                         <span>TECHNOLOGY MAKES HUMANS MORE FREE</span>
                         <span class="cursor-blink"></span>
@@ -46,39 +46,40 @@
             </section>
 
             <!-- インフォバー：更新情報 + フィードバック -->
-            <section class="info-bar" aria-label="更新情報とフィードバック">
+            <section class="info-bar" data-i18n-aria-label="hub.infoAria" aria-label="更新資訊與意見回饋">
                 <div class="container">
                     <div class="info-bar-grid">
                         <!-- 更新情報カード -->
-                        <div class="info-card" role="region" aria-label="最新の更新情報">
+                        <div class="info-card" role="region" data-i18n-aria-label="hub.latestAria" aria-label="最新的更新資訊">
                             <div class="info-card-header">
                                 <span class="material-symbols-outlined info-card-icon">rss_feed</span>
                                 <span class="info-card-title">Latest Update</span>
                             </div>
                             <div class="news-latest" id="latest-news"></div>
                             <div class="news-more-link">
-                                <button class="btn-text" id="open-news-modal" aria-label="すべての更新情報を表示">
-                                    <span class="material-symbols-outlined" style="font-size: 12px">expand_more</span> すべて見る
+                                <button class="btn-text" id="open-news-modal" data-i18n-aria-label="hub.newsAllAria" aria-label="顯示全部更新資訊" data-i18n-node="hub.newsAll">
+                                    <span class="material-symbols-outlined" style="font-size: 12px">expand_more</span> 查看全部
                                 </button>
                             </div>
                         </div>
 
                         <!-- フィードバックカード -->
-                        <div class="info-card" role="region" aria-label="フィードバック">
+                        <div class="info-card" role="region" data-i18n-aria-label="hub.feedbackAria" aria-label="意見回饋">
                             <div class="info-card-header">
                                 <span class="material-symbols-outlined info-card-icon fill">forum</span>
                                 <span class="info-card-title">Feedback</span>
                             </div>
-                            <p class="feedback-desc">バグ報告・機能改善・新ツールのご要望はこちらから。</p>
+                            <p class="feedback-desc" data-i18n="hub.feedbackDesc">問題回報、功能改善、新工具許願請由此提出（原作者的日文表單）。</p>
                             <a
                                 href="https://docs.google.com/forms/d/e/1FAIpQLSd3-QGTqNyGFU0zRC-DdUH-a2viivXUNGN0ogcxmgx-265Dhw/viewform"
                                 class="btn-feedback"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                aria-label="要望フォームを開く"
+                                data-i18n-aria-label="hub.feedbackFormAria" aria-label="開啟意見表單"
+                                data-i18n-node="hub.feedbackForm"
                             >
                                 <span class="material-symbols-outlined">open_in_new</span>
-                                要望フォームへ
+                                前往意見表單
                             </a>
                         </div>
                     </div>
@@ -86,7 +87,7 @@
             </section>
 
             <!-- ツール一覧 -->
-            <section class="tools-section" aria-label="ツール一覧">
+            <section class="tools-section" data-i18n-aria-label="hub.toolsAria" aria-label="工具一覽">
                 <div class="container">
                     <div class="section-head">
                         <h2 class="section-head-title">
@@ -109,7 +110,7 @@
         <div class="modal-overlay" id="news-modal" role="dialog" aria-modal="true" aria-labelledby="news-modal-title">
             <div class="modal">
                 <div class="modal-header">
-                    <span class="modal-title" id="news-modal-title">更新情報</span>
+                    <span class="modal-title" id="news-modal-title" data-i18n="hub.newsTitle">更新資訊</span>
                     <button class="modal-close" data-i18n-aria-label="lab.close" aria-label="關閉"><span class="material-symbols-outlined">close</span></button>
                 </div>
                 <div class="modal-body" id="all-news-list" role="log"></div>
@@ -126,32 +127,28 @@
                 </div>
                 <div class="modal-body" id="guide-content">
                     <div class="guide-body">
-                        <p>
-                            <strong style="font-family: var(--font-display); color: var(--blue)">違法建築のTRPGラボ</strong>
-                            は、TRPGセッションをもっと快適にするためのWEBツール群をまとめたサイトです。<br />
-                            主に新クトゥルフ神話TRPG（CoC7/6）とオンセ用ツールを扱っています。
-                        </p>
-                        <h3>このサイトの使い方</h3>
+                        <p data-i18n-html="hub.guide.intro"><strong style="font-family: var(--font-display); color: var(--blue)">違法建築的 TRPG 實驗室</strong>是一個收集網頁工具、讓 TRPG 跑團更舒適的網站。<br />主要收錄新克蘇魯神話 TRPG（CoC 7／6 版）與線上團用的工具。</p>
+                        <h3 data-i18n="hub.guide.howto">這個網站的用法</h3>
                         <ul>
                             <li>
                                 <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: 0px; color: var(--cyan); flex-shrink: 0">open_in_new</span>
-                                ツールカードをクリックすると、各ツールが開きます。
+                                <span data-i18n="hub.guide.1">點選工具卡片就會開啟該工具。</span>
                             </li>
                             <li>
                                 <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--cyan); flex-shrink: 0">devices</span>
-                                スマートフォン・タブレット・PCのいずれでも動作します。
+                                <span data-i18n="hub.guide.2">手機、平板、電腦都能使用。</span>
                             </li>
                             <li>
                                 <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--cyan); flex-shrink: 0">edit_note</span>
-                                バグ報告や改善要望は「改善要望フォーム」からお寄せください。
+                                <span data-i18n="hub.guide.3">問題回報或改善建議，請透過「意見表單」告訴原作者。</span>
                             </li>
                             <li>
                                 <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -3px; color: var(--cyan); flex-shrink: 0">contrast</span>
-                                右上のアイコンでライト/ダークモードを切り替えられます。
+                                <span data-i18n="hub.guide.4">用右上角的圖示可以切換淺色／深色模式。</span>
                             </li>
                         </ul>
-                        <h3>免責事項</h3>
-                        <p>各ツールは非公式・個人制作です。公式版権物とは無関係であり、二次創作の範囲での利用をお願いします。使用によって生じた損害について作者は責任を負いかねます。</p>
+                        <h3 data-i18n="hub.guide.disclaimerTitle">免責聲明</h3>
+                        <p data-i18n="hub.guide.disclaimer">各工具皆為非官方的個人作品，與官方版權方無關，請在二次創作的範圍內使用。因使用而產生的損害，作者恕不負責。</p>
                         <!-- ↓ common.js の buildGuideLinks() がここにリンクブロックを追加する -->
                     </div>
                 </div>
