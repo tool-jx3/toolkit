@@ -14,17 +14,17 @@
         ext.className = 'header-ext';
         // CSS Grid (auto 1fr auto) で 左=戻る / 中=名前+ステータス / 右=Undo/Redo
         ext.innerHTML = `
-            <a href="map_list.html" class="map-back-btn" title="マイマップ一覧へ戻る">
+            <a href="map_list.html" class="map-back-btn" data-i18n-title="editor.backTip" title="${T('editor.backTip')}">
                 <span class="material-symbols-outlined">map</span>
-                <span>マップ一覧へ戻る</span>
+                <span data-i18n="editor.back">${T('editor.back')}</span>
             </a>
             <div class="map-center">
                 <span class="map-name-display" id="map-name-display">—</span>
-                <span class="save-status saved" id="save-status">保存済み</span>
+                <span class="save-status saved" id="save-status">${T('editor.saved')}</span>
             </div>
             <div class="map-actions">
-                <button id="undo-btn" class="header-icon-btn" disabled title="元に戻す (Ctrl+Z)"><span class="material-symbols-outlined">undo</span></button>
-                <button id="redo-btn" class="header-icon-btn" disabled title="やり直し (Ctrl+Shift+Z)"><span class="material-symbols-outlined">redo</span></button>
+                <button id="undo-btn" class="header-icon-btn" disabled data-i18n-title="editor.undoTip" title="${T('editor.undoTip')}"><span class="material-symbols-outlined">undo</span></button>
+                <button id="redo-btn" class="header-icon-btn" disabled data-i18n-title="editor.redoTip" title="${T('editor.redoTip')}"><span class="material-symbols-outlined">redo</span></button>
             </div>
         `;
         ext.querySelector('#undo-btn').addEventListener('click', () => undo());
@@ -176,44 +176,42 @@ const AUTO_SAVE_DEBOUNCE_MS = 2500;
 
 /* ================================================================
    パターン (地面 / 壁 共通)
-   - WebP 画像を patterns/full/ (本番) と patterns/thumb/ (ピッカー用) に置く
    - 各エントリは ground / wall ジャンルを別個に持つ。両方埋めれば共用可能
    - color: 画像が読み込めない/未配置時の単色フォールバック
 ================================================================ */
-const PATTERN_DIR_FULL = 'patterns/full/';
-const PATTERN_DIR_THUMB = 'patterns/thumb/';
-
+// ジャンル名は表示時に T(nameKey) で引く (読み込み時に訳すと言語が固定されるため)。
+// 收錄版沒有內建圖樣，只剩「全部」與「自訂」兩個分類。
 const GROUND_GENRES = [
-    { id: 'all', name: '全て' },
-    { id: 'user', name: 'ユーザー' },
-    { id: 'indoor', name: '屋内' },
-    { id: 'outdoor', name: '屋外' },
+    { id: 'all', nameKey: 'genre.all' },
+    { id: 'user', nameKey: 'genre.user' },
 ];
 const WALL_GENRES = [
-    { id: 'all', name: '全て' },
-    { id: 'user', name: 'ユーザー' },
-    { id: 'stone', name: '石壁' },
-    { id: 'wood', name: '木壁' },
+    { id: 'all', nameKey: 'genre.all' },
+    { id: 'user', nameKey: 'genre.user' },
 ];
 
-const PATTERNS = [
-    // scale: パターン定義側の初期倍率 (画像 1px → キャンバス scale px)。
-    //   最終倍率 = (PATTERNS[].scale) × (App.groundPatternScale / wallPatternScale ユーザー設定値)
-    { id: 'grass', name: '草原', file: 'grass.webp', color: '#4a8c3f', ground: 'outdoor', wall: null, scale: 0.4 },
-    { id: 'water', name: '水面', file: 'water.webp', color: '#5ba3cf', ground: 'outdoor', wall: null, scale: 0.4 },
-    { id: 'rock', name: '岩', file: '岩.webp', color: '#7a7368', ground: 'cave', wall: 'stone', scale: 0.4 },
-    { id: 'rock-moss', name: '岩 (苔)', file: '岩(苔).webp', color: '#6b7a52', ground: 'cave', wall: 'natural', scale: 0.4 },
-    { id: 'wood-plank', name: '木板', file: '木板.webp', color: '#8a6a3f', ground: 'indoor', wall: 'wood', scale: 0.25 },
-    { id: 'brick', name: 'レンガ', file: 'レンガ.webp', color: '#9a5a3f', ground: 'indoor', wall: 'stone', scale: 0.2 },
-    { id: 'cobblestone', name: '石畳', file: '石畳.webp', color: '#7a7368', ground: 'outdoor', wall: 'stone', scale: 0.4 },
-    { id: 'forest', name: '森林', file: '森林.webp', color: '#3f6a3a', ground: 'outdoor', wall: null, scale: 0.4 },
-    { id: 'tile', name: 'タイル', file: 'タイル.webp', color: '#d2d2d2', ground: 'indoor', wall: null, scale: 0.4 },
-    { id: 'black-soil', name: '黒土', file: '黒土.webp', color: '#3a3026', ground: 'outdoor', wall: null, scale: 0.4 },
-    { id: 'cobblestone-round', name: '石畳(丸)', file: '石畳(丸).webp', color: '#7a7368', ground: 'outdoor', wall: 'stone', scale: 0.4 },
-    { id: 'lava', name: '溶岩', file: '溶岩.webp', color: '#5e2a20', ground: 'outdoor', wall: null, scale: 0.4 },
-    { id: 'sand', name: '砂', file: '砂.webp', color: '#d9c89a', ground: 'outdoor', wall: null, scale: 0.4 },
-    { id: 'gravel', name: '砂利', file: '砂利.webp', color: '#9a948a', ground: 'outdoor', wall: null, scale: 0.4 },
-];
+// 收錄版不含內建圖樣：上游的 14 款內建紋理是 AI 生成的圖片，作者保留權利，因此沒有收進來。
+// 使用者自己上傳的圖樣（App.userPatterns）照常可用。
+const PATTERNS = [];
+
+// 上游內建圖樣的單色代替色（id → 色碼，只有顏色、不含任何圖檔）。舊地圖若用過這些已移除的圖樣，
+// 讀取時會改成這個單色，而不是去抓不存在的圖檔。
+const REMOVED_PATTERN_COLORS = {
+    grass: '#4a8c3f',
+    water: '#5ba3cf',
+    rock: '#7a7368',
+    'rock-moss': '#6b7a52',
+    'wood-plank': '#8a6a3f',
+    brick: '#9a5a3f',
+    cobblestone: '#7a7368',
+    forest: '#3f6a3a',
+    tile: '#d2d2d2',
+    'black-soil': '#3a3026',
+    'cobblestone-round': '#7a7368',
+    lava: '#5e2a20',
+    sand: '#d9c89a',
+    gravel: '#9a948a',
+};
 
 /** id からパターン定義を取得する。組み込みパターン → ユーザー素材の順で検索。無ければ null。 */
 function getPatternDef(id) {
@@ -238,103 +236,85 @@ const DECOR_DIR_SVG = 'decors/svg/';
 const DECOR_DIR_IMAGE = 'decors/image/';
 const DECOR_DIR_THUMB = 'decors/thumb/';
 
+// 收錄版拿掉了「間取り図（平面圖）」分類：那一類的 SVG 由作者保留權利，沒有收進來。
 const DECOR_GENRES = [
-    { id: 'all', name: '全て' },
-    { id: 'user', name: 'ユーザー' },
-    { id: 'floorplan', name: '間取り図' },
-    { id: 'jp-symbol', name: '地図記号' },
-    { id: 'icon', name: 'アイコン' },
+    { id: 'all', nameKey: 'genre.all' },
+    { id: 'user', nameKey: 'genre.user' },
+    { id: 'jp-symbol', nameKey: 'genre.jpSymbol' },
+    { id: 'icon', nameKey: 'genre.icon' },
 ];
 
 const DECORS = [
     // type='svg' は decors/svg/{file}、type='image' は decors/image/{file}
     // scale: 1セル幅を基準とした初期倍率 (1 = ちょうどセル幅)
     // genres: 1 装飾が複数ジャンルに属する場合は配列で指定 (例: game-icons のドアは「ドア」「アイコン」の両方)
+    // 顯示名稱放在字典裡（nameKey，顯示時才用 T() 取）；使用者上傳素材的 name 仍是檔名本身。
+    // 收錄版拿掉了上游的 15 個平面圖（間取り図）裝飾，理由見 DECOR_GENRES。
     //
-    // ---- 間取り図 (ハンドクラフト、白フィル/黒ストロークの真上ビュー) ----
-    // ドア
-    { id: 'fp-door', name: 'ドア', type: 'svg', file: 'fp-door.svg', genres: ['floorplan', 'door'], scale: 0.8, anchorX: 'center', anchorY: 'center' },
-    { id: 'fp-door-large', name: 'ドア (大)', type: 'svg', file: 'fp-door-large.svg', genres: ['floorplan', 'door'], scale: 1.6, anchorX: 'center', anchorY: 'center' },
-    { id: 'fp-door-open', name: '開き戸', type: 'svg', file: 'fp-door-open.svg', genres: ['floorplan', 'door'], scale: 0.8, anchorX: 'center', anchorY: 'bottom' },
-    { id: 'fp-door-double-open', name: '両開き戸', type: 'svg', file: 'fp-door-double-open.svg', genres: ['floorplan', 'door'], scale: 1.57, anchorX: 'center', anchorY: 'bottom' },
-
     // ---- game-icons (CC BY 3.0) — スタイル系アイコン ----
     // ドア
-    { id: 'door-simple', name: 'ドア', type: 'svg', file: 'door-simple.svg', genres: ['door', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'door-arched', name: 'アーチドア', type: 'svg', file: 'door-arched.svg', genres: ['door', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'double-door', name: '両開き扉', type: 'svg', file: 'double-door.svg', genres: ['door', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'door-simple', nameKey: 'decor.doorSimple', type: 'svg', file: 'door-simple.svg', genres: ['door', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'door-arched', nameKey: 'decor.doorArched', type: 'svg', file: 'door-arched.svg', genres: ['door', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'double-door', nameKey: 'decor.doubleDoor', type: 'svg', file: 'double-door.svg', genres: ['door', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
     // 家具
-    { id: 'bed', name: 'ベッド', type: 'svg', file: 'bed.svg', genres: ['furniture', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    // 間取り図スタイルのベッド (本体+枕+掛布)。最長辺(長さ方向) が約2セルになる scale を初期値に。
-    { id: 'bed-single', name: 'ベッド(S)', type: 'svg', file: 'bed_single.svg', genres: ['floorplan'], scale: 2.22, anchorX: 'center', anchorY: 'center' },
-    { id: 'bed-double', name: 'ベッド(D)', type: 'svg', file: 'bed_double.svg', genres: ['floorplan'], scale: 2.22, anchorX: 'center', anchorY: 'center' },
-    { id: 'bed-queen', name: 'ベッド(Q)', type: 'svg', file: 'bed_queen.svg', genres: ['floorplan'], scale: 2.22, anchorX: 'center', anchorY: 'center' },
-    // 間取り図スタイルの家具 (本体は白塗り+黒線)。scale = SVG長辺 / 720 で実寸に揃える。
-    { id: 'chair', name: '椅子', type: 'svg', file: 'chair.svg', genres: ['floorplan'], scale: 0.67, anchorX: 'center', anchorY: 'center' },
-    { id: 'toilet', name: 'トイレ', type: 'svg', file: 'toilet.svg', genres: ['floorplan'], scale: 0.89, anchorX: 'center', anchorY: 'center' },
-    { id: 'table-4', name: 'テーブル4', type: 'svg', file: 'table_4.svg', genres: ['floorplan'], scale: 1.89, anchorX: 'center', anchorY: 'center' },
-    { id: 'table-chair-6', name: 'テーブル6', type: 'svg', file: 'table_chair_6.svg', genres: ['floorplan'], scale: 2.11, anchorX: 'center', anchorY: 'center' },
-    { id: 'kitchen', name: 'キッチン', type: 'svg', file: 'kitchen.svg', genres: ['floorplan'], scale: 3, anchorX: 'center', anchorY: 'center' },
-    { id: 'window-single', name: '窓(一枚)', type: 'svg', file: 'window_single.svg', genres: ['floorplan'], scale: 0.8, anchorX: 'center', anchorY: 'center' },
-    { id: 'window-double', name: '窓(二枚)', type: 'svg', file: 'window_double.svg', genres: ['floorplan'], scale: 1.6, anchorX: 'center', anchorY: 'center' },
-    { id: 'stairs-straight', name: '階段(直線)', type: 'svg', file: 'stairs_straight.svg', genres: ['floorplan'], scale: 2, anchorX: 'center', anchorY: 'center' },
-    { id: 'desk', name: 'デスク', type: 'svg', file: 'desk.svg', genres: ['furniture', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'bookshelf', name: '本棚', type: 'svg', file: 'bookshelf.svg', genres: ['furniture', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'chest', name: '宝箱', type: 'svg', file: 'chest.svg', genres: ['furniture', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'barrel', name: '樽', type: 'svg', file: 'barrel.svg', genres: ['furniture', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'bed', nameKey: 'decor.bed', type: 'svg', file: 'bed.svg', genres: ['furniture', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'desk', nameKey: 'decor.desk', type: 'svg', file: 'desk.svg', genres: ['furniture', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'bookshelf', nameKey: 'decor.bookshelf', type: 'svg', file: 'bookshelf.svg', genres: ['furniture', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'chest', nameKey: 'decor.chest', type: 'svg', file: 'chest.svg', genres: ['furniture', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'barrel', nameKey: 'decor.barrel', type: 'svg', file: 'barrel.svg', genres: ['furniture', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
     // 設備系もアイコンとして残す
-    { id: 'fireplace', name: '暖炉', type: 'svg', file: 'fireplace.svg', genres: ['icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'stairs', name: '階段', type: 'svg', file: 'stairs.svg', genres: ['icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'escalator', name: 'エスカレータ', type: 'svg', file: 'escalator.svg', genres: ['icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'ladder', name: 'はしご', type: 'svg', file: 'ladder.svg', genres: ['icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'fireplace', nameKey: 'decor.fireplace', type: 'svg', file: 'fireplace.svg', genres: ['icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'stairs', nameKey: 'decor.stairs', type: 'svg', file: 'stairs.svg', genres: ['icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'escalator', nameKey: 'decor.escalator', type: 'svg', file: 'escalator.svg', genres: ['icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'ladder', nameKey: 'decor.ladder', type: 'svg', file: 'ladder.svg', genres: ['icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
     // 灯火
-    { id: 'campfire', name: '焚き火', type: 'svg', file: 'campfire.svg', genres: ['light', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'campfire', nameKey: 'decor.campfire', type: 'svg', file: 'campfire.svg', genres: ['light', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
     // 自然
-    { id: 'tree-pine', name: '木', type: 'svg', file: 'tree-pine.svg', genres: ['nature', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'wood-pile', name: '薪の山', type: 'svg', file: 'wood-pile.svg', genres: ['nature', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'tree-pine', nameKey: 'decor.treePine', type: 'svg', file: 'tree-pine.svg', genres: ['nature', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'wood-pile', nameKey: 'decor.woodPile', type: 'svg', file: 'wood-pile.svg', genres: ['nature', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
     // その他
-    { id: 'wood-cabin', name: '小屋', type: 'svg', file: 'wood-cabin.svg', genres: ['misc', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'wood-cabin', nameKey: 'decor.woodCabin', type: 'svg', file: 'wood-cabin.svg', genres: ['misc', 'icon'], scale: 1, anchorX: 'center', anchorY: 'center' },
     // 日本の地図記号 (openstreetmap/map-icons, PD)
-    { id: 'jp-school', name: '学校', type: 'svg', file: 'jp-school.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-university', name: '大学', type: 'svg', file: 'jp-university.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-hospital', name: '病院', type: 'svg', file: 'jp-hospital.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-shrine', name: '神社', type: 'svg', file: 'jp-shrine.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-temple', name: '寺', type: 'svg', file: 'jp-temple.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-cemetery', name: '墓地', type: 'svg', file: 'jp-cemetery.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-police', name: '警察署', type: 'svg', file: 'jp-police.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-koban', name: '交番', type: 'svg', file: 'jp-koban.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-firebrigade', name: '消防署', type: 'svg', file: 'jp-firebrigade.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-post', name: '郵便局', type: 'svg', file: 'jp-post.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-townhall', name: '市役所', type: 'svg', file: 'jp-townhall.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-court', name: '裁判所', type: 'svg', file: 'jp-court.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-castle', name: '城跡', type: 'svg', file: 'jp-castle.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-museum', name: '博物館', type: 'svg', file: 'jp-museum.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-library', name: '図書館', type: 'svg', file: 'jp-library.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-spa', name: '温泉', type: 'svg', file: 'jp-spa.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-historical', name: '史跡', type: 'svg', file: 'jp-historical.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-factory', name: '工場', type: 'svg', file: 'jp-factory.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-power-plant', name: '発電所', type: 'svg', file: 'jp-power-plant.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-lighthouse', name: '灯台', type: 'svg', file: 'jp-lighthouse.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-high-tower', name: '電波塔', type: 'svg', file: 'jp-high-tower.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-rice-field', name: '田', type: 'svg', file: 'jp-rice-field.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-high-school', name: '高校', type: 'svg', file: 'jp-high-school.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-town-office', name: '町村役場', type: 'svg', file: 'jp-town-office.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-met-observatory', name: '気象台', type: 'svg', file: 'jp-met-observatory.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-sdf', name: '自衛隊', type: 'svg', file: 'jp-sdf.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-fishing-port', name: '漁港', type: 'svg', file: 'jp-fishing-port.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-port', name: '港', type: 'svg', file: 'jp-port.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-mine', name: '採鉱地', type: 'svg', file: 'jp-mine.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-quarry', name: '採石場', type: 'svg', file: 'jp-quarry.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-field', name: '畑', type: 'svg', file: 'jp-field.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-orchard', name: '果樹園', type: 'svg', file: 'jp-orchard.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-tea', name: '茶畑', type: 'svg', file: 'jp-tea.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-broadleaf', name: '広葉樹林', type: 'svg', file: 'jp-broadleaf.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-conifer', name: '針葉樹林', type: 'svg', file: 'jp-conifer.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-bamboo', name: '竹林', type: 'svg', file: 'jp-bamboo.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-monument', name: '記念碑', type: 'svg', file: 'jp-monument.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-chimney', name: '煙突', type: 'svg', file: 'jp-chimney.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-tower', name: '塔', type: 'svg', file: 'jp-tower.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
-    { id: 'jp-windmill', name: '風車', type: 'svg', file: 'jp-windmill.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-school', nameKey: 'decor.jpSchool', type: 'svg', file: 'jp-school.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-university', nameKey: 'decor.jpUniversity', type: 'svg', file: 'jp-university.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-hospital', nameKey: 'decor.jpHospital', type: 'svg', file: 'jp-hospital.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-shrine', nameKey: 'decor.jpShrine', type: 'svg', file: 'jp-shrine.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-temple', nameKey: 'decor.jpTemple', type: 'svg', file: 'jp-temple.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-cemetery', nameKey: 'decor.jpCemetery', type: 'svg', file: 'jp-cemetery.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-police', nameKey: 'decor.jpPolice', type: 'svg', file: 'jp-police.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-koban', nameKey: 'decor.jpKoban', type: 'svg', file: 'jp-koban.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-firebrigade', nameKey: 'decor.jpFirebrigade', type: 'svg', file: 'jp-firebrigade.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-post', nameKey: 'decor.jpPost', type: 'svg', file: 'jp-post.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-townhall', nameKey: 'decor.jpTownhall', type: 'svg', file: 'jp-townhall.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-court', nameKey: 'decor.jpCourt', type: 'svg', file: 'jp-court.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-castle', nameKey: 'decor.jpCastle', type: 'svg', file: 'jp-castle.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-museum', nameKey: 'decor.jpMuseum', type: 'svg', file: 'jp-museum.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-library', nameKey: 'decor.jpLibrary', type: 'svg', file: 'jp-library.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-spa', nameKey: 'decor.jpSpa', type: 'svg', file: 'jp-spa.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-historical', nameKey: 'decor.jpHistorical', type: 'svg', file: 'jp-historical.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-factory', nameKey: 'decor.jpFactory', type: 'svg', file: 'jp-factory.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-power-plant', nameKey: 'decor.jpPowerPlant', type: 'svg', file: 'jp-power-plant.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-lighthouse', nameKey: 'decor.jpLighthouse', type: 'svg', file: 'jp-lighthouse.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-high-tower', nameKey: 'decor.jpHighTower', type: 'svg', file: 'jp-high-tower.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-rice-field', nameKey: 'decor.jpRiceField', type: 'svg', file: 'jp-rice-field.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-high-school', nameKey: 'decor.jpHighSchool', type: 'svg', file: 'jp-high-school.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-town-office', nameKey: 'decor.jpTownOffice', type: 'svg', file: 'jp-town-office.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-met-observatory', nameKey: 'decor.jpMetObservatory', type: 'svg', file: 'jp-met-observatory.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-sdf', nameKey: 'decor.jpSdf', type: 'svg', file: 'jp-sdf.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-fishing-port', nameKey: 'decor.jpFishingPort', type: 'svg', file: 'jp-fishing-port.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-port', nameKey: 'decor.jpPort', type: 'svg', file: 'jp-port.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-mine', nameKey: 'decor.jpMine', type: 'svg', file: 'jp-mine.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-quarry', nameKey: 'decor.jpQuarry', type: 'svg', file: 'jp-quarry.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-field', nameKey: 'decor.jpField', type: 'svg', file: 'jp-field.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-orchard', nameKey: 'decor.jpOrchard', type: 'svg', file: 'jp-orchard.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-tea', nameKey: 'decor.jpTea', type: 'svg', file: 'jp-tea.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-broadleaf', nameKey: 'decor.jpBroadleaf', type: 'svg', file: 'jp-broadleaf.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-conifer', nameKey: 'decor.jpConifer', type: 'svg', file: 'jp-conifer.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-bamboo', nameKey: 'decor.jpBamboo', type: 'svg', file: 'jp-bamboo.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-monument', nameKey: 'decor.jpMonument', type: 'svg', file: 'jp-monument.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-chimney', nameKey: 'decor.jpChimney', type: 'svg', file: 'jp-chimney.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-tower', nameKey: 'decor.jpTower', type: 'svg', file: 'jp-tower.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
+    { id: 'jp-windmill', nameKey: 'decor.jpWindmill', type: 'svg', file: 'jp-windmill.svg', genres: ['jp-symbol'], scale: 1, anchorX: 'center', anchorY: 'center' },
 ];
 
 /** id から装飾定義を取得する。組み込み → ユーザー素材の順で検索。無ければ null。 */
@@ -356,6 +336,17 @@ function decorsForGenre(genreId) {
     if (!genreId || genreId === 'all') return all;
     if (genreId === 'user') return user;
     return all.filter((d) => decorGenres(d).includes(genreId));
+}
+
+/** 裝飾的顯示名稱：內建的查字典（nameKey），使用者上傳的就是檔名。 */
+function decorName(d) {
+    if (!d) return '';
+    return d.nameKey ? T(d.nameKey) : d.name || d.id;
+}
+
+/** 分類分頁只顯示有內容的：「全部」「自訂」一定顯示，其他分類沒有素材就不出現。 */
+function visibleDecorGenres() {
+    return DECOR_GENRES.filter((g) => g.id === 'all' || g.id === 'user' || decorsForGenre(g.id).length > 0);
 }
 
 /**
@@ -3829,7 +3820,7 @@ function fillCells(col, row, layer, _unused) {
 // パターン用ソースキャンバスをキャッシュ (描画は重いので使い回す)。
 /* ----------------------------------------------------------------
    パターン画像ロード (lazy)
-   - フル画像 (patterns/full/) は使用時に load → HTMLImageElement をキャッシュ
+   - 画像は使用時に load → HTMLImageElement をキャッシュ
    - ロード中は色フォールバック、完了後 renderAll で差し替わる
 ---------------------------------------------------------------- */
 const _patternImageCache = new Map(); // id → { state: 'loading'|'ready'|'error', img?: HTMLImageElement }
@@ -3852,8 +3843,12 @@ function loadPatternImage(id) {
     img.onerror = () => {
         _patternImageCache.set(id, { state: 'error' });
     };
-    // ユーザー素材は dataUrl を直接 src に。組み込みは patterns/full/{file} を読む
-    img.src = def.dataUrl || (def.file ? PATTERN_DIR_FULL + def.file : '');
+    // 收錄版只有使用者上傳的圖樣（dataUrl）；沒有 dataUrl 的定義一律當作讀取失敗，不去抓檔案。
+    if (!def.dataUrl) {
+        _patternImageCache.set(id, { state: 'error' });
+        return;
+    }
+    img.src = def.dataUrl;
 }
 
 /**
@@ -4764,13 +4759,11 @@ function setGridType(type) {
 ================================================================ */
 /**
  * パターン定義からサムネ画像 URL を返す。
- * - 組み込み: patterns/thumb/{file} (左上 200×200 を切り出して縮小した静的サムネを別途生成して配置する想定)
  * - ユーザー素材: dataUrl をそのまま
- * 帯域節約のためサムネはランタイム生成ではなく静的ファイルを使う。
+ * 收錄版沒有內建圖樣，也就沒有靜態縮圖檔；沒有 dataUrl 時回傳空字串。
  */
 function makePatternThumbUrl(def) {
-    if (def.dataUrl) return def.dataUrl;
-    return PATTERN_DIR_THUMB + def.file;
+    return def.dataUrl || '';
 }
 
 /* ================================================================
