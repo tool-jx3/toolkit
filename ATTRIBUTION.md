@@ -9,7 +9,7 @@
 [johnko00](https://github.com/johnko00) 與
 [baegop157902](https://github.com/baegop157902) 與
 [違法建築](https://github.com/ihoukentiku) 與
-[hakoniwa](https://github.com/852wa) 製作的 25 個網頁工具，以及一個作者不明的工具（共 26 個），
+[hakoniwa](https://github.com/852wa) 製作的 25 個網頁工具，以及兩個作者不明的工具（共 27 個），
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -42,6 +42,7 @@
 | jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | `1b48bea` | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 | coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
+| apng-wipe | 作者與來源都不明（使用者提供的單檔 HTML） | 2026-09-26 取得 | **未授權** |
 
 十八個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中（`jizura` 的由建置腳本從 `vendor/jizura/`
 複製過去，單檔頁面裡也另外附了一份）。
@@ -515,7 +516,7 @@ WebM。
 上游是部署在 Vercel 上的單一頁面「CoCシナリオ組版ツール」：把克蘇魯神話 TRPG 的劇本貼進去，
 排成書本般的紙面，印成 PDF 後可以在 BOOTH 等處發佈。頁面上沒有作者署名、沒有授權條款，
 也找不到原始碼的 repo（這個環境連不到該網站，檔案是使用者另存後提供的，取得日期 2026-09-26）。
-權利屬原作者所有，此處僅供試用，見下方「未授權的八個工具」。
+權利屬原作者所有，此處僅供試用，見下方「未授權的九個工具」。
 
 ### 只有繁體中文
 
@@ -547,6 +548,26 @@ WebM。
 - 上游會把舊版（`coc-typesetter:v1`）的存檔搬進新版；收錄版的網址底下不會有那種舊存檔，搬移的
   程式拿掉了。存檔的 key 維持 `coc-typesetter:v2`。
 - marked 與 DOMPurify 照上游以 CDN 載入，版本與授權見 `tools/coc-typesetter/THIRD_PARTY_NOTICES.md`。
+
+## apng-wipe：輕量轉場 APNG 產生器
+
+上游是使用者提供的一個單檔 HTML，日文標題「APNG作成シート」（APNG 製作表），作者與出處都不明，
+檔案裡沒有署名與授權條款（取得日期 2026-09-26）。權利屬原作者所有，此處僅供試用，見下方
+「未授權的九個工具」。
+
+它做的是透明背景的場景轉換 APNG：淡入淡出，或往 8 個方向之一的抹除，可以選顏色、0.2～5 秒、
+「透明 → 顏色」或反過來、播一次或循環。特別之處是尺寸刻意做得極小（15×15、15×30、30×15 px，
+也能自訂到 1200 px）：轉場圖通常會被放大到整個畫面，小圖放大後邊緣自然柔和，檔案只有幾 KB。
+合輯裡的 `scene-transition` 也能做淡入淡出與抹除，但輸出完整解析度、效果更多，兩者定位不同。
+APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任何外部函式庫，也沒有存取分析。
+
+收錄時的改動：
+
+- 只有繁體中文，沒有語言選單；介面字型改用台灣的系統字型堆疊。尺寸選項底下多了一行說明，
+  解釋為什麼預設尺寸這麼小。
+- 存檔的副檔名從 `.apng` 改成 `.png`：APNG 規格建議用 `.png`，`scene-transition` 也是這樣存，
+  上傳圖片的對話框比較不會擋。檔案內容完全相同。
+- 單檔 HTML 拆成 `index.html`、`styles.css` 與 `app.js`，頁首加上「← TRPG Toolkit」。
 
 ## 需要建置的三個工具
 
@@ -616,14 +637,15 @@ WebM。
 不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
 `tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
 
-## 未授權的八個工具
+## 未授權的九個工具
 
 `sotsotssi/emotion-maker`、`sotsotssi/loading-maker`、
 `kimtaehee2018-maker/ccfolia-cropper`、`sotsotssi/select-your-chara`、
 `organon-torah/ccfoliaCharacterEditor`、`johnko00/ccfolia-room-zip-maker-demo`
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
 `coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
-頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
+頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。`apng-wipe` 則連出處都不明，只有使用者
+提供的一個 HTML 檔，檔案裡沒有作者署名與授權條款。
 依著作權法預設，其權利保留予原作者（`emotion-maker` 包含 `images/` 下全部
 39 張手繪素材），此處僅供試用。原作者如有異議，將立即移除。
 
@@ -641,7 +663,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘二十五個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 是改寫成只有繁中，見上）。
+其餘二十六個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 與 `apng-wipe` 是改寫成只有繁中，見上）。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：
@@ -673,4 +695,4 @@ magic-circle 的繁體中文翻譯移植自
 以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
 `tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、
 `tools/ccfolia-cropper/`、`tools/character-select/`、`tools/character-editor/`、
-`tools/room-zip/`、`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。
+`tools/room-zip/`、`tools/pair-maker/`、`tools/coc-typesetter/` 與 `tools/apng-wipe/` 的其餘部分不在此範圍內，見上節。

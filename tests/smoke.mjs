@@ -1677,6 +1677,29 @@ check('coc-typesetter 的 CDN 相依都有版本且記在 THIRD_PARTY_NOTICES',
 check('THIRD_PARTY_NOTICES 記下取得網址與作者不明', cocNotices.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html')
   && cocNotices.includes('沒有作者署名'));
 
+/* ---- apng-wipe ---- */
+/* 輕量轉場 APNG 產生器：作者與來源都不明，收成只有繁中（和 coc-typesetter 同樣的處理）。
+ * 整份檔案不准有假名，不載入任何外部資源；APNG 編碼是上游自己寫的，檢查關鍵 chunk 都還在。 */
+section('tools/apng-wipe');
+const AW = 'tools/apng-wipe';
+const awHtml = read(`${AW}/index.html`), awJs = read(`${AW}/app.js`), awCss = read(`${AW}/styles.css`);
+for (const [file, src] of [['index.html', awHtml], ['app.js', awJs], ['styles.css', awCss]]) {
+  const leaked = src.split('\n').map((l, i) => [i + 1, l]).filter(([, l]) => KANA.test(l));
+  check(`${file} 沒有任何假名`, leaked.length === 0, leaked.slice(0, 5).map(([n, l]) => `L${n}: ${l.trim().slice(0, 60)}`).join('\n       '));
+}
+check('html lang 為 zh-Hant-TW，<title> 是繁中', /<html lang="zh-Hant-TW">/.test(awHtml) && awHtml.includes('<title>輕量轉場 APNG 產生器</title>'));
+check('只有繁中：沒有 i18n 引擎與語言選單', !/assets\/i18n\.js|mountSwitcher|langSwitch|localeSelect/.test(awHtml + awJs));
+check('頁首有回合輯首頁的連結', awHtml.includes('<a class="tk-home" href="../../">← TRPG Toolkit</a>'));
+check('作者與來源不明、未附授權：目錄裡沒有 LICENSE', !exists(`${AW}/LICENSE`));
+check('不載入任何外部資源', !/(?:src|href)="https?:|url\(\s*['"]?https?:|fetch\(/.test(awHtml + awCss + awJs));
+check('沒有留下日文字型', !/Noto Sans JP|Yu Gothic|Hiragino|Meiryo/.test(awHtml + awCss));
+check('APNG 編碼的關鍵 chunk 都在', ['IHDR', 'PLTE', 'tRNS', 'acTL', 'fcTL', 'IDAT', 'fdAT', 'IEND'].every(c => awJs.includes(`'${c}'`)));
+check('存檔副檔名是 .png（APNG 規格建議的副檔名）', /a\.download=`transition-[^`]*deg\.png`;/.test(awJs) && !/deg\.apng/.test(awJs));
+check('上游的三種預設尺寸照舊', ['[15,30]', '[30,15]', '[15,15]'].every(t => awJs.includes(t))
+  && ['15×15px', '15×30px', '30×15px'].every(t => awHtml.includes(t)));
+const awAngles = (awJs.match(/\['0°・向右'[^\]]*\]/) || [''])[0].match(/'[^']+'/g) || [];
+check('八個角度的說明都是繁中', awAngles.length === 8 && awAngles.every(a => /向/.test(a)), `found ${awAngles.length}`);
+
 /* ---- PC 字型挑選器 ---- */
 /* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
  * 只改其中一份的話，另外兩個工具的對話框就會停在舊版本。 */
@@ -1891,7 +1914,7 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
-  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter'];
+  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -1919,6 +1942,7 @@ check('首頁標示原作者出處',
     'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa'].every(a => homeHtml.includes(`github.com/${a}`)));
 /* coc-typesetter 的作者不明，至少要標出取得的網址。 */
 check('首頁標示 coc-typesetter 的來源網址', homeHtml.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html'));
+check('首頁說明兩個作者不明的工具', homeHtml.includes('（CoC 劇本排版工具與輕量轉場 APNG 產生器的作者不明）'));
 
 /* ---- 內嵌文字與 zh-TW 字典一致 ---- */
 /* 六個頁面（五個工具＋首頁）在 script 執行前顯示的畫面，其 HTML 內嵌文字必須
@@ -2166,8 +2190,11 @@ check('ATTRIBUTION.md 說明 jizura 為何照上游的方式建置，以及不�
 check('jizura 的建置產物目錄裡有上游的 LICENSE', read('tools/jizura/LICENSE') === read('vendor/jizura/LICENSE'));
 check('ATTRIBUTION.md 說明 coc-typesetter 的來源、未授權與只收繁中',
   /\| coc-typesetter \| \[scenario-tool-jade\.vercel\.app\]\([^)]+\)（作者不明[^|]*\| 2026-09-26 取得 \| \*\*未授權\*\* \|/.test(attribution)
-  && attribution.includes('## 未授權的八個工具') && /## coc-typesetter：CoC 劇本排版工具(?=[\s\S]*===換頁===)(?=[\s\S]*不存在的四樓)/.test(attribution));
-check('README.md 把 coc-typesetter 列為未授權', /`coc-typesetter` 則連作者都不明/.test(read('README.md')));
+  && attribution.includes('## 未授權的九個工具') && /## coc-typesetter：CoC 劇本排版工具(?=[\s\S]*===換頁===)(?=[\s\S]*不存在的四樓)/.test(attribution));
+check('README.md 把 coc-typesetter 與 apng-wipe 列為未授權', /`coc-typesetter` 與 `apng-wipe` 則連作者都不明/.test(read('README.md')));
+check('ATTRIBUTION.md 說明 apng-wipe 的來源不明、未授權與副檔名的改動',
+  /\| apng-wipe \| 作者與來源都不明[^|]*\| 2026-09-26 取得 \| \*\*未授權\*\* \|/.test(attribution)
+  && /## apng-wipe：輕量轉場 APNG 產生器(?=[\s\S]*`\.apng` 改成 `\.png`)/.test(attribution));
 check('ATTRIBUTION.md 說明 anime-rig 不收範例 PSD、OBS 中繼伺服器與 MediaPipe 同捆檔',
   /## anime-rig：Anime2\.5DRig[\s\S]*sample\.psd[\s\S]*obs_server\.py/.test(attribution)
   && /## anime-rig[\s\S]*lib\/vendor\/face_mesh/.test(attribution));
