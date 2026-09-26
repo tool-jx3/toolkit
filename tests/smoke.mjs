@@ -1623,6 +1623,60 @@ check('MediaPipe 從 jsDelivr 載入，版本記在 THIRD_PARTY_NOTICES', !!rigF
   && read(`${RIG}/lib/devices.js`).includes("'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@'+FM_VERSION+'/'"));
 check('同捆的 ag-psd 附上 MIT 授權', rigNotices.includes('ag-psd 31.0.2') && rigNotices.includes('Copyright (c) 2016 Agamnentzar'));
 
+/* ---- coc-typesetter ---- */
+/* CoC 劇本排版工具只收成繁體中文：沒有 i18n 引擎、沒有語言選單，劇本的標記語法與版面字型
+ * 也改成中文。所以這裡不走 checkTool()，而是整份檔案（連註解）都不准有假名，並檢查語法與字型。 */
+section('tools/coc-typesetter');
+const COC = 'tools/coc-typesetter';
+const cocHtml = read(`${COC}/index.html`), cocJs = read(`${COC}/app.js`), cocCss = read(`${COC}/styles.css`);
+for (const [file, src] of [['index.html', cocHtml], ['app.js', cocJs], ['styles.css', cocCss]]) {
+  const leaked = src.split('\n').map((l, i) => [i + 1, l]).filter(([, l]) => KANA.test(l));
+  check(`${file} 沒有任何假名`, leaked.length === 0, leaked.slice(0, 5).map(([n, l]) => `L${n}: ${l.trim().slice(0, 60)}`).join('\n       '));
+}
+check('html lang 為 zh-Hant-TW，<title> 是繁中', /<html lang="zh-Hant-TW">/.test(cocHtml) && cocHtml.includes('<title>CoC 劇本排版工具</title>'));
+check('只有繁中：沒有 i18n 引擎與語言選單', !/assets\/i18n\.js|mountSwitcher|langSwitch|localeSelect/.test(cocHtml + cocJs));
+check('頁首有回合輯首頁的連結', cocHtml.includes('<a class="tk-home" href="../../">← TRPG Toolkit</a>'));
+check('拿掉了 OG meta 與 description', !/property="og:|name="description"|name="twitter:/.test(cocHtml));
+check('作者不明、未附授權：目錄裡沒有 LICENSE', !exists(`${COC}/LICENSE`));
+/* 版面字型：上游是日文字型，收錄版換成 Noto Serif TC／Noto Sans TC（樣式、字型連結與預載清單三處要一致）。 */
+check('沒有留下日文字型', !/Shippori|Zen Kaku|Noto (?:Sans|Serif) JP|Yu Mincho|Yu Gothic|Hiragino|Meiryo/.test(cocHtml + cocJs + cocCss));
+check('紙面與介面用 Noto Serif TC／Noto Sans TC',
+  cocHtml.includes('family=Noto+Serif+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700')
+  && cocHtml.includes('--serif:"Noto Serif TC"') && cocHtml.includes('--sans:"Noto Sans TC"')
+  && cocJs.includes(`'400 12px "Noto Serif TC"'`) && cocJs.includes(`'700 12px "Noto Sans TC"'`));
+/* 「儲存列印用 HTML」會複製這三個元素的內容，它們必須留在頁面裡。 */
+check('紙面樣式、紙張設定與字型連結留在 index.html（匯出會複製）',
+  ['<style id="page-style">', '<style id="book-css">', '<link id="font-link"'].every(t => cocHtml.includes(t))
+  && ["$('#page-style').textContent", "$('#book-css').textContent", "$('#font-link').outerHTML"].every(t => cocJs.includes(t)));
+check('匯出的 HTML 標成 zh-Hant-TW', cocJs.includes('<html lang="zh-Hant-TW">'));
+/* 語法記號改成中文。 */
+check('換頁記號是 ===換頁===', /const RE_PB=\/\^\\s\*=\+\\s\*換頁\\s\*=\+\\s\*\$\/;/.test(cocJs) && cocJs.includes("pb:'===換頁===\\n'"));
+check('封面資訊的欄位是「標題／副標題／作者」', cocJs.includes("const COVER_KEYS=['標題','副標題','作者'];")
+  && cocJs.includes("M={title:pick('標題'),subtitle:pick('副標題'),author:pick('作者')"));
+const cocSan = (cocJs.match(/const RE_SAN_SRC='(.*)';/) || [])[1];
+const cocSanRe = cocSan ? new RegExp(cocSan.replace(/\\\\/g, '\\'), 'g') : null;
+const COC_SAN_YES = ['SANc（0/1d3）', 'SAN 檢定(1/1d6)', 'SAN值檢定（0/1）', '進行SC（0/1）', '理智檢定（1/1d4）'];
+const COC_SAN_NO = ['DISC（1/2）', 'SANチェック（0/1）'];
+check('理智檢定的幾種中文寫法都認得，也不會誤判英文單字',
+  !!cocSanRe && COC_SAN_YES.every(t => (t.match(cocSanRe) || []).length === 1) && COC_SAN_NO.every(t => !t.match(cocSanRe)));
+check('避頭尾標點沒有假名，補了中文括號', !KANA.test(cocJs.match(/const NO_START='(.*)';/)[1]) && cocJs.includes('〗') && cocJs.includes('〖'));
+check('著重號是字下方的圓點（台灣慣例）', cocHtml.includes('text-emphasis:filled dot') && cocHtml.includes('text-emphasis-position:under right'));
+/* 範例劇本是另寫的原創內容，不能帶到上游範例（港町、霧笛、燈塔）；各種格式都要用到，長度與上游相近。 */
+const cocSample = (cocJs.match(/const SAMPLE_TEXT=`([\s\S]*?)`;/) || [])[1] || '';
+check('範例劇本不是上游的範例', !!cocSample && !/霧笛|燈台|灯台|見本|汐見|潮見/.test(cocJs));
+check('範例劇本用到所有格式', [':::warn', ':::note', ':::kp', ':::pl', '\n> ', '▼【', '===換頁===', 'SANc（', '| STR |', '\n## ', '\n### ']
+  .every(t => cocSample.includes(t)));
+const cocChars = cocSample.replace(/\s/g, '').length;
+check('範例劇本的長度與上游相近（1,500～2,300 字）', cocChars >= 1500 && cocChars <= 2300, `${cocChars} 字`);
+/* 函式庫照上游走 CDN，版本要記在 THIRD_PARTY_NOTICES。 */
+const cocNotices = read(`${COC}/THIRD_PARTY_NOTICES.md`);
+const cocCdn = [...cocHtml.matchAll(CDN_HOSTS)].map(m => m[0]);
+check('coc-typesetter 的 CDN 相依都有版本且記在 THIRD_PARTY_NOTICES',
+  cocCdn.length === 2 && cocCdn.every(u => { const v = (u.match(/@(\d+\.\d+\.\d+)/) || [])[1]; return v && cocNotices.includes(v); }),
+  cocCdn.join(', '));
+check('THIRD_PARTY_NOTICES 記下取得網址與作者不明', cocNotices.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html')
+  && cocNotices.includes('沒有作者署名'));
+
 /* ---- PC 字型挑選器 ---- */
 /* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
  * 只改其中一份的話，另外兩個工具的對話框就會停在舊版本。 */
@@ -1837,7 +1891,7 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
-  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig'];
+  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -1863,6 +1917,8 @@ for (const card of homeCards) {
 check('首頁標示原作者出處',
   ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
     'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa'].every(a => homeHtml.includes(`github.com/${a}`)));
+/* coc-typesetter 的作者不明，至少要標出取得的網址。 */
+check('首頁標示 coc-typesetter 的來源網址', homeHtml.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html'));
 
 /* ---- 內嵌文字與 zh-TW 字典一致 ---- */
 /* 六個頁面（五個工具＋首頁）在 script 執行前顯示的畫面，其 HTML 內嵌文字必須
@@ -2108,6 +2164,10 @@ check('ATTRIBUTION.md 指向 README 建置段落的錨點仍然有效',
 check('ATTRIBUTION.md 說明 jizura 為何照上游的方式建置，以及不收 AE 外掛',
   /## jizura：JIZURA 字面(?=[\s\S]*app\/english\.py)(?=[\s\S]*JIZURA_CEP)/.test(attribution));
 check('jizura 的建置產物目錄裡有上游的 LICENSE', read('tools/jizura/LICENSE') === read('vendor/jizura/LICENSE'));
+check('ATTRIBUTION.md 說明 coc-typesetter 的來源、未授權與只收繁中',
+  /\| coc-typesetter \| \[scenario-tool-jade\.vercel\.app\]\([^)]+\)（作者不明[^|]*\| 2026-09-26 取得 \| \*\*未授權\*\* \|/.test(attribution)
+  && attribution.includes('## 未授權的八個工具') && /## coc-typesetter：CoC 劇本排版工具(?=[\s\S]*===換頁===)(?=[\s\S]*不存在的四樓)/.test(attribution));
+check('README.md 把 coc-typesetter 列為未授權', /`coc-typesetter` 則連作者都不明/.test(read('README.md')));
 check('ATTRIBUTION.md 說明 anime-rig 不收範例 PSD、OBS 中繼伺服器與 MediaPipe 同捆檔',
   /## anime-rig：Anime2\.5DRig[\s\S]*sample\.psd[\s\S]*obs_server\.py/.test(attribution)
   && /## anime-rig[\s\S]*lib\/vendor\/face_mesh/.test(attribution));

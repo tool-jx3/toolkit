@@ -8,7 +8,7 @@
 [johnko00](https://github.com/johnko00) 與
 [baegop157902](https://github.com/baegop157902) 與
 [違法建築](https://github.com/ihoukentiku) 與
-[hakoniwa](https://github.com/852wa) 製作的 25 個網頁小工具合輯，附繁體中文介面。
+[hakoniwa](https://github.com/852wa) 等人製作的 26 個網頁小工具合輯（其中 CoC 劇本排版工具的作者不明），附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -39,6 +39,7 @@
 | [違法建築的 TRPG 實驗室](tools/trpg-lab/) | 一站收齊九個跑團工具：CoC 7 版擲骰、調查員角色卡、NPC 製作／管理、TRPG 地圖編輯器、網格／六角格產生器與量尺產生器、BCDice 傷害計算 |
 | [JIZURA 字面](tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列 |
 | [Anime2.5DRig](tools/anime-rig/) | 把分好部件的 PSD 拖進來就自動綁定成 2.5D 虛擬形象：眨眼、嘴型、頭髮物理、攝影機臉部追蹤與麥克風嘴型，可匯出透明 PNG 與 WebM／MP4 |
+| [CoC 劇本排版工具](tools/coc-typesetter/) | 把克蘇魯神話 TRPG 劇本貼進來，排成書本般的紙面：章節自動編號、自動目錄，描述、檢定、KP 資訊、理智檢定各有樣式，印成 A5／B5／A4 的 PDF |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -57,7 +58,7 @@ npm run serve
 
 ### 重新建置 cutin、character-editor 與 jizura
 
-二十五個工具裡有三個要先建置才能放進 `tools/`。原始碼收在 `vendor/` 底下，
+二十六個工具裡有三個要先建置才能放進 `tools/`。原始碼收在 `vendor/` 底下，
 建置產物（已提交進 repo）輸出到各自的 `tools/` 目錄，`vendor/` 不參與網站發佈。
 
 `cutin` 與 `character-editor` 的上游是 React + TypeScript 專案。改動原始碼後要重新建置：
@@ -120,6 +121,9 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 `character-editor`、`portrait-size`、`height-board`、`trpg-lab`、`jizura` 與
 `anime-rig` 為日文；`room-zip` 原文為日文，另外附了一份韓文。
 
+`coc-typesetter` 只有繁體中文：上游是日文工具，收錄時連劇本的標記語法與版面字型都改成中文，
+沒有留下日文介面，所以頁面上沒有語言選單。
+
 `jizura` 是建置出繁中、日文兩個頁面（`tools/jizura/` 與 `tools/jizura/ja/`），
 頁首的語言連結直接換頁；選擇同樣記在下面這個共用的 key，在合輯裡選過日文，
 開啟 `jizura` 時就會直接進日文版。
@@ -156,10 +160,11 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：`assets/`、
 `index.html`、`tests/`、各 `i18n.*.js` 字典、`jizura` 的繁中翻譯表與建置腳本
 （`vendor/jizura/app/chinese.*`、`vendor/jizura/build_toolkit.py`）、`anime-rig`
-的繁中使用說明，以及 emotion-maker 的資產路徑改造。
+的繁中使用說明、`coc-typesetter` 的範例劇本，以及 emotion-maker 的資產路徑改造。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
 **注意**：`emotion-maker`、`loading-maker`、`ccfolia-cropper`、`character-select`、
 `character-editor`、`room-zip` 與 `pair-maker` 的原始 repo 皆未附任何授權條款，
+`coc-typesetter` 則連作者都不明（取自部署在 Vercel 上的頁面），
 其權利（`emotion-maker` 含全部圖像素材）屬原作者所有，
 不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。

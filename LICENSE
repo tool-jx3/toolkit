@@ -3,7 +3,12 @@ Scope of this licence
 
 This MIT licence covers only what this repository adds on top of the
 bundled tools: `assets/`, `index.html`, `tests/`, each `tools/*/i18n.*.js`
-dictionary, and the emotion-maker asset-path restructure.
+dictionary, the JIZURA translation tables and build script
+(`vendor/jizura/app/chinese.*`, `vendor/jizura/build_toolkit.py`), the
+Anime2.5DRig guide `tools/anime-rig/guide.zh-TW.md`, the coc-typesetter
+sample scenario (`SAMPLE_META` and `SAMPLE_TEXT` in
+`tools/coc-typesetter/app.js`), and the emotion-maker asset-path
+restructure.
 
 Each bundled tool under `tools/` keeps its own upstream licence — see
 `ATTRIBUTION.md` for the per-tool source and licence status.

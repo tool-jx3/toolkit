@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CoC 劇本排版工具</title>
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23141414'/%3E%3Cpath d='M9 8h14v2H9zM9 13h14v1.5H9zM9 17.5h14V19H9zM9 22h9v1.5H9z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;600&family=Noto+Serif+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<style id="page-style">@page{size:148mm 210mm;margin:0}</style>
+
+<!-- ===== 紙面的樣式（「儲存列印用 HTML」會把這一段原樣帶走，所以留在頁面裡） ===== -->
+<style id="book-css">
+.book{
+  --serif:"Noto Serif TC","Source Han Serif TC","Songti TC","PMingLiU",serif;
+  --sans:"Noto Sans TC","Source Han Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --latin:"Inter","Helvetica Neue",Arial,var(--sans);
+  color:var(--ink);
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;
+}
+.book *,.book *::before,.book *::after{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+/* 紙張 */
+.book[data-paper="A5"]{--pw:148mm;--ph:210mm;--mt:18mm;--mb:18mm;--ms:16mm;--fs:9pt;--hd:9mm}
+.book[data-paper="B5"]{--pw:182mm;--ph:257mm;--mt:22mm;--mb:21mm;--ms:19mm;--fs:9.5pt;--hd:11mm}
+.book[data-paper="A4"]{--pw:210mm;--ph:297mm;--mt:25mm;--mb:23mm;--ms:22mm;--fs:10.5pt;--hd:12mm}
+
+/* 配色 */
+.book[data-theme="shinkai"]{
+  --ink:#1b2525;--muted:#6f7c7a;--accent:#2b6a62;--num:#2b6a62;--tint:#eef4f2;--tint2:#f3f6f5;--rule:#c9d8d4;--rule2:#9fbdb6;
+  --san-bg:#dcebe7;--san-ink:#174842;--warn:#1b2525;
+  --cover-bg:#13302d;--cover-ink:#f1f6f5;--cover-sub:#8ec2b7;--cover-line:rgba(142,194,183,.32);--cv-mark:#8ec2b7;
+}
+.book[data-theme="aishu"]{
+  --ink:#1a2335;--muted:#6f7788;--accent:#1f3e66;--num:#cc4a2d;--tint:#eff2f7;--tint2:#f7f4ef;--rule:#cbd3de;--rule2:#9fb0c6;
+  --san-bg:#f8e2da;--san-ink:#a53a22;--warn:#cc4a2d;
+  --cover-bg:#f6f3ec;--cover-ink:#1a2335;--cover-sub:#1f3e66;--cover-line:rgba(31,62,102,.22);--cv-mark:#cc4a2d;
+}
+.book[data-theme="mono"]{
+  --ink:#141414;--muted:#6e6e6e;--accent:#141414;--num:#141414;--tint:#f2f2f2;--tint2:#f5f5f5;--rule:#c4c4c4;--rule2:#9a9a9a;
+  --san-bg:#e6e6e6;--san-ink:#141414;--warn:#141414;
+  --cover-bg:#fff;--cover-ink:#141414;--cover-sub:#6e6e6e;--cover-line:#c4c4c4;--cv-mark:#141414;
+}
+
+/* 頁面 */
+.page{position:relative;width:var(--pw);height:var(--ph);background:#fff;overflow:hidden;
+  font-family:var(--serif);font-size:var(--fs);line-height:1.8;contain:layout paint}
+.page-head{position:absolute;top:var(--hd);left:var(--ms);right:var(--ms);display:flex;justify-content:space-between;align-items:baseline;gap:1em;
+  font-family:var(--sans);font-size:.72em;line-height:1.3;color:var(--muted);letter-spacing:.12em;white-space:nowrap;overflow:hidden}
+.page-head span{overflow:hidden;text-overflow:ellipsis}
+.ph-chap b{font-family:var(--latin);font-weight:600;color:var(--num);margin-right:.6em;letter-spacing:.04em}
+.page-foot{position:absolute;bottom:calc(var(--hd) - 1mm);left:var(--ms);right:var(--ms);text-align:right;
+  font-family:var(--latin);font-size:.8em;font-weight:600;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.page.even .page-foot{text-align:left}
+.page-body{position:absolute;top:var(--mt);bottom:var(--mb);left:var(--ms);right:var(--ms);overflow:hidden;
+  text-align:justify;text-justify:inter-character;line-break:strict;word-break:normal;overflow-wrap:anywhere;hanging-punctuation:allow-end}
+.page-body>:first-child{margin-top:0!important}
+.page-body>:last-child{margin-bottom:0}
+
+/* 內文 */
+.page-body p{margin:0 0 .65em}
+.page-body p.brk{text-align-last:justify}
+.page-body p.joined{margin-bottom:0}
+.page-body ul,.page-body ol{margin:0 0 .65em;padding-left:1.5em}
+.page-body li::marker{color:var(--accent)}
+.page-body li.cont{list-style:none}
+.page-body strong{font-family:var(--sans);font-weight:700}
+.page-body em{font-style:normal;text-emphasis:filled dot;-webkit-text-emphasis:filled dot;text-emphasis-position:under right;-webkit-text-emphasis-position:under right}
+.page-body a{color:inherit;text-decoration:none}
+.page-body hr{border:0;border-top:.5pt solid var(--rule);margin:1.4em 0}
+.page-body code{font-family:var(--sans);background:var(--tint2);padding:0 .2em;border-radius:2pt}
+.page-body pre{font-family:var(--sans);background:var(--tint2);padding:.6em .8em;white-space:pre-wrap;margin:0 0 .8em}
+.page-body pre code{background:none;padding:0}
+.page-body blockquote{margin:0 0 .65em;padding-left:1em;border-left:1.5pt solid var(--rule)}
+.page-body img{max-width:100%}
+
+.page-body h1,.page-body h2,.page-body h3,.page-body h4,.page-body h5,.page-body h6{
+  font-family:var(--sans);color:var(--ink);text-align:left;font-feature-settings:"palt";line-height:1.45}
+.page-body h1{font-size:1.9em;margin:1.2em 0 .8em;text-align:center}
+.page-body h2{display:flex;flex-wrap:wrap;align-items:center;column-gap:.6em;font-size:1.5em;font-weight:700;margin:2.1em 0 1em;letter-spacing:.04em}
+.page-body h2::before{content:attr(data-num);flex-basis:100%;font-family:var(--latin);font-weight:300;font-size:2.1em;line-height:1.1;color:var(--num);letter-spacing:-.01em}
+.page-body h2::after{content:"";flex:1 1 2em;min-width:2em;height:1.4pt;background:var(--ink)}
+.page-body h3{display:flex;align-items:flex-start;gap:.5em;font-size:1.16em;font-weight:700;margin:1.7em 0 .6em}
+.page-body h3::before{content:"";flex:none;width:.26em;height:1em;margin-top:.22em;background:var(--accent)}
+.page-body h4{font-size:1.02em;font-weight:700;margin:1.2em 0 .3em}
+.page-body h5,.page-body h6{font-size:1em;font-weight:700;margin:1em 0 .2em}
+
+.skill{font-family:var(--sans);font-weight:700;color:var(--accent)}
+.san{font-family:var(--sans);font-weight:700;font-size:.92em;background:var(--san-bg);color:var(--san-ink);padding:.08em .45em;border-radius:1em;white-space:nowrap}
+
+/* 描述 */
+.desc{margin:1.1em 0;padding:.55em 1em .65em 1.05em;background:var(--tint);border-left:2.2pt solid var(--accent)}
+.desc-label{font-family:var(--sans);font-size:.72em;font-weight:700;letter-spacing:.28em;line-height:1.6;color:var(--accent);margin-bottom:.2em}
+.desc-body>:last-child,.box-body>:last-child,.judge-body>:last-child{margin-bottom:0}
+
+/* 檢定 */
+.judge{margin:1em 0}
+.judge-head{display:flex;align-items:baseline;gap:.45em;font-family:var(--sans);font-weight:700;line-height:1.6;text-align:left}
+.judge-mark{flex:none;font-size:.62em;color:var(--accent);position:relative;top:-.1em}
+.judge-body{margin:.2em 0 0 .3em;padding-left:1em;border-left:.6pt solid var(--rule2)}
+.judge.cont>.judge-body{margin-top:0}
+
+/* 框 */
+.box{margin:1.1em 0;padding:.6em 1em .7em}
+.box-label{font-family:var(--sans);font-weight:700;font-size:.74em;letter-spacing:.2em;line-height:1.6;margin-bottom:.35em;color:var(--accent);text-align:left}
+.box-kp{border:.7pt dashed var(--accent)}
+.box-pl{border:.7pt solid var(--ink)}
+.box-pl>.box-label{display:inline-block;background:var(--ink);color:#fff;margin:-.81em 0 .5em -1.35em;padding:.2em .95em}
+.box-note{background:var(--tint2)}
+.box-note>.box-label{color:var(--muted)}
+.box-warn{border:1.6pt solid var(--warn)}
+.box-warn>.box-label{color:var(--warn)}
+
+/* 資料表 */
+.page-body table{width:100%;border-collapse:collapse;margin:.9em 0 1.1em;font-size:.86em;line-height:1.5;
+  border-top:1.1pt solid var(--ink);border-bottom:1.1pt solid var(--ink)}
+.page-body th{font-family:var(--sans);font-weight:700;color:var(--ink);background:none;padding:.38em .55em;border-bottom:.6pt solid var(--ink);letter-spacing:.04em}
+.page-body th:not([align]){text-align:left}
+.page-body td{padding:.34em .55em;border-bottom:.3pt solid var(--rule);vertical-align:top}
+.page-body tbody tr:last-child td{border-bottom:0}
+
+/* 不做封面時的標題區 */
+.titleblock{margin:0 0 2em}
+.tb-title{font-family:var(--serif);font-weight:700;font-size:2.3em;line-height:1.35;letter-spacing:.04em;text-align:left;font-feature-settings:"palt"}
+.tb-title::before{content:"";display:block;width:10mm;height:2pt;background:var(--cv-mark);margin-bottom:.45em}
+.tb-sub{font-family:var(--sans);color:var(--muted);letter-spacing:.1em;margin-top:.3em;text-align:left}
+.tb-author{font-family:var(--sans);letter-spacing:.1em;margin:.8em 0 1.2em;text-align:left}
+
+/* 概要（封面與標題區共用） */
+.spec{display:grid;grid-template-columns:1fr 1fr;column-gap:6mm;margin:0;font-size:.86em;line-height:1.5}
+.spec-item{border-top:.5pt solid var(--line,var(--rule));padding:.5em 0 .6em;min-width:0}
+.spec-item.wide{grid-column:1/-1}
+.spec-item dt{font-family:var(--sans);font-size:.76em;font-weight:700;letter-spacing:.2em;color:var(--label,var(--accent));margin-bottom:.1em}
+.spec-item dd{margin:0;font-family:var(--sans);text-align:left}
+.titleblock .spec{border-bottom:.5pt solid var(--rule)}
+
+/* 封面 */
+.page.cover{background:var(--cover-bg);color:var(--cover-ink)}
+.cover-inner{position:absolute;inset:0;padding:calc(var(--mt) + 1mm) calc(var(--ms) + 4mm) calc(var(--mb) + 3mm);display:flex;flex-direction:column}
+.cv-top{font-family:var(--latin);font-weight:500;font-size:.7em;letter-spacing:.34em;color:var(--cover-sub);border-bottom:.5pt solid var(--cover-line);padding-bottom:2.5mm}
+.cv-main{margin-top:26%}
+.cv-main::before{content:"";display:block;width:12mm;height:2.4pt;background:var(--cv-mark);margin-bottom:7mm}
+.cv-title{font-family:var(--serif);font-weight:700;font-size:3.3em;line-height:1.3;letter-spacing:.04em;margin:0;text-align:left;font-feature-settings:"palt"}
+.cv-sub{font-family:var(--sans);font-size:1em;letter-spacing:.14em;color:var(--cover-sub);margin-top:1.1em}
+.cv-author{display:flex;align-items:center;gap:.9em;font-family:var(--sans);letter-spacing:.14em;margin-top:2.4em}
+.cv-author::before{content:"";width:8mm;height:.7pt;background:currentColor;opacity:.6}
+.cover .spec{margin-top:auto;--line:var(--cover-line);--label:var(--cover-sub)}
+.cover .skill{color:inherit}
+
+/* 目錄 */
+.page-body h2.toc-title::before{content:"CONTENTS";font-size:.5em;font-weight:500;letter-spacing:.38em;line-height:1.6}
+.toc-item{display:grid;grid-template-columns:2.7em 1fr auto;align-items:baseline;column-gap:.4em;font-family:var(--sans);line-height:1.85;color:inherit;text-decoration:none;text-align:left}
+.toc-item.lv2{font-weight:700;border-top:.4pt solid var(--rule);padding-top:.4em;margin-top:.55em}
+.toc-item.lv2 .n{font-family:var(--latin);font-weight:300;font-size:1.3em;color:var(--num);line-height:1}
+.toc-item.lv3{font-size:.9em;color:var(--muted)}
+.toc-item .pg{font-family:var(--latin);font-weight:500;font-variant-numeric:tabular-nums}
+.pb{display:none}
+
+@media screen{
+  .book .page{margin:0 auto 16px;box-shadow:0 1px 2px rgba(0,0,0,.08),0 6px 20px rgba(0,0,0,.08)}
+  .book .page.overflow{outline:2px solid #e0443a;outline-offset:2px}
+}
+@media print{
+  .book .page{margin:0;box-shadow:none;break-after:page;page-break-after:always}
+  .book .page:last-child{break-after:auto;page-break-after:auto}
+}
+</style>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-tab="edit">
+
+<header class="topbar ui">
+  <div class="bar">
+    <div class="brand"><a class="tk-home" href="../../">← TRPG Toolkit</a><span class="logo"></span>劇本排版<button type="button" class="fold" id="foldBar" aria-expanded="true">設定</button></div>
+    <div class="group"><span class="group-label">紙張</span>
+      <div class="seg" id="paperSeg">
+        <button type="button" data-v="A5">A5</button><button type="button" data-v="B5">B5</button><button type="button" data-v="A4">A4</button>
+      </div>
+    </div>
+    <div class="group"><span class="group-label">配色</span>
+      <div class="swatches" id="themeSw">
+        <button type="button" data-v="mono" title="黑白（節省印刷成本）" aria-label="黑白（節省印刷成本）" style="--sw:linear-gradient(135deg,#141414 50%,#fff 50%)"></button>
+        <button type="button" data-v="shinkai" title="深海（銅綠）" aria-label="深海（銅綠）" style="--sw:linear-gradient(135deg,#13302d 50%,#5fa396 50%)"></button>
+        <button type="button" data-v="aishu" title="藍與朱" aria-label="藍與朱" style="--sw:linear-gradient(135deg,#1f3e66 50%,#cc4a2d 50%)"></button>
+      </div>
+      <span class="theme-name" id="themeName"></span>
+    </div>
+    <div class="chips">
+      <label class="chip"><input type="checkbox" id="optCover"><span>封面</span></label>
+      <label class="chip"><input type="checkbox" id="optToc"><span>目錄</span></label>
+      <label class="chip"><input type="checkbox" id="optChapter"><span>每章換頁</span></label>
+      <label class="chip"><input type="checkbox" id="optHeader"><span>書眉</span></label>
+    </div>
+    <select id="zoom" class="zoomsel" aria-label="顯示比例">
+      <option value="auto">符合寬度</option>
+      <option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option>
+    </select>
+    <span class="spacer"></span>
+    <div class="actions">
+      <button class="btn" id="btnNew" type="button">新建</button>
+      <button class="btn" id="btnHelp" type="button">寫法說明</button>
+      <button class="btn" id="btnSave" type="button">儲存列印用 HTML</button>
+      <button class="btn primary" id="btnPrint" type="button">列印成 PDF</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button type="button" data-tab="edit" class="on">編輯</button>
+    <button type="button" data-tab="preview">預覽</button>
+  </div>
+</header>
+
+<main>
+  <section id="editorPane" class="ui">
+    <div class="subtabs">
+      <button type="button" data-sub="text" class="on">內文</button>
+      <button type="button" data-sub="meta">封面與概要</button>
+      <span class="subhint">在行首按 <kbd>/</kbd> 開啟格式選單</span>
+      <button type="button" class="fold" id="foldIns" aria-expanded="true">格式按鈕</button>
+    </div>
+    <div id="textPane" class="subpane">
+      <div class="inserts" title="先選取文字再按，會把選取的部分包進該格式">
+        <button type="button" data-snip="h2"><i style="--c:#23272b"></i>章</button>
+        <button type="button" data-snip="h3"><i style="--c:#8a8d90"></i>探索</button>
+        <button type="button" data-snip="desc"><i style="--c:#8aa3c6"></i>描述</button>
+        <button type="button" data-snip="judge"><i style="--c:#e3a55a"></i>檢定</button>
+        <button type="button" data-snip="kp"><i style="--c:#a892c9"></i>KP 資訊</button>
+        <button type="button" data-snip="pl"><i style="--c:#6fa89f"></i>公開資訊</button>
+        <button type="button" data-snip="note"><i style="--c:#c2bdb3"></i>補充</button>
+        <button type="button" data-snip="warn"><i style="--c:#d9826f"></i>注意</button>
+        <button type="button" data-snip="san"><i style="--c:#e6a191"></i>SANc</button>
+        <button type="button" data-snip="table"><i style="--c:#9aa1a6"></i>資料表</button>
+        <button type="button" data-snip="pb"><i style="--c:#c9ccce"></i>換頁</button>
+      </div>
+      <div class="ed-wrap" id="edWrap">
+        <div class="ed-text ed-hl" id="hl" aria-hidden="true"></div>
+        <textarea id="source" class="ed-text" spellcheck="false" aria-label="劇本內文" placeholder="在這裡寫內文。&#10;在行首按「/」，可以選擇標題、描述、檢定等格式。"></textarea>
+        <div class="ed-text ed-mirror" id="mirror" aria-hidden="true"></div>
+        <div class="slash" id="slash" hidden></div>
+      </div>
+    </div>
+    <div id="metaPane" class="subpane" hidden>
+      <label class="field"><span>標題</span><input id="mTitle" class="big" placeholder="劇本標題"></label>
+      <label class="field"><span>副標題</span><input id="mSubtitle" placeholder="例：克蘇魯神話 TRPG 劇本"></label>
+      <label class="field"><span>作者</span><input id="mAuthor" placeholder="作者名稱"></label>
+      <div>
+        <div class="fs-title">概要（會排在封面上，由上往下依序顯示）</div>
+        <div class="mrows" id="mItems"></div>
+        <button type="button" class="add" id="mAdd">＋ 新增項目</button>
+      </div>
+      <p class="hint">在內文開頭貼上以「---」包住的封面資訊（例：<code>標題: ○○</code>），會自動讀進這裡。<br>內容裡也可以用【技能名】。比較長的內容會自動占用整行顯示。</p>
+      <datalist id="keySuggest">
+        <option value="規則版本"><option value="建議人數"><option value="遊玩時間"><option value="建議技能"><option value="撕卡率">
+        <option value="舞台"><option value="形式"><option value="傾向"><option value="注意事項">
+      </datalist>
+    </div>
+  </section>
+  <section id="previewPane">
+    <div id="error"></div>
+    <div id="book-host"></div>
+  </section>
+</main>
+
+<footer class="ui" id="status">準備中…</footer>
+<div id="stage" aria-hidden="true"></div>
+<div class="toast" id="toast"></div>
+
+<dialog id="help">
+  <div class="dlg-head"><h2>寫法說明</h2><button class="dlg-close" type="button" data-close aria-label="關閉">×</button></div>
+  <div class="dlg-body">
+    <h3>快速輸入</h3>
+    <ul>
+      <li>在行首輸入 <code>/</code>（全形的 <code>／</code> 也可以）會開啟格式選單。接著輸入 <code>/kp</code>、<code>/檢定</code> 可以篩選，用 ↑↓ 選擇、Enter 插入。注音輸入法會把 <code>/</code> 打成「ㄥ」，請先切到英數模式，或直接用上方的格式按鈕。</li>
+      <li>先選取文字，再按上方的「描述」「KP 資訊」等按鈕，就會用該格式把選取的部分包起來。</li>
+      <li>範本裡的暫定文字插入後會呈選取狀態，直接打字就能取代。</li>
+      <li>點一下預覽的紙面，會跳到內文的對應位置；在內文移動游標時，紙面上對應的地方會加上外框。</li>
+      <li>標題、作者、建議人數等資訊請在「封面與概要」分頁填寫。</li>
+    </ul>
+    <h3>內文的寫法</h3>
+    <table>
+      <tr><th>寫法</th><th>顯示</th></tr>
+      <tr><td><code>## 導入</code></td><td>章標題（自動編號，會列入目錄）</td></tr>
+      <tr><td><code>### 一樓管理室</code></td><td>探索點、場景的標題（會列入目錄）</td></tr>
+      <tr><td><code>&gt; 走廊的燈閃個不停。</code></td><td>要唸給 PL 聽的描述。連續以「&gt;」開頭的行會放進同一個框</td></tr>
+      <tr><td><code>▼【偵查】成功</code> ＋ 下一行起的內文</td><td>檢定的標題。從下一行起<strong>到空行為止</strong>是檢定結果的內文</td></tr>
+      <tr><td><code>:::kp 標籤</code> ～ <code>:::</code></td><td>KP 資訊（虛線框）。省略標籤時顯示「KP 資訊」</td></tr>
+      <tr><td><code>:::pl 標籤</code> ～ <code>:::</code></td><td>公開資訊、資料卡（實線框）。預設標籤為「公開資訊」</td></tr>
+      <tr><td><code>:::note 標籤</code> ～ <code>:::</code></td><td>補充（淡色底）。預設標籤為「補充」</td></tr>
+      <tr><td><code>:::warn 標籤</code> ～ <code>:::</code></td><td>注意事項（粗框）。預設標籤為「注意」</td></tr>
+      <tr><td><code>===換頁===</code></td><td>在這裡換頁</td></tr>
+      <tr><td><code>【偵查】</code></td><td>標示為技能名稱</td></tr>
+      <tr><td><code>SANc（0/1d3）</code></td><td>醒目標示理智檢定（「SAN 檢定(1/1d6)」「SC（0/1）」「理智檢定（0/1）」也可以）</td></tr>
+      <tr><td><code>| STR | CON |</code> 的表格</td><td>顯示成 NPC、怪物的資料表（<code>|:-:|</code> 置中）</td></tr>
+      <tr><td><code>**粗體**</code>・<code>*著重號*</code>・<code>- 項目清單</code></td><td>一般的 Markdown 也能用。換行就是換行，空一行則分成新段落</td></tr>
+    </table>
+    <h3>關於存檔</h3>
+    <p>內文與設定只會存在你的瀏覽器裡，不會傳到伺服器。換瀏覽器或裝置就看不到了，重要的內文請另外保存一份。</p>
+    <h3>怎麼存成 PDF</h3>
+    <p>按「列印成 PDF」，目的地選「另存為 PDF」。<strong>邊界選「無」</strong>、縮放維持 100%，並<strong>勾選「背景圖形」</strong>（建議使用 Chrome 或 Edge）。<br>
+    「儲存列印用 HTML」存下的檔案，是只包含紙面的單一 HTML。打開後列印，也能做出一樣的 PDF。</p>
+    <p style="margin-top:16px"><button class="btn" type="button" id="btnSample">讀入範例劇本（會取代目前的內文與封面資訊）</button></p>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
