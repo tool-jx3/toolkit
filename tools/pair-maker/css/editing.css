@@ -402,3 +402,29 @@ dialog button, .import-file { padding: 9px 12px; border: 1px solid #ccc; border-
 .keyboard-bar-rich .rich-text-color input[type=color] { display: inline-block; width: 24px; height: 24px; padding: 0; border-radius: 0; }
 
 .main-tweet-editor .desktop-field-categories { flex-wrap: wrap; }
+
+/* 預設的輸入框最多三行，拖曳把手可以調整高度。 */
+.keyboard-bar-rich .rich-text-editor { min-height: 50px; max-height: 98px; overflow-y: auto; }
+.keyboard-bar-row textarea { max-height: 103.2px; }
+.keyboard-bar-expand { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); width: 140px; height: 22px; padding: 0; border: 0; border-radius: 11px; background: transparent; cursor: ns-resize; display: grid; place-items: center; }
+.keyboard-bar-expand::before { content: ''; width: 34px; height: 5px; border-radius: 999px; background: #9aa4af; }
+.keyboard-bar-expand:hover::before, .keyboard-bar-expand:focus-visible::before { background: #476ce4; }
+
+.keyboard-bar-expand { touch-action: none; user-select: none; -webkit-user-select: none; }
+.keyboard-bar-resized .rich-text-editor,
+.keyboard-bar-resized .keyboard-bar-row textarea {
+  box-sizing: border-box; height: var(--keyboard-input-height) !important;
+  min-height: 50px; max-height: none; overflow-y: auto;
+}
+
+/* 鍵盤開著的時候，在畫布上也能捲動編輯畫面。 */
+@media (max-width: 1024px) {
+  .keyboard-editing .editor-main {
+    height: var(--keyboard-visible-height, 100dvh);
+    grid-template-rows: auto var(--keyboard-canvas-height) var(--keyboard-panel-height);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+  .keyboard-editing .canvas-area,
+  .keyboard-editing .canvas-area * { touch-action: pan-y !important; }
+}

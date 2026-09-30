@@ -27,7 +27,26 @@ export function createForms(store,stickers,eyedropper) {
   normalizeSelection();
   let categoryScroll=0;
   const panels=new Map();let mobileCleanup=()=>{};
-  function announceSelection(){window.dispatchEvent(new CustomEvent('editor:selection',{detail:{side,category}}));}
+  // 只有指定了這個選項的版型，關掉之後仍會記住電腦版輸入視窗的位置。
+  const panelPositionKey=definition.formOptions?.panelPositionKey;
+  let savedPanelPosition=null;
+  if(panelPositionKey)try{
+    const saved=JSON.parse(localStorage.getItem(panelPositionKey));
+    if(saved&&Number.isFinite(saved.left)&&Number.isFinite(saved.top))savedPanelPosition={left:saved.left,top:saved.top};
+  }catch{}
+  function rememberPanelPosition(node){
+    if(!panelPositionKey||compact.matches)return;
+    const left=parseFloat(node.style.left),top=parseFloat(node.style.top);
+    if(!Number.isFinite(left)||!Number.isFinite(top))return;
+    savedPanelPosition={left,top};
+    try{localStorage.setItem(panelPositionKey,JSON.stringify(savedPanelPosition));}catch{}
+  }
+  function restorePanelPosition(node){
+    const rect=node.getBoundingClientRect();
+    node.style.left=Math.max(0,Math.min(innerWidth-rect.width,savedPanelPosition.left))+'px';
+    node.style.top=Math.max(0,Math.min(innerHeight-rect.height,savedPanelPosition.top))+'px';
+  }
+  function announceSelection(userInitiated=false){window.dispatchEvent(new CustomEvent('editor:selection',{detail:{side,category,userInitiated}}));}
   function fieldPanel(currentSide,group) {
     const body=document.createElement('div');body.className='field-content';const cleanups=[];
     function bindVisibility(node,condition){
@@ -89,6 +108,7 @@ export function createForms(store,stickers,eyedropper) {
     {
       const rows=new Map();
       for(const field of fieldItems) {
+        if(field.type==='separator'){body.append(document.createElement('hr'));continue;}
         if(field.type==='richtext'){
           const rich=createRichTextField(store,field);body.append(rich.body);cleanups.push({mount:()=>rich.mount()});continue;
         }
@@ -186,6 +206,7 @@ export function createForms(store,stickers,eyedropper) {
   }
   function clearPanels(){for(const p of panels.values()){p.form?.destroy();p.node.remove();}panels.clear();}
   function placePanel(node,anchor){
+    if(panelPositionKey&&savedPanelPosition){restorePanelPosition(node);return;}
     const area=document.querySelector('.editor-main').getBoundingClientRect();
     const rect=node.getBoundingClientRect();
     const x=anchor?anchor.x+anchor.width+32:area.left+20;
@@ -196,7 +217,7 @@ export function createForms(store,stickers,eyedropper) {
   function open(sideValue,group,konvaNode,refresh=false){
     side=sideValue;category=group;
     normalizeSelection();group=category;
-    announceSelection();
+    announceSelection(true);
     if(compact.matches){renderMobile();host.querySelector('[role="tab"][aria-selected="true"]')?.scrollIntoView({block:'nearest',inline:'nearest'});return;}
     const key=side+':'+group;let entry=panels.get(key);
     if(entry&&!refresh){entry.node.style.zIndex=String(++z);entry.node.focus();return;}
@@ -208,11 +229,22 @@ export function createForms(store,stickers,eyedropper) {
     if(definition.formOptions?.desktopCategories){
       const selectedSide=side;
       const navigation=document.createElement('div');navigation.className='desktop-member-navigation';
-      const select=document.createElement('select');select.setAttribute('aria-label',T("form.008"));
+      const desktopTabs=definition.formOptions.desktopTabs?.(store.state);
+      if(desktopTabs){
+        const tabs=document.createElement('div');tabs.className='character-tabs textlog-page-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label',T("form.016"));
+        for(const id of desktopTabs){const tab=contentTabs().find(tab=>tab.id===id);if(!tab)continue;
+          const button=document.createElement('button');button.type='button';button.textContent=tab.label;button.setAttribute('role','tab');button.setAttribute('aria-selected',String(side===id));button.onclick=()=>open(id,getGroups(id)[0]?.[0]);tabs.append(button);
+        }
+        navigation.append(tabs);
+      }else{
+      /* 版型給的標籤含 T()，寫成函式才會在開啟當下取目前語言。 */
+      const selectionLabel=definition.formOptions?.selectionLabel;
+      const select=document.createElement('select');select.setAttribute('aria-label',(typeof selectionLabel==='function'?selectionLabel():selectionLabel)||T("form.008"));
       for(const tab of contentTabs().filter(tab=>tab.type!=='stickers')){
         const option=document.createElement('option');option.value=tab.id;option.textContent=tab.label;select.append(option);
       }
       select.value=side;select.onchange=()=>open(select.value,group);if(select.options.length>1)navigation.append(select);
+      }
       const categories=document.createElement('div');categories.className='field-categories desktop-field-categories';
       categories.setAttribute('aria-label',T("form.009"));
       for(const [key,label] of getGroups(side)){
@@ -227,7 +259,9 @@ export function createForms(store,stickers,eyedropper) {
     node.addEventListener('pointerdown',()=>node.style.zIndex=String(++z));
     node.append(close,form.body);document.body.append(node);form.mount();panels.set(key,{node,form});
     let anchor=null;if(konvaNode){const stage=konvaNode.getStage(),p=stage.getPointerPosition(),c=stage.container().getBoundingClientRect();if(p)anchor={x:c.left+p.x,y:c.top+p.y,width:0,height:0};}
-    if(previousPosition){node.style.left=previousPosition.left;node.style.top=previousPosition.top;}else placePanel(node,anchor);
+    if(panelPositionKey&&savedPanelPosition)restorePanelPosition(node);
+    else if(previousPosition){node.style.left=previousPosition.left;node.style.top=previousPosition.top;}else placePanel(node,anchor);
+    if(panelPositionKey&&!savedPanelPosition)rememberPanelPosition(node);
     node.focus({preventScroll:true});
     const handle=form.body.querySelector('h3');handle.classList.add('editor-drag-handle');handle.title=T("form.011");handle.tabIndex=0;
     let drag=null;
@@ -249,12 +283,13 @@ export function createForms(store,stickers,eyedropper) {
     });
     const stopDrag=e=>{
       if(!drag||e.pointerId!==drag.id)return;
+      rememberPanelPosition(node);
       drag=null;node.classList.remove('is-dragging');
       if(node.hasPointerCapture(e.pointerId))node.releasePointerCapture(e.pointerId);
     };
     node.addEventListener('pointerup',stopDrag);node.addEventListener('pointercancel',stopDrag);
     node.addEventListener('lostpointercapture',stopDrag);
-    handle.addEventListener('keydown',e=>{const delta={ArrowLeft:[-10,0],ArrowRight:[10,0],ArrowUp:[0,-10],ArrowDown:[0,10]}[e.key];if(delta){e.preventDefault();const r=node.getBoundingClientRect();move(r.left+delta[0],r.top+delta[1]);}});
+    handle.addEventListener('keydown',e=>{const delta={ArrowLeft:[-10,0],ArrowRight:[10,0],ArrowUp:[0,-10],ArrowDown:[0,10]}[e.key];if(delta){e.preventDefault();const r=node.getBoundingClientRect();move(r.left+delta[0],r.top+delta[1]);rememberPanelPosition(node);}});
   }
   document.addEventListener('pointerdown',e=>{
     if(eyedropper?.active||compact.matches||e.target.closest('.floating-editor,.member-preview,.pcr-app,dialog'))return;
@@ -292,11 +327,11 @@ export function createForms(store,stickers,eyedropper) {
       e.preventDefault();node.scrollLeft+=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY)*unit;
     },{passive:false});
   }
-  function renderMobile(preserveScroll=false){
+  function renderMobile(preserveScroll=false,userInitiated=false){
     const scroll=preserveScroll?{host:host.scrollTop,panel:host.querySelector('.mobile-field-panel')?.scrollTop??0}:null;
     keyboard.close();
     normalizeSelection();
-    announceSelection();
+    announceSelection(userInitiated);
     categoryScroll=host.querySelector('.field-categories')?.scrollLeft ?? categoryScroll;
     tabScroll=host.querySelector('.character-tabs-scroll')?.scrollLeft??tabScroll;
     const cleanup=mobileCleanup;mobileCleanup=()=>{};
@@ -315,12 +350,12 @@ export function createForms(store,stickers,eyedropper) {
         b.onclick=async()=>{b.disabled=true;try{
           const next=await tab.onClick({store,open,chooseSticker});
           if(typeof next==='string')side=next;
-          renderMobile();
+          renderMobile(false,true);
           host.querySelector('[role="tab"][aria-selected="true"]')?.scrollIntoView({block:'nearest',inline:'nearest'});
         }catch(error){notify(error.message);}finally{b.disabled=false;}};
       }else{
         b.setAttribute('role','tab');b.setAttribute('aria-selected',String(side===tab.id));b.setAttribute('aria-controls','active-fields');
-        b.onclick=()=>{side=tab.id;normalizeSelection();renderMobile();document.getElementById('tab-'+tab.id)?.focus();};
+        b.onclick=()=>{side=tab.id;normalizeSelection();renderMobile(false,true);document.getElementById('tab-'+tab.id)?.focus();};
       }
       if(split&&(tab.type==='action'||tab.fixed)){b.classList.add(tab.type==='action'?'character-tab-action':'character-tab-fixed');tabRow.append(b);}else tabs.append(b);
     }
@@ -356,7 +391,7 @@ export function createForms(store,stickers,eyedropper) {
         const delta=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY)*unit;
         if(!delta)return;e.preventDefault();categories.scrollLeft+=delta;
       },{passive:false});
-      for(const [key,name] of getGroups(side)){const b=document.createElement('button');b.type='button';b.textContent=name;b.setAttribute('aria-pressed',String(key===category));b.onclick=()=>{category=key;renderMobile();};categories.append(b);}
+      for(const [key,name] of getGroups(side)){const b=document.createElement('button');b.type='button';b.textContent=name;b.setAttribute('aria-pressed',String(key===category));b.onclick=()=>{category=key;renderMobile(false,true);};categories.append(b);}
       panel.append(categories);if(!category){mobileCleanup=()=>{};return;}const form=fieldPanel(side,category);panel.append(form.body);form.mount();mobileCleanup=()=>form.destroy();
       categories.scrollLeft=categoryScroll;
     }

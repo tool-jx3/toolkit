@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>團報產生器</title>
+  <link rel="stylesheet" href="css/report_gen_style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="header-top-tags">
+        <div class="toolkit-bar">
+          <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+          <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+        </div>
+        <span class="header-pill header-pill-cyan">X / Twitter</span>
+        <span class="header-pill header-pill-violet" data-i18n="header.pillReport">團報</span>
+        <span class="header-pill header-pill-amber" data-i18n="header.pillTemplate">範本產生</span>
+        <div class="header-actions" data-i18n-aria-label="header.helpAria" aria-label="說明選單">
+          <button id="usageToggleButton" class="header-action-button" type="button" aria-controls="usagePanel" aria-expanded="false" data-i18n="header.usage">使用方式</button>
+          <button id="shortcutToggleButton" class="header-action-button" type="button" aria-controls="shortcutPanel" aria-expanded="false" data-i18n="header.shortcut">快捷鍵</button>
+        </div>
+      </div>
+      <div class="header-title-area">
+        <h1 class="site-title">
+          <span class="site-title-icon" aria-hidden="true">
+            <span class="icon-bird"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.6 5.2c-.7.3-1.4.5-2.2.6.8-.5 1.3-1.2 1.6-2.1-.7.4-1.5.7-2.4.9a3.8 3.8 0 0 0-6.6 3.4A10.8 10.8 0 0 1 4.2 4a3.8 3.8 0 0 0 1.2 5.1c-.6 0-1.2-.2-1.7-.5v.1c0 1.8 1.3 3.3 3 3.7-.3.1-.7.1-1 .1-.2 0-.5 0-.7-.1.5 1.5 1.9 2.6 3.6 2.6A7.6 7.6 0 0 1 3 16.6a10.7 10.7 0 0 0 5.8 1.7c7 0 10.8-5.8 10.8-10.8v-.5c.7-.5 1.4-1.2 2-1.8z"/></svg></span>
+            <span class="icon-star">✦</span>
+            <span class="icon-style-a">A</span>
+          </span>
+          <span data-i18n="app.heading">團報產生器</span>
+        </h1>
+        <p class="header-version">v1.70 2026.09.09</p>
+        <p class="site-description">
+          <span data-i18n="header.desc1">參考社群上團報的寫法，產生多種風格、適合貼到 X 的團報文。</span>
+          <span data-i18n="header.desc2">輸入劇本名稱、參加者、END 與裝飾風格，就能做出方便複製的團報文。</span>
+        </p>
+      </div>
+      <div class="header-help-panels" aria-live="polite">
+        <section id="usagePanel" class="header-help-panel" hidden>
+          <h2 data-i18n="usage.title">使用方式</h2>
+          <ol>
+            <li data-i18n="usage.step1">從團報範本清單選擇想用的文案風格。</li>
+            <li data-i18n="usage.step2">輸入系統、劇本名稱、KP / GM / DL、PC / PL、END 等資料。</li>
+            <li data-i18n="usage.step3">視需要選擇文字樣式或文字藝術，也可以直接編輯右側的預覽。</li>
+            <li data-i18n="usage.step4">完成後按「複製」，或用下方的「貼到 𝕏」開啟貼文畫面。</li>
+          </ol>
+        </section>
+        <section id="shortcutPanel" class="header-help-panel" hidden>
+          <h2 data-i18n="shortcut.title">快捷鍵</h2>
+          <dl>
+            <div><dt>Cmd / Ctrl + Shift + C</dt><dd data-i18n="shortcut.copy">複製預覽內文（也可以用 Cmd / Ctrl + Enter）。</dd></div>
+            <div><dt>Cmd / Ctrl + Shift + P</dt><dd data-i18n="shortcut.post">把預覽內文貼到 𝕏。</dd></div>
+            <div><dt>Cmd / Ctrl + Z</dt><dd data-i18n="shortcut.undo">復原一次預覽的編輯。</dd></div>
+            <div><dt>Cmd / Ctrl + Shift + Z</dt><dd data-i18n="shortcut.redo">重做剛才復原的編輯。</dd></div>
+            <div><dt>Cmd / Ctrl + E</dt><dd data-i18n="shortcut.focus">把游標移到預覽編輯欄。</dd></div>
+            <div><dt>Cmd + Option + ↑ / ↓</dt><dd data-i18n="shortcut.style">切換上一個／下一個團報範本。</dd></div>
+            <div><dt>Cmd + Option + ← / →</dt><dd data-i18n="shortcut.font">切換上一個／下一個文字樣式（字型）。</dd></div>
+            <div><dt>Cmd + Option + R</dt><dd data-i18n="shortcut.regenerate">捨棄手動編輯，依輸入內容重新產生預覽。</dd></div>
+            <div><dt>?</dt><dd data-i18n="shortcut.toggle">開啟／關閉這個快捷鍵面板。</dd></div>
+            <div><dt>Esc</dt><dd data-i18n="shortcut.esc">關閉使用方式／快捷鍵面板。</dd></div>
+          </dl>
+          <p data-i18n="shortcut.windows">Windows 請把 Cmd 換成 Ctrl、Option 換成 Alt。</p>
+        </section>
+      </div>
+    </div>
+  </header>
+
+  <main class="main app-shell">
+    <section class="panel input-panel" aria-labelledby="inputPanelTitle">
+      <h2 id="inputPanelTitle" data-i18n="input.title">輸入</h2>
+
+      <section class="section basic-section" data-i18n-aria-label="input.basicAria" aria-label="基本資訊">
+        <div class="grid-2">
+          <div class="field-block">
+            <label for="reportStyle" data-i18n="input.styleLabel">團報範本清單</label>
+            <select id="reportStyle"></select>
+            <p class="hint" data-i18n="input.styleHint">只參考社群實例的結構做成的範本。</p>
+          </div>
+
+          <div class="field-block">
+            <label for="fontVariant" data-i18n="input.fontLabel">文字樣式</label>
+            <select id="fontVariant"></select>
+            <p class="hint" data-i18n="input.fontHint">只轉換範本指定的部分，例如系統名稱、職位、標記、END、日期等。</p>
+          </div>
+        </div>
+
+        <div class="grid-2 stacked-grid">
+          <div class="field-block">
+            <label for="systemSelect" data-i18n="input.systemLabel">系統</label>
+            <select id="systemSelect">
+              <option value="call_of_cthulhu">Call of Cthulhu</option>
+              <option value="coc">CoC</option>
+              <option value="coc6">CoC6</option>
+              <option value="coc7">CoC7</option>
+              <option value="new_coc" data-i18n="system.new_coc">新克蘇魯神話TRPG</option>
+              <option value="emoklore_en">emoklore-trpg</option>
+              <option value="emoklore_ja" data-i18n="system.emoklore_ja">Emoklore TRPG</option>
+              <option value="madamisu" data-i18n="system.madamisu">謀殺之謎</option>
+              <option value="shinobigami" data-i18n="system.shinobigami">忍神</option>
+              <option value="insane" data-i18n="system.insane">Insane</option>
+              <option value="double_cross" data-i18n="system.double_cross">雙重十字 The 3rd Edition</option>
+              <option value="sword_world_25" data-i18n="system.sword_world_25">劍世界2.5</option>
+              <option value="futari_sousa" data-i18n="system.futari_sousa">二人搜查</option>
+              <option value="custom" data-i18n="system.custom">自行輸入</option>
+            </select>
+            <input id="customSystemText" class="custom-system-input" data-i18n-placeholder="input.customSystemPlaceholder" placeholder="輸入系統名稱" />
+          </div>
+
+          <div class="field-block">
+            <label for="authorText" data-i18n="input.authorLabel">作者</label>
+            <input id="authorText" data-i18n-placeholder="input.authorPlaceholder" placeholder="例：〇〇老師 / 〇〇 老師" />
+          </div>
+        </div>
+
+        <div class="grid-2 stacked-grid">
+          <div class="field-block">
+            <label for="scenarioTitle" data-i18n="input.scenarioLabel">劇本名稱</label>
+            <input id="scenarioTitle" data-i18n-placeholder="input.scenarioPlaceholder" placeholder="例：在黑色風暴來臨之前" />
+          </div>
+
+          <div class="field-block">
+            <label for="resultText" data-i18n="input.resultLabel">通關 / END / 結果</label>
+            <input id="resultText" data-i18n-placeholder="input.resultPlaceholder" placeholder="例：END A 兩人生還 / 全員生還" />
+          </div>
+        </div>
+      </section>
+
+      <section class="section gm-section" data-i18n-aria-label="input.gmAria" aria-label="GM 資訊">
+        <div class="section-head">
+          <label data-i18n="input.gmLabel">GM / KP / DL / 其他</label>
+          <div class="suffix-checks" data-i18n-aria-label="input.suffix" aria-label="敬稱">
+            <span data-i18n="input.suffix">敬稱</span>
+            <label data-i18n-node="suffix.none"><input type="checkbox" name="suffixChoice" value="none" checked />無</label>
+            <label data-i18n-node="suffix.samaLabel"><input type="checkbox" name="suffixChoice" value="sama" />〇〇樣</label>
+            <label data-i18n-node="suffix.sanLabel"><input type="checkbox" name="suffixChoice" value="san" />〇〇桑</label>
+          </div>
+        </div>
+        <div id="gmContainer" data-default-rows="1"></div>
+        <p class="hint" data-i18n="input.gmHint">按綠色的＋可以新增主持人。KPC/KP 型的範本，在名字欄填成「KPC名稱 / KP名稱」會比較好看。</p>
+      </section>
+
+      <section class="section player-section" data-i18n-aria-label="input.playerAria" aria-label="參加者資訊">
+        <div class="grid-2">
+          <div>
+            <label>HO / PC / PL</label>
+            <p class="hint" data-i18n="input.playerHint">每一行輸入 HO、PC 名稱、PL 名稱。HO 補充通常不用填。</p>
+          </div>
+
+          <div class="field-block">
+            <label for="nameInputOrder" data-i18n="input.orderLabel">PC 名稱與 PL 名稱的輸入順序</label>
+            <select id="nameInputOrder">
+              <option value="pcpl" data-i18n="input.orderPcPl">PC 名稱 → PL 名稱</option>
+              <option value="plpc" data-i18n="input.orderPlPc">PL 名稱 → PC 名稱</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="playerContainer" class="participant-container" data-default-rows="1"></div>
+        <div class="btns">
+          <button id="addPlayerButton" type="button" data-i18n="input.addPlayer">＋ 新增參加者</button>
+        </div>
+        <p class="hint" data-i18n="input.slotHint">標記選 PC/PL 或 PL/PC 時會反映在標題；PC1、HO1 會顯示在各自的那一行。</p>
+      </section>
+
+      <section class="section misc-section" data-i18n-aria-label="input.miscAria" aria-label="補充資訊">
+        <div class="grid-2">
+          <div class="field-block">
+            <label for="dateText" data-i18n="input.dateLabel">日期</label>
+            <input id="dateText" placeholder="今天的日期" />
+          </div>
+
+          <div class="field-block">
+            <label for="hashtagText" data-i18n="input.hashtagLabel">主題標籤</label>
+            <input id="hashtagText" data-i18n-placeholder="input.hashtagPlaceholder" placeholder="例：#團報 #克蘇魯神話TRPG" />
+          </div>
+        </div>
+        <div class="field-block">
+          <label for="memoText" data-i18n="input.memoLabel">備註 / 筆記</label>
+          <textarea id="memoText" data-i18n-placeholder="input.memoPlaceholder" placeholder="來自跑團紀錄簿的備註或補充"></textarea>
+        </div>
+      </section>
+
+      <section class="section decoration-panel" data-i18n-aria-label="input.decoAria" aria-label="文字藝術與裝飾">
+        <label data-i18n="input.decoLabel">文字藝術 / 裝飾</label>
+        <p class="hint" data-i18n="input.decoHint">點一下就會插入到右側預覽目前的游標位置。</p>
+        <div id="asciiArtContainer" class="ascii-preview-panel"></div>
+      </section>
+    </section>
+
+    <section class="panel preview-panel" aria-labelledby="previewPanelTitle">
+      <h2 id="previewPanelTitle" data-i18n="preview.title">X 風格預覽 / 編輯</h2>
+
+      <div class="twitter-card">
+        <div class="tweet-head">
+          <div class="avatar"></div>
+          <div class="account">
+            <strong>Session Report</strong>
+            <span>@taku_houkoku</span>
+          </div>
+        </div>
+
+        <div id="fontToolbar" class="font-toolbar" data-i18n-aria-label="preview.fontToolbarAria" aria-label="文字樣式快速切換"></div>
+
+        <div class="preview-editor-wrap">
+          <textarea id="tweetPreview" data-i18n-placeholder="preview.placeholder" placeholder="產生的結果會顯示在這裡，也可以直接編輯。"></textarea>
+          <div id="previewResizeHandle" class="preview-resize-handle" data-i18n-title="preview.resizeTitle" title="調整預覽欄的高度"></div>
+        </div>
+
+        <div class="count-line">
+          <span id="charCount">0 / 280</span>
+          <span id="limitStatus" class="count-ok">OK</span>
+        </div>
+
+        <div class="btns preview-actions">
+          <button id="copyButton" type="button" class="primary" data-i18n-title="preview.copyTitle" title="複製（Ctrl / ⌘ + Shift + C，或 Ctrl / ⌘ + Enter）" data-i18n="preview.copy">複製</button>
+          <button id="undoButton" type="button" data-i18n-title="preview.undoTitle" title="復原（Ctrl / ⌘ + Z）" data-i18n="preview.undo">復原</button>
+          <button id="redoButton" type="button" data-i18n-title="preview.redoTitle" title="重做（Ctrl / ⌘ + Shift + Z）" data-i18n="preview.redo">重做</button>
+          <button id="clearPreviewButton" type="button" class="danger" data-i18n="preview.clear">清除</button>
+        </div>
+      </div>
+
+      <p class="hint" data-i18n="preview.countHint">字數只是簡易計算。網址縮短、表情符號寬度等，可能和 X 本身的實際規格不同。</p>
+    </section>
+  </main>
+
+  <section class="tool-footer-note">
+    <h2 data-i18n="footer.title">使用注意事項</h2>
+    <p data-i18n="footer.p1">本工具是開發者 @KumachanSteps 個人製作的非官方 TRPG 輔助工具。各 TRPG 系統、劇本與外部服務的使用條款與權利標示，請使用者自行確認。</p>
+    <p data-i18n="footer.p2">錯誤回報與功能建議，請透過 X 私訊 @KumachanSteps。但不保證每一則回報或建議都會回覆或處理。</p>
+  </section>
+
+  <div class="bottom-actions" data-i18n-aria-label="bottom.aria" aria-label="產生操作">
+    <button id="generateButton" type="button" class="primary bottom-action-button" data-i18n-title="bottom.postTitle" title="貼到 𝕏（Ctrl / ⌘ + Shift + P）" data-i18n="bottom.post">貼到 𝕏</button>
+    <button id="clearAllButton" type="button" class="subtle bottom-action-button" data-i18n="bottom.clearAll">清除輸入</button>
+  </div>
+
+  <script defer src="../../assets/i18n.js"></script>
+  <script defer src="./i18n.session-report.js"></script>
+  <script defer src="js/template.js"></script>
+  <script defer src="js/main.js"></script>
+</body>
+</html>

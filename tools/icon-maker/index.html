@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>簡易頭像產生器</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="theme-light">
+  <div class="page-shell">
+    <div class="page-inner">
+      <header class="site-header">
+        <div class="header-top">
+          <div class="header-left">
+            <div class="toolkit-bar">
+              <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+              <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+            </div>
+            <span class="mode-pill" data-i18n="header.mode">✦ 頭像產生</span>
+          </div>
+          <div class="header-actions">
+            <button class="header-button" type="button" data-panel-trigger="helpPanel" data-i18n="header.help">使用方式</button>
+            <button class="header-button" type="button" data-panel-trigger="shortcutPanel" data-i18n="header.shortcuts">快速鍵</button>
+            <button class="header-button" type="button" id="themeToggle">夜間模式</button>
+          </div>
+        </div>
+
+        <div class="title-row">
+          <div class="tool-icon" aria-hidden="true">
+            <span class="tool-icon-main">▣</span>
+            <span class="tool-icon-star">✦</span>
+            <span class="tool-icon-copy">1:1</span>
+          </div>
+          <div>
+            <h1 class="site-title" data-i18n="app.heading">簡易頭像產生器 v0.1</h1>
+            <p class="site-description" data-i18n="app.lead">載入 PNG 立繪，調整外框、背景、名字與 HO 標籤，製作 TRPG 用的 1:1 角色頭像。</p>
+          </div>
+        </div>
+
+        <section class="header-info-panel hidden" id="helpPanel" data-i18n-html="help.body"><strong>使用方式：</strong>載入 PNG 圖片後，直接在預覽上拖曳圖片、名字與 HO 標籤來調整位置。名字與 HO 選取後，可以拖曳右下角的控點調整大小。拖曳時會顯示紅色虛線參考線。</section>
+        <section class="header-info-panel hidden" id="shortcutPanel" data-i18n-html="shortcut.body"><strong>快速鍵：</strong>Delete／Backspace：取消選取；Esc：關閉面板；方向鍵：將選取中的部件移動 1px；Shift＋方向鍵：移動 10px。</section>
+      </header>
+
+      <main class="layout-grid">
+        <section class="left-column">
+          <section class="panel upload-panel">
+            <div class="panel-title">
+              <span class="panel-icon">⬆</span>
+              <h2 data-i18n="upload.title">上傳圖片</h2>
+            </div>
+
+            <div class="dropzone" id="dropzone">
+              <input class="file-input-hidden" id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" />
+              <div class="dropzone-large" id="dropzoneLarge">
+                <div class="dropzone-icon">▧</div>
+                <p class="dropzone-title" data-i18n="upload.drop">拖放 PNG 檔</p>
+                <p class="dropzone-note" data-i18n="upload.or">或點一下選擇檔案</p>
+                <button class="button-primary" type="button" id="chooseImageButton" data-i18n="upload.choose">選擇 PNG</button>
+              </div>
+              <div class="dropzone-compact hidden" id="dropzoneCompact">
+                <div class="upload-ok">✓</div>
+                <div class="upload-text">
+                  <strong data-i18n="upload.loaded">已載入圖片</strong>
+                  <span id="loadedFileName">上傳區已縮到最小</span>
+                </div>
+                <button class="button-muted small" type="button" id="replaceImageButton" data-i18n="upload.replace">更換</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">
+              <span class="panel-icon">🎨</span>
+              <h2 data-i18n="frame.title">外框／背景</h2>
+            </div>
+
+            <div class="frame-mode-row">
+              <span class="field-label no-margin" data-i18n="frame.type">外框類型</span>
+              <div class="segmented-control" role="group" data-i18n-aria-label="frame.typeAria" aria-label="外框類型">
+                <button class="segment is-active" type="button" data-frame-mode="solid" data-i18n="frame.solid">單色</button>
+                <button class="segment" type="button" data-frame-mode="gradation" data-i18n="frame.gradation">漸層</button>
+              </div>
+            </div>
+
+            <label class="field-label" data-i18n="frame.preset">預設樣式</label>
+            <div class="preset-grid" id="presetGrid"></div>
+
+            <div class="field-grid two-columns compact-fields">
+              <label>
+                <span class="field-label" data-i18n="bg.type">背景類型</span>
+                <select id="backgroundType">
+                  <option value="solid" data-i18n="bg.solid">單色</option>
+                  <option value="gradation" data-i18n="bg.gradation">漸層</option>
+                  <option value="transparent" data-i18n="bg.transparent">透明</option>
+                  <option value="dot" data-i18n="bg.dot">圓點</option>
+                  <option value="stripe" data-i18n="bg.stripe">斜線</option>
+                  <option value="check" data-i18n="bg.check">格紋</option>
+                </select>
+              </label>
+              <label>
+                <span class="field-label" data-i18n="frame.width">外框粗細</span>
+                <input type="range" id="frameWidth" min="6" max="42" value="18" />
+              </label>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">
+              <span class="panel-icon">T</span>
+              <h2 data-i18n="name.title">名字文字</h2>
+            </div>
+            <label>
+              <span class="field-label" data-i18n="name.label">角色名稱</span>
+              <input id="nameText" type="text" value="花菱 火花" />
+            </label>
+            <div class="field-grid two-columns">
+              <label>
+                <span class="field-label" data-i18n="name.font">字型</span>
+                <select id="nameFont">
+                  <option value="serif" data-i18n="font.serif">明體系</option>
+                  <option value="sans" data-i18n="font.sans">黑體系</option>
+                  <option value="rounded" data-i18n="font.rounded">圓體系</option>
+                  <option value="mono" data-i18n="font.mono">現代英文字體</option>
+                </select>
+              </label>
+              <label>
+                <span class="field-label" data-i18n="name.layout">位置</span>
+                <select id="nameWritingMode">
+                  <option value="vertical" data-i18n="layout.vertical">右上・直書</option>
+                  <option value="horizontal" data-i18n="layout.horizontal">下方・橫書</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">
+              <span class="panel-icon">HO</span>
+              <h2 data-i18n="ho.title">HO 標籤</h2>
+            </div>
+            <div class="field-grid two-columns">
+              <label>
+                <span class="field-label" data-i18n="ho.label">HO／標籤</span>
+                <input id="hoText" type="text" value="HO1" />
+              </label>
+              <label>
+                <span class="field-label" data-i18n="ho.style">樣式</span>
+                <select id="hoStyle">
+                  <option value="dark" data-i18n="hoStyle.dark">黑色標籤</option>
+                  <option value="glass" data-i18n="hoStyle.glass">玻璃風</option>
+                  <option value="ribbon" data-i18n="hoStyle.ribbon">緞帶風</option>
+                </select>
+              </label>
+            </div>
+            <p class="input-help" data-i18n="ho.help">HO1 的數字部分可以自由輸入。例：PC1／調香師／美國裁縫</p>
+          </section>
+        </section>
+
+        <section class="main-grid">
+          <section class="middle-column">
+            <section class="panel preview-panel">
+              <div class="preview-header">
+                <div>
+                  <div class="panel-title preview-title-inline">
+                    <span class="panel-icon">▣</span>
+                    <h2 data-i18n="preview.title">頭像預覽</h2>
+                  </div>
+                  <p class="preview-note" data-i18n="preview.note">可以直接拖曳圖片、名字與 HO 來編輯。拖曳時會顯示紅色虛線參考線。</p>
+                </div>
+                <div class="preview-actions">
+                  <button class="tool-button button-primary" type="button" id="downloadButton" data-i18n="action.save">儲存 PNG</button>
+                  <button class="tool-button button-muted" type="button" id="copyButton" data-i18n="action.copy">複製</button>
+                  <button class="tool-button button-muted" type="button" id="resetButton" data-i18n="action.reset">重設</button>
+                  <button class="icon-tool-button" type="button" id="zoomInButton" data-i18n-title="action.zoomIn" title="放大圖片">🔍＋</button>
+                  <button class="icon-tool-button" type="button" id="zoomOutButton" data-i18n-title="action.zoomOut" title="縮小圖片">🔍−</button>
+                </div>
+              </div>
+
+              <div class="preview-stage">
+                <div class="icon-editor-shell">
+                  <div class="icon-editor" id="iconEditor" data-i18n-aria-label="editor.aria" aria-label="頭像編輯區">
+                    <div class="frame-layer" id="frameLayer"></div>
+                    <div class="inner-icon" id="innerIcon">
+                      <div class="background-layer" id="backgroundLayer"></div>
+                      <div class="safe-margin" aria-hidden="true"></div>
+
+                      <div class="character-object editable-object" id="characterObject" data-object="character" tabindex="0" data-i18n-aria-label="character.aria" aria-label="角色圖片">
+                        <div class="placeholder-character" id="placeholderCharacter">
+                          <div class="placeholder-head"></div>
+                          <div class="placeholder-body"></div>
+                        </div>
+                        <img id="characterImage" data-i18n-alt="character.alt" alt="載入的角色圖片" class="hidden" draggable="false" />
+                      </div>
+
+                      <div class="name-box editable-object selected" id="nameBox" data-object="name" tabindex="0" data-i18n-aria-label="nameBox.aria" aria-label="名字文字框">
+                        <span id="nameBoxText">花菱 火花</span>
+                        <span class="resize-handle" data-resize="name" aria-hidden="true"></span>
+                      </div>
+
+                      <div class="ho-badge editable-object" id="hoBadge" data-object="ho" tabindex="0" data-i18n-aria-label="hoBadge.aria" aria-label="HO 標籤">
+                        <span id="hoBadgeText">HO1</span>
+                        <span class="resize-handle" data-resize="ho" aria-hidden="true"></span>
+                      </div>
+
+                      <div class="guide-layer hidden" id="guideLayer" aria-hidden="true">
+                        <div class="guide-line guide-v center"></div>
+                        <div class="guide-line guide-h center"></div>
+                        <div class="guide-line guide-v object-left"></div>
+                        <div class="guide-line guide-v object-right"></div>
+                        <div class="guide-line guide-h object-top"></div>
+                        <div class="guide-line guide-h object-bottom"></div>
+                        <div class="guide-label label-x" id="guideLabelX"></div>
+                        <div class="guide-label label-y" id="guideLabelY"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <aside class="settings-summary">
+                <div class="summary-header">
+                  <h3 data-i18n="summary.title">目前設定</h3>
+                  <span data-i18n="summary.live">已即時反映到預覽</span>
+                </div>
+                <div class="settings-grid" id="settingsGrid"></div>
+                <div class="note-box" data-i18n="note.privacy">※圖片處理與 PNG 輸出全部在瀏覽器內完成，上傳的圖片不會傳送到伺服器。</div>
+              </aside>
+            </section>
+          </section>
+        </section>
+      </main>
+
+      <p class="footer-note" data-i18n-html="footer.credit"><a href="https://kumachansteps.github.io/trpg-web-tools/" target="_blank" rel="noopener noreferrer">TRPG WEB 工具觀測所</a>／簡易頭像產生器 v0.1</p>
+    </div>
+  </div>
+
+  <script src="../../assets/i18n.js"></script>
+  <script src="./i18n.icon-maker.js"></script>
+  <script src="./main.js"></script>
+</body>
+</html>

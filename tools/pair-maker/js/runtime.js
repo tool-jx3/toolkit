@@ -54,7 +54,7 @@ async function start(config){
       if(token!==renderEpoch)return;
       scene.updateImage(id,image);activeImages.set(id,src);
     });
-    if(kind==='stickers'||kind==='replace'||kind==='structure')jobs.push(stickers.render());
+    if(kind==='stickers'||kind==='replace'||kind==='structure'||kind==='view')jobs.push(stickers.render());
     await Promise.all([...jobs,fontsReady]);pruneImages(store.state);
   }
   let renderFrame=null,queuedKind=null;
@@ -75,7 +75,7 @@ async function start(config){
     do{flushRender();const task=pending;await task;if(task===pending&&!queuedKind)break;}while(true);
     await fontSync.sync();stage.draw();
   }
-  const saving=attachSaving(store,stage,stickers,waitForDraw);
+  const saving=attachSaving(store,stage,stickers,waitForDraw,scene);
   await saving.ready;
   document.querySelector('[data-action="sticker"]').onclick=()=>forms.chooseSticker();
   resize();

@@ -3,6 +3,10 @@ const templates = {
   '2p-pair1': () => import('./2p-pair1.js'),
   'pattern-header': () => import('./pattern-header.js'),
   '30p-pair': () => import('./30p-pair.js'),
+  'textLog-simple': () => import('./textLog-simple.js'),
+  'textLog-vert': () => import('./textLog-vert.js'),
+  'textLog-hori': () => import('./textLog-hori.js'),
+  'textLog-pair': () => import('./textLog-pair.js'),
   'main-tweet': () => import('./main-tweet.js')
 };
 
