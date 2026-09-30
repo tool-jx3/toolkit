@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>角色差分管理器</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="title-block">
+        <p class="eyebrow" data-i18n="header.eyebrow">TRPG WEB 工具觀測所</p>
+        <h1 data-i18n="app.heading">角色差分管理器</h1>
+        <p class="lead" data-i18n-html="header.lead">一次檢查所有立繪與表情差分、整理好檔名，並產生 CCFOLIA 用的 <strong>@差分</strong> 聊天面板。</p>
+      </div>
+
+      <nav class="header-actions" data-i18n-aria-label="header.navAria" aria-label="頁首操作">
+        <div class="toolkit-bar">
+          <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+          <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+        </div>
+        <a class="x-share-link" id="xPostBtn" href="https://twitter.com/intent/tweet?text=%E7%94%A8%E3%80%8C%E8%A7%92%E8%89%B2%E5%B7%AE%E5%88%86%E7%AE%A1%E7%90%86%E5%99%A8%EF%BD%9CTRPG%20WEB%20%E5%B7%A5%E5%85%B7%E8%A7%80%E6%B8%AC%E6%89%80%E3%80%8D%E6%95%B4%E7%90%86%E5%A5%BD%E8%A7%92%E8%89%B2%E5%B7%AE%E5%88%86%E4%BA%86%EF%BC%81%0Ahttps%3A%2F%2Fkumachansteps.github.io%2Ftrpg-web-tools%2Ftools%2Fchara-sabun-kanri-tool%2F" target="_blank" rel="noopener noreferrer" data-i18n-aria-label="share.aria" aria-label="發文到 X"><span>𝕏</span></a>
+        <button type="button" class="ghost-button" id="usageToggleBtn" aria-expanded="false" aria-controls="usagePanel" data-i18n="header.usage">使用方式</button>
+        <button type="button" class="ghost-button" id="shortcutToggleBtn" aria-expanded="false" aria-controls="shortcutPanel" data-i18n="header.shortcut">快捷鍵</button>
+        <button type="button" class="ghost-button" id="resetAllBtn" data-i18n="header.reset">重設</button>
+      </nav>
+
+      <div class="version-engrave">v0.16 / 2026.06.11</div>
+
+      <section class="header-drawer" id="usagePanel" aria-hidden="true">
+        <div class="drawer-inner">
+          <h2 data-i18n="usage.title">使用方式</h2>
+          <ol>
+            <li data-i18n="usage.1">把圖片拖放進來，或點一下選擇多張圖片。</li>
+            <li data-i18n="usage.2">輸入主檔名，再編輯每張縮圖旁的差分名稱。</li>
+            <li data-i18n-html="usage.3">需要時打開「加上編號」，檔名就會變成 <code>主檔名01_差分名.png</code> 的格式。</li>
+            <li data-i18n="usage.4">按「以 ZIP 下載圖片」可以把整組圖片存下來。</li>
+            <li data-i18n="usage.5">按「複製 @差分聊天面板」，可以複製切換差分用的聊天面板，貼到 CCFOLIA 等地方使用。</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="header-drawer" id="shortcutPanel" aria-hidden="true">
+        <div class="drawer-inner">
+          <h2 data-i18n="shortcut.title">快捷鍵</h2>
+          <div class="shortcut-grid">
+            <span>Ctrl / Cmd + Shift + O</span><span data-i18n="shortcut.open">選擇圖片檔案</span>
+            <span>Ctrl / Cmd + Shift + E</span><span data-i18n="shortcut.export">匯出 ZIP</span>
+            <span>Ctrl / Cmd + Shift + C</span><span data-i18n="shortcut.copy">複製 @差分聊天面板</span>
+            <span>Ctrl / Cmd + Shift + N</span><span data-i18n="shortcut.number">加上編號 ON / OFF</span>
+            <span>Esc</span><span data-i18n="shortcut.esc">關閉使用方式／快捷鍵。沒有展開時則是重設（會跳出確認對話框）</span>
+          </div>
+        </div>
+      </section>
+    </header>
+
+    <main class="tool-grid">
+      <section class="panel upload-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">01 / Open</p>
+            <h2 data-i18n="upload.heading">載入圖片</h2>
+          </div>
+          <span class="pill" id="fileCountPill">0 個檔案</span>
+        </div>
+
+        <div class="drop-zone" id="dropZone" tabindex="0">
+          <div class="drop-icon">＋</div>
+          <p data-i18n-html="drop.main">把 <strong>PNG / JPG / WEBP</strong> 拖放到這裡</p>
+          <p class="subtext" data-i18n="drop.sub">或點一下選擇多個檔案</p>
+          <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" multiple />
+        </div>
+
+        <div class="field-row">
+          <label for="mainNameInput" data-i18n="mainName.label">主檔名</label>
+          <input type="text" id="mainNameInput" data-i18n-placeholder="mainName.placeholder" placeholder="例：hanabishi_hibana" />
+          <p class="input-help" data-i18n-html="mainName.help">輸出的檔名會是 <code>主檔名_差分名.png</code>。</p>
+        </div>
+
+        <p class="status-line" id="statusLine">請載入圖片。</p>
+      </section>
+
+      <section class="panel thumb-panel">
+        <div class="panel-heading compact">
+          <div>
+            <p class="section-kicker">02 / Name</p>
+            <div class="thumb-heading-line">
+              <h2 data-i18n="thumbs.heading">縮圖列表</h2>
+              <label class="number-toggle" for="numberToggle">
+                <input type="checkbox" id="numberToggle" checked />
+                <span data-i18n="thumbs.number">加上編號</span>
+              </label>
+            </div>
+          </div>
+          <span class="small-note" data-i18n="thumbs.note">點一下放大顯示</span>
+        </div>
+        <div class="thumb-list" id="thumbList">
+          <div class="empty-state" data-i18n="thumbs.empty">加入圖片後，這裡會顯示縮圖與差分名稱的輸入欄。</div>
+        </div>
+      </section>
+
+      <section class="panel preview-panel">
+        <div class="panel-heading compact">
+          <div>
+            <p class="section-kicker">03 / Review</p>
+            <h2 data-i18n="preview.heading">大圖預覽</h2>
+          </div>
+          <span class="pill muted" id="activeNamePill">沒有圖片</span>
+        </div>
+        <div class="large-preview" id="largePreview">
+          <div class="preview-empty" data-i18n="preview.empty">預覽</div>
+          <img id="previewImage" data-i18n-alt="preview.alt" alt="目前選取的差分預覽" />
+        </div>
+        <div class="filename-preview" id="filenamePreview">輸出檔名：-</div>
+
+        <div class="suggestion-block preview-suggestions">
+          <div class="suggestion-head">
+            <h3 data-i18n="suggest.heading">差分名稱建議</h3>
+          </div>
+          <div class="suggestion-chips" id="suggestionChips"></div>
+        </div>
+      </section>
+
+      <section class="panel output-panel">
+        <div class="panel-heading compact">
+          <div>
+            <p class="section-kicker">04 / Export & Copy</p>
+            <h2 data-i18n="output.heading">輸出</h2>
+          </div>
+        </div>
+
+        <div class="output-actions">
+          <button type="button" class="primary-button" id="exportZipBtn" data-i18n="output.zip">以 ZIP 下載圖片</button>
+          <button type="button" class="secondary-button" id="copyPaletteBtn" data-i18n="output.copy">複製 @差分聊天面板</button>
+        </div>
+
+        <label class="textarea-label" for="paletteOutput" data-i18n="output.label">產生的聊天面板</label>
+        <textarea id="paletteOutput" spellcheck="false" data-i18n-placeholder="output.placeholder" placeholder="@一般
+@笑臉
+@生氣" readonly></textarea>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p data-i18n-html="footer.note"><strong>使用注意事項</strong> 本工具是開發者 <a href="https://x.com/KumachanSteps" target="_blank" rel="noopener noreferrer">@KumachanSteps</a> 個人製作的非官方 TRPG 輔助工具。各 TRPG 系統、劇本與外部服務的使用條款與權利標示，請使用者自行確認。</p>
+    </footer>
+  </div>
+
+  <div class="toast-message" id="toastMessage" role="status" aria-live="polite" aria-hidden="true">下載完成。</div>
+
+  <datalist id="sabunSuggestions"></datalist>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="../../assets/i18n.js"></script>
+  <script src="./i18n.variant-manager.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
