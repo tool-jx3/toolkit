@@ -465,17 +465,17 @@ const st = checkTool({
   dir: 'tools/scene-transition',
   dict: 'i18n.scene-transition.js',
   locale: 'ja',
-  scripts: ['app.v2.js', 'apng.v2.js'],
+  scripts: ['app.v6.js', 'apng.v2.js', 'webp.v1.js', 'pcfonts.v1.js'],
   styles: ['styles.css'],
-  minHooks: 60
+  minHooks: 140
 });
 
-/* 18 種預設集的說明以 T(p.descKey) 取得，key 存在資料裡，靜態掃描看不到。 */
+/* 53 種預設集的說明以 T(p.descKey) 取得，key 存在資料裡，靜態掃描看不到。 */
 section('tools/scene-transition presets');
-const stApp = read('tools/scene-transition/app.v2.js');
+const stApp = read('tools/scene-transition/app.v6.js');
 const stPresetKeys = [...stApp
   .matchAll(/descKey: "(preset\.[\w-]+)"/g)].map(m => m[1]);
-check('解析出 18 組預設集', stPresetKeys.length === 18, `found ${stPresetKeys.length}`);
+check('解析出 53 組預設集', stPresetKeys.length === 53, `found ${stPresetKeys.length}`);
 for (const locale of ['zh-TW', 'ja']) {
   const missing = stPresetKeys.filter(k => !st.messages[locale][k]);
   check(`${locale} 每組預設集都有說明`, missing.length === 0, `missing: ${missing.join(', ')}`);
@@ -486,7 +486,7 @@ for (const locale of ['zh-TW', 'ja']) {
 /* 換預設集時，使用者自己打的字幕要留著、範例字幕要換掉。範例字幕跟著語言走，
  * 所以切換語言後，舊語言的範例字幕也得算範例，不然會被誤當成使用者輸入。 */
 check('換預設集時，任何語言的範例字幕都算範例',
-  stApp.includes('return name === "caption" && Object.values(I18N.messages).some(dict => dict["preset.caption.text"] === value);')
+  stApp.includes('return !!key && Object.values(I18N.messages).some(dict => dict[key] === value);')
   && stApp.includes('const keepText = !first && !isSampleText(currentPreset, el.text.value.trim());'));
 /* 狀態列是 JS 寫的（輸出尺寸、格數……）。掛了 data-i18n 的話，DOMContentLoaded 時
  * 引擎會把它蓋回「載入中…」，而且要等使用者動了設定才會再出現。 */
@@ -495,6 +495,20 @@ check('scene-transition 的狀態列不掛 data-i18n',
   && !/data-i18n="[^"]*"[^>]*id="status"|id="status"[^>]*data-i18n=/.test(read('tools/scene-transition/index.html')));
 check('切換語言時連同「設定會保留」的附註一起換',
   /I18N\.onChange\([\s\S]{0,300}descKey\) \+ keepNote\(\)/.test(stApp));
+/* 形狀、群組、範例字幕等 key 寫在資料表裡（GROUPS／VARIANTS／COUNTS／AMOUNTS／textKey），
+ * T('…') 的掃描看不到，另外抓出來確認兩種語言都有。 */
+const stDataKeys = [...new Set([...stApp.matchAll(/"((?:presetGroup|variant|count|amount|hold)\.[\w.-]+|preset\.[\w-]+\.text)"/g)].map(m => m[1]))];
+check('解析出資料表裡的字典 key', stDataKeys.length >= 40, `found ${stDataKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = stDataKeys.filter(k => !st.messages[locale][k]);
+  check(`${locale} 資料表裡的 key 都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+/* 字幕字型的 <optgroup label> 引擎管不到，改掛 data-label-key 由程式套；內嵌值要等於 zh-TW。 */
+const stGroups = [...read('tools/scene-transition/index.html').matchAll(/<optgroup label="([^"]*)" data-label-key="([^"]+)">/g)];
+check('字幕字型的群組標籤都有兩種語言、內嵌值等於 zh-TW', stGroups.length >= 6
+  && stGroups.every(([, label, key]) => st.messages['zh-TW'][key] === label && st.messages.ja[key]), `groups: ${stGroups.length}`);
+check('字幕字型清單有五套繁中字型', ['notosanstc', 'notoseriftc', 'wenkaitc', 'chocolatetc', 'cactustc']
+  .every(k => new RegExp(`${k}: \\["[^"]+", \\d+, "tc\\w+"\\]`).test(stApp) && st.messages['zh-TW'][`font.${k}`]));
 
 
 /* ---- status-bar ---- */
@@ -1625,10 +1639,10 @@ check('八個角度的說明都是繁中', awAngles.length === 8 && awAngles.eve
 /* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
  * 只改其中一份的話，另外兩個工具的對話框就會停在舊版本。 */
 section('pcfonts.v1.js');
-const PCFONT_TOOLS = ['foreground-frame', 'status-bar', 'chat-window'];
+const PCFONT_TOOLS = ['foreground-frame', 'status-bar', 'chat-window', 'scene-transition'];
 const pcfSources = PCFONT_TOOLS.map(t => read(`tools/${t}/pcfonts.v1.js`));
 const pcfDiffer = PCFONT_TOOLS.filter((t, i) => pcfSources[i] !== pcfSources[0]);
-check('三個工具的 pcfonts.v1.js 完全相同', pcfDiffer.length === 0, `differs: ${pcfDiffer.join(', ')}`);
+check('各工具的 pcfonts.v1.js 完全相同', pcfDiffer.length === 0, `differs: ${pcfDiffer.join(', ')}`);
 for (const tool of PCFONT_TOOLS) {
   const html = read(`tools/${tool}/index.html`);
   check(`${tool} 載入 pcfonts.v1.js`, /<script src="pcfonts\.v1\.js/.test(html));
@@ -1641,14 +1655,14 @@ for (const tool of PCFONT_TOOLS) {
 /* 兩個 key 是以三元運算傳進 T() 的（refused ? … : …），掃 T(" 會漏掉，改抓字面常數。 */
 const pcfKeys = [...new Set([...pcfSources[0].matchAll(/"(pcf\.[\w.]+)"/g)].map(m => m[1]))];
 check('解析出挑選器的 key', pcfKeys.length >= 13, `found ${pcfKeys.length}`);
-for (const [tool, dict] of [['foreground-frame', ff], ['status-bar', sb], ['chat-window', cw]]) {
+for (const [tool, dict] of [['foreground-frame', ff], ['status-bar', sb], ['chat-window', cw], ['scene-transition', st]]) {
   for (const locale of ['zh-TW', 'ja']) {
     const missing = pcfKeys.filter(k => !dict.messages[locale][k]);
     check(`${tool} ${locale} 的挑選器譯文齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
   }
 }
 /* 樣張文字用「永」示範字型有沒有漢字，說明文也是這樣寫的。 */
-for (const [tool, dict] of [['foreground-frame', ff], ['status-bar', sb], ['chat-window', cw]]) {
+for (const [tool, dict] of [['foreground-frame', ff], ['status-bar', sb], ['chat-window', cw], ['scene-transition', st]]) {
   for (const locale of ['zh-TW', 'ja']) {
     check(`${tool} ${locale} 的樣張含「永」`, (dict.messages[locale]['pcf.sample'] || '').includes('永'));
   }
@@ -1930,7 +1944,7 @@ checkInlineText('tools/collage-letter', 'tools/collage-letter/index.html', ['too
 checkInlineText('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 15);
 checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 200);
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
-checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 50);
+checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 130);
 checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
 checkInlineText('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 150);
 checkInlineText('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 20);
@@ -2017,7 +2031,7 @@ checkAttrPairs('tools/collage-letter', 'tools/collage-letter/index.html', ['tool
 checkAttrPairs('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 3);
 checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 10);
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
-checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 2);
+checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 10);
 checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
 checkAttrPairs('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 15);
 checkAttrPairs('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 2);
@@ -2049,7 +2063,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  '586b273', '0162787', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', 'fc05c98',
+  '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', 'fc05c98',
   '90f8442', 'a9a522c', 'aad63b1',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));

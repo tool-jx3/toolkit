@@ -21,7 +21,7 @@
 | [表情產生器](tools/emotion-maker/) | 組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖 |
 | [讀取動畫產生器](tools/loading-maker/) | 把角色動畫、讀取條與上下文字合成一張畫布，輸出為 APNG／WebP／GIF |
 | [前景框產生器](tools/foreground-frame/) | 設計 CCFOLIA 前景用的外框，加上裝飾與天氣、時間帶差分，一次匯出 |
-| [場景轉換素材產生器](tools/scene-transition/) | 製作暗轉、抹除、光圈等場景轉換動畫，輸出為透明背景的 APNG |
+| [場景轉換素材產生器](tools/scene-transition/) | 製作暗轉、抹除、光圈、故障風等 53 種場景轉換動畫，輸出為透明背景的 WebP 或 APNG，可加字幕（字型可選 Google Fonts 或電腦上的字型） |
 | [狀態條產生器](tools/status-bar/) | 產生自訂 CSS，把 CCFOLIA 角色的 HP、MP、SAN 以喜歡的樣式顯示在 OBS 上 |
 | [切入素材產生器](tools/cutin/) | 把文字做成集中線、描邊字與彩虹漸層的循環動畫，輸出為 APNG／GIF／PNG |
 | [立繪裁切器](tools/ccfolia-cropper/) | 依 CCFOLIA 的版面比例自動對齊頭部或角色中央，批次裁切立繪 |

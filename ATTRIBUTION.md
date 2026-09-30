@@ -23,7 +23,7 @@
 | emotion-maker | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b455379` | **未授權** |
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
 | foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
-| scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `0162787` | MIT |
+| scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `9866858` | MIT |
 | status-bar | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `dab4fb9` | MIT |
 | cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
 | ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
@@ -50,7 +50,10 @@ shiki365 的四個工具、`cutin`、`portrait-size`、`height-board` 與 `room-
 收錄時另有以下調整：
 
 - `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
-  `docs/` 底下的瀏覽器版（合輯只收純靜態、免安裝的網頁工具）。
+  `docs/` 底下的瀏覽器版（合輯只收純靜態、免安裝的網頁工具）。v2.0～v2.3 起效果增加到 53 種、
+  以 WebP 為預設匯出格式，主程式也從 `app.v2.js` 改名為 `app.v6.js`（上游靠檔名換版號避開快取），
+  另外多了 `webp.v1.js` 與共用的 `pcfonts.v1.js`。字幕字型清單加了同一組五套繁中字型（見下方「繁體中文字型」），
+  字型群組的 `<optgroup>` 標籤掛 `data-label-key`，由程式在切換語言時套上。
 - `foreground-frame`、`scene-transition` 與 `chat-window` 的 `<style>` 區塊抽出為
   `styles.css`（理由同 text-path 與 collage-letter）。
 - 這七個工具都移除了指向原作者站台的 OG／Twitter meta 與
@@ -536,7 +539,7 @@ APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任�
 
 - 只有繁體中文，沒有語言選單；介面字型改用台灣的系統字型堆疊。尺寸選項底下多了一行說明，
   解釋為什麼預設尺寸這麼小。
-- 存檔的副檔名從 `.apng` 改成 `.png`：APNG 規格建議用 `.png`，`scene-transition` 也是這樣存，
+- 存檔的副檔名從 `.apng` 改成 `.png`：APNG 規格建議用 `.png`，`scene-transition` 匯出 APNG 時也是這樣存，
   上傳圖片的對話框比較不會擋。檔案內容完全相同。
 - 單檔 HTML 拆成 `index.html`、`styles.css` 與 `app.js`，頁首加上「← TRPG Toolkit」。
 
@@ -591,7 +594,7 @@ APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任�
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
 因此沒有隨附 OFL 全文——與 `cutin` 的其他六套日文字型同樣的處理方式。
-收錄的工具：`cutin`、`status-bar`、`typewriter`、`collage-letter`、`pair-maker`，
+收錄的工具：`cutin`、`status-bar`、`chat-window`、`scene-transition`（字幕字型）、`typewriter`、`collage-letter`、`pair-maker`，
 以及 `trpg-lab` 地圖編輯器的文字字型清單。
 
 `foreground-frame`、`loading-maker`、`text-path` 沒有網頁字型的載入機制（前兩者
