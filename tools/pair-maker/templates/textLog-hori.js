@@ -249,7 +249,10 @@ function drawText(
           listening: false,
         });
         line.add(node);
-        cursor += node.width() * 0.95;
+        // 合輯：letterSpacing 不為 0 時 Konva 是逐字畫的，node.width() 卻是整段字串量出來的；
+        // 字型若會擠壓相鄰標點（chws，例如 Noto Sans TC 的「：「」），兩者就對不上，
+        // 下一段不同格式的文字會疊上來，PDF 也跟著錯位。改用逐字量出、與實際畫法一致的寬度。
+        cursor += run.width * 0.95;
       }
       // 靠右的段落第一行也對齊同一個右端，縮排則算進行長。
       line.x(align === "right" ? width - cursor : row.indent * 0.95);

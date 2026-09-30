@@ -127,6 +127,18 @@
       clearTimeout(els.exportCopyBtn._flashTimer);
       delete els.exportCopyBtn.dataset.originalLabel;
     }
+    // 關著的對話框裡還留著上次產生的文字（下次開啟時會重新產生），一併清掉
+    if(!els.sessionDialog.open){
+      els.sessionDialogTitle.textContent = T(editingId ? "dialog.editTitle" : "dialog.addTitle");
+      els.sessionFormFields.innerHTML = "";
+    }
+    if(!els.importDialog.open){
+      els.sheetGridCount.textContent = "";
+      els.importPreviewCount.textContent = "";
+      els.importPreviewTable.innerHTML = "";
+    }
+    const toast = document.getElementById("logToast");
+    if(toast && !toast.classList.contains("is-visible")) toast.textContent = "";
     renderAll();
   }
 

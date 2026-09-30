@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>劇本排版台</title>
+<link rel="stylesheet" href="./styles.css">
+<style id="doccss"></style>
+<style id="userfont"></style>
+</head>
+<body>
+<div id="app">
+  <div id="top" class="app-chrome">
+    <div class="toolkit-bar">
+      <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+      <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+    </div>
+    <span class="brand" data-i18n="app.name">劇本排版台</span>
+    <span id="buildStamp" data-i18n-title="top.buildStamp" title="目前運作中的版本標記。回報問題時，也請一併告知這段文字">v3.3.0</span>
+    <button id="btnSide" data-i18n-title="top.side" title="切換面板顯示">&#9776;</button>
+    <button id="btnPages" data-i18n-title="top.pagesTip" title="以一覽查看從封面到版權頁的所有頁面（Ctrl+Shift+P）" data-i18n="top.pages">頁面一覽</button>
+    <button id="btnProp" data-i18n-title="top.propTip" title="顯示／隱藏所選段落的設定欄（紙面旁邊）" data-i18n="top.prop">設定欄</button>
+    <span class="seggrp">
+      <button id="btnUndo" data-i18n-title="top.undo" title="復原（Ctrl+Z）" disabled>&#8630;</button>
+      <button id="btnRedo" data-i18n-title="top.redo" title="重做（Ctrl+Y）" disabled>&#8631;</button>
+    </span>
+    <span class="seggrp" id="zoomGrp">
+      <button id="zoomOut" data-i18n-title="top.zoomOut" title="縮小（Ctrl+減號／Ctrl+Shift+↓）">&#8722;</button>
+      <button id="zoomVal" data-i18n-title="top.zoomFit" title="按下即配合寬度（Ctrl+0）">100%</button>
+      <button id="zoomIn" data-i18n-title="top.zoomIn" title="放大（Ctrl+加號／Ctrl+Shift+↑）">&#43;</button>
+    </span>
+    <span class="sp"></span>
+    <button id="btnPrj" data-i18n-title="top.prjTip" title="選擇・新建・複製・刪除作品" data-i18n="top.prj">作品</button>
+    <span class="seggrp">
+      <button id="btnSave" data-i18n-title="top.saveTip" title="把目前的內容存成檔案（Ctrl+S）" data-i18n="top.save">儲存</button>
+      <button id="btnOpen" data-i18n-title="top.openTip" title="讀入儲存的檔案" data-i18n="top.open">開啟</button>
+    </span>
+    <button id="btnPrint" data-i18n-title="top.printTip" title="可以從瀏覽器的列印功能存成 PDF" data-i18n="top.print">列印 / PDF</button>
+    <button id="btnExport" data-i18n-title="top.exportTip" title="匯出用來發布的閱覽 HTML" data-i18n="top.export">匯出</button>
+    <button id="btnHelp" data-i18n-title="top.helpTip" title="使用方式" data-i18n="top.help">說明</button>
+    <span id="status">&#8212;</span>
+  </div>
+  <div id="saveBar" class="app-chrome" role="alert" style="display:none"><span id="saveBarMsg"></span><button id="saveBarBtn"></button></div>
+  <div id="main">
+    <aside id="side">
+      <div id="tabs">
+        <button data-t="blk" class="on" data-i18n="tab.write">書寫</button>
+        <button data-t="pg" data-i18n="tab.page">頁面</button>
+        <button data-t="doc" data-i18n="tab.doc">文件</button>
+      </div>
+      <div id="panels">
+
+        <section class="pane on" data-p="blk">
+          <div id="selInfo" class="hint"></div>
+          <div id="typeBtns"></div>
+
+          <label class="f" data-i18n="blk.selected">選取的段落</label>
+          <div class="grid2">
+            <button id="mvUp" data-i18n="blk.up">↑ 上移</button>
+            <button id="mvDn" data-i18n="blk.down">↓ 下移</button>
+          </div>
+          <div class="grid2" style="margin-top:6px">
+            <button id="mergeBlk" data-i18n="blk.merge">合併</button>
+            <button id="dupBlk" data-i18n="common.dup">複製</button>
+          </div>
+          <div class="grid2" style="margin-top:6px">
+            <button id="addBlk" data-i18n="blk.add">在下方新增</button>
+            <button id="delBlk" class="danger" data-i18n="common.delete">刪除</button>
+          </div>
+          <div class="grid2" style="margin-top:6px">
+            <button id="btnCopyAll" data-i18n-title="blk.copyTextTip" title="只複製所選段落（沒有選取則為全文）的文章" data-i18n="blk.copyText">複製文字</button>
+            <button id="btnDesel" data-i18n-title="blk.deselTip" title="變成沒有選取任何段落的狀態（按 Esc 也一樣）" data-i18n="blk.desel">取消選取</button>
+          </div>
+          <div class="grid2" style="margin-top:6px">
+            <button id="blkCopy" data-i18n-title="blk.copyBlkTip" title="把所選段落整個記下來（沒有選取文字時，按 Ctrl+C 也可以）" data-i18n="blk.copyBlk">複製區塊</button>
+            <button id="blkPaste" data-i18n-title="blk.pasteTip" title="把記下的段落放到下方（不在文字欄時，按 Ctrl+V 也可以）" data-i18n="blk.paste" disabled>貼上</button>
+          </div>
+
+          <hr>
+          <label class="f" data-i18n="blk.cols">分欄</label>
+          <div class="row">
+            <button id="pcol1" data-i18n-title="blk.col1Tip" title="把所選段落所在的頁面設為單欄" data-i18n="blk.col1">這頁設為單欄</button>
+            <button id="pcol2" data-i18n-title="blk.col2Tip" title="把所選段落所在的頁面設為雙欄" data-i18n="blk.col2">雙欄</button>
+          </div>
+          <div class="hint" id="pcolNote">分欄是以頁為單位決定的。</div>
+        </section>
+
+        <section class="pane" data-p="pg">
+          <label class="f" data-i18n="pg.book">書的形式</label>
+          <div class="grid2">
+            <button id="mkCover" data-i18n="pg.mkCover">建立封面頁</button>
+            <button id="mkColophon" data-i18n="pg.mkColophon">建立版權頁</button>
+          </div>
+          <hr>
+          <label class="f" data-i18n="pg.target">對象頁面</label>
+          <div class="plist" id="bgPages"></div>
+          <div class="row" style="margin-top:6px">
+            <button id="bgAll" data-i18n="pg.all">選取全部頁面</button>
+            <button id="bgNone" data-i18n="blk.desel">取消選取</button>
+          </div>
+          <div class="row" style="margin-top:6px">
+            <button id="pgDel" class="danger" data-i18n="pg.del">刪除選取的頁面</button>
+          </div>
+          <div class="hint" data-i18n="pg.delHint">會連同該頁上的段落一起刪除。</div>
+          <label class="f" data-i18n="pg.pattern">花紋</label>
+          <div class="grid3" id="bgPresets"></div>
+          <label class="f" data-i18n="pg.bgImg">鋪上圖片</label>
+          <input type="file" id="bgFile" accept="image/*" style="padding:5px">
+          <div class="grid2" style="margin-top:6px">
+            <div><span class="hint" data-i18n="pg.size">大小</span>
+              <select id="bgFit"><option value="cover" data-i18n="pg.fitCover">覆蓋整面</option><option value="contain" data-i18n="pg.fitContain">完整放入</option><option value="repeat" data-i18n="pg.fitRepeat">平鋪</option></select>
+            </div>
+            <div><span class="hint" data-i18n="pg.opacity">濃度</span><input type="range" id="bgOpa" min="5" max="100" value="35"></div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button id="bgApply" class="on" data-i18n="pg.apply">套用到選取的頁面</button>
+            <button id="bgClear" class="danger" data-i18n="pg.clear">移除背景</button>
+          </div>
+        </section>
+
+        <section class="pane" data-p="doc">
+          <label class="f" data-i18n="doc.title">劇本名稱（匯出的標題）</label>
+          <input type="text" id="docTitle">
+          <label class="f" data-i18n="doc.margin">紙面間距（mm）</label>
+          <div class="grid2">
+            <div><span class="hint" data-i18n="doc.v">上下</span><input type="number" id="padV" min="5" max="40" value="18"></div>
+            <div><span class="hint" data-i18n="doc.h">左右</span><input type="number" id="padH" min="5" max="40" value="16"></div>
+          </div>
+          <label class="f" data-i18n="doc.footer">紙面下方（頁尾）</label>
+          <label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--text);margin:0 0 6px" data-i18n-node="doc.pageNum">
+            <input type="checkbox" id="footNum" checked> 顯示頁碼</label>
+          <input type="text" id="footText" data-i18n-placeholder="doc.footTextPh" placeholder="固定顯示的文字（例：{title}）">
+          <div class="grid2" style="margin-top:6px">
+            <div><span class="hint" data-i18n="doc.firstNum">第一頁的頁碼</span><input type="number" id="footFrom" min="0" value="1"></div>
+            <div><span class="hint" data-i18n="doc.tokens">可用的代號</span><div class="hint" style="line-height:1.5" data-i18n-html="doc.tokenList">{title} 標題<br>{page} 頁碼<br>{total} 總頁數</div></div>
+          </div>
+          <label class="f" data-i18n="doc.baseSize">內文字級（pt）</label>
+          <input type="number" id="baseSize" min="7" max="14" step="0.5" value="10">
+          <hr>
+          <label class="f" data-i18n="doc.font">字型</label>
+          <div class="row"><button id="fontPick" data-i18n="doc.fontPick">從電腦的字型選擇</button></div>
+          <div class="row" style="margin-top:6px"><button id="fontAdd" data-i18n="doc.fontAdd">從檔案新增</button></div>
+          <input type="file" id="fontFile" accept=".ttf,.otf,.ttc,.otc,.woff,.woff2" hidden>
+          <div class="hint" data-i18n="doc.ttcHint">Windows 的中日文字型多半是 .ttc，這時可以選擇裡面的字體。</div>
+          <div class="grid2" style="margin-top:6px">
+            <div><span class="hint" data-i18n="doc.fontBody">內文</span><select id="fontBody"></select></div>
+            <div><span class="hint" data-i18n="doc.fontHead">標題</span><select id="fontHead"></select></div>
+          </div>
+          <div id="fontList" class="hint" style="margin-top:6px"></div>
+          <div class="hint" data-i18n="doc.fontEmbed">也會嵌入匯出的閱覽 HTML。</div>
+          <hr>
+          <input type="file" id="jsonFile" accept=".json" hidden>
+          <input type="file" id="npcArtFile" accept="image/*" hidden>
+          <input type="file" id="imgFile" accept="image/*" hidden>
+          <div class="hint" data-i18n="doc.saveHint">除了自動儲存之外，重要的原稿也請用上方的「儲存」存成檔案。要換到其他作品，請用上方的「作品」。</div>
+          <div class="row" style="margin-top:10px"><button id="btnReset" class="danger" data-i18n-title="doc.resetTip" title="清除這個作品的內容（其他作品不受影響）" data-i18n="doc.reset">全部清除重新開始</button></div>
+        </section>
+
+      </div>
+    </aside>
+    <div class="splitter" id="splitSide" data-i18n-title="ui.splitter" title="拖曳可以改變寬度"></div>
+    <div id="srcPane">
+      <div id="srcHead">
+        <span class="seggrp" id="srcViewSw">
+          <button id="viewAll" class="on" data-i18n-title="src.viewAllTip" title="連續顯示內文" data-i18n="src.viewAll">全部</button>
+          <button id="viewPage" data-i18n-title="src.viewPageTip" title="依頁分隔顯示" data-i18n="src.viewPage">以頁為單位</button>
+        </span>
+        <span class="sp"></span>
+        <span id="modeNote"></span>
+      </div>
+      <div id="srcList"></div>
+    </div>
+    <div class="splitter" id="splitSrc" data-i18n-title="ui.splitter" title="拖曳可以改變寬度"></div>
+    <aside id="pagesPane" class="hide">
+      <div id="pagesHead">
+        <span class="seggrp" id="pagesSw">
+          <button id="pgvPage" class="on" data-i18n-title="pages.pageTip" title="把所有頁面縮小排列" data-i18n="tab.page">頁面</button>
+          <button id="pgvToc" data-i18n-title="pages.tocTip" title="從主標題與標題建立目錄" data-i18n="pages.toc">標題</button>
+        </span>
+        <span id="pagesNote"></span>
+        <span class="sp"></span>
+        <input type="range" id="pagesZoom" min="90" max="240" value="130" data-i18n-title="pages.zoom" title="大小">
+        <button id="pagesHide" data-i18n-title="common.close" title="關閉">×</button>
+      </div>
+      <div id="pagesBody"></div>
+      <div id="tocPane" style="display:none">
+        <div class="row" style="margin:8px 10px 0"><button id="tocMake" data-i18n="pages.tocMake">在這個位置建立目錄區塊</button></div>
+        <div id="tocList" style="padding:8px 10px 16px"></div>
+      </div>
+    </aside>
+    <div class="splitter" id="splitPages" data-i18n-title="ui.splitter" title="拖曳可以改變寬度"></div>
+    <div id="canvasWrap"><div id="stageBox"><div id="stage"></div><div id="printAppendix"></div></div>
+      <div id="cmtRail"></div></div>
+    <div id="charCount" data-i18n-title="ui.charCountTip" title="內文的字數，不含書式記號・注音記號・註解">0 字</div>
+    <div class="splitter" id="splitProp" data-i18n-title="ui.splitter" title="拖曳可以改變寬度"></div>
+    <aside id="propPane" class="hide">
+      <div id="propHead"><span class="ttl" id="propTtlR">設定</span><span class="sp"></span></div>
+      <div id="propHostR">
+        <div id="propSlot"></div>
+        <div id="blkCommon">
+          <label class="f" data-i18n="cm.text">文字</label>
+        <div class="row">
+          <button id="btnRuby" data-i18n-title="cm.rubyTip" title="替選取的文字加注音（Ctrl+Shift+R）" data-i18n="cm.ruby">加注音</button>
+        </div>
+        <div class="hint" data-i18n="cm.rubyHint">也可以直接寫成 ｜本文字《注音》。</div>
+
+        <label class="f" data-i18n="cm.cols">雙欄時的配置</label>
+        <div class="row">
+          <button id="colSpan" data-i18n-title="cm.spanTip" title="跨欄放滿整個寬度" data-i18n="src.span">全寬</button>
+          <button id="colFlow" data-i18n-title="cm.flowTip" title="一般的內文。收在欄內流動" data-i18n="sel.inCol">欄內</button>
+        </div>
+        <label class="f" data-i18n="cm.comment">註解</label>
+        <div class="grid2">
+          <button id="cmtAdd" data-i18n-title="cm.cmtAddTip" title="先在左側內文中選取文字再按" data-i18n="cm.cmtAdd">加上註解</button>
+          <button id="cmtDel" class="danger" data-i18n="cm.cmtDel">刪除這個段落的註解</button>
+        </div>
+        <div class="hint" id="cmtNote" data-i18n="cm.cmtNote">請先在內文中選取文字再按。</div>
+
+        <label class="f" data-i18n="cm.color">文字顏色</label>
+        <div class="row" id="colBtns"></div>
+        <div class="row" style="margin-top:6px;align-items:center;gap:6px">
+          <input type="color" id="colPick" value="#23201c" style="width:44px;padding:2px;flex:0 0 auto">
+          <button id="colClear" style="flex:1" data-i18n="cm.colorReset">恢復預設</button>
+        </div>
+        <label class="f" data-i18n="cm.indent">縮排</label>
+        <div class="row">
+          <button id="indOut" data-i18n-title="cm.indOutTip" title="退回一層（Ctrl+Shift+[）" data-i18n="cm.indOut">← 退回</button>
+          <button id="indIn" data-i18n-title="cm.indInTip" title="縮排一層（Ctrl+Shift+]）" data-i18n="cm.indIn">→ 縮排</button>
+        </div>
+        <div class="hint" id="indNote">可以把標題 3 底下等內容往內縮一層。</div>
+
+        <label class="f" data-i18n="cm.wrap">圖片文繞圖</label>
+        <div class="row">
+          <button id="imgClearFloat" data-i18n-title="cm.clrTip" title="選取的段落不會進到圖片旁邊，而是從圖片下方開始" data-i18n="cm.clr">解除文繞圖</button>
+        </div>
+        <label class="f" data-i18n="cm.margin">只套用在這個段落的間距（mm）</label>
+        <div class="grid2">
+          <div><span class="hint" data-i18n="cm.top">上</span><input type="number" id="mTop" step="1" data-i18n-placeholder="cm.def" placeholder="預設"></div>
+          <div><span class="hint" data-i18n="cm.bottom">下</span><input type="number" id="mBot" step="1" data-i18n-placeholder="cm.def" placeholder="預設"></div>
+        </div>
+
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div id="propBox" style="display:none">
+  <label class="f" id="propTtl">這個段落的內容</label>
+  <div id="propBody"></div>
+  <hr id="propHr">
+</div>
+
+<div id="prevDlg" style="display:none;position:fixed;inset:0;z-index:76;background:rgba(0,0,0,.72);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;width:min(880px,96vw);height:min(760px,92vh);display:flex;flex-direction:column">
+    <div style="display:flex;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)">
+      <b id="prevTitle" style="color:var(--brass);font-size:13px">成品</b>
+      <span class="hint" style="margin:0" data-i18n="prev.hint">與匯出時的外觀相同</span>
+      <span style="flex:1"></span>
+      <button id="prevClose" data-i18n="common.close">關閉</button>
+    </div>
+    <div id="prevBody" style="flex:1;overflow:auto;padding:16px;background:#0b0e14"></div>
+  </div>
+</div>
+
+<div id="outDlg" style="display:none;position:fixed;inset:0;z-index:74;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;width:min(420px,94vw);padding:18px 20px">
+    <b id="outTitle" style="color:var(--brass);font-size:13px">匯出</b>
+    <label class="f" style="margin-top:14px" data-i18n="out.pages">輸出的頁面</label>
+    <div class="row" style="gap:12px">
+      <label style="display:flex;gap:5px;align-items:center;flex:0 0 auto">
+        <input type="radio" name="outsc" value="all" checked> <span id="outAll">全部</span></label>
+      <label style="display:flex;gap:5px;align-items:center;flex:0 0 auto" data-i18n-node="out.range">
+        <input type="radio" name="outsc" value="range"> 範圍</label>
+    </div>
+    <div class="row" style="margin-top:8px;align-items:center;gap:6px">
+      <input type="number" id="outFrom" min="1" style="width:70px;flex:0 0 auto">
+      <span class="hint" style="flex:0 0 auto">〜</span>
+      <input type="number" id="outTo" min="1" style="width:70px;flex:0 0 auto">
+      <span class="hint" style="flex:0 0 auto" data-i18n="out.pageUnit">頁</span>
+    </div>
+    <div id="outTocRow"><label class="f" data-i18n="out.toc">目錄</label>
+      <div class="hint" style="margin:0" data-i18n="out.tocHint">一定會附上目錄。閱讀者可以自行顯示或隱藏，為了防雷，一開始會先遮住標題。</div>
+    </div>
+    <div class="grid2" style="margin-top:16px">
+      <button id="outCancel" data-i18n="common.cancel">取消</button>
+      <button id="outGo" class="on" data-i18n="out.go">輸出</button>
+    </div>
+  </div>
+</div>
+
+<div id="popDlg" class="floatwin" style="display:none">
+  <div class="fw-bar" id="popBar">
+    <span style="color:var(--brass);font-size:11px;letter-spacing:.08em;flex:0 0 auto" data-i18n="prop.popName">彈出視窗名稱</span>
+    <input type="text" id="popTitle" style="flex:0 0 auto;width:170px;font-size:12px"
+      data-i18n-placeholder="pop.defaultLabel" placeholder="詳細" data-i18n-title="popwin.titleTip" title="這個名稱會成為紙面上的按鈕。在儲存格中可以用 ＠這個名稱 指向它">
+    <span class="hint" id="popHint" style="margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">以空行分段。可以用下方的按鈕插入標題・條列・表格等</span>
+    <span class="sp" style="flex:1;min-width:0"></span>
+    <button id="popBtnSide" style="flex:0 0 auto" data-i18n-title="popwin.sideTip" title="顯示／隱藏這個視窗左側的面板">&#9776;</button>
+    <button id="popBtnSrc" style="flex:0 0 auto;white-space:nowrap" data-i18n-title="popwin.srcTip" title="顯示／隱藏這個視窗的文字欄" data-i18n="popwin.src">文字</button>
+    <button id="popBtnProp" style="flex:0 0 auto;white-space:nowrap" data-i18n-title="popwin.propTip" title="顯示／隱藏這個視窗右側的設定欄" data-i18n="top.prop">設定欄</button>
+    <button id="popClose" style="flex:0 0 auto;white-space:nowrap" data-i18n="common.close">關閉</button>
+  </div>
+  <div id="popRich" style="flex:0 0 auto;display:flex;flex-wrap:wrap;gap:5px;padding:8px 12px;
+    border-bottom:1px solid var(--line);background:var(--panel)"></div>
+  <div id="popTextWrap" style="flex:1;display:flex;min-height:0">
+    <textarea id="popEdit" spellcheck="false" style="flex:1;min-width:0;border:0;border-right:1px solid var(--line);
+      background:#0e1219;color:var(--text);font:inherit;font-size:13px;line-height:1.9;padding:14px;resize:none;outline:none"
+      placeholder="在這裡寫長篇文章或表格。&#10;&#10;|項目|內容|&#10;|所在|灰色城鎮的邊緣|"></textarea>
+    <div id="popView" style="flex:1;min-width:0;overflow:auto;padding:16px 20px;background:#fbf7ef;color:#23201c;
+      font-size:13px;line-height:1.9"></div>
+  </div>
+  <div id="popMain" style="flex:1;display:none;min-height:0">
+    <aside id="popSide">
+      <div id="popSideInfo" class="hint"></div>
+      <div id="popTypeBtns"></div>
+      <label class="f" data-i18n="blk.selected">選取的段落</label>
+      <div class="grid2">
+        <button data-popact="mvUp" data-i18n="blk.up">↑ 上移</button>
+        <button data-popact="mvDn" data-i18n="blk.down">↓ 下移</button>
+      </div>
+      <div class="grid2" style="margin-top:6px">
+        <button data-popact="mergeBlk" data-i18n="blk.merge">合併</button>
+        <button data-popact="dupBlk" data-i18n="common.dup">複製</button>
+      </div>
+      <div class="grid2" style="margin-top:6px">
+        <button data-popact="addBlk" data-i18n="blk.add">在下方新增</button>
+        <button data-popact="delBlk" class="danger" data-i18n="common.delete">刪除</button>
+      </div>
+      <div class="grid2" style="margin-top:6px">
+        <button data-popact="btnCopyAll" data-i18n-title="popwin.copyTextTip" title="只複製所選段落的文章" data-i18n="blk.copyText">複製文字</button>
+        <button data-popact="btnDesel" data-i18n-title="blk.deselTip" title="變成沒有選取任何段落的狀態（按 Esc 也一樣）" data-i18n="blk.desel">取消選取</button>
+      </div>
+      <div class="grid2" style="margin-top:6px">
+        <button data-popact="blkCopy" data-i18n-title="popwin.copyBlkTip" title="把所選段落整個記下來" data-i18n="blk.copyBlk">複製區塊</button>
+        <button data-popact="blkPaste" data-i18n-title="popwin.pasteTip" title="把記下的段落放到下方" data-i18n="blk.paste">貼上</button>
+      </div>
+    </aside>
+    <div class="splitter" id="splitPopSide" data-i18n-title="ui.splitterPop" title="抓住就能改變寬度"></div>
+    <div id="popSrc" style="flex:0 1 250px;min-width:110px;overflow:auto;padding:10px 10px 40px;
+      border-right:1px solid var(--line);background:var(--panel);line-height:1.75"></div>
+    <div class="splitter" id="splitPopSrc" data-i18n-title="ui.splitterPop" title="抓住就能改變寬度"></div>
+    <div id="popBlockWrap" style="flex:1;min-width:220px;overflow:auto;background:#555;padding:14px">
+      <div id="popBlocks" class="popsheet"></div>
+    </div>
+    <div class="splitter" id="splitPopProp" data-i18n-title="ui.splitterPop" title="抓住就能改變寬度"></div>
+    <div id="popProp" style="flex:0 1 250px;min-width:110px;display:none;flex-direction:column;
+      border-left:1px solid var(--line);background:var(--panel)">
+      <div id="popPropHead" style="flex:0 0 auto;padding:8px 10px;border-bottom:1px solid var(--line);
+        font-size:11px;color:var(--brass);font-weight:700;letter-spacing:.06em">設定</div>
+      <div id="popPropHostR" style="flex:1;overflow:auto;padding:10px 12px 24px">
+        <div id="popPropSlot"></div>
+      </div>
+    </div>
+  </div>
+  <div class="fw-grip" id="popGrip" data-i18n-title="ui.grip" title="抓住這裡就能改變大小"></div>
+</div>
+
+<div id="flowDlg" class="floatwin" style="display:none">
+  <div class="fw-bar" id="flowBar">
+    <span style="color:var(--brass);font-size:11px;letter-spacing:.08em;flex:0 0 auto" data-i18n="type.flow">流程圖</span>
+    <button data-fadd="box" data-i18n-title="flow.addBoxTip" title="加入方形的方框" data-i18n="flow.addBox">＋方框</button>
+    <button data-fadd="round" data-i18n-title="flow.addRoundTip" title="加入圓角的方框" data-i18n="flow.addRound">＋圓角</button>
+    <button data-fadd="diamond" data-i18n-title="flow.addDiamondTip" title="加入菱形（判斷）" data-i18n="flow.addDiamond">＋菱形</button>
+    <button data-fadd="term" data-i18n-title="flow.addTermTip" title="加入圓端（開始・結束）" data-i18n="flow.addTerm">＋圓端</button>
+    <span class="hint" id="flowHint" style="margin:0;min-width:0;overflow:hidden;
+      text-overflow:ellipsis;white-space:nowrap">抓住方框可以移動，右下角也能改變大小</span>
+    <span class="sp" style="flex:1;min-width:0"></span>
+    <button id="flowZoomOut" data-i18n-title="flow.zoomOut" title="縮小顯示">−</button>
+    <button id="flowZoomIn" data-i18n-title="flow.zoomIn" title="放大顯示">＋</button>
+    <button id="flowClose" style="flex:0 0 auto;white-space:nowrap" data-i18n="common.close">關閉</button>
+  </div>
+  <div id="flowMain" style="flex:1;display:flex;min-height:0">
+    <div id="flowCanvasWrap" style="flex:1;min-width:220px;overflow:auto;background:#4a4a4a;padding:18px">
+      <div id="flowCanvas"></div>
+    </div>
+    <div class="splitter" id="splitFlowProp" data-i18n-title="ui.splitterPop" title="抓住就能改變寬度"></div>
+    <div id="flowProp" style="flex:0 1 250px;min-width:150px;overflow:auto;padding:10px 12px 24px;
+      background:var(--panel);border-left:1px solid var(--line)"></div>
+  </div>
+  <div class="fw-grip" id="flowGrip" data-i18n-title="ui.grip" title="抓住這裡就能改變大小"></div>
+</div>
+
+<dialog id="fontDlg">
+  <div style="display:flex;flex-direction:column;height:min(520px,80vh)">
+    <div style="display:flex;gap:8px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)">
+      <b style="color:var(--brass);font-size:13px" data-i18n="fontdlg.title">電腦的字型</b>
+      <input type="text" id="fontDlgQ" data-i18n-placeholder="fontdlg.filter" placeholder="以名稱篩選" style="flex:1">
+      <button id="fontDlgX" data-i18n="common.close">關閉</button>
+    </div>
+    <div id="fontDlgList" style="flex:1;overflow:auto;padding:6px"></div>
+  </div>
+</dialog>
+
+<datalist id="dl-lb"></datalist>
+<datalist id="dl-emo-ab"></datalist>
+<datalist id="dl-emo-lv"></datalist>
+<datalist id="dl-emo-kyomei"></datalist>
+<datalist id="dl-dx-ab"></datalist>
+<datalist id="dl-dx-sk"></datalist>
+<datalist id="dl-dx-enc"></datalist>
+<datalist id="dl-dx-hp"></datalist>
+<datalist id="dl-coc6a"></datalist>
+<datalist id="dl-coc6b"></datalist>
+<datalist id="dl-coc6e"></datalist>
+<datalist id="dl-coc7a"></datalist>
+<datalist id="dl-coc7b"></datalist>
+<datalist id="dl-coc-sk"></datalist>
+<datalist id="dl-db"></datalist>
+<datalist id="dl-build"></datalist>
+<datalist id="dl-mov"></datalist>
+<datalist id="dl-dmg"></datalist>
+
+<div id="prjDlg" style="display:none;position:fixed;inset:0;z-index:85;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;width:min(640px,96vw);max-height:92vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)">
+      <span style="color:var(--brass);font-weight:700;letter-spacing:.1em" data-i18n="top.prj">作品</span>
+      <span style="flex:1"></span>
+      <button id="prjClose" data-i18n="common.close">關閉</button>
+    </div>
+    <div id="prjNote" class="hint" style="padding:0 14px"></div>
+    <div id="prjList" role="listbox" data-i18n-aria-label="prj.listAria" aria-label="作品清單"></div>
+    <div style="display:flex;gap:6px;padding:10px 14px;border-top:1px solid var(--line);flex-wrap:wrap">
+      <span data-v="list" style="display:contents">
+        <button id="prjNew" data-i18n="prj.new">新建</button>
+        <button id="prjDup" data-i18n="common.dup">複製</button>
+        <button id="prjGens" data-i18n="prj.gens">過去的版本</button>
+        <button id="prjDel" class="danger" data-i18n="common.delete">刪除</button>
+        <span style="flex:1"></span>
+        <button id="prjTrashBtn" data-i18n="prj.trash">垃圾桶</button>
+        <button id="prjOpenBtn" class="on" data-i18n="top.open">開啟</button>
+      </span>
+      <span data-v="gens" style="display:contents">
+        <button class="prjBack" data-i18n="prj.back">返回</button>
+        <span style="flex:1"></span>
+        <button id="prjGenRestore" class="on" data-i18n="prj.genRestore">把這個版本還原成新作品</button>
+      </span>
+      <span data-v="trash" style="display:contents">
+        <button class="prjBack" data-i18n="prj.back">返回</button>
+        <span style="flex:1"></span>
+        <button id="prjTrashRestore" class="on" data-i18n="prj.restore">還原</button>
+      </span>
+    </div>
+  </div>
+</div>
+<div id="helpDlg" style="display:none;position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;width:min(880px,96vw);max-height:92vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)">
+      <span style="color:var(--brass);font-weight:700;letter-spacing:.1em" data-i18n="top.help">說明</span>
+      <span style="flex:1"></span>
+      <button id="helpClose" data-i18n="common.close">關閉</button>
+    </div>
+    <div style="display:flex;min-height:0;flex:1">
+      <nav id="helpNav"></nav>
+      <div id="helpBody"></div>
+    </div>
+  </div>
+</div>
+<div id="npcDlg" style="display:none;position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;width:min(940px,96vw);max-height:92vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)">
+      <span style="color:var(--brass);font-weight:700" data-i18n="npcdlg.title">NPC 卡（詳細視窗）</span>
+      <span id="npcDlgNote" class="hint" style="margin:0"></span>
+      <span style="flex:1"></span>
+      <button id="npcDlgClose" data-i18n="common.close">關閉</button>
+    </div>
+    <div id="npcDlgBody" style="flex:1;overflow:auto;padding:16px;background:#0b0e14"></div>
+  </div>
+</div>
+<div id="tblDlg" style="display:none;position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;width:min(1080px,96vw);max-height:92vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)">
+      <span style="color:var(--brass);font-weight:700" data-i18n="tbldlg.title">表格（寬視窗）</span>
+      <span class="hint" style="margin:0" data-i18n="tbldlg.hint">儲存格會依寫的份量往下延伸。按 Tab 可以移到下一個儲存格。</span>
+      <span style="flex:1"></span>
+      <button id="tblDlgClose" data-i18n="common.close">關閉</button>
+    </div>
+    <div id="tblRich" style="flex:0 0 auto;display:flex;flex-wrap:wrap;gap:5px;align-items:center;
+      padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel)"></div>
+    <div id="tblDlgBody" style="flex:1;overflow:auto;padding:16px;background:#0b0e14"></div>
+  </div>
+</div>
+<div id="ytDlg" style="display:none;position:fixed;inset:0;z-index:62;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;width:min(760px,94vw)">
+    <div style="color:var(--brass);font-weight:700;margin-bottom:6px" data-i18n="prop.ytIn">讀入 Yutosheet 的表格</div>
+    <div class="hint" style="margin-top:0" data-i18n="yt.hint">請在 Yutosheet 選取效果表或組合技表並複製，直接貼上。標題列要不要一起貼都可以。</div>
+    <div class="row" style="margin:6px 0">
+      <button data-ytmode="auto" class="on" data-i18n="yt.auto">自動判斷</button>
+      <button data-ytmode="effect" data-i18n="yt.effect">效果表</button>
+      <button data-ytmode="combo" data-i18n="yt.combo">組合技表</button>
+    </div>
+    <textarea id="ytText" rows="10" style="width:100%" data-i18n-placeholder="yt.placeholder" placeholder="|集中 / … / 白兵 / (5+3)dx+(5-2)@8 / 22 / 單體 / 10m / 8 / 未滿 100% / "></textarea>
+    <div id="ytNote" class="hint"></div>
+    <div class="grid2" style="margin-top:8px">
+      <button id="ytCancel" data-i18n="common.cancel">取消</button>
+      <button id="ytGo" class="on" data-i18n="yt.go">讀入</button>
+    </div>
+  </div>
+</div>
+<div id="ccfInDlg" style="display:none;position:fixed;inset:0;z-index:62;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;width:min(640px,94vw)">
+    <div style="color:var(--brass);font-weight:700;margin-bottom:6px" data-i18n="ccfin.title">讀入 CCFOLIA 的棋子</div>
+    <div class="hint" style="margin-top:0" data-i18n="ccfin.hint">請把在 CCFOLIA 對棋子按右鍵→複製的文字，或角色卡製作工具的「CCFOLIA 輸出」得到的文字，直接貼上。</div>
+    <textarea id="ccfInText" rows="12" style="width:100%" placeholder='{"kind":"character","data":{ … }}'></textarea>
+    <div id="ccfInNote" class="hint"></div>
+    <div class="grid2" style="margin-top:8px">
+      <button id="ccfInCancel" data-i18n="common.cancel">取消</button>
+      <button id="ccfInGo" class="on" data-i18n="yt.go">讀入</button>
+    </div>
+  </div>
+</div>
+<div id="ccfDlg" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;width:min(560px,92vw)">
+    <div style="color:var(--brass);font-weight:700;margin-bottom:6px" data-i18n="prop.ccf">CCFOLIA 棋子</div>
+    <div class="hint" style="margin-top:0" data-i18n="ccf.manual">無法自動複製。請全選下方的內容複製，再貼到 CCFOLIA 的版面上。</div>
+    <textarea id="ccfText" rows="12" readonly style="width:100%"></textarea>
+    <div class="row" style="margin-top:8px"><button id="ccfClose" data-i18n="common.close">關閉</button></div>
+  </div>
+</div>
+
+<script src="../../assets/i18n.js"></script>
+<script src="./i18n.scenario-editor.js"></script>
+<script src="./npc-data.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
