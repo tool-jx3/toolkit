@@ -1952,8 +1952,8 @@ for (const name of TOOLS) {
  * emotion-maker 另含 39 張圖像素材，故其徽章用 license.unlicensed.assets。 */
 const TOOLS_EXTERNAL = ['jizura'];
 check('首頁的 JIZURA 卡片標示連到原站', /href="\.\/tools\/jizura\/"[\s\S]{0,1600}?data-i18n="license\.external"/.test(homeHtml));
-check('首頁字典有三種授權徽章',
-  ['license.mit', 'license.unlicensed', 'license.unlicensed.assets'].every(k => homeZh.has(k)));
+check('首頁字典有四種授權徽章',
+  ['license.mit', 'license.cc0', 'license.unlicensed', 'license.unlicensed.assets'].every(k => homeZh.has(k)));
 const homeCards = [...homeHtml.matchAll(/<li class="tool-card">([\s\S]*?)<\/li>/g)].map(m => m[1]);
 check('首頁卡片數與工具數一致', homeCards.length === TOOLS.length,
   `cards: ${homeCards.length}, tools: ${TOOLS.length}`);
@@ -1963,7 +1963,7 @@ for (const card of homeCards) {
   /* 不再收錄副本、改連到原作者網站的工具，徽章標「連到原站」。 */
   const expected = TOOLS_EXTERNAL.includes(name) ? ['license.external']
     : exists(`tools/${name}/LICENSE`)
-    ? ['license.mit']
+    ? [/CC0 1\.0 Universal/.test(read(`tools/${name}/LICENSE`)) ? 'license.cc0' : 'license.mit']
     : ['license.unlicensed', 'license.unlicensed.assets'];
   check(`首頁 ${name} 的授權徽章與目錄裡的 LICENSE 相符`,
     !!name && expected.includes(badge), `badge: ${badge}`);
