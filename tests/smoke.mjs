@@ -2049,7 +2049,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  '586b273', '0162787', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', 'd3bdf3c', 'fc05c98',
+  '586b273', '0162787', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', 'fc05c98',
   '90f8442', 'a9a522c', 'aad63b1',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));

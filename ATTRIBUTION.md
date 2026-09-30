@@ -29,7 +29,7 @@
 | ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
-| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `d3bdf3c` | MIT |
+| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `549364f` | MIT |
 | portrait-size | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `fc05c98` | MIT |
 | height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
@@ -61,6 +61,8 @@ shiki365 的四個工具、`cutin`、`portrait-size`、`height-board` 與 `room-
   同樣指向工具站的連結不收——那個位置放的是合輯的首頁連結。
 - 上游後來替四個工具加了 `favicon.svg`，收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
   分頁圖示，不各自掛作者的站台圖示。
+- `chat-window` 的說明裡有一節引導使用者用姊妹工具「メッセージボックスメーカー」顯示附立繪的訊息框，
+  上游連到作者站上的版本；合輯也收了這個工具（`message-box`），收錄版改連到合輯自己的那份。
 - `chat-window` 上游有兩句說明把「映す件数」「並び順」寫成在「メッセージ」分頁，
   實際上兩者都在「窓・見出し」分頁；收錄版的繁中與日文都照實際位置寫。
 - `status-bar` 與 `chat-window` 的上游都附了自家站台的 `ogp.png`（各約 0.5 MB），
