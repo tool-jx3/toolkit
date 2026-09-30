@@ -48,23 +48,26 @@
         </div>
       </div>
 
+      <!-- 合輯修正：上游的開關外框是 <span>，核取方塊本身又是 0×0、透明，滑鼠點開關
+           不會有任何反應（只能用鍵盤切換）。外框改成 <label>、文字標籤加上 for，
+           點開關或點文字都能切換；外觀不變。 -->
       <div class="field">
         <div class="toggle-row">
-          <label style="text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--ink)" data-i18n="opt.grid">顯示格線</label>
-          <span class="switch">
+          <label for="gridToggle" style="text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--ink)" data-i18n="opt.grid">顯示格線</label>
+          <label class="switch">
             <input type="checkbox" id="gridToggle" checked>
             <span class="slider-el"></span>
-          </span>
+          </label>
         </div>
       </div>
 
       <div class="field">
         <div class="toggle-row">
-          <label style="text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--ink)" data-i18n="opt.torch">火把光暈</label>
-          <span class="switch">
+          <label for="torchToggle" style="text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--ink)" data-i18n="opt.torch">火把光暈</label>
+          <label class="switch">
             <input type="checkbox" id="torchToggle" checked>
             <span class="slider-el"></span>
-          </span>
+          </label>
         </div>
       </div>
 
