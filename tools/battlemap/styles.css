@@ -1,0 +1,101 @@
+/* 戰鬥地圖產生器（battlemap-generator）。上游寫在 index.html 的 <style> 區塊，
+ * 依慣例抽成獨立檔案。 */
+:root{
+  --bg:#141110; --panel:#1d1917; --panel2:#242019; --line:#3a332c;
+  --stone:#8c8078; --ink:#e9e2d8; --sub:#a89b8d; --torch:#e2934b; --torch2:#c96b2e;
+  --accent:#d9a35c; --accent-ink:#241a0e; --good:#7fae6f;
+  font-size:16px;
+}
+*{box-sizing:border-box}
+/* 合輯追加台灣系統字型（正黑體）：排在拉丁字型之後，只補中文字形，英文畫面不受影響。 */
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
+body{
+  background:
+    radial-gradient(ellipse at 20% -10%, rgba(226,147,75,.08), transparent 45%),
+    radial-gradient(ellipse at 100% 0%, rgba(226,147,75,.05), transparent 40%),
+    var(--bg);
+}
+a{color:var(--accent)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+header{margin-bottom:22px}
+header h1{
+  font-family:Georgia,"Times New Roman","PMingLiU","Noto Serif TC",serif; /* 合輯追加明體 */
+  font-size:clamp(28px,4vw,42px);margin:0 0 6px;letter-spacing:.3px;
+  background:linear-gradient(180deg,#f2e4cf,#c79a5f);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+header p{margin:0;color:var(--sub);font-size:15px;max-width:640px;line-height:1.55}
+/* 上游把這個顏色寫在 <b style="color:var(--ink)"> 上；說明文字改由字典提供，樣式移到這裡。 */
+header p b{color:var(--ink)}
+.badgerow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.badge{
+  font-size:11.5px;color:var(--sub);border:1px solid var(--line);border-radius:999px;
+  padding:4px 10px;background:var(--panel);letter-spacing:.2px;
+}
+main{display:grid;grid-template-columns:1fr 300px;gap:20px}
+@media (max-width:840px){ main{grid-template-columns:1fr} }
+
+.stage{
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:14px;display:flex;flex-direction:column;gap:12px;
+  box-shadow:0 20px 50px -30px rgba(0,0,0,.7);
+}
+.canvas-frame{
+  border-radius:8px;overflow:hidden;border:1px solid var(--line);
+  background:#0d0b0a;
+  display:flex;align-items:center;justify-content:center;
+  min-height:280px;
+}
+canvas{width:100%;height:auto;display:block;image-rendering:auto}
+.stage-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.meta{font-size:12.5px;color:var(--sub)}
+.meta b{color:var(--ink);font-weight:600}
+
+.panel{
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:18px;display:flex;flex-direction:column;gap:16px;height:fit-content;
+}
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{font-size:12px;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
+.seg button{
+  flex:1;background:transparent;border:0;color:var(--sub);padding:8px 6px;border-radius:6px;
+  font-size:13px;cursor:pointer;font-weight:600;transition:.15s;
+}
+.seg button.active{background:var(--accent);color:var(--accent-ink)}
+.toggle-row{display:flex;align-items:center;justify-content:space-between}
+.toggle-row label{font-size:13.5px;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:500}
+.switch{position:relative;width:40px;height:22px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.slider-el{position:absolute;inset:0;background:var(--panel2);border:1px solid var(--line);border-radius:99px;cursor:pointer;transition:.15s}
+.slider-el:before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:var(--sub);border-radius:50%;transition:.15s}
+.switch input:checked + .slider-el{background:var(--accent)}
+.switch input:checked + .slider-el:before{transform:translateX(18px);background:var(--accent-ink)}
+
+.btn{
+  border:0;border-radius:9px;padding:12px 14px;font-size:14px;font-weight:700;
+  cursor:pointer;letter-spacing:.2px;transition:.15s;width:100%;
+}
+.btn-primary{background:linear-gradient(180deg,#e2a565,#c9853f);color:#241a0e;box-shadow:0 8px 20px -10px rgba(226,147,75,.6)}
+.btn-primary:hover{filter:brightness(1.07)}
+.btn-primary:active{transform:translateY(1px)}
+.btn-ghost{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+.btn-ghost:hover{border-color:var(--accent)}
+.btn-row{display:flex;flex-direction:column;gap:8px}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px}
+
+/* 上游在這裡還有作者 BOOTH 商店推廣卡片（.cta、.card）的樣式。那是站台的廣告，
+ * 不是工具本身，收錄版沒有收那三張卡片，樣式一併拿掉。 */
+
+footer{margin-top:34px;color:var(--sub);font-size:12px;text-align:center;line-height:1.7}
+footer a{color:var(--sub);text-decoration:underline}
+
+/* ---------- TRPG Toolkit 合輯：回首頁與語言切換 ---------- */
+.toolkit-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.home-link{font-size:12.5px;color:var(--sub);text-decoration:none}
+.home-link:hover{color:var(--accent);text-decoration:underline}
+.locale-select{
+  min-height:30px;padding:2px 8px;border-radius:8px;border:1px solid var(--line);
+  background:var(--panel);color:var(--ink);font-size:12px;font-family:inherit;
+}
+.locale-select:hover{border-color:var(--accent)}
