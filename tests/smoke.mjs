@@ -968,6 +968,8 @@ const SOTSOT_FOUR = [
   { dir: 'tools/acrylic-goods', dict: 'i18n.acrylic-goods.js', minHooks: 50, inline: 35, attrs: 4, authorLink: false },
   { dir: 'tools/video-anim', dict: 'i18n.video-anim.js', minHooks: 60, inline: 50, attrs: 1, authorLink: true },
   { dir: 'tools/gif-combiner', dict: 'i18n.gif-combiner.js', minHooks: 25, inline: 20, attrs: 5, authorLink: true },
+  /* TextBoxGen 不是角色美術工具，但收錄做法（Tailwind、CDN、onChange 重畫）完全相同，一併檢查。 */
+  { dir: 'tools/textbox', dict: 'i18n.textbox.js', minHooks: 35, inline: 31, attrs: 4, authorLink: true },
 ];
 for (const t of SOTSOT_FOUR) {
   checkTool({ dir: t.dir, dict: t.dict, scripts: ['app.js'], styles: ['styles.css'], minHooks: t.minHooks });
@@ -1301,6 +1303,33 @@ check('npc-data.js 只有資料表，不操作畫面', !/document\.|innerHTML|te
 check('不載入任何網頁字型或外部資源',
   !/fonts\.googleapis|fonts\.gstatic|https?:\/\/(?!www\.w3\.org)/.test(seHtml + read('tools/scenario-editor/styles.css')));
 check('紙面與介面的字型堆疊補上台灣系統字型', seApp.includes('Noto Serif TC') && seApp.includes('Microsoft JhengHei'));
+
+/* ---- battlemap（戰鬥地圖產生器）---- */
+/* 合輯第一個英文原文的工具。英文和程式碼共用字母，checkTool 的洩漏掃描抓不到「英文
+ * 沒翻到」，所以這裡改查：畫面上的英文句子只能出現在字典裡，標記與程式碼中不准有。 */
+const bm = checkTool({
+  dir: 'tools/battlemap',
+  dict: 'i18n.battlemap.js',
+  locale: 'en',
+  scripts: ['app.js'],
+  styles: ['styles.css'],
+  minHooks: 22
+});
+section('tools/battlemap');
+const bmHtml = read('tools/battlemap/index.html');
+/* 內嵌文字寫繁中，所以抹掉標籤、腳本與屬性之後，剩下的英文只能是專有名詞與單位。 */
+const bmVisible = bmHtml.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<!--[\s\S]*?-->/g, ' ')
+  .replace(/<[^>]*>/g, ' ');
+const BM_ALLOWED_EN = ['TRPG', 'Toolkit', 'Roll', 'Roll20', 'Foundry', 'VTT', 'CCFOLIA', 'px', 'PNG', 'MIT', 'AI', 'canvas', 'GitHub', 'PR', 'G', 'D'];
+const bmWords = [...new Set(bmVisible.match(/[A-Za-z]{2,}/g) || [])].filter(w => !BM_ALLOWED_EN.includes(w));
+check('標記裡的可見文字沒有英文介面字', bmWords.length === 0, bmWords.join(' '));
+const bmApp = read('tools/battlemap/app.js');
+const bmStrings = [...stripComments(bmApp, 'js').matchAll(/(['"`])((?:(?!\1)[^\\\n])*[A-Za-z]{3,} [A-Za-z]{3,}(?:(?!\1)[^\\\n])*)\1/g)].map(m => m[2])
+  .filter(str => str !== 'use strict');
+check('app.js 沒有寫死的英文句子', bmStrings.length === 0, bmStrings.slice(0, 5).join(' | '));
+check('拿掉上游的 BOOTH 推廣卡片與 SEO 設定',
+  !/booth\.pm|application\/ld\+json|rel="canonical"|og:title/.test(bmHtml) && !exists('tools/battlemap/robots.txt'));
+check('保留 LICENSE（MIT）', /MIT License/.test(read('tools/battlemap/LICENSE')));
 
 /* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
@@ -2255,6 +2284,7 @@ checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 130);
 checkInlineText('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 130);
+checkInlineText('tools/battlemap', 'tools/battlemap/index.html', ['tools/battlemap/i18n.battlemap.js'], 19);
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
 checkInlineText('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 2);
 for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
@@ -2346,6 +2376,7 @@ checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 10);
 checkAttrPairs('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 30);
+checkAttrPairs('tools/battlemap', 'tools/battlemap/index.html', ['tools/battlemap/i18n.battlemap.js'], 1);
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
 checkAttrPairs('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 1);
 for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
