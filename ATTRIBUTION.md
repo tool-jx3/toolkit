@@ -47,6 +47,7 @@
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 | coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
 | apng-wipe | 作者與來源都不明（使用者提供的單檔 HTML） | 2026-09-26 取得 | **未授權** |
+| scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
 | obs-tachie | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) | `c4aca96` | MIT |
 | bg-motion | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/haikei-motion-maker/` | `42c45f3` | **未授權** |
 | icon-maker | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/kantan-icon-maker/` | `42c45f3` | **未授權** |
@@ -55,7 +56,7 @@
 | variant-manager | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/chara-sabun-kanri-tool/` | `42c45f3` | **未授權** |
 | scenario-cards | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/scenario-snippet-builder/` | `42c45f3` | **未授權** |
 
-收錄副本的 MIT 工具，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
+收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
 shiki365 的五個工具、`cutin`、`portrait-size`、`height-board` 與 `room-zip` 原文為日文，
 收錄時另有以下調整：
@@ -603,6 +604,29 @@ APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任�
 - 存檔的副檔名從 `.apng` 改成 `.png`：APNG 規格建議用 `.png`，`scene-transition` 匯出 APNG 時也是這樣存，
   上傳圖片的對話框比較不會擋。檔案內容完全相同。
 - 單檔 HTML 拆成 `index.html`、`styles.css` 與 `app.js`，頁首加上「← TRPG Toolkit」。
+
+## scenario-editor：劇本排版台（CC0）
+
+上游 `sedn14636361/trpg-scenario-editor`（シナリオ組版台 v3.3.0）以 CC0 1.0 釋出，作者放棄了
+著作權，不必署名也能自由改寫；合輯仍照慣例標出出處。它和 `coc-typesetter` 同樣是「寫劇本、
+排成書頁」的工具，但走的是另一條路：左邊逐段選書式寫稿、右邊即時排成 A4 紙面，另有表格、
+流程圖、NPC 卡、目錄、彈出視窗與作品管理（IndexedDB、過去的版本、垃圾桶），不需要學標記語法。
+
+- 單一 HTML（約 11,000 行）照慣例拆成 `index.html`、`styles.css`、`app.js`；NPC 卡各系統的
+  資料表（CoC、Emoklore、DX3rd 的能力值、技能、症候群等）另外搬到 `npc-data.js`。
+  註解全部譯成繁體中文。
+- 右上角的完整說明、狀態列、對話框都走字典；匯出的閱覽 HTML 與列印時產生的文字
+  （巻末的附錄、目錄、按鈕）用匯出當下的語言。紙面的 CSS（`DOC_CSS`）仍是畫面與
+  匯出共用的同一份，NPC 卡「超出頁面」的提示改成 CSS 變數，由程式依語言設定。
+- 首次開啟時放進去的範例原稿依建立當下的語言給繁中或日文；存檔的 key 與 JSON 格式不變，
+  上游存的原稿可以直接讀進繁中版。
+- 刻意保留的日文：輸出到 CCFOLIA 棋子的指令與參數名（`正気度ロール`、`アイデア`、`コンボ`、
+  `シンドローム` 等，本工具讀回棋子時也靠同一組字串）、讀入角色卡時的表頭別名、貼上原稿時推測
+  段落種類的關鍵字，以及 `npc-data.js` 的系統資料。所以繁中介面的 NPC 卡上，能力值與技能名仍是
+  日文。`tests/smoke.mjs` 把 `app.js` 的這批字串釘成清單。
+- 原稿的標記語法（`｜漢字《ルビ》`、行首記號、`/kajou` `/list` 等斜線指令）與快捷鍵都照上游。
+- 這個工具刻意不連網，因此沒有加 Google Fonts，只在紙面的明體後面補上新細明體與
+  Noto Serif TC、介面字型補上微軟正黑體、蘋方與 Noto Sans TC（接在日文字型後面，日文顯示不變）。
 
 ## obs-tachie：Discord 通話立繪產生器
 

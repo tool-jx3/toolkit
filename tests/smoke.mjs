@@ -1251,6 +1251,42 @@ check('vite 以相對路徑輸出到 tools/obs-tachie',
   /base:\s*'\.\/'/.test(read('vendor/obs-tachie-generator/vite.config.ts'))
   && read('vendor/obs-tachie-generator/vite.config.ts').includes('tools/obs-tachie'));
 
+/* ---- scenario-editor（劇本排版台）---- */
+/* 上游 sedn14636361/trpg-scenario-editor 是 CC0 的單一 HTML（約 11,000 行），拆成
+ * index.html／styles.css／app.js，NPC 卡的各系統資料表另外搬到 npc-data.js。
+ * 刻意留著的日文有兩類，都是程式要比對、或原樣輸出給 CCFOLIA 的字串：
+ *   1. app.js：CCFOLIA 棋子的指令與參數名（輸出與讀回共用）、讀入角色卡時的表頭別名、
+ *      貼上原稿時推測段落種類的關鍵字。清單釘死。
+ *   2. npc-data.js：能力值、技能、症候群等系統資料，整檔都是資料，會存進原稿也會
+ *      輸出到 CCFOLIA。它只准有資料表，不准碰畫面。 */
+const SE_KEPT_JA = ['ルーツ属性一致', 'シンドローム', 'コンボ', '正気度ロール', 'アイデア', 'ダメージ判定',
+  'ふりがな', 'フリガナ', 'よみ', '読み', 'ヨミ', 'ルーツ', 'コンボ名', 'エフェクト名', '特殊ルール', 'ロール',
+  'シーン', 'へ', 'に', '続く'];
+const se = checkTool({
+  dir: 'tools/scenario-editor',
+  dict: 'i18n.scenario-editor.js',
+  locale: 'ja',
+  scripts: ['app.js', 'npc-data.js'],
+  styles: ['styles.css'],
+  minHooks: 220,
+  allowSource: (line, n, file) => file === 'npc-data.js'
+    || (file === 'app.js' && (line.match(CW_KANA_RUN) || []).filter(run => KANA.test(run)).every(run => SE_KEPT_JA.includes(run)))
+});
+section('tools/scenario-editor');
+check('LICENSE 是上游的 CC0 原文', /CC0 1\.0 Universal/.test(read('tools/scenario-editor/LICENSE')));
+const seApp = read('tools/scenario-editor/app.js');
+for (const keep of SE_KEPT_JA) check(`app.js 仍保留「${keep}」`, seApp.includes(keep));
+const seTKeys = [...new Set([...seApp.matchAll(/\bT\((['"`])([a-zA-Z][\w.]*)\1/g)].map(m => m[2]).filter(k => !k.endsWith('.')))];
+check('app.js 以 T() 取用大量字串', seTKeys.length >= 600, `found ${seTKeys.length}`);
+const seHtml = read('tools/scenario-editor/index.html');
+const seOrder = ['assets/i18n.js', 'i18n.scenario-editor.js', 'npc-data.js', 'app.js'].map(f => seHtml.indexOf(f));
+check('載入順序：引擎、字典、NPC 資料、主程式', seOrder.every((at, i) => at >= 0 && (i === 0 || at > seOrder[i - 1])), seOrder.join(','));
+check('npc-data.js 只有資料表，不操作畫面', !/document\.|innerHTML|textContent/.test(read('tools/scenario-editor/npc-data.js')));
+/* 這個工具刻意不連網：不准為了繁中字型加上 Google Fonts。 */
+check('不載入任何網頁字型或外部資源',
+  !/fonts\.googleapis|fonts\.gstatic|https?:\/\/(?!www\.w3\.org)/.test(seHtml + read('tools/scenario-editor/styles.css')));
+check('紙面與介面的字型堆疊補上台灣系統字型', seApp.includes('Noto Serif TC') && seApp.includes('Microsoft JhengHei'));
+
 /* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
  * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
@@ -2103,7 +2139,7 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
   'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe', 'message-box',
-  'obs-tachie', 'bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards'];
+  'scenario-editor', 'obs-tachie', 'bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -2132,7 +2168,7 @@ for (const card of homeCards) {
 }
 check('首頁標示原作者出處',
   ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
-    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa', 'max-enterme', 'kumachansteps']
+    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa', 'max-enterme', 'sedn14636361', 'kumachansteps']
     .every(a => homeHtml.includes(`github.com/${a}`)));
 /* coc-typesetter 的作者不明，至少要標出取得的網址。 */
 check('首頁標示 coc-typesetter 的來源網址', homeHtml.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html'));
@@ -2201,6 +2237,7 @@ checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 130);
 checkInlineText('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 130);
+checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
 checkInlineText('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 2);
 for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
 checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
@@ -2291,6 +2328,7 @@ checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 10);
 checkAttrPairs('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 30);
+checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
 checkAttrPairs('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 1);
 for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
 checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
@@ -2325,7 +2363,7 @@ for (const name of TOOLS) {
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
   '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331', 'fc05c98',
-  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3',
+  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }

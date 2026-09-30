@@ -45,6 +45,7 @@
 | [Anime2.5DRig](tools/anime-rig/) | 把分好部件的 PSD 拖進來就自動綁定成 2.5D 虛擬形象：眨眼、嘴型、頭髮物理、攝影機臉部追蹤與麥克風嘴型，可匯出透明 PNG 與 WebM／MP4 |
 | [CoC 劇本排版工具](tools/coc-typesetter/) | 把克蘇魯神話 TRPG 劇本貼進來，排成書本般的紙面：章節自動編號、自動目錄，描述、檢定、KP 資訊、理智檢定各有樣式，印成 A5／B5／A4 的 PDF |
 | [輕量轉場 APNG 產生器](tools/apng-wipe/) | 做出 15×15 px 起跳、只有幾 KB 的透明轉場動畫：淡入淡出或 8 個方向的抹除，可選顏色、秒數、播一次或循環 |
+| [劇本排版台](tools/scenario-editor/) | 左邊寫稿、右邊即時排成 A4 書頁的 TRPG 劇本排版工具：標題、對話、檢定框、表格、流程圖、NPC 卡、目錄，可以印成 PDF 或匯出閱覽用 HTML；原稿存在瀏覽器裡，也能存成 JSON 檔 |
 | [Discord 通話立繪產生器](tools/obs-tachie/) | 產生 OBS 瀏覽器來源用的 Discord Streamkit 自訂 CSS，把通話成員換成常駐顯示的立繪，說話時彈跳、發光，還能加上名字字幕條 |
 | [動態背景產生器](tools/bg-motion/) | 讓背景圖搖晃、拉近拉遠、平移、淡入淡出或轉場，也能套上圖片處理，輸出成 CCFOLIA 可用的 WebP 動態背景 |
 | [簡易頭像產生器](tools/icon-maker/) | 從 PNG 立繪做出 1:1 的 TRPG 角色頭像，可加外框、背景、名字（直書或橫書）與 HO 標籤 |
@@ -123,7 +124,7 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的十一個工具、
 `ccfolia-cropper` 與 `pair-maker` 為韓文，shiki365 的五個工具、`cutin`、
 `character-editor`、`portrait-size`、`height-board`、`trpg-lab`、
-`anime-rig`、`obs-tachie` 與くま的六個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
+`anime-rig`、`scenario-editor`、`obs-tachie` 與くま的六個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
 `bg-motion` 也照上游保留韓文（上游的英文沒有收）。
 
 `coc-typesetter` 與 `apng-wipe` 只有繁體中文：上游是日文工具，收錄時改寫成只有繁中
