@@ -8,7 +8,7 @@
 [johnko00](https://github.com/johnko00) 與
 [baegop157902](https://github.com/baegop157902) 與
 [違法建築](https://github.com/ihoukentiku) 與
-[hakoniwa](https://github.com/852wa) 等人製作的 27 個網頁小工具合輯（其中兩個工具的作者不明），附繁體中文介面。
+[hakoniwa](https://github.com/852wa) 等人製作的 28 個網頁小工具合輯（其中兩個工具的作者不明），附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -28,6 +28,7 @@
 | [選角畫面產生器](tools/character-select/) | 做出格鬥遊戲那樣的選角畫面，1P～4P 游標依序挑角色，輸出成動畫或可互動的 HTML |
 | [角色資料編輯器](tools/character-editor/) | 在 CCFOLIA 外編輯角色的 JSON：狀態、參數、聊天面板都能改，也能直接讀編輯畫面貼上的文字 |
 | [聊天視窗產生器](tools/chat-window/) | 做出自訂 CSS，把 CCFOLIA 的骰子結果與秘匿聊天以喜歡的樣式顯示在 OBS 上，可在預覽中一邊送訊息一邊調整 |
+| [訊息框產生器](tools/message-box/) | 做出自訂 CSS，把 CCFOLIA 發言時出現在畫面下方、附立繪的訊息框以喜歡的樣式顯示在 OBS 上；7 種範本可再細調，預覽中能切換角色、一邊送訊息一邊看 |
 | [立繪尺寸統一器](tools/portrait-size/) | 把同一角色的差分立繪裁掉透明邊並統一寬度，切換立繪時棋子圖就不會忽大忽小；也能單張拿來裁邊與轉 WebP |
 | [立繪身高比較板](tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
 | [房間 ZIP 產生器](tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；工作進度可存成 .ccproj 檔 |
@@ -105,7 +106,7 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 ## 語言
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的十一個工具、
-`ccfolia-cropper` 與 `pair-maker` 為韓文，shiki365 的四個工具、`cutin`、
+`ccfolia-cropper` 與 `pair-maker` 為韓文，shiki365 的五個工具、`cutin`、
 `character-editor`、`portrait-size`、`height-board`、`trpg-lab` 與
 `anime-rig` 為日文；`room-zip` 原文為日文，另外附了一份韓文。
 
@@ -115,11 +116,11 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
 
-`status-bar`、`chat-window` 與 `foreground-frame` 的字型欄可以改填「以名稱指定」，
+`status-bar`、`chat-window`、`foreground-frame`、`message-box` 的字型欄與 `scene-transition` 的字幕字型可以改填「以名稱指定」，
 使用觀看者電腦上已安裝的字型。Chrome／Edge 還能用「從清單選」開出一份附樣張的清單
 （Local Font Access API，第一次會詢問權限）；其餘瀏覽器隱藏該按鈕，直接輸入名稱同樣可用。
-那個對話框是三個工具共用的 `pcfonts.v1.js`，三份必須完全相同，詳見
-[ATTRIBUTION](ATTRIBUTION.md#三個工具共用的-pcfontsv1js)。
+那個對話框是五個工具共用的 `pcfonts.v1.js`，五份必須完全相同，詳見
+[ATTRIBUTION](ATTRIBUTION.md#五個工具共用的-pcfontsv1js)。
 選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），首頁與各工具共用。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，

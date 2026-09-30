@@ -1109,6 +1109,83 @@ check('mock.v1.js 沿用舊節點前會比對文字',
 check('model.v1.js 套用範本時解析文字欄位的 key',
   read('tools/chat-window/model.v1.js').includes('function localizeLook'));
 
+/* ---- message-box ---- */
+/* 訊息框產生器（shiki365，chat-window 的姊妹工具）。刻意留著的日文與 chat-window 同一類：
+ * mock.v1.js 照著重畫 CCFOLIA 的房間畫面，骰子結果是 BCDice 與 CCFOLIA 的實際輸出，
+ * css.v1.js 的英文註解引用了 CCFOLIA 的 DOM 與設定名稱。清單釘死，兩個方向都要對得上。 */
+const MB_KEPT_JA = {
+  'mock.v1.js': ['ルームチャット', 'メッセージを入力', 'メッセージ', 'スキップ', '閉じる', 'スペシャル', 'シークレットダイス'],
+  'presets.v1.js': ['決定的成功/スペシャル', '発言時キャラクターを表示しない', 'シークレットダイス'],
+  'index.html': ['スペシャル'],
+  'css.v1.js': ['メッセージ', '旧ダイス演出を利用する']
+};
+const mb = checkTool({
+  dir: 'tools/message-box',
+  dict: 'i18n.message-box.js',
+  locale: 'ja',
+  scripts: ['app.v1.js', 'presets.v1.js', 'css.v1.js', 'model.v1.js', 'mock.v1.js', 'pcfonts.v1.js'],
+  styles: ['styles.css'],
+  minHooks: 200,
+  allowSource: (line, lineNo, file) => {
+    const allowed = MB_KEPT_JA[file];
+    if (!allowed) return false;
+    return (line.match(CW_KANA_RUN) || []).filter(run => KANA.test(run))
+      .every(run => allowed.some(keep => keep.includes(run)));
+  }
+});
+
+section('tools/message-box kept Japanese');
+for (const [file, keeps] of Object.entries(MB_KEPT_JA)) {
+  const src = read(`tools/message-box/${file}`);
+  for (const keep of keeps) check(`${file} 仍保留「${keep}」`, src.includes(keep));
+}
+
+section('tools/message-box preset keys');
+const mbPresets = read('tools/message-box/presets.v1.js');
+const mbListKeys = [
+  ...[...mbPresets.matchAll(/\["[\w-]+", "([\w]+\.[\w.-]+)"\]/g)].map(m => m[1]),
+  ...[...mbPresets.matchAll(/\[\d+, "([\w]+\.[\w.-]+)"\]/g)].map(m => m[1]),
+  ...[...mbPresets.matchAll(/(?:label|desc|text|name): "([\w]+\.[\w.-]+)"/g)].map(m => m[1])
+];
+check('presets.v1.js 解析出清單 key', mbListKeys.length >= 100, `found ${mbListKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = [...new Set(mbListKeys)].filter(k => !mb.messages[locale][k]);
+  check(`${locale} 每個清單 key 都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+const MB_DESIGNS = ['standard', 'novel', 'letter', 'hud', 'horror', 'rpg', 'pop'];
+check('七種範本都有兩種語言的名稱與說明', MB_DESIGNS.every(d => ['zh-TW', 'ja'].every(l =>
+  mb.messages[l][`design.${d}`] && mb.messages[l][`design.${d}.desc`])));
+
+section('tools/message-box status messages');
+const mbApp = read('tools/message-box/app.v1.js');
+/* 「已送出」的訊息依種類各一句完整的句子，放在 SENT_KEY 表裡，status("…") 的掃描看不到。 */
+const mbSentKeys = [...mbApp.matchAll(/"(msg\.sent\.\w+)"/g)].map(m => m[1]);
+const mbStatusKeys = [...new Set([
+  ...[...mbApp.matchAll(/\bstatus(?:Error)?\("([\w]+\.[\w.]+)"/g)].map(m => m[1]),
+  ...mbSentKeys, 'status.loading'
+])];
+check('解析出狀態列訊息 key（含七種「已送出」）', mbStatusKeys.length >= 25 && mbSentKeys.length >= 7, `found ${mbStatusKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = mbStatusKeys.filter(k => !mb.messages[locale][k]);
+  check(`${locale} 狀態列訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+/* css.v1.js 把 st.text 取名為 T，全域 T() 會被蓋掉，一律走 TX()。 */
+const mbCss = read('tools/message-box/css.v1.js');
+check('css.v1.js 以 TX() 取譯文，避開被區域變數 T 蓋掉',
+  mbCss.includes('const TX = (key, ...args) => window.T(key, ...args);') && !/[^.\w]T\((["'`])[a-zA-Z]/.test(mbCss));
+const mbCssKeys = [...new Set([...mbCss.matchAll(/\bTX\("([\w]+\.[\w.]+)"/g)].map(m => m[1]))];
+check('解析出產出 CSS 的註解 key', mbCssKeys.length >= 20, `found ${mbCssKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = mbCssKeys.filter(k => !mb.messages[locale][k]);
+  check(`${locale} 產出 CSS 的註解齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+/* 說明裡提到的姊妹工具連到合輯自己收的那份（兩邊互連），不連到作者站。 */
+const mbDict = read('tools/message-box/i18n.message-box.js');
+check('姊妹工具的連結指向合輯內的 chat-window', mbDict.includes('href="../chat-window/"')
+  && !mbDict.includes('shiki365.github.io/chat-window-maker'));
+check('chat-window 的說明連到合輯內的 message-box', read('tools/chat-window/i18n.chat-window.js').includes('href="../message-box/"'));
+check('message-box 不收 favicon、OGP 圖與上游 README', ['favicon.svg', 'ogp.png', 'README.md'].every(f => !exists(`tools/message-box/${f}`)));
+
 /* ---- ccfolia-cropper ---- */
 checkTool({
   dir: 'tools/ccfolia-cropper',
@@ -1639,7 +1716,7 @@ check('八個角度的說明都是繁中', awAngles.length === 8 && awAngles.eve
 /* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
  * 只改其中一份的話，另外兩個工具的對話框就會停在舊版本。 */
 section('pcfonts.v1.js');
-const PCFONT_TOOLS = ['foreground-frame', 'status-bar', 'chat-window', 'scene-transition'];
+const PCFONT_TOOLS = ['foreground-frame', 'status-bar', 'chat-window', 'scene-transition', 'message-box'];
 const pcfSources = PCFONT_TOOLS.map(t => read(`tools/${t}/pcfonts.v1.js`));
 const pcfDiffer = PCFONT_TOOLS.filter((t, i) => pcfSources[i] !== pcfSources[0]);
 check('各工具的 pcfonts.v1.js 完全相同', pcfDiffer.length === 0, `differs: ${pcfDiffer.join(', ')}`);
@@ -1655,14 +1732,14 @@ for (const tool of PCFONT_TOOLS) {
 /* 兩個 key 是以三元運算傳進 T() 的（refused ? … : …），掃 T(" 會漏掉，改抓字面常數。 */
 const pcfKeys = [...new Set([...pcfSources[0].matchAll(/"(pcf\.[\w.]+)"/g)].map(m => m[1]))];
 check('解析出挑選器的 key', pcfKeys.length >= 13, `found ${pcfKeys.length}`);
-for (const [tool, dict] of [['foreground-frame', ff], ['status-bar', sb], ['chat-window', cw], ['scene-transition', st]]) {
+for (const [tool, dict] of [['foreground-frame', ff], ['status-bar', sb], ['chat-window', cw], ['scene-transition', st], ['message-box', mb]]) {
   for (const locale of ['zh-TW', 'ja']) {
     const missing = pcfKeys.filter(k => !dict.messages[locale][k]);
     check(`${tool} ${locale} 的挑選器譯文齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
   }
 }
 /* 樣張文字用「永」示範字型有沒有漢字，說明文也是這樣寫的。 */
-for (const [tool, dict] of [['foreground-frame', ff], ['status-bar', sb], ['chat-window', cw], ['scene-transition', st]]) {
+for (const [tool, dict] of [['foreground-frame', ff], ['status-bar', sb], ['chat-window', cw], ['scene-transition', st], ['message-box', mb]]) {
   for (const locale of ['zh-TW', 'ja']) {
     check(`${tool} ${locale} 的樣張含「永」`, (dict.messages[locale]['pcf.sample'] || '').includes('永'));
   }
@@ -1763,6 +1840,21 @@ const fontIds = src => [...src.matchAll(/^\s{4}(\w+): \{ label: "font\./gm)].map
 check('chat-window 與 status-bar 的字型清單一致',
   fontIds(cwFonts).join(',') === fontIds(sbFonts).join(','),
   `chat-window: ${fontIds(cwFonts).length}, status-bar: ${fontIds(sbFonts).length}`);
+/* message-box：上游也註明與 status-bar 同一份字型清單。 */
+const mbFonts = read('tools/message-box/presets.v1.js');
+for (const m of mbFonts.matchAll(/family: "([^"]+)", weights: \[([\d, ]+)\]/g)) {
+  if (!TC_FAMILIES.includes(m[1])) continue;
+  const bad = m[2].split(',').map(w => Number(w.trim())).filter(w => !TC_WEIGHTS[m[1]].includes(w));
+  check(`message-box：${m[1]} 的 weights 都存在`, bad.length === 0,
+    `不存在的字重: ${bad.join(', ')}（可用: ${TC_WEIGHTS[m[1]].join(', ')}）`);
+}
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = sbTcKeys.filter(k => !mb.messages[locale][k]);
+  check(`message-box ${locale} 每套繁中字型都有標籤`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+check('message-box 與 status-bar 的字型清單一致',
+  fontIds(mbFonts).join(',') === fontIds(sbFonts).join(','),
+  `message-box: ${fontIds(mbFonts).length}, status-bar: ${fontIds(sbFonts).length}`);
 
 /* collage-letter：@import 的字重，以及字型池與 @import 的一致性。 */
 const clCss = read('tools/collage-letter/styles.css');
@@ -1849,7 +1941,7 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
-  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe'];
+  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe', 'message-box'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -1945,6 +2037,7 @@ checkInlineText('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools
 checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 200);
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 130);
+checkInlineText('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 130);
 checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
 checkInlineText('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 150);
 checkInlineText('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 20);
@@ -2032,6 +2125,7 @@ checkAttrPairs('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/
 checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 10);
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 10);
+checkAttrPairs('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 30);
 checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
 checkAttrPairs('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 15);
 checkAttrPairs('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 2);
@@ -2063,7 +2157,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', 'fc05c98',
+  '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331', 'fc05c98',
   '90f8442', 'a9a522c', 'aad63b1',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
@@ -2123,6 +2217,11 @@ check('README.md 說明兩個工具的建置流程',
 check('ATTRIBUTION.md 指向 README 建置段落的錨點仍然有效',
   attribution.includes('README.md#重新建置-cutin-與-character-editor')
   && read('README.md').includes('### 重新建置 cutin 與 character-editor'));
+check('README 指向 pcfonts 段落的錨點仍然有效',
+  read('README.md').includes('ATTRIBUTION.md#五個工具共用的-pcfontsv1js')
+  && attribution.includes('## 五個工具共用的 pcfonts.v1.js'));
+check('ATTRIBUTION.md 說明 message-box 保留的 CCFOLIA 日文',
+  /## message-box：同樣保留 CCFOLIA 畫面上的日文(?=[\s\S]*シークレットダイス)/.test(attribution));
 check('ATTRIBUTION.md 說明 jizura 改為連到原作者網站的官方繁中版',
   /## jizura：JIZURA 字面（連到原站）(?=[\s\S]*Zaious)(?=[\s\S]*zh-hant\/)/.test(attribution));
 check('ATTRIBUTION.md 說明 coc-typesetter 的來源、未授權與只收繁中',
