@@ -2102,7 +2102,8 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
-  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe', 'message-box'];
+  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe', 'message-box',
+  'obs-tachie', 'bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -2131,7 +2132,8 @@ for (const card of homeCards) {
 }
 check('首頁標示原作者出處',
   ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
-    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa'].every(a => homeHtml.includes(`github.com/${a}`)));
+    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa', 'max-enterme', 'kumachansteps']
+    .every(a => homeHtml.includes(`github.com/${a}`)));
 /* coc-typesetter 的作者不明，至少要標出取得的網址。 */
 check('首頁標示 coc-typesetter 的來源網址', homeHtml.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html'));
 check('首頁說明兩個作者不明的工具', homeHtml.includes('（CoC 劇本排版工具與輕量轉場 APNG 產生器的作者不明）'));
@@ -2323,7 +2325,7 @@ for (const name of TOOLS) {
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
   '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331', 'fc05c98',
-  '90f8442', 'a9a522c', 'aad63b1',
+  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
@@ -2376,12 +2378,12 @@ check('ATTRIBUTION.md 說明哪些字刻意不跟著語言走',
 /* cutin 需要建置，說明其原始碼位置與重建方式。 */
 check('ATTRIBUTION.md 說明 cutin 的建置流程',
   attribution.includes('vendor/cutin-maker'));
-check('README.md 說明兩個工具的建置流程',
-  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor'].every(p => read('README.md').includes(p)));
+check('README.md 說明三個工具的建置流程',
+  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor', 'vendor/obs-tachie-generator'].every(p => read('README.md').includes(p)));
 /* ATTRIBUTION 與 README 之間的錨點連結：標題改了就會失效。 */
 check('ATTRIBUTION.md 指向 README 建置段落的錨點仍然有效',
-  attribution.includes('README.md#重新建置-cutin-與-character-editor')
-  && read('README.md').includes('### 重新建置 cutin 與 character-editor'));
+  attribution.includes('README.md#重新建置-cutincharacter-editor-與-obs-tachie')
+  && read('README.md').includes('### 重新建置 cutin、character-editor 與 obs-tachie'));
 check('README 指向 pcfonts 段落的錨點仍然有效',
   read('README.md').includes('ATTRIBUTION.md#五個工具共用的-pcfontsv1js')
   && attribution.includes('## 五個工具共用的 pcfonts.v1.js'));
@@ -2391,7 +2393,7 @@ check('ATTRIBUTION.md 說明 jizura 改為連到原作者網站的官方繁中�
   /## jizura：JIZURA 字面（連到原站）(?=[\s\S]*Zaious)(?=[\s\S]*zh-hant\/)/.test(attribution));
 check('ATTRIBUTION.md 說明 coc-typesetter 的來源、未授權與只收繁中',
   /\| coc-typesetter \| \[scenario-tool-jade\.vercel\.app\]\([^)]+\)（作者不明[^|]*\| 2026-09-26 取得 \| \*\*未授權\*\* \|/.test(attribution)
-  && attribution.includes('## 未授權的九個工具') && /## coc-typesetter：CoC 劇本排版工具(?=[\s\S]*===換頁===)(?=[\s\S]*不存在的四樓)/.test(attribution));
+  && attribution.includes('## 未授權的十五個工具') && /## coc-typesetter：CoC 劇本排版工具(?=[\s\S]*===換頁===)(?=[\s\S]*不存在的四樓)/.test(attribution));
 check('README.md 把 coc-typesetter 與 apng-wipe 列為未授權', /`coc-typesetter` 與 `apng-wipe` 則連作者都不明/.test(read('README.md')));
 check('ATTRIBUTION.md 說明 apng-wipe 的來源不明、未授權與副檔名的改動',
   /\| apng-wipe \| 作者與來源都不明[^|]*\| 2026-09-26 取得 \| \*\*未授權\*\* \|/.test(attribution)
