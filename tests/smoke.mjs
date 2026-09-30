@@ -1331,6 +1331,38 @@ check('拿掉上游的 BOOTH 推廣卡片與 SEO 設定',
   !/booth\.pm|application\/ld\+json|rel="canonical"|og:title/.test(bmHtml) && !exists('tools/battlemap/robots.txt'));
 check('保留 LICENSE（MIT）', /MIT License/.test(read('tools/battlemap/LICENSE')));
 
+/* ---- psd-studio（CCFOLIA & PSD 調色工作室）---- */
+/* 上游 fyam-hamu/F_Ccfolia-PSD-Studio 沒有 LICENSE，但頁面上寫了作者條款：禁止轉售與
+ * 收費散布，修改、改良後可以免費再散布。條款原文與翻譯收在 TERMS.md，畫面上也保留。 */
+const pss = checkTool({
+  dir: 'tools/psd-studio',
+  dict: 'i18n.psd-studio.js',
+  scripts: ['app.js'],
+  styles: ['styles.css'],
+  minHooks: 165,
+  licence: false
+});
+section('tools/psd-studio');
+const pdsHtml = read('tools/psd-studio/index.html'), pdsApp = read('tools/psd-studio/app.js');
+const pdsTerms = read('tools/psd-studio/TERMS.md');
+check('TERMS.md 引用作者條款原文並註明出處',
+  pdsTerms.includes('무단 재판매 및 유료 배포는 금지합니다') && pdsTerms.includes('718bb40'));
+check('畫面上保留作者條款（兩種語言）',
+  ['zh-TW', 'ko'].every(l => Object.values(pss.messages[l]).some(v => /재판매|轉售/.test(v))));
+check('拿掉 Firebase 按讚鈕、KakaoTalk 聯絡連結與作者的照片',
+  !/firebase|apiKey|kakao|important\.png|ggundy_liked/i.test(stripComments(pdsHtml, 'html') + stripComments(pdsApp, 'js')) && !exists('tools/psd-studio/important.png'));
+/* 上游有一個函式庫沒鎖版本；收錄版每個 CDN 網址都要帶版本，並記在 THIRD_PARTY_NOTICES。 */
+const pdsNotices = read('tools/psd-studio/THIRD_PARTY_NOTICES.md');
+const pdsCdn = [...new Set([...(pdsHtml + pdsApp).matchAll(/https:\/\/(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|unpkg\.com)[^"'`) ]*/g)].map(m => m[0]))];
+check('解析出五個 CDN 函式庫', pdsCdn.length === 5, `found ${pdsCdn.length}`);
+const pdsUnpinned = pdsCdn.filter(u => {
+  const v = (u.match(/@(\d+\.\d+\.\d+)\/|\/(\d+\.\d+\.\d+)\//) || [])[1] || (u.match(/\/(\d+\.\d+\.\d+)\//) || [])[1];
+  return !v || !pdsNotices.includes(v);
+});
+check('每個 CDN 網址都鎖了版本並記在 THIRD_PARTY_NOTICES', pdsUnpinned.length === 0, pdsUnpinned.join(', '));
+check('掛了語言切換器，切語言時重畫程式寫的文字',
+  pdsApp.includes("I18N.mountSwitcher(document.getElementById('localeSelect'))") && /I18N\.onChange\(\(\) => \{/.test(pdsApp));
+
 /* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
  * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
@@ -2284,6 +2316,7 @@ checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 130);
 checkInlineText('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 130);
+checkInlineText('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 130);
 checkInlineText('tools/battlemap', 'tools/battlemap/index.html', ['tools/battlemap/i18n.battlemap.js'], 19);
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
 checkInlineText('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 2);
@@ -2376,6 +2409,7 @@ checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 10);
 checkAttrPairs('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 30);
+checkAttrPairs('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 18);
 checkAttrPairs('tools/battlemap', 'tools/battlemap/index.html', ['tools/battlemap/i18n.battlemap.js'], 1);
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
 checkAttrPairs('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 1);
