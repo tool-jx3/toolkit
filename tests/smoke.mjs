@@ -1186,6 +1186,144 @@ check('姊妹工具的連結指向合輯內的 chat-window', mbDict.includes('hr
 check('chat-window 的說明連到合輯內的 message-box', read('tools/chat-window/i18n.chat-window.js').includes('href="../message-box/"'));
 check('message-box 不收 favicon、OGP 圖與上游 README', ['favicon.svg', 'ogp.png', 'README.md'].every(f => !exists(`tools/message-box/${f}`)));
 
+/* ---- obs-tachie（Discord 通話立繪產生器）---- */
+/* 第三個需要建置的工具，做法同 character-editor：原始碼在 vendor/obs-tachie-generator，
+ * 畫面全由 React 算繪，index.html 只有外殼的三個掛勾。上游是 MIT，LICENSE 照收。 */
+const ot = checkTool({
+  dir: 'tools/obs-tachie',
+  dict: 'i18n.obs-tachie.js',
+  locale: 'ja',
+  scripts: [],
+  styles: ['assets/index.css'],
+  minHooks: 3
+});
+section('tools/obs-tachie build output');
+const otZh = new Set(Object.keys(ot.messages['zh-TW']));
+const OT_SHELL_KEYS = ['app.title', 'nav.home', 'lang.aria', 'noscript'];
+const otSrc = listFiles('vendor/obs-tachie-generator/src')
+  .filter(f => /\.tsx?$/.test(f) && !/\.test\./.test(f))
+  .map(f => read(f))
+  .join('\n');
+const otUsed = [...otZh].filter(k => otSrc.includes(`'${k}'`) || otSrc.includes(`"${k}"`));
+check('原始碼引用了字典中的大多數 key', otUsed.length >= 250, `found ${otUsed.length}`);
+const otStale = [...otZh].filter(k => !otUsed.includes(k) && !OT_SHELL_KEYS.includes(k));
+check('字典沒有原始碼用不到的 key', otStale.length === 0, `stale: ${otStale.join(', ')}`);
+const otBundle = read('tools/obs-tachie/assets/app.js');
+const otNotBuilt = otUsed.filter(k => !otBundle.includes(k));
+check('建置產物是最新的（原始碼的 key 都在 bundle 裡）',
+  otNotBuilt.length === 0, `missing from bundle: ${otNotBuilt.slice(0, 10).join(', ')}`);
+check('bundle 無殘留假名', !KANA.test(otBundle));
+/* 原始碼（不含測試）連註解都譯成了繁中，假名一個都不該有。 */
+const otSrcKana = listFiles('vendor/obs-tachie-generator/src')
+  .filter(f => /\.(tsx?|css)$/.test(f) && !/\.test\./.test(f))
+  .filter(f => KANA.test(read(f)));
+check('vendor 原始碼（測試以外）無假名', otSrcKana.length === 0, otSrcKana.join(', '));
+check('上游 vitest 的 setup 會注入 ja 字典',
+  read('vendor/obs-tachie-generator/src/test/setup.ts').includes('i18n.obs-tachie.js'));
+/* 產出 CSS 的選擇器靠 Streamkit 的 class 前方一致與頭像網址比對，不能經過字典。 */
+const otGen = read('vendor/obs-tachie-generator/src/lib/generateCss.ts');
+check('產出 CSS 的 Streamkit 選擇器照上游',
+  otGen.includes('Voice_avatarSpeaking__') && otGen.includes('avatars/'));
+check('vite 以相對路徑輸出到 tools/obs-tachie',
+  /base:\s*'\.\/'/.test(read('vendor/obs-tachie-generator/vite.config.ts'))
+  && read('vendor/obs-tachie-generator/vite.config.ts').includes('tools/obs-tachie'));
+
+/* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
+/* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
+ * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
+ * 也不該出現回報表單、存取分析與站台圖示。 */
+const KUMA_TOOLS = ['bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards'];
+/* session-log 解析使用者匯入的日文試算表、團報與 CCFOLIA 紀錄，也把系統名、生還結果
+ * 以上游的日文值存檔（兩種語言的 JSON 才能互讀）。這些字串刻意留著，清單釘死。 */
+const SL_KEPT_JA = ['くま', 'エモクロア', 'マダミス', 'ロスト', '全ロスト', 'シノビガミ', 'インセイン', 'ダブルクロス',
+  'ソード・ワールド', 'フタリソウサ', 'マルチシステム', 'ボイ', 'テキ', 'プレイ日', 'セッション日', 'シナリオ', 'シナリオ名',
+  'タイトル', 'システム', 'システム名', 'ゲームシステム', 'ルール', 'ロール', 'キーパー', 'ゲームマスター', 'マスター', '回し手',
+  'プレイヤー', 'メンバー', 'キャラ', 'キャラクター', 'キャラクター名', 'キャラ名', 'ステータス', 'プレイ時間', 'セッション時間',
+  'メモ', 'ノート', 'コメント', '詳細メモ', '感想ネタバレ注意', 'キャンペーン', 'シリーズ', '親アイテム', 'ハッシュタグ', 'タグ',
+  'エンディング', 'ルート', 'エンド', '生還ロスト', 'セッション', 'ログ', 'セッションリンク', '配布ページ', '感想リンク',
+  'シナリオキー', '集計キー', 'はい', 'いいえ', 'マーダーミステリー', '新クトゥルフ神話', '新クトゥルフ', 'クトゥルフ神話',
+  'ディーラー', 'クトゥルフ', 'さん', 'ｻﾝ', 'クリア', 'グッドエンド', 'ゲームクリア', 'した', 'クリティカル', 'ファンブル',
+  'スペシャル', 'クローズ', 'まとめ', 'その', 'クロージング', 'オープニング', '中入り', 'フルスペック', 'ダイス', 'モブ',
+  'エキストラ', 'サブ', 'バトル', 'ゲームマスタ', 'と', 'キャラシ作成会'];
+/* session-report 只比對跑團紀錄簿送來的系統正規值與敬稱。 */
+const SR_KEPT_JA = ['さん', '新クトゥルフ神話', 'エモクロア', 'マダミス', 'マーダーミステリー', 'クトゥルフ'];
+const keptRuns = allowed => line => (line.match(CW_KANA_RUN) || []).filter(run => KANA.test(run))
+  .every(run => allowed.includes(run) || allowed.some(keep => keep.includes(run)));
+const KUMA = {
+  'bg-motion': { scripts: ['js/main.js', 'js/shortcut.js'], styles: ['css/motion-maker-style.css'], locales: ['zh-TW', 'ko', 'ja'], hooks: 150, inline: 140, attrs: 7 },
+  'icon-maker': { scripts: ['main.js'], styles: ['style.css'], hooks: 60, inline: 45, attrs: 8 },
+  'session-log': { scripts: ['js/log_tool.js', 'js/shortcut.js'], styles: ['css/log_tool_style.css'], hooks: 125, inline: 90, attrs: 25,
+    allow: (line, n, file) => file === 'js/log_tool.js' && keptRuns(SL_KEPT_JA)(line) },
+  'session-report': { scripts: ['js/main.js', 'js/template.js'], styles: ['css/report_gen_style.css'], hooks: 90, inline: 65, attrs: 20,
+    allow: (line, n, file) => file === 'js/main.js' && keptRuns(SR_KEPT_JA)(line) },
+  'variant-manager': { scripts: ['js/main.js'], styles: ['css/style.css'], hooks: 40, inline: 30, attrs: 6 },
+  'scenario-cards': { scripts: ['js/main.js', 'js/parser.js', 'js/render.js', 'js/shortcut.js'], styles: ['css/snippet_builder_style.css'], hooks: 30, inline: 18, attrs: 12 }
+};
+const kuma = {};
+for (const name of KUMA_TOOLS) {
+  const cfg = KUMA[name];
+  kuma[name] = checkTool({
+    dir: `tools/${name}`,
+    dict: `i18n.${name}.js`,
+    locale: 'ja',
+    locales: cfg.locales,
+    scripts: cfg.scripts,
+    styles: cfg.styles,
+    minHooks: cfg.hooks,
+    allowSource: cfg.allow,
+    licence: false
+  });
+  section(`tools/${name} (kuma)`);
+  const files = listFiles(`tools/${name}`);
+  check('沒有 LICENSE（上游未附授權條款）', !exists(`tools/${name}/LICENSE`));
+  const images = files.filter(f => /\.(png|jpe?g|gif|webp|ico|svg)$/i.test(f));
+  check('不收上游的任何圖片檔', images.length === 0, images.join(', '));
+  const all = files.filter(f => /\.(html|js|css)$/.test(f)).map(f => read(f)).join('\n');
+  check('沒有存取分析', !/gtag|googletagmanager|analytics\.js|ToolAnalytics/.test(all));
+  check('沒有導向作者回報表單的按鈕', !all.includes('trpg-web-tools/report'));
+  check('沒有引用作者站台的圖示', !/kuma_icon|kuma_ufo|assets\/img\//.test(all));
+  check('頁首是合輯列', read(`tools/${name}/index.html`).includes('data-i18n="nav.home"'));
+  /* 合輯版改過程式，問題回報不該送到原作者那裡。 */
+  const dictSrc = read(`tools/${name}/i18n.${name}.js`);
+  check('不請使用者把問題回報給原作者', !/不具合報告|問題回報|오류 제보/.test(dictSrc + read(`tools/${name}/index.html`)));
+}
+section('kuma kept Japanese');
+const slSrc = read('tools/session-log/js/log_tool.js');
+for (const keep of SL_KEPT_JA) check(`session-log 仍保留「${keep}」`, slSrc.includes(keep));
+const srSrc = read('tools/session-report/js/main.js');
+for (const keep of SR_KEPT_JA) check(`session-report 仍保留「${keep}」`, srSrc.includes(keep));
+section('kuma dynamic keys');
+/* bg-motion 的效果與圖片處理名稱以 `effect.${id}` 等方式組出來，靜態掃描看不到。 */
+const bgHtml = read('tools/bg-motion/index.html');
+const bgEffects = [...new Set([...bgHtml.matchAll(/data-effect="([^"]+)"/g)].map(m => m[1]))];
+const bgFilters = [...new Set([...bgHtml.matchAll(/data-filter="([^"]+)"/g)].map(m => m[1]))];
+check('bg-motion 解析出效果與圖片處理清單', bgEffects.length >= 20 && bgFilters.length >= 20,
+  `effects ${bgEffects.length}, filters ${bgFilters.length}`);
+for (const locale of ['zh-TW', 'ja', 'ko']) {
+  const m = kuma['bg-motion'].messages[locale];
+  const missing = [...bgEffects.filter(e => !m[`effect.${e}`]).map(e => `effect.${e}`),
+    ...bgFilters.filter(f => !m[`filter.${f}`]).map(f => `filter.${f}`)];
+  check(`bg-motion ${locale} 每個效果與圖片處理都有名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+const vmSrc = read('tools/variant-manager/js/main.js');
+const vmIds = [...(vmSrc.match(/SUGGESTION_IDS = \[([\s\S]*?)\]/) || ['', ''])[1].matchAll(/'(\w+)'/g)].map(m => m[1]);
+check('variant-manager 解析出 23 個差分名稱建議', vmIds.length === 23, `found ${vmIds.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = vmIds.filter(id => !kuma['variant-manager'].messages[locale][`suggest.${id}`]);
+  check(`variant-manager ${locale} 每個建議名稱都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+/* scenario-cards 的狀態列訊息多半以 setStatus("status.x") 間接傳入。 */
+const scKeys = [...new Set(['js/main.js', 'js/shortcut.js'].flatMap(f =>
+  [...read(`tools/scenario-cards/${f}`).matchAll(/setStatus\(["']([\w.]+)["']/g)].map(m => m[1])))];
+check('scenario-cards 解析出狀態列訊息 key', scKeys.length >= 20, `found ${scKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = scKeys.filter(k => !kuma['scenario-cards'].messages[locale][k]);
+  check(`scenario-cards ${locale} 狀態列訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+/* 跑團紀錄簿的每一列可以直接送到團報產生器：連的是合輯裡的那一份。 */
+check('session-log 連到合輯內的 session-report',
+  slSrc.includes('../session-report/') && !slSrc.includes('session-report-generator'));
+
 /* ---- ccfolia-cropper ---- */
 checkTool({
   dir: 'tools/ccfolia-cropper',
@@ -2038,6 +2176,8 @@ checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 130);
 checkInlineText('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 130);
+checkInlineText('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 2);
+for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
 checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
 checkInlineText('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 150);
 checkInlineText('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 20);
@@ -2126,6 +2266,8 @@ checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 10);
 checkAttrPairs('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 30);
+checkAttrPairs('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 1);
+for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
 checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
 checkAttrPairs('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 15);
 checkAttrPairs('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 2);
