@@ -63,6 +63,7 @@ I18N.register({
     'home.credits.heading': '來源與授權',
     'home.credits.body': '本站工具由 sotsotssi、shiki365、Taku_Taku_Taku、kimtaehee2018-maker、巡涯学派、Wool&Wag、johnko00、baegop157902、違法建築與 hakoniwa 製作（CoC 劇本排版工具與輕量轉場 APNG 產生器的作者不明），此處為加上繁體中文介面的合併版本。',
     'license.mit': 'MIT 授權',
+    'license.external': '連到原作者網站的官方繁中版（MIT）',
     'license.unlicensed': '未授權：原作者未釋出授權條款，此工具之權利屬原作者所有，僅供試用。',
     'license.unlicensed.assets': '未授權：原作者未釋出授權條款，此工具（含全部圖像素材）之權利屬原作者所有，僅供試用。'
   },
@@ -129,6 +130,7 @@ I18N.register({
     'home.credits.heading': '출처 및 라이선스',
     'home.credits.body': '이 사이트의 도구는 sotsotssi·shiki365·Taku_Taku_Taku·kimtaehee2018-maker·巡涯学派·Wool&Wag·johnko00·baegop157902·違法建築·hakoniwa 님의 작품(CoC 시나리오 조판 도구와 초경량 장면 전환 APNG 생성기는 작자 미상)이며, 번체 중국어 UI를 추가해 합친 버전입니다.',
     'license.mit': 'MIT 라이선스',
+    'license.external': '원작자 사이트의 공식 버전으로 이동 (MIT)',
     'license.unlicensed': '라이선스 없음: 원작자가 라이선스를 명시하지 않았습니다. 이 도구의 권리는 원작자에게 있으며 시험용으로만 제공됩니다.',
     'license.unlicensed.assets': '라이선스 없음: 원작자가 라이선스를 명시하지 않았습니다. 이 도구(모든 이미지 소재 포함)의 권리는 원작자에게 있으며 시험용으로만 제공됩니다.'
   },
@@ -195,6 +197,7 @@ I18N.register({
     'home.credits.heading': '出典とライセンス',
     'home.credits.body': 'このサイトのツールは sotsotssi さん・shiki365 さん・Taku_Taku_Taku さん・kimtaehee2018-maker さん・巡涯学派 さん・Wool&Wag さん・johnko00 さん・baegop157902 さん・違法建築 さん・hakoniwa さんの作品（CoC シナリオ組版ツールと軽量トランジション APNG メーカーは作者不明）で、繁体字中国語 UI を追加してまとめた版です。',
     'license.mit': 'MIT ライセンス',
+    'license.external': '作者のサイトの公式版へ移動（MIT）',
     'license.unlicensed': 'ライセンスなし：原作者がライセンスを明示していません。このツールの権利は原作者にあり、お試し用としてのみ収録しています。',
     'license.unlicensed.assets': 'ライセンスなし：原作者がライセンスを明示していません。このツール（すべての画像素材を含む）の権利は原作者にあり、お試し用としてのみ収録しています。'
   }

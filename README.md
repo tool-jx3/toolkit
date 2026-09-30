@@ -37,7 +37,7 @@
 | [影片轉動圖工具](tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
 | [GIF 接合器](tools/gif-combiner/) | 把多張 GIF 的影格對齊時間軸排進同一張畫面，拖曳排版後合成一張 GIF |
 | [違法建築的 TRPG 實驗室](tools/trpg-lab/) | 一站收齊九個跑團工具：CoC 7 版擲骰、調查員角色卡、NPC 製作／管理、TRPG 地圖編輯器、網格／六角格產生器與量尺產生器、BCDice 傷害計算 |
-| [JIZURA 字面](tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列 |
+| [JIZURA 字面](tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
 | [Anime2.5DRig](tools/anime-rig/) | 把分好部件的 PSD 拖進來就自動綁定成 2.5D 虛擬形象：眨眼、嘴型、頭髮物理、攝影機臉部追蹤與麥克風嘴型，可匯出透明 PNG 與 WebM／MP4 |
 | [CoC 劇本排版工具](tools/coc-typesetter/) | 把克蘇魯神話 TRPG 劇本貼進來，排成書本般的紙面：章節自動編號、自動目錄，描述、檢定、KP 資訊、理智檢定各有樣式，印成 A5／B5／A4 的 PDF |
 | [輕量轉場 APNG 產生器](tools/apng-wipe/) | 做出 15×15 px 起跳、只有幾 KB 的透明轉場動畫：淡入淡出或 8 個方向的抹除，可選顏色、秒數、播一次或循環 |
@@ -57,9 +57,9 @@ npm run serve
 
 （`emotion-maker` 的合本圖片產生功能受 canvas 安全限制影響，需以伺服器方式開啟。）
 
-### 重新建置 cutin、character-editor 與 jizura
+### 重新建置 cutin 與 character-editor
 
-二十七個工具裡有三個要先建置才能放進 `tools/`。原始碼收在 `vendor/` 底下，
+有兩個工具要先建置才能放進 `tools/`。原始碼收在 `vendor/` 底下，
 建置產物（已提交進 repo）輸出到各自的 `tools/` 目錄，`vendor/` 不參與網站發佈。
 
 `cutin` 與 `character-editor` 的上游是 React + TypeScript 專案。改動原始碼後要重新建置：
@@ -76,19 +76,6 @@ npm run build
 `character-editor` 請用 `npm ci`：`npm install` 在解析 vitest 的 peer
 相依時會踩到 npm 10.9 的一個錯誤（`Cannot read properties of null`），
 上游的 lockfile 則可以正常安裝。
-
-`jizura` 的上游用一支 Python 腳本把 `src/*.js`、樣式與 mp4-muxer 串成單檔 HTML，
-英文版是建置時套翻譯表做出來的。收錄版照同一套做法產生繁中版與日文版兩頁，
-只需要 Python 3，沒有其他相依：
-
-```
-python3 vendor/jizura/build_toolkit.py
-```
-
-輸出 `tools/jizura/index.html`（繁中）與 `tools/jizura/ja/index.html`（日文）。
-繁中的介面字串在 `vendor/jizura/app/chinese.py`，部件、風格與氛圍的名稱在
-`app/chinese.js`；上游改了日文原文而翻譯表沒跟上時，那段字串會留在日文，
-`npm test` 會抓到。
 
 ## 測試
 
@@ -119,15 +106,14 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的十一個工具、
 `ccfolia-cropper` 與 `pair-maker` 為韓文，shiki365 的四個工具、`cutin`、
-`character-editor`、`portrait-size`、`height-board`、`trpg-lab`、`jizura` 與
+`character-editor`、`portrait-size`、`height-board`、`trpg-lab` 與
 `anime-rig` 為日文；`room-zip` 原文為日文，另外附了一份韓文。
 
 `coc-typesetter` 與 `apng-wipe` 只有繁體中文：上游是日文工具，收錄時改寫成只有繁中
 （`coc-typesetter` 連劇本的標記語法與版面字型都改成中文），沒有留下日文介面，所以頁面上沒有語言選單。
 
-`jizura` 是建置出繁中、日文兩個頁面（`tools/jizura/` 與 `tools/jizura/ja/`），
-頁首的語言連結直接換頁；選擇同樣記在下面這個共用的 key，在合輯裡選過日文，
-開啟 `jizura` 時就會直接進日文版。
+`jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
+`tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
 
 `status-bar`、`chat-window` 與 `foreground-frame` 的字型欄可以改填「以名稱指定」，
 使用觀看者電腦上已安裝的字型。Chrome／Edge 還能用「從清單選」開出一份附樣張的清單
@@ -159,8 +145,7 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 ## 授權
 
 根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：`assets/`、
-`index.html`、`tests/`、各 `i18n.*.js` 字典、`jizura` 的繁中翻譯表與建置腳本
-（`vendor/jizura/app/chinese.*`、`vendor/jizura/build_toolkit.py`）、`anime-rig`
+`index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁、`anime-rig`
 的繁中使用說明、`coc-typesetter` 的範例劇本，以及 emotion-maker 的資產路徑改造。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 

@@ -39,13 +39,12 @@
 | video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
 | gif-combiner | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `3aa7de8` | MIT |
 | trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
-| jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | `1b48bea` | MIT |
+| jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | —（連到原站；2026-09-25～30 曾收錄 `1b48bea` 的副本） | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 | coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
 | apng-wipe | 作者與來源都不明（使用者提供的單檔 HTML） | 2026-09-26 取得 | **未授權** |
 
-十八個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中（`jizura` 的由建置腳本從 `vendor/jizura/`
-複製過去，單檔頁面裡也另外附了一份）。
+收錄副本的 MIT 工具，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
 shiki365 的四個工具、`cutin`、`portrait-size`、`height-board` 與 `room-zip` 原文為日文，
 收錄時另有以下調整：
@@ -417,50 +416,20 @@ Google Fonts 連結一併載入）；Noto Sans JP 雖然有漢字，字形是日
   `'Material Symbols'`，對不上實際載入的 `Material Symbols Outlined`，圖示會顯示成
   英文單字。
 
-## jizura：JIZURA 字面
+## jizura：JIZURA 字面（連到原站）
 
 上游 `852wa/JIZURA`（hakoniwa）是單檔 HTML 的歌詞動態影片產生器：貼上歌詞、點按拍點，
 就自動替每一行排出版面、登場／退場動畫、裝飾與鏡頭，匯出 MP4、綠幕、黑幕或 PNG 序列。
-它自己的 README 說明了「文字 PV」的做法與每個選項，本 repo 不另寫說明。
 
-### 收了什麼
+2026-09-25 起合輯曾收錄 `1b48bea` 的副本：照上游產生英文版的方式，建置時以翻譯表把日文字串
+換成繁中，產生繁中與日文兩個頁面。同一天，上游整合了社群貢獻的繁體中文版（貢獻者
+[Zaious](https://github.com/Zaious)，上游 PR #6），之後也持續跟著新功能更新，另有簡體中文、韓文等版本。
 
-原始碼快照收在 `vendor/jizura/`：`src/`（三十一個模組，約 1.8 MB）、`app/`（介面標記、樣式與
-上游的英文翻譯表）、`vendor/mp4-muxer.min.js`（MIT，授權見 `vendor/jizura/THIRD_PARTY_NOTICES.md`）、
-`build.py`、`docs/`、`tools/`、`LICENSE` 與兩份 README。下列檔案不收：
-
-- After Effects 的腳本與 CEP 面板（`JIZURA_AE*.jsx`、`JIZURA_CEP*.zip`、`ae/`、`cep/`、
-  `build_ae.py`、`build_cep.py`）：那是 AE 的外掛，不是網頁工具。頁面上的「匯出給 AE」照留，
-  匯出的 JSON 要搭配上游的 AE 面板使用，面板請到上游下載。
-- `index.html` 與 `en/`：上游的建置產物（日文版、英文版），收錄版自己建。
-- `dev/`：上游的開發測試腳本（Node 與 Python，會用到 AE 的模擬環境）。
-
-### 繁中版照上游產生英文版的方式建置
-
-上游的日文字串散在近三萬行程式碼裡，英文版不是改成 i18n key，而是建置時做字串取代
-（`app/english.py` 的替換表），部件、風格與氛圍的名稱則在各表現包登錄完、編輯器啟動前
-改寫（`app/english.js`）。收錄版照同一套機制加上繁中：`app/chinese.py`（鍵與 `english.py`
-完全相同，值換成繁中）與 `app/chinese.js`（七百多個部件、24 種風格、7 種氛圍與範例歌詞），
-由 `build_toolkit.py` 產生兩個頁面：
-
-- `tools/jizura/index.html`：繁中版。
-- `tools/jizura/ja/index.html`：日文版，除了頁首之外與上游的 `index.html` 相同。
-
-這樣上游更新時，只要把新的原始碼放進 `vendor/jizura/`、補上新的翻譯再重建即可；
-`tests/smoke.mjs` 會檢查繁中版裡沒有殘留假名、每個部件都有譯名。內部 ID 與專案 JSON
-不隨語言改變，繁中版、日文版與上游存出來的專案檔可以互相開啟。
-
-與上游 `build.py` 不同的地方：
-
-- 不輸出英文版。頁首的英文切換換成「← TRPG Toolkit」與繁中／日文兩頁的連結；選擇記在
-  合輯共用的 `trpg-toolkit-locale`，在合輯裡選過日文，開啟繁中頁時會直接換到日文頁。
-- 拿掉 canonical、hreflang 與 OG／Twitter meta（原作者站台的識別）。
-- 頁面最前面加了一段註解，附上 JIZURA 的 MIT 授權全文：單檔頁面離開這個 repo 也帶著授權。
-- 繁中版的介面字型改用 Noto Sans TC（IBM Plex Sans JP 的漢字是日文字形）。
-
-畫面上的歌詞字型不用另外處理：上游本來就會判斷歌詞的語言（有假名是日文；只有漢字時看
-繁簡特有字），繁中歌詞會自動換成 Noto Sans TC、Noto Serif TC、霞鶩文楷等繁中字型。
-繁中版的範例歌詞也改成繁中，所以一開頁面看到的就是繁中字型的效果。
+既然原作者已經提供官方繁中版，合輯自 2026-09-30 起不再收錄副本，`vendor/jizura/` 與建置產物一併移除。
+`tools/jizura/` 改成一個轉址頁：依合輯共用的語言設定（`trpg-toolkit-locale`）跳到原站的對應版本——
+繁中（預設）到 `https://852wa.github.io/JIZURA/zh-hant/`，日文到原站首頁，韓文到 `ko/`；
+沒有 JavaScript 時由 `<meta http-equiv="refresh">` 導到繁中版。以前收錄版的日文頁網址
+`tools/jizura/ja/` 也留著，會導到原站的日文版。首頁卡片的徽章改成「連到原作者網站的官方繁中版」。
 
 ## anime-rig：Anime2.5DRig
 
@@ -569,13 +538,12 @@ APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任�
   上傳圖片的對話框比較不會擋。檔案內容完全相同。
 - 單檔 HTML 拆成 `index.html`、`styles.css` 與 `app.js`，頁首加上「← TRPG Toolkit」。
 
-## 需要建置的三個工具
+## 需要建置的兩個工具
 
-`cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，`jizura`
-的上游則用 Python 腳本把原始碼串成單檔 HTML，都不能直接把檔案放進 `tools/` 就跑。
-因此原始碼快照收在 `vendor/` 底下，建置產物提交在各自的 `tools/` 目錄，重建方式見
-[README](README.md#重新建置-cutincharacter-editor-與-jizura)。`vendor/` 不參與網站發佈。
-`jizura` 的做法見上面的 [jizura 一節](#jizurajizura-字面)，以下兩段只講 React 的兩個工具。
+`cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，
+不能直接把檔案放進 `tools/` 就跑。因此原始碼快照收在 `vendor/` 底下，建置產物提交在
+各自的 `tools/` 目錄，重建方式見
+[README](README.md#重新建置-cutin-與-character-editor)。`vendor/` 不參與網站發佈。
 
 `character-editor` 另有一點必須留意：`src/lib/editScreenText.ts` 的日文字面常數
 幾乎全是**解析用的錨點**，用來切分使用者從 CCFOLIA 編輯畫面複製貼上的文字
@@ -689,8 +657,7 @@ magic-circle 的繁體中文翻譯移植自
 
 ## 本 repo 新增的部分
 
-`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`jizura` 的繁中翻譯表與
-建置腳本（`vendor/jizura/app/chinese.py`、`app/chinese.js`、`build_toolkit.py`）、`anime-rig` 的
+`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
 `guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
 以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
 `tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、

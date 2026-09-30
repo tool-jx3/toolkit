@@ -1,6 +1,5 @@
 /* 靜態 smoke 檢查。以 `npm test` 執行。 */
 import { check, section, summary, loadI18N, read, exists, listFiles } from './harness.mjs';
-import vm from 'node:vm';
 
 /* ---- 引擎行為 ---- */
 section('i18n engine');
@@ -1455,99 +1454,21 @@ check('地圖編輯器的 optgroup 標籤都有兩種語言的譯文', mapLabelK
 check('地圖編輯器切語言時重套 optgroup 標籤', /data-label-key/.test(mapEditor));
 
 /* ---- jizura ---- */
-/* JIZURA 照上游產生英文版的方式建置：日文原始碼為準，建置時以 app/chinese.py 的翻譯表
- * 取代 12_ui.js、11_export.js 與介面標記裡的字串，部件、風格與氛圍的名稱由 app/chinese.js
- * 在執行時改寫。其餘模組原樣串進頁面——那些模組裡的日文是部件的預設名稱（會被
- * chinese.js 蓋掉）、假名判斷表與羅馬字對照這類資料，因此不能整頁掃假名，而是分段檢查。 */
+/* JIZURA 的原作者已提供官方繁中版（社群貢獻，上游 PR #6），合輯不再收錄副本。
+ * tools/jizura/ 只剩轉址頁：依共用的語言設定跳到原站的對應版本，沒有 JavaScript 時導到繁中版。 */
 section('tools/jizura');
-const JZ = 'vendor/jizura';
-const jzZh = read('tools/jizura/index.html');
-const jzJa = read('tools/jizura/ja/index.html');
-const jzFiles = listFiles(`${JZ}/src`).filter(f => f.endsWith('.js')).map(f => f.split('/').pop());
-const jzSrc = Object.fromEntries(jzFiles.map(f => [f, read(`${JZ}/src/${f}`)]));
-const JZ_LOCALIZED = ['11_export.js', '12_ui.js'];
-const jzStale = jzFiles.filter(f => !JZ_LOCALIZED.includes(f) && !jzZh.includes(jzSrc[f]));
-check('繁中頁由目前的原始碼建置（未翻譯的模組原樣收錄）', jzFiles.length >= 30 && jzStale.length === 0,
-  `與原始碼不符（改了 vendor/jizura 之後要重跑 build_toolkit.py）: ${jzStale.join(', ')}`);
-check('日文頁由目前的原始碼建置（所有模組原樣收錄）', jzFiles.every(f => jzJa.includes(jzSrc[f])));
-check('繁中頁收了 app/chinese.js，日文頁沒有', jzZh.includes(read(`${JZ}/app/chinese.js`))
-  && !jzJa.includes(read(`${JZ}/app/chinese.js`)));
-check('兩頁都附上 JIZURA 的 MIT 授權全文', [jzZh, jzJa].every(h => h.includes(read(`${JZ}/LICENSE`).trim())));
-check('mp4-muxer 的署名留在頁面裡', [jzZh, jzJa].every(h => h.includes('mp4-muxer v5.2.2 | MIT License')));
-check('html lang 分別為 zh-Hant-TW 與 ja', /<html lang="zh-Hant-TW">/.test(jzZh) && /<html lang="ja">/.test(jzJa));
-/* 在兩頁之間換頁的是一般連結；記下選擇的是 head 裡那段小腳本。 */
-check('繁中頁的頁首：回合輯首頁、連到日文頁', jzZh.includes('<a class="tk-home" href="../../">')
-  && jzZh.includes('<a href="ja/" lang="ja" data-locale="ja">日本語</a>'));
-check('日文頁的頁首：回合輯首頁、連回繁中頁', jzJa.includes('<a class="tk-home" href="../../../">')
-  && jzJa.includes('<a href="../" lang="zh-Hant-TW" data-locale="zh-TW">繁體中文</a>'));
-check('兩頁都依合輯共用的語言設定換頁', [jzZh, jzJa].every(h => h.includes("var KEY = 'trpg-toolkit-locale';"))
-  && jzZh.includes("if (l === 'ja') location.replace('ja/'") && jzJa.includes("if (l && l !== 'ja') location.replace('../'"));
-check('拿掉了原作者站台的 canonical、hreflang 與 OG meta',
-  [jzZh, jzJa].every(h => !/rel="canonical"|hreflang=|property="og:|name="twitter:/.test(h)));
-check('繁中頁的介面字型改用 Noto Sans TC', jzZh.includes('--ui: "Noto Sans TC"') && jzZh.includes('family=Noto+Sans+TC'));
-
-const jzStrip = text => stripComments(text, 'js');
-const jzBody = jzZh.slice(jzZh.indexOf('<body>'), jzZh.indexOf('<script>', jzZh.indexOf('<body>')));
-check('繁中頁的介面標記沒有假名', jzBody.length > 5000 && !KANA.test(stripComments(jzBody, 'html')),
-  (stripComments(jzBody, 'html').match(/.{0,20}[ぁ-ゖァ-ヺ].{0,20}/) || [''])[0]);
-/* 套過翻譯表的兩個模組：從各自的檔頭（未翻譯）切到下一個模組的開頭（原樣收錄）。 */
-const jzSegment = file => {
-  const head = jzSrc[file].split('\n').slice(0, 2).join('\n');
-  const next = jzFiles[jzFiles.indexOf(file) + 1];
-  const start = jzZh.indexOf(head);
-  const end = next ? jzZh.indexOf(jzSrc[next], start) : jzZh.indexOf('</script>', start);
-  return start >= 0 && end > start ? jzZh.slice(start, end) : '';
-};
-for (const file of JZ_LOCALIZED) {
-  const seg = jzSegment(file);
-  const leaked = jzStrip(seg).split('\n').filter(l => KANA.test(l)).map(l => l.trim().slice(0, 80));
-  check(`繁中頁的 ${file} 套過翻譯表，沒有殘留假名`, seg.length > 5000 && leaked.length === 0,
-    `${seg.length ? '' : '找不到這一段；'}${leaked.slice(0, 5).join('\n       ')}`);
-}
-
-/* 部件名稱：在 vm 裡載入 12_ui.js 以外的模組（DOM 用一個什麼都吞的替身），再執行 chinese.js。 */
-const jzNoop = () => new Proxy(function () {}, {
-  get: (t, k) => (k === Symbol.toPrimitive ? () => '' : jzNoop()),
-  apply: () => jzNoop(), construct: () => jzNoop(), set: () => true
-});
-const jzCtx = vm.createContext({ console, performance: { now: () => 0 }, setTimeout, clearTimeout,
-  document: jzNoop(), FontFace: jzNoop(), OffscreenCanvas: jzNoop(), Path2D: jzNoop() });
-jzCtx.window = jzCtx; jzCtx.self = jzCtx;
-let jzLoadError = '';
-for (const f of jzFiles.filter(f => f !== '12_ui.js')) {
-  try { vm.runInContext(jzSrc[f], jzCtx, { filename: f }); } catch (e) { jzLoadError = `${f}: ${e.message}`; break; }
-}
-check('JIZURA 的模組能在 Node 裡載入（部件登錄表）', !jzLoadError && !!jzCtx.J, jzLoadError);
-if (jzCtx.J) {
-  const J = jzCtx.J;
-  const jaNames = {};
-  for (const g of J.GROUP_KEYS) for (const k of J.order(g)) jaNames[`${g}.${k}`] = J.registry(g)[k].name;
-  const jaStyles = Object.keys(J.STYLES), jaMoods = Object.keys(J.MOODS);
-  const zhSource = read(`${JZ}/app/chinese.js`);
-  const literal = name => {
-    const m = zhSource.match(new RegExp(`const ${name} = (\\{[\\s\\S]*?\\n  \\});`));
-    return m ? vm.runInNewContext(`(${m[1]})`) : {};
-  };
-  const titles = literal('titles'), styles = literal('styles'), moods = literal('moods');
-  const parts = Object.keys(jaNames);
-  check('部件登錄表有七百個以上的部件', parts.length >= 700, `found ${parts.length}`);
-  const missing = parts.filter(p => { const [g, k] = p.split('.'); return !(titles[g] && titles[g][k]); });
-  check('每個部件都有繁中名稱', missing.length === 0, `缺: ${missing.slice(0, 10).join(', ')}（共 ${missing.length} 個）`);
-  const stale = Object.entries(titles).flatMap(([g, t]) => Object.keys(t).map(k => `${g}.${k}`)).filter(p => !(p in jaNames));
-  check('chinese.js 沒有多出上游已移除的部件', stale.length === 0, stale.join(', '));
-  check('每種風格都有繁中名稱與說明', jaStyles.length >= 24 && jaStyles.every(k => styles[k] && styles[k].length === 2)
-    && Object.keys(styles).every(k => jaStyles.includes(k)), `styles: ${jaStyles.length}`);
-  check('每種氛圍都有繁中名稱', jaMoods.length >= 7 && jaMoods.every(k => moods[k]) && Object.keys(moods).every(k => jaMoods.includes(k)));
-  vm.runInContext(zhSource, jzCtx, { filename: 'app/chinese.js' });
-  const kanaNames = [
-    ...parts.filter(p => { const [g, k] = p.split('.'); return KANA.test(J.registry(g)[k].name); }),
-    ...jaStyles.filter(k => KANA.test(J.STYLES[k].name + J.STYLES[k].desc)),
-    ...jaMoods.filter(k => KANA.test(J.MOODS[k].name))
-  ];
-  check('執行 chinese.js 之後，部件、風格、氛圍的名稱都沒有假名', kanaNames.length === 0, kanaNames.slice(0, 10).join(', '));
-  check('繁中頁的範例歌詞是繁中', !KANA.test(J.SAMPLE_LYRICS) && J.SAMPLE_LYRICS.split('\n').length === 4
-    && jzBody.includes(J.SAMPLE_LYRICS.split('\n')[0]));
-}
+const JZ_BASE = 'https://852wa.github.io/JIZURA/';
+const jzPage = read('tools/jizura/index.html');
+check('不再收錄 JIZURA 的副本（vendor/jizura 與建置產物都移除了）',
+  !exists('vendor/jizura') && listFiles('tools/jizura').sort().join(',') === 'tools/jizura/index.html,tools/jizura/ja/index.html');
+check('轉址頁依共用的語言設定選原站版本', jzPage.includes("localStorage.getItem('trpg-toolkit-locale')")
+  && jzPage.includes(`var BASE = '${JZ_BASE}';`)
+  && jzPage.includes("var EDITION = { 'ja': '', 'ko': 'ko/', 'zh-TW': 'zh-hant/' };"));
+check('沒有 JavaScript 時導到原站的繁中版', jzPage.includes(`<meta http-equiv="refresh" content="0; url=${JZ_BASE}zh-hant/">`));
+check('轉址頁附上三種語言的手動連結與回合輯首頁的連結',
+  [`${JZ_BASE}zh-hant/`, `${JZ_BASE}"`, `${JZ_BASE}ko/`].every(u => jzPage.includes(`href="${u.replace(/"$/, '')}"`))
+  && jzPage.includes('<a class="back" href="../../">← TRPG Toolkit</a>') && !KANA.test(stripComments(jzPage, 'html').replace(/<a [^>]*lang="ja"[^>]*>[^<]*<\/a>/, '')));
+check('舊的日文頁網址導到原站的日文版', read('tools/jizura/ja/index.html').includes(`location.replace('${JZ_BASE}')`));
 
 /* ---- anime-rig ---- */
 /* Anime2.5DRig：rigger.js 裡比對 PSD 圖層名稱的日文別名表（ALIAS_GROUPS），以及處理
@@ -1923,6 +1844,8 @@ for (const name of TOOLS) {
 /* 每張卡片的授權徽章都要跟該工具目錄裡有沒有 LICENSE 對得上。徽章是手寫的，
  * 新增工具時很容易沿用上一張卡片而標錯（把未授權的標成 MIT 就是誤導）。
  * emotion-maker 另含 39 張圖像素材，故其徽章用 license.unlicensed.assets。 */
+const TOOLS_EXTERNAL = ['jizura'];
+check('首頁的 JIZURA 卡片標示連到原站', /href="\.\/tools\/jizura\/"[\s\S]{0,1600}?data-i18n="license\.external"/.test(homeHtml));
 check('首頁字典有三種授權徽章',
   ['license.mit', 'license.unlicensed', 'license.unlicensed.assets'].every(k => homeZh.has(k)));
 const homeCards = [...homeHtml.matchAll(/<li class="tool-card">([\s\S]*?)<\/li>/g)].map(m => m[1]);
@@ -1930,8 +1853,10 @@ check('首頁卡片數與工具數一致', homeCards.length === TOOLS.length,
   `cards: ${homeCards.length}, tools: ${TOOLS.length}`);
 for (const card of homeCards) {
   const name = (card.match(/href="\.\/tools\/([^/]+)\//) || [])[1];
-  const badge = (card.match(/class="badge [^"]*" data-i18n="([^"]+)"/) || [])[1];
-  const expected = exists(`tools/${name}/LICENSE`)
+  const badge = (card.match(/class="badge(?: [^"]*)?" data-i18n="([^"]+)"/) || [])[1];
+  /* 不再收錄副本、改連到原作者網站的工具，徽章標「連到原站」。 */
+  const expected = TOOLS_EXTERNAL.includes(name) ? ['license.external']
+    : exists(`tools/${name}/LICENSE`)
     ? ['license.mit']
     : ['license.unlicensed', 'license.unlicensed.assets'];
   check(`首頁 ${name} 的授權徽章與目錄裡的 LICENSE 相符`,
@@ -2178,16 +2103,14 @@ check('ATTRIBUTION.md 說明哪些字刻意不跟著語言走',
 /* cutin 需要建置，說明其原始碼位置與重建方式。 */
 check('ATTRIBUTION.md 說明 cutin 的建置流程',
   attribution.includes('vendor/cutin-maker'));
-check('README.md 說明三個工具的建置流程',
-  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor', 'python3 vendor/jizura/build_toolkit.py']
-    .every(p => read('README.md').includes(p)));
+check('README.md 說明兩個工具的建置流程',
+  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor'].every(p => read('README.md').includes(p)));
 /* ATTRIBUTION 與 README 之間的錨點連結：標題改了就會失效。 */
 check('ATTRIBUTION.md 指向 README 建置段落的錨點仍然有效',
-  attribution.includes('README.md#重新建置-cutincharacter-editor-與-jizura')
-  && read('README.md').includes('### 重新建置 cutin、character-editor 與 jizura'));
-check('ATTRIBUTION.md 說明 jizura 為何照上游的方式建置，以及不收 AE 外掛',
-  /## jizura：JIZURA 字面(?=[\s\S]*app\/english\.py)(?=[\s\S]*JIZURA_CEP)/.test(attribution));
-check('jizura 的建置產物目錄裡有上游的 LICENSE', read('tools/jizura/LICENSE') === read('vendor/jizura/LICENSE'));
+  attribution.includes('README.md#重新建置-cutin-與-character-editor')
+  && read('README.md').includes('### 重新建置 cutin 與 character-editor'));
+check('ATTRIBUTION.md 說明 jizura 改為連到原作者網站的官方繁中版',
+  /## jizura：JIZURA 字面（連到原站）(?=[\s\S]*Zaious)(?=[\s\S]*zh-hant\/)/.test(attribution));
 check('ATTRIBUTION.md 說明 coc-typesetter 的來源、未授權與只收繁中',
   /\| coc-typesetter \| \[scenario-tool-jade\.vercel\.app\]\([^)]+\)（作者不明[^|]*\| 2026-09-26 取得 \| \*\*未授權\*\* \|/.test(attribution)
   && attribution.includes('## 未授權的九個工具') && /## coc-typesetter：CoC 劇本排版工具(?=[\s\S]*===換頁===)(?=[\s\S]*不存在的四樓)/.test(attribution));
