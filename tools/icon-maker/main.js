@@ -525,6 +525,8 @@ async function copyPngToClipboard() {
 }
 
 I18N.mountSwitcher(document.getElementById("localeSelect"));
+/* 設定摘要會讀取 <select> 選項的文字，所以先讓引擎把靜態標記換成目前的語言再畫第一次。 */
+I18N.applyStaticDom();
 /* 語言切換：靜態標記由引擎換掉，這裡重畫 JS 寫進畫面的文字（設定摘要、預設名字、主題鈕、檔名欄）。 */
 I18N.onChange(() => {
   render();

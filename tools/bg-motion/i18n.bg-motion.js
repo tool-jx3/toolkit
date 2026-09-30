@@ -70,7 +70,7 @@ I18N.register({
     'effect.fadeBlack': '淡入淡出・黑',
     'effect.fadeWhite': '淡入淡出・白',
     'effect.fadeTransparent': '淡入淡出・透明',
-    'effect.transition': '轉場①（交叉淡化）',
+    'effect.transition': '轉場①（淡化）',
     'effect.transitionHardcut': '轉場②（硬切）',
     'effect.transitionWipe': '轉場③（擦除）',
     'effect.spinFallBlack': '旋轉墜落・黑',
@@ -104,9 +104,9 @@ I18N.register({
     'effectSub.zoomOut': '縮小',
     'effectSub.zoomOutWhite': '縮小＋白',
     'effectSub.zoomOutBlack': '縮小＋黑',
-    'effectSub.fadeBlack': '淡出成黑／從黑淡入',
-    'effectSub.fadeWhite': '淡出成白／從白淡入',
-    'effectSub.fadeTransparent': '淡出成透明／從透明淡入',
+    'effectSub.fadeBlack': '黑場淡出／淡入',
+    'effectSub.fadeWhite': '白場淡出／淡入',
+    'effectSub.fadeTransparent': '透明淡出／淡入',
     'effectSub.transition': '交叉淡化',
     'effectSub.transitionHardcut': '硬切',
     'effectSub.transitionWipe': '擦除',
@@ -238,7 +238,6 @@ I18N.register({
     /* ---- 頁尾 ---- */
     'footer.title': '使用須知',
     'footer.p1': '本工具是開發者 <a href="https://x.com/KumachanSteps" target="_blank" rel="noopener noreferrer">@KumachanSteps</a> 個人製作的非官方 TRPG 輔助工具。各 TRPG 系統、劇本與外部服務的使用條款與權利標示，請使用者自行確認。',
-    'footer.p2': '問題回報或功能建議，請透過 X 私訊 <a href="https://x.com/KumachanSteps" target="_blank" rel="noopener noreferrer">@KumachanSteps</a>。但不保證每一則回報或建議都會回覆或處理。',
 
     /* ---- 狀態訊息與提示（main.js） ---- */
     'fadeFill.image': '圖片',
@@ -529,7 +528,6 @@ I18N.register({
     /* ---- 頁尾 ---- */
     'footer.title': '利用上の注意',
     'footer.p1': '本ツールは、開発者 <a href="https://x.com/KumachanSteps" target="_blank" rel="noopener noreferrer">@KumachanSteps</a> による個人制作の非公式TRPG支援ツールです。 各TRPGシステム、シナリオ、外部サービスの利用規約・権利表記については、利用者自身でご確認ください。',
-    'footer.p2': '不具合報告や要望は、Xの <a href="https://x.com/KumachanSteps" target="_blank" rel="noopener noreferrer">@KumachanSteps</a> 宛のDMにてお送りください。 ただし、すべての報告や要望に返信・対応できるとは限りません。',
 
     /* ---- 狀態訊息與提示（main.js） ---- */
     'fadeFill.image': '画像',
@@ -820,7 +818,6 @@ I18N.register({
     /* ---- 頁尾 ---- */
     'footer.title': '이용 안내',
     'footer.p1': '이 도구는 개발자 <a href="https://x.com/KumachanSteps" target="_blank" rel="noopener noreferrer">@KumachanSteps</a>가 개인 제작한 비공식 TRPG 지원 도구입니다. 각 TRPG 시스템, 시나리오 및 외부 서비스의 이용 약관과 권리 표기는 이용자가 직접 확인해 주세요.',
-    'footer.p2': '오류 제보 및 기능 요청은 X의 <a href="https://x.com/KumachanSteps" target="_blank" rel="noopener noreferrer">@KumachanSteps</a> 계정으로 DM을 보내 주세요. 모든 제보와 요청에 답변하거나 대응할 수 있는 것은 아닙니다.',
 
     /* ---- 狀態訊息與提示（main.js） ---- */
     'fadeFill.image': '이미지',
