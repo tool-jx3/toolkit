@@ -1177,16 +1177,23 @@ function renderGridView() {
   }
 }
 
-/* 合輯版：素材資訊與原檔循環次數的文字抽成函式，切換語言時也會呼叫。 */
-function assetMetaText(fileData) {
-  return `${fileData.width} × ${fileData.height} px | ${state.mode === 'psd' ? T('meta.psdLayerPos', fileData.left || 0, fileData.top || 0) : fileData.isApng ? 'APNG' : T('meta.staticImage')}`;
+/* 合輯版：右欄的素材資訊與原檔循環次數，記下寫入時的內容，切換語言時照原樣重畫
+   （換了一批檔案之後，上游會留著舊的選取畫面，所以不能從 state 重新推算）。 */
+let assetMetaInfo = null;
+let origLoopPlays = null;
+
+function renderAssetMeta() {
+  const info = assetMetaInfo;
+  if (!info) return;
+  document.getElementById('assetDetailMeta').textContent = `${info.width} × ${info.height} px | ${info.mode === 'psd' ? T('meta.psdLayerPos', info.left || 0, info.top || 0) : info.isApng ? 'APNG' : T('meta.staticImage')}`;
 }
 
-function origLoopText(fileData) {
-  const origPlays = fileData.origNumPlays !== undefined ? fileData.origNumPlays : 0;
-  if (origPlays === 1) return T('loop.orig.once');
-  if (origPlays > 1) return T('loop.orig.n', origPlays);
-  return T('loop.orig.infinite');
+function renderOrigLoopInfo() {
+  const el = document.getElementById('textAssetOrigLoopInfo');
+  if (!el || origLoopPlays === null) return;
+  if (origLoopPlays === 1) el.textContent = T('loop.orig.once');
+  else if (origLoopPlays > 1) el.textContent = T('loop.orig.n', origLoopPlays);
+  else el.textContent = T('loop.orig.infinite');
 }
 
 function selectAsset(filename) {
@@ -1206,7 +1213,8 @@ function selectAsset(filename) {
   selControls.style.display = 'flex';
 
   document.getElementById('assetDetailName').textContent = fileData.layerName || filename.split('/').pop();
-  document.getElementById('assetDetailMeta').textContent = assetMetaText(fileData);
+  assetMetaInfo = { width: fileData.width, height: fileData.height, mode: state.mode, left: fileData.left, top: fileData.top, isApng: fileData.isApng };
+  renderAssetMeta();
 
   const prevCanvas = document.getElementById('assetPreviewCanvas');
   prevCanvas.width = fileData.thumbElement.width;
@@ -1244,9 +1252,8 @@ function selectAsset(filename) {
   if (apngLoopSec) {
     if (fileData.isApng) {
       apngLoopSec.style.display = 'flex';
-      if (document.getElementById('textAssetOrigLoopInfo')) {
-        document.getElementById('textAssetOrigLoopInfo').textContent = origLoopText(fileData);
-      }
+      origLoopPlays = fileData.origNumPlays !== undefined ? fileData.origNumPlays : 0;
+      renderOrigLoopInfo();
       const selLoop = document.getElementById('selectAssetApngLoop');
       if (selLoop) selLoop.value = fileData.customLoopMode || 'global';
       const numLoop = document.getElementById('numAssetApngLoopCount');
@@ -1428,9 +1435,13 @@ async function runApngCompressionTest() {
   }
 }
 
-/* 合輯版：檢視器標題列的尺寸與種類抽成函式，切換語言時也會呼叫。 */
-function inspectorMetaText(fileData) {
-  return `${fileData.width} × ${fileData.height} px (${state.mode === 'psd' ? T('meta.psdLayer') : fileData.isApng ? 'APNG' : T('meta.static')})`;
+/* 合輯版：檢視器標題列的尺寸與種類，記下寫入時的內容，切換語言時照原樣重畫。 */
+let inspectorMetaInfo = null;
+
+function renderInspectorMeta() {
+  const info = inspectorMetaInfo;
+  if (!info) return;
+  document.getElementById('inspectorMetaBadge').textContent = `${info.width} × ${info.height} px (${info.mode === 'psd' ? T('meta.psdLayer') : info.isApng ? 'APNG' : T('meta.static')})`;
 }
 
 function openSingleInspectorModal(filename) {
@@ -1442,7 +1453,8 @@ function openSingleInspectorModal(filename) {
   selectAsset(filename);
 
   document.getElementById('inspectorFileName').textContent = fileData.layerName || filename.split('/').pop();
-  document.getElementById('inspectorMetaBadge').textContent = inspectorMetaText(fileData);
+  inspectorMetaInfo = { width: fileData.width, height: fileData.height, mode: state.mode, isApng: fileData.isApng };
+  renderInspectorMeta();
 
   const apngStudioSec = document.getElementById('inspectorApngStudioSection');
   const testCard = document.getElementById('apngTestResultCard');
@@ -4040,15 +4052,9 @@ function refreshLocaleTexts() {
   renderCustomPresetsUI();
   renderCompressStatus();
   renderApngTestDetails();
-
-  const fileData = state.selectedFileName ? state.filesMap.get(state.selectedFileName) : null;
-  if (fileData) {
-    document.getElementById('assetDetailMeta').textContent = assetMetaText(fileData);
-    if (fileData.isApng) document.getElementById('textAssetOrigLoopInfo').textContent = origLoopText(fileData);
-    if (document.getElementById('singleInspectorModal').classList.contains('show')) {
-      document.getElementById('inspectorMetaBadge').textContent = inspectorMetaText(fileData);
-    }
-  }
+  renderAssetMeta();
+  renderOrigLoopInfo();
+  renderInspectorMeta();
 
   const btnPlay = document.getElementById('btnApngPlayPause');
   if (btnPlay) btnPlay.textContent = apngPlayer.isPlaying ? T('apng.pause') : T('apng.play');
