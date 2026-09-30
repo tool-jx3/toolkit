@@ -133,9 +133,19 @@
   }
 
   function labelFor(el) {
-    if (el.getAttribute("aria-label")) return;
+    if (el.getAttribute("aria-label") && !el.dataset.autoLabel) return;
     const label = el.closest(".row")?.querySelector(":scope > label");
-    if (label && label.textContent.trim()) el.setAttribute("aria-label", label.textContent.trim());
+    if (label && label.textContent.trim()) {
+      el.setAttribute("aria-label", label.textContent.trim());
+      el.dataset.autoLabel = "1";
+    }
+  }
+
+  /* TRPG Toolkit 合輯：上面從列標籤借來的 aria-label 只在綁定時設一次。這個檔案在
+   * DOMContentLoaded 之前就執行，當時列標籤還是 HTML 內嵌的繁中；語言引擎換好標籤後、
+   * 以及之後每次切換語言，都要照新的標籤重借一次（做法同 message-box）。 */
+  function refreshAutoLabels() {
+    for (const el of $$("[data-auto-label]")) labelFor(el);
   }
 
   // dragging: a slider is still being dragged. Chromium drops the drag when rows around the slider
@@ -559,6 +569,7 @@
   function relabelUI() {
     buildStaticUI();
     syncAll();
+    refreshAutoLabels();
     showDesignDesc();
     applySize();
     requestRender();
@@ -568,6 +579,7 @@
   function init() {
     I18N.mountSwitcher($("#localeSelect"));
     I18N.onChange(relabelUI);
+    document.addEventListener("DOMContentLoaded", refreshAutoLabels);
     buildStaticUI();
     wireEvents();
     let tab = "window";

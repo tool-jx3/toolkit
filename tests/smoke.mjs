@@ -1251,6 +1251,19 @@ check('vite 以相對路徑輸出到 tools/obs-tachie',
   /base:\s*'\.\/'/.test(read('vendor/obs-tachie-generator/vite.config.ts'))
   && read('vendor/obs-tachie-generator/vite.config.ts').includes('tools/obs-tachie'));
 
+/* shiki365 的三個 CSS 產生器替設定列的輸入元件從列標籤借 aria-label，上游只在綁定時借
+ * 一次；合輯版在語言引擎換好標籤後（DOMContentLoaded）與每次切換語言時重借，讀螢幕
+ * 軟體念出的欄位名才會跟畫面一致。 */
+section('shiki365 borrowed aria-labels');
+for (const tool of ['status-bar', 'chat-window', 'message-box']) {
+  const app = read(`tools/${tool}/app.v1.js`);
+  const relabel = (app.match(/function relabelUI\(\) \{[\s\S]*?\n  \}/) || [''])[0];
+  check(`${tool}：借來的標籤會記上 data-auto-label`, app.includes('el.dataset.autoLabel = "1"')
+    && app.includes('if (el.getAttribute("aria-label") && !el.dataset.autoLabel) return;'));
+  check(`${tool}：切換語言與載入完成時重借標籤`, relabel.includes('refreshAutoLabels()')
+    && app.includes('document.addEventListener("DOMContentLoaded", refreshAutoLabels)'));
+}
+
 /* ---- scenario-editor（劇本排版台）---- */
 /* 上游 sedn14636361/trpg-scenario-editor 是 CC0 的單一 HTML（約 11,000 行），拆成
  * index.html／styles.css／app.js，NPC 卡的各系統資料表另外搬到 npc-data.js。
