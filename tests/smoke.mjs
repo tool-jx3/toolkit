@@ -1363,6 +1363,30 @@ check('每個 CDN 網址都鎖了版本並記在 THIRD_PARTY_NOTICES', pdsUnpinn
 check('掛了語言切換器，切語言時重畫程式寫的文字',
   pdsApp.includes("I18N.mountSwitcher(document.getElementById('localeSelect'))") && /I18N\.onChange\(\(\) => \{/.test(pdsApp));
 
+/* ---- log-converter（CCFOLIA 日誌轉換器）---- */
+/* 刻意留著的韓文：自動選閒聊分頁與「全部分頁」檔案標籤的比對字樣（解析規則），以及作者的
+ * 品牌名「연연」（配色預設與頁尾署名，比照 pair-maker 的「배고픔」）。 */
+const LC_KEPT_KO = ['잡담', '전체', '연연'];
+const lc = checkTool({
+  dir: 'tools/log-converter',
+  dict: 'i18n.log-converter.js',
+  scripts: ['app.js'],
+  styles: ['styles.css'],
+  minHooks: 210,
+  allowSource: line => !HANGUL.test(LC_KEPT_KO.reduce((l, k) => l.split(k).join(''), line))
+});
+section('tools/log-converter');
+const lcApp = read('tools/log-converter/app.js'), lcHtml = read('tools/log-converter/index.html');
+for (const keep of ['잡담', '전체']) check(`app.js 仍保留解析用的「${keep}」`, lcApp.includes(keep));
+check('頁尾保留作者的品牌名', lcHtml.includes('연연'));
+check('閒聊分頁也認得繁中與日文介面的名稱',
+  /const OOC_TAB_NAMES = \['잡담', '閒聊', '雜談', '雑談'\]/.test(lcApp));
+/* Room ID 載入會呼叫 CCFOLIA 的 Firestore，上游自己也說已經被擋；收錄版整段拿掉。 */
+check('拿掉「用 Room ID 載入」', !/firestore|CcfoliaAPI|roomIdInput|loadRoomBtn/i.test(stripComments(lcApp, 'js') + stripComments(lcHtml, 'html')));
+check('保留 LICENSE（MIT）', /MIT License/.test(read('tools/log-converter/LICENSE')));
+check('掛了語言切換器，切語言時重畫程式寫的文字',
+  lcApp.includes('I18N.mountSwitcher(') && lcApp.includes('I18N.onChange('));
+
 /* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
  * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
@@ -2216,7 +2240,7 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'height-board', 'room-zip', 'pair-maker',
   'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe', 'message-box',
   'scenario-editor', 'obs-tachie', 'bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards',
-  'psd-studio', 'textbox', 'battlemap'];
+  'psd-studio', 'textbox', 'battlemap', 'log-converter'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -2248,7 +2272,7 @@ for (const card of homeCards) {
 }
 check('首頁標示原作者出處',
   ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
-    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa', 'max-enterme', 'sedn14636361', 'kumachansteps', 'fyam-hamu', 'usagineko7865-debug']
+    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa', 'max-enterme', 'sedn14636361', 'kumachansteps', 'fyam-hamu', 'usagineko7865-debug', 'Eon-00']
     .every(a => homeHtml.includes(`github.com/${a}`)));
 /* coc-typesetter 的作者不明，至少要標出取得的網址。 */
 check('首頁標示 coc-typesetter 的來源網址', homeHtml.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html'));
@@ -2317,6 +2341,7 @@ checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 130);
 checkInlineText('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 130);
+checkInlineText('tools/log-converter', 'tools/log-converter/index.html', ['tools/log-converter/i18n.log-converter.js'], 170);
 checkInlineText('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 130);
 checkInlineText('tools/battlemap', 'tools/battlemap/index.html', ['tools/battlemap/i18n.battlemap.js'], 19);
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
@@ -2410,6 +2435,7 @@ checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 10);
 checkAttrPairs('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 30);
+checkAttrPairs('tools/log-converter', 'tools/log-converter/index.html', ['tools/log-converter/i18n.log-converter.js'], 8);
 checkAttrPairs('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 18);
 checkAttrPairs('tools/battlemap', 'tools/battlemap/index.html', ['tools/battlemap/i18n.battlemap.js'], 1);
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
@@ -2447,7 +2473,7 @@ for (const name of TOOLS) {
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
   '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331', 'fc05c98',
-  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0',
+  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0', 'd2c74d3', '718bb40', 'a21c571', 'bb32ed7',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }

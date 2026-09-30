@@ -127,7 +127,7 @@ function outLabels(customOptions) {
 /* 載入日誌時自動當成閒聊分頁的分頁名稱。第一個是上游比對的韓文名稱（上游預設的閒聊分頁
  * 名稱，也是 CCFOLIA 韓文介面的分頁名稱；屬於解析規則，照原樣保留），其後是收錄版補上的
  * 繁中別名。 */
-const OOC_TAB_NAMES = ['잡담', '閒聊', '雜談'];
+const OOC_TAB_NAMES = ['잡담', '閒聊', '雜談', '雑談'];  /* 雑談：日文介面 CCFOLIA 的閒聊分頁 */
 
 function detectLogFormat(rawHtml) {
     if (typeof rawHtml !== 'string') return 'legacy';
@@ -4107,7 +4107,8 @@ class UIController {
 
         
         /* 自動選閒聊分頁。上游只認韓文的名稱（OOC_TAB_NAMES 的第一個）；其餘是收錄版補上的
-         * 繁中別名（本工具繁中介面的預設分頁名稱，以及 CCFOLIA 繁中介面可能用的名稱）。 */
+         * 別名：繁中（本工具繁中介面的預設分頁名稱，以及 CCFOLIA 繁中介面可能用的名稱），
+         * 以及日文介面 CCFOLIA 的「雑談」——台灣玩家常用日文介面。 */
         const oocTabName = OOC_TAB_NAMES.find(name => tabs.includes(name));
         if (oocTabName) {
             selectElement.value = oocTabName;

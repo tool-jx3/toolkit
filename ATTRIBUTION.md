@@ -12,7 +12,10 @@
 [hakoniwa](https://github.com/852wa) 與
 [max-enterme](https://github.com/max-enterme) 與
 [sedn14636361](https://github.com/sedn14636361) 與
-[くま。](https://github.com/kumachansteps) 製作的 34 個網頁工具，以及兩個作者不明的工具（共 36 個），
+[くま。](https://github.com/kumachansteps) 與
+[Eon-00](https://github.com/Eon-00) 與
+[fyam-hamu](https://github.com/fyam-hamu) 與
+[usagineko7865-debug](https://github.com/usagineko7865-debug) 製作的 38 個網頁工具，以及兩個作者不明的工具（共 40 個），
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -56,6 +59,7 @@
 | variant-manager | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/chara-sabun-kanri-tool/` | `42c45f3` | **未授權** |
 | scenario-cards | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/scenario-snippet-builder/` | `42c45f3` | **未授權** |
 | textbox | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) | `d2c74d3` | MIT |
+| log-converter | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `bb32ed7` | MIT |
 | psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
 | battlemap | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `a21c571` | MIT |
 
@@ -683,7 +687,17 @@ APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任�
 - `bg-motion` 與 `variant-manager` 照上游自 jsDelivr 載入 JSZip（`bg-motion` 另有 UPNG.js），
   見各目錄的 `THIRD_PARTY_NOTICES.md`。
 
-## textbox、psd-studio、battlemap
+## log-converter、textbox、psd-studio、battlemap
+
+**log-converter（CCFOLIA 日誌轉換器）**：上游 `Eon-00/eon-ccfolia-log-converter`（MIT）把 CCFOLIA
+匯出的日誌 HTML 轉成小說、時間軸或 CCFOLIA 風格的網頁。上游的「用 Room ID 載入」會直接呼叫
+CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版把這個入口與相關程式整段拿掉，
+其餘功能不變。產出 HTML 裡的固定字樣（「系統」、閒聊訊息的摺疊標題、插圖的 alt、預設標題、
+`<html lang>`）依轉換當下的語言；使用者的日誌內容原樣不動。解析規則另外加認別名：自動選閒聊分頁時
+除了韓文的「잡담」，也認「閒聊」「雜談」與日文介面 CCFOLIA 的「雑談」；「全部分頁」檔案的標籤也認
+「全部」「所有」。另外修了時間軸的名字欄寬：上游只把諺文算成全形，中文或日文的長名字會蓋到頭像與
+台詞；純韓文日誌的產出不變。作者的品牌名「연연」（配色預設與頁尾）照原樣保留。
+
 
 **textbox（文字方框產生器）**：sotsotssi 的 `TextBoxGen`，收錄做法與其他 sotsotssi 工具相同
 （Tailwind Play CDN、`app.js`／`styles.css`、`THIRD_PARTY_NOTICES.md`）。上游的全形判斷本來就涵蓋
@@ -806,7 +820,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘三十四個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 與 `apng-wipe` 是改寫成只有繁中，見上；
+其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 與 `apng-wipe` 是改寫成只有繁中，見上；
 `jizura` 連到原作者的官方繁中版，不在此列）。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的五個工具
