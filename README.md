@@ -53,7 +53,7 @@
 | [團報產生器](tools/session-report/) | 填入劇本、KP／PL／PC 與結果，從 17 種範本產生可直接貼到 X 的團報文，能即時預覽、編輯 |
 | [角色差分管理器](tools/variant-manager/) | 一次檢查立繪與表情差分、整理好檔名打包成 ZIP，並產生 CCFOLIA 用的 @差分 聊天面板 |
 | [劇本資訊卡片產生器](tools/scenario-cards/) | 把劇本內文裡的場景、探索地點、資料、技能成功等資訊做成卡片，複製成 CCFOLIA／Discord 用的文字或 CCFOLIA 的卡片 JSON |
-| [CCFOLIA & PSD 調色工作室](tools/psd-studio/) | 把 CCFOLIA 房間 ZIP、PSD 或圖片一次統一調色（色相、曲線、漸層對應），APNG 自動壓到 5 MB 以下，再輸出成房間 ZIP |
+| [CCFOLIA & 圖片調色工作室](tools/psd-studio/) | 把 CCFOLIA 房間 ZIP、PSD 或圖片一次統一調色（色相、曲線、漸層對應），APNG 自動壓到 5 MB 以下，再輸出成房間 ZIP |
 | [文字方框產生器](tools/textbox/) | 用框線字元和全形空白排出可以直接貼進聊天欄的文字方框與表格，自動補正全形字寬 |
 | [戰鬥地圖產生器](tools/battlemap/) | 一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈 |
 

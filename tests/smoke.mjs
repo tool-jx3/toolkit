@@ -1331,7 +1331,7 @@ check('拿掉上游的 BOOTH 推廣卡片與 SEO 設定',
   !/booth\.pm|application\/ld\+json|rel="canonical"|og:title/.test(bmHtml) && !exists('tools/battlemap/robots.txt'));
 check('保留 LICENSE（MIT）', /MIT License/.test(read('tools/battlemap/LICENSE')));
 
-/* ---- psd-studio（CCFOLIA & PSD 調色工作室）---- */
+/* ---- psd-studio（CCFOLIA & 圖片調色工作室）---- */
 /* 上游 fyam-hamu/F_Ccfolia-PSD-Studio 沒有 LICENSE，但頁面上寫了作者條款：禁止轉售與
  * 收費散布，修改、改良後可以免費再散布。條款原文與翻譯收在 TERMS.md，畫面上也保留。 */
 const pss = checkTool({
