@@ -1,7 +1,7 @@
 /*!
  * pcfonts.v1.js - pick a font installed on this PC from a list (no dependencies)
  *
- * Same file in status-bar-maker, chat-window-maker and foreground-frame-maker.
+ * Same file in status-bar-maker, chat-window-maker, foreground-frame-maker and message-box-maker.
  *
  * Markup:
  *   <span class="pc-font"><input type="text" data-bind="..."><button type="button" data-pc-fonts data-i18n="font.pick">從清單選</button></span>
@@ -13,8 +13,9 @@
  * first time. Where it is missing the buttons stay hidden and the name can still be typed.
  *
  * 【TRPG Toolkit 收錄時的注記】
- * 這個檔案在 status-bar、chat-window、foreground-frame 三個工具底下各有一份，
- * 上游保證三份完全相同，收錄版也一樣（tests/smoke.mjs 會檢查）。改一份就要改三份。
+ * 這個檔案在 status-bar、chat-window、foreground-frame、message-box、scene-transition
+ * 五個工具底下各有一份，上游保證各份完全相同，收錄版也一樣（tests/smoke.mjs 會檢查）。
+ * 改一份就要改全部。
  * 對話框是延遲建立的單例，切換語言時整個丟掉重建，省得逐一改寫裡面的文字。
  */
 (function () {

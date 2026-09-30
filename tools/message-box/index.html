@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>訊息框產生器</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<header>
+  <div class="toolkit-bar">
+    <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+    <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+  </div>
+  <h1 data-i18n="app.title">訊息框產生器</h1>
+  <p data-i18n="header.tagline">製作「自訂 CSS」，把在 CCFOLIA 發言時出現在房間畫面下方、附立繪的訊息框，以喜歡的樣式顯示在 OBS 上。房間的盤面與棋子會消失，只映出訊息框。所有處理都在瀏覽器內完成，輸入的內容不會傳送到任何地方。這是依據讀者許願做出來的工具。</p>
+</header>
+
+<main>
+  <div class="panel">
+    <nav class="tabbar" role="tablist">
+      <button data-i18n="tab.box" type="button" role="tab" data-tab="box" aria-selected="true">方框與位置</button>
+      <button data-i18n="tab.name" type="button" role="tab" data-tab="name" aria-selected="false">名稱與結果</button>
+      <button data-i18n="tab.text" type="button" role="tab" data-tab="text" aria-selected="false">內文</button>
+      <button data-i18n="tab.portrait" type="button" role="tab" data-tab="portrait" aria-selected="false">立繪與骰子</button>
+      <button data-i18n="tab.obs" type="button" role="tab" data-tab="obs" aria-selected="false">OBS 與儲存</button>
+    </nav>
+
+    <!-- ============================================================ box -->
+    <section data-tab-panel="box">
+      <fieldset>
+        <legend data-i18n="design.legend">設計範本</legend>
+        <div class="row wide"><span class="pair" style="grid-template-columns: 1fr auto;">
+          <select id="design" data-i18n-aria-label="design.aria" aria-label="設計範本"></select>
+          <button data-i18n="design.apply" type="button" id="applyDesign">套用</button>
+        </span></div>
+        <p class="desc" id="designDesc"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="source.legend">瀏覽器來源大小</legend>
+        <div class="row"><label data-i18n="source.size">寬 × 高</label>
+          <span class="pair"><input type="number" data-bind="source.w" min="320" max="3840" step="10" data-i18n-aria-label="source.w" aria-label="寬"><input type="number" data-bind="source.h" min="160" max="2160" step="10" data-i18n-aria-label="source.h" aria-label="高"></span></div>
+        <div class="row"><label></label><span class="btns">
+          <button type="button" class="small" data-size="1920x1080">1920×1080</button>
+          <button type="button" class="small" data-size="1280x720">1280×720</button>
+          <button data-i18n="source.lower" type="button" class="small" data-size="1280x540">下半部 1280×540</button>
+        </span></div>
+        <p data-i18n-html="source.desc" class="desc">OBS 瀏覽器來源要填的寬與高。立繪會超出方框的上緣，所以高度也要把立繪的部分算進去。<b>寬度小於 900 時，CCFOLIA 會把立繪與骰子縮小</b>，因此這個工具會重新指定它們的大小。</p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="layout.legend">位置</legend>
+        <div class="row"><label data-i18n="layout.width">方框寬度</label>
+          <span class="with-value"><input type="range" data-bind="layout.width" min="320" max="1800" step="10"><output data-out="layout.width" data-fmt="px"></output></span></div>
+        <div class="row"><label data-i18n="layout.align">靠齊位置</label><select data-bind="layout.align" data-options="ALIGNS"></select></div>
+        <div class="row"><label data-i18n="layout.bottom">下方留白</label>
+          <span class="with-value"><input type="range" data-bind="layout.bottom" min="0" max="300" step="1"><output data-out="layout.bottom" data-fmt="px"></output></span></div>
+        <div class="row"><label data-i18n="layout.side">左右留白</label>
+          <span class="with-value"><input type="range" data-bind="layout.side" min="0" max="400" step="1"><output data-out="layout.side" data-fmt="px"></output></span></div>
+        <div class="row"><label data-i18n="layout.enter">出現方式</label><select data-bind="layout.enter" data-options="ENTERS"></select></div>
+        <p data-i18n="layout.desc" class="desc">方框寬度指的是最大寬度。來源比較窄時，會保留左右留白並跟著縮小。</p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="box.legend">方框</legend>
+        <div class="row"><label data-i18n="box.bg">背景</label>
+          <span class="color-alpha"><input type="color" data-bind="box.bg"><input type="range" data-bind="box.bgAlpha" min="0" max="1" step="0.01"><output data-out="box.bgAlpha" data-fmt="pct"></output></span></div>
+        <div class="row"><label data-i18n="box.texture">質感</label><select data-bind="box.texture" data-options="TEXTURES"></select></div>
+        <div class="row"><label data-i18n="box.borderW">外框</label>
+          <span class="with-value"><input type="range" data-bind="box.borderW" min="0" max="8" step="1"><output data-out="box.borderW" data-fmt="px"></output></span></div>
+        <div class="row" data-show="box.borderW!=0"><label data-i18n="box.borderColor">外框顏色</label>
+          <span class="color-alpha"><input type="color" data-bind="box.borderColor"><input type="range" data-bind="box.borderAlpha" min="0" max="1" step="0.01"><output data-out="box.borderAlpha" data-fmt="pct"></output></span></div>
+        <div class="row"><label data-i18n="box.radius">圓角</label>
+          <span class="with-value"><input type="range" data-bind="box.radius" min="0" max="40" step="1"><output data-out="box.radius" data-fmt="px"></output></span></div>
+        <div class="row"><label data-i18n="box.shadow">陰影</label>
+          <span class="with-value"><input type="range" data-bind="box.shadow" min="0" max="1" step="0.05"><output data-out="box.shadow" data-fmt="pct"></output></span></div>
+        <div class="row"><label></label><label data-i18n-node="box.corners" class="check"><input type="checkbox" data-bind="box.corners"> 四角加上角括號</label></div>
+        <div class="row" data-show="box.corners=true"><label data-i18n="box.cornerColor">角括號顏色</label>
+          <span class="color-alpha"><input type="color" data-bind="box.cornerColor"><input type="range" data-bind="box.cornerAlpha" min="0" max="1" step="0.01"><output data-out="box.cornerAlpha" data-fmt="pct"></output></span></div>
+        <div class="row"><label data-i18n="box.pad">內側留白</label>
+          <span class="pair"><input type="range" data-bind="box.padX" min="0" max="60" step="1" data-i18n-aria-label="box.padX" aria-label="左右留白"><input type="range" data-bind="box.padY" min="0" max="40" step="1" data-i18n-aria-label="box.padY" aria-label="上下留白"></span></div>
+        <div class="row"><label data-i18n="box.lines">內文高度</label>
+          <span class="with-value"><input type="range" data-bind="box.lines" min="1" max="8" step="1"><output data-out="box.lines" data-fmt="lines"></output></span></div>
+        <div class="row"><label data-i18n="box.buttons">按鈕</label><select data-bind="box.buttons" data-options="BUTTONS"></select></div>
+        <p data-i18n-html="box.desc" class="desc">內文高度指的是能放進幾行內文（以內文的字級計算）。比這更長的發言，CCFOLIA 每打出 1 個字就會往下捲，所以能一直讀到最後一行。<br>按鈕指的是略過（▶）與關閉（×）。選「滑鼠移上去時才顯示」的話，實況畫面上不會出現，只能從 OBS 的「互動」按。</p>
+      </fieldset>
+    </section>
+
+    <!-- ============================================================ name -->
+    <section data-tab-panel="name" hidden>
+      <fieldset>
+        <legend data-i18n="name.legend">名稱</legend>
+        <div class="row"><label></label><label data-i18n-node="name.show" class="check"><input type="checkbox" data-bind="name.show"> 顯示發言角色的名稱</label></div>
+        <div data-show="name.show=true">
+          <div class="row"><label data-i18n="name.style">擺放方式</label><select data-bind="name.style" data-options="NAME_STYLES"></select></div>
+          <div class="row"><label data-i18n="name.font">字型</label><select data-bind="name.font" data-options="FONTS"></select></div>
+          <div class="row sub" data-show="name.font=pc"><label data-i18n="font.name">字型名稱</label><span class="pc-font">
+            <input type="text" data-bind="name.fontName" placeholder="例）Noto Sans TC" data-i18n-placeholder="font.name.placeholder" data-i18n-aria-label="font.name.name.aria" aria-label="名稱的字型名稱" autocomplete="off" spellcheck="false"><button type="button" class="small" data-pc-fonts data-i18n="font.pick">從清單選</button></span></div>
+          <div class="row"><label data-i18n="name.weight">字重</label><select data-bind="name.weight" data-options="WEIGHTS" data-number></select></div>
+          <div class="row"><label data-i18n="name.size">大小</label>
+            <span class="with-value"><input type="range" data-bind="name.size" min="8" max="48" step="1"><output data-out="name.size" data-fmt="px"></output></span></div>
+          <div class="row"><label data-i18n="name.color">文字顏色</label><input type="color" data-bind="name.color"></div>
+          <div class="row" data-show="name.style=inline"><label data-i18n="name.gap">與內文的間距</label>
+            <span class="with-value"><input type="range" data-bind="name.gap" min="0" max="30" step="1"><output data-out="name.gap" data-fmt="px"></output></span></div>
+          <div data-show="name.style=plate">
+            <div class="row"><label data-i18n="name.plateBg">名牌顏色</label>
+              <span class="color-alpha"><input type="color" data-bind="name.plateBg"><input type="range" data-bind="name.plateAlpha" min="0" max="1" step="0.01"><output data-out="name.plateAlpha" data-fmt="pct"></output></span></div>
+            <div class="row"><label data-i18n="name.plateRadius">名牌圓角</label>
+              <span class="with-value"><input type="range" data-bind="name.plateRadius" min="0" max="30" step="1"><output data-out="name.plateRadius" data-fmt="px"></output></span></div>
+            <div class="row"><label data-i18n="name.plateBorderW">名牌外框</label>
+              <span class="with-value"><input type="range" data-bind="name.plateBorderW" min="0" max="4" step="1"><output data-out="name.plateBorderW" data-fmt="px"></output></span></div>
+            <div class="row" data-show="name.plateBorderW!=0"><label data-i18n="name.plateBorderColor">外框顏色</label><input type="color" data-bind="name.plateBorderColor"></div>
+            <div class="row"><label data-i18n="name.plateX">距左邊的位置</label>
+              <span class="with-value"><input type="range" data-bind="name.plateX" min="0" max="300" step="1"><output data-out="name.plateX" data-fmt="px"></output></span></div>
+            <div class="row"><label data-i18n="name.plateLift">名牌往上移</label>
+              <span class="with-value"><input type="range" data-bind="name.plateLift" min="0" max="60" step="1"><output data-out="name.plateLift" data-fmt="px"></output></span></div>
+            <div class="row"><label data-i18n="name.plateGap">與內文的間距</label>
+              <span class="with-value"><input type="range" data-bind="name.plateGap" min="0" max="40" step="1"><output data-out="name.plateGap" data-fmt="px"></output></span></div>
+            <p data-i18n="name.plateDesc" class="desc">名牌會稍微疊在方框的上緣。用「名牌往上移」可以減少重疊，再往上移，名牌與方框之間就會空出間隔。「與內文的間距」是名牌與內文第 1 行之間的空隙。</p>
+          </div>
+        </div>
+        <p data-i18n="name.desc" class="desc">訊息框裡的名稱沒有角色顏色的資訊（和聊天欄不同，CCFOLIA 沒有替它上色），所以名稱只有 1 種顏色。選「在方框上方加名牌」時，骰子結果也會排在名牌旁邊。</p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="result.legend">骰子結果</legend>
+        <div class="row"><label></label><label data-i18n-node="result.show" class="check"><input type="checkbox" data-bind="result.show"> 顯示結果（例如「🎲 ＞ 成功」）</label></div>
+        <div data-show="result.show=true">
+          <div class="row"><label data-i18n="result.place">擺放位置</label><select data-bind="result.place" data-options="RESULT_PLACES"></select></div>
+          <div class="row"><label data-i18n="result.style">樣式</label><select data-bind="result.style" data-options="RESULT_STYLES"></select></div>
+          <div class="row"><label data-i18n="result.font">字型</label><select data-bind="result.font" data-options="FONTS"></select></div>
+          <div class="row sub" data-show="result.font=pc"><label data-i18n="font.name">字型名稱</label><span class="pc-font">
+            <input type="text" data-bind="result.fontName" placeholder="例）Noto Sans TC" data-i18n-placeholder="font.name.placeholder" data-i18n-aria-label="font.name.result.aria" aria-label="骰子結果的字型名稱" autocomplete="off" spellcheck="false"><button type="button" class="small" data-pc-fonts data-i18n="font.pick">從清單選</button></span></div>
+          <div class="row"><label data-i18n="result.weight">字重</label><select data-bind="result.weight" data-options="WEIGHTS" data-number></select></div>
+          <div class="row"><label data-i18n="result.size">大小</label>
+            <span class="with-value"><input type="range" data-bind="result.size" min="8" max="48" step="1"><output data-out="result.size" data-fmt="px"></output></span></div>
+          <div class="row"><label data-i18n="result.color">顏色</label>
+            <span class="trio">
+              <span data-i18n-node="result.success">成功<input type="color" data-bind="result.success" data-i18n-aria-label="result.successAria" aria-label="成功的顏色"></span>
+              <span data-i18n-node="result.failure">失敗<input type="color" data-bind="result.failure" data-i18n-aria-label="result.failureAria" aria-label="失敗的顏色"></span>
+              <span data-i18n-node="result.neutral">其他<input type="color" data-bind="result.neutral" data-i18n-aria-label="result.neutralAria" aria-label="無成敗結果的顏色"></span>
+            </span></div>
+        </div>
+        <p data-i18n-html="result.desc" class="desc">分色方式與 CCFOLIA 一致。<b>成功</b>是含有「成功」「スペシャル」的結果，<b>失敗</b>是含有「失敗」的結果（大失敗也算），沒有成敗的擲骰（例如 <code>2D6</code>）算<b>其他</b>。</p>
+        <p data-i18n-html="result.desc2" class="desc">CCFOLIA 放進訊息框的，只有骰子結果<b>最後「＞ …」那一段</b>（<code>CCB&lt;=50</code> 是「＞ 成功」，<code>2D6</code> 是「＞ 9」）。擲出的點數（例如 23）不在訊息框裡，所以 CSS 也顯示不出來。目標值會以內文的指令（<code>CCB&lt;=50</code>）出現。<br>想連點數一起顯示時，請搭配<a href="../chat-window/">聊天視窗產生器</a>使用（見下方「想連點數一起顯示時」）。</p>
+      </fieldset>
+    </section>
+
+    <!-- ============================================================ text -->
+    <section data-tab-panel="text" hidden>
+      <fieldset>
+        <legend data-i18n="text.legend">內文</legend>
+        <div class="row"><label data-i18n="text.font">字型</label><select data-bind="text.font" data-options="FONTS"></select></div>
+        <div class="row sub" data-show="text.font=pc"><label data-i18n="font.name">字型名稱</label><span class="pc-font">
+          <input type="text" data-bind="text.fontName" placeholder="例）Noto Sans TC" data-i18n-placeholder="font.name.placeholder" data-i18n-aria-label="font.name.text.aria" aria-label="內文的字型名稱" autocomplete="off" spellcheck="false"><button type="button" class="small" data-pc-fonts data-i18n="font.pick">從清單選</button></span></div>
+        <div class="row"><label data-i18n="text.weight">字重</label><select data-bind="text.weight" data-options="WEIGHTS" data-number></select></div>
+        <div class="row"><label data-i18n="text.size">大小</label>
+          <span class="with-value"><input type="range" data-bind="text.size" min="10" max="48" step="1"><output data-out="text.size" data-fmt="px"></output></span></div>
+        <div class="row"><label data-i18n="text.color">顏色</label><input type="color" data-bind="text.color"></div>
+        <div class="row"><label data-i18n="text.lineHeight">行高</label>
+          <span class="with-value"><input type="range" data-bind="text.lineHeight" min="1" max="2.4" step="0.05"><output data-out="text.lineHeight"></output></span></div>
+        <div class="row"><label data-i18n="text.spacing">字距</label>
+          <span class="with-value"><input type="range" data-bind="text.spacing" min="0" max="0.3" step="0.01"><output data-out="text.spacing" data-fmt="em"></output></span></div>
+        <div class="row"><label data-i18n="text.outline">描邊</label><select data-bind="text.outline" data-options="OUTLINES"></select></div>
+        <div class="row" data-show="text.outline!=none"><label data-i18n="text.outlineColor">描邊顏色</label>
+          <span class="color-alpha"><input type="color" data-bind="text.outlineColor"><input type="range" data-bind="text.outlineAlpha" min="0" max="1" step="0.01"><output data-out="text.outlineAlpha" data-fmt="pct"></output></span></div>
+        <div class="row" data-show="text.outline=stroke"><label data-i18n="text.outlineW">描邊粗細</label>
+          <span class="with-value"><input type="range" data-bind="text.outlineW" min="1" max="5" step="0.5"><output data-out="text.outlineW" data-fmt="px"></output></span></div>
+        <p data-i18n="text.desc" class="desc">描邊也會套用到放在方框裡的名稱與骰子結果。</p>
+        <p class="desc" data-show="name.font=pc|text.font=pc|result.font=pc" data-i18n-html="font.pcHint">選「以名稱指定（電腦字型）」時，可以使用這台電腦上安裝的字型。<b>跑 OBS 的那台電腦也必須裝有同一套字型。</b></p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="fixed.legend">無法更改的部分</legend>
+        <p data-i18n="fixed.desc" class="desc">打字的速度（每個字 0.08 秒，標點與換行之後 0.8 秒）、到下一則發言之前的間隔（打完之後 1.2 秒）、要顯示哪些發言（主分頁與情報分頁裡，開啟頁面之後的發言），都是由 CCFOLIA 的程式決定的，CSS 無法更改。</p>
+      </fieldset>
+    </section>
+
+    <!-- ============================================================ portrait -->
+    <section data-tab-panel="portrait" hidden>
+      <fieldset>
+        <legend data-i18n="portrait.legend">立繪</legend>
+        <div class="row"><label></label><label data-i18n-node="portrait.show" class="check"><input type="checkbox" data-bind="portrait.show"> 顯示立繪</label></div>
+        <div data-show="portrait.show=true">
+          <div class="row"><label data-i18n="portrait.width">寬度</label>
+            <span class="with-value"><input type="range" data-bind="portrait.width" min="60" max="800" step="5"><output data-out="portrait.width" data-fmt="px"></output></span></div>
+          <div class="row"><label data-i18n="portrait.maxH">高度上限</label>
+            <span class="with-value"><input type="range" data-bind="portrait.maxH" min="100" max="1400" step="10"><output data-out="portrait.maxH" data-fmt="px"></output></span></div>
+          <div class="row"><label data-i18n="portrait.side">放在哪一側</label><select data-bind="portrait.side" data-options="SIDES"></select></div>
+          <div class="row"><label data-i18n="portrait.x">距邊緣的位置</label>
+            <span class="with-value"><input type="range" data-bind="portrait.x" min="-200" max="600" step="1"><output data-out="portrait.x" data-fmt="px"></output></span></div>
+          <div class="row"><label data-i18n="portrait.y">與方框重疊</label>
+            <span class="with-value"><input type="range" data-bind="portrait.y" min="-100" max="300" step="1"><output data-out="portrait.y" data-fmt="px"></output></span></div>
+          <div class="row"><label data-i18n="portrait.layer">前後順序</label><select data-bind="portrait.layer" data-options="LAYERS"></select></div>
+          <div class="row"><label></label><label data-i18n-node="portrait.flip" class="check"><input type="checkbox" data-bind="portrait.flip"> 左右翻轉</label></div>
+        </div>
+        <p data-i18n-html="portrait.desc" class="desc">立繪會站在方框上方。調高「與方框重疊」，腳邊就會沉到方框後面（或前面）。縱長的立繪可以用「高度上限」縮小。<br>角色設定裡開了「發言時不顯示角色」時，或是沒有立繪的角色（例如 KP）發言時，不會顯示。在 CCFOLIA 像「…@笑容」這樣發言，就能切換差分。</p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="dice.legend">骰子圖片</legend>
+        <div class="row"><label></label><label data-i18n-node="dice.show" class="check"><input type="checkbox" data-bind="dice.show"> 顯示擲骰時的骰子圖片</label></div>
+        <div class="row" data-show="dice.show=true"><label data-i18n="dice.size">大小</label>
+          <span class="with-value"><input type="range" data-bind="dice.size" min="24" max="150" step="1"><output data-out="dice.size" data-fmt="px"></output></span></div>
+        <p data-i18n-html="dice.desc" class="desc">會一邊旋轉一邊出現在方框的右上方（立繪在右側時則是左上方）。<br><b>只有在 CCFOLIA 的房間設定開啟「使用舊版骰子演出」時才會出現。</b>關閉時（預設值）3D 骰子會在盤面上滾動，但盤面整個被隱藏了，所以不會映在 OBS 上。秘密骰不會出現。</p>
+      </fieldset>
+    </section>
+
+    <!-- ============================================================ obs -->
+    <section data-tab-panel="obs" hidden>
+      <fieldset>
+        <legend data-i18n="room.legend">房間</legend>
+        <div class="row wide"><input type="text" data-bind="source.room" placeholder="https://ccfolia.com/rooms/…" data-i18n-aria-label="room.urlAria" aria-label="房間網址"></div>
+        <div class="row wide"><span class="pair" style="grid-template-columns: 1fr auto;">
+          <input type="text" id="roomUrl" readonly data-i18n-aria-label="room.sourceUrlAria" aria-label="要填進瀏覽器來源的網址" data-i18n-placeholder="room.sourceUrlPlaceholder" placeholder="填入房間網址後會顯示在這裡">
+          <button data-i18n="room.copyUrl" type="button" id="copyUrl">複製網址</button>
+        </span></div>
+        <p data-i18n="room.desc" class="desc">貼上在 CCFOLIA 開啟房間時的網址。它也會寫進匯出 CSS 的開頭。</p>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="project.legend">專案</legend>
+        <div class="row wide"><span class="btns">
+          <button data-i18n="project.save" type="button" id="saveProject">儲存專案</button>
+          <button data-i18n="project.open" type="button" id="openProject">開啟</button>
+          <button data-i18n="project.reset" type="button" class="danger" id="resetAll">全部重來</button>
+        </span></div>
+        <p data-i18n="project.desc" class="desc">編輯內容會自動存在這個瀏覽器裡。每個團想用不同設計時，用「儲存專案」分開存比較方便。</p>
+      </fieldset>
+    </section>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="bar">
+      <label data-i18n-node="preview.raw" class="check"><input type="checkbox" data-bind="preview.raw" data-nohistory> 查看套用 CSS 之前（房間畫面原本）的樣子</label>
+      <span class="spacer"></span>
+      <button data-i18n="preview.undo" type="button" class="small" id="undo" data-i18n-title="preview.undoTitle" title="復原 (Ctrl+Z)">↶ 復原</button>
+      <button data-i18n="preview.redo" type="button" class="small" id="redo" data-i18n-title="preview.redoTitle" title="重做 (Ctrl+Y)">↷ 重做</button>
+    </div>
+    <div class="stage bg-scene" id="stage">
+      <div class="frame-box" id="frameBox"><iframe id="preview" data-i18n-title="preview.frameTitle" title="預覽" tabindex="-1"></iframe></div>
+      <span class="stage-info" id="stageInfo"></span>
+    </div>
+    <div class="bar">
+      <span class="seg" id="bgSeg" data-i18n-aria-label="preview.bgAria" aria-label="預覽背景">
+        <button data-i18n="preview.bgScene" type="button" data-bg="scene">彩色</button>
+        <button data-i18n="preview.bgChecker" type="button" data-bg="checker">棋盤格</button>
+        <button data-i18n="preview.bgDark" type="button" data-bg="dark">深色</button>
+        <button data-i18n="preview.bgLight" type="button" data-bg="light">淺色</button>
+      </span>
+      <span class="spacer"></span>
+      <span class="size-note" id="sizeNote"></span>
+    </div>
+
+    <div class="tester">
+      <h2 data-i18n="tester.heading">發言來確認（只影響預覽，不會寫進匯出的 CSS）</h2>
+      <div class="btns" style="align-items: center;">
+        <span data-i18n="tester.sample" style="color: var(--muted); font-size: 12px;">範例立繪</span>
+        <span class="seg" id="sampleSeg" data-i18n-aria-label="tester.sampleAria" aria-label="範例立繪的形狀">
+          <button data-i18n="tester.sampleTall" type="button" data-sample="tall">直式（全身）</button>
+          <button data-i18n="tester.sampleSquare" type="button" data-sample="square">正方形（半身）</button>
+        </span>
+        <button data-i18n="tester.sampleOwn" type="button" class="small" id="sampleOwn">用自己的圖片試試</button>
+        <button data-i18n="tester.sampleClear" type="button" class="small" id="sampleClear" hidden>移除自己的圖片</button>
+        <input type="file" id="sampleFile" accept="image/*" hidden>
+      </div>
+      <div class="btns">
+        <button data-i18n="tester.chat" type="button" class="small" data-send="chat">聊天</button>
+        <button data-i18n="tester.success" type="button" class="small" data-send="success">骰子：成功</button>
+        <button data-i18n="tester.failure" type="button" class="small" data-send="failure">骰子：失敗</button>
+        <button data-i18n="tester.neutral" type="button" class="small" data-send="neutral">骰子：無成敗</button>
+        <button data-i18n="tester.secret" type="button" class="small" data-send="secret">秘密骰</button>
+        <button data-i18n="tester.long" type="button" class="small" data-send="long" data-i18n-title="tester.longTitle" title="沒有立繪的 KP 所說的長篇旁白">長文（無立繪）</button>
+        <span class="spacer" style="flex: 1"></span>
+        <button data-i18n="tester.close" type="button" class="small" id="closeBox" data-i18n-title="tester.closeTitle" title="與 CCFOLIA 的「關閉」相同">關閉</button>
+        <button data-i18n="tester.reset" type="button" class="small" id="resetMessages">回到初始狀態</button>
+      </div>
+      <div class="custom">
+        <select id="customWho" data-i18n-aria-label="tester.whoAria" aria-label="發言角色"></select>
+        <select id="customKind" data-i18n-aria-label="tester.kindAria" aria-label="訊息種類">
+          <option data-i18n="tester.chat" value="chat">聊天</option>
+          <option data-i18n="tester.dice" value="dice">骰子</option>
+        </select>
+        <span class="pair grow" style="grid-template-columns: 1fr auto;">
+          <input type="text" id="customText" data-i18n-placeholder="tester.textPlaceholder" placeholder="內文（骰子則填指令）　結果寫在 | 後面" data-i18n-aria-label="tester.textAria" aria-label="要送出的訊息">
+          <button data-i18n="tester.send" type="button" class="small" id="sendCustom">送出</button>
+        </span>
+      </div>
+    </div>
+
+    <div class="source-url">
+      <h2 data-i18n="sourceUrl.heading">OBS 瀏覽器來源要填的網址（直接用房間網址）</h2>
+      <span class="pair" id="sourceUrlSet" style="grid-template-columns: 1fr auto;">
+        <input type="text" id="roomUrlMain" readonly data-i18n-aria-label="room.sourceUrlAria" aria-label="要填進瀏覽器來源的網址">
+        <button type="button" class="small" id="copyUrlMain" data-i18n="room.copyUrl">複製網址</button>
+      </span>
+      <div class="missing" id="sourceUrlMissing">
+        <span class="warn" data-i18n="sourceUrl.warn">訊息框只存在於房間畫面。請填入房間網址，而不是結尾為 /chat 的聊天畫面網址。</span>
+        <button type="button" class="small" id="gotoRoom" data-i18n="sourceUrl.goto">去填房間網址</button>
+      </div>
+    </div>
+
+    <div class="bar">
+      <input type="text" data-bind="fileBase" data-i18n-aria-label="out.fileAria" aria-label="檔案名稱" data-i18n-placeholder="out.filePlaceholder" placeholder="檔案名稱">
+      <span class="spacer"></span>
+      <button data-i18n="out.save" type="button" id="downloadCss">儲存 CSS</button>
+      <button data-i18n="out.copy" type="button" class="primary" id="copyCss">複製 CSS</button>
+    </div>
+    <!-- 文字由 app.v1.js 寫入，因此不掛 data-i18n（引擎會在 DOMContentLoaded 蓋掉即時值）。 -->
+    <p class="status" id="status">載入中…</p>
+
+    <details class="css-out">
+      <summary data-i18n="out.summary">查看匯出的 CSS</summary>
+      <textarea id="cssOut" readonly spellcheck="false" data-i18n-aria-label="out.textAria" aria-label="匯出的 CSS"></textarea>
+    </details>
+
+    <div class="note">
+      <h2 data-i18n="note.obs.heading">OBS 的設定</h2>
+      <ol>
+        <li data-i18n-html="note.obs.1">新增來源 →「瀏覽器」。網址填<b>房間網址</b>：<br><code>https://ccfolia.com/rooms/{房間ID}</code><br>和聊天視窗產生器不同，結尾不加 <code>/chat</code>。</li>
+        <li data-i18n-html="note.obs.2">寬與高填上面顯示的 <b>瀏覽器來源大小</b>。</li>
+        <li data-i18n="note.obs.3">把「自訂 CSS」的內容全部清空，貼上複製好的 CSS。房間的盤面與棋子消失、畫面上什麼都沒映出來，就代表成功了。</li>
+        <li data-i18n-html="note.obs.4"><b>開啟「透過 OBS 控制音訊」</b>，再到音訊混音器把這個來源設為靜音。沒開的話，房間的 BGM 與骰子音效會從電腦重複播出兩次。</li>
+        <li data-i18n-html="note.obs.5">必須先登入 CCFOLIA。先把網址改成 <code>https://ccfolia.com/</code>，對來源按右鍵 →「互動」登入之後，再把網址改回來（做過一次就會記住，其他瀏覽器來源也共用）。</li>
+      </ol>
+      <h2 data-i18n="note.view.heading">顯示的方式</h2>
+      <ul>
+        <li data-i18n-html="note.view.1">會顯示的是<b>來源載入之後</b>、主分頁與情報分頁裡的發言。剛啟動 OBS 或剛重新載入來源時，在下一則發言之前什麼都不會顯示。</li>
+        <li data-i18n-html="note.view.2">連續發言時會 1 則 1 則依序顯示。<b>最後一則發言會一直留著，不會消失</b>。</li>
+        <li data-i18n-html="note.view.3">想讓它消失時，在 OBS 對來源按右鍵 → 開啟「互動」，把滑鼠移到訊息框上，按下出現的「關閉」（×）（「方框與位置」分頁的「按鈕」設為「滑鼠移上去時才顯示」時）。<b>在自己的 CCFOLIA 畫面上關閉，OBS 那邊並不會跟著關閉</b>（有沒有關閉，是每個瀏覽器各自記住的）。在來源的屬性裡按「重新整理目前頁面的快取」也能讓它消失。</li>
+        <li data-i18n-html="note.view.4">如果在房間設定裡把訊息框隱藏了（例如在聊天輸入 <code>hide mb</code>），OBS 上也不會出現。</li>
+        <li data-i18n="note.view.5">給別人的密語不會顯示（給目前登入帳號的密語會顯示）。</li>
+        <li data-i18n="note.view.6">要在方框上方顯示骰子圖片，請在房間設定開啟「使用舊版骰子演出」。關閉時的 3D 骰子會跟盤面一起消失。</li>
+      </ul>
+      <h2 data-i18n="note.pair.heading">想連點數一起顯示時（搭配聊天視窗產生器）</h2>
+      <p data-i18n-html="note.pair.intro" style="margin: 0">訊息框只會出現「＞ 成功」這樣的最後一段，但聊天欄會像 <code>(1D100&lt;=50) ＞ 23 ＞ 成功</code> 這樣全部顯示。建議台詞從訊息框、骰子結果從聊天欄，分開來顯示。</p>
+      <ol>
+        <li data-i18n-html="note.pair.1">在<a href="../chat-window/">聊天視窗產生器</a>選範本「<b>骰子快報（單則放大）</b>」。它只把最新一則骰子放大顯示，10 秒後消失。顏色與字型可以用跟這個工具相同的方式挑選、互相搭配。</li>
+        <li data-i18n-html="note.pair.2">在 OBS <b>再新增 1 個</b>瀏覽器來源，網址填<b>結尾是 /chat 的聊天畫面</b>（<code>https://ccfolia.com/rooms/{房間ID}/chat</code>），貼上聊天視窗產生器的 CSS。登入是共用的，不必重新登入。</li>
+        <li data-i18n="note.pair.3">把骰子視窗放在訊息框的上方或旁邊（沒有立繪的那一側）。</li>
+      </ol>
+
+      <h2 data-i18n="note.trouble.heading">顯示不正常時</h2>
+      <ul>
+        <li data-i18n-html="note.trouble.1"><b>什麼都沒顯示</b> → 請確認重新載入來源之後有沒有人發言，以及是否已經登入。把 CSS 清掉的話，應該會看到房間畫面。</li>
+        <li data-i18n-html="note.trouble.2"><b>映出的是進入房間前的畫面或登入畫面</b> → 請依步驟 5 登入。</li>
+        <li data-i18n-html="note.trouble.3"><b>立繪上方被切掉</b> → 請調高瀏覽器來源的高度，或調低「立繪與骰子」分頁的「高度上限」。</li>
+      </ul>
+      <h2 data-i18n="note.pc.heading">使用電腦上安裝的字型時</h2>
+      <ul>
+        <li data-i18n="note.pc.1">在字型欄選「以名稱指定（電腦字型）」，再填入字型名稱。在 Chrome / Edge 可以按「從清單選」，看著外觀挑選電腦上安裝的字型（第一次會詢問是否允許使用字型）。</li>
+        <li data-i18n-html="note.pc.2">OBS 是用它所在那台電腦的字型來顯示，所以<b>跑 OBS 的電腦也要安裝同一套字型</b>。沒有安裝的話，會顯示成一般的黑體。</li>
+      </ul>
+      <h2 data-i18n="note.about.heading">關於這個工具</h2>
+      <p data-i18n-html="note.about.body" style="margin: 0">這個工具源自讀者在 Marshmallow 的許願：「希望主畫面的對話框也能自由設計」。要顯示骰子結果或秘匿聊天的話，也歡迎使用姊妹工具<a href="../chat-window/">聊天視窗產生器</a>。「希望有這樣的工具」「這裡不好用」之類的意見，也歡迎透過 <a href="https://marshmallow-qa.com/jisg2c3imbza76d">Marshmallow</a> 告訴作者。</p>
+    </div>
+  </div>
+</main>
+
+<input type="file" id="projectFile" accept=".json,application/json" hidden>
+
+<footer>
+  <span data-i18n="footer.free">只靠瀏覽器就能運作的免費工具。做出來的 CSS 可以自由使用。</span><br>
+  <span data-i18n-html="footer.unofficial">CCFOLIA 的畫面結構若有變動，顯示可能會跑版。這是與任何服務都沒有關係的<strong>非官方</strong>工具。</span><br>
+  <a data-i18n="footer.moreTools" href="https://shiki365.github.io/">看看其他工具（shiki365 的工具集）</a> · <a data-i18n="footer.feedback" href="https://shiki365.github.io/#contact">問題回報與意見</a> · <a data-i18n="footer.request" href="https://marshmallow-qa.com/jisg2c3imbza76d">工具許願（Marshmallow）</a> · <a data-i18n="footer.support" href="https://sabunomisogi.booth.pm/items/8891048">支持開發（BOOTH）</a><br>
+  <span data-i18n="footer.version">v1.2 · 最後更新 2026-09-28</span>
+</footer>
+
+<script src="../../assets/i18n.js"></script>
+<script src="./i18n.message-box.js"></script>
+<script src="presets.v1.js?v=2"></script>
+<script src="model.v1.js?v=2"></script>
+<script src="css.v1.js?v=2"></script>
+<script src="mock.v1.js?v=2"></script>
+<script src="pcfonts.v1.js?v=1"></script>
+<script src="app.v1.js?v=2"></script>
+</body>
+</html>

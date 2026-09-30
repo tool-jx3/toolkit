@@ -9,7 +9,7 @@
 [johnko00](https://github.com/johnko00) 與
 [baegop157902](https://github.com/baegop157902) 與
 [違法建築](https://github.com/ihoukentiku) 與
-[hakoniwa](https://github.com/852wa) 製作的 25 個網頁工具，以及兩個作者不明的工具（共 27 個），
+[hakoniwa](https://github.com/852wa) 製作的 26 個網頁工具，以及兩個作者不明的工具（共 28 個），
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -23,13 +23,14 @@
 | emotion-maker | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b455379` | **未授權** |
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
 | foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
-| scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `0162787` | MIT |
+| scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `9866858` | MIT |
 | status-bar | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `dab4fb9` | MIT |
 | cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
 | ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
-| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `d3bdf3c` | MIT |
+| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `549364f` | MIT |
+| message-box | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) | `05f6331` | MIT |
 | portrait-size | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `fc05c98` | MIT |
 | height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
@@ -39,32 +40,37 @@
 | video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
 | gif-combiner | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `3aa7de8` | MIT |
 | trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
-| jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | `1b48bea` | MIT |
+| jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | —（連到原站；2026-09-25～30 曾收錄 `1b48bea` 的副本） | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 | coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
 | apng-wipe | 作者與來源都不明（使用者提供的單檔 HTML） | 2026-09-26 取得 | **未授權** |
 
-十八個 MIT 工具的原始 `LICENSE` 檔保留於各自目錄中（`jizura` 的由建置腳本從 `vendor/jizura/`
-複製過去，單檔頁面裡也另外附了一份）。
+收錄副本的 MIT 工具，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
-shiki365 的四個工具、`cutin`、`portrait-size`、`height-board` 與 `room-zip` 原文為日文，
+shiki365 的五個工具、`cutin`、`portrait-size`、`height-board` 與 `room-zip` 原文為日文，
 收錄時另有以下調整：
 
 - `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
-  `docs/` 底下的瀏覽器版（合輯只收純靜態、免安裝的網頁工具）。
-- `foreground-frame`、`scene-transition` 與 `chat-window` 的 `<style>` 區塊抽出為
+  `docs/` 底下的瀏覽器版（合輯只收純靜態、免安裝的網頁工具）。v2.0～v2.3 起效果增加到 53 種、
+  以 WebP 為預設匯出格式，主程式也從 `app.v2.js` 改名為 `app.v6.js`（上游靠檔名換版號避開快取），
+  另外多了 `webp.v1.js` 與共用的 `pcfonts.v1.js`。字幕字型清單加了同一組五套繁中字型（見下方「繁體中文字型」），
+  字型群組的 `<optgroup>` 標籤掛 `data-label-key`，由程式在切換語言時套上。
+- `foreground-frame`、`scene-transition`、`chat-window` 與 `message-box` 的 `<style>` 區塊抽出為
   `styles.css`（理由同 text-path 與 collage-letter）。
-- 這七個工具都移除了指向原作者站台的 OG／Twitter meta 與
+- 這八個工具都移除了指向原作者站台的 OG／Twitter meta 與
   `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
   `<title>` 只留工具名，捨去 SEO 後綴。
-- shiki365 的四個工具頁尾都有回作者工具站的連結（`chat-window` 另有一條許願用的
+- shiki365 的五個工具頁尾都有回作者工具站的連結（`chat-window` 與 `message-box` 另有一條許願用的
   Marshmallow），以及後來加上的「支持開發（BOOTH）」，都原樣保留並翻譯；但頁首那條
   同樣指向工具站的連結不收——那個位置放的是合輯的首頁連結。
-- 上游後來替四個工具加了 `favicon.svg`，收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
+- 上游後來替五個工具加了 `favicon.svg`（`message-box` 一公開就附了），收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
   分頁圖示，不各自掛作者的站台圖示。
+- `chat-window` 的說明裡有一節引導使用者用姊妹工具「メッセージボックスメーカー」顯示附立繪的訊息框，
+  上游連到作者站上的版本；合輯也收了這個工具（`message-box`），收錄版改連到合輯自己的那份。
+  `message-box` 反過來也有三處把 `chat-window` 當成搭配用的姊妹工具，同樣改連到合輯內的 `../chat-window/`。
 - `chat-window` 上游有兩句說明把「映す件数」「並び順」寫成在「メッセージ」分頁，
   實際上兩者都在「窓・見出し」分頁；收錄版的繁中與日文都照實際位置寫。
-- `status-bar` 與 `chat-window` 的上游都附了自家站台的 `ogp.png`（各約 0.5 MB），
+- `status-bar`、`chat-window` 與 `message-box` 的上游都附了自家站台的 `ogp.png`（各約 0.5 MB），
   收錄版沒有用到那張圖（`og:image` 指的是絕對網址），因此不收。
 
 ## portrait-size 與 height-board：移除了原站的存取分析
@@ -79,13 +85,14 @@ Wool&Wag 的兩個工具（`character-image-size`、`character-height-board`）�
 ——CCFOLIA 是用圖片寬度決定棋子大小的，寬度不一致，切換立繪時棋子就會忽大忽小；
 `height-board` 則是依身高統一縮尺，把不同角色並排比較高矮。
 
-## 三個工具共用的 pcfonts.v1.js
+## 五個工具共用的 pcfonts.v1.js
 
-`status-bar`、`chat-window` 與 `foreground-frame` 的字型欄都可以改填「以名稱指定」，
+`status-bar`、`chat-window`、`foreground-frame`、`message-box` 的字型欄與 `scene-transition` 的字幕字型都可以改填「以名稱指定」，
 使用觀看者電腦上已安裝的字型；Chrome／Edge 還能用 Local Font Access API
 （`queryLocalFonts()`）開出一份附樣張的清單來挑。那個對話框是 `pcfonts.v1.js`，
-上游在三個 repo 底下各放一份完全相同的檔案，收錄版照做，`tests/smoke.mjs` 會檢查
-三份沒有漂開。對話框是延遲建立的單例，切換語言時整個丟掉重建。
+上游在五個 repo 底下各放一份，收錄版照做，`tests/smoke.mjs` 會檢查
+五份沒有漂開。上游 `message-box-maker` 那份的檔頭多列了自己的名字，其他四份還沒跟上；
+內容其餘一字不差，收錄版五份都用那個新的檔頭。對話框是延遲建立的單例，切換語言時整個丟掉重建。
 
 這個功能在 OBS 端有個前提：OBS 是用它自己那台電腦的字型算繪的，所以那台也要裝同一套
 字型。上游把這件事寫在說明與產出的 CSS 開頭，收錄版一併翻譯保留。
@@ -101,6 +108,19 @@ Wool&Wag 的兩個工具（`character-image-size`、`character-height-board`）�
 `致命的失敗`、`Secret dice 🎲`）是 BCDice 與 CCFOLIA 的實際輸出，也不翻；
 但角色名與聊天內容是作者自己編的示範資料，照常翻成繁體中文。
 `tests/smoke.mjs` 把這批該留的日文釘成一份清單，三個方向互相箝制。
+
+## message-box：同樣保留 CCFOLIA 畫面上的日文
+
+`message-box`（訊息框產生器）是 `chat-window` 的姊妹工具，預覽（`mock.v1.js`）一樣是照著
+CCFOLIA 的房間畫面重畫的，所以畫面上的 `ルームチャット`、`メッセージを入力`、訊息框的
+`スキップ`／`閉じる` 按鈕，以及秘密骰換掉內文後的 `シークレットダイス`、BCDice 的
+`決定的成功/スペシャル` 都原樣保留；角色名、房間名與示範台詞則照常翻成繁體中文。
+`css.v1.js` 的英文註解引用了 CCFOLIA 的設定名稱（`旧ダイス演出を利用する` 等），也不動。
+說明文裡提到這些設定時，繁中版寫的是譯名（例如「使用舊版骰子演出」），方便讀者理解；
+實際操作 CCFOLIA 時請對照日文介面。`tests/smoke.mjs` 同樣把這批日文釘成清單。
+
+上游替每個設定列的輸入元件，從列標籤借一份 `aria-label`，但只在載入時借一次；
+收錄版在語言引擎換好標籤後、以及之後每次切換語言時重借，讀螢幕軟體聽到的才會跟畫面一致。
 
 ## room-zip：拆掉上游的 Web DEMO 外層
 
@@ -417,50 +437,20 @@ Google Fonts 連結一併載入）；Noto Sans JP 雖然有漢字，字形是日
   `'Material Symbols'`，對不上實際載入的 `Material Symbols Outlined`，圖示會顯示成
   英文單字。
 
-## jizura：JIZURA 字面
+## jizura：JIZURA 字面（連到原站）
 
 上游 `852wa/JIZURA`（hakoniwa）是單檔 HTML 的歌詞動態影片產生器：貼上歌詞、點按拍點，
 就自動替每一行排出版面、登場／退場動畫、裝飾與鏡頭，匯出 MP4、綠幕、黑幕或 PNG 序列。
-它自己的 README 說明了「文字 PV」的做法與每個選項，本 repo 不另寫說明。
 
-### 收了什麼
+2026-09-25 起合輯曾收錄 `1b48bea` 的副本：照上游產生英文版的方式，建置時以翻譯表把日文字串
+換成繁中，產生繁中與日文兩個頁面。同一天，上游整合了社群貢獻的繁體中文版（貢獻者
+[Zaious](https://github.com/Zaious)，上游 PR #6），之後也持續跟著新功能更新，另有簡體中文、韓文等版本。
 
-原始碼快照收在 `vendor/jizura/`：`src/`（三十一個模組，約 1.8 MB）、`app/`（介面標記、樣式與
-上游的英文翻譯表）、`vendor/mp4-muxer.min.js`（MIT，授權見 `vendor/jizura/THIRD_PARTY_NOTICES.md`）、
-`build.py`、`docs/`、`tools/`、`LICENSE` 與兩份 README。下列檔案不收：
-
-- After Effects 的腳本與 CEP 面板（`JIZURA_AE*.jsx`、`JIZURA_CEP*.zip`、`ae/`、`cep/`、
-  `build_ae.py`、`build_cep.py`）：那是 AE 的外掛，不是網頁工具。頁面上的「匯出給 AE」照留，
-  匯出的 JSON 要搭配上游的 AE 面板使用，面板請到上游下載。
-- `index.html` 與 `en/`：上游的建置產物（日文版、英文版），收錄版自己建。
-- `dev/`：上游的開發測試腳本（Node 與 Python，會用到 AE 的模擬環境）。
-
-### 繁中版照上游產生英文版的方式建置
-
-上游的日文字串散在近三萬行程式碼裡，英文版不是改成 i18n key，而是建置時做字串取代
-（`app/english.py` 的替換表），部件、風格與氛圍的名稱則在各表現包登錄完、編輯器啟動前
-改寫（`app/english.js`）。收錄版照同一套機制加上繁中：`app/chinese.py`（鍵與 `english.py`
-完全相同，值換成繁中）與 `app/chinese.js`（七百多個部件、24 種風格、7 種氛圍與範例歌詞），
-由 `build_toolkit.py` 產生兩個頁面：
-
-- `tools/jizura/index.html`：繁中版。
-- `tools/jizura/ja/index.html`：日文版，除了頁首之外與上游的 `index.html` 相同。
-
-這樣上游更新時，只要把新的原始碼放進 `vendor/jizura/`、補上新的翻譯再重建即可；
-`tests/smoke.mjs` 會檢查繁中版裡沒有殘留假名、每個部件都有譯名。內部 ID 與專案 JSON
-不隨語言改變，繁中版、日文版與上游存出來的專案檔可以互相開啟。
-
-與上游 `build.py` 不同的地方：
-
-- 不輸出英文版。頁首的英文切換換成「← TRPG Toolkit」與繁中／日文兩頁的連結；選擇記在
-  合輯共用的 `trpg-toolkit-locale`，在合輯裡選過日文，開啟繁中頁時會直接換到日文頁。
-- 拿掉 canonical、hreflang 與 OG／Twitter meta（原作者站台的識別）。
-- 頁面最前面加了一段註解，附上 JIZURA 的 MIT 授權全文：單檔頁面離開這個 repo 也帶著授權。
-- 繁中版的介面字型改用 Noto Sans TC（IBM Plex Sans JP 的漢字是日文字形）。
-
-畫面上的歌詞字型不用另外處理：上游本來就會判斷歌詞的語言（有假名是日文；只有漢字時看
-繁簡特有字），繁中歌詞會自動換成 Noto Sans TC、Noto Serif TC、霞鶩文楷等繁中字型。
-繁中版的範例歌詞也改成繁中，所以一開頁面看到的就是繁中字型的效果。
+既然原作者已經提供官方繁中版，合輯自 2026-09-30 起不再收錄副本，`vendor/jizura/` 與建置產物一併移除。
+`tools/jizura/` 改成一個轉址頁：依合輯共用的語言設定（`trpg-toolkit-locale`）跳到原站的對應版本——
+繁中（預設）到 `https://852wa.github.io/JIZURA/zh-hant/`，日文到原站首頁，韓文到 `ko/`；
+沒有 JavaScript 時由 `<meta http-equiv="refresh">` 導到繁中版。以前收錄版的日文頁網址
+`tools/jizura/ja/` 也留著，會導到原站的日文版。首頁卡片的徽章改成「連到原作者網站的官方繁中版」。
 
 ## anime-rig：Anime2.5DRig
 
@@ -565,17 +555,16 @@ APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任�
 
 - 只有繁體中文，沒有語言選單；介面字型改用台灣的系統字型堆疊。尺寸選項底下多了一行說明，
   解釋為什麼預設尺寸這麼小。
-- 存檔的副檔名從 `.apng` 改成 `.png`：APNG 規格建議用 `.png`，`scene-transition` 也是這樣存，
+- 存檔的副檔名從 `.apng` 改成 `.png`：APNG 規格建議用 `.png`，`scene-transition` 匯出 APNG 時也是這樣存，
   上傳圖片的對話框比較不會擋。檔案內容完全相同。
 - 單檔 HTML 拆成 `index.html`、`styles.css` 與 `app.js`，頁首加上「← TRPG Toolkit」。
 
-## 需要建置的三個工具
+## 需要建置的兩個工具
 
-`cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，`jizura`
-的上游則用 Python 腳本把原始碼串成單檔 HTML，都不能直接把檔案放進 `tools/` 就跑。
-因此原始碼快照收在 `vendor/` 底下，建置產物提交在各自的 `tools/` 目錄，重建方式見
-[README](README.md#重新建置-cutincharacter-editor-與-jizura)。`vendor/` 不參與網站發佈。
-`jizura` 的做法見上面的 [jizura 一節](#jizurajizura-字面)，以下兩段只講 React 的兩個工具。
+`cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，
+不能直接把檔案放進 `tools/` 就跑。因此原始碼快照收在 `vendor/` 底下，建置產物提交在
+各自的 `tools/` 目錄，重建方式見
+[README](README.md#重新建置-cutin-與-character-editor)。`vendor/` 不參與網站發佈。
 
 `character-editor` 另有一點必須留意：`src/lib/editScreenText.ts` 的日文字面常數
 幾乎全是**解析用的錨點**，用來切分使用者從 CCFOLIA 編輯畫面複製貼上的文字
@@ -621,7 +610,7 @@ APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任�
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
 因此沒有隨附 OFL 全文——與 `cutin` 的其他六套日文字型同樣的處理方式。
-收錄的工具：`cutin`、`status-bar`、`typewriter`、`collage-letter`、`pair-maker`，
+收錄的工具：`cutin`、`status-bar`、`chat-window`、`message-box`、`scene-transition`（字幕字型）、`typewriter`、`collage-letter`、`pair-maker`，
 以及 `trpg-lab` 地圖編輯器的文字字型清單。
 
 `foreground-frame`、`loading-maker`、`text-path` 沒有網頁字型的載入機制（前兩者
@@ -665,7 +654,7 @@ magic-circle 的繁體中文翻譯移植自
 
 其餘二十六個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 與 `apng-wipe` 是改寫成只有繁中，見上）。
 
-各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的三個工具
+各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的五個工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：
 
 - `tools/typewriter/webp-muxer.js`——這是原封不動保留的二進位格式編碼函式庫，
@@ -689,8 +678,7 @@ magic-circle 的繁體中文翻譯移植自
 
 ## 本 repo 新增的部分
 
-`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`jizura` 的繁中翻譯表與
-建置腳本（`vendor/jizura/app/chinese.py`、`app/chinese.js`、`build_toolkit.py`）、`anime-rig` 的
+`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
 `guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
 以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
 `tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、

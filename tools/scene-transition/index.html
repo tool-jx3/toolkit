@@ -14,7 +14,7 @@
     <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
   </div>
   <h1 data-i18n="app.title">場景轉換素材產生器</h1>
-  <p data-i18n="header.tagline">製作暗轉、抹除、光圈等場景轉換動畫（APNG）。改變設定就會立即預覽，按「下載」即可儲存。所有處理都在瀏覽器內完成，圖片不會傳送到任何地方。</p>
+  <p data-i18n="header.tagline">製作暗轉、抹除、光圈等場景轉換動畫（WebP / APNG）。改變設定就會立即預覽，按「下載」即可儲存。所有處理都在瀏覽器內完成，圖片不會傳送到任何地方。</p>
 </header>
 
 <main>
@@ -30,6 +30,13 @@
     <fieldset>
       <legend data-i18n="look.legend">外觀</legend>
       <div class="row"><label data-i18n="look.color" for="color">顏色</label><input type="color" id="color"></div>
+      <div class="row"><label data-i18n="look.edge" for="edge">邊界光</label>
+        <span><input type="checkbox" id="edge"> <span data-i18n="look.edge.note" class="note">讓移動中的邊界以另一種顏色發光</span></span>
+      </div>
+      <div class="row" id="rowEdgeColor"><label data-i18n="look.edgeColor" for="edgeColor">光的顏色</label><input type="color" id="edgeColor"></div>
+      <div class="row"><label data-i18n="look.strobe" for="strobe">顏色交替</label>
+        <span class="with-value"><input type="range" id="strobe" min="0" max="8" step="1"><output id="strobeOut"></output></span></div>
+      <div class="row" id="rowColor2"><label data-i18n="look.color2" for="color2">另一種顏色</label><input type="color" id="color2"></div>
       <div class="row"><label data-i18n="look.size" for="size">輸出尺寸</label>
         <select id="size">
           <option value="1280x720">1280 × 720</option>
@@ -40,6 +47,15 @@
       </div>
       <div class="row"><label data-i18n="look.feather" for="feather">模糊</label>
         <span class="with-value"><input type="range" id="feather" min="1" max="255" step="1"><output id="featherOut"></output></span>
+      </div>
+      <div class="row" id="rowVariant"><label for="variant" id="variantLabel">形狀</label><select id="variant"></select></div>
+      <div class="row" id="rowOrder"><label data-i18n="look.order" for="order">排列順序</label>
+        <select id="order">
+          <option data-i18n="order.direction" value="direction">沿著方向</option>
+          <option data-i18n="order.center" value="center">從中心</option>
+          <option data-i18n="order.random" value="random">隨機</option>
+          <option data-i18n="order.checker" value="checker">棋盤格（分兩次）</option>
+        </select>
       </div>
       <div class="row" id="rowDirection"><label data-i18n="look.direction" for="direction">方向</label>
         <select id="direction">
@@ -56,8 +72,11 @@
       <div class="row" id="rowAxis"><label data-i18n="look.axis" for="axis">軸向</label>
         <select id="axis"><option data-i18n="axis.y" value="y">上下</option><option data-i18n="axis.x" value="x">左右</option></select>
       </div>
-      <div class="row" id="rowCount"><label data-i18n="look.count" for="count">條數</label>
+      <div class="row" id="rowCount"><label for="count" id="countLabel">條數</label>
         <span class="with-value"><input type="range" id="count" min="2" max="40" step="1"><output id="countOut"></output></span>
+      </div>
+      <div class="row" id="rowAmount"><label for="amount" id="amountLabel">波浪高度</label>
+        <span class="with-value"><input type="range" id="amount" min="0" max="100" step="1"><output id="amountOut"></output></span>
       </div>
       <div class="row" id="rowBlock"><label data-i18n="look.block" for="block">顆粒大小</label>
         <span class="with-value"><input type="range" id="block" min="1" max="60" step="1"><output id="blockOut"></output></span>
@@ -74,6 +93,10 @@
       <div class="row" id="rowBand"><label data-i18n="look.band" for="band">帶狀寬度</label>
         <span class="with-value"><input type="range" id="band" min="10" max="255" step="5"><output id="bandOut"></output></span>
       </div>
+      <div class="row" id="rowSeed"><label data-i18n="look.seed" for="reseed">花紋</label>
+        <span class="with-value"><button data-i18n="look.reseed" type="button" class="small" id="reseed">換一種花紋</button><output id="seedOut"></output></span>
+        <input type="hidden" id="seed">
+      </div>
     </fieldset>
 
     <fieldset>
@@ -81,7 +104,7 @@
       <div class="row"><label data-i18n="timing.duration" for="duration">動作秒數</label>
         <span class="with-value"><input type="range" id="duration" min="0.1" max="3" step="0.05"><output id="durationOut"></output></span>
       </div>
-      <div class="row"><label data-i18n="timing.hold" for="hold">靜止秒數</label>
+      <div class="row"><label for="hold" id="holdLabel">靜止秒數</label>
         <span class="with-value"><input type="range" id="hold" min="0" max="3" step="0.1"><output id="holdOut"></output></span>
       </div>
       <div class="row"><label data-i18n="timing.ease" for="ease">速度變化</label>
@@ -90,6 +113,10 @@
           <option data-i18n="ease.linear" value="linear">等速</option>
           <option data-i18n="ease.in" value="in">漸漸加速</option>
           <option data-i18n="ease.out" value="out">漸漸減速</option>
+          <option data-i18n="ease.bounce" value="bounce">彈跳</option>
+          <option data-i18n="ease.flicker" value="flicker">閃爍後覆蓋</option>
+          <option data-i18n="ease.lightning" value="lightning">閃電（亮一下就消失）</option>
+          <option data-i18n="ease.heartbeat" value="heartbeat">心跳（噗通、噗通）</option>
         </select>
       </div>
       <div class="row"><label data-i18n="timing.fps" for="fps">流暢度</label>
@@ -112,6 +139,50 @@
       <div class="row"><label data-i18n="text.size" for="fontSize">文字大小</label>
         <span class="with-value"><input type="range" id="fontSize" min="16" max="200" step="2"><output id="fontSizeOut"></output></span>
       </div>
+      <div class="row"><label data-i18n="text.font" for="font">字型</label>
+        <select id="font">
+          <optgroup label="電腦字型" data-label-key="font.group.pc">
+            <option data-i18n="font.gothic" value="gothic">黑體</option><option data-i18n="font.mincho" value="mincho">明體</option><option data-i18n="font.mono" value="mono">等寬（適合英數字）</option>
+            <option data-i18n="font.pc" value="pc">以名稱指定（電腦字型）</option>
+          </optgroup>
+          <optgroup label="黑體・圓體・普普風（Google Fonts）" data-label-key="font.group.gothic">
+            <option value="notosans">Noto Sans JP</option><option data-i18n="font.zenmaru" value="zenmaru">Zen Maru Gothic（圓體）</option>
+            <option data-i18n="font.mplusround" value="mplusround">M PLUS Rounded 1c（圓體）</option><option data-i18n="font.kosugimaru" value="kosugimaru">Kosugi Maru（圓體）</option>
+            <option data-i18n="font.delagothic" value="delagothic">Dela Gothic One（極粗）</option><option data-i18n="font.mochiypop" value="mochiypop">Mochiy Pop One（普普風）</option>
+            <option data-i18n="font.reggae" value="reggae">Reggae One（強勁）</option><option data-i18n="font.dotgothic" value="dotgothic">DotGothic16（點陣）</option>
+          </optgroup>
+          <optgroup label="手寫（Google Fonts）" data-label-key="font.group.hand">
+            <option data-i18n="font.hachimaru" value="hachimaru">Hachi Maru Pop（可愛圓字）</option><option data-i18n="font.klee" value="klee">Klee One（教科書體）</option>
+            <option data-i18n="font.kurenaido" value="kurenaido">Zen Kurenaido（軟筆）</option>
+          </optgroup>
+          <optgroup label="明體・毛筆・和風（Google Fonts）" data-label-key="font.group.mincho">
+            <option value="notoserif">Noto Serif JP</option><option data-i18n="font.shippori" value="shippori">Shippori Mincho B1（明體）</option>
+            <option data-i18n="font.zenold" value="zenold">Zen Old Mincho（古風明體）</option><option data-i18n="font.kaisei" value="kaisei">Kaisei Decol（裝飾）</option>
+            <option value="zenantique">Zen Antique（活版）</option><option data-i18n="font.yujisyuku" value="yujisyuku">Yuji Syuku（毛筆）</option>
+            <option data-i18n="font.yujiboku" value="yujiboku">Yuji Boku（毛筆・粗）</option>
+          </optgroup>
+          <!-- TRPG Toolkit 合輯追加：五套繁體中文網頁字型（與 status-bar、chat-window 同一組） -->
+          <optgroup label="繁體中文（Google Fonts）" data-label-key="font.group.tc">
+            <option data-i18n="font.notosanstc" value="notosanstc">Noto Sans TC（思源黑體）</option><option data-i18n="font.notoseriftc" value="notoseriftc">Noto Serif TC（思源宋體）</option>
+            <option data-i18n="font.wenkaitc" value="wenkaitc">LXGW WenKai TC（霞鶩文楷）</option><option data-i18n="font.chocolatetc" value="chocolatetc">Chocolate Classical Sans（巧克力黑體）</option>
+            <option data-i18n="font.cactustc" value="cactustc">Cactus Classical Serif（仙人掌明體）</option>
+          </optgroup>
+          <optgroup label="僅英數字（Google Fonts。中日文改用替代字型）" data-label-key="font.group.latin">
+            <option data-i18n="font.orbitron" value="orbitron">Orbitron（科幻）</option><option data-i18n="font.sharetech" value="sharetech">Share Tech Mono（終端機）</option>
+            <option data-i18n="font.pressstart" value="pressstart">Press Start 2P（點陣）</option><option value="cinzel">Cinzel（碑文）</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="row" id="rowFontName"><label data-i18n="font.name" for="fontName">字型名稱</label>
+        <span class="pc-font"><input type="text" id="fontName" data-i18n-placeholder="font.name.placeholder" placeholder="例）Noto Sans TC" autocomplete="off" spellcheck="false"><button type="button" class="small" data-pc-fonts data-i18n="font.pick">從清單選</button></span>
+      </div>
+      <p data-i18n="text.font.note" class="note">Google Fonts 的字型只在選用時才會從 Google 載入（不會傳送文字或圖片）。電腦字型可以輸入名稱，或用「從清單選」（Chrome / Edge）挑選。</p>
+      <div class="row"><label data-i18n="text.pos" for="textPos">位置</label>
+        <select id="textPos"><option data-i18n="textPos.center" value="center">正中央</option><option data-i18n="textPos.bottom" value="bottom">下方（字幕）</option><option data-i18n="textPos.top" value="top">上方</option></select>
+      </div>
+      <div class="row"><label data-i18n="text.outline" for="textOutline">描邊</label>
+        <span><input type="checkbox" id="textOutline"> <span data-i18n="text.outline.note" class="note">替文字加上描邊（背景會透出來時）</span></span>
+      </div>
     </fieldset>
 
     <fieldset>
@@ -121,11 +192,30 @@
           <option data-i18n="mode.cover" value="cover">覆蓋（遮住畫面）</option>
           <option data-i18n="mode.uncover" value="uncover">展開（露出畫面）</option>
           <option data-i18n="mode.sweep" value="sweep">通過</option>
+          <option data-i18n="mode.roundtrip" value="roundtrip">闔上再展開（來回）</option>
         </select>
       </div>
+      <div class="row"><label data-i18n="advanced.reach" for="reach">推進程度</label>
+        <span class="with-value"><input type="range" id="reach" min="0" max="100" step="1" aria-describedby="reachNote"><output id="reachOut"></output></span>
+      </div>
+      <p data-i18n="advanced.reach.note" class="desc" id="reachNote">100% 會覆蓋整個畫面。調低則會停在中途（例如上下黑邊、只讓四周變暗等）。</p>
       <div class="row"><label data-i18n="advanced.invert" for="invert">反轉</label>
         <span><input type="checkbox" id="invert"> <span data-i18n="advanced.invert.note" class="note">讓前進方向相反</span></span>
       </div>
+      <div class="row"><label data-i18n="advanced.reverse" for="reverse">倒轉播放</label>
+        <span><input type="checkbox" id="reverse"> <span data-i18n="advanced.reverse.note" class="note">從最後一格播到第一格（用來製作成對的素材）</span></span>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="format.legend">匯出</legend>
+      <div class="row"><label data-i18n="format.label" for="format">格式</label>
+        <select id="format">
+          <option data-i18n="format.webp" value="webp">WebP（推薦・輕量）</option>
+          <option value="apng">APNG（.png）</option>
+        </select>
+      </div>
+      <p class="desc" id="formatNote"></p>
     </fieldset>
   </form>
 
@@ -135,7 +225,9 @@
         <button data-i18n="bg.scene" type="button" data-bg="scene" aria-pressed="true">場景風</button>
         <button data-i18n="bg.light" type="button" data-bg="light">白色</button>
         <button data-i18n="bg.checker" type="button" data-bg="checker">棋盤格</button>
+        <button data-i18n="bg.custom" type="button" data-bg="custom" aria-pressed="false" data-i18n-title="bg.custom.title" title="用手邊的圖片當預覽背景（不會傳送到任何地方）">圖片…</button>
       </span>
+      <input type="file" id="bgFile" accept="image/*" hidden>
       <span class="spacer"></span>
       <button data-i18n="action.undo" type="button" class="small" id="undo" data-i18n-title="action.undo.title" title="復原 (Ctrl+Z)">↶ 復原</button>
       <button data-i18n="action.redo" type="button" class="small" id="redo" data-i18n-title="action.redo.title" title="重做 (Ctrl+Y)">↷ 重做</button>
@@ -149,17 +241,20 @@
       <h2 data-i18n="note.howto">使用方式</h2>
       <ul>
         <li data-i18n="note.howto.1">選擇預設集，調整顏色與秒數後按「下載」。</li>
-        <li data-i18n-html="note.howto.2">儲存下來的是 APNG（內容為動畫的 <code>.png</code>），可以直接當成圖片上傳。</li>
+        <li data-i18n-html="note.howto.2">儲存下來的是動態 WebP（<code>.webp</code>）。大小只有 APNG 的幾分之一，可以直接當成圖片上傳到 CCFOLIA。也可以選擇 APNG（<code>.png</code>）。</li>
         <li data-i18n="note.howto.3">預設是「只播放一次並停在最後一格」。暗轉會維持黑色，明轉則會變透明消失（為了方便確認，預覽會重複播放）。</li>
-        <li data-i18n="note.howto.4">用暗轉遮住場面 → 換掉背景 → 用明轉露出畫面，兩張一組使用會銜接得很自然。</li>
+        <li data-i18n="note.howto.4">用暗轉遮住場面 → 換掉背景 → 用明轉露出畫面，兩張一組使用會銜接得很自然。成對的素材只要勾選「倒轉播放」再儲存一次就能做出來。</li>
+        <li data-i18n="note.howto.5">用預覽區的「圖片…」把手邊的圖片設成背景，就能確認實際疊在場景上的樣子（圖片不會傳送到任何地方）。</li>
       </ul>
       <h2 data-i18n="note.tips">製作訣竅</h2>
       <ul>
         <li data-i18n="note.tips.1">設想是鋪滿整個畫面使用。以純色為主的效果即使尺寸小也很漂亮，改成 640 × 360 檔案會輕很多。</li>
         <li data-i18n="note.tips.2">調高「模糊」邊界會變柔和，調低則會變銳利。</li>
-        <li data-i18n="note.tips.3">「靜止秒數」是動作結束後停留在最後一張畫面的時間，可以用它來爭取換場的餘裕。</li>
-        <li data-i18n="note.tips.4">溶解因為顆粒是隨機的，檔案會比較大。調高「顆粒大小」就會變輕。</li>
-        <li data-i18n="note.tips.5">CCFOLIA 能上傳的圖片最大 5MB。超過時會在儲存後提醒，請調低輸出尺寸、流暢度或秒數。</li>
+        <li data-i18n="note.tips.3">「靜止秒數」是動作結束後停留在最後一張畫面的時間，可以用它來爭取換場的餘裕。選「闔上再展開」時，則是完全闔上後停住的時間。</li>
+        <li data-i18n="note.tips.reach">調低「推進程度」，畫面就不會整個蓋滿，而是停在中途。上下黑邊、只讓四周變暗的效果都是這樣做的。</li>
+        <li data-i18n="note.tips.edge">開啟「邊界光」，移動中的邊界就會以另一種顏色發光（燒焦、發光抹除）。</li>
+        <li data-i18n="note.tips.seed">溶解、墨水暈染等隨機花紋，可以用「換一種花紋」重新產生。</li>
+        <li data-i18n="note.tips.5">CCFOLIA 能上傳的圖片最大 5MB。APNG 超過 5MB 時，上傳會被壓縮而無法播放動畫，檔案太大時請改用 WebP。超過時會在儲存後提醒。</li>
       </ul>
     </div>
   </div>
@@ -169,12 +264,14 @@
   <span data-i18n="footer.free">只靠瀏覽器就能運作的免費工具。做出來的素材不限用途皆可自由使用（也不需要標註出處）。</span><br>
   <span data-i18n-html="footer.unofficial">設想用於 TRPG 線上團的工具，但與任何服務都沒有關係，是<strong>非官方</strong>工具。</span><br>
   <a href="https://shiki365.github.io/" data-i18n="footer.moreTools">看看其他工具（shiki365 的工具集）</a> · <a href="https://shiki365.github.io/#contact" data-i18n="footer.feedback">問題回報與意見</a> · <a href="https://sabunomisogi.booth.pm/items/8891048" data-i18n="footer.support">支持開發（BOOTH）</a><br>
-  <span id="version">v1.1</span> <span data-i18n="footer.version">· 最後更新 2026-09-24</span>
+  <span id="version">v2.3</span> <span data-i18n="footer.version">· 最後更新 2026-09-29</span>
 </footer>
 
 <script src="../../assets/i18n.js"></script>
 <script src="./i18n.scene-transition.js"></script>
 <script src="apng.v2.js"></script>
-<script src="app.v2.js"></script>
+<script src="webp.v1.js"></script>
+<script src="app.v6.js"></script>
+<script src="pcfonts.v1.js"></script>
 </body>
 </html>
