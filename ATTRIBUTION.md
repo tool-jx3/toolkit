@@ -12,7 +12,10 @@
 [hakoniwa](https://github.com/852wa) 與
 [max-enterme](https://github.com/max-enterme) 與
 [sedn14636361](https://github.com/sedn14636361) 與
-[くま。](https://github.com/kumachansteps) 製作的 34 個網頁工具，以及兩個作者不明的工具（共 36 個），
+[くま。](https://github.com/kumachansteps) 與
+[Eon-00](https://github.com/Eon-00) 與
+[fyam-hamu](https://github.com/fyam-hamu) 與
+[usagineko7865-debug](https://github.com/usagineko7865-debug) 製作的 38 個網頁工具，以及兩個作者不明的工具（共 40 個），
 並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
@@ -55,6 +58,10 @@
 | session-report | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-report-generator/` | `42c45f3` | **未授權** |
 | variant-manager | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/chara-sabun-kanri-tool/` | `42c45f3` | **未授權** |
 | scenario-cards | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/scenario-snippet-builder/` | `42c45f3` | **未授權** |
+| textbox | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) | `d2c74d3` | MIT |
+| log-converter | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `bb32ed7` | MIT |
+| psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
+| battlemap | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `a21c571` | MIT |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
@@ -680,6 +687,40 @@ APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任�
 - `bg-motion` 與 `variant-manager` 照上游自 jsDelivr 載入 JSZip（`bg-motion` 另有 UPNG.js），
   見各目錄的 `THIRD_PARTY_NOTICES.md`。
 
+## log-converter、textbox、psd-studio、battlemap
+
+**log-converter（CCFOLIA 日誌轉換器）**：上游 `Eon-00/eon-ccfolia-log-converter`（MIT）把 CCFOLIA
+匯出的日誌 HTML 轉成小說、時間軸或 CCFOLIA 風格的網頁。上游的「用 Room ID 載入」會直接呼叫
+CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版把這個入口與相關程式整段拿掉，
+其餘功能不變。產出 HTML 裡的固定字樣（「系統」、閒聊訊息的摺疊標題、插圖的 alt、預設標題、
+`<html lang>`）依轉換當下的語言；使用者的日誌內容原樣不動。解析規則另外加認別名：自動選閒聊分頁時
+除了韓文的「잡담」，也認「閒聊」「雜談」與日文介面 CCFOLIA 的「雑談」；「全部分頁」檔案的標籤也認
+「全部」「所有」。另外修了時間軸的名字欄寬：上游只把諺文算成全形，中文或日文的長名字會蓋到頭像與
+台詞；純韓文日誌的產出不變。作者的品牌名「연연」（配色預設與頁尾）照原樣保留。
+
+
+**textbox（文字方框產生器）**：sotsotssi 的 `TextBoxGen`，收錄做法與其他 sotsotssi 工具相同
+（Tailwind Play CDN、`app.js`／`styles.css`、`THIRD_PARTY_NOTICES.md`）。上游的全形判斷本來就涵蓋
+中日韓漢字與全形標點，但逐 UTF-16 碼元計算，CJK 擴充 B 區以後的字（例如台語用字「𪜶」）會被算成
+兩個半形字，換行時還會從中間切開、變成落單的代理字元。收錄版改成逐碼位計算，並補上直排／相容
+標點與全形符號的範圍；只含基本平面字元的輸入，輸出與上游逐字相同。
+
+**psd-studio（CCFOLIA & 圖片調色工作室）**：上游 `fyam-hamu/F_Ccfolia-PSD-Studio` 沒有 LICENSE 檔，
+但頁面上有作者的條款：「코드 자체의 무단 재판매 및 유료 배포는 금지합니다. 단, 개인 목적의 코드 수정,
+기능 개선 및 이를 바탕으로 한 재배포는 자유롭게 가능합니다.」（禁止轉售與收費散布；修改、改良後可以
+自由再散布）。合輯依這條免費收錄，條款原文、翻譯與改動清單收在
+[tools/psd-studio/TERMS.md](tools/psd-studio/TERMS.md)，頁面上也照樣顯示。
+收錄時拿掉 Firebase Realtime DB 的「按讚」鈕（連同寫死的 apiKey）與只放了作者愛犬照片的分頁
+（`important.png`，9 MB）；KakaoTalk 聯絡連結改成指向本 repo 的 issues 與上游 GitHub
+（理由同 `pair-maker` 的回報表單）。五個 CDN 函式庫原本有一個沒鎖版本，收錄版全部鎖定，
+見 `THIRD_PARTY_NOTICES.md`。同樣操作下匯出的房間 ZIP、PSD 圖層 ZIP 與 APNG 都與上游逐位元組相同。
+
+**battlemap（戰鬥地圖產生器）**：合輯第一個英文原文的工具，因此語言引擎加上了 `en`（只有載入英文
+字典的頁面才會出現這個選項）。上游頁面上的三張 BOOTH 商店推廣卡片、SEO 用的 meta／canonical／
+結構化資料、`robots.txt`、`sitemap.xml` 與 README 截圖不收（站台識別，理由同其他工具）。另外修了
+上游一個問題：格線與火把開關的外框是 `<span>`、核取方塊又是 0×0，滑鼠點不動；收錄版改成
+`<label>`，外觀不變。同一個亂數種子在繁中、英文與上游下產生的 PNG 逐位元組相同。
+
 ## 需要建置的三個工具
 
 `cutin`、`character-editor` 與 `obs-tachie` 的上游都是 React + TypeScript + Vite 專案，
@@ -779,7 +820,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘三十四個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 與 `apng-wipe` 是改寫成只有繁中，見上；
+其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 與 `apng-wipe` 是改寫成只有繁中，見上；
 `jizura` 連到原作者的官方繁中版，不在此列）。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的五個工具

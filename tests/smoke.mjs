@@ -6,8 +6,8 @@ section('i18n engine');
 const I18N = loadI18N();
 
 check('預設語言為 zh-TW', I18N.locale === 'zh-TW', `got: ${I18N.locale}`);
-check('註冊了 zh-TW、ko 與 ja 三種語言',
-  Object.keys(I18N.locales).join(',') === 'zh-TW,ko,ja',
+check('註冊了 zh-TW、ko、ja 與 en 四種語言',
+  Object.keys(I18N.locales).join(',') === 'zh-TW,ko,ja,en',
   `got: ${Object.keys(I18N.locales).join(',')}`);
 check('每種語言都有顯示名稱與 lang 屬性',
   Object.values(I18N.locales).every(m => m.label && m.lang));
@@ -34,7 +34,7 @@ check('切換至相同語言回傳 false', I18N.setLocale('ko') === false);
 check('引擎支援五種屬性掛勾',
   ['-title', '-aria-label', '-placeholder', '-alt', '-html']
     .every(suffix => read('assets/i18n.js').includes(`[data-i18n${suffix}]`)));
-check('切換至未知語言回傳 false', I18N.setLocale('en') === false);
+check('切換至未知語言回傳 false', I18N.setLocale('fr') === false);
 
 /* 偏好全站共用，但工具只載入自己的原文語言字典：停在沒有該語言字典的
  * 頁面時，resolveLocale() 應退回預設語言呈現。 */
@@ -80,6 +80,8 @@ function checkTool({ dir, dict, html: page = 'index.html', shared = [], locale =
   /* 原文洩漏的判準隨語言而異：韓文查諺文，日文查平假名與片假名——漢字
    * 與中文重疊，拿來當判準會把正常的譯文誤判為未翻譯。 */
   const SOURCE_CHARS = { ko: HANGUL, ja: KANA }[locale];
+  /* 英文和程式碼用的是同一套字母，沒辦法靠字元類別判斷「原文沒翻到」；英文工具的
+   * 洩漏檢查改由各工具自己的專節處理（見 battlemap）。 */
 
   check(`只載入 ${want.join('、')} 的字典`,
     Object.keys(tool.messages).filter(l => Object.keys(tool.messages[l]).length).join(',') === want.join(','),
@@ -115,7 +117,7 @@ function checkTool({ dir, dict, html: page = 'index.html', shared = [], locale =
     !!titleMatch && titleMatch[1] === tool.messages['zh-TW']['app.title'],
     `<title>="${titleMatch ? titleMatch[1] : '(none)'}" app.title="${tool.messages['zh-TW']['app.title']}"`);
 
-  const leakedIn = (src, file) => src.split('\n')
+  const leakedIn = (src, file) => !SOURCE_CHARS ? [] : src.split('\n')
     .map((line, i) => [i + 1, line])
     .filter(([n, line]) => SOURCE_CHARS.test(line) && !allowSource(line, n, file));
   const report = rows => rows.slice(0, 5)
@@ -966,6 +968,8 @@ const SOTSOT_FOUR = [
   { dir: 'tools/acrylic-goods', dict: 'i18n.acrylic-goods.js', minHooks: 50, inline: 35, attrs: 4, authorLink: false },
   { dir: 'tools/video-anim', dict: 'i18n.video-anim.js', minHooks: 60, inline: 50, attrs: 1, authorLink: true },
   { dir: 'tools/gif-combiner', dict: 'i18n.gif-combiner.js', minHooks: 25, inline: 20, attrs: 5, authorLink: true },
+  /* TextBoxGen 不是角色美術工具，但收錄做法（Tailwind、CDN、onChange 重畫）完全相同，一併檢查。 */
+  { dir: 'tools/textbox', dict: 'i18n.textbox.js', minHooks: 35, inline: 31, attrs: 4, authorLink: true },
 ];
 for (const t of SOTSOT_FOUR) {
   checkTool({ dir: t.dir, dict: t.dict, scripts: ['app.js'], styles: ['styles.css'], minHooks: t.minHooks });
@@ -1299,6 +1303,89 @@ check('npc-data.js 只有資料表，不操作畫面', !/document\.|innerHTML|te
 check('不載入任何網頁字型或外部資源',
   !/fonts\.googleapis|fonts\.gstatic|https?:\/\/(?!www\.w3\.org)/.test(seHtml + read('tools/scenario-editor/styles.css')));
 check('紙面與介面的字型堆疊補上台灣系統字型', seApp.includes('Noto Serif TC') && seApp.includes('Microsoft JhengHei'));
+
+/* ---- battlemap（戰鬥地圖產生器）---- */
+/* 合輯第一個英文原文的工具。英文和程式碼共用字母，checkTool 的洩漏掃描抓不到「英文
+ * 沒翻到」，所以這裡改查：畫面上的英文句子只能出現在字典裡，標記與程式碼中不准有。 */
+const bm = checkTool({
+  dir: 'tools/battlemap',
+  dict: 'i18n.battlemap.js',
+  locale: 'en',
+  scripts: ['app.js'],
+  styles: ['styles.css'],
+  minHooks: 22
+});
+section('tools/battlemap');
+const bmHtml = read('tools/battlemap/index.html');
+/* 內嵌文字寫繁中，所以抹掉標籤、腳本與屬性之後，剩下的英文只能是專有名詞與單位。 */
+const bmVisible = bmHtml.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<!--[\s\S]*?-->/g, ' ')
+  .replace(/<[^>]*>/g, ' ');
+const BM_ALLOWED_EN = ['TRPG', 'Toolkit', 'Roll', 'Roll20', 'Foundry', 'VTT', 'CCFOLIA', 'px', 'PNG', 'MIT', 'AI', 'canvas', 'GitHub', 'PR', 'G', 'D'];
+const bmWords = [...new Set(bmVisible.match(/[A-Za-z]{2,}/g) || [])].filter(w => !BM_ALLOWED_EN.includes(w));
+check('標記裡的可見文字沒有英文介面字', bmWords.length === 0, bmWords.join(' '));
+const bmApp = read('tools/battlemap/app.js');
+const bmStrings = [...stripComments(bmApp, 'js').matchAll(/(['"`])((?:(?!\1)[^\\\n])*[A-Za-z]{3,} [A-Za-z]{3,}(?:(?!\1)[^\\\n])*)\1/g)].map(m => m[2])
+  .filter(str => str !== 'use strict');
+check('app.js 沒有寫死的英文句子', bmStrings.length === 0, bmStrings.slice(0, 5).join(' | '));
+check('拿掉上游的 BOOTH 推廣卡片與 SEO 設定',
+  !/booth\.pm|application\/ld\+json|rel="canonical"|og:title/.test(bmHtml) && !exists('tools/battlemap/robots.txt'));
+check('保留 LICENSE（MIT）', /MIT License/.test(read('tools/battlemap/LICENSE')));
+
+/* ---- psd-studio（CCFOLIA & 圖片調色工作室）---- */
+/* 上游 fyam-hamu/F_Ccfolia-PSD-Studio 沒有 LICENSE，但頁面上寫了作者條款：禁止轉售與
+ * 收費散布，修改、改良後可以免費再散布。條款原文與翻譯收在 TERMS.md，畫面上也保留。 */
+const pss = checkTool({
+  dir: 'tools/psd-studio',
+  dict: 'i18n.psd-studio.js',
+  scripts: ['app.js'],
+  styles: ['styles.css'],
+  minHooks: 165,
+  licence: false
+});
+section('tools/psd-studio');
+const pdsHtml = read('tools/psd-studio/index.html'), pdsApp = read('tools/psd-studio/app.js');
+const pdsTerms = read('tools/psd-studio/TERMS.md');
+check('TERMS.md 引用作者條款原文並註明出處',
+  pdsTerms.includes('무단 재판매 및 유료 배포는 금지합니다') && pdsTerms.includes('718bb40'));
+check('畫面上保留作者條款（兩種語言）',
+  ['zh-TW', 'ko'].every(l => Object.values(pss.messages[l]).some(v => /재판매|轉售/.test(v))));
+check('拿掉 Firebase 按讚鈕、KakaoTalk 聯絡連結與作者的照片',
+  !/firebase|apiKey|kakao|important\.png|ggundy_liked/i.test(stripComments(pdsHtml, 'html') + stripComments(pdsApp, 'js')) && !exists('tools/psd-studio/important.png'));
+/* 上游有一個函式庫沒鎖版本；收錄版每個 CDN 網址都要帶版本，並記在 THIRD_PARTY_NOTICES。 */
+const pdsNotices = read('tools/psd-studio/THIRD_PARTY_NOTICES.md');
+const pdsCdn = [...new Set([...(pdsHtml + pdsApp).matchAll(/https:\/\/(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|unpkg\.com)[^"'`) ]*/g)].map(m => m[0]))];
+check('解析出五個 CDN 函式庫', pdsCdn.length === 5, `found ${pdsCdn.length}`);
+const pdsUnpinned = pdsCdn.filter(u => {
+  const v = (u.match(/@(\d+\.\d+\.\d+)\/|\/(\d+\.\d+\.\d+)\//) || [])[1] || (u.match(/\/(\d+\.\d+\.\d+)\//) || [])[1];
+  return !v || !pdsNotices.includes(v);
+});
+check('每個 CDN 網址都鎖了版本並記在 THIRD_PARTY_NOTICES', pdsUnpinned.length === 0, pdsUnpinned.join(', '));
+check('掛了語言切換器，切語言時重畫程式寫的文字',
+  pdsApp.includes("I18N.mountSwitcher(document.getElementById('localeSelect'))") && /I18N\.onChange\(\(\) => \{/.test(pdsApp));
+
+/* ---- log-converter（CCFOLIA 日誌轉換器）---- */
+/* 刻意留著的韓文：自動選閒聊分頁與「全部分頁」檔案標籤的比對字樣（解析規則），以及作者的
+ * 品牌名「연연」（配色預設與頁尾署名，比照 pair-maker 的「배고픔」）。 */
+const LC_KEPT_KO = ['잡담', '전체', '연연'];
+const lc = checkTool({
+  dir: 'tools/log-converter',
+  dict: 'i18n.log-converter.js',
+  scripts: ['app.js'],
+  styles: ['styles.css'],
+  minHooks: 210,
+  allowSource: line => !HANGUL.test(LC_KEPT_KO.reduce((l, k) => l.split(k).join(''), line))
+});
+section('tools/log-converter');
+const lcApp = read('tools/log-converter/app.js'), lcHtml = read('tools/log-converter/index.html');
+for (const keep of ['잡담', '전체']) check(`app.js 仍保留解析用的「${keep}」`, lcApp.includes(keep));
+check('頁尾保留作者的品牌名', lcHtml.includes('연연'));
+check('閒聊分頁也認得繁中與日文介面的名稱',
+  /const OOC_TAB_NAMES = \['잡담', '閒聊', '雜談', '雑談'\]/.test(lcApp));
+/* Room ID 載入會呼叫 CCFOLIA 的 Firestore，上游自己也說已經被擋；收錄版整段拿掉。 */
+check('拿掉「用 Room ID 載入」', !/firestore|CcfoliaAPI|roomIdInput|loadRoomBtn/i.test(stripComments(lcApp, 'js') + stripComments(lcHtml, 'html')));
+check('保留 LICENSE（MIT）', /MIT License/.test(read('tools/log-converter/LICENSE')));
+check('掛了語言切換器，切語言時重畫程式寫的文字',
+  lcApp.includes('I18N.mountSwitcher(') && lcApp.includes('I18N.onChange('));
 
 /* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
@@ -2152,7 +2239,8 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
   'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe', 'message-box',
-  'scenario-editor', 'obs-tachie', 'bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards'];
+  'scenario-editor', 'obs-tachie', 'bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards',
+  'psd-studio', 'textbox', 'battlemap', 'log-converter'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -2163,8 +2251,8 @@ for (const name of TOOLS) {
  * emotion-maker 另含 39 張圖像素材，故其徽章用 license.unlicensed.assets。 */
 const TOOLS_EXTERNAL = ['jizura'];
 check('首頁的 JIZURA 卡片標示連到原站', /href="\.\/tools\/jizura\/"[\s\S]{0,1600}?data-i18n="license\.external"/.test(homeHtml));
-check('首頁字典有四種授權徽章',
-  ['license.mit', 'license.cc0', 'license.unlicensed', 'license.unlicensed.assets'].every(k => homeZh.has(k)));
+check('首頁字典有五種授權徽章',
+  ['license.mit', 'license.cc0', 'license.custom', 'license.unlicensed', 'license.unlicensed.assets'].every(k => homeZh.has(k)));
 const homeCards = [...homeHtml.matchAll(/<li class="tool-card">([\s\S]*?)<\/li>/g)].map(m => m[1]);
 check('首頁卡片數與工具數一致', homeCards.length === TOOLS.length,
   `cards: ${homeCards.length}, tools: ${TOOLS.length}`);
@@ -2172,7 +2260,10 @@ for (const card of homeCards) {
   const name = (card.match(/href="\.\/tools\/([^/]+)\//) || [])[1];
   const badge = (card.match(/class="badge(?: [^"]*)?" data-i18n="([^"]+)"/) || [])[1];
   /* 不再收錄副本、改連到原作者網站的工具，徽章標「連到原站」。 */
+  /* 沒有 LICENSE、但作者在頁面上寫了自己的條款（例如允許免費再散布修改版）的工具，
+   * 條款原文與翻譯收在 TERMS.md，徽章標「作者條款」。 */
   const expected = TOOLS_EXTERNAL.includes(name) ? ['license.external']
+    : exists(`tools/${name}/TERMS.md`) ? ['license.custom']
     : exists(`tools/${name}/LICENSE`)
     ? [/CC0 1\.0 Universal/.test(read(`tools/${name}/LICENSE`)) ? 'license.cc0' : 'license.mit']
     : ['license.unlicensed', 'license.unlicensed.assets'];
@@ -2181,7 +2272,7 @@ for (const card of homeCards) {
 }
 check('首頁標示原作者出處',
   ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
-    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa', 'max-enterme', 'sedn14636361', 'kumachansteps']
+    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa', 'max-enterme', 'sedn14636361', 'kumachansteps', 'fyam-hamu', 'usagineko7865-debug', 'Eon-00']
     .every(a => homeHtml.includes(`github.com/${a}`)));
 /* coc-typesetter 的作者不明，至少要標出取得的網址。 */
 check('首頁標示 coc-typesetter 的來源網址', homeHtml.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html'));
@@ -2250,6 +2341,9 @@ checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 130);
 checkInlineText('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 130);
+checkInlineText('tools/log-converter', 'tools/log-converter/index.html', ['tools/log-converter/i18n.log-converter.js'], 170);
+checkInlineText('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 130);
+checkInlineText('tools/battlemap', 'tools/battlemap/index.html', ['tools/battlemap/i18n.battlemap.js'], 19);
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
 checkInlineText('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 2);
 for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
@@ -2341,6 +2435,9 @@ checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 10);
 checkAttrPairs('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 30);
+checkAttrPairs('tools/log-converter', 'tools/log-converter/index.html', ['tools/log-converter/i18n.log-converter.js'], 8);
+checkAttrPairs('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 18);
+checkAttrPairs('tools/battlemap', 'tools/battlemap/index.html', ['tools/battlemap/i18n.battlemap.js'], 1);
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
 checkAttrPairs('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 1);
 for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
@@ -2376,7 +2473,7 @@ for (const name of TOOLS) {
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
   '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331', 'fc05c98',
-  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0',
+  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0', 'd2c74d3', '718bb40', 'a21c571', 'bb32ed7',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }

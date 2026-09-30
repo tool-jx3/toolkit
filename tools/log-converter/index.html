@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCFOLIA 日誌轉換器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="stylesheet" href="./styles.css">
+    <script defer src="../../assets/i18n.js"></script>
+    <script defer src="./i18n.log-converter.js"></script>
+    <script defer src="./app.js"></script>
+</head>
+<body>
+
+    <div class="container mx-auto p-4 md:p-6 max-w-5xl">
+        <!-- TRPG Toolkit 合輯：回首頁與語言切換 -->
+        <div class="toolkit-bar">
+            <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+            <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+        </div>
+
+        <!-- 頁首 -->
+        <header class="text-center mb-6">
+            <h1 class="hero-title text-3xl md:text-4xl font-bold mb-2" data-i18n="app.title">
+                CCFOLIA 日誌轉換器
+            </h1>
+            <p class="text-gray-400 text-base" data-i18n="app.tagline">要不要來點餃子？</p>
+        </header>
+
+        <main class="space-y-4">
+            <!-- 使用說明（預設收合） -->
+            <details id="usage-guide">
+                <summary data-i18n="guide.summary">使用說明</summary>
+                <div class="details-content space-y-5 text-sm" style="color:#d1d5db;">
+
+                    <div>
+                        <p class="group-title" data-i18n="guide.steps.title">基本流程</p>
+                        <ol class="list-decimal ml-4 space-y-1">
+                            <li data-i18n="guide.steps.1">選擇從 CCFOLIA 下載的日誌檔。</li>
+                            <li data-i18n="guide.steps.2">選擇輸出樣式。</li>
+                            <li data-i18n-html="guide.steps.3">按下<span class="ui-name">開始轉換</span>，下方會出現預覽與下載按鈕。</li>
+                            <li data-i18n-html="guide.steps.4">用<span class="ui-name">下載 HTML</span>儲存成品。</li>
+                        </ol>
+                    </div>
+
+                    <div>
+                        <p class="group-title" data-i18n="guide.styles.title">輸出樣式</p>
+                        <ul class="space-y-1">
+                            <li data-i18n-html="guide.styles.novel"><span class="text-highlight">小說</span> — 把台詞和敘述像文章一樣接起來。</li>
+                            <li data-i18n-html="guide.styles.timeline"><span class="text-highlight">時間軸</span> — 附上頭像，依時間順序排列。</li>
+                            <li data-i18n-html="guide.styles.original"><span class="text-highlight">CCFOLIA 風格</span> — 做成接近 CCFOLIA 畫面的樣子。</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <p class="group-title" data-i18n="guide.detail.title">詳細設定</p>
+                        <p class="label-description mb-2" data-i18n="guide.detail.desc">選好日誌檔後，下方會出現四個分頁。</p>
+                        <ul class="space-y-1">
+                            <li data-i18n-html="guide.detail.basic"><span class="ui-name">基本</span> — 標題、指定旁白角色、旁白的顯示方式、指定閒聊分頁、副旁白</li>
+                            <li data-i18n-html="guide.detail.styling"><span class="ui-name">外觀</span> — 頭像圖片、角色名稱顏色、字型與版面</li>
+                            <li data-i18n-html="guide.detail.illustration"><span class="ui-name">插圖</span> — 在日誌中間插入圖片</li>
+                            <li data-i18n-html="guide.detail.advanced"><span class="ui-name">進階</span> — 閒聊與系統訊息的顯示方式、分頁名稱與顏色、分割檔案、設定檔、轉成網頁貼文用</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <p class="group-title" data-i18n="guide.tips.title">小提醒</p>
+                        <ul class="space-y-1.5">
+                            <li data-i18n-html="guide.tips.preview">日誌很多時，預覽只會畫出<span class="text-highlight">其中一段</span>。可以在預覽下方的<span class="ui-name">預覽範圍</span>移動區段或顯示全部。下載的檔案一定包含全部內容。</li>
+                            <li data-i18n-html="guide.tips.numbers">插圖的位置用預覽裡顯示的<span class="text-highlight">日誌編號</span>來指定。這些編號不會出現在下載的檔案裡。</li>
+                            <li data-i18n-html="guide.tips.split">成品太大時，可以用<span class="ui-name">進階 → 檔案分割選項</span>分成多個檔案儲存。</li>
+                            <li data-i18n-html="guide.tips.web">要直接貼進部落格內文時，請用<span class="ui-name">進階 → 轉成網頁貼文用</span>。有些部落格面板可能無法完整套用樣式。</li>
+                            <li data-i18n-html="guide.tips.saved">設定會自動儲存在瀏覽器裡。想恢復原狀請按<span class="ui-name">進階 → 重設設定</span>。</li>
+                            <li data-i18n="guide.tips.browser">建議使用最新的桌面版瀏覽器（Chrome、Edge、Firefox）。</li>
+                        </ul>
+                    </div>
+
+                    <p class="label-description" data-i18n-html="guide.contact">
+                        原作以韓文使用環境為準製作。有問題或建議，歡迎透過 <a href="https://x.com/EonType00" target="_blank">@EonType00</a> 告訴原作者。
+                    </p>
+                </div>
+            </details>
+
+            <!-- 基本設定卡片 -->
+            <div class="card card-primary p-4 md:p-5">
+                <h2 class="section-header" data-i18n="start.heading">開始</h2>
+
+                <!-- 載入日誌。上游這裡是「上傳檔案／用 Room ID 載入」兩個分頁，Room ID 已停用且
+                     分頁列被藏起來；收錄版拿掉 Room ID 分頁與分頁列，只留上傳檔案。 -->
+                <div class="tab-container mb-4">
+                    <!-- 上傳檔案 -->
+                    <div id="load-tab-file" class="tab-content active" style="display: block;">
+                        <div class="space-y-3">
+                            <div>
+                                <label for="logFile" class="group-title block mb-1.5" data-i18n="start.logFile">日誌檔</label>
+                                <input type="file" id="logFile" accept=".html" class="block w-full" multiple/>
+                                <ol class="label-description mt-1.5 list-decimal ml-4 space-y-0.5">
+                                    <li data-i18n-html="start.help.1">選擇從 CCFOLIA 下載的日誌檔。<span class="text-highlight">舊格式</span>（只有文字的 HTML）和<span class="text-highlight">新格式</span>（連頭像資訊都包含的 HTML）都支援。</li>
+                                    <li data-i18n-html="start.help.2">新格式是每個分頁各一個檔案。<span class="text-highlight">全部一起選</span>的話，分頁名稱會自動填好。</li>
+                                    <li data-i18n-html="start.help.3">選了多個檔案之後，也可以<span class="text-highlight">刪掉或加入部分檔案</span>。</li>
+                                    <li data-i18n-html="start.help.4">編輯中用不到的分頁，也可以在<span class="ui-name">進階 → 選擇要顯示的分頁</span>排除。</li>
+                                </ol>
+                                <p id="file-notice" class="label-description mt-1 text-yellow-400 hidden"></p>
+                                <button id="add-log-file-btn" type="button"
+                                        class="hidden mt-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm rounded border border-gray-600 transition-colors" data-i18n="start.addFile">
+                                    + 加入檔案
+                                </button>
+                                <input type="file" id="addLogFile" accept=".html" multiple class="hidden">
+                                <div id="loaded-file-list" class="hidden mt-2 space-y-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 選擇輸出樣式 -->
+                <div>
+                    <label class="group-title block mb-1.5" data-i18n="start.style">輸出樣式</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="style-option">
+                            <input type="radio" name="style" value="novel" id="style-novel" checked>
+                            <label for="style-novel" class="cursor-pointer" data-i18n="style.novel">小說</label>
+                        </div>
+                        <div class="style-option">
+                            <input type="radio" name="style" value="timeline" id="style-timeline">
+                            <label for="style-timeline" class="cursor-pointer" data-i18n="style.timeline">時間軸</label>
+                        </div>
+                        <div class="style-option">
+                            <input type="radio" name="style" value="original" id="style-original">
+                            <label for="style-original" class="cursor-pointer" data-i18n-html="style.original">CCFOLIA<br>風格</label>
+                        </div>
+                    </div>
+                    <p class="label-description mt-1" data-i18n="start.styleHint">請選擇想要的輸出格式</p>
+                </div>
+            </div>
+
+            <!-- 詳細設定 -->
+            <section id="profile-settings" class="hidden">
+                <div class="tab-container">
+                    <!-- 分頁按鈕 -->
+                    <div class="tab-buttons">
+                        <button class="tab-button active" data-tab="tab-basic" data-i18n="tab.basic">基本</button>
+                        <button class="tab-button" data-tab="tab-styling" data-i18n="tab.styling">外觀</button>
+                        <button class="tab-button" data-tab="tab-illustration" data-i18n="tab.illustration">插圖</button>
+                        <button class="tab-button" data-tab="tab-advanced" data-i18n="tab.advanced">進階</button>
+                    </div>
+
+                    <!-- 分頁 1：基本 -->
+                    <div id="tab-basic" class="tab-content active space-y-4">
+                        <!-- 標題 -->
+                        <div>
+                            <label class="block mb-1.5" data-i18n="basic.title">標題與副標題</label>
+                            <input type="text" id="custom-title" placeholder="標題" class="w-full mb-2" data-i18n-placeholder="basic.titlePh">
+                            <input type="text" id="custom-subtitle" placeholder="副標題" class="w-full mb-2" data-i18n-placeholder="basic.subtitlePh">
+                            <input type="text" id="custom-summary" placeholder="摘要（可省略）" class="w-full" data-i18n-placeholder="basic.summaryPh">
+                            <p class="label-description mt-1" data-i18n="basic.titleHint">會自動從檔名擷取，也可以自己修改</p>
+                        </div>
+
+                        <!-- 旁白角色 -->
+                        <div>
+                            <label class="block mb-1.5" data-i18n="basic.narrator">指定旁白角色</label>
+                            <select id="narrator-select" class="w-full">
+                                <option value="GM" data-i18n="basic.narratorDefault">GM（預設）</option>
+                            </select>
+                            <p class="label-description" data-i18n="basic.narratorHint">所選發言者的台詞會以旁白呈現</p>
+                        </div>
+
+                        <!-- 旁白的顯示方式（CCFOLIA 風格專用） -->
+                        <div>
+                            <label class="block mb-1.5" data-i18n-html="basic.narrationMode">旁白的顯示方式 <span class="text-sm text-muted font-normal">（CCFOLIA 風格）</span></label>
+                            <select id="narration-display-mode" class="w-full mb-2">
+                                <option value="highlight" selected data-i18n="basic.narrationMode.highlight">強調背景（預設）</option>
+                                <option value="block" data-i18n="basic.narrationMode.block">敘述區塊（隱藏名稱與頭像）</option>
+                                <option value="none" data-i18n="basic.narrationMode.none">不區分</option>
+                            </select>
+                            <div id="narration-center-section" class="hidden ml-4 mb-2">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="checkbox" id="narration-center" class="mr-2">
+                                    <span class="text-sm" data-i18n="basic.narrationCenter">置中對齊</span>
+                                </label>
+                                <p class="label-description ml-6" data-i18n="basic.narrationCenterHint">適合簡短的演出句子。長篇描寫靠左對齊比較好讀。</p>
+                            </div>
+                            <p class="label-description" data-i18n-html="basic.narrationModeHint">
+                                <span class="text-highlight">強調背景</span>會保留名稱與頭像，只換掉那一行的背景。<span class="text-highlight">敘述區塊</span>會隱藏名稱與頭像，做成撐滿整個寬度的區塊。<br>顏色在<span class="ui-name">進階 → 進階顏色設定 → GM 旁白樣式</span>更改。
+                            </p>
+                        </div>
+
+                        <!-- 閒聊分頁 -->
+                        <div>
+                            <label class="block mb-1.5" data-i18n="basic.oocTab">指定閒聊分頁</label>
+                            <select id="ooc-tab-select" class="w-full">
+                                <option value="" data-i18n="basic.oocNone">不使用</option>
+                            </select>
+                            <p class="label-description" data-i18n="basic.oocHint">所選分頁會當成閒聊訊息處理</p>
+                        </div>
+
+                        <!-- 副旁白 -->
+                        <div id="sub-narrator-section" class="hidden">
+                            <details open>
+                                <summary class="cursor-pointer mb-3">
+                                    <span class="text-base font-semibold text-gray-200" data-i18n="subnar.title">指定副旁白角色</span>
+                                </summary>
+                                <p class="label-description mb-3" data-i18n="subnar.desc">可以加入要像旁白一樣呈現的發言者，並各自指定樣式。</p>
+
+                                <!-- 新增 -->
+                                <div class="flex gap-2 mb-4">
+                                    <select id="sub-narrator-speaker-select" class="flex-1 bg-gray-700 border-gray-600 text-gray-200 text-sm px-3 py-2 rounded">
+                                        <option value="" data-i18n="subnar.pick">選擇要當副旁白的發言者</option>
+                                        <!-- 由 JavaScript 填入 -->
+                                    </select>
+                                    <button id="sub-narrator-add-btn" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm rounded border border-gray-600 transition-colors" data-i18n="subnar.add">新增</button>
+                                </div>
+
+                                <!-- 副旁白清單 -->
+                                <div id="sub-narrator-list" class="space-y-3">
+                                    <p class="text-center text-gray-500 text-sm py-4" id="sub-narrator-empty-message" data-i18n="subnar.empty">還沒有設定副旁白。</p>
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+
+                    <!-- 分頁 2：外觀 -->
+                    <div id="tab-styling" class="tab-content space-y-4">
+                        <!-- 頭像圖片 -->
+                        <div id="profile-image-section" class="hidden">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="group-title block" data-i18n-html="profile.title">頭像圖片 <span class="text-sm text-muted font-normal">（時間軸、CCFOLIA 風格）</span></label>
+                                <div class="flex gap-4">
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="checkbox" id="use-log-images" class="mr-2">
+                                        <!-- 文字由 JS 依載入的日誌格式寫入（resetLogImageOption／applyV2LogImageOption） -->
+                                        <span class="text-sm" title="沒有上傳圖片的角色，自動從日誌取得圖片。上傳的圖片優先。" data-i18n-title="img.useLog.title">從日誌取得表情圖片</span>
+                                    </label>
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="checkbox" id="resize-profile-images" class="mr-2" checked>
+                                        <span class="text-sm" data-i18n="profile.resize">縮放圖片</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4 mb-2">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="checkbox" id="keep-external-url" class="mr-2">
+                                    <span class="text-sm" title="輸入圖片網址時不轉成 Data URL，直接使用原始網址。離線時圖片不會顯示。" data-i18n-title="profile.keepExternal.title" data-i18n="profile.keepExternal">保留外部圖片連結（輸入網址時）</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer text-sm" id="image-quality-label">
+                                    <span class="mr-2" data-i18n="quality.label">圖片品質</span>
+                                    <select id="image-quality-preset" class="select-sm bg-gray-700 text-white rounded px-2 py-1">
+                                        <option value="low" data-i18n="quality.low">省空間（~3KB／張）</option>
+                                        <option value="medium" selected data-i18n="quality.medium">普通（~10KB／張）建議</option>
+                                        <option value="high" data-i18n="quality.high">高品質（~25KB／張）</option>
+                                        <option value="original" data-i18n="quality.original">原圖</option>
+                                        <option value="custom" data-i18n="quality.custom">自訂</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div id="custom-quality-settings" class="hidden mb-2 p-3 bg-gray-800 rounded-lg">
+                                <div class="flex items-center gap-3 text-sm">
+                                    <span class="text-gray-400 text-xs whitespace-nowrap" data-i18n="quality.small">容量小</span>
+                                    <input type="range" id="custom-quality-slider" class="flex-1" value="30" min="0" max="100" step="5">
+                                    <span class="text-gray-400 text-xs whitespace-nowrap" data-i18n="quality.large">畫質高</span>
+                                    <!-- 文字由 JS 寫入（updateCustomSliderInfo） -->
+                                    <span id="custom-quality-info" class="text-gray-300 text-xs font-mono whitespace-nowrap">~3KB／張</span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1" data-i18n="quality.sliderHint">拖動滑桿，調整容量與畫質的平衡。</p>
+                            </div>
+                            <p class="label-description mb-3">
+                                <!-- 這一行由 JS 依載入的日誌格式寫入或隱藏 -->
+                                <span id="log-image-help-line">開啟「從日誌取得表情圖片」後，會照原樣顯示每則訊息所用的表情圖片。<br></span>
+                                <span data-i18n="profile.resizeHelp">關閉縮放會使用原圖，檔案容量可能會變大。</span><br>
+                                <span class="text-yellow-400" data-i18n="profile.keepExternalHelp">開啟「保留外部圖片連結」後，輸入網址時會直接使用原始連結（離線無法顯示）。</span><br>
+                                <span class="text-blue-400" data-i18n="profile.sizeHelp">圖片容量太大、貼文發不出去時，請改用「省空間」或「自訂」把尺寸調小。</span>
+                            </p>
+                            <div id="profile-image-stats" class="mb-3 p-3 bg-gray-800 rounded-lg hidden">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-300" data-i18n="profile.totalSize">頭像圖片總容量</span>
+                                    <span id="profile-total-size" class="text-sm font-mono text-green-400">0 KB</span>
+                                </div>
+                            </div>
+                            <div id="profile-uploader" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <!-- 由 JavaScript 填入 -->
+                            </div>
+                        </div>
+
+                        <!-- 角色名稱顏色 -->
+                        <div id="character-color-section" style="display:none;">
+                            <label class="group-title block mb-2" data-i18n="charColor.title">角色名稱顏色</label>
+                            <p class="label-description mb-3" data-i18n="charColor.desc">可以指定每個角色名稱的顏色</p>
+                            <div id="character-color-picker" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <!-- 由 JavaScript 填入 -->
+                            </div>
+                        </div>
+
+                        <!-- 字型與版面 -->
+                        <div>
+                            <label class="group-title block mb-2" data-i18n="layout.title">字型與版面</label>
+                            <div class="space-y-4">
+                        <!-- 小說樣式的易讀性調整 -->
+                        <div id="novel-typography-option" class="hidden">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="novel-typography-toggle" class="mr-2">
+                                <span data-i18n="layout.novelTypo">套用小說樣式的易讀性調整</span>
+                            </label>
+                            <p class="label-description ml-6" data-i18n="layout.novelTypoHint">套用段落首行縮排，並微調字距與詞距。</p>
+                        </div>
+
+                        <!-- 自訂字型 -->
+                        <div>
+                            <label class="block mb-1.5" data-i18n="font.custom">自訂字型（可省略）</label>
+                            <input type="text" id="custom-font-url" placeholder="https://fonts.googleapis.com/css2?family=..." class="w-full mb-2">
+                            <input type="text" id="custom-font-family" placeholder="字型名稱（例：'Noto Serif TC'）" class="w-full" data-i18n-placeholder="font.familyPh">
+
+                            <details class="mt-3 border-none">
+                                <summary class="text-sm !text-violet-400 hover:!text-violet-300 !p-0 !bg-transparent" data-i18n="font.guide">字型使用說明</summary>
+                                <div class="mt-3 p-4 bg-gray-800 border border-gray-600 rounded-lg text-sm space-y-4">
+                                    <div>
+                                        <strong class="text-gray-200 block mb-2">1. Google Fonts</strong>
+                                        <ol class="list-decimal ml-5 text-gray-300 space-y-1">
+                                            <li data-i18n-html="font.google.1">前往 <a href="https://fonts.google.com" target="_blank" class="!text-violet-400 hover:underline">fonts.google.com</a></li>
+                                            <li data-i18n="font.google.2">搜尋想用的字型（例：Noto Serif TC）</li>
+                                            <li data-i18n="font.google.3">點「Get font」→「Get embed code」</li>
+                                            <li data-i18n-html="font.google.4">在 &lt;link&gt; 分頁複製 <strong>href 網址</strong></li>
+                                            <li data-i18n-html="font.google.5"><strong>字型網址：</strong> <code>https://fonts.googleapis.com/css2?family=...</code></li>
+                                            <li data-i18n-html="font.google.6"><strong>字型名稱：</strong> <code>'Noto Serif TC'</code>（含單引號）</li>
+                                        </ol>
+                                    </div>
+                                    <div>
+                                        <strong class="text-gray-200 block mb-2" data-i18n="font.noonnu.title">2. noonnu（noonnu.cc，韓文字型網站）</strong>
+                                        <ol class="list-decimal ml-5 text-gray-300 space-y-1">
+                                            <li data-i18n-html="font.noonnu.1">前往 <a href="https://noonnu.cc" target="_blank" class="!text-violet-400 hover:underline">noonnu.cc</a></li>
+                                            <li data-i18n="font.noonnu.2">選好字型 → 找到「當作網頁字型使用」的區塊</li>
+                                            <li data-i18n-html="font.noonnu.3">從 <code>@import url('...')</code> 只複製 url() 裡的網址</li>
+                                            <li data-i18n-html="font.noonnu.4"><strong>字型名稱：</strong>複製 font-family: 後面的名稱（含單引號）</li>
+                                        </ol>
+                                    </div>
+                                    <div class="bg-amber-900 border-l-4 border-amber-600 p-3 rounded">
+                                        <p class="text-amber-200 text-xs" data-i18n-html="font.note"><strong>注意</strong> 字型名稱一定要用單引號（''）括起來</p>
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+
+                        <!-- 版面選項 -->
+                        <div>
+                            <label class="block mb-2" data-i18n="layout.options">版面選項</label>
+                            <div class="grid md:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="layout.fontSize">字級</label>
+                                    <select id="font-size" class="w-full">
+                                        <option value="15" data-i18n="layout.fontSize.15">小（15px）</option>
+                                        <option value="17" selected data-i18n="layout.fontSize.17">預設（17px）</option>
+                                        <option value="19" data-i18n="layout.fontSize.19">大（19px）</option>
+                                        <option value="21" data-i18n="layout.fontSize.21">特大（21px）</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="layout.lineHeight">行距</label>
+                                    <select id="line-height" class="w-full">
+                                        <option value="1.5" data-i18n="layout.lineHeight.15">窄（1.5）</option>
+                                        <option value="1.8" selected data-i18n="layout.lineHeight.18">預設（1.8）</option>
+                                        <option value="2.0" data-i18n="layout.lineHeight.20">寬（2.0）</option>
+                                        <option value="2.2" data-i18n="layout.lineHeight.22">特寬（2.2）</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="layout.pageWidth">頁面寬度</label>
+                                    <select id="page-width" class="w-full">
+                                        <option value="600" data-i18n="layout.pageWidth.600">窄（600px）</option>
+                                        <option value="750" selected data-i18n="layout.pageWidth.750">預設（750px）</option>
+                                        <option value="900" data-i18n="layout.pageWidth.900">寬（900px）</option>
+                                        <option value="1200" data-i18n="layout.pageWidth.1200">特寬（1200px）</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 分頁 3：插圖 -->
+                    <div id="tab-illustration" class="tab-content space-y-4">
+                        <!-- 顯示日誌編號（僅預覽） -->
+                        <div>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="show-log-numbers" class="mr-2" checked>
+                                <span data-i18n="ill.showNumbers">顯示日誌編號（僅預覽）</span>
+                            </label>
+                            <p class="label-description ml-6" data-i18n="ill.showNumbersHint">只在預覽顯示編號，方便確認插圖要插在哪裡。下載的檔案不會包含。</p>
+                        </div>
+
+                        <!-- 插圖設定 -->
+                        <div id="illustration-section" class="hidden">
+                            <label class="group-title block mb-2" data-i18n="ill.title">插圖設定</label>
+                            <p class="label-description mb-3" data-i18n="ill.desc">可以在日誌中間插入圖片。請先在預覽確認日誌編號再設定。</p>
+                            <div id="illustration-list" class="space-y-3">
+                                <!-- 由 JavaScript 動態填入 -->
+                            </div>
+                            <button id="add-illustration-btn" class="mt-3 w-full px-4 py-2 bg-yellow-900 hover:bg-yellow-800 text-yellow-200 text-sm rounded border border-yellow-700 transition-colors" data-i18n="ill.add">
+                                + 新增插圖
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 分頁 4：進階 -->
+                    <div id="tab-advanced" class="tab-content space-y-4">
+                        <!-- 內容顯示選項 -->
+                        <div>
+                            <label class="group-title block mb-2" data-i18n="adv.display">內容顯示選項</label>
+                            <div class="space-y-4">
+                        <!-- 合併連續發言 -->
+                        <div>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="merge-consecutive" class="mr-2">
+                                <span data-i18n="adv.merge">合併同一發言者的連續發言</span>
+                            </label>
+                            <p class="label-description ml-6" data-i18n="adv.mergeHint">同一個發言者連續說話時，合併成一則顯示</p>
+                        </div>
+
+                        <!-- 長名稱換行 -->
+                        <div>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="long-name-wrap" class="mr-2">
+                                <span data-i18n="adv.longName">長角色名稱換行（超過 10 個字）</span>
+                            </label>
+                            <p class="label-description ml-6" data-i18n="adv.longNameHint">角色名稱超過 10 個字時會自動換行（如果在角色名稱欄裡寫了概要或說明……建議搭配 CCFOLIA 風格使用。）</p>
+                        </div>
+
+                        <!-- 對話版面（時間軸專用） -->
+                        <div id="timeline-dialogue-layout-section" class="hidden">
+                            <label class="block mb-1.5" data-i18n="adv.dialogue">對話版面</label>
+                            <select id="dialogue-layout-mode" class="w-full mb-2">
+                                <option value="grid" selected data-i18n="adv.dialogue.grid">名稱固定寬度對齊（預設）</option>
+                                <option value="compact" data-i18n="adv.dialogue.compact">靠左對齊（緊湊）</option>
+                            </select>
+                            <p class="label-description mb-2" data-i18n-html="adv.dialogueHint">固定寬度：以最長的名稱為準固定欄寬，台詞的起始位置一致<br>緊湊：台詞緊接在名稱後面</p>
+
+                            <!-- 分隔符號（只在選緊湊時顯示） -->
+                            <div id="dialogue-separator-section" class="hidden ml-4 mt-1">
+                                <label class="block mb-1.5 text-sm" data-i18n="adv.separator">名稱與台詞的分隔符號</label>
+                                <select id="dialogue-separator-type" class="w-full mb-2">
+                                    <option value="space" selected data-i18n="adv.separator.space">空格</option>
+                                    <option value="custom" data-i18n="adv.separator.custom">自訂分隔符號</option>
+                                </select>
+                                <div id="custom-separator-input-section" class="hidden mt-1">
+                                    <input type="text" id="custom-separator-value" value=":" maxlength="3" class="w-full" placeholder="例：: 或 — 或 |" data-i18n-placeholder="adv.separatorPh">
+                                    <p class="label-description mt-1" data-i18n="adv.separatorHint">最多可輸入 3 個字元</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 閒聊訊息 -->
+                        <div>
+                            <label class="block mb-1.5" data-i18n="adv.chat">閒聊訊息</label>
+                            <select id="chat-mode" class="w-full mb-2">
+                                <option value="collapse" selected data-i18n="adv.chat.collapse">摺疊（預設）</option>
+                                <option value="show" data-i18n="adv.chat.show">全部顯示</option>
+                                <option value="hide" data-i18n="adv.chat.hide">完全隱藏</option>
+                            </select>
+                            <label class="flex items-center cursor-pointer mt-2">
+                                <input type="checkbox" id="show-chat-count" class="mr-2" checked>
+                                <span class="text-sm" data-i18n="adv.chatCount">顯示閒聊訊息數量</span>
+                            </label>
+                            <p class="label-description ml-6" data-i18n="adv.chatCountHint">摺疊模式時顯示數量</p>
+                        </div>
+
+                        <!-- 系統訊息 -->
+                        <div>
+                            <label class="block mb-1.5" data-i18n="adv.system">系統訊息（骰子）</label>
+                            <select id="system-mode" class="w-full">
+                                <option value="show" selected data-i18n="adv.system.show">顯示（預設）</option>
+                                <option value="hide" data-i18n="adv.system.hide">隱藏</option>
+                            </select>
+                        </div>
+
+                        <!-- 分頁名稱（新格式專用） -->
+                        <div id="channel-name-section" class="hidden mb-4">
+                            <label class="group-title block mb-1.5" data-i18n="adv.channel.title">分頁名稱</label>
+                            <p class="label-description mb-3" data-i18n-html="adv.channel.desc">
+                                日誌裡沒有分頁名稱時，會顯示成 <code>main</code>、<code>oC9hPplVW</code> 這類代碼。請改成好認的名稱。有一起上傳各分頁的檔案的話，會自動填好。<br><span class="text-highlight">這是用來區分分頁的名稱，不會出現在成品裡。</span>只有在 CCFOLIA 風格把<span class="ui-name">分頁顯示樣式</span>設成<span class="ui-name">名稱旁標籤</span>時才會顯示。
+                            </p>
+                            <div id="channel-name-list" class="space-y-2">
+                                <!-- 由 JavaScript 動態填入 -->
+                            </div>
+                        </div>
+
+                        <!-- 要顯示的分頁（快速設定） -->
+                        <div id="tab-visibility-section" class="hidden mb-4">
+                            <label class="group-title block mb-1.5" data-i18n="adv.tabVisibility.title">選擇要顯示的分頁（快速設定）</label>
+                            <p class="label-description mb-3" data-i18n="adv.tabVisibility.desc">取消勾選的分頁不會出現在最後的轉換結果裡</p>
+                            <div id="tab-visibility-checkboxes" class="space-y-2">
+                                <!-- 由 JavaScript 動態填入 -->
+                            </div>
+                        </div>
+
+                        <!-- 分頁顯示樣式 -->
+                        <div id="tab-style-section" class="hidden">
+                            <label class="group-title block mb-1.5" data-i18n="adv.tabStyle.title">分頁顯示樣式（進階）</label>
+                            <p class="label-description mb-3" data-i18n="adv.tabStyle.desc">可以細部調整每個分頁的顯示方式</p>
+                            <div id="tab-style-picker" class="space-y-2">
+                                <!-- 由 JavaScript 動態填入 -->
+                            </div>
+                        </div>
+                            </div>
+                        </div>
+
+                        <!-- 進階顏色設定 -->
+                        <div>
+                            <label class="group-title block mb-2" data-i18n="adv.colors">進階顏色設定</label>
+
+                            <!-- 配色預設 -->
+                            <div class="mb-4">
+                                <label class="block mb-1.5 text-sm" data-i18n="preset.label">配色預設</label>
+                                <select id="color-preset" class="w-full">
+                                    <option value="black-red" data-i18n="preset.black-red">연연 主題（預設）</option>
+                                    <option value="judgment" data-i18n="preset.judgment">判定主題</option>
+                                    <option value="monochrome" data-i18n="preset.monochrome">黑白</option>
+                                    <option value="pastel" data-i18n="preset.pastel">粉彩</option>
+                                    <option value="ocean" data-i18n="preset.ocean">海洋</option>
+                                    <option value="pink" data-i18n="preset.pink">淡粉紅</option>
+                                    <option value="spring" data-i18n="preset.spring">春</option>
+                                    <option value="summer" data-i18n="preset.summer">夏</option>
+                                    <option value="autumn" data-i18n="preset.autumn">秋</option>
+                                    <option value="winter" data-i18n="preset.winter">冬</option>
+                                    <option value="ccfolia" data-i18n="preset.ccfolia">CCFOLIA 預設</option>
+                                    <option value="custom" data-i18n="preset.custom">自訂</option>
+                                </select>
+                                <p class="label-description mt-1" data-i18n="preset.hint">選擇預設配色時，所有顏色都會自動更換</p>
+                            </div>
+
+                            <div class="space-y-4">
+                        <!-- 系統訊息樣式 -->
+                        <div>
+                            <label class="block mb-2" data-i18n="colors.system">系統訊息樣式（骰子）</label>
+                            <div class="grid md:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="common.bgColor">背景顏色</label>
+                                    <input type="color" id="system-bg-color" value="#f0f9ff" class="w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="colors.border">邊框顏色</label>
+                                    <input type="color" id="system-border-color" value="#0ea5e9" class="w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="common.textColor">文字顏色</label>
+                                    <input type="color" id="system-text-color" value="#075985" class="w-full">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- GM 旁白樣式（時間軸、CCFOLIA 風格） -->
+                        <div>
+                            <label class="block mb-2" data-i18n-html="colors.narration">GM 旁白樣式 <span class="text-sm text-muted font-normal">（時間軸、CCFOLIA 風格）</span></label>
+                            <div class="grid md:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="common.bgColor">背景顏色</label>
+                                    <input type="color" id="narration-bg-color" value="#2a2a2a" class="w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="common.textColor">文字顏色</label>
+                                    <input type="color" id="narration-text-color" value="#9ca3af" class="w-full">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 整體主題色 -->
+                        <div>
+                            <label class="block mb-2" data-i18n="colors.theme">整體主題色</label>
+                            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="common.bgColor">背景顏色</label>
+                                    <input type="color" id="theme-bg-color" value="#0a0a0a" class="w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="colors.container">容器顏色</label>
+                                    <input type="color" id="theme-container-color" value="#1e1e1e" class="w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="common.textColor">文字顏色</label>
+                                    <input type="color" id="theme-text-color" value="#e5e7eb" class="w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs mb-1 text-muted" data-i18n="colors.accent">強調色</label>
+                                    <input type="color" id="theme-accent-color" value="#7f1d1d" class="w-full">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 分頁各自的顏色 -->
+                        <div id="tab-color-section" class="hidden">
+                            <label class="flex items-center cursor-pointer mb-1.5">
+                                <input type="checkbox" id="enable-tab-colors" class="mr-2">
+                                <span data-i18n="colors.tabs">啟用分頁各自的顏色（建議只用於小說／CCFOLIA 風格）</span>
+                            </label>
+                            <p class="label-description mb-3" data-i18n="colors.tabsHint">可以個別設定每個分頁的文字顏色與背景色</p>
+                            <div id="tab-color-picker" class="space-y-2 hidden">
+                                <!-- 由 JavaScript 動態填入 -->
+                            </div>
+                        </div>
+                            </div>
+                        </div>
+
+                        <!-- 分割選項 -->
+                        <div id="output-options">
+                            <label class="group-title block mb-2" data-i18n="split.title">檔案分割選項</label>
+                            <div class="space-y-2.5">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" id="split-none" name="split-method" value="none" class="mr-2" checked>
+                                    <span data-i18n="split.none">不分割</span>
+                                </label>
+                                <div class="flex items-center">
+                                    <input type="radio" id="split-count" name="split-method" value="count" class="mr-2">
+                                    <label for="split-count" class="mr-2 cursor-pointer" data-i18n="split.count">依日誌則數分割：</label>
+                                    <input type="number" id="log-limit-count" min="1" value="100" class="w-24" disabled>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="radio" id="split-size" name="split-method" value="size" class="mr-2">
+                                    <label for="split-size" class="mr-2 cursor-pointer" data-i18n="split.size">依容量分割（KB）：</label>
+                                    <input type="number" id="log-limit-size" min="1" value="100" class="w-24" disabled>
+                                </div>
+                                <div id="split-size-warning" class="ml-6 text-sm text-yellow-400 hidden">
+                                    <span data-i18n="split.sizeWarn.pre">頭像圖片總容量：</span> <span id="split-size-image-total">0 KB</span> <span data-i18n="split.sizeWarn.post">— 設得比這個值小可能會出錯。</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="radio" id="split-files" name="split-method" value="files" class="mr-2">
+                                    <label for="split-files" class="mr-2 cursor-pointer" data-i18n="split.files">依檔案數分割：</label>
+                                    <input type="number" id="log-limit-files" min="2" value="2" class="w-24" disabled>
+                                    <span class="ml-2 text-sm text-muted" data-i18n="split.filesUnit">個</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 網頁貼文選項 -->
+                        <div>
+                            <label class="group-title block mb-2" data-i18n="web.title">網頁貼文選項</label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="web-upload-mode" class="mr-2">
+                                <span data-i18n="web.convert">轉成網頁貼文用</span>
+                            </label>
+                            <p class="label-description ml-6 mt-2" data-i18n-html="web.desc">
+                                轉成不含 &lt;html&gt;、&lt;head&gt;、&lt;body&gt; 標籤的格式，可以直接貼進部落格或網站的內文。<br><span class="text-yellow-400">注意：有些部落格面板可能無法正確套用樣式。</span>
+                            </p>
+                        </div>
+
+                        <!-- 設定檔 -->
+                        <div>
+                            <label class="group-title block mb-2" data-i18n="presetFile.title">設定檔管理</label>
+                            <p class="label-description mb-3" data-i18n="presetFile.desc">可以把目前的設定存成檔案，或從檔案讀回來。</p>
+                            <div class="flex gap-2">
+                                <button id="export-preset-btn" class="flex-1 px-4 py-2 bg-blue-900 hover:bg-blue-800 text-blue-200 text-sm rounded border border-blue-700 transition-colors" data-i18n="presetFile.export">
+                                    匯出設定
+                                </button>
+                                <label for="import-preset-input" class="flex-1 px-4 py-2 bg-green-900 hover:bg-green-800 text-green-200 text-sm rounded border border-green-700 transition-colors cursor-pointer text-center" data-i18n="presetFile.import">
+                                    匯入設定
+                                </label>
+                                <input type="file" id="import-preset-input" accept=".json" class="hidden">
+                            </div>
+                        </div>
+
+                        <!-- 重設設定 -->
+                        <div>
+                            <label class="group-title block mb-2" data-i18n="reset.title">重設設定</label>
+                            <p class="label-description mb-3" data-i18n="reset.desc">把所有設定恢復成預設值。</p>
+                            <button id="reset-settings-btn" class="w-full px-4 py-2 bg-red-900 hover:bg-red-800 text-red-200 text-sm rounded border border-red-700 transition-colors" data-i18n="reset.button">
+                                重設所有設定
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 轉換按鈕 -->
+            <div class="text-center py-6">
+                <button id="convertBtn" class="btn-primary" data-i18n="convert.button">
+                    開始轉換
+                </button>
+            </div>
+
+            <!-- 結果預覽 -->
+            <section id="result" class="hidden card p-4">
+                <h2 class="section-header" data-i18n="result.title">結果預覽</h2>
+                <div id="status" class="mb-3"></div>
+                <div class="rounded-lg overflow-hidden" style="height: 500px;">
+                    <!-- allow-same-origin 是為了讀取 Blob URL 預覽。沒有給 allow-scripts，所以日誌裡混進的指令碼不會執行。 -->
+                    <iframe id="preview-frame" class="w-full h-full opacity-0 transition-opacity duration-300" sandbox="allow-same-origin"></iframe>
+                </div>
+                <!-- 預覽範圍（日誌很多時避免算繪變慢） -->
+                <div id="preview-range" class="hidden mt-3 flex flex-wrap items-center gap-2 text-sm">
+                    <span class="text-muted" data-i18n="preview.range">預覽範圍</span>
+                    <input type="number" id="preview-start" min="1" value="1" class="w-24">
+                    <span class="text-muted" data-i18n="preview.from">號起</span>
+                    <select id="preview-count" class="w-28">
+                        <option value="300" data-i18n="preview.count.300">300 則</option>
+                        <option value="500" selected data-i18n="preview.count.500">500 則</option>
+                        <option value="1000" data-i18n="preview.count.1000">1000 則</option>
+                        <option value="0" data-i18n="preview.count.all">全部</option>
+                    </select>
+                    <button id="preview-apply" type="button"
+                            class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded border border-gray-600 transition-colors" data-i18n="preview.apply">
+                        檢視
+                    </button>
+                    <span id="preview-range-info" class="text-muted"></span>
+                </div>
+
+                <div id="download-container" class="mt-4 text-center flex flex-wrap gap-2 justify-center">
+                    <!-- 下載按鈕 -->
+                </div>
+            </section>
+        </main>
+
+        <!-- 頁尾 -->
+        <footer class="text-center mt-8 pb-6 text-gray-500 text-sm">
+            <p data-i18n="footer.brand">연연 | JUDGMENT</p>
+            <p class="mt-2" data-i18n-node="footer.madeBy">製作： <a href="https://x.com/EonType00" target="_blank" class="!text-gray-400 hover:!text-violet-400">@EonType00</a></p>
+            <p class="mt-2 text-gray-600 text-xs" data-i18n="footer.updated">最後更新：2026-09-27</p>
+        </footer>
+    </div>
+
+    <!-- 除錯主控台 -->
+    <div id="debug-console-container" class="fixed bottom-0 right-4 z-50" style="max-width: 500px;">
+        <!-- 開關按鈕 -->
+        <button id="debug-toggle-btn" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm rounded-t border border-gray-600 border-b-0 transition-colors flex items-center gap-2">
+            <span data-i18n="debug.toggle">除錯主控台</span>
+            <span id="debug-error-badge" class="hidden px-2 py-0.5 bg-red-600 text-white text-xs rounded-full">0</span>
+        </button>
+
+        <!-- 主控台視窗 -->
+        <div id="debug-console" class="hidden bg-gray-900 border border-gray-600 rounded-t shadow-lg" style="max-height: 400px; min-width: 500px;">
+            <!-- 標題列 -->
+            <div class="flex items-center justify-between px-3 py-2 bg-gray-800 border-b border-gray-600">
+                <span class="text-sm font-semibold text-gray-200" data-i18n="debug.title">主控台紀錄</span>
+                <div class="flex gap-2">
+                    <button id="debug-copy-btn" class="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors" data-i18n="debug.copy">
+                        複製
+                    </button>
+                    <button id="debug-clear-btn" class="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs rounded transition-colors" data-i18n="debug.clear">
+                        清除
+                    </button>
+                </div>
+            </div>
+
+            <!-- 紀錄區 -->
+            <div id="debug-logs" class="p-3 overflow-y-auto text-xs font-mono text-gray-300 space-y-1" style="max-height: 350px; min-height: 200px;">
+                <div class="text-gray-500 debug-empty" data-i18n="debug.empty">主控台紀錄會顯示在這裡……</div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

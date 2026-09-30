@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280">
+  <!-- 手機上會以上面的 width 當作版面基準寬度，再縮小到符合螢幕顯示。
+       （不是做響應式最佳化，而是把 PC 畫面整個縮小顯示——可以用雙指縮放放大） -->
+  <meta name="format-detection" content="telephone=no">
+  <title>CCFOLIA & 圖片調色工作室（Color Recolor Studio）</title>
+
+  <!-- Google Fonts（合輯版追加 Noto Sans TC，見 styles.css 尾端） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap"
+    rel="stylesheet">
+
+  <!-- External Libraries（合輯版：每個都鎖定版本，見 THIRD_PARTY_NOTICES.md） -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js"></script>
+  <script src="https://unpkg.com/apng-js@1.1.1/lib/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ag-psd@31.0.2/dist/bundle.js"></script>
+
+  <link rel="stylesheet" href="./styles.css">
+  <script defer src="../../assets/i18n.js"></script>
+  <script defer src="./i18n.psd-studio.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+
+<body>
+
+  <div class="toolkit-bar">
+    <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
+    <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
+  </div>
+
+  <!-- Top Bar Header -->
+  <header class="top-bar">
+    <div class="brand-title">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+        <polyline points="2 17 12 22 22 17"></polyline>
+        <polyline points="2 12 12 17 22 12"></polyline>
+      </svg>
+      <span>Ccfolia & PSD Studio</span>
+    </div>
+
+    <!-- Drag & Drop Header Input -->
+    <div class="dropzone-header" id="dropzoneHeader">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </svg>
+      <span data-i18n="drop.header">把 ZIP、PSD、圖片或資料夾拖放到這裡</span>
+
+      <button class="btn-file-trigger" onclick="document.getElementById('fileInputImages').click();" data-i18n="drop.pickFile">📁 選擇檔案</button>
+      <button class="btn-file-trigger" onclick="document.getElementById('fileInputFolder').click();" data-i18n="drop.pickFolder">📂 選擇資料夾</button>
+
+      <input type="file" id="fileInputImages" multiple accept="image/*,.zip,.psd">
+      <input type="file" id="fileInputFolder" webkitdirectory directory multiple>
+    </div>
+
+    <!-- Mode Badge & Top Actions -->
+    <div class="topbar-actions">
+      <div class="mode-badge" id="modeBadge">
+        <span class="dot"></span>
+        <!-- 模式文字由 app.js 的 renderModeBadge() 寫入 -->
+        <span id="modeBadgeText">等待中</span>
+      </div>
+
+      <button class="btn-secondary" id="btnClearSession" data-i18n-title="session.clear.title" title="刪除自動儲存的作業紀錄" data-i18n="session.clear">重設設定</button>
+
+      <!-- APNG／CCFOLIA 容量壓縮選項 -->
+      <div class="ccfolia-compress-group">
+        <label data-i18n-title="compress.toggle.title" title="把 APNG 和超過容量的圖片自動壓縮到指定容量以下（逐步縮小解析度／色數）"
+          style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+          <input type="checkbox" id="chkCcfoliaCompress" checked>
+          <span data-i18n="compress.toggle">APNG／圖片壓縮</span>
+        </label>
+        <select id="selectApngTargetMb" data-i18n-title="compress.target.title" title="目標檔案容量上限">
+          <option value="4.8" selected data-i18n="compress.target.ccfolia">4.8MB（CCFOLIA）</option>
+          <option value="2.0" data-i18n="compress.target.small">2.0MB（小容量）</option>
+          <option value="10.0" data-i18n="compress.target.hq">10.0MB（高畫質）</option>
+        </select>
+        <label data-i18n-title="compress.skip.title" title="大容量 APNG 為了保住解析度，允許降低影格率（Frame Skip）"
+          style="display: flex; align-items: center; gap: 3px; cursor: pointer;">
+          <input type="checkbox" id="chkApngFrameSkip" checked>
+          <span data-i18n="compress.skip">跳格</span>
+        </label>
+        <label data-i18n-title="compress.static.title" title="超過 4.8MB 的大型靜態 PNG 也壓縮到指定容量以下"
+          style="display: flex; align-items: center; gap: 3px; cursor: pointer;">
+          <input type="checkbox" id="chkCompressStaticPng">
+          <span data-i18n="compress.static">包含靜態 PNG</span>
+        </label>
+        <div
+          style="display: flex; align-items: center; gap: 4px; border-left: 1px solid var(--border-color); padding-left: 8px; margin-left: 4px;">
+          <span data-i18n-title="loop.label.title" title="APNG 循環播放設定（預設：維持原檔）" data-i18n="loop.label">APNG 循環：</span>
+          <select id="selectGlobalApngLoop" data-i18n-title="loop.global.title" title="儲存 APNG 時的循環／重複播放設定">
+            <option value="keep" selected data-i18n="loop.keep">維持原檔</option>
+            <option value="once" data-i18n="loop.onceNoLoop">只播一次（不循環）</option>
+            <option value="infinite" data-i18n="loop.infinite">無限循環</option>
+            <option value="custom" data-i18n="loop.custom">指定次數</option>
+          </select>
+          <input type="number" id="numGlobalApngLoopCount" min="1" max="999" value="1"
+            style="display: none; width: 44px; padding: 1px 4px; font-size: 0.72rem;" data-i18n-title="loop.count.title" title="輸入重複次數">
+        </div>
+      </div>
+
+      <!-- 壓縮進度的狀態文字 -->
+      <span class="compress-status-text" id="compressStatusText"></span>
+
+      <button class="btn-primary" id="btnExportZip" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <!-- 按鈕文字由 app.js 的 renderStatusLabels() 寫入 -->
+        <span id="btnExportLabel">下載成品（.ZIP）</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Body Layout -->
+  <main class="app-body">
+
+    <!-- Left Panel: Master Color Adjustment -->
+    <aside class="panel panel-left">
+      <div class="panel-header">
+        <div class="title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 2a10 10 0 0 0 0 20z"></path>
+          </svg>
+          <span data-i18n="master.title">整體色彩調整</span>
+        </div>
+        <button class="btn-xs" id="btnResetMaster" data-i18n="master.reset">全部重設</button>
+      </div>
+
+      <div class="panel-content">
+
+        <!-- Custom Saved Color Correction Presets -->
+        <div class="control-group">
+          <div class="control-group-title">
+            <span data-i18n="preset.title">自訂色彩預設集</span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <input type="text" id="inputCustomPresetName" data-i18n-placeholder="preset.name.placeholder" placeholder="預設集名稱（例：復古色調）"
+              style="flex: 1; font-size: 0.78rem;">
+            <button class="btn-primary" id="btnSaveCustomPreset"
+              style="padding: 4px 10px; font-size: 0.75rem; white-space: nowrap;" data-i18n="preset.save">儲存</button>
+          </div>
+          <div id="customPresetsList"
+            style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; max-height: 110px; overflow-y: auto;">
+            <!-- Dynamically populated custom preset buttons -->
+          </div>
+        </div>
+
+        <!-- Basic Tone Controls with Direct Number Input -->
+        <div class="control-group">
+          <div class="control-group-title" data-i18n="tone.title">基本色調調整</div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span data-i18n="tone.hue">色相偏移（Hue）</span>
+              <input type="number" id="numHue" min="-180" max="180" value="0" class="num-input">
+            </div>
+            <input type="range" id="sliderHue" min="-180" max="180" value="0">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span data-i18n="tone.sat">飽和度（Saturation）</span>
+              <div style="display: flex; align-items: center; gap: 2px;">
+                <input type="number" id="numSat" min="0" max="200" value="100" class="num-input">
+                <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">%</span>
+              </div>
+            </div>
+            <input type="range" id="sliderSat" min="0" max="200" value="100">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span data-i18n="tone.bri">亮度（Brightness）</span>
+              <input type="number" id="numBri" min="-100" max="100" value="0" class="num-input">
+            </div>
+            <input type="range" id="sliderBri" min="-100" max="100" value="0">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span data-i18n="tone.con">對比（Contrast）</span>
+              <input type="number" id="numCon" min="-100" max="100" value="0" class="num-input">
+            </div>
+            <input type="range" id="sliderCon" min="-100" max="100" value="0">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span data-i18n="tone.exp">曝光（Exposure）</span>
+              <input type="number" id="numExp" min="-100" max="100" value="0" class="num-input">
+            </div>
+            <input type="range" id="sliderExp" min="-100" max="100" value="0">
+          </div>
+        </div>
+
+        <!-- Photoshop-Style Interactive Gradient Map Controls -->
+        <div class="control-group">
+          <div class="control-group-title">
+            <span data-i18n="grad.title">漸層對應</span>
+            <label class="switch">
+              <input type="checkbox" id="toggleGrad">
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
+
+          <div class="ps-gradient-wrapper">
+            <!-- Continuous Gradient Bar -->
+            <div class="ps-gradient-ramp-container" id="psGradientRampContainer">
+              <div class="ps-gradient-ramp" id="psGradientRamp"></div>
+            </div>
+
+            <!-- Draggable Handles Bar -->
+            <div class="ps-stops-bar" id="psStopsBar"></div>
+
+            <!-- Stop Active Controls -->
+            <div
+              style="display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 0.78rem;">
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <span data-i18n="grad.color">顏色：</span>
+                <input type="color" id="psStopColorPicker" value="#000000" style="width: 36px; height: 26px;">
+                <span data-i18n="grad.pos">位置：</span>
+                <input type="number" id="psStopPosInput" min="0" max="100" value="0"
+                  style="width: 52px; padding: 2px 4px;">%
+              </div>
+              <button class="btn-xs" id="psBtnDeleteStop" style="color: var(--accent-danger);" data-i18n="grad.delete">刪除</button>
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-label"><span data-i18n="grad.opacity">混合強度（Opacity）</span><span class="val" id="valGradOp">100%</span></div>
+              <input type="range" id="sliderGradOp" min="0" max="100" value="100">
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-label"><span data-i18n="grad.blend">混合模式</span></div>
+              <select id="selectGradBlend">
+                <option value="normal" data-i18n="blend.normal">Normal（正常）</option>
+                <option value="multiply" data-i18n="blend.multiply">Multiply（色彩增值）</option>
+                <option value="screen" data-i18n="blend.screen">Screen（濾色）</option>
+                <option value="overlay" selected data-i18n="blend.overlay">Overlay（覆蓋）</option>
+                <option value="soft-light" data-i18n="blend.softLight">Soft Light（柔光）</option>
+                <option value="color" data-i18n="blend.color">Color（顏色）</option>
+              </select>
+            </div>
+
+            <!-- Presets -->
+            <div class="ps-gradient-presets">
+              <button class="btn-xs" id="presetGradBW" data-i18n="grad.preset.bw">黑白</button>
+              <button class="btn-xs" id="presetGradSepia" data-i18n="grad.preset.sepia">復古褐</button>
+              <button class="btn-xs" id="presetGradCyber" data-i18n="grad.preset.cyberpunk">賽博龐克</button>
+              <button class="btn-xs" id="presetGradSunset" data-i18n="grad.preset.sunset">晚霞</button>
+              <button class="btn-xs" id="presetGradDuotone" data-i18n="grad.preset.duotone">雙色調</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tone Curve Editor -->
+        <div class="control-group">
+          <div class="control-group-title">
+            <span data-i18n="curve.title">RGB 色調曲線</span>
+            <select id="selectCurveChannel" style="width: auto; padding: 2px 6px; font-size: 0.72rem;">
+              <option value="all" data-i18n="curve.ch.all">RGB 合併</option>
+              <option value="r" data-i18n="curve.ch.r">紅（R）</option>
+              <option value="g" data-i18n="curve.ch.g">綠（G）</option>
+              <option value="b" data-i18n="curve.ch.b">藍（B）</option>
+            </select>
+          </div>
+
+          <div class="curve-canvas-wrapper">
+            <canvas id="curveCanvas" width="260" height="130"></canvas>
+          </div>
+
+          <div class="curve-presets">
+            <button class="btn-xs" id="presetLinear" data-i18n="curve.preset.linear">直線（重設）</button>
+            <button class="btn-xs" id="presetContrast" data-i18n="curve.preset.contrast">高對比 S 曲線</button>
+            <button class="btn-xs" id="presetDarken" data-i18n="curve.preset.darken">變暗</button>
+            <button class="btn-xs" id="presetBrighten" data-i18n="curve.preset.brighten">變亮</button>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- Center Area: Main Viewers -->
+    <section class="center-area">
+
+      <!-- Full-area drag overlay (covers grid/room view even when files are already loaded) -->
+      <div class="center-area-drop-overlay" id="centerAreaDropOverlay">
+        <div class="center-area-drop-overlay-inner">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path
+              d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 1 2-2V6a2 2 0 0 1-2-2H6a2 2 0 0 1-2 2v12a2 2 0 0 1 2 2z">
+            </path>
+          </svg>
+          <span data-i18n="drop.overlay">放到這裡加入檔案</span>
+        </div>
+      </div>
+
+      <!-- View Switch Tabs -->
+      <div class="viewer-tabs-bar">
+        <div class="tabs-group">
+          <button class="tab-btn active" id="tabRoomView">
+            <!-- 分頁文字由 app.js 的 renderStatusLabels() 寫入 -->
+            <span id="tabRoomViewLabel">房間／PSD 配置檢視</span>
+          </button>
+          <button class="tab-btn" id="tabGridView">
+            <span data-i18n="tab.grid">圖片清單</span>
+          </button>
+        </div>
+        <!-- 統計文字由 app.js 的 renderStatusLabels() 寫入 -->
+        <div class="viewer-stats" id="viewerStatsText">
+          沒有載入的檔案
+        </div>
+      </div>
+
+      <!-- Texture Grid View Container -->
+      <div class="view-container" id="containerGridView">
+        <div class="grid-view-toolbar">
+          <span data-i18n="grid.search">搜尋：</span>
+          <input type="text" id="inputGridSearch" data-i18n-placeholder="grid.search.placeholder" placeholder="搜尋檔名／圖層名稱…">
+          <span data-i18n="grid.sort">排序：</span>
+          <select id="selectGridSort" style="width: 120px;">
+            <option value="name" data-i18n="grid.sort.name">依名稱</option>
+            <option value="size" data-i18n="grid.sort.size">依大小</option>
+            <option value="type" data-i18n="grid.sort.type">依類型</option>
+          </select>
+          <button class="btn-primary" id="btnFitMarginBatch"
+            style="margin-left: auto; padding: 5px 12px; font-size: 0.75rem;" data-i18n-title="fit.batch.title" title="CCFOLIA 的格線大小是 24 像素。
+為了讓尺寸剛好對齊，會把留白補到 24 的倍數。" data-i18n="fit.batch">全部補齊留白（24px）</button>
+        </div>
+        <div class="grid-tiles-wrapper" id="gridTilesWrapper">
+          <!-- Dynamically populated tiles -->
+        </div>
+      </div>
+
+      <!-- Ccfolia Room / PSD View Container -->
+      <div class="view-container active" id="containerRoomView">
+        <div class="room-view-toolbar">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn-xs" id="btnRoomZoomIn" data-i18n="room.zoomIn">➕ 放大</button>
+            <button class="btn-xs" id="btnRoomZoomOut" data-i18n="room.zoomOut">➖ 縮小</button>
+            <button class="btn-xs" id="btnRoomResetView" data-i18n="room.center">回到中央</button>
+            <label style="display: flex; align-items: center; gap: 4px; margin-left: 12px; font-size: 0.78rem;" data-i18n-node="room.grid">
+              <input type="checkbox" id="toggleRoomGrid" checked> 顯示格線
+            </label>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-dim);" data-i18n="room.hint">滑鼠拖曳：移動 | 滾輪：放大／縮小 | 點擊：開啟素材專用檢視器</span>
+        </div>
+        <div class="room-canvas-wrapper" id="roomCanvasWrapper">
+          <canvas id="roomCanvas"></canvas>
+
+          <!-- Floating PSD Layer Stack Panel -->
+          <div class="psd-floating-layer-panel" id="psdFloatingLayerPanel" style="display: none;">
+            <div class="psd-layer-panel-header">
+              <!-- 面板標題由 app.js 的 renderPsdLayerPanel() 寫入 -->
+              <span>PSD 圖層</span>
+              <div style="display: flex; gap: 4px;">
+                <button class="btn-xs" onclick="toggleAllPsdLayers(true)" data-i18n-title="layers.all.title" title="顯示所有圖層" data-i18n="layers.all">全部</button>
+                <button class="btn-xs" onclick="toggleAllPsdLayers(false)" data-i18n-title="layers.hideAll.title" title="隱藏所有圖層" data-i18n="layers.hideAll">隱藏</button>
+                <button class="btn-xs" onclick="resetAllPsdSolo()" data-i18n-title="layers.solo.title" title="重設 Solo 模式">Solo</button>
+              </div>
+            </div>
+            <div class="psd-layer-list" id="psdFloatingLayerList">
+              <!-- Dynamically populated layer items -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State Overlay (When no files loaded) -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-state-dropzone" id="emptyStateDropzone">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path
+              d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 1 2-2V6a2 2 0 0 1-2-2H6a2 2 0 0 1-2 2v12a2 2 0 0 1 2 2z">
+            </path>
+          </svg>
+          <h3 data-i18n="empty.title">還沒有載入檔案</h3>
+          <p data-i18n="empty.body">把 CCFOLIA 的 ZIP 檔、Photoshop PSD 或圖片／資料夾拖到這裡，或用下方按鈕選擇。</p>
+          <div class="empty-state-dropzone-actions">
+            <button class="btn-file-trigger" onclick="document.getElementById('fileInputImages').click();" data-i18n="empty.pickFile">選擇檔案</button>
+            <button class="btn-file-trigger" onclick="document.getElementById('fileInputFolder').click();" data-i18n="empty.pickFolder">選擇資料夾</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Right Panel: Selected Asset Tuning Overview -->
+    <aside class="panel panel-right">
+      <div class="panel-header">
+        <div class="title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          <span data-i18n="asset.title">選取素材摘要</span>
+        </div>
+        <button class="btn-xs" id="btnResetAsset" data-i18n="asset.reset">個別重設</button>
+      </div>
+
+      <div class="panel-content" id="assetDetailPanelContent">
+
+
+        <div style="font-size: 0.8rem; color: var(--text-dim); text-align: center; padding: 20px 0;"
+          id="assetNoSelectText" data-i18n-html="asset.none">還沒有選取素材。<br>在圖片清單或配置檢視裡點一下圖片，就會開啟專用檢視器。</div>
+
+        <div id="assetSelectedControls" style="display: none; flex-direction: column; gap: 16px;">
+          <!-- Preview Box -->
+          <div class="selected-asset-preview" style="cursor: pointer;" data-i18n-title="asset.preview.title" title="點一下開啟單張專用檢視器"
+            id="sidePreviewClickArea">
+            <canvas id="assetPreviewCanvas"></canvas>
+          </div>
+
+          <div style="font-size: 0.8rem; line-height: 1.4;">
+            <div style="font-weight: 700; color: var(--text-main);" id="assetDetailName">filename.png</div>
+            <div style="color: var(--text-dim); font-size: 0.72rem;" id="assetDetailMeta">1024 x 768 px | APNG</div>
+          </div>
+
+          <!-- Canvas Size & Fit Margin Section -->
+          <div class="control-group" style="padding: 10px;">
+            <div class="control-group-title">
+              <span data-i18n="canvas.title">畫布尺寸（留白）</span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 0.72rem; color: var(--text-muted);" data-i18n="canvas.w">寬（W）</span>
+                <div style="display: flex; align-items: center; gap: 2px;">
+                  <input type="number" id="numCanvasWidth" min="1" class="num-input"
+                    style="width: 100%; text-align: center;">
+                  <span style="font-size: 0.72rem;">px</span>
+                </div>
+              </div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 0.72rem; color: var(--text-muted);" data-i18n="canvas.h">高（H）</span>
+                <div style="display: flex; align-items: center; gap: 2px;">
+                  <input type="number" id="numCanvasHeight" min="1" class="num-input"
+                    style="width: 100%; text-align: center;">
+                  <span style="font-size: 0.72rem;">px</span>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 8px;">
+              <button class="btn-secondary" id="btnApplyCanvasSize"
+                style="flex: 1; justify-content: center; font-size: 0.72rem; padding: 5px 0;" data-i18n="canvas.apply">變更尺寸</button>
+              <button class="btn-primary" id="btnFitMargin"
+                style="flex: 1; justify-content: center; font-size: 0.72rem; padding: 5px 0;"
+                data-i18n-title="fit.title" title="CCFOLIA 的格線大小是 24 像素。為了讓尺寸剛好對齊，會把留白補到 24 的倍數。" data-i18n="fit.one">補齊留白</button>
+            </div>
+          </div>
+
+          <button class="btn-primary" id="btnOpenSingleInspector" style="justify-content: center; width: 100%;" data-i18n="inspector.open">開啟單張專用檢視器</button>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- Single Image Inspection Focused Full Modal Overlay -->
+  <div class="single-inspector-overlay" id="singleInspectorModal">
+    <div class="inspector-header">
+      <div class="inspector-title">
+        <button class="btn-secondary" id="btnInspectorBack" data-i18n="inspector.back">← 回到清單</button>
+        <span id="inspectorFileName" style="margin-left: 10px;">filename.png</span>
+        <span id="inspectorMetaBadge"
+          style="font-size: 0.75rem; color: var(--text-dim); font-weight: 400;">1024x768</span>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button class="btn-secondary" id="btnInspectorPrev" data-i18n="inspector.prev">◀ 上一張</button>
+        <button class="btn-secondary" id="btnInspectorNext" data-i18n="inspector.next">下一張 ▶</button>
+        <button class="btn-secondary" id="btnInspectorCompareHold" data-i18n="inspector.compare">對照原圖</button>
+        <button class="btn-primary" id="btnInspectorDownload" data-i18n="inspector.download">下載這張圖片</button>
+        <button class="btn-xs" id="btnInspectorClose" style="font-size: 1rem; padding: 4px 10px;">✕</button>
+      </div>
+    </div>
+
+    <div class="inspector-body">
+      <!-- Main High-Res Canvas View -->
+      <div class="inspector-main-preview" id="inspectorCanvasArea">
+        <canvas id="inspectorCanvas"></canvas>
+
+        <!-- APNG Frame Animation Player Controls Overlay -->
+        <div class="apng-player-controls" id="apngPlayerControls"
+          style="display: none; position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(17, 17, 17, 0.92); border: 1.5px solid #ffffff; padding: 6px 14px; gap: 8px; align-items: center; border-radius: 0; z-index: 20; color: #ffffff; font-size: 0.78rem; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+          <!-- 播放／暫停的文字由 app.js 寫入 -->
+          <button class="btn-xs" id="btnApngPlayPause" style="padding: 3px 8px; font-weight: 700;">⏸️ 暫停</button>
+          <button class="btn-xs" id="btnApngPrevFrame" style="padding: 3px 6px;">◀</button>
+          <span id="textApngFrameNum"
+            style="font-family: var(--font-family); font-weight: 600; min-width: 75px; text-align: center;">1 / 1
+            F</span>
+          <button class="btn-xs" id="btnApngNextFrame" style="padding: 3px 6px;">▶</button>
+          <input type="range" id="sliderApngFrame" min="0" max="0" value="0" style="width: 110px; margin: 0 4px;">
+          <select id="selectApngSpeed"
+            style="width: auto; padding: 2px 4px; font-size: 0.72rem; background: #000; color: #fff; border: 1px solid #fff;">
+            <option value="0.5">0.5x</option>
+            <option value="1.0" selected>1.0x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2.0">2.0x</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Side Dedicated Adjustments -->
+      <div class="inspector-side-panel">
+        <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-secondary);" data-i18n="inspector.side">個別素材專用調整</div>
+
+        <!-- Tone Adjustments Group -->
+        <div class="control-group" style="padding: 10px;">
+          <div class="control-group-title"><span data-i18n="tone.title">基本色調調整</span></div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span data-i18n="asset.hue">色相（Hue）</span>
+              <input type="number" id="numAssetHue" min="-180" max="180" value="0" class="num-input">
+            </div>
+            <input type="range" id="sliderAssetHue" min="-180" max="180" value="0">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span data-i18n="asset.sat">飽和度（Sat）</span>
+              <div style="display: flex; align-items: center; gap: 2px;">
+                <input type="number" id="numAssetSat" min="-100" max="100" value="0" class="num-input">
+                <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">%</span>
+              </div>
+            </div>
+            <input type="range" id="sliderAssetSat" min="-100" max="100" value="0">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span data-i18n="asset.bri">亮度（Bri）</span>
+              <input type="number" id="numAssetBri" min="-100" max="100" value="0" class="num-input">
+            </div>
+            <input type="range" id="sliderAssetBri" min="-100" max="100" value="0">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span data-i18n="asset.con">對比（Con）</span>
+              <input type="number" id="numAssetCon" min="-100" max="100" value="0" class="num-input">
+            </div>
+            <input type="range" id="sliderAssetCon" min="-100" max="100" value="0">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span data-i18n="asset.exp">曝光（Exp）</span>
+              <input type="number" id="numAssetExp" min="-100" max="100" value="0" class="num-input">
+            </div>
+            <input type="range" id="sliderAssetExp" min="-100" max="100" value="0">
+          </div>
+        </div>
+
+        <!-- Interactive Photoshop Gradient Map Editor Group -->
+        <div class="control-group" style="padding: 10px;">
+          <div class="control-group-title">
+            <span data-i18n="grad.title">漸層對應</span>
+            <label
+              style="font-size: 0.75rem; font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 4px;" data-i18n-node="asset.grad.apply">
+              <input type="checkbox" id="chkAssetGrad"> 套用
+            </label>
+          </div>
+
+          <div class="ps-gradient-wrapper">
+            <div class="ps-gradient-ramp-container" id="assetPsGradientRampContainer">
+              <div class="ps-gradient-ramp" id="assetPsGradientRamp"></div>
+            </div>
+            <div class="ps-stops-bar" id="assetPsStopsBar"></div>
+
+            <div
+              style="display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 0.78rem;">
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <span data-i18n="grad.color">顏色：</span>
+                <input type="color" id="assetPsStopColorPicker" value="#000000" style="width: 36px; height: 26px;">
+                <span data-i18n="grad.pos">位置：</span>
+                <input type="number" id="assetPsStopPosInput" min="0" max="100" value="0"
+                  style="width: 52px; padding: 2px 4px;">%
+              </div>
+              <button class="btn-xs" id="assetPsBtnDeleteStop" style="color: var(--accent-danger);" data-i18n="grad.delete">刪除</button>
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-label"><span data-i18n="asset.grad.opacity">混合強度</span><span class="val" id="valAssetGradOp">100%</span></div>
+              <input type="range" id="sliderAssetGradOp" min="0" max="100" value="100">
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-label"><span data-i18n="grad.blend">混合模式</span></div>
+              <select id="selectAssetGradBlend">
+                <option value="normal" data-i18n="blend.normal">Normal（正常）</option>
+                <option value="multiply" data-i18n="blend.multiply">Multiply（色彩增值）</option>
+                <option value="screen" data-i18n="blend.screen">Screen（濾色）</option>
+                <option value="overlay" selected data-i18n="blend.overlay">Overlay（覆蓋）</option>
+                <option value="soft-light" data-i18n="blend.softLight">Soft Light（柔光）</option>
+                <option value="color" data-i18n="blend.color">Color（顏色）</option>
+              </select>
+            </div>
+
+            <div class="ps-gradient-presets">
+              <button class="btn-xs" id="presetAssetGradBW" data-i18n="grad.preset.bw">黑白</button>
+              <button class="btn-xs" id="presetAssetGradSepia" data-i18n="grad.preset.sepia">復古褐</button>
+              <button class="btn-xs" id="presetAssetGradCyber" data-i18n="grad.preset.cyber">賽博</button>
+              <button class="btn-xs" id="presetAssetGradSunset" data-i18n="grad.preset.sunset">晚霞</button>
+              <button class="btn-xs" id="presetAssetGradDuotone" data-i18n="grad.preset.duotone">雙色調</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive RGB Tone Curve Editor Group -->
+        <div class="control-group" style="padding: 10px;">
+          <div class="control-group-title">
+            <span data-i18n="curve.title">RGB 色調曲線</span>
+            <select id="selectAssetCurveChannel" style="width: auto; padding: 2px 6px; font-size: 0.72rem;">
+              <option value="all" data-i18n="curve.ch.all">RGB 合併</option>
+              <option value="r" data-i18n="curve.ch.r">紅（R）</option>
+              <option value="g" data-i18n="curve.ch.g">綠（G）</option>
+              <option value="b" data-i18n="curve.ch.b">藍（B）</option>
+            </select>
+          </div>
+
+          <div class="curve-canvas-wrapper">
+            <canvas id="assetCurveCanvas" width="260" height="130"></canvas>
+          </div>
+
+          <div class="curve-presets">
+            <button class="btn-xs" id="presetAssetLinear" data-i18n="curve.preset.linear">直線（重設）</button>
+            <button class="btn-xs" id="presetAssetContrast" data-i18n="curve.preset.contrast">高對比 S 曲線</button>
+            <button class="btn-xs" id="presetAssetDarken" data-i18n="curve.preset.darken">變暗</button>
+            <button class="btn-xs" id="presetAssetBrighten" data-i18n="curve.preset.brighten">變亮</button>
+          </div>
+        </div>
+
+        <button class="btn-xs" id="btnResetAssetSingle" style="align-self: flex-start; margin-top: 6px;" data-i18n="asset.resetSingle">重設個別調整</button>
+
+        <!-- APNG Compression Test Studio Section -->
+        <div id="inspectorApngStudioSection"
+          style="display: none; border-top: 1px dashed rgba(17, 17, 17, 0.25); padding-top: 12px; margin-top: 10px; flex-direction: column; gap: 8px;">
+          <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-secondary);" data-i18n="apng.studio">⚡ APNG 壓縮工作室</div>
+          <button class="btn-primary" id="btnTestApngCompress"
+            style="justify-content: center; font-size: 0.75rem; padding: 6px 10px;" data-i18n="apng.test.run">⚡ 即時壓縮測試與預估容量</button>
+          <div id="apngTestResultCard"
+            style="display: none; background: var(--bg-card); border: 1.5px solid var(--border-strong); padding: 10px; font-size: 0.75rem; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; font-weight: 700;">
+              <span data-i18n="apng.test.size">壓縮後預估容量：</span>
+              <span id="apngTestResultSize" style="color: var(--accent-success);">-- MB</span>
+            </div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+              <span data-i18n-node="apng.test.orig">原檔：<span id="apngTestOrigSize">-- MB</span></span>
+              <span data-i18n-node="apng.test.ratio">節省比例：<span id="apngTestRatio"
+                  style="font-weight: 700; color: var(--accent-primary);">--%</span></span>
+            </div>
+            <!-- 明細由 app.js 的 renderApngTestDetails() 寫入 -->
+            <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 2px;" id="apngTestDetails">
+              解析度 100% | 256 色
+            </div>
+          </div>
+        </div>
+
+        <!-- APNG Loop Control Section -->
+        <div id="inspectorApngLoopSection"
+          style="display: none; border-top: 1px dashed rgba(17, 17, 17, 0.25); padding-top: 10px; margin-top: 10px; flex-direction: column; gap: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.82rem; font-weight: 700; color: var(--accent-secondary);" data-i18n="apng.loop.title">🔁 APNG 循環設定</span>
+            <!-- 原檔循環次數由 app.js 的 renderOrigLoopInfo() 寫入 -->
+            <span id="textAssetOrigLoopInfo" style="font-size: 0.7rem; color: var(--text-dim);">原檔：播放 1 次</span>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <select id="selectAssetApngLoop" style="flex: 1; font-size: 0.75rem; padding: 4px 6px;">
+              <option value="global" selected data-i18n="loop.global">依照全域設定</option>
+              <option value="keep" data-i18n="loop.keep">維持原檔</option>
+              <option value="once" data-i18n="loop.once">只播一次</option>
+              <option value="infinite" data-i18n="loop.infinite">無限循環</option>
+              <option value="custom" data-i18n="loop.customDots">指定次數…</option>
+            </select>
+            <input type="number" id="numAssetApngLoopCount" min="1" max="999" value="1"
+              style="display: none; width: 48px; padding: 3px 4px; font-size: 0.75rem;">
+          </div>
+        </div>
+
+        <div style="border-top: 1px dashed rgba(17, 17, 17, 0.25); padding-top: 12px; margin-top: 10px;">
+          <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-secondary); margin-bottom: 6px;" data-i18n="canvas.resizeTitle">調整畫布尺寸（留白）</div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 0.72rem; color: var(--text-muted);" data-i18n="canvas.w">寬（W）</span>
+              <div style="display: flex; align-items: center; gap: 2px;">
+                <input type="number" id="numInspectorCanvasWidth" min="1" class="num-input"
+                  style="width: 100%; text-align: center;">
+                <span style="font-size: 0.72rem;">px</span>
+              </div>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 0.72rem; color: var(--text-muted);" data-i18n="canvas.h">高（H）</span>
+              <div style="display: flex; align-items: center; gap: 2px;">
+                <input type="number" id="numInspectorCanvasHeight" min="1" class="num-input"
+                  style="width: 100%; text-align: center;">
+                <span style="font-size: 0.72rem;">px</span>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 8px;">
+            <button class="btn-secondary" id="btnInspectorApplyCanvasSize"
+              style="flex: 1; justify-content: center; font-size: 0.72rem; padding: 5px 0;" data-i18n="canvas.apply">變更尺寸</button>
+            <button class="btn-primary" id="btnInspectorFitMargin"
+              style="flex: 1; justify-content: center; font-size: 0.72rem; padding: 5px 0;"
+              data-i18n-title="fit.title" title="CCFOLIA 的格線大小是 24 像素。為了讓尺寸剛好對齊，會把留白補到 24 的倍數。" data-i18n="fit.one">補齊留白</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Processing Modal Overlay（標題與說明由 app.js 的 showModal() 寫入） -->
+  <div class="modal-overlay" id="processingModal">
+    <div class="modal-box">
+      <div style="font-weight: 700; font-size: 1rem; color: var(--text-main);" id="modalTitle">處理中…</div>
+      <div style="font-size: 0.85rem; color: var(--text-muted);" id="modalSubtext">正在解析 PSD 並處理圖片。</div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="modalProgressBar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auto-Save Toast Notification（訊息由 app.js 的 showAutoSaveToast() 寫入） -->
+  <div class="autosave-toast" id="autoSaveToast">
+    <span>自動儲存完成</span>
+  </div>
+
+  <!-- Floating Notice Circle Button -->
+  <button class="btn-notice-floating" id="btnNoticeOpen" data-i18n-title="notice.open.title" title="開啟說明">?</button>
+
+  <!-- Notice Modal Overlay -->
+  <div class="notice-modal-overlay" id="noticeModal">
+    <div class="notice-modal-box">
+      <div class="notice-header">
+        <div class="notice-title">
+          <span>● NOTICE</span>
+        </div>
+        <button class="notice-close-btn" id="btnNoticeClose">X</button>
+      </div>
+      <div class="notice-body">
+        <div class="notice-tabs-row">
+          <button class="notice-tab-btn active" id="tabNoticeCaution" data-i18n="notice.tab.caution">注意事項與回報方式</button>
+          <button class="notice-tab-btn" id="tabNoticeFeatures" data-i18n="notice.tab.features">主要功能</button>
+          <!-- 合輯版不收上游的 GGUNDY 分頁（作者的狗狗照片 important.png 與 Firebase 按讚鈕） -->
+        </div>
+        <div class="notice-content-area">
+          <!-- Tab 1：注意事項與回報方式 -->
+          <div class="notice-content-pane active" id="paneNoticeCaution">
+            <p data-i18n-html="notice.p.author">本工具是（<strong><a href="https://x.com/Hamurabi_F" target="_blank" rel="noopener noreferrer">@Hamurabi_F</a></strong>）為了自己作業方便而製作的非官方網頁工具，<br>開發過程中有一部分使用了 vibe coding（由 AI 協助寫程式）。</p>
+            <p data-i18n-html="notice.p.privacy">放進來的 ZIP、PSD 和圖片檔案不會傳送到外部伺服器，<br>只會在使用者的瀏覽器（裝置）裡安全地處理。</p>
+            <p data-i18n-html="notice.p.terms">禁止擅自轉售程式碼本身，或收費散布。<br>不過，為個人目的修改程式碼、改良功能，以及以此為基礎再散布，都可以自由進行。</p>
+            <p style="margin-top: 4px;" data-i18n-html="notice.p.preview"><strong>關於預覽畫面：</strong><br>為了盡量避免瀏覽器卡頓，<br>檢視畫面裡的圖片會以比實際低的畫質算繪。</p>
+            <p style="margin-top: 4px;" data-i18n-html="notice.p.apngPreview"><strong>關於 APNG 預覽：</strong><br>預覽播放時影格可能會閃爍或看起來有點破圖，這是為了減輕畫面算繪的負擔，實際儲存的最終檔案完全沒有問題，請放心下載。</p>
+            <p style="margin-top: 4px;" data-i18n-html="notice.p.zip"><strong>關於解壓縮 zip：</strong><br>使用 Windows 內建的解壓縮功能時可能會出錯。<br>要確認檔案是否正常，建議使用 Bandizip、ALZip 等壓縮軟體。</p>
+            <p style="margin-top: 4px;" data-i18n-html="notice.p.apngWarn"><strong>關於把 APNG 上傳到 CCFOLIA 時跳出的警告：</strong><br>這是因為修改圖片時改動了 json 檔案，請直接按確認。<br>如果出現 faild 警告、地圖設定也沒有套用，請重新下載檔案再試一次，<br>還是不行的話，請回報錯誤！</p>
+            <p style="margin-top: 4px;" data-i18n-html="notice.p.suggest"><strong>關於功能建議：</strong><br>不經過 CCFOLIA、自行產生／製作地圖的功能，可能侵害 CCFOLIA 官方服務的政策與付費範圍，因此不接受這類建議，敬請見諒。<br>其他功能建議和錯誤回報隨時歡迎！</p>
+            <!-- 合輯版：上游這裡是原作者的 KakaoTalk 聯絡連結，改成指向合輯的回報說明 -->
+            <p style="margin-top: 4px;" data-i18n-html="notice.p.contact"><strong>問題回報：</strong><br>這個頁面是 TRPG Toolkit 收錄原作、加上繁體中文介面的修改版，沒有收錄原作者的聯絡連結。只有這個版本才會發生的問題，請到 <a href="https://github.com/tool-jx3/toolkit/issues" target="_blank" rel="noopener noreferrer">TRPG Toolkit 的 repo</a> 回報。<br>原始程式碼：<a href="https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio" target="_blank" rel="noopener noreferrer">fyam-hamu/F_Ccfolia-PSD-Studio</a></p>
+          </div>
+
+          <!-- Tab 2：主要功能 -->
+          <div class="notice-content-pane" id="paneNoticeFeatures">
+            <p data-i18n-html="notice.f1"><strong>1. 載入檔案與多種格式辨識</strong><br>- 可以自由載入 CCFOLIA 備份 ZIP（含 data.json）、Photoshop PSD 圖層、一般圖片（PNG／JPG／APNG 等）和資料夾。</p>
+            <p style="margin-top: 4px;" data-i18n-html="notice.f2"><strong>2. 整體與個別素材的色彩調整</strong><br>- 調整色相（Hue）、飽和度（Sat）、亮度（Bri）、對比（Con）、曝光（Exp）<br>- Photoshop 風格的漸層對應與 RGB 色調曲線編輯<br>- 可儲存自訂調色預設集，並支援個別素材專用的調整偏移</p>
+            <p style="margin-top: 4px;" data-i18n-html="notice.f3"><strong>3. CCFOLIA 房間與 PSD 圖層配置檢視器</strong><br>- 以 2D 畫布即時算繪 Z-Index 與圖層配置<br>- 提供圖層堆疊面板，方便確認圖片。</p>
+            <p style="margin-top: 4px;" data-i18n-html="notice.f4"><strong>4. APNG／靜態圖片容量自動壓縮</strong><br>- 自動分階段壓縮到 CCFOLIA 上傳上限（4.8MB）以下，減少畫質損失。<br>- 如果改過 APNG 動畫的循環／重複播放次數設定，儲存時請另外確認。</p>
+            <p style="margin-top: 4px;" data-i18n-html="notice.f5"><strong>5. 24px 補齊留白與 CCFOLIA ZIP 匯出</strong><br>- 依 CCFOLIA 格線倍數（24px）批次補齊畫布留白<br>- 修改圖片後自動同步 data.json 並打包成 ZIP，可以直接拿到 CCFOLIA 使用。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>

@@ -1,0 +1,404 @@
+/* CCFOLIA 日誌轉換器（Eon-00/eon-ccfolia-log-converter）。上游寫在 index.html 的兩個
+ * <style> 區塊，依慣例抽成獨立檔案；版面本體是 Tailwind 的工具類別。
+ * 合輯追加：@import 多載入 Noto Sans TC（介面是繁中時排在前面，見下方），以及檔尾的
+ * 回首頁與語言切換。 */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background-color: #f3f4f6;
+    margin: 0;
+    padding: 0;
+}
+
+#preview-frame {
+    transition: opacity 0.3s ease-in-out;
+}
+
+input[type="number"]:disabled {
+    background-color: #f3f4f6;
+    cursor: not-allowed;
+}
+
+/* 合輯追加：介面語言是繁體中文時，繁中字型排在前面。只有 Noto Sans KR 的話，中文會用
+ * 韓文的漢字字形來畫；Noto Sans TC 沒有諺文，韓文仍會落到 Noto Sans KR。
+ * 下一段上游的 body 規則沒有指定字型，不會蓋掉這裡。 */
+html[lang^="zh"] body {
+    font-family: 'Noto Sans TC', 'Noto Sans KR', sans-serif;
+}
+
+body {
+    background: #0f0f0f;
+    min-height: 100vh;
+}
+
+/* 頁首 */
+.hero-title {
+    color: #f87171;
+}
+
+/* 卡片 */
+.card {
+    background: #1a1a1a !important;
+    border: 1px solid #333;
+    border-radius: 8px;
+    transition: border-color 0.2s;
+}
+
+.card:hover {
+    border-color: #7f1d1d;
+}
+
+.card-primary {
+    background: #1e1e1e !important;
+    border: 1px solid #7f1d1d;
+}
+
+/* 區塊標題 */
+.section-header {
+    color: #fca5a5 !important;
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #7f1d1d;
+}
+
+/* 輸入欄位 */
+input[type="text"],
+input[type="number"],
+input[type="file"],
+select {
+    background: #1a1a1a !important;
+    border: 1px solid #333 !important;
+    color: #e5e7eb !important;
+    border-radius: 6px;
+    padding: 0.5rem;
+    transition: border-color 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus {
+    border-color: #7f1d1d !important;
+    outline: none;
+}
+
+input[type="file"] {
+    padding: 0.5rem;
+}
+
+input[type="file"]::file-selector-button {
+    background: #7f1d1d;
+    color: #fca5a5;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    margin-right: 0.75rem;
+    transition: background 0.2s;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background: #991b1b;
+}
+
+/* 單選鈕／核取方塊 */
+input[type="radio"],
+input[type="checkbox"] {
+    accent-color: #7f1d1d;
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+}
+
+/* 標籤 */
+label {
+    color: #d1d5db !important;
+    font-weight: 400;
+}
+
+.label-description {
+    color: #9ca3af !important;
+    font-size: 0.8rem;
+    margin-top: 0.2rem;
+}
+
+/* Details/Summary */
+details {
+    background: #1a1a1a !important;
+    border: 1px solid #333;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+}
+
+details summary {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    font-weight: 500;
+    color: #f87171 !important;
+    background: #1a1a1a;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+details summary:hover {
+    background: #222;
+    color: #fca5a5 !important;
+}
+
+details[open] summary {
+    border-bottom: 1px solid #333;
+    color: #fca5a5 !important;
+}
+
+details .details-content {
+    padding: 1rem;
+}
+
+/* 按鈕 */
+.btn-primary {
+    background: #7f1d1d !important;
+    color: #fca5a5 !important;
+    font-weight: 600;
+    padding: 0.75rem 2rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover {
+    background: #991b1b !important;
+}
+
+.btn-primary:active {
+    background: #7f1d1d !important;
+}
+
+.btn-download {
+    background: #065f46;
+    color: #6ee7b7;
+    font-weight: 500;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-download:hover {
+    background: #047857;
+}
+
+/* 顏色輸入 */
+input[type="color"] {
+    background: #1a1a1a !important;
+    border: 1px solid #333 !important;
+    border-radius: 4px;
+    cursor: pointer;
+    height: 2.2rem;
+}
+
+input[type="color"]:hover {
+    border-color: #7f1d1d !important;
+}
+
+/* Select */
+select {
+    cursor: pointer;
+}
+
+select option {
+    background: #1a1a1a;
+    color: #e5e7eb;
+}
+
+/* Placeholder */
+::placeholder {
+    color: #6b7280 !important;
+}
+
+/* 狀態訊息 */
+#status {
+    background: #7f1d1d !important;
+    border: 1px solid #991b1b !important;
+    color: #fca5a5 !important;
+    border-radius: 6px;
+    padding: 0.75rem;
+    font-weight: 400;
+}
+
+/* Preview Frame */
+#preview-frame {
+    border: 1px solid #333 !important;
+    border-radius: 6px;
+    background: white;
+}
+
+/* 頭像與顏色卡片 */
+.profile-card, .color-card {
+    background: #222 !important;
+    border: 1px solid #333 !important;
+    border-radius: 6px;
+    padding: 0.75rem;
+    transition: border-color 0.2s;
+}
+
+.profile-card:hover, .color-card:hover {
+    border-color: #7f1d1d !important;
+}
+
+/* 連結 */
+a {
+    color: #f87171 !important;
+    transition: color 0.2s;
+}
+
+a:hover {
+    color: #fca5a5 !important;
+}
+
+/* Code */
+code {
+    background-color: #3a3a3a !important;
+    color: #e5e7eb !important;
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+}
+
+/* 輸出樣式的單選鈕 */
+.style-option {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+}
+
+.style-option:hover {
+    border-color: #7f1d1d;
+}
+
+.style-option input[type="radio"] {
+    margin: 0;
+}
+
+.style-option label {
+    margin: 0;
+    margin-left: 0.5rem;
+}
+
+.style-option input:checked + label {
+    color: #fca5a5 !important;
+}
+
+/* 分頁 */
+.tab-container {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.tab-buttons {
+    display: flex;
+    background: #111;
+    border-bottom: 1px solid #333;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+    border-right: 1px solid #333;
+}
+
+.tab-button:last-child {
+    border-right: none;
+}
+
+.tab-button:hover {
+    background: #1a1a1a;
+    color: #d1d5db;
+}
+
+.tab-button.active {
+    background: #1a1a1a;
+    color: #fca5a5;
+    border-bottom: 2px solid #7f1d1d;
+}
+
+.tab-content {
+    padding: 1rem;
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* 說明文字裡指稱畫面上的項目名稱時 */
+.ui-name {
+    color: #e5e7eb !important;
+    font-weight: 600;
+}
+
+/* 選項群組的標題（不用表情符號，改用粗細與分隔線表現層級） */
+.group-title {
+    display: block;
+    color: #e5e7eb !important;
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #2f2f2f;
+}
+
+/* 工具類別 */
+.text-muted {
+    color: #9ca3af !important;
+}
+
+.text-highlight {
+    color: #fca5a5 !important;
+}
+
+/* ---------- TRPG Toolkit 合輯：回首頁與語言切換 ---------- */
+/* 上面的 a、select 規則都帶 !important，這裡提高權重才蓋得過。 */
+.toolkit-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 1rem;
+}
+
+.toolkit-bar .home-link {
+    font-size: 0.75rem;
+    color: #9ca3af !important;
+    text-decoration: none;
+}
+
+.toolkit-bar .home-link:hover {
+    color: #fca5a5 !important;
+    text-decoration: underline;
+}
+
+.toolkit-bar .locale-select {
+    min-height: 28px;
+    padding: 2px 8px;
+    font-size: 12px;
+}
