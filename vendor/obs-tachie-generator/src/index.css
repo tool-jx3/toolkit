@@ -1,0 +1,1187 @@
+:root {
+  /* 貼近 Discord 的深色 UI */
+  --bg: #1e1f22;
+  --bg-2: #1e1f22;
+  --panel: #2b2d31;
+  --panel-2: #313338;
+  --panel-3: #383a40;
+  --line: #3f4147;
+  --line-2: #4e5058;
+  --text: #dbdee1;
+  --muted: #949ba4;
+  --accent: #5865f2;
+  --accent-hover: #4752c4;
+  --accent-ink: #ffffff;
+  --danger: #f23f43;
+  --ok: #23a55a;
+  --warn: #f0b232;
+  --input-bg: #1e1f22;
+  /* 輸入控制項的共同高度（讓 text / number / select / color 對齊）。
+     比自然高度（line-height 1.6 × 16px + padding 16 + border 2 = 43.6px）小的話
+     文字會被壓扁，所以取比它大的值。 */
+  --control-h: 44px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Kaku Gothic ProN',
+    'Noto Sans JP', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* TRPG Toolkit 收錄版：介面是繁中時改用台灣的字型堆疊。
+   Noto Sans JP、Hiragino 也有漢字，但字形是日文的寫法；引擎會把 <html lang> 換成目前的語言，
+   日文介面維持上游的字型。 */
+:root:lang(zh) body {
+  font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei',
+    'Noto Sans TC', sans-serif;
+}
+
+/* TRPG Toolkit 收錄版：回首頁連結與語言選單（放在 React 樹之外的 index.html 裡）。 */
+.toolkit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 10px 20px 0;
+}
+.home-link { color: var(--muted); font-size: 12px; text-decoration: none; }
+.home-link:hover { color: var(--text); text-decoration: underline; }
+.home-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.locale-select {
+  width: auto;
+  height: auto;
+  min-width: 92px;
+  padding: 3px 6px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.locale-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 20px 90px;
+}
+
+.app header {
+  text-align: center;
+}
+
+.app header h1 {
+  font-size: 1.5rem;
+  margin: 0 0 4px;
+}
+
+.app header p {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+code {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 0.86em;
+  background: var(--input-bg);
+  padding: 1px 5px;
+  border-radius: 5px;
+  color: #cdd6ee;
+}
+
+/* ===== Stepper ===== */
+.stepper {
+  display: flex;
+  gap: 8px;
+  margin: 22px 0;
+}
+
+.step-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: inherit;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  min-width: 0;
+}
+
+.step-tab:hover {
+  border-color: var(--line-2);
+}
+
+.step-tab .n {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--panel-3);
+  color: var(--muted);
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  font-size: 0.84rem;
+}
+
+.step-tab .t {
+  min-width: 0;
+}
+
+.step-tab .t .k {
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.step-tab .t .d {
+  color: var(--muted);
+  font-size: 0.74rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.step-tab[aria-current='step'] {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, var(--panel));
+}
+
+.step-tab[aria-current='step'] .n {
+  background: var(--warn);
+  color: #1e1f22;
+}
+
+.step-tab.done .n {
+  background: var(--ok);
+  color: var(--accent-ink);
+}
+
+/* ===== Layout: per-step ===== */
+.work {
+  min-width: 0;
+}
+
+/* ② 立繪・效果：上段兩個區塊（左=清單 / 右=編輯）＋下段預覽（全寬） */
+.preset-top {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: start;
+}
+
+/* ③ 組合與輸出：上段（組合 / 預覽）＋下段 輸出（全寬） */
+.combine-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: start;
+}
+
+/* 互斥切換鈕（上傳 ⇄ 圖片 URL） */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.seg button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 14px;
+  font-size: 0.84rem;
+}
+
+.seg button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.pair-recall {
+  flex: 1 1 auto;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: inherit;
+  border-radius: 8px;
+  padding: 7px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pair-item.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel-2));
+}
+
+@media (max-width: 860px) {
+  .preset-top,
+  .combine-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.step-panel {
+  animation: step-fade 0.2s ease;
+}
+
+@keyframes step-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.step-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.step-head .step-num {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  font-size: 0.84rem;
+  font-weight: 800;
+  margin-top: 2px;
+}
+
+.step-head h2 {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.step-head .lead {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+/* ===== Nav ===== */
+.stepnav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.stepnav .spacer {
+  flex: 1;
+}
+
+.stepnav .label {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* ===== Panels ===== */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.panel + .panel {
+  margin-top: 16px;
+}
+
+.panel h2 {
+  font-size: 1.05rem;
+  margin: 0 0 12px;
+}
+
+.subhead {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 16px 0 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.subhead:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 4px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.field > label {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.row .field {
+  flex: 1 1 120px;
+  /* 標籤行數不同時也讓輸入欄高度對齊（以列內的下緣＝輸入欄為基準排列） */
+  justify-content: flex-end;
+}
+
+/* 標籤內的補充行。為了不破壞對齊，一律以區塊呈現相同的樣式 */
+.field > label small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+input[type='text'],
+input[type='number'],
+input[type='url'],
+select {
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+  width: 100%;
+  /* 消除各種類預設高度的差異（text / select / color），在同一列對齊 */
+  height: var(--control-h);
+}
+
+/* 讓停用的控制項一眼就看得出「現在不能操作」 */
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: var(--panel-2);
+}
+
+/* 含有停用輸入的欄位，標籤也一起變淡
+   （用顏色而不是 opacity 變淡，因為想讓裡面的「原因」保持醒目） */
+.field:has(> :disabled) > label {
+  color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+/* 停用的原因（為什麼不能操作・怎樣才能操作） */
+.field > label small.why {
+  color: var(--warn);
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+input[type='file'] {
+  font: inherit;
+  color: var(--muted);
+}
+
+input[type='color'] {
+  width: 100%;
+  height: var(--control-h);
+  padding: 2px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+button {
+  background: var(--panel-3);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+button:hover {
+  border-color: var(--line-2);
+  background: var(--line);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+button.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+button.ghost {
+  background: transparent;
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+button.sm {
+  padding: 6px 11px;
+  font-size: 0.82rem;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+/* ===== Toggle switch ===== */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.toggle .sw {
+  width: 40px;
+  height: 23px;
+  border-radius: 999px;
+  background: var(--panel-3);
+  position: relative;
+  flex: 0 0 auto;
+  transition: background 0.15s;
+}
+
+.toggle .sw::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #cbd3e6;
+  transition: transform 0.15s;
+}
+
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle input:checked + .sw {
+  background: var(--accent);
+}
+
+.toggle input:checked + .sw::after {
+  transform: translateX(17px);
+  background: #fff;
+}
+
+.toggle input:disabled + .sw {
+  opacity: 0.5;
+}
+
+.toggle .lab {
+  font-size: 0.9rem;
+}
+
+.toggle .lab small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+/* ===== Chips ===== */
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chip[data-on='true'] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: #cfd9ff;
+}
+
+.chip .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--line-2);
+}
+
+.chip[data-on='true'] .dot {
+  background: var(--accent);
+}
+
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ===== Anchor picker (3x3) ===== */
+.anchor-block {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.anchor-legend {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+/* 照畫面的排列呈現（上排=上錨點 / 左欄=左錨點），
+   一眼就看得出立繪會靠向哪裡。 */
+.anchor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 26px);
+  grid-template-rows: repeat(3, 26px);
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  width: max-content;
+}
+
+.anchor-cell {
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+}
+
+.anchor-cell:hover {
+  border-color: var(--accent);
+}
+
+.anchor-cell[data-on='true'] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+/* 在選取中的格子顯示一個點，表示靠攏的方向。 */
+.anchor-cell[data-on='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.anchor-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* 讀螢幕軟體專用（畫面上隱藏，但保留給朗讀）。 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ===== Crop editor ===== */
+.crop-edit {
+  margin-bottom: 10px;
+}
+
+/* 讓圖片縮放到適合的大小，上面再疊一層裁切框（框以相對於圖片的 % 放置）。 */
+.crop-stage {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: crosshair;
+  touch-action: none; /* 拖曳時不會被捲動搶走 */
+  /* 表示透明的棋盤格（看不出有沒有留白，就不懂「修掉」是什麼意思） */
+  background-color: #2a2f3a;
+  background-image: linear-gradient(45deg, #3a4150 25%, transparent 25%),
+    linear-gradient(-45deg, #3a4150 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #3a4150 75%),
+    linear-gradient(-45deg, transparent 75%, #3a4150 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+.crop-stage img {
+  display: block;
+  max-width: 100%;
+  max-height: 260px;
+  width: auto;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.crop-box {
+  position: absolute;
+  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+}
+
+/* 這是破壞性的操作，確認要用醒目的框顯示（避免沒看到就按下去）。 */
+.crop-confirm {
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+/* ===== Preset list & editor ===== */
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.preset-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  padding: 4px 4px 4px 4px;
+}
+
+.preset-item.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel-2));
+}
+
+.preset-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 4px 6px;
+  border-radius: 8px;
+  max-width: 200px;
+}
+
+.preset-pick .preset-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.86rem;
+}
+
+.preset-add {
+  border: 1px dashed var(--line-2);
+  background: transparent;
+  color: var(--accent);
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.thumb {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  background: var(--input-bg);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.thumb.lg {
+  width: 84px;
+  height: 84px;
+  border-radius: 8px;
+}
+
+.thumb-empty {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.preset-image-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.preset-editor {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  margin-top: 6px;
+}
+
+/* ===== Pairing ===== */
+.pair-add {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.pair-add .field {
+  flex: 1 1 160px;
+  margin-bottom: 0;
+}
+
+.pair-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  background: var(--panel-2);
+}
+
+.pair-item select {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.pair-item .pair-x {
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+.pair-item .pair-preset {
+  flex: 1 1 auto;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 7px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== Preview placeholder ===== */
+.tp-placeholder {
+  aspect-ratio: 3 / 5;
+  border: 2px dashed var(--line-2);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* ===== User list ===== */
+.user-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  background: var(--panel-2);
+}
+
+.user-item img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  background: var(--input-bg);
+  border-radius: 6px;
+  flex: 0 0 auto;
+}
+
+.user-item .meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 清單裡的輸入欄（畫面上顯示的名字）為了對齊列高，拿掉下邊距 */
+.user-item .field {
+  margin-bottom: 0;
+}
+
+.user-item .meta .name {
+  font-weight: 600;
+}
+
+.user-item .meta .id {
+  font-size: 0.78rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* ===== Output ===== */
+.modecards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.modecard {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  background: var(--panel-2);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+}
+
+.modecard[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel-2));
+}
+
+.modecard .mc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.modecard .rec {
+  font-size: 0.66rem;
+  color: var(--ok);
+  border: 1px solid var(--ok);
+  border-radius: 999px;
+  padding: 0 7px;
+}
+
+.modecard p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.output-block {
+  margin-bottom: 18px;
+}
+
+.output-block .head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.output-block .head .title {
+  font-weight: 600;
+}
+
+.output-block .actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+textarea.css-out {
+  width: 100%;
+  min-height: 150px;
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #cdd6ee;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  padding: 10px;
+  resize: vertical;
+  white-space: pre;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  color: var(--ok);
+  border: 1px solid var(--ok);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.warnline {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 0.8rem;
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  color: #ffe0a3;
+}
+
+.paste-steps {
+  counter-reset: p;
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: grid;
+  gap: 8px;
+}
+
+.paste-steps li {
+  counter-increment: p;
+  position: relative;
+  padding: 10px 12px 10px 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  font-size: 0.82rem;
+}
+
+.paste-steps li::before {
+  content: counter(p);
+  position: absolute;
+  left: 11px;
+  top: 9px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--panel-3);
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 0.76rem;
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* ===== Tachie preview (OBS viewport) ===== */
+.tp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tp-status {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  font-size: 0.72rem;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 10px;
+  pointer-events: none;
+}
+
+.tp-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  /* 讓名字的文字大小以 1920 為基準成比例的容器（使用 cqw） */
+  container-type: inline-size;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  /* 表示透明的棋盤格 */
+  background-color: #2a2f3a;
+  background-image: linear-gradient(45deg, #3a4150 25%, transparent 25%),
+    linear-gradient(-45deg, #3a4150 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #3a4150 75%),
+    linear-gradient(-45deg, transparent 75%, #3a4150 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+}
+
+/* 立繪・名字都以畫面為基準絕對定位（讓 % 以相同的基準計算） */
+.tp-img,
+.tp-placeholder {
+  position: absolute;
+}
+
+.tp-img {
+  display: block;
+  height: auto;
+  object-fit: contain;
+}
+
+/* 名字標籤（對應輸出的 body::before・在立繪前面） */
+.tp-name {
+  position: absolute;
+  z-index: 1;
+  line-height: 1.2;
+  white-space: pre;
+  pointer-events: none;
+}
+
+/* 彈跳。keyframe 的 transform 會整個取代元素的 transform，
+   所以在每個步驟前面加上置中的部分（--tp-center）（與輸出 CSS 的 speak-jump 相同的處理）。 */
+@keyframes tachie-preview-jump {
+  0% {
+    transform: var(--tp-center, translateX(0)) translateY(0);
+  }
+  50% {
+    transform: var(--tp-center, translateX(0)) translateY(calc(-1 * var(--tp-jump, 10px)));
+  }
+  100% {
+    transform: var(--tp-center, translateX(0)) translateY(0);
+  }
+}
+
+@keyframes tachie-preview-light {
+  0% {
+    filter: drop-shadow(0 0 var(--tp-outline-w, 2px) var(--tp-outline, #fff))
+      drop-shadow(var(--tp-outline-w, 2px) var(--tp-outline-w, 2px) 0 var(--tp-outline, #fff))
+      drop-shadow(calc(-1 * var(--tp-outline-w, 2px)) calc(-1 * var(--tp-outline-w, 2px)) 0 var(--tp-outline, #fff))
+      drop-shadow(calc(-1 * var(--tp-outline-w, 2px)) var(--tp-outline-w, 2px) 0 var(--tp-outline, #fff))
+      drop-shadow(var(--tp-outline-w, 2px) calc(-1 * var(--tp-outline-w, 2px)) 0 var(--tp-outline, #fff));
+  }
+  50% {
+    filter: drop-shadow(0 0 calc(4 * var(--tp-outline-w, 2px)) var(--tp-outline, #fff))
+      drop-shadow(var(--tp-outline-w, 2px) var(--tp-outline-w, 2px) 0 var(--tp-outline, #fff))
+      drop-shadow(calc(-1 * var(--tp-outline-w, 2px)) calc(-1 * var(--tp-outline-w, 2px)) 0 var(--tp-outline, #fff))
+      drop-shadow(calc(-1 * var(--tp-outline-w, 2px)) var(--tp-outline-w, 2px) 0 var(--tp-outline, #fff))
+      drop-shadow(var(--tp-outline-w, 2px) calc(-1 * var(--tp-outline-w, 2px)) 0 var(--tp-outline, #fff));
+  }
+  100% {
+    filter: drop-shadow(0 0 var(--tp-outline-w, 2px) var(--tp-outline, #fff))
+      drop-shadow(var(--tp-outline-w, 2px) var(--tp-outline-w, 2px) 0 var(--tp-outline, #fff))
+      drop-shadow(calc(-1 * var(--tp-outline-w, 2px)) calc(-1 * var(--tp-outline-w, 2px)) 0 var(--tp-outline, #fff))
+      drop-shadow(calc(-1 * var(--tp-outline-w, 2px)) var(--tp-outline-w, 2px) 0 var(--tp-outline, #fff))
+      drop-shadow(var(--tp-outline-w, 2px) calc(-1 * var(--tp-outline-w, 2px)) 0 var(--tp-outline, #fff));
+  }
+}
+
+@keyframes tachie-preview-blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 900px) {
+  .stepper {
+    flex-wrap: wrap;
+  }
+  .step-tab {
+    flex: 1 1 44%;
+  }
+  .step-tab .t .d {
+    display: none;
+  }
+}
