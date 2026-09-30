@@ -2165,8 +2165,8 @@ for (const name of TOOLS) {
  * emotion-maker 另含 39 張圖像素材，故其徽章用 license.unlicensed.assets。 */
 const TOOLS_EXTERNAL = ['jizura'];
 check('首頁的 JIZURA 卡片標示連到原站', /href="\.\/tools\/jizura\/"[\s\S]{0,1600}?data-i18n="license\.external"/.test(homeHtml));
-check('首頁字典有四種授權徽章',
-  ['license.mit', 'license.cc0', 'license.unlicensed', 'license.unlicensed.assets'].every(k => homeZh.has(k)));
+check('首頁字典有五種授權徽章',
+  ['license.mit', 'license.cc0', 'license.custom', 'license.unlicensed', 'license.unlicensed.assets'].every(k => homeZh.has(k)));
 const homeCards = [...homeHtml.matchAll(/<li class="tool-card">([\s\S]*?)<\/li>/g)].map(m => m[1]);
 check('首頁卡片數與工具數一致', homeCards.length === TOOLS.length,
   `cards: ${homeCards.length}, tools: ${TOOLS.length}`);
@@ -2174,7 +2174,10 @@ for (const card of homeCards) {
   const name = (card.match(/href="\.\/tools\/([^/]+)\//) || [])[1];
   const badge = (card.match(/class="badge(?: [^"]*)?" data-i18n="([^"]+)"/) || [])[1];
   /* 不再收錄副本、改連到原作者網站的工具，徽章標「連到原站」。 */
+  /* 沒有 LICENSE、但作者在頁面上寫了自己的條款（例如允許免費再散布修改版）的工具，
+   * 條款原文與翻譯收在 TERMS.md，徽章標「作者條款」。 */
   const expected = TOOLS_EXTERNAL.includes(name) ? ['license.external']
+    : exists(`tools/${name}/TERMS.md`) ? ['license.custom']
     : exists(`tools/${name}/LICENSE`)
     ? [/CC0 1\.0 Universal/.test(read(`tools/${name}/LICENSE`)) ? 'license.cc0' : 'license.mit']
     : ['license.unlicensed', 'license.unlicensed.assets'];
