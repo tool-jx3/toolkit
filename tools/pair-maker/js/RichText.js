@@ -1,18 +1,18 @@
 // 存下來的不是 HTML，而是逐行的文字片段。格式相同的相鄰片段會合併。
 export const DEFAULT_COLOR = '#363636';
 const HEX = /^#[0-9a-f]{6}$/i;
-export function plainDocument(text) {
-  return {lines:String(text).replace(/\r\n?/g,'\n').split('\n').map(text=>({runs:text?[{text,bold:false,color:DEFAULT_COLOR}]:[]}))};
+export function plainDocument(text,color=DEFAULT_COLOR) {
+  return {lines:String(text).replace(/\r\n?/g,'\n').split('\n').map(text=>({runs:text?[{text,bold:false,color}]:[]}))};
 }
 export function documentText(doc){return doc.lines.map(line=>line.runs.map(run=>run.text).join('')).join('\n');}
-export function validateDocument(doc,text){
-  if(!doc||!Array.isArray(doc.lines)||!doc.lines.length||doc.lines.length>1001)throw new Error(T("rich.001"));
+export function validateDocument(doc,text,maxLength=1000){
+  if(!doc||!Array.isArray(doc.lines)||!doc.lines.length||doc.lines.length>maxLength+1)throw new Error(T("rich.001"));
   let count=0;
   const lines=doc.lines.map(line=>{
     if(!line||!Array.isArray(line.runs))throw new Error(T("rich.002"));
     const runs=[];
     for(const run of line.runs){
-      if(++count>2000||!run||typeof run.text!=='string'||/[\r\n]/.test(run.text)||run.text.length>1000||typeof run.bold!=='boolean'||!HEX.test(run.color))throw new Error(T("rich.002"));
+      if(++count>maxLength*2||!run||typeof run.text!=='string'||/[\r\n]/.test(run.text)||run.text.length>maxLength||typeof run.bold!=='boolean'||!HEX.test(run.color))throw new Error(T("rich.002"));
       append(runs,{text:run.text,bold:run.bold,color:run.color.toLowerCase()});
     }
     return {runs};
@@ -30,7 +30,7 @@ function colorHex(color,fallback){
   return match?'#'+match.slice(1).map(n=>Math.min(255,Number(n)).toString(16).padStart(2,'0')).join(''):fallback;
 }
 // 把 Enter 或貼上產生的 div、p、br 轉成明確的換行。
-export function readEditor(root){
+export function readEditor(root,defaultColor=DEFAULT_COLOR){
   function walk(node,style){
     if(node.nodeType===3)return [{text:node.nodeValue.replace(/\u00a0/g,' '),...style}];
     if(node.nodeType!==1&&node.nodeType!==11)return [];
@@ -51,7 +51,7 @@ export function readEditor(root){
     return out;
   }
   const lines=[{runs:[]}];
-  for(const run of walk(root,{bold:false,color:DEFAULT_COLOR})){
+  for(const run of walk(root,{bold:false,color:defaultColor})){
     run.text.split('\n').forEach((text,i)=>{if(i)lines.push({runs:[]});append(lines.at(-1).runs,{...run,text});});
   }
   return {lines};
@@ -66,17 +66,20 @@ function writeEditor(editor,doc){
 }
 
 export function createRichTextField(store,field){
+  const defaultColor=field.defaultColor||DEFAULT_COLOR,maxLength=field.maxLength??1000;
   const body=document.createElement('div');body.className='rich-text-field';
+  if(field.showLabel){const label=document.createElement('h4');label.textContent=field.label;body.append(label);}
   const toolbar=document.createElement('div');toolbar.className='rich-text-toolbar';toolbar.setAttribute('role','toolbar');toolbar.setAttribute('aria-label',field.label+T("rich.004"));
   const bold=document.createElement('button');bold.type='button';bold.textContent=T("rich.005");bold.setAttribute('aria-pressed','false');
   const colorLabel=document.createElement('label');colorLabel.className='rich-text-color';colorLabel.append(document.createTextNode(T("rich.006")));
-  const color=document.createElement('input');color.type='color';color.value=DEFAULT_COLOR;color.setAttribute('aria-label',field.label+T("rich.007"));colorLabel.append(color);
+  const color=document.createElement('input');color.type='color';color.value=defaultColor;color.setAttribute('aria-label',field.label+T("rich.007"));colorLabel.append(color);
   const resetColor=document.createElement('button');resetColor.type='button';resetColor.textContent=T("rich.008");
   toolbar.append(bold,colorLabel,resetColor);
   const editor=document.createElement('div');editor.contentEditable='true';editor.dataset.richEditor=field.id;editor.className='rich-text-editor';editor.setAttribute('role','textbox');editor.setAttribute('aria-label',field.label);editor.setAttribute('aria-multiline','true');editor.spellcheck=false;
-  const note=document.createElement('p');note.className='rich-text-note';note.textContent=T("rich.009");note.setAttribute('role','status');
+  if(field.editorRows){editor.dataset.editorRows=String(field.editorRows);editor.style.setProperty('--editor-rows',String(field.editorRows));}
+  const note=document.createElement('p');note.className='rich-text-note';note.textContent=field.note||T("rich.009",maxLength.toLocaleString());note.setAttribute('role','status');
   body.append(toolbar,editor,note);
-  let savedRange=null,composing=false,lastDoc=store.state.richText?.[field.id]||plainDocument(store.state.values[field.id]);
+  let savedRange=null,composing=false,lastDoc=store.state.richText?.[field.id]||plainDocument(store.state.values[field.id],defaultColor);
   writeEditor(editor,lastDoc);
   function capture(){const selection=getSelection();if(selection?.rangeCount&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode))savedRange=selection.getRangeAt(0).cloneRange();return savedRange;}
   function restore(){editor.focus({preventScroll:true});if(savedRange){const selection=getSelection();selection.removeAllRanges();selection.addRange(savedRange);}}
@@ -86,8 +89,8 @@ export function createRichTextField(store,field){
   };
   function commit(){
     if(composing)return;
-    const doc=readEditor(editor),text=documentText(doc);
-    if(text.length>1000){writeEditor(editor,lastDoc);savedRange=null;note.textContent=T("rich.010");return;}
+    const doc=readEditor(editor,defaultColor),text=documentText(doc);
+    if(text.length>maxLength){writeEditor(editor,lastDoc);savedRange=null;note.textContent=T("rich.010",maxLength.toLocaleString());return;}
     lastDoc=doc;
     store.change(s=>{s.values[field.id]=text;(s.richText??={})[field.id]=doc;(s.touched??={})[field.id]=true;});capture();
   }
@@ -101,8 +104,18 @@ export function createRichTextField(store,field){
   bold.addEventListener('pointerdown',e=>{capture();e.preventDefault();});bold.onclick=()=>format('bold');
   color.addEventListener('pointerdown',capture);color.oninput=()=>format('foreColor',color.value);
   resetColor.addEventListener('pointerdown',e=>{capture();e.preventDefault();});
-  resetColor.onclick=()=>{color.value=DEFAULT_COLOR;format('foreColor',DEFAULT_COLOR);};
+  resetColor.onclick=()=>{color.value=defaultColor;format('foreColor',defaultColor);};
   editor.addEventListener('input',commit);
+  editor.addEventListener('blur',()=>{if(store.definition.finishTextEdit)requestAnimationFrame(()=>{if(!body.contains(document.activeElement))store.definition.finishTextEdit(store,field.id);});});
+  // 與一般文字輸入框相同，只有還沒編輯過的提示文字會在第一次聚焦時清空。
+  editor.addEventListener('focus',()=>{
+    if((!field.clearDefault&&store.definition.templateId!=='main-tweet')||store.state.touched?.[field.id])return;
+    const defaults=store.definition.defaultValues?.(field.id.split("-lane-")[0])??store.definition.initialState().values;
+    if(store.state.values[field.id]!==defaults[field.id]||!defaults[field.id])return;
+    writeEditor(editor,plainDocument(''));savedRange=null;
+    const range=document.createRange();range.selectNodeContents(editor);range.collapse(true);
+    const selection=getSelection();selection.removeAllRanges();selection.addRange(range);commit();
+  });
   editor.addEventListener('compositionstart',()=>composing=true);
   editor.addEventListener('compositionend',()=>{composing=false;commit();});
   editor.addEventListener('paste',e=>{e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain').replace(/\r\n?/g,'\n'));commit();});

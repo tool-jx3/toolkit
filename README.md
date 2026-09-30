@@ -8,7 +8,10 @@
 [johnko00](https://github.com/johnko00) 與
 [baegop157902](https://github.com/baegop157902) 與
 [違法建築](https://github.com/ihoukentiku) 與
-[hakoniwa](https://github.com/852wa) 等人製作的 28 個網頁小工具合輯（其中兩個工具的作者不明），附繁體中文介面。
+[hakoniwa](https://github.com/852wa) 與
+[max-enterme](https://github.com/max-enterme) 與
+[sedn14636361](https://github.com/sedn14636361) 與
+[くま。](https://github.com/kumachansteps) 等人製作的 36 個網頁小工具合輯（其中兩個工具的作者不明），附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -32,7 +35,7 @@
 | [立繪尺寸統一器](tools/portrait-size/) | 把同一角色的差分立繪裁掉透明邊並統一寬度，切換立繪時棋子圖就不會忽大忽小；也能單張拿來裁邊與轉 WebP |
 | [立繪身高比較板](tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
 | [房間 ZIP 產生器](tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；工作進度可存成 .ccproj 檔 |
-| [角色介紹圖產生器](tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；可存到存檔槽或匯出成編輯檔 |
+| [角色介紹圖產生器](tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；也有會自動分頁、能匯出 PDF 的文字記錄版型；可存到存檔槽或匯出成編輯檔 |
 | [角色配色條產生器](tools/color-palette/) | 把角色的配色排成一條色塊圖，可直接從立繪取色（手動滴管或自動抓主色），輸出 PNG |
 | [壓克力周邊工房](tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光，匯出 APNG／GIF／WebM 或 .glb 模型 |
 | [影片轉動圖工具](tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
@@ -42,6 +45,14 @@
 | [Anime2.5DRig](tools/anime-rig/) | 把分好部件的 PSD 拖進來就自動綁定成 2.5D 虛擬形象：眨眼、嘴型、頭髮物理、攝影機臉部追蹤與麥克風嘴型，可匯出透明 PNG 與 WebM／MP4 |
 | [CoC 劇本排版工具](tools/coc-typesetter/) | 把克蘇魯神話 TRPG 劇本貼進來，排成書本般的紙面：章節自動編號、自動目錄，描述、檢定、KP 資訊、理智檢定各有樣式，印成 A5／B5／A4 的 PDF |
 | [輕量轉場 APNG 產生器](tools/apng-wipe/) | 做出 15×15 px 起跳、只有幾 KB 的透明轉場動畫：淡入淡出或 8 個方向的抹除，可選顏色、秒數、播一次或循環 |
+| [劇本排版台](tools/scenario-editor/) | 左邊寫稿、右邊即時排成 A4 書頁的 TRPG 劇本排版工具：標題、對話、檢定框、表格、流程圖、NPC 卡、目錄，可以印成 PDF 或匯出閱覽用 HTML；原稿存在瀏覽器裡，也能存成 JSON 檔 |
+| [Discord 通話立繪產生器](tools/obs-tachie/) | 產生 OBS 瀏覽器來源用的 Discord Streamkit 自訂 CSS，把通話成員換成常駐顯示的立繪，說話時彈跳、發光，還能加上名字字幕條 |
+| [動態背景產生器](tools/bg-motion/) | 讓背景圖搖晃、拉近拉遠、平移、淡入淡出或轉場，也能套上圖片處理，輸出成 CCFOLIA 可用的 WebP 動態背景 |
+| [簡易頭像產生器](tools/icon-maker/) | 從 PNG 立繪做出 1:1 的 TRPG 角色頭像，可加外框、背景、名字（直書或橫書）與 HO 標籤 |
+| [跑團紀錄簿](tools/session-log/) | 記錄玩過的團，整理感想、團報與已通關劇本清單；可匯入試算表或團報文字，每一團都能直接送到團報產生器 |
+| [團報產生器](tools/session-report/) | 填入劇本、KP／PL／PC 與結果，從 17 種範本產生可直接貼到 X 的團報文，能即時預覽、編輯 |
+| [角色差分管理器](tools/variant-manager/) | 一次檢查立繪與表情差分、整理好檔名打包成 ZIP，並產生 CCFOLIA 用的 @差分 聊天面板 |
+| [劇本資訊卡片產生器](tools/scenario-cards/) | 把劇本內文裡的場景、探索地點、資料、技能成功等資訊做成卡片，複製成 CCFOLIA／Discord 用的文字或 CCFOLIA 的卡片 JSON |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -58,15 +69,15 @@ npm run serve
 
 （`emotion-maker` 的合本圖片產生功能受 canvas 安全限制影響，需以伺服器方式開啟。）
 
-### 重新建置 cutin 與 character-editor
+### 重新建置 cutin、character-editor 與 obs-tachie
 
-有兩個工具要先建置才能放進 `tools/`。原始碼收在 `vendor/` 底下，
+有三個工具要先建置才能放進 `tools/`。原始碼收在 `vendor/` 底下，
 建置產物（已提交進 repo）輸出到各自的 `tools/` 目錄，`vendor/` 不參與網站發佈。
 
-`cutin` 與 `character-editor` 的上游是 React + TypeScript 專案。改動原始碼後要重新建置：
+`cutin`、`character-editor` 與 `obs-tachie` 的上游是 React + TypeScript 專案。改動原始碼後要重新建置：
 
 ```
-cd vendor/cutin-maker              # 或 vendor/ccfolia-character-editor
+cd vendor/cutin-maker              # 或 vendor/ccfolia-character-editor、vendor/obs-tachie-generator
 npm install                        # character-editor 請用 npm ci
 npm run build
 ```
@@ -77,6 +88,11 @@ npm run build
 `character-editor` 請用 `npm ci`：`npm install` 在解析 vitest 的 peer
 相依時會踩到 npm 10.9 的一個錯誤（`Cannot read properties of null`），
 上游的 lockfile 則可以正常安裝。
+
+`obs-tachie` 用 `npm ci` 或 `npm install` 都可以，產物輸出到 `tools/obs-tachie/`。
+它另有 `npm test`（vitest；測試環境會把 `ja` 字典注入 `window.T`，上游的測試照原樣就能跑，
+順帶驗證日文譯文與原文一字不差）、`npm run lint` 與 `npm run typecheck`。
+字典是執行期才載入的，只改 `i18n.obs-tachie.js` 不需要重新建置。
 
 ## 測試
 
@@ -107,8 +123,9 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的十一個工具、
 `ccfolia-cropper` 與 `pair-maker` 為韓文，shiki365 的五個工具、`cutin`、
-`character-editor`、`portrait-size`、`height-board`、`trpg-lab` 與
-`anime-rig` 為日文；`room-zip` 原文為日文，另外附了一份韓文。
+`character-editor`、`portrait-size`、`height-board`、`trpg-lab`、
+`anime-rig`、`scenario-editor`、`obs-tachie` 與くま的六個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
+`bg-motion` 也照上游保留韓文（上游的英文沒有收）。
 
 `coc-typesetter` 與 `apng-wipe` 只有繁體中文：上游是日文工具，收錄時改寫成只有繁中
 （`coc-typesetter` 連劇本的標記語法與版面字型都改成中文），沒有留下日文介面，所以頁面上沒有語言選單。
@@ -151,7 +168,8 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
 **注意**：`emotion-maker`、`loading-maker`、`ccfolia-cropper`、`character-select`、
-`character-editor`、`room-zip` 與 `pair-maker` 的原始 repo 皆未附任何授權條款，
+`character-editor`、`room-zip`、`pair-maker` 與くま的六個工具（`bg-motion`、`icon-maker`、
+`session-log`、`session-report`、`variant-manager`、`scenario-cards`）的原始 repo 皆未附任何授權條款，
 `coc-typesetter` 與 `apng-wipe` 則連作者都不明，
 其權利（`emotion-maker` 含全部圖像素材）屬原作者所有，
 不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。

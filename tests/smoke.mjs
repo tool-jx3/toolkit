@@ -799,7 +799,8 @@ check('index.html 的載入順序正確', rzOrder.every((at, i) => at >= 0 && (i
  * 模組清單從目錄列出來而不是寫死，新增一支就會自動納入掃描。 */
 const pmFiles = sub => listFiles(`tools/pair-maker/${sub}`).map(f => f.replace('tools/pair-maker/', ''));
 const PM_SCRIPTS = [...pmFiles('js'), ...pmFiles('templates')];
-const PM_TEMPLATES = ['2p-simple', '2p-pair1', 'pattern-header', '30p-pair', 'main-tweet'];
+const PM_TEMPLATES = ['2p-simple', '2p-pair1', 'pattern-header', '30p-pair', 'main-tweet',
+  'textLog-simple', 'textLog-vert', 'textLog-hori', 'textLog-pair'];
 
 const pm = checkTool({
   dir: 'tools/pair-maker',
@@ -816,7 +817,7 @@ const pm = checkTool({
 });
 
 section('tools/pair-maker');
-check('掃描到 21 支模組', PM_SCRIPTS.length === 21, `found ${PM_SCRIPTS.length}`);
+check('掃描到 25 支模組', PM_SCRIPTS.length === 25, `found ${PM_SCRIPTS.length}`);
 
 const pmIndex = read('tools/pair-maker/index.html');
 const pmEditor = read('tools/pair-maker/editor.html');
@@ -849,8 +850,8 @@ for (const [file, src] of [['index.html', pmIndex], ['editor.html', pmEditor]]) 
 
 /* 首頁卡片圖是這個工具自己算繪的空白版型預覽。上游那 29 張作品集樣張是別人的
  * 角色插圖，不散布；images/ 只留程式真的會去 new Image() 的四張底圖。 */
-check('五個版型各有一支模組', PM_TEMPLATES.every(id => exists(`tools/pair-maker/templates/${id}.js`)));
-check('五個版型各有一張預覽圖', PM_TEMPLATES.every(id => exists(`tools/pair-maker/previews/${id}.png`)));
+check('九個版型各有一支模組', PM_TEMPLATES.every(id => exists(`tools/pair-maker/templates/${id}.js`)));
+check('九個版型各有一張預覽圖', PM_TEMPLATES.every(id => exists(`tools/pair-maker/previews/${id}.png`)));
 const pmRegistry = read('tools/pair-maker/templates/registry.js');
 check('registry 註冊的版型與清單一致',
   PM_TEMPLATES.every(id => pmRegistry.includes(`'${id}': () => import('./${id}.js')`))
@@ -864,8 +865,30 @@ const pmImages = listFiles('tools/pair-maker/images').map(f => f.split('/').pop(
 check('images/ 只留程式用得到的四張底圖',
   pmImages.join(',') === 'dark-theme.png,light-theme.png,theme-1.png,theme-2.png', pmImages.join(','));
 /* 卡片圖的 alt 也要跟著語言走，所以共用引擎補了 data-i18n-alt 掛勾。 */
-check('五張卡片圖都掛了 data-i18n-alt',
+check('九張卡片圖都掛了 data-i18n-alt',
   [...pmIndex.matchAll(/<img[^>]+data-i18n-alt="/g)].length === PM_TEMPLATES.length);
+
+/* v1.1.0 的文字記錄版型可以匯出 PDF。上游附了約 48 MB 的字型（PDF 用的四個字重與
+ * 畫布用的 NotoSerifCJKKR.ttf），合輯不收：畫布改用 Google Fonts 的 Noto Serif KR，
+ * PDF 在按下下載時才從 fonts.gstatic.com 抓完整的 TTF。PDF 函式庫本身（MIT）照收。 */
+section('tools/pair-maker PDF export');
+const pmSave = read('tools/pair-maker/js/SaveBtn.js');
+check('pdf-lib 與 fontkit 及其授權檔都在',
+  ['pdf-lib.min.js', 'fontkit.umd.min.js', 'pdf-lib-LICENSE.md', 'fontkit-LICENSE.txt']
+    .every(f => exists(`tools/pair-maker/vendor/pdf/${f}`)));
+const pmHeavy = listFiles('tools/pair-maker/vendor').filter(f => /\.ttf(\.zlib)?$|\/textlog\//.test(f));
+check('不收上游附的大型字型檔', pmHeavy.length === 0, pmHeavy.join(', '));
+const pmFontUrls = [...pmSave.matchAll(/https?:\/\/[^'"`\s]+\.ttf/g)].map(m => m[0]);
+check('PDF 字型表有 12 個網址，全部指向 fonts.gstatic.com',
+  pmFontUrls.length === 12 && pmFontUrls.every(u => u.startsWith('https://fonts.gstatic.com/s/')), `found ${pmFontUrls.length}`);
+check('PDF 字型涵蓋明體與黑體的韓文、繁中版本',
+  ['notoserifkr', 'notoseriftc', 'notosanskr', 'notosanstc'].every(f => pmFontUrls.some(u => u.includes(`/${f}/`))));
+const pmTextLogs = ['textLog-simple', 'textLog-vert', 'textLog-hori', 'textLog-pair'];
+check('文字記錄版型不再引用上游的 NotoSerifCJKKR',
+  pmTextLogs.every(id => !stripComments(read(`tools/pair-maker/templates/${id}.js`)).includes('NotoSerifCJKKR')));
+check('文字記錄版型切語言時重設畫布上的標籤',
+  pmTextLogs.every(id => read(`tools/pair-maker/templates/${id}.js`).includes('I18N.onChange(applyCanvasLabels)')));
+check('editor.html 載入畫布用的 Noto Serif KR', pmEditor.includes('Noto+Serif+KR'));
 
 /* 切語言時要做的三件事：重建側邊欄清單、重跑版型結構、重算兩個收合鈕的標籤。 */
 check('語言切換器掛在兩頁的工具列上',
@@ -1185,6 +1208,180 @@ check('姊妹工具的連結指向合輯內的 chat-window', mbDict.includes('hr
   && !mbDict.includes('shiki365.github.io/chat-window-maker'));
 check('chat-window 的說明連到合輯內的 message-box', read('tools/chat-window/i18n.chat-window.js').includes('href="../message-box/"'));
 check('message-box 不收 favicon、OGP 圖與上游 README', ['favicon.svg', 'ogp.png', 'README.md'].every(f => !exists(`tools/message-box/${f}`)));
+
+/* ---- obs-tachie（Discord 通話立繪產生器）---- */
+/* 第三個需要建置的工具，做法同 character-editor：原始碼在 vendor/obs-tachie-generator，
+ * 畫面全由 React 算繪，index.html 只有外殼的三個掛勾。上游是 MIT，LICENSE 照收。 */
+const ot = checkTool({
+  dir: 'tools/obs-tachie',
+  dict: 'i18n.obs-tachie.js',
+  locale: 'ja',
+  scripts: [],
+  styles: ['assets/index.css'],
+  minHooks: 3
+});
+section('tools/obs-tachie build output');
+const otZh = new Set(Object.keys(ot.messages['zh-TW']));
+const OT_SHELL_KEYS = ['app.title', 'nav.home', 'lang.aria', 'noscript'];
+const otSrc = listFiles('vendor/obs-tachie-generator/src')
+  .filter(f => /\.tsx?$/.test(f) && !/\.test\./.test(f))
+  .map(f => read(f))
+  .join('\n');
+const otUsed = [...otZh].filter(k => otSrc.includes(`'${k}'`) || otSrc.includes(`"${k}"`));
+check('原始碼引用了字典中的大多數 key', otUsed.length >= 250, `found ${otUsed.length}`);
+const otStale = [...otZh].filter(k => !otUsed.includes(k) && !OT_SHELL_KEYS.includes(k));
+check('字典沒有原始碼用不到的 key', otStale.length === 0, `stale: ${otStale.join(', ')}`);
+const otBundle = read('tools/obs-tachie/assets/app.js');
+const otNotBuilt = otUsed.filter(k => !otBundle.includes(k));
+check('建置產物是最新的（原始碼的 key 都在 bundle 裡）',
+  otNotBuilt.length === 0, `missing from bundle: ${otNotBuilt.slice(0, 10).join(', ')}`);
+check('bundle 無殘留假名', !KANA.test(otBundle));
+/* 原始碼（不含測試）連註解都譯成了繁中，假名一個都不該有。 */
+const otSrcKana = listFiles('vendor/obs-tachie-generator/src')
+  .filter(f => /\.(tsx?|css)$/.test(f) && !/\.test\./.test(f))
+  .filter(f => KANA.test(read(f)));
+check('vendor 原始碼（測試以外）無假名', otSrcKana.length === 0, otSrcKana.join(', '));
+check('上游 vitest 的 setup 會注入 ja 字典',
+  read('vendor/obs-tachie-generator/src/test/setup.ts').includes('i18n.obs-tachie.js'));
+/* 產出 CSS 的選擇器靠 Streamkit 的 class 前方一致與頭像網址比對，不能經過字典。 */
+const otGen = read('vendor/obs-tachie-generator/src/lib/generateCss.ts');
+check('產出 CSS 的 Streamkit 選擇器照上游',
+  otGen.includes('Voice_avatarSpeaking__') && otGen.includes('avatars/'));
+check('vite 以相對路徑輸出到 tools/obs-tachie',
+  /base:\s*'\.\/'/.test(read('vendor/obs-tachie-generator/vite.config.ts'))
+  && read('vendor/obs-tachie-generator/vite.config.ts').includes('tools/obs-tachie'));
+
+/* ---- scenario-editor（劇本排版台）---- */
+/* 上游 sedn14636361/trpg-scenario-editor 是 CC0 的單一 HTML（約 11,000 行），拆成
+ * index.html／styles.css／app.js，NPC 卡的各系統資料表另外搬到 npc-data.js。
+ * 刻意留著的日文有兩類，都是程式要比對、或原樣輸出給 CCFOLIA 的字串：
+ *   1. app.js：CCFOLIA 棋子的指令與參數名（輸出與讀回共用）、讀入角色卡時的表頭別名、
+ *      貼上原稿時推測段落種類的關鍵字。清單釘死。
+ *   2. npc-data.js：能力值、技能、症候群等系統資料，整檔都是資料，會存進原稿也會
+ *      輸出到 CCFOLIA。它只准有資料表，不准碰畫面。 */
+const SE_KEPT_JA = ['ルーツ属性一致', 'シンドローム', 'コンボ', '正気度ロール', 'アイデア', 'ダメージ判定',
+  'ふりがな', 'フリガナ', 'よみ', '読み', 'ヨミ', 'ルーツ', 'コンボ名', 'エフェクト名', '特殊ルール', 'ロール',
+  'シーン', 'へ', 'に', '続く'];
+const se = checkTool({
+  dir: 'tools/scenario-editor',
+  dict: 'i18n.scenario-editor.js',
+  locale: 'ja',
+  scripts: ['app.js', 'npc-data.js'],
+  styles: ['styles.css'],
+  minHooks: 220,
+  allowSource: (line, n, file) => file === 'npc-data.js'
+    || (file === 'app.js' && (line.match(CW_KANA_RUN) || []).filter(run => KANA.test(run)).every(run => SE_KEPT_JA.includes(run)))
+});
+section('tools/scenario-editor');
+check('LICENSE 是上游的 CC0 原文', /CC0 1\.0 Universal/.test(read('tools/scenario-editor/LICENSE')));
+const seApp = read('tools/scenario-editor/app.js');
+for (const keep of SE_KEPT_JA) check(`app.js 仍保留「${keep}」`, seApp.includes(keep));
+const seTKeys = [...new Set([...seApp.matchAll(/\bT\((['"`])([a-zA-Z][\w.]*)\1/g)].map(m => m[2]).filter(k => !k.endsWith('.')))];
+check('app.js 以 T() 取用大量字串', seTKeys.length >= 600, `found ${seTKeys.length}`);
+const seHtml = read('tools/scenario-editor/index.html');
+const seOrder = ['assets/i18n.js', 'i18n.scenario-editor.js', 'npc-data.js', 'app.js'].map(f => seHtml.indexOf(f));
+check('載入順序：引擎、字典、NPC 資料、主程式', seOrder.every((at, i) => at >= 0 && (i === 0 || at > seOrder[i - 1])), seOrder.join(','));
+check('npc-data.js 只有資料表，不操作畫面', !/document\.|innerHTML|textContent/.test(read('tools/scenario-editor/npc-data.js')));
+/* 這個工具刻意不連網：不准為了繁中字型加上 Google Fonts。 */
+check('不載入任何網頁字型或外部資源',
+  !/fonts\.googleapis|fonts\.gstatic|https?:\/\/(?!www\.w3\.org)/.test(seHtml + read('tools/scenario-editor/styles.css')));
+check('紙面與介面的字型堆疊補上台灣系統字型', seApp.includes('Noto Serif TC') && seApp.includes('Microsoft JhengHei'));
+
+/* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
+/* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
+ * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
+ * 也不該出現回報表單、存取分析與站台圖示。 */
+const KUMA_TOOLS = ['bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards'];
+/* session-log 解析使用者匯入的日文試算表、團報與 CCFOLIA 紀錄，也把系統名、生還結果
+ * 以上游的日文值存檔（兩種語言的 JSON 才能互讀）。這些字串刻意留著，清單釘死。 */
+const SL_KEPT_JA = ['くま', 'エモクロア', 'マダミス', 'ロスト', '全ロスト', 'シノビガミ', 'インセイン', 'ダブルクロス',
+  'ソード・ワールド', 'フタリソウサ', 'マルチシステム', 'ボイ', 'テキ', 'プレイ日', 'セッション日', 'シナリオ', 'シナリオ名',
+  'タイトル', 'システム', 'システム名', 'ゲームシステム', 'ルール', 'ロール', 'キーパー', 'ゲームマスター', 'マスター', '回し手',
+  'プレイヤー', 'メンバー', 'キャラ', 'キャラクター', 'キャラクター名', 'キャラ名', 'ステータス', 'プレイ時間', 'セッション時間',
+  'メモ', 'ノート', 'コメント', '詳細メモ', '感想ネタバレ注意', 'キャンペーン', 'シリーズ', '親アイテム', 'ハッシュタグ', 'タグ',
+  'エンディング', 'ルート', 'エンド', '生還ロスト', 'セッション', 'ログ', 'セッションリンク', '配布ページ', '感想リンク',
+  'シナリオキー', '集計キー', 'はい', 'いいえ', 'マーダーミステリー', '新クトゥルフ神話', '新クトゥルフ', 'クトゥルフ神話',
+  'ディーラー', 'クトゥルフ', 'さん', 'ｻﾝ', 'クリア', 'グッドエンド', 'ゲームクリア', 'した', 'クリティカル', 'ファンブル',
+  'スペシャル', 'クローズ', 'まとめ', 'その', 'クロージング', 'オープニング', '中入り', 'フルスペック', 'ダイス', 'モブ',
+  'エキストラ', 'サブ', 'バトル', 'ゲームマスタ', 'と', 'キャラシ作成会'];
+/* session-report 只比對跑團紀錄簿送來的系統正規值與敬稱。 */
+const SR_KEPT_JA = ['さん', '新クトゥルフ神話', 'エモクロア', 'マダミス', 'マーダーミステリー', 'クトゥルフ'];
+const keptRuns = allowed => line => (line.match(CW_KANA_RUN) || []).filter(run => KANA.test(run))
+  .every(run => allowed.includes(run) || allowed.some(keep => keep.includes(run)));
+const KUMA = {
+  'bg-motion': { scripts: ['js/main.js', 'js/shortcut.js'], styles: ['css/motion-maker-style.css'], locales: ['zh-TW', 'ko', 'ja'], hooks: 150, inline: 140, attrs: 7 },
+  'icon-maker': { scripts: ['main.js'], styles: ['style.css'], hooks: 60, inline: 45, attrs: 8 },
+  'session-log': { scripts: ['js/log_tool.js', 'js/shortcut.js'], styles: ['css/log_tool_style.css'], hooks: 125, inline: 90, attrs: 25,
+    allow: (line, n, file) => file === 'js/log_tool.js' && keptRuns(SL_KEPT_JA)(line) },
+  'session-report': { scripts: ['js/main.js', 'js/template.js'], styles: ['css/report_gen_style.css'], hooks: 90, inline: 65, attrs: 20,
+    allow: (line, n, file) => file === 'js/main.js' && keptRuns(SR_KEPT_JA)(line) },
+  'variant-manager': { scripts: ['js/main.js'], styles: ['css/style.css'], hooks: 40, inline: 30, attrs: 6 },
+  'scenario-cards': { scripts: ['js/main.js', 'js/parser.js', 'js/render.js', 'js/shortcut.js'], styles: ['css/snippet_builder_style.css'], hooks: 30, inline: 18, attrs: 12 }
+};
+const kuma = {};
+for (const name of KUMA_TOOLS) {
+  const cfg = KUMA[name];
+  kuma[name] = checkTool({
+    dir: `tools/${name}`,
+    dict: `i18n.${name}.js`,
+    locale: 'ja',
+    locales: cfg.locales,
+    scripts: cfg.scripts,
+    styles: cfg.styles,
+    minHooks: cfg.hooks,
+    allowSource: cfg.allow,
+    licence: false
+  });
+  section(`tools/${name} (kuma)`);
+  const files = listFiles(`tools/${name}`);
+  check('沒有 LICENSE（上游未附授權條款）', !exists(`tools/${name}/LICENSE`));
+  const images = files.filter(f => /\.(png|jpe?g|gif|webp|ico|svg)$/i.test(f));
+  check('不收上游的任何圖片檔', images.length === 0, images.join(', '));
+  const all = files.filter(f => /\.(html|js|css)$/.test(f)).map(f => read(f)).join('\n');
+  check('沒有存取分析', !/gtag|googletagmanager|analytics\.js|ToolAnalytics/.test(all));
+  check('沒有導向作者回報表單的按鈕', !all.includes('trpg-web-tools/report'));
+  check('沒有引用作者站台的圖示', !/kuma_icon|kuma_ufo|assets\/img\//.test(all));
+  check('頁首是合輯列', read(`tools/${name}/index.html`).includes('data-i18n="nav.home"'));
+  /* 合輯版改過程式，問題回報不該送到原作者那裡。 */
+  const dictSrc = read(`tools/${name}/i18n.${name}.js`);
+  check('不請使用者把問題回報給原作者', !/不具合報告|問題回報|오류 제보/.test(dictSrc + read(`tools/${name}/index.html`)));
+}
+section('kuma kept Japanese');
+const slSrc = read('tools/session-log/js/log_tool.js');
+for (const keep of SL_KEPT_JA) check(`session-log 仍保留「${keep}」`, slSrc.includes(keep));
+const srSrc = read('tools/session-report/js/main.js');
+for (const keep of SR_KEPT_JA) check(`session-report 仍保留「${keep}」`, srSrc.includes(keep));
+section('kuma dynamic keys');
+/* bg-motion 的效果與圖片處理名稱以 `effect.${id}` 等方式組出來，靜態掃描看不到。 */
+const bgHtml = read('tools/bg-motion/index.html');
+const bgEffects = [...new Set([...bgHtml.matchAll(/data-effect="([^"]+)"/g)].map(m => m[1]))];
+const bgFilters = [...new Set([...bgHtml.matchAll(/data-filter="([^"]+)"/g)].map(m => m[1]))];
+check('bg-motion 解析出效果與圖片處理清單', bgEffects.length >= 20 && bgFilters.length >= 20,
+  `effects ${bgEffects.length}, filters ${bgFilters.length}`);
+for (const locale of ['zh-TW', 'ja', 'ko']) {
+  const m = kuma['bg-motion'].messages[locale];
+  const missing = [...bgEffects.filter(e => !m[`effect.${e}`]).map(e => `effect.${e}`),
+    ...bgFilters.filter(f => !m[`filter.${f}`]).map(f => `filter.${f}`)];
+  check(`bg-motion ${locale} 每個效果與圖片處理都有名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+const vmSrc = read('tools/variant-manager/js/main.js');
+const vmIds = [...(vmSrc.match(/SUGGESTION_IDS = \[([\s\S]*?)\]/) || ['', ''])[1].matchAll(/'(\w+)'/g)].map(m => m[1]);
+check('variant-manager 解析出 23 個差分名稱建議', vmIds.length === 23, `found ${vmIds.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = vmIds.filter(id => !kuma['variant-manager'].messages[locale][`suggest.${id}`]);
+  check(`variant-manager ${locale} 每個建議名稱都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+/* scenario-cards 的狀態列訊息多半以 setStatus("status.x") 間接傳入。 */
+const scKeys = [...new Set(['js/main.js', 'js/shortcut.js'].flatMap(f =>
+  [...read(`tools/scenario-cards/${f}`).matchAll(/setStatus\(["']([\w.]+)["']/g)].map(m => m[1])))];
+check('scenario-cards 解析出狀態列訊息 key', scKeys.length >= 20, `found ${scKeys.length}`);
+for (const locale of ['zh-TW', 'ja']) {
+  const missing = scKeys.filter(k => !kuma['scenario-cards'].messages[locale][k]);
+  check(`scenario-cards ${locale} 狀態列訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
+}
+/* 跑團紀錄簿的每一列可以直接送到團報產生器：連的是合輯裡的那一份。 */
+check('session-log 連到合輯內的 session-report',
+  slSrc.includes('../session-report/') && !slSrc.includes('session-report-generator'));
 
 /* ---- ccfolia-cropper ---- */
 checkTool({
@@ -1941,7 +2138,8 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
-  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe', 'message-box'];
+  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe', 'message-box',
+  'scenario-editor', 'obs-tachie', 'bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -1952,8 +2150,8 @@ for (const name of TOOLS) {
  * emotion-maker 另含 39 張圖像素材，故其徽章用 license.unlicensed.assets。 */
 const TOOLS_EXTERNAL = ['jizura'];
 check('首頁的 JIZURA 卡片標示連到原站', /href="\.\/tools\/jizura\/"[\s\S]{0,1600}?data-i18n="license\.external"/.test(homeHtml));
-check('首頁字典有三種授權徽章',
-  ['license.mit', 'license.unlicensed', 'license.unlicensed.assets'].every(k => homeZh.has(k)));
+check('首頁字典有四種授權徽章',
+  ['license.mit', 'license.cc0', 'license.unlicensed', 'license.unlicensed.assets'].every(k => homeZh.has(k)));
 const homeCards = [...homeHtml.matchAll(/<li class="tool-card">([\s\S]*?)<\/li>/g)].map(m => m[1]);
 check('首頁卡片數與工具數一致', homeCards.length === TOOLS.length,
   `cards: ${homeCards.length}, tools: ${TOOLS.length}`);
@@ -1963,14 +2161,15 @@ for (const card of homeCards) {
   /* 不再收錄副本、改連到原作者網站的工具，徽章標「連到原站」。 */
   const expected = TOOLS_EXTERNAL.includes(name) ? ['license.external']
     : exists(`tools/${name}/LICENSE`)
-    ? ['license.mit']
+    ? [/CC0 1\.0 Universal/.test(read(`tools/${name}/LICENSE`)) ? 'license.cc0' : 'license.mit']
     : ['license.unlicensed', 'license.unlicensed.assets'];
   check(`首頁 ${name} 的授權徽章與目錄裡的 LICENSE 相符`,
     !!name && expected.includes(badge), `badge: ${badge}`);
 }
 check('首頁標示原作者出處',
   ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
-    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa'].every(a => homeHtml.includes(`github.com/${a}`)));
+    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa', 'max-enterme', 'sedn14636361', 'kumachansteps']
+    .every(a => homeHtml.includes(`github.com/${a}`)));
 /* coc-typesetter 的作者不明，至少要標出取得的網址。 */
 check('首頁標示 coc-typesetter 的來源網址', homeHtml.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html'));
 check('首頁說明兩個作者不明的工具', homeHtml.includes('（CoC 劇本排版工具與輕量轉場 APNG 產生器的作者不明）'));
@@ -2038,6 +2237,9 @@ checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 130);
 checkInlineText('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 130);
+checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
+checkInlineText('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 2);
+for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
 checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
 checkInlineText('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 150);
 checkInlineText('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 20);
@@ -2126,6 +2328,9 @@ checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 10);
 checkAttrPairs('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 30);
+checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
+checkAttrPairs('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 1);
+for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
 checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
 checkAttrPairs('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 15);
 checkAttrPairs('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 2);
@@ -2158,7 +2363,7 @@ for (const name of TOOLS) {
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
   '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331', 'fc05c98',
-  '90f8442', 'a9a522c', 'aad63b1',
+  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
@@ -2211,12 +2416,12 @@ check('ATTRIBUTION.md 說明哪些字刻意不跟著語言走',
 /* cutin 需要建置，說明其原始碼位置與重建方式。 */
 check('ATTRIBUTION.md 說明 cutin 的建置流程',
   attribution.includes('vendor/cutin-maker'));
-check('README.md 說明兩個工具的建置流程',
-  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor'].every(p => read('README.md').includes(p)));
+check('README.md 說明三個工具的建置流程',
+  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor', 'vendor/obs-tachie-generator'].every(p => read('README.md').includes(p)));
 /* ATTRIBUTION 與 README 之間的錨點連結：標題改了就會失效。 */
 check('ATTRIBUTION.md 指向 README 建置段落的錨點仍然有效',
-  attribution.includes('README.md#重新建置-cutin-與-character-editor')
-  && read('README.md').includes('### 重新建置 cutin 與 character-editor'));
+  attribution.includes('README.md#重新建置-cutincharacter-editor-與-obs-tachie')
+  && read('README.md').includes('### 重新建置 cutin、character-editor 與 obs-tachie'));
 check('README 指向 pcfonts 段落的錨點仍然有效',
   read('README.md').includes('ATTRIBUTION.md#五個工具共用的-pcfontsv1js')
   && attribution.includes('## 五個工具共用的 pcfonts.v1.js'));
@@ -2226,7 +2431,7 @@ check('ATTRIBUTION.md 說明 jizura 改為連到原作者網站的官方繁中�
   /## jizura：JIZURA 字面（連到原站）(?=[\s\S]*Zaious)(?=[\s\S]*zh-hant\/)/.test(attribution));
 check('ATTRIBUTION.md 說明 coc-typesetter 的來源、未授權與只收繁中',
   /\| coc-typesetter \| \[scenario-tool-jade\.vercel\.app\]\([^)]+\)（作者不明[^|]*\| 2026-09-26 取得 \| \*\*未授權\*\* \|/.test(attribution)
-  && attribution.includes('## 未授權的九個工具') && /## coc-typesetter：CoC 劇本排版工具(?=[\s\S]*===換頁===)(?=[\s\S]*不存在的四樓)/.test(attribution));
+  && attribution.includes('## 未授權的十五個工具') && /## coc-typesetter：CoC 劇本排版工具(?=[\s\S]*===換頁===)(?=[\s\S]*不存在的四樓)/.test(attribution));
 check('README.md 把 coc-typesetter 與 apng-wipe 列為未授權', /`coc-typesetter` 與 `apng-wipe` 則連作者都不明/.test(read('README.md')));
 check('ATTRIBUTION.md 說明 apng-wipe 的來源不明、未授權與副檔名的改動',
   /\| apng-wipe \| 作者與來源都不明[^|]*\| 2026-09-26 取得 \| \*\*未授權\*\* \|/.test(attribution)

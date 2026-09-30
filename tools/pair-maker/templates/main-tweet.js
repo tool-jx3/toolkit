@@ -23,6 +23,10 @@ export const tabs = () => [{
     id: 'maintweet',
     label: T("tweet.001"),
     heading: T("tweet.001")
+}, {
+    id: 'stickers',
+    label: T("state.018"),
+    type: 'stickers'
 }];
 export const groups = () => [
     ['Back', T("simple.011")],

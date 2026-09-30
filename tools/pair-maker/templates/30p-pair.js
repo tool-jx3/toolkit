@@ -563,7 +563,7 @@ export function createScene(stage, openEditor, store) {
     resizeHandle.className = 'member-preview-resize';
     resizeHandle.setAttribute('aria-label', T("p30.032"));
     resizeHandle.title = T("p30.033");
-    resizeHandle.innerHTML = '<i class="bi bi-arrows-angle-expand" aria-hidden="true"></i>';
+    resizeHandle.textContent = '◢';
     preview.append(previewHeader, previewCanvas, resizeHandle);
     let previewClosed = false,
         desktopSize = {
