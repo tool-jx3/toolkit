@@ -55,6 +55,9 @@
 | session-report | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-report-generator/` | `42c45f3` | **未授權** |
 | variant-manager | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/chara-sabun-kanri-tool/` | `42c45f3` | **未授權** |
 | scenario-cards | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/scenario-snippet-builder/` | `42c45f3` | **未授權** |
+| textbox | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) | `d2c74d3` | MIT |
+| psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
+| battlemap | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `a21c571` | MIT |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
@@ -679,6 +682,30 @@ APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任�
 - `scenario-cards` 的上游版面用 CSS 把頁尾藏起來，收錄版讓它顯示，否則整頁看不到作者署名。
 - `bg-motion` 與 `variant-manager` 照上游自 jsDelivr 載入 JSZip（`bg-motion` 另有 UPNG.js），
   見各目錄的 `THIRD_PARTY_NOTICES.md`。
+
+## textbox、psd-studio、battlemap
+
+**textbox（文字方框產生器）**：sotsotssi 的 `TextBoxGen`，收錄做法與其他 sotsotssi 工具相同
+（Tailwind Play CDN、`app.js`／`styles.css`、`THIRD_PARTY_NOTICES.md`）。上游的全形判斷本來就涵蓋
+中日韓漢字與全形標點，但逐 UTF-16 碼元計算，CJK 擴充 B 區以後的字（例如台語用字「𪜶」）會被算成
+兩個半形字，換行時還會從中間切開、變成落單的代理字元。收錄版改成逐碼位計算，並補上直排／相容
+標點與全形符號的範圍；只含基本平面字元的輸入，輸出與上游逐字相同。
+
+**psd-studio（CCFOLIA & PSD 調色工作室）**：上游 `fyam-hamu/F_Ccfolia-PSD-Studio` 沒有 LICENSE 檔，
+但頁面上有作者的條款：「코드 자체의 무단 재판매 및 유료 배포는 금지합니다. 단, 개인 목적의 코드 수정,
+기능 개선 및 이를 바탕으로 한 재배포는 자유롭게 가능합니다.」（禁止轉售與收費散布；修改、改良後可以
+自由再散布）。合輯依這條免費收錄，條款原文、翻譯與改動清單收在
+[tools/psd-studio/TERMS.md](tools/psd-studio/TERMS.md)，頁面上也照樣顯示。
+收錄時拿掉 Firebase Realtime DB 的「按讚」鈕（連同寫死的 apiKey）與只放了作者愛犬照片的分頁
+（`important.png`，9 MB）；KakaoTalk 聯絡連結改成指向本 repo 的 issues 與上游 GitHub
+（理由同 `pair-maker` 的回報表單）。五個 CDN 函式庫原本有一個沒鎖版本，收錄版全部鎖定，
+見 `THIRD_PARTY_NOTICES.md`。同樣操作下匯出的房間 ZIP、PSD 圖層 ZIP 與 APNG 都與上游逐位元組相同。
+
+**battlemap（戰鬥地圖產生器）**：合輯第一個英文原文的工具，因此語言引擎加上了 `en`（只有載入英文
+字典的頁面才會出現這個選項）。上游頁面上的三張 BOOTH 商店推廣卡片、SEO 用的 meta／canonical／
+結構化資料、`robots.txt`、`sitemap.xml` 與 README 截圖不收（站台識別，理由同其他工具）。另外修了
+上游一個問題：格線與火把開關的外框是 `<span>`、核取方塊又是 0×0，滑鼠點不動；收錄版改成
+`<label>`，外觀不變。同一個亂數種子在繁中、英文與上游下產生的 PNG 逐位元組相同。
 
 ## 需要建置的三個工具
 

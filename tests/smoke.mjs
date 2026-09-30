@@ -2215,7 +2215,8 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
   'height-board', 'room-zip', 'pair-maker',
   'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe', 'message-box',
-  'scenario-editor', 'obs-tachie', 'bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards'];
+  'scenario-editor', 'obs-tachie', 'bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards',
+  'psd-studio', 'textbox', 'battlemap'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
@@ -2247,7 +2248,7 @@ for (const card of homeCards) {
 }
 check('首頁標示原作者出處',
   ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
-    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa', 'max-enterme', 'sedn14636361', 'kumachansteps']
+    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa', 'max-enterme', 'sedn14636361', 'kumachansteps', 'fyam-hamu', 'usagineko7865-debug']
     .every(a => homeHtml.includes(`github.com/${a}`)));
 /* coc-typesetter 的作者不明，至少要標出取得的網址。 */
 check('首頁標示 coc-typesetter 的來源網址', homeHtml.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html'));
