@@ -31,10 +31,11 @@ const I18N_DEFAULT = 'zh-TW';
 const LOCALES = {
   'zh-TW': { label: '繁體中文', lang: 'zh-Hant-TW' },
   ko: { label: '한국어', lang: 'ko' },
-  ja: { label: '日本語', lang: 'ja' }
+  ja: { label: '日本語', lang: 'ja' },
+  en: { label: 'English', lang: 'en' }
 };
 
-const MESSAGES = { 'zh-TW': {}, ko: {}, ja: {} };
+const MESSAGES = { 'zh-TW': {}, ko: {}, ja: {}, en: {} };
 
 /* 只採用使用者明示的選擇；不偵測瀏覽器語言。 */
 function storedLocale() {

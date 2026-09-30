@@ -6,8 +6,8 @@ section('i18n engine');
 const I18N = loadI18N();
 
 check('預設語言為 zh-TW', I18N.locale === 'zh-TW', `got: ${I18N.locale}`);
-check('註冊了 zh-TW、ko 與 ja 三種語言',
-  Object.keys(I18N.locales).join(',') === 'zh-TW,ko,ja',
+check('註冊了 zh-TW、ko、ja 與 en 四種語言',
+  Object.keys(I18N.locales).join(',') === 'zh-TW,ko,ja,en',
   `got: ${Object.keys(I18N.locales).join(',')}`);
 check('每種語言都有顯示名稱與 lang 屬性',
   Object.values(I18N.locales).every(m => m.label && m.lang));
@@ -34,7 +34,7 @@ check('切換至相同語言回傳 false', I18N.setLocale('ko') === false);
 check('引擎支援五種屬性掛勾',
   ['-title', '-aria-label', '-placeholder', '-alt', '-html']
     .every(suffix => read('assets/i18n.js').includes(`[data-i18n${suffix}]`)));
-check('切換至未知語言回傳 false', I18N.setLocale('en') === false);
+check('切換至未知語言回傳 false', I18N.setLocale('fr') === false);
 
 /* 偏好全站共用，但工具只載入自己的原文語言字典：停在沒有該語言字典的
  * 頁面時，resolveLocale() 應退回預設語言呈現。 */
@@ -80,6 +80,8 @@ function checkTool({ dir, dict, html: page = 'index.html', shared = [], locale =
   /* 原文洩漏的判準隨語言而異：韓文查諺文，日文查平假名與片假名——漢字
    * 與中文重疊，拿來當判準會把正常的譯文誤判為未翻譯。 */
   const SOURCE_CHARS = { ko: HANGUL, ja: KANA }[locale];
+  /* 英文和程式碼用的是同一套字母，沒辦法靠字元類別判斷「原文沒翻到」；英文工具的
+   * 洩漏檢查改由各工具自己的專節處理（見 battlemap）。 */
 
   check(`只載入 ${want.join('、')} 的字典`,
     Object.keys(tool.messages).filter(l => Object.keys(tool.messages[l]).length).join(',') === want.join(','),
@@ -115,7 +117,7 @@ function checkTool({ dir, dict, html: page = 'index.html', shared = [], locale =
     !!titleMatch && titleMatch[1] === tool.messages['zh-TW']['app.title'],
     `<title>="${titleMatch ? titleMatch[1] : '(none)'}" app.title="${tool.messages['zh-TW']['app.title']}"`);
 
-  const leakedIn = (src, file) => src.split('\n')
+  const leakedIn = (src, file) => !SOURCE_CHARS ? [] : src.split('\n')
     .map((line, i) => [i + 1, line])
     .filter(([n, line]) => SOURCE_CHARS.test(line) && !allowSource(line, n, file));
   const report = rows => rows.slice(0, 5)
