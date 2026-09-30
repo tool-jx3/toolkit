@@ -799,7 +799,8 @@ check('index.html 的載入順序正確', rzOrder.every((at, i) => at >= 0 && (i
  * 模組清單從目錄列出來而不是寫死，新增一支就會自動納入掃描。 */
 const pmFiles = sub => listFiles(`tools/pair-maker/${sub}`).map(f => f.replace('tools/pair-maker/', ''));
 const PM_SCRIPTS = [...pmFiles('js'), ...pmFiles('templates')];
-const PM_TEMPLATES = ['2p-simple', '2p-pair1', 'pattern-header', '30p-pair', 'main-tweet'];
+const PM_TEMPLATES = ['2p-simple', '2p-pair1', 'pattern-header', '30p-pair', 'main-tweet',
+  'textLog-simple', 'textLog-vert', 'textLog-hori', 'textLog-pair'];
 
 const pm = checkTool({
   dir: 'tools/pair-maker',
@@ -816,7 +817,7 @@ const pm = checkTool({
 });
 
 section('tools/pair-maker');
-check('掃描到 21 支模組', PM_SCRIPTS.length === 21, `found ${PM_SCRIPTS.length}`);
+check('掃描到 25 支模組', PM_SCRIPTS.length === 25, `found ${PM_SCRIPTS.length}`);
 
 const pmIndex = read('tools/pair-maker/index.html');
 const pmEditor = read('tools/pair-maker/editor.html');
@@ -849,8 +850,8 @@ for (const [file, src] of [['index.html', pmIndex], ['editor.html', pmEditor]]) 
 
 /* 首頁卡片圖是這個工具自己算繪的空白版型預覽。上游那 29 張作品集樣張是別人的
  * 角色插圖，不散布；images/ 只留程式真的會去 new Image() 的四張底圖。 */
-check('五個版型各有一支模組', PM_TEMPLATES.every(id => exists(`tools/pair-maker/templates/${id}.js`)));
-check('五個版型各有一張預覽圖', PM_TEMPLATES.every(id => exists(`tools/pair-maker/previews/${id}.png`)));
+check('九個版型各有一支模組', PM_TEMPLATES.every(id => exists(`tools/pair-maker/templates/${id}.js`)));
+check('九個版型各有一張預覽圖', PM_TEMPLATES.every(id => exists(`tools/pair-maker/previews/${id}.png`)));
 const pmRegistry = read('tools/pair-maker/templates/registry.js');
 check('registry 註冊的版型與清單一致',
   PM_TEMPLATES.every(id => pmRegistry.includes(`'${id}': () => import('./${id}.js')`))
@@ -864,8 +865,30 @@ const pmImages = listFiles('tools/pair-maker/images').map(f => f.split('/').pop(
 check('images/ 只留程式用得到的四張底圖',
   pmImages.join(',') === 'dark-theme.png,light-theme.png,theme-1.png,theme-2.png', pmImages.join(','));
 /* 卡片圖的 alt 也要跟著語言走，所以共用引擎補了 data-i18n-alt 掛勾。 */
-check('五張卡片圖都掛了 data-i18n-alt',
+check('九張卡片圖都掛了 data-i18n-alt',
   [...pmIndex.matchAll(/<img[^>]+data-i18n-alt="/g)].length === PM_TEMPLATES.length);
+
+/* v1.1.0 的文字記錄版型可以匯出 PDF。上游附了約 48 MB 的字型（PDF 用的四個字重與
+ * 畫布用的 NotoSerifCJKKR.ttf），合輯不收：畫布改用 Google Fonts 的 Noto Serif KR，
+ * PDF 在按下下載時才從 fonts.gstatic.com 抓完整的 TTF。PDF 函式庫本身（MIT）照收。 */
+section('tools/pair-maker PDF export');
+const pmSave = read('tools/pair-maker/js/SaveBtn.js');
+check('pdf-lib 與 fontkit 及其授權檔都在',
+  ['pdf-lib.min.js', 'fontkit.umd.min.js', 'pdf-lib-LICENSE.md', 'fontkit-LICENSE.txt']
+    .every(f => exists(`tools/pair-maker/vendor/pdf/${f}`)));
+const pmHeavy = listFiles('tools/pair-maker/vendor').filter(f => /\.ttf(\.zlib)?$|\/textlog\//.test(f));
+check('不收上游附的大型字型檔', pmHeavy.length === 0, pmHeavy.join(', '));
+const pmFontUrls = [...pmSave.matchAll(/https?:\/\/[^'"`\s]+\.ttf/g)].map(m => m[0]);
+check('PDF 字型表有 12 個網址，全部指向 fonts.gstatic.com',
+  pmFontUrls.length === 12 && pmFontUrls.every(u => u.startsWith('https://fonts.gstatic.com/s/')), `found ${pmFontUrls.length}`);
+check('PDF 字型涵蓋明體與黑體的韓文、繁中版本',
+  ['notoserifkr', 'notoseriftc', 'notosanskr', 'notosanstc'].every(f => pmFontUrls.some(u => u.includes(`/${f}/`))));
+const pmTextLogs = ['textLog-simple', 'textLog-vert', 'textLog-hori', 'textLog-pair'];
+check('文字記錄版型不再引用上游的 NotoSerifCJKKR',
+  pmTextLogs.every(id => !stripComments(read(`tools/pair-maker/templates/${id}.js`)).includes('NotoSerifCJKKR')));
+check('文字記錄版型切語言時重設畫布上的標籤',
+  pmTextLogs.every(id => read(`tools/pair-maker/templates/${id}.js`).includes('I18N.onChange(applyCanvasLabels)')));
+check('editor.html 載入畫布用的 Noto Serif KR', pmEditor.includes('Noto+Serif+KR'));
 
 /* 切語言時要做的三件事：重建側邊欄清單、重跑版型結構、重算兩個收合鈕的標籤。 */
 check('語言切換器掛在兩頁的工具列上',
