@@ -1,22 +1,3 @@
-Scope of this licence
-----------------------
-
-This MIT licence covers only what this repository adds on top of the
-bundled tools: the original tool `tools/text-fx/`, `assets/`, `index.html`,
-`tests/`, each `tools/*/i18n.*.js`
-dictionary, the JIZURA redirect page `tools/jizura/`, the
-Anime2.5DRig guide `tools/anime-rig/guide.zh-TW.md`, the coc-typesetter
-sample scenario (`SAMPLE_META` and `SAMPLE_TEXT` in
-`tools/coc-typesetter/app.js`), and the emotion-maker asset-path
-restructure.
-
-Each bundled tool under `tools/` keeps its own upstream licence — see
-`ATTRIBUTION.md` for the per-tool source and licence status.
-
-`tools/emotion-maker/` is NOT covered by this licence. It is unlicensed
-upstream, and all rights — including its 39 image assets — remain with
-the original author.
-
 MIT License
 
 Copyright (c) 2026 tool-jx3

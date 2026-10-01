@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>文字演出產生器</title>
+<meta name="theme-color" content="#14161c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314161c'/%3E%3Cpath d='M8 9h16v3.2h-6.4V24h-3.2V12.2H8z' fill='%23f4c64e'/%3E%3Cpath d='M5 27h22' stroke='%23f4c64e' stroke-width='1.6' stroke-linecap='round' opacity='.55'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><a class="tk-home" href="../../">← TRPG Toolkit</a><span class="logo" aria-hidden="true"></span><span class="app-name">文字演出產生器</span></div>
+  <div class="top-mode" id="topMode" aria-live="polite"></div>
+  <button type="button" class="ghost" id="keysBtn" title="快捷鍵（?）">快捷鍵</button>
+</header>
+
+<main class="layout">
+  <aside class="panel" aria-label="設定">
+    <div class="tabs" role="tablist" id="tabs">
+      <button type="button" role="tab" data-tab="mode" aria-selected="true">模式</button>
+      <button type="button" role="tab" data-tab="text" aria-selected="false">文字</button>
+      <button type="button" role="tab" data-tab="style" aria-selected="false">樣式</button>
+      <button type="button" role="tab" data-tab="deco" aria-selected="false">裝飾</button>
+      <button type="button" role="tab" data-tab="time" aria-selected="false">時間與匯出</button>
+    </div>
+    <div class="panes">
+      <div class="pane" role="tabpanel" data-pane="mode"></div>
+      <div class="pane" role="tabpanel" data-pane="text" hidden></div>
+      <div class="pane" role="tabpanel" data-pane="style" hidden></div>
+      <div class="pane" role="tabpanel" data-pane="deco" hidden></div>
+      <div class="pane" role="tabpanel" data-pane="time" hidden></div>
+    </div>
+  </aside>
+
+  <section class="stage" aria-label="預覽">
+    <div class="viewer" id="viewer" data-bg="checker">
+      <canvas id="view" width="1280" height="720" aria-label="動畫預覽"></canvas>
+      <div class="loading" id="loading" hidden>字型載入中…</div>
+    </div>
+
+    <div class="transport">
+      <button type="button" class="icon play" id="playBtn" aria-label="播放／暫停（空白鍵）" title="播放／暫停（空白鍵）"></button>
+      <button type="button" class="icon replay" id="replayBtn" aria-label="從頭播放（R）" title="從頭播放（R）"></button>
+      <span class="clock" id="clock">0.00 / 0.00 秒</span>
+      <span class="phase" id="phaseLabel"></span>
+      <span class="spacer"></span>
+      <label class="switch" title="退場開關：關掉時動畫停在完成狀態（出現後一直留著）"><input type="checkbox" id="outroToggle"><span>退場</span></label>
+      <label class="switch"><input type="checkbox" id="loopToggle" checked><span>預覽循環</span></label>
+      <select id="viewBg" aria-label="預覽底色">
+        <option value="checker">棋盤格</option>
+        <option value="black">黑</option>
+        <option value="white">白</option>
+        <option value="gray">灰</option>
+        <option value="color">自訂顏色</option>
+        <option value="image">我的圖片…</option>
+      </select>
+      <input type="color" id="viewColor" value="#3a4a5c" aria-label="預覽底色（自訂）" hidden>
+      <input type="file" id="viewImage" accept="image/*" hidden>
+    </div>
+
+    <div class="timeline" id="timeline">
+      <div class="tl-phases" id="tlPhases"></div>
+      <div class="tl-head" id="tlHead"></div>
+      <input type="range" id="scrub" min="0" max="1000" step="1" value="0" aria-label="時間軸">
+    </div>
+
+    <div class="hints" id="hints" aria-live="polite"></div>
+
+    <div class="quick-export">
+      <button type="button" class="primary" id="qExport" title="匯出 APNG（Ctrl＋Enter）">匯出 APNG</button>
+      <span class="meta" id="metaLine"></span>
+    </div>
+
+    <div class="progress" id="progress" hidden>
+      <div class="bar"><span id="progressBar"></span></div>
+      <span id="progressText">準備中…</span>
+      <button type="button" class="ghost" id="cancelBtn">取消</button>
+    </div>
+
+    <div class="result" id="result" hidden></div>
+
+    <details class="doc" id="howto">
+      <summary>使用方式</summary>
+      <ol>
+        <li>在「模式」選擇要做的素材：<b>標語</b>（畫面中央的大字）、<b>長文</b>（開場白、預告、旁白）或 <b>字幕</b>（地點、時間），再挑一個範本當起點。</li>
+        <li>在「文字」改成自己的內容。長文模式裡<b>空一行就是換頁</b>。</li>
+        <li>在「模式」調整登場、停留、退場效果；按「效果一覽」可以用自己的文字直接比較每種效果動起來的樣子。</li>
+        <li>「樣式」「裝飾」可以換字型、顏色、外框、光暈，加上線條、框或色帶。</li>
+        <li>到「時間與匯出」設定 fps、循環方式與色數，按「匯出 APNG」。也可以存成單張 PNG 或連番 PNG（ZIP）。</li>
+      </ol>
+      <p>做好的 APNG 背景是透明的，可以直接上傳到 CCFOLIA 等線上跑團平台，或疊在直播、影片畫面上。檔案超過 5 MB 時建議降低 fps、縮小尺寸或使用 256 色。</p>
+      <p>所有處理都在你的瀏覽器裡完成，文字與圖片不會上傳到任何地方；設定會自動存在這個瀏覽器裡。</p>
+    </details>
+    <details class="doc" id="about">
+      <summary>關於</summary>
+      <p>文字演出產生器是 TRPG Toolkit 的原創工具，以 MIT 授權公開（Copyright © 2026 tool-jx3）。</p>
+      <p>用這個工具做出來的圖片與動畫，你可以自由使用，包括商業用途，不需要標示出處。</p>
+      <p>可選的網路字型皆來自 Google Fonts，授權依各字型（皆為 SIL Open Font License）。你上傳的「我的字型」只存在這個瀏覽器裡，授權請自行確認。</p>
+    </details>
+  </section>
+</main>
+
+<dialog id="gallery" class="gallery">
+  <form method="dialog" class="dlg-head">
+    <h2 id="galleryTitle">效果一覽</h2>
+    <button class="ghost" value="close" aria-label="關閉">關閉</button>
+  </form>
+  <p class="dlg-note">用目前的文字示範每種效果。點一下就套用。</p>
+  <div class="tiles" id="galleryTiles"></div>
+</dialog>
+
+<dialog id="keys" class="keys">
+  <form method="dialog" class="dlg-head">
+    <h2>快捷鍵</h2>
+    <button class="ghost" value="close" aria-label="關閉">關閉</button>
+  </form>
+  <dl class="keylist">
+    <dt><kbd>空白鍵</kbd></dt><dd>播放／暫停</dd>
+    <dt><kbd>R</kbd></dt><dd>從頭播放</dd>
+    <dt><kbd>Ctrl</kbd>＋<kbd>Enter</kbd></dt><dd>匯出 APNG</dd>
+    <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>切換到標語／長文／字幕</dd>
+    <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>暫停時往前／往後一格</dd>
+    <dt><kbd>?</kbd></dt><dd>打開這個說明</dd>
+  </dl>
+  <p class="dlg-note">在輸入框裡打字時，快捷鍵不會作用。</p>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
