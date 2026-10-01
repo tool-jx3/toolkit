@@ -161,8 +161,8 @@
 |---|---|---|---|---|
 | F94 | 復原／重做按鈕 | 兩個按鈕，沒有可復原／重做的步驟時停用。每個「確定的改動」記一步：滑桿放開、下拉選定、勾選、文字欄改完、尺寸按鈕、套用範本（拖曳滑桿途中不記）。最多記 150 步；做了新改動後重做清空。預覽分頁與預覽背景不列入，復原時也維持目前的預覽設定。 | — | 自動 |
 | F95 | 復原／重做快捷鍵 | Ctrl＋Z（Mac 為 ⌘＋Z）復原；Ctrl＋Y 或 Ctrl＋Shift＋Z（⌘ 同）重做。焦點在文字欄、數字欄、多行文字區時不作用（交給輸入框自己的復原）；焦點在滑桿、下拉、勾選框時照樣作用。 | — | 自動 |
-| F96 | 自動存檔與還原 | 所有設定（含房間、來源大小、預覽設定、檔名）在改動後約 0.4 秒存進瀏覽器；開頁時讀回並補齊／修正（3.6）。儲存被瀏覽器封鎖時靜默略過。 | — | 自動 |
-| F97 | 儲存專案 | 下載 `<檔名>.chatwindow.json`（內容見 3.6；新版可用自己的格式），狀態列提示。 | — | 自動 |
+| F96 | 自動存檔與還原 | 所有設定（含房間、來源大小、預覽設定、檔名）在改動後約 0.4 秒存進瀏覽器；開頁時讀回並補齊／修正。儲存被瀏覽器封鎖時靜默略過。 | — | 自動 |
+| F97 | 儲存專案 | 下載 `<檔名>.chatwindow.json`（格式由新版自訂），狀態列提示。 | — | 自動 |
 | F98 | 開啟專案 | 開啟選檔視窗（只列 .json）。讀入成功：取代全部設定、**清空復原紀錄**、狀態列顯示檔名。不是本工具的檔案、或無法解析時，各自顯示錯誤，設定不變。讀入的值照 3.6 補齊與修正（缺的欄位用預設、型別不符用預設、範圍外夾回）。同一個檔案可以連續開兩次。 | — | 自動 |
 | F99 | 全部重來 | 確認對話框（說明會清除目前內容）；確定後回到開頁的初始狀態（套用第 1 個範本、來源 480 × 460、房間空白…），清空復原紀錄，狀態列提示；取消則不變。 | — | 自動 |
 | F100 | 記住設定分頁 | 設定分成幾個分頁（舊版 5 個，分組新版自訂）。最後開的分頁存在瀏覽器，下次開頁回到那裡。 | 預設第一個 | 自動 |
@@ -181,13 +181,13 @@
 | F108 | 語言切換 | 舊版有多語切換。**新版不移植**（只有繁中）。 | — | 不驗證（刻意差異） |
 | F109 | 作者與支援連結、版本 | 舊版頁尾有作者工具集、回報、許願、支援、版本日期等連結與文字；說明區末尾有許願連結。**不移植**（頁尾只放靈感來源）。保留一句自己寫的「非官方工具、CCFOLIA 改版可能跑版」聲明由新版決定。 | — | 不驗證（刻意差異） |
 | F110 | 回首頁連結 | 舊版頁首有回 TRPG Toolkit 首頁的連結。新版由共用外框提供。 | — | 目視 |
-| F111 | 舊版專案與自動存檔的匯入 | 新版若改用自己的存檔格式，仍要能開啟舊版存出的專案檔；同網址的舊版自動存檔（3.6）在新版第一次開頁時讀入。**需主控確認**是否要做（見 5.）。 | — | 自動 |
+| F111 | 舊版專案與自動存檔的匯入 | **不移植**（第 7 節裁定：不提供舊版存檔匯入）。 | — | 不驗證（刻意差異） |
 
 ## 2. 輸入
 
 - **設定**：上表的控制項。數字欄（來源寬高）在離開欄位時修正；滑桿與下拉不會產生範圍外的值。
 - **房間網址**：見 3.3。
-- **專案檔**：`.json`；格式見 3.6。
+- **專案檔**：`.json`；格式由新版自訂。
 - **測試訊息**：只在預覽使用（F78、F79）。
 - 文字欄（標題、前綴、字型名稱）可以含引號、反斜線、`*/` 等字元；輸出 CSS 時必須正確跳脫，不能讓 CSS 或註解提早結束（見 5.）。
 
@@ -497,41 +497,9 @@
   霞鶩文楷接標楷體／楷體。新版可以調整後備清單（例如繁中優先），屬可接受差異。
 - 字型選單的顯示名稱新版自訂（可加中文說明，例如「圓體」「點陣」）。新版可把繁中字型排在最前面。
 
-### 3.6 自動存檔與專案檔（舊格式，相容用）
+### 3.6 自動存檔與專案檔
 
-新版可以用自己的格式存檔。以下是**為了讀入舊檔而必須知道的資料格式**（F111），只用於匯入。
-
-- 舊版自動存檔存在瀏覽器 localStorage，鍵為 `ccf-chatwindow-maker.state`（整份設定的 JSON）；最後開的設定分頁存在 `ccf-chatwindow-maker.tab`。
-- 舊版專案檔是 JSON：`{ "app": "ccf-chatwindow-maker", "version": 1, "state": {…} }`。`app` 不是這個值就視為「不是本工具的檔案」。
-- `state` 的欄位（群組.欄位：意義）。顏色都是 `#rrggbb`，`…Alpha` 都是 0～1 的不透明度：
-  - `version`（1）、`design`（範本代號，可忽略）、`fileBase`（檔名主幹）
-  - `hover.tabs`：F86。`source.room`／`source.w`／`source.h`：房間網址、來源寬高。`preview.bg`（`scene` 彩色／`checker`／`dark`／`light`）、`preview.tab`（`main`／`secret`）
-  - `panel`：`mode`（`fixed` 填滿／`fit` 隨內容）、`anchor`（`bottom`／`top`）、`margin`、`pad`、`bg`、`bgAlpha`、`borderW`、`borderColor`、`borderAlpha`、`radius`、
-    `shadow`（0～1）、`texture`（`none`／`paper` 紙張／`grain` 顆粒／`scanlines`）、`corners`、`cornerColor`、`cornerAlpha`
-  - `title`：`source`（`none`／`text`／`tab` 分頁名稱／`textTab` 文字＋分頁名稱）、`text`、`style`（`text` 純文字／`bar` 底色帶／`underline`／`tab` 頁籤／`lines` 延伸線）、
-    `font`、`fontName`、`weight`、`size`、`color`、`accent`（線條／頁籤顏色）、`bg`、`bgAlpha`、`align`（`left`／`center`／`right`）、`gap`、`lock`
-  - `members`：`show`、`size`、`spacing`、`ringW`、`ringColor`、`ringAlpha`、`label`（前綴文字）、`labelSize`
-  - `list`：`count`、`order`（`newBottom` 最新在下／`newTop`）、`diceOnly`、`hideSystem`、`gap`
-  - `card`：`style`（`card` 每則一框／`bubble` 泡泡／`plain` 無框）、`bg`、`bgAlpha`、`borderW`、`borderColor`、`borderAlpha`、`radius`、`padX`、`padY`、`shadow`、
-    `accent`（`none`／`char` 角色色／`fixed` 指定色／`result` 依成敗）、`accentColor`、`accentW`、`divider`、`dividerColor`、`dividerAlpha`、`resultBorder`
-  - `avatar`：`show`、`size`、`shape`（`square`／`rounded`／`circle`）、`borderW`、`borderColor`、`borderAlpha`、`gap`、`align`（`top`／`center`）
-  - `name`：`show`、`font`、`fontName`、`weight`、`size`、`colorMode`（`char`／`fixed`）、`color`、`style`（`text`／`underline`／`badge` 膠囊／`colon` 前綴）、`time`、`timeColor`、
-    `timeAlpha`、`gap`
-  - `text`：`font`、`fontName`、`weight`、`size`、`color`、`lineHeight`、`spacing`（em）、`outline`（`shadow`／`stroke`／`glow`／`none`）、`outlineColor`、`outlineAlpha`、`outlineW`、`clamp`
-  - `result`：`font`、`fontName`、`weight`、`size`、`newLine`、`style`（`text`／`badge` 外框／`fill` 色塊）、`success`、`failure`、`neutral`、`glow`、`flash`
-  - `motion`：`enter`（`none`／`fade`／`slideUp`／`slideDown`／`slideLeft` 由右往左／`slideRight` 由左往右／`pop`／`blur`）、`enterDur`、`exit`、`exitAfter`、`exitDur`、
-    `scroll`、`scrollWait`、`scrollDur`
-  - 字型欄位（`font`）的值是字型代號：`notosans`＝Noto Sans JP、`mplus`＝M PLUS 1p、`mplusround`＝M PLUS Rounded 1c、`zenkaku`＝Zen Kaku Gothic New、
-    `zenmaru`＝Zen Maru Gothic、`kosugimaru`＝Kosugi Maru、`bizud`＝BIZ UDPGothic、`murecho`＝Murecho、`delagothic`＝Dela Gothic One、`mochiypop`＝Mochiy Pop One、
-    `dotgothic`＝DotGothic16、`reggae`＝Reggae One、`kiwimaru`＝Kiwi Maru、`hachimaru`＝Hachi Maru Pop、`klee`＝Klee One、`notoserif`＝Noto Serif JP、
-    `shippori`＝Shippori Mincho B1、`zenold`＝Zen Old Mincho、`kaisei`＝Kaisei Decol、`yujisyuku`＝Yuji Syuku、`yujiboku`＝Yuji Boku、`zenantique`＝Zen Antique、
-    `kurenaido`＝Zen Kurenaido、`notosanstc`＝Noto Sans TC、`notoseriftc`＝Noto Serif TC、`wenkaitc`＝LXGW WenKai TC、`chocolatetc`＝Chocolate Classical Sans、
-    `cactustc`＝Cactus Classical Serif、`orbitron`＝Orbitron、`rajdhani`＝Rajdhani、`oswald`＝Oswald、`sharetech`＝Share Tech Mono、`chakra`＝Chakra Petch、
-    `teko`＝Teko、`bebas`＝Bebas Neue、`russo`＝Russo One、`pressstart`＝Press Start 2P、`silkscreen`＝Silkscreen、`vt323`＝VT323、`cinzel`＝Cinzel、
-    `cormorant`＝Cormorant Garamond、`barlowcond`＝Barlow Condensed、`yugothic`＝Yu Gothic UI、`meiryo`＝Meiryo、`yumincho`＝Yu Mincho、`pc`＝自行輸入名稱（名稱在 `fontName`）。
-- **讀入時的補齊與修正**（舊版行為，新版匯入時照做）：缺的欄位用預設值；型別與預設不同（例如數字欄是字串）就用預設值；不認得的額外欄位保留；
-  則數夾在 1～30（四捨五入，無效時 5）；寬夾在 120～3840（無效時 480）、高夾在 80～2160（無效時 460）；預覽分頁不是主分頁／秘匿分頁時改主分頁；
-  範本代號不認得時視為「沒有範本」。量測：則數 99 → 30、寬 10 → 120、高 5000 → 2160、圓角 "x" → 預設值。
+舊版的存檔格式屬於原作的資料結構，本規格不描述。新版自己設計存檔與專案檔格式；**不提供舊版存檔的匯入**（第 7 節裁定）。
 
 ### 3.7 對等驗證的比對方法
 
@@ -542,7 +510,8 @@
   以 `html.mock-hover` 模擬滑鼠在頁面上）。
 - **設定組**：`specs-g4b/cases-chat.json`（44 組＋1 組可選；每組有白話描述，驗證者照描述在新版設定，存成 `new-css/<id>.css`）。
 - **腳本**：`specs-g4b/compare.mjs`。`node compare.mjs legacy chat` 產生舊版 CSS；`node compare.mjs diff chat <新版CSS資料夾>` 對每組、每個時間點
-  （動畫以固定毫秒暫停）分別截圖，輸出「舊｜新｜差異」並排圖與 `report.json`（差異像素數、比例、最大通道差）。`node compare.mjs self chat` 為自我檢查（舊對舊應為 0）。
+  （動畫以固定毫秒暫停）分別截圖，輸出「舊｜新｜差異」並排圖與 `report.json`（差異像素數、比例、最大通道差）。`node compare.mjs self chat` 為自我檢查：
+  舊對舊 69 個畫面中 65 個完全相同，其餘 ≤ 0.4%（標題底線等 1px 的次像素位移），這是比對的雜訊下限。Google Fonts 的回應快取在 `specs-g4b/font-cache/`，兩邊用同一份字型檔。
 - **容許差異**：
   - 靜態畫面：任一通道差 > 8 的像素不超過整張的 1%，並目視並排圖確認差異只在文字反鋸齒或 1px 邊界。
   - 動畫時間點：容許相當於 ±1 影格（約 17ms）的時間差，差異像素不超過 3%。
@@ -706,3 +675,17 @@
 | F109 | | | |
 | F110 | | | |
 | F111 | | | |
+
+## 7. 主控裁定（審查者，2026-10-01）
+
+- 規格審查通過：只描述套用後看得到的結果、量測值與 CCFOLIA／OBS 的外部事實（3.1、3.2），沒有原作的 CSS 或程式表達。
+  觀察者原本在 3.6 列出的舊存檔欄位已由主控刪除（不做相容匯入，見下）。
+- **分隔線在「最新在上」時的位置**：核准改成「相鄰兩則之間才有線」（刻意改善）。
+- **來源寬高欄離開時回填修正後的值**：核准（刻意改善）。
+- **說明照實際行為寫**（他人的秘密擲骰沒有結果、不上色）：核准。
+- **舊專案與自動存檔的匯入（F111）**：不提供。新版自訂存檔格式；已經貼在 OBS 裡的 CSS 不受影響。
+- **字型**：新版預設改用繁中字型、繁中排前面，電腦字型清單加入台灣常見字型（同狀態條）。核准，屬刻意改善。
+- **範本**：新版自做繁中範本；對等驗證以明確指定的數值比較，不比較範本本身。四個來源尺寸按鈕的數值保留。
+- **非官方聲明**：保留一句自己寫的「本工具與 CCFOLIA 官方無關；CCFOLIA 改版時可能需要重新產生 CSS」。
+- **CCFOLIA 自動產生的 class（擲骰結果配色等）**：集中放在 `web/src/ccfolia/`。
+- **中立模擬 DOM**（觀察者在 scratchpad 寫的）：只給驗證者使用，不給實作者；實作者依 3.1 的外部 DOM 事實自己做預覽。
