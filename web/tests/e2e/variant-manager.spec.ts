@@ -427,8 +427,8 @@ test('F10：再次載入後維持原本的選取（加入新檔、全部重複�
   expect(errors).toEqual([]);
 });
 
-test.describe('F11：矮視窗', () => {
-  test.use({ viewport: { width: 1440, height: 900 } });
+test.describe('F11：清單面板的高度與 ↑↓', () => {
+  test.use({ viewport: { width: 1440, height: 1100 } });
 
   /** 選取中的列：完全在清單面板與畫面（頁首下方）裡 */
   async function selectedRowVisible(page: Page) {
@@ -457,7 +457,7 @@ test.describe('F11：矮視窗', () => {
       bottom: el.getBoundingClientRect().bottom,
       overflow: el.scrollHeight > el.clientHeight,
     }));
-    expect(geo.bottom).toBeLessThanOrEqual(900);
+    expect(geo.bottom).toBeLessThanOrEqual(1100);
     expect(geo.overflow).toBe(true);
 
     /* 焦點在清單上 */
@@ -482,6 +482,30 @@ test.describe('F11：矮視窗', () => {
     }
     /* 回到第一列：清單捲回最上面（只剩面板 2 px 的內距） */
     expect(await scroller.evaluate((el) => el.scrollTop)).toBeLessThanOrEqual(2);
+    expect(errors).toEqual([]);
+  });
+
+  test('常見筆電尺寸：清單面板至少約四列高（複驗後調整）', async ({ page }) => {
+    const errors = await open(page);
+    const files = [];
+    for (let i = 0; i < 12; i++)
+      files.push(file(`n${String(i).padStart(2, '0')}.png`, await RED()));
+    await input(page).setInputFiles(files);
+    await expect(rows(page)).toHaveCount(12);
+    for (const [width, height] of [
+      [1280, 720],
+      [1366, 768],
+      [1440, 900],
+    ]) {
+      await page.setViewportSize({ width, height });
+      await expect
+        .poll(
+          () =>
+            page.getByTestId('list-scroller').evaluate((el) => el.getBoundingClientRect().height),
+          { message: `${width}×${height}` },
+        )
+        .toBeGreaterThanOrEqual(400);
+    }
     expect(errors).toEqual([]);
   });
 

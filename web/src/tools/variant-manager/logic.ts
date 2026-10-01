@@ -258,8 +258,11 @@ export function selectionAfterLoad(
   return ids[0] ?? null;
 }
 
-/** 清單面板在寬畫面時的高度範圍（F11）：最少約一列半、最多 640 px；面板下緣與視窗下緣保留的距離 */
-export const LIST_FIT = { min: 140, max: 640, gap: 16 } as const;
+/**
+ * 清單面板在寬畫面時的高度範圍（F11）：最少約四列（420 px，常見筆電尺寸也看得到四列，複驗後調整）、最多 1200 px；
+ * 面板下緣與視窗下緣保留的距離。視窗矮到放不下最小高度時，↑↓ 由 revealInScroller 把頁面捲最少的距離。
+ */
+export const LIST_FIT = { min: 420, max: 1200, gap: 16 } as const;
 
 /**
  * 清單面板的最大高度（F11＋主控追加裁定）：寬畫面時讓面板下緣停在視窗裡，

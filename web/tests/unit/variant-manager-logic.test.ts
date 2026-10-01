@@ -230,14 +230,15 @@ describe('F10 載入後的選取（追加裁定）', () => {
 
 describe('F11 清單面板的高度（追加裁定：寬畫面時面板下緣停在視窗裡）', () => {
   it('視窗夠高：面板下緣離視窗下緣 16 px', () => {
-    /* 面板在 y 610，視窗 900 高（對等驗證的 1440×900）→ 274 px，面板範圍 610～884 */
-    expect(fitListHeight(610, 900)).toBe(274);
-    expect(610 + fitListHeight(610, 900)).toBeLessThanOrEqual(900 - LIST_FIT.gap);
-    expect(fitListHeight(610, 1080)).toBe(454);
+    /* 面板在 y 610，視窗 1100 高 → 474 px，面板範圍 610～1084 */
+    expect(fitListHeight(610, 1100)).toBe(474);
+    expect(610 + fitListHeight(610, 1100)).toBeLessThanOrEqual(1100 - LIST_FIT.gap);
+    expect(fitListHeight(610, 1440)).toBe(814);
   });
-  it('最多 640 px；視窗太矮時至少保留 140 px（約一列半）', () => {
-    expect(fitListHeight(610, 1440)).toBe(640);
-    expect(fitListHeight(610, 720)).toBe(140);
+  it('最多 1200 px；視窗太矮時至少保留 420 px（約四列，常見筆電尺寸也看得到四列）', () => {
+    expect(fitListHeight(400, 2000)).toBe(1200);
+    expect(fitListHeight(610, 900)).toBe(420);
+    expect(fitListHeight(610, 768)).toBe(420);
     expect(fitListHeight(610, 300)).toBe(LIST_FIT.min);
   });
 });
