@@ -86,6 +86,14 @@ export function barPartSelector(part: BarPart, n?: number): string {
   return `${barSelector(n)} ${BAR_PARTS[part]}`;
 }
 
+/**
+ * 條中部位相對於一條（`div[variant="bar"] > div`）的路徑，給 `:has()` 或接在自己組的條選擇器後面用：
+ * barPartPath('fill') → '> div:nth-child(2) > div:nth-child(2)'
+ */
+export function barPartPath(part: BarPart): string {
+  return BAR_PARTS[part];
+}
+
 /** 第 n 條之後的所有條（隱藏多餘的條用）：barsAfter(3) → 第 4 條起 */
 export function barsAfterSelector(n: number): string {
   return `${CHARACTER_PAGE.bar}:nth-child(n + ${n + 1})`;

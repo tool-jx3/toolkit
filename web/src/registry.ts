@@ -137,6 +137,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/max-enterme/obs-tachie-generator',
     },
   },
+  {
+    id: 'status-bar',
+    name: '狀態條產生器',
+    summary:
+      '把 CCFOLIA 的角色狀態頁變成直播用的 HP／MP 狀態條：調好外觀後複製 CSS 貼進 OBS 瀏覽器來源，數值會即時連動。',
+    group: 'G4',
+    status: 'next',
+    inspiration: {
+      name: 'shiki365/status-bar-maker',
+      url: 'https://github.com/shiki365/status-bar-maker',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
