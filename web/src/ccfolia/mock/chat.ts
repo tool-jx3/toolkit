@@ -12,6 +12,7 @@ import {
   chatTimestamp,
   classifyDiceResult,
   DICE_RESULT_CLASS,
+  type DiceOutcome,
   EDITED_MARK,
   SECRET_DICE_CHAT_TEXT,
 } from '../dice';
@@ -35,6 +36,8 @@ export interface MockChatMessage {
   text: string;
   /** 擲骰結果（「＞ …」那段；分類與配色照 CCFOLIA） */
   result?: string | null;
+  /** 結果的分類（成功／失敗／其他）；不給時照 CCFOLIA 的規則由結果文字判斷 */
+  outcome?: DiceOutcome;
   /** 他人的秘密擲骰：內文換成「Secret dice 🎲」、沒有結果 */
   secretOther?: boolean;
   /** 名稱後的時間（預設依順序產生「 - 今日 21:00」…） */
@@ -595,7 +598,7 @@ export class ChatScene implements MockScene {
           doc,
           'span',
           {
-            class: `MuiTypography-root MuiTypography-body2 ${DICE_RESULT_CLASS[classifyDiceResult(m.result)]}`,
+            class: `MuiTypography-root MuiTypography-body2 ${DICE_RESULT_CLASS[m.outcome ?? classifyDiceResult(m.result)]}`,
           },
           [` ${m.result}`],
         ),

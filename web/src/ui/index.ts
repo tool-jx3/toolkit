@@ -126,7 +126,12 @@ export { NativeNumberInput, type NativeNumberInputProps, spinStep } from './Nati
 export { Notice, type NoticeProps, type NoticeTone } from './Notice';
 export { NumberInput, type NumberInputProps } from './NumberInput';
 export { ObsGuide, type ObsGuideProps } from './ObsGuide';
-export { ProjectMenu, ProjectMenuItem, type ProjectMenuProps } from './ProjectMenu';
+export {
+  ProjectMenu,
+  ProjectMenuItem,
+  type ProjectMenuProps,
+  type ProjectNotice,
+} from './ProjectMenu';
 export { Section, type SectionProps } from './Section';
 export { Segmented, type SegmentedOption, type SegmentedProps } from './Segmented';
 export { Select, type SelectGroup, type SelectOption, type SelectProps } from './Select';

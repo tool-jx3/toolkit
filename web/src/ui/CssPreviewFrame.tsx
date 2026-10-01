@@ -302,6 +302,11 @@ export function CssPreviewFrame({
   const replay = useCallback(() => {
     if (!doc?.body) return;
     /*
+     * 用 API 暫停過的 CSS 動畫，在 CSS 改變（動畫名稱相同、內容或時長不同）後可能留著舊的那個：
+     * 先全部取消，下面關掉再恢復 animation-name 時會照目前的規則重新建立。
+     */
+    for (const a of doc.getAnimations()) if (isCssAnimation(a)) a.cancel();
+    /*
      * 讓所有 CSS 動畫從頭開始：暫時把 animation-name 全部關掉再恢復（瀏覽器會重新建立動畫）。
      * 不用 Animation.play()：用 API 控制過的 CSS 動畫，之後規則不符合時不一定會被取消。
      */

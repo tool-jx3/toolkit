@@ -106,6 +106,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'chat-window',
+    name: '聊天視窗產生器',
+    summary:
+      '做出 OBS 瀏覽器來源用的自訂 CSS，把 CCFOLIA 的聊天另開視窗變成直播畫面上的聊天／擲骰視窗，可以只列擲骰、依成敗上色。',
+    group: 'G4',
+    status: 'next',
+    inspiration: {
+      name: 'shiki365/chat-window-maker',
+      url: 'https://github.com/shiki365/chat-window-maker',
+    },
+  },
+  {
     id: 'text-fx',
     name: '文字演出產生器',
     summary:

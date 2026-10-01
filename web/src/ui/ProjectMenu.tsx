@@ -19,6 +19,16 @@ import { cn } from './cn';
 import { type ConfirmOptions, useConfirm } from './Dialog';
 import { useToast } from './Toast';
 
+/** 專案選單的結果通知（給了 onNotify 時改用它，不跳通知；工具可以寫進自己的狀態列） */
+export interface ProjectNotice {
+  kind: 'saved' | 'opened' | 'open-failed' | 'reset';
+  tone: 'success' | 'danger' | 'info';
+  /** 存檔或開啟的檔名 */
+  fileName?: string;
+  /** 開啟失敗的原因（可直接顯示） */
+  message?: string;
+}
+
 export interface ProjectMenuProps<T> {
   /** 工具 id（寫進專案檔，開啟時檢查） */
   toolId: string;
@@ -43,6 +53,14 @@ export interface ProjectMenuProps<T> {
   resetConfirm?: Partial<ConfirmOptions>;
   /** 選單上重設項目的文字（預設「重設…」） */
   resetLabel?: ReactNode;
+  /** 完整的存檔檔名（函式版；例：「chatwindow.chatwindow.json」）；給了就不加日期 */
+  saveFileName?: () => string;
+  /** 開啟專案檔前先確認（預設 true） */
+  confirmOpen?: boolean;
+  /** 結果通知：給了就呼叫它，不顯示 toast（onSaved／onLoadError 仍會呼叫） */
+  onNotify?: (notice: ProjectNotice) => void;
+  /** 「重設」項目與確認對話框的文字（resetLabel／resetConfirm 的簡寫） */
+  resetText?: { label?: string; title?: string; description?: string; confirmLabel?: string };
   /** 額外的選單項目 */
   extraItems?: ReactNode;
   className?: string;
@@ -84,7 +102,11 @@ export function ProjectMenu<T>({
   onSaved,
   onLoadError,
   resetConfirm,
-  resetLabel = '重設…',
+  resetLabel,
+  saveFileName,
+  confirmOpen = true,
+  onNotify,
+  resetText,
   extraItems,
   className,
 }: ProjectMenuProps<T>) {
@@ -95,12 +117,14 @@ export function ProjectMenu<T>({
     const stamp = new Date();
     const name =
       exactFileName ??
+      saveFileName?.() ??
       fileNameWithExt(
         `${fileName ?? toolId}_${stamp.getFullYear()}${String(stamp.getMonth() + 1).padStart(2, '0')}${String(stamp.getDate()).padStart(2, '0')}`,
         'json',
       );
     downloadText(serializeProject(toolId, version, getData(), stamp), name, 'application/json');
-    toast({ title: '已存成專案檔', description: name, tone: 'success' });
+    if (onNotify) onNotify({ kind: 'saved', tone: 'success', fileName: name });
+    else toast({ title: '已存成專案檔', description: name, tone: 'success' });
     onSaved?.(name);
   };
 
@@ -109,33 +133,38 @@ export function ProjectMenu<T>({
     if (!file) return;
     try {
       const project = parseProject<T>(await file.text(), toolId);
-      const ok = await confirm({
-        title: '開啟專案檔？',
-        description: `目前的設定會被「${file.name}」取代。`,
-        confirmLabel: '開啟',
-      });
-      if (!ok) return;
+      if (confirmOpen) {
+        const ok = await confirm({
+          title: '開啟專案檔？',
+          description: `目前的設定會被「${file.name}」取代。`,
+          confirmLabel: '開啟',
+        });
+        if (!ok) return;
+      }
       if (onLoad(project.data, project, file) === false)
         throw new ProjectFileError('專案檔的內容無法使用。');
-      toast({ title: '已開啟專案檔', description: file.name, tone: 'success' });
+      if (onNotify) onNotify({ kind: 'opened', tone: 'success', fileName: file.name });
+      else toast({ title: '已開啟專案檔', description: file.name, tone: 'success' });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      toast({ title: '無法開啟專案檔', description: message, tone: 'danger' });
+      if (onNotify) onNotify({ kind: 'open-failed', tone: 'danger', fileName: file.name, message });
+      else toast({ title: '無法開啟專案檔', description: message, tone: 'danger' });
       onLoadError?.(message);
     }
   };
 
   const reset = async () => {
     const ok = await confirm({
-      title: '重設所有設定？',
-      description: '會回到預設值（可以用「復原」回來）。',
-      confirmLabel: '重設',
+      title: resetText?.title ?? '重設所有設定？',
+      description: resetText?.description ?? '會回到預設值（可以用「復原」回來）。',
+      confirmLabel: resetText?.confirmLabel ?? '重設',
       danger: true,
       ...resetConfirm,
     });
     if (ok) {
       onReset();
-      toast({ title: '已重設' });
+      if (onNotify) onNotify({ kind: 'reset', tone: 'info' });
+      else toast({ title: '已重設' });
     }
   };
 
@@ -170,7 +199,7 @@ export function ProjectMenu<T>({
               onSelect={reset}
             >
               <RotateCcw aria-hidden />
-              {resetLabel}
+              {resetLabel ?? resetText?.label ?? '重設…'}
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>

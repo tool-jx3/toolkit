@@ -232,7 +232,8 @@ export const CHAT = Object.freeze({
   /** 自己的訊息上的編輯按鈕（文字欄的下一個兄弟） */
   editButton: '.MuiListItemText-root + div',
   divider: 'hr.MuiDivider-root',
-  inputPaper: `${CH_PAPER} > .MuiPaper-root`,
+  /** 輸入區（div 的 MuiPaper；標頭 header.MuiAppBar-root 也有 MuiPaper-root，所以限定 div） */
+  inputPaper: `${CH_PAPER} > div.MuiPaper-root`,
   form: `${CH_PAPER} > .MuiPaper-root > form`,
   tabsHeader: `${CH_PAPER} > .MuiPaper-root > form > header.MuiAppBar-root`,
   tabs: '.MuiTabs-root',
