@@ -15,6 +15,7 @@ import {
   FileDrop,
   ImageDrop,
   Section,
+  ThumbnailList,
   useToast,
 } from '@/ui';
 
@@ -86,6 +87,32 @@ export function ImagesDemo() {
             ))}
           </ul>
         ) : null}
+      </Section>
+      <Section title="縮圖清單 ThumbnailList">
+        <ThumbnailList
+          aria-label="縮圖清單示範"
+          empty="在上面加入圖片後會列在這裡（第一張標示為已處理，最後一張是讀取中的佔位）。"
+          onRemove={(id) => {
+            setImages((cur) => cur.filter((im) => String(im.id) !== id));
+            setActive(0);
+            setCrops({});
+          }}
+          items={
+            images.length
+              ? [
+                  ...images.map((im, i) => ({
+                    id: String(im.id),
+                    name: im.file.name,
+                    image: im.bitmap,
+                    meta: `${im.width} × ${im.height} px`,
+                    status: i === 0 ? ('done' as const) : undefined,
+                    statusLabel: '已處理',
+                  })),
+                  { id: 'loading', name: '讀取中的檔案.png' },
+                ]
+              : []
+          }
+        />
       </Section>
       <Section title="裁切 CropDialog">
         <div className="flex flex-wrap gap-2">

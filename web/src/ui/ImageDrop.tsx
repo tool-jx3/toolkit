@@ -28,6 +28,11 @@ export interface FileDropProps {
   hint?: ReactNode;
   /** 不符合 accept 的檔案 */
   onReject?: (files: File[]) => void;
+  /**
+   * 是否依 accept 過濾收到的檔案（預設 true）。
+   * false：accept 只用在選檔視窗，所有檔案都交給 onFiles，由工具自己判斷（例如讀檔頭辨認沒有副檔名的圖片）。
+   */
+  filterByAccept?: boolean;
   icon?: ReactNode;
   /** 精簡樣式（一行） */
   compact?: boolean;
@@ -45,6 +50,7 @@ export function FileDrop({
   buttonLabel = '選擇檔案',
   hint,
   onReject,
+  filterByAccept = true,
   icon = <Upload />,
   compact,
   disabled,
@@ -60,8 +66,9 @@ export function FileDrop({
 
   const deliver = (list: File[]) => {
     if (disabled || !list.length) return;
-    const ok = list.filter((f) => matchesAccept(f, accept));
-    const bad = list.filter((f) => !matchesAccept(f, accept));
+    const pass = (f: File) => !filterByAccept || matchesAccept(f, accept);
+    const ok = list.filter(pass);
+    const bad = list.filter((f) => !pass(f));
     if (bad.length) handlers.current.onReject?.(bad);
     if (ok.length) handlers.current.onFiles(multiple ? ok : ok.slice(0, 1));
   };

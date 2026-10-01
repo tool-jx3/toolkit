@@ -91,6 +91,12 @@ export { type TabItem, Tabs, type TabsProps } from './Tabs';
 export { TemplateGallery, type TemplateGalleryProps, type TemplateItem } from './TemplateGallery';
 export { TextArea, type TextAreaProps, TextInput, type TextInputProps } from './TextInput';
 export { ThemeToggle } from './ThemeToggle';
+export {
+  type ThumbnailItem,
+  ThumbnailList,
+  type ThumbnailListProps,
+  type ThumbnailSource,
+} from './ThumbnailList';
 export { type ToastOptions, ToastProvider, type ToastTone, useToast } from './Toast';
 export { Toggle, type ToggleProps } from './Toggle';
 export { ToolHeader, type ToolHeaderProps } from './ToolHeader';

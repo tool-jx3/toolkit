@@ -45,6 +45,64 @@ export function downloadText(
   downloadBlob(new Blob([text], { type: mime }), fileName);
 }
 
+export interface SequentialDownloadItem {
+  /** 下載的檔名 */
+  name: string;
+  /** 檔案內容；可以是函式（輪到這個檔案時才產生，例如下載時才編碼） */
+  blob: Blob | (() => Promise<Blob>);
+}
+
+export interface SequentialDownloadOptions {
+  /** 兩個下載之間至少間隔幾毫秒（預設 500，避免瀏覽器擋下連續下載） */
+  intervalMs?: number;
+  signal?: AbortSignal;
+  /** 輪到某個檔案時呼叫（準備內容之前；index 從 0 開始） */
+  onProgress?: (index: number, total: number, item: SequentialDownloadItem) => void;
+  /** 實際的下載動作（預設 downloadBlob；測試可替換） */
+  download?: (blob: Blob, name: string) => void;
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const t = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(t);
+      reject(signal?.reason);
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/**
+ * 一個接一個下載多個檔案（不打包），兩個下載之間至少間隔 intervalMs。
+ * 下一個檔案的內容在等待間隔時就先準備，所以間隔不會因為產生檔案而拉長（除非產生得比間隔還久）。
+ * 取消時丟出 signal.reason（AbortError）。回傳實際下載的檔案（產生內容後的 Blob 與檔名）。
+ */
+export async function downloadSequentially(
+  items: readonly SequentialDownloadItem[],
+  { intervalMs = 500, signal, onProgress, download = downloadBlob }: SequentialDownloadOptions = {},
+): Promise<{ name: string; blob: Blob }[]> {
+  const done: { name: string; blob: Blob }[] = [];
+  let last = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < items.length; i++) {
+    signal?.throwIfAborted();
+    const item = items[i];
+    onProgress?.(i, items.length, item);
+    const blob = typeof item.blob === 'function' ? await item.blob() : item.blob;
+    signal?.throwIfAborted();
+    const wait = last + intervalMs - performance.now();
+    if (wait > 0) await sleep(wait, signal);
+    download(blob, item.name);
+    last = performance.now();
+    done.push({ name: item.name, blob });
+  }
+  return done;
+}
+
 /* ---------- 讀檔與選檔 ---------- */
 
 export const readAsText = (file: Blob): Promise<string> => file.text();
