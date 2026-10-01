@@ -237,6 +237,7 @@ export function PresetEditor({
               onChange={setLabel('font')}
               showWeight={false}
               previewText="艾琳 Erin"
+              inherit={{ label: S.label.fontInherit, description: S.label.fontInheritHint }}
             />
           </Field>
           <Field

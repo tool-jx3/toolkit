@@ -15,6 +15,7 @@ import {
   Stepper,
   ToolShell,
   UsageSection,
+  withShortcut,
 } from '@/ui';
 import { buildTachieCss } from './css';
 import { type ImageInputState, INITIAL_INPUT } from './ImageSection';
@@ -127,8 +128,18 @@ export function App() {
       usage={USAGE}
       headerActions={
         <>
-          <IconButton label={S.undo} icon={<Undo2 />} onClick={undo} disabled={!canUndo} />
-          <IconButton label={S.redo} icon={<Redo2 />} onClick={redo} disabled={!canRedo} />
+          <IconButton
+            label={withShortcut(S.undo, 'mod+z')}
+            icon={<Undo2 />}
+            onClick={undo}
+            disabled={!canUndo}
+          />
+          <IconButton
+            label={withShortcut(S.redo, 'shift+mod+z')}
+            icon={<Redo2 />}
+            onClick={redo}
+            disabled={!canRedo}
+          />
           <ProjectMenu<ProjectData>
             toolId={TOOL_ID}
             fileName={S.projectFileName}

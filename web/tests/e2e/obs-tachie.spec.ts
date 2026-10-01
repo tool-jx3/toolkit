@@ -344,6 +344,95 @@ test.describe('Discord 通話立繪產生器', () => {
     expect(errors.filter((e) => !e.includes('404'))).toEqual([]);
   });
 
+  test('② 指定範圍裁切：初始框蓋滿整張圖也能畫新範圍、拖把手移動；拖曳時欄位跟著更新、確定以畫面為準（F21）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await setup(page);
+    await btn(page, '指定範圍裁切').click();
+    const dialog = page.getByRole('dialog', { name: '指定範圍裁切' });
+    await expect(dialog.getByText('範圍等於整張圖片')).toBeVisible();
+    const box = dialog.getByRole('group', { name: /^裁切範圍/ });
+    const values = async () =>
+      Promise.all(
+        ['X', 'Y', '寬', '高'].map((n) => dialog.getByRole('spinbutton', { name: n }).inputValue()),
+      ).then((v) => v.map(Number));
+    const drag = async (from: [number, number], to: [number, number], hold = 0) => {
+      const r = (await dialog.locator('canvas').boundingBox())!;
+      const at = (f: [number, number]) => [r.x + f[0] * r.width, r.y + f[1] * r.height] as const;
+      await page.mouse.move(...at(from));
+      await page.mouse.down();
+      if (hold) await page.waitForTimeout(hold);
+      await page.mouse.move(...at([(from[0] + to[0]) / 2, (from[1] + to[1]) / 2]), { steps: 4 });
+      await page.mouse.move(...at(to), { steps: 4 });
+      await page.mouse.up();
+    };
+    const near = (a: number[], b: number[]) => {
+      for (const [i, v] of a.entries())
+        expect(Math.abs(v - b[i]), `${a} ≈ ${b}`).toBeLessThanOrEqual(2);
+    };
+
+    /* (A) 初始範圍＝整張圖（300×600）：在框內按住拖曳畫出新範圍（20%,20% → 60%,70%） */
+    await expect(box).toBeVisible();
+    await drag([0.2, 0.2], [0.6, 0.7]);
+    near(await values(), [60, 120, 120, 300]);
+    await expect(dialog.getByText(/^裁切後 1[12]\d×(29\d|30\d)px$/)).toBeVisible();
+    /* 拖中央的把手＝移動（大小不變） */
+    const handle = dialog.getByTestId('crop-move-handle');
+    const h = (await handle.boundingBox())!;
+    const r = (await dialog.locator('canvas').boundingBox())!;
+    await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(h.x + h.width / 2 + 0.1 * r.width, h.y + h.height / 2, { steps: 5 });
+    await page.mouse.up();
+    near(await values(), [90, 120, 120, 300]);
+    /* 在框內按住不動一下再拖＝移動 */
+    await drag([0.4, 0.4], [0.4, 0.5], 500);
+    near(await values(), [90, 180, 120, 300]);
+
+    /* (B) 在「高」打到一半（游標還在欄位）就去圖上拖曳：四個欄位都更新，確定時以畫面上的範圍為準 */
+    const hField = dialog.getByRole('spinbutton', { name: '高' });
+    await hField.fill('100');
+    await expect(hField).toBeFocused();
+    await drag([0.2, 0.1], [0.8, 0.9]);
+    near(await values(), [60, 60, 180, 480]);
+    await dialog.getByRole('button', { name: '確定' }).click();
+    await expect(dialog.getByTestId('crop-summary')).toContainText(
+      /300×600px → 裁切後 1[78]\d×4[78]\dpx/,
+    );
+    await dialog.getByRole('button', { name: '套用' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByTestId('image-size')).toHaveText(/^1[78]\d×4[78]\dpx$/);
+    expect(errors).toEqual([]);
+  });
+
+  test('② 名字字型可以選「沿用頁面字型」（空白＝Streamkit 頁面原本的字型；F36）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await setup(page);
+    await page.getByRole('switch', { name: '顯示名字' }).click();
+    await page.getByRole('button', { name: /^字型/ }).click();
+    const picker = page.getByRole('dialog', { name: '選擇字型' });
+    await picker.getByRole('button', { name: /沿用頁面字型/ }).click();
+    await expect(picker).toBeHidden();
+    await expect(page.getByRole('button', { name: /^字型/ })).toContainText('沿用頁面字型');
+    const font = await page.evaluate(() => {
+      // biome-ignore lint/suspicious/noExplicitAny: 測試掛鉤
+      const t = (window as any).__obsTachie;
+      return t.data().presets[0].label.font;
+    });
+    expect(font).toEqual({ source: 'local', family: '', weight: 700 });
+    /* 輸出：名字不指定 font-family、不匯入 Google 字型 */
+    await goStep(page, 3);
+    const css = await page.getByRole('textbox', { name: /CSS/ }).first().inputValue();
+    expect(css).not.toContain('@import');
+    expect(css).toContain('content: "艾琳"');
+    const nameBlock = css.slice(css.lastIndexOf('{', css.indexOf('content: "艾琳"')));
+    expect(nameBlock.slice(0, nameBlock.indexOf('}'))).not.toContain('font-family');
+    expect(errors).toEqual([]);
+  });
+
   test('② 位置與效果：標籤、邊距提示、停用與原因、恢復預設（F25～F45）', async ({ page }) => {
     const errors = await open(page);
     await setup(page);

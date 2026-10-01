@@ -13,8 +13,8 @@ export const S = {
   stepsLabel: '步驟',
 
   /* ---------- 頁首 ---------- */
-  undo: '復原（Ctrl＋Z）',
-  redo: '重做（Ctrl＋Shift＋Z）',
+  undo: '復原',
+  redo: '重做',
   undoShort: '復原',
   redoShort: '重做',
   editGroup: '編輯',
@@ -227,6 +227,8 @@ export const S = {
     color: '文字顏色',
     font: '字型',
     fontHint: '電腦字型只有跑 OBS 的電腦也有安裝時才會生效。',
+    fontInherit: '沿用頁面字型',
+    fontInheritHint: '不指定字型，沿用 Discord Streamkit 頁面原本的字型。',
     align: '對齊',
     alignOptions: { left: '靠左', center: '置中', right: '靠右' },
     alignWithin: (w: number) => `在寬度 ${w}px 內對齊`,

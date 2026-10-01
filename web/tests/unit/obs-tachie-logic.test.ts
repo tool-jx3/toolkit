@@ -172,6 +172,15 @@ describe('預設集（F08、F44、4.）', () => {
   });
 });
 
+describe('名字字型「沿用頁面字型」（F36 裁定）', () => {
+  it('字型名稱空白＝沿用頁面字型：存檔讀回仍是空白（不會換回預設字型）', () => {
+    const p = createPreset('p1');
+    p.label.font = { source: 'local', family: '', weight: 400 };
+    const d = normalizeData({ ...DEFAULT_DATA, presets: [p] });
+    expect(d.presets[0].label.font).toEqual({ source: 'local', family: '', weight: 400 });
+  });
+});
+
 describe('存檔的修正（F76、5.）', () => {
   it('壞掉的資料修成可以用的樣子', () => {
     const d = normalizeData({
