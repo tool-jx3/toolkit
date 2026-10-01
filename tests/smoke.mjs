@@ -189,28 +189,6 @@ for (const locale of ['zh-TW', 'ko']) {
   check(`${locale} 無多餘 rune.* key`, stray.length === 0, `stray: ${stray.join(', ')}`);
 }
 
-/* ---- collage-letter ---- */
-const cl = checkTool({
-  dir: 'tools/collage-letter',
-  dict: 'i18n.collage-letter.js',
-  scripts: ['app.js'],
-  styles: ['styles.css'],
-  minHooks: 30
-});
-
-/* 色彩標籤以 T(opt.labelKey) 動態組成，靜態掃描看不到，
- * 需另外檢查這些 key 是否兩語言都存在。 */
-section('tools/collage-letter color labels');
-const colorLabelKeys = [
-  'color.blackWhite', 'color.whiteBlack', 'color.redWhite', 'color.yellowBlack',
-  'color.magentaWhite', 'color.cyanBlack', 'color.grayBlack', 'color.darkYellow',
-  'color.custom'
-];
-for (const locale of ['zh-TW', 'ko']) {
-  const missing = colorLabelKeys.filter(k => !cl.messages[locale][k]);
-  check(`${locale} 每個色彩標籤都存在`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
 /* ---- typewriter ---- */
 const tw = checkTool({
   dir: 'tools/typewriter',
@@ -2054,15 +2032,6 @@ check('message-box 與 status-bar 的字型清單一致',
   fontIds(mbFonts).join(',') === fontIds(sbFonts).join(','),
   `message-box: ${fontIds(mbFonts).length}, status-bar: ${fontIds(sbFonts).length}`);
 
-/* collage-letter：@import 的字重，以及字型池與 @import 的一致性。 */
-const clCss = read('tools/collage-letter/styles.css');
-checkCss2Url('collage-letter @import', clCss);
-const clApp = read('tools/collage-letter/app.js');
-for (const family of TC_FAMILIES) {
-  check(`collage-letter 的字型池有 ${family}`, clApp.includes(`{ name: '${family}'`));
-  check(`collage-letter 的 @import 有 ${family}`, clCss.includes(family.replace(/ /g, '+')));
-}
-
 /* typewriter：四個分頁的字型選單都要有同一組繁中選項。 */
 const twHtml = read('tools/typewriter/index.html');
 for (const family of TC_FAMILIES) {
@@ -2257,7 +2226,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
 checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
 checkInlineText('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 150);
 checkInlineText('tools/typewriter', 'tools/typewriter/index.html', ['tools/typewriter/i18n.typewriter.js'], 150);
-checkInlineText('tools/collage-letter', 'tools/collage-letter/index.html', ['tools/collage-letter/i18n.collage-letter.js'], 15);
 checkInlineText('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 15);
 checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 200);
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
@@ -2348,7 +2316,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
 checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
 checkAttrPairs('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 50);
 checkAttrPairs('tools/typewriter', 'tools/typewriter/index.html', ['tools/typewriter/i18n.typewriter.js'], 5);
-checkAttrPairs('tools/collage-letter', 'tools/collage-letter/index.html', ['tools/collage-letter/i18n.collage-letter.js'], 5);
 checkAttrPairs('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 3);
 checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 10);
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
@@ -2388,7 +2355,7 @@ const attribution = read('ATTRIBUTION.md');
 for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
-for (const sha of ['de40a68', 'cf3ff36', 'ea08333', 'b455379', '615664b',
+for (const sha of ['de40a68', 'cf3ff36', 'b455379', '615664b',
   '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331',
   '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {

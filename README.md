@@ -23,7 +23,7 @@
 | [魔法陣製作器](tools/magic-circle/) | 繪製魔法陣與簽名動態，支援對稱、貝茲曲線、時間軸與 GIF／APNG 匯出 |
 | [打字機動畫產生器](tools/typewriter/) | 輸入文字，產生逐字打出效果的 APNG／GIF／WebP 動畫圖 |
 | [文字軌跡產生器](tools/text-path/) | 讓文字沿著圓、螺旋、愛心或手繪的軌跡排列，輸出可以直接貼進聊天欄的純文字 |
-| [匿名拼貼信產生器](tools/collage-letter/) | 以剪報拼貼風格的字母組成信件圖片 |
+| [匿名拼貼信產生器](tools/collage-letter/) | 把一段文字做成剪報拼貼的匿名信，可下載圖片或複製成 HTML、Roll20 格式 |
 | [表情產生器](tools/emotion-maker/) | 組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖 |
 | [讀取動畫產生器](tools/loading-maker/) | 把角色動畫、讀取條與上下文字合成一張畫布，輸出為 APNG／WebP／GIF |
 | [前景框產生器](tools/foreground-frame/) | 設計 CCFOLIA 前景用的外框，加上裝飾與天氣、時間帶差分，一次匯出 |
@@ -140,12 +140,13 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 | `textbox` | [文字方框產生器](tools/textbox/) | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) |
 | `portrait-size` | [立繪尺寸統一器](tools/portrait-size/) | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) |
 | `text-path` | [文字軌跡產生器](tools/text-path/) | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) |
+| `collage-letter` | [匿名拼貼信產生器](tools/collage-letter/) | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的十個工具、
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的九個工具、
 `ccfolia-cropper`、`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的五個工具、`cutin`、
 `character-editor`、`height-board`、`trpg-lab`、
 `anime-rig`、`scenario-editor`、`obs-tachie` 與くま的六個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，

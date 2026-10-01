@@ -25,7 +25,6 @@
 |---|---|---|---|
 | magic-circle | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `de40a68` | MIT |
 | typewriter | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) | `cf3ff36` | MIT |
-| collage-letter | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) | `ea08333` | MIT |
 | emotion-maker | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b455379` | **未授權** |
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
 | foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
@@ -70,7 +69,7 @@ shiki365 的五個工具、`cutin`、`height-board` 與 `room-zip` 原文為日�
   另外多了 `webp.v1.js` 與共用的 `pcfonts.v1.js`。字幕字型清單加了同一組五套繁中字型（見下方「繁體中文字型」），
   字型群組的 `<optgroup>` 標籤掛 `data-label-key`，由程式在切換語言時套上。
 - `foreground-frame`、`scene-transition`、`chat-window` 與 `message-box` 的 `<style>` 區塊抽出為
-  `styles.css`（理由同 collage-letter）。
+  `styles.css`。
 - 這八個工具都移除了指向原作者站台的 OG／Twitter meta 與
   `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
   `<title>` 只留工具名，捨去 SEO 後綴。
@@ -346,8 +345,7 @@ MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也�
 這四個工具的外部相依（Tailwind Play CDN、three.js、cannon.js、gif.js、gifuct-js、
 gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，本 repo 不散布
 它們的檔案；各工具目錄下的 `THIRD_PARTY_NOTICES.md` 列出版本、來源與授權。
-合輯本來就是這個做法（`loading-maker` 的 pako，`collage-letter`／
-`typewriter` 的 Tailwind），README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
+合輯本來就是這個做法（`loading-maker` 的 pako，`typewriter` 的 Tailwind），README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
 
 `acrylic-goods` 另外自帶一個「開源授權」對話框，把同一份清單顯示給使用者看，
 那是上游就有的，收錄版只把兩句說明譯成繁中。
@@ -700,6 +698,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `textbox` | 文字方框產生器 | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) | `cb0c619` |
 | `portrait-size` | 立繪尺寸統一器 | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `cb0c619` |
 | `text-path` | 文字軌跡產生器 | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) | `b8a22a1` |
+| `collage-letter` | 匿名拼貼信產生器 | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) | `b8a22a1` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -774,7 +773,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
 因此沒有隨附 OFL 全文——與 `cutin` 的其他六套日文字型同樣的處理方式。
-收錄的工具：`cutin`、`status-bar`、`chat-window`、`message-box`、`scene-transition`（字幕字型）、`typewriter`、`collage-letter`、`pair-maker`
+收錄的工具：`cutin`、`status-bar`、`chat-window`、`message-box`、`scene-transition`（字幕字型）、`typewriter`、`pair-maker`
 （v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
 以及 `trpg-lab` 地圖編輯器的文字字型清單。
 

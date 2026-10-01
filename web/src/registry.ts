@@ -179,7 +179,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把一段文字做成「從雜誌剪字拼貼」的匿名信圖片：每個字是一張歪斜的彩色紙片，可下載透明 PNG、紙張底 JPG，或複製成 HTML、Roll20 格式。',
     group: 'G1',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/collage-letter',
       url: 'https://github.com/sotsotssi/collage-letter',
