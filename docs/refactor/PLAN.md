@@ -139,16 +139,26 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | 工具 | 規格 | 實作 | 對等驗證 | 上線 |
 |---|---|---|---|---|
 | （P0 地基） | — | ✅ | — | ✅（元件展示頁 `next/_gallery/`） |
-| battlemap | ✅ | ⬜ | ⬜ | ⬜ |
-| textbox | ✅ | ⬜ | ⬜ | ⬜ |
-| apng-wipe | ✅ | ⬜ | ⬜ | ⬜ |
-| portrait-size | ✅ | ⬜ | ⬜ | ⬜ |
-| text-fx | —（原創，直接移植） | ⬜ | ⬜ | ⬜ |
-| status-bar | 📝 | ⬜ | ⬜ | ⬜ |
-| message-box | 📝 | ⬜ | ⬜ | ⬜ |
-| chat-window | 📝 | ⬜ | ⬜ | ⬜ |
-| obs-tachie | 📝 | ⬜ | ⬜ | ⬜ |
-| 其餘 31 個 | ⬜ | ⬜ | ⬜ | ⬜ |
+| battlemap | ✅ | ✅ | 🔍 | ⬜ |
+| textbox | ✅ | ✅ | 🔍 | ⬜ |
+| apng-wipe | ✅ | ✅ | 🔍 | ⬜ |
+| portrait-size | ✅ | ✅ | 🔍 | ⬜ |
+| text-fx | —（原創，直接移植） | 🔨 | ⬜ | ⬜ |
+| status-bar | ✅ | ⬜ | ⬜ | ⬜ |
+| message-box | ✅ | ⬜ | ⬜ | ⬜ |
+| chat-window | ✅ | ⬜ | ⬜ | ⬜ |
+| obs-tachie | ✅ | ⬜ | ⬜ | ⬜ |
+| ccfolia-cropper | ✅ | ⬜ | ⬜ | ⬜ |
+| icon-maker | ✅ | ⬜ | ⬜ | ⬜ |
+| variant-manager | ✅ | ⬜ | ⬜ | ⬜ |
+| height-board | ✅ | ⬜ | ⬜ | ⬜ |
+| color-palette | ✅ | ⬜ | ⬜ | ⬜ |
+| emotion-maker | ✅ | ⬜ | ⬜ | ⬜ |
+| typewriter | 📝 | ⬜ | ⬜ | ⬜ |
+| text-path | 📝 | ⬜ | ⬜ | ⬜ |
+| cutin | 📝 | ⬜ | ⬜ | ⬜ |
+| collage-letter | 📝 | ⬜ | ⬜ | ⬜ |
+| 其餘 21 個 | ⬜ | ⬜ | ⬜ | ⬜ |
 
 （每個群組開始時把該組工具逐列展開到這張表。）
 
