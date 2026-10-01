@@ -373,10 +373,12 @@ describe('骰子結果（F29～F33）', () => {
     expect(get(end, M.buttons, 'order')).toBe('3');
   });
 
-  it('名牌模式：固定在名牌旁，只有文字也加名牌底色與圓角，細外框沒有淡底，都沒有描邊', () => {
+  it('名牌模式：結果接在名牌旁或放到那一列最右端（同舊版），只有文字也加名牌底色與圓角，細外框沒有淡底，都沒有描邊', () => {
     const base = { namePos: 'plate' as const, outline: 'soft' as const, plateRadius: 9 };
     const text = build({ ...base, resultPos: 'end' });
-    expect(get(text, M.result, 'order')).toBe('0');
+    /* 標題列最右端：名牌模式也放到那一列的最右邊（同舊版；撐開空間排在名牌與結果之間） */
+    expect(get(text, M.result, 'order')).toBe('2');
+    expect(get(text, M.spacer, 'order')).toBe('1');
     expect(get(text, resultSelector('other'), 'background-color')).toBe('rgba(42, 47, 61, 0.8)');
     expect(get(text, resultSelector('other'), 'border-radius')).toBe('9px');
     expect(get(text, resultSelector('other'), 'text-shadow')).toBe('none');

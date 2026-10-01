@@ -394,7 +394,8 @@ export function buildMessageBoxCss(s: MbSettings, opts: BuildOptions = {}): stri
 
   /* 骰子結果（F29～F33） */
   if (s.showResult) {
-    const atEnd = !plate && s.resultPos === 'end';
+    /* 標題列最右端：名牌模式也一樣放到那一列的最右邊（同舊版） */
+    const atEnd = s.resultPos === 'end';
     css.rule(M.result, {
       ...fontDecls(s.resultFont, s.resultSize),
       'line-height': num(LOOK.nameLineHeight),
@@ -462,7 +463,7 @@ export function buildMessageBoxCss(s: MbSettings, opts: BuildOptions = {}): stri
     'min-width': 0,
     margin: 0,
     padding: 0,
-    order: s.showResult && !plate && s.resultPos === 'end' ? 1 : 0,
+    order: s.showResult && s.resultPos === 'end' ? 1 : 0,
   });
 
   /* 略過／關閉按鈕（F18） */

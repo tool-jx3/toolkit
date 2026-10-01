@@ -292,11 +292,12 @@ export function NamePanel() {
       >
         <ToggleField k="showResult" label={S.showResult} />
         <Show when={c.showResult}>
-          {plate ? (
-            <p className="m-0 text-xs text-muted">{S.resultPosPlate}</p>
-          ) : (
-            <SegField k="resultPos" label={S.resultPos} options={S.resultPosOptions} />
-          )}
+          <SegField
+            k="resultPos"
+            label={S.resultPos}
+            options={S.resultPosOptions}
+            hint={plate ? S.resultPosPlate : undefined}
+          />
           <SegField
             k="resultStyle"
             label={S.resultStyle}
