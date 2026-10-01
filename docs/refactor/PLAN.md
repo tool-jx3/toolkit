@@ -156,7 +156,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | emotion-maker | ✅ | ⬜ | ⬜ | ⬜ |
 | typewriter | ✅ | ✅ | 🔍 | ⬜ |
 | text-path | ✅ | ✅ | ✅ | ✅ |
-| cutin | ✅ | 🔨 | ⬜ | ⬜ |
+| cutin | ✅ | ✅ | 🔍 | ⬜ |
 | collage-letter | ✅ | ✅ | 🔍 | ⬜ |
 | scene-transition | ✅ | ⬜ | ⬜ | ⬜ |
 | bg-motion | ✅ | ⬜ | ⬜ | ⬜ |
