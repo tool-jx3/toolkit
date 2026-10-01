@@ -1,6 +1,6 @@
 /**
  * 分段選擇（Radix ToggleGroup，單選）。選項少（2～5 個）時取代下拉選單。
- * 方向鍵在選項間移動；不能取消選取（一定有一個值）。
+ * 方向鍵在選項間移動；不能取消選取（一定有一個值）。再按一次已選的選項時呼叫 onReselect（有給的話）。
  */
 import { ToggleGroup } from 'radix-ui';
 import type { ReactNode } from 'react';
@@ -19,6 +19,8 @@ export interface SegmentedOption<V extends string> {
 export interface SegmentedProps<V extends string> {
   value: V;
   onValueChange: (value: V) => void;
+  /** 再按一次目前已選的選項時呼叫（例如「再選一次同一種地形也重新產生」）；不給就什麼都不做 */
+  onReselect?: (value: V) => void;
   options: readonly SegmentedOption<V>[];
   'aria-label'?: string;
   'aria-labelledby'?: string;
@@ -32,6 +34,7 @@ export interface SegmentedProps<V extends string> {
 export function Segmented<V extends string>({
   value,
   onValueChange,
+  onReselect,
   options,
   size = 'md',
   fullWidth,
@@ -46,6 +49,7 @@ export function Segmented<V extends string>({
       value={value}
       onValueChange={(v) => {
         if (v) onValueChange(v as V);
+        else onReselect?.(value);
       }}
       disabled={disabled}
       aria-label={rest['aria-label']}

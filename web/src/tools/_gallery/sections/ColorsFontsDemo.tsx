@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import type { Hsv } from '@/core/color';
 import type { FontValue } from '@/core/fonts';
 import { DEFAULT_GRADIENT, type Gradient, gradientToCss } from '@/core/gradient';
-import { ColorField, Field, FontPicker, GradientField, Section } from '@/ui';
+import { ColorField, Field, FontPicker, GradientField, HsvPanel, hsvToHex, Section } from '@/ui';
 
 /** 顏色與字型元件的各種狀態 */
 export function ColorsFontsDemo() {
@@ -9,6 +10,7 @@ export function ColorsFontsDemo() {
   const [c2, setC2] = useState('#f0c36d99');
   const [c3, setC3] = useState('#27ae60');
   const [g, setG] = useState<Gradient>(DEFAULT_GRADIENT);
+  const [hsv, setHsv] = useState<Hsv>({ h: 268, s: 0.3, v: 0.18 });
   const [f1, setF1] = useState<FontValue>({
     source: 'google',
     family: 'LXGW WenKai TC',
@@ -37,6 +39,23 @@ export function ColorsFontsDemo() {
         <Field label="停用">
           <ColorField value="#888888" onChange={() => {}} disabled />
         </Field>
+      </Section>
+      <Section title="HSV 面板 HsvPanel">
+        <Field
+          label="彩度／明度＋色相"
+          hint="值直接是 HSV（不是色碼），可以指定標記的初始位置；灰色時色相不會遺失。"
+        >
+          <HsvPanel value={hsv} onChange={setHsv} />
+        </Field>
+        <p className="m-0 flex items-center gap-2 font-mono text-xs text-muted">
+          <span
+            aria-hidden
+            className="inline-block size-5 rounded-sm border border-border-strong"
+            style={{ background: hsvToHex(hsv) }}
+          />
+          {hsvToHex(hsv)}（色相 {Math.round(hsv.h)}°、彩度 {Math.round(hsv.s * 100)}%、明度{' '}
+          {Math.round(hsv.v * 100)}%）
+        </p>
       </Section>
       <Section title="漸層 GradientField">
         <Field
