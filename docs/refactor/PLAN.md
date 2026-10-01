@@ -149,10 +149,10 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | chat-window | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
 | obs-tachie | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
 | ccfolia-cropper | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
-| icon-maker | ✅ | ✅ | 🔍 | ⬜ |
+| icon-maker | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
 | variant-manager | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
 | height-board | ✅ | 🔨 | ⬜ | ⬜ |
-| color-palette | ✅ | 🔨 | ⬜ | ⬜ |
+| color-palette | ✅ | ✅ | ⬜ | ⬜ |
 | emotion-maker | ✅ | 🔨 | ⬜ | ⬜ |
 | typewriter | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
 | text-path | ✅ | ✅ | ✅ | ✅ |
