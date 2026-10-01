@@ -3,6 +3,7 @@ import { createToolStore } from '@/core/storage';
 import {
   Field,
   FieldRow,
+  NativeNumberInput,
   Section,
   Segmented,
   TextArea,
@@ -12,26 +13,19 @@ import {
   UsageSection,
 } from '@/ui';
 import {
-  BOX_WIDTH_FALLBACK,
   BOX_WIDTH_RANGE,
   type Calibration,
-  CUSTOM_BORDER_FALLBACK,
   CUSTOM_RATIO_MAX,
-  CUSTOM_WIDE_FALLBACK,
   DEFAULT_INPUT,
   type LineStyle,
   type Mode,
   type PadStyle,
-  parseLimit,
-  parseRatio,
   renderTextbox,
-  TABLE_WIDTH_FALLBACK,
   TABLE_WIDTH_RANGE,
   type TextboxInput,
   type WarningField,
 } from './layout';
 import { OutputPanel } from './OutputPanel';
-import { RawNumberInput } from './RawNumberInput';
 import { S } from './strings';
 
 /** 規格 F28：不保留任何輸入或設定，重新整理後回到預設 */
@@ -127,37 +121,36 @@ export function App() {
             ]}
           />
         </Field>
-        {d.calibration === 'custom' ? (
-          <div className="flex flex-col gap-1.5" data-testid="custom-ratio">
-            <FieldRow columns={2}>
-              <Field label={S.customWide} error={warn('customWide')}>
-                <RawNumberInput
-                  value={d.customWide}
-                  onChange={set('customWide')}
-                  effective={parseRatio(d.customWide, CUSTOM_WIDE_FALLBACK).value}
-                  min={0.01}
-                  max={CUSTOM_RATIO_MAX}
-                  step={0.01}
-                  stepUpLabel={S.stepUp(S.customWide)}
-                  stepDownLabel={S.stepDown(S.customWide)}
-                />
-              </Field>
-              <Field label={S.customBorder} error={warn('customBorder')}>
-                <RawNumberInput
-                  value={d.customBorder}
-                  onChange={set('customBorder')}
-                  effective={parseRatio(d.customBorder, CUSTOM_BORDER_FALLBACK).value}
-                  min={0.01}
-                  max={CUSTOM_RATIO_MAX}
-                  step={0.01}
-                  stepUpLabel={S.stepUp(S.customBorder)}
-                  stepDownLabel={S.stepDown(S.customBorder)}
-                />
-              </Field>
-            </FieldRow>
-            <p className="m-0 text-xs text-muted">{S.customHint}</p>
-          </div>
-        ) : null}
+        {/* 數值欄一直掛著、只是隱藏：原生數字欄裡打到一半的無效文字（例如「5-」）切回來時還在 */}
+        <div
+          className="flex flex-col gap-1.5"
+          data-testid="custom-ratio"
+          hidden={d.calibration !== 'custom'}
+        >
+          <FieldRow columns={2}>
+            <Field label={S.customWide} error={warn('customWide')}>
+              <NativeNumberInput
+                value={d.customWide}
+                onChange={set('customWide')}
+                min={0.01}
+                max={CUSTOM_RATIO_MAX}
+                step={0.01}
+                stepLabels={{ up: S.stepUp(S.customWide), down: S.stepDown(S.customWide) }}
+              />
+            </Field>
+            <Field label={S.customBorder} error={warn('customBorder')}>
+              <NativeNumberInput
+                value={d.customBorder}
+                onChange={set('customBorder')}
+                min={0.01}
+                max={CUSTOM_RATIO_MAX}
+                step={0.01}
+                stepLabels={{ up: S.stepUp(S.customBorder), down: S.stepDown(S.customBorder) }}
+              />
+            </Field>
+          </FieldRow>
+          <p className="m-0 text-xs text-muted">{S.customHint}</p>
+        </div>
         <Field label={S.line}>
           <Segmented<LineStyle>
             value={d.line}
@@ -183,40 +176,35 @@ export function App() {
         <Field label={S.sides} hint={S.sidesHint} layout="inline">
           <Toggle checked={d.sides} onCheckedChange={set('sides')} />
         </Field>
-        {isBox ? (
+        <div hidden={!isBox}>
           <Field label={S.boxWidth} hint={S.boxWidthHint} error={warn('boxWidth')}>
-            <RawNumberInput
+            <NativeNumberInput
               value={d.boxWidth}
               onChange={set('boxWidth')}
-              effective={Math.max(1, parseLimit(d.boxWidth, BOX_WIDTH_FALLBACK))}
               min={BOX_WIDTH_RANGE.min}
               max={BOX_WIDTH_RANGE.max}
               step={1}
               unit={S.unitChars}
-              stepUpLabel={S.stepUp(S.boxWidth)}
-              stepDownLabel={S.stepDown(S.boxWidth)}
+              stepLabels={{ up: S.stepUp(S.boxWidth), down: S.stepDown(S.boxWidth) }}
             />
           </Field>
-        ) : (
-          <>
-            <Field label={S.tableWidth} hint={S.tableWidthHint}>
-              <RawNumberInput
-                value={d.tableWidth}
-                onChange={set('tableWidth')}
-                effective={parseLimit(d.tableWidth, TABLE_WIDTH_FALLBACK)}
-                min={TABLE_WIDTH_RANGE.min}
-                max={TABLE_WIDTH_RANGE.max}
-                step={1}
-                unit={S.unitChars}
-                stepUpLabel={S.stepUp(S.tableWidth)}
-                stepDownLabel={S.stepDown(S.tableWidth)}
-              />
-            </Field>
-            <Field label={S.header} hint={S.headerHint} layout="inline">
-              <Toggle checked={d.header} onCheckedChange={set('header')} />
-            </Field>
-          </>
-        )}
+        </div>
+        <div className="flex flex-col gap-3" hidden={isBox}>
+          <Field label={S.tableWidth} hint={S.tableWidthHint}>
+            <NativeNumberInput
+              value={d.tableWidth}
+              onChange={set('tableWidth')}
+              min={TABLE_WIDTH_RANGE.min}
+              max={TABLE_WIDTH_RANGE.max}
+              step={1}
+              unit={S.unitChars}
+              stepLabels={{ up: S.stepUp(S.tableWidth), down: S.stepDown(S.tableWidth) }}
+            />
+          </Field>
+          <Field label={S.header} hint={S.headerHint} layout="inline">
+            <Toggle checked={d.header} onCheckedChange={set('header')} />
+          </Field>
+        </div>
       </Section>
 
       <UsageSection>{usage}</UsageSection>

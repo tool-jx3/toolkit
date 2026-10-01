@@ -5,6 +5,7 @@ import {
   Field,
   FieldRow,
   IconButton,
+  NativeNumberInput,
   NumberInput,
   Section,
   Segmented,
@@ -25,6 +26,7 @@ export function ControlsDemo() {
   const [bad, setBad] = useState('abc');
   const [memo, setMemo] = useState('多行文字。\n第二行。');
   const [num, setNum] = useState(512);
+  const [raw, setRaw] = useState('24');
   const [size, setSize] = useState(48);
   const [opacity, setOpacity] = useState(0.8);
   const [pressed, setPressed] = useState(false);
@@ -147,7 +149,7 @@ export function ControlsDemo() {
           <TextArea value={memo} onChange={(e) => setMemo(e.target.value)} rows={3} />
         </Field>
       </Section>
-      <Section title="數字 NumberInput／Slider">
+      <Section title="數字 NumberInput／NativeNumberInput／Slider">
         <FieldRow>
           <Field label="寬度">
             <NumberInput value={num} onChange={setNum} min={1} max={4096} unit="px" />
@@ -156,6 +158,20 @@ export function ControlsDemo() {
             <NumberInput value={42} onChange={() => {}} disabled />
           </Field>
         </FieldRow>
+        <Field
+          label="原生數字欄"
+          labelSuffix={`值：「${raw}」`}
+          hint="值就是瀏覽器數字欄的值字串：全形「１２」是 12，「5-」這類無效的寫法是空字串；微調照原生規則（10～100）。"
+        >
+          <NativeNumberInput
+            value={raw}
+            onChange={setRaw}
+            min={10}
+            max={100}
+            unit="格"
+            stepLabels={{ up: '原生數字欄：增加', down: '原生數字欄：減少' }}
+          />
+        </Field>
         <Field label="字級" hint="↑／↓ 調整，Shift 一次 10。">
           <Slider value={size} onChange={setSize} min={8} max={200} unit="px" />
         </Field>

@@ -2,7 +2,7 @@ import { Download, ImagePlus, Trash2, Wand2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { downloadSequentially, formatBytes, readAsBytes } from '@/core/files';
-import { canvasToBlob, detectImageType, getImageData, loadImage } from '@/core/image';
+import { canvasToBlob, detectImageType, type Rect } from '@/core/image';
 import {
   Button,
   Field,
@@ -19,17 +19,15 @@ import {
   useWebpSupport,
 } from '@/ui';
 import {
-  composePixels,
-  contentRect,
   type OutputOptions,
   outputName,
   outputSpec,
   placeAll,
   QUALITY_RANGE,
-  type RgbaBuffer,
   type SourceKind,
   sourceKind,
 } from './logic';
+import { DecodeQueue, renderPlacement, trimmedRect } from './render';
 import { S } from './strings';
 
 interface Item {
@@ -65,16 +63,6 @@ const nextId = () => `img-${++seq}`;
 
 /** 讓瀏覽器有機會更新畫面（進度） */
 const yieldToUi = () => new Promise<void>((r) => setTimeout(r, 0));
-
-function toCanvas(buf: RgbaBuffer): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = buf.width;
-  c.height = buf.height;
-  const ctx = c.getContext('2d');
-  if (!ctx) throw new Error(S.canvasError);
-  ctx.putImageData(new ImageData(buf.data, buf.width, buf.height), 0, 0);
-  return c;
-}
 
 function Usage() {
   return (
@@ -191,39 +179,39 @@ export function App() {
     if (!n) return;
     const opts: ProcessOptions = { trim, align };
     setProcessing(true);
-    /* 一律從原圖重算：先逐張解碼並裁掉透明留白，再依最寬的寬度對齊 */
-    const crops: (RgbaBuffer | null)[] = [];
+    /* 一律從原圖重算：先逐張解碼並找出透明留白的範圍，再依最寬的寬度對齊、畫到輸出畫布 */
+    const queue = new DecodeQueue(list.map((it) => it.file));
+    const bitmaps: ImageBitmap[] = [];
+    const rects: Rect[] = [];
+    const release = () => {
+      queue.dispose();
+      for (const b of bitmaps) b.close();
+      bitmaps.length = 0;
+    };
     for (let i = 0; i < n; i++) {
       /* 進度要在解碼大圖之前就畫出來 */
       flushSync(() => setStatus({ tone: 'progress', text: S.processing(i + 1, n) }));
       await yieldToUi();
-      if (generation.current !== my) return;
-      let pixels: ImageData;
+      if (generation.current !== my) return release();
       try {
-        const bitmap = await loadImage(list[i].file);
-        pixels = getImageData(bitmap);
-        bitmap.close();
+        const bitmap = await queue.get(i);
+        bitmaps.push(bitmap);
+        if (generation.current !== my) return release();
+        rects.push(trimmedRect(bitmap, opts.trim));
       } catch {
+        release();
         if (generation.current !== my) return;
         setProcessing(false);
         setStatus({ tone: 'danger', text: S.readError(list[i].file.name) });
         return;
       }
-      if (generation.current !== my) return;
-      const rect = contentRect(pixels, opts.trim);
-      crops.push(
-        composePixels(pixels, { crop: rect, width: rect.width, height: rect.height, offsetX: 0 }),
-      );
     }
-    const placements = placeAll(
-      crops.map((c) => ({ x: 0, y: 0, width: c!.width, height: c!.height })),
-      opts.align,
-    );
+    const placements = placeAll(rects, opts.align);
     const map = new Map<string, Result>();
     try {
       placements.forEach((p, i) => {
-        const canvas = toCanvas(composePixels(crops[i]!, p));
-        crops[i] = null;
+        const canvas = renderPlacement(bitmaps[i], p);
+        bitmaps[i].close();
         map.set(list[i].id, { canvas, width: p.width, height: p.height });
       });
     } catch (e) {
@@ -232,6 +220,8 @@ export function App() {
       setProcessing(false);
       setStatus({ tone: 'danger', text: S.processError(e instanceof Error ? e.message : '') });
       return;
+    } finally {
+      release();
     }
     if (generation.current !== my) return;
     setResults(map);

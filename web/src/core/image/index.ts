@@ -155,6 +155,109 @@ export function opaqueBounds({ data, width, height }: PixelBuffer, threshold = 0
   return { x: x0, y: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 };
 }
 
+/** 一次讀的帶寬：從 16 px 起每次加倍，最多 512 px */
+const SCAN_FIRST_BAND = 16;
+const SCAN_MAX_BAND = 512;
+
+/**
+ * 與 opaqueBounds 相同的結果，但不必一次取整張像素：從上、下往內一條一條讀橫帶，
+ * 再在上下範圍內從左、右往內讀直帶，碰到有內容的那一條就停（帶寬從 16 px 起加倍）。
+ * read(x, y, w, h) 回傳那一塊的 RGBA（列優先、w × h × 4）。
+ * 四周留白不多的大圖只會讀到邊緣的幾條；整張透明時會讀完整張並回傳 null。
+ */
+export function scanOpaqueBounds(
+  width: number,
+  height: number,
+  read: (x: number, y: number, w: number, h: number) => ArrayLike<number>,
+  threshold = 0,
+): Rect | null {
+  if (width <= 0 || height <= 0) return null;
+  const rowHas = (d: ArrayLike<number>, w: number, r: number) => {
+    for (let i = r * w * 4 + 3, end = i + w * 4; i < end; i += 4) if (d[i] > threshold) return true;
+    return false;
+  };
+  const colHas = (d: ArrayLike<number>, w: number, h: number, c: number) => {
+    for (let i = c * 4 + 3, end = h * w * 4; i < end; i += w * 4) if (d[i] > threshold) return true;
+    return false;
+  };
+  const grow = (band: number) => Math.min(band * 2, SCAN_MAX_BAND);
+
+  let top = -1;
+  for (let y = 0, band = SCAN_FIRST_BAND; top < 0 && y < height; band = grow(band)) {
+    const h = Math.min(band, height - y);
+    const d = read(0, y, width, h);
+    for (let r = 0; r < h; r++)
+      if (rowHas(d, width, r)) {
+        top = y + r;
+        break;
+      }
+    y += h;
+  }
+  if (top < 0) return null;
+
+  let bottom = -1;
+  for (let end = height, band = SCAN_FIRST_BAND; bottom < 0 && end > top; band = grow(band)) {
+    const y0 = Math.max(top, end - band);
+    const h = end - y0;
+    const d = read(0, y0, width, h);
+    for (let r = h - 1; r >= 0; r--)
+      if (rowHas(d, width, r)) {
+        bottom = y0 + r;
+        break;
+      }
+    end = y0;
+  }
+  if (bottom < 0) return null;
+
+  const rows = bottom - top + 1;
+  let left = -1;
+  for (let x = 0, band = SCAN_FIRST_BAND; left < 0 && x < width; band = grow(band)) {
+    const w = Math.min(band, width - x);
+    const d = read(x, top, w, rows);
+    for (let c = 0; c < w; c++)
+      if (colHas(d, w, rows, c)) {
+        left = x + c;
+        break;
+      }
+    x += w;
+  }
+  if (left < 0) return null;
+
+  let right = -1;
+  for (let end = width, band = SCAN_FIRST_BAND; right < 0 && end > left; band = grow(band)) {
+    const x0 = Math.max(left, end - band);
+    const w = end - x0;
+    const d = read(x0, top, w, rows);
+    for (let c = w - 1; c >= 0; c--)
+      if (colHas(d, w, rows, c)) {
+        right = x0 + c;
+        break;
+      }
+    end = x0;
+  }
+  if (right < 0) return null;
+  return { x: left, y: top, width: right - left + 1, height: rows };
+}
+
+/**
+ * 影像裡透明度大於 threshold 的範圍（結果同 opaqueBounds(getImageData(img), threshold)），
+ * 但用 scanOpaqueBounds 只讀四周需要的部分，大圖不必整張轉成 ImageData。整張透明時回傳 null。
+ */
+export function imageOpaqueBounds(img: DrawableImage, threshold = 0): Rect | null {
+  const { width, height } = imageSize(img);
+  return scanOpaqueBounds(
+    width,
+    height,
+    (x, y, w, h) => {
+      const ctx = ctx2d(makeCanvas(w, h), true);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+      return ctx.getImageData(0, 0, w, h).data;
+    },
+    threshold,
+  );
+}
+
 /** 範圍往外加邊距（不超出影像） */
 export function padRect(r: Rect, pad: number, bounds: Size): Rect {
   const x = Math.max(0, r.x - pad);

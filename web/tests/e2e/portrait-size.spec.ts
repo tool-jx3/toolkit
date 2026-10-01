@@ -4,13 +4,19 @@
  * - 選檔與拖放載入、類型過濾（依檔頭）、累加、移除、清除；
  * - 處理進度、處理後的縮圖與尺寸、改選項的提示；
  * - 逐張下載：檔名、順序、間隔約 0.5 秒、輸出格式與像素；
+ * - PNG 與無損 WebP 的輸出與逐像素搬移的參考做法（logic.ts 的 composePixels）完全相同；
  * - 讀檔失敗的訊息指出檔名；
+ * - 效能：8 張 2000×3000 的 PNG 處理時間；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { crc32, deflateSync } from 'node:zlib';
 import { type Download, expect, type Locator, type Page, test } from '@playwright/test';
 import { encodePng } from '../../src/core/encode/png';
+import type { PixelBuffer } from '../../src/core/image';
 import { getTool, outputDir } from '../../src/registry';
+import { composePixels, contentRect, placeAll } from '../../src/tools/portrait-size/logic';
+import { decodePixels, parseChunks, readIhdr } from '../helpers/png';
 
 const URL = `/${outputDir(getTool('portrait-size') ?? { id: 'portrait-size', status: 'next' })}/`;
 
@@ -420,6 +426,268 @@ test('逐張下載：檔名、順序、間隔約 0.5 秒；輸出格式在下載
   ]);
   expect([ap.width, ap.height, ap.px[0][3]]).toEqual([300, 240, 0]);
   expect(ap.px[1]).toEqual([220, 40, 30, 255]);
+  expect(errors).toEqual([]);
+});
+
+/** 依 fill(x, y) 產生 RGBA 的 PNG（像素原值照存，不經過畫布） */
+async function rgbaPng(
+  w: number,
+  h: number,
+  fill: (x: number, y: number) => [number, number, number, number],
+): Promise<Buffer> {
+  const px = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) px.set(fill(x, y), (y * w + x) * 4);
+  return Buffer.from(await encodePng(px, w, h));
+}
+
+/** 在頁面裡用瀏覽器解碼原圖，回傳整張的 RGBA（處理時讀到的像素：解碼、畫到畫布、getImageData） */
+async function pixelsOf(page: Page, bytes: Buffer): Promise<PixelBuffer> {
+  const r = await page.evaluate(async (b64) => {
+    const data = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+    const bmp = await createImageBitmap(new Blob([data]));
+    const c = document.createElement('canvas');
+    c.width = bmp.width;
+    c.height = bmp.height;
+    const ctx = c.getContext('2d', { willReadFrequently: true })!;
+    ctx.drawImage(bmp, 0, 0);
+    const px = ctx.getImageData(0, 0, c.width, c.height).data;
+    let s = '';
+    for (let i = 0; i < px.length; i += 0x8000)
+      s += String.fromCharCode(...px.subarray(i, i + 0x8000));
+    return { width: bmp.width, height: bmp.height, b64: btoa(s) };
+  }, bytes.toString('base64'));
+  return { width: r.width, height: r.height, data: new Uint8Array(Buffer.from(r.b64, 'base64')) };
+}
+
+/** 在頁面裡把像素畫到畫布（putImageData）再用瀏覽器的編碼器輸出 */
+async function encodeInPage(page: Page, px: PixelBuffer, type: string, quality?: number) {
+  const b64 = await page.evaluate(
+    async ({ w, h, data, type, quality }) => {
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const bytes = Uint8ClampedArray.from(atob(data), (ch) => ch.charCodeAt(0));
+      c.getContext('2d')!.putImageData(new ImageData(bytes, w, h), 0, 0);
+      const blob = await new Promise<Blob>((r) => c.toBlob((b) => r(b!), type, quality));
+      const out = new Uint8Array(await blob.arrayBuffer());
+      let s = '';
+      for (let i = 0; i < out.length; i += 0x8000)
+        s += String.fromCharCode(...out.subarray(i, i + 0x8000));
+      return btoa(s);
+    },
+    {
+      w: px.width,
+      h: px.height,
+      data: Buffer.from(px.data.buffer, px.data.byteOffset, px.data.byteLength).toString('base64'),
+      type,
+      quality,
+    },
+  );
+  return Buffer.from(b64, 'base64');
+}
+
+/** 直接解出 PNG 檔裡的像素（不經過瀏覽器，沒有預乘的誤差） */
+function pngPixels(bytes: Buffer): PixelBuffer {
+  const chunks = parseChunks(bytes);
+  const { width, height, bitDepth, colorType } = readIhdr(chunks);
+  expect([bitDepth, colorType]).toEqual([8, 6]);
+  const z = Buffer.concat(chunks.filter((c) => c.type === 'IDAT').map((c) => c.data));
+  return { width, height, data: decodePixels(z, width, height, colorType) };
+}
+
+/** 按「全部下載」，等全部下載完，依序回傳檔名與內容 */
+async function downloadEach(page: Page, n: number) {
+  const got: Download[] = [];
+  const onDownload = (d: Download) => got.push(d);
+  page.on('download', onDownload);
+  await btn(page, '全部下載').click();
+  await expect(status(page)).toHaveText(`下載完成：共 ${n} 張。`, { timeout: 30_000 });
+  await expect.poll(() => got.length).toBe(n);
+  page.off('download', onDownload);
+  return Promise.all(
+    got.map(async (d) => ({ name: d.suggestedFilename(), bytes: readFileSync((await d.path())!) })),
+  );
+}
+
+test('像素：PNG 與無損 WebP 的輸出與逐像素搬移的參考做法完全相同（含半透明、完全透明）', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors = await open(page);
+  let seed = 20261001;
+  const rnd = (n: number) => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed % n;
+  };
+  const sources = [
+    /* 每種（顏色, 透明度）的組合：內容區的 (x, y) → R＝x、A＝y；外圍是 RGB 不為 0 的完全透明像素 */
+    await rgbaPng(300, 300, (x, y) => {
+      const cx = x - 20;
+      const cy = y - 22;
+      if (cx < 0 || cy < 0 || cx > 255 || cy > 255) return [rnd(256), rnd(256), rnd(256), 0];
+      return [cx, (cx * 7 + cy * 3) & 255, 255 - cx, cy];
+    }),
+    /* 隨機雜訊：透明度隨機（約一成完全透明），四周透明；寬度是奇數 */
+    await rgbaPng(141, 90, (x, y) =>
+      x < 13 || x >= 120 || y < 5 || y >= 81
+        ? [rnd(256), rnd(256), rnd(256), 0]
+        : [rnd(256), rnd(256), rnd(256), rnd(10) === 0 ? 0 : rnd(256)],
+    ),
+    /* 兩個透明度 1/255 的孤立像素決定範圍 */
+    await rgbaPng(90, 70, (x, y) =>
+      (x === 3 && y === 60) || (x === 80 && y === 2) ? [10, 200, 30, 1] : [0, 0, 0, 0],
+    ),
+  ];
+  await input(page).setInputFiles(sources.map((b, i) => file(`p${i + 1}.png`, b)));
+  await btn(page, '處理').click();
+  await expect(status(page)).toHaveText(/處理完成/);
+
+  /* 參考做法：瀏覽器讀到的原圖像素，照規格裁切、置中（logic.ts） */
+  const decoded = await Promise.all(sources.map((b) => pixelsOf(page, b)));
+  const placements = placeAll(
+    decoded.map((d) => contentRect(d, true)),
+    true,
+  );
+  expect(placements.map((p) => [p.width, p.height])).toEqual([
+    [256, 255],
+    [256, 76],
+    [256, 59],
+  ]);
+  const want = placements.map((p, i) => composePixels(decoded[i], p));
+
+  for (const webp of [true, false]) {
+    await expect(page.getByRole('switch', { name: '輸出為 WebP' })).toHaveAttribute(
+      'aria-checked',
+      String(webp),
+    );
+    const files = await downloadEach(page, sources.length);
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      expect(f.name).toBe(`p${i + 1}.${webp ? 'webp' : 'png'}`);
+      if (webp) {
+        /* 無損 WebP：瀏覽器解碼 WebP 時的預乘會讓半透明像素差一點，不能拿解碼結果比；
+           改比「同一個瀏覽器編碼器把參考像素編成的檔案」——位元組相同就是像素相同 */
+        expect(isWebp(f.bytes) && fourcc(f.bytes, 'VP8L')).toBe(true);
+        const ref = await encodeInPage(page, want[i], 'image/webp', 1);
+        expect(f.bytes.equals(ref), `${f.name}：與參考像素編成的 WebP 位元組相同`).toBe(true);
+      } else {
+        /* PNG：直接解出檔案裡的像素逐一比對 */
+        expect(isPng(f.bytes)).toBe(true);
+        const got = pngPixels(f.bytes);
+        expect([got.width, got.height]).toEqual([want[i].width, want[i].height]);
+        let diff = 0;
+        for (let k = 0; k < got.data.length; k++) if (got.data[k] !== want[i].data[k]) diff++;
+        expect(diff, `${f.name}：與參考做法不同的通道數`).toBe(0);
+      }
+    }
+    if (webp) await page.getByRole('switch', { name: '輸出為 WebP' }).click();
+  }
+  expect(errors).toEqual([]);
+});
+
+/** 大圖用：不做濾波、直接用 zlib 壓（測試裡產生 8 張 2000×3000 比較快） */
+function fastPng(w: number, h: number, px: Uint8Array): Buffer {
+  const chunkOf = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body) >>> 0);
+    return Buffer.concat([len, body, crc]);
+  };
+  const head = Buffer.alloc(13);
+  head.writeUInt32BE(w, 0);
+  head.writeUInt32BE(h, 4);
+  head[8] = 8;
+  head[9] = 6;
+  const raw = Buffer.alloc((w * 4 + 1) * h);
+  for (let y = 0; y < h; y++) raw.set(px.subarray(y * w * 4, (y + 1) * w * 4), y * (w * 4 + 1) + 1);
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunkOf('IHDR', head),
+    chunkOf('IDAT', deflateSync(raw, { level: 1 })),
+    chunkOf('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+/**
+ * 效能：8 張 2000×3000 的 PNG（四周透明留白，內容寬度各不相同，邊緣半透明），從按「處理」到顯示完成。
+ * 目標（主控裁定）：與舊版同等級，這台機器 1.6 秒以內。重新開頁量 3 次、取最快的一次判定（避開機器忙碌時的偶發延遲），
+ * 每次的時間都記在測試報告的 annotations。預算可用環境變數 PS_PERF_BUDGET_MS 調整。
+ */
+test('效能：8 張 2000×3000 的 PNG 處理時間', async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+  const budget = Number(process.env.PS_PERF_BUDGET_MS ?? 1600);
+  const errors = await open(page);
+  const W = 2000;
+  const H = 3000;
+  const paths: string[] = [];
+  let seed = 7;
+  for (let k = 0; k < 8; k++) {
+    const left = 150 + 37 * k;
+    const right = W - 120 - 23 * k;
+    const top = 100 + 11 * k;
+    const bottom = H - 80 - 13 * k;
+    const px = new Uint8Array(W * H * 4);
+    for (let y = top; y < bottom; y++) {
+      for (let x = left; x < right; x++) {
+        const i = (y * W + x) * 4;
+        seed = (seed * 1103515245 + 12345) >>> 0;
+        const n = (seed >>> 16) & 15;
+        const edge = Math.min(x - left, right - 1 - x, y - top, bottom - 1 - y);
+        px[i] = ((x >> 3) + n) & 255;
+        px[i + 1] = ((y >> 4) + k * 30 + n) & 255;
+        px[i + 2] = (((x + y) >> 4) + n) & 255;
+        px[i + 3] = edge < 16 ? 8 + edge * 15 : 255;
+      }
+    }
+    const p = testInfo.outputPath(`立繪-${k + 1}.png`);
+    writeFileSync(p, fastPng(W, H, px));
+    paths.push(p);
+  }
+  const times: number[] = [];
+  for (let run = 0; run < 3; run++) {
+    /* 每次都重新開頁、重新載入：量的是「載入後第一次處理」，不受上一次的結果與縮圖重新解碼影響 */
+    if (run > 0) await page.reload();
+    await input(page).setInputFiles(paths);
+    await expect(items(page)).toHaveCount(8);
+    /* 等原圖縮圖都解碼完，避免干擾計時 */
+    await list(page)
+      .locator('img')
+      .evaluateAll((imgs) =>
+        Promise.all(imgs.map((i) => (i as HTMLImageElement).decode().catch(() => {}))),
+      );
+    const ms = await page.evaluate(
+      () =>
+        new Promise<number>((resolve) => {
+          const button = [...document.querySelectorAll('button')].find(
+            (b) => b.textContent?.trim() === '處理',
+          )!;
+          let t0 = 0;
+          const obs = new MutationObserver(() => {
+            const t = document.querySelector('[data-testid=status-text]')?.textContent ?? '';
+            if (t.startsWith('處理完成')) {
+              obs.disconnect();
+              resolve(performance.now() - t0);
+            }
+          });
+          obs.observe(document.body, { subtree: true, childList: true, characterData: true });
+          t0 = performance.now();
+          button.click();
+        }),
+    );
+    times.push(Math.round(ms));
+    await expect(status(page)).toHaveText('處理完成：共 8 張，寬度統一為 1730 px。');
+    await expect(items(page).nth(0)).toContainText('1730 × 2820 px');
+    await expect(items(page).nth(7)).toContainText('1730 × 2652 px');
+  }
+  const best = Math.min(...times);
+  testInfo.annotations.push({
+    type: '處理時間',
+    description: `8 張 2000×3000：${times.join('、')} ms（最快 ${best} ms，預算 ${budget} ms）`,
+  });
+  console.log(`[效能] 8 張 2000×3000 處理時間：${times.join('、')} ms（最快 ${best} ms）`);
+  expect(best, `最快的一次 ${best} ms`).toBeLessThanOrEqual(budget);
   expect(errors).toEqual([]);
 });
 

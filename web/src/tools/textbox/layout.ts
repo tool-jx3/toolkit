@@ -12,7 +12,10 @@ export type Calibration = 'ccfolia' | 'mono' | 'custom';
 export type LineStyle = 'single' | 'double';
 export type PadStyle = 'fullwidth' | 'halfwidth';
 
-/** 使用者的輸入。數值欄保留使用者打的原始文字（解析規則見 parseLimit／parseRatio）。 */
+/**
+ * 使用者的輸入。數值欄是瀏覽器原生數字欄的值字串（全形數字已轉成半形；「5-」「1e」這類無效的寫法是空字串；
+ * 「12.9」「3e1」照原樣），解析規則見 parseLimit／parseRatio。
+ */
 export interface TextboxInput {
   mode: Mode;
   calibration: Calibration;
@@ -282,7 +285,7 @@ export interface TextboxWarning {
 }
 
 /**
- * 寬度上限：取整數部分（12.9→12、「3e1」→3）；空白、0 或無法解析時用 fallback。
+ * 寬度上限：取整數部分（12.9→12、「3e1」→3）；空白（含原生數字欄視為無效的輸入）、0 或無法解析時用 fallback。
  * 直接打字超出微調鈕範圍也照用。
  */
 export function parseLimit(raw: string, fallback: number): number {
