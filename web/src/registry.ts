@@ -94,6 +94,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'message-box',
+    name: '訊息框產生器',
+    summary:
+      '把 CCFOLIA 房間畫面發言時跳出的訊息框改成直播用的樣式：產生貼進 OBS 瀏覽器來源的自訂 CSS，畫面上只留訊息框。',
+    group: 'G4',
+    status: 'next',
+    inspiration: {
+      name: 'shiki365/message-box-maker',
+      url: 'https://github.com/shiki365/message-box-maker',
+    },
+  },
+  {
     id: 'text-fx',
     name: '文字演出產生器',
     summary:

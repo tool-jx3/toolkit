@@ -29,6 +29,7 @@ import {
   CropDialog,
   Field,
   FontPicker,
+  GestureScope,
   IconButton,
   ImageDrop,
   ItemListEditor,
@@ -292,8 +293,10 @@ function CssSettings({ scene }: { scene: DemoSceneKind }) {
         可復原 {steps} 步
       </p>
       <Show when={scene === 'character'}>
-        <Field label="條的顏色">
-          <ColorField value={s.color} onChange={set('color')} />
+        <Field label="條的顏色" hint="GestureScope：拖曳調色盤到放開只記一步。">
+          <GestureScope gesture={g}>
+            <ColorField value={s.color} onChange={set('color')} />
+          </GestureScope>
         </Field>
         <Field label="字型（css 模式）">
           <FontPicker

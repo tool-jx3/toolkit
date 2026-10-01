@@ -94,6 +94,7 @@ export {
   useFieldControl,
 } from './Field';
 export { availableWeights, FontPicker, type FontPickerProps, WEIGHT_LABELS } from './FontPicker';
+export { GestureScope, type GestureScopeProps } from './GestureScope';
 export { GradientField, type GradientFieldProps } from './GradientField';
 export { GroupTabs } from './GroupTabs';
 export { HsvPanel, type HsvPanelProps, hsvToHex } from './HsvPanel';

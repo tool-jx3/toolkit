@@ -223,6 +223,19 @@ export class RoomScene implements MockScene {
     this.slideOut();
   }
 
+  /**
+   * 改寫目前這則與排隊中的訊息（例如換掉範例立繪）：目前這則立即重畫，但不重新打字、不重播滑入與骰子圖。
+   * fn 回傳同一個物件表示不變。
+   */
+  updateMessages(fn: (message: MockRoomMessage) => MockRoomMessage): void {
+    this.queue = this.queue.map(fn);
+    if (!this.current) return;
+    const next = fn(this.current);
+    if (next === this.current) return;
+    this.current = next;
+    if (this.created) this.renderMessage();
+  }
+
   /** 清掉排隊中的訊息並移除訊息框（重新開始） */
   reset(): void {
     this.clearTimer();

@@ -1,5 +1,7 @@
 /**
  * 專案選單：存成專案檔（.json）、開啟專案檔、重設；旁邊顯示自動存檔狀態。
+ * 檔名、重設的確認文字可以換；存檔／開啟的結果也會通知工具（onSaved、onLoad 的第三個參數、onLoadError），
+ * 讓工具寫進自己的狀態列。
  * 專案檔格式見 core/storage/project.ts。
  */
 import { ChevronDown, FolderOpen, RotateCcw, Save } from 'lucide-react';
@@ -14,7 +16,7 @@ import {
 } from '@/core/storage/project';
 import { buttonClass } from './Button';
 import { cn } from './cn';
-import { useConfirm } from './Dialog';
+import { type ConfirmOptions, useConfirm } from './Dialog';
 import { useToast } from './Toast';
 
 export interface ProjectMenuProps<T> {
@@ -24,13 +26,23 @@ export interface ProjectMenuProps<T> {
   version?: number;
   /** 取得要存的資料 */
   getData: () => T;
-  /** 開啟專案檔後套用（回傳 false 表示資料不合用，會顯示錯誤） */
-  onLoad: (data: T, file: ProjectFile<T>) => unknown;
+  /** 開啟專案檔後套用（回傳 false 表示資料不合用，會顯示錯誤）；source 是使用者選的檔案（狀態列顯示檔名用） */
+  onLoad: (data: T, file: ProjectFile<T>, source: File) => unknown;
   onReset: () => void;
   /** 最後自動存檔時間（毫秒）；null 表示還沒存過 */
   savedAt?: number | null;
-  /** 專案檔名（不含副檔名，預設工具 id） */
+  /** 專案檔名（不含副檔名，預設工具 id）；存檔時加上「_YYYYMMDD.json」 */
   fileName?: string;
+  /** 完整檔名（含副檔名，例：`messagebox.message-box.json`）；給了就照用，不加日期 */
+  exactFileName?: string;
+  /** 存好專案檔之後（例如寫進工具自己的狀態列） */
+  onSaved?: (fileName: string) => void;
+  /** 開啟專案檔失敗時（訊息可直接顯示） */
+  onLoadError?: (message: string) => void;
+  /** 重設的確認對話框（覆寫預設的標題、說明、按鈕文字；例如「全部重來」並清空復原紀錄時） */
+  resetConfirm?: Partial<ConfirmOptions>;
+  /** 選單上重設項目的文字（預設「重設…」） */
+  resetLabel?: ReactNode;
   /** 額外的選單項目 */
   extraItems?: ReactNode;
   className?: string;
@@ -68,6 +80,11 @@ export function ProjectMenu<T>({
   onReset,
   savedAt,
   fileName,
+  exactFileName,
+  onSaved,
+  onLoadError,
+  resetConfirm,
+  resetLabel = '重設…',
   extraItems,
   className,
 }: ProjectMenuProps<T>) {
@@ -76,12 +93,15 @@ export function ProjectMenu<T>({
 
   const save = () => {
     const stamp = new Date();
-    const name = fileNameWithExt(
-      `${fileName ?? toolId}_${stamp.getFullYear()}${String(stamp.getMonth() + 1).padStart(2, '0')}${String(stamp.getDate()).padStart(2, '0')}`,
-      'json',
-    );
+    const name =
+      exactFileName ??
+      fileNameWithExt(
+        `${fileName ?? toolId}_${stamp.getFullYear()}${String(stamp.getMonth() + 1).padStart(2, '0')}${String(stamp.getDate()).padStart(2, '0')}`,
+        'json',
+      );
     downloadText(serializeProject(toolId, version, getData(), stamp), name, 'application/json');
     toast({ title: '已存成專案檔', description: name, tone: 'success' });
+    onSaved?.(name);
   };
 
   const open = async () => {
@@ -95,15 +115,13 @@ export function ProjectMenu<T>({
         confirmLabel: '開啟',
       });
       if (!ok) return;
-      if (onLoad(project.data, project) === false)
+      if (onLoad(project.data, project, file) === false)
         throw new ProjectFileError('專案檔的內容無法使用。');
       toast({ title: '已開啟專案檔', description: file.name, tone: 'success' });
     } catch (e) {
-      toast({
-        title: '無法開啟專案檔',
-        description: e instanceof Error ? e.message : String(e),
-        tone: 'danger',
-      });
+      const message = e instanceof Error ? e.message : String(e);
+      toast({ title: '無法開啟專案檔', description: message, tone: 'danger' });
+      onLoadError?.(message);
     }
   };
 
@@ -113,6 +131,7 @@ export function ProjectMenu<T>({
       description: '會回到預設值（可以用「復原」回來）。',
       confirmLabel: '重設',
       danger: true,
+      ...resetConfirm,
     });
     if (ok) {
       onReset();
@@ -151,7 +170,7 @@ export function ProjectMenu<T>({
               onSelect={reset}
             >
               <RotateCcw aria-hidden />
-              重設…
+              {resetLabel}
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
