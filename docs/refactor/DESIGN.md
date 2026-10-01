@@ -99,7 +99,7 @@ export function App() {
 
 | 元件 | 主要 props | 說明 |
 |---|---|---|
-| `ToolShell` | `toolId`、`settings`、`preview`、`headerActions?`、`shortcuts?: Shortcut[]`、`usage?`、`title?`、`inspiration?` | 頁首＋設定／預覽兩欄＋頁尾。≥ 1024 px 左右、以下上下（預覽在上）。標題、群組分頁、靈感來源從 registry 讀；傳 `shortcuts` 會自動綁定並可按 `?` 看說明；`usage` 會出現在頁首「說明」按鈕。已包 `UiProvider`。 |
+| `ToolShell` | `toolId`、`settings`、`preview`、`headerActions?`、`shortcuts?: Shortcut[]`、`usage?`、`title?`、`inspiration?`、`body?` | 頁首＋設定／預覽兩欄＋頁尾。≥ 1024 px 左右、以下上下（預覽在上）。標題、群組分頁、靈感來源從 registry 讀；傳 `shortcuts` 會自動綁定並可按 `?` 看說明；`usage` 會出現在頁首「說明」按鈕。已包 `UiProvider`。**`body`**（選填，cutin 移植時新增）：整頁內容，給了就取代設定／預覽兩欄（例如開頁先顯示的範本一覽），頁首、頁尾照舊；這時 `settings`、`preview` 可以不給。不給時行為不變。 |
 | `ToolHeader` | `toolId`、`title`、`actions?`、`onHelp?`、`onShortcuts?`、`homeHref?`（預設 `../../`） | ToolShell 內部使用；「← TRPG Toolkit」連回首頁。 |
 | `GroupTabs` | `toolId`、`tools?` | 同群組工具的分頁連結（`../../tools/<id>/` 或 `../../next/<id>/`）；只有一個工具時不顯示。 |
 | `InspirationFooter` | `inspiration?: { name, url? } \| null` | 只顯示「靈感來源：<名稱>」；原創工具不顯示。出處不明、沒有網址（registry 的 `url` 不填）時只顯示名稱、不加連結。 |

@@ -217,7 +217,7 @@ function ThumbChoiceItem<V extends string>({
       onBlur={() => onFocusChange(false)}
       data-playing={playing ? '' : undefined}
       className={cn(
-        'focus-ring flex min-w-0 flex-col overflow-hidden rounded-md border bg-surface-2 text-left transition-colors hover:border-accent disabled:opacity-50',
+        'focus-visible:focus-ring flex min-w-0 flex-col overflow-hidden rounded-md border bg-surface-2 text-left transition-colors hover:border-accent disabled:opacity-50',
         active ? 'border-accent ring-1 ring-accent' : 'border-border',
       )}
     >
