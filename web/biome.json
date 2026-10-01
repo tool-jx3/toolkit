@@ -11,7 +11,9 @@
       "!**/node_modules",
       "!**/test-results",
       "!**/playwright-report",
-      "!**/tests/__screenshots__"
+      "!**/tests/__screenshots__",
+      "!**/tests/unit/fixtures",
+      "!**/tests/parity/**/out"
     ]
   },
   "formatter": {

@@ -7,7 +7,7 @@ import type { EncodedFile } from '../encode/frames';
 import { GIF_MAX_FPS } from '../encode/gif';
 import type { EncoderSpec } from '../encode/local';
 import { encodePng } from '../encode/png';
-import { fileNameWithExt } from '../files';
+import { fileNameWithExt, sequenceName } from '../files';
 import type { AnimationSource, Ctx2D } from './source';
 import { frameCount, frameTime } from './timeline';
 
@@ -96,6 +96,10 @@ export interface ExportAnimationOptions {
   mergeIdentical?: boolean;
   /** APNG 加上預設圖（不支援 APNG 的看圖程式顯示代表畫面） */
   still?: boolean;
+  /** APNG 減色時，不放預設圖也把代表畫面（stillTime）加權列入色彩統計 */
+  stillForPalette?: boolean;
+  /** APNG 減色時代表畫面的份量下限（份量＝影格數×0.35；預設 1） */
+  stillWeightMin?: number;
   /** WebP 品質 0～1（1 = 無損，預設） */
   webpQuality?: number;
   /** 先塗滿的背景色；null／不填 = 透明 */
@@ -109,6 +113,36 @@ export interface ExportAnimationOptions {
   onProgress?: (ratio: number, label: string) => void;
   /** 在 Worker 裡編碼（預設：環境支援就用） */
   worker?: boolean;
+  /**
+   * 自動裁掉透明邊：所有影格（APNG 加預設圖；PNG 只看那一格）都完全透明的邊裁掉，四周留 2 px。
+   * 動畫會多畫一輪來找範圍。
+   */
+  autoCrop?: boolean;
+  /** 連番 PNG：ZIP 內的檔名主體（預設同 fileName） */
+  sequenceBaseName?: string;
+  /** 連番 PNG：ZIP 內說明檔的內容（null＝不放；不填＝預設內容） */
+  sequenceInfo?: string | null | ((meta: SequenceInfoMeta) => string | null);
+}
+
+/** 連番 PNG 說明檔可用的資料 */
+export interface SequenceInfoMeta {
+  fps: number;
+  frames: number;
+  width: number;
+  height: number;
+  /** 動畫總長（秒） */
+  duration: number;
+  /** 第一張、最後一張的檔名 */
+  first: string;
+  last: string;
+}
+
+/** 裁切範圍（輸出影像在原畫面中的位置） */
+export interface CropRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 export interface ExportResult extends EncodedFile {
@@ -116,6 +150,10 @@ export interface ExportResult extends EncodedFile {
   fileName: string;
   format: AnimationExportFormat;
   fps: number;
+  /** 輸出影像在（縮放後）畫面中的範圍；沒有裁切時為整張 */
+  crop: CropRect;
+  /** 匯出花費的毫秒數 */
+  ms: number;
 }
 
 export const DEFAULT_MAX_FRAMES = 1800;
@@ -176,6 +214,51 @@ export async function drawFrame(
   ctx.restore();
 }
 
+/** 不透明像素（alpha > 0）的範圍，併進 box（x1、y1 為含） */
+function unionOpaque(
+  data: Uint8ClampedArray,
+  W: number,
+  H: number,
+  box: { x0: number; y0: number; x1: number; y1: number },
+): void {
+  for (let y = 0; y < H; y++) {
+    const row = y * W * 4;
+    let first = -1;
+    for (let x = 0; x < W; x++) {
+      if (data[row + x * 4 + 3]) {
+        first = x;
+        break;
+      }
+    }
+    if (first < 0) continue;
+    let last = first;
+    for (let x = W - 1; x > first; x--) {
+      if (data[row + x * 4 + 3]) {
+        last = x;
+        break;
+      }
+    }
+    if (first < box.x0) box.x0 = first;
+    if (last > box.x1) box.x1 = last;
+    if (y < box.y0) box.y0 = y;
+    if (y > box.y1) box.y1 = y;
+  }
+}
+
+/** 不透明範圍外擴 2 px（夾在畫面內）；完全透明時為整張 */
+function cropFromBox(
+  box: { x0: number; y0: number; x1: number; y1: number },
+  W: number,
+  H: number,
+): CropRect {
+  if (box.x1 < box.x0) return { x: 0, y: 0, w: W, h: H };
+  const x = Math.max(0, box.x0 - 2);
+  const y = Math.max(0, box.y0 - 2);
+  const x1 = Math.min(W, box.x1 + 3);
+  const y1 = Math.min(H, box.y1 + 3);
+  return { x, y, w: x1 - x, h: y1 - y };
+}
+
 /** 輸出尺寸 */
 export function exportSize(
   source: Pick<AnimationSource, 'width' | 'height'>,
@@ -207,6 +290,8 @@ export async function exportAnimation(
     quantize = false,
     mergeIdentical = true,
     still = false,
+    stillForPalette = false,
+    stillWeightMin,
     webpQuality = 1,
     background = null,
     fileName = 'export',
@@ -214,7 +299,12 @@ export async function exportAnimation(
     signal,
     onProgress = () => {},
     worker,
+    autoCrop = false,
+    sequenceBaseName,
+    sequenceInfo,
   } = options;
+  const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const elapsed = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
   const info = EXPORT_FORMATS[format];
   if (!info) throw new Error(`不支援的格式：${format}`);
   if (info.maxFps && fps > info.maxFps)
@@ -223,9 +313,10 @@ export async function exportAnimation(
 
   const { width: W, height: H } = exportSize(source, scale);
   const { ctx } = createFrameCanvas(W, H);
+  let crop: CropRect = { x: 0, y: 0, w: W, h: H };
   const grab = async (t: number) => {
     await drawFrame(ctx, source, t, { scale, background });
-    return ctx.getImageData(0, 0, W, H).data;
+    return ctx.getImageData(crop.x, crop.y, crop.w, crop.h).data;
   };
   const stillTime = source.stillTime ?? source.duration;
 
@@ -238,13 +329,20 @@ export async function exportAnimation(
     fileName: fileNameWithExt(fileName, info.ext, { fallback: 'export' }),
     format,
     fps,
+    crop,
+    ms: elapsed(),
   });
 
   if (format === 'png') {
+    if (autoCrop) {
+      const box = { x0: W, y0: H, x1: -1, y1: -1 };
+      unionOpaque(await grab(stillTime), W, H, box);
+      crop = cropFromBox(box, W, H);
+    }
     const data = await grab(stillTime);
     onProgress(0.5, '編碼中');
     const bytes = await abortable(
-      worker === false ? encodePng(data, W, H) : encodePngAsync(data, W, H),
+      worker === false ? encodePng(data, crop.w, crop.h) : encodePngAsync(data, crop.w, crop.h),
       signal,
     );
     onProgress(1, '完成');
@@ -252,8 +350,8 @@ export async function exportAnimation(
       bytes,
       mime: 'image/png',
       ext: 'png',
-      width: W,
-      height: H,
+      width: crop.w,
+      height: crop.h,
       frames: 1,
       storedFrames: 1,
       duration: 0,
@@ -264,20 +362,63 @@ export async function exportAnimation(
   if (N > maxFrames)
     throw new RangeError(`影格數 ${N} 超過上限 ${maxFrames}，請縮短時長或降低 fps。`);
 
+  /* 自動裁邊：先畫一輪找出所有影格的不透明範圍 */
+  const passShare = autoCrop ? 0.4 : 0;
+  if (autoCrop) {
+    const box = { x0: W, y0: H, x1: -1, y1: -1 };
+    for (let i = 0; i < N; i++) {
+      if (signal?.aborted) throw abortError();
+      unionOpaque(await grab(frameTime(i, N, source.duration, fps, !source.loop)), W, H, box);
+      onProgress(((i + 1) / N) * passShare, `計算範圍 ${i + 1}／${N}`);
+      if (i % 4 === 3) await new Promise((r) => setTimeout(r, 0));
+    }
+    if (still && format === 'apng') unionOpaque(await grab(stillTime), W, H, box);
+    crop = cropFromBox(box, W, H);
+  }
+  const CW = crop.w;
+  const CH = crop.h;
+
+  const seqBase = fileNameWithExt(sequenceBaseName ?? fileName, '', { fallback: 'frame' });
+  const seqInfo =
+    typeof sequenceInfo === 'function'
+      ? sequenceInfo({
+          fps,
+          frames: N,
+          width: CW,
+          height: CH,
+          duration: source.duration,
+          first: sequenceName(seqBase, 0, N, 'png'),
+          last: sequenceName(seqBase, N - 1, N, 'png'),
+        })
+      : sequenceInfo;
+
   const spec: EncoderSpec =
     format === 'apng'
-      ? { format: 'apng', options: { width: W, height: H, fps, plays, quantize, mergeIdentical } }
+      ? {
+          format: 'apng',
+          options: {
+            width: CW,
+            height: CH,
+            fps,
+            plays,
+            quantize,
+            mergeIdentical,
+            embedStill: still,
+            ...(stillWeightMin !== undefined ? { stillWeightMin } : {}),
+          },
+        }
       : format === 'gif'
-        ? { format: 'gif', options: { width: W, height: H, fps, plays } }
+        ? { format: 'gif', options: { width: CW, height: CH, fps, plays } }
         : format === 'webp'
-          ? { format: 'webp', options: { width: W, height: H, fps, plays, quality: webpQuality } }
+          ? { format: 'webp', options: { width: CW, height: CH, fps, plays, quality: webpQuality } }
           : {
               format: 'png-sequence',
               options: {
-                width: W,
-                height: H,
+                width: CW,
+                height: CH,
                 fps,
-                baseName: fileNameWithExt(fileName, '', { fallback: 'frame' }),
+                baseName: seqBase,
+                ...(seqInfo !== undefined ? { info: seqInfo } : {}),
               },
             };
 
@@ -290,10 +431,11 @@ export async function exportAnimation(
       const t = frameTime(i, N, source.duration, fps, !source.loop);
       const data = await grab(t);
       await abortable(encoder.addFrame(data), signal);
-      onProgress(((i + 1) / N) * 0.9, `產生影格 ${i + 1}／${N}`);
+      onProgress(passShare + ((i + 1) / N) * (0.9 - passShare), `產生影格 ${i + 1}／${N}`);
       if (i % 2 === 1) await new Promise((r) => setTimeout(r, 0));
     }
-    if (still && format === 'apng') await encoder.setStill(await grab(stillTime));
+    if (format === 'apng' && (still || (quantize && stillForPalette)))
+      await encoder.setStill(await grab(stillTime));
     onProgress(0.92, '封裝檔案');
     const file = await abortable(encoder.finish(), signal);
     onProgress(1, '完成');

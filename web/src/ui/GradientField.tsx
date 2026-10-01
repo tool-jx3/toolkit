@@ -21,6 +21,8 @@ export interface GradientFieldProps {
   allowRadial?: boolean;
   /** 最多幾個色標（預設 8） */
   maxStops?: number;
+  /** 顯示角度（預設 true；方向由工具另外決定時關掉） */
+  showAngle?: boolean;
   'aria-label'?: string;
   className?: string;
 }
@@ -31,6 +33,7 @@ export function GradientField({
   alpha = true,
   allowRadial = true,
   maxStops = 8,
+  showAngle = true,
   className,
   ...rest
 }: GradientFieldProps) {
@@ -163,7 +166,7 @@ export function GradientField({
           新增色標
         </Button>
       </div>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 empty:hidden">
         {allowRadial ? (
           <Segmented
             aria-label="漸層種類"
@@ -176,7 +179,7 @@ export function GradientField({
             size="sm"
           />
         ) : null}
-        {value.kind === 'linear' ? (
+        {value.kind === 'linear' && showAngle ? (
           <Slider
             aria-label="角度"
             value={value.angle}

@@ -29,6 +29,10 @@ export interface TransportProps {
   /** 重播（預設：回到 0 並播放） */
   onRestart?: () => void;
   segments?: readonly TimelineSegment[];
+  /** 時間軸上的標記（例如代表畫面），滑鼠停留時顯示 label */
+  markers?: readonly { time: number; label: string }[];
+  /** 顯示階段圖例（預設 true；階段很多時可以關掉，由工具自己顯示目前階段） */
+  legend?: boolean;
   /** 鍵盤逐格移動用（預設 30） */
   fps?: number;
   disabled?: boolean;
@@ -47,6 +51,8 @@ export function Transport({
   onLoopChange,
   onRestart,
   segments,
+  markers,
+  legend = true,
   fps = 30,
   disabled,
   className,
@@ -161,6 +167,15 @@ export function Transport({
               style={{ width: pct(time) }}
             />
           </div>
+          {markers?.map((m) => (
+            <span
+              key={`${m.label}-${m.time}`}
+              title={m.label}
+              data-marker={m.label}
+              className="absolute top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-fg/80"
+              style={{ left: pct(m.time) }}
+            />
+          ))}
           <span
             aria-hidden
             className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-surface shadow-1 group-focus-visible:ring-2 group-focus-visible:ring-focus"
@@ -181,7 +196,7 @@ export function Transport({
           />
         ) : null}
       </div>
-      {segments?.length ? (
+      {legend && segments?.length ? (
         <ul
           aria-label="階段"
           className="m-0 flex list-none flex-wrap gap-x-3 gap-y-1 p-0 pl-17 text-xs text-muted"

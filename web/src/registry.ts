@@ -53,6 +53,14 @@ export const TOOLS: readonly ToolEntry[] = [
     group: 'dev',
     status: 'next',
   },
+  {
+    id: 'text-fx',
+    name: '文字演出產生器',
+    summary:
+      '把文字做成有登場、停留、退場動畫的透明素材（標語、長文、字幕），匯出 APNG、GIF、WebP、PNG。',
+    group: 'G1',
+    status: 'next',
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

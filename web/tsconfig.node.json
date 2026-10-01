@@ -21,6 +21,8 @@
     "playwright.config.ts",
     "build",
     "tests/e2e",
+    "tests/parity",
+    "tests/helpers",
     "src/registry.ts"
   ]
 }

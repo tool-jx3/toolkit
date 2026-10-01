@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createRandom, EASE, EASING_CHOICES, type EasingName } from '@/core/timeline';
 import { Section } from '@/ui';
+import { TypesetDemo } from './TypesetDemo';
 
 function Curve({ name }: { name: EasingName }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -64,6 +65,7 @@ export function ModulesDemo() {
           重新整理頁面，結果也完全一樣；匯出的每一格因此可以重現。
         </p>
       </Section>
+      <TypesetDemo />
     </div>
   );
 }
