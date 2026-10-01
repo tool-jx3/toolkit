@@ -17,7 +17,7 @@
 [fyam-hamu](https://github.com/fyam-hamu) 與
 [usagineko7865-debug](https://github.com/usagineko7865-debug) 製作的網頁工具，以及一個作者不明的工具，並為其加上繁體中文介面。所有收錄工具的原始著作權屬各自的原作者所有。
 
-另有一部分工具已依 [docs/refactor/](docs/refactor/PLAN.md) 的流程**由本站重寫**：只依原作的功能寫行為規格，再用本站自己的框架與元件重新實作，不再收錄原作的程式、素材與作者標示，只保留「靈感來源」連結，見下方「[本站重寫的工具（靈感來源）](#本站重寫的工具靈感來源)」。
+另有一部分工具已依 [docs/refactor/](docs/refactor/PLAN.md) 的流程**由本站重寫**：用本站自己的框架與元件重新實作，介面上不放作者標示，只保留「靈感來源」連結，見下方「[本站重寫的工具（靈感來源）](#本站重寫的工具靈感來源)」。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
 
@@ -685,9 +685,11 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 ## 本站重寫的工具（靈感來源）
 
-下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的無塵室流程重寫：觀察者只寫行為規格
-（[docs/refactor/specs/](docs/refactor/specs/)），實作者只看規格與本站的 `web/` 框架寫出新程式，
-上線前逐項做新舊版對等驗證（紀錄在各規格的第 6 節）。新版只有繁體中文介面，程式以 MIT 授權釋出（見 [LICENSE](LICENSE)），
+下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的流程改寫到本站的 `web/` 框架，
+上線前逐項做新舊版對等驗證（紀錄在各規格 [docs/refactor/specs/](docs/refactor/specs/) 的第 6 節）。做法依原作授權而定：
+未授權的原作以無塵室方式重寫（觀察者只寫行為規格，實作者只看規格與 `web/` 框架）；MIT、CC0 等開放授權的原作
+可以參考其程式改寫，原作的著作權聲明與授權全文保留在 `assets/build/THIRD_PARTY_NOTICES.md`（「參考原作程式改寫的工具」一節）。
+表中目前的工具都是以無塵室方式重寫的。新版只有繁體中文介面，本站的程式以 MIT 授權釋出（見 [LICENSE](LICENSE)），
 頁尾只保留靈感來源連結。舊版的收錄副本已移除，需要對照時可以從表中的 `main` commit 取回（例如 `git show cb0c619:tools/battlemap/app.js`）。
 
 | 工具 | 名稱 | 靈感來源 | 舊版所在的 commit |

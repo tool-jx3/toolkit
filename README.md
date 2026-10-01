@@ -130,7 +130,8 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 ## 本站重寫的工具
 
 正在依 [docs/refactor/PLAN.md](docs/refactor/PLAN.md) 把收錄的工具逐一改寫到新框架 `web/`（Vite＋React＋TypeScript）：
-共用元件與設計、只有繁中介面、程式全部由本站重寫，原作者只列為靈感來源。已上線的工具：
+共用元件與設計、只有繁中介面、介面上原作者只列為靈感來源（開放授權的原作可以參考其程式改寫，授權全文保留在
+`assets/build/THIRD_PARTY_NOTICES.md`；未授權的原作以無塵室方式重寫）。已上線的工具：
 
 | 工具 | 名稱 | 靈感來源 |
 |---|---|---|

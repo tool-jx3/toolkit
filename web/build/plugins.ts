@@ -87,7 +87,26 @@ export function collectNotices(): Plugin {
   };
 }
 
-function noticesMarkdown(): string {
+/** 參考 MIT／CC0 原作改寫的工具：原作的授權全文放在 `web/src/tools/<id>/UPSTREAM_LICENSE`，建置時併入通知檔。 */
+const UPSTREAM_LICENSE = 'UPSTREAM_LICENSE';
+
+function upstreamNotices(tools: readonly ToolEntry[], srcToolsDir: string): string[] {
+  const out: string[] = [];
+  for (const tool of tools) {
+    const file = path.join(srcToolsDir, tool.id, UPSTREAM_LICENSE);
+    if (!existsSync(file)) continue;
+    const body = readFileSync(file, 'utf8').trim();
+    const source = tool.inspiration
+      ? tool.inspiration.url
+        ? `[${tool.inspiration.name}](${tool.inspiration.url})`
+        : tool.inspiration.name
+      : '（未標示）';
+    out.push(`### ${tool.id}（原作：${source}）\n\n\`\`\`\n${body}\n\`\`\``);
+  }
+  return out;
+}
+
+function noticesMarkdown(tools: readonly ToolEntry[] = [], srcToolsDir = ''): string {
   const rows: string[] = [];
   const texts: string[] = [];
   const seen = new Set<string>();
@@ -126,6 +145,19 @@ function noticesMarkdown(): string {
     '',
     ...texts,
     '',
+    ...(() => {
+      const upstream = srcToolsDir ? upstreamNotices(tools, srcToolsDir) : [];
+      return upstream.length
+        ? [
+            '## 參考原作程式改寫的工具',
+            '',
+            '下列工具參考原作（MIT／CC0）的程式改寫，依原作授權保留其著作權聲明與授權全文。',
+            '',
+            ...upstream,
+            '',
+          ]
+        : [];
+    })(),
   ].join('\n');
 }
 
@@ -181,7 +213,10 @@ export function publishToRepo(opts: PublishOptions): Plugin {
       await rm(nextTarget, { recursive: true, force: true });
 
       await cp(path.join(distDir, assetsDir), assetsTarget, { recursive: true });
-      await writeFile(path.join(assetsTarget, 'THIRD_PARTY_NOTICES.md'), noticesMarkdown());
+      await writeFile(
+        path.join(assetsTarget, 'THIRD_PARTY_NOTICES.md'),
+        noticesMarkdown(tools, path.join(repoRoot, 'web', 'src', 'tools')),
+      );
 
       for (const tool of tools) {
         const target = path.join(repoRoot, outputDir(tool));
