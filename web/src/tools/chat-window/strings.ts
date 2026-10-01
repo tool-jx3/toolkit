@@ -396,8 +396,8 @@ export const S = {
     resetDone: '已全部重來。',
   },
   ready: '準備完成。改設定會即時反映在右邊的預覽；做好後按「複製 CSS」。',
-  undo: '復原（Ctrl＋Z）',
-  redo: '重做（Ctrl＋Y）',
+  undo: '復原',
+  redo: '重做',
   shortcutsGroup: '編輯',
 
   /* ---------- 說明 ---------- */

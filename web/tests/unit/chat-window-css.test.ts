@@ -315,6 +315,35 @@ describe('標題（F20～F31、3.4.9）', () => {
     expect(block(off, CHAT.inputPaper)).toContain('order: -1');
   });
 
+  it('分頁名稱的標題清掉輸入區 form 自帶的半透明背景（F20）', () => {
+    for (const titleMode of ['tab', 'text-tab'] as const) {
+      expect(block(css({ titleMode, hoverTabs: true }), `html:not(:hover) ${CHAT.form}`)).toContain(
+        'background: none !important',
+      );
+      expect(block(css({ titleMode, hoverTabs: false }), CHAT.form)).toContain(
+        'background: none !important',
+      );
+    }
+    /* 不含分頁名稱時整個輸入區不顯示，不必清 */
+    expect(css({ titleMode: 'text', hoverTabs: false })).not.toContain(`${CHAT.form} {`);
+  });
+
+  it('滑鼠移上時的分頁列：在視窗頂端、只有視窗寬（F86）', () => {
+    const hover = block(
+      css({ titleMode: 'none', hoverTabs: true }),
+      `html:hover ${CHAT.inputPaper}`,
+    );
+    expect(hover).toContain('position: absolute');
+    expect(hover).not.toContain('position: fixed');
+    expect(hover).toContain('top: 0');
+    expect(hover).toContain('left: 0');
+    expect(hover).toContain('right: 0');
+    /* 視窗（固定定位）就是它的定位基準 */
+    expect(block(css({ titleMode: 'none', hoverTabs: true }), CHAT.paper)).toContain(
+      'position: fixed',
+    );
+  });
+
   it('自訂文字＋分頁名稱：文字緊接在分頁名稱前', () => {
     const t = css({ titleMode: 'text-tab', titleText: '密談：' });
     expect(t).toMatch(/\.Mui-selected::before \{\s+content: "密談："/);
@@ -382,6 +411,38 @@ describe('參加者頭像（F32～F37、3.4.10）', () => {
     expect(
       block(css({ titleMode: 'none', participants: true, titleGap: 7 }), CHAT.participantsToolbar),
     ).toContain('margin: 0 0 7px');
+  });
+
+  it('分頁名稱的標題到頭像列間隔 8px（F32）', () => {
+    for (const titleMode of ['tab', 'text-tab'] as const) {
+      expect(
+        block(css({ titleMode, titleGap: 10, participants: true }), CHAT.participantsToolbar),
+      ).toContain('margin: -2px 0 10px');
+    }
+  });
+
+  it('自訂文字＋下底線＋頭像：底線畫在頭像列下方（F32）', () => {
+    const t = css({
+      titleMode: 'text',
+      titleStyle: 'underline',
+      titleLineColor: '#00ff00',
+      titleSize: 20,
+      titleGap: 10,
+      participants: true,
+    });
+    const head = block(t, CHAT.header);
+    expect(head).toContain('border-bottom: 2px solid #00ff00');
+    expect(head).toContain('padding-bottom: 0.3em');
+    expect(head).toContain('font-size: 20px');
+    expect(head).toContain('margin-bottom: 10px');
+    const row = block(t, CHAT.titleToolbar);
+    expect(row).toContain('border-bottom: 0');
+    expect(row).toContain('padding-bottom: 0');
+    expect(block(t, CHAT.participantsToolbar)).toContain('margin: -4px 0 0');
+    /* 沒有頭像時底線照舊緊貼標題 */
+    const solo = css({ titleMode: 'text', titleStyle: 'underline', participants: false });
+    expect(block(solo, CHAT.titleToolbar)).toContain('border-bottom: 2px solid');
+    expect(block(solo, CHAT.header)).not.toContain('border-bottom');
   });
 });
 
@@ -460,6 +521,72 @@ describe('方框、頭像、名稱（F38～F56、3.4.4～3.4.6）', () => {
       `${ITEM}:has(${CHAT.result}.${DICE_RESULT_CLASS.failure}) > .MuiListItem-root {\n  border-color: #ff0000 !important;\n  box-shadow: 0 0 12px #ff0000`,
     );
     expect(css({ boxShape: 'none', outcomeGlow: true })).not.toContain('0 0 12px');
+  });
+
+  it('成敗發光取代方框陰影，不疊加（F46）', () => {
+    for (const boxShape of ['card', 'bubble'] as const) {
+      const t = css({ boxShape, outcomeGlow: true, successColor: '#00ff00', boxShadow: 100 });
+      const sel =
+        boxShape === 'card'
+          ? `${ITEM}:has(${CHAT.result}.${DICE_RESULT_CLASS.success}) > .MuiListItem-root`
+          : `${ITEM}:has(${CHAT.result}.${DICE_RESULT_CLASS.success}) > .MuiListItem-root > .MuiListItemText-root`;
+      const glow = block(t, sel);
+      expect(glow, boxShape).toContain('box-shadow: 0 0 12px #00ff00 !important');
+      expect(glow, boxShape).not.toContain('0 2px 10px');
+    }
+  });
+
+  it('長訊息捲動時左側線條仍貼在方框左緣（F71）', () => {
+    const scroll = { scroll: true, count: 1 } as const;
+    const card = block(
+      css({
+        ...scroll,
+        boxShape: 'card',
+        accent: 'character',
+        accentWidth: 4,
+        boxPadX: 14,
+        boxPadY: 9,
+        avatar: true,
+        avatarSize: 50,
+        avatarGap: 10,
+      }),
+      `${NAME}::before`,
+    );
+    /* 文字欄左緣離方框內緣＝左右留白 14＋線條 4＋頭像 50＋間距 10 */
+    expect(card).toContain('left: -78px');
+    expect(card).toContain('top: -9px');
+    expect(card).toContain('bottom: -100cqh');
+    const noAvatar = block(
+      css({
+        ...scroll,
+        boxShape: 'card',
+        accent: 'custom',
+        accentWidth: 3,
+        boxPadX: 12,
+        avatar: false,
+      }),
+      `${NAME}::before`,
+    );
+    expect(noAvatar).toContain('left: -15px');
+    const none = block(
+      css({
+        ...scroll,
+        boxShape: 'none',
+        accent: 'custom',
+        accentWidth: 3,
+        boxPadX: 12,
+        avatar: false,
+      }),
+      `${NAME}::before`,
+    );
+    expect(none).toContain('left: -21px');
+    /* 對話泡泡：線條跟著泡泡；沒有捲動時照原本貼在方框左緣 */
+    expect(
+      block(css({ ...scroll, boxShape: 'bubble', accent: 'custom' }), `${NAME}::before`),
+    ).not.toContain('100cqh');
+    const still = block(css({ boxShape: 'card', accent: 'custom' }), `${NAME}::before`);
+    expect(still).toContain('left: 0');
+    expect(still).not.toContain('100cqh');
   });
 
   it('分隔線：相鄰兩則之間（最新在下時最新那則、最新在上時最舊那則不畫）', () => {
@@ -592,6 +719,15 @@ describe('內文與擲骰結果（F57～F68、3.4.7、3.4.8）', () => {
     const solid = css({ resultStyle: 'solid', successColor: '#ffff00', failureColor: '#200020' });
     expect(block(solid, `${RES}.${DICE_RESULT_CLASS.success}`)).toContain('color: #15161a');
     expect(block(solid, `${RES}.${DICE_RESULT_CLASS.failure}`)).toContain('color: #ffffff');
+  });
+
+  it('實心色塊＋成敗發光：色塊不發光（F67）', () => {
+    const t = css({ resultStyle: 'solid', resultGlow: true, successColor: '#00ff00' });
+    for (const o of ['success', 'failure', 'other'] as const) {
+      const b = block(t, `${RES}.${DICE_RESULT_CLASS[o]}`);
+      expect(b, o).toContain('box-shadow: none');
+      expect(b, o).not.toContain('0 0 6px');
+    }
   });
 
   it('出現瞬間閃一下：亮度 2.2 倍 → 原本，1.4 秒、先快後慢', () => {

@@ -9,6 +9,7 @@ import {
   Tabs,
   ToolShell,
   UsageSection,
+  withShortcut,
 } from '@/ui';
 import { buildChatCss } from './css';
 import { Preview, resetPreviewMessages, scene } from './Preview';
@@ -112,8 +113,18 @@ export function App() {
       usage={USAGE}
       headerActions={
         <>
-          <IconButton label={S.undo} icon={<Undo2 />} onClick={undo} disabled={!canUndo} />
-          <IconButton label={S.redo} icon={<Redo2 />} onClick={redo} disabled={!canRedo} />
+          <IconButton
+            label={withShortcut(S.undo, 'mod+z')}
+            icon={<Undo2 />}
+            onClick={undo}
+            disabled={!canUndo}
+          />
+          <IconButton
+            label={withShortcut(S.redo, 'mod+y')}
+            icon={<Redo2 />}
+            onClick={redo}
+            disabled={!canRedo}
+          />
           <ProjectMenu<ChatSettings>
             toolId={TOOL_ID}
             version={PROJECT_VERSION}

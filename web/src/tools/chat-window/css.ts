@@ -116,11 +116,39 @@ export const roundedAvatarRadius = (size: number): number => Math.round(size * 0
 export const titleLine = (text: string): string =>
   String(text ?? '').replace(/\r\n|[\r\n\t\u2028\u2029]/g, ' ');
 
+/** 標題到參加者頭像列的間隔：自訂文字的標題 6px、分頁名稱的標題 8px */
+export const PARTICIPANTS_GAP_TEXT = 6;
+export const PARTICIPANTS_GAP_TAB = 8;
+
 /** 角括號的粗細：max(2, 視窗外框粗細＋1) */
 export const bracketThickness = (borderWidth: number): number => Math.max(2, borderWidth + 1);
 
 /** 分隔線與內容的距離：max(2, 上下留白 ÷ 2) */
 export const dividerOffset = (padY: number): number => Math.max(2, padY / 2);
+
+/**
+ * 長訊息捲動時，從文字欄（捲動的定位基準）量回方框內緣的距離（左側線條用）。
+ * 每則一框：左＝左右留白＋線條粗細＋頭像欄；無框：再加 6px。對話泡泡回傳 null（線條跟著泡泡）。
+ */
+export function scrollLineInset(
+  s: Pick<
+    ChatSettings,
+    | 'boxShape'
+    | 'accent'
+    | 'accentWidth'
+    | 'boxPadX'
+    | 'boxPadY'
+    | 'avatar'
+    | 'avatarSize'
+    | 'avatarGap'
+  >,
+): { left: number; top: number } | null {
+  if (s.boxShape === 'bubble' || s.accent === 'none') return null;
+  const line = s.accentWidth;
+  const padLeft = s.boxPadX + line + (s.boxShape === 'none' ? 6 : 0);
+  const avatar = s.avatar ? s.avatarSize + s.avatarGap : 0;
+  return { left: padLeft + avatar, top: s.boxPadY };
+}
 
 /** 需要 OBS 31 以上的功能（寫進開頭說明） */
 export function obsFeatures(s: ChatSettings): string[] {
@@ -206,10 +234,13 @@ function page(css: CssSheet, s: ChatSettings) {
   css.rule(`${CHAT.form} > :not(header)`, { display: 'none' });
   if (!titleHasTab(s.titleMode)) css.rule(INPUT, { display: 'none' });
   if (s.hoverTabs) {
-    /* 滑鼠在頁面上（只會發生在 OBS 的「互動」視窗）：分頁列出現在來源最上方 */
+    /*
+     * 滑鼠在頁面上（只會發生在 OBS 的「互動」視窗）：分頁列出現在視窗頂端、只有視窗寬
+     * （視窗是固定定位的 MuiDrawer-paper，分頁列以它為基準絕對定位）
+     */
     css.rule(`html:hover ${INPUT}`, {
       display: 'block',
-      position: 'fixed',
+      position: 'absolute',
       top: 0,
       left: 0,
       right: 0,
@@ -392,12 +423,24 @@ function header(css: CssSheet, s: ChatSettings) {
     'z-index': 'auto',
   });
 
+  /* 自訂文字＋下底線＋參加者頭像：底線畫在頭像列下方（整個標頭的下緣），不是緊貼標題文字 */
+  const underlineBelowParticipants = textTitle && s.participants && s.titleStyle === 'underline';
+  if (underlineBelowParticipants) {
+    css.rule(CHAT.header, {
+      'font-size': px(s.titleSize),
+      'padding-bottom': '0.3em',
+      'border-bottom': `2px solid ${rgba(s.titleLineColor)}`,
+      'margin-bottom': px(G),
+    });
+  }
+
   /* 自訂文字：CCFOLIA 的標頭列（「ルームチャット」與兩個按鈕）換成使用者的文字 */
   if (textTitle) {
     const row = CHAT.titleToolbar;
     const rowDecls = titleRowDecls(s);
     css.rule(row, {
       ...rowDecls,
+      ...(underlineBelowParticipants ? { 'padding-bottom': 0, 'border-bottom': 0 } : {}),
       'margin-bottom': px(G),
     });
     css.rule([`${row} > button`, `${row} > div`], { display: 'none' });
@@ -428,6 +471,9 @@ function header(css: CssSheet, s: ChatSettings) {
     return;
   }
   const afterTitle = s.titleMode !== 'none';
+  /* 標題到頭像列：自訂文字約 6px；分頁名稱的標題約 8px（舊版量測） */
+  const toRow = titleHasTab(s.titleMode) ? PARTICIPANTS_GAP_TAB : PARTICIPANTS_GAP_TEXT;
+  const below = underlineBelowParticipants ? 0 : G;
   css.rule(pt, {
     display: 'flex',
     'align-items': 'center',
@@ -435,7 +481,7 @@ function header(css: CssSheet, s: ChatSettings) {
     'flex-wrap': 'nowrap',
     'min-height': 0,
     padding: 0,
-    margin: afterTitle ? `${px(6 - G)} 0 ${px(G)}` : `0 0 ${px(G)}`,
+    margin: afterTitle ? `${px(toRow - G)} 0 ${px(below)}` : `0 0 ${px(below)}`,
     background: 'none',
     position: 'static',
     overflow: 'hidden',
@@ -504,7 +550,8 @@ function tabTitle(css: CssSheet, s: ChatSettings) {
     'border-radius': 0,
     color: 'inherit',
   });
-  css.rule(`${q}${CHAT.form}`, { margin: 0, display: 'block' });
+  /* form 自帶約 10% 黑的半透明背景（CHAT.formBackground），當成標題時清掉 */
+  css.rule(`${q}${CHAT.form}`, { margin: 0, display: 'block', background: 'none' });
   const row = `${q}${TABS_ROW}`;
   css.rule(row, titleRowDecls(s));
   titleLines(css, row, s);
@@ -734,6 +781,20 @@ function messageBox(css: CssSheet, s: ChatSettings, { scroll }: { scroll: boolea
       background: s.accent === 'character' ? 'currentColor' : rgba(s.accentColor),
       'pointer-events': 'none',
     });
+    /*
+     * 長訊息捲動：文字欄帶著 transform 往上移，會變成線條的定位基準。線條改從文字欄量回方框的左緣與上緣、
+     * 往下延伸到方框外（由方框的 overflow: hidden 與圓角裁切），所以捲動中仍貼在方框左緣、從頂到底。
+     * 對話泡泡是整個泡泡移動，線條本來就跟著泡泡，不用改。
+     */
+    const lineInset = scrollLineInset(s);
+    if (scroll && lineInset) {
+      css.rule(`${NAME}::before`, {
+        left: px(-lineInset.left),
+        top: px(-lineInset.top),
+        bottom: '-100cqh',
+        'border-radius': 0,
+      });
+    }
     if (s.accent === 'outcome') {
       for (const o of DICE_OUTCOMES)
         css.rule(`${nameOf(itemWith(o))}::before`, {
@@ -747,9 +808,10 @@ function messageBox(css: CssSheet, s: ChatSettings, { scroll }: { scroll: boolea
     const boxOf = s.boxShape === 'card' ? liOf : txtOf;
     for (const o of ['success', 'failure'] as const) {
       const c = rgba(outcomeColor(s, o));
+      /* 發光取代方框陰影（不疊加） */
       css.rule(boxOf(itemWith(o)), {
         'border-color': c,
-        'box-shadow': `${shadow ? `${shadow}, ` : ''}0 0 12px ${c}`,
+        'box-shadow': `0 0 12px ${c}`,
       });
     }
   }
@@ -968,12 +1030,13 @@ function resultRules(css: CssSheet, s: ChatSettings) {
     const glow =
       s.resultGlow && o !== 'other' ? `0 0 6px ${rgba(c, 0.85)}, 0 0 14px ${rgba(c, 0.5)}` : '';
     if (s.resultStyle === 'solid') {
+      /* 實心色塊不發光（成敗發光只作用在文字樣式） */
       const fg = yiqTextColor(c);
       css.rule(sel, {
         color: fg,
         '-webkit-text-fill-color': fg,
         'background-color': rgba(c),
-        'box-shadow': glow || 'none',
+        'box-shadow': 'none',
       });
     } else {
       css.rule(sel, {

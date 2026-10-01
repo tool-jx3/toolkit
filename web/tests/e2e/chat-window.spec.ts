@@ -267,21 +267,59 @@ test.describe('聊天視窗產生器', () => {
     expect(l.avatars[2]).toBeLessThan(l.avatars[1]);
     expect(l.avatars[1] - l.avatars[2]).toBeLessThan(24);
     expect(l.ptTop).toBeGreaterThan(l.titleTop);
-    /* 滑鼠移上：分頁列出現在來源最上方（橫跨整個來源寬），標題列恢復成分頁列 */
+    /* 分頁名稱的標題：輸入區 form 自帶的 10% 黑底清掉（F20）；標題到頭像列間隔 8 px（F32） */
+    const titleLook = await f.evaluate(() => {
+      const form = document.querySelector('.MuiDrawer-paper > div.MuiPaper-root > form')!;
+      const row = document.querySelector(
+        '.MuiDrawer-paper > div.MuiPaper-root > form > header',
+      ) as HTMLElement;
+      const pt = document.querySelector(
+        '.MuiDrawer-paper > header > .MuiToolbar-root:nth-child(2)',
+      ) as HTMLElement;
+      return {
+        formBg: getComputedStyle(form).backgroundColor,
+        gap: Math.round(pt.getBoundingClientRect().top - row.getBoundingClientRect().bottom),
+      };
+    });
+    expect(titleLook).toEqual({ formBg: 'rgba(0, 0, 0, 0)', gap: 8 });
+    /* 沒有套 CSS 時（CCFOLIA 原本的樣子）form 有約 10% 黑的底：暫時停用工具的 CSS（iframe 的第一個 style）來看 */
+    expect(
+      await f.evaluate(() => {
+        const st = document.head.querySelector('style') as HTMLStyleElement;
+        st.disabled = true;
+        const bg = getComputedStyle(
+          document.querySelector('.MuiDrawer-paper > div.MuiPaper-root > form')!,
+        ).backgroundColor;
+        st.disabled = false;
+        return bg;
+      }),
+    ).toBe('rgba(0, 0, 0, 0.1)');
+    /* 滑鼠移上：分頁列出現在視窗頂端、只有視窗寬（F86），標題列恢復成分頁列 */
     await page.locator('[data-testid="css-preview-source"]').hover();
     const bar = await f.evaluate(() => {
       const p = document.querySelector('.MuiDrawer-paper > div.MuiPaper-root') as HTMLElement;
+      const paper = document.querySelector('.MuiDrawer-paper') as HTMLElement;
       const r = p.getBoundingClientRect();
+      const w = paper.getBoundingClientRect();
       return {
         position: getComputedStyle(p).position,
-        top: r.top,
-        width: r.width,
+        top: Math.round(r.top - (w.top + paper.clientTop)),
+        left: Math.round(r.left - (w.left + paper.clientLeft)),
+        width: Math.round(r.width),
+        windowWidth: paper.clientWidth,
+        windowLeft: Math.round(w.left),
         tabs: [...document.querySelectorAll('button.MuiTab-root')].map(
           (b) => getComputedStyle(b).display !== 'none',
         ),
       };
     });
-    expect(bar).toEqual({ position: 'fixed', top: 0, width: 480, tabs: [true, true, true] });
+    expect(bar.position).toBe('absolute');
+    expect(bar.top).toBe(0);
+    expect(bar.left).toBe(0);
+    expect(bar.width).toBe(bar.windowWidth);
+    expect(bar.windowLeft).toBeGreaterThan(0);
+    expect(bar.width).toBeLessThan(480);
+    expect(bar.tabs).toEqual([true, true, true]);
     await page.mouse.move(0, 0);
     l = await look();
     expect(l.others.every((d) => d === 'none')).toBe(true);
@@ -679,6 +717,190 @@ test.describe('聊天視窗產生器', () => {
     await expect(page.getByRole('slider', { name: '長訊息截斷' })).toHaveCount(0);
     await page.getByRole('tab', { name: '動態' }).click();
     await expect(page.locator('[data-obs-badge]')).toHaveCount(1);
+    expect(errors).toEqual([]);
+  });
+
+  test('localStorage 寫入被擋時開頁正常、照常操作（F96）', async ({ page }) => {
+    await page.addInitScript(() => {
+      Storage.prototype.setItem = function setItem(key: string) {
+        throw new DOMException(`blocked:${key}`, 'QuotaExceededError');
+      };
+    });
+    const errors = await open(page);
+    await expect(status(page)).toContainText('準備完成');
+    await page.getByRole('radio', { name: '秘匿分頁' }).click();
+    await expect(visibleItems(page)).toHaveCount(5);
+    await page.getByRole('tab', { name: '視窗' }).click();
+    await set(page, { count: 2 });
+    await expect(visibleItems(page)).toHaveCount(2);
+    expect(errors).toEqual([]);
+  });
+
+  test('方框與結果的發光：色塊不發光（F67）；開發光時以發光取代方框陰影（F46）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await set(page, {
+      count: 8,
+      diceOnly: false,
+      boxShape: 'card',
+      boxShadow: 100,
+      boxBorderWidth: 2,
+      outcomeGlow: true,
+      resultStyle: 'solid',
+      resultGlow: true,
+      successColor: '#22aa55',
+    });
+    const f = await previewFrame(page);
+    const look = () =>
+      f.evaluate(() => {
+        const ok = document.querySelector(
+          'ul[role="log"] div[data-index]:has(.MuiListItemText-secondary > .css-1l6qhgm)',
+        )!;
+        const plain = [...document.querySelectorAll('ul[role="log"] div[data-index]')].find(
+          (d) => !d.querySelector('.MuiListItemText-secondary > .MuiTypography-body2'),
+        )!;
+        return {
+          okBox: getComputedStyle(ok.querySelector('.MuiListItem-root')!).boxShadow,
+          plainBox: getComputedStyle(plain.querySelector('.MuiListItem-root')!).boxShadow,
+          chip: getComputedStyle(ok.querySelector('.MuiListItemText-secondary > .css-1l6qhgm')!)
+            .boxShadow,
+        };
+      });
+    await expect.poll(async () => (await look()).okBox).toBe('rgb(34, 170, 85) 0px 0px 12px 0px');
+    const l = await look();
+    expect(l.plainBox).toBe('rgb(0, 0, 0) 0px 2px 10px 0px');
+    expect(l.chip).toBe('none');
+    expect(errors).toEqual([]);
+  });
+
+  test('長訊息捲動時左側線條仍貼在方框左緣、從頂到底（F71）', async ({ page }) => {
+    const errors = await open(page, '?pause=0');
+    await set(page, {
+      width: 480,
+      height: 200,
+      bg: '#101010',
+      fade: false,
+      enter: 'none',
+      count: 1,
+      scroll: true,
+      scrollDelay: 2,
+      scrollDuration: 10,
+      boxShape: 'card',
+      boxBg: '#202020',
+      boxBorderWidth: 0,
+      boxRadius: 0,
+      boxShadow: 0,
+      boxPadX: 14,
+      boxPadY: 7,
+      accent: 'custom',
+      accentColor: '#ff00ff',
+      accentWidth: 4,
+      avatar: true,
+      avatarSize: 40,
+      avatarGap: 10,
+    });
+    await page.getByRole('button', { name: '長文', exact: true }).click();
+    await expect
+      .poll(async () => (await visibleTexts(page)).map((t) => t.text.slice(0, 7)))
+      .toEqual(['【舊日記的最後']);
+    const f = await previewFrame(page);
+    /* 捲到一半 */
+    await f.evaluate(() => {
+      for (const a of document.getAnimations() as CSSAnimation[])
+        if (a.animationName === 'tk-chat-scroll') a.currentTime = 7000;
+    });
+    const li = frame(page).locator('ul[role="log"] div[data-index]:visible .MuiListItem-root');
+    const shot = await li.screenshot({ animations: 'allow' });
+    const probe = await page.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const ctx = c.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const magenta = (x: number, y: number) => {
+        const [r, g, b] = ctx.getImageData(x, y, 1, 1).data;
+        return r > 200 && g < 60 && b > 200;
+      };
+      const rows = [2, Math.round(img.height / 2), img.height - 3];
+      return {
+        h: img.height,
+        edge: rows.map((y) => magenta(1, y)),
+        /* 文字欄左緣（左右留白 14＋線 4＋頭像 40＋間距 10＝68）附近沒有線 */
+        text: rows.map((y) => magenta(70, y)),
+      };
+    }, shot.toString('base64'));
+    expect(probe.h).toBeGreaterThan(100);
+    expect(probe.edge).toEqual([true, true, true]);
+    expect(probe.text).toEqual([false, false, false]);
+    expect(errors).toEqual([]);
+  });
+
+  test('紙張質感：平均色與亮度標準差符合舊版量測（F15）', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    const errors = await open(page);
+    await set(page, {
+      width: 480,
+      height: 460,
+      sizeMode: 'fill',
+      margin: 10,
+      bg: '#efe4cb',
+      texture: 'paper',
+      borderWidth: 0,
+      radius: 0,
+      shadow: 0,
+      brackets: false,
+      titleMode: 'none',
+      participants: false,
+    });
+    await page.evaluate(() =>
+      (
+        window as unknown as {
+          __chatWindow: { scene: { setMessages: (m: [], i: number) => void } };
+        }
+      ).__chatWindow.scene.setMessages([], 0),
+    );
+    await page.waitForTimeout(300);
+    const shot = await frame(page).locator('.MuiDrawer-paper').screenshot();
+    const m = await page.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const ctx = c.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, img.width, img.height).data;
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let l = 0;
+      let l2 = 0;
+      const n = d.length / 4;
+      for (let i = 0; i < d.length; i += 4) {
+        r += d[i];
+        g += d[i + 1];
+        b += d[i + 2];
+        const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        l += L;
+        l2 += L * L;
+      }
+      return {
+        size: [img.width, img.height],
+        mean: [r / n, g / n, b / n],
+        std: Math.sqrt(l2 / n - (l / n) ** 2),
+      };
+    }, shot.toString('base64'));
+    expect(m.size).toEqual([460, 440]);
+    /* 舊版：平均 (218,206,183)、亮度標準差 17.6（各通道 ±4、標準差 ±20%） */
+    for (const [i, v] of [218, 206, 183].entries())
+      expect(Math.abs(m.mean[i] - v)).toBeLessThanOrEqual(4);
+    expect(m.std).toBeGreaterThan(17.6 * 0.8);
+    expect(m.std).toBeLessThan(17.6 * 1.2);
     expect(errors).toEqual([]);
   });
 
