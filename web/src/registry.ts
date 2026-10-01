@@ -257,6 +257,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/woolwag3338/character-height-board',
     },
   },
+  {
+    id: 'emotion-maker',
+    name: '表情產生器',
+    summary:
+      '用眼睛、眉毛、嘴巴和汗滴、怒筋、臉紅等漫畫符號拼出 Q 版表情，存成清單後排成一張附文字的合輯圖，匯出透明 PNG。',
+    group: 'G3',
+    status: 'next',
+    inspiration: {
+      name: 'sotsotssi/emotion-maker',
+      url: 'https://github.com/sotsotssi/emotion-maker',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

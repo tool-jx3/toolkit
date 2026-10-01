@@ -14,6 +14,8 @@ export interface ToastOptions {
   tone?: ToastTone;
   /** 顯示毫秒數（預設 4000；錯誤 7000） */
   duration?: number;
+  /** 取代畫面上現有的通知（一次只顯示這一則；emotion-maker 移植時新增，不給時行為不變） */
+  replace?: boolean;
 }
 
 interface ToastItem extends ToastOptions {
@@ -37,7 +39,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const toast = useCallback<ToastFn>((o) => {
     const id = ++seq;
-    setItems((list) => [...list.slice(-3), { ...o, id, open: true }]);
+    setItems((list) => [...(o.replace ? [] : list.slice(-3)), { ...o, id, open: true }]);
   }, []);
   return (
     <ToastContext.Provider value={toast}>

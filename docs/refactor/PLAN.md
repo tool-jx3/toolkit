@@ -154,7 +154,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | variant-manager | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
 | height-board | ✅ | ✅ | ⬜ | ⬜ |
 | color-palette | ✅ | ✅ | ⬜ | ⬜ |
-| emotion-maker | ✅ | 🔨 | ⬜ | ⬜ |
+| emotion-maker | ✅ | ✅ | ⬜ | ⬜ |
 | typewriter | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
 | text-path | ✅ | ✅ | ✅ | ✅ |
 | cutin | ✅ | ✅ | 🔍 | ⬜ |
