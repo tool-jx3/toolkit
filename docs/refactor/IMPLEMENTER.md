@@ -7,25 +7,14 @@
 - 開工前先對齊到最新：`git fetch -q origin claude/loading-maker-integration-kvbpde && git merge --ff-only FETCH_HEAD`，確認 `docs/refactor/specs/<id>.md` 存在。然後 `cd web && npm ci`。
 - 暫存檔放 worktree 根目錄的 `.impl-tmp/`（不提交）。
 
-## 2. 能不能看原作的程式（依原作授權，見 PLAN.md 第 2 節「原授權」欄；主控派工時也會寫明）
+## 2. 參考原作的程式改寫
 
-**開放授權（MIT、CC0 等）——參考改寫**
-- 可以讀原作的程式：`tools/<id>/` 的舊檔、`vendor/`、上游原作；已上線、舊檔已刪的工具用 ATTRIBUTION「本站重寫的工具」表的 commit 取回（`git show <commit>:tools/<id>/...`）。
-- 把功能改寫成 `web/` 的共用元件與模組：用本專案的元件、設計 token、用詞，不整份照搬舊的檔案結構、版面與樣式。演算法、數值、範本、預設集可以沿用（範本文字翻成繁中）。
-- 把原作的授權全文（含著作權聲明）原樣放到 `web/src/tools/<id>/UPSTREAM_LICENSE`（建置時自動併入 THIRD_PARTY_NOTICES）。
+- **要讀原作的程式**：`tools/<id>/` 的舊檔、`vendor/`、上游原作；已上線、舊檔已刪的工具用 ATTRIBUTION「本站重寫的工具」表的 commit 取回（`git show <commit>:tools/<id>/...`）。規格不清楚的地方直接看原作程式求證。
+- **改寫成本專案的元件**：功能、演算法、數值照原作，但用 `web/` 的共用元件與模組、設計 token、用詞與檔案結構重新寫；不整段貼上、不逐行轉寫舊的檔案，也不沿用舊的版面與樣式。缺的共用元件照第 4 節做成共用的。
+- **素材與文字依原作授權**（PLAN.md 第 2 節「原授權」欄，主控派工時也會寫明）：
+  - MIT、CC0 等開放授權：範本、預設集、範例可以沿用（翻成繁中）；把原作的授權全文（含著作權聲明）原樣放到 `web/src/tools/<id>/UPSTREAM_LICENSE`（建置時自動併入 THIRD_PARTY_NOTICES）。
+  - 未授權、作者條款限制：圖片素材、範本文字、範例資料不沿用，自己做（繁中）。
 - 規格還沒有功能清單時，先讀原作程式寫 `docs/refactor/specs/<id>.md` 第 1 節（每個控制項、輸出、快捷鍵一個編號），對等驗證以此為準。
-
-**未授權、作者條款限制——無塵室（違反就整個作廢）**
-**不可以**開啟、讀取、grep、cat、在瀏覽器打開：
-- `tools/` 底下該工具的舊版檔案（包括 `tools/<id>/`）
-- `vendor/` 裡該工具的原始碼
-- `/tmp/claude-0/` 底下的任何東西（scratchpad：上游原作、觀察者的腳本與模擬頁）
-- 原作的 GitHub repo 或網站（不要 WebFetch／WebSearch 原作）
-- 舊版檔案與規格檔的 git 歷史（不要 `git show`／`git log -p`／`git diff` 在 `tools/`、`vendor/`、`docs/refactor/specs/` 上；只讀規格的**目前版本**）
-- 程式、素材、範本文字一律自己做。
-
-兩種做法都**可以**看：`CLAUDE.md`、`docs/refactor/` 的目前版本、`web/` 全部、npm 套件文件、外部平台（CCFOLIA、OBS、Discord）的公開說明文件。
-規格不清楚的地方：開放授權的工具直接看原作程式求證；未授權的工具自己選一個合理的解讀，寫進最後的回報。
 
 ## 3. 先讀
 1. `CLAUDE.md`、`docs/refactor/PROCESS.md`（第 3 節實作守則）、`docs/refactor/DESIGN.md`（第 4 節：每個元件與模組的 API；第 5 節：用詞表）、`web/README.md`
@@ -44,7 +33,7 @@
    - e2e `web/tests/e2e/<id>.spec.ts`：URL 用 `` `/${outputDir(getTool('<id>') ?? { id: '<id>', status: 'next' })}/` ``（從 `../../src/registry` import）；開頁無 console error、主要操作與規格的關鍵行為、輸出（下載的檔案要解析驗證）、390 寬沒有橫向捲動、1280／390 視覺基準圖 `web/tests/__screenshots__/<id>-1280.png`、`<id>-390.png`。
    - **跑 e2e 一律用主控給的 port**：`E2E_PORT=<port> npm run e2e`；自己開伺服器也用那個 port。
 4. `npm run lint`、`npm run typecheck`、`npm test`、`E2E_PORT=<port> npm run e2e` 全部通過。
-5. 提交：**只 `git add web docs/refactor/DESIGN.md`**（開放授權的工具由你寫了功能清單時，加上 `docs/refactor/specs/<id>.md`）（不要提交 `next/`、`assets/build/`、`tools/`、`.impl-tmp/`），在目前 worktree 的分支 commit，英文標題＋說明，結尾加：
+5. 提交：**只 `git add web docs/refactor/DESIGN.md`**（由你寫了功能清單時，加上 `docs/refactor/specs/<id>.md`）（不要提交 `next/`、`assets/build/`、`tools/`、`.impl-tmp/`），在目前 worktree 的分支 commit，英文標題＋說明，結尾加：
    ```
    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
    Claude-Session: https://claude.ai/code/session_01332NS3NmLC5jAqKc7jB5X7

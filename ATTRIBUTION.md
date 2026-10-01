@@ -686,10 +686,10 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 ## 本站重寫的工具（靈感來源）
 
 下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的流程改寫到本站的 `web/` 框架，
-上線前逐項做新舊版對等驗證（紀錄在各規格 [docs/refactor/specs/](docs/refactor/specs/) 的第 6 節）。做法依原作授權而定：
-未授權的原作以無塵室方式重寫（觀察者只寫行為規格，實作者只看規格與 `web/` 框架）；MIT、CC0 等開放授權的原作
-可以參考其程式改寫，原作的著作權聲明與授權全文保留在 `assets/build/THIRD_PARTY_NOTICES.md`（「參考原作程式改寫的工具」一節）。
-表中目前的工具都是以無塵室方式重寫的。新版只有繁體中文介面，本站的程式以 MIT 授權釋出（見 [LICENSE](LICENSE)），
+上線前逐項做新舊版對等驗證（紀錄在各規格 [docs/refactor/specs/](docs/refactor/specs/) 的第 6 節）。改寫時參考原作的程式，
+用本站的共用元件重新寫；MIT、CC0 等開放授權原作的著作權聲明與授權全文保留在 `assets/build/THIRD_PARTY_NOTICES.md`
+（「參考原作程式改寫的工具」一節），未授權原作的素材與範本文字不沿用。表中目前的工具是在這個做法之前以無塵室方式
+（觀察者只寫行為規格，實作者只看規格）重寫的。新版只有繁體中文介面，本站的程式以 MIT 授權釋出（見 [LICENSE](LICENSE)），
 頁尾只保留靈感來源連結。舊版的收錄副本已移除，需要對照時可以從表中的 `main` commit 取回（例如 `git show cb0c619:tools/battlemap/app.js`）。
 
 | 工具 | 名稱 | 靈感來源 | 舊版所在的 commit |
