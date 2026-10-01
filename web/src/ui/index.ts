@@ -3,6 +3,14 @@
  *   import { ToolShell, Section, Field, Slider } from '@/ui';
  * 樣式入口：import '@/ui/styles.css'（每個工具的 main.tsx 一次）。
  */
+
+export {
+  ANCHORS,
+  type Anchor,
+  AnchorGrid,
+  type AnchorGridProps,
+  anchorAxes,
+} from './AnchorGrid';
 export {
   ANCHOR_LABELS,
   ANCHOR_VALUES,
@@ -29,11 +37,30 @@ export {
 } from './ColorField';
 export {
   type AspectOption,
+  type CropConfirmConfig,
+  CropConfirmSummary,
+  type CropConfirmSummaryProps,
   CropDialog,
   type CropDialogProps,
   type CropRect,
   DEFAULT_ASPECTS,
 } from './CropDialog';
+export {
+  CssExportPanel,
+  type CssExportPanelProps,
+  type CssExportStatus,
+  SourceUrlField,
+  type SourceUrlFieldProps,
+} from './CssExport';
+export {
+  CssPreviewFrame,
+  type CssPreviewFrameHandle,
+  type CssPreviewFrameProps,
+  type PreviewBackground,
+  type PreviewBackgroundKind,
+  type PreviewSize,
+  simulateHoverCss,
+} from './CssPreviewFrame';
 export { cn } from './cn';
 export {
   ConfirmDialog,
@@ -58,7 +85,14 @@ export {
   type ExportSettings,
   useWebpSupport,
 } from './ExportPanel';
-export { Field, type FieldProps, FieldRow, type FieldRowProps, useFieldControl } from './Field';
+export {
+  Field,
+  type FieldProps,
+  FieldRow,
+  type FieldRowProps,
+  Show,
+  useFieldControl,
+} from './Field';
 export { availableWeights, FontPicker, type FontPickerProps, WEIGHT_LABELS } from './FontPicker';
 export { GradientField, type GradientFieldProps } from './GradientField';
 export { GroupTabs } from './GroupTabs';
@@ -71,10 +105,26 @@ export {
   type ImageDropProps,
 } from './ImageDrop';
 export { InspirationFooter } from './InspirationFooter';
+export { ItemListEditor, type ItemListEditorProps } from './ItemListEditor';
 export { Kbd } from './Kbd';
+export {
+  LOCAL_FONT_MESSAGES,
+  LocalFontDialog,
+  type LocalFontDialogProps,
+  supportsLocalFontList,
+} from './LocalFontDialog';
+export {
+  type ComposedMessage,
+  type ComposerKind,
+  type ComposerOption,
+  MessageComposer,
+  type MessageComposerProps,
+  parseComposerText,
+} from './MessageComposer';
 export { NativeNumberInput, type NativeNumberInputProps, spinStep } from './NativeNumberInput';
 export { Notice, type NoticeProps, type NoticeTone } from './Notice';
 export { NumberInput, type NumberInputProps } from './NumberInput';
+export { ObsGuide, type ObsGuideProps } from './ObsGuide';
 export { ProjectMenu, ProjectMenuItem, type ProjectMenuProps } from './ProjectMenu';
 export { Section, type SectionProps } from './Section';
 export { Segmented, type SegmentedOption, type SegmentedProps } from './Segmented';
@@ -89,6 +139,7 @@ export {
   type StageProps,
   type StageZoom,
 } from './Stage';
+export { type StepItem, StepNav, type StepNavProps, Stepper, type StepperProps } from './Stepper';
 export {
   formatCombo,
   isEditableTarget,
@@ -99,6 +150,17 @@ export {
 } from './shortcuts';
 export { type TabItem, Tabs, type TabsProps } from './Tabs';
 export { TemplateGallery, type TemplateGalleryProps, type TemplateItem } from './TemplateGallery';
+export {
+  applyTestShortcut,
+  TEST_SHORTCUTS,
+  type TestShortcut,
+  type TestShortcutOptions,
+  TestValueRow,
+  type TestValueRowProps,
+  TestValueShortcuts,
+  type TestValueShortcutsProps,
+  testShortcutLabel,
+} from './TestValueRow';
 export { TextArea, type TextAreaProps, TextInput, type TextInputProps } from './TextInput';
 export { ThemeToggle } from './ThemeToggle';
 export {
@@ -116,4 +178,5 @@ export { SEGMENT_COLORS, Transport, type TransportProps } from './Transport';
 export { getTheme, setTheme, type Theme, useTheme } from './theme';
 export { UiProvider } from './UiProvider';
 export { UsageSection, type UsageSectionProps } from './UsageSection';
+export { useConfirmedReset } from './useConfirmedReset';
 export { type Playback, type PlaybackOptions, usePlayback } from './usePlayback';

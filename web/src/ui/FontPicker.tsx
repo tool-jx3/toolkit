@@ -5,17 +5,19 @@
  * - Google 字型清單的預覽只下載用到的幾個字（Google Fonts 的 text= 子集），不會一次載入整套字型。
  * - 選定後會呼叫 ensureFont 載入正式字型；工具畫 canvas 前仍應自己 await ensureFont。
  */
-import { HardDrive, Search, Trash2, Type, Upload } from 'lucide-react';
+import { HardDrive, ListFilter, Search, Trash2, Type, Upload } from 'lucide-react';
 import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { formatBytes } from '@/core/files';
 import {
   CATEGORY_LABELS,
+  CSS_WEIGHT_CHOICES,
   canQueryLocalFonts,
   ensureFont,
   FONT_FILE_ACCEPT,
   type FontScript,
   type FontValue,
   findGoogleFont,
+  findSystemFont,
   fontFamilyCss,
   GOOGLE_FONTS,
   isLocalFontAvailable,
@@ -25,7 +27,9 @@ import {
   queryLocalFamilies,
   registerUploadedFonts,
   removeUploadedFont,
+  resolveFontWeight,
   SCRIPT_LABELS,
+  SYSTEM_FONTS,
   type UploadedFont,
   uploadFont,
 } from '@/core/fonts';
@@ -34,6 +38,7 @@ import { cn } from './cn';
 import { Dialog, DialogClose } from './Dialog';
 import { useFieldControl } from './Field';
 import { FileDrop } from './ImageDrop';
+import { LocalFontDialog } from './LocalFontDialog';
 import { Segmented } from './Segmented';
 import { Select } from './Select';
 import { Tabs } from './Tabs';
@@ -66,6 +71,17 @@ export interface FontPickerProps {
   allowUpload?: boolean;
   /** 顯示字重選單（預設 true） */
   showWeight?: boolean;
+  /**
+   * canvas（預設）：畫 canvas 用，三種來源都可以，字重選單列出字型實有的字重。
+   * css：產生 OBS 自訂 CSS 用。沒有「上傳字型」（OBS 的 CSS 拿不到使用者的檔案）；字重選單固定 400～900 六級，
+   * 字型沒有該字重時輸出最接近的（會在下方註明）；電腦字型分頁列出常見的內建字型、手動輸入名稱，
+   * 並可「從清單選」（LocalFontDialog）。
+   */
+  mode?: 'canvas' | 'css';
+  /** 自訂字重選單的選項（css 模式預設 400～900） */
+  weights?: readonly number[];
+  /** css 模式選了電腦字型時，下方的提醒（預設提醒在跑 OBS 的電腦安裝；false 不顯示） */
+  localFontNote?: ReactNode | false;
   disabled?: boolean;
   id?: string;
   'aria-label'?: string;
@@ -370,6 +386,90 @@ function LocalTab({
   );
 }
 
+/** css 模式的電腦字型分頁：常見內建字型、手動輸入、從清單選 */
+function CssLocalTab({
+  value,
+  onPick,
+  previewText,
+}: {
+  value: FontValue;
+  onPick: (family: string) => void;
+  previewText: string;
+}) {
+  const [manual, setManual] = useState(
+    value.source === 'local' && !findSystemFont(value.family) ? value.family : '',
+  );
+  const [listOpen, setListOpen] = useState(false);
+  const name = useId();
+  const selected = value.source === 'local' ? value.family : null;
+  const sysSelected = selected ? (findSystemFont(selected)?.family ?? null) : null;
+  return (
+    <div className="flex flex-col gap-3">
+      <OptionList
+        name={name}
+        label="常見的電腦字型"
+        items={SYSTEM_FONTS.map((f) => f.family)}
+        selected={sysSelected}
+        onSelect={onPick}
+        render={(family) => {
+          const f = findSystemFont(family)!;
+          return (
+            <span className="flex min-w-0 flex-col" style={{ fontFamily: fontFamilyCss(f.family) }}>
+              <span className="truncate text-base text-fg">{f.label}</span>
+              <span className="truncate text-sm text-muted">{previewText}</span>
+              <span className="mt-0.5 text-xs text-muted" style={{ fontFamily: 'var(--font-ui)' }}>
+                {f.note}
+              </span>
+            </span>
+          );
+        }}
+      />
+      <form
+        className="flex flex-col gap-1.5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const fam = manual.replace(/\s+/g, ' ').trim();
+          if (fam) onPick(fam);
+        }}
+      >
+        <label htmlFor={`${name}-manual`} className="text-sm font-medium">
+          手動輸入電腦字型名稱
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <TextInput
+            id={`${name}-manual`}
+            placeholder="例如：jf open 粉圓 2.1、源樣黑體"
+            value={manual}
+            onChange={(e) => setManual(e.target.value)}
+            className="min-w-40 flex-1"
+          />
+          <Button type="submit" variant="primary">
+            套用
+          </Button>
+          {canQueryLocalFonts() ? (
+            <Button icon={<ListFilter />} onClick={() => setListOpen(true)}>
+              從清單選
+            </Button>
+          ) : null}
+        </div>
+        <p className="m-0 text-xs text-muted">
+          只有跑 OBS 的電腦也裝了這套字型才會生效；字型沒有漢字時，漢字會退回一般黑體。
+        </p>
+      </form>
+      <LocalFontDialog
+        open={listOpen}
+        onOpenChange={setListOpen}
+        value={selected ?? ''}
+        sampleText={previewText}
+        onPick={(fam) => {
+          setManual(fam);
+          onPick(fam);
+        }}
+      />
+    </div>
+  );
+}
+
 function UploadTab({
   value,
   onPick,
@@ -480,8 +580,11 @@ export function FontPicker({
   previewText = '天地玄黃 宇宙洪荒 TRPG 123',
   scripts,
   allowLocal = true,
-  allowUpload = true,
+  allowUpload,
   showWeight = true,
+  mode = 'canvas',
+  weights: weightOptions,
+  localFontNote,
   disabled,
   className,
   ...rest
@@ -490,17 +593,22 @@ export function FontPicker({
   const [open, setOpen] = useState(false);
   const valueId = useId();
   const [tab, setTab] = useState<FontValue['source']>(value.source);
-  const weights = availableWeights(value);
+  const css = mode === 'css';
+  const uploadAllowed = allowUpload ?? !css;
+  const weights = weightOptions ?? (css ? CSS_WEIGHT_CHOICES : availableWeights(value));
   const display =
     value.source === 'google'
       ? (findGoogleFont(value.family)?.label ?? value.family)
-      : value.family;
+      : (findSystemFont(value.family)?.label ?? value.family);
+  /* css 模式：實際輸出的字重（字型沒有選的字重時換成最接近的） */
+  const resolved = css ? resolveFontWeight(value, value.weight) : value.weight;
 
   useEffect(() => {
-    ensureFont(value.family, value.weight, display);
-  }, [value.family, value.weight, display]);
+    ensureFont(value.family, resolved, display);
+  }, [value.family, resolved, display]);
 
   const pick = (source: FontValue['source']) => (family: string) => {
+    if (css) return onChange({ source, family, weight: value.weight });
     const ws = availableWeights({ source, family });
     onChange({ source, family, weight: nearestWeight(ws, value.weight) });
   };
@@ -525,11 +633,15 @@ export function FontPicker({
             value: 'local' as const,
             label: '電腦字型',
             icon: <HardDrive />,
-            content: <LocalTab value={value} onPick={pick('local')} previewText={previewText} />,
+            content: css ? (
+              <CssLocalTab value={value} onPick={pick('local')} previewText={previewText} />
+            ) : (
+              <LocalTab value={value} onPick={pick('local')} previewText={previewText} />
+            ),
           },
         ]
       : []),
-    ...(allowUpload
+    ...(uploadAllowed
       ? [
           {
             value: 'upload' as const,
@@ -541,8 +653,17 @@ export function FontPicker({
       : []),
   ];
 
-  return (
-    <div className={cn('flex w-full min-w-0 gap-2', className)}>
+  const note =
+    css && value.source === 'local' && localFontNote !== false
+      ? (localFontNote ?? '跑 OBS 的電腦也要安裝這套字型。')
+      : null;
+  const weightNote =
+    css && showWeight && resolved !== value.weight
+      ? `這套字型沒有 ${value.weight}，實際使用 ${resolved}。`
+      : null;
+
+  const picker = (
+    <div className={cn('flex w-full min-w-0 gap-2', !css && className)}>
       <Dialog
         open={open}
         onOpenChange={(o) => {
@@ -595,6 +716,15 @@ export function FontPicker({
           className="w-28 shrink-0"
         />
       ) : null}
+    </div>
+  );
+  /* css 模式一律包一層（註記出現或消失時，對話框不會被重新掛載） */
+  if (!css) return picker;
+  return (
+    <div className={cn('flex w-full min-w-0 flex-col gap-1', className)}>
+      {picker}
+      {weightNote ? <p className="m-0 text-xs text-muted">{weightNote}</p> : null}
+      {note ? <p className="m-0 text-xs text-warning">{note}</p> : null}
     </div>
   );
 }

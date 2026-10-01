@@ -36,6 +36,8 @@
   --overlay: rgb(6 5 9 / 0.66);
   --checker-a: #2a2830;
   --checker-b: #1f1e24;
+  /* 預覽裡「來源範圍」的虛線（CssPreviewFrame） */
+  --source-outline: #ff6fb0;
 
   /* ---- 字型 ---- */
   --font-ui:
@@ -105,6 +107,7 @@
   --overlay: rgb(28 27 25 / 0.45);
   --checker-a: #e4e0d9;
   --checker-b: #f7f5f1;
+  --source-outline: #e0337f;
 
   --shadow-1: 0 1px 2px rgb(28 27 25 / 0.08), 0 1px 1px rgb(28 27 25 / 0.05);
   --shadow-2: 0 10px 30px rgb(28 27 25 / 0.14), 0 2px 8px rgb(28 27 25 / 0.08);

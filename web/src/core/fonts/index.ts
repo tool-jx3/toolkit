@@ -169,6 +169,97 @@ export async function queryLocalFamilies(): Promise<string[]> {
   return [...new Set(list.map((f) => f.family))].sort((a, b) => a.localeCompare(b, 'zh-Hant-TW'));
 }
 
+/** 電腦上的一個字型家族（同一家族只列一次） */
+export interface LocalFontFamily {
+  family: string;
+  /** 這個家族各樣式的完整名稱（搜尋用） */
+  fullNames: string[];
+}
+
+/**
+ * 讀不到電腦字型清單的原因：
+ * unsupported：瀏覽器不支援（Firefox、Safari、手機）；insecure：頁面無法讀取（例如以本機檔案開啟）；
+ * denied：使用者拒絕權限；empty：回傳空清單（通常也是權限被擋）；failed：其他錯誤。
+ */
+export type LocalFontErrorKind = 'unsupported' | 'insecure' | 'denied' | 'empty' | 'failed';
+
+export class LocalFontError extends Error {
+  readonly kind: LocalFontErrorKind;
+  constructor(kind: LocalFontErrorKind, message?: string) {
+    super(message ?? kind);
+    this.name = 'LocalFontError';
+    this.kind = kind;
+  }
+}
+
+let localFontCache: LocalFontFamily[] | null = null;
+
+/** 已經讀過的電腦字型清單（沒讀過時 null）；讀過一次就留著，下次不再要求權限 */
+export function cachedLocalFonts(): LocalFontFamily[] | null {
+  return localFontCache;
+}
+
+/** 測試用：清掉快取 */
+export function clearLocalFontCache(): void {
+  localFontCache = null;
+}
+
+/**
+ * 讀取電腦上的字型（依家族名稱排序、同一家族只列一次）。第一次呼叫時瀏覽器會詢問權限，
+ * 必須在使用者點擊時呼叫。失敗時丟 LocalFontError（kind 說明原因）；成功的結果會留在快取。
+ */
+export async function queryLocalFontFamilies({
+  force = false,
+}: {
+  force?: boolean;
+} = {}): Promise<LocalFontFamily[]> {
+  if (localFontCache && !force) return localFontCache;
+  if (typeof window !== 'undefined' && window.location?.protocol === 'file:')
+    throw new LocalFontError('insecure');
+  if (!canQueryLocalFonts()) throw new LocalFontError('unsupported');
+  let list: LocalFontData[];
+  try {
+    list =
+      (await (
+        window as unknown as { queryLocalFonts: () => Promise<LocalFontData[]> }
+      ).queryLocalFonts()) ?? [];
+  } catch (e) {
+    const name = (e as { name?: string } | null)?.name;
+    if (name === 'SecurityError' || name === 'NotAllowedError') throw new LocalFontError('denied');
+    throw new LocalFontError('failed', e instanceof Error ? e.message : String(e));
+  }
+  if (!list.length) throw new LocalFontError('empty');
+  const map = new Map<string, Set<string>>();
+  for (const f of list) {
+    if (!f.family) continue;
+    let set = map.get(f.family);
+    if (!set) {
+      set = new Set();
+      map.set(f.family, set);
+    }
+    if (f.fullName) set.add(f.fullName);
+  }
+  localFontCache = [...map.entries()]
+    .map(([family, names]) => ({ family, fullNames: [...names] }))
+    .sort((a, b) => a.family.localeCompare(b.family, 'zh-Hant-TW'));
+  return localFontCache;
+}
+
+/**
+ * 搜尋電腦字型：以空白分隔多個關鍵字，全部都要符合（不分大小寫，比對家族名稱與完整名稱）。
+ */
+export function filterLocalFonts(
+  list: readonly LocalFontFamily[],
+  query: string,
+): LocalFontFamily[] {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return [...list];
+  return list.filter((f) => {
+    const hay = [f.family, ...f.fullNames].join('\n').toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
+}
+
 /**
  * 粗略判斷電腦上有沒有這個字型：用它畫一段字，寬度和三種通用字型都一樣就當作沒有。
  * （document.fonts.check 對系統字型永遠回傳 true，不能用）

@@ -7,6 +7,7 @@ import {
   createContext,
   type ReactElement,
   type ReactNode,
+  type RefObject,
   useCallback,
   useContext,
   useRef,
@@ -42,6 +43,8 @@ export interface DialogProps {
   className?: string;
   /** 內容區不加內距（例如放圖片編輯區） */
   flush?: boolean;
+  /** 開啟時把焦點放在這個元素（預設是第一個可聚焦的元素） */
+  initialFocus?: RefObject<HTMLElement | null>;
 }
 
 export function Dialog({
@@ -55,13 +58,23 @@ export function Dialog({
   size = 'md',
   className,
   flush,
+  initialFocus,
 }: DialogProps) {
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       {trigger ? <D.Trigger asChild>{trigger}</D.Trigger> : null}
       <D.Portal>
         <D.Overlay className={overlayClass} />
-        <D.Content className={contentClass(size, className)}>
+        <D.Content
+          className={contentClass(size, className)}
+          onOpenAutoFocus={(e) => {
+            const el = initialFocus?.current;
+            if (el) {
+              e.preventDefault();
+              el.focus();
+            }
+          }}
+        >
           <FieldScope>
             <div className="flex items-start gap-3 border-b border-border px-4 py-3">
               <div className="min-w-0 flex-1">
