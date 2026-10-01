@@ -110,6 +110,11 @@ export interface CssPreviewFrameProps {
   sizeNote?: ReactNode;
   /** iframe 的標題（螢幕閱讀器） */
   label?: string;
+  /**
+   * 疊在預覽區上的內容（例如「點一下切換說話中」的透明按鈕、狀態標籤）。放在預覽區（棋盤格那一塊）裡，
+   * 以預覽區為定位基準（absolute inset-0 就是整個預覽區）；iframe 本身仍然不能操作。
+   */
+  overlay?: ReactNode;
   className?: string;
   ref?: Ref<CssPreviewFrameHandle>;
 }
@@ -209,6 +214,7 @@ export function CssPreviewFrame({
   showSize = true,
   sizeNote,
   label = '預覽',
+  overlay,
   className,
   ref,
 }: CssPreviewFrameProps) {
@@ -563,6 +569,7 @@ export function CssPreviewFrame({
           {pctText}
           {showBefore ? '・套用前' : ''}
         </span>
+        {overlay}
       </div>
       {showSize ? (
         <p

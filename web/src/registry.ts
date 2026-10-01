@@ -125,6 +125,18 @@ export const TOOLS: readonly ToolEntry[] = [
     group: 'G1',
     status: 'live',
   },
+  {
+    id: 'obs-tachie',
+    name: 'Discord 通話立繪產生器',
+    summary:
+      '用 Discord 語音跑團直播時，把 Streamkit 的小頭像換成常駐立繪：說話時彈跳、發光或閃爍，可附名字標籤，產生 OBS 瀏覽器來源的自訂 CSS。',
+    group: 'G4',
+    status: 'next',
+    inspiration: {
+      name: 'max-enterme/obs-tachie-generator',
+      url: 'https://github.com/max-enterme/obs-tachie-generator',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
