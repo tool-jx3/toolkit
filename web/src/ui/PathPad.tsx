@@ -34,7 +34,7 @@ export interface PathPadProps {
   labels?: readonly PathPadLabel[];
   /** 疊字的字級（邏輯 px） */
   labelSize?: number;
-  /** 疊字的字型（CSS font-family） */
+  /** 疊字的字型（CSS font-family；可以用 `var(--font-ui)` 這類 CSS 變數） */
   labelFont?: string;
   disabled?: boolean;
   'aria-label': string;
@@ -46,6 +46,17 @@ function tokenColor(name: string, fallback: string): string {
   if (typeof document === 'undefined') return fallback;
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
+}
+
+/** canvas 的 font 不認 CSS 變數：把 `var(--x)` 換成目前的值（例如預設的 `var(--font-ui)`） */
+function resolveCssVars(value: string): string {
+  if (!value.includes('var(') || typeof document === 'undefined') return value;
+  const cs = getComputedStyle(document.documentElement);
+  return value.replace(
+    /var\(\s*(--[\w-]+)\s*(?:,\s*([^)]*))?\)/g,
+    (_m, name: string, fallback?: string) =>
+      cs.getPropertyValue(name).replace(/\s+/g, ' ').trim() || fallback?.trim() || 'sans-serif',
+  );
 }
 
 export function PathPad({
@@ -103,7 +114,7 @@ export function PathPad({
     }
     if (labels?.length && !draft.current) {
       ctx.fillStyle = tokenColor('--text', '#222');
-      ctx.font = `700 ${labelSize}px ${labelFont}`;
+      ctx.font = `700 ${labelSize}px ${resolveCssVars(labelFont)}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       for (const l of labels) ctx.fillText(l.text, l.x, l.y);

@@ -42,6 +42,8 @@ export interface TextOutputPanelProps {
   placeholder?: string;
   /** 標題列右邊、複製鈕左邊的其他按鈕 */
   actions?: ReactNode;
+  /** 複製通知顯示的毫秒數（不給時：成功與空白 2 秒、失敗依 Toast 預設） */
+  messageDuration?: number;
   className?: string;
 }
 
@@ -63,6 +65,7 @@ export function TextOutputPanel({
   font,
   placeholder,
   actions,
+  messageDuration,
   className,
 }: TextOutputPanelProps) {
   const toast = useToast();
@@ -108,7 +111,7 @@ export function TextOutputPanel({
 
   const copy = async () => {
     if (!text) {
-      toast({ title: msg.empty, tone: 'warning', duration: 2000 });
+      toast({ title: msg.empty, tone: 'warning', duration: messageDuration ?? 2000 });
       return;
     }
     const ok = await copyText(text);
@@ -117,8 +120,14 @@ export function TextOutputPanel({
       ta.focus();
       ta.select();
     }
-    if (ok) toast({ title: msg.copied, tone: 'success', duration: 2000 });
-    else toast({ title: msg.failed, description: msg.failedHint, tone: 'danger' });
+    if (ok) toast({ title: msg.copied, tone: 'success', duration: messageDuration ?? 2000 });
+    else
+      toast({
+        title: msg.failed,
+        description: msg.failedHint,
+        tone: 'danger',
+        duration: messageDuration,
+      });
   };
 
   const style =
