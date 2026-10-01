@@ -43,12 +43,7 @@ export interface ProjectMenuProps<T> {
    * 開啟專案檔後套用（回傳 false 或丟錯表示資料不合用，會顯示錯誤；可以是 async）。
    * files：ZIP 專案檔附帶的檔案（名稱 → 位元組；JSON 專案檔是空的）；source：使用者選的檔案（顯示檔名用）。
    */
-  onLoad: (
-    data: T,
-    file: ProjectFile<T>,
-    files: Map<string, Uint8Array>,
-    source: File,
-  ) => unknown;
+  onLoad: (data: T, file: ProjectFile<T>, files: Map<string, Uint8Array>, source: File) => unknown;
   onReset: () => void;
   /** 最後自動存檔時間（毫秒）；null 表示還沒存過 */
   savedAt?: number | null;

@@ -65,7 +65,7 @@ describe('ProjectMenu（訊息框產生器補的選項）', () => {
     await user.click(await screen.findByRole('button', { name: '開啟' }));
     await waitFor(() => expect(onLoad).toHaveBeenCalled());
     expect(onLoad.mock.calls[0][0]).toEqual({ a: 2 });
-    expect(onLoad.mock.calls[0][2]).toBe(good);
+    expect(onLoad.mock.calls[0][3]).toBe(good);
 
     const other = new File([serializeProject('status-bar', 1, {})], 'x.json');
     vi.mocked(pickFiles).mockResolvedValueOnce([other]);
