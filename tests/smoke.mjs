@@ -650,35 +650,6 @@ for (const locale of ['zh-TW', 'ja']) {
   check(`${locale} app.js 的譯文齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
 
-/* ---- portrait-size ---- */
-const ps = checkTool({
-  dir: 'tools/portrait-size',
-  dict: 'i18n.portrait-size.js',
-  locale: 'ja',
-  scripts: ['app.js'],
-  styles: ['styles.css'],
-  minHooks: 40
-});
-
-section('tools/portrait-size');
-/* 上游頁面掛了 Google Analytics，收錄版整組移除；說明區與頁尾原本各有一句告知
- * 使用者這件事，留著就是在說一件本站不存在的事，因此一併拿掉。 */
-for (const file of ['index.html', 'app.js', 'styles.css']) {
-  const src = read(`tools/portrait-size/${file}`);
-  check(`${file} 沒有存取分析的殘留`,
-    !/googletagmanager|gtag\(|Google Analytics/.test(src));
-}
-/* 狀態訊息記住 key 與參數，切語言時重寫；寫回字面字串就會停在舊語言。 */
-const psApp = read('tools/portrait-size/app.js');
-check('狀態訊息以 key 呈現並在切換語言時重寫',
-  psApp.includes('function renderStatus()') && psApp.includes('I18N.onChange(renderStatus)'));
-const psStatusKeys = [...new Set([...psApp.matchAll(/\bshowStatus\('([\w]+\.[\w]+)'/g)].map(m => m[1]))];
-check('解析出狀態訊息 key', psStatusKeys.length >= 10, `found ${psStatusKeys.length}`);
-for (const locale of ['zh-TW', 'ja']) {
-  const missing = psStatusKeys.filter(k => !ps.messages[locale][k]);
-  check(`${locale} 狀態訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
 /* ---- room-zip ---- */
 /* 上游是一份 868 KB 的單一 HTML，收錄時拆成 index.html ＋ styles.css ＋ 五個
  * JS。其中 jszip.min.js 與 upng.js 是原樣保留的第三方函式庫，不參與 i18n。
@@ -968,8 +939,6 @@ const SOTSOT_FOUR = [
   { dir: 'tools/acrylic-goods', dict: 'i18n.acrylic-goods.js', minHooks: 50, inline: 35, attrs: 4, authorLink: false },
   { dir: 'tools/video-anim', dict: 'i18n.video-anim.js', minHooks: 60, inline: 50, attrs: 1, authorLink: true },
   { dir: 'tools/gif-combiner', dict: 'i18n.gif-combiner.js', minHooks: 25, inline: 20, attrs: 5, authorLink: true },
-  /* TextBoxGen 不是角色美術工具，但收錄做法（Tailwind、CDN、onChange 重畫）完全相同，一併檢查。 */
-  { dir: 'tools/textbox', dict: 'i18n.textbox.js', minHooks: 35, inline: 31, attrs: 4, authorLink: true },
 ];
 for (const t of SOTSOT_FOUR) {
   checkTool({ dir: t.dir, dict: t.dict, scripts: ['app.js'], styles: ['styles.css'], minHooks: t.minHooks });
@@ -1304,33 +1273,6 @@ check('不載入任何網頁字型或外部資源',
   !/fonts\.googleapis|fonts\.gstatic|https?:\/\/(?!www\.w3\.org)/.test(seHtml + read('tools/scenario-editor/styles.css')));
 check('紙面與介面的字型堆疊補上台灣系統字型', seApp.includes('Noto Serif TC') && seApp.includes('Microsoft JhengHei'));
 
-/* ---- battlemap（戰鬥地圖產生器）---- */
-/* 合輯第一個英文原文的工具。英文和程式碼共用字母，checkTool 的洩漏掃描抓不到「英文
- * 沒翻到」，所以這裡改查：畫面上的英文句子只能出現在字典裡，標記與程式碼中不准有。 */
-const bm = checkTool({
-  dir: 'tools/battlemap',
-  dict: 'i18n.battlemap.js',
-  locale: 'en',
-  scripts: ['app.js'],
-  styles: ['styles.css'],
-  minHooks: 22
-});
-section('tools/battlemap');
-const bmHtml = read('tools/battlemap/index.html');
-/* 內嵌文字寫繁中，所以抹掉標籤、腳本與屬性之後，剩下的英文只能是專有名詞與單位。 */
-const bmVisible = bmHtml.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<!--[\s\S]*?-->/g, ' ')
-  .replace(/<[^>]*>/g, ' ');
-const BM_ALLOWED_EN = ['TRPG', 'Toolkit', 'Roll', 'Roll20', 'Foundry', 'VTT', 'CCFOLIA', 'px', 'PNG', 'MIT', 'AI', 'canvas', 'GitHub', 'PR', 'G', 'D'];
-const bmWords = [...new Set(bmVisible.match(/[A-Za-z]{2,}/g) || [])].filter(w => !BM_ALLOWED_EN.includes(w));
-check('標記裡的可見文字沒有英文介面字', bmWords.length === 0, bmWords.join(' '));
-const bmApp = read('tools/battlemap/app.js');
-const bmStrings = [...stripComments(bmApp, 'js').matchAll(/(['"`])((?:(?!\1)[^\\\n])*[A-Za-z]{3,} [A-Za-z]{3,}(?:(?!\1)[^\\\n])*)\1/g)].map(m => m[2])
-  .filter(str => str !== 'use strict');
-check('app.js 沒有寫死的英文句子', bmStrings.length === 0, bmStrings.slice(0, 5).join(' | '));
-check('拿掉上游的 BOOTH 推廣卡片與 SEO 設定',
-  !/booth\.pm|application\/ld\+json|rel="canonical"|og:title/.test(bmHtml) && !exists('tools/battlemap/robots.txt'));
-check('保留 LICENSE（MIT）', /MIT License/.test(read('tools/battlemap/LICENSE')));
-
 /* ---- psd-studio（CCFOLIA & 圖片調色工作室）---- */
 /* 上游 fyam-hamu/F_Ccfolia-PSD-Studio 沒有 LICENSE，但頁面上寫了作者條款：禁止轉售與
  * 收費散布，修改、改良後可以免費再散布。條款原文與翻譯收在 TERMS.md，畫面上也保留。 */
@@ -1386,24 +1328,6 @@ check('拿掉「用 Room ID 載入」', !/firestore|CcfoliaAPI|roomIdInput|loadR
 check('保留 LICENSE（MIT）', /MIT License/.test(read('tools/log-converter/LICENSE')));
 check('掛了語言切換器，切語言時重畫程式寫的文字',
   lcApp.includes('I18N.mountSwitcher(') && lcApp.includes('I18N.onChange('));
-
-/* ---- text-fx（文字演出產生器，本 repo 原創）---- */
-/* 不是收錄的工具：以無塵室方式獨立開發（見 ATTRIBUTION）。只有繁中介面、不載入語言引擎，
- * 也不靠任何外部 JS 函式庫（APNG、ZIP、減色都是自己寫的），只從 Google Fonts 載字型。 */
-section('tools/text-fx');
-const TFX = 'tools/text-fx';
-const tfxFiles = listFiles(TFX).filter(f => /\.(html|js|css)$/.test(f));
-check('MIT 授權，署名 tool-jx3', /MIT License[\s\S]*Copyright \(c\) 2026 tool-jx3/.test(read(`${TFX}/LICENSE`)));
-const tfxKana = tfxFiles.filter(f => KANA.test(read(f)));
-check('程式碼、標記與樣式裡沒有假名', tfxKana.length === 0, tfxKana.join(', '));
-const tfxExternal = tfxFiles.flatMap(f => [...read(f).matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map(m => m[1]))
-  .filter(h => !['fonts.googleapis.com', 'fonts.gstatic.com', 'www.w3.org'].includes(h));
-check('只連 Google Fonts，沒有外部函式庫或統計', tfxExternal.length === 0, [...new Set(tfxExternal)].join(', '));
-const tfxHtml = read(`${TFX}/index.html`);
-check('頁首有回合輯首頁的連結', tfxHtml.includes('href="../../"') && tfxHtml.includes('TRPG Toolkit'));
-check('html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(tfxHtml));
-check('<title> 是工具名', /<title>文字演出產生器<\/title>/.test(tfxHtml));
-check('LICENSE 的涵蓋範圍寫進了 text-fx', read('LICENSE').includes('tools/text-fx/'));
 
 /* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
@@ -2004,29 +1928,6 @@ check('coc-typesetter 的 CDN 相依都有版本且記在 THIRD_PARTY_NOTICES',
 check('THIRD_PARTY_NOTICES 記下取得網址與作者不明', cocNotices.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html')
   && cocNotices.includes('沒有作者署名'));
 
-/* ---- apng-wipe ---- */
-/* 輕量轉場 APNG 產生器：作者與來源都不明，收成只有繁中（和 coc-typesetter 同樣的處理）。
- * 整份檔案不准有假名，不載入任何外部資源；APNG 編碼是上游自己寫的，檢查關鍵 chunk 都還在。 */
-section('tools/apng-wipe');
-const AW = 'tools/apng-wipe';
-const awHtml = read(`${AW}/index.html`), awJs = read(`${AW}/app.js`), awCss = read(`${AW}/styles.css`);
-for (const [file, src] of [['index.html', awHtml], ['app.js', awJs], ['styles.css', awCss]]) {
-  const leaked = src.split('\n').map((l, i) => [i + 1, l]).filter(([, l]) => KANA.test(l));
-  check(`${file} 沒有任何假名`, leaked.length === 0, leaked.slice(0, 5).map(([n, l]) => `L${n}: ${l.trim().slice(0, 60)}`).join('\n       '));
-}
-check('html lang 為 zh-Hant-TW，<title> 是繁中', /<html lang="zh-Hant-TW">/.test(awHtml) && awHtml.includes('<title>輕量轉場 APNG 產生器</title>'));
-check('只有繁中：沒有 i18n 引擎與語言選單', !/assets\/i18n\.js|mountSwitcher|langSwitch|localeSelect/.test(awHtml + awJs));
-check('頁首有回合輯首頁的連結', awHtml.includes('<a class="tk-home" href="../../">← TRPG Toolkit</a>'));
-check('作者與來源不明、未附授權：目錄裡沒有 LICENSE', !exists(`${AW}/LICENSE`));
-check('不載入任何外部資源', !/(?:src|href)="https?:|url\(\s*['"]?https?:|fetch\(/.test(awHtml + awCss + awJs));
-check('沒有留下日文字型', !/Noto Sans JP|Yu Gothic|Hiragino|Meiryo/.test(awHtml + awCss));
-check('APNG 編碼的關鍵 chunk 都在', ['IHDR', 'PLTE', 'tRNS', 'acTL', 'fcTL', 'IDAT', 'fdAT', 'IEND'].every(c => awJs.includes(`'${c}'`)));
-check('存檔副檔名是 .png（APNG 規格建議的副檔名）', /a\.download=`transition-[^`]*deg\.png`;/.test(awJs) && !/deg\.apng/.test(awJs));
-check('上游的三種預設尺寸照舊', ['[15,30]', '[30,15]', '[15,15]'].every(t => awJs.includes(t))
-  && ['15×15px', '15×30px', '30×15px'].every(t => awHtml.includes(t)));
-const awAngles = (awJs.match(/\['0°・向右'[^\]]*\]/) || [''])[0].match(/'[^']+'/g) || [];
-check('八個角度的說明都是繁中', awAngles.length === 8 && awAngles.every(a => /向/.test(a)), `found ${awAngles.length}`);
-
 /* ---- PC 字型挑選器 ---- */
 /* pcfonts.v1.js 在三個工具底下各有一份，上游保證三份完全相同，收錄版也一樣。
  * 只改其中一份的話，另外兩個工具的對話框就會停在舊版本。 */
@@ -2267,10 +2168,39 @@ for (const name of TOOLS) {
 /* 每張卡片的授權徽章都要跟該工具目錄裡有沒有 LICENSE 對得上。徽章是手寫的，
  * 新增工具時很容易沿用上一張卡片而標錯（把未授權的標成 MIT 就是誤導）。
  * emotion-maker 另含 39 張圖像素材，故其徽章用 license.unlicensed.assets。 */
+/* ---- 重寫上線的工具（web/ 新框架）---- */
+/* 依 docs/refactor 的流程重寫、對等驗證後上線的工具：tools/<id>/ 只剩建置產物 index.html，
+ * 程式在 web/src/tools/<id>/，共用的 JS／CSS 在 assets/build/。清單從 web/src/registry.ts 讀。 */
+section('重寫上線的工具');
+const registrySrc = read('web/src/registry.ts');
+const registryEntries = registrySrc.split(/\n  \{\n/).slice(1).map(block => ({
+  id: (block.match(/id: '([^']+)'/) || [])[1],
+  live: /status: 'live'/.test(block),
+  original: !/inspiration:/.test(block)
+}));
+const REWRITTEN = registryEntries.filter(e => e.live).map(e => e.id);
+/* 本站原創（沒有靈感來源）的工具，徽章標「本站原創」。 */
+const ORIGINAL = registryEntries.filter(e => e.live && e.original).map(e => e.id);
+check('registry 解析出已上線的工具', REWRITTEN.length >= 1, REWRITTEN.join(', '));
+for (const id of REWRITTEN) {
+  const files = listFiles(`tools/${id}`);
+  check(`tools/${id}/ 只剩建置產物 index.html`, files.length === 1 && files[0] === `tools/${id}/index.html`, files.join(', '));
+  const page = read(`tools/${id}/index.html`);
+  check(`tools/${id}/index.html 載入 assets/build/ 的共用程式`, /src="\.\.\/\.\.\/assets\/build\/[^"]+\.js"/.test(page));
+  check(`tools/${id}/index.html 只有繁中（沒有 i18n 引擎）`, /<html lang="zh-Hant-TW">/.test(page) && !page.includes('assets/i18n.js'));
+  check(`tools/${id}/index.html 沒有 noindex`, !/name="robots"/.test(page));
+  check(`web/src/tools/${id}/ 有原始碼與 strings.ts`, exists(`web/src/tools/${id}/App.tsx`) && exists(`web/src/tools/${id}/strings.ts`));
+  check(`docs/refactor/specs/${id}.md 有對等驗證紀錄`, /## 6\. 對等驗證紀錄[\s\S]*\| F0*1 \| (?:✅|⚠️|通過)/.test(read(`docs/refactor/specs/${id}.md`)));
+  check(`README.md 把 ${id} 列在重寫的工具`, new RegExp(`\\| \`${id}\` \\|`).test(read('README.md').split('## 本站重寫的工具')[1] || ''));
+  check(`ATTRIBUTION.md 把 ${id} 列在靈感來源`, new RegExp(`\\| \`${id}\` \\|`).test(read('ATTRIBUTION.md').split('## 本站重寫的工具（靈感來源）')[1] || ''));
+}
+check('THIRD_PARTY_NOTICES 由建置產生', exists('assets/build/THIRD_PARTY_NOTICES.md'));
+check('LICENSE 的涵蓋範圍寫進了 web/ 與原創的 text-fx', read('LICENSE').includes('`web/` framework') && read('LICENSE').includes('tools/text-fx/'));
+
 const TOOLS_EXTERNAL = ['jizura'];
 check('首頁的 JIZURA 卡片標示連到原站', /href="\.\/tools\/jizura\/"[\s\S]{0,1600}?data-i18n="license\.external"/.test(homeHtml));
-check('首頁字典有五種授權徽章',
-  ['license.mit', 'license.cc0', 'license.custom', 'license.unlicensed', 'license.unlicensed.assets'].every(k => homeZh.has(k)));
+check('首頁字典有七種授權徽章',
+  ['license.mit', 'license.cc0', 'license.custom', 'license.unlicensed', 'license.unlicensed.assets', 'license.rewritten', 'license.original'].every(k => homeZh.has(k)));
 const homeCards = [...homeHtml.matchAll(/<li class="tool-card">([\s\S]*?)<\/li>/g)].map(m => m[1]);
 check('首頁卡片數與工具數一致', homeCards.length === TOOLS.length,
   `cards: ${homeCards.length}, tools: ${TOOLS.length}`);
@@ -2281,6 +2211,8 @@ for (const card of homeCards) {
   /* 沒有 LICENSE、但作者在頁面上寫了自己的條款（例如允許免費再散布修改版）的工具，
    * 條款原文與翻譯收在 TERMS.md，徽章標「作者條款」。 */
   const expected = TOOLS_EXTERNAL.includes(name) ? ['license.external']
+    : ORIGINAL.includes(name) ? ['license.original']
+    : REWRITTEN.includes(name) ? ['license.rewritten']
     : exists(`tools/${name}/TERMS.md`) ? ['license.custom']
     : exists(`tools/${name}/LICENSE`)
     ? [/CC0 1\.0 Universal/.test(read(`tools/${name}/LICENSE`)) ? 'license.cc0' : 'license.mit']
@@ -2294,7 +2226,7 @@ check('首頁標示原作者出處',
     .every(a => homeHtml.includes(`github.com/${a}`)));
 /* coc-typesetter 的作者不明，至少要標出取得的網址。 */
 check('首頁標示 coc-typesetter 的來源網址', homeHtml.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html'));
-check('首頁說明兩個作者不明的工具', homeHtml.includes('（CoC 劇本排版工具與輕量轉場 APNG 產生器的作者不明）'));
+check('首頁說明作者不明的工具', homeHtml.includes('（CoC 劇本排版工具的作者不明）'));
 
 /* ---- 內嵌文字與 zh-TW 字典一致 ---- */
 /* 六個頁面（五個工具＋首頁）在 script 執行前顯示的畫面，其 HTML 內嵌文字必須
@@ -2361,13 +2293,11 @@ checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', [
 checkInlineText('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 130);
 checkInlineText('tools/log-converter', 'tools/log-converter/index.html', ['tools/log-converter/i18n.log-converter.js'], 170);
 checkInlineText('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 130);
-checkInlineText('tools/battlemap', 'tools/battlemap/index.html', ['tools/battlemap/i18n.battlemap.js'], 19);
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
 checkInlineText('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 2);
 for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
 checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
 checkInlineText('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 150);
-checkInlineText('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 20);
 checkInlineText('tools/height-board', 'tools/height-board/index.html', ['tools/height-board/i18n.height-board.js'], 25);
 checkInlineText('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 20);
 checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
@@ -2455,13 +2385,11 @@ checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['
 checkAttrPairs('tools/message-box', 'tools/message-box/index.html', ['tools/message-box/i18n.message-box.js'], 30);
 checkAttrPairs('tools/log-converter', 'tools/log-converter/index.html', ['tools/log-converter/i18n.log-converter.js'], 8);
 checkAttrPairs('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 18);
-checkAttrPairs('tools/battlemap', 'tools/battlemap/index.html', ['tools/battlemap/i18n.battlemap.js'], 1);
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
 checkAttrPairs('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-tachie/i18n.obs-tachie.js'], 1);
 for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
 checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
 checkAttrPairs('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 15);
-checkAttrPairs('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 2);
 checkAttrPairs('tools/height-board', 'tools/height-board/index.html', ['tools/height-board/i18n.height-board.js'], 20);
 checkAttrPairs('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 1);
 checkAttrPairs('tools/cutin', 'tools/cutin/index.html', ['tools/cutin/i18n.cutin.js'], 1);
@@ -2490,8 +2418,8 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331', 'fc05c98',
-  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0', 'd2c74d3', '718bb40', 'a21c571', 'bb32ed7',
+  '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331',
+  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
@@ -2560,10 +2488,7 @@ check('ATTRIBUTION.md 說明 jizura 改為連到原作者網站的官方繁中�
 check('ATTRIBUTION.md 說明 coc-typesetter 的來源、未授權與只收繁中',
   /\| coc-typesetter \| \[scenario-tool-jade\.vercel\.app\]\([^)]+\)（作者不明[^|]*\| 2026-09-26 取得 \| \*\*未授權\*\* \|/.test(attribution)
   && attribution.includes('## 未授權的十五個工具') && /## coc-typesetter：CoC 劇本排版工具(?=[\s\S]*===換頁===)(?=[\s\S]*不存在的四樓)/.test(attribution));
-check('README.md 把 coc-typesetter 與 apng-wipe 列為未授權', /`coc-typesetter` 與 `apng-wipe` 則連作者都不明/.test(read('README.md')));
-check('ATTRIBUTION.md 說明 apng-wipe 的來源不明、未授權與副檔名的改動',
-  /\| apng-wipe \| 作者與來源都不明[^|]*\| 2026-09-26 取得 \| \*\*未授權\*\* \|/.test(attribution)
-  && /## apng-wipe：輕量轉場 APNG 產生器(?=[\s\S]*`\.apng` 改成 `\.png`)/.test(attribution));
+check('README.md 把 coc-typesetter 列為作者不明', /`coc-typesetter` 則連作者都不明/.test(read('README.md')));
 check('ATTRIBUTION.md 說明 anime-rig 不收範例 PSD、OBS 中繼伺服器與 MediaPipe 同捆檔',
   /## anime-rig：Anime2\.5DRig[\s\S]*sample\.psd[\s\S]*obs_server\.py/.test(attribution)
   && /## anime-rig[\s\S]*lib\/vendor\/face_mesh/.test(attribution));

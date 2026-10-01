@@ -110,6 +110,11 @@ main { max-width: 72rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
   border-color: var(--warn-border);
 }
 
+.badge.rewritten {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .credits {
   margin-top: 3rem;
   padding-top: 1.5rem;

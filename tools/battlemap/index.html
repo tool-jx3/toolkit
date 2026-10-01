@@ -1,90 +1,21 @@
 <!doctype html>
 <html lang="zh-Hant-TW">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>戰鬥地圖產生器</title>
-<link rel="stylesheet" href="./styles.css">
-<script defer src="../../assets/i18n.js"></script>
-<script defer src="./i18n.battlemap.js"></script>
-<script defer src="./app.js"></script>
-</head>
-<body>
-<div class="wrap">
-  <div class="toolkit-bar">
-    <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
-    <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
-  </div>
-
-  <header>
-    <h1 data-i18n="app.title">戰鬥地圖產生器</h1>
-    <p data-i18n-html="app.intro">按下<b>產生新地圖</b>，立刻得到一張地城、洞窟或墓穴的戰鬥地圖——石材、火把、裂縫與青苔都是程序生成，每張都不一樣。全程在瀏覽器裡執行，不上傳、也不儲存任何東西。格子對齊 Roll20／Foundry VTT／CCFOLIA（每格 70px）。</p>
-    <div class="badgerow">
-      <span class="badge" data-i18n="badge.signup">免註冊</span>
-      <span class="badge" data-i18n="badge.noAi">不用 AI 繪圖——純程序生成</span>
-      <span class="badge" data-i18n="badge.mit">MIT 授權</span>
-      <span class="badge" data-i18n="badge.size">1540×1120px PNG</span>
-    </div>
-  </header>
-
-  <main>
-    <section class="stage">
-      <div class="canvas-frame">
-        <canvas id="mapCanvas" width="1540" height="1120"></canvas>
-      </div>
-      <div class="stage-foot">
-        <div class="meta"><span data-i18n="meta.seed">種子</span> <b id="seedLabel">—</b> · <span id="roomLabel">—</span> <span data-i18n="meta.rooms">個房間</span> · <span id="themeLabel">—</span></div>
-        <div class="meta" data-i18n="meta.license">個人或商業用途都能免費使用，不需標示出處。</div>
-      </div>
-    </section>
-
-    <aside class="panel">
-      <div class="field">
-        <label data-i18n="theme.label">地形</label>
-        <div class="seg" id="themeSeg">
-          <button data-theme="dungeon" class="active" data-i18n="theme.dungeon">地城</button>
-          <button data-theme="cave" data-i18n="theme.cave">洞窟</button>
-          <button data-theme="crypt" data-i18n="theme.crypt">墓穴</button>
-        </div>
-      </div>
-
-      <!-- 合輯修正：上游的開關外框是 <span>，核取方塊本身又是 0×0、透明，滑鼠點開關
-           不會有任何反應（只能用鍵盤切換）。外框改成 <label>、文字標籤加上 for，
-           點開關或點文字都能切換；外觀不變。 -->
-      <div class="field">
-        <div class="toggle-row">
-          <label for="gridToggle" style="text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--ink)" data-i18n="opt.grid">顯示格線</label>
-          <label class="switch">
-            <input type="checkbox" id="gridToggle" checked>
-            <span class="slider-el"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="toggle-row">
-          <label for="torchToggle" style="text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--ink)" data-i18n="opt.torch">火把光暈</label>
-          <label class="switch">
-            <input type="checkbox" id="torchToggle" checked>
-            <span class="slider-el"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn btn-primary" id="genBtn" data-i18n="btn.generate">🎲 產生新地圖</button>
-        <button class="btn btn-ghost" id="dlBtn" data-i18n="btn.download">⬇ 下載 PNG</button>
-      </div>
-    </aside>
-  </main>
-
-  <!-- 上游在這裡放了三張作者 BOOTH 商店的推廣卡片（劇本、BGM 素材包、商店首頁）。
-       那是站台的廣告，不是工具本身，收錄版不收。 -->
-
-  <footer>
-    <span data-i18n="footer.credit">用單純的 canvas 演算法畫成，沒有用到任何生成式圖像模型。原始碼放在</span> <a href="https://github.com/usagineko7865-debug/battlemap-generator" target="_blank" rel="noopener">GitHub</a> <span data-i18n="footer.license">上（MIT 授權，歡迎發 PR）。</span><br>
-    <span data-i18n-html="footer.keys">按 <kbd>G</kbd> 產生新地圖，按 <kbd>D</kbd> 下載。</span>
-  </footer>
-</div>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>戰鬥地圖產生器｜TRPG Toolkit</title>
+    <meta name="color-scheme" content="dark light">
+    <script>try{var t=localStorage.getItem('trpg-toolkit:theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap">
+    <script type="module" crossorigin src="../../assets/build/battlemap-CcWiingW.js"></script>
+    <link rel="modulepreload" crossorigin href="../../assets/build/ui-XMLLnS2A.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/timeline-rM67ytDu.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/encode-DlvZSkpl.js">
+    <link rel="stylesheet" crossorigin href="../../assets/build/ui-IVLZRlCw.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>

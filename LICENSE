@@ -2,7 +2,10 @@ Scope of this licence
 ----------------------
 
 This MIT licence covers only what this repository adds on top of the
-bundled tools: the original tool `tools/text-fx/`, `assets/`, `index.html`,
+bundled tools: the `web/` framework and every tool rewritten with it
+(its build output in `assets/build/`, `next/` and the rewritten
+`tools/<id>/index.html` pages listed in README.md), `docs/`, the
+original tool `tools/text-fx/`, `assets/`, `index.html`,
 `tests/`, each `tools/*/i18n.*.js`
 dictionary, the JIZURA redirect page `tools/jizura/`, the
 Anime2.5DRig guide `tools/anime-rig/guide.zh-TW.md`, the coc-typesetter

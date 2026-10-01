@@ -1,0 +1,163 @@
+/*
+ * 全站樣式入口：Tailwind v4＋設計 token＋基本樣式。
+ * 每個工具的 main.tsx 只要 `import '@/ui/styles.css'`。
+ */
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* 只掃描 web/src 底下的原始碼產生 class */
+@source '../';
+
+/*
+ * Tailwind 主題對應到 token（inline：工具類直接寫成 var(--token)，深淺色切換不必重產 CSS）。
+ * 預設色票全部清掉，元件只能用下面這些顏色。
+ * 類別名稱：bg-bg、bg-surface、bg-surface-2、border-border、text-fg、text-muted、bg-accent、text-accent-contrast…
+ */
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-contrast: var(--danger-contrast);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-contrast: var(--warning-contrast);
+  --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-success-contrast: var(--success-contrast);
+  --color-success-soft: var(--success-soft);
+  --color-focus: var(--focus);
+  --color-overlay: var(--overlay);
+
+  --font-*: initial;
+  --font-ui: var(--font-ui);
+  --font-mono: var(--font-mono);
+
+  --text-*: initial;
+  --text-xs: var(--text-xs);
+  --text-xs--line-height: 1.5;
+  --text-sm: var(--text-sm);
+  --text-sm--line-height: 1.55;
+  --text-base: var(--text-base);
+  --text-base--line-height: 1.6;
+  --text-lg: var(--text-lg);
+  --text-lg--line-height: 1.5;
+  --text-xl: var(--text-xl);
+  --text-xl--line-height: 1.4;
+
+  --radius-*: initial;
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
+
+  --shadow-*: initial;
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+
+  --ease-*: initial;
+  --ease-out: var(--ease-out);
+
+  --default-transition-duration: var(--duration);
+  --default-transition-timing-function: var(--ease-out);
+}
+
+/* 深色變體：預設就是深色，`data-theme="light"` 時不套用 */
+@custom-variant dark (&:where(:root:not([data-theme='light']), :root:not([data-theme='light']) *));
+
+/* 透明背景的棋盤格 */
+@utility checker {
+  background-color: var(--checker-b);
+  background-image: conic-gradient(
+    var(--checker-a) 25%,
+    transparent 0 50%,
+    var(--checker-a) 0 75%,
+    transparent 0
+  );
+  background-size: 16px 16px;
+}
+
+/* 統一的焦點框 */
+@utility focus-ring {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+
+  a {
+    color: var(--accent);
+    text-underline-offset: 0.2em;
+  }
+
+  a:hover {
+    color: var(--accent-hover);
+  }
+
+  kbd {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+
+  * {
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
