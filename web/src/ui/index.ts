@@ -64,6 +64,7 @@ export {
 } from './ImageDrop';
 export { InspirationFooter } from './InspirationFooter';
 export { Kbd } from './Kbd';
+export { NativeNumberInput, type NativeNumberInputProps, spinStep } from './NativeNumberInput';
 export { Notice, type NoticeProps, type NoticeTone } from './Notice';
 export { NumberInput, type NumberInputProps } from './NumberInput';
 export { ProjectMenu, ProjectMenuItem, type ProjectMenuProps } from './ProjectMenu';
