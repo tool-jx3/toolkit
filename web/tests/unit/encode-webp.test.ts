@@ -7,6 +7,7 @@ import {
   riffChunk,
   WebpEncoder,
 } from '@/core/encode/webp';
+import { frameTableTicks, uniformFrames } from '@/core/timeline';
 import { copyFrames, movingSquare, sameBytes } from '../helpers/frames';
 
 /** 假的單張 WebP：RIFF＋VP8L（內容是寬高與像素總和，只用來檢查封裝） */
@@ -128,5 +129,52 @@ describe('動畫 WebP 封裝', () => {
       return (await enc.finish()).bytes;
     };
     expect(sameBytes(await run(), await run())).toBe(true);
+  });
+
+  describe('每格最短時間（minFrameMs）', () => {
+    /* 打字機的影格表：60 FPS 的 5 格＋停留 500 ms，以毫秒計 → 17、16、17、17、16、500 */
+    const ticks = frameTableTicks(uniformFrames(6, 60, { holdMs: 500 }), 1000);
+    const encode = async (frames: Uint8ClampedArray[], minFrameMs?: number) => {
+      const enc = new WebpEncoder({
+        width: 24,
+        height: 16,
+        fps: 1000,
+        ...(minFrameMs !== undefined ? { minFrameMs } : {}),
+        encodeImage: async (_r, w, h) => fakeSingle(w, h, w * h),
+      });
+      for (const [i, f] of copyFrames(frames).entries()) await enc.addFrame(f, ticks[i]);
+      const file = await enc.finish();
+      const durations = parseWebp(file.bytes)
+        .filter((c) => c.fourcc === 'ANMF')
+        .map((c) => u24(c.data, 12));
+      return { file, durations };
+    };
+
+    it('預設不限：與以前相同（累計換算 17、16、17、17、16、500）', async () => {
+      expect(ticks).toEqual([17, 16, 17, 17, 16, 500]);
+      const plain = await encode(movingSquare(24, 16, 6));
+      expect(plain.durations).toEqual([17, 16, 17, 17, 16, 500]);
+      expect(plain.file.duration).toBeCloseTo(0.583, 6);
+      /* 給 0 和不給，位元組完全相同 */
+      const zero = await encode(movingSquare(24, 16, 6), 0);
+      expect(sameBytes(zero.file.bytes, plain.file.bytes)).toBe(true);
+    });
+
+    it('20 ms：60 FPS、停留 500 → 20×5、500，補上的時間不從別格扣回', async () => {
+      const r = await encode(movingSquare(24, 16, 6), 20);
+      expect(r.durations).toEqual([20, 20, 20, 20, 20, 500]);
+      expect(r.file.duration).toBeCloseTo(0.6, 6);
+      expect(r.file.frames).toBe(6);
+    });
+
+    it('合併相同影格時先各自補足再相加（總長與不合併相同）', async () => {
+      /* 第 2 格和第 1 格相同 → 合併成一格：16＋17 ms 各補到 20 → 40 */
+      const r = await encode(movingSquare(24, 16, 6, [2]), 20);
+      expect(r.file.storedFrames).toBe(5);
+      expect(r.durations).toEqual([20, 40, 20, 20, 500]);
+      expect(r.durations.reduce((a, b) => a + b, 0)).toBe(600);
+      const plain = await encode(movingSquare(24, 16, 6, [2]));
+      expect(plain.durations).toEqual([17, 33, 17, 16, 500]);
+    });
   });
 });

@@ -107,6 +107,8 @@ function FontSection({ mode }: { mode: Mode }) {
   const s = useMode(mode);
   const styled = mode !== 'credits' ? (s as TwData[StyledMode]) : null;
   const deco = mode === 'typing' || mode === 'glitch' ? (s as TwData[TextMode]) : null;
+  /* 圖形模式不套用水平縮放（規格 7.1） */
+  const shapeOn = mode === 'typing' && (s as TwData['typing']).shape !== 'none';
   return (
     <Section title={S.sections.style} persistKey={`typewriter:${mode}:style`}>
       <FontFields mode={mode} />
@@ -134,6 +136,8 @@ function FontSection({ mode }: { mode: Mode }) {
             onChange={(v) => setField(mode as StyledMode, 'scaleX', v)}
             range={RANGES.scaleX}
             unit="%"
+            disabled={shapeOn}
+            hint={shapeOn ? S.font.scaleXShapeOff : undefined}
           />
           <NumberField
             label={S.font.tracking}

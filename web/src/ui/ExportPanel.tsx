@@ -7,6 +7,7 @@
  * - limit：用途的容量上限，結果卡顯示「大小／上限（百分比）」（未超過綠色、超過紅色）。
  * - autoShrink：超過上限時的「自動縮小檔案」：呼叫後（工具改掉設定）以同一格式重新匯出，並顯示這次降了什麼。
  * - 多檔：onExport 回傳 { files: [...] } 時顯示多檔結果（每個檔案各自下載，或「全部下載」依序下載、「打包成 ZIP」）。
+ * - 停用的格式（disabled＋disabledReason）：不論目前選哪個格式，原因都列在「格式」欄的說明裡。
  *
  * 實際的匯出由工具提供（onExport），通常就是呼叫 core/timeline 的 exportAnimation：
  *
@@ -61,7 +62,10 @@ export interface ExportFormatOption {
   supportsColors?: boolean;
   maxFps?: number;
   disabled?: boolean;
-  /** 停用時的原因（顯示在說明） */
+  /**
+   * 停用時的原因。不論目前選的是哪個格式，每個有原因的停用格式都列在「格式」欄的說明裡
+   * （原因沒提到格式名稱時，前面加「<label>：」）。
+   */
   disabledReason?: string;
 }
 
@@ -212,6 +216,33 @@ export function useWebpSupport(): boolean {
 }
 
 const IMAGE_TYPES = /^image\/(png|gif|webp|jpeg|apng)/;
+
+/** 停用格式的原因（沒提到格式名稱時前面加上名稱） */
+const disabledNote = (f: ExportFormatOption) =>
+  f.disabledReason?.includes(f.label) ? f.disabledReason : `${f.label}：${f.disabledReason}`;
+
+/**
+ * 「格式」欄的說明：選中的格式的說明，加上所有停用格式的原因（不只選中的那個）。
+ * 沒有停用格式時和以前一樣只有一段文字。
+ */
+function formatHint(
+  formats: readonly ExportFormatOption[],
+  fmt: ExportFormatOption | undefined,
+): ReactNode {
+  const off = formats.filter((f) => f.disabled && f.disabledReason);
+  if (!off.length) return fmt?.disabled ? fmt.disabledReason : fmt?.description;
+  const desc = fmt && !fmt.disabled ? fmt.description : undefined;
+  return (
+    <>
+      {desc ? <span className="block">{desc}</span> : null}
+      {off.map((f) => (
+        <span key={f.id} className="block" data-disabled-format={f.id}>
+          {disabledNote(f)}
+        </span>
+      ))}
+    </>
+  );
+}
 
 type Status =
   | { kind: 'idle' }
@@ -420,7 +451,7 @@ export function ExportPanel({
       <h2 id={titleId} className="m-0 text-sm font-semibold">
         {title}
       </h2>
-      <Field label="格式" hint={fmt?.disabled ? fmt.disabledReason : fmt?.description}>
+      <Field label="格式" hint={formatHint(formats, fmt)}>
         {formats.length <= 5 ? (
           <Segmented
             value={fmt?.id ?? ''}

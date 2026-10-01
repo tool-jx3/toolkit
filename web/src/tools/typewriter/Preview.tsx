@@ -44,7 +44,7 @@ import {
   buildTypingSource,
   type TwSource,
 } from './render';
-import { type Mode, type ModeSettings, RANGES, type TwData } from './settings';
+import { type Mode, type ModeSettings, RANGES, type TwData, WEBP_MIN_FRAME_MS } from './settings';
 import { currentMode, setField, setWebp, useTw, useView } from './store';
 import { S } from './strings';
 import { creditSegments } from './timeline';
@@ -126,6 +126,7 @@ async function runExport(
     plays: 0,
     quantize: format === 'apng' ? st.quantize : false,
     webpQuality: data.webp.lossless ? 1 : Math.min(0.995, data.webp.quality / 100),
+    webpMinFrameMs: WEBP_MIN_FRAME_MS,
     signal,
     onProgress,
   };

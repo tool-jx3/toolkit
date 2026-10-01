@@ -47,6 +47,7 @@ export const S = {
     customHint: '輸入電腦已安裝的字型名稱；留空時用瀏覽器的無襯線字型。',
     size: '字級',
     scaleX: '水平縮放',
+    scaleXShapeOff: '圖形模式不適用。',
     tracking: '字距',
     leading: '行距',
     leadingHint: '行與行（直書是欄與欄）的間距＝字級 × 倍數。',

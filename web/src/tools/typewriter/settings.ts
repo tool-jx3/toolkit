@@ -313,6 +313,9 @@ export const DEFAULT_DATA: TwData = {
   webp: { lossless: true, quality: 92 },
 };
 
+/** WebP 每格至少 20 ms（規格 3.1、7.1：60 FPS、停留 500 → 20×5、500） */
+export const WEBP_MIN_FRAME_MS = 20;
+
 /* ---------- 數值範圍（規格第 2 節，主控裁定採用） ---------- */
 
 export interface Range {

@@ -315,6 +315,14 @@ function decoFor(s: TextModeSettings, path: boolean): DecoFn | null {
 
 /* ---------- 打字 ---------- */
 
+/**
+ * 排版用的設定：圖形模式不用書寫方向與水平縮放（規格 3.6、7.1：圖形模式＋水平縮放的輸出與 100% 相同），
+ * 其他設定照原樣。
+ */
+export function typingLayoutSettings(s: TypingSettings): TypingSettings {
+  return s.shape === 'none' ? s : { ...s, vertical: false, scaleX: 100 };
+}
+
 export function buildTypingSource(s: TypingSettings, o: BuildOptions = {}): TwSource {
   const shape = s.shape !== 'none';
   const tl = typingTimeline({
@@ -331,12 +339,7 @@ export function buildTypingSource(s: TypingSettings, o: BuildOptions = {}): TwSo
   const drawn = [...new Set(units.flatMap((c) => hangulSteps(c)))].join('');
   const loads = fontLoads(s, drawn);
   const font = fontFn(s, drawn);
-  const layout = linearLayout(
-    { ...s, vertical: shape ? false : s.vertical },
-    units,
-    font,
-    o.measure,
-  );
+  const layout = linearLayout(typingLayoutSettings(s), units, font, o.measure);
   const { r, sx } = layout;
   const slotsAt = shape ? shapeSlots(s, units, r.mainMeter) : () => layout.slots;
   const paint = createPainter(
@@ -375,21 +378,15 @@ export function buildTypingSource(s: TypingSettings, o: BuildOptions = {}): TwSo
       const shown = typingVisibleAt(units, steps, fr.count);
       const slots = slotsAt(fr.rotation);
       const draw = (c: Ctx2D) => {
-        c.save();
-        if (shape && sx !== 1) {
-          c.translate(s.width / 2, 0);
-          c.scale(sx, 1);
-          c.translate(-s.width / 2, 0);
-        }
         shown.forEach((ch, u) => {
           if (ch === null || ch === '\n') return;
           const slot = slots[u];
           if (!slot) return;
           const a = fr.alphas ? fr.alphas[u] : 1;
           if (a <= 0) return;
-          blit(c, paint(ch, slot.adv, slot.rot0), slot.x, slot.y, slot.rot, shape ? 1 : sx, a);
+          /* 圖形模式的 sx 一律是 1（typingLayoutSettings） */
+          blit(c, paint(ch, slot.adv, slot.rot0), slot.x, slot.y, slot.rot, sx, a);
         });
-        c.restore();
       };
       if (fr.alpha < 1) withLayer(ctx, pool, draw, { alpha: fr.alpha });
       else draw(ctx);

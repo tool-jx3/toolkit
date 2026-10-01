@@ -112,6 +112,11 @@ export interface ExportAnimationOptions {
   stillWeightMin?: number;
   /** WebP 品質 0～1（1 = 無損，預設） */
   webpQuality?: number;
+  /**
+   * WebP 每格至少顯示幾毫秒（預設不限）。例如 20：60 FPS 的每格 17／16 ms 變成 20 ms，
+   * 補上的時間不從別格扣回（總長變長）。只影響 WebP。
+   */
+  webpMinFrameMs?: number;
   /** 先塗滿的背景色（在 render 之前）；null／不填 = 透明 */
   background?: string | null;
   /**
@@ -327,6 +332,7 @@ export async function exportAnimation(
     stillForPalette = false,
     stillWeightMin,
     webpQuality = 1,
+    webpMinFrameMs,
     background = null,
     matte = null,
     gifAlphaThreshold,
@@ -476,7 +482,14 @@ export async function exportAnimation(
         : format === 'webp'
           ? {
               format: 'webp',
-              options: { width: CW, height: CH, fps: tickRate, plays, quality: webpQuality },
+              options: {
+                width: CW,
+                height: CH,
+                fps: tickRate,
+                plays,
+                quality: webpQuality,
+                ...(webpMinFrameMs ? { minFrameMs: webpMinFrameMs } : {}),
+              },
             }
           : {
               format: 'png-sequence',

@@ -34,6 +34,7 @@ import {
   buildTypingSource,
   glitchSeed,
   linearLayout,
+  typingLayoutSettings,
 } from '@/tools/typewriter/render';
 import {
   DEFAULT_CREDITS,
@@ -379,6 +380,30 @@ describe('四個模式的來源', () => {
     );
     expect(src.frames).toHaveLength(8);
     expect(src.fitFrame).toBe(3);
+  });
+
+  it('打字：圖形模式不套用水平縮放與直書（規格 7.1，輸出與 100% 相同）', () => {
+    const circle = { ...DEFAULT_TYPING, text: 'IIIIIIII', shape: 'circle' as const };
+    expect(typingLayoutSettings({ ...circle, scaleX: 50, vertical: true })).toEqual({
+      ...circle,
+      scaleX: 100,
+      vertical: false,
+    });
+    /* 排版結果與 100% 完全相同 */
+    const units = toUnits(circle.text);
+    const half = linearLayout(
+      typingLayoutSettings({ ...circle, scaleX: 50 }),
+      units,
+      font,
+      fakeMeasure,
+    );
+    const full = linearLayout(typingLayoutSettings(circle), units, font, fakeMeasure);
+    expect(half.sx).toBe(1);
+    expect(half.slots).toEqual(full.slots);
+    /* 不用圖形時照原樣（水平縮放有作用） */
+    const plain = { ...DEFAULT_TYPING, scaleX: 50 };
+    expect(typingLayoutSettings(plain)).toBe(plain);
+    expect(linearLayout(plain, toUnits(plain.text), font, fakeMeasure).sx).toBe(0.5);
   });
 
   it('打字：韓文的拆字步驟也算進要載入的字', () => {

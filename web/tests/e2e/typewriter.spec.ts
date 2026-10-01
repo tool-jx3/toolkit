@@ -6,6 +6,9 @@
  * - 匯出 APNG（調色盤／全彩）、GIF、WebP（無損／有損）並解析檔案：尺寸、無限循環、各格延遲與總長、檔名。
  * - 片尾名單分段匯出（每段一個檔案、檔名）、靜音 WAV；打字音效（上傳、合成、試聽、下載 WAV）。
  * - 自動儲存、專案檔、重設；390 寬沒有橫向捲動；1280／390 視覺基準圖。
+ * - 對等驗證後的追加裁定（規格 7.1）：播放中改任何設定（含配色按鈕）都回到第 1 格（F64、F57）；
+ *   圖形模式不套用水平縮放、欄位停用並註明（F06）；WebP 每格至少 20 ms（F69）；
+ *   不能編碼 WebP 時，選其他格式也看得到原因（F70）。
  */
 import { readFileSync } from 'node:fs';
 import { type Download, expect, type Page, test } from '@playwright/test';
@@ -298,6 +301,125 @@ test.describe('打字機動畫產生器', () => {
     expect(await hook<number[]>(page, '(t) => t.karaoke().visibilityAt(3)')).toEqual([0, 1, 0, 0]);
     expect(errors).toEqual([]);
   });
+
+  test('圖形模式不套用水平縮放：欄位停用並註明，畫面與 100% 相同（F06）', async ({ page }) => {
+    const errors = await open(page);
+    await page.getByTestId('typing-text').fill('IIIIIIII');
+    const scaleX = page.getByRole('spinbutton', { name: '水平縮放' });
+    await expect(scaleX).toBeEnabled();
+    /* 不用圖形：水平縮放有作用 */
+    await expect(counter(page)).toHaveText('8／8 格');
+    const plain100 = await canvasHash(page);
+    await hook(page, "(t) => t.patch('typing', { scaleX: 50 })");
+    await expect.poll(() => canvasHash(page)).not.toBe(plain100);
+
+    /* 圖形（圓）＋100% */
+    await hook(page, "(t) => t.patch('typing', { scaleX: 100 })");
+    await page.getByRole('radio', { name: '圓', exact: true }).click();
+    await expect(scaleX).toBeDisabled();
+    await expect(scaleX).toHaveAccessibleDescription(/圖形模式不適用/);
+    await expect(page.getByText('圖形模式不適用。')).toBeVisible();
+    await expect.poll(() => canvasHash(page)).not.toBe(plain100);
+    const circle100 = await canvasHash(page);
+    /* 圖形＋50%：先切回不用圖形（畫面一定不同），再開圓 → 和 100% 完全相同 */
+    await hook(page, "(t) => t.patch('typing', { shape: 'none', scaleX: 50 })");
+    await expect(scaleX).toBeEnabled();
+    await expect.poll(() => canvasHash(page)).not.toBe(circle100);
+    await hook(page, "(t) => t.patch('typing', { shape: 'circle' })");
+    await expect.poll(() => canvasHash(page)).toBe(circle100);
+    /* 設定值保留（只是不套用） */
+    await expect(scaleX).toHaveValue('50');
+    expect(await hook<number>(page, '(t) => t.data().typing.scaleX')).toBe(50);
+    expect(errors).toEqual([]);
+  });
+
+  test('不能編碼 WebP 的瀏覽器：選其他格式時也看得到原因（F70）', async ({ page }) => {
+    /* 模擬 Safari：canvas 要求 WebP 時給 PNG */
+    await page.addInitScript(() => {
+      const oc = OffscreenCanvas.prototype.convertToBlob;
+      OffscreenCanvas.prototype.convertToBlob = function (o?: ImageEncodeOptions) {
+        return oc.call(this, o?.type === 'image/webp' ? { ...o, type: 'image/png' } : o);
+      };
+      const tb = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (cb, type, q) {
+        tb.call(this, cb, type === 'image/webp' ? 'image/png' : type, q);
+      };
+    });
+    const errors = await open(page);
+    const webp = page.getByRole('radio', { name: 'WebP', exact: true });
+    await expect(webp).toBeDisabled();
+    await expect(page.getByRole('radio', { name: 'APNG', exact: true })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    const reason = page.getByText(/這個瀏覽器無法匯出 WebP/);
+    await expect(reason).toBeVisible();
+    const group = page.getByRole('radiogroup', { name: '格式' });
+    await expect(group).toHaveAccessibleDescription(/全彩、半透明都保留.*這個瀏覽器無法匯出 WebP/);
+    /* 換成 GIF 仍然看得到 */
+    await page.getByRole('radio', { name: 'GIF', exact: true }).click();
+    await expect(group).toHaveAccessibleDescription(/相容性最好.*這個瀏覽器無法匯出 WebP/);
+    await expect(reason).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('預覽播放（不減少動態效果）', () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  test('播放中改任何設定（含配色按鈕）都回到第 1 格（F64、F57）', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = await open(page);
+    /* 每次畫面更新記下預覽時間的最小值（要求從頭播放後一定會掉回 0 附近） */
+    await page.evaluate(() => {
+      // biome-ignore lint/suspicious/noExplicitAny: 測試掛鉤
+      const w = window as any;
+      w.__minT = Number.POSITIVE_INFINITY;
+      const loop = () => {
+        const t = w.__typewriter.t as number;
+        if (t < w.__minT) w.__minT = t;
+        requestAnimationFrame(loop);
+      };
+      requestAnimationFrame(loop);
+    });
+    const minT = () =>
+      // biome-ignore lint/suspicious/noExplicitAny: 測試掛鉤
+      page.evaluate(() => (window as any).__minT as number);
+    /** 跳到 1.5 秒繼續播，確認記錄從 1.5 秒以後開始，再做 change：必須回到開頭並繼續播放 */
+    const expectRestart = async (label: string, change: () => Promise<void>) => {
+      await hook(page, '(t) => { t.seek(1.5); t.setPlaying(true); }');
+      await expect.poll(() => hook<number>(page, '(t) => t.t')).toBeGreaterThan(1.5);
+      // biome-ignore lint/suspicious/noExplicitAny: 測試掛鉤
+      await page.evaluate(() => ((window as any).__minT = Number.POSITIVE_INFINITY));
+      await page.waitForTimeout(50);
+      expect(await minT(), `${label}：改設定前`).toBeGreaterThan(1.4);
+      await change();
+      await expect
+        .poll(minT, { message: `${label}：應回到第 1 格`, timeout: 3000 })
+        .toBeLessThan(0.15);
+      expect(await hook<boolean>(page, '(t) => t.playing')).toBe(true);
+    };
+    /* 打字、故障的停留拉長，播放時不會在檢查期間繞回開頭 */
+    await hook(page, "(t) => t.patch('typing', { holdMs: 20000 })");
+    await hook(page, "(t) => t.patch('glitch', { holdMs: 20000 })");
+    for (const mode of ['打字', '故障', '片尾名單', '卡拉 OK']) {
+      await page.getByRole('tab', { name: mode }).click();
+      const shadowX = page.getByRole('spinbutton', { name: '陰影 X 偏移' });
+      for (const v of [5, -3, 7]) {
+        await expectRestart(`${mode} 陰影 X 偏移 ${v}`, async () => {
+          await shadowX.fill(String(v));
+          await shadowX.press('Enter');
+        });
+      }
+    }
+    /* 卡拉 OK 的配色按鈕（F57） */
+    for (const name of ['海洋', '櫻花', '金黃與桃紅']) {
+      await expectRestart(`配色 ${name}`, () =>
+        page.getByRole('button', { name: new RegExp(name) }).click(),
+      );
+    }
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe('匯出', () => {
@@ -345,6 +467,17 @@ test.describe('匯出', () => {
     const l = parseWebpInfo(lossy.bytes);
     expect(l.kinds.has('VP8 ')).toBe(true);
     expect(l.kinds.has('VP8L')).toBe(false);
+
+    /* WebP 每格至少 20 ms（F69）：60 FPS、停留 500 → 20×5、500；APNG 不受影響 */
+    await page.getByTestId('typing-text').fill('ABCDEF');
+    await hook(page, "(t) => t.patch('typing', { fps: 60, holdMs: 500 })");
+    await expect(counter(page)).toHaveText('6／6 格');
+    const fast = parseWebpInfo((await exportAs(page, 'WebP')).bytes);
+    expect(fast.durations).toEqual([20, 20, 20, 20, 20, 500]);
+    const fastApng = parseApng(new Uint8Array((await exportAs(page, 'APNG')).bytes));
+    expect(fastApng.frames.map((f) => (f.delayNum * 1000) / (f.delayDen || 100))).toEqual([
+      17, 16, 17, 17, 16, 500,
+    ]);
     expect(errors).toEqual([]);
   });
 
