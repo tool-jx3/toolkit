@@ -1,7 +1,7 @@
 {
- "說明": "log-converter 行為規格的附件：在舊版實際操作得到的「日誌樣本＋設定→輸出結構」紀錄。樣本日誌與圖片全部是觀察者自編的內容（依 CCFOLIA 匯出檔的結構）。「區塊」是輸出 HTML 抽掉樣式後看得到的結構：依出現順序列出每個區塊的種類、名稱、文字行、顏色（瀏覽器計算後的 rgb 值）、頭像（以圖片編號、格式、像素尺寸與中心像素顏色識別）、是否斜體／置中等。區塊種類與欄位名稱是本規格自訂的，不是舊版的 class 名稱。顏色欄位中，使用者在「比對用配色」與角色名稱顏色指定的值必須相同；未指定、由舊版固定配色決定的值（例如閒聊摘要的灰色、CCFOLIA 風格的頭像外框）新版可以用自己的配色，但明暗關係要相近。字型（頁面.字型）屬可接受差異（新版預設繁中字型）。",
+ "說明": "log-converter 行為規格的附件：在舊版實際操作得到的「日誌樣本＋設定→輸出結構」紀錄。樣本日誌與圖片全部是觀察者自編的內容（依 CCFOLIA 匯出檔的結構）。「區塊」是輸出 HTML 抽掉樣式後看得到的結構：依出現順序列出每個區塊的種類、名稱、文字行、顏色（瀏覽器計算後的 rgb 值）、頭像（以圖片編號、格式、像素尺寸與中心像素顏色識別）、是否斜體／置中等。區塊種類與欄位名稱是本規格自訂的，不是舊版的 class 名稱。顏色欄位中，使用者在「比對用配色」與名稱顏色指定的值必須相同；未指定、由舊版固定配色決定的值（例如閒聊摘要的灰色、CCFOLIA 風格的頭像外框）新版可以用自己的配色，但明暗關係要相近。字型（頁面.字型）屬可接受差異（新版預設繁中字型）。",
  "比對用配色": {
-  "說明": "每個案例在轉換前都把「進階顏色設定」的 9 個顏色設成下列值（選了其他配色預設後再改色，預設會變成「自訂」）。角色名稱顏色在標示「比對用配色」且有載入舊格式日誌的案例中另外指定（新格式日誌用 CCFOLIA 記錄的顏色）。",
+  "說明": "每個案例在轉換前都把「顏色設定」的 9 個顏色設成下列值（選了其他配色預設後再改色，預設會變成「自訂」）。名稱顏色在標示「比對用配色」且有載入舊格式日誌的案例中另外指定（新格式的日誌用 CCFOLIA 記錄的顏色）。",
   "系統訊息背景": "#fff8e1",
   "系統訊息邊框": "#ff8f00",
   "系統訊息文字": "#5d4037",
@@ -11,7 +11,7 @@
   "容器背景": "#1c2329",
   "文字": "#eceff1",
   "強調色": "#00897b",
-  "角色名稱顏色": {
+  "名稱顏色": {
    "GM": "#bdbdbd",
    "林曉雨": "#ec407a",
    "陳志明": "#42a5f5",
@@ -34,15 +34,15 @@
   "霧港燈塔-單分頁.html": "<!DOCTYPE html>\n<html lang=\"ja\"><head><meta charset=\"UTF-8\"><title>霧港燈塔</title><style>\n.avatar { width: 40px; height: 40px; }\n.avatar-image-0 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAA0klEQVR4nO3QQREAIAzAsMnBv0IcrE94JAp6ncNqXgf8zqBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgaFCwPA4PF9Pm0FAAAAAElFTkSuQmCC\"); }\n.avatar-image-1 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsFOCOdTjAgd82aPJBCyds7YezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7cDDq7wK4HWsAAAAASUVORK5CYII=\"); }\n.avatar-image-2 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsPMvACX4Awd82aPJBCyds7YezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7+sxIzx7jjkAAAAAASUVORK5CYII=\"); }\n.avatar-image-3 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsLOCaYxiAAd82aPJBCydtY8ezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7olTrdhgOMtAAAAAASUVORK5CYII=\"); }\n.avatar-image-4 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAACgCAIAAABIaz/HAAABL0lEQVR4nO3QAQkAIADAMNtY2hBGtIXCHTzA2Vhz60Lj+cEngQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnSrA3Wnt1WuFZv7AAAAAElFTkSuQmCC\"); }\n</style></head>\n<body>\n<h1 class=\"log-title\">霧港燈塔</h1>\n<main>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-0\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #888888;\">GM</span><time datetime=\"2026-09-27T12:00:00.000Z\">12:00</time></header><p class=\"message-text\">霧從港口一路漫上來。<br>燈塔的光在雲裡轉了一圈又一圈。</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-0\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #888888;\">GM</span><time datetime=\"2026-09-27T12:01:00.000Z\">12:01</time></header><p class=\"message-text\">你們抵達燈塔下的小屋。</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-1\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #e91e63;\">林曉雨</span><time datetime=\"2026-09-27T12:02:00.000Z\">12:02</time></header><p class=\"message-text\">「有人在嗎？」</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-2\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #e91e63;\">林曉雨</span><time datetime=\"2026-09-27T12:02:30.000Z\">12:02</time></header><p class=\"message-text\">我敲兩下門。</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-1\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #e91e63;\">林曉雨</span><time datetime=\"2026-09-27T12:03:00.000Z\">12:03</time></header><p class=\"message-text\">CC<=60 【偵查】</p><div class=\"roll-result\">(1D100&lt;=60) ＞ 23 ＞ 成功</div></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-3\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #2196f3;\">陳志明</span><time datetime=\"2026-09-27T12:05:00.000Z\">12:05</time></header><p class=\"message-text\">「這字跡……是老鄭的。」</p></div></article>\n<article class=\"message system\" data-channel=\"main\"><div class=\"avatar\"></div><div class=\"message-content\"><header><time datetime=\"2026-09-27T12:06:00.000Z\">12:06</time></header><div class=\"roll-result\">[ 陳志明 ] SAN : 48 → 45</div></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-3\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #2196f3;\">陳志明</span><time datetime=\"2026-09-27T12:07:00.000Z\">12:07</time></header><p class=\"message-text\"></p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-4\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #9c27b0;\">蘇菲亞・范德比爾特三世</span></header><p class=\"message-text\">「讓我看看那盞燈。」</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-0\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #888888;\">GM</span><time datetime=\"2026-09-27T12:09:00.000Z\">12:09</time></header><p class=\"message-text\">***</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-1\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #ff0000;\">林曉雨</span><time datetime=\"2026-09-27T12:10:00.000Z\">12:10</time></header><p class=\"message-text\">「樓上有聲音。」</p></div></article>\n</main>\n</body></html>\n",
   "霧港燈塔 [all]-副本.html": "<!DOCTYPE html>\n<html lang=\"ja\"><head><meta charset=\"UTF-8\"><title>霧港燈塔 [all]</title><style>\n.avatar { width: 40px; height: 40px; }\n.avatar-image-0 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAA0klEQVR4nO3QQREAIAzAsMnBv0IcrE94JAp6ncNqXgf8zqBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgaFCwPA4PF9Pm0FAAAAAElFTkSuQmCC\"); }\n.avatar-image-1 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsFOCOdTjAgd82aPJBCyds7YezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7cDDq7wK4HWsAAAAASUVORK5CYII=\"); }\n.avatar-image-2 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsPMvACX4Awd82aPJBCyds7YezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7+sxIzx7jjkAAAAAASUVORK5CYII=\"); }\n.avatar-image-3 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsLOCaYxiAAd82aPJBCydtY8ezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7olTrdhgOMtAAAAAASUVORK5CYII=\"); }\n.avatar-image-4 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAACgCAIAAABIaz/HAAABL0lEQVR4nO3QAQkAIADAMNtY2hBGtIXCHTzA2Vhz60Lj+cEngQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnSrA3Wnt1WuFZv7AAAAAElFTkSuQmCC\"); }\n</style></head>\n<body>\n<h1 class=\"log-title\">霧港燈塔 [all]</h1>\n<main>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-0\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #888888;\">GM</span><time datetime=\"2026-09-27T12:00:00.000Z\">12:00</time></header><p class=\"message-text\">霧從港口一路漫上來。<br>燈塔的光在雲裡轉了一圈又一圈。</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-0\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #888888;\">GM</span><time datetime=\"2026-09-27T12:01:00.000Z\">12:01</time></header><p class=\"message-text\">你們抵達燈塔下的小屋。</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-1\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #e91e63;\">林曉雨</span><time datetime=\"2026-09-27T12:02:00.000Z\">12:02</time></header><p class=\"message-text\">「有人在嗎？」</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-2\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #e91e63;\">林曉雨</span><time datetime=\"2026-09-27T12:02:30.000Z\">12:02</time></header><p class=\"message-text\">我敲兩下門。</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-1\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #e91e63;\">林曉雨</span><time datetime=\"2026-09-27T12:03:00.000Z\">12:03</time></header><p class=\"message-text\">CC<=60 【偵查】</p><div class=\"roll-result\">(1D100&lt;=60) ＞ 23 ＞ 成功</div></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-3\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #2196f3;\">陳志明</span><time datetime=\"2026-09-27T12:05:00.000Z\">12:05</time></header><p class=\"message-text\">「這字跡……是老鄭的。」</p></div></article>\n<article class=\"message system\" data-channel=\"main\"><div class=\"avatar\"></div><div class=\"message-content\"><header><time datetime=\"2026-09-27T12:06:00.000Z\">12:06</time></header><div class=\"roll-result\">[ 陳志明 ] SAN : 48 → 45</div></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-3\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #2196f3;\">陳志明</span><time datetime=\"2026-09-27T12:07:00.000Z\">12:07</time></header><p class=\"message-text\"></p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-4\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #9c27b0;\">蘇菲亞・范德比爾特三世</span></header><p class=\"message-text\">「讓我看看那盞燈。」</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-0\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #888888;\">GM</span><time datetime=\"2026-09-27T12:09:00.000Z\">12:09</time></header><p class=\"message-text\">***</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar avatar-image-1\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #ff0000;\">林曉雨</span><time datetime=\"2026-09-27T12:10:00.000Z\">12:10</time></header><p class=\"message-text\">「樓上有聲音。」</p></div></article>\n<article class=\"message\" data-channel=\"info\"><div class=\"avatar avatar-image-0\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #888888;\">GM</span><time datetime=\"2026-09-27T12:04:00.000Z\">12:04</time></header><p class=\"message-text\">【線索】航海日誌最後一頁寫著：「別讓燈熄了」。</p></div></article>\n<article class=\"message\" data-channel=\"other\"><div class=\"avatar\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #aaaaaa;\">小芋</span><time datetime=\"2026-09-27T12:05:30.000Z\">12:05</time></header><p class=\"message-text\">這團好冷 www</p></div></article>\n<article class=\"message\" data-channel=\"other\"><div class=\"avatar\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #aaaaaa;\">阿和</span><time datetime=\"2026-09-27T12:05:40.000Z\">12:05</time></header><p class=\"message-text\">我去泡個麵</p></div></article>\n</main>\n</body></html>\n",
   "無時間 [main].html": "<!DOCTYPE html>\n<html lang=\"ja\"><head><meta charset=\"UTF-8\"><title>無時間 [メイン]</title><style>\n.avatar { width: 40px; height: 40px; }\n.avatar-image-0 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAA0klEQVR4nO3QQREAIAzAsMnBv0IcrE94JAp6ncNqXgf8zqBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgaFCwPA4PF9Pm0FAAAAAElFTkSuQmCC\"); }\n.avatar-image-1 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsFOCOdTjAgd82aPJBCyds7YezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7cDDq7wK4HWsAAAAASUVORK5CYII=\"); }\n.avatar-image-2 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsPMvACX4Awd82aPJBCyds7YezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7+sxIzx7jjkAAAAAASUVORK5CYII=\"); }\n.avatar-image-3 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsLOCaYxiAAd82aPJBCydtY8ezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7olTrdhgOMtAAAAAASUVORK5CYII=\"); }\n.avatar-image-4 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAACgCAIAAABIaz/HAAABL0lEQVR4nO3QAQkAIADAMNtY2hBGtIXCHTzA2Vhz60Lj+cEngQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnSrA3Wnt1WuFZv7AAAAAElFTkSuQmCC\"); }\n</style></head>\n<body>\n<h1 class=\"log-title\">無時間 [メイン]</h1>\n<main>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #111111;\">甲</span></header><p class=\"message-text\">沒有時間的第一則</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #222222;\">乙</span><time datetime=\"2026-09-27T12:30:00.000Z\">12:30</time></header><p class=\"message-text\">第二則</p></div></article>\n<article class=\"message\" data-channel=\"main\"><div class=\"avatar\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #111111;\">甲</span></header><p class=\"message-text\">沒有時間的第三則</p></div></article>\n</main>\n</body></html>\n",
-  "無時間 [zz9].html": "<!DOCTYPE html>\n<html lang=\"ja\"><head><meta charset=\"UTF-8\"><title>無時間 [支線]</title><style>\n.avatar { width: 40px; height: 40px; }\n.avatar-image-0 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAA0klEQVR4nO3QQREAIAzAsMnBv0IcrE94JAp6ncNqXgf8zqBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgaFCwPA4PF9Pm0FAAAAAElFTkSuQmCC\"); }\n.avatar-image-1 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsFOCOdTjAgd82aPJBCyds7YezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7cDDq7wK4HWsAAAAASUVORK5CYII=\"); }\n.avatar-image-2 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsPMvACX4Awd82aPJBCyds7YezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7+sxIzx7jjkAAAAAASUVORK5CYII=\"); }\n.avatar-image-3 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsLOCaYxiAAd82aPJBCydtY8ezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7olTrdhgOMtAAAAAASUVORK5CYII=\"); }\n.avatar-image-4 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAACgCAIAAABIaz/HAAABL0lEQVR4nO3QAQkAIADAMNtY2hBGtIXCHTzA2Vhz60Lj+cEngQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnSrA3Wnt1WuFZv7AAAAAElFTkSuQmCC\"); }\n</style></head>\n<body>\n<h1 class=\"log-title\">無時間 [支線]</h1>\n<main>\n<article class=\"message\" data-channel=\"zz9\"><div class=\"avatar\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #333333;\">丙</span><time datetime=\"2026-09-27T12:20:00.000Z\">12:20</time></header><p class=\"message-text\">另一個分頁，時間較早</p></div></article>\n</main>\n</body></html>\n"
+  "無時間 [zz9].html": "<!DOCTYPE html>\n<html lang=\"ja\"><head><meta charset=\"UTF-8\"><title>無時間 [支線]</title><style>\n.avatar { width: 40px; height: 40px; }\n.avatar-image-0 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAA0klEQVR4nO3QQREAIAzAsMnBv0IcrE94JAp6ncNqXgf8zqBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgYFg4JBwaBgUDAoGBQMCgaFCwPA4PF9Pm0FAAAAAElFTkSuQmCC\"); }\n.avatar-image-1 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsFOCOdTjAgd82aPJBCyds7YezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7cDDq7wK4HWsAAAAASUVORK5CYII=\"); }\n.avatar-image-2 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsPMvACX4Awd82aPJBCyds7YezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7+sxIzx7jjkAAAAAASUVORK5CYII=\"); }\n.avatar-image-3 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAAApElEQVR4nO3QQQ0AIBDAsLOCaYxiAAd82aPJBCydtY8ezfeDeIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQIDCAQIECBCgcIAAAQIEKBwgQIAAAQoHCBAgQD+7olTrdhgOMtAAAAAASUVORK5CYII=\"); }\n.avatar-image-4 { background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAACgCAIAAABIaz/HAAABL0lEQVR4nO3QAQkAIADAMNtY2hBGtIXCHTzA2Vhz60Lj+cEngQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnSrA3Wnt1WuFZv7AAAAAElFTkSuQmCC\"); }\n</style></head>\n<body>\n<h1 class=\"log-title\">無時間 [支線]</h1>\n<main>\n<article class=\"message\" data-channel=\"zz9\"><div class=\"avatar\"></div><div class=\"message-content\"><header><span class=\"speaker\" style=\"--speaker-color: #333333;\">丙</span><time datetime=\"2026-09-27T12:20:00.000Z\">12:20</time></header><p class=\"message-text\">支線分頁的訊息，時間較早</p></div></article>\n</main>\n</body></html>\n"
  },
  "樣本圖片": {
   "ill-teal.png": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAC0CAIAAABqhmJGAAACJklEQVR4nO3TsQkAIBDAwJ/Eia2d1x1sJHBwA6TJrLOBqPleADwzMIQZGMIMDGEGhjADQ5iBIczAEGZgCDMwhBkYwgwMYQaGMANDmIEhzMAQZmAIMzCEGRjCDAxhBoYwA0OYgSHMwBBmYAgzMIQZGMIMDGEGhjADQ5iBIczAEGZgCDMwhBkYwgwMYQaGMANDmIEhzMAQZmAIMzCEGRjCDAxhBoYwA0OYgSHMwBBmYAgzMIQZGMIMDGEGhjADQ5iBIczAEGZgCDMwhBkYwgwMYQaGMANDmIEhzMAQZmAIMzCEGRjCDAxhBoYwA0OYgSHMwBBmYAgzMIQZGMIMDGEGhjADQ5iBIczAEGZgCDMwhBkYwgwMYQaGMANDmIEhzMAQZmAIMzCEGRjCDAxhBoYwA0OYgSHMwBBmYAgzMIQZGMIMDGEGhjADQ5iBIczAEGZgCDMwhBkYwgwMYQaGMANDmIEhzMAQZmAIMzCEGRjCDAxhBoYwA0OYgSHMwBBmYAgzMIQZGMIMDGEGhjADQ5iBIczAEGZgCDMwhBkYwgwMYQaGMANDmIEhzMAQZmAIMzCEGRjCDAxhBoYwA0OYgSHMwBBmYAgzMIQZGMIMDGEGhjADQ5iBIczAEGZgCDMwhBkYwgwMYQaGMANDmIEhzMAQZmAIMzCEGRjCDAxhBoYwA0OYgSHMwBBmYAgzMIQZGMIMDGEGhjADQ5iBIczAEGZgCDMwhBkYwi5VwVB4flU0JgAAAABJRU5ErkJggg==",
   "face-amber.png": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAEECAIAAADiZ+yyAAACq0lEQVR4nO3SQQkAIADAQOMY23TmsIRDkIMLsMfGXhOuG88L+JKxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi4SxSBiLhLFIGIuEsUgYi8QB7g5DvP7WZbQAAAAASUVORK5CYII="
  },
  "未收錄的樣本": {
-  "長團 [main].html": "新格式、單一分頁 main、標題「長團 [メイン]」，1200 則訊息，第 i 則（i 從 0 起）由 GM／林曉雨／陳志明 輪流發言（i 除以 3 的餘數），內文「第 i+1 則訊息。」，時間戳記從 2026-09-27T10:00:00Z 起每則加 1 秒，頭像同 霧港燈塔 系列。用來驗證預覽範圍（F82～F86）與大量日誌的效能。",
-  "face-big.png": "1200×900 單色 PNG（用於「依容量分割」的大圖警告）"
+  "長團 [main].html": "新格式、單一分頁 main、標題「長團 [メイン]」，1200 則訊息，第 i 則（i 從 0 起）由 GM／林曉雨／陳志明 輪流發言（i 除以 3 的餘數），內文「第 i+1 則訊息。」，時間戳記從 2026-09-27T10:00:00Z 起每則加 1 秒，頭像同 霧港燈塔 系列。用來驗證預覽區段（F72～F75）與大量日誌的效能。",
+  "face-big.png": "1200×900 單色 PNG（用於「依大小分割」的大圖警告）"
  },
  "案例": [
   {
@@ -54,7 +54,7 @@
    "輸出樣式": "小說",
    "設定": {
     "比對用配色": true,
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -78,7 +78,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -285,7 +285,7 @@
    "輸出樣式": "時間軸",
    "設定": {
     "比對用配色": true,
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -309,7 +309,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -556,7 +556,7 @@
    "輸出樣式": "CCFOLIA 風格",
    "設定": {
     "比對用配色": true,
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -580,7 +580,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -867,7 +867,7 @@
   },
   {
    "編號": "L04",
-   "說明": "舊格式，小說：閒聊全部顯示、隱藏系統訊息、合併連續發言、易讀性調整",
+   "說明": "舊格式，小說：閒聊全部顯示、隱藏系統訊息、合併同人連續對話、排版微調",
    "輸入檔": [
     "[小芋、阿和] 霧港燈塔 [main].html"
    ],
@@ -876,9 +876,9 @@
     "比對用配色": true,
     "閒聊": "全部顯示",
     "系統訊息": "隱藏",
-    "合併連續發言": true,
+    "合併同人連續對話": true,
     "小說排版微調": true,
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -902,7 +902,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 16,
     "共": 16
@@ -1059,7 +1059,7 @@
   },
   {
    "編號": "L05",
-   "說明": "舊格式，時間軸：接續版面＋自訂分隔「：」、閒聊完全隱藏、名稱過長時換行、合併連續發言",
+   "說明": "舊格式，時間軸：接續版面＋自訂分隔「：」、閒聊完全隱藏、名稱過長時換行、合併同人連續對話",
    "輸入檔": [
     "[小芋、阿和] 霧港燈塔 [main].html"
    ],
@@ -1070,8 +1070,8 @@
     "分隔": "自訂「：」",
     "閒聊": "完全隱藏",
     "名稱過長時換行": true,
-    "合併連續發言": true,
-    "角色名稱顏色": "比對用（見最上方）"
+    "合併同人連續對話": true,
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -1095,7 +1095,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 16,
     "共": 16
@@ -1312,7 +1312,7 @@
     "對話版面": "接續",
     "分隔": "空格",
     "顯示閒聊數量": false,
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -1336,7 +1336,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -1590,7 +1590,7 @@
      "info": "標出分頁",
      "other": "標出分頁"
     },
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -1614,7 +1614,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -1906,7 +1906,7 @@
      "info": "通知框"
     },
     "顯示閒聊數量": false,
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -1930,7 +1930,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -2217,7 +2217,7 @@
   },
   {
    "編號": "L09",
-   "說明": "舊格式，小說：取消顯示 info 分頁、啟用分頁顏色（main 文字 #ffe082／底 #3e2723、other 文字 #80cbc4）",
+   "說明": "舊格式，小說：取消顯示 info 分頁、開啟分頁配色（main 文字 #ffe082／底 #3e2723、other 文字 #80cbc4）",
    "輸入檔": [
     "[小芋、阿和] 霧港燈塔 [main].html"
    ],
@@ -2237,7 +2237,7 @@
       null
      ]
     },
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -2261,7 +2261,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -2501,7 +2501,7 @@
       null
      ]
     },
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -2525,7 +2525,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -2778,7 +2778,7 @@
       null
      ]
     },
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -2802,7 +2802,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -3087,7 +3087,7 @@
      "蘇菲亞・范德比爾特三世": "對話（斜體）",
      "小芋": "旁白（一般）"
     },
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -3111,7 +3111,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -3304,7 +3304,7 @@
      "蘇菲亞・范德比爾特三世": "對話（斜體）",
      "小芋": "旁白（一般）"
     },
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -3328,7 +3328,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -3576,7 +3576,7 @@
      "蘇菲亞・范德比爾特三世": "對話（斜體）",
      "小芋": "旁白（一般）"
     },
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -3600,7 +3600,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -3887,7 +3887,7 @@
   },
   {
    "編號": "L15",
-   "說明": "舊格式，小說：旁白角色改成陳志明、不指定閒聊分頁",
+   "說明": "舊格式，小說：旁白角色改成陳志明、閒聊分頁設為不使用",
    "輸入檔": [
     "[小芋、阿和] 霧港燈塔 [main].html"
    ],
@@ -3896,7 +3896,7 @@
     "比對用配色": true,
     "旁白角色": "陳志明",
     "閒聊分頁": "不使用",
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -3920,7 +3920,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -4167,7 +4167,7 @@
       "位置": ""
      }
     ],
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -4191,7 +4191,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -4436,7 +4436,7 @@
    "設定": {
     "比對用配色": true,
     "插圖": "同 L16",
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -4460,7 +4460,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -4792,7 +4792,7 @@
    "設定": {
     "比對用配色": true,
     "分割": "依則數 5",
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -4816,7 +4816,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成（分割成 4 個檔案）",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -5151,16 +5151,16 @@
   },
   {
    "編號": "L19",
-   "說明": "舊格式，小說：依檔案數分割（3 個）＋網頁貼文用",
+   "說明": "舊格式，小說：分成固定檔數（3 個）＋部落格貼文版",
    "輸入檔": [
     "[小芋、阿和] 霧港燈塔 [main].html"
    ],
    "輸出樣式": "小說",
    "設定": {
     "比對用配色": true,
-    "分割": "依檔案數 3",
-    "網頁貼文用": true,
-    "角色名稱顏色": "比對用（見最上方）"
+    "分割": "固定檔數 3",
+    "部落格貼文版": true,
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -5184,7 +5184,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成（分割成 3 個檔案）",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -5200,7 +5200,7 @@
      ]
     },
     {
-     "按鈕": "網頁貼文用・全部打包（ZIP）",
+     "按鈕": "部落格貼文版・全部打包（ZIP）",
      "檔名": "霧港燈塔_web_all.zip",
      "ZIP內容": [
       "霧港燈塔_part1_web.html",
@@ -5295,9 +5295,9 @@
      ]
     },
     {
-     "按鈕": "第 1 檔（網頁貼文用）",
+     "按鈕": "第 1 檔（部落格貼文版）",
      "檔名": "霧港燈塔_part1_web.html",
-     "網頁貼文用": true,
+     "部落格貼文版": true,
      "頁面": {
       "頁面背景": "rgb(16, 20, 24)",
       "容器背景": "rgb(28, 35, 41)",
@@ -5462,9 +5462,9 @@
      ]
     },
     {
-     "按鈕": "第 2 檔（網頁貼文用）",
+     "按鈕": "第 2 檔（部落格貼文版）",
      "檔名": "霧港燈塔_part2_web.html",
-     "網頁貼文用": true,
+     "部落格貼文版": true,
      "頁面": {
       "頁面背景": "rgb(16, 20, 24)",
       "容器背景": "rgb(28, 35, 41)",
@@ -5625,9 +5625,9 @@
      ]
     },
     {
-     "按鈕": "第 3 檔（網頁貼文用）",
+     "按鈕": "第 3 檔（部落格貼文版）",
      "檔名": "霧港燈塔_part3_web.html",
-     "網頁貼文用": true,
+     "部落格貼文版": true,
      "頁面": {
       "頁面背景": "rgb(16, 20, 24)",
       "容器背景": "rgb(28, 35, 41)",
@@ -5711,15 +5711,15 @@
   },
   {
    "編號": "L20",
-   "說明": "舊格式，小說：依容量分割（10 KB）",
+   "說明": "舊格式，小說：依大小分割（10 KB）",
    "輸入檔": [
     "[小芋、阿和] 霧港燈塔 [main].html"
    ],
    "輸出樣式": "小說",
    "設定": {
     "比對用配色": true,
-    "分割": "依容量 10 KB",
-    "角色名稱顏色": "比對用（見最上方）"
+    "分割": "依大小 10 KB",
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -5743,7 +5743,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成（分割成 2 個檔案）",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -5982,15 +5982,15 @@
   },
   {
    "編號": "L21",
-   "說明": "舊格式，CCFOLIA 風格：網頁貼文用（不分割）",
+   "說明": "舊格式，CCFOLIA 風格：部落格貼文版（不分割）",
    "輸入檔": [
     "[小芋、阿和] 霧港燈塔 [main].html"
    ],
    "輸出樣式": "CCFOLIA 風格",
    "設定": {
     "比對用配色": true,
-    "網頁貼文用": true,
-    "角色名稱顏色": "比對用（見最上方）"
+    "部落格貼文版": true,
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -6014,7 +6014,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -6298,9 +6298,9 @@
      ]
     },
     {
-     "按鈕": "單檔（網頁貼文用）",
+     "按鈕": "單檔（部落格貼文版）",
      "檔名": "霧港燈塔_web.html",
-     "網頁貼文用": true,
+     "部落格貼文版": true,
      "頁面": {
       "頁面背景": "rgb(16, 20, 24)",
       "容器背景": "rgb(28, 35, 41)",
@@ -6594,7 +6594,7 @@
     "字級": 21,
     "行距": 2.2,
     "頁寬": 600,
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -6618,7 +6618,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -6870,7 +6870,7 @@
      "陳志明": "網址（保留外部連結）"
     },
     "圖片品質": "最小（長邊 100 px）",
-    "角色名稱顏色": "比對用（見最上方）"
+    "名稱顏色": "比對用（見最上方）"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -6894,7 +6894,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 17,
     "共": 17
@@ -7214,7 +7214,7 @@
    "輸出樣式": "CCFOLIA 風格",
    "設定": {
     "比對用配色": true,
-    "角色名稱顏色": "未指定（舊版依出現順序給的初始色，新版自訂色盤時屬可接受差異）"
+    "名稱顏色": "未指定（舊版依出現順序給的初始色，新版自訂色盤時屬可接受差異）"
    },
    "載入後": {
     "標題": "legacy-edge",
@@ -7234,7 +7234,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 10,
     "共": 10
@@ -7417,15 +7417,15 @@
   },
   {
    "編號": "L25",
-   "說明": "同 L24，合併連續發言，時間軸",
+   "說明": "同 L24，合併同人連續對話，時間軸",
    "輸入檔": [
     "legacy-edge.html"
    ],
    "輸出樣式": "時間軸",
    "設定": {
     "比對用配色": true,
-    "合併連續發言": true,
-    "角色名稱顏色": "未指定（舊版依出現順序給的初始色，新版自訂色盤時屬可接受差異）"
+    "合併同人連續對話": true,
+    "名稱顏色": "未指定（舊版依出現順序給的初始色，新版自訂色盤時屬可接受差異）"
    },
    "載入後": {
     "標題": "legacy-edge",
@@ -7445,7 +7445,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 9,
     "共": 9
@@ -7583,7 +7583,7 @@
    "輸出樣式": "小說",
    "設定": {
     "比對用配色": true,
-    "角色名稱顏色": "未指定（舊版依出現順序給的初始色，新版自訂色盤時屬可接受差異）"
+    "名稱顏色": "未指定（舊版依出現順序給的初始色，新版自訂色盤時屬可接受差異）"
    },
    "載入後": {
     "標題": "legacy-short",
@@ -7602,7 +7602,7 @@
     "已載入檔案": null
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 4,
     "共": 4
@@ -7696,7 +7696,7 @@
    "輸出樣式": "小說",
    "設定": {
     "比對用配色": true,
-    "角色名稱顏色": "日誌記錄的顏色"
+    "名稱顏色": "日誌記錄的顏色"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -7760,7 +7760,7 @@
     ]
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 15,
     "共": 15
@@ -7941,7 +7941,7 @@
   },
   {
    "編號": "V02",
-   "說明": "同 V01，時間軸（每則訊息的頭像）",
+   "說明": "同 V01，時間軸（逐則頭像）",
    "輸入檔": [
     "霧港燈塔 [all].html",
     "霧港燈塔 [main].html",
@@ -7952,7 +7952,7 @@
    "輸出樣式": "時間軸",
    "設定": {
     "比對用配色": true,
-    "角色名稱顏色": "日誌記錄的顏色"
+    "名稱顏色": "日誌記錄的顏色"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -8016,7 +8016,7 @@
     ]
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 15,
     "共": 15
@@ -8276,7 +8276,7 @@
    "輸出樣式": "CCFOLIA 風格",
    "設定": {
     "比對用配色": true,
-    "角色名稱顏色": "日誌記錄的顏色"
+    "名稱顏色": "日誌記錄的顏色"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -8340,7 +8340,7 @@
     ]
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 15,
     "共": 15
@@ -8658,7 +8658,7 @@
   },
   {
    "編號": "V04",
-   "說明": "同 V01，CCFOLIA 風格：關掉「每則訊息的頭像」、圖片品質＝原圖",
+   "說明": "同 V01，CCFOLIA 風格：關掉「逐則頭像」、圖片品質＝原圖",
    "輸入檔": [
     "霧港燈塔 [all].html",
     "霧港燈塔 [main].html",
@@ -8669,9 +8669,9 @@
    "輸出樣式": "CCFOLIA 風格",
    "設定": {
     "比對用配色": true,
-    "每則訊息的頭像": false,
+    "逐則頭像": false,
     "圖片品質": "原圖",
-    "角色名稱顏色": "日誌記錄的顏色"
+    "名稱顏色": "日誌記錄的顏色"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -8735,7 +8735,7 @@
     ]
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 15,
     "共": 15
@@ -9053,7 +9053,7 @@
   },
   {
    "編號": "V05",
-   "說明": "只選各分頁檔（不含全部分頁檔），CCFOLIA 風格：分頁改名（Xk3pQ9aZ→密談）、所有分頁用標出分頁、合併連續發言",
+   "說明": "只選各分頁檔（不含全部分頁檔），CCFOLIA 風格：分頁改名（Xk3pQ9aZ→密談）、所有分頁用標出分頁、合併同人連續對話",
    "輸入檔": [
     "霧港燈塔 [main].html",
     "霧港燈塔 [info].html",
@@ -9067,8 +9067,8 @@
      "Xk3pQ9aZ": "密談"
     },
     "分頁樣式": "全部標出分頁",
-    "合併連續發言": true,
-    "角色名稱顏色": "日誌記錄的顏色"
+    "合併同人連續對話": true,
+    "名稱顏色": "日誌記錄的顏色"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -9122,7 +9122,7 @@
     ]
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 14,
     "共": 14
@@ -9440,7 +9440,7 @@
   },
   {
    "編號": "V06",
-   "說明": "新格式，時間軸：上傳林曉雨的頭像＋關掉每則訊息的頭像",
+   "說明": "新格式，時間軸：上傳林曉雨的頭像＋關掉逐則頭像",
    "輸入檔": [
     "霧港燈塔 [all].html",
     "霧港燈塔 [main].html",
@@ -9451,11 +9451,11 @@
    "輸出樣式": "時間軸",
    "設定": {
     "比對用配色": true,
-    "每則訊息的頭像": false,
+    "逐則頭像": false,
     "頭像": {
      "林曉雨": "上傳 face-amber.png"
     },
-    "角色名稱顏色": "日誌記錄的顏色"
+    "名稱顏色": "日誌記錄的顏色"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -9519,7 +9519,7 @@
     ]
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 15,
     "共": 15
@@ -9768,7 +9768,7 @@
   },
   {
    "編號": "V07",
-   "說明": "新格式，時間軸：上傳林曉雨的頭像但保留每則訊息的頭像",
+   "說明": "新格式，時間軸：上傳林曉雨的頭像但保留逐則頭像",
    "輸入檔": [
     "霧港燈塔 [all].html",
     "霧港燈塔 [main].html",
@@ -9782,7 +9782,7 @@
     "頭像": {
      "林曉雨": "上傳 face-amber.png"
     },
-    "角色名稱顏色": "日誌記錄的顏色"
+    "名稱顏色": "日誌記錄的顏色"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -9846,7 +9846,7 @@
     ]
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 15,
     "共": 15
@@ -10103,7 +10103,7 @@
    "輸出樣式": "小說",
    "設定": {
     "比對用配色": true,
-    "角色名稱顏色": "日誌記錄的顏色"
+    "名稱顏色": "日誌記錄的顏色"
    },
    "載入後": {
     "標題": "無時間",
@@ -10138,7 +10138,7 @@
     ]
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 4,
     "共": 4
@@ -10219,14 +10219,14 @@
   },
   {
    "編號": "V09",
-   "說明": "新格式只有一個檔（單一分頁、標題沒有分頁名），CCFOLIA 風格",
+   "說明": "新格式只有一個檔（單一分頁、標題不含分頁），CCFOLIA 風格",
    "輸入檔": [
     "霧港燈塔-單分頁.html"
    ],
    "輸出樣式": "CCFOLIA 風格",
    "設定": {
     "比對用配色": true,
-    "角色名稱顏色": "日誌記錄的顏色"
+    "名稱顏色": "日誌記錄的顏色"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -10254,7 +10254,7 @@
     ]
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 10,
     "共": 10
@@ -10496,7 +10496,7 @@
    "輸出樣式": "時間軸",
    "設定": {
     "比對用配色": true,
-    "角色名稱顏色": "日誌記錄的顏色"
+    "名稱顏色": "日誌記錄的顏色"
    },
    "載入後": {
     "標題": "霧港燈塔",
@@ -10517,7 +10517,7 @@
      "Xk3pQ9aZ"
     ],
     "閒聊分頁": "閒聊",
-    "檔案提示": "多個含全部分頁的檔案（只用訊息最多的那一個）",
+    "檔案提示": "多個全分頁檔案（只用則數最多的那一個）",
     "已載入檔案": [
      {
       "檔名": "霧港燈塔 [all].html",
@@ -10541,7 +10541,7 @@
     ]
    },
    "轉換結果": "完成",
-   "預覽範圍": {
+   "預覽區段": {
     "起": 1,
     "迄": 15,
     "共": 15
