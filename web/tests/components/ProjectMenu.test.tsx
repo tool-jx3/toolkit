@@ -100,4 +100,40 @@ describe('ProjectMenu', () => {
     expect(onReset).toHaveBeenCalledTimes(1);
     expect(notices.at(-1)).toEqual({ kind: 'reset', tone: 'info' });
   });
+
+  it('resetDisabled 停用重設項目、statusText 取代自動存檔文字（height-board 新增）', async () => {
+    const onReset = vi.fn();
+    const { rerender } = render(
+      <UiProvider>
+        <ProjectMenu
+          toolId="demo"
+          getData={() => ({})}
+          onLoad={() => {}}
+          onReset={onReset}
+          savedAt={Date.now()}
+          resetDisabled
+          resetText={{ label: '全部刪除…' }}
+          statusText="自動保存無法使用"
+        />
+      </UiProvider>,
+    );
+    expect(screen.getByText('自動保存無法使用')).toBeTruthy();
+    await openMenu();
+    const item = screen.getByRole('menuitem', { name: '全部刪除…' });
+    expect(item.getAttribute('aria-disabled')).toBe('true');
+    await userEvent.click(item);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(onReset).not.toHaveBeenCalled();
+    await userEvent.keyboard('{Escape}');
+    rerender(
+      <UiProvider>
+        <ProjectMenu toolId="demo" getData={() => ({})} onLoad={() => {}} onReset={onReset} />
+      </UiProvider>,
+    );
+    expect(screen.getByText('設定會自動儲存')).toBeTruthy();
+    await openMenu();
+    expect(
+      screen.getByRole('menuitem', { name: '重設…' }).getAttribute('aria-disabled'),
+    ).toBeNull();
+  });
 });

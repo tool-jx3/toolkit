@@ -245,6 +245,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/sotsotssi/CharColorPalette',
     },
   },
+  {
+    id: 'height-board',
+    name: '立繪身高比較板',
+    summary:
+      '把多位角色的立繪依身高換成同一個比例尺並排在公分刻度上，一眼看出誰高誰矮：可調頭頂與腳底基準線、拖曳排位，匯出含刻度的 PNG。',
+    group: 'G3',
+    status: 'next',
+    inspiration: {
+      name: 'woolwag3338/character-height-board',
+      url: 'https://github.com/woolwag3338/character-height-board',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

@@ -85,6 +85,13 @@ export interface ProjectMenuProps<T> {
   resetText?: { label?: string; title?: string; description?: string; confirmLabel?: string };
   /** 額外的選單項目 */
   extraItems?: ReactNode;
+  /** 重設項目停用（例如沒有內容可以重設時；height-board 實作時新增，不給時行為不變） */
+  resetDisabled?: boolean;
+  /**
+   * 取代旁邊的自動存檔狀態文字（例如「自動保存無法使用」）；讀取／準備專案檔中仍顯示進度。
+   * height-board 實作時新增，不給時行為不變。
+   */
+  statusText?: ReactNode;
   className?: string;
 }
 
@@ -136,6 +143,8 @@ export function ProjectMenu<T>({
   resetLabel,
   resetText,
   extraItems,
+  resetDisabled,
+  statusText,
   className,
 }: ProjectMenuProps<T>) {
   const confirm = useConfirm();
@@ -244,9 +253,11 @@ export function ProjectMenu<T>({
           ? '讀取專案檔中…'
           : busy === 'save'
             ? '準備專案檔中…'
-            : savedAt
-              ? `已自動儲存（${time(savedAt)}）`
-              : '設定會自動儲存'}
+            : statusText !== undefined
+              ? statusText
+              : savedAt
+                ? `已自動儲存（${time(savedAt)}）`
+                : '設定會自動儲存'}
       </span>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger
@@ -274,7 +285,11 @@ export function ProjectMenu<T>({
             {extraItems}
             <DropdownMenu.Separator className="my-1 h-px bg-border" />
             <DropdownMenu.Item
-              className={cn(itemClass, 'text-danger [&_svg]:text-danger')}
+              className={cn(
+                itemClass,
+                'text-danger data-disabled:cursor-not-allowed data-disabled:opacity-50 [&_svg]:text-danger',
+              )}
+              disabled={resetDisabled}
               onSelect={reset}
             >
               <RotateCcw aria-hidden />

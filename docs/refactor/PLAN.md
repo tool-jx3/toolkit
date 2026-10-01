@@ -149,13 +149,13 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | message-box | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
 | chat-window | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
 | obs-tachie | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
-| ccfolia-cropper | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
-| icon-maker | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
+| ccfolia-cropper | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
+| icon-maker | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
 | variant-manager | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
-| height-board | ✅ | 🔨 | ⬜ | ⬜ |
+| height-board | ✅ | ✅ | ⬜ | ⬜ |
 | color-palette | ✅ | ✅ | ⬜ | ⬜ |
 | emotion-maker | ✅ | 🔨 | ⬜ | ⬜ |
-| typewriter | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
+| typewriter | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
 | text-path | ✅ | ✅ | ✅ | ✅ |
 | cutin | ✅ | ✅ | 🔍 | ⬜ |
 | collage-letter | ✅ | ✅ | ✅ | ✅ |
