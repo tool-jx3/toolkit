@@ -7,7 +7,7 @@
   "testImagesNote": "測試圖全部由觀察者自製（Pillow 12.3 依 recipe 產生）；位元組與 sha256 供核對，重新產生時若函式庫版本不同造成位元組差異，以 recipe 為準、以像素尺寸與格式比對。檔案位於觀察者 scratchpad 的 specs-g5c/img/。",
   "nameRules": {
    "images": "圖片以「img:<素材名稱>.<副檔名>」代稱（素材名稱＝工具內名稱，預設為檔名去副檔名）；同代稱重複時加「＃2」。實際 ZIP 內的檔名＝內容 SHA-256＋副檔名，sha256 欄記錄舊版當時的值。",
-   "entities": "entities 的 ID 換成代稱：scene:<場景名>、part:<共用標記名>、panel:<螢幕面板名>、tachie:<立繪表情名>、effect:<演出名>、noimage:<序號>、char:<棋子名>、cutin:<切入名>；同名時加「＃2」…。room.sceneId 也換成代稱。",
+   "entities": "entities 的 ID 換成代稱：場景:<場景名>、共用標記:<名稱>、螢幕面板:<名稱>、立繪:<登場時記錄的名稱>、演出:<演出名>、空白格:<序號>、棋子:<棋子名>、切入:<切入名>；同名時加「＃2」…。room.sceneId 也換成代稱。",
    "volatile": "playTime（匯出時刻）以文字代替；.token 只記形狀；ZIP 項目時間與壓縮等級不比。",
    "placeholders": "〈…〉是原作預設文字的代稱（預設名、KP 面板的區塊標題與標示等）：新版用自己的文字，比對時把新版的對應文字換成同一個代稱。",
    "webp": "WebP 由瀏覽器編碼（品質 0.8），同一版 Chromium 下位元組應相同；不同版本時只比寬高、格式，位元組數差 ≤ 10%。PNG／GIF／JPEG 原檔保留的 sha256 應與測試圖相同。"
@@ -91,7 +91,7 @@
    "steps": [
     "新開頁面（全部預設值；盤面 40×30）",
     "素材：載入 T1、T3（預設：轉 WebP、長邊上限 1200）",
-    "場景：從素材批次建立 → 選 T1 → 建立",
+    "場景：從素材挑選建立 → 選 T1 → 建立",
     "匯出"
    ],
    "zip": {
@@ -102,11 +102,11 @@
     ],
     "token": "0.＋64 個小寫十六進位字元",
     "selfCheck": {
-     "ok": true,
-     "problems": [],
-     "imageCount": 1,
-     "sceneCount": 1,
-     "characterCount": 0
+     "通過": true,
+     "問題": [],
+     "圖片數": 1,
+     "場景數": 1,
+     "棋子數": 0
     },
     "images": [
      {
@@ -150,7 +150,7 @@
       "mediaVolume": 1,
       "monitored": false,
       "soundRef": null,
-      "sceneId": "scene:t1_wide_1600x900",
+      "sceneId": "場景:t1_wide_1600x900",
       "archived": false,
       "backgroundColor": "#000000",
       "variables": [],
@@ -168,7 +168,7 @@
      "characters": {},
      "effects": {},
      "scenes": {
-      "scene:t1_wide_1600x900": {
+      "場景:t1_wide_1600x900": {
        "name": "t1_wide_1600x900",
        "order": 1,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -206,12 +206,12 @@
    "title": "場景的背景模式、前景尺寸、自動裁切、格線、切換文字",
    "steps": [
     "素材：載入 T1、T6、T9",
-    "房間設計：背景選 T6、前景選 T9；按「寬版 37×17」",
+    "房間設計：背景選 T6、前景選 T9；按「37×17」尺寸鈕",
     "場景：快速建立「場景一」（前景先選 T1）",
-    "快速建立「場景二」（不選前景）；詳細設定的背景改「與前景相同」",
+    "快速建立「場景二」（不選前景）；詳細設定的背景改成跟前景同一張",
     "快速建立「場景三」（前景 T1）；背景改「個別素材」並選 T9",
     "快速建立「場景四」（前景 T1）；背景改「沒有背景」",
-    "快速建立「場景五」（前景 T1）；前景尺寸寬 30、高 20；取消「自動裁切前景」；勾「顯示格線」",
+    "快速建立「場景五」（前景 T1）；前景尺寸寬 30、高 20；取消「自動裁切」；勾「顯示格線」",
     "在「場景一」的切換時文字輸入兩行：「第一行」換行「第二行」",
     "匯出"
    ],
@@ -225,11 +225,11 @@
     ],
     "token": "0.＋64 個小寫十六進位字元",
     "selfCheck": {
-     "ok": true,
-     "problems": [],
-     "imageCount": 3,
-     "sceneCount": 5,
-     "characterCount": 0
+     "通過": true,
+     "問題": [],
+     "圖片數": 3,
+     "場景數": 5,
+     "棋子數": 0
     },
     "images": [
      {
@@ -291,7 +291,7 @@
       "mediaVolume": 1,
       "monitored": false,
       "soundRef": null,
-      "sceneId": "scene:場景一",
+      "sceneId": "場景:場景一",
       "archived": false,
       "backgroundColor": "#000000",
       "variables": [],
@@ -309,7 +309,7 @@
      "characters": {},
      "effects": {},
      "scenes": {
-      "scene:場景一": {
+      "場景:場景一": {
        "name": "場景一",
        "order": 1,
        "backgroundUrl": "img:t6_other_900x800.webp",
@@ -332,7 +332,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:場景二": {
+      "場景:場景二": {
        "name": "場景二",
        "order": 2,
        "backgroundUrl": "img:t9_photo_320x240.webp",
@@ -355,7 +355,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:場景三": {
+      "場景:場景三": {
        "name": "場景三",
        "order": 3,
        "backgroundUrl": "img:t9_photo_320x240.webp",
@@ -378,7 +378,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:場景四": {
+      "場景:場景四": {
        "name": "場景四",
        "order": 4,
        "backgroundUrl": null,
@@ -401,7 +401,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:場景五": {
+      "場景:場景五": {
        "name": "場景五",
        "order": 5,
        "backgroundUrl": "img:t6_other_900x800.webp",
@@ -446,15 +446,15 @@
    "title": "共用標記（部件）、螢幕面板與場景的個別差異",
    "steps": [
     "素材：載入 T2、T5、T6",
-    "房間設計：加入房間設計（部件）→ 圖 T2、名稱「橫幅」、水平位置 3、垂直位置 -4、寬 12（高依長寬比自動）",
-    "再加入部件「隱藏件」→ 圖 T6，取消「顯示」",
-    "再加入部件「純文字」（不選圖）→ 詳細設定的盤面文字輸入「說明」",
-    "加入螢幕面板 → 名稱「看板」、圖 T5（預設尺寸）、詳細設定的盤面文字「備註」",
+    "房間設計：新增共用標記→ 圖 T2、名稱「橫幅」、水平位置 3、垂直位置 -4、寬 12（高照圖片比例自動算）",
+    "再新增共用標記「隱藏件」→ 圖 T6，取消「顯示」",
+    "再新增共用標記「純文字」（不選圖）→ 詳細設定的盤面文字輸入「說明」",
+    "新增螢幕面板 → 名稱「看板」、圖 T5（預設尺寸）、詳細設定的盤面文字「備註」",
     "場景：快速建立「甲」「乙」「丙」（都不選前景）",
     "「乙」的共用部件 →「橫幅」按變更 → 水平位置 -5、垂直位置 2",
-    "「丙」的共用部件 →「橫幅」按變更 → 勾「在這個場景隱藏」",
+    "「丙」的共用部件 →「橫幅」按變更 → 勾「本場景隱藏」",
     "「甲」的共用部件 →「橫幅」換圖 T6、按變更 → 寬 8、高 4、堆疊順序 25",
-    "「甲」的預覽圖層清單：對「看板」按「在這個場景真的不顯示」",
+    "「甲」的預覽圖層清單：對「看板」按「此場景徹底隱藏」",
     "匯出"
    ],
    "zip": {
@@ -467,11 +467,11 @@
     ],
     "token": "0.＋64 個小寫十六進位字元",
     "selfCheck": {
-     "ok": true,
-     "problems": [],
-     "imageCount": 3,
-     "sceneCount": 3,
-     "characterCount": 0
+     "通過": true,
+     "問題": [],
+     "圖片數": 3,
+     "場景數": 3,
+     "棋子數": 0
     },
     "images": [
      {
@@ -526,7 +526,7 @@
       ],
       "messageGroups": [],
       "markers": {
-       "part:橫幅": {
+       "共用標記:橫幅": {
         "x": -3,
         "y": -6,
         "z": 20,
@@ -547,7 +547,7 @@
       "mediaVolume": 1,
       "monitored": false,
       "soundRef": null,
-      "sceneId": "scene:甲",
+      "sceneId": "場景:甲",
       "archived": false,
       "backgroundColor": "#000000",
       "variables": [],
@@ -560,7 +560,7 @@
       "crossfadeDuration": 1
      },
      "items": {
-      "panel:看板": {
+      "螢幕面板:看板": {
        "x": -19,
        "y": -28,
        "z": 40,
@@ -587,7 +587,7 @@
      "characters": {},
      "effects": {},
      "scenes": {
-      "scene:甲": {
+      "場景:甲": {
        "name": "甲",
        "order": 1,
        "backgroundUrl": null,
@@ -598,7 +598,7 @@
        "displayGrid": false,
        "gridSize": 1,
        "markers": {
-        "part:橫幅": {
+        "共用標記:橫幅": {
          "x": -1,
          "y": -6,
          "z": 25,
@@ -624,7 +624,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:乙": {
+      "場景:乙": {
        "name": "乙",
        "order": 2,
        "backgroundUrl": null,
@@ -635,7 +635,7 @@
        "displayGrid": false,
        "gridSize": 1,
        "markers": {
-        "part:橫幅": {
+        "共用標記:橫幅": {
          "x": -11,
          "y": 0,
          "z": 20,
@@ -661,7 +661,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:丙": {
+      "場景:丙": {
        "name": "丙",
        "order": 3,
        "backgroundUrl": null,
@@ -700,18 +700,18 @@
      }
     }
    },
-   "note": "「純文字」部件沒有圖所以完全不輸出；「隱藏件」顯示關閉所以不輸出；「看板」在「甲」按了「真的不顯示」，但 items 不受影響（規格 5.1 D4）。"
+   "note": "「純文字」部件沒有圖所以完全不輸出；「隱藏件」顯示關閉所以不輸出；「看板」在「甲」按了「此場景徹底隱藏」，但 items 不受影響（規格 5.1 D4）。"
   },
   "Z04": {
    "title": "立繪庫、表情差分、場景登場與等距排列",
    "steps": [
     "素材：載入 T1、T4、T10",
-    "立繪：從素材批次登錄 → 依序選 T4、T10",
-    "T4 那張：角色名稱「甲」；按「建立表情差分」→ 新卡片的「表情等」改「甲笑」、圖改 T10",
+    "立繪：從素材挑選登錄 → 依序選 T4、T10",
+    "T4 那張：角色名稱「甲」；按「做表情差分」→ 新卡片的表情名稱改「甲笑」、圖改 T10",
     "T10 那張：角色名稱「乙」、大小 12、腳底抬升 2",
-    "場景：從素材批次建立（T1）→ 場景名「t1_wide_1600x900」；立繪區勾「甲」「乙」",
+    "場景：從素材挑選建立（T1）→ 場景名「t1_wide_1600x900」；立繪區勾「甲」「乙」",
     "快速建立「第二幕」（不選前景）；勾「甲」→ 差分選「甲笑」",
-    "房間設計：等距排列的間隔改 2",
+    "房間設計：排列間隔改 2",
     "回到場景「t1_wide_1600x900」，立繪區按「等距排列」",
     "匯出"
    ],
@@ -725,11 +725,11 @@
     ],
     "token": "0.＋64 個小寫十六進位字元",
     "selfCheck": {
-     "ok": true,
-     "problems": [],
-     "imageCount": 3,
-     "sceneCount": 2,
-     "characterCount": 0
+     "通過": true,
+     "問題": [],
+     "圖片數": 3,
+     "場景數": 2,
+     "棋子數": 0
     },
     "images": [
      {
@@ -791,7 +791,7 @@
       "mediaVolume": 1,
       "monitored": false,
       "soundRef": null,
-      "sceneId": "scene:t1_wide_1600x900",
+      "sceneId": "場景:t1_wide_1600x900",
       "archived": false,
       "backgroundColor": "#000000",
       "variables": [],
@@ -809,7 +809,7 @@
      "characters": {},
      "effects": {},
      "scenes": {
-      "scene:t1_wide_1600x900": {
+      "場景:t1_wide_1600x900": {
        "name": "t1_wide_1600x900",
        "order": 1,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -820,7 +820,7 @@
        "displayGrid": false,
        "gridSize": 1,
        "markers": {
-        "tachie:t4_tall_600x1200": {
+        "立繪:t4_tall_600x1200": {
          "x": -9,
          "y": -3,
          "z": 30,
@@ -833,7 +833,7 @@
          "imageUrl": "img:t4_tall_600x1200.webp",
          "clickAction": null
         },
-        "tachie:t10_tall2_600x1200": {
+        "立繪:t10_tall2_600x1200": {
          "x": 3,
          "y": 1,
          "z": 30,
@@ -859,7 +859,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:第二幕": {
+      "場景:第二幕": {
        "name": "第二幕",
        "order": 2,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -870,7 +870,7 @@
        "displayGrid": false,
        "gridSize": 1,
        "markers": {
-        "tachie:甲": {
+        "立繪:甲": {
          "x": -5,
          "y": -3,
          "z": 30,
@@ -912,19 +912,19 @@
      }
     }
    },
-   "note": "「甲」的第二幕換成差分「甲笑」：名稱代稱以 tachie:<登場時記錄的名稱> 表示，圖改用 T10，寬高沿用大本。"
+   "note": "「甲」的第二幕換成差分「甲笑」：名稱代稱以「立繪:<登場時記錄的名稱>」表示，圖改用 T10，寬高沿用主立繪。"
   },
   "Z05": {
-   "title": "演出（全畫面蓋滿、拉伸、調整大小、只有文字）與 NOIMAGE",
+   "title": "演出（全畫面蓋滿、拉伸、調整大小、只有文字）與空白演出格",
    "steps": [
     "素材：載入 T1、T3、T6、T7",
-    "場景：從素材批次建立（T1）",
-    "演出區：選「新建」按加入 → 圖選 T6（出現方式預設全畫面、「保持長寬比蓋滿整面」預設勾選）",
+    "場景：從素材挑選建立（T1）",
+    "演出區：選「新建」按加入 → 圖選 T6（出現方式預設全畫面、「等比蓋滿」預設勾選）",
     "再加入一個 → 出現方式改「調整大小」（從全畫面切過來，「固定長寬比」是關的）→ 圖 T3、水平位置 8、垂直位置 -6、寬 6（高維持 30）、堆疊順序 12",
-    "再加入一個 → 圖 T7、取消「保持長寬比蓋滿整面」（拉伸）",
+    "再加入一個 → 圖 T7、取消「等比蓋滿」（拉伸）",
     "再加入一個 → 出現方式改「調整大小」，不選圖，選項裡的盤面文字輸入「看這裡」",
     "再加入一個（什麼都不改）",
-    "工具設定 > 儲存與匯出：勾 NOIMAGE、張數 2、堆疊順序 45",
+    "工具設定的匯出分類：勾空白演出格、張數 2、堆疊順序 45",
     "匯出"
    ],
    "zip": {
@@ -938,11 +938,11 @@
     ],
     "token": "0.＋64 個小寫十六進位字元",
     "selfCheck": {
-     "ok": true,
-     "problems": [],
-     "imageCount": 4,
-     "sceneCount": 1,
-     "characterCount": 0
+     "通過": true,
+     "問題": [],
+     "圖片數": 4,
+     "場景數": 1,
+     "棋子數": 0
     },
     "images": [
      {
@@ -1013,7 +1013,7 @@
       "mediaVolume": 1,
       "monitored": false,
       "soundRef": null,
-      "sceneId": "scene:t1_wide_1600x900",
+      "sceneId": "場景:t1_wide_1600x900",
       "archived": false,
       "backgroundColor": "#000000",
       "variables": [],
@@ -1031,7 +1031,7 @@
      "characters": {},
      "effects": {},
      "scenes": {
-      "scene:t1_wide_1600x900": {
+      "場景:t1_wide_1600x900": {
        "name": "t1_wide_1600x900",
        "order": 1,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -1042,7 +1042,7 @@
        "displayGrid": false,
        "gridSize": 1,
        "markers": {
-        "effect:〈演出預設名〉": {
+        "演出:〈演出預設名〉": {
          "x": -20,
          "y": -18,
          "z": 10,
@@ -1055,7 +1055,7 @@
          "imageUrl": "img:t6_other_900x800.webp",
          "clickAction": null
         },
-        "effect:〈演出預設名〉＃2": {
+        "演出:〈演出預設名〉＃2": {
          "x": 5,
          "y": -21,
          "z": 12,
@@ -1068,7 +1068,7 @@
          "imageUrl": "img:t3_square_256.png",
          "clickAction": null
         },
-        "effect:〈演出預設名〉＃3": {
+        "演出:〈演出預設名〉＃3": {
          "x": -21,
          "y": -16,
          "z": 10,
@@ -1081,7 +1081,7 @@
          "imageUrl": "img:t7_anim_64.gif",
          "clickAction": null
         },
-        "effect:〈演出預設名〉＃4": {
+        "演出:〈演出預設名〉＃4": {
          "x": -20,
          "y": -15,
          "z": 10,
@@ -1094,7 +1094,7 @@
          "imageUrl": null,
          "clickAction": null
         },
-        "noimage:1": {
+        "空白格:1": {
          "x": -20,
          "y": -15,
          "z": 45,
@@ -1107,7 +1107,7 @@
          "imageUrl": null,
          "clickAction": null
         },
-        "noimage:2": {
+        "空白格:2": {
          "x": -20,
          "y": -15,
          "z": 46,
@@ -1158,10 +1158,10 @@
    "title": "切入：名稱、無名稱、場景指定與切換文字",
    "steps": [
     "素材：載入 T1、T7、T8",
-    "切入：從素材批次建立 → 依序選 T7、T8（名稱＝素材名稱）",
+    "切入：從素材挑選建立 → 依序選 T7、T8（名稱＝素材名稱）",
     "「T8」那張切入的名稱清空",
     "加入切入（新的一張在最上面）→ 名稱清空、不選圖",
-    "場景：從素材批次建立（T1）→ 切入區選 T7 那張切入按加入；切換時文字輸入「開場」",
+    "場景：從素材挑選建立（T1）→ 切入區選 T7 那張切入按加入；切換時文字輸入「開場」",
     "快速建立「第二幕」→ 切入區選「新建」按加入",
     "匯出"
    ],
@@ -1175,11 +1175,11 @@
     ],
     "token": "0.＋64 個小寫十六進位字元",
     "selfCheck": {
-     "ok": true,
-     "problems": [],
-     "imageCount": 3,
-     "sceneCount": 2,
-     "characterCount": 0
+     "通過": true,
+     "問題": [],
+     "圖片數": 3,
+     "場景數": 2,
+     "棋子數": 0
     },
     "images": [
      {
@@ -1241,7 +1241,7 @@
       "mediaVolume": 1,
       "monitored": false,
       "soundRef": null,
-      "sceneId": "scene:t1_wide_1600x900",
+      "sceneId": "場景:t1_wide_1600x900",
       "archived": false,
       "backgroundColor": "#000000",
       "variables": [],
@@ -1258,7 +1258,7 @@
      "notes": {},
      "characters": {},
      "effects": {
-      "cutin:t7_anim_64": {
+      "切入:t7_anim_64": {
        "name": "t7_anim_64",
        "order": 1,
        "active": false,
@@ -1268,7 +1268,7 @@
        "soundName": "",
        "soundVolume": 1
       },
-      "cutin:": {
+      "切入:": {
        "name": "〈切入預設名〉2",
        "order": 2,
        "active": false,
@@ -1278,7 +1278,7 @@
        "soundName": "",
        "soundVolume": 1
       },
-      "cutin:〈場景新建切入的預設名〉": {
+      "切入:〈場景新建切入的預設名〉": {
        "name": "〈場景新建切入的預設名〉",
        "order": 3,
        "active": false,
@@ -1290,7 +1290,7 @@
       }
      },
      "scenes": {
-      "scene:t1_wide_1600x900": {
+      "場景:t1_wide_1600x900": {
        "name": "t1_wide_1600x900",
        "order": 1,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -1313,7 +1313,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:第二幕": {
+      "場景:第二幕": {
        "name": "第二幕",
        "order": 2,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -1359,14 +1359,14 @@
    "steps": [
     "素材：載入 T3、T4、T10",
     "場景：快速建立「S」",
-    "棋子：系統選 CoC 7 版、判定方式選 CC<=",
-    "範本編輯（進階）的三個文字框全部清空",
-    "PC 資訊：兩列改成「阿明」「小華」，再加入一列「阿志」",
-    "〈KP 棋子預設名〉的技能：加入一列「聆聽」60",
-    "加入棋子（一般）→ 名稱「店員」、圖示 T3、HP 10、MP 5、聊天面板「1d100」、備忘「店員備忘」；表情差分加兩個：T4 名「普通」、T10 名「生氣」",
-    "加入敵方 NPC → 名稱「野狼 A」、HP 15、裝甲 2、迴避 25、技能列：咬 40 傷害 1d6",
-    "加入友方 NPC → 名稱「同伴」、勾「沒有迴避」",
-    "按「建立／更新 〈KP 棋子預設名〉」",
+    "棋子：系統選 CoC 第 7 版、判定方式選 CC<=",
+    "KP 範本區的三個文字框全部清空",
+    "PC 名單：兩列改成「阿明」「小華」，再加入一列「阿志」",
+    "KP 自己的技能：加一列「聆聽」60",
+    "新增一般棋子→ 名稱「店員」、圖示 T3、HP 10、MP 5、聊天面板「1d100」、備忘「店員備忘」；表情差分加兩個：T4 名「普通」、T10 名「生氣」",
+    "新增敵方 NPC → 名稱「野狼 A」、HP 15、裝甲 2、迴避 25、技能列：咬 40 傷害 1d6",
+    "新增友方 NPC → 名稱「同伴」、勾「沒有迴避」",
+    "按 〈KP 棋子預設名〉的產生鈕",
     "匯出"
    ],
    "zip": {
@@ -1377,11 +1377,11 @@
     ],
     "token": "0.＋64 個小寫十六進位字元",
     "selfCheck": {
-     "ok": true,
-     "problems": [],
-     "imageCount": 1,
-     "sceneCount": 1,
-     "characterCount": 4
+     "通過": true,
+     "問題": [],
+     "圖片數": 1,
+     "場景數": 1,
+     "棋子數": 4
     },
     "images": [
      {
@@ -1425,7 +1425,7 @@
       "mediaVolume": 1,
       "monitored": false,
       "soundRef": null,
-      "sceneId": "scene:S",
+      "sceneId": "場景:S",
       "archived": false,
       "backgroundColor": "#000000",
       "variables": [],
@@ -1441,7 +1441,7 @@
      "decks": {},
      "notes": {},
      "characters": {
-      "char:〈KP 棋子預設名〉": {
+      "棋子:〈KP 棋子預設名〉": {
        "name": "〈KP 棋子預設名〉",
        "playerName": "",
        "memo": "",
@@ -1468,7 +1468,7 @@
        "diceSkin": null,
        "order": 1
       },
-      "char:店員": {
+      "棋子:店員": {
        "name": "店員",
        "playerName": "",
        "memo": "店員備忘",
@@ -1515,7 +1515,7 @@
        "diceSkin": null,
        "order": 2
       },
-      "char:野狼 A": {
+      "棋子:野狼 A": {
        "name": "野狼 A",
        "playerName": "",
        "memo": "",
@@ -1548,7 +1548,7 @@
        "diceSkin": null,
        "order": 3
       },
-      "char:同伴": {
+      "棋子:同伴": {
        "name": "同伴",
        "playerName": "",
        "memo": "",
@@ -1578,7 +1578,7 @@
      },
      "effects": {},
      "scenes": {
-      "scene:S": {
+      "場景:S": {
        "name": "S",
        "order": 1,
        "backgroundUrl": null,
@@ -1619,9 +1619,9 @@
     "首頁：按專案名稱 → 改成「測試房間」",
     "房間設計：按「16:9 32×18」",
     "素材：載入 T1",
-    "場景：從素材批次建立（T1）",
-    "工具設定 > 儲存與匯出：取消「BGM 交叉淡入淡出」、勾「使用舊版骰子演出」",
-    "按頁首的「匯出房間 ZIP」"
+    "場景：從素材挑選建立（T1）",
+    "工具設定的匯出分類：取消「BGM 交叉淡化」、勾「舊式骰子」",
+    "按頁首的匯出鈕"
    ],
    "zip": {
     "entries": [
@@ -1631,11 +1631,11 @@
     ],
     "token": "0.＋64 個小寫十六進位字元",
     "selfCheck": {
-     "ok": true,
-     "problems": [],
-     "imageCount": 1,
-     "sceneCount": 1,
-     "characterCount": 0
+     "通過": true,
+     "問題": [],
+     "圖片數": 1,
+     "場景數": 1,
+     "棋子數": 0
     },
     "images": [
      {
@@ -1681,7 +1681,7 @@
       "mediaVolume": 1,
       "monitored": false,
       "soundRef": null,
-      "sceneId": "scene:t1_wide_1600x900",
+      "sceneId": "場景:t1_wide_1600x900",
       "archived": false,
       "backgroundColor": "#000000",
       "variables": [],
@@ -1699,7 +1699,7 @@
      "characters": {},
      "effects": {},
      "scenes": {
-      "scene:t1_wide_1600x900": {
+      "場景:t1_wide_1600x900": {
        "name": "t1_wide_1600x900",
        "order": 1,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -1739,9 +1739,9 @@
    "steps": [
     "素材：長邊上限改 800",
     "載入 T1、T7、T8、T9",
-    "取消「減少檔案大小（轉成 WebP）」",
+    "取消「轉檔」勾選",
     "再載入 T6、T9、T7（T7 與先前相同 → 合併為重複）",
-    "場景：從素材批次建立 → 勾「也顯示其他素材」→ 依素材一覽的順序全部選取 → 建立",
+    "場景：從素材挑選建立 → 勾「其他標籤也列出」→ 依素材一覽的順序全部選取 → 建立",
     "匯出"
    ],
    "zip": {
@@ -1757,11 +1757,11 @@
     ],
     "token": "0.＋64 個小寫十六進位字元",
     "selfCheck": {
-     "ok": true,
-     "problems": [],
-     "imageCount": 6,
-     "sceneCount": 6,
-     "characterCount": 0
+     "通過": true,
+     "問題": [],
+     "圖片數": 6,
+     "場景數": 6,
+     "棋子數": 0
     },
     "images": [
      {
@@ -1850,7 +1850,7 @@
       "mediaVolume": 1,
       "monitored": false,
       "soundRef": null,
-      "sceneId": "scene:t1_wide_1600x900",
+      "sceneId": "場景:t1_wide_1600x900",
       "archived": false,
       "backgroundColor": "#000000",
       "variables": [],
@@ -1868,7 +1868,7 @@
      "characters": {},
      "effects": {},
      "scenes": {
-      "scene:t1_wide_1600x900": {
+      "場景:t1_wide_1600x900": {
        "name": "t1_wide_1600x900",
        "order": 1,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -1891,7 +1891,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:t7_anim_64": {
+      "場景:t7_anim_64": {
        "name": "t7_anim_64",
        "order": 2,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -1914,7 +1914,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:t8_anim_80": {
+      "場景:t8_anim_80": {
        "name": "t8_anim_80",
        "order": 3,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -1937,7 +1937,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:t9_photo_320x240": {
+      "場景:t9_photo_320x240": {
        "name": "t9_photo_320x240",
        "order": 4,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -1960,7 +1960,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:t6_other_900x800": {
+      "場景:t6_other_900x800": {
        "name": "t6_other_900x800",
        "order": 5,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -1983,7 +1983,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:t9_photo_320x240＃2": {
+      "場景:t9_photo_320x240＃2": {
        "name": "t9_photo_320x240",
        "order": 6,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -2037,7 +2037,7 @@
    "title": "批次建立場景（貼上文字／CSV）與素材名稱查找",
    "steps": [
     "素材：載入 T1、T6；素材一覽把 T6 的名稱改成「夜景」",
-    "場景：批次建立（貼上、CSV）→ 貼上下列 6 行後按建立：",
+    "場景：貼上文字建立多個場景→ 貼上下列 6 行後按建立：",
     "  第 1 行：場景名稱,切換時文字,素材（表頭，會被略過）",
     "  第 2 行：◇開頭",
     "  第 3 行：咖啡廳,\"他說：「你好,歡迎」\",t1_wide_1600x900",
@@ -2055,11 +2055,11 @@
     ],
     "token": "0.＋64 個小寫十六進位字元",
     "selfCheck": {
-     "ok": true,
-     "problems": [],
-     "imageCount": 2,
-     "sceneCount": 4,
-     "characterCount": 0
+     "通過": true,
+     "問題": [],
+     "圖片數": 2,
+     "場景數": 4,
+     "棋子數": 0
     },
     "images": [
      {
@@ -2112,7 +2112,7 @@
       "mediaVolume": 1,
       "monitored": false,
       "soundRef": null,
-      "sceneId": "scene:◇開頭",
+      "sceneId": "場景:◇開頭",
       "archived": false,
       "backgroundColor": "#000000",
       "variables": [],
@@ -2130,7 +2130,7 @@
      "characters": {},
      "effects": {},
      "scenes": {
-      "scene:◇開頭": {
+      "場景:◇開頭": {
        "name": "◇開頭",
        "order": 1,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -2153,7 +2153,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:咖啡廳": {
+      "場景:咖啡廳": {
        "name": "咖啡廳",
        "order": 2,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -2176,7 +2176,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:夜晚": {
+      "場景:夜晚": {
        "name": "夜晚",
        "order": 3,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -2199,7 +2199,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:找不到圖": {
+      "場景:找不到圖": {
        "name": "找不到圖",
        "order": 4,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -2238,19 +2238,19 @@
    "note": "第一行是表頭被略過；第 3 行是有引號、內含逗號的 CSV；第 4 行以 Tab 分隔，「夜景.png」去掉副檔名後對到改過名的 T6；找不到的素材→沒有前景。"
   },
   "Z11": {
-   "title": "複製場景設定並貼上、場景範本、套用房間設計",
+   "title": "記住場景設定並貼上、場景範本、同步房間設計",
    "steps": [
     "素材：載入 T1、T2、T4、T6",
-    "房間設計：加入部件「框」（圖 T2）",
-    "立繪：從素材批次登錄 T4",
-    "場景：從素材批次建立（T1）→ 場景名「t1_wide_1600x900」；勾 T4 的立繪；演出新建一個（全畫面，圖 T6）；共用部件「框」按變更 → 水平位置 5；詳細設定的前景尺寸改 30×20",
+    "房間設計：新增共用標記「框」（圖 T2）",
+    "立繪：從素材挑選登錄 T4",
+    "場景：從素材挑選建立（T1）→ 場景名「t1_wide_1600x900」；勾 T4 的立繪；演出新建一個（全畫面，圖 T6）；共用部件「框」按變更 → 水平位置 5；詳細設定的前景尺寸改 30×20",
     "快速建立「B」「C」（都不選前景）",
-    "回到「t1_wide_1600x900」按 🔖（複製這個場景的設定）",
+    "回到「t1_wide_1600x900」按書籤鈕（記下本場景設定）",
     "場景一覽選「B」，貼上設定 → 按「全部貼上」",
     "選「C」，貼上設定 → 只按「立繪」",
-    "按貼上面板的 ×（取消複製）",
-    "場景範本 → 選著「C」時按「把目前選的場景登錄成範本」（名稱用預設）→ 再按「用這個建立新場景」",
-    "選「C」→ 詳細設定的「套用房間設計 > 這個場景」",
+    "按貼上面板的 ×（不再記住）",
+    "場景範本 → 選著「C」時按「登錄目前場景為範本」（名稱用預設）→ 再按「以範本新建場景」",
+    "選「C」→ 詳細設定的「同步房間設計 > 這個場景」",
     "匯出"
    ],
    "zip": {
@@ -2264,11 +2264,11 @@
     ],
     "token": "0.＋64 個小寫十六進位字元",
     "selfCheck": {
-     "ok": true,
-     "problems": [],
-     "imageCount": 4,
-     "sceneCount": 4,
-     "characterCount": 0
+     "通過": true,
+     "問題": [],
+     "圖片數": 4,
+     "場景數": 4,
+     "棋子數": 0
     },
     "images": [
      {
@@ -2332,7 +2332,7 @@
       ],
       "messageGroups": [],
       "markers": {
-       "part:框": {
+       "共用標記:框": {
         "x": -2,
         "y": -1,
         "z": 20,
@@ -2353,7 +2353,7 @@
       "mediaVolume": 1,
       "monitored": false,
       "soundRef": null,
-      "sceneId": "scene:t1_wide_1600x900",
+      "sceneId": "場景:t1_wide_1600x900",
       "archived": false,
       "backgroundColor": "#000000",
       "variables": [],
@@ -2371,7 +2371,7 @@
      "characters": {},
      "effects": {},
      "scenes": {
-      "scene:t1_wide_1600x900": {
+      "場景:t1_wide_1600x900": {
        "name": "t1_wide_1600x900",
        "order": 1,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -2382,7 +2382,7 @@
        "displayGrid": false,
        "gridSize": 1,
        "markers": {
-        "part:框": {
+        "共用標記:框": {
          "x": 3,
          "y": -1,
          "z": 20,
@@ -2395,7 +2395,7 @@
          "imageUrl": "img:t2_band_1200x400.png",
          "clickAction": null
         },
-        "tachie:t4_tall_600x1200": {
+        "立繪:t4_tall_600x1200": {
          "x": -5,
          "y": -3,
          "z": 30,
@@ -2408,7 +2408,7 @@
          "imageUrl": "img:t4_tall_600x1200.webp",
          "clickAction": null
         },
-        "effect:〈演出預設名〉": {
+        "演出:〈演出預設名〉": {
          "x": -15,
          "y": -14,
          "z": 10,
@@ -2434,7 +2434,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:B": {
+      "場景:B": {
        "name": "B",
        "order": 2,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -2445,7 +2445,7 @@
        "displayGrid": false,
        "gridSize": 1,
        "markers": {
-        "part:框": {
+        "共用標記:框": {
          "x": 3,
          "y": -1,
          "z": 20,
@@ -2458,7 +2458,7 @@
          "imageUrl": "img:t2_band_1200x400.png",
          "clickAction": null
         },
-        "tachie:t4_tall_600x1200": {
+        "立繪:t4_tall_600x1200": {
          "x": -5,
          "y": -3,
          "z": 30,
@@ -2471,7 +2471,7 @@
          "imageUrl": "img:t4_tall_600x1200.webp",
          "clickAction": null
         },
-        "effect:〈演出預設名〉": {
+        "演出:〈演出預設名〉": {
          "x": -15,
          "y": -14,
          "z": 10,
@@ -2497,7 +2497,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:C": {
+      "場景:C": {
        "name": "C",
        "order": 3,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -2508,7 +2508,7 @@
        "displayGrid": false,
        "gridSize": 1,
        "markers": {
-        "part:框": {
+        "共用標記:框": {
          "x": -2,
          "y": -1,
          "z": 20,
@@ -2521,7 +2521,7 @@
          "imageUrl": "img:t2_band_1200x400.png",
          "clickAction": null
         },
-        "tachie:t4_tall_600x1200": {
+        "立繪:t4_tall_600x1200": {
          "x": -5,
          "y": -3,
          "z": 30,
@@ -2547,7 +2547,7 @@
        "soundRepeat": false,
        "soundVolume": 1
       },
-      "scene:C＃2": {
+      "場景:C＃2": {
        "name": "C",
        "order": 4,
        "backgroundUrl": "img:t1_wide_1600x900.webp",
@@ -2558,7 +2558,7 @@
        "displayGrid": false,
        "gridSize": 1,
        "markers": {
-        "part:框": {
+        "共用標記:框": {
          "x": -2,
          "y": -1,
          "z": 20,
@@ -2571,7 +2571,7 @@
          "imageUrl": "img:t2_band_1200x400.png",
          "clickAction": null
         },
-        "tachie:t4_tall_600x1200": {
+        "立繪:t4_tall_600x1200": {
          "x": -5,
          "y": -3,
          "z": 30,
@@ -2616,7 +2616,7 @@
      }
     }
    },
-   "note": "「B」貼上全部（前景尺寸 30×20、共用標記差異、立繪、演出）；「C」只貼立繪；「C＃2」由「C」的範本建立；最後「C」套用房間設計（前景尺寸回到 40×30、差異清除）。"
+   "note": "「B」貼上全部（前景尺寸 30×20、共用標記差異、立繪、演出）；「C」只貼立繪；「C＃2」由「C」的範本建立；最後「C」同步房間設計（前景尺寸回到 40×30、差異清除）。"
   }
  },
  "materials": {
@@ -2627,7 +2627,7 @@
     "tags": [
      "前景"
     ],
-    "animated": false,
+    "動態圖": false,
     "mime": "image/png",
     "ext": "png",
     "width": 16,
@@ -2663,7 +2663,7 @@
     "tags": [
      "演出"
     ],
-    "animated": true,
+    "動態圖": true,
     "mime": "image/png",
     "ext": "png",
     "width": 256,
@@ -2715,7 +2715,7 @@
     "tags": [
      "演出"
     ],
-    "animated": true,
+    "動態圖": true,
     "mime": "image/png",
     "ext": "png",
     "width": 128,
@@ -2770,7 +2770,7 @@
     "tags": [
      "演出"
     ],
-    "animated": true,
+    "動態圖": true,
     "mime": "image/png",
     "ext": "png",
     "width": 1024,
@@ -2819,13 +2819,13 @@
    }
   },
   "M05": {
-   "title": "文字與圖形圖片製作器：畫布 400×300、背景單色 #202020、加入方形與圓形（預設值）、品質標準、檔名 mk",
+   "title": "文字＋圖形合成圖製作器：畫布 400×300、背景單色 #202020、加入方形與圓形（預設值）、品質標準、檔名 mk",
    "output": {
     "name": "mk",
     "tags": [
      "其他"
     ],
-    "animated": false,
+    "動態圖": false,
     "mime": "image/webp",
     "ext": "webp",
     "width": 400,
@@ -2855,22 +2855,22 @@
    },
    "layersBeforeExport": [
     {
-     "type": "circle",
+     "種類": "圓形",
      "x": 92,
      "y": 82,
      "width": 220,
      "height": 140,
      "color": "#7cc5ff（舊版預設色，新版可自訂）",
-     "opacity": 100
+     "不透明度": 100
     },
     {
-     "type": "rect",
+     "種類": "方形",
      "x": 80,
      "y": 70,
      "width": 220,
      "height": 140,
      "color": "#ffffff（舊版預設色，新版可自訂）",
-     "opacity": 100
+     "不透明度": 100
     }
    ],
    "dialogClosedAfter": true
@@ -2882,7 +2882,7 @@
     "tags": [
      "前景"
     ],
-    "animated": false,
+    "動態圖": false,
     "mime": "image/webp",
     "ext": "webp",
     "width": 675,
@@ -2919,7 +2919,7 @@
     "tags": [
      "棋子圖示"
     ],
-    "animated": false,
+    "動態圖": false,
     "mime": "image/webp",
     "ext": "webp",
     "width": 256,
