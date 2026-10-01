@@ -1,0 +1,116 @@
+/** 角色配色條產生器的介面文字（用詞照 DESIGN.md 第 5 節） */
+export const S = {
+  /* 頁首 */
+  undo: '復原',
+  redo: '重做',
+  keysGroup: '編輯',
+  resetTitle: '全部重來？',
+  resetDescription: '所有色條與畫布設定都會回到剛開頁的樣子。',
+  resetLabel: '全部重來…',
+
+  /* 畫布 */
+  sectionCanvas: '畫布',
+  background: '背景色',
+  thickness: '線條粗細',
+  thicknessPaddingHint:
+    '線條粗細是色條的寬度（1～100 px）；留白是自動調整時色條四周的空白，也是「裁邊儲存」保留的空白（0～500 px）。',
+  baseLength: '基準長度',
+  baseScale: '基準倍率',
+  baseHint:
+    '基準倍率通常填基準身高（例如 160），基準長度是那個身高的色條長幾 px（10～4000）。每條色條長＝基準長度 × 該條倍率 ÷ 基準倍率。',
+  autoSize: '自動調整畫布',
+  autoSizeHint: '依色條決定畫布大小（四周加上留白，至少 100 px）。',
+  canvasWidth: '畫布寬',
+  canvasHeight: '畫布高',
+  manualHint: '100～5000 px。色條置中，超出畫布的部分會被切掉。',
+  padding: '留白',
+
+  /* 色條 */
+  sectionBars: '色條',
+  barCount: (n: number, max: number) => `${n}／${max}`,
+  addBar: '新增一條',
+  addBarFull: (max: number) => `已經有 ${max} 條了`,
+  barsEmpty: '還沒有色條。按「新增一條」開始。',
+  barTitle: (n: number) => `第 ${n} 條`,
+  barScale: '倍率',
+  barScaleLabel: (n: number) => `第 ${n} 條的倍率`,
+  barScaleHint: '例如身高（按 Enter 或離開欄位時套用）',
+  removeBar: (n: number) => `刪除第 ${n} 條`,
+  addSegment: '新增一段',
+  pick: '圖片取色',
+  pickLabel: (n: number) => `第 ${n} 條：從圖片取色`,
+  segmentsLabel: (n: number) => `第 ${n} 條的分段`,
+  segmentsEmpty: '這一條還沒有分段，會畫成淺灰色。',
+  segmentName: (k: number) => `第 ${k} 段`,
+  segmentRatio: (k: number) => `第 ${k} 段的比例`,
+  removeSegment: (k: number) => `刪除第 ${k} 段`,
+  dragHint: '拖曳左側把手（或整列）可以在同一條之內調整順序；Alt＋↑／↓ 也可以。',
+
+  /* 預覽 */
+  previewZoom: '預覽倍率',
+  handles: '在畫布上拖動分段交界',
+  handlesHint: '開啟後，色條上相鄰兩段的交界會出現把手，上下拖動可以調整這兩段的比例。',
+  stageLabel: '配色條預覽',
+  handleLabel: (bar: number, k: number) => `第 ${bar} 條：第 ${k} 段與第 ${k + 1} 段的交界`,
+  handleValue: (a: number, b: number) => `上段比例 ${a}，下段比例 ${b}`,
+  sizeInfo: (w: number, h: number) => `畫布 ${w} × ${h} px`,
+  cropInfo: (w: number, h: number) => `裁邊 ${w} × ${h} px`,
+  saveFull: '整張儲存',
+  saveCrop: '裁邊儲存',
+  saveHint: '整張儲存：與畫布相同；裁邊儲存：只留色條與四周的留白。',
+  noBars: '沒有可儲存的色條，請先新增一條。',
+  saved: (name: string) => `已儲存「${name}」。`,
+  saveError: '儲存失敗，請再試一次。',
+  tooLarge: (w: number, h: number) =>
+    `畫布太大（${w} × ${h} px），瀏覽器可能無法處理。請調低倍率、基準長度或留白。`,
+  cropTooLarge: (w: number, h: number) =>
+    `裁邊範圍太大（${w} × ${h} px），無法裁邊儲存。請調低倍率、基準長度或留白。`,
+
+  /* 取色視窗 */
+  pickerTitle: (n: number) => `第 ${n} 條：從圖片取色`,
+  pickerDescription: '取色結果會取代這一條的全部分段。',
+  pickerDrop: '選擇要取色的圖片',
+  pickerDropButton: '選擇圖片',
+  pickerDropHint: '動圖只取第一格',
+  pickerEmpty: '尚未選擇圖片。',
+  modeLabel: '取色方式',
+  modePoints: '手動滴管',
+  modeSplits: '自動取色',
+  countPoints: '要取幾個顏色',
+  countSplits: '要分成幾段',
+  reset: '重設',
+  resetHint: '清掉已取的顏色、分割線回到等分。',
+  tolerance: '相近色容許值',
+  toleranceHint: '調高時，相近的顏色更容易被當成同一種顏色（1～50）。',
+  pointsHint: '在圖片上點一下就取那一點的顏色，依點選順序由上到下排列。',
+  splitsHint:
+    '拖動紅色分割線把圖片分成上下幾段，每段自動取一個主色（偏好鮮豔的顏色），比例＝該段占圖片高度的比例。',
+  progress: (i: number, n: number) => `已取 ${i}／共 ${n} 個顏色`,
+  progressDone: '已取滿，可以拖動圓點微調位置。',
+  progressLabel: '取色進度',
+  slotEmpty: (i: number) => `第 ${i} 個：尚未取色`,
+  slotFilled: (i: number, c: string) => `第 ${i} 個：${c}`,
+  needImage: '請先選擇圖片。',
+  needPoints: (n: number) => `請點滿 ${n} 個顏色。`,
+  cancel: '取消',
+  apply: '套用',
+  applied: (n: number, k: number) => `已把取色結果套用到第 ${n} 條（${k} 段）。`,
+
+  /* 使用說明 */
+  usageIntro:
+    '替角色做「配色條」：每位角色一條直立的膠囊形色條，由上到下分成幾段顏色（例如髮色、膚色、衣服、鞋子）；色條的長度依身高換算，多條並排時底部對齊，一眼就能比較配色與身高。',
+  usageSteps: [
+    '「基準倍率」填基準身高（例如 160），「基準長度」是那個身高的色條要畫多長。',
+    '每一條的「倍率」填角色的身高，色條就會依比例變長或變短。',
+    '每一段可以選顏色、改比例（比例越大那一段越長）；拖曳左側把手可以調整順序。',
+    '「圖片取色」可以從立繪上手動點選顏色，或把圖片分成上下幾段自動取主色。',
+    '打開「在畫布上拖動分段交界」，就能直接在預覽上拖動交界調整比例。',
+    '完成後按「整張儲存」或「裁邊儲存」下載 PNG。',
+  ],
+  usageNotesTitle: '小提醒',
+  usageNotes: [
+    '設定會自動儲存在這個瀏覽器；按 Ctrl＋Z 可以復原。',
+    '在預覽區按住 Ctrl（Mac 是 ⌘）滾動滑鼠滾輪可以縮放預覽。',
+    '圖片只在你的瀏覽器裡處理，不會上傳。',
+  ],
+} as const;

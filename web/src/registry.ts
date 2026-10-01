@@ -233,6 +233,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://kumachansteps.github.io/trpg-web-tools/',
     },
   },
+  {
+    id: 'color-palette',
+    name: '角色配色條產生器',
+    summary:
+      '替每位角色做一條直立的膠囊形配色條：由上到下排出髮色、膚色、衣服等顏色，長度依身高換算、底部對齊並排，可從立繪取色，匯出 PNG。',
+    group: 'G3',
+    status: 'next',
+    inspiration: {
+      name: 'sotsotssi/CharColorPalette',
+      url: 'https://github.com/sotsotssi/CharColorPalette',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

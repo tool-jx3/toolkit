@@ -6,6 +6,8 @@
  * - 拖到捲動範圍的上下邊緣（edge px 內）時自動捲動。
  * - disabled 時不能拖（按住只會變成點一下）。
  * - 鍵盤：列有焦點時 Alt＋↑／↓ 移動一格（keyMove）。
+ * - cancelOutside（選填，drop 模式）：指標在所有列的範圍外時沒有目標列，放開不移動
+ *   （例如一頁有好幾個清單，拖到別的清單上放開不算；color-palette 移植時新增，不給時行為不變）。
  */
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react';
 
@@ -22,6 +24,8 @@ export interface SortableOptions {
   threshold?: number;
   /** 自動捲動的邊緣範圍（px，預設 24） */
   edge?: number;
+  /** drop 模式：指標在所有列的範圍外時沒有目標列、放開不移動（預設 false：落在最近的列） */
+  cancelOutside?: boolean;
 }
 
 const NO_DRAG =
@@ -51,6 +55,7 @@ export function useSortable(options: SortableOptions) {
     over: number;
     x: number;
     y: number;
+    lastX: number;
     lastY: number;
     active: boolean;
     scroller: HTMLElement | null;
@@ -64,17 +69,35 @@ export function useSortable(options: SortableOptions) {
     return r ? r.top + r.height / 2 : 0;
   };
 
-  /** 依指標位置算目標列 */
-  const track = (y: number) => {
+  /** 指標是否在所有列的外接範圍之外 */
+  const outside = (x: number, y: number) => {
+    let top = Number.POSITIVE_INFINITY;
+    let bottom = Number.NEGATIVE_INFINITY;
+    let left = Number.POSITIVE_INFINITY;
+    let right = Number.NEGATIVE_INFINITY;
+    for (const el of rows.current.values()) {
+      const r = el.getBoundingClientRect();
+      top = Math.min(top, r.top);
+      bottom = Math.max(bottom, r.bottom);
+      left = Math.min(left, r.left);
+      right = Math.max(right, r.right);
+    }
+    return !(y >= top && y <= bottom && x >= left && x <= right);
+  };
+
+  /** 依指標位置算目標列（drop 模式且 cancelOutside 時，範圍外是 -1＝沒有目標） */
+  const track = (x: number, y: number) => {
     const s = g.current;
     if (!s?.active) return;
     const n = opts.current.count;
     if (opts.current.mode === 'drop') {
       let t = 0;
-      for (let i = 0; i < n; i++) {
-        const r = rows.current.get(i)?.getBoundingClientRect();
-        if (r && y >= r.top) t = i;
-      }
+      if (opts.current.cancelOutside && outside(x, y)) t = -1;
+      else
+        for (let i = 0; i < n; i++) {
+          const r = rows.current.get(i)?.getBoundingClientRect();
+          if (r && y >= r.top) t = i;
+        }
       if (t !== s.over) {
         s.over = t;
         setState({ drag: s.index, over: t });
@@ -102,7 +125,7 @@ export function useSortable(options: SortableOptions) {
     else if (s.lastY > r.bottom - edge) v = Math.ceil((s.lastY - (r.bottom - edge)) / 3);
     if (v) {
       s.scroller.scrollTop += v;
-      track(s.lastY);
+      track(s.lastX, s.lastY);
     }
     s.raf = requestAnimationFrame(autoScroll);
   };
@@ -115,7 +138,7 @@ export function useSortable(options: SortableOptions) {
     setState(null);
     if (!s.active) return;
     if (opts.current.mode === 'drop') {
-      if (commit && s.over !== s.index) {
+      if (commit && s.over >= 0 && s.over !== s.index) {
         opts.current.onMoveStart?.(s.index);
         opts.current.onMove(s.index, s.over);
         opts.current.onMoveEnd?.();
@@ -154,6 +177,7 @@ export function useSortable(options: SortableOptions) {
         over: index,
         x: e.clientX,
         y: e.clientY,
+        lastX: e.clientX,
         lastY: e.clientY,
         active: false,
         scroller: null,
@@ -163,6 +187,7 @@ export function useSortable(options: SortableOptions) {
     onPointerMove: (e: PointerEvent<HTMLElement>) => {
       const s = g.current;
       if (!s || s.id !== e.pointerId) return;
+      s.lastX = e.clientX;
       s.lastY = e.clientY;
       if (!s.active) {
         if (opts.current.disabled || s.touchOnly) return;
@@ -174,7 +199,7 @@ export function useSortable(options: SortableOptions) {
         if (opts.current.mode !== 'drop') opts.current.onMoveStart?.(s.index);
         s.raf = requestAnimationFrame(autoScroll);
       }
-      track(e.clientY);
+      track(e.clientX, e.clientY);
     },
     onPointerUp: (e: PointerEvent<HTMLElement>) => {
       const s = g.current;

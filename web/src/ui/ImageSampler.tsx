@@ -200,6 +200,8 @@ export function ImageSampler({
             step={10}
             unit="%"
             disabled={!image}
+            /* inline 欄位的控制項寬度跟著內容：給滑桿固定寬度，不然滑軌會縮成 0 */
+            className="w-[min(20rem,55vw)]"
           />
         </Field>
       ) : null}
