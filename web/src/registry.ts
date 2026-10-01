@@ -155,7 +155,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把一段文字沿著圓、螺旋、愛心或自己畫的線排成文字圖案，輸出可以直接貼到聊天室或社群平台的純文字。',
     group: 'G1',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/text-path-generator',
       url: 'https://github.com/sotsotssi/text-path-generator',

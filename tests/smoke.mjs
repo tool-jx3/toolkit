@@ -189,24 +189,6 @@ for (const locale of ['zh-TW', 'ko']) {
   check(`${locale} 無多餘 rune.* key`, stray.length === 0, `stray: ${stray.join(', ')}`);
 }
 
-/* ---- text-path ---- */
-const tp = checkTool({
-  dir: 'tools/text-path',
-  dict: 'i18n.text-path.js',
-  scripts: ['app.js'],
-  styles: ['styles.css'],
-  minHooks: 30
-});
-
-/* 間距描述字以 T(densityDescriptorKey(val)) 動態組成，靜態掃描看不到，
- * 需另外檢查這 5 個 key 是否兩語言都存在。 */
-section('tools/text-path density descriptors');
-const densityKeys = ['density.veryTight', 'density.tight', 'density.normal', 'density.loose', 'density.veryLoose'];
-for (const locale of ['zh-TW', 'ko']) {
-  const missing = densityKeys.filter(k => !tp.messages[locale][k]);
-  check(`${locale} 每個間距描述字都存在`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
 /* ---- collage-letter ---- */
 const cl = checkTool({
   dir: 'tools/collage-letter',
@@ -2104,10 +2086,6 @@ const pmTweet = read('tools/pair-maker/templates/main-tweet.js');
 check('main-tweet 的字型清單沿用 2p-simple 的那一份',
   pmTweet.includes('fonts as sharedFonts') && pmTweet.includes('...sharedFonts.filter('));
 
-/* text-path：畫格線預覽與版面都要把繁中字型排在韓文字型前面。 */
-const tpCss = read('tools/text-path/styles.css');
-checkCss2Url('text-path @import', tpCss);
-
 /* trpg-lab：介面是繁中時改用 Noto Sans TC（common.css 依 <html lang> 切換），每頁的
  * Google Fonts 連結都要一起載入它，字重也要真的存在。 */
 for (const page of LAB_PAGES) {
@@ -2118,11 +2096,6 @@ for (const page of LAB_PAGES) {
 }
 check('trpg-lab 的介面字型在繁中時改用 Noto Sans TC',
   read(`${LAB}/common.css`).includes(":root:lang(zh) {\n    --font-main: 'Noto Sans TC', 'Noto Sans JP', sans-serif;"));
-check('text-path 的 @import 有 Noto Sans TC', tpCss.includes('Noto+Sans+TC'));
-check('text-path 繁中介面時繁中字型優先',
-  /html\[lang\^="zh"\][\s\S]{0,120}'Noto Sans TC',\s*'Noto Sans KR'/.test(tpCss));
-check('text-path 的格線預覽同時涵蓋繁中與韓文',
-  read('tools/text-path/app.js').includes(`"Noto Sans TC", "Noto Sans KR"`));
 
 /* ---- 首頁 ---- */
 section('index.html');
@@ -2284,7 +2257,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
 checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
 checkInlineText('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 150);
 checkInlineText('tools/typewriter', 'tools/typewriter/index.html', ['tools/typewriter/i18n.typewriter.js'], 150);
-checkInlineText('tools/text-path', 'tools/text-path/index.html', ['tools/text-path/i18n.text-path.js'], 15);
 checkInlineText('tools/collage-letter', 'tools/collage-letter/index.html', ['tools/collage-letter/i18n.collage-letter.js'], 15);
 checkInlineText('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 15);
 checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 200);
@@ -2376,7 +2348,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
 checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
 checkAttrPairs('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 50);
 checkAttrPairs('tools/typewriter', 'tools/typewriter/index.html', ['tools/typewriter/i18n.typewriter.js'], 5);
-checkAttrPairs('tools/text-path', 'tools/text-path/index.html', ['tools/text-path/i18n.text-path.js'], 3);
 checkAttrPairs('tools/collage-letter', 'tools/collage-letter/index.html', ['tools/collage-letter/i18n.collage-letter.js'], 5);
 checkAttrPairs('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 3);
 checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 10);
@@ -2417,7 +2388,7 @@ const attribution = read('ATTRIBUTION.md');
 for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
-for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
+for (const sha of ['de40a68', 'cf3ff36', 'ea08333', 'b455379', '615664b',
   '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331',
   '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
