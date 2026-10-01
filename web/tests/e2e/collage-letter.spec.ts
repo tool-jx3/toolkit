@@ -215,6 +215,13 @@ test.describe('版面幾何（規格 3.1）', () => {
     await generateWith(page, '一\n\n二');
     await expect(sizeText(page)).toHaveText('800 × 172 px');
 
+    /* 行距取整數部分（主控裁定 7.1）：最大字級 45 → 58.5 → 58；3 行 40＋22.5＋3 × 58＝236.5 → 236 */
+    await num(page, '最小字級').fill('45');
+    await num(page, '最大字級').fill('45');
+    await generateWith(page, '一\n二\n三');
+    await expect(sizeText(page)).toHaveText('800 × 236 px');
+    expect(await canvasSize(page)).toEqual([800, 236]);
+
     /* 最小大於最大：對調使用，欄位上的數字不變 */
     await num(page, '最小字級').fill('80');
     await num(page, '最大字級').fill('40');
@@ -236,6 +243,14 @@ test.describe('版面幾何（規格 3.1）', () => {
 
     /* 寬度限制在 100～4000（主控裁定） */
     await num(page, '圖片寬度').fill('50');
+    await generate(page);
+    expect((await canvasSize(page))[0]).toBe(100);
+
+    /* 科學記號只讀開頭的整數部分（主控裁定 7.1）：1250e0 → 1250；2e3 → 2 → 夾到 100 */
+    await num(page, '圖片寬度').fill('1250e0');
+    await generate(page);
+    expect((await canvasSize(page))[0]).toBe(1250);
+    await num(page, '圖片寬度').fill('2e3');
     await generate(page);
     expect((await canvasSize(page))[0]).toBe(100);
 
@@ -394,8 +409,9 @@ test.describe('複製成文字', () => {
     for (const p of pieces) {
       expect(Number.isInteger(p.rotate)).toBe(true);
       expect(Math.abs(p.rotate)).toBeLessThanOrEqual(18);
-      expect(p.size).toBeGreaterThanOrEqual(Math.round(45 * 0.55));
-      expect(p.size).toBeLessThanOrEqual(Math.round(70 * 0.55));
+      /* 字級 × 0.55 取整數部分（主控裁定 7.1）：45～70 → 24～38 */
+      expect(p.size).toBeGreaterThanOrEqual(Math.floor(45 * 0.55));
+      expect(p.size).toBeLessThanOrEqual(Math.floor(70 * 0.55));
       const pts = p.polygon.split(', ').map((pt) => pt.split(' ').map((v) => Number.parseFloat(v)));
       expect(pts).toHaveLength(4);
       expect(p.polygon).toMatch(/^(\d+\.\d% \d+\.\d%, ){3}\d+\.\d% \d+\.\d%$/);
@@ -407,6 +423,13 @@ test.describe('複製成文字', () => {
     await page.getByRole('radio', { name: '靠右' }).click();
     const right = await copyHtml(page);
     expect(right).toBe(html.replace('text-align: center;', 'text-align: right;'));
+
+    /* 字級 49 → 49 × 0.55＝26.95，取整數部分是 26 px（四捨五入會是 27） */
+    await num(page, '最小字級').fill('49');
+    await num(page, '最大字級').fill('49');
+    await generateWith(page, '信件');
+    const sized = htmlPieces(await copyHtml(page));
+    expect(sized.map((p) => p.size)).toEqual([26, 26]);
     expect(errors).toEqual([]);
   });
 

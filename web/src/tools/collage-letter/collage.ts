@@ -46,7 +46,7 @@ export const INSET_MAX = 0.2;
 export const GAP = { min: 2, max: 8 } as const;
 /** 半形空白寬＝最大字級 × 0.4 */
 export const SPACE_RATIO = 0.4;
-/** 行距＝最大字級 × 1.3（四捨五入成整數） */
+/** 行距＝最大字級 × 1.3（取整數部分：45 → 58） */
 export const LINE_RATIO = 1.3;
 /** 字寬量不到時以字級的 0.8 倍計 */
 export const FALLBACK_WIDTH_RATIO = 0.8;
@@ -183,8 +183,8 @@ export type MeasureFn = (ch: string, font: PieceFont, size: number) => number;
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 /**
- * 數值欄的解讀（F05、F06、F37）：取整數部分（45.9 → 45）；空白、0、非數字時用預設值；
- * 給了 limit 時夾在範圍內（主控裁定：限制在合理範圍）。
+ * 數值欄的解讀（F05、F06、F37）：只讀開頭的整數部分（45.9 → 45；科學記號 1e2 → 1，主控裁定 7.1）；
+ * 空白、0、非數字時用預設值；給了 limit 時夾在範圍內（主控裁定：限制在合理範圍）。
  */
 export function parseIntField(
   raw: string,
@@ -193,7 +193,7 @@ export function parseIntField(
 ): number {
   const s = String(raw ?? '').trim();
   if (s === '') return fallback;
-  const n = Math.trunc(Number(s));
+  const n = Number.parseInt(s, 10);
   if (!Number.isFinite(n) || n === 0) return fallback;
   return limit ? clamp(n, limit.min, limit.max) : n;
 }
@@ -246,8 +246,8 @@ export function layoutText(text: string, emptyText: string): string {
 
 /* ---------- 排版 ---------- */
 
-/** 行距：最大字級 × 1.3，四捨五入成整數（b＝70 時 91） */
-export const lineHeightOf = (b: number): number => Math.round(b * LINE_RATIO);
+/** 行距：最大字級 × 1.3 取整數部分（無條件捨去；b＝70 時 91、b＝45 時 58） */
+export const lineHeightOf = (b: number): number => Math.floor(b * LINE_RATIO);
 /** 第 1 行中線：上留白 ＋ 最大字級的一半 */
 export const firstMidOf = (b: number): number => MARGIN + b / 2;
 /** 圖片高：第 1 行中線 ＋ 行數 × 行距 */
@@ -318,14 +318,16 @@ export function layoutCollage(input: LayoutInput, rng: Random, measure: MeasureF
     for (const ch of splitGraphemes(manual)) {
       const item: RawItem['item'] =
         ch === ' ' ? { kind: 'space', width: spaceWidth } : makePiece(ch, src, rng, measure);
-      const adv = advanceOf(item);
-      /* 逐字換行：放上去會超過可用寬度、且這一行已經有東西時換到下一行（F28） */
-      if (row.items.length > 0 && row.width + adv > avail) {
+      /*
+       * 逐字換行（F28、主控裁定 7.1）：目前行寬＋這張紙片（或空白）的寬超過可用寬度、且這一行已經有東西時換到下一行。
+       * 判斷時不算這張紙片之後的間隔；累加行寬時仍加上間隔。
+       */
+      if (row.items.length > 0 && row.width + item.width > avail) {
         row = { items: [], width: 0 };
         rows.push(row);
       }
       row.items.push({ item, rel: row.width });
-      row.width += adv;
+      row.width += advanceOf(item);
     }
   }
 
@@ -388,7 +390,7 @@ export function pieceCorners(p: Pick<Piece, 'width' | 'height' | 'insets'>): [nu
 
 /** HTML 的容器底色 */
 export const HTML_BACKGROUND = '#2a2a2a';
-/** HTML 的字級＝紙片字級 × 0.55（四捨五入） */
+/** HTML 的字級＝紙片字級 × 0.55 取整數部分（無條件捨去：49 → 26） */
 export const HTML_SIZE_RATIO = 0.55;
 
 /** CSS 字型名稱：去掉會弄壞樣式或 HTML 屬性的字元 */
@@ -398,6 +400,9 @@ export function cleanFamily(family: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+/** HTML 內層的字級（px） */
+export const htmlFontSize = (size: number): number => Math.floor(size * HTML_SIZE_RATIO);
 
 const pct = (v: number) => `${v.toFixed(1)}%`;
 
@@ -428,7 +433,7 @@ export function pieceHtml(p: Piece): string {
   const inner = [
     'display: inline-block',
     `font-family: ${htmlFontFamily(p.font)}`,
-    `font-size: ${Math.round(p.size * HTML_SIZE_RATIO)}px`,
+    `font-size: ${htmlFontSize(p.size)}px`,
     `background: ${p.bg}`,
     `color: ${p.fg}`,
     `clip-path: polygon(${clipPolygon(p.insets)})`,

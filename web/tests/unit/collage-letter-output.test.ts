@@ -8,11 +8,13 @@ import {
   cleanFamily,
   clipPolygon,
   exportFileName,
+  htmlFontSize,
   type LayoutInput,
   type Line,
   layoutCollage,
   type MeasureFn,
   type Piece,
+  pieceHtml,
   ROLL20_BASIC_FONTS,
   roll20Size,
   roll20Text,
@@ -66,6 +68,18 @@ describe('HTML 文字（3.7）', () => {
         '<br>\n' +
         '\n</div>',
     );
+  });
+
+  it('字級＝紙片字級 × 0.55 取整數部分（無條件捨去，主控裁定 7.1）：49 → 26 px', () => {
+    /* 這些值四捨五入會多 1（27、25、39） */
+    expect(pieceHtml(piece({ size: 49 }))).toContain('font-size: 26px;');
+    expect(pieceHtml(piece({ size: 45 }))).toContain('font-size: 24px;');
+    expect(pieceHtml(piece({ size: 70 }))).toContain('font-size: 38px;');
+    expect(pieceHtml(piece({ size: 57 }))).toContain('font-size: 31px;');
+    expect(pieceHtml(piece({ size: 60 }))).toContain('font-size: 33px;');
+    /* 字級 8～200 全部與整數運算的 ⌊s × 55 ÷ 100⌋ 相同 */
+    for (let s = 8; s <= 200; s++)
+      expect(htmlFontSize(s), String(s)).toBe(Math.floor((s * 55) / 100));
   });
 
   it('對齊方式照傳入的值（複製當下的值）；系統字型只寫 sans-serif', () => {
@@ -183,7 +197,7 @@ describe('與排版一致', () => {
       const p = all[i];
       expect(Number(m[1])).toBe(p.rotate);
       expect(m[2]).toBe(p.font.family);
-      expect(Number(m[3])).toBe(Math.round(p.size * 0.55));
+      expect(Number(m[3])).toBe(Math.floor(p.size * 0.55));
       expect([m[4], m[5]]).toEqual([p.bg, p.fg]);
       expect(m[6]).toBe(clipPolygon(p.insets));
     });

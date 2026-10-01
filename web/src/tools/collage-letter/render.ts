@@ -1,7 +1,7 @@
 /**
  * 拼貼信的畫布繪製（瀏覽器端）：量字寬、畫紙片、輸出 PNG／JPG（紙張底）。
  */
-import { ensureFonts, fontCss } from '@/core/fonts';
+import { ensureFonts, FALLBACK_STACK, findGoogleFont, fontCss } from '@/core/fonts';
 import { canvasToBlob, canvasToJpeg, makeCanvas } from '@/core/image';
 import {
   type CollageLayout,
@@ -31,14 +31,47 @@ export function createMeasure(): MeasureFn {
   };
 }
 
-/** 產生前先載入要用到的字型（只下載這段文字需要的部分；逾時就用替代字型） */
-export async function prepareFonts(fonts: readonly PieceFont[], text: string): Promise<void> {
+/**
+ * 畫布備用字型堆疊（FALLBACK_STACK）裡的網頁字型（例如思源黑體）。
+ * 紙片字型裡沒有的字（例如韓文、英文字型裡的中文字）會退回這些字型，用的是紙片字型的字重。
+ */
+export const FALLBACK_WEB_FAMILIES: readonly string[] = FALLBACK_STACK.split(',')
+  .map((name) => name.trim().replace(/^['"]|['"]$/g, ''))
+  .filter((name) => findGoogleFont(name) !== undefined);
+
+export interface FontLoad {
+  family: string;
+  weight: number;
+  /** 只載入這些字需要的部分（沒有字時 undefined） */
+  text?: string;
+}
+
+/**
+ * 產生前要載入的字型：勾選的每套字型，加上每種用到的字重的備用網頁字型（主控裁定 7.1：後備字形也列入等待），
+ * 都只載入這段文字用到的字。系統字型（全部未勾選時）不用載入。
+ */
+export function fontLoadList(fonts: readonly PieceFont[], text: string): FontLoad[] {
   const chars = Array.from(new Set(Array.from(text.replace(/\s/g, '')))).join('') || undefined;
-  await ensureFonts(
-    fonts
-      .filter((f) => !f.generic)
-      .map((f) => ({ family: f.family, weight: f.weight, text: chars })),
-  );
+  const list: FontLoad[] = [];
+  const seen = new Set<string>();
+  const add = (family: string, weight: number) => {
+    const key = `${family.toLowerCase()}\n${weight}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    list.push({ family, weight, text: chars });
+  };
+  const own = fonts.filter((f) => !f.generic);
+  for (const f of own) add(f.family, f.weight);
+  for (const family of FALLBACK_WEB_FAMILIES) for (const f of own) add(family, f.weight);
+  return list;
+}
+
+/**
+ * 產生前先載入要用到的字型與後備字型（只下載這段文字需要的部分；逾時就用替代字型）。
+ * 量字寬與畫字都在這之後，所以第一次產生就和之後一致。
+ */
+export async function prepareFonts(fonts: readonly PieceFont[], text: string): Promise<void> {
+  await ensureFonts(fontLoadList(fonts, text));
 }
 
 /** 把排版畫到畫布上（透明背景）。畫布尺寸要先設成 layout.canvasWidth × canvasHeight。 */

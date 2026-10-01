@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio, parseColor, relativeLuminance } from '@/core/color';
 import { findGoogleFont } from '@/core/fonts';
-import { createRandom } from '@/core/timeline';
+import { createRandom, type Random } from '@/core/timeline';
 import {
   activeFonts,
   activePalettes,
@@ -59,20 +59,46 @@ const lay = (over: Partial<LayoutInput> = {}, seed = 1) =>
 const pieces = (l: CollageLayout): Piece[] =>
   l.lines.flatMap((line) => line.items.filter((it): it is Piece => it.kind === 'piece'));
 
-const advance = (it: CollageLayout['lines'][number]['items'][number]) =>
-  it.kind === 'piece' ? it.width + it.gap : it.width;
+/** 不含行尾間隔的行寬（最後一張紙片的右緣；規格 3.10 第 1 點依主控裁定 7.1 改寫） */
+const contentWidth = (line: CollageLayout['lines'][number]) => {
+  const last = line.items.at(-1);
+  return last?.kind === 'piece' ? line.width - last.gap : line.width;
+};
+
+/** 每個隨機量都取最小值的亂數：紙片寬＝字寬＋20、間隔＝2，方便算出剛好的寬度 */
+const minRandom: Random = {
+  next: () => 0,
+  range: (min) => min,
+  int: (min) => min,
+  signed: () => -1,
+  pick: (items) => items[0],
+};
 
 describe('數值欄（F05、F06、F37）', () => {
   it('取整數部分；空白、0、非數字退回預設', () => {
     expect(parseIntField('45.9', 1)).toBe(45);
     expect(parseIntField('12.7', 1)).toBe(12);
-    expect(parseIntField('1e2', 1)).toBe(100);
+    expect(parseIntField('-20.9', 1)).toBe(-20);
     expect(parseIntField('', 7)).toBe(7);
     expect(parseIntField('   ', 7)).toBe(7);
     expect(parseIntField('0', 7)).toBe(7);
     expect(parseIntField('0.5', 7)).toBe(7);
     expect(parseIntField('-0.5', 7)).toBe(7);
     expect(parseIntField('abc', 7)).toBe(7);
+  });
+
+  it('科學記號只讀開頭的整數部分（主控裁定 7.1：1e2 → 1）', () => {
+    expect(parseIntField('1e2', 7)).toBe(1);
+    expect(parseIntField('3e1', 7)).toBe(3);
+    expect(parseIntField('1.5e3', 7)).toBe(1);
+    expect(parseIntField('-2e1', 7)).toBe(-2);
+    expect(parseIntField('0e5', 7)).toBe(7);
+    expect(parseIntField(' 45 ', 7)).toBe(45);
+    /* 讀到的整數再夾進合理範圍：2e3 → 2 → 寬度下限 100（不是 2000） */
+    expect(resolveWidth('2e3')).toBe(100);
+    expect(resolveWidth('1500e0')).toBe(1500);
+    expect(resolveSizeRange('30', '1e2')).toEqual({ a: 8, b: 30 });
+    expect(resolveRoll20Range('2e1', '3e1')).toEqual({ min: 8, max: 8 });
   });
 
   it('限制在合理範圍（主控裁定）：字級 8～200、寬度 100～4000', () => {
@@ -115,6 +141,28 @@ describe('版面幾何（規格 3.1、F29）', () => {
     expect(lineHeightOf(70)).toBe(91);
     expect(firstMidOf(70)).toBe(75);
     expect([1, 2, 3, 4].map((n) => imageHeightOf(70, n))).toEqual([166, 257, 348, 439]);
+  });
+
+  it('行距取整數部分（無條件捨去，主控裁定 7.1）：45 → 58、49 → 63、55 → 71', () => {
+    /* 這些值四捨五入會多 1（59、64、72） */
+    expect(lineHeightOf(45)).toBe(58);
+    expect(lineHeightOf(49)).toBe(63);
+    expect(lineHeightOf(55)).toBe(71);
+    expect(lineHeightOf(42)).toBe(54);
+    expect(lineHeightOf(30)).toBe(39);
+    /* 3 行：b＝45 → 236.5、b＝55 → 280.5（舊版實測） */
+    expect(imageHeightOf(45, 3)).toBe(236.5);
+    expect(imageHeightOf(55, 3)).toBe(280.5);
+    /* 字級 8～200 全部與整數運算的 ⌊b × 13 ÷ 10⌋ 相同 */
+    for (let b = SIZE_LIMIT.min; b <= SIZE_LIMIT.max; b++)
+      expect(lineHeightOf(b), String(b)).toBe(Math.floor((b * 13) / 10));
+  });
+
+  it('最大字級 45、3 行：行距 58，中線 62.5、120.5、178.5，高 236.5（畫布 236）', () => {
+    const l = lay({ text: '一\n二\n三', a: 45, b: 45 });
+    expect(l.lineHeight).toBe(58);
+    expect(l.lines.map((x) => x.mid)).toEqual([62.5, 120.5, 178.5]);
+    expect([l.height, l.canvasHeight]).toEqual([236.5, 236]);
   });
 
   it('「一二三／空行／四五六」、預設 45～70、800：800 × 348，三行中線 75、166、257', () => {
@@ -185,7 +233,7 @@ describe('版面幾何（規格 3.1、F29）', () => {
     }
   });
 
-  it('寬 1500、30 個漢字：每行行寬 ≤ 可用寬度，且加上下一行的第一個就會超過（逐字換行）', () => {
+  it('寬 1500、30 個漢字：不含行尾間隔的行寬 ≤ 可用寬度，且加上下一行第一張的紙片寬就會超過（逐字換行）', () => {
     const text = '永'.repeat(30);
     for (let seed = 1; seed <= 50; seed++) {
       const l = lay({ text, width: 1500 }, seed);
@@ -193,12 +241,57 @@ describe('版面幾何（規格 3.1、F29）', () => {
       expect(l.height).toBe(imageHeightOf(70, l.lines.length));
       for (let k = 0; k < l.lines.length; k++) {
         const line = l.lines[k];
-        expect(line.width).toBeLessThanOrEqual(1420);
+        expect(contentWidth(line)).toBeLessThanOrEqual(1420);
         const next = l.lines[k + 1];
-        if (next) expect(line.width + advance(next.items[0])).toBeGreaterThan(1420);
+        if (next) expect(line.width + next.items[0].width).toBeGreaterThan(1420);
       }
       expect(pieces(l)).toHaveLength(30);
     }
+  });
+
+  it('換行判斷不算行尾間隔（主控裁定 7.1）：行寬＋紙片寬剛好等於可用寬度、加上間隔才超過時不換行', () => {
+    /* 字級 50、紙片寬 70、間隔 2：「一二」＝72＋70＝142（含第二張的間隔是 144） */
+    const at = (width: number, text = '一二', align: LayoutInput['align'] = 'center') =>
+      layoutCollage(input({ text, a: 50, b: 50, width, align }), minRandom, measure);
+    const fit = at(80 + 142);
+    expect(fit.lines.map((x) => x.items.length)).toEqual([2]);
+    expect(contentWidth(fit.lines[0])).toBe(142);
+    expect(fit.lines[0].width).toBe(144);
+    /* 行寬（含間隔）比可用寬度多 2：從左留白開始，最後一張的右緣剛好貼齊右留白 */
+    expect(fit.lines[0].left).toBe(MARGIN);
+    const last = fit.lines[0].items[1] as Piece;
+    expect(last.x + last.width / 2).toBe(fit.width - MARGIN);
+    /* 少 1 px 就換行 */
+    expect(at(80 + 141).lines.map((x) => x.items.length)).toEqual([1, 1]);
+    /* 三張：72＋72＋70＝214 */
+    expect(at(80 + 214, '一二三').lines.map((x) => x.items.length)).toEqual([3]);
+    expect(at(80 + 213, '一二三').lines.map((x) => x.items.length)).toEqual([2, 1]);
+    /* 空白沒有間隔：「一 二」＝72＋20＋70＝162 */
+    expect(at(80 + 162, '一 二').lines.map((x) => x.items.length)).toEqual([3]);
+    expect(at(80 + 161, '一 二').lines.map((x) => x.items.length)).toEqual([2, 1]);
+  });
+
+  it('隨機排版：每行最後一張紙片的右緣不超出可用寬度，只有看不見的間隔會超出', () => {
+    const text = `${'天地玄黃宇宙洪荒日月盈昃辰宿列張'.repeat(3)} The quick brown fox jumps over the lazy dog`;
+    let gapOverflow = 0;
+    let breaks = 0;
+    for (const width of [300, 800, 1234]) {
+      for (let seed = 1; seed <= 30; seed++) {
+        const l = lay({ text, width }, seed);
+        const avail = width - 2 * MARGIN;
+        l.lines.forEach((line, k) => {
+          if (line.items.length > 1) expect(contentWidth(line)).toBeLessThanOrEqual(avail);
+          if (line.width > avail && contentWidth(line) <= avail) gapOverflow++;
+          const next = l.lines[k + 1];
+          if (next) {
+            breaks++;
+            expect(line.width + next.items[0].width).toBeGreaterThan(avail);
+          }
+        });
+      }
+    }
+    expect(breaks).toBeGreaterThan(100);
+    expect(gapOverflow).toBeGreaterThan(0);
   });
 
   it('一張紙片比可用寬度還寬時獨佔一行（超出畫布），左緣不小於左留白', () => {
