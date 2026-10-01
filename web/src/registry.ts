@@ -185,6 +185,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/sotsotssi/collage-letter',
     },
   },
+  {
+    id: 'typewriter',
+    name: '打字機動畫產生器',
+    summary:
+      '把一段文字做成逐字出現、亂碼閃爍、片尾名單捲動或卡拉 OK 變色的透明動畫，匯出 APNG、GIF、WebP，打字還能配上節奏對應的音效。',
+    group: 'G1',
+    status: 'next',
+    inspiration: {
+      name: 'sotsotssi/Typewriter-apng',
+      url: 'https://github.com/sotsotssi/Typewriter-apng',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
