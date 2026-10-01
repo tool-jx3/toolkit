@@ -450,7 +450,7 @@ describe('名稱（F53～F61）', () => {
     expect(nameBoxHeight(double)).toBe(nameBoxHeight(single));
   });
 
-  it('壓在頭像底部：名稱框貼齊頭像外緣（含外框），只有文字／底線保留底板的左右與下方內距（F53）', () => {
+  it('壓在頭像底部：名稱框貼齊頭像外緣（含外框），只有文字／底線的內距 0.9em 0.3em 0.35em（F53，同舊版）', () => {
     const sel = '.MuiBadge-root > .MuiAvatar-root::after';
     const plate = block(
       build({ name: { pos: 'avatar' }, avatar: { show: true, borderWidth: 1, radius: 6 } }),
@@ -459,14 +459,15 @@ describe('名稱（F53～F61）', () => {
     expect(plate).toContain('left: 0 !important');
     expect(plate).toContain('right: 0 !important');
     expect(plate).toContain('bottom: 0 !important');
-    expect(plate).toContain('border-radius: 0 0 6px 6px');
+    /* 下方兩角＝頭像圓角 − 外框粗細 */
+    expect(plate).toContain('border-radius: 0 0 5px 5px');
     expect(plate).toContain('padding: 0.4em 0.7em');
     for (const look of ['text', 'underline'] as const) {
       const b = block(
         build({ name: { pos: 'avatar', look }, avatar: { show: true, borderWidth: 2 } }),
         sel,
       );
-      expect(b, look).toContain('padding: 0.9em 0.7em 0.4em');
+      expect(b, look).toContain('padding: 0.9em 0.3em 0.35em');
       expect(b, look).toContain('left: 0 !important');
     }
   });
@@ -644,8 +645,10 @@ describe('裝飾（F75～F84）', () => {
 
   it('整體外框：六種線條；改用角色顏色；濃度', () => {
     const f = (kind: Settings['frame']['kind'], extra: DeepPartial<Settings['frame']> = {}) =>
-      block(build({ frame: { on: true, kind, width: 2, gap: 6, ...extra } }), '#root::before') ??
-      '';
+      block(
+        build({ frame: { on: true, kind, width: 2, gap: 6, opacity: 100, ...extra } }),
+        '#root::before',
+      ) ?? '';
     expect(f('single')).toContain('border: 2px solid #ffffff');
     expect(f('double')).toContain('border: 6px double');
     expect(f('dashed')).toContain('border: 2px dashed');
@@ -655,9 +658,30 @@ describe('裝飾（F75～F84）', () => {
     );
     expect(f('thin')).toContain('border: 1px solid');
     expect(f('single', { useChar: true })).toContain('var(--tk-color)');
-    expect(build({ frame: { on: true, opacity: 40 } })).toMatch(
-      /#root:not\(#tk-x\)::before \{\n {2}opacity: 0.4;/,
+    /* 濃度放在顏色上（和舊版相同），不是整個元素的 opacity */
+    expect(f('single', { opacity: 40 })).toContain('border: 2px solid rgba(255, 255, 255, 0.4)');
+    expect(f('glow', { opacity: 40 })).toContain(
+      'box-shadow: 0 0 10px rgba(255, 255, 255, 0.4), inset 0 0 8px rgba(255, 255, 255, 0.4)',
     );
+    expect(f('single', { useChar: true, opacity: 60 })).toContain(
+      'color-mix(in srgb, var(--tk-color) 60%, transparent)',
+    );
+    expect(build({ frame: { on: true, opacity: 40 } })).not.toMatch(
+      /#root:not\(#tk-x\)::before \{\n {2}opacity/,
+    );
+    /* 細框加四角：四角從邊框外緣畫起；沒有面板時畫在條的下面 */
+    expect(f('thin')).toContain('background-origin: border-box');
+    expect(f('single')).not.toContain('z-index');
+  });
+
+  it('整體外框＋背景面板：從面板框線的內側量起、蓋在面板上', () => {
+    const b =
+      block(
+        build({ frame: { on: true, gap: 6 }, panel: { on: true, borderWidth: 1 } }),
+        '#root::before',
+      ) ?? '';
+    expect(b).toContain('inset: -5px');
+    expect(b).toContain('z-index: 5');
   });
 
   it('整體外框：線的外緣離內容「間距」px，線往內畫；來源大小照舊（F76）', () => {

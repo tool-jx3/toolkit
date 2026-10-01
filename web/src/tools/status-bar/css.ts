@@ -328,7 +328,8 @@ function pageRules(css: CssSheet, s: Settings): void {
     display: 'flex',
     'flex-direction': left ? 'row' : 'column',
     'align-items': left ? 'center' : 'stretch',
-    position: 'relative',
+    /* 不定位：整體外框（#root::before）畫在名稱底板之上、條之下，和舊版的疊放順序相同 */
+    position: 'static',
     'box-sizing': 'content-box',
     margin: 0,
   };
@@ -373,19 +374,27 @@ const nameLeft = (s: Settings) => s.name.pos === 'left';
 function frameRules(css: CssSheet, s: Settings): void {
   const f = s.frame;
   if (!f.on) return;
-  const color = f.useChar ? 'var(--tk-color)' : solidHex(f.color);
-  const w = f.width;
+  /* 濃度放在顏色上（不是整個元素的 opacity）：發光線的內外光暈與線疊在一起時才和舊版相同 */
+  const alpha = f.opacity / 100;
+  const color = f.useChar
+    ? alpha >= 1
+      ? 'var(--tk-color)'
+      : `color-mix(in srgb, var(--tk-color) ${Math.round(alpha * 100)}%, transparent)`
+    : rgba(solidHex(f.color), alpha);
+  const w = Math.max(1, f.width);
+  /* 背景面板有框線時，從面板框線的內側量起（舊版的面板框線在 #root 本身） */
+  const panelBorder = s.panel.on ? Math.max(0, s.panel.borderWidth) : 0;
   const decls: Record<string, string | number> = {
     content: '""',
     position: 'absolute',
     /* 線的外緣離內容「間距」px，線往內畫（F76 裁定）；來源大小照舊（rootMargin） */
-    inset: px(-f.gap),
+    inset: px(-(f.gap - panelBorder)),
     'box-sizing': 'border-box',
     'pointer-events': 'none',
-    'z-index': 5,
-    opacity: num(f.opacity / 100, 2),
+    /* 沒有背景面板時畫在條的下面（間距為負時被條蓋住，和舊版相同）；有面板時要蓋在面板的底色上 */
+    ...(s.panel.on ? { 'z-index': 5 } : {}),
   };
-  const radius = px(f.radius);
+  const radius = px(Math.max(0, f.radius));
   switch (f.kind) {
     case 'double':
       Object.assign(decls, {
@@ -410,8 +419,10 @@ function frameRules(css: CssSheet, s: Settings): void {
       break;
     case 'thin':
       Object.assign(decls, {
-        border: `${px(w / 2)} solid ${color}`,
+        border: `${px(Math.max(1, w / 2))} solid ${color}`,
         background: cornerBrackets({ length: f.corner, thickness: 2 * w, color }),
+        /* 四角從邊框的外緣畫起 */
+        'background-origin': 'border-box',
       });
       break;
     default:
@@ -505,16 +516,16 @@ function nameRules(css: CssSheet, s: Settings, g: BarGeometry): void {
 
   if (n.pos === 'avatar') {
     /*
-     * 名稱框貼齊頭像的外緣（含外框；F53 裁定，同舊版），下方兩角配合頭像的圓角。
-     * 「只有文字」「底線」改成漸層底，上方內距約 0.9 字，左右與下方保留和底板相同的內距。
+     * 名稱框貼齊頭像的外緣（含外框；F53 裁定，同舊版），下方兩角配合頭像外框內側的圓角。
+     * 「只有文字」「底線」改成漸層底，內距上 0.9 字、左右 0.3 字、下 0.35 字（同舊版）。
      */
-    const r = Math.max(0, s.avatar.radius);
+    const r = Math.max(0, s.avatar.radius - s.avatar.borderWidth);
     const fade =
       n.look === 'text' || n.look === 'underline'
         ? {
             'background-color': 'transparent',
             'background-image': `linear-gradient(to bottom, ${rgba(n.background, 0)}, ${rgba(solidHex(n.background), Math.max(0.6, rgbaAlpha(n.background)))})`,
-            padding: `0.9em ${PLATE_PAD.x} ${PLATE_PAD.y}`,
+            padding: '0.9em 0.3em 0.35em',
           }
         : {};
     rule(css, `${P.avatar}::after`, {
