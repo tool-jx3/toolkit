@@ -140,9 +140,9 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 |---|---|---|---|---|
 | （P0 地基） | — | ✅ | — | ✅（元件展示頁 `next/_gallery/`） |
 | battlemap | ✅ | ✅ | ✅ | ✅ |
-| textbox | ✅ | ✅ | 🔍（修正後重驗） | ⬜ |
+| textbox | ✅ | ✅ | ✅ | ✅ |
 | apng-wipe | ✅ | ✅ | ✅ | ✅ |
-| portrait-size | ✅ | ✅ | 🔍（修正後重驗） | ⬜ |
+| portrait-size | ✅ | ✅ | ✅ | ✅ |
 | text-fx | —（原創，直接移植） | ✅ | ✅ | ✅ |
 | status-bar | ✅ | 🔨 | ⬜ | ⬜ |
 | message-box | ✅ | 🔨 | ⬜ | ⬜ |

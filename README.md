@@ -137,14 +137,16 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 | `battlemap` | [戰鬥地圖產生器](tools/battlemap/) | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) |
 | `apng-wipe` | [輕量轉場 APNG 產生器](tools/apng-wipe/) | 出處不明的轉場 APNG 小工具 |
 | `text-fx` | [文字演出產生器](tools/text-fx/) | （本站原創） |
+| `textbox` | [文字方框產生器](tools/textbox/) | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) |
+| `portrait-size` | [立繪尺寸統一器](tools/portrait-size/) | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的十二個工具、
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的十一個工具、
 `ccfolia-cropper`、`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的五個工具、`cutin`、
-`character-editor`、`portrait-size`、`height-board`、`trpg-lab`、
+`character-editor`、`height-board`、`trpg-lab`、
 `anime-rig`、`scenario-editor`、`obs-tachie` 與くま的六個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
 `bg-motion` 也照上游保留韓文（上游的英文沒有收）。
 

@@ -38,7 +38,6 @@
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
 | chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `549364f` | MIT |
 | message-box | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) | `05f6331` | MIT |
-| portrait-size | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `fc05c98` | MIT |
 | height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
@@ -58,13 +57,12 @@
 | session-report | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-report-generator/` | `42c45f3` | **未授權** |
 | variant-manager | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/chara-sabun-kanri-tool/` | `42c45f3` | **未授權** |
 | scenario-cards | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/scenario-snippet-builder/` | `42c45f3` | **未授權** |
-| textbox | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) | `d2c74d3` | MIT |
 | log-converter | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `bb32ed7` | MIT |
 | psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
-shiki365 的五個工具、`cutin`、`portrait-size`、`height-board` 與 `room-zip` 原文為日文，
+shiki365 的五個工具、`cutin`、`height-board` 與 `room-zip` 原文為日文，
 收錄時另有以下調整：
 
 - `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
@@ -90,11 +88,11 @@ shiki365 的五個工具、`cutin`、`portrait-size`、`height-board` 與 `room-
 - `status-bar`、`chat-window` 與 `message-box` 的上游都附了自家站台的 `ogp.png`（各約 0.5 MB），
   收錄版沒有用到那張圖（`og:image` 指的是絕對網址），因此不收。
 
-## portrait-size 與 height-board：移除了原站的存取分析
+## height-board：移除了原站的存取分析
 
-Wool&Wag 的兩個工具（`character-image-size`、`character-height-board`）上游頁面
-都掛了 Google Analytics，說明區與頁尾也各有一句告知使用者這件事。收錄版把 `gtag`
-的載入一併移除，因此那兩句話也拿掉了——留著就是在說一件本站不存在的事。
+Wool&Wag 的 `character-height-board` 上游頁面掛了 Google Analytics，說明區與頁尾也各有一句
+告知使用者這件事。收錄版把 `gtag` 的載入一併移除，因此那兩句話也拿掉了——留著就是在說一件
+本站不存在的事。（同作者的 `character-image-size` 已由本站重寫成 `portrait-size`，見下方「本站重寫的工具」。）
 `<style>` 與內嵌 `<script>` 照慣例抽成 `styles.css` 與 `app.js`。
 
 三個處理立繪的工具各管一件事，互不重疊：`ccfolia-cropper` 按 CCFOLIA 的版面比例
@@ -231,7 +229,7 @@ baegop 雙人整理 1、圖樣橫幅、多人資料框、置頂推文產生器�
 另外移除兩項與本站無關的東西：
 
 - 兩頁頁尾的 Cloudflare Web Analytics beacon（`static.cloudflareinsights.com`，
-  帶著上游站台的 token）。理由同 `portrait-size` 與 `height-board` 的 GA。
+  帶著上游站台的 token）。理由同 `height-board` 的 GA。
 - 「버그&문의」對話框裡嵌的 Google 表單 iframe。那張表單收到的會是這份收錄版的
   問題，送達的卻是原作者的信箱。改成一段說明：只有這個版本才會發生的問題請開在
   本 repo 的 issues，工具本身的意見請找原作者。原作者的署名「배고픔」三種語言都
@@ -666,7 +664,7 @@ WebM。
 - `bg-motion` 與 `variant-manager` 照上游自 jsDelivr 載入 JSZip（`bg-motion` 另有 UPNG.js），
   見各目錄的 `THIRD_PARTY_NOTICES.md`。
 
-## log-converter、textbox、psd-studio
+## log-converter、psd-studio
 
 **log-converter（CCFOLIA 日誌轉換器）**：上游 `Eon-00/eon-ccfolia-log-converter`（MIT）把 CCFOLIA
 匯出的日誌 HTML 轉成小說、時間軸或 CCFOLIA 風格的網頁。上游的「用 Room ID 載入」會直接呼叫
@@ -677,12 +675,6 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 「全部」「所有」。另外修了時間軸的名字欄寬：上游只把諺文算成全形，中文或日文的長名字會蓋到頭像與
 台詞；純韓文日誌的產出不變。作者的品牌名「연연」（配色預設與頁尾）照原樣保留。
 
-
-**textbox（文字方框產生器）**：sotsotssi 的 `TextBoxGen`，收錄做法與其他 sotsotssi 工具相同
-（Tailwind Play CDN、`app.js`／`styles.css`、`THIRD_PARTY_NOTICES.md`）。上游的全形判斷本來就涵蓋
-中日韓漢字與全形標點，但逐 UTF-16 碼元計算，CJK 擴充 B 區以後的字（例如台語用字「𪜶」）會被算成
-兩個半形字，換行時還會從中間切開、變成落單的代理字元。收錄版改成逐碼位計算，並補上直排／相容
-標點與全形符號的範圍；只含基本平面字元的輸入，輸出與上游逐字相同。
 
 **psd-studio（CCFOLIA & 圖片調色工作室）**：上游 `fyam-hamu/F_Ccfolia-PSD-Studio` 沒有 LICENSE 檔，
 但頁面上有作者的條款：「코드 자체의 무단 재판매 및 유료 배포는 금지합니다. 단, 개인 목적의 코드 수정,
@@ -706,6 +698,8 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `battlemap` | 戰鬥地圖產生器 | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `cb0c619` |
 | `apng-wipe` | 輕量轉場 APNG 產生器 | 出處不明的轉場 APNG 小工具（使用者提供的單檔 HTML，沒有可連結的網址） | `cb0c619` |
 | `text-fx` | 文字演出產生器 | （本站原創，見下節；移植到新框架，與舊版逐格相同） | `cb0c619` |
+| `textbox` | 文字方框產生器 | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) | `cb0c619` |
+| `portrait-size` | 立繪尺寸統一器 | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `cb0c619` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 

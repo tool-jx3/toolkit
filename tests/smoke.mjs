@@ -650,35 +650,6 @@ for (const locale of ['zh-TW', 'ja']) {
   check(`${locale} app.js 的譯文齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
 
-/* ---- portrait-size ---- */
-const ps = checkTool({
-  dir: 'tools/portrait-size',
-  dict: 'i18n.portrait-size.js',
-  locale: 'ja',
-  scripts: ['app.js'],
-  styles: ['styles.css'],
-  minHooks: 40
-});
-
-section('tools/portrait-size');
-/* 上游頁面掛了 Google Analytics，收錄版整組移除；說明區與頁尾原本各有一句告知
- * 使用者這件事，留著就是在說一件本站不存在的事，因此一併拿掉。 */
-for (const file of ['index.html', 'app.js', 'styles.css']) {
-  const src = read(`tools/portrait-size/${file}`);
-  check(`${file} 沒有存取分析的殘留`,
-    !/googletagmanager|gtag\(|Google Analytics/.test(src));
-}
-/* 狀態訊息記住 key 與參數，切語言時重寫；寫回字面字串就會停在舊語言。 */
-const psApp = read('tools/portrait-size/app.js');
-check('狀態訊息以 key 呈現並在切換語言時重寫',
-  psApp.includes('function renderStatus()') && psApp.includes('I18N.onChange(renderStatus)'));
-const psStatusKeys = [...new Set([...psApp.matchAll(/\bshowStatus\('([\w]+\.[\w]+)'/g)].map(m => m[1]))];
-check('解析出狀態訊息 key', psStatusKeys.length >= 10, `found ${psStatusKeys.length}`);
-for (const locale of ['zh-TW', 'ja']) {
-  const missing = psStatusKeys.filter(k => !ps.messages[locale][k]);
-  check(`${locale} 狀態訊息齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
 /* ---- room-zip ---- */
 /* 上游是一份 868 KB 的單一 HTML，收錄時拆成 index.html ＋ styles.css ＋ 五個
  * JS。其中 jszip.min.js 與 upng.js 是原樣保留的第三方函式庫，不參與 i18n。
@@ -968,8 +939,6 @@ const SOTSOT_FOUR = [
   { dir: 'tools/acrylic-goods', dict: 'i18n.acrylic-goods.js', minHooks: 50, inline: 35, attrs: 4, authorLink: false },
   { dir: 'tools/video-anim', dict: 'i18n.video-anim.js', minHooks: 60, inline: 50, attrs: 1, authorLink: true },
   { dir: 'tools/gif-combiner', dict: 'i18n.gif-combiner.js', minHooks: 25, inline: 20, attrs: 5, authorLink: true },
-  /* TextBoxGen 不是角色美術工具，但收錄做法（Tailwind、CDN、onChange 重畫）完全相同，一併檢查。 */
-  { dir: 'tools/textbox', dict: 'i18n.textbox.js', minHooks: 35, inline: 31, attrs: 4, authorLink: true },
 ];
 for (const t of SOTSOT_FOUR) {
   checkTool({ dir: t.dir, dict: t.dict, scripts: ['app.js'], styles: ['styles.css'], minHooks: t.minHooks });
@@ -2329,7 +2298,6 @@ checkInlineText('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-t
 for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
 checkInlineText('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 150);
 checkInlineText('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 150);
-checkInlineText('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 20);
 checkInlineText('tools/height-board', 'tools/height-board/index.html', ['tools/height-board/i18n.height-board.js'], 25);
 checkInlineText('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 20);
 checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
@@ -2422,7 +2390,6 @@ checkAttrPairs('tools/obs-tachie', 'tools/obs-tachie/index.html', ['tools/obs-ta
 for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
 checkAttrPairs('tools/status-bar', 'tools/status-bar/index.html', ['tools/status-bar/i18n.status-bar.js'], 4);
 checkAttrPairs('tools/chat-window', 'tools/chat-window/index.html', ['tools/chat-window/i18n.chat-window.js'], 15);
-checkAttrPairs('tools/portrait-size', 'tools/portrait-size/index.html', ['tools/portrait-size/i18n.portrait-size.js'], 2);
 checkAttrPairs('tools/height-board', 'tools/height-board/index.html', ['tools/height-board/i18n.height-board.js'], 20);
 checkAttrPairs('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 1);
 checkAttrPairs('tools/cutin', 'tools/cutin/index.html', ['tools/cutin/i18n.cutin.js'], 1);
@@ -2451,8 +2418,8 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', 'cf3ff36', 'b86cd28', 'ea08333', 'b455379', '615664b',
-  '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331', 'fc05c98',
-  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0', 'd2c74d3', '718bb40', 'bb32ed7',
+  '586b273', '9866858', 'dab4fb9', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4', '549364f', '05f6331',
+  '90f8442', 'a9a522c', 'aad63b1', '9c29866', 'c4aca96', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
   '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }

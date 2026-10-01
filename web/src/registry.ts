@@ -58,7 +58,7 @@ export const TOOLS: readonly ToolEntry[] = [
     name: '文字方框產生器',
     summary: '把文字排成框線方框或純文字表格，貼到 CCFOLIA 聊天欄也能左右對齊。',
     group: 'G1',
-    status: 'next',
+    status: 'live',
     inspiration: { name: 'sotsotssi/TextBoxGen', url: 'https://github.com/sotsotssi/TextBoxGen' },
   },
   {
@@ -66,7 +66,7 @@ export const TOOLS: readonly ToolEntry[] = [
     name: '立繪尺寸統一器',
     summary: '裁掉立繪四周的透明留白，再左右補透明邊統一寬度，切換差分時棋子大小不再忽大忽小。',
     group: 'G3',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'woolwag3338/character-image-size',
       url: 'https://github.com/woolwag3338/character-image-size',
