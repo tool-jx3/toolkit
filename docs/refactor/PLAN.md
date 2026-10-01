@@ -148,7 +148,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | message-box | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
 | chat-window | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
 | obs-tachie | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
-| ccfolia-cropper | ✅ | ✅ | 🔍 | ⬜ |
+| ccfolia-cropper | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
 | icon-maker | ✅ | ✅ | 🔍 | ⬜ |
 | variant-manager | ✅ | 🔨（依 7.1 修正） | ✅（7.1 待修） | ⬜ |
 | height-board | ✅ | 🔨 | ⬜ | ⬜ |
