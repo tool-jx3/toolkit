@@ -173,6 +173,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://kumachansteps.github.io/trpg-web-tools/',
     },
   },
+  {
+    id: 'collage-letter',
+    name: '匿名拼貼信產生器',
+    summary:
+      '把一段文字做成「從雜誌剪字拼貼」的匿名信圖片：每個字是一張歪斜的彩色紙片，可下載透明 PNG、紙張底 JPG，或複製成 HTML、Roll20 格式。',
+    group: 'G1',
+    status: 'next',
+    inspiration: {
+      name: 'sotsotssi/collage-letter',
+      url: 'https://github.com/sotsotssi/collage-letter',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
