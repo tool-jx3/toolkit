@@ -209,6 +209,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/Taku-Taku-Taku/cutin-maker',
     },
   },
+  {
+    id: 'ccfolia-cropper',
+    name: '立繪裁切器',
+    summary:
+      '把去背的全身立繪裁成 3:4 或 1:1 的上半身頭像：自動對準頭部，左右拖曳微調，可加描邊、光暈或陰影，逐張或整批下載 PNG。',
+    group: 'G3',
+    status: 'next',
+    inspiration: {
+      name: 'kimtaehee2018-maker/ccfolia-cropper',
+      url: 'https://github.com/kimtaehee2018-maker/ccfolia-cropper',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
