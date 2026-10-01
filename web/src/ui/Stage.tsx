@@ -44,6 +44,8 @@ export interface StageProps {
   onZoomChange?: (zoom: StageZoom) => void;
   /** 顯示工具列（預設 true） */
   toolbar?: boolean;
+  /** 工具列提供哪些背景（預設全部：透明、黑、白、自訂色、背景圖） */
+  backgrounds?: readonly StageBackgroundKind[];
   /** 工具列右側的額外按鈕 */
   toolbarExtra?: ReactNode;
   /** 放大時用最近鄰（像素圖） */
@@ -56,14 +58,27 @@ export interface StageProps {
   viewportClassName?: string;
 }
 
+/** 背景選項（順序即工具列順序）。深＝純黑、淺＝純白，方便檢查透明部分 */
+const BACKGROUND_OPTIONS: { value: StageBackgroundKind; label: string; ariaLabel: string }[] = [
+  { value: 'checker', label: '透明', ariaLabel: '棋盤格（透明）' },
+  { value: 'dark', label: '黑', ariaLabel: '黑色背景' },
+  { value: 'light', label: '白', ariaLabel: '白色背景' },
+  { value: 'color', label: '色', ariaLabel: '自訂顏色背景' },
+  { value: 'image', label: '圖', ariaLabel: '背景圖（只供預覽）' },
+];
+
+export const ALL_STAGE_BACKGROUNDS: readonly StageBackgroundKind[] = BACKGROUND_OPTIONS.map(
+  (o) => o.value,
+);
+
 const ZOOM_STEPS = [0.1, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8];
 
 function backgroundStyle(bg: StageBackground): { className: string; style?: CSSProperties } {
   switch (bg.kind) {
     case 'dark':
-      return { className: '', style: { background: '#16151a' } };
+      return { className: '', style: { background: '#000000' } };
     case 'light':
-      return { className: '', style: { background: '#f7f6f3' } };
+      return { className: '', style: { background: '#ffffff' } };
     case 'color':
       /* 自訂色可以半透明：疊在棋盤格上 */
       return {
@@ -96,6 +111,7 @@ export function Stage({
   zoom,
   onZoomChange,
   toolbar = true,
+  backgrounds = ALL_STAGE_BACKGROUNDS,
   toolbarExtra,
   pixelated,
   fitUpscale = false,
@@ -177,11 +193,7 @@ export function Stage({
       )}
     >
       {toolbar ? (
-        <div
-          role="toolbar"
-          aria-label={`${label}工具列`}
-          className="flex flex-wrap items-center gap-2 border-b border-border px-2 py-1.5"
-        >
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-2 py-1.5">
           <Segmented
             aria-label="預覽背景"
             size="sm"
@@ -190,13 +202,7 @@ export function Stage({
               if (kind === 'image' && !bg.imageUrl) fileInput.current?.click();
               setBg({ ...bg, kind });
             }}
-            options={[
-              { value: 'checker', label: '透明' },
-              { value: 'dark', label: '深' },
-              { value: 'light', label: '淺' },
-              { value: 'color', label: '色' },
-              { value: 'image', label: '圖' },
-            ]}
+            options={BACKGROUND_OPTIONS.filter((o) => backgrounds.includes(o.value))}
           />
           {bg.kind === 'color' ? (
             <ColorField

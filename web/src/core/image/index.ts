@@ -18,6 +18,35 @@ export interface Rect {
 /** 可以畫到 canvas 上的來源 */
 export type DrawableImage = ImageBitmap | HTMLImageElement | HTMLCanvasElement | OffscreenCanvas;
 
+export type ImageKind = 'png' | 'apng' | 'webp' | 'gif' | 'jpeg' | 'avif' | 'bmp';
+
+/**
+ * 依檔案開頭的位元組判斷實際格式（不看副檔名與瀏覽器回報的 MIME）。
+ * PNG 會再看有沒有 acTL 判斷是不是 APNG。認不得時回傳 null。
+ */
+export function detectImageType(bytes: Uint8Array): ImageKind | null {
+  const b = bytes;
+  const at = (o: number, s: string) => s.split('').every((c, i) => b[o + i] === c.charCodeAt(0));
+  if (b[0] === 0x89 && at(1, 'PNG')) {
+    /* acTL 必須在第一個 IDAT 之前，掃前面的 chunk 就夠 */
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    let o = 8;
+    while (o + 8 <= b.length) {
+      const len = dv.getUint32(o);
+      if (at(o + 4, 'acTL')) return 'apng';
+      if (at(o + 4, 'IDAT')) break;
+      o += 12 + len;
+    }
+    return 'png';
+  }
+  if (at(0, 'RIFF') && at(8, 'WEBP')) return 'webp';
+  if (at(0, 'GIF8')) return 'gif';
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'jpeg';
+  if (at(4, 'ftyp') && (at(8, 'avif') || at(8, 'avis'))) return 'avif';
+  if (at(0, 'BM')) return 'bmp';
+  return null;
+}
+
 /** 影像的原始尺寸 */
 export function imageSize(img: DrawableImage): Size {
   if (typeof HTMLImageElement !== 'undefined' && img instanceof HTMLImageElement) {

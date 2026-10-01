@@ -31,6 +31,8 @@ export default defineConfig({
     colorScheme: 'dark',
     acceptDownloads: true,
     trace: 'retain-on-failure',
+    /* 容器沒有設定語系時，Chromium 會把中文下載檔名換成「download」 */
+    launchOptions: { env: { ...process.env, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } },
   },
   /* 測的是建置產物：repo 根目錄用 http-server 開（與 GitHub Pages 相同的相對路徑） */
   webServer: {

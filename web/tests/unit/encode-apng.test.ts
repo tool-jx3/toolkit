@@ -129,3 +129,26 @@ describe('APNG 編碼', () => {
     await expect(enc.finish()).rejects.toThrow(/沒有任何影格/);
   });
 });
+
+describe('APNG：不合併相同影格', () => {
+  it('mergeIdentical: false 時每次 addFrame 都是一格，畫面仍正確', async () => {
+    for (const quantize of [false, true]) {
+      const frames = movingSquare(24, 16, 8, [3, 4]);
+      const enc = new ApngEncoder({
+        width: 24,
+        height: 16,
+        fps: 10,
+        quantize,
+        mergeIdentical: false,
+      });
+      for (const f of copyFrames(frames)) await enc.addFrame(f);
+      const file = await enc.finish();
+      const info = parseApng(file.bytes);
+      expect(info.frames.length).toBe(8);
+      expect(info.frames[3]).toMatchObject({ width: 1, height: 1, delayNum: 1, delayDen: 10 });
+      const composed = composeApng(info);
+      expect(sameBytes(composed[4], frames[4])).toBe(true);
+      expect(sameBytes(composed[7], frames[7])).toBe(true);
+    }
+  });
+});

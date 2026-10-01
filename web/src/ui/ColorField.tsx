@@ -10,7 +10,7 @@ import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } fr
 import { formatHex, type Hsv, hsvToRgb, parseColor, rgbToHsv } from '@/core/color';
 import { IconButton } from './Button';
 import { cn, fullWidthUnless } from './cn';
-import { useFieldControl } from './Field';
+import { FieldScope, useFieldControl } from './Field';
 import { NumberInput } from './NumberInput';
 import { inputClass } from './TextInput';
 
@@ -296,13 +296,15 @@ export function ColorField({
             align="start"
             className="z-50 rounded-lg border border-border bg-surface p-3 shadow-2"
           >
-            <ColorPicker
-              value={value}
-              onChange={onChange}
-              alpha={alpha}
-              swatches={swatches}
-              eyedropper={eyedropper}
-            />
+            <FieldScope>
+              <ColorPicker
+                value={value}
+                onChange={onChange}
+                alpha={alpha}
+                swatches={swatches}
+                eyedropper={eyedropper}
+              />
+            </FieldScope>
           </Popover.Content>
         </Popover.Portal>
       </Popover.Root>
@@ -332,7 +334,7 @@ export function ColorField({
               setDraft(null);
             }
           }}
-          className={inputClass(invalid, 'h-8 min-w-[6.5rem] flex-1 font-mono uppercase')}
+          className={inputClass(invalid, 'h-8 min-w-[6.5rem] flex-1 font-mono')}
         />
       ) : null}
       {alpha ? (

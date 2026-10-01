@@ -92,6 +92,8 @@ export interface ExportAnimationOptions {
   scale?: number;
   /** APNG 減色成 256 色 */
   quantize?: boolean;
+  /** APNG 合併連續相同的影格（預設 true） */
+  mergeIdentical?: boolean;
   /** APNG 加上預設圖（不支援 APNG 的看圖程式顯示代表畫面） */
   still?: boolean;
   /** WebP 品質 0～1（1 = 無損，預設） */
@@ -203,6 +205,7 @@ export async function exportAnimation(
     plays = 0,
     scale = 1,
     quantize = false,
+    mergeIdentical = true,
     still = false,
     webpQuality = 1,
     background = null,
@@ -263,7 +266,7 @@ export async function exportAnimation(
 
   const spec: EncoderSpec =
     format === 'apng'
-      ? { format: 'apng', options: { width: W, height: H, fps, plays, quantize } }
+      ? { format: 'apng', options: { width: W, height: H, fps, plays, quantize, mergeIdentical } }
       : format === 'gif'
         ? { format: 'gif', options: { width: W, height: H, fps, plays } }
         : format === 'webp'

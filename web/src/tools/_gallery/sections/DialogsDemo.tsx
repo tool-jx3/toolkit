@@ -1,5 +1,6 @@
-import { Info } from 'lucide-react';
+import { Copy, Info } from 'lucide-react';
 import { useState } from 'react';
+import { copyText } from '@/core/files';
 import type { ToolEntry } from '@/registry';
 import {
   Button,
@@ -7,6 +8,7 @@ import {
   DialogClose,
   GroupTabs,
   Kbd,
+  Notice,
   Section,
   ShortcutHelp,
   Tooltip,
@@ -100,6 +102,24 @@ export function DialogsDemo() {
             錯誤
           </Button>
         </div>
+      </Section>
+      <Section title="狀態訊息 Notice">
+        <Notice>已載入 3 個檔案。</Notice>
+        <Notice tone="progress">處理中（2／3）…</Notice>
+        <Notice tone="success">完成！可以下載了。</Notice>
+        <Notice tone="warning">有 1 個檔案超過 5 MB。</Notice>
+        <Notice tone="danger" action={<Button size="sm">重試</Button>}>
+          無法讀取「立繪.png」，檔案可能已損壞。
+        </Notice>
+        <Button
+          icon={<Copy />}
+          onClick={async () => {
+            const ok = await copyText('┌──────┐\n│　大成功　│\n└──────┘');
+            toast({ title: ok ? '已複製到剪貼簿' : '無法複製', tone: ok ? 'success' : 'danger' });
+          }}
+        >
+          複製文字（copyText）
+        </Button>
       </Section>
       <Section title="快捷鍵 ShortcutHelp／Kbd">
         <p className="m-0 text-sm">

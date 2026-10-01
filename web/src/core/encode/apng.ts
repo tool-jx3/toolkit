@@ -33,6 +33,11 @@ export interface ApngEncoderOptions {
   quantize?: boolean;
   /** 減色時的色數上限（2～256，預設 256） */
   maxColors?: number;
+  /**
+   * 合併連續相同的影格（預設 true）。關掉時每次 addFrame 都存成一格
+   * （相同的格只存 1×1 的範圍，檔案幾乎不變大；對等驗證需要和舊版影格數一致時使用）。
+   */
+  mergeIdentical?: boolean;
   deflate?: DeflateMode;
 }
 
@@ -72,6 +77,7 @@ export class ApngEncoder implements FrameEncoder {
       plays: 0,
       quantize: false,
       maxColors: 256,
+      mergeIdentical: true,
       deflate: 'auto',
       ...options,
     };
@@ -92,8 +98,9 @@ export class ApngEncoder implements FrameEncoder {
     const t = Math.max(1, Math.round(ticks));
     this.added++;
     this.ticks += t;
-    const r = this.prev ? diffRect(this.prev, u32, W, H) : { x: 0, y: 0, w: W, h: H };
+    let r = this.prev ? diffRect(this.prev, u32, W, H) : { x: 0, y: 0, w: W, h: H };
     this.prev = u32;
+    if (!r && !this.opt.mergeIdentical) r = { x: 0, y: 0, w: 1, h: 1 };
     if (!r) {
       const last = this.stats
         ? this.changes[this.changes.length - 1]
@@ -175,8 +182,14 @@ export class ApngEncoder implements FrameEncoder {
           }
         }
         if (!first && mx1 < 0) {
-          frames[frames.length - 1].count += c.count;
-          continue;
+          if (this.opt.mergeIdentical) {
+            frames[frames.length - 1].count += c.count;
+            continue;
+          }
+          mx0 = 0;
+          my0 = 0;
+          mx1 = 0;
+          my1 = 0;
         }
         if (first) {
           mx0 = 0;

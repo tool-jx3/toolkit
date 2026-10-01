@@ -14,6 +14,7 @@ import {
 } from 'react';
 import { Button, IconButton } from './Button';
 import { cn } from './cn';
+import { FieldScope } from './Field';
 
 const SIZES = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-3xl', xl: 'max-w-5xl' } as const;
 
@@ -61,31 +62,33 @@ export function Dialog({
       <D.Portal>
         <D.Overlay className={overlayClass} />
         <D.Content className={contentClass(size, className)}>
-          <div className="flex items-start gap-3 border-b border-border px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <D.Title className="m-0 text-lg font-semibold">{title}</D.Title>
-              {description ? (
-                <D.Description className="m-0 mt-0.5 text-sm text-muted">
-                  {description}
-                </D.Description>
-              ) : (
-                <D.Description className="sr-only">
-                  {typeof title === 'string' ? title : '對話框'}
-                </D.Description>
-              )}
+          <FieldScope>
+            <div className="flex items-start gap-3 border-b border-border px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <D.Title className="m-0 text-lg font-semibold">{title}</D.Title>
+                {description ? (
+                  <D.Description className="m-0 mt-0.5 text-sm text-muted">
+                    {description}
+                  </D.Description>
+                ) : (
+                  <D.Description className="sr-only">
+                    {typeof title === 'string' ? title : '對話框'}
+                  </D.Description>
+                )}
+              </div>
+              <D.Close asChild>
+                <IconButton label="關閉" icon={<X />} size="sm" noTooltip />
+              </D.Close>
             </div>
-            <D.Close asChild>
-              <IconButton label="關閉" icon={<X />} size="sm" noTooltip />
-            </D.Close>
-          </div>
-          <div className={cn('min-h-0 flex-1 overflow-auto', !flush && 'px-4 py-3')}>
-            {children}
-          </div>
-          {footer ? (
-            <div className="flex flex-wrap justify-end gap-2 border-t border-border px-4 py-3">
-              {footer}
+            <div className={cn('min-h-0 flex-1 overflow-auto', !flush && 'px-4 py-3')}>
+              {children}
             </div>
-          ) : null}
+            {footer ? (
+              <div className="flex flex-wrap justify-end gap-2 border-t border-border px-4 py-3">
+                {footer}
+              </div>
+            ) : null}
+          </FieldScope>
         </D.Content>
       </D.Portal>
     </D.Root>

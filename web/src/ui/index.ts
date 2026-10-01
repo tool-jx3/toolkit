@@ -63,6 +63,7 @@ export {
 } from './ImageDrop';
 export { InspirationFooter } from './InspirationFooter';
 export { Kbd } from './Kbd';
+export { Notice, type NoticeProps, type NoticeTone } from './Notice';
 export { NumberInput, type NumberInputProps } from './NumberInput';
 export { ProjectMenu, ProjectMenuItem, type ProjectMenuProps } from './ProjectMenu';
 export { Section, type SectionProps } from './Section';
@@ -71,6 +72,7 @@ export { Select, type SelectGroup, type SelectOption, type SelectProps } from '.
 export { ShortcutHelp } from './ShortcutHelp';
 export { Slider, type SliderProps } from './Slider';
 export {
+  ALL_STAGE_BACKGROUNDS,
   Stage,
   type StageBackground,
   type StageBackgroundKind,
@@ -80,6 +82,7 @@ export {
 export {
   formatCombo,
   isEditableTarget,
+  isFormControlTarget,
   matchCombo,
   type Shortcut,
   useShortcuts,

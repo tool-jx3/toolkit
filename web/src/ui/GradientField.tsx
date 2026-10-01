@@ -130,14 +130,13 @@ export function GradientField({
           ))}
         </div>
       </div>
+      <ColorField
+        value={stops[selected].color}
+        onChange={(color) => updateStop(selected, { color })}
+        alpha={alpha}
+        aria-label={`色標 ${selected + 1}`}
+      />
       <div className="flex flex-wrap items-center gap-2">
-        <ColorField
-          value={stops[selected].color}
-          onChange={(color) => updateStop(selected, { color })}
-          alpha={alpha}
-          aria-label={`色標 ${selected + 1}`}
-          className="min-w-48 flex-1"
-        />
         <NumberInput
           value={Math.round(stops[selected].offset * 100)}
           onChange={(v) => updateStop(selected, { offset: v / 100 })}
@@ -145,7 +144,7 @@ export function GradientField({
           max={100}
           unit="%"
           aria-label={`色標 ${selected + 1} 位置`}
-          className="w-20"
+          className="w-24"
         />
         <IconButton
           label="刪除這個色標"
@@ -159,6 +158,7 @@ export function GradientField({
           size="md"
           disabled={stops.length >= maxStops}
           onClick={() => addStop(0.5)}
+          className="ml-auto"
         >
           新增色標
         </Button>

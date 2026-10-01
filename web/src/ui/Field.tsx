@@ -14,8 +14,17 @@ interface FieldContextValue {
 
 const FieldContext = createContext<FieldContextValue | null>(null);
 
+/**
+ * 切斷 Field 的關聯：對話框、彈出面板的內容雖然在 React 樹上位於某個 Field 裡，
+ * 但裡面的控制項不屬於那個欄位，不能沿用它的 id 與標籤。
+ */
+export function FieldScope({ children }: { children: ReactNode }) {
+  return <FieldContext.Provider value={null}>{children}</FieldContext.Provider>;
+}
+
 export interface FieldControlProps {
   id?: string;
+  'aria-label'?: string;
   'aria-labelledby'?: string;
   'aria-describedby'?: string;
   'aria-invalid'?: boolean | 'true' | 'false' | 'grammar' | 'spelling';
@@ -27,9 +36,11 @@ export function useFieldControl<P extends FieldControlProps>(
 ): Required<Pick<FieldControlProps, 'id'>> & FieldControlProps {
   const ctx = useContext(FieldContext);
   const fallback = useId();
+  /* 自己有 aria-label 的是 Field 裡的次要控制項（例如字型旁的字重）：不搶 Field 的 id，避免重複 */
+  const own = !!(props as { 'aria-label'?: string })['aria-label'];
   return {
-    id: props.id ?? ctx?.id ?? fallback,
-    'aria-labelledby': props['aria-labelledby'] ?? ctx?.labelId,
+    id: props.id ?? (own ? fallback : (ctx?.id ?? fallback)),
+    'aria-labelledby': props['aria-labelledby'] ?? (own ? undefined : ctx?.labelId),
     'aria-describedby':
       [
         ...new Set(

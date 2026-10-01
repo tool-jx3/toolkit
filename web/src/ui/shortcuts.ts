@@ -119,8 +119,34 @@ export function isEditableTarget(t: EventTarget | null): boolean {
   return t.getAttribute('role') === 'spinbutton' || t.getAttribute('role') === 'textbox';
 }
 
+/** 表單控制項（開關、勾選、選單、滑桿、輸入欄）：單一按鍵的快捷鍵在這些元素上不觸發 */
+export function isFormControlTarget(t: EventTarget | null): boolean {
+  if (isEditableTarget(t)) return true;
+  if (!(t instanceof HTMLElement)) return false;
+  if (t instanceof HTMLInputElement) return true;
+  const role = t.getAttribute('role');
+  return (
+    !!role &&
+    [
+      'switch',
+      'checkbox',
+      'radio',
+      'combobox',
+      'slider',
+      'listbox',
+      'option',
+      'menuitem',
+      'menuitemradio',
+      'menuitemcheckbox',
+      'spinbutton',
+      'textbox',
+    ].includes(role)
+  );
+}
+
 /**
- * 綁定快捷鍵（掛在 window）。對話框開著時、在輸入框裡打字時不觸發（除非 allowInInput）。
+ * 綁定快捷鍵（掛在 window）。對話框開著時、在輸入框裡打字時不觸發（除非 allowInInput）；
+ * 沒有修飾鍵的單鍵快捷鍵，焦點在開關、選單、滑桿等表單控制項上時也不觸發。
  * shortcuts 每次 render 換新陣列也沒關係。
  */
 export function useShortcuts(shortcuts: readonly Shortcut[], enabled = true): void {
@@ -140,6 +166,9 @@ export function useShortcuts(shortcuts: readonly Shortcut[], enabled = true): vo
         if (!keys.some((k) => matchCombo(e, k))) continue;
         if (inDialog) return;
         if (!s.allowInInput && isEditableTarget(target)) return;
+        /* 沒有 Ctrl／⌘／Alt 的單鍵快捷鍵（例如 G、D）在開關、選單等表單控制項上也不觸發 */
+        if (!s.allowInInput && !e.ctrlKey && !e.metaKey && !e.altKey && isFormControlTarget(target))
+          return;
         /* 焦點在按鈕上時，空白鍵／Enter 留給按鈕本身 */
         if (
           (e.key === ' ' || e.key === 'Enter') &&

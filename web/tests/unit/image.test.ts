@@ -52,3 +52,23 @@ describe('影像工具', () => {
     expect(colors[1].color).toBe('#1e1ec8');
   });
 });
+
+describe('detectImageType', () => {
+  it('依檔頭判斷格式（含 APNG）', async () => {
+    const { detectImageType } = await import('@/core/image');
+    const { encodePng } = await import('@/core/encode/png');
+    const { ApngEncoder } = await import('@/core/encode/apng');
+    const png = await encodePng(new Uint8Array(16), 2, 2);
+    expect(detectImageType(png)).toBe('png');
+    const enc = new ApngEncoder({ width: 2, height: 2, fps: 1 });
+    await enc.addFrame(new Uint8Array(16));
+    await enc.addFrame(new Uint8Array(16).fill(255));
+    expect(detectImageType((await enc.finish()).bytes)).toBe('apng');
+    expect(detectImageType(new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80]))).toBe(
+      'webp',
+    );
+    expect(detectImageType(new TextEncoder().encode('GIF89a'))).toBe('gif');
+    expect(detectImageType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe('jpeg');
+    expect(detectImageType(new Uint8Array([1, 2, 3, 4]))).toBeNull();
+  });
+});

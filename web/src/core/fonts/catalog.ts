@@ -292,6 +292,14 @@ export const GOOGLE_FONTS: readonly FontEntry[] = [
   },
 
   /* ---- 拉丁字母 ---- */
+  { family: 'Roboto', label: 'Roboto', scripts: ['latin'], category: 'sans', weights: ALL },
+  {
+    family: 'Roboto Mono',
+    label: 'Roboto Mono',
+    scripts: ['latin'],
+    category: 'mono',
+    weights: [100, 200, 300, 400, 500, 600, 700],
+  },
   { family: 'Inter', label: 'Inter', scripts: ['latin'], category: 'sans', weights: ALL },
   {
     family: 'Cinzel',

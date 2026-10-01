@@ -488,6 +488,7 @@ export function FontPicker({
 }: FontPickerProps) {
   const field = useFieldControl(rest);
   const [open, setOpen] = useState(false);
+  const valueId = useId();
   const [tab, setTab] = useState<FontValue['source']>(value.source);
   const weights = availableWeights(value);
   const display =
@@ -562,13 +563,14 @@ export function FontPicker({
               rest['aria-label']
                 ? undefined
                 : field['aria-labelledby']
-                  ? `${field['aria-labelledby']} ${field.id}`
+                  ? `${field['aria-labelledby']} ${valueId}`
                   : undefined
             }
             aria-describedby={field['aria-describedby']}
             className="flex h-8 min-w-0 flex-1 items-center justify-between gap-2 rounded-md border border-border-strong bg-surface-2 px-2.5 text-left text-sm text-fg hover:bg-surface-3 disabled:opacity-50"
           >
             <span
+              id={valueId}
               className="truncate"
               style={{ fontFamily: fontFamilyCss(value.family), fontWeight: value.weight }}
             >

@@ -102,6 +102,38 @@ export function matchesAccept(file: Pick<File, 'name' | 'type'>, accept?: string
     });
 }
 
+/* ---------- 剪貼簿 ---------- */
+
+/**
+ * 把文字放進剪貼簿（原封不動，含行尾空白與全形空白）。成功回傳 true。
+ * 優先用 Clipboard API；不能用時（http、舊瀏覽器）改用隱藏的 textarea＋execCommand。
+ */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* 改用備用方法 */
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch {
+    ok = false;
+  }
+  ta.remove();
+  return ok;
+}
+
 /* ---------- ZIP ---------- */
 
 export interface ZipEntry {

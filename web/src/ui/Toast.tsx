@@ -83,7 +83,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             </T.Root>
           );
         })}
-        <T.Viewport className="pointer-events-none fixed right-0 bottom-0 z-[60] m-0 flex w-full max-w-sm list-none flex-col gap-2 p-4 outline-none" />
+        <T.Viewport
+          label="通知（{hotkey}）"
+          className="pointer-events-none fixed right-0 bottom-0 z-[60] m-0 flex w-full max-w-sm list-none flex-col gap-2 p-4 outline-none"
+        />
       </T.Provider>
     </ToastContext.Provider>
   );
