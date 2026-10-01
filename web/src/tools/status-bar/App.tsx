@@ -27,12 +27,13 @@ import {
   ToolShell,
   UsageSection,
   useConfirmedReset,
+  withShortcut,
 } from '@/ui';
 import { measureTarget, previewCss } from './actions';
 import { TextGestureScope } from './controls';
 import { buildStatusBarCss, effectsNeedingObs31, usedFonts } from './css';
 import { estimateSourceSize } from './geometry';
-import { cleanBaseName, cssTargetFor, previewCharacter } from './logic';
+import { cssTargetFor, previewCharacter, projectFileName } from './logic';
 import { Preview } from './Preview';
 import { AvatarPanel } from './panels/AvatarPanel';
 import { BarPanel } from './panels/BarPanel';
@@ -162,8 +163,18 @@ export function App() {
       usage={usage}
       headerActions={
         <>
-          <IconButton label={S.undo} icon={<Undo2 />} onClick={undo} disabled={!canUndo} />
-          <IconButton label={S.redo} icon={<Redo2 />} onClick={redo} disabled={!canRedo} />
+          <IconButton
+            label={withShortcut(S.undo, 'mod+z')}
+            icon={<Undo2 />}
+            onClick={undo}
+            disabled={!canUndo}
+          />
+          <IconButton
+            label={withShortcut(S.redo, 'shift+mod+z')}
+            icon={<Redo2 />}
+            onClick={redo}
+            disabled={!canRedo}
+          />
           <ProjectMenu<ProjectData>
             toolId={TOOL_ID}
             getData={() => ({
@@ -180,7 +191,7 @@ export function App() {
             }}
             onReset={() => useSettings.getState().reset()}
             savedAt={savedAt}
-            fileName={cleanBaseName(fileName)}
+            exactFileName={projectFileName(fileName)}
           />
           <ResetAllButton />
         </>

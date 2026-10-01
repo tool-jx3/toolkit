@@ -68,6 +68,33 @@ function frameStyle(page: Page, selector: string, prop: string, pseudo?: string)
   );
 }
 
+/** 直接改設定（深層合併；測試用掛鉤） */
+const setS = (page: Page, patch: Record<string, unknown>) =>
+  page.evaluate((p) => {
+    const merge = (a: unknown, b: unknown): unknown => {
+      if (!b || typeof b !== 'object' || Array.isArray(b)) return b;
+      const out: Record<string, unknown> = { ...(a as Record<string, unknown>) };
+      for (const [k, v] of Object.entries(b)) out[k] = merge(out[k], v);
+      return out;
+    };
+    // biome-ignore lint/suspicious/noExplicitAny: 測試掛鉤
+    const st = (window as any).__statusBar.settings.getState();
+    st.replace(merge(st.data, p));
+  }, patch);
+
+/** 預覽 iframe 裡正在跑（或停在結尾）的動畫名稱 */
+const animationNames = (page: Page) =>
+  page.evaluate(() =>
+    (document.querySelector('iframe[title="狀態條預覽"]') as HTMLIFrameElement)
+      .contentDocument!.getAnimations()
+      .map((a) => {
+        const el = (a.effect as KeyframeEffect).target as Element;
+        const bar = el.closest('div[variant="bar"] > div');
+        const n = bar ? [...bar.parentElement!.children].indexOf(bar) + 1 : 0;
+        return `${(a as CSSAnimation).animationName}@${n}`;
+      }),
+  );
+
 const pulses = (page: Page) =>
   page.evaluate(
     () =>
@@ -384,7 +411,8 @@ test.describe('匯出', () => {
       page.waitForEvent('download'),
       page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
     ]);
-    expect(download.suggestedFilename()).toMatch(/^statusbar_\d{8}\.json$/);
+    /* <檔名主體>.statusbar.json（不加日期；F115） */
+    expect(download.suggestedFilename()).toBe('statusbar.statusbar.json');
     const saved = readFileSync((await download.path())!, 'utf8');
     expect(JSON.parse(saved)).toMatchObject({ format: 'trpg-toolkit-project', tool: 'status-bar' });
     await page.getByRole('switch', { name: '隱藏多餘的條' }).click();
@@ -434,6 +462,170 @@ test.describe('匯出', () => {
       frame(page).locator('div[variant="bar"] > div').first().locator('span'),
     ).toHaveText('10');
     await expect(undoBtn(page)).toBeDisabled();
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('對等驗證後的追加裁定（規格 7.1）', () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  test('條本體比文字矮：整列高＝max(條本體高, 文字列 18)，條本體垂直置中；來源 340 × 130（F08）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    for (const [barHeight, textPos] of [
+      [3, 'inside'],
+      [12, 'inside'],
+      [12, 'two'],
+      [3, 'two'],
+    ] as const) {
+      await setS(page, { barHeight, textPos });
+      await expect(sizeText(page)).toContainText('寬 340 × 高 130');
+      const rows = await rects(page, 'div[variant="bar"] > div');
+      expect(rows.map((r) => Math.round(r.h))).toEqual([18, 18, 18]);
+      const tracks = await rects(page, 'div[variant="bar"] > div > div:nth-child(2)');
+      for (const [i, t] of tracks.entries()) {
+        expect(Math.round(t.h)).toBe(barHeight);
+        /* 條本體在列內垂直置中 */
+        expect(t.y + t.h / 2).toBeCloseTo(rows[i].y + rows[i].h / 2, 0);
+      }
+    }
+    await setS(page, { barHeight: 18, textPos: 'inside' });
+    await expect(sizeText(page)).toContainText('寬 340 × 高 130');
+    expect(errors).toEqual([]);
+  });
+
+  test('雙線外框只套在條本體，名稱底板永遠是單線（F29）；分段不切外框與覆蓋層（F33）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await setS(page, { border: { width: 3, double: true } });
+    await expect(sizeText(page)).toContainText('寬 340 × 高 182');
+    expect(await frameStyle(page, '#root > div:first-child', 'border-top-style', '::before')).toBe(
+      'solid',
+    );
+    expect(await frameStyle(page, '#root > div:first-child', 'border-top-width', '::before')).toBe(
+      '3px',
+    );
+    await setS(page, { border: { width: 2, double: false }, segments: 12, gloss: { on: true } });
+    const track = 'div[variant="bar"] > div:first-child > div:nth-child(2)';
+    expect(await frameStyle(page, `${track} > div:first-child`, 'mask-image')).toContain(
+      'repeating-linear-gradient',
+    );
+    expect(await frameStyle(page, `${track} > div:nth-child(2)`, 'mask-image')).toContain(
+      'repeating-linear-gradient',
+    );
+    expect(await frameStyle(page, track, 'mask-image', '::before')).toBe('none');
+    expect(await frameStyle(page, track, 'background-image', '::before')).toContain('url(');
+    expect(errors).toEqual([]);
+  });
+
+  test('增減與閃光的緩動 ease-out（F34）；陰影 5 px（F35）；外圈光暈模糊＝擴散（F78）；流動光線輪廓（F80）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const fill = 'div[variant="bar"] > div:first-child > div:nth-child(2) > div:nth-child(2)';
+    expect(await frameStyle(page, fill, 'transition-timing-function')).toBe('ease-out');
+    await setS(page, { shadow: 100, glow: { on: false } });
+    const track = 'div[variant="bar"] > div:first-child > div:nth-child(2)';
+    await expect
+      .poll(() => frameStyle(page, track, 'filter'))
+      .toBe('drop-shadow(rgb(0, 0, 0) 0px 2px 5px)');
+    await setS(page, { shadow: 0, glow: { on: true, spread: 6, strength: 100 } });
+    await expect
+      .poll(() => frameStyle(page, track, 'filter'))
+      .toMatch(/^drop-shadow\(rgb\([^)]*\) 0px 0px 6px\)$/);
+    await setS(page, { sweep: { on: true, strength: 35, interval: 4 } });
+    await expect
+      .poll(() => frameStyle(page, fill, 'background-image', '::before'))
+      .toBe(
+        'linear-gradient(100deg, rgba(255, 255, 255, 0) 15%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0) 85%)',
+      );
+    expect(errors).toEqual([]);
+  });
+
+  test('損壞瞬間發光：開頁時完好的條不閃、損壞的條閃一次；回到完好不閃（F74）', async ({
+    page,
+  }) => {
+    await open(page);
+    await setS(page, { cracks: { on: true }, damageFlash: true });
+    /* 存檔後重新開頁：裂痕的階段 HP 10/14、MP 6/10 已經損壞，SAN 48/60（80%）完好 */
+    await page.waitForTimeout(100);
+    const errors = await open(page);
+    await expect
+      .poll(async () => (await animationNames(page)).filter((n) => /^tk-(hit|pop)/.test(n)).length)
+      .toBeGreaterThan(0);
+    const flashes = (await animationNames(page)).filter((n) => /^tk-(hit|pop)/.test(n));
+    expect(flashes.some((n) => n.endsWith('@1'))).toBe(true);
+    expect(flashes.some((n) => n.endsWith('@2'))).toBe(true);
+    expect(flashes.filter((n) => n.endsWith('@3'))).toEqual([]);
+    expect(flashes.some((n) => n.startsWith('tk-hit-0') || n.startsWith('tk-pop-full'))).toBe(
+      false,
+    );
+    const ease = await page.evaluate(() =>
+      (document.querySelector('iframe[title="狀態條預覽"]') as HTMLIFrameElement)
+        .contentDocument!.getAnimations()
+        .filter((a) => /^tk-(hit|pop)/.test((a as CSSAnimation).animationName))
+        .map((a) => (a.effect as KeyframeEffect).getKeyframes()[0].easing),
+    );
+    expect(new Set(ease)).toEqual(new Set(['ease-out']));
+    /* 全部回復＝完好：不閃 */
+    await shortcut(page, '全部回復');
+    await expect
+      .poll(async () => (await animationNames(page)).filter((n) => /^tk-(hit|pop)/.test(n)))
+      .toEqual([]);
+    /* 道具：完好（全部都在）時也不閃 */
+    await setS(page, { items: { on: true, count: 2 } });
+    await page.waitForTimeout(200);
+    expect((await animationNames(page)).filter((n) => /^tk-(hit|pop)/.test(n))).toEqual([]);
+    /* 再掉進損壞階段才閃 */
+    await shortcut(page, '減半');
+    await expect
+      .poll(async () => (await animationNames(page)).filter((n) => /^tk-hit/.test(n)).length)
+      .toBeGreaterThan(0);
+    expect((await animationNames(page)).some((n) => /^tk-pop-\d/.test(n))).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  test('頭像外框改用角色顏色時不透明（F22）；名稱壓在頭像底部貼齊外緣（F53）；整體外框的外緣在間距處（F76）；先攻徽章轉場只在預覽關掉（F25）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await setS(page, {
+      avatar: {
+        show: true,
+        borderWidth: 3,
+        borderUseChar: true,
+        borderColor: '#ffffff40',
+        radius: 6,
+      },
+      name: { pos: 'avatar' },
+      initiative: { show: true },
+    });
+    const avatar = '.MuiBadge-root > .MuiAvatar-root';
+    await expect.poll(() => frameStyle(page, avatar, 'opacity', '::before')).toBe('1');
+    expect(await frameStyle(page, avatar, 'left', '::after')).toBe('0px');
+    expect(await frameStyle(page, avatar, 'bottom', '::after')).toBe('0px');
+    expect(await frameStyle(page, avatar, 'width', '::after')).toBe('88px');
+    await setS(page, { avatar: { borderUseChar: false } });
+    await expect.poll(() => frameStyle(page, avatar, 'opacity', '::before')).toBe('0.251');
+    /* 先攻徽章：預覽裡關掉 CCFOLIA 的轉場；匯出的 CSS 不關 */
+    expect(await frameStyle(page, '.MuiBadge-root > .MuiBadge-badge', 'transition-duration')).toBe(
+      '0s',
+    );
+    const exported = await cssText(page);
+    const badge = exported.slice(exported.indexOf('.MuiBadge-root > .MuiBadge-badge {'));
+    expect(badge.slice(0, badge.indexOf('}'))).not.toContain('transition');
+    expect(exported).not.toContain('預覽專用');
+    /* 整體外框：線的外緣離內容「間距」px */
+    await setS(page, {
+      avatar: { show: false },
+      name: { pos: 'top' },
+      frame: { on: true, kind: 'single', width: 4, gap: 6 },
+    });
+    await expect(sizeText(page)).toContainText('寬 360');
+    expect(await frameStyle(page, '#root', 'top', '::before')).toBe('-6px');
+    expect(await frameStyle(page, '#root', 'border-top-width', '::before')).toBe('4px');
     expect(errors).toEqual([]);
   });
 });

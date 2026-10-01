@@ -43,10 +43,33 @@ describe('一條之內的配置（規格 3.3.2）', () => {
     expect(barGeometry(make({ textPos: 'bottom' })).rowH).toBe(56);
   });
 
-  it('三欄／兩欄的整列高＝max(條本體高, 較大字級 × 1.15 無條件進位)', () => {
-    const g = barGeometry(make({ textPos: 'three', barHeight: 10 }));
-    expect(g.colLineH).toBe(Math.ceil(18 * 1.15));
-    expect(g.rowH).toBe(21);
+  it('文字列高＝較大的那個字級（行高 1，預設 18）；壓在條上、三欄、兩欄的整列高＝max(條本體高, 文字列)（F08 裁定）', () => {
+    const three = barGeometry(make({ textPos: 'three', barHeight: 10 }));
+    expect(three.lineH).toBe(18);
+    expect(three.colLineH).toBe(18);
+    expect(three.rowH).toBe(18);
+    for (const textPos of ['inside', 'two', 'three'] as const) {
+      expect(barGeometry(make({ textPos, barHeight: 3 })).rowH, textPos).toBe(18);
+      expect(barGeometry(make({ textPos, barHeight: 12 })).rowH, textPos).toBe(18);
+      expect(barGeometry(make({ textPos, barHeight: 18 })).rowH, textPos).toBe(18);
+      expect(barGeometry(make({ textPos, barHeight: 34 })).rowH, textPos).toBe(34);
+    }
+    /* 只顯示置中的數值時看目前值字級；文字都不顯示時就是條本體高 */
+    expect(
+      barGeometry(make({ barHeight: 3, insideAlign: 'value', text: { currentSize: 24 } })).rowH,
+    ).toBe(24);
+    expect(
+      barGeometry(make({ barHeight: 3, text: { showLabel: false, valueMode: 'none' } })).rowH,
+    ).toBe(3);
+  });
+
+  it('條本體高 3／12、壓在條上或兩欄時來源 340 × 130；18 時和預設排法相同（F08 量測）', () => {
+    expect(size({ barHeight: 3 })).toEqual({ width: 340, height: 130 });
+    expect(size({ barHeight: 12 })).toEqual({ width: 340, height: 130 });
+    expect(size({ barHeight: 12, textPos: 'two' })).toEqual({ width: 340, height: 130 });
+    expect(size({ barHeight: 3, textPos: 'two' })).toEqual({ width: 340, height: 130 });
+    const h18 = size({ barHeight: 18 });
+    expect(h18).toEqual({ width: 340, height: 130 });
   });
 
   it('符號欄佔用單條寬度（條本體變短）；道具加寬整列（條本體長度不變）', () => {

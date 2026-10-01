@@ -27,6 +27,9 @@ export function cleanBaseName(name: string): string {
   return s || DEFAULT_FILE_NAME;
 }
 
+/** 專案檔的檔名：`<檔名主體>.statusbar.json`（不加日期；主體照 F101 的清理規則；F115 裁定） */
+export const projectFileName = (name: string): string => `${cleanBaseName(name)}.statusbar.json`;
+
 /** 檔名中的角色名：不合法的字元與空白換成底線（F102） */
 export function cleanCharacterPart(name: string): string {
   return String(name ?? '')

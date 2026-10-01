@@ -9,9 +9,12 @@ import type { Settings, Shape } from './settings';
 export const MIN_BODY = 16;
 
 export interface BarGeometry {
-  /** 上方一行／下方一行模式的文字列高（＝顯示中的標籤與目前值較大的字級） */
+  /**
+   * 文字列高（＝顯示中的標籤與目前值較大的字級，行高 1，無條件進位；預設 18 px）。
+   * 上方一行／下方一行模式是這一行的高；壓在條上、三欄、兩欄的整列高至少是它（F08 裁定）。
+   */
   lineH: number;
-  /** 三欄／兩欄模式的文字列高（較大字級 × 1.15，無條件進位） */
+  /** 三欄／兩欄模式的文字列高（＝lineH；保留這個欄位給舊的呼叫端） */
   colLineH: number;
   /** 符號欄寬（符號大小＋間距；不顯示時 0） */
   symCol: number;
@@ -40,7 +43,7 @@ export function barGeometry(s: Settings): BarGeometry {
   const valueShown = t.valueMode !== 'none';
   const maxSize = Math.max(labelShown ? t.labelSize : 0, valueShown ? t.currentSize : 0);
   const lineH = Math.ceil(maxSize);
-  const colLineH = Math.ceil(maxSize * 1.15);
+  const colLineH = lineH;
   const symCol = symbolsActive(s) ? s.symbols.size + s.symbols.gap : 0;
   const itemsW = itemsActive(s) ? itemsWidth(s.items.count, s.items.size, s.items.gap) : 0;
   const itemsCol = itemsActive(s) ? itemsW + s.items.distance : 0;
@@ -52,11 +55,14 @@ export function barGeometry(s: Settings): BarGeometry {
   let rowW = symCol + bodyLen + itemsCol;
   if (s.textPos === 'three') rowW += s.labelWidth + s.valueWidth + 2 * s.textGap;
   if (s.textPos === 'two') rowW += s.labelWidth + s.textGap;
+  /*
+   * 整列高（F08 裁定，同舊版）：上方／下方一行＝文字列＋間距＋條本體；壓在條上、三欄、兩欄＝max(條本體高, 文字列)，
+   * 條本體比文字矮時條本體在列內垂直置中，文字不會溢出到別的條。
+   */
   let rowH: number;
   if (s.textPos === 'top' || s.textPos === 'bottom')
     rowH = lineH > 0 ? lineH + s.textGap + bodyH : bodyH;
-  else if (s.textPos === 'three' || s.textPos === 'two') rowH = Math.max(bodyH, colLineH);
-  else rowH = bodyH;
+  else rowH = Math.max(bodyH, lineH);
   if (itemsActive(s)) rowH = Math.max(rowH, s.items.size);
   return { lineH, colLineH, symCol, itemsW, itemsCol, bodyLen, bodyH, rowW, rowH };
 }
@@ -89,12 +95,8 @@ export function nameBoxHeight(s: Settings, lines = 1): number {
   const text = n.size * 1.3 * lines;
   switch (n.look) {
     case 'plate': {
-      const bw =
-        s.border.width > 0
-          ? s.border.double
-            ? Math.max(3, 3 * s.border.width)
-            : s.border.width
-          : 0;
+      /* 名稱底板永遠是單線（雙線外框只套在條本體；F29 裁定） */
+      const bw = Math.max(0, s.border.width);
       return text + 0.8 * n.size + 2 * bw;
     }
     case 'underline':
@@ -137,7 +139,10 @@ export function frameExtent(s: Settings): number {
   return s.frame.gap + frameLineReach(s);
 }
 
-/** 外框在框盒外緣之內佔的寬度（畫外框的元素離內容多遠：間距＋這個值） */
+/**
+ * 外框在框盒外緣之內佔的寬度（線往內畫的範圍）。畫外框的元素的外緣離內容「間距」px（F76 裁定：線的外緣在間距處，
+ * 粗細與雙線寬度都往內）。
+ */
 export function frameBoxInset(s: Settings): number {
   const w = s.frame.width;
   switch (s.frame.kind) {

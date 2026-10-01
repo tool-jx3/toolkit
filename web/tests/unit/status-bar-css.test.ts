@@ -5,14 +5,18 @@
 import { describe, expect, it } from 'vitest';
 import { barsAfterSelector, exampleCharacterUrl, fillBelowWhere } from '@/ccfolia';
 import { applyTemplate, type DeepPartial } from '@/core/storage';
+import { previewCss } from '@/tools/status-bar/actions';
 import {
   ANIMATED_PROPS,
   buildStatusBarCss,
   type CssTarget,
   fillDecls,
   itemStageThresholds,
+  PREVIEW_ONLY_CSS,
   usedFonts,
 } from '@/tools/status-bar/css';
+import { nameBoxHeight } from '@/tools/status-bar/geometry';
+import { projectFileName } from '@/tools/status-bar/logic';
 import { DEFAULT_SETTINGS, EXAMPLE_NAME, type Settings } from '@/tools/status-bar/settings';
 import { TEMPLATES, templateSettings } from '@/tools/status-bar/templates';
 
@@ -249,6 +253,18 @@ describe('頭像與先攻（F17～F25）', () => {
     expect(block(css, '.MuiBadge-root > .MuiAvatar-root > div')).toContain('border-radius: 9px');
   });
 
+  it('頭像外框改用角色顏色時完全不透明（隱藏的濃度欄不作用）；沒勾時照顏色的濃度（F22）', () => {
+    const border = (borderUseChar: boolean) =>
+      block(
+        build({
+          avatar: { show: true, borderWidth: 4, borderUseChar, borderColor: '#00ff0099' },
+        }),
+        '.MuiBadge-root > .MuiAvatar-root:not(#tk-x)::before',
+      ) ?? '';
+    expect(border(true)).toContain('opacity: 1;');
+    expect(border(false)).toContain('opacity: 0.6;');
+  });
+
   it('先攻徽章：角落、大小（字級 0.58 倍、向外突出 0.3 倍）、先攻 0 時隱藏、原本的位移不再作用', () => {
     const css = build({
       avatar: { show: true },
@@ -261,6 +277,18 @@ describe('頭像與先攻（F17～F25）', () => {
     expect(css).toContain('.MuiBadge-root > .MuiBadge-badge.MuiBadge-invisible {\n  display: none');
     expect(css).toMatch(/\.MuiBadge-badge:not\(#tk-x\) \{\n {2}transform: none;/);
   });
+
+  it('先攻徽章：輸出的 CSS 不關掉 CCFOLIA 原本的轉場，只有預覽關掉（F25）', () => {
+    const s = make({ avatar: { show: true }, initiative: { show: true } });
+    const out = buildStatusBarCss(s, EXAMPLE);
+    expect(block(out, '.MuiBadge-root > .MuiBadge-badge') ?? '').not.toContain('transition');
+    expect(out).not.toContain('transition: none !important;\n}\n/* 預覽');
+    const preview = previewCss(s, EXAMPLE);
+    expect(preview.endsWith(PREVIEW_ONLY_CSS)).toBe(true);
+    expect(PREVIEW_ONLY_CSS).toContain(
+      '.MuiBadge-root > .MuiBadge-badge { transition: none !important; }',
+    );
+  });
 });
 
 describe('條本體（F26～F35）', () => {
@@ -270,6 +298,25 @@ describe('條本體（F26～F35）', () => {
       css.match(/clip-path: path\('M12 0L300 0L288 34L0 34Z'\)/g)?.length,
     ).toBeGreaterThanOrEqual(2);
     expect(css).toContain('#000 56.8px, transparent 56.8px, transparent 60.8px');
+  });
+
+  it('分段只切底槽與填充；外框、光澤等覆蓋層維持整條連續（F33）', () => {
+    const css = build({
+      segments: 12,
+      segmentGap: 2,
+      border: { width: 2 },
+      gloss: { on: true },
+      scanlines: { on: true },
+    });
+    const trough =
+      block(css, 'div[variant="bar"] > div > div:nth-child(2) > div:first-child') ?? '';
+    const fill = block(css, 'div[variant="bar"] > div > div:nth-child(2) > div:nth-child(2)') ?? '';
+    const overlay = block(css, 'div[variant="bar"] > div > div:nth-child(2)::before') ?? '';
+    expect(trough).toContain('mask-image: repeating-linear-gradient(to right');
+    expect(fill).toContain('mask-image: repeating-linear-gradient(to right');
+    expect(overlay).toContain('clip-path: path(');
+    expect(overlay).toContain('mask-image: none');
+    expect(overlay).not.toContain('repeating-linear-gradient(to right, #000');
   });
 
   it('外框沿輪廓內側：SVG 外框圖（雙線用遮罩挖出中間的空隙）；粗細 0 時沒有', () => {
@@ -315,13 +362,15 @@ describe('條本體（F26～F35）', () => {
     expect(css).toContain('animation: tk-stripe 0.9s linear infinite !important;');
   });
 
-  it('增減速度：緩出；0 秒時瞬間改變', () => {
-    expect(build()).toContain('transition: width 0.25s cubic-bezier(0, 0, 0.2, 1) !important;');
+  it('增減速度：標準的 ease-out；0 秒時瞬間改變（F34）', () => {
+    expect(build()).toContain('transition: width 0.25s ease-out !important;');
+    expect(build()).not.toContain('cubic-bezier(0, 0, 0.2, 1)');
     expect(build({ speed: 0 })).toContain('transition: none !important;');
   });
 
-  it('陰影濃度：drop-shadow；0 時沒有', () => {
-    expect(build({ shadow: 100 })).toContain('filter: drop-shadow(0 2px 2.5px #000000);');
+  it('陰影濃度：drop-shadow 向下 2 px、模糊 5 px（F35）；0 時沒有', () => {
+    expect(build({ shadow: 100 })).toContain('filter: drop-shadow(0 2px 5px #000000);');
+    expect(build({ shadow: 45 })).toContain('drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45))');
     expect(build({ shadow: 0, glow: { on: false } })).toMatch(
       /> div:nth-child\(2\):not\(#tk-x\) \{\n {2}filter: none;/,
     );
@@ -387,6 +436,39 @@ describe('名稱（F53～F61）', () => {
     expect(build({ name: { pos: 'none' } })).not.toContain('content: var(--tk-name)');
     expect(build({}, { name: '' })).not.toContain('content: var(--tk-name)');
     expect(build({ name: { pos: 'avatar' } })).not.toContain('content: var(--tk-name)');
+  });
+
+  it('雙線外框只套在條本體；名稱底板永遠是單線、高度不變（F29）', () => {
+    const top = '#root > div:first-child::before';
+    const dbl = build({ border: { width: 3, double: true, color: '#ffffff' } });
+    expect(block(dbl, top)).toContain('border: 3px solid #ffffff');
+    expect(block(dbl, top)).not.toContain('double');
+    /* 條本體的外框圖仍是雙線（遮罩挖出空隙） */
+    expect(dbl).toContain('mask=');
+    const single = make({ border: { width: 3, double: false } });
+    const double = make({ border: { width: 3, double: true } });
+    expect(nameBoxHeight(double)).toBe(nameBoxHeight(single));
+  });
+
+  it('壓在頭像底部：名稱框貼齊頭像外緣（含外框），只有文字／底線保留底板的左右與下方內距（F53）', () => {
+    const sel = '.MuiBadge-root > .MuiAvatar-root::after';
+    const plate = block(
+      build({ name: { pos: 'avatar' }, avatar: { show: true, borderWidth: 1, radius: 6 } }),
+      sel,
+    );
+    expect(plate).toContain('left: 0 !important');
+    expect(plate).toContain('right: 0 !important');
+    expect(plate).toContain('bottom: 0 !important');
+    expect(plate).toContain('border-radius: 0 0 6px 6px');
+    expect(plate).toContain('padding: 0.4em 0.7em');
+    for (const look of ['text', 'underline'] as const) {
+      const b = block(
+        build({ name: { pos: 'avatar', look }, avatar: { show: true, borderWidth: 2 } }),
+        sel,
+      );
+      expect(b, look).toContain('padding: 0.9em 0.7em 0.4em');
+      expect(b, look).toContain('left: 0 !important');
+    }
   });
 
   it('太長時：省略、換行、隨長度變寬；頁籤與徽章依內容寬（最寬＝整體內容寬）', () => {
@@ -493,9 +575,26 @@ describe('演出（F62～F74）與優先順序', () => {
     expect(css).toContain(fillBelowWhere(50));
     expect(css).toContain(fillBelowWhere(25));
     expect(css).toContain('var(--tk-k4), var(--tk-k3), var(--tk-k2), var(--tk-k1)');
-    for (const k of [0, 1, 2, 3, 4]) expect(css).toContain(`@keyframes tk-hit-${k} {`);
-    expect(css).toContain('tk-hit-0 0.6s');
+    for (const k of [1, 2, 3, 4]) expect(css).toContain(`@keyframes tk-hit-${k} {`);
+    expect(css).toContain('tk-hit-1 0.6s ease-out both');
     expect(build({ cracks: { on: true }, damageFlash: false })).not.toContain('tk-hit');
+  });
+
+  it('損壞瞬間發光只在進入損壞階段時：完好的條在開頁、回升到完好時都不閃（F74）；緩動 ease-out', () => {
+    const css = build({ cracks: { on: true }, items: { on: true, count: 4 }, damageFlash: true });
+    /* 完好（階段 0）沒有閃光動畫 */
+    expect(css).not.toContain('tk-hit-0');
+    expect(css).not.toContain('tk-pop-full');
+    expect(
+      block(css, 'div[variant="bar"] > div:nth-child(-n + 3) > div:nth-child(2)::before'),
+    ).toBeNull();
+    const items = block(css, 'div[variant="bar"] > div:nth-child(-n + 3)::before') ?? '';
+    expect(items).toContain('--tk-q: 16');
+    expect(items).toContain('animation: none');
+    /* 進入損壞階段才閃，每個階段的名稱不同 */
+    expect(css).toContain('tk-pop-15 0.5s ease-out both');
+    expect(css).toContain('tk-pop-0 0.5s ease-out both');
+    expect(css).not.toContain('cubic-bezier(0, 0, 0.2, 1)');
   });
 
   it('道具：數量 n → 4n 個階段；整數門檻含等於、非整數 < 無條件進位；整排一起閃', () => {
@@ -561,6 +660,22 @@ describe('裝飾（F75～F84）', () => {
     );
   });
 
+  it('整體外框：線的外緣離內容「間距」px，線往內畫；來源大小照舊（F76）', () => {
+    for (const kind of ['single', 'double', 'dashed', 'glow', 'corners', 'thin'] as const) {
+      const b =
+        block(build({ frame: { on: true, kind, width: 4, gap: 6 } }), '#root::before') ?? '';
+      expect(b, kind).toContain('inset: -6px');
+      expect(b, kind).toContain('box-sizing: border-box');
+    }
+    expect(block(build({ frame: { on: true, width: 4, gap: -3 } }), '#root::before')).toContain(
+      'inset: 3px',
+    );
+    /* #root 的外距＝外側留白＋間距＋線往外伸出的量（與之前相同） */
+    expect(
+      block(build({ frame: { on: true, kind: 'single', width: 4, gap: 6 } }), '#root'),
+    ).toContain('margin: 20px');
+  });
+
   it('光澤、外圈光暈、前端光線、流動光線、掃描線、刻度、顆粒、角落括號', () => {
     const css = build({
       gloss: { on: true, strength: 100 },
@@ -573,7 +688,12 @@ describe('裝飾（F75～F84）', () => {
       brackets: { on: true },
     });
     expect(css).toContain('rgba(255, 255, 255, 0.35) 46%');
-    expect(css).toContain('drop-shadow(0 0 3px #f0605a)');
+    /* 外圈光暈的模糊半徑＝擴散值（F78） */
+    expect(css).toContain('drop-shadow(0 0 6px #f0605a)');
+    /* 流動光線：約 100°、15%／50%／85%（F80） */
+    expect(css).toContain(
+      'linear-gradient(100deg, rgba(255, 255, 255, 0) 15%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0) 85%)',
+    );
     expect(css).toContain(
       'div[variant="bar"] > div > div:nth-child(2) > div:nth-child(2)::after {',
     );
@@ -582,6 +702,15 @@ describe('裝飾（F75～F84）', () => {
     expect(css).toContain('transparent 63px, rgba(255, 255, 255, 0.5) 63px');
     expect(css).toContain('feTurbulence');
     expect(css).toContain('inset: -4px');
+  });
+});
+
+describe('專案檔名（F115）', () => {
+  it('<檔名主體>.statusbar.json（不加日期；主體照 F101 清理，空白時用 statusbar）', () => {
+    expect(projectFileName('statusbar')).toBe('statusbar.statusbar.json');
+    expect(projectFileName(' 我的 HUD ')).toBe('我的 HUD.statusbar.json');
+    expect(projectFileName('a/b:c')).toBe('a_b_c.statusbar.json');
+    expect(projectFileName('   ')).toBe('statusbar.statusbar.json');
   });
 });
 

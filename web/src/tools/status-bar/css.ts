@@ -63,7 +63,6 @@ import {
   type BarGeometry,
   type Box,
   barGeometry,
-  frameBoxInset,
   groupBox,
   itemsActive,
   nameShown,
@@ -178,14 +177,23 @@ export function fillDecls(kind: FillKind, c1: string, c2: string, bodyLen: numbe
   }
 }
 
-/** 條本體的 filter：陰影＋外圈光暈（沒有時 []） */
+/** 條的陰影：向下 2 px、模糊 5 px（F35 裁定，同舊版） */
+export const BAR_SHADOW = { y: 2, blur: 5 } as const;
+
+/** 條本體的 filter：陰影＋外圈光暈（沒有時 []）。外圈光暈的模糊半徑＝擴散值（F78 裁定） */
 function trackFilters(s: Settings, glowColor: string | null): string[] {
   const out: string[] = [];
-  if (s.shadow > 0) out.push(`drop-shadow(0 2px 2.5px ${rgba('#000000', s.shadow / 100)})`);
+  if (s.shadow > 0)
+    out.push(
+      `drop-shadow(0 ${px(BAR_SHADOW.y)} ${px(BAR_SHADOW.blur)} ${rgba('#000000', s.shadow / 100)})`,
+    );
   if (s.glow.on && glowColor)
-    out.push(`drop-shadow(0 0 ${px(s.glow.spread / 2)} ${rgba(glowColor, s.glow.strength / 100)})`);
+    out.push(`drop-shadow(0 0 ${px(s.glow.spread)} ${rgba(glowColor, s.glow.strength / 100)})`);
   return out;
 }
+
+/** 增減動畫與損壞閃光的緩動（F34、F74 裁定：標準的 ease-out） */
+export const EASE_OUT = 'ease-out';
 
 /* ---------- 一條之內的格線 ---------- */
 
@@ -287,6 +295,11 @@ export function buildStatusBarCss(
   return css.toString();
 }
 
+/**
+ * 只加在預覽裡的 CSS（匯出的 CSS 不含）：關掉 CCFOLIA 先攻徽章原本的轉場，方便量測與截圖（F25 裁定）。
+ */
+export const PREVIEW_ONLY_CSS = `\n/* 預覽專用（匯出的 CSS 不含）：先攻徽章不播 CCFOLIA 原本的轉場 */\n${P.badge} { transition: none !important; }\n`;
+
 /* ---------- F108 頁面清理、整體 ---------- */
 
 function pageRules(css: CssSheet, s: Settings): void {
@@ -365,7 +378,8 @@ function frameRules(css: CssSheet, s: Settings): void {
   const decls: Record<string, string | number> = {
     content: '""',
     position: 'absolute',
-    inset: px(-(f.gap + frameBoxInset(s))),
+    /* 線的外緣離內容「間距」px，線往內畫（F76 裁定）；來源大小照舊（rootMargin） */
+    inset: px(-f.gap),
     'box-sizing': 'border-box',
     'pointer-events': 'none',
     'z-index': 5,
@@ -408,6 +422,9 @@ function frameRules(css: CssSheet, s: Settings): void {
 
 /* ---------- F53～F61 角色名稱 ---------- */
 
+/** 名稱底板的內距（上下、左右） */
+const PLATE_PAD = { y: '0.4em', x: '0.7em' } as const;
+
 function nameRules(css: CssSheet, s: Settings, g: BarGeometry): void {
   const n = s.name;
   const accent = n.accentUseChar ? 'var(--tk-color)' : solidHex(n.accent);
@@ -431,12 +448,9 @@ function nameRules(css: CssSheet, s: Settings, g: BarGeometry): void {
     flex: 'none',
     'text-align': n.align,
   };
-  /* 外觀（規格 3.3.7） */
+  /* 外觀（規格 3.3.7）；底板永遠是單線：雙線外框只套在條本體（F29 裁定） */
   const bw = s.border.width;
-  const plateBorder =
-    bw > 0
-      ? `${px(s.border.double ? Math.max(3, 3 * bw) : bw)} ${s.border.double ? 'double' : 'solid'} ${rgba(s.border.color)}`
-      : 0;
+  const plateBorder = bw > 0 ? `${px(bw)} solid ${rgba(s.border.color)}` : 0;
   const plateRadius =
     s.shape === 'pill' ? '999px' : s.shape === 'round' ? px(Math.min(12, s.radius)) : 0;
   const look: Record<string, string | number> = {};
@@ -444,7 +458,7 @@ function nameRules(css: CssSheet, s: Settings, g: BarGeometry): void {
     case 'plate':
       Object.assign(look, {
         'background-color': rgba(n.background),
-        padding: '0.4em 0.7em',
+        padding: `${PLATE_PAD.y} ${PLATE_PAD.x}`,
         border: plateBorder,
         'border-radius': plateRadius,
         'text-shadow': softDown,
@@ -490,14 +504,17 @@ function nameRules(css: CssSheet, s: Settings, g: BarGeometry): void {
     n.align === 'center' ? 'center' : n.align === 'right' ? 'flex-end' : 'flex-start';
 
   if (n.pos === 'avatar') {
-    const t = s.avatar.borderWidth;
-    const r = Math.max(0, s.avatar.radius - t);
+    /*
+     * 名稱框貼齊頭像的外緣（含外框；F53 裁定，同舊版），下方兩角配合頭像的圓角。
+     * 「只有文字」「底線」改成漸層底，上方內距約 0.9 字，左右與下方保留和底板相同的內距。
+     */
+    const r = Math.max(0, s.avatar.radius);
     const fade =
       n.look === 'text' || n.look === 'underline'
         ? {
             'background-color': 'transparent',
             'background-image': `linear-gradient(to bottom, ${rgba(n.background, 0)}, ${rgba(solidHex(n.background), Math.max(0.6, rgbaAlpha(n.background)))})`,
-            'padding-top': '0.9em',
+            padding: `0.9em ${PLATE_PAD.x} ${PLATE_PAD.y}`,
           }
         : {};
     rule(css, `${P.avatar}::after`, {
@@ -505,9 +522,9 @@ function nameRules(css: CssSheet, s: Settings, g: BarGeometry): void {
       ...look,
       ...fade,
       position: 'absolute',
-      left: px(t),
-      right: px(t),
-      bottom: px(t),
+      left: 0,
+      right: 0,
+      bottom: 0,
       'z-index': 2,
       'text-align': 'center',
       'border-radius': `0 0 ${px(r)} ${px(r)}`,
@@ -622,7 +639,8 @@ function avatarRules(css: CssSheet, s: Settings): void {
       'box-sizing': 'border-box',
       border: `${px(t)} solid ${a.borderUseChar ? 'var(--tk-color)' : solidHex(a.borderColor)}`,
       'border-radius': 'inherit',
-      opacity: num(rgbaAlpha(a.borderColor), 3),
+      /* 改用角色顏色時完全不透明（隱藏的濃度欄不作用；F22 裁定） */
+      opacity: a.borderUseChar ? 1 : num(rgbaAlpha(a.borderColor), 3),
       'pointer-events': 'none',
       'z-index': 1,
     });
@@ -681,8 +699,8 @@ function avatarRules(css: CssSheet, s: Settings): void {
     color: ini.color,
     'background-color': ini.background,
     'box-shadow': `0 1px 3px ${rgba('#000000', 0.45)}`,
+    /* CCFOLIA 原本的轉場不關掉（F25 裁定；預覽另外關掉，見 PREVIEW_ONLY_CSS） */
     transform: 'none',
-    transition: 'none',
     'z-index': 3,
   });
   rule(css, `${P.badge}.${P.badgeInvisibleClass}`, { display: 'none' });
@@ -740,9 +758,12 @@ function groupRules(css: CssSheet, s: Settings, g: BarGeometry): void {
 
 /* ---------- 一條（所有條共用的部分） ---------- */
 
-function clipDecls(s: Settings, g: BarGeometry): Record<string, string> {
+/**
+ * 依輪廓裁切；segmented 時再加上分段的遮罩。分段只切底槽與填充，外框、光澤、掃描線、裂痕等覆蓋層維持整條連續（F33 裁定）。
+ */
+function clipDecls(s: Settings, g: BarGeometry, segmented = true): Record<string, string> {
   const path = shapePath(s.shape, g.bodyLen, g.bodyH, s);
-  const segW = segmentWidth(g.bodyLen, s.segments, s.segmentGap);
+  const segW = segmented ? segmentWidth(g.bodyLen, s.segments, s.segmentGap) : null;
   const mask =
     segW !== null
       ? `repeating-linear-gradient(to right, #000 0px, #000 ${px(segW, 3)}, transparent ${px(segW, 3)}, transparent ${px(segW + s.segmentGap, 3)})`
@@ -942,7 +963,7 @@ function barRules(css: CssSheet, s: Settings, g: BarGeometry): void {
     'border-radius': 0,
     overflow: 'hidden',
     ...clip,
-    transition: s.speed > 0 ? `width ${sec(s.speed, 2)} cubic-bezier(0, 0, 0.2, 1)` : 'none',
+    transition: s.speed > 0 ? `width ${sec(s.speed, 2)} ${EASE_OUT}` : 'none',
     'background-size': 'auto',
     'background-repeat': 'repeat',
     'background-position': '0 0',
@@ -962,7 +983,7 @@ function barRules(css: CssSheet, s: Settings, g: BarGeometry): void {
       height: '100%',
       'z-index': 1,
       'pointer-events': 'none',
-      ...clip,
+      ...clipDecls(s, g, false),
       ...layerDecls(layers),
     });
 
@@ -994,7 +1015,8 @@ function barRules(css: CssSheet, s: Settings, g: BarGeometry): void {
       left: 0,
       width: px(W),
       height: '100%',
-      'background-image': `linear-gradient(105deg, ${rgba('#ffffff', 0)} 0%, ${rgba('#ffffff', a)} 50%, ${rgba('#ffffff', 0)} 100%)`,
+      /* 光帶約 100°，15% 起由透明漸亮、50% 最亮、85% 回到透明（中央窄而亮；F80 裁定） */
+      'background-image': `linear-gradient(${SWEEP.angle}deg, ${rgba('#ffffff', 0)} ${SWEEP.from}%, ${rgba('#ffffff', a)} 50%, ${rgba('#ffffff', 0)} ${SWEEP.to}%)`,
       transform: `translateX(${px(-W)})`,
       animation: `${kf} ${sec(s.sweep.interval, 2)} linear infinite`,
       'pointer-events': 'none',
@@ -1261,6 +1283,9 @@ function zeroRules(css: CssSheet, s: Settings): void {
 
 /* ---------- F71 裂痕、F74 損壞瞬間發光 ---------- */
 
+/** 流動光線的輪廓（F80） */
+export const SWEEP = { angle: 100, from: 15, to: 85 } as const;
+
 /** 裂痕的階段：剩餘比例 < 75%、< 50%、< 25%、＝ 0% */
 export const CRACK_STAGES = [75, 50, 25, 0] as const;
 
@@ -1285,17 +1310,13 @@ function crackRules(css: CssSheet, s: Settings, g: BarGeometry): void {
   const flash = s.damageFlash;
   const bars = withinCount(s);
   const overlay = `${rel('track')}::before`;
-  if (flash)
-    rule(css, `${bars} ${overlay}`, {
-      animation: `${css.keyframes('tk-hit-0', HIT)} 0.6s cubic-bezier(0, 0, 0.2, 1) both`,
-    });
+  /* 完好的條不閃：開頁時、數值回升到完好時都不閃；只有進入「有損壞」的階段才閃（F74 裁定） */
   CRACK_STAGES.forEach((t, i) => {
     const stage = i + 1;
     const cond = t === 0 ? `:where(${FILL_ZERO})` : fillBelowWhere(t);
     if (!cond) return;
     const decls: Record<string, string> = layerDecls(overlayLayers(s, g, stage));
-    if (flash)
-      decls.animation = `${css.keyframes(`tk-hit-${stage}`, HIT)} 0.6s cubic-bezier(0, 0, 0.2, 1) both`;
+    if (flash) decls.animation = `${css.keyframes(`tk-hit-${stage}`, HIT)} 0.6s ${EASE_OUT} both`;
     rule(css, `${bars}${barHasFill(cond)} ${overlay}`, decls);
   });
 }
@@ -1350,9 +1371,8 @@ function itemRules(css: CssSheet, s: Settings, g: BarGeometry): void {
     'background-position': positions.join(', '),
     'transform-origin': 'center',
     'pointer-events': 'none',
-    animation: flash
-      ? `${css.keyframes('tk-pop-full', POP)} 0.5s cubic-bezier(0, 0, 0.2, 1) both`
-      : 'none',
+    /* 完好（全部道具都在）時不閃，只有進入損壞階段才閃（F74 裁定） */
+    animation: 'none',
   });
   for (let n = 1; n <= s.barCount; n++) {
     const b = s.bars[n - 1];
@@ -1365,8 +1385,7 @@ function itemRules(css: CssSheet, s: Settings, g: BarGeometry): void {
     const cond = q === 0 ? `:where(${FILL_ZERO})` : fillBelowWhere(threshold, true);
     if (!cond) continue;
     const decls: Record<string, string | number> = { '--tk-q': q };
-    if (flash)
-      decls.animation = `${css.keyframes(`tk-pop-${q}`, POP)} 0.5s cubic-bezier(0, 0, 0.2, 1) both`;
+    if (flash) decls.animation = `${css.keyframes(`tk-pop-${q}`, POP)} 0.5s ${EASE_OUT} both`;
     rule(css, `${bars}${barHasFill(cond)}${pseudo}`, decls);
   }
 }

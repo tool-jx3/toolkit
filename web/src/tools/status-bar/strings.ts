@@ -501,8 +501,8 @@ export const S = {
     opened: (name: string) => `已開啟專案檔「${name}」。`,
     reset: '已全部重來。',
   },
-  undo: '復原（Ctrl＋Z）',
-  redo: '重做（Ctrl＋Shift＋Z）',
+  undo: '復原',
+  redo: '重做',
   resetAll: '全部重來',
   resetConfirm: {
     title: '全部重來？',

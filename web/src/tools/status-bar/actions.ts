@@ -4,7 +4,7 @@
  */
 import { copyText } from '@/core/files';
 import type { CssPreviewFrameHandle } from '@/ui';
-import { buildStatusBarCss, type CssTarget } from './css';
+import { buildStatusBarCss, type CssTarget, PREVIEW_ONLY_CSS } from './css';
 import { type Box, estimateSourceSize } from './geometry';
 import { characterSourceUrl, cssTargetFor } from './logic';
 import { type Character, type Settings, TEN_CHAR_NAME } from './settings';
@@ -22,9 +22,9 @@ export function registerFrame(h: CssPreviewFrameHandle | null): void {
 export const templateNameOf = (s: Settings): string | null =>
   templateById(s.templateId)?.name ?? null;
 
-/** 預覽與量測用的 CSS（開頭說明不寫來源大小） */
+/** 預覽與量測用的 CSS（開頭說明不寫來源大小；最後加上預覽專用的規則，見 PREVIEW_ONLY_CSS） */
 export function previewCss(s: Settings, target: CssTarget): string {
-  return buildStatusBarCss(s, target, { templateName: templateNameOf(s) });
+  return buildStatusBarCss(s, target, { templateName: templateNameOf(s) }) + PREVIEW_ONLY_CSS;
 }
 
 /** 匯出用的完整 CSS（開頭說明寫入來源大小） */
