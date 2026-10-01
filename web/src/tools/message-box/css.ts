@@ -274,6 +274,7 @@ export function buildMessageBoxCss(s: MbSettings, opts: BuildOptions = {}): stri
     });
 
   /* ---------- 骰子圖（F49、F50、F73） ---------- */
+  /* 方框有外框時，距離從外框的內緣量起（絕對定位本來就以內緣為基準） */
   css.comment('骰子圖');
   if (s.showDice) {
     const above = plate ? Math.round(LOOK.diceGapPlate * s.nameSize) : LOOK.diceGap;
@@ -281,13 +282,13 @@ export function buildMessageBoxCss(s: MbSettings, opts: BuildOptions = {}): stri
     css.rule(M.dice, {
       position: 'absolute',
       top: 'auto',
-      bottom: calcPx('100%', B + above),
-      left: onLeft ? px(LOOK.diceSideInset - B) : 'auto',
-      right: onLeft ? 'auto' : px(LOOK.diceSideInset - B),
+      bottom: calcPx('100%', above),
+      left: onLeft ? px(LOOK.diceSideInset) : 'auto',
+      right: onLeft ? 'auto' : px(LOOK.diceSideInset),
       margin: 0,
       padding: 0,
       width: 'auto',
-      'max-width': calcPx('100%', 2 * B - 2 * LOOK.diceSideInset),
+      'max-width': calcPx('100%', -2 * LOOK.diceSideInset),
       display: 'flex',
       'flex-wrap': 'wrap-reverse',
       'justify-content': 'center',
@@ -322,13 +323,14 @@ export function buildMessageBoxCss(s: MbSettings, opts: BuildOptions = {}): stri
     'box-sizing': 'border-box',
   };
   if (mode === 'plate') {
+    /* 名牌的左右距離與沉入量都從方框外框的內緣量起 */
     const sink = plateSink(s);
     css.rule(M.toolbar, {
       position: 'absolute',
       top: 'auto',
-      left: px(s.plateInset - B),
-      right: px(s.plateInset - B),
-      bottom: calcPx('100%', B - sink),
+      left: px(s.plateInset),
+      right: px(s.plateInset),
+      bottom: calcPx('100%', -sink),
       display: 'flex',
       'flex-wrap': 'nowrap',
       'align-items': 'flex-end',
@@ -528,8 +530,9 @@ export function buildMessageBoxCss(s: MbSettings, opts: BuildOptions = {}): stri
     margin: 0,
     padding: 0,
     'white-space': 'pre-wrap',
+    /* 英文在空白處換行，只有整行放不下的長字才切開（中文照常逐字換行） */
     'overflow-wrap': 'anywhere',
-    'word-break': 'break-all',
+    'word-break': 'normal',
     'text-shadow': outline,
     background: 'none',
   });

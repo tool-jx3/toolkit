@@ -457,8 +457,9 @@ test.describe('訊息框產生器', () => {
       mimeType: 'application/json',
       buffer: readFileSync(path),
     });
-    await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
+    /* 比照舊版不多跳確認（F79 裁定） */
     await expect(page.getByTestId('css-preview-size')).toContainText('寬 1920 × 高 1080');
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
     await expect(status(page)).toContainText('已開啟專案檔「messagebox.messagebox.json」');
     expect(await api(page, (a) => a.history())).toBe(0);
     await expect(page.getByRole('button', { name: /^復原/ })).toBeDisabled();
@@ -476,7 +477,6 @@ test.describe('訊息框產生器', () => {
         JSON.stringify({ ...json, data: { settings: { width: 99999, lines: 10, template: 'x' } } }),
       ),
     });
-    await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
     await expect(page.getByTestId('css-preview-size')).toContainText('寬 3840 × 高 720');
     expect(await api(page, (a) => [a.settings().lines, a.settings().template])).toEqual([8, null]);
 
@@ -531,6 +531,210 @@ test.describe('訊息框產生器', () => {
     );
     await expect(page.getByTestId('local-font-warning')).toContainText('測試字型');
     expect(await api(page, (a) => a.css())).toContain('電腦字型：測試字型');
+    expect(errors).toEqual([]);
+  });
+
+  test('Mac 上按鈕提示的快捷鍵顯示 ⌘，⌘＋Z／⌘＋Y 可以復原重做（F76）', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' });
+      Object.defineProperty(navigator, 'userAgentData', { get: () => ({ platform: 'macOS' }) });
+    });
+    const errors = await open(page);
+    await expect(page.getByRole('button', { name: '復原（⌘Z）' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '重做（⌘Y）' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: /Ctrl/ })).toHaveCount(0);
+    await page.getByRole('button', { name: '1920×1080' }).click();
+    await page.locator('body').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press('Meta+z');
+    await expect(page.getByTestId('css-preview-size')).toContainText('寬 1280 × 高 720');
+    await page.keyboard.press('Meta+y');
+    await expect(page.getByTestId('css-preview-size')).toContainText('寬 1920 × 高 1080');
+    expect(errors).toEqual([]);
+  });
+
+  test('長文範例在預設寬度下超過內文高度，看得到自動捲動（F60）', async ({ page }) => {
+    const errors = await open(page);
+    await waitShown(page);
+    await api(page, (a) => a.scene.setInstant(true));
+    await page.getByRole('button', { name: '長文' }).click();
+    await expect(frame(page).locator(`${BOX} > .MuiToolbar-root > h6`)).toHaveText('主持人');
+    const body = await page.evaluate((sel) => {
+      const doc = (document.querySelector('iframe[title="OBS 預覽"]') as HTMLIFrameElement)
+        .contentDocument!;
+      const el = doc.querySelector(sel) as HTMLElement;
+      return { scroll: el.scrollHeight, client: el.clientHeight, top: el.scrollTop };
+    }, `${BOX} > div:last-child`);
+    expect(body.scroll).toBeGreaterThan(body.client + 20);
+    expect(body.top).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('英文內文在空白處換行，只有整行放不下的長字才切開（F35）', async ({ page }) => {
+    const errors = await open(page);
+    await waitShown(page);
+    await api(page, (a) => {
+      a.scene.setInstant(true);
+      a.set({ maxWidth: 420, lines: 8 });
+    });
+    const input = page.getByRole('textbox', { name: '測試訊息' });
+    const text =
+      'The lantern flickered twice before the extraordinarily patient librarian finally answered the door';
+    await input.fill(text);
+    await input.press('Enter');
+    await expect(frame(page).locator(`${BOX} > div:last-child > p`)).toHaveText(text);
+    const breaks = await page.evaluate((sel) => {
+      const doc = (document.querySelector('iframe[title="OBS 預覽"]') as HTMLIFrameElement)
+        .contentDocument!;
+      const p = doc.querySelector(sel)!;
+      const node = p.firstChild as Text;
+      const s = node.data;
+      const out: string[] = [];
+      let prev = -1;
+      for (let i = 0; i < s.length; i++) {
+        if (s[i] === ' ') continue;
+        const r = doc.createRange();
+        r.setStart(node, i);
+        r.setEnd(node, i + 1);
+        const top = Math.round(r.getBoundingClientRect().top);
+        if (prev >= 0 && top > prev + 2) out.push(s.slice(Math.max(0, i - 1), i + 1));
+        prev = top;
+      }
+      return out;
+    }, `${BOX} > div:last-child > p`);
+    /* 有換行，而且每一行都從單字開頭換（換行前一個字元是空白） */
+    expect(breaks.length).toBeGreaterThan(0);
+    for (const b of breaks) expect(b.startsWith(' '), b).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  test('方框有外框時，名牌與骰子圖的位置從外框的內緣量起（F26、F27）', async ({ page }) => {
+    const errors = await open(page);
+    await waitShown(page);
+    await api(page, (a) => {
+      a.scene.setInstant(true);
+      a.set({
+        borderWidth: 4,
+        namePos: 'plate',
+        nameSize: 15,
+        plateInset: 16,
+        plateLift: 0,
+        showDice: true,
+        showPortrait: false,
+      });
+    });
+    await page.getByRole('button', { name: '骰子成功' }).click();
+    await expect(frame(page).locator(`${BOX} > div:first-child > img`)).toHaveCount(2);
+    const measure = () =>
+      page.evaluate(
+        ([box, toolbar, dice]) => {
+          const doc = (document.querySelector('iframe[title="OBS 預覽"]') as HTMLIFrameElement)
+            .contentDocument!;
+          const r = (s: string) => doc.querySelector(s)!.getBoundingClientRect();
+          const b = r(box);
+          const t = r(toolbar);
+          const d = r(dice);
+          return {
+            plateLeft: Math.round(t.left - b.left),
+            plateRight: Math.round(b.right - t.right),
+            plateSink: Math.round(t.bottom - b.top),
+            diceRight: Math.round(b.right - d.right),
+            diceAbove: Math.round(b.top - d.bottom),
+          };
+        },
+        [BOX, `${BOX} > .MuiToolbar-root`, `${BOX} > div:first-child`] as const,
+      );
+    /*
+     * 外框 4：名牌離內緣 16（外緣 20）、底邊在內緣下 11（外緣下 15）；
+     * 骰子圖離內緣 16（外緣 20），名牌模式時在內緣之上 round(1.9 × 15)＝29（外緣之上 25）
+     */
+    expect(await measure()).toEqual({
+      plateLeft: 20,
+      plateRight: 20,
+      plateSink: 15,
+      diceRight: 20,
+      diceAbove: 25,
+    });
+    /* 名稱在方框內：骰子圖在內緣之上 4（＝外緣上 0） */
+    await api(page, (a) => a.set({ namePos: 'inside' }));
+    await expect.poll(async () => (await measure()).diceAbove).toBe(0);
+    expect((await measure()).diceRight).toBe(20);
+    expect(errors).toEqual([]);
+  });
+
+  test('舊紙質感：暗角對照舊版量測，方框平均色差 ±4（F11）', async ({ page }) => {
+    await page.setViewportSize({ width: 1700, height: 1000 });
+    const errors = await open(page);
+    await waitShown(page);
+    await api(page, (a) => {
+      a.scene.setInstant(true);
+      a.set({
+        width: 1000,
+        height: 540,
+        texture: 'paper',
+        boxColor: '#efe4cb',
+        boxOpacity: 100,
+        radius: 0,
+        shadow: 0,
+        borderWidth: 0,
+        brackets: false,
+        showPortrait: false,
+        showDice: false,
+        buttons: 'never',
+        entrance: 'instant',
+      });
+    });
+    await page.evaluate((box) => {
+      const doc = (document.querySelector('iframe[title="OBS 預覽"]') as HTMLIFrameElement)
+        .contentDocument!;
+      const st = doc.createElement('style');
+      st.textContent = `${box} * { color: transparent !important; -webkit-text-fill-color: transparent !important; text-shadow: none !important; }`;
+      doc.head.appendChild(st);
+    }, BOX);
+    await page.waitForTimeout(300);
+    const shot = await frame(page).locator(BOX).screenshot();
+    const m = await page.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const ctx = c.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, img.width, img.height).data;
+      const avg = (x0: number, y0: number, x1: number, y1: number) => {
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let n = 0;
+        for (let y = y0; y < y1; y++)
+          for (let x = x0; x < x1; x++) {
+            const i = (y * img.width + x) * 4;
+            r += d[i];
+            g += d[i + 1];
+            b += d[i + 2];
+            n++;
+          }
+        return [r / n, g / n, b / n];
+      };
+      const w = img.width;
+      const h = img.height;
+      return {
+        size: [w, h],
+        mean: avg(0, 0, w, h),
+        center: avg(w / 2 - 6, Math.round(h / 2) - 6, w / 2 + 6, Math.round(h / 2) + 6),
+        corner: avg(0, h - 12, 12, h),
+      };
+    }, shot.toString('base64'));
+    expect(m.size).toEqual([760, 130]);
+    /*
+     * 對等驗證時新版（修正前）比舊版亮 (4.6, 5.7, 6.1)；同一底色 #efe4cb 下修正前量到 (224.1, 213.3, 190.4)，
+     * 推得舊版約 (219.5, 207.6, 184.3)，平均色差要在 ±4 以內。中央亮斑不變、四角明顯變暗。
+     */
+    for (const [i, v] of [219.5, 207.6, 184.3].entries())
+      expect(Math.abs(m.mean[i] - v)).toBeLessThanOrEqual(4);
+    expect(m.center[0]).toBeGreaterThan(225);
+    expect(m.corner[0]).toBeLessThan(195);
     expect(errors).toEqual([]);
   });
 

@@ -324,10 +324,13 @@ describe('名稱（F19～F28）', () => {
     const up = buildMessageBoxCss({ ...s, plateLift: 20, plateGap: 10 });
     expect(get(up, M.toolbar, 'bottom')).toBe('calc(100% + 9px)');
     expect(get(up, M.body, 'padding')).toBe('22px 24px 12px');
-    /* 方框外框 3 px：位置以方框外緣為準 */
+    /* 方框外框 3 px：從外框的內緣量起（F26、F27 裁定，同舊版）：左右＝名牌距離、底邊在內緣下沉入量 */
     const bordered = buildMessageBoxCss({ ...s, borderWidth: 3, plateInset: 30, plateBorder: 2 });
-    expect(get(bordered, M.toolbar, 'bottom')).toBe('calc(100% - 8px)');
-    expect(get(bordered, M.toolbar, 'left')).toBe('27px');
+    expect(get(bordered, M.toolbar, 'bottom')).toBe('calc(100% - 11px)');
+    expect(get(bordered, M.toolbar, 'left')).toBe('30px');
+    expect(get(bordered, M.toolbar, 'right')).toBe('30px');
+    /* 內文上內距照舊（沉入量從內緣算，所以不必再加外框） */
+    expect(get(bordered, M.body, 'padding')).toBe('23px 24px 12px');
     expect(get(bordered, M.name, 'border')).toBe('2px solid #ffffff');
     /* 名稱關閉時沒有名牌 */
     expect(toolbarMode({ ...s, showName: false })).toBe('inside');
@@ -404,7 +407,9 @@ describe('內文（F34～F38）', () => {
     expect(get(css, M.text, 'line-height')).toBe('1.85');
     expect(get(css, M.text, 'letter-spacing')).toBe('0.12em');
     expect(get(css, M.text, 'white-space')).toBe('pre-wrap');
-    expect(get(css, M.text, 'word-break')).toBe('break-all');
+    /* 英文在空白處換行，只有放不下的長字才切開（F35 裁定） */
+    expect(get(css, M.text, 'word-break')).toBe('normal');
+    expect(get(css, M.text, 'overflow-wrap')).toBe('anywhere');
     expect(get(css, M.body, 'height')).toBe(`${3 * 20 * 1.85 + 12}px`);
   });
 
@@ -479,9 +484,14 @@ describe('立繪與骰子圖（F41～F50、F73）', () => {
     expect(get(build({ portraitSide: 'right', showPortrait: false }), M.dice, 'right')).toBe(
       '16px',
     );
-    /* 方框外框：位置以外緣為準 */
-    expect(get(build({ borderWidth: 4 }), M.dice, 'bottom')).toBe('calc(100% + 8px)');
-    expect(get(build({ borderWidth: 4 }), M.dice, 'right')).toBe('12px');
+    /* 方框外框：從外框的內緣量起（F26、F27 裁定，同舊版：內緣之上 4 px、離內緣 16 px） */
+    expect(get(build({ borderWidth: 4 }), M.dice, 'bottom')).toBe('calc(100% + 4px)');
+    expect(get(build({ borderWidth: 4 }), M.dice, 'right')).toBe('16px');
+    expect(get(build({ borderWidth: 4 }), M.dice, 'max-width')).toBe('calc(100% - 32px)');
+    expect(get(build({ borderWidth: 4, portraitSide: 'right' }), M.dice, 'left')).toBe('16px');
+    expect(get(build({ borderWidth: 4, namePos: 'plate' }), M.dice, 'bottom')).toBe(
+      'calc(100% + 29px)',
+    );
     expect(get(build({ showDice: false }), M.dice, 'display')).toBe('none');
   });
 });

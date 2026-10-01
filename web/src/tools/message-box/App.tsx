@@ -19,6 +19,7 @@ import {
   Tabs,
   ToolShell,
   UsageSection,
+  withShortcut,
 } from '@/ui';
 import { buildMessageBoxCss } from './css';
 import { Preview } from './Preview';
@@ -186,13 +187,13 @@ export function App() {
       headerActions={
         <>
           <IconButton
-            label={`${S.undo}（Ctrl＋Z）`}
+            label={withShortcut(S.undo, 'mod+z')}
             icon={<Undo2 />}
             onClick={undo}
             disabled={!canUndo}
           />
           <IconButton
-            label={`${S.redo}（Ctrl＋Y）`}
+            label={withShortcut(S.redo, 'mod+y')}
             icon={<Redo2 />}
             onClick={redo}
             disabled={!canRedo}
@@ -231,6 +232,7 @@ export function App() {
             resetLabel={S.resetMenu}
             savedAt={savedAt}
             exactFileName={projectFileName(fileName)}
+            confirmOpen={false}
           />
         </>
       }

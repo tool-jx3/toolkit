@@ -313,6 +313,20 @@ describe('範例訊息（F60、F61、F64）', () => {
     }
   });
 
+  it('長文在預設寬度下超過內文高度（看得到自動捲動，F60 裁定）', () => {
+    /* 預設：方框寬 760、左右留白 24 → 內文寬 712 px；全形字約 1 字級＋字距寬 */
+    const d = DEFAULT_SETTINGS;
+    const textWidth = d.maxWidth - 2 * d.padX;
+    const perLine = Math.floor(textWidth / (d.textSize * (1 + d.letterSpacing)));
+    for (const s of SAMPLES.long) {
+      const lines = s.text
+        .split('\n')
+        .reduce((n, para) => n + Math.max(1, Math.ceil(Array.from(para).length / perLine)), 0);
+      /* 至少比內文高度多 2 行 */
+      expect(lines, s.text.slice(0, 10)).toBeGreaterThanOrEqual(d.lines + 2);
+    }
+  });
+
   it('每按一次換下一則（輪流）', () => {
     expect(sampleAt('chat', 0)).toBe(SAMPLES.chat[0]);
     expect(sampleAt('chat', 1)).toBe(SAMPLES.chat[1]);
