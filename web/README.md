@@ -62,7 +62,7 @@ web/
 
 ## 新增一個工具
 
-1. `src/registry.ts` 加一筆：`{ id, name, summary, group, status: 'next', inspiration: { name, url } }`（原創工具不填 inspiration）。
+1. `src/registry.ts` 加一筆：`{ id, name, summary, group, status: 'next', inspiration: { name, url } }`（原創工具不填 inspiration；出處不明、沒有網址時只填 name，頁尾只顯示名稱）。
 2. 建 `src/tools/<id>/`：複製 `_gallery/index.html`（改 `<title>`）與 `main.tsx`，寫 `App.tsx` 與 `strings.ts`。
 3. 用 `ToolShell` 當外框，設定面板用 `Tabs`／`Section`／`Field`＋控制項，預覽用 `Stage`（動畫加 `Transport`、`ExportPanel`）。
 4. 設定要自動存檔就用 `createToolStore('<id>', 預設值)`；規格寫「不保留狀態」就加 `{ persist: false }`。

@@ -24,6 +24,8 @@ export interface SliderProps {
   inputMax?: number;
   /** 拖曳結束、數字欄確定時呼叫 */
   onCommit?: (value: number) => void;
+  /** 螢幕閱讀器念出的數值（預設「數值＋單位」）；滑桿代表索引或代碼時用，例如 (i) => `${秒數[i]} 秒` */
+  valueText?: (value: number) => string;
   disabled?: boolean;
   id?: string;
   'aria-label'?: string;
@@ -43,6 +45,7 @@ export function Slider({
   inputMin,
   inputMax,
   onCommit,
+  valueText,
   disabled,
   className,
   ...rest
@@ -69,7 +72,9 @@ export function Slider({
           aria-label={rest['aria-label']}
           aria-labelledby={rest['aria-label'] ? undefined : field['aria-labelledby']}
           aria-describedby={field['aria-describedby']}
-          aria-valuetext={`${Number(value.toFixed(p))}${unit ? ` ${unit}` : ''}`}
+          aria-valuetext={
+            valueText ? valueText(value) : `${Number(value.toFixed(p))}${unit ? ` ${unit}` : ''}`
+          }
           className="block size-4 rounded-full border-2 border-accent bg-surface shadow-1 transition-transform hover:scale-110"
         />
       </S.Root>

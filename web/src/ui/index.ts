@@ -54,6 +54,7 @@ export { Field, type FieldProps, FieldRow, type FieldRowProps, useFieldControl }
 export { availableWeights, FontPicker, type FontPickerProps, WEIGHT_LABELS } from './FontPicker';
 export { GradientField, type GradientFieldProps } from './GradientField';
 export { GroupTabs } from './GroupTabs';
+export { HsvPanel, type HsvPanelProps, hsvToHex } from './HsvPanel';
 export {
   type DroppedImage,
   FileDrop,

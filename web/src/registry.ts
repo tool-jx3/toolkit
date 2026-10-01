@@ -15,8 +15,8 @@ export type GroupId = 'G1' | 'G2' | 'G3' | 'G4' | 'G5' | 'G6' | 'G7' | 'G8' | 'G
 export interface Inspiration {
   /** 顯示在頁尾「靈感來源：」後面的名稱 */
   name: string;
-  /** 連結（原作網址） */
-  url: string;
+  /** 連結（原作網址）；出處不明、沒有網址時不填，頁尾只顯示名稱 */
+  url?: string;
 }
 
 export interface ToolEntry {
@@ -70,6 +70,27 @@ export const TOOLS: readonly ToolEntry[] = [
     inspiration: {
       name: 'woolwag3338/character-image-size',
       url: 'https://github.com/woolwag3338/character-image-size',
+    },
+  },
+  {
+    id: 'apng-wipe',
+    name: '輕量轉場 APNG 產生器',
+    summary:
+      '做出只有幾 KB 的單色轉場動畫：整片淡入淡出或從任一方向擦過去，透明背景、可直接拉伸成全畫面。',
+    group: 'G2',
+    status: 'next',
+    inspiration: { name: '出處不明的轉場 APNG 小工具' },
+  },
+  {
+    id: 'battlemap',
+    name: '戰鬥地圖產生器',
+    summary:
+      '一鍵產生俯視的地下城戰鬥地圖（22 × 16 格），有石砌地城、洞穴、墓室三種地形，可匯出 PNG 當 VTT 背景。',
+    group: 'G8',
+    status: 'next',
+    inspiration: {
+      name: 'usagineko7865-debug/battlemap-generator',
+      url: 'https://github.com/usagineko7865-debug/battlemap-generator',
     },
   },
 ];

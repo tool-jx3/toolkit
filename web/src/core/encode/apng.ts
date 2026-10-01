@@ -5,6 +5,7 @@
  * - 連續相同的影格合併成一格並延長顯示時間；減色後才變得相同的影格也會合併。
  * - 可加一張不屬於動畫的「預設圖」（不支援 APNG 的看圖程式顯示這張）。
  * - quantize 開啟時減成最多 256 色（含半透明，見 palette.ts）；關閉時為全彩 RGBA。
+ * - palette 給了固定調色盤時直接用它（不統計、不減色），像素必須是調色盤裡的顏色；完全透明的像素也保留原本的 RGB。
  *
  * 移植自 text-fx（本專案原創，MIT）的匯出流程，改成「一格一格餵進來」的串流介面。
  */
@@ -34,6 +35,12 @@ export interface ApngEncoderOptions {
   /** 減色時的色數上限（2～256，預設 256） */
   maxColors?: number;
   /**
+   * 固定調色盤（RGBA 平鋪，每色 4 位元組，1～256 色，不可重複）。給了就輸出調色盤 PNG、忽略 quantize／maxColors：
+   * 每個像素都必須與調色盤裡某一色完全相同（包含完全透明像素的 RGB），找不到時 addFrame 丟 RangeError。
+   * 適合「顏色事先知道」的輸出（例如單色＋256 階透明度），檔案小且顏色完全不變。
+   */
+  palette?: Uint8Array;
+  /**
    * 合併連續相同的影格（預設 true）。關掉時每次 addFrame 都存成一格
    * （相同的格只存 1×1 的範圍，檔案幾乎不變大；對等驗證需要和舊版影格數一致時使用）。
    */
@@ -59,8 +66,56 @@ export function apngDelay(count: number, fps: number): { num: number; den: numbe
   return { num: Math.min(65535, Math.round((count * 1000) / fps)), den: 1000 };
 }
 
+/** 固定調色盤：顏色（Uint32，0xAABBGGRR）→ 索引 */
+interface FixedPalette {
+  colors: Uint8Array;
+  index: Map<number, number>;
+}
+
+function fixedPalette(colors: Uint8Array): FixedPalette {
+  const n = colors.length / 4;
+  if (!Number.isInteger(n) || n < 1 || n > 256)
+    throw new RangeError('固定調色盤必須是 1～256 色的 RGBA（每色 4 位元組）');
+  const index = new Map<number, number>();
+  for (let i = 0; i < n; i++) {
+    const v =
+      (colors[i * 4] |
+        (colors[i * 4 + 1] << 8) |
+        (colors[i * 4 + 2] << 16) |
+        (colors[i * 4 + 3] << 24)) >>>
+      0;
+    if (index.has(v)) throw new RangeError('固定調色盤裡有重複的顏色');
+    index.set(v, i);
+  }
+  return { colors: new Uint8Array(colors), index };
+}
+
+/** 依固定調色盤把一塊像素換成索引 */
+function toIndices(px: Uint32Array, pal: FixedPalette): Uint8Array {
+  const out = new Uint8Array(px.length);
+  let lastV = -1;
+  let lastI = 0;
+  for (let k = 0; k < px.length; k++) {
+    const v = px[k];
+    if (v !== lastV) {
+      const i = pal.index.get(v);
+      if (i === undefined) {
+        const hex = [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, v >>> 24]
+          .map((c) => c.toString(16).padStart(2, '0'))
+          .join('');
+        throw new RangeError(`像素顏色 #${hex} 不在固定調色盤裡`);
+      }
+      lastV = v;
+      lastI = i;
+    }
+    out[k] = lastI;
+  }
+  return out;
+}
+
 export class ApngEncoder implements FrameEncoder {
-  private readonly opt: Required<ApngEncoderOptions>;
+  private readonly opt: Required<Omit<ApngEncoderOptions, 'palette'>>;
+  private readonly fixed: FixedPalette | null;
   private prev: Uint32Array | null = null;
   private readonly stored: StoredFrame[] = [];
   private readonly changes: Change[] = [];
@@ -73,15 +128,17 @@ export class ApngEncoder implements FrameEncoder {
   constructor(options: ApngEncoderOptions) {
     if (!(options.width > 0 && options.height > 0)) throw new RangeError('寬高必須大於 0');
     if (!(options.fps > 0)) throw new RangeError('fps 必須大於 0');
+    const { palette, ...rest } = options;
     this.opt = {
       plays: 0,
       quantize: false,
       maxColors: 256,
       mergeIdentical: true,
       deflate: 'auto',
-      ...options,
+      ...rest,
     };
-    this.stats = this.opt.quantize ? new ColorStats(this.opt.maxColors) : null;
+    this.fixed = palette ? fixedPalette(palette) : null;
+    this.stats = this.opt.quantize && !this.fixed ? new ColorStats(this.opt.maxColors) : null;
   }
 
   /** 設定預設圖（不屬於動畫）。通常是動畫最具代表性的一格。 */
@@ -109,6 +166,13 @@ export class ApngEncoder implements FrameEncoder {
       return;
     }
     const px = copyRect(u32, W, r);
+    if (this.fixed) {
+      /* 固定調色盤：像素完全相同才算同一色，所以差分矩形與索引的差分一致，直接壓縮 */
+      const idx = toIndices(px, this.fixed);
+      const data = await packImage(idx, r.w, r.h, true, this.opt.deflate);
+      this.stored.push({ ...r, data, count: t });
+      return;
+    }
     if (this.stats) {
       this.stats.addRect(u32, W, r.x, r.y, r.x + r.w, r.y + r.h);
       this.changes.push({ r, px, count: t });
@@ -212,6 +276,11 @@ export class ApngEncoder implements FrameEncoder {
         for (let k = 0; k < idx.length; k++) idx[k] = idxOf(this.stillPx[k]);
         stillData = await packImage(idx, W, H, true, deflate);
       }
+    } else if (this.fixed) {
+      palette = this.fixed.colors;
+      colors = { lossless: true, count: this.fixed.colors.length / 4 };
+      if (this.stillPx)
+        stillData = await packImage(toIndices(this.stillPx, this.fixed), W, H, true, deflate);
     } else if (this.stillPx) {
       stillData = await packImage(new Uint8Array(this.stillPx.buffer), W, H, false, deflate);
     }
