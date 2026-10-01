@@ -192,6 +192,61 @@ export async function copyText(text: string): Promise<boolean> {
   return ok;
 }
 
+export type CopyImageFailure = 'unsupported' | 'denied' | 'encode' | 'failed';
+
+export type CopyImageResult =
+  | { ok: true }
+  | { ok: false; reason: CopyImageFailure; error?: unknown };
+
+/** 不是 PNG 的圖片先轉成 PNG（剪貼簿只保證支援 image/png） */
+async function toPngBlob(blob: Blob): Promise<Blob> {
+  if (blob.type === 'image/png') return blob;
+  const bmp = await createImageBitmap(blob);
+  const c = document.createElement('canvas');
+  c.width = bmp.width;
+  c.height = bmp.height;
+  c.getContext('2d')?.drawImage(bmp, 0, 0);
+  bmp.close?.();
+  return new Promise((resolve, reject) =>
+    c.toBlob((b) => (b ? resolve(b) : reject(new Error('無法轉成 PNG'))), 'image/png'),
+  );
+}
+
+/**
+ * 把圖片以 PNG 放進剪貼簿。內容可以是 Blob，或回傳 Blob 的 Promise（Safari 要在點擊當下就呼叫
+ * clipboard.write，所以耗時的產生工作請傳 Promise 進來，不要先 await）。
+ * 失敗時不丟錯，回傳原因：unsupported（瀏覽器不支援寫入圖片）、denied（沒有權限／不在使用者操作中）、
+ * encode（轉 PNG 失敗）、failed（其他）。失敗時建議提示使用者改用下載。
+ * ```ts
+ * const r = await copyImage(canvasToBlob(canvas));
+ * toast(r.ok ? { title: '已複製圖片' } : { title: '無法複製圖片，請改用「下載 PNG」', tone: 'warning' });
+ * ```
+ */
+export async function copyImage(source: Blob | Promise<Blob>): Promise<CopyImageResult> {
+  const clip = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
+  const Item = (globalThis as { ClipboardItem?: typeof ClipboardItem }).ClipboardItem;
+  if (!clip?.write || !Item) return { ok: false, reason: 'unsupported' };
+  let encodeError: unknown = null;
+  const png = Promise.resolve(source)
+    .then(toPngBlob)
+    .catch((e) => {
+      encodeError = e;
+      throw e;
+    });
+  try {
+    await clip.write([new Item({ 'image/png': png })]);
+    return { ok: true };
+  } catch (error) {
+    if (encodeError) return { ok: false, reason: 'encode', error: encodeError };
+    const name = (error as { name?: string } | null)?.name;
+    return {
+      ok: false,
+      reason: name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : 'failed',
+      error,
+    };
+  }
+}
+
 /* ---------- ZIP ---------- */
 
 export interface ZipEntry {
@@ -240,6 +295,12 @@ export interface SafeFileNameOptions {
   fallback?: string;
   /** 最多幾個字元（不含副檔名；以字元計，不切斷中文字） */
   maxLength?: number;
+  /**
+   * 底線模式（差分名、主名稱這類「接在檔名裡」的片段）：去掉頭尾空白 → 連續空白（含全形空白、換行）換成一個「_」
+   * → 刪掉 \ / : * ? " < > |（不是換成 _）→ 連續的「_」合併成一個 → 去掉頭尾的「_」。
+   * 例：「怒り/怒?」→「怒り怒」、「a  b__c_」→「a_b_c」、只有空白 → fallback。
+   */
+  underscore?: boolean;
 }
 
 /**
@@ -248,18 +309,28 @@ export interface SafeFileNameOptions {
  * - 連續空白合併，去掉頭尾的空白與「.」；
  * - 避開 Windows 保留名稱（CON、NUL、COM1…）；
  * - 中文、日文、韓文與 emoji 都保留。
+ * `underscore: true` 時改用底線模式（見 SafeFileNameOptions）。
  */
 export function safeFileName(
   name: string,
-  { fallback = 'untitled', maxLength = 80 }: SafeFileNameOptions = {},
+  { fallback = 'untitled', maxLength = 80, underscore = false }: SafeFileNameOptions = {},
 ): string {
-  let s = String(name ?? '')
-    .normalize('NFC')
-    .replace(/[\t\n\r\v\f]/g, ' ')
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: 檔名裡的控制字元必須移除
-    .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '_')
-    .replace(/\s+/g, ' ')
-    .replace(/^[\s.]+|[\s.]+$/g, '');
+  let s = underscore
+    ? String(name ?? '')
+        .normalize('NFC')
+        .trim()
+        .replace(/\s+/g, '_')
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: 檔名裡的控制字元必須移除
+        .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '')
+    : String(name ?? '')
+        .normalize('NFC')
+        .replace(/[\t\n\r\v\f]/g, ' ')
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: 檔名裡的控制字元必須移除
+        .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '_')
+        .replace(/\s+/g, ' ')
+        .replace(/^[\s.]+|[\s.]+$/g, '');
   const chars = Array.from(s);
   if (chars.length > maxLength)
     s = chars
@@ -276,6 +347,49 @@ export function splitExtension(fileName: string): { base: string; ext: string } 
   const i = fileName.lastIndexOf('.');
   if (i <= 0 || i === fileName.length - 1) return { base: fileName, ext: '' };
   return { base: fileName.slice(0, i), ext: fileName.slice(i + 1).toLowerCase() };
+}
+
+export interface UniqueFileNameOptions {
+  /** 序號前的分隔字元（預設「_」） */
+  separator?: string;
+  /** 第一個序號（預設 2：a.png、a_2.png、a_3.png…） */
+  start?: number;
+  /** 不分大小寫比對（Windows、macOS 的檔案系統不分大小寫；預設 true） */
+  ignoreCase?: boolean;
+}
+
+/**
+ * 不重複的檔名：name 沒被用過就原樣回傳；用過就在副檔名前加「_2」「_3」…，**加了之後再檢查**，直到不撞名。
+ * 回傳的名稱會加進 used（同一個 Set 連續呼叫即可）。
+ * ```ts
+ * const used = new Set<string>();
+ * ['a.png', 'a.png', 'a_2.png'].map((n) => uniqueFileName(n, used)); // a.png、a_2.png、a_2_2.png
+ * ```
+ */
+export function uniqueFileName(
+  name: string,
+  used: Set<string>,
+  { separator = '_', start = 2, ignoreCase = true }: UniqueFileNameOptions = {},
+): string {
+  const key = (s: string) => (ignoreCase ? s.toLowerCase() : s);
+  const taken = (s: string) => {
+    if (!ignoreCase) return used.has(s);
+    const k = key(s);
+    for (const u of used) if (key(u) === k) return true;
+    return false;
+  };
+  let out = name;
+  if (taken(out)) {
+    const i = name.lastIndexOf('.');
+    const base = i > 0 ? name.slice(0, i) : name;
+    const ext = i > 0 ? name.slice(i) : '';
+    for (let n = start; ; n++) {
+      out = `${base}${separator}${n}${ext}`;
+      if (!taken(out)) break;
+    }
+  }
+  used.add(out);
+  return out;
 }
 
 /** 安全檔名＋副檔名 */

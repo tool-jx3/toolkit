@@ -3,14 +3,16 @@
  */
 import { Tooltip } from 'radix-ui';
 import type { ReactNode } from 'react';
-import { ConfirmProvider } from './Dialog';
+import { ChoiceProvider, ConfirmProvider } from './Dialog';
 import { ToastProvider } from './Toast';
 
 export function UiProvider({ children }: { children: ReactNode }) {
   return (
     <Tooltip.Provider delayDuration={400} skipDelayDuration={200}>
       <ToastProvider>
-        <ConfirmProvider>{children}</ConfirmProvider>
+        <ConfirmProvider>
+          <ChoiceProvider>{children}</ChoiceProvider>
+        </ConfirmProvider>
       </ToastProvider>
     </Tooltip.Provider>
   );

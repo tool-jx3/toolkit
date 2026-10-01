@@ -544,6 +544,10 @@ export function resizeCrop(
   return clampCrop({ x: x0, y: y0, width, height }, bounds, aspect, minSize);
 }
 
+/* ---------- 立繪工作台（G3）：剪影效果、畫布小工具、依鮮豔度取主色 ---------- */
+export * from './draw';
+export * from './effects';
 /* ---------- 嵌入 CSS（data URI）與圖片儲存 ---------- */
 export * from './embed';
 export * from './store';
+export * from './vivid';

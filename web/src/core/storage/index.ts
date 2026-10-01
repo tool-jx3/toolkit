@@ -59,6 +59,13 @@ export interface ToolStoreOptions<T> {
   coalesceMs?: number;
   /** 自訂儲存位置（測試用） */
   storage?: StateStorage;
+  /**
+   * 只存一部分欄位（其餘欄位不寫進 localStorage，重新整理後回到初始值）：
+   * `partialize: (d) => ({ aspect: d.aspect, range: d.range })`。復原／重做仍涵蓋全部欄位。
+   */
+  partialize?: (data: T) => Partial<T>;
+  /** 寫入 localStorage 失敗（容量不足、被封鎖）時呼叫；不給也不會讓工具停擺（錯誤會被攔下） */
+  onPersistError?: (error: unknown) => void;
 }
 
 /* ---------- 自動存檔狀態 ---------- */
@@ -74,13 +81,31 @@ export function getSaveTime(toolId: string): number | null {
   return saveTimes.getState()[toolId] ?? null;
 }
 
-function trackingStorage(toolId: string, base: StateStorage): StateStorage {
+const saveErrors = create<Record<string, unknown>>(() => ({}));
+
+/** 某個工具最近一次自動存檔是否失敗（失敗時回傳錯誤，之後成功會清掉） */
+export function useSaveError(toolId: string): unknown {
+  return saveErrors((s) => s[toolId] ?? null);
+}
+
+function trackingStorage(
+  toolId: string,
+  base: StateStorage,
+  onError?: (error: unknown) => void,
+): StateStorage {
   return {
     getItem: (name) => base.getItem(name),
     setItem: (name, value) => {
-      const r = base.setItem(name, value);
-      saveTimes.setState({ [toolId]: Date.now() });
-      return r;
+      try {
+        const r = base.setItem(name, value);
+        saveTimes.setState({ [toolId]: Date.now() });
+        if (saveErrors.getState()[toolId]) saveErrors.setState({ [toolId]: null });
+        return r;
+      } catch (error) {
+        /* 容量不足或被封鎖：記下來（useSaveError）並通知，工具其餘功能照常 */
+        saveErrors.setState({ [toolId]: error });
+        onError?.(error);
+      }
     },
     removeItem: (name) => base.removeItem(name),
   };
@@ -172,9 +197,11 @@ export function createToolStore<T extends object>(
             name: storageKey,
             version,
             storage: createJSONStorage(() =>
-              trackingStorage(toolId, options.storage ?? defaultStorage()),
+              trackingStorage(toolId, options.storage ?? defaultStorage(), options.onPersistError),
             ),
-            partialize: (s) => ({ data: s.data }),
+            partialize: (s) => ({
+              data: options.partialize ? (options.partialize(s.data) as T) : s.data,
+            }),
             migrate: (persisted, from) => {
               const data = (persisted as Tracked<unknown> | undefined)?.data;
               return { data: migrate ? migrate(data, from) : mergeData(initial, data) } as never;

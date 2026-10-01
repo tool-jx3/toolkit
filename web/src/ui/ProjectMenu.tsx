@@ -1,18 +1,21 @@
 /**
- * 專案選單：存成專案檔（.json）、開啟專案檔、重設；旁邊顯示自動存檔狀態。
- * 檔名、重設的確認文字可以換；存檔／開啟的結果也會通知工具（onSaved、onLoad 的第三個參數、onLoadError），
- * 讓工具寫進自己的狀態列。
- * 專案檔格式見 core/storage/project.ts。
+ * 專案選單：存成專案檔（.json；有附加檔案時 .zip）、開啟專案檔、重設；旁邊顯示自動存檔狀態。
+ * 專案檔格式見 core/storage/project.ts（開啟時自動分辨 JSON 或 ZIP）。
+ * 檔名、確認與重設的文字可以換；存檔／開啟的結果也可以交給工具（onNotify、onSaved、onLoadError、
+ * onLoad 的第四個參數），讓工具寫進自己的狀態列。
  */
 import { ChevronDown, FolderOpen, RotateCcw, Save } from 'lucide-react';
 import { DropdownMenu } from 'radix-ui';
-import type { ReactNode } from 'react';
-import { downloadText, fileNameWithExt, pickFiles } from '@/core/files';
+import { type ReactNode, useState } from 'react';
+import { downloadBytes, downloadText, fileNameWithExt, pickFiles, readAsBytes } from '@/core/files';
 import {
+  type ParsedProject,
+  type ProjectBinary,
   type ProjectFile,
   ProjectFileError,
-  parseProject,
+  parseProjectBytes,
   serializeProject,
+  serializeProjectZip,
 } from '@/core/storage/project';
 import { buttonClass } from './Button';
 import { cn } from './cn';
@@ -36,29 +39,53 @@ export interface ProjectMenuProps<T> {
   version?: number;
   /** 取得要存的資料 */
   getData: () => T;
-  /** 開啟專案檔後套用（回傳 false 表示資料不合用，會顯示錯誤）；source 是使用者選的檔案（狀態列顯示檔名用） */
-  onLoad: (data: T, file: ProjectFile<T>, source: File) => unknown;
+  /**
+   * 開啟專案檔後套用（回傳 false 或丟錯表示資料不合用，會顯示錯誤；可以是 async）。
+   * files：ZIP 專案檔附帶的檔案（名稱 → 位元組；JSON 專案檔是空的）；source：使用者選的檔案（顯示檔名用）。
+   */
+  onLoad: (
+    data: T,
+    file: ProjectFile<T>,
+    files: Map<string, Uint8Array>,
+    source: File,
+  ) => unknown;
   onReset: () => void;
   /** 最後自動存檔時間（毫秒）；null 表示還沒存過 */
   savedAt?: number | null;
-  /** 專案檔名（不含副檔名，預設工具 id）；存檔時加上「_YYYYMMDD.json」 */
+  /** 專案檔名（不含副檔名，預設工具 id）；會接上「_YYYYMMDD」 */
   fileName?: string;
-  /** 完整檔名（含副檔名，例：`messagebox.message-box.json`）；給了就照用，不加日期 */
+  /** 自訂完整檔名（不含副檔名，例如 `height-board_20261001-1551`）；給了就不用 fileName 的規則 */
+  fileNameFor?: (now: Date) => string;
+  /** 完整檔名（含副檔名，例：`messagebox.message-box.json`）；給了就照用，不加日期、不改副檔名 */
   exactFileName?: string;
+  /** 完整檔名的函式版（含副檔名，例：`chatwindow.chatwindow.json`） */
+  saveFileName?: () => string;
+  /**
+   * 附加的二進位檔（圖片等）：有給時存成 ZIP（project.json＋files/…）。
+   * 例：`getFiles={() => assets.exportFiles(ids)}`
+   */
+  getFiles?: () => ProjectBinary[] | Promise<ProjectBinary[]>;
+  /** 存檔前檢查：回傳文字時不存，改顯示這段訊息（例如「還沒有角色」） */
+  beforeSave?: () => string | null | undefined;
+  /**
+   * 開啟前的確認：
+   * - 不給或 true：讀檔後詢問「目前的設定會被取代」（原本的行為）
+   * - false 或 null：不確認
+   * - ConfirmOptions 或函式：**在選檔之前**詢問（取消就不開選檔視窗），函式可以依目前狀態決定
+   */
+  confirmOpen?: boolean | ConfirmOptions | null | (() => ConfirmOptions | null);
+  /** 開啟成功後的通知（預設「已開啟專案檔」） */
+  openedMessage?: string;
+  /** 結果通知：給了就呼叫它，不顯示 toast（onSaved／onLoadError 仍會呼叫） */
+  onNotify?: (notice: ProjectNotice) => void;
   /** 存好專案檔之後（例如寫進工具自己的狀態列） */
   onSaved?: (fileName: string) => void;
   /** 開啟專案檔失敗時（訊息可直接顯示） */
   onLoadError?: (message: string) => void;
-  /** 重設的確認對話框（覆寫預設的標題、說明、按鈕文字；例如「全部重來」並清空復原紀錄時） */
+  /** 重設的確認對話框（覆寫預設的標題、說明、按鈕文字） */
   resetConfirm?: Partial<ConfirmOptions>;
   /** 選單上重設項目的文字（預設「重設…」） */
   resetLabel?: ReactNode;
-  /** 完整的存檔檔名（函式版；例：「chatwindow.chatwindow.json」）；給了就不加日期 */
-  saveFileName?: () => string;
-  /** 開啟專案檔前先確認（預設 true） */
-  confirmOpen?: boolean;
-  /** 結果通知：給了就呼叫它，不顯示 toast（onSaved／onLoadError 仍會呼叫） */
-  onNotify?: (notice: ProjectNotice) => void;
   /** 「重設」項目與確認對話框的文字（resetLabel／resetConfirm 的簡寫） */
   resetText?: { label?: string; title?: string; description?: string; confirmLabel?: string };
   /** 額外的選單項目 */
@@ -90,6 +117,8 @@ export function ProjectMenuItem({
 const time = (ms: number) =>
   new Date(ms).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
 export function ProjectMenu<T>({
   toolId,
   version = 1,
@@ -98,42 +127,85 @@ export function ProjectMenu<T>({
   onReset,
   savedAt,
   fileName,
+  fileNameFor,
+  getFiles,
+  beforeSave,
   exactFileName,
+  saveFileName,
+  confirmOpen,
+  openedMessage = '已開啟專案檔',
+  onNotify,
   onSaved,
   onLoadError,
   resetConfirm,
   resetLabel,
-  saveFileName,
-  confirmOpen = true,
-  onNotify,
   resetText,
   extraItems,
   className,
 }: ProjectMenuProps<T>) {
   const confirm = useConfirm();
   const toast = useToast();
+  const [busy, setBusy] = useState<'save' | 'open' | null>(null);
 
-  const save = () => {
+  const save = async () => {
+    const blocked = beforeSave?.();
+    if (blocked) {
+      toast({ title: blocked, tone: 'warning' });
+      return;
+    }
     const stamp = new Date();
-    const name =
-      exactFileName ??
-      saveFileName?.() ??
-      fileNameWithExt(
-        `${fileName ?? toolId}_${stamp.getFullYear()}${String(stamp.getMonth() + 1).padStart(2, '0')}${String(stamp.getDate()).padStart(2, '0')}`,
-        'json',
-      );
-    downloadText(serializeProject(toolId, version, getData(), stamp), name, 'application/json');
-    if (onNotify) onNotify({ kind: 'saved', tone: 'success', fileName: name });
-    else toast({ title: '已存成專案檔', description: name, tone: 'success' });
-    onSaved?.(name);
+    const exact = exactFileName ?? saveFileName?.();
+    const base =
+      fileNameFor?.(stamp) ??
+      `${fileName ?? toolId}_${stamp.getFullYear()}${pad2(stamp.getMonth() + 1)}${pad2(stamp.getDate())}`;
+    const done = (name: string) => {
+      if (onNotify) onNotify({ kind: 'saved', tone: 'success', fileName: name });
+      else toast({ title: '已存成專案檔', description: name, tone: 'success' });
+      onSaved?.(name);
+    };
+    try {
+      if (getFiles) {
+        setBusy('save');
+        const files = await getFiles();
+        const name = exact ?? fileNameWithExt(base, 'zip');
+        downloadBytes(
+          serializeProjectZip(toolId, version, getData(), files, stamp),
+          name,
+          'application/zip',
+        );
+        done(name);
+      } else {
+        const name = exact ?? fileNameWithExt(base, 'json');
+        downloadText(serializeProject(toolId, version, getData(), stamp), name, 'application/json');
+        done(name);
+      }
+    } catch (e) {
+      toast({
+        title: '無法存成專案檔',
+        description: e instanceof Error ? e.message : String(e),
+        tone: 'danger',
+      });
+    } finally {
+      setBusy(null);
+    }
   };
 
   const open = async () => {
-    const [file] = await pickFiles({ accept: '.json,application/json' });
+    const pre =
+      typeof confirmOpen === 'function'
+        ? confirmOpen()
+        : typeof confirmOpen === 'object'
+          ? confirmOpen
+          : null;
+    if (pre && !(await confirm(pre))) return;
+    const [file] = await pickFiles({
+      accept: getFiles ? '.zip,.json,application/zip,application/json' : '.json,application/json',
+    });
     if (!file) return;
+    setBusy('open');
     try {
-      const project = parseProject<T>(await file.text(), toolId);
-      if (confirmOpen) {
+      const project: ParsedProject<T> = parseProjectBytes<T>(await readAsBytes(file), toolId);
+      if (confirmOpen === undefined || confirmOpen === true) {
         const ok = await confirm({
           title: '開啟專案檔？',
           description: `目前的設定會被「${file.name}」取代。`,
@@ -141,15 +213,17 @@ export function ProjectMenu<T>({
         });
         if (!ok) return;
       }
-      if (onLoad(project.data, project, file) === false)
+      if ((await onLoad(project.data, project, project.files, file)) === false)
         throw new ProjectFileError('專案檔的內容無法使用。');
       if (onNotify) onNotify({ kind: 'opened', tone: 'success', fileName: file.name });
-      else toast({ title: '已開啟專案檔', description: file.name, tone: 'success' });
+      else toast({ title: openedMessage, description: file.name, tone: 'success' });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (onNotify) onNotify({ kind: 'open-failed', tone: 'danger', fileName: file.name, message });
       else toast({ title: '無法開啟專案檔', description: message, tone: 'danger' });
       onLoadError?.(message);
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -171,10 +245,20 @@ export function ProjectMenu<T>({
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <span role="status" className="hidden text-xs text-muted sm:inline">
-        {savedAt ? `已自動儲存（${time(savedAt)}）` : '設定會自動儲存'}
+        {busy === 'open'
+          ? '讀取專案檔中…'
+          : busy === 'save'
+            ? '準備專案檔中…'
+            : savedAt
+              ? `已自動儲存（${time(savedAt)}）`
+              : '設定會自動儲存'}
       </span>
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger className={buttonClass('secondary', 'sm')}>
+        <DropdownMenu.Trigger
+          className={buttonClass('secondary', 'sm')}
+          disabled={busy !== null}
+          aria-busy={busy !== null || undefined}
+        >
           專案
           <ChevronDown aria-hidden className="size-3.5" />
         </DropdownMenu.Trigger>

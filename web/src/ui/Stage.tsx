@@ -5,13 +5,24 @@
  *   <Stage width={512} height={512}><canvas ref={ref} width={512} height={512} className="block size-full" /></Stage>
  *
  * 鍵盤：工具列的按鈕；在舞台上 Ctrl＋滾輪縮放。
+ *
+ * 選填（G3 立繪工作台加的，不給時行為不變）：
+ * - `wheelZoom="plain"`：不按 Ctrl 的滾輪也縮放（頁面不捲動）；`wheelFactors` 每格的倍率；`zoomRange` 範圍；
+ *   `wheelLinear`：改成依滾動量加減（例如 0.5 ＝ 每 100 px 滾動量 ±50 個百分點）。
+ * - `zoomBase="fit"`：數字倍率以「符合畫面」為 100%（例如 20%～500%）。
+ * - `dragPan`：在空白處（或用中鍵）拖曳平移內容；`pan`／`onPanChange` 受控。
+ * - 疊在內容上的元件（LayoutEditor、CropFrame）用 `useStageScale()` 或 CSS 變數 `--stage-scale` 取得目前倍率。
  */
 import { ImagePlus, Maximize, Minus, Plus } from 'lucide-react';
 import {
   type CSSProperties,
+  createContext,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
+  useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -56,6 +67,45 @@ export interface StageProps {
   className?: string;
   /** 舞台區域的 class（例如改高度：h-[480px]） */
   viewportClassName?: string;
+  /** 滾輪縮放：'ctrl'（預設：按住 Ctrl／⌘ 才縮放）或 'plain'（直接滾就縮放，頁面不捲動） */
+  wheelZoom?: 'ctrl' | 'plain';
+  /** 滾輪一格的倍率 [往上（放大）, 往下（縮小）]（預設 [1.1, 1 ÷ 1.1]） */
+  wheelFactors?: readonly [number, number];
+  /** 滾輪改成依滾動量加減倍率：每 100 px 滾動量加減多少（例如 0.5 ＝ 50 個百分點）；給了就不用 wheelFactors */
+  wheelLinear?: number;
+  /** 縮放範圍（預設 [0.05, 8]；zoomBase 為 'fit' 時是相對倍率） */
+  zoomRange?: readonly [number, number];
+  /** 數字倍率的基準：'content'（預設，1＝原始尺寸）或 'fit'（1＝符合畫面，畫面顯示 100%） */
+  zoomBase?: 'content' | 'fit';
+  /** 在空白處按住拖曳（或中鍵拖曳）平移內容 */
+  dragPan?: boolean;
+  /** 平移量（螢幕 px；受控） */
+  pan?: StagePan;
+  onPanChange?: (pan: StagePan) => void;
+}
+
+export interface StagePan {
+  x: number;
+  y: number;
+}
+
+export interface StageView {
+  /** 目前實際的顯示倍率（螢幕 px ÷ 內容 px） */
+  scale: number;
+  width: number;
+  height: number;
+}
+
+const StageContext = createContext<StageView | null>(null);
+
+/** 疊在 Stage 內容上的元件取得目前倍率（控點、標籤要維持固定的螢幕大小時用）；不在 Stage 裡時是 1 */
+export function useStageScale(): number {
+  return useContext(StageContext)?.scale ?? 1;
+}
+
+/** 不在 Stage 裡時是 null */
+export function useStageView(): StageView | null {
+  return useContext(StageContext);
 }
 
 /** 背景選項（順序即工具列順序）。深＝純黑、淺＝純白，方便檢查透明部分 */
@@ -117,6 +167,14 @@ export function Stage({
   fitUpscale = false,
   className,
   viewportClassName,
+  wheelZoom = 'ctrl',
+  wheelFactors = [1.1, 1 / 1.1],
+  wheelLinear,
+  zoomRange = [0.05, 8],
+  zoomBase = 'content',
+  dragPan = false,
+  pan,
+  onPanChange,
   ...rest
 }: StageProps) {
   const [innerBg, setInnerBg] = useState<StageBackground>(defaultBackground);
@@ -147,19 +205,41 @@ export function Stage({
     ro.observe(el);
     return () => ro.disconnect();
   }, [width, height, fitUpscale]);
-  const scale = z === 'fit' ? fit : z;
+  const relative = zoomBase === 'fit';
+  /* 工具列與滾輪操作的倍率（zoomBase 'fit' 時是相對於符合畫面的倍率） */
+  const level = z === 'fit' ? (relative ? 1 : fit) : z;
+  const scale = relative ? level * fit : level;
+  const view = useMemo(() => ({ scale, width, height }), [scale, width, height]);
+  const [zMin, zMax] = zoomRange;
+  const clampZoom = (v: number) => Math.min(zMax, Math.max(zMin, v));
 
-  /* Ctrl＋滾輪縮放（要非被動監聽才能阻止頁面縮放） */
-  const zoomRef = useRef({ scale, setZoom });
-  zoomRef.current = { scale, setZoom };
+  const [innerPan, setInnerPan] = useState<StagePan>({ x: 0, y: 0 });
+  const p = pan ?? innerPan;
+  const setPan = (v: StagePan) => {
+    if (pan === undefined) setInnerPan(v);
+    onPanChange?.(v);
+  };
+
+  /* Ctrl＋滾輪縮放（要非被動監聽才能阻止頁面縮放）；wheelZoom="plain" 時不按 Ctrl 也縮放 */
+  const zoomRef = useRef({ level, setZoom, wheelZoom, wheelFactors, wheelLinear, clampZoom });
+  zoomRef.current = { level, setZoom, wheelZoom, wheelFactors, wheelLinear, clampZoom };
   useEffect(() => {
     const el = viewport.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
+      const r = zoomRef.current;
+      if (!e.ctrlKey && !e.metaKey && r.wheelZoom !== 'plain') return;
+      if (e.deltaY === 0) return;
       e.preventDefault();
-      const { scale: s, setZoom: set } = zoomRef.current;
-      set(Math.min(8, Math.max(0.05, Number((s * (e.deltaY < 0 ? 1.1 : 1 / 1.1)).toFixed(3)))));
+      if (r.wheelLinear) {
+        const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
+        r.setZoom(
+          r.clampZoom(Number((r.level - ((e.deltaY * unit) / 100) * r.wheelLinear).toFixed(4))),
+        );
+        return;
+      }
+      const f = e.deltaY < 0 ? r.wheelFactors[0] : r.wheelFactors[1];
+      r.setZoom(r.clampZoom(Number((r.level * f).toFixed(4))));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
@@ -168,9 +248,36 @@ export function Stage({
   const stepZoom = (dir: 1 | -1) => {
     const next =
       dir > 0
-        ? ZOOM_STEPS.find((s) => s > scale + 1e-3)
-        : [...ZOOM_STEPS].reverse().find((s) => s < scale - 1e-3);
-    setZoom(next ?? (dir > 0 ? 8 : 0.1));
+        ? ZOOM_STEPS.find((s) => s > level + 1e-3)
+        : [...ZOOM_STEPS].reverse().find((s) => s < level - 1e-3);
+    setZoom(clampZoom(next ?? (dir > 0 ? 8 : 0.1)));
+  };
+
+  /* 拖曳平移：子元素（裁切框、版面物件）在 pointerdown 時 stopPropagation 就不會觸發 */
+  const panDrag = useRef<{ id: number; x: number; y: number; start: StagePan } | null>(null);
+  const [panning, setPanning] = useState(false);
+  const onPanDown = (e: ReactPointerEvent<HTMLElement>) => {
+    if (!dragPan || (e.button !== 0 && e.button !== 1)) return;
+    const el = e.currentTarget;
+    /* 點在捲軸上時不平移 */
+    if (e.target === el) {
+      const r = el.getBoundingClientRect();
+      if (e.clientX - r.left > el.clientWidth || e.clientY - r.top > el.clientHeight) return;
+    }
+    if (e.button === 1) e.preventDefault();
+    panDrag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, start: p };
+    el.setPointerCapture?.(e.pointerId);
+    setPanning(true);
+  };
+  const onPanMove = (e: ReactPointerEvent<HTMLElement>) => {
+    const d = panDrag.current;
+    if (!d || d.id !== e.pointerId) return;
+    setPan({ x: d.start.x + e.clientX - d.x, y: d.start.y + e.clientY - d.y });
+  };
+  const onPanUp = (e: ReactPointerEvent<HTMLElement>) => {
+    if (panDrag.current?.id !== e.pointerId) return;
+    panDrag.current = null;
+    setPanning(false);
   };
 
   const fileInput = useRef<HTMLInputElement>(null);
@@ -244,11 +351,14 @@ export function Stage({
             <IconButton label="縮小" icon={<Minus />} size="sm" onClick={() => stepZoom(-1)} />
             <button
               type="button"
-              onClick={() => setZoom(1)}
-              aria-label={`目前縮放 ${Math.round(scale * 100)}%，按一下回到 100%`}
+              onClick={() => {
+                setZoom(1);
+                if (dragPan) setPan({ x: 0, y: 0 });
+              }}
+              aria-label={`目前縮放 ${Math.round(level * 100)}%，按一下回到 100%`}
               className="h-7 min-w-14 rounded-md px-1 text-xs tabular-nums text-muted hover:bg-surface-2 hover:text-fg"
             >
-              {Math.round(scale * 100)}%
+              {Math.round(level * 100)}%
             </button>
             <IconButton label="放大" icon={<Plus />} size="sm" onClick={() => stepZoom(1)} />
             <IconButton
@@ -256,7 +366,10 @@ export function Stage({
               icon={<Maximize />}
               size="sm"
               pressed={z === 'fit'}
-              onClick={() => setZoom('fit')}
+              onClick={() => {
+                setZoom('fit');
+                if (dragPan) setPan({ x: 0, y: 0 });
+              }}
             />
           </div>
         </div>
@@ -264,29 +377,43 @@ export function Stage({
       <section
         ref={viewport}
         aria-label={label}
+        data-zoom={Math.round(level * 100)}
         className={cn(
           'relative flex max-h-[min(60dvh,560px)] min-h-64 w-full overflow-auto p-3',
           look.className,
+          dragPan && 'touch-none',
+          dragPan && (panning ? 'cursor-grabbing select-none' : 'cursor-grab'),
           viewportClassName,
         )}
         /* 高度跟著內容比例（橫幅不會留一大塊空白），最高 60dvh／560px */
         style={{ aspectRatio: `${width} / ${height}`, ...look.style }}
+        onPointerDown={dragPan ? onPanDown : undefined}
+        onPointerMove={dragPan ? onPanMove : undefined}
+        onPointerUp={dragPan ? onPanUp : undefined}
+        onPointerCancel={dragPan ? onPanUp : undefined}
       >
         {/* m-auto：放得下時置中，放不下時從左上角開始捲動 */}
         <div
-          style={{ width: width * scale, height: height * scale }}
+          style={{
+            width: width * scale,
+            height: height * scale,
+            transform: p.x || p.y ? `translate(${p.x}px, ${p.y}px)` : undefined,
+          }}
           className="relative m-auto shrink-0"
         >
           <div
             className="absolute top-0 left-0 origin-top-left"
-            style={{
-              width,
-              height,
-              transform: `scale(${scale})`,
-              imageRendering: pixelated && scale > 1 ? 'pixelated' : undefined,
-            }}
+            style={
+              {
+                width,
+                height,
+                transform: `scale(${scale})`,
+                imageRendering: pixelated && scale > 1 ? 'pixelated' : undefined,
+                '--stage-scale': scale,
+              } as CSSProperties
+            }
           >
-            {children}
+            <StageContext.Provider value={view}>{children}</StageContext.Provider>
           </div>
         </div>
       </section>

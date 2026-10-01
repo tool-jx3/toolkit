@@ -234,3 +234,126 @@ export function useConfirm(): ConfirmFn {
   if (!fn) throw new Error('useConfirm 必須在 UiProvider（或 ToolShell）裡使用');
   return fn;
 }
+
+/* ---------- 多選一確認（例如「加入／取代／取消」） ---------- */
+
+export interface ChoiceOption<V extends string = string> {
+  value: V;
+  label: string;
+  /** 外觀（預設第一個 primary、其他 secondary）；會覆蓋或刪除資料的選項用 danger */
+  variant?: 'primary' | 'secondary' | 'danger';
+}
+
+export interface ChoiceOptions<V extends string = string> {
+  title: ReactNode;
+  description?: ReactNode;
+  /** 選項（由左到右；不含取消） */
+  choices: readonly ChoiceOption<V>[];
+  /** 取消按鈕的文字（預設「取消」）；按取消、Esc、點外面都回傳 null */
+  cancelLabel?: string;
+}
+
+export interface ChoiceDialogProps<V extends string = string> extends ChoiceOptions<V> {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChoose: (value: V | null) => void;
+}
+
+/** 多選一確認對話框（受控）。取消在最左邊，其他選項依序排在右邊。 */
+export function ChoiceDialog<V extends string = string>({
+  open,
+  onOpenChange,
+  onChoose,
+  title,
+  description,
+  choices,
+  cancelLabel = '取消',
+}: ChoiceDialogProps<V>) {
+  return (
+    <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className={overlayClass} />
+        <AlertDialog.Content className={contentClass('sm', 'p-4')}>
+          <AlertDialog.Title className="m-0 text-lg font-semibold">{title}</AlertDialog.Title>
+          {description ? (
+            <AlertDialog.Description className="m-0 mt-2 text-sm text-muted">
+              {description}
+            </AlertDialog.Description>
+          ) : (
+            <AlertDialog.Description className="sr-only">
+              {typeof title === 'string' ? title : '請選擇'}
+            </AlertDialog.Description>
+          )}
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <AlertDialog.Cancel asChild>
+              <Button onClick={() => onChoose(null)}>{cancelLabel}</Button>
+            </AlertDialog.Cancel>
+            {choices.map((c, i) => (
+              <AlertDialog.Action asChild key={c.value}>
+                <Button
+                  variant={c.variant ?? (i === 0 ? 'primary' : 'secondary')}
+                  onClick={() => onChoose(c.value)}
+                >
+                  {c.label}
+                </Button>
+              </AlertDialog.Action>
+            ))}
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
+  );
+}
+
+type ChoiceFn = <V extends string>(options: ChoiceOptions<V>) => Promise<V | null>;
+const ChoiceContext = createContext<ChoiceFn | null>(null);
+
+export function ChoiceProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<(ChoiceOptions<string> & { open: boolean }) | null>(null);
+  const resolver = useRef<((v: string | null) => void) | null>(null);
+  const choose = useCallback((options: ChoiceOptions<string>) => {
+    resolver.current?.(null);
+    setState({ ...options, open: true });
+    return new Promise<string | null>((resolve) => {
+      resolver.current = resolve;
+    });
+  }, []) as ChoiceFn;
+  const settle = (v: string | null) => {
+    resolver.current?.(v);
+    resolver.current = null;
+    setState((s) => (s ? { ...s, open: false } : s));
+  };
+  return (
+    <ChoiceContext.Provider value={choose}>
+      {children}
+      {state ? (
+        <ChoiceDialog
+          {...state}
+          open={state.open}
+          onOpenChange={(o) => {
+            if (!o) settle(null);
+          }}
+          onChoose={settle}
+        />
+      ) : null}
+    </ChoiceContext.Provider>
+  );
+}
+
+/**
+ * 多選一確認（三選一以上），以 Promise 回傳選到的值；取消、Esc、點外面回傳 null：
+ * ```ts
+ * const choose = useChoice();
+ * const how = await choose({
+ *   title: '匯入 12 個表情',
+ *   description: '目前清單已有 5 個表情。',
+ *   choices: [{ value: 'append', label: '加在後面' }, { value: 'replace', label: '取代目前的清單', variant: 'danger' }],
+ * });
+ * if (how === 'append') … else if (how === 'replace') …
+ * ```
+ */
+export function useChoice(): ChoiceFn {
+  const fn = useContext(ChoiceContext);
+  if (!fn) throw new Error('useChoice 必須在 UiProvider（或 ToolShell）裡使用');
+  return fn;
+}

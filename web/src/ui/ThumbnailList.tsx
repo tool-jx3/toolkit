@@ -3,11 +3,20 @@
  * - 縮圖：圖片範圍內的透明處以棋盤格顯示（看得出左右補的透明邊）；來源可以是圖片網址或可畫的影像（處理結果的 canvas、ImageBitmap）；還沒有來源時顯示讀取中的佔位。
  * - 名稱：過長時省略，滑過可看全名；可加狀態標記（例如「已處理」）與補充說明（尺寸、大小）。
  * - 每張可以移除。
+ *
+ * 選填（G3 加的，不給時行為不變）：
+ * - `layout="list"`：一張一列（縮圖在左、名稱與欄位在右），`thumbSize` 縮圖邊長（預設 82）；`numbered` 名稱前加「序號.」。
+ * - `selectedId`／`onSelect`：選取中的項目有醒目樣式；點一列、或聚焦到該列裡的欄位就選取；
+ *   清單有焦點時 ↑／↓ 選取上一張／下一張（到頭或到尾就停，捲到看得見、不捲動頁面）。
+ * - `onReorder(from, to)`：拖曳一列到另一列放開來排序（往下拖落在目標後、往上拖落在目標前；從欄位上開始拖不算）。
+ * - `renderFields(item, index)`：每列自訂的欄位（例如差分名、輸出檔名）。
  */
 import { CheckCircle2, ImageOff, X, XCircle } from 'lucide-react';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { IconButton } from './Button';
 import { cn } from './cn';
+import { isEditableTarget } from './shortcuts';
+import { useSortable } from './useSortable';
 
 export type ThumbnailSource = string | ImageBitmap | HTMLCanvasElement | OffscreenCanvas;
 
@@ -25,20 +34,34 @@ export interface ThumbnailItem {
   statusLabel?: string;
 }
 
-export interface ThumbnailListProps {
-  items: readonly ThumbnailItem[];
+export interface ThumbnailListProps<I extends ThumbnailItem = ThumbnailItem> {
+  items: readonly I[];
   /** 清單的無障礙名稱，例如「已載入的立繪」 */
   'aria-label': string;
   /** 有給才顯示移除按鈕 */
   onRemove?: (id: string) => void;
   /** 移除按鈕的名稱（預設「移除「<名稱>」」） */
-  removeLabel?: (item: ThumbnailItem) => string;
+  removeLabel?: (item: I) => string;
   removeDisabled?: boolean;
   /** 沒有項目時顯示的內容 */
   empty?: ReactNode;
   /** 縮圖的最小寬度（px，預設 120；格線會依寬度自動排列） */
   minItemWidth?: number;
   className?: string;
+  /** 'grid'（預設，自動排列的格線）或 'list'（一張一列） */
+  layout?: 'grid' | 'list';
+  /** list 版面的縮圖邊長（px，預設 82） */
+  thumbSize?: number;
+  /** 名稱前加「序號.」 */
+  numbered?: boolean;
+  /** 選取中的項目 */
+  selectedId?: string | null;
+  /** 給了就可以選取（點選、聚焦欄位、↑／↓） */
+  onSelect?: (id: string) => void;
+  /** 給了就可以拖曳排序 */
+  onReorder?: (from: number, to: number) => void;
+  /** 每列自訂的欄位 */
+  renderFields?: (item: I, index: number) => ReactNode;
 }
 
 /** 讀取中／讀不到的佔位 */
@@ -90,6 +113,7 @@ function UrlThumb({ src }: { src: string }) {
         src={src}
         alt=""
         decoding="async"
+        draggable={false}
         onLoad={() => setState('ready')}
         onError={() => setState('error')}
         className={cn(
@@ -101,7 +125,18 @@ function UrlThumb({ src }: { src: string }) {
   );
 }
 
-export function ThumbnailList({
+/**
+ * 一張縮圖（等比縮進父元素、透明處棋盤格；網址讀不到時破圖圖示；沒有來源時讀取中）。
+ * 父元素決定大小與對齊（例如 `flex items-end justify-center` 讓立繪底部對齊）。
+ */
+export function ThumbnailImage({ source }: { source?: ThumbnailSource | null }) {
+  if (!source) return <Placeholder />;
+  /* key：換來源時重新顯示佔位 */
+  if (typeof source === 'string') return <UrlThumb key={source} src={source} />;
+  return <DrawnThumb source={source} />;
+}
+
+export function ThumbnailList<I extends ThumbnailItem = ThumbnailItem>({
   items,
   onRemove,
   removeLabel = (item) => `移除「${item.name}」`,
@@ -109,8 +144,35 @@ export function ThumbnailList({
   empty,
   minItemWidth = 120,
   className,
+  layout = 'grid',
+  thumbSize = 82,
+  numbered,
+  selectedId,
+  onSelect,
+  onReorder,
+  renderFields,
   ...rest
-}: ThumbnailListProps) {
+}: ThumbnailListProps<I>) {
+  const list = useRef<HTMLUListElement>(null);
+  const selectable = !!onSelect;
+  const sortable = useSortable({
+    count: items.length,
+    mode: 'drop',
+    disabled: !onReorder,
+    onMove: (from, to) => {
+      onReorder?.(from, to);
+      const it = items[from];
+      if (it) onSelect?.(it.id);
+    },
+    onClick: (i) => {
+      const it = items[i];
+      if (!it || !selectable) return;
+      onSelect?.(it.id);
+      /* 點選一列後焦點移到清單上，可以直接用上下鍵 */
+      if (!isEditableTarget(document.activeElement)) list.current?.focus({ preventScroll: true });
+    },
+  });
+
   if (!items.length) {
     return empty ? (
       <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
@@ -118,67 +180,137 @@ export function ThumbnailList({
       </div>
     ) : null;
   }
+
+  const current = selectable
+    ? Math.max(
+        0,
+        items.findIndex((it) => it.id === selectedId),
+      )
+    : -1;
+  const onKeyDown = (e: KeyboardEvent<HTMLUListElement>) => {
+    if (!selectable || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    if (isEditableTarget(e.target)) return;
+    e.preventDefault();
+    const to = Math.min(items.length - 1, Math.max(0, current + (e.key === 'ArrowUp' ? -1 : 1)));
+    if (to === current) return;
+    onSelect?.(items[to].id);
+    list.current
+      ?.querySelectorAll<HTMLElement>(':scope > li')
+      [to]?.scrollIntoView?.({ block: 'nearest' });
+  };
+
+  const isList = layout === 'list';
   return (
     <ul
+      ref={list}
       aria-label={rest['aria-label']}
-      className={cn('m-0 grid list-none gap-2 p-0', className)}
-      style={{
-        gridTemplateColumns: `repeat(auto-fill, minmax(min(${minItemWidth}px, 100%), 1fr))`,
-      }}
+      tabIndex={selectable ? 0 : undefined}
+      onKeyDown={selectable ? onKeyDown : undefined}
+      className={cn(
+        'm-0 list-none p-0',
+        isList ? 'flex flex-col gap-1.5' : 'grid gap-2',
+        selectable && 'rounded-md outline-none focus-visible:ring-2 focus-visible:ring-focus',
+        sortable.dragIndex !== null && 'select-none',
+        className,
+      )}
+      style={
+        isList
+          ? undefined
+          : { gridTemplateColumns: `repeat(auto-fill, minmax(min(${minItemWidth}px, 100%), 1fr))` }
+      }
     >
-      {items.map((item) => (
-        <li
-          key={item.id}
-          data-status={item.status}
-          className={cn(
-            'relative flex min-w-0 flex-col gap-1 rounded-md border bg-surface p-1.5',
-            item.status === 'done'
-              ? 'border-success'
-              : item.status === 'error'
-                ? 'border-danger'
-                : 'border-border',
-          )}
-        >
-          <div className="flex aspect-square items-center justify-center overflow-hidden rounded-sm bg-surface-2">
-            {!item.image ? (
-              <Placeholder />
-            ) : typeof item.image === 'string' ? (
-              /* key：換來源時重新顯示佔位 */
-              <UrlThumb key={item.image} src={item.image} />
-            ) : (
-              <DrawnThumb source={item.image} />
+      {items.map((item, index) => {
+        const selected = selectable && index === current;
+        const dragging = sortable.dragIndex === index;
+        const over = sortable.overIndex === index && !dragging && sortable.dragIndex !== null;
+        const interactive = selectable || !!onReorder;
+        return (
+          <li
+            key={item.id}
+            {...(interactive ? sortable.rowProps(index) : {})}
+            data-status={item.status}
+            data-selected={selected || undefined}
+            data-dragging={dragging || undefined}
+            data-over={over || undefined}
+            aria-current={selected || undefined}
+            onFocusCapture={
+              selectable
+                ? (e) => {
+                    if (e.target !== e.currentTarget && !selected) onSelect?.(item.id);
+                  }
+                : undefined
+            }
+            className={cn(
+              'relative flex min-w-0 gap-1 rounded-md border p-1.5',
+              isList ? 'flex-row items-start gap-2' : 'flex-col',
+              /* cn 不會合併衝突的 class：選取中、狀態、一般三選一 */
+              selected
+                ? 'border-accent bg-accent-soft'
+                : item.status === 'done'
+                  ? 'border-success bg-surface'
+                  : item.status === 'error'
+                    ? 'border-danger bg-surface'
+                    : 'border-border bg-surface',
+              interactive && 'cursor-pointer',
+              dragging && 'opacity-50',
+              over && 'ring-2 ring-accent',
             )}
-          </div>
-          <div className="flex min-w-0 items-center gap-1">
-            {item.status ? (
-              <span
+          >
+            <div
+              className={cn(
+                'flex shrink-0 items-center justify-center overflow-hidden rounded-sm bg-surface-2',
+                !isList && 'aspect-square',
+              )}
+              style={isList ? { width: thumbSize, height: thumbSize } : undefined}
+            >
+              <ThumbnailImage source={item.image} />
+            </div>
+            <div className={cn('flex min-w-0 flex-col gap-1', isList && 'flex-1')}>
+              <div className="flex min-w-0 items-center gap-1">
+                {item.status ? (
+                  <span
+                    className={cn(
+                      'inline-flex shrink-0 items-center gap-0.5 text-xs font-medium [&_svg]:size-3.5',
+                      item.status === 'done' ? 'text-success' : 'text-danger',
+                    )}
+                  >
+                    {item.status === 'done' ? (
+                      <CheckCircle2 aria-hidden />
+                    ) : (
+                      <XCircle aria-hidden />
+                    )}
+                    {item.statusLabel ?? (item.status === 'done' ? '完成' : '錯誤')}
+                  </span>
+                ) : null}
+                <span
+                  className={cn('min-w-0 truncate text-xs text-fg', isList && onRemove && 'pr-8')}
+                  title={item.name}
+                >
+                  {numbered ? `${index + 1}. ` : ''}
+                  {item.name}
+                </span>
+              </div>
+              {item.meta ? <div className="truncate text-xs text-muted">{item.meta}</div> : null}
+              {renderFields ? renderFields(item, index) : null}
+            </div>
+            {onRemove ? (
+              <IconButton
+                size="sm"
+                variant="secondary"
+                label={removeLabel(item)}
+                icon={<X />}
+                disabled={removeDisabled}
+                onClick={() => onRemove(item.id)}
                 className={cn(
-                  'inline-flex shrink-0 items-center gap-0.5 text-xs font-medium [&_svg]:size-3.5',
-                  item.status === 'done' ? 'text-success' : 'text-danger',
+                  'absolute bg-surface/90 shadow-1',
+                  isList ? 'top-1.5 right-1.5' : 'top-2.5 right-2.5',
                 )}
-              >
-                {item.status === 'done' ? <CheckCircle2 aria-hidden /> : <XCircle aria-hidden />}
-                {item.statusLabel ?? (item.status === 'done' ? '完成' : '錯誤')}
-              </span>
+              />
             ) : null}
-            <span className="min-w-0 truncate text-xs text-fg" title={item.name}>
-              {item.name}
-            </span>
-          </div>
-          {item.meta ? <div className="truncate text-xs text-muted">{item.meta}</div> : null}
-          {onRemove ? (
-            <IconButton
-              size="sm"
-              variant="secondary"
-              label={removeLabel(item)}
-              icon={<X />}
-              disabled={removeDisabled}
-              onClick={() => onRemove(item.id)}
-              className="absolute top-2.5 right-2.5 bg-surface/90 shadow-1"
-            />
-          ) : null}
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }

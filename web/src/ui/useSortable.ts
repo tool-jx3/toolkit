@@ -1,0 +1,212 @@
+/**
+ * 清單的拖曳排序（指標事件，滑鼠與觸控都能用）：SortableList、LayerList、ThumbnailList 共用。
+ * - 從列上按住、移動超過 threshold 才開始拖（從輸入欄、按鈕、開關開始的不算）；沒拖就放開＝點一下（onClick）。
+ * - mode 'live'：拖過另一列的中線就立刻換位置（onMove 會呼叫多次），整次拖曳以 onMoveStart／onMoveEnd 包起來，
+ *   工具可以記成一步復原；mode 'drop'：拖曳中只標示目標列，放開時呼叫一次 onMove（往下落在目標後、往上落在目標前）。
+ * - 拖到捲動範圍的上下邊緣（edge px 內）時自動捲動。
+ * - disabled 時不能拖（按住只會變成點一下）。
+ * - 鍵盤：列有焦點時 Alt＋↑／↓ 移動一格（keyMove）。
+ */
+import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react';
+
+export interface SortableOptions {
+  count: number;
+  onMove: (from: number, to: number) => void;
+  onMoveStart?: (index: number) => void;
+  onMoveEnd?: () => void;
+  /** 沒有拖動就放開 */
+  onClick?: (index: number) => void;
+  mode?: 'live' | 'drop';
+  disabled?: boolean;
+  /** 開始拖曳的移動門檻（px，預設 4） */
+  threshold?: number;
+  /** 自動捲動的邊緣範圍（px，預設 24） */
+  edge?: number;
+}
+
+const NO_DRAG =
+  'input,textarea,select,button,a,label,[contenteditable="true"],[data-no-drag],[role="switch"],[role="slider"],[role="spinbutton"],[role="checkbox"]';
+
+function scrollParent(el: HTMLElement | null): HTMLElement | null {
+  let p = el?.parentElement ?? null;
+  while (p) {
+    const s = getComputedStyle(p);
+    if (/(auto|scroll)/.test(s.overflowY) && p.scrollHeight > p.clientHeight) return p;
+    p = p.parentElement;
+  }
+  return null;
+}
+
+export function useSortable(options: SortableOptions) {
+  const opts = useRef(options);
+  opts.current = options;
+  const rows = useRef(new Map<number, HTMLElement>());
+  const [state, setState] = useState<{ drag: number; over: number } | null>(null);
+  const g = useRef<{
+    /** 觸控、不是從把手開始：不拖（交給捲動），放開仍算點一下 */
+    touchOnly: boolean;
+    id: number;
+    index: number;
+    cur: number;
+    over: number;
+    x: number;
+    y: number;
+    lastY: number;
+    active: boolean;
+    scroller: HTMLElement | null;
+    raf: number;
+  } | null>(null);
+
+  useEffect(() => () => cancelAnimationFrame(g.current?.raf ?? 0), []);
+
+  const mid = (i: number) => {
+    const r = rows.current.get(i)?.getBoundingClientRect();
+    return r ? r.top + r.height / 2 : 0;
+  };
+
+  /** 依指標位置算目標列 */
+  const track = (y: number) => {
+    const s = g.current;
+    if (!s?.active) return;
+    const n = opts.current.count;
+    if (opts.current.mode === 'drop') {
+      let t = 0;
+      for (let i = 0; i < n; i++) {
+        const r = rows.current.get(i)?.getBoundingClientRect();
+        if (r && y >= r.top) t = i;
+      }
+      if (t !== s.over) {
+        s.over = t;
+        setState({ drag: s.index, over: t });
+      }
+      return;
+    }
+    let t = s.cur;
+    while (t + 1 < n && y > mid(t + 1)) t++;
+    while (t - 1 >= 0 && y < mid(t - 1)) t--;
+    if (t !== s.cur) {
+      opts.current.onMove(s.cur, t);
+      s.cur = t;
+      s.over = t;
+      setState({ drag: t, over: t });
+    }
+  };
+
+  const autoScroll = () => {
+    const s = g.current;
+    if (!s?.active || !s.scroller) return;
+    const edge = opts.current.edge ?? 24;
+    const r = s.scroller.getBoundingClientRect();
+    let v = 0;
+    if (s.lastY < r.top + edge) v = -Math.ceil((r.top + edge - s.lastY) / 3);
+    else if (s.lastY > r.bottom - edge) v = Math.ceil((s.lastY - (r.bottom - edge)) / 3);
+    if (v) {
+      s.scroller.scrollTop += v;
+      track(s.lastY);
+    }
+    s.raf = requestAnimationFrame(autoScroll);
+  };
+
+  const finish = (commit: boolean) => {
+    const s = g.current;
+    g.current = null;
+    if (!s) return;
+    cancelAnimationFrame(s.raf);
+    setState(null);
+    if (!s.active) return;
+    if (opts.current.mode === 'drop') {
+      if (commit && s.over !== s.index) {
+        opts.current.onMoveStart?.(s.index);
+        opts.current.onMove(s.index, s.over);
+        opts.current.onMoveEnd?.();
+      }
+      return;
+    }
+    opts.current.onMoveEnd?.();
+  };
+
+  const rowProps = (index: number) => ({
+    ref: (el: HTMLElement | null) => {
+      if (el) rows.current.set(index, el);
+      else rows.current.delete(index);
+    },
+    onPointerDown: (e: PointerEvent<HTMLElement>) => {
+      if (e.button !== 0 || g.current) return;
+      const target = e.target as Element;
+      if (target.closest?.(NO_DRAG)) return;
+      /* 觸控時整列留給捲動，只有拖曳把手（[data-drag-handle]，要加 touch-none）可以拖 */
+      const touchOnly = e.pointerType === 'touch' && !target.closest?.('[data-drag-handle]');
+      /* 還沒開始拖就離開這一列放開時，清掉這次按下 */
+      const id = e.pointerId;
+      const clear = (ev: globalThis.PointerEvent) => {
+        if (ev.pointerId !== id) return;
+        window.removeEventListener('pointerup', clear);
+        window.removeEventListener('pointercancel', clear);
+        if (g.current?.id === id && !g.current.active) g.current = null;
+      };
+      window.addEventListener('pointerup', clear);
+      window.addEventListener('pointercancel', clear);
+      g.current = {
+        touchOnly,
+        id: e.pointerId,
+        index,
+        cur: index,
+        over: index,
+        x: e.clientX,
+        y: e.clientY,
+        lastY: e.clientY,
+        active: false,
+        scroller: null,
+        raf: 0,
+      };
+    },
+    onPointerMove: (e: PointerEvent<HTMLElement>) => {
+      const s = g.current;
+      if (!s || s.id !== e.pointerId) return;
+      s.lastY = e.clientY;
+      if (!s.active) {
+        if (opts.current.disabled || s.touchOnly) return;
+        if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < (opts.current.threshold ?? 4)) return;
+        s.active = true;
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        s.scroller = scrollParent(e.currentTarget);
+        setState({ drag: s.index, over: s.index });
+        if (opts.current.mode !== 'drop') opts.current.onMoveStart?.(s.index);
+        s.raf = requestAnimationFrame(autoScroll);
+      }
+      track(e.clientY);
+    },
+    onPointerUp: (e: PointerEvent<HTMLElement>) => {
+      const s = g.current;
+      if (!s || s.id !== e.pointerId) return;
+      if (!s.active) {
+        g.current = null;
+        opts.current.onClick?.(index);
+        return;
+      }
+      finish(true);
+    },
+    onPointerCancel: () => finish(false),
+  });
+
+  /** Alt＋↑／↓：移動一格（回傳是否處理了） */
+  const keyMove = (index: number, e: KeyboardEvent<HTMLElement>): boolean => {
+    if (!e.altKey || e.ctrlKey || e.metaKey || opts.current.disabled) return false;
+    const to = e.key === 'ArrowUp' ? index - 1 : e.key === 'ArrowDown' ? index + 1 : -1;
+    if (to < 0 || to >= opts.current.count) return false;
+    e.preventDefault();
+    opts.current.onMoveStart?.(index);
+    opts.current.onMove(index, to);
+    opts.current.onMoveEnd?.();
+    return true;
+  };
+
+  return {
+    /** 拖曳中的列（live 模式下是它目前的位置） */
+    dragIndex: state?.drag ?? null,
+    /** drop 模式的目標列 */
+    overIndex: state?.over ?? null,
+    rowProps,
+    keyMove,
+  };
+}

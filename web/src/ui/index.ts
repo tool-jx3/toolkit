@@ -41,6 +41,7 @@ export {
   type IconButtonProps,
 } from './Button';
 export { Checkbox, type CheckboxProps } from './Checkbox';
+export { type ChipItem, Chips, type ChipsProps } from './Chips';
 export {
   ColorField,
   type ColorFieldProps,
@@ -60,6 +61,7 @@ export {
   type CropRect,
   DEFAULT_ASPECTS,
 } from './CropDialog';
+export { CropFrame, type CropFrameProps, type CropFrameRect } from './CropFrame';
 export {
   CssExportPanel,
   type CssExportPanelProps,
@@ -78,6 +80,11 @@ export {
 } from './CssPreviewFrame';
 export { cn } from './cn';
 export {
+  ChoiceDialog,
+  type ChoiceDialogProps,
+  type ChoiceOption,
+  type ChoiceOptions,
+  ChoiceProvider,
   ConfirmDialog,
   type ConfirmDialogProps,
   type ConfirmOptions,
@@ -85,6 +92,7 @@ export {
   Dialog,
   DialogClose,
   type DialogProps,
+  useChoice,
   useConfirm,
 } from './Dialog';
 export {
@@ -122,6 +130,7 @@ export {
   ImageDrop,
   type ImageDropProps,
 } from './ImageDrop';
+export { ImageSampler, type ImageSamplerProps, type SamplePoint } from './ImageSampler';
 export { InspirationFooter } from './InspirationFooter';
 export {
   ISSUE_LEVEL_LABELS,
@@ -132,6 +141,12 @@ export {
 } from './IssueList';
 export { ItemListEditor, type ItemListEditorProps } from './ItemListEditor';
 export { Kbd } from './Kbd';
+export {
+  type LayoutChange,
+  LayoutEditor,
+  type LayoutEditorProps,
+  type LayoutItem,
+} from './LayoutEditor';
 export {
   LOCAL_FONT_MESSAGES,
   LocalFontDialog,
@@ -150,6 +165,15 @@ export { NativeNumberInput, type NativeNumberInputProps, spinStep } from './Nati
 export { Notice, type NoticeProps, type NoticeTone } from './Notice';
 export { NumberInput, type NumberInputProps } from './NumberInput';
 export { ObsGuide, type ObsGuideProps } from './ObsGuide';
+export {
+  type PanZoomView,
+  PanZoomViewport,
+  type PanZoomViewportHandle,
+  type PanZoomViewportProps,
+  type ViewportDrag,
+  type ViewportPointer,
+} from './PanZoomViewport';
+export { type PartOption, PartPicker, type PartPickerProps } from './PartPicker';
 export { PathPad, type PathPadLabel, type PathPadProps } from './PathPad';
 export {
   ProjectMenu,
@@ -160,15 +184,32 @@ export {
 export { Section, type SectionProps } from './Section';
 export { Segmented, type SegmentedOption, type SegmentedProps } from './Segmented';
 export { Select, type SelectGroup, type SelectOption, type SelectProps } from './Select';
+export {
+  type CardItem,
+  SelectableCardList,
+  type SelectableCardListProps,
+} from './SelectableCardList';
 export { ShortcutHelp } from './ShortcutHelp';
 export { Slider, type SliderProps } from './Slider';
+export {
+  LayerList,
+  type LayerListItem,
+  type LayerListProps,
+  type SortableItemState,
+  SortableList,
+  type SortableListProps,
+} from './SortableList';
 export {
   ALL_STAGE_BACKGROUNDS,
   Stage,
   type StageBackground,
   type StageBackgroundKind,
+  type StagePan,
   type StageProps,
+  type StageView,
   type StageZoom,
+  useStageScale,
+  useStageView,
 } from './Stage';
 export { type StepItem, StepNav, type StepNavProps, Stepper, type StepperProps } from './Stepper';
 export {
@@ -207,6 +248,7 @@ export {
   type ThumbChoiceProps,
 } from './ThumbChoice';
 export {
+  ThumbnailImage,
   type ThumbnailItem,
   ThumbnailList,
   type ThumbnailListProps,
@@ -223,3 +265,5 @@ export { UiProvider } from './UiProvider';
 export { UsageSection, type UsageSectionProps } from './UsageSection';
 export { useConfirmedReset } from './useConfirmedReset';
 export { type Playback, type PlaybackOptions, usePlayback } from './usePlayback';
+export { type SortableOptions, useSortable } from './useSortable';
+export { WindowDrop, type WindowDropProps } from './WindowDrop';

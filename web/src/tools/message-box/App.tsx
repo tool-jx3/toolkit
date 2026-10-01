@@ -206,7 +206,7 @@ export function App() {
                 preview: { background: p.background, shape: p.shape, before: p.before },
               };
             }}
-            onLoad={(data, _project, file) => {
+            onLoad={(data, _project, _files, file) => {
               const raw = (data && typeof data === 'object' ? data : {}) as Partial<ProjectData>;
               useSettings.getState().replace(normalizeSettings(raw.settings, isKnownTemplate));
               clear();
