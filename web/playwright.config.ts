@@ -9,7 +9,8 @@ if (!process.env.PLAYWRIGHT_BROWSERS_PATH && existsSync('/opt/pw-browsers')) {
 }
 
 const webDir = path.dirname(fileURLToPath(import.meta.url));
-const PORT = 8123;
+/* 多個工作樹同時跑 e2e 時用 E2E_PORT 錯開（reuseExistingServer 會沿用同一個 port 上別人的伺服器） */
+const PORT = Number(process.env.E2E_PORT ?? 8123);
 
 export default defineConfig({
   testDir: 'tests/e2e',
