@@ -9,7 +9,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Plugin } from 'vite';
-import { outputDir, type ToolEntry } from '../src/registry.ts';
+import { getTool, outputDir, type ToolEntry } from '../src/registry.ts';
 
 const FONT_CSS =
   'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap';
@@ -23,8 +23,20 @@ export function toolkitHtml(): Plugin {
     name: 'toolkit-html',
     transformIndexHtml: {
       order: 'pre',
-      handler() {
+      handler(_html, ctx) {
+        /* 重寫中（next）的頁面不讓搜尋引擎收錄；上線（live）後拿掉。 */
+        const id = /\/tools\/([^/]+)\/index\.html$/.exec(ctx.path)?.[1];
+        const live = id ? getTool(id)?.status === 'live' : false;
         return [
+          ...(live
+            ? []
+            : [
+                {
+                  tag: 'meta',
+                  attrs: { name: 'robots', content: 'noindex' },
+                  injectTo: 'head' as const,
+                },
+              ]),
           { tag: 'meta', attrs: { name: 'color-scheme', content: 'dark light' }, injectTo: 'head' },
           { tag: 'script', children: THEME_INIT, injectTo: 'head' },
           {

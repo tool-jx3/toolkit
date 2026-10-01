@@ -5,8 +5,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
+import { getTool, outputDir } from '../../src/registry';
 
-const URL = '/next/apng-wipe/';
+const URL = `/${outputDir(getTool('apng-wipe') ?? { id: 'apng-wipe', status: 'next' })}/`;
 
 async function open(page: Page) {
   const errors: string[] = [];

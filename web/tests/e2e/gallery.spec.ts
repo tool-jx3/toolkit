@@ -7,8 +7,9 @@
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { unzipSync } from 'fflate';
+import { getTool, outputDir } from '../../src/registry';
 
-const URL = '/next/_gallery/';
+const URL = `/${outputDir(getTool('_gallery') ?? { id: '_gallery', status: 'next' })}/`;
 
 /** 收集錯誤；Google Fonts 改成空樣式（離線也能跑、截圖穩定） */
 async function openGallery(page: Page, { theme }: { theme?: 'light' | 'dark' } = {}) {

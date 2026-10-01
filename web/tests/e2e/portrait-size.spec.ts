@@ -10,8 +10,9 @@
 import { readFileSync } from 'node:fs';
 import { type Download, expect, type Locator, type Page, test } from '@playwright/test';
 import { encodePng } from '../../src/core/encode/png';
+import { getTool, outputDir } from '../../src/registry';
 
-const URL = '/next/portrait-size/';
+const URL = `/${outputDir(getTool('portrait-size') ?? { id: 'portrait-size', status: 'next' })}/`;
 
 interface Box {
   x: number;

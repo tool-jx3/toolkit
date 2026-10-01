@@ -15,8 +15,9 @@
 [くま。](https://github.com/kumachansteps) 與
 [Eon-00](https://github.com/Eon-00) 與
 [fyam-hamu](https://github.com/fyam-hamu) 與
-[usagineko7865-debug](https://github.com/usagineko7865-debug) 製作的 38 個網頁工具，以及兩個作者不明的工具（共 40 個），
-並為其加上繁體中文介面。所有工具的原始著作權屬各自的原作者所有。
+[usagineko7865-debug](https://github.com/usagineko7865-debug) 製作的網頁工具，以及一個作者不明的工具，並為其加上繁體中文介面。所有收錄工具的原始著作權屬各自的原作者所有。
+
+另有一部分工具已依 [docs/refactor/](docs/refactor/PLAN.md) 的流程**由本站重寫**：只依原作的功能寫行為規格，再用本站自己的框架與元件重新實作，不再收錄原作的程式、素材與作者標示，只保留「靈感來源」連結，見下方「[本站重寫的工具（靈感來源）](#本站重寫的工具靈感來源)」。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
 
@@ -49,7 +50,6 @@
 | jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | —（連到原站；2026-09-25～30 曾收錄 `1b48bea` 的副本） | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 | coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
-| apng-wipe | 作者與來源都不明（使用者提供的單檔 HTML） | 2026-09-26 取得 | **未授權** |
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
 | obs-tachie | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) | `c4aca96` | MIT |
 | bg-motion | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/haikei-motion-maker/` | `42c45f3` | **未授權** |
@@ -61,7 +61,6 @@
 | textbox | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) | `d2c74d3` | MIT |
 | log-converter | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `bb32ed7` | MIT |
 | psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
-| battlemap | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `a21c571` | MIT |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
@@ -594,26 +593,6 @@ WebM。
   程式拿掉了。存檔的 key 維持 `coc-typesetter:v2`。
 - marked 與 DOMPurify 照上游以 CDN 載入，版本與授權見 `tools/coc-typesetter/THIRD_PARTY_NOTICES.md`。
 
-## apng-wipe：輕量轉場 APNG 產生器
-
-上游是使用者提供的一個單檔 HTML，日文標題「APNG作成シート」（APNG 製作表），作者與出處都不明，
-檔案裡沒有署名與授權條款（取得日期 2026-09-26）。權利屬原作者所有，此處僅供試用，見下方
-「未授權的十五個工具」。
-
-它做的是透明背景的場景轉換 APNG：淡入淡出，或往 8 個方向之一的抹除，可以選顏色、0.2～5 秒、
-「透明 → 顏色」或反過來、播一次或循環。特別之處是尺寸刻意做得極小（15×15、15×30、30×15 px，
-也能自訂到 1200 px）：轉場圖通常會被放大到整個畫面，小圖放大後邊緣自然柔和，檔案只有幾 KB。
-合輯裡的 `scene-transition` 也能做淡入淡出與抹除，但輸出完整解析度、效果更多，兩者定位不同。
-APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任何外部函式庫，也沒有存取分析。
-
-收錄時的改動：
-
-- 只有繁體中文，沒有語言選單；介面字型改用台灣的系統字型堆疊。尺寸選項底下多了一行說明，
-  解釋為什麼預設尺寸這麼小。
-- 存檔的副檔名從 `.apng` 改成 `.png`：APNG 規格建議用 `.png`，`scene-transition` 匯出 APNG 時也是這樣存，
-  上傳圖片的對話框比較不會擋。檔案內容完全相同。
-- 單檔 HTML 拆成 `index.html`、`styles.css` 與 `app.js`，頁首加上「← TRPG Toolkit」。
-
 ## scenario-editor：劇本排版台（CC0）
 
 上游 `sedn14636361/trpg-scenario-editor`（シナリオ組版台 v3.3.0）以 CC0 1.0 釋出，作者放棄了
@@ -687,7 +666,7 @@ APNG 的編碼（PNG chunk、CRC、zlib）是上游自己寫的，不需要任�
 - `bg-motion` 與 `variant-manager` 照上游自 jsDelivr 載入 JSZip（`bg-motion` 另有 UPNG.js），
   見各目錄的 `THIRD_PARTY_NOTICES.md`。
 
-## log-converter、textbox、psd-studio、battlemap
+## log-converter、textbox、psd-studio
 
 **log-converter（CCFOLIA 日誌轉換器）**：上游 `Eon-00/eon-ccfolia-log-converter`（MIT）把 CCFOLIA
 匯出的日誌 HTML 轉成小說、時間軸或 CCFOLIA 風格的網頁。上游的「用 Room ID 載入」會直接呼叫
@@ -715,11 +694,19 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 （理由同 `pair-maker` 的回報表單）。五個 CDN 函式庫原本有一個沒鎖版本，收錄版全部鎖定，
 見 `THIRD_PARTY_NOTICES.md`。同樣操作下匯出的房間 ZIP、PSD 圖層 ZIP 與 APNG 都與上游逐位元組相同。
 
-**battlemap（戰鬥地圖產生器）**：合輯第一個英文原文的工具，因此語言引擎加上了 `en`（只有載入英文
-字典的頁面才會出現這個選項）。上游頁面上的三張 BOOTH 商店推廣卡片、SEO 用的 meta／canonical／
-結構化資料、`robots.txt`、`sitemap.xml` 與 README 截圖不收（站台識別，理由同其他工具）。另外修了
-上游一個問題：格線與火把開關的外框是 `<span>`、核取方塊又是 0×0，滑鼠點不動；收錄版改成
-`<label>`，外觀不變。同一個亂數種子在繁中、英文與上游下產生的 PNG 逐位元組相同。
+## 本站重寫的工具（靈感來源）
+
+下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的無塵室流程重寫：觀察者只寫行為規格
+（[docs/refactor/specs/](docs/refactor/specs/)），實作者只看規格與本站的 `web/` 框架寫出新程式，
+上線前逐項做新舊版對等驗證（紀錄在各規格的第 6 節）。新版只有繁體中文介面，程式以 MIT 授權釋出（見 [LICENSE](LICENSE)），
+頁尾只保留靈感來源連結。舊版的收錄副本已移除，需要對照時可以用 git 標籤取回。
+
+| 工具 | 名稱 | 靈感來源 | 舊版標籤 |
+|---|---|---|---|
+| `battlemap` | 戰鬥地圖產生器 | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `legacy/battlemap` |
+| `apng-wipe` | 輕量轉場 APNG 產生器 | 出處不明的轉場 APNG 小工具（使用者提供的單檔 HTML，沒有可連結的網址） | `legacy/apng-wipe` |
+
+新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
 ## text-fx：文字演出產生器（本 repo 原創）
 
@@ -818,8 +805,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 `organon-torah/ccfoliaCharacterEditor`、`johnko00/ccfolia-room-zip-maker-demo`
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
 `coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
-頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。`apng-wipe` 則連出處都不明，只有使用者
-提供的一個 HTML 檔，檔案裡沒有作者署名與授權條款。
+頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
 くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中六個工具，見上方專節；
 站上的利用規約另外禁止轉載圖片素材，因此一張圖都沒收）。
 依著作權法預設，其權利保留予原作者（`emotion-maker` 包含 `images/` 下全部
@@ -839,7 +825,7 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 與 `apng-wipe` 是改寫成只有繁中，見上；
+其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 是改寫成只有繁中，見上；
 `jizura` 連到原作者的官方繁中版，不在此列）。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的五個工具
@@ -866,9 +852,9 @@ magic-circle 的繁體中文翻譯移植自
 
 ## 本 repo 新增的部分
 
-`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
+新框架 `web/`（含其建置產物 `assets/build/`、`next/` 與重寫上線的 `tools/<id>/index.html`）、`docs/`、`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
 `guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
 以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
 `tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、
 `tools/ccfolia-cropper/`、`tools/character-select/`、`tools/character-editor/`、
-`tools/room-zip/`、`tools/pair-maker/`、`tools/coc-typesetter/` 與 `tools/apng-wipe/` 的其餘部分不在此範圍內，見上節。
+`tools/room-zip/`、`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。

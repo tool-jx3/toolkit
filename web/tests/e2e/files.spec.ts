@@ -4,8 +4,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { encodePng } from '../../src/core/encode/png';
+import { getTool, outputDir } from '../../src/registry';
 
-const URL = '/next/_gallery/';
+const URL = `/${outputDir(getTool('_gallery') ?? { id: '_gallery', status: 'next' })}/`;
 
 async function open(page: Page) {
   const errors: string[] = [];

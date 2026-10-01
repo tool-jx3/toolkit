@@ -78,7 +78,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '做出只有幾 KB 的單色轉場動畫：整片淡入淡出或從任一方向擦過去，透明背景、可直接拉伸成全畫面。',
     group: 'G2',
-    status: 'next',
+    status: 'live',
     inspiration: { name: '出處不明的轉場 APNG 小工具' },
   },
   {
@@ -87,7 +87,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '一鍵產生俯視的地下城戰鬥地圖（22 × 16 格），有石砌地城、洞穴、墓室三種地形，可匯出 PNG 當 VTT 背景。',
     group: 'G8',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'usagineko7865-debug/battlemap-generator',
       url: 'https://github.com/usagineko7865-debug/battlemap-generator',

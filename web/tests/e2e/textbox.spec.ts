@@ -7,9 +7,10 @@
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
  */
 import { expect, type Page, test } from '@playwright/test';
+import { getTool, outputDir } from '../../src/registry';
 import { DEFAULT_INPUT, renderTextbox, type TextboxInput } from '../../src/tools/textbox/layout';
 
-const URL = '/next/textbox/';
+const URL = `/${outputDir(getTool('textbox') ?? { id: 'textbox', status: 'next' })}/`;
 
 async function open(page: Page) {
   const errors: string[] = [];

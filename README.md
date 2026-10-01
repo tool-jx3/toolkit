@@ -127,18 +127,30 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 無外部相依）；因此兩者之間容易漂移的地方，改由根目錄的靜態檢查看著——例如版面
 測試的字幅比表有沒有跟上字型清單。
 
+## 本站重寫的工具
+
+正在依 [docs/refactor/PLAN.md](docs/refactor/PLAN.md) 把收錄的工具逐一改寫到新框架 `web/`（Vite＋React＋TypeScript）：
+共用元件與設計、只有繁中介面、程式全部由本站重寫，原作者只列為靈感來源。已上線的工具：
+
+| 工具 | 名稱 | 靈感來源 |
+|---|---|---|
+| `battlemap` | [戰鬥地圖產生器](tools/battlemap/) | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) |
+| `apng-wipe` | [輕量轉場 APNG 產生器](tools/apng-wipe/) | 出處不明的轉場 APNG 小工具 |
+
+開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
+
 ## 語言
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的十二個工具、
 `ccfolia-cropper`、`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的五個工具、`cutin`、
 `character-editor`、`portrait-size`、`height-board`、`trpg-lab`、
 `anime-rig`、`scenario-editor`、`obs-tachie` 與くま的六個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
-`bg-motion` 也照上游保留韓文（上游的英文沒有收）；`battlemap` 的原文是英文。
+`bg-motion` 也照上游保留韓文（上游的英文沒有收）。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
 
-`coc-typesetter` 與 `apng-wipe` 只有繁體中文：上游是日文工具，收錄時改寫成只有繁中
-（`coc-typesetter` 連劇本的標記語法與版面字型都改成中文），沒有留下日文介面，所以頁面上沒有語言選單。
+`coc-typesetter` 只有繁體中文：上游是日文工具，收錄時改寫成只有繁中
+（連劇本的標記語法與版面字型都改成中文），沒有留下日文介面，所以頁面上沒有語言選單。
 
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
@@ -172,7 +184,7 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 
 ## 授權
 
-根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：原創工具 `tools/text-fx/`、`assets/`、
+根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：新框架 `web/` 與本站重寫的工具（見下）、`docs/`、原創工具 `tools/text-fx/`、`assets/`、
 `index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁、`anime-rig`
 的繁中使用說明、`coc-typesetter` 的範例劇本，以及 emotion-maker 的資產路徑改造。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
@@ -180,7 +192,7 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 **注意**：`emotion-maker`、`loading-maker`、`ccfolia-cropper`、`character-select`、
 `character-editor`、`room-zip`、`pair-maker` 與くま的六個工具（`bg-motion`、`icon-maker`、
 `session-log`、`session-report`、`variant-manager`、`scenario-cards`）的原始 repo 皆未附任何授權條款，
-`coc-typesetter` 與 `apng-wipe` 則連作者都不明，
+`coc-typesetter` 則連作者都不明，
 其權利（`emotion-maker` 含全部圖像素材）屬原作者所有，
 不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。
 `psd-studio` 沒有 LICENSE 檔，依作者在頁面上寫明的條款（禁止轉售與收費散布，修改後可免費再散布）

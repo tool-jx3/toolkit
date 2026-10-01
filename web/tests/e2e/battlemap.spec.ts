@@ -6,8 +6,9 @@
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { unzlibSync } from 'fflate';
+import { getTool, outputDir } from '../../src/registry';
 
-const URL = '/next/battlemap/';
+const URL = `/${outputDir(getTool('battlemap') ?? { id: 'battlemap', status: 'next' })}/`;
 const FIXED_SEED = 123456789;
 /**
  * 這個種子在 Node 端繪製的像素雜湊（tests/unit/battlemap-render.test.ts 的 FIXED_SEED_HASHES）。
