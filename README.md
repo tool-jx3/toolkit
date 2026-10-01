@@ -14,7 +14,7 @@
 [くま。](https://github.com/kumachansteps) 與
 [Eon-00](https://github.com/Eon-00) 與
 [fyam-hamu](https://github.com/fyam-hamu) 與
-[usagineko7865-debug](https://github.com/usagineko7865-debug) 等人製作的 40 個網頁小工具合輯（其中兩個工具的作者不明），附繁體中文介面。
+[usagineko7865-debug](https://github.com/usagineko7865-debug) 等人製作的 40 個網頁小工具，加上本 repo 原創的「文字演出產生器」，共 41 個工具的合輯（其中兩個工具的作者不明），附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -60,6 +60,7 @@
 | [CCFOLIA & 圖片調色工作室](tools/psd-studio/) | 把 CCFOLIA 房間 ZIP、PSD 或圖片一次統一調色（色相、曲線、漸層對應），APNG 自動壓到 5 MB 以下，再輸出成房間 ZIP |
 | [文字方框產生器](tools/textbox/) | 用框線字元和全形空白排出可以直接貼進聊天欄的文字方框與表格，自動補正全形字寬 |
 | [戰鬥地圖產生器](tools/battlemap/) | 一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈 |
+| [文字演出產生器](tools/text-fx/) | TRPG Toolkit 原創工具：把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，支援直書，可輸出 APNG（含 256 色減色）、PNG 或連番 ZIP |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -134,6 +135,8 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 `anime-rig`、`scenario-editor`、`obs-tachie` 與くま的六個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
 `bg-motion` 也照上游保留韓文（上游的英文沒有收）；`battlemap` 的原文是英文。
 
+`text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
+
 `coc-typesetter` 與 `apng-wipe` 只有繁體中文：上游是日文工具，收錄時改寫成只有繁中
 （`coc-typesetter` 連劇本的標記語法與版面字型都改成中文），沒有留下日文介面，所以頁面上沒有語言選單。
 
@@ -169,7 +172,7 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 
 ## 授權
 
-根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：`assets/`、
+根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：原創工具 `tools/text-fx/`、`assets/`、
 `index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁、`anime-rig`
 的繁中使用說明、`coc-typesetter` 的範例劇本，以及 emotion-maker 的資產路徑改造。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。

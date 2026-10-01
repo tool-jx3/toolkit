@@ -1387,6 +1387,24 @@ check('保留 LICENSE（MIT）', /MIT License/.test(read('tools/log-converter/LI
 check('掛了語言切換器，切語言時重畫程式寫的文字',
   lcApp.includes('I18N.mountSwitcher(') && lcApp.includes('I18N.onChange('));
 
+/* ---- text-fx（文字演出產生器，本 repo 原創）---- */
+/* 不是收錄的工具：以無塵室方式獨立開發（見 ATTRIBUTION）。只有繁中介面、不載入語言引擎，
+ * 也不靠任何外部 JS 函式庫（APNG、ZIP、減色都是自己寫的），只從 Google Fonts 載字型。 */
+section('tools/text-fx');
+const TFX = 'tools/text-fx';
+const tfxFiles = listFiles(TFX).filter(f => /\.(html|js|css)$/.test(f));
+check('MIT 授權，署名 tool-jx3', /MIT License[\s\S]*Copyright \(c\) 2026 tool-jx3/.test(read(`${TFX}/LICENSE`)));
+const tfxKana = tfxFiles.filter(f => KANA.test(read(f)));
+check('程式碼、標記與樣式裡沒有假名', tfxKana.length === 0, tfxKana.join(', '));
+const tfxExternal = tfxFiles.flatMap(f => [...read(f).matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map(m => m[1]))
+  .filter(h => !['fonts.googleapis.com', 'fonts.gstatic.com', 'www.w3.org'].includes(h));
+check('只連 Google Fonts，沒有外部函式庫或統計', tfxExternal.length === 0, [...new Set(tfxExternal)].join(', '));
+const tfxHtml = read(`${TFX}/index.html`);
+check('頁首有回合輯首頁的連結', tfxHtml.includes('href="../../"') && tfxHtml.includes('TRPG Toolkit'));
+check('html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(tfxHtml));
+check('<title> 是工具名', /<title>文字演出產生器<\/title>/.test(tfxHtml));
+check('LICENSE 的涵蓋範圍寫進了 text-fx', read('LICENSE').includes('tools/text-fx/'));
+
 /* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
  * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
@@ -2240,7 +2258,7 @@ const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emo
   'height-board', 'room-zip', 'pair-maker',
   'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe', 'message-box',
   'scenario-editor', 'obs-tachie', 'bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards',
-  'psd-studio', 'textbox', 'battlemap', 'log-converter'];
+  'psd-studio', 'textbox', 'battlemap', 'log-converter', 'text-fx'];
 for (const name of TOOLS) {
   check(`連結 tools/${name}/ 有效`,
     homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
