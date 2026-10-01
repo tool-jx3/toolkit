@@ -3,6 +3,10 @@
  * 尺寸由參數決定（工具算好的裁切範圍），使用者只能沿 axis 拖曳（預設只能水平），永遠夾在圖片範圍內
  * （框比圖寬時固定在最左）。框有焦點時方向鍵移動 1 px（Shift 10 px）。
  *
+ * 焦點：拖曳或點一下框之後焦點會留在框上（role=slider）。框只用方向鍵（四個方向都歸框，沿 axis 移動、
+ * 另一個方向不動也不捲動頁面）；其他鍵（工具的 D、C、Esc、Ctrl＋S、貼上等）照常交給工具的快捷鍵
+ * （`data-shortcuts="pass"`，見 shortcuts.ts）。`passShortcuts={false}` 回到一般滑桿的做法（焦點在框上時單鍵快捷鍵不作用）。
+ *
  * ```tsx
  * <Stage width={img.width} height={img.height} dragPan wheelZoom="plain" zoomBase="fit" zoomRange={[0.2, 5]}>
  *   <canvas … />
@@ -15,6 +19,7 @@ import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef } from 'r
 import { clampSpan } from '@/core/layout';
 import { cn } from './cn';
 import { useStageScale } from './Stage';
+import { SHORTCUTS_PASS } from './shortcuts';
 
 export interface CropFrameRect {
   x: number;
@@ -41,7 +46,14 @@ export interface CropFrameProps {
   'aria-label'?: string;
   disabled?: boolean;
   className?: string;
+  /**
+   * 框有焦點時，方向鍵以外的鍵照常觸發工具的快捷鍵（預設 true）。
+   * false：當成一般的滑桿，焦點在框上時沒有修飾鍵的單鍵快捷鍵都不作用。
+   */
+  passShortcuts?: boolean;
 }
+
+const ARROWS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 
 const CURSOR = { x: 'cursor-ew-resize', y: 'cursor-ns-resize', both: 'cursor-move' } as const;
 
@@ -55,6 +67,7 @@ export function CropFrame({
   label,
   disabled,
   className,
+  passShortcuts = true,
   ...rest
 }: CropFrameProps) {
   const scale = useStageScale();
@@ -96,7 +109,9 @@ export function CropFrame({
     onMove?.(rect, 'end');
   };
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (disabled || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (disabled || e.ctrlKey || e.metaKey || e.altKey || !ARROWS.has(e.key)) return;
+    /* passShortcuts 時方向鍵都歸框（不交給工具的快捷鍵、不捲動頁面），不能移動的方向什麼都不做 */
+    if (passShortcuts) e.preventDefault();
     const step = e.shiftKey ? 10 : 1;
     let dx = 0;
     let dy = 0;
@@ -130,6 +145,7 @@ export function CropFrame({
         aria-valuenow={Math.round(now)}
         aria-disabled={disabled || undefined}
         data-testid="crop-frame"
+        {...(passShortcuts ? SHORTCUTS_PASS : null)}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

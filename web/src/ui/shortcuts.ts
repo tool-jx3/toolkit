@@ -141,10 +141,23 @@ export function isEditableTarget(t: EventTarget | null): boolean {
   return t.getAttribute('role') === 'spinbutton' || t.getAttribute('role') === 'textbox';
 }
 
-/** 表單控制項（開關、勾選、選單、滑桿、輸入欄）：單一按鍵的快捷鍵在這些元素上不觸發 */
+/**
+ * 標記「焦點在我身上時，工具快捷鍵照常作用」的屬性：`data-shortcuts="pass"`。
+ * 給 role=slider 之類、只用少數幾個鍵的自訂控制項（例如 CropFrame 只用方向鍵）：
+ * 它自己用的鍵在 keydown 時 preventDefault（useShortcuts 會略過已處理的按鍵），其餘的鍵交給工具。
+ */
+export const SHORTCUTS_PASS = { 'data-shortcuts': 'pass' } as const;
+
+const passesShortcuts = (t: HTMLElement) => t.dataset.shortcuts === 'pass';
+
+/**
+ * 表單控制項（開關、勾選、選單、滑桿、輸入欄）：單一按鍵的快捷鍵在這些元素上不觸發。
+ * 標了 `data-shortcuts="pass"`（SHORTCUTS_PASS）的元素不算。
+ */
 export function isFormControlTarget(t: EventTarget | null): boolean {
   if (isEditableTarget(t)) return true;
   if (!(t instanceof HTMLElement)) return false;
+  if (passesShortcuts(t)) return false;
   if (t instanceof HTMLInputElement) return true;
   const role = t.getAttribute('role');
   return (
@@ -168,7 +181,9 @@ export function isFormControlTarget(t: EventTarget | null): boolean {
 
 /**
  * 綁定快捷鍵（掛在 window）。對話框開著時、在輸入框裡打字時不觸發（除非 allowInInput）；
- * 沒有修飾鍵的單鍵快捷鍵，焦點在開關、選單、滑桿等表單控制項上時也不觸發。
+ * 沒有修飾鍵的單鍵快捷鍵，焦點在開關、選單、滑桿等表單控制項上時也不觸發
+ * （標了 `data-shortcuts="pass"` 的控制項例外，例如 CropFrame：它沒用到的鍵照常觸發）。
+ * 已經被元件處理（preventDefault）的按鍵不觸發。
  * shortcuts 每次 render 換新陣列也沒關係。
  */
 export function useShortcuts(shortcuts: readonly Shortcut[], enabled = true): void {

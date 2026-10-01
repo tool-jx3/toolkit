@@ -12,6 +12,9 @@
  * - `zoomBase="fit"`：數字倍率以「符合畫面」為 100%（例如 20%～500%）。
  * - `dragPan`：在空白處（或用中鍵）拖曳平移內容；`pan`／`onPanChange` 受控。
  * - 疊在內容上的元件（LayoutEditor、CropFrame）用 `useStageScale()` 或 CSS 變數 `--stage-scale` 取得目前倍率。
+ *
+ * 舞台區域的最高高度（預設 min(60dvh, 560px)）：`maxViewportHeight` 給一個 CSS 長度，或由外層設定 CSS 變數
+ * `--stage-max-h`（例如 Tailwind 的 `xl:[--stage-max-h:calc(100dvh-8rem)]`，可以依畫面寬度不同）。高度仍跟著內容比例，只是上限不同。
  */
 import { ImagePlus, Maximize, Minus, Plus } from 'lucide-react';
 import {
@@ -67,6 +70,11 @@ export interface StageProps {
   className?: string;
   /** 舞台區域的 class（例如改高度：h-[480px]） */
   viewportClassName?: string;
+  /**
+   * 舞台區域的最高高度（CSS 長度，例如 'calc(100dvh - 8rem)'；預設 'min(60dvh, 560px)'）。
+   * 不給時也可以由外層元素設定 CSS 變數 --stage-max-h（會繼承）。
+   */
+  maxViewportHeight?: string;
   /** 滾輪縮放：'ctrl'（預設：按住 Ctrl／⌘ 才縮放）或 'plain'（直接滾就縮放，頁面不捲動） */
   wheelZoom?: 'ctrl' | 'plain';
   /** 滾輪一格的倍率 [往上（放大）, 往下（縮小）]（預設 [1.1, 1 ÷ 1.1]） */
@@ -167,6 +175,7 @@ export function Stage({
   fitUpscale = false,
   className,
   viewportClassName,
+  maxViewportHeight,
   wheelZoom = 'ctrl',
   wheelFactors = [1.1, 1 / 1.1],
   wheelLinear,
@@ -379,14 +388,20 @@ export function Stage({
         aria-label={label}
         data-zoom={Math.round(level * 100)}
         className={cn(
-          'relative flex max-h-[min(60dvh,560px)] min-h-64 w-full overflow-auto p-3',
+          'relative flex max-h-[var(--stage-max-h,min(60dvh,560px))] min-h-64 w-full overflow-auto p-3',
           look.className,
           dragPan && 'touch-none',
           dragPan && (panning ? 'cursor-grabbing select-none' : 'cursor-grab'),
           viewportClassName,
         )}
-        /* 高度跟著內容比例（橫幅不會留一大塊空白），最高 60dvh／560px */
-        style={{ aspectRatio: `${width} / ${height}`, ...look.style }}
+        /* 高度跟著內容比例（橫幅不會留一大塊空白），最高 60dvh／560px（或 --stage-max-h） */
+        style={
+          {
+            aspectRatio: `${width} / ${height}`,
+            ...(maxViewportHeight ? { '--stage-max-h': maxViewportHeight } : null),
+            ...look.style,
+          } as CSSProperties
+        }
         onPointerDown={dragPan ? onPanDown : undefined}
         onPointerMove={dragPan ? onPanMove : undefined}
         onPointerUp={dragPan ? onPanUp : undefined}

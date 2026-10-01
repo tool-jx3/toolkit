@@ -234,6 +234,7 @@ export {
   isFormControlTarget,
   isMac,
   matchCombo,
+  SHORTCUTS_PASS,
   type Shortcut,
   useShortcuts,
   withShortcut,

@@ -8,6 +8,7 @@
  * - 全部套用同一基準（主控裁定的新語意）；
  * - 效果：預覽與下載相同、角色像素不變、各樣式的參數；
  * - 批次下載：檔名、順序、間隔約 0.2 秒、按鈕狀態、完成訊息；Ctrl＋S；快捷鍵的焦點例外；
+ * - 對等驗證後的追加裁定：拖曳或點過裁切框後快捷鍵照常（F39）、光暈的強度（σ ＝ 模糊值）、預覽區的大小；
  * - 記住設定；390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
  */
 import { readFileSync } from 'node:fs';
@@ -915,6 +916,152 @@ test('快捷鍵的焦點例外：表單控制項上不作用（含 Ctrl＋S）�
   }
   await page.waitForTimeout(300);
   expect(downloaded).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('拖曳或點過裁切框後（焦點留在框上）：D、C、Ctrl＋S、Esc 與貼上照常，方向鍵仍歸框（F39 追加裁定）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const a = await figureA();
+  await load(page, [file('A.png', a), file('B.png', await figureB())], '已載入 2 張。');
+  const ref = await pixelsOf(page, a);
+  const drag = async (dx: number) => {
+    const fb = (await frame(page).boundingBox())!;
+    await page.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(fb.x + fb.width / 2 + dx, fb.y + fb.height / 2, { steps: 3 });
+    await page.mouse.up();
+  };
+  const frameFocused = () =>
+    page.evaluate(() => document.activeElement?.getAttribute('data-testid') === 'crop-frame');
+
+  /* 拖曳後按 C：回到基準位置 */
+  await drag(40);
+  await expect.poll(() => frameX(page)).toBeGreaterThan(57);
+  expect(await frameFocused()).toBe(true);
+  await page.keyboard.press('c');
+  await expect(frame(page)).toHaveAttribute('aria-valuenow', '57');
+
+  /* 拖曳後按 Ctrl＋S：下載目前這張（拖過的位置），擋掉瀏覽器的另存網頁 */
+  await drag(40);
+  await expect.poll(() => frameX(page)).toBeGreaterThan(57);
+  const x = await frameX(page);
+  expect(await frameFocused()).toBe(true);
+  const got = await downloadVia(page, () => page.keyboard.press('Control+s'));
+  expect(got.name).toBe('A_crop.png');
+  expect(
+    diffCount(pngPixels(got.bytes), cropPixels(ref, { x, y: 70, width: 486, height: 648 })),
+  ).toBe(0);
+
+  /* 方向鍵仍歸框（移動 1 px），焦點還在框上 */
+  await page.keyboard.press('ArrowLeft');
+  await expect(frame(page)).toHaveAttribute('aria-valuenow', String(x - 1));
+  expect(await frameFocused()).toBe(true);
+
+  /* 拖曳後按 D：下一張；A：回到上一張（位移各自記住） */
+  await page.keyboard.press('d');
+  await expect(counter(page)).toHaveText('2／2');
+  await drag(-30);
+  await page.keyboard.press('a');
+  await expect(counter(page)).toHaveText('1／2');
+  await expect(frame(page)).toHaveAttribute('aria-valuenow', String(x - 1));
+
+  /* 只點一下框、再按 Esc：D 仍然有效 */
+  const fb = (await frame(page).boundingBox())!;
+  await page.mouse.click(fb.x + fb.width / 2, fb.y + fb.height / 2);
+  expect(await frameFocused()).toBe(true);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('d');
+  await expect(counter(page)).toHaveText('2／2');
+
+  /* 焦點在框上時貼上圖片：照常載入 */
+  await frame(page).focus();
+  await page.evaluate(async () => {
+    const cv = document.createElement('canvas');
+    cv.width = 40;
+    cv.height = 80;
+    cv.getContext('2d')!.fillRect(10, 10, 20, 60);
+    const png = await new Promise<Blob>((r) => cv.toBlob((b) => r(b!), 'image/png'));
+    const dt = new DataTransfer();
+    dt.items.add(new File([png], 'image.png', { type: 'image/png' }));
+    document.activeElement?.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }),
+    );
+  });
+  await expect(status(page)).toHaveText(/^已貼上圖片/);
+  await expect(counter(page)).toHaveText('1／1');
+  expect(errors).toEqual([]);
+});
+
+test('光暈的強度：σ ＝ 模糊值，強烈與柔和的總量都在舊版下載的 ±20% 內，柔和比強烈淡（追加裁定）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  /* 規格第 6 節的量測圖：600 × 600、200 × 200 紅色正方形＋1 px 透明度 128 的邊；上下各一個點讓角色高度＝整張圖 */
+  const square = await pngOf(600, 600, (set) => {
+    for (let y = 199; y <= 400; y++)
+      for (let x = 199; x <= 400; x++) {
+        const edge = x === 199 || x === 400 || y === 199 || y === 400;
+        set(x, y, [255, 0, 0], edge ? 128 : 255);
+      }
+    set(300, 0, [255, 0, 0]);
+    set(300, 599, [255, 0, 0]);
+  });
+  await load(page, [file('square.png', square)], '已載入 1 張。');
+  await setAspect(page, '1:1');
+  await setRange(page, 100);
+  await expect(outputSize(page)).toHaveText('輸出 600 × 600 px');
+  await page.getByRole('switch', { name: '套用效果' }).click();
+  const canvas = page.getByTestId('preview-canvas');
+  const measure = async (style: string) => {
+    await page.getByRole('radio', { name: style }).click();
+    await expect(canvas).toHaveAttribute('data-fx', 'ready');
+    const out = pngPixels((await downloadCurrent(page)).bytes);
+    /* 第 300 列從輪廓（x＝400）往右：p[d − 1] */
+    const p = Array.from({ length: 199 }, (_, i) => out.data[(300 * 600 + 401 + i) * 4 + 3]);
+    const line = p.findIndex((v) => v < 255);
+    return { p, line, total: p.slice(line).reduce((t, v) => t + v, 0) };
+  };
+  const strong = await measure('強烈光暈');
+  const soft = await measure('柔和光暈');
+  expect([strong.line, soft.line]).toEqual([5, 3]);
+  for (const [name, t] of [
+    ['強烈', strong.total],
+    ['柔和', soft.total],
+  ] as const)
+    expect(Math.abs(t - 1050) / 1050, `${name}光暈總量 ${t}（舊版 1050）`).toBeLessThanOrEqual(0.2);
+  expect(soft.total).toBeLessThan(strong.total);
+  for (let d = 4; d <= 60; d++) expect(soft.p[d - 1]).toBeLessThanOrEqual(strong.p[d - 1]);
+  /* σ ＝ 模糊值：模糊 12 時強烈光暈約到 d 34 結束（舊版下載），不是一半的長度 */
+  const end = strong.p.findLastIndex((v) => v > 0) + 1;
+  expect(end).toBeGreaterThanOrEqual(30);
+  expect(end).toBeLessThanOrEqual(40);
+  expect(errors).toEqual([]);
+});
+
+test('預覽區的大小：1440 × 900 與 1280 × 900 時顯示比例不小於 0.6，整個預覽在畫面內（追加裁定）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await load(page, [file('A.png', await figureA())], '已載入 1 張。');
+  for (const width of [1440, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect
+      .poll(
+        async () => ((await page.getByTestId('preview-canvas').boundingBox())?.height ?? 0) / 1200,
+      )
+      .toBeGreaterThanOrEqual(0.6);
+    const sb = (await stage(page).boundingBox())!;
+    expect(sb.y + sb.height, `${width}：預覽的下緣在畫面內`).toBeLessThanOrEqual(900);
+    /* 載入、下載的按鈕也在畫面內（右側一欄） */
+    for (const name of ['選擇圖片', '下載這張', '全部下載'])
+      expect(
+        ((await page.getByText(name, { exact: true }).boundingBox())?.y ?? 9999) < 900,
+        `${width}：${name}`,
+      ).toBe(true);
+    await noHorizontalScroll(page);
+  }
   expect(errors).toEqual([]);
 });
 

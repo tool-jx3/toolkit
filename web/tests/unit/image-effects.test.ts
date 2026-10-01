@@ -6,7 +6,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   applySilhouetteEffects,
+  blurMask,
   distanceField,
+  FILTER_GLOW,
+  gaussianBlurMask,
   limitResolution,
   limitScale,
   opaqueSpanInRows,
@@ -180,6 +183,98 @@ describe('applySilhouetteEffects', () => {
     );
     expect(alphaAt(out, 249, 150)).toBe(255);
     expect(alphaAt(out, 150, 150)).toBe(255);
+  });
+});
+
+describe('模糊值的換算（blurMode）與新的效果層選項', () => {
+  const src = square();
+  const reach = (p: number[]) => p.findLastIndex((a) => a > 0) + 1;
+
+  it('不給 blurMode 時和以前完全相同（σ ＝ 模糊 ÷ 2、整個剪影的光暈）', () => {
+    const color = '#ffffff';
+    expect(outlineLayers('glow-strong', { color, width: 5, blur: 12 })).toEqual([
+      { color, spread: 5, blur: 12, gain: 1.8, opacity: 1 },
+      { color, spread: 5, opacity: 1 },
+    ]);
+    expect(outlineLayers('glow-soft', { color, width: 5, blur: 0, opacity: 0.5 })).toEqual([
+      { color, spread: 3, blur: 1, opacity: 0.3 },
+      { color, spread: 3, opacity: 0.5 },
+    ]);
+    expect(outlineLayers('shadow', { color, width: 5, blur: 12, offset: 8 })).toEqual([
+      { color, spread: 5, blur: 12, offsetX: 8, offsetY: 8, opacity: 1 },
+    ]);
+    expect(outlineLayers('glow-strong', { color, width: 5, blur: 12, blurMode: 'shadow' })).toEqual(
+      outlineLayers('glow-strong', { color, width: 5, blur: 12 }),
+    );
+    /* blurMask 仍是 σ ＝ blur ÷ 2 */
+    const m = new Float32Array(41 * 41);
+    m[20 * 41 + 20] = 1;
+    expect(Array.from(blurMask(m, 41, 41, 8))).toEqual(Array.from(gaussianBlurMask(m, 41, 41, 4)));
+  });
+
+  it("blurMode 'filter'：σ ＝ 模糊值（陰影延伸約兩倍長）", () => {
+    const shadow = (blurMode?: 'filter') =>
+      rightProfile(
+        applySilhouetteEffects(
+          src,
+          outlineLayers('shadow', { color: '#000000', width: 5, blur: 8, offset: 0, blurMode }),
+        ),
+        150,
+        48,
+      );
+    const half = reach(shadow());
+    const full = reach(shadow('filter'));
+    /* σ 4 → 約 5 ＋ 3σ；σ 8 → 約 5 ＋ 3σ */
+    expect(half).toBeGreaterThan(12);
+    expect(half).toBeLessThan(20);
+    expect(full).toBeGreaterThan(24);
+    expect(full).toBeLessThan(34);
+    /* sigma 直接指定時不看 blur */
+    const viaSigma = applySilhouetteEffects(src, [
+      { color: '#000000', spread: 5, sigma: 8, blur: 2 },
+    ]);
+    expect(rightProfile(viaSigma, 150, 48)).toEqual(shadow('filter'));
+  });
+
+  it("blurMode 'filter' 的光暈：線條本身的模糊，總量幾乎不隨模糊值改變；柔和每個距離都比強烈淡", () => {
+    const glow = (style: 'glow-strong' | 'glow-soft', blur: number) =>
+      rightProfile(
+        applySilhouetteEffects(
+          src,
+          outlineLayers(style, { color: '#ffffff', width: 5, blur, blurMode: 'filter' }),
+        ),
+        150,
+        49,
+      );
+    const sum = (p: number[]) => p.slice(5).reduce((s, a) => s + a, 0);
+    const t8 = sum(glow('glow-strong', 8));
+    const t14 = sum(glow('glow-strong', 14));
+    expect(Math.abs(t14 - t8) / t8).toBeLessThan(0.25);
+    for (const blur of [0, 4, 12]) {
+      const strong = glow('glow-strong', blur);
+      const soft = glow('glow-soft', blur);
+      expect(strong.slice(0, 5)).toEqual([255, 255, 255, 255, 255]);
+      expect(soft.slice(0, 3)).toEqual([255, 255, 255]);
+      expect(soft[3], `模糊 ${blur}`).toBeLessThan(255);
+      for (let i = 3; i < 49; i++)
+        expect(soft[i], `模糊 ${blur} d ${i + 1}`).toBeLessThanOrEqual(strong[i]);
+    }
+    expect(FILTER_GLOW.softOpacity).toBeLessThan(1);
+  });
+
+  it('hollow：只取擴張出來的那一圈（剪影本身不算）', () => {
+    const one: PixelBuffer = { data: new Uint8ClampedArray(9 * 9 * 4), width: 9, height: 9 };
+    one.data[(4 * 9 + 4) * 4 + 3] = 255;
+    const out = applySilhouetteEffects(one, [{ color: '#ff0000', spread: 2, hollow: true }], {
+      keepPartial: false,
+    });
+    /* 中心是角色本身（疊在上面、透明度 255 但顏色是原圖的黑）；一圈 2 px 是線 */
+    expect(rgbAt(out, 4, 4)).toEqual([0, 0, 0]);
+    expect(alphaAt(out, 6, 4)).toBe(255);
+    expect(alphaAt(out, 7, 4)).toBe(0);
+    /* 沒有擴張時沒有東西 */
+    const none = applySilhouetteEffects(one, [{ color: '#ff0000', hollow: true }]);
+    expect(alphaAt(none, 5, 4)).toBe(0);
   });
 });
 

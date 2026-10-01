@@ -11,6 +11,7 @@
  * - 角色＝透明度大於 threshold（預設 0）的像素。
  * - 描邊：每個透明像素到最近角色像素的歐氏距離 d，覆蓋率 clamp(粗細 ＋ 1 − d)（直邊剛好 N px，轉角是圓弧並有反鋸齒）。
  * - 模糊：σ ＝ 模糊 ÷ 2（與 canvas 的 shadowBlur 相同的換算），以三次方框模糊近似高斯；圖外視為透明。
+ *   也可以直接指定 σ（SilhouetteLayer.sigma；outlineLayers 的 blurMode: 'filter' 是 σ ＝ 模糊，同 CSS 的 filter: blur()）。
  * - 陰影：整個剪影（可先擴張）模糊後往右下偏移。
  * - keepPartial（預設 true）：原圖透明度 > 0 的像素（含半透明的邊）**原封不動**，效果只出現在完全透明的地方；
  *   false 時改成一般的「角色疊在效果上面」。
@@ -25,8 +26,12 @@ export interface SilhouetteLayer {
   opacity?: number;
   /** 先把剪影向外擴張幾 px（圓形擴張；預設 0＝剪影本身） */
   spread?: number;
+  /** 只取擴張出來的那一圈（像一條 spread 粗的描邊線，剪影本身不算；預設 false）。spread 為 0 時沒有東西 */
+  hollow?: boolean;
   /** 模糊（px，σ ＝ blur ÷ 2；預設 0） */
   blur?: number;
+  /** 直接指定高斯模糊的 σ（px）；給了就不看 blur */
+  sigma?: number;
   /** 模糊後的濃度倍率（> 1 讓光暈更濃，夾到 1；預設 1） */
   gain?: number;
   /** 偏移（px，往右／往下為正） */
@@ -173,7 +178,16 @@ export function blurMask(
   height: number,
   blur: number,
 ): Float32Array {
-  const sigma = blur / 2;
+  return gaussianBlurMask(mask, width, height, blur / 2);
+}
+
+/** 0～1 的遮罩以指定的 σ（px）做高斯模糊（σ ≥ 2 用三次方框模糊近似；圖外視為 0） */
+export function gaussianBlurMask(
+  mask: Float32Array,
+  width: number,
+  height: number,
+  sigma: number,
+): Float32Array {
   if (!(sigma > 0)) return mask.slice();
   if (sigma < 2) {
     const r = Math.max(1, Math.ceil(sigma * 3));
@@ -208,13 +222,20 @@ function layerCoverage(
   const n = width * height;
   const spread = Math.max(0, layer.spread ?? 0);
   let cov: Float32Array = new Float32Array(n);
-  if (spread > 0) {
+  if (layer.hollow) {
+    if (spread > 0) {
+      const d = dist();
+      for (let i = 0; i < n; i++)
+        cov[i] = d[i] > 0 ? Math.min(1, Math.max(0, spread + 1 - d[i])) : 0;
+    }
+  } else if (spread > 0) {
     const d = dist();
     for (let i = 0; i < n; i++) cov[i] = Math.min(1, Math.max(0, spread + 1 - d[i]));
   } else {
     for (let i = 0, p = 3; i < n; i++, p += 4) cov[i] = data[p] / 255;
   }
-  if ((layer.blur ?? 0) > 0) cov = blurMask(cov, width, height, layer.blur ?? 0);
+  const sigma = layer.sigma ?? (layer.blur ?? 0) / 2;
+  if (sigma > 0) cov = gaussianBlurMask(cov, width, height, sigma);
   const gain = layer.gain ?? 1;
   if (gain !== 1) for (let i = 0; i < n; i++) cov[i] = Math.min(1, cov[i] * gain);
   const dx = Math.round(layer.offsetX ?? 0);
@@ -303,45 +324,82 @@ export interface OutlineParams {
   offset?: number;
   /** 0～1 */
   opacity?: number;
+  /**
+   * 模糊值的意思與光暈的做法（預設 'shadow'，不給時結果和以前完全相同）：
+   * - 'shadow'：像 canvas 的 shadowBlur／CSS drop-shadow，σ ＝ 模糊 ÷ 2；光暈是擴張後整個剪影的影子。
+   * - 'filter'：像對描邊線條套 CSS `filter: blur()`，σ ＝ 模糊；光暈是「粗細 N 的那一圈線」本身的模糊，
+   *   所以光暈的總量幾乎不隨模糊值改變（模糊越大越淡、越長）。陰影仍是整個剪影（σ ＝ 模糊）。
+   */
+  blurMode?: 'shadow' | 'filter';
 }
+
+/**
+ * blurMode 'filter' 的光暈：線條模糊後濃度 × gain（夾到 1），柔和再乘上 softOpacity。
+ * 以 ccfolia-cropper 舊版下載的檔案校準：粗細 5、模糊 12 時，舊版實線外的光暈總量（一列的透明度加總）約 1050；
+ * 強烈約 1180（＋13%）、柔和約 1020（−3%，含細線外的 2 px；從粗細外起算約 890）。
+ */
+export const FILTER_GLOW = { gain: 2.2, softOpacity: 0.75 } as const;
 
 /**
  * 立繪常用的四種外框效果 → 效果層（可直接交給 applySilhouetteEffects）：
  * - stroke：實線描邊（粗細 N）。
- * - glow-strong：實線＋濃的光暈（整個擴張後的剪影模糊、濃度 × 1.8）。
- * - glow-soft：細一半的實線＋淡的光暈（濃度 × 0.6），兩者看得出差別。
+ * - glow-strong：實線＋濃的光暈。
+ * - glow-soft：細一半的實線＋淡的光暈，兩者看得出差別。
  * - shadow：整個剪影（擴張 N）模糊後往右下偏移（不畫實線）。
+ *
+ * 光暈的做法依 blurMode：'shadow'（預設）＝擴張後整個剪影模糊，強烈濃度 ×1.8、柔和 ×0.6（線也細一半）；
+ * 'filter' ＝粗細 N 的那一圈線模糊（σ ＝ 模糊）、濃度 ×2.2；柔和的實線細一半，光暈來源仍是 N 粗的線、
+ * 再乘 0.75（每個距離上柔和都比強烈淡）。
  */
 export function outlineLayers(style: OutlineStyle, params: OutlineParams): SilhouetteLayer[] {
   const { color, width, offset = 0, opacity = 1 } = params;
   const w = Math.max(0, width);
+  const filter = params.blurMode === 'filter';
   const blur = Math.max(1, params.blur ?? 0);
+  const line = Math.max(1, Math.round(w / 2));
   switch (style) {
     case 'stroke':
       return [{ color, spread: w, opacity }];
     case 'glow-strong':
-      return [
-        { color, spread: w, blur, gain: 1.8, opacity },
-        { color, spread: w, opacity },
-      ];
-    case 'glow-soft': {
-      const line = Math.max(1, Math.round(w / 2));
-      return [
-        { color, spread: line, blur, opacity: opacity * 0.6 },
-        { color, spread: line, opacity },
-      ];
-    }
-    case 'shadow':
+      return filter
+        ? [
+            { color, spread: w, hollow: true, sigma: blur, gain: FILTER_GLOW.gain, opacity },
+            { color, spread: w, opacity },
+          ]
+        : [
+            { color, spread: w, blur, gain: 1.8, opacity },
+            { color, spread: w, opacity },
+          ];
+    case 'glow-soft':
+      return filter
+        ? [
+            {
+              color,
+              spread: w,
+              hollow: true,
+              sigma: blur,
+              gain: FILTER_GLOW.gain,
+              opacity: opacity * FILTER_GLOW.softOpacity,
+            },
+            { color, spread: line, opacity },
+          ]
+        : [
+            { color, spread: line, blur, opacity: opacity * 0.6 },
+            { color, spread: line, opacity },
+          ];
+    case 'shadow': {
+      const b = Math.max(0, params.blur ?? 0);
       return [
         {
           color,
           spread: w,
-          blur: Math.max(0, params.blur ?? 0),
+          ...(filter ? { sigma: b } : { blur: b }),
           offsetX: offset,
           offsetY: offset,
           opacity,
         },
       ];
+    }
   }
 }
 

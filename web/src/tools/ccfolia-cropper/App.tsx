@@ -88,6 +88,12 @@ const ACCEPT = 'image/png,image/webp,.png,.webp';
 const EMPTY_STAGE = { width: 800, height: 600 };
 /** 批次下載每張的間隔 */
 const BATCH_INTERVAL_MS = 200;
+/**
+ * 預覽區的版面：≥ 1280 px 時預覽在左（跨兩列）、右側一欄由上而下是「載入＋清單」與「輸出＋下載＋狀態」。
+ * 預覽的最高高度＝預覽欄的高度（100dvh − 5rem）扣掉 Stage 的工具列與邊框（約 3rem）。
+ */
+const PREVIEW_GRID =
+  'flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)] xl:grid-rows-[auto_1fr] xl:items-start xl:gap-x-4 xl:[--stage-max-h:calc(100dvh-8rem)]';
 
 let seq = 0;
 const nextId = () => `img-${++seq}`;
@@ -556,55 +562,63 @@ export function App() {
 
   const fxState = !params || !current ? 'off' : fx?.key === wantKey ? 'ready' : 'pending';
 
+  /*
+   * 版面：窄畫面由上而下（載入、清單、預覽、下載）；≥ 1280 px 時預覽在左、其他控制項排在右側一欄，
+   * 預覽的高度放到畫面能容納的最高（對等驗證後的追加裁定：1440 × 900 時顯示比例不小於 0.6），微調時拖得比較準。
+   */
   const preview = (
-    <div className="flex flex-col gap-3">
-      <FileDrop
-        multiple
-        compact
-        accept={ACCEPT}
-        filterByAccept={false}
-        paste="off"
-        icon={<ImagePlus />}
-        label={S.dropLabel}
-        buttonLabel={S.dropButton}
-        hint={S.dropHint}
-        onFiles={(files) => void load(files, false)}
-      />
-      <div className="flex min-w-0 items-center gap-1.5">
-        <IconButton
-          label={S.prev}
-          icon={<ChevronLeft />}
-          variant="secondary"
-          aria-keyshortcuts="A"
-          disabled={index <= 0 || !n}
-          onClick={() => go(-1)}
+    <div className={PREVIEW_GRID}>
+      <div className="flex min-w-0 flex-col gap-3 xl:col-start-2 xl:row-start-1">
+        <FileDrop
+          multiple
+          compact
+          /* 右側一欄較窄：改成直式（圖示、說明、按鈕上下排） */
+          className="xl:flex-col xl:items-center xl:gap-2 xl:py-4 xl:text-center"
+          accept={ACCEPT}
+          filterByAccept={false}
+          paste="off"
+          icon={<ImagePlus />}
+          label={S.dropLabel}
+          buttonLabel={S.dropButton}
+          hint={S.dropHint}
+          onFiles={(files) => void load(files, false)}
         />
-        <output
-          className="min-w-12 text-center text-sm tabular-nums"
-          aria-label={S.counterLabel(n ? index + 1 : 0, n)}
-          data-testid="counter"
-        >
-          {S.counter(n ? index + 1 : 0, n)}
-        </output>
-        <IconButton
-          label={S.next}
-          icon={<ChevronRight />}
-          variant="secondary"
-          aria-keyshortcuts="D"
-          disabled={index >= n - 1 || !n}
-          onClick={() => go(1)}
-        />
-        {current ? (
-          <span
-            className="ml-1 min-w-0 flex-1 truncate text-sm text-muted"
-            title={current.name}
-            data-testid="file-name"
+        <div className="flex min-w-0 items-center gap-1.5">
+          <IconButton
+            label={S.prev}
+            icon={<ChevronLeft />}
+            variant="secondary"
+            aria-keyshortcuts="A"
+            disabled={index <= 0 || !n}
+            onClick={() => go(-1)}
+          />
+          <output
+            className="min-w-12 text-center text-sm tabular-nums"
+            aria-label={S.counterLabel(n ? index + 1 : 0, n)}
+            data-testid="counter"
           >
-            {current.name}
-          </span>
-        ) : null}
+            {S.counter(n ? index + 1 : 0, n)}
+          </output>
+          <IconButton
+            label={S.next}
+            icon={<ChevronRight />}
+            variant="secondary"
+            aria-keyshortcuts="D"
+            disabled={index >= n - 1 || !n}
+            onClick={() => go(1)}
+          />
+          {current ? (
+            <span
+              className="ml-1 min-w-0 flex-1 truncate text-sm text-muted"
+              title={current.name}
+              data-testid="file-name"
+            >
+              {current.name}
+            </span>
+          ) : null}
+        </div>
       </div>
-      <div className="relative">
+      <div className="relative min-w-0 xl:col-start-1 xl:row-span-2 xl:row-start-1">
         <Stage
           width={stageW}
           height={stageH}
@@ -656,48 +670,50 @@ export function App() {
           </p>
         ) : null}
       </div>
-      {current && geo ? (
-        <p className="m-0 flex flex-wrap gap-x-3 text-xs text-muted tabular-nums">
-          <span data-testid="output-size">{S.outputInfo(geo.width, geo.height)}</span>
-          <span className="min-w-0 truncate" data-testid="output-name">
-            {outputFileName(current.name)}
-          </span>
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="primary"
-          icon={<Download />}
-          aria-keyshortcuts="Control+S"
-          loading={saving}
-          disabled={!current || batching}
-          onClick={() => void downloadCurrent()}
-        >
-          {S.download}
-        </Button>
-        <Button
-          icon={<Files />}
-          disabled={n < 2 || batching || saving}
-          onClick={() => void downloadAll()}
-        >
-          {batching ? S.downloadAllBusy : S.downloadAll}
-        </Button>
-        <Button
-          variant="ghost"
-          icon={<Crosshair />}
-          aria-keyshortcuts="C"
-          disabled={!current}
-          onClick={backToBase}
-        >
-          {S.resetOffset}
-        </Button>
+      <div className="flex min-w-0 flex-col gap-3 xl:col-start-2 xl:row-start-2">
+        {current && geo ? (
+          <p className="m-0 flex flex-wrap gap-x-3 text-xs text-muted tabular-nums">
+            <span data-testid="output-size">{S.outputInfo(geo.width, geo.height)}</span>
+            <span className="min-w-0 truncate" data-testid="output-name">
+              {outputFileName(current.name)}
+            </span>
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="primary"
+            icon={<Download />}
+            aria-keyshortcuts="Control+S"
+            loading={saving}
+            disabled={!current || batching}
+            onClick={() => void downloadCurrent()}
+          >
+            {S.download}
+          </Button>
+          <Button
+            icon={<Files />}
+            disabled={n < 2 || batching || saving}
+            onClick={() => void downloadAll()}
+          >
+            {batching ? S.downloadAllBusy : S.downloadAll}
+          </Button>
+          <Button
+            variant="ghost"
+            icon={<Crosshair />}
+            aria-keyshortcuts="C"
+            disabled={!current}
+            onClick={backToBase}
+          >
+            {S.resetOffset}
+          </Button>
+        </div>
+        {status ? (
+          <Notice tone={status.tone}>
+            <span data-testid="status-text">{status.text}</span>
+            {status.detail ? <span className="mt-0.5 block text-xs">{status.detail}</span> : null}
+          </Notice>
+        ) : null}
       </div>
-      {status ? (
-        <Notice tone={status.tone}>
-          <span data-testid="status-text">{status.text}</span>
-          {status.detail ? <span className="mt-0.5 block text-xs">{status.detail}</span> : null}
-        </Notice>
-      ) : null}
     </div>
   );
 

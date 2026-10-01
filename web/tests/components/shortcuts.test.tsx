@@ -6,6 +6,7 @@ import {
   formatCombo,
   IN_INPUT_BADGE,
   matchCombo,
+  SHORTCUTS_PASS,
   type Shortcut,
   ShortcutHelp,
   Toggle,
@@ -20,6 +21,14 @@ function Harness({ shortcuts }: { shortcuts: Shortcut[] }) {
       <button type="button">一般按鈕</button>
       <Toggle label="格線" checked onCheckedChange={() => {}} />
       <input aria-label="名稱" />
+      <div role="slider" tabIndex={0} aria-label="一般滑桿" aria-valuenow={0} />
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-label="讓出快捷鍵的滑桿"
+        aria-valuenow={0}
+        {...SHORTCUTS_PASS}
+      />
     </div>
   );
 }
@@ -48,6 +57,19 @@ describe('快捷鍵', () => {
     fireEvent.keyDown(screen.getByRole('switch', { name: '格線' }), { key: 'z', ctrlKey: true });
     fireEvent.keyDown(screen.getByRole('textbox', { name: '名稱' }), { key: 'z', ctrlKey: true });
     expect(undo).toHaveBeenCalledTimes(1);
+  });
+
+  it('標了 data-shortcuts="pass" 的控制項上單鍵快捷鍵照常；它自己處理（preventDefault）的鍵不觸發', () => {
+    const g = vi.fn();
+    render(<Harness shortcuts={[{ keys: 'g', label: '重新產生', handler: g }]} />);
+    fireEvent.keyDown(screen.getByRole('slider', { name: '一般滑桿' }), { key: 'g' });
+    expect(g).not.toHaveBeenCalled();
+    const pass = screen.getByRole('slider', { name: '讓出快捷鍵的滑桿' });
+    fireEvent.keyDown(pass, { key: 'g' });
+    expect(g).toHaveBeenCalledTimes(1);
+    pass.addEventListener('keydown', (e) => e.preventDefault());
+    fireEvent.keyDown(pass, { key: 'g' });
+    expect(g).toHaveBeenCalledTimes(1);
   });
 
   it('按鍵比對與顯示文字', () => {

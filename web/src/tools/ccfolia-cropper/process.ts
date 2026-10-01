@@ -4,6 +4,9 @@
  * 依主控裁定：預覽與下載跑同一段處理（所見即所得）；效果畫在角色後面、不改變角色本身的像素
  * （含半透明的邊）；線條的透明度就是設定值；陰影是整個剪影的偏移影子；兩種光暈有區別。
  * 這些都由共用的剪影效果（core/image 的 applySilhouetteEffects／outlineLayers）提供。
+ *
+ * 模糊的強度以舊版**下載的檔案**為準（對等驗證後的追加裁定）：σ ＝ 模糊值，光暈是粗細 N 的那一圈線模糊後的光
+ * （outlineLayers 的 blurMode: 'filter'）；強烈與柔和的光暈總量都和舊版下載相近，柔和比強烈淡。
  */
 import { encodePng } from '@/core/encode/png';
 import { applySilhouetteEffects, outlineLayers, type SilhouetteLayer } from '@/core/image/effects';
@@ -15,7 +18,7 @@ export interface EffectParams {
   color: string;
   /** 粗細 px */
   width: number;
-  /** 模糊 px（實線不用；光暈至少當 1 px） */
+  /** 模糊 px（σ ＝ 模糊值；實線不用；光暈至少當 1 px） */
   blur: number;
   /** 陰影往右下的位移 px */
   offset: number;
@@ -52,6 +55,7 @@ export function effectLayers(p: EffectParams): SilhouetteLayer[] {
     blur: p.blur,
     offset: p.offset,
     opacity: p.opacity,
+    blurMode: 'filter',
   });
 }
 

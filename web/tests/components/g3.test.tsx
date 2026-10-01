@@ -10,6 +10,7 @@ import {
   Chips,
   CropFrame,
   ImageSampler,
+  isFormControlTarget,
   LayerList,
   LayoutEditor,
   PanZoomViewport,
@@ -20,6 +21,7 @@ import {
   ThumbnailList,
   UiProvider,
   useChoice,
+  useShortcuts,
   WindowDrop,
 } from '@/ui';
 
@@ -429,6 +431,81 @@ describe('CropFrame', () => {
     onMove.mockClear();
     fireEvent.keyDown(screen.getByRole('slider', { name: '裁切框' }), { key: 'ArrowRight' });
     expect(onMove.mock.calls[1][0].x).toBe(0);
+  });
+
+  function WithShortcuts({
+    keys,
+    passShortcuts,
+    onMove,
+  }: {
+    keys: Record<string, () => void>;
+    passShortcuts?: boolean;
+    onMove?: () => void;
+  }) {
+    useShortcuts(
+      Object.entries(keys).map(([k, handler]) => ({ keys: k, label: k, handler: () => handler() })),
+    );
+    return (
+      <CropFrame
+        width={200}
+        height={300}
+        rect={{ x: 50, y: 20, width: 100, height: 120 }}
+        onMove={onMove}
+        passShortcuts={passShortcuts}
+      />
+    );
+  }
+
+  it('框有焦點時：方向鍵歸框，其他鍵（D、C、Esc、Ctrl＋S）照常交給工具的快捷鍵', () => {
+    const fn = { d: vi.fn(), c: vi.fn(), esc: vi.fn(), save: vi.fn(), left: vi.fn(), up: vi.fn() };
+    const onMove = vi.fn();
+    render(
+      <WithShortcuts
+        onMove={onMove}
+        keys={{
+          d: fn.d,
+          c: fn.c,
+          escape: fn.esc,
+          'mod+s': fn.save,
+          arrowleft: fn.left,
+          arrowup: fn.up,
+        }}
+      />,
+    );
+    const frame = screen.getByRole('slider', { name: '裁切框' });
+    frame.focus();
+    expect(frame).toHaveFocus();
+    expect(frame).toHaveAttribute('data-shortcuts', 'pass');
+    expect(isFormControlTarget(frame)).toBe(false);
+    fireEvent.keyDown(frame, { key: 'd' });
+    fireEvent.keyDown(frame, { key: 'c' });
+    fireEvent.keyDown(frame, { key: 'Escape' });
+    fireEvent.keyDown(frame, { key: 's', ctrlKey: true });
+    expect([fn.d, fn.c, fn.esc, fn.save].map((f) => f.mock.calls.length)).toEqual([1, 1, 1, 1]);
+    /* 方向鍵：沿 axis 的移動框，另一個方向也歸框（不觸發工具的快捷鍵、不捲動頁面） */
+    expect(fireEvent.keyDown(frame, { key: 'ArrowLeft' })).toBe(false);
+    expect(fireEvent.keyDown(frame, { key: 'ArrowUp' })).toBe(false);
+    expect(fn.left).not.toHaveBeenCalled();
+    expect(fn.up).not.toHaveBeenCalled();
+    expect(onMove).toHaveBeenCalledTimes(3);
+    /* 拖曳後焦點留在框上，快捷鍵照常 */
+    fireEvent.pointerDown(frame, { button: 0, pointerId: 1, clientX: 0, clientY: 0 });
+    fireEvent.pointerUp(frame, { pointerId: 1 });
+    fireEvent.keyDown(frame, { key: 'd' });
+    expect(fn.d).toHaveBeenCalledTimes(2);
+  });
+
+  it('passShortcuts={false}：當成一般滑桿，單鍵快捷鍵不作用（舊行為）', () => {
+    const d = vi.fn();
+    const up = vi.fn();
+    render(<WithShortcuts passShortcuts={false} keys={{ d, arrowup: up }} />);
+    const frame = screen.getByRole('slider', { name: '裁切框' });
+    expect(frame).not.toHaveAttribute('data-shortcuts');
+    expect(isFormControlTarget(frame)).toBe(true);
+    fireEvent.keyDown(frame, { key: 'd' });
+    expect(fireEvent.keyDown(frame, { key: 'ArrowUp' })).toBe(true);
+    expect(d).not.toHaveBeenCalled();
+    expect(up).not.toHaveBeenCalled();
   });
 });
 
