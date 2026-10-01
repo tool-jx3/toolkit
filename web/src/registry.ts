@@ -221,6 +221,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/kimtaehee2018-maker/ccfolia-cropper',
     },
   },
+  {
+    id: 'icon-maker',
+    name: '簡易頭像產生器',
+    summary:
+      '把角色圖放進圓角外框，加上名字牌與 HO 牌，拖曳排好版面後下載 1024 × 1024 的正方形頭像 PNG。',
+    group: 'G3',
+    status: 'next',
+    inspiration: {
+      name: 'くま。／TRPG WEBツール観測所',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
