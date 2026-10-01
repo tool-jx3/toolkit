@@ -144,26 +144,32 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | apng-wipe | ✅ | ✅ | ✅ | ✅ |
 | portrait-size | ✅ | ✅ | ✅ | ✅ |
 | text-fx | —（原創，直接移植） | ✅ | ✅ | ✅ |
-| status-bar | ✅ | 🔨 | ⬜ | ⬜ |
-| message-box | ✅ | 🔨 | ⬜ | ⬜ |
-| chat-window | ✅ | 🔨 | ⬜ | ⬜ |
-| obs-tachie | ✅ | 🔨 | ⬜ | ⬜ |
+| status-bar | ✅ | ✅ | 🔍 | ⬜ |
+| message-box | ✅ | ✅ | 🔍 | ⬜ |
+| chat-window | ✅ | ✅ | 🔍 | ⬜ |
+| obs-tachie | ✅ | ✅ | 🔍 | ⬜ |
 | ccfolia-cropper | ✅ | ⬜ | ⬜ | ⬜ |
 | icon-maker | ✅ | ⬜ | ⬜ | ⬜ |
 | variant-manager | ✅ | ⬜ | ⬜ | ⬜ |
 | height-board | ✅ | ⬜ | ⬜ | ⬜ |
 | color-palette | ✅ | ⬜ | ⬜ | ⬜ |
 | emotion-maker | ✅ | ⬜ | ⬜ | ⬜ |
-| typewriter | ✅ | ⬜ | ⬜ | ⬜ |
-| text-path | ✅ | ⬜ | ⬜ | ⬜ |
-| cutin | ✅ | ⬜ | ⬜ | ⬜ |
-| collage-letter | ✅ | ⬜ | ⬜ | ⬜ |
-| scene-transition | 📝 | ⬜ | ⬜ | ⬜ |
-| bg-motion | 📝 | ⬜ | ⬜ | ⬜ |
-| loading-maker | 📝 | ⬜ | ⬜ | ⬜ |
-| 其餘 18 個（G5～G9） | ⬜ | ⬜ | ⬜ | ⬜ |
+| typewriter | ✅ | 🔨 | ⬜ | ⬜ |
+| text-path | ✅ | 🔨 | ⬜ | ⬜ |
+| cutin | ✅ | 🔨 | ⬜ | ⬜ |
+| collage-letter | ✅ | 🔨 | ⬜ | ⬜ |
+| scene-transition | ✅ | ⬜ | ⬜ | ⬜ |
+| bg-motion | ✅ | ⬜ | ⬜ | ⬜ |
+| loading-maker | ✅ | ⬜ | ⬜ | ⬜ |
+| foreground-frame | ✅ | ⬜ | ⬜ | ⬜ |
+| scenario-cards | ✅ | ⬜ | ⬜ | ⬜ |
+| character-editor | 📝 | ⬜ | ⬜ | ⬜ |
+| log-converter | 📝 | ⬜ | ⬜ | ⬜ |
+| room-zip | 📝 | ⬜ | ⬜ | ⬜ |
+| psd-studio | 📝 | ⬜ | ⬜ | ⬜ |
+| 其餘 12 個（G6～G9） | ⬜ | ⬜ | ⬜ | ⬜ |
 
-（每個群組開始時把該組工具逐列展開到這張表。）
+（每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 🔨。）
 
 ## 7. 往後新增工具
 
