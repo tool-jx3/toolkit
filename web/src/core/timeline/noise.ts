@@ -49,3 +49,65 @@ export function loopNoise2(
     y: loopNoise(seed, t, { ...options, channel: 1 }),
   };
 }
+
+/* ---------- 二維值雜訊與 fBm（G2：暈染邊界、霧、雲狀花紋） ---------- */
+
+/** 整數格點上的值 [0, 1)（由種子與座標雜湊） */
+const lattice = (s: number, ix: number, iy: number): number => hashUnit(s, ix, iy);
+
+const fade = (t: number) => t * t * (3 - 2 * t);
+
+/**
+ * 二維值雜訊：整數格點各有一個決定性的亂數，格點之間以 smoothstep 權重雙線性內插。
+ * 範圍 [0, 1)，連續、在格點上剛好等於格點值；同樣的 seed、x、y 一定得到同樣的值。
+ * 1 個單位＝1 格（要一格 40 px 時傳 x ÷ 40）。
+ */
+export function valueNoise2(seed: number | string, x: number, y: number): number {
+  const s = seedNum(seed);
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
+  const fx = fade(x - ix);
+  const fy = fade(y - iy);
+  const a = lattice(s, ix, iy);
+  const b = lattice(s, ix + 1, iy);
+  const c = lattice(s, ix, iy + 1);
+  const d = lattice(s, ix + 1, iy + 1);
+  const top = a + (b - a) * fx;
+  const bottom = c + (d - c) * fx;
+  return top + (bottom - top) * fy;
+}
+
+export interface FbmOptions {
+  /** 疊幾層（預設 5） */
+  octaves?: number;
+  /** 每層頻率倍率（預設 2） */
+  lacunarity?: number;
+  /** 每層振幅倍率（預設 0.5） */
+  gain?: number;
+}
+
+/**
+ * 分形雜訊（fBm）：valueNoise2 疊 octaves 層（頻率 ×lacunarity、振幅 ×gain），正規化到 [0, 1)。
+ * 預設 5 層：最大的團塊約 1 個單位、細節約 1/16 個單位（雲狀、墨跡的不規則邊界）。各層用不同的種子，不會對齊格線。
+ */
+export function fbm2(
+  seed: number | string,
+  x: number,
+  y: number,
+  { octaves = 5, lacunarity = 2, gain = 0.5 }: FbmOptions = {},
+): number {
+  const s = seedNum(seed);
+  let sum = 0;
+  let norm = 0;
+  let amp = 1;
+  let f = 1;
+  const n = Math.max(1, Math.floor(octaves));
+  for (let o = 0; o < n; o++) {
+    /* 每層錯開一點，避免各層的格點疊在一起 */
+    sum += amp * valueNoise2(s + o * 7919, x * f + o * 17.31, y * f + o * 9.73);
+    norm += amp;
+    amp *= gain;
+    f *= lacunarity;
+  }
+  return sum / norm;
+}

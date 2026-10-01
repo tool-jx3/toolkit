@@ -11,6 +11,10 @@
  *   不讓整頁跟著捲（見 reveal.ts：捲動區本身有一部分在畫面外、只捲它不夠時，才把頁面捲最少的距離）。
  * - `onReorder(from, to)`：拖曳一列到另一列放開來排序（往下拖落在目標後、往上拖落在目標前；從欄位上開始拖不算）。
  * - `renderFields(item, index)`：每列自訂的欄位（例如差分名、輸出檔名）。
+ *
+ * G2 加的（選填，不給時行為不變）：
+ * - `thumbAspect`（格線版面的縮圖寬高比，預設 1）、`thumbFit="cover"`（裁成填滿，例如 16:9 的轉場順序卡）；
+ * - 格線版面的拖曳排序依指標所在的那一張決定目標（左右拖也可以；Alt＋←／→ 也能移動）。
  */
 import { CheckCircle2, ImageOff, X, XCircle } from 'lucide-react';
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
@@ -64,6 +68,10 @@ export interface ThumbnailListProps<I extends ThumbnailItem = ThumbnailItem> {
   onReorder?: (from: number, to: number) => void;
   /** 每列自訂的欄位 */
   renderFields?: (item: I, index: number) => ReactNode;
+  /** 格線版面的縮圖寬高比（寬 ÷ 高，預設 1） */
+  thumbAspect?: number;
+  /** 縮圖的擺法：'contain'（預設，完整顯示）或 'cover'（裁切填滿） */
+  thumbFit?: 'contain' | 'cover';
 }
 
 /** 讀取中／讀不到的佔位 */
@@ -82,7 +90,13 @@ function Placeholder({ broken }: { broken?: boolean }) {
 }
 
 /** 把可畫的影像縮小畫到自己的 canvas（不超過 2 倍顯示大小，省記憶體） */
-function DrawnThumb({ source }: { source: Exclude<ThumbnailSource, string> }) {
+function DrawnThumb({
+  source,
+  fit = 'contain',
+}: {
+  source: Exclude<ThumbnailSource, string>;
+  fit?: 'contain' | 'cover';
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = ref.current;
@@ -101,12 +115,15 @@ function DrawnThumb({ source }: { source: Exclude<ThumbnailSource, string> }) {
       ref={ref}
       data-width={source.width}
       data-height={source.height}
-      className="checker block max-h-full max-w-full"
+      className={cn(
+        'checker block',
+        fit === 'cover' ? 'size-full object-cover' : 'max-h-full max-w-full',
+      )}
     />
   );
 }
 
-function UrlThumb({ src }: { src: string }) {
+function UrlThumb({ src, fit = 'contain' }: { src: string; fit?: 'contain' | 'cover' }) {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   return (
     <>
@@ -119,7 +136,8 @@ function UrlThumb({ src }: { src: string }) {
         onLoad={() => setState('ready')}
         onError={() => setState('error')}
         className={cn(
-          'checker block max-h-full max-w-full object-contain',
+          'checker block',
+          fit === 'cover' ? 'size-full object-cover' : 'max-h-full max-w-full object-contain',
           state !== 'ready' && 'hidden',
         )}
       />
@@ -131,11 +149,18 @@ function UrlThumb({ src }: { src: string }) {
  * 一張縮圖（等比縮進父元素、透明處棋盤格；網址讀不到時破圖圖示；沒有來源時讀取中）。
  * 父元素決定大小與對齊（例如 `flex items-end justify-center` 讓立繪底部對齊）。
  */
-export function ThumbnailImage({ source }: { source?: ThumbnailSource | null }) {
+export function ThumbnailImage({
+  source,
+  fit,
+}: {
+  source?: ThumbnailSource | null;
+  /** 'contain'（預設）或 'cover'（裁切填滿父元素） */
+  fit?: 'contain' | 'cover';
+}) {
   if (!source) return <Placeholder />;
   /* key：換來源時重新顯示佔位 */
-  if (typeof source === 'string') return <UrlThumb key={source} src={source} />;
-  return <DrawnThumb source={source} />;
+  if (typeof source === 'string') return <UrlThumb key={source} src={source} fit={fit} />;
+  return <DrawnThumb source={source} fit={fit} />;
 }
 
 export function ThumbnailList<I extends ThumbnailItem = ThumbnailItem>({
@@ -153,6 +178,8 @@ export function ThumbnailList<I extends ThumbnailItem = ThumbnailItem>({
   onSelect,
   onReorder,
   renderFields,
+  thumbAspect,
+  thumbFit,
   ...rest
 }: ThumbnailListProps<I>) {
   const list = useRef<HTMLUListElement>(null);
@@ -160,6 +187,7 @@ export function ThumbnailList<I extends ThumbnailItem = ThumbnailItem>({
   const sortable = useSortable({
     count: items.length,
     mode: 'drop',
+    axis: layout === 'list' ? 'y' : 'xy',
     disabled: !onReorder,
     onMove: (from, to) => {
       onReorder?.(from, to);
@@ -262,11 +290,17 @@ export function ThumbnailList<I extends ThumbnailItem = ThumbnailItem>({
             <div
               className={cn(
                 'flex shrink-0 items-center justify-center overflow-hidden rounded-sm bg-surface-2',
-                !isList && 'aspect-square',
+                !isList && !thumbAspect && 'aspect-square',
               )}
-              style={isList ? { width: thumbSize, height: thumbSize } : undefined}
+              style={
+                isList
+                  ? { width: thumbSize, height: thumbSize }
+                  : thumbAspect
+                    ? { aspectRatio: String(thumbAspect) }
+                    : undefined
+              }
             >
-              <ThumbnailImage source={item.image} />
+              <ThumbnailImage source={item.image} fit={thumbFit} />
             </div>
             <div className={cn('flex min-w-0 flex-col gap-1', isList && 'flex-1')}>
               <div className="flex min-w-0 items-center gap-1">

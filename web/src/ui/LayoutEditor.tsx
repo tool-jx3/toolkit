@@ -9,6 +9,9 @@
  * - 鍵盤（掛在 window；焦點在文字欄、選單、滑桿等表單控制項時不作用）：方向鍵微調（Shift 加大；
  *   ctrlNudge 時按住 Ctrl 也微調）、Delete／Backspace 取消選取、Esc 呼叫 onEscape。
  * - 座標單位：'px'（內容座標）或 'percent'（相對 frame 的百分比，例如頭像的內側區域）。
+ * - G2 加的（選填，不給時行為不變）：`snap`：拖曳移動時吸附到畫布（frame）的左中右／上中下與其他物件的邊和中心，
+ *   靠近 threshold（螢幕 px，預設 8）以內就對齊並顯示一條吸附線，吸住後要拉開 release（預設 12）才脫離；
+ *   `hitPadding`：點選範圍往外擴幾個螢幕 px（小物件比較好點）。重疊時後面的物件（上層）優先。
  *
  * ```tsx
  * <Stage width={1024} height={1024}>
@@ -37,12 +40,16 @@ import {
   type Box,
   type BoxHandle,
   boxGuides,
+  boxToPercent,
   guideLabelBoxes,
   type LabelSize,
   moveBox,
   percentToBox,
   resizeBox,
   type SizeLimits,
+  type SnapState,
+  snapBox,
+  snapTargets,
 } from '@/core/layout';
 import { cn } from './cn';
 import { useStageScale } from './Stage';
@@ -106,6 +113,10 @@ export interface LayoutEditorProps {
   safeArea?: Box;
   /** 疊在最上面的其他標示 */
   children?: ReactNode;
+  /** 拖曳移動時吸附（canvas：畫布〔frame〕的邊與中心；items：其他物件的邊與中心） */
+  snap?: { canvas?: boolean; items?: boolean; threshold?: number; release?: number } | null;
+  /** 點選範圍往外擴（螢幕 px） */
+  hitPadding?: number;
   'aria-label'?: string;
   className?: string;
 }
@@ -196,6 +207,8 @@ export function LayoutEditor({
   onEscape,
   safeArea,
   children,
+  snap = null,
+  hitPadding = 0,
   className,
   ...rest
 }: LayoutEditorProps) {
@@ -205,6 +218,9 @@ export function LayoutEditor({
   const drag = useRef<Drag | null>(null);
   const [active, setActive] = useState<{ id: string; op: 'move' | 'resize' } | null>(null);
   const [guidesHidden, setGuidesHidden] = useState(false);
+  /* 吸附中的線（內容座標） */
+  const snapRef = useRef<SnapState>({ x: null, y: null });
+  const [snapLine, setSnapLine] = useState<SnapState>({ x: null, y: null });
 
   const toPx = (b: Box) => (units === 'percent' ? percentToBox(b, frame) : b);
   const fmt =
@@ -300,6 +316,8 @@ export function LayoutEditor({
     };
     setActive({ id: item.id, op });
     setGuidesHidden(false);
+    snapRef.current = { x: null, y: null };
+    setSnapLine({ x: null, y: null });
     onChange(item.id, item.box, { phase: 'start', op });
   };
 
@@ -321,6 +339,22 @@ export function LayoutEditor({
       d.op === 'resize' && d.handle
         ? resizeBox(d.start, d.handle, dx, dy, item.limits)
         : moveBox(d.start, dx, dy);
+    if (snap && d.op === 'move' && (snap.canvas || snap.items)) {
+      const targets = snapTargets(
+        snap.canvas ? frame : null,
+        snap.items ? items.filter((it) => it.id !== d.id).map((it) => toPx(it.box)) : [],
+      );
+      const res = snapBox(
+        toPx(next),
+        targets,
+        (snap.threshold ?? 8) * k,
+        snapRef.current,
+        (snap.release ?? 12) * k,
+      );
+      snapRef.current = res.guide;
+      setSnapLine(res.guide);
+      next = units === 'percent' ? boxToPercent(res.box, frame) : res.box;
+    }
     if (item.clamp) next = item.clamp(next, d.op);
     onChange(d.id, next, { phase: 'move', op: d.op });
   };
@@ -330,6 +364,8 @@ export function LayoutEditor({
     if (!d || d.pointer !== e.pointerId) return;
     drag.current = null;
     setActive(null);
+    snapRef.current = { x: null, y: null };
+    setSnapLine({ x: null, y: null });
     const item = items.find((it) => it.id === d.id);
     onChange(d.id, item?.box ?? d.start, { phase: 'end', op: d.op });
   };
@@ -403,7 +439,16 @@ export function LayoutEditor({
       ) : null}
       {items.map((item) => {
         const px = toPx(item.box);
-        const hit = item.clipToFrame ? intersect(px, frame) : px;
+        const clipped = item.clipToFrame ? intersect(px, frame) : px;
+        const pad = hitPadding * k;
+        const hit = pad
+          ? {
+              x: clipped.x - pad,
+              y: clipped.y - pad,
+              width: clipped.width + pad * 2,
+              height: clipped.height + pad * 2,
+            }
+          : clipped;
         const selected = item.id === selectedId;
         return (
           <div key={item.id}>
@@ -474,6 +519,27 @@ export function LayoutEditor({
           </div>
         );
       })}
+      {active && (snapLine.x !== null || snapLine.y !== null) ? (
+        <svg
+          aria-hidden
+          className="pointer-events-none absolute inset-0 overflow-visible"
+          width={width}
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+          data-testid="layout-snap"
+          data-snap-x={snapLine.x ?? undefined}
+          data-snap-y={snapLine.y ?? undefined}
+        >
+          <g stroke="var(--accent)" strokeWidth={1.5 * k} fill="none">
+            {snapLine.x !== null ? (
+              <line x1={snapLine.x} y1={0} x2={snapLine.x} y2={height} />
+            ) : null}
+            {snapLine.y !== null ? (
+              <line x1={0} y1={snapLine.y} x2={width} y2={snapLine.y} />
+            ) : null}
+          </g>
+        </svg>
+      ) : null}
       {showGuides && g && dist && labels ? (
         <>
           <svg

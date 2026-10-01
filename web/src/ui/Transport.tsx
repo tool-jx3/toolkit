@@ -2,12 +2,18 @@
  * 播放列：重播、播放／暫停、可拖曳的時間軸（可顯示階段分色）、循環開關、目前時間／總長。
  * 時間軸有焦點時：←／→ 一格（1/fps 秒，Shift 十格）、PageUp／PageDown 一秒、Home／End 到頭尾。
  * 拖曳時暫停，放開後恢復原本的播放狀態。
+ *
+ * G2 擴充（選填，不給時行為不變）：
+ * - `onRateChange`（＋`rate`、`rateRange`、`rateStep`）：顯示「預覽速度」數字欄（只影響預覽，不影響匯出）。
+ * - `frames`（影格表）：時間軸聚焦時 ←／→ 移到上一格／下一格的開始（每格長度不同時用）。
  */
 import { Pause, Play, Repeat, RotateCcw } from 'lucide-react';
 import { type KeyboardEvent, type PointerEvent, useRef } from 'react';
+import type { FrameSpec } from '@/core/timeline/frames';
 import type { TimelineSegment } from '@/core/timeline/timeline';
 import { IconButton } from './Button';
 import { cn } from './cn';
+import { NumberInput } from './NumberInput';
 
 /** 階段沒有指定顏色時依序使用 */
 export const SEGMENT_COLORS = [
@@ -35,6 +41,15 @@ export interface TransportProps {
   legend?: boolean;
   /** 鍵盤逐格移動用（預設 30） */
   fps?: number;
+  /** 影格表：給了就以每格的開始時間逐格移動（←／→） */
+  frames?: readonly FrameSpec[];
+  /** 預覽速度（倍）；給 onRateChange 才顯示速度欄 */
+  rate?: number;
+  onRateChange?: (rate: number) => void;
+  /** 速度範圍（預設 0.1～4） */
+  rateRange?: readonly [number, number];
+  /** 速度欄的間隔（預設 0.1） */
+  rateStep?: number;
   disabled?: boolean;
   className?: string;
 }
@@ -54,6 +69,11 @@ export function Transport({
   markers,
   legend = true,
   fps = 30,
+  frames,
+  rate = 1,
+  onRateChange,
+  rateRange = [0.1, 4],
+  rateStep = 0.1,
   disabled,
   className,
 }: TransportProps) {
@@ -84,8 +104,35 @@ export function Transport({
       resume.current = false;
     }
   };
+  /* 影格表：每格的開始時間（秒） */
+  const starts = frames?.length
+    ? frames.reduce<number[]>((acc, _f, i) => {
+        acc.push(i ? acc[i - 1] + Math.max(0, frames[i - 1].ms) / 1000 : 0);
+        return acc;
+      }, [])
+    : null;
+  const stepFrame = (dir: 1 | -1, count: number) => {
+    if (!starts) return null;
+    let i = starts.length - 1;
+    while (i > 0 && starts[i] > time + 1e-6) i--;
+    const target = Math.max(0, Math.min(starts.length - 1, i + dir * count));
+    return starts[target];
+  };
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const frame = 1 / fps;
+    if (
+      starts &&
+      (e.key === 'ArrowLeft' ||
+        e.key === 'ArrowRight' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'ArrowDown')
+    ) {
+      const dir = e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 1;
+      const t = stepFrame(dir, e.shiftKey ? 10 : 1);
+      if (t !== null) onTimeChange(t);
+      e.preventDefault();
+      return;
+    }
     const map: Record<string, number> = {
       ArrowLeft: -(e.shiftKey ? 10 : 1) * frame,
       ArrowDown: -(e.shiftKey ? 10 : 1) * frame,
@@ -196,6 +243,23 @@ export function Transport({
           />
         ) : null}
       </div>
+      {onRateChange ? (
+        <div className="flex items-center justify-end gap-1.5 text-xs text-muted">
+          <span aria-hidden>預覽速度</span>
+          <NumberInput
+            aria-label="預覽速度"
+            value={rate}
+            onChange={onRateChange}
+            min={rateRange[0]}
+            max={rateRange[1]}
+            step={rateStep}
+            unit="倍"
+            size="sm"
+            disabled={disabled}
+            className="w-24"
+          />
+        </div>
+      ) : null}
       {legend && segments?.length ? (
         <ul
           aria-label="階段"

@@ -8,6 +8,8 @@
  * - 鍵盤：列有焦點時 Alt＋↑／↓ 移動一格（keyMove）。
  * - cancelOutside（選填，drop 模式）：指標在所有列的範圍外時沒有目標列，放開不移動
  *   （例如一頁有好幾個清單，拖到別的清單上放開不算；color-palette 移植時新增，不給時行為不變）。
+ * - G2：`axis: 'xy'`（格狀排列，例如一列縮圖卡）時依指標落在哪一張（或最近的那一張）決定目標，左右拖也可以；
+ *   預設 'y'（直向清單，行為不變）。鍵盤 Alt＋←／→ 也能移動。
  */
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react';
 
@@ -26,6 +28,8 @@ export interface SortableOptions {
   edge?: number;
   /** drop 模式：指標在所有列的範圍外時沒有目標列、放開不移動（預設 false：落在最近的列） */
   cancelOutside?: boolean;
+  /** 'y'（預設，直向清單）或 'xy'（格狀／橫向排列：依指標所在的那一張決定目標） */
+  axis?: 'y' | 'xy';
 }
 
 const NO_DRAG =
@@ -85,10 +89,44 @@ export function useSortable(options: SortableOptions) {
     return !(y >= top && y <= bottom && x >= left && x <= right);
   };
 
+  /** 格狀排列：指標所在（或中心最近）的那一張 */
+  const nearest = (x: number, y: number) => {
+    let best = -1;
+    let bestD = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < opts.current.count; i++) {
+      const r = rows.current.get(i)?.getBoundingClientRect();
+      if (!r) continue;
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return i;
+      const d = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2));
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best;
+  };
+
   /** 依指標位置算目標列（drop 模式且 cancelOutside 時，範圍外是 -1＝沒有目標） */
   const track = (x: number, y: number) => {
     const s = g.current;
     if (!s?.active) return;
+    if (opts.current.axis === 'xy') {
+      const t = opts.current.cancelOutside && outside(x, y) ? -1 : nearest(x, y);
+      if (opts.current.mode === 'drop') {
+        if (t !== s.over) {
+          s.over = t;
+          setState({ drag: s.index, over: t });
+        }
+        return;
+      }
+      if (t >= 0 && t !== s.cur) {
+        opts.current.onMove(s.cur, t);
+        s.cur = t;
+        s.over = t;
+        setState({ drag: t, over: t });
+      }
+      return;
+    }
     const n = opts.current.count;
     if (opts.current.mode === 'drop') {
       let t = 0;
@@ -217,7 +255,13 @@ export function useSortable(options: SortableOptions) {
   /** Alt＋↑／↓：移動一格（回傳是否處理了） */
   const keyMove = (index: number, e: KeyboardEvent<HTMLElement>): boolean => {
     if (!e.altKey || e.ctrlKey || e.metaKey || opts.current.disabled) return false;
-    const to = e.key === 'ArrowUp' ? index - 1 : e.key === 'ArrowDown' ? index + 1 : -1;
+    const xy = opts.current.axis === 'xy';
+    const to =
+      e.key === 'ArrowUp' || (xy && e.key === 'ArrowLeft')
+        ? index - 1
+        : e.key === 'ArrowDown' || (xy && e.key === 'ArrowRight')
+          ? index + 1
+          : -1;
     if (to < 0 || to >= opts.current.count) return false;
     e.preventDefault();
     opts.current.onMoveStart?.(index);

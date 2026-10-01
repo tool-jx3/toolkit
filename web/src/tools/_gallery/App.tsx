@@ -13,6 +13,8 @@ import {
 import { DemoPreview } from './DemoPreview';
 import { createDemoSource, DEMO_DEFAULTS, type DemoSettings } from './demo';
 import { G1Preview } from './g1/G1Preview';
+import { G2Demo } from './g2/G2Demo';
+import { G2Preview } from './g2/G2Preview';
 import { G3Demo } from './g3/G3Demo';
 import { G3Preview } from './g3/G3Preview';
 import { ObsPreview } from './obs/ObsPreview';
@@ -34,7 +36,10 @@ export function App() {
   const { undo, redo, canUndo, canRedo } = useUndoRedo(useDemo);
   const source = useMemo(() => createDemoSource(settings), [settings]);
   const playback = usePlayback({ duration: source.duration });
-  /* 「OBS 疊加」分頁時，預覽欄換成 CSS 預覽；「文字演出」分頁換成 G1 的示範動畫；「立繪工作台」分頁換成版面編輯／身高板／裁切框 */
+  /*
+   * 「OBS 疊加」分頁時，預覽欄換成 CSS 預覽；「文字演出」分頁換成 G1 的示範動畫；
+   * 「轉場與動態」分頁換成轉場／圖片動態／版面吸附；「立繪工作台」分頁換成版面編輯／身高板／裁切框
+   */
   const [tab, setTab] = useState('demo');
 
   const shortcuts: Shortcut[] = [
@@ -87,6 +92,7 @@ export function App() {
               { value: 'modules', label: '模組', content: <ModulesDemo /> },
               { value: 'obs', label: 'OBS 疊加', content: <ObsDemo /> },
               { value: 'g1', label: '文字演出', content: <G1Demo /> },
+              { value: 'g2', label: '轉場與動態', content: <G2Demo /> },
               { value: 'g3', label: '立繪工作台', content: <G3Demo /> },
             ]}
           />
@@ -97,6 +103,8 @@ export function App() {
           <ObsPreview />
         ) : tab === 'g1' ? (
           <G1Preview />
+        ) : tab === 'g2' ? (
+          <G2Preview />
         ) : tab === 'g3' ? (
           <G3Preview />
         ) : (

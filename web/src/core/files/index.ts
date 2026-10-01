@@ -448,3 +448,62 @@ export function formatLimitBytes(bytes: number): string {
 /** 實際大小佔上限的百分比（四捨五入成整數） */
 export const usagePercent = (bytes: number, maxBytes: number): number =>
   maxBytes > 0 ? Math.round((bytes / maxBytes) * 100) : 0;
+
+/* ---------- G2：檔名自然排序、未壓縮資料量 ---------- */
+
+/** 把檔名切成「數字」與「其他」交錯的片段 */
+const naturalChunks = (s: string): (string | number)[] => {
+  const out: (string | number)[] = [];
+  const re = /(\d+)|(\D+)/g;
+  for (let m = re.exec(s); m; m = re.exec(s)) out.push(m[1] !== undefined ? m[1] : m[2]);
+  return out;
+};
+
+/**
+ * 檔名的自然排序比較：數字段依數值比（1、2、10，不是 1、10、2；數值相同時位數少的在前，01 在 1 之後），
+ * 其他字元不分大小寫、依 Unicode 碼位比；完全相同時再分大小寫。結果與語系無關（每台電腦一樣）。
+ */
+export function naturalCompare(a: string, b: string): number {
+  const A = naturalChunks(a.normalize('NFC'));
+  const B = naturalChunks(b.normalize('NFC'));
+  const n = Math.min(A.length, B.length);
+  for (let i = 0; i < n; i++) {
+    const x = A[i] as string;
+    const y = B[i] as string;
+    const dx = /^\d/.test(x);
+    const dy = /^\d/.test(y);
+    if (dx && dy) {
+      const vx = x.replace(/^0+(?=\d)/, '');
+      const vy = y.replace(/^0+(?=\d)/, '');
+      if (vx.length !== vy.length) return vx.length - vy.length;
+      if (vx !== vy) return vx < vy ? -1 : 1;
+      if (x.length !== y.length) return x.length - y.length;
+      continue;
+    }
+    if (dx !== dy) return dx ? -1 : 1;
+    const lx = x.toLowerCase();
+    const ly = y.toLowerCase();
+    if (lx !== ly) return lx < ly ? -1 : 1;
+  }
+  if (A.length !== B.length) return A.length - B.length;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** 依名稱自然排序（不改原陣列；名稱相同時保持原順序） */
+export function naturalSort<T>(list: readonly T[], key: (item: T) => string = String): T[] {
+  return list
+    .map((item, i) => ({ item, i, k: key(item) }))
+    .sort((p, q) => naturalCompare(p.k, q.k) || p.i - q.i)
+    .map((x) => x.item);
+}
+
+/**
+ * 資料量的顯示（未壓縮的影格資料等）：未滿 1 KB「n B」、未滿 1 MB「x.x KB」、未滿 1 GB「x.x MB」、其餘「x.xx GB」（以 1024 為單位）。
+ */
+export function formatDataSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+}

@@ -17,12 +17,19 @@ export {
   type EncodedFile,
   type EncodeFormat,
   type FrameEncoder,
+  MAX_PLAYS,
   pasteRect,
   type Rect,
   type RgbaPixels,
   toU32,
 } from './frames';
-export { GIF_MAX_FPS, GifEncoder, type GifEncoderOptions, gifRepeat } from './gif';
+export {
+  GIF_MAX_FPS,
+  GifEncoder,
+  type GifEncoderOptions,
+  gifAlphaThresholdInclusive,
+  gifRepeat,
+} from './gif';
 export { createLocalEncoder, type Encoder, type EncoderSpec } from './local';
 export { buildPalette, ColorStats, type Palette } from './palette';
 export {

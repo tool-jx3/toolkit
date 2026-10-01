@@ -8,6 +8,7 @@
  * - 連續相同的影格合併並延長顯示時間（毫秒，累計換算）。
  * - minFrameMs（選填，預設 0＝不限）：每個輸入影格至少顯示這麼久（例如 20 ms），補上的時間不從別格扣回，總長會變長。
  * - quality 為 1 時 Chromium 會用無損編碼（VP8L）；其他值為有損。
+ * - `pickSmaller`（G2）：每一格同時編無損與有損（quality），取位元組較少的那個（同一個檔案裡可能混用兩種）。
  * - Safari 不支援 WebP 編碼：先用 supportsWebpEncoding() 檢查。
  */
 import {
@@ -189,6 +190,8 @@ export interface WebpEncoderOptions {
    * 例如 20：60 fps 的 17／16 ms 一律變成 20 ms；補上的時間不從別格扣回，總長會變長。合併相同影格時先各自補足再相加。
    */
   minFrameMs?: number;
+  /** 每格比較無損與有損（quality），取較小者（quality 為 1 時沒有作用） */
+  pickSmaller?: boolean;
   /** 換掉單張編碼方式（測試用） */
   encodeImage?: WebpImageEncoder;
 }
@@ -215,6 +218,7 @@ export class WebpEncoder implements FrameEncoder {
       plays: 0,
       quality: 1,
       minFrameMs: 0,
+      pickSmaller: false,
       encodeImage: canvasWebpEncoder,
       ...options,
     };
@@ -247,14 +251,14 @@ export class WebpEncoder implements FrameEncoder {
         }
       }
     }
-    const single = await this.opt.encodeImage(
-      new Uint8ClampedArray(px.buffer),
-      r.w,
-      r.h,
-      this.opt.quality,
-    );
+    const pixels = new Uint8ClampedArray(px.buffer);
+    let bitstream = frameBitstream(await this.opt.encodeImage(pixels, r.w, r.h, this.opt.quality));
+    if (this.opt.pickSmaller && this.opt.quality < 1) {
+      const lossless = frameBitstream(await this.opt.encodeImage(pixels, r.w, r.h, 1));
+      if (lossless.length < bitstream.length) bitstream = lossless;
+    }
     if (this.aborted) throw new DOMException('已取消', 'AbortError');
-    this.frames.push({ ...r, bitstream: frameBitstream(single), parts: [t] });
+    this.frames.push({ ...r, bitstream, parts: [t] });
   }
 
   abort(): void {

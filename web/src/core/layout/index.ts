@@ -276,3 +276,72 @@ export function clampSpan(start: number, length: number, extent: number): number
   if (length >= extent) return 0;
   return clampNum(start, 0, extent - length);
 }
+
+/* ---------- G2：吸附對齊 ---------- */
+
+/** 吸附的目標線（同一座標系） */
+export interface SnapTargets {
+  /** 直線的 x（左、中、右…） */
+  x: number[];
+  /** 橫線的 y（上、中、下…） */
+  y: number[];
+}
+
+/**
+ * 吸附目標：frame（畫布）的左、中、右與上、中、下；others（其他物件）的左緣、中心、右緣與上緣、中線、下緣。
+ */
+export function snapTargets(frame: Box | null, others: readonly Box[] = []): SnapTargets {
+  const x: number[] = [];
+  const y: number[] = [];
+  const add = (b: Box) => {
+    x.push(b.x, b.x + b.width / 2, b.x + b.width);
+    y.push(b.y, b.y + b.height / 2, b.y + b.height);
+  };
+  if (frame) add(frame);
+  for (const b of others) add(b);
+  return { x, y };
+}
+
+export interface SnapState {
+  /** 目前吸在哪一條線（沒有吸附時 null） */
+  x: number | null;
+  y: number | null;
+}
+
+export interface SnapResult {
+  box: Box;
+  /** 吸附中的線（給參考線用） */
+  guide: SnapState;
+}
+
+/**
+ * 把移動中的框吸到最近的目標線：框的左緣、中心、右緣（與上緣、中線、下緣）離某條線 threshold 以內就對齊；
+ * 已經吸住的線要離開 release（預設 threshold × 1.5）以上才脫離（遲滯）。兩軸各自處理。
+ */
+export function snapBox(
+  box: Box,
+  targets: SnapTargets,
+  threshold: number,
+  prev: SnapState = { x: null, y: null },
+  release = threshold * 1.5,
+): SnapResult {
+  const axis = (start: number, size: number, lines: readonly number[], held: number | null) => {
+    const edges = [start, start + size / 2, start + size];
+    let best: { line: number; shift: number } | null = null;
+    for (const line of lines) {
+      const limit = held !== null && Math.abs(line - held) < 1e-9 ? release : threshold;
+      for (const e of edges) {
+        const d = line - e;
+        if (Math.abs(d) <= limit && (!best || Math.abs(d) < Math.abs(best.shift)))
+          best = { line, shift: d };
+      }
+    }
+    return best;
+  };
+  const bx = axis(box.x, box.width, targets.x, prev.x);
+  const by = axis(box.y, box.height, targets.y, prev.y);
+  return {
+    box: { ...box, x: box.x + (bx?.shift ?? 0), y: box.y + (by?.shift ?? 0) },
+    guide: { x: bx?.line ?? null, y: by?.line ?? null },
+  };
+}

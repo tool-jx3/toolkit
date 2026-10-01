@@ -96,6 +96,7 @@ export {
   useChoice,
   useConfirm,
 } from './Dialog';
+export { EffectGrid, type EffectGridItem, type EffectGridProps } from './EffectGrid';
 export {
   animationFormats,
   DEFAULT_FPS_OPTIONS,
@@ -148,6 +149,7 @@ export {
 } from './IssueList';
 export { ItemListEditor, type ItemListEditorProps } from './ItemListEditor';
 export { Kbd } from './Kbd';
+export { KeyframeTable, type KeyframeTableProps } from './KeyframeTable';
 export {
   type LayoutChange,
   LayoutEditor,
@@ -217,6 +219,7 @@ export {
 export {
   ALL_STAGE_BACKGROUNDS,
   Stage,
+  type StageAnyBackgroundKind,
   type StageBackground,
   type StageBackgroundKind,
   type StagePan,
@@ -239,6 +242,7 @@ export {
   useShortcuts,
   withShortcut,
 } from './shortcuts';
+export { STAGE_SCENE_SVG, stageSceneUrl } from './stageScene';
 export { type TabItem, Tabs, type TabsProps } from './Tabs';
 export { TemplateGallery, type TemplateGalleryProps, type TemplateItem } from './TemplateGallery';
 export {

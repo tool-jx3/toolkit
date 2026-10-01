@@ -549,5 +549,9 @@ export * from './draw';
 export * from './effects';
 /* ---------- 嵌入 CSS（data URI）與圖片儲存 ---------- */
 export * from './embed';
+/* ---------- G2：濾鏡零件、畫質決定的輸出尺寸 ---------- */
+export * from './filterPresets';
+export * from './filters';
+export * from './sizing';
 export * from './store';
 export * from './vivid';

@@ -25,6 +25,13 @@ import { buildPalette, ColorStats } from './palette';
 
 export const GIF_MAX_FPS = 50;
 
+/**
+ * 「不透明度小於等於 v 的像素變透明」換算成 GifEncoder 的 alphaThreshold（小於 threshold 變透明）：v ＋ 1。
+ * 例：v＝96 → 97（0～96 透明、97 以上不透明）；v＝0 → 1（只有完全透明的像素透明）。
+ */
+export const gifAlphaThresholdInclusive = (v: number): number =>
+  Math.min(256, Math.max(0, Math.round(v)) + 1);
+
 export interface GifEncoderOptions {
   width: number;
   height: number;

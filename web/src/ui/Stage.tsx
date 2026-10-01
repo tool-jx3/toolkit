@@ -15,6 +15,8 @@
  *
  * 舞台區域的最高高度（預設 min(60dvh, 560px)）：`maxViewportHeight` 給一個 CSS 長度，或由外層設定 CSS 變數
  * `--stage-max-h`（例如 Tailwind 的 `xl:[--stage-max-h:calc(100dvh-8rem)]`，可以依畫面寬度不同）。高度仍跟著內容比例，只是上限不同。
+ * G2 加的（選填）：背景種類 'scene'（示意場景：本站自己畫的彩色風景，只供預覽）——要在 `backgrounds` 裡列出才會出現；
+ * 工具列的背景按鈕依 `backgrounds` 的順序排列。
  */
 import { ImagePlus, Maximize, Minus, Plus } from 'lucide-react';
 import {
@@ -33,11 +35,15 @@ import { IconButton } from './Button';
 import { ColorField } from './ColorField';
 import { cn } from './cn';
 import { Segmented } from './Segmented';
+import { stageSceneUrl } from './stageScene';
 
 export type StageBackgroundKind = 'checker' | 'dark' | 'light' | 'color' | 'image';
 
-export interface StageBackground {
-  kind: StageBackgroundKind;
+/** 含示意場景（G2）的所有背景種類 */
+export type StageAnyBackgroundKind = StageBackgroundKind | 'scene';
+
+export interface StageBackground<K extends StageAnyBackgroundKind = StageBackgroundKind> {
+  kind: K;
   /** kind = 'color' 時的顏色 */
   color?: string;
   /** kind = 'image' 時的圖片網址（object URL） */
@@ -46,20 +52,20 @@ export interface StageBackground {
 
 export type StageZoom = number | 'fit';
 
-export interface StageProps {
+export interface StageProps<K extends StageAnyBackgroundKind = StageBackgroundKind> {
   /** 內容的原始寬高（px） */
   width: number;
   height: number;
   children: ReactNode;
-  background?: StageBackground;
-  onBackgroundChange?: (bg: StageBackground) => void;
-  defaultBackground?: StageBackground;
+  background?: StageBackground<K>;
+  onBackgroundChange?: (bg: StageBackground<K>) => void;
+  defaultBackground?: StageBackground<K>;
   zoom?: StageZoom;
   onZoomChange?: (zoom: StageZoom) => void;
   /** 顯示工具列（預設 true） */
   toolbar?: boolean;
-  /** 工具列提供哪些背景（預設全部：透明、黑、白、自訂色、背景圖） */
-  backgrounds?: readonly StageBackgroundKind[];
+  /** 工具列提供哪些背景（預設：透明、黑、白、自訂色、背景圖；依這個順序排列）；加 'scene' 才有示意場景 */
+  backgrounds?: readonly K[];
   /** 工具列右側的額外按鈕 */
   toolbarExtra?: ReactNode;
   /** 放大時用最近鄰（像素圖） */
@@ -117,21 +123,30 @@ export function useStageView(): StageView | null {
 }
 
 /** 背景選項（順序即工具列順序）。深＝純黑、淺＝純白，方便檢查透明部分 */
-const BACKGROUND_OPTIONS: { value: StageBackgroundKind; label: string; ariaLabel: string }[] = [
+const BACKGROUND_OPTIONS: { value: StageAnyBackgroundKind; label: string; ariaLabel: string }[] = [
   { value: 'checker', label: '透明', ariaLabel: '棋盤格（透明）' },
   { value: 'dark', label: '黑', ariaLabel: '黑色背景' },
   { value: 'light', label: '白', ariaLabel: '白色背景' },
   { value: 'color', label: '色', ariaLabel: '自訂顏色背景' },
   { value: 'image', label: '圖', ariaLabel: '背景圖（只供預覽）' },
+  { value: 'scene', label: '景', ariaLabel: '示意場景（只供預覽）' },
 ];
 
-export const ALL_STAGE_BACKGROUNDS: readonly StageBackgroundKind[] = BACKGROUND_OPTIONS.map(
-  (o) => o.value,
-);
+/** 預設的背景按鈕（不含示意場景；要示意場景的工具在 backgrounds 裡列出 'scene'） */
+export const ALL_STAGE_BACKGROUNDS: readonly StageBackgroundKind[] = [
+  'checker',
+  'dark',
+  'light',
+  'color',
+  'image',
+];
 
 const ZOOM_STEPS = [0.1, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8];
 
-function backgroundStyle(bg: StageBackground): { className: string; style?: CSSProperties } {
+function backgroundStyle(bg: StageBackground<StageAnyBackgroundKind>): {
+  className: string;
+  style?: CSSProperties;
+} {
   switch (bg.kind) {
     case 'dark':
       return { className: '', style: { background: '#000000' } };
@@ -142,6 +157,15 @@ function backgroundStyle(bg: StageBackground): { className: string; style?: CSSP
       return {
         className: 'checker',
         style: { boxShadow: `inset 0 0 0 9999px ${bg.color ?? '#808080'}` },
+      };
+    case 'scene':
+      return {
+        className: '',
+        style: {
+          backgroundImage: `url("${stageSceneUrl()}")`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        },
       };
     case 'image':
       return bg.imageUrl
@@ -159,17 +183,17 @@ function backgroundStyle(bg: StageBackground): { className: string; style?: CSSP
   }
 }
 
-export function Stage({
+export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
   width,
   height,
   children,
   background,
   onBackgroundChange,
-  defaultBackground = { kind: 'checker' },
+  defaultBackground = { kind: 'checker' as K },
   zoom,
   onZoomChange,
   toolbar = true,
-  backgrounds = ALL_STAGE_BACKGROUNDS,
+  backgrounds = ALL_STAGE_BACKGROUNDS as readonly K[],
   toolbarExtra,
   pixelated,
   fitUpscale = false,
@@ -185,10 +209,10 @@ export function Stage({
   pan,
   onPanChange,
   ...rest
-}: StageProps) {
-  const [innerBg, setInnerBg] = useState<StageBackground>(defaultBackground);
+}: StageProps<K>) {
+  const [innerBg, setInnerBg] = useState<StageBackground<K>>(defaultBackground);
   const bg = background ?? innerBg;
-  const setBg = (b: StageBackground) => {
+  const setBg = (b: StageBackground<K>) => {
     if (!background) setInnerBg(b);
     onBackgroundChange?.(b);
   };
@@ -316,9 +340,9 @@ export function Stage({
             value={bg.kind}
             onValueChange={(kind) => {
               if (kind === 'image' && !bg.imageUrl) fileInput.current?.click();
-              setBg({ ...bg, kind });
+              setBg({ ...bg, kind: kind as K });
             }}
-            options={BACKGROUND_OPTIONS.filter((o) => backgrounds.includes(o.value))}
+            options={backgrounds.flatMap((k) => BACKGROUND_OPTIONS.filter((o) => o.value === k))}
           />
           {bg.kind === 'color' ? (
             <ColorField
@@ -352,7 +376,7 @@ export function Stage({
               if (lastUrl.current) URL.revokeObjectURL(lastUrl.current);
               const url = URL.createObjectURL(f);
               lastUrl.current = url;
-              setBg({ kind: 'image', imageUrl: url });
+              setBg({ kind: 'image' as K, imageUrl: url });
             }}
           />
           <div className="ml-auto flex items-center gap-0.5">

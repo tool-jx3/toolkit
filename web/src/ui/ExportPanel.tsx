@@ -9,6 +9,10 @@
  * - 多檔：onExport 回傳 { files: [...] } 時顯示多檔結果（每個檔案各自下載，或「全部下載」依序下載、「打包成 ZIP」）。
  * - 停用的格式（disabled＋disabledReason）：不論目前選哪個格式，原因都列在「格式」欄的說明裡。
  *
+ * G2 擴充（選填，不給時行為不變）：
+ * - estimate：匯出按鈕上方的預估列「總長 · 影格數 · 每格約幾 ms · 未壓縮資料量」（寬 × 高 × 4 × 影格數）。
+ * - pixelBudget：處理量上限（寬 × 高 × 影格數）；超過時匯出按鈕停用並顯示原因（例如請縮小畫布、降低 FPS 或縮短長度）。
+ *
  * 實際的匯出由工具提供（onExport），通常就是呼叫 core/timeline 的 exportAnimation：
  *
  *   <ExportPanel
@@ -34,12 +38,14 @@ import {
   downloadUrl,
   fileNameWithExt,
   formatBytes,
+  formatDataSize,
   formatLimitBytes,
   SIZE_WARNING_BYTES,
   usagePercent,
   zipFiles,
 } from '@/core/files';
 import { type AnimationExportFormat, EXPORT_FORMATS } from '@/core/timeline/export';
+import { estimateExport } from '@/core/timeline/sampling';
 import { Button, buttonClass, IconButton } from './Button';
 import { cn } from './cn';
 import { Field } from './Field';
@@ -159,6 +165,10 @@ export interface ExportPanelProps {
   onResult?: (output: ExportOutput | ExportBatchOutput) => void;
   /** 多檔「全部下載」時兩個檔案的間隔（毫秒，預設 800） */
   sequentialIntervalMs?: number;
+  /** 匯出前的預估列（輸出尺寸、影格數、總長秒數） */
+  estimate?: { width: number; height: number; frames: number; duration: number } | null;
+  /** 處理量上限：寬 × 高 × 影格數超過 max 時不能匯出，顯示 message */
+  pixelBudget?: { max: number; message?: ReactNode } | null;
   title?: string;
   className?: string;
 }
@@ -277,6 +287,8 @@ export function ExportPanel({
   autoShrinkHint = '每按一次就降一級（依序降低色數、影格數、特效數量、尺寸）並重新匯出。',
   onResult,
   sequentialIntervalMs = 800,
+  estimate = null,
+  pixelBudget = null,
 }: ExportPanelProps) {
   const firstEnabled = formats.find((f) => !f.disabled) ?? formats[0];
   const [inner, setInner] = useState<ExportSettings>(() => ({
@@ -326,10 +338,12 @@ export function ExportPanel({
     [],
   );
 
+  const est = estimate ? estimateExport(estimate) : null;
+  const overBudget = !!(est && pixelBudget && est.pixels > pixelBudget.max);
   const run = async (formatId?: string, keepNote = false) => {
     if (abort.current) return;
     const f = (formatId ? formats.find((x) => x.id === formatId) : null) ?? fmt;
-    if (!f || f.disabled) return;
+    if (!f || f.disabled || overBudget) return;
     const fpsFor = fixedFps ?? (f.maxFps ? Math.min(f.maxFps, s.fps) : s.fps);
     clearResult();
     if (!keepNote) setShrinkNote(null);
@@ -553,6 +567,22 @@ export function ExportPanel({
       ) : null}
       {extra}
 
+      {est ? (
+        <p className="m-0 text-xs tabular-nums text-muted" data-testid="export-estimate">
+          {est.duration.toFixed(2)} 秒 · {est.frames} 格 · 每格約 {est.msPerFrame.toFixed(1)} ms ·
+          未壓縮 {formatDataSize(est.rawBytes)}
+        </p>
+      ) : null}
+      {overBudget ? (
+        <p
+          role="alert"
+          className="m-0 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger"
+          data-testid="export-over-budget"
+        >
+          {pixelBudget?.message ?? '處理量太大，請縮小尺寸、降低 FPS 或縮短長度。'}
+        </p>
+      ) : null}
+
       {running ? (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between gap-2 text-xs text-muted">
@@ -582,7 +612,7 @@ export function ExportPanel({
           size="lg"
           icon={<Download />}
           onClick={() => void run()}
-          disabled={!fmt || fmt.disabled}
+          disabled={!fmt || fmt.disabled || overBudget}
         >
           匯出 {fmt?.label ?? ''}
         </Button>

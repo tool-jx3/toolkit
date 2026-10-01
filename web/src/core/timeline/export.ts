@@ -117,6 +117,8 @@ export interface ExportAnimationOptions {
    * 補上的時間不從別格扣回（總長變長）。只影響 WebP。
    */
   webpMinFrameMs?: number;
+  /** WebP：每格比較無損與有損（webpQuality），取較小者 */
+  webpPickSmaller?: boolean;
   /** 先塗滿的背景色（在 render 之前）；null／不填 = 透明 */
   background?: string | null;
   /**
@@ -333,6 +335,7 @@ export async function exportAnimation(
     stillWeightMin,
     webpQuality = 1,
     webpMinFrameMs,
+    webpPickSmaller = false,
     background = null,
     matte = null,
     gifAlphaThreshold,
@@ -489,6 +492,7 @@ export async function exportAnimation(
                 plays,
                 quality: webpQuality,
                 ...(webpMinFrameMs ? { minFrameMs: webpMinFrameMs } : {}),
+                ...(webpPickSmaller ? { pickSmaller: true } : {}),
               },
             }
           : {
