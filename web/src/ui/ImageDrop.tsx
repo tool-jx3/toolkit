@@ -36,6 +36,11 @@ export interface FileDropProps {
   icon?: ReactNode;
   /** 精簡樣式（一行） */
   compact?: boolean;
+  /**
+   * 整個拖放區都可以點（點空白處也開啟選檔視窗；預設 false：只有選檔按鈕可以點）。
+   * 鍵盤操作仍用裡面的選檔按鈕。
+   */
+  clickable?: boolean;
   disabled?: boolean;
   className?: string;
   'aria-label'?: string;
@@ -53,12 +58,14 @@ export function FileDrop({
   filterByAccept = true,
   icon = <Upload />,
   compact,
+  clickable = false,
   disabled,
   className,
   ...rest
 }: FileDropProps) {
   const inputId = useId();
   const root = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const depth = useRef(0);
   const handlers = useRef({ onFiles, onReject });
@@ -100,6 +107,7 @@ export function FileDrop({
 
   return (
     // biome-ignore lint/a11y/useSemanticElements: 拖放區是一組控制項（拖放＋選檔按鈕），不是表單分組
+    // biome-ignore lint/a11y/useKeyWithClickEvents: clickable 只是讓滑鼠點空白處也能選檔；鍵盤用裡面的選檔按鈕
     <div
       ref={root}
       role="group"
@@ -115,13 +123,25 @@ export function FileDrop({
         setOver(false);
         deliver(Array.from(e.dataTransfer.files));
       }}
+      onClick={
+        clickable
+          ? (e) => {
+              if (disabled) return;
+              /* 點在選檔按鈕（label）上時由按鈕自己開啟，不重複 */
+              if ((e.target as Element).closest?.('label,input,button,a')) return;
+              input.current?.click();
+            }
+          : undefined
+      }
       data-over={over || undefined}
+      data-clickable={(clickable && !disabled) || undefined}
       className={cn(
         'flex rounded-lg border-2 border-dashed border-border-strong bg-surface-2 text-center transition-colors',
         'data-over:border-accent data-over:bg-accent-soft',
         compact
           ? 'flex-row items-center gap-3 px-3 py-2 text-left'
           : 'flex-col items-center gap-2 px-4 py-6',
+        clickable && !disabled && 'cursor-pointer hover:border-accent',
         disabled && 'opacity-50',
         className,
       )}
@@ -154,6 +174,7 @@ export function FileDrop({
       >
         {buttonLabel}
         <input
+          ref={input}
           id={inputId}
           type="file"
           accept={accept}

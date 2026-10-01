@@ -301,6 +301,11 @@ export interface SafeFileNameOptions {
    * 例：「怒り/怒?」→「怒り怒」、「a  b__c_」→「a_b_c」、只有空白 → fallback。
    */
   underscore?: boolean;
+  /**
+   * 避開 Windows 保留名稱（CON、NUL、COM1…，前面加「_」；預設 true）。
+   * 清理的是「接在檔名中間的片段」或要原樣顯示的名稱（例如差分名同時用在聊天面板的「@差分名」）時給 false。
+   */
+  reservedNames?: boolean;
 }
 
 /**
@@ -313,7 +318,12 @@ export interface SafeFileNameOptions {
  */
 export function safeFileName(
   name: string,
-  { fallback = 'untitled', maxLength = 80, underscore = false }: SafeFileNameOptions = {},
+  {
+    fallback = 'untitled',
+    maxLength = 80,
+    underscore = false,
+    reservedNames = true,
+  }: SafeFileNameOptions = {},
 ): string {
   let s = underscore
     ? String(name ?? '')
@@ -338,7 +348,7 @@ export function safeFileName(
       .join('')
       .replace(/[\s.]+$/g, '');
   if (!s || /^_+$/.test(s)) s = fallback;
-  if (RESERVED.test(s.split('.')[0])) s = `_${s}`;
+  if (reservedNames && RESERVED.test(s.split('.')[0])) s = `_${s}`;
   return s;
 }
 

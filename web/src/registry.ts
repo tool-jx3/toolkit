@@ -161,6 +161,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/sotsotssi/text-path-generator',
     },
   },
+  {
+    id: 'variant-manager',
+    name: '角色差分管理器',
+    summary:
+      '一次整理同一個角色的表情差分：統一檔名、調整順序後打包成 ZIP，並產生 CCFOLIA 聊天面板用的「@差分名」清單。',
+    group: 'G3',
+    status: 'next',
+    inspiration: {
+      name: 'くま。／TRPG WEBツール観測所',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
