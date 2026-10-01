@@ -1,0 +1,118 @@
+/*
+ * 設計 token（DESIGN.md 第 2 節）。所有元件只用這些變數，不寫死顏色。
+ *
+ * - 深色為預設；`<html data-theme="light">` 切成淺色。
+ * - 主色沿用首頁的紫色系（首頁淺色 #7b5ea7、深色 #b79ce0），整理成一致的色階。
+ * - 文字與背景的對比都至少 4.5:1（tests/unit/tokens.test.ts 會檢查）。
+ * - Tailwind v4 的主題對應見 styles.css 的 @theme。
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- 色彩：深色（預設） ---- */
+  --bg: #121116;
+  --surface: #1b1a20;
+  --surface-2: #25232b;
+  --surface-3: #302e37;
+  --border: #3b3843;
+  --border-strong: #77727f;
+  --text: #eeebe6;
+  --text-muted: #aba59d;
+  --accent: #b79ce0;
+  --accent-hover: #c9b3ea;
+  --accent-contrast: #1b1426;
+  --accent-soft: rgb(183 156 224 / 0.16);
+  --danger: #f2877e;
+  --danger-contrast: #2a0f0c;
+  --danger-soft: rgb(242 135 126 / 0.14);
+  --warning: #f0c36d;
+  --warning-contrast: #2b1f06;
+  --warning-soft: rgb(240 195 109 / 0.14);
+  --success: #7fcf9a;
+  --success-contrast: #0c2414;
+  --success-soft: rgb(127 207 154 / 0.14);
+  --focus: #d6c2f5;
+  --overlay: rgb(6 5 9 / 0.66);
+  --checker-a: #2a2830;
+  --checker-b: #1f1e24;
+
+  /* ---- 字型 ---- */
+  --font-ui:
+    'Noto Sans TC', 'PingFang TC', 'Heiti TC', 'Microsoft JhengHei', '微軟正黑體',
+    'Noto Sans CJK TC', 'Source Han Sans TC', system-ui, sans-serif;
+  --font-mono:
+    ui-monospace, 'SFMono-Regular', 'Cascadia Mono', 'Noto Sans Mono', Consolas, 'Liberation Mono',
+    monospace;
+
+  /* ---- 字級（12～20 px） ---- */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+
+  /* ---- 間距（4 px 為單位） ---- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 1.75rem;
+  --space-8: 2rem;
+
+  /* ---- 圓角 ---- */
+  --radius-sm: 0.25rem;
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  /* ---- 陰影 ---- */
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.35), 0 1px 1px rgb(0 0 0 / 0.2);
+  --shadow-2: 0 10px 30px rgb(0 0 0 / 0.45), 0 2px 8px rgb(0 0 0 / 0.3);
+
+  /* ---- 動態 ---- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 120ms;
+  --duration: 200ms;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f6f4f0;
+  --surface: #ffffff;
+  --surface-2: #f0ede8;
+  --surface-3: #e6e2db;
+  --border: #dcd6cc;
+  --border-strong: #8a847a;
+  --text: #1c1b19;
+  --text-muted: #5b5751;
+  --accent: #6a4c9c;
+  --accent-hover: #5a3e88;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgb(106 76 156 / 0.1);
+  --danger: #b3261e;
+  --danger-contrast: #ffffff;
+  --danger-soft: rgb(179 38 30 / 0.08);
+  --warning: #8a5a12;
+  --warning-contrast: #ffffff;
+  --warning-soft: rgb(232 168 60 / 0.16);
+  --success: #1d7340;
+  --success-contrast: #ffffff;
+  --success-soft: rgb(29 115 64 / 0.1);
+  --focus: #6a4c9c;
+  --overlay: rgb(28 27 25 / 0.45);
+  --checker-a: #e4e0d9;
+  --checker-b: #f7f5f1;
+
+  --shadow-1: 0 1px 2px rgb(28 27 25 / 0.08), 0 1px 1px rgb(28 27 25 / 0.05);
+  --shadow-2: 0 10px 30px rgb(28 27 25 / 0.14), 0 2px 8px rgb(28 27 25 / 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration: 0ms;
+  }
+}

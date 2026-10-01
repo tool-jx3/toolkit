@@ -3,3 +3,10 @@ node_modules/
 Thumbs.db
 .sources/
 __pycache__/
+# web/ 新框架（建置產物 next/、assets/build/ 會提交；這裡只排除暫存與測試輸出）
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/.vite/
