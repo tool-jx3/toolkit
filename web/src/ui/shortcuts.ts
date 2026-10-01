@@ -14,7 +14,10 @@ export interface Shortcut {
   group?: string;
   /** 沒有 handler 的只顯示在說明裡（例如由元件自己處理的按鍵） */
   handler?: (e: KeyboardEvent) => void;
-  /** 在輸入框裡也觸發（預設否） */
+  /**
+   * 在輸入框裡也觸發（預設否）。ShortcutHelp 會在這一列標示「輸入框裡也可用」。
+   * 帶 Ctrl／⌘／Alt 的空白鍵、Enter 組合在按鈕、連結、開關上也觸發（不讓給按鈕本身）。
+   */
   allowInInput?: boolean;
 }
 
@@ -188,9 +191,10 @@ export function useShortcuts(shortcuts: readonly Shortcut[], enabled = true): vo
         /* 沒有 Ctrl／⌘／Alt 的單鍵快捷鍵（例如 G、D）在開關、選單等表單控制項上也不觸發 */
         if (!s.allowInInput && !e.ctrlKey && !e.metaKey && !e.altKey && isFormControlTarget(target))
           return;
-        /* 焦點在按鈕上時，空白鍵／Enter 留給按鈕本身 */
+        /* 焦點在按鈕上時，空白鍵／Enter 留給按鈕本身（allowInInput 的 Ctrl／⌘／Alt 組合除外：那是整頁都要能用的快捷鍵） */
         if (
           (e.key === ' ' || e.key === 'Enter') &&
+          !(s.allowInInput && (e.ctrlKey || e.metaKey || e.altKey)) &&
           target instanceof HTMLElement &&
           target.closest('button,a,[role="slider"],[role="switch"],[role="tab"],[role="radio"]')
         )

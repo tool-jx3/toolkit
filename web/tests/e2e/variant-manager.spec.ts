@@ -4,8 +4,10 @@
  * - 載入：點整個載入區選檔（只列 PNG／JPEG／WebP）、拖放（醒目狀態）、類型過濾、累加、去重（檔名＋大小＋修改時間）、主名稱自動帶入；
  * - 命名：主名稱清理與 character、編號開關、差分名即時更新輸出檔名／大圖標籤／聊天面板、建議詞、自動完成候選；
  * - 選取：點一列、聚焦差分名欄、整頁 ↑↓（到頭到尾就停、不捲動頁面、文字欄裡不作用）、拖曳排序（往下、往上）；
+ *   再次載入後維持選取（F10 追加裁定）；清單面板配合視窗高度、↑↓ 只捲清單就看得到選到的列（F11 追加裁定）；
  * - 匯出：ZIP 解開比對檔名與順序、圖片逐位元組相同、聊天面板文字檔、撞名自動加序號、完成提示約 2.2 秒後消失；
- * - 複製聊天面板（剪貼簿內容）、快捷鍵（Ctrl＋Shift＋O／E／L／N、Esc 的兩種情況、文字欄裡的 Esc）、重設確認、單張移除；
+ * - 複製聊天面板（剪貼簿內容）、快捷鍵（Ctrl＋Shift＋O／E／L／Enter〔F30 追加裁定：取代 N〕、Esc 的兩種情況、文字欄裡的 Esc）、
+ *   快捷鍵說明標出在文字欄裡也作用的組合、重設確認、單張移除；
  * - 不保留狀態；390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
  */
 import { readFileSync, utimesSync, writeFileSync } from 'node:fs';
@@ -387,9 +389,124 @@ test('選取：點一列後焦點在清單、整頁 ↑↓ 切換（到頭停、
   expect(errors).toEqual([]);
 });
 
+test('F10：再次載入後維持原本的選取（加入新檔、全部重複都一樣）；選取的那張不在了才選第一張', async ({
+  page,
+}, testInfo) => {
+  const errors = await open(page);
+  /* 重複檔要修改時間也相同：寫到磁碟、固定修改時間 */
+  const cry = testInfo.outputPath('alice_cry.png');
+  writeFileSync(cry, await GOLD());
+  const t = new Date('2026-09-01T12:00:00Z');
+  utimesSync(cry, t, t);
+  await loadThree(page);
+  expect(await selectedRow(page)).toBe(0);
+  await rows(page).nth(2).locator('img').click();
+  expect(await selectedRow(page)).toBe(2);
+  await expect(selectedOutput(page)).toHaveText('alice03.jpg');
+  const previewSrc = await page.getByTestId('preview-image').getAttribute('src');
+
+  /* 加入新檔：選取、大圖、輸出檔名都不變 */
+  await input(page).setInputFiles([cry]);
+  await expect(status(page)).toHaveText('已加入 1 張，清單共 4 張。');
+  expect(await selectedRow(page)).toBe(2);
+  await expect(selectedOutput(page)).toHaveText('alice03.jpg');
+  await expect(page.getByTestId('preview-image')).toHaveAttribute('src', previewSrc!);
+
+  /* 全部重複（加入 0 張）：同樣維持 */
+  await input(page).setInputFiles([cry]);
+  await expect(status(page)).toHaveText('加入 0 張：這些檔案都已經在清單裡（清單共 4 張）。');
+  expect(await selectedRow(page)).toBe(2);
+  await expect(selectedOutput(page)).toHaveText('alice03.jpg');
+
+  /* 選取的那張被移除後再載入：選第一張 */
+  await page.getByRole('button', { name: '移除「Alice Normal.JPG」' }).click();
+  await input(page).setInputFiles([file('alice_wink.png', await RED())]);
+  await expect(rows(page)).toHaveCount(4);
+  expect(await selectedRow(page)).toBe(0);
+  await expect(selectedOutput(page)).toHaveText('alice01.png');
+  expect(errors).toEqual([]);
+});
+
+test.describe('F11：矮視窗', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  /** 選取中的列：完全在清單面板與畫面（頁首下方）裡 */
+  async function selectedRowVisible(page: Page) {
+    return page.evaluate(() => {
+      const box = document.querySelector('[data-testid="list-scroller"]')!.getBoundingClientRect();
+      const row = document.querySelector('ul[aria-label="差分清單"] > li[aria-current]')!;
+      const r = row.getBoundingClientRect();
+      const header = document.querySelector('header')!.getBoundingClientRect().bottom;
+      const inBox = r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5;
+      const onScreen = r.top >= header - 0.5 && r.bottom <= innerHeight + 0.5;
+      return inBox && onScreen;
+    });
+  }
+
+  test('清單面板的下緣停在視窗裡；↑↓ 只捲清單、整頁不動，選到的列都看得到（焦點在清單上、不在清單上）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const files = [];
+    for (let i = 0; i < 12; i++)
+      files.push(file(`p${String(i).padStart(2, '0')}.png`, await RED()));
+    await input(page).setInputFiles(files);
+    await expect(rows(page)).toHaveCount(12);
+    const scroller = page.getByTestId('list-scroller');
+    const geo = await scroller.evaluate((el) => ({
+      bottom: el.getBoundingClientRect().bottom,
+      overflow: el.scrollHeight > el.clientHeight,
+    }));
+    expect(geo.bottom).toBeLessThanOrEqual(900);
+    expect(geo.overflow).toBe(true);
+
+    /* 焦點在清單上 */
+    await rows(page).nth(0).locator('img').click();
+    await expect(list(page)).toBeFocused();
+    const y0 = await page.evaluate(() => window.scrollY);
+    for (let i = 1; i < 12; i++) {
+      await page.keyboard.press('ArrowDown');
+      expect(await selectedRow(page)).toBe(i);
+      expect(await selectedRowVisible(page), `第 ${i + 1} 列`).toBe(true);
+      expect(await page.evaluate(() => window.scrollY)).toBe(y0);
+    }
+    expect(await scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+
+    /* 焦點不在清單上（整頁的 ↑↓） */
+    await blur(page);
+    for (let i = 10; i >= 0; i--) {
+      await page.keyboard.press('ArrowUp');
+      expect(await selectedRow(page)).toBe(i);
+      expect(await selectedRowVisible(page), `第 ${i + 1} 列`).toBe(true);
+      expect(await page.evaluate(() => window.scrollY)).toBe(y0);
+    }
+    /* 回到第一列：清單捲回最上面（只剩面板 2 px 的內距） */
+    expect(await scroller.evaluate((el) => el.scrollTop)).toBeLessThanOrEqual(2);
+    expect(errors).toEqual([]);
+  });
+
+  test('視窗更矮（清單面板保留的最小高度超出視窗）：選到的列仍然看得到', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 700 });
+    const errors = await open(page);
+    const files = [];
+    for (let i = 0; i < 8; i++) files.push(file(`q${i}.png`, await GREEN()));
+    await input(page).setInputFiles(files);
+    await expect(rows(page)).toHaveCount(8);
+    await blur(page);
+    for (let i = 1; i < 8; i++) {
+      await page.keyboard.press('ArrowDown');
+      expect(await selectedRow(page)).toBe(i);
+      expect(await selectedRowVisible(page), `第 ${i + 1} 列`).toBe(true);
+    }
+    expect(errors).toEqual([]);
+  });
+});
+
 test('拖曳排序：往下落在目標後、往上落在目標前；編號、聊天面板跟著改；從文字欄拖不算', async ({
   page,
 }) => {
+  /* 視窗高一點，四列都在清單面板裡看得到（清單面板的高度配合視窗，F11） */
+  await page.setViewportSize({ width: 1280, height: 1200 });
   const errors = await open(page);
   await input(page).setInputFiles([
     file('a.png', await RED()),
@@ -531,7 +648,9 @@ test('複製聊天面板：剪貼簿內容與畫面、狀態列', async ({ page 
   expect(errors).toEqual([]);
 });
 
-test('快捷鍵：Ctrl＋Shift＋O／E／L／N（文字欄裡也作用）、說明列出改用的按鍵', async ({ page }) => {
+test('快捷鍵：Ctrl＋Shift＋O／E／L／Enter（文字欄、開關、按鈕上也作用）、說明列出改用的按鍵與標示', async ({
+  page,
+}) => {
   const errors = await open(page);
   /* E：清單空時不動作 */
   let downloads = 0;
@@ -554,16 +673,35 @@ test('快捷鍵：Ctrl＋Shift＋O／E／L／N（文字欄裡也作用）、說�
   await chooser.setFiles([file('alice_smile.png', await RED()), file('b.png', await GREEN())]);
   await expect(rows(page)).toHaveCount(2);
 
-  /* N：在文字欄裡也能切換 */
+  /* Enter（F30：Ctrl＋Shift＋N 是瀏覽器保留給無痕視窗的組合，改用 Enter）：在文字欄裡也能切換 */
   await variant(page, 1).fill('微笑');
   await variant(page, 1).focus();
-  await page.keyboard.press('Control+Shift+N');
+  await page.keyboard.press('Control+Shift+Enter');
   await expect(numbering(page)).not.toBeChecked();
   await expect(status(page)).toHaveText('編號：關。');
   await expect(outputs(page).first()).toHaveText('alice_微笑.png');
-  await page.keyboard.press('Control+Shift+N');
+  await page.keyboard.press('Control+Shift+Enter');
   await expect(numbering(page)).toBeChecked();
   await expect(variant(page, 1)).toHaveValue('微笑');
+  await expect(variant(page, 1)).toBeFocused();
+  /* 主名稱欄、開關、按鈕上也作用（不會按到按鈕） */
+  await mainName(page).focus();
+  await page.keyboard.press('Control+Shift+Enter');
+  await expect(numbering(page)).not.toBeChecked();
+  await numbering(page).focus();
+  await page.keyboard.press('Control+Shift+Enter');
+  await expect(numbering(page)).toBeChecked();
+  await btn(page, '重設').focus();
+  await page.keyboard.press('Control+Shift+Enter');
+  await expect(numbering(page)).not.toBeChecked();
+  await expect(confirmDialog(page)).toHaveCount(0);
+  await page.keyboard.press('Control+Shift+Enter');
+  await expect(numbering(page)).toBeChecked();
+  /* 舊的 N 不再切換 */
+  await blur(page);
+  await page.keyboard.press('Control+Shift+N');
+  await page.waitForTimeout(200);
+  await expect(numbering(page)).toBeChecked();
 
   /* L：複製（Ctrl＋Shift＋C 會開開發者工具，改用 L） */
   await page.keyboard.press('Control+Shift+L');
@@ -589,6 +727,21 @@ test('快捷鍵：Ctrl＋Shift＋O／E／L／N（文字欄裡也作用）、說�
   await expect(keys).toBeVisible();
   await expect(keys).toContainText('匯出 ZIP');
   await expect(keys).toContainText('Ctrl＋Shift＋C 會開啟瀏覽器的開發者工具');
+  await expect(keys).toContainText(
+    'Ctrl＋Shift＋N 是瀏覽器開無痕視窗的按鍵，網頁收不到，所以改用 Enter',
+  );
+  /* 在文字欄裡也作用的組合（O、E、L、Enter）有標示，↑↓、Esc、? 沒有 */
+  await expect(keys).toContainText('標示「輸入框裡也可用」的在輸入框裡照樣作用');
+  const marked = keys.locator('[data-in-input]');
+  await expect(marked).toHaveCount(4);
+  for (const label of ['選擇圖片', '匯出 ZIP', '複製聊天面板文字', '切換編號'])
+    await expect(marked.filter({ hasText: label })).toContainText('輸入框裡也可用');
+  await expect(marked.filter({ hasText: '切換編號' }).locator('kbd')).toHaveText([
+    'Ctrl',
+    'Shift',
+    'Enter',
+  ]);
+  await expect(keys.getByText('輸入框裡也可用', { exact: true })).toHaveCount(4);
   await page.keyboard.press('Escape');
   await expect(keys).toBeHidden();
   await expect(confirmDialog(page)).toHaveCount(0);

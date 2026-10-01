@@ -1,6 +1,7 @@
 /**
  * 角色差分管理器（variant-manager）的規則：規格 3.1 輸出檔名、3.2 名稱清理、3.3 主名稱自動帶入（依主控裁定的新詞表與分隔規則）、
- * 3.4 ZIP 檔名與重名處理（F23＋主控裁定）、3.5 聊天面板文字、F03 類型、F04 去重的鍵。
+ * 3.4 ZIP 檔名與重名處理（F23＋主控裁定）、3.5 聊天面板文字、F03 類型、F04 去重的鍵、
+ * F10 載入後的選取與 F11 清單面板的高度（對等驗證後的追加裁定）。
  */
 import { describe, expect, it } from 'vitest';
 import { safeFileName } from '@/core/files';
@@ -12,11 +13,14 @@ import {
   extensionOf,
   FALLBACK_MAIN,
   fileKey,
+  fitListHeight,
   isImageFile,
+  LIST_FIT,
   mainNameOrFallback,
   numberLabel,
   outputFileName,
   PALETTE_FILE,
+  selectionAfterLoad,
   stripExpressionWord,
   stripExtension,
   zipEntryNames,
@@ -203,5 +207,37 @@ describe('載入', () => {
     expect(SUGGESTIONS.length).toBe(23);
     expect(new Set(SUGGESTIONS).size).toBe(SUGGESTIONS.length);
     for (const s of SUGGESTIONS) expect(cleanName(s)).toBe(s);
+  });
+});
+
+describe('F10 載入後的選取（追加裁定）', () => {
+  const ids = ['a', 'b', 'c', 'd'];
+  it('還沒有選取：選第一張', () => {
+    expect(selectionAfterLoad(null, ids)).toBe('a');
+  });
+  it('選取的那張還在：維持（加入新檔、或全部重複而加入 0 張都一樣）', () => {
+    expect(selectionAfterLoad('c', ids)).toBe('c');
+    expect(selectionAfterLoad('c', ['a', 'b', 'c'])).toBe('c');
+  });
+  it('選取的那張已經不在清單裡（被移除）：選第一張', () => {
+    expect(selectionAfterLoad('x', ids)).toBe('a');
+  });
+  it('清單是空的：沒有選取', () => {
+    expect(selectionAfterLoad(null, [])).toBeNull();
+    expect(selectionAfterLoad('a', [])).toBeNull();
+  });
+});
+
+describe('F11 清單面板的高度（追加裁定：寬畫面時面板下緣停在視窗裡）', () => {
+  it('視窗夠高：面板下緣離視窗下緣 16 px', () => {
+    /* 面板在 y 610，視窗 900 高（對等驗證的 1440×900）→ 274 px，面板範圍 610～884 */
+    expect(fitListHeight(610, 900)).toBe(274);
+    expect(610 + fitListHeight(610, 900)).toBeLessThanOrEqual(900 - LIST_FIT.gap);
+    expect(fitListHeight(610, 1080)).toBe(454);
+  });
+  it('最多 640 px；視窗太矮時至少保留 140 px（約一列半）', () => {
+    expect(fitListHeight(610, 1440)).toBe(640);
+    expect(fitListHeight(610, 720)).toBe(140);
+    expect(fitListHeight(610, 300)).toBe(LIST_FIT.min);
   });
 });

@@ -132,6 +132,8 @@ export function DialogsDemo() {
           shortcuts={[
             { keys: 'mod+s', label: '存成專案檔', group: '檔案' },
             { keys: 'mod+e', label: '匯出', group: '檔案' },
+            /* allowInInput：在輸入框裡也作用，說明裡會標示出來 */
+            { keys: 'mod+shift+enter', label: '切換編號', group: '檔案', allowInInput: true },
             { keys: ['arrowleft', 'arrowright'], label: '上一格／下一格', group: '播放' },
           ]}
         />

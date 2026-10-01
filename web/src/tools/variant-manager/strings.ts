@@ -112,7 +112,7 @@ export const S = {
   keyOpen: '選擇圖片',
   keyExport: '匯出 ZIP',
   keyCopy: '複製聊天面板文字（Ctrl＋Shift＋C 會開啟瀏覽器的開發者工具，所以改用 L）',
-  keyNumbered: '切換編號',
+  keyNumbered: '切換編號（Ctrl＋Shift＋N 是瀏覽器開無痕視窗的按鍵，網頁收不到，所以改用 Enter）',
   keySelect: '選取上一張／下一張（不在文字欄裡時）',
   keyReset: '重設（會先確認；說明或快捷鍵視窗開著時是關閉視窗）',
 

@@ -189,6 +189,13 @@ export {
   type ProjectMenuProps,
   type ProjectNotice,
 } from './ProjectMenu';
+export {
+  type RevealInput,
+  type RevealResult,
+  type RevealSpan,
+  revealDelta,
+  revealInScroller,
+} from './reveal';
 export { Section, type SectionProps } from './Section';
 export { Segmented, type SegmentedOption, type SegmentedProps } from './Segmented';
 export { Select, type SelectGroup, type SelectOption, type SelectProps } from './Select';
@@ -197,7 +204,7 @@ export {
   SelectableCardList,
   type SelectableCardListProps,
 } from './SelectableCardList';
-export { ShortcutHelp } from './ShortcutHelp';
+export { IN_INPUT_BADGE, ShortcutHelp, type ShortcutHelpProps } from './ShortcutHelp';
 export { Slider, type SliderProps } from './Slider';
 export {
   LayerList,

@@ -245,3 +245,31 @@ export function fileKey(f: { name: string; size: number; lastModified: number })
 export function isImageFile(f: { type: string }): boolean {
   return /^image\//i.test(f.type || '');
 }
+
+/**
+ * 載入後選取哪一張（F10＋主控追加裁定）：還沒有選取、或選取的那張已經不在清單裡時選第一張；
+ * 其他情況（加入新檔、全部是重複檔而加入 0 張）維持原本的選取。清單是空的時回傳 null。
+ */
+export function selectionAfterLoad(
+  selectedId: string | null,
+  ids: readonly string[],
+): string | null {
+  if (selectedId !== null && ids.includes(selectedId)) return selectedId;
+  return ids[0] ?? null;
+}
+
+/** 清單面板在寬畫面時的高度範圍（F11）：最少約一列半、最多 640 px；面板下緣與視窗下緣保留的距離 */
+export const LIST_FIT = { min: 140, max: 640, gap: 16 } as const;
+
+/**
+ * 清單面板的最大高度（F11＋主控追加裁定）：寬畫面時讓面板下緣停在視窗裡，
+ * 方向鍵換選取時只要捲清單自己就看得到選到的列，不必捲整頁。
+ * top：面板在頁面上的位置（頁面沒有捲動時的 y）；viewport：視窗高度。視窗太矮時至少保留 min。
+ */
+export function fitListHeight(
+  top: number,
+  viewport: number,
+  { min, max, gap }: { min: number; max: number; gap: number } = LIST_FIT,
+): number {
+  return Math.round(Math.min(max, Math.max(min, viewport - top - gap)));
+}

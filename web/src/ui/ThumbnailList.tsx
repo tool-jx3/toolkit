@@ -7,7 +7,8 @@
  * 選填（G3 加的，不給時行為不變）：
  * - `layout="list"`：一張一列（縮圖在左、名稱與欄位在右），`thumbSize` 縮圖邊長（預設 82）；`numbered` 名稱前加「序號.」。
  * - `selectedId`／`onSelect`：選取中的項目有醒目樣式；點一列、或聚焦到該列裡的欄位就選取；
- *   清單有焦點時 ↑／↓ 選取上一張／下一張（到頭或到尾就停，捲到看得見、不捲動頁面）。
+ *   清單有焦點時 ↑／↓ 選取上一張／下一張（到頭或到尾就停）；選到的列只捲清單所在的捲動區讓它露出來，
+ *   不讓整頁跟著捲（見 reveal.ts：捲動區本身有一部分在畫面外、只捲它不夠時，才把頁面捲最少的距離）。
  * - `onReorder(from, to)`：拖曳一列到另一列放開來排序（往下拖落在目標後、往上拖落在目標前；從欄位上開始拖不算）。
  * - `renderFields(item, index)`：每列自訂的欄位（例如差分名、輸出檔名）。
  */
@@ -15,6 +16,7 @@ import { CheckCircle2, ImageOff, X, XCircle } from 'lucide-react';
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { IconButton } from './Button';
 import { cn } from './cn';
+import { revealInScroller } from './reveal';
 import { isEditableTarget } from './shortcuts';
 import { useSortable } from './useSortable';
 
@@ -195,9 +197,9 @@ export function ThumbnailList<I extends ThumbnailItem = ThumbnailItem>({
     const to = Math.min(items.length - 1, Math.max(0, current + (e.key === 'ArrowUp' ? -1 : 1)));
     if (to === current) return;
     onSelect?.(items[to].id);
-    list.current
-      ?.querySelectorAll<HTMLElement>(':scope > li')
-      [to]?.scrollIntoView?.({ block: 'nearest' });
+    /* 只捲清單所在的捲動區，不讓整頁跟著捲（revealInScroller） */
+    const row = list.current?.querySelectorAll<HTMLElement>(':scope > li')[to];
+    if (row) revealInScroller(row);
   };
 
   const isList = layout === 'list';

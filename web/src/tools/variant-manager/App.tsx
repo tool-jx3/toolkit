@@ -23,6 +23,7 @@ import {
   isEditableTarget,
   Notice,
   type NoticeTone,
+  revealInScroller,
   Section,
   type Shortcut,
   Stage,
@@ -38,9 +39,11 @@ import {
   autoMainName,
   chatPalette,
   fileKey,
+  fitListHeight,
   isImageFile,
   outputFileName,
   PALETTE_FILE,
+  selectionAfterLoad,
   zipEntryNames,
   zipFileName,
 } from './logic';
@@ -53,6 +56,8 @@ const ACCEPT = 'image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp';
 const ZIP_TOAST_MS = 2200;
 /** 大圖區的高度（固定高度，換圖時版面不跳動） */
 const PREVIEW_HEIGHT = 'h-[min(46dvh,440px)]';
+/** ToolShell 左右兩欄（設定＋預覽）的寬度（Tailwind 的 lg） */
+const WIDE_QUERY = '(min-width: 1024px)';
 /** 方向鍵由這些元件自己使用時，不切換選取 */
 const ARROW_OWNERS =
   '[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[role="radiogroup"],[role="slider"],[role="tablist"],[role="spinbutton"],[role="combobox"]';
@@ -120,6 +125,40 @@ function useImageSize(url: string | null) {
   return state && state.url === url ? state : null;
 }
 
+/**
+ * F11：寬畫面（左右兩欄）時，清單面板的高度配合視窗——面板下緣停在視窗裡，
+ * 方向鍵換選取時只要捲清單自己就看得到選到的列，整頁不必跟著捲。窄畫面（上下排列）用 CSS 的預設上限。
+ */
+function useFitListHeight(ref: RefObject<HTMLElement | null>): number | null {
+  const [height, setHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const wide = window.matchMedia(WIDE_QUERY);
+    const update = () => {
+      if (!wide.matches) {
+        setHeight(null);
+        return;
+      }
+      /* 面板在頁面上的位置（與目前捲到哪裡無關） */
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      setHeight(fitListHeight(top, window.innerHeight));
+    };
+    update();
+    /* 上方的區塊變高變矮（說明文字出現等）時重算 */
+    const ro = new ResizeObserver(update);
+    ro.observe(el.closest('aside') ?? document.body);
+    window.addEventListener('resize', update);
+    wide.addEventListener('change', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+      wide.removeEventListener('change', update);
+    };
+  }, [ref]);
+  return height;
+}
+
 function BigPreview({ item, alt }: { item: Item | null; alt: string }) {
   const size = useImageSize(item?.url ?? null);
   const box = `flex ${PREVIEW_HEIGHT} items-center justify-center rounded-lg border border-border bg-surface p-6 text-center text-sm text-muted`;
@@ -185,6 +224,7 @@ export function App() {
   const datalistId = useId();
   const paletteTitleId = useId();
   const paletteHintId = useId();
+  const listMaxHeight = useFitListHeight(listBox);
 
   /* 快捷鍵、非同步處理讀的是最新的值 */
   const itemsRef = useRef(items);
@@ -235,19 +275,14 @@ export function App() {
     };
   }, []);
 
-  /** 選取並把那一列捲到清單面板裡看得到的地方（只捲清單，不捲頁面） */
+  /** 選取並把那一列捲進看得到的地方（只捲清單面板，不讓整頁跟著捲：revealInScroller） */
   const selectAndReveal = (index: number) => {
     const it = itemsRef.current[index];
     if (!it) return;
     latest.current.selectedId = it.id;
     setSelectedId(it.id);
-    const box = listBox.current;
-    const row = box?.querySelectorAll<HTMLElement>('ul > li')[index];
-    if (!box || !row) return;
-    const b = box.getBoundingClientRect();
-    const r = row.getBoundingClientRect();
-    if (r.top < b.top) box.scrollTop -= b.top - r.top;
-    else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom;
+    const row = listBox.current?.querySelectorAll<HTMLElement>('ul > li')[index];
+    if (row) revealInScroller(row);
   };
 
   /* F11：焦點不在文字欄、選單等元件上時，整頁的 ↑／↓ 都切換選取（清單有焦點時由 ThumbnailList 處理） */
@@ -293,8 +328,13 @@ export function App() {
     }
     const next = [...itemsRef.current, ...added];
     commitItems(next);
-    /* F10：載入後選取第一張 */
-    setSelectedId(next[0]?.id ?? null);
+    /* F10：還沒有選取、或選取的那張已經不在清單裡時才選第一張；否則維持原本的選取（主控追加裁定） */
+    const keep = selectionAfterLoad(
+      latest.current.selectedId,
+      next.map((it) => it.id),
+    );
+    latest.current.selectedId = keep;
+    setSelectedId(keep);
     /* F07：主名稱是空的（只有空白也算）時，用清單第一張的檔名帶入 */
     if (!latest.current.main.trim() && next.length) {
       const auto = autoMainName(next[0].file.name);
@@ -448,7 +488,8 @@ export function App() {
       handler: () => void copyPalette(),
     },
     {
-      keys: 'mod+shift+n',
+      /* Ctrl＋Shift＋N 是瀏覽器開無痕視窗的保留組合，網頁收不到（主控追加裁定：換成不衝突的組合） */
+      keys: 'mod+shift+enter',
       label: S.keyNumbered,
       group: S.keyGroupEdit,
       allowInInput: true,
@@ -504,7 +545,12 @@ export function App() {
           </span>
         }
       >
-        <div ref={listBox} className="max-h-[min(70dvh,640px)] overflow-y-auto p-0.5">
+        <div
+          ref={listBox}
+          className="max-h-[min(70dvh,640px)] overflow-y-auto p-0.5"
+          style={listMaxHeight === null ? undefined : { maxHeight: listMaxHeight }}
+          data-testid="list-scroller"
+        >
           <ThumbnailList
             aria-label={S.listLabel}
             layout="list"
