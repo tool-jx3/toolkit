@@ -60,7 +60,7 @@
 | [CCFOLIA & 圖片調色工作室](tools/psd-studio/) | 把 CCFOLIA 房間 ZIP、PSD 或圖片一次統一調色（色相、曲線、漸層對應），APNG 自動壓到 5 MB 以下，再輸出成房間 ZIP |
 | [文字方框產生器](tools/textbox/) | 用框線字元和全形空白排出可以直接貼進聊天欄的文字方框與表格，自動補正全形字寬 |
 | [戰鬥地圖產生器](tools/battlemap/) | 一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈 |
-| [文字演出產生器](tools/text-fx/) | TRPG Toolkit 原創工具：把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，支援直書，可輸出 APNG（含 256 色減色）、PNG 或連番 ZIP |
+| [文字演出產生器](tools/text-fx/) | TRPG Toolkit 原創工具：把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，支援直書，可輸出 APNG（含 256 色減色）、GIF、WebP、PNG 或連番 ZIP |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -136,6 +136,7 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 |---|---|---|
 | `battlemap` | [戰鬥地圖產生器](tools/battlemap/) | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) |
 | `apng-wipe` | [輕量轉場 APNG 產生器](tools/apng-wipe/) | 出處不明的轉場 APNG 小工具 |
+| `text-fx` | [文字演出產生器](tools/text-fx/) | （本站原創） |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

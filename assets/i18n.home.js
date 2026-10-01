@@ -87,7 +87,7 @@ I18N.register({
     'tool.battlemap.name': '戰鬥地圖產生器',
     'tool.battlemap.desc': '一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈。',
     'tool.text-fx.name': '文字演出產生器',
-    'tool.text-fx.desc': '把文字做成透明背景的 APNG 動畫：「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，多種登場效果搭配裝飾與範本，可輸出 APNG、PNG 或連番 ZIP。',
+    'tool.text-fx.desc': '把文字做成透明背景的 APNG 動畫：「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，多種登場效果搭配裝飾與範本，可輸出 APNG、GIF、WebP、PNG 或連番 ZIP。',
     'home.credits.heading': '來源與授權',
     'home.credits.body': '本站工具由 sotsotssi、shiki365、Taku_Taku_Taku、kimtaehee2018-maker、巡涯学派、Wool&Wag、johnko00、baegop157902、違法建築、hakoniwa、max-enterme、sedn14636361、くま。、Eon-00、fyam-hamu 與 usagineko7865-debug 製作（CoC 劇本排版工具的作者不明），此處為加上繁體中文介面的合併版本；標示「本站重寫」的工具則是本站依原作的功能重新撰寫（只有繁中），原作者只列為靈感來源。',
     'license.mit': 'MIT 授權',
@@ -95,6 +95,7 @@ I18N.register({
     'license.custom': '作者條款：可修改並免費再散布，禁止轉售與收費散布',
     'license.external': '連到原作者網站的官方繁中版（MIT）',
     'license.unlicensed': '未授權：原作者未釋出授權條款，此工具之權利屬原作者所有，僅供試用。',
+    'license.original': '本站原創（MIT）：只有繁中',
     'license.rewritten': '本站重寫（MIT）：依原作功能重新撰寫，只有繁中',
     'license.unlicensed.assets': '未授權：原作者未釋出授權條款，此工具（含全部圖像素材）之權利屬原作者所有，僅供試用。'
   },
@@ -185,7 +186,7 @@ I18N.register({
     'tool.battlemap.name': '배틀맵 생성기',
     'tool.battlemap.desc': '던전·동굴·묘소 배틀맵을 절차적으로 생성해 PNG로 저장합니다(1540×1120, 칸당 70px). 격자와 횃불 빛을 선택할 수 있습니다(번체 중국어 전용).',
     'tool.text-fx.name': '텍스트 연출 생성기',
-    'tool.text-fx.desc': '텍스트를 투명 배경 APNG 애니메이션으로 만듭니다. 큰 글자 컷인, 한 글자씩 떠오르는 오프닝 내레이션, 장소·시간 자막을 다양한 등장 효과와 장식·템플릿으로 꾸며 APNG·PNG·연번 ZIP으로 내보냅니다(번체 중국어 전용).',
+    'tool.text-fx.desc': '텍스트를 투명 배경 APNG 애니메이션으로 만듭니다. 큰 글자 컷인, 한 글자씩 떠오르는 오프닝 내레이션, 장소·시간 자막을 다양한 등장 효과와 장식·템플릿으로 꾸며 APNG·GIF·WebP·PNG·연번 ZIP으로 내보냅니다(번체 중국어 전용).',
     'home.credits.heading': '출처 및 라이선스',
     'home.credits.body': '이 사이트의 도구는 sotsotssi·shiki365·Taku_Taku_Taku·kimtaehee2018-maker·巡涯学派·Wool&Wag·johnko00·baegop157902·違法建築·hakoniwa·max-enterme·sedn14636361·くま。·Eon-00·fyam-hamu·usagineko7865-debug 님의 작품(CoC 시나리오 조판 도구는 작자 미상)이며, 번체 중국어 UI를 추가해 합친 버전입니다. 「本站重寫」 표시가 있는 도구는 이 사이트가 원작의 기능을 바탕으로 새로 작성한 버전(번체 중국어 전용)이며, 원작자는 영감의 출처로만 표기합니다.',
     'license.mit': 'MIT 라이선스',
@@ -193,6 +194,7 @@ I18N.register({
     'license.custom': '작가 약관: 수정 및 무료 재배포 가능, 재판매·유료 배포 금지',
     'license.external': '원작자 사이트의 공식 버전으로 이동 (MIT)',
     'license.unlicensed': '라이선스 없음: 원작자가 라이선스를 명시하지 않았습니다. 이 도구의 권리는 원작자에게 있으며 시험용으로만 제공됩니다.',
+    'license.original': '이 사이트 오리지널 (MIT, 번체 중국어 전용)',
     'license.rewritten': '이 사이트에서 새로 작성 (MIT, 번체 중국어 전용)',
     'license.unlicensed.assets': '라이선스 없음: 원작자가 라이선스를 명시하지 않았습니다. 이 도구(모든 이미지 소재 포함)의 권리는 원작자에게 있으며 시험용으로만 제공됩니다.'
   },
@@ -291,6 +293,7 @@ I18N.register({
     'license.custom': '作者の規約：改変・無料での再配布は可、転売・有料配布は禁止',
     'license.external': '作者のサイトの公式版へ移動（MIT）',
     'license.unlicensed': 'ライセンスなし：原作者がライセンスを明示していません。このツールの権利は原作者にあり、お試し用としてのみ収録しています。',
+    'license.original': 'このサイトのオリジナル（MIT・繁体字中国語のみ）',
     'license.rewritten': 'このサイトで書き直し（MIT・繁体字中国語のみ）',
     'license.unlicensed.assets': 'ライセンスなし：原作者がライセンスを明示していません。このツール（すべての画像素材を含む）の権利は原作者にあり、お試し用としてのみ収録しています。'
   }

@@ -11,6 +11,7 @@ export {
 } from './easing';
 export {
   type AnimationExportFormat,
+  type CropRect,
   createFrameCanvas,
   DEFAULT_MAX_FRAMES,
   drawFrame,
@@ -20,6 +21,7 @@ export {
   type ExportResult,
   exportAnimation,
   exportSize,
+  type SequenceInfoMeta,
 } from './export';
 export { createRandom, hash, hashSigned, hashUnit, type Random, seedOf, timeSlot } from './random';
 export type { AnimationSource, Ctx2D } from './source';

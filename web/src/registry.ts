@@ -93,6 +93,14 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/usagineko7865-debug/battlemap-generator',
     },
   },
+  {
+    id: 'text-fx',
+    name: '文字演出產生器',
+    summary:
+      '把文字做成有登場、停留、退場動畫的透明素材（標語、長文、字幕），匯出 APNG、GIF、WebP、PNG。',
+    group: 'G1',
+    status: 'live',
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

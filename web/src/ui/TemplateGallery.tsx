@@ -27,6 +27,10 @@ export interface TemplateGalleryProps<T> {
   confirm?: boolean | string;
   /** 顯示標籤篩選（預設 true，有標籤時） */
   filter?: boolean;
+  /** 一開始選的標籤（預設「全部」） */
+  defaultTag?: string;
+  /** sm：小卡（縮圖 16:9、不顯示說明，說明改放在滑鼠提示），範本很多時用 */
+  size?: 'md' | 'sm';
   'aria-label'?: string;
   className?: string;
 }
@@ -37,13 +41,18 @@ export function TemplateGallery<T>({
   activeId,
   confirm = true,
   filter = true,
+  defaultTag,
+  size = 'md',
   className,
   ...rest
 }: TemplateGalleryProps<T>) {
   const ask = useConfirm();
   const tags = [...new Set(templates.flatMap((t) => t.tags ?? []))];
-  const [tag, setTag] = useState('__all');
+  const [tagState, setTag] = useState(defaultTag ?? '__all');
+  /* 範本清單換了（例如換模式）而標籤不存在時回到「全部」 */
+  const tag = tagState === '__all' || tags.includes(tagState) ? tagState : '__all';
   const list = tag === '__all' ? templates : templates.filter((t) => t.tags?.includes(tag));
+  const sm = size === 'sm';
 
   const apply = async (t: TemplateItem<T>) => {
     if (confirm) {
@@ -64,6 +73,7 @@ export function TemplateGallery<T>({
         <Segmented
           aria-label="範本分類"
           size="sm"
+          className={sm ? 'flex-wrap' : undefined}
           value={tag}
           onValueChange={setTag}
           options={[
@@ -74,7 +84,12 @@ export function TemplateGallery<T>({
       ) : null}
       <ul
         aria-label={rest['aria-label'] ?? '範本'}
-        className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2 p-0"
+        className={cn(
+          'm-0 grid list-none gap-2 p-0',
+          sm
+            ? 'grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))]'
+            : 'grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))]',
+        )}
       >
         {list.map((t) => {
           const active = t.id === activeId;
@@ -84,12 +99,18 @@ export function TemplateGallery<T>({
                 type="button"
                 onClick={() => apply(t)}
                 aria-pressed={active}
+                title={sm ? t.description : undefined}
                 className={cn(
                   'flex w-full flex-col overflow-hidden rounded-md border bg-surface-2 text-left transition-colors hover:border-accent',
                   active ? 'border-accent ring-1 ring-accent' : 'border-border',
                 )}
               >
-                <span className="checker relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden">
+                <span
+                  className={cn(
+                    'checker relative flex w-full items-center justify-center overflow-hidden',
+                    sm ? 'aspect-video' : 'aspect-[4/3]',
+                  )}
+                >
                   {typeof t.thumbnail === 'string' ? (
                     <img
                       src={t.thumbnail}
@@ -105,9 +126,11 @@ export function TemplateGallery<T>({
                     </span>
                   ) : null}
                 </span>
-                <span className="flex flex-col gap-0.5 px-2 py-1.5">
-                  <span className="truncate text-sm font-medium text-fg">{t.name}</span>
-                  {t.description ? (
+                <span className={cn('flex flex-col gap-0.5', sm ? 'px-1.5 py-1' : 'px-2 py-1.5')}>
+                  <span className={cn('truncate font-medium text-fg', sm ? 'text-xs' : 'text-sm')}>
+                    {t.name}
+                  </span>
+                  {t.description && !sm ? (
                     <span className="line-clamp-2 text-xs text-muted">{t.description}</span>
                   ) : null}
                 </span>

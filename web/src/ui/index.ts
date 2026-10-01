@@ -4,6 +4,13 @@
  * 樣式入口：import '@/ui/styles.css'（每個工具的 main.tsx 一次）。
  */
 export {
+  ANCHOR_LABELS,
+  ANCHOR_VALUES,
+  AnchorPicker,
+  type AnchorPickerProps,
+  type AnchorValue,
+} from './AnchorPicker';
+export {
   Button,
   type ButtonProps,
   type ButtonSize,
@@ -46,6 +53,7 @@ export {
   type ExportFormatOption,
   type ExportOutput,
   ExportPanel,
+  type ExportPanelHandle,
   type ExportPanelProps,
   type ExportSettings,
   useWebpSupport,

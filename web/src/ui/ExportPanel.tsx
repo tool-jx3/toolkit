@@ -10,7 +10,16 @@
  *   />
  */
 import { Download, FileArchive, TriangleAlert, X } from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  type Ref,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { supportsWebpEncoding } from '@/core/encode/webp';
 import { formatBytes, SIZE_WARNING_BYTES } from '@/core/files';
 import { type AnimationExportFormat, EXPORT_FORMATS } from '@/core/timeline/export';
@@ -59,6 +68,8 @@ export interface ExportOutput {
   storedFrames?: number;
   /** 秒 */
   duration?: number;
+  /** 結果卡上額外的資訊列（例如色數、循環、匯出時間） */
+  details?: readonly { label: string; value: string }[];
 }
 
 export interface ExportContext {
@@ -78,8 +89,29 @@ export interface ExportPanelProps {
   scaleOptions?: readonly number[];
   /** 超過這個大小時提醒（預設 5,000,000 位元組） */
   sizeWarningBytes?: number;
+  /** 播放次數上限（預設 99） */
+  maxPlays?: number;
+  /** 循環設定下方的說明 */
+  loopHint?: ReactNode;
+  /** 減色開關的說明（預設：檔案通常小很多…） */
+  quantizeHint?: ReactNode;
+  /** 匯出按鈕上方的額外設定（例如預設圖、裁邊、檔名） */
+  extra?: ReactNode;
+  /** 超過大小提醒時的建議文字（預設：降低 FPS、縮小尺寸或開啟減色） */
+  sizeWarningHint?: ReactNode;
+  /** 從外部觸發匯出（例如快捷鍵）：ref.current.exportNow('apng') */
+  ref?: Ref<ExportPanelHandle>;
   title?: string;
   className?: string;
+}
+
+export interface ExportPanelHandle {
+  /** 用目前的設定匯出；給格式 id 時先切換到那個格式 */
+  exportNow: (format?: string) => void;
+  /** 取消進行中的匯出 */
+  cancel: () => void;
+  /** 是否正在匯出 */
+  readonly busy: boolean;
 }
 
 export const DEFAULT_FPS_OPTIONS = [10, 12, 15, 20, 24, 30, 50, 60] as const;
@@ -142,6 +174,12 @@ export function ExportPanel({
   fpsOptions = DEFAULT_FPS_OPTIONS,
   scaleOptions = DEFAULT_SCALE_OPTIONS,
   sizeWarningBytes = SIZE_WARNING_BYTES,
+  maxPlays = 99,
+  loopHint,
+  quantizeHint = '檔案通常小很多；顏色很多的漸層可能出現色帶。',
+  extra,
+  sizeWarningHint,
+  ref,
   title = '匯出',
   className,
 }: ExportPanelProps) {
@@ -186,15 +224,18 @@ export function ExportPanel({
     [],
   );
 
-  const run = async () => {
-    if (!fmt || fmt.disabled) return;
+  const run = async (formatId?: string) => {
+    if (abort.current) return;
+    const f = (formatId ? formats.find((x) => x.id === formatId) : null) ?? fmt;
+    if (!f || f.disabled) return;
+    const fpsFor = f.maxFps ? Math.min(f.maxFps, s.fps) : s.fps;
     clearResult();
     const ctrl = new AbortController();
     abort.current = ctrl;
     setStatus({ kind: 'running', ratio: 0, label: '準備中' });
     try {
       const output = await onExport(
-        { ...s, format: fmt.id, fps },
+        { ...s, format: f.id, fps: fpsFor },
         {
           signal: ctrl.signal,
           onProgress: (ratio, label) => {
@@ -224,6 +265,17 @@ export function ExportPanel({
   };
 
   const running = status.kind === 'running';
+  useImperativeHandle(ref, () => ({
+    exportNow: (formatId?: string) => {
+      if (formatId && formatId !== s.format && formats.some((x) => x.id === formatId))
+        set({ format: formatId });
+      void run(formatId);
+    },
+    cancel: () => abort.current?.abort(),
+    get busy() {
+      return !!abort.current;
+    },
+  }));
   const outSize = baseSize
     ? {
         width: Math.max(1, Math.round(baseSize.width * s.scale)),
@@ -300,7 +352,7 @@ export function ExportPanel({
                 value={s.plays}
                 onChange={(plays) => set({ plays })}
                 min={1}
-                max={99}
+                max={maxPlays}
                 unit="次"
                 disabled={running}
                 className="w-24"
@@ -309,12 +361,11 @@ export function ExportPanel({
           ) : null}
         </div>
       ) : null}
+      {fmt?.supportsLoop && loopHint ? (
+        <p className="m-0 -mt-1 text-xs text-muted">{loopHint}</p>
+      ) : null}
       {fmt?.supportsQuantize ? (
-        <Field
-          label="減色（256 色）"
-          layout="inline"
-          hint="檔案通常小很多；顏色很多的漸層可能出現色帶。"
-        >
+        <Field label="減色（256 色）" layout="inline" hint={quantizeHint}>
           <Toggle
             checked={s.quantize}
             onCheckedChange={(quantize) => set({ quantize })}
@@ -322,6 +373,7 @@ export function ExportPanel({
           />
         </Field>
       ) : null}
+      {extra}
 
       {running ? (
         <div className="flex flex-col gap-1.5">
@@ -351,7 +403,7 @@ export function ExportPanel({
           variant="primary"
           size="lg"
           icon={<Download />}
-          onClick={run}
+          onClick={() => void run()}
           disabled={!fmt || fmt.disabled}
         >
           匯出 {fmt?.label ?? ''}
@@ -427,12 +479,18 @@ export function ExportPanel({
                   </dd>
                 </>
               ) : null}
+              {status.output.details?.map((d) => (
+                <div key={d.label} className="contents">
+                  <dt>{d.label}</dt>
+                  <dd className="m-0">{d.value}</dd>
+                </div>
+              ))}
             </dl>
             {status.output.blob.size > sizeWarningBytes ? (
               <p className="m-0 flex items-start gap-1.5 rounded-sm bg-warning-soft px-2 py-1 text-xs text-warning">
                 <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-                超過 {Math.round(sizeWarningBytes / 1_000_000)} MB，CCFOLIA
-                等平台可能無法上傳。可以降低 FPS、縮小尺寸或開啟減色。
+                超過 {Math.round(sizeWarningBytes / 1_000_000)} MB，CCFOLIA 等平台可能無法上傳。
+                {sizeWarningHint ?? '可以降低 FPS、縮小尺寸或開啟減色。'}
               </p>
             ) : null}
             <a

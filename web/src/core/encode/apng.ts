@@ -46,6 +46,13 @@ export interface ApngEncoderOptions {
    */
   mergeIdentical?: boolean;
   deflate?: DeflateMode;
+  /**
+   * setStill 的畫面要不要放進檔案當預設圖（預設 true）。false 時只用在減色的統計（代表畫面加權），
+   * 檔案的預設圖仍是第一格。
+   */
+  embedStill?: boolean;
+  /** 減色時代表畫面的份量下限（份量＝影格數×0.35，預設下限 1） */
+  stillWeightMin?: number;
 }
 
 interface Change {
@@ -135,6 +142,8 @@ export class ApngEncoder implements FrameEncoder {
       maxColors: 256,
       mergeIdentical: true,
       deflate: 'auto',
+      embedStill: true,
+      stillWeightMin: 1,
       ...rest,
     };
     this.fixed = palette ? fixedPalette(palette) : null;
@@ -205,7 +214,7 @@ export class ApngEncoder implements FrameEncoder {
           this.stillPx,
           0,
           this.stillPx.length,
-          Math.max(1, Math.round(this.ticks * 0.35)),
+          Math.max(this.opt.stillWeightMin, Math.round(this.ticks * 0.35)),
         );
       const pal = buildPalette(this.stats, this.opt.maxColors);
       palette = pal.colors;
@@ -271,7 +280,7 @@ export class ApngEncoder implements FrameEncoder {
         frames.push({ x: r.x + mx0, y: r.y + my0, w: nw, h: nh, data, count: c.count });
         if (ci % 8 === 7) await yieldToEventLoop();
       }
-      if (this.stillPx) {
+      if (this.stillPx && this.opt.embedStill) {
         const idx = new Uint8Array(W * H);
         for (let k = 0; k < idx.length; k++) idx[k] = idxOf(this.stillPx[k]);
         stillData = await packImage(idx, W, H, true, deflate);
@@ -279,9 +288,9 @@ export class ApngEncoder implements FrameEncoder {
     } else if (this.fixed) {
       palette = this.fixed.colors;
       colors = { lossless: true, count: this.fixed.colors.length / 4 };
-      if (this.stillPx)
+      if (this.stillPx && this.opt.embedStill)
         stillData = await packImage(toIndices(this.stillPx, this.fixed), W, H, true, deflate);
-    } else if (this.stillPx) {
+    } else if (this.stillPx && this.opt.embedStill) {
       stillData = await packImage(new Uint8Array(this.stillPx.buffer), W, H, false, deflate);
     }
 

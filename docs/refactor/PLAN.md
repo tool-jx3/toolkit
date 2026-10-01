@@ -143,7 +143,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | textbox | ✅ | ✅ | 🔍 | ⬜ |
 | apng-wipe | ✅ | ✅ | ✅ | ✅ |
 | portrait-size | ✅ | ✅ | 🔍 | ⬜ |
-| text-fx | —（原創，直接移植） | 🔨 | ⬜ | ⬜ |
+| text-fx | —（原創，直接移植） | ✅ | ✅ | ✅ |
 | status-bar | ✅ | ⬜ | ⬜ | ⬜ |
 | message-box | ✅ | ⬜ | ⬜ | ⬜ |
 | chat-window | ✅ | ⬜ | ⬜ | ⬜ |

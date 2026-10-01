@@ -1360,24 +1360,6 @@ check('保留 LICENSE（MIT）', /MIT License/.test(read('tools/log-converter/LI
 check('掛了語言切換器，切語言時重畫程式寫的文字',
   lcApp.includes('I18N.mountSwitcher(') && lcApp.includes('I18N.onChange('));
 
-/* ---- text-fx（文字演出產生器，本 repo 原創）---- */
-/* 不是收錄的工具：以無塵室方式獨立開發（見 ATTRIBUTION）。只有繁中介面、不載入語言引擎，
- * 也不靠任何外部 JS 函式庫（APNG、ZIP、減色都是自己寫的），只從 Google Fonts 載字型。 */
-section('tools/text-fx');
-const TFX = 'tools/text-fx';
-const tfxFiles = listFiles(TFX).filter(f => /\.(html|js|css)$/.test(f));
-check('MIT 授權，署名 tool-jx3', /MIT License[\s\S]*Copyright \(c\) 2026 tool-jx3/.test(read(`${TFX}/LICENSE`)));
-const tfxKana = tfxFiles.filter(f => KANA.test(read(f)));
-check('程式碼、標記與樣式裡沒有假名', tfxKana.length === 0, tfxKana.join(', '));
-const tfxExternal = tfxFiles.flatMap(f => [...read(f).matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map(m => m[1]))
-  .filter(h => !['fonts.googleapis.com', 'fonts.gstatic.com', 'www.w3.org'].includes(h));
-check('只連 Google Fonts，沒有外部函式庫或統計', tfxExternal.length === 0, [...new Set(tfxExternal)].join(', '));
-const tfxHtml = read(`${TFX}/index.html`);
-check('頁首有回合輯首頁的連結', tfxHtml.includes('href="../../"') && tfxHtml.includes('TRPG Toolkit'));
-check('html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(tfxHtml));
-check('<title> 是工具名', /<title>文字演出產生器<\/title>/.test(tfxHtml));
-check('LICENSE 的涵蓋範圍寫進了 text-fx', read('LICENSE').includes('tools/text-fx/'));
-
 /* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
  * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
@@ -2222,8 +2204,14 @@ for (const name of TOOLS) {
  * 程式在 web/src/tools/<id>/，共用的 JS／CSS 在 assets/build/。清單從 web/src/registry.ts 讀。 */
 section('重寫上線的工具');
 const registrySrc = read('web/src/registry.ts');
-const REWRITTEN = [...registrySrc.matchAll(/id: '([^']+)',[\s\S]*?status: '(next|live)'/g)]
-  .filter(m => m[2] === 'live').map(m => m[1]);
+const registryEntries = registrySrc.split(/\n  \{\n/).slice(1).map(block => ({
+  id: (block.match(/id: '([^']+)'/) || [])[1],
+  live: /status: 'live'/.test(block),
+  original: !/inspiration:/.test(block)
+}));
+const REWRITTEN = registryEntries.filter(e => e.live).map(e => e.id);
+/* 本站原創（沒有靈感來源）的工具，徽章標「本站原創」。 */
+const ORIGINAL = registryEntries.filter(e => e.live && e.original).map(e => e.id);
 check('registry 解析出已上線的工具', REWRITTEN.length >= 1, REWRITTEN.join(', '));
 for (const id of REWRITTEN) {
   const files = listFiles(`tools/${id}`);
@@ -2233,16 +2221,17 @@ for (const id of REWRITTEN) {
   check(`tools/${id}/index.html 只有繁中（沒有 i18n 引擎）`, /<html lang="zh-Hant-TW">/.test(page) && !page.includes('assets/i18n.js'));
   check(`tools/${id}/index.html 沒有 noindex`, !/name="robots"/.test(page));
   check(`web/src/tools/${id}/ 有原始碼與 strings.ts`, exists(`web/src/tools/${id}/App.tsx`) && exists(`web/src/tools/${id}/strings.ts`));
-  check(`docs/refactor/specs/${id}.md 有對等驗證紀錄`, /## 6\. 對等驗證紀錄[\s\S]*\| F01 \| (?:✅|⚠️)/.test(read(`docs/refactor/specs/${id}.md`)));
+  check(`docs/refactor/specs/${id}.md 有對等驗證紀錄`, /## 6\. 對等驗證紀錄[\s\S]*\| F0*1 \| (?:✅|⚠️|通過)/.test(read(`docs/refactor/specs/${id}.md`)));
   check(`README.md 把 ${id} 列在重寫的工具`, new RegExp(`\\| \`${id}\` \\|`).test(read('README.md').split('## 本站重寫的工具')[1] || ''));
   check(`ATTRIBUTION.md 把 ${id} 列在靈感來源`, new RegExp(`\\| \`${id}\` \\|`).test(read('ATTRIBUTION.md').split('## 本站重寫的工具（靈感來源）')[1] || ''));
 }
 check('THIRD_PARTY_NOTICES 由建置產生', exists('assets/build/THIRD_PARTY_NOTICES.md'));
+check('LICENSE 的涵蓋範圍寫進了 web/ 與原創的 text-fx', read('LICENSE').includes('`web/` framework') && read('LICENSE').includes('tools/text-fx/'));
 
 const TOOLS_EXTERNAL = ['jizura'];
 check('首頁的 JIZURA 卡片標示連到原站', /href="\.\/tools\/jizura\/"[\s\S]{0,1600}?data-i18n="license\.external"/.test(homeHtml));
-check('首頁字典有六種授權徽章',
-  ['license.mit', 'license.cc0', 'license.custom', 'license.unlicensed', 'license.unlicensed.assets', 'license.rewritten'].every(k => homeZh.has(k)));
+check('首頁字典有七種授權徽章',
+  ['license.mit', 'license.cc0', 'license.custom', 'license.unlicensed', 'license.unlicensed.assets', 'license.rewritten', 'license.original'].every(k => homeZh.has(k)));
 const homeCards = [...homeHtml.matchAll(/<li class="tool-card">([\s\S]*?)<\/li>/g)].map(m => m[1]);
 check('首頁卡片數與工具數一致', homeCards.length === TOOLS.length,
   `cards: ${homeCards.length}, tools: ${TOOLS.length}`);
@@ -2253,6 +2242,7 @@ for (const card of homeCards) {
   /* 沒有 LICENSE、但作者在頁面上寫了自己的條款（例如允許免費再散布修改版）的工具，
    * 條款原文與翻譯收在 TERMS.md，徽章標「作者條款」。 */
   const expected = TOOLS_EXTERNAL.includes(name) ? ['license.external']
+    : ORIGINAL.includes(name) ? ['license.original']
     : REWRITTEN.includes(name) ? ['license.rewritten']
     : exists(`tools/${name}/TERMS.md`) ? ['license.custom']
     : exists(`tools/${name}/LICENSE`)

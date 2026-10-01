@@ -705,12 +705,14 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 |---|---|---|---|
 | `battlemap` | 戰鬥地圖產生器 | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `cb0c619` |
 | `apng-wipe` | 輕量轉場 APNG 產生器 | 出處不明的轉場 APNG 小工具（使用者提供的單檔 HTML，沒有可連結的網址） | `cb0c619` |
+| `text-fx` | 文字演出產生器 | （本站原創，見下節；移植到新框架，與舊版逐格相同） | `cb0c619` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
 ## text-fx：文字演出產生器（本 repo 原創）
 
-`text-fx` 不是收錄的工具，而是本 repo 自己寫的原創工具（MIT，見 `tools/text-fx/LICENSE`），
+`text-fx` 不是收錄的工具，而是本 repo 自己寫的原創工具（MIT，見根目錄 [LICENSE](LICENSE)；原本是獨立的單頁程式，已移植到新框架 `web/`，
+與舊版逐格相同，見 [docs/refactor/specs/text-fx.md](docs/refactor/specs/text-fx.md)），
 把文字做成透明背景的 APNG 動畫：標語大字、長文旁白、地點與時間字幕三種模式，二十多種登場與
 退場效果、停留效果、九種裝飾、直書與禁則、256 色減色、相同影格合併與只存變化範圍。
 
