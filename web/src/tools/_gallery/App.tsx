@@ -1,5 +1,5 @@
 import { Redo2, Undo2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   IconButton,
@@ -12,12 +12,14 @@ import {
 } from '@/ui';
 import { DemoPreview } from './DemoPreview';
 import { createDemoSource, DEMO_DEFAULTS, type DemoSettings } from './demo';
+import { ObsPreview } from './obs/ObsPreview';
 import { ColorsFontsDemo } from './sections/ColorsFontsDemo';
 import { ControlsDemo } from './sections/ControlsDemo';
 import { DemoSettingsPanel } from './sections/DemoSettingsPanel';
 import { DialogsDemo } from './sections/DialogsDemo';
 import { ImagesDemo } from './sections/ImagesDemo';
 import { ModulesDemo } from './sections/ModulesDemo';
+import { ObsDemo } from './sections/ObsDemo';
 import { TemplatesDemo } from './sections/TemplatesDemo';
 import { useDemo } from './store';
 import { S } from './strings';
@@ -28,6 +30,8 @@ export function App() {
   const { undo, redo, canUndo, canRedo } = useUndoRedo(useDemo);
   const source = useMemo(() => createDemoSource(settings), [settings]);
   const playback = usePlayback({ duration: source.duration });
+  /* 「OBS 疊加」分頁時，預覽欄換成 CSS 預覽 */
+  const [tab, setTab] = useState('demo');
 
   const shortcuts: Shortcut[] = [
     { keys: 'space', label: '播放／暫停', group: '播放', handler: () => playback.toggle() },
@@ -67,6 +71,8 @@ export function App() {
           </UsageSection>
           <Tabs
             aria-label="展示分類"
+            value={tab}
+            onValueChange={setTab}
             items={[
               { value: 'demo', label: '示範動畫', content: <DemoSettingsPanel /> },
               { value: 'controls', label: '控制項', content: <ControlsDemo /> },
@@ -75,11 +81,12 @@ export function App() {
               { value: 'dialogs', label: '對話框', content: <DialogsDemo /> },
               { value: 'templates', label: '範本', content: <TemplatesDemo /> },
               { value: 'modules', label: '模組', content: <ModulesDemo /> },
+              { value: 'obs', label: 'OBS 疊加', content: <ObsDemo /> },
             ]}
           />
         </>
       }
-      preview={<DemoPreview source={source} playback={playback} />}
+      preview={tab === 'obs' ? <ObsPreview /> : <DemoPreview source={source} playback={playback} />}
     />
   );
 }

@@ -238,6 +238,84 @@ export const GOOGLE_FONTS: readonly FontEntry[] = [
     category: 'pixel',
     weights: [400],
   },
+  /* G4（OBS 疊加）規格的字型清單補齊（字重 2026-10-01 以 css2 逐一驗證） */
+  {
+    family: 'M PLUS 1p',
+    label: 'M PLUS 1p',
+    scripts: ['jp', 'latin'],
+    category: 'sans',
+    weights: [100, 300, 400, 500, 700, 800, 900],
+  },
+  {
+    family: 'Zen Kaku Gothic New',
+    label: 'Zen Kaku Gothic New',
+    scripts: ['jp', 'latin'],
+    category: 'sans',
+    weights: [300, 400, 500, 700, 900],
+  },
+  {
+    family: 'BIZ UDPGothic',
+    label: 'BIZ UDPGothic',
+    scripts: ['jp', 'latin'],
+    category: 'sans',
+    weights: [400, 700],
+  },
+  {
+    family: 'Murecho',
+    label: 'Murecho',
+    scripts: ['jp', 'latin'],
+    category: 'sans',
+    weights: ALL,
+  },
+  {
+    family: 'Mochiy Pop One',
+    label: 'Mochiy Pop One',
+    scripts: ['jp', 'latin'],
+    category: 'display',
+    weights: [400],
+  },
+  {
+    family: 'Kiwi Maru',
+    label: 'Kiwi Maru',
+    scripts: ['jp', 'latin'],
+    category: 'rounded',
+    weights: [300, 400, 500],
+  },
+  {
+    family: 'Shippori Mincho B1',
+    label: 'Shippori Mincho B1',
+    scripts: ['jp', 'latin'],
+    category: 'serif',
+    weights: [400, 500, 600, 700, 800],
+  },
+  {
+    family: 'Zen Old Mincho',
+    label: 'Zen Old Mincho',
+    scripts: ['jp', 'latin'],
+    category: 'serif',
+    weights: [400, 500, 600, 700, 900],
+  },
+  {
+    family: 'Yuji Syuku',
+    label: 'Yuji Syuku',
+    scripts: ['jp', 'latin'],
+    category: 'handwriting',
+    weights: [400],
+  },
+  {
+    family: 'Yuji Boku',
+    label: 'Yuji Boku',
+    scripts: ['jp', 'latin'],
+    category: 'handwriting',
+    weights: [400],
+  },
+  {
+    family: 'Zen Antique',
+    label: 'Zen Antique',
+    scripts: ['jp', 'latin'],
+    category: 'serif',
+    weights: [400],
+  },
 
   /* ---- 韓文 ---- */
   {
@@ -385,6 +463,71 @@ export const GOOGLE_FONTS: readonly FontEntry[] = [
     category: 'mono',
     weights: ALL,
   },
+  /* G4（OBS 疊加）規格的英數字型補齊（字重 2026-10-01 以 css2 逐一驗證） */
+  {
+    family: 'Rajdhani',
+    label: 'Rajdhani',
+    scripts: ['latin'],
+    category: 'sans',
+    weights: [300, 400, 500, 600, 700],
+  },
+  {
+    family: 'Oswald',
+    label: 'Oswald',
+    scripts: ['latin'],
+    category: 'sans',
+    weights: [200, 300, 400, 500, 600, 700],
+  },
+  {
+    family: 'Share Tech Mono',
+    label: 'Share Tech Mono',
+    scripts: ['latin'],
+    category: 'mono',
+    weights: [400],
+  },
+  {
+    family: 'Chakra Petch',
+    label: 'Chakra Petch',
+    scripts: ['latin'],
+    category: 'display',
+    weights: [300, 400, 500, 600, 700],
+  },
+  {
+    family: 'Teko',
+    label: 'Teko',
+    scripts: ['latin'],
+    category: 'display',
+    weights: [300, 400, 500, 600, 700],
+  },
+  {
+    family: 'Russo One',
+    label: 'Russo One',
+    scripts: ['latin'],
+    category: 'display',
+    weights: [400],
+  },
+  {
+    family: 'Silkscreen',
+    label: 'Silkscreen',
+    scripts: ['latin'],
+    category: 'pixel',
+    weights: [400, 700],
+  },
+  { family: 'VT323', label: 'VT323', scripts: ['latin'], category: 'pixel', weights: [400] },
+  {
+    family: 'Cormorant Garamond',
+    label: 'Cormorant Garamond',
+    scripts: ['latin'],
+    category: 'serif',
+    weights: [300, 400, 500, 600, 700],
+  },
+  {
+    family: 'Barlow Condensed',
+    label: 'Barlow Condensed',
+    scripts: ['latin'],
+    category: 'sans',
+    weights: ALL,
+  },
 ];
 
 /** 繁中的基本五套 */
@@ -437,11 +580,110 @@ export function googleFontCssUrl(
   return `https://fonts.googleapis.com/css2?family=${fam}${wght}&display=swap${t}`;
 }
 
-/** 最接近的可用字重 */
+/** 最接近的可用字重（距離相同取較細的，例：要 600、有 500 與 700 → 500） */
 export function nearestWeight(weights: readonly number[], wanted: number): number {
   if (!weights.length) return 400;
-  return weights.reduce(
+  const sorted = [...weights].sort((a, b) => a - b);
+  return sorted.reduce(
     (best, w) => (Math.abs(w - wanted) < Math.abs(best - wanted) ? w : best),
-    weights[0],
+    sorted[0],
   );
+}
+
+/* ---------- 電腦內建字型（不從網路載入；CSS 類工具的「電腦字型」清單） ---------- */
+
+export interface SystemFontEntry {
+  /** CSS 用的主要名稱 */
+  family: string;
+  /** 介面上顯示的名稱 */
+  label: string;
+  /** 同一套字型的其他名稱（中文／日文名），寫進 CSS 時一併列出 */
+  aliases: readonly string[];
+  scripts: readonly FontScript[];
+  category: FontCategory;
+  /** 哪裡內建（說明用） */
+  note: string;
+}
+
+/**
+ * 台灣常見的 Windows 字型（微軟正黑體、新細明體、標楷體）＋日文 Windows 字型（Yu Gothic UI、Meiryo、Yu Mincho）。
+ * 用在 OBS 的 CSS 時，跑 OBS 的電腦也要有這套字型。
+ */
+export const SYSTEM_FONTS: readonly SystemFontEntry[] = [
+  {
+    family: 'Microsoft JhengHei',
+    label: '微軟正黑體',
+    aliases: ['微軟正黑體'],
+    scripts: ['tc', 'latin'],
+    category: 'sans',
+    note: 'Windows 內建',
+  },
+  {
+    family: 'PMingLiU',
+    label: '新細明體',
+    aliases: ['新細明體'],
+    scripts: ['tc', 'latin'],
+    category: 'serif',
+    note: 'Windows 內建',
+  },
+  {
+    family: 'DFKai-SB',
+    label: '標楷體',
+    aliases: ['標楷體'],
+    scripts: ['tc', 'latin'],
+    category: 'handwriting',
+    note: 'Windows 內建',
+  },
+  {
+    family: 'Yu Gothic UI',
+    label: 'Yu Gothic UI',
+    aliases: [],
+    scripts: ['jp', 'latin'],
+    category: 'sans',
+    note: 'Windows 內建（日文）',
+  },
+  {
+    family: 'Meiryo',
+    label: 'Meiryo',
+    aliases: ['メイリオ'],
+    scripts: ['jp', 'latin'],
+    category: 'sans',
+    note: 'Windows 內建（日文）',
+  },
+  {
+    family: 'Yu Mincho',
+    label: 'Yu Mincho',
+    aliases: ['游明朝'],
+    scripts: ['jp', 'latin'],
+    category: 'serif',
+    note: 'Windows 內建（日文）',
+  },
+];
+
+/** 依名稱（主要名稱、其他名稱或顯示名稱，不分大小寫）找電腦內建字型 */
+export function findSystemFont(name: string): SystemFontEntry | undefined {
+  const k = name.trim().toLowerCase();
+  if (!k) return undefined;
+  return SYSTEM_FONTS.find(
+    (f) =>
+      f.family.toLowerCase() === k ||
+      f.label.toLowerCase() === k ||
+      f.aliases.some((a) => a.toLowerCase() === k),
+  );
+}
+
+/** CSS 類工具的字重選單（400～900 六級）；實際輸出時換成字型實有的最接近字重 */
+export const CSS_WEIGHT_CHOICES: readonly number[] = [400, 500, 600, 700, 800, 900];
+
+/**
+ * 實際要用的字重：Google 字型換成目錄裡最接近的可用字重（距離相同取較細的）；電腦字型照選的值。
+ * resolveFontWeight({ source: 'google', family: 'Klee One' }, 700) → 600
+ */
+export function resolveFontWeight(
+  font: { source: 'google' | 'local' | 'upload'; family: string },
+  wanted: number,
+): number {
+  if (font.source !== 'google') return wanted;
+  const entry = findGoogleFont(font.family);
+  return entry ? nearestWeight(entry.weights, wanted) : wanted;
 }

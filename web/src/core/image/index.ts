@@ -415,3 +415,7 @@ export function resizeCrop(
   }
   return clampCrop({ x: x0, y: y0, width, height }, bounds, aspect, minSize);
 }
+
+/* ---------- 嵌入 CSS（data URI）與圖片儲存 ---------- */
+export * from './embed';
+export * from './store';

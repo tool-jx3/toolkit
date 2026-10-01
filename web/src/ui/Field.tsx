@@ -66,6 +66,11 @@ export interface FieldProps {
   layout?: 'stack' | 'inline';
   /** 標籤右側的附加內容（例如目前值、重設按鈕） */
   labelSuffix?: ReactNode;
+  /**
+   * 條件顯示：true 時整個欄位不顯示（設定值保留不變）。
+   * `<Field label="欄數" hidden={layout !== 'grid'}>…</Field>`
+   */
+  hidden?: boolean;
   id?: string;
   className?: string;
 }
@@ -77,6 +82,7 @@ export function Field({
   error,
   layout = 'stack',
   labelSuffix,
+  hidden,
   id,
   className,
 }: FieldProps) {
@@ -99,6 +105,7 @@ export function Field({
       {labelSuffix ? <div className="shrink-0 text-xs text-muted">{labelSuffix}</div> : null}
     </div>
   );
+  if (hidden) return null;
   return (
     <FieldContext.Provider value={value}>
       <div
@@ -145,4 +152,12 @@ export interface FieldRowProps {
 export function FieldRow({ children, columns = 2, className }: FieldRowProps) {
   const cols = { 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' }[columns];
   return <div className={cn('grid items-start gap-3', cols, className)}>{children}</div>;
+}
+
+/**
+ * 條件顯示的一組欄位（when 為 false 時不顯示，設定值保留不變）：
+ * `<Show when={s.textPos === 'inside'}><Field …/><Field …/></Show>`
+ */
+export function Show({ when, children }: { when: unknown; children: ReactNode }) {
+  return when ? children : null;
 }

@@ -1,9 +1,21 @@
 /**
- * ccfolia/：CCFOLIA 與 OBS 相關的外部資料格式（P0 只有空殼與型別）。
+ * ccfolia/：CCFOLIA、Discord Streamkit 與 OBS 相關的外部事實（資料格式、DOM 選擇器、網址、擲骰分類）。
  *
- * CCFOLIA 改版時集中修改這裡。欄位依公開的格式整理，G4／G5 的規格確認後再補齊與加上解析／驗證函式。
- * 外部資料格式屬於事實規格（PROCESS.md 第 2 節），可以完整描述。
+ * CCFOLIA 或 Streamkit 改版時集中修改這裡（以及 mock/ 的模擬頁）。外部資料格式屬於事實規格
+ * （PROCESS.md 第 2 節），可以完整描述。
+ *
+ * - urls：房間／聊天頁／角色狀態頁網址的解析與組合、Streamkit 網址、Discord ID、圖片網址分類
+ * - dom：三種 CCFOLIA 頁面與 Streamkit 的選擇器與結構常數（附觀察日期）
+ * - character：角色狀態頁的填充寬度字串、紅字屬性、「剩餘比例低於門檻」的屬性選擇器
+ * - dice：擲骰結果的分類與配色 class、訊息框只放最後一段的規則
+ * - mock/：依上述事實自己寫的模擬頁（預覽與測試用）
  */
+import { CHARACTER_PAGE, CHAT, MESSAGE_BOX, STREAMKIT } from './dom';
+
+export * from './character';
+export * from './dice';
+export * from './dom';
+export * from './urls';
 
 /** 角色的狀態列（HP、MP…） */
 export interface CcfoliaStatus {
@@ -53,5 +65,18 @@ export interface CcfoliaRoomZipEntry {
   data: Uint8Array | string;
 }
 
-/** OBS／Discord 疊加用的 DOM 選擇器（空殼：G4 實作時填入並集中維護） */
-export const OBS_SELECTORS: Readonly<Record<string, string>> = Object.freeze({});
+/**
+ * 常用選擇器的扁平清單（P0 的空殼，G4 填入；完整的結構見 dom.ts 的 CHARACTER_PAGE、MESSAGE_BOX、CHAT、STREAMKIT）
+ */
+export const OBS_SELECTORS: Readonly<Record<string, string>> = Object.freeze({
+  characterBars: CHARACTER_PAGE.bars,
+  characterBar: CHARACTER_PAGE.bar,
+  characterBadge: CHARACTER_PAGE.badge,
+  messageBox: MESSAGE_BOX.root,
+  messageBoxBody: MESSAGE_BOX.box,
+  chatLog: CHAT.log,
+  chatItem: CHAT.item,
+  chatHeader: CHAT.header,
+  streamkitAvatar: STREAMKIT.avatar,
+  streamkitSpeaking: STREAMKIT.speaking,
+});
