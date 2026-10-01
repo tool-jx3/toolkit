@@ -53,6 +53,7 @@ export {
 export { type ColorPairItem, ColorPairList, type ColorPairListProps } from './ColorPairList';
 export {
   type AspectOption,
+  CROP_HOLD_TO_MOVE_MS,
   type CropConfirmConfig,
   CropConfirmSummary,
   type CropConfirmSummaryProps,
@@ -117,7 +118,13 @@ export {
   Show,
   useFieldControl,
 } from './Field';
-export { availableWeights, FontPicker, type FontPickerProps, WEIGHT_LABELS } from './FontPicker';
+export {
+  availableWeights,
+  FontPicker,
+  type FontPickerProps,
+  isInheritFont,
+  WEIGHT_LABELS,
+} from './FontPicker';
 export { type FontPoolItem, FontPoolList, type FontPoolListProps } from './FontPoolList';
 export { GestureScope, type GestureScopeProps } from './GestureScope';
 export { GradientField, type GradientFieldProps } from './GradientField';
@@ -149,6 +156,7 @@ export {
 } from './LayoutEditor';
 export {
   LOCAL_FONT_MESSAGES,
+  LOCAL_FONT_SAMPLE,
   LocalFontDialog,
   type LocalFontDialogProps,
   supportsLocalFontList,
@@ -213,12 +221,15 @@ export {
 } from './Stage';
 export { type StepItem, StepNav, type StepNavProps, Stepper, type StepperProps } from './Stepper';
 export {
+  comboText,
   formatCombo,
   isEditableTarget,
   isFormControlTarget,
+  isMac,
   matchCombo,
   type Shortcut,
   useShortcuts,
+  withShortcut,
 } from './shortcuts';
 export { type TabItem, Tabs, type TabsProps } from './Tabs';
 export { TemplateGallery, type TemplateGalleryProps, type TemplateItem } from './TemplateGallery';

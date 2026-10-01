@@ -107,6 +107,25 @@ export function formatCombo(combo: string, mac = isMac()): string[] {
   return out;
 }
 
+/**
+ * 按鍵組合的一段提示文字（按鈕提示、說明文字用）：'mod+z' → 'Ctrl＋Z'；Mac 上 → '⌘Z'
+ * （Mac 依慣例不加分隔，'shift+mod+z' → '⇧⌘Z'）。
+ */
+export function comboText(combo: string, mac = isMac()): string {
+  const parts = formatCombo(combo, mac);
+  if (!mac) return parts.join('＋');
+  /* Mac 的修飾鍵依 ⌃⌥⇧⌘ 的順序 */
+  const order = ['⌃', '⌥', '⇧', '⌘'];
+  const key = parts[parts.length - 1];
+  const mods = parts.slice(0, -1).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  return [...mods, key].join('');
+}
+
+/** 標籤加上快捷鍵提示：withShortcut('復原', 'mod+z') → '復原（Ctrl＋Z）'（Mac：'復原（⌘Z）'） */
+export function withShortcut(label: string, combo: string, mac = isMac()): string {
+  return `${label}（${comboText(combo, mac)}）`;
+}
+
 export function isEditableTarget(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false;
   if (t.isContentEditable) return true;

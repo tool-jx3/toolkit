@@ -6,6 +6,7 @@ import {
   createToolStore,
   historyGesture,
   resetToolStore,
+  safeStorage,
 } from '@/core/storage';
 
 describe('手勢：滑桿放開才記一步復原', () => {
@@ -100,6 +101,80 @@ describe('預覽狀態（不列入復原）', () => {
     expect(createPreviewStore('p2', { a: 1 }, { persist: false }).storageKey).toBe(
       'trpg-toolkit:p2:preview',
     );
+  });
+});
+
+describe('localStorage 讀寫失敗時不丟例外（chat-window F96）', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('寫入被擋（setItem 丟錯）：預覽 store 照常更新、不丟例外，並通知 onPersistError', () => {
+    const blocked = new DOMException('blocked', 'QuotaExceededError');
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw blocked;
+    });
+    const errors: unknown[] = [];
+    const preview = createPreviewStore(
+      'blocked1',
+      { tab: 'main', hp: 10 },
+      { onPersistError: (e) => errors.push(e) },
+    );
+    expect(() => preview.getState().patch({ hp: 3 })).not.toThrow();
+    expect(() =>
+      preview.getState().update((d) => {
+        d.tab = 'secret';
+      }),
+    ).not.toThrow();
+    expect(() => preview.getState().reset()).not.toThrow();
+    expect(preview.getState().data).toEqual({ tab: 'main', hp: 10 });
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toBe(blocked);
+    /* 不給 onPersistError 也一樣不丟 */
+    const quiet = createPreviewStore('blocked2', { a: 1 });
+    expect(() => quiet.getState().patch({ a: 2 })).not.toThrow();
+    expect(quiet.getState().data.a).toBe(2);
+    /* 設定 store 也照常（既有行為） */
+    const settings = createToolStore('blocked3', { v: 1 }, { coalesceMs: 0 });
+    expect(() => settings.getState().patch({ v: 2 })).not.toThrow();
+    expect(settings.getState().data.v).toBe(2);
+  });
+
+  it('讀取被擋（getItem 丟錯）：用初始值開始，之後照常寫入', () => {
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    const preview = createPreviewStore('blocked4', { bg: 'checker' });
+    const settings = createToolStore('blocked4', { size: 5 });
+    expect(preview.getState().data).toEqual({ bg: 'checker' });
+    expect(settings.getState().data).toEqual({ size: 5 });
+    get.mockRestore();
+    preview.getState().patch({ bg: 'dark' });
+    expect(JSON.parse(localStorage.getItem('trpg-toolkit:blocked4:preview')!).state.data).toEqual({
+      bg: 'dark',
+    });
+  });
+
+  it('safeStorage：自訂儲存位置丟錯時也攔下（removeItem 一樣）', () => {
+    const bad = {
+      getItem: () => {
+        throw new Error('get');
+      },
+      setItem: () => {
+        throw new Error('set');
+      },
+      removeItem: () => {
+        throw new Error('remove');
+      },
+    };
+    const errors: unknown[] = [];
+    const s = safeStorage(bad, (e) => errors.push(e));
+    expect(s.getItem('x')).toBeNull();
+    expect(() => s.setItem('x', '1')).not.toThrow();
+    expect(() => s.removeItem('x')).not.toThrow();
+    expect(errors).toHaveLength(1);
+    const p = createPreviewStore('blocked5', { n: 0 }, { storage: bad });
+    expect(() => p.getState().patch({ n: 1 })).not.toThrow();
+    expect(p.getState().data.n).toBe(1);
   });
 });
 

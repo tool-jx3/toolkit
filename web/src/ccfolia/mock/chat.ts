@@ -154,7 +154,7 @@ body { margin: 0; background-color: #202020; color: #fff; font-family: Roboto, H
 .${C.li}:hover > .${C.edit} { opacity: 1; }
 .${C.hr} { margin: 0 0 0 72px; flex-shrink: 0; border-width: 0 0 thin; border-style: solid; border-color: rgba(255, 255, 255, 0.12); }
 .${C.input} { flex-shrink: 0; background-color: #121212; border-radius: 0; }
-.${C.input} form { margin: 0; }
+.${C.input} form { margin: 0; background-color: ${CHAT.formBackground}; }
 .${C.tabs} { display: flex; min-height: 48px; overflow: hidden; }
 .${C.scroller} { position: relative; flex: 1 1 auto; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; white-space: nowrap; }
 .${C.flex} { display: flex; }

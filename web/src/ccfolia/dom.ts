@@ -205,6 +205,7 @@ const CH_ITEM = `${CH_LOG} div[data-index]`;
  * - 被選的分頁看 `.Mui-selected`；主分頁 role="tab"，其他分頁 role="button"（**不能用 role="tab" 找分頁**）。
  * - 系統訊息靠「頭像欄裡的 div 是空的」辨認（需要 :has()，OBS 31 以上）。
  * - 清單高度為 0 時不算繪任何訊息，清單至少要保留 1px 高。
+ * - 輸入區的 `form` 自帶約 10% 黑的半透明背景（`CHAT.formBackground`）；把分頁列改造成標題時要清掉（chat-window F20）。
  */
 export const CHAT = Object.freeze({
   observed: '2026-09',
@@ -243,6 +244,8 @@ export const CHAT = Object.freeze({
   /** 輸入區（div 的 MuiPaper；標頭 header.MuiAppBar-root 也有 MuiPaper-root，所以限定 div） */
   inputPaper: `${CH_PAPER} > div.MuiPaper-root`,
   form: `${CH_PAPER} > .MuiPaper-root > form`,
+  /** form 自帶的背景（約 10% 黑，半透明） */
+  formBackground: 'rgba(0, 0, 0, 0.1)',
   tabsHeader: `${CH_PAPER} > .MuiPaper-root > form > header.MuiAppBar-root`,
   tabs: '.MuiTabs-root',
   tabsScroller: '.MuiTabs-scroller',

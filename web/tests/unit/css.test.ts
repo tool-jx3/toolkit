@@ -241,6 +241,19 @@ describe('裝飾產生器', () => {
     expect(paper.backgroundImage).toContain('radial-gradient');
     expect(paper.backgroundImage).toContain('data:image/svg+xml,');
     expect(paper.backgroundSize).toContain('160px 160px');
+    /*
+     * 暗角：以中心為圓心、通過四角的橢圓，50% 以內沒有、四角 33% 褐色（訊息框 F11、聊天視窗 F15 的量測，
+     * 數字見 core/css/decor.ts 的說明；實際畫面由 .impl-tmp 的量測腳本對照）
+     */
+    expect(paper.backgroundImage).toContain(
+      'radial-gradient(ellipse farthest-corner at 50% 50%, rgba(96, 60, 34, 0) 50%, rgba(96, 60, 34, 0.33) 100%)',
+    );
+    expect(paper.backgroundImage).toContain(
+      'radial-gradient(ellipse 70% 60% at 50% 35%, rgba(255, 255, 255, 0.22)',
+    );
+    expect(texture('paper', { vignette: 0.3 })!.backgroundImage).toContain(
+      'rgba(96, 60, 34, 0.3) 100%',
+    );
     expect(texture('grain')!.backgroundSize).toBe('140px 140px');
     expect(texture('scanlines')!.overlay).toBe(true);
     const deep = texture('deepen', { color: '#000000', opacity: 0.8 })!;

@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { formatCombo, matchCombo, type Shortcut, Toggle, useShortcuts } from '@/ui';
+import {
+  comboText,
+  formatCombo,
+  matchCombo,
+  type Shortcut,
+  Toggle,
+  useShortcuts,
+  withShortcut,
+} from '@/ui';
 
 function Harness({ shortcuts }: { shortcuts: Shortcut[] }) {
   useShortcuts(shortcuts);
@@ -52,5 +60,25 @@ describe('快捷鍵', () => {
     expect(formatCombo('shift+mod+z', false)).toEqual(['Ctrl', 'Shift', 'Z']);
     expect(formatCombo('mod+z', true)).toEqual(['⌘', 'Z']);
     expect(formatCombo('arrowleft', false)).toEqual(['←']);
+  });
+
+  it('按鈕提示的快捷鍵文字：Mac 顯示 ⌘，其他平台 Ctrl（message-box F76）', () => {
+    expect(comboText('mod+z', false)).toBe('Ctrl＋Z');
+    expect(comboText('shift+mod+z', false)).toBe('Ctrl＋Shift＋Z');
+    expect(comboText('mod+y', false)).toBe('Ctrl＋Y');
+    expect(comboText('mod+z', true)).toBe('⌘Z');
+    expect(comboText('shift+mod+z', true)).toBe('⇧⌘Z');
+    expect(comboText('alt+shift+mod+z', true)).toBe('⌥⇧⌘Z');
+    expect(withShortcut('復原', 'mod+z', false)).toBe('復原（Ctrl＋Z）');
+    expect(withShortcut('復原', 'mod+z', true)).toBe('復原（⌘Z）');
+    expect(withShortcut('重做', 'mod+y', true)).toBe('重做（⌘Y）');
+  });
+
+  it('沒指定平台時依 navigator.platform 判斷', () => {
+    const spy = vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel');
+    expect(withShortcut('復原', 'mod+z')).toBe('復原（⌘Z）');
+    spy.mockReturnValue('Win32');
+    expect(withShortcut('復原', 'mod+z')).toBe('復原（Ctrl＋Z）');
+    spy.mockRestore();
   });
 });

@@ -31,7 +31,7 @@ export interface LocalFontDialogProps {
   value?: string;
   /** 選了一個字型 */
   onPick: (family: string) => void;
-  /** 預設樣張文字 */
+  /** 預設樣張文字（預設 LOCAL_FONT_SAMPLE：含「永」字與英數） */
   sampleText?: string;
   title?: string;
 }
@@ -46,6 +46,9 @@ export const LOCAL_FONT_MESSAGES: Record<LocalFontErrorKind, string> = {
   failed: '讀取電腦字型清單時發生錯誤，請按「重新讀取」，或直接輸入字型名稱。',
 };
 
+/** 電腦字型清單的預設樣張：含「永」字（看有沒有漢字、筆畫）與英數 */
+export const LOCAL_FONT_SAMPLE = '永遠的冒險 Aa 123';
+
 /** 瀏覽器能不能列出電腦字型（不能時「從清單選」按鈕應該隱藏） */
 export const supportsLocalFontList = canQueryLocalFonts;
 
@@ -54,7 +57,7 @@ export function LocalFontDialog({
   onOpenChange,
   value = '',
   onPick,
-  sampleText = '永遠的冒險 Aa 123',
+  sampleText = LOCAL_FONT_SAMPLE,
   title = '從電腦字型清單選',
 }: LocalFontDialogProps) {
   const [list, setList] = useState<LocalFontFamily[] | null>(() => cachedLocalFonts());

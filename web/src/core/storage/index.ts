@@ -94,7 +94,7 @@ function trackingStorage(
   onError?: (error: unknown) => void,
 ): StateStorage {
   return {
-    getItem: (name) => base.getItem(name),
+    getItem: (name) => safeGet(base, name),
     setItem: (name, value) => {
       try {
         const r = base.setItem(name, value);
@@ -107,7 +107,42 @@ function trackingStorage(
         onError?.(error);
       }
     },
-    removeItem: (name) => base.removeItem(name),
+    removeItem: (name) => safeRemove(base, name),
+  };
+}
+
+/** 讀取失敗（被封鎖、隱私模式）時當作沒有存檔 */
+function safeGet(base: StateStorage, name: string): ReturnType<StateStorage['getItem']> {
+  try {
+    return base.getItem(name);
+  } catch {
+    return null;
+  }
+}
+
+function safeRemove(base: StateStorage, name: string): void {
+  try {
+    void base.removeItem(name);
+  } catch {
+    /* 刪不掉就算了 */
+  }
+}
+
+/**
+ * 讀寫 localStorage 失敗（容量不足、被封鎖）時不丟例外：讀不到當作沒有存檔、寫不進去就只是不存，
+ * 工具照常運作（createPreviewStore 用；createToolStore 另外記錄存檔狀態，見 trackingStorage）。
+ */
+export function safeStorage(base: StateStorage, onError?: (error: unknown) => void): StateStorage {
+  return {
+    getItem: (name) => safeGet(base, name),
+    setItem: (name, value) => {
+      try {
+        return base.setItem(name, value);
+      } catch (error) {
+        onError?.(error);
+      }
+    },
+    removeItem: (name) => safeRemove(base, name),
   };
 }
 
@@ -287,12 +322,14 @@ export interface SideStoreOptions {
   persist?: boolean;
   version?: number;
   storage?: StateStorage;
+  /** 寫入 localStorage 失敗（容量不足、被封鎖）時呼叫；不給也不會讓工具停擺（錯誤會被攔下） */
+  onPersistError?: (error: unknown) => void;
 }
 
 /**
  * 預覽相關的狀態（預覽背景、套用前、測試數值、預覽角色…）：會自動存檔，但**不列入復原**、
  * 也不會被設定的復原／重做改到。鍵名 `trpg-toolkit:<id>:preview`。與 createToolStore 分開，
- * 「全部重來」時兩個都要 reset。
+ * 「全部重來」時兩個都要 reset。localStorage 讀寫失敗時不丟例外（照常運作、只是不存）。
  */
 export function createPreviewStore<T extends object>(
   toolId: string,
@@ -314,7 +351,9 @@ export function createPreviewStore<T extends object>(
           persist(creator, {
             name: storageKey,
             version: options.version ?? 1,
-            storage: createJSONStorage(() => options.storage ?? defaultStorage()),
+            storage: createJSONStorage(() =>
+              safeStorage(options.storage ?? defaultStorage(), options.onPersistError),
+            ),
             partialize: (s) => ({ data: s.data }),
             migrate: (persisted) =>
               ({

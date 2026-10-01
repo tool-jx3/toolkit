@@ -11,11 +11,13 @@ import { clearLocalFontCache, type FontValue } from '@/core/fonts';
 import {
   type Anchor,
   AnchorGrid,
+  CROP_HOLD_TO_MOVE_MS,
   CropDialog,
   CssExportPanel,
   Field,
   FontPicker,
   ItemListEditor,
+  LOCAL_FONT_SAMPLE,
   LocalFontDialog,
   MessageComposer,
   ObsGuide,
@@ -383,6 +385,120 @@ describe('FontPicker（css 模式）', () => {
     await user.keyboard('{Escape}');
     expect(screen.getByText('跑 OBS 的電腦也要安裝這套字型。')).toBeInTheDocument();
   });
+
+  it('「從清單選」的預設樣張一律含「永」字與英數，不沿用欄位的 previewText（status-bar F120、chat-window F84）', async () => {
+    const user = userEvent.setup();
+    clearLocalFontCache();
+    (window as unknown as { queryLocalFonts: () => Promise<unknown[]> }).queryLocalFonts = vi.fn(
+      async () => [{ family: 'Arial', fullName: 'Arial', style: 'Regular', postscriptName: 'a' }],
+    );
+    try {
+      render(
+        <UiProvider>
+          <Field label="數值字型">
+            <FontPicker
+              mode="css"
+              previewText="HP 理智 123/456"
+              value={{ source: 'local', family: 'Arial', weight: 400 }}
+              onChange={() => {}}
+            />
+          </Field>
+        </UiProvider>,
+      );
+      await user.click(screen.getByRole('button', { name: /數值字型/ }));
+      const dialog = await screen.findByRole('dialog', { name: '選擇字型' });
+      await user.click(within(dialog).getByRole('tab', { name: /電腦字型/ }));
+      await user.click(within(dialog).getByRole('button', { name: '從清單選' }));
+      const sample = (await screen.findByRole('textbox', { name: '樣張文字' })) as HTMLInputElement;
+      expect(sample.value).toBe(LOCAL_FONT_SAMPLE);
+      expect(sample.value).toContain('永');
+      expect(sample.value).toMatch(/[A-Za-z]/);
+      expect(sample.value).toMatch(/[0-9]/);
+    } finally {
+      delete (window as unknown as { queryLocalFonts?: unknown }).queryLocalFonts;
+    }
+  });
+});
+
+describe('FontPicker 的「沿用頁面字型」（obs-tachie F36）', () => {
+  function Inherit({ onChange }: { onChange: (v: FontValue) => void }) {
+    const [v, setV] = useState<FontValue>({
+      source: 'google',
+      family: 'Noto Sans TC',
+      weight: 700,
+    });
+    return (
+      <UiProvider>
+        <Field label="名字字型">
+          <FontPicker
+            mode="css"
+            inherit={{ description: '沿用 Streamkit 頁面原本的字型。' }}
+            showWeight={false}
+            value={v}
+            onChange={(n) => {
+              setV(n);
+              onChange(n);
+            }}
+          />
+        </Field>
+      </UiProvider>
+    );
+  }
+
+  it('選了就是空白字型名稱、欄位顯示「沿用頁面字型」；再選別的字型可以換回', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Inherit onChange={onChange} />);
+    await user.click(screen.getByRole('button', { name: /名字字型/ }));
+    let dialog = await screen.findByRole('dialog', { name: '選擇字型' });
+    const opt = within(dialog).getByRole('button', { name: /沿用頁面字型/ });
+    expect(opt).toHaveAttribute('aria-pressed', 'false');
+    expect(opt).toHaveTextContent('沿用 Streamkit 頁面原本的字型。');
+    await user.click(opt);
+    expect(onChange).toHaveBeenLastCalledWith({ source: 'local', family: '', weight: 700 });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '選擇字型' })).toBeNull());
+    const trigger = screen.getByRole('button', { name: /名字字型/ });
+    expect(trigger).toHaveTextContent('沿用頁面字型');
+    expect(trigger).toHaveTextContent('頁面');
+    /* 選了沿用時沒有「要在 OBS 電腦安裝」的提醒 */
+    expect(screen.queryByText('跑 OBS 的電腦也要安裝這套字型。')).toBeNull();
+    await user.click(trigger);
+    dialog = await screen.findByRole('dialog', { name: '選擇字型' });
+    expect(within(dialog).getByRole('button', { name: /沿用頁面字型/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await user.click(within(dialog).getByRole('tab', { name: /電腦字型/ }));
+    await user.click(
+      within(within(dialog).getByRole('radiogroup', { name: '常見的電腦字型' })).getByRole(
+        'radio',
+        { name: /微軟正黑體/ },
+      ),
+    );
+    expect(onChange).toHaveBeenLastCalledWith({
+      source: 'local',
+      family: 'Microsoft JhengHei',
+      weight: 700,
+    });
+  });
+
+  it('沒有給 inherit 時沒有這個選項（向下相容）', async () => {
+    const user = userEvent.setup();
+    render(
+      <UiProvider>
+        <Field label="字型">
+          <FontPicker
+            mode="css"
+            value={{ source: 'google', family: 'Noto Sans TC', weight: 400 }}
+            onChange={() => {}}
+          />
+        </Field>
+      </UiProvider>,
+    );
+    await user.click(screen.getByRole('button', { name: /字型/ }));
+    const dialog = await screen.findByRole('dialog', { name: '選擇字型' });
+    expect(within(dialog).queryByRole('button', { name: /沿用頁面字型/ })).toBeNull();
+  });
 });
 
 describe('LocalFontDialog', () => {
@@ -558,5 +674,111 @@ describe('CropDialog（數值範圍＋兩段式確認）', () => {
       await user.click(screen.getByRole('button', { name: '套用' }));
     });
     expect(onConfirm).toHaveBeenCalledWith({ x: 70, y: 0, width: 160, height: 600 });
+  });
+
+  describe('freeDraw：框蓋滿整張圖也能畫新範圍；拖曳時數字欄跟著更新（obs-tachie F21）', () => {
+    const image = { width: 300, height: 600 } as unknown as ImageBitmap;
+    let rectSpy: ReturnType<typeof vi.spyOn>;
+    beforeEach(() => {
+      /* 畫面上的圖片＝原圖大小（螢幕座標＝影像座標） */
+      rectSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue({
+        left: 0,
+        top: 0,
+        right: 300,
+        bottom: 600,
+        width: 300,
+        height: 600,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect);
+    });
+    afterEach(() => {
+      rectSpy.mockRestore();
+      vi.restoreAllMocks();
+    });
+    const renderDialog = (onConfirm = vi.fn()) => {
+      render(
+        <UiProvider>
+          <CropDialog
+            open
+            onOpenChange={() => {}}
+            image={image}
+            aspect={null}
+            rawInputs
+            freeDraw
+            initialRect={{ x: 0, y: 0, width: 300, height: 600 }}
+            confirm={{ beforeBytes: 9318 }}
+            onConfirm={onConfirm}
+          />
+        </UiProvider>,
+      );
+      return onConfirm;
+    };
+    const box = () => screen.getByRole('group', { name: /^裁切範圍/ });
+    const values = () =>
+      ['X', 'Y', '寬', '高'].map(
+        (n) => (screen.getByRole('spinbutton', { name: n }) as HTMLInputElement).value,
+      );
+
+    it('從初始範圍（整張圖）在框內按住拖曳＝畫出新範圍（任何方向）', () => {
+      renderDialog();
+      fireEvent.pointerDown(box(), { button: 0, clientX: 180, clientY: 420, pointerId: 1 });
+      fireEvent.pointerMove(box(), { clientX: 100, clientY: 300, pointerId: 1 });
+      fireEvent.pointerMove(box(), { clientX: 60, clientY: 120, pointerId: 1 });
+      fireEvent.pointerUp(box(), { pointerId: 1 });
+      expect(values()).toEqual(['60', '120', '120', '300']);
+      expect(screen.getByText('裁切後 120×300px')).toBeInTheDocument();
+    });
+
+    it('拖中央的把手＝移動；在框內按住不動一下再拖也是移動', () => {
+      const now = vi.spyOn(Date, 'now');
+      now.mockReturnValue(1000);
+      renderDialog();
+      /* 先畫一個 100×200 的範圍 */
+      fireEvent.pointerDown(box(), { button: 0, clientX: 0, clientY: 0, pointerId: 1 });
+      fireEvent.pointerMove(box(), { clientX: 100, clientY: 200, pointerId: 1 });
+      fireEvent.pointerUp(box(), { pointerId: 1 });
+      expect(values()).toEqual(['0', '0', '100', '200']);
+      /* 中央把手：拖了就移動 */
+      const handle = screen.getByTestId('crop-move-handle');
+      fireEvent.pointerDown(handle, { button: 0, clientX: 50, clientY: 100, pointerId: 2 });
+      fireEvent.pointerMove(handle, { clientX: 80, clientY: 140, pointerId: 2 });
+      fireEvent.pointerUp(handle, { pointerId: 2 });
+      expect(values()).toEqual(['30', '40', '100', '200']);
+      /* 框內按住不動（超過門檻時間）再拖：移動 */
+      fireEvent.pointerDown(box(), { button: 0, clientX: 40, clientY: 50, pointerId: 3 });
+      now.mockReturnValue(1000 + CROP_HOLD_TO_MOVE_MS + 10);
+      fireEvent.pointerMove(box(), { clientX: 60, clientY: 60, pointerId: 3 });
+      fireEvent.pointerUp(box(), { pointerId: 3 });
+      expect(values()).toEqual(['50', '50', '100', '200']);
+      /* 框內按下立刻拖：畫新範圍 */
+      fireEvent.pointerDown(box(), { button: 0, clientX: 60, clientY: 60, pointerId: 4 });
+      fireEvent.pointerMove(box(), { clientX: 90, clientY: 100, pointerId: 4 });
+      fireEvent.pointerUp(box(), { pointerId: 4 });
+      expect(values()).toEqual(['60', '60', '30', '40']);
+    });
+
+    it('欄位打到一半就拖曳：四個欄位都跟著更新，確定時以畫面上的範圍為準', async () => {
+      const user = userEvent.setup();
+      const onConfirm = renderDialog();
+      const h = screen.getByRole('spinbutton', { name: '高' });
+      await user.clear(h);
+      await user.type(h, '100');
+      expect(document.activeElement).toBe(h);
+      fireEvent.pointerDown(box(), { button: 0, clientX: 60, clientY: 60, pointerId: 1 });
+      fireEvent.pointerMove(box(), { clientX: 240, clientY: 540, pointerId: 1 });
+      fireEvent.pointerUp(box(), { pointerId: 1 });
+      expect(values()).toEqual(['60', '60', '180', '480']);
+      expect(screen.getByText('裁切後 180×480px')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: '確定' }));
+      expect(await screen.findByTestId('crop-summary')).toHaveTextContent(
+        '原尺寸 300×600px → 裁切後 180×480px',
+      );
+      await act(async () => {
+        await user.click(screen.getByRole('button', { name: '套用' }));
+      });
+      expect(onConfirm).toHaveBeenCalledWith({ x: 60, y: 60, width: 180, height: 480 });
+    });
   });
 });

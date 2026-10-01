@@ -118,7 +118,7 @@ export interface TextureOptions {
   color?: string;
   /** 底色的不透明度 0～1（漸深用；頂端約 0.45 倍、底端約 1.12 倍） */
   opacity?: number;
-  /** 舊紙：亮斑、暗角、顆粒的濃度 0～1（預設 0.22、0.32、0.22） */
+  /** 舊紙：亮斑、暗角（四角的濃度）、顆粒的濃度 0～1（預設 0.22、0.33、0.22） */
   spot?: number;
   vignette?: number;
   grain?: number;
@@ -144,9 +144,15 @@ export interface TextureCss {
   replacesColor?: boolean;
 }
 
+/** 舊紙暗角的褐色 */
+export const PAPER_VIGNETTE_COLOR = '#603c22';
+
 /**
  * 質感 → 背景圖層。none 時回傳 null。
  * - paper（舊紙）：中央偏上的淡白亮斑、往四周漸變成褐色暗角，再疊一層細暗顆粒（約 160px 重複）。
+ *   暗角是以方框中心為圓心、通過四角的橢圓（跟著方框的長寬比）：半徑 50% 以內沒有，往外線性加深，四角最深。
+ *   依訊息框 F11 與聊天視窗 F15 的舊版量測調整（底色 #efe4cb 不透明時：平均約 (218,207,184)、
+ *   亮度標準差約 16、左下角約 (186,167,143)、距上緣 35% 的中央約 (233,225,206)）。
  * - grain（顆粒）：一層暗色雜訊（約 140px 重複），讓底色整體略暗。
  * - scanlines（掃描線）：每 3px 一條 1px 的暗線，疊在內容之上。
  * - deepen（漸深）：由上往下，從 0.45 倍到 1.12 倍底色不透明度的漸層（取代背景色）。
@@ -158,7 +164,7 @@ export function texture(kind: TextureKind, o: TextureOptions = {}): TextureCss |
       return {
         backgroundImage: [
           `radial-gradient(ellipse 70% 60% at 50% 35%, ${rgba('#ffffff', o.spot ?? 0.22)}, ${rgba('#ffffff', 0)} 70%)`,
-          `radial-gradient(ellipse 85% 85% at 50% 45%, ${rgba('#6e4a24', 0)} 50%, ${rgba('#6e4a24', o.vignette ?? 0.32)} 100%)`,
+          `radial-gradient(ellipse farthest-corner at 50% 50%, ${rgba(PAPER_VIGNETTE_COLOR, 0)} 50%, ${rgba(PAPER_VIGNETTE_COLOR, o.vignette ?? 0.33)} 100%)`,
           `url("${noiseDataUri({ tile, opacity: o.grain ?? 0.22, seed: 11 })}")`,
         ].join(', '),
         backgroundSize: `100% 100%, 100% 100%, ${tile}px ${tile}px`,
