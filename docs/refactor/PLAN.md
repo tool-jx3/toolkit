@@ -151,9 +151,9 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | ccfolia-cropper | ✅ | ✅ | 🔍 | ⬜ |
 | icon-maker | ✅ | 🔨 | ⬜ | ⬜ |
 | variant-manager | ✅ | ✅ | 🔍 | ⬜ |
-| height-board | ✅ | ⬜ | ⬜ | ⬜ |
-| color-palette | ✅ | ⬜ | ⬜ | ⬜ |
-| emotion-maker | ✅ | ⬜ | ⬜ | ⬜ |
+| height-board | ✅ | 🔨 | ⬜ | ⬜ |
+| color-palette | ✅ | 🔨 | ⬜ | ⬜ |
+| emotion-maker | ✅ | 🔨 | ⬜ | ⬜ |
 | typewriter | ✅ | ✅ | 🔍 | ⬜ |
 | text-path | ✅ | ✅ | ✅ | ✅ |
 | cutin | ✅ | ✅ | 🔍 | ⬜ |
