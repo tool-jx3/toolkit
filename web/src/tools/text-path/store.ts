@@ -3,7 +3,9 @@
  *
  * 動作回傳要顯示的短暫訊息代號（null＝不顯示），由元件轉成 Toast。
  * 「有結果」＝結果欄不是空的：這時間距倍數（F11）、填空字元（F12）、行首替換（F13）、起訖對調（F16）、
- * 依字數縮放（F15）會接著重新產生；這類自動重產若產生不了（例如文字已經清空）就不提示、保留原本的結果。
+ * 依字數縮放（F15）會接著重新產生。自動重產產生不了時（例如文字已經清空），和按「產生」一樣顯示原因，
+ * 結果保留不變（規格 7.1 的 F29 裁定）。間距倍數的縮放不成立（不到 2 個字）時直接結束，
+ * 不重新產生、不顯示訊息（7.1 的 F11 裁定）。
  */
 import { create } from 'zustand';
 import { type Point, reversePath } from '@/core/path';
@@ -55,8 +57,8 @@ export interface TextPathActions {
   drawEnd(points: Point[]): void;
   setCols(cols: number): void;
   setSpacing(spacing: number): void;
-  setFill(fill: FillKind): void;
-  setLineHead(on: boolean): void;
+  setFill(fill: FillKind): MessageKey | null;
+  setLineHead(on: boolean): MessageKey | null;
   generate(): MessageKey | null;
   fit(): MessageKey | null;
   reverse(): MessageKey | null;
@@ -91,18 +93,21 @@ function run(s: TextPathState) {
   });
 }
 
-function produced(s: TextPathState): Partial<TextPathState> | null {
-  const r = run(s);
-  return r.ok ? { result: r.text, labels: r.labels, labelSize: r.labelSize } : null;
+interface Regenerated {
+  /** 要合併的欄位（產生不了時是空的：結果與疊字都保留） */
+  patch: Partial<TextPathState>;
+  message: MessageKey | null;
+}
+
+/** 已有結果時重新產生；產生不了時回傳和按「產生」相同的訊息，結果不動 */
+function regenerateIfShown(next: TextPathState): Regenerated {
+  if (!next.result) return { patch: {}, message: null };
+  const r = run(next);
+  if (!r.ok) return { patch: {}, message: r.reason === 'no-text' ? 'noText' : 'noPath' };
+  return { patch: { result: r.text, labels: r.labels, labelSize: r.labelSize }, message: null };
 }
 
 export const useTextPath = create<TextPathState & TextPathActions>()((set, get) => {
-  /** 已有結果時重新產生（失敗時不提示，只清掉疊字） */
-  const regenerateIfShown = (next: TextPathState): Partial<TextPathState> => {
-    if (!next.result) return {};
-    return produced(next) ?? { labels: [] };
-  };
-
   return {
     ...initialState(),
 
@@ -128,25 +133,32 @@ export const useTextPath = create<TextPathState & TextPathActions>()((set, get) 
         set({ spacing });
         return;
       }
-      /* F11：已有結果時立刻依字數縮放（不顯示訊息）並重新產生 */
+      /* F11：已有結果時立刻依字數縮放（不顯示訊息）並重新產生；
+         縮放不成立（不到 2 個字）時直接結束：結果與軌跡都不變（7.1 裁定） */
       const fit = fitPathToText({
         path: s.path,
         count: splitChars(s.text).length,
         cols: s.cols,
         spacing,
       });
-      const next: TextPathState = { ...s, spacing, path: fit.ok ? fit.path : s.path };
-      set({ spacing, path: next.path, ...regenerateIfShown(next) });
+      if (!fit.ok) {
+        set({ spacing });
+        return;
+      }
+      const next: TextPathState = { ...s, spacing, path: fit.path, labels: [] };
+      set({ spacing, path: fit.path, labels: [], ...regenerateIfShown(next).patch });
     },
 
     setFill: (fill) => {
-      const next = { ...get(), fill };
-      set({ fill, ...regenerateIfShown(next) });
+      const r = regenerateIfShown({ ...get(), fill });
+      set({ fill, ...r.patch });
+      return r.message;
     },
 
     setLineHead: (lineHead) => {
-      const next = { ...get(), lineHead };
-      set({ lineHead, ...regenerateIfShown(next) });
+      const r = regenerateIfShown({ ...get(), lineHead });
+      set({ lineHead, ...r.patch });
+      return r.message;
     },
 
     generate: () => {
@@ -166,16 +178,18 @@ export const useTextPath = create<TextPathState & TextPathActions>()((set, get) 
       });
       if (!fit.ok) return fit.reason === 'few-chars' ? 'fewChars' : 'fitNoPath';
       const next: TextPathState = { ...s, path: fit.path, labels: [] };
-      set({ path: fit.path, labels: [], ...regenerateIfShown(next) });
-      return s.result ? null : 'fitted';
+      const r = regenerateIfShown(next);
+      set({ path: fit.path, labels: [], ...r.patch });
+      return s.result ? r.message : 'fitted';
     },
 
     reverse: () => {
       const s = get();
       if (!isUsablePath(s.path)) return 'reverseNoPath';
       const next: TextPathState = { ...s, path: reversePath(s.path), labels: [] };
-      set({ path: next.path, labels: [], ...regenerateIfShown(next) });
-      return null;
+      const r = regenerateIfShown(next);
+      set({ path: next.path, labels: [], ...r.patch });
+      return r.message;
     },
 
     clear: () => set({ shape: 'free', path: [], result: '', labels: [] }),

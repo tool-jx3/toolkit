@@ -96,6 +96,7 @@ function TextSection() {
 }
 
 function LayoutSection() {
+  const say = useMessage();
   const cols = useTextPath((s) => s.cols);
   const spacing = useTextPath((s) => s.spacing);
   const fill = useTextPath((s) => s.fill);
@@ -132,13 +133,13 @@ function LayoutSection() {
       <Field label={S.fill} hint={S.fillHint}>
         <Segmented<FillKind>
           value={fill}
-          onValueChange={setFill}
+          onValueChange={(v) => say(setFill(v))}
           fullWidth
           options={FILL_KINDS.map((k) => ({ value: k, label: S.fillLabels[k] }))}
         />
       </Field>
       <Field label={S.lineHead} hint={S.lineHeadHint} layout="inline">
-        <Toggle checked={lineHead} onCheckedChange={setLineHead} />
+        <Toggle checked={lineHead} onCheckedChange={(v) => say(setLineHead(v))} />
       </Field>
     </Section>
   );

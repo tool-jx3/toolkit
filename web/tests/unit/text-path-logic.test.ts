@@ -388,6 +388,74 @@ describe('狀態的連動（store）', () => {
     expect(st().labels.length).toBe(n);
   });
 
+  it('間距倍數：文字只剩 1 個字或清空時縮放不成立，不重新產生，結果與軌跡都不變（F11，7.1 裁定）', () => {
+    st().generate();
+    const result = st().result;
+    const path = st().path;
+    const labels = st().labels;
+    st().setText('骰');
+    st().setSpacing(0.5);
+    expect(st().spacing).toBe(0.5);
+    expect(st().result).toBe(result);
+    expect(st().path).toBe(path);
+    expect(st().labels).toBe(labels);
+    st().setText(' \n　');
+    st().setSpacing(2.4);
+    expect(st().spacing).toBe(2.4);
+    expect(st().result).toBe(result);
+    expect(st().path).toBe(path);
+    /* 字數回到 2 個以上就照常縮放並重新產生 */
+    st().setText('骰子');
+    st().setSpacing(1.2);
+    expect(pathLength(st().path)).toBeCloseTo(25.36 * 1.2, 6);
+    expect(st().result).not.toBe(result);
+  });
+
+  it('已有結果後清空文字，再自動重產：顯示「請輸入要排列的文字。」，結果保留不變（F29，7.1 裁定）', () => {
+    expect(S.messages.noText).toBe('請輸入要排列的文字。');
+    /* 沒有結果時切換只改值、不提示 */
+    expect(st().setLineHead(true)).toBeNull();
+    expect(st().setFill('space')).toBeNull();
+    st().reset();
+    st().generate();
+    const result = st().result;
+    const labels = st().labels;
+    st().setText('');
+    expect(st().generate()).toBe('noText');
+    expect(st().result).toBe(result);
+    /* 行首替換 */
+    expect(st().setLineHead(true)).toBe('noText');
+    expect(st().lineHead).toBe(true);
+    expect(st().result).toBe(result);
+    expect(st().labels).toBe(labels);
+    /* 填空字元 */
+    expect(st().setFill('middot')).toBe('noText');
+    expect(st().fill).toBe('middot');
+    expect(st().result).toBe(result);
+    /* 起訖對調：軌跡照樣對調、疊字消失，結果不變 */
+    const path = st().path;
+    expect(st().reverse()).toBe('noText');
+    expect(st().path).toEqual(reversePath(path));
+    expect(st().labels).toEqual([]);
+    expect(st().result).toBe(result);
+    /* 間距倍數：縮放不成立，不重新產生、不顯示訊息（F11） */
+    st().setSpacing(0.7);
+    expect(st().result).toBe(result);
+    /* 再輸入文字就照常重產 */
+    st().setText('月光');
+    expect(st().setFill('space')).toBeNull();
+    expect(st().result).not.toBe(result);
+  });
+
+  it('自動重產時軌跡無效（只點一下）：和按「產生」一樣提示沒有軌跡，結果保留', () => {
+    st().generate();
+    const result = st().result;
+    st().drawEnd([{ x: 5, y: 5 }]);
+    expect(st().setFill('space')).toBe('noPath');
+    expect(st().setLineHead(true)).toBe('noPath');
+    expect(st().result).toBe(result);
+  });
+
   it('依字數縮放：沒有結果時顯示完成；有結果時重新產生；字數或軌跡不夠時顯示訊息（F15）', () => {
     expect(st().fit()).toBe('fitted');
     expect(st().result).toBe('');

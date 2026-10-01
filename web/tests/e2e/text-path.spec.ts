@@ -275,6 +275,62 @@ test('起訖對調與依字數縮放：有結果時重產；沒有結果時縮�
   expect(errors).toEqual([]);
 });
 
+test('只剩 1 個字時拖間距倍數不重產；清空文字後自動重產提示輸入文字、結果保留（7.1 裁定）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const slider = page.getByRole('slider', { name: '間距倍數' });
+  const toasts = page.getByRole('button', { name: '關閉通知' });
+  await button(page, '產生').click();
+  const want = expected();
+  await expect(output(page)).toHaveValue(want);
+  const shown = await padImage(page);
+
+  /* F11：1 個字時縮放不成立 → 不重產、不顯示訊息，結果與軌跡（含疊字）都不變 */
+  await input(page).fill('骰');
+  await slider.focus();
+  await slider.press('ArrowLeft');
+  await slider.press('ArrowLeft');
+  await expect(page.getByTestId('spacing-value')).toHaveText('偏密（1.0）');
+  await expect(output(page)).toHaveValue(want);
+  expect(await padImage(page)).toBe(shown);
+  await expect(toasts).toHaveCount(0);
+
+  /* F29：清空文字後切換行首替換、換填空字元、起訖對調 → 提示輸入文字，結果保留 */
+  await input(page).fill('');
+  const noText = message(page, S.messages.noText);
+  expect(S.messages.noText).toBe('請輸入要排列的文字。');
+  await page.getByRole('switch', { name: '行首空白替換' }).click();
+  await expect(page.getByRole('switch', { name: '行首空白替換' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(noText).toHaveCount(1);
+  await expect(noText).toBeVisible();
+  await expect(output(page)).toHaveValue(want);
+  await expect(noText).toHaveCount(0, { timeout: 6000 });
+
+  await page.getByRole('radio', { name: '半形空白' }).click();
+  await expect(noText).toHaveCount(1);
+  await expect(output(page)).toHaveValue(want);
+  await expect(noText).toHaveCount(0, { timeout: 6000 });
+
+  await button(page, '起訖對調').click();
+  await expect(noText).toHaveCount(1);
+  await expect(output(page)).toHaveValue(want);
+  /* 軌跡照樣對調（疊字消失） */
+  expect(await padImage(page)).not.toBe(shown);
+
+  /* 文字是空的時拖間距倍數也不重產、不提示（F11） */
+  await expect(noText).toHaveCount(0, { timeout: 6000 });
+  await slider.focus();
+  await slider.press('ArrowRight');
+  await expect(page.getByTestId('spacing-value')).toHaveText('偏密（1.1）');
+  await expect(output(page)).toHaveValue(want);
+  await expect(toasts).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('清除與沒有軌跡、沒有文字時的訊息；訊息約 3 秒後消失', async ({ page }) => {
   const errors = await open(page);
   await button(page, '產生').click();
