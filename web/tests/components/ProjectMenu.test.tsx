@@ -75,7 +75,9 @@ describe('ProjectMenu', () => {
     files.pickFiles.mockResolvedValueOnce([file('ok.json', serializeProject('demo', 1, { a: 2 }))]);
     await openMenu();
     await userEvent.click(screen.getByRole('menuitem', { name: /開啟專案檔/ }));
-    await waitFor(() => expect(onLoad).toHaveBeenCalledWith({ a: 2 }, expect.anything(), expect.anything()));
+    await waitFor(() =>
+      expect(onLoad).toHaveBeenCalledWith({ a: 2 }, expect.anything(), expect.anything()),
+    );
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(notices.at(-1)).toEqual({ kind: 'opened', tone: 'success', fileName: 'ok.json' });
 
