@@ -395,6 +395,80 @@ describe('LayoutEditor', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' });
     expect(onEscape).toHaveBeenCalled();
   });
+
+  it('Ctrl＋方向鍵：預設不作用；ctrlNudge 時步距與不按 Ctrl 相同（Shift 照樣加大）；Ctrl＋Delete 不取消選取', () => {
+    const onChange = vi.fn();
+    const onSelect = vi.fn();
+    const props = {
+      width: 100,
+      height: 100,
+      items,
+      selectedId: 'name',
+      onSelect,
+      onChange,
+      nudgeStep: 0.2,
+      nudgeShiftStep: 2,
+    };
+    const { rerender } = render(<LayoutEditor {...props} />);
+    fireEvent.keyDown(document.body, { key: 'ArrowRight', ctrlKey: true });
+    expect(onChange).not.toHaveBeenCalled();
+    rerender(<LayoutEditor {...props} ctrlNudge />);
+    fireEvent.keyDown(document.body, { key: 'ArrowRight', ctrlKey: true });
+    expect(onChange).toHaveBeenLastCalledWith(
+      'name',
+      { x: 60.2, y: 10, width: 20, height: 50 },
+      { phase: 'nudge', op: 'move' },
+    );
+    fireEvent.keyDown(document.body, { key: 'ArrowDown', ctrlKey: true, shiftKey: true });
+    expect(onChange.mock.calls[1][1]).toEqual({ x: 60, y: 12, width: 20, height: 50 });
+    /* ⌘、Alt 組合仍然不作用 */
+    fireEvent.keyDown(document.body, { key: 'ArrowLeft', metaKey: true });
+    fireEvent.keyDown(document.body, { key: 'ArrowLeft', altKey: true });
+    expect(onChange).toHaveBeenCalledTimes(2);
+    fireEvent.keyDown(document.body, { key: 'Delete', ctrlKey: true });
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('頁面有反白時：按下物件與控點會阻止預設動作（不變成原生拖放）並清掉反白；拖曳中的 dragstart 被取消', () => {
+    const onChange = vi.fn();
+    render(
+      <>
+        <p>一段可以反白的文字</p>
+        <LayoutEditor
+          width={100}
+          height={100}
+          items={items}
+          selectedId="name"
+          onSelect={vi.fn()}
+          onChange={onChange}
+        />
+      </>,
+    );
+    const selectText = () => {
+      const range = document.createRange();
+      range.selectNodeContents(screen.getByText('一段可以反白的文字'));
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      expect(sel?.toString()).toBe('一段可以反白的文字');
+    };
+    for (const target of [
+      document.querySelector('[data-layout-item="img"]') as HTMLElement,
+      document.querySelector('[data-layout-handle="se"]') as HTMLElement,
+    ]) {
+      selectText();
+      /* fireEvent 回傳 false ＝ 預設動作被阻止 */
+      expect(
+        fireEvent.pointerDown(target, { button: 0, pointerId: 3, clientX: 0, clientY: 0 }),
+      ).toBe(false);
+      expect(window.getSelection()?.toString()).toBe('');
+      expect(fireEvent.dragStart(screen.getByText('一段可以反白的文字'))).toBe(false);
+      fireEvent.pointerUp(target, { pointerId: 3, clientX: 0, clientY: 0 });
+    }
+    /* 沒有在拖曳時不干涉 dragstart */
+    expect(fireEvent.dragStart(screen.getByText('一段可以反白的文字'))).toBe(true);
+    expect(onChange.mock.calls.map((c) => c[2].phase)).toEqual(['start', 'end', 'start', 'end']);
+  });
 });
 
 describe('CropFrame', () => {

@@ -10,6 +10,7 @@ import {
   clampBoxPosition,
   clampSpan,
   clientToLocal,
+  guideLabelBoxes,
   hitTest,
   percentToBox,
   resizeBox,
@@ -182,6 +183,64 @@ describe('core/layout', () => {
       edges: { left: 10, right: 40, top: 20, bottom: 60 },
       distance: { left: 10, right: 60, top: 20, bottom: 40 },
     });
+  });
+
+  it('距離標籤：預設在上緣線上方置中、右緣線右側置中；貼近邊緣時改放線的另一側，一律在範圍內、不重疊', () => {
+    const bounds = { x: 0, y: 0, width: 1000, height: 1000 };
+    const size = { x: { width: 120, height: 40 }, y: { width: 100, height: 40 } };
+    const inside = (r: { x: number; y: number; width: number; height: number }) => {
+      expect(r.x).toBeGreaterThanOrEqual(0);
+      expect(r.y).toBeGreaterThanOrEqual(0);
+      expect(r.x + r.width).toBeLessThanOrEqual(1000);
+      expect(r.y + r.height).toBeLessThanOrEqual(1000);
+    };
+    const apart = (a: typeof bounds, c: typeof bounds) =>
+      a.x >= c.x + c.width ||
+      c.x >= a.x + a.width ||
+      a.y >= c.y + c.height ||
+      c.y >= a.y + a.height;
+    /* 中間：上緣線上方（間隔 4）、右緣線右側 */
+    const mid = guideLabelBoxes({ x: 400, y: 400, width: 200, height: 300 }, size, bounds, 4);
+    expect(mid.x).toEqual({ x: 440, y: 356, width: 120, height: 40 });
+    expect(mid.y).toEqual({ x: 604, y: 530, width: 100, height: 40 });
+    /* 上緣貼近範圍頂端（或超出）：改放到上緣線下方（物件內側） */
+    const top = guideLabelBoxes({ x: 400, y: 20, width: 200, height: 300 }, size, bounds, 4);
+    expect(top.x.y).toBe(24);
+    const above = guideLabelBoxes({ x: 400, y: -200, width: 200, height: 300 }, size, bounds, 4);
+    expect(above.x.y).toBe(0);
+    /* 右緣貼近範圍右端：改放到右緣線左側 */
+    const right = guideLabelBoxes({ x: 750, y: 400, width: 200, height: 300 }, size, bounds, 4);
+    expect(right.y.x).toBe(950 - 4 - 100);
+    /* 超出範圍的物件：標籤夾回範圍內；左右兩端的標籤也夾在範圍內 */
+    for (const b of [
+      { x: 900, y: 950, width: 400, height: 300 },
+      { x: -300, y: -300, width: 320, height: 320 },
+      { x: -50, y: 500, width: 80, height: 40 },
+      { x: 960, y: 980, width: 200, height: 90 },
+      { x: 900, y: 990, width: 200, height: 100 },
+      { x: 0, y: 0, width: 1000, height: 1000 },
+    ]) {
+      const l = guideLabelBoxes(b, size, bounds, 4);
+      inside(l.x);
+      inside(l.y);
+      expect(apart(l.x, l.y), JSON.stringify(b)).toBe(true);
+    }
+    /* 右下角擠在一起（夾回範圍後重疊）：上下距離的標籤移到左右距離標籤的上方 */
+    const corner = guideLabelBoxes({ x: 900, y: 990, width: 200, height: 100 }, size, bounds, 4);
+    expect(corner.x).toEqual({ x: 880, y: 946, width: 120, height: 40 });
+    expect(corner.y).toEqual({ x: 900, y: 946 - 4 - 40, width: 100, height: 40 });
+    /* 右上角擠在一起：上下距離的標籤移到左右距離標籤的下方 */
+    const high = guideLabelBoxes({ x: 900, y: 10, width: 200, height: 50 }, size, bounds, 4);
+    expect(high.x).toEqual({ x: 880, y: 14, width: 120, height: 40 });
+    expect(high.y).toEqual({ x: 900, y: 14 + 40 + 4, width: 100, height: 40 });
+    /* 標籤比範圍還大：貼齊左上 */
+    const tiny = guideLabelBoxes({ x: 0, y: 0, width: 10, height: 10 }, size, {
+      x: 0,
+      y: 0,
+      width: 50,
+      height: 50,
+    });
+    expect([tiny.x.x, tiny.x.y]).toEqual([0, 0]);
   });
 
   it('百分比換算、指標座標換算（元素被縮放也正確）、方向鍵、縮放、點選測試、水平夾住', () => {

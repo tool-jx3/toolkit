@@ -420,6 +420,7 @@ export function App() {
           }}
           nudgeStep={0.2}
           nudgeShiftStep={2}
+          ctrlNudge
           safeArea={SAFE_AREA}
           aria-label={S.editorLabel}
         />

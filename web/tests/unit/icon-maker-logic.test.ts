@@ -6,7 +6,8 @@
  * - 拖曳夾限（圖片中心 −20～120、牌子左上 −10～110 − 自身大小）、改大小的範圍；
  * - 放大縮小 ±8%、夾在 35%～300%；
  * - 配色預設 9 組的結構；空白時的代替字；
- * - 名字直排（字太多時縮小字級）、橫排（縮小字級不壓扁）、HO 牌（水平壓扁到牌寬 − 19 px）。
+ * - 名字與 HO 的字級固定（規格 7.1：直排 38、橫排 34、HO 36 px，牌子拉大不變大）；
+ *   名字直排（字太多時縮小字級）、橫排（縮小字級不壓扁）、HO 牌（水平壓扁到牌寬 − 19 px）。
  */
 import { describe, expect, it } from 'vitest';
 import { percentToBox, resizeBox } from '@/core/layout';
@@ -187,15 +188,24 @@ describe('名字牌與 HO 牌', () => {
     expect(displayHo('PC2')).toBe('PC2');
   });
 
-  it('直排：一字一列、置中，字距 1.2 倍；字太多時縮小字級（不重疊、不換欄）', () => {
-    const box = { x: 781, y: 108, width: 106, height: 462 };
+  it('直排：一字一列、置中，字級固定 38 px、字距 1.2 倍；放不下時才縮小字級（不重疊、不換欄）', () => {
+    /* 預設的名字牌（1024 畫布上約 x 781～887、y 108～570） */
+    const box = percentToBox(LAYOUT_DEFAULTS.nameV, innerRect(18));
+    expect(box.x).toBeCloseTo(781, 0);
+    expect(box.height).toBeCloseTo(462, 0);
     const three = layoutVertical('葉初晴', box);
     expect(three.chars).toEqual(['葉', '初', '晴']);
     expect(three.x).toBe(box.x + box.width / 2);
-    expect(three.size).toBeCloseTo(106 * 0.52, 6);
+    expect(three.size).toBe(38);
     expect(three.centers[1]).toBeCloseTo(box.y + box.height / 2, 6);
-    expect(three.centers[1] - three.centers[0]).toBeCloseTo(three.size * 1.2, 6);
-    for (const n of [2, 4, 10, 30]) {
+    expect(three.centers[1] - three.centers[0]).toBeCloseTo(38 * 1.2, 6);
+    /* 10 個字（10 × 45.6 ＝ 456 ≤ 牌高 462）還放得下：不縮小，和舊版下載相同 */
+    expect(layoutVertical('字'.repeat(10), box).size).toBe(38);
+    /* 11 個字放不下：縮小到剛好放滿牌高 */
+    const eleven = layoutVertical('字'.repeat(11), box);
+    expect(eleven.size).toBeLessThan(38);
+    expect(eleven.size * 1.2 * 11).toBeCloseTo(box.height, 6);
+    for (const n of [2, 4, 10, 11, 30]) {
       const v = layoutVertical('字'.repeat(n), box);
       const pitch = n > 1 ? v.centers[1] - v.centers[0] : v.size * 1.2;
       /* 字距 ≥ 字級（不重疊），整欄在名字牌裡 */
@@ -203,7 +213,17 @@ describe('名字牌與 HO 牌', () => {
       expect(v.centers[0] - v.size / 2).toBeGreaterThanOrEqual(box.y);
       expect(v.centers[n - 1] + v.size / 2).toBeLessThanOrEqual(box.y + box.height);
     }
-    expect(layoutVertical('字'.repeat(10), box).size).toBeLessThan(three.size);
+  });
+
+  it('直排：牌子拉大字也不變大；拉長後放得下的字數變多', () => {
+    const box = percentToBox(LAYOUT_DEFAULTS.nameV, innerRect(18));
+    const big = { ...box, width: box.width * 3, height: box.height * 1.6 };
+    expect(layoutVertical('葉初晴', big).size).toBe(38);
+    expect(layoutVertical('字'.repeat(11), big).size).toBe(38);
+    /* 外框粗細改變（內側區域變小）字級也不變 */
+    expect(layoutVertical('葉初晴', percentToBox(LAYOUT_DEFAULTS.nameV, innerRect(42))).size).toBe(
+      38,
+    );
   });
 
   it('直排以字素切字（表情符號算一個字）', () => {
@@ -213,30 +233,40 @@ describe('名字牌與 HO 牌', () => {
     ]);
   });
 
-  it('橫排：一行置中，太長時縮小字級（不壓扁），寬度不超過牌寬減左右留白', () => {
+  it('橫排：一行置中，字級固定 34 px；太長時才縮小字級（不壓扁），寬度不超過牌寬 − 19 px', () => {
     const box = { x: 300, y: 830, width: 600, height: 100 };
     const short = layoutHorizontal('阿雪', box, fullWidth);
-    expect(short.size).toBe(50);
+    expect(short.size).toBe(34);
     expect(short.scaleX).toBe(1);
     expect(short.x).toBe(600);
     expect(short.y).toBe(880);
-    const long = layoutHorizontal('十二個字的很長很長的名字', box, fullWidth);
+    expect(short.width).toBe(68);
+    /* 牌子拉高、拉寬：字不變大 */
+    expect(layoutHorizontal('阿雪', { ...box, width: 900, height: 300 }, fullWidth).size).toBe(34);
+    /* 預設的橫長條放得下 12 個字（12 × 34 ＝ 408） */
+    const nameH = percentToBox(LAYOUT_DEFAULTS.nameH, innerRect(18));
+    expect(layoutHorizontal('十二個字的很長很長的名字', nameH, fullWidth).size).toBe(34);
+    /* 放不下：縮小字級到剛好放滿（不壓扁） */
+    const long = layoutHorizontal('二十個字的很長很長很長很長很長的名字啊', box, fullWidth);
     expect(long.scaleX).toBe(1);
-    expect(long.size).toBeLessThan(50);
-    expect(long.size * 12).toBeCloseTo(600 - 2 * 25, 6);
-    expect(long.width).toBeCloseTo(550, 6);
+    expect(long.size).toBeLessThan(34);
+    expect(long.size * 19).toBeCloseTo(600 - 19, 6);
+    expect(long.width).toBeCloseTo(581, 6);
   });
 
-  it('HO：字級 ＝ 牌高 × 0.42（預設大小約 36 px）；太長時水平壓扁到牌寬減 19 px', () => {
+  it('HO：字級固定 36 px（牌子拉大不變大）；太長時水平壓扁到牌寬減 19 px', () => {
     const inner = innerRect(18);
     const ho = percentToBox(LAYOUT_DEFAULTS.ho, inner);
     const l = layoutHo('HO1', ho, (t, size) => t.length * size * 0.6);
-    expect(Math.abs(l.size - 36)).toBeLessThan(1);
+    expect(l.size).toBe(36);
     expect(l.scaleX).toBe(1);
+    expect(layoutHo('HO1', { ...ho, height: ho.height * 4 }, fullWidth).size).toBe(36);
     const long = layoutHo('很長的職業名稱十字', ho, fullWidth);
-    expect(long.size).toBeCloseTo(ho.height * 0.42, 6);
+    expect(long.size).toBe(36);
     expect(long.scaleX).toBeLessThan(1);
     expect(long.width).toBeCloseTo(ho.width - 19, 6);
+    /* 牌子拉寬就不必壓扁 */
+    expect(layoutHo('很長的職業名稱十字', { ...ho, width: 9 * 36 + 19 }, fullWidth).scaleX).toBe(1);
   });
 });
 

@@ -4,8 +4,10 @@
  * - 載入：選檔（PNG／JPEG／WebP）、非圖片靜默忽略、拖放只取第一個（GIF 也收）、載入後縮成一列、更換圖片；
  *   載入不重設位置與倍率、載入後選取圖片；
  * - 版面：點選、拖曳與夾限、參考線與距離標籤、控點與大小範圍、Esc；方向鍵（0.2%／Shift 2%、不夾範圍）、
- *   文字欄焦點時不作用、Delete／Backspace 取消選取；放大縮小（±8%、35%～300%）；重設版面只重設版面；
- *   直排／橫排各自的名字牌；
+ *   Ctrl＋方向鍵也移動（步距相同）、文字欄焦點時不作用、Delete／Backspace 取消選取；放大縮小（±8%、35%～300%）；
+ *   重設版面只重設版面；直排／橫排各自的名字牌；
+ * - 對等驗證後的追加裁定（規格 7.1）：頁面有反白（Ctrl＋A）時拖曳物件與控點完整作用、不變成原生拖放；
+ *   距離標籤一律在預覽看得到的範圍內；名字與 HO 的字級固定（牌子拉大不變大）；
  * - 摘要 8 項即時反映；
  * - 下載：檔名、1024 × 1024 RGBA、四角透明、外框色與粗細、背景（含透明、花紋、漸層）、圖片位置與倍率、
  *   與預覽畫布逐像素相同（所見即所得）；沒有圖片也能下載（佔位圖）；
@@ -16,6 +18,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { encodePng } from '../../src/core/encode/png';
+import { percentToBox } from '../../src/core/layout';
 import { getTool, outputDir } from '../../src/registry';
 import { innerRect, LAYOUT_DEFAULTS, PRESETS } from '../../src/tools/icon-maker/logic';
 import { decodePixels, parseChunks, readIhdr } from '../helpers/png';
@@ -113,11 +116,12 @@ async function drag(page: Page, l: Locator, dx: number, dy: number, during?: () 
   await page.mouse.up();
 }
 
-async function dragTo(page: Page, l: Locator, x: number, y: number) {
+async function dragTo(page: Page, l: Locator, x: number, y: number, during?: () => Promise<void>) {
   const c = await centerOf(l);
   await page.mouse.move(c.x, c.y);
   await page.mouse.down();
   await page.mouse.move(x, y, { steps: 6 });
+  await during?.();
   await page.mouse.up();
 }
 
@@ -215,6 +219,72 @@ async function loadTestImage(page: Page, name = '角色.png') {
   await fileInput(page).setInputFiles({ name, mimeType: 'image/png', buffer: await testPng() });
   await expect(page.getByTestId('loaded-name')).toContainText(name);
 }
+
+/** 焦點不在輸入框時按 Ctrl＋A，整頁反白 */
+async function selectAll(page: Page) {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur?.());
+  await page.keyboard.press('Control+A');
+  expect(await page.evaluate(() => getSelection()?.toString().length ?? 0)).toBeGreaterThan(50);
+}
+
+/** 記錄瀏覽器原生的拖放與指標取消（拖曳物件時都不應該出現） */
+async function watchNativeDrag(page: Page): Promise<() => Promise<string[]>> {
+  await page.evaluate(() => {
+    const w = window as unknown as { __nativeDrag: string[] };
+    w.__nativeDrag = [];
+    for (const type of ['dragstart', 'pointercancel'])
+      window.addEventListener(type, () => w.__nativeDrag.push(type), true);
+  });
+  return () => page.evaluate(() => (window as unknown as { __nativeDrag: string[] }).__nativeDrag);
+}
+
+/** 兩個距離標籤都完整落在預覽畫布裡（看得到），而且彼此不重疊 */
+async function labelsInsideCanvas(page: Page) {
+  const c = await page.getByTestId('icon-canvas').boundingBox();
+  if (!c) throw new Error('找不到預覽畫布');
+  const boxes: Box[] = [];
+  for (const key of ['x', 'y']) {
+    const b = await page.getByTestId(`layout-distance-${key}`).boundingBox();
+    if (!b) throw new Error(`找不到距離標籤 ${key}`);
+    expect(b.x, `${key} 左緣`).toBeGreaterThanOrEqual(c.x - 0.5);
+    expect(b.y, `${key} 上緣`).toBeGreaterThanOrEqual(c.y - 0.5);
+    expect(b.x + b.width, `${key} 右緣`).toBeLessThanOrEqual(c.x + c.width + 0.5);
+    expect(b.y + b.height, `${key} 下緣`).toBeLessThanOrEqual(c.y + c.height + 0.5);
+    boxes.push(b);
+  }
+  const [a, b] = boxes;
+  const overlap =
+    a.x < b.x + b.width - 0.5 &&
+    b.x < a.x + a.width - 0.5 &&
+    a.y < b.y + b.height - 0.5 &&
+    b.y < a.y + a.height - 0.5;
+  expect(overlap, '兩個標籤不重疊').toBe(false);
+}
+
+/** 牌子範圍裡「文字」像素的外接框（1024 畫布 px；左右內縮一個圓角半徑、上下內縮 4 px，避開圓角外的背景） */
+function inkBox(png: Png, plate: Box, isInk: (c: Rgba) => boolean) {
+  let x0 = Number.POSITIVE_INFINITY;
+  let y0 = Number.POSITIVE_INFINITY;
+  let x1 = Number.NEGATIVE_INFINITY;
+  let y1 = Number.NEGATIVE_INFINITY;
+  const top = Math.max(0, Math.ceil(plate.y + 4));
+  const bottom = Math.min(png.height, Math.floor(plate.y + plate.height - 4));
+  const left = Math.max(0, Math.ceil(plate.x + 24));
+  const right = Math.min(png.width, Math.floor(plate.x + plate.width - 24));
+  for (let y = top; y < bottom; y++) {
+    for (let x = left; x < right; x++) {
+      if (!isInk(at(png, x, y))) continue;
+      x0 = Math.min(x0, x);
+      y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x);
+      y1 = Math.max(y1, y);
+    }
+  }
+  return { width: x1 - x0 + 1, height: y1 - y0 + 1 };
+}
+/** 名字牌：接近黑的深藍灰字；HO 深色樣式：白字 */
+const darkInk = ([r, g, b]: Rgba) => r + g + b < 300;
+const whiteInk = ([r, g, b]: Rgba) => r > 200 && g > 200 && b > 200;
 
 test.describe('簡易頭像產生器', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
@@ -434,6 +504,137 @@ test.describe('簡易頭像產生器', () => {
     expect(errors).toEqual([]);
   });
 
+  test('頁面有反白（Ctrl＋A）時：拖曳圖片、名字牌、HO 牌與控點都完整作用，不變成原生拖放', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await loadTestImage(page);
+    const nativeDrag = await watchNativeDrag(page);
+    /* 圖片 */
+    await selectAll(page);
+    const img0 = imageCenter((await layout(page)).image);
+    await drag(page, item(page, 'image'), 60, 30);
+    const img1 = imageCenter((await layout(page)).image);
+    expect(Math.abs(img1.x - img0.x - (await toPercent(page, 60)))).toBeLessThan(0.6);
+    expect(Math.abs(img1.y - img0.y - (await toPercent(page, 30)))).toBeLessThan(0.6);
+    /* 按下物件時清掉反白（和一般的點擊一樣） */
+    expect(await page.evaluate(() => getSelection()?.toString() ?? '')).toBe('');
+    /* 名字牌 */
+    await selectAll(page);
+    const name0 = (await layout(page)).name;
+    await drag(page, item(page, 'name'), -50, 40);
+    const name1 = (await layout(page)).name;
+    expect(Math.abs(name0.x - name1.x - (await toPercent(page, 50)))).toBeLessThan(0.6);
+    expect(Math.abs(name1.y - name0.y - (await toPercent(page, 40)))).toBeLessThan(0.6);
+    /* 控點（名字牌選取中）：左上角不動 */
+    await selectAll(page);
+    await drag(page, handle(page), 30, 24);
+    const name2 = (await layout(page)).name;
+    expect(Math.abs(name2.width - name1.width - (await toPercent(page, 30)))).toBeLessThan(0.6);
+    expect(Math.abs(name2.height - name1.height - (await toPercent(page, 24)))).toBeLessThan(0.6);
+    expect(name2.x).toBeCloseTo(name1.x, 3);
+    expect(name2.y).toBeCloseTo(name1.y, 3);
+    /* HO 牌 */
+    await selectAll(page);
+    const ho0 = (await layout(page)).ho;
+    await drag(page, item(page, 'ho'), 40, -30);
+    const ho1 = (await layout(page)).ho;
+    expect(Math.abs(ho1.x - ho0.x - (await toPercent(page, 40)))).toBeLessThan(0.6);
+    expect(Math.abs(ho0.y - ho1.y - (await toPercent(page, 30)))).toBeLessThan(0.6);
+    /* 從標題按住拖過預覽造成的反白也一樣 */
+    const title = await page.getByRole('heading', { level: 1 }).boundingBox();
+    if (!title) throw new Error('找不到標題');
+    await page.mouse.move(title.x + 2, title.y + title.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(900, 700, { steps: 8 });
+    await page.mouse.up();
+    expect(await page.evaluate(() => getSelection()?.toString().length ?? 0)).toBeGreaterThan(0);
+    await drag(page, item(page, 'ho'), -40, 30);
+    const ho2 = (await layout(page)).ho;
+    expect(Math.abs(ho1.x - ho2.x - (await toPercent(page, 40)))).toBeLessThan(0.6);
+    expect(Math.abs(ho2.y - ho1.y - (await toPercent(page, 30)))).toBeLessThan(0.6);
+    expect(await nativeDrag()).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  test('參考線的距離標籤一律在預覽裡看得到：物件貼近上緣、右下角、圖片超出上緣時', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await loadTestImage(page);
+    const inside = () => labelsInsideCanvas(page);
+    /* 直長的角色圖：上緣在畫布外 */
+    await drag(page, item(page, 'image'), 4, -40, inside);
+    /* 名字牌拖到最上面 */
+    const n = await centerOf(item(page, 'name'));
+    await dragTo(page, item(page, 'name'), n.x, 2, inside);
+    expect((await layout(page)).name.y).toBeCloseTo(-10, 3);
+    /* 名字牌拖到右上角（右緣、上緣都在畫布外） */
+    await dragTo(page, item(page, 'name'), 1275, 2, inside);
+    expect((await layout(page)).name.x).toBeCloseTo(110 - 11, 3);
+    /* 控點拖曳時也一樣 */
+    await dragTo(page, handle(page), 1275, 895, inside);
+    /* HO 牌拖到右下角（兩個標籤擠在同一角，不重疊） */
+    await dragTo(page, item(page, 'ho'), 1275, 895, inside);
+    const ho = (await layout(page)).ho;
+    expect(ho.x).toBeCloseTo(110 - 20, 3);
+    expect(ho.y).toBeCloseTo(110 - 9, 3);
+    /* HO 牌拖到左上角 */
+    await dragTo(page, item(page, 'ho'), 2, 2, inside);
+    expect((await layout(page)).ho.x).toBeCloseTo(-10, 3);
+    expect(errors).toEqual([]);
+  });
+
+  test('名字與 HO 的字級固定：牌子拉大文字不跟著變大；預設名字直排約 38 px、HO 約 36 px', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const inner = innerRect(18);
+    const nameInk = async () => {
+      const png = await download(page);
+      return inkBox(png, percentToBox((await layout(page)).name, inner), darkInk);
+    };
+    const hoInk = async () => {
+      const png = await download(page);
+      return inkBox(png, percentToBox((await layout(page)).ho, inner), whiteInk);
+    };
+    /* 直排：三個字一欄，字寬約 38 px（字面比字級略小） */
+    const v0 = await nameInk();
+    expect(v0.width).toBeGreaterThan(28);
+    expect(v0.width).toBeLessThanOrEqual(40);
+    expect(v0.height).toBeGreaterThan(2 * 38 * 1.2);
+    expect(v0.height).toBeLessThan(3 * 38 * 1.2 + 4);
+    /* 名字牌拉大（寬高都變大）：字不變 */
+    await item(page, 'name').click();
+    await drag(page, handle(page), 60, 60);
+    expect((await layout(page)).name.width).toBeGreaterThan(LAYOUT_DEFAULTS.nameV.width + 8);
+    const v1 = await nameInk();
+    expect(Math.abs(v1.width - v0.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(v1.height - v0.height)).toBeLessThanOrEqual(1);
+    /* 橫排：一行，字高約 34 px 的字面；牌子拉高也不變 */
+    await radio(page, '橫排').click();
+    const h0 = await nameInk();
+    expect(h0.height).toBeGreaterThan(24);
+    expect(h0.height).toBeLessThanOrEqual(36);
+    await item(page, 'name').click();
+    await drag(page, handle(page), 0, 40);
+    expect((await layout(page)).name.height).toBeGreaterThan(LAYOUT_DEFAULTS.nameH.height + 5);
+    const h1 = await nameInk();
+    expect(Math.abs(h1.width - h0.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(h1.height - h0.height)).toBeLessThanOrEqual(1);
+    /* HO：「HO1」大寫字高約 24 px（字級 36）；牌子拉大也不變 */
+    const o0 = await hoInk();
+    expect(o0.height).toBeGreaterThanOrEqual(21);
+    expect(o0.height).toBeLessThanOrEqual(28);
+    await item(page, 'ho').click();
+    await drag(page, handle(page), 60, 60);
+    expect((await layout(page)).ho.height).toBeGreaterThan(LAYOUT_DEFAULTS.ho.height + 8);
+    const o1 = await hoInk();
+    expect(Math.abs(o1.width - o0.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(o1.height - o0.height)).toBeLessThanOrEqual(1);
+    expect(errors).toEqual([]);
+  });
+
   test('鍵盤與按鈕：方向鍵、文字欄焦點、Delete／Backspace、放大縮小、重設版面、直排與橫排', async ({
     page,
   }) => {
@@ -450,6 +651,13 @@ test.describe('簡易頭像產生器', () => {
     await page.keyboard.press('ArrowLeft');
     expect((await layout(page)).name.x).toBeCloseTo(118, 3);
     for (let i = 0; i < 20; i++) await page.keyboard.press('Shift+ArrowLeft');
+    expect((await layout(page)).name.x).toBeCloseTo(78, 3);
+    /* Ctrl＋方向鍵也移動，步距與不按 Ctrl 時相同（0.2%、加 Shift 2%） */
+    await page.keyboard.press('Control+ArrowLeft');
+    expect((await layout(page)).name.x).toBeCloseTo(77.8, 3);
+    await page.keyboard.press('Control+Shift+ArrowUp');
+    expect((await layout(page)).name.y).toBeCloseTo(8, 3);
+    await page.keyboard.press('Control+ArrowRight');
     expect((await layout(page)).name.x).toBeCloseTo(78, 3);
     /* 文字欄有焦點：方向鍵與 Delete 不作用 */
     const nameInput = page.getByRole('textbox', { name: '名字' });
@@ -725,8 +933,8 @@ test.describe('簡易頭像產生器', () => {
     await page.locator('body').press('Shift+Slash');
     const keys = page.getByRole('dialog', { name: '快捷鍵' });
     await expect(keys).toBeVisible();
-    await expect(keys).toContainText('移動選取的物件 0.2%（約 1 px）');
-    await expect(keys).toContainText('移動選取的物件 2%');
+    await expect(keys).toContainText('移動選取的物件 0.2%（約 1 px；同時按住 Ctrl 也一樣）');
+    await expect(keys).toContainText('移動選取的物件 2%（同時按住 Ctrl 也一樣）');
     await expect(keys).toContainText('取消選取');
     await page.keyboard.press('Escape');
     await expect(keys).toHaveCount(0);

@@ -5,6 +5,7 @@
  * ```ts
  * const next = resizeBox(start, 'se', dx, dy, { minWidth: 8, minHeight: 6, maxWidth: 80, maxHeight: 80 });
  * const g = boxGuides(next, { x: 0, y: 0, width: 100, height: 100 });   // 中心線、四邊、與上下左右的距離
+ * const labels = guideLabelBoxes(px, { x: sizeX, y: sizeY }, bounds);    // 距離標籤放在看得到的地方
  * const hit = hitTest(items, wx, wy);                                     // 最前面那個
  * ```
  */
@@ -153,6 +154,58 @@ export function boxGuides(b: Box, frame: Box): BoxGuides {
       bottom: frame.y + frame.height - (b.y + b.height),
     },
   };
+}
+
+export interface LabelSize {
+  width: number;
+  height: number;
+}
+
+const boxesOverlap = (a: Box, b: Box): boolean =>
+  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+
+/** 起點 v、長度 len 的線段夾在 lo～hi 裡；比範圍長時貼齊 lo */
+const fitSpan = (v: number, len: number, lo: number, hi: number) =>
+  Math.max(lo, Math.min(v, hi - len));
+
+/**
+ * 參考線兩個距離標籤的範圍（與 b、bounds 同單位），一律完整落在 bounds 裡（看得到）：
+ * - 左右距離（x）：預設在物件上緣線的上方、水平置中；上方放不下時改放到線的下方（物件內側）。
+ * - 上下距離（y）：預設在物件右緣線的右側、垂直置中；右側放不下時改放到線的左側（物件內側）。
+ * - 物件超出 bounds 時標籤夾回 bounds 裡；兩個標籤重疊時，上下距離的標籤移到左右距離標籤的下方（放不下就上方）。
+ * - gap：標籤與線的間隔。標籤比 bounds 還大時貼齊左上。
+ */
+export function guideLabelBoxes(
+  b: Box,
+  size: { x: LabelSize; y: LabelSize },
+  bounds: Box,
+  gap = 0,
+): { x: Box; y: Box } {
+  const right = bounds.x + bounds.width;
+  const bottom = bounds.y + bounds.height;
+  const { width: xw, height: xh } = size.x;
+  const { width: yw, height: yh } = size.y;
+
+  const above = b.y - gap - xh;
+  const x: Box = {
+    x: fitSpan(b.x + b.width / 2 - xw / 2, xw, bounds.x, right),
+    y: fitSpan(above >= bounds.y ? above : b.y + gap, xh, bounds.y, bottom),
+    width: xw,
+    height: xh,
+  };
+
+  const outside = b.x + b.width + gap;
+  const y: Box = {
+    x: fitSpan(outside + yw <= right ? outside : b.x + b.width - gap - yw, yw, bounds.x, right),
+    y: fitSpan(b.y + b.height / 2 - yh / 2, yh, bounds.y, bottom),
+    width: yw,
+    height: yh,
+  };
+  if (boxesOverlap(x, y)) {
+    const below = x.y + xh + gap;
+    y.y = fitSpan(below + yh <= bottom ? below : x.y - gap - yh, yh, bounds.y, bottom);
+  }
+  return { x, y };
 }
 
 /** 百分比（相對 frame）→ 實際座標 */

@@ -4,8 +4,10 @@
  * - 選取：按下即選取（同時只有一個），選取中的物件有主色外框；
  * - 拖曳移動、控點（預設右下角）調整大小，可以給 clamp 夾住位置；
  * - 參考線（拖曳中顯示）：參考範圍的中心十字、物件的四條邊線、與左右／上下邊的距離標籤；Esc 隱藏；
- * - 鍵盤（掛在 window；焦點在文字欄、選單、滑桿等表單控制項時不作用）：方向鍵微調（Shift 加大）、
- *   Delete／Backspace 取消選取、Esc 呼叫 onEscape。
+ *   距離標籤一律放在內容範圍裡看得到的地方（物件貼近邊緣時改放到線的另一側，見 guideLabelBoxes）；
+ * - 頁面有反白時按下物件或控點也照常拖曳（pointerdown 阻止預設動作並清掉反白，不會變成瀏覽器原生的拖放）；
+ * - 鍵盤（掛在 window；焦點在文字欄、選單、滑桿等表單控制項時不作用）：方向鍵微調（Shift 加大；
+ *   ctrlNudge 時按住 Ctrl 也微調）、Delete／Backspace 取消選取、Esc 呼叫 onEscape。
  * - 座標單位：'px'（內容座標）或 'percent'（相對 frame 的百分比，例如頭像的內側區域）。
  *
  * ```tsx
@@ -22,12 +24,21 @@
  * </Stage>
  * ```
  */
-import { type PointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type PointerEvent,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   arrowDelta,
   type Box,
   type BoxHandle,
   boxGuides,
+  guideLabelBoxes,
+  type LabelSize,
   moveBox,
   percentToBox,
   resizeBox,
@@ -85,6 +96,11 @@ export interface LayoutEditorProps {
   nudgeStep?: number;
   /** Shift＋方向鍵（預設 nudgeStep × 10） */
   nudgeShiftStep?: number;
+  /**
+   * 按住 Ctrl 的方向鍵也微調（步距與不按 Ctrl 時相同，Shift 照樣加大；預設 false：Ctrl 組合不作用，
+   * 留給工具的其他快捷鍵）。
+   */
+  ctrlNudge?: boolean;
   onEscape?: () => void;
   /** 標示安全範圍（虛線，不會輸出；內容座標） */
   safeArea?: Box;
@@ -137,6 +153,20 @@ interface Drag {
   start: Box;
 }
 
+/** 標籤與線的間隔（螢幕 px） */
+const LABEL_GAP = 2;
+
+const NO_LABEL_SIZE: { x: LabelSize; y: LabelSize } = {
+  x: { width: 0, height: 0 },
+  y: { width: 0, height: 0 },
+};
+
+/** 清掉頁面上的反白（和一般的點擊一樣） */
+function clearSelection() {
+  const sel = typeof window === 'undefined' ? null : window.getSelection();
+  if (sel && !sel.isCollapsed) sel.removeAllRanges();
+}
+
 function intersect(a: Box, b: Box): Box {
   const x = Math.max(a.x, b.x);
   const y = Math.max(a.y, b.y);
@@ -162,6 +192,7 @@ export function LayoutEditor({
   keyboard = true,
   nudgeStep = 1,
   nudgeShiftStep,
+  ctrlNudge = false,
   onEscape,
   safeArea,
   children,
@@ -189,8 +220,18 @@ export function LayoutEditor({
     onEscape,
     nudgeStep,
     nudgeShiftStep,
+    ctrlNudge,
   });
-  latest.current = { items, selectedId, onChange, onSelect, onEscape, nudgeStep, nudgeShiftStep };
+  latest.current = {
+    items,
+    selectedId,
+    onChange,
+    onSelect,
+    onEscape,
+    nudgeStep,
+    nudgeShiftStep,
+    ctrlNudge,
+  };
   useEffect(() => {
     if (!keyboard) return;
     const onKey = (e: KeyboardEvent) => {
@@ -207,15 +248,16 @@ export function LayoutEditor({
         l.onEscape?.();
         return;
       }
-      if (!l.selectedId || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!l.selectedId || e.metaKey || e.altKey) return;
       const item = l.items.find((it) => it.id === l.selectedId);
       if (!item) return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (isEditableTarget(t)) return;
+        if (e.ctrlKey || isEditableTarget(t)) return;
         e.preventDefault();
         l.onSelect(null);
         return;
       }
+      if (e.ctrlKey && !l.ctrlNudge) return;
       if (isFormControlTarget(t)) return;
       const step = e.shiftKey ? (l.nudgeShiftStep ?? l.nudgeStep * 10) : l.nudgeStep;
       const d = arrowDelta(e.key, step);
@@ -227,9 +269,21 @@ export function LayoutEditor({
     return () => window.removeEventListener('keydown', onKey);
   }, [keyboard]);
 
+  /* 拖曳中不讓瀏覽器開始原生的拖放（例如按在反白範圍裡；pointerdown 已阻止，這裡再保險一次） */
+  useEffect(() => {
+    const onDragStart = (e: DragEvent) => {
+      if (drag.current) e.preventDefault();
+    };
+    window.addEventListener('dragstart', onDragStart, true);
+    return () => window.removeEventListener('dragstart', onDragStart, true);
+  }, []);
+
   const begin = (e: PointerEvent<HTMLElement>, item: LayoutItem, handle: BoxHandle | null) => {
     if (e.button !== 0) return;
     e.stopPropagation();
+    /* 頁面有反白時，按在反白範圍裡會變成原生拖放（指標被取消、拖曳只走第一步）：阻止預設動作並清掉反白 */
+    e.preventDefault();
+    clearSelection();
     onSelect(item.id);
     (e.currentTarget as HTMLElement).focus?.({ preventScroll: true });
     if (item.locked) return;
@@ -289,6 +343,41 @@ export function LayoutEditor({
         units === 'percent' ? { x: 0, y: 0, width: 100, height: 100 } : frame,
       )
     : null;
+
+  /* 距離標籤：量實際大小（螢幕 px），換成內容座標後放在內容範圍裡看得到的地方 */
+  const labelX = useRef<HTMLDivElement>(null);
+  const labelY = useRef<HTMLDivElement>(null);
+  const [labelSize, setLabelSize] = useState(NO_LABEL_SIZE);
+  useLayoutEffect(() => {
+    const ex = labelX.current;
+    const ey = labelY.current;
+    if (!ex || !ey) return;
+    /* offsetWidth 是整數（可能少算不到 1 px）：多算 1 px，標籤才不會凸出邊緣 */
+    const next = {
+      x: { width: ex.offsetWidth + 1, height: ex.offsetHeight + 1 },
+      y: { width: ey.offsetWidth + 1, height: ey.offsetHeight + 1 },
+    };
+    setLabelSize((prev) =>
+      prev.x.width === next.x.width &&
+      prev.x.height === next.x.height &&
+      prev.y.width === next.y.width &&
+      prev.y.height === next.y.height
+        ? prev
+        : next,
+    );
+  });
+  const labels =
+    showGuides && activeItem
+      ? guideLabelBoxes(
+          toPx(activeItem.box),
+          {
+            x: { width: labelSize.x.width * k, height: labelSize.x.height * k },
+            y: { width: labelSize.y.width * k, height: labelSize.y.height * k },
+          },
+          { x: 0, y: 0, width, height },
+          LABEL_GAP * k,
+        )
+      : null;
 
   return (
     // biome-ignore lint/a11y/useSemanticElements: 疊在預覽上的一組物件，不是表單分組
@@ -385,7 +474,7 @@ export function LayoutEditor({
           </div>
         );
       })}
-      {showGuides && g && dist ? (
+      {showGuides && g && dist && labels ? (
         <>
           <svg
             aria-hidden
@@ -416,30 +505,25 @@ export function LayoutEditor({
           {[
             {
               key: 'x',
+              ref: labelX,
               text: `左 ${fmt(dist.distance.left)}｜右 ${fmt(dist.distance.right)}`,
-              x: (g.edges.left + g.edges.right) / 2,
-              y: Math.max(0, g.edges.top),
-              origin: '50% 100%',
-              shift: 'translate(-50%, -100%)',
+              at: labels.x,
             },
             {
               key: 'y',
+              ref: labelY,
               text: `上 ${fmt(dist.distance.top)}｜下 ${fmt(dist.distance.bottom)}`,
-              x: Math.min(width, g.edges.right),
-              y: (g.edges.top + g.edges.bottom) / 2,
-              origin: '0 50%',
-              shift: 'translate(0, -50%)',
+              at: labels.y,
             },
           ].map((l) => (
             <div
               key={l.key}
+              ref={l.ref}
               data-testid={`layout-distance-${l.key}`}
-              className="pointer-events-none absolute whitespace-nowrap rounded-sm bg-danger px-1 py-0.5 text-xs font-medium text-danger-contrast tabular-nums shadow-1"
+              className="pointer-events-none absolute top-0 left-0 whitespace-nowrap rounded-sm bg-danger px-1 py-0.5 text-xs font-medium text-danger-contrast tabular-nums shadow-1"
               style={{
-                left: Math.min(Math.max(l.x, 0), width),
-                top: Math.min(Math.max(l.y, 0), height),
-                transform: `${l.shift} scale(${k})`,
-                transformOrigin: l.origin,
+                transform: `translate(${l.at.x}px, ${l.at.y}px) scale(${k})`,
+                transformOrigin: '0 0',
               }}
             >
               {l.text}

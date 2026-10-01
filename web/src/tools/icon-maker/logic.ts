@@ -351,21 +351,24 @@ export interface VerticalLayout {
   chars: string[];
 }
 
-/** 直排：字寬上限（× 名字牌寬）、字距（× 字級）、上下留白（× 名字牌短邊） */
-export const VERTICAL = { widthRatio: 0.52, pitch: 1.2, padRatio: 0.15 } as const;
+/*
+ * 名字與 HO 的字級固定（1024 畫布上的 px），不隨牌子大小改變（規格 7.1：和舊版下載的檔案相同，
+ * 第 6 節量測：直排約 38 px、橫排約 34 px（3.5）、HO 約 36 px）；只有放不下時才縮小（名字）或壓扁（HO）。
+ */
+
+/** 直排：字級、字距（× 字級）、字寬上限（× 名字牌寬，牌子很窄時才用到） */
+export const VERTICAL = { size: 38, pitch: 1.2, maxWidthRatio: 0.8 } as const;
 
 /**
- * 直排：一個字一欄由上往下、置中於名字牌。字級＝ min(牌寬 × 0.52, 可用高度 ÷ (字數 × 1.2))，
- * 字太多時縮小字級（不重疊、不換欄）。box 是畫布 px。
+ * 直排：一個字一欄由上往下、置中於名字牌，字級固定 38 px、字距 1.2 倍。
+ * 整欄（字數 × 字距）比名字牌高時才縮小字級（字距維持 1.2 倍：不重疊、不換欄）。box 是畫布 px。
  */
 export function layoutVertical(text: string, box: Box): VerticalLayout {
   const chars = splitGraphemes(text);
   const n = Math.max(1, chars.length);
-  const pad = Math.min(box.width, box.height) * VERTICAL.padRatio;
-  const usable = Math.max(1, box.height - 2 * pad);
   const size = Math.max(
     1,
-    Math.min(box.width * VERTICAL.widthRatio, usable / (n * VERTICAL.pitch)),
+    Math.min(VERTICAL.size, box.width * VERTICAL.maxWidthRatio, box.height / (n * VERTICAL.pitch)),
   );
   const pitch = size * VERTICAL.pitch;
   const cy = box.y + box.height / 2;
@@ -384,16 +387,15 @@ export interface LineLayout {
   width: number;
 }
 
-/** 橫排名字：字級 ＝ 牌高 × 0.5；左右各留 牌高 × 0.25（至少 10 px） */
-export const HORIZONTAL = { sizeRatio: 0.5, padRatio: 0.25, minPad: 10 } as const;
+/** 橫排名字：字級、左右合計留白（px）、字高上限（× 名字牌高，牌子很矮時才用到） */
+export const HORIZONTAL = { size: 34, sidePad: 19, maxHeightRatio: 0.8 } as const;
 
 /**
- * 橫排名字：一行置中；比名字牌窄的可用寬度寬時**縮小字級**（不壓扁、不換行）。
+ * 橫排名字：一行置中，字級固定 34 px；比可用寬度（牌寬 − 19 px）寬時才**縮小字級**（不壓扁、不換行）。
  */
 export function layoutHorizontal(text: string, box: Box, measure: MeasureFn): LineLayout {
-  const base = Math.max(1, box.height * HORIZONTAL.sizeRatio);
-  const pad = Math.max(HORIZONTAL.minPad, box.height * HORIZONTAL.padRatio);
-  const avail = Math.max(1, box.width - 2 * pad);
+  const base = Math.max(1, Math.min(HORIZONTAL.size, box.height * HORIZONTAL.maxHeightRatio));
+  const avail = Math.max(1, box.width - HORIZONTAL.sidePad);
   const w = measure(text, base);
   const size = w > avail ? Math.max(1, (base * avail) / w) : base;
   return {
@@ -405,14 +407,14 @@ export function layoutHorizontal(text: string, box: Box, measure: MeasureFn): Li
   };
 }
 
-/** HO 牌：字級 ＝ 牌高 × 0.42（預設大小時約 36 px），左右合計留 19 px */
-export const HO_TEXT = { sizeRatio: 0.42, sidePad: 19 } as const;
+/** HO 牌：字級、左右合計留白（px）、字高上限（× 牌高，牌子很矮時才用到） */
+export const HO_TEXT = { size: 36, sidePad: 19, maxHeightRatio: 0.8 } as const;
 
 /**
- * HO 牌：一行置中；太長時**水平壓扁**到牌寬減 19 px（不換行、不縮小字級）。
+ * HO 牌：一行置中，字級固定 36 px；太長時**水平壓扁**到牌寬減 19 px（不換行、不縮小字級）。
  */
 export function layoutHo(text: string, box: Box, measure: MeasureFn): LineLayout {
-  const size = Math.max(1, box.height * HO_TEXT.sizeRatio);
+  const size = Math.max(1, Math.min(HO_TEXT.size, box.height * HO_TEXT.maxHeightRatio));
   const avail = Math.max(1, box.width - HO_TEXT.sidePad);
   const w = measure(text, size);
   const scaleX = w > avail ? avail / w : 1;
