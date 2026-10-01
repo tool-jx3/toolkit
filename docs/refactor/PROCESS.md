@@ -79,7 +79,8 @@
 
 1. 規格的功能清單全部驗證通過（或差異已確認）。
 2. `web/` 的單元測試與該工具的 Playwright 測試通過；視覺回歸基準圖已更新。
-3. 在 git 打上 `legacy/<id>` 標籤（指向刪除前的提交）。
+3. 記下舊版所在的 `main` commit（刪除前最後一個含舊版的 commit；寫進 ATTRIBUTION 的「本站重寫的工具」表）。
+   本環境的 git 代理只允許推送工作分支，無法推送標籤，所以用 `main` 上的 commit 代替 `legacy/<id>` 標籤。
 4. `web/src/registry.ts` 把該工具改成「已上線」，建置後產物寫到 `tools/<id>/`；刪除舊版檔案、字典、`vendor/` 原始碼、
    舊的 smoke 測試段落。
 5. 首頁卡片換成新說明；README 與 ATTRIBUTION（靈感來源清單）更新；PLAN.md 進度表打勾。

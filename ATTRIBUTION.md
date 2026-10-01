@@ -699,12 +699,12 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的無塵室流程重寫：觀察者只寫行為規格
 （[docs/refactor/specs/](docs/refactor/specs/)），實作者只看規格與本站的 `web/` 框架寫出新程式，
 上線前逐項做新舊版對等驗證（紀錄在各規格的第 6 節）。新版只有繁體中文介面，程式以 MIT 授權釋出（見 [LICENSE](LICENSE)），
-頁尾只保留靈感來源連結。舊版的收錄副本已移除，需要對照時可以用 git 標籤取回。
+頁尾只保留靈感來源連結。舊版的收錄副本已移除，需要對照時可以從表中的 `main` commit 取回（例如 `git show cb0c619:tools/battlemap/app.js`）。
 
-| 工具 | 名稱 | 靈感來源 | 舊版標籤 |
+| 工具 | 名稱 | 靈感來源 | 舊版所在的 commit |
 |---|---|---|---|
-| `battlemap` | 戰鬥地圖產生器 | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `legacy/battlemap` |
-| `apng-wipe` | 輕量轉場 APNG 產生器 | 出處不明的轉場 APNG 小工具（使用者提供的單檔 HTML，沒有可連結的網址） | `legacy/apng-wipe` |
+| `battlemap` | 戰鬥地圖產生器 | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `cb0c619` |
+| `apng-wipe` | 輕量轉場 APNG 產生器 | 出處不明的轉場 APNG 小工具（使用者提供的單檔 HTML，沒有可連結的網址） | `cb0c619` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
