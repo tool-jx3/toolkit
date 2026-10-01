@@ -145,13 +145,13 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | apng-wipe | ✅ | ✅ | ✅ | ✅ |
 | portrait-size | ✅ | ✅ | ✅ | ✅ |
 | text-fx | —（原創，直接移植） | ✅ | ✅ | ✅ |
-| status-bar | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
-| message-box | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
-| chat-window | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
-| obs-tachie | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
+| status-bar | ✅ | ✅ | ✅ | ⬜（待上線） |
+| message-box | ✅ | ✅ | ✅ | ⬜（待上線） |
+| chat-window | ✅ | ✅ | ✅ | ⬜（待上線） |
+| obs-tachie | ✅ | ✅ | ✅ | ⬜（待上線） |
 | ccfolia-cropper | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
 | icon-maker | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
-| variant-manager | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
+| variant-manager | ✅ | ✅（F11 再修） | 🔍（F11 待複驗） | ⬜ |
 | height-board | ✅ | ✅ | ⬜ | ⬜ |
 | color-palette | ✅ | ✅ | ⬜ | ⬜ |
 | emotion-maker | ✅ | ✅ | ⬜ | ⬜ |
