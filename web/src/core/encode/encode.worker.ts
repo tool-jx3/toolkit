@@ -5,7 +5,7 @@
 import { exposeApi, transfer } from '../worker';
 import type { EncodedFile } from './frames';
 import { createLocalEncoder, type Encoder, type EncoderSpec } from './local';
-import { encodePng } from './png';
+import { encodePngColors, type StillPngResult } from './still';
 
 let encoder: Encoder | null = null;
 let queue: Promise<void> = Promise.resolve();
@@ -40,9 +40,25 @@ const api = {
     encoder?.abort();
     encoder = null;
   },
-  async encodePng(rgba: Uint8ClampedArray, width: number, height: number): Promise<Uint8Array> {
-    const bytes = await encodePng(rgba, width, height);
+  /** 單張 PNG；maxColors > 0 時減色成調色盤 PNG */
+  async encodePng(
+    rgba: Uint8ClampedArray,
+    width: number,
+    height: number,
+    maxColors = 0,
+  ): Promise<Uint8Array> {
+    const { bytes } = await encodePngColors(rgba, width, height, maxColors);
     return transfer(bytes, [bytes.buffer]);
+  },
+  /** 同上，另外回傳減色資訊 */
+  async encodePngColors(
+    rgba: Uint8ClampedArray,
+    width: number,
+    height: number,
+    maxColors: number,
+  ): Promise<StillPngResult> {
+    const result = await encodePngColors(rgba, width, height, maxColors);
+    return transfer(result, [result.bytes.buffer]);
   },
 };
 

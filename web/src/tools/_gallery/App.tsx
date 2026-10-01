@@ -12,11 +12,13 @@ import {
 } from '@/ui';
 import { DemoPreview } from './DemoPreview';
 import { createDemoSource, DEMO_DEFAULTS, type DemoSettings } from './demo';
+import { G1Preview } from './g1/G1Preview';
 import { ObsPreview } from './obs/ObsPreview';
 import { ColorsFontsDemo } from './sections/ColorsFontsDemo';
 import { ControlsDemo } from './sections/ControlsDemo';
 import { DemoSettingsPanel } from './sections/DemoSettingsPanel';
 import { DialogsDemo } from './sections/DialogsDemo';
+import { G1Demo } from './sections/G1Demo';
 import { ImagesDemo } from './sections/ImagesDemo';
 import { ModulesDemo } from './sections/ModulesDemo';
 import { ObsDemo } from './sections/ObsDemo';
@@ -30,7 +32,7 @@ export function App() {
   const { undo, redo, canUndo, canRedo } = useUndoRedo(useDemo);
   const source = useMemo(() => createDemoSource(settings), [settings]);
   const playback = usePlayback({ duration: source.duration });
-  /* 「OBS 疊加」分頁時，預覽欄換成 CSS 預覽 */
+  /* 「OBS 疊加」分頁時，預覽欄換成 CSS 預覽；「文字演出」分頁時換成 G1 的示範動畫 */
   const [tab, setTab] = useState('demo');
 
   const shortcuts: Shortcut[] = [
@@ -82,11 +84,20 @@ export function App() {
               { value: 'templates', label: '範本', content: <TemplatesDemo /> },
               { value: 'modules', label: '模組', content: <ModulesDemo /> },
               { value: 'obs', label: 'OBS 疊加', content: <ObsDemo /> },
+              { value: 'g1', label: '文字演出', content: <G1Demo /> },
             ]}
           />
         </>
       }
-      preview={tab === 'obs' ? <ObsPreview /> : <DemoPreview source={source} playback={playback} />}
+      preview={
+        tab === 'obs' ? (
+          <ObsPreview />
+        ) : tab === 'g1' ? (
+          <G1Preview />
+        ) : (
+          <DemoPreview source={source} playback={playback} />
+        )
+      }
     />
   );
 }

@@ -316,6 +316,13 @@ export const GOOGLE_FONTS: readonly FontEntry[] = [
     category: 'serif',
     weights: [400],
   },
+  {
+    family: 'Rampart One',
+    label: 'Rampart One（立體描邊）',
+    scripts: ['jp', 'latin'],
+    category: 'display',
+    weights: [400],
+  },
 
   /* ---- 韓文 ---- */
   {
@@ -367,6 +374,41 @@ export const GOOGLE_FONTS: readonly FontEntry[] = [
     scripts: ['kr', 'latin'],
     category: 'handwriting',
     weights: [400],
+  },
+  {
+    family: 'Nanum Gothic',
+    label: 'Nanum Gothic',
+    scripts: ['kr', 'latin'],
+    category: 'sans',
+    weights: [400, 700, 800],
+  },
+  {
+    family: 'Gothic A1',
+    label: 'Gothic A1',
+    scripts: ['kr', 'latin'],
+    category: 'sans',
+    weights: ALL,
+  },
+  {
+    family: 'Sunflower',
+    label: 'Sunflower',
+    scripts: ['kr', 'latin'],
+    category: 'sans',
+    weights: [300, 500, 700],
+  },
+  {
+    family: 'Gamja Flower',
+    label: 'Gamja Flower',
+    scripts: ['kr', 'latin'],
+    category: 'handwriting',
+    weights: [400],
+  },
+  {
+    family: 'Gaegu',
+    label: 'Gaegu',
+    scripts: ['kr', 'latin'],
+    category: 'handwriting',
+    weights: [300, 400, 700],
   },
 
   /* ---- 拉丁字母 ---- */
@@ -426,6 +468,13 @@ export const GOOGLE_FONTS: readonly FontEntry[] = [
     label: 'Special Elite',
     scripts: ['latin'],
     category: 'display',
+    weights: [400],
+  },
+  {
+    family: 'Permanent Marker',
+    label: 'Permanent Marker（麥克筆）',
+    scripts: ['latin'],
+    category: 'handwriting',
     weights: [400],
   },
   {

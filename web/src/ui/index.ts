@@ -5,6 +5,13 @@
  */
 
 export {
+  AdvancedToggle,
+  type AdvancedToggleProps,
+  getAdvancedMode,
+  setAdvancedMode,
+  useAdvancedMode,
+} from './AdvancedToggle';
+export {
   ANCHORS,
   type Anchor,
   AnchorGrid,
@@ -19,6 +26,12 @@ export {
   type AnchorValue,
 } from './AnchorPicker';
 export {
+  AudioDrop,
+  type AudioDropProps,
+  AudioPlayer,
+  type AudioPlayerProps,
+} from './AudioFile';
+export {
   Button,
   type ButtonProps,
   type ButtonSize,
@@ -27,6 +40,7 @@ export {
   IconButton,
   type IconButtonProps,
 } from './Button';
+export { Checkbox, type CheckboxProps } from './Checkbox';
 export {
   ColorField,
   type ColorFieldProps,
@@ -35,6 +49,7 @@ export {
   canUseEyeDropper,
   DEFAULT_SWATCHES,
 } from './ColorField';
+export { type ColorPairItem, ColorPairList, type ColorPairListProps } from './ColorPairList';
 export {
   type AspectOption,
   type CropConfirmConfig,
@@ -76,6 +91,7 @@ export {
   animationFormats,
   DEFAULT_FPS_OPTIONS,
   DEFAULT_SCALE_OPTIONS,
+  type ExportBatchOutput,
   type ExportContext,
   type ExportFormatOption,
   type ExportOutput,
@@ -94,6 +110,7 @@ export {
   useFieldControl,
 } from './Field';
 export { availableWeights, FontPicker, type FontPickerProps, WEIGHT_LABELS } from './FontPicker';
+export { type FontPoolItem, FontPoolList, type FontPoolListProps } from './FontPoolList';
 export { GestureScope, type GestureScopeProps } from './GestureScope';
 export { GradientField, type GradientFieldProps } from './GradientField';
 export { GroupTabs } from './GroupTabs';
@@ -106,6 +123,13 @@ export {
   type ImageDropProps,
 } from './ImageDrop';
 export { InspirationFooter } from './InspirationFooter';
+export {
+  ISSUE_LEVEL_LABELS,
+  type IssueItem,
+  type IssueLevel,
+  IssueList,
+  type IssueListProps,
+} from './IssueList';
 export { ItemListEditor, type ItemListEditorProps } from './ItemListEditor';
 export { Kbd } from './Kbd';
 export {
@@ -126,6 +150,7 @@ export { NativeNumberInput, type NativeNumberInputProps, spinStep } from './Nati
 export { Notice, type NoticeProps, type NoticeTone } from './Notice';
 export { NumberInput, type NumberInputProps } from './NumberInput';
 export { ObsGuide, type ObsGuideProps } from './ObsGuide';
+export { PathPad, type PathPadLabel, type PathPadProps } from './PathPad';
 export {
   ProjectMenu,
   ProjectMenuItem,
@@ -168,7 +193,19 @@ export {
   testShortcutLabel,
 } from './TestValueRow';
 export { TextArea, type TextAreaProps, TextInput, type TextInputProps } from './TextInput';
+export {
+  type TextOutputMessages,
+  TextOutputPanel,
+  type TextOutputPanelProps,
+} from './TextOutputPanel';
 export { ThemeToggle } from './ThemeToggle';
+export {
+  LoopThumb,
+  type LoopThumbProps,
+  ThumbChoice,
+  type ThumbChoiceOption,
+  type ThumbChoiceProps,
+} from './ThumbChoice';
 export {
   type ThumbnailItem,
   ThumbnailList,

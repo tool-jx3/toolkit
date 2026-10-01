@@ -8,6 +8,7 @@
  * 淡入淡出時整張 body 一起變透明，所以半透明的字裡不會透出外框或陰影。
  * 移植自 text-fx（本專案原創，MIT）的 glyphs.js；漸層改成任意色標（舊的 2～3 色＝平均分布的色標）。
  */
+import type { DecorationRect } from './decoration';
 import type { GlyphMetrics } from './measure';
 
 export type SpriteCanvas = HTMLCanvasElement | OffscreenCanvas;
@@ -86,6 +87,7 @@ export interface GlyphArt {
 const FAR = 4096;
 
 function silhouette(x: Ctx, ch: string, ox: number, oy: number, strokeTotal: number) {
+  if (!ch) return;
   x.fillText(ch, ox, oy);
   if (strokeTotal > 0) {
     x.lineWidth = strokeTotal * 2;
@@ -122,12 +124,22 @@ export function glyphPadding(style: GlyphStyle): number {
   return Math.ceil(strokeTotal + Math.max(shadowExt, haloExt) + 3);
 }
 
+export interface PaintGlyphExtra {
+  /**
+   * 底線、刪除線（相對於樞紐點＝字身中心，見 textDecorationRect）：在塗色之後以塗色畫上，
+   * 和字一起在 body 裡（淡出時整個字一起變透明）；沒有外框時陰影也包含這些線。
+   * 有線時空白字也會畫（只有線）。
+   */
+  decorations?: readonly DecorationRect[];
+}
+
 /**
- * 畫一個字的 sprite。空白回傳 null。
+ * 畫一個字的 sprite。空白（且沒有底線、刪除線）回傳 null。
  * @param css canvas 的 font 字串
  * @param m 量測結果；adv：前進寬度；central：字身中心在基線上方的距離
  * @param style 已換算成 px 的樣式；grad：漸層範圍（相對筆位與基線）
  * @param italic 斜體時多留傾斜的空間
+ * @param extra 底線、刪除線
  */
 export function paintGlyph(
   ch: string,
@@ -138,19 +150,44 @@ export function paintGlyph(
   style: GlyphStyle,
   grad: GlyphGradient | null,
   italic = false,
+  extra: PaintGlyphExtra = {},
 ): GlyphArt | null {
-  if (!ch.trim()) return null;
+  const decos = extra.decorations ?? [];
+  const blank = !ch.trim();
+  if (blank && !decos.length) return null;
   const sw = style.stroke ? style.stroke.w : 0;
   const ow = style.outer ? style.outer.w : 0;
   const strokeTotal = sw + ow;
   const pad = glyphPadding(style);
   const slant = italic ? Math.ceil((m.a + m.d) * 0.25) : 0;
-  const left = Math.ceil(Math.max(m.l, 0)) + pad + slant;
-  const top = Math.ceil(Math.max(m.a, 0)) + pad;
-  const w = left + Math.ceil(Math.max(m.r, adv * 0.5)) + pad + slant;
-  const h = top + Math.ceil(Math.max(m.d, 0)) + pad;
+  /* 底線、刪除線相對於筆位與基線的範圍（樞紐點在筆位右 adv/2、基線上 central） */
+  let dl = 0;
+  let dr = 0;
+  let da = 0;
+  let dd = 0;
+  for (const r of decos) {
+    dl = Math.max(dl, -(adv / 2 + r.x));
+    dr = Math.max(dr, adv / 2 + r.x + r.w);
+    da = Math.max(da, central - r.y);
+    dd = Math.max(dd, r.y + r.h - central);
+  }
+  const left = Math.ceil(Math.max(m.l, 0, dl)) + pad + slant;
+  const top = Math.ceil(Math.max(m.a, 0, da)) + pad;
+  const w = left + Math.ceil(Math.max(m.r, adv * 0.5, dr)) + pad + slant;
+  const h = top + Math.ceil(Math.max(m.d, 0, dd)) + pad;
   const ox = left;
   const oy = top;
+  /* 線在 sprite 裡的位置 */
+  const decoRects = decos.map((r) => ({
+    x: ox + adv / 2 + r.x,
+    y: oy - central + r.y,
+    w: r.w,
+    h: r.h,
+  }));
+  const fillDecos = (x: Ctx) => {
+    for (const r of decoRects) x.fillRect(r.x, r.y, r.w, r.h);
+  };
+  const glyphText = blank ? '' : ch;
 
   const prep = (x: Ctx) => {
     x.font = css;
@@ -172,36 +209,44 @@ export function paintGlyph(
     b.shadowOffsetY = style.shadow.y;
     b.fillStyle = '#000';
     b.strokeStyle = '#000';
-    silhouette(b, ch, ox - FAR, oy, strokeTotal);
+    silhouette(b, glyphText, ox - FAR, oy, strokeTotal);
+    /* 沒有外框時，底線、刪除線也有陰影 */
+    if (strokeTotal === 0 && decoRects.length) {
+      b.translate(-FAR, 0);
+      fillDecos(b);
+      b.translate(FAR, 0);
+    }
     b.restore();
     b.globalCompositeOperation = 'destination-out';
     b.fillStyle = '#000';
     b.strokeStyle = '#000';
-    silhouette(b, ch, ox, oy, strokeTotal);
+    silhouette(b, glyphText, ox, oy, strokeTotal);
+    if (strokeTotal === 0) fillDecos(b);
     b.globalCompositeOperation = 'source-over';
   }
-  if (style.outer) {
+  if (style.outer && glyphText) {
     b.lineWidth = strokeTotal * 2;
     b.strokeStyle = style.outer.color;
-    b.strokeText(ch, ox, oy);
+    b.strokeText(glyphText, ox, oy);
   }
-  if (style.stroke) {
+  if (style.stroke && glyphText) {
     b.lineWidth = sw * 2;
     b.strokeStyle = style.stroke.color;
-    b.strokeText(ch, ox, oy);
+    b.strokeText(glyphText, ox, oy);
   }
   const fillA = style.fill.opacity;
-  if (fillA < 1 && strokeTotal > 0) {
+  if (fillA < 1 && strokeTotal > 0 && glyphText) {
     /* 塗色半透明時，先把字形內側的外框挖掉：透明的地方就是透明，不是外框色 */
     b.globalCompositeOperation = 'destination-out';
     b.fillStyle = '#000';
-    b.fillText(ch, ox, oy);
+    b.fillText(glyphText, ox, oy);
     b.globalCompositeOperation = 'source-over';
   }
   if (fillA > 0) {
     b.globalAlpha = fillA;
     b.fillStyle = fillStyleFor(b, style.fill, grad, ox, oy);
-    b.fillText(ch, ox, oy);
+    if (glyphText) b.fillText(glyphText, ox, oy);
+    fillDecos(b);
     b.globalAlpha = 1;
   }
 
@@ -215,11 +260,11 @@ export function paintGlyph(
     g.shadowOffsetX = FAR;
     g.fillStyle = '#000';
     g.strokeStyle = '#000';
-    silhouette(g, ch, ox - FAR, oy, strokeTotal);
-    silhouette(g, ch, ox - FAR, oy, strokeTotal); // 疊兩次讓強度 1 就有明顯的光
+    silhouette(g, glyphText, ox - FAR, oy, strokeTotal);
+    silhouette(g, glyphText, ox - FAR, oy, strokeTotal); // 疊兩次讓強度 1 就有明顯的光
     g.shadowColor = 'transparent';
     g.globalCompositeOperation = 'destination-out';
-    silhouette(g, ch, ox, oy, strokeTotal);
+    silhouette(g, glyphText, ox, oy, strokeTotal);
   }
 
   let flash: SpriteCanvas | null = null;
@@ -237,7 +282,8 @@ export function paintGlyph(
         prep(x);
         x.fillStyle = '#fff';
         x.strokeStyle = '#fff';
-        silhouette(x, ch, ox, oy, strokeTotal);
+        silhouette(x, glyphText, ox, oy, strokeTotal);
+        fillDecos(x);
       }
       return flash;
     },

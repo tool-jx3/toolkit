@@ -1,6 +1,7 @@
 /**
  * 逐格渲染介面：工具把動畫寫成一個 AnimationSource，預覽（Stage＋Transport）與匯出（exportAnimation）共用。
  */
+import type { FrameSpec } from './frames';
 import type { TimelineSegment } from './timeline';
 
 export type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -24,4 +25,9 @@ export interface AnimationSource {
   stillTime?: number;
   /** 階段（給 Transport 標色） */
   segments?: TimelineSegment[];
+  /**
+   * 影格表：每格各自的長度（毫秒）。給了就照表匯出（第 i 格 render 的時間＝FrameSpec.t 或這格開始的時間），
+   * fps 不影響影格與延遲；duration 應等於 frameTableDuration(frames)。預覽用 frameIndexAt 找目前的格。
+   */
+  frames?: readonly FrameSpec[];
 }

@@ -4,7 +4,9 @@
  * - GIF 只有 1 位元透明：alpha < alphaThreshold 視為透明，其餘當作不透明。
  * - 整段動畫共用一個全域調色盤（最多 256 色），避免影格之間顏色跳動。
  * - 連續相同的影格合併並延長顯示時間；延遲以 1/100 秒累計換算，不會越積越多誤差。
- * - 瀏覽器會把短於 2/100 秒的延遲當成 1/10 秒，所以 fps 上限是 50。
+ * - 瀏覽器會把短於 2/100 秒的延遲當成 1/10 秒，所以 fps 上限是 50；每格至少 2/100 秒，
+ *   補上的時間從後面的格扣回（fps ≤ 50 時每格本來就 ≥ 2/100 秒，結果不變）。
+ * - 影格表（每格長度不一）用 `variableDelay: true`：fps 只當計時單位（例如 100＝ticks 以 1/100 秒計），不檢查上限。
  */
 import { GIFEncoder, type GifPalette } from 'gifenc';
 import {
@@ -30,8 +32,13 @@ export interface GifEncoderOptions {
   fps: number;
   /** 播放次數，0 = 無限循環（預設） */
   plays?: number;
-  /** alpha 小於這個值當作透明（預設 128） */
+  /** alpha 小於這個值當作透明（預設 128）；有半透明的邊緣時，未滿一半的變透明、一半以上的變不透明 */
   alphaThreshold?: number;
+  /**
+   * 影格表模式：每格的長度由 addFrame 的 ticks 決定（fps 只是 ticks 的單位，例如 100 或 1000），
+   * 不檢查 fps 上限；短於 2/100 秒的格延長到 2/100 秒，之後的格扣回。
+   */
+  variableDelay?: boolean;
 }
 
 interface Change {
@@ -59,10 +66,11 @@ export class GifEncoder implements FrameEncoder {
   constructor(options: GifEncoderOptions) {
     if (!(options.width > 0 && options.height > 0)) throw new RangeError('寬高必須大於 0');
     if (!(options.fps > 0)) throw new RangeError('fps 必須大於 0');
-    if (options.fps > GIF_MAX_FPS) throw new RangeError(`GIF 的 fps 最多 ${GIF_MAX_FPS}`);
+    if (options.fps > GIF_MAX_FPS && !options.variableDelay)
+      throw new RangeError(`GIF 的 fps 最多 ${GIF_MAX_FPS}`);
     if (options.width > 65535 || options.height > 65535)
       throw new RangeError('GIF 的寬高最多 65535');
-    this.opt = { plays: 0, alphaThreshold: 128, ...options };
+    this.opt = { plays: 0, alphaThreshold: 128, variableDelay: false, ...options };
   }
 
   async addFrame(rgba: RgbaPixels, ticks = 1): Promise<void> {
@@ -116,6 +124,8 @@ export class GifEncoder implements FrameEncoder {
     let lastV = -1;
     let lastI = 0;
     let tick = 0;
+    /* 已寫入的累計時間（1/100 秒）：每格至少 2，補上的部分從後面扣回 */
+    let writtenCs = 0;
     for (let ci = 0; ci < this.changes.length; ci++) {
       const c = this.changes[ci];
       pasteRect(canvas, W, c.r, c.px);
@@ -130,12 +140,13 @@ export class GifEncoder implements FrameEncoder {
           index[k] = lastI;
         }
       }
-      const startCs = Math.round((tick * 100) / fps);
       tick += c.count;
-      const endCs = Math.round((tick * 100) / fps);
+      const endCs = Math.max(writtenCs + 2, Math.round((tick * 100) / fps));
+      const delayCs = endCs - writtenCs;
+      writtenCs = endCs;
       gif.writeFrame(index, W, H, {
         palette: ci === 0 ? palette : undefined,
-        delay: Math.max(2, endCs - startCs) * 10,
+        delay: delayCs * 10,
         repeat: gifRepeat(plays),
         transparent,
         transparentIndex: 0,

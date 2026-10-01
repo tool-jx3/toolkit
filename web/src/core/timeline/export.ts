@@ -1,13 +1,18 @@
 /**
  * 把 AnimationSource 逐格渲染並交給編碼器：APNG、GIF、WebP、單張 PNG、連番 PNG（ZIP）。
  * 有進度回報與取消；編碼預設在 Web Worker 裡進行。
+ *
+ * 兩種時間軸：
+ * - 一般：總長＋fps 均分影格（frameCount／frameTime）。
+ * - 影格表：source.frames 給了每格各自的長度（毫秒），照表逐格輸出（打字機的停留格等），fps 不影響影格。
  */
-import { createEncoder, encodePngAsync } from '../encode/client';
+import { createEncoder, encodePngColorsAsync } from '../encode/client';
 import type { EncodedFile } from '../encode/frames';
 import { GIF_MAX_FPS } from '../encode/gif';
 import type { EncoderSpec } from '../encode/local';
-import { encodePng } from '../encode/png';
+import { encodePngColors } from '../encode/still';
 import { fileNameWithExt, sequenceName } from '../files';
+import { frameRenderTimes, frameTableDuration, frameTableTicks } from './frames';
 import type { AnimationSource, Ctx2D } from './source';
 import { frameCount, frameTime } from './timeline';
 
@@ -90,8 +95,13 @@ export interface ExportAnimationOptions {
   plays?: number;
   /** 輸出尺寸＝原始尺寸×scale（預設 1） */
   scale?: number;
-  /** APNG 減色成 256 色 */
+  /** APNG 減色成 256 色（給了 colors 時以 colors 為準） */
   quantize?: boolean;
+  /**
+   * 色數（APNG 與單張 PNG）：0＝無損全彩 RGBA；2～256＝最多這麼多色的調色盤（色數在上限內時無損）。
+   * 不填時 APNG 依 quantize（256 色）、PNG 一律全彩。GIF 不受影響（一律 256 色）。
+   */
+  colors?: number;
   /** APNG 合併連續相同的影格（預設 true） */
   mergeIdentical?: boolean;
   /** APNG 加上預設圖（不支援 APNG 的看圖程式顯示代表畫面） */
@@ -102,8 +112,18 @@ export interface ExportAnimationOptions {
   stillWeightMin?: number;
   /** WebP 品質 0～1（1 = 無損，預設） */
   webpQuality?: number;
-  /** 先塗滿的背景色；null／不填 = 透明 */
+  /** 先塗滿的背景色（在 render 之前）；null／不填 = 透明 */
   background?: string | null;
+  /**
+   * 底色合成（在 render 之後）：每個像素依透明度合成到這個顏色上，整張不再透明（例如 GIF 的「Discord 暗色」底）。
+   * 和 background 的差別：render 裡的挖空（destination-out）、加亮（lighter）是在透明底上算完才合成，
+   * 挖空的地方會露出這個顏色。只用在 GIF 時，呼叫端只在 format 是 gif 時傳。
+   */
+  matte?: string | null;
+  /** GIF：alpha 小於這個值當作透明（預設 128：未滿一半透明、一半以上不透明） */
+  gifAlphaThreshold?: number;
+  /** 影格表：APNG／WebP 的計時單位（每秒幾個 tick，預設 1000＝毫秒）。GIF 一律以 1/100 秒累計。 */
+  frameTimeBase?: number;
   /** 檔名主體（不含副檔名），會自動清理 */
   fileName?: string;
   /** 影格數上限（預設 1800） */
@@ -192,12 +212,16 @@ export function createFrameCanvas(
   return { canvas, ctx };
 }
 
-/** 清空、塗背景、套用縮放後呼叫 source.render */
+/** 清空、塗背景、套用縮放後呼叫 source.render；給 matte 時最後再合成到底色上 */
 export async function drawFrame(
   ctx: Ctx2D,
   source: AnimationSource,
   t: number,
-  { scale = 1, background = null }: { scale?: number; background?: string | null } = {},
+  {
+    scale = 1,
+    background = null,
+    matte = null,
+  }: { scale?: number; background?: string | null; matte?: string | null } = {},
 ): Promise<void> {
   const { width, height } = ctx.canvas;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -212,6 +236,15 @@ export async function drawFrame(
   ctx.save();
   await source.render(ctx, t);
   ctx.restore();
+  if (matte) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = matte;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
 }
 
 /** 不透明像素（alpha > 0）的範圍，併進 box（x1、y1 為含） */
@@ -288,12 +321,16 @@ export async function exportAnimation(
     plays = 0,
     scale = 1,
     quantize = false,
+    colors,
     mergeIdentical = true,
     still = false,
     stillForPalette = false,
     stillWeightMin,
     webpQuality = 1,
     background = null,
+    matte = null,
+    gifAlphaThreshold,
+    frameTimeBase = 1000,
     fileName = 'export',
     maxFrames = DEFAULT_MAX_FRAMES,
     signal,
@@ -307,7 +344,8 @@ export async function exportAnimation(
   const elapsed = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
   const info = EXPORT_FORMATS[format];
   if (!info) throw new Error(`不支援的格式：${format}`);
-  if (info.maxFps && fps > info.maxFps)
+  const table = source.frames?.length ? source.frames : null;
+  if (!table && info.maxFps && fps > info.maxFps)
     throw new RangeError(`${info.label} 的 fps 最多 ${info.maxFps}`);
   if (signal?.aborted) throw abortError();
 
@@ -315,9 +353,11 @@ export async function exportAnimation(
   const { ctx } = createFrameCanvas(W, H);
   let crop: CropRect = { x: 0, y: 0, w: W, h: H };
   const grab = async (t: number) => {
-    await drawFrame(ctx, source, t, { scale, background });
+    await drawFrame(ctx, source, t, { scale, background, matte });
     return ctx.getImageData(crop.x, crop.y, crop.w, crop.h).data;
   };
+  /* 色數：colors 優先；不填時 APNG 依 quantize */
+  const maxColors = colors !== undefined ? Math.max(0, Math.min(256, Math.round(colors))) : null;
   const stillTime = source.stillTime ?? source.duration;
 
   onProgress(0, '準備中');
@@ -341,13 +381,15 @@ export async function exportAnimation(
     }
     const data = await grab(stillTime);
     onProgress(0.5, '編碼中');
-    const bytes = await abortable(
-      worker === false ? encodePng(data, crop.w, crop.h) : encodePngAsync(data, crop.w, crop.h),
+    const still = await abortable(
+      worker === false
+        ? encodePngColors(data, crop.w, crop.h, maxColors ?? 0)
+        : encodePngColorsAsync(data, crop.w, crop.h, maxColors ?? 0),
       signal,
     );
     onProgress(1, '完成');
     return finishResult({
-      bytes,
+      bytes: still.bytes,
       mime: 'image/png',
       ext: 'png',
       width: crop.w,
@@ -355,10 +397,18 @@ export async function exportAnimation(
       frames: 1,
       storedFrames: 1,
       duration: 0,
+      ...(still.colors ? { colors: still.colors } : {}),
     });
   }
 
-  const N = frameCount(source.duration, fps);
+  /* 影格：影格表照表；一般動畫依總長與 fps 均分 */
+  const N = table ? table.length : frameCount(source.duration, fps);
+  const tableTimes = table ? frameRenderTimes(table) : null;
+  const timeOf = (i: number) =>
+    tableTimes ? tableTimes[i] : frameTime(i, N, source.duration, fps, !source.loop);
+  /* 影格表的計時單位：GIF 1/100 秒；連番 PNG 依 fps（張數對應時間）；其他依 frameTimeBase */
+  const tickRate = !table ? fps : format === 'gif' ? 100 : format === 'zip' ? fps : frameTimeBase;
+  const tableTicks = table ? frameTableTicks(table, tickRate) : null;
   if (N > maxFrames)
     throw new RangeError(`影格數 ${N} 超過上限 ${maxFrames}，請縮短時長或降低 fps。`);
 
@@ -368,7 +418,7 @@ export async function exportAnimation(
     const box = { x0: W, y0: H, x1: -1, y1: -1 };
     for (let i = 0; i < N; i++) {
       if (signal?.aborted) throw abortError();
-      unionOpaque(await grab(frameTime(i, N, source.duration, fps, !source.loop)), W, H, box);
+      unionOpaque(await grab(timeOf(i)), W, H, box);
       onProgress(((i + 1) / N) * passShare, `計算範圍 ${i + 1}／${N}`);
       if (i % 4 === 3) await new Promise((r) => setTimeout(r, 0));
     }
@@ -379,19 +429,22 @@ export async function exportAnimation(
   const CH = crop.h;
 
   const seqBase = fileNameWithExt(sequenceBaseName ?? fileName, '', { fallback: 'frame' });
+  /* 連番 PNG 的張數：影格表時每格依長度重複（張數對應時間） */
+  const seqCount = tableTicks ? tableTicks.reduce((a, b) => a + b, 0) : N;
   const seqInfo =
     typeof sequenceInfo === 'function'
       ? sequenceInfo({
           fps,
-          frames: N,
+          frames: seqCount,
           width: CW,
           height: CH,
-          duration: source.duration,
-          first: sequenceName(seqBase, 0, N, 'png'),
-          last: sequenceName(seqBase, N - 1, N, 'png'),
+          duration: table ? frameTableDuration(table) : source.duration,
+          first: sequenceName(seqBase, 0, seqCount, 'png'),
+          last: sequenceName(seqBase, seqCount - 1, seqCount, 'png'),
         })
       : sequenceInfo;
 
+  const apngQuantize = maxColors !== null ? maxColors > 0 : quantize;
   const spec: EncoderSpec =
     format === 'apng'
       ? {
@@ -399,18 +452,32 @@ export async function exportAnimation(
           options: {
             width: CW,
             height: CH,
-            fps,
+            fps: tickRate,
             plays,
-            quantize,
+            quantize: apngQuantize,
+            ...(maxColors ? { maxColors: Math.max(2, maxColors) } : {}),
             mergeIdentical,
             embedStill: still,
             ...(stillWeightMin !== undefined ? { stillWeightMin } : {}),
           },
         }
       : format === 'gif'
-        ? { format: 'gif', options: { width: CW, height: CH, fps, plays } }
+        ? {
+            format: 'gif',
+            options: {
+              width: CW,
+              height: CH,
+              fps: tickRate,
+              plays,
+              ...(table ? { variableDelay: true } : {}),
+              ...(gifAlphaThreshold !== undefined ? { alphaThreshold: gifAlphaThreshold } : {}),
+            },
+          }
         : format === 'webp'
-          ? { format: 'webp', options: { width: CW, height: CH, fps, plays, quality: webpQuality } }
+          ? {
+              format: 'webp',
+              options: { width: CW, height: CH, fps: tickRate, plays, quality: webpQuality },
+            }
           : {
               format: 'png-sequence',
               options: {
@@ -428,13 +495,12 @@ export async function exportAnimation(
   try {
     for (let i = 0; i < N; i++) {
       if (signal?.aborted) throw abortError();
-      const t = frameTime(i, N, source.duration, fps, !source.loop);
-      const data = await grab(t);
-      await abortable(encoder.addFrame(data), signal);
+      const data = await grab(timeOf(i));
+      await abortable(encoder.addFrame(data, tableTicks ? tableTicks[i] : 1), signal);
       onProgress(passShare + ((i + 1) / N) * (0.9 - passShare), `產生影格 ${i + 1}／${N}`);
       if (i % 2 === 1) await new Promise((r) => setTimeout(r, 0));
     }
-    if (format === 'apng' && (still || (quantize && stillForPalette)))
+    if (format === 'apng' && (still || (apngQuantize && stillForPalette)))
       await encoder.setStill(await grab(stillTime));
     onProgress(0.92, '封裝檔案');
     const file = await abortable(encoder.finish(), signal);
@@ -446,4 +512,36 @@ export async function exportAnimation(
   } finally {
     signal?.removeEventListener('abort', onAbort);
   }
+}
+
+export interface BatchExportItem {
+  source: AnimationSource;
+  /** 這個檔案的檔名主體（不含副檔名） */
+  fileName: string;
+}
+
+/**
+ * 依序匯出多個動畫（例如片尾名單分段，每段一個檔案）。進度合併成一條，標籤前面加「第 i／n 個・」。
+ * 其他選項與 exportAnimation 相同（fileName 由各項目指定）。取消時丟出 AbortError，已完成的結果不回傳。
+ */
+export async function exportAnimationBatch(
+  items: readonly BatchExportItem[],
+  options: Omit<ExportAnimationOptions, 'fileName'>,
+): Promise<ExportResult[]> {
+  const out: ExportResult[] = [];
+  const n = items.length;
+  const report = options.onProgress ?? (() => {});
+  for (let i = 0; i < n; i++) {
+    if (options.signal?.aborted) throw abortError();
+    const it = items[i];
+    out.push(
+      await exportAnimation(it.source, {
+        ...options,
+        fileName: it.fileName,
+        onProgress: (ratio, label) => report((i + ratio) / n, `第 ${i + 1}／${n} 個・${label}`),
+      }),
+    );
+  }
+  report(1, '完成');
+  return out;
 }

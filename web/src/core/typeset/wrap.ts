@@ -2,6 +2,7 @@
  * 斷行與禁則。移植自 text-fx（本專案原創，MIT）的 typeset.js。
  */
 import { isBlankChar, isHangul, isWide, NO_LINE_END, NO_LINE_START } from './chars';
+import { type SplitUnit, splitChars } from './graphemes';
 
 interface Token {
   chars: string[];
@@ -102,12 +103,18 @@ export function wrapChars(chars: readonly string[], limit: number, unit: UnitFn)
   return lines;
 }
 
-/** 字串 → 行（保留原本的換行，再依 limit 自動換行）。每行是字元（code point）陣列。 */
-export function breakText(text: string, { limit = 0, unit }: { limit?: number; unit: UnitFn }) {
+/**
+ * 字串 → 行（保留原本的換行，再依 limit 自動換行）。每行是字元陣列：預設以碼位切，
+ * segment: 'grapheme' 時以字素切（表情符號、組合字元算一個字）。
+ */
+export function breakText(
+  text: string,
+  { limit = 0, unit, segment = 'codepoint' }: { limit?: number; unit: UnitFn; segment?: SplitUnit },
+) {
   const hard = String(text).replace(/\r\n?/g, '\n').split('\n');
   const out: string[][] = [];
   for (const line of hard) {
-    const chars = Array.from(line);
+    const chars = splitChars(line, segment);
     if (!chars.length) {
       out.push([]);
       continue;

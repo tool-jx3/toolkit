@@ -11,6 +11,7 @@ export {
 } from './easing';
 export {
   type AnimationExportFormat,
+  type BatchExportItem,
   type CropRect,
   createFrameCanvas,
   DEFAULT_MAX_FRAMES,
@@ -20,9 +21,22 @@ export {
   type ExportFormatInfo,
   type ExportResult,
   exportAnimation,
+  exportAnimationBatch,
   exportSize,
   type SequenceInfoMeta,
 } from './export';
+export {
+  type FrameSpec,
+  frameIndexAt,
+  frameRenderTimes,
+  frameStartTimes,
+  frameTable,
+  frameTableDuration,
+  frameTableTicks,
+  gifDelaysCs,
+  uniformFrames,
+} from './frames';
+export { type LoopNoiseOptions, loopNoise, loopNoise2 } from './noise';
 export { createRandom, hash, hashSigned, hashUnit, type Random, seedOf, timeSlot } from './random';
 export type { AnimationSource, Ctx2D } from './source';
 export {

@@ -5,7 +5,7 @@ import { canUseWorker, ownBuffer, transfer, type WorkerHandle, wrapWorker } from
 import type { EncodeWorkerApi } from './encode.worker';
 import type { EncodedFile, RgbaPixels } from './frames';
 import { createLocalEncoder, type Encoder, type EncoderSpec } from './local';
-import { encodePng } from './png';
+import { encodePngColors, type StillPngResult } from './still';
 
 export interface CreateEncoderOptions {
   /** 在 Worker 裡編碼（預設：環境支援就用） */
@@ -95,13 +95,17 @@ export function createEncoder(spec: EncoderSpec, options: CreateEncoderOptions =
   return createLocalEncoder(spec);
 }
 
-/** 在 Worker 裡編一張 PNG（大圖時不卡畫面）；不支援 Worker 時改在主執行緒 */
+/**
+ * 在 Worker 裡編一張 PNG（大圖時不卡畫面）；不支援 Worker 時改在主執行緒。
+ * maxColors：0（預設）＝全彩 RGBA；2～256＝減色成調色盤 PNG（色數在上限內時無損）。
+ */
 export async function encodePngAsync(
   rgba: RgbaPixels,
   width: number,
   height: number,
+  maxColors = 0,
 ): Promise<Uint8Array<ArrayBuffer>> {
-  if (!canUseWorker()) return encodePng(rgba, width, height);
+  if (!canUseWorker()) return (await encodePngColors(rgba, width, height, maxColors)).bytes;
   const handle = openEncodeWorker();
   try {
     const buf = ownBuffer(rgba);
@@ -109,7 +113,30 @@ export async function encodePngAsync(
       transfer(buf, [buf.buffer]),
       width,
       height,
+      maxColors,
     )) as Uint8Array<ArrayBuffer>;
+  } finally {
+    handle.terminate();
+  }
+}
+
+/** 單張 PNG（可減色），回傳檔案與減色資訊；在 Worker 裡執行（不支援時改在主執行緒） */
+export async function encodePngColorsAsync(
+  rgba: RgbaPixels,
+  width: number,
+  height: number,
+  maxColors = 0,
+): Promise<StillPngResult> {
+  if (!canUseWorker()) return encodePngColors(rgba, width, height, maxColors);
+  const handle = openEncodeWorker();
+  try {
+    const buf = ownBuffer(rgba);
+    return (await handle.api.encodePngColors(
+      transfer(buf, [buf.buffer]),
+      width,
+      height,
+      maxColors,
+    )) as StillPngResult;
   } finally {
     handle.terminate();
   }

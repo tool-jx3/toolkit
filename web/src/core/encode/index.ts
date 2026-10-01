@@ -8,6 +8,7 @@ export {
   type CreateEncoderOptions,
   createEncoder,
   encodePngAsync,
+  encodePngColorsAsync,
   openEncodeWorker,
 } from './client';
 export {
@@ -36,6 +37,7 @@ export {
   zlib,
 } from './png';
 export { PngSequenceEncoder, type PngSequenceOptions } from './sequence';
+export { encodePngColors, type StillPngResult } from './still';
 export {
   assembleAnimatedWebp,
   canvasWebpEncoder,

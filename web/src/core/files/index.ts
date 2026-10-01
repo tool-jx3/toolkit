@@ -309,3 +309,18 @@ export function formatBytes(bytes: number): string {
   }
   return `${v >= 100 ? Math.round(v) : v.toFixed(1)} ${units[u]}`;
 }
+
+/**
+ * 容量上限的顯示（匯出用途的「大小／上限」）：未滿 1,024 位元組「n B」；未滿 1,048,576「x.x KB」（一位小數）；
+ * 其餘「x.xx MB」（兩位小數），以 1024 為單位。例：1,000,000 → 976.6 KB；8,000,000 → 7.63 MB。
+ */
+export function formatLimitBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1048576).toFixed(2)} MB`;
+}
+
+/** 實際大小佔上限的百分比（四捨五入成整數） */
+export const usagePercent = (bytes: number, maxBytes: number): number =>
+  maxBytes > 0 ? Math.round((bytes / maxBytes) * 100) : 0;

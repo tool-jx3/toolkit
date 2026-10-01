@@ -1,6 +1,7 @@
 /**
  * 範本庫：卡片格線（縮圖、名稱、說明、標籤），可依標籤篩選；套用前可要求確認（會取代目前設定）。
  * 範本內容一律自己做，不沿用原作的範本。
+ * 縮圖可以是函式 `({ playing }) => 元素`：滑鼠停留或鍵盤聚焦的那張卡 playing＝true（例如 LoopThumb 循環播放），其他靜止。
  */
 import { Check } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
@@ -12,8 +13,11 @@ export interface TemplateItem<T = unknown> {
   id: string;
   name: string;
   description?: string;
-  /** 圖片網址，或自訂的縮圖元素（例如小 canvas、CSS 預覽） */
-  thumbnail?: string | ReactNode;
+  /**
+   * 圖片網址、自訂的縮圖元素（例如小 canvas、CSS 預覽），或 `({ playing }) => 元素`
+   * （滑鼠停留或鍵盤聚焦時 playing＝true，給會動的縮圖用）
+   */
+  thumbnail?: string | ReactNode | ((state: { playing: boolean }) => ReactNode);
   tags?: readonly string[];
   data: T;
 }
@@ -53,6 +57,9 @@ export function TemplateGallery<T>({
   const tag = tagState === '__all' || tags.includes(tagState) ? tagState : '__all';
   const list = tag === '__all' ? templates : templates.filter((t) => t.tags?.includes(tag));
   const sm = size === 'sm';
+  /* 停留或聚焦中的卡片（會動的縮圖只有這張在播放） */
+  const [hover, setHover] = useState<string | null>(null);
+  const [focus, setFocus] = useState<string | null>(null);
 
   const apply = async (t: TemplateItem<T>) => {
     if (confirm) {
@@ -100,6 +107,10 @@ export function TemplateGallery<T>({
                 onClick={() => apply(t)}
                 aria-pressed={active}
                 title={sm ? t.description : undefined}
+                onPointerEnter={() => setHover(t.id)}
+                onPointerLeave={() => setHover((h) => (h === t.id ? null : h))}
+                onFocus={() => setFocus(t.id)}
+                onBlur={() => setFocus((f) => (f === t.id ? null : f))}
                 className={cn(
                   'flex w-full flex-col overflow-hidden rounded-md border bg-surface-2 text-left transition-colors hover:border-accent',
                   active ? 'border-accent ring-1 ring-accent' : 'border-border',
@@ -117,6 +128,8 @@ export function TemplateGallery<T>({
                       alt=""
                       className="max-h-full max-w-full object-contain"
                     />
+                  ) : typeof t.thumbnail === 'function' ? (
+                    t.thumbnail({ playing: hover === t.id || focus === t.id })
                   ) : (
                     t.thumbnail
                   )}
