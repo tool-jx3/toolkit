@@ -145,6 +145,7 @@ npm test
 | `cutin` | [切入素材產生器](tools/cutin/) | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) |
 | `scene-transition` | [場景轉換素材產生器](tools/scene-transition/) | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) |
 | `loading-maker` | [讀取動畫產生器](tools/loading-maker/) | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) |
+| `bg-motion` | [動態背景產生器](tools/bg-motion/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
@@ -153,8 +154,7 @@ npm test
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的五個工具、
 `pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的 `foreground-frame`、
 `character-editor`、`trpg-lab`、
-`anime-rig`、`scenario-editor` 與くま的四個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
-`bg-motion` 也照上游保留韓文（上游的英文沒有收）。
+`anime-rig`、`scenario-editor` 與くま的三個工具為日文；`room-zip` 原文為日文，另外附了一份韓文。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
 
@@ -199,7 +199,7 @@ npm test
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
 **注意**：`character-select`、
-`character-editor`、`room-zip`、`pair-maker` 與くま的四個工具（`bg-motion`、
+`character-editor`、`room-zip`、`pair-maker` 與くま的三個工具（
 `session-log`、`session-report`、`scenario-cards`）的原始 repo 皆未附任何授權條款，
 `coc-typesetter` 則連作者都不明，
 其權利屬原作者所有，

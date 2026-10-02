@@ -1,218 +1,29 @@
 <!doctype html>
 <html lang="zh-Hant-TW">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>動態背景產生器</title>
-  <link rel="stylesheet" href="./css/motion-maker-style.css" />
-</head>
-<body>
-  <div class="app-shell">
-    <header class="app-header">
-      <div class="title-block">
-        <p class="eyebrow" data-i18n="header.portalName">TRPG WEB 工具觀測所</p>
-        <h1 data-i18n="app.heading">動態背景產生器</h1>
-        <p class="lead" data-i18n="header.lead">讓上傳的背景圖片搖晃、拉近、拉遠，製作 TRPG 用的動態背景素材。</p>
-      </div>
-      <div class="header-actions" data-i18n-aria-label="header.actionsAria" aria-label="頁首操作">
-        <div class="toolkit-bar">
-          <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
-          <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
-        </div>
-        <a class="x-share-link" id="xShareLink" href="https://twitter.com/intent/tweet?text=%E7%94%A8%E3%80%8C%E5%8B%95%E6%85%8B%E8%83%8C%E6%99%AF%E7%94%A2%E7%94%9F%E5%99%A8%EF%BD%9CTRPG%20WEB%20%E5%B7%A5%E5%85%B7%E8%A7%80%E6%B8%AC%E6%89%80%E3%80%8D%E5%81%9A%E4%BA%86%E6%9C%83%E5%8B%95%E7%9A%84%E8%83%8C%E6%99%AF%E7%B4%A0%E6%9D%90%20https%3A%2F%2Fkumachansteps.github.io%2Ftrpg-web-tools%2Ftools%2Fhaikei-motion-maker%2F" target="_blank" rel="noopener noreferrer" data-i18n-aria-label="share.aria" aria-label="分享到 X／Twitter">
-          <span aria-hidden="true">𝕏</span>
-        </a>
-        <button class="ghost-button" type="button" id="helpBtn" data-i18n="header.help">使用方式</button>
-        <button class="ghost-button" type="button" id="shortcutBtn" data-i18n="header.shortcuts">快速鍵</button>
-        <button class="ghost-button" type="button" id="themeBtn"><span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-thumb">☀️</span></span></button>
-      </div>
-      <div class="version-engrave">v1.09 / 2026.08.12</div>
-    </header>
-
-    <section class="drawer" id="helpDrawer" hidden>
-      <h2 data-i18n="help.title">使用方式</h2>
-      <button class="drawer-close" type="button" data-close-drawer data-i18n-aria-label="drawer.close" aria-label="關閉">×</button>
-      <div class="guide-list">
-        <p data-i18n="help.step1">1. 選擇圖片檔，或拖放到上傳框裡。轉場效果可以一次載入多張圖片。</p>
-        <p data-i18n="help.step2">2. 選擇效果，再調整秒數、畫質、圖片尺寸與循環設定。</p>
-        <p data-i18n="help.step3">3. 在預覽確認動態後，輸出成 24FPS／30FPS／60FPS 的 WebP。</p>
-        <p data-i18n="help.step4">4. 一般建議用 24FPS 輸出。想要更流暢的話，可以試試 30FPS 或 60FPS。</p>
-      </div>
-    </section>
-
-    <section class="drawer" id="shortcutDrawer" hidden>
-      <h2 data-i18n="shortcut.title">快速鍵一覽</h2>
-      <button class="drawer-close" type="button" data-close-drawer data-i18n-aria-label="drawer.close" aria-label="關閉">×</button>
-      <div class="shortcut-grid">
-        <div><kbd>Esc</kbd></div><span data-i18n="shortcut.escape">展開使用方式／快速鍵時會關閉，其他時候則重設圖片</span>
-        <div><kbd>Cmd/Ctrl/Alt</kbd><b>+</b><kbd>Shift</kbd><b>+</b><kbd>O</kbd></div><span data-i18n="shortcut.open">開啟圖片</span>
-        <div><kbd>Cmd/Ctrl/Alt</kbd><b>+</b><kbd>Shift</kbd><b>+</b><kbd>P</kbd></div><span data-i18n="shortcut.play">預覽播放／停止</span>
-        <div><kbd>Cmd/Ctrl/Alt</kbd><b>+</b><kbd>Shift</kbd><b>+</b><kbd>F</kbd></div><span data-i18n="shortcut.webp30">輸出 30FPS WebP</span>
-        <div><kbd>Cmd/Ctrl/Alt</kbd><b>+</b><kbd>Shift</kbd><b>+</b><kbd>A</kbd></div><span data-i18n="shortcut.webp60">輸出 60FPS WebP</span>
-        <div><kbd>Cmd/Ctrl/Alt</kbd><b>+</b><kbd>Shift</kbd><b>+</b><kbd>W</kbd></div><span data-i18n="shortcut.webp24">輸出 24FPS WebP</span>
-        <div><kbd>Cmd/Ctrl/Alt</kbd><b>+</b><kbd>Shift</kbd><b>+</b><kbd>T</kbd></div><span data-i18n="shortcut.theme">切換日間／夜間模式</span>
-      </div>
-    </section>
-
-    <main class="workspace">
-      <section class="panel upload-panel">
-        <div class="panel-heading">
-          <p class="panel-kicker">01 / Upload</p>
-          <h2 data-i18n="upload.title">上傳圖片</h2>
-        </div>
-
-        <label class="drop-zone" id="dropZone">
-          <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" multiple />
-          <span class="drop-icon">＋</span>
-          <strong data-i18n="upload.dropStrong">拖放圖片</strong>
-          <small data-i18n="upload.dropSmall">或點一下開啟 PNG／JPG／WebP（可多選）</small>
-        </label>
-
-        <button class="sample-call-button" type="button" id="loadSampleBtn" data-i18n="upload.sample">載入範例圖片</button>
-
-        <div class="image-info" id="imageInfo">
-          <p class="empty-note">還沒有載入圖片。</p>
-        </div>
-      </section>
-
-      <section class="panel effects-panel">
-        <div class="panel-heading panel-heading-inline">
-          <p class="panel-kicker">02 / Motion &amp; Image Edit</p>
-          <div class="effects-heading-row">
-            <h2 data-i18n="effects.title">選擇效果</h2>
-            <div class="effect-tabs" role="tablist" data-i18n-aria-label="effects.tabsAria" aria-label="效果類型">
-              <button class="effect-tab is-active" type="button" id="motionTab" role="tab" aria-selected="true" data-i18n="effects.motionTab">動態</button>
-              <button class="effect-tab" type="button" id="imageEditTab" role="tab" aria-selected="false" data-i18n="effects.imageEditTab">圖片處理</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="tab-panel is-active" id="motionPanel" role="tabpanel" aria-labelledby="motionTab">
-          <div class="effect-grid" id="effectGrid" data-i18n-aria-label="effects.gridAria" aria-label="效果清單">
-          <button class="effect-card is-active" type="button" data-effect="quakeY2"><span class="mini-preview quake-y nozoom"></span><strong data-i18n="effect.quakeY2">縱向搖晃</strong><small data-i18n="effectSub.quakeY2">不縮放／縱向</small></button>
-          <button class="effect-card" type="button" data-effect="quakeX2"><span class="mini-preview quake-x nozoom"></span><strong data-i18n="effect.quakeX2">橫向搖晃</strong><small data-i18n="effectSub.quakeX2">不縮放／橫向</small></button>
-          <button class="effect-card" type="button" data-effect="quakeXY2"><span class="mini-preview shake-all nozoom"></span><strong data-i18n="effect.quakeXY2">全方位搖晃</strong><small data-i18n="effectSub.quakeXY2">不縮放／全方位</small></button>
-          <button class="effect-card" type="button" data-effect="drunk"><span class="mini-preview drunk-slow"></span><strong data-i18n="effect.drunk">踉蹌</strong><small data-i18n="effectSub.drunk">搖晃不穩的鏡頭</small></button>
-          <button class="effect-card" type="button" data-effect="breathe"><span class="mini-preview breathe"></span><strong data-i18n="effect.breathe">呼吸</strong><small data-i18n="effectSub.breathe">呼吸般緩慢縮放</small></button>
-          <button class="effect-card" type="button" data-effect="panX"><span class="mini-preview pan-x"></span><strong data-i18n="effect.panX">左右平移</strong><small data-i18n="effectSub.panX">緩慢左右移動</small></button>
-          <button class="effect-card" type="button" data-effect="spinFallBlack"><span class="mini-preview spin-fall black-fade"></span><strong data-i18n="effect.spinFallBlack">旋轉墜落・黑</strong><small data-i18n="effectSub.spinFallBlack">旋轉墜落＋黑</small></button>
-          <button class="effect-card" type="button" data-effect="suckInWhite"><span class="mini-preview suck-in white-fade"></span><strong data-i18n="effect.suckInWhite">吸入・白</strong><small data-i18n="effectSub.suckInWhite">吸入＋白</small></button>
-          <button class="effect-card" type="button" data-effect="suckInBlack"><span class="mini-preview suck-in black-fade"></span><strong data-i18n="effect.suckInBlack">吸入・黑</strong><small data-i18n="effectSub.suckInBlack">吸入＋黑</small></button>
-          <button class="effect-card" type="button" data-effect="wave"><span class="mini-preview wave"></span><strong data-i18n="effect.wave">水面晃動</strong><small data-i18n="effectSub.wave">水波般晃動</small></button>
-          <button class="effect-card" type="button" data-effect="rise"><span class="mini-preview rise"></span><strong data-i18n="effect.rise">上升</strong><small data-i18n="effectSub.rise">往上移動</small></button>
-          <button class="effect-card" type="button" data-effect="descend"><span class="mini-preview descend"></span><strong data-i18n="effect.descend">下降</strong><small data-i18n="effectSub.descend">往下移動</small></button>
-          <button class="effect-card" type="button" data-effect="zoomIn"><span class="mini-preview zoom-in"></span><strong data-i18n="effect.zoomIn">拉近</strong><small data-i18n="effectSub.zoomIn">放大</small></button>
-          <button class="effect-card" type="button" data-effect="zoomInWhite"><span class="mini-preview zoom-in white-fade"></span><strong data-i18n="effect.zoomInWhite">拉近＋白</strong><small data-i18n="effectSub.zoomInWhite">放大＋白</small></button>
-          <button class="effect-card" type="button" data-effect="zoomInBlack"><span class="mini-preview zoom-in black-fade"></span><strong data-i18n="effect.zoomInBlack">拉近＋黑</strong><small data-i18n="effectSub.zoomInBlack">放大＋黑</small></button>
-          <button class="effect-card" type="button" data-effect="zoomOut"><span class="mini-preview zoom-out"></span><strong data-i18n="effect.zoomOut">拉遠</strong><small data-i18n="effectSub.zoomOut">縮小</small></button>
-          <button class="effect-card" type="button" data-effect="zoomOutWhite"><span class="mini-preview zoom-out white-fade"></span><strong data-i18n="effect.zoomOutWhite">拉遠＋白</strong><small data-i18n="effectSub.zoomOutWhite">縮小＋白</small></button>
-          <button class="effect-card" type="button" data-effect="zoomOutBlack"><span class="mini-preview zoom-out black-fade"></span><strong data-i18n="effect.zoomOutBlack">拉遠＋黑</strong><small data-i18n="effectSub.zoomOutBlack">縮小＋黑</small></button>
-          <button class="effect-card" type="button" data-effect="fadeBlack"><span class="mini-preview fade-motion fade-black"></span><strong data-i18n="effect.fadeBlack">淡入淡出・黑</strong><small data-i18n="effectSub.fadeBlack">黑場淡出／淡入</small></button>
-          <button class="effect-card" type="button" data-effect="fadeWhite"><span class="mini-preview fade-motion fade-white"></span><strong data-i18n="effect.fadeWhite">淡入淡出・白</strong><small data-i18n="effectSub.fadeWhite">白場淡出／淡入</small></button>
-          <button class="effect-card" type="button" data-effect="fadeTransparent"><span class="mini-preview fade-motion fade-transparent"></span><strong data-i18n="effect.fadeTransparent">淡入淡出・透明</strong><small data-i18n="effectSub.fadeTransparent">透明淡出／淡入</small></button>
-          <button class="effect-card" type="button" data-effect="transition"><span class="mini-preview transition"></span><strong data-i18n="effect.transition">轉場①（淡化）</strong><small data-i18n="effectSub.transition">交叉淡化</small></button>
-          <button class="effect-card" type="button" data-effect="transitionHardcut"><span class="mini-preview transition hardcut"></span><strong data-i18n="effect.transitionHardcut">轉場②（硬切）</strong><small data-i18n="effectSub.transitionHardcut">硬切</small></button>
-          <button class="effect-card" type="button" data-effect="transitionWipe"><span class="mini-preview transition wipe"></span><strong data-i18n="effect.transitionWipe">轉場③（擦除）</strong><small data-i18n="effectSub.transitionWipe">擦除</small></button>
-          </div>
-        </div>
-
-        <div class="tab-panel" id="imageEditPanel" role="tabpanel" aria-labelledby="imageEditTab" hidden>
-          <div class="image-edit-grid" id="imageEditGrid">
-            <div class="image-edit-section-title" data-i18n="filterSection.basic">基本處理</div>
-            <button class="image-edit-card is-active" type="button" data-filter="none"><span data-i18n="filter.none">無</span><small data-i18n="filterDesc.none">維持原圖的色調</small></button>
-            <button class="image-edit-card" type="button" data-filter="grayscale"><span data-i18n="filter.grayscale">灰階</span><small data-i18n="filterDesc.grayscale">轉成黑白照片風</small></button>
-            <button class="image-edit-card" type="button" data-filter="sepia"><span data-i18n="filter.sepia">懷舊色</span><small data-i18n="filterDesc.sepia">像老照片般的暖色調</small></button>
-            <button class="image-edit-card" type="button" data-filter="posterize"><span data-i18n="filter.posterize">色調分離</span><small data-i18n="filterDesc.posterize">減少色數，變成插畫風</small></button>
-            <button class="image-edit-card" type="button" data-filter="contrastBoost"><span data-i18n="filter.contrastBoost">強化對比</span><small data-i18n="filterDesc.contrastBoost">稍微加強陰影與輪廓</small></button>
-            <button class="image-edit-card" type="button" data-filter="softFocus"><span data-i18n="filter.softFocus">柔焦</span><small data-i18n="filterDesc.softFocus">用柔和的光營造夢幻感</small></button>
-            <button class="image-edit-card" type="button" data-filter="sharpen"><span data-i18n="filter.sharpen">銳利化</span><small data-i18n="filterDesc.sharpen">讓輪廓看起來更清晰一些</small></button>
-            <button class="image-edit-card" type="button" data-filter="lineExtract"><span data-i18n="filter.lineExtract">線稿擷取</span><small data-i18n="filterDesc.lineExtract">只用黑線擷取出輪廓</small></button>
-            <button class="image-edit-card" type="button" data-filter="whiteLineExtract"><span data-i18n="filter.whiteLineExtract">白線擷取</span><small data-i18n="filterDesc.whiteLineExtract">在暗色背景上顯示白色輪廓</small></button>
-            <button class="image-edit-card" type="button" data-filter="sumiInk"><span data-i18n="filter.sumiInk">水墨畫</span><small data-i18n="filterDesc.sumiInk">活用濃淡與線條的和風調性</small></button>
-            <button class="image-edit-card" type="button" data-filter="pixelate"><span data-i18n="filter.pixelate">像素化</span><small data-i18n="filterDesc.pixelate">變成低解析度的像素風</small></button>
-            <button class="image-edit-card" type="button" data-filter="noiseBoost"><span data-i18n="filter.noiseBoost">強化雜訊</span><small data-i18n="filterDesc.noiseBoost">加強粗糙顆粒的影像風</small></button>
-            <button class="image-edit-card" type="button" data-filter="crt"><span data-i18n="filter.crt">CRT</span><small data-i18n="filterDesc.crt">有掃描線與色偏的舊式螢幕風</small></button>
-            <button class="image-edit-card" type="button" data-filter="vignette"><span data-i18n="filter.vignette">暗角</span><small data-i18n="filterDesc.vignette">四周減光，把視線集中到中央</small></button>
-            <button class="image-edit-card" type="button" data-filter="chromaticAberration"><span data-i18n="filter.chromaticAberration">色差</span><small data-i18n="filterDesc.chromaticAberration">強調 RGB 錯位的效果</small></button>
-
-            <div class="image-edit-section-title" data-i18n="filterSection.time">時段</div>
-            <button class="image-edit-card" type="button" data-filter="morning"><span data-i18n="filter.morning">早晨</span><small data-i18n="filterDesc.morning">淡淡暖色與柔和的晨光</small></button>
-            <button class="image-edit-card" type="button" data-filter="midday"><span data-i18n="filter.midday">白天</span><small data-i18n="filterDesc.midday">自然明亮的日間光線</small></button>
-            <button class="image-edit-card" type="button" data-filter="evening"><span data-i18n="filter.evening">傍晚</span><small data-i18n="filterDesc.evening">暖色的夕景與稍長的影子</small></button>
-            <button class="image-edit-card" type="button" data-filter="night"><span data-i18n="filter.night">夜晚</span><small data-i18n="filterDesc.night">帶點藍調的夜晚氛圍</small></button>
-            <button class="image-edit-card" type="button" data-filter="deepNight"><span data-i18n="filter.deepNight">深夜</span><small data-i18n="filterDesc.deepNight">更加昏暗的深夜氛圍</small></button>
-            <button class="image-edit-card" type="button" data-filter="moonlight"><span data-i18n="filter.moonlight">月光</span><small data-i18n="filterDesc.moonlight">冷冽月光灑落的夜晚</small></button>
-
-            <div class="image-edit-section-title" data-i18n="filterSection.mood">氛圍處理</div>
-            <button class="image-edit-card" type="button" data-filter="horror"><span data-i18n="filter.horror">恐怖</span><small data-i18n="filterDesc.horror">令人不安的彩度與暗部的壓迫感</small></button>
-            <button class="image-edit-card" type="button" data-filter="fog"><span data-i18n="filter.fog">霧</span><small data-i18n="filterDesc.fog">降低對比的朦朧景色</small></button>
-            <button class="image-edit-card" type="button" data-filter="cyber"><span data-i18n="filter.cyber">賽博</span><small data-i18n="filterDesc.cyber">霓虹風的藍紫色調</small></button>
-            <button class="image-edit-card" type="button" data-filter="underwater"><span data-i18n="filter.underwater">水中</span><small data-i18n="filterDesc.underwater">彷彿身在水中的藍綠氛圍</small></button>
-            <button class="image-edit-card" type="button" data-filter="dream"><span data-i18n="filter.dream">夢境</span><small data-i18n="filterDesc.dream">用淡淡光暈與模糊營造夢幻感</small></button>
-            <button class="image-edit-card" type="button" data-filter="vintagePhoto"><span data-i18n="filter.vintagePhoto">老照片</span><small data-i18n="filterDesc.vintagePhoto">有褪色與顆粒感的老照片風</small></button>
-          </div>
-          <p class="image-edit-note" data-i18n="imageEdit.note">※圖片處理是以 Canvas 實作的演出效果，並不是用 AI 替換天空或真正的日夜轉換，而是為 TRPG 背景改變氛圍的加工。</p>
-        </div>
-      </section>
-
-      <section class="panel preview-panel">
-        <div class="panel-heading">
-          <p class="panel-kicker">03 / Preview &amp; Export</p>
-          <h2 data-i18n="preview.title">預覽・輸出</h2>
-        </div>
-
-        <div class="canvas-wrap">
-          <canvas id="previewCanvas" width="1280" height="720"></canvas>
-          <div class="canvas-placeholder" id="canvasPlaceholder" data-i18n="preview.placeholder">載入圖片後會顯示預覽</div>
-        </div>
-
-        <div class="transition-thumb-panel" id="transitionThumbPanel" hidden>
-          <div class="transition-thumb-head">
-            <strong>轉場順序</strong>
-            <span>拖曳縮圖可以調整順序</span>
-          </div>
-          <div class="transition-thumb-list" id="transitionThumbList" aria-label="轉場順序縮圖"></div>
-        </div>
-
-        <div class="preview-controls" id="previewControls">
-          <form class="settings" id="settingsForm">
-            <label><span data-i18n="settings.fileName">檔名</span><input type="text" id="fileNameInput" value="haikei_motion" spellcheck="false" /></label>
-            <label><span data-i18n="settings.seconds">秒數</span><input type="number" id="secondsInput" min="0.5" max="12" step="0.5" value="3" /></label>
-            <label><span data-i18n="settings.quality">畫質</span><select id="qualityInput"><option value="minimum" data-i18n="quality.minimum">最小</option><option value="light" data-i18n="quality.light">輕量</option><option value="standard" selected data-i18n="quality.standard">標準</option><option value="high" data-i18n="quality.high">高畫質</option></select></label>
-            <label><span data-i18n="settings.imageSize">圖片尺寸</span><select id="sizeInput"><option value="original" selected>原始尺寸</option><option value="1280x720">16：9（1280 × 720）</option><option value="1280x800">8：5（1280 × 800）</option><option value="1024x768">4：3（1024 × 768）</option><option value="1200x800">3：2（1200 × 800）</option><option value="1024x1024">1：1（1024 × 1024）</option></select></label>
-            <label class="checkbox-row loop-pill"><input type="checkbox" id="loopInput" checked /><span data-i18n="settings.loop">循環播放</span></label>
-          </form>
-
-          <div class="button-row">
-            <button class="primary-button" type="button" id="playBtn">預覽播放</button>
-            <button class="accent-button secondary-accent has-tooltip" type="button" id="exportWebpBtn" data-tooltip="輸出成在 CCFOLIA 容易使用的輕量動態圖片。一般建議用這個。" aria-label="以 24FPS 輸出. 輸出成在 CCFOLIA 容易使用的輕量動態圖片。一般建議用這個。" data-i18n="action.webp24">以 24FPS 輸出</button>
-            <button class="accent-button fps30-accent has-tooltip" type="button" id="exportWebp30Btn" data-tooltip="以 30FPS 輸出 WebP。動作更流暢，但檔案容易變大。" aria-label="以 30FPS 輸出. 以 30FPS 輸出 WebP。動作更流暢，但檔案容易變大。" data-i18n="action.webp30">以 30FPS 輸出</button>
-            <button class="accent-button fps60-accent has-tooltip" type="button" id="exportWebp60Btn" data-tooltip="以 60FPS 輸出 WebP。動作最流暢，但檔案很容易變得相當大。" aria-label="以 60FPS 輸出. 以 60FPS 輸出 WebP。動作最流暢，但檔案很容易變得相當大。" data-i18n="action.webp60">以 60FPS 輸出</button>
-          </div>
-
-          <p class="export-note" data-i18n="export.note">※ 請調整設定，讓輸出的 WebP 檔在 5MB 以內。超過時，請調低畫質、圖片尺寸或秒數，或不要用 30FPS／60FPS，改用預設的 24FPS 輸出。</p>
-          <div class="export-status" id="exportStatus" role="status" aria-live="polite"></div>
-          <div class="download-actions">
-            <button class="download-link is-disabled" id="downloadLink" type="button" aria-disabled="true" data-i18n="action.download">下載</button>
-            <button class="clear-button" type="button" id="clearOutputBtn">清除</button>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <div class="toast-host" id="toastHost" aria-live="polite" aria-atomic="true"></div>
-
-    <footer class="legal-footer">
-      <h2 data-i18n="footer.title">使用須知</h2>
-      <p data-i18n-html="footer.p1">本工具是開發者 <a href="https://x.com/KumachanSteps" target="_blank" rel="noopener noreferrer">@KumachanSteps</a> 個人製作的非官方 TRPG 輔助工具。各 TRPG 系統、劇本與外部服務的使用條款與權利標示，請使用者自行確認。</p>
-    </footer>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="../../assets/i18n.js"></script>
-  <script src="./i18n.bg-motion.js"></script>
-  <script src="./js/main.js"></script>
-  <script src="./js/shortcut.js"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>動態背景產生器｜TRPG Toolkit</title>
+    <meta name="color-scheme" content="dark light">
+    <script>try{var t=localStorage.getItem('trpg-toolkit:theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap">
+    <script type="module" crossorigin src="../../assets/build/bg-motion-DMKWI9S9.js"></script>
+    <link rel="modulepreload" crossorigin href="../../assets/build/rolldown-runtime-CbXtAM7H.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/ui-BXE1Ia9c.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/file-image-D-HPIBXK.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/image-down-BAznfIm3.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/sparkles-BFad5d4y.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/react-Ck3znVsB.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/storage-Bb0TUQ8M.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/filters-u36RZ0hS.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/timeline-D7D63pLK.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/shapes-DLsXEygf.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/motion-vfgWyfG3.js">
+    <link rel="stylesheet" crossorigin href="../../assets/build/ui-bIK-cFCY.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>

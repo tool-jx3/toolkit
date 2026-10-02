@@ -716,8 +716,8 @@ check('掛了語言切換器，切語言時重畫程式寫的文字',
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
  * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
  * 也不該出現回報表單、存取分析與站台圖示。 */
-/* icon-maker、variant-manager 已由本站重寫（web/），不在這裡。 */
-const KUMA_TOOLS = ['bg-motion', 'session-log', 'session-report', 'scenario-cards'];
+/* icon-maker、variant-manager、bg-motion 已由本站重寫（web/），不在這裡。 */
+const KUMA_TOOLS = ['session-log', 'session-report', 'scenario-cards'];
 /* session-log 解析使用者匯入的日文試算表、團報與 CCFOLIA 紀錄，也把系統名、生還結果
  * 以上游的日文值存檔（兩種語言的 JSON 才能互讀）。這些字串刻意留著，清單釘死。 */
 const SL_KEPT_JA = ['くま', 'エモクロア', 'マダミス', 'ロスト', '全ロスト', 'シノビガミ', 'インセイン', 'ダブルクロス',
@@ -735,7 +735,6 @@ const SR_KEPT_JA = ['さん', '新クトゥルフ神話', 'エモクロア', '�
 const keptRuns = allowed => line => (line.match(KANA_RUN) || []).filter(run => KANA.test(run))
   .every(run => allowed.includes(run) || allowed.some(keep => keep.includes(run)));
 const KUMA = {
-  'bg-motion': { scripts: ['js/main.js', 'js/shortcut.js'], styles: ['css/motion-maker-style.css'], locales: ['zh-TW', 'ko', 'ja'], hooks: 150, inline: 140, attrs: 7 },
   'session-log': { scripts: ['js/log_tool.js', 'js/shortcut.js'], styles: ['css/log_tool_style.css'], hooks: 125, inline: 90, attrs: 25,
     allow: (line, n, file) => file === 'js/log_tool.js' && keptRuns(SL_KEPT_JA)(line) },
   'session-report': { scripts: ['js/main.js', 'js/template.js'], styles: ['css/report_gen_style.css'], hooks: 90, inline: 65, attrs: 20,
@@ -776,18 +775,6 @@ for (const keep of SL_KEPT_JA) check(`session-log 仍保留「${keep}」`, slSrc
 const srSrc = read('tools/session-report/js/main.js');
 for (const keep of SR_KEPT_JA) check(`session-report 仍保留「${keep}」`, srSrc.includes(keep));
 section('kuma dynamic keys');
-/* bg-motion 的效果與圖片處理名稱以 `effect.${id}` 等方式組出來，靜態掃描看不到。 */
-const bgHtml = read('tools/bg-motion/index.html');
-const bgEffects = [...new Set([...bgHtml.matchAll(/data-effect="([^"]+)"/g)].map(m => m[1]))];
-const bgFilters = [...new Set([...bgHtml.matchAll(/data-filter="([^"]+)"/g)].map(m => m[1]))];
-check('bg-motion 解析出效果與圖片處理清單', bgEffects.length >= 20 && bgFilters.length >= 20,
-  `effects ${bgEffects.length}, filters ${bgFilters.length}`);
-for (const locale of ['zh-TW', 'ja', 'ko']) {
-  const m = kuma['bg-motion'].messages[locale];
-  const missing = [...bgEffects.filter(e => !m[`effect.${e}`]).map(e => `effect.${e}`),
-    ...bgFilters.filter(f => !m[`filter.${f}`]).map(f => `filter.${f}`)];
-  check(`bg-motion ${locale} 每個效果與圖片處理都有名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
 /* scenario-cards 的狀態列訊息多半以 setStatus("status.x") 間接傳入。 */
 const scKeys = [...new Set(['js/main.js', 'js/shortcut.js'].flatMap(f =>
   [...read(`tools/scenario-cards/${f}`).matchAll(/setStatus\(["']([\w.]+)["']/g)].map(m => m[1])))];

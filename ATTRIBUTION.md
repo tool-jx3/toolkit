@@ -37,7 +37,6 @@
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 | coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
-| bg-motion | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/haikei-motion-maker/` | `42c45f3` | **未授權** |
 | session-log | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-log-tool/` | `42c45f3` | **未授權** |
 | session-report | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-report-generator/` | `42c45f3` | **未授權** |
 | scenario-cards | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/scenario-snippet-builder/` | `42c45f3` | **未授權** |
@@ -544,23 +543,17 @@ WebM。
 
 ## くま（TRPG WEBツール観測所）的工具
 
-`bg-motion`、`session-log`、`session-report`、`scenario-cards` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
+`session-log`、`session-report`、`scenario-cards` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
 「TRPG WEBツール観測所」（[kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools)）。
 站上上線與開發中的工具有十幾個，收錄的是不依賴日文角色卡服務、日文聊天面板或作者後端、
-台灣玩家也用得上的六個（其中 `icon-maker`、`variant-manager` 已由本站重寫，見下方「本站重寫的工具」）。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
+台灣玩家也用得上的六個（其中 `icon-maker`、`variant-manager`、`bg-motion` 已由本站重寫，見下方「本站重寫的工具」）。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
 「画像・アイコン素材の無断転載、再配布、二次利用はお控えください」，因此：
 
-- **上游的圖片一律不收**：站台圖示（部分由るた様繪製）、favicon、`bg-motion` 的範例照片
-  （`sample_and_juliet.jpeg`）都不收。
-  `bg-motion` 的「載入範例圖」改由程式畫一張夜景（漸層天空、星星、月亮、街景剪影），
-  尺寸與上游的範例相同。
+- **上游的圖片一律不收**：站台圖示（部分由るた様繪製）、favicon 都不收。
 - 拿掉每頁都掛的 Google Analytics，以及頁首回原站入口的連結（換成合輯列）。
 - 頁尾「問題回報請私訊 @KumachanSteps」那句拿掉：合輯版改過程式，回報會送錯對象
   （理由同 `pair-maker` 的回報表單）。作者署名、X 與原站連結保留。
-- 上游自己的語言切換（日文／英文，`bg-motion` 另有韓文）改接合輯的引擎。合輯沒有英文，
-  英文不收；`bg-motion` 的韓文照上游保留。上游韓文模式下有 5 處寫死的日文（下載鈕、
-  分享文字等），收錄版補成韓文；上游日文字典缺了 3 句，在上游會讓狀態列顯示
-  `undefined`、拖曳時丟出錯誤，收錄版補上日文。
+- 上游自己的語言切換（日文／英文）改接合輯的引擎。合輯沒有英文，英文不收。
 - `session-log` 與 `session-report` 是一組：紀錄簿的每一團可以直接送到團報產生器，
   連結改指合輯內的 `../session-report/`。紀錄簿要解析使用者匯入的日文試算表、團報與
   CCFOLIA 紀錄，系統名與生還結果也以上游的日文值存檔（兩種語言匯出的 JSON 才能互讀），
@@ -569,8 +562,6 @@ WebM。
 - 團報範本依產生當下的語言給繁中或日文用語（通過→通關、ロスト→撕卡、様→樣、作：〇〇様→
   作者：〇〇老師）。
 - `scenario-cards` 的上游版面用 CSS 把頁尾藏起來，收錄版讓它顯示，否則整頁看不到作者署名。
-- `bg-motion` 照上游自 jsDelivr 載入 JSZip 與 UPNG.js，
-  見各目錄的 `THIRD_PARTY_NOTICES.md`。
 
 ## log-converter、psd-studio
 
@@ -626,6 +617,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `cutin` | 切入素材產生器 | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `b8a22a1` |
 | `scene-transition` | 場景轉換素材產生器 | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `83fd605` |
 | `loading-maker` | 讀取動畫產生器 | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `83fd605` |
+| `bg-motion` | 動態背景產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`haikei-motion-maker`） | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -721,7 +713,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
 `coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
 頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
-くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中四個工具，見上方專節；
+くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中三個工具，見上方專節；
 站上的利用規約另外禁止轉載圖片素材，因此一張圖都沒收）。
 依著作權法預設，其權利保留予原作者，此處僅供試用。原作者如有異議，將立即移除。
 

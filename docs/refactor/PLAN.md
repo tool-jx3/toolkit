@@ -160,7 +160,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | cutin | ✅ | ✅ | ✅ | ✅ |
 | collage-letter | ✅ | ✅ | ✅ | ✅ |
 | scene-transition | ✅ | ✅ | ✅ | ✅ |
-| bg-motion | ✅ | ⬜ | ⬜ | ⬜ |
+| bg-motion | ✅ | ✅ | ✅ | ✅ |
 | loading-maker | ✅ | ✅ | ✅ | ✅ |
 | foreground-frame | ✅ | ⬜ | ⬜ | ⬜ |
 | scenario-cards | ✅ | ⬜ | ⬜ | ⬜ |
