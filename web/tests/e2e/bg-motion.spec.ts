@@ -11,6 +11,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
+import { unzipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { parseWebp } from '../../src/core/encode/webp';
 import { getTool, outputDir } from '../../src/registry';
@@ -521,6 +522,42 @@ test.describe('匯出', () => {
     expect(g.height).toBe(180);
     /* 2 秒 × 30＝60 格，延遲以 1/100 秒累計，總長 2 秒 */
     expect(g.frames.reduce((s, f) => s + f.delayCs, 0)).toBe(200);
+    expect(errors).toEqual([]);
+  });
+
+  test('對等修正：改畫質前的尺寸表挑比例、連番 PNG 一格一張、點通知本體關閉、檔名結尾的符號', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* 自動比例照原作用「改畫質之前」（標準）的尺寸表打分：1199 × 1020 → 1:1（輕量的 800 × 800） */
+    const mb = 1024 * 1024;
+    const base = await pngOf(1199, 1020, [90, 90, 90]);
+    await fileInput(page).setInputFiles([
+      file('big3.png', await pngOf(1199, 1020, [90, 90, 90], 3.1 * mb - base.length)),
+    ]);
+    await expect(status(page)).toContainText('畫質自動改為「輕量」、尺寸改為 1:1（800 × 800）');
+    await expect(page.getByRole('combobox', { name: '圖片尺寸' })).toHaveText(/1:1（800 × 800）/);
+    /* 連番 PNG：60 FPS × 1 秒＝60 張（原作的張數＝影格數） */
+    await fileInput(page).setInputFiles([file('z.png', await pngOf(160, 90, [40, 120, 200]))]);
+    await effect(page, '鏡頭推近').click();
+    await seconds(page).fill('1');
+    await page.getByTestId('file-name').fill('我的 背景:測試*?');
+    const zip = await exportAs(page, '連番 PNG', 60);
+    expect(zip.name).toBe('我的_背景_測試_.zip');
+    const pngs = Object.keys(unzipSync(zip.bytes)).filter((n) => n.endsWith('.png'));
+    expect(pngs).toHaveLength(60);
+    expect(pngs.some((n) => n.includes('__'))).toBe(false);
+    /* 先用 × 關掉現有的通知（原本的關法照樣可用） */
+    const closeButtons = page.getByRole('button', { name: '關閉通知' });
+    while ((await closeButtons.count()) > 0) await closeButtons.first().click();
+    /* 第一格 PNG：主體結尾是被換掉的符號時不會有兩個底線 */
+    const first = await downloadFirstFrame(page);
+    expect(first.name).toBe('我的_背景_測試_frame01.png');
+    /* 通知：點本體立刻關閉（「已開始下載」原本停留 3.2 秒） */
+    const toast = page.getByText('已開始下載');
+    await expect(toast).toHaveCount(1);
+    await toast.click();
+    await expect(toast).toHaveCount(0, { timeout: 1500 });
     expect(errors).toEqual([]);
   });
 

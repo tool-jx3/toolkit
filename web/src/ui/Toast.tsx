@@ -16,6 +16,11 @@ export interface ToastOptions {
   duration?: number;
   /** 取代畫面上現有的通知（一次只顯示這一則；emotion-maker 移植時新增，不給時行為不變） */
   replace?: boolean;
+  /**
+   * 點通知本體（× 以外的地方）也立刻關閉（bg-motion 修正時新增，不給時行為不變：只有 × 與滑掉能關）。
+   * 鍵盤照舊用 × 或 Esc。
+   */
+  dismissOnClick?: boolean;
 }
 
 interface ToastItem extends ToastOptions {
@@ -41,6 +46,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = ++seq;
     setItems((list) => [...(o.replace ? [] : list.slice(-3)), { ...o, id, open: true }]);
   }, []);
+  const close = useCallback((id: number) => {
+    setItems((list) => list.map((x) => (x.id === id ? { ...x, open: false } : x)));
+    setTimeout(() => setItems((list) => list.filter((x) => x.id !== id)), 300);
+  }, []);
   return (
     <ToastContext.Provider value={toast}>
       <T.Provider swipeDirection="right" label="通知">
@@ -54,13 +63,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               duration={t.duration ?? (tone === 'danger' ? 7000 : 4000)}
               type={tone === 'danger' ? 'foreground' : 'background'}
               onOpenChange={(open) => {
-                if (!open) {
-                  setItems((list) => list.map((x) => (x.id === t.id ? { ...x, open: false } : x)));
-                  setTimeout(() => setItems((list) => list.filter((x) => x.id !== t.id)), 300);
-                }
+                if (!open) close(t.id);
               }}
+              onClick={
+                t.dismissOnClick
+                  ? (e) => {
+                      /* × 由 Radix 自己關；點在其他連結、按鈕上不攔 */
+                      if ((e.target as Element).closest('a, button')) return;
+                      close(t.id);
+                    }
+                  : undefined
+              }
               className={cn(
                 'pointer-events-auto flex items-start gap-2.5 rounded-md border bg-surface px-3 py-2.5 text-fg shadow-2',
+                t.dismissOnClick && 'cursor-pointer',
                 tone === 'danger'
                   ? 'border-danger'
                   : tone === 'warning'

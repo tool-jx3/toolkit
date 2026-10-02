@@ -37,8 +37,11 @@ import {
   formatMb,
   outputSize,
   parseSeconds,
+  pngSequenceFrames,
   SIZE_LIMIT_BYTES,
   secondsText,
+  sequenceBase,
+  suffixedName,
 } from './logic';
 import { colorSwatch, exportSource, renderScene, type Scene, stillSource } from './render';
 import {
@@ -274,7 +277,9 @@ export function Preview({
     };
     signal.addEventListener('abort', onAbort, { once: true });
     try {
-      const source = exportSource(exportScene, out, secs, frames, (i, n) => {
+      /* 連番 PNG：一格一張（張數＝影格數） */
+      const table = format === 'zip' ? pngSequenceFrames(frames, fps) : frames;
+      const source = exportSource(exportScene, out, secs, table, (i, n) => {
         if (i % 4 === 0 || i === n - 1) setStatus('progress', S.status.exporting(label, i + 1, n));
       });
       const result = await exportAnimation(source, {
@@ -284,12 +289,13 @@ export function Preview({
         quantize: set.quantize,
         webpQuality: QUALITY_WEBP[data.quality],
         fileName: base,
+        sequenceBaseName: sequenceBase(base),
         signal,
         onProgress,
       });
       const still = await exportAnimation(stillSource(exportScene, out), {
         format: 'png',
-        fileName: `${base}_frame01`,
+        fileName: suffixedName(base, 'frame01'),
         signal,
       });
       useSession.setState({ firstFrame: { blob: still.blob, fileName: still.fileName } });
@@ -360,7 +366,7 @@ export function Preview({
     const out = outputSize(data.quality, data.size, sess.images[0]);
     const r = await exportAnimation(stillSource(scene, out), {
       format: 'png',
-      fileName: `${fileBase(data, sess.sourceBase)}_still`,
+      fileName: suffixedName(fileBase(data, sess.sourceBase), 'still'),
     });
     downloadBlob(r.blob, r.fileName);
     notify({ title: S.toast.downloaded, tone: 'success', duration: 3200 });

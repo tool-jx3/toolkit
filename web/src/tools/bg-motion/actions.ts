@@ -27,7 +27,8 @@ export const setToaster = (fn: ((o: ToastOptions) => void) | null) => {
   toaster = fn;
 };
 
-export const notify = (o: ToastOptions) => toaster?.(o);
+/** 短暫通知；點一下通知本體就關閉（規格 F92） */
+export const notify = (o: ToastOptions) => toaster?.({ dismissOnClick: true, ...o });
 
 /* ---------- 名稱 ---------- */
 
@@ -92,7 +93,8 @@ export async function loadFiles(files: readonly File[]): Promise<boolean> {
   }
   const first = decoded[0];
   const maxBytes = decoded.reduce((m, d) => Math.max(m, d.bytes), 0);
-  const auto = autoOutput(maxBytes, first);
+  /* 自動比例用載入前選著的畫質那一表打分（原作的做法） */
+  const auto = autoOutput(maxBytes, first, useSettings.getState().data.quality);
   patchSettings({ quality: auto.quality, size: auto.size, fadeIn: false, fileName: null });
   useSession.setState((st) => ({
     images: decoded,

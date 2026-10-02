@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ASPECT_IDS, FILTER_PRESET_IDS, FILTER_PRESETS, QUALITY_WEBP } from '@/core/image';
+import { frameTableTicks } from '@/core/timeline';
 import { EFFECT_IDS, EFFECTS } from '@/tools/bg-motion/effects';
 import {
   approxKb,
@@ -18,10 +19,13 @@ import {
   MIB,
   outputSize,
   parseSeconds,
+  pngSequenceFrames,
   recommendedAspect,
   SIZE_LIMIT_BYTES,
+  sequenceBase,
   sourceBaseName,
   stripExtension,
+  suffixedName,
 } from '@/tools/bg-motion/logic';
 import { scaleFilterOps } from '@/tools/bg-motion/render';
 import { EFFECT_TEXT, FILTER_TEXT } from '@/tools/bg-motion/strings';
@@ -93,6 +97,27 @@ describe('載入時自動選畫質與尺寸（F06）', () => {
     expect(autoOutput(6 * MIB, img)).toEqual({ tier: 'minimum', quality: 'minimum', size: '4:3' });
     expect(autoOutput(6 * MIB, { width: 1280, height: 720 }).size).toBe('16:9');
   });
+  it('自動比例用「改畫質之前」的尺寸表打分（原作的做法）', () => {
+    const img = { width: 1199, height: 1020 };
+    /* 之前是標準（開頁預設）：標準那一表 1:1（1024 × 1024）分數較低；改成輕量後顯示 800 × 800 */
+    expect(autoOutput(3 * MIB, img, 'standard')).toEqual({
+      tier: 'lightPreset',
+      quality: 'light',
+      size: '1:1',
+    });
+    expect(autoOutput(3 * MIB, img)).toMatchObject({ size: '1:1' });
+    /* 之前已經是輕量：輕量那一表 4:3 較好 */
+    expect(autoOutput(3 * MIB, img, 'light')).toMatchObject({ size: '4:3' });
+    expect(autoOutput(6 * MIB, img, 'standard')).toEqual({
+      tier: 'minimum',
+      quality: 'minimum',
+      size: '1:1',
+    });
+    expect(outputSize('light', '1:1', img)).toEqual({ width: 800, height: 800 });
+    /* 驗證紀錄的例子：之前是高畫質時 1240 × 900 → 4:3、1280 × 720 → 16:9 */
+    expect(autoOutput(3 * MIB, { width: 1240, height: 900 }, 'high').size).toBe('4:3');
+    expect(autoOutput(3 * MIB, { width: 1280, height: 720 }, 'high').size).toBe('16:9');
+  });
   it('自動比例：長寬比最接近、面積接近、不放大', () => {
     expect(recommendedAspect('light', 1240, 900)).toBe('4:3');
     expect(recommendedAspect('minimum', 1280, 720)).toBe('16:9');
@@ -134,6 +159,28 @@ describe('影格時間軸（規格 3.3）', () => {
       expect(f.at(-1)?.progress).toBe(1);
       expect(f[1].progress).toBeCloseTo(1 / 71, 9);
     }
+  });
+  it('連番 PNG：一格一張，張數＝影格數（原作 60 FPS × 1 秒＝60 張），取樣時間點不變', () => {
+    for (const [secs, fps, effect, loop] of [
+      [1, 60, 'pushIn', false],
+      [1, 60, 'shakeY', true],
+      [2, 60, 'fadeBlack', false],
+      [1.3, 24, 'pushIn', false],
+      [2.5, 30, 'shakeX', true],
+      [3, 24, 'wave', true],
+    ] as const) {
+      const f = exportFrames(secs, fps, effect, loop);
+      const seq = pngSequenceFrames(f, fps);
+      const ticks = frameTableTicks(seq, fps);
+      expect(ticks.every((t) => t === 1)).toBe(true);
+      expect(ticks.reduce((a, b) => a + b, 0)).toBe(f.length);
+      expect(seq.map((x) => x.t)).toEqual(f.map((x) => x.t));
+    }
+    expect(pngSequenceFrames(exportFrames(1, 60, 'pushIn', false), 60)).toHaveLength(60);
+    /* 整數毫秒的影格表直接換算會多一張（修正前的 61 張） */
+    expect(
+      frameTableTicks(exportFrames(1, 60, 'pushIn', false), 60).reduce((a, b) => a + b, 0),
+    ).toBe(61);
   });
   it('循環的週期性效果（E01～E06）改成無縫取樣：第 k 格＝k ÷ n，最後一格不重複第一格（主控裁定）', () => {
     for (const id of EFFECT_IDS.filter((x) => EFFECTS[x].periodic)) {
@@ -183,6 +230,19 @@ describe('檔名（規格 3.9）', () => {
     expect(effectiveFileBase('   ', 'auto_name')).toBe('auto_name');
     expect(effectiveFileBase('雨夜 背景', 'auto_name')).toBe('雨夜_背景');
   });
+  it('加上 _frame01、_still 後再合併連續的 _（自訂檔名結尾是被換掉的符號時不會有兩個底線）', () => {
+    const base = effectiveFileBase('我的 背景:測試*?', 'auto');
+    expect(base).toBe('我的_背景_測試_');
+    expect(suffixedName(base, 'frame01')).toBe('我的_背景_測試_frame01');
+    expect(suffixedName(base, 'still')).toBe('我的_背景_測試_still');
+    /* 連番 PNG 每張的主體（共用匯出接上 _0001） */
+    expect(sequenceBase(base)).toBe('我的_背景_測試');
+    expect(sequenceBase('m1280_鏡頭推近_無_單次')).toBe('m1280_鏡頭推近_無_單次');
+    expect(sequenceBase('___')).toBe('___');
+    expect(suffixedName('m1280_鏡頭推近_無_單次', 'frame01')).toBe(
+      'm1280_鏡頭推近_無_單次_frame01',
+    );
+  });
   it('效果名稱是短名稱（沒有標點），24 種都不同', () => {
     const labels = EFFECT_IDS.map((id) => EFFECT_TEXT[id].label);
     expect(new Set(labels).size).toBe(24);
@@ -217,7 +277,7 @@ describe('濾鏡卡片（F38）', () => {
   });
   it('預覽縮小時，濾鏡的 px 參數一起縮小（比例類不變）', () => {
     const crt = scaleFilterOps(FILTER_PRESETS.crt, 0.5);
-    expect(crt.find((o) => o.op === 'scanlines')).toMatchObject({ period: 1.5, offset: 0.5 });
+    expect(crt.find((o) => o.op === 'scanlines')).toMatchObject({ period: 1.5, offset: 0 });
     expect(crt.find((o) => o.op === 'shift')).toMatchObject({ r: [1.5, 0], b: [-1.5, 0] });
     expect(scaleFilterOps(FILTER_PRESETS.mosaic, 0.5)[0]).toMatchObject({ size: 5 });
     expect(scaleFilterOps(FILTER_PRESETS.soft, 0.5).find((o) => o.op === 'blur')).toMatchObject({

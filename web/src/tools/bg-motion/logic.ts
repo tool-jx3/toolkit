@@ -89,19 +89,25 @@ export function recommendedAspect(quality: QualityLevel, width: number, height: 
 /**
  * 依「這一批裡最大的檔案大小」自動選畫質與尺寸：
  * < 1 MB → 標準、原始尺寸；≥ 1 MB → 輕量、原始尺寸；≥ 3 MB → 輕量＋自動比例；≥ 6 MB → 最小＋自動比例。
+ * 自動比例照原作，用「改畫質之前」（載入時選著的畫質 before）的尺寸表打分（例：1199 × 1020、之前是標準 → 1:1；
+ * 若用改成的輕量那一表打分會挑 4:3）。選單標籤與狀態列顯示的是改畫質之後的實際像素（規格第 5 節第 2 項）。
  */
-export function autoOutput(maxBytes: number, first: { width: number; height: number }): AutoOutput {
+export function autoOutput(
+  maxBytes: number,
+  first: { width: number; height: number },
+  before: QualityLevel = 'standard',
+): AutoOutput {
   if (maxBytes >= AUTO_MINIMUM_BYTES)
     return {
       tier: 'minimum',
       quality: 'minimum',
-      size: recommendedAspect('minimum', first.width, first.height),
+      size: recommendedAspect(before, first.width, first.height),
     };
   if (maxBytes >= AUTO_PRESET_BYTES)
     return {
       tier: 'lightPreset',
       quality: 'light',
-      size: recommendedAspect('light', first.width, first.height),
+      size: recommendedAspect(before, first.width, first.height),
     };
   if (maxBytes >= AUTO_LIGHT_BYTES) return { tier: 'light', quality: 'light', size: 'original' };
   return { tier: 'standard', quality: 'standard', size: 'original' };
@@ -128,6 +134,14 @@ export function exportFrames(
     delays: 'integer',
   });
 }
+
+/**
+ * 連番 PNG（ZIP）的影格表：每一格存成一張，張數＝影格數（同原作：60 FPS × 1 秒＝60 張）。
+ * 共用匯出依 fps 把每格的毫秒換成張數（累計四捨五入、每格至少 1 張），整數毫秒的延遲（例 17／16 ms）
+ * 在 60 FPS 時會多出一張，所以這裡每格給剛好 1000 ÷ fps 毫秒；取樣時間點不變。
+ */
+export const pngSequenceFrames = (frames: readonly SampledFrame[], fps: number): SampledFrame[] =>
+  frames.map((f) => ({ ...f, ms: 1000 / fps }));
 
 /* ---------- 檔名（規格 3.9） ---------- */
 
@@ -170,6 +184,12 @@ export function autoFileBase(parts: {
 /** 實際使用的檔名主體：檔名欄有輸入就用它（清理後），空白時用自動名稱 */
 export const effectiveFileBase = (input: string, auto: string) =>
   input.trim() ? cleanName(input, auto) : auto;
+
+/** 主體加上後綴（_frame01、_still）：接起來後再合併連續的 _（主體結尾是被換掉的符號時不會變成兩個底線） */
+export const suffixedName = (base: string, suffix: string) => cleanName(`${base}_${suffix}`);
+
+/** 連番 PNG 每張的檔名主體（共用匯出會接上 _0001）：去掉結尾的 _，同樣不會出現兩個底線 */
+export const sequenceBase = (base: string) => base.replace(/_+$/, '') || base;
 
 /* ---------- 顯示 ---------- */
 
