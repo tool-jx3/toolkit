@@ -17,6 +17,7 @@ import {
   ytParse,
 } from '../model/npc/ccfolia';
 import { ensureNpc } from '../model/npc/model';
+import { sayAfterSave } from '../session';
 import { doc, editBlock, say } from '../store';
 import { S } from '../strings';
 
@@ -119,7 +120,7 @@ function CcfImport() {
       return;
     }
     close();
-    say(ccfReportText(r), r.unread || r.over ? 'warn' : 'ok');
+    sayAfterSave(ccfReportText(r), r.unread || r.over ? 'warn' : 'ok');
   };
   return (
     <Dialog
@@ -180,7 +181,7 @@ function YutoImport() {
       return;
     }
     close();
-    say(m === 'combo' ? `已讀入 ${n} 筆組合技表` : `已讀入 ${n} 筆效果表`);
+    sayAfterSave(m === 'combo' ? `已讀入 ${n} 筆組合技表` : `已讀入 ${n} 筆效果表`);
   };
   return (
     <Dialog

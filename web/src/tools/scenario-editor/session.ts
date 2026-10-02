@@ -44,7 +44,7 @@ import {
 import { blankDoc, looksLikeDoc, normalizeDoc, UNTITLED } from './model/doc';
 import { bxTplClean, mergeTemplates } from './model/proc';
 import type { BoxTemplate, Doc } from './model/types';
-import { doc, edit, say, setUi, TOOL_ID, useDoc } from './store';
+import { doc, edit, say, setUi, TOOL_ID, ui, useDoc } from './store';
 import { S } from './strings';
 
 export interface SessionState {
@@ -199,6 +199,36 @@ export function flush(): Promise<unknown> {
 export function flushNow(): Promise<unknown> {
   if (pending) return flush();
   return queue;
+}
+
+/** 排定與進行中的自動儲存全部寫完時 resolve（之後又有變更就再等那一次） */
+export function whenSaved(): Promise<void> {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (pending) {
+        setTimeout(check, 100);
+        return;
+      }
+      const q = queue;
+      void q.then(() => {
+        if (pending || q !== queue) setTimeout(check, 100);
+        else resolve();
+      });
+    };
+    check();
+  });
+}
+
+/**
+ * 狀態列的報告（讀入的結果等）：馬上顯示，自動儲存寫完（「已自動儲存」出現）之後再顯示一次並留著
+ * （原作也是為了不被自動儲存的通知蓋掉而再顯示一次；F168、F169）。那之前狀態列已經換成別的訊息時不再顯示。
+ */
+export function sayAfterSave(text: string, tone: 'ok' | 'warn' = 'ok'): void {
+  say(text, tone);
+  void whenSaved().then(() => {
+    const cur = ui().status?.text;
+    if (cur === text || cur === S.status.saved || cur === S.status.savedUnsaved) say(text, tone);
+  });
 }
 
 /** 失敗後重試（F010 的「重試」） */

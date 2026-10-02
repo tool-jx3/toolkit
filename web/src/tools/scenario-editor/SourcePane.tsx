@@ -126,24 +126,22 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
     el.scrollIntoView({ block: 'nearest' });
   }, [focusReq]);
 
-  const onChange = (v: string, caret: number) => {
+  const onChange = (el: HTMLTextAreaElement) => {
+    const v = el.value;
     let next = v;
-    let pos = caret;
     if (!composing.current) {
-      const s = applySlash(v, caret);
+      const s = applySlash(v, el.selectionStart);
       if (s) {
         next = s.text;
-        pos = s.caret;
+        /*
+         * 斜線指令：當下就把欄位換成記號、游標放好（React 看到欄位的值與原稿相同就不再動它），
+         * 不延後寫回，緊接著打的字才不會被蓋掉（F037）。
+         */
+        el.value = next;
+        el.setSelectionRange(s.caret, s.caret);
       }
     }
     editBlock(b.id, (x) => setBlockText(x, next));
-    if (next !== v)
-      requestAnimationFrame(() => {
-        if (ta.current) {
-          ta.current.value = next;
-          ta.current.setSelectionRange(pos, pos);
-        }
-      });
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -238,7 +236,7 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
               'block w-full resize-none overflow-hidden rounded-sm border border-transparent bg-transparent px-1.5 py-0.5 text-sm leading-relaxed text-fg placeholder:text-muted focus:border-border-strong focus:bg-surface focus:outline-none',
               TYPE_TEXT_CLASS[b.type],
             )}
-            onChange={(e) => onChange(e.target.value, e.target.selectionStart)}
+            onChange={(e) => onChange(e.currentTarget)}
             onKeyDown={onKeyDown}
             onPaste={onPaste}
             onFocus={onFocus}
@@ -249,7 +247,7 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
             onCompositionEnd={(e) => {
               composing.current = false;
               imeEnd.current = Date.now();
-              onChange(e.currentTarget.value, e.currentTarget.selectionStart);
+              onChange(e.currentTarget);
             }}
           />
         ) : b.type === 'image' ? (
@@ -354,7 +352,11 @@ function Nested({
     const cells: { r: number; c: number }[] = [];
     for (let r = 0; r < tblRows(t); r++) for (let c = 0; c < tblCols(t); c++) cells.push({ r, c });
     return (
-      <div className="my-1 border-l-2 border-border pl-1" style={{ marginLeft: depth * 14 + 12 }}>
+      <div
+        className="my-1 border-l-2 border-border pl-1"
+        style={{ marginLeft: depth * 14 + 12 }}
+        data-tcells={b.id}
+      >
         <TableNameRow b={b} />
         {cells.map(({ r, c }) => {
           const ref: ListRef = { k: 'cell', id: b.id, r, c };
@@ -390,6 +392,18 @@ function TableNameRow({ b }: { b: Block }) {
         className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-surface-2 px-2 text-sm text-fg"
         onFocus={() => {
           if (!(ui().sel.length === 1 && ui().sel[0] === b.id)) select([b.id]);
+        }}
+        onKeyDown={(e) => {
+          /* Tab：移到下一個表格欄位（第一格的文字欄，游標在最後）；Shift＋Tab 照瀏覽器 */
+          if (e.key !== 'Tab' || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+          if (e.nativeEvent.isComposing) return;
+          const next = e.currentTarget
+            .closest('[data-tcells]')
+            ?.querySelector<HTMLTextAreaElement>('textarea[data-bid]');
+          if (!next) return;
+          e.preventDefault();
+          next.focus();
+          next.setSelectionRange(next.value.length, next.value.length);
         }}
         onChange={(e) =>
           editBlock(b.id, (x) => {

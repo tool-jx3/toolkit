@@ -13,10 +13,11 @@ import { editBlock, setUi, useDoc, useUi } from '../store';
 import { BlockOps, TypeButtons } from '../TypeButtons';
 import { RICH_BUTTONS } from '../textOps';
 
+/** 舊式文字型彈出視窗的標題按鈕（名稱與書式的「標題 1～3」相同，不和巢狀書式的「小標」■ 重名） */
 const HEAD_BUTTONS = [
-  { mark: '# ', label: '大標' },
-  { mark: '## ', label: '中標' },
-  { mark: '### ', label: '小標' },
+  { mark: '# ', label: '標題 1' },
+  { mark: '## ', label: '標題 2' },
+  { mark: '### ', label: '標題 3' },
 ];
 
 /** 編輯視窗裡按 Esc：先離開文字欄，再按才關閉 */
@@ -117,7 +118,7 @@ export function PopupDialog() {
               <div className="flex flex-wrap gap-1">
                 {[...HEAD_BUTTONS, ...RICH_BUTTONS].map((r) => (
                   <button
-                    key={r.label}
+                    key={r.mark}
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => applyMark(r.mark)}

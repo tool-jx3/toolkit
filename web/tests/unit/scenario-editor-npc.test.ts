@@ -240,6 +240,18 @@ describe('CCFOLIA 棋子（3.7.3）', () => {
     ]);
     expect(lines.at(-1)).toBe('CC<={EDU}　【EDU】');
   });
+  it('克蘇魯：技能名稱空白、只填專業領域時照原作輸出「【:領域】」，兩個都空白時略過（F167）', () => {
+    const np = newNpcData();
+    np.sys = 'coc';
+    np.coc.skills = [
+      { n: '', cat: '', arg: '歴史', v: '75', free: false },
+      { n: '', cat: '', arg: '', v: '30', free: false },
+      { n: '  ', cat: '', arg: ' ', v: '20', free: false },
+    ];
+    const lines = npcToCcfolia(np).data.commands.split('\n');
+    expect(lines).toContain('CC<=75 【:歴史】');
+    expect(lines.filter((l) => l.startsWith('CC<=30') || l.startsWith('CC<=20'))).toEqual([]);
+  });
   it('克蘇魯第 6 版：CCB、1d100 的理智、能力值 ×5', () => {
     const np = newNpcData();
     np.sys = 'coc';

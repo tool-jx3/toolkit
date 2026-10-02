@@ -4,7 +4,7 @@
 import { copyText } from '@/core/files';
 import { escapeHtml, escapeHtmlAttr } from '@/core/html';
 import { isEditableTarget, type Shortcut } from '@/ui';
-import { newBlock, TYPES } from './model/blocks';
+import { findBlock, newBlock, TYPES } from './model/blocks';
 import { blocksPlainText } from './model/count';
 import type { Block } from './model/types';
 import {
@@ -32,17 +32,21 @@ export function keyOfCode(code: string): string {
   return '';
 }
 
+/** 開著的對話框（彈出視窗編輯除外） */
+function openDialogs(): Element[] {
+  return [...document.querySelectorAll('[role="dialog"],[role="alertdialog"]')].filter(
+    (el) =>
+      !(el as HTMLElement).closest('[data-testid="se-popup-dialog"]') &&
+      !(el as HTMLElement).querySelector('[data-testid="se-popup-dialog"]'),
+  );
+}
+
 /** 有沒有擋住原稿操作的對話框（彈出視窗編輯除外） */
 export function blockingDialog(): boolean {
   const s = ui();
   if (s.libraryOpen || s.output || s.preview || s.npcEdit || s.flowEdit || s.tableWide) return true;
   /* 確認、輸入等共用的對話框 */
-  const open = [...document.querySelectorAll('[role="dialog"],[role="alertdialog"]')].filter(
-    (el) =>
-      !(el as HTMLElement).closest('[data-testid="se-popup-dialog"]') &&
-      !(el as HTMLElement).querySelector('[data-testid="se-popup-dialog"]'),
-  );
-  return open.length > 0;
+  return openDialogs().length > 0;
 }
 
 function undo(): void {
@@ -52,10 +56,40 @@ function redo(): void {
   useDoc.temporal.getState().redo();
 }
 
+/**
+ * 流程圖、表格寬視窗、角色卡的視窗開著（上面沒有確認、輸入等別的對話框）時，Ctrl＋Z／Y／Shift＋Z 照常復原、重做（F019，原作如此）；
+ * 焦點在文字欄位裡時交給欄位自己的復原。有處理時回傳 true。
+ */
+function undoInEditor(e: KeyboardEvent): boolean {
+  const s = ui();
+  if (!(s.npcEdit || s.flowEdit || s.tableWide) || s.libraryOpen || s.output || s.preview)
+    return false;
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || isEditableTarget(e.target)) return false;
+  const k = keyOfCode(e.code);
+  const isUndo = k === 'Z' && !e.shiftKey;
+  const isRedo = (k === 'Z' && e.shiftKey) || (k === 'Y' && !e.shiftKey);
+  if (!isUndo && !isRedo) return false;
+  if (openDialogs().length !== 1) return false;
+  e.preventDefault();
+  if (isUndo) undo();
+  else redo();
+  /* 復原到這個段落還不存在的時候：關掉它的視窗 */
+  const d = useDoc.getState().data;
+  const gone = (x: string | null) => !!x && !findBlock(d, x);
+  const after = ui();
+  if (gone(after.npcEdit)) setUi({ npcEdit: null });
+  if (gone(after.flowEdit)) setUi({ flowEdit: null });
+  if (gone(after.tableWide)) setUi({ tableWide: null });
+  return true;
+}
+
 /** 整個視窗的按鍵 */
 export function onWindowKey(e: KeyboardEvent): void {
   if (e.defaultPrevented || e.isComposing) return;
-  if (blockingDialog()) return;
+  if (blockingDialog()) {
+    undoInEditor(e);
+    return;
+  }
   const mod = e.ctrlKey || e.metaKey;
   const k = keyOfCode(e.code);
   const editable = isEditableTarget(e.target);
