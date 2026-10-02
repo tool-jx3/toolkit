@@ -354,7 +354,7 @@ check('字幕字型清單有五套繁中字型', ['notosanstc', 'notoseriftc', '
 
 /* ---- 註解保留原文的工具共用：stripComments ---- */
 /* 有些工具的註解密度很高、多半是演算法與版面取捨的說明，逐句轉譯的風險大於效益，
- * 比照 vendor/cutin-maker 保留日文原文（room-zip、trpg-lab）。
+ * 保留日文原文（room-zip、trpg-lab）。
  *
  * 但「只有註解可以是日文」這件事要能被檢查，否則就等於放行。做法是把註解整段
  * 抹成空白（保留行結構）之後再掃一次：程式碼與標記裡只要出現假名就會被擋下。 */
@@ -373,7 +373,7 @@ function stripComments(src, kind) {
 /* 上游是一份 868 KB 的單一 HTML，收錄時拆成 index.html ＋ styles.css ＋ 五個
  * JS。其中 jszip.min.js 與 upng.js 是原樣保留的第三方函式庫，不參與 i18n。
  *
- * 註解比照 cutin 保留日文原文，所以同樣用 stripComments 的規則：
+ * 註解保留日文原文，所以同樣用 stripComments 的規則：
  * 抹掉註解之後，程式碼與標記裡只剩下「刻意留著的資料」才放行。 */
 const RZ_KINDS = { 'index.html': 'html', 'styles.css': 'css', 'app.v1.js': 'js', 'core.v1.js': 'js', 'apng.v1.js': 'js' };
 const rzCode = Object.fromEntries(Object.entries(RZ_KINDS)
@@ -904,61 +904,6 @@ for (const locale of ['zh-TW', 'ja']) {
 check('session-log 連到合輯內的 session-report',
   slSrc.includes('../session-report/') && !slSrc.includes('session-report-generator'));
 
-/* ---- cutin ---- */
-/* 唯一需要建置的工具：原始碼在 vendor/cutin-maker/，畫面全部由 React 算繪，
- * 因此 index.html 只有外殼那三個掛勾，沒有內嵌文字可比對。改為檢查
- * 「已提交的建置產物」與「原始碼引用的 key」兩邊都對得上。 */
-const cutin = checkTool({
-  dir: 'tools/cutin',
-  dict: 'i18n.cutin.js',
-  locale: 'ja',
-  scripts: [],
-  minHooks: 3
-});
-
-section('tools/cutin build output');
-const cutinZh = new Set(Object.keys(cutin.messages['zh-TW']));
-/* 只由 index.html 或 i18n 引擎使用，不會出現在 React 原始碼裡。 */
-const CUTIN_SHELL_KEYS = ['app.title', 'nav.home', 'lang.aria', 'noscript'];
-/* MOTIONS 以 `motion.${id}` 動態組成，原始碼裡沒有字面常數。 */
-const CUTIN_DYNAMIC_KEYS = ['motion.none', 'motion.pulse', 'motion.bounce',
-  'motion.shake', 'motion.rotate', 'motion.wave'];
-/* TEXT_PRESETS（一次匯出多張用的文案組）在上游是 export 出來但還沒接到畫面上的
- * 資料，Rollup 會把它整段搖掉，因此這幾個 key 不會出現在 bundle 裡。保留字典
- * 條目是為了讓 vendor/ 的原始碼維持與上游一致。 */
-const CUTIN_TREE_SHAKEN_KEYS = ['textPreset.coc', 'textPreset.simple',
-  'textPreset.battle', 'textPreset.kp'];
-
-const cutinSrc = listFiles('vendor/cutin-maker/src')
-  .filter(f => /\.tsx?$/.test(f))
-  .map(f => read(f))
-  .join('\n');
-const cutinUsed = [...cutinZh].filter(k => cutinSrc.includes(`'${k}'`));
-check('原始碼引用了字典中的大多數 key', cutinUsed.length >= 200, `found ${cutinUsed.length}`);
-
-const stale = [...cutinZh].filter(k =>
-  !cutinUsed.includes(k) && !CUTIN_SHELL_KEYS.includes(k) && !CUTIN_DYNAMIC_KEYS.includes(k));
-check('字典沒有原始碼用不到的 key', stale.length === 0, `stale: ${stale.join(', ')}`);
-
-const cutinMissing = CUTIN_DYNAMIC_KEYS.filter(k => !cutinZh.has(k));
-check('動態組出來的 key 都有譯文', cutinMissing.length === 0, `missing: ${cutinMissing.join(', ')}`);
-
-/* 建置產物是提交進 repo 的，改了原始碼卻忘記 `npm run build` 時，
- * 新加的 key 就不會出現在 bundle 裡——這項檢查會抓到。 */
-const cutinBundle = read('tools/cutin/assets/app.js');
-const notBuilt = cutinUsed
-  .filter(k => !CUTIN_TREE_SHAKEN_KEYS.includes(k))
-  .filter(k => !cutinBundle.includes(k));
-check('建置產物是最新的（原始碼的 key 都在 bundle 裡）',
-  notBuilt.length === 0, `missing from bundle: ${notBuilt.slice(0, 10).join(', ')}`);
-
-/* 畫面文字全部來自字典，因此 bundle 裡不該留有任何假名。 */
-for (const file of ['assets/app.js', 'assets/encode.worker.js', 'assets/index.css']) {
-  check(`${file} 無殘留原文`, !KANA.test(read(`tools/cutin/${file}`)));
-}
-
-
-
 /* ---- character-select ---- */
 const cs = checkTool({
   dir: 'tools/character-select',
@@ -1442,40 +1387,6 @@ function checkCss2Url(label, url) {
   }
 }
 
-/* cutin：FONTS 的 family 與 FONT_CSS 的網址要一一對上。 */
-const cutinFonts = read('vendor/cutin-maker/src/core/fonts.ts');
-const cutinTcIds = ['noto-tc', 'serif-tc', 'wenkai-tc', 'choco-tc', 'cactus-tc'];
-for (const id of cutinTcIds) {
-  check(`cutin 字典有 font.${id}`, cutinZh.has(`font.${id}`));
-  check(`cutin 的 FONTS 有 ${id}`, cutinFonts.includes(`id: '${id}'`));
-}
-for (const m of cutinFonts.matchAll(/'([\w-]+)': '(https:\/\/fonts\.googleapis\.com\/css2\?[^']+)'/g)) {
-  checkCss2Url(`cutin FONT_CSS ${m[1]}`, m[2]);
-}
-/* FONTS 裡宣告的 weight 就是實際畫圖時用的字重，必須也在 FONT_CSS 要得到。 */
-const cutinWeights = [...cutinFonts.matchAll(/id: '([\w-]+)',[^\n]*family: '"([^"]+)"',\s*weight: (\d+)/g)];
-check('cutin 解析出 11 套字型', cutinWeights.length === 11, `found ${cutinWeights.length}`);
-for (const [, id, family, weight] of cutinWeights) {
-  if (!TC_FAMILIES.includes(family)) continue;
-  check(`cutin ${id} 的 weight ${weight} 存在於 ${family}`,
-    TC_WEIGHTS[family].includes(Number(weight)),
-    `可用: ${TC_WEIGHTS[family].join(', ')}`);
-  /* 單一字重的字型不接受 :wght@，多字重的則必須指名畫圖時要用的那個字重。 */
-  const css = cutinFonts.match(new RegExp(`'${id}': '([^']+)'`));
-  const wantsAxis = TC_WEIGHTS[family].length > 1;
-  check(`cutin ${id} 的 FONT_CSS 要求同一個字重`,
-    !!css && css[1].includes(`wght@${weight}`) === wantsAxis,
-    css ? css[1] : '(找不到 FONT_CSS)');
-}
-
-/* 上游的 vitest 會把 FONTS 逐一代進版面測試，字幅比存在測試檔自己的 RATIOS 表裡。
- * 加了字型卻忘記補這張表，stub 會拿到 undefined，整批測試變成 NaN 比較而全滅。
- * 那套測試需要 npm install，不在根目錄 npm test 的範圍內，所以在這裡靜態比對一次。 */
-const cutinLayoutTest = read('vendor/cutin-maker/tests/layout.test.ts');
-const ratioIds = [...cutinLayoutTest.matchAll(/^\s+'?([\w-]+)'?: [\d.]+,$/gm)].map(m => m[1]);
-const noRatio = cutinWeights.map(m => m[1]).filter(id => !ratioIds.includes(id));
-check('cutin 的每套字型在版面測試的 RATIOS 都有字幅比', noRatio.length === 0, `missing: ${noRatio.join(', ')}`);
-
 /* pair-maker：字型清單在 2p-simple.js，五個版型裡有字型欄的兩個共用它
  * （main-tweet 只是把 Apple SD Gothic Neo 挪到最前面）；css2 的網址在
  * editor.html。清單、標籤與網址三者要同時有，少一樣就是選得到但套不上。 */
@@ -1748,7 +1659,6 @@ checkAttrPairs('tools/log-converter', 'tools/log-converter/index.html', ['tools/
 checkAttrPairs('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 18);
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
 for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
-checkAttrPairs('tools/cutin', 'tools/cutin/index.html', ['tools/cutin/i18n.cutin.js'], 1);
 checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
 checkAttrPairs('tools/character-editor', 'tools/character-editor/index.html', ['tools/character-editor/i18n.character-editor.js'], 1);
 checkAttrPairs('tools/room-zip', 'tools/room-zip/index.html', ['tools/room-zip/i18n.room-zip.js'], 10);
@@ -1774,7 +1684,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68', '615664b',
-  '586b273', '9866858', '7e9c70d', '883f48b', 'e1111d4',
+  '586b273', '9866858', '883f48b', 'e1111d4',
   'a9a522c', 'aad63b1', '9c29866', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
   '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
@@ -1819,16 +1729,14 @@ for (const dir of ['acrylic-goods', 'video-anim', 'gif-combiner']) {
 check('ATTRIBUTION.md 說明哪些字刻意不跟著語言走',
   attribution.includes('initialState()') && /initialState\(\)[\s\S]{0,400}room-zip/.test(attribution));
 
-/* cutin 需要建置，說明其原始碼位置與重建方式。 */
-check('ATTRIBUTION.md 說明 cutin 的建置流程',
-  attribution.includes('vendor/cutin-maker'));
-check('README.md 說明兩個工具的建置流程',
-  ['vendor/cutin-maker', 'vendor/ccfolia-character-editor'].every(p => read('README.md').includes(p)));
+/* character-editor 需要建置，說明其原始碼位置與重建方式。 */
+check('README.md 說明 character-editor 的建置流程', read('README.md').includes('vendor/ccfolia-character-editor'));
+check('cutin 已由本站重寫，不再收 vendor/cutin-maker', !exists('vendor/cutin-maker'));
 check('obs-tachie 已由本站重寫，不再收 vendor/obs-tachie-generator', !exists('vendor/obs-tachie-generator'));
 /* ATTRIBUTION 與 README 之間的錨點連結：標題改了就會失效。 */
 check('ATTRIBUTION.md 指向 README 建置段落的錨點仍然有效',
-  attribution.includes('README.md#重新建置-cutin-與-character-editor')
-  && read('README.md').includes('### 重新建置 cutin 與 character-editor'));
+  attribution.includes('README.md#重新建置-character-editor')
+  && read('README.md').includes('### 重新建置 character-editor'));
 check('README 指向 pcfonts 段落的錨點仍然有效',
   read('README.md').includes('ATTRIBUTION.md#兩個工具共用的-pcfontsv1js')
   && attribution.includes('## 兩個工具共用的 pcfonts.v1.js'));

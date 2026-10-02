@@ -27,7 +27,6 @@
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
 | foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
 | scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `9866858` | MIT |
-| cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
@@ -49,7 +48,7 @@
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
-shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、`cutin` 與 `room-zip` 原文為日文，
+shiki365 的兩個工具（`foreground-frame`、`scene-transition`）與 `room-zip` 原文為日文，
 收錄時另有以下調整：
 
 - `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
@@ -608,8 +607,8 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的流程改寫到本站的 `web/` 框架，
 上線前逐項做新舊版對等驗證（紀錄在各規格 [docs/refactor/specs/](docs/refactor/specs/) 的第 6 節）。改寫時參考原作的程式，
 用本站的共用元件重新寫；MIT、CC0 等開放授權原作的著作權聲明與授權全文保留在 `assets/build/THIRD_PARTY_NOTICES.md`
-（「參考原作程式改寫的工具」一節），未授權原作的素材與範本文字不沿用。表中目前的工具是在這個做法之前以無塵室方式
-（觀察者只寫行為規格，實作者只看規格）重寫的。新版只有繁體中文介面，本站的程式以 MIT 授權釋出（見 [LICENSE](LICENSE)），
+（「參考原作程式改寫的工具」一節），未授權原作的素材與範本文字不沿用。表中大部分工具是在這個做法之前以無塵室方式
+（觀察者只寫行為規格，實作者只看規格）重寫的；之後參考了開放授權原作程式修正的工具，原作的授權全文同樣列在通知檔裡。新版只有繁體中文介面，本站的程式以 MIT 授權釋出（見 [LICENSE](LICENSE)），
 頁尾只保留靈感來源連結。舊版的收錄副本已移除，需要對照時可以從表中的 `main` commit 取回（例如 `git show cb0c619:tools/battlemap/app.js`）。
 
 | 工具 | 名稱 | 靈感來源 | 舊版所在的 commit |
@@ -632,6 +631,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `typewriter` | 打字機動畫產生器 | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) | `b8a22a1` |
 | `height-board` | 立繪身高比較板 | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `b8a22a1` |
 | `emotion-maker` | 表情產生器 | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b8a22a1` |
+| `cutin` | 切入素材產生器 | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `b8a22a1` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -655,12 +655,12 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 另外，第一次嘗試時實作者讀了原作程式碼，寫出來的版本有照搬的痕跡（相同的資料結構與內部常數），
 那一版沒有提交就整個作廢，才改用上述流程重做。
 
-## 需要建置的兩個工具
+## 需要建置的工具
 
-`cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，
-不能直接把檔案放進 `tools/` 就跑。因此原始碼快照收在 `vendor/` 底下，建置產物提交在
-各自的 `tools/` 目錄，重建方式見
-[README](README.md#重新建置-cutin-與-character-editor)。`vendor/` 不參與網站發佈。
+`character-editor` 的上游是 React + TypeScript + Vite 專案，不能直接把檔案放進 `tools/` 就跑。
+因此原始碼快照收在 `vendor/` 底下，建置產物提交在 `tools/character-editor/`，重建方式見
+[README](README.md#重新建置-character-editor)。`vendor/` 不參與網站發佈。（同樣需要建置的 `cutin`
+已由本站重寫，見「本站重寫的工具」。）
 
 `character-editor` 另有一點必須留意：`src/lib/editScreenText.ts` 的日文字面常數
 幾乎全是**解析用的錨點**，用來切分使用者從 CCFOLIA 編輯畫面複製貼上的文字
@@ -705,8 +705,8 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | [Cactus Classical Serif 仙人掌明體](https://fonts.google.com/specimen/Cactus+Classical+Serif) | Henry Chan、Tian Haidong、Moonlit Owen | SIL OFL 1.1 | 古典明體 |
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
-因此沒有隨附 OFL 全文——與 `cutin` 的其他六套日文字型同樣的處理方式。
-收錄的工具：`cutin`、`scene-transition`（字幕字型）、`pair-maker`
+因此沒有隨附 OFL 全文。
+收錄的工具：`scene-transition`（字幕字型）、`pair-maker`
 （v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
 以及 `trpg-lab` 地圖編輯器的文字字型清單。
 
@@ -753,14 +753,10 @@ magic-circle 的繁體中文翻譯移植自
 `jizura` 連到原作者的官方繁中版，不在此列）。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的工具
-原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：
+原本就以英文撰寫註解，僅檔頭標題改為中譯名。一個例外：
 
-- `vendor/cutin-maker/`——註解密度高且多為演算法說明（描邊順序、`unicode-range`
-  分割、記憶體上限推導等），逐句轉譯風險大於效益，故維持日文原文；只有使用者
-  看得到的字串與本 repo 新增的註解為中文。這些註解不會出現在 `tools/cutin/`
-  的建置產物裡。
-- `tools/room-zip/`——同樣的理由，而且量更大：app.v1.js 一萬多行裡有 156 行
-  註解是日文。與 `cutin` 不同的是這些註解會隨著檔案發佈，因此 `tests/smoke.mjs`
+- `tools/room-zip/`——註解密度高且多為演算法與資料格式的說明，逐句轉譯風險大於效益：app.v1.js 一萬多行裡有 156 行
+  註解是日文，維持原文。這些註解會隨著檔案發佈，因此 `tests/smoke.mjs`
   把「只有註解可以是日文」變成可檢查的規則（`stripComments`）：把註解整段抹成空白
   （保留行結構）之後再掃一次，程式碼與標記裡只要出現假名就會被擋下；另外列出一份「刻意留著的資料」
   清單（素材標籤的值、`{検索ワード}`、KPDEF 的聊天面板預設內容、CSV 標題列的

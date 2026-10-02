@@ -76,16 +76,16 @@ npm run serve
 然後開啟 http://localhost:8080/
 
 
-### 重新建置 cutin 與 character-editor
+### 重新建置 character-editor
 
-有兩個工具要先建置才能放進 `tools/`。原始碼收在 `vendor/` 底下，
-建置產物（已提交進 repo）輸出到各自的 `tools/` 目錄，`vendor/` 不參與網站發佈。
+`character-editor` 要先建置才能放進 `tools/`。原始碼收在 `vendor/ccfolia-character-editor/`，
+建置產物（已提交進 repo）輸出到 `tools/character-editor/`，`vendor/` 不參與網站發佈。
 
-`cutin` 與 `character-editor` 的上游是 React + TypeScript 專案。改動原始碼後要重新建置：
+上游是 React + TypeScript 專案。改動原始碼後要重新建置：
 
 ```
-cd vendor/cutin-maker              # 或 vendor/ccfolia-character-editor
-npm install                        # character-editor 請用 npm ci
+cd vendor/ccfolia-character-editor
+npm ci
 npm run build
 ```
 
@@ -108,18 +108,13 @@ npm test
 首頁連結有效、
 **HTML 內嵌文字與 zh-TW 字典逐字相符**（含元素內文與 `title`／`aria-label`／`placeholder` 屬性兩類比對）。
 
-`cutin` 沒有內嵌文字可比對（畫面全部由 React 算繪），因此改為檢查已提交的建置產物：
-`tools/cutin/assets/*.js` 裡不得殘留任何假名，且原始碼引用的每個 key 都必須出現在
-bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項檢查會抓到。
-
-`cutin` 與 `character-editor` 的上游各有一套 vitest 單元測試（420 項與 30 項），
-一併收錄在 `vendor/` 底下，以 `cd vendor/<工具> && npm test` 執行。
+`character-editor` 的上游有一套 vitest 單元測試（30 項），
+一併收錄在 `vendor/` 底下，以 `cd vendor/ccfolia-character-editor && npm test` 執行。
 `character-editor` 那套是用畫面上的日文標籤找元素的，收錄版把 `ja` 字典注入
 `window.T`，因此測試一行都沒改就能通過——順帶還會驗證 `ja` 的譯文與上游原文
 是否一字不差。
 那套測試需要 `npm install`，不在根目錄的 `npm test` 範圍內（根目錄的檢查刻意保持
-無外部相依）；因此兩者之間容易漂移的地方，改由根目錄的靜態檢查看著——例如版面
-測試的字幅比表有沒有跟上字型清單。
+無外部相依）。
 
 ## 本站重寫的工具
 
@@ -147,13 +142,14 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 | `typewriter` | [打字機動畫產生器](tools/typewriter/) | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) |
 | `height-board` | [立繪身高比較板](tools/height-board/) | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) |
 | `emotion-maker` | [表情產生器](tools/emotion-maker/) | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) |
+| `cutin` | [切入素材產生器](tools/cutin/) | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的六個工具、
-`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、`cutin`、
+`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、
 `character-editor`、`trpg-lab`、
 `anime-rig`、`scenario-editor` 與くま的四個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
 `bg-motion` 也照上游保留韓文（上游的英文沒有收）。

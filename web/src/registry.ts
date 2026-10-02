@@ -203,7 +203,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把擲骰結果、勝負或一句喊話做成無縫循環的透明動畫：加工、配色、特效一次套好，匯出 CCFOLIA 切入或 Discord 貼圖用的 APNG、GIF。',
     group: 'G1',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'Taku-Taku-Taku/cutin-maker',
       url: 'https://github.com/Taku-Taku-Taku/cutin-maker',
