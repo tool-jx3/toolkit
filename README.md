@@ -126,6 +126,7 @@ npm test
 | `psd-studio` | [CCFOLIA & 圖片調色工作室](tools/psd-studio/) | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) |
 | `session-log` | [跑團紀錄簿](tools/session-log/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `session-report` | [團報產生器](tools/session-report/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `coc-typesetter` | [CoC 劇本排版工具](tools/coc-typesetter/) | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明） |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
@@ -137,9 +138,6 @@ npm test
 `anime-rig` 與 `scenario-editor` 為日文。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
-
-`coc-typesetter` 只有繁體中文：上游是日文工具，收錄時改寫成只有繁中
-（連劇本的標記語法與版面字型都改成中文），沒有留下日文介面，所以頁面上沒有語言選單。
 
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
@@ -169,11 +167,10 @@ npm test
 
 根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：新框架 `web/` 與本站重寫的工具（見下）、`docs/`、原創工具 `tools/text-fx/`、`assets/`、
 `index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁、`anime-rig`
-的繁中使用說明與 `coc-typesetter` 的範例劇本。
+的繁中使用說明。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
 **注意**：`character-select`、
 `pair-maker` 的原始 repo 皆未附任何授權條款，
-`coc-typesetter` 則連作者都不明，
 其權利屬原作者所有，
 不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。

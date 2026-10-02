@@ -419,7 +419,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '用簡單的標記寫克蘇魯神話劇本，即時排成 A5／B5／A4 的書頁：封面、目錄、章節編號、描述、檢定、KP 資訊與資料卡，長段落自動接到下一頁，可以列印成 PDF 或存成列印用 HTML。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'scenario-tool（作者不明）',
       url: 'https://scenario-tool-jade.vercel.app/coc-typesetter.html',

@@ -32,7 +32,6 @@
 | trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
 | jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | —（連到原站；2026-09-25～30 曾收錄 `1b48bea` 的副本） | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
-| coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
@@ -379,44 +378,6 @@ WebM。
   `のコピー`、`レイヤー 1` 這類 Photoshop 自動命名的處理是解析用的資料，不是介面文字，
   原樣保留；`tests/smoke.mjs` 只放行這幾行。
 
-## coc-typesetter：CoC 劇本排版工具
-
-上游是部署在 Vercel 上的單一頁面「CoCシナリオ組版ツール」：把克蘇魯神話 TRPG 的劇本貼進去，
-排成書本般的紙面，印成 PDF 後可以在 BOOTH 等處發佈。頁面上沒有作者署名、沒有授權條款，
-也找不到原始碼的 repo（這個環境連不到該網站，檔案是使用者另存後提供的，取得日期 2026-09-26）。
-權利屬原作者所有，此處僅供試用，見下方「未授權的工具」。
-
-### 只有繁體中文
-
-和其他工具「繁中＋原文」的雙語不同，這個工具收錄成只有繁體中文，不留日文介面，也沒有語言選單：
-
-- 介面、寫法說明、提示與確認訊息全部改寫成繁中。
-- 劇本的標記語法跟著改成中文：換頁是 `===換頁===`（原本是 `===改ページ===`），貼在內文開頭的
-  封面資訊用「標題／副標題／作者」（原本是「タイトル／サブタイトル／作者」），理智檢定除了
-  `SANc（0/1d3）` 之外也認得「SAN 檢定」「SC」「理智檢定」的寫法。日文的寫法不再支援。
-- 預設的框名、封面概要欄位與「/」選單都換成台灣跑團社群的說法：KP 資訊、公開資訊、資料卡、
-  規則版本、建議人數、遊玩時間、建議技能、撕卡率等。「/」選單的篩選關鍵字收了中文同義詞、
-  英文與拼音；注音輸入法會把 `/` 打成「ㄥ」，說明裡提醒改用英數模式或格式按鈕。
-- 版面字型從日文的 Shippori Mincho／Zen Kaku Gothic New 換成 Noto Serif TC／Noto Sans TC。
-- 分頁時的避頭尾標點拿掉假名，補上中文直角括號等標點；`*著重號*` 從日文的芝麻點（字的上方）
-  改成台灣的圓點（字的下方）。
-- 匯出的「列印用 HTML」標成 `zh-Hant-TW`，檔名後綴是「_列印用」。
-
-### 範例劇本另寫
-
-上游附了一篇日文範例劇本。收錄版不用它，另寫了一篇長度相近的原創繁中範例《不存在的四樓》
-（台中老公寓的電梯停在不存在的樓層），同樣用到所有格式：注意框、KP 資訊、資料卡、描述、檢定、
-理智檢定、NPC 資料表、怪物資料與換頁。這篇範例是本 repo 的新作，與根目錄的 LICENSE 一起以 MIT 釋出。
-
-### 其他改動
-
-- 拿掉 OG meta 與 `<meta name="description">`，頁首加上「← TRPG Toolkit」。
-- 上游的單檔 HTML 拆成 `index.html`、`styles.css` 與 `app.js`；紙面的樣式（`#book-css`）留在
-  `index.html` 裡，因為「儲存列印用 HTML」會把那一段原樣複製進匯出的檔案。
-- 上游會把舊版（`coc-typesetter:v1`）的存檔搬進新版；收錄版的網址底下不會有那種舊存檔，搬移的
-  程式拿掉了。存檔的 key 維持 `coc-typesetter:v2`。
-- marked 與 DOMPurify 照上游以 CDN 載入，版本與授權見 `tools/coc-typesetter/THIRD_PARTY_NOTICES.md`。
-
 ## scenario-editor：劇本排版台（CC0）
 
 上游 `sedn14636361/trpg-scenario-editor`（シナリオ組版台 v3.3.0）以 CC0 1.0 釋出，作者放棄了
@@ -481,6 +442,7 @@ WebM。
 | `psd-studio` | CCFOLIA & 圖片調色工作室 | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `83fd605` |
 | `session-log` | 跑團紀錄簿 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`session-log-tool`） | `83fd605` |
 | `session-report` | 團報產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`session-report-generator`） | `83fd605` |
+| `coc-typesetter` | CoC 劇本排版工具 | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明） | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -536,8 +498,6 @@ WebM。
 
 `sotsotssi/select-your-chara`
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
-`coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
-頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
 依著作權法預設，其權利保留予原作者，此處僅供試用。原作者如有異議，將立即移除。
 
 `character-select` 的上游是收錄前一兩天才建立、只有一次提交，
@@ -550,15 +510,14 @@ magic-circle 的繁體中文翻譯移植自
 分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
 （`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
 
-其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 是改寫成只有繁中，見上；
-`jizura` 連到原作者的官方繁中版，不在此列）。
+其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`jizura` 連到原作者的官方繁中版，不在此列）。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文（`trpg-lab` 的日文註解例外，見上）。
 
 ## 本 repo 新增的部分
 
 新框架 `web/`（含其建置產物 `assets/build/`、`next/` 與重寫上線的 `tools/<id>/index.html`）、`docs/`、`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
-`guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
+`guide.zh-TW.md`，
 以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
 `tools/character-select/`、
-`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。
+`tools/pair-maker/` 的其餘部分不在此範圍內，見上節。
