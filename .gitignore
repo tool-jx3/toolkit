@@ -10,3 +10,4 @@ web/test-results/
 web/playwright-report/
 web/blob-report/
 web/.vite/
+web/*.tsbuildinfo
