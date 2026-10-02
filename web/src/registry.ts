@@ -383,7 +383,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '左邊逐段寫劇本、右邊即時排成 A4 書頁：標題、對話、檢定框、表格、流程圖、NPC 卡、目錄與彈出視窗，可以列印、下載 PDF 或匯出附目錄的閱覽 HTML；作品存在瀏覽器裡，保留過去的版本。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sedn14636361/trpg-scenario-editor',
       url: 'https://github.com/sedn14636361/trpg-scenario-editor',

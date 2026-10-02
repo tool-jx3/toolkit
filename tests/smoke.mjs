@@ -442,42 +442,6 @@ for (const lib of ['three.js', 'cannon.js', 'gif.js', 'upng-js', 'pako', 'GLTFEx
 /* 一段連續的假名／漢字。刻意保留的日文清單逐段比對用（同一行多出一段新的原文仍然會被擋下）。 */
 const KANA_RUN = /[ぁ-ゖァ-ヺｦ-ﾝ・ー一-鿿]+/g;
 
-/* ---- scenario-editor（劇本排版台）---- */
-/* 上游 sedn14636361/trpg-scenario-editor 是 CC0 的單一 HTML（約 11,000 行），拆成
- * index.html／styles.css／app.js，NPC 卡的各系統資料表另外搬到 npc-data.js。
- * 刻意留著的日文有兩類，都是程式要比對、或原樣輸出給 CCFOLIA 的字串：
- *   1. app.js：CCFOLIA 棋子的指令與參數名（輸出與讀回共用）、讀入角色卡時的表頭別名、
- *      貼上原稿時推測段落種類的關鍵字。清單釘死。
- *   2. npc-data.js：能力值、技能、症候群等系統資料，整檔都是資料，會存進原稿也會
- *      輸出到 CCFOLIA。它只准有資料表，不准碰畫面。 */
-const SE_KEPT_JA = ['ルーツ属性一致', 'シンドローム', 'コンボ', '正気度ロール', 'アイデア', 'ダメージ判定',
-  'ふりがな', 'フリガナ', 'よみ', '読み', 'ヨミ', 'ルーツ', 'コンボ名', 'エフェクト名', '特殊ルール', 'ロール',
-  'シーン', 'へ', 'に', '続く'];
-const se = checkTool({
-  dir: 'tools/scenario-editor',
-  dict: 'i18n.scenario-editor.js',
-  locale: 'ja',
-  scripts: ['app.js', 'npc-data.js'],
-  styles: ['styles.css'],
-  minHooks: 220,
-  allowSource: (line, n, file) => file === 'npc-data.js'
-    || (file === 'app.js' && (line.match(KANA_RUN) || []).filter(run => KANA.test(run)).every(run => SE_KEPT_JA.includes(run)))
-});
-section('tools/scenario-editor');
-check('LICENSE 是上游的 CC0 原文', /CC0 1\.0 Universal/.test(read('tools/scenario-editor/LICENSE')));
-const seApp = read('tools/scenario-editor/app.js');
-for (const keep of SE_KEPT_JA) check(`app.js 仍保留「${keep}」`, seApp.includes(keep));
-const seTKeys = [...new Set([...seApp.matchAll(/\bT\((['"`])([a-zA-Z][\w.]*)\1/g)].map(m => m[2]).filter(k => !k.endsWith('.')))];
-check('app.js 以 T() 取用大量字串', seTKeys.length >= 600, `found ${seTKeys.length}`);
-const seHtml = read('tools/scenario-editor/index.html');
-const seOrder = ['assets/i18n.js', 'i18n.scenario-editor.js', 'npc-data.js', 'app.js'].map(f => seHtml.indexOf(f));
-check('載入順序：引擎、字典、NPC 資料、主程式', seOrder.every((at, i) => at >= 0 && (i === 0 || at > seOrder[i - 1])), seOrder.join(','));
-check('npc-data.js 只有資料表，不操作畫面', !/document\.|innerHTML|textContent/.test(read('tools/scenario-editor/npc-data.js')));
-/* 這個工具刻意不連網：不准為了繁中字型加上 Google Fonts。 */
-check('不載入任何網頁字型或外部資源',
-  !/fonts\.googleapis|fonts\.gstatic|https?:\/\/(?!www\.w3\.org)/.test(seHtml + read('tools/scenario-editor/styles.css')));
-check('紙面與介面的字型堆疊補上台灣系統字型', seApp.includes('Noto Serif TC') && seApp.includes('Microsoft JhengHei'));
-
 /* ---- character-select ---- */
 const cs = checkTool({
   dir: 'tools/character-select',
@@ -959,7 +923,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
 
 checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
 checkInlineText('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 150);
-checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
 checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
 /* pair-maker 有兩頁，兩頁都要比。 */
 checkInlineText('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 15);
@@ -1034,7 +997,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
 
 checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
 checkAttrPairs('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 50);
-checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
 checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
 checkAttrPairs('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 9);
 checkAttrPairs('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
@@ -1059,7 +1021,7 @@ for (const name of TOOLS) {
 }
 for (const sha of ['de40a68',
   '883f48b',
-  'aad63b1', '9c29866', 'a6387e0',
+  'aad63b1', '9c29866',
   '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }

@@ -127,6 +127,7 @@ npm test
 | `session-log` | [跑團紀錄簿](tools/session-log/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `session-report` | [團報產生器](tools/session-report/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `coc-typesetter` | [CoC 劇本排版工具](tools/coc-typesetter/) | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明） |
+| `scenario-editor` | [劇本排版台](tools/scenario-editor/) | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
@@ -134,8 +135,8 @@ npm test
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的五個工具、
 `pair-maker` 為韓文，
-`trpg-lab`、
-`anime-rig` 與 `scenario-editor` 為日文。
+`trpg-lab` 與
+`anime-rig` 為日文。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
 

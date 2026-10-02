@@ -32,9 +32,8 @@
 | trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
 | jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | —（連到原站；2026-09-25～30 曾收錄 `1b48bea` 的副本） | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
-| scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
 
-收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
+收錄副本的 MIT 工具，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
 ## pair-maker：不收作品集樣張，卡片圖改由工具自己算繪
 
@@ -378,29 +377,6 @@ WebM。
   `のコピー`、`レイヤー 1` 這類 Photoshop 自動命名的處理是解析用的資料，不是介面文字，
   原樣保留；`tests/smoke.mjs` 只放行這幾行。
 
-## scenario-editor：劇本排版台（CC0）
-
-上游 `sedn14636361/trpg-scenario-editor`（シナリオ組版台 v3.3.0）以 CC0 1.0 釋出，作者放棄了
-著作權，不必署名也能自由改寫；合輯仍照慣例標出出處。它和 `coc-typesetter` 同樣是「寫劇本、
-排成書頁」的工具，但走的是另一條路：左邊逐段選書式寫稿、右邊即時排成 A4 紙面，另有表格、
-流程圖、NPC 卡、目錄、彈出視窗與作品管理（IndexedDB、過去的版本、垃圾桶），不需要學標記語法。
-
-- 單一 HTML（約 11,000 行）照慣例拆成 `index.html`、`styles.css`、`app.js`；NPC 卡各系統的
-  資料表（CoC、Emoklore、DX3rd 的能力值、技能、症候群等）另外搬到 `npc-data.js`。
-  註解全部譯成繁體中文。
-- 右上角的完整說明、狀態列、對話框都走字典；匯出的閱覽 HTML 與列印時產生的文字
-  （巻末的附錄、目錄、按鈕）用匯出當下的語言。紙面的 CSS（`DOC_CSS`）仍是畫面與
-  匯出共用的同一份，NPC 卡「超出頁面」的提示改成 CSS 變數，由程式依語言設定。
-- 首次開啟時放進去的範例原稿依建立當下的語言給繁中或日文；存檔的 key 與 JSON 格式不變，
-  上游存的原稿可以直接讀進繁中版。
-- 刻意保留的日文：輸出到 CCFOLIA 棋子的指令與參數名（`正気度ロール`、`アイデア`、`コンボ`、
-  `シンドローム` 等，本工具讀回棋子時也靠同一組字串）、讀入角色卡時的表頭別名、貼上原稿時推測
-  段落種類的關鍵字，以及 `npc-data.js` 的系統資料。所以繁中介面的 NPC 卡上，能力值與技能名仍是
-  日文。`tests/smoke.mjs` 把 `app.js` 的這批字串釘成清單。
-- 原稿的標記語法（`｜漢字《ルビ》`、行首記號、`/kajou` `/list` 等斜線指令）與快捷鍵都照上游。
-- 這個工具刻意不連網，因此沒有加 Google Fonts，只在紙面的明體後面補上新細明體與
-  Noto Serif TC、介面字型補上微軟正黑體、蘋方與 Noto Sans TC（接在日文字型後面，日文顯示不變）。
-
 ## 本站重寫的工具（靈感來源）
 
 下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的流程改寫到本站的 `web/` 框架，
@@ -443,6 +419,7 @@ WebM。
 | `session-log` | 跑團紀錄簿 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`session-log-tool`） | `83fd605` |
 | `session-report` | 團報產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`session-report-generator`） | `83fd605` |
 | `coc-typesetter` | CoC 劇本排版工具 | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明） | `83fd605` |
+| `scenario-editor` | 劇本排版台 | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor)（CC0） | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 

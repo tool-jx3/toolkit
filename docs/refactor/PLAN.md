@@ -168,7 +168,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | log-converter | ✅ | ✅ | ✅ | ✅ |
 | room-zip | ✅ | ✅ | ✅ | ✅ |
 | psd-studio | ✅ | ✅ | ✅ | ✅ |
-| scenario-editor | ✅ | ✅ | ⬜ | ⬜ |
+| scenario-editor | ✅ | ✅ | ✅ | ✅ |
 | session-log | ✅ | ✅ | ✅ | ✅ |
 | session-report | ✅ | ✅ | ✅ | ✅ |
 | coc-typesetter | ✅ | ✅ | ✅ | ✅ |

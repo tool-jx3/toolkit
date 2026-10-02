@@ -1,5 +1,5 @@
 /**
- * 劇本排版台（建置產物 next/scenario-editor/）的端對端測試：
+ * 劇本排版台（建置產物 tools/scenario-editor/）的端對端測試：
  * - 開頁：沒有 pageerror／console error；第一次使用直接用範例原稿建立作品（F008）；
  * - 書寫：打字、Enter 分段、Backspace 接合、斜線指令、書式快捷鍵（實體按鍵位置）、復原、多段貼上（F033～F037、F240、F019）；
  * - 紙面：自動分頁、目錄頁碼、頁尾、選取與捲動（F180～F190）；
