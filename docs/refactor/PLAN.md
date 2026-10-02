@@ -163,7 +163,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | bg-motion | ✅ | ✅ | ✅ | ✅ |
 | loading-maker | ✅ | ✅ | ✅ | ✅ |
 | foreground-frame | ✅ | ✅ | ✅ | ✅ |
-| scenario-cards | ✅ | ⬜ | ⬜ | ⬜ |
+| scenario-cards | ✅ | ✅ | ✅ | ✅ |
 | character-editor | ✅ | ✅ | ✅ | ✅ |
 | log-converter | ✅ | ✅ | ✅ | ✅ |
 | room-zip | ✅ | ✅ | ✅ | ✅ |

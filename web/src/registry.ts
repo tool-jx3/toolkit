@@ -371,7 +371,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       'KP／GM 帶團前整理劇本：選取劇本內文做成場景、探索地點、NPC、HO 秘匿等資訊卡片，一鍵複製成貼進 CCFOLIA 聊天欄的固定格式文字。',
     group: 'G5',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'くま。／TRPG WEBツール観測所',
       url: 'https://kumachansteps.github.io/trpg-web-tools/',

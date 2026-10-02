@@ -36,7 +36,6 @@
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
 | session-log | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-log-tool/` | `42c45f3` | **未授權** |
 | session-report | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-report-generator/` | `42c45f3` | **未授權** |
-| scenario-cards | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/scenario-snippet-builder/` | `42c45f3` | **未授權** |
 | psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
@@ -446,10 +445,10 @@ WebM。
 
 ## くま（TRPG WEBツール観測所）的工具
 
-`session-log`、`session-report`、`scenario-cards` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
+`session-log`、`session-report` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
 「TRPG WEBツール観測所」（[kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools)）。
 站上上線與開發中的工具有十幾個，收錄的是不依賴日文角色卡服務、日文聊天面板或作者後端、
-台灣玩家也用得上的六個（其中 `icon-maker`、`variant-manager`、`bg-motion` 已由本站重寫，見下方「本站重寫的工具」）。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
+台灣玩家也用得上的六個（其中 `icon-maker`、`variant-manager`、`bg-motion`、`scenario-cards` 已由本站重寫，見下方「本站重寫的工具」）。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
 「画像・アイコン素材の無断転載、再配布、二次利用はお控えください」，因此：
 
 - **上游的圖片一律不收**：站台圖示（部分由るた様繪製）、favicon 都不收。
@@ -464,7 +463,6 @@ WebM。
   繁中寫法（「忍神」「撕卡」「守密人」等），繁中版的範本與匯出文字也能匯回。
 - 團報範本依產生當下的語言給繁中或日文用語（通過→通關、ロスト→撕卡、様→樣、作：〇〇様→
   作者：〇〇老師）。
-- `scenario-cards` 的上游版面用 CSS 把頁尾藏起來，收錄版讓它顯示，否則整頁看不到作者署名。
 
 ## psd-studio
 
@@ -515,6 +513,7 @@ WebM。
 | `foreground-frame` | 前景框產生器 | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `83fd605` |
 | `room-zip` | 房間 ZIP 產生器 | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `83fd605` |
 | `log-converter` | CCFOLIA 日誌轉換器 | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `83fd605` |
+| `scenario-cards` | 劇本資訊卡片產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`scenario-snippet-builder`） | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -575,7 +574,7 @@ WebM。
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
 `coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
 頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
-くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中三個工具，見上方專節；
+くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中兩個工具，見上方專節；
 站上的利用規約另外禁止轉載圖片素材，因此一張圖都沒收）。
 依著作權法預設，其權利保留予原作者，此處僅供試用。原作者如有異議，將立即移除。
 
