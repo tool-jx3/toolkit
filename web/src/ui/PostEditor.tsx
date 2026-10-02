@@ -135,12 +135,30 @@ export function PostEditor({
     }
   };
 
+  /*
+   * 最後的選取位置，連同當時的值一起記：欄位失去焦點後值被程式換掉時，
+   * Chromium 回報的 selectionStart 會變成 0，所以不能直接讀欄位（session-report F29）。
+   */
+  const lastSel = useRef<{ start: number; end: number; value: string } | null>(null);
+  const remember = () => {
+    const ta = area.current;
+    if (ta) lastSel.current = { start: ta.selectionStart, end: ta.selectionEnd, value: ta.value };
+  };
+
   const insert = (text: string) => {
     const ta = area.current;
     const current = latest.current.value;
     const len = current.length;
-    const start = Math.min(ta?.selectionStart ?? len, len);
-    const end = Math.max(start, Math.min(ta?.selectionEnd ?? len, len));
+    let start = len;
+    let end = len;
+    if (ta && typeof document !== 'undefined' && document.activeElement === ta) {
+      start = ta.selectionStart;
+      end = ta.selectionEnd;
+    } else if (lastSel.current && lastSel.current.value === current) {
+      ({ start, end } = lastSel.current);
+    }
+    start = Math.min(start, len);
+    end = Math.max(start, Math.min(end, len));
     const next = current.slice(0, start) + text + current.slice(end);
     const caret = start + text.length;
     latest.current.onChange(next, 'insert');
@@ -224,6 +242,8 @@ export function PostEditor({
         aria-describedby={hint ? `${countId} ${hintId}` : countId}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value, 'input')}
+        onSelect={remember}
+        onBlur={remember}
         className={cn(
           'block min-h-[180px] w-full max-h-[720px] resize-y rounded-md border border-border-strong bg-surface-2 px-3 py-2',
           'text-[15px] leading-relaxed text-fg transition-colors placeholder:text-muted hover:border-accent',

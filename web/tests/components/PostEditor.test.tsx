@@ -58,12 +58,53 @@ describe('PostEditor', () => {
     render(<Harness initial="ABCDEF" editorRef={ref} onChange={onChange} />);
     fireEvent.change(area(), { target: { value: 'ABCDEFG' } });
     expect(onChange).toHaveBeenLastCalledWith('ABCDEFG', 'input');
+    area().focus();
     area().setSelectionRange(2, 4);
     act(() => ref.current?.insert('★★'));
     expect(onChange).toHaveBeenLastCalledWith('AB★★EFG', 'insert');
     await waitFor(() => expect(area().selectionStart).toBe(4));
     expect(area().selectionEnd).toBe(4);
     expect(document.activeElement).toBe(area());
+  });
+
+  it('欄位沒有焦點時：值沒變用最後的選取位置；值被程式換掉後插在最後面（session-report F29）', async () => {
+    const onChange = vi.fn();
+    const ref = createRef<PostEditorHandle>();
+    function Outer() {
+      const [v, setV] = useState('ABCDEF');
+      return (
+        <UiProvider>
+          <PostEditor
+            ref={ref}
+            value={v}
+            onChange={(next, r) => {
+              onChange(next, r);
+              setV(next);
+            }}
+          />
+          <button type="button" onClick={() => setV('重新產生的團報')}>
+            重新產生
+          </button>
+        </UiProvider>
+      );
+    }
+    render(<Outer />);
+    /* 選取 2～4 後焦點移到別處：插入照最後的選取位置 */
+    area().focus();
+    area().setSelectionRange(2, 4);
+    fireEvent.select(area());
+    screen.getByRole('button', { name: '重新產生' }).focus();
+    fireEvent.blur(area());
+    act(() => ref.current?.insert('★'));
+    expect(onChange).toHaveBeenLastCalledWith('AB★EF', 'insert');
+    await waitFor(() => expect(document.activeElement).toBe(area()));
+    /* 焦點移走、值被換掉（瀏覽器這時可能回報選取位置 0）：插在最後面 */
+    act(() => screen.getByRole('button', { name: '重新產生' }).focus());
+    fireEvent.blur(area());
+    fireEvent.click(screen.getByRole('button', { name: '重新產生' }));
+    area().setSelectionRange(0, 0);
+    act(() => ref.current?.insert('★'));
+    expect(onChange).toHaveBeenLastCalledWith('重新產生的團報★', 'insert');
   });
 
   it('focus({ atEnd })：游標放在最後', () => {

@@ -75,7 +75,10 @@ function PendingImport() {
     void (async () => {
       const payload = readPendingReportImport();
       if (payload === null) return;
-      if (payload === 'broken') {
+      /* 項目陣列是空的：不詢問、不刪除（同舊版）；第一項不是物件（例如 `{"items":[null]}`）也當作讀不懂（第 7.1 節） */
+      const first: unknown = payload === 'broken' ? undefined : payload.items[0];
+      if (payload !== 'broken' && payload.items.length === 0) return;
+      if (payload === 'broken' || !first || typeof first !== 'object') {
         const ok = await confirm({
           title: S.pending.brokenTitle,
           description: S.pending.brokenDescription,
@@ -87,7 +90,6 @@ function PendingImport() {
         return;
       }
       const item = payload.items[0];
-      if (!item) return;
       const how = await choose({
         title: S.pending.title,
         description: S.pending.description,

@@ -618,7 +618,9 @@ test('交接資料：稍後保留、讀入填表（刪除交接資料、可以�
   expect(errors).toEqual([]);
 });
 
-test('交接資料：損壞時詢問刪除（保留／刪除）；項目是空的不詢問', async ({ page }) => {
+test('交接資料：損壞時詢問刪除（保留／刪除），第一項不是物件也算；項目是空的不詢問', async ({
+  page,
+}) => {
   const errors = await open(page);
   const before = await text(page);
   const broken = page.getByRole('alertdialog', { name: '跑團紀錄簿送來的資料無法讀取' });
@@ -632,6 +634,11 @@ test('交接資料：損壞時詢問刪除（保留／刪除）；項目是空�
   expect(await pendingValue(page)).toBeNull();
   /* JSON 但沒有項目陣列也當作讀不懂 */
   await withPending(page, '{}');
+  await expect(broken).toBeVisible();
+  await broken.getByRole('button', { name: '刪除' }).click();
+  expect(await pendingValue(page)).toBeNull();
+  /* 第一項不是物件也當作讀不懂（第 7.1 節） */
+  await withPending(page, JSON.stringify({ ...payload(), items: [null] }));
   await expect(broken).toBeVisible();
   await broken.getByRole('button', { name: '刪除' }).click();
   expect(await pendingValue(page)).toBeNull();
