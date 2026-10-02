@@ -55,6 +55,11 @@ export interface ApngEncoderOptions {
   embedStill?: boolean;
   /** 減色時代表畫面的份量下限（份量＝影格數×0.35，預設下限 1） */
   stillWeightMin?: number;
+  /**
+   * 每格最少幾個 tick（預設 1：addFrame 的 ticks 不足 1 時以 1 計）。0＝允許延遲 0 的影格
+   * （照原檔保留延遲 0，例：psd-studio 第 7 節裁定）；搭配 mergeIdentical: false 才能保證每格都留下。
+   */
+  minTicks?: number;
 }
 
 interface Change {
@@ -147,6 +152,7 @@ export class ApngEncoder implements FrameEncoder {
       deflate: 'auto',
       embedStill: true,
       stillWeightMin: 1,
+      minTicks: 1,
       ...rest,
     };
     this.fixed = palette ? fixedPalette(palette) : null;
@@ -164,7 +170,7 @@ export class ApngEncoder implements FrameEncoder {
     const { width: W, height: H } = this.opt;
     assertFrameSize(rgba, W, H);
     const u32 = toU32(rgba);
-    const t = Math.max(1, Math.round(ticks));
+    const t = Math.max(Math.max(0, this.opt.minTicks ?? 1), Math.round(ticks));
     this.added++;
     this.ticks += t;
     let r = this.prev ? diffRect(this.prev, u32, W, H) : { x: 0, y: 0, w: W, h: H };
