@@ -144,6 +144,17 @@ export {
   ImageDrop,
   type ImageDropProps,
 } from './ImageDrop';
+export {
+  type FrameTransform,
+  fitTransform,
+  frameIn,
+  ImageFrameDialog,
+  type ImageFrameDialogProps,
+  renderFrame,
+  turnAt,
+  turnedSize,
+  zoomAt,
+} from './ImageFrameDialog';
 export { ImageSampler, type ImageSamplerProps, type SamplePoint } from './ImageSampler';
 export { InspirationFooter } from './InspirationFooter';
 export {
@@ -156,6 +167,14 @@ export {
 export { ItemListEditor, type ItemListEditorProps } from './ItemListEditor';
 export { Kbd } from './Kbd';
 export { KeyframeTable, type KeyframeTableProps } from './KeyframeTable';
+export {
+  type CanvasPicker,
+  createCanvasPicker,
+  LayoutCanvas,
+  type LayoutCanvasProps,
+  type LayoutSticker,
+  type StickerPhase,
+} from './LayoutCanvas';
 export {
   type LayoutChange,
   LayoutEditor,
@@ -208,6 +227,14 @@ export {
   type ProjectMenuProps,
   type ProjectNotice,
 } from './ProjectMenu';
+export {
+  domToOffset,
+  offsetToDom,
+  RichTextField,
+  type RichTextFieldProps,
+  readRichDom,
+  writeRichDom,
+} from './RichTextField';
 export {
   type RevealInput,
   type RevealResult,

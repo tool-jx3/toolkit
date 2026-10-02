@@ -16,11 +16,14 @@
  */
 import * as fontkitModule from '@pdf-lib/fontkit';
 import {
+  concatTransformationMatrix,
   PDFDocument,
   type PDFDocument as PDFDocumentType,
   type PDFFont,
   type PDFImage,
   type PDFPage,
+  popGraphicsState,
+  pushGraphicsState,
   rgb,
 } from 'pdf-lib';
 import { fetchGoogleFontSubset } from '../fonts';
@@ -860,6 +863,134 @@ export async function pagesToPdf(o: PdfOptions): Promise<Uint8Array> {
           await paintText(painter, child as Text, el, getComputedStyle(el));
       }
     });
+    o.onProgress?.(i + 1, total);
+  }
+  return doc.save();
+}
+
+/* ---------- 自己畫的頁面（畫布＋逐字位置） ---------- */
+
+/** 一個字：位置是頁面的 px 座標（左緣、基線） */
+export interface DrawnPdfGlyph {
+  ch: string;
+  x: number;
+  baseline: number;
+  /** 字級（px） */
+  size: number;
+  weight: number;
+  /** 色碼（#rrggbb） */
+  color: string;
+  /** font-family 清單（依序找；名稱不分大小寫） */
+  families: readonly string[];
+  /** 水平壓縮比例（預設 1） */
+  scaleX?: number;
+}
+
+export interface DrawnPdfPage {
+  /** 頁面大小（px） */
+  width: number;
+  height: number;
+  glyphs: readonly DrawnPdfGlyph[];
+}
+
+export interface DrawnPdfOptions {
+  pages: readonly DrawnPdfPage[];
+  /** 第 i 頁的點陣（PNG 位元組）：文字下面的底圖與疊在文字上面的一層（例如貼紙；可省略）。依序呼叫，可以邊畫邊丟 */
+  raster: (index: number) => Promise<{ background: Uint8Array; overlay?: Uint8Array | null }>;
+  fonts: readonly PdfFontSource[];
+  fallback: PdfOptions['fallback'];
+  missingGlyphs?: PdfOptions['missingGlyphs'];
+  title?: string;
+  signal?: AbortSignal;
+  onProgress?: (done: number, total: number) => void;
+}
+
+/**
+ * 自己排版、自己畫的頁面 → PDF（pair-maker 移植時新增；pagesToPdf 是讀瀏覽器排好的 DOM，這個是給畫布工具用的）：
+ * 每頁先放底圖點陣，再把每個字用嵌入的字型放在指定的位置（可以選取、搜尋），最後疊上 overlay 點陣。
+ * 字型的找法、子集嵌入、補字與 pagesToPdf 相同。
+ */
+export async function drawnPagesToPdf(o: DrawnPdfOptions): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit as unknown as Parameters<PDFDocumentType['registerFontkit']>[0]);
+  if (o.title) doc.setTitle(o.title);
+  doc.setCreator('TRPG Toolkit');
+  doc.setProducer('TRPG Toolkit（pdf-lib）');
+  const book = new FontBook(doc, o.fonts, o.fallback);
+  const families = (g: DrawnPdfGlyph) => g.families.map((f) => f.toLowerCase());
+  /* 字重：依來源字型挑最接近的（例如明體的 500、600 也有對應的字型時照用） */
+  const weightOf = (g: DrawnPdfGlyph) =>
+    Math.max(100, Math.min(900, Math.round(g.weight / 100) * 100));
+
+  /* 畫之前：每個字要用的字型（嵌入時只收這些字）；都沒有的字交給 missingGlyphs */
+  const pending: { families: string[]; weight: number; cp: number; ch: string }[] = [];
+  const seen = new Set<string>();
+  for (const page of o.pages)
+    for (const g of page.glyphs) {
+      if (/\s/.test(g.ch)) continue;
+      const fam = families(g);
+      const w = weightOf(g);
+      const key = `${w}|${fam.join(',')}|${g.ch}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const cp = g.ch.codePointAt(0) ?? 0;
+      const f = await book.fontFor(fam, w, cp);
+      if (f) book.note(f, cp);
+      else pending.push({ families: fam, weight: w, cp, ch: g.ch });
+    }
+  if (pending.length && o.missingGlyphs) {
+    const groups = new Map<
+      string,
+      { generic: 'serif' | 'sans'; weight: number; chars: Set<string> }
+    >();
+    for (const m of pending) {
+      const generic = book.genericOf(m.families);
+      const key = `${generic}|${m.weight}`;
+      let g = groups.get(key);
+      if (!g) {
+        g = { generic, weight: m.weight, chars: new Set() };
+        groups.set(key, g);
+      }
+      g.chars.add(m.ch);
+    }
+    for (const { chars, ...g } of groups.values()) {
+      o.signal?.throwIfAborted();
+      const srcs = await o.missingGlyphs({ ...g, text: [...chars].join(''), signal: o.signal });
+      book.addExtra(g.generic, g.weight, srcs);
+    }
+    for (const m of pending) {
+      const f = await book.fontFor(m.families, m.weight, m.cp);
+      if (f) book.note(f, m.cp);
+    }
+  }
+
+  const total = o.pages.length;
+  for (let i = 0; i < total; i++) {
+    o.signal?.throwIfAborted();
+    const pg = o.pages[i];
+    const wPt = pg.width * PX_PT;
+    const hPt = pg.height * PX_PT;
+    const page = doc.addPage([wPt, hPt]);
+    const { background, overlay } = await o.raster(i);
+    page.drawImage(await doc.embedPng(background), { x: 0, y: 0, width: wPt, height: hPt });
+    for (const g of pg.glyphs) {
+      if (/\s/.test(g.ch)) continue;
+      const cp = g.ch.codePointAt(0) ?? 0;
+      const f = await book.fontFor(families(g), weightOf(g), cp);
+      if (!f) continue;
+      const font = await book.embed(f);
+      const hex = /^#[0-9a-f]{6}$/i.test(g.color) ? g.color : '#323232';
+      const c = [1, 3, 5].map((k) => Number.parseInt(hex.slice(k, k + 2), 16) / 255);
+      const sx = g.scaleX ?? 1;
+      page.pushOperators(
+        pushGraphicsState(),
+        concatTransformationMatrix(sx, 0, 0, 1, g.x * PX_PT, hPt - g.baseline * PX_PT),
+      );
+      page.drawText(g.ch, { x: 0, y: 0, size: g.size * PX_PT, font, color: rgb(c[0], c[1], c[2]) });
+      page.pushOperators(popGraphicsState());
+    }
+    if (overlay)
+      page.drawImage(await doc.embedPng(overlay), { x: 0, y: 0, width: wPt, height: hPt });
     o.onProgress?.(i + 1, total);
   }
   return doc.save();

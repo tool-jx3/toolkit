@@ -461,6 +461,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/sotsotssi/magic-circle-maker',
     },
   },
+  {
+    id: 'pair-maker',
+    name: '角色介紹圖產生器',
+    summary:
+      '挑一個版型，在畫布上點哪裡就改哪裡：兩人資料、配對、花紋橫幅、多人資料卡、置頂貼文與會自動分頁的文字記錄，加上可自由旋轉的貼紙，下載 PNG 或 PDF。',
+    group: 'G7',
+    status: 'next',
+    inspiration: {
+      name: 'baegop157902/PairMaker',
+      url: 'https://github.com/baegop157902/PairMaker',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

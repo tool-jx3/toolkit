@@ -4,7 +4,7 @@
  *
  * 值一律是小寫色碼：#rrggbb；開啟 alpha 且不是完全不透明時為 #rrggbbaa。
  */
-import { Pipette } from 'lucide-react';
+import { Crosshair, Pipette } from 'lucide-react';
 import { Popover, Slider as S } from 'radix-ui';
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react';
 import { formatHex, type Hsv, hsvToRgb, parseColor, rgbToHsv } from '@/core/color';
@@ -42,6 +42,13 @@ export interface ColorPickerProps {
   alpha?: boolean;
   swatches?: readonly string[];
   eyedropper?: boolean;
+  /**
+   * 「從畫布取色」按鈕（pair-maker 移植時新增，選填；不給時沒有這個按鈕）：按下時呼叫，由呼叫端開始取色
+   * （例如 LayoutCanvas 的 createCanvasPicker）。ColorField 用 pickFromCanvas 更方便。
+   */
+  onPickFromCanvas?: () => void;
+  /** 「從畫布取色」按鈕的文字（預設「從畫布取色」） */
+  pickFromCanvasLabel?: string;
 }
 
 /** 調色盤本體（可單獨放在任何地方） */
@@ -51,6 +58,8 @@ export function ColorPicker({
   alpha = false,
   swatches = DEFAULT_SWATCHES,
   eyedropper = true,
+  onPickFromCanvas,
+  pickFromCanvasLabel = '從畫布取色',
 }: ColorPickerProps) {
   const rgba = parseColor(value) ?? { r: 0, g: 0, b: 0, a: 1 };
   /* 色相在灰階時會遺失，所以自己記著 */
@@ -198,6 +207,16 @@ export function ColorPicker({
             }}
           />
         ) : null}
+        {onPickFromCanvas ? (
+          <button
+            type="button"
+            onClick={onPickFromCanvas}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-surface-2 px-2 text-xs text-fg hover:bg-surface-3 [&_svg]:size-3.5"
+          >
+            <Crosshair aria-hidden />
+            {pickFromCanvasLabel}
+          </button>
+        ) : null}
         <span className="font-mono text-xs text-muted">{value}</span>
       </div>
       {swatches.length ? (
@@ -236,6 +255,14 @@ export interface ColorFieldProps {
   'aria-label'?: string;
   'aria-labelledby'?: string;
   className?: string;
+  /**
+   * 從畫布取色（pair-maker 移植時新增，選填；不給時沒有這個按鈕）：調色盤裡多一個「從畫布取色」，
+   * 按下時關閉調色盤、呼叫這個函式，回傳色碼就套用（null＝取消）。開 alpha 時保留原本的不透明度。
+   * 例：`pickFromCanvas={picker.pick}`（LayoutCanvas 的 createCanvasPicker）。
+   */
+  pickFromCanvas?: () => Promise<string | null>;
+  /** 「從畫布取色」按鈕的文字 */
+  pickFromCanvasLabel?: string;
 }
 
 /** 色碼文字 → 值；看不懂回傳 null */
@@ -256,6 +283,8 @@ export function ColorField({
   showInput = true,
   disabled,
   className,
+  pickFromCanvas,
+  pickFromCanvasLabel,
   ...rest
 }: ColorFieldProps) {
   const field = useFieldControl(rest);
@@ -303,6 +332,18 @@ export function ColorField({
                 alpha={alpha}
                 swatches={swatches}
                 eyedropper={eyedropper}
+                pickFromCanvasLabel={pickFromCanvasLabel}
+                onPickFromCanvas={
+                  pickFromCanvas
+                    ? () => {
+                        setOpen(false);
+                        void pickFromCanvas().then((hex) => {
+                          const c = hex ? parseColor(hex) : null;
+                          if (c) onChange(formatHex({ ...c, a: alpha ? rgba.a : 1 }, alpha));
+                        });
+                      }
+                    : undefined
+                }
               />
             </FieldScope>
           </Popover.Content>
