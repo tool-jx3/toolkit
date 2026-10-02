@@ -305,6 +305,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://kumachansteps.github.io/trpg-web-tools/',
     },
   },
+  {
+    id: 'room-zip',
+    name: '房間 ZIP 產生器',
+    summary:
+      '把自己的背景、立繪、面板圖整理成 CCFOLIA 可以直接匯入的房間 ZIP：設計共用部件、一次排好多個場景的立繪與演出，再加上棋子與劇本文字。全部在瀏覽器裡完成。',
+    group: 'G5',
+    status: 'next',
+    inspiration: {
+      name: 'johnko00/ccfolia-room-zip-maker-demo',
+      url: 'https://github.com/johnko00/ccfolia-room-zip-maker-demo',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
