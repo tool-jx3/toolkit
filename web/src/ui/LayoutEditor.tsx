@@ -12,6 +12,7 @@
  * - G2 加的（選填，不給時行為不變）：`snap`：拖曳移動時吸附到畫布（frame）的左中右／上中下與其他物件的邊和中心，
  *   靠近 threshold（螢幕 px，預設 8）以內就對齊並顯示一條吸附線，吸住後要拉開 release（預設 12）才脫離；
  *   `hitPadding`：點選範圍往外擴幾個螢幕 px（小物件比較好點）。重疊時後面的物件（上層）優先。
+ * - loading-maker 加的（選填）：LayoutItem 的 `attachedTo`：跟著另一個物件移動的物件，拖曳那個物件時不當吸附目標。
  *
  * ```tsx
  * <Stage width={1024} height={1024}>
@@ -73,6 +74,11 @@ export interface LayoutItem {
   locked?: boolean;
   /** 點選範圍只算 frame 以內的部分（例如圖片超出內側區域的部分被裁掉時） */
   clipToFrame?: boolean;
+  /**
+   * 這個物件跟著另一個物件（id）一起移動（例如進度數字跟著進度條）：拖曳那個物件時不拿它當吸附目標。
+   * 不給時照舊（loading-maker 移植時新增）。
+   */
+  attachedTo?: string;
 }
 
 export interface LayoutChange {
@@ -342,7 +348,9 @@ export function LayoutEditor({
     if (snap && d.op === 'move' && (snap.canvas || snap.items)) {
       const targets = snapTargets(
         snap.canvas ? frame : null,
-        snap.items ? items.filter((it) => it.id !== d.id).map((it) => toPx(it.box)) : [],
+        snap.items
+          ? items.filter((it) => it.id !== d.id && it.attachedTo !== d.id).map((it) => toPx(it.box))
+          : [],
       );
       const res = snapBox(
         toPx(next),

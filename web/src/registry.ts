@@ -281,6 +281,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/shiki365/scene-transition-maker',
     },
   },
+  {
+    id: 'loading-maker',
+    name: '讀取動畫產生器',
+    summary:
+      '把角色和進度條、轉圈圖示或換圖列組成跑團用的讀取畫面：可上傳角色動畫、拖曳排版，加上開場淡入與結尾消失演出，匯出 APNG、WebP、GIF。',
+    group: 'G2',
+    status: 'next',
+    inspiration: {
+      name: 'sotsotssi/loading-maker',
+      url: 'https://github.com/sotsotssi/loading-maker',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

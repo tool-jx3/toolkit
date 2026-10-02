@@ -111,13 +111,15 @@ export function vanishState(
       s.alpha = 1;
       break;
     case 'pop':
-      if (pp < 0.2) s.scale = 1 + 0.13 * I * Math.sin((Math.PI * pp) / 0.2);
-      else s.scale = Math.max(0, 1 - ((pp - 0.2) / 0.8) ** 2);
+      /* 前 18% 放大約 13% × 強度再回原大，之後加速縮小（loading-maker F93） */
+      if (pp < 0.18) s.scale = 1 + 0.13 * I * Math.sin((Math.PI * pp) / 0.18);
+      else s.scale = Math.max(0, 1 - ((pp - 0.18) / 0.82) ** 2);
       s.alpha = pp <= 0.58 ? 1 : clamp01(1 - (pp - 0.58) / 0.42);
       break;
     case 'float':
       s.dy = -0.42 * H * I * smoothstep(pp);
-      s.blur = 12 * k * pp * I;
+      /* 模糊 7 px × 強度（S 形；loading-maker 附件「往上飄走」的範圍） */
+      s.blur = 7 * k * smoothstep(pp) * I;
       s.alpha = fade;
       break;
     case 'close':
@@ -151,7 +153,15 @@ export type VanishParticle =
     }
   | { type: 'dot'; x: number; y: number; r: number; color: string; alpha: number }
   | { type: 'line'; y: number; h: number; color: string; alpha: number }
-  | { type: 'glowLine'; x: number; w: number; color: string; alpha: number };
+  | {
+      type: 'glowLine';
+      x: number;
+      w: number;
+      color: string;
+      alpha: number;
+      /** 光暈的模糊（px；不給時＝線寬 × 3） */
+      blur?: number;
+    };
 
 /** 碎片（取來源畫面的一塊，各自變換） */
 export interface VanishPiece {
@@ -347,10 +357,11 @@ export function vanishLayout(
     case 'close': {
       const st = 1 - smoothstep(pp);
       const half = (st * W) / 2;
-      const w = Math.max(2, 4 * k * I);
+      /* 線寬約畫布寬的 0.4%、光暈 12 px（× 強度；loading-maker 附件「往中央收起」的不透明量） */
+      const w = Math.max(1, W * 0.004 * I);
       const alpha = pp < 0.04 ? pp / 0.04 : 1;
       for (const x of [W / 2 - half, W / 2 + half])
-        out.particles.push({ type: 'glowLine', x, w, color: colors[0], alpha });
+        out.particles.push({ type: 'glowLine', x, w, color: colors[0], alpha, blur: 12 * k * I });
       break;
     }
     case 'burst': {
@@ -445,7 +456,7 @@ export function drawVanish(
       ctx.fillRect(0, pt.y, W, pt.h);
     } else if (pt.type === 'glowLine') {
       ctx.shadowColor = pt.color;
-      ctx.shadowBlur = pt.w * 3;
+      ctx.shadowBlur = pt.blur ?? pt.w * 3;
       ctx.fillStyle = pt.color;
       ctx.fillRect(pt.x - pt.w / 2, 0, pt.w, H);
       ctx.shadowBlur = 0;

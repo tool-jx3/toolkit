@@ -356,6 +356,23 @@ export async function listUploadedFonts(): Promise<UploadedFont[]> {
   }
 }
 
+/**
+ * 某個上傳字型的原始檔（依註冊名稱找；同名有多個時取最後上傳的）。找不到時 null。
+ * 專案檔要一起帶走字型時用（loading-maker 移植時新增）。
+ */
+export async function uploadedFontFile(
+  family: string,
+): Promise<{ meta: UploadedFont; data: ArrayBuffer } | null> {
+  const meta = (await listUploadedFonts()).filter((m) => m.family === family).pop();
+  if (!meta) return null;
+  try {
+    const data = await idbGet<ArrayBuffer>(`data:${meta.id}`, fontDb());
+    return data ? { meta, data } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function removeUploadedFont(id: string): Promise<void> {
   const face = uploadedFamilies.get(id);
   if (face) {
