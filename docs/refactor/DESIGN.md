@@ -138,7 +138,7 @@ export function App() {
 | `NumberInput` | `value`、`onChange`、`min?`、`max?`、`step?`、`precision?`、`unit?`、`onCommit?` | role=spinbutton；打字時在範圍內即時套用，離開／Enter 夾到範圍，Esc 還原；↑↓（Shift ×10、Alt ×0.1）、PageUp／PageDown、Home／End。 |
 | `NativeNumberInput`、`spinStep(el, dir)` | `value: string`、`onChange(value: string)`、`min?`、`max?`、`step?`、`unit?`、`stepLabels?: { up, down }`、`invalid?`、`size?` | 原生 `<input type="number">`，解析與微調全照瀏覽器：值就是原生數字欄的值字串（全形「１２」→「12」；「5-」「1e」這類無效的寫法是空字串；「12.9」「3e1」照原樣），不夾範圍、不改寫，由工具自己解讀。鍵盤 ↑↓、滾輪是原生微調；給 `stepLabels` 時右邊顯示減少／增加按鈕（取代原生小箭頭），規則與原生微調鈕相同（`spinStep`：空白或無效時走到範圍內、超出範圍時只往範圍內走、不在格點上先對齊）。規格要求「與瀏覽器數字欄相同」時用這個（例：textbox 的寬度上限）；一般數值用 `NumberInput`。 |
 | `Slider` | `value`、`onChange`、`min`、`max`、`step?`、`unit?`、`precision?`、`showInput?`、`inputMin?`／`inputMax?`、`onCommit?`、`valueText?` | 滑桿＋數字欄；`inputMin/inputMax` 讓數字欄可超出滑桿範圍。滑桿代表索引或代碼時（例如 11 段固定時長）用 `valueText(v)` 給螢幕閱讀器念的文字，搭配 `showInput={false}` 與 Field 的 `labelSuffix` 顯示目前值。 |
-| `Tooltip` | `content`、`children`、`side?` | 滑鼠停留／鍵盤聚焦提示。 |
+| `Tooltip` | `content`、`children`、`side?` | 滑鼠停留／鍵盤聚焦提示。提示本身不接收滑鼠事件（蓋住相鄰按鈕時點擊會穿過去，psd-studio F31）。 |
 | `Kbd` | `children` | 按鍵外觀。 |
 | `Notice` | `tone?: 'info' \| 'success' \| 'warning' \| 'danger' \| 'progress'`、`children`、`action?` | 固定位置的狀態訊息列（已載入幾個檔案、處理進度、錯誤）；錯誤為 role=alert，其他為 role=status。 |
 

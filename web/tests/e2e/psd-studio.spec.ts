@@ -495,6 +495,35 @@ test('PSD：由上到下、同名保留、隱藏與獨顯、點擊選取、匯�
   expect(errors).toEqual([]);
 });
 
+test('眼睛鈕的提示不擋點擊（F31）：停在一列的眼睛上等提示出現，再點上一列的眼睛', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await load(page, [file('test.psd', testPsd(), 'application/octet-stream')]);
+  await expect(rows(page)).toHaveCount(12);
+  const eye = (i: number) =>
+    rows(page)
+      .nth(i)
+      .getByRole('button', { name: /^(隱藏|顯示)「/ });
+  const center = async (i: number) => {
+    const b = (await eye(i).boundingBox())!;
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  };
+  for (const i of [4, 2]) {
+    const above = await center(i - 1);
+    const before = await rows(page)
+      .nth(i - 1)
+      .getAttribute('data-hidden');
+    await eye(i).hover();
+    await expect(page.locator('[data-tk-tooltip]')).toBeVisible();
+    await page.mouse.move(above.x, above.y, { steps: 4 });
+    await page.mouse.down();
+    await page.mouse.up();
+    await expect(rows(page).nth(i - 1)).not.toHaveAttribute('data-hidden', before ?? '');
+  }
+  expect(errors).toEqual([]);
+});
+
 test('房間 ZIP：配置檢視、面板、雙擊開檢視器、匯出改名與房間資料同步、隱藏的保留原檔', async ({
   page,
 }) => {
