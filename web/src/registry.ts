@@ -293,6 +293,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/sotsotssi/loading-maker',
     },
   },
+  {
+    id: 'bg-motion',
+    name: '動態背景產生器',
+    summary:
+      '讓背景圖震動、搖晃、推近拉遠、水波扭曲、淡化，或在幾張圖之間溶接與擦除，再加上夜晚、起霧等濾鏡，匯出動態 WebP、APNG、GIF。',
+    group: 'G2',
+    status: 'next',
+    inspiration: {
+      name: 'くま。／TRPG WEBツール観測所',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

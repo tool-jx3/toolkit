@@ -144,14 +144,24 @@ function boxBlurH(src: Float32Array, dst: Float32Array, w: number, h: number, r:
   }
 }
 
+/**
+ * 垂直方框模糊：每一欄各自的累加值放在一列陣列裡，逐列往下推（記憶體連續讀取，比逐欄快很多；
+ * 每一欄的累加順序與逐欄算時相同，結果一樣）。
+ */
 function boxBlurV(src: Float32Array, dst: Float32Array, w: number, h: number, r: number) {
   const k = 1 / (2 * r + 1);
-  for (let x = 0; x < w; x++) {
-    let acc = 0;
-    for (let i = -r; i <= r; i++) acc += src[Math.min(h - 1, Math.max(0, i)) * w + x];
-    for (let y = 0; y < h; y++) {
-      dst[y * w + x] = acc * k;
-      acc += src[Math.min(h - 1, y + r + 1) * w + x] - src[Math.max(0, y - r) * w + x];
+  const acc = new Float64Array(w);
+  for (let i = -r; i <= r; i++) {
+    const row = Math.min(h - 1, Math.max(0, i)) * w;
+    for (let x = 0; x < w; x++) acc[x] += src[row + x];
+  }
+  for (let y = 0; y < h; y++) {
+    const o = y * w;
+    const add = Math.min(h - 1, y + r + 1) * w;
+    const sub = Math.max(0, y - r) * w;
+    for (let x = 0; x < w; x++) {
+      dst[o + x] = acc[x] * k;
+      acc[x] += src[add + x] - src[sub + x];
     }
   }
 }
@@ -254,39 +264,91 @@ interface Paint {
   a: number;
 }
 
-/** 依 (x, y) 決定顏色與不透明度的疊層 */
-function overlay(
-  p: Planes,
-  w: number,
-  h: number,
-  blend: BlendMode,
-  at: (x: number, y: number, out: Paint) => void,
-) {
-  const c: Paint = { r: 0, g: 0, b: 0, a: 0 };
-  for (let y = 0, i = 0; y < h; y++) {
-    for (let x = 0; x < w; x++, i++) {
-      at(x, y, c);
-      const a = c.a;
+/*
+ * 疊層：fill、glow、vignette 先算出每個像素的不透明度，再一次混合到整張圖（gradient 每個像素取色後直接混合）。
+ * 混合時 normal／screen／multiply 各有專用的算式（與 blendChannel 相同，結果一樣，但快很多），
+ * 其他模式逐像素呼叫 blendChannel。
+ */
+
+/** 每個像素的不透明度 A（≤ 0 的不動），顏色固定 */
+function blendPlanes(p: Planes, mode: BlendMode, A: Float64Array, color: Rgb): void {
+  const { r: R, g: G, b: B } = p;
+  const n = R.length;
+  const [cr, cg, cb] = color;
+  if (mode === 'normal') {
+    for (let i = 0; i < n; i++) {
+      const a = A[i];
       if (a <= 0) continue;
-      const r = p.r[i];
-      const g = p.g[i];
-      const b = p.b[i];
-      p.r[i] = r + (blendChannel(blend, r, c.r) - r) * a;
-      p.g[i] = g + (blendChannel(blend, g, c.g) - g) * a;
-      p.b[i] = b + (blendChannel(blend, b, c.b) - b) * a;
+      const r = R[i];
+      const g = G[i];
+      const b = B[i];
+      R[i] = r + (cr - r) * a;
+      G[i] = g + (cg - g) * a;
+      B[i] = b + (cb - b) * a;
     }
+    return;
+  }
+  if (mode === 'screen') {
+    for (let i = 0; i < n; i++) {
+      const a = A[i];
+      if (a <= 0) continue;
+      const r = R[i];
+      const g = G[i];
+      const b = B[i];
+      R[i] = r + (r + cr - (r * cr) / 255 - r) * a;
+      G[i] = g + (g + cg - (g * cg) / 255 - g) * a;
+      B[i] = b + (b + cb - (b * cb) / 255 - b) * a;
+    }
+    return;
+  }
+  if (mode === 'multiply') {
+    for (let i = 0; i < n; i++) {
+      const a = A[i];
+      if (a <= 0) continue;
+      const r = R[i];
+      const g = G[i];
+      const b = B[i];
+      R[i] = r + ((r * cr) / 255 - r) * a;
+      G[i] = g + ((g * cg) / 255 - g) * a;
+      B[i] = b + ((b * cb) / 255 - b) * a;
+    }
+    return;
+  }
+  for (let i = 0; i < n; i++) {
+    const a = A[i];
+    if (a <= 0) continue;
+    const r = R[i];
+    const g = G[i];
+    const b = B[i];
+    R[i] = r + (blendChannel(mode, r, cr) - r) * a;
+    G[i] = g + (blendChannel(mode, g, cg) - g) * a;
+    B[i] = b + (blendChannel(mode, b, cb) - b) * a;
   }
 }
 
-/** 逐像素調色：f 讀 (r, g, b)、把結果寫進 out[0..2] */
-function perPixel(p: Planes, f: (r: number, g: number, b: number, out: Float64Array) => void) {
-  const o = new Float64Array(3);
-  for (let i = 0; i < p.r.length; i++) {
-    f(p.r[i], p.g[i], p.b[i], o);
-    p.r[i] = o[0];
-    p.g[i] = o[1];
-    p.b[i] = o[2];
-  }
+/**
+ * 只跟畫面大小有關的不透明度圖（光團、暗角）：同一個步驟（物件）、同樣大小時沿用上一次算好的
+ * （動畫逐格套同一組濾鏡時不必每格重算）。上下一致的圖（applyFilterRows）不快取。
+ */
+const alphaCache = new WeakMap<FilterOp, { key: string; alpha: Float64Array }>();
+
+function cachedAlpha(op: FilterOp, geo: Geom, build: (A: Float64Array) => void): Float64Array {
+  const key = `${geo.w}x${geo.h}`;
+  const hit = geo.stacked ? undefined : alphaCache.get(op);
+  if (hit && hit.key === key) return hit.alpha;
+  const alpha = new Float64Array(geo.w * geo.h);
+  build(alpha);
+  if (!geo.stacked) alphaCache.set(op, { key, alpha });
+  return alpha;
+}
+
+/** 每一欄的 fx(x)、每一列的 fy(y)（畫面比例），疊層的迴圈用 */
+function axes(geo: Geom): { ax: Float64Array; ay: Float64Array } {
+  const ax = new Float64Array(geo.w);
+  const ay = new Float64Array(geo.h);
+  for (let x = 0; x < geo.w; x++) ax[x] = geo.fx(x);
+  for (let y = 0; y < geo.h; y++) ay[y] = geo.fy(y);
+  return { ax, ay };
 }
 
 /** 亮度差（取上下左右鄰居中最亮的減掉自己；正值＝自己是較暗的那一側） */
@@ -312,77 +374,97 @@ const ramp = (v: number, t: number, s: number) =>
   Math.max(0, Math.min(1, (v - t) / Math.max(1e-6, s)));
 
 function applyOp(p: Planes, geo: Geom, op: FilterOp, ctx: FilterContext) {
-  const { w, h, fx, fy, stacked } = geo;
+  const { w, h, stacked } = geo;
   switch (op.op) {
+    /* 逐像素調色：直接寫迴圈（不經過回呼），算式與順序照舊 */
     case 'gray': {
       const k = op.amount ?? 1;
-      perPixel(p, (r, g, b, o) => {
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        const r = R[i];
+        const g = G[i];
+        const b = B[i];
         const l = luma601(r, g, b);
-        o[0] = r + (l - r) * k;
-        o[1] = g + (l - g) * k;
-        o[2] = b + (l - b) * k;
-      });
+        R[i] = r + (l - r) * k;
+        G[i] = g + (l - g) * k;
+        B[i] = b + (l - b) * k;
+      }
       return;
     }
     case 'sepia': {
       const k = op.amount ?? 1;
-      perPixel(p, (r, g, b, o) => {
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        const r = R[i];
+        const g = G[i];
+        const b = B[i];
         const sr = 0.393 * r + 0.769 * g + 0.189 * b;
         const sg = 0.349 * r + 0.686 * g + 0.168 * b;
         const sb = 0.272 * r + 0.534 * g + 0.131 * b;
-        o[0] = r + (sr - r) * k;
-        o[1] = g + (sg - g) * k;
-        o[2] = b + (sb - b) * k;
-      });
+        R[i] = r + (sr - r) * k;
+        G[i] = g + (sg - g) * k;
+        B[i] = b + (sb - b) * k;
+      }
       return;
     }
     case 'matrix': {
-      const m = op.m;
-      perPixel(p, (r, g, b, o) => {
-        o[0] = m[0] * r + m[1] * g + m[2] * b + m[3];
-        o[1] = m[4] * r + m[5] * g + m[6] * b + m[7];
-        o[2] = m[8] * r + m[9] * g + m[10] * b + m[11];
-      });
+      const [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11] = op.m;
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        const r = R[i];
+        const g = G[i];
+        const b = B[i];
+        R[i] = m0 * r + m1 * g + m2 * b + m3;
+        G[i] = m4 * r + m5 * g + m6 * b + m7;
+        B[i] = m8 * r + m9 * g + m10 * b + m11;
+      }
       return;
     }
     case 'contrast': {
       const c = op.amount;
       const pv = op.pivot ?? 128;
-      perPixel(p, (r, g, b, o) => {
-        o[0] = (r - pv) * c + pv;
-        o[1] = (g - pv) * c + pv;
-        o[2] = (b - pv) * c + pv;
-      });
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        R[i] = (R[i] - pv) * c + pv;
+        G[i] = (G[i] - pv) * c + pv;
+        B[i] = (B[i] - pv) * c + pv;
+      }
       return;
     }
     case 'brightness': {
       const [kr, kg, kb] = perChannel(op.amount, 1);
-      perPixel(p, (r, g, b, o) => {
-        o[0] = r * kr;
-        o[1] = g * kg;
-        o[2] = b * kb;
-      });
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        R[i] = R[i] * kr;
+        G[i] = G[i] * kg;
+        B[i] = B[i] * kb;
+      }
       return;
     }
     case 'saturate': {
       const s = op.amount;
-      perPixel(p, (r, g, b, o) => {
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        const r = R[i];
+        const g = G[i];
+        const b = B[i];
         const l = luma601(r, g, b);
-        o[0] = l + (r - l) * s;
-        o[1] = l + (g - l) * s;
-        o[2] = l + (b - l) * s;
-      });
+        R[i] = l + (r - l) * s;
+        G[i] = l + (g - l) * s;
+        B[i] = l + (b - l) * s;
+      }
       return;
     }
     case 'posterize': {
       const n = Math.max(2, Math.round(op.levels));
       const step = 256 / (n - 1);
       const q = (v: number) => Math.min(255, Math.round(clampByte(v) / step) * step);
-      perPixel(p, (r, g, b, o) => {
-        o[0] = q(r);
-        o[1] = q(g);
-        o[2] = q(b);
-      });
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        R[i] = q(R[i]);
+        G[i] = q(G[i]);
+        B[i] = q(B[i]);
+      }
       return;
     }
     case 'curve': {
@@ -391,11 +473,12 @@ function applyOp(p: Planes, geo: Geom, op: FilterOp, ctx: FilterContext) {
       const gn = perChannel(op.gain, 255);
       const f = (v: number, c: 0 | 1 | 2) =>
         lf[c] + (gn[c] - lf[c]) * (Math.max(0, Math.min(255, v)) / 255) ** gm[c];
-      perPixel(p, (r, g, b, o) => {
-        o[0] = f(r, 0);
-        o[1] = f(g, 1);
-        o[2] = f(b, 2);
-      });
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        R[i] = f(R[i], 0);
+        G[i] = f(G[i], 1);
+        B[i] = f(B[i], 2);
+      }
       return;
     }
     case 'blur': {
@@ -404,6 +487,15 @@ function applyOp(p: Planes, geo: Geom, op: FilterOp, ctx: FilterContext) {
       const bb = blurPlane(p.b, w, h, op.radius, !stacked);
       const mode = op.blend ?? 'normal';
       const a = op.mix;
+      if (mode === 'normal') {
+        const { r: R, g: G, b: B } = p;
+        for (let i = 0; i < R.length; i++) {
+          R[i] += (br[i] - R[i]) * a;
+          G[i] += (bg[i] - G[i]) * a;
+          B[i] += (bb[i] - B[i]) * a;
+        }
+        return;
+      }
       for (let i = 0; i < p.r.length; i++) {
         p.r[i] += (blendChannel(mode, p.r[i], br[i]) - p.r[i]) * a;
         p.g[i] += (blendChannel(mode, p.g[i], bg[i]) - p.g[i]) * a;
@@ -484,54 +576,96 @@ function applyOp(p: Planes, geo: Geom, op: FilterOp, ctx: FilterContext) {
       }
       return;
     }
-    case 'fill':
-      overlay(p, w, h, op.blend ?? 'normal', (_x, _y, o) => {
-        o.r = op.color[0];
-        o.g = op.color[1];
-        o.b = op.color[2];
-        o.a = op.alpha;
-      });
+    case 'fill': {
+      if (op.alpha <= 0) return;
+      const A = new Float64Array(w * h).fill(op.alpha);
+      blendPlanes(p, op.blend ?? 'normal', A, op.color);
       return;
+    }
     case 'gradient': {
       const [x0, y0] = op.from;
       const [x1, y1] = op.to;
       const dx = x1 - x0;
       const dy = y1 - y0;
       const len2 = dx * dx + dy * dy || 1;
-      overlay(p, w, h, op.blend ?? 'normal', (x, y, o) => {
-        const t = ((fx(x) - x0) * dx + (fy(y) - y0) * dy) / len2;
-        sampleStops(op.stops, Math.max(0, Math.min(1, t)), o);
-      });
+      const mode = op.blend ?? 'normal';
+      const { ax, ay } = axes(geo);
+      const { r: R, g: G, b: B } = p;
+      const c: Paint = { r: 0, g: 0, b: 0, a: 0 };
+      /* 每個像素取色後直接混合（不配置整張的暫存）；常用的三種模式各有專用的算式（與 blendChannel 相同） */
+      const kind = mode === 'normal' ? 0 : mode === 'screen' ? 1 : mode === 'multiply' ? 2 : 3;
+      for (let y = 0, i = 0; y < h; y++) {
+        const ty = (ay[y] - y0) * dy;
+        for (let x = 0; x < w; x++, i++) {
+          const t = ((ax[x] - x0) * dx + ty) / len2;
+          sampleStops(op.stops, Math.max(0, Math.min(1, t)), c);
+          const a = c.a;
+          if (a <= 0) continue;
+          const r = R[i];
+          const g = G[i];
+          const b = B[i];
+          if (kind === 0) {
+            R[i] = r + (c.r - r) * a;
+            G[i] = g + (c.g - g) * a;
+            B[i] = b + (c.b - b) * a;
+          } else if (kind === 1) {
+            R[i] = r + (r + c.r - (r * c.r) / 255 - r) * a;
+            G[i] = g + (g + c.g - (g * c.g) / 255 - g) * a;
+            B[i] = b + (b + c.b - (b * c.b) / 255 - b) * a;
+          } else if (kind === 2) {
+            R[i] = r + ((r * c.r) / 255 - r) * a;
+            G[i] = g + ((g * c.g) / 255 - g) * a;
+            B[i] = b + ((b * c.b) / 255 - b) * a;
+          } else {
+            R[i] = r + (blendChannel(mode, r, c.r) - r) * a;
+            G[i] = g + (blendChannel(mode, g, c.g) - g) * a;
+            B[i] = b + (blendChannel(mode, b, c.b) - b) * a;
+          }
+        }
+      }
       return;
     }
     case 'glow': {
-      const [cx, cy] = op.center;
-      const rx = Math.max(1e-6, op.radius);
-      const ry = rx * (op.aspect ?? w / Math.max(1, geo.fullH));
-      const k = op.falloff ?? 2;
-      overlay(p, w, h, op.blend ?? 'screen', (x, y, o) => {
-        const d = Math.hypot((fx(x) - cx) / rx, (fy(y) - cy) / ry);
-        o.r = op.color[0];
-        o.g = op.color[1];
-        o.b = op.color[2];
-        o.a = d >= 1 ? 0 : op.alpha * (1 - d ** k) ** 2;
+      const A = cachedAlpha(op, geo, (A) => {
+        const [cx, cy] = op.center;
+        const rx = Math.max(1e-6, op.radius);
+        const ry = rx * (op.aspect ?? w / Math.max(1, geo.fullH));
+        const k = op.falloff ?? 2;
+        const { ax, ay } = axes(geo);
+        const gx2 = ax.map((v) => ((v - cx) / rx) ** 2);
+        for (let y = 0; y < h; y++) {
+          const gy = (ay[y] - cy) / ry;
+          const gy2 = gy * gy;
+          /* 光團以外（距離 ≥ 1）不透明度是 0 */
+          if (gy2 >= 1) continue;
+          for (let x = 0, i = y * w; x < w; x++, i++) {
+            const d2 = gx2[x] + gy2;
+            if (d2 < 1) A[i] = op.alpha * (1 - Math.sqrt(d2) ** k) ** 2;
+          }
+        }
       });
+      blendPlanes(p, op.blend ?? 'screen', A, op.color);
       return;
     }
     case 'vignette': {
-      const inner = op.inner ?? 0.5;
-      const outer = op.outer ?? 1;
-      const pw = op.power ?? 2;
-      const col = op.color ?? [0, 0, 0];
-      overlay(p, w, h, 'normal', (x, y, o) => {
-        /* 橢圓距離：中心 0、四角 1 */
-        const d = Math.hypot(fx(x) * 2 - 1, fy(y) * 2 - 1) / Math.SQRT2;
-        const t = Math.max(0, Math.min(1, (d - inner) / Math.max(1e-6, outer - inner)));
-        o.r = col[0];
-        o.g = col[1];
-        o.b = col[2];
-        o.a = op.amount * t ** pw;
+      const A = cachedAlpha(op, geo, (A) => {
+        const inner = op.inner ?? 0.5;
+        const outer = op.outer ?? 1;
+        const pw = op.power ?? 2;
+        const span = Math.max(1e-6, outer - inner);
+        const { ax, ay } = axes(geo);
+        const vx2 = ax.map((v) => (v * 2 - 1) ** 2);
+        for (let y = 0; y < h; y++) {
+          const vy2 = (ay[y] * 2 - 1) ** 2;
+          for (let x = 0, i = y * w; x < w; x++, i++) {
+            /* 橢圓距離：中心 0、四角 1 */
+            const d = Math.sqrt(vx2[x] + vy2) / Math.SQRT2;
+            const t = Math.max(0, Math.min(1, (d - inner) / span));
+            A[i] = op.amount * t ** pw;
+          }
+        }
       });
+      blendPlanes(p, 'normal', A, op.color ?? [0, 0, 0]);
       return;
     }
     case 'scanlines': {
@@ -559,20 +693,22 @@ function applyOp(p: Planes, geo: Geom, op: FilterOp, ctx: FilterContext) {
       const seed = ((ctx.seed ?? 1) * 7919 + f * 104729) | 0;
       /* 三個均勻亂數相加 ≈ 常態，標準差 amount */
       const k = op.amount * 2;
-      for (let i = 0; i < p.r.length; i++) {
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
         const idx = stacked ? geo.rowY(Math.floor(i / w)) * w + (i % w) : i;
-        const n = (c: number) =>
-          (hashUnit(seed, idx, c) + hashUnit(seed, idx, c + 3) + hashUnit(seed, idx, c + 6) - 1.5) *
-          k;
         if (op.mono) {
-          const v = n(0);
-          p.r[i] += v;
-          p.g[i] += v;
-          p.b[i] += v;
+          const v =
+            (hashUnit(seed, idx, 0) + hashUnit(seed, idx, 3) + hashUnit(seed, idx, 6) - 1.5) * k;
+          R[i] += v;
+          G[i] += v;
+          B[i] += v;
         } else {
-          p.r[i] += n(0);
-          p.g[i] += n(1);
-          p.b[i] += n(2);
+          R[i] +=
+            (hashUnit(seed, idx, 0) + hashUnit(seed, idx, 3) + hashUnit(seed, idx, 6) - 1.5) * k;
+          G[i] +=
+            (hashUnit(seed, idx, 1) + hashUnit(seed, idx, 4) + hashUnit(seed, idx, 7) - 1.5) * k;
+          B[i] +=
+            (hashUnit(seed, idx, 2) + hashUnit(seed, idx, 5) + hashUnit(seed, idx, 8) - 1.5) * k;
         }
       }
       return;
@@ -626,10 +762,17 @@ function run(
   for (const op of ops) {
     applyOp(p, geo, op, ctx);
     /* 截斷在 0～255（與畫布上逐步處理的結果一致） */
+    const { r: R, g: G, b: B } = p;
     for (let i = 0; i < n; i++) {
-      p.r[i] = clampByte(p.r[i]);
-      p.g[i] = clampByte(p.g[i]);
-      p.b[i] = clampByte(p.b[i]);
+      const r = R[i];
+      const g = G[i];
+      const b = B[i];
+      if (r < 0) R[i] = 0;
+      else if (r > 255) R[i] = 255;
+      if (g < 0) G[i] = 0;
+      else if (g > 255) G[i] = 255;
+      if (b < 0) B[i] = 0;
+      else if (b > 255) B[i] = 255;
     }
   }
   const out = new Uint8ClampedArray(n * 4);
