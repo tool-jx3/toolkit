@@ -34,7 +34,6 @@
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 | coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
-| session-report | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-report-generator/` | `42c45f3` | **未授權** |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
@@ -441,22 +440,6 @@ WebM。
 - 這個工具刻意不連網，因此沒有加 Google Fonts，只在紙面的明體後面補上新細明體與
   Noto Serif TC、介面字型補上微軟正黑體、蘋方與 Noto Sans TC（接在日文字型後面，日文顯示不變）。
 
-## くま（TRPG WEBツール観測所）的工具
-
-`session-report` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
-「TRPG WEBツール観測所」（[kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools)）。
-站上上線與開發中的工具有十幾個，收錄的是不依賴日文角色卡服務、日文聊天面板或作者後端、
-台灣玩家也用得上的六個（其中 `icon-maker`、`variant-manager`、`bg-motion`、`scenario-cards`、`session-log` 已由本站重寫，見下方「本站重寫的工具」）。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
-「画像・アイコン素材の無断転載、再配布、二次利用はお控えください」，因此：
-
-- **上游的圖片一律不收**：站台圖示（部分由るた様繪製）、favicon 都不收。
-- 拿掉每頁都掛的 Google Analytics，以及頁首回原站入口的連結（換成合輯列）。
-- 頁尾「問題回報請私訊 @KumachanSteps」那句拿掉：合輯版改過程式，回報會送錯對象
-  （理由同 `pair-maker` 的回報表單）。作者署名、X 與原站連結保留。
-- 上游自己的語言切換（日文／英文）改接合輯的引擎。合輯沒有英文，英文不收。
-- 團報範本依產生當下的語言給繁中或日文用語（通過→通關、ロスト→撕卡、様→樣、作：〇〇様→
-  作者：〇〇老師）。
-
 ## 本站重寫的工具（靈感來源）
 
 下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的流程改寫到本站的 `web/` 框架，
@@ -497,6 +480,7 @@ WebM。
 | `scenario-cards` | 劇本資訊卡片產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`scenario-snippet-builder`） | `83fd605` |
 | `psd-studio` | CCFOLIA & 圖片調色工作室 | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `83fd605` |
 | `session-log` | 跑團紀錄簿 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`session-log-tool`） | `83fd605` |
+| `session-report` | 團報產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`session-report-generator`） | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -544,9 +528,6 @@ WebM。
 （v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
 以及 `trpg-lab` 地圖編輯器的文字字型清單。
 
-くま的工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
-（PingFang TC、Microsoft JhengHei、Noto Sans TC 等）排到前面；日文介面維持上游的字型。
-
 各工具宣告的字重都逐一對 `fonts.googleapis.com/css2` 驗證過——Google Fonts 對
 不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
 `tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
@@ -557,8 +538,6 @@ WebM。
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
 `coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
 頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
-くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中一個工具，見上方專節；
-站上的利用規約另外禁止轉載圖片素材，因此一張圖都沒收）。
 依著作權法預設，其權利保留予原作者，此處僅供試用。原作者如有異議，將立即移除。
 
 `character-select` 的上游是收錄前一兩天才建立、只有一次提交，

@@ -125,6 +125,7 @@ npm test
 | `scenario-cards` | [劇本資訊卡片產生器](tools/scenario-cards/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `psd-studio` | [CCFOLIA & 圖片調色工作室](tools/psd-studio/) | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) |
 | `session-log` | [跑團紀錄簿](tools/session-log/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `session-report` | [團報產生器](tools/session-report/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
@@ -133,7 +134,7 @@ npm test
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的五個工具、
 `pair-maker` 為韓文，
 `trpg-lab`、
-`anime-rig`、`scenario-editor` 與くま的 `session-report` 為日文。
+`anime-rig` 與 `scenario-editor` 為日文。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
 
@@ -172,7 +173,7 @@ npm test
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
 **注意**：`character-select`、
-`pair-maker` 與くま的 `session-report` 的原始 repo 皆未附任何授權條款，
+`pair-maker` 的原始 repo 皆未附任何授權條款，
 `coc-typesetter` 則連作者都不明，
 其權利屬原作者所有，
 不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。

@@ -407,7 +407,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '填好系統、劇本、主持人與參加者，從 17 種版面挑一種，即時排出貼到 X 的團報：可以直接改、加分隔線與符號、算字數，一鍵複製或開啟發文畫面。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'くま。／TRPG WEBツール観測所',
       url: 'https://kumachansteps.github.io/trpg-web-tools/',

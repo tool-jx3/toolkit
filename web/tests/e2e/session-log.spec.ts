@@ -126,7 +126,7 @@ test('開頁沒有錯誤；範例列、統計、頁尾、聲明、團報產生�
   await expect(page.getByTestId('disclaimer')).toContainText('非官方');
   await expect(page.getByTestId('report-link')).toHaveAttribute(
     'href',
-    '../../next/session-report/',
+    '../../tools/session-report/',
   );
   /* 清單不含範例 */
   await expect(page.getByRole('textbox', { name: '輸出結果' })).toHaveValue('');
@@ -755,7 +755,7 @@ test('送到團報產生器：確認、交接資料、開新分頁；團報勾�
     context.waitForEvent('page'),
     confirm.getByRole('button', { name: '送出並開啟' }).click(),
   ]);
-  expect(popup.url()).toContain('/next/session-report/');
+  expect(popup.url()).toContain('/tools/session-report/');
   await popup.close();
   const payload = await page.evaluate(
     (k) => JSON.parse(localStorage.getItem(k) ?? 'null'),

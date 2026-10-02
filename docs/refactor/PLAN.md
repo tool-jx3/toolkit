@@ -170,7 +170,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | psd-studio | ✅ | ✅ | ✅ | ✅ |
 | scenario-editor | ✅ | ✅ | ⬜ | ⬜ |
 | session-log | ✅ | ✅ | ✅ | ✅ |
-| session-report | ✅ | ✅ | ⬜ | ⬜ |
+| session-report | ✅ | ✅ | ✅ | ✅ |
 | coc-typesetter | ✅ | ✅ | ⬜ | ⬜ |
 | 其餘 8 個（G7～G9） | ⬜ | ⬜ | ⬜ | ⬜ |
 

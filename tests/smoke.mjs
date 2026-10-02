@@ -478,52 +478,6 @@ check('不載入任何網頁字型或外部資源',
   !/fonts\.googleapis|fonts\.gstatic|https?:\/\/(?!www\.w3\.org)/.test(seHtml + read('tools/scenario-editor/styles.css')));
 check('紙面與介面的字型堆疊補上台灣系統字型', seApp.includes('Noto Serif TC') && seApp.includes('Microsoft JhengHei'));
 
-/* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
-/* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
- * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
- * 也不該出現回報表單、存取分析與站台圖示。 */
-/* icon-maker、variant-manager、bg-motion、scenario-cards、session-log 已由本站重寫（web/），不在這裡。 */
-const KUMA_TOOLS = ['session-report'];
-/* session-report 只比對跑團紀錄簿送來的系統正規值與敬稱。 */
-const SR_KEPT_JA = ['さん', '新クトゥルフ神話', 'エモクロア', 'マダミス', 'マーダーミステリー', 'クトゥルフ'];
-const keptRuns = allowed => line => (line.match(KANA_RUN) || []).filter(run => KANA.test(run))
-  .every(run => allowed.includes(run) || allowed.some(keep => keep.includes(run)));
-const KUMA = {
-  'session-report': { scripts: ['js/main.js', 'js/template.js'], styles: ['css/report_gen_style.css'], hooks: 90, inline: 65, attrs: 20,
-    allow: (line, n, file) => file === 'js/main.js' && keptRuns(SR_KEPT_JA)(line) }
-};
-const kuma = {};
-for (const name of KUMA_TOOLS) {
-  const cfg = KUMA[name];
-  kuma[name] = checkTool({
-    dir: `tools/${name}`,
-    dict: `i18n.${name}.js`,
-    locale: 'ja',
-    locales: cfg.locales,
-    scripts: cfg.scripts,
-    styles: cfg.styles,
-    minHooks: cfg.hooks,
-    allowSource: cfg.allow,
-    licence: false
-  });
-  section(`tools/${name} (kuma)`);
-  const files = listFiles(`tools/${name}`);
-  check('沒有 LICENSE（上游未附授權條款）', !exists(`tools/${name}/LICENSE`));
-  const images = files.filter(f => /\.(png|jpe?g|gif|webp|ico|svg)$/i.test(f));
-  check('不收上游的任何圖片檔', images.length === 0, images.join(', '));
-  const all = files.filter(f => /\.(html|js|css)$/.test(f)).map(f => read(f)).join('\n');
-  check('沒有存取分析', !/gtag|googletagmanager|analytics\.js|ToolAnalytics/.test(all));
-  check('沒有導向作者回報表單的按鈕', !all.includes('trpg-web-tools/report'));
-  check('沒有引用作者站台的圖示', !/kuma_icon|kuma_ufo|assets\/img\//.test(all));
-  check('頁首是合輯列', read(`tools/${name}/index.html`).includes('data-i18n="nav.home"'));
-  /* 合輯版改過程式，問題回報不該送到原作者那裡。 */
-  const dictSrc = read(`tools/${name}/i18n.${name}.js`);
-  check('不請使用者把問題回報給原作者', !/不具合報告|問題回報|오류 제보/.test(dictSrc + read(`tools/${name}/index.html`)));
-}
-section('kuma kept Japanese');
-const srSrc = read('tools/session-report/js/main.js');
-for (const keep of SR_KEPT_JA) check(`session-report 仍保留「${keep}」`, srSrc.includes(keep));
-
 /* ---- character-select ---- */
 const cs = checkTool({
   dir: 'tools/character-select',
@@ -1060,7 +1014,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
 checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
 checkInlineText('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 150);
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
-for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
 checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
 /* pair-maker 有兩頁，兩頁都要比。 */
 checkInlineText('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 15);
@@ -1136,7 +1089,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
 checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
 checkAttrPairs('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 50);
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
-for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
 checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
 checkAttrPairs('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 9);
 checkAttrPairs('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
@@ -1161,7 +1113,7 @@ for (const name of TOOLS) {
 }
 for (const sha of ['de40a68',
   '883f48b',
-  'aad63b1', '9c29866', '42c45f3', 'a6387e0',
+  'aad63b1', '9c29866', 'a6387e0',
   '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
