@@ -65,6 +65,8 @@ function RemoveButton({ item }: { item: CombinerItem }) {
   const scale = useStageScale();
   const k = 1 / scale;
   const size = 24 * k;
+  /* 畫面上太矮時刪除鈕會蓋住右下角的縮放把手：改放到外框上方，把手照樣拉得動 */
+  const top = item.height * scale < 40 ? item.y - size - 2 * k : item.y - size / 2;
   return (
     <button
       type="button"
@@ -76,7 +78,7 @@ function RemoveButton({ item }: { item: CombinerItem }) {
       className="pointer-events-auto absolute flex items-center justify-center rounded-full bg-danger text-danger-contrast shadow-1 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
       style={{
         left: item.x + item.width - size / 2,
-        top: item.y - size / 2,
+        top,
         width: size,
         height: size,
       }}
@@ -237,14 +239,15 @@ export function Preview({
    * 按下就移到最上層（F14）。疊放順序要到放開時才寫進資料：版面編輯層的點選範圍依疊放順序排列，
    * 拖曳中改順序會讓瀏覽器重排按鈕、拖曳中斷；拖曳中先把它畫在最上面，看起來與舊版相同。
    */
-  const onChange = (id: string, box: Box, change: { phase: string }) => {
+  const onChange = (id: string, box: Box, change: { phase: string; op?: string }) => {
     if (change.phase === 'start') {
       useCombiner.beginGesture();
       setActive(id);
       return;
     }
     if (change.phase === 'end') {
-      bringToFront(id);
+      /* 只有拖曳移動會置頂；拉把手調整大小不改疊放順序（同舊版） */
+      if (change.op !== 'resize') bringToFront(id);
       useCombiner.endGesture();
       setActive(null);
       return;

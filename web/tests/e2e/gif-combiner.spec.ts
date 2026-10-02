@@ -522,6 +522,20 @@ test('匯出：透明背景的 GIF、APNG、沒有動圖時的訊息', async ({ 
   expect(errors).toEqual([]);
 });
 
+test('設定寫不進瀏覽器時提醒、工具照常可用（F45）', async ({ page }) => {
+  await page.addInitScript(() => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key.includes('gif-combiner')) throw new DOMException('full', 'QuotaExceededError');
+      return set.call(this, key, value);
+    };
+  });
+  await open(page);
+  await addFiles(page, [GIF_A], 1);
+  await expect(page.getByText(/排版與設定沒辦法保存在這個瀏覽器/).first()).toBeVisible();
+  expect((await data(page)).items).toHaveLength(1);
+});
+
 test('自動保存與專案檔', async ({ page }) => {
   const errors = await open(page);
   await addFiles(page, [GIF_A, GIF_B], 2);

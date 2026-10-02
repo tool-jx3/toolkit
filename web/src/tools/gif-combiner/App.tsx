@@ -1,6 +1,6 @@
 import { type RefObject, useEffect, useMemo, useRef } from 'react';
 import { pickFiles } from '@/core/files';
-import { resetToolStore, useSaveStatus, useUndoRedo } from '@/core/storage';
+import { resetToolStore, useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   type ExportPanelHandle,
   ProjectMenu,
@@ -37,11 +37,16 @@ declare global {
 /** 開頁還原、測試入口（要在 ToolShell 裡才拿得到 toast） */
 function Bootstrap({ preview }: { preview: RefObject<PreviewHandle | null> }) {
   const toast = useToast();
+  const saveError = useSaveError(TOOL_ID);
   useEffect(() => {
     setNotifier(toast);
     void restoreOnce(toast);
     return () => setNotifier(null);
   }, [toast]);
+  /* 設定寫不進瀏覽器（容量已滿、被封鎖）時提醒，工具照常可用（F45） */
+  useEffect(() => {
+    if (saveError) toast({ title: S.files.settingsNotSaved, tone: 'warning' });
+  }, [saveError, toast]);
   useEffect(() => {
     window.__gifCombiner = {
       data: () => dataNow(),
