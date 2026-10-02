@@ -4,6 +4,7 @@
 import { strToU8, unzipSync, type Zippable, zipSync } from 'fflate';
 
 export { bytesToHex, type HashInput, sha256, sha256Hex, sha256Sync, subtleSha256 } from './hash';
+export { type DecodedText, type DecodeTextOptions, decodeText } from './text';
 
 /* ---------- 下載 ---------- */
 
