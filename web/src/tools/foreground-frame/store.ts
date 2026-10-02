@@ -44,7 +44,14 @@ function storageWorks(): boolean {
 }
 
 /** 這個瀏覽器能不能自動存檔（localStorage 被封鎖時不能） */
-export const AUTOSAVE_OK = typeof localStorage !== 'undefined' && storageWorks();
+export const AUTOSAVE_OK = (() => {
+  /* 瀏覽器封鎖網站資料時，連讀 window.localStorage 都會丟例外 */
+  try {
+    return typeof localStorage !== 'undefined' && storageWorks();
+  } catch {
+    return false;
+  }
+})();
 
 /** 開頁時有沒有上次的存檔（在建立 store 之前讀） */
 export const HAD_SAVED = (() => {

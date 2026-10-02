@@ -35,7 +35,7 @@ import { ensureStateFonts } from './fonts';
 import { DRAG_THRESHOLD, type HitBox, hitTest, lockAxis, virtualWidth } from './geometry';
 import { BASE_H, currentItem, type FrameState } from './model';
 import { drawGrid, drawSelection, render } from './render';
-import { env } from './runtime';
+import { env, loadImageElements } from './runtime';
 import { drawScenery, sceneryFor } from './scenery';
 import {
   assets,
@@ -327,6 +327,7 @@ async function prepareExport(state: FrameState): Promise<void> {
   for (const l of state.layers) if (l.kind === 'image') ids.add(l.asset);
   for (const i of state.variants.items) if (i.iconAsset) ids.add(i.iconAsset);
   await Promise.all([...ids].map((id) => assets.bitmap(id).catch(() => undefined)));
+  await loadImageElements(ids);
 }
 
 function ExportRow() {
