@@ -39,6 +39,9 @@ export interface CardItemProps {
   /** 拖曳中經過這張（放開時會插到它之前） */
   over: boolean;
   flash: boolean;
+  /** 在目前清單中的位置與整份清單的 id（只用來判斷要不要重畫：把手與列的事件處理依位置） */
+  index: number;
+  idsKey: string;
 }
 
 /** 12 個類型圖示（目前類型實心醒目，滑鼠停留顯示類型名；F18）。卡片其他欄位改變時不重畫 */
@@ -83,7 +86,7 @@ const TypeIcons = memo(function TypeIcons({
   );
 });
 
-export function CardItem({
+function CardItemBody({
   card,
   colors,
   rowRef,
@@ -236,3 +239,19 @@ export function CardItem({
     </article>
   );
 }
+
+/**
+ * 每打一個字只重畫那一張：其他卡片的資料、位置與清單的順序都沒變時不重畫
+ * （把手與列的事件處理只依位置與 ref，舊的那份照樣能用）。
+ */
+export const CardItem = memo(
+  CardItemBody,
+  (a, b) =>
+    a.card === b.card &&
+    a.colors === b.colors &&
+    a.dragging === b.dragging &&
+    a.over === b.over &&
+    a.flash === b.flash &&
+    a.index === b.index &&
+    a.idsKey === b.idsKey,
+);

@@ -6,7 +6,7 @@
  * 版面（用 ToolShell 的 body 自己排）：寬螢幕左右兩欄、各自捲動，佔滿視窗高；窄螢幕上下排列（內文在上）。
  */
 import { Redo2, Undo2 } from 'lucide-react';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSaveStatus, useUndoRedo } from '@/core/storage';
 import { IconButton, ProjectMenu, type Shortcut, ToolShell, withShortcut } from '@/ui';
 import { CardsPanel } from './CardsPanel';
@@ -77,6 +77,26 @@ export function App() {
     else setSelectionType(type);
     notify(S.status.typeSelected(target, typeText(type)));
   };
+
+  /*
+   * 焦點在類型選單（Radix Select 的按鈕）上時，它會把方向鍵（含 Alt＋方向鍵）拿去展開選單，
+   * 一般的快捷鍵收不到；在捕獲階段先攔下 Alt＋↑／↓，照舊版換類型（F16）。
+   */
+  const pickTypeRef = useRef(pickType);
+  pickTypeRef.current = pickType;
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      if (!(e.target as Element | null)?.closest?.('[role="combobox"]')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      pickTypeRef.current((t) => cycleType(t, step));
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
 
   const shortcuts: Shortcut[] = [
     ...CARD_TYPES.map(

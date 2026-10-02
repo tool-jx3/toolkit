@@ -3,7 +3,7 @@
  * 新增卡片（F14）、專案（F29～F32）、類型篩選（F27）、狀態訊息（F38）、卡片清單（拖曳排序 F26）、清單捲動鈕（F28）。
  */
 import { ArrowDown, ArrowUp, Plus, Undo2 } from 'lucide-react';
-import { type KeyboardEvent, type Ref, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, type Ref, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, cn, IconButton, Select, useSortable, useTheme } from '@/ui';
 import { CardItem } from './CardItem';
 import { onTypeColor, TYPE_COLORS } from './colors';
@@ -132,6 +132,7 @@ export function CardsPanel({ ref }: { ref?: Ref<HTMLElement> }) {
   const [flashId, setFlashId] = useState<string | null>(null);
 
   const visible = filter === 'all' ? cards : cards.filter((c) => c.type === filter);
+  const idsKey = useMemo(() => visible.map((c) => c.id).join('\n'), [visible]);
 
   const sortable = useSortable({
     count: visible.length,
@@ -251,6 +252,8 @@ export function CardsPanel({ ref }: { ref?: Ref<HTMLElement> }) {
                   dragging={drag === i}
                   over={drag !== null && drag !== i && sortable.overIndex === i}
                   flash={flashId === card.id}
+                  index={i}
+                  idsKey={idsKey}
                 />
               );
             })

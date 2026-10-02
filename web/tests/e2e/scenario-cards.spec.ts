@@ -505,6 +505,19 @@ test('類型快捷鍵：依焦點改不同的選單、Mac 的 Option＋數字、
   await expect(titleOf(card(page, 0))).toHaveValue('');
   await page.keyboard.press('Alt+ArrowDown');
   await expect(newType(page)).toHaveText('・ 備忘');
+  /* 焦點在類型選單的按鈕上：Alt＋↑↓ 照樣換類型，不展開選單（F16） */
+  await newType(page).focus();
+  await page.keyboard.press('Alt+ArrowUp');
+  await expect(newType(page)).toHaveText('● 技能成功');
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+  await page.keyboard.press('Alt+ArrowDown');
+  await expect(newType(page)).toHaveText('・ 備忘');
+  await selectionType(page).focus();
+  await page.keyboard.press('Alt+ArrowDown');
+  await expect(selectionType(page)).toHaveText('● 技能成功');
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+  await page.keyboard.press('Alt+ArrowUp');
+  await expect(selectionType(page)).toHaveText('◇ NPC 資訊');
   /* 選單被記住 */
   await page.reload();
   await open(page, { goto: false });
