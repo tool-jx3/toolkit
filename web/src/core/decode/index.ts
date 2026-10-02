@@ -11,6 +11,7 @@
  * - 每格時間照檔案；比 minDelayMs（10 ms）短的以 10 ms 計，讀不到（0）的以 defaultDelayMs（100 ms）計。
  * - 最多 maxFrames（500）格，超過時 truncated＝true。
  * - 其他格式（JPEG、AVIF、BMP、靜態 PNG／WebP、SVG…）回傳一格。
+ * - PSD（G5）：`readPsdLayers(file)` 以 ag-psd 讀圖層像素，攤平成由下到上的清單（見 psd.ts；ag-psd 用到時才載入）。
  */
 import { decodeGif, isGif } from './gif';
 import { decodeApng, isPng } from './png';
@@ -19,6 +20,17 @@ import { decodeWebp, isWebp } from './webp';
 
 export { decodeGif, isGif } from './gif';
 export { decodeApng, decodePng, isApng, isPng } from './png';
+export {
+  type AgPsd,
+  type AgPsdLayer,
+  type FlattenPsdOptions,
+  flattenPsdLayers,
+  type PsdDocument,
+  type PsdGroupInfo,
+  type PsdLayerInfo,
+  type PsdLayerMask,
+  readPsdLayers,
+} from './psd';
 export type { DecodedAnimation, DecodedFormat, DecodedFrame, DecodeOptions } from './types';
 export { frameDelay } from './types';
 export {

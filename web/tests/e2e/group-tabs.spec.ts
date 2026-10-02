@@ -20,7 +20,8 @@ async function scrollState(nav: Locator) {
   return nav.evaluate((el) => ({
     left: el.scrollLeft,
     max: el.scrollWidth - el.clientWidth,
-    mask: getComputedStyle(el).maskImage || getComputedStyle(el).getPropertyValue('-webkit-mask-image'),
+    mask:
+      getComputedStyle(el).maskImage || getComputedStyle(el).getPropertyValue('-webkit-mask-image'),
   }));
 }
 
