@@ -189,60 +189,6 @@ for (const locale of ['zh-TW', 'ko']) {
   check(`${locale} 無多餘 rune.* key`, stray.length === 0, `stray: ${stray.join(', ')}`);
 }
 
-/* ---- loading-maker ---- */
-const lm = checkTool({
-  dir: 'tools/loading-maker',
-  dict: 'i18n.loading-maker.js',
-  scripts: ['js/app.js', 'js/decoders.js', 'js/exporters.js', 'js/media.js', 'js/renderer.js', 'js/state.js', 'js/utils.js'],
-  styles: ['css/styles.css'],
-  minHooks: 250,
-  licence: false
-});
-
-/* loading-maker 無原始 LICENSE（未授權收錄），於 ATTRIBUTION.md 標示。此處單獨確認其確實沒有。 */
-section('tools/loading-maker licence');
-check('loading-maker 無原始 LICENSE（未授權，於 ATTRIBUTION.md 標示）',
-  !exists('tools/loading-maker/LICENSE'));
-check('保留第三方元件聲明（CDN 載入的 pako）',
-  read('tools/loading-maker/THIRD_PARTY_NOTICES.md').includes('pako'));
-
-/* 下列 key 由 JS 以變數或三元運算取得，靜態掃描（只認得 T('字面常數')）看不到，
- * 需另外確認兩語言都有定義。 */
-section('tools/loading-maker dynamic keys');
-const lmDynamicKeys = [
-  /* T(EASING_KEYS[value])、T(SHAPE_KEYS[value]) */
-  'easing.linear', 'easing.smooth', 'easing.easeIn', 'easing.easeOut',
-  'easing.easeInOut', 'easing.steps', 'easing.bounce', 'easing.irregular',
-  'shape.circle', 'shape.square', 'shape.diamond', 'shape.triangle',
-  'shape.star', 'shape.heart', 'shape.hexagon',
-  /* 功能徽章：items 陣列的第一欄 */
-  'cap.input', 'cap.apng', 'cap.webp', 'cap.gif',
-  /* 三元運算選出的 key */
-  'duration.label.bar', 'duration.label.loop', 'duration.label.rowLoop',
-  'duration.label.rowProgress', 'duration.label.none',
-  'preview.play', 'preview.pause',
-  'keyframe.startPoint', 'keyframe.easing',
-  'msg.seamless', 'msg.seamless.extended',
-  'msg.projectSaved', 'msg.projectSaved.assets',
-  /* media.js 以 key 存入 source.warning，由 app.js 顯示 */
-  'warn.liveCapture',
-  /* 標記上的 data-suffix-key，由 syncUI() 取值 */
-  'unit.perSecond', 'unit.times'
-];
-for (const locale of ['zh-TW', 'ko']) {
-  const missing = lmDynamicKeys.filter(k => !lm.messages[locale][k]);
-  check(`${locale} 每個動態 key 都有定義`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
-/* data-suffix-key 取代了原本寫死韓文的 data-suffix，兩者不應混用韓文。 */
-const lmHtml = read('tools/loading-maker/index.html');
-const suffixKeys = [...lmHtml.matchAll(/data-suffix-key="([^"]+)"/g)].map(m => m[1]);
-check('標記中的 data-suffix-key 皆為已知 key',
-  suffixKeys.length > 0 && suffixKeys.every(k => lm.messages['zh-TW'][k]),
-  `found: ${suffixKeys.join(', ')}`);
-check('index.html 掛上語言切換器與首頁連結',
-  lmHtml.includes('id="localeSelect"') && lmHtml.includes('data-i18n="nav.home"'));
-
 /* ---- foreground-frame ---- */
 const ff = checkTool({
   dir: 'tools/foreground-frame',
@@ -300,56 +246,6 @@ check('render 同時接受日文與繁中佔位符',
 check('繁中提示用的佔位符與 render 接受的一致',
   ff.messages['zh-TW']['layers.text.hint'].includes('{差分}')
   && ff.messages['zh-TW']['layers.text.hint'].includes('{英文}'));
-
-/* ---- scene-transition ---- */
-const st = checkTool({
-  dir: 'tools/scene-transition',
-  dict: 'i18n.scene-transition.js',
-  locale: 'ja',
-  scripts: ['app.v6.js', 'apng.v2.js', 'webp.v1.js', 'pcfonts.v1.js'],
-  styles: ['styles.css'],
-  minHooks: 140
-});
-
-/* 53 種預設集的說明以 T(p.descKey) 取得，key 存在資料裡，靜態掃描看不到。 */
-section('tools/scene-transition presets');
-const stApp = read('tools/scene-transition/app.v6.js');
-const stPresetKeys = [...stApp
-  .matchAll(/descKey: "(preset\.[\w-]+)"/g)].map(m => m[1]);
-check('解析出 53 組預設集', stPresetKeys.length === 53, `found ${stPresetKeys.length}`);
-for (const locale of ['zh-TW', 'ja']) {
-  const missing = stPresetKeys.filter(k => !st.messages[locale][k]);
-  check(`${locale} 每組預設集都有說明`, missing.length === 0, `missing: ${missing.join(', ')}`);
-  /* 選單標籤取「：」前半段，因此每則說明都必須含全形冒號。 */
-  const noColon = stPresetKeys.filter(k => !String(st.messages[locale][k]).includes('：'));
-  check(`${locale} 每組預設集說明都有全形冒號`, noColon.length === 0, `missing: ${noColon.join(', ')}`);
-}
-/* 換預設集時，使用者自己打的字幕要留著、範例字幕要換掉。範例字幕跟著語言走，
- * 所以切換語言後，舊語言的範例字幕也得算範例，不然會被誤當成使用者輸入。 */
-check('換預設集時，任何語言的範例字幕都算範例',
-  stApp.includes('return !!key && Object.values(I18N.messages).some(dict => dict[key] === value);')
-  && stApp.includes('const keepText = !first && !isSampleText(currentPreset, el.text.value.trim());'));
-/* 狀態列是 JS 寫的（輸出尺寸、格數……）。掛了 data-i18n 的話，DOMContentLoaded 時
- * 引擎會把它蓋回「載入中…」，而且要等使用者動了設定才會再出現。 */
-check('scene-transition 的狀態列不掛 data-i18n',
-  /<p class="status" id="status">/.test(read('tools/scene-transition/index.html'))
-  && !/data-i18n="[^"]*"[^>]*id="status"|id="status"[^>]*data-i18n=/.test(read('tools/scene-transition/index.html')));
-check('切換語言時連同「設定會保留」的附註一起換',
-  /I18N\.onChange\([\s\S]{0,300}descKey\) \+ keepNote\(\)/.test(stApp));
-/* 形狀、群組、範例字幕等 key 寫在資料表裡（GROUPS／VARIANTS／COUNTS／AMOUNTS／textKey），
- * T('…') 的掃描看不到，另外抓出來確認兩種語言都有。 */
-const stDataKeys = [...new Set([...stApp.matchAll(/"((?:presetGroup|variant|count|amount|hold)\.[\w.-]+|preset\.[\w-]+\.text)"/g)].map(m => m[1]))];
-check('解析出資料表裡的字典 key', stDataKeys.length >= 40, `found ${stDataKeys.length}`);
-for (const locale of ['zh-TW', 'ja']) {
-  const missing = stDataKeys.filter(k => !st.messages[locale][k]);
-  check(`${locale} 資料表裡的 key 都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-/* 字幕字型的 <optgroup label> 引擎管不到，改掛 data-label-key 由程式套；內嵌值要等於 zh-TW。 */
-const stGroups = [...read('tools/scene-transition/index.html').matchAll(/<optgroup label="([^"]*)" data-label-key="([^"]+)">/g)];
-check('字幕字型的群組標籤都有兩種語言、內嵌值等於 zh-TW', stGroups.length >= 6
-  && stGroups.every(([, label, key]) => st.messages['zh-TW'][key] === label && st.messages.ja[key]), `groups: ${stGroups.length}`);
-check('字幕字型清單有五套繁中字型', ['notosanstc', 'notoseriftc', 'wenkaitc', 'chocolatetc', 'cactustc']
-  .every(k => new RegExp(`${k}: \\["[^"]+", \\d+, "tc\\w+"\\]`).test(stApp) && st.messages['zh-TW'][`font.${k}`]));
 
 
 /* ---- 註解保留原文的工具共用：stripComments ---- */
@@ -1325,36 +1221,24 @@ check('THIRD_PARTY_NOTICES 記下取得網址與作者不明', cocNotices.includ
   && cocNotices.includes('沒有作者署名'));
 
 /* ---- PC 字型挑選器 ---- */
-/* pcfonts.v1.js 在兩個工具底下各有一份，上游保證各份完全相同，收錄版也一樣。
- * 只改其中一份的話，另一個工具的對話框就會停在舊版本。
- * （status-bar、chat-window、message-box 已由本站重寫，不再用這個檔。） */
+/* pcfonts.v1.js 原本在 shiki365 的幾個工具底下各有一份；其餘工具已由本站重寫
+ * （status-bar、chat-window、message-box、scene-transition），現在只剩 foreground-frame 這一份。 */
 section('pcfonts.v1.js');
-const PCFONT_TOOLS = ['foreground-frame', 'scene-transition'];
-const pcfSources = PCFONT_TOOLS.map(t => read(`tools/${t}/pcfonts.v1.js`));
-const pcfDiffer = PCFONT_TOOLS.filter((t, i) => pcfSources[i] !== pcfSources[0]);
-check('各工具的 pcfonts.v1.js 完全相同', pcfDiffer.length === 0, `differs: ${pcfDiffer.join(', ')}`);
-for (const tool of PCFONT_TOOLS) {
-  const html = read(`tools/${tool}/index.html`);
-  check(`${tool} 載入 pcfonts.v1.js`, /<script src="pcfonts\.v1\.js/.test(html));
-  check(`${tool} 的字型欄有「從清單選」按鈕`, html.includes('data-pc-fonts'));
+{
+  const html = read('tools/foreground-frame/index.html');
+  const pcf = read('tools/foreground-frame/pcfonts.v1.js');
+  check('foreground-frame 載入 pcfonts.v1.js', /<script src="pcfonts\.v1\.js/.test(html));
+  check('foreground-frame 的字型欄有「從清單選」按鈕', html.includes('data-pc-fonts'));
   /* 對話框是延遲建立的單例，切語言時要整個丟掉重建，否則裡面的文字會停在舊語言。 */
-  check(`${tool} 的挑選器會在切換語言時重建`,
-    read(`tools/${tool}/pcfonts.v1.js`).includes('I18N.onChange(() => {'));
-}
-/* 兩個工具的字典都要能餵飽同一份 pcfonts.v1.js。 */
-/* 兩個 key 是以三元運算傳進 T() 的（refused ? … : …），掃 T(" 會漏掉，改抓字面常數。 */
-const pcfKeys = [...new Set([...pcfSources[0].matchAll(/"(pcf\.[\w.]+)"/g)].map(m => m[1]))];
-check('解析出挑選器的 key', pcfKeys.length >= 13, `found ${pcfKeys.length}`);
-for (const [tool, dict] of [['foreground-frame', ff], ['scene-transition', st]]) {
+  check('foreground-frame 的挑選器會在切換語言時重建', pcf.includes('I18N.onChange(() => {'));
+  /* 兩個 key 是以三元運算傳進 T() 的（refused ? … : …），掃 T(" 會漏掉，改抓字面常數。 */
+  const pcfKeys = [...new Set([...pcf.matchAll(/"(pcf\.[\w.]+)"/g)].map(m => m[1]))];
+  check('解析出挑選器的 key', pcfKeys.length >= 13, `found ${pcfKeys.length}`);
   for (const locale of ['zh-TW', 'ja']) {
-    const missing = pcfKeys.filter(k => !dict.messages[locale][k]);
-    check(`${tool} ${locale} 的挑選器譯文齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
-  }
-}
-/* 樣張文字用「永」示範字型有沒有漢字，說明文也是這樣寫的。 */
-for (const [tool, dict] of [['foreground-frame', ff], ['scene-transition', st]]) {
-  for (const locale of ['zh-TW', 'ja']) {
-    check(`${tool} ${locale} 的樣張含「永」`, (dict.messages[locale]['pcf.sample'] || '').includes('永'));
+    const missing = pcfKeys.filter(k => !ff.messages[locale][k]);
+    check(`foreground-frame ${locale} 的挑選器譯文齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
+    /* 樣張文字用「永」示範字型有沒有漢字，說明文也是這樣寫的。 */
+    check(`foreground-frame ${locale} 的樣張含「永」`, (ff.messages[locale]['pcf.sample'] || '').includes('永'));
   }
 }
 
@@ -1570,9 +1454,7 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
 
 checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
 checkInlineText('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 150);
-checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 200);
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
-checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 130);
 checkInlineText('tools/log-converter', 'tools/log-converter/index.html', ['tools/log-converter/i18n.log-converter.js'], 170);
 checkInlineText('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 130);
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
@@ -1652,9 +1534,7 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
 
 checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
 checkAttrPairs('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 50);
-checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 10);
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
-checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 10);
 checkAttrPairs('tools/log-converter', 'tools/log-converter/index.html', ['tools/log-converter/i18n.log-converter.js'], 8);
 checkAttrPairs('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 18);
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
@@ -1683,14 +1563,12 @@ const attribution = read('ATTRIBUTION.md');
 for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
-for (const sha of ['de40a68', '615664b',
-  '586b273', '9866858', '883f48b', 'e1111d4',
+for (const sha of ['de40a68',
+  '586b273', '883f48b', 'e1111d4',
   'a9a522c', 'aad63b1', '9c29866', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
   '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
-check('ATTRIBUTION.md 標明 loading-maker 未授權',
-  /loading-maker[\s\S]{0,600}(未授權|無授權)/.test(attribution));
 check('ATTRIBUTION.md 標明 character-select 未授權',
   /character-select[\s\S]{0,900}(未授權|無授權)/.test(attribution));
 check('ATTRIBUTION.md 標明 character-editor 未授權',
@@ -1738,8 +1616,8 @@ check('ATTRIBUTION.md 指向 README 建置段落的錨點仍然有效',
   attribution.includes('README.md#重新建置-character-editor')
   && read('README.md').includes('### 重新建置 character-editor'));
 check('README 指向 pcfonts 段落的錨點仍然有效',
-  read('README.md').includes('ATTRIBUTION.md#兩個工具共用的-pcfontsv1js')
-  && attribution.includes('## 兩個工具共用的 pcfonts.v1.js'));
+  read('README.md').includes('ATTRIBUTION.md#foreground-frame-的-pcfontsv1js')
+  && attribution.includes('## foreground-frame 的 pcfonts.v1.js'));
 check('ATTRIBUTION.md 說明 jizura 改為連到原作者網站的官方繁中版',
   /## jizura：JIZURA 字面（連到原站）(?=[\s\S]*Zaious)(?=[\s\S]*zh-hant\/)/.test(attribution));
 check('ATTRIBUTION.md 說明 coc-typesetter 的來源、未授權與只收繁中',

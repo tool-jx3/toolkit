@@ -275,7 +275,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '做出拉滿畫面的換場動畫：淡出、擦除、圓形收束、溶解、血液垂流等 53 種效果，可加字幕，匯出透明背景的 WebP 或 APNG。不需要伺服器，圖片不會離開你的電腦。',
     group: 'G2',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'shiki365/scene-transition-maker',
       url: 'https://github.com/shiki365/scene-transition-maker',
@@ -287,7 +287,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把角色和進度條、轉圈圖示或換圖列組成跑團用的讀取畫面：可上傳角色動畫、拖曳排版，加上開場淡入與結尾消失演出，匯出 APNG、WebP、GIF。',
     group: 'G2',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/loading-maker',
       url: 'https://github.com/sotsotssi/loading-maker',

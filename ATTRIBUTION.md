@@ -24,9 +24,7 @@
 | 工具 | 原始 repo | 來源 commit | 授權 |
 |---|---|---|---|
 | magic-circle | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `de40a68` | MIT |
-| loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
 | foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
-| scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `9866858` | MIT |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
@@ -48,15 +46,10 @@
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
-shiki365 的兩個工具（`foreground-frame`、`scene-transition`）與 `room-zip` 原文為日文，
+shiki365 的 `foreground-frame` 與 `room-zip` 原文為日文，
 收錄時另有以下調整：
 
-- `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
-  `docs/` 底下的瀏覽器版（合輯只收純靜態、免安裝的網頁工具）。v2.0～v2.3 起效果增加到 53 種、
-  以 WebP 為預設匯出格式，主程式也從 `app.v2.js` 改名為 `app.v6.js`（上游靠檔名換版號避開快取），
-  另外多了 `webp.v1.js` 與共用的 `pcfonts.v1.js`。字幕字型清單加了同一組五套繁中字型（見下方「繁體中文字型」），
-  字型群組的 `<optgroup>` 標籤掛 `data-label-key`，由程式在切換語言時套上。
-- `foreground-frame` 與 `scene-transition` 的 `<style>` 區塊抽出為 `styles.css`。
+- `foreground-frame` 的 `<style>` 區塊抽出為 `styles.css`。
 - 這些工具都移除了指向原作者站台的 OG／Twitter meta 與
   `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
   `<title>` 只留工具名，捨去 SEO 後綴。
@@ -65,15 +58,14 @@ shiki365 的兩個工具（`foreground-frame`、`scene-transition`）與 `room-z
 - 上游後來替這些工具加了 `favicon.svg`，收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
   分頁圖示，不各自掛作者的站台圖示。
 
-## 兩個工具共用的 pcfonts.v1.js
+## foreground-frame 的 pcfonts.v1.js
 
-`foreground-frame` 的字型欄與 `scene-transition` 的字幕字型都可以改填「以名稱指定」，
+`foreground-frame` 的字型欄可以改填「以名稱指定」，
 使用觀看者電腦上已安裝的字型；Chrome／Edge 還能用 Local Font Access API
 （`queryLocalFonts()`）開出一份附樣張的清單來挑。那個對話框是 `pcfonts.v1.js`，
-上游在每個 repo 底下各放一份，收錄版照做，`tests/smoke.mjs` 會檢查
-兩份沒有漂開。上游 `message-box-maker` 那份的檔頭多列了自己的名字，其他幾份還沒跟上；
-內容其餘一字不差，收錄版都用那個新的檔頭。（`status-bar`、`chat-window`、`message-box`
-已由本站重寫，新版的電腦字型挑選改用本站的共用元件。）對話框是延遲建立的單例，切換語言時整個丟掉重建。
+上游在每個 repo 底下各放一份，收錄版照做。上游 `message-box-maker` 那份的檔頭多列了自己的名字，其他幾份還沒跟上；
+內容其餘一字不差，收錄版都用那個新的檔頭。（`status-bar`、`chat-window`、`message-box`、`scene-transition`
+已由本站重寫，新版的電腦字型挑選改用本站的共用元件，所以現在只剩 `foreground-frame` 這一份。）對話框是延遲建立的單例，切換語言時整個丟掉重建。
 
 這個功能在 OBS 端有個前提：OBS 是用它自己那台電腦的字型算繪的，所以那台也要裝同一套
 字型。上游把這件事寫在說明與產出的 CSS 開頭，收錄版一併翻譯保留。
@@ -286,7 +278,7 @@ MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也�
 這幾個工具的外部相依（Tailwind Play CDN、three.js、cannon.js、gif.js、gifuct-js、
 gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，本 repo 不散布
 它們的檔案；各工具目錄下的 `THIRD_PARTY_NOTICES.md` 列出版本、來源與授權。
-合輯本來就是這個做法（`loading-maker` 的 pako），README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
+合輯本來就是這個做法，README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
 
 `acrylic-goods` 另外自帶一個「開源授權」對話框，把同一份清單顯示給使用者看，
 那是上游就有的，收錄版只把兩句說明譯成繁中。
@@ -632,6 +624,8 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `height-board` | 立繪身高比較板 | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `b8a22a1` |
 | `emotion-maker` | 表情產生器 | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b8a22a1` |
 | `cutin` | 切入素材產生器 | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `b8a22a1` |
+| `scene-transition` | 場景轉換素材產生器 | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `83fd605` |
+| `loading-maker` | 讀取動畫產生器 | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -706,15 +700,12 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
 因此沒有隨附 OFL 全文。
-收錄的工具：`scene-transition`（字幕字型）、`pair-maker`
+收錄的工具：`pair-maker`
 （v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
 以及 `trpg-lab` 地圖編輯器的文字字型清單。
 
-`foreground-frame`、`loading-maker` 沒有網頁字型的載入機制（字型清單指的是觀看者電腦上
-已安裝的字型），因此改為：
-
-- `foreground-frame` 的字型表補上正黑體／明體／標楷體三組台灣系統字型堆疊；
-- `loading-maker` 的字型建議清單補上同樣三組；
+`foreground-frame` 沒有網頁字型的載入機制（字型清單指的是觀看者電腦上
+已安裝的字型），因此字型表補上正黑體／明體／標楷體三組台灣系統字型堆疊。
 
 くま的工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
 （PingFang TC、Microsoft JhengHei、Noto Sans TC 等）排到前面；日文介面維持上游的字型。
@@ -725,7 +716,6 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 ## 未授權的工具
 
-`sotsotssi/loading-maker`、
 `sotsotssi/select-your-chara`、
 `organon-torah/ccfoliaCharacterEditor`、`johnko00/ccfolia-room-zip-maker-demo`
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
@@ -737,10 +727,6 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 `character-select` 與 `room-zip` 的上游都是收錄前一兩天才建立、只有一次提交，
 往後很可能還會變動；此處的快照分別固定在 `883f48b` 與 `a9a522c`，不與上游同步。
-
-`loading-maker` 以 CDN 載入 pako 0.2.9（MIT，Copyright (C) 2014-2016 by
-Vitaly Puzrin）作為 APNG 壓縮／解壓縮之用，其出處與授權見
-[tools/loading-maker/THIRD_PARTY_NOTICES.md](tools/loading-maker/THIRD_PARTY_NOTICES.md)。
 
 ## 繁體中文翻譯
 
@@ -767,6 +753,5 @@ magic-circle 的繁體中文翻譯移植自
 新框架 `web/`（含其建置產物 `assets/build/`、`next/` 與重寫上線的 `tools/<id>/index.html`）、`docs/`、`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
 `guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
 以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
-`tools/loading-maker/`、
 `tools/character-select/`、`tools/character-editor/`、
 `tools/room-zip/`、`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。

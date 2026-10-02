@@ -159,9 +159,9 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | text-path | ✅ | ✅ | ✅ | ✅ |
 | cutin | ✅ | ✅ | ✅ | ✅ |
 | collage-letter | ✅ | ✅ | ✅ | ✅ |
-| scene-transition | ✅ | ⬜ | ⬜ | ⬜ |
+| scene-transition | ✅ | ✅ | ✅ | ✅ |
 | bg-motion | ✅ | ⬜ | ⬜ | ⬜ |
-| loading-maker | ✅ | ⬜ | ⬜ | ⬜ |
+| loading-maker | ✅ | ✅ | ✅ | ✅ |
 | foreground-frame | ✅ | ⬜ | ⬜ | ⬜ |
 | scenario-cards | ✅ | ⬜ | ⬜ | ⬜ |
 | character-editor | ✅ | ⬜ | ⬜ | ⬜ |

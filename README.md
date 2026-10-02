@@ -143,13 +143,15 @@ npm test
 | `height-board` | [立繪身高比較板](tools/height-board/) | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) |
 | `emotion-maker` | [表情產生器](tools/emotion-maker/) | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) |
 | `cutin` | [切入素材產生器](tools/cutin/) | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) |
+| `scene-transition` | [場景轉換素材產生器](tools/scene-transition/) | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) |
+| `loading-maker` | [讀取動畫產生器](tools/loading-maker/) | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的六個工具、
-`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的五個工具、
+`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的 `foreground-frame`、
 `character-editor`、`trpg-lab`、
 `anime-rig`、`scenario-editor` 與くま的四個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
 `bg-motion` 也照上游保留韓文（上游的英文沒有收）。
@@ -162,11 +164,11 @@ npm test
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
 
-`foreground-frame` 的字型欄與 `scene-transition` 的字幕字型可以改填「以名稱指定」，
+`foreground-frame` 的字型欄可以改填「以名稱指定」，
 使用觀看者電腦上已安裝的字型。Chrome／Edge 還能用「從清單選」開出一份附樣張的清單
 （Local Font Access API，第一次會詢問權限）；其餘瀏覽器隱藏該按鈕，直接輸入名稱同樣可用。
-那個對話框是兩個工具共用的 `pcfonts.v1.js`，兩份必須完全相同，詳見
-[ATTRIBUTION](ATTRIBUTION.md#兩個工具共用的-pcfontsv1js)。
+那個對話框是 `pcfonts.v1.js`，詳見
+[ATTRIBUTION](ATTRIBUTION.md#foreground-frame-的-pcfontsv1js)。
 選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），首頁與各工具共用。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，
@@ -178,7 +180,7 @@ npm test
 有字型清單的工具，除了原本的韓文／日文字型之外，都另外收了同一組五套繁體中文
 字型（思源黑體、思源宋體、霞鶩文楷、巧克力黑體、仙人掌明體，皆為 SIL OFL 1.1，
 自 Google Fonts 載入）。原有選項與預設值都沒有改動，需要中文字形時自行挑選即可。
-沒有網頁字型載入機制的三個工具，則補上台灣的系統字型堆疊。詳見
+沒有網頁字型載入機制的 `foreground-frame`，則補上台灣的系統字型堆疊。詳見
 [ATTRIBUTION.md](ATTRIBUTION.md#繁體中文字型)。
 
 ### 新增語言
@@ -196,7 +198,7 @@ npm test
 的繁中使用說明與 `coc-typesetter` 的範例劇本。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
-**注意**：`loading-maker`、`character-select`、
+**注意**：`character-select`、
 `character-editor`、`room-zip`、`pair-maker` 與くま的四個工具（`bg-motion`、
 `session-log`、`session-report`、`scenario-cards`）的原始 repo 皆未附任何授權條款，
 `coc-typesetter` 則連作者都不明，
