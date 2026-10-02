@@ -416,6 +416,31 @@ test.describe('一般操作', () => {
     await expect(page.locator('[data-tone="danger"]').filter({ hasText: '錯誤：' })).toBeVisible();
     expect(errors).toEqual([]);
   });
+
+  test('Google 字型載不到（離線、被擋）：狀態列很快附註已改用後備字型；匯出也附註（F37）', async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    const errors = await open(page);
+    /* open() 把字型請求換成空的樣式表；這裡改成連線失敗 */
+    await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+    await choose(page, '輸出尺寸', '640 × 360');
+    await choose(page, '字型', 'Klee One');
+    const caption = page.getByRole('textbox', { name: '字幕文字' });
+    await caption.fill('字幕測試ABC');
+    const t0 = Date.now();
+    await caption.blur();
+    await expect(status(page)).toContainText('字型沒有載入，已改用後備字型', { timeout: 5_000 });
+    /* 舊版 0.2 秒內就附註；這裡含 0.12 秒的重算延遲，給 3 秒的餘裕（不能等到 10 秒逾時） */
+    expect(Date.now() - t0).toBeLessThan(3_000);
+    await page.getByRole('radio', { name: 'APNG（.png）' }).click();
+    await exportFile(page, /^匯出 APNG/);
+    await expect(status(page)).toHaveText(
+      /^已匯出 .+（字型沒有載入，已改用後備字型；請檢查網路連線）$/,
+    );
+    /* 只有字型請求失敗的訊息 */
+    expect(errors.filter((e) => !/Failed to load resource|ERR_FAILED/.test(e))).toEqual([]);
+  });
 });
 
 test.describe('預覽播放', () => {

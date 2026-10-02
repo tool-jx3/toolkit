@@ -30,16 +30,17 @@ type Effect = any;
 const J = EFFECTS as unknown as { 效果: Effect[] };
 
 const RANDOM = new Set(['E30', 'E31', 'E35', 'E36', 'E37', 'E43', 'E44', 'E47']);
-/* 區塊平均透明度的容許差：多數 ≤ 3；圖形（心形、菱形的輪廓取樣）、時鐘、六角格、同心環、旋轉合攏的邊界與舊版略有不同 */
+/*
+ * 區塊平均透明度的容許差：≤ 3；圖形（星形、心形、菱形的輪廓取樣）與舊版略有不同。
+ * 對等修正後，時鐘、六角格、同心環、旋轉合攏與舊版逐值相同。
+ */
 const BLOCK_TOL: Record<string, number> = {
-  E16: 4,
   E26: 4,
   E27: 7,
   E28: 8,
-  E46: 5,
-  E51: 5,
-  E53: 5,
 };
+/* 隨機效果的花紋與舊版相同（同一花紋編號）：覆蓋率曲線與比例只差附件的四捨五入 */
+const SAME_PATTERN = new Set(['E30', 'E31', 'E35', 'E36', 'E37', 'E43', 'E44', 'E47']);
 
 /** 附件的初始設定（E52 量測時是舊版的 88%；新版改成 100%，見主控裁定） */
 function initial(id: string): Settings {
@@ -149,13 +150,48 @@ describe('隨機效果（統計比對，規格 3.10）', () => {
         cmax = Math.max(cmax, Math.abs(sum / n / 255 - ref[k]));
         if (k === 10) {
           const r = e.量測.取樣['50%'];
-          expect(Math.abs(op / n - r.不透明比例)).toBeLessThanOrEqual(0.08);
-          expect(Math.abs(tr / n - r.透明比例)).toBeLessThanOrEqual(0.08);
+          const tol = SAME_PATTERN.has(id) ? 0.002 : 0.08;
+          expect(Math.abs(op / n - r.不透明比例)).toBeLessThanOrEqual(tol);
+          expect(Math.abs(tr / n - r.透明比例)).toBeLessThanOrEqual(tol);
         }
       }
-      expect(cmax).toBeLessThanOrEqual(0.08);
+      expect(cmax).toBeLessThanOrEqual(SAME_PATTERN.has(id) ? 0.002 : 0.08);
     });
   }
+
+  it('方塊雨的預覽（480 寬、格子 10 px）：細縫每條 1 px，90% 時覆蓋率約 0.79（舊版 0.793）', () => {
+    const s: Settings = { ...applyEffect(null, 'E44'), fps: 10 as Fps, duration: 10.1, hold: 0 };
+    const plan = planOf(s, 480, 270, 480 / 1280);
+    const out = new Uint8ClampedArray(480 * 270 * 4);
+    renderFrame(plan, plan.frames[90], null, out);
+    let sum = 0;
+    for (let i = 3; i < out.length; i += 4) sum += out[i];
+    expect(Math.abs(sum / (480 * 270) / 255 - 0.793)).toBeLessThanOrEqual(0.002);
+  });
+});
+
+describe('邊緣實心與邊緣發光（F05）', () => {
+  /* 舊版（E49 640 × 360，最後一格 x＝320，y＝170～190）的透明度：關掉發光時合攏處是半透明的縫 */
+  const YS = [170, 176, 178, 179, 180, 181, 184, 190];
+  const lastColumn = (s: Settings) => {
+    const plan = planOf(s, 640, 360, 1);
+    const out = new Uint8ClampedArray(640 * 360 * 4);
+    renderFrame(plan, plan.frames[plan.frames.length - 1], null, out);
+    return YS.map((y) => out[(y * 640 + 320) * 4 + 3]);
+  };
+  it('E49 關掉邊緣發光：沒有實心亮線（中央透明度 158，同舊版）', () => {
+    const s = { ...applyEffect(null, 'E49'), size: '640x360' as const, glow: false };
+    expect(lastColumn(s)).toEqual([255, 192, 167, 158, 158, 167, 201, 255]);
+  });
+  it('E49 開著邊緣發光（初始設定）：合攏處是不透明的亮線', () => {
+    const s = { ...applyEffect(null, 'E49'), size: '640x360' as const };
+    expect(lastColumn(s)).toEqual(YS.map(() => 255));
+  });
+  it('E51 關掉邊緣發光：影格數與舊版相同（14 格，合攏處半透明）', () => {
+    const s = { ...applyEffect(null, 'E51'), size: '640x360' as const, glow: false };
+    const plan = planOf(s, 640, 360, 1);
+    expect(mergeRuns(plan, null).length).toBe(14);
+  });
 });
 
 describe('影格時間軸（規格 3.2）', () => {

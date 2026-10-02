@@ -73,6 +73,16 @@ function injectStylesheet(href: string): Promise<void> {
   return p;
 }
 
+/** 頁面上（樣式表的 @font-face 或註冊的 FontFace）有沒有這個字型家族 */
+function hasFontFace(family: string): boolean {
+  const want = family.replace(/["']/g, '').trim().toLowerCase();
+  let found = false;
+  document.fonts.forEach((f) => {
+    if (!found && f.family.replace(/["']/g, '').trim().toLowerCase() === want) found = true;
+  });
+  return found;
+}
+
 export interface EnsureFontOptions {
   /** 最多等幾毫秒（預設 8000）；逾時就先用備用字型 */
   timeoutMs?: number;
@@ -84,7 +94,7 @@ export interface EnsureFontOptions {
  * - Google Fonts：插入 css2 樣式表（同一字型只插一次），再用 document.fonts.load 載入實際用到的字。
  *   中日韓字型被切成很多小檔（unicode-range），傳入 text 只會下載這些字需要的部分。
  * - 電腦字型、上傳字型：等 document.fonts.load。
- * 回傳字型是否確實可用（false 表示會用備用字型）。
+ * 回傳字型是否確實可用（false 表示會用備用字型）：逾時、Google Fonts 的樣式表或字型檔載入失敗（離線、被擋）時為 false。
  */
 export async function ensureFont(
   family: string,
@@ -98,8 +108,16 @@ export async function ensureFont(
     if (entry) await injectStylesheet(googleFontCssUrl(entry.family));
     else if (!restoredOnce) await registerUploadedFonts().catch(() => []);
     const spec = `${style === 'italic' ? 'italic ' : ''}${weight} 16px "${(entry?.family ?? family).replace(/"/g, '')}"`;
-    const faces = await document.fonts.load(spec, text || '永Aa');
-    return faces.length > 0 || document.fonts.check(spec, text || '永Aa');
+    const sample = text || '永Aa';
+    const faces = await document.fonts.load(spec, sample);
+    if (faces.some((f) => f.status !== 'error')) return true;
+    /*
+     * Google Fonts：樣式表沒有載入（離線、被擋）時頁面上沒有這個字型的任何 @font-face，
+     * 而 document.fonts.check 對不存在的字型也回傳 true，所以另外確認；字型檔下載失敗（status 'error'）也算沒有載入。
+     * 有這個字型、只是 text 的字都不在它的範圍內（例如英文字型配中文）時照舊（check）。
+     */
+    if (entry && (faces.length > 0 || !hasFontFace(entry.family))) return false;
+    return document.fonts.check(spec, sample);
   })();
   const timeout = new Promise<boolean>((r) => setTimeout(() => r(false), timeoutMs));
   try {

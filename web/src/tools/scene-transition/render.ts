@@ -114,6 +114,7 @@ export function planOf(s: Settings, width: number, height: number, scale = 1): P
         reverse: s.reverseOrder,
         color: alternatingColorIndex(frame.progress, s.strobe) ? s.color2 : s.color,
         glow,
+        /* 邊緣實心（E49～E51）疊在邊緣發光上：關掉發光時不作用，合攏處是半透明的縫（同原作，core 依 glow 判斷） */
         solidEdge: !!effect.solidEdge,
       };
     },
@@ -162,7 +163,7 @@ export function renderFrame(
   out: Uint8ClampedArray,
 ): void {
   const map = plan.map(frame);
-  applyTransitionLut(map, transitionLut(plan.look(frame), map.flat), out);
+  applyTransitionLut(map, transitionLut(plan.look(frame), map.flat, map.range), out);
   if (caption) compositeCaption(out, caption, plan.captionAlpha(frame));
 }
 
