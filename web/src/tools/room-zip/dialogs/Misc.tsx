@@ -30,7 +30,6 @@ import {
   ImageField,
   Labeled,
   NumCell,
-  QUIET_CHECKBOX,
   Row,
   Thumb,
   useNotify,
@@ -110,7 +109,6 @@ export function SolidDialog() {
   };
   return (
     <Dialog
-      className={QUIET_CHECKBOX}
       open
       size="sm"
       title={S.solidTitle}
@@ -200,7 +198,6 @@ export function MultiPickDialog({
   };
   return (
     <Dialog
-      className={QUIET_CHECKBOX}
       open
       size="xl"
       title={S.multiTitle[kind]}
@@ -302,7 +299,6 @@ export function BulkDialog() {
   };
   return (
     <Dialog
-      className={QUIET_CHECKBOX}
       open
       size="lg"
       title={S.bulkTitle}
@@ -350,13 +346,7 @@ export function SceneTemplatesDialog() {
   const scene = useProject((s) => s.data.scenes.find((x) => x.id === sceneId));
   const [ask, node] = usePromptDialog();
   return (
-    <Dialog
-      className={QUIET_CHECKBOX}
-      open
-      size="lg"
-      title={S.templatesTitle}
-      onOpenChange={(o) => !o && close()}
-    >
+    <Dialog open size="lg" title={S.templatesTitle} onOpenChange={(o) => !o && close()}>
       <div className="flex flex-col gap-2" data-testid="scene-templates">
         <Hint>{S.templatesLead}</Hint>
         <div>
@@ -449,13 +439,7 @@ export function BrokenDialog() {
     ...materials.map((m) => ({ value: m.name, label: m.label })),
   ];
   return (
-    <Dialog
-      className={QUIET_CHECKBOX}
-      open
-      size="lg"
-      title={S.brokenDialog}
-      onOpenChange={(o) => !o && close()}
-    >
+    <Dialog open size="lg" title={S.brokenDialog} onOpenChange={(o) => !o && close()}>
       <div className="flex flex-col gap-3 text-sm" data-testid="broken-dialog">
         {!list.length ? (
           <>
@@ -597,13 +581,7 @@ export function InfoDialog({ name }: { name: string }) {
     } else goPage(t.page);
   };
   return (
-    <Dialog
-      className={QUIET_CHECKBOX}
-      open
-      size="lg"
-      title={`${S.infoTitle}：${m.label}`}
-      onOpenChange={(o) => !o && close()}
-    >
+    <Dialog open size="lg" title={`${S.infoTitle}：${m.label}`} onOpenChange={(o) => !o && close()}>
       <div className="grid gap-3 md:grid-cols-[200px_minmax(0,1fr)]" data-testid="info-dialog">
         <Thumb name={name} className="aspect-square w-full" />
         <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
@@ -734,7 +712,6 @@ export function RenameDialog({ target }: { target: 'materials' | 'scenes' }) {
   const checked = target === 'scenes' ? sess.sceneSel.length > 0 : sess.imgSel.length > 0;
   return (
     <Dialog
-      className={QUIET_CHECKBOX}
       open
       size="lg"
       title={target === 'scenes' ? S.sceneRenameTitle : S.materialRenameTitle}
@@ -784,13 +761,7 @@ export function PartTemplatesDialog() {
   const n = useNotify();
   const list = useLibrary((s) => s.data.partTemplates);
   return (
-    <Dialog
-      className={QUIET_CHECKBOX}
-      open
-      size="lg"
-      title={S.partTemplatesTitle}
-      onOpenChange={(o) => !o && close()}
-    >
+    <Dialog open size="lg" title={S.partTemplatesTitle} onOpenChange={(o) => !o && close()}>
       <div className="flex flex-col gap-2" data-testid="part-templates">
         <Hint>{S.partTemplatesNote}</Hint>
         {!list.length ? <Hint>{S.partTemplatesEmpty}</Hint> : null}
@@ -1041,13 +1012,7 @@ export function SourceDialog({
     }
   }
   return (
-    <Dialog
-      className={QUIET_CHECKBOX}
-      open
-      size="md"
-      title={title}
-      onOpenChange={(o) => !o && close()}
-    >
+    <Dialog open size="md" title={title} onOpenChange={(o) => !o && close()}>
       <div data-testid="source-dialog">{body}</div>
     </Dialog>
   );
@@ -1147,13 +1112,7 @@ export function TemplateDetailDialog({
       );
   }
   return (
-    <Dialog
-      className={QUIET_CHECKBOX}
-      open
-      size="md"
-      title={S.manageEdit}
-      onOpenChange={(o) => !o && close()}
-    >
+    <Dialog open size="md" title={S.manageEdit} onOpenChange={(o) => !o && close()}>
       {body}
     </Dialog>
   );
@@ -1163,13 +1122,7 @@ export function PieceTemplateDialog({ id }: { id: string }) {
   const t = useLibrary((s) => s.data.pieceTemplates.find((x) => x.id === id));
   if (!t) return null;
   return (
-    <Dialog
-      className={QUIET_CHECKBOX}
-      open
-      size="md"
-      title={t.name}
-      onOpenChange={(o) => !o && close()}
-    >
+    <Dialog open size="md" title={t.name} onOpenChange={(o) => !o && close()}>
       <div className="flex flex-col gap-2 text-sm" data-testid="piece-template-detail">
         <Row>
           <Thumb name={t.iconUrl} className="size-14" />

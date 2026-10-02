@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, ColorField, Dialog, Select, TextInput } from '@/ui';
 import { updateEffect } from '../actions';
-import { Hint, Labeled, QUIET_CHECKBOX, Row, useNotify } from '../common';
+import { Hint, Labeled, Row, useNotify } from '../common';
 import {
   encodeFade,
   FADE,
@@ -209,7 +209,6 @@ export function FadeDialog({ initial }: { initial: FadeState }) {
 
   return (
     <Dialog
-      className={QUIET_CHECKBOX}
       open
       size="lg"
       title={S.fadeTitle}

@@ -30,7 +30,7 @@ import {
   Toggle,
   useConfirm,
 } from '@/ui';
-import { Hint, ImageField, Labeled, NumCell, QUIET_CHECKBOX, Row, useNotify } from '../common';
+import { Hint, ImageField, Labeled, NumCell, Row, useNotify } from '../common';
 import { canvasBlob, importFiles } from '../importer';
 import {
   type AlignMode,
@@ -358,7 +358,6 @@ export function MakerDialog({ context, background }: { context: MakeContext; bac
 
   return (
     <Dialog
-      className={QUIET_CHECKBOX}
       open
       size="xl"
       title={S.makerTitle}

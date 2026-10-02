@@ -11,11 +11,6 @@ import { S } from './strings';
 
 /* ---------- 通知（F018：約 4 秒） ---------- */
 
-/**
- * 共用勾選框的焦點框只在鍵盤聚焦時顯示（本工具的版面與對話框套用；不改共用元件）
- */
-export const QUIET_CHECKBOX = '[&_[role=checkbox]:not(:focus-visible)]:outline-none';
-
 export type NotifyTone = 'info' | 'success' | 'warning' | 'danger';
 
 export function useNotify() {
@@ -324,7 +319,6 @@ export function usePromptDialog(): [
   };
   const node = st ? (
     <Dialog
-      className={QUIET_CHECKBOX}
       open
       size="sm"
       title={st.title}

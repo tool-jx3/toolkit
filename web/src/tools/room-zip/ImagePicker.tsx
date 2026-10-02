@@ -6,7 +6,7 @@ import { Brush, ImagePlus, Palette, Scissors, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { pickFiles } from '@/core/files';
 import { Button, cn, Dialog, TextInput } from '@/ui';
-import { QUIET_CHECKBOX, useImageUrl, useNotify } from './common';
+import { useImageUrl, useNotify } from './common';
 import { importFiles, importMessage } from './importer';
 import { filterForPicker, TAG_LABELS, tagsLabel } from './materials';
 import type { Material, Tag } from './model';
@@ -95,7 +95,6 @@ export function ImagePicker() {
 
   return (
     <Dialog
-      className={QUIET_CHECKBOX}
       open
       size="xl"
       title={S.pickerTitle}

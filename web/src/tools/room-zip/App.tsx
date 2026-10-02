@@ -38,7 +38,7 @@ import {
   WindowDrop,
   withShortcut,
 } from '@/ui';
-import { QUIET_CHECKBOX, useNotify, useRenameProject } from './common';
+import { useNotify, useRenameProject } from './common';
 import { ImagePicker } from './ImagePicker';
 import { importFiles, importMessage } from './importer';
 import { ACTIONS, keyOf } from './keys';
@@ -498,7 +498,7 @@ function Workspace() {
   const n = useNotify();
   const showRight = page !== 'room';
   return (
-    <div className={cn('flex min-w-0 flex-1 flex-col gap-3', QUIET_CHECKBOX)} data-page={page}>
+    <div className={'flex min-w-0 flex-1 flex-col gap-3'} data-page={page}>
       <Startup />
       <TopBar />
       <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start">

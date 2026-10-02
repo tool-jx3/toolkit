@@ -40,7 +40,7 @@ export function Checkbox({
       aria-labelledby={labelId ?? (rest['aria-label'] ? undefined : field['aria-labelledby'])}
       aria-describedby={field['aria-describedby']}
       className={cn(
-        'focus-ring inline-flex size-4.5 shrink-0 items-center justify-center rounded-sm border border-border-strong bg-surface-2 transition-colors',
+        'focus-visible:focus-ring inline-flex size-4.5 shrink-0 items-center justify-center rounded-sm border border-border-strong bg-surface-2 transition-colors',
         'data-[state=checked]:border-accent data-[state=checked]:bg-accent data-[state=checked]:text-accent-contrast disabled:opacity-50',
         !label && className,
       )}

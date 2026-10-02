@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Checkbox, ColorField, cn, Dialog, Segmented, Select, Slider, Toggle } from '@/ui';
 import { updatePart } from '../actions';
-import { Hint, Labeled, NumCell, QUIET_CHECKBOX, Row, useNotify } from '../common';
+import { Hint, Labeled, NumCell, Row, useNotify } from '../common';
 import {
   dragGradientHandle,
   drawEditProcessed,
@@ -219,7 +219,6 @@ export function EditDialog({
   if (!m) return null;
   return (
     <Dialog
-      className={QUIET_CHECKBOX}
       open
       size="xl"
       title={S.editTitle(m.label, W, H)}
