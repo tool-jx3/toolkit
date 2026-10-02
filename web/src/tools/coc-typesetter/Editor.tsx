@@ -9,6 +9,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from 'react';
@@ -131,6 +132,7 @@ export function Editor() {
   slashRef.current = slash;
   /** 下一次重畫後要設定的選取範圍（封面資訊讀入後游標回到最前面） */
   const pendingSel = useRef<[number, number] | null>(null);
+  const [, forceRender] = useReducer((n: number) => n + 1, 0);
 
   const lines = useMemo(() => highlightLines(text), [text]);
   const items = useMemo(() => (slash ? filterFormats(slash.q) : []), [slash]);
@@ -257,6 +259,8 @@ export function Editor() {
         d.meta = fm.meta;
       });
       pendingSel.current = [0, 0];
+      /* 內文沒變時 store 不會觸發重畫，另外要求重畫一次，選取範圍才會立刻套用（F29） */
+      forceRender();
       closeSlash();
       toast({ title: S.toast.absorbed, tone: 'success' });
       return;

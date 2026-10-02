@@ -122,6 +122,8 @@ ${themeCss}
 .book .page-body p.flow-last-line{text-align-last:justify}
 .book .page-body p.flow-joined{margin-bottom:0}
 .book .page-body ul,.book .page-body ol{margin:0 0 .65em;padding-left:1.5em}
+/* 本站的基本樣式（Tailwind preflight）把清單符號拿掉、圖片改成區塊：紙面與列印文件都回到瀏覽器預設，量到的高度才會一樣（F57、F75） */
+.book .page-body ul,.book .page-body ol{list-style:revert}
 .book .page-body li::marker{color:var(--accent)}
 .book .page-body li.flow-cont{list-style:none}
 .book .page-body strong{font-family:var(--sans);font-weight:700}
@@ -133,7 +135,7 @@ ${themeCss}
 .book .page-body pre{font-family:var(--sans);background:var(--tint2);border-left:1.5pt solid var(--rule);padding:.6em .8em;white-space:pre-wrap;margin:0 0 .8em}
 .book .page-body pre code{background:none;padding:0}
 .book .page-body blockquote{margin:0 0 .65em;padding-left:1em;border-left:1.5pt solid var(--rule)}
-.book .page-body img{max-width:100%}
+.book .page-body img{max-width:100%;display:revert;vertical-align:revert}
 
 /* 標題 */
 .book .page-body h1,.book .page-body h2,.book .page-body h3,.book .page-body h4,.book .page-body h5,.book .page-body h6{

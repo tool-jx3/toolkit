@@ -264,6 +264,26 @@ test.describe('CoC 劇本排版工具', () => {
     await expect(pages(page).first().locator('.spec-item dt')).toHaveText(['舞台']);
   });
 
+  test('讀入封面資訊後內文沒變：游標立刻回到開頭（F29）；紙面的清單有符號、圖片是行內（F57）', async ({
+    page,
+  }) => {
+    await open(page);
+    await setText(page, '');
+    await source(page).focus();
+    await source(page).fill('---\n標題: X\n作者: Y\n---\n');
+    await expect(source(page)).toHaveValue('');
+    await page.keyboard.type('## 第一章');
+    await expect(source(page)).toHaveValue('## 第一章');
+    await setText(
+      page,
+      '- 甲\n- 乙\n\n1. 一\n2. 二\n\n文字![](data:image/gif;base64,R0lGODlhAQABAAAAACw=)文字',
+    );
+    const body = pages(page).last().locator('.page-body');
+    await expect(body.locator('ul')).toHaveCSS('list-style-type', 'disc');
+    await expect(body.locator('ol')).toHaveCSS('list-style-type', 'decimal');
+    await expect(body.locator('img')).toHaveCSS('display', 'inline');
+  });
+
   test('游標與紙面同步、點紙面跳到內文、點封面到標題欄、點目錄捲到標題', async ({ page }) => {
     await open(page);
     /* 游標移到「### 燈室」那一行 → 紙面上的該標題加外框 */
