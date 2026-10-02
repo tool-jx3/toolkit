@@ -121,13 +121,14 @@ npm test
 | `character-editor` | [角色資料編輯器](tools/character-editor/) | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) |
 | `foreground-frame` | [前景框產生器](tools/foreground-frame/) | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) |
 | `room-zip` | [房間 ZIP 產生器](tools/room-zip/) | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) |
+| `log-converter` | [CCFOLIA 日誌轉換器](tools/log-converter/) | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的五個工具、
-`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，
+`pair-maker` 與 `psd-studio` 為韓文，
 `trpg-lab`、
 `anime-rig`、`scenario-editor` 與くま的三個工具為日文。
 

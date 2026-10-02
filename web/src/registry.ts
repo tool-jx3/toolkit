@@ -347,7 +347,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把 CCFOLIA 匯出的聊天日誌轉成小說、時間軸或 CCFOLIA 風格的網頁：指定旁白與閒聊、嵌入頭像與插圖、分割檔案，也能做成貼進部落格的版本。全部在瀏覽器裡處理。',
     group: 'G5',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'Eon-00/eon-ccfolia-log-converter',
       url: 'https://github.com/Eon-00/eon-ccfolia-log-converter',

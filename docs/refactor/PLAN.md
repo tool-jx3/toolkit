@@ -165,7 +165,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | foreground-frame | ✅ | ✅ | ✅ | ✅ |
 | scenario-cards | ✅ | ⬜ | ⬜ | ⬜ |
 | character-editor | ✅ | ✅ | ✅ | ✅ |
-| log-converter | ✅ | ⬜ | ⬜ | ⬜ |
+| log-converter | ✅ | ✅ | ✅ | ✅ |
 | room-zip | ✅ | ✅ | ✅ | ✅ |
 | psd-studio | ✅ | ⬜ | ⬜ | ⬜ |
 | 其餘 12 個（G6～G9） | ⬜ | ⬜ | ⬜ | ⬜ |

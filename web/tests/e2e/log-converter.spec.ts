@@ -1,5 +1,5 @@
 /**
- * CCFOLIA 日誌轉換器（建置產物 next/log-converter/）的端對端測試：
+ * CCFOLIA 日誌轉換器（建置產物 tools/log-converter/）的端對端測試：
  * - 開頁：沒有 pageerror／console error、選檔前不顯示詳細設定、頁尾只有靈感來源、不連外（Google Fonts 除外，F102）；
  * - 附件 36 組在 Chromium 裡重跑（與介面相同的規則與 canvas 圖片處理），比對區塊、計算後的顏色、名稱欄寬、
  *   頭像與插圖的格式／尺寸／中心色、頁面與標題區（第 7 節裁定修正的案例比修正後的預期）；
