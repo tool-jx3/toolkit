@@ -120,6 +120,7 @@ npm test
 | `bg-motion` | [動態背景產生器](tools/bg-motion/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `character-editor` | [角色資料編輯器](tools/character-editor/) | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) |
 | `foreground-frame` | [前景框產生器](tools/foreground-frame/) | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) |
+| `room-zip` | [房間 ZIP 產生器](tools/room-zip/) | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
@@ -128,7 +129,7 @@ npm test
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的五個工具、
 `pair-maker`、`psd-studio` 與 `log-converter` 為韓文，
 `trpg-lab`、
-`anime-rig`、`scenario-editor` 與くま的三個工具為日文；`room-zip` 原文為日文，另外附了一份韓文。
+`anime-rig`、`scenario-editor` 與くま的三個工具為日文。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
 
@@ -167,7 +168,7 @@ npm test
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
 **注意**：`character-select`、
-`room-zip`、`pair-maker` 與くま的三個工具（
+`pair-maker` 與くま的三個工具（
 `session-log`、`session-report`、`scenario-cards`）的原始 repo 皆未附任何授權條款，
 `coc-typesetter` 則連作者都不明，
 其權利屬原作者所有，

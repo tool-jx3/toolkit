@@ -188,7 +188,7 @@ for (const locale of ['zh-TW', 'ko']) {
 
 /* ---- 註解保留原文的工具共用：stripComments ---- */
 /* 有些工具的註解密度很高、多半是演算法與版面取捨的說明，逐句轉譯的風險大於效益，
- * 保留日文原文（room-zip、trpg-lab）。
+ * 保留日文原文（trpg-lab）。
  *
  * 但「只有註解可以是日文」這件事要能被檢查，否則就等於放行。做法是把註解整段
  * 抹成空白（保留行結構）之後再掃一次：程式碼與標記裡只要出現假名就會被擋下。 */
@@ -202,122 +202,6 @@ function stripComments(src, kind) {
   }
   return out;
 }
-
-/* ---- room-zip ---- */
-/* 上游是一份 868 KB 的單一 HTML，收錄時拆成 index.html ＋ styles.css ＋ 五個
- * JS。其中 jszip.min.js 與 upng.js 是原樣保留的第三方函式庫，不參與 i18n。
- *
- * 註解保留日文原文，所以同樣用 stripComments 的規則：
- * 抹掉註解之後，程式碼與標記裡只剩下「刻意留著的資料」才放行。 */
-const RZ_KINDS = { 'index.html': 'html', 'styles.css': 'css', 'app.v1.js': 'js', 'core.v1.js': 'js', 'apng.v1.js': 'js' };
-const rzCode = Object.fromEntries(Object.entries(RZ_KINDS)
-  .map(([file, kind]) => [file, stripComments(read(`tools/room-zip/${file}`), kind).split('\n')]));
-
-/* 這些日文是資料不是介面文字，翻掉會壞掉——理由見 ATTRIBUTION.md。
- * 放行條件是「抹掉這些字串之後，該行就沒有假名了」，所以清單以外的日文一律落下。 */
-const RZ_KEPT = [
-  /* 素材標籤的七個值與舊檔的「背景」。會寫進存檔、.ccproj 與 CSS class 名稱，
-   * 程式本身也拿它們互相比對。顯示時一律經過 roleName()。 */
-  '前景', '立ち絵', 'パネル', '枠', '駒アイコン', '演出', 'その他', '背景',
-  /* 外部搜尋網址裡的佔位記號。使用者可以在工具設定裡自行編輯網址。 */
-  '検索ワード',
-  /* BOOTH 的搜尋關鍵字，是網址的一部分。 */
-  'ココフォリア',
-  /* 檔名是否「像是臨時名稱」的判斷式。比對的是使用者的檔名，不是介面文字。 */
-  'スクリーンショット', '無題', '名称未設定', 'ダウンロード',
-  /* CSV 匯入時辨識標題列用的字。 */
-  'シーン名', '名前',
-  /* CCFOLIA 房間預設的三個聊天頻道名（core.v1.js）。 */
-  'メイン', '情報', '雑談',
-];
-/* KPDEF 的聊天面板預設內容整段保留（混著 BCDice 指令），以行號範圍放行。 */
-const rzAppLines = read('tools/room-zip/app.v1.js').split('\n');
-const rzKpdefStart = rzAppLines.findIndex(l => /^\tvar KPDEF = \{/.test(l));
-const rzKpdefEnd = rzAppLines.findIndex((l, i) => i > rzKpdefStart && /^\t\}$/.test(l));
-
-const rz = checkTool({
-  dir: 'tools/room-zip',
-  dict: 'i18n.room-zip.js',
-  locale: 'ja',
-  locales: ['zh-TW', 'ko', 'ja'],
-  scripts: ['app.v1.js', 'core.v1.js', 'apng.v1.js'],
-  styles: ['styles.css'],
-  minHooks: 25,
-  licence: false,
-  allowSource: (line, lineNo, file) => {
-    const code = rzCode[file];
-    if (!code) return false;
-    if (file === 'app.v1.js' && rzKpdefStart >= 0 && lineNo > rzKpdefStart && lineNo <= rzKpdefEnd + 1) return true;
-    let rest = code[lineNo - 1] || '';
-    for (const kept of RZ_KEPT) rest = rest.split(kept).join('');
-    return !KANA.test(rest);
-  }
-});
-
-section('tools/room-zip');
-/* 上游的 Web 公開用 DEMO 外層整段不收：它每次開頁就無條件把 sample.ccproj
- * 蓋到現有專案上（loadSample()），做到一半重新整理就全沒了。 */
-/* 比對的是抹掉註解之後的程式碼——說明「上游原本怎麼做」的註解留著沒問題。 */
-for (const [file, needle] of [
-  ['index.html', '__CCFOLIA_BUILD__'], ['index.html', 'demo-bar'],
-  ['app.v1.js', '__CCFOLIA_BUILD__'], ['app.v1.js', 'IS_DEMO_BUILD'],
-  ['app.v1.js', 'BUILD_CONFIG'], ['styles.css', 'demo-bar'], ['styles.css', 'demo-intro'],
-]) {
-  check(`${file} 沒有 DEMO 外層的殘留（${needle}）`, !rzCode[file].join('\n').includes(needle));
-}
-check('範例改成按了才載入', read('tools/room-zip/app.v1.js').includes('function loadSampleProject()'));
-check('載入範例前會先問過', read('tools/room-zip/app.v1.js').includes('T("sample.confirm")'));
-check('首頁有載入範例的按鈕', read('tools/room-zip/app.v1.js').includes('id="homeSample"'));
-
-/* 範例檔照抄上游，格式要讀得出來才有意義。 */
-const rzSample = JSON.parse(read('tools/room-zip/sample.ccproj'));
-check('sample.ccproj 是這個工具的存檔格式', rzSample.format === 'ccfolia-room-zip-maker', `format: ${rzSample.format}`);
-check('sample.ccproj 有場景與素材',
-  Array.isArray(rzSample.scenes) && rzSample.scenes.length > 0 && Array.isArray(rzSample.images) && rzSample.images.length > 0);
-
-/* 素材標籤是資料：ROLES 的每個值都要有對應的顯示名 key，顯示一律走 roleName()。 */
-const rzApp = read('tools/room-zip/app.v1.js');
-const rzRoles = (rzApp.match(/var ROLES = \[([^\]]*)\]/) || [])[1];
-const rzRoleValues = [...(rzRoles || '').matchAll(/"([^"]+)"/g)].map(m => m[1]);
-check('解析出 ROLES 的七個值', rzRoleValues.length === 7, `found ${rzRoleValues.length}`);
-const rzRoleKeys = Object.fromEntries([...rzApp.matchAll(/^\t\t([^\s:]+): "(role\.[a-z]+)",$/gm)].map(m => [m[1], m[2]]));
-check('ROLE_KEYS 涵蓋 ROLES 與舊檔的「背景」',
-  [...rzRoleValues, '背景'].every(r => rzRoleKeys[r]),
-  `missing: ${[...rzRoleValues, '背景'].filter(r => !rzRoleKeys[r]).join(', ')}`);
-for (const locale of ['zh-TW', 'ko', 'ja']) {
-  const missing = Object.values(rzRoleKeys).filter(k => !rz.messages[locale][k]);
-  check(`${locale} 每個素材標籤都有譯名`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-check('roleName() 只在顯示時才翻', rzApp.includes('function roleName(r)'));
-
-/* 切語言時整個畫面會重畫，但在 IIFE 最外層就算好的常數不會——那種值會凍在
- * 第一次載入的語言。收錄時把六個這樣的常數改成函式或存 key，這裡防止復發。 */
-/* 兩種寫法都要看：單行的 `var X = …T(…)…`，與以 `[` 或 `{` 結尾、
- * 直到同縮排的 `]`／`}` 為止的多行常數。 */
-const rzTopLevelConst = [
-  ...[...rzApp.matchAll(/^\tvar ([A-Z][A-Z0-9_]*) = (.*)$/gm)].filter(m => /\bT\(/.test(m[2])),
-  ...[...rzApp.matchAll(/^\tvar ([A-Z][A-Z0-9_]*) = [[{]\n([\s\S]*?)\n\t[\]}]$/gm)].filter(m => /\bT\(/.test(m[2])),
-].map(m => m[1]);
-check('最外層沒有含 T() 的常數（那會凍在載入時的語言）',
-  rzTopLevelConst.length === 0, `frozen: ${rzTopLevelConst.join(', ')}`);
-check('語言切換會重畫整個畫面', rzApp.includes('I18N.onChange(function () { applyTheme(); render() })'));
-check('語言切換器掛在工具列上', rzApp.includes('I18N.mountSwitcher(document.getElementById("localeSelect"))'));
-
-/* 第三方函式庫原樣保留，授權標頭要在。 */
-check('jszip.min.js 保留授權標頭', read('tools/room-zip/jszip.min.js').includes('Dual licenced under the MIT license or GPLv3'));
-check('upng.js 保留授權標頭', read('tools/room-zip/upng.js').includes('Copyright (c) 2017 Photopea'));
-check('有第三方函式庫的出處說明', exists('tools/room-zip/THIRD_PARTY_NOTICES.md'));
-const rzNotices = read('tools/room-zip/THIRD_PARTY_NOTICES.md');
-for (const lib of ['JSZip 3.10.1', 'upng-js 2.2.2', 'pako']) {
-  check(`THIRD_PARTY_NOTICES 提到 ${lib}`, rzNotices.includes(lib));
-}
-
-/* 載入順序：引擎 → 字典 → 應用程式。字典檔在 app.v1.js 之前載入，
- * app.v1.js 才能在 top-level 直接呼叫 T()（預設專案名就是這樣來的）。 */
-const rzHtml = read('tools/room-zip/index.html');
-const rzOrder = ['jszip.min.js', 'upng.js', 'assets/i18n.js', 'i18n.room-zip.js', 'apng.v1.js', 'core.v1.js', 'app.v1.js']
-  .map(f => rzHtml.indexOf(f));
-check('index.html 的載入順序正確', rzOrder.every((at, i) => at >= 0 && (i === 0 || at > rzOrder[i - 1])), rzOrder.join(','));
 
 /* ---- pair-maker ---- */
 /* 合輯裡第一個有兩頁的工具：index.html 是版型選單，editor.html?id=<版型> 才是
@@ -1265,7 +1149,6 @@ checkInlineText('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-s
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
 for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
 checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
-checkInlineText('tools/room-zip', 'tools/room-zip/index.html', ['tools/room-zip/i18n.room-zip.js'], 15);
 /* pair-maker 有兩頁，兩頁都要比。 */
 checkInlineText('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 15);
 checkInlineText('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
@@ -1344,7 +1227,6 @@ checkAttrPairs('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-st
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
 for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
 checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
-checkAttrPairs('tools/room-zip', 'tools/room-zip/index.html', ['tools/room-zip/i18n.room-zip.js'], 10);
 checkAttrPairs('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 9);
 checkAttrPairs('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
 checkAttrPairs('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 24);
@@ -1368,21 +1250,12 @@ for (const name of TOOLS) {
 }
 for (const sha of ['de40a68',
   '883f48b',
-  'a9a522c', 'aad63b1', '9c29866', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
+  'aad63b1', '9c29866', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
   '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 character-select 未授權',
   /character-select[\s\S]{0,900}(未授權|無授權)/.test(attribution));
-/* room-zip 拆掉了上游的 DEMO 外層，又刻意留下幾類日文資料，這些取捨要寫下來
- * 才查得到；只檢查有沒有 room-zip 這幾個字沒有意義，所以挑關鍵字。 */
-check('ATTRIBUTION.md 說明 room-zip 移除了什麼',
-  /room-zip[\s\S]{0,2000}loadSample\(\)/.test(attribution)
-  && attribution.includes('通常ビルドには同封しない'));
-check('ATTRIBUTION.md 說明 room-zip 為何保留日文資料',
-  ['{検索ワード}', 'KPDEF', 'roleName()'].every(k => attribution.includes(k)));
-check('ATTRIBUTION.md 說明 room-zip 的第三方函式庫',
-  attribution.includes('tools/room-zip/THIRD_PARTY_NOTICES.md'));
 /* pair-maker 不收上游的作品集樣張，也拆掉了存取分析與 Google 表單；
  * 這些取捨要寫下來才查得到，所以挑關鍵字而不是只看有沒有 pair-maker 幾個字。 */
 check('ATTRIBUTION.md 說明 pair-maker 為何不收作品集樣張',
@@ -1404,7 +1277,7 @@ for (const dir of ['acrylic-goods', 'video-anim', 'gif-combiner']) {
 }
 
 check('ATTRIBUTION.md 說明哪些字刻意不跟著語言走',
-  attribution.includes('initialState()') && /initialState\(\)[\s\S]{0,400}room-zip/.test(attribution));
+  attribution.includes('initialState()'));
 
 /* 需要另外建置的上游專案（cutin、obs-tachie、character-editor）都已由本站重寫，vendor/ 不再存在。 */
 check('不再收錄需要建置的上游專案（vendor/）', !exists('vendor'));

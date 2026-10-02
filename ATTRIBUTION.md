@@ -25,7 +25,6 @@
 |---|---|---|---|
 | magic-circle | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `de40a68` | MIT |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
-| room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
 | acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
 | video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
@@ -42,75 +41,6 @@
 | psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
-
-## room-zip：拆掉上游的 Web DEMO 外層
-
-上游 `johnko00/ccfolia-room-zip-maker-demo` 只有一次提交、兩個檔案：868 KB 的單一
-`index.html` 與 48 KB 的 `sample.ccproj`。名字裡的 DEMO 不是功能閹割版：
-
-- `index.html` 開頭的 `window.__CCFOLIA_BUILD__ = { variant: "demo", … }` 只影響
-  儲存空間的命名空間。`variant === "demo"` 全檔用在兩處（`scopedStorageKey()` 與
-  `favDb()`），作用是把 localStorage 的鍵前綴與 IndexedDB 的資料庫名換掉，
-  **沒有任何功能被鎖住**。
-- 檔尾 L11578–11839 是一段獨立的 IIFE，開頭寫著
-  `/* Web公開用デモ。通常ビルドには同封しない。 */`，並以
-  `if (BUILD.variant !== "demo") return` 自我關閉。它只加東西：頂端的 DEMO 橫幅、
-  開場卡、逐步導覽與「最初に戻す」。
-- 但那段的最後一行是無條件執行的 `loadSample()`：每次開啟頁面都會抓
-  `sample.ccproj` 呼叫 `loadProject()`，而 `loadProject()` 會整包覆寫
-  `state.project` / `settings` / `room` / `images` / `scenes`。也就是說做到一半
-  重新整理，全部會被範例房間蓋掉——這才是 DEMO 版不能當工具用的原因。
-
-所以收錄版就是作者自己說的「通常ビルド」：刪掉那段 IIFE，連同 `variant: "demo"`
-的設定一起拿掉（`storagePrefix` 與 `samplePath` 上游其實沒用到，`scopedStorageKey()`
-是寫死字串的）。除此之外沒有動任何功能。
-
-`sample.ccproj` 照抄保留，但改成製作首頁上的一顆「🎁 載入範例房間」——要看範例才
-載入，而且手上已經有東西時會先問一次。範例檔裡的專案名是
-「ココフォリアZIPメーカー DEMO」，載入後會改成字典裡的「範例房間」：這份收錄版
-已經不是 DEMO 了，留著那個名字只會誤導。範例的素材與場景名維持日文原文不動。
-
-依慣例，`<style>` 與五個 `<script>` 區塊抽成獨立檔案：`styles.css`、
-`jszip.min.js`、`upng.js`（兩套第三方函式庫原樣保留，見
-[tools/room-zip/THIRD_PARTY_NOTICES.md](tools/room-zip/THIRD_PARTY_NOTICES.md)）、
-`apng.v1.js`、`core.v1.js`、`app.v1.js`。檔尾兩塊寫在 `</html>` 之後的
-`<style id="v492-room-fixes*">` 也併進 `styles.css`，順序照舊（後面的要壓在前面上）。
-
-### 刻意留著日文的部分
-
-`i18n.room-zip.js` 有 1,400 個 key，但有幾類字串刻意不進字典——它們是資料，不是
-介面文字：
-
-- **素材標籤（`ROLES`）的七個值**「前景 / 立ち絵 / パネル / 枠 / 駒アイコン /
-  演出 / その他」與舊檔用的「背景」。這些值會寫進 localStorage 的存檔、`.ccproj`
-  以及匯出的房間，程式本身也拿它們互相比對；翻掉就等於換了一套檔案格式。
-  收錄版加了一個 `roleName()`，只在要顯示給人看的時候才翻。
-- **`KPDEF` 的聊天面板預設內容**（`main` / `scene` / `memo`）。那是混著 BCDice
-  指令的面板範本（`:ラウンド+1`、`choice 表 裏`、`sCCB<= 【探索者の心理学】`
-  之類），使用者拿到之後本來就會自己改；同一份東西裡指令與說明文字交錯，
-  逐句拆開翻譯的風險大於效益。同一個物件裡的 `skillLabel` / `dodgeLabel`
-  是輸入欄標籤，改成存 key、顯示時才翻。
-- **外部搜尋網址與其中的 `{検索ワード}`**。那是 URL 裡的佔位記號，使用者可以在
-  工具設定裡自己編輯網址；記號翻掉就接不起來。工具設定裡解說這個記號的那句話，
-  也照樣顯示 `検索ワード`，不然講的就不是同一個東西了。網站名稱只有
-  「Google 画像」與「ココフォリア素材」有翻，`いらすとや`、`写真AC`、`ぱくたそ`
-  是站名本身，維持原文。
-
-`tests/smoke.mjs` 把這幾類列成清單逐一檢查，避免哪天被順手「翻乾淨」。
-
-### 切換語言時才看得出來的三個坑
-
-這個工具幾乎整個畫面都是 `render()` 重畫出來的，所以語言切換只要重畫一次就好。
-但有六個常數是在 IIFE 最外層就算好的，裡面含 `T()`，於是整份凍在第一次載入的
-語言：`MENU_GROUPS`（左側選單）、`KEY_GROUPS`（快速鍵一覽）、`FSIZES`（盤面尺寸
-預設）、`IMAGE_MAKER_FONT_PRESETS`（字型分類）、`EXSITES`（搜尋網站）與 `KPDEF`。
-收錄版把前五個改成函式、`KPDEF` 的兩個標籤改成存 key。`EXSITES` 只影響第一次
-的預設值——它會寫進工具設定並由使用者自行編輯，之後就不再跟著語言走，這與
-專案名稱一樣，屬於使用者資料。
-
-另外兩件事同理：專案的預設名稱（「我的房間」）會隨建立時的語言存下來，之後切換
-語言不會改；判斷「使用者還沒自己取過名字」時，三種語言的預設名都要算進去，
-見 `isUntouchedProjectName()`。
 
 ## pair-maker：不收作品集樣張，卡片圖改由工具自己算繪
 
@@ -188,7 +118,7 @@ ES module 只求值一次，所以版型模組最外層寫成值的常數——�
 有一類字刻意不跟著語言走：版型 `initialState()` 給的預設內容（「名字」「在這裡
 寫說明。」「#關鍵字」之類畫在圖上的字）。那是使用者的作品內容，不是介面文字——
 一載入就寫進存檔並自動存進 IndexedDB，切個語言就覆寫使用者可能已經改過的字，
-比留著原語言糟得多。這與 `room-zip` 的專案預設名稱是同一個判斷。
+比留著原語言糟得多。
 
 ### v1.1.0：四種文字記錄版型與 PDF 匯出（2026-09-30 跟進 `9c29866`）
 
@@ -347,8 +277,8 @@ gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，
 組出來的，文字先用 `T()` 填好、同時掛上 `data-i18n`，切換語言時交給共用引擎重套，
 不必整個重建（重建會把語言選單換掉）。
 
-上游註解維持日文（`map_editor.js` 一檔就有上千行），理由與 `room-zip`
-相同，規則也相同：`tests/smoke.mjs` 把註解抹掉之後再掃，程式碼與標記裡不准有假名。
+上游註解維持日文（`map_editor.js` 一檔就有上千行，逐句轉譯的風險大於效益），
+規則是：`tests/smoke.mjs` 把註解抹掉之後再掃，程式碼與標記裡不准有假名。
 
 介面是繁中時，各頁字型改用 Noto Sans TC（`common.css` 依 `<html lang>` 切換，每頁的
 Google Fonts 連結一併載入）；Noto Sans JP 雖然有漢字，字形是日文的寫法。日文介面維持
@@ -594,6 +524,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `bg-motion` | 動態背景產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`haikei-motion-maker`） | `83fd605` |
 | `character-editor` | 角色資料編輯器 | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `83fd605` |
 | `foreground-frame` | 前景框產生器 | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `83fd605` |
+| `room-zip` | 房間 ZIP 產生器 | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -650,8 +581,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 ## 未授權的工具
 
-`sotsotssi/select-your-chara`、
-`johnko00/ccfolia-room-zip-maker-demo`
+`sotsotssi/select-your-chara`
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
 `coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
 頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
@@ -659,8 +589,8 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 站上的利用規約另外禁止轉載圖片素材，因此一張圖都沒收）。
 依著作權法預設，其權利保留予原作者，此處僅供試用。原作者如有異議，將立即移除。
 
-`character-select` 與 `room-zip` 的上游都是收錄前一兩天才建立、只有一次提交，
-往後很可能還會變動；此處的快照分別固定在 `883f48b` 與 `a9a522c`，不與上游同步。
+`character-select` 的上游是收錄前一兩天才建立、只有一次提交，
+往後很可能還會變動；此處的快照固定在 `883f48b`，不與上游同步。
 
 ## 繁體中文翻譯
 
@@ -672,14 +602,7 @@ magic-circle 的繁體中文翻譯移植自
 其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 是改寫成只有繁中，見上；
 `jizura` 連到原作者的官方繁中版，不在此列）。
 
-各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文。一個例外：
-
-- `tools/room-zip/`——註解密度高且多為演算法與資料格式的說明，逐句轉譯風險大於效益：app.v1.js 一萬多行裡有 156 行
-  註解是日文，維持原文。這些註解會隨著檔案發佈，因此 `tests/smoke.mjs`
-  把「只有註解可以是日文」變成可檢查的規則（`stripComments`）：把註解整段抹成空白
-  （保留行結構）之後再掃一次，程式碼與標記裡只要出現假名就會被擋下；另外列出一份「刻意留著的資料」
-  清單（素材標籤的值、`{検索ワード}`、KPDEF 的聊天面板預設內容、CSV 標題列的
-  辨識字、CCFOLIA 的三個預設頻道名），清單以外的日文一律擋下。
+各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文（`trpg-lab` 的日文註解例外，見上）。
 
 ## 本 repo 新增的部分
 
@@ -687,4 +610,4 @@ magic-circle 的繁體中文翻譯移植自
 `guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
 以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
 `tools/character-select/`、
-`tools/room-zip/`、`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。
+`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。
