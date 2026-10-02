@@ -167,7 +167,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '一次整理同一個角色的表情差分：統一檔名、調整順序後打包成 ZIP，並產生 CCFOLIA 聊天面板用的「@差分名」清單。',
     group: 'G3',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'くま。／TRPG WEBツール観測所',
       url: 'https://kumachansteps.github.io/trpg-web-tools/',
@@ -191,7 +191,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把一段文字做成逐字出現、亂碼閃爍、片尾名單捲動或卡拉 OK 變色的透明動畫，匯出 APNG、GIF、WebP，打字還能配上節奏對應的音效。',
     group: 'G1',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/Typewriter-apng',
       url: 'https://github.com/sotsotssi/Typewriter-apng',
@@ -215,7 +215,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把去背的全身立繪裁成 3:4 或 1:1 的上半身頭像：自動對準頭部，左右拖曳微調，可加描邊、光暈或陰影，逐張或整批下載 PNG。',
     group: 'G3',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'kimtaehee2018-maker/ccfolia-cropper',
       url: 'https://github.com/kimtaehee2018-maker/ccfolia-cropper',
@@ -227,7 +227,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把角色圖放進圓角外框，加上名字牌與 HO 牌，拖曳排好版面後下載 1024 × 1024 的正方形頭像 PNG。',
     group: 'G3',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'くま。／TRPG WEBツール観測所',
       url: 'https://kumachansteps.github.io/trpg-web-tools/',
@@ -239,7 +239,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '替每位角色做一條直立的膠囊形配色條：由上到下排出髮色、膚色、衣服等顏色，長度依身高換算、底部對齊並排，可從立繪取色，匯出 PNG。',
     group: 'G3',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/CharColorPalette',
       url: 'https://github.com/sotsotssi/CharColorPalette',

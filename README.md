@@ -141,15 +141,20 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 | `message-box` | [訊息框產生器](tools/message-box/) | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) |
 | `chat-window` | [聊天視窗產生器](tools/chat-window/) | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) |
 | `obs-tachie` | [Discord 通話立繪產生器](tools/obs-tachie/) | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) |
+| `ccfolia-cropper` | [立繪裁切器](tools/ccfolia-cropper/) | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) |
+| `icon-maker` | [簡易頭像產生器](tools/icon-maker/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `variant-manager` | [角色差分管理器](tools/variant-manager/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `color-palette` | [角色配色條產生器](tools/color-palette/) | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette) |
+| `typewriter` | [打字機動畫產生器](tools/typewriter/) | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的九個工具、
-`ccfolia-cropper`、`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、`cutin`、
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的七個工具、
+`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、`cutin`、
 `character-editor`、`height-board`、`trpg-lab`、
-`anime-rig`、`scenario-editor` 與くま的六個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
+`anime-rig`、`scenario-editor` 與くま的四個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
 `bg-motion` 也照上游保留韓文（上游的英文沒有收）。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
@@ -194,9 +199,9 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 的繁中使用說明、`coc-typesetter` 的範例劇本，以及 emotion-maker 的資產路徑改造。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
-**注意**：`emotion-maker`、`loading-maker`、`ccfolia-cropper`、`character-select`、
-`character-editor`、`room-zip`、`pair-maker` 與くま的六個工具（`bg-motion`、`icon-maker`、
-`session-log`、`session-report`、`variant-manager`、`scenario-cards`）的原始 repo 皆未附任何授權條款，
+**注意**：`emotion-maker`、`loading-maker`、`character-select`、
+`character-editor`、`room-zip`、`pair-maker` 與くま的四個工具（`bg-motion`、
+`session-log`、`session-report`、`scenario-cards`）的原始 repo 皆未附任何授權條款，
 `coc-typesetter` 則連作者都不明，
 其權利（`emotion-maker` 含全部圖像素材）屬原作者所有，
 不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。

@@ -1,5 +1,5 @@
 /**
- * 簡易頭像產生器（建置產物 next/icon-maker/）的端對端測試：
+ * 簡易頭像產生器（建置產物 tools/icon-maker/）的端對端測試：
  * - 開頁沒有 pageerror／console error；預設設定與摘要；頁尾只有靈感來源；重新整理回到預設、不寫入 localStorage；
  * - 載入：選檔（PNG／JPEG／WebP）、非圖片靜默忽略、拖放只取第一個（GIF 也收）、載入後縮成一列、更換圖片；
  *   載入不重設位置與倍率、載入後選取圖片；

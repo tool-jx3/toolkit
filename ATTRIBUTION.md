@@ -24,19 +24,16 @@
 | 工具 | 原始 repo | 來源 commit | 授權 |
 |---|---|---|---|
 | magic-circle | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `de40a68` | MIT |
-| typewriter | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) | `cf3ff36` | MIT |
 | emotion-maker | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b455379` | **未授權** |
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
 | foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
 | scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `9866858` | MIT |
 | cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
-| ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
 | height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
-| color-palette | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette) | `75840e6` | MIT |
 | acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
 | video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
 | gif-combiner | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `3aa7de8` | MIT |
@@ -46,10 +43,8 @@
 | coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
 | bg-motion | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/haikei-motion-maker/` | `42c45f3` | **未授權** |
-| icon-maker | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/kantan-icon-maker/` | `42c45f3` | **未授權** |
 | session-log | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-log-tool/` | `42c45f3` | **未授權** |
 | session-report | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-report-generator/` | `42c45f3` | **未授權** |
-| variant-manager | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/chara-sabun-kanri-tool/` | `42c45f3` | **未授權** |
 | scenario-cards | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/scenario-snippet-builder/` | `42c45f3` | **未授權** |
 | log-converter | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `bb32ed7` | MIT |
 | psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
@@ -280,14 +275,14 @@ ES module 只求值一次，所以版型模組最外層寫成值的常數——�
 會疊上來，PDF 也跟著錯位。收錄版改用逐字量出的寬度推進；韓文預設內容的畫面與上游
 逐像素相同。
 
-## sotsotssi 的四個角色美術周邊工具
+## sotsotssi 的角色美術周邊工具
 
-`color-palette`、`acrylic-goods`、`video-anim`、`gif-combiner` 是一批同時收錄的
-MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也都是純靜態頁面：
+`acrylic-goods`、`video-anim`、`gif-combiner` 是一批同時收錄的
+MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也都是純靜態頁面（同批的 `color-palette`
+已由本站重寫，見下方「本站重寫的工具」）：
 
 | 目錄 | 上游名稱 | 做什麼 |
 |---|---|---|
-| `color-palette` | `CharColorPalette`（캐릭터 컬파 막대 메이커） | 角色配色條。可從立繪取色：手動滴管逐點選，或自動抓主色（演算法把彩度與明度當權重，無彩色與過暗過亮都扣分） |
 | `acrylic-goods` | `acrylic-goods`（사이버 아크릴 굿즈 공방） | 3D 壓克力立牌／搖搖樂／立體透視。搖搖樂裡的零件走 cannon.js 物理，手機上可用陀螺儀傾倒 |
 | `video-anim` | `video-to-pic`（동영상→이미지 변환기） | 影片選段轉無損 APNG／Animated WebP／256 色 GIF |
 | `gif-combiner` | `GIF-Combiner`（GIF 이어붙이기 툴） | 多張 GIF 對齊時間軸後合成一張 |
@@ -303,10 +298,10 @@ MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也�
 
 ### 函式庫照上游走 CDN，沒有改成同捆
 
-這四個工具的外部相依（Tailwind Play CDN、three.js、cannon.js、gif.js、gifuct-js、
+這幾個工具的外部相依（Tailwind Play CDN、three.js、cannon.js、gif.js、gifuct-js、
 gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，本 repo 不散布
 它們的檔案；各工具目錄下的 `THIRD_PARTY_NOTICES.md` 列出版本、來源與授權。
-合輯本來就是這個做法（`loading-maker` 的 pako，`typewriter` 的 Tailwind），README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
+合輯本來就是這個做法（`loading-maker` 的 pako），README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
 
 `acrylic-goods` 另外自帶一個「開源授權」對話框，把同一份清單顯示給使用者看，
 那是上游就有的，收錄版只把兩句說明譯成繁中。
@@ -320,13 +315,11 @@ gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，
 
 ### 切語言時要重跑的幾處
 
-四個工具的固定文字都走 `data-i18n`，但各有一些是程式寫進去的，切語言時得自己
+這幾個工具的固定文字都走 `data-i18n`，但各有一些是程式寫進去的，切語言時得自己
 重寫；每個工具的 `I18N.onChange` 就是在做這件事：
 
 - `gif-combiner`：產生鈕的字（合成途中會被進度覆寫，所以只在閒置時重寫）與整份
   檔案清單。
-- `color-palette`：左側面板與畫布由 `render()` 重畫；取色對話框那條狀態文字
-  即使對話框關著也要換掉，不然下次打開是上一個語言的字。
 - `video-anim`：裁切狀態、無損模式說明、影片資訊，以及結果卡上那四行——結果卡
   的數字另外記在 `state.lastResult` 裡，才有辦法用新語言重排。
 - `acrylic-goods`：兩份動態清單（搖搖樂零件、立體透視圖層）與畫布上的浮水印。
@@ -516,7 +509,7 @@ WebM。
 上游是部署在 Vercel 上的單一頁面「CoCシナリオ組版ツール」：把克蘇魯神話 TRPG 的劇本貼進去，
 排成書本般的紙面，印成 PDF 後可以在 BOOTH 等處發佈。頁面上沒有作者署名、沒有授權條款，
 也找不到原始碼的 repo（這個環境連不到該網站，檔案是使用者另存後提供的，取得日期 2026-09-26）。
-權利屬原作者所有，此處僅供試用，見下方「未授權的十五個工具」。
+權利屬原作者所有，此處僅供試用，見下方「未授權的工具」。
 
 ### 只有繁體中文
 
@@ -572,17 +565,16 @@ WebM。
 - 這個工具刻意不連網，因此沒有加 Google Fonts，只在紙面的明體後面補上新細明體與
   Noto Serif TC、介面字型補上微軟正黑體、蘋方與 Noto Sans TC（接在日文字型後面，日文顯示不變）。
 
-## くま（TRPG WEBツール観測所）的六個工具
+## くま（TRPG WEBツール観測所）的工具
 
-`bg-motion`、`icon-maker`、`session-log`、`session-report`、`variant-manager`、
-`scenario-cards` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
+`bg-motion`、`session-log`、`session-report`、`scenario-cards` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
 「TRPG WEBツール観測所」（[kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools)）。
 站上上線與開發中的工具有十幾個，收錄的是不依賴日文角色卡服務、日文聊天面板或作者後端、
-台灣玩家也用得上的六個。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
+台灣玩家也用得上的六個（其中 `icon-maker`、`variant-manager` 已由本站重寫，見下方「本站重寫的工具」）。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
 「画像・アイコン素材の無断転載、再配布、二次利用はお控えください」，因此：
 
 - **上游的圖片一律不收**：站台圖示（部分由るた様繪製）、favicon、`bg-motion` 的範例照片
-  （`sample_and_juliet.jpeg`）、`icon-maker` 的 `silhouette.png`（上游其實沒有引用）都不收。
+  （`sample_and_juliet.jpeg`）都不收。
   `bg-motion` 的「載入範例圖」改由程式畫一張夜景（漸層天空、星星、月亮、街景剪影），
   尺寸與上游的範例相同。
 - 拿掉每頁都掛的 Google Analytics，以及頁首回原站入口的連結（換成合輯列）。
@@ -600,7 +592,7 @@ WebM。
 - 團報範本依產生當下的語言給繁中或日文用語（通過→通關、ロスト→撕卡、様→樣、作：〇〇様→
   作者：〇〇老師）。
 - `scenario-cards` 的上游版面用 CSS 把頁尾藏起來，收錄版讓它顯示，否則整頁看不到作者署名。
-- `bg-motion` 與 `variant-manager` 照上游自 jsDelivr 載入 JSZip（`bg-motion` 另有 UPNG.js），
+- `bg-motion` 照上游自 jsDelivr 載入 JSZip 與 UPNG.js，
   見各目錄的 `THIRD_PARTY_NOTICES.md`。
 
 ## log-converter、psd-studio
@@ -647,6 +639,11 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `message-box` | 訊息框產生器 | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) | `b8a22a1` |
 | `chat-window` | 聊天視窗產生器 | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `b8a22a1` |
 | `obs-tachie` | Discord 通話立繪產生器 | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) | `b8a22a1` |
+| `ccfolia-cropper` | 立繪裁切器 | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `b8a22a1` |
+| `icon-maker` | 簡易頭像產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`kantan-icon-maker`） | `b8a22a1` |
+| `variant-manager` | 角色差分管理器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`chara-sabun-kanri-tool`） | `b8a22a1` |
+| `color-palette` | 角色配色條產生器 | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette) | `b8a22a1` |
+| `typewriter` | 打字機動畫產生器 | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) | `b8a22a1` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -721,7 +718,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
 因此沒有隨附 OFL 全文——與 `cutin` 的其他六套日文字型同樣的處理方式。
-收錄的工具：`cutin`、`scene-transition`（字幕字型）、`typewriter`、`pair-maker`
+收錄的工具：`cutin`、`scene-transition`（字幕字型）、`pair-maker`
 （v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
 以及 `trpg-lab` 地圖編輯器的文字字型清單。
 
@@ -731,22 +728,22 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 - `foreground-frame` 的字型表補上正黑體／明體／標楷體三組台灣系統字型堆疊；
 - `loading-maker` 的字型建議清單補上同樣三組；
 
-くま的六個工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
+くま的工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
 （PingFang TC、Microsoft JhengHei、Noto Sans TC 等）排到前面；日文介面維持上游的字型。
 
 各工具宣告的字重都逐一對 `fonts.googleapis.com/css2` 驗證過——Google Fonts 對
 不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
 `tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
 
-## 未授權的十五個工具
+## 未授權的工具
 
 `sotsotssi/emotion-maker`、`sotsotssi/loading-maker`、
-`kimtaehee2018-maker/ccfolia-cropper`、`sotsotssi/select-your-chara`、
+`sotsotssi/select-your-chara`、
 `organon-torah/ccfoliaCharacterEditor`、`johnko00/ccfolia-room-zip-maker-demo`
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
 `coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
 頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
-くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中六個工具，見上方專節；
+くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中四個工具，見上方專節；
 站上的利用規約另外禁止轉載圖片素材，因此一張圖都沒收）。
 依著作權法預設，其權利保留予原作者（`emotion-maker` 包含 `images/` 下全部
 39 張手繪素材），此處僅供試用。原作者如有異議，將立即移除。
@@ -768,12 +765,9 @@ magic-circle 的繁體中文翻譯移植自
 其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 是改寫成只有繁中，見上；
 `jizura` 連到原作者的官方繁中版，不在此列）。
 
-各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的五個工具
+各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的工具
 原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：
 
-- `tools/typewriter/webp-muxer.js`——這是原封不動保留的二進位格式編碼函式庫，
-  其註解維持原文不動，僅將其中 8 個使用者可能看見的錯誤訊息改為穩定的英文
-  錯誤代碼並另行翻譯。
 - `vendor/cutin-maker/`——註解密度高且多為演算法說明（描邊順序、`unicode-range`
   分割、記憶體上限推導等），逐句轉譯風險大於效益，故維持日文原文；只有使用者
   看得到的字串與本 repo 新增的註解為中文。這些註解不會出現在 `tools/cutin/`
@@ -796,5 +790,5 @@ magic-circle 的繁體中文翻譯移植自
 `guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
 以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
 `tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、
-`tools/ccfolia-cropper/`、`tools/character-select/`、`tools/character-editor/`、
+`tools/character-select/`、`tools/character-editor/`、
 `tools/room-zip/`、`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。

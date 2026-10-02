@@ -189,54 +189,6 @@ for (const locale of ['zh-TW', 'ko']) {
   check(`${locale} 無多餘 rune.* key`, stray.length === 0, `stray: ${stray.join(', ')}`);
 }
 
-/* ---- typewriter ---- */
-const tw = checkTool({
-  dir: 'tools/typewriter',
-  dict: 'i18n.typewriter.js',
-  scripts: ['script.js', 'webp-muxer.js'],
-  styles: ['style.css'],
-  minHooks: 80,
-  /* webp-muxer.js 是原封不動保留的二進位編碼函式庫（供他案共用，非本次翻譯範圍）。
-   * 其註解為上游作者所寫、僅供開發者閱讀，允許保留韓文；但其原本 8 個 throw/reject
-   * 訊息屬使用者可能看見的文字，已改為穩定的英文錯誤代碼（見下方 webp-muxer error
-   * codes 檢查），因此不在此豁免之列——只豁免整行皆為註解（// 或 * 開頭），或韓文
-   * 完全落在行內尾隨 // 註解、或完整落在同一行內的區塊註解之中的行；其餘任何行
-   * （含字串常值）仍須通過殘留韓文檢查，確保日後若再引入未翻譯訊息會使建置失敗。
-   * script.js 中兩處字元類別 [^a-zA-Z0-9가-힣] 用於保留使用者輸入歌詞／字幕中的韓文
-   * 字元以組成檔名，屬程式碼而非介面文字，同樣豁免。 */
-  allowSource: (line, lineNo, file) => {
-    if (file === 'webp-muxer.js') {
-      const trimmed = line.trimStart();
-      if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return true; /* 整行都是註解 */
-      /* 去除行內尾隨的 // 註解，以及完整落在同一行內的區塊註解後，若剩餘的程式碼
-       * 部分仍含韓文才視為洩漏。
-       * 已知限制：跨越多行、且續行不是以 * 開頭的區塊註解（例如開頭行的區塊註解
-       * 起始記號後面接韓文，收尾記號在後續行）不在此邏輯涵蓋範圍內——這種寫法目前
-       * 不存在於此檔案（唯一的區塊註解是每行皆以 * 開頭的 JSDoc，已由上面的
-       * startsWith('*') 涵蓋）。若日後新增這種格式的韓文註解，會被誤判為洩漏而使
-       * 建置失敗；屆時請改寫成每行以 * 開頭的慣例格式，或在此處另行處理。 */
-      const codeOnly = line
-        .replace(/\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\//g, '')
-        .replace(/\/\/.*/, ''); /* 不用 $ 錨點：來源檔為 CRLF 換行，行尾殘留的 \r
-                                    會讓 . 在無 /s 旗標時卡住，使 $ 永遠比對不到。 */
-      return !/[가-힣]/.test(codeOnly);
-    }
-    return /\[\^a-zA-Z0-9가-힣\]/.test(line);
-  }
-});
-
-/* webp-muxer.js 以穩定的英文錯誤代碼（非在地化文字）拋出例外，script.js 的
- * WEBP_ERROR_KEYS 對照表在顯示前將代碼轉換為 T() 訊息；T(key) 的 key 是變數而非字面
- * 常數，靜態掃描看不到，需另外檢查這些 key 是否兩語言都存在。 */
-section('tools/typewriter webp-muxer error codes');
-const webpErrorKeys = [...read('tools/typewriter/script.js')
-  .matchAll(/WEBP_ERR_\w+:\s*'([^']+)'/g)].map(m => m[1]);
-check('解析出 8 組 webp-muxer 錯誤代碼', webpErrorKeys.length === 8, `found ${webpErrorKeys.length}`);
-for (const locale of ['zh-TW', 'ko']) {
-  const missing = webpErrorKeys.filter(k => !tw.messages[locale][k]);
-  check(`${locale} 每個 webp-muxer 錯誤代碼都有對應訊息`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
 /* ---- emotion-maker ---- */
 const emApp = read('tools/emotion-maker/app.js');
 
@@ -830,7 +782,6 @@ for (const [lib, licenceFile] of [
 const SOTSOT_FOUR = [
   /* authorLink：上游在標題旁放了 @bb_uu_t 的連結。acrylic-goods 沒有——
    * 那個工具的署名只出現在燒進輸出圖片的浮水印上（見下方的 watermark 檢查）。 */
-  { dir: 'tools/color-palette', dict: 'i18n.color-palette.js', minHooks: 25, inline: 20, attrs: 6, authorLink: true },
   { dir: 'tools/acrylic-goods', dict: 'i18n.acrylic-goods.js', minHooks: 50, inline: 35, attrs: 4, authorLink: false },
   { dir: 'tools/video-anim', dict: 'i18n.video-anim.js', minHooks: 60, inline: 50, attrs: 1, authorLink: true },
   { dir: 'tools/gif-combiner', dict: 'i18n.gif-combiner.js', minHooks: 25, inline: 20, attrs: 5, authorLink: true },
@@ -839,7 +790,7 @@ for (const t of SOTSOT_FOUR) {
   checkTool({ dir: t.dir, dict: t.dict, scripts: ['app.js'], styles: ['styles.css'], minHooks: t.minHooks });
 }
 
-section('sotsotssi 的四個角色美術周邊工具');
+section('sotsotssi 的角色美術周邊工具');
 /* 上游把函式庫掛在 CDN 上，收錄版照舊（理由見 ATTRIBUTION）。既然不同捆，
  * 版本與出處就只剩 THIRD_PARTY_NOTICES.md 記著——漏記等於查不到來源。 */
 const CDN_HOSTS = /https:\/\/(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|esm\.sh|cdn\.tailwindcss\.com)[^"'`) ]*/g;
@@ -874,10 +825,6 @@ check('gif-combiner 把 gif.js 的 worker 包成 Blob（跨網域 CORS）',
   gcApp.includes('gif.worker.js') && gcApp.includes('URL.createObjectURL(blob)'));
 check('gif-combiner 閒置時才重寫產生鈕的字',
   gcApp.includes("if (!generateBtn.disabled) generateBtn.innerText = T('gen.run')"));
-
-/* color-palette：取色對話框關著時也要換掉那條狀態文字。 */
-check('color-palette 切語言時連關著的對話框一起換',
-  read('tools/color-palette/app.js').includes('render();\n    renderSwatches();'));
 
 /* video-anim：結果卡上的數字要留著，換語言才排得出新句子。 */
 const vaApp = read('tools/video-anim/app.js');
@@ -1001,7 +948,8 @@ check('掛了語言切換器，切語言時重畫程式寫的文字',
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
  * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
  * 也不該出現回報表單、存取分析與站台圖示。 */
-const KUMA_TOOLS = ['bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards'];
+/* icon-maker、variant-manager 已由本站重寫（web/），不在這裡。 */
+const KUMA_TOOLS = ['bg-motion', 'session-log', 'session-report', 'scenario-cards'];
 /* session-log 解析使用者匯入的日文試算表、團報與 CCFOLIA 紀錄，也把系統名、生還結果
  * 以上游的日文值存檔（兩種語言的 JSON 才能互讀）。這些字串刻意留著，清單釘死。 */
 const SL_KEPT_JA = ['くま', 'エモクロア', 'マダミス', 'ロスト', '全ロスト', 'シノビガミ', 'インセイン', 'ダブルクロス',
@@ -1020,12 +968,10 @@ const keptRuns = allowed => line => (line.match(KANA_RUN) || []).filter(run => K
   .every(run => allowed.includes(run) || allowed.some(keep => keep.includes(run)));
 const KUMA = {
   'bg-motion': { scripts: ['js/main.js', 'js/shortcut.js'], styles: ['css/motion-maker-style.css'], locales: ['zh-TW', 'ko', 'ja'], hooks: 150, inline: 140, attrs: 7 },
-  'icon-maker': { scripts: ['main.js'], styles: ['style.css'], hooks: 60, inline: 45, attrs: 8 },
   'session-log': { scripts: ['js/log_tool.js', 'js/shortcut.js'], styles: ['css/log_tool_style.css'], hooks: 125, inline: 90, attrs: 25,
     allow: (line, n, file) => file === 'js/log_tool.js' && keptRuns(SL_KEPT_JA)(line) },
   'session-report': { scripts: ['js/main.js', 'js/template.js'], styles: ['css/report_gen_style.css'], hooks: 90, inline: 65, attrs: 20,
     allow: (line, n, file) => file === 'js/main.js' && keptRuns(SR_KEPT_JA)(line) },
-  'variant-manager': { scripts: ['js/main.js'], styles: ['css/style.css'], hooks: 40, inline: 30, attrs: 6 },
   'scenario-cards': { scripts: ['js/main.js', 'js/parser.js', 'js/render.js', 'js/shortcut.js'], styles: ['css/snippet_builder_style.css'], hooks: 30, inline: 18, attrs: 12 }
 };
 const kuma = {};
@@ -1074,13 +1020,6 @@ for (const locale of ['zh-TW', 'ja', 'ko']) {
     ...bgFilters.filter(f => !m[`filter.${f}`]).map(f => `filter.${f}`)];
   check(`bg-motion ${locale} 每個效果與圖片處理都有名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
 }
-const vmSrc = read('tools/variant-manager/js/main.js');
-const vmIds = [...(vmSrc.match(/SUGGESTION_IDS = \[([\s\S]*?)\]/) || ['', ''])[1].matchAll(/'(\w+)'/g)].map(m => m[1]);
-check('variant-manager 解析出 23 個差分名稱建議', vmIds.length === 23, `found ${vmIds.length}`);
-for (const locale of ['zh-TW', 'ja']) {
-  const missing = vmIds.filter(id => !kuma['variant-manager'].messages[locale][`suggest.${id}`]);
-  check(`variant-manager ${locale} 每個建議名稱都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
 /* scenario-cards 的狀態列訊息多半以 setStatus("status.x") 間接傳入。 */
 const scKeys = [...new Set(['js/main.js', 'js/shortcut.js'].flatMap(f =>
   [...read(`tools/scenario-cards/${f}`).matchAll(/setStatus\(["']([\w.]+)["']/g)].map(m => m[1])))];
@@ -1092,34 +1031,6 @@ for (const locale of ['zh-TW', 'ja']) {
 /* 跑團紀錄簿的每一列可以直接送到團報產生器：連的是合輯裡的那一份。 */
 check('session-log 連到合輯內的 session-report',
   slSrc.includes('../session-report/') && !slSrc.includes('session-report-generator'));
-
-/* ---- ccfolia-cropper ---- */
-checkTool({
-  dir: 'tools/ccfolia-cropper',
-  dict: 'i18n.ccfolia-cropper.js',
-  scripts: ['app.js'],
-  styles: ['styles.css'],
-  minHooks: 25,
-  /* 上游未附任何授權條款，狀態記於 ATTRIBUTION.md。 */
-  licence: false
-});
-
-/* 未授權，故不應有 LICENSE；理由同 emotion-maker 與 loading-maker。 */
-check('ccfolia-cropper 無原始 LICENSE（未授權，於 ATTRIBUTION.md 標示）',
-  !exists('tools/ccfolia-cropper/LICENSE'));
-
-section('tools/ccfolia-cropper crop hint');
-/* 裁切框的提示由 CSS 的 content: attr(data-hint) 顯示。::after 沒有 data-i18n
- * 掛勾可掛，改由 app.js 在語言切換時寫入；HTML 裡的初始值仍須與字典一致，
- * 否則腳本執行前後會閃字。 */
-const ccHtml = read('tools/ccfolia-cropper/index.html');
-const ccDict = loadI18N(['tools/ccfolia-cropper/i18n.ccfolia-cropper.js']).messages['zh-TW'];
-const ccHint = ccHtml.match(/data-hint="([^"]*)"/);
-check('裁切框提示的內嵌值與 zh-TW 字典一致',
-  !!ccHint && ccHint[1] === ccDict['crop.dragHint'],
-  `data-hint="${ccHint ? ccHint[1] : '(none)'}" 字典="${ccDict['crop.dragHint']}"`);
-check('app.js 在語言切換時更新裁切框提示',
-  read('tools/ccfolia-cropper/app.js').includes("I18N.onChange(applyCropHint)"));
 
 /* ---- cutin ---- */
 /* 唯一需要建置的工具：原始碼在 vendor/cutin-maker/，畫面全部由 React 算繪，
@@ -1693,16 +1604,6 @@ const ratioIds = [...cutinLayoutTest.matchAll(/^\s+'?([\w-]+)'?: [\d.]+,$/gm)].m
 const noRatio = cutinWeights.map(m => m[1]).filter(id => !ratioIds.includes(id));
 check('cutin 的每套字型在版面測試的 RATIOS 都有字幅比', noRatio.length === 0, `missing: ${noRatio.join(', ')}`);
 
-/* typewriter：四個分頁的字型選單都要有同一組繁中選項。 */
-const twHtml = read('tools/typewriter/index.html');
-for (const family of TC_FAMILIES) {
-  const n = [...twHtml.matchAll(new RegExp(`<option value="${family}"`, 'g'))].length;
-  check(`typewriter 四個選單都有 ${family}`, n === 4, `found ${n}`);
-}
-/* loadFont() 不帶字重，拿到的是各字型的預設字重（400）——五套都有 400 才行。 */
-const twMissing400 = TC_FAMILIES.filter(f => !TC_WEIGHTS[f].includes(400));
-check('typewriter 依賴的 400 字重五套都有', twMissing400.length === 0, `missing: ${twMissing400.join(', ')}`);
-
 /* pair-maker：字型清單在 2p-simple.js，五個版型裡有字型欄的兩個共用它
  * （main-tweet 只是把 Apple SD Gothic Neo 挪到最前面）；css2 的網址在
  * editor.html。清單、標籤與網址三者要同時有，少一樣就是選得到但套不上。 */
@@ -1886,7 +1787,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
 
 checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
 checkInlineText('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 150);
-checkInlineText('tools/typewriter', 'tools/typewriter/index.html', ['tools/typewriter/i18n.typewriter.js'], 150);
 checkInlineText('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 15);
 checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 200);
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
@@ -1896,7 +1796,6 @@ checkInlineText('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-s
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
 for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
 checkInlineText('tools/height-board', 'tools/height-board/index.html', ['tools/height-board/i18n.height-board.js'], 25);
-checkInlineText('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 20);
 checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
 checkInlineText('tools/room-zip', 'tools/room-zip/index.html', ['tools/room-zip/i18n.room-zip.js'], 15);
 /* pair-maker 有兩頁，兩頁都要比。 */
@@ -1972,7 +1871,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
 
 checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
 checkAttrPairs('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 50);
-checkAttrPairs('tools/typewriter', 'tools/typewriter/index.html', ['tools/typewriter/i18n.typewriter.js'], 5);
 checkAttrPairs('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 3);
 checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 10);
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
@@ -1982,7 +1880,6 @@ checkAttrPairs('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-st
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
 for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
 checkAttrPairs('tools/height-board', 'tools/height-board/index.html', ['tools/height-board/i18n.height-board.js'], 20);
-checkAttrPairs('tools/ccfolia-cropper', 'tools/ccfolia-cropper/index.html', ['tools/ccfolia-cropper/i18n.ccfolia-cropper.js'], 1);
 checkAttrPairs('tools/cutin', 'tools/cutin/index.html', ['tools/cutin/i18n.cutin.js'], 1);
 checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
 checkAttrPairs('tools/character-editor', 'tools/character-editor/index.html', ['tools/character-editor/i18n.character-editor.js'], 1);
@@ -2008,18 +1905,16 @@ const attribution = read('ATTRIBUTION.md');
 for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
-for (const sha of ['de40a68', 'cf3ff36', 'b455379', '615664b',
-  '586b273', '9866858', '7e9c70d', 'f149b4e', '883f48b', 'e1111d4',
+for (const sha of ['de40a68', 'b455379', '615664b',
+  '586b273', '9866858', '7e9c70d', '883f48b', 'e1111d4',
   '90f8442', 'a9a522c', 'aad63b1', '9c29866', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
-  '75840e6', '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
+  '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 emotion-maker 未授權',
   /emotion-maker[\s\S]{0,600}(未授權|無授權)/.test(attribution));
 check('ATTRIBUTION.md 標明 loading-maker 未授權',
   /loading-maker[\s\S]{0,600}(未授權|無授權)/.test(attribution));
-check('ATTRIBUTION.md 標明 ccfolia-cropper 未授權',
-  /ccfolia-cropper[\s\S]{0,600}(未授權|無授權)/.test(attribution));
 check('ATTRIBUTION.md 標明 character-select 未授權',
   /character-select[\s\S]{0,900}(未授權|無授權)/.test(attribution));
 check('ATTRIBUTION.md 標明 character-editor 未授權',
@@ -2048,10 +1943,10 @@ check('ATTRIBUTION.md 說明版型常數為何要寫成函式',
   /pair-maker[\s\S]*ES module 只求值一次/.test(attribution) && attribution.includes('fontLabels'));
 /* 四個新工具的函式庫沒有同捆，理由與出處要寫下來才查得到。 */
 check('ATTRIBUTION.md 說明四個工具的函式庫為何走 CDN',
-  /sotsotssi 的四個角色美術周邊工具[\s\S]{0,2500}沒有改成同捆/.test(attribution));
+  /sotsotssi 的角色美術周邊工具[\s\S]{0,2500}沒有改成同捆/.test(attribution));
 check('ATTRIBUTION.md 說明 acrylic-goods 的浮水印為何保留',
   attribution.includes('watermark') && /浮水印[\s\S]{0,300}@bb_uu_t/.test(attribution));
-for (const dir of ['color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner']) {
+for (const dir of ['acrylic-goods', 'video-anim', 'gif-combiner']) {
   check(`ATTRIBUTION.md 記載 ${dir} 的上游`, new RegExp(`\\| ${dir} \\| \\[sotsotssi/`).test(attribution));
 }
 
@@ -2075,7 +1970,7 @@ check('ATTRIBUTION.md 說明 jizura 改為連到原作者網站的官方繁中�
   /## jizura：JIZURA 字面（連到原站）(?=[\s\S]*Zaious)(?=[\s\S]*zh-hant\/)/.test(attribution));
 check('ATTRIBUTION.md 說明 coc-typesetter 的來源、未授權與只收繁中',
   /\| coc-typesetter \| \[scenario-tool-jade\.vercel\.app\]\([^)]+\)（作者不明[^|]*\| 2026-09-26 取得 \| \*\*未授權\*\* \|/.test(attribution)
-  && attribution.includes('## 未授權的十五個工具') && /## coc-typesetter：CoC 劇本排版工具(?=[\s\S]*===換頁===)(?=[\s\S]*不存在的四樓)/.test(attribution));
+  && attribution.includes('## 未授權的工具') && /## coc-typesetter：CoC 劇本排版工具(?=[\s\S]*===換頁===)(?=[\s\S]*不存在的四樓)/.test(attribution));
 check('README.md 把 coc-typesetter 列為作者不明', /`coc-typesetter` 則連作者都不明/.test(read('README.md')));
 check('ATTRIBUTION.md 說明 anime-rig 不收範例 PSD、OBS 中繼伺服器與 MediaPipe 同捆檔',
   /## anime-rig：Anime2\.5DRig[\s\S]*sample\.psd[\s\S]*obs_server\.py/.test(attribution)
