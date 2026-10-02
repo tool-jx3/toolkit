@@ -449,6 +449,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/sotsotssi/GIF-Combiner',
     },
   },
+  {
+    id: 'magic-circle',
+    name: '魔法陣製作器',
+    summary:
+      '用鋼筆、手繪、圓與星形加上對稱尺畫出魔法陣、印記或簽名，放上盧恩文字與發光效果，再排好出場動態，匯出 PNG、GIF、APNG 或 WebP。',
+    group: 'G7',
+    status: 'next',
+    inspiration: {
+      name: 'sotsotssi/magic-circle-maker',
+      url: 'https://github.com/sotsotssi/magic-circle-maker',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

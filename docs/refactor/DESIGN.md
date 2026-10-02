@@ -452,6 +452,11 @@ const editor = useRef<PostEditorHandle>(null);
 - G2：動態 WebP 的拆格要瀏覽器解碼每一格（`createImageBitmap`），Node 只能 `parseWebpInfo`；轉場與濾鏡在主執行緒算（之後若太慢再搬進 Worker，模組本身已是純函式）。
 - G5（CCFOLIA 資料）已提供角色 JSON、房間 ZIP、盤面、日誌、PSD 讀取（見 4.2）。沒有共用的：PSD 依混合模式與遮色片的合成（psd-studio 的配置檢視自己畫，`web/src/tools/psd-studio/LayoutView.tsx`）、調色（色相／飽和度／亮度／對比／曝光、RGB 折線曲線、漸層對應六種混合，`psd-studio/adjust.ts`）、面積平均縮小（`psd-studio/process.ts` 的 `resizeRgba`，純 JavaScript、預乘透明度，Worker 可用；別的工具要縮小 RGBA 時可以搬進 `core/image`）、日誌的訊息分類（log-converter 2.5）、角色差異比較與套用（character-editor 3.2、3.3）——都屬各工具的規則。G4 的頁面選擇器與模擬頁在 `@/ccfolia`、`@/ccfolia/mock`。
 
+- G7 magic-circle（向量編輯器）沒有用 Konva：編輯畫面是 `PanZoomViewport`（`baseScale={1}`，倍率＝每畫布單位幾個螢幕 px）＋工具自己的 canvas 繪圖，
+  每次以螢幕解析度重畫（作品用與匯出相同的 `render.ts`，控制點、輔助線另外畫在同一張 canvas 上）；點選、拖曳、控制點由 `onPointerDown` 回傳的拖曳處理負責。
+  沒有共用的：貝茲路徑的折線化與截斷、對稱複本的轉換、吸附、對齊與分佈（`web/src/tools/magic-circle/geometry.ts`、`layout.ts`）、多軌動態長條的時間軸
+  （`magic-circle/Timeline.tsx`）——別的工具需要時可以搬進 `core/path`、`ui`。
+
 ## 5. 用詞表（台灣繁體中文）
 
 | 用這個 | 不用 |
