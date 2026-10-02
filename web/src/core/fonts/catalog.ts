@@ -709,6 +709,22 @@ export const SYSTEM_FONTS: readonly SystemFontEntry[] = [
   },
 ];
 
+/**
+ * 工具自己的「電腦字型組」（FontPicker 的 `localPresets`，foreground-frame 移植時新增）：一個選項代表一串依序嘗試的
+ * 電腦字型（例如「明體類：Yu Mincho、Hiragino Mincho ProN…」）。選了之後 FontPicker 的值是
+ * `{ source: 'local', family }`，實際的字型堆疊由工具依 family 找回。
+ */
+export interface LocalFontPreset {
+  /** 存在值裡的名稱（通常是第一順位的字型） */
+  family: string;
+  /** 介面上顯示的名稱 */
+  label: string;
+  /** 選項下方的說明（例如包含哪些字型） */
+  note?: string;
+  /** 預覽用的 CSS font-family 值（不給時用 family） */
+  stack?: string;
+}
+
 /** 依名稱（主要名稱、其他名稱或顯示名稱，不分大小寫）找電腦內建字型 */
 export function findSystemFont(name: string): SystemFontEntry | undefined {
   const k = name.trim().toLowerCase();

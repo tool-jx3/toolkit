@@ -329,6 +329,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/organon-torah/ccfoliaCharacterEditor',
     },
   },
+  {
+    id: 'foreground-frame',
+    name: '前景框產生器',
+    summary:
+      '做出 CCFOLIA「前景」用的框圖片：中間的窗透明、框上加線條、陰影、藤蔓與鎖鏈等裝飾，還能依時間帶、天氣做出好幾張差分，一次匯出成 ZIP。',
+    group: 'G5',
+    status: 'next',
+    inspiration: {
+      name: 'shiki365/foreground-frame-maker',
+      url: 'https://github.com/shiki365/foreground-frame-maker',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

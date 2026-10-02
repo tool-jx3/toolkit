@@ -95,4 +95,56 @@ describe('FontPicker', () => {
     ]);
     expect(availableWeights({ source: 'local', family: '任何字型' })).toHaveLength(9);
   });
+
+  it('工具的電腦字型組（localPresets，foreground-frame 新增）：列出字型組、顯示組名、手動輸入', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const presets = [
+      {
+        family: 'Yu Mincho',
+        label: '明體類',
+        note: 'Yu Mincho、Hiragino Mincho ProN',
+        stack: '"Yu Mincho", serif',
+      },
+      { family: 'DFKai-SB', label: '繁中楷書', stack: '"DFKai-SB", serif' },
+    ];
+    function WithPresets() {
+      const [v, setV] = useState<FontValue>({
+        source: 'google',
+        family: 'Noto Sans TC',
+        weight: 700,
+      });
+      return (
+        <UiProvider>
+          <Field label="字型">
+            <FontPicker
+              value={v}
+              onChange={(n) => {
+                setV(n);
+                onChange(n);
+              }}
+              localPresets={presets}
+              localTabNote="沒有時用黑體類。"
+              showWeight={false}
+            />
+          </Field>
+        </UiProvider>
+      );
+    }
+    render(<WithPresets />);
+    await user.click(screen.getByRole('button', { name: /字型/ }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('tab', { name: '電腦字型' }));
+    const group = within(dialog).getByRole('radiogroup', { name: '常見的電腦字型' });
+    expect(
+      within(group)
+        .getAllByRole('radio')
+        .map((r) => (r as HTMLInputElement).value),
+    ).toEqual(['Yu Mincho', 'DFKai-SB']);
+    expect(within(dialog).getByText('沒有時用黑體類。')).toBeInTheDocument();
+    await user.click(within(group).getAllByRole('radio')[1]);
+    expect(onChange).toHaveBeenLastCalledWith({ source: 'local', family: 'DFKai-SB', weight: 700 });
+    await user.click(within(dialog).getByRole('button', { name: '完成' }));
+    expect(screen.getByRole('button', { name: /字型.*繁中楷書/ })).toBeInTheDocument();
+  });
 });
