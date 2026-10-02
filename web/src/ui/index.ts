@@ -176,6 +176,11 @@ export { Notice, type NoticeProps, type NoticeTone } from './Notice';
 export { NumberInput, type NumberInputProps } from './NumberInput';
 export { ObsGuide, type ObsGuideProps } from './ObsGuide';
 export {
+  PagedViewport,
+  type PagedViewportHandle,
+  type PagedViewportProps,
+} from './PagedViewport';
+export {
   type PanZoomView,
   PanZoomViewport,
   type PanZoomViewportHandle,

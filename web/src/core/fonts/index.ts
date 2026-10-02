@@ -15,7 +15,15 @@ export {
   type FontChoiceInput,
   pickFontChoice,
 } from './choices';
-export { type FontNames, readFontNames } from './sfnt';
+export {
+  extractTtcFace,
+  type FontNames,
+  fsTypeRestriction,
+  readFontNames,
+  readFontNamesAt,
+  readFsType,
+  ttcFaceOffsets,
+} from './sfnt';
 
 export type FontSource = 'google' | 'local' | 'upload';
 

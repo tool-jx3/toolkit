@@ -1,0 +1,117 @@
+{
+  "title": "霧中的洋館",
+  "padV": 18,
+  "padH": 16,
+  "base": 10,
+  "foot": { "num": true, "text": "{title}", "from": 1 },
+  "pages": [
+    {
+      "id": "p1",
+      "bg": { "preset": "bg-paper", "img": null, "fit": "cover", "opa": 35 },
+      "cols": 1
+    }
+  ],
+  "blocks": [
+    { "id": "cover1", "type": "cover", "cols": 1, "text": "霧中的洋館" },
+    { "id": "br1", "type": "break", "cols": 1, "text": "" },
+    {
+      "id": "toc1",
+      "type": "toc",
+      "cols": 1,
+      "text": "",
+      "toc": { "lb": "目　錄", "pick": ["h1", "h2", "h3"], "pn": true, "dots": true }
+    },
+    { "id": "br2", "type": "break", "cols": 1, "text": "" },
+    { "id": "h1a", "type": "h1", "cols": 2, "text": "導入" },
+    {
+      "id": "d1",
+      "type": "desc",
+      "cols": 2,
+      "text": "探索者們收到一封來自｜舊友《きゅうゆう》的信。",
+      "cm": [{ "a": 0, "b": 4, "t": "這裡的探索者指 PC。" }],
+      "mk": [{ "a": 5, "b": 7, "col": "#a8331f", "bold": false }]
+    },
+    { "id": "dlg1", "type": "dialog", "cols": 2, "text": "「請到洋館來一趟。」", "sp": "舊友" },
+    {
+      "id": "p1x",
+      "type": "proc",
+      "cols": 2,
+      "text": "〈偵查〉成功的話，發現信封裡還有一張地圖。\n■補充\n- 地圖是手繪的\n- 墨水還沒乾",
+      "lb": "技能檢定",
+      "bx": { "ln": "dash", "bar": false, "fill": true, "sm": true, "col": "aka" }
+    },
+    { "id": "h2a", "type": "h2", "cols": 2, "text": "洋館的大廳" },
+    { "id": "n1", "type": "note", "cols": 2, "text": "※ KP 請在這裡描述霧的樣子。" },
+    {
+      "id": "tbl1",
+      "type": "table",
+      "cols": 2,
+      "text": "",
+      "tbl": {
+        "head": true,
+        "rowhead": false,
+        "capOn": true,
+        "out": "",
+        "outMode": "roll",
+        "look": "grid",
+        "name": "大廳的事件",
+        "dice": "1D3",
+        "rows": 4,
+        "ncol": 2,
+        "cells": [["骰值", "事件"], ["1", "時鐘響起"], ["2", "燈光熄滅"], ["3", "樓上傳來腳步聲"]]
+      }
+    },
+    {
+      "id": "pop1",
+      "type": "popup",
+      "cols": 2,
+      "text": "",
+      "pop": {
+        "label": "地圖",
+        "body": "",
+        "only": false,
+        "blocks": [
+          { "id": "pd1", "type": "desc", "cols": 2, "text": "二樓的走廊盡頭有一扇上鎖的門。" }
+        ]
+      }
+    },
+    { "id": "h3a", "type": "h3", "cols": 2, "text": "書房" },
+    { "id": "d2", "type": "desc", "cols": 2, "text": "書房裡堆滿了書。\n＠地圖" },
+    {
+      "id": "npc1",
+      "type": "npc",
+      "cols": 1,
+      "text": "",
+      "npc": {
+        "sys": "coc",
+        "name": "管家",
+        "kana": "かんりにん",
+        "role": "60 歲・男・管家",
+        "memo": "知道洋館的祕密。",
+        "memoOpen": true,
+        "coc": {
+          "ver": "7",
+          "ab": {
+            "str": "50",
+            "con": "60",
+            "pow": "55",
+            "dex": "40",
+            "app": "50",
+            "siz": "65",
+            "int": "70",
+            "edu": "80"
+          },
+          "sub": {},
+          "skills": [{ "n": "目星", "cat": "探索", "arg": "", "v": "60", "free": false }],
+          "weapons": [{ "n": "杖", "v": "40", "dmg": "1D4+DB" }]
+        }
+      }
+    },
+    { "id": "flow1", "type": "flow", "cols": 1, "text": "導入\n洋館\n- 大廳\n- 書房\n結局" },
+    { "id": "sc1", "type": "scene", "cols": 2, "text": "（場景轉換）" },
+    { "id": "hr1", "type": "hr", "cols": 1, "text": "幕間" },
+    { "id": "d3", "type": "desc", "cols": 2, "text": "霧漸漸散去。" },
+    { "id": "br3", "type": "break", "cols": 1, "text": "" },
+    { "id": "col1", "type": "colophon", "cols": 1, "text": "霧中的洋館\n作者：測試\n發行：2026" }
+  ]
+}
