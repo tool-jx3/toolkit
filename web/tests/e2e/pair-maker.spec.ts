@@ -588,7 +588,7 @@ test('保存：自動保存與還原、存檔槽、編輯檔 ZIP（匯出、重�
     page.getByRole('alertdialog').getByRole('button', { name: '讀取' }).click(),
   ]);
   await chooser2.setFiles(file('other.zip', otherZip, 'application/zip'));
-  await expect(page.getByText(/這是「多人資料卡（1～30 人）」的編輯檔/)).toBeVisible();
+  await expect(page.getByText(/這是「多人資料卡（1～30 人）」的編輯檔/).first()).toBeVisible();
   await region(page, 'left/name').click();
   await expect(name).toHaveValue('保存測試');
 
