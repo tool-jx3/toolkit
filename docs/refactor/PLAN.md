@@ -162,7 +162,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | scene-transition | ✅ | ✅ | ✅ | ✅ |
 | bg-motion | ✅ | ✅ | ✅ | ✅ |
 | loading-maker | ✅ | ✅ | ✅ | ✅ |
-| foreground-frame | ✅ | ⬜ | ⬜ | ⬜ |
+| foreground-frame | ✅ | ✅ | ✅ | ✅ |
 | scenario-cards | ✅ | ⬜ | ⬜ | ⬜ |
 | character-editor | ✅ | ✅ | ✅ | ✅ |
 | log-converter | ✅ | ⬜ | ⬜ | ⬜ |

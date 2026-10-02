@@ -119,13 +119,14 @@ npm test
 | `loading-maker` | [讀取動畫產生器](tools/loading-maker/) | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) |
 | `bg-motion` | [動態背景產生器](tools/bg-motion/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `character-editor` | [角色資料編輯器](tools/character-editor/) | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) |
+| `foreground-frame` | [前景框產生器](tools/foreground-frame/) | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的五個工具、
-`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的 `foreground-frame`、
+`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，
 `trpg-lab`、
 `anime-rig`、`scenario-editor` 與くま的三個工具為日文；`room-zip` 原文為日文，另外附了一份韓文。
 
@@ -137,11 +138,6 @@ npm test
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
 
-`foreground-frame` 的字型欄可以改填「以名稱指定」，
-使用觀看者電腦上已安裝的字型。Chrome／Edge 還能用「從清單選」開出一份附樣張的清單
-（Local Font Access API，第一次會詢問權限）；其餘瀏覽器隱藏該按鈕，直接輸入名稱同樣可用。
-那個對話框是 `pcfonts.v1.js`，詳見
-[ATTRIBUTION](ATTRIBUTION.md#foreground-frame-的-pcfontsv1js)。
 選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），首頁與各工具共用。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，
@@ -153,8 +149,7 @@ npm test
 有字型清單的工具，除了原本的韓文／日文字型之外，都另外收了同一組五套繁體中文
 字型（思源黑體、思源宋體、霞鶩文楷、巧克力黑體、仙人掌明體，皆為 SIL OFL 1.1，
 自 Google Fonts 載入）。原有選項與預設值都沒有改動，需要中文字形時自行挑選即可。
-沒有網頁字型載入機制的 `foreground-frame`，則補上台灣的系統字型堆疊。詳見
-[ATTRIBUTION.md](ATTRIBUTION.md#繁體中文字型)。
+詳見 [ATTRIBUTION.md](ATTRIBUTION.md#繁體中文字型)。
 
 ### 新增語言
 

@@ -24,7 +24,6 @@
 | 工具 | 原始 repo | 來源 commit | 授權 |
 |---|---|---|---|
 | magic-circle | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `de40a68` | MIT |
-| foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
@@ -43,30 +42,6 @@
 | psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
-
-shiki365 的 `foreground-frame` 與 `room-zip` 原文為日文，
-收錄時另有以下調整：
-
-- `foreground-frame` 的 `<style>` 區塊抽出為 `styles.css`。
-- 這些工具都移除了指向原作者站台的 OG／Twitter meta 與
-  `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
-  `<title>` 只留工具名，捨去 SEO 後綴。
-- shiki365 的工具頁尾都有回作者工具站的連結，以及後來加上的「支持開發（BOOTH）」，都原樣保留並翻譯；但頁首那條
-  同樣指向工具站的連結不收——那個位置放的是合輯的首頁連結。
-- 上游後來替這些工具加了 `favicon.svg`，收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
-  分頁圖示，不各自掛作者的站台圖示。
-
-## foreground-frame 的 pcfonts.v1.js
-
-`foreground-frame` 的字型欄可以改填「以名稱指定」，
-使用觀看者電腦上已安裝的字型；Chrome／Edge 還能用 Local Font Access API
-（`queryLocalFonts()`）開出一份附樣張的清單來挑。那個對話框是 `pcfonts.v1.js`，
-上游在每個 repo 底下各放一份，收錄版照做。上游 `message-box-maker` 那份的檔頭多列了自己的名字，其他幾份還沒跟上；
-內容其餘一字不差，收錄版都用那個新的檔頭。（`status-bar`、`chat-window`、`message-box`、`scene-transition`
-已由本站重寫，新版的電腦字型挑選改用本站的共用元件，所以現在只剩 `foreground-frame` 這一份。）對話框是延遲建立的單例，切換語言時整個丟掉重建。
-
-這個功能在 OBS 端有個前提：OBS 是用它自己那台電腦的字型算繪的，所以那台也要裝同一套
-字型。上游把這件事寫在說明與產出的 CSS 開頭，收錄版一併翻譯保留。
 
 ## room-zip：拆掉上游的 Web DEMO 外層
 
@@ -618,6 +593,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `loading-maker` | 讀取動畫產生器 | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `83fd605` |
 | `bg-motion` | 動態背景產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`haikei-motion-maker`） | `83fd605` |
 | `character-editor` | 角色資料編輯器 | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `83fd605` |
+| `foreground-frame` | 前景框產生器 | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -665,9 +641,6 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 （v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
 以及 `trpg-lab` 地圖編輯器的文字字型清單。
 
-`foreground-frame` 沒有網頁字型的載入機制（字型清單指的是觀看者電腦上
-已安裝的字型），因此字型表補上正黑體／明體／標楷體三組台灣系統字型堆疊。
-
 くま的工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
 （PingFang TC、Microsoft JhengHei、Noto Sans TC 等）排到前面；日文介面維持上游的字型。
 
@@ -699,8 +672,7 @@ magic-circle 的繁體中文翻譯移植自
 其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 是改寫成只有繁中，見上；
 `jizura` 連到原作者的官方繁中版，不在此列）。
 
-各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的工具
-原本就以英文撰寫註解，僅檔頭標題改為中譯名。一個例外：
+各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文。一個例外：
 
 - `tools/room-zip/`——註解密度高且多為演算法與資料格式的說明，逐句轉譯風險大於效益：app.v1.js 一萬多行裡有 156 行
   註解是日文，維持原文。這些註解會隨著檔案發佈，因此 `tests/smoke.mjs`

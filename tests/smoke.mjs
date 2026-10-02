@@ -186,65 +186,6 @@ for (const locale of ['zh-TW', 'ko']) {
   check(`${locale} 無多餘 rune.* key`, stray.length === 0, `stray: ${stray.join(', ')}`);
 }
 
-/* ---- foreground-frame ---- */
-const ff = checkTool({
-  dir: 'tools/foreground-frame',
-  dict: 'i18n.foreground-frame.js',
-  locale: 'ja',
-  scripts: ['app.v2.js', 'presets.v1.js', 'model.v2.js', 'render.v2.js',
-    'deco.v1.js', 'deco-extra.v1.js', 'effects.v1.js', 'icons.v1.js', 'zip.v1.js', 'pcfonts.v1.js'],
-  styles: ['styles.css'],
-  minHooks: 200,
-  /* presets.v1.js 的 CSS font-family 串中含日文字型名（"UD デジタル 教科書体 NK-R"）。
-   * 那是使用者電腦上實際安裝的字型名稱，翻譯它會讓字型指定失效，故豁免該行。 */
-  allowSource: (line, n, file) => file === 'presets.v1.js' && line.includes('stack:')
-});
-
-/* 下列 key 由 JS 以變數取得（presets 的 getter、items 的名稱欄、常數表），
- * 靜態掃描（只認得 T('字面常數')）看不到，需另外確認兩語言都有定義。 */
-section('tools/foreground-frame dynamic keys');
-const ffPresetKeys = [
-  ...['simple', 'mansion', 'forest', 'horror', 'steampunk', 'winter', 'sakura', 'cinema',
-    'novel', 'cyber', 'wa'].flatMap(id => [`design.${id}.label`, `design.${id}.desc`]),
-  ...['time', 'weather', 'season', 'scene', 'sanity', 'chapter', 'custom']
-    .flatMap(id => [`variantKind.${id}.label`, `variantKind.${id}.desc`]),
-  ...['ivy', 'flowers', 'thorns', 'sakura', 'grass', 'stars', 'cobweb', 'chain', 'gears',
-    'circuit', 'snowcap', 'drips']
-    .flatMap(id => [`deco.${id}.label`, `deco.${id}.desc`, `deco.${id}.color1`, `deco.${id}.color2`]),
-  ...['thin', 'normal', 'thick', 'cinema', 'novel', 'side'].map(id => `layout.${id}`),
-  ...['gothic', 'mincho', 'kyokasho', 'serif', 'sans', 'tcgothic', 'tcmincho', 'tckai'].map(id => `font.${id}`),
-  ...['tl', 'tc', 'tr', 'bl', 'bc', 'br'].map(id => `pos.${id}`),
-  ...['square', 'round', 'chamfer', 'scoop', 'notch'].map(id => `cornerType.${id}`)
-];
-for (const locale of ['zh-TW', 'ja']) {
-  const missing = ffPresetKeys.filter(k => !ff.messages[locale][k]);
-  check(`${locale} 每個預設資料的顯示名稱都存在`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
-/* presets.v1.js 的清單資料（效果、圖示、配置、顏色參照、差分項目、尺寸）第二欄
- * 存的就是 key，逐一比對可確保資料與字典不會各自漂移。 */
-const ffPresets = read('tools/foreground-frame/presets.v1.js');
-const listedKeys = [...ffPresets.matchAll(/\["[\w-]+", "((?:effect|icon|placement|colorRef|variantKind)\.[\w.-]+)"\]/g)]
-  .map(m => m[1]);
-const sizeKeys = [...ffPresets.matchAll(/T\("(size\.[\w]+)"\)/g)].map(m => m[1]);
-check('presets.v1.js 解析出清單 key', listedKeys.length >= 45, `found ${listedKeys.length}`);
-check('presets.v1.js 解析出尺寸 key', sizeKeys.length === 7, `found ${sizeKeys.length}`);
-for (const locale of ['zh-TW', 'ja']) {
-  const missing = [...new Set([...listedKeys, ...sizeKeys])].filter(k => !ff.messages[locale][k]);
-  check(`${locale} 每個清單 key 都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
-/* 文字圖層的佔位符：日文寫法是原版與既有專案檔的格式，必須保留；
- * 繁中寫法則是本 repo 介面提示所顯示的。兩者都要被 render 接受。 */
-section('tools/foreground-frame text tokens');
-const ffRender = read('tools/foreground-frame/render.v2.js');
-check('render 同時接受日文與繁中佔位符',
-  ffRender.includes('(差分|時間帯)') && ffRender.includes('(英語|英文)'));
-check('繁中提示用的佔位符與 render 接受的一致',
-  ff.messages['zh-TW']['layers.text.hint'].includes('{差分}')
-  && ff.messages['zh-TW']['layers.text.hint'].includes('{英文}'));
-
-
 /* ---- 註解保留原文的工具共用：stripComments ---- */
 /* 有些工具的註解密度很高、多半是演算法與版面取捨的說明，逐句轉譯的風險大於效益，
  * 保留日文原文（room-zip、trpg-lab）。
@@ -1107,28 +1048,6 @@ check('coc-typesetter 的 CDN 相依都有版本且記在 THIRD_PARTY_NOTICES',
 check('THIRD_PARTY_NOTICES 記下取得網址與作者不明', cocNotices.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html')
   && cocNotices.includes('沒有作者署名'));
 
-/* ---- PC 字型挑選器 ---- */
-/* pcfonts.v1.js 原本在 shiki365 的幾個工具底下各有一份；其餘工具已由本站重寫
- * （status-bar、chat-window、message-box、scene-transition），現在只剩 foreground-frame 這一份。 */
-section('pcfonts.v1.js');
-{
-  const html = read('tools/foreground-frame/index.html');
-  const pcf = read('tools/foreground-frame/pcfonts.v1.js');
-  check('foreground-frame 載入 pcfonts.v1.js', /<script src="pcfonts\.v1\.js/.test(html));
-  check('foreground-frame 的字型欄有「從清單選」按鈕', html.includes('data-pc-fonts'));
-  /* 對話框是延遲建立的單例，切語言時要整個丟掉重建，否則裡面的文字會停在舊語言。 */
-  check('foreground-frame 的挑選器會在切換語言時重建', pcf.includes('I18N.onChange(() => {'));
-  /* 兩個 key 是以三元運算傳進 T() 的（refused ? … : …），掃 T(" 會漏掉，改抓字面常數。 */
-  const pcfKeys = [...new Set([...pcf.matchAll(/"(pcf\.[\w.]+)"/g)].map(m => m[1]))];
-  check('解析出挑選器的 key', pcfKeys.length >= 13, `found ${pcfKeys.length}`);
-  for (const locale of ['zh-TW', 'ja']) {
-    const missing = pcfKeys.filter(k => !ff.messages[locale][k]);
-    check(`foreground-frame ${locale} 的挑選器譯文齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
-    /* 樣張文字用「永」示範字型有沒有漢字，說明文也是這樣寫的。 */
-    check(`foreground-frame ${locale} 的樣張含「永」`, (ff.messages[locale]['pcf.sample'] || '').includes('永'));
-  }
-}
-
 /* ---- 繁體中文網頁字型 ---- */
 /* 五套字型分散在四個工具裡，各自用不同的寫法要求 Google Fonts。字重寫錯會讓
  * 整個 family 的 @font-face 靜靜地不見（Google Fonts 對不存在的字重回 400，
@@ -1341,7 +1260,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
 
 checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
 checkInlineText('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 150);
-checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/log-converter', 'tools/log-converter/index.html', ['tools/log-converter/i18n.log-converter.js'], 170);
 checkInlineText('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 130);
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
@@ -1421,7 +1339,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
 
 checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
 checkAttrPairs('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 50);
-checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/log-converter', 'tools/log-converter/index.html', ['tools/log-converter/i18n.log-converter.js'], 8);
 checkAttrPairs('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 18);
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
@@ -1450,7 +1367,7 @@ for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['de40a68',
-  '586b273', '883f48b',
+  '883f48b',
   'a9a522c', 'aad63b1', '9c29866', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
   '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
@@ -1492,9 +1409,6 @@ check('ATTRIBUTION.md 說明哪些字刻意不跟著語言走',
 /* 需要另外建置的上游專案（cutin、obs-tachie、character-editor）都已由本站重寫，vendor/ 不再存在。 */
 check('不再收錄需要建置的上游專案（vendor/）', !exists('vendor'));
 /* ATTRIBUTION 與 README 之間的錨點連結：標題改了就會失效。 */
-check('README 指向 pcfonts 段落的錨點仍然有效',
-  read('README.md').includes('ATTRIBUTION.md#foreground-frame-的-pcfontsv1js')
-  && attribution.includes('## foreground-frame 的 pcfonts.v1.js'));
 check('ATTRIBUTION.md 說明 jizura 改為連到原作者網站的官方繁中版',
   /## jizura：JIZURA 字面（連到原站）(?=[\s\S]*Zaious)(?=[\s\S]*zh-hant\/)/.test(attribution));
 check('ATTRIBUTION.md 說明 coc-typesetter 的來源、未授權與只收繁中',

@@ -335,7 +335,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '做出 CCFOLIA「前景」用的框圖片：中間的窗透明、框上加線條、陰影、藤蔓與鎖鏈等裝飾，還能依時間帶、天氣做出好幾張差分，一次匯出成 ZIP。',
     group: 'G5',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'shiki365/foreground-frame-maker',
       url: 'https://github.com/shiki365/foreground-frame-maker',
