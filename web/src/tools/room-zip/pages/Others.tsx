@@ -53,7 +53,7 @@ import {
   type Piece,
   type StoryText,
 } from '../model';
-import { createFrom } from '../ops';
+import { createFrom, openMultiPick } from '../ops';
 import { moveSelected, moveSelectedTo } from '../scenes';
 import {
   type CutinTemplate,
@@ -138,7 +138,7 @@ export function CutinsPage() {
           <Button size="sm" variant="primary" onClick={() => commit((d) => void addCutin(d))}>
             {S.cutinAdd}
           </Button>
-          <Button size="sm" onClick={() => setSession({ modal: { kind: 'multi', for: 'cutin' } })}>
+          <Button size="sm" onClick={() => openMultiPick('cutin', n)}>
             {S.cutinFromMaterials}
           </Button>
         </Row>

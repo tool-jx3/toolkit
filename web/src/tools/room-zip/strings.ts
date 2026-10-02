@@ -457,6 +457,8 @@ export const S = {
     '方向鍵移動 1 格',
     '按住空白鍵或滑鼠中鍵拖曳平移畫布；滾輪縮放',
   ],
+  /** 部件快捷鍵（F151）：動作名稱＋目前的按鍵 */
+  keysHelpPart: (action: string, key: string) => `${action}：${key}`,
   selectHint: '點畫布上的部件選取；Shift／Ctrl＋點可以多選。',
   selCount: (n: number) => `已選 ${n} 個`,
   selDetail: '詳細',
@@ -733,7 +735,7 @@ export const S = {
     cutin: '切入',
   },
   multiEmpty: '沒有符合的素材。',
-  multiNoMaterials: '還沒有素材',
+  multiNoMaterials: '還沒有素材，請先放入圖片',
   multiNoneSelected: '請先選取素材',
   sceneRenameTitle: '場景批次改名',
   sceneRenameTarget: (n: number, checked: boolean) =>
@@ -1068,6 +1070,7 @@ export const S = {
   brokenUpload: '補上原圖',
   brokenUploadFor: '要補哪一張',
   brokenUploaded: '已補上',
+  brokenUploadFailed: '沒有補上：這個檔案無法讀取',
   brokenExclude: '只排除遺失的圖後匯出',
   brokenExcludeConfirm: '要把這些引用清空後匯出嗎？被排除的地方會變成沒有圖。',
   brokenExcludeNote: '被排除的地方會變成空白。',

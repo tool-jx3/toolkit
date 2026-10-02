@@ -63,8 +63,9 @@ export function RightPanel() {
         return;
       patchLayout({ rightOpen: false });
     };
+    /* Esc 依序（F285）：對話框或選圖面板先關（關掉時事件已 preventDefault），沒有時才收起面板 */
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !document.querySelector('[role="dialog"]'))
+      if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('[role="dialog"]'))
         patchLayout({ rightOpen: false });
     };
     const t = setTimeout(() => window.addEventListener('pointerdown', down), 0);

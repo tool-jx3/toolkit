@@ -21,6 +21,7 @@ import {
   updatePart,
 } from '@/tools/room-zip/actions';
 import {
+  dragCrop,
   editDefaults,
   editedSize,
   noiseTile,
@@ -542,5 +543,30 @@ describe('合成圖製作器（3.3.3、F107、F113、F114、F116）', () => {
     expect(makerFileName('', new Date(2026, 9, 2, 8, 5))).toBe('合成圖_20261002_0805.webp');
     expect(makerFileName('mk')).toBe('mk.webp');
     expect(makerFileName('a/b.webp')).toBe('a_b.webp');
+  });
+});
+
+describe('快速裁切的黃色框（F158，同舊版）', () => {
+  const none = { left: 0, right: 0, top: 0, bottom: 0 };
+  it('拉右下角：左上不動，寬高至少 5%、不超出部件', () => {
+    expect(dragCrop(none, -30, -20, true)).toEqual({ left: 0, top: 0, right: 30, bottom: 20 });
+    expect(dragCrop({ ...none, left: 20, top: 10 }, -500, -500, true)).toEqual({
+      left: 20,
+      top: 10,
+      right: 75,
+      bottom: 85,
+    });
+    expect(dragCrop({ ...none, left: 20 }, 50, 50, true)).toEqual({
+      left: 20,
+      top: 0,
+      right: 0,
+      bottom: 0,
+    });
+  });
+  it('拖曳移動：保留寬高、夾在部件內，四邊取到 0.1%', () => {
+    const c = { left: 0, right: 30, top: 0, bottom: 20 };
+    expect(dragCrop(c, 20, 10, false)).toEqual({ left: 20, right: 10, top: 10, bottom: 10 });
+    expect(dragCrop(c, 90, -40, false)).toEqual({ left: 30, right: 0, top: 0, bottom: 20 });
+    expect(dragCrop(c, 12.345, 0, false)).toEqual({ left: 12.3, right: 17.7, top: 0, bottom: 20 });
   });
 });

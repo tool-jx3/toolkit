@@ -3,7 +3,15 @@
  * 可空白的數字欄、輸入對話框（取名）。
  */
 import { ImageOff, Plus } from 'lucide-react';
-import { type DragEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type DragEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Button, cn, Dialog, TextInput, useToast } from '@/ui';
 import type { Tag } from './model';
 import { commit, setSession, useBlobs, useProject } from './store';
@@ -198,9 +206,12 @@ export function DropCreate({
 
 /* ---------- 可以空白的數字欄 ---------- */
 
+const numText = (v: number | null | undefined) => (v == null ? '' : String(v));
+
 /**
- * 原生數字欄：打字時暫存文字，離開或 Enter 時才呼叫 onCommit（空白＝null）。值從外面變了（例如拖曳）時跟著更新，
- * 但聚焦中的欄位不更新（F217）。
+ * 原生數字欄：打字時暫存文字，離開或 Enter 時才呼叫 onCommit（空白＝null；與目前的值相同時不送）。
+ * 送出後欄位一律改回實際的值（被夾住、或維持原值時也一樣，F106、F125、F137、F166）；
+ * 值從外面變了（例如拖曳）時跟著更新，但聚焦中、還沒送出的欄位不更新（F217）。
  */
 export function NumCell({
   value,
@@ -224,21 +235,38 @@ export function NumCell({
   'aria-label'?: string;
   id?: string;
 }) {
-  const [text, setText] = useState(value == null ? '' : String(value));
+  const [text, setText] = useState(numText(value));
   const focused = useRef(false);
+  const input = useRef<HTMLInputElement>(null);
+  /** 剛送出（Enter 或離開）：下一次同步時就算還聚焦也回寫實際的值 */
+  const [sent, setSent] = useState<null | 'enter' | 'blur'>(null);
+  /** Enter 送出後回寫了不同的文字：寫完再全選一次 */
+  const reselect = useRef(false);
   useEffect(() => {
-    if (!focused.current) setText(value == null ? '' : String(value));
-  }, [value]);
-  const commit = () => {
+    if (focused.current && !sent) return;
+    if (sent) setSent(null);
+    const next = numText(value);
+    if (next === text) return;
+    if (sent === 'enter') reselect.current = true;
+    setText(next);
+  }, [value, text, sent]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: text＝回寫的文字已經進到欄位裡
+  useLayoutEffect(() => {
+    if (!reselect.current) return;
+    reselect.current = false;
+    const el = input.current;
+    if (el && document.activeElement === el) el.select();
+  }, [text]);
+  const commit = (how: 'enter' | 'blur') => {
     const t = text.trim();
-    if (!t) return onCommit(null);
-    const n = Number(t);
-    if (Number.isFinite(n)) onCommit(n);
-    else setText(value == null ? '' : String(value));
+    const n = t ? Number(t) : null;
+    if ((n == null || Number.isFinite(n)) && n !== (value ?? null)) onCommit(n);
+    setSent(how);
   };
   return (
     <TextInput
       {...rest}
+      ref={input}
       type="number"
       inputMode="decimal"
       value={text}
@@ -258,11 +286,11 @@ export function NumCell({
       onChange={(e) => setText(e.target.value)}
       onBlur={() => {
         focused.current = false;
-        commit();
+        commit('blur');
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
-          commit();
+          commit('enter');
           (e.target as HTMLInputElement).select();
         }
       }}
@@ -308,6 +336,8 @@ export function usePromptDialog(): [
   ReactNode,
 ] {
   const [st, setSt] = useState<PromptState | null>(null);
+  /** 開啟時焦點放在輸入框（疊在別的對話框上時也一樣），Enter＝確定 */
+  const inputRef = useRef<HTMLInputElement>(null);
   const ask = useCallback(
     (title: string, label: string, value = '') =>
       new Promise<string | null>((resolve) => setSt({ title, label, value, resolve })),
@@ -322,6 +352,7 @@ export function usePromptDialog(): [
       open
       size="sm"
       title={st.title}
+      initialFocus={inputRef}
       onOpenChange={(o) => {
         if (!o) close(null);
       }}
@@ -344,7 +375,7 @@ export function usePromptDialog(): [
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-muted">{st.label}</span>
           <TextInput
-            autoFocus
+            ref={inputRef}
             value={st.value}
             onChange={(e) => setSt({ ...st, value: e.target.value })}
             onFocus={(e) => e.currentTarget.select()}

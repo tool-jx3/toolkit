@@ -102,6 +102,18 @@ export function openMaker(context: MakeContext, background: string): void {
 
 /* ---------- 以素材建立（F061、F173） ---------- */
 
+/** 「從素材挑選…」（F173）：還沒有素材時只警告、不開對話框 */
+export function openMultiPick(
+  kind: 'scene' | 'tachie' | 'marker' | 'panel' | 'cutin',
+  notify: Notify,
+): void {
+  if (!useProject.getState().data.materials.length) {
+    notify(S.multiNoMaterials, 'warning');
+    return;
+  }
+  setSession({ modal: { kind: 'multi', for: kind } });
+}
+
 export function createFrom(
   kind: CreateKind,
   names: readonly string[],

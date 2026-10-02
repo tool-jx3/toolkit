@@ -4,11 +4,12 @@
  * 部件清單（共用標記與螢幕面板兩欄）。
  */
 import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, Lock, Repeat, Trash2, Unlock } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Checkbox,
   cn,
+  comboText,
   IconButton,
   Segmented,
   Slider,
@@ -41,9 +42,10 @@ import {
   useRenameProject,
 } from '../common';
 import { runEdit } from '../dialogs/Edit';
-import { editDefaults, percentCrop } from '../edit';
+import { dragCrop, editDefaults, percentCrop } from '../edit';
 import { imageAspect, partSceneUsage, tachieY } from '../geometry';
 import { importFiles } from '../importer';
+import { keyOf } from '../keys';
 import { findPartTemplate, partTemplateFrom, savePartTemplate } from '../library';
 import {
   fieldSizeInput,
@@ -52,7 +54,7 @@ import {
   type ProjectDefaults,
   type TachieAlign,
 } from '../model';
-import { createFrom, type Notify } from '../ops';
+import { createFrom, type Notify, openMultiPick } from '../ops';
 import { applyDrag } from '../Right';
 import {
   commit,
@@ -342,6 +344,16 @@ interface Quick {
   replace: boolean;
 }
 
+/** 快速加工在畫布上的即時預覽（F158）：只套用目前這一種 */
+function quickPreview(q: Quick): CSSProperties {
+  if (q.mode === 'crop') {
+    const c = q.crop;
+    return { clipPath: `inset(${c.top}% ${c.right}% ${c.bottom}% ${c.left}%)` };
+  }
+  if (q.mode === 'alpha') return { opacity: q.alpha / 100 };
+  return q.flip ? { transform: 'scaleX(-1)' } : {};
+}
+
 function RoomCanvas() {
   const p = useProject((s) => s.data);
   const lay = useLayout((s) => s.data);
@@ -355,6 +367,7 @@ function RoomCanvas() {
   const [help, setHelp] = useState(false);
   const [quick, setQuick] = useState<Quick | null>(null);
   const [phSel, setPhSel] = useState<string | null>(null);
+  const keys = useSettings((s) => s.data.keys);
   const room = p.room;
   const ph = placeholderSize(room.tachieHeight);
 
@@ -374,6 +387,7 @@ function RoomCanvas() {
         kind: x.kind,
         locked: x.locked,
         resizable: true,
+        imageStyle: quick?.id === x.id ? quickPreview(quick) : undefined,
       }));
     const y = tachieY(room, ph.height, 0);
     for (const h of room.placeholders)
@@ -391,7 +405,7 @@ function RoomCanvas() {
         resizable: true,
       });
     return applyDrag(out, drag);
-  }, [p.parts, room, ph.height, ph.width, drag]);
+  }, [p.parts, room, ph.height, ph.width, drag, quick]);
 
   const zoom = lay.roomZoom;
   const setZoom = (z: number) =>
@@ -439,12 +453,15 @@ function RoomCanvas() {
     return true;
   };
 
+  /** 點選（同舊版）：暫用立繪與部件不會同時選取 */
   const select = async (id: string, additive: boolean) => {
     if (id.startsWith('ph:')) {
       setPhSel(id);
+      setSession({ roomSel: [] });
       return;
     }
     if (quick && quick.id !== id && !(await leaveQuick())) return;
+    setPhSel(null);
     const cur = session().roomSel;
     setSession({
       roomSel: additive ? (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]) : [id],
@@ -560,6 +577,7 @@ function RoomCanvas() {
     setQuick(null);
   };
 
+  /** 畫布上的黃色裁切框（F158）：拖曳移動、拉右下角調大小（最小 5%），與四邊滑桿連動 */
   const quickStyle = (geo: { left: number; top: number; cell: number }) => {
     if (!quick || !one || quick.mode !== 'crop') return null;
     const W = room.fieldWidth;
@@ -569,17 +587,48 @@ function RoomCanvas() {
     const w = one.width * geo.cell;
     const h = one.height * geo.cell;
     const c = quick.crop;
+    const start = (e: React.PointerEvent, resize: boolean) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const sx = e.clientX;
+      const sy = e.clientY;
+      const move = (ev: PointerEvent) => {
+        const crop = dragCrop(
+          c,
+          ((ev.clientX - sx) / Math.max(1, w)) * 100,
+          ((ev.clientY - sy) / Math.max(1, h)) * 100,
+          resize,
+        );
+        setQuick((q) => (q ? { ...q, crop } : q));
+      };
+      const up = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    };
     return (
       <div
-        className="pointer-events-none absolute border-2 border-warning"
+        role="presentation"
+        className="absolute cursor-move touch-none border-2 border-warning shadow-[0_0_0_9999px_#00000073]"
         data-testid="quick-crop-box"
+        onPointerDown={(e) => start(e, false)}
         style={{
           left: L + (w * c.left) / 100,
           top: T + (h * c.top) / 100,
           width: (w * (100 - c.left - c.right)) / 100,
           height: (h * (100 - c.top - c.bottom)) / 100,
         }}
-      />
+      >
+        <span
+          role="presentation"
+          data-testid="quick-crop-handle"
+          onPointerDown={(e) => start(e, true)}
+          className="absolute -right-2 -bottom-2 size-4 cursor-nwse-resize rounded-full border-2 border-[#17191d] bg-warning"
+        />
+      </div>
     );
   };
 
@@ -634,10 +683,17 @@ function RoomCanvas() {
         </Button>
       </Row>
       {help ? (
-        <ul className="m-0 pl-5 text-xs text-muted">
+        <ul className="m-0 pl-5 text-xs text-muted" data-testid="room-keys-help">
           {S.keysHelpItems.map((t) => (
             <li key={t}>{t}</li>
           ))}
+          {/* 三個部件快捷鍵（F151）：顯示目前設定的按鍵 */}
+          {(['partOpen', 'partLock', 'partVisible'] as const).map((id) => {
+            const k = keyOf(id, keys);
+            return (
+              <li key={id}>{S.keysHelpPart(S.actions[id], k ? comboText(k) : S.shortcutNone)}</li>
+            );
+          })}
         </ul>
       ) : null}
       <div
@@ -671,6 +727,7 @@ function RoomCanvas() {
           diagonal="max"
           threshold={3}
           onSelect={(id, add) => void select(id, add)}
+          dragBlocked={(id) => !!quick && quick.id !== id}
           onBlankClick={async () => {
             if (!(await leaveQuick())) return;
             setSession({ roomSel: [] });
@@ -989,7 +1046,7 @@ function PartsList() {
               {S.addTachieSized}
             </Button>
           ) : null}
-          <Button size="sm" onClick={() => setSession({ modal: { kind: 'multi', for: kind } })}>
+          <Button size="sm" onClick={() => openMultiPick(kind, n)}>
             {S.fromMaterials}
           </Button>
           <Button size="sm" onClick={() => setSession({ modal: { kind: 'partTemplates' } })}>

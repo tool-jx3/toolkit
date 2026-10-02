@@ -276,6 +276,31 @@ export function percentCrop(
   };
 }
 
+export interface PercentCrop {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/**
+ * 快速裁切的黃色框（F158，同舊版）：從按下時的四邊 `c` 拖了 (dx, dy)（佔部件寬高的 %）。
+ * 移動：保留框的寬高，夾在部件內；右下角調大小：左上不動，寬高至少 5%、不超出部件。四邊取到 0.1%。
+ */
+export function dragCrop(c: PercentCrop, dx: number, dy: number, resize: boolean): PercentCrop {
+  const r = (v: number) => Math.round(v * 10) / 10;
+  const w = 100 - c.left - c.right;
+  const h = 100 - c.top - c.bottom;
+  if (resize) {
+    const nw = Math.max(5, Math.min(100 - c.left, w + dx));
+    const nh = Math.max(5, Math.min(100 - c.top, h + dy));
+    return { left: c.left, top: c.top, right: r(100 - c.left - nw), bottom: r(100 - c.top - nh) };
+  }
+  const left = Math.max(0, Math.min(100 - w, c.left + dx));
+  const top = Math.max(0, Math.min(100 - h, c.top + dy));
+  return { left: r(left), top: r(top), right: r(100 - left - w), bottom: r(100 - top - h) };
+}
+
 /* ---------- canvas（瀏覽器） ---------- */
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;

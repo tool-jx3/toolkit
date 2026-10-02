@@ -19,6 +19,7 @@ import { Card, DropCreate, Hint, ImageField, Labeled, NumCell, Row, useNotify } 
 import { materialLookup, tachieBase, tachieSize, tachieSource, tachieY } from '../geometry';
 import { importFiles } from '../importer';
 import { gridPos, gridSize, type TachieEntry, toNumber } from '../model';
+import { openMultiPick } from '../ops';
 import { commit, ctx, setSession, useProject, useSession } from '../store';
 import { S } from '../strings';
 
@@ -46,7 +47,7 @@ export function TachiePage() {
           >
             {S.tachieAdd}
           </Button>
-          <Button size="sm" onClick={() => setSession({ modal: { kind: 'multi', for: 'tachie' } })}>
+          <Button size="sm" onClick={() => openMultiPick('tachie', n)}>
             {S.tachieFromMaterials}
           </Button>
         </Row>

@@ -120,6 +120,15 @@ export function FadeDialog({ initial }: { initial: FadeState }) {
       setSession({ modal: { kind: 'edit', ...back } });
     }
   };
+  /**
+   * Esc（F285）：與關閉鈕不同，從加工開啟的也不回到加工對話框；產生中也照樣關閉
+   * （產生會在背景做完並加入素材，同舊版）。
+   */
+  const closeByEscape = () => {
+    if (st.temp) URL.revokeObjectURL(st.temp.url);
+    editReturn.current = null;
+    setSession({ modal: null });
+  };
 
   /** 換原圖（F096）：換成另一張靜態圖時開始／結束自動設成「圖片 → 透明」 */
   const chooseSource = (v: string) => {
@@ -213,6 +222,10 @@ export function FadeDialog({ initial }: { initial: FadeState }) {
       size="lg"
       title={S.fadeTitle}
       dismissOnOutside={false}
+      onEscapeKeyDown={(e) => {
+        e.preventDefault();
+        closeByEscape();
+      }}
       onOpenChange={(o) => {
         if (!o) close();
       }}

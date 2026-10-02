@@ -1,7 +1,7 @@
 /**
  * 匯入圖片（規格 3.3.1、F035～F046；瀏覽器）：動態圖原樣保留；轉檔開啟時等比縮到長邊上限並轉成 WebP（品質 0.8），
  * 轉完比原檔大就保留原檔；PNG／JPEG／GIF／WebP 以外的格式一律轉成 PNG（第 7 節裁定 D8）；
- * 以處理後的內容算 SHA-256 決定識別名，已有同名素材就算合併。
+ * 以處理後的內容算 SHA-256 決定識別名，已有同名素材就算合併（那張素材的圖片資料不見了時順便補回，F280）。
  */
 import { packRoomImage, roomImageExt } from '@/ccfolia';
 import { addMaterial, autoRoomBackground } from './actions';
@@ -13,7 +13,7 @@ import {
   LARGE_ANIMATION_BYTES,
 } from './materials';
 import type { Material, Tag } from './model';
-import { commit, putBlob, setSession, settings, useProject } from './store';
+import { commit, hasBlob, putBlob, setSession, settings, useProject } from './store';
 
 export const WEBP_QUALITY = 0.8;
 
@@ -157,15 +157,15 @@ export async function importFiles(
         const r = await processFile(file, { preserve: opts.preserve });
         const packed = await packRoomImage(r.blob, r.mime);
         const exists = useProject.getState().data.materials.some((m) => m.name === packed.name);
+        const blob = new Blob([packed.data as Uint8Array<ArrayBuffer>], { type: packed.type });
         if (exists) {
+          /* 同名＝同內容：圖片資料不見了（換了瀏覽器、清掉網站資料）時，用這次的檔案補回（同舊版） */
+          if (!hasBlob(packed.name)) await putBlob(packed.name, blob);
           out.dup++;
           out.names.push(packed.name);
           continue;
         }
-        await putBlob(
-          packed.name,
-          new Blob([packed.data as Uint8Array<ArrayBuffer>], { type: packed.type }),
-        );
+        await putBlob(packed.name, blob);
         const m: Material = {
           name: packed.name,
           label: opts.label ?? baseName(file.name),

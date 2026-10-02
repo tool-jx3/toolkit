@@ -55,7 +55,7 @@ import {
   saveEffectPreset,
 } from '../library';
 import type { BackgroundMode, Scene, SceneMarker } from '../model';
-import { openFade } from '../ops';
+import { openFade, openMultiPick } from '../ops';
 import {
   type ClipKind,
   clipFromScene,
@@ -122,7 +122,7 @@ function CreateArea() {
   const syms = symbols.split(/[\s,、]+/).filter(Boolean);
   const batch = (
     <>
-      <Button size="sm" onClick={() => setSession({ modal: { kind: 'multi', for: 'scene' } })}>
+      <Button size="sm" onClick={() => openMultiPick('scene', n)}>
         {S.fromMaterialsScene}
       </Button>
       <Button size="sm" onClick={() => setSession({ modal: { kind: 'bulk' } })}>

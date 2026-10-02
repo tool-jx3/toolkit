@@ -10,6 +10,7 @@ import {
   type RefObject,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
 } from 'react';
@@ -18,6 +19,51 @@ import { cn } from './cn';
 import { FieldScope } from './Field';
 
 const SIZES = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-3xl', xl: 'max-w-5xl' } as const;
+
+/**
+ * 對話框內容上的標記（`data-escape-fallback`）：焦點在這裡面（或在 body、而最上層的對話框是它）時，
+ * 通知（Toast）把 Esc 讓給對話框（見 Toast.tsx）。
+ */
+const ESCAPE_FALLBACK_SELECTOR = '[data-escape-fallback]';
+
+/** 這個 Esc 屬於哪個對話框：焦點在對話框裡就是它；焦點在 body（例如焦點元素被移除）時算最上層的對話框 */
+export function escapeOwner(target: EventTarget | null): Element | null {
+  if (!(target instanceof Element)) return null;
+  const inside = target.closest(ESCAPE_FALLBACK_SELECTOR);
+  if (inside) return inside;
+  const doc = target.ownerDocument;
+  if (target !== doc.body && target !== doc.documentElement) return null;
+  const all = doc.querySelectorAll(ESCAPE_FALLBACK_SELECTOR);
+  return all[all.length - 1] ?? null;
+}
+
+/**
+ * Esc 的備援（放在對話框內容裡）：畫面上有通知時，Radix 只把 Esc 交給最上層的通知，對話框自己的 Esc 不會觸發。
+ * 這個 Esc 屬於這個對話框（escapeOwner）、而且沒有別的圖層處理過（沒有 preventDefault）時，照常關閉。
+ * 平常（沒有通知）Radix 已經處理並 preventDefault，這裡不會再做一次。
+ */
+function EscapeFallback({
+  contentRef,
+  onEscape,
+}: {
+  contentRef: RefObject<HTMLElement | null>;
+  onEscape: (event: KeyboardEvent) => void;
+}) {
+  const handler = useRef(onEscape);
+  handler.current = onEscape;
+  useEffect(() => {
+    const doc = contentRef.current?.ownerDocument ?? document;
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      const content = contentRef.current;
+      if (!content || escapeOwner(e.target) !== content) return;
+      handler.current(e);
+    };
+    doc.addEventListener('keydown', key);
+    return () => doc.removeEventListener('keydown', key);
+  }, [contentRef]);
+  return null;
+}
 
 const overlayClass = 'fixed inset-0 z-40 bg-overlay';
 const contentClass = (size: keyof typeof SIZES, className?: string) =>
@@ -47,6 +93,11 @@ export interface DialogProps {
   initialFocus?: RefObject<HTMLElement | null>;
   /** 點對話框外面是否關閉（預設 true）。對話框裡有使用者做到一半、關了就會丟掉的東西時設 false（Esc 與關閉鈕照常作用） */
   dismissOnOutside?: boolean;
+  /**
+   * 按 Esc 時先呼叫（room-zip 修正時新增，選填；不給時行為不變）。呼叫 `event.preventDefault()` 就不關閉，
+   * 例如 Esc 與關閉鈕要做不同的事時，自己處理後 preventDefault。
+   */
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
 }
 
 export function Dialog({
@@ -62,15 +113,21 @@ export function Dialog({
   flush,
   initialFocus,
   dismissOnOutside = true,
+  onEscapeKeyDown,
 }: DialogProps) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       {trigger ? <D.Trigger asChild>{trigger}</D.Trigger> : null}
       <D.Portal>
         <D.Overlay className={overlayClass} />
         <D.Content
+          ref={contentRef}
+          data-escape-fallback=""
           className={contentClass(size, className)}
           onInteractOutside={dismissOnOutside ? undefined : (e) => e.preventDefault()}
+          onEscapeKeyDown={onEscapeKeyDown}
           onOpenAutoFocus={(e) => {
             const el = initialFocus?.current;
             if (el) {
@@ -79,6 +136,16 @@ export function Dialog({
             }
           }}
         >
+          <EscapeFallback
+            contentRef={contentRef}
+            onEscape={(e) => {
+              onEscapeKeyDown?.(e);
+              if (e.defaultPrevented) return;
+              e.preventDefault();
+              /* 關閉鈕的 click 對受控與不受控用法都會關閉 */
+              closeRef.current?.click();
+            }}
+          />
           <FieldScope>
             <div className="flex items-start gap-3 border-b border-border px-4 py-3">
               <div className="min-w-0 flex-1">
@@ -94,7 +161,7 @@ export function Dialog({
                 )}
               </div>
               <D.Close asChild>
-                <IconButton label="關閉" icon={<X />} size="sm" noTooltip />
+                <IconButton ref={closeRef} label="關閉" icon={<X />} size="sm" noTooltip />
               </D.Close>
             </div>
             <div className={cn('min-h-0 flex-1 overflow-auto', !flush && 'px-4 py-3')}>
@@ -157,11 +224,23 @@ export function ConfirmDialog({
   cancelLabel = '取消',
   danger,
 }: ConfirmDialogProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className={overlayClass} />
-        <AlertDialog.Content className={contentClass('sm', 'p-4')}>
+        <AlertDialog.Content
+          ref={contentRef}
+          data-escape-fallback=""
+          className={contentClass('sm', 'p-4')}
+        >
+          <EscapeFallback
+            contentRef={contentRef}
+            onEscape={(e) => {
+              e.preventDefault();
+              onOpenChange(false);
+            }}
+          />
           <AlertDialog.Title className="m-0 text-lg font-semibold">{title}</AlertDialog.Title>
           {description ? (
             <AlertDialog.Description className="m-0 mt-2 text-sm text-muted">
@@ -273,11 +352,23 @@ export function ChoiceDialog<V extends string = string>({
   choices,
   cancelLabel = '取消',
 }: ChoiceDialogProps<V>) {
+  const contentRef = useRef<HTMLDivElement>(null);
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className={overlayClass} />
-        <AlertDialog.Content className={contentClass('sm', 'p-4')}>
+        <AlertDialog.Content
+          ref={contentRef}
+          data-escape-fallback=""
+          className={contentClass('sm', 'p-4')}
+        >
+          <EscapeFallback
+            contentRef={contentRef}
+            onEscape={(e) => {
+              e.preventDefault();
+              onOpenChange(false);
+            }}
+          />
           <AlertDialog.Title className="m-0 text-lg font-semibold">{title}</AlertDialog.Title>
           {description ? (
             <AlertDialog.Description className="m-0 mt-2 text-sm text-muted">

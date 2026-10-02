@@ -56,7 +56,17 @@ import {
 } from '../ops';
 import { pieceSummary } from '../pages/Others';
 import { applyTemplate, parseBulkScenes, renamePairs, templateFromScene } from '../scenes';
-import { commit, goPage, setSession, settings, useLibrary, useProject, useSession } from '../store';
+import {
+  commit,
+  goPage,
+  hasBlob,
+  setSession,
+  settings,
+  useBlobs,
+  useLibrary,
+  useProject,
+  useSession,
+} from '../store';
 import { S } from '../strings';
 
 const close = () => setSession({ modal: null });
@@ -431,9 +441,13 @@ export function BrokenDialog() {
   const confirm = useConfirm();
   const materials = useProject((s) => s.data.materials);
   useProject((s) => s.data);
+  /* 補回圖片資料（自動復原、補上原圖）後清單要跟著變 */
+  useBlobs((s) => s.urls);
   const list = currentBroken();
   const [choice, setChoice] = useState<Record<string, string>>({});
-  const [uploadFor, setUploadFor] = useState(list[0]?.name ?? '');
+  const [uploadPick, setUploadFor] = useState(list[0]?.name ?? '');
+  /** 補哪一張：選的那張補好了就換成清單的第一張 */
+  const uploadFor = list.some((b) => b.name === uploadPick) ? uploadPick : (list[0]?.name ?? '');
   const options = [
     { value: '__none__', label: S.brokenReplaceNone },
     ...materials.map((m) => ({ value: m.name, label: m.label })),
@@ -510,20 +524,22 @@ export function BrokenDialog() {
               <Labeled label={S.brokenUploadFor}>
                 <Select
                   aria-label={S.brokenUploadFor}
-                  value={uploadFor || list[0].name}
+                  value={uploadFor}
                   onValueChange={setUploadFor}
                   options={list.map((b) => ({ value: b.name, label: b.uses[0] ?? b.name }))}
                 />
               </Labeled>
               <Button
                 onClick={async () => {
+                  const target = uploadFor;
                   const [f] = await pickFiles({ accept: 'image/*' });
                   if (!f) return;
                   const r = await importFiles([f]);
-                  if (r.names[0]) {
-                    replaceBroken(uploadFor || list[0].name, r.names[0]);
-                    n(S.brokenUploaded, 'success');
-                  }
+                  const got = r.names[0];
+                  /* 選的就是原本那張（同內容）時 importFiles 已補回資料；不同的圖就把引用換過去 */
+                  if (got && got !== target) replaceBroken(target, got);
+                  if (got && hasBlob(got)) n(S.brokenUploaded, 'success');
+                  else n(S.brokenUploadFailed, 'warning');
                 }}
               >
                 {S.brokenUpload}
@@ -887,23 +903,18 @@ export function SourceDialog({
             </Labeled>
           </Row>
           <Row>
-            {(['x', 'y', 'width', 'height', 'z'] as const).map((k) => (
-              <Labeled
-                key={k}
-                label={
-                  k === 'x'
-                    ? S.posX
-                    : k === 'y'
-                      ? S.posY
-                      : k === 'z'
-                        ? S.zOrder
-                        : k === 'width'
-                          ? S.width
-                          : S.height
-                }
-              >
+            {(
+              [
+                ['x', S.posX],
+                ['y', S.posY],
+                ['width', S.width],
+                ['height', S.height],
+                ['z', S.zOrder],
+              ] as const
+            ).map(([k, label]) => (
+              <Labeled key={k} label={label}>
                 <NumCell
-                  aria-label={k}
+                  aria-label={label}
                   value={part[k]}
                   className="w-16"
                   onCommit={(v) => v != null && upd({ [k]: v })}
@@ -953,10 +964,17 @@ export function SourceDialog({
           </Row>
           {m.kind === 'free' ? (
             <Row>
-              {(['x', 'y', 'width', 'height'] as const).map((k) => (
-                <Labeled key={k} label={k}>
+              {(
+                [
+                  ['x', S.posX],
+                  ['y', S.posY],
+                  ['width', S.width],
+                  ['height', S.height],
+                ] as const
+              ).map(([k, label]) => (
+                <Labeled key={k} label={label}>
                   <NumCell
-                    aria-label={k}
+                    aria-label={label}
                     value={m[k]}
                     className="w-16"
                     onCommit={(v) => v != null && upd({ [k]: v })}

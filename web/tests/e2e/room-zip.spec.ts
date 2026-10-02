@@ -418,6 +418,368 @@ test('素材製作：單色圖（附件 M01）與文字＋圖形合成圖（附�
   expect(errors).toEqual([]);
 });
 
+/** 專案資料（自動存在 localStorage） */
+async function projectData(page: Page) {
+  return page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem('trpg-toolkit:room-zip') ?? 'null')?.state?.data as {
+        room: { fieldWidth: number; backgroundUrl: string | null };
+        parts: { id: string; x: number; y: number; width: number }[];
+        materials: { name: string; label: string }[];
+      },
+  );
+}
+
+/** 素材圖片資料（IndexedDB）：刪掉／檢查有沒有 */
+async function assetBlob(page: Page, name: string, remove = false) {
+  return page.evaluate(
+    async ({ n, rm }) => {
+      const db = await new Promise<IDBDatabase>((ok, ng) => {
+        const q = indexedDB.open('trpg-toolkit:tool:room-zip:assets');
+        q.onsuccess = () => ok(q.result);
+        q.onerror = () => ng(q.error);
+      });
+      const has = await new Promise<boolean>((ok) => {
+        const t = db.transaction('kv', rm ? 'readwrite' : 'readonly');
+        const store = t.objectStore('kv');
+        if (rm) {
+          store.delete(n);
+          t.oncomplete = () => ok(false);
+        } else {
+          const r = store.get(n);
+          r.onsuccess = () => ok(r.result != null);
+        }
+      });
+      db.close();
+      return has;
+    },
+    { n: name, rm: remove },
+  );
+}
+
+test('數字欄：夾住或維持原值後顯示實際的值；製作器的不透明度 0～100、一次欄位編輯一步復原、鎖定時全部停用（F106、F111、F115、F137、F166）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await go(page, 'materials');
+  await page.getByRole('button', { name: '文字＋圖形合成圖' }).click();
+  const maker = page.getByRole('dialog', { name: '文字＋圖形合成圖' });
+  /* F106：16～4096；Enter 後焦點還在也改成實際的值 */
+  const cw = maker.getByRole('spinbutton', { name: '畫布：寬' });
+  await cw.fill('5');
+  await cw.press('Enter');
+  await expect(cw).toBeFocused();
+  await expect(cw).toHaveValue('16');
+  await expect(page.getByTestId('maker-canvas')).toHaveJSProperty('width', 16);
+  await cw.fill('9999');
+  await cw.press('Tab');
+  await expect(cw).toHaveValue('4096');
+  await cw.fill('640');
+  await cw.press('Tab');
+  await maker.getByRole('button', { name: '方形', exact: true }).click();
+  const fields = page.getByTestId('maker-fields');
+  const x = fields.getByRole('spinbutton', { name: 'X：方形 1' });
+  const undo = maker.getByRole('button', { name: '復原', exact: true });
+  /* F115：一次欄位編輯（聚焦到離開）只算一步，Enter 再離開也一樣 */
+  await x.fill('111');
+  await x.press('Tab');
+  await undo.click();
+  await expect(x).toHaveValue('80');
+  await x.fill('222');
+  await x.press('Enter');
+  await x.press('Tab');
+  await undo.click();
+  await expect(x).toHaveValue('80');
+  await undo.click();
+  await expect(fields).toHaveCount(0);
+  await maker.getByRole('button', { name: '重做', exact: true }).click();
+  /* F111：不透明度夾在 0～100 */
+  const op = fields.getByRole('spinbutton', { name: '不透明度：方形 1' });
+  await op.fill('150');
+  await op.press('Enter');
+  await expect(op).toHaveValue('100');
+  await op.fill('-20');
+  await op.press('Tab');
+  await expect(op).toHaveValue('0');
+  /* 鎖定時所有欄位（含顏色）停用 */
+  await page
+    .getByTestId('maker-layers')
+    .locator('li')
+    .first()
+    .getByRole('button', { name: '鎖定／解除' })
+    .click();
+  for (const el of await fields.locator('input, button').all()) await expect(el).toBeDisabled();
+  /* F285：Esc 關閉製作器（內容丟棄） */
+  await page.keyboard.press('Escape');
+  await expect(maker).toHaveCount(0);
+
+  /* F137：盤面寬 0／負數／空白 → 維持原值，欄位也回到原值 */
+  await go(page, 'room');
+  const bw = page.getByRole('spinbutton', { name: '寬（格）', exact: true });
+  await bw.fill('25');
+  await bw.press('Enter');
+  for (const v of ['0', '-3', '']) {
+    await bw.fill(v);
+    await bw.press('Tab');
+    await expect(bw).toHaveValue('25');
+  }
+  await expect(page.getByTestId('board-size')).toHaveText('25 × 30 格');
+  /* F166：部件寬 0 → 1 格 */
+  await page.getByRole('button', { name: '新增共用標記', exact: true }).first().click();
+  const pw = page.getByRole('spinbutton', { name: '寬：共用標記' });
+  await pw.fill('0');
+  await pw.press('Enter');
+  await expect(pw).toHaveValue('1');
+  await expect.poll(async () => (await projectData(page)).parts[0]?.width).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test('房間設計畫布：多選點一個放開只選它、先按住 Shift 再拖動全部並鎖方向、操作說明的部件快捷鍵、快速裁切框與即時預覽（F151～F153、F158）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await importImages(page, [file('標記.png', await png(64, 64, [200, 120, 60]))]);
+  await go(page, 'room');
+  const add = page.getByRole('button', { name: '新增共用標記', exact: true }).first();
+  for (let i = 0; i < 3; i++) await add.click();
+  const ids = (await projectData(page)).parts.map((p) => p.id);
+  const card = (id: string) => page.locator(`article[data-part="${id}"]`);
+  const setPos = async (id: string, x: number, y: number) => {
+    for (const [label, v] of [
+      ['水平位置：共用標記', x],
+      ['垂直位置：共用標記', y],
+    ] as const) {
+      await card(id).getByLabel(label).fill(String(v));
+      await card(id).getByLabel(label).press('Enter');
+    }
+  };
+  await setPos(ids[0], -10, -5);
+  await setPos(ids[1], 12, -8);
+  await setPos(ids[2], 8, 6);
+  await card(ids[1])
+    .getByRole('button', { name: /^圖片：/ })
+    .click();
+  await page.getByTestId('image-picker').locator('[data-picker-tile]').first().click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+
+  /* F151：操作說明列出三個部件快捷鍵與目前的按鍵 */
+  await page.getByRole('button', { name: '操作說明' }).click();
+  const help = page.getByTestId('room-keys-help');
+  await expect(help).toContainText('開啟選取部件的設定：Ctrl＋1');
+  await expect(help).toContainText('選取部件的鎖定切換：Ctrl＋2');
+  await expect(help).toContainText('選取部件的顯示切換：Ctrl＋3');
+
+  const canvas = page.getByTestId('room-canvas');
+  const item = (id: string) => canvas.locator(`[data-board-item="${id}"]`);
+  const center = async (id: string) => {
+    const b = await item(id).boundingBox();
+    if (!b) throw new Error(`沒有 ${id}`);
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2, width: b.width };
+  };
+  const toolbar = page.getByTestId('room-toolbar');
+  const clickItem = async (id: string, mod?: 'Shift' | 'Control') => {
+    const c = await center(id);
+    if (mod) await page.keyboard.down(mod);
+    await page.mouse.click(c.x, c.y);
+    if (mod) await page.keyboard.up(mod);
+  };
+  /* F152：三個都選取後點其中一個（不拖）→ 只選它 */
+  await clickItem(ids[0]);
+  await clickItem(ids[1], 'Shift');
+  await clickItem(ids[2], 'Shift');
+  await expect(toolbar).toContainText('已選 3 個');
+  await clickItem(ids[1]);
+  await expect(toolbar).toContainText('已選 1 個');
+  await expect(item(ids[1])).toHaveAttribute('data-selected', 'true');
+  await expect(item(ids[0])).not.toHaveAttribute('data-selected', 'true');
+
+  /* F153：選 A 後先按住 Shift 再按下 C 拖曳 → C 加選並與 A 一起移動，鎖成水平 */
+  await clickItem(ids[0]);
+  const cell = (await center(ids[0])).width / (await projectData(page)).parts[0].width;
+  const c = await center(ids[2]);
+  await page.keyboard.down('Shift');
+  await page.mouse.move(c.x, c.y);
+  await page.mouse.down();
+  await page.mouse.move(c.x + cell * 2, c.y + cell * 0.4, { steps: 3 });
+  await page.mouse.move(c.x + cell * 4, c.y + cell * 0.8, { steps: 3 });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+  await expect(toolbar).toContainText('已選 2 個');
+  await expect
+    .poll(async () => (await projectData(page)).parts.map((p) => `${p.x},${p.y}`))
+    .toEqual(['-6,-5', '12,-8', '12,6']);
+
+  /* F158：快速裁切框可拖曳、拉右下角調大小，部件圖即時套用裁切；透明與翻轉即時預覽 */
+  await toolbar.getByRole('button', { name: '取消選取' }).click();
+  await clickItem(ids[1]);
+  await toolbar.getByRole('button', { name: '裁切', exact: true }).click();
+  const quick = page.getByTestId('quick-edit');
+  const sides = () =>
+    quick
+      .getByRole('spinbutton')
+      .evaluateAll((els) => els.slice(0, 4).map((e) => (e as HTMLInputElement).value));
+  const box = page.getByTestId('quick-crop-box');
+  const b0 = await box.boundingBox();
+  const h = await page.getByTestId('quick-crop-handle').boundingBox();
+  if (!b0 || !h) throw new Error('沒有裁切框');
+  await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(h.x + h.width / 2 - b0.width * 0.3, h.y + h.height / 2 - b0.height * 0.2, {
+    steps: 4,
+  });
+  await page.mouse.up();
+  await expect.poll(sides).toEqual(['0', '30', '0', '20']);
+  const b1 = await box.boundingBox();
+  if (!b1) throw new Error('沒有裁切框');
+  await page.mouse.move(b1.x + b1.width / 2, b1.y + b1.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    b1.x + b1.width / 2 + b0.width * 0.2,
+    b1.y + b1.height / 2 + b0.height * 0.1,
+    { steps: 4 },
+  );
+  await page.mouse.up();
+  await expect.poll(sides).toEqual(['20', '10', '10', '10']);
+  await expect(toolbar).toContainText('已選 1 個');
+  const img = item(ids[1]).locator('img');
+  await expect(img).toHaveCSS('clip-path', 'inset(10% 10% 10% 20%)');
+  await quick.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(img).toHaveCSS('clip-path', 'none');
+  await toolbar.getByRole('button', { name: '透明', exact: true }).click();
+  await quick.getByRole('spinbutton').first().fill('30');
+  await quick.getByRole('spinbutton').first().press('Enter');
+  await expect(img).toHaveCSS('opacity', '0.3');
+  await quick.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(img).toHaveCSS('opacity', '1');
+  await toolbar.getByRole('button', { name: '左右翻轉', exact: true }).click();
+  await expect(img).toHaveCSS('transform', 'matrix(-1, 0, 0, 1, 0, 0)');
+  await quick.getByRole('button', { name: '取消', exact: true }).click();
+  expect(errors).toEqual([]);
+});
+
+test('沒有素材時「從素材挑選」只警告（F173）；共用設定視窗的欄位沒有英文（F219）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  for (const [id, label] of [
+    ['scenes', '從素材挑選建立'],
+    ['tachie', '從素材挑選登錄'],
+    ['cutins', '從素材挑選建立'],
+    ['room', '從素材挑選'],
+  ] as const) {
+    await go(page, id);
+    await page.getByRole('button', { name: label, exact: true }).first().click();
+    await expect(page.getByText('還沒有素材，請先放入圖片').last()).toBeVisible();
+    await expect(page.getByTestId('multi-pick')).toHaveCount(0);
+  }
+  await page.getByRole('button', { name: '新增共用標記', exact: true }).first().click();
+  const id = (await projectData(page)).parts[0].id;
+  /* 移開，不要被盤面中央的暫用立繪蓋住 */
+  const posX = page.getByRole('spinbutton', { name: '水平位置：共用標記' });
+  await posX.fill('-12');
+  await posX.press('Enter');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.getByTestId('room-canvas').locator(`[data-board-item="${id}"]`).click();
+  await page.getByTestId('room-toolbar').getByRole('button', { name: '詳細' }).click();
+  const aria = await page
+    .getByTestId('source-dialog')
+    .locator('input[type=number]')
+    .evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+  expect(aria).toEqual(['水平位置', '垂直位置', '寬', '高', '堆疊順序']);
+  expect(errors).toEqual([]);
+});
+
+test('Esc：有通知時一次就關閉對話框（通知留著）；登錄範本的輸入框自動聚焦、Enter＝確定（F285）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await go(page, 'scenes');
+  const quick = page.locator('#quick-scene-name');
+  await quick.fill('開場');
+  await quick.press('Enter');
+  await page.getByRole('button', { name: '場景範本', exact: true }).click();
+  const templates = page.getByTestId('scene-templates');
+  await templates.getByRole('button', { name: '把目前場景登錄為範本' }).click();
+  const prompt = page.getByRole('dialog', { name: '把目前場景登錄為範本' });
+  const input = prompt.getByRole('textbox');
+  await expect(input).toBeFocused();
+  await input.fill('我的範本');
+  await input.press('Enter');
+  await expect(prompt).toHaveCount(0);
+  const toast = page.getByText('已登錄範本', { exact: true });
+  await expect(toast).toBeVisible();
+  await expect(templates).toContainText('我的範本');
+  await page.keyboard.press('Escape');
+  await expect(templates).toHaveCount(0);
+  await expect(toast).toBeVisible();
+  /* 焦點不在對話框裡（例如在 body）時也一樣 */
+  await page.getByRole('button', { name: '場景範本', exact: true }).click();
+  await expect(templates).toBeVisible();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press('Escape');
+  await expect(templates).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('淡入淡出動態圖：產生中按 Esc 也關閉、背景做完照樣加入素材；從加工開啟的 Esc 不回到加工（F285）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await importImages(page, [file('大圖.png', await png(1600, 900, [80, 160, 90]))]);
+  const cards = page.getByTestId('materials-page').locator('[data-material]');
+  await expect(cards).toHaveCount(1);
+  await cards.first().locator('img').first().click();
+  await page.getByRole('button', { name: '淡入淡出動態圖' }).click();
+  const dialog = page.getByRole('dialog', { name: '淡入淡出動態圖（APNG）' });
+  const seconds = dialog.getByRole('spinbutton').first();
+  await seconds.fill('4');
+  await seconds.press('Tab');
+  await dialog.getByRole('button', { name: '產生' }).click();
+  await expect(dialog.getByRole('button', { name: /產生中/ })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(cards).toHaveCount(2, { timeout: 60_000 });
+  /* 加工 → 轉成動態圖 → Esc：不回到加工對話框 */
+  await cards.first().getByRole('button', { name: '加工' }).click();
+  await page.getByTestId('edit-dialog').waitFor();
+  await page.getByRole('button', { name: '轉成動態圖' }).click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByTestId('edit-dialog')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('補上原圖：選原本那個檔時補回圖片資料（F280）', async ({ page }) => {
+  const errors = await open(page);
+  const img = file('前景.png', await png(320, 180, [180, 90, 140]));
+  await importImages(page, [img]);
+  await expect.poll(async () => (await projectData(page))?.materials.length).toBe(1);
+  const name = (await projectData(page)).materials[0].name;
+  /* 用在房間背景（有被引用的圖才算遺失） */
+  await go(page, 'room');
+  await page.getByRole('button', { name: '房間背景', exact: true }).click();
+  await page.getByTestId('image-picker').locator('[data-picker-tile]').first().click();
+  await expect.poll(async () => (await projectData(page)).room.backgroundUrl).toBe(name);
+  await assetBlob(page, name, true);
+  await page.reload();
+  await expect(page.getByTestId('home-page')).toBeVisible();
+  await go(page, 'materials');
+  await page.getByTestId('broken-banner').getByRole('button', { name: '開啟修復' }).click();
+  const dialog = page.getByTestId('broken-dialog');
+  await expect(dialog.locator('[data-broken]')).toHaveCount(1);
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    dialog.getByRole('button', { name: '補上原圖' }).click(),
+  ]);
+  await chooser.setFiles(img);
+  await expect(dialog).toContainText('沒有找不到的圖片了。');
+  await expect(page.getByText('已補上', { exact: true })).toBeVisible();
+  expect((await projectData(page)).materials.map((m) => m.name)).toEqual([name]);
+  expect(await assetBlob(page, name)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('390 寬：各頁沒有橫向捲動', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const errors = await open(page);

@@ -1,10 +1,15 @@
 /**
  * 短暫通知（Radix Toast）。`const toast = useToast(); toast({ title: '已儲存', tone: 'success' })`
+ *
+ * Esc：每則通知都是 Radix 的可關閉圖層，而且是最上層，Radix 只把 Esc 交給它。有對話框（Dialog、確認對話框）開著、
+ * 焦點在對話框裡或在 body 時，通知把 Esc 讓給對話框（通知留著，對話框照常關閉；room-zip 修正時新增）；
+ * 其他時候照舊由 Esc 關閉最新的一則通知（焦點在通知上時關那一則）。
  */
 import { CheckCircle2, Info, TriangleAlert, X, XCircle } from 'lucide-react';
 import { Toast as T } from 'radix-ui';
-import { createContext, type ReactNode, useCallback, useContext, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from 'react';
 import { cn } from './cn';
+import { escapeOwner } from './Dialog';
 
 export type ToastTone = 'info' | 'success' | 'warning' | 'danger';
 
@@ -50,6 +55,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setItems((list) => list.map((x) => (x.id === id ? { ...x, open: false } : x)));
     setTimeout(() => setItems((list) => list.filter((x) => x.id !== id)), 300);
   }, []);
+  /**
+   * 這次的 Esc 要讓給對話框：Radix 處理完 onEscapeKeyDown 會接著呼叫 onOpenChange(false)，這時不關閉通知。
+   * 不用 preventDefault，對話框才知道這個 Esc 還沒有人處理（見 Dialog.tsx 的 EscapeFallback）。
+   */
+  const yieldEscape = useRef(false);
   return (
     <ToastContext.Provider value={toast}>
       <T.Provider swipeDirection="right" label="通知">
@@ -62,8 +72,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               open={t.open}
               duration={t.duration ?? (tone === 'danger' ? 7000 : 4000)}
               type={tone === 'danger' ? 'foreground' : 'background'}
+              onEscapeKeyDown={(e) => {
+                if (!escapeOwner(e.target)) return;
+                yieldEscape.current = true;
+                queueMicrotask(() => {
+                  yieldEscape.current = false;
+                });
+              }}
               onOpenChange={(open) => {
-                if (!open) close(t.id);
+                if (open) return;
+                if (yieldEscape.current) {
+                  yieldEscape.current = false;
+                  return;
+                }
+                close(t.id);
               }}
               onClick={
                 t.dismissOnClick

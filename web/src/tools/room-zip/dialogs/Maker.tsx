@@ -56,7 +56,7 @@ import {
   resizeLayer,
 } from '../maker';
 import { formatKb } from '../materials';
-import { applyPending } from '../ops';
+import { applyPending, pendingPick } from '../ops';
 import { assets, goPage, type MakeContext, setSession, useProject } from '../store';
 import { S } from '../strings';
 
@@ -136,9 +136,10 @@ export function MakerDialog({ context, background }: { context: MakeContext; bac
     return () => clearTimeout(t);
   }, [doc, quality, W, H, bmp, tick]);
 
-  /** 記一步（一次拖曳、一次欄位編輯、一次按鈕操作各算一步） */
+  /** 記一步（一次拖曳、一次欄位編輯、一次按鈕操作各算一步；內容與目前這一步相同時不記） */
   const pushHistory = (next: MakerDoc) =>
     setHist((h) => {
+      if (JSON.stringify(h.list[h.index]) === JSON.stringify(next)) return h;
       const list = [...h.list.slice(0, h.index + 1), next].slice(-MAKER_DEFAULT.historyLimit);
       return { list, index: list.length - 1 };
     });
@@ -191,6 +192,13 @@ export function MakerDialog({ context, background }: { context: MakeContext; bac
     if (busy) return;
     setSession({ modal: null });
   };
+  /** 製作中按 Esc 也照樣關閉（F285）：之後只把成品加進素材，不再放回選圖欄、不換頁 */
+  const stillOpen = useRef(true);
+  const discard = () => {
+    stillOpen.current = false;
+    if (context.kind === 'picker') pendingPick.current = null;
+    setSession({ modal: null });
+  };
 
   const make = async () => {
     flush();
@@ -211,6 +219,7 @@ export function MakerDialog({ context, background }: { context: MakeContext; bac
       const out = r.names[0];
       if (!out) throw new Error('import');
       n(S.makerDone, 'success');
+      if (!stillOpen.current) return;
       setSession({ modal: null });
       if (context.kind === 'picker') applyPending(out);
       else if (context.kind === 'material') goPage('materials');
@@ -362,6 +371,10 @@ export function MakerDialog({ context, background }: { context: MakeContext; bac
       size="xl"
       title={S.makerTitle}
       dismissOnOutside={false}
+      onEscapeKeyDown={(e) => {
+        e.preventDefault();
+        discard();
+      }}
       onOpenChange={(o) => {
         if (!o) close();
       }}
@@ -408,7 +421,8 @@ export function MakerDialog({ context, background }: { context: MakeContext; bac
           </div>
         </div>
         <div className="flex min-w-0 flex-col gap-3 text-sm">
-          <section className="flex flex-col gap-2">
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: 只是接住欄位的離開，記成一步復原 */}
+          <section className="flex flex-col gap-2" onBlur={flush}>
             <b>{S.makerCanvas}</b>
             <Row>
               <Labeled label={S.makerWidth}>
@@ -416,7 +430,7 @@ export function MakerDialog({ context, background }: { context: MakeContext; bac
                   aria-label={`${S.makerCanvas}：${S.makerWidth}`}
                   value={doc.width}
                   onCommit={(v) =>
-                    change({ ...doc, width: canvasSize(v ?? Number.NaN, MAKER_DEFAULT.width) })
+                    live({ ...doc, width: canvasSize(v ?? Number.NaN, MAKER_DEFAULT.width) })
                   }
                 />
               </Labeled>
@@ -425,7 +439,7 @@ export function MakerDialog({ context, background }: { context: MakeContext; bac
                   aria-label={`${S.makerCanvas}：${S.makerHeight}`}
                   value={doc.height}
                   onCommit={(v) =>
-                    change({ ...doc, height: canvasSize(v ?? Number.NaN, MAKER_DEFAULT.height) })
+                    live({ ...doc, height: canvasSize(v ?? Number.NaN, MAKER_DEFAULT.height) })
                   }
                 />
               </Labeled>
@@ -647,6 +661,7 @@ function LayerFields({
   patch: (p: Partial<MakerLayer>, record?: boolean) => void;
   materials: { name: string; width: number; height: number }[];
 }) {
+  /** 數字欄：送出時夾在欄位的範圍內（例如不透明度 0～100，F111）；聚焦到離開記成一步（F115） */
   const num = (
     label: string,
     key: string,
@@ -660,7 +675,12 @@ function LayerFields({
         disabled={disabled}
         {...extra}
         className="w-16"
-        onCommit={(v) => v != null && patch({ [key]: v } as Partial<MakerLayer>, true)}
+        onCommit={(v) =>
+          v != null &&
+          patch({
+            [key]: Math.min(extra.max ?? Infinity, Math.max(extra.min ?? -Infinity, v)),
+          } as Partial<MakerLayer>)
+        }
       />
     </Labeled>
   );
@@ -689,7 +709,11 @@ function LayerFields({
             </Labeled>
             {num(S.makerSize, 'fontSize', l.fontSize, { min: 1 })}
             <Labeled label={S.makerColor}>
-              <ColorField value={l.color} onChange={(v) => patch({ color: v }, true)} />
+              <ColorField
+                value={l.color}
+                disabled={disabled}
+                onChange={(v) => patch({ color: v }, true)}
+              />
             </Labeled>
           </Row>
           <Row>
@@ -730,7 +754,11 @@ function LayerFields({
               label={S.makerStroke}
             />
             <Labeled label={S.makerStrokeColor}>
-              <ColorField value={l.strokeColor} onChange={(v) => patch({ strokeColor: v }, true)} />
+              <ColorField
+                value={l.strokeColor}
+                disabled={disabled}
+                onChange={(v) => patch({ strokeColor: v }, true)}
+              />
             </Labeled>
             {num(S.makerStrokeWidth, 'strokeWidth', l.strokeWidth, { min: 0, max: 30 })}
           </Row>
@@ -791,7 +819,6 @@ function LayerFields({
                     l.lockAspect
                       ? { width: v, height: Math.round((v * l.height) / Math.max(1, l.width)) }
                       : { width: v },
-                    true,
                   )
                 }
               />
@@ -808,7 +835,6 @@ function LayerFields({
                     l.lockAspect
                       ? { height: v, width: Math.round((v * l.width) / Math.max(1, l.height)) }
                       : { height: v },
-                    true,
                   )
                 }
               />
@@ -818,7 +844,11 @@ function LayerFields({
       ) : (
         <Row>
           <Labeled label={S.makerColor}>
-            <ColorField value={l.color} onChange={(v) => patch({ color: v }, true)} />
+            <ColorField
+              value={l.color}
+              disabled={disabled}
+              onChange={(v) => patch({ color: v }, true)}
+            />
           </Labeled>
           {num(S.makerWidth, 'width', l.width, { min: 1 })}
           {num(S.makerHeight, 'height', l.height, { min: 1 })}

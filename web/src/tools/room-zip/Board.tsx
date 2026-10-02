@@ -35,6 +35,8 @@ export interface BoardItem {
   axis?: 'y';
   /** 全畫面演出不顯示外框 */
   frameless?: boolean;
+  /** 圖片的即時預覽樣式（房間設計的快速加工：裁切、透明、翻轉） */
+  imageStyle?: CSSProperties;
 }
 
 export interface BoardMove {
@@ -83,6 +85,8 @@ export interface BoardProps {
   /** 位移超過幾 px 才算拖曳 */
   threshold: number;
   onSelect: (id: string, additive: boolean) => void;
+  /** 按下這個物件時不開始拖曳（例如還有未確定的快速加工要先確認）；仍會呼叫 onSelect */
+  dragBlocked?: (id: string) => boolean;
   onBlankClick?: () => void;
   onMove?: (m: BoardMove) => void;
   onResize?: (r: BoardResize) => void;
@@ -159,6 +163,7 @@ function ItemView({
           alt=""
           draggable={false}
           className="pointer-events-none size-full object-fill"
+          style={item.imageStyle}
         />
       ) : null}
       {item.text ? (
@@ -334,6 +339,11 @@ export function Board(props: BoardProps) {
     window.addEventListener('pointerup', up);
   };
 
+  /**
+   * 按下物件（同舊版）：Shift／Ctrl／⌘ 先切換這一個的選取；沒按時，未選取的改成只選它，已在多選中的先保留多選。
+   * 接著拖動所有選取中、未鎖定的物件（先按住 Shift 也照樣拖，並鎖方向，F153）；
+   * 沒拖動就放開、也沒按加選鍵時，改成只選這一個（F152）。
+   */
   const onItemDown = (item: BoardItem) => (e: React.PointerEvent) => {
     if (e.button === 1 || space) return;
     if (e.button !== 0) return;
@@ -341,23 +351,31 @@ export function Board(props: BoardProps) {
     const additive = e.shiftKey || e.ctrlKey || e.metaKey;
     const p = latest.current;
     const was = p.selected.includes(item.id);
+    const multi = p.selected.length > 1;
     if (additive || !was) p.onSelect(item.id, additive);
-    if (additive || item.locked) return;
-    const ids = (was ? p.selected : [item.id]).filter((id) => {
-      const it = p.items.find((x) => x.id === id);
-      return it && !it.locked;
-    });
-    if (!ids.length) return;
+    if (p.dragBlocked?.(item.id)) return;
     const sx = e.clientX;
     const sy = e.clientY;
     let dragging = false;
+    /** 要拖的物件：開始拖動時才看選取（選取的更新可能是非同步的） */
+    let ids: string[] = [];
     let last = { dx: 0, dy: 0 };
     const move = (ev: PointerEvent) => {
       const q = latest.current;
       const px = ev.clientX - sx;
       const py = ev.clientY - sy;
       if (!dragging && Math.abs(px) < q.threshold && Math.abs(py) < q.threshold) return;
+      if (!dragging) {
+        const cur = q.selected;
+        /* 選取由外面管理時用目前的選取；加選鍵取消了這一個時拖其他選取中的；外面不管選取時只拖這一個 */
+        const base = cur.includes(item.id) || (additive && was) ? cur : [item.id];
+        ids = base.filter((id) => {
+          const it = q.items.find((x) => x.id === id);
+          return it && !it.locked;
+        });
+      }
       dragging = true;
+      if (!ids.length) return;
       let dx = px / cell;
       let dy = py / cell;
       if (item.axis === 'y') dx = 0;
@@ -371,7 +389,9 @@ export function Board(props: BoardProps) {
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      if (dragging) latest.current.onMove?.({ ids, ...last, phase: 'end' });
+      if (dragging) {
+        if (ids.length) latest.current.onMove?.({ ids, ...last, phase: 'end' });
+      } else if (!additive && was && multi) latest.current.onSelect(item.id, false);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
