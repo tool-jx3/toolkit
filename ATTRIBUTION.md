@@ -24,12 +24,7 @@
 | 工具 | 原始 repo | 來源 commit | 授權 |
 |---|---|---|---|
 | magic-circle | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `de40a68` | MIT |
-| loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
-| foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
-| scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `9866858` | MIT |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
-| character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
-| room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
 | acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
 | video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
@@ -39,113 +34,10 @@
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 | coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
-| bg-motion | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/haikei-motion-maker/` | `42c45f3` | **未授權** |
 | session-log | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-log-tool/` | `42c45f3` | **未授權** |
 | session-report | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-report-generator/` | `42c45f3` | **未授權** |
-| scenario-cards | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/scenario-snippet-builder/` | `42c45f3` | **未授權** |
-| log-converter | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `bb32ed7` | MIT |
-| psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
-
-shiki365 的兩個工具（`foreground-frame`、`scene-transition`）與 `room-zip` 原文為日文，
-收錄時另有以下調整：
-
-- `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
-  `docs/` 底下的瀏覽器版（合輯只收純靜態、免安裝的網頁工具）。v2.0～v2.3 起效果增加到 53 種、
-  以 WebP 為預設匯出格式，主程式也從 `app.v2.js` 改名為 `app.v6.js`（上游靠檔名換版號避開快取），
-  另外多了 `webp.v1.js` 與共用的 `pcfonts.v1.js`。字幕字型清單加了同一組五套繁中字型（見下方「繁體中文字型」），
-  字型群組的 `<optgroup>` 標籤掛 `data-label-key`，由程式在切換語言時套上。
-- `foreground-frame` 與 `scene-transition` 的 `<style>` 區塊抽出為 `styles.css`。
-- 這些工具都移除了指向原作者站台的 OG／Twitter meta 與
-  `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
-  `<title>` 只留工具名，捨去 SEO 後綴。
-- shiki365 的工具頁尾都有回作者工具站的連結，以及後來加上的「支持開發（BOOTH）」，都原樣保留並翻譯；但頁首那條
-  同樣指向工具站的連結不收——那個位置放的是合輯的首頁連結。
-- 上游後來替這些工具加了 `favicon.svg`，收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
-  分頁圖示，不各自掛作者的站台圖示。
-
-## 兩個工具共用的 pcfonts.v1.js
-
-`foreground-frame` 的字型欄與 `scene-transition` 的字幕字型都可以改填「以名稱指定」，
-使用觀看者電腦上已安裝的字型；Chrome／Edge 還能用 Local Font Access API
-（`queryLocalFonts()`）開出一份附樣張的清單來挑。那個對話框是 `pcfonts.v1.js`，
-上游在每個 repo 底下各放一份，收錄版照做，`tests/smoke.mjs` 會檢查
-兩份沒有漂開。上游 `message-box-maker` 那份的檔頭多列了自己的名字，其他幾份還沒跟上；
-內容其餘一字不差，收錄版都用那個新的檔頭。（`status-bar`、`chat-window`、`message-box`
-已由本站重寫，新版的電腦字型挑選改用本站的共用元件。）對話框是延遲建立的單例，切換語言時整個丟掉重建。
-
-這個功能在 OBS 端有個前提：OBS 是用它自己那台電腦的字型算繪的，所以那台也要裝同一套
-字型。上游把這件事寫在說明與產出的 CSS 開頭，收錄版一併翻譯保留。
-
-## room-zip：拆掉上游的 Web DEMO 外層
-
-上游 `johnko00/ccfolia-room-zip-maker-demo` 只有一次提交、兩個檔案：868 KB 的單一
-`index.html` 與 48 KB 的 `sample.ccproj`。名字裡的 DEMO 不是功能閹割版：
-
-- `index.html` 開頭的 `window.__CCFOLIA_BUILD__ = { variant: "demo", … }` 只影響
-  儲存空間的命名空間。`variant === "demo"` 全檔用在兩處（`scopedStorageKey()` 與
-  `favDb()`），作用是把 localStorage 的鍵前綴與 IndexedDB 的資料庫名換掉，
-  **沒有任何功能被鎖住**。
-- 檔尾 L11578–11839 是一段獨立的 IIFE，開頭寫著
-  `/* Web公開用デモ。通常ビルドには同封しない。 */`，並以
-  `if (BUILD.variant !== "demo") return` 自我關閉。它只加東西：頂端的 DEMO 橫幅、
-  開場卡、逐步導覽與「最初に戻す」。
-- 但那段的最後一行是無條件執行的 `loadSample()`：每次開啟頁面都會抓
-  `sample.ccproj` 呼叫 `loadProject()`，而 `loadProject()` 會整包覆寫
-  `state.project` / `settings` / `room` / `images` / `scenes`。也就是說做到一半
-  重新整理，全部會被範例房間蓋掉——這才是 DEMO 版不能當工具用的原因。
-
-所以收錄版就是作者自己說的「通常ビルド」：刪掉那段 IIFE，連同 `variant: "demo"`
-的設定一起拿掉（`storagePrefix` 與 `samplePath` 上游其實沒用到，`scopedStorageKey()`
-是寫死字串的）。除此之外沒有動任何功能。
-
-`sample.ccproj` 照抄保留，但改成製作首頁上的一顆「🎁 載入範例房間」——要看範例才
-載入，而且手上已經有東西時會先問一次。範例檔裡的專案名是
-「ココフォリアZIPメーカー DEMO」，載入後會改成字典裡的「範例房間」：這份收錄版
-已經不是 DEMO 了，留著那個名字只會誤導。範例的素材與場景名維持日文原文不動。
-
-依慣例，`<style>` 與五個 `<script>` 區塊抽成獨立檔案：`styles.css`、
-`jszip.min.js`、`upng.js`（兩套第三方函式庫原樣保留，見
-[tools/room-zip/THIRD_PARTY_NOTICES.md](tools/room-zip/THIRD_PARTY_NOTICES.md)）、
-`apng.v1.js`、`core.v1.js`、`app.v1.js`。檔尾兩塊寫在 `</html>` 之後的
-`<style id="v492-room-fixes*">` 也併進 `styles.css`，順序照舊（後面的要壓在前面上）。
-
-### 刻意留著日文的部分
-
-`i18n.room-zip.js` 有 1,400 個 key，但有幾類字串刻意不進字典——它們是資料，不是
-介面文字：
-
-- **素材標籤（`ROLES`）的七個值**「前景 / 立ち絵 / パネル / 枠 / 駒アイコン /
-  演出 / その他」與舊檔用的「背景」。這些值會寫進 localStorage 的存檔、`.ccproj`
-  以及匯出的房間，程式本身也拿它們互相比對；翻掉就等於換了一套檔案格式。
-  收錄版加了一個 `roleName()`，只在要顯示給人看的時候才翻。
-- **`KPDEF` 的聊天面板預設內容**（`main` / `scene` / `memo`）。那是混著 BCDice
-  指令的面板範本（`:ラウンド+1`、`choice 表 裏`、`sCCB<= 【探索者の心理学】`
-  之類），使用者拿到之後本來就會自己改；同一份東西裡指令與說明文字交錯，
-  逐句拆開翻譯的風險大於效益。同一個物件裡的 `skillLabel` / `dodgeLabel`
-  是輸入欄標籤，改成存 key、顯示時才翻。
-- **外部搜尋網址與其中的 `{検索ワード}`**。那是 URL 裡的佔位記號，使用者可以在
-  工具設定裡自己編輯網址；記號翻掉就接不起來。工具設定裡解說這個記號的那句話，
-  也照樣顯示 `検索ワード`，不然講的就不是同一個東西了。網站名稱只有
-  「Google 画像」與「ココフォリア素材」有翻，`いらすとや`、`写真AC`、`ぱくたそ`
-  是站名本身，維持原文。
-
-`tests/smoke.mjs` 把這幾類列成清單逐一檢查，避免哪天被順手「翻乾淨」。
-
-### 切換語言時才看得出來的三個坑
-
-這個工具幾乎整個畫面都是 `render()` 重畫出來的，所以語言切換只要重畫一次就好。
-但有六個常數是在 IIFE 最外層就算好的，裡面含 `T()`，於是整份凍在第一次載入的
-語言：`MENU_GROUPS`（左側選單）、`KEY_GROUPS`（快速鍵一覽）、`FSIZES`（盤面尺寸
-預設）、`IMAGE_MAKER_FONT_PRESETS`（字型分類）、`EXSITES`（搜尋網站）與 `KPDEF`。
-收錄版把前五個改成函式、`KPDEF` 的兩個標籤改成存 key。`EXSITES` 只影響第一次
-的預設值——它會寫進工具設定並由使用者自行編輯，之後就不再跟著語言走，這與
-專案名稱一樣，屬於使用者資料。
-
-另外兩件事同理：專案的預設名稱（「我的房間」）會隨建立時的語言存下來，之後切換
-語言不會改；判斷「使用者還沒自己取過名字」時，三種語言的預設名都要算進去，
-見 `isUntouchedProjectName()`。
 
 ## pair-maker：不收作品集樣張，卡片圖改由工具自己算繪
 
@@ -223,7 +115,7 @@ ES module 只求值一次，所以版型模組最外層寫成值的常數——�
 有一類字刻意不跟著語言走：版型 `initialState()` 給的預設內容（「名字」「在這裡
 寫說明。」「#關鍵字」之類畫在圖上的字）。那是使用者的作品內容，不是介面文字——
 一載入就寫進存檔並自動存進 IndexedDB，切個語言就覆寫使用者可能已經改過的字，
-比留著原語言糟得多。這與 `room-zip` 的專案預設名稱是同一個判斷。
+比留著原語言糟得多。
 
 ### v1.1.0：四種文字記錄版型與 PDF 匯出（2026-09-30 跟進 `9c29866`）
 
@@ -286,7 +178,7 @@ MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也�
 這幾個工具的外部相依（Tailwind Play CDN、three.js、cannon.js、gif.js、gifuct-js、
 gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，本 repo 不散布
 它們的檔案；各工具目錄下的 `THIRD_PARTY_NOTICES.md` 列出版本、來源與授權。
-合輯本來就是這個做法（`loading-maker` 的 pako），README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
+合輯本來就是這個做法，README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
 
 `acrylic-goods` 另外自帶一個「開源授權」對話框，把同一份清單顯示給使用者看，
 那是上游就有的，收錄版只把兩句說明譯成繁中。
@@ -382,8 +274,8 @@ gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，
 組出來的，文字先用 `T()` 填好、同時掛上 `data-i18n`，切換語言時交給共用引擎重套，
 不必整個重建（重建會把語言選單換掉）。
 
-上游註解維持日文（`map_editor.js` 一檔就有上千行），理由與 `room-zip`
-相同，規則也相同：`tests/smoke.mjs` 把註解抹掉之後再掃，程式碼與標記裡不准有假名。
+上游註解維持日文（`map_editor.js` 一檔就有上千行，逐句轉譯的風險大於效益），
+規則是：`tests/smoke.mjs` 把註解抹掉之後再掃，程式碼與標記裡不准有假名。
 
 介面是繁中時，各頁字型改用 Noto Sans TC（`common.css` 依 `<html lang>` 切換，每頁的
 Google Fonts 連結一併載入）；Noto Sans JP 雖然有漢字，字形是日文的寫法。日文介面維持
@@ -552,23 +444,17 @@ WebM。
 
 ## くま（TRPG WEBツール観測所）的工具
 
-`bg-motion`、`session-log`、`session-report`、`scenario-cards` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
+`session-log`、`session-report` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
 「TRPG WEBツール観測所」（[kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools)）。
 站上上線與開發中的工具有十幾個，收錄的是不依賴日文角色卡服務、日文聊天面板或作者後端、
-台灣玩家也用得上的六個（其中 `icon-maker`、`variant-manager` 已由本站重寫，見下方「本站重寫的工具」）。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
+台灣玩家也用得上的六個（其中 `icon-maker`、`variant-manager`、`bg-motion`、`scenario-cards` 已由本站重寫，見下方「本站重寫的工具」）。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
 「画像・アイコン素材の無断転載、再配布、二次利用はお控えください」，因此：
 
-- **上游的圖片一律不收**：站台圖示（部分由るた様繪製）、favicon、`bg-motion` 的範例照片
-  （`sample_and_juliet.jpeg`）都不收。
-  `bg-motion` 的「載入範例圖」改由程式畫一張夜景（漸層天空、星星、月亮、街景剪影），
-  尺寸與上游的範例相同。
+- **上游的圖片一律不收**：站台圖示（部分由るた様繪製）、favicon 都不收。
 - 拿掉每頁都掛的 Google Analytics，以及頁首回原站入口的連結（換成合輯列）。
 - 頁尾「問題回報請私訊 @KumachanSteps」那句拿掉：合輯版改過程式，回報會送錯對象
   （理由同 `pair-maker` 的回報表單）。作者署名、X 與原站連結保留。
-- 上游自己的語言切換（日文／英文，`bg-motion` 另有韓文）改接合輯的引擎。合輯沒有英文，
-  英文不收；`bg-motion` 的韓文照上游保留。上游韓文模式下有 5 處寫死的日文（下載鈕、
-  分享文字等），收錄版補成韓文；上游日文字典缺了 3 句，在上游會讓狀態列顯示
-  `undefined`、拖曳時丟出錯誤，收錄版補上日文。
+- 上游自己的語言切換（日文／英文）改接合輯的引擎。合輯沒有英文，英文不收。
 - `session-log` 與 `session-report` 是一組：紀錄簿的每一團可以直接送到團報產生器，
   連結改指合輯內的 `../session-report/`。紀錄簿要解析使用者匯入的日文試算表、團報與
   CCFOLIA 紀錄，系統名與生還結果也以上游的日文值存檔（兩種語言匯出的 JSON 才能互讀），
@@ -576,31 +462,6 @@ WebM。
   繁中寫法（「忍神」「撕卡」「守密人」等），繁中版的範本與匯出文字也能匯回。
 - 團報範本依產生當下的語言給繁中或日文用語（通過→通關、ロスト→撕卡、様→樣、作：〇〇様→
   作者：〇〇老師）。
-- `scenario-cards` 的上游版面用 CSS 把頁尾藏起來，收錄版讓它顯示，否則整頁看不到作者署名。
-- `bg-motion` 照上游自 jsDelivr 載入 JSZip 與 UPNG.js，
-  見各目錄的 `THIRD_PARTY_NOTICES.md`。
-
-## log-converter、psd-studio
-
-**log-converter（CCFOLIA 日誌轉換器）**：上游 `Eon-00/eon-ccfolia-log-converter`（MIT）把 CCFOLIA
-匯出的日誌 HTML 轉成小說、時間軸或 CCFOLIA 風格的網頁。上游的「用 Room ID 載入」會直接呼叫
-CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版把這個入口與相關程式整段拿掉，
-其餘功能不變。產出 HTML 裡的固定字樣（「系統」、閒聊訊息的摺疊標題、插圖的 alt、預設標題、
-`<html lang>`）依轉換當下的語言；使用者的日誌內容原樣不動。解析規則另外加認別名：自動選閒聊分頁時
-除了韓文的「잡담」，也認「閒聊」「雜談」與日文介面 CCFOLIA 的「雑談」；「全部分頁」檔案的標籤也認
-「全部」「所有」。另外修了時間軸的名字欄寬：上游只把諺文算成全形，中文或日文的長名字會蓋到頭像與
-台詞；純韓文日誌的產出不變。作者的品牌名「연연」（配色預設與頁尾）照原樣保留。
-
-
-**psd-studio（CCFOLIA & 圖片調色工作室）**：上游 `fyam-hamu/F_Ccfolia-PSD-Studio` 沒有 LICENSE 檔，
-但頁面上有作者的條款：「코드 자체의 무단 재판매 및 유료 배포는 금지합니다. 단, 개인 목적의 코드 수정,
-기능 개선 및 이를 바탕으로 한 재배포는 자유롭게 가능합니다.」（禁止轉售與收費散布；修改、改良後可以
-自由再散布）。合輯依這條免費收錄，條款原文、翻譯與改動清單收在
-[tools/psd-studio/TERMS.md](tools/psd-studio/TERMS.md)，頁面上也照樣顯示。
-收錄時拿掉 Firebase Realtime DB 的「按讚」鈕（連同寫死的 apiKey）與只放了作者愛犬照片的分頁
-（`important.png`，9 MB）；KakaoTalk 聯絡連結改成指向本 repo 的 issues 與上游 GitHub
-（理由同 `pair-maker` 的回報表單）。五個 CDN 函式庫原本有一個沒鎖版本，收錄版全部鎖定，
-見 `THIRD_PARTY_NOTICES.md`。同樣操作下匯出的房間 ZIP、PSD 圖層 ZIP 與 APNG 都與上游逐位元組相同。
 
 ## 本站重寫的工具（靈感來源）
 
@@ -632,6 +493,15 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `height-board` | 立繪身高比較板 | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `b8a22a1` |
 | `emotion-maker` | 表情產生器 | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b8a22a1` |
 | `cutin` | 切入素材產生器 | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `b8a22a1` |
+| `scene-transition` | 場景轉換素材產生器 | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `83fd605` |
+| `loading-maker` | 讀取動畫產生器 | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `83fd605` |
+| `bg-motion` | 動態背景產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`haikei-motion-maker`） | `83fd605` |
+| `character-editor` | 角色資料編輯器 | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `83fd605` |
+| `foreground-frame` | 前景框產生器 | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `83fd605` |
+| `room-zip` | 房間 ZIP 產生器 | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `83fd605` |
+| `log-converter` | CCFOLIA 日誌轉換器 | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `83fd605` |
+| `scenario-cards` | 劇本資訊卡片產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`scenario-snippet-builder`） | `83fd605` |
+| `psd-studio` | CCFOLIA & 圖片調色工作室 | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -655,37 +525,6 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 另外，第一次嘗試時實作者讀了原作程式碼，寫出來的版本有照搬的痕跡（相同的資料結構與內部常數），
 那一版沒有提交就整個作廢，才改用上述流程重做。
 
-## 需要建置的工具
-
-`character-editor` 的上游是 React + TypeScript + Vite 專案，不能直接把檔案放進 `tools/` 就跑。
-因此原始碼快照收在 `vendor/` 底下，建置產物提交在 `tools/character-editor/`，重建方式見
-[README](README.md#重新建置-character-editor)。`vendor/` 不參與網站發佈。（同樣需要建置的 `cutin`
-已由本站重寫，見「本站重寫的工具」。）
-
-`character-editor` 另有一點必須留意：`src/lib/editScreenText.ts` 的日文字面常數
-幾乎全是**解析用的錨點**，用來切分使用者從 CCFOLIA 編輯畫面複製貼上的文字
-（`ステータス`、`イニシアティブ`、`駒サイズ`、`ラベル` 等）。那些不是畫面上的
-文字，翻譯了會與輸入對不起來、解析直接壞掉，因此原樣保留；該檔只翻了使用者
-會看到的那一則錯誤訊息。`tests/smoke.mjs` 會檢查建置產物裡殘存的每一段日文
-都屬於這批錨點（或作者署名），多出任何一段就會被擋下。
-
-除了把使用者可見的字串改成 i18n key 之外，另有兩點與上游不同：
-
-- **字型改由 Google Fonts 載入。** 上游用 `@fontsource` 同捆六套日文網頁字型
-  自行配送（在連不到 `fonts.googleapis.com` 的環境也能運作，且不會把瀏覽者的
-  IP 交給第三方）。本 repo 因為要把建置產物提交進 repo，723 個檔案、16MB 的
-  同捆並不合適，故改為參照 CDN；合輯的其他工具（Tailwind、pako、字型）也是
-  這樣載入的。Google Fonts 的 CSS 同樣以 `unicode-range` 分割，實際下載的仍
-  只有用到的字所在的區塊。
-- **範本的預設文案一併在地化。** `成功`／`失敗` 這類預設輸出文字本身就是工具
-  的產物，因此繁中介面下改為輸出繁體中文（例：`正気度喪失` → `理智喪失`）。
-  選字時已逐字確認六套日文字型的 `unicode-range` 皆有涵蓋，不會出現豆腐字。
-
-改用 CDN 連帶牽動兩處：`scripts/collect-licenses.mjs` 不再從 `node_modules`
-蒐集字型授權（`public/licenses/OFL.txt` 與 `fonts.txt` 保留收錄當下的內容，
-「關於這個工具」仍會連到 OFL 全文）；上游的 vitest 有一項斷言比對驗證訊息中的
-日文字串，改為比對其 i18n key。上游 240 項單元測試全數通過。
-
 ## 繁體中文字型
 
 上游工具的字型清單都是為原文語言挑的：sotsotssi 與 kimtaehee2018-maker 的工具用
@@ -706,15 +545,9 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
 因此沒有隨附 OFL 全文。
-收錄的工具：`scene-transition`（字幕字型）、`pair-maker`
+收錄的工具：`pair-maker`
 （v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
 以及 `trpg-lab` 地圖編輯器的文字字型清單。
-
-`foreground-frame`、`loading-maker` 沒有網頁字型的載入機制（字型清單指的是觀看者電腦上
-已安裝的字型），因此改為：
-
-- `foreground-frame` 的字型表補上正黑體／明體／標楷體三組台灣系統字型堆疊；
-- `loading-maker` 的字型建議清單補上同樣三組；
 
 くま的工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
 （PingFang TC、Microsoft JhengHei、Noto Sans TC 等）排到前面；日文介面維持上游的字型。
@@ -725,22 +558,16 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 ## 未授權的工具
 
-`sotsotssi/loading-maker`、
-`sotsotssi/select-your-chara`、
-`organon-torah/ccfoliaCharacterEditor`、`johnko00/ccfolia-room-zip-maker-demo`
+`sotsotssi/select-your-chara`
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
 `coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
 頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
-くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中四個工具，見上方專節；
+くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中兩個工具，見上方專節；
 站上的利用規約另外禁止轉載圖片素材，因此一張圖都沒收）。
 依著作權法預設，其權利保留予原作者，此處僅供試用。原作者如有異議，將立即移除。
 
-`character-select` 與 `room-zip` 的上游都是收錄前一兩天才建立、只有一次提交，
-往後很可能還會變動；此處的快照分別固定在 `883f48b` 與 `a9a522c`，不與上游同步。
-
-`loading-maker` 以 CDN 載入 pako 0.2.9（MIT，Copyright (C) 2014-2016 by
-Vitaly Puzrin）作為 APNG 壓縮／解壓縮之用，其出處與授權見
-[tools/loading-maker/THIRD_PARTY_NOTICES.md](tools/loading-maker/THIRD_PARTY_NOTICES.md)。
+`character-select` 的上游是收錄前一兩天才建立、只有一次提交，
+往後很可能還會變動；此處的快照固定在 `883f48b`，不與上游同步。
 
 ## 繁體中文翻譯
 
@@ -752,21 +579,12 @@ magic-circle 的繁體中文翻譯移植自
 其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 是改寫成只有繁中，見上；
 `jizura` 連到原作者的官方繁中版，不在此列）。
 
-各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的工具
-原本就以英文撰寫註解，僅檔頭標題改為中譯名。一個例外：
-
-- `tools/room-zip/`——註解密度高且多為演算法與資料格式的說明，逐句轉譯風險大於效益：app.v1.js 一萬多行裡有 156 行
-  註解是日文，維持原文。這些註解會隨著檔案發佈，因此 `tests/smoke.mjs`
-  把「只有註解可以是日文」變成可檢查的規則（`stripComments`）：把註解整段抹成空白
-  （保留行結構）之後再掃一次，程式碼與標記裡只要出現假名就會被擋下；另外列出一份「刻意留著的資料」
-  清單（素材標籤的值、`{検索ワード}`、KPDEF 的聊天面板預設內容、CSV 標題列的
-  辨識字、CCFOLIA 的三個預設頻道名），清單以外的日文一律擋下。
+各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文（`trpg-lab` 的日文註解例外，見上）。
 
 ## 本 repo 新增的部分
 
 新框架 `web/`（含其建置產物 `assets/build/`、`next/` 與重寫上線的 `tools/<id>/index.html`）、`docs/`、`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
 `guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
 以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
-`tools/loading-maker/`、
-`tools/character-select/`、`tools/character-editor/`、
-`tools/room-zip/`、`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。
+`tools/character-select/`、
+`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。

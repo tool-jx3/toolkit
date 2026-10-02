@@ -3,6 +3,9 @@
  *
  * 按鍵寫法（不分大小寫，用 + 連接）：'mod+z'（Mac 為 ⌘，其他為 Ctrl）、'shift+mod+z'、'space'、'?'、
  * 'arrowleft'、'home'、'k'。同一功能有多組按鍵時傳陣列。
+ * **實體按鍵位置**：最後一段寫成 `code:<KeyboardEvent.code>`（例 'alt+code:digit1'、'alt+code:minus'）時比對
+ * 按鍵的位置（`event.code`）而不是產生的字元——Mac 的 Option＋數字會產生「¡」等特殊字元、`event.key` 對不上，
+ * 用位置比對就能和 Windows 的 Alt＋數字共用同一組快捷鍵；這種寫法 Shift 一律要相符（scenario-cards 移植時新增）。
  */
 import { useEffect, useRef } from 'react';
 
@@ -43,6 +46,8 @@ const KEY_ALIASES: Record<string, string> = {
 
 interface Combo {
   key: string;
+  /** `code:` 寫法：比對 event.code（小寫）；這時 key 是空字串 */
+  code?: string;
   mod: boolean;
   ctrl: boolean;
   meta: boolean;
@@ -58,8 +63,10 @@ export function parseCombo(combo: string): Combo {
   /* 'mod++' 這種寫法：最後一段是空字串代表「+」鍵 */
   const raw = parts[parts.length - 1] === '' ? '+' : parts[parts.length - 1];
   const mods = new Set(parts.slice(0, -1));
+  const code = raw.startsWith('code:') ? raw.slice(5) : undefined;
   return {
-    key: KEY_ALIASES[raw] ?? raw,
+    key: code !== undefined ? '' : (KEY_ALIASES[raw] ?? raw),
+    ...(code !== undefined ? { code } : {}),
     mod: mods.has('mod'),
     ctrl: mods.has('ctrl'),
     meta: mods.has('meta') || mods.has('cmd'),
@@ -71,13 +78,18 @@ export function parseCombo(combo: string): Combo {
 /** 鍵盤事件是否符合按鍵組合 */
 export function matchCombo(e: KeyboardEvent, combo: string, mac = isMac()): boolean {
   const c = parseCombo(combo);
-  const key = e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase();
-  if (key !== c.key) return false;
+  if (c.code !== undefined) {
+    /* 實體按鍵位置（Mac 的 Option＋數字產生的是特殊字元，key 對不上） */
+    if ((e.code ?? '').toLowerCase() !== c.code) return false;
+  } else {
+    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase();
+    if (key !== c.key) return false;
+  }
   const wantCtrl = c.ctrl || (c.mod && !mac);
   const wantMeta = c.meta || (c.mod && mac);
   if (e.ctrlKey !== wantCtrl || e.metaKey !== wantMeta || e.altKey !== c.alt) return false;
-  /* 符號鍵（?、!、+）本身就要按 Shift，不檢查 Shift */
-  const isSymbol = c.key.length === 1 && !/[a-z0-9 ]/.test(c.key);
+  /* 符號鍵（?、!、+）本身就要按 Shift，不檢查 Shift（實體按鍵位置的寫法一律檢查） */
+  const isSymbol = c.code === undefined && c.key.length === 1 && !/[a-z0-9 ]/.test(c.key);
   return isSymbol || e.shiftKey === c.shift;
 }
 
@@ -106,8 +118,35 @@ export function formatCombo(combo: string, mac = isMac()): string[] {
   if (c.meta || (c.mod && mac)) out.push(mac ? '⌘' : 'Win');
   if (c.alt) out.push(mac ? '⌥' : 'Alt');
   if (c.shift) out.push(mac ? '⇧' : 'Shift');
-  out.push(LABELS[c.key] ?? (c.key.length === 1 ? c.key.toUpperCase() : c.key));
+  if (c.code !== undefined) out.push(codeLabel(c.code));
+  else out.push(LABELS[c.key] ?? (c.key.length === 1 ? c.key.toUpperCase() : c.key));
   return out;
+}
+
+/** 實體按鍵位置（event.code，小寫）在美式鍵盤上的字樣：digit1 → 1、keya → A、minus → - */
+const CODE_LABELS: Record<string, string> = {
+  minus: '-',
+  equal: '=',
+  bracketleft: '[',
+  bracketright: ']',
+  backslash: '\\',
+  semicolon: ';',
+  quote: "'",
+  comma: ',',
+  period: '.',
+  slash: '/',
+  backquote: '`',
+  space: LABELS[' '],
+};
+
+function codeLabel(code: string): string {
+  const digit = /^digit(\d)$/.exec(code);
+  if (digit) return digit[1];
+  const letter = /^key([a-z])$/.exec(code);
+  if (letter) return letter[1].toUpperCase();
+  const pad = /^numpad(\d)$/.exec(code);
+  if (pad) return `數字鍵 ${pad[1]}`;
+  return CODE_LABELS[code] ?? LABELS[code] ?? code;
 }
 
 /**

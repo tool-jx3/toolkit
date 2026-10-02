@@ -17,6 +17,8 @@
  * `--stage-max-h`（例如 Tailwind 的 `xl:[--stage-max-h:calc(100dvh-8rem)]`，可以依畫面寬度不同）。高度仍跟著內容比例，只是上限不同。
  * G2 加的（選填）：背景種類 'scene'（示意場景：本站自己畫的彩色風景，只供預覽）——要在 `backgrounds` 裡列出才會出現；
  * 工具列的背景按鈕依 `backgrounds` 的順序排列。
+ * scene-transition 加的（選填）：`backgroundArea="content"` 背景只鋪在內容的範圍內（舞台其他地方是素色），
+ * 給「半透明圖層要和背景一樣大」的預覽用；不給時與以前相同（鋪滿整個舞台區域）。
  */
 import { ImagePlus, Maximize, Minus, Plus } from 'lucide-react';
 import {
@@ -96,6 +98,12 @@ export interface StageProps<K extends StageAnyBackgroundKind = StageBackgroundKi
   /** 平移量（螢幕 px；受控） */
   pan?: StagePan;
   onPanChange?: (pan: StagePan) => void;
+  /**
+   * 背景鋪在哪裡（scene-transition 加的，選填）：'viewport'（預設：整個舞台區域，與以前相同）或
+   * 'content'（只鋪在內容的範圍內，舞台的其他地方是素色）。疊在背景上的半透明圖層要和背景一樣大時用
+   * （例如轉場預覽：背景圖鋪滿 16:9 的畫面，四周不會露出沒被蓋到的背景）。
+   */
+  backgroundArea?: 'viewport' | 'content';
 }
 
 export interface StagePan {
@@ -208,6 +216,7 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
   dragPan = false,
   pan,
   onPanChange,
+  backgroundArea = 'viewport',
   ...rest
 }: StageProps<K>) {
   const [innerBg, setInnerBg] = useState<StageBackground<K>>(defaultBackground);
@@ -323,6 +332,7 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
   );
 
   const look = backgroundStyle(bg);
+  const onContent = backgroundArea === 'content';
   const label = rest['aria-label'] ?? '預覽';
 
   return (
@@ -413,7 +423,7 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
         data-zoom={Math.round(level * 100)}
         className={cn(
           'relative flex max-h-[var(--stage-max-h,min(60dvh,560px))] min-h-64 w-full overflow-auto p-3',
-          look.className,
+          onContent ? 'bg-surface-2' : look.className,
           dragPan && 'touch-none',
           dragPan && (panning ? 'cursor-grabbing select-none' : 'cursor-grab'),
           viewportClassName,
@@ -423,7 +433,7 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
           {
             aspectRatio: `${width} / ${height}`,
             ...(maxViewportHeight ? { '--stage-max-h': maxViewportHeight } : null),
-            ...look.style,
+            ...(onContent ? null : look.style),
           } as CSSProperties
         }
         onPointerDown={dragPan ? onPanDown : undefined}
@@ -437,8 +447,10 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
             width: width * scale,
             height: height * scale,
             transform: p.x || p.y ? `translate(${p.x}px, ${p.y}px)` : undefined,
+            ...(onContent ? look.style : null),
           }}
-          className="relative m-auto shrink-0"
+          className={cn('relative m-auto shrink-0', onContent && look.className)}
+          data-stage-background={onContent ? bg.kind : undefined}
         >
           <div
             className="absolute top-0 left-0 origin-top-left"

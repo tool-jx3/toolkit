@@ -12,6 +12,9 @@
  * G2 擴充（選填，不給時行為不變）：
  * - estimate：匯出按鈕上方的預估列「總長 · 影格數 · 每格約幾 ms · 未壓縮資料量」（寬 × 高 × 4 × 影格數）。
  * - pixelBudget：處理量上限（寬 × 高 × 影格數）；超過時匯出按鈕停用並顯示原因（例如請縮小畫布、降低 FPS 或縮短長度）。
+ * - fpsInput：FPS 改用數值欄（任意整數，例如 2～60），取代 FPS 選單；不套用格式的 FPS 上限（工具以影格表匯出時自己處理）。
+ *   loading-maker 移植時新增。
+ * - resetKey：值改變時清掉結果卡（工具的設定改了、上次的結果作廢；bg-motion 移植時新增）。進行中的匯出不受影響。
  *
  * 實際的匯出由工具提供（onExport），通常就是呼叫 core/timeline 的 exportAnimation：
  *
@@ -169,6 +172,16 @@ export interface ExportPanelProps {
   estimate?: { width: number; height: number; frames: number; duration: number } | null;
   /** 處理量上限：寬 × 高 × 影格數超過 max 時不能匯出，顯示 message */
   pixelBudget?: { max: number; message?: ReactNode } | null;
+  /**
+   * FPS 用數值欄（整數，min～max）取代選單；不套用格式的 FPS 上限。hint 是欄位下的說明。
+   * 不給時照舊用選單（loading-maker 移植時新增）。
+   */
+  fpsInput?: { min: number; max: number; hint?: ReactNode } | null;
+  /**
+   * 值改變時清掉結果卡（下載作廢：例如工具的設定改了，上次的結果已經不是目前的樣子）。
+   * 比較用 Object.is；進行中的匯出不受影響。不給時行為不變。
+   */
+  resetKey?: unknown;
   title?: string;
   className?: string;
 }
@@ -289,6 +302,8 @@ export function ExportPanel({
   sequentialIntervalMs = 800,
   estimate = null,
   pixelBudget = null,
+  fpsInput = null,
+  resetKey,
 }: ExportPanelProps) {
   const firstEnabled = formats.find((f) => !f.disabled) ?? formats[0];
   const [inner, setInner] = useState<ExportSettings>(() => ({
@@ -311,7 +326,11 @@ export function ExportPanel({
     () => fpsOptions.filter((v) => !fmt?.maxFps || v <= fmt.maxFps),
     [fpsOptions, fmt],
   );
-  const fps = fmt?.maxFps ? Math.min(fmt.maxFps, s.fps) : s.fps;
+  const fps = fpsInput
+    ? Math.min(fpsInput.max, Math.max(fpsInput.min, Math.round(s.fps)))
+    : fmt?.maxFps
+      ? Math.min(fmt.maxFps, s.fps)
+      : s.fps;
 
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const abort = useRef<AbortController | null>(null);
@@ -338,13 +357,31 @@ export function ExportPanel({
     [],
   );
 
+  /* 結果作廢：resetKey 改變時清掉已完成的結果卡（進行中的不動） */
+  const lastResetKey = useRef(resetKey);
+  useEffect(() => {
+    if (Object.is(lastResetKey.current, resetKey)) return;
+    lastResetKey.current = resetKey;
+    if (abort.current) return;
+    for (const u of urlRef.current) URL.revokeObjectURL(u);
+    urlRef.current = [];
+    setStatus((st) => (st.kind === 'done' || st.kind === 'batch' ? { kind: 'idle' } : st));
+    setShrinkNote(null);
+  }, [resetKey]);
+
   const est = estimate ? estimateExport(estimate) : null;
   const overBudget = !!(est && pixelBudget && est.pixels > pixelBudget.max);
   const run = async (formatId?: string, keepNote = false) => {
     if (abort.current) return;
     const f = (formatId ? formats.find((x) => x.id === formatId) : null) ?? fmt;
     if (!f || f.disabled || overBudget) return;
-    const fpsFor = fixedFps ?? (f.maxFps ? Math.min(f.maxFps, s.fps) : s.fps);
+    const fpsFor =
+      fixedFps ??
+      (fpsInput
+        ? Math.min(fpsInput.max, Math.max(fpsInput.min, Math.round(s.fps)))
+        : f.maxFps
+          ? Math.min(f.maxFps, s.fps)
+          : s.fps);
     clearResult();
     if (!keepNote) setShrinkNote(null);
     const ctrl = new AbortController();
@@ -492,6 +529,19 @@ export function ExportPanel({
             >
               {fixedFps} fps
             </output>
+          </Field>
+        ) : fmt?.animated && fpsInput ? (
+          <Field label="FPS" hint={fpsInput.hint}>
+            <NumberInput
+              value={fps}
+              onChange={(v) => set({ fps: v })}
+              min={fpsInput.min}
+              max={fpsInput.max}
+              step={1}
+              precision={0}
+              unit="fps"
+              disabled={running}
+            />
           </Field>
         ) : fmt?.animated ? (
           <Field label="FPS" hint={fmt.maxFps ? `${fmt.label} 最多 ${fmt.maxFps}` : undefined}>

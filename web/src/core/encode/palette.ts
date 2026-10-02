@@ -113,6 +113,145 @@ export interface Palette {
 
 type Searcher = (x: number, y: number, z: number, a: number) => number;
 
+/** 一群顏色的 alpha 全部相同、而且至少這麼多色時改用 k-d 樹（makeFlatSearcher） */
+const FLAT_SEARCH_MIN = 12;
+/** k-d 樹葉節點最多幾色 */
+const FLAT_LEAF = 6;
+
+/**
+ * alpha 全部相同的一群顏色（例如全部不透明）的最近色搜尋：RGB 三維的 k-d 樹。
+ *
+ * 結果與 makeSearcher 原本的逐一比對**完全相同**：距離用同一個算式、同樣的加總順序
+ * （alpha 差的平方＋R＋G＋B），距離相同時取逐一比對會先遇到的那一色（查詢的 alpha 不大於這群的 alpha 時
+ * 是 ids 裡排前面的，大於時是排後面的）。剪枝只略過「單一軸的差的平方」已經大於目前最佳距離的子樹，
+ * 浮點數加總非負的數不會變小，所以被略過的顏色不可能更近或一樣近。
+ * 逐一比對時 alpha 全部相同就無法剪枝（每次都要比完整群），這裡只比附近幾色，快很多。
+ */
+function makeFlatSearcher(
+  cx: Float64Array,
+  cy: Float64Array,
+  cz: Float64Array,
+  alpha: number,
+  ids: number[],
+): Searcher {
+  const C = ids.length;
+  const P = [new Float64Array(C), new Float64Array(C), new Float64Array(C)];
+  for (let p = 0; p < C; p++) {
+    P[0][p] = cx[ids[p]];
+    P[1][p] = cy[ids[p]];
+    P[2][p] = cz[ids[p]];
+  }
+  const perm = new Int32Array(C);
+  for (let p = 0; p < C; p++) perm[p] = p;
+  /* 節點：axis < 0 是葉（樹順序的 [start, end)）；否則左子樹的座標都 ≤ lo、右子樹都 ≥ hi。節點數 < 2C */
+  const maxNodes = 2 * C;
+  const axis = new Int8Array(maxNodes).fill(-1);
+  const lo = new Float64Array(maxNodes);
+  const hi = new Float64Array(maxNodes);
+  const left = new Int32Array(maxNodes);
+  const right = new Int32Array(maxNodes);
+  const start = new Int32Array(maxNodes);
+  const end = new Int32Array(maxNodes);
+  let nodes = 0;
+  let depth = 0;
+  const build = (s: number, e: number, level: number): number => {
+    const n = nodes++;
+    start[n] = s;
+    end[n] = e;
+    if (level > depth) depth = level;
+    if (e - s <= FLAT_LEAF) return n;
+    let ax = -1;
+    let spread = 0;
+    for (let a = 0; a < 3; a++) {
+      const v = P[a];
+      let mn = Number.POSITIVE_INFINITY;
+      let mx = Number.NEGATIVE_INFINITY;
+      for (let t = s; t < e; t++) {
+        const c = v[perm[t]];
+        if (c < mn) mn = c;
+        if (c > mx) mx = c;
+      }
+      if (mx - mn > spread) {
+        spread = mx - mn;
+        ax = a;
+      }
+    }
+    if (ax < 0) return n;
+    const v = P[ax];
+    perm.subarray(s, e).sort((p, q) => v[p] - v[q] || p - q);
+    const mid = (s + e) >> 1;
+    axis[n] = ax;
+    lo[n] = v[perm[mid - 1]];
+    hi[n] = v[perm[mid]];
+    left[n] = build(s, mid, level + 1);
+    right[n] = build(mid, e, level + 1);
+    return n;
+  };
+  build(0, C, 0);
+  /* 依樹的順序排好的座標與在 ids 裡的位置（葉節點的顏色連續存放） */
+  const X = new Float64Array(C);
+  const Y = new Float64Array(C);
+  const Z = new Float64Array(C);
+  for (let t = 0; t < C; t++) {
+    X[t] = P[0][perm[t]];
+    Y[t] = P[1][perm[t]];
+    Z[t] = P[2][perm[t]];
+  }
+  /* 待找的子樹與它的下界（深度優先，最多 depth＋1 筆） */
+  const stackN = new Int32Array(depth + 2);
+  const stackB = new Float64Array(depth + 2);
+
+  return (x, y, z, a) => {
+    const da = (alpha - a) ** 2;
+    const desc = a > alpha;
+    let bd = Number.POSITIVE_INFINITY;
+    let bp = 0;
+    let br = C;
+    let sp = 1;
+    stackN[0] = 0;
+    stackB[0] = 0;
+    while (sp > 0) {
+      sp--;
+      /* 下界（單一軸的差的平方）大於目前最佳距離的子樹不必找；留一點餘裕給浮點誤差 */
+      if (stackB[sp] > bd + bd * 1e-9) continue;
+      let n = stackN[sp];
+      /* 往查詢點那一邊走到葉，另一邊連同下界放進待找 */
+      while (axis[n] >= 0) {
+        const ax = axis[n];
+        const q = ax === 0 ? x : ax === 1 ? y : z;
+        const l = lo[n];
+        const h = hi[n];
+        if (q - l <= h - q) {
+          stackN[sp] = right[n];
+          stackB[sp] = q < h ? (h - q) ** 2 : 0;
+          n = left[n];
+        } else {
+          stackN[sp] = left[n];
+          stackB[sp] = q > l ? (q - l) ** 2 : 0;
+          n = right[n];
+        }
+        sp++;
+      }
+      for (let t = start[n]; t < end[n]; t++) {
+        let d = da;
+        d += (X[t] - x) ** 2;
+        d += (Y[t] - y) ** 2;
+        d += (Z[t] - z) ** 2;
+        if (d <= bd) {
+          const p = perm[t];
+          const rank = desc ? C - 1 - p : p;
+          if (d < bd || rank < br) {
+            bd = d;
+            bp = p;
+            br = rank;
+          }
+        }
+      }
+    }
+    return ids[bp];
+  };
+}
+
 /** 一群顏色（不透明或半透明）的最近色搜尋：依 alpha 排序後從最接近的往兩邊找 */
 function makeSearcher(
   cx: Float64Array,
@@ -121,6 +260,12 @@ function makeSearcher(
   ca: Float64Array,
   ids: number[],
 ): Searcher {
+  if (ids.length >= FLAT_SEARCH_MIN) {
+    const a0 = ca[ids[0]];
+    let flat = true;
+    for (let i = 1; i < ids.length && flat; i++) flat = ca[ids[i]] === a0;
+    if (flat) return makeFlatSearcher(cx, cy, cz, a0, ids);
+  }
   const sorted = ids.slice().sort((p, q) => ca[p] - ca[q]);
   const C = sorted.length;
   return (x, y, z, a) => {
@@ -172,6 +317,34 @@ function makeSearcher(
   };
 }
 
+/** 排序時位置所佔的位元數：位元樣式 × 2^21 ＋ 位置 不超過 2^53，整數運算完全精確 */
+const POS_SCALE = 1 << 21;
+
+/**
+ * order[s..e) 依 key 由小到大「穩定」排序：結果與 `order.subarray(s, e).sort((p, q) => key[p] - key[q])`
+ * （穩定的合併排序）完全相同，但大的範圍改用內建的數值排序，快很多。
+ * key 必須是非負的有限 float32（keyBits 是同一份資料的 Uint32 樣式，非負時依位元比大小與依數值相同）；
+ * 範圍不可超過 2^21 筆。做法：位元樣式 × 2^21 ＋ 原本的位置，排序後取回位置（同值的依原本的順序）。
+ */
+function stableSortByKey(
+  order: Int32Array,
+  s: number,
+  e: number,
+  key: Float32Array,
+  keyBits: Uint32Array,
+): void {
+  const m = e - s;
+  if (m < 256 || m > POS_SCALE) {
+    order.subarray(s, e).sort((p, q) => key[p] - key[q]);
+    return;
+  }
+  const tmp = new Float64Array(m);
+  for (let i = 0; i < m; i++) tmp[i] = keyBits[order[s + i]] * POS_SCALE + i;
+  tmp.sort();
+  const before = order.slice(s, e);
+  for (let i = 0; i < m; i++) order[s + i] = before[tmp[i] % POS_SCALE];
+}
+
 interface Box {
   s: number;
   e: number;
@@ -213,10 +386,13 @@ export function buildPalette(
   if (method === 'pca') return buildPcaPalette(stats, maxColors);
 
   /* ---- 樣本：每個非空的桶一筆（預乘座標的加權平均）；不透明的排在前面 ---- */
+  const { cnt } = stats;
+  /* 沒有半透明像素時半透明的桶全是 0，不必掃 */
+  const k0 = stats.translucent ? 0 : TRANS_BUCKETS;
   let N = 0;
   let NO = 0;
-  for (let k = 0; k < BUCKETS; k++) {
-    if (stats.cnt[k] > 0) {
+  for (let k = k0; k < BUCKETS; k++) {
+    if (cnt[k] > 0) {
       N++;
       if (k >= TRANS_BUCKETS) NO++;
     }
@@ -229,8 +405,8 @@ export function buildPalette(
   {
     let io = 0;
     let it = NO;
-    for (let k = 0; k < BUCKETS; k++) {
-      const n = stats.cnt[k];
+    for (let k = k0; k < BUCKETS; k++) {
+      const n = cnt[k];
       if (!(n > 0)) continue;
       const i = k >= TRANS_BUCKETS ? io++ : it++;
       px[i] = stats.sr[k] / n / 255;
@@ -243,6 +419,8 @@ export function buildPalette(
 
   const K = maxColors - 1; // 0 號保留給完全透明
   const axes = [px, py, pz, pa];
+  /* 同一份資料的位元樣式（非負的 float32 依位元比大小與依數值相同），排序用 */
+  const axisBits = axes.map((a) => new Uint32Array(a.buffer, a.byteOffset, a.length));
   const order = new Int32Array(N);
   for (let i = 0; i < N; i++) order[i] = i;
   const stat = (s: number, e: number, opaque: boolean): Box => {
@@ -280,7 +458,7 @@ export function buildPalette(
     let ax = 0;
     for (let a = 1; a < 4; a++) if (bx.varr[a] > bx.varr[ax]) ax = a;
     const arr = axes[ax];
-    order.subarray(bx.s, bx.e).sort((p, q) => arr[p] - arr[q]);
+    stableSortByKey(order, bx.s, bx.e, arr, axisBits[ax]);
     let acc = 0;
     let cut = bx.s + 1;
     const half = bx.w / 2;
@@ -379,9 +557,12 @@ export function buildPalette(
     Array.from({ length: C }, (_, k) => k),
   );
 
-  /* 對應表用到時才算：不透明用 RGB 各 6 位元、半透明用 RGBA 各 6 位元一格（格中心找最近色） */
-  const lutO = new Uint16Array(1 << 18).fill(0xffff);
-  const lutT = new Uint16Array(1 << 24).fill(0xffff);
+  /*
+   * 對應表用到時才算：不透明用 RGB 各 6 位元、半透明用 RGBA 各 6 位元一格（格中心找最近色）。
+   * 表裡存「索引」（≥ 1，0 號是透明不會查表），0＝還沒算；半透明的表（32 MB）遇到半透明像素才配置。
+   */
+  const lutO = new Uint16Array(1 << 18);
+  let lutT: Uint16Array | null = null;
   return {
     colors,
     lossless: false,
@@ -395,15 +576,16 @@ export function buildPalette(
       if (a8 === 255) {
         const key = (r6 << 12) | (g6 << 6) | b6;
         let i = lutO[key];
-        if (i === 0xffff) {
+        if (i === 0) {
           i = (findO || findAny)(r6 * 4 + 2, g6 * 4 + 2, b6 * 4 + 2, 255) + 1;
           lutO[key] = i;
         }
         return i;
       }
       const key = (r6 << 18) | (g6 << 12) | (b6 << 6) | (a8 >> 2);
+      lutT ??= new Uint16Array(1 << 24);
       let i = lutT[key];
-      if (i === 0xffff) {
+      if (i === 0) {
         const a = (a8 & 0xfc) + 2;
         const am = a / 255;
         i = (findT || findAny)((r6 * 4 + 2) * am, (g6 * 4 + 2) * am, (b6 * 4 + 2) * am, a) + 1;

@@ -51,8 +51,75 @@ function paeth(a: number, b: number, c: number) {
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
 }
 
-/** 還原一個（子）影像的濾波，回傳原始掃描線（不含濾波位元組） */
+/** Paeth 預測值，不用分支（結果與 paeth 相同；雜訊影像的分支幾乎猜不中，很慢） */
+function paethFast(a: number, b: number, c: number): number {
+  const da = b - c;
+  const db = a - c;
+  const dc = da + db;
+  const pa = (da ^ (da >> 31)) - (da >> 31);
+  const pb = (db ^ (db >> 31)) - (db >> 31);
+  const pc = (dc ^ (dc >> 31)) - (dc >> 31);
+  const notA = ((pb - pa) | (pc - pa)) >> 31;
+  const notB = (pc - pb) >> 31;
+  return (a & ~notA) | (((b & ~notB) | (c & notB)) & notA);
+}
+
+/**
+ * 還原一個（子）影像的濾波，回傳原始掃描線（不含濾波位元組）。
+ * 資料完整時每一列依濾波種類各跑一個迴圈（快）；資料不夠（壞檔）時逐位元組處理、缺的當 0（unfilterSlow）。
+ */
 function unfilter(
+  data: Uint8Array,
+  offset: number,
+  w: number,
+  h: number,
+  bpp: number,
+  bits: number,
+) {
+  const stride = Math.ceil((w * bits) / 8);
+  if (offset + h * (stride + 1) > data.length) return unfilterSlow(data, offset, w, h, bpp, bits);
+  const out = new Uint8Array(stride * h);
+  const lead = Math.min(bpp, stride);
+  let o = offset;
+  for (let y = 0; y < h; y++) {
+    const f = data[o++];
+    const row = y * stride;
+    const prev = row - stride;
+    if (f === 0 || f > 4 || (f === 2 && y === 0)) {
+      out.set(data.subarray(o, o + stride), row);
+    } else if (f === 1) {
+      for (let x = 0; x < lead; x++) out[row + x] = data[o + x];
+      for (let x = bpp; x < stride; x++) out[row + x] = (data[o + x] + out[row + x - bpp]) & 255;
+    } else if (f === 2) {
+      for (let x = 0; x < stride; x++) out[row + x] = (data[o + x] + out[prev + x]) & 255;
+    } else if (f === 3) {
+      if (y === 0) {
+        for (let x = 0; x < lead; x++) out[row + x] = data[o + x];
+        for (let x = bpp; x < stride; x++)
+          out[row + x] = (data[o + x] + (out[row + x - bpp] >> 1)) & 255;
+      } else {
+        for (let x = 0; x < lead; x++) out[row + x] = (data[o + x] + (out[prev + x] >> 1)) & 255;
+        for (let x = bpp; x < stride; x++)
+          out[row + x] = (data[o + x] + ((out[row + x - bpp] + out[prev + x]) >> 1)) & 255;
+      }
+    } else if (y === 0) {
+      /* Paeth、第一列：上面全是 0，預測值＝左邊 */
+      for (let x = 0; x < lead; x++) out[row + x] = data[o + x];
+      for (let x = bpp; x < stride; x++) out[row + x] = (data[o + x] + out[row + x - bpp]) & 255;
+    } else {
+      /* Paeth：每列開頭左邊與左上是 0，預測值＝上面 */
+      for (let x = 0; x < lead; x++) out[row + x] = (data[o + x] + out[prev + x]) & 255;
+      for (let x = bpp; x < stride; x++)
+        out[row + x] =
+          (data[o + x] + paethFast(out[row + x - bpp], out[prev + x], out[prev + x - bpp])) & 255;
+    }
+    o += stride;
+  }
+  return { rows: out, stride, next: o };
+}
+
+/** unfilter 的逐位元組版（資料不完整時用：缺的位元組當 0） */
+function unfilterSlow(
   data: Uint8Array,
   offset: number,
   w: number,
@@ -106,6 +173,13 @@ function expand(
   dy = 1,
 ) {
   const { depth, color } = hd;
+  if (
+    depth === 8 &&
+    dx === 1 &&
+    dy === 1 &&
+    expand8(rows, stride, w, h, color, pal, out, outW, ox, oy)
+  )
+    return;
   const ch = channelsOf(color);
   const max = (1 << depth) - 1;
   const sample = (row: number, i: number): number => {
@@ -158,6 +232,69 @@ function expand(
       out[o + 3] = a;
     }
   }
+}
+
+/**
+ * expand 的快路：8 位元、不交錯的常見格式（RGBA、RGB、調色盤、灰階）直接搬，結果與逐像素的寫法相同。
+ * 不支援的組合（有透明色的灰階／RGB）回傳 false，交給一般寫法。
+ */
+function expand8(
+  rows: Uint8Array,
+  stride: number,
+  w: number,
+  h: number,
+  color: number,
+  pal: Palette,
+  out: Uint8ClampedArray,
+  outW: number,
+  ox: number,
+  oy: number,
+): boolean {
+  if (color === 6) {
+    for (let y = 0; y < h; y++)
+      out.set(rows.subarray(y * stride, y * stride + w * 4), ((oy + y) * outW + ox) * 4);
+    return true;
+  }
+  if ((color === 2 || color === 0) && pal.key) return false;
+  for (let y = 0; y < h; y++) {
+    const row = y * stride;
+    let o = ((oy + y) * outW + ox) * 4;
+    if (color === 3) {
+      const rgb = pal.rgb;
+      const alpha = pal.alpha;
+      for (let x = 0; x < w; x++, o += 4) {
+        const idx = rows[row + x];
+        out[o] = rgb?.[idx * 3] ?? 0;
+        out[o + 1] = rgb?.[idx * 3 + 1] ?? 0;
+        out[o + 2] = rgb?.[idx * 3 + 2] ?? 0;
+        out[o + 3] = alpha && idx < alpha.length ? alpha[idx] : 255;
+      }
+    } else if (color === 2) {
+      for (let x = 0, s = row; x < w; x++, o += 4, s += 3) {
+        out[o] = rows[s];
+        out[o + 1] = rows[s + 1];
+        out[o + 2] = rows[s + 2];
+        out[o + 3] = 255;
+      }
+    } else if (color === 0) {
+      for (let x = 0; x < w; x++, o += 4) {
+        const v = rows[row + x];
+        out[o] = v;
+        out[o + 1] = v;
+        out[o + 2] = v;
+        out[o + 3] = 255;
+      }
+    } else if (color === 4) {
+      for (let x = 0, s = row; x < w; x++, o += 4, s += 2) {
+        const v = rows[s];
+        out[o] = v;
+        out[o + 1] = v;
+        out[o + 2] = v;
+        out[o + 3] = rows[s + 1];
+      }
+    } else return false;
+  }
+  return true;
 }
 
 const ADAM7 = [
@@ -328,9 +465,20 @@ export function decodeApng(bytes: Uint8Array, options: DecodeOptions = {}): Deco
     /* 第一格的「還原」當成清空（規範） */
     const dispose = i === 0 && f.dispose === 2 ? 1 : f.dispose;
     const saved = dispose === 2 ? canvas.slice() : null;
+    /* 取代（blend 0）：範圍內整列直接搬 */
+    const x0 = Math.max(0, f.x);
+    const x1 = Math.min(W, f.x + f.w);
     for (let y = 0; y < f.h; y++) {
       const cy = f.y + y;
       if (cy < 0 || cy >= H) continue;
+      if (f.blend === 0) {
+        if (x1 > x0)
+          canvas.set(
+            img.subarray((y * f.w + x0 - f.x) * 4, (y * f.w + x1 - f.x) * 4),
+            (cy * W + x0) * 4,
+          );
+        continue;
+      }
       for (let x = 0; x < f.w; x++) {
         const cx = f.x + x;
         if (cx < 0 || cx >= W) continue;

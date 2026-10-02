@@ -76,26 +76,6 @@ npm run serve
 然後開啟 http://localhost:8080/
 
 
-### 重新建置 character-editor
-
-`character-editor` 要先建置才能放進 `tools/`。原始碼收在 `vendor/ccfolia-character-editor/`，
-建置產物（已提交進 repo）輸出到 `tools/character-editor/`，`vendor/` 不參與網站發佈。
-
-上游是 React + TypeScript 專案。改動原始碼後要重新建置：
-
-```
-cd vendor/ccfolia-character-editor
-npm ci
-npm run build
-```
-
-`npm run build` 會先跑 `tsc --noEmit`，再由 Vite 把產物寫進對應的 `tools/`
-目錄（`emptyOutDir: false`，不會動到同目錄下的 `i18n.*.js` 與 `LICENSE`）。
-
-`character-editor` 請用 `npm ci`：`npm install` 在解析 vitest 的 peer
-相依時會踩到 npm 10.9 的一個錯誤（`Cannot read properties of null`），
-上游的 lockfile 則可以正常安裝。
-
 ## 測試
 
 ```
@@ -107,14 +87,6 @@ npm test
 （韓文查諺文，日文查平假名與片假名）、
 首頁連結有效、
 **HTML 內嵌文字與 zh-TW 字典逐字相符**（含元素內文與 `title`／`aria-label`／`placeholder` 屬性兩類比對）。
-
-`character-editor` 的上游有一套 vitest 單元測試（30 項），
-一併收錄在 `vendor/` 底下，以 `cd vendor/ccfolia-character-editor && npm test` 執行。
-`character-editor` 那套是用畫面上的日文標籤找元素的，收錄版把 `ja` 字典注入
-`window.T`，因此測試一行都沒改就能通過——順帶還會驗證 `ja` 的譯文與上游原文
-是否一字不差。
-那套測試需要 `npm install`，不在根目錄的 `npm test` 範圍內（根目錄的檢查刻意保持
-無外部相依）。
 
 ## 本站重寫的工具
 
@@ -143,16 +115,24 @@ npm test
 | `height-board` | [立繪身高比較板](tools/height-board/) | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) |
 | `emotion-maker` | [表情產生器](tools/emotion-maker/) | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) |
 | `cutin` | [切入素材產生器](tools/cutin/) | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) |
+| `scene-transition` | [場景轉換素材產生器](tools/scene-transition/) | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) |
+| `loading-maker` | [讀取動畫產生器](tools/loading-maker/) | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) |
+| `bg-motion` | [動態背景產生器](tools/bg-motion/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `character-editor` | [角色資料編輯器](tools/character-editor/) | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) |
+| `foreground-frame` | [前景框產生器](tools/foreground-frame/) | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) |
+| `room-zip` | [房間 ZIP 產生器](tools/room-zip/) | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) |
+| `log-converter` | [CCFOLIA 日誌轉換器](tools/log-converter/) | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) |
+| `scenario-cards` | [劇本資訊卡片產生器](tools/scenario-cards/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `psd-studio` | [CCFOLIA & 圖片調色工作室](tools/psd-studio/) | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的六個工具、
-`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、
-`character-editor`、`trpg-lab`、
-`anime-rig`、`scenario-editor` 與くま的四個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
-`bg-motion` 也照上游保留韓文（上游的英文沒有收）。
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的五個工具、
+`pair-maker` 為韓文，
+`trpg-lab`、
+`anime-rig`、`scenario-editor` 與くま的兩個工具為日文。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
 
@@ -162,11 +142,6 @@ npm test
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
 
-`foreground-frame` 的字型欄與 `scene-transition` 的字幕字型可以改填「以名稱指定」，
-使用觀看者電腦上已安裝的字型。Chrome／Edge 還能用「從清單選」開出一份附樣張的清單
-（Local Font Access API，第一次會詢問權限）；其餘瀏覽器隱藏該按鈕，直接輸入名稱同樣可用。
-那個對話框是兩個工具共用的 `pcfonts.v1.js`，兩份必須完全相同，詳見
-[ATTRIBUTION](ATTRIBUTION.md#兩個工具共用的-pcfontsv1js)。
 選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），首頁與各工具共用。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，
@@ -178,8 +153,7 @@ npm test
 有字型清單的工具，除了原本的韓文／日文字型之外，都另外收了同一組五套繁體中文
 字型（思源黑體、思源宋體、霞鶩文楷、巧克力黑體、仙人掌明體，皆為 SIL OFL 1.1，
 自 Google Fonts 載入）。原有選項與預設值都沒有改動，需要中文字形時自行挑選即可。
-沒有網頁字型載入機制的三個工具，則補上台灣的系統字型堆疊。詳見
-[ATTRIBUTION.md](ATTRIBUTION.md#繁體中文字型)。
+詳見 [ATTRIBUTION.md](ATTRIBUTION.md#繁體中文字型)。
 
 ### 新增語言
 
@@ -196,11 +170,9 @@ npm test
 的繁中使用說明與 `coc-typesetter` 的範例劇本。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
-**注意**：`loading-maker`、`character-select`、
-`character-editor`、`room-zip`、`pair-maker` 與くま的四個工具（`bg-motion`、
-`session-log`、`session-report`、`scenario-cards`）的原始 repo 皆未附任何授權條款，
+**注意**：`character-select`、
+`pair-maker` 與くま的兩個工具（
+`session-log`、`session-report`）的原始 repo 皆未附任何授權條款，
 `coc-typesetter` 則連作者都不明，
 其權利屬原作者所有，
 不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。
-`psd-studio` 沒有 LICENSE 檔，依作者在頁面上寫明的條款（禁止轉售與收費散布，修改後可免費再散布）
-收錄，條款見 [tools/psd-studio/TERMS.md](tools/psd-studio/TERMS.md)。

@@ -60,6 +60,8 @@ export interface KeyframeRules {
   timeMax?: number;
   /** 新增節點的曲線（預設 smoothstep） */
   defaultCurve?: CurveName;
+  /** 新增節點的時間、值取到小數第幾位（預設 4、4；loading-maker 原作是 2、1） */
+  insertDecimals?: { time: number; value: number };
 }
 
 const DEFAULT_RULES: Required<Omit<KeyframeRules, 'first' | 'lastValue'>> & {
@@ -76,6 +78,7 @@ const DEFAULT_RULES: Required<Omit<KeyframeRules, 'first' | 'lastValue'>> & {
   valueMax: 100,
   timeMax: 120,
   defaultCurve: 'smoothstep',
+  insertDecimals: { time: 4, value: 4 },
 };
 
 const rulesOf = (r?: KeyframeRules) => ({ ...DEFAULT_RULES, ...r });
@@ -140,8 +143,8 @@ export function insertKeyframe(
   const a = keys[best - 1];
   const b = keys[best];
   const next: Keyframe = {
-    time: round((a.time + b.time) / 2),
-    value: round((a.value + b.value) / 2),
+    time: round((a.time + b.time) / 2, r.insertDecimals.time),
+    value: round((a.value + b.value) / 2, r.insertDecimals.value),
     curve: r.defaultCurve,
   };
   const out = [...keys.slice(0, best), next, ...keys.slice(best)];

@@ -159,16 +159,20 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | text-path | ✅ | ✅ | ✅ | ✅ |
 | cutin | ✅ | ✅ | ✅ | ✅ |
 | collage-letter | ✅ | ✅ | ✅ | ✅ |
-| scene-transition | ✅ | ⬜ | ⬜ | ⬜ |
-| bg-motion | ✅ | ⬜ | ⬜ | ⬜ |
-| loading-maker | ✅ | ⬜ | ⬜ | ⬜ |
-| foreground-frame | ✅ | ⬜ | ⬜ | ⬜ |
-| scenario-cards | ✅ | ⬜ | ⬜ | ⬜ |
-| character-editor | ✅ | ⬜ | ⬜ | ⬜ |
-| log-converter | ✅ | ⬜ | ⬜ | ⬜ |
-| room-zip | ✅ | ⬜ | ⬜ | ⬜ |
-| psd-studio | ✅ | ⬜ | ⬜ | ⬜ |
-| 其餘 12 個（G6～G9） | ⬜ | ⬜ | ⬜ | ⬜ |
+| scene-transition | ✅ | ✅ | ✅ | ✅ |
+| bg-motion | ✅ | ✅ | ✅ | ✅ |
+| loading-maker | ✅ | ✅ | ✅ | ✅ |
+| foreground-frame | ✅ | ✅ | ✅ | ✅ |
+| scenario-cards | ✅ | ✅ | ✅ | ✅ |
+| character-editor | ✅ | ✅ | ✅ | ✅ |
+| log-converter | ✅ | ✅ | ✅ | ✅ |
+| room-zip | ✅ | ✅ | ✅ | ✅ |
+| psd-studio | ✅ | ✅ | ✅ | ✅ |
+| scenario-editor | ✅ | ✅ | ⬜ | ⬜ |
+| session-log | ⬜ | ⬜ | ⬜ | ⬜ |
+| session-report | ⬜ | ⬜ | ⬜ | ⬜ |
+| coc-typesetter | ⬜ | ⬜ | ⬜ | ⬜ |
+| 其餘 8 個（G7～G9） | ⬜ | ⬜ | ⬜ | ⬜ |
 
 （每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 ✅。）
 
@@ -185,4 +189,3 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 - **還原度**：靠行為規格＋並排比對控制；無法完全一致的地方要在規格的對等紀錄裡寫明理由並經確認。
 - **語言**：重寫後只有繁體中文；日、韓文使用者會失去原文介面（已確認）。
 - **授權特別注意**：くま。的工具等明文禁止複製工具本體：只參考功能與做法，程式用本專案的元件自己寫，素材與文字不沿用。
-- **待改善（不影響上線）**：群組分頁（共用 `GroupTabs`）超出寬度時沒有「可以捲動」的提示（例如兩端淡出）。

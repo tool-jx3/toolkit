@@ -88,6 +88,21 @@
   background-size: 16px 16px;
 }
 
+/* Dialog placement="right" 的側欄滑入（session-log 移植時新增） */
+@keyframes tk-sheet-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Tooltip：Radix 外層的定位元素也不接收滑鼠事件，點擊穿過提示落到底下的按鈕（psd-studio F31） */
+[data-radix-popper-content-wrapper]:has(> [data-tk-tooltip]) {
+  pointer-events: none;
+}
+
 /* 統一的焦點框 */
 @utility focus-ring {
   outline: 2px solid var(--focus);

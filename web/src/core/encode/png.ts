@@ -6,6 +6,7 @@
  * 沒有時改用 fflate。兩者輸出都是決定性的：同樣的輸入每次得到同樣的位元組。
  */
 import { zlibSync } from 'fflate';
+import { EncodeLimitError } from './frames';
 
 export type Bytes = Uint8Array<ArrayBuffer>;
 
@@ -53,30 +54,66 @@ export async function zlib(bytes: Uint8Array, mode: DeflateMode = 'auto'): Promi
   return new Uint8Array(await new Response(cs.readable).arrayBuffer());
 }
 
+/** 一個位元組當成有號數（−128～127）的絕對值：濾波的成本估計用（查表，比分支快） */
+const SIGNED_ABS = (() => {
+  const t = new Uint8Array(256);
+  for (let v = 0; v < 256; v++) t[v] = v < 128 ? v : 256 - v;
+  return t;
+})();
+
 /**
- * 掃描線加上濾波位元組。
- * 調色盤影像一律用 None（PNG 規範建議）；全彩 RGBA 每列挑「差值絕對值總和」最小的濾波。
+ * Paeth 預測值（PNG 規範：p＝a＋b−c，取 a、b、c 中最接近 p 的，同距離依 a、b、c 的順序）。
+ * 不用分支（雜訊影像的分支幾乎猜不中，很慢）：|p−a|＝|b−c|、|p−b|＝|a−c|、|p−c|＝|a＋b−2c|，以符號位元選值。
  */
-export function filterRows(
+function paethOf(a: number, b: number, c: number): number {
+  const da = b - c;
+  const db = a - c;
+  const dc = da + db;
+  const pa = (da ^ (da >> 31)) - (da >> 31);
+  const pb = (db ^ (db >> 31)) - (db >> 31);
+  const pc = (dc ^ (dc >> 31)) - (dc >> 31);
+  /* pa ≤ pb 且 pa ≤ pc → a；否則 pb ≤ pc → b；否則 c */
+  const notA = ((pb - pa) | (pc - pa)) >> 31;
+  const notB = (pc - pb) >> 31;
+  return (a & ~notA) | (((b & ~notB) | (c & notB)) & notA);
+}
+
+/** 分段濾波時要接續的狀態 */
+interface FilterState {
+  /** 上一列是不是整列 0 */
+  prevEmpty: boolean;
+}
+
+/**
+ * 濾波第 y0～y1−1 列，寫到 out 的 outOffset 起（每列＝濾波位元組＋stride 位元組）。
+ * 整張一次做（filterRows）與分段做（packImage 的上限模式）結果相同。
+ */
+function filterBand(
   src: Uint8Array | Uint8ClampedArray,
-  w: number,
-  h: number,
+  stride: number,
+  y0: number,
+  y1: number,
   bpp: number,
   adaptive: boolean,
-): Bytes {
-  const stride = w * bpp;
-  const out = new Uint8Array(h * (stride + 1));
+  out: Uint8Array,
+  outOffset: number,
+  state: FilterState,
+): void {
   if (!adaptive) {
-    for (let y = 0; y < h; y++) {
-      out.set(src.subarray(y * stride, y * stride + stride), y * (stride + 1) + 1);
+    for (let y = y0; y < y1; y++) {
+      out.set(
+        src.subarray(y * stride, y * stride + stride),
+        outOffset + (y - y0) * (stride + 1) + 1,
+      );
     }
-    return out;
+    return;
   }
-  let prevEmpty = true;
-  for (let y = 0; y < h; y++) {
+  const abs = SIGNED_ABS;
+  let prevEmpty = state.prevEmpty;
+  for (let y = y0; y < y1; y++) {
     const row = y * stride;
     const prev = y > 0 ? row - stride : -1;
-    const o = y * (stride + 1);
+    const o = outOffset + (y - y0) * (stride + 1);
     /* 整列透明（且上一列也是）：None 濾波，內容本來就全是 0 */
     let empty = true;
     for (let i = 0; i < stride; i++) {
@@ -87,6 +124,7 @@ export function filterRows(
     }
     if (empty && prevEmpty) {
       out[o] = 0;
+      out.fill(0, o + 1, o + 1 + stride);
       continue;
     }
     prevEmpty = empty;
@@ -98,24 +136,22 @@ export function filterRows(
     let s4 = 0;
     for (let i = 0; i < stride; i++) {
       const x = src[row + i];
-      const a = i >= bpp ? src[row + i - bpp] : 0;
-      const b = prev >= 0 ? src[prev + i] : 0;
-      const c = prev >= 0 && i >= bpp ? src[prev + i - bpp] : 0;
-      const p = a + b - c;
-      const pa = p > a ? p - a : a - p;
-      const pb = p > b ? p - b : b - p;
-      const pc = p > c ? p - c : c - p;
-      const pr = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
-      let v: number;
-      s0 += x < 128 ? x : 256 - x;
-      v = (x - a) & 255;
-      s1 += v < 128 ? v : 256 - v;
-      v = (x - b) & 255;
-      s2 += v < 128 ? v : 256 - v;
-      v = (x - ((a + b) >> 1)) & 255;
-      s3 += v < 128 ? v : 256 - v;
-      v = (x - pr) & 255;
-      s4 += v < 128 ? v : 256 - v;
+      let a = 0;
+      let b = 0;
+      let c = 0;
+      if (prev >= 0) {
+        b = src[prev + i];
+        if (i >= bpp) {
+          a = src[row + i - bpp];
+          c = src[prev + i - bpp];
+        }
+      } else if (i >= bpp) a = src[row + i - bpp];
+      const pr = paethOf(a, b, c);
+      s0 += abs[x];
+      s1 += abs[(x - a) & 255];
+      s2 += abs[(x - b) & 255];
+      s3 += abs[(x - ((a + b) >> 1)) & 255];
+      s4 += abs[(x - pr) & 255];
     }
     let best = 0;
     let bs = s0;
@@ -134,26 +170,46 @@ export function filterRows(
     if (s4 < bs) best = 4;
     out[o] = best;
     const d = o + 1;
-    for (let i = 0; i < stride; i++) {
-      const x = src[row + i];
-      const a = i >= bpp ? src[row + i - bpp] : 0;
-      const b = prev >= 0 ? src[prev + i] : 0;
-      let v: number;
-      if (best === 0) v = x;
-      else if (best === 1) v = x - a;
-      else if (best === 2) v = x - b;
-      else if (best === 3) v = x - ((a + b) >> 1);
-      else {
-        const c = prev >= 0 && i >= bpp ? src[prev + i - bpp] : 0;
-        const p = a + b - c;
-        const pa = p > a ? p - a : a - p;
-        const pb = p > b ? p - b : b - p;
-        const pc = p > c ? p - c : c - p;
-        v = x - (pa <= pb && pa <= pc ? a : pb <= pc ? b : c);
+    if (best === 0) {
+      out.set(src.subarray(row, row + stride), d);
+    } else if (best === 1) {
+      for (let i = 0; i < bpp && i < stride; i++) out[d + i] = src[row + i];
+      for (let i = bpp; i < stride; i++) out[d + i] = (src[row + i] - src[row + i - bpp]) & 255;
+    } else if (best === 2) {
+      if (prev < 0) out.set(src.subarray(row, row + stride), d);
+      else for (let i = 0; i < stride; i++) out[d + i] = (src[row + i] - src[prev + i]) & 255;
+    } else if (best === 3) {
+      for (let i = 0; i < stride; i++) {
+        const a = i >= bpp ? src[row + i - bpp] : 0;
+        const b = prev >= 0 ? src[prev + i] : 0;
+        out[d + i] = (src[row + i] - ((a + b) >> 1)) & 255;
       }
-      out[d + i] = v & 255;
+    } else {
+      for (let i = 0; i < stride; i++) {
+        const a = i >= bpp ? src[row + i - bpp] : 0;
+        const b = prev >= 0 ? src[prev + i] : 0;
+        const c = prev >= 0 && i >= bpp ? src[prev + i - bpp] : 0;
+        out[d + i] = (src[row + i] - paethOf(a, b, c)) & 255;
+      }
     }
   }
+  state.prevEmpty = prevEmpty;
+}
+
+/**
+ * 掃描線加上濾波位元組。
+ * 調色盤影像一律用 None（PNG 規範建議）；全彩 RGBA 每列挑「差值絕對值總和」最小的濾波。
+ */
+export function filterRows(
+  src: Uint8Array | Uint8ClampedArray,
+  w: number,
+  h: number,
+  bpp: number,
+  adaptive: boolean,
+): Bytes {
+  const stride = w * bpp;
+  const out = new Uint8Array(h * (stride + 1));
+  filterBand(src, stride, 0, h, bpp, adaptive, out, 0, { prevEmpty: true });
   return out;
 }
 
@@ -197,8 +253,78 @@ export function packImage(
   h: number,
   paletted: boolean,
   deflate: DeflateMode = 'auto',
+  maxBytes = Number.POSITIVE_INFINITY,
 ): Promise<Bytes> {
+  if (maxBytes !== Number.POSITIVE_INFINITY)
+    return packWithin(pixels, w, h, paletted ? 1 : 4, !paletted, deflate, maxBytes);
   return zlib(filterRows(pixels, w, h, paletted ? 1 : 4, !paletted), deflate);
+}
+
+/** 上限模式每段大約多少位元組（濾波後） */
+const BAND_BYTES = 1 << 18;
+
+/**
+ * packImage 的上限模式：一段一段濾波、送進壓縮，壓好的資料超過 maxBytes 就停（EncodeLimitError），
+ * 不必把整張做完。沒超過時結果與一次做完相同（壓縮串流只在結尾收尾，與一次寫入的輸出相同）。
+ * 沒有原生壓縮時改用 fflate 一次壓完再比大小。
+ */
+async function packWithin(
+  pixels: Uint8Array,
+  w: number,
+  h: number,
+  bpp: number,
+  adaptive: boolean,
+  deflate: DeflateMode,
+  maxBytes: number,
+): Promise<Bytes> {
+  const native = typeof CompressionStream !== 'undefined';
+  if (deflate === 'fflate' || (deflate === 'auto' && !native)) {
+    const out = zlibSync(filterRows(pixels, w, h, bpp, adaptive), { level: 6 }) as Bytes;
+    if (out.length > maxBytes) throw new EncodeLimitError(out.length, 1);
+    return out;
+  }
+  const stride = w * bpp;
+  const rowsPer = Math.max(1, Math.floor(BAND_BYTES / (stride + 1)));
+  const cs = new CompressionStream('deflate');
+  const writer = cs.writable.getWriter();
+  const reader = cs.readable.getReader();
+  const parts: Uint8Array[] = [];
+  let outBytes = 0;
+  let over = false;
+  const reading = (async () => {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) return;
+      parts.push(value);
+      outBytes += value.length;
+      if (outBytes > maxBytes) {
+        over = true;
+        await reader.cancel().catch(() => {});
+        return;
+      }
+    }
+  })();
+  const state: FilterState = { prevEmpty: true };
+  let rowsDone = 0;
+  try {
+    for (let y = 0; y < h && !over; y += rowsPer) {
+      const y1 = Math.min(h, y + rowsPer);
+      const band = new Uint8Array((y1 - y) * (stride + 1));
+      filterBand(pixels, stride, y, y1, bpp, adaptive, band, 0, state);
+      rowsDone = y1;
+      await writer.write(band);
+    }
+    if (!over) await writer.close();
+  } catch (e) {
+    /* 讀取端放棄之後寫入會失敗；其他錯誤照丟 */
+    if (!over) throw e;
+  }
+  await reading;
+  if (over) {
+    await writer.abort().catch(() => {});
+    throw new EncodeLimitError(outBytes, h ? rowsDone / h : 1);
+  }
+  return concat(parts);
 }
 
 export function concat(parts: readonly Uint8Array[]): Bytes {
@@ -217,6 +343,7 @@ export function concat(parts: readonly Uint8Array[]): Bytes {
  * 單張 PNG。
  * @param pixels RGBA（width×height×4），或有 palette 時為索引（width×height）
  * @param palette RGBA 平鋪的調色盤（最多 256 色）
+ * @param maxBytes 壓好的影像資料超過這麼多位元組就放棄，丟出 EncodeLimitError（預設不限；試編用）
  */
 export async function encodePng(
   pixels: Uint8Array | Uint8ClampedArray,
@@ -224,12 +351,13 @@ export async function encodePng(
   height: number,
   palette: Uint8Array | null = null,
   deflate: DeflateMode = 'auto',
+  maxBytes = Number.POSITIVE_INFINITY,
 ): Promise<Bytes> {
   const px =
     pixels instanceof Uint8Array
       ? pixels
       : new Uint8Array(pixels.buffer, pixels.byteOffset, pixels.length);
-  const data = await packImage(px, width, height, !!palette, deflate);
+  const data = await packImage(px, width, height, !!palette, deflate, maxBytes);
   const parts: Uint8Array[] = [PNG_SIGNATURE, ihdr(width, height, palette ? 3 : 6)];
   if (palette) parts.push(...plteChunks(palette));
   parts.push(chunk('IDAT', data), chunk('IEND', new Uint8Array(0)));

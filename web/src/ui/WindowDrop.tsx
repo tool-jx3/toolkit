@@ -24,6 +24,11 @@ export interface WindowDropProps {
   icon?: ReactNode;
   disabled?: boolean;
   className?: string;
+  /**
+   * 覆蓋層出現／消失時呼叫（拖著檔案進入視窗＝true；拖出、放開、停用＝false）。工具可以據此讓自己的載入區變醒目
+   * （psd-studio 移植時新增，不給時行為不變）。
+   */
+  onActiveChange?: (active: boolean) => void;
 }
 
 export function WindowDrop({
@@ -35,11 +40,18 @@ export function WindowDrop({
   icon = <ImagePlus />,
   disabled,
   className,
+  onActiveChange,
 }: WindowDropProps) {
   const [over, setOver] = useState(false);
   const depth = useRef(0);
-  const cb = useRef({ onDrop, onReject, accept });
-  cb.current = { onDrop, onReject, accept };
+  const cb = useRef({ onDrop, onReject, accept, onActiveChange });
+  cb.current = { onDrop, onReject, accept, onActiveChange };
+  const reported = useRef(false);
+  useEffect(() => {
+    if (reported.current === over) return;
+    reported.current = over;
+    cb.current.onActiveChange?.(over);
+  }, [over]);
 
   useEffect(() => {
     if (disabled) {

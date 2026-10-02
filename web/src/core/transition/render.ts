@@ -7,7 +7,8 @@
  * - 整片：透明度＝進度 × 255（掃過＝0 → 255 → 0，頂點在一半）。
  * - 反向順序：到達先後顛倒。
  * - 邊緣發光：蓋上的程度 c（0～255）→ 強度 g＝255·sin(π·c ÷ 255)；顏色依 g 混向發光色，透明度＝max(原本, g)。
- * - 邊緣實心（揭開時不作用）：蓋上一半以上的地方不透明；其他地方＝max(原本, min(255, 2g))。
+ * - 邊緣實心（只在有邊緣發光時作用，揭開時不作用）：蓋上一半以上的地方不透明；其他地方＝max(原本, min(255, 2g))。
+ *   沒有發光時不作用，合攏處是半透明的縫（同原作）。
  */
 import { parseColor } from '../color';
 import type { ArrivalMap } from './arrival';
@@ -30,7 +31,7 @@ export interface TransitionLook {
   color: RgbInput;
   /** 邊緣發光的顏色；不給＝不發光 */
   glow?: RgbInput | null;
-  /** 邊緣實心（合攏成發亮的線） */
+  /** 邊緣實心（合攏成發亮的線）；只在有 glow 時作用 */
   solidEdge?: boolean;
 }
 
@@ -54,33 +55,52 @@ const toRgb = (c: RgbInput): [number, number, number] => {
 export const glowStrength = (cover255: number): number =>
   Math.round(255 * Math.sin((Math.PI * Math.max(0, Math.min(255, cover255))) / 255));
 
-/** 每一階（到達先後 0～255）的蓋上程度 0～1 */
+/**
+ * 每一階（到達先後 0～255）的蓋上程度 0～1。
+ * range：到達先後圖實際用到的範圍（ArrivalMap.range；不給＝[0, 255]），過渡帶從最小值之前走到最大值之後，
+ * 帶寬仍是「柔和度」階（同原作：柔和度 ÷ 255 約是全範圍的比例）。範圍只有一階時同整片。
+ */
 export function coverAmount(
   level: number,
   { progress, mode = 'cover', softness = 40, bandWidth = 80, reverse = false }: TransitionLook,
   flat = false,
+  range?: readonly [number, number],
 ): number {
   const p = progress;
-  if (flat) {
+  const lo = range ? range[0] : 0;
+  const hi = range ? range[1] : 255;
+  const span = hi - lo;
+  if (flat || !(span > 0)) {
     if (mode === 'sweep') return Math.max(0, 1 - Math.abs(2 * p - 1));
     return Math.max(0, Math.min(1, p));
   }
-  const a = (reverse ? 255 - level : level) / 255;
+  /* 反向順序：每一階換成 255 − 階（範圍跟著換） */
+  const v = reverse ? 255 - level : level;
+  const start = reverse ? 255 - hi : lo;
   if (mode === 'sweep') {
-    const bw = Math.max(1, bandWidth) / 255;
-    const c = -bw + p * (1 + 2 * bw);
-    return Math.max(0, 1 - Math.abs(a - c) / bw);
+    const b = Math.max(1, bandWidth);
+    const pos = start - b + p * (span + 2 * b);
+    return Math.max(0, 1 - Math.abs(v - pos) / b);
   }
-  const w = Math.max(1, softness) / 255;
-  return Math.max(0, Math.min(1, (p * (1 + w) - a) / w));
+  const f = Math.max(1, softness);
+  const edge = start + p * (span + f);
+  return Math.max(0, Math.min(1, (edge - v) / f));
 }
 
-/** 建立查表（每一格算一次，再用 renderTransition 套到整張圖） */
-export function transitionLut(look: TransitionLook, flat = false): TransitionLut {
+/**
+ * 建立查表（每一格算一次，再用 renderTransition 套到整張圖）。
+ * range：到達先後圖的 ArrivalMap.range（不給＝[0, 255]）；renderTransition／drawTransition 會自動帶入。
+ */
+export function transitionLut(
+  look: TransitionLook,
+  flat = false,
+  range?: readonly [number, number],
+): TransitionLut {
   const mode = look.mode ?? 'cover';
   const [r0, g0, b0] = toRgb(look.color);
   const glow = look.glow ? toRgb(look.glow) : null;
-  const solid = !!look.solidEdge && mode !== 'reveal';
+  /* 邊緣實心疊在邊緣發光之上：沒有發光時不作用（同原作） */
+  const solid = !!glow && !!look.solidEdge && mode !== 'reveal';
   const out: TransitionLut = {
     alpha: new Uint8Array(256),
     r: new Uint8Array(256),
@@ -89,21 +109,19 @@ export function transitionLut(look: TransitionLook, flat = false): TransitionLut
     cover: new Uint8Array(256),
   };
   for (let L = 0; L < 256; L++) {
-    const cov = coverAmount(L, look, flat);
+    const cov = coverAmount(L, look, flat, range);
     const c = Math.round(cov * 255);
     let alpha = mode === 'reveal' ? 255 - c : c;
     let r = r0;
     let g = g0;
     let b = b0;
-    if (glow || solid) {
+    if (glow) {
       const s = glowStrength(c);
-      if (glow) {
-        const k = s / 255;
-        r = Math.round(r0 + (glow[0] - r0) * k);
-        g = Math.round(g0 + (glow[1] - g0) * k);
-        b = Math.round(b0 + (glow[2] - b0) * k);
-        alpha = Math.max(alpha, s);
-      }
+      const k = s / 255;
+      r = Math.round(r0 + (glow[0] - r0) * k);
+      g = Math.round(g0 + (glow[1] - g0) * k);
+      b = Math.round(b0 + (glow[2] - b0) * k);
+      alpha = Math.max(alpha, s);
       if (solid) alpha = c >= 128 ? 255 : Math.max(alpha, Math.min(255, s * 2));
     }
     out.alpha[L] = alpha;
@@ -146,7 +164,7 @@ export function renderTransition(
   look: TransitionLook,
 ): Uint8ClampedArray<ArrayBuffer> {
   const out = new Uint8ClampedArray(map.width * map.height * 4);
-  applyTransitionLut(map, transitionLut(look, map.flat), out);
+  applyTransitionLut(map, transitionLut(look, map.flat, map.range), out);
   return out;
 }
 

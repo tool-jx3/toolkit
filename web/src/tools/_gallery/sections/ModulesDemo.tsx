@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createRandom, EASE, EASING_CHOICES, type EasingName } from '@/core/timeline';
 import { Section } from '@/ui';
+import { PagedDemo } from './PagedDemo';
 import { TypesetDemo } from './TypesetDemo';
 
 function Curve({ name }: { name: EasingName }) {
@@ -66,6 +67,7 @@ export function ModulesDemo() {
         </p>
       </Section>
       <TypesetDemo />
+      <PagedDemo />
     </div>
   );
 }

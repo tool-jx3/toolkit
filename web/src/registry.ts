@@ -269,6 +269,138 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/sotsotssi/emotion-maker',
     },
   },
+  {
+    id: 'scene-transition',
+    name: '場景轉換素材產生器',
+    summary:
+      '做出拉滿畫面的換場動畫：淡出、擦除、圓形收束、溶解、血液垂流等 53 種效果，可加字幕，匯出透明背景的 WebP 或 APNG。不需要伺服器，圖片不會離開你的電腦。',
+    group: 'G2',
+    status: 'live',
+    inspiration: {
+      name: 'shiki365/scene-transition-maker',
+      url: 'https://github.com/shiki365/scene-transition-maker',
+    },
+  },
+  {
+    id: 'loading-maker',
+    name: '讀取動畫產生器',
+    summary:
+      '把角色和進度條、轉圈圖示或換圖列組成跑團用的讀取畫面：可上傳角色動畫、拖曳排版，加上開場淡入與結尾消失演出，匯出 APNG、WebP、GIF。',
+    group: 'G2',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/loading-maker',
+      url: 'https://github.com/sotsotssi/loading-maker',
+    },
+  },
+  {
+    id: 'bg-motion',
+    name: '動態背景產生器',
+    summary:
+      '讓背景圖震動、搖晃、推近拉遠、水波扭曲、淡化，或在幾張圖之間溶接與擦除，再加上夜晚、起霧等濾鏡，匯出動態 WebP、APNG、GIF。',
+    group: 'G2',
+    status: 'live',
+    inspiration: {
+      name: 'くま。／TRPG WEBツール観測所',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
+  {
+    id: 'room-zip',
+    name: '房間 ZIP 產生器',
+    summary:
+      '把自己的背景、立繪、面板圖整理成 CCFOLIA 可以直接匯入的房間 ZIP：設計共用部件、一次排好多個場景的立繪與演出，再加上棋子與劇本文字。全部在瀏覽器裡完成。',
+    group: 'G5',
+    status: 'live',
+    inspiration: {
+      name: 'johnko00/ccfolia-room-zip-maker-demo',
+      url: 'https://github.com/johnko00/ccfolia-room-zip-maker-demo',
+    },
+  },
+  {
+    id: 'character-editor',
+    name: '角色資料編輯器',
+    summary:
+      '讀入角色 JSON、CCFOLIA 編輯畫面的文字或 .json 檔，逐項確認差異後再覆寫；編輯狀態、參數與聊天面板，輸出可以直接貼進 CCFOLIA 的角色資料。',
+    group: 'G5',
+    status: 'live',
+    inspiration: {
+      name: 'organon-torah/ccfoliaCharacterEditor',
+      url: 'https://github.com/organon-torah/ccfoliaCharacterEditor',
+    },
+  },
+  {
+    id: 'foreground-frame',
+    name: '前景框產生器',
+    summary:
+      '做出 CCFOLIA「前景」用的框圖片：中間的窗透明、框上加線條、陰影、藤蔓與鎖鏈等裝飾，還能依時間帶、天氣做出好幾張差分，一次匯出成 ZIP。',
+    group: 'G5',
+    status: 'live',
+    inspiration: {
+      name: 'shiki365/foreground-frame-maker',
+      url: 'https://github.com/shiki365/foreground-frame-maker',
+    },
+  },
+  {
+    id: 'log-converter',
+    name: 'CCFOLIA 日誌轉換器',
+    summary:
+      '把 CCFOLIA 匯出的聊天日誌轉成小說、時間軸或 CCFOLIA 風格的網頁：指定旁白與閒聊、嵌入頭像與插圖、分割檔案，也能做成貼進部落格的版本。全部在瀏覽器裡處理。',
+    group: 'G5',
+    status: 'live',
+    inspiration: {
+      name: 'Eon-00/eon-ccfolia-log-converter',
+      url: 'https://github.com/Eon-00/eon-ccfolia-log-converter',
+    },
+  },
+  {
+    id: 'psd-studio',
+    name: 'CCFOLIA & 圖片調色工作室',
+    summary:
+      '一次替房間 ZIP、PSD 的每個圖層或一整批圖片調色：色相、曲線、漸層對應，也能單張微調；房間 ZIP 會自動改名並同步房間資料，還能補邊到 24 px 倍數、把 APNG 壓到上傳限制以內。',
+    group: 'G5',
+    status: 'live',
+    inspiration: {
+      name: 'fyam-hamu/F_Ccfolia-PSD-Studio',
+      url: 'https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio',
+    },
+  },
+  {
+    id: 'scenario-cards',
+    name: '劇本資訊卡片產生器',
+    summary:
+      'KP／GM 帶團前整理劇本：選取劇本內文做成場景、探索地點、NPC、HO 秘匿等資訊卡片，一鍵複製成貼進 CCFOLIA 聊天欄的固定格式文字。',
+    group: 'G5',
+    status: 'live',
+    inspiration: {
+      name: 'くま。／TRPG WEBツール観測所',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
+  {
+    id: 'scenario-editor',
+    name: '劇本排版台',
+    summary:
+      '左邊逐段寫劇本、右邊即時排成 A4 書頁：標題、對話、檢定框、表格、流程圖、NPC 卡、目錄與彈出視窗，可以列印、下載 PDF 或匯出附目錄的閱覽 HTML；作品存在瀏覽器裡，保留過去的版本。',
+    group: 'G6',
+    status: 'next',
+    inspiration: {
+      name: 'sedn14636361/trpg-scenario-editor',
+      url: 'https://github.com/sedn14636361/trpg-scenario-editor',
+    },
+  },
+  {
+    id: 'session-log',
+    name: '跑團紀錄簿',
+    summary:
+      '把玩過、帶過的團記成表格：統計場次與時數、整理已通關劇本清單，也能把一團帶到團報產生器。',
+    group: 'G6',
+    status: 'next',
+    inspiration: {
+      name: 'くま。／TRPG WEBツール観測所',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

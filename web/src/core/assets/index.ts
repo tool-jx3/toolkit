@@ -13,6 +13,7 @@
  * ```
  */
 import { useEffect, useState } from 'react';
+import { bytesToHex, subtleSha256 } from '../files/hash';
 import { createImageStore, detectImageType, type ImageSaveFailure, loadImage } from '../image';
 import type { ToolStore } from '../storage';
 
@@ -84,20 +85,14 @@ function fallbackHash(bytes: Uint8Array): string {
   ).padEnd(24, '0');
 }
 
-/** 依內容產生 id（SHA-256 前 24 位十六進位；不能用時改用簡單雜湊）。同一份位元組永遠同一個 id。 */
+/**
+ * 依內容產生 id（SHA-256 前 24 位十六進位；不能用時改用簡單雜湊）。同一份位元組永遠同一個 id。
+ * 完整的 64 位 SHA-256 用 `@/core/files` 的 `sha256Hex`（CCFOLIA 房間 ZIP 的圖片檔名）。
+ */
 export async function assetIdFor(bytes: Uint8Array): Promise<string> {
-  try {
-    const subtle = globalThis.crypto?.subtle;
-    if (subtle) {
-      const digest = new Uint8Array(
-        await subtle.digest('SHA-256', bytes as Uint8Array<ArrayBuffer>),
-      );
-      return `a${Array.from(digest.slice(0, 12), (b) => b.toString(16).padStart(2, '0')).join('')}`;
-    }
-  } catch {
-    /* 非安全環境（file://、http）改用簡單雜湊 */
-  }
-  return `a${fallbackHash(bytes)}`;
+  /* 非安全環境（file://、http）沒有 crypto.subtle，改用簡單雜湊（id 規則照舊，不改用純 JavaScript 的 SHA-256） */
+  const digest = await subtleSha256(bytes);
+  return digest ? `a${bytesToHex(digest.slice(0, 12))}` : `a${fallbackHash(bytes)}`;
 }
 
 /** 依檔頭推副檔名與 MIME（認不得時 png） */

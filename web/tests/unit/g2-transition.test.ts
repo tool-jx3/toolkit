@@ -2,7 +2,8 @@
  * G2 共用層 core/transition：到達先後圖＋查表的轉場引擎。
  * 用附件 scene-transition.effects.json（舊版的量測）驗證：
  * - 非隨機效果：到達順序圖（等速、柔和度 1、蓋上；16×9 點）相差 ≤ 1%；初始設定下 25／50／75% 的 16×9 區塊平均透明度；
- * - 隨機效果（方塊溶解、暈染、垂流、撕裂帶、方塊雨）：覆蓋率曲線與不透明／透明比例（統計）；
+ * - 隨機效果（方塊溶解、暈染、垂流、撕裂帶、方塊雨）：花紋與原作相同（同一花紋編號），覆蓋率曲線與不透明／透明比例只差四捨五入；
+ * - 各形狀的到達先後與原作的公式逐值相同（scene-transition 對等修正；圖形的輪廓取樣除外）；
  * - 邊緣發光、邊緣實心、雙色閃換、柔和度與帶寬的規則（規格 3.3、3.5）。
  */
 import { describe, expect, it } from 'vitest';
@@ -12,6 +13,7 @@ import {
   alternatingColorIndex,
   buildArrivalMap,
   coverAmount,
+  type Direction8,
   glowStrength,
   renderTransition,
   shapeParams,
@@ -135,6 +137,7 @@ function alphaAt(e: Effect, pct: number, measure: boolean): Uint8Array {
       solidEdge: !measure && ['E49', 'E50', 'E51'].includes(e.編號),
     },
     map.flat,
+    map.range,
   );
   const a = new Uint8Array(W * H);
   for (let i = 0; i < a.length; i++) a[i] = lut.alpha[map.levels[i]];
@@ -174,6 +177,7 @@ function arrivalGrid(e: Effect): number[][] {
         map.levels[idx],
         { progress: k / 100, softness: 1, reverse: rev, color: '#000000' },
         map.flat,
+        map.range,
       );
       if (Math.round(c * 255) >= 128) {
         out[Math.floor(n / 16)][n % 16] = k;
@@ -185,19 +189,14 @@ function arrivalGrid(e: Effect): number[][] {
 }
 
 const RANDOM = new Set(['E30', 'E31', 'E35', 'E36', 'E37', 'E43', 'E44', 'E47']);
-/* 區塊平均透明度的容許差：多數 ≤ 3；格子、六角格、圖形、同心環、時鐘的邊界取樣方式與舊版略有不同（見 DESIGN.md） */
+/*
+ * 區塊平均透明度的容許差：≤ 3（規格 3.10）；圖形（星形、心形、菱形）的輪廓取樣方式與原作略有不同（見 DESIGN.md）。
+ * scene-transition 對等修正後，其餘形狀的到達先後與原作逐值相同（時鐘、六角格、同心環、旋轉合攏也是）。
+ */
 const BLOCK_TOL: Record<string, number> = {
-  E12: 3,
-  E16: 4,
   E26: 7,
   E27: 8,
   E28: 7,
-  E32: 12,
-  E33: 5,
-  E34: 4,
-  E46: 6,
-  E51: 4,
-  E53: 4,
 };
 
 describe('非隨機效果：到達順序圖與區塊透明度', () => {
@@ -214,8 +213,7 @@ describe('非隨機效果：到達順序圖與區塊透明度', () => {
           max = Math.max(max, d);
           sum += d;
         }
-      /* 六角格：落在格子邊界上的取樣點可能分到隔壁那一格（平均仍 ≤ 1%） */
-      expect(max, '到達時間').toBeLessThanOrEqual(e.編號 === 'E46' ? 6 : 1);
+      expect(max, '到達時間').toBeLessThanOrEqual(1);
       expect(sum / 144, '平均到達時間差').toBeLessThanOrEqual(1);
       let bmax = 0;
       for (const pct of [25, 50, 75]) {
@@ -234,7 +232,7 @@ describe('非隨機效果：到達順序圖與區塊透明度', () => {
   }
 });
 
-describe('隨機效果：覆蓋率曲線與比例（統計）', () => {
+describe('隨機效果：覆蓋率曲線與比例（花紋與原作相同）', () => {
   for (const id of RANDOM) {
     const e = (J.效果 as Effect[]).find((x) => x.編號 === id);
     it(`${id} ${e.名稱}`, () => {
@@ -244,12 +242,16 @@ describe('隨機效果：覆蓋率曲線與比例（統計）', () => {
       const ref: number[] = e.量測['覆蓋率曲線（0～100%，每 5%）'];
       let cmax = 0;
       for (let k = 0; k <= 20; k++) {
-        const lut = transitionLut({
-          progress: curve(k / 20),
-          softness: s.邊緣柔和度,
-          color: '#000000',
-          glow: s.邊緣發光 ? s.發光顏色 : null,
-        });
+        const lut = transitionLut(
+          {
+            progress: curve(k / 20),
+            softness: s.邊緣柔和度,
+            color: '#000000',
+            glow: s.邊緣發光 ? s.發光顏色 : null,
+          },
+          map.flat,
+          map.range,
+        );
         let sum = 0;
         let op = 0;
         let tr = 0;
@@ -262,11 +264,12 @@ describe('隨機效果：覆蓋率曲線與比例（統計）', () => {
         cmax = Math.max(cmax, Math.abs(sum / map.levels.length / 255 - ref[k]));
         if (k === 10) {
           const r = e.量測.取樣['50%'];
-          expect(Math.abs(op / map.levels.length - r.不透明比例)).toBeLessThanOrEqual(0.08);
-          expect(Math.abs(tr / map.levels.length - r.透明比例)).toBeLessThanOrEqual(0.08);
+          /* 花紋與原作相同（同一花紋編號）：只差附件的四捨五入 */
+          expect(Math.abs(op / map.levels.length - r.不透明比例)).toBeLessThanOrEqual(0.002);
+          expect(Math.abs(tr / map.levels.length - r.透明比例)).toBeLessThanOrEqual(0.002);
         }
       }
-      expect(cmax).toBeLessThanOrEqual(0.08);
+      expect(cmax).toBeLessThanOrEqual(0.002);
     });
   }
 
@@ -439,6 +442,42 @@ describe('畫面規則', () => {
     expect(shapeParams('flat')).toEqual([]);
   });
 
+  it('格子、六角格、方塊雨：到達先後依整張圖正規化（最早的像素是 0、最晚的是 255）', () => {
+    for (const [shape, p] of [
+      ['grid', { count: 16, order: 'direction', direction: 'down-right' }],
+      ['grid', { count: 8, order: 'alternate' }],
+      ['hex', { count: 14, order: 'center' }],
+      ['rain', { count: 48, seed: 21 }],
+    ] as const) {
+      const m = buildArrivalMap(shape, 640, 360, p);
+      expect(
+        m.levels.reduce((a, b) => Math.min(a, b), 255),
+        shape,
+      ).toBe(0);
+      expect(
+        m.levels.reduce((a, b) => Math.max(a, b), 0),
+        shape,
+      ).toBe(255);
+    }
+  });
+
+  it('斜線擦除：水平、垂直各取 256 階再平均（無條件捨去），與原作相同', () => {
+    const m = buildArrivalMap('diagonal', 640, 360, { direction: 'down-right' });
+    const ramp = (n: number, i: number) => Math.round((255 * i) / (n - 1));
+    for (const [x, y] of [
+      [0, 0],
+      [1, 0],
+      [3, 7],
+      [320, 180],
+      [639, 359],
+      [100, 300],
+    ])
+      expect(m.levels[y * 640 + x]).toBe((ramp(640, x) + ramp(360, y)) >> 1);
+    const up = buildArrivalMap('diagonal', 640, 360, { direction: 'up-left' });
+    expect(up.levels[359 * 640 + 639]).toBe(0);
+    expect(up.levels[0]).toBe(255);
+  });
+
   it('斜向：直線擦除照 45° 方向、斜線擦除從角落；直向的斜線擦除＝直線擦除', () => {
     const lin = buildArrivalMap('linear', 64, 36, { direction: 'down-right' });
     const diag = buildArrivalMap('diagonal', 64, 36, { direction: 'down-right' });
@@ -452,5 +491,247 @@ describe('畫面規則', () => {
     const straight = buildArrivalMap('diagonal', 64, 36, { direction: 'up' });
     const plain = buildArrivalMap('linear', 64, 36, { direction: 'up' });
     expect(straight.levels).toEqual(plain.levels);
+  });
+});
+
+/*
+ * scene-transition 對等驗證後的修正：各形狀的到達先後照原作的公式（app.v6.js 的 buildField／realField）。
+ * 下列數值是原作在 640 × 360 算出來的到達先後（同一組參數、同一個花紋編號），新版應逐值相同。
+ */
+describe('到達先後與原作逐值相同（對等修正）', () => {
+  const PTS = [
+    [0, 0],
+    [100, 50],
+    [320, 180],
+    [500, 300],
+    [639, 359],
+    [37, 211],
+    [411, 77],
+  ] as const;
+  const at = (
+    shape: TransitionShape,
+    p: ArrivalParams,
+    pts: readonly (readonly [number, number])[] = PTS,
+  ) => {
+    const m = buildArrivalMap(shape, 640, 360, p);
+    return pts.map(([x, y]) => m.levels[y * 640 + x]);
+  };
+  const column = (shape: TransitionShape, p: ArrivalParams, x: number, ys: number[]) => {
+    const m = buildArrivalMap(shape, 640, 360, p);
+    return ys.map((y) => m.levels[y * 640 + x]);
+  };
+
+  it('波浪邊：方波＝tanh(5·sin)；斜向的起伏與直向相同（F11、F13）', () => {
+    expect(at('wave', { wave: 'square', direction: 'right', count: 5, strength: 100 })).toEqual([
+      36, 31, 121, 212, 219, 13, 184,
+    ]);
+    expect(at('wave', { wave: 'sine', direction: 'down-right', count: 3, strength: 40 })).toEqual([
+      1, 36, 128, 213, 254, 68, 121,
+    ]);
+    /*
+     * 原作的公式：沿方向的位置＋強度 ÷ 100 × 0.15 × 波形（±1），八個方向都一樣（斜向沒有減半），
+     * 依整張圖的最小、最大值正規化。逐像素比對（往左上、方波、5 波、強度 100；往右下、圓滑波）。
+     */
+    const reference = (d: Direction8, form: 'sine' | 'square', n: number, strength: number) => {
+      const raw = new Float32Array(640 * 360);
+      const sx = d.endsWith('left') ? -1 : 1;
+      const sy = d.startsWith('up') ? -1 : 1;
+      for (let y = 0, i = 0; y < 360; y++)
+        for (let x = 0; x < 640; x++, i++) {
+          const u = (x + 0.5) / 640;
+          const v = (y + 0.5) / 360;
+          const fx = sx > 0 ? u : 1 - u;
+          const fy = sy > 0 ? v : 1 - v;
+          const s = Math.sin(2 * Math.PI * n * ((fx - fy + 1) / 2));
+          raw[i] =
+            (fx + fy) / 2 + (strength / 100) * 0.15 * (form === 'square' ? Math.tanh(5 * s) : s);
+        }
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (const v of raw) {
+        lo = Math.min(lo, v);
+        hi = Math.max(hi, v);
+      }
+      return Array.from(raw, (v) => Math.round(((v - lo) * 255) / (hi - lo)));
+    };
+    for (const [d, form, n, strength] of [
+      ['up-left', 'square', 5, 100],
+      ['down-right', 'sine', 3, 40],
+    ] as const) {
+      const m = buildArrivalMap('wave', 640, 360, { direction: d, wave: form, count: n, strength });
+      const ref = reference(d, form, n, strength);
+      let max = 0;
+      for (let i = 0; i < ref.length; i++) max = Math.max(max, Math.abs(m.levels[i] - ref[i]));
+      expect(max, `${d} ${form}`).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('同心環、隔行掃描：奇數時依整張圖的最小、最大值正規化；線高不是整數時依像素中心分線（F15）', () => {
+    expect(at('rings', { count: 3, center: [0.3, 0.5] })).toEqual([236, 50, 41, 105, 153, 50, 230]);
+    expect(column('interlace', { count: 9 }, 0, [0, 39, 40, 80, 359])).toEqual([
+      0, 15, 150, 30, 135,
+    ]);
+    expect(column('interlace', { count: 71 }, 0, [0, 5, 6, 10, 11, 359])).toEqual([
+      0, 130, 131, 4, 4, 128,
+    ]);
+  });
+
+  it('百葉窗：帶高不是整數時帶內位置＝(行 mod 帶高) ÷ 帶高；查表以實際的最大值為全程（F15）', () => {
+    const v = buildArrivalMap('blinds', 640, 360, { axis: 'vertical', count: 7 });
+    expect([0, 51, 52, 102, 103, 359].map((y) => v.levels[y * 640])).toEqual([
+      0, 253, 3, 251, 1, 250,
+    ]);
+    expect(v.range).toEqual([0, 254]);
+    const h = buildArrivalMap('blinds', 640, 360, { axis: 'horizontal', count: 25 });
+    expect([0, 25, 26, 51, 52, 639].map((x) => h.levels[x])).toEqual([0, 249, 4, 253, 8, 245]);
+    expect(h.range).toBeUndefined();
+  });
+
+  it('格子：格高不是整數（40 欄）時的交錯分組（F15）', () => {
+    expect(
+      at('grid', { cell: 'square', order: 'alternate', count: 40 }, [
+        [0, 0],
+        [17, 0],
+        [8, 31],
+        [639, 359],
+        [320, 180],
+      ]),
+    ).toEqual([112, 239, 251, 240, 240]);
+  });
+
+  it('暈染：不規則程度＝強度 ÷ 100 × 0.6 ×（五層值雜訊 − 0.5），同一花紋編號與原作相同（F16、E36、E37）', () => {
+    expect(at('ink', { spread: 'center', center: [0.5, 0.5], strength: 50, seed: 5 })).toEqual([
+      246, 191, 0, 157, 255, 190, 80,
+    ]);
+    expect(at('ink', { spread: 'direction', direction: 'right', strength: 100, seed: 5 })).toEqual([
+      21, 86, 120, 201, 245, 32, 132,
+    ]);
+    expect(at('ink', { spread: 'direction', direction: 'up', strength: 70, seed: 9 })).toEqual([
+      247, 193, 137, 63, 1, 118, 202,
+    ]);
+    /* 往右、等速、柔和度 1、50% 時每列的邊界 x（p5～p95）：強度 25 → 315～334、100 → 215～389（原作） */
+    const edges = (strength: number) => {
+      const m = buildArrivalMap('ink', 640, 360, {
+        spread: 'direction',
+        direction: 'right',
+        strength,
+        seed: 5,
+      });
+      const lut = transitionLut({ progress: 0.5, softness: 1, color: '#000' });
+      const xs: number[] = [];
+      for (let y = 0; y < 360; y++) {
+        let x = 0;
+        while (x < 640 && lut.alpha[m.levels[y * 640 + x]] >= 128) x++;
+        xs.push(x);
+      }
+      xs.sort((a, b) => a - b);
+      return [xs[Math.round(0.05 * 359)], xs[Math.round(0.95 * 359)]];
+    };
+    expect(edges(25)).toEqual([315, 334]);
+    expect(edges(100)).toEqual([215, 389]);
+  });
+
+  it('方塊溶解：每塊的到達先後同原作（同一花紋編號同花紋；查表以實際範圍為全程）', () => {
+    expect(at('dissolve', { blockSize: 6, seed: 7 })).toEqual([2, 119, 73, 64, 48, 1, 225]);
+    expect(at('dissolve', { blockSize: 24, seed: 3 })).toEqual([184, 119, 222, 155, 82, 206, 160]);
+    expect(buildArrivalMap('dissolve', 640, 360, { blockSize: 24, seed: 3 }).range).toEqual([
+      0, 254,
+    ]);
+    expect(at('dissolve', { blockSize: 16, seed: 5 })).toEqual([176, 164, 63, 196, 247, 77, 111]);
+  });
+
+  it('垂流：液滴與主前緣同原作（同一花紋編號相同的液滴）', () => {
+    expect(at('drip', { count: 22, strength: 60, seed: 11 })).toEqual([
+      55, 56, 128, 220, 255, 171, 62,
+    ]);
+    expect(at('drip', { count: 60, strength: 100, seed: 1234 })).toEqual([
+      51, 63, 110, 146, 215, 186, 36,
+    ]);
+  });
+
+  it('時鐘：中心在畫面邊上時，畫面裡實際的角度範圍佔滿整段（F19）', () => {
+    expect(at('clock', { clock: 'clockwise', center: [0, 0] })).toEqual([
+      128, 76, 83, 88, 83, 227, 30,
+    ]);
+    const m = buildArrivalMap('clock', 640, 360, { clock: 'clockwise', center: [0, 0] });
+    expect(m.levels.reduce((a, b) => Math.min(a, b), 255)).toBe(0);
+    expect(m.levels.reduce((a, b) => Math.max(a, b), 0)).toBe(255);
+  });
+
+  it('撕裂帶：前緣沿水平切成 14 段（同一條帶裡上下每一列相同），花紋同原作（E43）', () => {
+    expect(at('tear', { count: 26, seed: 13 })).toEqual([64, 96, 63, 187, 9, 142, 109]);
+    const m = buildArrivalMap('tear', 640, 360, { count: 26, seed: 13 });
+    expect(Array.from(m.levels.subarray(0, 640))).toEqual(Array.from(m.levels.subarray(640, 1280)));
+  });
+
+  it('方塊雨：細縫以像素左緣判斷（格子 10 px 時每條格線 1 px）、花紋同原作（E44）', () => {
+    expect(at('rain', { count: 48, seed: 21 })).toEqual([255, 103, 255, 117, 255, 161, 102]);
+    const m = buildArrivalMap('rain', 480, 270, { count: 48, seed: 21 });
+    const row = Array.from(m.levels.subarray(5 * 480, 6 * 480));
+    /* 每格 10 px：x＝0、10、20… 是細縫（最後才蓋上），x＝9、19… 不是 */
+    expect(row.filter((L) => L === 255).length).toBe(48);
+    expect(row[10]).toBe(255);
+    expect(row[9]).not.toBe(255);
+    expect(row[19]).not.toBe(255);
+  });
+
+  it('兩側合攏、旋轉合攏、六角格、橢圓：同原作；兩側合攏偶數行時範圍 0～254', () => {
+    const s = buildArrivalMap('split', 640, 360, { axis: 'vertical' });
+    expect(column('split', { axis: 'vertical' }, 5, [0, 179, 180, 359, 90])).toEqual([
+      0, 254, 254, 0, 128,
+    ]);
+    expect(s.range).toEqual([0, 254]);
+    expect(at('rotate', { angle: Math.PI / 2 })).toEqual([0, 80, 255, 111, 0, 30, 182]);
+    expect(at('hex', { count: 14, order: 'center', center: [0.5, 0.5] })).toEqual([
+      153, 141, 14, 125, 191, 215, 60,
+    ]);
+    expect(at('circle', { ellipse: true, center: [0.2, 0.8] })).toEqual([
+      186, 149, 96, 131, 185, 58, 165,
+    ]);
+  });
+
+  it('查表的範圍：過渡帶從範圍的最小值之前走到最大值之後（同原作 lo + t ×（hi − lo + 柔和度））', () => {
+    const range = [0, 254] as const;
+    const look = { softness: 30, color: '#000' };
+    expect(coverAmount(254, { ...look, progress: 0 }, false, range)).toBe(0);
+    expect(coverAmount(254, { ...look, progress: 1 }, false, range)).toBe(1);
+    expect(coverAmount(127, { ...look, progress: 0.5 }, false, range)).toBeCloseTo(
+      (0.5 * 284 - 127) / 30,
+      10,
+    );
+    /* 反向順序：每一階換成 255 − 階，範圍跟著換成 [1, 255] */
+    expect(coverAmount(127, { ...look, progress: 0.5, reverse: true }, false, range)).toBeCloseTo(
+      (1 + 0.5 * 284 - 128) / 30,
+      10,
+    );
+    /* 不給範圍時同 [0, 255]（向下相容） */
+    expect(coverAmount(100, { ...look, progress: 0.4 })).toBeCloseTo((0.4 * 285 - 100) / 30, 10);
+  });
+
+  it('邊緣實心只在有邊緣發光時作用：沒有發光時與一般的蓋上相同（F05）', () => {
+    const map = buildArrivalMap('split', 640, 360, { axis: 'vertical' });
+    const look = { progress: getCurve('quadIn')(1) * 0.96, softness: 30, color: '#0c0618' };
+    const plain = renderTransition(map, look);
+    const solid = renderTransition(map, { ...look, solidEdge: true });
+    expect(solid).toEqual(plain);
+    /* 原作（E49 關掉發光，640 × 360 最後一格，x＝320）：合攏處是半透明的縫 */
+    const ys = [170, 176, 178, 179, 180, 181, 184, 190];
+    expect(ys.map((y) => solid[(y * 640 + 320) * 4 + 3])).toEqual([
+      255, 192, 167, 158, 158, 167, 201, 255,
+    ]);
+    /* 有發光時：合攏處是不透明的亮線（原作的數值） */
+    const glow = renderTransition(map, { ...look, glow: '#f3eaff', solidEdge: true });
+    expect(
+      ys.map((y) => Array.from(glow.slice((y * 640 + 320) * 4, (y * 640 + 320) * 4 + 4))),
+    ).toEqual([
+      [12, 6, 24, 255],
+      [174, 166, 186, 255],
+      [216, 207, 228, 255],
+      [227, 218, 239, 255],
+      [227, 218, 239, 255],
+      [216, 207, 228, 255],
+      [154, 146, 166, 255],
+      [12, 6, 24, 255],
+    ]);
   });
 });

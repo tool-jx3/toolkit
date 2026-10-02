@@ -1,106 +1,27 @@
-<!DOCTYPE html>
-<html lang="zh-Hant-TW" data-theme="light">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>劇本資訊卡片產生器</title>
-  <link rel="stylesheet" href="css/snippet_builder_style.css">
-</head>
-
-<body>
-  <div class="app show-footer" id="appRoot">
-    <div class="toolkit-bar">
-      <a class="home-link" href="../../" data-i18n="nav.home">← TRPG Toolkit</a>
-      <select id="localeSelect" class="locale-select" data-i18n-aria-label="lang.aria" aria-label="顯示語言"></select>
-    </div>
-
-    <header class="app-header">
-      <div class="header-title-group">
-        <div class="app-title" data-i18n="app.heading">劇本資訊卡片產生器 v2.7</div>
-        <div class="app-subtitle" data-i18n="app.subtitle">從 PDF Parser／TXT 檔案讀入內文，把需要的資訊做成卡片，再複製成 CCFOLIA 用的文字片段。</div>
-      </div>
-
-      <button id="themeToggle" class="theme-switch" type="button" data-i18n-aria-label="theme.aria" aria-label="切換淺色模式與夜間模式">
-        <span class="theme-switch-track">
-          <span class="theme-icon">☀</span>
-          <span class="theme-icon">☾</span>
-        </span>
-        <span class="theme-knob"></span>
-      </button>
-    </header>
-
-    <main class="main-layout">
-      <section class="panel left-panel">
-        <div class="panel-title-row">
-          <h2 data-i18n="source.heading">編輯用內文</h2>
-          <div class="text-file-controls">
-            <input id="txtFileInput" type="file" accept=".txt,text/plain" hidden>
-            <button id="openTxtBtn" class="txt-open-btn" type="button" data-i18n="source.openTxt">開啟劇本 TXT 檔案</button>
-            <button id="clearTextBtn" class="txt-clear-btn" type="button" data-i18n="source.clear">清除內文</button>
-          </div>
-        </div>
-
-        <div class="bridge-note" id="bridgeNote" hidden></div>
-
-        <div class="search-row">
-          <input id="searchBox" type="text" data-i18n-placeholder="search.placeholder" placeholder="搜尋內文…" />
-          <button id="searchBtn" type="button" data-i18n="search.button">搜尋</button>
-          <button id="prevSearchBtn" class="search-nav-btn" type="button" data-i18n-title="search.prevTitle" title="上一個搜尋結果">↑</button>
-          <button id="nextSearchBtn" class="search-nav-btn" type="button" data-i18n-title="search.nextTitle" title="下一個搜尋結果">↓</button>
-          <span id="searchCount" class="search-count">0 / 0</span>
-        </div>
-
-        <textarea id="parsedText" data-i18n-placeholder="source.placeholder" placeholder="從 PDF Parser 送來的內文，或開啟的 TXT 檔案內文，會顯示在這裡。"></textarea>
-
-        <div class="selection-controls">
-          <select id="selectionCardType"></select>
-          <button class="primary" id="createFromSelectionBtn" type="button" data-i18n="selection.create">用選取範圍建立卡片</button>
-          <span class="hint" data-i18n="selection.hint">在內文上選取範圍後做成卡片（按 'c' 也可以）</span>
-        </div>
-      </section>
-
-      <section class="panel right-panel">
-        <div class="cards-header">
-          <h2 data-i18n="cards.heading">資訊卡片</h2>
-          <div class="new-card-controls">
-            <select id="newCardType"></select>
-            <button class="primary" id="addCardBtn" type="button" data-i18n="cards.add">+ 新增卡片</button>
-          </div>
-        </div>
-
-        <div class="project-controls" id="projectControls">
-          <input id="projectNameInput" type="text" data-i18n-placeholder="project.namePlaceholder" placeholder="專案名稱／劇本名稱">
-          <select id="savedProjectSelect" data-i18n-title="project.savedTitle" title="已儲存的專案列表"><option value="">已儲存列表</option></select>
-          <button id="saveProjectBtn" class="project-save-btn" type="button" data-i18n="project.save">儲存</button>
-          <button id="loadProjectBtn" class="project-load-btn" type="button" data-i18n="project.load">讀取</button>
-          <button id="copyCcfDeckBtn" class="project-ccfolia-deck-btn" type="button" data-i18n-title="project.ccfDeckTitle" title="把所有卡片複製成 CCFOLIA 用的卡片組" data-i18n="project.ccfDeck">複製 CCFOLIA 卡片組</button>
-          <button id="exportProjectBtn" class="project-export-btn" type="button" data-i18n="project.export">匯出 JSON</button>
-          <input id="importProjectInput" type="file" accept=".json,application/json" hidden>
-          <button id="importProjectBtn" class="project-import-btn" type="button" data-i18n="project.import">讀取 JSON</button>
-        </div>
-
-        <div id="typeFilterRow" class="type-filter-row"></div>
-        <div id="status" class="status"></div>
-        <div id="cardsList" class="cards-list"></div>
-
-        <div class="cards-scroll-controls" id="cardsScrollControls" data-i18n-aria-label="cards.scrollAria" aria-label="資訊卡片捲動操作">
-          <button id="cardsScrollUpBtn" type="button" data-i18n-title="cards.scrollUp" title="往上捲動">⬆︎</button>
-          <button id="cardsScrollDownBtn" type="button" data-i18n-title="cards.scrollDown" title="往下捲動">⬇︎</button>
-        </div>
-      </section>
-    </main>
-
-    <section class="tool-footer-note">
-      <h2 data-i18n="footer.heading">使用注意事項</h2>
-      <p data-i18n="footer.p1">本工具是開發者 @KumachanSteps 個人製作的非官方 TRPG 輔助工具。 各 TRPG 系統、劇本與外部服務的使用條款與權利標示，請使用者自行確認。</p>
-    </section>
-  </div>
-
-  <script src="../../assets/i18n.js"></script>
-  <script src="./i18n.scenario-cards.js"></script>
-  <script src="js/parser.js"></script>
-  <script src="js/render.js"></script>
-  <script src="js/shortcut.js"></script>
-  <script src="js/main.js"></script>
-</body>
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>劇本資訊卡片產生器｜TRPG Toolkit</title>
+    <meta name="color-scheme" content="dark light">
+    <script>try{var t=localStorage.getItem('trpg-toolkit:theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap">
+    <script type="module" crossorigin src="../../assets/build/scenario-cards-BvujVQ9H.js"></script>
+    <link rel="modulepreload" crossorigin href="../../assets/build/rolldown-runtime-hePW80VL.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/ui-CXY0oUaa.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/copy-plus-2GOfBuqC.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/eraser-CeOoB-ay.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/file-text-Dq1omVPC.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/undo-2-Bj8XHhJ3.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/react-CsFPBE5q.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/storage-ClqIYSib.js">
+    <link rel="modulepreload" crossorigin href="../../assets/build/text-C0zIjHus.js">
+    <link rel="stylesheet" crossorigin href="../../assets/build/ui-Dy9ghs3p.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>

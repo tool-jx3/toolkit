@@ -107,3 +107,95 @@ export function readFontNames(bytes: Uint8Array): FontNames | null {
     return null;
   }
 }
+
+/* ---------- TTC（字型集合）與嵌入權限（scenario-editor 移植時新增） ---------- */
+
+/** TTC／OTC 裡每個字體的起始位置；不是集合時 null */
+export function ttcFaceOffsets(bytes: Uint8Array): number[] | null {
+  try {
+    if (bytes.length < 12 || tag(bytes, 0) !== 'ttcf') return null;
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const n = dv.getUint32(8);
+    if (!n || n > 500) return null;
+    const out: number[] = [];
+    for (let i = 0; i < n; i++) out.push(dv.getUint32(12 + i * 4));
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/** 把集合裡的一個字體（從 offset 開始）重組成單獨的字型檔 */
+export function extractTtcFace(bytes: Uint8Array, offset: number): Uint8Array {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const n = dv.getUint16(offset + 4);
+  const recs: { tag: number; sum: number; off: number; len: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const p = offset + 12 + i * 16;
+    recs.push({
+      tag: dv.getUint32(p),
+      sum: dv.getUint32(p + 4),
+      off: dv.getUint32(p + 8),
+      len: dv.getUint32(p + 12),
+    });
+  }
+  const pad = (v: number) => (v + 3) & ~3;
+  let total = 12 + n * 16;
+  for (const r of recs) total += pad(r.len);
+  const out = new Uint8Array(total);
+  const ov = new DataView(out.buffer);
+  ov.setUint32(0, dv.getUint32(offset));
+  ov.setUint16(4, n);
+  let es = 0;
+  while (1 << (es + 1) <= n) es++;
+  ov.setUint16(6, (1 << es) * 16);
+  ov.setUint16(8, es);
+  ov.setUint16(10, n * 16 - (1 << es) * 16);
+  let cur = 12 + n * 16;
+  recs.forEach((r, i) => {
+    const p = 12 + i * 16;
+    ov.setUint32(p, r.tag);
+    ov.setUint32(p + 4, r.sum);
+    ov.setUint32(p + 8, cur);
+    ov.setUint32(p + 12, r.len);
+    out.set(bytes.subarray(r.off, r.off + r.len), cur);
+    cur += pad(r.len);
+  });
+  return out;
+}
+
+/** 集合裡某個字體（offset）的名稱 */
+export function readFontNamesAt(bytes: Uint8Array, offset: number): FontNames | null {
+  try {
+    return readSfnt(bytes, offset);
+  } catch {
+    return null;
+  }
+}
+
+/** OS/2 表的 fsType（字型能不能嵌入發布物）；讀不到時 null。offset 是字體的起始位置（單一字型為 0） */
+export function readFsType(bytes: Uint8Array, offset = 0): number | null {
+  try {
+    if (bytes.length < 12) return null;
+    const sig = tag(bytes, offset);
+    if (sig === 'wOFF' || sig === 'wOF2' || sig === 'ttcf') return null;
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const numTables = dv.getUint16(offset + 4);
+    for (let i = 0; i < numTables; i++) {
+      const r = offset + 12 + i * 16;
+      if (tag(bytes, r) === 'OS/2') return dv.getUint16(dv.getUint32(r + 8) + 8);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** fsType 的限制：不可嵌入（0x0002）、只能預覽與列印（0x0004）、只能嵌入點陣（0x0200）；沒有限制時 null */
+export function fsTypeRestriction(v: number | null): 'restricted' | 'preview' | 'bitmap' | null {
+  if (v == null) return null;
+  if (v & 0x0002) return 'restricted';
+  if (v & 0x0004) return 'preview';
+  if (v & 0x0200) return 'bitmap';
+  return null;
+}

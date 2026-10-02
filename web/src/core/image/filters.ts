@@ -36,19 +36,44 @@ export interface GradientStop {
 export type FilterOp =
   | { op: 'gray'; amount?: number }
   | { op: 'sepia'; amount?: number }
-  /** r' = m0·r + m1·g + m2·b + m3（g'、b' 依序） */
-  | { op: 'matrix'; m: readonly number[] }
+  /**
+   * r' = m0·r + m1·g + m2·b + m3（g'、b' 依序）。選填的亮部／暗部項（bg-motion 原作的時段濾鏡）：
+   * r' 再加 highlight[0]·H + shadow[0]·S，H＝clamp((亮度 − 112) ÷ 143)、S＝clamp((132 − 亮度) ÷ 132)（亮度＝Rec.601、0～1）；
+   * highlightAbove：H 不大於這個值時亮部項當成 0。
+   */
+  | {
+      op: 'matrix';
+      m: readonly number[];
+      highlight?: Rgb;
+      shadow?: Rgb;
+      highlightAbove?: number;
+    }
   | { op: 'contrast'; amount: number; pivot?: number }
   | { op: 'brightness'; amount: number | Rgb }
   | { op: 'saturate'; amount: number }
   | { op: 'posterize'; levels: number }
   /** v' = lift + (gain − lift) × (v ÷ 255)^gamma（各色可分開） */
   | { op: 'curve'; gamma?: number | Rgb; lift?: number | Rgb; gain?: number | Rgb }
-  /** 模糊副本（半徑 px，約略的高斯 σ）以 blend 混合、不透明度 mix 疊回 */
-  | { op: 'blur'; radius: number; mix: number; blend?: BlendMode }
+  /**
+   * 模糊副本（半徑 px，約略的高斯 σ）以 blend 混合、不透明度 mix 疊回；brightness：模糊副本的亮度倍率（選填）。
+   * canvas：照瀏覽器畫布 `filter: blur(σ px) brightness(b)` 再以 globalAlpha＝mix 畫回的做法——三次方框模糊
+   * （SVG 規格的寬度 d＝⌊σ·3·√(2π)÷4＋0.5⌋）、畫面外視為透明（靠邊的模糊層變半透明），只用一般混合（blend 不作用）。
+   */
+  | {
+      op: 'blur';
+      radius: number;
+      mix: number;
+      blend?: BlendMode;
+      brightness?: number;
+      canvas?: boolean;
+    }
   /** 反銳利遮罩：v + amount × (v − 模糊(v, radius)) */
   | { op: 'sharpen'; amount: number; radius?: number }
-  | { op: 'mosaic'; size: number }
+  /**
+   * 馬賽克（size px 一格）。sample：mean＝整格平均（預設）；center＝照畫布「低品質縮小再最近鄰放大」的做法：
+   * 格數＝round(寬 ÷ size)（格寬可以不是整數），每格取格子中心的雙線性取樣（size 為偶數時約是中央 2 × 2 的平均）。
+   */
+  | { op: 'mosaic'; size: number; sample?: 'mean' | 'center' }
   /** 各色的位移（px，正值往右／往下） */
   | {
       op: 'shift';
@@ -56,16 +81,44 @@ export type FilterOp =
       g?: readonly [number, number];
       b?: readonly [number, number];
     }
-  /** 線稿：亮度差超過 threshold 的地方畫線（只畫在較暗那一側、1 px 寬）；ink 黑線白底或 light 白線黑底 */
-  | { op: 'lines'; mode: 'dark' | 'light'; threshold?: number; softness?: number }
+  /**
+   * 線稿：亮度差超過 threshold 的地方畫線（線的濃度＝(差 − threshold) ÷ softness，夾在 0～1）；dark 黑線白底或 light 白線黑底。
+   * kernel：max＝與上下左右最亮的鄰居比，只畫在較暗那一側（預設）；forward＝bg-motion 原作的做法：
+   * |自己 − 右邊| ＋ |自己 − 下面|（線畫在交界的左／上那一格，1 px 細線）。
+   */
+  | {
+      op: 'lines';
+      mode: 'dark' | 'light';
+      threshold?: number;
+      softness?: number;
+      kernel?: 'max' | 'forward';
+    }
   /** 在原圖上疊暗線（水墨） */
   | { op: 'edges'; amount: number; threshold?: number; softness?: number }
   | { op: 'fill'; color: Rgb; alpha: number; blend?: BlendMode }
-  /** 線性漸層：從 (x0, y0) 到 (x1, y1)（畫面比例） */
+  /**
+   * 線性漸層：從 (x0, y0) 到 (x1, y1)（畫面比例）。色標的顏色與不透明度各自線性內插（同畫布，不預乘）。
+   * space：unit＝在 0～1 的正規化座標上投影（預設）；pixel＝照畫布 createLinearGradient：換成 px 座標、以像素中心投影
+   * （斜向漸層會隨長寬比改變方向）。
+   */
   | {
       op: 'gradient';
       from: readonly [number, number];
       to: readonly [number, number];
+      stops: readonly GradientStop[];
+      blend?: BlendMode;
+      space?: 'unit' | 'pixel';
+    }
+  /**
+   * 放射狀漸層（照畫布 createRadialGradient 的同心圓）：中心（畫面比例）、內外半徑 r0、r1（畫面長邊的比例），
+   * 像素中心到中心的距離 d → t＝(d − r0) ÷ (r1 − r0)，夾在 0～1（內圈以內用第一個色標、外圈以外用最後一個）。
+   * 色標不預乘內插，預設一般混合。
+   */
+  | {
+      op: 'radial';
+      center: readonly [number, number];
+      r0?: number;
+      r1: number;
       stops: readonly GradientStop[];
       blend?: BlendMode;
     }
@@ -85,8 +138,11 @@ export type FilterOp =
   | { op: 'vignette'; amount: number; inner?: number; outer?: number; color?: Rgb; power?: number }
   /** 掃描線：每 period px 一條（offset 起），該列亮度 × (1 − dark) */
   | { op: 'scanlines'; period: number; dark: number; offset?: number; width?: number }
-  /** 顆粒：標準差約 amount 的決定性雜訊（每格不同：frame 換了就換一組）；mono＝三色同一個值 */
-  | { op: 'grain'; amount: number; mono?: boolean };
+  /**
+   * 顆粒：標準差約 amount 的決定性雜訊（每格不同：frame 換了就換一組）；mono＝三色同一個值。
+   * shape：normal＝近似常態（預設）；uniform＝均勻分布（寬 amount·√12，同原作的 (亂數 − 0.5) × 寬）。
+   */
+  | { op: 'grain'; amount: number; mono?: boolean; shape?: 'normal' | 'uniform' };
 
 export interface FilterContext {
   /** 第幾格（顆粒每格不同） */
@@ -144,14 +200,24 @@ function boxBlurH(src: Float32Array, dst: Float32Array, w: number, h: number, r:
   }
 }
 
+/**
+ * 垂直方框模糊：每一欄各自的累加值放在一列陣列裡，逐列往下推（記憶體連續讀取，比逐欄快很多；
+ * 每一欄的累加順序與逐欄算時相同，結果一樣）。
+ */
 function boxBlurV(src: Float32Array, dst: Float32Array, w: number, h: number, r: number) {
   const k = 1 / (2 * r + 1);
-  for (let x = 0; x < w; x++) {
-    let acc = 0;
-    for (let i = -r; i <= r; i++) acc += src[Math.min(h - 1, Math.max(0, i)) * w + x];
-    for (let y = 0; y < h; y++) {
-      dst[y * w + x] = acc * k;
-      acc += src[Math.min(h - 1, y + r + 1) * w + x] - src[Math.max(0, y - r) * w + x];
+  const acc = new Float64Array(w);
+  for (let i = -r; i <= r; i++) {
+    const row = Math.min(h - 1, Math.max(0, i)) * w;
+    for (let x = 0; x < w; x++) acc[x] += src[row + x];
+  }
+  for (let y = 0; y < h; y++) {
+    const o = y * w;
+    const add = Math.min(h - 1, y + r + 1) * w;
+    const sub = Math.max(0, y - r) * w;
+    for (let x = 0; x < w; x++) {
+      dst[o + x] = acc[x] * k;
+      acc[x] += src[add + x] - src[sub + x];
     }
   }
 }
@@ -182,6 +248,206 @@ export function blurPlane(
     else out.set(tmp);
   }
   return out;
+}
+
+/* ---------- 畫布式模糊（filter: blur()：三次方框、畫面外透明） ---------- */
+
+/**
+ * SVG 規格（瀏覽器的 blur() 也照這個）的三次方框：d＝⌊σ·3·√(2π)÷4＋0.5⌋；d 為奇數時三個寬 d 的置中方框，
+ * 偶數時兩個寬 d（分別偏左、偏右半格）與一個寬 d＋1 的方框。回傳每個方框的視窗 [lo, hi]（含兩端）。
+ */
+function svgBoxes(sigma: number): [number, number][] {
+  const d = Math.floor((sigma * 3 * Math.sqrt(2 * Math.PI)) / 4 + 0.5);
+  if (d < 2) return [];
+  if (d % 2) {
+    const r = (d - 1) / 2;
+    return [
+      [-r, r],
+      [-r, r],
+      [-r, r],
+    ];
+  }
+  const h = d / 2;
+  return [
+    [-h, h - 1],
+    [-h + 1, h],
+    [-h, h],
+  ];
+}
+
+/** 一維方框（視窗 [x + lo, x + hi]，範圍外視為 0），src 從 so 起、間隔 1 的 n 個值寫到 dst */
+function boxLine(
+  src: Float32Array,
+  dst: Float32Array,
+  so: number,
+  n: number,
+  lo: number,
+  hi: number,
+): void {
+  const k = 1 / (hi - lo + 1);
+  let acc = 0;
+  for (let i = Math.max(0, lo); i <= Math.min(n - 1, hi); i++) acc += src[so + i];
+  /* 分三段（左端、中段、右端），中段不必檢查範圍；lo ≤ 0 ≤ hi */
+  let x = 0;
+  const xa = Math.min(n, -lo);
+  for (; x < xa; x++) {
+    dst[so + x] = acc * k;
+    const inn = x + hi + 1;
+    if (inn < n) acc += src[so + inn];
+  }
+  const xb = Math.max(x, n - hi - 1);
+  for (; x < xb; x++) {
+    dst[so + x] = acc * k;
+    acc += src[so + x + hi + 1] - src[so + x + lo];
+  }
+  for (; x < n; x++) {
+    dst[so + x] = acc * k;
+    const out = x + lo;
+    if (out >= 0) acc -= src[so + out];
+  }
+}
+
+/**
+ * 三個色版同時做 boxLine（三條累加互不相依，比分開做快）：s[c]、d[c] 是三個色版的來源與目的，
+ * 各自從 so 起、間隔 1 的 n 個值；視窗 [x + lo, x + hi]，範圍外視為 0，lo ≤ 0 ≤ hi。
+ */
+function boxLine3(
+  s: readonly Float32Array[],
+  d: readonly Float32Array[],
+  so: number,
+  n: number,
+  lo: number,
+  hi: number,
+): void {
+  const [s0, s1, s2] = s;
+  const [d0, d1, d2] = d;
+  const k = 1 / (hi - lo + 1);
+  let a0 = 0;
+  let a1 = 0;
+  let a2 = 0;
+  for (let i = so + Math.max(0, lo); i <= so + Math.min(n - 1, hi); i++) {
+    a0 += s0[i];
+    a1 += s1[i];
+    a2 += s2[i];
+  }
+  let x = 0;
+  const xa = Math.min(n, -lo);
+  for (; x < xa; x++) {
+    const o = so + x;
+    d0[o] = a0 * k;
+    d1[o] = a1 * k;
+    d2[o] = a2 * k;
+    if (x + hi + 1 < n) {
+      const j = o + hi + 1;
+      a0 += s0[j];
+      a1 += s1[j];
+      a2 += s2[j];
+    }
+  }
+  const xb = Math.max(x, n - hi - 1);
+  for (; x < xb; x++) {
+    const o = so + x;
+    const j = o + hi + 1;
+    const q = o + lo;
+    d0[o] = a0 * k;
+    d1[o] = a1 * k;
+    d2[o] = a2 * k;
+    a0 += s0[j] - s0[q];
+    a1 += s1[j] - s1[q];
+    a2 += s2[j] - s2[q];
+  }
+  for (; x < n; x++) {
+    const o = so + x;
+    d0[o] = a0 * k;
+    d1[o] = a1 * k;
+    d2[o] = a2 * k;
+    if (x + lo >= 0) {
+      const q = o + lo;
+      a0 -= s0[q];
+      a1 -= s1[q];
+      a2 -= s2[q];
+    }
+  }
+}
+
+/**
+ * 垂直方向的一維方框（逐列推進；每一欄各自累加，範圍外視為 0）。平面寬 w、高 h，只算 [x0, x1) 這幾欄
+ * （其他欄不寫）。
+ */
+function boxColumns(
+  src: Float32Array,
+  dst: Float32Array,
+  w: number,
+  h: number,
+  lo: number,
+  hi: number,
+  x0 = 0,
+  x1 = w,
+): void {
+  const k = 1 / (hi - lo + 1);
+  const n = x1 - x0;
+  const acc = new Float64Array(n);
+  for (let i = Math.max(0, lo); i <= Math.min(h - 1, hi); i++) {
+    const row = i * w + x0;
+    for (let x = 0; x < n; x++) acc[x] += src[row + x];
+  }
+  for (let y = 0; y < h; y++) {
+    const o = y * w + x0;
+    const out = y + lo;
+    const inn = y + hi + 1;
+    if (out >= 0 && inn < h) {
+      /* 中段：寫出、加一列、減一列一起做 */
+      const ro = out * w + x0;
+      const ri = inn * w + x0;
+      for (let x = 0; x < n; x++) {
+        const a = acc[x];
+        dst[o + x] = a * k;
+        acc[x] = a + src[ri + x] - src[ro + x];
+      }
+      continue;
+    }
+    for (let x = 0; x < n; x++) dst[o + x] = acc[x] * k;
+    if (out >= 0 && out < h) {
+      const r = out * w + x0;
+      for (let x = 0; x < n; x++) acc[x] -= src[r + x];
+    }
+    if (inn < h) {
+      const r = inn * w + x0;
+      for (let x = 0; x < n; x++) acc[x] += src[r + x];
+    }
+  }
+}
+
+/** 長 n 的一排不透明像素模糊後的不透明度（0～1；靠兩端的變小） */
+function coverage1d(n: number, boxes: readonly [number, number][]): Float32Array {
+  const pad = boxes.reduce((s, [lo, hi]) => s + Math.max(-lo, hi), 0);
+  const len = n + 2 * pad;
+  let a = new Float32Array(len);
+  a.fill(1, pad, pad + n);
+  let b = new Float32Array(len);
+  for (const [lo, hi] of boxes) {
+    boxLine(a, b, 0, len, lo, hi);
+    [a, b] = [b, a];
+  }
+  return a.slice(pad, pad + n);
+}
+
+/* ---------- 色標查表（gradient 的 pixel 座標、radial 用） ---------- */
+
+const LUT_N = 4096;
+
+/** 色標在 t＝0～1 的 LUT_N 個取樣（每格 r, g, b, a） */
+function stopsLut(stops: readonly GradientStop[]): Float32Array {
+  const lut = new Float32Array(LUT_N * 4);
+  const c: Paint = { r: 0, g: 0, b: 0, a: 0 };
+  for (let i = 0; i < LUT_N; i++) {
+    sampleStops(stops, i / (LUT_N - 1), c);
+    lut[i * 4] = c.r;
+    lut[i * 4 + 1] = c.g;
+    lut[i * 4 + 2] = c.b;
+    lut[i * 4 + 3] = c.a;
+  }
+  return lut;
 }
 
 /* ---------- 主程式 ---------- */
@@ -254,39 +520,347 @@ interface Paint {
   a: number;
 }
 
-/** 依 (x, y) 決定顏色與不透明度的疊層 */
-function overlay(
-  p: Planes,
-  w: number,
-  h: number,
-  blend: BlendMode,
-  at: (x: number, y: number, out: Paint) => void,
-) {
-  const c: Paint = { r: 0, g: 0, b: 0, a: 0 };
-  for (let y = 0, i = 0; y < h; y++) {
-    for (let x = 0; x < w; x++, i++) {
-      at(x, y, c);
-      const a = c.a;
+/*
+ * 疊層：fill、glow、vignette 先算出每個像素的不透明度，再一次混合到整張圖（gradient 每個像素取色後直接混合）。
+ * 混合時 normal／screen／multiply 各有專用的算式（與 blendChannel 相同，結果一樣，但快很多），
+ * 其他模式逐像素呼叫 blendChannel。
+ */
+
+/** 每個像素的不透明度 A（≤ 0 的不動），顏色固定 */
+function blendPlanes(p: Planes, mode: BlendMode, A: Float64Array, color: Rgb): void {
+  const { r: R, g: G, b: B } = p;
+  const n = R.length;
+  const [cr, cg, cb] = color;
+  if (mode === 'normal') {
+    for (let i = 0; i < n; i++) {
+      const a = A[i];
       if (a <= 0) continue;
-      const r = p.r[i];
-      const g = p.g[i];
-      const b = p.b[i];
-      p.r[i] = r + (blendChannel(blend, r, c.r) - r) * a;
-      p.g[i] = g + (blendChannel(blend, g, c.g) - g) * a;
-      p.b[i] = b + (blendChannel(blend, b, c.b) - b) * a;
+      const r = R[i];
+      const g = G[i];
+      const b = B[i];
+      R[i] = r + (cr - r) * a;
+      G[i] = g + (cg - g) * a;
+      B[i] = b + (cb - b) * a;
+    }
+    return;
+  }
+  if (mode === 'screen') {
+    for (let i = 0; i < n; i++) {
+      const a = A[i];
+      if (a <= 0) continue;
+      const r = R[i];
+      const g = G[i];
+      const b = B[i];
+      R[i] = r + (r + cr - (r * cr) / 255 - r) * a;
+      G[i] = g + (g + cg - (g * cg) / 255 - g) * a;
+      B[i] = b + (b + cb - (b * cb) / 255 - b) * a;
+    }
+    return;
+  }
+  if (mode === 'multiply') {
+    for (let i = 0; i < n; i++) {
+      const a = A[i];
+      if (a <= 0) continue;
+      const r = R[i];
+      const g = G[i];
+      const b = B[i];
+      R[i] = r + ((r * cr) / 255 - r) * a;
+      G[i] = g + ((g * cg) / 255 - g) * a;
+      B[i] = b + ((b * cb) / 255 - b) * a;
+    }
+    return;
+  }
+  for (let i = 0; i < n; i++) {
+    const a = A[i];
+    if (a <= 0) continue;
+    const r = R[i];
+    const g = G[i];
+    const b = B[i];
+    R[i] = r + (blendChannel(mode, r, cr) - r) * a;
+    G[i] = g + (blendChannel(mode, g, cg) - g) * a;
+    B[i] = b + (blendChannel(mode, b, cb) - b) * a;
+  }
+}
+
+/**
+ * 只跟畫面大小有關的不透明度圖（光團、暗角）：同一個步驟（物件）、同樣大小時沿用上一次算好的
+ * （動畫逐格套同一組濾鏡時不必每格重算）。上下一致的圖（applyFilterRows）不快取。
+ */
+const alphaCache = new WeakMap<FilterOp, { key: string; alpha: Float64Array }>();
+
+function cachedAlpha(op: FilterOp, geo: Geom, build: (A: Float64Array) => void): Float64Array {
+  const key = `${geo.w}x${geo.h}`;
+  const hit = geo.stacked ? undefined : alphaCache.get(op);
+  if (hit && hit.key === key) return hit.alpha;
+  const alpha = new Float64Array(geo.w * geo.h);
+  build(alpha);
+  if (!geo.stacked) alphaCache.set(op, { key, alpha });
+  return alpha;
+}
+
+const blendKind = (mode: BlendMode) =>
+  mode === 'normal' ? 0 : mode === 'screen' ? 1 : mode === 'multiply' ? 2 : 3;
+
+/** 第 i 個像素以色標查表第 j 格的顏色與不透明度混合（kind 見 blendKind；專用算式與 blendChannel 相同） */
+function mixLut(
+  p: Planes,
+  i: number,
+  lut: Float32Array,
+  j: number,
+  kind: number,
+  mode: BlendMode,
+): void {
+  const o = j * 4;
+  const a = lut[o + 3];
+  if (a <= 0) return;
+  const cr = lut[o];
+  const cg = lut[o + 1];
+  const cb = lut[o + 2];
+  const r = p.r[i];
+  const g = p.g[i];
+  const b = p.b[i];
+  if (kind === 0) {
+    p.r[i] = r + (cr - r) * a;
+    p.g[i] = g + (cg - g) * a;
+    p.b[i] = b + (cb - b) * a;
+  } else if (kind === 1) {
+    p.r[i] = r + (cr - (r * cr) / 255) * a;
+    p.g[i] = g + (cg - (g * cg) / 255) * a;
+    p.b[i] = b + (cb - (b * cb) / 255) * a;
+  } else if (kind === 2) {
+    p.r[i] = r + ((r * cr) / 255 - r) * a;
+    p.g[i] = g + ((g * cg) / 255 - g) * a;
+    p.b[i] = b + ((b * cb) / 255 - b) * a;
+  } else {
+    p.r[i] = r + (blendChannel(mode, r, cr) - r) * a;
+    p.g[i] = g + (blendChannel(mode, g, cg) - g) * a;
+    p.b[i] = b + (blendChannel(mode, b, cb) - b) * a;
+  }
+}
+
+/** t（0～1，範圍外夾住）→ 查表的格號 */
+const lutIndex = (t: number) => (t <= 0 ? 0 : t >= 1 ? LUT_N - 1 : Math.round(t * (LUT_N - 1)));
+
+/**
+ * 漸層（gradient 的 pixel 座標、radial）每個像素的查表格號只跟畫面大小有關：同一個步驟（物件）、同樣大小時沿用
+ * （動畫逐格套同一組濾鏡時不必每格重算距離）。上下一致的圖（applyFilterRows）不快取。
+ */
+const indexCache = new WeakMap<FilterOp, { key: string; idx: Uint16Array; lut: Float32Array }>();
+
+function cachedIndex(
+  op: FilterOp,
+  geo: Geom,
+  stops: readonly GradientStop[],
+  build: (idx: Uint16Array) => void,
+): { idx: Uint16Array; lut: Float32Array } {
+  const key = `${geo.w}x${geo.h}`;
+  const hit = geo.stacked ? undefined : indexCache.get(op);
+  if (hit && hit.key === key) return hit;
+  const idx = new Uint16Array(geo.w * geo.h);
+  build(idx);
+  const entry = { key, idx, lut: stopsLut(stops) };
+  if (!geo.stacked) indexCache.set(op, entry);
+  return entry;
+}
+
+/** 依格號圖與色標查表混合整張圖（一般混合走專用迴圈） */
+function paintIndexed(p: Planes, idx: Uint16Array, lut: Float32Array, mode: BlendMode): void {
+  const kind = blendKind(mode);
+  if (kind !== 0) {
+    for (let i = 0; i < idx.length; i++) mixLut(p, i, lut, idx[i], kind, mode);
+    return;
+  }
+  const { r: R, g: G, b: B } = p;
+  for (let i = 0; i < idx.length; i++) {
+    const o = idx[i] * 4;
+    const a = lut[o + 3];
+    if (a <= 0) continue;
+    const r = R[i];
+    const g = G[i];
+    const b = B[i];
+    R[i] = r + (lut[o] - r) * a;
+    G[i] = g + (lut[o + 1] - g) * a;
+    B[i] = b + (lut[o + 2] - b) * a;
+  }
+}
+
+/**
+ * 照畫布 filter: blur(σ) brightness(b) 畫出模糊副本、再以不透明度 mix 一般混合疊回（見 FilterOp 的 blur.canvas）。
+ * 模糊副本是預乘色：畫面外透明，所以靠邊的不透明度＝橫向 × 縱向的覆蓋率；亮度倍率作用在未預乘的顏色上、夾在 255。
+ */
+function canvasBlurOverlay(
+  p: Planes,
+  geo: Geom,
+  sigma: number,
+  mix: number,
+  brightness: number,
+): void {
+  const { w, h, stacked } = geo;
+  const boxes = svgBoxes(sigma);
+  const pad = boxes.reduce((s, [lo, hi]) => s + Math.max(-lo, hi), 0);
+  const ax = coverage1d(w, boxes);
+  const fullY = coverage1d(geo.fullH, boxes);
+  const ay = new Float32Array(h);
+  for (let y = 0; y < h; y++) ay[y] = fullY[geo.rowY(y)];
+  const PW = w + 2 * pad;
+  /* 上下一致的圖（stacked）只做橫向，縱向的覆蓋率另外乘上 */
+  const PH = stacked ? h : h + 2 * pad;
+  const oy = stacked ? 0 : pad;
+  const keys = ['r', 'g', 'b'] as const;
+  let a = keys.map(() => new Float32Array(PW * PH));
+  let b = keys.map(() => new Float32Array(PW * PH));
+  /* 橫向：逐列在小暫存裡做完三個方框再寫進加了留白的平面（上下的留白一直是 0）；三個色版一起做 */
+  {
+    let ra = keys.map(() => new Float32Array(PW));
+    let rb = keys.map(() => new Float32Array(PW));
+    for (let y = 0; y < h; y++) {
+      for (let c = 0; c < 3; c++) {
+        ra[c].fill(0);
+        ra[c].set(p[keys[c]].subarray(y * w, y * w + w), pad);
+      }
+      for (const [lo, hi] of boxes) {
+        boxLine3(ra, rb, 0, PW, lo, hi);
+        [ra, rb] = [rb, ra];
+      }
+      for (let c = 0; c < 3; c++) a[c].set(ra[c], (y + oy) * PW);
+    }
+  }
+  const { r: R, g: G, b: B } = p;
+  if (!stacked && boxes.length) {
+    /* 縱向：前面的方框整張做，最後一個方框只推進原圖那幾列、那幾欄，邊推進邊疊回（不寫出模糊平面） */
+    for (const [lo, hi] of boxes.slice(0, -1)) {
+      /* 橫向已經做完，左右留白那幾欄之後用不到 */
+      for (let c = 0; c < 3; c++) boxColumns(a[c], b[c], PW, PH, lo, hi, pad, pad + w);
+      [a, b] = [b, a];
+    }
+    const [lo, hi] = boxes[boxes.length - 1];
+    const k = (1 / (hi - lo + 1)) * brightness;
+    const [SR, SG, SB] = a;
+    const accR = new Float64Array(w);
+    const accG = new Float64Array(w);
+    const accB = new Float64Array(w);
+    for (let r = Math.max(0, oy + lo); r <= Math.min(PH - 1, oy + hi); r++) {
+      const o = r * PW + pad;
+      for (let x = 0; x < w; x++) {
+        accR[x] += SR[o + x];
+        accG[x] += SG[o + x];
+        accB[x] += SB[o + x];
+      }
+    }
+    for (let y = 0; y < h; y++) {
+      const ayv = ay[y];
+      for (let x = 0, i = y * w; x < w; x++, i++) {
+        const al = ax[x] * ayv;
+        const cap = 255 * al;
+        const cr = Math.min(cap, accR[x] * k);
+        const cg = Math.min(cap, accG[x] * k);
+        const cb = Math.min(cap, accB[x] * k);
+        const keep = 1 - mix * al;
+        R[i] = R[i] * keep + cr * mix;
+        G[i] = G[i] * keep + cg * mix;
+        B[i] = B[i] * keep + cb * mix;
+      }
+      const out = y + oy + lo;
+      const inn = y + oy + hi + 1;
+      if (out >= 0) {
+        const o = out * PW + pad;
+        for (let x = 0; x < w; x++) {
+          accR[x] -= SR[o + x];
+          accG[x] -= SG[o + x];
+          accB[x] -= SB[o + x];
+        }
+      }
+      if (inn < PH) {
+        const o = inn * PW + pad;
+        for (let x = 0; x < w; x++) {
+          accR[x] += SR[o + x];
+          accG[x] += SG[o + x];
+          accB[x] += SB[o + x];
+        }
+      }
+    }
+    return;
+  }
+  /* 上下一致的圖（只做了橫向，縱向乘上覆蓋率）或沒有模糊（σ 太小） */
+  const [BR, BG, BB] = a;
+  for (let y = 0; y < h; y++) {
+    const row = (y + oy) * PW + pad;
+    const kyv = stacked ? ay[y] : 1;
+    for (let x = 0, i = y * w; x < w; x++, i++) {
+      const a = ax[x] * ay[y];
+      const cap = 255 * a;
+      const j = row + x;
+      const cr = Math.min(cap, BR[j] * kyv * brightness);
+      const cg = Math.min(cap, BG[j] * kyv * brightness);
+      const cb = Math.min(cap, BB[j] * kyv * brightness);
+      const keep = 1 - mix * a;
+      R[i] = R[i] * keep + cr * mix;
+      G[i] = G[i] * keep + cg * mix;
+      B[i] = B[i] * keep + cb * mix;
     }
   }
 }
 
-/** 逐像素調色：f 讀 (r, g, b)、把結果寫進 out[0..2] */
-function perPixel(p: Planes, f: (r: number, g: number, b: number, out: Float64Array) => void) {
-  const o = new Float64Array(3);
-  for (let i = 0; i < p.r.length; i++) {
-    f(p.r[i], p.g[i], p.b[i], o);
-    p.r[i] = o[0];
-    p.g[i] = o[1];
-    p.b[i] = o[2];
+/**
+ * 照畫布「低品質縮小（雙線性）再最近鄰放大」的馬賽克：格數 round(寬 ÷ size) × round(高 ÷ size)，
+ * 每格取格子中心的雙線性取樣；放大時第 X 欄用第 ⌊(X ＋ 0.5) × 格數 ÷ 寬⌋ 格。上下一致的圖只做橫向。
+ */
+function mosaicCenter(p: Planes, geo: Geom, size: number): void {
+  const { w, h, stacked } = geo;
+  const sw = Math.max(1, Math.round(w / size));
+  const sh = stacked ? h : Math.max(1, Math.round(h / size));
+  /* 每一格（欄、列）的取樣位置：左右兩個來源像素與權重 */
+  const taps = (n: number, m: number) => {
+    const i0 = new Int32Array(m);
+    const i1 = new Int32Array(m);
+    const f = new Float32Array(m);
+    for (let k = 0; k < m; k++) {
+      const u = Math.max(0, Math.min(n - 1, ((k + 0.5) * n) / m - 0.5));
+      const a = Math.floor(u);
+      i0[k] = a;
+      i1[k] = Math.min(n - 1, a + 1);
+      f[k] = u - a;
+    }
+    return { i0, i1, f };
+  };
+  const tx = taps(w, sw);
+  const ty = stacked ? null : taps(h, sh);
+  /* 輸出的每一欄、每一列對應到哪一格 */
+  const cellX = new Int32Array(w);
+  for (let x = 0; x < w; x++) cellX[x] = Math.min(sw - 1, Math.floor(((x + 0.5) * sw) / w));
+  const cellY = new Int32Array(h);
+  for (let y = 0; y < h; y++)
+    cellY[y] = stacked ? y : Math.min(sh - 1, Math.floor(((y + 0.5) * sh) / h));
+  for (const key of ['r', 'g', 'b'] as const) {
+    const src = p[key];
+    const small = new Float32Array(sw * sh);
+    for (let j = 0; j < sh; j++) {
+      const y0 = ty ? ty.i0[j] : j;
+      const y1 = ty ? ty.i1[j] : j;
+      const fy = ty ? ty.f[j] : 0;
+      for (let i = 0; i < sw; i++) {
+        const x0 = tx.i0[i];
+        const x1 = tx.i1[i];
+        const fx = tx.f[i];
+        const top = src[y0 * w + x0] * (1 - fx) + src[y0 * w + x1] * fx;
+        const bot = src[y1 * w + x0] * (1 - fx) + src[y1 * w + x1] * fx;
+        small[j * sw + i] = top * (1 - fy) + bot * fy;
+      }
+    }
+    for (let y = 0, o = 0; y < h; y++) {
+      const srow = cellY[y] * sw;
+      for (let x = 0; x < w; x++, o++) src[o] = small[srow + cellX[x]];
+    }
   }
+}
+
+/** 每一欄的 fx(x)、每一列的 fy(y)（畫面比例），疊層的迴圈用 */
+function axes(geo: Geom): { ax: Float64Array; ay: Float64Array } {
+  const ax = new Float64Array(geo.w);
+  const ay = new Float64Array(geo.h);
+  for (let x = 0; x < geo.w; x++) ax[x] = geo.fx(x);
+  for (let y = 0; y < geo.h; y++) ay[y] = geo.fy(y);
+  return { ax, ay };
 }
 
 /** 亮度差（取上下左右鄰居中最亮的減掉自己；正值＝自己是較暗的那一側） */
@@ -308,81 +882,136 @@ function darkSide(p: Planes, w: number, h: number, stacked = false): Float32Arra
   return out;
 }
 
+/** 前向差分的邊緣量：|自己 − 右邊| ＋ |自己 − 下面|（最右欄、最下列的鄰居是自己；上下一致的圖沒有縱向差） */
+function forwardEdge(p: Planes, w: number, h: number, stacked = false): Float32Array {
+  const L = new Float32Array(w * h);
+  for (let i = 0; i < L.length; i++) L[i] = luma601(p.r[i], p.g[i], p.b[i]);
+  const out = new Float32Array(w * h);
+  for (let y = 0, i = 0; y < h; y++) {
+    const down = !stacked && y < h - 1 ? w : 0;
+    for (let x = 0; x < w; x++, i++) {
+      const v = L[i];
+      const right = x < w - 1 ? L[i + 1] : v;
+      out[i] = Math.abs(v - right) + Math.abs(v - L[i + down]);
+    }
+  }
+  return out;
+}
+
 const ramp = (v: number, t: number, s: number) =>
   Math.max(0, Math.min(1, (v - t) / Math.max(1e-6, s)));
 
 function applyOp(p: Planes, geo: Geom, op: FilterOp, ctx: FilterContext) {
-  const { w, h, fx, fy, stacked } = geo;
+  const { w, h, stacked } = geo;
   switch (op.op) {
+    /* 逐像素調色：直接寫迴圈（不經過回呼），算式與順序照舊 */
     case 'gray': {
       const k = op.amount ?? 1;
-      perPixel(p, (r, g, b, o) => {
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        const r = R[i];
+        const g = G[i];
+        const b = B[i];
         const l = luma601(r, g, b);
-        o[0] = r + (l - r) * k;
-        o[1] = g + (l - g) * k;
-        o[2] = b + (l - b) * k;
-      });
+        R[i] = r + (l - r) * k;
+        G[i] = g + (l - g) * k;
+        B[i] = b + (l - b) * k;
+      }
       return;
     }
     case 'sepia': {
       const k = op.amount ?? 1;
-      perPixel(p, (r, g, b, o) => {
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        const r = R[i];
+        const g = G[i];
+        const b = B[i];
         const sr = 0.393 * r + 0.769 * g + 0.189 * b;
         const sg = 0.349 * r + 0.686 * g + 0.168 * b;
         const sb = 0.272 * r + 0.534 * g + 0.131 * b;
-        o[0] = r + (sr - r) * k;
-        o[1] = g + (sg - g) * k;
-        o[2] = b + (sb - b) * k;
-      });
+        R[i] = r + (sr - r) * k;
+        G[i] = g + (sg - g) * k;
+        B[i] = b + (sb - b) * k;
+      }
       return;
     }
     case 'matrix': {
-      const m = op.m;
-      perPixel(p, (r, g, b, o) => {
-        o[0] = m[0] * r + m[1] * g + m[2] * b + m[3];
-        o[1] = m[4] * r + m[5] * g + m[6] * b + m[7];
-        o[2] = m[8] * r + m[9] * g + m[10] * b + m[11];
-      });
+      const [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11] = op.m;
+      const { r: R, g: G, b: B } = p;
+      if (op.highlight || op.shadow) {
+        const [h0, h1, h2] = op.highlight ?? [0, 0, 0];
+        const [s0, s1, s2] = op.shadow ?? [0, 0, 0];
+        const above = op.highlightAbove;
+        for (let i = 0; i < R.length; i++) {
+          const r = R[i];
+          const g = G[i];
+          const b = B[i];
+          const l = luma601(r, g, b);
+          let hl = l <= 112 ? 0 : l >= 255 ? 1 : (l - 112) / 143;
+          if (above !== undefined && !(hl > above)) hl = 0;
+          const sh = l >= 132 ? 0 : l <= 0 ? 1 : (132 - l) / 132;
+          R[i] = clampByte(m0 * r + m1 * g + m2 * b + m3 + h0 * hl + s0 * sh);
+          G[i] = clampByte(m4 * r + m5 * g + m6 * b + m7 + h1 * hl + s1 * sh);
+          B[i] = clampByte(m8 * r + m9 * g + m10 * b + m11 + h2 * hl + s2 * sh);
+        }
+        return;
+      }
+      /* 截斷直接在迴圈裡做（結果與之後再掃一次相同，見 keepsRange） */
+      for (let i = 0; i < R.length; i++) {
+        const r = R[i];
+        const g = G[i];
+        const b = B[i];
+        R[i] = clampByte(m0 * r + m1 * g + m2 * b + m3);
+        G[i] = clampByte(m4 * r + m5 * g + m6 * b + m7);
+        B[i] = clampByte(m8 * r + m9 * g + m10 * b + m11);
+      }
       return;
     }
     case 'contrast': {
       const c = op.amount;
       const pv = op.pivot ?? 128;
-      perPixel(p, (r, g, b, o) => {
-        o[0] = (r - pv) * c + pv;
-        o[1] = (g - pv) * c + pv;
-        o[2] = (b - pv) * c + pv;
-      });
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        R[i] = (R[i] - pv) * c + pv;
+        G[i] = (G[i] - pv) * c + pv;
+        B[i] = (B[i] - pv) * c + pv;
+      }
       return;
     }
     case 'brightness': {
       const [kr, kg, kb] = perChannel(op.amount, 1);
-      perPixel(p, (r, g, b, o) => {
-        o[0] = r * kr;
-        o[1] = g * kg;
-        o[2] = b * kb;
-      });
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        R[i] = R[i] * kr;
+        G[i] = G[i] * kg;
+        B[i] = B[i] * kb;
+      }
       return;
     }
     case 'saturate': {
       const s = op.amount;
-      perPixel(p, (r, g, b, o) => {
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        const r = R[i];
+        const g = G[i];
+        const b = B[i];
         const l = luma601(r, g, b);
-        o[0] = l + (r - l) * s;
-        o[1] = l + (g - l) * s;
-        o[2] = l + (b - l) * s;
-      });
+        R[i] = l + (r - l) * s;
+        G[i] = l + (g - l) * s;
+        B[i] = l + (b - l) * s;
+      }
       return;
     }
     case 'posterize': {
       const n = Math.max(2, Math.round(op.levels));
       const step = 256 / (n - 1);
       const q = (v: number) => Math.min(255, Math.round(clampByte(v) / step) * step);
-      perPixel(p, (r, g, b, o) => {
-        o[0] = q(r);
-        o[1] = q(g);
-        o[2] = q(b);
-      });
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        R[i] = q(R[i]);
+        G[i] = q(G[i]);
+        B[i] = q(B[i]);
+      }
       return;
     }
     case 'curve': {
@@ -391,19 +1020,41 @@ function applyOp(p: Planes, geo: Geom, op: FilterOp, ctx: FilterContext) {
       const gn = perChannel(op.gain, 255);
       const f = (v: number, c: 0 | 1 | 2) =>
         lf[c] + (gn[c] - lf[c]) * (Math.max(0, Math.min(255, v)) / 255) ** gm[c];
-      perPixel(p, (r, g, b, o) => {
-        o[0] = f(r, 0);
-        o[1] = f(g, 1);
-        o[2] = f(b, 2);
-      });
+      const { r: R, g: G, b: B } = p;
+      for (let i = 0; i < R.length; i++) {
+        R[i] = f(R[i], 0);
+        G[i] = f(G[i], 1);
+        B[i] = f(B[i], 2);
+      }
       return;
     }
     case 'blur': {
+      if (op.canvas) {
+        canvasBlurOverlay(p, geo, op.radius, op.mix, op.brightness ?? 1);
+        return;
+      }
       const br = blurPlane(p.r, w, h, op.radius, !stacked);
       const bg = blurPlane(p.g, w, h, op.radius, !stacked);
       const bb = blurPlane(p.b, w, h, op.radius, !stacked);
+      const k = op.brightness ?? 1;
+      if (k !== 1) {
+        for (let i = 0; i < br.length; i++) {
+          br[i] = Math.min(255, br[i] * k);
+          bg[i] = Math.min(255, bg[i] * k);
+          bb[i] = Math.min(255, bb[i] * k);
+        }
+      }
       const mode = op.blend ?? 'normal';
       const a = op.mix;
+      if (mode === 'normal') {
+        const { r: R, g: G, b: B } = p;
+        for (let i = 0; i < R.length; i++) {
+          R[i] += (br[i] - R[i]) * a;
+          G[i] += (bg[i] - G[i]) * a;
+          B[i] += (bb[i] - B[i]) * a;
+        }
+        return;
+      }
       for (let i = 0; i < p.r.length; i++) {
         p.r[i] += (blendChannel(mode, p.r[i], br[i]) - p.r[i]) * a;
         p.g[i] += (blendChannel(mode, p.g[i], bg[i]) - p.g[i]) * a;
@@ -421,6 +1072,10 @@ function applyOp(p: Planes, geo: Geom, op: FilterOp, ctx: FilterContext) {
       return;
     }
     case 'mosaic': {
+      if (op.sample === 'center') {
+        mosaicCenter(p, geo, Math.max(1, op.size));
+        return;
+      }
       const s = Math.max(1, Math.round(op.size));
       for (const key of ['r', 'g', 'b'] as const) {
         const src = p[key];
@@ -460,7 +1115,8 @@ function applyOp(p: Planes, geo: Geom, op: FilterOp, ctx: FilterContext) {
       return;
     }
     case 'lines': {
-      const d = darkSide(p, w, h, stacked);
+      const d =
+        op.kernel === 'forward' ? forwardEdge(p, w, h, stacked) : darkSide(p, w, h, stacked);
       const t = op.threshold ?? 24;
       const s = op.softness ?? 40;
       for (let i = 0; i < d.length; i++) {
@@ -484,54 +1140,149 @@ function applyOp(p: Planes, geo: Geom, op: FilterOp, ctx: FilterContext) {
       }
       return;
     }
-    case 'fill':
-      overlay(p, w, h, op.blend ?? 'normal', (_x, _y, o) => {
-        o.r = op.color[0];
-        o.g = op.color[1];
-        o.b = op.color[2];
-        o.a = op.alpha;
-      });
+    case 'fill': {
+      if (op.alpha <= 0) return;
+      if ((op.blend ?? 'normal') === 'normal') {
+        /* 一般混合：整片同一個不透明度（算式同 blendPlanes，不配置整張的不透明度圖） */
+        const a = op.alpha;
+        const [cr, cg, cb] = op.color;
+        const { r: R, g: G, b: B } = p;
+        for (let i = 0; i < R.length; i++) {
+          const r = R[i];
+          const g = G[i];
+          const b = B[i];
+          R[i] = r + (cr - r) * a;
+          G[i] = g + (cg - g) * a;
+          B[i] = b + (cb - b) * a;
+        }
+        return;
+      }
+      const A = new Float64Array(w * h).fill(op.alpha);
+      blendPlanes(p, op.blend ?? 'normal', A, op.color);
       return;
+    }
     case 'gradient': {
+      if (op.space === 'pixel') {
+        /* 畫布的線性漸層：px 座標、像素中心投影到起點→終點，色標查表 */
+        const { idx, lut } = cachedIndex(op, geo, op.stops, (idx) => {
+          const H = geo.fullH;
+          const px0 = op.from[0] * w;
+          const py0 = op.from[1] * H;
+          const dx = (op.to[0] - op.from[0]) * w;
+          const dy = (op.to[1] - op.from[1]) * H;
+          const len2 = dx * dx + dy * dy || 1;
+          for (let y = 0, i = 0; y < h; y++) {
+            const ty = (geo.rowY(y) + 0.5 - py0) * dy;
+            for (let x = 0; x < w; x++, i++) idx[i] = lutIndex(((x + 0.5 - px0) * dx + ty) / len2);
+          }
+        });
+        paintIndexed(p, idx, lut, op.blend ?? 'normal');
+        return;
+      }
       const [x0, y0] = op.from;
       const [x1, y1] = op.to;
       const dx = x1 - x0;
       const dy = y1 - y0;
       const len2 = dx * dx + dy * dy || 1;
-      overlay(p, w, h, op.blend ?? 'normal', (x, y, o) => {
-        const t = ((fx(x) - x0) * dx + (fy(y) - y0) * dy) / len2;
-        sampleStops(op.stops, Math.max(0, Math.min(1, t)), o);
+      const mode = op.blend ?? 'normal';
+      const { ax, ay } = axes(geo);
+      const { r: R, g: G, b: B } = p;
+      const c: Paint = { r: 0, g: 0, b: 0, a: 0 };
+      /* 每個像素取色後直接混合（不配置整張的暫存）；常用的三種模式各有專用的算式（與 blendChannel 相同） */
+      const kind = mode === 'normal' ? 0 : mode === 'screen' ? 1 : mode === 'multiply' ? 2 : 3;
+      for (let y = 0, i = 0; y < h; y++) {
+        const ty = (ay[y] - y0) * dy;
+        for (let x = 0; x < w; x++, i++) {
+          const t = ((ax[x] - x0) * dx + ty) / len2;
+          sampleStops(op.stops, Math.max(0, Math.min(1, t)), c);
+          const a = c.a;
+          if (a <= 0) continue;
+          const r = R[i];
+          const g = G[i];
+          const b = B[i];
+          if (kind === 0) {
+            R[i] = r + (c.r - r) * a;
+            G[i] = g + (c.g - g) * a;
+            B[i] = b + (c.b - b) * a;
+          } else if (kind === 1) {
+            R[i] = r + (r + c.r - (r * c.r) / 255 - r) * a;
+            G[i] = g + (g + c.g - (g * c.g) / 255 - g) * a;
+            B[i] = b + (b + c.b - (b * c.b) / 255 - b) * a;
+          } else if (kind === 2) {
+            R[i] = r + ((r * c.r) / 255 - r) * a;
+            G[i] = g + ((g * c.g) / 255 - g) * a;
+            B[i] = b + ((b * c.b) / 255 - b) * a;
+          } else {
+            R[i] = r + (blendChannel(mode, r, c.r) - r) * a;
+            G[i] = g + (blendChannel(mode, g, c.g) - g) * a;
+            B[i] = b + (blendChannel(mode, b, c.b) - b) * a;
+          }
+        }
+      }
+      return;
+    }
+    case 'radial': {
+      /* 畫布的同心圓放射狀漸層：半徑以畫面長邊計，像素中心的距離 → t，色標查表 */
+      const { idx, lut } = cachedIndex(op, geo, op.stops, (idx) => {
+        const H = geo.fullH;
+        const M = Math.max(w, H);
+        const cx = op.center[0] * w;
+        const cy = op.center[1] * H;
+        const r0 = (op.r0 ?? 0) * M;
+        const span = Math.max(1e-6, op.r1 * M - r0);
+        for (let y = 0, i = 0; y < h; y++) {
+          const dy = geo.rowY(y) + 0.5 - cy;
+          const dy2 = dy * dy;
+          for (let x = 0; x < w; x++, i++) {
+            const dx = x + 0.5 - cx;
+            idx[i] = lutIndex((Math.sqrt(dx * dx + dy2) - r0) / span);
+          }
+        }
       });
+      paintIndexed(p, idx, lut, op.blend ?? 'normal');
       return;
     }
     case 'glow': {
-      const [cx, cy] = op.center;
-      const rx = Math.max(1e-6, op.radius);
-      const ry = rx * (op.aspect ?? w / Math.max(1, geo.fullH));
-      const k = op.falloff ?? 2;
-      overlay(p, w, h, op.blend ?? 'screen', (x, y, o) => {
-        const d = Math.hypot((fx(x) - cx) / rx, (fy(y) - cy) / ry);
-        o.r = op.color[0];
-        o.g = op.color[1];
-        o.b = op.color[2];
-        o.a = d >= 1 ? 0 : op.alpha * (1 - d ** k) ** 2;
+      const A = cachedAlpha(op, geo, (A) => {
+        const [cx, cy] = op.center;
+        const rx = Math.max(1e-6, op.radius);
+        const ry = rx * (op.aspect ?? w / Math.max(1, geo.fullH));
+        const k = op.falloff ?? 2;
+        const { ax, ay } = axes(geo);
+        const gx2 = ax.map((v) => ((v - cx) / rx) ** 2);
+        for (let y = 0; y < h; y++) {
+          const gy = (ay[y] - cy) / ry;
+          const gy2 = gy * gy;
+          /* 光團以外（距離 ≥ 1）不透明度是 0 */
+          if (gy2 >= 1) continue;
+          for (let x = 0, i = y * w; x < w; x++, i++) {
+            const d2 = gx2[x] + gy2;
+            if (d2 < 1) A[i] = op.alpha * (1 - Math.sqrt(d2) ** k) ** 2;
+          }
+        }
       });
+      blendPlanes(p, op.blend ?? 'screen', A, op.color);
       return;
     }
     case 'vignette': {
-      const inner = op.inner ?? 0.5;
-      const outer = op.outer ?? 1;
-      const pw = op.power ?? 2;
-      const col = op.color ?? [0, 0, 0];
-      overlay(p, w, h, 'normal', (x, y, o) => {
-        /* 橢圓距離：中心 0、四角 1 */
-        const d = Math.hypot(fx(x) * 2 - 1, fy(y) * 2 - 1) / Math.SQRT2;
-        const t = Math.max(0, Math.min(1, (d - inner) / Math.max(1e-6, outer - inner)));
-        o.r = col[0];
-        o.g = col[1];
-        o.b = col[2];
-        o.a = op.amount * t ** pw;
+      const A = cachedAlpha(op, geo, (A) => {
+        const inner = op.inner ?? 0.5;
+        const outer = op.outer ?? 1;
+        const pw = op.power ?? 2;
+        const span = Math.max(1e-6, outer - inner);
+        const { ax, ay } = axes(geo);
+        const vx2 = ax.map((v) => (v * 2 - 1) ** 2);
+        for (let y = 0; y < h; y++) {
+          const vy2 = (ay[y] * 2 - 1) ** 2;
+          for (let x = 0, i = y * w; x < w; x++, i++) {
+            /* 橢圓距離：中心 0、四角 1 */
+            const d = Math.sqrt(vx2[x] + vy2) / Math.SQRT2;
+            const t = Math.max(0, Math.min(1, (d - inner) / span));
+            A[i] = op.amount * t ** pw;
+          }
+        }
       });
+      blendPlanes(p, 'normal', A, op.color ?? [0, 0, 0]);
       return;
     }
     case 'scanlines': {
@@ -557,22 +1308,42 @@ function applyOp(p: Planes, geo: Geom, op: FilterOp, ctx: FilterContext) {
     case 'grain': {
       const f = (ctx.frame ?? 0) | 0;
       const seed = ((ctx.seed ?? 1) * 7919 + f * 104729) | 0;
+      const { r: R, g: G, b: B } = p;
+      if (op.shape === 'uniform') {
+        /* 均勻分布：(亂數 − 0.5) × 寬，寬＝amount·√12（標準差 amount） */
+        const span = op.amount * Math.sqrt(12);
+        for (let i = 0; i < R.length; i++) {
+          const idx = stacked ? geo.rowY(Math.floor(i / w)) * w + (i % w) : i;
+          if (op.mono) {
+            const v = (hashUnit(seed, idx, 0) - 0.5) * span;
+            R[i] += v;
+            G[i] += v;
+            B[i] += v;
+          } else {
+            R[i] += (hashUnit(seed, idx, 0) - 0.5) * span;
+            G[i] += (hashUnit(seed, idx, 1) - 0.5) * span;
+            B[i] += (hashUnit(seed, idx, 2) - 0.5) * span;
+          }
+        }
+        return;
+      }
       /* 三個均勻亂數相加 ≈ 常態，標準差 amount */
       const k = op.amount * 2;
-      for (let i = 0; i < p.r.length; i++) {
+      for (let i = 0; i < R.length; i++) {
         const idx = stacked ? geo.rowY(Math.floor(i / w)) * w + (i % w) : i;
-        const n = (c: number) =>
-          (hashUnit(seed, idx, c) + hashUnit(seed, idx, c + 3) + hashUnit(seed, idx, c + 6) - 1.5) *
-          k;
         if (op.mono) {
-          const v = n(0);
-          p.r[i] += v;
-          p.g[i] += v;
-          p.b[i] += v;
+          const v =
+            (hashUnit(seed, idx, 0) + hashUnit(seed, idx, 3) + hashUnit(seed, idx, 6) - 1.5) * k;
+          R[i] += v;
+          G[i] += v;
+          B[i] += v;
         } else {
-          p.r[i] += n(0);
-          p.g[i] += n(1);
-          p.b[i] += n(2);
+          R[i] +=
+            (hashUnit(seed, idx, 0) + hashUnit(seed, idx, 3) + hashUnit(seed, idx, 6) - 1.5) * k;
+          G[i] +=
+            (hashUnit(seed, idx, 1) + hashUnit(seed, idx, 4) + hashUnit(seed, idx, 7) - 1.5) * k;
+          B[i] +=
+            (hashUnit(seed, idx, 2) + hashUnit(seed, idx, 5) + hashUnit(seed, idx, 8) - 1.5) * k;
         }
       }
       return;
@@ -610,6 +1381,38 @@ export function applyFilterRows(
   return run(rgba, geomOf(width, rowsY.length, rowsY, fullHeight), ops, ctx);
 }
 
+const inByte = (c: Rgb) => c.every((v) => v >= 0 && v <= 255);
+const inUnit = (a: number) => a >= 0 && a <= 1;
+const stopsInRange = (stops: readonly GradientStop[]) =>
+  stops.every((s) => inByte(s.color) && inUnit(s.alpha));
+
+/**
+ * 輸入都在 0～255 時，輸出一定也在 0～255 的步驟（截斷是多餘的，跳過也逐位元組相同）：
+ * 在迴圈裡就截斷的 matrix、搬移像素（shift、mosaic）、乘上 0～1（scanlines）、
+ * 一般混合的疊層（r + (c − r)·a，c 在範圍內、a 在 0～1）、畫布式模糊副本（夾在 255·不透明度）。
+ */
+function keepsRange(op: FilterOp): boolean {
+  switch (op.op) {
+    case 'matrix':
+    case 'shift':
+    case 'mosaic':
+      return true;
+    case 'scanlines':
+      return inUnit(op.dark);
+    case 'fill':
+      return (op.blend ?? 'normal') === 'normal' && inByte(op.color) && inUnit(op.alpha);
+    case 'gradient':
+    case 'radial':
+      return (op.blend ?? 'normal') === 'normal' && stopsInRange(op.stops);
+    case 'vignette':
+      return inUnit(op.amount) && inByte(op.color ?? [0, 0, 0]);
+    case 'blur':
+      return !!op.canvas && inUnit(op.mix) && (op.brightness ?? 1) >= 0;
+    default:
+      return false;
+  }
+}
+
 function run(
   rgba: Uint8ClampedArray | Uint8Array,
   geo: Geom,
@@ -625,11 +1428,19 @@ function run(
   }
   for (const op of ops) {
     applyOp(p, geo, op, ctx);
-    /* 截斷在 0～255（與畫布上逐步處理的結果一致） */
+    /* 截斷在 0～255（與畫布上逐步處理的結果一致）；輸出一定在範圍內的步驟不必再掃一次 */
+    if (keepsRange(op)) continue;
+    const { r: R, g: G, b: B } = p;
     for (let i = 0; i < n; i++) {
-      p.r[i] = clampByte(p.r[i]);
-      p.g[i] = clampByte(p.g[i]);
-      p.b[i] = clampByte(p.b[i]);
+      const r = R[i];
+      const g = G[i];
+      const b = B[i];
+      if (r < 0) R[i] = 0;
+      else if (r > 255) R[i] = 255;
+      if (g < 0) G[i] = 0;
+      else if (g > 255) G[i] = 255;
+      if (b < 0) B[i] = 0;
+      else if (b > 255) B[i] = 255;
     }
   }
   const out = new Uint8ClampedArray(n * 4);

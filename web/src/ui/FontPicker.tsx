@@ -21,6 +21,7 @@ import {
   fontFamilyCss,
   GOOGLE_FONTS,
   isLocalFontAvailable,
+  type LocalFontPreset,
   listUploadedFonts,
   loadPreviewFont,
   nearestWeight,
@@ -93,6 +94,14 @@ export interface FontPickerProps {
    * `true` 用預設文字，也可以給 `{ label, description }`。
    */
   inherit?: boolean | { label?: string; description?: string };
+  /**
+   * 工具自己的電腦字型組（foreground-frame 移植時新增，不給時行為不變）：canvas 模式的「電腦字型」分頁改成
+   * 列出這些字型組＋手動輸入＋「從清單選」（LocalFontDialog）；值是 `{ source: 'local', family }`，
+   * 欄位顯示字型組的名稱、以 `stack` 預覽。css 模式給了就取代內建的常見字型清單。
+   */
+  localPresets?: readonly LocalFontPreset[];
+  /** 有 localPresets 時，電腦字型分頁手動輸入下方的說明 */
+  localTabNote?: ReactNode;
   disabled?: boolean;
   id?: string;
   'aria-label'?: string;
@@ -403,43 +412,82 @@ function LocalTab({
   );
 }
 
-/** css 模式的電腦字型分頁：常見內建字型、手動輸入、從清單選 */
+/** 依名稱找工具給的電腦字型組（不分大小寫） */
+export function findLocalPreset(
+  presets: readonly LocalFontPreset[] | undefined,
+  family: string,
+): LocalFontPreset | undefined {
+  const k = family.trim().toLowerCase();
+  if (!presets || !k) return undefined;
+  return presets.find((p) => p.family.toLowerCase() === k || p.label.toLowerCase() === k);
+}
+
+/**
+ * 電腦字型分頁（css 模式，或 canvas 模式有給 localPresets 時）：常見內建字型（或工具給的字型組）、手動輸入、從清單選。
+ * presets 不給時列 SYSTEM_FONTS（css 模式原本的行為）。
+ */
 function CssLocalTab({
   value,
   onPick,
   previewText,
   sampleText,
+  presets,
+  note,
 }: {
   value: FontValue;
   onPick: (family: string) => void;
   previewText: string;
   /** 「從清單選」對話框的預設樣張 */
   sampleText: string;
+  presets?: readonly LocalFontPreset[];
+  /** 手動輸入下方的說明（預設 OBS 的安裝提醒） */
+  note?: ReactNode;
 }) {
+  const options: readonly LocalFontPreset[] =
+    presets ??
+    SYSTEM_FONTS.map((f) => ({
+      family: f.family,
+      label: f.label,
+      note: f.note,
+      stack: fontFamilyCss(f.family),
+    }));
+  const match = (fam: string): LocalFontPreset | undefined => {
+    if (presets) return findLocalPreset(presets, fam);
+    const sys = findSystemFont(fam);
+    return sys ? options.find((o) => o.family === sys.family) : undefined;
+  };
   const [manual, setManual] = useState(
-    value.source === 'local' && !findSystemFont(value.family) ? value.family : '',
+    value.source === 'local' && !match(value.family) ? value.family : '',
   );
   const [listOpen, setListOpen] = useState(false);
   const name = useId();
   const selected = value.source === 'local' ? value.family : null;
-  const sysSelected = selected ? (findSystemFont(selected)?.family ?? null) : null;
+  const sysSelected = selected ? (match(selected)?.family ?? null) : null;
   return (
     <div className="flex flex-col gap-3">
       <OptionList
         name={name}
         label="常見的電腦字型"
-        items={SYSTEM_FONTS.map((f) => f.family)}
+        items={options.map((f) => f.family)}
         selected={sysSelected}
         onSelect={onPick}
         render={(family) => {
-          const f = findSystemFont(family)!;
+          const f = options.find((o) => o.family === family)!;
           return (
-            <span className="flex min-w-0 flex-col" style={{ fontFamily: fontFamilyCss(f.family) }}>
+            <span
+              className="flex min-w-0 flex-col"
+              style={{ fontFamily: f.stack ?? fontFamilyCss(f.family) }}
+            >
               <span className="truncate text-base text-fg">{f.label}</span>
               <span className="truncate text-sm text-muted">{previewText}</span>
-              <span className="mt-0.5 text-xs text-muted" style={{ fontFamily: 'var(--font-ui)' }}>
-                {f.note}
-              </span>
+              {f.note ? (
+                <span
+                  className="mt-0.5 text-xs text-muted"
+                  style={{ fontFamily: 'var(--font-ui)' }}
+                >
+                  {f.note}
+                </span>
+              ) : null}
             </span>
           );
         }}
@@ -473,7 +521,7 @@ function CssLocalTab({
           ) : null}
         </div>
         <p className="m-0 text-xs text-muted">
-          只有跑 OBS 的電腦也裝了這套字型才會生效；字型沒有漢字時，漢字會退回一般黑體。
+          {note ?? '只有跑 OBS 的電腦也裝了這套字型才會生效；字型沒有漢字時，漢字會退回一般黑體。'}
         </p>
       </form>
       <LocalFontDialog
@@ -607,6 +655,8 @@ export function FontPicker({
   weights: weightOptions,
   localFontNote,
   inherit,
+  localPresets,
+  localTabNote,
   disabled,
   className,
   ...rest
@@ -621,11 +671,12 @@ export function FontPicker({
   const inheritOpt = inherit ? (typeof inherit === 'object' ? inherit : {}) : null;
   const inheritLabel = inheritOpt?.label ?? INHERIT_LABEL;
   const inherited = !!inheritOpt && isInheritFont(value);
+  const preset = value.source === 'local' ? findLocalPreset(localPresets, value.family) : undefined;
   const display = inherited
     ? inheritLabel
     : value.source === 'google'
       ? (findGoogleFont(value.family)?.label ?? value.family)
-      : (findSystemFont(value.family)?.label ?? value.family);
+      : (preset?.label ?? findSystemFont(value.family)?.label ?? value.family);
   /* css 模式：實際輸出的字重（字型沒有選的字重時換成最接近的） */
   const resolved = css ? resolveFontWeight(value, value.weight) : value.weight;
 
@@ -660,16 +711,23 @@ export function FontPicker({
             value: 'local' as const,
             label: '電腦字型',
             icon: <HardDrive />,
-            content: css ? (
-              <CssLocalTab
-                value={value}
-                onPick={pick('local')}
-                previewText={previewText}
-                sampleText={localSampleText}
-              />
-            ) : (
-              <LocalTab value={value} onPick={pick('local')} previewText={previewText} />
-            ),
+            content:
+              css || localPresets ? (
+                <CssLocalTab
+                  value={value}
+                  onPick={pick('local')}
+                  previewText={previewText}
+                  sampleText={localSampleText}
+                  presets={localPresets}
+                  note={
+                    localPresets
+                      ? (localTabNote ?? '電腦上沒有這套字型時，會改用備用字型顯示。')
+                      : undefined
+                  }
+                />
+              ) : (
+                <LocalTab value={value} onPick={pick('local')} previewText={previewText} />
+              ),
           },
         ]
       : []),
@@ -730,7 +788,10 @@ export function FontPicker({
               style={
                 inherited
                   ? undefined
-                  : { fontFamily: fontFamilyCss(value.family), fontWeight: value.weight }
+                  : {
+                      fontFamily: preset?.stack ?? fontFamilyCss(value.family),
+                      fontWeight: value.weight,
+                    }
               }
             >
               {display}

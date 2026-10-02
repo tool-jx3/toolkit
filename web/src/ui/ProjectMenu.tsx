@@ -92,6 +92,11 @@ export interface ProjectMenuProps<T> {
    * height-board 實作時新增，不給時行為不變。
    */
   statusText?: ReactNode;
+  /**
+   * 開啟時選檔視窗接受的類型（預設：有 getFiles 時 .zip 與 .json，否則 .json）。
+   * 只有部分專案檔帶附加檔案（getFiles 依設定給或不給）時，用它讓兩種都能開（loading-maker 移植時新增）。
+   */
+  openAccept?: string;
   className?: string;
 }
 
@@ -145,6 +150,7 @@ export function ProjectMenu<T>({
   extraItems,
   resetDisabled,
   statusText,
+  openAccept,
   className,
 }: ProjectMenuProps<T>) {
   const confirm = useConfirm();
@@ -203,7 +209,9 @@ export function ProjectMenu<T>({
           : null;
     if (pre && !(await confirm(pre))) return;
     const [file] = await pickFiles({
-      accept: getFiles ? '.zip,.json,application/zip,application/json' : '.json,application/json',
+      accept:
+        openAccept ??
+        (getFiles ? '.zip,.json,application/zip,application/json' : '.json,application/json'),
     });
     if (!file) return;
     setBusy('open');

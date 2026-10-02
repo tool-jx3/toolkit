@@ -1,10 +1,15 @@
 /**
  * 短暫通知（Radix Toast）。`const toast = useToast(); toast({ title: '已儲存', tone: 'success' })`
+ *
+ * Esc：每則通知都是 Radix 的可關閉圖層，而且是最上層，Radix 只把 Esc 交給它。有對話框（Dialog、確認對話框）開著、
+ * 焦點在對話框裡或在 body 時，通知把 Esc 讓給對話框（通知留著，對話框照常關閉；room-zip 修正時新增）；
+ * 其他時候照舊由 Esc 關閉最新的一則通知（焦點在通知上時關那一則）。
  */
 import { CheckCircle2, Info, TriangleAlert, X, XCircle } from 'lucide-react';
 import { Toast as T } from 'radix-ui';
-import { createContext, type ReactNode, useCallback, useContext, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from 'react';
 import { cn } from './cn';
+import { escapeOwner } from './Dialog';
 
 export type ToastTone = 'info' | 'success' | 'warning' | 'danger';
 
@@ -16,6 +21,11 @@ export interface ToastOptions {
   duration?: number;
   /** 取代畫面上現有的通知（一次只顯示這一則；emotion-maker 移植時新增，不給時行為不變） */
   replace?: boolean;
+  /**
+   * 點通知本體（× 以外的地方）也立刻關閉（bg-motion 修正時新增，不給時行為不變：只有 × 與滑掉能關）。
+   * 鍵盤照舊用 × 或 Esc。
+   */
+  dismissOnClick?: boolean;
 }
 
 interface ToastItem extends ToastOptions {
@@ -41,6 +51,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = ++seq;
     setItems((list) => [...(o.replace ? [] : list.slice(-3)), { ...o, id, open: true }]);
   }, []);
+  const close = useCallback((id: number) => {
+    setItems((list) => list.map((x) => (x.id === id ? { ...x, open: false } : x)));
+    setTimeout(() => setItems((list) => list.filter((x) => x.id !== id)), 300);
+  }, []);
+  /**
+   * 這次的 Esc 要讓給對話框：Radix 處理完 onEscapeKeyDown 會接著呼叫 onOpenChange(false)，這時不關閉通知。
+   * 不用 preventDefault，對話框才知道這個 Esc 還沒有人處理（見 Dialog.tsx 的 EscapeFallback）。
+   */
+  const yieldEscape = useRef(false);
   return (
     <ToastContext.Provider value={toast}>
       <T.Provider swipeDirection="right" label="通知">
@@ -53,14 +72,33 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               open={t.open}
               duration={t.duration ?? (tone === 'danger' ? 7000 : 4000)}
               type={tone === 'danger' ? 'foreground' : 'background'}
-              onOpenChange={(open) => {
-                if (!open) {
-                  setItems((list) => list.map((x) => (x.id === t.id ? { ...x, open: false } : x)));
-                  setTimeout(() => setItems((list) => list.filter((x) => x.id !== t.id)), 300);
-                }
+              onEscapeKeyDown={(e) => {
+                if (!escapeOwner(e.target)) return;
+                yieldEscape.current = true;
+                queueMicrotask(() => {
+                  yieldEscape.current = false;
+                });
               }}
+              onOpenChange={(open) => {
+                if (open) return;
+                if (yieldEscape.current) {
+                  yieldEscape.current = false;
+                  return;
+                }
+                close(t.id);
+              }}
+              onClick={
+                t.dismissOnClick
+                  ? (e) => {
+                      /* × 由 Radix 自己關；點在其他連結、按鈕上不攔 */
+                      if ((e.target as Element).closest('a, button')) return;
+                      close(t.id);
+                    }
+                  : undefined
+              }
               className={cn(
                 'pointer-events-auto flex items-start gap-2.5 rounded-md border bg-surface px-3 py-2.5 text-fg shadow-2',
+                t.dismissOnClick && 'cursor-pointer',
                 tone === 'danger'
                   ? 'border-danger'
                   : tone === 'warning'

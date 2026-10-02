@@ -612,6 +612,19 @@ test('每張各自記住基準與位移；A／D 換張（帶 Ctrl／Alt 不作�
 
   /* 拖曳平移：在框外按住拖曳；R 歸位 */
   const content = stage(page).locator(':scope > div').first();
+  /* 換張後新圖解碼完才換成它的大小（負載高時要等將近 1 秒）：等位置穩定再量 */
+  let settled = '';
+  await expect
+    .poll(
+      async () => {
+        const k = JSON.stringify(await content.boundingBox());
+        const same = k === settled;
+        settled = k;
+        return same;
+      },
+      { intervals: [300] },
+    )
+    .toBe(true);
   const c0 = (await content.boundingBox())!;
   const sb2 = (await stage(page).boundingBox())!;
   await page.mouse.move(sb2.x + 12, sb2.y + 12);

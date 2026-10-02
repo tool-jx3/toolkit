@@ -48,6 +48,22 @@ export interface EncodedFile {
   colors?: { lossless: boolean; count: number };
 }
 
+/**
+ * 壓好的資料超過呼叫端給的上限（例如 ApngEncoder 的 maxBytes）時丟出：只想知道「放不放得下」的試編，
+ * 超過就不必編完。bytes＝放棄時已經壓好的位元組數（最後的檔案一定更大）；
+ * progress＝已完成的比例（0～1；不知道時為 null），可以用 bytes ÷ progress 估計整個檔案的大小。
+ */
+export class EncodeLimitError extends Error {
+  readonly bytes: number;
+  readonly progress: number | null;
+  constructor(bytes: number, progress: number | null = null) {
+    super(`壓好的資料超過上限（已經 ${bytes} 位元組）`);
+    this.name = 'EncodeLimitError';
+    this.bytes = bytes;
+    this.progress = progress;
+  }
+}
+
 /** 把 RGBA 位元組當成 Uint32 像素看（0xAABBGGRR）。位移沒有對齊 4 時會複製一份。 */
 export function toU32(rgba: RgbaPixels): Uint32Array {
   if (rgba.byteOffset % 4 === 0)

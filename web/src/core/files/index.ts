@@ -1,7 +1,10 @@
 /**
- * 檔案：下載、讀檔、選檔、ZIP（fflate）、檔名規則、大小格式。
+ * 檔案：下載、讀檔、選檔、ZIP（fflate）、檔名規則、大小格式、內容雜湊（SHA-256，見 hash.ts）。
  */
 import { strToU8, unzipSync, type Zippable, zipSync } from 'fflate';
+
+export { bytesToHex, type HashInput, sha256, sha256Hex, sha256Sync, subtleSha256 } from './hash';
+export { type DecodedText, type DecodeTextOptions, decodeText } from './text';
 
 /* ---------- 下載 ---------- */
 
@@ -250,7 +253,7 @@ export async function copyImage(source: Blob | Promise<Blob>): Promise<CopyImage
 /* ---------- ZIP ---------- */
 
 export interface ZipEntry {
-  /** ZIP 內的路徑（可含「/」子資料夾） */
+  /** ZIP 內的路徑（可含「/」子資料夾；以「/」結尾、內容是空的就是資料夾項目） */
   name: string;
   data: Uint8Array | string;
 }
@@ -272,17 +275,28 @@ export function zipFiles(
     const data = typeof e.data === 'string' ? strToU8(e.data) : e.data;
     const name = e.name.replace(/^\/+/, '');
     if (!name) throw new Error('ZIP 內的檔名不可為空');
-    if (name in tree) throw new Error(`ZIP 內有重複的檔名：${name}`);
+    if (Object.hasOwn(tree, name)) throw new Error(`ZIP 內有重複的檔名：${name}`);
     tree[name] = [data, { level, mtime }];
   }
   return zipSync(tree) as Uint8Array<ArrayBuffer>;
 }
 
-/** 解開 ZIP，回傳檔案清單（略過資料夾項目） */
-export function unzipFiles(bytes: Uint8Array): { name: string; data: Uint8Array }[] {
+export interface UnzipOptions {
+  /**
+   * 連資料夾項目（名稱以「/」結尾、內容是空的）也列出來。預設 false（略過）。
+   * 要原樣改寫別人的 ZIP（保留資料夾項目）、或檢查「ZIP 裡有沒有資料夾」時用（G5 加的）。
+   */
+  directories?: boolean;
+}
+
+/** 解開 ZIP，回傳檔案清單（依 ZIP 內的順序；預設略過資料夾項目） */
+export function unzipFiles(
+  bytes: Uint8Array,
+  { directories = false }: UnzipOptions = {},
+): { name: string; data: Uint8Array }[] {
   const out = unzipSync(bytes);
   return Object.entries(out)
-    .filter(([name]) => !name.endsWith('/'))
+    .filter(([name]) => directories || !name.endsWith('/'))
     .map(([name, data]) => ({ name, data }));
 }
 

@@ -10,6 +10,11 @@
  *   （例如一頁有好幾個清單，拖到別的清單上放開不算；color-palette 移植時新增，不給時行為不變）。
  * - G2：`axis: 'xy'`（格狀排列，例如一列縮圖卡）時依指標落在哪一張（或最近的那一張）決定目標，左右拖也可以；
  *   預設 'y'（直向清單，行為不變）。鍵盤 Alt＋←／→ 也能移動。
+ * - windowEdge（選填）：清單沒有可捲動的上層容器時，拖到視窗上下緣 windowEdge px 內慢慢捲動整頁
+ *   （character-editor 移植時新增，不給時行為不變）。
+ * - 只想從把手開始拖（例如每列都是輸入欄的表單）：把 rowProps 的 ref 給整列、其餘的指標事件給把手。
+ *   把手本身（標 `data-drag-handle`）可以是 `<button>`（有名稱、可聚焦）：按鈕、輸入欄等不能開始拖的元素
+ *   只有在把手裡面時例外（character-editor 移植時新增；原本的把手都是 span，行為不變）。
  */
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react';
 
@@ -30,6 +35,32 @@ export interface SortableOptions {
   cancelOutside?: boolean;
   /** 'y'（預設，直向清單）或 'xy'（格狀／橫向排列：依指標所在的那一張決定目標） */
   axis?: 'y' | 'xy';
+  /**
+   * 沒有可捲動的上層容器（清單直接放在頁面上）時，指標離視窗上下緣在這個距離（px）內就慢慢捲動整頁，
+   * 越靠近邊緣越快（每個畫面最多 WINDOW_SCROLL_MAX px）。不給時不捲動整頁（行為不變）。
+   * （character-editor 移植時新增）
+   */
+  windowEdge?: number;
+}
+
+/** windowEdge 自動捲動整頁時，每個畫面最多捲動的距離（px） */
+export const WINDOW_SCROLL_MAX = 6;
+
+/**
+ * 整頁自動捲動的速度（px／畫面，負數往上）：指標在視窗上緣或下緣 edge px 內時，依深入的比例
+ * 線性增加到 max；不在邊緣時 0。指標跑到視窗外時以最大速度計。
+ */
+export function windowScrollSpeed(
+  y: number,
+  viewportHeight: number,
+  edge: number,
+  max = WINDOW_SCROLL_MAX,
+): number {
+  if (edge <= 0) return 0;
+  const ratio = (d: number) => Math.min(1, Math.max(0, d / edge));
+  if (y < edge) return -Math.ceil(ratio(edge - y) * max);
+  if (y > viewportHeight - edge) return Math.ceil(ratio(y - (viewportHeight - edge)) * max);
+  return 0;
 }
 
 const NO_DRAG =
@@ -155,7 +186,20 @@ export function useSortable(options: SortableOptions) {
 
   const autoScroll = () => {
     const s = g.current;
-    if (!s?.active || !s.scroller) return;
+    if (!s?.active) return;
+    if (!s.scroller) {
+      /* 清單直接在頁面上：給了 windowEdge 時捲動整頁（不給時和以前一樣不捲） */
+      const windowEdge = opts.current.windowEdge;
+      if (!windowEdge) return;
+      const v = windowScrollSpeed(s.lastY, window.innerHeight, windowEdge);
+      if (v) {
+        const before = window.scrollY;
+        window.scrollBy(0, v);
+        if (window.scrollY !== before) track(s.lastX, s.lastY);
+      }
+      s.raf = requestAnimationFrame(autoScroll);
+      return;
+    }
     const edge = opts.current.edge ?? 24;
     const r = s.scroller.getBoundingClientRect();
     let v = 0;
@@ -194,7 +238,8 @@ export function useSortable(options: SortableOptions) {
     onPointerDown: (e: PointerEvent<HTMLElement>) => {
       if (e.button !== 0 || g.current) return;
       const target = e.target as Element;
-      if (target.closest?.(NO_DRAG)) return;
+      const blocked = target.closest?.(NO_DRAG);
+      if (blocked && !blocked.closest('[data-drag-handle]')) return;
       /* 觸控時整列留給捲動，只有拖曳把手（[data-drag-handle]，要加 touch-none）可以拖 */
       const touchOnly = e.pointerType === 'touch' && !target.closest?.('[data-drag-handle]');
       /* 還沒開始拖就離開這一列放開時，清掉這次按下 */
