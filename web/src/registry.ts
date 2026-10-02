@@ -359,7 +359,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '一次替房間 ZIP、PSD 的每個圖層或一整批圖片調色：色相、曲線、漸層對應，也能單張微調；房間 ZIP 會自動改名並同步房間資料，還能補邊到 24 px 倍數、把 APNG 壓到上傳限制以內。',
     group: 'G5',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'fyam-hamu/F_Ccfolia-PSD-Studio',
       url: 'https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio',

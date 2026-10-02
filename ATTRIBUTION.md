@@ -36,7 +36,6 @@
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
 | session-log | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-log-tool/` | `42c45f3` | **未授權** |
 | session-report | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-report-generator/` | `42c45f3` | **未授權** |
-| psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
@@ -464,18 +463,6 @@ WebM。
 - 團報範本依產生當下的語言給繁中或日文用語（通過→通關、ロスト→撕卡、様→樣、作：〇〇様→
   作者：〇〇老師）。
 
-## psd-studio
-
-**psd-studio（CCFOLIA & 圖片調色工作室）**：上游 `fyam-hamu/F_Ccfolia-PSD-Studio` 沒有 LICENSE 檔，
-但頁面上有作者的條款：「코드 자체의 무단 재판매 및 유료 배포는 금지합니다. 단, 개인 목적의 코드 수정,
-기능 개선 및 이를 바탕으로 한 재배포는 자유롭게 가능합니다.」（禁止轉售與收費散布；修改、改良後可以
-自由再散布）。合輯依這條免費收錄，條款原文、翻譯與改動清單收在
-[tools/psd-studio/TERMS.md](tools/psd-studio/TERMS.md)，頁面上也照樣顯示。
-收錄時拿掉 Firebase Realtime DB 的「按讚」鈕（連同寫死的 apiKey）與只放了作者愛犬照片的分頁
-（`important.png`，9 MB）；KakaoTalk 聯絡連結改成指向本 repo 的 issues 與上游 GitHub
-（理由同 `pair-maker` 的回報表單）。五個 CDN 函式庫原本有一個沒鎖版本，收錄版全部鎖定，
-見 `THIRD_PARTY_NOTICES.md`。同樣操作下匯出的房間 ZIP、PSD 圖層 ZIP 與 APNG 都與上游逐位元組相同。
-
 ## 本站重寫的工具（靈感來源）
 
 下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的流程改寫到本站的 `web/` 框架，
@@ -514,6 +501,7 @@ WebM。
 | `room-zip` | 房間 ZIP 產生器 | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `83fd605` |
 | `log-converter` | CCFOLIA 日誌轉換器 | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `83fd605` |
 | `scenario-cards` | 劇本資訊卡片產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`scenario-snippet-builder`） | `83fd605` |
+| `psd-studio` | CCFOLIA & 圖片調色工作室 | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 

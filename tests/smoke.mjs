@@ -478,38 +478,6 @@ check('不載入任何網頁字型或外部資源',
   !/fonts\.googleapis|fonts\.gstatic|https?:\/\/(?!www\.w3\.org)/.test(seHtml + read('tools/scenario-editor/styles.css')));
 check('紙面與介面的字型堆疊補上台灣系統字型', seApp.includes('Noto Serif TC') && seApp.includes('Microsoft JhengHei'));
 
-/* ---- psd-studio（CCFOLIA & 圖片調色工作室）---- */
-/* 上游 fyam-hamu/F_Ccfolia-PSD-Studio 沒有 LICENSE，但頁面上寫了作者條款：禁止轉售與
- * 收費散布，修改、改良後可以免費再散布。條款原文與翻譯收在 TERMS.md，畫面上也保留。 */
-const pss = checkTool({
-  dir: 'tools/psd-studio',
-  dict: 'i18n.psd-studio.js',
-  scripts: ['app.js'],
-  styles: ['styles.css'],
-  minHooks: 165,
-  licence: false
-});
-section('tools/psd-studio');
-const pdsHtml = read('tools/psd-studio/index.html'), pdsApp = read('tools/psd-studio/app.js');
-const pdsTerms = read('tools/psd-studio/TERMS.md');
-check('TERMS.md 引用作者條款原文並註明出處',
-  pdsTerms.includes('무단 재판매 및 유료 배포는 금지합니다') && pdsTerms.includes('718bb40'));
-check('畫面上保留作者條款（兩種語言）',
-  ['zh-TW', 'ko'].every(l => Object.values(pss.messages[l]).some(v => /재판매|轉售/.test(v))));
-check('拿掉 Firebase 按讚鈕、KakaoTalk 聯絡連結與作者的照片',
-  !/firebase|apiKey|kakao|important\.png|ggundy_liked/i.test(stripComments(pdsHtml, 'html') + stripComments(pdsApp, 'js')) && !exists('tools/psd-studio/important.png'));
-/* 上游有一個函式庫沒鎖版本；收錄版每個 CDN 網址都要帶版本，並記在 THIRD_PARTY_NOTICES。 */
-const pdsNotices = read('tools/psd-studio/THIRD_PARTY_NOTICES.md');
-const pdsCdn = [...new Set([...(pdsHtml + pdsApp).matchAll(/https:\/\/(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|unpkg\.com)[^"'`) ]*/g)].map(m => m[0]))];
-check('解析出五個 CDN 函式庫', pdsCdn.length === 5, `found ${pdsCdn.length}`);
-const pdsUnpinned = pdsCdn.filter(u => {
-  const v = (u.match(/@(\d+\.\d+\.\d+)\/|\/(\d+\.\d+\.\d+)\//) || [])[1] || (u.match(/\/(\d+\.\d+\.\d+)\//) || [])[1];
-  return !v || !pdsNotices.includes(v);
-});
-check('每個 CDN 網址都鎖了版本並記在 THIRD_PARTY_NOTICES', pdsUnpinned.length === 0, pdsUnpinned.join(', '));
-check('掛了語言切換器，切語言時重畫程式寫的文字',
-  pdsApp.includes("I18N.mountSwitcher(document.getElementById('localeSelect'))") && /I18N\.onChange\(\(\) => \{/.test(pdsApp));
-
 /* ---- くま（TRPG WEBツール観測所）的六個工具 ---- */
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
  * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
@@ -1111,7 +1079,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
 
 checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
 checkInlineText('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 150);
-checkInlineText('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 130);
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
 for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
 checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
@@ -1188,7 +1155,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
 
 checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
 checkAttrPairs('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 50);
-checkAttrPairs('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 18);
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
 for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
 checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
@@ -1215,7 +1181,7 @@ for (const name of TOOLS) {
 }
 for (const sha of ['de40a68',
   '883f48b',
-  'aad63b1', '9c29866', '42c45f3', 'a6387e0', '718bb40',
+  'aad63b1', '9c29866', '42c45f3', 'a6387e0',
   '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }

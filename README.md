@@ -123,13 +123,14 @@ npm test
 | `room-zip` | [房間 ZIP 產生器](tools/room-zip/) | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) |
 | `log-converter` | [CCFOLIA 日誌轉換器](tools/log-converter/) | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) |
 | `scenario-cards` | [劇本資訊卡片產生器](tools/scenario-cards/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `psd-studio` | [CCFOLIA & 圖片調色工作室](tools/psd-studio/) | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的五個工具、
-`pair-maker` 與 `psd-studio` 為韓文，
+`pair-maker` 為韓文，
 `trpg-lab`、
 `anime-rig`、`scenario-editor` 與くま的兩個工具為日文。
 
@@ -175,5 +176,3 @@ npm test
 `coc-typesetter` 則連作者都不明，
 其權利屬原作者所有，
 不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。
-`psd-studio` 沒有 LICENSE 檔，依作者在頁面上寫明的條款（禁止轉售與收費散布，修改後可免費再散布）
-收錄，條款見 [tools/psd-studio/TERMS.md](tools/psd-studio/TERMS.md)。
