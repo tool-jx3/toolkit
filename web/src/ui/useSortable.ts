@@ -244,7 +244,8 @@ export function useSortable(options: SortableOptions) {
       if (!s || s.id !== e.pointerId) return;
       if (!s.active) {
         g.current = null;
-        opts.current.onClick?.(index);
+        /* 按下的那一列（沒有開始拖、例如排序停用時，可能在別列放開） */
+        opts.current.onClick?.(s.index);
         return;
       }
       finish(true);

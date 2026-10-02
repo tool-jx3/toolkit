@@ -152,12 +152,12 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | ccfolia-cropper | ✅ | ✅ | ✅ | ✅ |
 | icon-maker | ✅ | ✅ | ✅ | ✅ |
 | variant-manager | ✅ | ✅ | ✅ | ✅ |
-| height-board | ✅ | ✅ | ⬜ | ⬜ |
+| height-board | ✅ | ✅ | ✅ | ⬜（待上線） |
 | color-palette | ✅ | ✅ | ✅ | ✅ |
-| emotion-maker | ✅ | ✅ | ⬜ | ⬜ |
+| emotion-maker | ✅ | ✅ | ✅ | ⬜（待上線） |
 | typewriter | ✅ | ✅ | ✅ | ✅ |
 | text-path | ✅ | ✅ | ✅ | ✅ |
-| cutin | ✅ | ✅ | 🔍 | ⬜ |
+| cutin | ✅ | 🔨（F49、F50、F55 修正中） | ✅（3 項待修） | ⬜ |
 | collage-letter | ✅ | ✅ | ✅ | ✅ |
 | scene-transition | ✅ | ⬜ | ⬜ | ⬜ |
 | bg-motion | ✅ | ⬜ | ⬜ | ⬜ |

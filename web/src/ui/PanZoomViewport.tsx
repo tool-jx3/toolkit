@@ -118,8 +118,9 @@ export interface PanZoomViewportProps {
   /** 內容比畫面小時放哪裡（預設置中） */
   align?: { x?: Align; y?: Align };
   /**
-   * 世界範圍至少延伸到畫面看得到的地方（往右 'x'、往下 'y'）：盤面永遠填滿畫面，而且放大時游標右下方
-   * 也有內容可以捲，游標下的點才能保持不動。view.world 是延伸後的範圍（作畫時用它鋪底）。
+   * 世界範圍至少延伸到畫面看得到的地方（往右 'x'、往下 'y'）：盤面永遠填滿畫面。view.world 是延伸後的範圍
+   * （作畫時用它鋪底）。縮放時讓錨點下的點不動，但不為了錨點把範圍延伸到內容之外，捲不到的地方由捲動範圍夾住
+   * （和舊版身高比較板相同；延伸出去的空白會留在捲動範圍裡，縮放後內容反而被捲出畫面）。
    */
   extend?: 'x' | 'y' | 'both';
   /** 作畫（ctx 已換算成 CSS px；用 view.toScreen 把世界座標換成畫布座標） */
@@ -217,27 +218,14 @@ export function PanZoomViewport({
           return Number.isFinite(v) && v > 0 ? v : 1;
         })();
   const scale = base * zoom;
-  /* 延伸後的範圍：涵蓋目前畫面與上一次縮放後看得到的地方 */
-  const [reach, setReach] = useState<{ right: number; bottom: number } | null>(null);
+  /* 延伸後的範圍：涵蓋目前畫面看得到的地方 */
   const ex = extend === 'x' || extend === 'both';
   const ey = extend === 'y' || extend === 'both';
   const area: Box = {
     x: world.x,
     y: world.y,
-    width: ex
-      ? Math.max(
-          world.width,
-          (client.w - pad.left - pad.right) / scale,
-          (reach?.right ?? Number.NEGATIVE_INFINITY) - world.x,
-        )
-      : world.width,
-    height: ey
-      ? Math.max(
-          world.height,
-          (client.h - pad.top - pad.bottom) / scale,
-          (reach?.bottom ?? Number.NEGATIVE_INFINITY) - world.y,
-        )
-      : world.height,
+    width: ex ? Math.max(world.width, (client.w - pad.left - pad.right) / scale) : world.width,
+    height: ey ? Math.max(world.height, (client.h - pad.top - pad.bottom) / scale) : world.height,
   };
   const contentW = area.width * scale + pad.left + pad.right;
   const contentH = area.height * scale + pad.top + pad.bottom;
@@ -394,9 +382,6 @@ export function PanZoomViewport({
         pending.current = null;
         return;
       }
-      /* 縮放後游標右下方看得到的範圍（extend 時內容至少延伸到這裡，才捲得到讓游標下的點不動的位置） */
-      const ns = s.base * next;
-      setReach({ right: w.x + (s.client.w - a.x) / ns, bottom: w.y + (s.client.h - a.y) / ns });
       setZoom(next);
     },
     [maxZoom, minZoom, makeView, setZoom],

@@ -204,15 +204,18 @@ export function placeInRow(start: number, widths: readonly number[]): number[] {
 }
 
 /**
- * 拖放到盤面上：第一張的中心對準放開的位置（左緣不小於 0）；之後每張的中心＝前一張的中心＋前一張的寬＋5 cm
- * （主控裁定：維持舊行為，寬度不同的圖間距會偏離 5 cm，例如前寬 90、後寬 50 時間距 25 cm）。
+ * 拖放到盤面上：第一張的中心對準放開的位置（左緣不小於 0）；之後每張的中心＝前一張的左緣＋前一張的寬＋5 cm＋前一張的寬 ÷ 2
+ * （主控裁定：維持舊行為，寬度不同的圖間距會偏離 5 cm，例如前寬 90、後寬 50 時間距 25 cm；
+ * 前一張被夾到 0 時，從夾過的位置往右推，不會重疊）。
  */
 export function placeDropped(dropX: number, widths: readonly number[]): number[] {
   const out: number[] = [];
   let center = dropX;
   for (const w of widths) {
-    out.push(Math.max(0, center - w / 2));
-    center += w + GAP_CM;
+    /* 和舊版相同：下一張從這一張「夾到 0 之後」的位置往右推（放在左緣附近時才和直接累加不同） */
+    const x = Math.max(0, center - w / 2);
+    out.push(x);
+    center = x + w + GAP_CM + w / 2;
   }
   return out;
 }

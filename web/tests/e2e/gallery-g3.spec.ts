@@ -130,6 +130,9 @@ test.describe('元件展示頁：立繪工作台', () => {
     const vp = page.getByTestId('pan-zoom-viewport');
     await expect(vp).toHaveAttribute('data-zoom', '100');
     const box = (await vp.boundingBox())!;
+    /* 先放大到盤面比畫面寬（縮放不會為了錨點把範圍延伸到內容之外，內容要夠寬錨點才能不動） */
+    for (let i = 0; i < 3; i++) await page.getByRole('button', { name: '放大' }).first().click();
+    await expect(vp).toHaveAttribute('data-zoom', '195');
     const at = { x: box.x + box.width * 0.6, y: box.y + box.height * 0.5 };
     await page.mouse.move(at.x, at.y);
     const read = async () => {
@@ -139,7 +142,7 @@ test.describe('元件展示頁：立繪工作台', () => {
     };
     const [wx, wy] = await read();
     await page.mouse.wheel(0, -100);
-    await expect(vp).toHaveAttribute('data-zoom', '116');
+    await expect(vp).toHaveAttribute('data-zoom', '227');
     await page.mouse.move(at.x + 1, at.y);
     await page.mouse.move(at.x, at.y);
     const [wx2, wy2] = await read();
@@ -149,10 +152,11 @@ test.describe('元件展示頁：立繪工作台', () => {
     await page.mouse.wheel(0, -300);
     const scroller = vp.locator('section');
     const left0 = await scroller.evaluate((el) => el.scrollLeft);
+    expect(left0).toBeGreaterThan(0);
     await page.keyboard.down('Shift');
-    await page.mouse.wheel(0, 120);
+    await page.mouse.wheel(0, -120);
     await page.keyboard.up('Shift');
-    await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(left0);
+    await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeLessThan(left0);
     /* 倍率按鈕回到 100%；ctrl＋滾輪不攔截 */
     await page.getByTestId('board-zoom').click();
     await expect(vp).toHaveAttribute('data-zoom', '100');
@@ -184,9 +188,8 @@ test.describe('元件展示頁：立繪工作台', () => {
     await page.locator('body').click({ position: { x: 5, y: 5 } });
     await page.keyboard.press('ArrowRight');
     await expect(first).not.toHaveText(text);
-    /* 空白處拖曳平移（放大後才能捲） */
-    await page.getByRole('button', { name: '放大' }).first().click();
-    await page.getByRole('button', { name: '放大' }).first().click();
+    /* 空白處拖曳平移（放大到盤面比畫面寬才能捲） */
+    for (let i = 0; i < 3; i++) await page.getByRole('button', { name: '放大' }).first().click();
     const sl = await scroller.evaluate((el) => el.scrollLeft);
     await page.mouse.move(cb.x + cb.width - 20, cb.y + 20);
     await page.mouse.down();

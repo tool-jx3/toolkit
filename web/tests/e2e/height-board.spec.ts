@@ -762,6 +762,9 @@ test('縮放與捲動：按鈕 ×1.25、點倍率回 100%、範圍 20～400%、�
   const errors = await open(page);
   await addABC(page);
   await page.keyboard.press('Escape');
+  /* 100% 時本來的橫捲範圍（縮放來回之後要回到這裡） */
+  const hRange = () => scroller(page).evaluate((el) => el.scrollWidth - el.clientWidth);
+  const range100 = await hRange();
   await btn(page, '放大').click();
   await expect(zoomLabel(page)).toHaveText('125%');
   await btn(page, '縮小').click();
@@ -773,6 +776,8 @@ test('縮放與捲動：按鈕 ×1.25、點倍率回 100%、範圍 20～400%、�
   await expect(zoomLabel(page)).toHaveText('400%');
   await zoomLabel(page).click();
   await expect(zoomLabel(page)).toHaveText('100%');
+  /* 縮放來回之後，橫捲範圍回到 100% 本來的大小（不留下延伸出去的空白；對等驗證後修正 F12） */
+  await expect.poll(hRange).toBe(range100);
   /* 縮小時地面貼齊底部 */
   await btn(page, '縮小').click();
   await btn(page, '縮小').click();
@@ -781,6 +786,7 @@ test('縮放與捲動：按鈕 ×1.25、點倍率回 100%、範圍 20～400%、�
   const ground = await screenOf(page, 0, 0);
   expect(box.y + box.height - (ground?.y ?? 0)).toBeCloseTo(14, 0);
   await zoomLabel(page).click();
+  await expect.poll(hRange).toBe(range100);
   /* 滾輪：游標下的點不動（100 px 約 ×1.16） */
   const p = { x: box.x + box.width * 0.4, y: box.y + box.height * 0.5 };
   const w0 = await page.evaluate(
