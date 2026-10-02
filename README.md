@@ -34,7 +34,7 @@
 | [選角畫面產生器](tools/character-select/) | 做出格鬥遊戲那樣的選角畫面，1P～4P 游標依序挑角色，輸出成動畫或可互動的 HTML |
 | [角色資料編輯器](tools/character-editor/) | 在 CCFOLIA 外編輯角色的 JSON：狀態、參數、聊天面板都能改，也能直接讀編輯畫面貼上的文字 |
 | [聊天視窗產生器](tools/chat-window/) | 做出自訂 CSS，把 CCFOLIA 的骰子結果與秘匿聊天以喜歡的樣式顯示在 OBS 上，可在預覽中一邊送訊息一邊調整 |
-| [訊息框產生器](tools/message-box/) | 做出自訂 CSS，把 CCFOLIA 發言時出現在畫面下方、附立繪的訊息框以喜歡的樣式顯示在 OBS 上；7 種範本可再細調，預覽中能切換角色、一邊送訊息一邊看 |
+| [訊息框產生器](tools/message-box/) | 做出自訂 CSS，把 CCFOLIA 發言時出現在畫面下方、附立繪的訊息框以喜歡的樣式顯示在 OBS 上；8 種範本可再細調，預覽中能送出範例訊息、一邊看一邊調整 |
 | [立繪尺寸統一器](tools/portrait-size/) | 把同一角色的差分立繪裁掉透明邊並統一寬度，切換立繪時棋子圖就不會忽大忽小；也能單張拿來裁邊與轉 WebP |
 | [立繪身高比較板](tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
 | [房間 ZIP 產生器](tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；工作進度可存成 .ccproj 檔 |
@@ -77,15 +77,15 @@ npm run serve
 
 （`emotion-maker` 的合本圖片產生功能受 canvas 安全限制影響，需以伺服器方式開啟。）
 
-### 重新建置 cutin、character-editor 與 obs-tachie
+### 重新建置 cutin 與 character-editor
 
-有三個工具要先建置才能放進 `tools/`。原始碼收在 `vendor/` 底下，
+有兩個工具要先建置才能放進 `tools/`。原始碼收在 `vendor/` 底下，
 建置產物（已提交進 repo）輸出到各自的 `tools/` 目錄，`vendor/` 不參與網站發佈。
 
-`cutin`、`character-editor` 與 `obs-tachie` 的上游是 React + TypeScript 專案。改動原始碼後要重新建置：
+`cutin` 與 `character-editor` 的上游是 React + TypeScript 專案。改動原始碼後要重新建置：
 
 ```
-cd vendor/cutin-maker              # 或 vendor/ccfolia-character-editor、vendor/obs-tachie-generator
+cd vendor/cutin-maker              # 或 vendor/ccfolia-character-editor
 npm install                        # character-editor 請用 npm ci
 npm run build
 ```
@@ -96,11 +96,6 @@ npm run build
 `character-editor` 請用 `npm ci`：`npm install` 在解析 vitest 的 peer
 相依時會踩到 npm 10.9 的一個錯誤（`Cannot read properties of null`），
 上游的 lockfile 則可以正常安裝。
-
-`obs-tachie` 用 `npm ci` 或 `npm install` 都可以，產物輸出到 `tools/obs-tachie/`。
-它另有 `npm test`（vitest；測試環境會把 `ja` 字典注入 `window.T`，上游的測試照原樣就能跑，
-順帶驗證日文譯文與原文一字不差）、`npm run lint` 與 `npm run typecheck`。
-字典是執行期才載入的，只改 `i18n.obs-tachie.js` 不需要重新建置。
 
 ## 測試
 
@@ -142,15 +137,19 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 | `portrait-size` | [立繪尺寸統一器](tools/portrait-size/) | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) |
 | `text-path` | [文字軌跡產生器](tools/text-path/) | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) |
 | `collage-letter` | [匿名拼貼信產生器](tools/collage-letter/) | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) |
+| `status-bar` | [狀態條產生器](tools/status-bar/) | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) |
+| `message-box` | [訊息框產生器](tools/message-box/) | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) |
+| `chat-window` | [聊天視窗產生器](tools/chat-window/) | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) |
+| `obs-tachie` | [Discord 通話立繪產生器](tools/obs-tachie/) | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
 介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的九個工具、
-`ccfolia-cropper`、`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的五個工具、`cutin`、
+`ccfolia-cropper`、`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、`cutin`、
 `character-editor`、`height-board`、`trpg-lab`、
-`anime-rig`、`scenario-editor`、`obs-tachie` 與くま的六個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
+`anime-rig`、`scenario-editor` 與くま的六個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
 `bg-motion` 也照上游保留韓文（上游的英文沒有收）。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
@@ -161,11 +160,11 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
 
-`status-bar`、`chat-window`、`foreground-frame`、`message-box` 的字型欄與 `scene-transition` 的字幕字型可以改填「以名稱指定」，
+`foreground-frame` 的字型欄與 `scene-transition` 的字幕字型可以改填「以名稱指定」，
 使用觀看者電腦上已安裝的字型。Chrome／Edge 還能用「從清單選」開出一份附樣張的清單
 （Local Font Access API，第一次會詢問權限）；其餘瀏覽器隱藏該按鈕，直接輸入名稱同樣可用。
-那個對話框是五個工具共用的 `pcfonts.v1.js`，五份必須完全相同，詳見
-[ATTRIBUTION](ATTRIBUTION.md#五個工具共用的-pcfontsv1js)。
+那個對話框是兩個工具共用的 `pcfonts.v1.js`，兩份必須完全相同，詳見
+[ATTRIBUTION](ATTRIBUTION.md#兩個工具共用的-pcfontsv1js)。
 選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），首頁與各工具共用。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，

@@ -29,13 +29,10 @@
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
 | foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
 | scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `9866858` | MIT |
-| status-bar | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `dab4fb9` | MIT |
 | cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
 | ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
-| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `549364f` | MIT |
-| message-box | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) | `05f6331` | MIT |
 | height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
@@ -48,7 +45,6 @@
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 | coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
-| obs-tachie | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) | `c4aca96` | MIT |
 | bg-motion | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/haikei-motion-maker/` | `42c45f3` | **未授權** |
 | icon-maker | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/kantan-icon-maker/` | `42c45f3` | **未授權** |
 | session-log | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-log-tool/` | `42c45f3` | **未授權** |
@@ -60,7 +56,7 @@
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
-shiki365 的五個工具、`cutin`、`height-board` 與 `room-zip` 原文為日文，
+shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、`cutin`、`height-board` 與 `room-zip` 原文為日文，
 收錄時另有以下調整：
 
 - `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
@@ -68,23 +64,14 @@ shiki365 的五個工具、`cutin`、`height-board` 與 `room-zip` 原文為日�
   以 WebP 為預設匯出格式，主程式也從 `app.v2.js` 改名為 `app.v6.js`（上游靠檔名換版號避開快取），
   另外多了 `webp.v1.js` 與共用的 `pcfonts.v1.js`。字幕字型清單加了同一組五套繁中字型（見下方「繁體中文字型」），
   字型群組的 `<optgroup>` 標籤掛 `data-label-key`，由程式在切換語言時套上。
-- `foreground-frame`、`scene-transition`、`chat-window` 與 `message-box` 的 `<style>` 區塊抽出為
-  `styles.css`。
-- 這八個工具都移除了指向原作者站台的 OG／Twitter meta 與
+- `foreground-frame` 與 `scene-transition` 的 `<style>` 區塊抽出為 `styles.css`。
+- 這五個工具都移除了指向原作者站台的 OG／Twitter meta 與
   `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
   `<title>` 只留工具名，捨去 SEO 後綴。
-- shiki365 的五個工具頁尾都有回作者工具站的連結（`chat-window` 與 `message-box` 另有一條許願用的
-  Marshmallow），以及後來加上的「支持開發（BOOTH）」，都原樣保留並翻譯；但頁首那條
+- shiki365 的工具頁尾都有回作者工具站的連結，以及後來加上的「支持開發（BOOTH）」，都原樣保留並翻譯；但頁首那條
   同樣指向工具站的連結不收——那個位置放的是合輯的首頁連結。
-- 上游後來替五個工具加了 `favicon.svg`（`message-box` 一公開就附了），收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
+- 上游後來替這些工具加了 `favicon.svg`，收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
   分頁圖示，不各自掛作者的站台圖示。
-- `chat-window` 的說明裡有一節引導使用者用姊妹工具「メッセージボックスメーカー」顯示附立繪的訊息框，
-  上游連到作者站上的版本；合輯也收了這個工具（`message-box`），收錄版改連到合輯自己的那份。
-  `message-box` 反過來也有三處把 `chat-window` 當成搭配用的姊妹工具，同樣改連到合輯內的 `../chat-window/`。
-- `chat-window` 上游有兩句說明把「映す件数」「並び順」寫成在「メッセージ」分頁，
-  實際上兩者都在「窓・見出し」分頁；收錄版的繁中與日文都照實際位置寫。
-- `status-bar`、`chat-window` 與 `message-box` 的上游都附了自家站台的 `ogp.png`（各約 0.5 MB），
-  收錄版沒有用到那張圖（`og:image` 指的是絕對網址），因此不收。
 
 ## height-board：移除了原站的存取分析
 
@@ -98,44 +85,18 @@ Wool&Wag 的 `character-height-board` 上游頁面掛了 Google Analytics，說�
 ——CCFOLIA 是用圖片寬度決定棋子大小的，寬度不一致，切換立繪時棋子就會忽大忽小；
 `height-board` 則是依身高統一縮尺，把不同角色並排比較高矮。
 
-## 五個工具共用的 pcfonts.v1.js
+## 兩個工具共用的 pcfonts.v1.js
 
-`status-bar`、`chat-window`、`foreground-frame`、`message-box` 的字型欄與 `scene-transition` 的字幕字型都可以改填「以名稱指定」，
+`foreground-frame` 的字型欄與 `scene-transition` 的字幕字型都可以改填「以名稱指定」，
 使用觀看者電腦上已安裝的字型；Chrome／Edge 還能用 Local Font Access API
 （`queryLocalFonts()`）開出一份附樣張的清單來挑。那個對話框是 `pcfonts.v1.js`，
-上游在五個 repo 底下各放一份，收錄版照做，`tests/smoke.mjs` 會檢查
-五份沒有漂開。上游 `message-box-maker` 那份的檔頭多列了自己的名字，其他四份還沒跟上；
-內容其餘一字不差，收錄版五份都用那個新的檔頭。對話框是延遲建立的單例，切換語言時整個丟掉重建。
+上游在每個 repo 底下各放一份，收錄版照做，`tests/smoke.mjs` 會檢查
+兩份沒有漂開。上游 `message-box-maker` 那份的檔頭多列了自己的名字，其他幾份還沒跟上；
+內容其餘一字不差，收錄版都用那個新的檔頭。（`status-bar`、`chat-window`、`message-box`
+已由本站重寫，新版的電腦字型挑選改用本站的共用元件。）對話框是延遲建立的單例，切換語言時整個丟掉重建。
 
 這個功能在 OBS 端有個前提：OBS 是用它自己那台電腦的字型算繪的，所以那台也要裝同一套
 字型。上游把這件事寫在說明與產出的 CSS 開頭，收錄版一併翻譯保留。
-
-## chat-window：預覽刻意保留的日文
-
-`chat-window` 的預覽（`mock.v1.js`）是把 CCFOLIA 的聊天畫面照著重畫一遍，
-好讓使用者在調整 CSS 時看到的就是 OBS 上會出現的樣子。因此那個檔案裡的日文
-（`ルームチャット`、`メイン`、`メッセージを入力` 等九處，以及四個 `aria-label`）
-**原樣保留**——CCFOLIA 只有日文介面，翻掉的話預覽就不是實際畫面了。
-
-同理，範例訊息裡的骰子結果（`成功`、`失敗`、`決定的成功/スペシャル`、
-`致命的失敗`、`Secret dice 🎲`）是 BCDice 與 CCFOLIA 的實際輸出，也不翻；
-但角色名與聊天內容是作者自己編的示範資料，照常翻成繁體中文。
-`tests/smoke.mjs` 把這批該留的日文釘成一份清單，三個方向互相箝制。
-
-## message-box：同樣保留 CCFOLIA 畫面上的日文
-
-`message-box`（訊息框產生器）是 `chat-window` 的姊妹工具，預覽（`mock.v1.js`）一樣是照著
-CCFOLIA 的房間畫面重畫的，所以畫面上的 `ルームチャット`、`メッセージを入力`、訊息框的
-`スキップ`／`閉じる` 按鈕，以及秘密骰換掉內文後的 `シークレットダイス`、BCDice 的
-`決定的成功/スペシャル` 都原樣保留；角色名、房間名與示範台詞則照常翻成繁體中文。
-`css.v1.js` 的英文註解引用了 CCFOLIA 的設定名稱（`旧ダイス演出を利用する` 等），也不動。
-說明文裡提到這些設定時，繁中版寫的是譯名（例如「使用舊版骰子演出」），方便讀者理解；
-實際操作 CCFOLIA 時請對照日文介面。`tests/smoke.mjs` 同樣把這批日文釘成清單。
-
-上游替每個設定列的輸入元件，從列標籤借一份 `aria-label`，但只在載入時借一次；
-收錄版在語言引擎換好標籤後、以及之後每次切換語言時重借，讀螢幕軟體聽到的才會跟畫面一致。
-`status-bar` 與 `chat-window` 的上游是同一套寫法，也照樣修了（修正前，切換語言後分別有 73、79 個
-欄位的朗讀名稱停在舊語言）。
 
 ## room-zip：拆掉上游的 Web DEMO 外層
 
@@ -611,25 +572,6 @@ WebM。
 - 這個工具刻意不連網，因此沒有加 Google Fonts，只在紙面的明體後面補上新細明體與
   Noto Serif TC、介面字型補上微軟正黑體、蘋方與 Noto Sans TC（接在日文字型後面，日文顯示不變）。
 
-## obs-tachie：Discord 通話立繪產生器
-
-上游 `max-enterme/obs-tachie-generator` 產生 Discord Streamkit（OBS 的瀏覽器來源）用的
-自訂 CSS，把通話中的頭像換成常駐顯示的立繪，說話時彈跳、發光，還能附上名字字幕條。
-上游 README 寫明這是受 alfe 氏（@alfe_below）「OBSのDiscord通話相手立ち絵表示ジェネレーター」
-啟發的獨立實作，沒有使用 alfe 氏的程式碼與素材。
-
-這是第三個要建置的工具（React + TypeScript + Vite），做法同 `character-editor`：原始碼收在
-`vendor/obs-tachie-generator/`，建置產物在 `tools/obs-tachie/`。與 `character-editor` 不同的是
-`src/` 的註解都譯成了繁體中文。上游的 `specs/`、部署說明與 Playwright 畫面測試（`e2e/`，
-需要另外下載瀏覽器，也不在 `npm test` 裡）不收，`package.json` 與 lockfile 跟著拿掉
-`@playwright/test`；vitest 的 189 項測試照舊，另加 7 項語言相關的測試。
-
-- 產出 CSS 裡給人看的註解跟著產生當下的語言；選擇器（`[class*="Voice_…"]`、
-  `img[src*="avatars/<id>"]`）與結構不經過字典，拿掉註解後繁中與日文的輸出逐字相同。
-- 程式庫拋出的錯誤與畫面上的提示改存 i18n key，算繪時才取譯文，切語言會跟著換。
-- 名字字型欄是自由輸入（上游沒有載入網頁字型），繁中介面的範例改成
-  `Noto Sans TC, 微軟正黑體`。
-
 ## くま（TRPG WEBツール観測所）的六個工具
 
 `bg-motion`、`icon-maker`、`session-log`、`session-report`、`variant-manager`、
@@ -701,6 +643,10 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `portrait-size` | 立繪尺寸統一器 | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `cb0c619` |
 | `text-path` | 文字軌跡產生器 | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) | `b8a22a1` |
 | `collage-letter` | 匿名拼貼信產生器 | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) | `b8a22a1` |
+| `status-bar` | 狀態條產生器 | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `b8a22a1` |
+| `message-box` | 訊息框產生器 | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) | `b8a22a1` |
+| `chat-window` | 聊天視窗產生器 | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `b8a22a1` |
+| `obs-tachie` | Discord 通話立繪產生器 | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) | `b8a22a1` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -724,12 +670,12 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 另外，第一次嘗試時實作者讀了原作程式碼，寫出來的版本有照搬的痕跡（相同的資料結構與內部常數），
 那一版沒有提交就整個作廢，才改用上述流程重做。
 
-## 需要建置的三個工具
+## 需要建置的兩個工具
 
-`cutin`、`character-editor` 與 `obs-tachie` 的上游都是 React + TypeScript + Vite 專案，
+`cutin` 與 `character-editor` 的上游都是 React + TypeScript + Vite 專案，
 不能直接把檔案放進 `tools/` 就跑。因此原始碼快照收在 `vendor/` 底下，建置產物提交在
 各自的 `tools/` 目錄，重建方式見
-[README](README.md#重新建置-cutincharacter-editor-與-obs-tachie)。`vendor/` 不參與網站發佈。
+[README](README.md#重新建置-cutin-與-character-editor)。`vendor/` 不參與網站發佈。
 
 `character-editor` 另有一點必須留意：`src/lib/editScreenText.ts` 的日文字面常數
 幾乎全是**解析用的錨點**，用來切分使用者從 CCFOLIA 編輯畫面複製貼上的文字
@@ -775,7 +721,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
 因此沒有隨附 OFL 全文——與 `cutin` 的其他六套日文字型同樣的處理方式。
-收錄的工具：`cutin`、`status-bar`、`chat-window`、`message-box`、`scene-transition`（字幕字型）、`typewriter`、`pair-maker`
+收錄的工具：`cutin`、`scene-transition`（字幕字型）、`typewriter`、`pair-maker`
 （v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
 以及 `trpg-lab` 地圖編輯器的文字字型清單。
 
@@ -785,7 +731,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 - `foreground-frame` 的字型表補上正黑體／明體／標楷體三組台灣系統字型堆疊；
 - `loading-maker` 的字型建議清單補上同樣三組；
 
-`obs-tachie` 與くま的六個工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
+くま的六個工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
 （PingFang TC、Microsoft JhengHei、Noto Sans TC 等）排到前面；日文介面維持上游的字型。
 
 各工具宣告的字重都逐一對 `fonts.googleapis.com/css2` 驗證過——Google Fonts 對

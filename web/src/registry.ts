@@ -99,7 +99,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把 CCFOLIA 房間畫面發言時跳出的訊息框改成直播用的樣式：產生貼進 OBS 瀏覽器來源的自訂 CSS，畫面上只留訊息框。',
     group: 'G4',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'shiki365/message-box-maker',
       url: 'https://github.com/shiki365/message-box-maker',
@@ -111,7 +111,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '做出 OBS 瀏覽器來源用的自訂 CSS，把 CCFOLIA 的聊天另開視窗變成直播畫面上的聊天／擲骰視窗，可以只列擲骰、依成敗上色。',
     group: 'G4',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'shiki365/chat-window-maker',
       url: 'https://github.com/shiki365/chat-window-maker',
@@ -131,7 +131,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '用 Discord 語音跑團直播時，把 Streamkit 的小頭像換成常駐立繪：說話時彈跳、發光或閃爍，可附名字標籤，產生 OBS 瀏覽器來源的自訂 CSS。',
     group: 'G4',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'max-enterme/obs-tachie-generator',
       url: 'https://github.com/max-enterme/obs-tachie-generator',
@@ -143,7 +143,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把 CCFOLIA 的角色狀態頁變成直播用的 HP／MP 狀態條：調好外觀後複製 CSS 貼進 OBS 瀏覽器來源，數值會即時連動。',
     group: 'G4',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'shiki365/status-bar-maker',
       url: 'https://github.com/shiki365/status-bar-maker',
