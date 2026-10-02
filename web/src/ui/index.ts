@@ -191,6 +191,12 @@ export {
 export { type PartOption, PartPicker, type PartPickerProps } from './PartPicker';
 export { PathPad, type PathPadLabel, type PathPadProps } from './PathPad';
 export {
+  PostEditor,
+  type PostEditorHandle,
+  type PostEditorMessages,
+  type PostEditorProps,
+} from './PostEditor';
+export {
   ProjectMenu,
   ProjectMenuItem,
   type ProjectMenuProps,
