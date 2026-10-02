@@ -297,11 +297,18 @@ const HEX3 = /^[0-9a-fA-F]{3}$/;
 export const colorCodeText = (color: string): string => color.replace(/^#/, '');
 
 /**
- * 打字時：先去掉開頭的「#」再取前 6 個字元（裁定：貼上「#FF0000」得到 FF0000 並套用）；
+ * 打字時：欄位最多 6 個字元（與舊版相同，滿了再打字不會進去：回傳原本的文字 prev）；
+ * 開頭是「#」時先去掉再取前 6 個字元（裁定：貼上「#FF0000」得到 FF0000 並套用）。
  * 剛好是 6 位十六進位時立刻套用（轉小寫）。
  */
-export function typeColorCode(input: string): { text: string; color: string | null } {
-  const text = input.replace(/^#/, '').slice(0, 6);
+export function typeColorCode(
+  input: string,
+  prev?: string,
+): { text: string; color: string | null } {
+  let text: string;
+  if (input.startsWith('#')) text = input.slice(1, 7);
+  else if (input.length > 6 && prev !== undefined) text = prev;
+  else text = input.slice(0, 6);
   const t = text.trim();
   return { text, color: HEX6.test(t) ? `#${t.toLowerCase()}` : null };
 }

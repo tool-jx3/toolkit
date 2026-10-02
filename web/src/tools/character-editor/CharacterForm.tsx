@@ -1,7 +1,7 @@
 /**
  * 表單（目前的角色，F17～F32）：每個欄位改動後輸出立刻更新。
  */
-import { useRef } from 'react';
+import { memo, useRef } from 'react';
 import { Button, Field, Section, TextArea, TextInput } from '@/ui';
 import { ColorRow, NumberCell } from './controls';
 import { ListSection } from './ListSection';
@@ -127,7 +127,7 @@ function CommandsSection() {
   );
 }
 
-export function CharacterForm() {
+function CharacterFormBody() {
   return (
     <div className="flex min-w-0 flex-col gap-3" data-testid="character-form">
       <BasicsSection />
@@ -137,3 +137,6 @@ export function CharacterForm() {
     </div>
   );
 }
+
+/** 外層（讀入區的文字、輸出）改變時不重畫整張表單：各區自己訂閱需要的資料 */
+export const CharacterForm = memo(CharacterFormBody);

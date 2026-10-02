@@ -466,7 +466,18 @@ test.describe('角色資料編輯器', () => {
     expect(await color()).toBe('#888888');
     await code.pressSequentially('EF');
     expect(await color()).toBe('#12abef');
+    /* 打到 6 位時欄位保留打的大寫，離開欄位才顯示目前顏色（小寫，與舊版相同） */
+    await expect(code).toHaveValue('12ABEF');
+    await field(page, S.form.name).click();
     await expect(code).toHaveValue('12abef');
+    /* 欄位已滿 6 個字元時再打字不會進去（舊版 maxLength 6） */
+    await code.click();
+    await code.press('Home');
+    await code.press('ArrowRight');
+    await code.press('ArrowRight');
+    await code.pressSequentially('1');
+    await expect(code).toHaveValue('12abef');
+    expect(await color()).toBe('#12abef');
     await code.fill('abc');
     expect(await color()).toBe('#12abef');
     await code.press('Enter');

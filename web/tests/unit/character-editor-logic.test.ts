@@ -364,6 +364,9 @@ describe('色碼欄（3.4＋第 7 節裁定）', () => {
     expect(typeColorCode('12AB')).toEqual({ text: '12AB', color: null });
     expect(typeColorCode('12ABEF')).toEqual({ text: '12ABEF', color: '#12abef' });
     expect(typeColorCode('12ABEFG')).toEqual({ text: '12ABEF', color: '#12abef' });
+    /* 欄位已滿 6 個字元時再打字不會進去（舊版 maxLength 6） */
+    expect(typeColorCode('ab1cdef', 'abcdef')).toEqual({ text: 'abcdef', color: '#abcdef' });
+    expect(typeColorCode('#ab1cdef', 'abcdef')).toEqual({ text: 'ab1cde', color: '#ab1cde' });
     expect(typeColorCode('12ABEG')).toEqual({ text: '12ABEG', color: null });
     expect(typeColorCode('#12a')).toEqual({ text: '12a', color: null });
   });

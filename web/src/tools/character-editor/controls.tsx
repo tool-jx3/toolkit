@@ -98,9 +98,13 @@ export function ColorRow({ color, onChange }: ColorRowProps) {
           autoComplete="off"
           value={text}
           onChange={(e) => {
-            const r = typeColorCode(e.target.value);
+            const r = typeColorCode(e.target.value, text);
             setText(r.text);
-            if (r.color && r.color !== color) onChange(r.color);
+            if (r.color && r.color !== color) {
+              /* 打到 6 位時欄位保留打的大小寫，離開欄位才顯示目前顏色（與舊版相同） */
+              setShown(r.color);
+              onChange(r.color);
+            }
           }}
           onBlur={settle}
           onKeyDown={onKeyDown}
