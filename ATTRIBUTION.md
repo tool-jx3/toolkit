@@ -24,14 +24,12 @@
 | 工具 | 原始 repo | 來源 commit | 授權 |
 |---|---|---|---|
 | magic-circle | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `de40a68` | MIT |
-| emotion-maker | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b455379` | **未授權** |
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
 | foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
 | scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `9866858` | MIT |
 | cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
-| height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
 | acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
@@ -51,7 +49,7 @@
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
-shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、`cutin`、`height-board` 與 `room-zip` 原文為日文，
+shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、`cutin` 與 `room-zip` 原文為日文，
 收錄時另有以下調整：
 
 - `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
@@ -60,25 +58,13 @@ shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、`cutin`�
   另外多了 `webp.v1.js` 與共用的 `pcfonts.v1.js`。字幕字型清單加了同一組五套繁中字型（見下方「繁體中文字型」），
   字型群組的 `<optgroup>` 標籤掛 `data-label-key`，由程式在切換語言時套上。
 - `foreground-frame` 與 `scene-transition` 的 `<style>` 區塊抽出為 `styles.css`。
-- 這五個工具都移除了指向原作者站台的 OG／Twitter meta 與
+- 這些工具都移除了指向原作者站台的 OG／Twitter meta 與
   `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
   `<title>` 只留工具名，捨去 SEO 後綴。
 - shiki365 的工具頁尾都有回作者工具站的連結，以及後來加上的「支持開發（BOOTH）」，都原樣保留並翻譯；但頁首那條
   同樣指向工具站的連結不收——那個位置放的是合輯的首頁連結。
 - 上游後來替這些工具加了 `favicon.svg`，收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
   分頁圖示，不各自掛作者的站台圖示。
-
-## height-board：移除了原站的存取分析
-
-Wool&Wag 的 `character-height-board` 上游頁面掛了 Google Analytics，說明區與頁尾也各有一句
-告知使用者這件事。收錄版把 `gtag` 的載入一併移除，因此那兩句話也拿掉了——留著就是在說一件
-本站不存在的事。（同作者的 `character-image-size` 已由本站重寫成 `portrait-size`，見下方「本站重寫的工具」。）
-`<style>` 與內嵌 `<script>` 照慣例抽成 `styles.css` 與 `app.js`。
-
-三個處理立繪的工具各管一件事，互不重疊：`ccfolia-cropper` 按 CCFOLIA 的版面比例
-裁切、對齊頭部或角色中央；`portrait-size` 把同一角色的差分裁掉透明邊之後統一寬度
-——CCFOLIA 是用圖片寬度決定棋子大小的，寬度不一致，切換立繪時棋子就會忽大忽小；
-`height-board` 則是依身高統一縮尺，把不同角色並排比較高矮。
 
 ## 兩個工具共用的 pcfonts.v1.js
 
@@ -183,7 +169,7 @@ baegop 雙人整理 1、圖樣橫幅、多人資料框、置頂推文產生器�
 另外移除兩項與本站無關的東西：
 
 - 兩頁頁尾的 Cloudflare Web Analytics beacon（`static.cloudflareinsights.com`，
-  帶著上游站台的 token）。理由同 `height-board` 的 GA。
+  帶著上游站台的 token）。合輯不替原站收集存取資料。
 - 「버그&문의」對話框裡嵌的 Google 表單 iframe。那張表單收到的會是這份收錄版的
   問題，送達的卻是原作者的信箱。改成一段說明：只有這個版本才會發生的問題請開在
   本 repo 的 issues，工具本身的意見請找原作者。原作者的署名「배고픔」三種語言都
@@ -397,7 +383,7 @@ gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，
 組出來的，文字先用 `T()` 填好、同時掛上 `data-i18n`，切換語言時交給共用引擎重套，
 不必整個重建（重建會把語言選單換掉）。
 
-上游註解維持日文（`map_editor.js` 一檔就有上千行），理由與 `height-board`、`room-zip`
+上游註解維持日文（`map_editor.js` 一檔就有上千行），理由與 `room-zip`
 相同，規則也相同：`tests/smoke.mjs` 把註解抹掉之後再掃，程式碼與標記裡不准有假名。
 
 介面是繁中時，各頁字型改用 Noto Sans TC（`common.css` 依 `<html lang>` 切換，每頁的
@@ -644,6 +630,8 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `variant-manager` | 角色差分管理器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`chara-sabun-kanri-tool`） | `b8a22a1` |
 | `color-palette` | 角色配色條產生器 | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette) | `b8a22a1` |
 | `typewriter` | 打字機動畫產生器 | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) | `b8a22a1` |
+| `height-board` | 立繪身高比較板 | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `b8a22a1` |
+| `emotion-maker` | 表情產生器 | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b8a22a1` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -737,7 +725,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 ## 未授權的工具
 
-`sotsotssi/emotion-maker`、`sotsotssi/loading-maker`、
+`sotsotssi/loading-maker`、
 `sotsotssi/select-your-chara`、
 `organon-torah/ccfoliaCharacterEditor`、`johnko00/ccfolia-room-zip-maker-demo`
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
@@ -745,8 +733,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
 くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中四個工具，見上方專節；
 站上的利用規約另外禁止轉載圖片素材，因此一張圖都沒收）。
-依著作權法預設，其權利保留予原作者（`emotion-maker` 包含 `images/` 下全部
-39 張手繪素材），此處僅供試用。原作者如有異議，將立即移除。
+依著作權法預設，其權利保留予原作者，此處僅供試用。原作者如有異議，將立即移除。
 
 `character-select` 與 `room-zip` 的上游都是收錄前一兩天才建立、只有一次提交，
 往後很可能還會變動；此處的快照分別固定在 `883f48b` 與 `a9a522c`，不與上游同步。
@@ -772,15 +759,10 @@ magic-circle 的繁體中文翻譯移植自
   分割、記憶體上限推導等），逐句轉譯風險大於效益，故維持日文原文；只有使用者
   看得到的字串與本 repo 新增的註解為中文。這些註解不會出現在 `tools/cutin/`
   的建置產物裡。
-- `tools/height-board/`——同樣的理由。392 行註解多為 Canvas 縮放、記憶體上限、
-  `.hboard` 的檔案佈局、拖曳門檻、為什麼某個按鈕要 `type="button"` 之類的取捨說明，
-  維持日文原文。與 `cutin` 不同的是這些註解會隨著檔案發佈，因此 `tests/smoke.mjs`
-  把「只有註解可以是日文」變成可檢查的規則：把註解整段抹成空白（保留行結構）之後
-  再掃一次，程式碼與標記裡只要出現假名就會被擋下。`styles.css` 裡的
-  `HG丸ｺﾞｼｯｸM-PRO` 是 Windows 的字型名稱，屬於要原樣寫給瀏覽器看的識別字，
-  另外列為例外並檢查它還在。
 - `tools/room-zip/`——同樣的理由，而且量更大：app.v1.js 一萬多行裡有 156 行
-  註解是日文。同樣用 `stripComments` 的規則把關，另外列出一份「刻意留著的資料」
+  註解是日文。與 `cutin` 不同的是這些註解會隨著檔案發佈，因此 `tests/smoke.mjs`
+  把「只有註解可以是日文」變成可檢查的規則（`stripComments`）：把註解整段抹成空白
+  （保留行結構）之後再掃一次，程式碼與標記裡只要出現假名就會被擋下；另外列出一份「刻意留著的資料」
   清單（素材標籤的值、`{検索ワード}`、KPDEF 的聊天面板預設內容、CSV 標題列的
   辨識字、CCFOLIA 的三個預設頻道名），清單以外的日文一律擋下。
 
@@ -788,7 +770,7 @@ magic-circle 的繁體中文翻譯移植自
 
 新框架 `web/`（含其建置產物 `assets/build/`、`next/` 與重寫上線的 `tools/<id>/index.html`）、`docs/`、`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
 `guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
-以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
-`tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、
+以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
+`tools/loading-maker/`、
 `tools/character-select/`、`tools/character-editor/`、
 `tools/room-zip/`、`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。

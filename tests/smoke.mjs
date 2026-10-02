@@ -145,7 +145,7 @@ function checkTool({ dir, dict, html: page = 'index.html', shared = [], locale =
     check(`${file} 無殘留原文`, leaked.length === 0, report(leaked));
   }
 
-  /* emotion-maker 無原始 LICENSE，該工具傳入 licence: false。 */
+  /* 未授權收錄的工具沒有原始 LICENSE，傳入 licence: false。 */
   if (licence) check('保留原始 LICENSE', exists(`${dir}/LICENSE`));
   return tool;
 }
@@ -189,78 +189,6 @@ for (const locale of ['zh-TW', 'ko']) {
   check(`${locale} 無多餘 rune.* key`, stray.length === 0, `stray: ${stray.join(', ')}`);
 }
 
-/* ---- emotion-maker ---- */
-const emApp = read('tools/emotion-maker/app.js');
-
-/* emotion-maker 的韓文為資料 ID，非顯示文字：MANIFEST 的 id（含 base 分類的
- * "피부"/"얼굴 틀"）與四個分類鍵（"눈"／"눈썹"／"입"／"꾸밈"，用於 CATS、
- * SINGLE、customParts、PRESETS 的部件引用等物件的鍵與陣列元素）。tag 已改為
- * i18n key，不在白名單內。
- *
- * 不變量：該行內每一段被雙引號包住、且含韓文的字串，都必須完整等於上述
- * 已知 ID 之一；且移除所有雙引號字串後，剩餘部分（含註解）不得再含韓文。
- * 這比舊版「整行含 id: 這個子字串、或含特定引號字串，就放行整行」更精確——
- * 舊版只要一行含 id:"..."（不論值為何）或恰好含 draft["입"] 這類子字串，
- * 就會放行該行「全部」內容，即使同一行另有未包裝的韓文顯示字串（例如
- * toast("입을 선택하세요")）也會被誤放行；新版逐一檢查每個引號字串本身
- * 是否為已知 ID，並確保引號外沒有殘留韓文。 */
-const emKnownIds = new Set([
-  ...[...emApp.matchAll(/\bid:\s*"([^"]*)"/g)].map(m => m[1]),
-  '눈', '눈썹', '입', '꾸밈'
-]);
-function emLineAllowsHangul(line) {
-  const quoted = [...line.matchAll(/"([^"]*)"/g)].map(m => m[1]);
-  if (quoted.some(q => HANGUL.test(q) && !emKnownIds.has(q))) return false;
-  return !HANGUL.test(line.replace(/"[^"]*"/g, ''));
-}
-
-const em = checkTool({
-  dir: 'tools/emotion-maker',
-  dict: 'i18n.emotion-maker.js',
-  scripts: ['app.js'],
-  styles: ['style.css'],
-  minHooks: 40,
-  licence: false,
-  allowSource: (line, n, file) => file === 'app.js' && emLineAllowsHangul(line)
-});
-
-/* emotion-maker 無原始 LICENSE，checkTool 的該項檢查會失敗；
- * 以 ATTRIBUTION.md 標示取代（見 Task 8）。此處單獨確認其確實沒有。 */
-section('tools/emotion-maker licence');
-check('emotion-maker 無原始 LICENSE（未授權，於 ATTRIBUTION.md 標示）',
-  !exists('tools/emotion-maker/LICENSE'));
-
-/* 資產完整性：MANIFEST 每個 file 對應的 PNG 必須存在。 */
-section('tools/emotion-maker assets');
-const files = [...emApp.matchAll(/file:\s*"([^"]+)"/g)].map(m => m[1]);
-check('MANIFEST 解析出 39 個部件', files.length === 39, `found ${files.length}`);
-const missingPng = files.filter(f => !exists(`tools/emotion-maker/images/${f}.png`));
-check('每個部件的 PNG 都存在', missingPng.length === 0, `missing: ${missingPng.join(', ')}`);
-for (const locale of ['zh-TW', 'ko']) {
-  const missing = files.filter(f => !em.messages[locale][`part.${f.replace('/', '.')}`]);
-  check(`${locale} 每個部件都有顯示名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
-/* 20 種內建 preset 的 tag 都要有譯文。 */
-section('tools/emotion-maker presets');
-const tags = [...emApp.matchAll(/tag:\s*"(preset\.[a-z]+)"/g)].map(m => m[1]);
-check('解析出 20 組 preset', tags.length === 20, `found ${tags.length}`);
-for (const locale of ['zh-TW', 'ko']) {
-  const missing = tags.filter(t => !em.messages[locale][t]);
-  check(`${locale} 每組 preset 都有名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
-/* 分類標題以 T('cat.' + CAT_KEY[cat]) 動態組成，靜態掃描看不到，
- * 需另外檢查這 4 個 key 是否兩語言都存在。 */
-section('tools/emotion-maker categories');
-const catBlock = emApp.match(/const CAT_KEY = \{([^}]*)\}/)[1];
-const catSuffixes = [...catBlock.matchAll(/:\s*"([a-z]+)"/g)].map(m => m[1]);
-check('解析出 4 個分類代稱', catSuffixes.length === 4, `found ${catSuffixes.length}`);
-for (const locale of ['zh-TW', 'ko']) {
-  const missing = catSuffixes.filter(s => !em.messages[locale][`cat.${s}`]);
-  check(`${locale} 每個分類都有顯示名稱`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
 /* ---- loading-maker ---- */
 const lm = checkTool({
   dir: 'tools/loading-maker',
@@ -271,8 +199,7 @@ const lm = checkTool({
   licence: false
 });
 
-/* loading-maker 無原始 LICENSE，與 emotion-maker 同為未授權收錄，於
- * ATTRIBUTION.md 標示。此處單獨確認其確實沒有。 */
+/* loading-maker 無原始 LICENSE（未授權收錄），於 ATTRIBUTION.md 標示。此處單獨確認其確實沒有。 */
 section('tools/loading-maker licence');
 check('loading-maker 無原始 LICENSE（未授權，於 ATTRIBUTION.md 標示）',
   !exists('tools/loading-maker/LICENSE'));
@@ -425,10 +352,9 @@ check('字幕字型清單有五套繁中字型', ['notosanstc', 'notoseriftc', '
   .every(k => new RegExp(`${k}: \\["[^"]+", \\d+, "tc\\w+"\\]`).test(stApp) && st.messages['zh-TW'][`font.${k}`]));
 
 
-/* ---- height-board ---- */
-/* 這個工具的註解密度很高，而且多半是演算法與版面取捨的說明（Canvas 縮放、記憶體
- * 上限、.hboard 的檔案佈局、拖曳門檻、為什麼要 type="button"…），共 392 行。
- * 逐句轉譯的風險大於效益，比照 vendor/cutin-maker 的處理保留日文原文。
+/* ---- 註解保留原文的工具共用：stripComments ---- */
+/* 有些工具的註解密度很高、多半是演算法與版面取捨的說明，逐句轉譯的風險大於效益，
+ * 比照 vendor/cutin-maker 保留日文原文（room-zip、trpg-lab）。
  *
  * 但「只有註解可以是日文」這件事要能被檢查，否則就等於放行。做法是把註解整段
  * 抹成空白（保留行結構）之後再掃一次：程式碼與標記裡只要出現假名就會被擋下。 */
@@ -443,65 +369,11 @@ function stripComments(src, kind) {
   return out;
 }
 
-const HB_KINDS = { 'index.html': 'html', 'styles.css': 'css', 'app.js': 'js' };
-const hbCode = Object.fromEntries(Object.entries(HB_KINDS)
-  .map(([file, kind]) => [file, stripComments(read(`tools/height-board/${file}`), kind).split('\n')]));
-
-const hb = checkTool({
-  dir: 'tools/height-board',
-  dict: 'i18n.height-board.js',
-  locale: 'ja',
-  scripts: ['app.js'],
-  styles: ['styles.css'],
-  minHooks: 70,
-  /* 只放行「抹掉註解之後就沒有假名」的行。程式碼裡真的有日文就會落下。
-   * 另外放行 font-family 裡的「HG丸ｺﾞｼｯｸM-PRO」——那是 Windows 的字型名稱，
-   * 是要原樣寫給瀏覽器看的識別字，不是可翻譯的文字。 */
-  allowSource: (line, lineNo, file) => {
-    const code = hbCode[file];
-    if (!code) return false;
-    const rest = (code[lineNo - 1] || '').replace('HG丸ｺﾞｼｯｸM-PRO', '');
-    return !KANA.test(rest);
-  }
-});
-
-section('tools/height-board');
-/* 上游頁面掛了 Google Analytics，收錄版整組移除；說明區與頁尾原本各有一句告知
- * 使用者這件事，留著就是在說一件本站不存在的事，因此一併拿掉。 */
-for (const file of ['index.html', 'app.js', 'styles.css']) {
-  check(`${file} 沒有存取分析的殘留`,
-    !/googletagmanager|gtag\(|Google.{0,7}Analytics/.test(read(`tools/height-board/${file}`)));
-}
-/* 保留日文註解是刻意的，但僅限註解——這裡把規則本身也測一次，
- * 免得 stripComments 哪天失效，整個放行條件就變成空殼。 */
-check('stripComments 會抹掉註解裡的假名',
-  !KANA.test(stripComments('/* 日本語のコメント */ var a = 1', 'js')));
-check('stripComments 不會抹掉程式碼裡的假名',
-  KANA.test(stripComments('var a = "日本語のリテラル"; // メモ', 'js')));
-check('height-board 保留 Windows 的字型名稱',
-  read('tools/height-board/styles.css').includes('HG丸ｺﾞｼｯｸM-PRO'));
-check('height-board 的註解確實還是日文（沒有被誤翻掉）',
-  /[\u3041-\u3096\u30A1-\u30FA]/.test(read('tools/height-board/app.js')));
-
-/* 狀態訊息記住 key 與參數，切語言時重寫。 */
-const hbApp = read('tools/height-board/app.js');
-check('狀態訊息以 key 呈現並在切換語言時重寫',
-  hbApp.includes('function renderStatus()') && hbApp.includes('I18N.onChange('));
-const hbKeys = [...new Set([
-  ...[...hbApp.matchAll(/\bshowStatus\('([\w]+\.[\w]+)'/g)].map(m => m[1]),
-  ...[...hbApp.matchAll(/\bT\('([\w]+\.[\w]+)'/g)].map(m => m[1])
-])];
-check('解析出 app.js 的 key', hbKeys.length >= 25, `found ${hbKeys.length}`);
-for (const locale of ['zh-TW', 'ja']) {
-  const missing = hbKeys.filter(k => !hb.messages[locale][k]);
-  check(`${locale} app.js 的譯文齊全`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
 /* ---- room-zip ---- */
 /* 上游是一份 868 KB 的單一 HTML，收錄時拆成 index.html ＋ styles.css ＋ 五個
  * JS。其中 jszip.min.js 與 upng.js 是原樣保留的第三方函式庫，不參與 i18n。
  *
- * 註解比照 cutin 與 height-board 保留日文原文，所以同樣用 stripComments 的規則：
+ * 註解比照 cutin 保留日文原文，所以同樣用 stripComments 的規則：
  * 抹掉註解之後，程式碼與標記裡只剩下「刻意留著的資料」才放行。 */
 const RZ_KINDS = { 'index.html': 'html', 'styles.css': 'css', 'app.v1.js': 'js', 'core.v1.js': 'js', 'apng.v1.js': 'js' };
 const rzCode = Object.fromEntries(Object.entries(RZ_KINDS)
@@ -1239,7 +1111,7 @@ check('訊息以 isError 判定，而非比對譯文內容',
  * 以及 trpg_map_maker/ 底下的地圖清單與地圖編輯器。每頁一份字典，頁首、頁尾與說明
  * 視窗底下的授權連結等共用字串放在 i18n.trpg-lab.js，各頁先載入它。
  *
- * 上游的註解維持日文（map_editor.js 一檔就有上千行），理由與 height-board、room-zip
+ * 上游的註解維持日文（map_editor.js 一檔就有上千行），理由與 room-zip
  * 相同；規則也相同：把註解抹成空白之後，程式碼與標記裡不准再出現假名。 */
 const LAB = 'tools/trpg-lab';
 const LAB_PAGES = [
@@ -1671,7 +1543,7 @@ for (const name of TOOLS) {
 
 /* 每張卡片的授權徽章都要跟該工具目錄裡有沒有 LICENSE 對得上。徽章是手寫的，
  * 新增工具時很容易沿用上一張卡片而標錯（把未授權的標成 MIT 就是誤導）。
- * emotion-maker 另含 39 張圖像素材，故其徽章用 license.unlicensed.assets。 */
+ * （emotion-maker 已由本站重寫；license.unlicensed.assets 這種徽章目前沒有工具用。） */
 /* ---- 重寫上線的工具（web/ 新框架）---- */
 /* 依 docs/refactor 的流程重寫、對等驗證後上線的工具：tools/<id>/ 只剩建置產物 index.html，
  * 程式在 web/src/tools/<id>/，共用的 JS／CSS 在 assets/build/。清單從 web/src/registry.ts 讀。 */
@@ -1787,7 +1659,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
 
 checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
 checkInlineText('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 150);
-checkInlineText('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 15);
 checkInlineText('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 200);
 checkInlineText('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 150);
 checkInlineText('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 130);
@@ -1795,7 +1666,6 @@ checkInlineText('tools/log-converter', 'tools/log-converter/index.html', ['tools
 checkInlineText('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 130);
 checkInlineText('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 150);
 for (const name of KUMA_TOOLS) checkInlineText(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].inline);
-checkInlineText('tools/height-board', 'tools/height-board/index.html', ['tools/height-board/i18n.height-board.js'], 25);
 checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
 checkInlineText('tools/room-zip', 'tools/room-zip/index.html', ['tools/room-zip/i18n.room-zip.js'], 15);
 /* pair-maker 有兩頁，兩頁都要比。 */
@@ -1871,7 +1741,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
 
 checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
 checkAttrPairs('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 50);
-checkAttrPairs('tools/emotion-maker', 'tools/emotion-maker/index.html', ['tools/emotion-maker/i18n.emotion-maker.js'], 3);
 checkAttrPairs('tools/loading-maker', 'tools/loading-maker/index.html', ['tools/loading-maker/i18n.loading-maker.js'], 10);
 checkAttrPairs('tools/foreground-frame', 'tools/foreground-frame/index.html', ['tools/foreground-frame/i18n.foreground-frame.js'], 8);
 checkAttrPairs('tools/scene-transition', 'tools/scene-transition/index.html', ['tools/scene-transition/i18n.scene-transition.js'], 10);
@@ -1879,7 +1748,6 @@ checkAttrPairs('tools/log-converter', 'tools/log-converter/index.html', ['tools/
 checkAttrPairs('tools/psd-studio', 'tools/psd-studio/index.html', ['tools/psd-studio/i18n.psd-studio.js'], 18);
 checkAttrPairs('tools/scenario-editor', 'tools/scenario-editor/index.html', ['tools/scenario-editor/i18n.scenario-editor.js'], 68);
 for (const name of KUMA_TOOLS) checkAttrPairs(`tools/${name}`, `tools/${name}/index.html`, [`tools/${name}/i18n.${name}.js`], KUMA[name].attrs);
-checkAttrPairs('tools/height-board', 'tools/height-board/index.html', ['tools/height-board/i18n.height-board.js'], 20);
 checkAttrPairs('tools/cutin', 'tools/cutin/index.html', ['tools/cutin/i18n.cutin.js'], 1);
 checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
 checkAttrPairs('tools/character-editor', 'tools/character-editor/index.html', ['tools/character-editor/i18n.character-editor.js'], 1);
@@ -1905,14 +1773,12 @@ const attribution = read('ATTRIBUTION.md');
 for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
-for (const sha of ['de40a68', 'b455379', '615664b',
+for (const sha of ['de40a68', '615664b',
   '586b273', '9866858', '7e9c70d', '883f48b', 'e1111d4',
-  '90f8442', 'a9a522c', 'aad63b1', '9c29866', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
+  'a9a522c', 'aad63b1', '9c29866', '42c45f3', 'a6387e0', '718bb40', 'bb32ed7',
   '8b1b1e2', '9fe67a6', '3aa7de8', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
-check('ATTRIBUTION.md 標明 emotion-maker 未授權',
-  /emotion-maker[\s\S]{0,600}(未授權|無授權)/.test(attribution));
 check('ATTRIBUTION.md 標明 loading-maker 未授權',
   /loading-maker[\s\S]{0,600}(未授權|無授權)/.test(attribution));
 check('ATTRIBUTION.md 標明 character-select 未授權',

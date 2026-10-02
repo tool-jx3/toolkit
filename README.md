@@ -75,7 +75,6 @@ npm run serve
 
 然後開啟 http://localhost:8080/
 
-（`emotion-maker` 的合本圖片產生功能受 canvas 安全限制影響，需以伺服器方式開啟。）
 
 ### 重新建置 cutin 與 character-editor
 
@@ -106,7 +105,7 @@ npm test
 靜態檢查，無外部相依。檢查項目包含：字典 key 完整性、兩語言 key 集合對稱、
 `{n}` 佔位符一致、標記引用的 key 皆存在、**無殘留未翻譯的原文**
 （韓文查諺文，日文查平假名與片假名）、
-emotion-maker 的圖片資產完整、首頁連結有效、
+首頁連結有效、
 **HTML 內嵌文字與 zh-TW 字典逐字相符**（含元素內文與 `title`／`aria-label`／`placeholder` 屬性兩類比對）。
 
 `cutin` 沒有內嵌文字可比對（畫面全部由 React 算繪），因此改為檢查已提交的建置產物：
@@ -146,14 +145,16 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 | `variant-manager` | [角色差分管理器](tools/variant-manager/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `color-palette` | [角色配色條產生器](tools/color-palette/) | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette) |
 | `typewriter` | [打字機動畫產生器](tools/typewriter/) | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) |
+| `height-board` | [立繪身高比較板](tools/height-board/) | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) |
+| `emotion-maker` | [表情產生器](tools/emotion-maker/) | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的七個工具、
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的六個工具、
 `pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、`cutin`、
-`character-editor`、`height-board`、`trpg-lab`、
+`character-editor`、`trpg-lab`、
 `anime-rig`、`scenario-editor` 與くま的四個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
 `bg-motion` 也照上游保留韓文（上游的英文沒有收）。
 
@@ -196,14 +197,14 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 
 根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：新框架 `web/` 與本站重寫的工具（見下）、`docs/`、原創工具 `tools/text-fx/`、`assets/`、
 `index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁、`anime-rig`
-的繁中使用說明、`coc-typesetter` 的範例劇本，以及 emotion-maker 的資產路徑改造。
+的繁中使用說明與 `coc-typesetter` 的範例劇本。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
-**注意**：`emotion-maker`、`loading-maker`、`character-select`、
+**注意**：`loading-maker`、`character-select`、
 `character-editor`、`room-zip`、`pair-maker` 與くま的四個工具（`bg-motion`、
 `session-log`、`session-report`、`scenario-cards`）的原始 repo 皆未附任何授權條款，
 `coc-typesetter` 則連作者都不明，
-其權利（`emotion-maker` 含全部圖像素材）屬原作者所有，
+其權利屬原作者所有，
 不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。
 `psd-studio` 沒有 LICENSE 檔，依作者在頁面上寫明的條款（禁止轉售與收費散布，修改後可免費再散布）
 收錄，條款見 [tools/psd-studio/TERMS.md](tools/psd-studio/TERMS.md)。

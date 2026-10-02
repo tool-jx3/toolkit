@@ -251,7 +251,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把多位角色的立繪依身高換成同一個比例尺並排在公分刻度上，一眼看出誰高誰矮：可調頭頂與腳底基準線、拖曳排位，匯出含刻度的 PNG。',
     group: 'G3',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'woolwag3338/character-height-board',
       url: 'https://github.com/woolwag3338/character-height-board',
@@ -263,7 +263,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '用眼睛、眉毛、嘴巴和汗滴、怒筋、臉紅等漫畫符號拼出 Q 版表情，存成清單後排成一張附文字的合輯圖，匯出透明 PNG。',
     group: 'G3',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/emotion-maker',
       url: 'https://github.com/sotsotssi/emotion-maker',
