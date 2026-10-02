@@ -74,6 +74,24 @@ const contentClass = (size: keyof typeof SIZES, className?: string) =>
     className,
   );
 
+/** placement="right" 的寬度（窄螢幕時撐滿） */
+const SHEET_SIZES = {
+  sm: 'w-[min(100vw,24rem)]',
+  md: 'w-[min(100vw,32rem)]',
+  lg: 'w-[min(100vw,44rem)]',
+  xl: 'w-[min(100vw,64rem)]',
+} as const;
+
+/** 從右側滑出的側欄（全高） */
+const sheetClass = (size: keyof typeof SIZES, className?: string) =>
+  cn(
+    'fixed inset-y-0 right-0 z-50 flex h-dvh max-h-dvh flex-col',
+    'border-l border-border bg-surface text-fg shadow-2 outline-none',
+    'animate-[tk-sheet-in_280ms_var(--ease-out)]',
+    SHEET_SIZES[size],
+    className,
+  );
+
 export interface DialogProps {
   title: ReactNode;
   /** 標題下的說明（也是螢幕閱讀器朗讀的描述） */
@@ -98,6 +116,11 @@ export interface DialogProps {
    * 例如 Esc 與關閉鈕要做不同的事時，自己處理後 preventDefault。
    */
   onEscapeKeyDown?: (event: KeyboardEvent) => void;
+  /**
+   * 位置（session-log 移植時新增，選填；不給時行為不變）：'center' 置中的對話框（預設）；
+   * 'right' 從右側滑出的全高側欄（詳細資料、長篇文字的編輯），寬度依 size（sm 24rem、md 32rem、lg 44rem、xl 64rem，窄螢幕撐滿）。
+   */
+  placement?: 'center' | 'right';
 }
 
 export function Dialog({
@@ -114,6 +137,7 @@ export function Dialog({
   initialFocus,
   dismissOnOutside = true,
   onEscapeKeyDown,
+  placement = 'center',
 }: DialogProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -125,7 +149,10 @@ export function Dialog({
         <D.Content
           ref={contentRef}
           data-escape-fallback=""
-          className={contentClass(size, className)}
+          data-placement={placement}
+          className={
+            placement === 'right' ? sheetClass(size, className) : contentClass(size, className)
+          }
           onInteractOutside={dismissOnOutside ? undefined : (e) => e.preventDefault()}
           onEscapeKeyDown={onEscapeKeyDown}
           onOpenAutoFocus={(e) => {

@@ -389,6 +389,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/sedn14636361/trpg-scenario-editor',
     },
   },
+  {
+    id: 'session-log',
+    name: '跑團紀錄簿',
+    summary:
+      '把玩過、帶過的團記成表格：統計場次與時數、整理已通關劇本清單，也能把一團帶到團報產生器。',
+    group: 'G6',
+    status: 'next',
+    inspiration: {
+      name: 'くま。／TRPG WEBツール観測所',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
