@@ -306,5 +306,10 @@ export { UsageSection, type UsageSectionProps } from './UsageSection';
 export { useConfirmedReset } from './useConfirmedReset';
 export { type Playback, type PlaybackOptions, usePlayback } from './usePlayback';
 export { type SortableOptions, useSortable } from './useSortable';
+export {
+  type UseVideoPlaybackOptions,
+  useVideoPlayback,
+  type VideoPlayback,
+} from './useVideoPlayback';
 export { useVirtualRows, type VirtualRows, type VirtualRowsOptions } from './useVirtualRows';
 export { WindowDrop, type WindowDropProps } from './WindowDrop';

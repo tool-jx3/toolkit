@@ -5,6 +5,7 @@ import { FlowDemo } from './FlowDemo';
 import { PagedDemo } from './PagedDemo';
 import { PostDemo } from './PostDemo';
 import { TypesetDemo } from './TypesetDemo';
+import { VideoDemo } from './VideoDemo';
 
 function Curve({ name }: { name: EasingName }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -72,6 +73,7 @@ export function ModulesDemo() {
       <PagedDemo />
       <PostDemo />
       <FlowDemo />
+      <VideoDemo />
     </div>
   );
 }

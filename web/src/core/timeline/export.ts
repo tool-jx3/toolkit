@@ -8,7 +8,7 @@
  */
 import { createEncoder, encodePngColorsAsync } from '../encode/client';
 import type { EncodedFile } from '../encode/frames';
-import { GIF_MAX_FPS } from '../encode/gif';
+import { GIF_MAX_FPS, type GifDither } from '../encode/gif';
 import type { EncoderSpec } from '../encode/local';
 import type { PaletteMethod } from '../encode/palette';
 import { encodePngColors } from '../encode/still';
@@ -110,6 +110,10 @@ export interface ExportAnimationOptions {
   paletteMethod?: PaletteMethod;
   /** GIF 每格各自減色（每格自己的區域調色盤；預設 false＝整段共用一個全域調色盤） */
   gifLocalPalettes?: boolean;
+  /** GIF 調色盤的色數上限（2～256；不給＝256，與以前相同） */
+  gifMaxColors?: number;
+  /** GIF 抖色（'floyd-steinberg'；不給＝'none'，與以前相同） */
+  gifDither?: GifDither;
   /** APNG 合併連續相同的影格（預設 true） */
   mergeIdentical?: boolean;
   /** APNG 加上預設圖（不支援 APNG 的看圖程式顯示代表畫面） */
@@ -339,6 +343,8 @@ export async function exportAnimation(
     colors,
     paletteMethod,
     gifLocalPalettes = false,
+    gifMaxColors,
+    gifDither,
     mergeIdentical = true,
     still = false,
     stillForPalette = false,
@@ -493,6 +499,8 @@ export async function exportAnimation(
               ...(gifAlphaThreshold !== undefined ? { alphaThreshold: gifAlphaThreshold } : {}),
               ...(paletteMethod ? { paletteMethod } : {}),
               ...(gifLocalPalettes ? { localPalettes: true } : {}),
+              ...(gifMaxColors !== undefined ? { maxColors: gifMaxColors } : {}),
+              ...(gifDither ? { dither: gifDither } : {}),
             },
           }
         : format === 'webp'

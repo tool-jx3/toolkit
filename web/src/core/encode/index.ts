@@ -25,7 +25,9 @@ export {
   toU32,
 } from './frames';
 export {
+  ditherRect,
   GIF_MAX_FPS,
+  type GifDither,
   GifEncoder,
   type GifEncoderOptions,
   gifAlphaThresholdInclusive,

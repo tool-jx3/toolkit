@@ -10,6 +10,9 @@
  * - 瀏覽器會把短於 2/100 秒的延遲當成 1/10 秒，所以 fps 上限是 50；每格至少 2/100 秒，
  *   補上的時間從後面的格扣回（fps ≤ 50 時每格本來就 ≥ 2/100 秒，結果不變）。
  * - 影格表（每格長度不一）用 `variableDelay: true`：fps 只當計時單位（例如 100＝ticks 以 1/100 秒計），不檢查上限。
+ * - `maxColors`（2～256，預設 256）：調色盤的色數上限（video-anim 移植時新增；預設時輸出不變）。
+ * - `dither: 'floyd-steinberg'`：減色有損時以 Floyd–Steinberg 誤差擴散對應顏色（由左到右、由上到下，只在變化的範圍內；
+ *   完全透明的像素不擴散誤差）。調色盤無損（色數在上限內）時不抖色。預設 'none'＝最近色（輸出不變）。
  */
 import { GIFEncoder, type GifPalette } from 'gifenc';
 import {
@@ -53,7 +56,13 @@ export interface GifEncoderOptions {
   localPalettes?: boolean;
   /** 調色盤的選法（預設 'median-cut'） */
   paletteMethod?: PaletteMethod;
+  /** 調色盤的色數上限（2～256，預設 256） */
+  maxColors?: number;
+  /** 抖色：'none'（預設，最近色）或 'floyd-steinberg'（誤差擴散；調色盤無損時不作用） */
+  dither?: GifDither;
 }
+
+export type GifDither = 'none' | 'floyd-steinberg';
 
 interface Change {
   r: Rect;
@@ -71,7 +80,7 @@ export class GifEncoder implements FrameEncoder {
   private readonly opt: Required<GifEncoderOptions>;
   private prev: Uint32Array | null = null;
   private readonly changes: Change[] = [];
-  private readonly stats = new ColorStats(256);
+  private readonly stats: ColorStats;
   private sawTransparent = false;
   private added = 0;
   private ticks = 0;
@@ -90,8 +99,12 @@ export class GifEncoder implements FrameEncoder {
       variableDelay: false,
       localPalettes: false,
       paletteMethod: 'median-cut',
+      maxColors: 256,
+      dither: 'none',
       ...options,
     };
+    this.opt.maxColors = Math.max(2, Math.min(256, Math.round(this.opt.maxColors) || 256));
+    this.stats = new ColorStats(this.opt.maxColors);
   }
 
   async addFrame(rgba: RgbaPixels, ticks = 1): Promise<void> {
@@ -131,7 +144,16 @@ export class GifEncoder implements FrameEncoder {
   async finish(): Promise<EncodedFile> {
     if (this.aborted) throw new DOMException('已取消', 'AbortError');
     if (!this.added) throw new Error('沒有任何影格');
-    const { width: W, height: H, fps, plays, localPalettes, paletteMethod } = this.opt;
+    const {
+      width: W,
+      height: H,
+      fps,
+      plays,
+      localPalettes,
+      paletteMethod,
+      maxColors,
+      dither,
+    } = this.opt;
     const toGifPalette = (p: Palette): GifPalette => {
       const out: GifPalette = [];
       for (let i = 0; i < p.count; i++)
@@ -139,7 +161,7 @@ export class GifEncoder implements FrameEncoder {
       return out;
     };
     /* 全域調色盤（每格各自減色時在迴圈裡逐格建立） */
-    const shared = localPalettes ? null : buildPalette(this.stats, 256, paletteMethod);
+    const shared = localPalettes ? null : buildPalette(this.stats, maxColors, paletteMethod);
     let pal: Palette | null = shared;
     /* 無損時 0 號是完全透明（排序時排在最前面）；減色時 0 號固定保留給透明 */
     let transparent = this.sawTransparent;
@@ -163,7 +185,7 @@ export class GifEncoder implements FrameEncoder {
       if (localPalettes) {
         this.stats.clear();
         this.stats.add(canvas, 0, canvas.length);
-        pal = buildPalette(this.stats, 256, paletteMethod);
+        pal = buildPalette(this.stats, maxColors, paletteMethod);
         /* 這格有透明像素時 0 號才是透明（無損的調色盤只有用到透明時才有 0 號） */
         transparent = canvas.includes(0);
         lastV = -1;
@@ -172,15 +194,19 @@ export class GifEncoder implements FrameEncoder {
       const p = pal as Palette;
       lossless &&= p.lossless;
       maxCount = Math.max(maxCount, p.count);
-      for (let y = r.y; y < r.y + r.h; y++) {
-        for (let x = r.x; x < r.x + r.w; x++) {
-          const k = y * W + x;
-          const v = canvas[k];
-          if (v !== lastV) {
-            lastV = v;
-            lastI = p.indexOf(v);
+      if (dither === 'floyd-steinberg' && !p.lossless) {
+        ditherRect(canvas, index, W, r, p);
+      } else {
+        for (let y = r.y; y < r.y + r.h; y++) {
+          for (let x = r.x; x < r.x + r.w; x++) {
+            const k = y * W + x;
+            const v = canvas[k];
+            if (v !== lastV) {
+              lastV = v;
+              lastI = p.indexOf(v);
+            }
+            index[k] = lastI;
           }
-          index[k] = lastI;
         }
       }
       tick += c.count;
@@ -212,5 +238,58 @@ export class GifEncoder implements FrameEncoder {
       duration: this.ticks / fps,
       colors: { lossless, count: maxCount },
     };
+  }
+}
+
+/**
+ * Floyd–Steinberg 抖色：把 r 範圍內的像素對應到調色盤（誤差 7/16 往右、3/16 左下、5/16 正下、1/16 右下）。
+ * 完全透明（0）的像素對應到 0 號、不擴散誤差。
+ */
+export function ditherRect(
+  canvas: Uint32Array,
+  index: Uint8Array,
+  W: number,
+  r: Rect,
+  p: Palette,
+): void {
+  const w = r.w;
+  /* 目前列與下一列的誤差（RGB，左右各多一格省掉邊界判斷） */
+  let cur = new Float32Array((w + 2) * 3);
+  let next = new Float32Array((w + 2) * 3);
+  const c = p.colors;
+  for (let y = r.y; y < r.y + r.h; y++) {
+    next.fill(0);
+    for (let x = r.x; x < r.x + w; x++) {
+      const k = y * W + x;
+      const v = canvas[k];
+      if (v >>> 24 === 0) {
+        index[k] = p.indexOf(0);
+        continue;
+      }
+      const e = (x - r.x + 1) * 3;
+      const R = Math.min(255, Math.max(0, Math.round((v & 255) + cur[e])));
+      const G = Math.min(255, Math.max(0, Math.round(((v >>> 8) & 255) + cur[e + 1])));
+      const B = Math.min(255, Math.max(0, Math.round(((v >>> 16) & 255) + cur[e + 2])));
+      const i = p.indexOf(((v & 0xff000000) | (B << 16) | (G << 8) | R) >>> 0);
+      index[k] = i;
+      const er = R - c[i * 4];
+      const eg = G - c[i * 4 + 1];
+      const eb = B - c[i * 4 + 2];
+      cur[e + 3] += (er * 7) / 16;
+      cur[e + 4] += (eg * 7) / 16;
+      cur[e + 5] += (eb * 7) / 16;
+      next[e - 3] += (er * 3) / 16;
+      next[e - 2] += (eg * 3) / 16;
+      next[e - 1] += (eb * 3) / 16;
+      next[e] += (er * 5) / 16;
+      next[e + 1] += (eg * 5) / 16;
+      next[e + 2] += (eb * 5) / 16;
+      next[e + 3] += er / 16;
+      next[e + 4] += eg / 16;
+      next[e + 5] += eb / 16;
+    }
+    const t = cur;
+    cur = next;
+    next = t;
   }
 }
