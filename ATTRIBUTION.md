@@ -28,7 +28,6 @@
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
 | acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
 | video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
-| gif-combiner | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `3aa7de8` | MIT |
 | trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
 | jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | —（連到原站；2026-09-25～30 曾收錄 `1b48bea` 的副本） | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
@@ -150,15 +149,14 @@ ES module 只求值一次，所以版型模組最外層寫成值的常數——�
 
 ## sotsotssi 的角色美術周邊工具
 
-`acrylic-goods`、`video-anim`、`gif-combiner` 是一批同時收錄的
-MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也都是純靜態頁面（同批的 `color-palette`
+`acrylic-goods`、`video-anim` 是一批同時收錄的
+MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也都是純靜態頁面（同批的 `color-palette`、`gif-combiner`
 已由本站重寫，見下方「本站重寫的工具」）：
 
 | 目錄 | 上游名稱 | 做什麼 |
 |---|---|---|
 | `acrylic-goods` | `acrylic-goods`（사이버 아크릴 굿즈 공방） | 3D 壓克力立牌／搖搖樂／立體透視。搖搖樂裡的零件走 cannon.js 物理，手機上可用陀螺儀傾倒 |
 | `video-anim` | `video-to-pic`（동영상→이미지 변환기） | 影片選段轉無損 APNG／Animated WebP／256 色 GIF |
-| `gif-combiner` | `GIF-Combiner`（GIF 이어붙이기 툴） | 多張 GIF 對齊時間軸後合成一張 |
 
 `acrylic-goods` 同作者另有一個 `acrylic-stand`，功能是 `acrylic-goods` 的子集
 （只有立牌），因此只收後者。
@@ -191,8 +189,6 @@ gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，
 這幾個工具的固定文字都走 `data-i18n`，但各有一些是程式寫進去的，切語言時得自己
 重寫；每個工具的 `I18N.onChange` 就是在做這件事：
 
-- `gif-combiner`：產生鈕的字（合成途中會被進度覆寫，所以只在閒置時重寫）與整份
-  檔案清單。
 - `video-anim`：裁切狀態、無損模式說明、影片資訊，以及結果卡上那四行——結果卡
   的數字另外記在 `state.lastResult` 裡，才有辦法用新語言重排。
 - `acrylic-goods`：兩份動態清單（搖搖樂零件、立體透視圖層）與畫布上的浮水印。
@@ -420,6 +416,7 @@ WebM。
 | `session-report` | 團報產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`session-report-generator`） | `83fd605` |
 | `coc-typesetter` | CoC 劇本排版工具 | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明） | `83fd605` |
 | `scenario-editor` | 劇本排版台 | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor)（CC0） | `83fd605` |
+| `gif-combiner` | GIF 接合器 | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 

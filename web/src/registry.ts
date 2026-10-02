@@ -443,7 +443,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把好幾張 GIF 動圖排進同一張畫布，各自照原本的速度循環：拖曳排版、拉角落改大小，或依格數一鍵排成格線，再合成一張 GIF（也能存成 APNG、WebP）。',
     group: 'G8',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/GIF-Combiner',
       url: 'https://github.com/sotsotssi/GIF-Combiner',
