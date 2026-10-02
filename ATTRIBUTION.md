@@ -641,6 +641,40 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 另外，第一次嘗試時實作者讀了原作程式碼，寫出來的版本有照搬的痕跡（相同的資料結構與內部常數），
 那一版沒有提交就整個作廢，才改用上述流程重做。
 
+## 繁體中文字型
+
+上游工具的字型清單都是為原文語言挑的：sotsotssi 與 kimtaehee2018-maker 的工具用
+韓文字型，shiki365 與 Taku_Taku_Taku 的用日文字型。這些字型大多含漢字，因此中文
+「看得到」，但字形走的是韓文或日文的慣例（骨、每、直、真等字尤其明顯），而且
+像「擲」「骰」這種只有中文在用的字，韓文字型多半直接缺字。
+
+因此在有字型清單的工具裡，各補上同一組五套繁體中文字型。原有的選項一個都沒動，
+預設值也維持原樣——範本是照原本那些字型的味道設計的，換掉會整個變樣。
+
+| 字型 | 設計者 | 授權 | 用途 |
+|---|---|---|---|
+| [Noto Sans TC](https://fonts.google.com/specimen/Noto+Sans+TC) | Google | SIL OFL 1.1 | 黑體 |
+| [Noto Serif TC](https://fonts.google.com/specimen/Noto+Serif+TC) | Google | SIL OFL 1.1 | 明體 |
+| [LXGW WenKai TC 霞鶩文楷](https://fonts.google.com/specimen/LXGW+WenKai+TC) | LXGW | SIL OFL 1.1 | 楷體 |
+| [Chocolate Classical Sans 巧克力黑體](https://fonts.google.com/specimen/Chocolate+Classical+Sans) | Moonlit Owen | SIL OFL 1.1 | 古典黑體 |
+| [Cactus Classical Serif 仙人掌明體](https://fonts.google.com/specimen/Cactus+Classical+Serif) | Henry Chan、Tian Haidong、Moonlit Owen | SIL OFL 1.1 | 古典明體 |
+
+五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
+因此沒有隨附 OFL 全文。
+收錄的工具：`pair-maker`
+（v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
+以及 `trpg-lab` 地圖編輯器的文字字型清單。
+
+`foreground-frame` 沒有網頁字型的載入機制（字型清單指的是觀看者電腦上
+已安裝的字型），因此字型表補上正黑體／明體／標楷體三組台灣系統字型堆疊。
+
+くま的工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
+（PingFang TC、Microsoft JhengHei、Noto Sans TC 等）排到前面；日文介面維持上游的字型。
+
+各工具宣告的字重都逐一對 `fonts.googleapis.com/css2` 驗證過——Google Fonts 對
+不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
+`tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
+
 ## 未授權的工具
 
 `sotsotssi/select-your-chara`、
