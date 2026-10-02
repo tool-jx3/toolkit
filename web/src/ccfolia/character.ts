@@ -8,7 +8,7 @@
  *
  * 這裡提供：模擬頁用的序列化，以及「剩餘比例低於門檻」的屬性選擇器（產生 CSS 用）。
  */
-import { CHARACTER_PAGE } from './dom';
+import { barPartPath, CHARACTER_PAGE } from './dom';
 
 /** 剩餘比例（0～1）；最大值不是正數時當作 0 */
 export function remainingRatio(value: number, max: number): number {
@@ -79,6 +79,25 @@ export function fillBelowSelectors(threshold: number, inclusive = false): string
 export function fillBelowSelector(threshold: number, inclusive = false): string | null {
   const list = fillBelowSelectors(threshold, inclusive);
   return list.length ? `:is(${list.join(', ')})` : null;
+}
+
+/**
+ * 同 fillBelowSelector，但包成 `:where(…)`（權重 0）。多條「門檻由高到低、後面的蓋過前面」的階段規則
+ * （裂痕、道具的損壞階段）要用這個：`:is()` 的權重取清單裡最高的那個，門檻不同時權重會不一樣，
+ * 低門檻的規則可能反而蓋不過高門檻的規則。永遠不成立時回傳 null。
+ */
+export function fillBelowWhere(threshold: number, inclusive = false): string | null {
+  const list = fillBelowSelectors(threshold, inclusive);
+  return list.length ? `:where(${list.join(', ')})` : null;
+}
+
+/**
+ * 「這一條的填充符合 cond」：接在一條（`div[variant="bar"] > div`）後面的 `:has()`。
+ * cond 是 fillBelowSelector()／fillBelowWhere()／FILL_ZERO 這類片段。需要 OBS 31 以上。
+ * barHasFill(':where([style*="width: 0%"])') → ':has(> div:nth-child(2) > div:nth-child(2):where([style*="width: 0%"]))'
+ */
+export function barHasFill(cond: string): string {
+  return `:has(${barPartPath('fill')}${cond})`;
 }
 
 /** 剛好 0%（歸零）的填充 */

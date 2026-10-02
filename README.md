@@ -22,8 +22,8 @@
 |---|---|
 | [魔法陣製作器](tools/magic-circle/) | 繪製魔法陣與簽名動態，支援對稱、貝茲曲線、時間軸與 GIF／APNG 匯出 |
 | [打字機動畫產生器](tools/typewriter/) | 輸入文字，產生逐字打出效果的 APNG／GIF／WebP 動畫圖 |
-| [文字軌跡產生器](tools/text-path/) | 讓文字沿著自訂路徑排列，輸出為圖片 |
-| [匿名拼貼信產生器](tools/collage-letter/) | 以剪報拼貼風格的字母組成信件圖片 |
+| [文字軌跡產生器](tools/text-path/) | 讓文字沿著圓、螺旋、愛心或手繪的軌跡排列，輸出可以直接貼進聊天欄的純文字 |
+| [匿名拼貼信產生器](tools/collage-letter/) | 把一段文字做成剪報拼貼的匿名信，可下載圖片或複製成 HTML、Roll20 格式 |
 | [表情產生器](tools/emotion-maker/) | 組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖 |
 | [讀取動畫產生器](tools/loading-maker/) | 把角色動畫、讀取條與上下文字合成一張畫布，輸出為 APNG／WebP／GIF |
 | [前景框產生器](tools/foreground-frame/) | 設計 CCFOLIA 前景用的外框，加上裝飾與天氣、時間帶差分，一次匯出 |
@@ -34,7 +34,7 @@
 | [選角畫面產生器](tools/character-select/) | 做出格鬥遊戲那樣的選角畫面，1P～4P 游標依序挑角色，輸出成動畫或可互動的 HTML |
 | [角色資料編輯器](tools/character-editor/) | 在 CCFOLIA 外編輯角色的 JSON：狀態、參數、聊天面板都能改，也能直接讀編輯畫面貼上的文字 |
 | [聊天視窗產生器](tools/chat-window/) | 做出自訂 CSS，把 CCFOLIA 的骰子結果與秘匿聊天以喜歡的樣式顯示在 OBS 上，可在預覽中一邊送訊息一邊調整 |
-| [訊息框產生器](tools/message-box/) | 做出自訂 CSS，把 CCFOLIA 發言時出現在畫面下方、附立繪的訊息框以喜歡的樣式顯示在 OBS 上；7 種範本可再細調，預覽中能切換角色、一邊送訊息一邊看 |
+| [訊息框產生器](tools/message-box/) | 做出自訂 CSS，把 CCFOLIA 發言時出現在畫面下方、附立繪的訊息框以喜歡的樣式顯示在 OBS 上；8 種範本可再細調，預覽中能送出範例訊息、一邊看一邊調整 |
 | [立繪尺寸統一器](tools/portrait-size/) | 把同一角色的差分立繪裁掉透明邊並統一寬度，切換立繪時棋子圖就不會忽大忽小；也能單張拿來裁邊與轉 WebP |
 | [立繪身高比較板](tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
 | [房間 ZIP 產生器](tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；工作進度可存成 .ccproj 檔 |
@@ -75,18 +75,17 @@ npm run serve
 
 然後開啟 http://localhost:8080/
 
-（`emotion-maker` 的合本圖片產生功能受 canvas 安全限制影響，需以伺服器方式開啟。）
 
-### 重新建置 cutin、character-editor 與 obs-tachie
+### 重新建置 character-editor
 
-有三個工具要先建置才能放進 `tools/`。原始碼收在 `vendor/` 底下，
-建置產物（已提交進 repo）輸出到各自的 `tools/` 目錄，`vendor/` 不參與網站發佈。
+`character-editor` 要先建置才能放進 `tools/`。原始碼收在 `vendor/ccfolia-character-editor/`，
+建置產物（已提交進 repo）輸出到 `tools/character-editor/`，`vendor/` 不參與網站發佈。
 
-`cutin`、`character-editor` 與 `obs-tachie` 的上游是 React + TypeScript 專案。改動原始碼後要重新建置：
+上游是 React + TypeScript 專案。改動原始碼後要重新建置：
 
 ```
-cd vendor/cutin-maker              # 或 vendor/ccfolia-character-editor、vendor/obs-tachie-generator
-npm install                        # character-editor 請用 npm ci
+cd vendor/ccfolia-character-editor
+npm ci
 npm run build
 ```
 
@@ -97,11 +96,6 @@ npm run build
 相依時會踩到 npm 10.9 的一個錯誤（`Cannot read properties of null`），
 上游的 lockfile 則可以正常安裝。
 
-`obs-tachie` 用 `npm ci` 或 `npm install` 都可以，產物輸出到 `tools/obs-tachie/`。
-它另有 `npm test`（vitest；測試環境會把 `ja` 字典注入 `window.T`，上游的測試照原樣就能跑，
-順帶驗證日文譯文與原文一字不差）、`npm run lint` 與 `npm run typecheck`。
-字典是執行期才載入的，只改 `i18n.obs-tachie.js` 不需要重新建置。
-
 ## 測試
 
 ```
@@ -111,26 +105,22 @@ npm test
 靜態檢查，無外部相依。檢查項目包含：字典 key 完整性、兩語言 key 集合對稱、
 `{n}` 佔位符一致、標記引用的 key 皆存在、**無殘留未翻譯的原文**
 （韓文查諺文，日文查平假名與片假名）、
-emotion-maker 的圖片資產完整、首頁連結有效、
+首頁連結有效、
 **HTML 內嵌文字與 zh-TW 字典逐字相符**（含元素內文與 `title`／`aria-label`／`placeholder` 屬性兩類比對）。
 
-`cutin` 沒有內嵌文字可比對（畫面全部由 React 算繪），因此改為檢查已提交的建置產物：
-`tools/cutin/assets/*.js` 裡不得殘留任何假名，且原始碼引用的每個 key 都必須出現在
-bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項檢查會抓到。
-
-`cutin` 與 `character-editor` 的上游各有一套 vitest 單元測試（420 項與 30 項），
-一併收錄在 `vendor/` 底下，以 `cd vendor/<工具> && npm test` 執行。
+`character-editor` 的上游有一套 vitest 單元測試（30 項），
+一併收錄在 `vendor/` 底下，以 `cd vendor/ccfolia-character-editor && npm test` 執行。
 `character-editor` 那套是用畫面上的日文標籤找元素的，收錄版把 `ja` 字典注入
 `window.T`，因此測試一行都沒改就能通過——順帶還會驗證 `ja` 的譯文與上游原文
 是否一字不差。
 那套測試需要 `npm install`，不在根目錄的 `npm test` 範圍內（根目錄的檢查刻意保持
-無外部相依）；因此兩者之間容易漂移的地方，改由根目錄的靜態檢查看著——例如版面
-測試的字幅比表有沒有跟上字型清單。
+無外部相依）。
 
 ## 本站重寫的工具
 
 正在依 [docs/refactor/PLAN.md](docs/refactor/PLAN.md) 把收錄的工具逐一改寫到新框架 `web/`（Vite＋React＋TypeScript）：
-共用元件與設計、只有繁中介面、程式全部由本站重寫，原作者只列為靈感來源。已上線的工具：
+共用元件與設計、只有繁中介面、介面上原作者只列為靈感來源（參考原作的程式用本站元件改寫；開放授權原作的授權全文保留在
+`assets/build/THIRD_PARTY_NOTICES.md`，未授權原作的素材與範本文字不沿用）。已上線的工具：
 
 | 工具 | 名稱 | 靈感來源 |
 |---|---|---|
@@ -139,15 +129,29 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 | `text-fx` | [文字演出產生器](tools/text-fx/) | （本站原創） |
 | `textbox` | [文字方框產生器](tools/textbox/) | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) |
 | `portrait-size` | [立繪尺寸統一器](tools/portrait-size/) | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) |
+| `text-path` | [文字軌跡產生器](tools/text-path/) | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) |
+| `collage-letter` | [匿名拼貼信產生器](tools/collage-letter/) | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) |
+| `status-bar` | [狀態條產生器](tools/status-bar/) | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) |
+| `message-box` | [訊息框產生器](tools/message-box/) | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) |
+| `chat-window` | [聊天視窗產生器](tools/chat-window/) | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) |
+| `obs-tachie` | [Discord 通話立繪產生器](tools/obs-tachie/) | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) |
+| `ccfolia-cropper` | [立繪裁切器](tools/ccfolia-cropper/) | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) |
+| `icon-maker` | [簡易頭像產生器](tools/icon-maker/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `variant-manager` | [角色差分管理器](tools/variant-manager/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `color-palette` | [角色配色條產生器](tools/color-palette/) | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette) |
+| `typewriter` | [打字機動畫產生器](tools/typewriter/) | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) |
+| `height-board` | [立繪身高比較板](tools/height-board/) | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) |
+| `emotion-maker` | [表情產生器](tools/emotion-maker/) | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) |
+| `cutin` | [切入素材產生器](tools/cutin/) | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的十一個工具、
-`ccfolia-cropper`、`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的五個工具、`cutin`、
-`character-editor`、`height-board`、`trpg-lab`、
-`anime-rig`、`scenario-editor`、`obs-tachie` 與くま的六個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的六個工具、
+`pair-maker`、`psd-studio` 與 `log-converter` 為韓文，shiki365 的兩個工具（`foreground-frame`、`scene-transition`）、
+`character-editor`、`trpg-lab`、
+`anime-rig`、`scenario-editor` 與くま的四個工具為日文；`room-zip` 原文為日文，另外附了一份韓文，
 `bg-motion` 也照上游保留韓文（上游的英文沒有收）。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
@@ -158,11 +162,11 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
 
-`status-bar`、`chat-window`、`foreground-frame`、`message-box` 的字型欄與 `scene-transition` 的字幕字型可以改填「以名稱指定」，
+`foreground-frame` 的字型欄與 `scene-transition` 的字幕字型可以改填「以名稱指定」，
 使用觀看者電腦上已安裝的字型。Chrome／Edge 還能用「從清單選」開出一份附樣張的清單
 （Local Font Access API，第一次會詢問權限）；其餘瀏覽器隱藏該按鈕，直接輸入名稱同樣可用。
-那個對話框是五個工具共用的 `pcfonts.v1.js`，五份必須完全相同，詳見
-[ATTRIBUTION](ATTRIBUTION.md#五個工具共用的-pcfontsv1js)。
+那個對話框是兩個工具共用的 `pcfonts.v1.js`，兩份必須完全相同，詳見
+[ATTRIBUTION](ATTRIBUTION.md#兩個工具共用的-pcfontsv1js)。
 選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），首頁與各工具共用。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，
@@ -189,14 +193,14 @@ bundle 裡——改了 `vendor/cutin-maker/` 卻忘記重新建置時，這項�
 
 根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：新框架 `web/` 與本站重寫的工具（見下）、`docs/`、原創工具 `tools/text-fx/`、`assets/`、
 `index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁、`anime-rig`
-的繁中使用說明、`coc-typesetter` 的範例劇本，以及 emotion-maker 的資產路徑改造。
+的繁中使用說明與 `coc-typesetter` 的範例劇本。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
-**注意**：`emotion-maker`、`loading-maker`、`ccfolia-cropper`、`character-select`、
-`character-editor`、`room-zip`、`pair-maker` 與くま的六個工具（`bg-motion`、`icon-maker`、
-`session-log`、`session-report`、`variant-manager`、`scenario-cards`）的原始 repo 皆未附任何授權條款，
+**注意**：`loading-maker`、`character-select`、
+`character-editor`、`room-zip`、`pair-maker` 與くま的四個工具（`bg-motion`、
+`session-log`、`session-report`、`scenario-cards`）的原始 repo 皆未附任何授權條款，
 `coc-typesetter` 則連作者都不明，
-其權利（`emotion-maker` 含全部圖像素材）屬原作者所有，
+其權利屬原作者所有，
 不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。
 `psd-studio` 沒有 LICENSE 檔，依作者在頁面上寫明的條款（禁止轉售與收費散布，修改後可免費再散布）
 收錄，條款見 [tools/psd-studio/TERMS.md](tools/psd-studio/TERMS.md)。

@@ -11,10 +11,13 @@
  * 要畫字時用 `paintGlyph()` 先畫好 sprite（光暈／本體／閃白分層），每格再依動畫狀態 drawImage。
  */
 import { isWide } from './chars';
+import { type FillOptions, type FillResult, fillWith } from './fill';
 import { overflowRatio, shrinkSize } from './fit';
+import type { SplitUnit } from './graphemes';
 import {
   type Align,
   type BlockLayout,
+  type Box,
   composeBlock,
   type GroupLayout,
   layoutGroup,
@@ -23,10 +26,15 @@ import { canvasMeasure, type MeasureFn, Meter } from './measure';
 import { breakText, type UnitFn } from './wrap';
 
 export * from './chars';
+export * from './decoration';
+export type { FillOptions, FillResult } from './fill';
 export * from './fit';
 export * from './font';
+export * from './graphemes';
+export * from './hangul';
 export * from './layout';
 export * from './measure';
+export * from './onpath';
 export * from './paint';
 export * from './wrap';
 
@@ -61,6 +69,13 @@ export interface TypesetInput {
   wrapLength?: number | null;
   /** 已經斷好的行（自動縮小後沿用原本的斷行） */
   fixedLines?: { main: string[][]; sub: string[][] | null };
+  /** 切字的單位：codepoint（預設）或 grapheme（字素：表情符號、組合字元算一個字） */
+  segment?: SplitUnit;
+  /**
+   * 水平縮放（預設 1）：整個區塊的 x 座標與寬度乘上這個值（字也跟著壓扁／拉寬，畫的時候
+   * 以字的樞紐點 ctx.scale(scaleX, 1)）。等於「在寬度 ÷ scaleX 的畫面排版、再整個水平縮放」。
+   */
+  scaleX?: number;
   measure?: MeasureFn;
 }
 
@@ -100,7 +115,12 @@ export function typeset(input: TypesetInput): TypesetResult {
   const limit =
     wrapChars > 0 ? wrapChars : wrapLength !== null ? Math.max(S, wrapLength) + track : 0;
   const mainLines =
-    input.fixedLines?.main ?? breakText(input.main, { limit, unit: unitBy(mainMeter, S, track) });
+    input.fixedLines?.main ??
+    breakText(input.main, {
+      limit,
+      unit: unitBy(mainMeter, S, track),
+      segment: input.segment,
+    });
   const common = { vertical, latinUpright: input.latinUpright, punctCenter: input.punctCenter };
   const main = layoutGroup(mainLines, { ...common, S, meter: mainMeter, tracking, leading });
 
@@ -117,7 +137,11 @@ export function typeset(input: TypesetInput): TypesetResult {
     const lim2 = wrapChars > 0 ? 0 : wrapLength !== null ? Math.max(S2, wrapLength) + tr2 : 0;
     subLines =
       input.fixedLines?.sub ??
-      breakText(input.sub, { limit: lim2, unit: unitBy(subMeter, S2, tr2) });
+      breakText(input.sub, {
+        limit: lim2,
+        unit: unitBy(subMeter, S2, tr2),
+        segment: input.segment,
+      });
     sub = layoutGroup(subLines, {
       ...common,
       S: S2,
@@ -126,12 +150,16 @@ export function typeset(input: TypesetInput): TypesetResult {
       leading,
     });
   }
-  const block = composeBlock(main, sub, {
+  const block = scaleBlockX(
+    composeBlock(main, sub, {
+      vertical,
+      align: input.align ?? 'center',
+      subPos: input.subPos ?? 'after',
+      subGap: (input.subGap ?? 0.3) * S,
+    }),
+    input.scaleX ?? 1,
     vertical,
-    align: input.align ?? 'center',
-    subPos: input.subPos ?? 'after',
-    subGap: (input.subGap ?? 0.3) * S,
-  });
+  );
   return {
     size: S,
     block,
@@ -143,6 +171,49 @@ export function typeset(input: TypesetInput): TypesetResult {
     mainMeter,
     subMeter,
   };
+}
+
+/**
+ * 區塊水平縮放：x 座標、寬度（含主／副文字框）乘上 k；橫書時行方向的位置（axisPos、行首、行長…）也一起乘。
+ * k＝1 時原樣回傳。畫字時以字的樞紐點 ctx.scale(block.scaleX, 1)。
+ */
+export function scaleBlockX(block: BlockLayout, k: number, vertical = false): BlockLayout {
+  if (k === 1 || !(k > 0)) return block;
+  const horizontal = !vertical;
+  const sx = (g: BlockLayout['glyphs'][number]) => ({
+    ...g,
+    x: g.x * k,
+    ...(horizontal
+      ? {
+          axisPos: g.axisPos * k,
+          lineCenter: g.lineCenter * k,
+          lineStart: g.lineStart * k,
+          lineLen: g.lineLen * k,
+        }
+      : {}),
+  });
+  const box = (b: Box | null) => (b ? { ...b, x: b.x * k, w: b.w * k } : null);
+  return {
+    ...block,
+    w: block.w * k,
+    glyphs: block.glyphs.map(sx),
+    subGlyphs: block.subGlyphs.map(sx),
+    mainBox: box(block.mainBox) as Box,
+    subBox: box(block.subBox),
+    scaleX: k,
+  };
+}
+
+/**
+ * 放大填滿：在畫面寬高的 ratio（預設 92%）範圍內取放得下的最大字級（精度預設 0.1 px），
+ * 外框等往外擴的距離（pad 固定 px＋padPerSize × 字級）算進去；字級上限預設畫面長邊 × 1.2、下限 8。
+ * input.size 不必給（給了也不用）。
+ */
+export function typesetToFill(
+  input: Omit<TypesetInput, 'size'> & { size?: number },
+  fill: FillOptions,
+): FillResult {
+  return fillWith(typeset, input, fill);
 }
 
 export interface FitOptions {

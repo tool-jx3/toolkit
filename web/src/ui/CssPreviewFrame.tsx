@@ -110,6 +110,11 @@ export interface CssPreviewFrameProps {
   sizeNote?: ReactNode;
   /** iframe 的標題（螢幕閱讀器） */
   label?: string;
+  /**
+   * 疊在預覽區上的內容（例如「點一下切換說話中」的透明按鈕、狀態標籤）。放在預覽區（棋盤格那一塊）裡，
+   * 以預覽區為定位基準（absolute inset-0 就是整個預覽區）；iframe 本身仍然不能操作。
+   */
+  overlay?: ReactNode;
   className?: string;
   ref?: Ref<CssPreviewFrameHandle>;
 }
@@ -209,6 +214,7 @@ export function CssPreviewFrame({
   showSize = true,
   sizeNote,
   label = '預覽',
+  overlay,
   className,
   ref,
 }: CssPreviewFrameProps) {
@@ -301,6 +307,11 @@ export function CssPreviewFrame({
 
   const replay = useCallback(() => {
     if (!doc?.body) return;
+    /*
+     * 用 API 暫停過的 CSS 動畫，在 CSS 改變（動畫名稱相同、內容或時長不同）後可能留著舊的那個：
+     * 先全部取消，下面關掉再恢復 animation-name 時會照目前的規則重新建立。
+     */
+    for (const a of doc.getAnimations()) if (isCssAnimation(a)) a.cancel();
     /*
      * 讓所有 CSS 動畫從頭開始：暫時把 animation-name 全部關掉再恢復（瀏覽器會重新建立動畫）。
      * 不用 Animation.play()：用 API 控制過的 CSS 動畫，之後規則不符合時不一定會被取消。
@@ -558,6 +569,7 @@ export function CssPreviewFrame({
           {pctText}
           {showBefore ? '・套用前' : ''}
         </span>
+        {overlay}
       </div>
       {showSize ? (
         <p

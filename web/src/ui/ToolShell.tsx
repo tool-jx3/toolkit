@@ -21,9 +21,14 @@ export interface ToolShellProps {
   /** 覆寫靈感來源（null 不顯示） */
   inspiration?: Inspiration | null;
   /** 設定面板（Tabs／Section／Field） */
-  settings: ReactNode;
+  settings?: ReactNode;
   /** 預覽區（Stage、Transport、ExportPanel） */
-  preview: ReactNode;
+  preview?: ReactNode;
+  /**
+   * 整頁內容：給了就取代「設定＋預覽」兩欄（例如開頁先顯示的範本一覽），頁首、頁尾照舊。
+   * 不給時行為不變。
+   */
+  body?: ReactNode;
   /** 頁首右側的按鈕 */
   headerActions?: ReactNode;
   shortcuts?: readonly Shortcut[];
@@ -40,6 +45,7 @@ export function ToolShell({
   headerActions,
   shortcuts = [],
   usage,
+  body,
 }: ToolShellProps) {
   const tool = getTool(toolId);
   const name = title ?? tool?.name ?? toolId;
@@ -65,12 +71,14 @@ export function ToolShell({
   return (
     <UiProvider>
       <div className="flex min-h-dvh flex-col bg-bg text-fg">
-        <a
-          href="#tool-preview"
-          className="sr-only rounded-md bg-accent px-3 py-2 text-accent-contrast focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
-        >
-          跳到預覽
-        </a>
+        {body === undefined ? (
+          <a
+            href="#tool-preview"
+            className="sr-only rounded-md bg-accent px-3 py-2 text-accent-contrast focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
+          >
+            跳到預覽
+          </a>
+        ) : null}
         <ToolHeader
           toolId={toolId}
           title={name}
@@ -78,19 +86,25 @@ export function ToolShell({
           onHelp={usage ? () => setHelpOpen(true) : undefined}
           onShortcuts={all.length ? () => setKeysOpen(true) : undefined}
         />
-        <main className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 items-start gap-4 p-3 lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)] lg:p-4">
-          <aside aria-label="設定" className="order-2 flex min-w-0 flex-col gap-3 lg:order-1">
-            {settings}
-          </aside>
-          <section
-            id="tool-preview"
-            aria-label="預覽"
-            tabIndex={-1}
-            className="order-1 flex min-w-0 flex-col gap-3 outline-none lg:sticky lg:top-16 lg:order-2 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto"
-          >
-            {preview}
-          </section>
-        </main>
+        {body !== undefined ? (
+          <main className="mx-auto flex w-full max-w-[1600px] min-w-0 flex-1 flex-col gap-4 p-3 lg:p-4">
+            {body}
+          </main>
+        ) : (
+          <main className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 items-start gap-4 p-3 lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)] lg:p-4">
+            <aside aria-label="設定" className="order-2 flex min-w-0 flex-col gap-3 lg:order-1">
+              {settings}
+            </aside>
+            <section
+              id="tool-preview"
+              aria-label="預覽"
+              tabIndex={-1}
+              className="order-1 flex min-w-0 flex-col gap-3 outline-none lg:sticky lg:top-16 lg:order-2 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto"
+            >
+              {preview}
+            </section>
+          </main>
+        )}
         <InspirationFooter
           inspiration={inspiration === undefined ? tool?.inspiration : inspiration}
         />

@@ -192,6 +192,61 @@ export async function copyText(text: string): Promise<boolean> {
   return ok;
 }
 
+export type CopyImageFailure = 'unsupported' | 'denied' | 'encode' | 'failed';
+
+export type CopyImageResult =
+  | { ok: true }
+  | { ok: false; reason: CopyImageFailure; error?: unknown };
+
+/** 不是 PNG 的圖片先轉成 PNG（剪貼簿只保證支援 image/png） */
+async function toPngBlob(blob: Blob): Promise<Blob> {
+  if (blob.type === 'image/png') return blob;
+  const bmp = await createImageBitmap(blob);
+  const c = document.createElement('canvas');
+  c.width = bmp.width;
+  c.height = bmp.height;
+  c.getContext('2d')?.drawImage(bmp, 0, 0);
+  bmp.close?.();
+  return new Promise((resolve, reject) =>
+    c.toBlob((b) => (b ? resolve(b) : reject(new Error('無法轉成 PNG'))), 'image/png'),
+  );
+}
+
+/**
+ * 把圖片以 PNG 放進剪貼簿。內容可以是 Blob，或回傳 Blob 的 Promise（Safari 要在點擊當下就呼叫
+ * clipboard.write，所以耗時的產生工作請傳 Promise 進來，不要先 await）。
+ * 失敗時不丟錯，回傳原因：unsupported（瀏覽器不支援寫入圖片）、denied（沒有權限／不在使用者操作中）、
+ * encode（轉 PNG 失敗）、failed（其他）。失敗時建議提示使用者改用下載。
+ * ```ts
+ * const r = await copyImage(canvasToBlob(canvas));
+ * toast(r.ok ? { title: '已複製圖片' } : { title: '無法複製圖片，請改用「下載 PNG」', tone: 'warning' });
+ * ```
+ */
+export async function copyImage(source: Blob | Promise<Blob>): Promise<CopyImageResult> {
+  const clip = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
+  const Item = (globalThis as { ClipboardItem?: typeof ClipboardItem }).ClipboardItem;
+  if (!clip?.write || !Item) return { ok: false, reason: 'unsupported' };
+  let encodeError: unknown = null;
+  const png = Promise.resolve(source)
+    .then(toPngBlob)
+    .catch((e) => {
+      encodeError = e;
+      throw e;
+    });
+  try {
+    await clip.write([new Item({ 'image/png': png })]);
+    return { ok: true };
+  } catch (error) {
+    if (encodeError) return { ok: false, reason: 'encode', error: encodeError };
+    const name = (error as { name?: string } | null)?.name;
+    return {
+      ok: false,
+      reason: name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : 'failed',
+      error,
+    };
+  }
+}
+
 /* ---------- ZIP ---------- */
 
 export interface ZipEntry {
@@ -240,6 +295,17 @@ export interface SafeFileNameOptions {
   fallback?: string;
   /** 最多幾個字元（不含副檔名；以字元計，不切斷中文字） */
   maxLength?: number;
+  /**
+   * 底線模式（差分名、主名稱這類「接在檔名裡」的片段）：去掉頭尾空白 → 連續空白（含全形空白、換行）換成一個「_」
+   * → 刪掉 \ / : * ? " < > |（不是換成 _）→ 連續的「_」合併成一個 → 去掉頭尾的「_」。
+   * 例：「怒り/怒?」→「怒り怒」、「a  b__c_」→「a_b_c」、只有空白 → fallback。
+   */
+  underscore?: boolean;
+  /**
+   * 避開 Windows 保留名稱（CON、NUL、COM1…，前面加「_」；預設 true）。
+   * 清理的是「接在檔名中間的片段」或要原樣顯示的名稱（例如差分名同時用在聊天面板的「@差分名」）時給 false。
+   */
+  reservedNames?: boolean;
 }
 
 /**
@@ -248,18 +314,33 @@ export interface SafeFileNameOptions {
  * - 連續空白合併，去掉頭尾的空白與「.」；
  * - 避開 Windows 保留名稱（CON、NUL、COM1…）；
  * - 中文、日文、韓文與 emoji 都保留。
+ * `underscore: true` 時改用底線模式（見 SafeFileNameOptions）。
  */
 export function safeFileName(
   name: string,
-  { fallback = 'untitled', maxLength = 80 }: SafeFileNameOptions = {},
+  {
+    fallback = 'untitled',
+    maxLength = 80,
+    underscore = false,
+    reservedNames = true,
+  }: SafeFileNameOptions = {},
 ): string {
-  let s = String(name ?? '')
-    .normalize('NFC')
-    .replace(/[\t\n\r\v\f]/g, ' ')
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: 檔名裡的控制字元必須移除
-    .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '_')
-    .replace(/\s+/g, ' ')
-    .replace(/^[\s.]+|[\s.]+$/g, '');
+  let s = underscore
+    ? String(name ?? '')
+        .normalize('NFC')
+        .trim()
+        .replace(/\s+/g, '_')
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: 檔名裡的控制字元必須移除
+        .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '')
+    : String(name ?? '')
+        .normalize('NFC')
+        .replace(/[\t\n\r\v\f]/g, ' ')
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: 檔名裡的控制字元必須移除
+        .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '_')
+        .replace(/\s+/g, ' ')
+        .replace(/^[\s.]+|[\s.]+$/g, '');
   const chars = Array.from(s);
   if (chars.length > maxLength)
     s = chars
@@ -267,7 +348,7 @@ export function safeFileName(
       .join('')
       .replace(/[\s.]+$/g, '');
   if (!s || /^_+$/.test(s)) s = fallback;
-  if (RESERVED.test(s.split('.')[0])) s = `_${s}`;
+  if (reservedNames && RESERVED.test(s.split('.')[0])) s = `_${s}`;
   return s;
 }
 
@@ -276,6 +357,49 @@ export function splitExtension(fileName: string): { base: string; ext: string } 
   const i = fileName.lastIndexOf('.');
   if (i <= 0 || i === fileName.length - 1) return { base: fileName, ext: '' };
   return { base: fileName.slice(0, i), ext: fileName.slice(i + 1).toLowerCase() };
+}
+
+export interface UniqueFileNameOptions {
+  /** 序號前的分隔字元（預設「_」） */
+  separator?: string;
+  /** 第一個序號（預設 2：a.png、a_2.png、a_3.png…） */
+  start?: number;
+  /** 不分大小寫比對（Windows、macOS 的檔案系統不分大小寫；預設 true） */
+  ignoreCase?: boolean;
+}
+
+/**
+ * 不重複的檔名：name 沒被用過就原樣回傳；用過就在副檔名前加「_2」「_3」…，**加了之後再檢查**，直到不撞名。
+ * 回傳的名稱會加進 used（同一個 Set 連續呼叫即可）。
+ * ```ts
+ * const used = new Set<string>();
+ * ['a.png', 'a.png', 'a_2.png'].map((n) => uniqueFileName(n, used)); // a.png、a_2.png、a_2_2.png
+ * ```
+ */
+export function uniqueFileName(
+  name: string,
+  used: Set<string>,
+  { separator = '_', start = 2, ignoreCase = true }: UniqueFileNameOptions = {},
+): string {
+  const key = (s: string) => (ignoreCase ? s.toLowerCase() : s);
+  const taken = (s: string) => {
+    if (!ignoreCase) return used.has(s);
+    const k = key(s);
+    for (const u of used) if (key(u) === k) return true;
+    return false;
+  };
+  let out = name;
+  if (taken(out)) {
+    const i = name.lastIndexOf('.');
+    const base = i > 0 ? name.slice(0, i) : name;
+    const ext = i > 0 ? name.slice(i) : '';
+    for (let n = start; ; n++) {
+      out = `${base}${separator}${n}${ext}`;
+      if (!taken(out)) break;
+    }
+  }
+  used.add(out);
+  return out;
 }
 
 /** 安全檔名＋副檔名 */
@@ -308,4 +432,78 @@ export function formatBytes(bytes: number): string {
     u++;
   }
   return `${v >= 100 ? Math.round(v) : v.toFixed(1)} ${units[u]}`;
+}
+
+/**
+ * 容量上限的顯示（匯出用途的「大小／上限」）：未滿 1,024 位元組「n B」；未滿 1,048,576「x.x KB」（一位小數）；
+ * 其餘「x.xx MB」（兩位小數），以 1024 為單位。例：1,000,000 → 976.6 KB；8,000,000 → 7.63 MB。
+ */
+export function formatLimitBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1048576).toFixed(2)} MB`;
+}
+
+/** 實際大小佔上限的百分比（四捨五入成整數） */
+export const usagePercent = (bytes: number, maxBytes: number): number =>
+  maxBytes > 0 ? Math.round((bytes / maxBytes) * 100) : 0;
+
+/* ---------- G2：檔名自然排序、未壓縮資料量 ---------- */
+
+/** 把檔名切成「數字」與「其他」交錯的片段 */
+const naturalChunks = (s: string): (string | number)[] => {
+  const out: (string | number)[] = [];
+  const re = /(\d+)|(\D+)/g;
+  for (let m = re.exec(s); m; m = re.exec(s)) out.push(m[1] !== undefined ? m[1] : m[2]);
+  return out;
+};
+
+/**
+ * 檔名的自然排序比較：數字段依數值比（1、2、10，不是 1、10、2；數值相同時位數少的在前，01 在 1 之後），
+ * 其他字元不分大小寫、依 Unicode 碼位比；完全相同時再分大小寫。結果與語系無關（每台電腦一樣）。
+ */
+export function naturalCompare(a: string, b: string): number {
+  const A = naturalChunks(a.normalize('NFC'));
+  const B = naturalChunks(b.normalize('NFC'));
+  const n = Math.min(A.length, B.length);
+  for (let i = 0; i < n; i++) {
+    const x = A[i] as string;
+    const y = B[i] as string;
+    const dx = /^\d/.test(x);
+    const dy = /^\d/.test(y);
+    if (dx && dy) {
+      const vx = x.replace(/^0+(?=\d)/, '');
+      const vy = y.replace(/^0+(?=\d)/, '');
+      if (vx.length !== vy.length) return vx.length - vy.length;
+      if (vx !== vy) return vx < vy ? -1 : 1;
+      if (x.length !== y.length) return x.length - y.length;
+      continue;
+    }
+    if (dx !== dy) return dx ? -1 : 1;
+    const lx = x.toLowerCase();
+    const ly = y.toLowerCase();
+    if (lx !== ly) return lx < ly ? -1 : 1;
+  }
+  if (A.length !== B.length) return A.length - B.length;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** 依名稱自然排序（不改原陣列；名稱相同時保持原順序） */
+export function naturalSort<T>(list: readonly T[], key: (item: T) => string = String): T[] {
+  return list
+    .map((item, i) => ({ item, i, k: key(item) }))
+    .sort((p, q) => naturalCompare(p.k, q.k) || p.i - q.i)
+    .map((x) => x.item);
+}
+
+/**
+ * 資料量的顯示（未壓縮的影格資料等）：未滿 1 KB「n B」、未滿 1 MB「x.x KB」、未滿 1 GB「x.x MB」、其餘「x.xx GB」（以 1024 為單位）。
+ */
+export function formatDataSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }

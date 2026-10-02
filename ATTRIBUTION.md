@@ -17,31 +17,20 @@
 [fyam-hamu](https://github.com/fyam-hamu) 與
 [usagineko7865-debug](https://github.com/usagineko7865-debug) 製作的網頁工具，以及一個作者不明的工具，並為其加上繁體中文介面。所有收錄工具的原始著作權屬各自的原作者所有。
 
-另有一部分工具已依 [docs/refactor/](docs/refactor/PLAN.md) 的流程**由本站重寫**：只依原作的功能寫行為規格，再用本站自己的框架與元件重新實作，不再收錄原作的程式、素材與作者標示，只保留「靈感來源」連結，見下方「[本站重寫的工具（靈感來源）](#本站重寫的工具靈感來源)」。
+另有一部分工具已依 [docs/refactor/](docs/refactor/PLAN.md) 的流程**由本站重寫**：用本站自己的框架與元件重新實作，介面上不放作者標示，只保留「靈感來源」連結，見下方「[本站重寫的工具（靈感來源）](#本站重寫的工具靈感來源)」。
 
 收錄方式為快照式：自下列 commit 取得程式碼，不與上游自動同步。
 
 | 工具 | 原始 repo | 來源 commit | 授權 |
 |---|---|---|---|
 | magic-circle | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `de40a68` | MIT |
-| typewriter | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) | `cf3ff36` | MIT |
-| text-path | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) | `b86cd28` | MIT |
-| collage-letter | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) | `ea08333` | MIT |
-| emotion-maker | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b455379` | **未授權** |
 | loading-maker | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `615664b` | **未授權** |
 | foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
 | scene-transition | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `9866858` | MIT |
-| status-bar | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `dab4fb9` | MIT |
-| cutin | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `7e9c70d` | MIT |
-| ccfolia-cropper | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `f149b4e` | **未授權** |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
-| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `549364f` | MIT |
-| message-box | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) | `05f6331` | MIT |
-| height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `90f8442` | MIT |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
-| color-palette | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette) | `75840e6` | MIT |
 | acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
 | video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
 | gif-combiner | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `3aa7de8` | MIT |
@@ -50,19 +39,16 @@
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 | coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
-| obs-tachie | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) | `c4aca96` | MIT |
 | bg-motion | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/haikei-motion-maker/` | `42c45f3` | **未授權** |
-| icon-maker | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/kantan-icon-maker/` | `42c45f3` | **未授權** |
 | session-log | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-log-tool/` | `42c45f3` | **未授權** |
 | session-report | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-report-generator/` | `42c45f3` | **未授權** |
-| variant-manager | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/chara-sabun-kanri-tool/` | `42c45f3` | **未授權** |
 | scenario-cards | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/scenario-snippet-builder/` | `42c45f3` | **未授權** |
 | log-converter | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `bb32ed7` | MIT |
 | psd-studio | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `718bb40` | 作者條款（見下） |
 
 收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
-shiki365 的五個工具、`cutin`、`height-board` 與 `room-zip` 原文為日文，
+shiki365 的兩個工具（`foreground-frame`、`scene-transition`）與 `room-zip` 原文為日文，
 收錄時另有以下調整：
 
 - `scene-transition` 的上游同時提供 Python 桌面版與瀏覽器版，本 repo 只收錄
@@ -70,74 +56,27 @@ shiki365 的五個工具、`cutin`、`height-board` 與 `room-zip` 原文為日�
   以 WebP 為預設匯出格式，主程式也從 `app.v2.js` 改名為 `app.v6.js`（上游靠檔名換版號避開快取），
   另外多了 `webp.v1.js` 與共用的 `pcfonts.v1.js`。字幕字型清單加了同一組五套繁中字型（見下方「繁體中文字型」），
   字型群組的 `<optgroup>` 標籤掛 `data-label-key`，由程式在切換語言時套上。
-- `foreground-frame`、`scene-transition`、`chat-window` 與 `message-box` 的 `<style>` 區塊抽出為
-  `styles.css`（理由同 text-path 與 collage-letter）。
-- 這八個工具都移除了指向原作者站台的 OG／Twitter meta 與
+- `foreground-frame` 與 `scene-transition` 的 `<style>` 區塊抽出為 `styles.css`。
+- 這些工具都移除了指向原作者站台的 OG／Twitter meta 與
   `<meta name="description">`——那是原部署的站台識別，其餘工具也都沒有。
   `<title>` 只留工具名，捨去 SEO 後綴。
-- shiki365 的五個工具頁尾都有回作者工具站的連結（`chat-window` 與 `message-box` 另有一條許願用的
-  Marshmallow），以及後來加上的「支持開發（BOOTH）」，都原樣保留並翻譯；但頁首那條
+- shiki365 的工具頁尾都有回作者工具站的連結，以及後來加上的「支持開發（BOOTH）」，都原樣保留並翻譯；但頁首那條
   同樣指向工具站的連結不收——那個位置放的是合輯的首頁連結。
-- 上游後來替五個工具加了 `favicon.svg`（`message-box` 一公開就附了），收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
+- 上游後來替這些工具加了 `favicon.svg`，收錄版不收：合輯裡的工具頁沿用瀏覽器預設的
   分頁圖示，不各自掛作者的站台圖示。
-- `chat-window` 的說明裡有一節引導使用者用姊妹工具「メッセージボックスメーカー」顯示附立繪的訊息框，
-  上游連到作者站上的版本；合輯也收了這個工具（`message-box`），收錄版改連到合輯自己的那份。
-  `message-box` 反過來也有三處把 `chat-window` 當成搭配用的姊妹工具，同樣改連到合輯內的 `../chat-window/`。
-- `chat-window` 上游有兩句說明把「映す件数」「並び順」寫成在「メッセージ」分頁，
-  實際上兩者都在「窓・見出し」分頁；收錄版的繁中與日文都照實際位置寫。
-- `status-bar`、`chat-window` 與 `message-box` 的上游都附了自家站台的 `ogp.png`（各約 0.5 MB），
-  收錄版沒有用到那張圖（`og:image` 指的是絕對網址），因此不收。
 
-## height-board：移除了原站的存取分析
+## 兩個工具共用的 pcfonts.v1.js
 
-Wool&Wag 的 `character-height-board` 上游頁面掛了 Google Analytics，說明區與頁尾也各有一句
-告知使用者這件事。收錄版把 `gtag` 的載入一併移除，因此那兩句話也拿掉了——留著就是在說一件
-本站不存在的事。（同作者的 `character-image-size` 已由本站重寫成 `portrait-size`，見下方「本站重寫的工具」。）
-`<style>` 與內嵌 `<script>` 照慣例抽成 `styles.css` 與 `app.js`。
-
-三個處理立繪的工具各管一件事，互不重疊：`ccfolia-cropper` 按 CCFOLIA 的版面比例
-裁切、對齊頭部或角色中央；`portrait-size` 把同一角色的差分裁掉透明邊之後統一寬度
-——CCFOLIA 是用圖片寬度決定棋子大小的，寬度不一致，切換立繪時棋子就會忽大忽小；
-`height-board` 則是依身高統一縮尺，把不同角色並排比較高矮。
-
-## 五個工具共用的 pcfonts.v1.js
-
-`status-bar`、`chat-window`、`foreground-frame`、`message-box` 的字型欄與 `scene-transition` 的字幕字型都可以改填「以名稱指定」，
+`foreground-frame` 的字型欄與 `scene-transition` 的字幕字型都可以改填「以名稱指定」，
 使用觀看者電腦上已安裝的字型；Chrome／Edge 還能用 Local Font Access API
 （`queryLocalFonts()`）開出一份附樣張的清單來挑。那個對話框是 `pcfonts.v1.js`，
-上游在五個 repo 底下各放一份，收錄版照做，`tests/smoke.mjs` 會檢查
-五份沒有漂開。上游 `message-box-maker` 那份的檔頭多列了自己的名字，其他四份還沒跟上；
-內容其餘一字不差，收錄版五份都用那個新的檔頭。對話框是延遲建立的單例，切換語言時整個丟掉重建。
+上游在每個 repo 底下各放一份，收錄版照做，`tests/smoke.mjs` 會檢查
+兩份沒有漂開。上游 `message-box-maker` 那份的檔頭多列了自己的名字，其他幾份還沒跟上；
+內容其餘一字不差，收錄版都用那個新的檔頭。（`status-bar`、`chat-window`、`message-box`
+已由本站重寫，新版的電腦字型挑選改用本站的共用元件。）對話框是延遲建立的單例，切換語言時整個丟掉重建。
 
 這個功能在 OBS 端有個前提：OBS 是用它自己那台電腦的字型算繪的，所以那台也要裝同一套
 字型。上游把這件事寫在說明與產出的 CSS 開頭，收錄版一併翻譯保留。
-
-## chat-window：預覽刻意保留的日文
-
-`chat-window` 的預覽（`mock.v1.js`）是把 CCFOLIA 的聊天畫面照著重畫一遍，
-好讓使用者在調整 CSS 時看到的就是 OBS 上會出現的樣子。因此那個檔案裡的日文
-（`ルームチャット`、`メイン`、`メッセージを入力` 等九處，以及四個 `aria-label`）
-**原樣保留**——CCFOLIA 只有日文介面，翻掉的話預覽就不是實際畫面了。
-
-同理，範例訊息裡的骰子結果（`成功`、`失敗`、`決定的成功/スペシャル`、
-`致命的失敗`、`Secret dice 🎲`）是 BCDice 與 CCFOLIA 的實際輸出，也不翻；
-但角色名與聊天內容是作者自己編的示範資料，照常翻成繁體中文。
-`tests/smoke.mjs` 把這批該留的日文釘成一份清單，三個方向互相箝制。
-
-## message-box：同樣保留 CCFOLIA 畫面上的日文
-
-`message-box`（訊息框產生器）是 `chat-window` 的姊妹工具，預覽（`mock.v1.js`）一樣是照著
-CCFOLIA 的房間畫面重畫的，所以畫面上的 `ルームチャット`、`メッセージを入力`、訊息框的
-`スキップ`／`閉じる` 按鈕，以及秘密骰換掉內文後的 `シークレットダイス`、BCDice 的
-`決定的成功/スペシャル` 都原樣保留；角色名、房間名與示範台詞則照常翻成繁體中文。
-`css.v1.js` 的英文註解引用了 CCFOLIA 的設定名稱（`旧ダイス演出を利用する` 等），也不動。
-說明文裡提到這些設定時，繁中版寫的是譯名（例如「使用舊版骰子演出」），方便讀者理解；
-實際操作 CCFOLIA 時請對照日文介面。`tests/smoke.mjs` 同樣把這批日文釘成清單。
-
-上游替每個設定列的輸入元件，從列標籤借一份 `aria-label`，但只在載入時借一次；
-收錄版在語言引擎換好標籤後、以及之後每次切換語言時重借，讀螢幕軟體聽到的才會跟畫面一致。
-`status-bar` 與 `chat-window` 的上游是同一套寫法，也照樣修了（修正前，切換語言後分別有 73、79 個
-欄位的朗讀名稱停在舊語言）。
 
 ## room-zip：拆掉上游的 Web DEMO 外層
 
@@ -229,7 +168,7 @@ baegop 雙人整理 1、圖樣橫幅、多人資料框、置頂推文產生器�
 另外移除兩項與本站無關的東西：
 
 - 兩頁頁尾的 Cloudflare Web Analytics beacon（`static.cloudflareinsights.com`，
-  帶著上游站台的 token）。理由同 `height-board` 的 GA。
+  帶著上游站台的 token）。合輯不替原站收集存取資料。
 - 「버그&문의」對話框裡嵌的 Google 表單 iframe。那張表單收到的會是這份收錄版的
   問題，送達的卻是原作者的信箱。改成一段說明：只有這個版本才會發生的問題請開在
   本 repo 的 issues，工具本身的意見請找原作者。原作者的署名「배고픔」三種語言都
@@ -321,14 +260,14 @@ ES module 只求值一次，所以版型模組最外層寫成值的常數——�
 會疊上來，PDF 也跟著錯位。收錄版改用逐字量出的寬度推進；韓文預設內容的畫面與上游
 逐像素相同。
 
-## sotsotssi 的四個角色美術周邊工具
+## sotsotssi 的角色美術周邊工具
 
-`color-palette`、`acrylic-goods`、`video-anim`、`gif-combiner` 是一批同時收錄的
-MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也都是純靜態頁面：
+`acrylic-goods`、`video-anim`、`gif-combiner` 是一批同時收錄的
+MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也都是純靜態頁面（同批的 `color-palette`
+已由本站重寫，見下方「本站重寫的工具」）：
 
 | 目錄 | 上游名稱 | 做什麼 |
 |---|---|---|
-| `color-palette` | `CharColorPalette`（캐릭터 컬파 막대 메이커） | 角色配色條。可從立繪取色：手動滴管逐點選，或自動抓主色（演算法把彩度與明度當權重，無彩色與過暗過亮都扣分） |
 | `acrylic-goods` | `acrylic-goods`（사이버 아크릴 굿즈 공방） | 3D 壓克力立牌／搖搖樂／立體透視。搖搖樂裡的零件走 cannon.js 物理，手機上可用陀螺儀傾倒 |
 | `video-anim` | `video-to-pic`（동영상→이미지 변환기） | 影片選段轉無損 APNG／Animated WebP／256 色 GIF |
 | `gif-combiner` | `GIF-Combiner`（GIF 이어붙이기 툴） | 多張 GIF 對齊時間軸後合成一張 |
@@ -344,11 +283,10 @@ MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也�
 
 ### 函式庫照上游走 CDN，沒有改成同捆
 
-這四個工具的外部相依（Tailwind Play CDN、three.js、cannon.js、gif.js、gifuct-js、
+這幾個工具的外部相依（Tailwind Play CDN、three.js、cannon.js、gif.js、gifuct-js、
 gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，本 repo 不散布
 它們的檔案；各工具目錄下的 `THIRD_PARTY_NOTICES.md` 列出版本、來源與授權。
-合輯本來就是這個做法（`loading-maker` 的 pako，`collage-letter`／`text-path`／
-`typewriter` 的 Tailwind），README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
+合輯本來就是這個做法（`loading-maker` 的 pako），README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
 
 `acrylic-goods` 另外自帶一個「開源授權」對話框，把同一份清單顯示給使用者看，
 那是上游就有的，收錄版只把兩句說明譯成繁中。
@@ -362,13 +300,11 @@ gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，
 
 ### 切語言時要重跑的幾處
 
-四個工具的固定文字都走 `data-i18n`，但各有一些是程式寫進去的，切語言時得自己
+這幾個工具的固定文字都走 `data-i18n`，但各有一些是程式寫進去的，切語言時得自己
 重寫；每個工具的 `I18N.onChange` 就是在做這件事：
 
 - `gif-combiner`：產生鈕的字（合成途中會被進度覆寫，所以只在閒置時重寫）與整份
   檔案清單。
-- `color-palette`：左側面板與畫布由 `render()` 重畫；取色對話框那條狀態文字
-  即使對話框關著也要換掉，不然下次打開是上一個語言的字。
 - `video-anim`：裁切狀態、無損模式說明、影片資訊，以及結果卡上那四行——結果卡
   的數字另外記在 `state.lastResult` 裡，才有辦法用新語言重排。
 - `acrylic-goods`：兩份動態清單（搖搖樂零件、立體透視圖層）與畫布上的浮水印。
@@ -446,7 +382,7 @@ gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，
 組出來的，文字先用 `T()` 填好、同時掛上 `data-i18n`，切換語言時交給共用引擎重套，
 不必整個重建（重建會把語言選單換掉）。
 
-上游註解維持日文（`map_editor.js` 一檔就有上千行），理由與 `height-board`、`room-zip`
+上游註解維持日文（`map_editor.js` 一檔就有上千行），理由與 `room-zip`
 相同，規則也相同：`tests/smoke.mjs` 把註解抹掉之後再掃，程式碼與標記裡不准有假名。
 
 介面是繁中時，各頁字型改用 Noto Sans TC（`common.css` 依 `<html lang>` 切換，每頁的
@@ -558,7 +494,7 @@ WebM。
 上游是部署在 Vercel 上的單一頁面「CoCシナリオ組版ツール」：把克蘇魯神話 TRPG 的劇本貼進去，
 排成書本般的紙面，印成 PDF 後可以在 BOOTH 等處發佈。頁面上沒有作者署名、沒有授權條款，
 也找不到原始碼的 repo（這個環境連不到該網站，檔案是使用者另存後提供的，取得日期 2026-09-26）。
-權利屬原作者所有，此處僅供試用，見下方「未授權的十五個工具」。
+權利屬原作者所有，此處僅供試用，見下方「未授權的工具」。
 
 ### 只有繁體中文
 
@@ -614,36 +550,16 @@ WebM。
 - 這個工具刻意不連網，因此沒有加 Google Fonts，只在紙面的明體後面補上新細明體與
   Noto Serif TC、介面字型補上微軟正黑體、蘋方與 Noto Sans TC（接在日文字型後面，日文顯示不變）。
 
-## obs-tachie：Discord 通話立繪產生器
+## くま（TRPG WEBツール観測所）的工具
 
-上游 `max-enterme/obs-tachie-generator` 產生 Discord Streamkit（OBS 的瀏覽器來源）用的
-自訂 CSS，把通話中的頭像換成常駐顯示的立繪，說話時彈跳、發光，還能附上名字字幕條。
-上游 README 寫明這是受 alfe 氏（@alfe_below）「OBSのDiscord通話相手立ち絵表示ジェネレーター」
-啟發的獨立實作，沒有使用 alfe 氏的程式碼與素材。
-
-這是第三個要建置的工具（React + TypeScript + Vite），做法同 `character-editor`：原始碼收在
-`vendor/obs-tachie-generator/`，建置產物在 `tools/obs-tachie/`。與 `character-editor` 不同的是
-`src/` 的註解都譯成了繁體中文。上游的 `specs/`、部署說明與 Playwright 畫面測試（`e2e/`，
-需要另外下載瀏覽器，也不在 `npm test` 裡）不收，`package.json` 與 lockfile 跟著拿掉
-`@playwright/test`；vitest 的 189 項測試照舊，另加 7 項語言相關的測試。
-
-- 產出 CSS 裡給人看的註解跟著產生當下的語言；選擇器（`[class*="Voice_…"]`、
-  `img[src*="avatars/<id>"]`）與結構不經過字典，拿掉註解後繁中與日文的輸出逐字相同。
-- 程式庫拋出的錯誤與畫面上的提示改存 i18n key，算繪時才取譯文，切語言會跟著換。
-- 名字字型欄是自由輸入（上游沒有載入網頁字型），繁中介面的範例改成
-  `Noto Sans TC, 微軟正黑體`。
-
-## くま（TRPG WEBツール観測所）的六個工具
-
-`bg-motion`、`icon-maker`、`session-log`、`session-report`、`variant-manager`、
-`scenario-cards` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
+`bg-motion`、`session-log`、`session-report`、`scenario-cards` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
 「TRPG WEBツール観測所」（[kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools)）。
 站上上線與開發中的工具有十幾個，收錄的是不依賴日文角色卡服務、日文聊天面板或作者後端、
-台灣玩家也用得上的六個。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
+台灣玩家也用得上的六個（其中 `icon-maker`、`variant-manager` 已由本站重寫，見下方「本站重寫的工具」）。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
 「画像・アイコン素材の無断転載、再配布、二次利用はお控えください」，因此：
 
 - **上游的圖片一律不收**：站台圖示（部分由るた様繪製）、favicon、`bg-motion` 的範例照片
-  （`sample_and_juliet.jpeg`）、`icon-maker` 的 `silhouette.png`（上游其實沒有引用）都不收。
+  （`sample_and_juliet.jpeg`）都不收。
   `bg-motion` 的「載入範例圖」改由程式畫一張夜景（漸層天空、星星、月亮、街景剪影），
   尺寸與上游的範例相同。
 - 拿掉每頁都掛的 Google Analytics，以及頁首回原站入口的連結（換成合輯列）。
@@ -661,7 +577,7 @@ WebM。
 - 團報範本依產生當下的語言給繁中或日文用語（通過→通關、ロスト→撕卡、様→樣、作：〇〇様→
   作者：〇〇老師）。
 - `scenario-cards` 的上游版面用 CSS 把頁尾藏起來，收錄版讓它顯示，否則整頁看不到作者署名。
-- `bg-motion` 與 `variant-manager` 照上游自 jsDelivr 載入 JSZip（`bg-motion` 另有 UPNG.js），
+- `bg-motion` 照上游自 jsDelivr 載入 JSZip 與 UPNG.js，
   見各目錄的 `THIRD_PARTY_NOTICES.md`。
 
 ## log-converter、psd-studio
@@ -688,9 +604,11 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 
 ## 本站重寫的工具（靈感來源）
 
-下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的無塵室流程重寫：觀察者只寫行為規格
-（[docs/refactor/specs/](docs/refactor/specs/)），實作者只看規格與本站的 `web/` 框架寫出新程式，
-上線前逐項做新舊版對等驗證（紀錄在各規格的第 6 節）。新版只有繁體中文介面，程式以 MIT 授權釋出（見 [LICENSE](LICENSE)），
+下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的流程改寫到本站的 `web/` 框架，
+上線前逐項做新舊版對等驗證（紀錄在各規格 [docs/refactor/specs/](docs/refactor/specs/) 的第 6 節）。改寫時參考原作的程式，
+用本站的共用元件重新寫；MIT、CC0 等開放授權原作的著作權聲明與授權全文保留在 `assets/build/THIRD_PARTY_NOTICES.md`
+（「參考原作程式改寫的工具」一節），未授權原作的素材與範本文字不沿用。表中大部分工具是在這個做法之前以無塵室方式
+（觀察者只寫行為規格，實作者只看規格）重寫的；之後參考了開放授權原作程式修正的工具，原作的授權全文同樣列在通知檔裡。新版只有繁體中文介面，本站的程式以 MIT 授權釋出（見 [LICENSE](LICENSE)），
 頁尾只保留靈感來源連結。舊版的收錄副本已移除，需要對照時可以從表中的 `main` commit 取回（例如 `git show cb0c619:tools/battlemap/app.js`）。
 
 | 工具 | 名稱 | 靈感來源 | 舊版所在的 commit |
@@ -700,6 +618,20 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `text-fx` | 文字演出產生器 | （本站原創，見下節；移植到新框架，與舊版逐格相同） | `cb0c619` |
 | `textbox` | 文字方框產生器 | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) | `cb0c619` |
 | `portrait-size` | 立繪尺寸統一器 | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `cb0c619` |
+| `text-path` | 文字軌跡產生器 | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) | `b8a22a1` |
+| `collage-letter` | 匿名拼貼信產生器 | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) | `b8a22a1` |
+| `status-bar` | 狀態條產生器 | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `b8a22a1` |
+| `message-box` | 訊息框產生器 | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) | `b8a22a1` |
+| `chat-window` | 聊天視窗產生器 | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `b8a22a1` |
+| `obs-tachie` | Discord 通話立繪產生器 | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) | `b8a22a1` |
+| `ccfolia-cropper` | 立繪裁切器 | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `b8a22a1` |
+| `icon-maker` | 簡易頭像產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`kantan-icon-maker`） | `b8a22a1` |
+| `variant-manager` | 角色差分管理器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`chara-sabun-kanri-tool`） | `b8a22a1` |
+| `color-palette` | 角色配色條產生器 | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette) | `b8a22a1` |
+| `typewriter` | 打字機動畫產生器 | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) | `b8a22a1` |
+| `height-board` | 立繪身高比較板 | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `b8a22a1` |
+| `emotion-maker` | 表情產生器 | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b8a22a1` |
+| `cutin` | 切入素材產生器 | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `b8a22a1` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -723,12 +655,12 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 另外，第一次嘗試時實作者讀了原作程式碼，寫出來的版本有照搬的痕跡（相同的資料結構與內部常數），
 那一版沒有提交就整個作廢，才改用上述流程重做。
 
-## 需要建置的三個工具
+## 需要建置的工具
 
-`cutin`、`character-editor` 與 `obs-tachie` 的上游都是 React + TypeScript + Vite 專案，
-不能直接把檔案放進 `tools/` 就跑。因此原始碼快照收在 `vendor/` 底下，建置產物提交在
-各自的 `tools/` 目錄，重建方式見
-[README](README.md#重新建置-cutincharacter-editor-與-obs-tachie)。`vendor/` 不參與網站發佈。
+`character-editor` 的上游是 React + TypeScript + Vite 專案，不能直接把檔案放進 `tools/` 就跑。
+因此原始碼快照收在 `vendor/` 底下，建置產物提交在 `tools/character-editor/`，重建方式見
+[README](README.md#重新建置-character-editor)。`vendor/` 不參與網站發佈。（同樣需要建置的 `cutin`
+已由本站重寫，見「本站重寫的工具」。）
 
 `character-editor` 另有一點必須留意：`src/lib/editScreenText.ts` 的日文字面常數
 幾乎全是**解析用的錨點**，用來切分使用者從 CCFOLIA 編輯畫面複製貼上的文字
@@ -773,39 +705,35 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | [Cactus Classical Serif 仙人掌明體](https://fonts.google.com/specimen/Cactus+Classical+Serif) | Henry Chan、Tian Haidong、Moonlit Owen | SIL OFL 1.1 | 古典明體 |
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
-因此沒有隨附 OFL 全文——與 `cutin` 的其他六套日文字型同樣的處理方式。
-收錄的工具：`cutin`、`status-bar`、`chat-window`、`message-box`、`scene-transition`（字幕字型）、`typewriter`、`collage-letter`、`pair-maker`
+因此沒有隨附 OFL 全文。
+收錄的工具：`scene-transition`（字幕字型）、`pair-maker`
 （v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
 以及 `trpg-lab` 地圖編輯器的文字字型清單。
 
-`foreground-frame`、`loading-maker`、`text-path` 沒有網頁字型的載入機制（前兩者
-的字型清單指的是觀看者電腦上已安裝的字型，後者是寫死的單一字型），因此改為：
+`foreground-frame`、`loading-maker` 沒有網頁字型的載入機制（字型清單指的是觀看者電腦上
+已安裝的字型），因此改為：
 
 - `foreground-frame` 的字型表補上正黑體／明體／標楷體三組台灣系統字型堆疊；
 - `loading-maker` 的字型建議清單補上同樣三組；
-- `text-path` 的 `@import` 與繪製用的字型堆疊補上 Noto Sans TC，並排在
-  Noto Sans KR 前面。Noto Sans TC 沒有諺文，韓文仍會落到 Noto Sans KR，
-  所以兩種語言都不會缺字。
 
-`obs-tachie` 與くま的六個工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
+くま的工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
 （PingFang TC、Microsoft JhengHei、Noto Sans TC 等）排到前面；日文介面維持上游的字型。
 
 各工具宣告的字重都逐一對 `fonts.googleapis.com/css2` 驗證過——Google Fonts 對
 不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
 `tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
 
-## 未授權的十五個工具
+## 未授權的工具
 
-`sotsotssi/emotion-maker`、`sotsotssi/loading-maker`、
-`kimtaehee2018-maker/ccfolia-cropper`、`sotsotssi/select-your-chara`、
+`sotsotssi/loading-maker`、
+`sotsotssi/select-your-chara`、
 `organon-torah/ccfoliaCharacterEditor`、`johnko00/ccfolia-room-zip-maker-demo`
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
 `coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
 頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
-くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中六個工具，見上方專節；
+くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中四個工具，見上方專節；
 站上的利用規約另外禁止轉載圖片素材，因此一張圖都沒收）。
-依著作權法預設，其權利保留予原作者（`emotion-maker` 包含 `images/` 下全部
-39 張手繪素材），此處僅供試用。原作者如有異議，將立即移除。
+依著作權法預設，其權利保留予原作者，此處僅供試用。原作者如有異議，將立即移除。
 
 `character-select` 與 `room-zip` 的上游都是收錄前一兩天才建立、只有一次提交，
 往後很可能還會變動；此處的快照分別固定在 `883f48b` 與 `a9a522c`，不與上游同步。
@@ -824,25 +752,13 @@ magic-circle 的繁體中文翻譯移植自
 其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 是改寫成只有繁中，見上；
 `jizura` 連到原作者的官方繁中版，不在此列）。
 
-各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的五個工具
-原本就以英文撰寫註解，僅檔頭標題改為中譯名。兩個例外：
+各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文；shiki365 的工具
+原本就以英文撰寫註解，僅檔頭標題改為中譯名。一個例外：
 
-- `tools/typewriter/webp-muxer.js`——這是原封不動保留的二進位格式編碼函式庫，
-  其註解維持原文不動，僅將其中 8 個使用者可能看見的錯誤訊息改為穩定的英文
-  錯誤代碼並另行翻譯。
-- `vendor/cutin-maker/`——註解密度高且多為演算法說明（描邊順序、`unicode-range`
-  分割、記憶體上限推導等），逐句轉譯風險大於效益，故維持日文原文；只有使用者
-  看得到的字串與本 repo 新增的註解為中文。這些註解不會出現在 `tools/cutin/`
-  的建置產物裡。
-- `tools/height-board/`——同樣的理由。392 行註解多為 Canvas 縮放、記憶體上限、
-  `.hboard` 的檔案佈局、拖曳門檻、為什麼某個按鈕要 `type="button"` 之類的取捨說明，
-  維持日文原文。與 `cutin` 不同的是這些註解會隨著檔案發佈，因此 `tests/smoke.mjs`
-  把「只有註解可以是日文」變成可檢查的規則：把註解整段抹成空白（保留行結構）之後
-  再掃一次，程式碼與標記裡只要出現假名就會被擋下。`styles.css` 裡的
-  `HG丸ｺﾞｼｯｸM-PRO` 是 Windows 的字型名稱，屬於要原樣寫給瀏覽器看的識別字，
-  另外列為例外並檢查它還在。
-- `tools/room-zip/`——同樣的理由，而且量更大：app.v1.js 一萬多行裡有 156 行
-  註解是日文。同樣用 `stripComments` 的規則把關，另外列出一份「刻意留著的資料」
+- `tools/room-zip/`——註解密度高且多為演算法與資料格式的說明，逐句轉譯風險大於效益：app.v1.js 一萬多行裡有 156 行
+  註解是日文，維持原文。這些註解會隨著檔案發佈，因此 `tests/smoke.mjs`
+  把「只有註解可以是日文」變成可檢查的規則（`stripComments`）：把註解整段抹成空白
+  （保留行結構）之後再掃一次，程式碼與標記裡只要出現假名就會被擋下；另外列出一份「刻意留著的資料」
   清單（素材標籤的值、`{検索ワード}`、KPDEF 的聊天面板預設內容、CSV 標題列的
   辨識字、CCFOLIA 的三個預設頻道名），清單以外的日文一律擋下。
 
@@ -850,7 +766,7 @@ magic-circle 的繁體中文翻譯移植自
 
 新框架 `web/`（含其建置產物 `assets/build/`、`next/` 與重寫上線的 `tools/<id>/index.html`）、`docs/`、`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
 `guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
-以及 emotion-maker 的資產路徑改造，以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
-`tools/emotion-maker/`（含全部圖像素材）、`tools/loading-maker/`、
-`tools/ccfolia-cropper/`、`tools/character-select/`、`tools/character-editor/`、
+以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
+`tools/loading-maker/`、
+`tools/character-select/`、`tools/character-editor/`、
 `tools/room-zip/`、`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。

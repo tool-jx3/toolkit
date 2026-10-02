@@ -48,8 +48,10 @@ web/
   build/plugins.ts        建置外掛：共用 <head>（字型、主題初始化）、第三方授權清單、搬到 repo 根目錄
   src/registry.ts         工具清單（建置與頁首、群組分頁、頁尾共用）
   src/ui/                 設計 token（tokens.css）、樣式入口（styles.css）、共用元件
-  src/core/               storage、files、fonts、encode、timeline、typeset、image、color、gradient、worker、css（OBS 自訂 CSS 產生核心）
-  src/ccfolia/            CCFOLIA／Discord Streamkit／OBS 的外部事實（網址、選擇器、擲骰分類）
+  src/core/               storage、files、fonts、encode、timeline、typeset、image、color、gradient、worker、css（OBS 自訂 CSS 產生核心）、
+                          textfx（整段文字的裝飾層、卡拉 OK）、fxlayers（循環特效）、path（軌跡）、audio（音效與 WAV）、share（網址分享）、html
+                          assets（圖片資產庫）、layout（版面幾何）、ruler（尺規）、compose（圖層合成）、sheet（格狀合輯）
+  src/ccfolia/            CCFOLIA／Discord Streamkit／OBS 的外部事實（網址、選擇器、擲骰分類、匯出用途的容量與格式）
   src/ccfolia/mock/       依外部事實自己寫的模擬頁（CssPreviewFrame 的預覽與測試用）
   src/tools/<id>/         各工具：index.html、main.tsx、App.tsx、strings.ts
   src/tools/_gallery/     元件展示頁（每個元件的各種狀態＋可匯出的示範動畫），實作者的參考

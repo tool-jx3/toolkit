@@ -9,6 +9,12 @@ import { DEFAULT_FONT_FAMILY, findGoogleFont, googleFontCssUrl, nearestWeight } 
 import { readFontNames } from './sfnt';
 
 export * from './catalog';
+export {
+  defineFontChoices,
+  type FontChoice,
+  type FontChoiceInput,
+  pickFontChoice,
+} from './choices';
 export { type FontNames, readFontNames } from './sfnt';
 
 export type FontSource = 'google' | 'local' | 'upload';

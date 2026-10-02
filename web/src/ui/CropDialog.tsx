@@ -2,7 +2,12 @@
  * 裁切對話框：拖曳裁切框或八個控制點；也可以直接輸入 X／Y／寬／高（鍵盤操作用這裡）。
  * 裁切框本身有焦點時：方向鍵移動 1 px（Shift 10 px），Alt＋方向鍵調整大小。
  * 比例可固定（aspect）或讓使用者在選項間切換（aspectOptions）。
+ *
+ * freeDraw：在圖上（包括裁切框裡面）按住拖曳就畫出新範圍；移動範圍用框中央的移動把手，
+ * 或在框內按住不動約 0.35 秒再拖。開始拖曳前先讓數字欄離開輸入狀態，拖曳時四個數字欄跟著更新，
+ * 確定時以畫面上的範圍為準（不會被欄位裡打到一半的舊值蓋掉）。
  */
+import { Move } from 'lucide-react';
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -131,6 +136,11 @@ export function CropConfirmSummary({
 }
 
 const HANDLES: CropHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+
+/** freeDraw：在框內按住不動多久（毫秒）之後再拖算「移動」 */
+export const CROP_HOLD_TO_MOVE_MS = 350;
+/** 按下後移動超過這個距離（螢幕 px）才算開始拖曳 */
+const DRAG_THRESHOLD = 3;
 const HANDLE_POS: Record<CropHandle, string> = {
   nw: 'left-0 top-0 cursor-nwse-resize',
   n: 'left-1/2 top-0 cursor-ns-resize',
@@ -174,11 +184,28 @@ export function CropDialog({
   const canvas = useRef<HTMLCanvasElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{
-    mode: 'move' | 'draw' | CropHandle;
+    /** pending：freeDraw 時在框內按下，還不知道是畫新範圍還是移動 */
+    mode: 'move' | 'draw' | 'pending' | CropHandle;
     x: number;
     y: number;
     start: Rect;
+    /** 按下的時間（pending 用） */
+    t?: number;
   } | null>(null);
+  /* freeDraw：在框內按住夠久，放開前拖曳就是移動（游標改成移動） */
+  const [holding, setHolding] = useState(false);
+  const holdTimer = useRef<number | null>(null);
+  const clearHold = () => {
+    if (holdTimer.current !== null) window.clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+    setHolding(false);
+  };
+  useEffect(
+    () => () => {
+      if (holdTimer.current !== null) window.clearTimeout(holdTimer.current);
+    },
+    [],
+  );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: 只在開啟或換圖時重設，拖曳中改比例不要重設
   useEffect(() => {
@@ -229,11 +256,43 @@ export function CropDialog({
     return el ? size.width / el.getBoundingClientRect().width : 1;
   };
 
-  const onPointerDown = (mode: 'move' | CropHandle) => (e: PointerEvent<HTMLElement>) => {
+  /**
+   * 開始拖曳前讓對話框裡正在輸入的數字欄離開輸入狀態（先確定它打到一半的值），
+   * 之後拖曳的結果才會顯示在欄位裡、確定時也不會被欄位的舊值蓋掉。
+   */
+  const leaveInputs = (from: HTMLElement) => {
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      active !== from &&
+      active.closest('[role="dialog"]') &&
+      active.matches('input,textarea')
+    )
+      active.blur();
+  };
+
+  const onPointerDown = (mode: 'move' | 'box' | CropHandle) => (e: PointerEvent<HTMLElement>) => {
+    if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    drag.current = { mode, x: e.clientX, y: e.clientY, start: rect };
+    leaveInputs(e.currentTarget);
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    if (mode === 'box' && freeDraw) {
+      /* 框內：拖了就畫新範圍；按住不動一下再拖就是移動 */
+      drag.current = { mode: 'pending', x: e.clientX, y: e.clientY, start: rect, t: Date.now() };
+      clearHold();
+      holdTimer.current = window.setTimeout(() => {
+        holdTimer.current = null;
+        if (drag.current?.mode === 'pending') setHolding(true);
+      }, CROP_HOLD_TO_MOVE_MS);
+      return;
+    }
+    drag.current = {
+      mode: mode === 'box' ? 'move' : mode,
+      x: e.clientX,
+      y: e.clientY,
+      start: rect,
+    };
   };
   /** 螢幕座標 → 影像座標 */
   const toImage = (clientX: number, clientY: number) => {
@@ -248,6 +307,7 @@ export function CropDialog({
   const onDrawStart = (e: PointerEvent<HTMLElement>) => {
     if (!freeDraw || e.button !== 0) return;
     e.preventDefault();
+    leaveInputs(e.currentTarget);
     e.currentTarget.setPointerCapture?.(e.pointerId);
     const p = toImage(e.clientX, e.clientY);
     drag.current = { mode: 'draw', x: p.x, y: p.y, start: rect };
@@ -255,6 +315,19 @@ export function CropDialog({
   const onPointerMove = (e: PointerEvent<HTMLElement>) => {
     const d = drag.current;
     if (!d) return;
+    if (d.mode === 'pending') {
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < DRAG_THRESHOLD) return;
+      const held = Date.now() - (d.t ?? 0) >= CROP_HOLD_TO_MOVE_MS;
+      clearHold();
+      if (held) {
+        d.mode = 'move';
+      } else {
+        const p = toImage(d.x, d.y);
+        d.mode = 'draw';
+        d.x = p.x;
+        d.y = p.y;
+      }
+    }
     if (d.mode === 'draw') {
       const p = toImage(e.clientX, e.clientY);
       const w = p.x - d.x;
@@ -272,6 +345,7 @@ export function CropDialog({
   };
   const onPointerUp = () => {
     drag.current = null;
+    clearHold();
   };
 
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -330,7 +404,11 @@ export function CropDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={title}
-      description="拖曳框線調整範圍；也可以直接輸入數值。"
+      description={
+        freeDraw
+          ? '在圖上按住拖曳畫出範圍；拖曳控制點調整大小；拖曳中央的把手（或在框內按住不動再拖）移動範圍；也可以直接輸入數值。'
+          : '拖曳框線調整範圍；也可以直接輸入數值。'
+      }
       size="lg"
       footer={
         stage === 'confirm' && rawRect ? (
@@ -410,8 +488,12 @@ export function CropDialog({
                 aria-roledescription="裁切框"
                 aria-label={`裁切範圍：X ${rect.x}、Y ${rect.y}、寬 ${rect.width}、高 ${rect.height}。方向鍵移動，Alt＋方向鍵調整大小。`}
                 onKeyDown={onKey}
-                onPointerDown={onPointerDown('move')}
-                className="absolute cursor-move border-2 border-white shadow-[0_0_0_9999px_rgb(0_0_0/0.55)] outline-offset-4"
+                onPointerDown={onPointerDown('box')}
+                data-holding={holding || undefined}
+                className={cn(
+                  'absolute border-2 border-white shadow-[0_0_0_9999px_rgb(0_0_0/0.55)] outline-offset-4',
+                  freeDraw && !holding ? 'cursor-crosshair' : 'cursor-move',
+                )}
                 style={{
                   left: pct(rect.x, size.width),
                   top: pct(rect.y, size.height),
@@ -419,6 +501,17 @@ export function CropDialog({
                   height: pct(rect.height, size.height),
                 }}
               >
+                {freeDraw ? (
+                  <span
+                    aria-hidden
+                    data-testid="crop-move-handle"
+                    title="拖曳移動範圍"
+                    onPointerDown={onPointerDown('move')}
+                    className="absolute top-1/2 left-1/2 grid size-7 -translate-x-1/2 -translate-y-1/2 cursor-move place-items-center rounded-full border-2 border-accent-contrast bg-accent text-accent-contrast shadow-1 [&_svg]:size-4"
+                  >
+                    <Move />
+                  </span>
+                ) : null}
                 {HANDLES.map((h) => (
                   <span
                     key={h}

@@ -38,7 +38,7 @@ import { cn } from './cn';
 import { Dialog, DialogClose } from './Dialog';
 import { useFieldControl } from './Field';
 import { FileDrop } from './ImageDrop';
-import { LocalFontDialog } from './LocalFontDialog';
+import { LOCAL_FONT_SAMPLE, LocalFontDialog } from './LocalFontDialog';
 import { Segmented } from './Segmented';
 import { Select } from './Select';
 import { Tabs } from './Tabs';
@@ -63,6 +63,11 @@ export interface FontPickerProps {
   onChange: (value: FontValue) => void;
   /** 清單預覽用的文字 */
   previewText?: string;
+  /**
+   * 「從清單選」（電腦字型清單對話框）的預設樣張；預設 LOCAL_FONT_SAMPLE（一律含「永」字與英數，
+   * 不沿用 previewText）。
+   */
+  localSampleText?: string;
   /** 只列出這些文字的字型（預設全部） */
   scripts?: readonly FontScript[];
   /** 允許電腦字型（預設 true） */
@@ -82,6 +87,12 @@ export interface FontPickerProps {
   weights?: readonly number[];
   /** css 模式選了電腦字型時，下方的提醒（預設提醒在跑 OBS 的電腦安裝；false 不顯示） */
   localFontNote?: ReactNode | false;
+  /**
+   * 加一個「沿用頁面字型」的選項（不指定字型，沿用頁面原本的字型；例如 Discord Streamkit 的名字）。
+   * 選了之後值是 `{ source: 'local', family: '', weight }`；family 空白時欄位顯示這個名稱。
+   * `true` 用預設文字，也可以給 `{ label, description }`。
+   */
+  inherit?: boolean | { label?: string; description?: string };
   disabled?: boolean;
   id?: string;
   'aria-label'?: string;
@@ -100,6 +111,12 @@ const SOURCE_LABEL: Record<FontValue['source'], string> = {
   local: '電腦',
   upload: '上傳',
 };
+
+const INHERIT_LABEL = '沿用頁面字型';
+const INHERIT_DESCRIPTION = '不指定字型，沿用頁面原本的字型。';
+
+/** 字型值是不是「沿用頁面字型」（family 空白） */
+export const isInheritFont = (value: Pick<FontValue, 'family'>): boolean => !value.family.trim();
 
 function PreviewRow({
   family,
@@ -391,10 +408,13 @@ function CssLocalTab({
   value,
   onPick,
   previewText,
+  sampleText,
 }: {
   value: FontValue;
   onPick: (family: string) => void;
   previewText: string;
+  /** 「從清單選」對話框的預設樣張 */
+  sampleText: string;
 }) {
   const [manual, setManual] = useState(
     value.source === 'local' && !findSystemFont(value.family) ? value.family : '',
@@ -460,7 +480,7 @@ function CssLocalTab({
         open={listOpen}
         onOpenChange={setListOpen}
         value={selected ?? ''}
-        sampleText={previewText}
+        sampleText={sampleText}
         onPick={(fam) => {
           setManual(fam);
           onPick(fam);
@@ -578,6 +598,7 @@ export function FontPicker({
   value,
   onChange,
   previewText = '天地玄黃 宇宙洪荒 TRPG 123',
+  localSampleText = LOCAL_FONT_SAMPLE,
   scripts,
   allowLocal = true,
   allowUpload,
@@ -585,6 +606,7 @@ export function FontPicker({
   mode = 'canvas',
   weights: weightOptions,
   localFontNote,
+  inherit,
   disabled,
   className,
   ...rest
@@ -596,14 +618,19 @@ export function FontPicker({
   const css = mode === 'css';
   const uploadAllowed = allowUpload ?? !css;
   const weights = weightOptions ?? (css ? CSS_WEIGHT_CHOICES : availableWeights(value));
-  const display =
-    value.source === 'google'
+  const inheritOpt = inherit ? (typeof inherit === 'object' ? inherit : {}) : null;
+  const inheritLabel = inheritOpt?.label ?? INHERIT_LABEL;
+  const inherited = !!inheritOpt && isInheritFont(value);
+  const display = inherited
+    ? inheritLabel
+    : value.source === 'google'
       ? (findGoogleFont(value.family)?.label ?? value.family)
       : (findSystemFont(value.family)?.label ?? value.family);
   /* css 模式：實際輸出的字重（字型沒有選的字重時換成最接近的） */
   const resolved = css ? resolveFontWeight(value, value.weight) : value.weight;
 
   useEffect(() => {
+    if (!value.family.trim()) return;
     ensureFont(value.family, resolved, display);
   }, [value.family, resolved, display]);
 
@@ -634,7 +661,12 @@ export function FontPicker({
             label: '電腦字型',
             icon: <HardDrive />,
             content: css ? (
-              <CssLocalTab value={value} onPick={pick('local')} previewText={previewText} />
+              <CssLocalTab
+                value={value}
+                onPick={pick('local')}
+                previewText={previewText}
+                sampleText={localSampleText}
+              />
             ) : (
               <LocalTab value={value} onPick={pick('local')} previewText={previewText} />
             ),
@@ -654,11 +686,11 @@ export function FontPicker({
   ];
 
   const note =
-    css && value.source === 'local' && localFontNote !== false
+    css && value.source === 'local' && !inherited && localFontNote !== false
       ? (localFontNote ?? '跑 OBS 的電腦也要安裝這套字型。')
       : null;
   const weightNote =
-    css && showWeight && resolved !== value.weight
+    css && showWeight && !inherited && resolved !== value.weight
       ? `這套字型沒有 ${value.weight}，實際使用 ${resolved}。`
       : null;
 
@@ -671,7 +703,9 @@ export function FontPicker({
           if (o) setTab(value.source);
         }}
         title="選擇字型"
-        description={`目前：${display}（${SOURCE_LABEL[value.source]}）`}
+        description={
+          inherited ? `目前：${display}` : `目前：${display}（${SOURCE_LABEL[value.source]}）`
+        }
         size="md"
         trigger={
           <button
@@ -693,17 +727,40 @@ export function FontPicker({
             <span
               id={valueId}
               className="truncate"
-              style={{ fontFamily: fontFamilyCss(value.family), fontWeight: value.weight }}
+              style={
+                inherited
+                  ? undefined
+                  : { fontFamily: fontFamilyCss(value.family), fontWeight: value.weight }
+              }
             >
               {display}
             </span>
             <span className="shrink-0 rounded-sm bg-surface-3 px-1.5 text-xs text-muted">
-              {SOURCE_LABEL[value.source]}
+              {inherited ? '頁面' : SOURCE_LABEL[value.source]}
             </span>
           </button>
         }
         footer={<DialogClose variant="primary">完成</DialogClose>}
       >
+        {inheritOpt ? (
+          <button
+            type="button"
+            aria-pressed={inherited}
+            onClick={() => {
+              onChange({ source: 'local', family: '', weight: value.weight });
+              setOpen(false);
+            }}
+            className={cn(
+              'mb-3 flex w-full flex-col items-start gap-0.5 rounded-md border px-3 py-2 text-left hover:bg-surface-3',
+              inherited ? 'border-accent bg-accent-soft' : 'border-border bg-surface-2',
+            )}
+          >
+            <span className="text-sm font-medium text-fg">{inheritLabel}</span>
+            <span className="text-xs text-muted">
+              {inheritOpt.description ?? INHERIT_DESCRIPTION}
+            </span>
+          </button>
+        ) : null}
         <Tabs aria-label="字型來源" items={tabs} value={tab} onValueChange={setTab} />
       </Dialog>
       {showWeight ? (

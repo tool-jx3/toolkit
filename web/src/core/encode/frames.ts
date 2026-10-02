@@ -14,6 +14,9 @@ export type RgbaPixels = Uint8Array | Uint8ClampedArray;
 
 export type EncodeFormat = 'apng' | 'gif' | 'webp' | 'png-sequence';
 
+/** 播放次數的上限（WebP 與 GIF 的循環欄位是 16 位元；APNG 的 acTL 更大，三種格式一致取 65535） */
+export const MAX_PLAYS = 65535;
+
 /** 所有逐格編碼器的共同介面（主執行緒版與 Worker 版相同） */
 export interface FrameEncoder {
   /**

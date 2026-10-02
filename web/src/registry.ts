@@ -94,12 +94,180 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'message-box',
+    name: '訊息框產生器',
+    summary:
+      '把 CCFOLIA 房間畫面發言時跳出的訊息框改成直播用的樣式：產生貼進 OBS 瀏覽器來源的自訂 CSS，畫面上只留訊息框。',
+    group: 'G4',
+    status: 'live',
+    inspiration: {
+      name: 'shiki365/message-box-maker',
+      url: 'https://github.com/shiki365/message-box-maker',
+    },
+  },
+  {
+    id: 'chat-window',
+    name: '聊天視窗產生器',
+    summary:
+      '做出 OBS 瀏覽器來源用的自訂 CSS，把 CCFOLIA 的聊天另開視窗變成直播畫面上的聊天／擲骰視窗，可以只列擲骰、依成敗上色。',
+    group: 'G4',
+    status: 'live',
+    inspiration: {
+      name: 'shiki365/chat-window-maker',
+      url: 'https://github.com/shiki365/chat-window-maker',
+    },
+  },
+  {
     id: 'text-fx',
     name: '文字演出產生器',
     summary:
       '把文字做成有登場、停留、退場動畫的透明素材（標語、長文、字幕），匯出 APNG、GIF、WebP、PNG。',
     group: 'G1',
     status: 'live',
+  },
+  {
+    id: 'obs-tachie',
+    name: 'Discord 通話立繪產生器',
+    summary:
+      '用 Discord 語音跑團直播時，把 Streamkit 的小頭像換成常駐立繪：說話時彈跳、發光或閃爍，可附名字標籤，產生 OBS 瀏覽器來源的自訂 CSS。',
+    group: 'G4',
+    status: 'live',
+    inspiration: {
+      name: 'max-enterme/obs-tachie-generator',
+      url: 'https://github.com/max-enterme/obs-tachie-generator',
+    },
+  },
+  {
+    id: 'status-bar',
+    name: '狀態條產生器',
+    summary:
+      '把 CCFOLIA 的角色狀態頁變成直播用的 HP／MP 狀態條：調好外觀後複製 CSS 貼進 OBS 瀏覽器來源，數值會即時連動。',
+    group: 'G4',
+    status: 'live',
+    inspiration: {
+      name: 'shiki365/status-bar-maker',
+      url: 'https://github.com/shiki365/status-bar-maker',
+    },
+  },
+  {
+    id: 'text-path',
+    name: '文字軌跡產生器',
+    summary:
+      '把一段文字沿著圓、螺旋、愛心或自己畫的線排成文字圖案，輸出可以直接貼到聊天室或社群平台的純文字。',
+    group: 'G1',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/text-path-generator',
+      url: 'https://github.com/sotsotssi/text-path-generator',
+    },
+  },
+  {
+    id: 'variant-manager',
+    name: '角色差分管理器',
+    summary:
+      '一次整理同一個角色的表情差分：統一檔名、調整順序後打包成 ZIP，並產生 CCFOLIA 聊天面板用的「@差分名」清單。',
+    group: 'G3',
+    status: 'live',
+    inspiration: {
+      name: 'くま。／TRPG WEBツール観測所',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
+  {
+    id: 'collage-letter',
+    name: '匿名拼貼信產生器',
+    summary:
+      '把一段文字做成「從雜誌剪字拼貼」的匿名信圖片：每個字是一張歪斜的彩色紙片，可下載透明 PNG、紙張底 JPG，或複製成 HTML、Roll20 格式。',
+    group: 'G1',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/collage-letter',
+      url: 'https://github.com/sotsotssi/collage-letter',
+    },
+  },
+  {
+    id: 'typewriter',
+    name: '打字機動畫產生器',
+    summary:
+      '把一段文字做成逐字出現、亂碼閃爍、片尾名單捲動或卡拉 OK 變色的透明動畫，匯出 APNG、GIF、WebP，打字還能配上節奏對應的音效。',
+    group: 'G1',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/Typewriter-apng',
+      url: 'https://github.com/sotsotssi/Typewriter-apng',
+    },
+  },
+  {
+    id: 'cutin',
+    name: '切入素材產生器',
+    summary:
+      '把擲骰結果、勝負或一句喊話做成無縫循環的透明動畫：加工、配色、特效一次套好，匯出 CCFOLIA 切入或 Discord 貼圖用的 APNG、GIF。',
+    group: 'G1',
+    status: 'live',
+    inspiration: {
+      name: 'Taku-Taku-Taku/cutin-maker',
+      url: 'https://github.com/Taku-Taku-Taku/cutin-maker',
+    },
+  },
+  {
+    id: 'ccfolia-cropper',
+    name: '立繪裁切器',
+    summary:
+      '把去背的全身立繪裁成 3:4 或 1:1 的上半身頭像：自動對準頭部，左右拖曳微調，可加描邊、光暈或陰影，逐張或整批下載 PNG。',
+    group: 'G3',
+    status: 'live',
+    inspiration: {
+      name: 'kimtaehee2018-maker/ccfolia-cropper',
+      url: 'https://github.com/kimtaehee2018-maker/ccfolia-cropper',
+    },
+  },
+  {
+    id: 'icon-maker',
+    name: '簡易頭像產生器',
+    summary:
+      '把角色圖放進圓角外框，加上名字牌與 HO 牌，拖曳排好版面後下載 1024 × 1024 的正方形頭像 PNG。',
+    group: 'G3',
+    status: 'live',
+    inspiration: {
+      name: 'くま。／TRPG WEBツール観測所',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
+  {
+    id: 'color-palette',
+    name: '角色配色條產生器',
+    summary:
+      '替每位角色做一條直立的膠囊形配色條：由上到下排出髮色、膚色、衣服等顏色，長度依身高換算、底部對齊並排，可從立繪取色，匯出 PNG。',
+    group: 'G3',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/CharColorPalette',
+      url: 'https://github.com/sotsotssi/CharColorPalette',
+    },
+  },
+  {
+    id: 'height-board',
+    name: '立繪身高比較板',
+    summary:
+      '把多位角色的立繪依身高換成同一個比例尺並排在公分刻度上，一眼看出誰高誰矮：可調頭頂與腳底基準線、拖曳排位，匯出含刻度的 PNG。',
+    group: 'G3',
+    status: 'live',
+    inspiration: {
+      name: 'woolwag3338/character-height-board',
+      url: 'https://github.com/woolwag3338/character-height-board',
+    },
+  },
+  {
+    id: 'emotion-maker',
+    name: '表情產生器',
+    summary:
+      '用眼睛、眉毛、嘴巴和汗滴、怒筋、臉紅等漫畫符號拼出 Q 版表情，存成清單後排成一張附文字的合輯圖，匯出透明 PNG。',
+    group: 'G3',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/emotion-maker',
+      url: 'https://github.com/sotsotssi/emotion-maker',
+    },
   },
 ];
 

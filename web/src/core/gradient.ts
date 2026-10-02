@@ -68,6 +68,42 @@ export function canvasGradient(
   return grad;
 }
 
+/* ---------- G2：角度換算、漸層流動 ---------- */
+
+/**
+ * 「0° 由左到右、90° 由上到下、180° 由右到左」的角度（例如讀取動畫的漸層角度）→ Gradient.angle（CSS：0° 由下往上、90° 由左到右）。
+ * 兩種規則差 90°：rightward 0 → CSS 90；rightward 90 → CSS 180。結果在 0～360。
+ */
+export const cssAngleFromRightward = (deg: number): number => (((deg + 90) % 360) + 360) % 360;
+
+/** CSS 角度 → 「0° 由左到右」的角度（−180～180） */
+export function rightwardAngleFromCss(css: number): number {
+  const a = ((((css - 90) % 360) + 540) % 360) - 180;
+  return a === -180 ? 180 : a;
+}
+
+/**
+ * 漸層流動：所有色標往終點方向移動 shift（一輪＝1），超出終點的部分從起點接回來；
+ * 首尾相接處是硬接縫（最後一色直接換成第一色）。shift 為負時往起點方向。
+ */
+export function shiftStops(stops: readonly GradientStop[], shift: number): GradientStop[] {
+  const sorted = sortStops(stops);
+  if (sorted.length < 2) return sorted.map((s) => ({ ...s }));
+  const d = ((shift % 1) + 1) % 1;
+  if (d === 0) return sorted.map((s) => ({ ...s }));
+  const g: Gradient = { kind: 'linear', angle: 0, stops: sorted };
+  const at = (o: number) => sampleGradient(g, o);
+  const out: GradientStop[] = [{ offset: 0, color: at(1 - d) }];
+  for (const s of sorted)
+    if (s.offset > 1 - d && s.offset < 1) out.push({ offset: s.offset + d - 1, color: s.color });
+  out.push({ offset: d, color: at(1) });
+  out.push({ offset: d, color: at(0) });
+  for (const s of sorted)
+    if (s.offset > 0 && s.offset < 1 - d) out.push({ offset: s.offset + d, color: s.color });
+  out.push({ offset: 1, color: at(1 - d) });
+  return out;
+}
+
 /** t（0～1）位置的顏色 */
 export function sampleGradient(g: Gradient, t: number): string {
   const stops = sortStops(g.stops);

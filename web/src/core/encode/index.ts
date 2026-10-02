@@ -8,6 +8,7 @@ export {
   type CreateEncoderOptions,
   createEncoder,
   encodePngAsync,
+  encodePngColorsAsync,
   openEncodeWorker,
 } from './client';
 export {
@@ -16,14 +17,27 @@ export {
   type EncodedFile,
   type EncodeFormat,
   type FrameEncoder,
+  MAX_PLAYS,
   pasteRect,
   type Rect,
   type RgbaPixels,
   toU32,
 } from './frames';
-export { GIF_MAX_FPS, GifEncoder, type GifEncoderOptions, gifRepeat } from './gif';
+export {
+  GIF_MAX_FPS,
+  GifEncoder,
+  type GifEncoderOptions,
+  gifAlphaThresholdInclusive,
+  gifRepeat,
+} from './gif';
 export { createLocalEncoder, type Encoder, type EncoderSpec } from './local';
-export { buildPalette, ColorStats, type Palette } from './palette';
+export {
+  buildPalette,
+  ColorStats,
+  type Palette,
+  type PaletteMethod,
+  principalAxis,
+} from './palette';
 export {
   type ApngFrame,
   assembleApng,
@@ -36,6 +50,7 @@ export {
   zlib,
 } from './png';
 export { PngSequenceEncoder, type PngSequenceOptions } from './sequence';
+export { encodePngColors, type StillPngResult } from './still';
 export {
   assembleAnimatedWebp,
   canvasWebpEncoder,

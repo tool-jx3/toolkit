@@ -3,6 +3,7 @@
  * - 文字以第一個「|」（全形「｜」也可以）分隔「指令」與「結果」：`CC<=50 | (1D100<=50) ＞ 23 ＞ 成功`。
  * - 按送出或 Enter 送出（輸入法選字中的 Enter 不算），成功後清空文字欄。
  * - 文字空白 → 錯誤提示；需要結果的種類卻沒有「|」後面的結果 → 錯誤提示並舉例。
+ * - requireCommand：需要結果的種類「|」前面也不可以是空的（訊息框這類「內文空白不能送出」的預覽）。
  */
 import { Send } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -53,6 +54,8 @@ export interface MessageComposerProps {
   /** 缺結果時錯誤訊息裡的例子 */
   resultExample?: string;
   sendLabel?: string;
+  /** 需要結果的種類，「|」前面（指令／內文）也不可以是空的（預設 false：只要有結果也可以送出） */
+  requireCommand?: boolean;
   className?: string;
 }
 
@@ -67,6 +70,7 @@ export function MessageComposer({
   placeholder = '內文；擲骰時在「|」後面寫結果',
   resultExample = 'CC<=50 | (1D100<=50) ＞ 23 ＞ 成功',
   sendLabel = '送出',
+  requireCommand = false,
   className,
 }: MessageComposerProps) {
   const [text, setText] = useState('');
@@ -77,6 +81,7 @@ export function MessageComposer({
   const send = () => {
     const { command, result } = parseComposerText(text);
     if (!command && !result) return setError('請先輸入內容。');
+    if (requireCommand && k?.needsResult && !command) return setError('請在「|」前面輸入內文。');
     if (k?.needsResult && !result)
       return setError(`擲骰要在「|」後面寫結果，例如：${resultExample}`);
     setError(null);

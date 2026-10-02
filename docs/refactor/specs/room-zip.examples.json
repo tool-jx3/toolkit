@@ -1,0 +1,2953 @@
+{
+ "$schema": "room-zip parity examples (observer-generated, legacy output)",
+ "about": {
+  "purpose": "room-zip 行為規格的附件：舊版（tools/room-zip/）在無頭 Chromium（Playwright 內建版本）上的實際輸出。對等驗證時，新版以相同的測試圖與相同的操作得到的結果必須與這裡相同（比對規則見規格 3.6）。",
+  "generatedAt": "2026-10-01",
+  "browser": "Chromium 141.0.7390.37",
+  "testImagesNote": "測試圖全部由觀察者自製（Pillow 12.3 依 recipe 產生）；位元組與 sha256 供核對，重新產生時若函式庫版本不同造成位元組差異，以 recipe 為準、以像素尺寸與格式比對。檔案位於觀察者 scratchpad 的 specs-g5c/img/。",
+  "nameRules": {
+   "images": "圖片以「img:<素材名稱>.<副檔名>」代稱（素材名稱＝工具內名稱，預設為檔名去副檔名）；同代稱重複時加「＃2」。實際 ZIP 內的檔名＝內容 SHA-256＋副檔名，sha256 欄記錄舊版當時的值。",
+   "entities": "entities 的 ID 換成代稱：場景:<場景名>、共用標記:<名稱>、螢幕面板:<名稱>、立繪:<登場時記錄的名稱>、演出:<演出名>、空白格:<序號>、棋子:<棋子名>、切入:<切入名>；同名時加「＃2」…。room.sceneId 也換成代稱。",
+   "volatile": "playTime（匯出時刻）以文字代替；.token 只記形狀；ZIP 項目時間與壓縮等級不比。",
+   "placeholders": "〈…〉是原作預設文字的代稱（預設名、KP 面板的區塊標題與標示等）：新版用自己的文字，比對時把新版的對應文字換成同一個代稱。",
+   "webp": "WebP 由瀏覽器編碼（品質 0.8），同一版 Chromium 下位元組應相同；不同版本時只比寬高、格式，位元組數差 ≤ 10%。PNG／GIF／JPEG 原檔保留的 sha256 應與測試圖相同。"
+  }
+ },
+ "testImages": {
+  "T1": {
+   "fileName": "t1_wide_1600x900.png",
+   "label": "t1_wide_1600x900",
+   "recipe": "1600×900 RGB PNG：水平線性漸層，左 (20,40,90) 到右 (200,120,40)；矩形 (100,100)–(500,400) 填 (240,240,240)；橢圓外接框 (900,300)–(1300,700) 填 (30,160,90)。",
+   "bytes": 9052,
+   "sha256": "c992c82b83f036f60bd3796843b324601cf3dd350f713f8e6b09dbcb659aea5a"
+  },
+  "T2": {
+   "fileName": "t2_band_1200x400.png",
+   "label": "t2_band_1200x400",
+   "recipe": "1200×400 RGB PNG：水平漸層 (90,20,20)→(20,20,90)；外框矩形 (20,20)–(1179,379)，線寬 12，色 (255,255,0)。",
+   "bytes": 2664,
+   "sha256": "5252ced9c9be6bd4ed1267fb02e3174330a393f0829e69c168d0bf9d2d282b91"
+  },
+  "T3": {
+   "fileName": "t3_square_256.png",
+   "label": "t3_square_256",
+   "recipe": "256×256 RGBA PNG：全透明底；橢圓外接框 (8,8)–(248,248) 填 (220,60,60,255)；在 (100,110) 以預設點陣字寫白色「T3」。",
+   "bytes": 2113,
+   "sha256": "ba2b32915edf68562bbdcd87f58956cbc2ba7fe57176a10a831cd80926e7ada0"
+  },
+  "T4": {
+   "fileName": "t4_tall_600x1200.png",
+   "label": "t4_tall_600x1200",
+   "recipe": "600×1200 RGBA PNG：全透明底；橢圓 (200,40)–(400,240) 填 (250,210,170,255)；矩形 (150,240)–(450,1150) 填 (60,90,200,255)。",
+   "bytes": 6081,
+   "sha256": "97e5b5f1694230bed5099b608479bd06e3fa25ebde4e1845a7b02cd3dd706fb7"
+  },
+  "T5": {
+   "fileName": "t5_portrait_400x600.png",
+   "label": "t5_portrait_400x600",
+   "recipe": "400×600 RGB PNG：水平漸層 (240,240,200)→(120,160,200)；外框矩形 (30,30)–(370,570)，線寬 6，黑。",
+   "bytes": 2283,
+   "sha256": "733fff9d9054d692a3150cc68b5948a758857d06b76963f3198c3402ec0f7ac3"
+  },
+  "T6": {
+   "fileName": "t6_other_900x800.png",
+   "label": "t6_other_900x800",
+   "recipe": "900×800 RGB PNG：水平漸層 (10,10,10)→(250,250,250)。",
+   "bytes": 3917,
+   "sha256": "9c18a1aa37bf68ac5a71d991caa1bbe22ddc9ddc2c78bb79f15126ffde95238f"
+  },
+  "T7": {
+   "fileName": "t7_anim_64.gif",
+   "label": "t7_anim_64",
+   "recipe": "64×64 GIF 動畫 3 格（純紅、純綠、純藍），每格 200 ms，無限循環。",
+   "bytes": 447,
+   "sha256": "0ce46561d1fcf7eb8f8197061df3ddda53b35c5a615e744cbfe5b5308ca43db9"
+  },
+  "T8": {
+   "fileName": "t8_anim_80.png",
+   "label": "t8_anim_80",
+   "recipe": "80×80 APNG 2 格（(255,255,0,255) 與 (0,255,255,128) 整片），每格 300 ms，無限循環。",
+   "bytes": 556,
+   "sha256": "3edf6f6fc5d7f00040213003a3120fce85848dec3e9dc81d5284cb2f4b154ece"
+  },
+  "T9": {
+   "fileName": "t9_photo_320x240.jpg",
+   "label": "t9_photo_320x240",
+   "recipe": "320×240 JPEG（品質 90）：水平漸層 (0,128,255)→(255,0,128)。",
+   "bytes": 4109,
+   "sha256": "3b3f8d1bc8d5493594d0769d48e36ffa9a5168753f1cb9a771b02382913820a8"
+  },
+  "T10": {
+   "fileName": "t10_tall2_600x1200.png",
+   "label": "t10_tall2_600x1200",
+   "recipe": "600×1200 RGBA PNG：同 T4，但橢圓 (250,190,150,255)、矩形 (200,60,90,255)。",
+   "bytes": 6082,
+   "sha256": "2d6dad607e567d19c49c82e804267c5846f33ec45516fc3254123343e3570ee6"
+  }
+ },
+ "scenarios": {
+  "Z01": {
+   "title": "最少操作：一張前景做一個場景",
+   "steps": [
+    "新開頁面（全部預設值；盤面 40×30）",
+    "素材：載入 T1、T3（預設：轉 WebP、長邊上限 1200）",
+    "場景：從素材挑選建立 → 選 T1 → 建立",
+    "匯出"
+   ],
+   "zip": {
+    "entries": [
+     "__data.json",
+     ".token",
+     "img:t1_wide_1600x900.webp（檔名＝內容 SHA-256＋副檔名）"
+    ],
+    "token": "0.＋64 個小寫十六進位字元",
+    "selfCheck": {
+     "通過": true,
+     "問題": [],
+     "圖片數": 1,
+     "場景數": 1,
+     "棋子數": 0
+    },
+    "images": [
+     {
+      "ref": "img:t1_wide_1600x900.webp",
+      "source": "T1",
+      "ext": "webp",
+      "width": 1200,
+      "height": 675,
+      "bytes": 5752,
+      "sha256": "e76a0072002a04d6620846ae2226e979defa1f68195d0c48d79e8f1f9fe00f30"
+     }
+    ]
+   },
+   "data": {
+    "meta": {
+     "version": "1.1.0"
+    },
+    "entities": {
+     "room": {
+      "defaultAnonymousRole": "player",
+      "backgroundUrl": "img:t1_wide_1600x900.webp",
+      "foregroundUrl": null,
+      "embedUrl": null,
+      "thumbnailUrl": null,
+      "mapType": "image",
+      "fieldWidth": 40,
+      "fieldHeight": 30,
+      "fieldObjectFit": "cover",
+      "alignWithGrid": true,
+      "messageChannels": [
+       "メイン",
+       "情報",
+       "雑談"
+      ],
+      "messageGroups": [],
+      "markers": {},
+      "mediaName": "",
+      "mediaRef": null,
+      "mediaType": "file",
+      "mediaRepeat": true,
+      "mediaVolume": 1,
+      "monitored": false,
+      "soundRef": null,
+      "sceneId": "場景:t1_wide_1600x900",
+      "archived": false,
+      "backgroundColor": "#000000",
+      "variables": [],
+      "underConstruction": false,
+      "hidden3dDice": false,
+      "initialSavedata": null,
+      "displayGrid": false,
+      "gridSize": 1,
+      "enableCrossfade": false,
+      "crossfadeDuration": 1
+     },
+     "items": {},
+     "decks": {},
+     "notes": {},
+     "characters": {},
+     "effects": {},
+     "scenes": {
+      "場景:t1_wide_1600x900": {
+       "name": "t1_wide_1600x900",
+       "order": 1,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      }
+     },
+     "savedatas": {},
+     "snapshots": {}
+    },
+    "resources": {
+     "img:t1_wide_1600x900.webp": {
+      "type": "image/webp"
+     }
+    }
+   }
+  },
+  "Z02": {
+   "title": "場景的背景模式、前景尺寸、自動裁切、格線、切換文字",
+   "steps": [
+    "素材：載入 T1、T6、T9",
+    "房間設計：背景選 T6、前景選 T9；按「37×17」尺寸鈕",
+    "場景：快速建立「場景一」（前景先選 T1）",
+    "快速建立「場景二」（不選前景）；詳細設定的背景改成跟前景同一張",
+    "快速建立「場景三」（前景 T1）；背景改「個別素材」並選 T9",
+    "快速建立「場景四」（前景 T1）；背景改「沒有背景」",
+    "快速建立「場景五」（前景 T1）；前景尺寸寬 30、高 20；取消「自動裁切」；勾「顯示格線」",
+    "在「場景一」的切換時文字輸入兩行：「第一行」換行「第二行」",
+    "匯出"
+   ],
+   "zip": {
+    "entries": [
+     "__data.json",
+     ".token",
+     "img:t6_other_900x800.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:t9_photo_320x240.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:t1_wide_1600x900.webp（檔名＝內容 SHA-256＋副檔名）"
+    ],
+    "token": "0.＋64 個小寫十六進位字元",
+    "selfCheck": {
+     "通過": true,
+     "問題": [],
+     "圖片數": 3,
+     "場景數": 5,
+     "棋子數": 0
+    },
+    "images": [
+     {
+      "ref": "img:t6_other_900x800.webp",
+      "source": "T6",
+      "ext": "webp",
+      "width": 900,
+      "height": 800,
+      "bytes": 2390,
+      "sha256": "f1a33562ebea9d7210baa83a66f15b4ad842c95336a13c887ec3e51ccd69989b"
+     },
+     {
+      "ref": "img:t9_photo_320x240.webp",
+      "source": "T9",
+      "ext": "webp",
+      "width": 320,
+      "height": 240,
+      "bytes": 1078,
+      "sha256": "9f3f6ac205bc00a36bc2615f74d68fa5a6c765bc9bc34e63a0e5edf691048756"
+     },
+     {
+      "ref": "img:t1_wide_1600x900.webp",
+      "source": "T1",
+      "ext": "webp",
+      "width": 1200,
+      "height": 675,
+      "bytes": 5752,
+      "sha256": "e76a0072002a04d6620846ae2226e979defa1f68195d0c48d79e8f1f9fe00f30"
+     }
+    ]
+   },
+   "data": {
+    "meta": {
+     "version": "1.1.0"
+    },
+    "entities": {
+     "room": {
+      "defaultAnonymousRole": "player",
+      "backgroundUrl": "img:t6_other_900x800.webp",
+      "foregroundUrl": "img:t9_photo_320x240.webp",
+      "embedUrl": null,
+      "thumbnailUrl": null,
+      "mapType": "image",
+      "fieldWidth": 37,
+      "fieldHeight": 17,
+      "fieldObjectFit": "cover",
+      "alignWithGrid": true,
+      "messageChannels": [
+       "メイン",
+       "情報",
+       "雑談"
+      ],
+      "messageGroups": [],
+      "markers": {},
+      "mediaName": "",
+      "mediaRef": null,
+      "mediaType": "file",
+      "mediaRepeat": true,
+      "mediaVolume": 1,
+      "monitored": false,
+      "soundRef": null,
+      "sceneId": "場景:場景一",
+      "archived": false,
+      "backgroundColor": "#000000",
+      "variables": [],
+      "underConstruction": false,
+      "hidden3dDice": false,
+      "initialSavedata": null,
+      "displayGrid": false,
+      "gridSize": 1,
+      "enableCrossfade": false,
+      "crossfadeDuration": 1
+     },
+     "items": {},
+     "decks": {},
+     "notes": {},
+     "characters": {},
+     "effects": {},
+     "scenes": {
+      "場景:場景一": {
+       "name": "場景一",
+       "order": 1,
+       "backgroundUrl": "img:t6_other_900x800.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 37,
+       "fieldHeight": 17,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "第一行\n第二行",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:場景二": {
+       "name": "場景二",
+       "order": 2,
+       "backgroundUrl": "img:t9_photo_320x240.webp",
+       "foregroundUrl": null,
+       "fieldObjectFit": "cover",
+       "fieldWidth": 37,
+       "fieldHeight": 17,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:場景三": {
+       "name": "場景三",
+       "order": 3,
+       "backgroundUrl": "img:t9_photo_320x240.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 37,
+       "fieldHeight": 17,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:場景四": {
+       "name": "場景四",
+       "order": 4,
+       "backgroundUrl": null,
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 37,
+       "fieldHeight": 17,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:場景五": {
+       "name": "場景五",
+       "order": 5,
+       "backgroundUrl": "img:t6_other_900x800.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "fill",
+       "fieldWidth": 30,
+       "fieldHeight": 20,
+       "displayGrid": true,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      }
+     },
+     "savedatas": {},
+     "snapshots": {}
+    },
+    "resources": {
+     "img:t6_other_900x800.webp": {
+      "type": "image/webp"
+     },
+     "img:t9_photo_320x240.webp": {
+      "type": "image/webp"
+     },
+     "img:t1_wide_1600x900.webp": {
+      "type": "image/webp"
+     }
+    }
+   },
+   "note": "「場景二」沒有自己的前景：舊版輸出 foregroundUrl＝null，但背景（與前景相同）用的是房間前景 T9（規格 5.1 D3）。"
+  },
+  "Z03": {
+   "title": "共用標記（部件）、螢幕面板與場景的個別差異",
+   "steps": [
+    "素材：載入 T2、T5、T6",
+    "房間設計：新增共用標記→ 圖 T2、名稱「橫幅」、水平位置 3、垂直位置 -4、寬 12（高照圖片比例自動算）",
+    "再新增共用標記「隱藏件」→ 圖 T6，取消「顯示」",
+    "再新增共用標記「純文字」（不選圖）→ 詳細設定的盤面文字輸入「說明」",
+    "新增螢幕面板 → 名稱「看板」、圖 T5（預設尺寸）、詳細設定的盤面文字「備註」",
+    "場景：快速建立「甲」「乙」「丙」（都不選前景）",
+    "「乙」的共用部件 →「橫幅」按變更 → 水平位置 -5、垂直位置 2",
+    "「丙」的共用部件 →「橫幅」按變更 → 勾「本場景隱藏」",
+    "「甲」的共用部件 →「橫幅」換圖 T6、按變更 → 寬 8、高 4、堆疊順序 25",
+    "「甲」的預覽圖層清單：對「看板」按「此場景徹底隱藏」",
+    "匯出"
+   ],
+   "zip": {
+    "entries": [
+     "__data.json",
+     ".token",
+     "img:t2_band_1200x400.png（檔名＝內容 SHA-256＋副檔名）",
+     "img:t5_portrait_400x600.png（檔名＝內容 SHA-256＋副檔名）",
+     "img:t6_other_900x800.webp（檔名＝內容 SHA-256＋副檔名）"
+    ],
+    "token": "0.＋64 個小寫十六進位字元",
+    "selfCheck": {
+     "通過": true,
+     "問題": [],
+     "圖片數": 3,
+     "場景數": 3,
+     "棋子數": 0
+    },
+    "images": [
+     {
+      "ref": "img:t2_band_1200x400.png",
+      "source": "T2",
+      "ext": "png",
+      "width": 1200,
+      "height": 400,
+      "bytes": 2664,
+      "sha256": "5252ced9c9be6bd4ed1267fb02e3174330a393f0829e69c168d0bf9d2d282b91"
+     },
+     {
+      "ref": "img:t5_portrait_400x600.png",
+      "source": "T5",
+      "ext": "png",
+      "width": 400,
+      "height": 600,
+      "bytes": 2283,
+      "sha256": "733fff9d9054d692a3150cc68b5948a758857d06b76963f3198c3402ec0f7ac3"
+     },
+     {
+      "ref": "img:t6_other_900x800.webp",
+      "source": "T6",
+      "ext": "webp",
+      "width": 900,
+      "height": 800,
+      "bytes": 2390,
+      "sha256": "f1a33562ebea9d7210baa83a66f15b4ad842c95336a13c887ec3e51ccd69989b"
+     }
+    ]
+   },
+   "data": {
+    "meta": {
+     "version": "1.1.0"
+    },
+    "entities": {
+     "room": {
+      "defaultAnonymousRole": "player",
+      "backgroundUrl": null,
+      "foregroundUrl": null,
+      "embedUrl": null,
+      "thumbnailUrl": null,
+      "mapType": "image",
+      "fieldWidth": 40,
+      "fieldHeight": 30,
+      "fieldObjectFit": "cover",
+      "alignWithGrid": true,
+      "messageChannels": [
+       "メイン",
+       "情報",
+       "雑談"
+      ],
+      "messageGroups": [],
+      "markers": {
+       "共用標記:橫幅": {
+        "x": -3,
+        "y": -6,
+        "z": 20,
+        "width": 12,
+        "height": 4,
+        "angle": 0,
+        "locked": true,
+        "freezed": false,
+        "text": "",
+        "imageUrl": "img:t2_band_1200x400.png",
+        "clickAction": null
+       }
+      },
+      "mediaName": "",
+      "mediaRef": null,
+      "mediaType": "file",
+      "mediaRepeat": true,
+      "mediaVolume": 1,
+      "monitored": false,
+      "soundRef": null,
+      "sceneId": "場景:甲",
+      "archived": false,
+      "backgroundColor": "#000000",
+      "variables": [],
+      "underConstruction": false,
+      "hidden3dDice": false,
+      "initialSavedata": null,
+      "displayGrid": false,
+      "gridSize": 1,
+      "enableCrossfade": false,
+      "crossfadeDuration": 1
+     },
+     "items": {
+      "螢幕面板:看板": {
+       "x": -19,
+       "y": -28,
+       "z": 40,
+       "angle": 0,
+       "width": 37,
+       "height": 56,
+       "deckId": null,
+       "locked": true,
+       "visible": true,
+       "closed": false,
+       "withoutOwner": false,
+       "freezed": false,
+       "type": "object",
+       "active": true,
+       "memo": "備註",
+       "imageUrl": "img:t5_portrait_400x600.png",
+       "coverImageUrl": null,
+       "clickAction": null,
+       "order": 1
+      }
+     },
+     "decks": {},
+     "notes": {},
+     "characters": {},
+     "effects": {},
+     "scenes": {
+      "場景:甲": {
+       "name": "甲",
+       "order": 1,
+       "backgroundUrl": null,
+       "foregroundUrl": null,
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {
+        "共用標記:橫幅": {
+         "x": -1,
+         "y": -6,
+         "z": 25,
+         "width": 8,
+         "height": 4,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t6_other_900x800.webp",
+         "clickAction": null
+        }
+       },
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:乙": {
+       "name": "乙",
+       "order": 2,
+       "backgroundUrl": null,
+       "foregroundUrl": null,
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {
+        "共用標記:橫幅": {
+         "x": -11,
+         "y": 0,
+         "z": 20,
+         "width": 12,
+         "height": 4,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t2_band_1200x400.png",
+         "clickAction": null
+        }
+       },
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:丙": {
+       "name": "丙",
+       "order": 3,
+       "backgroundUrl": null,
+       "foregroundUrl": null,
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      }
+     },
+     "savedatas": {},
+     "snapshots": {}
+    },
+    "resources": {
+     "img:t2_band_1200x400.png": {
+      "type": "image/png"
+     },
+     "img:t5_portrait_400x600.png": {
+      "type": "image/png"
+     },
+     "img:t6_other_900x800.webp": {
+      "type": "image/webp"
+     }
+    }
+   },
+   "note": "「純文字」部件沒有圖所以完全不輸出；「隱藏件」顯示關閉所以不輸出；「看板」在「甲」按了「此場景徹底隱藏」，但 items 不受影響（規格 5.1 D4）。"
+  },
+  "Z04": {
+   "title": "立繪庫、表情差分、場景登場與等距排列",
+   "steps": [
+    "素材：載入 T1、T4、T10",
+    "立繪：從素材挑選登錄 → 依序選 T4、T10",
+    "T4 那張：角色名稱「甲」；按「做表情差分」→ 新卡片的表情名稱改「甲笑」、圖改 T10",
+    "T10 那張：角色名稱「乙」、大小 12、腳底抬升 2",
+    "場景：從素材挑選建立（T1）→ 場景名「t1_wide_1600x900」；立繪區勾「甲」「乙」",
+    "快速建立「第二幕」（不選前景）；勾「甲」→ 差分選「甲笑」",
+    "房間設計：排列間隔改 2",
+    "回到場景「t1_wide_1600x900」，立繪區按「等距排列」",
+    "匯出"
+   ],
+   "zip": {
+    "entries": [
+     "__data.json",
+     ".token",
+     "img:t1_wide_1600x900.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:t4_tall_600x1200.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:t10_tall2_600x1200.webp（檔名＝內容 SHA-256＋副檔名）"
+    ],
+    "token": "0.＋64 個小寫十六進位字元",
+    "selfCheck": {
+     "通過": true,
+     "問題": [],
+     "圖片數": 3,
+     "場景數": 2,
+     "棋子數": 0
+    },
+    "images": [
+     {
+      "ref": "img:t1_wide_1600x900.webp",
+      "source": "T1",
+      "ext": "webp",
+      "width": 1200,
+      "height": 675,
+      "bytes": 5752,
+      "sha256": "e76a0072002a04d6620846ae2226e979defa1f68195d0c48d79e8f1f9fe00f30"
+     },
+     {
+      "ref": "img:t4_tall_600x1200.webp",
+      "source": "T4",
+      "ext": "webp",
+      "width": 600,
+      "height": 1200,
+      "bytes": 3438,
+      "sha256": "23d231d729c6cca5d6bb686d1f2cf14f428f24443319f138572eb0c50ef7b95e"
+     },
+     {
+      "ref": "img:t10_tall2_600x1200.webp",
+      "source": "T10",
+      "ext": "webp",
+      "width": 600,
+      "height": 1200,
+      "bytes": 3442,
+      "sha256": "161bc753accb3e90e2980f75e61999011f2c1ce5374a838c077f545e6814db05"
+     }
+    ]
+   },
+   "data": {
+    "meta": {
+     "version": "1.1.0"
+    },
+    "entities": {
+     "room": {
+      "defaultAnonymousRole": "player",
+      "backgroundUrl": "img:t1_wide_1600x900.webp",
+      "foregroundUrl": null,
+      "embedUrl": null,
+      "thumbnailUrl": null,
+      "mapType": "image",
+      "fieldWidth": 40,
+      "fieldHeight": 30,
+      "fieldObjectFit": "cover",
+      "alignWithGrid": true,
+      "messageChannels": [
+       "メイン",
+       "情報",
+       "雑談"
+      ],
+      "messageGroups": [],
+      "markers": {},
+      "mediaName": "",
+      "mediaRef": null,
+      "mediaType": "file",
+      "mediaRepeat": true,
+      "mediaVolume": 1,
+      "monitored": false,
+      "soundRef": null,
+      "sceneId": "場景:t1_wide_1600x900",
+      "archived": false,
+      "backgroundColor": "#000000",
+      "variables": [],
+      "underConstruction": false,
+      "hidden3dDice": false,
+      "initialSavedata": null,
+      "displayGrid": false,
+      "gridSize": 1,
+      "enableCrossfade": false,
+      "crossfadeDuration": 1
+     },
+     "items": {},
+     "decks": {},
+     "notes": {},
+     "characters": {},
+     "effects": {},
+     "scenes": {
+      "場景:t1_wide_1600x900": {
+       "name": "t1_wide_1600x900",
+       "order": 1,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {
+        "立繪:t4_tall_600x1200": {
+         "x": -9,
+         "y": -3,
+         "z": 30,
+         "width": 9,
+         "height": 18,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t4_tall_600x1200.webp",
+         "clickAction": null
+        },
+        "立繪:t10_tall2_600x1200": {
+         "x": 3,
+         "y": 1,
+         "z": 30,
+         "width": 6,
+         "height": 12,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t10_tall2_600x1200.webp",
+         "clickAction": null
+        }
+       },
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:第二幕": {
+       "name": "第二幕",
+       "order": 2,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": null,
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {
+        "立繪:甲": {
+         "x": -5,
+         "y": -3,
+         "z": 30,
+         "width": 9,
+         "height": 18,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t10_tall2_600x1200.webp",
+         "clickAction": null
+        }
+       },
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      }
+     },
+     "savedatas": {},
+     "snapshots": {}
+    },
+    "resources": {
+     "img:t1_wide_1600x900.webp": {
+      "type": "image/webp"
+     },
+     "img:t4_tall_600x1200.webp": {
+      "type": "image/webp"
+     },
+     "img:t10_tall2_600x1200.webp": {
+      "type": "image/webp"
+     }
+    }
+   },
+   "note": "「甲」的第二幕換成差分「甲笑」：名稱代稱以「立繪:<登場時記錄的名稱>」表示，圖改用 T10，寬高沿用主立繪。"
+  },
+  "Z05": {
+   "title": "演出（全畫面蓋滿、拉伸、調整大小、只有文字）與空白演出格",
+   "steps": [
+    "素材：載入 T1、T3、T6、T7",
+    "場景：從素材挑選建立（T1）",
+    "演出區：選「新建」按加入 → 圖選 T6（出現方式預設全畫面、「等比蓋滿」預設勾選）",
+    "再加入一個 → 出現方式改「調整大小」（從全畫面切過來，「固定長寬比」是關的）→ 圖 T3、水平位置 8、垂直位置 -6、寬 6（高維持 30）、堆疊順序 12",
+    "再加入一個 → 圖 T7、取消「等比蓋滿」（拉伸）",
+    "再加入一個 → 出現方式改「調整大小」，不選圖，選項裡的盤面文字輸入「看這裡」",
+    "再加入一個（什麼都不改）",
+    "工具設定的匯出分類：勾空白演出格、張數 2、堆疊順序 45",
+    "匯出"
+   ],
+   "zip": {
+    "entries": [
+     "__data.json",
+     ".token",
+     "img:t1_wide_1600x900.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:t6_other_900x800.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:t3_square_256.png（檔名＝內容 SHA-256＋副檔名）",
+     "img:t7_anim_64.gif（檔名＝內容 SHA-256＋副檔名）"
+    ],
+    "token": "0.＋64 個小寫十六進位字元",
+    "selfCheck": {
+     "通過": true,
+     "問題": [],
+     "圖片數": 4,
+     "場景數": 1,
+     "棋子數": 0
+    },
+    "images": [
+     {
+      "ref": "img:t1_wide_1600x900.webp",
+      "source": "T1",
+      "ext": "webp",
+      "width": 1200,
+      "height": 675,
+      "bytes": 5752,
+      "sha256": "e76a0072002a04d6620846ae2226e979defa1f68195d0c48d79e8f1f9fe00f30"
+     },
+     {
+      "ref": "img:t6_other_900x800.webp",
+      "source": "T6",
+      "ext": "webp",
+      "width": 900,
+      "height": 800,
+      "bytes": 2390,
+      "sha256": "f1a33562ebea9d7210baa83a66f15b4ad842c95336a13c887ec3e51ccd69989b"
+     },
+     {
+      "ref": "img:t3_square_256.png",
+      "source": "T3",
+      "ext": "png",
+      "width": 256,
+      "height": 256,
+      "bytes": 2113,
+      "sha256": "ba2b32915edf68562bbdcd87f58956cbc2ba7fe57176a10a831cd80926e7ada0"
+     },
+     {
+      "ref": "img:t7_anim_64.gif",
+      "source": "T7",
+      "ext": "gif",
+      "width": 64,
+      "height": 64,
+      "bytes": 447,
+      "sha256": "0ce46561d1fcf7eb8f8197061df3ddda53b35c5a615e744cbfe5b5308ca43db9"
+     }
+    ]
+   },
+   "data": {
+    "meta": {
+     "version": "1.1.0"
+    },
+    "entities": {
+     "room": {
+      "defaultAnonymousRole": "player",
+      "backgroundUrl": "img:t1_wide_1600x900.webp",
+      "foregroundUrl": null,
+      "embedUrl": null,
+      "thumbnailUrl": null,
+      "mapType": "image",
+      "fieldWidth": 40,
+      "fieldHeight": 30,
+      "fieldObjectFit": "cover",
+      "alignWithGrid": true,
+      "messageChannels": [
+       "メイン",
+       "情報",
+       "雑談"
+      ],
+      "messageGroups": [],
+      "markers": {},
+      "mediaName": "",
+      "mediaRef": null,
+      "mediaType": "file",
+      "mediaRepeat": true,
+      "mediaVolume": 1,
+      "monitored": false,
+      "soundRef": null,
+      "sceneId": "場景:t1_wide_1600x900",
+      "archived": false,
+      "backgroundColor": "#000000",
+      "variables": [],
+      "underConstruction": false,
+      "hidden3dDice": false,
+      "initialSavedata": null,
+      "displayGrid": false,
+      "gridSize": 1,
+      "enableCrossfade": false,
+      "crossfadeDuration": 1
+     },
+     "items": {},
+     "decks": {},
+     "notes": {},
+     "characters": {},
+     "effects": {},
+     "scenes": {
+      "場景:t1_wide_1600x900": {
+       "name": "t1_wide_1600x900",
+       "order": 1,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {
+        "演出:〈演出預設名〉": {
+         "x": -20,
+         "y": -18,
+         "z": 10,
+         "width": 40,
+         "height": 36,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t6_other_900x800.webp",
+         "clickAction": null
+        },
+        "演出:〈演出預設名〉＃2": {
+         "x": 5,
+         "y": -21,
+         "z": 12,
+         "width": 6,
+         "height": 30,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t3_square_256.png",
+         "clickAction": null
+        },
+        "演出:〈演出預設名〉＃3": {
+         "x": -21,
+         "y": -16,
+         "z": 10,
+         "width": 41,
+         "height": 31,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t7_anim_64.gif",
+         "clickAction": null
+        },
+        "演出:〈演出預設名〉＃4": {
+         "x": -20,
+         "y": -15,
+         "z": 10,
+         "width": 40,
+         "height": 30,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "看這裡",
+         "imageUrl": null,
+         "clickAction": null
+        },
+        "空白格:1": {
+         "x": -20,
+         "y": -15,
+         "z": 45,
+         "width": 40,
+         "height": 30,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": null,
+         "clickAction": null
+        },
+        "空白格:2": {
+         "x": -20,
+         "y": -15,
+         "z": 46,
+         "width": 40,
+         "height": 30,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": null,
+         "clickAction": null
+        }
+       },
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      }
+     },
+     "savedatas": {},
+     "snapshots": {}
+    },
+    "resources": {
+     "img:t1_wide_1600x900.webp": {
+      "type": "image/webp"
+     },
+     "img:t6_other_900x800.webp": {
+      "type": "image/webp"
+     },
+     "img:t3_square_256.png": {
+      "type": "image/png"
+     },
+     "img:t7_anim_64.gif": {
+      "type": "image/gif"
+     }
+    }
+   },
+   "note": "第二個演出從全畫面切成調整大小時「固定長寬比」是關的，所以寬 6 時高仍是 30（規格 5.）。最後一個什麼都沒設定的演出不輸出。"
+  },
+  "Z06": {
+   "title": "切入：名稱、無名稱、場景指定與切換文字",
+   "steps": [
+    "素材：載入 T1、T7、T8",
+    "切入：從素材挑選建立 → 依序選 T7、T8（名稱＝素材名稱）",
+    "「T8」那張切入的名稱清空",
+    "加入切入（新的一張在最上面）→ 名稱清空、不選圖",
+    "場景：從素材挑選建立（T1）→ 切入區選 T7 那張切入按加入；切換時文字輸入「開場」",
+    "快速建立「第二幕」→ 切入區選「新建」按加入",
+    "匯出"
+   ],
+   "zip": {
+    "entries": [
+     "__data.json",
+     ".token",
+     "img:t1_wide_1600x900.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:t7_anim_64.gif（檔名＝內容 SHA-256＋副檔名）",
+     "img:t8_anim_80.png（檔名＝內容 SHA-256＋副檔名）"
+    ],
+    "token": "0.＋64 個小寫十六進位字元",
+    "selfCheck": {
+     "通過": true,
+     "問題": [],
+     "圖片數": 3,
+     "場景數": 2,
+     "棋子數": 0
+    },
+    "images": [
+     {
+      "ref": "img:t1_wide_1600x900.webp",
+      "source": "T1",
+      "ext": "webp",
+      "width": 1200,
+      "height": 675,
+      "bytes": 5752,
+      "sha256": "e76a0072002a04d6620846ae2226e979defa1f68195d0c48d79e8f1f9fe00f30"
+     },
+     {
+      "ref": "img:t7_anim_64.gif",
+      "source": "T7",
+      "ext": "gif",
+      "width": 64,
+      "height": 64,
+      "bytes": 447,
+      "sha256": "0ce46561d1fcf7eb8f8197061df3ddda53b35c5a615e744cbfe5b5308ca43db9"
+     },
+     {
+      "ref": "img:t8_anim_80.png",
+      "source": "T8",
+      "ext": "png",
+      "width": 80,
+      "height": 80,
+      "bytes": 556,
+      "sha256": "3edf6f6fc5d7f00040213003a3120fce85848dec3e9dc81d5284cb2f4b154ece"
+     }
+    ]
+   },
+   "data": {
+    "meta": {
+     "version": "1.1.0"
+    },
+    "entities": {
+     "room": {
+      "defaultAnonymousRole": "player",
+      "backgroundUrl": "img:t1_wide_1600x900.webp",
+      "foregroundUrl": null,
+      "embedUrl": null,
+      "thumbnailUrl": null,
+      "mapType": "image",
+      "fieldWidth": 40,
+      "fieldHeight": 30,
+      "fieldObjectFit": "cover",
+      "alignWithGrid": true,
+      "messageChannels": [
+       "メイン",
+       "情報",
+       "雑談"
+      ],
+      "messageGroups": [],
+      "markers": {},
+      "mediaName": "",
+      "mediaRef": null,
+      "mediaType": "file",
+      "mediaRepeat": true,
+      "mediaVolume": 1,
+      "monitored": false,
+      "soundRef": null,
+      "sceneId": "場景:t1_wide_1600x900",
+      "archived": false,
+      "backgroundColor": "#000000",
+      "variables": [],
+      "underConstruction": false,
+      "hidden3dDice": false,
+      "initialSavedata": null,
+      "displayGrid": false,
+      "gridSize": 1,
+      "enableCrossfade": false,
+      "crossfadeDuration": 1
+     },
+     "items": {},
+     "decks": {},
+     "notes": {},
+     "characters": {},
+     "effects": {
+      "切入:t7_anim_64": {
+       "name": "t7_anim_64",
+       "order": 1,
+       "active": false,
+       "imageUrl": "img:t7_anim_64.gif",
+       "playTime": "<匯出時刻（毫秒）>",
+       "soundRef": null,
+       "soundName": "",
+       "soundVolume": 1
+      },
+      "切入:": {
+       "name": "〈切入預設名〉2",
+       "order": 2,
+       "active": false,
+       "imageUrl": "img:t8_anim_80.png",
+       "playTime": "<匯出時刻（毫秒）>",
+       "soundRef": null,
+       "soundName": "",
+       "soundVolume": 1
+      },
+      "切入:〈場景新建切入的預設名〉": {
+       "name": "〈場景新建切入的預設名〉",
+       "order": 3,
+       "active": false,
+       "imageUrl": null,
+       "playTime": "<匯出時刻（毫秒）>",
+       "soundRef": null,
+       "soundName": "",
+       "soundVolume": 1
+      }
+     },
+     "scenes": {
+      "場景:t1_wide_1600x900": {
+       "name": "t1_wide_1600x900",
+       "order": 1,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "@t7_anim_64\n開場",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:第二幕": {
+       "name": "第二幕",
+       "order": 2,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": null,
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "@〈場景新建切入的預設名〉",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      }
+     },
+     "savedatas": {},
+     "snapshots": {}
+    },
+    "resources": {
+     "img:t1_wide_1600x900.webp": {
+      "type": "image/webp"
+     },
+     "img:t7_anim_64.gif": {
+      "type": "image/gif"
+     },
+     "img:t8_anim_80.png": {
+      "type": "image/png"
+     }
+    }
+   },
+   "note": "名稱清空且沒有圖的切入不輸出；名稱清空但有圖的（T8）以「預設名＋輸出序號」命名；場景「新建」的切入加在清單最後。"
+  },
+  "Z07": {
+   "title": "棋子：一般棋子、敵方與友方 NPC、〈KP 棋子預設名〉產生器",
+   "steps": [
+    "素材：載入 T3、T4、T10",
+    "場景：快速建立「S」",
+    "棋子：系統選 CoC 第 7 版、判定方式選 CC<=",
+    "KP 範本區的三個文字框全部清空",
+    "PC 名單：兩列改成「阿明」「小華」，再加入一列「阿志」",
+    "KP 自己的技能：加一列「聆聽」60",
+    "新增一般棋子→ 名稱「店員」、圖示 T3、HP 10、MP 5、聊天面板「1d100」、備忘「店員備忘」；表情差分加兩個：T4 名「普通」、T10 名「生氣」",
+    "新增敵方 NPC → 名稱「野狼 A」、HP 15、裝甲 2、迴避 25、技能列：咬 40 傷害 1d6",
+    "新增友方 NPC → 名稱「同伴」、勾「沒有迴避」",
+    "按 〈KP 棋子預設名〉的產生鈕",
+    "匯出"
+   ],
+   "zip": {
+    "entries": [
+     "__data.json",
+     ".token",
+     "img:t3_square_256.png（檔名＝內容 SHA-256＋副檔名）"
+    ],
+    "token": "0.＋64 個小寫十六進位字元",
+    "selfCheck": {
+     "通過": true,
+     "問題": [],
+     "圖片數": 1,
+     "場景數": 1,
+     "棋子數": 4
+    },
+    "images": [
+     {
+      "ref": "img:t3_square_256.png",
+      "source": "T3",
+      "ext": "png",
+      "width": 256,
+      "height": 256,
+      "bytes": 2113,
+      "sha256": "ba2b32915edf68562bbdcd87f58956cbc2ba7fe57176a10a831cd80926e7ada0"
+     }
+    ]
+   },
+   "data": {
+    "meta": {
+     "version": "1.1.0"
+    },
+    "entities": {
+     "room": {
+      "defaultAnonymousRole": "player",
+      "backgroundUrl": null,
+      "foregroundUrl": null,
+      "embedUrl": null,
+      "thumbnailUrl": null,
+      "mapType": "image",
+      "fieldWidth": 40,
+      "fieldHeight": 30,
+      "fieldObjectFit": "cover",
+      "alignWithGrid": true,
+      "messageChannels": [
+       "メイン",
+       "情報",
+       "雑談"
+      ],
+      "messageGroups": [],
+      "markers": {},
+      "mediaName": "",
+      "mediaRef": null,
+      "mediaType": "file",
+      "mediaRepeat": true,
+      "mediaVolume": 1,
+      "monitored": false,
+      "soundRef": null,
+      "sceneId": "場景:S",
+      "archived": false,
+      "backgroundColor": "#000000",
+      "variables": [],
+      "underConstruction": false,
+      "hidden3dDice": false,
+      "initialSavedata": null,
+      "displayGrid": false,
+      "gridSize": 1,
+      "enableCrossfade": false,
+      "crossfadeDuration": 1
+     },
+     "items": {},
+     "decks": {},
+     "notes": {},
+     "characters": {
+      "棋子:〈KP 棋子預設名〉": {
+       "name": "〈KP 棋子預設名〉",
+       "playerName": "",
+       "memo": "",
+       "initiative": 0,
+       "externalUrl": "",
+       "status": [],
+       "params": [],
+       "iconUrl": null,
+       "faces": [],
+       "x": 490,
+       "y": 791,
+       "z": 1,
+       "angle": 0,
+       "width": 4,
+       "height": 4,
+       "active": false,
+       "secret": false,
+       "invisible": false,
+       "hideStatus": false,
+       "color": "#888888",
+       "roomId": null,
+       "commands": "〈PC 區標題〉\n//HO1=阿明\n/var HO1 阿明\n//HO2=小華\n/var HO2 小華\n//HO3=阿志\n/var HO3 阿志\n\n〈敵方區標題〉\n〈敵方標記〉：野狼 A\nCC<=40 【咬】 @野狼 A\n1d6 【〈傷害標示〉】 @野狼 A\nCC<=25 【〈迴避標示〉】 @野狼 A\n:野狼_A_HP-1\n〈裝甲標示〉+2\n\n\n〈友方區標題〉\n〈友方標記〉：同伴\n:同伴_HP-1\n\nCC<=60 【聆聽】",
+       "speaking": false,
+       "diceSkin": null,
+       "order": 1
+      },
+      "棋子:店員": {
+       "name": "店員",
+       "playerName": "",
+       "memo": "店員備忘",
+       "initiative": 0,
+       "externalUrl": "",
+       "status": [
+        {
+         "label": "HP",
+         "value": 10,
+         "max": 10
+        },
+        {
+         "label": "MP",
+         "value": 5,
+         "max": 5
+        }
+       ],
+       "params": [],
+       "iconUrl": "img:t3_square_256.png",
+       "faces": [
+        {
+         "name": "普通",
+         "imageUrl": null
+        },
+        {
+         "name": "生氣",
+         "imageUrl": null
+        }
+       ],
+       "x": 490,
+       "y": 791,
+       "z": 1,
+       "angle": 0,
+       "width": 4,
+       "height": 4,
+       "active": false,
+       "secret": false,
+       "invisible": false,
+       "hideStatus": false,
+       "color": "#888888",
+       "roomId": null,
+       "commands": "1d100",
+       "speaking": false,
+       "diceSkin": null,
+       "order": 2
+      },
+      "棋子:野狼 A": {
+       "name": "野狼 A",
+       "playerName": "",
+       "memo": "",
+       "initiative": 0,
+       "externalUrl": "",
+       "status": [
+        {
+         "label": "HP",
+         "value": 15,
+         "max": 15
+        }
+       ],
+       "params": [],
+       "iconUrl": null,
+       "faces": [],
+       "x": 490,
+       "y": 791,
+       "z": 1,
+       "angle": 0,
+       "width": 4,
+       "height": 4,
+       "active": false,
+       "secret": false,
+       "invisible": false,
+       "hideStatus": false,
+       "color": "#888888",
+       "roomId": null,
+       "commands": "",
+       "speaking": false,
+       "diceSkin": null,
+       "order": 3
+      },
+      "棋子:同伴": {
+       "name": "同伴",
+       "playerName": "",
+       "memo": "",
+       "initiative": 0,
+       "externalUrl": "",
+       "status": [],
+       "params": [],
+       "iconUrl": null,
+       "faces": [],
+       "x": 490,
+       "y": 791,
+       "z": 1,
+       "angle": 0,
+       "width": 4,
+       "height": 4,
+       "active": false,
+       "secret": false,
+       "invisible": false,
+       "hideStatus": false,
+       "color": "#888888",
+       "roomId": null,
+       "commands": "",
+       "speaking": false,
+       "diceSkin": null,
+       "order": 4
+      }
+     },
+     "effects": {},
+     "scenes": {
+      "場景:S": {
+       "name": "S",
+       "order": 1,
+       "backgroundUrl": null,
+       "foregroundUrl": null,
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      }
+     },
+     "savedatas": {},
+     "snapshots": {}
+    },
+    "resources": {
+     "img:t3_square_256.png": {
+      "type": "image/png"
+     }
+    }
+   },
+   "note": "表情差分的圖在舊版選不進去，輸出 imageUrl＝null，且形狀是 {name, imageUrl} 而非 CCFOLIA 的 {label, iconUrl}（規格 5.1 D1）；若主控裁定修正，這部分以裁定後的規則比對。三段 KP 範本已先清空，所以 commands 只含產生的部分。"
+  },
+  "Z08": {
+   "title": "房間輸出設定、盤面尺寸按鈕與檔名",
+   "steps": [
+    "首頁：按專案名稱 → 改成「測試房間」",
+    "房間設計：按「16:9 32×18」",
+    "素材：載入 T1",
+    "場景：從素材挑選建立（T1）",
+    "工具設定的匯出分類：取消「BGM 交叉淡化」、勾「舊式骰子」",
+    "按頁首的匯出鈕"
+   ],
+   "zip": {
+    "entries": [
+     "__data.json",
+     ".token",
+     "img:t1_wide_1600x900.webp（檔名＝內容 SHA-256＋副檔名）"
+    ],
+    "token": "0.＋64 個小寫十六進位字元",
+    "selfCheck": {
+     "通過": true,
+     "問題": [],
+     "圖片數": 1,
+     "場景數": 1,
+     "棋子數": 0
+    },
+    "images": [
+     {
+      "ref": "img:t1_wide_1600x900.webp",
+      "source": "T1",
+      "ext": "webp",
+      "width": 1200,
+      "height": 675,
+      "bytes": 5752,
+      "sha256": "e76a0072002a04d6620846ae2226e979defa1f68195d0c48d79e8f1f9fe00f30"
+     }
+    ],
+    "downloadName": "測試房間.zip",
+    "notice": "完成通知：場景 1 個、圖片 1 張、棋子 0 個、約 6 KB"
+   },
+   "data": {
+    "meta": {
+     "version": "1.1.0"
+    },
+    "entities": {
+     "room": {
+      "defaultAnonymousRole": "player",
+      "backgroundUrl": "img:t1_wide_1600x900.webp",
+      "foregroundUrl": null,
+      "embedUrl": null,
+      "thumbnailUrl": null,
+      "mapType": "image",
+      "fieldWidth": 32,
+      "fieldHeight": 18,
+      "fieldObjectFit": "cover",
+      "alignWithGrid": true,
+      "messageChannels": [
+       "メイン",
+       "情報",
+       "雑談"
+      ],
+      "messageGroups": [],
+      "markers": {},
+      "mediaName": "",
+      "mediaRef": null,
+      "mediaType": "file",
+      "mediaRepeat": true,
+      "mediaVolume": 1,
+      "monitored": false,
+      "soundRef": null,
+      "sceneId": "場景:t1_wide_1600x900",
+      "archived": false,
+      "backgroundColor": "#000000",
+      "variables": [],
+      "underConstruction": false,
+      "hidden3dDice": true,
+      "initialSavedata": null,
+      "displayGrid": false,
+      "gridSize": 1,
+      "enableCrossfade": true,
+      "crossfadeDuration": 1
+     },
+     "items": {},
+     "decks": {},
+     "notes": {},
+     "characters": {},
+     "effects": {},
+     "scenes": {
+      "場景:t1_wide_1600x900": {
+       "name": "t1_wide_1600x900",
+       "order": 1,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 32,
+       "fieldHeight": 18,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      }
+     },
+     "savedatas": {},
+     "snapshots": {}
+    },
+    "resources": {
+     "img:t1_wide_1600x900.webp": {
+      "type": "image/webp"
+     }
+    }
+   },
+   "note": "下載檔名＝專案名稱＋.zip（舊版由瀏覽器處理檔名中的不合法字元）。"
+  },
+  "Z09": {
+   "title": "匯入轉檔：長邊上限、轉 WebP 開關、動態圖保留、JPEG 副檔名、重複合併",
+   "steps": [
+    "素材：長邊上限改 800",
+    "載入 T1、T7、T8、T9",
+    "取消「轉檔」勾選",
+    "再載入 T6、T9、T7（T7 與先前相同 → 合併為重複）",
+    "場景：從素材挑選建立 → 勾「其他標籤也列出」→ 依素材一覽的順序全部選取 → 建立",
+    "匯出"
+   ],
+   "zip": {
+    "entries": [
+     "__data.json",
+     ".token",
+     "img:t1_wide_1600x900.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:t7_anim_64.gif（檔名＝內容 SHA-256＋副檔名）",
+     "img:t8_anim_80.png（檔名＝內容 SHA-256＋副檔名）",
+     "img:t9_photo_320x240.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:t6_other_900x800.png（檔名＝內容 SHA-256＋副檔名）",
+     "img:t9_photo_320x240.jpeg（檔名＝內容 SHA-256＋副檔名）"
+    ],
+    "token": "0.＋64 個小寫十六進位字元",
+    "selfCheck": {
+     "通過": true,
+     "問題": [],
+     "圖片數": 6,
+     "場景數": 6,
+     "棋子數": 0
+    },
+    "images": [
+     {
+      "ref": "img:t1_wide_1600x900.webp",
+      "source": "T1",
+      "ext": "webp",
+      "width": 800,
+      "height": 450,
+      "bytes": 3656,
+      "sha256": "dc8d85e059a818832ed0f743a88106776124fd28a1cad64c8beb13df8326e5c3"
+     },
+     {
+      "ref": "img:t7_anim_64.gif",
+      "source": "T7",
+      "ext": "gif",
+      "width": 64,
+      "height": 64,
+      "bytes": 447,
+      "sha256": "0ce46561d1fcf7eb8f8197061df3ddda53b35c5a615e744cbfe5b5308ca43db9"
+     },
+     {
+      "ref": "img:t8_anim_80.png",
+      "source": "T8",
+      "ext": "png",
+      "width": 80,
+      "height": 80,
+      "bytes": 556,
+      "sha256": "3edf6f6fc5d7f00040213003a3120fce85848dec3e9dc81d5284cb2f4b154ece"
+     },
+     {
+      "ref": "img:t9_photo_320x240.webp",
+      "source": "T9",
+      "ext": "webp",
+      "width": 320,
+      "height": 240,
+      "bytes": 1078,
+      "sha256": "9f3f6ac205bc00a36bc2615f74d68fa5a6c765bc9bc34e63a0e5edf691048756"
+     },
+     {
+      "ref": "img:t6_other_900x800.png",
+      "source": "T6",
+      "ext": "png",
+      "width": 900,
+      "height": 800,
+      "bytes": 3917,
+      "sha256": "9c18a1aa37bf68ac5a71d991caa1bbe22ddc9ddc2c78bb79f15126ffde95238f"
+     },
+     {
+      "ref": "img:t9_photo_320x240.jpeg",
+      "source": "T9",
+      "ext": "jpeg",
+      "width": 320,
+      "height": 240,
+      "bytes": 4109,
+      "sha256": "3b3f8d1bc8d5493594d0769d48e36ffa9a5168753f1cb9a771b02382913820a8"
+     }
+    ]
+   },
+   "data": {
+    "meta": {
+     "version": "1.1.0"
+    },
+    "entities": {
+     "room": {
+      "defaultAnonymousRole": "player",
+      "backgroundUrl": "img:t1_wide_1600x900.webp",
+      "foregroundUrl": null,
+      "embedUrl": null,
+      "thumbnailUrl": null,
+      "mapType": "image",
+      "fieldWidth": 40,
+      "fieldHeight": 30,
+      "fieldObjectFit": "cover",
+      "alignWithGrid": true,
+      "messageChannels": [
+       "メイン",
+       "情報",
+       "雑談"
+      ],
+      "messageGroups": [],
+      "markers": {},
+      "mediaName": "",
+      "mediaRef": null,
+      "mediaType": "file",
+      "mediaRepeat": true,
+      "mediaVolume": 1,
+      "monitored": false,
+      "soundRef": null,
+      "sceneId": "場景:t1_wide_1600x900",
+      "archived": false,
+      "backgroundColor": "#000000",
+      "variables": [],
+      "underConstruction": false,
+      "hidden3dDice": false,
+      "initialSavedata": null,
+      "displayGrid": false,
+      "gridSize": 1,
+      "enableCrossfade": false,
+      "crossfadeDuration": 1
+     },
+     "items": {},
+     "decks": {},
+     "notes": {},
+     "characters": {},
+     "effects": {},
+     "scenes": {
+      "場景:t1_wide_1600x900": {
+       "name": "t1_wide_1600x900",
+       "order": 1,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:t7_anim_64": {
+       "name": "t7_anim_64",
+       "order": 2,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t7_anim_64.gif",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:t8_anim_80": {
+       "name": "t8_anim_80",
+       "order": 3,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t8_anim_80.png",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:t9_photo_320x240": {
+       "name": "t9_photo_320x240",
+       "order": 4,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t9_photo_320x240.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:t6_other_900x800": {
+       "name": "t6_other_900x800",
+       "order": 5,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t6_other_900x800.png",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:t9_photo_320x240＃2": {
+       "name": "t9_photo_320x240",
+       "order": 6,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t9_photo_320x240.jpeg",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      }
+     },
+     "savedatas": {},
+     "snapshots": {}
+    },
+    "resources": {
+     "img:t1_wide_1600x900.webp": {
+      "type": "image/webp"
+     },
+     "img:t7_anim_64.gif": {
+      "type": "image/gif"
+     },
+     "img:t8_anim_80.png": {
+      "type": "image/png"
+     },
+     "img:t9_photo_320x240.webp": {
+      "type": "image/webp"
+     },
+     "img:t6_other_900x800.png": {
+      "type": "image/png"
+     },
+     "img:t9_photo_320x240.jpeg": {
+      "type": "image/jpeg"
+     }
+    }
+   },
+   "note": "長邊上限 800 只影響轉檔開啟時放入的 T1；轉檔關閉後放入的 T6、T9 保留原檔；第三次放入的 T7 與第一次相同而被合併。"
+  },
+  "Z10": {
+   "title": "批次建立場景（貼上文字／CSV）與素材名稱查找",
+   "steps": [
+    "素材：載入 T1、T6；素材一覽把 T6 的名稱改成「夜景」",
+    "場景：貼上文字建立多個場景→ 貼上下列 6 行後按建立：",
+    "  第 1 行：場景名稱,切換時文字,素材（表頭，會被略過）",
+    "  第 2 行：◇開頭",
+    "  第 3 行：咖啡廳,\"他說：「你好,歡迎」\",t1_wide_1600x900",
+    "  第 4 行：夜晚<Tab>夜深了<Tab>夜景.png",
+    "  第 5 行：（空行）",
+    "  第 6 行：找不到圖,文字,不存在的素材",
+    "匯出"
+   ],
+   "zip": {
+    "entries": [
+     "__data.json",
+     ".token",
+     "img:t1_wide_1600x900.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:夜景.webp（檔名＝內容 SHA-256＋副檔名）"
+    ],
+    "token": "0.＋64 個小寫十六進位字元",
+    "selfCheck": {
+     "通過": true,
+     "問題": [],
+     "圖片數": 2,
+     "場景數": 4,
+     "棋子數": 0
+    },
+    "images": [
+     {
+      "ref": "img:t1_wide_1600x900.webp",
+      "source": "T1",
+      "ext": "webp",
+      "width": 1200,
+      "height": 675,
+      "bytes": 5752,
+      "sha256": "e76a0072002a04d6620846ae2226e979defa1f68195d0c48d79e8f1f9fe00f30"
+     },
+     {
+      "ref": "img:夜景.webp",
+      "source": "T6",
+      "ext": "webp",
+      "width": 900,
+      "height": 800,
+      "bytes": 2390,
+      "sha256": "f1a33562ebea9d7210baa83a66f15b4ad842c95336a13c887ec3e51ccd69989b"
+     }
+    ]
+   },
+   "data": {
+    "meta": {
+     "version": "1.1.0"
+    },
+    "entities": {
+     "room": {
+      "defaultAnonymousRole": "player",
+      "backgroundUrl": "img:t1_wide_1600x900.webp",
+      "foregroundUrl": null,
+      "embedUrl": null,
+      "thumbnailUrl": null,
+      "mapType": "image",
+      "fieldWidth": 40,
+      "fieldHeight": 30,
+      "fieldObjectFit": "cover",
+      "alignWithGrid": true,
+      "messageChannels": [
+       "メイン",
+       "情報",
+       "雑談"
+      ],
+      "messageGroups": [],
+      "markers": {},
+      "mediaName": "",
+      "mediaRef": null,
+      "mediaType": "file",
+      "mediaRepeat": true,
+      "mediaVolume": 1,
+      "monitored": false,
+      "soundRef": null,
+      "sceneId": "場景:◇開頭",
+      "archived": false,
+      "backgroundColor": "#000000",
+      "variables": [],
+      "underConstruction": false,
+      "hidden3dDice": false,
+      "initialSavedata": null,
+      "displayGrid": false,
+      "gridSize": 1,
+      "enableCrossfade": false,
+      "crossfadeDuration": 1
+     },
+     "items": {},
+     "decks": {},
+     "notes": {},
+     "characters": {},
+     "effects": {},
+     "scenes": {
+      "場景:◇開頭": {
+       "name": "◇開頭",
+       "order": 1,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": null,
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:咖啡廳": {
+       "name": "咖啡廳",
+       "order": 2,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "他說：「你好,歡迎」",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:夜晚": {
+       "name": "夜晚",
+       "order": 3,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:夜景.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "夜深了",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:找不到圖": {
+       "name": "找不到圖",
+       "order": 4,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": null,
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {},
+       "text": "文字",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      }
+     },
+     "savedatas": {},
+     "snapshots": {}
+    },
+    "resources": {
+     "img:t1_wide_1600x900.webp": {
+      "type": "image/webp"
+     },
+     "img:夜景.webp": {
+      "type": "image/webp"
+     }
+    }
+   },
+   "note": "第一行是表頭被略過；第 3 行是有引號、內含逗號的 CSV；第 4 行以 Tab 分隔，「夜景.png」去掉副檔名後對到改過名的 T6；找不到的素材→沒有前景。"
+  },
+  "Z11": {
+   "title": "記住場景設定並貼上、場景範本、同步房間設計",
+   "steps": [
+    "素材：載入 T1、T2、T4、T6",
+    "房間設計：新增共用標記「框」（圖 T2）",
+    "立繪：從素材挑選登錄 T4",
+    "場景：從素材挑選建立（T1）→ 場景名「t1_wide_1600x900」；勾 T4 的立繪；演出新建一個（全畫面，圖 T6）；共用部件「框」按變更 → 水平位置 5；詳細設定的前景尺寸改 30×20",
+    "快速建立「B」「C」（都不選前景）",
+    "回到「t1_wide_1600x900」按書籤鈕（記下本場景設定）",
+    "場景一覽選「B」，貼上設定 → 按「全部貼上」",
+    "選「C」，貼上設定 → 只按「立繪」",
+    "按貼上面板的 ×（不再記住）",
+    "場景範本 → 選著「C」時按「登錄目前場景為範本」（名稱用預設）→ 再按「以範本新建場景」",
+    "選「C」→ 詳細設定的「同步房間設計 > 這個場景」",
+    "匯出"
+   ],
+   "zip": {
+    "entries": [
+     "__data.json",
+     ".token",
+     "img:t1_wide_1600x900.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:t2_band_1200x400.png（檔名＝內容 SHA-256＋副檔名）",
+     "img:t4_tall_600x1200.webp（檔名＝內容 SHA-256＋副檔名）",
+     "img:t6_other_900x800.webp（檔名＝內容 SHA-256＋副檔名）"
+    ],
+    "token": "0.＋64 個小寫十六進位字元",
+    "selfCheck": {
+     "通過": true,
+     "問題": [],
+     "圖片數": 4,
+     "場景數": 4,
+     "棋子數": 0
+    },
+    "images": [
+     {
+      "ref": "img:t1_wide_1600x900.webp",
+      "source": "T1",
+      "ext": "webp",
+      "width": 1200,
+      "height": 675,
+      "bytes": 5752,
+      "sha256": "e76a0072002a04d6620846ae2226e979defa1f68195d0c48d79e8f1f9fe00f30"
+     },
+     {
+      "ref": "img:t2_band_1200x400.png",
+      "source": "T2",
+      "ext": "png",
+      "width": 1200,
+      "height": 400,
+      "bytes": 2664,
+      "sha256": "5252ced9c9be6bd4ed1267fb02e3174330a393f0829e69c168d0bf9d2d282b91"
+     },
+     {
+      "ref": "img:t4_tall_600x1200.webp",
+      "source": "T4",
+      "ext": "webp",
+      "width": 600,
+      "height": 1200,
+      "bytes": 3438,
+      "sha256": "23d231d729c6cca5d6bb686d1f2cf14f428f24443319f138572eb0c50ef7b95e"
+     },
+     {
+      "ref": "img:t6_other_900x800.webp",
+      "source": "T6",
+      "ext": "webp",
+      "width": 900,
+      "height": 800,
+      "bytes": 2390,
+      "sha256": "f1a33562ebea9d7210baa83a66f15b4ad842c95336a13c887ec3e51ccd69989b"
+     }
+    ]
+   },
+   "data": {
+    "meta": {
+     "version": "1.1.0"
+    },
+    "entities": {
+     "room": {
+      "defaultAnonymousRole": "player",
+      "backgroundUrl": "img:t1_wide_1600x900.webp",
+      "foregroundUrl": null,
+      "embedUrl": null,
+      "thumbnailUrl": null,
+      "mapType": "image",
+      "fieldWidth": 40,
+      "fieldHeight": 30,
+      "fieldObjectFit": "cover",
+      "alignWithGrid": true,
+      "messageChannels": [
+       "メイン",
+       "情報",
+       "雑談"
+      ],
+      "messageGroups": [],
+      "markers": {
+       "共用標記:框": {
+        "x": -2,
+        "y": -1,
+        "z": 20,
+        "width": 4,
+        "height": 1,
+        "angle": 0,
+        "locked": true,
+        "freezed": false,
+        "text": "",
+        "imageUrl": "img:t2_band_1200x400.png",
+        "clickAction": null
+       }
+      },
+      "mediaName": "",
+      "mediaRef": null,
+      "mediaType": "file",
+      "mediaRepeat": true,
+      "mediaVolume": 1,
+      "monitored": false,
+      "soundRef": null,
+      "sceneId": "場景:t1_wide_1600x900",
+      "archived": false,
+      "backgroundColor": "#000000",
+      "variables": [],
+      "underConstruction": false,
+      "hidden3dDice": false,
+      "initialSavedata": null,
+      "displayGrid": false,
+      "gridSize": 1,
+      "enableCrossfade": false,
+      "crossfadeDuration": 1
+     },
+     "items": {},
+     "decks": {},
+     "notes": {},
+     "characters": {},
+     "effects": {},
+     "scenes": {
+      "場景:t1_wide_1600x900": {
+       "name": "t1_wide_1600x900",
+       "order": 1,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 30,
+       "fieldHeight": 20,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {
+        "共用標記:框": {
+         "x": 3,
+         "y": -1,
+         "z": 20,
+         "width": 4,
+         "height": 1,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t2_band_1200x400.png",
+         "clickAction": null
+        },
+        "立繪:t4_tall_600x1200": {
+         "x": -5,
+         "y": -3,
+         "z": 30,
+         "width": 9,
+         "height": 18,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t4_tall_600x1200.webp",
+         "clickAction": null
+        },
+        "演出:〈演出預設名〉": {
+         "x": -15,
+         "y": -14,
+         "z": 10,
+         "width": 30,
+         "height": 27,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t6_other_900x800.webp",
+         "clickAction": null
+        }
+       },
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:B": {
+       "name": "B",
+       "order": 2,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": "img:t1_wide_1600x900.webp",
+       "fieldObjectFit": "cover",
+       "fieldWidth": 30,
+       "fieldHeight": 20,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {
+        "共用標記:框": {
+         "x": 3,
+         "y": -1,
+         "z": 20,
+         "width": 4,
+         "height": 1,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t2_band_1200x400.png",
+         "clickAction": null
+        },
+        "立繪:t4_tall_600x1200": {
+         "x": -5,
+         "y": -3,
+         "z": 30,
+         "width": 9,
+         "height": 18,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t4_tall_600x1200.webp",
+         "clickAction": null
+        },
+        "演出:〈演出預設名〉": {
+         "x": -15,
+         "y": -14,
+         "z": 10,
+         "width": 30,
+         "height": 27,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t6_other_900x800.webp",
+         "clickAction": null
+        }
+       },
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:C": {
+       "name": "C",
+       "order": 3,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": null,
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {
+        "共用標記:框": {
+         "x": -2,
+         "y": -1,
+         "z": 20,
+         "width": 4,
+         "height": 1,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t2_band_1200x400.png",
+         "clickAction": null
+        },
+        "立繪:t4_tall_600x1200": {
+         "x": -5,
+         "y": -3,
+         "z": 30,
+         "width": 9,
+         "height": 18,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t4_tall_600x1200.webp",
+         "clickAction": null
+        }
+       },
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      },
+      "場景:C＃2": {
+       "name": "C",
+       "order": 4,
+       "backgroundUrl": "img:t1_wide_1600x900.webp",
+       "foregroundUrl": null,
+       "fieldObjectFit": "cover",
+       "fieldWidth": 40,
+       "fieldHeight": 30,
+       "displayGrid": false,
+       "gridSize": 1,
+       "markers": {
+        "共用標記:框": {
+         "x": -2,
+         "y": -1,
+         "z": 20,
+         "width": 4,
+         "height": 1,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t2_band_1200x400.png",
+         "clickAction": null
+        },
+        "立繪:t4_tall_600x1200": {
+         "x": -5,
+         "y": -3,
+         "z": 30,
+         "width": 9,
+         "height": 18,
+         "angle": 0,
+         "locked": true,
+         "freezed": false,
+         "text": "",
+         "imageUrl": "img:t4_tall_600x1200.webp",
+         "clickAction": null
+        }
+       },
+       "text": "",
+       "locked": false,
+       "mediaName": "",
+       "mediaRef": null,
+       "mediaType": "file",
+       "mediaRepeat": true,
+       "mediaVolume": 1,
+       "soundName": "",
+       "soundRef": null,
+       "soundRepeat": false,
+       "soundVolume": 1
+      }
+     },
+     "savedatas": {},
+     "snapshots": {}
+    },
+    "resources": {
+     "img:t1_wide_1600x900.webp": {
+      "type": "image/webp"
+     },
+     "img:t2_band_1200x400.png": {
+      "type": "image/png"
+     },
+     "img:t4_tall_600x1200.webp": {
+      "type": "image/webp"
+     },
+     "img:t6_other_900x800.webp": {
+      "type": "image/webp"
+     }
+    }
+   },
+   "note": "「B」貼上全部（前景尺寸 30×20、共用標記差異、立繪、演出）；「C」只貼立繪；「C＃2」由「C」的範本建立；最後「C」同步房間設計（前景尺寸回到 40×30、差異清除）。"
+  }
+ },
+ "materials": {
+  "M01": {
+   "title": "單色圖：#336699、16×16、名稱留空",
+   "output": {
+    "name": "〈單色圖預設名，含色碼 #336699〉",
+    "tags": [
+     "前景"
+    ],
+    "動態圖": false,
+    "mime": "image/png",
+    "ext": "png",
+    "width": 16,
+    "height": 16,
+    "bytes": 121,
+    "sourceFileName": "〈單色圖預設名，含色碼 #336699〉.png",
+    "pixels": {
+     "topLeft": [
+      51,
+      102,
+      153,
+      255
+     ],
+     "center": [
+      51,
+      102,
+      153,
+      255
+     ],
+     "bottomRight": [
+      51,
+      102,
+      153,
+      255
+     ]
+    }
+   }
+  },
+  "M02": {
+   "title": "動態圖：原圖 T3、開始＝圖片、結束＝透明、1.0 秒、不循環",
+   "output": {
+    "name": "t3_square_256＋〈淡出後綴〉",
+    "tags": [
+     "演出"
+    ],
+    "動態圖": true,
+    "mime": "image/png",
+    "ext": "png",
+    "width": 256,
+    "height": 256,
+    "bytes": 20524,
+    "sourceFileName": "t3_square_256＋〈淡出後綴〉.png",
+    "apngFrames": 12,
+    "apngPlays": 1,
+    "frameDelays": [
+     "84/1000",
+     "84/1000",
+     "84/1000",
+     "84/1000",
+     "83/1000",
+     "83/1000",
+     "83/1000",
+     "83/1000",
+     "83/1000",
+     "83/1000",
+     "83/1000",
+     "83/1000"
+    ],
+    "pixels": {
+     "topLeft": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "center": [
+      220,
+      60,
+      60,
+      255
+     ],
+     "bottomRight": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   }
+  },
+  "M03": {
+   "title": "動態圖：沒有原圖、開始＝透明、結束＝顏色 #ff0000、2.0 秒、循環",
+   "output": {
+    "name": "〈沒有原圖時的預設名〉＋〈淡入後綴〉",
+    "tags": [
+     "演出"
+    ],
+    "動態圖": true,
+    "mime": "image/png",
+    "ext": "png",
+    "width": 128,
+    "height": 128,
+    "bytes": 1754,
+    "sourceFileName": "〈沒有原圖時的預設名〉＋〈淡入後綴〉.png",
+    "apngFrames": 15,
+    "apngPlays": 0,
+    "frameDelays": [
+     "134/1000",
+     "134/1000",
+     "134/1000",
+     "134/1000",
+     "134/1000",
+     "133/1000",
+     "133/1000",
+     "133/1000",
+     "133/1000",
+     "133/1000",
+     "133/1000",
+     "133/1000",
+     "133/1000",
+     "133/1000",
+     "133/1000"
+    ],
+    "pixels": {
+     "topLeft": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "center": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "bottomRight": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   }
+  },
+  "M04": {
+   "title": "動態圖：原圖 T1（1200×675）、開始＝圖片、結束＝顏色（#000000）、4.0 秒、不循環",
+   "output": {
+    "name": "t1_wide_1600x900＋〈淡出後綴〉",
+    "tags": [
+     "演出"
+    ],
+    "動態圖": true,
+    "mime": "image/png",
+    "ext": "png",
+    "width": 1024,
+    "height": 576,
+    "bytes": 1109008,
+    "sourceFileName": "t1_wide_1600x900＋〈淡出後綴〉.png",
+    "apngFrames": 15,
+    "apngPlays": 1,
+    "frameDelays": [
+     "267/1000",
+     "267/1000",
+     "267/1000",
+     "267/1000",
+     "267/1000",
+     "267/1000",
+     "267/1000",
+     "267/1000",
+     "267/1000",
+     "267/1000",
+     "266/1000",
+     "266/1000",
+     "266/1000",
+     "266/1000",
+     "266/1000"
+    ],
+    "pixels": {
+     "topLeft": [
+      20,
+      40,
+      90,
+      255
+     ],
+     "center": [
+      110,
+      81,
+      63,
+      255
+     ],
+     "bottomRight": [
+      198,
+      119,
+      41,
+      255
+     ]
+    }
+   }
+  },
+  "M05": {
+   "title": "文字＋圖形合成圖製作器：畫布 400×300、背景單色 #202020、加入方形與圓形（預設值）、品質標準、檔名 mk",
+   "output": {
+    "name": "mk",
+    "tags": [
+     "其他"
+    ],
+    "動態圖": false,
+    "mime": "image/webp",
+    "ext": "webp",
+    "width": 400,
+    "height": 300,
+    "bytes": 2232,
+    "sourceFileName": "mk.webp",
+    "pixels": {
+     "topLeft": [
+      31,
+      31,
+      31,
+      255
+     ],
+     "center": [
+      124,
+      197,
+      254,
+      255
+     ],
+     "bottomRight": [
+      31,
+      31,
+      31,
+      255
+     ]
+    }
+   },
+   "layersBeforeExport": [
+    {
+     "種類": "圓形",
+     "x": 92,
+     "y": 82,
+     "width": 220,
+     "height": 140,
+     "color": "#7cc5ff（舊版預設色，新版可自訂）",
+     "不透明度": 100
+    },
+    {
+     "種類": "方形",
+     "x": 80,
+     "y": 70,
+     "width": 220,
+     "height": 140,
+     "color": "#ffffff（舊版預設色，新版可自訂）",
+     "不透明度": 100
+    }
+   ],
+   "dialogClosedAfter": true
+  },
+  "M06": {
+   "title": "加工 T1：亮度 120%、裁掉左邊 100 px、轉 90°、不取代",
+   "output": {
+    "name": "t1_wide_1600x900＋〈加工後綴〉",
+    "tags": [
+     "前景"
+    ],
+    "動態圖": false,
+    "mime": "image/webp",
+    "ext": "webp",
+    "width": 675,
+    "height": 1100,
+    "bytes": 6190,
+    "sourceFileName": "t1_wide_1600x900＋〈加工後綴〉.webp",
+    "pixels": {
+     "topLeft": [
+      44,
+      57,
+      105,
+      255
+     ],
+     "center": [
+      139,
+      99,
+      76,
+      255
+     ],
+     "bottomRight": [
+      236,
+      142,
+      47,
+      255
+     ]
+    }
+   },
+   "materialCountAfter": 8
+  },
+  "M07": {
+   "title": "加工 T3：不改任何設定直接製作",
+   "output": {
+    "name": "t3_square_256＋〈加工後綴〉",
+    "tags": [
+     "棋子圖示"
+    ],
+    "動態圖": false,
+    "mime": "image/webp",
+    "ext": "webp",
+    "width": 256,
+    "height": 256,
+    "bytes": 2446,
+    "sourceFileName": "t3_square_256＋〈加工後綴〉.webp",
+    "pixels": {
+     "topLeft": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "center": [
+      220,
+      61,
+      60,
+      255
+     ],
+     "bottomRight": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   },
+   "materialCountAfter": 9
+  }
+ }
+}

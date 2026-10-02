@@ -8,6 +8,7 @@
  * - dom：三種 CCFOLIA 頁面與 Streamkit 的選擇器與結構常數（附觀察日期）
  * - character：角色狀態頁的填充寬度字串、紅字屬性、「剩餘比例低於門檻」的屬性選擇器
  * - dice：擲骰結果的分類與配色 class、訊息框只放最後一段的規則
+ * - targets：匯出用途（CCFOLIA 切入、Discord 貼圖、Discord 附件）的容量上限、格式、尺寸與檢查
  * - mock/：依上述事實自己寫的模擬頁（預覽與測試用）
  */
 import { CHARACTER_PAGE, CHAT, MESSAGE_BOX, STREAMKIT } from './dom';
@@ -15,6 +16,7 @@ import { CHARACTER_PAGE, CHAT, MESSAGE_BOX, STREAMKIT } from './dom';
 export * from './character';
 export * from './dice';
 export * from './dom';
+export * from './targets';
 export * from './urls';
 
 /** 角色的狀態列（HP、MP…） */

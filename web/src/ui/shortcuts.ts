@@ -14,7 +14,10 @@ export interface Shortcut {
   group?: string;
   /** 沒有 handler 的只顯示在說明裡（例如由元件自己處理的按鍵） */
   handler?: (e: KeyboardEvent) => void;
-  /** 在輸入框裡也觸發（預設否） */
+  /**
+   * 在輸入框裡也觸發（預設否）。ShortcutHelp 會在這一列標示「輸入框裡也可用」。
+   * 帶 Ctrl／⌘／Alt 的空白鍵、Enter 組合在按鈕、連結、開關上也觸發（不讓給按鈕本身）。
+   */
   allowInInput?: boolean;
 }
 
@@ -107,6 +110,25 @@ export function formatCombo(combo: string, mac = isMac()): string[] {
   return out;
 }
 
+/**
+ * 按鍵組合的一段提示文字（按鈕提示、說明文字用）：'mod+z' → 'Ctrl＋Z'；Mac 上 → '⌘Z'
+ * （Mac 依慣例不加分隔，'shift+mod+z' → '⇧⌘Z'）。
+ */
+export function comboText(combo: string, mac = isMac()): string {
+  const parts = formatCombo(combo, mac);
+  if (!mac) return parts.join('＋');
+  /* Mac 的修飾鍵依 ⌃⌥⇧⌘ 的順序 */
+  const order = ['⌃', '⌥', '⇧', '⌘'];
+  const key = parts[parts.length - 1];
+  const mods = parts.slice(0, -1).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  return [...mods, key].join('');
+}
+
+/** 標籤加上快捷鍵提示：withShortcut('復原', 'mod+z') → '復原（Ctrl＋Z）'（Mac：'復原（⌘Z）'） */
+export function withShortcut(label: string, combo: string, mac = isMac()): string {
+  return `${label}（${comboText(combo, mac)}）`;
+}
+
 export function isEditableTarget(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false;
   if (t.isContentEditable) return true;
@@ -119,10 +141,23 @@ export function isEditableTarget(t: EventTarget | null): boolean {
   return t.getAttribute('role') === 'spinbutton' || t.getAttribute('role') === 'textbox';
 }
 
-/** 表單控制項（開關、勾選、選單、滑桿、輸入欄）：單一按鍵的快捷鍵在這些元素上不觸發 */
+/**
+ * 標記「焦點在我身上時，工具快捷鍵照常作用」的屬性：`data-shortcuts="pass"`。
+ * 給 role=slider 之類、只用少數幾個鍵的自訂控制項（例如 CropFrame 只用方向鍵）：
+ * 它自己用的鍵在 keydown 時 preventDefault（useShortcuts 會略過已處理的按鍵），其餘的鍵交給工具。
+ */
+export const SHORTCUTS_PASS = { 'data-shortcuts': 'pass' } as const;
+
+const passesShortcuts = (t: HTMLElement) => t.dataset.shortcuts === 'pass';
+
+/**
+ * 表單控制項（開關、勾選、選單、滑桿、輸入欄）：單一按鍵的快捷鍵在這些元素上不觸發。
+ * 標了 `data-shortcuts="pass"`（SHORTCUTS_PASS）的元素不算。
+ */
 export function isFormControlTarget(t: EventTarget | null): boolean {
   if (isEditableTarget(t)) return true;
   if (!(t instanceof HTMLElement)) return false;
+  if (passesShortcuts(t)) return false;
   if (t instanceof HTMLInputElement) return true;
   const role = t.getAttribute('role');
   return (
@@ -146,7 +181,9 @@ export function isFormControlTarget(t: EventTarget | null): boolean {
 
 /**
  * 綁定快捷鍵（掛在 window）。對話框開著時、在輸入框裡打字時不觸發（除非 allowInInput）；
- * 沒有修飾鍵的單鍵快捷鍵，焦點在開關、選單、滑桿等表單控制項上時也不觸發。
+ * 沒有修飾鍵的單鍵快捷鍵，焦點在開關、選單、滑桿等表單控制項上時也不觸發
+ * （標了 `data-shortcuts="pass"` 的控制項例外，例如 CropFrame：它沒用到的鍵照常觸發）。
+ * 已經被元件處理（preventDefault）的按鍵不觸發。
  * shortcuts 每次 render 換新陣列也沒關係。
  */
 export function useShortcuts(shortcuts: readonly Shortcut[], enabled = true): void {
@@ -169,9 +206,10 @@ export function useShortcuts(shortcuts: readonly Shortcut[], enabled = true): vo
         /* 沒有 Ctrl／⌘／Alt 的單鍵快捷鍵（例如 G、D）在開關、選單等表單控制項上也不觸發 */
         if (!s.allowInInput && !e.ctrlKey && !e.metaKey && !e.altKey && isFormControlTarget(target))
           return;
-        /* 焦點在按鈕上時，空白鍵／Enter 留給按鈕本身 */
+        /* 焦點在按鈕上時，空白鍵／Enter 留給按鈕本身（allowInInput 的 Ctrl／⌘／Alt 組合除外：那是整頁都要能用的快捷鍵） */
         if (
           (e.key === ' ' || e.key === 'Enter') &&
+          !(s.allowInInput && (e.ctrlKey || e.metaKey || e.altKey)) &&
           target instanceof HTMLElement &&
           target.closest('button,a,[role="slider"],[role="switch"],[role="tab"],[role="radio"]')
         )

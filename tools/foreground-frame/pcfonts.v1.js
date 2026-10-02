@@ -13,8 +13,8 @@
  * first time. Where it is missing the buttons stay hidden and the name can still be typed.
  *
  * 【TRPG Toolkit 收錄時的注記】
- * 這個檔案在 status-bar、chat-window、foreground-frame、message-box、scene-transition
- * 五個工具底下各有一份，上游保證各份完全相同，收錄版也一樣（tests/smoke.mjs 會檢查）。
+ * 這個檔案在 foreground-frame、scene-transition 兩個工具底下各有一份，上游保證各份完全相同，
+ * 收錄版也一樣（tests/smoke.mjs 會檢查）。status-bar、chat-window、message-box 已由本站重寫，不再用這個檔。
  * 改一份就要改全部。
  * 對話框是延遲建立的單例，切換語言時整個丟掉重建，省得逐一改寫裡面的文字。
  */

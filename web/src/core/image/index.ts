@@ -346,6 +346,31 @@ export async function canvasToBlob(
   );
 }
 
+/** 鋪上底色的複本（JPG 沒有透明：透明處變成底色，而不是黑色） */
+export function flattenCanvas(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+  background = '#ffffff',
+): HTMLCanvasElement | OffscreenCanvas {
+  const out = makeCanvas(canvas.width, canvas.height);
+  const ctx = out.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(canvas, 0, 0);
+  return out;
+}
+
+/**
+ * 輸出 JPG（品質 0～1，預設 0.95）。畫布有透明處時先鋪上 background（預設白色）；
+ * 已經畫好不透明底（例如紙張底色）時傳 background: null 直接輸出。
+ */
+export function canvasToJpeg(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+  { quality = 0.95, background = '#ffffff' }: { quality?: number; background?: string | null } = {},
+): Promise<Blob> {
+  const src = background ? flattenCanvas(canvas, background) : canvas;
+  return canvasToBlob(src, 'image/jpeg', quality);
+}
+
 export interface DominantColor {
   /** #rrggbb */
   color: string;
@@ -519,6 +544,14 @@ export function resizeCrop(
   return clampCrop({ x: x0, y: y0, width, height }, bounds, aspect, minSize);
 }
 
+/* ---------- 立繪工作台（G3）：剪影效果、畫布小工具、依鮮豔度取主色 ---------- */
+export * from './draw';
+export * from './effects';
 /* ---------- 嵌入 CSS（data URI）與圖片儲存 ---------- */
 export * from './embed';
+/* ---------- G2：濾鏡零件、畫質決定的輸出尺寸 ---------- */
+export * from './filterPresets';
+export * from './filters';
+export * from './sizing';
 export * from './store';
+export * from './vivid';

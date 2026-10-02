@@ -41,8 +41,12 @@ export function ToolHeader({
           TRPG Toolkit
         </a>
         <span aria-hidden className="hidden h-4 w-px bg-border sm:block" />
-        <h1 className="m-0 min-w-0 text-lg font-semibold text-fg">{title}</h1>
-        <GroupTabs toolId={toolId} className="order-last w-full lg:order-none lg:w-auto" />
+        <h1 className="m-0 min-w-0 shrink-0 text-lg font-semibold text-fg">{title}</h1>
+        {/* 寬畫面：分頁列吃掉標題與按鈕之間剩下的寬度，放不下就橫向捲動（不折行，頁首高度不隨工具數量改變） */}
+        <GroupTabs
+          toolId={toolId}
+          className="order-last w-full lg:order-none lg:w-auto lg:min-w-0 lg:flex-1"
+        />
         <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1">
           {actions}
           {onHelp ? <IconButton label="說明" icon={<CircleHelp />} onClick={onHelp} /> : null}

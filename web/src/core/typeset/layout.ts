@@ -205,6 +205,8 @@ export interface BlockLayout {
   subBox: Box | null;
   /** 主、副文字的間距（px） */
   gapPx: number;
+  /** 水平縮放（typeset 的 scaleX；畫字時以樞紐點 ctx.scale(scaleX, 1)）。不填＝1 */
+  scaleX?: number;
 }
 
 export interface ComposeOptions {

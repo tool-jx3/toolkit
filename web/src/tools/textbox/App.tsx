@@ -8,6 +8,7 @@ import {
   Segmented,
   TextArea,
   TextInput,
+  TextOutputPanel,
   Toggle,
   ToolShell,
   UsageSection,
@@ -25,8 +26,10 @@ import {
   type TextboxInput,
   type WarningField,
 } from './layout';
-import { OutputPanel } from './OutputPanel';
 import { S } from './strings';
+
+/** 輸出區用接近 CCFOLIA 聊天欄的字型：Roboto 14 px、行高約 1.43 倍 */
+const OUTPUT_FONT = { family: 'Roboto', size: 14, lineHeight: 1.43 };
 
 /** 規格 F28：不保留任何輸入或設定，重新整理後回到預設 */
 const useTextbox = createToolStore<TextboxInput>('textbox', DEFAULT_INPUT, { persist: false });
@@ -216,7 +219,17 @@ export function App() {
       toolId="textbox"
       usage={usage}
       settings={settings}
-      preview={<OutputPanel text={result.text} />}
+      preview={
+        <TextOutputPanel
+          text={result.text}
+          title={S.output}
+          count={(text) => S.lines(text.split('\n').length)}
+          hint={S.outputHint}
+          copyLabel={S.copy}
+          messages={{ copied: S.copied, failed: S.copyFailed, failedHint: S.copyFailedHint }}
+          font={OUTPUT_FONT}
+        />
+      }
     />
   );
 }

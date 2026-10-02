@@ -6,7 +6,9 @@
  *
  * - 每格只存跟前一格不同的矩形（座標對齊偶數；混合方式「不混合」、處置方式「不處置」）。
  * - 連續相同的影格合併並延長顯示時間（毫秒，累計換算）。
+ * - minFrameMs（選填，預設 0＝不限）：每個輸入影格至少顯示這麼久（例如 20 ms），補上的時間不從別格扣回，總長會變長。
  * - quality 為 1 時 Chromium 會用無損編碼（VP8L）；其他值為有損。
+ * - `pickSmaller`（G2）：每一格同時編無損與有損（quality），取位元組較少的那個（同一個檔案裡可能混用兩種）。
  * - Safari 不支援 WebP 編碼：先用 supportsWebpEncoding() 檢查。
  */
 import {
@@ -183,13 +185,21 @@ export interface WebpEncoderOptions {
   plays?: number;
   /** 0～1；1（預設）為無損 */
   quality?: number;
+  /**
+   * 每個輸入影格（addFrame 一次）至少顯示幾毫秒（預設 0＝不限，結果與以前相同）。
+   * 例如 20：60 fps 的 17／16 ms 一律變成 20 ms；補上的時間不從別格扣回，總長會變長。合併相同影格時先各自補足再相加。
+   */
+  minFrameMs?: number;
+  /** 每格比較無損與有損（quality），取較小者（quality 為 1 時沒有作用） */
+  pickSmaller?: boolean;
   /** 換掉單張編碼方式（測試用） */
   encodeImage?: WebpImageEncoder;
 }
 
 interface StoredFrame extends Rect {
   bitstream: Uint8Array;
-  count: number;
+  /** 併進這一格的每個輸入影格各自的 ticks */
+  parts: number[];
 }
 
 export class WebpEncoder implements FrameEncoder {
@@ -204,7 +214,14 @@ export class WebpEncoder implements FrameEncoder {
   constructor(options: WebpEncoderOptions) {
     if (!(options.width > 0 && options.height > 0)) throw new RangeError('寬高必須大於 0');
     if (!(options.fps > 0)) throw new RangeError('fps 必須大於 0');
-    this.opt = { plays: 0, quality: 1, encodeImage: canvasWebpEncoder, ...options };
+    this.opt = {
+      plays: 0,
+      quality: 1,
+      minFrameMs: 0,
+      pickSmaller: false,
+      encodeImage: canvasWebpEncoder,
+      ...options,
+    };
   }
 
   async addFrame(rgba: RgbaPixels, ticks = 1): Promise<void> {
@@ -218,7 +235,7 @@ export class WebpEncoder implements FrameEncoder {
     const d = this.prev ? diffRect(this.prev, u32, W, H) : { x: 0, y: 0, w: W, h: H };
     this.prev = u32;
     if (!d) {
-      this.frames[this.frames.length - 1].count += t;
+      this.frames[this.frames.length - 1].parts.push(t);
       return;
     }
     /* 位置對齊偶數（WebP 的規定），範圍往左上擴一格 */
@@ -234,14 +251,14 @@ export class WebpEncoder implements FrameEncoder {
         }
       }
     }
-    const single = await this.opt.encodeImage(
-      new Uint8ClampedArray(px.buffer),
-      r.w,
-      r.h,
-      this.opt.quality,
-    );
+    const pixels = new Uint8ClampedArray(px.buffer);
+    let bitstream = frameBitstream(await this.opt.encodeImage(pixels, r.w, r.h, this.opt.quality));
+    if (this.opt.pickSmaller && this.opt.quality < 1) {
+      const lossless = frameBitstream(await this.opt.encodeImage(pixels, r.w, r.h, 1));
+      if (lossless.length < bitstream.length) bitstream = lossless;
+    }
     if (this.aborted) throw new DOMException('已取消', 'AbortError');
-    this.frames.push({ ...r, bitstream: frameBitstream(single), count: t });
+    this.frames.push({ ...r, bitstream, parts: [t] });
   }
 
   abort(): void {
@@ -254,18 +271,21 @@ export class WebpEncoder implements FrameEncoder {
     if (this.aborted) throw new DOMException('已取消', 'AbortError');
     if (!this.added) throw new Error('沒有任何影格');
     const { width, height, fps, plays } = this.opt;
+    const minMs = Math.max(0, this.opt.minFrameMs || 0);
     let tick = 0;
+    /* 每格的毫秒數以累計時間換算（總長最準）；有下限時每個輸入影格各自補足 */
+    let padMs = 0;
     const frames: WebpAnimFrame[] = this.frames.map((f) => {
-      const start = tickToMs(tick, fps);
-      tick += f.count;
-      return {
-        x: f.x,
-        y: f.y,
-        w: f.w,
-        h: f.h,
-        bitstream: f.bitstream,
-        durationMs: tickToMs(tick, fps) - start,
-      };
+      let durationMs = 0;
+      for (const p of f.parts) {
+        const start = tickToMs(tick, fps);
+        tick += p;
+        const ms = tickToMs(tick, fps) - start;
+        const shown = Math.max(minMs, ms);
+        padMs += shown - ms;
+        durationMs += shown;
+      }
+      return { x: f.x, y: f.y, w: f.w, h: f.h, bitstream: f.bitstream, durationMs };
     });
     const bytes = assembleAnimatedWebp({
       width,
@@ -282,7 +302,7 @@ export class WebpEncoder implements FrameEncoder {
       height,
       frames: this.added,
       storedFrames: frames.length,
-      duration: this.ticks / fps,
+      duration: this.ticks / fps + padMs / 1000,
     };
   }
 }

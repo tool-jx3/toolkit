@@ -172,6 +172,7 @@ export function ImagesDemo() {
         <FileDrop
           accept=".json,application/json"
           paste="off"
+          clickable
           label="把 JSON 檔拖到這裡"
           hint="例如 CCFOLIA 角色資料"
           onFiles={async ([f]) =>

@@ -120,7 +120,48 @@ describe('ExportPanel', () => {
       </UiProvider>,
     );
     expect(screen.getByRole('radio', { name: 'WebP' })).toBeDisabled();
+    /* 目前選的是 APNG，停用的 WebP 的原因也看得到（typewriter 規格 7.1，F70） */
+    expect(screen.getByRole('radio', { name: 'APNG' })).toHaveAttribute('aria-checked', 'true');
+    const group = screen.getByRole('radiogroup', { name: '格式' });
+    expect(group).toHaveAccessibleDescription(/全彩、半透明都保留/);
+    expect(group).toHaveAccessibleDescription(/這個瀏覽器無法匯出 WebP/);
     await user.click(screen.getByRole('button', { name: '匯出 APNG' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('匯出失敗：記憶體不足');
+  });
+
+  it('所有停用格式的原因都列出來；原因沒提到格式名稱時加上名稱；沒有停用時說明不變', async () => {
+    const user = userEvent.setup();
+    const base = animationFormats(['apng', 'gif', 'png']);
+    const { container, rerender } = render(
+      <UiProvider>
+        <ExportPanel
+          formats={base.map((f) =>
+            f.id === 'gif' ? { ...f, disabled: true, disabledReason: '需要先關閉半透明。' } : f,
+          )}
+          onExport={vi.fn()}
+        />
+      </UiProvider>,
+    );
+    const notes = () =>
+      [...container.querySelectorAll('[data-disabled-format]')].map((n) => n.textContent);
+    expect(notes()).toEqual(['GIF：需要先關閉半透明。']);
+    expect(screen.getByRole('radiogroup', { name: '格式' })).toHaveAccessibleDescription(
+      /全彩、半透明都保留.*GIF：需要先關閉半透明。/,
+    );
+    /* 換到 PNG：GIF 的原因仍在，說明換成 PNG 的 */
+    await user.click(screen.getByRole('radio', { name: 'PNG' }));
+    expect(screen.getByRole('radiogroup', { name: '格式' })).toHaveAccessibleDescription(
+      /單張靜態圖.*GIF：需要先關閉半透明。/,
+    );
+    rerender(
+      <UiProvider>
+        <ExportPanel formats={base} onExport={vi.fn()} />
+      </UiProvider>,
+    );
+    /* 沒有停用的格式：說明只有選中格式（仍是 PNG）的那一段 */
+    expect(notes()).toEqual([]);
+    expect(screen.getByRole('radiogroup', { name: '格式' })).toHaveAccessibleDescription(
+      '單張靜態圖（取代表畫面）。',
+    );
   });
 });
