@@ -164,7 +164,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | loading-maker | ✅ | ✅ | ✅ | ✅ |
 | foreground-frame | ✅ | ⬜ | ⬜ | ⬜ |
 | scenario-cards | ✅ | ⬜ | ⬜ | ⬜ |
-| character-editor | ✅ | ⬜ | ⬜ | ⬜ |
+| character-editor | ✅ | ✅ | ✅ | ✅ |
 | log-converter | ✅ | ⬜ | ⬜ | ⬜ |
 | room-zip | ✅ | ⬜ | ⬜ | ⬜ |
 | psd-studio | ✅ | ⬜ | ⬜ | ⬜ |

@@ -26,7 +26,6 @@
 | magic-circle | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `de40a68` | MIT |
 | foreground-frame | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `586b273` | MIT |
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
-| character-editor | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `e1111d4` | **未授權** |
 | room-zip | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `a9a522c` | **未授權** |
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
 | acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
@@ -618,6 +617,7 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 | `scene-transition` | 場景轉換素材產生器 | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `83fd605` |
 | `loading-maker` | 讀取動畫產生器 | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `83fd605` |
 | `bg-motion` | 動態背景產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`haikei-motion-maker`） | `83fd605` |
+| `character-editor` | 角色資料編輯器 | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -641,75 +641,10 @@ CCFOLIA 的 Firestore，上游 README 也說已經被擋、不能用，收錄版
 另外，第一次嘗試時實作者讀了原作程式碼，寫出來的版本有照搬的痕跡（相同的資料結構與內部常數），
 那一版沒有提交就整個作廢，才改用上述流程重做。
 
-## 需要建置的工具
-
-`character-editor` 的上游是 React + TypeScript + Vite 專案，不能直接把檔案放進 `tools/` 就跑。
-因此原始碼快照收在 `vendor/` 底下，建置產物提交在 `tools/character-editor/`，重建方式見
-[README](README.md#重新建置-character-editor)。`vendor/` 不參與網站發佈。（同樣需要建置的 `cutin`
-已由本站重寫，見「本站重寫的工具」。）
-
-`character-editor` 另有一點必須留意：`src/lib/editScreenText.ts` 的日文字面常數
-幾乎全是**解析用的錨點**，用來切分使用者從 CCFOLIA 編輯畫面複製貼上的文字
-（`ステータス`、`イニシアティブ`、`駒サイズ`、`ラベル` 等）。那些不是畫面上的
-文字，翻譯了會與輸入對不起來、解析直接壞掉，因此原樣保留；該檔只翻了使用者
-會看到的那一則錯誤訊息。`tests/smoke.mjs` 會檢查建置產物裡殘存的每一段日文
-都屬於這批錨點（或作者署名），多出任何一段就會被擋下。
-
-除了把使用者可見的字串改成 i18n key 之外，另有兩點與上游不同：
-
-- **字型改由 Google Fonts 載入。** 上游用 `@fontsource` 同捆六套日文網頁字型
-  自行配送（在連不到 `fonts.googleapis.com` 的環境也能運作，且不會把瀏覽者的
-  IP 交給第三方）。本 repo 因為要把建置產物提交進 repo，723 個檔案、16MB 的
-  同捆並不合適，故改為參照 CDN；合輯的其他工具（Tailwind、pako、字型）也是
-  這樣載入的。Google Fonts 的 CSS 同樣以 `unicode-range` 分割，實際下載的仍
-  只有用到的字所在的區塊。
-- **範本的預設文案一併在地化。** `成功`／`失敗` 這類預設輸出文字本身就是工具
-  的產物，因此繁中介面下改為輸出繁體中文（例：`正気度喪失` → `理智喪失`）。
-  選字時已逐字確認六套日文字型的 `unicode-range` 皆有涵蓋，不會出現豆腐字。
-
-改用 CDN 連帶牽動兩處：`scripts/collect-licenses.mjs` 不再從 `node_modules`
-蒐集字型授權（`public/licenses/OFL.txt` 與 `fonts.txt` 保留收錄當下的內容，
-「關於這個工具」仍會連到 OFL 全文）；上游的 vitest 有一項斷言比對驗證訊息中的
-日文字串，改為比對其 i18n key。上游 240 項單元測試全數通過。
-
-## 繁體中文字型
-
-上游工具的字型清單都是為原文語言挑的：sotsotssi 與 kimtaehee2018-maker 的工具用
-韓文字型，shiki365 與 Taku_Taku_Taku 的用日文字型。這些字型大多含漢字，因此中文
-「看得到」，但字形走的是韓文或日文的慣例（骨、每、直、真等字尤其明顯），而且
-像「擲」「骰」這種只有中文在用的字，韓文字型多半直接缺字。
-
-因此在有字型清單的工具裡，各補上同一組五套繁體中文字型。原有的選項一個都沒動，
-預設值也維持原樣——範本是照原本那些字型的味道設計的，換掉會整個變樣。
-
-| 字型 | 設計者 | 授權 | 用途 |
-|---|---|---|---|
-| [Noto Sans TC](https://fonts.google.com/specimen/Noto+Sans+TC) | Google | SIL OFL 1.1 | 黑體 |
-| [Noto Serif TC](https://fonts.google.com/specimen/Noto+Serif+TC) | Google | SIL OFL 1.1 | 明體 |
-| [LXGW WenKai TC 霞鶩文楷](https://fonts.google.com/specimen/LXGW+WenKai+TC) | LXGW | SIL OFL 1.1 | 楷體 |
-| [Chocolate Classical Sans 巧克力黑體](https://fonts.google.com/specimen/Chocolate+Classical+Sans) | Moonlit Owen | SIL OFL 1.1 | 古典黑體 |
-| [Cactus Classical Serif 仙人掌明體](https://fonts.google.com/specimen/Cactus+Classical+Serif) | Henry Chan、Tian Haidong、Moonlit Owen | SIL OFL 1.1 | 古典明體 |
-
-五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
-因此沒有隨附 OFL 全文。
-收錄的工具：`pair-maker`
-（v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
-以及 `trpg-lab` 地圖編輯器的文字字型清單。
-
-`foreground-frame` 沒有網頁字型的載入機制（字型清單指的是觀看者電腦上
-已安裝的字型），因此字型表補上正黑體／明體／標楷體三組台灣系統字型堆疊。
-
-くま的工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
-（PingFang TC、Microsoft JhengHei、Noto Sans TC 等）排到前面；日文介面維持上游的字型。
-
-各工具宣告的字重都逐一對 `fonts.googleapis.com/css2` 驗證過——Google Fonts 對
-不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
-`tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
-
 ## 未授權的工具
 
 `sotsotssi/select-your-chara`、
-`organon-torah/ccfoliaCharacterEditor`、`johnko00/ccfolia-room-zip-maker-demo`
+`johnko00/ccfolia-room-zip-maker-demo`
 與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
 `coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
 頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
@@ -745,5 +680,5 @@ magic-circle 的繁體中文翻譯移植自
 新框架 `web/`（含其建置產物 `assets/build/`、`next/` 與重寫上線的 `tools/<id>/index.html`）、`docs/`、`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
 `guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
 以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
-`tools/character-select/`、`tools/character-editor/`、
+`tools/character-select/`、
 `tools/room-zip/`、`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。
