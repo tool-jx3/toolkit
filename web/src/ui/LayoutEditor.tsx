@@ -13,6 +13,7 @@
  *   靠近 threshold（螢幕 px，預設 8）以內就對齊並顯示一條吸附線，吸住後要拉開 release（預設 12）才脫離；
  *   `hitPadding`：點選範圍往外擴幾個螢幕 px（小物件比較好點）。重疊時後面的物件（上層）優先。
  * - loading-maker 加的（選填）：LayoutItem 的 `attachedTo`：跟著另一個物件移動的物件，拖曳那個物件時不當吸附目標。
+ * - gif-combiner 加的（選填）：`onDelete`：給了時 Delete／Backspace 改成刪除選取的物件（呼叫 onDelete(id)）；不給時照舊取消選取。
  *
  * ```tsx
  * <Stage width={1024} height={1024}>
@@ -115,6 +116,11 @@ export interface LayoutEditorProps {
    */
   ctrlNudge?: boolean;
   onEscape?: () => void;
+  /**
+   * 給了時 Delete／Backspace 呼叫 onDelete(選取的 id)（刪除物件），不給時照舊取消選取
+   * （gif-combiner 移植時新增）。
+   */
+  onDelete?: (id: string) => void;
   /** 標示安全範圍（虛線，不會輸出；內容座標） */
   safeArea?: Box;
   /** 疊在最上面的其他標示 */
@@ -211,6 +217,7 @@ export function LayoutEditor({
   nudgeShiftStep,
   ctrlNudge = false,
   onEscape,
+  onDelete,
   safeArea,
   children,
   snap = null,
@@ -240,6 +247,7 @@ export function LayoutEditor({
     onChange,
     onSelect,
     onEscape,
+    onDelete,
     nudgeStep,
     nudgeShiftStep,
     ctrlNudge,
@@ -250,6 +258,7 @@ export function LayoutEditor({
     onChange,
     onSelect,
     onEscape,
+    onDelete,
     nudgeStep,
     nudgeShiftStep,
     ctrlNudge,
@@ -276,7 +285,8 @@ export function LayoutEditor({
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (e.ctrlKey || isEditableTarget(t)) return;
         e.preventDefault();
-        l.onSelect(null);
+        if (l.onDelete) l.onDelete(item.id);
+        else l.onSelect(null);
         return;
       }
       if (e.ctrlKey && !l.ctrlNudge) return;
