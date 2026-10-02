@@ -317,6 +317,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/johnko00/ccfolia-room-zip-maker-demo',
     },
   },
+  {
+    id: 'character-editor',
+    name: '角色資料編輯器',
+    summary:
+      '讀入角色 JSON、CCFOLIA 編輯畫面的文字或 .json 檔，逐項確認差異後再覆寫；編輯狀態、參數與聊天面板，輸出可以直接貼進 CCFOLIA 的角色資料。',
+    group: 'G5',
+    status: 'next',
+    inspiration: {
+      name: 'organon-torah/ccfoliaCharacterEditor',
+      url: 'https://github.com/organon-torah/ccfoliaCharacterEditor',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
