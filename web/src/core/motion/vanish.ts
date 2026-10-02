@@ -79,7 +79,6 @@ export function vanishState(
   o: VanishOptions = {},
 ): VanishState {
   const I = o.intensity ?? 1;
-  const k = H / 360;
   const pp = clamp01(p);
   const fade = 1 - smoothstep(pp);
   const s: VanishState = {
@@ -118,8 +117,8 @@ export function vanishState(
       break;
     case 'float':
       s.dy = -0.42 * H * I * smoothstep(pp);
-      /* 模糊 7 px × 強度（S 形；loading-maker 附件「往上飄走」的範圍） */
-      s.blur = 7 * k * smoothstep(pp) * I;
+      /* 模糊固定 7 px × S 形 × 強度，不隨畫布大小縮放（與 loading-maker 原作相同） */
+      s.blur = 7 * smoothstep(pp) * I;
       s.alpha = fade;
       break;
     case 'close':

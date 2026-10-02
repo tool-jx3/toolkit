@@ -250,6 +250,11 @@ describe('結尾消失演出（loading-maker 附件「結尾動作」）', () =>
     expect(vanishState('float', 0.5, 360).dy).toBeCloseTo(-0.42 * 360 * 0.5, 6);
     expect(vanishState('float', 0.5, 360, { intensity: 2 }).dy).toBeCloseTo(-0.42 * 360, 6);
   });
+  it('往上飄走：模糊固定 7 px × S 形 × 強度，不隨畫布大小縮放', () => {
+    expect(vanishState('float', 0.5, 360).blur).toBeCloseTo(3.5, 6);
+    expect(vanishState('float', 0.5, 720).blur).toBeCloseTo(3.5, 6);
+    expect(vanishState('float', 1 - 1e-9, 1080, { intensity: 2 }).blur).toBeCloseTo(14, 4);
+  });
   it('閃光爆開：前 30% 閃白光（最亮 0.62）', () => {
     expect(vanishState('burst', 0.15, 360).flash).toBeCloseTo(0.62, 6);
     expect(vanishState('burst', 0.1, 360).flash).toBeCloseTo(0.551, 2);

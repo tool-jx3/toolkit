@@ -64,6 +64,9 @@ import { edit, useLm } from './store';
 import { S } from './strings';
 import { completionStart, seamlessLoop, totalDuration, trimNumber } from './timing';
 
+/** 新增的節點取到 0.01 秒、0.1%（與原作相同） */
+const KEY_RULES = { insertDecimals: { time: 2, value: 1 } } as const;
+
 const useSettings = () => useLm((st) => st.data);
 
 const clampTo = (v: number, [lo, hi]: readonly [number, number]) => Math.min(hi, Math.max(lo, v));
@@ -566,6 +569,7 @@ function BarPanel() {
               value={b.keys}
               onChange={(keys) => set('keys', keys)}
               curves={CURVE_OPTIONS}
+              rules={KEY_RULES}
               defaults={DEFAULT_KEYS}
               onReset={() => setStatus('success', S.status.keysReset)}
               labels={S.bar.keysLabels}

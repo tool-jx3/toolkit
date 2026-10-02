@@ -211,6 +211,20 @@ describe('節點表（loading-maker 預設時間表）', () => {
     while (k.length < 16) k = insertKeyframe(k).keys;
     expect(insertKeyframe(k).index).toBe(-1);
   });
+  it('新增：insertDecimals 決定新節點的時間、值取到小數第幾位', () => {
+    const two: Keyframe[] = [
+      { time: 0, value: 0, curve: 'linear' },
+      { time: 0.25, value: 33, curve: 'linear' },
+    ];
+    expect(insertKeyframe(two).keys[1]).toMatchObject({ time: 0.125, value: 16.5 });
+    const r = { insertDecimals: { time: 2, value: 1 }, lastValue: null };
+    expect(insertKeyframe(two, r).keys[1]).toMatchObject({ time: 0.13, value: 16.5 });
+    const odd: Keyframe[] = [
+      { time: 0, value: 0, curve: 'linear' },
+      { time: 0.1, value: 0.33, curve: 'linear' },
+    ];
+    expect(insertKeyframe(odd, r).keys[1]).toMatchObject({ time: 0.05, value: 0.2 });
+  });
   it('刪除：頭尾不能刪、至少留 2 個', () => {
     expect(removeKeyframe(keys, 0)).toHaveLength(4);
     expect(removeKeyframe(keys, 3)).toHaveLength(4);

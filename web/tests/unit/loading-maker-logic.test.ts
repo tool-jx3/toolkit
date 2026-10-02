@@ -1039,3 +1039,27 @@ describe('整理存檔（第 2 節「數值」）', () => {
     expect(one?.character.upload?.ids).toEqual(['a']);
   });
 });
+
+describe('愛心路徑（與原作相同的兩段三次貝茲曲線）', () => {
+  it('尖端、凹口與控制點', async () => {
+    const { heartPath } = await import('../../src/tools/loading-maker/render');
+    const calls: [string, ...number[]][] = [];
+    const ctx = new Proxy(
+      {},
+      {
+        get:
+          (_, name: string) =>
+          (...args: number[]) =>
+            calls.push([name, ...args]),
+      },
+    ) as unknown as Parameters<typeof heartPath>[0];
+    heartPath(ctx, 100, 50, 40);
+    expect(calls).toEqual([
+      ['beginPath'],
+      ['moveTo', 100, 67],
+      ['bezierCurveTo', 73, 51, 81, 29, 100, 43],
+      ['bezierCurveTo', 119, 29, 127, 51, 100, 67],
+      ['closePath'],
+    ]);
+  });
+});

@@ -88,17 +88,19 @@ export function characterFrameIndex(media: CharacterMedia, s: LmSettings, t: num
 
 /* ---------- 路徑 ---------- */
 
-/** 愛心：凹口朝上；size 是外接的大小（寬約 0.87 × size、高約 0.71 × size，中心略偏上） */
+/**
+ * 愛心：凹口朝上、尖端朝下，左右各一段三次貝茲曲線（與原作相同的控制點）。
+ * size 是基準大小：尖端在中心下方 0.425 × size、凹口在中心上方 0.175 × size。
+ */
 export function heartPath(ctx: Ctx2D, cx: number, cy: number, size: number) {
   const s = size / 2;
-  ctx.save();
-  ctx.translate(cx, cy + 0.1385 * s);
-  ctx.scale(1, 0.9058);
-  traceShape(ctx, 'heart', 0, 0, 0.869 * s);
-  ctx.restore();
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + s * 0.85);
+  ctx.bezierCurveTo(cx - s * 1.35, cy + s * 0.05, cx - s * 0.95, cy - s * 1.05, cx, cy - s * 0.35);
+  ctx.bezierCurveTo(cx + s * 0.95, cy - s * 1.05, cx + s * 1.35, cy + s * 0.05, cx, cy + s * 0.85);
+  ctx.closePath();
 }
 
-/** 換圖列的底形（F133），以 (0, 0) 為中心、size＝格子大小 */
 export function rowShapePath(ctx: Ctx2D, shape: RowShape, size: number) {
   const r = size / 2;
   switch (shape) {
