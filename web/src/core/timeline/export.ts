@@ -10,6 +10,7 @@ import { createEncoder, encodePngColorsAsync } from '../encode/client';
 import type { EncodedFile } from '../encode/frames';
 import { GIF_MAX_FPS } from '../encode/gif';
 import type { EncoderSpec } from '../encode/local';
+import type { PaletteMethod } from '../encode/palette';
 import { encodePngColors } from '../encode/still';
 import { fileNameWithExt, sequenceName } from '../files';
 import { frameRenderTimes, frameTableDuration, frameTableTicks } from './frames';
@@ -102,6 +103,13 @@ export interface ExportAnimationOptions {
    * 不填時 APNG 依 quantize（256 色）、PNG 一律全彩。GIF 不受影響（一律 256 色）。
    */
   colors?: number;
+  /**
+   * 減色時調色盤的選法（APNG、單張 PNG、GIF；預設 'median-cut'）。'pca'＝主成分切割
+   * （彩虹、半透明的線條分得到顏色，見 core/encode/palette.ts）。
+   */
+  paletteMethod?: PaletteMethod;
+  /** GIF 每格各自減色（每格自己的區域調色盤；預設 false＝整段共用一個全域調色盤） */
+  gifLocalPalettes?: boolean;
   /** APNG 合併連續相同的影格（預設 true） */
   mergeIdentical?: boolean;
   /** APNG 加上預設圖（不支援 APNG 的看圖程式顯示代表畫面） */
@@ -329,6 +337,8 @@ export async function exportAnimation(
     scale = 1,
     quantize = false,
     colors,
+    paletteMethod,
+    gifLocalPalettes = false,
     mergeIdentical = true,
     still = false,
     stillForPalette = false,
@@ -392,8 +402,8 @@ export async function exportAnimation(
     onProgress(0.5, '編碼中');
     const still = await abortable(
       worker === false
-        ? encodePngColors(data, crop.w, crop.h, maxColors ?? 0)
-        : encodePngColorsAsync(data, crop.w, crop.h, maxColors ?? 0),
+        ? encodePngColors(data, crop.w, crop.h, maxColors ?? 0, 'auto', paletteMethod)
+        : encodePngColorsAsync(data, crop.w, crop.h, maxColors ?? 0, paletteMethod),
       signal,
     );
     onProgress(1, '完成');
@@ -465,6 +475,7 @@ export async function exportAnimation(
             plays,
             quantize: apngQuantize,
             ...(maxColors ? { maxColors: Math.max(2, maxColors) } : {}),
+            ...(paletteMethod ? { paletteMethod } : {}),
             mergeIdentical,
             embedStill: still,
             ...(stillWeightMin !== undefined ? { stillWeightMin } : {}),
@@ -480,6 +491,8 @@ export async function exportAnimation(
               plays,
               ...(table ? { variableDelay: true } : {}),
               ...(gifAlphaThreshold !== undefined ? { alphaThreshold: gifAlphaThreshold } : {}),
+              ...(paletteMethod ? { paletteMethod } : {}),
+              ...(gifLocalPalettes ? { localPalettes: true } : {}),
             },
           }
         : format === 'webp'

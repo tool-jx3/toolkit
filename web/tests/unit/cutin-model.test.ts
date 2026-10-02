@@ -6,7 +6,13 @@ import { DISCORD_DARK_BG } from '@/ccfolia';
 import { fileNameWithExt } from '@/core/files';
 import { gifDelaysCs, uniformFrames } from '@/core/timeline';
 import { apngFrames, loopProgressAt } from '@/tools/cutin/exporter';
-import { outlineSumPerSize, PALETTES, STYLE_IDS, styleLayers } from '@/tools/cutin/looks';
+import {
+  outlineSumPerSize,
+  PALETTES,
+  paletteOf,
+  STYLE_IDS,
+  styleLayers,
+} from '@/tools/cutin/looks';
 import {
   apngDelayMs,
   applySizePreset,
@@ -357,6 +363,46 @@ describe('文字樣式（3.5）', () => {
         expect(Math.abs(j.x)).toBeLessThanOrEqual(1.2);
         expect(Math.abs(j.y)).toBeLessThanOrEqual(1.2);
       }
+  });
+
+  it('色差故障：紅、青副本就是字形本身（不往外擴），外框照樣露出', () => {
+    const layers = styleLayers({
+      style: 'glitch',
+      palette: paletteOf('mono'),
+      textColor: null,
+      outlineColor: null,
+      size: 100,
+      outlineScale: 1,
+      seed: 12345,
+    });
+    expect(layers.map((l) => l.kind)).toEqual(['outline', 'aberration', 'fill']);
+    const ab = layers[1];
+    expect(ab.kind === 'aberration' && (ab.spread ?? 0)).toBe(0);
+    expect(ab.kind === 'aberration' && ab.dx).toBeCloseTo(3);
+  });
+
+  it('霓虹發光：三層光暈用配色的填色（彩虹時跟著分色）、各 50%，模糊 σ＝0.22／0.147／0.073 字級（blur＝2σ）', () => {
+    for (const id of ['rainbow-ink', 'ice', 'mono'] as const) {
+      const p = paletteOf(id);
+      const layers = styleLayers({
+        style: 'neon',
+        palette: p,
+        textColor: '#123456',
+        outlineColor: null,
+        size: 300,
+        outlineScale: 1,
+        seed: 1,
+      });
+      const glows = layers.filter((l) => l.kind === 'glow');
+      expect(glows).toHaveLength(3);
+      glows.forEach((l, i) => {
+        if (l.kind !== 'glow') return;
+        expect(l.paint).toEqual(p.fill);
+        expect(l.alpha).toBe(0.5);
+        expect(l.composite ?? 'lighter').toBe('lighter');
+        expect(l.blur).toBeCloseTo(300 * 2 * 0.22 * ((3 - i) / 3), 6);
+      });
+    }
   });
 });
 

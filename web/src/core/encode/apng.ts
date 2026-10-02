@@ -4,7 +4,7 @@
  * - 每一格只存跟前一格不同的矩形範圍（dispose NONE、blend SOURCE）。
  * - 連續相同的影格合併成一格並延長顯示時間；減色後才變得相同的影格也會合併。
  * - 可加一張不屬於動畫的「預設圖」（不支援 APNG 的看圖程式顯示這張）。
- * - quantize 開啟時減成最多 256 色（含半透明，見 palette.ts）；關閉時為全彩 RGBA。
+ * - quantize 開啟時減成最多 256 色（含半透明，見 palette.ts；paletteMethod 選調色盤的選法）；關閉時為全彩 RGBA。
  * - palette 給了固定調色盤時直接用它（不統計、不減色），像素必須是調色盤裡的顏色；完全透明的像素也保留原本的 RGB。
  *
  * 移植自 text-fx（本專案原創，MIT）的匯出流程，改成「一格一格餵進來」的串流介面。
@@ -20,7 +20,7 @@ import {
   toU32,
   yieldToEventLoop,
 } from './frames';
-import { buildPalette, ColorStats } from './palette';
+import { buildPalette, ColorStats, type PaletteMethod } from './palette';
 import { type ApngFrame, assembleApng, type DeflateMode, packImage } from './png';
 
 export interface ApngEncoderOptions {
@@ -34,6 +34,8 @@ export interface ApngEncoderOptions {
   quantize?: boolean;
   /** 減色時的色數上限（2～256，預設 256） */
   maxColors?: number;
+  /** 減色時調色盤的選法（預設 'median-cut'；'pca'＝主成分切割，見 palette.ts） */
+  paletteMethod?: PaletteMethod;
   /**
    * 固定調色盤（RGBA 平鋪，每色 4 位元組，1～256 色，不可重複）。給了就輸出調色盤 PNG、忽略 quantize／maxColors：
    * 每個像素都必須與調色盤裡某一色完全相同（包含完全透明像素的 RGB），找不到時 addFrame 丟 RangeError。
@@ -140,6 +142,7 @@ export class ApngEncoder implements FrameEncoder {
       plays: 0,
       quantize: false,
       maxColors: 256,
+      paletteMethod: 'median-cut',
       mergeIdentical: true,
       deflate: 'auto',
       embedStill: true,
@@ -216,7 +219,7 @@ export class ApngEncoder implements FrameEncoder {
           this.stillPx.length,
           Math.max(this.opt.stillWeightMin, Math.round(this.ticks * 0.35)),
         );
-      const pal = buildPalette(this.stats, this.opt.maxColors);
+      const pal = buildPalette(this.stats, this.opt.maxColors, this.opt.paletteMethod);
       palette = pal.colors;
       colors = { lossless: pal.lossless, count: pal.count };
       let lastV = -1;

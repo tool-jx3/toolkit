@@ -135,6 +135,10 @@ export const hasOutlineLayer = (style: StyleId): boolean => style !== 'knockout'
 export const STRIPE_COLORS = ['#ffffff', '#e8283c'] as const;
 /** 色差的兩份副本（偏紅、偏青） */
 export const ABERRATION_COLORS = ['#ff2b4e', '#1fe3ff'] as const;
+/** 霓虹光暈三層的模糊 σ（字級的倍數，由大到小；最大 0.22，其餘為 2/3、1/3） */
+export const NEON_GLOW_SIGMA = [0.22, 0.22 * (2 / 3), 0.22 / 3] as const;
+/** 霓虹光暈每層的不透明度 */
+export const NEON_GLOW_ALPHA = 0.5;
 
 /** 填色的代表色（光暈這類只能用單色的地方）；彩虹取文字中央、跟著流動 */
 export function paintKeyColor(paint: Paint, t = 0): string {
@@ -212,12 +216,19 @@ export function styleLayers(o: StyleInput): TextFxLayer[] {
         { kind: 'fill', paint: fill },
       ];
     case 'neon': {
-      /* 光暈＝配色的填色（不受覆寫影響）；細外框也是配色的填色；字是白色 */
-      const glow = paintKeyColor(p.fill, o.t ?? 0);
+      /*
+       * 光暈＝配色的填色（不受覆寫影響；彩虹、漸層時光暈跟著分色）；細外框也是配色的填色；字是白色。
+       * 三層由大到小、各 50% 不透明度以加亮疊上，模糊 σ＝0.22、0.147、0.073 字級（blur 傳 2σ）。
+       */
+      const glow = {
+        color: paintKeyColor(p.fill, o.t ?? 0),
+        paint: p.fill,
+        alpha: NEON_GLOW_ALPHA,
+      };
       return [
-        { kind: 'glow', color: glow, blur: S * 0.22 },
-        { kind: 'glow', color: glow, blur: S * 0.11 },
-        { kind: 'glow', color: glow, blur: S * 0.05 },
+        ...NEON_GLOW_SIGMA.map(
+          (sigma): TextFxLayer => ({ kind: 'glow', ...glow, blur: S * sigma * 2 }),
+        ),
         { kind: 'outline', paint: o.outlineColor ? o1 : p.fill, width: w(0.025) },
         { kind: 'fill', paint: o.textColor ? fill : solid('#ffffff') },
       ];
@@ -247,6 +258,7 @@ export function styleLayers(o: StyleInput): TextFxLayer[] {
       const j = () => r.signed() * S * 0.012;
       return [
         { kind: 'outline', paint: o1, width: w(0.06) },
+        /* 副本就是字形本身（不往外擴）：只在填色的左右露出一點，外框照樣看得到 */
         {
           kind: 'aberration',
           colors: ABERRATION_COLORS,
@@ -255,7 +267,6 @@ export function styleLayers(o: StyleInput): TextFxLayer[] {
             { x: j(), y: j() },
             { x: j(), y: j() },
           ],
-          spread: w(0.06),
         },
         { kind: 'fill', paint: fill },
       ];

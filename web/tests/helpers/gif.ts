@@ -10,6 +10,8 @@ export interface GifFrame {
   disposal: number;
   transparentIndex: number | null;
   indices: Uint8Array;
+  /** 這格自己的區域調色盤（RGB 平鋪）；沒有時為 null（用全域調色盤） */
+  localPalette: Uint8Array | null;
 }
 
 export interface GifInfo {
@@ -124,25 +126,39 @@ export function parseGif(bytes: Uint8Array): GifInfo {
       const h = dv.getUint16(o + 6, true);
       const f = bytes[o + 8];
       o += 9;
-      if (f & 0x80) o += (1 << ((f & 7) + 1)) * 3;
+      let localPalette: Uint8Array | null = null;
+      if (f & 0x80) {
+        const n = (1 << ((f & 7) + 1)) * 3;
+        localPalette = bytes.slice(o, o + n);
+        o += n;
+      }
       const minCode = bytes[o++];
       const data = readSubBlocks();
-      frames.push({ x, y, width: w, height: h, ...gce, indices: lzwDecode(minCode, data, w * h) });
+      frames.push({
+        x,
+        y,
+        width: w,
+        height: h,
+        ...gce,
+        indices: lzwDecode(minCode, data, w * h),
+        localPalette,
+      });
       gce = { delayCs: 0, disposal: 0, transparentIndex: null };
     } else throw new Error(`未知的區塊 0x${b?.toString(16)}`);
   }
   return { width, height, globalPalette, loopCount, frames };
 }
 
-/** 用全域調色盤把一格轉成 RGBA（透明色 → alpha 0） */
+/** 用這格的區域調色盤（沒有時用全域調色盤）把一格轉成 RGBA（透明色 → alpha 0） */
 export function gifFrameRgba(info: GifInfo, f: GifFrame): Uint8Array {
   const out = new Uint8Array(f.width * f.height * 4);
+  const pal = f.localPalette ?? info.globalPalette;
   for (let i = 0; i < f.indices.length; i++) {
     const k = f.indices[i];
     if (f.transparentIndex !== null && k === f.transparentIndex) continue;
-    out[i * 4] = info.globalPalette[k * 3];
-    out[i * 4 + 1] = info.globalPalette[k * 3 + 1];
-    out[i * 4 + 2] = info.globalPalette[k * 3 + 2];
+    out[i * 4] = pal[k * 3];
+    out[i * 4 + 1] = pal[k * 3 + 1];
+    out[i * 4 + 2] = pal[k * 3 + 2];
     out[i * 4 + 3] = 255;
   }
   return out;

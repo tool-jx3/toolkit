@@ -31,7 +31,13 @@ export {
   gifRepeat,
 } from './gif';
 export { createLocalEncoder, type Encoder, type EncoderSpec } from './local';
-export { buildPalette, ColorStats, type Palette } from './palette';
+export {
+  buildPalette,
+  ColorStats,
+  type Palette,
+  type PaletteMethod,
+  principalAxis,
+} from './palette';
 export {
   type ApngFrame,
   assembleApng,

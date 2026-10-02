@@ -1,7 +1,8 @@
 /**
  * 匯出（規格 3.1、3.2）：
  * - APNG：N 格、每格延遲＝1000 ÷ fps 四捨五入成整毫秒、無限循環；色數 1～256 為整段共用調色盤，0＝無損。
- * - GIF：每格各自減色到 256 色，延遲以 1/100 秒累計；沒有底色時透明只有一階，有底色時先合成。
+ * - GIF：每格各自減色到 256 色（區域調色盤），延遲以 1/100 秒累計；沒有底色時透明只有一階，有底色時先合成。
+ * - 減色一律用主成分切割（'pca'，同舊版的做法：名額依顏色的分散量分配，彩虹與半透明的線條也分得到顏色）。
  * - PNG：單張，畫 t＝0（第一格）；色數規則同 APNG。
  * 第 i 格畫的是 t＝i ÷ N，所以最後一格接回第一格是無縫的。預覽與匯出都套用依用途的自動調整（F09）。
  */
@@ -91,6 +92,8 @@ export async function runExport(
     fps: s.fps,
     plays: 0,
     colors: format === 'gif' ? undefined : s.colors,
+    paletteMethod: 'pca',
+    gifLocalPalettes: true,
     matte: format === 'gif' ? s.gifMatte : null,
     fileName: fileBaseName(s),
     onProgress: (_ratio, label) => {

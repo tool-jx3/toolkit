@@ -5,6 +5,7 @@ import { canUseWorker, ownBuffer, transfer, type WorkerHandle, wrapWorker } from
 import type { EncodeWorkerApi } from './encode.worker';
 import type { EncodedFile, RgbaPixels } from './frames';
 import { createLocalEncoder, type Encoder, type EncoderSpec } from './local';
+import type { PaletteMethod } from './palette';
 import { encodePngColors, type StillPngResult } from './still';
 
 export interface CreateEncoderOptions {
@@ -120,14 +121,19 @@ export async function encodePngAsync(
   }
 }
 
-/** 單張 PNG（可減色），回傳檔案與減色資訊；在 Worker 裡執行（不支援時改在主執行緒） */
+/**
+ * 單張 PNG（可減色），回傳檔案與減色資訊；在 Worker 裡執行（不支援時改在主執行緒）。
+ * paletteMethod：減色時調色盤的選法（預設 'median-cut'）。
+ */
 export async function encodePngColorsAsync(
   rgba: RgbaPixels,
   width: number,
   height: number,
   maxColors = 0,
+  paletteMethod: PaletteMethod = 'median-cut',
 ): Promise<StillPngResult> {
-  if (!canUseWorker()) return encodePngColors(rgba, width, height, maxColors);
+  if (!canUseWorker())
+    return encodePngColors(rgba, width, height, maxColors, 'auto', paletteMethod);
   const handle = openEncodeWorker();
   try {
     const buf = ownBuffer(rgba);
@@ -136,6 +142,7 @@ export async function encodePngColorsAsync(
       width,
       height,
       maxColors,
+      paletteMethod,
     )) as StillPngResult;
   } finally {
     handle.terminate();

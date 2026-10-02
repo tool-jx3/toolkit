@@ -5,6 +5,7 @@
 import { exposeApi, transfer } from '../worker';
 import type { EncodedFile } from './frames';
 import { createLocalEncoder, type Encoder, type EncoderSpec } from './local';
+import type { PaletteMethod } from './palette';
 import { encodePngColors, type StillPngResult } from './still';
 
 let encoder: Encoder | null = null;
@@ -50,14 +51,15 @@ const api = {
     const { bytes } = await encodePngColors(rgba, width, height, maxColors);
     return transfer(bytes, [bytes.buffer]);
   },
-  /** 同上，另外回傳減色資訊 */
+  /** 同上，另外回傳減色資訊；paletteMethod 選調色盤的選法 */
   async encodePngColors(
     rgba: Uint8ClampedArray,
     width: number,
     height: number,
     maxColors: number,
+    paletteMethod: PaletteMethod = 'median-cut',
   ): Promise<StillPngResult> {
-    const result = await encodePngColors(rgba, width, height, maxColors);
+    const result = await encodePngColors(rgba, width, height, maxColors, 'auto', paletteMethod);
     return transfer(result, [result.bytes.buffer]);
   },
 };

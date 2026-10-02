@@ -433,6 +433,8 @@ test.describe('預覽與匯出', () => {
     expect([gif.width, gif.height, gif.frames.length, gif.loopCount]).toEqual([720, 720, 30, 0]);
     expect(gif.frames.reduce((s, f) => s + f.delayCs, 0)).toBe(100);
     expect(gif.frames.every((f) => f.transparentIndex === null)).toBe(true);
+    /* 每格各自減色：第 2 格起都帶自己的區域調色盤（F50） */
+    expect(gif.frames.slice(1).every((f) => f.localPalette !== null)).toBe(true);
     await page.keyboard.press('Escape');
     /* GIF（CCFOLIA、不合成）：一階透明 */
     await radio(page, '用途', 'CCFOLIA 切入演出').click();
@@ -462,6 +464,32 @@ test.describe('預覽與匯出', () => {
     }
     const still = decodePixels(z, 480, 480, 6);
     expect(Buffer.from(still).equals(Buffer.from(first)), 'PNG 是 t＝0 那一格').toBe(true);
+    /*
+     * 256 色的減色品質（F49）：以同設定的無損 APNG 為準，兩邊不透明度 ≥ 128 的像素 |ΔR|＋|ΔG|＋|ΔB|
+     * 平均 < 12、誤差 > 60 的像素每格不到 1%（舊版同類設定約 7～9、≤ 1.06%）
+     */
+    const ref = composeApng(parseApng(lossless.bytes));
+    const q = composeApng(apng);
+    expect(q).toHaveLength(ref.length);
+    let meanSum = 0;
+    for (let k = 0; k < ref.length; k++) {
+      const r = ref[k];
+      const t = q[k];
+      let sum = 0;
+      let n = 0;
+      let big = 0;
+      for (let i = 0; i < r.length; i += 4) {
+        if (r[i + 3] < 128 || t[i + 3] < 128) continue;
+        const d =
+          Math.abs(r[i] - t[i]) + Math.abs(r[i + 1] - t[i + 1]) + Math.abs(r[i + 2] - t[i + 2]);
+        sum += d;
+        n++;
+        if (d > 60) big++;
+      }
+      meanSum += sum / n;
+      expect(big / n, `第 ${k} 格誤差 > 60 的比例`).toBeLessThan(0.01);
+    }
+    expect(meanSum / ref.length).toBeLessThan(12);
     await page.keyboard.press('Escape');
     await tab(page, '匯出');
     await expect(radio(page, '格式', 'APNG')).toHaveAttribute('aria-checked', 'true');

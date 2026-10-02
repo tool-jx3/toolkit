@@ -7,11 +7,12 @@
  * | fill | 字形本體，用 paint 塗（單色、漸層、金屬、彩虹、斜紋） |
  * | shadow | 硬陰影（blur 0）或模糊陰影：剪影（含 spread）往 (dx, dy) 移 |
  * | extrude | 立體擠出：剪影往 (dx, dy) 方向連續複製（每 1 px 一份），形成實心的厚度 |
- * | glow | 光暈：剪影模糊後以加亮（lighter）疊上；疊幾層由大到小的 glow 就是霓虹 |
+ * | glow | 光暈：剪影模糊後以加亮（lighter）疊上；疊幾層由大到小的 glow 就是霓虹。給了 paint 時光暈用填色塗（彩虹光暈跟著彩虹分色），alpha 是整層的不透明度 |
  * | aberration | 色差：兩份染色的剪影左右錯開，以濾色（screen）疊上 |
  * | knockout | 挖空：剪影把底下已畫的東西挖成透明 |
  *
  * 模糊用「畫在畫面外、只留下陰影」的方式做（各瀏覽器都支援），不用 ctx.filter。
+ * blur 是 canvas 的 shadowBlur（高斯模糊的 σ＝blur ÷ 2）：要對應 CSS `filter: blur(σ)` 時傳 2σ。
  * 整段的縮放、旋轉、位移（文字動態）以 transform 套在所有層上：陰影、光暈跟著字移動。
  */
 import { type Ctx2D, compositeLayer, createLayerPool, type LayerPool } from './layers';
@@ -34,12 +35,20 @@ export type TextFxLayer =
   | { kind: 'extrude'; paint: Paint; dx: number; dy: number; spread?: number }
   | {
       kind: 'glow';
+      /** 光暈的顏色（給了 paint 時不用） */
       color: string;
-      /** 模糊（px） */
+      /**
+       * 用填色塗光暈（漸層、金屬、彩虹等；範圍＝整段外接框、跟著 t 流動，同 fill 層）。
+       * 給了就不用 color；例如彩虹字的霓虹光暈跟著彩虹分色。
+       */
+      paint?: Paint;
+      /** 模糊（px，同 canvas 的 shadowBlur；σ＝blur ÷ 2） */
       blur: number;
       spread?: number;
       /** 疊幾次（越多越亮，預設 1） */
       strength?: number;
+      /** 整層的不透明度（0～1，預設 1） */
+      alpha?: number;
       /** 預設 lighter（加亮） */
       composite?: GlobalCompositeOperation;
     }
@@ -145,11 +154,17 @@ function blurredSilhouette(
     blur,
     composite,
     passes,
+    alpha,
+    paint,
   }: {
     color: string;
     blur: number;
     composite: GlobalCompositeOperation;
     passes: number;
+    /** 整層的不透明度（不給＝沿用目前的 globalAlpha） */
+    alpha?: number;
+    /** 用填色塗（不是單色時才需要第二張暫存畫布） */
+    paint?: { paint: Paint; box: PaintBox; t: number };
   },
 ): void {
   const layer = pool.acquire(ctx);
@@ -161,10 +176,32 @@ function blurredSilhouette(
     const W = ctx.canvas.width;
     const k = transformScale(ctx);
     const far = W + blur * k * 4 + 64;
+    if (paint && paint.paint.kind !== 'solid') {
+      /* 模糊的剪影先畫在第二張暫存畫布上，以 source-in 塗上填色，再整張疊回去 */
+      const tint = pool.acquire(ctx);
+      try {
+        const tc = tint.ctx;
+        tc.save();
+        tc.setTransform(1, 0, 0, 1, 0, 0);
+        tc.globalCompositeOperation = 'lighter';
+        tc.shadowColor = '#000';
+        tc.shadowBlur = blur * k;
+        tc.shadowOffsetX = far;
+        tc.shadowOffsetY = 0;
+        for (let i = 0; i < passes; i++) tc.drawImage(layer.canvas, -far, 0);
+        tc.restore();
+        fillWithPaint(tc, paint.paint, paint.box, paint.t);
+        compositeLayer(ctx, tint, { alpha: alpha ?? 1, composite });
+      } finally {
+        pool.release(tint);
+      }
+      return;
+    }
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = composite;
-    ctx.shadowColor = color;
+    if (alpha !== undefined) ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+    ctx.shadowColor = paint?.paint.kind === 'solid' ? paint.paint.color : color;
     ctx.shadowBlur = blur * k;
     ctx.shadowOffsetX = far;
     ctx.shadowOffsetY = 0;
@@ -173,6 +210,28 @@ function blurredSilhouette(
   } finally {
     pool.release(layer);
   }
+}
+
+/** 暫存畫布上已畫的內容以 source-in 整張塗上 paint（畫布的變形和形狀相同：漸層以形狀的座標定義） */
+function fillWithPaint(c: Ctx2D, paint: Paint, box: PaintBox, t: number): void {
+  c.save();
+  c.globalCompositeOperation = 'source-in';
+  c.fillStyle = paintStyle(c, paint, box, t);
+  const inv = c.getTransform().inverse();
+  const W = c.canvas.width;
+  const H = c.canvas.height;
+  const pts = [
+    inv.transformPoint({ x: 0, y: 0 }),
+    inv.transformPoint({ x: W, y: 0 }),
+    inv.transformPoint({ x: 0, y: H }),
+    inv.transformPoint({ x: W, y: H }),
+  ];
+  const xs = pts.map((q) => q.x);
+  const ys = pts.map((q) => q.y);
+  const x0 = Math.min(...xs);
+  const y0 = Math.min(...ys);
+  c.fillRect(x0, y0, Math.max(...xs) - x0, Math.max(...ys) - y0);
+  c.restore();
 }
 
 /**
@@ -202,22 +261,7 @@ export function withPaint(
     drawMask(c);
     c.restore();
     /* 暫存畫布的變形和目標相同：漸層以形狀的座標定義，鋪滿整張 */
-    c.globalCompositeOperation = 'source-in';
-    c.fillStyle = paintStyle(c, paint, box, t);
-    const inv = c.getTransform().inverse();
-    const W = c.canvas.width;
-    const H = c.canvas.height;
-    const pts = [
-      inv.transformPoint({ x: 0, y: 0 }),
-      inv.transformPoint({ x: W, y: 0 }),
-      inv.transformPoint({ x: 0, y: H }),
-      inv.transformPoint({ x: W, y: H }),
-    ];
-    const xs = pts.map((q) => q.x);
-    const ys = pts.map((q) => q.y);
-    const x0 = Math.min(...xs);
-    const y0 = Math.min(...ys);
-    c.fillRect(x0, y0, Math.max(...xs) - x0, Math.max(...ys) - y0);
+    fillWithPaint(c, paint, box, t);
     compositeLayer(ctx, layer, { composite: ctx.globalCompositeOperation });
   } finally {
     pool.release(layer);
@@ -299,6 +343,8 @@ export function renderTextFx(
             blur: layer.blur,
             composite: layer.composite ?? 'lighter',
             passes: Math.max(1, Math.round(layer.strength ?? 1)),
+            ...(layer.alpha !== undefined ? { alpha: layer.alpha } : {}),
+            ...(layer.paint ? { paint: { paint: layer.paint, box, t } } : {}),
           },
         );
         break;

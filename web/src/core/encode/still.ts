@@ -3,7 +3,7 @@
  * 減色演算法與 APNG 相同（palette.ts）。
  */
 import { type RgbaPixels, toU32 } from './frames';
-import { buildPalette, ColorStats } from './palette';
+import { buildPalette, ColorStats, type PaletteMethod } from './palette';
 import { type Bytes, type DeflateMode, encodePng } from './png';
 
 export interface StillPngResult {
@@ -14,7 +14,7 @@ export interface StillPngResult {
 
 /**
  * 編一張 PNG。maxColors：0＝全彩 RGBA（無損）；2～256＝最多這麼多色的調色盤 PNG
- * （實際用到的顏色在上限以內時完全無損）。
+ * （實際用到的顏色在上限以內時完全無損）。paletteMethod：減色時調色盤的選法（預設 'median-cut'）。
  */
 export async function encodePngColors(
   rgba: RgbaPixels,
@@ -22,13 +22,14 @@ export async function encodePngColors(
   height: number,
   maxColors = 0,
   deflate: DeflateMode = 'auto',
+  paletteMethod: PaletteMethod = 'median-cut',
 ): Promise<StillPngResult> {
   if (!(maxColors > 0)) return { bytes: await encodePng(rgba, width, height, null, deflate) };
   const limit = Math.min(256, Math.max(2, Math.round(maxColors)));
   const u32 = toU32(rgba);
   const stats = new ColorStats(limit);
   stats.add(u32, 0, u32.length);
-  const pal = buildPalette(stats, limit);
+  const pal = buildPalette(stats, limit, paletteMethod);
   const idx = new Uint8Array(u32.length);
   let lastV = -1;
   let lastI = 0;
