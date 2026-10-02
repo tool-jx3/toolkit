@@ -481,13 +481,13 @@ CCFOLIA 的盤面 1 格＝24 px；前景要用格數設定寬高。工具建議�
 | F32 | ⚠️ 核准的差異 | `ui-layers.mjs`：新增文字圖層的欄位與舊版逐一相同（中心 50%／88%、44、粗體、橫書、置中、字距 0.1、文字色、無外框、無陰影）並選取；字型為 Noto Serif TC（Google）、預設文字「第一章　霧中的燈塔」。 | 第 7 節：預設繁中字型。 |
 | F33 | ✅ 通過 | `ui-layers.mjs`：清單由上而下排列、圖片顯示縮圖、文字顯示「文」、框的下層加「後」；名稱空白時顯示文字內容；往前／往後的停用狀態與移動結果兩版相同。 | |
 | F34 | ✅ 通過 | `ui-layers.mjs`：打字途中清單即時更新（兩版），清空時顯示文字內容。 | |
-| F35 | ❌ 未通過 | `t-render3.mjs` K 組：自由擺放、拉伸、等比、平鋪在原尺寸或放大時 0 差；但縮小超過約 2 倍時新版與舊版不同：平鋪 10%＋旋轉 45° 23.7%、4K 框素材拉伸到 1280 × 720 19.6%（`t-imgsrc4.mjs`，`out/down-side.png`：新版同心細線出現明顯摩爾紋與鋸齒）、4K 雜訊圖 63%（`t-imgsrc3.mjs`）。`t-imgsrc.mjs`：同一張圖用 `<img>` 與 ImageBitmap 在同樣變形下畫，差異的像素數與位置和上面完全一致。 | 新版的圖片圖層從資產庫取 ImageBitmap 畫，Chromium 對 ImageBitmap 縮小時（imageSmoothingQuality 預設 low）沒有 mipmap；舊版用 `<img>`。把 imageSmoothingQuality 設成 medium／high 時差異降到 2.3%（`t-imgsrc5.mjs`）。預覽、縮圖同樣受影響。 |
+| F35 | ✅ 通過（7.1 修正後） | 複驗（主控，7.1 修正後）：`t-imgsrc6.mjs`、`t-imgsrc4.mjs` 改指新建置：自動擺放 0.22 倍與平鋪＋旋轉都與舊版 0 差。 先前：`t-render3.mjs` K 組：自由擺放、拉伸、等比、平鋪在原尺寸或放大時 0 差；但縮小超過約 2 倍時新版與舊版不同：平鋪 10%＋旋轉 45° 23.7%、4K 框素材拉伸到 1280 × 720 19.6%（`t-imgsrc4.mjs`，`out/down-side.png`：新版同心細線出現明顯摩爾紋與鋸齒）、4K 雜訊圖 63%（`t-imgsrc3.mjs`）。`t-imgsrc.mjs`：同一張圖用 `<img>` 與 ImageBitmap 在同樣變形下畫，差異的像素數與位置和上面完全一致。 | 新版的圖片圖層從資產庫取 ImageBitmap 畫，Chromium 對 ImageBitmap 縮小時（imageSmoothingQuality 預設 low）沒有 mipmap；舊版用 `<img>`。把 imageSmoothingQuality 設成 medium／high 時差異降到 2.3%（`t-imgsrc5.mjs`）。預覽、縮圖同樣受影響。 |
 | F36 | ✅ 通過 | `t-render3.mjs` K 組：換色（強調色、文字色、框色 1、自訂、差分自己的顏色）0 差；`ui-layers.mjs`：選單多「不換色」，6 項。 | |
 | F37 | ✅ 通過 | `t-render3.mjs` J 組：`{差分}／{英文}／{時間帯}／{英語}` 開差分時換成名稱與英文、關差分時是空字串，0 差；介面有佔位符說明。 | |
 | F38 | ⚠️ 核准的差異 | `ui-project.mjs`：字型改用共用 FontPicker（Google 字型、電腦字型、上傳字型三個分頁），電腦字型分頁列出 8 組（黑體類、明體類、教科書體、西文襯線、西文無襯線、繁中黑體、繁中明體、繁中楷書，`ui-misc.mjs`）；`t-render3.mjs` J 組 8 組電腦字型逐像素 0 差。 | 第 7 節：共用 FontPicker、保留 8 組電腦字型。 |
 | F39 | ✅ 通過 | `t-render3.mjs` J 組（上傳同一個 IPAGothic）：粗體開關、多行靠左／置中／靠右、字距 −0.2／0／0.5／1、直書（含轉 90° 的字）、直書字距、字級 8／120／400 全部 0 差；`ui-layers.mjs`：直書時隱藏對齊，範圍 8～400、−0.2～1。 | 字重由「粗體」決定（關 → 400），實作者自行決定，與規格 3.10 相同。 |
 | F40 | ✅ 通過 | `t-render3.mjs` J 組：顏色參照 3 種、外框 2／12／24、陰影 5／40、外框＋陰影 0 差；外框 > 0 才出現外框顏色（兩版）。 | |
-| F41 | ❌ 未通過 | `t-render3.mjs` J／K 組：位置（含畫布外）、旋轉、翻轉、大小 1～1.7 倍 0 差；縮小時不同：0.5 倍＋旋轉 0.03%，大圖自動擺放的 0.22 倍（3000 × 2000 圖）4.6%、目視有明顯摩爾紋（`t-imgsrc6.mjs`，`out/emblem-side.png`）。 | 原因同 F35。 |
+| F41 | ✅ 通過（7.1 修正後） | 複驗（主控，7.1 修正後）：`t-imgsrc6.mjs`：1920 × 1080、1280 × 720 拉伸都與舊版 0 差。 先前：`t-render3.mjs` J／K 組：位置（含畫布外）、旋轉、翻轉、大小 1～1.7 倍 0 差；縮小時不同：0.5 倍＋旋轉 0.03%，大圖自動擺放的 0.22 倍（3000 × 2000 圖）4.6%、目視有明顯摩爾紋（`t-imgsrc6.mjs`，`out/emblem-side.png`）。 | 原因同 F35。 |
 | F42 | ✅ 通過 | `t-render3.mjs` K 組：6 種混合模式（不透明度 0.7）0 差；選單 6 項相同。 | |
 | F43 | ✅ 通過 | `t-render3.mjs` K 組：最前面／框的下層 × 繪製範圍 3 種（有角飾、裝飾、標籤）、圖層疊放順序 0 差；清單加「後」。 | |
 | F44 | ✅ 通過 | 同 F43：不限、限框上、限窗內 0 差（文字也測了限框上、限窗內）。 | |
@@ -527,7 +527,7 @@ CCFOLIA 的盤面 1 格＝24 px；前景要用格數設定寬高。工具建議�
 | F78 | ⚠️ 核准的差異 | 各腳本記錄的狀態列：就緒／已還原、已套用範本、已新增、已刪除（可以復原）、已儲存（含 KB／MB）、已開啟、各種錯誤（danger 樣式）都有對應；`ui-misc.mjs`：匯出失敗（toBlob 失敗）新版「匯出失敗：無法輸出圖片」錯誤樣式，舊版「PNG 製作失敗。」不是錯誤樣式。 | 第 7 節：匯出失敗改錯誤樣式；文字新版自寫。 |
 | F79 | ⚠️ 核准的差異 | `ui-project.mjs`：按鈕在預覽上方，沒有可復原／重做時停用；拖動滑桿途中不記、放開 +1；檔名欄打字途中不記、離開 +1；`ui-misc.mjs`：上限 150 步（170 次變更後 150 步，全部復原後停用）；上傳／移除字型不加步數。預覽背景、格線、目前差分不列入復原（`ui-preview.mjs`）。 | 第 7 節：預覽背景、格線、目前差分移出復原（比照 G4）。 |
 | F80 | ✅ 通過 | `ui-project.mjs`：Ctrl＋Z 復原、Ctrl＋Y 與 Ctrl＋Shift＋Z 重做（兩版）；焦點在檔名欄時 Ctrl＋Z 交給欄位本身；字型對話框開著時不觸發；快捷鍵說明列出（`ui-usage.mjs`）。 | |
-| F81 | ❌ 未通過 | `ui-project.mjs`：重開頁還原（設定逐欄相同、狀態列「已還原上次的編輯內容」、復原紀錄清空）；`t-autosave.mjs`：圖片、背景圖、上傳字型、目前差分一起還原，輸出相同；localStorage 寫入失敗時狀態列提示改用專案檔。但 `t-blocked.mjs`、`t-blocked2.mjs`：讀取 `window.localStorage` 本身就丟 SecurityError 時（瀏覽器封鎖此網站的 Cookie 與網站資料、沒有 allow-same-origin 的 iframe），新版整頁空白（沒有 h1，pageerror「Access is denied for this document.」）；舊版、room-zip、character-editor 同條件可正常使用。 | 原因：`store.ts` 的 `AUTOSAVE_OK = typeof localStorage !== 'undefined' && …` 的 `typeof` 會觸發 getter 而丟例外。`t-blocked3.mjs` 只把這一處包進 try/catch 後即可開啟、提示無法自動存檔、套用範本與匯出正常。另：新版變更後約 8 ms 就寫入（規格約 0.6 秒），實作者自行決定，驗證者認為可接受。 |
+| F81 | ✅ 通過（7.1 修正後） | 複驗（主控，7.1 修正後）：`t-blocked.mjs` 改指新建置：封鎖網站資料、寫入丟例外都能開啟，提示無法自動存檔，沒有 pageerror。 先前：`ui-project.mjs`：重開頁還原（設定逐欄相同、狀態列「已還原上次的編輯內容」、復原紀錄清空）；`t-autosave.mjs`：圖片、背景圖、上傳字型、目前差分一起還原，輸出相同；localStorage 寫入失敗時狀態列提示改用專案檔。但 `t-blocked.mjs`、`t-blocked2.mjs`：讀取 `window.localStorage` 本身就丟 SecurityError 時（瀏覽器封鎖此網站的 Cookie 與網站資料、沒有 allow-same-origin 的 iframe），新版整頁空白（沒有 h1，pageerror「Access is denied for this document.」）；舊版、room-zip、character-editor 同條件可正常使用。 | 原因：`store.ts` 的 `AUTOSAVE_OK = typeof localStorage !== 'undefined' && …` 的 `typeof` 會觸發 getter 而丟例外。`t-blocked3.mjs` 只把這一處包進 try/catch 後即可開啟、提示無法自動存檔、套用範本與匯出正常。另：新版變更後約 8 ms 就寫入（規格約 0.6 秒），實作者自行決定，驗證者認為可接受。 |
 | F82 | ✅ 通過 | `ui-project.mjs`：在差分分頁重開頁後回到差分分頁（兩版）。 | |
 | F83 | ✅ 通過 | `ui-project.mjs`：→ 從專案循環到框、End 專案、Home 框、← 從框循環到專案（兩版的 → 循環相同）。 | |
 | F84 | ✅ 通過 | `ui-project.mjs`：選取圖層後重開頁，選取的圖層、裝飾都是 null。 | |
@@ -540,7 +540,7 @@ CCFOLIA 的盤面 1 格＝24 px；前景要用格數設定寬高。工具建議�
 | F91 | 不移植（刻意差異） | `ui-misc.mjs`：頁尾只有「靈感來源：shiki365/foreground-frame-maker」一個連結。 | |
 | F92 | ⚠️ 核准的差異 | `ui-usage.mjs`：使用方式最後一句「本工具與 CCFOLIA 官方無關。」；素材條款的提醒在圖層分頁的新增說明。 | 第 7 節：保留一句自己寫的非官方聲明。 |
 
-小計：✅ 73、⚠️ 14、❌ 3（另有不移植 2 項，共 92 項）
+小計：✅ 76、⚠️ 14、❌ 0（另有不移植 2 項，共 92 項）
 
 效能（`t-export.mjs`，天氣 6 個差分全匯出、1920 × 1080、含霧、雨、雷雨的 ZIP，兩版交錯各 6 次）：舊版中位數 1264 ms（1075～1350），新版 1330 ms（1252～1723），沒有明顯變慢。開頁到可操作：舊版約 0.3 秒、新版約 0.6 秒。
 
