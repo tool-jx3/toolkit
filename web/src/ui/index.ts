@@ -130,6 +130,12 @@ export { type FontPoolItem, FontPoolList, type FontPoolListProps } from './FontP
 export { GestureScope, type GestureScopeProps } from './GestureScope';
 export { GradientField, type GradientFieldProps } from './GradientField';
 export { GroupTabs } from './GroupTabs';
+export {
+  type HighlightLine,
+  HighlightTextArea,
+  type HighlightTextAreaHandle,
+  type HighlightTextAreaProps,
+} from './HighlightTextArea';
 export { HsvPanel, type HsvPanelProps, hsvToHex } from './HsvPanel';
 export {
   type DroppedImage,
