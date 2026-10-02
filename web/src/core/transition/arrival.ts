@@ -332,6 +332,22 @@ const linearFill =
     const useCorner = corner && isDiagonal(d);
     const kx = 1 / Math.max(1, W - 1);
     const ky = 1 / Math.max(1, H - 1);
+    if (useCorner) {
+      /*
+       * 斜線擦除：水平、垂直各自先取 256 階再平均（無條件捨去），與原作相同。
+       * 同一列的階數成段重複，壓縮後的檔案比直接平均小（scene-transition 的 1.5 倍上限）。
+       */
+      const fromRight = d.endsWith('left');
+      const fromBottom = d.startsWith('up');
+      const col = Array.from({ length: W }, (_, x) =>
+        Math.round(255 * (fromRight ? 1 - x * kx : x * kx)),
+      );
+      const row = Array.from({ length: H }, (_, y) =>
+        Math.round(255 * (fromBottom ? 1 - y * ky : y * ky)),
+      );
+      perPixel(raw, W, H, (x, y) => (col[x] + row[y]) >> 1);
+      return true;
+    }
     perPixel(raw, W, H, (x, y) => directional(d, x * kx, y * ky, W, H, useCorner)[0]);
     return true;
   };
@@ -579,7 +595,7 @@ const FILLS: Record<Exclude<TransitionShape, 'flat'>, Fill> = {
             : Math.max(dx, dy);
       return order.arrive(j * cols + i, Math.min(1, local));
     });
-    return false;
+    return true;
   },
 
   tear: (raw, W, H, p) => {
@@ -637,7 +653,7 @@ const FILLS: Record<Exclude<TransitionShape, 'flat'>, Fill> = {
         raw[i] = Math.max(0, Math.min(0.995, start[c] + 0.53 * ((j + 0.5) / rows) + jitter));
       }
     }
-    return false;
+    return true;
   },
 
   interlace: (raw, W, H, p) => {
@@ -718,7 +734,7 @@ const FILLS: Record<Exclude<TransitionShape, 'flat'>, Fill> = {
       const local = Math.min(1, Math.max(dy / A, (dx * (Math.sqrt(3) / 2) + dy / 2) / A));
       return order.arrive(index(bq, br), local);
     });
-    return false;
+    return true;
   },
 };
 

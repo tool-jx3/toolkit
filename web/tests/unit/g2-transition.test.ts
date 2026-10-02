@@ -185,16 +185,15 @@ function arrivalGrid(e: Effect): number[][] {
 }
 
 const RANDOM = new Set(['E30', 'E31', 'E35', 'E36', 'E37', 'E43', 'E44', 'E47']);
-/* 區塊平均透明度的容許差：多數 ≤ 3；格子、六角格、圖形、同心環、時鐘的邊界取樣方式與舊版略有不同（見 DESIGN.md） */
+/*
+ * 區塊平均透明度的容許差：多數 ≤ 3；六角格、圖形、同心環、時鐘的邊界取樣方式與舊版略有不同（見 DESIGN.md）。
+ * 格子、方塊雨、六角格的到達先後改成和原作一樣依整張圖的最小、最大值正規化後（scene-transition 實作時），格子已 ≤ 3。
+ */
 const BLOCK_TOL: Record<string, number> = {
-  E12: 3,
   E16: 4,
   E26: 7,
   E27: 8,
   E28: 7,
-  E32: 12,
-  E33: 5,
-  E34: 4,
   E46: 6,
   E51: 4,
   E53: 4,
@@ -437,6 +436,42 @@ describe('畫面規則', () => {
     expect(shapeParams('hex', { order: 'alternate' })).toEqual(['order', 'count']);
     expect(shapeParams('ink', { spread: 'center' })).toContain('center');
     expect(shapeParams('flat')).toEqual([]);
+  });
+
+  it('格子、六角格、方塊雨：到達先後依整張圖正規化（最早的像素是 0、最晚的是 255）', () => {
+    for (const [shape, p] of [
+      ['grid', { count: 16, order: 'direction', direction: 'down-right' }],
+      ['grid', { count: 8, order: 'alternate' }],
+      ['hex', { count: 14, order: 'center' }],
+      ['rain', { count: 48, seed: 21 }],
+    ] as const) {
+      const m = buildArrivalMap(shape, 640, 360, p);
+      expect(
+        m.levels.reduce((a, b) => Math.min(a, b), 255),
+        shape,
+      ).toBe(0);
+      expect(
+        m.levels.reduce((a, b) => Math.max(a, b), 0),
+        shape,
+      ).toBe(255);
+    }
+  });
+
+  it('斜線擦除：水平、垂直各取 256 階再平均（無條件捨去），與原作相同', () => {
+    const m = buildArrivalMap('diagonal', 640, 360, { direction: 'down-right' });
+    const ramp = (n: number, i: number) => Math.round((255 * i) / (n - 1));
+    for (const [x, y] of [
+      [0, 0],
+      [1, 0],
+      [3, 7],
+      [320, 180],
+      [639, 359],
+      [100, 300],
+    ])
+      expect(m.levels[y * 640 + x]).toBe((ramp(640, x) + ramp(360, y)) >> 1);
+    const up = buildArrivalMap('diagonal', 640, 360, { direction: 'up-left' });
+    expect(up.levels[359 * 640 + 639]).toBe(0);
+    expect(up.levels[0]).toBe(255);
   });
 
   it('斜向：直線擦除照 45° 方向、斜線擦除從角落；直向的斜線擦除＝直線擦除', () => {

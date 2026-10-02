@@ -269,6 +269,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/sotsotssi/emotion-maker',
     },
   },
+  {
+    id: 'scene-transition',
+    name: '場景轉換素材產生器',
+    summary:
+      '做出拉滿畫面的換場動畫：淡出、擦除、圓形收束、溶解、血液垂流等 53 種效果，可加字幕，匯出透明背景的 WebP 或 APNG。不需要伺服器，圖片不會離開你的電腦。',
+    group: 'G2',
+    status: 'next',
+    inspiration: {
+      name: 'shiki365/scene-transition-maker',
+      url: 'https://github.com/shiki365/scene-transition-maker',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
