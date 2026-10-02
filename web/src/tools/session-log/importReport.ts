@@ -1,7 +1,7 @@
 /**
  * 團報文字與清單文字的解讀（規格 3.8.5、F79、F80）。回傳部分欄位的一團，之後再經 importSheet 的整理（第 2～5 步）。
  */
-import { canonicalSurvival } from '@/core/sessions';
+import { canonicalSurvival, type SessionRow } from '@/core/sessions';
 import { desmallcaps, type PartialRow } from './importSheet';
 
 /** 文字裡的系統名稱 → 正規值（依序比對，第一個符合的） */
@@ -242,4 +242,17 @@ export function parseReportText(text: string): PartialRow[] {
     .filter(Boolean)
     .map(parseReportBlock)
     .filter((row) => row.scenario || row.gm || row.players || row.date);
+}
+
+/** 團報文字匯入後，有值就自動加進表格的可選欄位（3.8.7） */
+const TEXT_IMPORT_COLUMN_KEYS = ['hashtag', 'ending', 'survival', 'campaign', 'ho'] as const;
+
+/**
+ * 團報文字匯入後要自動加進表格的欄位，依資料中第一次出現的順序（照舊版：逐列看，同一列裡依
+ * 主題標籤、結局、生還、長團、HO 的順序）。例：第一列有結局與生還、第二列有主題標籤 → 結局、生還、主題標籤。
+ */
+export function textImportColumnKeys(rows: readonly SessionRow[]): string[] {
+  const keys = new Set<string>();
+  for (const row of rows) for (const k of TEXT_IMPORT_COLUMN_KEYS) if (row[k]) keys.add(k);
+  return [...keys];
 }

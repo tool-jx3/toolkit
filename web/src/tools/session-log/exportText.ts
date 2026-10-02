@@ -21,7 +21,28 @@ export const EXPORT_MODES: readonly ExportMode[] = ['all', 'system', 'role', 'se
 /** 沒有日期的團排在最後用的日期 */
 const NO_DATE = '9999-99-99';
 
-const exportDate = (row: SessionRow): string => primaryDate(row) || NO_DATE;
+/* 每個列物件算一次（Immer 沒改到的列維持同一個物件：側欄改一團時只重算那一團） */
+const dateCache = new WeakMap<SessionRow, string>();
+const keyCache = new WeakMap<SessionRow, string>();
+
+function exportDate(row: SessionRow): string {
+  let d = dateCache.get(row);
+  if (d === undefined) {
+    d = primaryDate(row) || NO_DATE;
+    dateCache.set(row, d);
+  }
+  return d;
+}
+
+/** 合併用的劇本計數鍵（不分大小寫） */
+function mergeKey(row: SessionRow): string {
+  let k = keyCache.get(row);
+  if (k === undefined) {
+    k = scenarioCountKey(row).toLowerCase();
+    keyCache.set(row, k);
+  }
+  return k;
+}
 
 /** 輸出對象（3.7.1）：非範例列，名字篩選後依主要日期由舊到新（同日維持原順序） */
 export function exportRows(rows: readonly SessionRow[], query: string): SessionRow[] {
@@ -52,7 +73,7 @@ export interface ScenarioEntry {
 export function uniqueScenarioList(rows: readonly SessionRow[]): ScenarioEntry[] {
   const map = new Map<string, ScenarioEntry>();
   for (const row of rows) {
-    const key = scenarioCountKey(row).toLowerCase();
+    const key = mergeKey(row);
     if (!key) continue;
     const date = exportDate(row);
     const existing = map.get(key);

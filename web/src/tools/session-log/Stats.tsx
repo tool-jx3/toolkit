@@ -2,11 +2,9 @@
  * 統計（F10～F14）：跑團天數、劇本數、總遊玩時間、同團玩家。數值改變時從 0 跑到新值（約 0.7 秒、ease-out 三次方）。
  */
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { computeStats, formatStat } from './logic';
+import { computeStats, countUpProgress, formatStat } from './logic';
 import { useLog, useSelfNames } from './store';
 import { S } from './strings';
-
-const DURATION_MS = 700;
 
 function prefersReducedMotion(): boolean {
   try {
@@ -30,10 +28,9 @@ function useCountUp(target: number): number {
     const start = performance.now();
     let raf = 0;
     const tick = (now: number) => {
-      const p = Math.min((now - start) / DURATION_MS, 1);
-      const eased = 1 - (1 - p) ** 3;
+      const eased = countUpProgress(now - start);
       setValue(target * eased);
-      if (p < 1) raf = requestAnimationFrame(tick);
+      if (eased < 1) raf = requestAnimationFrame(tick);
     };
     setValue(0);
     raf = requestAnimationFrame(tick);

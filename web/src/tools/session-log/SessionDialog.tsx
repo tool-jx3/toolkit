@@ -6,7 +6,6 @@ import { Plus, X } from 'lucide-react';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import {
   COMMON_SYSTEMS,
-  DEFAULT_STATUS,
   normalizeTimeValue,
   SESSION_ROLES,
   SESSION_STATUSES,
@@ -27,7 +26,7 @@ import {
   useConfirm,
 } from '@/ui';
 import { type ColumnState, columnLabel, dialogColumns, isUrlColumn } from './columns';
-import { isValidUrlField, newSessionRow, systemInput } from './logic';
+import { dialogChoice, isValidUrlField, newSessionRow, systemInput } from './logic';
 import { notify } from './notify';
 import { closeDialog, deleteRow, saveDialogRow, today, useLog, useUi } from './store';
 import { S } from './strings';
@@ -110,6 +109,9 @@ function DialogBody({
           draft.systemChoice === CUSTOM ? systemInput(draft.systemCustom) : draft.systemChoice;
       else if (c.key === 'fav') row.fav = row.fav ? '★' : '';
       else if (c.key === 'time') row.time = normalizeTimeValue(row.time);
+      else if (c.key === 'role' || c.key === 'status' || c.key === 'survival')
+        /* 選單顯示的值（不在選單裡時是第一項）就是存的值（F48） */
+        row[c.key] = dialogChoice(c.key, row[c.key]);
       else row[c.key] = str(row[c.key]);
     }
     const dates = [...new Set(draft.dates.map((d) => d.trim()).filter(Boolean))].sort();
@@ -214,30 +216,26 @@ function DialogBody({
             ) : null}
           </div>
         );
-      case 'role': {
-        const v = SESSION_ROLES.includes(value) ? value : SESSION_ROLES[0];
+      case 'role':
         return (
           <Field key={key} label={S.dialog.role}>
             <Select
-              value={v}
+              value={dialogChoice('role', value)}
               onValueChange={(x) => setField('role', x)}
               options={SESSION_ROLES.map((r) => ({ value: r, label: r }))}
             />
           </Field>
         );
-      }
-      case 'status': {
-        const v = SESSION_STATUSES.some((s) => s.value === value) ? value : DEFAULT_STATUS;
+      case 'status':
         return (
           <Field key={key} label={S.dialog.status}>
             <Select
-              value={v}
+              value={dialogChoice('status', value)}
               onValueChange={(x) => setField('status', x)}
               options={SESSION_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
             />
           </Field>
         );
-      }
       case 'time':
         return (
           <Field key={key} label={S.dialog.time}>
@@ -266,7 +264,7 @@ function DialogBody({
         return (
           <Field key={key} label={label}>
             <Select
-              value={SESSION_SURVIVALS.some((s) => s.value === value) ? value : UNSET}
+              value={dialogChoice('survival', value) || UNSET}
               onValueChange={(x) => setField('survival', x === UNSET ? '' : x)}
               options={[
                 { value: UNSET, label: S.dialog.survivalUnset },

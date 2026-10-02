@@ -202,10 +202,15 @@ export const setFilter = (patch: Partial<FilterState>): void =>
   useUi.setState((s) => ({ filter: { ...s.filter, ...patch } }));
 export const openDetail = (id?: string): void =>
   useUi.setState(id ? { activeId: id, detailOpen: true } : { detailOpen: true });
-export const closeDetail = (): void => useUi.setState({ detailOpen: false });
+export const closeDetail = (): void => {
+  flushRowDraft();
+  useUi.setState({ detailOpen: false });
+};
 export const openAddDialog = (): void => useUi.setState({ dialog: { mode: 'add' } });
-export const openEditDialog = (id: string): void =>
+export const openEditDialog = (id: string): void => {
+  flushRowDraft();
   useUi.setState({ activeId: id, dialog: { mode: 'edit', id } });
+};
 export const closeDialog = (): void => useUi.setState({ dialog: null });
 export const openImport = (): void => useUi.setState({ importOpen: true });
 export const closeImport = (): void => useUi.setState({ importOpen: false });
@@ -213,11 +218,87 @@ export const togglePanel = (panel: Exclude<PanelState, null>): void =>
   useUi.setState((s) => ({ panel: s.panel === panel ? null : panel }));
 export const closePanel = (): void => useUi.setState({ panel: null });
 
+/* ---------- 側欄的編輯草稿（F69、主控 7.1） ---------- */
+
+/**
+ * 側欄打字停頓多久後寫回存檔（毫秒）。寫回才會重新篩選排序整張表、重算統計與清單輸出，
+ * 打字時只有側欄重畫（2000 列時每鍵也不卡）；表格、統計在停頓約 300 ms 後反映（主控 7.1 改寫 D12）。
+ */
+export const DETAIL_COMMIT_MS = 300;
+
+/** 側欄還沒寫回的修改（一次只有一團） */
+export interface RowDraft {
+  id: string | null;
+  patch: Partial<SessionRow>;
+}
+
+const NO_DRAFT: RowDraft = Object.freeze({ id: null, patch: Object.freeze({}) }) as RowDraft;
+export const useRowDraft = create<RowDraft>(() => NO_DRAFT);
+let draftTimer: ReturnType<typeof setTimeout> | null = null;
+
+function patchRowNow(id: string, patch: Partial<SessionRow>): void {
+  useLog.getState().update((d) => {
+    const row = d.rows.find((r) => r.id === id);
+    if (row) Object.assign(row, patch);
+  });
+}
+
+/**
+ * 把側欄的草稿寫回存檔。一次寫回記成一步復原（停頓前連續打的字算一步）。
+ * 停頓、離開欄位、關閉側欄、開其他對話框、匯出、送出、復原／重做、離開頁面前都會先寫回。
+ */
+export function flushRowDraft(): void {
+  if (draftTimer) {
+    clearTimeout(draftTimer);
+    draftTimer = null;
+  }
+  const { id, patch } = useRowDraft.getState();
+  if (!id) return;
+  if (Object.keys(patch).length) {
+    const nested = useLog.inGesture();
+    if (!nested) useLog.beginGesture();
+    patchRowNow(id, patch);
+    if (!nested) useLog.endGesture();
+  }
+  useRowDraft.setState(NO_DRAFT, true);
+}
+
+/**
+ * 側欄的編輯（F69）：先放在草稿，停頓 DETAIL_COMMIT_MS 後寫回（不取消範例標記）。
+ * `immediate`：選單、新增或刪除貼文與連結這類一次性的操作，馬上寫回。
+ */
+export function editRow(
+  id: string,
+  patch: Partial<SessionRow>,
+  { immediate = false }: { immediate?: boolean } = {},
+): void {
+  const cur = useRowDraft.getState();
+  if (cur.id && cur.id !== id) flushRowDraft();
+  const base = cur.id === id ? cur.patch : {};
+  useRowDraft.setState({ id, patch: { ...base, ...patch } }, true);
+  if (draftTimer) clearTimeout(draftTimer);
+  draftTimer = null;
+  if (immediate) flushRowDraft();
+  else draftTimer = setTimeout(flushRowDraft, DETAIL_COMMIT_MS);
+}
+
+/* 離開頁面、切到背景前寫回（存檔是同步的 localStorage） */
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', flushRowDraft);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushRowDraft();
+  });
+}
+
 /* ---------- 列的操作 ---------- */
 
-const updateLog = (recipe: (d: LogData) => void) => useLog.getState().update(recipe);
+/** 改存檔的列；側欄還沒寫回的修改先寫回 */
+const updateLog = (recipe: (d: LogData) => void) => {
+  flushRowDraft();
+  useLog.getState().update(recipe);
+};
 
-/** 側欄的即時編輯（F69）：不取消範例標記 */
+/** 改一團的一個欄位，馬上寫回（不取消範例標記） */
 export function setRowField(id: string, key: string, value: unknown): void {
   updateLog((d) => {
     const row = d.rows.find((r) => r.id === id);
@@ -225,12 +306,14 @@ export function setRowField(id: string, key: string, value: unknown): void {
   });
 }
 
-/** 改一團的多個欄位（側欄的日期等） */
-export function patchRow(id: string, patch: Partial<SessionRow>): void {
-  updateLog((d) => {
-    const row = d.rows.find((r) => r.id === id);
-    if (row) Object.assign(row, patch);
-  });
+/** 復原、重做（側欄還沒寫回的修改先寫回，才不會被蓋掉） */
+export function undoLog(): void {
+  flushRowDraft();
+  useLog.temporal.getState().undo();
+}
+export function redoLog(): void {
+  flushRowDraft();
+  useLog.temporal.getState().redo();
 }
 
 /** 團報勾選（F28） */
@@ -262,6 +345,7 @@ export function deleteRow(id: string): void {
 
 /** 刪除範例（F34；不確認，可以復原） */
 export function deleteSamples(): number {
+  flushRowDraft();
   const n = useLog.getState().data.rows.filter((r) => r.sample).length;
   if (!n) return 0;
   updateLog((d) => {
@@ -276,6 +360,7 @@ export function deleteSamples(): number {
 /* ---------- 欄位的操作 ---------- */
 
 function updateColumns(fn: (c: ColumnsData) => ColumnsData): void {
+  flushRowDraft();
   const data = useLog.getState().data;
   const next = fn(data);
   if (next === data) return;
@@ -312,6 +397,7 @@ export interface ImportPlan {
 
 /** 套用匯入；回傳匯入的識別碼 */
 export function applyImport(plan: ImportPlan): string[] {
+  flushRowDraft();
   const data = useLog.getState().data;
   const used = new Set(plan.target === 'overwrite' ? [] : data.rows.map((r) => r.id));
   const rows = plan.rows.map((r) => {
@@ -360,6 +446,7 @@ export function revealRows(ids: readonly string[]): void {
 /* ---------- 匯出（F92） ---------- */
 
 export function exportJson(now: Date = new Date()): string {
+  flushRowDraft();
   const name = exportJsonFileName(now);
   downloadText(exportJsonText(useLog.getState().data, now), name, 'application/json');
   return name;

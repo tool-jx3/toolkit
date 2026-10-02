@@ -7,19 +7,23 @@ import {
   canonicalStatus,
   canonicalSurvival,
   canonicalSystem,
-  countCoPlayers,
-  countUniqueScenarios,
   DEFAULT_STATUS,
   localIsoDate,
   normalizeLegacySystem,
+  normalizePersonName,
   normalizeRole,
   normalizeRoleGroup,
   normalizeRowDates,
   normalizeTimeValue,
   primaryDate,
+  SESSION_ROLES,
+  SESSION_STATUSES,
+  SESSION_SURVIVALS,
   type SessionLink,
   type SessionMedia,
   type SessionRow,
+  scenarioCountKey,
+  splitPeople,
   statusLabel,
   survivalLabel,
   systemLabel,
@@ -269,6 +273,18 @@ export function rowSearchText(row: SessionRow): string {
 
 export const collator = new Intl.Collator('zh-Hant-TW');
 
+const primaryDateCache = new WeakMap<SessionRow, string>();
+
+/** 排序用的主要日期（每個列物件算一次） */
+function rowPrimaryDate(row: SessionRow): string {
+  let d = primaryDateCache.get(row);
+  if (d === undefined) {
+    d = primaryDate(row);
+    primaryDateCache.set(row, d);
+  }
+  return d;
+}
+
 export function filterRows(rows: readonly SessionRow[], f: FilterState): SessionRow[] {
   const q = f.search.trim().toLowerCase();
   const out = rows.filter((row) => {
@@ -276,7 +292,7 @@ export function filterRows(rows: readonly SessionRow[], f: FilterState): Session
     if (f.role !== 'all' && normalizeRoleGroup(row.role) !== f.role) return false;
     return !q || rowSearchText(row).includes(q);
   });
-  const keyed = out.map((row, i) => ({ row, i, date: primaryDate(row) }));
+  const keyed = out.map((row, i) => ({ row, i, date: rowPrimaryDate(row) }));
   keyed.sort((a, b) => {
     let d = 0;
     if (f.sort === 'oldest') d = a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
@@ -303,17 +319,66 @@ export interface Stats {
   coPlayers: number;
 }
 
-export function computeStats(rows: readonly SessionRow[], self: ReadonlySet<string>): Stats {
-  const real = rows.filter((r) => !r.sample);
-  return {
-    days: real.reduce((sum, r) => sum + normalizeRowDates(r).dates.length, 0),
-    scenarios: countUniqueScenarios(real),
-    hours: real.reduce((sum, r) => sum + timeHours(r.time), 0),
-    coPlayers: countCoPlayers(real, self),
+/** 一列對統計的貢獻（與 countUniqueScenarios、countCoPlayers 同樣的算法，自己的名字在加總時才排除） */
+interface RowStatParts {
+  days: number;
+  scenarioKey: string;
+  hours: number;
+  /** GM 與 PL 欄的名字（比對用、非空） */
+  people: string[];
+}
+
+const statCache = new WeakMap<SessionRow, RowStatParts>();
+
+/** 每個列物件算一次（Immer 沒改到的列維持同一個物件：側欄改一團時只重算那一團） */
+function rowStatParts(row: SessionRow): RowStatParts {
+  const hit = statCache.get(row);
+  if (hit) return hit;
+  const people: string[] = [];
+  for (const field of [row.gm, row.players])
+    for (const name of splitPeople(field)) {
+      const n = normalizePersonName(name);
+      if (n) people.push(n);
+    }
+  const parts: RowStatParts = {
+    days: normalizeRowDates(row).dates.length,
+    scenarioKey: scenarioCountKey(row),
+    hours: timeHours(row.time),
+    people,
   };
+  statCache.set(row, parts);
+  return parts;
+}
+
+export function computeStats(rows: readonly SessionRow[], self: ReadonlySet<string>): Stats {
+  let days = 0;
+  let hours = 0;
+  const scenarios = new Set<string>();
+  const people = new Set<string>();
+  for (const row of rows) {
+    if (row.sample) continue;
+    const p = rowStatParts(row);
+    days += p.days;
+    hours += p.hours;
+    if (p.scenarioKey) scenarios.add(p.scenarioKey);
+    for (const n of p.people) if (!self.has(n)) people.add(n);
+  }
+  return { days, scenarios: scenarios.size, hours, coPlayers: people.size };
 }
 
 /** 統計數字的顯示（F12、F14）：整數照寫；有小數時一位小數並去掉「.0」 */
+/** 統計數字的動畫長度（F14） */
+export const COUNT_UP_MS = 700;
+
+/**
+ * 統計數字的動畫進度（F14）：經過 elapsed 毫秒時的 ease-out 三次方，夾在 0～1。
+ * rAF 的時間戳可能早於起算的 performance.now()，不夾的話第一個畫面會出現負數。
+ */
+export function countUpProgress(elapsed: number, duration: number = COUNT_UP_MS): number {
+  const p = Math.min(Math.max(elapsed / duration, 0), 1);
+  return 1 - (1 - p) ** 3;
+}
+
 export function formatStat(value: number, decimal: boolean): string {
   return decimal ? value.toFixed(1).replace(/\.0$/, '') : String(Math.round(value));
 }
@@ -325,6 +390,17 @@ export const systemInput = (text: string): string =>
   normalizeLegacySystem(canonicalSystem(text)) ?? '';
 export const statusInput = (text: string): string => canonicalStatus(text);
 export const survivalInput = (text: string): string => canonicalSurvival(text);
+
+/**
+ * 新增／編輯對話框的身分、狀態、生還選單顯示的值（F48）：存的值不在選單裡（空白、小寫、其他字）時
+ * 顯示第一項（PL、新規、生還未設定），按「儲存」時就存這個值（照舊版 <select> 的行為）。
+ */
+export function dialogChoice(key: 'role' | 'status' | 'survival', value: unknown): string {
+  const v = value == null ? '' : String(value);
+  if (key === 'role') return SESSION_ROLES.includes(v) ? v : SESSION_ROLES[0];
+  if (key === 'status') return SESSION_STATUSES.some((s) => s.value === v) ? v : DEFAULT_STATUS;
+  return SESSION_SURVIVALS.some((s) => s.value === v) ? v : '';
+}
 
 /* ---------- 貼文（F60） ---------- */
 

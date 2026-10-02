@@ -1,6 +1,6 @@
 /**
  * 匯入對話框（F70～F91）：你的稱呼、四個分頁、匯入方式、略過重複、執行匯入。
- * 每次開啟都是全新的狀態（關閉時清空）。
+ * 每次開啟時分頁與貼上的內容都是全新的（關閉時清空）；匯入方式與「略過重複」保留上次的選擇（照舊版）。
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { SessionRow } from '@/core/sessions';
@@ -8,6 +8,7 @@ import { Button, Checkbox, Dialog, Field, Segmented, Tabs, TextInput } from '@/u
 import { OPTIONAL_COLUMN_KEYS } from './columns';
 import { CcfoliaPanel, JsonPanel, PreviewTable, TextPanel } from './ImportPanels';
 import { SheetPanel } from './ImportSheet';
+import { textImportColumnKeys } from './importReport';
 import { buildSheetRows, countDuplicates, dropDuplicates, existingDupKeys } from './importSheet';
 import {
   ccFormRow,
@@ -29,9 +30,6 @@ import {
   useUi,
 } from './store';
 import { S } from './strings';
-
-/** 團報文字匯入後，有值就自動加進表格的欄位（3.8.7） */
-const TEXT_KEYS = ['hashtag', 'ending', 'survival', 'campaign', 'ho'];
 
 function SelfNameField() {
   const stored = usePrefs((s) => s.data.selfNames);
@@ -116,7 +114,7 @@ function ImportBody() {
       tab === 'sheet'
         ? [...new Set((grid?.mapping ?? []).filter(Boolean) as string[])]
         : tab === 'text'
-          ? TEXT_KEYS.filter((k) => rows.some((r) => r[k]))
+          ? textImportColumnKeys(rows)
           : [];
     const ids = applyImport({
       rows,
@@ -180,7 +178,7 @@ function ImportBody() {
 
 export function ImportDialog() {
   const open = useUi((s) => s.importOpen);
-  /* 每次開啟都是全新的狀態：關閉時清空 */
+  /* 每次開啟都是全新的狀態：關閉時清空（匯入方式與略過重複除外） */
   useEffect(() => {
     if (!open) resetImport();
   }, [open]);

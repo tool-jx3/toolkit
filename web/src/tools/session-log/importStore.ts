@@ -1,5 +1,6 @@
 /**
- * 匯入對話框的狀態（F70～F91；不保存，每次開啟都是全新的狀態）與「要匯入的團」的計算。
+ * 匯入對話框的狀態（F70～F91；不保存。每次開啟都是全新的狀態，只有匯入方式與「略過重複」保留上次的選擇）
+ * 與「要匯入的團」的計算。
  */
 import { create } from 'zustand';
 import { parseDelimited } from '@/core/csv';
@@ -77,7 +78,9 @@ export const INITIAL_IMPORT: ImportState = {
 
 export const useImport = create<ImportState>(() => INITIAL_IMPORT);
 
-export const resetImport = (): void => useImport.setState(INITIAL_IMPORT, true);
+/** 關閉時清空；匯入方式與「略過重複」保留上次的選擇（F70，照舊版） */
+export const resetImport = (): void =>
+  useImport.setState((s) => ({ ...INITIAL_IMPORT, target: s.target, skipDup: s.skipDup }), true);
 export const setImport = (patch: Partial<ImportState>): void => useImport.setState(patch);
 
 /* ---------- 試算表 ---------- */

@@ -265,21 +265,55 @@ test('詳細・感想側欄：即時存檔、日期與系統寫回正規值、�
     'https://example.com/spoiler',
   );
 
-  /* 即時存檔（不必按儲存） */
+  /* 自動存檔（不必按儲存）：打字停頓約 300 ms 內寫回（主控 7.1） */
   const r = rowByScenario(page, '雨夜');
-  const saved = (await storedRows(page)).find((x) => x.scenario === '雨夜');
-  expect(saved).toMatchObject({
-    dates: ['2026-02-01', '2026-02-08'],
-    system: 'エモクロア',
-    survival: 'ロスト',
-    longNote: '很好玩\n第二行',
-    time: '2.5',
-    media: [
-      { type: 'tweet', url: 'https://x.com/someone/status/12345', caption: '' },
-      { type: 'image', url: 'https://example.com/pic.png', caption: '角色圖' },
-    ],
-    cushionLinks: [{ label: '心得', url: 'https://example.com/spoiler' }],
-  });
+  await expect
+    .poll(async () => (await storedRows(page)).find((x) => x.scenario === '雨夜'), {
+      timeout: 1000,
+      intervals: [100],
+    })
+    .toMatchObject({
+      dates: ['2026-02-01', '2026-02-08'],
+      system: 'エモクロア',
+      survival: 'ロスト',
+      longNote: '很好玩\n第二行',
+      time: '2.5',
+      media: [
+        { type: 'tweet', url: 'https://x.com/someone/status/12345', caption: '' },
+        { type: 'image', url: 'https://example.com/pic.png', caption: '角色圖' },
+      ],
+      cushionLinks: [{ label: '心得', url: 'https://example.com/spoiler' }],
+    });
+
+  /* 打字時先放在草稿；停頓後寫回，一段連續打字算一步復原 */
+  const note = sheet.getByRole('textbox', { name: '備註（表格顯示）' });
+  await note.click();
+  await page.keyboard.type('第一段', { delay: 40 });
+  await expect
+    .poll(async () => (await storedRows(page)).find((x) => x.scenario === '雨夜')?.note, {
+      timeout: 1000,
+      intervals: [50],
+    })
+    .toBe('第一段');
+  await page.keyboard.type('第二段', { delay: 40 });
+  await page.keyboard.press('Escape');
+  await expect(sheet).toHaveCount(0);
+  /* 關閉側欄時寫回；表格的備註欄同一個值 */
+  expect((await storedRows(page)).find((x) => x.scenario === '雨夜')?.note).toBe('第一段第二段');
+  await expect(r.locator('td[data-col="note"]')).toHaveText('第一段第二段');
+  const undo = page.getByRole('button', { name: '復原（Ctrl＋Z）' });
+  const redo = page.getByRole('button', { name: /^重做/ });
+  await undo.click();
+  await expect(r.locator('td[data-col="note"]')).toHaveText('第一段');
+  await undo.click();
+  await expect(r.locator('td[data-col="note"]')).toHaveText('');
+  await redo.click();
+  await redo.click();
+  await expect(r.locator('td[data-col="note"]')).toHaveText('第一段第二段');
+  await toolbarBtn(page, '詳細・感想').click();
+  await expect(sheet.getByRole('textbox', { name: '備註（表格顯示）' })).toHaveValue(
+    '第一段第二段',
+  );
   await sheet.getByRole('button', { name: '儲存' }).click();
   await expect(page.getByText('已儲存', { exact: true }).first()).toBeVisible();
   await page.keyboard.press('Escape');
@@ -347,6 +381,48 @@ test('欄位：新增可選欄位與自訂欄位、移除、重設、拖曳與�
   const after = await headerKeys(page);
   expect(after.indexOf('scenario')).toBe(after.indexOf('gm') + 1);
 
+  /*
+   * 拖到固定在右側的「送出」標題上（表格還沒捲到最右，送出欄蓋住其他欄）：依看得到的送出欄判斷，
+   * 左半、右半都放到送出欄前（照舊版），插入提示畫在送出欄上（F42）。
+   */
+  const scroller = table(page).locator('xpath=..');
+  const report = table(page).locator('th[data-col="report"]');
+  for (const [part, side] of [
+    [0.1, 'before'],
+    [0.9, 'after'],
+  ] as const) {
+    /* 日期欄放回左邊、表格捲回最左（送出欄蓋在其他欄上面） */
+    await dateHandle.focus();
+    while ((await headerKeys(page)).indexOf('date') > 1) await dateHandle.press('ArrowLeft');
+    await scroller.evaluate((el) => {
+      el.scrollLeft = 0;
+    });
+    await expect(scroller).toHaveAttribute('data-at-end', 'false');
+    const rb = (await report.boundingBox())!;
+    const x = rb.x + rb.width * part;
+    const covered = await page.evaluate(
+      ([px, py]) =>
+        document
+          .elementsFromPoint(px, py)
+          .filter((el) => el.tagName === 'TH')
+          .map((el) => (el as HTMLElement).dataset.col),
+      [x, rb.y + rb.height / 2],
+    );
+    expect(covered[0]).toBe('report');
+    expect(covered.length).toBeGreaterThan(1);
+    const db = (await table(page).locator('[data-col-handle="date"]').boundingBox())!;
+    await page.mouse.move(db.x + db.width / 2, db.y + db.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(db.x + 30, db.y + 10, { steps: 2 });
+    await page.mouse.move(x, rb.y + rb.height / 2, { steps: 6 });
+    await expect(report).toHaveAttribute('data-drop', side);
+    await expect(table(page).locator('th[data-drop]')).toHaveCount(1);
+    expect(await report.evaluate((el) => getComputedStyle(el).boxShadow)).toContain('inset');
+    await page.mouse.up();
+    expect((await headerKeys(page)).slice(-2)).toEqual(['date', 'report']);
+    await expect(table(page).locator('th[data-drop]')).toHaveCount(0);
+  }
+
   /* 欄寬：鍵盤 ←／→ 每次 10 px，夾在範圍內 */
   const sep = table(page).getByRole('separator', { name: '「劇本」欄的寬度（←／→ 調整）' });
   await sep.focus();
@@ -355,6 +431,16 @@ test('欄位：新增可選欄位與自訂欄位、移除、重設、拖曳與�
   await expect(sep).toHaveAttribute('aria-valuenow', '330');
   await sep.press('End');
   await expect(sep).toHaveAttribute('aria-valuenow', '520');
+  /* 滑鼠往左拖過頭（超過欄位本身的寬度）：夾到最小值 180，不是預設寬度（F43） */
+  const sb = (await sep.boundingBox())!;
+  await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(sb.x + sb.width / 2 - 300, sb.y + sb.height / 2, { steps: 3 });
+  await expect(sep).toHaveAttribute('aria-valuenow', '220');
+  await page.mouse.move(Math.max(1, sb.x - 700), sb.y + sb.height / 2, { steps: 3 });
+  await expect(sep).toHaveAttribute('aria-valuenow', '180');
+  await page.mouse.up();
+  await expect(sep).toHaveAttribute('aria-valuenow', '180');
 
   /* 重設欄位：回到預設，自訂欄位的定義保留 */
   await tools.getByRole('button', { name: '重設欄位' }).click();
@@ -492,14 +578,32 @@ test('匯入團報文字（預覽）、CCFOLIA 多份紀錄、JSON 覆寫；匯�
   await dlg
     .getByRole('textbox', { name: '貼上團報' })
     .fill(
-      '新克蘇魯神話TRPG\n「海邊的旅館」\nKP：小林\nPC/PL\n溫書亭 / 阿德\nEND A 生還\n2025/11/8\n\n\nエモクロアTRPG\n『星砂』\nDL：ゆき\n2026.3.21',
+      '新克蘇魯神話TRPG\n「海邊的旅館」\nKP：小林\nPC/PL\n溫書亭 / 阿德\nEND A 生還\n2025/11/8\n\n\nエモクロアTRPG\n『星砂』\nDL：ゆき\n2026.3.21\n#星砂團報',
     );
   await expect(dlg.getByTestId('text-msg')).toContainText('認出 2 篇');
   await expect(dlg.getByTestId('preview-table').locator('tbody tr')).toHaveCount(2);
   await expect(dlg.getByTestId('preview-count')).toHaveText('預覽 匯入 2 筆');
   await dlg.getByRole('button', { name: '匯入', exact: true }).click();
   await expect(rowByScenario(page, '海邊的旅館')).toContainText('CoC 7版');
-  expect(await headerKeys(page)).toEqual(expect.arrayContaining(['ending', 'survival']));
+  /* 自動加入的欄位依資料中第一次出現的順序（第一篇的結局、生還，第二篇的主題標籤；照舊版） */
+  expect((await headerKeys(page)).slice(-4)).toEqual(['ending', 'survival', 'hashtag', 'report']);
+
+  /* 重開匯入對話框：分頁與貼上的內容重設，匯入方式與「略過重複」保留上次的選擇（F70） */
+  await toolbarBtn(page, '匯入').click();
+  await expect(dlg.getByRole('tab', { name: '試算表' })).toHaveAttribute('aria-selected', 'true');
+  await dlg.getByRole('radio', { name: '覆寫（清除所有既有資料）' }).click();
+  await dlg.getByRole('checkbox', { name: '略過重複' }).click();
+  await dlg.getByRole('textbox', { name: '貼上表格' }).fill('日期\t劇本名稱\n2026-01-01\t暫時');
+  await dlg.getByRole('button', { name: '取消' }).click();
+  await expect(dlg).toHaveCount(0);
+  await toolbarBtn(page, '匯入').click();
+  await expect(dlg.getByRole('radio', { name: '覆寫（清除所有既有資料）' })).toBeChecked();
+  await expect(dlg.getByRole('checkbox', { name: '略過重複' })).not.toBeChecked();
+  await expect(dlg.getByRole('textbox', { name: '貼上表格' })).toHaveValue('');
+  await dlg.getByRole('radio', { name: '加在後面' }).click();
+  await dlg.getByRole('checkbox', { name: '略過重複' }).click();
+  await page.keyboard.press('Escape');
+  await expect(dlg).toHaveCount(0);
 
   /* CCFOLIA：兩份聊天紀錄 → 兩列，切到試算表分頁 */
   await toolbarBtn(page, '匯入').click();
@@ -674,6 +778,65 @@ test('送到團報產生器：確認、交接資料、開新分頁；團報勾�
   await expect(confirm.getByTestId('send-overwrite')).toBeVisible();
   await confirm.getByRole('button', { name: '取消' }).click();
   await expect(confirm).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('編輯對話框：身分、狀態、生還不在選單裡時，儲存選單顯示的值（F48）', async ({ page }) => {
+  await page.addInitScript((key) => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    const base = { system: 'CoC 7版', time: '', gm: '', players: '', pc: '', note: '' };
+    const rows = [
+      { ...base, id: 'blank', dates: ['2024-01-01'], date: '2024-01-01', scenario: '空白身分' },
+      {
+        ...base,
+        id: 'odd',
+        dates: ['2024-01-02'],
+        date: '2024-01-02',
+        scenario: '怪值',
+        role: 'pl',
+        status: 'ended',
+        survival: 'lost',
+      },
+      {
+        ...base,
+        id: 'ok',
+        dates: ['2024-01-03'],
+        date: '2024-01-03',
+        scenario: '正常',
+        role: 'KP',
+        status: '中止',
+        survival: 'ロスト',
+      },
+    ];
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        state: { data: { rows, columns: [], hiddenColumns: [], customColumns: [] } },
+        version: 1,
+      }),
+    );
+  }, STORE_KEY);
+  const errors = await open(page);
+  const dlg = page.getByRole('dialog', { name: '編輯團資訊' });
+  for (const [id, expected] of [
+    ['blank', { role: 'PL', status: '新規', survival: '' }],
+    ['odd', { role: 'PL', status: '新規', survival: '' }],
+    ['ok', { role: 'KP', status: '中止', survival: 'ロスト' }],
+  ] as const) {
+    await table(page).locator(`tr[data-row-id="${id}"] td[data-col="role"]`).dblclick();
+    await expect(dlg).toBeVisible();
+    const shown = id === 'ok' ? ['KP', '中止', '撕卡'] : ['PL', '新開', '未設定'];
+    await expect(dlg.getByRole('combobox', { name: '身分' })).toHaveText(shown[0]);
+    await expect(dlg.getByRole('combobox', { name: '狀態' })).toHaveText(shown[1]);
+    await expect(dlg.getByRole('combobox', { name: '生還／撕卡' })).toHaveText(shown[2]);
+    await dlg.getByRole('button', { name: '儲存', exact: true }).click();
+    await expect(dlg).toHaveCount(0);
+    expect((await storedRows(page)).find((r) => r.id === id)).toMatchObject(expected);
+    await expect(table(page).locator(`tr[data-row-id="${id}"] td[data-col="role"]`)).toHaveText(
+      expected.role,
+    );
+  }
   expect(errors).toEqual([]);
 });
 

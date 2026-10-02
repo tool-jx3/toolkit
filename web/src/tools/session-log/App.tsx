@@ -22,7 +22,9 @@ import {
   closePanel,
   openAddDialog,
   openImport,
+  redoLog,
   TOOL_ID,
+  undoLog,
   useLog,
   useUi,
 } from './store';
@@ -128,7 +130,7 @@ function Workspace() {
 }
 
 export function App() {
-  const { undo, redo, canUndo, canRedo } = useUndoRedo(useLog);
+  const { canUndo, canRedo } = useUndoRedo(useLog);
 
   const shortcuts = useMemo<Shortcut[]>(
     () => [
@@ -150,13 +152,13 @@ export function App() {
         keys: 'mod+z',
         label: S.keys.undo,
         group: S.keys.groupEdit,
-        handler: () => useLog.temporal.getState().undo(),
+        handler: () => undoLog(),
       },
       {
         keys: ['shift+mod+z', 'mod+y'],
         label: S.keys.redo,
         group: S.keys.groupEdit,
-        handler: () => useLog.temporal.getState().redo(),
+        handler: () => redoLog(),
       },
       {
         keys: 'escape',
@@ -200,13 +202,13 @@ export function App() {
         label={withShortcut(S.header.undo, 'mod+z')}
         icon={<Undo2 />}
         disabled={!canUndo}
-        onClick={() => undo()}
+        onClick={undoLog}
       />
       <IconButton
         label={withShortcut(S.header.redo, 'shift+mod+z')}
         icon={<Redo2 />}
         disabled={!canRedo}
-        onClick={() => redo()}
+        onClick={redoLog}
       />
     </>
   );
