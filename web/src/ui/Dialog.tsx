@@ -45,6 +45,8 @@ export interface DialogProps {
   flush?: boolean;
   /** 開啟時把焦點放在這個元素（預設是第一個可聚焦的元素） */
   initialFocus?: RefObject<HTMLElement | null>;
+  /** 點對話框外面是否關閉（預設 true）。對話框裡有使用者做到一半、關了就會丟掉的東西時設 false（Esc 與關閉鈕照常作用） */
+  dismissOnOutside?: boolean;
 }
 
 export function Dialog({
@@ -59,6 +61,7 @@ export function Dialog({
   className,
   flush,
   initialFocus,
+  dismissOnOutside = true,
 }: DialogProps) {
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
@@ -67,6 +70,7 @@ export function Dialog({
         <D.Overlay className={overlayClass} />
         <D.Content
           className={contentClass(size, className)}
+          onInteractOutside={dismissOnOutside ? undefined : (e) => e.preventDefault()}
           onOpenAutoFocus={(e) => {
             const el = initialFocus?.current;
             if (el) {

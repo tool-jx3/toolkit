@@ -340,6 +340,19 @@ test('手動畫布 600 × 700、3 條（粗 20，倍率 160／120／160）：整
   expect(errors).toEqual([]);
 });
 
+test('尺寸有小數時捨去（和舊版相同）：第 2 條倍率 172 → 整張與裁邊都是 240 × 482', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await btn(page, '新增一條').click();
+  await commit(spin(barCard(page, 2), '第 2 條的倍率'), '172');
+  await expect(sizeText(page)).toHaveText('畫布 240 × 482 px');
+  await expect(page.getByTestId('crop-size')).toHaveText('裁邊 240 × 482 px');
+  const px = await pixelsOf(await save(page, '整張儲存'));
+  expect([px.width, px.height]).toEqual([240, 482]);
+  expect(errors).toEqual([]);
+});
+
 test('整體設定邊打邊套用；數值欄夾在標示的範圍內', async ({ page }) => {
   const errors = await open(page);
   /* 打字中（還沒離開欄位）就套用 */
@@ -529,12 +542,19 @@ test('畫布把手：拖動 30 px 的比例變化、依預覽倍率換算、0.05
   const cv = (await previewCanvas(page).boundingBox())!;
   expect(Math.abs((await center(handle(page, 0, 0))).y - (cv.y + 210))).toBeLessThan(1.5);
 
+  /* 把手的大小固定在螢幕上（和舊版相同，縮小預覽時也抓得到；對等驗證後修正） */
+  for (const zoom of ['50', '10']) {
+    await commit(spin(page, '預覽倍率'), zoom);
+    await expect(stage(page)).toHaveAttribute('data-zoom', zoom);
+    const small = (await handle(page, 0, 0).boundingBox())!;
+    expect([Math.round(small.width), Math.round(small.height)], `${zoom}%`).toEqual([22, 10]);
+  }
   /* 200%：畫面上 60 px＝畫布 30 px */
   await commit(spin(page, '預覽倍率'), '200');
   await expect(stage(page)).toHaveAttribute('data-zoom', '200');
   const big = (await handle(page, 0, 0).boundingBox())!;
-  expect(Math.round(big.width)).toBe(44);
-  expect(Math.round(big.height)).toBe(20);
+  expect(Math.round(big.width)).toBe(22);
+  expect(Math.round(big.height)).toBe(10);
   await dragHandle(0, 60);
   expect(await ratios(page)).toEqual([1.6, 0.4, 1]);
   const cv2 = (await previewCanvas(page).boundingBox())!;
@@ -768,7 +788,10 @@ test('取色視窗：取消、關閉鈕、Esc 都不改變分段；對話框縮�
   await expect(d).toHaveCount(0);
   expect(await colors(page)).toEqual(before);
 
+  /* 點對話框外面不關（和舊版相同，誤點不會丟掉載入的圖；對等驗證後修正） */
   await openPicker(page);
+  await page.mouse.click(5, 5);
+  await expect(d).toBeVisible();
   await d.getByRole('button', { name: '關閉', exact: true }).click();
   await expect(d).toHaveCount(0);
   await openPicker(page);

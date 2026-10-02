@@ -1,6 +1,6 @@
 /**
- * 畫布上的分段交界把手（F18）：放在 Stage 裡、疊在 canvas 上，以畫布座標定位，所以會跟著預覽倍率縮放、
- * 始終對準交界。上下拖動只改變交界上下那兩段的比例（兩段比例和不變、每段至少 0.05、四捨五入到小數 3 位）；
+ * 畫布上的分段交界把手（F18）：放在 Stage 裡、疊在 canvas 上，以畫布座標定位，所以會跟著預覽倍率移動、
+ * 始終對準交界；大小則固定在螢幕上（寬＝max(粗細＋12, 20)、高 10 螢幕 px，和舊版相同，預覽縮小時也抓得到）。上下拖動只改變交界上下那兩段的比例（兩段比例和不變、每段至少 0.05、四捨五入到小數 3 位）；
  * 拖動距離依目前的預覽倍率換算回畫布 px。聚焦時 ↑／↓ 移動 1 px（Shift 10 px）。
  */
 import { type KeyboardEvent, type PointerEvent, useRef } from 'react';
@@ -53,7 +53,10 @@ export function Handles({
 }: HandlesProps) {
   const scale = useStageScale();
   const drag = useRef<DragState | null>(null);
-  const w = handleWidth(thickness);
+  /* 把手的大小以螢幕 px 計：換算回畫布座標（Stage 會再乘上預覽倍率） */
+  const z = scale || 1;
+  const w = handleWidth(thickness) / z;
+  const h = HANDLE_HEIGHT / z;
 
   const down = (e: PointerEvent<HTMLDivElement>, bar: Bar, layout: BarLayout, k: number) => {
     if (e.button !== 0 || drag.current) return;
@@ -129,12 +132,12 @@ export function Handles({
               className="absolute cursor-ns-resize touch-none rounded-sm shadow-1 outline-none hover:brightness-90 focus-visible:ring-2 focus-visible:ring-focus"
               style={{
                 left: layout.x + layout.width / 2 - w / 2,
-                top: y - HANDLE_HEIGHT / 2,
+                top: y - h / 2,
                 width: w,
-                height: HANDLE_HEIGHT,
+                height: h,
                 /* 疊在使用者選的顏色上：固定白底深框，不跟著深淺色主題變 */
                 background: '#ffffff',
-                border: '1px solid rgb(0 0 0 / 0.7)',
+                border: `${1 / z}px solid rgb(0 0 0 / 0.7)`,
               }}
             />
           );

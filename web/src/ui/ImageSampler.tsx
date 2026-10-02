@@ -26,6 +26,8 @@ import { cn } from './cn';
 import { Field } from './Field';
 import { Slider } from './Slider';
 
+/** 分割線上下各多少 px 可以按（相鄰的線太近時縮小） */
+const SPLIT_HIT = 6;
 export interface SamplePoint {
   /** 原圖像素座標 */
   x: number;
@@ -225,30 +227,42 @@ export function ImageSampler({
           >
             <canvas ref={canvas} className="block size-full" aria-hidden />
             {mode === 'splits'
-              ? splits.map((f, i) => (
-                  <div
-                    // biome-ignore lint/suspicious/noArrayIndexKey: 分割線依序排列，索引就是身分
-                    key={i}
-                    role="slider"
-                    tabIndex={0}
-                    aria-label={`分割線 ${i + 1}`}
-                    aria-orientation="vertical"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={Math.round(f * 1000) / 10}
-                    aria-valuetext={`${(f * 100).toFixed(1)}%`}
-                    data-split={i}
-                    onPointerDown={(e) => startDrag(e, 'split', i)}
-                    onPointerMove={onDragMove}
-                    onPointerUp={endDrag}
-                    onPointerCancel={endDrag}
-                    onKeyDown={(e) => splitKey(e, i)}
-                    className="group absolute inset-x-0 -mt-1.5 flex h-3 cursor-ns-resize touch-none items-center outline-none"
-                    style={{ top: `${f * 100}%` }}
-                  >
-                    <div className="h-0.5 w-full bg-danger shadow-1 transition-[height] group-hover:h-1 group-focus-visible:h-1 group-active:h-1" />
-                  </div>
-                ))
+              ? splits.map((f, i) => {
+                  /* 可按的範圍：線上下各 6 px，但不超過到相鄰那條線的一半（線靠得很近時不互相蓋住） */
+                  const H = h * zoom;
+                  const up = Math.min(SPLIT_HIT, i > 0 ? ((f - splits[i - 1]) * H) / 2 : SPLIT_HIT);
+                  const down = Math.min(
+                    SPLIT_HIT,
+                    i < splits.length - 1 ? ((splits[i + 1] - f) * H) / 2 : SPLIT_HIT,
+                  );
+                  return (
+                    <div
+                      // biome-ignore lint/suspicious/noArrayIndexKey: 分割線依序排列，索引就是身分
+                      key={i}
+                      role="slider"
+                      tabIndex={0}
+                      aria-label={`分割線 ${i + 1}`}
+                      aria-orientation="vertical"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(f * 1000) / 10}
+                      aria-valuetext={`${(f * 100).toFixed(1)}%`}
+                      data-split={i}
+                      onPointerDown={(e) => startDrag(e, 'split', i)}
+                      onPointerMove={onDragMove}
+                      onPointerUp={endDrag}
+                      onPointerCancel={endDrag}
+                      onKeyDown={(e) => splitKey(e, i)}
+                      className="group absolute inset-x-0 cursor-ns-resize touch-none outline-none"
+                      style={{ top: `calc(${f * 100}% - ${up}px)`, height: up + down }}
+                    >
+                      <div
+                        className="absolute inset-x-0 h-0.5 -translate-y-1/2 bg-danger shadow-1 transition-[height] group-hover:h-1 group-focus-visible:h-1 group-active:h-1"
+                        style={{ top: up }}
+                      />
+                    </div>
+                  );
+                })
               : null}
             {mode === 'points'
               ? points.map((p, i) => (

@@ -153,7 +153,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | icon-maker | ✅ | ✅ | ✅ | ⬜（待上線） |
 | variant-manager | ✅ | ✅ | ✅ | ⬜（待上線） |
 | height-board | ✅ | ✅ | ⬜ | ⬜ |
-| color-palette | ✅ | ✅ | ⬜ | ⬜ |
+| color-palette | ✅ | ✅ | ✅ | ⬜（待上線） |
 | emotion-maker | ✅ | ✅ | ⬜ | ⬜ |
 | typewriter | ✅ | ✅ | ✅ | ⬜（待上線） |
 | text-path | ✅ | ✅ | ✅ | ✅ |

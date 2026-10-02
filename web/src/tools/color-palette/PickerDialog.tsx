@@ -163,6 +163,8 @@ export function PickerDialog({ onApply, ref }: PickerDialogProps) {
       title={target ? S.pickerTitle(target.number) : ''}
       description={S.pickerDescription}
       size="xl"
+      /* 和舊版相同：點外面不關（誤點會丟掉載入的圖與取色點），用 Esc、取消或關閉鈕關 */
+      dismissOnOutside={false}
       open={!!target}
       onOpenChange={(open) => {
         if (!open) onClose();

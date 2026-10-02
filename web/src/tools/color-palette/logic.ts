@@ -147,7 +147,8 @@ const cleanColor = (v: unknown, fallback: string) => {
 
 /** 色條長（px）＝基準長度 × 倍率 ÷ 基準倍率 */
 export function barLength(s: Pick<Settings, 'baseLength' | 'baseScale'>, scale: number): number {
-  return (s.baseLength * scale) / s.baseScale;
+  /* 和舊版相同的運算順序（影響畫布尺寸捨去小數時的邊界） */
+  return (s.baseLength / s.baseScale) * scale;
 }
 
 /** 段的比例和 */
@@ -207,14 +208,14 @@ export function groupWidth(count: number, thickness: number): number {
   return count > 0 ? count * thickness + (count - 1) * BAR_GAP : 0;
 }
 
-/** 畫布尺寸：自動＝內容＋兩邊留白（至少 100）；手動＝輸入值 */
+/** 畫布尺寸：自動＝內容＋兩邊留白（至少 100）；手動＝輸入值。有小數時捨去（和舊版把小數指定給畫布的結果相同） */
 export function canvasSize(s: Settings): { width: number; height: number } {
-  if (!s.autoSize) return { width: Math.round(s.width), height: Math.round(s.height) };
+  if (!s.autoSize) return { width: Math.floor(s.width), height: Math.floor(s.height) };
   const gw = groupWidth(s.bars.length, s.thickness);
   const maxLen = s.bars.reduce((m, b) => Math.max(m, barLength(s, b.scale)), 0);
   return {
-    width: Math.max(MIN_CANVAS, Math.round(gw + 2 * s.padding)),
-    height: Math.max(MIN_CANVAS, Math.round(maxLen + 2 * s.padding)),
+    width: Math.max(MIN_CANVAS, Math.floor(gw + 2 * s.padding)),
+    height: Math.max(MIN_CANVAS, Math.floor(maxLen + 2 * s.padding)),
   };
 }
 
@@ -259,8 +260,8 @@ export function layoutPalette(s: Settings): PaletteLayout {
     ? {
         x: Math.round(x0 - s.padding),
         y: Math.round(bottom - maxLength - s.padding),
-        width: Math.round(gw + 2 * s.padding),
-        height: Math.round(maxLength + 2 * s.padding),
+        width: Math.floor(gw + 2 * s.padding),
+        height: Math.floor(maxLength + 2 * s.padding),
       }
     : null;
   return { width, height, bars, groupWidth: gw, maxLength, crop };

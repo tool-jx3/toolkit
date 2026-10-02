@@ -29,10 +29,12 @@ export function drawPalette(ctx: Ctx, layout: PaletteLayout, background: string)
       ctx.fill();
     } else {
       ctx.clip();
+      /* 每段只畫自己的範圍、上下各多 1 px 防縫（下一段蓋掉多出來的那 1 px，和舊版相同）。
+         不要從段的上緣一路畫到色條下端：圓角與側邊的半透明像素會被每一段重複疊色，染上上面各段的顏色 */
       for (const seg of bar.segments) {
         if (seg.y1 <= seg.y0) continue;
         ctx.fillStyle = seg.color;
-        ctx.fillRect(bar.x, seg.y0, bar.width, bar.bottom - seg.y0);
+        ctx.fillRect(bar.x, seg.y0 - 1, bar.width, seg.y1 - seg.y0 + 2);
       }
     }
     ctx.restore();
