@@ -440,8 +440,10 @@ test('PSD：由上到下、同名保留、隱藏與獨顯、點擊選取、匯�
   await expect(viewer(page)).toBeVisible();
   await expect(viewer(page).getByRole('heading', { name: '身體' })).toBeVisible();
   await page.keyboard.press('Escape');
-  /* 隱藏「臉」、獨顯 */
+  /* 隱藏「臉」、獨顯；眼睛鈕滑過有提示 */
   const face = rows(page).filter({ hasText: '臉' });
+  await face.getByRole('button', { name: '隱藏「臉」' }).hover();
+  await expect(page.getByRole('tooltip')).toHaveText('隱藏「臉」');
   await face.getByRole('button', { name: '隱藏「臉」' }).click();
   await expect(face).toHaveAttribute('data-hidden', 'true');
   const body = rows(page).filter({ hasText: '身體' });
@@ -599,11 +601,19 @@ test('APNG：播放次數（整體／個別）、延遲 0 保留；檢視器的�
   await expect(info).toHaveText('1 / 6 格（100 ms）');
   await page.keyboard.press('ArrowRight');
   await expect(info).toHaveText('2 / 6 格（0 ms）');
-  /* 對照原圖（F69）：按住時顯示原圖 */
+  /* 對照原圖（F69）：按住時顯示原圖，放開或滑鼠移出按鈕就恢復 */
   const compare = page.getByTestId('compare');
   await compare.hover();
   await page.mouse.down();
   await expect(page.getByTestId('viewer-canvas')).toHaveAttribute('data-original', 'true');
+  await page.mouse.up();
+  await expect(page.getByTestId('viewer-canvas')).not.toHaveAttribute('data-original', 'true');
+  await compare.hover();
+  await page.mouse.down();
+  await expect(page.getByTestId('viewer-canvas')).toHaveAttribute('data-original', 'true');
+  const vc = (await page.getByTestId('viewer-canvas').boundingBox())!;
+  await page.mouse.move(vc.x + vc.width / 2, vc.y + vc.height / 2, { steps: 3 });
+  await expect(page.getByTestId('viewer-canvas')).not.toHaveAttribute('data-original', 'true');
   await page.mouse.up();
   await expect(page.getByTestId('viewer-canvas')).not.toHaveAttribute('data-original', 'true');
   await compare.focus();
@@ -643,6 +653,61 @@ test('APNG：播放次數（整體／個別）、延遲 0 保留；檢視器的�
   const again = await exportZip(page);
   expect(decode(again.entries.find((e) => e.name === 'ball.png')!.data).loops).toBe(3);
   expect(decode(again.entries.find((e) => e.name === 'loop0.png')!.data).loops).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('壓縮狀態文字（F89）：單張下載、容量試算、匯出結束後都清空（晚到的進度不會蓋回去）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await load(page, [file('ball.png', await ballApng()), file('loop0.png', await loop0Apng())]);
+  const status = page.getByTestId('compress-status');
+  /* 記下狀態文字出現過什麼（確認工作中確實有顯示） */
+  await page.evaluate(() => {
+    const w = window as unknown as { __seen: string[] };
+    w.__seen = [];
+    new MutationObserver(() => {
+      const t = document.querySelector('[data-testid=compress-status]')?.textContent;
+      if (t) w.__seen.push(t);
+    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  });
+  /** 點按鈕並等到它停用又恢復（容量試算執行完） */
+  const runTest = () =>
+    page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const b = document.querySelector('[data-testid=test-run]') as HTMLButtonElement;
+          let started = false;
+          const mo = new MutationObserver(() => {
+            if (b.disabled) started = true;
+            else if (started) {
+              mo.disconnect();
+              resolve();
+            }
+          });
+          mo.observe(b, { attributes: true });
+          b.click();
+        }),
+    );
+  await tiles(page).first().click();
+  const v = viewer(page);
+  for (let i = 0; i < 3; i++) {
+    await download(page, () => btn(v, '下載這一張').click());
+    await expect(page.getByTestId('busy')).toHaveCount(0);
+    await page.waitForTimeout(400);
+    await expect(status).toHaveText('');
+    await runTest();
+    await expect(page.getByTestId('test-card')).toBeVisible();
+    await page.waitForTimeout(400);
+    await expect(status).toHaveText('');
+  }
+  await btn(v, '回到清單').click();
+  await exportZip(page);
+  await expect(page.getByTestId('busy')).toHaveCount(0);
+  await page.waitForTimeout(400);
+  await expect(status).toHaveText('');
+  const seen = await page.evaluate(() => (window as unknown as { __seen: string[] }).__seen);
+  expect(seen).toContain('壓縮中：試無損');
   expect(errors).toEqual([]);
 });
 

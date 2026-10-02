@@ -297,12 +297,13 @@ function InspectorBody(p: InspectorProps & { asset: Asset }) {
             title={S.compareHint}
             data-testid="compare"
             onPointerDown={(e) => {
-              e.currentTarget.setPointerCapture(e.pointerId);
+              if (e.pointerType === 'mouse' && e.button !== 0) return;
               setOriginal(true);
             }}
             onPointerUp={() => setOriginal(false)}
+            /* 滑鼠移出按鈕就恢復（與舊版相同）；觸控按住時瀏覽器會把指標留在按鈕上，放開才恢復 */
+            onPointerLeave={() => setOriginal(false)}
             onPointerCancel={() => setOriginal(false)}
-            onLostPointerCapture={() => setOriginal(false)}
             onKeyDown={(e) => {
               if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
                 e.preventDefault();

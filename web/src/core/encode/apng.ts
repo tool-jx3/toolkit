@@ -14,6 +14,7 @@ import {
   copyRect,
   diffRect,
   type EncodedFile,
+  EncodeLimitError,
   type FrameEncoder,
   type Rect,
   type RgbaPixels,
@@ -60,6 +61,12 @@ export interface ApngEncoderOptions {
    * （照原檔保留延遲 0，例：psd-studio 第 7 節裁定）；搭配 mergeIdentical: false 才能保證每格都留下。
    */
   minTicks?: number;
+  /**
+   * 壓好的影像資料累計超過這麼多位元組就放棄（預設不限）：addFrame（全彩、固定調色盤）或 finish（減色）
+   * 丟出 EncodeLimitError。給「超過某個大小就不要了」的試編用（例：psd-studio 的容量壓縮），省下後面的時間；
+   * 沒超過時輸出與不設上限完全相同。
+   */
+  maxBytes?: number;
 }
 
 interface Change {
@@ -138,6 +145,10 @@ export class ApngEncoder implements FrameEncoder {
   private added = 0;
   private ticks = 0;
   private aborted = false;
+  /** 已經壓好的影像資料（maxBytes 用） */
+  private packed = 0;
+  /** 超過 maxBytes 之後一律丟出這個 */
+  private limited: EncodeLimitError | null = null;
 
   constructor(options: ApngEncoderOptions) {
     if (!(options.width > 0 && options.height > 0)) throw new RangeError('寬高必須大於 0');
@@ -153,6 +164,7 @@ export class ApngEncoder implements FrameEncoder {
       embedStill: true,
       stillWeightMin: 1,
       minTicks: 1,
+      maxBytes: Number.POSITIVE_INFINITY,
       ...rest,
     };
     this.fixed = palette ? fixedPalette(palette) : null;
@@ -165,8 +177,48 @@ export class ApngEncoder implements FrameEncoder {
     this.stillPx = new Uint32Array(toU32(rgba));
   }
 
+  /**
+   * 壓一塊影像並累計大小。有 maxBytes 時把剩下的額度交給 packImage（一塊壓到一半超過就停），
+   * 超過時放掉暫存的影格並丟出 EncodeLimitError。progress：[這塊之前的進度, 這塊的份量]（不知道時 null）。
+   */
+  private async pack(
+    pixels: Uint8Array,
+    w: number,
+    h: number,
+    paletted: boolean,
+    progress: [number, number] | null,
+  ): Promise<Uint8Array> {
+    const { maxBytes, deflate } = this.opt;
+    if (maxBytes === Number.POSITIVE_INFINITY) {
+      const data = await packImage(pixels, w, h, paletted, deflate);
+      this.packed += data.length;
+      return data;
+    }
+    let data: Uint8Array;
+    try {
+      data = await packImage(pixels, w, h, paletted, deflate, Math.max(0, maxBytes - this.packed));
+    } catch (e) {
+      if (!(e instanceof EncodeLimitError)) throw e;
+      this.packed += e.bytes;
+      this.fail(progress ? progress[0] + progress[1] * (e.progress ?? 1) : null);
+    }
+    this.packed += data.length;
+    if (this.packed > maxBytes) this.fail(progress ? progress[0] + progress[1] : null);
+    return data;
+  }
+
+  /** 超過 maxBytes：放掉暫存的影格，之後一律丟出同一個 EncodeLimitError */
+  private fail(progress: number | null): never {
+    this.limited = new EncodeLimitError(this.packed, progress);
+    this.changes.length = 0;
+    this.stored.length = 0;
+    this.prev = null;
+    throw this.limited;
+  }
+
   async addFrame(rgba: RgbaPixels, ticks = 1): Promise<void> {
     if (this.aborted) throw new DOMException('已取消', 'AbortError');
+    if (this.limited) throw this.limited;
     const { width: W, height: H } = this.opt;
     assertFrameSize(rgba, W, H);
     const u32 = toU32(rgba);
@@ -187,7 +239,7 @@ export class ApngEncoder implements FrameEncoder {
     if (this.fixed) {
       /* 固定調色盤：像素完全相同才算同一色，所以差分矩形與索引的差分一致，直接壓縮 */
       const idx = toIndices(px, this.fixed);
-      const data = await packImage(idx, r.w, r.h, true, this.opt.deflate);
+      const data = await this.pack(idx, r.w, r.h, true, null);
       this.stored.push({ ...r, data, count: t });
       return;
     }
@@ -196,7 +248,7 @@ export class ApngEncoder implements FrameEncoder {
       this.changes.push({ r, px, count: t });
       return;
     }
-    const data = await packImage(new Uint8Array(px.buffer), r.w, r.h, false, this.opt.deflate);
+    const data = await this.pack(new Uint8Array(px.buffer), r.w, r.h, false, null);
     this.stored.push({ ...r, data, count: t });
   }
 
@@ -209,8 +261,9 @@ export class ApngEncoder implements FrameEncoder {
 
   async finish(): Promise<EncodedFile> {
     if (this.aborted) throw new DOMException('已取消', 'AbortError');
+    if (this.limited) throw this.limited;
     if (!this.added) throw new Error('沒有任何影格');
-    const { width: W, height: H, fps, plays, deflate } = this.opt;
+    const { width: W, height: H, fps, plays } = this.opt;
     let frames: StoredFrame[] = this.stored;
     let palette: Uint8Array | null = null;
     let stillData: Uint8Array | null = null;
@@ -285,22 +338,23 @@ export class ApngEncoder implements FrameEncoder {
         for (let y = 0; y < nh; y++) {
           out.set(tmp.subarray((my0 + y) * r.w + mx0, (my0 + y) * r.w + mx0 + nw), y * nw);
         }
-        const data = await packImage(out, nw, nh, true, deflate);
+        const n = this.changes.length;
+        const data = await this.pack(out, nw, nh, true, [ci / n, 1 / n]);
         frames.push({ x: r.x + mx0, y: r.y + my0, w: nw, h: nh, data, count: c.count });
         if (ci % 8 === 7) await yieldToEventLoop();
       }
       if (this.stillPx && this.opt.embedStill) {
         const idx = new Uint8Array(W * H);
         for (let k = 0; k < idx.length; k++) idx[k] = idxOf(this.stillPx[k]);
-        stillData = await packImage(idx, W, H, true, deflate);
+        stillData = await this.pack(idx, W, H, true, null);
       }
     } else if (this.fixed) {
       palette = this.fixed.colors;
       colors = { lossless: true, count: this.fixed.colors.length / 4 };
       if (this.stillPx && this.opt.embedStill)
-        stillData = await packImage(toIndices(this.stillPx, this.fixed), W, H, true, deflate);
+        stillData = await this.pack(toIndices(this.stillPx, this.fixed), W, H, true, null);
     } else if (this.stillPx && this.opt.embedStill) {
-      stillData = await packImage(new Uint8Array(this.stillPx.buffer), W, H, false, deflate);
+      stillData = await this.pack(new Uint8Array(this.stillPx.buffer), W, H, false, null);
     }
 
     const apngFrames: ApngFrame[] = frames.map((f) => {

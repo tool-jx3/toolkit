@@ -15,6 +15,7 @@ export interface StillPngResult {
 /**
  * 編一張 PNG。maxColors：0＝全彩 RGBA（無損）；2～256＝最多這麼多色的調色盤 PNG
  * （實際用到的顏色在上限以內時完全無損）。paletteMethod：減色時調色盤的選法（預設 'median-cut'）。
+ * maxBytes：壓好的影像資料超過這麼多位元組就放棄，丟出 EncodeLimitError（預設不限；試編用）。
  */
 export async function encodePngColors(
   rgba: RgbaPixels,
@@ -23,8 +24,10 @@ export async function encodePngColors(
   maxColors = 0,
   deflate: DeflateMode = 'auto',
   paletteMethod: PaletteMethod = 'median-cut',
+  maxBytes = Number.POSITIVE_INFINITY,
 ): Promise<StillPngResult> {
-  if (!(maxColors > 0)) return { bytes: await encodePng(rgba, width, height, null, deflate) };
+  if (!(maxColors > 0))
+    return { bytes: await encodePng(rgba, width, height, null, deflate, maxBytes) };
   const limit = Math.min(256, Math.max(2, Math.round(maxColors)));
   const u32 = toU32(rgba);
   const stats = new ColorStats(limit);
@@ -42,7 +45,7 @@ export async function encodePngColors(
     idx[k] = lastI;
   }
   return {
-    bytes: await encodePng(idx, width, height, pal.colors, deflate),
+    bytes: await encodePng(idx, width, height, pal.colors, deflate, maxBytes),
     colors: { lossless: pal.lossless, count: pal.count },
   };
 }

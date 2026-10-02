@@ -59,6 +59,36 @@ export interface StudioRunner {
 
 const abortError = () => new DOMException('已取消', 'AbortError');
 
+/**
+ * 進度回呼的閘門（F89）：工作結束（成功、失敗或取消）後 close()，之後到的進度一律丟掉。
+ * Worker 的進度經 Comlink 的 proxy 走另一條訊息通道，與結果的回傳沒有先後保證：
+ * 最後幾則進度可能比結果晚到，蓋掉呼叫端結束時的清理（例如清空壓縮狀態文字）。
+ */
+export function gateProgress<A extends unknown[]>(
+  fn: ((...args: A) => void) | undefined,
+): { fn: ((...args: A) => void) | undefined; close: () => void } {
+  let open = true;
+  return {
+    fn: fn
+      ? (...args: A) => {
+          if (open) fn(...args);
+        }
+      : undefined,
+    close: () => {
+      open = false;
+    },
+  };
+}
+
+/** 帶進度的工作：進度經過閘門，工作一結束就關上（見 gateProgress） */
+function withGate<A extends unknown[], R>(
+  onProgress: ((...args: A) => void) | undefined,
+  run: (progress: ((...args: A) => void) | undefined) => Promise<R>,
+): Promise<R> {
+  const gate = gateProgress(onProgress);
+  return run(gate.fn).finally(gate.close);
+}
+
 export const isAbort = (e: unknown): boolean =>
   e instanceof DOMException
     ? e.name === 'AbortError'
@@ -146,9 +176,11 @@ export function createStudioRunner(name = '調色處理', { worker = true } = {}
         (l) => l.prepare(bytes),
       ),
     loadPsd: (bytes, onProgress) =>
-      call(
-        (api) => api.loadPsd(bytes, onProgress ? proxy(onProgress) : undefined),
-        (l) => l.loadPsd(bytes, onProgress),
+      withGate(onProgress, (progress) =>
+        call(
+          (api) => api.loadPsd(bytes, progress ? proxy(progress) : undefined),
+          (l) => l.loadPsd(bytes, progress),
+        ),
       ),
     resizeCanvas: (bytes, w, h, dx, dy) =>
       call(
@@ -167,14 +199,18 @@ export function createStudioRunner(name = '調色處理', { worker = true } = {}
         (l) => l.render(key, bytes, adjust, frames),
       ),
     processImage: (bytes, adjust, out, onProgress) =>
-      call(
-        (api) => api.processImage(bytes, adjust, out, onProgress ? proxy(onProgress) : undefined),
-        (l) => l.processImage(bytes, adjust, out, onProgress),
+      withGate(onProgress, (progress) =>
+        call(
+          (api) => api.processImage(bytes, adjust, out, progress ? proxy(progress) : undefined),
+          (l) => l.processImage(bytes, adjust, out, progress),
+        ),
       ),
     exportZip: (job, onProgress) =>
-      call(
-        (api) => api.exportZip(job, onProgress ? proxy(onProgress) : undefined),
-        (l) => l.exportZip(job, onProgress),
+      withGate(onProgress, (progress) =>
+        call(
+          (api) => api.exportZip(job, progress ? proxy(progress) : undefined),
+          (l) => l.exportZip(job, progress),
+        ),
       ),
     cancel: () => terminate(abortError()),
     dispose: () => terminate(abortError()),

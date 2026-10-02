@@ -16,6 +16,7 @@ export {
   diffRect,
   type EncodedFile,
   type EncodeFormat,
+  EncodeLimitError,
   type FrameEncoder,
   MAX_PLAYS,
   pasteRect,

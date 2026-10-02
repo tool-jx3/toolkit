@@ -101,7 +101,6 @@ export function LayerPanel(p: LayerPanelProps) {
                 label={a.visible ? S.eyeHide(label) : S.eyeShow(label)}
                 icon={a.visible ? <Eye /> : <EyeOff />}
                 pressed={!a.visible}
-                noTooltip
                 onClick={(e) => {
                   e.stopPropagation();
                   p.onToggleVisible(a.id);

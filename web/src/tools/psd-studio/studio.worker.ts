@@ -13,7 +13,7 @@ import {
   loadPsd,
   type OutputOptions,
   type ProcessProgress,
-  prepare,
+  prepareDecoded,
   processImage,
   resizeCanvas,
 } from './process';
@@ -38,9 +38,55 @@ function decoded(key: string, bytes: Uint8Array | null): Promise<DecodedImage> |
   return p;
 }
 
+/**
+ * 載入時解碼過的原檔（最近幾個，合計不超過 SOURCE_CACHE_BYTES）：匯出、容量壓縮試算、單張下載時
+ * 同一個原檔（位元組完全相同才算）直接沿用，不必再解碼一次。
+ */
+const sources: { bytes: Uint8Array; decoded: DecodedImage; size: number }[] = [];
+const SOURCE_CACHE_BYTES = 64 * 1024 * 1024;
+const SOURCE_CACHE_COUNT = 4;
+
+function remember(bytes: Uint8Array, decoded: DecodedImage): void {
+  const size = decoded.frames.reduce((s, f) => s + f.length, 0);
+  if (size > SOURCE_CACHE_BYTES) return;
+  sources.unshift({ bytes, decoded, size });
+  let total = 0;
+  for (let i = 0; i < sources.length; i++) {
+    total += sources[i].size;
+    if (i >= SOURCE_CACHE_COUNT || total > SOURCE_CACHE_BYTES) {
+      sources.length = i;
+      break;
+    }
+  }
+}
+
+/** 位元組完全相同（對齊時一次比 4 位元組） */
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let i = 0;
+  if (a.byteOffset % 4 === 0 && b.byteOffset % 4 === 0) {
+    const n = a.length >> 2;
+    const a32 = new Uint32Array(a.buffer, a.byteOffset, n);
+    const b32 = new Uint32Array(b.buffer, b.byteOffset, n);
+    for (; i < n; i++) if (a32[i] !== b32[i]) return false;
+    i = n << 2;
+  }
+  for (; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function recall(bytes: Uint8Array): DecodedImage | null {
+  const i = sources.findIndex((s) => sameBytes(s.bytes, bytes));
+  if (i < 0) return null;
+  const [hit] = sources.splice(i, 1);
+  sources.unshift(hit);
+  return hit.decoded;
+}
+
 const api = {
   async prepare(bytes: Uint8Array) {
-    const info = await prepare(bytes);
+    const { info, decoded } = await prepareDecoded(bytes);
+    remember(bytes, decoded);
     return transfer(info, [info.thumb.rgba.buffer]);
   },
   async loadPsd(bytes: Uint8Array, onProgress?: (i: number, n: number, name: string) => void) {
@@ -74,11 +120,11 @@ const api = {
     out: OutputOptions,
     onProgress?: (p: ProcessProgress) => void,
   ) {
-    const r = await processImage(bytes, adjust, out, onProgress);
+    const r = await processImage(bytes, adjust, out, onProgress, recall(bytes));
     return transfer(r, [r.data.buffer]);
   },
   async exportZip(job: ExportJob, onProgress?: (p: ExportProgress) => void) {
-    const r = await exportZip(job, onProgress);
+    const r = await exportZip(job, onProgress, recall);
     return transfer(r, [r.bytes.buffer]);
   },
 };

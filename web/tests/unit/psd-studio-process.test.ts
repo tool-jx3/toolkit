@@ -20,6 +20,7 @@ import {
   makeThumb,
   padRgba,
   prepare,
+  prepareDecoded,
   processImage,
   resizeCanvas,
   resizeRgba,
@@ -190,6 +191,38 @@ describe('輸出（3.5、3.6；第 7 節裁定）', () => {
     );
     expect(tiny.info).toMatchObject({ scale: 0.4, colors: 32, over: true, skipped: false });
     expect([tiny.info.width, tiny.info.height]).toEqual([26, 26]);
+  });
+
+  it('沿用載入時解碼好的結果：輸出相同，不改到原本的影格', async () => {
+    const ball = await ballApng();
+    const adjust = { global: { ...defaultGlobalAdjust(), hue: 90 }, asset: null };
+    const opts = { ...OFF, compress: true, targetBytes: 3000, plays: 0 };
+    const fresh = await processImage(ball, adjust, opts);
+    const { info, decoded } = await prepareDecoded(ball);
+    expect(info).toEqual(await prepare(ball));
+    const before = decoded.frames.map((f) => f.slice());
+    const reused = await processImage(ball, adjust, opts, undefined, decoded);
+    expect(sha(reused.data)).toBe(sha(fresh.data));
+    expect(reused.info).toEqual(fresh.info);
+    decoded.frames.forEach((f, i) => {
+      expect(f).toEqual(before[i]);
+    });
+    /* 匯出：查得到的用快取，查不到的照樣解碼 */
+    const job = {
+      mode: 'image' as const,
+      global: adjust.global,
+      output: { compress: true, targetBytes: 3000, skip: true, compressStatic: false },
+      assets: [{ name: 'ball.png', bytes: ball, asset: null, visible: true, plays: 0 }],
+      zip: null,
+      mtime: Date.UTC(2026, 0, 1),
+    };
+    const asked: number[] = [];
+    const viaCache = await exportZip(job, undefined, (b) => {
+      asked.push(b.length);
+      return b === ball ? decoded : null;
+    });
+    expect(asked).toEqual([ball.length]);
+    expect(sha(viaCache.bytes)).toBe(sha((await exportZip(job)).bytes));
   });
 
   it('靜態圖：一律 RGBA PNG；靜態壓縮只在兩個開關都開時', async () => {

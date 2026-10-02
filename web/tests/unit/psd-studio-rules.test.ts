@@ -4,9 +4,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  type Attempt,
   COLOR_STEPS,
   formatMb,
   SCALE_STEPS,
+  SKIP_COLOR_STEPS,
+  SKIP_MIN_FRAMES,
+  SKIP_SCALE_STEPS,
   savingPercent,
   searchCompression,
   skipFrames,
@@ -285,6 +289,124 @@ describe('容量壓縮的搜尋（3.6、3.7；第 7 節裁定）', () => {
       attempt: model(10000),
     });
     expect(few.attempt.skip).toBe(false);
+  });
+
+  /** 舊版的順序：一個一個試，第一個放得下的就用（第 7 節：已在目標內的無損優先） */
+  async function linearFirstFit(
+    size: (a: Attempt) => number,
+    target: number,
+    frames: number,
+    allowSkip: boolean,
+  ): Promise<Attempt> {
+    const lossless = { scale: 1, colors: null, skip: false };
+    if (size(lossless) <= target) return lossless;
+    for (const scale of SCALE_STEPS)
+      for (const colors of COLOR_STEPS)
+        if (size({ scale, colors, skip: false }) <= target) return { scale, colors, skip: false };
+    if (allowSkip && frames >= SKIP_MIN_FRAMES)
+      for (const scale of SKIP_SCALE_STEPS)
+        for (const colors of SKIP_COLOR_STEPS)
+          if (size({ scale, colors, skip: true }) <= target) return { scale, colors, skip: true };
+    return { scale: 0.4, colors: 32, skip: false };
+  }
+
+  it('中小型檔：照舊版先試 256 色，放得下就結束（無損＋一次減色）', async () => {
+    /* 附件 400×400 雜訊 5 格：無損約 2.68 MB、256 色約 0.77 MB；目標 2.0 MB */
+    const tried: string[] = [];
+    const limits: number[] = [];
+    const r = await searchCompression({
+      target: targetBytes(2),
+      frames: 5,
+      allowSkip: true,
+      onTry: (a) => tried.push(`${a.scale}/${a.colors ?? 'x'}`),
+      attempt: (a, limit) => {
+        limits.push(limit);
+        return Promise.resolve(
+          a.colors === null
+            ? 2_805_317
+            : Math.round(803_404 * a.scale ** 2 * (Math.log2(a.colors) / 8)),
+        );
+      },
+    });
+    expect(r.attempt).toEqual({ scale: 1, colors: 256, skip: false });
+    expect(tried).toEqual(['1/x', '1/256']);
+    /* 試編時可以在超過目標後放棄 */
+    expect(limits).toEqual([targetBytes(2), targetBytes(2)]);
+  });
+
+  it('大檔：預估連 32 色都放不下時先試 32 色，放不下就換尺寸（1000×1000 → 80%、32 色只要 5 次）', async () => {
+    /* 雜訊的大小模型：像素數 × log2(色數)；無損約 17.5 MB */
+    const size = (a: Attempt) =>
+      a.colors === null
+        ? 17_500_000
+        : Math.round(5_100_000 * a.scale ** 2 * (Math.log2(a.colors) / 8));
+    const tried: string[] = [];
+    const r = await searchCompression({
+      target: targetBytes(2),
+      frames: 5,
+      allowSkip: true,
+      onTry: (a) => tried.push(`${a.scale}/${a.colors ?? 'x'}`),
+      attempt: (a) => Promise.resolve(size(a)),
+    });
+    expect(r.attempt).toEqual(await linearFirstFit(size, targetBytes(2), 5, true));
+    expect(r.attempt).toEqual({ scale: 0.8, colors: 32, skip: false });
+    expect(tried).toEqual(['1/x', '1/32', '0.9/32', '0.8/32', '0.8/48']);
+  });
+
+  it('各種大小模型：結果都與舊版的順序相同（跳格、保底也一樣），而且試的次數不多於舊版', async () => {
+    let seed = 7;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+    for (let n = 0; n < 300; n++) {
+      const base = 2e5 + rand() * 4e7;
+      const power = 1.4 + rand() * 1.2;
+      const colorExp = 0.5 + rand() * 1.5;
+      const ratio = 0.25 + rand() * 0.6;
+      const frames = rand() < 0.5 ? 5 : 10;
+      const allowSkip = rand() < 0.7;
+      const target = targetBytes([4.8, 2, 10][n % 3]);
+      const size = (a: Attempt) =>
+        Math.round(
+          a.colors === null
+            ? base / ratio
+            : base *
+                a.scale ** power *
+                (Math.log2(a.colors) / 8) ** colorExp *
+                (a.skip ? Math.ceil(frames / 2) / frames : 1),
+        );
+      let calls = 0;
+      let fallbackFull = false;
+      const r = await searchCompression({
+        target,
+        frames,
+        allowSkip,
+        attempt: (a, limit) => {
+          calls++;
+          const s = size(a);
+          if (limit === Number.POSITIVE_INFINITY) fallbackFull = true;
+          /* 超過目標的提早放棄：回傳比實際小的估計（仍大於目標） */
+          return Promise.resolve(s > limit ? Math.max(limit + 1, Math.round(s * 0.8)) : s);
+        },
+      });
+      const want = await linearFirstFit(size, target, frames, allowSkip);
+      expect(r.attempt, `模型 #${n}`).toEqual(want);
+      expect(r.over).toBe(size(want) > target);
+      if (r.over) {
+        expect(fallbackFull).toBe(true);
+        expect(r.size).toBe(size(want));
+      }
+      const linearCalls =
+        1 +
+        (r.attempt.colors === null
+          ? 0
+          : SCALE_STEPS.length * COLOR_STEPS.length +
+            (allowSkip && frames >= SKIP_MIN_FRAMES
+              ? SKIP_SCALE_STEPS.length * SKIP_COLOR_STEPS.length
+              : 0));
+      expect(calls).toBeLessThanOrEqual(linearCalls);
+    }
   });
 
   it('跳格：留第 1、3、5…格，延遲＝自己＋下一格（100 ms → 200 ms）', () => {

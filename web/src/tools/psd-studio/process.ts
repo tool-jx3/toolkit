@@ -8,7 +8,7 @@
  */
 import { type CcfoliaRoomData, type RoomImageReplacement, rewriteRoomZip } from '@/ccfolia';
 import { decodeAnimatedImage, decodeStillImage, isPng, readPsdLayers } from '@/core/decode';
-import { ApngEncoder, encodePng, encodePngColors } from '@/core/encode';
+import { ApngEncoder, EncodeLimitError, encodePng, encodePngColors } from '@/core/encode';
 import { uniqueFileName, type ZipEntry, zipFiles } from '@/core/files';
 import { type AssetAdjust, applyAdjust, compileAdjust, type GlobalAdjust } from './adjust';
 import { type Attempt, scaledSize, searchCompression, skipFrames } from './compress';
@@ -268,6 +268,7 @@ export function countColorsUpTo(frames: readonly ArrayLike<number>[], limit: num
 /**
  * 編 APNG：每格是完整畫面（編碼器只存與前一格不同的範圍），延遲以毫秒計、延遲 0 保留 0、相同的影格不合併（格數照原檔）。
  * colors：null＝無損（不超過 256 色時自動用調色盤，仍無損）；數字＝減色到最多這麼多色。
+ * maxBytes：壓好的資料超過這麼多位元組就放棄，丟出 EncodeLimitError（容量壓縮的試編用；預設不限）。
  */
 export async function encodeApngFrames(
   frames: readonly Rgba[],
@@ -276,6 +277,7 @@ export async function encodeApngFrames(
   delays: readonly number[],
   plays: number,
   colors: number | null,
+  maxBytes = Number.POSITIVE_INFINITY,
 ): Promise<Uint8Array<ArrayBuffer>> {
   const quantize = colors !== null || countColorsUpTo(frames, 257) <= 256;
   const enc = new ApngEncoder({
@@ -287,20 +289,34 @@ export async function encodeApngFrames(
     maxColors: colors ?? 256,
     mergeIdentical: false,
     minTicks: 0,
+    maxBytes,
   });
-  for (let i = 0; i < frames.length; i++) await enc.addFrame(frames[i], Math.round(delays[i] ?? 0));
+  for (let i = 0; i < frames.length; i++) {
+    try {
+      await enc.addFrame(frames[i], Math.round(delays[i] ?? 0));
+    } catch (e) {
+      /* 全彩逐格壓縮時在這裡超過上限：還不知道整個檔案多大，依已經壓好的格數估計 */
+      if (e instanceof EncodeLimitError && e.progress === null)
+        throw new EncodeLimitError(e.bytes, (i + 1) / frames.length);
+      throw e;
+    }
+  }
   return (await enc.finish()).bytes;
 }
 
-/** 靜態 PNG：colors null＝全彩 RGBA（無損，3.5）；數字＝調色盤 PNG（色數在上限內時無損） */
+/**
+ * 靜態 PNG：colors null＝全彩 RGBA（無損，3.5）；數字＝調色盤 PNG（色數在上限內時無損）。
+ * maxBytes：壓好的資料超過這麼多位元組就放棄，丟出 EncodeLimitError（容量壓縮的試編用；預設不限）。
+ */
 export async function encodeStill(
   rgba: Rgba,
   width: number,
   height: number,
   colors: number | null,
+  maxBytes = Number.POSITIVE_INFINITY,
 ): Promise<Uint8Array<ArrayBuffer>> {
-  if (colors === null) return encodePng(rgba, width, height);
-  return (await encodePngColors(rgba, width, height, colors)).bytes;
+  if (colors === null) return encodePng(rgba, width, height, null, 'auto', maxBytes);
+  return (await encodePngColors(rgba, width, height, colors, 'auto', 'median-cut', maxBytes)).bytes;
 }
 
 /* ---------- 準備（載入時） ---------- */
@@ -317,15 +333,25 @@ export interface PreparedInfo {
 
 /** 載入時：尺寸、種類、影格與延遲、播放次數、縮圖（第一格） */
 export async function prepare(bytes: Uint8Array): Promise<PreparedInfo> {
+  return (await prepareDecoded(bytes)).info;
+}
+
+/** prepare，另外回傳解碼結果（Worker 留著給之後的匯出、試算沿用） */
+export async function prepareDecoded(
+  bytes: Uint8Array,
+): Promise<{ info: PreparedInfo; decoded: DecodedImage }> {
   const d = await decodeSource(bytes);
   return {
-    width: d.width,
-    height: d.height,
-    apng: d.apng,
-    frames: d.frames.length,
-    delays: d.delays,
-    plays: d.plays,
-    thumb: makeThumb(d.frames[0], d.width, d.height),
+    info: {
+      width: d.width,
+      height: d.height,
+      apng: d.apng,
+      frames: d.frames.length,
+      delays: d.delays.slice(),
+      plays: d.plays,
+      thumb: makeThumb(d.frames[0], d.width, d.height),
+    },
+    decoded: d,
   };
 }
 
@@ -501,7 +527,9 @@ async function compressDecoded(
     allowSkip: d.apng && allowSkip,
     onTry: (a) => onProgress?.({ type: 'try', scale: a.scale, colors: a.colors }),
     onSkip: () => onProgress?.({ type: 'skip' }),
-    attempt: async (a) => {
+    attempt: async (a, limit) => {
+      const done = outputs.get(key(a));
+      if (done) return done.data.length;
       const src = a.skip && skipped ? skipped : { frames: d.frames, delays: d.delays };
       const { width, height } = scaledSize(d.width, d.height, a.scale);
       const k = `${a.scale}|${a.skip}`;
@@ -512,9 +540,17 @@ async function compressDecoded(
             : src.frames.map((f) => resizeRgba(f, d.width, d.height, width, height));
         scaledKey = k;
       }
-      const data = d.apng
-        ? await encodeApngFrames(scaled, width, height, src.delays, plays, a.colors)
-        : await encodeStill(scaled[0], width, height, a.colors);
+      let data: Uint8Array<ArrayBuffer>;
+      try {
+        data = d.apng
+          ? await encodeApngFrames(scaled, width, height, src.delays, plays, a.colors, limit)
+          : await encodeStill(scaled[0], width, height, a.colors, limit);
+      } catch (e) {
+        /* 編到一半就超過目標：放棄，回傳估計的大小（一定大於目標） */
+        if (!(e instanceof EncodeLimitError)) throw e;
+        const estimate = e.progress ? e.bytes / e.progress : e.bytes;
+        return Math.max(limit + 1, Math.round(estimate));
+      }
       outputs.set(key(a), { data, width, height, frames: scaled.length });
       return data.length;
     },
@@ -523,13 +559,19 @@ async function compressDecoded(
   return { ...out, attempt: result.attempt, over: result.over };
 }
 
-/** 解碼＋調色（每一格） */
+/**
+ * 解碼＋調色（每一格）。decoded：同一個原檔已經解碼好的結果（例如載入時解碼過的）——
+ * 複製一份再調色（不改到原本的），省下再解碼一次的時間。
+ */
 export async function decodeAdjusted(
   bytes: Uint8Array,
   adjust: AdjustInput | null,
   onProgress?: (p: ProcessProgress) => void,
+  decoded?: DecodedImage | null,
 ): Promise<DecodedImage> {
-  const d = await decodeSource(bytes);
+  const d = decoded
+    ? { ...decoded, frames: decoded.frames.map((f) => f.slice()), delays: decoded.delays.slice() }
+    : await decodeSource(bytes);
   if (adjust) {
     const c = compileAdjust(adjust.global, adjust.asset);
     d.frames.forEach((f, i) => {
@@ -543,14 +585,16 @@ export async function decodeAdjusted(
 /**
  * 處理一張（匯出、單張下載）：調色 → 靜態圖編成 PNG（F84、F87 都開時走容量壓縮）；
  * APNG 壓縮開時走容量壓縮，關時無損輸出（延遲、格數照原檔，播放次數依 plays）。
+ * decoded：同一個原檔已經解碼好的結果（可省略；見 decodeAdjusted）。
  */
 export async function processImage(
   bytes: Uint8Array,
   adjust: AdjustInput,
   out: OutputOptions,
   onProgress?: (p: ProcessProgress) => void,
+  decoded?: DecodedImage | null,
 ): Promise<ProcessResult> {
-  const d = await decodeAdjusted(bytes, adjust, onProgress);
+  const d = await decodeAdjusted(bytes, adjust, onProgress, decoded);
   const compress = d.apng ? out.compress : out.compress && out.compressStatic;
   const base = { apng: d.apng, origSize: bytes.length };
   if (compress) {
@@ -695,10 +739,14 @@ export function imageZipEntries(
   return result;
 }
 
-/** 匯出整批（F90～F93）：逐張處理（看得見的），再依模式打包 */
+/**
+ * 匯出整批（F90～F93）：逐張處理（看得見的），再依模式打包。
+ * decodedOf：查同一個原檔已經解碼好的結果（Worker 的快取；沒有時回傳 null）。
+ */
 export async function exportZip(
   job: ExportJob,
   onProgress?: (p: ExportProgress) => void,
+  decodedOf?: (bytes: Uint8Array) => DecodedImage | null,
 ): Promise<ExportResult> {
   const visible = job.assets.filter((a) => a.visible);
   const hidden = job.assets.filter((a) => !a.visible);
@@ -712,6 +760,7 @@ export async function exportZip(
       { global: job.global, asset: a.asset },
       { ...job.output, plays: a.plays },
       (detail) => onProgress?.({ type: 'detail', detail }),
+      decodedOf?.(a.bytes),
     );
     if (r.info.over) over.push(a.name);
     processed.push({ asset: a, data: r.data, apng: r.info.apng });
