@@ -485,7 +485,7 @@ test.describe('F11：清單面板的高度與 ↑↓', () => {
     expect(errors).toEqual([]);
   });
 
-  test('常見筆電尺寸：清單面板至少約四列高（複驗後調整）', async ({ page }) => {
+  test('常見筆電尺寸：清單面板至少約四列高，一載入就看得到（複驗後調整）', async ({ page }) => {
     const errors = await open(page);
     const files = [];
     for (let i = 0; i < 12; i++)
@@ -505,6 +505,12 @@ test.describe('F11：清單面板的高度與 ↑↓', () => {
           { message: `${width}×${height}` },
         )
         .toBeGreaterThanOrEqual(400);
+      /* 載入後載入區縮成一行、清單排在命名之前：頁面不捲動就看得到約四列（舊版 4～5 列） */
+      const visible = await page.getByTestId('list-scroller').evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+      });
+      expect(visible, `${width}×${height}：畫面裡看得到的清單高度`).toBeGreaterThanOrEqual(380);
     }
     expect(errors).toEqual([]);
   });

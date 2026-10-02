@@ -4,6 +4,7 @@
  *
  * 字的外觀（規格 3.4）用 core/typeset 的 paintGlyph 逐字畫成 sprite：外框以字形輪廓為中心（外側看得到一半）、
  * 圓角；陰影跟著外框（外框 0 時跟著填色）；底線、刪除線以填色畫在外框之後。淡出時整個字一起變透明（主控裁定）。
+ * 字要水平縮放或旋轉時，陰影不畫進 sprite，改在畫布座標另外畫：偏移與模糊不跟著字變形（和舊版的畫布陰影相同，規格 F19）。
  * 打字與故障先排好全文、再逐字顯示，字的位置固定（主控裁定）。
  */
 import { loopShape } from '@/core/path';
@@ -132,6 +133,35 @@ function rotateRectBack(r: DecorationRect): DecorationRect {
   return { x: r.y, y: -r.x - r.w, w: r.h, h: r.w };
 }
 
+type Shadow = GlyphStyle['shadow'];
+
+/** 一個字畫好的 sprite；sil：陰影要在畫布座標另外畫時用的剪影（這時 art 裡沒有陰影） */
+interface PaintedGlyph {
+  art: GlyphArt;
+  sil: GlyphArt | null;
+}
+
+/** paint(字, 字格寬度, 固定旋轉, 陰影另外畫)；shadow：這組樣式的陰影 */
+type Painter = ((
+  ch: string,
+  slotAdv: number,
+  rot0: number,
+  split: boolean,
+) => PaintedGlyph | null) & {
+  shadow: Shadow;
+};
+
+/** 陰影的剪影：外框與填色合成一塊不透明的形狀（和 paintGlyph 的陰影同一個形狀） */
+function silhouetteStyle(style: GlyphStyle): GlyphStyle {
+  return {
+    fill: { type: 'solid', color: '#000', stops: [], opacity: 1 },
+    stroke: style.stroke ? { w: style.stroke.w, color: '#000' } : null,
+    outer: style.outer ? { w: style.outer.w, color: '#000' } : null,
+    shadow: null,
+    glow: null,
+  };
+}
+
 /** 逐字 sprite 的快取：同一個字、同樣的字格寬度與固定旋轉只畫一次 */
 function createPainter(
   css: string,
@@ -139,39 +169,89 @@ function createPainter(
   style: GlyphStyle,
   italic: boolean,
   deco: DecoFn | null,
-): (ch: string, slotAdv: number, rot0: number) => GlyphArt | null {
-  const cache = new Map<string, GlyphArt | null>();
-  return (ch, slotAdv, rot0) => {
-    const key = `${ch}\u0000${slotAdv.toFixed(3)}\u0000${rot0 ? 1 : 0}`;
-    let art = cache.get(key);
-    if (art === undefined) {
+): Painter {
+  const cache = new Map<string, PaintedGlyph | null>();
+  const bare: GlyphStyle = { ...style, shadow: null };
+  const sil = silhouetteStyle(style);
+  const paint = (
+    ch: string,
+    slotAdv: number,
+    rot0: number,
+    split: boolean,
+  ): PaintedGlyph | null => {
+    const sep = split && !!style.shadow;
+    const key = `${ch}\u0000${slotAdv.toFixed(3)}\u0000${rot0 ? 1 : 0}\u0000${sep ? 1 : 0}`;
+    let g = cache.get(key);
+    if (g === undefined) {
       const m = meter.get(ch);
-      art = paintGlyph(ch, css, m, m.w, meter.central, style, null, italic, {
-        decorations: deco ? deco(slotAdv, rot0) : [],
-      });
-      cache.set(key, art);
+      const extra = { decorations: deco ? deco(slotAdv, rot0) : [] };
+      const art = paintGlyph(
+        ch,
+        css,
+        m,
+        m.w,
+        meter.central,
+        sep ? bare : style,
+        null,
+        italic,
+        extra,
+      );
+      g = art
+        ? {
+            art,
+            sil: sep ? paintGlyph(ch, css, m, m.w, meter.central, sil, null, italic, extra) : null,
+          }
+        : null;
+      cache.set(key, g);
     }
-    return art;
+    return g;
   };
+  return Object.assign(paint, { shadow: style.shadow });
 }
 
-/** 把一個字的 sprite 畫在 (x, y)（字身中心）：先水平縮放、再轉 */
+/** 畫面外的距離：剪影畫在這麼遠的地方，只留下偏移回來的陰影 */
+const FAR = 4096;
+
+/**
+ * 把一個字畫在 (x, y)（字身中心）：先水平縮放、再轉。
+ * 有縮放或旋轉時，陰影以畫布陰影在畫布座標畫（偏移、模糊不跟著字變形），沒有時直接用 sprite 裡的陰影。
+ */
 function blit(
   ctx: Ctx2D,
-  art: GlyphArt | null,
+  paint: Painter,
+  ch: string,
+  slotAdv: number,
+  rot0: number,
   x: number,
   y: number,
   rot: number,
   sx: number,
   alpha = 1,
 ): void {
-  if (!art || alpha <= 0) return;
+  if (alpha <= 0) return;
+  const g = paint(ch, slotAdv, rot0, sx !== 1 || rot !== 0);
+  if (!g) return;
   ctx.save();
   if (alpha < 1) ctx.globalAlpha *= alpha;
   ctx.translate(x, y);
   if (sx !== 1) ctx.scale(sx, 1);
   if (rot) ctx.rotate(rot);
-  ctx.drawImage(art.body as CanvasImageSource, -art.px, -art.py);
+  const sh = paint.shadow;
+  if (g.sil && sh) {
+    /* 畫布座標往左 FAR 的位置換算回目前（縮放、旋轉後）的座標 */
+    const m = ctx.getTransform();
+    const det = m.a * m.d - m.b * m.c || 1;
+    const lx = (-FAR * m.d) / det;
+    const ly = (FAR * m.b) / det;
+    ctx.save();
+    ctx.shadowColor = sh.color;
+    ctx.shadowBlur = sh.blur;
+    ctx.shadowOffsetX = sh.x + FAR;
+    ctx.shadowOffsetY = sh.y;
+    ctx.drawImage(g.sil.body as CanvasImageSource, lx - g.sil.px, ly - g.sil.py);
+    ctx.restore();
+  }
+  ctx.drawImage(g.art.body as CanvasImageSource, -g.art.px, -g.art.py);
   ctx.restore();
 }
 
@@ -385,7 +465,7 @@ export function buildTypingSource(s: TypingSettings, o: BuildOptions = {}): TwSo
           const a = fr.alphas ? fr.alphas[u] : 1;
           if (a <= 0) return;
           /* 圖形模式的 sx 一律是 1（typingLayoutSettings） */
-          blit(c, paint(ch, slot.adv, slot.rot0), slot.x, slot.y, slot.rot, sx, a);
+          blit(c, paint, ch, slot.adv, slot.rot0, slot.x, slot.y, slot.rot, sx, a);
         });
       };
       if (fr.alpha < 1) withLayer(ctx, pool, draw, { alpha: fr.alpha });
@@ -463,12 +543,12 @@ export function buildGlitchSource(s: GlitchSettings, o: BuildOptions = {}): TwSo
         if (!slot) continue;
         const rc = rnd.get(u);
         if (rc === undefined) {
-          blit(ctx, paint(ch, slot.adv, slot.rot0), slot.x, slot.y, slot.rot, sx);
+          blit(ctx, paint, ch, slot.adv, slot.rot0, slot.x, slot.y, slot.rot, sx);
           continue;
         }
         /* 亂碼畫在那個字的位置（置中）；直書時半形的亂碼跟英數一樣轉 90° */
         const rot0 = s.vertical && !isWide(rc) ? Math.PI / 2 : 0;
-        blit(ctx, paint(rc, slot.adv, rot0), slot.x, slot.y, rot0, sx);
+        blit(ctx, paint, rc, slot.adv, rot0, slot.x, slot.y, rot0, sx);
       }
     },
   };
@@ -527,7 +607,7 @@ export function buildCreditsSource(s: CreditsSettings, o: BuildOptions = {}): Tw
       for (const g of r.block.glyphs) {
         const y = top + g.y;
         if (y < -pad || y > s.height + pad) continue;
-        blit(ctx, paint(g.ch, g.adv, 0), bx + g.x, y, 0, 1);
+        blit(ctx, paint, g.ch, g.adv, 0, bx + g.x, y, 0, 1);
       }
     },
   };
@@ -584,7 +664,7 @@ export function buildKaraokeSource(s: KaraokeSettings, o: BuildOptions = {}): Tw
     (li: number, painter: typeof before, top: number) =>
     (c: Ctx2D): void => {
       for (const g of glyphsOf[li])
-        blit(c, painter(g.ch, g.adv, 0), lineX[li] + g.x, top + S / 2, 0, sx);
+        blit(c, painter, g.ch, g.adv, 0, lineX[li] + g.x, top + S / 2, 0, sx);
     };
   const drawLine = (c: Ctx2D, li: number, t: number) => {
     const row = plan.rowOf[li];

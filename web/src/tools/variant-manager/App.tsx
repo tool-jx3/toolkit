@@ -515,25 +515,10 @@ export function App() {
           label={S.dropLabel}
           buttonLabel={S.dropButton}
           hint={S.dropHint}
+          /* 載入之後改成一行，清單才排得上來（F11：常見筆電尺寸一載入就看得到約四列） */
+          compact={items.length > 0}
           onFiles={addFiles}
         />
-      </Section>
-      <Section title={S.sectionNaming} fixed>
-        <Field label={S.mainName} hint={S.mainHint}>
-          <TextInput
-            value={main}
-            placeholder={S.mainPlaceholder}
-            autoComplete="off"
-            spellCheck={false}
-            onChange={(e) => {
-              latest.current.main = e.target.value;
-              setMain(e.target.value);
-            }}
-          />
-        </Field>
-        <Field label={S.numbered} hint={S.numberedHint} layout="inline">
-          <Toggle checked={numbered} onCheckedChange={changeNumbered} />
-        </Field>
       </Section>
       <Section
         title={S.sectionList}
@@ -594,6 +579,23 @@ export function App() {
             <option key={s} value={s} />
           ))}
         </datalist>
+      </Section>
+      <Section title={S.sectionNaming} fixed>
+        <Field label={S.mainName} hint={S.mainHint}>
+          <TextInput
+            value={main}
+            placeholder={S.mainPlaceholder}
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(e) => {
+              latest.current.main = e.target.value;
+              setMain(e.target.value);
+            }}
+          />
+        </Field>
+        <Field label={S.numbered} hint={S.numberedHint} layout="inline">
+          <Toggle checked={numbered} onCheckedChange={changeNumbered} />
+        </Field>
       </Section>
       <p className="m-0 px-1 text-xs text-muted">{S.disclaimer}</p>
     </>

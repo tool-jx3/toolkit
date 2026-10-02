@@ -9,6 +9,7 @@
  * - 對等驗證後的追加裁定（規格 7.1）：播放中改任何設定（含配色按鈕）都回到第 1 格（F64、F57）；
  *   圖形模式不套用水平縮放、欄位停用並註明（F06）；WebP 每格至少 20 ms（F69）；
  *   不能編碼 WebP 時，選其他格式也看得到原因（F70）。
+ * - 複驗後修正：陰影的偏移不跟著水平縮放（F19）。
  */
 import { readFileSync } from 'node:fs';
 import { type Download, expect, type Page, test } from '@playwright/test';
@@ -330,6 +331,34 @@ test.describe('打字機動畫產生器', () => {
     /* 設定值保留（只是不套用） */
     await expect(scaleX).toHaveValue('50');
     expect(await hook<number>(page, '(t) => t.data().typing.scaleX')).toBe(50);
+    expect(errors).toEqual([]);
+  });
+
+  test('陰影的偏移不跟著水平縮放（F19，複驗後修正）', async ({ page }) => {
+    const errors = await open(page);
+    await page.getByTestId('typing-text').fill('I');
+    await hook(
+      page,
+      "(t) => t.patch('typing', { strokeWidth: 0, fill: '#ffffff', shadowColor: '#00ff00', shadowBlur: 0, shadowX: 8, shadowY: 0, bgOn: false })",
+    );
+    /* 白字與綠色陰影最右邊的 x */
+    const rightEdges = () =>
+      page.getByTestId('tw-canvas').evaluate((c: HTMLCanvasElement) => {
+        const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+        let ink = -1;
+        let shadow = -1;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] < 200) continue;
+          const x = (i / 4) % c.width;
+          if (d[i] > 200 && d[i + 1] > 200 && d[i + 2] > 200) ink = Math.max(ink, x);
+          else if (d[i + 1] > 200 && d[i] < 80 && d[i + 2] < 80) shadow = Math.max(shadow, x);
+        }
+        return shadow - ink;
+      });
+    for (const scaleX of [100, 50, 200]) {
+      await hook(page, `(t) => t.patch('typing', { scaleX: ${scaleX} })`);
+      await expect.poll(rightEdges, `水平縮放 ${scaleX}%`).toBe(8);
+    }
     expect(errors).toEqual([]);
   });
 

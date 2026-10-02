@@ -151,11 +151,11 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | obs-tachie | ✅ | ✅ | ✅ | ✅ |
 | ccfolia-cropper | ✅ | ✅ | ✅ | ⬜（待上線） |
 | icon-maker | ✅ | ✅ | ✅ | ⬜（待上線） |
-| variant-manager | ✅ | ✅（F11 再修） | 🔍（F11 待複驗） | ⬜ |
+| variant-manager | ✅ | ✅ | ✅ | ⬜（待上線） |
 | height-board | ✅ | ✅ | ⬜ | ⬜ |
 | color-palette | ✅ | ✅ | ⬜ | ⬜ |
 | emotion-maker | ✅ | ✅ | ⬜ | ⬜ |
-| typewriter | ✅ | ✅（7.1 已修） | 🔍（7.1 複驗） | ⬜ |
+| typewriter | ✅ | ✅ | ✅ | ⬜（待上線） |
 | text-path | ✅ | ✅ | ✅ | ✅ |
 | cutin | ✅ | ✅ | 🔍 | ⬜ |
 | collage-letter | ✅ | ✅ | ✅ | ✅ |
