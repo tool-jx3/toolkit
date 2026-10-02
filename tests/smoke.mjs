@@ -482,27 +482,13 @@ check('紙面與介面的字型堆疊補上台灣系統字型', seApp.includes('
 /* 上游 kumachansteps/trpg-web-tools 沒有授權條款；站上的利用規約另外明文要求圖片、
  * 圖示素材不得轉載、再散布。所以這六個工具一張上游的圖都不收（範例圖由程式自己畫），
  * 也不該出現回報表單、存取分析與站台圖示。 */
-/* icon-maker、variant-manager、bg-motion、scenario-cards 已由本站重寫（web/），不在這裡。 */
-const KUMA_TOOLS = ['session-log', 'session-report'];
-/* session-log 解析使用者匯入的日文試算表、團報與 CCFOLIA 紀錄，也把系統名、生還結果
- * 以上游的日文值存檔（兩種語言的 JSON 才能互讀）。這些字串刻意留著，清單釘死。 */
-const SL_KEPT_JA = ['くま', 'エモクロア', 'マダミス', 'ロスト', '全ロスト', 'シノビガミ', 'インセイン', 'ダブルクロス',
-  'ソード・ワールド', 'フタリソウサ', 'マルチシステム', 'ボイ', 'テキ', 'プレイ日', 'セッション日', 'シナリオ', 'シナリオ名',
-  'タイトル', 'システム', 'システム名', 'ゲームシステム', 'ルール', 'ロール', 'キーパー', 'ゲームマスター', 'マスター', '回し手',
-  'プレイヤー', 'メンバー', 'キャラ', 'キャラクター', 'キャラクター名', 'キャラ名', 'ステータス', 'プレイ時間', 'セッション時間',
-  'メモ', 'ノート', 'コメント', '詳細メモ', '感想ネタバレ注意', 'キャンペーン', 'シリーズ', '親アイテム', 'ハッシュタグ', 'タグ',
-  'エンディング', 'ルート', 'エンド', '生還ロスト', 'セッション', 'ログ', 'セッションリンク', '配布ページ', '感想リンク',
-  'シナリオキー', '集計キー', 'はい', 'いいえ', 'マーダーミステリー', '新クトゥルフ神話', '新クトゥルフ', 'クトゥルフ神話',
-  'ディーラー', 'クトゥルフ', 'さん', 'ｻﾝ', 'クリア', 'グッドエンド', 'ゲームクリア', 'した', 'クリティカル', 'ファンブル',
-  'スペシャル', 'クローズ', 'まとめ', 'その', 'クロージング', 'オープニング', '中入り', 'フルスペック', 'ダイス', 'モブ',
-  'エキストラ', 'サブ', 'バトル', 'ゲームマスタ', 'と', 'キャラシ作成会'];
+/* icon-maker、variant-manager、bg-motion、scenario-cards、session-log 已由本站重寫（web/），不在這裡。 */
+const KUMA_TOOLS = ['session-report'];
 /* session-report 只比對跑團紀錄簿送來的系統正規值與敬稱。 */
 const SR_KEPT_JA = ['さん', '新クトゥルフ神話', 'エモクロア', 'マダミス', 'マーダーミステリー', 'クトゥルフ'];
 const keptRuns = allowed => line => (line.match(KANA_RUN) || []).filter(run => KANA.test(run))
   .every(run => allowed.includes(run) || allowed.some(keep => keep.includes(run)));
 const KUMA = {
-  'session-log': { scripts: ['js/log_tool.js', 'js/shortcut.js'], styles: ['css/log_tool_style.css'], hooks: 125, inline: 90, attrs: 25,
-    allow: (line, n, file) => file === 'js/log_tool.js' && keptRuns(SL_KEPT_JA)(line) },
   'session-report': { scripts: ['js/main.js', 'js/template.js'], styles: ['css/report_gen_style.css'], hooks: 90, inline: 65, attrs: 20,
     allow: (line, n, file) => file === 'js/main.js' && keptRuns(SR_KEPT_JA)(line) }
 };
@@ -535,14 +521,8 @@ for (const name of KUMA_TOOLS) {
   check('不請使用者把問題回報給原作者', !/不具合報告|問題回報|오류 제보/.test(dictSrc + read(`tools/${name}/index.html`)));
 }
 section('kuma kept Japanese');
-const slSrc = read('tools/session-log/js/log_tool.js');
-for (const keep of SL_KEPT_JA) check(`session-log 仍保留「${keep}」`, slSrc.includes(keep));
 const srSrc = read('tools/session-report/js/main.js');
 for (const keep of SR_KEPT_JA) check(`session-report 仍保留「${keep}」`, srSrc.includes(keep));
-section('kuma dynamic keys');
-/* 跑團紀錄簿的每一列可以直接送到團報產生器：連的是合輯裡的那一份。 */
-check('session-log 連到合輯內的 session-report',
-  slSrc.includes('../session-report/') && !slSrc.includes('session-report-generator'));
 
 /* ---- character-select ---- */
 const cs = checkTool({

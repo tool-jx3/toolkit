@@ -169,9 +169,9 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | room-zip | ✅ | ✅ | ✅ | ✅ |
 | psd-studio | ✅ | ✅ | ✅ | ✅ |
 | scenario-editor | ✅ | ✅ | ⬜ | ⬜ |
-| session-log | ⬜ | ⬜ | ⬜ | ⬜ |
-| session-report | ⬜ | ⬜ | ⬜ | ⬜ |
-| coc-typesetter | ⬜ | ⬜ | ⬜ | ⬜ |
+| session-log | ✅ | ✅ | ✅ | ✅ |
+| session-report | ✅ | ✅ | ⬜ | ⬜ |
+| coc-typesetter | ✅ | ✅ | ⬜ | ⬜ |
 | 其餘 8 個（G7～G9） | ⬜ | ⬜ | ⬜ | ⬜ |
 
 （每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 ✅。）
