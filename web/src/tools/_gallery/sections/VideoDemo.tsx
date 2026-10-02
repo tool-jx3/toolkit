@@ -1,12 +1,17 @@
 /**
  * core/video 與 useVideoPlayback 的示範：把畫布錄成一段 2 秒的影片（recordCanvas）、讀出長寬與總長（probeVideo）、
  * 用共用播放列播放（只在 0.5～1.5 秒之間循環）、抽 4 張樣本縮圖（createVideoGrabber）。
+ * 逐格編碼（encodeAvi、encodeMp4；character-select 移植時新增）：同一段畫面逐格編成 AVI（MJPEG）或 MP4（H.264）。
  */
-import { Film, Images } from 'lucide-react';
+import { Clapperboard, Film, Images } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { formatBytes } from '@/core/files';
 import {
+  canEncodeMp4,
   canRecordCanvas,
   createVideoGrabber,
+  encodeAvi,
+  encodeMp4,
   evenSampleTimes,
   probeVideo,
   recordCanvas,
@@ -45,6 +50,36 @@ export function VideoDemo() {
     [demo],
   );
   const playback = useVideoPlayback({ video: el, duration: demo?.duration ?? 0, range });
+  const [encoded, setEncoded] = useState<{ name: string; url: string; size: number } | null>(null);
+  const [mp4, setMp4] = useState(false);
+  useEffect(() => {
+    void canEncodeMp4({ width: 320, height: 180, fps: 15 }).then(setMp4);
+  }, []);
+  useEffect(() => () => (encoded ? URL.revokeObjectURL(encoded.url) : undefined), [encoded]);
+  /** 2 秒、15 FPS 的畫面逐格編成影片 */
+  const encode = async (kind: 'avi' | 'mp4') => {
+    setBusy(true);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 180;
+      const ctx = canvas.getContext('2d')!;
+      const options = {
+        width: 320,
+        height: 180,
+        fps: 15,
+        frameCount: 30,
+        renderFrame: (i: number) => {
+          drawDemo(ctx, i / 15);
+          return canvas;
+        },
+      };
+      const blob = kind === 'mp4' ? await encodeMp4(options) : await encodeAvi(options);
+      setEncoded({ name: `示範.${kind}`, url: URL.createObjectURL(blob), size: blob.size });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => () => (demo ? URL.revokeObjectURL(demo.url) : undefined), [demo]);
 
@@ -92,7 +127,32 @@ export function VideoDemo() {
         <Button size="sm" icon={<Images />} onClick={() => void grab()} disabled={!demo}>
           抽 4 張樣本
         </Button>
+        <Button
+          size="sm"
+          icon={<Clapperboard />}
+          onClick={() => void encode('avi')}
+          disabled={busy}
+        >
+          逐格編成 AVI
+        </Button>
+        <Button
+          size="sm"
+          icon={<Clapperboard />}
+          onClick={() => void encode('mp4')}
+          disabled={busy || !mp4}
+          title={mp4 ? undefined : '這個瀏覽器不支援 H.264 編碼'}
+        >
+          逐格編成 MP4
+        </Button>
       </div>
+      {encoded ? (
+        <p className="m-0 text-xs text-muted" data-testid="video-encoded">
+          <a href={encoded.url} download={encoded.name} className="text-accent underline">
+            {encoded.name}
+          </a>
+          （{formatBytes(encoded.size)}）
+        </p>
+      ) : null}
       {demo ? (
         <>
           <p className="m-0 text-xs text-muted tabular-nums">

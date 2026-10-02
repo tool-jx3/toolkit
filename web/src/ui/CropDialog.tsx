@@ -6,6 +6,9 @@
  * freeDraw：在圖上（包括裁切框裡面）按住拖曳就畫出新範圍；移動範圍用框中央的移動把手，
  * 或在框內按住不動約 0.35 秒再拖。開始拖曳前先讓數字欄離開輸入狀態，拖曳時四個數字欄跟著更新，
  * 確定時以畫面上的範圍為準（不會被欄位裡打到一半的舊值蓋掉）。
+ *
+ * character-select 移植時新增（選填，不給時行為不變）：confirmLabel（確定按鈕的文字）、
+ * secondaryConfirm（確定旁邊的第二個套用按鈕，例如「套用到所有角色」）、renderPreview（數字欄下方的即時預覽）。
  */
 import { Move } from 'lucide-react';
 import {
@@ -74,6 +77,15 @@ export interface CropDialogProps {
   rawInputs?: boolean;
   /** 兩段式確認：按「確定」後先顯示前後尺寸與大小，按「套用」才呼叫 onConfirm */
   confirm?: CropConfirmConfig;
+  /** 確定按鈕的文字（預設「確定」） */
+  confirmLabel?: string;
+  /**
+   * 第二個套用按鈕（在確定按鈕左邊）：按了以目前的範圍呼叫它的 onConfirm 並關閉（不經過兩段式確認）。
+   * 例：裁切視窗的「套用到所有角色」。
+   */
+  secondaryConfirm?: { label: string; onConfirm: (rect: CropRect) => void } | null;
+  /** 數字欄下方的即時預覽（拿到目前的範圍，原圖座標） */
+  renderPreview?: (rect: CropRect) => ReactNode;
 }
 
 export interface CropConfirmConfig {
@@ -165,6 +177,9 @@ export function CropDialog({
   freeDraw,
   rawInputs,
   confirm,
+  confirmLabel = '確定',
+  secondaryConfirm,
+  renderPreview,
 }: CropDialogProps) {
   const size = useMemo(() => (image ? imageSize(image) : { width: 1, height: 1 }), [image]);
   const fixed = aspect !== undefined;
@@ -437,8 +452,20 @@ export function CropDialog({
               重設範圍
             </Button>
             <DialogClose>取消</DialogClose>
+            {secondaryConfirm ? (
+              <Button
+                onClick={() => {
+                  if (!rawRect) return;
+                  secondaryConfirm.onConfirm(rawRect);
+                  onOpenChange(false);
+                }}
+                disabled={!canConfirm}
+              >
+                {secondaryConfirm.label}
+              </Button>
+            ) : null}
             <Button variant="primary" onClick={goConfirm} disabled={!canConfirm}>
-              確定
+              {confirmLabel}
             </Button>
           </>
         )
@@ -573,6 +600,7 @@ export function CropDialog({
                 : '範圍在圖片外'}
             </p>
           ) : null}
+          {renderPreview ? renderPreview(rawRect ?? rect) : null}
         </div>
       )}
     </Dialog>

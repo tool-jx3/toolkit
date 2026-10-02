@@ -7,6 +7,8 @@
  * const grabber = createVideoGrabber(url);                // 看不見的影片元素，依序跳轉
  * for (const t of times) await grabber.frameAt(t, (v) => drawVideoFrame(ctx, v, { crop }));
  * const blob = await recordCanvas({ width: 640, height: 360, seconds: 3, draw });   // 畫布錄成 WebM
+ * const mp4 = await encodeMp4({ width: 960, height: 540, fps: 30, frameCount: 90, renderFrame });   // 逐格編成 MP4（H.264）
+ * const avi = await encodeAvi({ width: 960, height: 540, fps: 30, frameCount: 90, renderFrame });   // 逐格編成 AVI（MJPEG）
  * ```
  *
  * - 解碼交給瀏覽器（<video>）：能播放的格式都能讀；讀不到丟 VideoLoadError（訊息可直接顯示）。
@@ -21,6 +23,21 @@ export {
   type VideoGrabber,
   type VideoThumbnail,
 } from './capture';
+export {
+  aviParts,
+  canEncodeMp4,
+  encodeAvi,
+  encodeMp4,
+  findMp4Config,
+  mp4Bitrate,
+  mp4ConfigCandidates,
+  mp4Header,
+  VIDEO_MAX_BYTES,
+  VideoEncodeError,
+  type VideoEncodeErrorCode,
+  type VideoEncodeOptions,
+  type VideoFrameCanvas,
+} from './encode';
 export {
   type ClipSampleOptions,
   type ClipSamples,

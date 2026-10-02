@@ -473,6 +473,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/baegop157902/PairMaker',
     },
   },
+  {
+    id: 'character-select',
+    name: '選角畫面產生器',
+    summary:
+      '做出格鬥遊戲風格的選角畫面動畫：放進角色圖片、設定每位玩家要選誰，游標依序移動並確定，可加大主格與選取效果，存成 APNG、WebP、GIF、MP4，或做成能自己選的互動 HTML。',
+    group: 'G7',
+    status: 'next',
+    inspiration: {
+      name: 'sotsotssi/select-your-chara',
+      url: 'https://github.com/sotsotssi/select-your-chara',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
