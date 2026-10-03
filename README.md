@@ -130,13 +130,15 @@ npm test
 | `scenario-editor` | [劇本排版台](tools/scenario-editor/) | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) |
 | `gif-combiner` | [GIF 接合器](tools/gif-combiner/) | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) |
 | `video-anim` | [影片轉動圖工具](tools/video-anim/) | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) |
+| `magic-circle` | [魔法陣製作器](tools/magic-circle/) | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) |
+| `pair-maker` | [角色介紹圖產生器](tools/pair-maker/) | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) |
+| `character-select` | [選角畫面產生器](tools/character-select/) | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的三個工具、
-`pair-maker` 為韓文，
+介面預設為繁體中文，可由右上角切換回該工具的原文：`acrylic-goods` 為韓文，
 `trpg-lab` 與
 `anime-rig` 為日文。
 
@@ -172,8 +174,3 @@ npm test
 `index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁、`anime-rig`
 的繁中使用說明。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
-
-**注意**：`character-select`、
-`pair-maker` 的原始 repo 皆未附任何授權條款，
-其權利屬原作者所有，
-不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。

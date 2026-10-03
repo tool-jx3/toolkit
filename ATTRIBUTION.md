@@ -23,128 +23,12 @@
 
 | 工具 | 原始 repo | 來源 commit | 授權 |
 |---|---|---|---|
-| magic-circle | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `de40a68` | MIT |
-| character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
-| pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
 | acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
 | trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
 | jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | —（連到原站；2026-09-25～30 曾收錄 `1b48bea` 的副本） | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 
 收錄副本的 MIT 工具，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
-
-## pair-maker：不收作品集樣張，卡片圖改由工具自己算繪
-
-上游 `baegop157902/PairMaker` 是一個 Konva 畫布編輯器。五種版型（簡易雙人整理、
-baegop 雙人整理 1、圖樣橫幅、多人資料框、置頂推文產生器）各自是一支 ES module，
-`index.html` 是版型選單，`editor.html?id=<版型>` 才是編輯畫面——這是合輯裡第一個
-有兩頁的工具。
-
-`images/` 底下 33 張圖，工具本身只用到 4 張（`2p-pair1` 的日夜底圖與 `main-tweet`
-的兩張主題底圖，共 512 KB）。其餘 29 張、約 36.5 MB 是首頁卡片用的作品集樣張，
-內容是已經完成的介紹圖，也就是別人的角色插圖；那些不是上游作者的創作，收錄版不
-散布。`favicon/` 與指向原站的 OG／Twitter meta 同樣不收（後者的處理與其餘工具一致）。
-
-卡片圖改成由工具自己算繪：逐一開啟五個版型的空白編輯畫面，把畫布匯出成 PNG
-（共 244 KB，收在 `previews/`）。畫面上看到的就是這個工具的實際輸出，不含任何
-第三方素材。首頁的版型清單原本是 jQuery ＋ justifiedGallery 排成等高的瀑布流；
-卡片圖既然換成尺寸整齊的預覽圖，改用 CSS grid 就夠了，兩個函式庫一併不載入
-（上游的手機版本來就不走 justifiedGallery）。
-
-另外移除兩項與本站無關的東西：
-
-- 兩頁頁尾的 Cloudflare Web Analytics beacon（`static.cloudflareinsights.com`，
-  帶著上游站台的 token）。合輯不替原站收集存取資料。
-- 「버그&문의」對話框裡嵌的 Google 表單 iframe。那張表單收到的會是這份收錄版的
-  問題，送達的卻是原作者的信箱。改成一段說明：只有這個版本才會發生的問題請開在
-  本 repo 的 issues，工具本身的意見請找原作者。原作者的署名「배고픔」三種語言都
-  照原樣顯示——那是名字，不是介面文字；`tests/smoke.mjs` 把它列為唯一放行的諺文。
-
-`vendor/` 底下六套函式庫與 Pretendard 原樣保留（與上游一位元組不差），出處與授權
-見 [tools/pair-maker/THIRD_PARTY_NOTICES.md](tools/pair-maker/THIRD_PARTY_NOTICES.md)。
-字型清單依慣例補上五套繁體中文字型（見下節）——上游的清單只有韓／英／日字型，
-中文會掉回系統預設。
-
-### 兩頁共用一份字典，側邊欄的版型名稱要照 key 翻
-
-`editor.html` 的側邊欄要列出「其他版型」，上游的做法是 `fetch("index.html")` 把
-首頁抓回來，再從標記裡讀卡片的圖、標題與標籤。收錄版首頁的內嵌文字是繁體中文，
-照著讀就等於把繁中硬寫進編輯器；因此改讀同一個元素上的 `data-i18n`，拿 key 去翻
-（`translated()`）。切語言時整份清單重建，重建前先 `list.replaceChildren()`，
-否則每切一次就多長一份。
-
-編輯器本體（分頁名稱、欄位標籤、畫布上的預設文字）是版型在建立當下算好的，不會
-自己跟著語言走；切語言時改用 store 的 `'structure'` 事件整個重跑一次——那條路徑
-本來就是給「版型結構變了」用的。重跑前後會把 `dirty` 還原，免得只是換個語言就被
-當成有未儲存的變更。
-
-還有三個只在瀏覽器裡才看得出來的坑：
-
-- 編輯頁的 `<title>` 要等 `index.html` 抓回來才知道是哪個版型，而 i18n 引擎會在
-  DOMContentLoaded 把 `document.title` 換成 `app.title`——兩者會賽跑，`fetch` 早
-  一步完成時標題就被蓋掉。收錄版把標題記在模組變數裡，另外註冊一個
-  DOMContentLoaded 監聽器（註冊得比引擎晚，就一定跑在它後面）補設一次。
-- 兩個收合鈕的 `aria-label` 跟著收合狀態走，因此不掛 `data-i18n-aria-label`——
-  那個掛勾會在切語言時一律寫回標記裡那一種狀態的字。改成依現況重算
-  （`syncToggleLabels()`），開頭與切語言時各跑一次。
-- 首頁五張卡片圖的 `alt` 也要跟著語言走，所以共用引擎補了一個 `data-i18n-alt`
-  掛勾，與既有的 `-title`／`-aria-label`／`-placeholder` 同一套寫法。
-- 平板與手機上，上游把整塊左側邊欄 `display:none`——語言切換器就在那塊裡面，
-  藏起來就沒得切了。收錄版在 1024px 以下把那塊縮成右上角的語言選單，其餘子元素
-  照樣不顯示（回首頁的連結讓位給標題，退回 `index.html` 就看得到）。
-
-### 版型模組的常數會凍在載入當下的語言
-
-ES module 只求值一次，所以版型模組最外層寫成值的常數——署名（`author`）、欄位
-分組（`groups`）、分頁（`tabs`）、字型標籤（`fontLabels`）——會把第一次載入時的
-語言凍進去，切語言時 `'structure'` 事件重跑的是函式，不會重新求值它們。收錄版
-一律改成函式：消費端（`state.js`、`FormScript.js`、`registry.js`）本來就同時吃
-陣列與函式，所以除了署名與字型標籤要在取用處多一個 `typeof` 判斷之外，沒有動到
-別的地方。`tests/smoke.mjs` 會擋下新冒出來的同類常數。
-
-同理，只建立一次、之後只切 `hidden` 的控制項（貼紙的出處欄與圖層鈕、手機的鍵盤
-列、多人資料框畫布上的那組按鈕）不會經過任何重畫的路徑，標籤集中成一個函式並
-掛在 `I18N.onChange` 上重套。
-
-有一類字刻意不跟著語言走：版型 `initialState()` 給的預設內容（「名字」「在這裡
-寫說明。」「#關鍵字」之類畫在圖上的字）。那是使用者的作品內容，不是介面文字——
-一載入就寫進存檔並自動存進 IndexedDB，切個語言就覆寫使用者可能已經改過的字，
-比留著原語言糟得多。
-
-### v1.1.0：四種文字記錄版型與 PDF 匯出（2026-09-30 跟進 `9c29866`）
-
-上游 v1.1.0 加了四種「文字記錄（글로그）」版型（基本型、橫向裝飾、直向裝飾、配對型），
-長文會自動分頁，還能匯出可選取文字的 PDF。版型從五種變成九種，四支新模組照上面的
-原則改寫（最外層常數寫成函式、畫布上只建立一次的控制項掛在 `I18N.onChange`）。
-新版型的卡片圖同樣由工具自己算繪（`previews/textLog-*.png`）；上游的四張樣張
-（`images/textLog-*.png`）裡有別人的 Q 版角色貼紙與照片背景，不收，
-`images/2p-pair2-preview.png` 沒有任何程式用到，也不收。
-
-上游為這組版型附了約 48 MB 的字型，收錄版**都不收**：
-
-- 畫布用的明體 `vendor/textlog/NotoSerifCJKKR.ttf`（24 MB）改由 Google Fonts 載入
-  Noto Serif KR，字型堆疊後面接 Noto Serif TC——韓文版的 Noto Serif 沒有收的漢字
-  （例如「它」「值」「填」）才不會變成豆腐字。Google Fonts 以 `unicode-range` 分片載入，
-  所以分頁前先等文件用到的字所在的分片載入完，載入後再主動重畫一次
-  （實測 `loadingdone` 事件不一定每次都會發出）。
-- PDF 用的 `vendor/pdf/*.ttf.zlib`（約 25 MB）改成按下「PDF 下載」時才從
-  fonts.gstatic.com 抓完整的 TTF（網址表在 `js/SaveBtn.js` 的 `PDF_FONTS`）。
-  Google Fonts 的舊版 CSS API 若只要一個子集，給的是切過的字型：`subset=korean` 的
-  Noto Serif KR 一個漢字也沒有，`subset=chinese-traditional` 的 Noto Serif TC 只有
-  6,317 個漢字；同時列出兩個以上的子集，給的才是沒切過的完整字型（Noto Serif KR
-  的字集與上游附的一模一樣，Noto Serif TC 涵蓋 Big5 常用與次常用字）。
-  明體依序找 Noto Serif KR → Noto Serif TC → 黑體，黑體依序找 Noto Sans KR →
-  Noto Sans TC → 明體，每個字用第一套收有它的字型，只有真的用到的字型才嵌入。
-  上游的黑體 PDF 字型（由 Pretendard 衍生，沒有漢字）換成 Noto Sans KR。
-  整套嵌入（`subset: false`，避開 fontkit 的 CJK 子集化錯誤）、逐字對齊與
-  「背景圖 → 文字 → 貼紙」三層的做法都與上游相同。代價是匯出 PDF 時要連得到
-  fonts.gstatic.com；上游只要網站載入過一次就能離線匯出。
-- `pdf-lib` 1.17.1 與 `@pdf-lib/fontkit` 1.1.1（MIT）照收，與上游一位元組不差。
-
-另外修了上游一個文字重疊的錯誤：Konva 在字距不為 0 時是逐字繪製的，上游卻用整段
-字串量出的寬度推進下一段文字，遇到會擠壓相鄰標點的字型時，粗體等格式交界處的下一段
-會疊上來，PDF 也跟著錯位。收錄版改用逐字量出的寬度推進；韓文預設內容的畫面與上游
-逐像素相同。
 
 ## sotsotssi 的角色美術周邊工具
 
@@ -413,6 +297,9 @@ WebM。
 | `scenario-editor` | 劇本排版台 | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor)（CC0） | `83fd605` |
 | `gif-combiner` | GIF 接合器 | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `83fd605` |
 | `video-anim` | 影片轉動圖工具 | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `83fd605` |
+| `magic-circle` | 魔法陣製作器 | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `83fd605` |
+| `pair-maker` | 角色介紹圖產生器 | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `83fd605` |
+| `character-select` | 選角畫面產生器 | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -456,31 +343,15 @@ WebM。
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
 因此沒有隨附 OFL 全文。
-收錄的工具：`pair-maker`
-（v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
-以及 `trpg-lab` 地圖編輯器的文字字型清單。
+收錄的工具：`trpg-lab` 地圖編輯器的文字字型清單。
 
 各工具宣告的字重都逐一對 `fonts.googleapis.com/css2` 驗證過——Google Fonts 對
 不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
 `tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
 
-## 未授權的工具
-
-`sotsotssi/select-your-chara`
-與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
-依著作權法預設，其權利保留予原作者，此處僅供試用。原作者如有異議，將立即移除。
-
-`character-select` 的上游是收錄前一兩天才建立、只有一次提交，
-往後很可能還會變動；此處的快照固定在 `883f48b`，不與上游同步。
-
 ## 繁體中文翻譯
 
-magic-circle 的繁體中文翻譯移植自
-[tool-jx3/magic-circle-maker](https://github.com/tool-jx3/magic-circle-maker/tree/zhtw)
-分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
-（`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
-
-其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`jizura` 連到原作者的官方繁中版，不在此列）。
+仍收錄副本的工具，翻譯與 i18n 改造為本 repo 新增（`jizura` 連到原作者的官方繁中版，不在此列）。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文（`trpg-lab` 的日文註解例外，見上）。
 
@@ -489,5 +360,3 @@ magic-circle 的繁體中文翻譯移植自
 新框架 `web/`（含其建置產物 `assets/build/`、`next/` 與重寫上線的 `tools/<id>/index.html`）、`docs/`、`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
 `guide.zh-TW.md`，
 以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
-`tools/character-select/`、
-`tools/pair-maker/` 的其餘部分不在此範圍內，見上節。

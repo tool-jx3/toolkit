@@ -174,9 +174,9 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | coc-typesetter | ✅ | ✅ | ✅ | ✅ |
 | video-anim | ✅ | ✅ | ✅ | ✅ |
 | gif-combiner | ✅ | ✅ | ✅ | ✅ |
-| pair-maker | ⬜ | ⬜ | ⬜ | ⬜ |
-| character-select | ⬜ | ⬜ | ⬜ | ⬜ |
-| magic-circle | ⬜ | ⬜ | ⬜ | ⬜ |
+| pair-maker | ✅ | ✅ | ✅ | ✅ |
+| character-select | ✅ | ✅ | ✅ | ✅ |
+| magic-circle | ✅ | ✅ | ✅ | ✅ |
 | acrylic-goods | ⬜ | ⬜ | ⬜ | ⬜ |
 | trpg-lab | ⬜ | ⬜ | ⬜ | ⬜ |
 | anime-rig | ⬜ | ⬜ | ⬜ | ⬜ |

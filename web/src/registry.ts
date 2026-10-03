@@ -455,7 +455,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '用鋼筆、手繪、圓與星形加上對稱尺畫出魔法陣、印記或簽名，放上盧恩文字與發光效果，再排好出場動態，匯出 PNG、GIF、APNG 或 WebP。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/magic-circle-maker',
       url: 'https://github.com/sotsotssi/magic-circle-maker',
@@ -467,7 +467,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '挑一個版型，在畫布上點哪裡就改哪裡：兩人資料、配對、花紋橫幅、多人資料卡、置頂貼文與會自動分頁的文字記錄，加上可自由旋轉的貼紙，下載 PNG 或 PDF。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'baegop157902/PairMaker',
       url: 'https://github.com/baegop157902/PairMaker',
@@ -479,7 +479,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '做出格鬥遊戲風格的選角畫面動畫：放進角色圖片、設定每位玩家要選誰，游標依序移動並確定，可加大主格與選取效果，存成 APNG、WebP、GIF、MP4，或做成能自己選的互動 HTML。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/select-your-chara',
       url: 'https://github.com/sotsotssi/select-your-chara',

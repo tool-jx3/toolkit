@@ -59,7 +59,7 @@ const HANGUL = /[가-힣]/;
  * 未翻譯（真正的片假名詞一定帶有假名字母，不會因此漏掉）。 */
 const KANA = /[\u3041-\u3096\u30A1-\u30FA\uFF66-\uFF9D]/;
 
-/* dir: 'tools/magic-circle'；dict: 字典檔名；
+/* dir: 'tools/acrylic-goods'；dict: 字典檔名；
  * locale: 該工具原文語言的字典代碼（sotsotssi 的工具為 ko，shiki365 的為 ja）；
  * scripts: 需掃描的 JS 檔名陣列；styles: 需掃描原文洩漏的 CSS 檔名陣列
  * （不檢查 T() key 引用，CSS 本來就不會呼叫 T()）；
@@ -147,45 +147,6 @@ function checkTool({ dir, dict, html: page = 'index.html', shared = [], locale =
   return tool;
 }
 
-/* ---- magic-circle ---- */
-const mc = checkTool({
-  dir: 'tools/magic-circle',
-  dict: 'i18n.magic-circle.js',
-  scripts: ['app.js'],
-  styles: ['styles.css'],
-  minHooks: 150
-});
-
-/* 如尼文讀音以 T('rune.' + name) 動態組成，靜態掃描看不到，需另外檢查。 */
-section('tools/magic-circle runes');
-const runeNames = [...read('tools/magic-circle/app.js')
-  .matchAll(/\['[^']*', '[^']*', '([^']*)'\]/g)].map(m => m[1]);
-check('解析出 69 組如尼文', runeNames.length === 69, `found ${runeNames.length}`);
-for (const locale of ['zh-TW', 'ko']) {
-  const missing = runeNames.filter(n => !mc.messages[locale][`rune.${n}`]);
-  check(`${locale} 每組如尼文都有讀音`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-
-/* 除了 69 組如尼文讀音之外，字典中其餘 rune.* key 只應是介面固定字串（源自
- * ref-zhtw 原始字典，非本次移植新增）。任何不在這兩個集合內的 rune.* key，
- * 代表萃取腳本混入了無關資料（例如把 app.js 中巧合出現的其他 4 元素陣列
- * 也當成如尼文組別解析）——這正是本檢查要防範的缺陷。 */
-const runeReadingKeys = new Set(runeNames.map(n => `rune.${n}`));
-const runeUiKeys = new Set([
-  'rune.summary', 'rune.system',
-  'rune.set.elder', 'rune.set.younger', 'rune.set.futhorc',
-  'rune.setOption.elder', 'rune.setOption.younger', 'rune.setOption.futhorc',
-  'rune.search', 'rune.search.placeholder',
-  'rune.palette.aria', 'rune.palette.empty', 'rune.palette.status',
-  'rune.converter.label', 'rune.converter.placeholder', 'rune.conversion.label',
-  'rune.replace', 'rune.insert', 'rune.converter.hint'
-]);
-for (const locale of ['zh-TW', 'ko']) {
-  const stray = Object.keys(mc.messages[locale])
-    .filter(k => k.startsWith('rune.') && !runeReadingKeys.has(k) && !runeUiKeys.has(k));
-  check(`${locale} 無多餘 rune.* key`, stray.length === 0, `stray: ${stray.join(', ')}`);
-}
-
 /* ---- 註解保留原文的工具共用：stripComments ---- */
 /* 有些工具的註解密度很高、多半是演算法與版面取捨的說明，逐句轉譯的風險大於效益，
  * 保留日文原文（trpg-lab）。
@@ -201,169 +162,6 @@ function stripComments(src, kind) {
     if (kind === 'js') out = out.replace(/(^|[^:\\])\/\/[^\n]*/g, (m, p) => p + blank(m.slice(p.length)));
   }
   return out;
-}
-
-/* ---- pair-maker ---- */
-/* 合輯裡第一個有兩頁的工具：index.html 是版型選單，editor.html?id=<版型> 才是
- * 編輯畫面。checkTool() 只看 index.html，editor.html 在下面另外驗一遍。
- * 模組清單從目錄列出來而不是寫死，新增一支就會自動納入掃描。 */
-const pmFiles = sub => listFiles(`tools/pair-maker/${sub}`).map(f => f.replace('tools/pair-maker/', ''));
-const PM_SCRIPTS = [...pmFiles('js'), ...pmFiles('templates')];
-const PM_TEMPLATES = ['2p-simple', '2p-pair1', 'pattern-header', '30p-pair', 'main-tweet',
-  'textLog-simple', 'textLog-vert', 'textLog-hori', 'textLog-pair'];
-
-const pm = checkTool({
-  dir: 'tools/pair-maker',
-  dict: 'i18n.pair-maker.js',
-  scripts: PM_SCRIPTS,
-  styles: pmFiles('css'),
-  minHooks: 30,
-  licence: false,
-  /* 唯一放行的諺文：問題回報說明裡原作者的署名「배고픔」。那是名字，不是介面
-   * 文字，三種語言都照原樣顯示。放行條件是「抹掉它之後這行就沒有諺文了」，
-   * 因此其他地方的韓文一律照落。 */
-  allowSource: (line, lineNo, file) =>
-    file === 'index.html' && !HANGUL.test(line.split('배고픔').join(''))
-});
-
-section('tools/pair-maker');
-check('掃描到 25 支模組', PM_SCRIPTS.length === 25, `found ${PM_SCRIPTS.length}`);
-
-const pmIndex = read('tools/pair-maker/index.html');
-const pmEditor = read('tools/pair-maker/editor.html');
-const pmEditorJs = read('tools/pair-maker/js/editor.js');
-const pmSimple = read('tools/pair-maker/templates/2p-simple.js');
-/* 放行條件是單向的：署名被順手翻掉就該在這裡掉下來。 */
-check('原作者的署名還在', pmIndex.includes('배고픔'));
-
-/* editor.html 不在 checkTool() 的範圍內，同一套規則在這裡補齊。 */
-const pmZh = new Set(Object.keys(pm.messages['zh-TW']));
-const pmEditorKeys = [...pmEditor.matchAll(/data-i18n(?:-html|-node|-title|-aria-label|-placeholder|-alt)?="([^"]+)"/g)].map(m => m[1]);
-check('editor.html 僅引用已知 key', pmEditorKeys.every(k => pmZh.has(k)),
-  `unknown: ${pmEditorKeys.filter(k => !pmZh.has(k)).join(', ')}`);
-check('editor.html 帶有至少 12 個 i18n 掛勾', pmEditorKeys.length >= 12, `found ${pmEditorKeys.length}`);
-check('editor.html html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(pmEditor));
-check('editor.html 無殘留韓文', !HANGUL.test(pmEditor));
-/* 引擎與字典是一般 script，編輯器是 module（自動 defer），字典一定先到，
- * 所以版型模組可以在 top-level 直接呼叫 T()。 */
-const pmOrder = ['assets/i18n.js', 'i18n.pair-maker.js', 'js/editor.js'].map(f => pmEditor.indexOf(f));
-check('editor.html 的載入順序正確',
-  pmOrder.every((at, i) => at >= 0 && (i === 0 || at > pmOrder[i - 1])), pmOrder.join(','));
-
-/* 上游的站台識別、存取分析與兩個排版用的函式庫都不收。 */
-for (const [file, src] of [['index.html', pmIndex], ['editor.html', pmEditor]]) {
-  for (const needle of ['cloudflareinsights', 'docs.google.com/forms', 'justifiedGallery',
-    'code.jquery.com', 'favicon', 'og:title', 'twitter:card']) {
-    check(`${file} 沒有上游站台的殘留（${needle}）`, !src.includes(needle));
-  }
-}
-
-/* 首頁卡片圖是這個工具自己算繪的空白版型預覽。上游那 29 張作品集樣張是別人的
- * 角色插圖，不散布；images/ 只留程式真的會去 new Image() 的四張底圖。 */
-check('九個版型各有一支模組', PM_TEMPLATES.every(id => exists(`tools/pair-maker/templates/${id}.js`)));
-check('九個版型各有一張預覽圖', PM_TEMPLATES.every(id => exists(`tools/pair-maker/previews/${id}.png`)));
-const pmRegistry = read('tools/pair-maker/templates/registry.js');
-check('registry 註冊的版型與清單一致',
-  PM_TEMPLATES.every(id => pmRegistry.includes(`'${id}': () => import('./${id}.js')`))
-  && [...pmRegistry.matchAll(/'([\w-]+)': \(\) => import\(/g)].length === PM_TEMPLATES.length);
-const pmCardIds = [...pmIndex.matchAll(/editor\.html\?id=([\w-]+)/g)].map(m => m[1]);
-check('首頁卡片與版型一一對應',
-  pmCardIds.slice().sort().join(',') === PM_TEMPLATES.slice().sort().join(','), pmCardIds.join(','));
-check('卡片圖只指向 previews/',
-  [...pmIndex.matchAll(/<img[^>]+src="([^"]+)"/g)].every(m => m[1].startsWith('previews/')));
-const pmImages = listFiles('tools/pair-maker/images').map(f => f.split('/').pop());
-check('images/ 只留程式用得到的四張底圖',
-  pmImages.join(',') === 'dark-theme.png,light-theme.png,theme-1.png,theme-2.png', pmImages.join(','));
-/* 卡片圖的 alt 也要跟著語言走，所以共用引擎補了 data-i18n-alt 掛勾。 */
-check('九張卡片圖都掛了 data-i18n-alt',
-  [...pmIndex.matchAll(/<img[^>]+data-i18n-alt="/g)].length === PM_TEMPLATES.length);
-
-/* v1.1.0 的文字記錄版型可以匯出 PDF。上游附了約 48 MB 的字型（PDF 用的四個字重與
- * 畫布用的 NotoSerifCJKKR.ttf），合輯不收：畫布改用 Google Fonts 的 Noto Serif KR，
- * PDF 在按下下載時才從 fonts.gstatic.com 抓完整的 TTF。PDF 函式庫本身（MIT）照收。 */
-section('tools/pair-maker PDF export');
-const pmSave = read('tools/pair-maker/js/SaveBtn.js');
-check('pdf-lib 與 fontkit 及其授權檔都在',
-  ['pdf-lib.min.js', 'fontkit.umd.min.js', 'pdf-lib-LICENSE.md', 'fontkit-LICENSE.txt']
-    .every(f => exists(`tools/pair-maker/vendor/pdf/${f}`)));
-const pmHeavy = listFiles('tools/pair-maker/vendor').filter(f => /\.ttf(\.zlib)?$|\/textlog\//.test(f));
-check('不收上游附的大型字型檔', pmHeavy.length === 0, pmHeavy.join(', '));
-const pmFontUrls = [...pmSave.matchAll(/https?:\/\/[^'"`\s]+\.ttf/g)].map(m => m[0]);
-check('PDF 字型表有 12 個網址，全部指向 fonts.gstatic.com',
-  pmFontUrls.length === 12 && pmFontUrls.every(u => u.startsWith('https://fonts.gstatic.com/s/')), `found ${pmFontUrls.length}`);
-check('PDF 字型涵蓋明體與黑體的韓文、繁中版本',
-  ['notoserifkr', 'notoseriftc', 'notosanskr', 'notosanstc'].every(f => pmFontUrls.some(u => u.includes(`/${f}/`))));
-const pmTextLogs = ['textLog-simple', 'textLog-vert', 'textLog-hori', 'textLog-pair'];
-check('文字記錄版型不再引用上游的 NotoSerifCJKKR',
-  pmTextLogs.every(id => !stripComments(read(`tools/pair-maker/templates/${id}.js`)).includes('NotoSerifCJKKR')));
-check('文字記錄版型切語言時重設畫布上的標籤',
-  pmTextLogs.every(id => read(`tools/pair-maker/templates/${id}.js`).includes('I18N.onChange(applyCanvasLabels)')));
-check('editor.html 載入畫布用的 Noto Serif KR', pmEditor.includes('Noto+Serif+KR'));
-
-/* 切語言時要做的三件事：重建側邊欄清單、重跑版型結構、重算兩個收合鈕的標籤。 */
-check('語言切換器掛在兩頁的工具列上',
-  read('tools/pair-maker/js/script.js').includes("I18N.mountSwitcher(document.getElementById('localeSelect'))")
-  && pmEditorJs.includes('I18N.mountSwitcher(document.getElementById("localeSelect"))'));
-const pmOnChange = (pmEditorJs.match(/I18N\.onChange\([\s\S]*?\n  \}\);/) || [''])[0];
-check('切語言時重建側邊欄的版型清單', pmOnChange.includes('loadTemplates()'));
-check('切語言時重算收合鈕的標籤', pmOnChange.includes('syncToggleLabels()'));
-check('切語言時重跑版型結構', pmOnChange.includes('"structure"'));
-/* 側邊欄的版型名稱是 fetch("index.html") 讀原始標記讀出來的，照 key 翻才會
- * 跟著語言走；不先清空就會每切一次語言多長一份。 */
-check('側邊欄的版型名稱照 key 翻',
-  pmEditorJs.includes('element.dataset.i18n') && pmEditorJs.includes('key ? T(key)'));
-check('重建清單前先清空', pmEditorJs.includes('list.replaceChildren()'));
-/* 編輯頁的 <title> 要等 index.html 抓回來才知道，會跟引擎的 app.title 賽跑。 */
-check('編輯頁的標題不會被 app.title 蓋掉', pmEditorJs.includes('currentPageTitle'));
-/* 兩個收合鈕的 aria-label 跟著收合狀態走，掛上 data-i18n-aria-label 會讓切語言
- * 時一律寫回標記裡那一種狀態的字，所以刻意不掛，改由 syncToggleLabels() 重算。 */
-for (const [cls, key] of [['sidebar-toggle', 'editor.010'], ['tools-toggle', 'runtime.001']]) {
-  const tag = (pmEditor.match(new RegExp(`<button class="${cls}"[\\s\\S]*?>`)) || [''])[0];
-  check(`${cls} 沒有掛 data-i18n-aria-label`, !!tag && !tag.includes('data-i18n-aria-label'));
-  check(`${cls} 的靜態標籤與字典一致`, tag.includes(`aria-label="${pm.messages['zh-TW'][key]}"`), tag.trim());
-}
-
-/* 版型是 ES module，只會求值一次：最外層的常數若含 T()，就凍在第一次載入的
- * 語言（切語言時 store 的 'structure' 事件重跑的是函式，不會重新求值模組常數）。
- * 消費端（state.js／FormScript.js／registry.js）本來就同時吃陣列與函式，所以
- * 一律寫成函式。這裡防止復發：兩種寫法都要看——單行的 `const X = …T(…)…`，
- * 以及以 [ 或 { 結尾、直到頂格的 ] ／ } 為止的多行常數。 */
-const pmFrozen = [];
-for (const file of pmFiles('templates')) {
-  const src = read(`tools/pair-maker/${file}`);
-  for (const m of [
-    ...src.matchAll(/^(?:export )?(?:const|let|var) ([A-Za-z_$][\w$]*) = (?!\(|function\b)(.*)$/gm),
-    ...src.matchAll(/^(?:export )?(?:const|let|var) ([A-Za-z_$][\w$]*) = [[{]\n([\s\S]*?)\n[\]}];$/gm),
-  ]) if (/\bT\(/.test(m[2])) pmFrozen.push(`${file.split('/').pop()}:${m[1]}`);
-}
-check('版型最外層沒有含 T() 的常數（那會凍在載入時的語言）',
-  pmFrozen.length === 0, `frozen: ${pmFrozen.join(', ')}`);
-/* 只建立一次、之後只切 hidden 的控制項，標籤要在切語言時重套一次。 */
-for (const [file, fn] of [['js/stickers.js', 'applyStickerLabels'], ['js/KeyboardBar.js', 'applyBarLabels'],
-  ['templates/30p-pair.js', 'applyCanvasLabels']]) {
-  check(`${file} 切語言時重套只建立一次的標籤`,
-    read(`tools/pair-maker/${file}`).includes(`I18N.onChange(${fn})`));
-}
-/* 上游在 1024px 以下把整塊側邊欄 display:none，語言切換器就在那塊裡面。 */
-const pmEditorCss = read('tools/pair-maker/css/editor.css');
-check('小螢幕沒有把整塊側邊欄藏掉',
-  !/\.template-sidebar,\s*\.sidebar-toggle \{ display: none; \}/.test(pmEditorCss));
-check('小螢幕只留下工具列', pmEditorCss.includes('.template-sidebar > :not(.toolkit-bar) { display: none; }'));
-
-/* 署名與字型標籤含 T()，版型寫成函式，消費端就要會呼叫。 */
-check('editor.js 會呼叫函式形態的署名', pmEditorJs.includes("typeof definition?.author === 'function'"));
-check('FormScript 會呼叫函式形態的字型標籤',
-  read('tools/pair-maker/js/FormScript.js').includes("typeof l==='function'?l():l"));
-
-/* vendor/ 與上游一位元組不差，六套函式庫的授權條款與出處說明都要在。 */
-check('有第三方函式庫的出處說明', exists('tools/pair-maker/THIRD_PARTY_NOTICES.md'));
-const pmNotices = read('tools/pair-maker/THIRD_PARTY_NOTICES.md');
-for (const [lib, licenceFile] of [
-  ['Konva', 'Konva-LICENSE.txt'], ['Cropper.js', 'Cropper-LICENSE.txt'],
-  ['Pickr', 'Pickr-LICENSE.txt'], ['fflate', 'fflate-LICENSE.txt'],
-  ['Bootstrap Icons', 'Bootstrap-Icons-LICENSE.txt'], ['Pretendard', 'Pretendard-LICENSE.txt']]) {
-  check(`保留 ${lib} 的授權條款`, exists(`tools/pair-maker/vendor/${licenceFile}`));
-  check(`THIRD_PARTY_NOTICES 記載 ${lib}`, pmNotices.includes(lib) && pmNotices.includes(licenceFile));
 }
 
 /* ---- sotsotssi 的四個角色美術周邊工具 ---- */
@@ -427,56 +225,6 @@ for (const lib of ['three.js', 'cannon.js', 'gif.js', 'upng-js', 'pako', 'GLTFEx
 
 /* 一段連續的假名／漢字。刻意保留的日文清單逐段比對用（同一行多出一段新的原文仍然會被擋下）。 */
 const KANA_RUN = /[ぁ-ゖァ-ヺｦ-ﾝ・ー一-鿿]+/g;
-
-/* ---- character-select ---- */
-const cs = checkTool({
-  dir: 'tools/character-select',
-  dict: 'i18n.character-select.js',
-  scripts: ['app.js', 'crop.js', 'fonts.js', 'video-export.js'],
-  styles: ['styles.css', 'crop.css', 'fonts.css'],
-  minHooks: 220,
-  /* 上游未附任何授權條款，狀態記於 ATTRIBUTION.md。 */
-  licence: false
-});
-check('character-select 無原始 LICENSE（未授權，於 ATTRIBUTION.md 標示）',
-  !exists('tools/character-select/LICENSE'));
-
-/* 清單、玩家面板、裁切編輯器的文字都是 JS 組出來的，標記上沒有 data-i18n 掛勾，
- * 所以 key 幾乎都以字面常數傳進 T()——但也有幾組是存在資料表裡再取出來用的，
- * 靜態掃描看不到，逐一確認兩語言都有定義。 */
-section('tools/character-select dynamic keys');
-const csApp = read('tools/character-select/app.js');
-const csDynamicKeys = [
-  /* 分頁提示：guides 表存的是 key 對 */
-  ...['guide.title', 'guide.copy'],
-  ...['appearance', 'motion', 'export'].flatMap(t => [`guide.${t}.title`, `guide.${t}.copy`]),
-  /* 玩家列的 aria-label 後綴，改版後由 key 取代原本的字面後綴 */
-  'player.colorAria', 'player.targetCharAria', 'route.startAria', 'route.modeAria',
-];
-for (const locale of ['zh-TW', 'ko']) {
-  const missing = csDynamicKeys.filter(k => !cs.messages[locale][k]);
-  check(`${locale} 每個動態 key 都有譯文`, missing.length === 0, `missing: ${missing.join(', ')}`);
-}
-check('app.js 的 guides 表存的是 key 而非譯文',
-  csApp.includes('characters: ["guide.title", "guide.copy"]'));
-
-/* 語言切換時整批重畫：清單與面板沒有 data-i18n 掛勾，引擎的 applyStaticDom()
- * 碰不到，漏了這段就會停在舊語言。 */
-check('app.js 在語言切換時重畫 JS 產生的區塊',
-  ['renderCharacterList()', 'renderPlayerList()', 'renderPreviewPlayers()', 'updateExportEstimate()']
-    .every(call => new RegExp(`I18N\\.onChange\\([\\s\\S]{0,600}${call.replace('(', '\\(').replace(')', '\\)')}`).test(csApp)));
-/* initializeTheme() 會綁 click，重畫時只能改按鈕文字，不能整個再跑一次。 */
-check('語言切換時不重複綁定主題按鈕',
-  !/I18N\.onChange\([\s\S]{0,600}initializeTheme\(\)/.test(csApp));
-check('app.js 掛上語言切換器', csApp.includes('I18N.mountSwitcher($("#localeSelect"))'));
-
-/* video-export.js 的兩則訊息原本是模組載入時就固定的字串常數，改成函式才會
- * 在拋出當下取譯文；寫回常數就會永遠停在載入時的語言。 */
-const csVideo = read('tools/character-select/video-export.js');
-check('video-export.js 的訊息在拋出時才取譯文',
-  /const MP4_UNAVAILABLE = \(\) =>/.test(csVideo) && /const TOO_LARGE = \(\) =>/.test(csVideo)
-  && !/new Error\(TOO_LARGE\)/.test(csVideo) && !/new Error\(MP4_UNAVAILABLE\)/.test(csVideo));
-
 
 /* ---- trpg-lab（違法建築的 TRPG 實驗室）---- */
 /* 合輯裡頁數最多的工具：一個目錄裝了 hub（index.html）、九個工具頁、第三方授權頁，
@@ -726,19 +474,6 @@ function checkCss2Url(label, url) {
   }
 }
 
-/* pair-maker：字型清單在 2p-simple.js，五個版型裡有字型欄的兩個共用它
- * （main-tweet 只是把 Apple SD Gothic Neo 挪到最前面）；css2 的網址在
- * editor.html。清單、標籤與網址三者要同時有，少一樣就是選得到但套不上。 */
-checkCss2Url('pair-maker editor.html', pmEditor);
-for (const family of TC_FAMILIES) {
-  check(`pair-maker 的字型清單有 ${family}`, pmSimple.includes(`'${family}',`));
-  check(`pair-maker 的字型標籤有 ${family}`, pmSimple.includes(`'${family}': T(`));
-  check(`pair-maker 的 css2 連結有 ${family}`, pmEditor.includes(family.replace(/ /g, '+')));
-}
-const pmTweet = read('tools/pair-maker/templates/main-tweet.js');
-check('main-tweet 的字型清單沿用 2p-simple 的那一份',
-  pmTweet.includes('fonts as sharedFonts') && pmTweet.includes('...sharedFonts.filter('));
-
 /* trpg-lab：介面是繁中時改用 Noto Sans TC（common.css 依 <html lang> 切換），每頁的
  * Google Fonts 連結都要一起載入它，字重也要真的存在。 */
 for (const page of LAB_PAGES) {
@@ -908,11 +643,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
 }
 
 checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
-checkInlineText('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 150);
-checkInlineText('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 170);
-/* pair-maker 有兩頁，兩頁都要比。 */
-checkInlineText('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 15);
-checkInlineText('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
 checkInlineText('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 110);
 for (const t of SOTSOT_FOUR) {
   checkInlineText(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.inline);
@@ -982,10 +712,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
 }
 
 checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
-checkAttrPairs('tools/magic-circle', 'tools/magic-circle/index.html', ['tools/magic-circle/i18n.magic-circle.js'], 50);
-checkAttrPairs('tools/character-select', 'tools/character-select/index.html', ['tools/character-select/i18n.character-select.js'], 15);
-checkAttrPairs('tools/pair-maker', 'tools/pair-maker/index.html', ['tools/pair-maker/i18n.pair-maker.js'], 9);
-checkAttrPairs('tools/pair-maker editor', 'tools/pair-maker/editor.html', ['tools/pair-maker/i18n.pair-maker.js'], 6);
 checkAttrPairs('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 24);
 for (const t of SOTSOT_FOUR) {
   checkAttrPairs(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.attrs);
@@ -1005,25 +731,9 @@ const attribution = read('ATTRIBUTION.md');
 for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
-for (const sha of ['de40a68',
-  '883f48b',
-  'aad63b1', '9c29866',
-  '8b1b1e2', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
+for (const sha of ['8b1b1e2', 'd39f79e', '1b48bea', '7ddbd99']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
-check('ATTRIBUTION.md 標明 character-select 未授權',
-  /character-select[\s\S]{0,900}(未授權|無授權)/.test(attribution));
-/* pair-maker 不收上游的作品集樣張，也拆掉了存取分析與 Google 表單；
- * 這些取捨要寫下來才查得到，所以挑關鍵字而不是只看有沒有 pair-maker 幾個字。 */
-check('ATTRIBUTION.md 說明 pair-maker 為何不收作品集樣張',
-  /pair-maker[\s\S]{0,2500}作品集樣張/.test(attribution) && attribution.includes('justifiedGallery'));
-check('ATTRIBUTION.md 說明 pair-maker 移除了存取分析與表單',
-  ['static.cloudflareinsights.com', 'Google 表單'].every(k => attribution.includes(k)));
-check('ATTRIBUTION.md 說明 pair-maker 的第三方函式庫',
-  attribution.includes('tools/pair-maker/THIRD_PARTY_NOTICES.md'));
-check('ATTRIBUTION.md 說明 pair-maker 為何保留原作者署名', attribution.includes('배고픔'));
-check('ATTRIBUTION.md 說明版型常數為何要寫成函式',
-  /pair-maker[\s\S]*ES module 只求值一次/.test(attribution) && attribution.includes('fontLabels'));
 /* 四個新工具的函式庫沒有同捆，理由與出處要寫下來才查得到。 */
 check('ATTRIBUTION.md 說明四個工具的函式庫為何走 CDN',
   /sotsotssi 的角色美術周邊工具[\s\S]{0,2500}沒有改成同捆/.test(attribution));
@@ -1032,9 +742,6 @@ check('ATTRIBUTION.md 說明 acrylic-goods 的浮水印為何保留',
 for (const dir of ['acrylic-goods']) {
   check(`ATTRIBUTION.md 記載 ${dir} 的上游`, new RegExp(`\\| ${dir} \\| \\[sotsotssi/`).test(attribution));
 }
-
-check('ATTRIBUTION.md 說明哪些字刻意不跟著語言走',
-  attribution.includes('initialState()'));
 
 /* 需要另外建置的上游專案（cutin、obs-tachie、character-editor）都已由本站重寫，vendor/ 不再存在。 */
 check('不再收錄需要建置的上游專案（vendor/）', !exists('vendor'));
