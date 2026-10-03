@@ -1,13 +1,15 @@
 /**
  * 角色介紹圖產生器（建置產物）的端對端測試：
  * - 版型一覽（9 張卡、分類篩選）、進入編輯與網址、上一頁、找不到版型、頁尾只放靈感來源；
- * - 點畫布元素切換設定欄、預設文字第一次聚焦清空、條件顯示、更小的文字；
+ * - 點畫布元素切換設定欄（390 寬點另一個角色的元素時捲到欄位）、預設文字第一次聚焦清空、條件顯示、更小的文字；
  * - 圖片格：格式拒絕、裁切視窗（輸出＝格子大小、整張放入時四周透明）、出處畫在圖上（只在有圖時）；
  * - 貼紙：加入（長邊 300、中央）、拖曳、拖出去拉回、縮放下限、旋轉、陰影、順序、Delete 刪除、輸出含貼紙不含控點；
  * - 從畫布取色（放大鏡、點一下套用、Esc 取消）；
- * - 多人資料框：新增到 4 人與 7 人（畫布大小）、只看這一張、刪除（確認）、左右移；
- * - 文字記錄：自動分頁、頁面切換、看全部（PNG 大小）、新增／刪除頁面、PDF（頁數、頁面大小、可選取的文字）；
- * - 保存：自動保存與還原通知、存檔槽（建立、改名、讀取、刪除）、編輯檔 ZIP（匯出解析、重設、讀回、別的版型拒絕）；
+ * - 多人資料框：新增到 4 人與 7 人（設定欄與畫布下方的新增鈕、畫布大小）、30 人停用、只看這一張、刪除（確認）、左右移；
+ * - 文字記錄：自動分頁（離開本文欄、直接點分頁標籤離開）、頁面切換、看全部（PNG 大小）、新增／刪除頁面、
+ *   PDF（頁數、頁面大小、可選取的文字）、貼上後直接下載 PDF／PNG 也先分頁；
+ * - 保存：自動保存與還原通知、存檔槽（建立、改名、改名後直接覆蓋、空白名稱、讀取、刪除）、
+ *   專案檔 ZIP（匯出解析、重設、讀回、別的版型拒絕、缺圖的失敗後完整的讀得進來）；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準圖。
  */
 import { readFileSync } from 'node:fs';
@@ -228,6 +230,45 @@ test('點畫布開啟項目；預設文字第一次聚焦清空；條件顯示�
   expect(errors).toEqual([]);
 });
 
+test('390 寬：點畫布上另一個角色的元素時，設定欄切過去並捲到欄位', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = await open(page, 'duo-sheet');
+  for (const [key, title] of [
+    ['left/colors', '左 髮色與瞳色'],
+    ['right/colors', '右 髮色與瞳色'],
+    ['left/looks', '左 外觀說明'],
+    ['left/name', '左 名字與標語'],
+  ]) {
+    /* 回到頂端（上一次的平滑捲動可能還在進行：捲到停在 0 為止） */
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          window.scrollTo({ top: 0, behavior: 'instant' });
+          return window.scrollY;
+        }),
+      )
+      .toBe(0);
+    /* 頂端時設定欄的欄位在畫面外（預覽下方） */
+    await expect(page.locator('[data-group]')).not.toBeInViewport();
+    /* 同一個項目可能有好幾塊點選區：點畫面上沒被蓋住的那一塊 */
+    const at = await page.evaluate((k) => {
+      for (const b of document.querySelectorAll(`[data-region="${k}"]`)) {
+        const r = b.getBoundingClientRect();
+        const x = r.left + r.width / 2;
+        const y = r.top + r.height / 2;
+        if (y > 0 && y < innerHeight && document.elementFromPoint(x, y) === b) return { x, y };
+      }
+      return null;
+    }, key);
+    if (!at) throw new Error(`點不到 ${key}`);
+    await page.mouse.click(at.x, at.y);
+    await expect(heading(page)).toHaveText(title);
+    await expect(heading(page)).toBeInViewport({ ratio: 1 });
+    await expect(page.locator('[data-group]')).toBeInViewport();
+  }
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 圖片格 ---------- */
 
 test('圖片格：格式拒絕、裁切輸出＝格子大小、整張放入時透明、出處只在有圖時畫', async ({ page }) => {
@@ -403,19 +444,25 @@ test('從畫布取色：放大鏡、點一下套用、Esc 取消', async ({ page
 
 /* ---------- 多人資料框 ---------- */
 
-test('多人資料框：新增到 4 人、7 人（畫布大小）、只看這一張、左右移、刪除（確認）', async ({
+test('多人資料框：新增到 4 人、7 人（設定欄與畫布下方的新增鈕）、只看這一張、左右移、刪除（確認）、30 人停用', async ({
   page,
 }) => {
   const errors = await open(page, 'roster');
   await expect(canvas(page)).toHaveAttribute('data-size', '615x694');
-  const add = page.getByRole('button', { name: '新增角色' });
+  const add = page.getByTestId('editor-panel').getByRole('button', { name: '新增角色' });
+  /* 畫布下方的「＋」（舊版畫布區的 canvas-add-member） */
+  const canvasAdd = page.getByTestId('preview').getByRole('button', { name: '新增角色' });
+  await expect(page.getByTestId('member-count')).toHaveText('1 / 30 人');
   for (let i = 0; i < 3; i++) await add.click();
   await expect(canvas(page)).toHaveAttribute('data-size', '1845x1390');
   await expect(page.getByRole('tab', { name: '角色 4' })).toHaveAttribute('aria-selected', 'true');
   let { png: out } = await downloadPng(page);
   expect([out.width, out.height]).toEqual([1845, 1390]);
-  for (let i = 0; i < 3; i++) await add.click();
+  for (let i = 0; i < 3; i++) await canvasAdd.click();
   await expect(canvas(page)).toHaveAttribute('data-size', '1845x2084');
+  /* 加在最後、選取它 */
+  await expect(page.getByRole('tab', { name: '角色 7' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('member-count')).toHaveText('7 / 30 人');
   /* 只看這一張（7 人以上才有）：畫面變一張卡，輸出照樣是全部 */
   await page.getByRole('button', { name: '只看這一張' }).click();
   await expect(canvas(page)).toHaveAttribute('data-size', '615x694');
@@ -438,6 +485,12 @@ test('多人資料框：新增到 4 人、7 人（畫布大小）、只看這一
   await page.getByRole('alertdialog').getByRole('button', { name: '刪除這個角色' }).click();
   await expect(page.getByRole('tab', { name: '主角' })).toHaveCount(0);
   await expect(canvas(page)).toHaveAttribute('data-size', '1845x1390');
+  /* 30 人：兩個新增鈕都停用 */
+  for (let i = 6; i < 30; i++) await canvasAdd.click();
+  await expect(page.getByTestId('member-count')).toHaveText('30 / 30 人');
+  await expect(canvas(page)).toHaveAttribute('data-size', '1845x6942');
+  await expect(canvasAdd).toBeDisabled();
+  await expect(add).toBeDisabled();
   expect(errors).toEqual([]);
 });
 
@@ -498,9 +551,67 @@ test('文字記錄：自動分頁、頁面切換、看全部、新增與刪除�
   expect(errors).toEqual([]);
 });
 
+/** 文字記錄：切到 1p 的本文、在最後加上 n 字（焦點留在本文欄） */
+async function typeBody(page: Page, n: number) {
+  await page.getByRole('tab', { name: '1p' }).click();
+  await chip(page, '本文').click();
+  await page.getByRole('textbox', { name: '本文' }).click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.insertText('一二三四五六七八九十'.repeat(n / 10));
+  await expect(page.getByTestId('page-counter')).toHaveText('1 / 1');
+}
+
+const pageTotal = async (page: Page) =>
+  Number(((await page.getByTestId('page-counter').textContent()) ?? '').split('/')[1]);
+
+test('文字記錄：從本文欄直接點分頁標籤離開也會分頁', async ({ page }) => {
+  const errors = await open(page, 'log-plain');
+  await typeBody(page, 1200);
+  /* Radix 的分頁在 mousedown 就換內容（本文欄被卸載，收不到 blur）：仍要分頁 */
+  await page.getByRole('tab', { name: '選項與背景' }).click();
+  await expect(page.getByTestId('page-counter')).toHaveText(/^1 \/ [2-9]$/);
+  /* 從「貼紙」分頁離開也一樣 */
+  await page.goto(`${URL}?t=log-band`);
+  await typeBody(page, 1200);
+  await page.getByRole('tab', { name: '貼紙' }).click();
+  await expect(page.getByTestId('page-counter')).toHaveText(/^1 \/ [2-9]$/);
+  expect(errors).toEqual([]);
+});
+
+test('文字記錄：貼上後直接下載 PDF／PNG，下載前先分頁（所有的字都在輸出裡）', async ({ page }) => {
+  const errors = await open(page, 'log-plain');
+  await typeBody(page, 1200);
+  /* 焦點還在本文欄就按「下載 PDF」 */
+  const dl = await download(page, page.getByRole('button', { name: '下載 PDF' }));
+  const pdf = await PDFDocument.load(readFileSync((await dl.path()) as string));
+  const total = await pageTotal(page);
+  expect(total).toBeGreaterThan(1);
+  expect(pdf.getPageCount()).toBe(total);
+  const texts = pdfPageTexts(pdf);
+  expect(texts[total - 1].text).toContain('一二三四五');
+  await expect(page.getByText(`已儲存 ${total} 頁的 PDF。`)).toBeVisible();
+  /* PNG：看全部時，貼上後直接下載 → 已經是分好頁的總覽 */
+  await page.goto(`${URL}?t=log-side`);
+  await page.getByRole('tab', { name: '1p' }).click();
+  await chip(page, '本文').click();
+  await page.getByTestId('page-nav').getByRole('button', { name: '看全部' }).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '780x1080');
+  await page.getByRole('textbox', { name: '本文' }).click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.insertText('一二三四五六七八九十'.repeat(120));
+  const { png: out } = await downloadPng(page);
+  const n = await pageTotal(page);
+  expect(n).toBeGreaterThan(1);
+  expect([out.width, out.height]).toEqual([
+    Math.min(3, n) * 790 - 10,
+    Math.ceil(n / 3) * 1090 - 10,
+  ]);
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 保存 ---------- */
 
-test('保存：自動保存與還原、存檔槽、編輯檔 ZIP（匯出、重設、讀回、別的版型拒絕）', async ({
+test('保存：自動保存與還原、存檔槽、專案檔 ZIP（匯出、重設、讀回、別的版型拒絕、缺圖後讀完整的）', async ({
   page,
 }) => {
   const errors = await open(page, 'duo-sheet');
@@ -512,7 +623,7 @@ test('保存：自動保存與還原、存檔槽、編輯檔 ZIP（匯出、重�
   await expect(notice(page, '已載入最近一次的編輯。')).toBeVisible();
   await region(page, 'left/name').click();
   await expect(name).toHaveValue('保存測試');
-  /* 圖片（給編輯檔用） */
+  /* 圖片（給專案檔用） */
   await region(page, 'left/profile').click();
   await choose(page, page.getByRole('button', { name: '頭像：選擇圖片' }), [
     file('red.png', await png(200, 200, [220, 30, 40])),
@@ -531,8 +642,22 @@ test('保存：自動保存與還原、存檔槽、編輯檔 ZIP（匯出、重�
   await expect(list).toHaveCount(1);
   await expect(list.first().getByRole('textbox', { name: '存檔槽名稱' })).toHaveValue('雙人資料卡');
   await expect(list.first().getByRole('img', { name: '存檔槽的預覽' })).toBeVisible();
-  await list.first().getByRole('textbox', { name: '存檔槽名稱' }).fill('第一版');
-  await list.first().getByRole('textbox', { name: '存檔槽名稱' }).press('Enter');
+  const slotName = list.first().getByRole('textbox', { name: '存檔槽名稱' });
+  /* 名稱改成空白：欄位立刻顯示「存檔槽」 */
+  await slotName.fill('');
+  await slotName.press('Enter');
+  await expect(slotName).toHaveValue('存檔槽');
+  /* 改名後不按 Enter、直接按「覆蓋」：新名稱保留 */
+  await slotName.fill('第一版');
+  await list.first().getByRole('button', { name: '覆蓋' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '覆蓋' }).click();
+  /* 存檔槽視窗開著時通知區被標成 aria-hidden：直接找文字 */
+  await expect(page.getByText('已存到存檔槽。').first()).toBeVisible();
+  await expect(slotName).toHaveValue('第一版');
+  await slots.getByRole('button', { name: '關閉' }).first().click();
+  await expect(slots).toBeHidden();
+  await openProjectItem(page, '存檔槽…');
+  await expect(slotName).toHaveValue('第一版');
   await slots.getByRole('button', { name: '關閉' }).first().click();
   await expect(slots).toBeHidden();
   await region(page, 'left/name').click();
@@ -545,7 +670,7 @@ test('保存：自動保存與還原、存檔槽、編輯檔 ZIP（匯出、重�
   await region(page, 'left/name').click();
   await expect(name).toHaveValue('保存測試');
 
-  /* 編輯檔：匯出 ZIP 解析 */
+  /* 專案檔：匯出 ZIP 解析 */
   await page.getByRole('button', { name: '專案' }).click();
   const zipDl = await download(page, page.getByRole('menuitem', { name: '存成專案檔…' }));
   expect(zipDl.suggestedFilename()).toMatch(/^雙人資料卡_\d{8}-\d{4}\.zip$/);
@@ -569,28 +694,67 @@ test('保存：自動保存與還原、存檔槽、編輯檔 ZIP（匯出、重�
   await expect(page.locator('[data-region="left/profile"]')).toBeVisible();
   await page.getByRole('button', { name: '專案' }).click();
   await page.getByRole('menuitem', { name: '開啟專案檔…' }).click();
+  await expect(page.getByRole('alertdialog')).toContainText('開啟專案檔？');
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
-    page.getByRole('alertdialog').getByRole('button', { name: '讀取' }).click(),
+    page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click(),
   ]);
   await chooser.setFiles(file('back.zip', zipBytes, 'application/zip'));
-  await expect(notice(page, '已讀取編輯檔。')).toBeVisible();
+  await expect(notice(page, '已開啟專案檔。')).toBeVisible();
   await region(page, 'left/name').click();
   await expect(name).toHaveValue('保存測試');
 
-  /* 別的版型的編輯檔：拒絕、內容不變 */
+  const openZip = async (name: string, bytes: Buffer) => {
+    await page.getByRole('button', { name: '專案' }).click();
+    await page.getByRole('menuitem', { name: '開啟專案檔…' }).click();
+    const [ch] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click(),
+    ]);
+    await ch.setFiles(file(name, bytes, 'application/zip'));
+  };
+
+  /* 別的版型的專案檔：拒絕、內容不變 */
   const other = { ...project, data: { ...project.data, template: 'roster' } };
-  const otherZip = Buffer.from(zipSync({ 'project.json': strToU8(JSON.stringify(other)) }));
-  await page.getByRole('button', { name: '專案' }).click();
-  await page.getByRole('menuitem', { name: '開啟專案檔…' }).click();
-  const [chooser2] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('alertdialog').getByRole('button', { name: '讀取' }).click(),
-  ]);
-  await chooser2.setFiles(file('other.zip', otherZip, 'application/zip'));
-  await expect(page.getByText(/這是「多人資料卡（1～30 人）」的編輯檔/).first()).toBeVisible();
+  await openZip(
+    'other.zip',
+    Buffer.from(zipSync({ 'project.json': strToU8(JSON.stringify(other)) })),
+  );
+  await expect(page.getByText(/這是「多人資料卡（1～30 人）」的專案檔/).first()).toBeVisible();
   await region(page, 'left/name').click();
   await expect(name).toHaveValue('保存測試');
+
+  /* 缺圖的專案檔（這個頁面沒見過的圖片 id）：拒絕；之後同一個頁面讀完整的（帶著那張圖）讀得進來 */
+  const fresh = {
+    ...project,
+    data: {
+      ...project.data,
+      draft: {
+        ...project.data.draft,
+        v: { ...project.data.draft.v, 'left.name': '補圖之後' },
+        images: { ...project.data.draft.images, 'left.profile': 'e2efreshimage' },
+      },
+    },
+  };
+  const freshJson = strToU8(JSON.stringify(fresh));
+  await openZip('missing.zip', Buffer.from(zipSync({ 'project.json': freshJson })));
+  await expect(page.getByText('ZIP 裡少了需要的圖片。').first()).toBeVisible();
+  await region(page, 'left/name').click();
+  await expect(name).toHaveValue('保存測試');
+  await openZip(
+    'full.zip',
+    Buffer.from(
+      zipSync({
+        'project.json': freshJson,
+        'files/e2efreshimage.png': entries[imageFile as string],
+      }),
+    ),
+  );
+  await expect(notice(page, '已開啟專案檔。').first()).toBeVisible();
+  await region(page, 'left/name').click();
+  await expect(name).toHaveValue('補圖之後');
+  await region(page, 'left/profile').click();
+  await expect(page.locator('[data-slot="left.profile"] img')).toBeVisible();
 
   /* 存檔槽刪除 */
   await openProjectItem(page, '存檔槽…');

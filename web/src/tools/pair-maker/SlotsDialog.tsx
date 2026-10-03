@@ -3,7 +3,7 @@
  * 改名（最多 40 字，空白時用預設名稱）、覆蓋（確認）、讀取（確認）、刪除（確認、無法復原）。
  */
 import { Plus } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { canvasToBlob } from '@/core/image';
 import type { ToolStore } from '@/core/storage';
 import { Button, Dialog, Notice, TextInput, useConfirm, useToast } from '@/ui';
@@ -16,7 +16,15 @@ import {
   validateDraft,
 } from './model';
 import { renderOutput } from './render';
-import { deleteSlot, listSlots, putSlot, SLOT_NAME_MAX, type SlotRecord, slotName } from './slots';
+import {
+  deleteSlot,
+  getSlot,
+  listSlots,
+  putSlot,
+  SLOT_NAME_MAX,
+  type SlotRecord,
+  slotName,
+} from './slots';
 import { assets, useUi } from './store';
 import { S } from './strings';
 
@@ -48,6 +56,63 @@ const time = (ms: number) =>
     minute: '2-digit',
     hour12: false,
   });
+
+/**
+ * 一列存檔槽。名稱欄由這一列管理：離開欄位（或按 Enter）時整理成實際的名稱（空白→「存檔槽」）並改名；
+ * 「覆蓋」帶著欄位裡的名稱（改名後直接按覆蓋也保留新名稱）。
+ */
+function SlotRow({
+  r,
+  onRename,
+  onOverwrite,
+  onLoad,
+  onRemove,
+}: {
+  r: SlotRecord;
+  onRename: (name: string) => void;
+  onOverwrite: (name: string) => void;
+  onLoad: () => void;
+  onRemove: () => void;
+}) {
+  const [name, setName] = useState(r.name);
+  useEffect(() => setName(r.name), [r.name]);
+  const settle = () => {
+    const next = slotName(name, S.slotDefaultName);
+    setName(next);
+    return next;
+  };
+  return (
+    <li className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-2 p-2">
+      <SlotPreview blob={r.preview} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <TextInput
+          aria-label={S.slotName}
+          value={name}
+          maxLength={SLOT_NAME_MAX}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => onRename(settle())}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          }}
+        />
+        <time className="text-xs text-muted" dateTime={new Date(r.savedAt).toISOString()}>
+          {time(r.savedAt)}
+        </time>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        <Button size="sm" onClick={() => onOverwrite(settle())}>
+          {S.slotOverwrite}
+        </Button>
+        <Button size="sm" variant="primary" onClick={onLoad}>
+          {S.slotLoad}
+        </Button>
+        <Button size="sm" variant="danger" onClick={onRemove}>
+          {S.slotDelete}
+        </Button>
+      </div>
+    </li>
+  );
+}
 
 export function SlotsDialog({
   open,
@@ -111,7 +176,15 @@ export function SlotsDialog({
     }
   };
 
-  const overwrite = async (r: SlotRecord) => {
+  /** 改名、覆蓋依序寫入（覆蓋等改名寫完，並以存檔槽目前的內容為準） */
+  const writes = useRef<Promise<unknown>>(Promise.resolve());
+  const queue = (job: () => Promise<void>): Promise<void> => {
+    const next = writes.current.then(job);
+    writes.current = next.catch(() => undefined);
+    return next;
+  };
+
+  const overwrite = async (r: SlotRecord, name: string) => {
     if (
       !(await confirm({
         title: S.slotOverwriteTitle,
@@ -120,9 +193,16 @@ export function SlotsDialog({
       }))
     )
       return;
-    const snap = await snapshot();
-    await putSlot({ ...r, ...snap, savedAt: Date.now() });
-    toast({ title: S.slotOverwritten, tone: 'success' });
+    try {
+      const snap = await snapshot();
+      await queue(async () => {
+        const cur = (await getSlot(r.id)) ?? r;
+        await putSlot({ ...cur, ...snap, name, savedAt: Date.now() });
+      });
+      toast({ title: S.slotOverwritten, tone: 'success' });
+    } catch {
+      setError(S.slotFailed);
+    }
     await refresh();
   };
 
@@ -165,10 +245,16 @@ export function SlotsDialog({
     await refresh();
   };
 
-  const rename = async (r: SlotRecord, raw: string) => {
-    const name = slotName(raw, S.slotDefaultName);
+  const rename = async (r: SlotRecord, name: string) => {
     if (name === r.name) return;
-    await putSlot({ ...r, name });
+    try {
+      await queue(async () => {
+        const cur = (await getSlot(r.id)) ?? r;
+        if (cur.name !== name) await putSlot({ ...cur, name });
+      });
+    } catch {
+      setError(S.slotFailed);
+    }
     await refresh();
   };
 
@@ -196,37 +282,14 @@ export function SlotsDialog({
           data-testid="slot-list"
         >
           {(rows ?? []).map((r) => (
-            <li
+            <SlotRow
               key={r.id}
-              className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-2 p-2"
-            >
-              <SlotPreview blob={r.preview} />
-              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <TextInput
-                  aria-label={S.slotName}
-                  defaultValue={r.name}
-                  maxLength={SLOT_NAME_MAX}
-                  onBlur={(e) => void rename(r, e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                  }}
-                />
-                <time className="text-xs text-muted" dateTime={new Date(r.savedAt).toISOString()}>
-                  {time(r.savedAt)}
-                </time>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                <Button size="sm" onClick={() => void overwrite(r)}>
-                  {S.slotOverwrite}
-                </Button>
-                <Button size="sm" variant="primary" onClick={() => void load(r)}>
-                  {S.slotLoad}
-                </Button>
-                <Button size="sm" variant="danger" onClick={() => void remove(r)}>
-                  {S.slotDelete}
-                </Button>
-              </div>
-            </li>
+              r={r}
+              onRename={(name) => void rename(r, name)}
+              onOverwrite={(name) => void overwrite(r, name)}
+              onLoad={() => void load(r)}
+              onRemove={() => void remove(r)}
+            />
           ))}
         </ul>
       </div>

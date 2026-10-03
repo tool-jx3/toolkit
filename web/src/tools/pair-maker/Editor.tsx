@@ -1,11 +1,10 @@
 /**
  * 編輯畫面：左邊（窄畫面在預覽下方）是版型資訊與設定欄，右邊是預覽與下載；頁首有復原／重做與「專案」選單
- * （存成編輯檔、讀取編輯檔、存檔槽、重設）。文字記錄在背景自動分頁。
+ * （存成專案檔、開啟專案檔、存檔槽、重設）。文字記錄在背景自動分頁。
  */
 import { Archive, LayoutGrid, Redo2, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { readAsBytes } from '@/core/files';
-import { loadSceneFonts, richAdvance } from '@/core/scene';
 import {
   parseProjectBytes,
   type ToolStore,
@@ -28,26 +27,24 @@ import {
   WindowDrop,
   withShortcut,
 } from '@/ui';
+import { paginateNow } from './autoPaginate';
 import { type Draft, draftAssets, type TemplateDef } from './model';
 import { Panel } from './Panel';
 import { Preview } from './Preview';
 import { importProject, projectData } from './project';
-import { outputName, sceneEnv } from './render';
+import { outputName } from './render';
 import { SlotsDialog } from './SlotsDialog';
 import {
   assets,
   draftToolId,
-  measureContext,
   type OpenResult,
   openDraft,
   PROJECT_VERSION,
-  silently,
   TOOL_ID,
   useUi,
 } from './store';
 import { S } from './strings';
 import { TEMPLATES } from './templates';
-import { paginate, variantOf } from './templates/textlog';
 import { Usage } from './Usage';
 
 /** 文字記錄：變更後約 0.2 秒（本文欄有焦點時不分頁）或離開格式化文字欄時自動分頁 */
@@ -56,18 +53,9 @@ function usePagination(def: TemplateDef, store: ToolStore<Draft>) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const warned = useRef(false);
   const run = useCallback(async () => {
-    const variant = variantOf(def.id);
-    if (!variant) return;
     if (document.activeElement?.closest?.('[data-rich-editor]')) return;
-    const d0 = store.getState().data;
-    await loadSceneFonts(def.scene({ ...d0, view: 'all' }, sceneEnv(d0)));
-    const d = store.getState().data;
-    const r = paginate(
-      d,
-      variant,
-      (node) => (ch, bold) => richAdvance(measureContext(), node, ch, bold),
-    );
-    if (r.changed) silently(store, () => store.getState().replace(r.draft));
+    const r = await paginateNow(def, store);
+    if (!r) return;
     if (r.capped && !warned.current) toast({ title: S.pagesCapped, tone: 'warning' });
     warned.current = r.capped;
   }, [def, store, toast]);
@@ -129,7 +117,7 @@ function TemplateBar({
   );
 }
 
-/** 設定欄（在 ToolShell 的 Provider 裡：通知、確認對話框、自動分頁、存檔槽、拖進來的編輯檔都在這裡） */
+/** 設定欄（在 ToolShell 的 Provider 裡：通知、確認對話框、自動分頁、存檔槽、拖進來的專案檔都在這裡） */
 function SettingsArea({
   def,
   opened,
@@ -168,7 +156,7 @@ function SettingsArea({
     if (saveError) toast({ title: S.saveFailed, tone: 'warning' });
   }, [saveError, toast]);
 
-  /* 拖進視窗的 ZIP＝讀取編輯檔 */
+  /* 拖進視窗的 ZIP＝開啟專案檔 */
   const loadZip = async (file: File) => {
     const ok = await confirm({
       title: S.openConfirmTitle,

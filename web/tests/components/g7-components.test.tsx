@@ -120,6 +120,27 @@ describe('RichTextField', () => {
       ['丙', '400'],
     ]);
   });
+
+  it('有焦點時被卸載（分頁在 mousedown 換掉內容）：補呼叫一次 onBlur；沒有焦點時不呼叫', () => {
+    const onBlur = vi.fn();
+    const field = (
+      <RichTextField aria-label="本文" value={plainDoc('甲')} onChange={() => {}} onBlur={onBlur} />
+    );
+    const a = render(<UiProvider>{field}</UiProvider>);
+    fireEvent.focus(screen.getByRole('textbox', { name: '本文' }));
+    a.unmount();
+    expect(onBlur).toHaveBeenCalledTimes(1);
+    /* 正常離開：onBlur 一次；之後卸載不再呼叫 */
+    const b = render(<UiProvider>{field}</UiProvider>);
+    const box = screen.getByRole('textbox', { name: '本文' });
+    fireEvent.focus(box);
+    fireEvent.blur(box);
+    b.unmount();
+    expect(onBlur).toHaveBeenCalledTimes(2);
+    /* 從沒聚焦過 */
+    render(<UiProvider>{field}</UiProvider>).unmount();
+    expect(onBlur).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('LayoutCanvas', () => {

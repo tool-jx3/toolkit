@@ -54,7 +54,7 @@ describe('版型清單', () => {
     ]);
   });
 
-  it('每個版型的初始內容都通過讀入檢查（自動保存、編輯檔的格式一致）', () => {
+  it('每個版型的初始內容都通過讀入檢查（自動保存、專案檔的格式一致）', () => {
     for (const t of TEMPLATES) {
       const d = t.initial();
       expect(validateDraft(t, JSON.parse(JSON.stringify(d)))).toEqual(d);

@@ -12,7 +12,7 @@ import { type Draft, draftAssets, type TemplateDef, validateDraft } from './mode
 import { TEMPLATES } from './templates';
 
 export const TOOL_ID = 'pair-maker';
-/** 編輯檔（專案檔）的資料版本 */
+/** 專案檔的資料版本 */
 export const PROJECT_VERSION = 1;
 
 export const assets = createAssetStore(TOOL_ID);

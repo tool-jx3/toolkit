@@ -12,7 +12,7 @@ export const S = {
   templateNow: '目前版型',
   restored: '已載入最近一次的編輯。',
   restoreFailed: '無法還原自動保存的內容，已改用版型的初始內容。',
-  saveFailed: '自動保存失敗了（瀏覽器空間可能不足）。請存成編輯檔備份。',
+  saveFailed: '自動保存失敗了（瀏覽器空間可能不足）。請存成專案檔備份。',
 
   /* ---------- 編輯面板 ---------- */
   sidesAria: '編輯對象',
@@ -77,6 +77,8 @@ export const S = {
   /* ---------- 多人資料框 ---------- */
   addMember: '新增角色',
   memberLimit: '最多 30 人。',
+  memberCount: (n: number, max: number) => `${n} / ${max} 人`,
+  rosterNavAria: '多人資料卡的角色',
   deleteMember: '刪除這個角色',
   deleteMemberTitle: '刪除這個角色？',
   deleteMemberDesc: '這個角色與它的輸入內容都會刪除，其餘角色往前遞補。',
@@ -102,7 +104,7 @@ export const S = {
   /* ---------- 存檔槽 ---------- */
   slots: '存檔槽…',
   slotsTitle: '存檔槽',
-  slotsNote: '存在這台裝置的瀏覽器裡。清除瀏覽器資料的話就會不見，重要的作品請另外存成編輯檔。',
+  slotsNote: '存在這台裝置的瀏覽器裡。清除瀏覽器資料的話就會不見，重要的作品請另外存成專案檔。',
   slotNew: '建立新的存檔槽',
   slotCreated: '已存到新的存檔槽。',
   slotEmpty: '這個版型還沒有存檔槽。',
@@ -121,20 +123,20 @@ export const S = {
   slotDeleteDesc: '刪掉之後無法復原。',
   slotDeleted: '已刪除存檔槽。',
   slotPreviewAlt: '存檔槽的預覽',
-  slotFailed: '這個瀏覽器無法使用存檔槽（儲存空間不能用）。請改用編輯檔。',
+  slotFailed: '這個瀏覽器無法使用存檔槽（儲存空間不能用）。請改用專案檔。',
   slotBroken: '這個存檔槽的內容無法讀取：',
 
-  /* ---------- 編輯檔 ---------- */
-  projectOpened: '已讀取編輯檔。',
-  openConfirmTitle: '讀取編輯檔？',
-  openConfirmDesc: '目前的編輯內容會被編輯檔取代（可以用「復原」回來）。',
-  openConfirmLabel: '讀取',
-  archiveTooBig: '請選擇 80 MB 以下的編輯檔。',
+  /* ---------- 專案檔 ---------- */
+  projectOpened: '已開啟專案檔。',
+  openConfirmTitle: '開啟專案檔？',
+  openConfirmDesc: '目前的編輯內容會被專案檔取代（可以用「復原」回來）。',
+  openConfirmLabel: '開啟',
+  archiveTooBig: '請選擇 80 MB 以下的專案檔。',
   archiveTooManyFiles: '解壓縮後的檔案太大或數量太多了。',
-  archiveOtherTemplate: (name: string) => `這是「${name}」的編輯檔，請先切換到那個版型再讀取。`,
-  archiveUnknownTemplate: '這不是本工具的版型編輯檔。',
+  archiveOtherTemplate: (name: string) => `這是「${name}」的專案檔，請先切換到那個版型再開啟。`,
+  archiveUnknownTemplate: '這不是本工具的版型專案檔。',
   archiveMissingImage: 'ZIP 裡少了需要的圖片。',
-  archiveDrop: '放開即可讀取編輯檔（ZIP）',
+  archiveDrop: '放開即可開啟專案檔（ZIP）',
   resetTitle: '重設這個版型？',
   resetDesc: '會清空目前的內容，回到版型的初始狀態（可以用「復原」回來）。',
   resetDone: '已重設成版型的初始內容。',
@@ -148,7 +150,7 @@ export const S = {
     '色彩欄的調色盤有「從畫布取色」：游標移到畫布上會出現放大鏡，點一下就取那一點的顏色。',
     '貼紙：在「貼紙」分頁加入圖片，在畫布上拖曳移動、拉四個角縮放、拖上方的控點旋轉；可以加陰影、白色外框線與出處，調整前後順序。',
     '文字記錄：本文放不下時，停手約 0.2 秒或離開本文欄後，多出來的字會接到下一頁同一欄的開頭（需要時自動加頁，最多 30 頁）。',
-    '保存：內容會依版型自動保存在瀏覽器；「專案」選單可以存成編輯檔（ZIP，含圖片）、讀取編輯檔、打開存檔槽或重設。',
+    '保存：內容會依版型自動保存在瀏覽器；「專案」選單可以存成專案檔（ZIP，含圖片）、開啟專案檔、打開存檔槽或重設。',
   ],
 } as const;
 

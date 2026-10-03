@@ -225,6 +225,22 @@ export function RichTextField({
   const [empty, setEmpty] = useState(() => docLength(value) === 0);
   const noteId = `${field.id}-note`;
 
+  /*
+   * 有焦點時被卸載（例如分頁元件在 mousedown 就換掉內容）：瀏覽器的 blur 發生在已經拿掉的節點上，React 收不到，
+   * 所以卸載時自己補一次 onBlur（「離開欄位」時要做的事，例如自動分頁，才不會漏掉）。
+   */
+  const focused = useRef(false);
+  const blurRef = useRef(onBlur);
+  blurRef.current = onBlur;
+  useEffect(
+    () => () => {
+      if (!focused.current) return;
+      focused.current = false;
+      blurRef.current?.();
+    },
+    [],
+  );
+
   const readSel = (): Sel | null => {
     const root = editor.current;
     const s = root?.ownerDocument.getSelection();
@@ -460,8 +476,14 @@ export function RichTextField({
           onKeyDown={onKeyDown}
           onPaste={onPaste}
           onDrop={(e) => e.preventDefault()}
-          onFocus={onFocus}
-          onBlur={onBlur}
+          onFocus={() => {
+            focused.current = true;
+            onFocus?.();
+          }}
+          onBlur={() => {
+            focused.current = false;
+            onBlur?.();
+          }}
           className={cn(
             /* 白底：字的顏色就是輸出的顏色（深色主題也看得清楚） */
             'w-full overflow-y-auto rounded-md border border-border-strong bg-[#ffffff] px-2.5 py-2 text-sm leading-[1.6] text-[#363636] caret-[#202020] outline-none',

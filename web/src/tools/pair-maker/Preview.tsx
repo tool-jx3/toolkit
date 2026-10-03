@@ -1,6 +1,6 @@
 /**
  * 預覽：版型的場景＋貼紙畫在 canvas（與輸出同一段程式），上面疊 LayoutCanvas（點選區、貼紙控點、從畫布取色）。
- * 下方：文字記錄的頁面切換、多人資料框的新增；最下面是下載（PNG，文字記錄另有 PDF）。
+ * 下方：文字記錄的頁面切換、多人資料框的人數與新增鈕；最下面是下載（PNG，文字記錄另有 PDF；下載前先自動分頁）。
  */
 import {
   ArrowLeftToLine,
@@ -31,15 +31,16 @@ import {
   Stage,
   useToast,
 } from '@/ui';
+import { paginateNow } from './autoPaginate';
 import { type Draft, draftAssets, parseHitKey, stickerMax, type TemplateDef } from './model';
-import { chooseSide } from './Panel';
+import { addMemberTo, addPageTo, chooseSide } from './Panel';
 import { drawStickers, exportPng, outputName, sceneEnv, stickerPlacement } from './render';
 import { selectSticker } from './StickerPanel';
 import { patchSticker, placementToSticker, removeSticker, stepSticker } from './stickers';
 import { assets, measureContext, STICKER_SIDE, silently, useUi } from './store';
 import { S } from './strings';
-import { CARD_H, CARD_W, members, soloScene } from './templates/roster';
-import { activeOf, addPage, pagesOf, variantOf } from './templates/textlog';
+import { CARD_H, CARD_W, MAX_MEMBERS, members, soloScene } from './templates/roster';
+import { activeOf, MAX_PAGES, pagesOf, variantOf } from './templates/textlog';
 
 export interface PreviewProps {
   def: TemplateDef;
@@ -249,9 +250,10 @@ export function Preview({ def, store, d, picker }: PreviewProps) {
         />
       </Stage>
       {def.kind === 'textlog' ? <PageNav def={def} store={store} d={d} /> : null}
+      {def.kind === 'roster' ? <RosterNav def={def} store={store} d={d} /> : null}
       <ExportBar
         def={def}
-        d={d}
+        store={store}
         size={def.size(d)}
         onError={(m) => toast({ title: m, tone: 'danger' })}
       />
@@ -309,19 +311,41 @@ function PageNav({ def, store, d }: { def: TemplateDef; store: ToolStore<Draft>;
       <Button
         size="sm"
         icon={<Plus />}
-        disabled={pages.length >= 30}
+        disabled={pages.length >= MAX_PAGES}
         onClick={() => {
-          const variant = variantOf(def.id);
-          const next = variant ? addPage(store.getState().data, variant) : null;
-          if (!next) {
-            toast({ title: S.pageLimit, tone: 'warning' });
-            return;
-          }
-          store.getState().replace({ ...next, view: 'single' });
-          useUi.getState().setSide(def.id, `p${next.active}`);
+          if (!addPageTo(def, store)) toast({ title: S.pageLimit, tone: 'warning' });
         }}
       >
         {S.addPage}
+      </Button>
+    </nav>
+  );
+}
+
+/* ---------- 多人資料框：畫布下方的新增鈕（舊版畫布區的「＋」） ---------- */
+
+function RosterNav({ def, store, d }: { def: TemplateDef; store: ToolStore<Draft>; d: Draft }) {
+  const toast = useToast();
+  const n = members(d).length;
+  return (
+    <nav
+      aria-label={S.rosterNavAria}
+      className="flex flex-wrap items-center justify-center gap-2"
+      data-testid="roster-nav"
+    >
+      <span className="text-sm tabular-nums text-muted" data-testid="member-count">
+        {S.memberCount(n, MAX_MEMBERS)}
+      </span>
+      <Button
+        size="sm"
+        icon={<Plus />}
+        disabled={n >= MAX_MEMBERS}
+        onClick={() => {
+          if (!addMemberTo(def, store)) toast({ title: S.memberLimit, tone: 'warning' });
+        }}
+        data-testid="canvas-add-member"
+      >
+        {S.addMember}
       </Button>
     </nav>
   );
@@ -331,12 +355,12 @@ function PageNav({ def, store, d }: { def: TemplateDef; store: ToolStore<Draft>;
 
 function ExportBar({
   def,
-  d,
+  store,
   size,
   onError,
 }: {
   def: TemplateDef;
-  d: Draft;
+  store: ToolStore<Draft>;
   size: { width: number; height: number };
   onError: (message: string) => void;
 }) {
@@ -346,10 +370,16 @@ function ExportBar({
   const abort = useRef<AbortController | null>(null);
   const isLog = def.kind === 'textlog';
 
+  /* 下載前先分頁一次（本文欄剛貼上、還沒分頁的字也要在輸出裡；同舊版按 PDF 時的 scene.paginate()） */
+  const latest = async (): Promise<Draft> => {
+    await paginateNow(def, store);
+    return store.getState().data;
+  };
+
   const png = async () => {
     setBusy('png');
     try {
-      const blob = await exportPng(def, d);
+      const blob = await exportPng(def, await latest());
       const name = outputName(def, 'png');
       downloadBlob(blob, name);
       toast({ title: S.pngDone(name), tone: 'success' });
@@ -368,14 +398,15 @@ function ExportBar({
     setBusy('pdf');
     setProgress(S.pdfFonts);
     try {
-      const { logPdf } = await import('./pdf');
-      const bytes = await logPdf(def, variant, d, {
+      const [{ logPdf }, data] = await Promise.all([import('./pdf'), latest()]);
+      ctl.signal.throwIfAborted();
+      const bytes = await logPdf(def, variant, data, {
         signal: ctl.signal,
         onProgress: (n, total) => setProgress(S.pdfProgress(n, total)),
       });
       const name = outputName(def, 'pdf');
       downloadBytes(bytes, name, 'application/pdf');
-      setProgress(S.pdfDone(pagesOf(d).length));
+      setProgress(S.pdfDone(pagesOf(data).length));
     } catch (e) {
       if (ctl.signal.aborted) setProgress(S.pdfCanceled);
       else {

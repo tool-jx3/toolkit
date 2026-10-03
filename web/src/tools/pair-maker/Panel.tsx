@@ -12,8 +12,8 @@ import { SlotField } from './SlotField';
 import { StickerPanel } from './StickerPanel';
 import { STICKER_SIDE, silently, useUi } from './store';
 import { S } from './strings';
-import { addMember, members, moveMember, removeMember } from './templates/roster';
-import { addPage, pageNo, pagesOf, removePage, variantOf } from './templates/textlog';
+import { addMember, MAX_MEMBERS, members, moveMember, removeMember } from './templates/roster';
+import { addPage, MAX_PAGES, pageNo, pagesOf, removePage, variantOf } from './templates/textlog';
 
 export interface PanelProps {
   def: TemplateDef;
@@ -34,6 +34,32 @@ export function chooseSide(def: TemplateDef, store: ToolStore<Draft>, side: stri
   }
 }
 
+/** 多人資料框：在最後新增一人並切到他（設定欄上方與畫布下方的新增鈕共用）；30 人時回傳 false */
+export function addMemberTo(def: TemplateDef, store: ToolStore<Draft>): boolean {
+  const r = addMember(store.getState().data);
+  if (!r) return false;
+  store.getState().replace(r.draft);
+  useUi.getState().setSide(def.id, r.side);
+  return true;
+}
+
+/** 文字記錄：在最後新增一頁並切過去（單獨看）；30 頁時回傳 false */
+export function addPageTo(def: TemplateDef, store: ToolStore<Draft>): boolean {
+  const variant = variantOf(def.id);
+  const next = variant ? addPage(store.getState().data, variant) : null;
+  if (!next) return false;
+  store.getState().replace({ ...next, view: 'single' });
+  useUi.getState().setSide(def.id, `p${next.active}`);
+  return true;
+}
+
+/**
+ * 已經捲過去的那一次點選（useUi 的 revealTick）。點到另一個對象時，新掛上的設定欄也要捲過去；
+ * 開頁、換版型、手動切分頁時 revealTick 沒變，不捲。
+ * 換對象的那一刻，舊對象的設定欄還會掛著一下（Radix 分頁的 Presence 下一輪才卸載），所以只讓目前的對象處理。
+ */
+let revealedTick = 0;
+
 function SideContent({ side, def, store, d, picker, onRichBlur }: PanelProps & { side: SideDef }) {
   const groupKey = `${def.id}|${side.id}`;
   const chosen = useUi((s) => s.group[groupKey]);
@@ -41,16 +67,14 @@ function SideContent({ side, def, store, d, picker, onRichBlur }: PanelProps & {
   const group: GroupDef = side.groups.find((g) => g.id === chosen) ?? side.groups[0];
   const box = useRef<HTMLDivElement>(null);
   const confirm = useConfirm();
-  const first = useRef(true);
 
-  /* 從畫布點過來：捲到欄位 */
+  /* 從畫布點過來：捲到欄位（同一個對象換分類、或切到另一個對象剛掛上時都捲） */
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    if (tick) box.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [tick]);
+    if (!tick || tick === revealedTick) return;
+    if (useUi.getState().side[def.id] !== side.id) return;
+    revealedTick = tick;
+    box.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [tick, def.id, side.id]);
 
   if (!group) return null;
   const defaults = def.defaults(d);
@@ -194,30 +218,17 @@ export function Panel(props: PanelProps) {
     def.kind === 'roster'
       ? {
           label: S.addMember,
-          disabled: members(d).length >= 30,
+          disabled: members(d).length >= MAX_MEMBERS,
           run: () => {
-            const r = addMember(store.getState().data);
-            if (!r) {
-              toast({ title: S.memberLimit, tone: 'warning' });
-              return;
-            }
-            store.getState().replace(r.draft);
-            useUi.getState().setSide(def.id, r.side);
+            if (!addMemberTo(def, store)) toast({ title: S.memberLimit, tone: 'warning' });
           },
         }
       : def.kind === 'textlog'
         ? {
             label: S.addPage,
-            disabled: pagesOf(d).length >= 30,
+            disabled: pagesOf(d).length >= MAX_PAGES,
             run: () => {
-              const variant = variantOf(def.id);
-              const next = variant ? addPage(store.getState().data, variant) : null;
-              if (!next) {
-                toast({ title: S.pageLimit, tone: 'warning' });
-                return;
-              }
-              store.getState().replace({ ...next, view: 'single' });
-              useUi.getState().setSide(def.id, `p${next.active}`);
+              if (!addPageTo(def, store)) toast({ title: S.pageLimit, tone: 'warning' });
             },
           }
         : null;

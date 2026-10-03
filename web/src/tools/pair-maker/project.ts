@@ -1,5 +1,5 @@
 /**
- * 編輯檔（ZIP：共用專案檔格式 project.json＋files/ 的圖片）：資料是 { template: 版型 id, draft: 編輯內容 }。
+ * 專案檔（ZIP：共用專案檔格式 project.json＋files/ 的圖片）：資料是 { template: 版型 id, draft: 編輯內容 }。
  * 讀入時：檔案大小、檔案數、解壓後大小、版型、內容（validateDraft）、圖片都在且能解碼，才換掉目前的內容。
  */
 import { importAssetFiles } from '@/core/assets';
@@ -26,7 +26,7 @@ export const projectData = (def: TemplateDef, d: Draft): ProjectData => ({
   draft: d,
 });
 
-/** 讀入編輯檔的內容（不合格丟 DraftError，訊息可以直接顯示） */
+/** 讀入專案檔的內容（不合格丟 DraftError，訊息可以直接顯示） */
 export async function importProject(
   def: TemplateDef,
   data: unknown,

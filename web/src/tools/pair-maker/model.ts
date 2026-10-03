@@ -1,6 +1,6 @@
 /**
  * 角色介紹圖產生器的資料模型（不依賴 React）：版型的定義格式、編輯內容（Draft）、欄位的條件顯示與預設值、
- * 讀入資料的檢查（編輯檔、存檔槽、自動保存共用）、貼紙的新增與限制。
+ * 讀入資料的檢查（專案檔、存檔槽、自動保存共用）、貼紙的新增與限制。
  * 規格：docs/refactor/specs/pair-maker.md。
  */
 import type { FontValue } from '@/core/fonts';
@@ -297,7 +297,7 @@ export const STICKER_MIN = 12;
 export const STICKER_MARGIN = 16;
 /** 出處的字數上限 */
 export const CITE_MAX = 100;
-/** 編輯檔：檔案大小、解壓後大小、檔案數 */
+/** 專案檔：檔案大小、解壓後大小、檔案數 */
 export const ARCHIVE_MAX_BYTES = 80 * 1024 * 1024;
 export const ARCHIVE_MAX_FILES = 100;
 
@@ -336,7 +336,7 @@ function checkFont(x: unknown): FontValue {
 }
 
 /**
- * 外來資料（編輯檔、存檔槽、自動保存）→ 可以用的 Draft。
+ * 外來資料（專案檔、存檔槽、自動保存）→ 可以用的 Draft。
  * 結構（人數、頁數）由版型的 restore 檢查；欄位逐一檢查型別與範圍，缺的用預設值；
  * 圖片格只留這個版型有的格子；貼紙檢查 id、座標、大小、張數。不合格丟 DraftError（訊息可以直接顯示）。
  */
