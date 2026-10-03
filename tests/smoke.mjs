@@ -373,7 +373,6 @@ const SOTSOT_FOUR = [
   /* authorLink：上游在標題旁放了 @bb_uu_t 的連結。acrylic-goods 沒有——
    * 那個工具的署名只出現在燒進輸出圖片的浮水印上（見下方的 watermark 檢查）。 */
   { dir: 'tools/acrylic-goods', dict: 'i18n.acrylic-goods.js', minHooks: 50, inline: 35, attrs: 4, authorLink: false },
-  { dir: 'tools/video-anim', dict: 'i18n.video-anim.js', minHooks: 60, inline: 50, attrs: 1, authorLink: true },
 ];
 for (const t of SOTSOT_FOUR) {
   checkTool({ dir: t.dir, dict: t.dict, scripts: ['app.js'], styles: ['styles.css'], minHooks: t.minHooks });
@@ -407,11 +406,6 @@ for (const t of SOTSOT_FOUR) {
   check(`${t.dir} ${t.authorLink ? '保留' : '本來就沒有'}原作者的連結`,
     read(`${t.dir}/index.html`).includes('https://x.com/bb_uu_t') === t.authorLink);
 }
-
-/* video-anim：結果卡上的數字要留著，換語言才排得出新句子。 */
-const vaApp = read('tools/video-anim/app.js');
-check('video-anim 把結果的數字記下來', vaApp.includes('state.lastResult = {'));
-check('video-anim 用記下的數字重排結果卡', vaApp.includes('function applyResultLabels()'));
 
 /* acrylic-goods：畫布上的浮水印是作者署名，走字典而不是寫死。 */
 const agApp = read('tools/acrylic-goods/app.js');
@@ -1014,7 +1008,7 @@ for (const name of TOOLS) {
 for (const sha of ['de40a68',
   '883f48b',
   'aad63b1', '9c29866',
-  '8b1b1e2', '9fe67a6', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
+  '8b1b1e2', 'd39f79e', '1b48bea', '7ddbd99', '772d6c4']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
 }
 check('ATTRIBUTION.md 標明 character-select 未授權',
@@ -1035,7 +1029,7 @@ check('ATTRIBUTION.md 說明四個工具的函式庫為何走 CDN',
   /sotsotssi 的角色美術周邊工具[\s\S]{0,2500}沒有改成同捆/.test(attribution));
 check('ATTRIBUTION.md 說明 acrylic-goods 的浮水印為何保留',
   attribution.includes('watermark') && /浮水印[\s\S]{0,300}@bb_uu_t/.test(attribution));
-for (const dir of ['acrylic-goods', 'video-anim']) {
+for (const dir of ['acrylic-goods']) {
   check(`ATTRIBUTION.md 記載 ${dir} 的上游`, new RegExp(`\\| ${dir} \\| \\[sotsotssi/`).test(attribution));
 }
 

@@ -129,12 +129,13 @@ npm test
 | `coc-typesetter` | [CoC 劇本排版工具](tools/coc-typesetter/) | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明） |
 | `scenario-editor` | [劇本排版台](tools/scenario-editor/) | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) |
 | `gif-combiner` | [GIF 接合器](tools/gif-combiner/) | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) |
+| `video-anim` | [影片轉動圖工具](tools/video-anim/) | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的四個工具、
+介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的三個工具、
 `pair-maker` 為韓文，
 `trpg-lab` 與
 `anime-rig` 為日文。

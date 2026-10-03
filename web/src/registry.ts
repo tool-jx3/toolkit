@@ -431,7 +431,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把影片的一段剪成循環播放的 APNG、WebP 或 GIF：選起點與終點、框出要的範圍、調整每秒格數、尺寸與播放速度，全部在瀏覽器裡轉換。',
     group: 'G8',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/video-to-pic',
       url: 'https://github.com/sotsotssi/video-to-pic',

@@ -27,7 +27,6 @@
 | character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
 | pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
 | acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
-| video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
 | trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
 | jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | —（連到原站；2026-09-25～30 曾收錄 `1b48bea` 的副本） | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
@@ -149,22 +148,20 @@ ES module 只求值一次，所以版型模組最外層寫成值的常數——�
 
 ## sotsotssi 的角色美術周邊工具
 
-`acrylic-goods`、`video-anim` 是一批同時收錄的
-MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也都是純靜態頁面（同批的 `color-palette`、`gif-combiner`
+`acrylic-goods` 是一批同時收錄的
+MIT 小工具之一，路數與合輯其餘工具相同（角色美術周邊），也是純靜態頁面（同批的 `color-palette`、`gif-combiner`、`video-anim`
 已由本站重寫，見下方「本站重寫的工具」）：
 
 | 目錄 | 上游名稱 | 做什麼 |
 |---|---|---|
 | `acrylic-goods` | `acrylic-goods`（사이버 아크릴 굿즈 공방） | 3D 壓克力立牌／搖搖樂／立體透視。搖搖樂裡的零件走 cannon.js 物理，手機上可用陀螺儀傾倒 |
-| `video-anim` | `video-to-pic`（동영상→이미지 변환기） | 影片選段轉無損 APNG／Animated WebP／256 色 GIF |
 
 `acrylic-goods` 同作者另有一個 `acrylic-stand`，功能是 `acrylic-goods` 的子集
 （只有立牌），因此只收後者。
 
 依慣例，寫在 `index.html` 裡的 `<style>` 與 `<script>` 區塊抽成 `styles.css` 與
 `app.js`；`acrylic-goods` 上游本來就分開，只是把 `style.css`／`script.js` 改名對齊
-其餘工具。`video-anim` 的 `tailwind.config` 留在 `<head>` 內嵌——那是給 Play CDN
-讀的設定，不是程式。指向原作者 X 帳號的 `@bb_uu_t` 連結照 sotsotssi 其餘工具的
+其餘工具。指向原作者 X 帳號的 `@bb_uu_t` 連結照 sotsotssi 其餘工具的
 做法保留，標題改用 `data-i18n-node` 只換文字、留著連結。
 
 ### 函式庫照上游走 CDN，沒有改成同捆
@@ -189,8 +186,6 @@ gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，
 這幾個工具的固定文字都走 `data-i18n`，但各有一些是程式寫進去的，切語言時得自己
 重寫；每個工具的 `I18N.onChange` 就是在做這件事：
 
-- `video-anim`：裁切狀態、無損模式說明、影片資訊，以及結果卡上那四行——結果卡
-  的數字另外記在 `state.lastResult` 裡，才有辦法用新語言重排。
 - `acrylic-goods`：兩份動態清單（搖搖樂零件、立體透視圖層）與畫布上的浮水印。
   3D 場景本身不含文字，不用重建。
 
@@ -417,6 +412,7 @@ WebM。
 | `coc-typesetter` | CoC 劇本排版工具 | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明） | `83fd605` |
 | `scenario-editor` | 劇本排版台 | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor)（CC0） | `83fd605` |
 | `gif-combiner` | GIF 接合器 | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `83fd605` |
+| `video-anim` | 影片轉動圖工具 | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 

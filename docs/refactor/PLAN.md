@@ -172,7 +172,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | session-log | ✅ | ✅ | ✅ | ✅ |
 | session-report | ✅ | ✅ | ✅ | ✅ |
 | coc-typesetter | ✅ | ✅ | ✅ | ✅ |
-| video-anim | ⬜ | ⬜ | ⬜ | ⬜ |
+| video-anim | ✅ | ✅ | ✅ | ✅ |
 | gif-combiner | ✅ | ✅ | ✅ | ✅ |
 | pair-maker | ⬜ | ⬜ | ⬜ | ⬜ |
 | character-select | ⬜ | ⬜ | ⬜ | ⬜ |
