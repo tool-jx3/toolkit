@@ -209,6 +209,7 @@ export function CanvasPanel() {
               min={RANGE.offset[0]}
               max={RANGE.offset[1]}
               step={1}
+              precision={2}
               unit="°"
             />
           </Field>

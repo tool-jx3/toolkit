@@ -495,7 +495,7 @@ r＝（t − 複本開始）÷ max(0.001, 持續)，p＝加速曲線(夾在 0～
   檔名維持 `<名稱>-<YYYYMMDD-HHMM>.arcana.json`；舊版的 `.arcana.json` 由「專案 › 開啟舊版專案檔…」讀入（F137）；舊版的自動儲存在第一次開啟時自動帶入（F137）。
 - **D3 自動儲存的位置與時機**：新版存在共用的鍵 `trpg-toolkit:magic-circle`，每次修改就存（不等 0.45 秒）；頁首的專案選單顯示最後存檔時間。
 - **D4 選取與播放頭不列入復原**：舊版的復原會連選取、播放頭一起還原。**建議**：選取、播放頭是畫面狀態，不列入復原（與其他工具一致）；復原後已不存在的元素從選取拿掉。播放頭與工具選項另外存在瀏覽器（重新整理後還原）。
-- **D5 平移的範圍**：舊版可以把畫布拖到任何地方。新版用共用的盤面（有捲軸；畫布四周留 120 px 可以捲），選取工具在空白處拖曳也會平移（舊版沒有作用；沒拖就放開仍是取消選取）；Shift＋滾輪橫向捲動；Ctrl＋滾輪交給瀏覽器縮放頁面（舊版攔下來縮放畫布）。
+- **D5 平移的範圍**：舊版可以把畫布拖到任何地方。新版用共用的盤面（有捲軸；畫布四周留 46 px 可以捲），選取工具在空白處拖曳也會平移（舊版沒有作用；沒拖就放開仍是取消選取）；Shift＋滾輪橫向捲動；Ctrl＋滾輪交給瀏覽器縮放頁面（舊版攔下來縮放畫布）。
 - **D6 版面**：舊版是左側工具列、中間畫布與時間軸、右側五個分頁。新版用共用外框：設定欄（元素、樣式、形狀、動態、畫布五個分頁；寬畫面在左、窄畫面在下），預覽欄依序是工具列（工具、復原／重做、縮放、輔助線）、工具提示列、編輯畫面、狀態列、時間軸、匯出區。「文件」分頁改名「畫布」（用詞表），說明裡的「文件」一併改寫。
 - **D7 時間軸的播放鈕**：新版用共用播放列（重播、播放／暫停、可拖曳的時間軸、循環、時間）＋「回到開頭」按鈕；長度、FPS 與自動排列在播放列下方。播放列的「循環」就是作品的循環設定。
 - **D8 字型欄維持文字輸入**：盧恩字母要靠系統字型的後備（serif、sans-serif 等泛用字型名稱），共用字型選擇器只能選特定字型，所以字型欄（含工具選項的預設字型）維持 CSS 字型名稱的文字欄。
@@ -518,7 +518,165 @@ r＝（t − 複本開始）÷ max(0.001, 持續)，p＝加速曲線(夾在 0～
 
 ## 6. 對等驗證紀錄（驗證者填）
 
-驗證者依 3.10 比對後逐項填寫。
+驗證：2026-10-03，舊版 `tools/magic-circle/`、新版 `next/magic-circle/`（建置 `magic-circle-DwhmpJ5G.js`），兩邊都由驗證伺服器 8124（HEAD 0d4e8b1 的快照 `/home/user/verify-tree`）提供；`web/src/tools/magic-circle/` 與目前 HEAD 4f5403e 相同，但 HEAD 另外改了共用的 `core/encode`（apng、png）、`core/worker`、`core/timeline/export`，重新建置後匯出（F118～F124）建議再跑一次迴歸。Chromium（Playwright）1400 × 1000、DPR 1，網頁字型擋掉（兩邊同一套系統字型）；舊版沒有從 CDN 載入的函式庫。
+
+腳本與輸出在 `/tmp/claude-0/-home-user-toolkit/4d5f38ef-cf3b-5354-95f1-00b7850b7d3f/scratchpad/verify-magic-circle/`：共用 `mc.mjs`（開頁、座標換算、逐像素比對）、`ad.mjs`（同一個動作在兩邊的做法；比對前去掉 id、色碼轉小寫、舊版 `loop` 換成 `plays`）、`dec.mjs`（Node 端的 GIF／APNG 解碼與合成：舊版的 GIF 是不壓縮的 LZW、109 MB，瀏覽器的 ImageDecoder 會當掉）；各腳本的結果在 `out/<腳本>.json`／`.log`，截圖在 `shots/`。
+
+互動的比對方式：兩邊載入同一份作品（舊版 `replaceProject`、新版測試入口 `replace`），舊版的縮放設成新版的符合畫面倍率（0.536），用滑鼠、鍵盤做同樣的操作，比對整份作品資料（座標容許 0.01 px，其餘逐值）、選取、基準元素、選取的節點、工具，以及通知與狀態列文字。每個情境都從同一份底稿開始。
+
+主要數字：渲染 100% 逐像素 50 格全部 0 差（`render.mjs`：三個範本各 6 個時間點、自製作品 A／B 各 6、7 個時間點、透明背景反過來各一次、A 排除文字一次）；50%、200% 只在發光與陰影有差（關掉發光、陰影後 0 差），且新版倍率 s 的畫面＝舊版把模糊與位移先乘 s 再算繪（`render-d10.mjs`，12 格全部 0 差，D10）；animationState 6,355,440 個值 0 差（`motion.mjs`）；對齊 327 次 0 差（`layers.mjs`）；APNG 190 格逐格 0 差（`reanalyze.mjs`）。
+
+| 編號 | 結果 | 方法與證據（腳本路徑、數字） | 備註 |
+|---|---|---|---|
+| F01 | ✅ 通過 | `misc.mjs`（`shots/new-full.png`）：頁首「← TRPG Toolkit｜魔法陣製作器」與群組分頁（魔法陣製作器、角色介紹圖產生器、選角畫面產生器），由共用外框提供。 | 舊版的英文名稱與副標不沿用。 |
+| F02 | ✅ 通過 | `misc.mjs`：頁首「TRPG Toolkit」連到 `../../`。 |  |
+| F03 | 不移植（刻意差異） | `misc.mjs`：新版沒有語言選單。 | D12。 |
+| F04 | 不移植（刻意差異） | 新版沒有授權對話框；頁尾只有「靈感來源：sotsotssi/magic-circle-maker」。 | D12；原作授權在 `UPSTREAM_LICENSE`。 |
+| F05 | ✅ 通過 | `help.mjs`：頁首「說明」對話框與設定欄「使用方式」都是 7 個步驟（對稱尺與吸附、鋼筆、只編輯原始筆畫、盧恩、對齊、動態與時間軸、匯出）＋「作品不會上傳」；「快捷鍵（?）」開共用快捷鍵一覽（F142）。 | 步驟依新版版面改寫（「畫布」分頁、匯出區）。 |
+| F06 | ✅ 通過（7.1 修正後） | 複驗（主控修正後：`replaceProject` 在畫面更新、新長度生效後再定位一次播放頭；驗證者的 `playhead-bug.mjs` 在 8123 重跑，`scratchpad/reverify-mc/`）：套用簽名・印記後再套古典魔法陣 4.00／4.00、再按新的空白魔法陣 4.00、長度改 1 秒後套古典魔法陣 4.00，與舊版相同。 先前：`files.mjs`（newDocument）：從盧恩輪按「專案 › 新的空白魔法陣…」→ 確認「建立新的空白魔法陣？」→ 作品資料與舊版「新文件」逐值相同（新魔法陣、1000 × 1000、`#070a17`、8 份、中心 500, 500、吸附預設、4 秒 24 FPS 循環、0 個元素），未選取、空白提示、畫面符合、通知「已建立新文件。」、可以復原回盧恩輪。**但** `playhead-bug.mjs`（`out/playhead-bug.json`）：先套用簽名・印記（3 秒）再建立新文件，播放頭停在 3.00（顯示「3.00／4.00 秒」），舊版 4.00。 | 確認對話框、不設 Ctrl＋N 是 D1。播放頭的原因見回報（`actions.ts` 的 `replaceProject`）。 |
+| F07 | ✅ 通過 | `files.mjs`（undoRedo）：古典魔法陣連按 65 次微調，復原最多 60 次（x 565 → 505，兩邊相同），之後復原停用；`edit.mjs` drag-then-undo、`panels.mjs` geo-name-one-undo-step、style-all-then-undo-one-each：一次拖曳、一個按鈕、一個欄位（聚焦到離開）各一步，兩邊相同；通知「已復原上一步。」。 | 復原不還原選取（D4；`panels.mjs` template-undo 資料相同、選取不同）。 |
+| F08 | ✅ 通過 | `files.mjs`：重做一步（x 505 → 506）、有新修改後重做停用；`keys.mjs`：Ctrl＋Shift＋Z、Ctrl＋Y；通知「已重做上一步。」。 |  |
+| F09 | ⚠️ 核准的差異 | `files.mjs`（save）：名稱「  a/b:c*?"<>\| d  e 」兩邊檔名都是 `a-b-c--d-e-20261003-0059.arcana.json`，85 字的名稱截成 80 字；通知「已儲存專案 JSON。」、狀態列「已儲存專案檔案。」。新版內容是共用格式（`trpg-toolkit-project`、tool `magic-circle`、version 1，data 只有 document、symmetry、snap、animation（plays）、elements），data 與舊版存的檔案正規化後逐值相同。 | D2。 |
+| F10 | ✅ 通過（7.1 修正後） | 複驗（主控修正後：`replaceProject` 在畫面更新、新長度生效後再定位一次播放頭；驗證者的 `playhead-bug.mjs` 在 8123 重跑，`scratchpad/reverify-mc/`）：套用簽名・印記後再套古典魔法陣 4.00／4.00、再按新的空白魔法陣 4.00、長度改 1 秒後套古典魔法陣 4.00，與舊版相同。 先前：`files.mjs`（open）：舊版存的 `.arcana.json`（含空名稱、缺發光色、缺節點的元素）→ 舊版「開啟」與新版「開啟舊版專案檔」讀入後資料逐值相同、選取相同、播放頭 1.25、畫面符合、通知「已載入專案。」、可以復原；新版專案檔用「開啟專案檔」讀回逐值相同。錯誤：不是 JSON →「載入失敗：…」；陣列、數字、`{}`、其他工具的專案檔都拒絕且作品不變（舊版把陣列、`{}`、其他工具的檔案當成空白作品載入）。**但**開啟前的長度較短（1 秒）時，開啟同一個舊版檔（4 秒、播放頭 1.25）後播放頭是 1.00（舊版 1.25）。 | 舊版檔走另一個選單是 D2。播放頭與 F06 同一個原因。 |
+| F11 | ⚠️ 核准的差異 | `files.mjs`（autosave）：改名稱、對稱 5 份、播放頭 1.5 秒後重新整理，兩邊都還原，通知「已還原自動儲存的內容。」、新版狀態列「已還原自動儲存的專案。」；沒有存檔時開頁＝古典魔法陣（資料與舊版相同，選取放射盧恩裝飾）；`localStorage` 會丟例外時兩邊照常畫圖（noStorage）。新版存在 `trpg-toolkit:magic-circle`，修改後 62 ms 內就存，頁首「已自動儲存（01:06）」。 | D3。舊版開頁後狀態列被介面文字覆寫成「準備就緒」（舊版的問題）。 |
+| F12 | ✅ 通過 | `files.mjs`、`edit.mjs`、`draw.mjs`：開頁「準備就緒 · 可從鋼筆或手繪筆畫開始。」；游標在 (123.4, 456.6) 時兩邊「X 123 · Y 457」；「圓 A · 圓形」「文字 C · 文字」「魔法筆畫 · 3 點」「已選取 3 個 · 基準：文字 C」「未選取」「已新增路徑。」「已取消繪製。」與舊版逐字相同。 | 「文件：」改「作品：」見 F96。 |
+| F13 | ✅ 通過 | 共用通知（一般、成功、錯誤三種色調，錯誤用於「載入失敗」）；`d9.mjs`：Esc 關掉通知（4 → 2 則）並同時取消選取（第 7 節核准）。 | 共用元件約 4 秒（錯誤 7 秒）消失，舊版 2.6 秒。 |
+| F14 | ✅ 通過 | `view.mjs`（tools）：九個工具按鈕、目前的工具醒目（`aria-pressed`）；游標 選取 default、繪圖類 crosshair、文字 text、平移 grab，兩邊相同；`draw.mjs` pen-switch-tool、pen-switch-tool-key：畫到一半換工具 → 取消、狀態列「已取消繪製。」。 |  |
+| F15 | ✅ 通過 | `view.mjs`：九個工具的名稱與提示與舊版相同。 | 標點改全形；手繪提示去掉「系統」。 |
+| F16 | ✅ 通過 | `view.mjs`：「完成路徑」「閉合並完成」「拖曳控制點＝曲線」；`draw.mjs` pen-finish-button、pen-close-button、pen-finish-1pt-discard 兩邊資料相同。 |  |
+| F17 | ✅ 通過 | `draw.mjs` freehand、freehand-tolerance-6.5、freehand-tolerance-0.5：同一筆 40 點的手繪，簡化強度 2.2、6.5、0.5 的路徑兩邊逐值相同。 |  |
+| F18 | ✅ 通過 | `draw.mjs` polygon-6、polygon-7：預設 6、改 7 後兩邊相同。 |  |
+| F19 | ✅ 通過 | `draw.mjs` star-5、star-6-30：預設 5、46%，改 6 頂點、30% 後兩邊相同。 |  |
+| F20 | ✅ 通過 | `view.mjs`：「Alt＋拖曳：以起點與終點為對角線的橢圓」。 |  |
+| F21 | ✅ 通過 | `draw.mjs` text：預設字型改 fantasy 後新文字的字型 fantasy，兩邊相同。 |  |
+| F22 | ✅ 通過 | `edit.mjs` copy-paste-style、copy-style-none、paste-style-undo：未複製時「貼上樣式」停用；「已複製樣式。」「已貼上樣式。」「請選取要複製樣式的元素。」；貼上可復原。 |  |
+| F23 | ⚠️ 核准的差異 | `files.mjs`（autosave）：頂點數改 9 後重新整理，舊版回到 6、新版保留 9。 | D4（工具選項存在瀏覽器）。 |
+| F24 | ✅ 通過 | `view.mjs`（zoom）：放大／縮小 × 1.18、÷ 1.18，以畫面中心縮放（中心的畫布點移動 0, −0.38 px）；上限 800%、下限 4%。 |  |
+| F25 | ✅ 通過 | `view.mjs`：顯示「54%」「63%」，點一下回到符合畫面（0.536）。 |  |
+| F26 | ✅ 通過 | `view.mjs`：符合畫面時置中（0, 0 px）；開頁、開啟、範本、新文件都自動符合（`files.mjs`、`panels.mjs` 的 zoom 欄位）。 | 新版留白 47 px（舊版 46，倍率 0.536 對 0.538）。 |
+| F27 | ⚠️ 核准的差異 | `view.mjs`、`wheel2.mjs`：每 100 px 滾動 × ÷ 1.1618（e^0.15）；畫布比編輯畫面大時游標下的點不動（< 0.5 px，與舊版相同）；畫布比編輯畫面小的那一軸會置中，游標下的點跟著移動（縮到 66% 時 16.7 px）；Ctrl＋滾輪交給瀏覽器。 | D5。 |
+| F28 | ⚠️ 核准的差異 | `view.mjs`（pan）：平移工具、中鍵、空白鍵按住拖曳都能平移（拖曳中游標 grabbing），選取工具在空白處拖曳也平移；但只能在捲軸範圍內：符合畫面時不能捲，放大一級後只有直向 94 px（舊版 50, 40／−30, −20／45, 25 px，新版 0, 40／0, −20／0, 25 px）。 | D5。D5 寫「畫布四周留 120 px 可以捲」，實際留白 46 px、符合畫面時完全不能平移，請主控確認。 |
+| F29 | ✅ 通過 | `view.mjs`（`shots/view-classic-guides-*.png`、`view-classic-noguides-*.png`）：輔助線開關只影響編輯畫面；匯出畫面不含輔助線（`render.mjs` 0 差）。 |  |
+| F30 | ✅ 通過 | 目視（同上、`shots/view-transparent-nogrid-*.png`）：格線與每 4 格的主線；吸附格線關閉時不畫。 |  |
+| F31 | ✅ 通過 | 目視（同上）：n 條虛線對稱線、第一條在起始角正上方較亮、中心實心點與小圓圈，與舊版相同。 |  |
+| F32 | ✅ 通過 | 目視：深色工作區、畫布陰影與細框、內容裁在畫布內；透明背景以深藍黑表示（`shots/view-transparent-nogrid-*.png`）。 |  |
+| F33 | ✅ 通過 | `view.mjs`（`shots/view-empty-*.png`）：「目前是空白畫布」＋「用上方的工具開始繪製，或從「畫布」分頁載入範本。」 | 依新版版面改寫。 |
+| F34 | ✅ 通過 | `draw.mjs` snap-*、`snap2.mjs`：格線、中心 X、中心 Y、中心、對稱線、角度 15°／30°、拖曳中按住 Alt、吸附關閉、格線間距 40、角度 30°＋感應 30，直線終點兩邊逐值相同；舊版標記「格線」「中心 X」「中心 Y」「對稱線」「15°」「30°」，新版同樣是藍色圓圈、十字與種類文字（`shots/snap-*-new.png`、`cmp-snap2.png`）。 |  |
+| F35 | ✅ 通過 | `edit.mjs` click-*：點圓的邊、文字、對稱複本（第 0、2 份）、路徑線寬範圍內 → 選取相同；鎖定、隱藏的略過；點空白處取消選取。 |  |
+| F36 | ✅ 通過 | `edit.mjs` shift-add、ctrl-add-then-remove-primary（移出基準元素後基準改成剩下的最後一個）、multi-click-member-preserve。 |  |
+| F37 | ✅ 通過 | `edit.mjs` drag-circle-snap、drag-circle-alt、drag-text、drag-path-body、drag-group、drag-group-with-locked（鎖定的不動）、drag-then-undo（一步）、drag-then-undo-redo，兩邊逐值相同。 | 指標取消時還原：看程式碼（`drawing.ts` moveDrag 的 onCancel），未實機觸發。 |
+| F38 | ✅ 通過 | `edit.mjs` node-drag、handle-out-mirror、handle-in-alt-nomirror、circle-center-drag、circle-rx-drag、circle-ry-drag、circle-r-min1（半徑 1）、text-origin-drag 兩邊相同；拖過的節點成為選取的節點。 |  |
+| F39 | ✅ 通過 | 目視 `selshot.mjs`（`shots/cmp-sel-multi.png`、`cmp-sel-c.png`、`cmp-sel-t.png`）：起始角 30° 時控制點畫在原始座標；金色虛線輪廓、選取節點白色較大、把手線與藍色方塊、其他已選元素紫色虛線外接框、圓 3 個控制點、文字外框與原點，與舊版相同。 |  |
+| F40 | ✅ 通過 | `edit.mjs` delete-key、backspace-key-multi、delete-button、delete-last-element：資料、新的選取、「已刪除元素「路徑 B」。」「已刪除 2 個元素。」相同。 |  |
+| F41 | ✅ 通過 | `edit.mjs` duplicate-ctrl-d、duplicate-button-multi、duplicate-start-capped：「路徑 B 複本」+18, +18、開始 +0.1 不超過長度（3.95 → 4 → 4）、選取複本、「已再製元素。」「已再製 2 個元素。」相同。 |  |
+| F42 | ✅ 通過 | `edit.mjs` select-all-*：選 4 個（不含隱藏、鎖定、空路徑）、基準不在其中時改最上層、「已選取 4 個可編輯的元素。」「沒有可見且未鎖定的元素。」相同。 |  |
+| F43 | ✅ 通過 | `draw.mjs` pen-*（10 個情境）：轉角點、拖曳把手、Alt、Enter、點回第一點閉合（2 點時不閉合）、完成路徑、閉合並完成、1 點放棄、Esc；名稱、樣式（有基準元素時沿用）、動態、選取最後一個節點、狀態列都相同。雙擊：新版完成路徑。 | 舊版在 Chromium 的 pointerdown.detail 一律 0，雙擊只會多加一點（舊版的問題）；新版照規格。 |
+| F44 | ✅ 通過 | `draw.mjs` freehand、freehand-nosym-keystyle、freehand-click-no-element：簡化後的路徑逐值相同；對稱關閉時名稱「手繪筆畫」、不套用對稱；只點一下不建立。 | 新版每個 pointermove 取一點（同規格 2.），舊版另外讀 getCoalescedEvents，快速手繪時新版的取樣點可能較少。 |
+| F45 | ✅ 通過 | `draw.mjs` line-snap、line-alt、line-keystyle、line-too-small。 |  |
+| F46 | ✅ 通過 | `draw.mjs` circle、ellipse-alt。 |  |
+| F47 | ✅ 通過 | `draw.mjs` polygon-6、polygon-7。 |  |
+| F48 | ✅ 通過 | `draw.mjs` star-5、star-6-30。 |  |
+| F49 | ✅ 通過 | `draw.mjs` circle-too-small、line-too-small 放棄；拖曳中黃色預覽（`shots/cmp-star-draft.png`、`cmp-pen-draft.png`）；建立後選取新元素。 |  |
+| F50 | ✅ 通過 | `draw.mjs` text、text-nosym：放一個「ᚱ」（54 px、預設字型、置中、填 `#A5F0FF`、線寬 1.5、淡入 0.65）；切回選取、打開形狀分頁、內容欄聚焦並全選（兩邊相同）。 |  |
+| F51 | ✅ 通過 | `draw.mjs` pen-esc（「已取消繪製。」）、`edit.mjs` esc-deselect。 |  |
+| F52 | ✅ 通過 | `layers.mjs` rows-initial、rows-sym-off 等 14 個情境：每列的名稱、副標（「6 重對稱 · 繪製發光」「基準元素 · …」、對稱尺關時沒有「n 重對稱」）、已選與基準標示、勾選狀態兩邊相同；空清單「目前還沒有任何元素。」。 |  |
+| F53 | ✅ 通過 | `layers.mjs` row-click、row-shift-range、row-ctrl-toggle、row-check-toggle、row-check-shift-range。 |  |
+| F54 | ✅ 通過 | `layers.mjs` row-visible-lock、row-visible-lock-undo2；鎖定的元素不被點選、拖曳、對齊（`edit.mjs`、對齊）。 |  |
+| F55 | ✅ 通過 | `edit.mjs` delete-button、duplicate-button-multi。 |  |
+| F56 | ✅ 通過 | `layers.mjs` move-up-twice、move-down、move-up-at-top、move-down-at-bottom、move-multi-only-key。 |  |
+| F57 | ✅ 通過 | `layers.mjs`：面板可收合、預設展開；「已選取 n 個」「已選取 5 個 · 可移動 4 個」在 36 種選取／基準／對稱設定下與舊版相同。 |  |
+| F58 | ✅ 通過 | `layers.mjs`：全選可編輯、取消選取的啟用狀態 36 組相同。 |  |
+| F59 | ✅ 通過 | `layers.mjs`：畫布、選取範圍、基準元素三種基準（結果見 F60）。 |  |
+| F60 | ✅ 通過 | `layers.mjs`（align）：4 種對稱設定（開、鏡射、關、1 份）× 6 種選取（含鎖定、隱藏、空路徑、文字為基準）× 3 種基準，把按得到的動作都按一次：327 次，兩邊作品資料與選取全部相同；14 個按鈕的啟用狀態 36 組全部相同。 |  |
+| F61 | ✅ 通過 | 同 F60（水平間距、垂直間距）。 |  |
+| F62 | ✅ 通過 | 同 F60（對稱中心、最近對稱線、扇形中央、基準半徑、角度等距、半徑等距）；鏡射時扇形中央、角度等距停用，滑過說明「開啟左右鏡射時複本可能重疊，所以無法使用。」。 |  |
+| F63 | ✅ 通過 | `layers.mjs`：說明（一般／鏡射／多選「基準元素：…」）與結果訊息都寫到狀態列並通知。 | 措辭改寫：「已將 1 個元素畫布 靠左對齊。」→「已將 1 個元素以畫布為基準靠左對齊。」、「並保留 1 個鎖定的元素」→「1 個鎖定的元素保持不動」；「已經是…的狀態」新版只寫動作（舊版含基準）。 |
+| F64 | ✅ 通過 | `panels.mjs`（placeholder）：「請選取要調整樣式的元素。」。 |  |
+| F65 | ✅ 通過 | `panels.mjs` style-stroke=#11223344。 |  |
+| F66 | ✅ 通過 | `panels.mjs` style-strokeWidth=12.5、strokeWidth-clamp（999 → 200）。 |  |
+| F67 | ✅ 通過 | `panels.mjs` style-opacity=37（0.37）。 |  |
+| F68 | ✅ 通過 | `panels.mjs` style-fillEnabled、style-fill=#ABCDEF80；關閉時填色欄變淡。 |  |
+| F69 | ✅ 通過 | `panels.mjs` style-lineCap=square、style-lineJoin=miter。 |  |
+| F70 | ⚠️ 核准的差異 | `panels.mjs` dash=…：「20, 10」「20 10 5」「-5, a, 7」→ [7]、18 個 → 前 16 個、空白 → 實線，兩邊相同；「 20, 10」舊版 [0, 20, 10]、新版 [20, 10]。 | D13。 |
+| F71 | ✅ 通過 | `panels.mjs` style-blend=multiply（5 種選項）。 |  |
+| F72 | ✅ 通過 | `panels.mjs` style-shadowColor、shadowBlur 33、shadowX −12、shadowY 45、shadowX-clamp（−500 → −100）。 | 新版位移欄只收整數（舊版可以打小數）。 |
+| F73 | ✅ 通過 | `panels.mjs` style-glowEnabled、glowColor、glowBlur 77、glowStrength 2.35。 |  |
+| F74 | ✅ 通過 | `panels.mjs` style-preset-*（先把線端改平頭）：4 個預設資料相同（墨線簽名改回圓頭）、「已套用樣式預設。」、可復原。 |  |
+| F75 | ✅ 通過 | `panels.mjs`（placeholder）：「請選取要編輯形狀的元素。」。 |  |
+| F76 | ✅ 通過 | `panels.mjs` geo-name、geo-name-empty（未命名元素）；清單、時間軸的名稱跟著改。 |  |
+| F77 | ✅ 通過 | `panels.mjs` geo-toggles。 |  |
+| F78 | ✅ 通過 | `panels.mjs` geo-toggles。 |  |
+| F79 | ✅ 通過 | `panels.mjs` geo-closed。 |  |
+| F80 | ✅ 通過 | `panels.mjs` smooth-node0／2／3（開放、閉合各一）、corner-node1、smooth-no-node、corner-no-node（「請先選取路徑上的控制點。」）。 |  |
+| F81 | ✅ 通過 | `panels.mjs` reverse-path、reverse-then-smooth-same-node（選取的節點跟著換位置）、「已反轉筆畫的記錄方向。」。 |  |
+| F82 | ✅ 通過 | `panels.mjs` circle-values（123.25、−40、半徑 0 → 1、77.5）。 |  |
+| F83 | ✅ 通過 | `panels.mjs` text-fields（多行文字）。 |  |
+| F84 | ✅ 通過 | `panels.mjs`：3 種文字系統 × 7 個搜尋字串（字形、讀音、大寫、中文讀法、找不到）的字母、讀音、滑過說明、狀態「古弗薩克 · 顯示 24 字」「找不到相符的盧恩字母。」21 組全部相同；插入（取代選取的字、游標在中間、預設在結尾）、可復原、狀態列「已插入盧恩文字。」；鍵盤 ←→↑↓、Home、End 移到對應的鈕、只有 1 個可以 Tab 聚焦；圓形元素時不顯示字盤。 | 新版一列 8 個（舊版 6 個），↓ 都移到正下方那一個。 |
+| F85 | ✅ 通過 | `panels.mjs`：21 組轉換結果相同（含規格的例子：ᚠᚢᚦᚨᚱᚲ, ᚦᛁᛜ／ᚬᛏᛁᚾ／ᛠᚱᚦ）；「取代內容」（「已用轉換後的盧恩取代內容。」）、「插入游標處」、沒有輸入時「請輸入要轉換的拉丁字母。」。 |  |
+| F86 | ✅ 通過 | `panels.mjs` text-fields（700 → 600、monospace、靠右）、text-font-empty（serif）、text-size-min（1 → 4）。 |  |
+| F87 | ✅ 通過 | `edit.mjs` nudge-buttons（1 px、Shift 10 px）、nudge-center（◎）、nudge-locked-msg。 |  |
+| F88 | ✅ 通過 | `panels.mjs`（placeholder）：「請選取要設定動態的元素。」。 |  |
+| F89 | ✅ 通過 | `panels.mjs` motion-mode=spinIn；`motion.mjs`：9 種效果 × 5 種曲線 × 4 種順序 × 保持顯示開關（360 個元素）× n＝1、5、8、12 × 97 個時間點，animationState 6,355,440 個值 0 差。 |  |
+| F90 | ✅ 通過 | `panels.mjs` motion-start=1.234、motion-duration=2.5、motion-start-clamp（9 → 4）、motion-duration-clamp（0.01 → 0.05）、motion-duration-max（99 → 60）。 |  |
+| F91 | ✅ 通過 | `panels.mjs` motion-easing=overshoot；曲線算式見 F89。 |  |
+| F92 | ✅ 通過 | `panels.mjs` motion-direction=reverse；`render.mjs` 作品 A 的反方向筆畫 0 差。 |  |
+| F93 | ✅ 通過 | `panels.mjs` motion-stagger=0.075、motion-stagger-clamp（12 → 10）、motion-order=random；名次見 F89。 |  |
+| F94 | ✅ 通過 | `panels.mjs` motion-hold=false；淡出、脈動的保持見 F89。 |  |
+| F95 | ✅ 通過 | `panels.mjs` motion-preset-*：4 個預設資料相同、「已套用動態預設。」；開始 3.9 秒時持續被夾在 0.1。 |  |
+| F96 | ⚠️ 核准的差異 | `panels.mjs` doc-name、doc-name-empty：名稱「我的 魔法陣」、清空時「新魔法陣」，用在檔名（F09、F126）；狀態列新版「作品：我的 魔法陣」（舊版「文件：…」）。 | D6（「文件」改寫）。 |
+| F97 | ✅ 通過 | `panels.mjs` doc-size-*：1280.6 → 1281、50 → 64、5000 → 4096；中心在正中央時跟著移動、不在時不動。 |  |
+| F98 | ✅ 通過 | `panels.mjs` doc-transparent-bg（背景色 `#336699`，透明時背景色欄變淡）。 |  |
+| F99 | ✅ 通過（7.1 修正後） | 複驗（主控修正後：旋轉起始角的數字欄加 `precision={2}`）：輸入 22.5 按 Enter 存成 22.5（e2e 補上）。 先前：`panels.mjs` doc-symmetry（數量 70 → 64、起始角 −400 → −360、鏡射、中心 Y 333.3、關閉）、doc-center-button、doc-center-button-undo 兩邊相同；doc-symmetry-count-round：數量 5.6 → 6 相同，但起始角輸入 22.5 時舊版存 22.5、新版存 23。 | 新版起始角只收整數（8 份時半個扇形是 22.5°，新版設不出來）；舊版檔裡的 22.5 讀入後欄位顯示 23。 |
+| F100 | ✅ 通過 | `panels.mjs` doc-snap、doc-snap2：各開關、格線間距（1 → 2、600 → 500）、角度單位（0 → 1、120 → 90）、感應距離（1 → 2、41 → 40）。 |  |
+| F101 | ✅ 通過（7.1 修正後） | 複驗（主控修正後：`replaceProject` 在畫面更新、新長度生效後再定位一次播放頭；驗證者的 `playhead-bug.mjs` 在 8123 重跑，`scratchpad/reverify-mc/`）：套用簽名・印記後再套古典魔法陣 4.00／4.00、再按新的空白魔法陣 4.00、長度改 1 秒後套古典魔法陣 4.00，與舊版相同。 先前：`panels.mjs` template-classic／rune／sigil／blank、template-undo：資料、選取、通知（「已載入古典魔法陣範本。」等）、簽名・印記切到手繪、空白作品保留畫布／對稱／吸附／時間軸設定、畫面符合、可以復原，都與舊版相同；長度沒變短時播放頭從 1.3 移到結尾。**但** `playhead-bug.mjs`：先套用簽名・印記（3 秒）再套用古典魔法陣 → 播放頭 3.00（舊版 4.00）；長度 1 秒時套用 → 1.00，編輯畫面只畫到 1 秒（`shots/playhead-bug-new.png`）。 | 與 F06 同一個原因。 |
+| F102 | ✅ 通過 | `timeline.mjs`（play）：以實際時間播放（量 3 次 0.992、0.985、0.997 倍速；舊版 0.994、0.968、0.994）；在結尾按播放從 0 開始；循環時播 1.6 秒回到 0.58；不循環時停在 1.00；播放中依 FPS 重畫（`App.tsx`：⌊t × FPS⌋ ÷ FPS）。 |  |
+| F103 | ✅ 通過 | `timeline.mjs`：回到開頭 → 0、暫停。 |  |
+| F104 | ⚠️ 核准的差異 | `timeline.mjs`：共用播放列「0.33／1.00 秒」（舊版「0.33 / 1.00 秒」）。 | D7。 |
+| F105 | ✅ 通過 | `timeline.mjs` duration-*、fps*、loop-*：長度 0.1 → 0.5、99 → 60，FPS 30.4 → 30、0 → 1，循環在播放列；`misc.mjs`：4 秒改 2.5 秒時播放頭拉回 2.5。 |  |
+| F106 | ✅ 通過 | `timeline.mjs` auto-layers、auto-center、auto-center-duration-1.3、auto-undo、auto-empty（沒有元素時沒有反應）：資料（含隱藏不排、一直顯示改成邊繪製邊發光／文字淡入）與通知相同。 |  |
+| F107 | ✅ 通過 | `timeline.mjs` reverse、reverse-twice。 |  |
+| F108 | ✅ 通過 | `timeline.mjs`（collapse）：收合後長條不顯示、展開恢復。 |  |
+| F109 | ✅ 通過 | `timeline.mjs`：長度 0.5、2、3、4、7.5、10、12.5、60 秒的刻度數字兩邊相同。 |  |
+| F110 | ✅ 通過 | `timeline.mjs`（bars）：6 列（含一直顯示、隱藏、最小 0.8% 寬）的位置、寬度、滑過說明、動態名稱、把手、已選標示相同；tl-name-click／shift／ctrl 相同；空白時「新增元素後就會出現動態長條。」。 |  |
+| F111 | ✅ 通過 | `timeline.mjs` bar-*（拖中段、左端、右端與各自的上下限、一直顯示只選取、按下就選取、一次拖曳一步復原）：兩邊相同（容許 0.004 秒，滑鼠像素換算的誤差）。 |  |
+| F112 | ✅ 通過 | `timeline.mjs`（seek）：點軌道 10% → 0.4 秒、拖曳中 2.4、放開 3.0，兩邊相同。 |  |
+| F113 | ⚠️ 核准的差異 | 預覽欄下方的共用匯出區：格式五選一、按「匯出」後顯示結果卡、按「下載」才存檔（`export.mjs`、`export2.mjs`）。 | D9。 |
+| F114 | ✅ 通過 | `export2.mjs`（scales）：1001 × 777 的作品 25%～200% 輸出 250 × 194、501 × 389、1001 × 777、1502 × 1166、2002 × 1554，與舊版相同；尺寸選單「50%（501×389）」。 |  |
+| F115 | ⚠️ 核准的差異 | `export2.mjs`（transparent）：匯出區的「以透明背景儲存」＝畫布的透明背景（切換後畫布分頁也變開），匯出 PNG 左上角 (0, 0, 0, 0)。 | D9（共用同一個設定）。 |
+| F116 | ⚠️ 核准的差異 | `export2.mjs`（plays.fpsShared）：匯出區 FPS 改 12 → 作品與時間軸的 FPS 也是 12；長度用時間軸的長度。 | D9。 |
+| F117 | ✅ 通過 | `export2.mjs`（webpQuality）：靜態 WebP 品質 1、50、90、100 → 10,642、30,674、66,166、372,258 bytes（100 是 VP8L）；舊版品質 1、100 的檔案大小相同；動態 WebP 品質 100 是 VP8L、90 是 VP8＋ALPH（`d9.mjs`）。 |  |
+| F118 | ✅ 通過 | `export.mjs`（still png@1）：`驗證作品-A-1.50s.png` 1000 × 800，與舊版逐像素相同（max 0）。 | 200% 有差（max 166、平均 1.225），只在發光、陰影（D10，見上方 `render-d10.mjs`）。 |
+| F119 | ✅ 通過 | `export.mjs`（still static-webp@1）：兩邊的檔案同為 59,664 bytes、逐像素 0 差。 | Chromium 都能產生 WebP，失敗的說明只看程式碼。 |
+| F120 | ⚠️ 核准的差異 | `export.mjs`＋`reanalyze.mjs`：古典魔法陣（96 格）、作品 A（24 格）、B（70 格、透明、不循環）在每格的中點取顯示中的畫面與算繪比，新版平均差 0.33／0.95／0.03（舊版固定 216 色：10.28／9.96／0.28），透明門檻一致（alphaMis 0）；延遲 4、5 cs 交錯、總長相同；`d9.mjs`：60 FPS 時新版每格 2 cs（共 0.6 秒）、舊版 2、1、2…（0.5 秒）；B 連續相同的格合併成 60 格。 | D9。 |
+| F121 | ⚠️ 核准的差異 | `export.mjs`＋`reanalyze.mjs`：三件作品 190 格在每格中點都與算繪逐像素相同（舊版也是）；新版副檔名 `.png`、只存變動範圍（全幅只有第 1 格）、相同的格合併、延遲以毫秒（42／41）；播放次數循環 0、不循環 1。 | D9。 |
+| F122 | ⚠️ 核准的差異 | `export.mjs`＋`reanalyze.mjs`：與算繪的平均差新版 0.41／0.88／2.57、舊版 0.42／0.88／2.57（有損）；延遲以毫秒累計（總長 4.000 秒，舊版 42 ms × 96＝4.032 秒）；循環 0／1；品質 100 無損。 | D9。新版 ANIM 背景色是 0（舊版填背景色；播放器不使用）。 |
+| F123 | ✅ 通過 | `export2.mjs`（progress）：200 格的 GIF 匯出中顯示進度「算繪並編碼 GIF 影格」10%、格式選擇停用、匯出鈕換成「取消」；取消 →「已取消匯出。」；完成「檔案已建立。」。 |  |
+| F124 | ⚠️ 核准的差異 | `export2.mjs`（limits）、`budget.mjs`：1200 格時匯出鈕停用並說明「目前是 1200 格。…請把影格數降到 900 以下…」；4096 × 4096 × 24 格的 APNG 在 100% 停用「處理量太大，請降低倍率、縮短長度或降低 FPS。」、50% 可以匯出。舊版 1200 格時「匯出失敗：…請降到 900 個影格以下。」。 | D9。 |
+| F125 | ✅ 通過 | `export2.mjs`（card）：選 GIF 時「GIF 最多 256 色，半透明像素會變成單一透明色；APNG 與 WebP 能保留平滑的透明度。」。 |  |
+| F126 | ⚠️ 核准的差異 | `export.mjs`、`export2.mjs`：靜態 `驗證作品-A-1.50s.png`／`.webp`、`古典魔法陣-4.00s.png`；動畫 `古典魔法陣.gif`、`.webp`，「驗證作品 B / 透明」→ `驗證作品-B---透明`，與舊版相同；APNG 新版 `.png`（舊版 `.apng`）。 | D9。 |
+| F127 | ✅ 通過 | `keys.mjs`（toolKeys）：V、P、B、L、O、G、S、T、H（含大寫 P）兩邊相同；在作品名稱欄打字不切工具。 |  |
+| F128 | ✅ 通過 | `timeline.mjs`（space）、`view.mjs`：按一下播放、再按暫停；按住拖曳平移、放開不切換播放。 | 平移範圍見 F28。 |
+| F129 | ✅ 通過 | `draw.mjs` pen-open-enter。 |  |
+| F130 | ✅ 通過 | 同 F51。 |  |
+| F131 | ✅ 通過 | `keys.mjs`（undoKeys、inInput）：Delete、Backspace 刪除；在輸入欄裡不刪元素。 |  |
+| F132 | ✅ 通過 | `keys.mjs`：Ctrl＋Z、Ctrl＋Shift＋Z、Ctrl＋Y；在作品名稱欄 Ctrl＋Z 是文字的復原、作品不復原，兩邊相同。 |  |
+| F133 | ✅ 通過 | `files.mjs`（save.ctrlS）：焦點在作品名稱欄時 Ctrl＋S 也存檔。 |  |
+| F134 | ⚠️ 核准的差異 | `files.mjs`（ctrl-n）：新版 Ctrl＋N 沒有作用（作品不變），新文件在「專案」選單（F06）。 | D1；舊版收到合成的 Ctrl＋N 會建立新文件（實際瀏覽器會被攔下）。 |
+| F135 | ✅ 通過 | `keys.mjs`：Ctrl＋D 再製；在輸入欄裡不作用。 |  |
+| F136 | ✅ 通過 | `keys.mjs`：Ctrl＋A 全選可編輯 7 個；在輸入欄裡全選文字。 |  |
+| F137 | ✅ 通過 | `files.mjs`（open、F137）：「開啟舊版專案檔」見 F10；瀏覽器裡只有舊版的自動儲存時開新版 → 帶入（資料逐值相同、播放頭 1、選取同舊版檔），通知「已帶入舊版自動儲存的作品。」；之後有新版存檔就不再帶入。 |  |
+| F138 | ✅ 通過 | `keys.mjs`（arrows）：→、↓、Shift＋← 移動 (−9, +1)；鋼筆工具時不動。 | 新功能（舊版沒有）。 |
+| F139 | ✅ 通過 | `layers.mjs`（F139）：拖曳「圓 A」的把手到「文字 C」的位置 → 順序改變，復原一次回原狀；列有焦點時 Alt＋↑／↓ 上下移一層。 | 新功能。 |
+| F140 | ✅ 通過 | `export2.mjs`（plays）：時間軸循環關時匯出區「無限循環」關、播放次數 1，GIF 沒有 NETSCAPE 區塊、APNG plays 1、WebP loop 1（三種與舊版相同）；改 3 次 → 作品 plays 3、APNG plays 3、時間軸循環關；改回無限 → 循環開；APNG 減色預設關。 | 新功能。 |
+| F141 | ✅ 通過 | `export.mjs`、`export2.mjs`：結果卡有檔名、大小、尺寸、影格（含「合併後 60 格」）、超過 5 MB 的提醒、「下載」；按「下載」才存檔。 | 新功能。 |
+| F142 | ✅ 通過 | `keys.mjs`（dialogs）：「?」開快捷鍵一覽（工具、播放、編輯、檔案分組），開著時按 P 不切工具，Esc 關閉。 | 新功能。 |
+
+小計：✅ 123、⚠️ 17、❌ 0（另有不移植 2 項，共 142 項）。❌：F06、F10、F101（作品換成較長的長度時播放頭被夾在換之前的長度）、F99（旋轉起始角只收整數）。
+
+其他紀錄：
+- 390 寬（`narrow.mjs`，`shots/narrow-new-*.png`）：新版沒有橫向捲動（scrollWidth 390）、設定欄在預覽下方、9 個工具鈕都在畫面內、可以畫圓、可以匯出 PNG；舊版在 390 寬時頁面寬 620 px。
+- 效能（`export.mjs`；機器上同時有其他驗證者，數字只供參考）：古典魔法陣 1000 × 1000、96 格各量 3 次取中位數：GIF 舊 46.6 秒／新 44.9 秒、APNG 47.7／40.5 秒、動態 WebP 53.0／41.4 秒；檔案 GIF 109.0／12.9 MB、APNG 38.5／16.3 MB、WebP 4.75／2.13 MB。作品 A（24 格）、B（70 格）各一次：GIF 9.2／10.2、16.1／17.9 秒，APNG 10.6／9.8、21.7／17.3 秒，WebP 11.0／9.7、31.2／16.1 秒。沒有明顯變慢。
+- 第 7 節的裁定：D1～D13 與「Esc 同時關掉通知」都照建議做法（見各列）；D5 的「四周留 120 px」與實作（46 px）不同，記在 F28。
 
 ## 7. 主控裁定（審查者，2026-10-02）
 
@@ -528,3 +686,11 @@ r＝（t − 複本開始）÷ max(0.001, 持續)，p＝加速曲線(夾在 0～
 - **D9 匯出**：GIF 每格各自減色、延遲累計換算（每格至少 2/100 秒）、APNG 副檔名 `.png`、WebP 品質 100 為無損——核准；比對時 GIF 以每個時間點的畫面比（允許減色誤差）。
 - **D10 發光與陰影隨倍率縮放**：100% 與舊版相同即可。
 - **Esc 同時關掉通知**（實作者自行決定）：核准。
+
+### 7.1 對等驗證後的裁定（主控，2026-10-03）
+
+- **F06、F10、F101 換成較長的作品時播放頭被夾在舊長度**：修正（新長度生效後再定位一次）。
+- **F99 旋轉起始角只能是整數**：修正（可以有兩位小數）。陰影位移欄只收整數：核准（影響很小）。
+- **D5 平移的留白**：實作是 46 px（不是 120 px）；符合畫面時不能平移、縮放時游標下的點在畫布比畫面小的那一軸會移動——核准（共用盤面的行為），規格文字更正。
+- **通知約 4 秒**（舊版 2.6 秒）、**手繪沒讀 getCoalescedEvents**、**動態 WebP 的 ANIM 背景色為 0**、**對齊訊息與「已經是…」的措辭**：核准。
+- **共用 `core/encode`、`core/worker`、`core/timeline/export` 在快照後有改動**：重建後 e2e 的 GIF、APNG 匯出（影格數、延遲、循環、透明背景）全過；APNG 編碼器不給新選項時輸出逐位元組不變（`encode-apng-golden.test.ts`）。

@@ -615,7 +615,10 @@ export function replaceProject(
   step(() => useProject.getState().replace(next));
   setSelection(selectedId ? [selectedId] : [], selectedId, selectedId);
   bridge.pause();
-  bridge.seek(clamp(playhead, 0, next.animation.duration));
+  const target = clamp(playhead, 0, next.animation.duration);
+  bridge.seek(target);
+  /* 新的長度要等畫面更新後才生效，這時的定位會被舊長度夾住：下一格再定位一次（F06、F10、F101） */
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => bridge.seek(target));
   bridge.fit();
   if (message) notify(message, 'success');
 }

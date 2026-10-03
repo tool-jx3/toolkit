@@ -553,6 +553,10 @@ test('樣式、形狀（盧恩）、動態、畫布分頁', async ({ page }) => 
   await page.getByRole('spinbutton', { name: '寬度' }).fill('1200');
   await page.getByRole('spinbutton', { name: '寬度' }).press('Enter');
   await expect.poll(async () => (await data(page)).symmetry.centerX).toBe(600);
+  /* 旋轉起始角可以有小數（8 份時半個扇形是 22.5°，F99） */
+  await page.getByRole('spinbutton', { name: '旋轉起始角' }).fill('22.5');
+  await page.getByRole('spinbutton', { name: '旋轉起始角' }).press('Enter');
+  await expect.poll(async () => (await data(page)).symmetry.offset).toBe(22.5);
   /* 範本：盧恩輪 */
   await page
     .getByRole('button', { name: /盧恩輪/ })
@@ -560,7 +564,7 @@ test('樣式、形狀（盧恩）、動態、畫布分頁', async ({ page }) => 
     .click();
   await expect.poll(async () => (await data(page)).document.name).toBe('盧恩輪');
   await expect(page.getByText('已載入盧恩輪範本。', { exact: true })).toBeVisible();
-  expect(await hook<number>(page, '(mc) => mc.time()')).toBeCloseTo(4);
+  await expect.poll(() => hook<number>(page, '(mc) => mc.time()')).toBeCloseTo(4);
   /* 可以復原回範本前 */
   await page.locator('body').press('Control+z');
   await expect.poll(async () => (await data(page)).document.name).toBe('測試');
