@@ -2,6 +2,8 @@
  * APNG 逐格編碼器。
  *
  * - 每一格只存跟前一格不同的矩形範圍（dispose NONE、blend SOURCE）。
+ *   transparentUnchanged 開啟時改用 UPNG.js 的做法：範圍裡沒變的像素存成透明、以 blend OVER 疊上，
+ *   也和前兩格比、範圍較小時把上一格標成 dispose PREVIOUS（見選項說明）。
  * - 連續相同的影格合併成一格並延長顯示時間；減色後才變得相同的影格也會合併。
  * - 可加一張不屬於動畫的「預設圖」（不支援 APNG 的看圖程式顯示這張）。
  * - quantize 開啟時減成最多 256 色（含半透明，見 palette.ts；paletteMethod 選調色盤的選法）；關閉時為全彩 RGBA。
@@ -22,7 +24,7 @@ import {
   yieldToEventLoop,
 } from './frames';
 import { buildPalette, ColorStats, type PaletteMethod } from './palette';
-import { type ApngFrame, assembleApng, type DeflateMode, packImage } from './png';
+import { type ApngFrame, assembleApng, type DeflateMode, filterRows, packImage, zlib } from './png';
 
 export interface ApngEncoderOptions {
   width: number;
@@ -67,6 +69,14 @@ export interface ApngEncoderOptions {
    * 沒超過時輸出與不設上限完全相同。
    */
   maxBytes?: number;
+  /**
+   * 範圍裡沒變的像素存成完全透明、以「疊上」（blend OVER）畫上去；也和前兩格比，範圍較小時把上一格標成
+   * 「還原」（dispose PREVIOUS），這一格改存和前兩格的差異（舊版 UPNG.js 的做法）。影片這類「變化範圍大、
+   * 範圍裡多半沒變」的影格檔案小很多。範圍裡有變的像素只要有一個不是完全不透明，那一格照舊整塊覆寫（blend SOURCE），
+   * 所以解碼後每一格的畫面都與輸入逐像素相同。每格比較「疊上」與「整塊覆寫」壓好的大小、留比較小的
+   * （壓縮多做一次）。只在全彩時有作用（quantize、palette 時忽略）。預設 false：輸出與以前逐位元組相同。
+   */
+  transparentUnchanged?: boolean;
 }
 
 interface Change {
@@ -78,6 +88,37 @@ interface Change {
 interface StoredFrame extends Rect {
   data: Uint8Array;
   count: number;
+  /** 2＝顯示完還原成這格畫上去之前的畫面（transparentUnchanged 才會用到） */
+  dispose?: 2;
+  /** 1＝疊上（transparentUnchanged 才會用到） */
+  blend?: 1;
+}
+
+/** 一個像素的透明度是 255（Uint32 0xAABBGGRR 的最高位元組） */
+const opaque = (v: number) => v >>> 24 === 255;
+
+/**
+ * transparentUnchanged 的一格：範圍 r 裡和 base 相同的像素換成完全透明（0），以 OVER 疊上會得到原本的畫面。
+ * 有變的像素不是完全不透明時無法這樣疊（疊上去會和底下混色），回傳 null（呼叫端改用整塊覆寫）。
+ */
+function overPixels(
+  cur: Uint32Array,
+  base: Uint32Array,
+  stride: number,
+  r: Rect,
+): Uint32Array | null {
+  const out = new Uint32Array(r.w * r.h);
+  for (let y = 0; y < r.h; y++) {
+    const s = (r.y + y) * stride + r.x;
+    const o = y * r.w;
+    for (let x = 0; x < r.w; x++) {
+      const v = cur[s + x];
+      if (v === base[s + x]) continue;
+      if (!opaque(v)) return null;
+      out[o + x] = v;
+    }
+  }
+  return out;
 }
 
 /** 把「幾格 1/fps 秒」換算成 APNG 的分數延遲 */
@@ -138,6 +179,12 @@ export class ApngEncoder implements FrameEncoder {
   private readonly opt: Required<Omit<ApngEncoderOptions, 'palette'>>;
   private readonly fixed: FixedPalette | null;
   private prev: Uint32Array | null = null;
+  /**
+   * transparentUnchanged：上一格畫上去之前的畫面（＝前兩格），上一格可以改成 dispose PREVIOUS 時才有
+   * （上一格不是第一格、再上一格不是 PREVIOUS）。
+   */
+  private prevPrev: Uint32Array | null = null;
+  private readonly overMode: boolean;
   private readonly stored: StoredFrame[] = [];
   private readonly changes: Change[] = [];
   private readonly stats: ColorStats | null;
@@ -165,10 +212,12 @@ export class ApngEncoder implements FrameEncoder {
       stillWeightMin: 1,
       minTicks: 1,
       maxBytes: Number.POSITIVE_INFINITY,
+      transparentUnchanged: false,
       ...rest,
     };
     this.fixed = palette ? fixedPalette(palette) : null;
     this.stats = this.opt.quantize && !this.fixed ? new ColorStats(this.opt.maxColors) : null;
+    this.overMode = this.opt.transparentUnchanged && !this.fixed && !this.stats;
   }
 
   /** 設定預設圖（不屬於動畫）。通常是動畫最具代表性的一格。 */
@@ -213,6 +262,7 @@ export class ApngEncoder implements FrameEncoder {
     this.changes.length = 0;
     this.stored.length = 0;
     this.prev = null;
+    this.prevPrev = null;
     throw this.limited;
   }
 
@@ -225,6 +275,7 @@ export class ApngEncoder implements FrameEncoder {
     const t = Math.max(Math.max(0, this.opt.minTicks ?? 1), Math.round(ticks));
     this.added++;
     this.ticks += t;
+    if (this.overMode) return this.addOver(u32, t);
     let r = this.prev ? diffRect(this.prev, u32, W, H) : { x: 0, y: 0, w: W, h: H };
     this.prev = u32;
     if (!r && !this.opt.mergeIdentical) r = { x: 0, y: 0, w: 1, h: 1 };
@@ -252,11 +303,64 @@ export class ApngEncoder implements FrameEncoder {
     this.stored.push({ ...r, data, count: t });
   }
 
+  /**
+   * transparentUnchanged 的 addFrame（全彩）：範圍取「和前一格」與「和前兩格」比較小的那個（一樣大時用前一格），
+   * 用前兩格時把上一格標成 dispose PREVIOUS；範圍裡沒變的像素存成透明、以 OVER 疊上。
+   */
+  private async addOver(u32: Uint32Array, t: number): Promise<void> {
+    const { width: W, height: H } = this.opt;
+    const prev = this.prev;
+    let r = prev ? diffRect(prev, u32, W, H) : { x: 0, y: 0, w: W, h: H };
+    if (!r && this.opt.mergeIdentical) {
+      this.stored[this.stored.length - 1].count += t;
+      return;
+    }
+    let base = prev;
+    let toPrevious = false;
+    if (prev && this.prevPrev) {
+      const r2 = diffRect(this.prevPrev, u32, W, H);
+      if ((r2 ? r2.w * r2.h : 1) < (r ? r.w * r.h : 1)) {
+        r = r2;
+        base = this.prevPrev;
+        toPrevious = true;
+      }
+    }
+    /* 和比較的那一格完全相同（不合併時）：存 1×1 的範圍 */
+    r ??= { x: 0, y: 0, w: 1, h: 1 };
+    const { deflate, maxBytes } = this.opt;
+    const over = base ? overPixels(u32, base, W, r) : null;
+    /*
+     * 兩個候選，留壓起來比較小的（一樣大時用疊上）：疊上的版本不濾波（透明像素零星分布時，逐列挑的濾波反而
+     * 把 0 變成雜亂的差值；UPNG.js 也是每種濾波都試、取最小的），整塊覆寫的版本逐列挑濾波（範圍裡幾乎全變、
+     * 畫面平滑時比較小）。都是無損，畫面一樣；壓縮比不開這個選項時多一次（不濾波的那次很快）。
+     */
+    let data: Uint8Array = new Uint8Array(0);
+    let blend: 0 | 1 = 0;
+    if (over) {
+      data = await zlib(filterRows(new Uint8Array(over.buffer), r.w, r.h, 4, false), deflate);
+      blend = 1;
+    }
+    const plain = new Uint8Array(copyRect(u32, W, r).buffer);
+    const whole = await packImage(plain, r.w, r.h, false, deflate);
+    if (!over || whole.length < data.length) {
+      data = whole;
+      blend = 0;
+    }
+    this.packed += data.length;
+    if (this.packed > maxBytes) this.fail(null);
+    if (toPrevious) this.stored[this.stored.length - 1].dispose = 2;
+    this.stored.push({ ...r, data, count: t, ...(blend ? { blend: 1 as const } : {}) });
+    /* 下一格能不能和這格之前的畫面比：這格不是第一格、上一格沒有改成 PREVIOUS */
+    this.prevPrev = toPrevious ? null : prev;
+    this.prev = u32;
+  }
+
   abort(): void {
     this.aborted = true;
     this.changes.length = 0;
     this.stored.length = 0;
     this.prev = null;
+    this.prevPrev = null;
   }
 
   async finish(): Promise<EncodedFile> {
@@ -359,7 +463,17 @@ export class ApngEncoder implements FrameEncoder {
 
     const apngFrames: ApngFrame[] = frames.map((f) => {
       const d = apngDelay(f.count, fps);
-      return { x: f.x, y: f.y, w: f.w, h: f.h, data: f.data, delayNum: d.num, delayDen: d.den };
+      return {
+        x: f.x,
+        y: f.y,
+        w: f.w,
+        h: f.h,
+        data: f.data,
+        delayNum: d.num,
+        delayDen: d.den,
+        ...(f.dispose ? { dispose: f.dispose } : {}),
+        ...(f.blend ? { blend: f.blend } : {}),
+      };
     });
     const bytes = assembleApng({
       width: W,

@@ -36,6 +36,8 @@ class WorkerEncoder implements Encoder {
   ) {
     this.handle = openEncodeWorker();
     this.ready = this.handle.api.start(spec);
+    /* Worker 載不到時 start 會拒絕（core/worker）；錯誤留給之後 await ready 的呼叫，這裡先接住免得變成未處理的拒絕 */
+    this.ready.catch(() => {});
   }
 
   private track(p: Promise<void>) {
@@ -62,13 +64,10 @@ class WorkerEncoder implements Encoder {
   }
 
   async finish(): Promise<EncodedFile> {
-    await this.ready;
-    await Promise.all(this.inFlight);
-    if (this.failure) {
-      this.handle.terminate();
-      throw this.failure;
-    }
     try {
+      await this.ready;
+      await Promise.all(this.inFlight);
+      if (this.failure) throw this.failure;
       return await this.handle.api.finish();
     } finally {
       this.handle.terminate();

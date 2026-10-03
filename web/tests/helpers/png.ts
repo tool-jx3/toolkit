@@ -235,19 +235,38 @@ export function parseApng(bytes: Uint8Array): ApngInfo {
   };
 }
 
-/** 依 dispose NONE／blend SOURCE 合成每一格的完整畫面（本專案的編碼器只用這種組合） */
+/**
+ * 合成每一格的完整畫面。本專案的編碼器用 dispose NONE／blend SOURCE；ApngEncoder 的 transparentUnchanged
+ * 另外用 dispose PREVIOUS 與 blend OVER（只有完全透明或完全不透明的像素，其他透明度在這裡丟錯誤）。
+ */
 export function composeApng(info: ApngInfo): Uint8Array[] {
   const { width: W, height: H, colorType } = info.ihdr;
   const canvas = new Uint8Array(W * H * 4);
   const out: Uint8Array[] = [];
-  for (const f of info.frames) {
-    if (f.dispose !== 0 || f.blend !== 0)
-      throw new Error('測試的合成器只支援 dispose NONE／blend SOURCE');
+  info.frames.forEach((f, i) => {
+    if (f.dispose > 2 || f.blend > 1) throw new Error('不合規範的 dispose／blend');
     const px = decodePixels(f.data, f.width, f.height, colorType, info.plte, info.trns);
+    /* 第一格的 PREVIOUS 當成 BACKGROUND（規範） */
+    const dispose = i === 0 && f.dispose === 2 ? 1 : f.dispose;
+    const saved = dispose === 2 ? canvas.slice() : null;
     for (let y = 0; y < f.height; y++) {
-      canvas.set(px.subarray(y * f.width * 4, (y + 1) * f.width * 4), ((f.y + y) * W + f.x) * 4);
+      if (f.blend === 0) {
+        canvas.set(px.subarray(y * f.width * 4, (y + 1) * f.width * 4), ((f.y + y) * W + f.x) * 4);
+        continue;
+      }
+      for (let x = 0; x < f.width; x++) {
+        const s = (y * f.width + x) * 4;
+        const a = px[s + 3];
+        if (a === 0) continue;
+        if (a !== 255) throw new Error('測試的合成器的 OVER 只支援完全透明或完全不透明的像素');
+        canvas.set(px.subarray(s, s + 4), ((f.y + y) * W + f.x + x) * 4);
+      }
     }
     out.push(canvas.slice());
-  }
+    if (dispose === 1) {
+      for (let y = 0; y < f.height; y++)
+        canvas.fill(0, ((f.y + y) * W + f.x) * 4, ((f.y + y) * W + f.x + f.width) * 4);
+    } else if (saved) canvas.set(saved);
+  });
   return out;
 }

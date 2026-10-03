@@ -84,6 +84,8 @@ export async function exportVideo({
     fps: plan.fps,
     plays: 0,
     frameTimeBase: plan.fps,
+    /* APNG：範圍裡沒變的像素存成透明再疊上（舊版 UPNG.js 的做法，檔案大小與舊版相當；規格 3.3） */
+    apngTransparentUnchanged: true,
     webpQuality: webpQuality(settings.lossless, settings.quality),
     gifLocalPalettes: true,
     gifMaxColors: settings.gifColors,

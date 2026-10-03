@@ -2,7 +2,7 @@
  * 設定欄：影片（換影片、範例影片、資訊）、裁切、尺寸與速度、逐格檢視、格式比較；還沒載入影片時的整頁載入區。
  */
 import { Crop, Film, Images, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import {
   Button,
   CropDialog,
@@ -286,11 +286,16 @@ export function FramesPanel() {
 
 /* ---------- 格式比較 ---------- */
 
+/**
+ * 三種格式的比較。區塊夠寬（≥ 36rem，例如還沒載入影片時的整頁）是一張表；窄的時候（設定欄、手機）
+ * 改成每種格式一張卡，所有欄位都看得到、不用橫向捲動。
+ */
 export function FormatGuide() {
+  const formats = S.guideHead.slice(1);
   return (
     <Section title={S.guideSection} defaultOpen={false} persistKey="video-anim:guide">
-      <div className="min-w-0 overflow-x-auto">
-        <table className="w-full min-w-[34rem] border-collapse text-left text-xs">
+      <div className="@container min-w-0">
+        <table className="hidden w-full border-collapse text-left text-xs @xl:table">
           <thead>
             <tr className="border-b border-border text-muted">
               {S.guideHead.map((h) => (
@@ -316,6 +321,21 @@ export function FormatGuide() {
             ))}
           </tbody>
         </table>
+        <ul className="m-0 flex list-none flex-col gap-2 p-0 @xl:hidden" data-testid="guide-cards">
+          {formats.map((name, i) => (
+            <li key={name} className="rounded-md border border-border bg-surface-2 px-3 py-2">
+              <h4 className="m-0 mb-1.5 text-sm font-semibold text-fg">{name}</h4>
+              <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+                {S.guideRows.map(([head, ...cells]) => (
+                  <Fragment key={head}>
+                    <dt className="font-medium text-fg">{head}</dt>
+                    <dd className="m-0 text-muted">{cells[i]}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            </li>
+          ))}
+        </ul>
       </div>
       <p className="m-0 text-xs text-muted">{S.guideNote}</p>
     </Section>

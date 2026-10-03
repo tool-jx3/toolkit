@@ -116,6 +116,11 @@ export interface ExportAnimationOptions {
   gifDither?: GifDither;
   /** APNG 合併連續相同的影格（預設 true） */
   mergeIdentical?: boolean;
+  /**
+   * APNG（全彩）：範圍裡沒變的像素存成透明、以「疊上」畫上去，必要時和前兩格比（ApngEncoder 的 transparentUnchanged，
+   * 舊版 UPNG.js 的做法；影片這類每格都有細微變化的動畫檔案小很多，畫面不變）。不給＝false，與以前相同。
+   */
+  apngTransparentUnchanged?: boolean;
   /** APNG 加上預設圖（不支援 APNG 的看圖程式顯示代表畫面） */
   still?: boolean;
   /** APNG 減色時，不放預設圖也把代表畫面（stillTime）加權列入色彩統計 */
@@ -346,6 +351,7 @@ export async function exportAnimation(
     gifMaxColors,
     gifDither,
     mergeIdentical = true,
+    apngTransparentUnchanged = false,
     still = false,
     stillForPalette = false,
     stillWeightMin,
@@ -483,6 +489,7 @@ export async function exportAnimation(
             ...(maxColors ? { maxColors: Math.max(2, maxColors) } : {}),
             ...(paletteMethod ? { paletteMethod } : {}),
             mergeIdentical,
+            ...(apngTransparentUnchanged ? { transparentUnchanged: true } : {}),
             embedStill: still,
             ...(stillWeightMin !== undefined ? { stillWeightMin } : {}),
           },

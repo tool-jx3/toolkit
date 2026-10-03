@@ -5,7 +5,9 @@
  * - 裁切（中央 80%、方向鍵移動、對話框設定範圍、關掉再開重設）、比例與輸出尺寸（偶數）；
  * - 匯出並解析下載的檔案：APNG（影格數、1/FPS 的延遲、循環、逐格取到正確的時間）、WebP（無損 VP8L／有損 VP8、累計毫秒）、
  *   GIF（最多 50 FPS、每格的調色盤、色數上限、抖色）、速度＋裁切＋比例、取消、新分頁、複製資料網址；
- * - 逐格檢視（12 張樣本）、設定記住（影片不記住）、快捷鍵說明、390 寬沒有橫向捲動、1280／390 視覺基準圖。
+ * - APNG 的「沒變的像素透明疊上」（大小與舊版相當、瀏覽器解碼逐像素相同）、編碼 Worker 載不到時匯出失敗而不是卡住；
+ * - 逐格檢視（12 張樣本）、設定記住（影片不記住）、格式比較（寬的地方是表、設定欄裡每種格式一張卡）、快捷鍵說明、
+ *   390 寬沒有橫向捲動、1280／390 視覺基準圖。
  *
  * 測試影片 fixtures/video-anim-clip.webm：320 × 180、30 fps、3 秒（90 格）、VP8。四個象限是紅、綠、藍、黃，
  * 中間 y 80～99 是深灰帶，帶上的白色方塊第 k 格在 x＝4 + 3k（寬 12）。用 Pillow 畫 JPEG 影格，再以 Playwright 附的 ffmpeg 編成 WebM。
@@ -116,37 +118,52 @@ function sourceFrameIndex(rgba: ArrayLike<number>, W: number, H: number): number
   return n ? Math.round((s / n / (W / 320) - 9.5) / 3) : -1;
 }
 
-/** 用瀏覽器的 ImageDecoder 解碼動態 WebP，回傳每一格對應的來源格數與毫秒 */
-async function webpFrames(page: Page, bytes: Uint8Array) {
-  return page.evaluate(async (arr) => {
-    const data = new Uint8Array(arr);
-    const dec = new ImageDecoder({ data, type: 'image/webp' });
-    await dec.tracks.ready;
-    const n = dec.tracks.selectedTrack?.frameCount ?? 0;
-    const out: { idx: number; ms: number }[] = [];
-    for (let i = 0; i < n; i++) {
-      const { image } = await dec.decode({ frameIndex: i });
-      const W = image.displayWidth;
-      const H = image.displayHeight;
-      const c = new OffscreenCanvas(W, H);
-      const ctx = c.getContext('2d') as OffscreenCanvasRenderingContext2D;
-      ctx.drawImage(image, 0, 0);
-      const ms = (image.duration ?? 0) / 1000;
-      image.close();
-      const y = Math.round(90 * (H / 180));
-      const d = ctx.getImageData(0, y, W, 1).data;
-      let s = 0;
-      let m = 0;
-      for (let x = 0; x < W; x++) {
-        if ((d[x * 4] + d[x * 4 + 1] + d[x * 4 + 2]) / 3 > 150) {
-          s += x;
-          m++;
+/**
+ * 用瀏覽器的 ImageDecoder 解碼動圖（動態 WebP、APNG），回傳每一格對應的來源格數、毫秒與整格像素的雜湊（FNV-1a）
+ */
+async function browserFrames(page: Page, bytes: Uint8Array, type = 'image/webp') {
+  return page.evaluate(
+    async ([arr, type]) => {
+      const data = new Uint8Array(arr as number[]);
+      const dec = new ImageDecoder({ data, type: type as string });
+      await dec.tracks.ready;
+      const n = dec.tracks.selectedTrack?.frameCount ?? 0;
+      const out: { idx: number; ms: number; hash: number }[] = [];
+      for (let i = 0; i < n; i++) {
+        const { image } = await dec.decode({ frameIndex: i });
+        const W = image.displayWidth;
+        const H = image.displayHeight;
+        const c = new OffscreenCanvas(W, H);
+        const ctx = c.getContext('2d') as OffscreenCanvasRenderingContext2D;
+        ctx.drawImage(image, 0, 0);
+        const ms = (image.duration ?? 0) / 1000;
+        image.close();
+        const all = ctx.getImageData(0, 0, W, H).data;
+        let hash = 0x811c9dc5;
+        for (let k = 0; k < all.length; k++) hash = Math.imul(hash ^ all[k], 0x01000193);
+        const y = Math.round(90 * (H / 180));
+        const d = all.subarray(y * W * 4, (y + 1) * W * 4);
+        let s = 0;
+        let m = 0;
+        for (let x = 0; x < W; x++) {
+          if ((d[x * 4] + d[x * 4 + 1] + d[x * 4 + 2]) / 3 > 150) {
+            s += x;
+            m++;
+          }
         }
+        out.push({ idx: m ? Math.round((s / m / (W / 320) - 9.5) / 3) : -1, ms, hash: hash >>> 0 });
       }
-      out.push({ idx: m ? Math.round((s / m / (W / 320) - 9.5) / 3) : -1, ms });
-    }
-    return out;
-  }, Array.from(bytes));
+      return out;
+    },
+    [Array.from(bytes), type] as const,
+  );
+}
+
+/** 與 browserFrames 相同的像素雜湊（FNV-1a） */
+function frameHash(rgba: ArrayLike<number>): number {
+  let hash = 0x811c9dc5;
+  for (let k = 0; k < rgba.length; k++) hash = Math.imul(hash ^ rgba[k], 0x01000193);
+  return hash >>> 0;
 }
 
 const riff = (bytes: Uint8Array) => {
@@ -403,6 +420,31 @@ test.describe('匯出', () => {
     expect(errors).toEqual([]);
   });
 
+  test('APNG 10 FPS：沒變的像素存成透明再疊上、必要時還原成前兩格，大小與舊版相當；瀏覽器解碼每格相同', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await loadClip(page);
+    await pickSelect(page, 'FPS', '10 fps');
+    const { bytes } = await exportAndDownload(page);
+    const apng = parseApng(bytes);
+    expect(apng.numFrames).toBe(30);
+    expect(apng.frames[0]).toMatchObject({ x: 0, y: 0, width: 320, height: 180, blend: 0 });
+    /* 規格 3.3、7.1：範圍裡沒變的像素透明、以 OVER 疊上；和前兩格比較小時上一格改成 PREVIOUS */
+    expect(apng.frames.filter((f) => f.blend === 1).length).toBeGreaterThan(20);
+    expect(apng.frames.some((f) => f.dispose === 2)).toBe(true);
+    /* 舊版（UPNG.js）同設定 16,902 B（修正前 27,834 B＝1.65 倍）；規格 3.8：不超過 1.5 倍 */
+    expect(bytes.length).toBeLessThanOrEqual(Math.floor(16902 * 1.5));
+    const expected = Array.from({ length: 30 }, (_, i) => i * 3);
+    const anim = await decodeAnimatedImage(bytes, { maxFrames: 100 });
+    expect(anim.frames.map((f) => sourceFrameIndex(f.rgba, 320, 180))).toEqual(expected);
+    /* 瀏覽器自己的解碼（dispose／blend 由瀏覽器處理）與 core/decode 逐像素相同 */
+    const native = await browserFrames(page, bytes, 'image/png');
+    expect(native.map((f) => f.idx)).toEqual(expected);
+    expect(native.map((f) => f.hash)).toEqual(anim.frames.map((f) => frameHash(f.rgba)));
+    expect(errors).toEqual([]);
+  });
+
   test('WebP：無損 VP8L／有損 VP8、累計毫秒、無限循環、逐格取到正確的時間', async ({ page }) => {
     const errors = await open(page);
     await loadClip(page);
@@ -417,7 +459,7 @@ test.describe('匯出', () => {
     expect(w.frames.reduce((s, f) => s + f.ms, 0)).toBe(3000);
     expect(new Set(w.frames.map((f) => f.ms))).toEqual(new Set([33, 34]));
     expect(new Set(w.frames.map((f) => f.sub))).toEqual(new Set(['VP8L']));
-    const decoded = await webpFrames(page, bytes);
+    const decoded = await browserFrames(page, bytes);
     expect(decoded.map((f) => f.idx)).toEqual(Array.from({ length: 90 }, (_, i) => i));
     await expect(card).toContainText('WebP（無損）');
 
@@ -506,6 +548,34 @@ test.describe('匯出', () => {
     await expect(page.getByTestId('result-preview')).toHaveCount(0);
   });
 
+  test('編碼用的背景處理載不到：匯出區顯示失敗並通知（不會一直停在準備中），之後可以再匯出', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const worker = /\/encode\.worker-[^/]*\.js$/;
+    let hits = 0;
+    await page.route(worker, (r) => {
+      hits++;
+      return r.fulfill({ status: 404, contentType: 'text/plain', body: 'not found' });
+    });
+    await loadClip(page);
+    await pickSelect(page, 'FPS', '10 fps');
+    await page.getByRole('button', { name: '匯出 APNG' }).click();
+    const alert = page.getByRole('alert').filter({ hasText: '匯出失敗' });
+    await expect(alert).toContainText('背景處理無法執行，請重新整理頁面再試一次。', {
+      timeout: 15_000,
+    });
+    expect(hits).toBeGreaterThan(0);
+    await expect(toast(page, '轉換失敗')).toBeVisible();
+    await expect(page.getByTestId('export-result')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '匯出 APNG' })).toBeEnabled();
+    /* Worker 檔案恢復後再匯出一次就成功 */
+    await page.unroute(worker);
+    const { bytes } = await exportAndDownload(page);
+    expect(parseApng(bytes).numFrames).toBe(30);
+    expect(errors.filter((e) => !/Failed to load resource|404/.test(e))).toEqual([]);
+  });
+
   test.describe('結果的按鈕', () => {
     test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
     test('在新分頁開啟、複製資料網址', async ({ page, context }) => {
@@ -567,6 +637,53 @@ test.describe('其他', () => {
     await expect(page.getByRole('radio', { name: '1.5x' })).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByRole('switch', { name: '無損' })).not.toBeChecked();
     await expect(page.getByRole('switch', { name: '裁切' })).not.toBeChecked();
+  });
+
+  test('格式比較：寬的地方是一張表；設定欄裡每種格式一張卡，GIF 也看得到、不用橫向捲動', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const errors = await open(page);
+    await page.getByRole('button', { name: /APNG／WebP／GIF 的比較/ }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+    await expect(page.getByTestId('guide-cards')).toBeHidden();
+    await loadClip(page);
+    /* 載入後比較表在設定欄裡（展開狀態記住了）：改成三張卡 */
+    const cards = page.getByTestId('guide-cards');
+    await expect(cards).toBeVisible();
+    await expect(page.getByRole('table')).toHaveCount(0);
+    const items = cards.getByRole('listitem');
+    await expect(items).toHaveCount(3);
+    await expect(items.nth(0).getByRole('heading', { name: 'APNG' })).toBeVisible();
+    await expect(items.nth(1).getByRole('heading', { name: '動態 WebP' })).toBeVisible();
+    await expect(items.nth(2).getByRole('heading', { name: 'GIF' })).toBeVisible();
+    await expect(items.nth(2)).toContainText('只有全透明或不透明');
+    await expect(items.nth(2)).toContainText('舊的軟體或服務、需要最廣的相容性');
+    /* 每張卡都完整在欄內：沒有被裁掉、沒有橫向捲動 */
+    const fit = await cards.evaluate((ul) => {
+      const box = ul.getBoundingClientRect();
+      let el: Element | null = ul;
+      const scrollers: string[] = [];
+      while (el) {
+        if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible')
+          scrollers.push(el.tagName);
+        el = el.parentElement;
+      }
+      return {
+        inside: [...ul.children].every((li) => {
+          const r = li.getBoundingClientRect();
+          return (
+            r.left >= box.left - 0.5 &&
+            r.right <= box.right + 0.5 &&
+            li.scrollWidth <= li.clientWidth
+          );
+        }),
+        scrollers,
+      };
+    });
+    expect(fit).toEqual({ inside: true, scrollers: [] });
+    await noHorizontalScroll(page);
+    expect(errors).toEqual([]);
   });
 
   test('快捷鍵說明', async ({ page }) => {
