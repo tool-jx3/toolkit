@@ -114,7 +114,7 @@ export function CropEditor({ value, onClose }: { value: CropTarget | null; onClo
         { label: isMain ? S.crop.fitMain : S.crop.fitList, value: aspect },
       ]}
       initialRect={initialRect}
-      minSize={4}
+      minSize={8}
       confirmLabel={S.crop.applyOne}
       secondaryConfirm={{ label: S.crop.applyAll, onConfirm: (r) => apply(r, true) }}
       onConfirm={(r) => apply(r, false)}

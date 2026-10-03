@@ -429,12 +429,16 @@ test.describe('選角畫面產生器', () => {
     );
     /* 透明背景：角落透明 */
     await bgType.getByRole('radio', { name: '透明' }).click();
-    const corner = await page
-      .getByTestId('preview-canvas')
-      .evaluate((c: HTMLCanvasElement) =>
-        Array.from(c.getContext('2d')!.getImageData(2, 2, 1, 1).data),
-      );
-    expect(corner[3]).toBeLessThan(160);
+    /* 透明背景時暗角與細紋也不畫（同舊版，F68、F69）：角落完全透明 */
+    await expect
+      .poll(() =>
+        page
+          .getByTestId('preview-canvas')
+          .evaluate((c: HTMLCanvasElement) =>
+            Array.from(c.getContext('2d')!.getImageData(2, 2, 1, 1).data),
+          ),
+      )
+      .toEqual([0, 0, 0, 0]);
 
     const [popup] = await Promise.all([
       context.waitForEvent('page'),

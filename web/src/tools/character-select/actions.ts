@@ -222,11 +222,15 @@ export async function replaceImage(characterId: string, file: File): Promise<voi
 
 /** 改角色清單（排序、複製、刪除）：玩家的設定跟著角色走 */
 function editCharacters(mutate: (list: Character[]) => void) {
+  /* 清單的每個操作（排序、複製、刪除）各算一步復原，不和前後 0.4 秒內的變更合併 */
+  const outer = useSettings.inGesture();
+  if (!outer) useSettings.beginGesture();
   edit((d) => {
     const refs = captureRefs(d);
     mutate(d.characters);
     remapRefs(d, refs);
   });
+  if (!outer) useSettings.endGesture();
   restartPreview();
 }
 
@@ -252,6 +256,8 @@ export const duplicateCharacter = (index: number) =>
       ...JSON.parse(JSON.stringify(c)),
       id: newCharacterId(),
       name: `${c.name}${S.chars.copySuffix}`.slice(0, 60),
+      /* 複本算自己的角色（同舊版，F25）；圖片照樣用內建插圖 */
+      demo: false,
     });
   });
 

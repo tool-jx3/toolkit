@@ -215,7 +215,15 @@ export function ExportTab({ exportRef }: { exportRef?: Ref<ExportPanelHandle> })
           <Button
             icon={<Code2 />}
             variant="primary"
-            onClick={() => setHtmlOpen(true)}
+            onClick={() => {
+              /* 角色不夠時先通知再切到選擇演出分頁（同匯出；舊版跳錯誤通知，F129） */
+              const issue = blockingIssue(settingsNow());
+              if (issue) {
+                notify({ title: issue, tone: 'danger' });
+                return;
+              }
+              setHtmlOpen(true);
+            }}
             disabled={exporting}
           >
             {S.exp.htmlButton}

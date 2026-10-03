@@ -375,48 +375,48 @@ const familyOf = (s: Settings) => fontFamilyCss(s.font.family);
 function drawBackground(ctx: Ctx, s: Settings, bg: Drawable | null) {
   const { width, height } = s.canvas;
   const b = s.background;
-  if (b.type !== 'transparent') {
-    if (b.type === 'image' && bg) {
-      const { w, h } = sizeOf(bg);
-      const ir = w / h;
-      const rr = width / height;
-      let dw: number;
-      let dh: number;
-      if (ir > rr) {
-        dh = height;
-        dw = dh * ir;
-      } else {
-        dw = width;
-        dh = dw / ir;
-      }
-      ctx.save();
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(bg, (width - dw) / 2, (height - dh) / 2, dw, dh);
-      ctx.restore();
-      if (b.imageDim > 0) {
-        ctx.fillStyle = `rgba(3, 6, 13, ${b.imageDim / 100})`;
-        ctx.fillRect(0, 0, width, height);
-      }
-    } else if (b.type === 'solid') {
-      ctx.fillStyle = b.colorA;
-      ctx.fillRect(0, 0, width, height);
-    } else if (b.type === 'gradient' || b.type === 'image') {
-      const angle = (b.angle * Math.PI) / 180;
-      const cx = width / 2;
-      const cy = height / 2;
-      const length = Math.abs(width * Math.cos(angle)) + Math.abs(height * Math.sin(angle));
-      const g = ctx.createLinearGradient(
-        cx - (Math.cos(angle) * length) / 2,
-        cy - (Math.sin(angle) * length) / 2,
-        cx + (Math.cos(angle) * length) / 2,
-        cy + (Math.sin(angle) * length) / 2,
-      );
-      g.addColorStop(0, b.colorA);
-      g.addColorStop(1, b.colorB);
-      ctx.fillStyle = g;
+  /* 透明背景時什麼都不畫（細紋、暗角也不畫），同舊版與互動 HTML（F68、F69） */
+  if (b.type === 'transparent') return;
+  if (b.type === 'image' && bg) {
+    const { w, h } = sizeOf(bg);
+    const ir = w / h;
+    const rr = width / height;
+    let dw: number;
+    let dh: number;
+    if (ir > rr) {
+      dh = height;
+      dw = dh * ir;
+    } else {
+      dw = width;
+      dh = dw / ir;
+    }
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bg, (width - dw) / 2, (height - dh) / 2, dw, dh);
+    ctx.restore();
+    if (b.imageDim > 0) {
+      ctx.fillStyle = `rgba(3, 6, 13, ${b.imageDim / 100})`;
       ctx.fillRect(0, 0, width, height);
     }
+  } else if (b.type === 'solid') {
+    ctx.fillStyle = b.colorA;
+    ctx.fillRect(0, 0, width, height);
+  } else if (b.type === 'gradient' || b.type === 'image') {
+    const angle = (b.angle * Math.PI) / 180;
+    const cx = width / 2;
+    const cy = height / 2;
+    const length = Math.abs(width * Math.cos(angle)) + Math.abs(height * Math.sin(angle));
+    const g = ctx.createLinearGradient(
+      cx - (Math.cos(angle) * length) / 2,
+      cy - (Math.sin(angle) * length) / 2,
+      cx + (Math.cos(angle) * length) / 2,
+      cy + (Math.sin(angle) * length) / 2,
+    );
+    g.addColorStop(0, b.colorA);
+    g.addColorStop(1, b.colorB);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, width, height);
   }
   if (b.pattern) {
     ctx.save();

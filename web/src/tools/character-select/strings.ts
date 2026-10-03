@@ -45,7 +45,7 @@ export const S = {
     count: (n: number) => `${n} 人`,
     dropLabel: '新增角色圖片',
     dropButton: '選擇圖片',
-    dropHint: 'PNG、JPG、WebP、GIF、SVG、AVIF；可以一次選很多張，也可以拖放或貼上',
+    dropHint: 'PNG、JPG、WebP、GIF、SVG、AVIF；可以一次選很多張',
     listAria: '角色清單',
     empty: '還沒有任何角色。從上面新增圖片，或還原成內建角色。',
     position: (i: number, demo: boolean) =>
