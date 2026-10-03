@@ -124,20 +124,25 @@ npm test
 | `log-converter` | [CCFOLIA 日誌轉換器](tools/log-converter/) | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) |
 | `scenario-cards` | [劇本資訊卡片產生器](tools/scenario-cards/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `psd-studio` | [CCFOLIA & 圖片調色工作室](tools/psd-studio/) | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) |
+| `session-log` | [跑團紀錄簿](tools/session-log/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `session-report` | [團報產生器](tools/session-report/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `coc-typesetter` | [CoC 劇本排版工具](tools/coc-typesetter/) | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明） |
+| `scenario-editor` | [劇本排版台](tools/scenario-editor/) | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) |
+| `gif-combiner` | [GIF 接合器](tools/gif-combiner/) | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) |
+| `video-anim` | [影片轉動圖工具](tools/video-anim/) | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) |
+| `magic-circle` | [魔法陣製作器](tools/magic-circle/) | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) |
+| `pair-maker` | [角色介紹圖產生器](tools/pair-maker/) | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) |
+| `character-select` | [選角畫面產生器](tools/character-select/) | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：sotsotssi 的五個工具、
-`pair-maker` 為韓文，
-`trpg-lab`、
-`anime-rig`、`scenario-editor` 與くま的兩個工具為日文。
+介面預設為繁體中文，可由右上角切換回該工具的原文：`acrylic-goods` 為韓文，
+`trpg-lab` 與
+`anime-rig` 為日文。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
-
-`coc-typesetter` 只有繁體中文：上游是日文工具，收錄時改寫成只有繁中
-（連劇本的標記語法與版面字型都改成中文），沒有留下日文介面，所以頁面上沒有語言選單。
 
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
@@ -167,12 +172,5 @@ npm test
 
 根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：新框架 `web/` 與本站重寫的工具（見下）、`docs/`、原創工具 `tools/text-fx/`、`assets/`、
 `index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁、`anime-rig`
-的繁中使用說明與 `coc-typesetter` 的範例劇本。
+的繁中使用說明。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
-
-**注意**：`character-select`、
-`pair-maker` 與くま的兩個工具（
-`session-log`、`session-report`）的原始 repo 皆未附任何授權條款，
-`coc-typesetter` 則連作者都不明，
-其權利屬原作者所有，
-不在根目錄 LICENSE 涵蓋範圍內，此處僅供試用。

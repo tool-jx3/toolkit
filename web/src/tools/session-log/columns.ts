@@ -123,11 +123,18 @@ export const defaultWidth = (key: string): number => DEFAULT_WIDTHS[key] ?? 140;
 export const minWidth = (key: string): number => MIN_WIDTHS[key] ?? 72;
 export const maxWidth = (key: string): number => (key === 'scenario' || key === 'note' ? 520 : 360);
 
-/** 欄寬夾在最小值與最大值之間（四捨五入成整數） */
+/**
+ * 欄寬夾在最小值與最大值之間（四捨五入成整數）。拖過頭算出 0 以下時同樣夾到最小值（F43）；
+ * 只有不是數字（NaN、Infinity）時用預設寬度。讀入存檔時「沒有寬度、0」改用預設寬度見 storedColumnWidth。
+ */
 export function clampColumnWidth(key: string, width: number): number {
-  const w = Number.isFinite(width) && width > 0 ? width : defaultWidth(key);
+  const w = Number.isFinite(width) ? width : defaultWidth(key);
   return Math.max(minWidth(key), Math.min(maxWidth(key), Math.round(w)));
 }
+
+/** 存檔、JSON、加回的欄位記的寬度：沒有、0、不是數字時用預設寬度，其餘夾在範圍內（照舊版） */
+export const storedColumnWidth = (key: string, width: unknown): number =>
+  clampColumnWidth(key, Number(width) || defaultWidth(key));
 
 export const isLockedKey = (key: string): boolean => key === REPORTED_KEY || key === REPORT_KEY;
 export const isUrlColumn = (key: string): boolean => /Url$/.test(key);
@@ -183,7 +190,7 @@ export function showColumn(
   const next: ColumnState = {
     ...col,
     key: col.key,
-    width: clampColumnWidth(col.key, Number(col.width) || defaultWidth(col.key)),
+    width: storedColumnWidth(col.key, col.width),
   };
   const columns = [...data.columns];
   const reportIndex = columns.findIndex((c) => c.key === REPORT_KEY);
@@ -310,7 +317,7 @@ export function mergeColumns(
     if (merged.some((c) => c.key === column.key)) continue;
     const insert: ColumnState = {
       ...column,
-      width: clampColumnWidth(column.key, Number(column.width) || defaultWidth(column.key)),
+      width: storedColumnWidth(column.key, column.width),
     };
     const reportIndex = merged.findIndex((c) => c.key === REPORT_KEY);
     if (reportIndex >= 0) merged.splice(reportIndex, 0, insert);
@@ -333,7 +340,7 @@ export function cleanColumns(raw: unknown, { ensureLocked = false } = {}): Colum
     if (typeof c.key !== 'string' || !c.key || seen.has(c.key)) continue;
     seen.add(c.key);
     const key = c.key;
-    const col: ColumnState = { key, width: clampColumnWidth(key, Number(c.width)) };
+    const col: ColumnState = { key, width: storedColumnWidth(key, c.width) };
     if (isLockedKey(key)) col.locked = true;
     if (c.custom || (!COLUMN_LABELS[key] && typeof c.label === 'string')) {
       col.custom = true;

@@ -1,5 +1,5 @@
 /**
- * 劇本排版台（建置產物 next/scenario-editor/）的端對端測試：
+ * 劇本排版台（建置產物 tools/scenario-editor/）的端對端測試：
  * - 開頁：沒有 pageerror／console error；第一次使用直接用範例原稿建立作品（F008）；
  * - 書寫：打字、Enter 分段、Backspace 接合、斜線指令、書式快捷鍵（實體按鍵位置）、復原、多段貼上（F033～F037、F240、F019）；
  * - 紙面：自動分頁、目錄頁碼、頁尾、選取與捲動（F180～F190）；
@@ -9,13 +9,91 @@
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
  */
 import { readFileSync } from 'node:fs';
+import * as fontkitModule from '@pdf-lib/fontkit';
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import { PDFDocument } from 'pdf-lib';
+import { type SubsetSourceFont, ttfSubset } from '../../src/core/fonts/subset';
 import { getTool, outputDir } from '../../src/registry';
+import { pdfPageTexts } from '../helpers/pdf';
 
 const URL = `/${outputDir(getTool('scenario-editor') ?? { id: 'scenario-editor', status: 'next' })}/`;
 const SAMPLE = new globalThis.URL('./fixtures/scenario-editor-sample.json', import.meta.url);
 const TTC = '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc';
+const IPAG = '/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf';
+const DEJAVU = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+/** NPC 卡系統資料裡的日文漢字（Noto Serif TC／Sans TC 沒有） */
+const JP_ONLY = '検覚撃渉歳';
+const CORS = { 'access-control-allow-origin': '*' };
+
+const fontkit = ((fontkitModule as unknown as { default?: typeof fontkitModule }).default ??
+  fontkitModule) as typeof fontkitModule;
+const fontCache = new Map<string, SubsetSourceFont & { characterSet: number[] }>();
+function sysFont(file: string) {
+  let f = fontCache.get(file);
+  if (!f) {
+    const raw = fontkit.create(readFileSync(file)) as unknown as {
+      fonts?: unknown[];
+    };
+    f = (raw.fonts?.[0] ?? raw) as SubsetSourceFont & { characterSet: number[] };
+    fontCache.set(file, f);
+  }
+  return f;
+}
+const subsetOf = (file: string, text: string) =>
+  Buffer.from(
+    ttfSubset(
+      sysFont(file),
+      [...text].map((c) => c.codePointAt(0) ?? 0),
+    ),
+  );
+let tcNoJp: Buffer | null = null;
+/** PDF 用的繁中字型的替身：容器裡的文泉驛正黑，拿掉 JP_ONLY 這幾個字（重現 Noto Serif TC 沒有這些字） */
+function tcWithoutJp(): Buffer {
+  if (!tcNoJp) {
+    const f = sysFont(TTC);
+    const skip = new Set([...JP_ONLY].map((c) => c.codePointAt(0)));
+    tcNoJp = Buffer.from(
+      ttfSubset(
+        f,
+        f.characterSet.filter((c) => !skip.has(c)),
+      ),
+    );
+  }
+  return tcNoJp;
+}
+
+/**
+ * PDF 的字型：繁中換成沒有日文漢字的替身；補字（Google Fonts 的 css2?text=）回應一個字型網址，
+ * 字型檔照要求的字做子集（日文用 IPAGothic、其他用 DejaVu Sans）。asked 記下要求的「家族|字」。
+ */
+async function routePdfFonts(page: Page, asked: string[]) {
+  await page.route(/fonts\.gstatic\.com\/s\/noto(serif|sans)tc\/.*\.ttf$/, (r) =>
+    r.fulfill({ status: 200, contentType: 'font/ttf', headers: CORS, body: tcWithoutJp() }),
+  );
+  await page.route(/fonts\.googleapis\.com\/css2\?.*&text=/, (r) => {
+    const u = new globalThis.URL(r.request().url());
+    const fam = u.searchParams.get('family') ?? '';
+    const text = u.searchParams.get('text') ?? '';
+    asked.push(`${fam}|${text}`);
+    const src = `https://fonts.gstatic.com/l/font?kit=test&fam=${encodeURIComponent(fam)}&text=${encodeURIComponent(text)}`;
+    return r.fulfill({
+      status: 200,
+      contentType: 'text/css',
+      headers: CORS,
+      body: `@font-face{font-family:'T';src:url(${src}) format('truetype');}`,
+    });
+  });
+  await page.route(/fonts\.gstatic\.com\/l\/font\?/, (r) => {
+    const u = new globalThis.URL(r.request().url());
+    const jp = /JP/.test(u.searchParams.get('fam') ?? '');
+    return r.fulfill({
+      status: 200,
+      contentType: 'font/ttf',
+      headers: CORS,
+      body: subsetOf(jp ? IPAG : DEJAVU, u.searchParams.get('text') ?? ''),
+    });
+  });
+}
 
 test.use({ contextOptions: { reducedMotion: 'reduce' }, viewport: { width: 1280, height: 900 } });
 
@@ -58,6 +136,44 @@ async function openSample(page: Page) {
   await (await chooser).setFiles(SAMPLE.pathname);
   await expect(status(page)).toContainText('霧中的洋館');
   await expect(stage(page).locator('.pg')).toHaveCount(5);
+}
+
+type TestBlock = { id: string; type: string; cols: number; text: string } & Record<string, unknown>;
+const blk = (id: string, type: string, text = '', extra: Record<string, unknown> = {}) =>
+  ({ id, type, cols: 2, text, ...extra }) as TestBlock;
+const mkDoc = (title: string, blocks: TestBlock[]) => ({
+  title,
+  padV: 18,
+  padH: 16,
+  base: 10,
+  foot: { num: true, text: '', from: 1 },
+  pages: [{ id: 'p1', bg: { preset: 'none', img: null, fit: 'cover', opa: 35 }, cols: 1 }],
+  blocks,
+});
+
+/** 用工具列的「開啟」讀入一份原稿 */
+async function loadDoc(page: Page, doc: { title: string }) {
+  const chooser = page.waitForEvent('filechooser');
+  await page
+    .getByRole('toolbar', { name: '工具列' })
+    .getByRole('button', { name: '開啟', exact: true })
+    .click();
+  await (await chooser).setFiles({
+    name: 'doc.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(doc)),
+  });
+  await expect(status(page)).toContainText(doc.title);
+}
+
+/** 目前的原稿（「儲存」下載的專案檔） */
+async function savedDoc(page: Page) {
+  const { bytes } = await download(page, () =>
+    page.getByRole('button', { name: '儲存', exact: true }).click(),
+  );
+  return JSON.parse(bytes.toString('utf8')).data as {
+    blocks: (TestBlock & { col?: string; mk?: { a: number; b: number; col: string }[] })[];
+  };
 }
 
 async function noHorizontalScroll(page: Page) {
@@ -228,10 +344,17 @@ test.describe('劇本排版台', () => {
     await view.close();
   });
 
-  test('下載 PDF：頁數、A4、附錄', async ({ page }) => {
+  test('下載 PDF：頁數、A4、附錄、每頁可選取的文字、補字（F233）', async ({ page }) => {
     test.setTimeout(150_000);
-    await open(page);
-    await openSample(page);
+    const errors = await open(page);
+    const asked: string[] = [];
+    await routePdfFonts(page, asked);
+    /* 範例原稿＋一段含日文漢字的文字（繁中字型沒有這些字） */
+    const doc = JSON.parse(readFileSync(SAMPLE, 'utf8')) as { title: string; blocks: TestBlock[] };
+    const d3 = doc.blocks.find((b) => b.id === 'd3');
+    if (d3) d3.text = `霧漸漸散去。〈${JP_ONLY}〉`;
+    await loadDoc(page, doc);
+    await expect(stage(page).locator('.pg')).toHaveCount(5);
     await page.getByRole('button', { name: '列印 / PDF' }).click();
     const dlg = page.getByRole('dialog', { name: '列印 / PDF' });
     const { name, bytes } = await download(page, () =>
@@ -240,13 +363,50 @@ test.describe('劇本排版台', () => {
     expect(name).toBe('霧中的洋館.pdf');
     expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
     const pdf = await PDFDocument.load(bytes);
-    /* 5 頁＋附錄 1 頁 */
+    /* 5 頁＋附錄 1 頁，每頁 A4 */
     expect(pdf.getPageCount()).toBe(6);
-    const { width, height } = pdf.getPage(0).getSize();
-    expect(Math.round(width)).toBe(595);
-    expect(Math.round(height)).toBe(842);
+    for (const pg of pdf.getPages()) {
+      const { width, height } = pg.getSize();
+      expect(Math.round(width)).toBe(595);
+      expect(Math.round(height)).toBe(842);
+    }
     expect(pdf.getTitle()).toBe('霧中的洋館');
+    /* 每頁都有真正的文字（ToUnicode 還原＝能選取、搜尋），嵌入的字形都有外框（沒有缺字） */
+    const texts = pdfPageTexts(pdf);
+    texts.forEach((t, i) => {
+      expect(t.text.length, `第 ${i + 1} 頁的文字`).toBeGreaterThan(0);
+      expect(t.blank, `第 ${i + 1} 頁的缺字`).toEqual([]);
+    });
+    expect(texts[0].text).toContain('霧中的洋館');
+    expect(texts.some((t) => t.text.includes('洋館的大廳'))).toBe(true);
+    expect(texts[5].text).toContain('附錄');
+    const all = texts.map((t) => t.text).join('');
+    for (const ch of JP_ONLY) expect(all, `「${ch}」`).toContain(ch);
+    /* 補字：只向 Google Fonts 要繁中字型沒有的字（明體堆疊 → Noto Serif JP） */
+    const jp = asked.filter((a) => a.startsWith('Noto Serif JP'));
+    expect(jp).toHaveLength(1);
+    expect([...jp[0].split('|')[1]].sort().join('')).toBe([...JP_ONLY].sort().join(''));
     await expect(status(page)).toContainText('霧中的洋館.pdf');
+    expect(errors).toEqual([]);
+  });
+
+  test('下載 PDF：字型下載失敗時說明原因（F233）', async ({ page }) => {
+    test.setTimeout(120_000);
+    await open(page);
+    await loadDoc(page, mkDoc('補字失敗', [blk('a', 'desc', `技能〈${JP_ONLY}〉`)]));
+    const tc = /fonts\.gstatic\.com\/s\/noto(serif|sans)tc\/.*\.ttf$/;
+    await page.route(tc, (r) => r.abort());
+    await page.getByRole('button', { name: '列印 / PDF' }).click();
+    const dlg = page.getByRole('dialog', { name: '列印 / PDF' });
+    await dlg.getByRole('button', { name: '下載 PDF' }).click();
+    await expect(dlg).toContainText('無法下載 PDF 用的字型');
+    /* 繁中字型可以下載、補字的字型下載失敗 */
+    await page.unroute(tc);
+    await routePdfFonts(page, []);
+    await page.route(/fonts\.googleapis\.com\/css2\?.*&text=/, (r) => r.abort());
+    tcWithoutJp();
+    await dlg.getByRole('button', { name: '下載 PDF' }).click();
+    await expect(dlg).toContainText('無法下載 PDF 補字用的字型', { timeout: 60_000 });
   });
 
   test('列印：獨立的列印文件（範圍與附錄）', async ({ page }) => {
@@ -520,6 +680,237 @@ test.describe('劇本排版台', () => {
     /* 書式快捷鍵：Ctrl＋Alt＋鍵（沒有選取時新增在最後） */
     await page.keyboard.press('Control+Alt+KeyH');
     await expect(source(page).locator('[data-label]').last()).toContainText('橫線');
+  });
+
+  test('斜線指令：換成記號後緊接著打的字不會掉（F037）', async ({ page }) => {
+    const errors = await open(page);
+    const desc = rowText(page, '描述文').first();
+    await desc.click();
+    await page.keyboard.press('Control+End');
+    /* 打字間隔 0 ms：空白鍵換成記號的同時下一個字已經進來 */
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press('Shift+Enter');
+      await page.keyboard.type('/hantei xyz');
+      await page.keyboard.press('Shift+Enter');
+      await page.keyboard.type('/midashi xyz');
+    }
+    const lines = (await desc.inputValue()).split('\n').slice(-16);
+    expect(lines).toEqual(Array.from({ length: 8 }, () => ['> 技能：xyz', '■xyz']).flat());
+    expect(errors).toEqual([]);
+  });
+
+  test('文字欄按 Esc 之後：注音、註解、顏色、巢狀書式不作用在看不到的選取範圍（F070～F078）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await loadDoc(
+      page,
+      mkDoc('Esc 之後', [blk('a', 'desc', '甲乙丙丁'), blk('n', 'desc', '子丑寅卯')]),
+    );
+    const panel = page.getByTestId('se-block-panel');
+    const n = source(page).locator('textarea[data-bid="n"]');
+    const selectThenEsc = async () => {
+      await n.click();
+      await n.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(1, 3));
+      await page.keyboard.press('Escape');
+      await expect(n).not.toBeFocused();
+    };
+    /* F070：提示先選取文字，不插入 */
+    await selectThenEsc();
+    await panel.getByRole('button', { name: '加注音', exact: true }).click();
+    await expect(status(page)).toContainText('請先在文字欄裡點一下');
+    await expect(n).toHaveValue('子丑寅卯');
+    /* F072：提示先選取文字，不開輸入框 */
+    await selectThenEsc();
+    await panel.getByRole('button', { name: '加上註解', exact: true }).click();
+    await expect(status(page)).toContainText('請先在文字欄裡選取要加上註解的文字');
+    await expect(page.getByRole('dialog', { name: '加上註解' })).toHaveCount(0);
+    /* F078：在段落最後加一行 */
+    await selectThenEsc();
+    await panel.getByRole('button', { name: /^條列/ }).click();
+    await expect(n).toHaveValue('子丑寅卯\n- ');
+    /* F074：整段的顏色；Esc 後再 Ctrl＋按另一段（兩段都選取）時兩段整段套用 */
+    await selectThenEsc();
+    await source(page)
+      .locator('[data-label="a"]')
+      .click({ modifiers: ['Control'] });
+    await expect(panel).toContainText('已選取 2 段');
+    await panel.getByRole('button', { name: '紫', exact: true }).click();
+    const d = await savedDoc(page);
+    for (const id of ['a', 'n']) {
+      const b = d.blocks.find((x) => x.id === id);
+      expect(b?.col, id).toBe('#5b3a7e');
+      expect(b?.mk ?? [], id).toEqual([]);
+    }
+    expect(d.blocks.find((x) => x.id === 'n')?.cm ?? []).toEqual([]);
+    /* Esc 不按、選取文字後直接按：照舊只改那一段 */
+    await n.click();
+    await n.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(0, 2));
+    await panel.getByRole('button', { name: '朱', exact: true }).click();
+    const d2 = await savedDoc(page);
+    expect(d2.blocks.find((x) => x.id === 'n')?.mk?.map((m) => [m.a, m.b])).toEqual([[0, 2]]);
+    expect(errors).toEqual([]);
+  });
+
+  test('表格名稱欄的 Tab 移到第一格（F038）', async ({ page }) => {
+    await open(page);
+    const tbl = blk('T', 'table', '', {
+      cols: 1,
+      tbl: {
+        head: true,
+        rowhead: false,
+        capOn: true,
+        out: '',
+        outMode: 'roll',
+        look: 'grid',
+        name: '表名',
+        dice: '',
+        rows: 2,
+        ncol: 2,
+        cb: {
+          '0,0': [blk('c00', 'desc', '項目')],
+          '0,1': [blk('c01', 'desc', '內容')],
+          '1,0': [blk('c10', 'desc', '1')],
+          '1,1': [blk('c11', 'desc', '黑貓')],
+        },
+      },
+    });
+    await loadDoc(page, mkDoc('表格 Tab', [blk('a', 'desc', '前文'), tbl]));
+    await source(page).locator('input[data-tname="T"]').click();
+    await page.keyboard.press('Tab');
+    const first = source(page).locator('textarea[data-bid="c00"]');
+    await expect(first).toBeFocused();
+    expect(await first.evaluate((el: HTMLTextAreaElement) => el.selectionStart)).toBe(2);
+  });
+
+  test('作品清單：讀完後焦點在「開啟」，↑↓ 選取、Enter 開啟（F001、F008）', async ({ page }) => {
+    const errors = await open(page);
+    await page.getByRole('button', { name: '作品', exact: true }).click();
+    const lib = page.getByRole('dialog', { name: '作品' });
+    await lib.getByRole('button', { name: '新建' }).click();
+    await expect(lib).toHaveCount(0);
+    /* 按「作品」：焦點在「開啟」，↓ 選下一個，Enter 開啟 */
+    await page.getByRole('button', { name: '作品', exact: true }).click();
+    await expect(lib).toContainText('2 個作品');
+    const openBtn = lib.getByRole('button', { name: '開啟', exact: true });
+    await expect(openBtn).toBeFocused();
+    const options = lib.getByRole('option');
+    await expect(options.nth(0)).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('ArrowDown');
+    await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(openBtn).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(lib).toHaveCount(0);
+    /* 再次開頁（F008）：顯示清單、選取目前的作品、焦點在「開啟」，Enter 繼續寫 */
+    await page.reload();
+    await expect(lib).toBeVisible();
+    await expect(openBtn).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(lib).toHaveCount(0);
+    await expect(status(page)).toContainText('已開啟');
+    expect(errors).toEqual([]);
+  });
+
+  test('讀入 CCFOLIA 棋子、Yutosheet 的表格：報告在自動儲存之後仍留在狀態列（F168、F169）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await loadDoc(
+      page,
+      mkDoc('讀入報告', [
+        blk('a', 'desc', '前文'),
+        blk('N', 'npc', '', { cols: 1, npc: { sys: 'dx3rd', name: '霧島' } }),
+      ]),
+    );
+    await source(page).locator('[data-label="N"]').click();
+    const panel = page.getByTestId('se-block-panel');
+    /* Yutosheet 的組合技表（DX3rd） */
+    await panel.getByRole('button', { name: '讀入 Yutosheet 的表格' }).click();
+    const yt = page.getByRole('dialog', { name: '讀入 Yutosheet 的表格' });
+    await yt
+      .getByLabel('貼上的表格')
+      .fill(
+        '|鉄槌 / 〈コンセントレイト〉+〈黒の鉄槌〉 / RC / 7dx@8 / 20 / 単体 / 視界 / 4 / 100%以上 / 装甲無視|',
+      );
+    await yt.getByRole('button', { name: '讀入' }).click();
+    await expect(status(page)).toHaveText('已讀入 1 筆組合技表');
+    /* 自動儲存（約 0.7 秒）之後重新顯示並留著 */
+    await page.waitForTimeout(2500);
+    await expect(status(page)).toHaveText('已讀入 1 筆組合技表');
+    /* CCFOLIA 棋子 */
+    await panel.getByRole('button', { name: '讀入 CCFOLIA 棋子' }).click();
+    const ccf = page.getByRole('dialog', { name: '讀入 CCFOLIA 的棋子' });
+    await ccf
+      .getByLabel('棋子的 JSON')
+      .fill(
+        '{"kind":"character","data":{"name":"管家","params":[{"label":"STR","value":"50"}],"status":[{"label":"SAN","value":40,"max":55}],"commands":"CC<=60 【目星】\\nわからない行"}}',
+      );
+    await ccf.getByRole('button', { name: '讀入' }).click();
+    await expect(status(page)).toContainText('已作為 克蘇魯 讀入');
+    const report = (await status(page).textContent()) ?? '';
+    await page.waitForTimeout(2500);
+    await expect(status(page)).toHaveText(report);
+    expect(errors).toEqual([]);
+  });
+
+  test('流程圖視窗開著時 Ctrl＋Z／Y 照常復原（文字欄位裡交給欄位）（F019）', async ({ page }) => {
+    const errors = await open(page);
+    await openSample(page);
+    await stage(page).locator('.bp-flow').dblclick();
+    const flow = page.getByTestId('se-flow-dialog');
+    await expect(flow).toContainText('方框 5 個');
+    await flow.getByRole('button', { name: '＋菱形' }).click();
+    await expect(flow).toContainText('方框 6 個');
+    await page.keyboard.press('Control+z');
+    await expect(flow).toContainText('方框 5 個');
+    await page.keyboard.press('Control+y');
+    await expect(flow).toContainText('方框 6 個');
+    /* 焦點在文字欄位裡：不動原稿的復原 */
+    await flow.getByLabel('文字', { exact: true }).click();
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(300);
+    await expect(flow).toContainText('方框 6 個');
+    await expect(flow).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test('舊式彈出視窗的按鈕：14 個、名稱不重複（F120）', async ({ page }) => {
+    const errors = await open(page);
+    await loadDoc(
+      page,
+      mkDoc('舊式彈出視窗', [
+        blk('a', 'desc', '前文'),
+        blk('L', 'popup', '', { pop: { label: '舊式', body: '# 標題\n\n內文', only: false } }),
+      ]),
+    );
+    await stage(page).locator('[data-popopen="L"]').click();
+    const pop = page.getByTestId('se-popup-dialog');
+    const names = await pop
+      .getByRole('button')
+      .evaluateAll((l) => l.map((e) => e.textContent?.trim() ?? ''));
+    expect(names).toHaveLength(14);
+    expect(new Set(names).size).toBe(14);
+    expect(names).toEqual(expect.arrayContaining(['標題 1', '標題 2', '標題 3', '小標', '次小標']));
+    /* 「標題 3」＝###、「小標」＝■ */
+    const ta = pop.getByLabel('彈出視窗的內容');
+    await ta.click();
+    await ta.press('Control+End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('新行');
+    await ta.evaluate((el: HTMLTextAreaElement) =>
+      el.setSelectionRange(el.value.length - 2, el.value.length),
+    );
+    await pop.getByRole('button', { name: '標題 3', exact: true }).click();
+    await expect(ta).toHaveValue('# 標題\n\n內文\n### 新行');
+    await ta.press('Control+End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('其他');
+    await ta.evaluate((el: HTMLTextAreaElement) =>
+      el.setSelectionRange(el.value.length - 2, el.value.length),
+    );
+    await pop.getByRole('button', { name: '小標', exact: true }).click();
+    await expect(ta).toHaveValue('# 標題\n\n內文\n### 新行\n■其他');
+    expect(errors).toEqual([]);
   });
 
   test('390 寬沒有橫向捲動', async ({ page }) => {

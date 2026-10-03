@@ -58,13 +58,40 @@ export function LibraryDialog() {
     );
   }, []);
 
+  /* 開啟時：清單讀完後把焦點放在「開啟」（按 Enter 就繼續寫；F001、F008） */
+  const [focusTick, setFocusTick] = useState(0);
   useEffect(() => {
     if (!open) return;
     setView('list');
     setNote('');
     setPicked(useSession.getState().id);
-    void reload();
+    let alive = true;
+    void reload().then(() => {
+      if (alive) setFocusTick((n) => n + 1);
+    });
+    return () => {
+      alive = false;
+    };
   }, [open, reload]);
+  useEffect(() => {
+    if (!focusTick || !useSession.getState().idb) return;
+    let raf = 0;
+    let tries = 0;
+    const go = () => {
+      const btn = openBtn.current;
+      const list = listRef.current;
+      /* 對話框的內容（Portal）還沒放上畫面時等下一格 */
+      if (!btn && !list) {
+        if (++tries < 30) raf = requestAnimationFrame(go);
+        return;
+      }
+      /* 目前的作品被別的分頁鎖住（開啟停用）時改放在清單上，↑↓ 照樣能選 */
+      if (btn && !btn.disabled) btn.focus();
+      else list?.focus();
+    };
+    go();
+    return () => cancelAnimationFrame(raf);
+  }, [focusTick]);
 
   const close = () => setUi({ libraryOpen: false });
   const sel = works.find((m) => m.id === picked) ?? null;
@@ -217,7 +244,9 @@ export function LibraryDialog() {
   const footer = !idb ? (
     <Button onClick={close}>關閉</Button>
   ) : view === 'list' ? (
-    <>
+    /* 焦點在下方按鈕（例如開啟時的「開啟」）時 ↑↓ 也移動清單的選取（按鈕上的 Enter 照常按下按鈕） */
+    // biome-ignore lint/a11y/noStaticElementInteractions: 只是把 ↑↓ 轉給清單，按鈕本身照常操作
+    <div className="contents" onKeyDown={onKey}>
       <Button variant="secondary" onClick={() => setView('trash')}>
         垃圾桶{trash.length ? `（${trash.length}）` : ''}
       </Button>
@@ -268,7 +297,7 @@ export function LibraryDialog() {
       <Button ref={openBtn} disabled={!sel || busy.has(sel.id)} onClick={() => void doOpen()}>
         開啟
       </Button>
-    </>
+    </div>
   ) : (
     <Button variant="secondary" onClick={() => setView('list')}>
       回到清單

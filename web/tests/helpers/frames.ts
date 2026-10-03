@@ -49,6 +49,29 @@ export function gradient(W: number, H: number, phase = 0): Uint8ClampedArray {
   return f;
 }
 
+/**
+ * 影片風格的影格（不透明）：雜訊底＋每格往右移 2 px 的白色方塊；奇數格另有零星的閃爍點
+ * （每格都只有一部分改變，範圍很大但範圍裡多半沒變）。
+ */
+export function videoLike(W: number, H: number, n: number): Uint8ClampedArray[] {
+  const out: Uint8ClampedArray[] = [];
+  for (let i = 0; i < n; i++) {
+    const f = new Uint8ClampedArray(W * H * 4);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const k = (y * W + x) * 4;
+        const inBox = x >= 2 + i * 2 && x < 8 + i * 2 && y >= 3 && y < 9;
+        const flicker = (x + y + i) % 7 === 0 && i % 2 === 1;
+        f[k] = inBox ? 250 : (x * 13 + y * 7) & 255;
+        f[k + 1] = inBox ? 250 : flicker ? 3 : (x * 5 + y * 11) & 255;
+        f[k + 2] = inBox ? 250 : (x * 3 + y * 17) & 255;
+        f[k + 3] = 255;
+      }
+    out.push(f);
+  }
+  return out;
+}
+
 export const copyFrames = (frames: Uint8ClampedArray[]) => frames.map((f) => f.slice());
 
 /** 兩段位元組是否完全相同 */

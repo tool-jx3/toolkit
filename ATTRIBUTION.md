@@ -23,154 +23,29 @@
 
 | 工具 | 原始 repo | 來源 commit | 授權 |
 |---|---|---|---|
-| magic-circle | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `de40a68` | MIT |
-| character-select | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `883f48b` | **未授權** |
-| pair-maker | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `9c29866`（2026-09-30 自 `aad63b1` 跟進 v1.1.0） | **未授權** |
 | acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
-| video-anim | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `9fe67a6` | MIT |
-| gif-combiner | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `3aa7de8` | MIT |
 | trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
 | jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | —（連到原站；2026-09-25～30 曾收錄 `1b48bea` 的副本） | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
-| coc-typesetter | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明，沒有公開的 repo） | 2026-09-26 取得 | **未授權** |
-| scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | `a6387e0` | CC0 1.0 |
-| session-log | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-log-tool/` | `42c45f3` | **未授權** |
-| session-report | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools) `tools/session-report-generator/` | `42c45f3` | **未授權** |
 
-收錄副本的 MIT 工具與 CC0 的 `scenario-editor`，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
-
-## pair-maker：不收作品集樣張，卡片圖改由工具自己算繪
-
-上游 `baegop157902/PairMaker` 是一個 Konva 畫布編輯器。五種版型（簡易雙人整理、
-baegop 雙人整理 1、圖樣橫幅、多人資料框、置頂推文產生器）各自是一支 ES module，
-`index.html` 是版型選單，`editor.html?id=<版型>` 才是編輯畫面——這是合輯裡第一個
-有兩頁的工具。
-
-`images/` 底下 33 張圖，工具本身只用到 4 張（`2p-pair1` 的日夜底圖與 `main-tweet`
-的兩張主題底圖，共 512 KB）。其餘 29 張、約 36.5 MB 是首頁卡片用的作品集樣張，
-內容是已經完成的介紹圖，也就是別人的角色插圖；那些不是上游作者的創作，收錄版不
-散布。`favicon/` 與指向原站的 OG／Twitter meta 同樣不收（後者的處理與其餘工具一致）。
-
-卡片圖改成由工具自己算繪：逐一開啟五個版型的空白編輯畫面，把畫布匯出成 PNG
-（共 244 KB，收在 `previews/`）。畫面上看到的就是這個工具的實際輸出，不含任何
-第三方素材。首頁的版型清單原本是 jQuery ＋ justifiedGallery 排成等高的瀑布流；
-卡片圖既然換成尺寸整齊的預覽圖，改用 CSS grid 就夠了，兩個函式庫一併不載入
-（上游的手機版本來就不走 justifiedGallery）。
-
-另外移除兩項與本站無關的東西：
-
-- 兩頁頁尾的 Cloudflare Web Analytics beacon（`static.cloudflareinsights.com`，
-  帶著上游站台的 token）。合輯不替原站收集存取資料。
-- 「버그&문의」對話框裡嵌的 Google 表單 iframe。那張表單收到的會是這份收錄版的
-  問題，送達的卻是原作者的信箱。改成一段說明：只有這個版本才會發生的問題請開在
-  本 repo 的 issues，工具本身的意見請找原作者。原作者的署名「배고픔」三種語言都
-  照原樣顯示——那是名字，不是介面文字；`tests/smoke.mjs` 把它列為唯一放行的諺文。
-
-`vendor/` 底下六套函式庫與 Pretendard 原樣保留（與上游一位元組不差），出處與授權
-見 [tools/pair-maker/THIRD_PARTY_NOTICES.md](tools/pair-maker/THIRD_PARTY_NOTICES.md)。
-字型清單依慣例補上五套繁體中文字型（見下節）——上游的清單只有韓／英／日字型，
-中文會掉回系統預設。
-
-### 兩頁共用一份字典，側邊欄的版型名稱要照 key 翻
-
-`editor.html` 的側邊欄要列出「其他版型」，上游的做法是 `fetch("index.html")` 把
-首頁抓回來，再從標記裡讀卡片的圖、標題與標籤。收錄版首頁的內嵌文字是繁體中文，
-照著讀就等於把繁中硬寫進編輯器；因此改讀同一個元素上的 `data-i18n`，拿 key 去翻
-（`translated()`）。切語言時整份清單重建，重建前先 `list.replaceChildren()`，
-否則每切一次就多長一份。
-
-編輯器本體（分頁名稱、欄位標籤、畫布上的預設文字）是版型在建立當下算好的，不會
-自己跟著語言走；切語言時改用 store 的 `'structure'` 事件整個重跑一次——那條路徑
-本來就是給「版型結構變了」用的。重跑前後會把 `dirty` 還原，免得只是換個語言就被
-當成有未儲存的變更。
-
-還有三個只在瀏覽器裡才看得出來的坑：
-
-- 編輯頁的 `<title>` 要等 `index.html` 抓回來才知道是哪個版型，而 i18n 引擎會在
-  DOMContentLoaded 把 `document.title` 換成 `app.title`——兩者會賽跑，`fetch` 早
-  一步完成時標題就被蓋掉。收錄版把標題記在模組變數裡，另外註冊一個
-  DOMContentLoaded 監聽器（註冊得比引擎晚，就一定跑在它後面）補設一次。
-- 兩個收合鈕的 `aria-label` 跟著收合狀態走，因此不掛 `data-i18n-aria-label`——
-  那個掛勾會在切語言時一律寫回標記裡那一種狀態的字。改成依現況重算
-  （`syncToggleLabels()`），開頭與切語言時各跑一次。
-- 首頁五張卡片圖的 `alt` 也要跟著語言走，所以共用引擎補了一個 `data-i18n-alt`
-  掛勾，與既有的 `-title`／`-aria-label`／`-placeholder` 同一套寫法。
-- 平板與手機上，上游把整塊左側邊欄 `display:none`——語言切換器就在那塊裡面，
-  藏起來就沒得切了。收錄版在 1024px 以下把那塊縮成右上角的語言選單，其餘子元素
-  照樣不顯示（回首頁的連結讓位給標題，退回 `index.html` 就看得到）。
-
-### 版型模組的常數會凍在載入當下的語言
-
-ES module 只求值一次，所以版型模組最外層寫成值的常數——署名（`author`）、欄位
-分組（`groups`）、分頁（`tabs`）、字型標籤（`fontLabels`）——會把第一次載入時的
-語言凍進去，切語言時 `'structure'` 事件重跑的是函式，不會重新求值它們。收錄版
-一律改成函式：消費端（`state.js`、`FormScript.js`、`registry.js`）本來就同時吃
-陣列與函式，所以除了署名與字型標籤要在取用處多一個 `typeof` 判斷之外，沒有動到
-別的地方。`tests/smoke.mjs` 會擋下新冒出來的同類常數。
-
-同理，只建立一次、之後只切 `hidden` 的控制項（貼紙的出處欄與圖層鈕、手機的鍵盤
-列、多人資料框畫布上的那組按鈕）不會經過任何重畫的路徑，標籤集中成一個函式並
-掛在 `I18N.onChange` 上重套。
-
-有一類字刻意不跟著語言走：版型 `initialState()` 給的預設內容（「名字」「在這裡
-寫說明。」「#關鍵字」之類畫在圖上的字）。那是使用者的作品內容，不是介面文字——
-一載入就寫進存檔並自動存進 IndexedDB，切個語言就覆寫使用者可能已經改過的字，
-比留著原語言糟得多。
-
-### v1.1.0：四種文字記錄版型與 PDF 匯出（2026-09-30 跟進 `9c29866`）
-
-上游 v1.1.0 加了四種「文字記錄（글로그）」版型（基本型、橫向裝飾、直向裝飾、配對型），
-長文會自動分頁，還能匯出可選取文字的 PDF。版型從五種變成九種，四支新模組照上面的
-原則改寫（最外層常數寫成函式、畫布上只建立一次的控制項掛在 `I18N.onChange`）。
-新版型的卡片圖同樣由工具自己算繪（`previews/textLog-*.png`）；上游的四張樣張
-（`images/textLog-*.png`）裡有別人的 Q 版角色貼紙與照片背景，不收，
-`images/2p-pair2-preview.png` 沒有任何程式用到，也不收。
-
-上游為這組版型附了約 48 MB 的字型，收錄版**都不收**：
-
-- 畫布用的明體 `vendor/textlog/NotoSerifCJKKR.ttf`（24 MB）改由 Google Fonts 載入
-  Noto Serif KR，字型堆疊後面接 Noto Serif TC——韓文版的 Noto Serif 沒有收的漢字
-  （例如「它」「值」「填」）才不會變成豆腐字。Google Fonts 以 `unicode-range` 分片載入，
-  所以分頁前先等文件用到的字所在的分片載入完，載入後再主動重畫一次
-  （實測 `loadingdone` 事件不一定每次都會發出）。
-- PDF 用的 `vendor/pdf/*.ttf.zlib`（約 25 MB）改成按下「PDF 下載」時才從
-  fonts.gstatic.com 抓完整的 TTF（網址表在 `js/SaveBtn.js` 的 `PDF_FONTS`）。
-  Google Fonts 的舊版 CSS API 若只要一個子集，給的是切過的字型：`subset=korean` 的
-  Noto Serif KR 一個漢字也沒有，`subset=chinese-traditional` 的 Noto Serif TC 只有
-  6,317 個漢字；同時列出兩個以上的子集，給的才是沒切過的完整字型（Noto Serif KR
-  的字集與上游附的一模一樣，Noto Serif TC 涵蓋 Big5 常用與次常用字）。
-  明體依序找 Noto Serif KR → Noto Serif TC → 黑體，黑體依序找 Noto Sans KR →
-  Noto Sans TC → 明體，每個字用第一套收有它的字型，只有真的用到的字型才嵌入。
-  上游的黑體 PDF 字型（由 Pretendard 衍生，沒有漢字）換成 Noto Sans KR。
-  整套嵌入（`subset: false`，避開 fontkit 的 CJK 子集化錯誤）、逐字對齊與
-  「背景圖 → 文字 → 貼紙」三層的做法都與上游相同。代價是匯出 PDF 時要連得到
-  fonts.gstatic.com；上游只要網站載入過一次就能離線匯出。
-- `pdf-lib` 1.17.1 與 `@pdf-lib/fontkit` 1.1.1（MIT）照收，與上游一位元組不差。
-
-另外修了上游一個文字重疊的錯誤：Konva 在字距不為 0 時是逐字繪製的，上游卻用整段
-字串量出的寬度推進下一段文字，遇到會擠壓相鄰標點的字型時，粗體等格式交界處的下一段
-會疊上來，PDF 也跟著錯位。收錄版改用逐字量出的寬度推進；韓文預設內容的畫面與上游
-逐像素相同。
+收錄副本的 MIT 工具，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
 
 ## sotsotssi 的角色美術周邊工具
 
-`acrylic-goods`、`video-anim`、`gif-combiner` 是一批同時收錄的
-MIT 小工具，路數與合輯其餘工具相同（角色美術周邊），也都是純靜態頁面（同批的 `color-palette`
+`acrylic-goods` 是一批同時收錄的
+MIT 小工具之一，路數與合輯其餘工具相同（角色美術周邊），也是純靜態頁面（同批的 `color-palette`、`gif-combiner`、`video-anim`
 已由本站重寫，見下方「本站重寫的工具」）：
 
 | 目錄 | 上游名稱 | 做什麼 |
 |---|---|---|
 | `acrylic-goods` | `acrylic-goods`（사이버 아크릴 굿즈 공방） | 3D 壓克力立牌／搖搖樂／立體透視。搖搖樂裡的零件走 cannon.js 物理，手機上可用陀螺儀傾倒 |
-| `video-anim` | `video-to-pic`（동영상→이미지 변환기） | 影片選段轉無損 APNG／Animated WebP／256 色 GIF |
-| `gif-combiner` | `GIF-Combiner`（GIF 이어붙이기 툴） | 多張 GIF 對齊時間軸後合成一張 |
 
 `acrylic-goods` 同作者另有一個 `acrylic-stand`，功能是 `acrylic-goods` 的子集
 （只有立牌），因此只收後者。
 
 依慣例，寫在 `index.html` 裡的 `<style>` 與 `<script>` 區塊抽成 `styles.css` 與
 `app.js`；`acrylic-goods` 上游本來就分開，只是把 `style.css`／`script.js` 改名對齊
-其餘工具。`video-anim` 的 `tailwind.config` 留在 `<head>` 內嵌——那是給 Play CDN
-讀的設定，不是程式。指向原作者 X 帳號的 `@bb_uu_t` 連結照 sotsotssi 其餘工具的
+其餘工具。指向原作者 X 帳號的 `@bb_uu_t` 連結照 sotsotssi 其餘工具的
 做法保留，標題改用 `data-i18n-node` 只換文字、留著連結。
 
 ### 函式庫照上游走 CDN，沒有改成同捆
@@ -195,10 +70,6 @@ gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，
 這幾個工具的固定文字都走 `data-i18n`，但各有一些是程式寫進去的，切語言時得自己
 重寫；每個工具的 `I18N.onChange` 就是在做這件事：
 
-- `gif-combiner`：產生鈕的字（合成途中會被進度覆寫，所以只在閒置時重寫）與整份
-  檔案清單。
-- `video-anim`：裁切狀態、無損模式說明、影片資訊，以及結果卡上那四行——結果卡
-  的數字另外記在 `state.lastResult` 裡，才有辦法用新語言重排。
 - `acrylic-goods`：兩份動態清單（搖搖樂零件、立體透視圖層）與畫布上的浮水印。
   3D 場景本身不含文字，不用重建。
 
@@ -381,88 +252,6 @@ WebM。
   `のコピー`、`レイヤー 1` 這類 Photoshop 自動命名的處理是解析用的資料，不是介面文字，
   原樣保留；`tests/smoke.mjs` 只放行這幾行。
 
-## coc-typesetter：CoC 劇本排版工具
-
-上游是部署在 Vercel 上的單一頁面「CoCシナリオ組版ツール」：把克蘇魯神話 TRPG 的劇本貼進去，
-排成書本般的紙面，印成 PDF 後可以在 BOOTH 等處發佈。頁面上沒有作者署名、沒有授權條款，
-也找不到原始碼的 repo（這個環境連不到該網站，檔案是使用者另存後提供的，取得日期 2026-09-26）。
-權利屬原作者所有，此處僅供試用，見下方「未授權的工具」。
-
-### 只有繁體中文
-
-和其他工具「繁中＋原文」的雙語不同，這個工具收錄成只有繁體中文，不留日文介面，也沒有語言選單：
-
-- 介面、寫法說明、提示與確認訊息全部改寫成繁中。
-- 劇本的標記語法跟著改成中文：換頁是 `===換頁===`（原本是 `===改ページ===`），貼在內文開頭的
-  封面資訊用「標題／副標題／作者」（原本是「タイトル／サブタイトル／作者」），理智檢定除了
-  `SANc（0/1d3）` 之外也認得「SAN 檢定」「SC」「理智檢定」的寫法。日文的寫法不再支援。
-- 預設的框名、封面概要欄位與「/」選單都換成台灣跑團社群的說法：KP 資訊、公開資訊、資料卡、
-  規則版本、建議人數、遊玩時間、建議技能、撕卡率等。「/」選單的篩選關鍵字收了中文同義詞、
-  英文與拼音；注音輸入法會把 `/` 打成「ㄥ」，說明裡提醒改用英數模式或格式按鈕。
-- 版面字型從日文的 Shippori Mincho／Zen Kaku Gothic New 換成 Noto Serif TC／Noto Sans TC。
-- 分頁時的避頭尾標點拿掉假名，補上中文直角括號等標點；`*著重號*` 從日文的芝麻點（字的上方）
-  改成台灣的圓點（字的下方）。
-- 匯出的「列印用 HTML」標成 `zh-Hant-TW`，檔名後綴是「_列印用」。
-
-### 範例劇本另寫
-
-上游附了一篇日文範例劇本。收錄版不用它，另寫了一篇長度相近的原創繁中範例《不存在的四樓》
-（台中老公寓的電梯停在不存在的樓層），同樣用到所有格式：注意框、KP 資訊、資料卡、描述、檢定、
-理智檢定、NPC 資料表、怪物資料與換頁。這篇範例是本 repo 的新作，與根目錄的 LICENSE 一起以 MIT 釋出。
-
-### 其他改動
-
-- 拿掉 OG meta 與 `<meta name="description">`，頁首加上「← TRPG Toolkit」。
-- 上游的單檔 HTML 拆成 `index.html`、`styles.css` 與 `app.js`；紙面的樣式（`#book-css`）留在
-  `index.html` 裡，因為「儲存列印用 HTML」會把那一段原樣複製進匯出的檔案。
-- 上游會把舊版（`coc-typesetter:v1`）的存檔搬進新版；收錄版的網址底下不會有那種舊存檔，搬移的
-  程式拿掉了。存檔的 key 維持 `coc-typesetter:v2`。
-- marked 與 DOMPurify 照上游以 CDN 載入，版本與授權見 `tools/coc-typesetter/THIRD_PARTY_NOTICES.md`。
-
-## scenario-editor：劇本排版台（CC0）
-
-上游 `sedn14636361/trpg-scenario-editor`（シナリオ組版台 v3.3.0）以 CC0 1.0 釋出，作者放棄了
-著作權，不必署名也能自由改寫；合輯仍照慣例標出出處。它和 `coc-typesetter` 同樣是「寫劇本、
-排成書頁」的工具，但走的是另一條路：左邊逐段選書式寫稿、右邊即時排成 A4 紙面，另有表格、
-流程圖、NPC 卡、目錄、彈出視窗與作品管理（IndexedDB、過去的版本、垃圾桶），不需要學標記語法。
-
-- 單一 HTML（約 11,000 行）照慣例拆成 `index.html`、`styles.css`、`app.js`；NPC 卡各系統的
-  資料表（CoC、Emoklore、DX3rd 的能力值、技能、症候群等）另外搬到 `npc-data.js`。
-  註解全部譯成繁體中文。
-- 右上角的完整說明、狀態列、對話框都走字典；匯出的閱覽 HTML 與列印時產生的文字
-  （巻末的附錄、目錄、按鈕）用匯出當下的語言。紙面的 CSS（`DOC_CSS`）仍是畫面與
-  匯出共用的同一份，NPC 卡「超出頁面」的提示改成 CSS 變數，由程式依語言設定。
-- 首次開啟時放進去的範例原稿依建立當下的語言給繁中或日文；存檔的 key 與 JSON 格式不變，
-  上游存的原稿可以直接讀進繁中版。
-- 刻意保留的日文：輸出到 CCFOLIA 棋子的指令與參數名（`正気度ロール`、`アイデア`、`コンボ`、
-  `シンドローム` 等，本工具讀回棋子時也靠同一組字串）、讀入角色卡時的表頭別名、貼上原稿時推測
-  段落種類的關鍵字，以及 `npc-data.js` 的系統資料。所以繁中介面的 NPC 卡上，能力值與技能名仍是
-  日文。`tests/smoke.mjs` 把 `app.js` 的這批字串釘成清單。
-- 原稿的標記語法（`｜漢字《ルビ》`、行首記號、`/kajou` `/list` 等斜線指令）與快捷鍵都照上游。
-- 這個工具刻意不連網，因此沒有加 Google Fonts，只在紙面的明體後面補上新細明體與
-  Noto Serif TC、介面字型補上微軟正黑體、蘋方與 Noto Sans TC（接在日文字型後面，日文顯示不變）。
-
-## くま（TRPG WEBツール観測所）的工具
-
-`session-log`、`session-report` 取自くま。（[@KumachanSteps](https://x.com/KumachanSteps)）的工具站
-「TRPG WEBツール観測所」（[kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools)）。
-站上上線與開發中的工具有十幾個，收錄的是不依賴日文角色卡服務、日文聊天面板或作者後端、
-台灣玩家也用得上的六個（其中 `icon-maker`、`variant-manager`、`bg-motion`、`scenario-cards` 已由本站重寫，見下方「本站重寫的工具」）。repo 沒有授權條款（見「未授權」一節），站上的利用規約另外明文要求
-「画像・アイコン素材の無断転載、再配布、二次利用はお控えください」，因此：
-
-- **上游的圖片一律不收**：站台圖示（部分由るた様繪製）、favicon 都不收。
-- 拿掉每頁都掛的 Google Analytics，以及頁首回原站入口的連結（換成合輯列）。
-- 頁尾「問題回報請私訊 @KumachanSteps」那句拿掉：合輯版改過程式，回報會送錯對象
-  （理由同 `pair-maker` 的回報表單）。作者署名、X 與原站連結保留。
-- 上游自己的語言切換（日文／英文）改接合輯的引擎。合輯沒有英文，英文不收。
-- `session-log` 與 `session-report` 是一組：紀錄簿的每一團可以直接送到團報產生器，
-  連結改指合輯內的 `../session-report/`。紀錄簿要解析使用者匯入的日文試算表、團報與
-  CCFOLIA 紀錄，系統名與生還結果也以上游的日文值存檔（兩種語言匯出的 JSON 才能互讀），
-  所以 `log_tool.js` 刻意留著一批日文字串，`tests/smoke.mjs` 把清單釘死；另外加認對應的
-  繁中寫法（「忍神」「撕卡」「守密人」等），繁中版的範本與匯出文字也能匯回。
-- 團報範本依產生當下的語言給繁中或日文用語（通過→通關、ロスト→撕卡、様→樣、作：〇〇様→
-  作者：〇〇老師）。
-
 ## 本站重寫的工具（靈感來源）
 
 下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的流程改寫到本站的 `web/` 框架，
@@ -502,6 +291,15 @@ WebM。
 | `log-converter` | CCFOLIA 日誌轉換器 | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `83fd605` |
 | `scenario-cards` | 劇本資訊卡片產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`scenario-snippet-builder`） | `83fd605` |
 | `psd-studio` | CCFOLIA & 圖片調色工作室 | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `83fd605` |
+| `session-log` | 跑團紀錄簿 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`session-log-tool`） | `83fd605` |
+| `session-report` | 團報產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`session-report-generator`） | `83fd605` |
+| `coc-typesetter` | CoC 劇本排版工具 | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明） | `83fd605` |
+| `scenario-editor` | 劇本排版台 | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor)（CC0） | `83fd605` |
+| `gif-combiner` | GIF 接合器 | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) | `83fd605` |
+| `video-anim` | 影片轉動圖工具 | [sotsotssi/video-to-pic](https://github.com/sotsotssi/video-to-pic) | `83fd605` |
+| `magic-circle` | 魔法陣製作器 | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `83fd605` |
+| `pair-maker` | 角色介紹圖產生器 | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `83fd605` |
+| `character-select` | 選角畫面產生器 | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -545,46 +343,20 @@ WebM。
 
 五套都是從 Google Fonts 以 `unicode-range` 分割載入，本 repo 不散布字型檔本身，
 因此沒有隨附 OFL 全文。
-收錄的工具：`pair-maker`
-（v1.1.0 的文字記錄版型另外載入 Noto Serif KR，Noto Serif TC 多要 500、600 兩個字重），
-以及 `trpg-lab` 地圖編輯器的文字字型清單。
-
-くま的工具只用系統字型，因此在繁中介面時以 `:lang(zh)` 把台灣系統字型
-（PingFang TC、Microsoft JhengHei、Noto Sans TC 等）排到前面；日文介面維持上游的字型。
+收錄的工具：`trpg-lab` 地圖編輯器的文字字型清單。
 
 各工具宣告的字重都逐一對 `fonts.googleapis.com/css2` 驗證過——Google Fonts 對
 不存在的字重會讓整個請求失敗，畫面上只會表現成「字型沒套用」，很難追。
 `tests/smoke.mjs` 把這張驗證過的字重表與各處的宣告對起來，寫錯會被擋下。
 
-## 未授權的工具
-
-`sotsotssi/select-your-chara`
-與 `baegop157902/PairMaker` 皆未附任何授權條款，GitHub 亦未標示授權。
-`coc-typesetter` 取自 <https://scenario-tool-jade.vercel.app/coc-typesetter.html>，
-頁面上沒有作者署名與授權條款，也找不到原始碼的 repo。
-くま。的 `kumachansteps/trpg-web-tools` 也沒有授權條款（收錄其中兩個工具，見上方專節；
-站上的利用規約另外禁止轉載圖片素材，因此一張圖都沒收）。
-依著作權法預設，其權利保留予原作者，此處僅供試用。原作者如有異議，將立即移除。
-
-`character-select` 的上游是收錄前一兩天才建立、只有一次提交，
-往後很可能還會變動；此處的快照固定在 `883f48b`，不與上游同步。
-
 ## 繁體中文翻譯
 
-magic-circle 的繁體中文翻譯移植自
-[tool-jx3/magic-circle-maker](https://github.com/tool-jx3/magic-circle-maker/tree/zhtw)
-分支 `zhtw`，commit `772d6c4`。該分支在抽取字串時移除了如尼文的韓文讀音
-（`RUNE_READINGS.ko` 為空物件），本 repo 已自上游 `de40a68` 還原這 69 組讀音。
-
-其餘三十八個工具的翻譯與 i18n 改造為本 repo 新增（`coc-typesetter` 是改寫成只有繁中，見上；
-`jizura` 連到原作者的官方繁中版，不在此列）。
+仍收錄副本的工具，翻譯與 i18n 改造為本 repo 新增（`jizura` 連到原作者的官方繁中版，不在此列）。
 
 各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文（`trpg-lab` 的日文註解例外，見上）。
 
 ## 本 repo 新增的部分
 
 新框架 `web/`（含其建置產物 `assets/build/`、`next/` 與重寫上線的 `tools/<id>/index.html`）、`docs/`、`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
-`guide.zh-TW.md`、`coc-typesetter` 的範例劇本（`app.js` 的 `SAMPLE_META` 與 `SAMPLE_TEXT`），
+`guide.zh-TW.md`，
 以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。
-`tools/character-select/`、
-`tools/pair-maker/` 與 `tools/coc-typesetter/` 的其餘部分不在此範圍內，見上節。

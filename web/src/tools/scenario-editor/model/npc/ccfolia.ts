@@ -153,8 +153,9 @@ export function npcToCcfolia(np: Npc): CcfCharacter {
     cmds.push(v6 ? `CCB<=${V('coc.sub.luck') || '0'} 【幸運】` : 'CC<={幸運} 【幸運】');
     cmds.push(`${cc}<=${V('coc.sub.know') || '0'} 【知識】`);
     np.coc.skills.forEach((sk, i) => {
+      /* 名稱空白、只填專業領域時照原作輸出「【:歴史】」 */
       const nm = withArg(String(sk.n ?? '').trim(), sk.arg);
-      if (!String(sk.n ?? '').trim()) return;
+      if (!nm) return;
       cmds.push(`${cc}<=${V(`coc.skills.${i}.v`) || '0'} 【${nm}】`);
     });
     for (const w of np.coc.weapons) {

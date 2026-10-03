@@ -383,7 +383,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '左邊逐段寫劇本、右邊即時排成 A4 書頁：標題、對話、檢定框、表格、流程圖、NPC 卡、目錄與彈出視窗，可以列印、下載 PDF 或匯出附目錄的閱覽 HTML；作品存在瀏覽器裡，保留過去的版本。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sedn14636361/trpg-scenario-editor',
       url: 'https://github.com/sedn14636361/trpg-scenario-editor',
@@ -395,10 +395,94 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把玩過、帶過的團記成表格：統計場次與時數、整理已通關劇本清單，也能把一團帶到團報產生器。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'くま。／TRPG WEBツール観測所',
       url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
+  {
+    id: 'session-report',
+    name: '團報產生器',
+    summary:
+      '填好系統、劇本、主持人與參加者，從 17 種版面挑一種，即時排出貼到 X 的團報：可以直接改、加分隔線與符號、算字數，一鍵複製或開啟發文畫面。',
+    group: 'G6',
+    status: 'live',
+    inspiration: {
+      name: 'くま。／TRPG WEBツール観測所',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
+  {
+    id: 'coc-typesetter',
+    name: 'CoC 劇本排版工具',
+    summary:
+      '用簡單的標記寫克蘇魯神話劇本，即時排成 A5／B5／A4 的書頁：封面、目錄、章節編號、描述、檢定、KP 資訊與資料卡，長段落自動接到下一頁，可以列印成 PDF 或存成列印用 HTML。',
+    group: 'G6',
+    status: 'live',
+    inspiration: {
+      name: 'scenario-tool（作者不明）',
+      url: 'https://scenario-tool-jade.vercel.app/coc-typesetter.html',
+    },
+  },
+  {
+    id: 'video-anim',
+    name: '影片轉動圖工具',
+    summary:
+      '把影片的一段剪成循環播放的 APNG、WebP 或 GIF：選起點與終點、框出要的範圍、調整每秒格數、尺寸與播放速度，全部在瀏覽器裡轉換。',
+    group: 'G8',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/video-to-pic',
+      url: 'https://github.com/sotsotssi/video-to-pic',
+    },
+  },
+  {
+    id: 'gif-combiner',
+    name: 'GIF 接合器',
+    summary:
+      '把好幾張 GIF 動圖排進同一張畫布，各自照原本的速度循環：拖曳排版、拉角落改大小，或依格數一鍵排成格線，再合成一張 GIF（也能存成 APNG、WebP）。',
+    group: 'G8',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/GIF-Combiner',
+      url: 'https://github.com/sotsotssi/GIF-Combiner',
+    },
+  },
+  {
+    id: 'magic-circle',
+    name: '魔法陣製作器',
+    summary:
+      '用鋼筆、手繪、圓與星形加上對稱尺畫出魔法陣、印記或簽名，放上盧恩文字與發光效果，再排好出場動態，匯出 PNG、GIF、APNG 或 WebP。',
+    group: 'G7',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/magic-circle-maker',
+      url: 'https://github.com/sotsotssi/magic-circle-maker',
+    },
+  },
+  {
+    id: 'pair-maker',
+    name: '角色介紹圖產生器',
+    summary:
+      '挑一個版型，在畫布上點哪裡就改哪裡：兩人資料、配對、花紋橫幅、多人資料卡、置頂貼文與會自動分頁的文字記錄，加上可自由旋轉的貼紙，下載 PNG 或 PDF。',
+    group: 'G7',
+    status: 'live',
+    inspiration: {
+      name: 'baegop157902/PairMaker',
+      url: 'https://github.com/baegop157902/PairMaker',
+    },
+  },
+  {
+    id: 'character-select',
+    name: '選角畫面產生器',
+    summary:
+      '做出格鬥遊戲風格的選角畫面動畫：放進角色圖片、設定每位玩家要選誰，游標依序移動並確定，可加大主格與選取效果，存成 APNG、WebP、GIF、MP4，或做成能自己選的互動 HTML。',
+    group: 'G7',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/select-your-chara',
+      url: 'https://github.com/sotsotssi/select-your-chara',
     },
   },
 ];

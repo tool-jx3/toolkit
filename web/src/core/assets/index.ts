@@ -126,6 +126,8 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
 
   const put = async (id: string, blob: Blob): Promise<AssetAddResult> => {
     blobs.set(id, blob);
+    /* 還沒解碼成功的查詢（例如先前找不到這張圖）作廢，下一次 bitmap(id) 讀這張新的 */
+    if (!decoded.has(id)) bitmaps.delete(id);
     const r = await db.put(id, blob);
     if (!r.ok) return { id, persisted: false, reason: r.reason };
     saved.add(id);
@@ -155,17 +157,23 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
     put,
     get,
     bitmap(id) {
-      let p = bitmaps.get(id);
-      if (!p) {
-        p = get(id).then(async (b) => {
-          if (!b) return undefined;
-          const bmp = await loadImage(b);
-          decoded.set(id, bmp);
-          return bmp;
-        });
-        p.catch(() => bitmaps.delete(id));
-        bitmaps.set(id, p);
-      }
+      const hit = bitmaps.get(id);
+      if (hit) return hit;
+      /* 只快取解碼成功的結果：找不到或解碼失敗時移除，之後 put／add 進來的圖讀得到 */
+      const drop = () => {
+        if (bitmaps.get(id) === p) bitmaps.delete(id);
+      };
+      const p: Promise<ImageBitmap | undefined> = get(id).then(async (b) => {
+        if (!b) {
+          drop();
+          return undefined;
+        }
+        const bmp = await loadImage(b);
+        decoded.set(id, bmp);
+        return bmp;
+      });
+      p.catch(drop);
+      bitmaps.set(id, p);
       return p;
     },
     peekBitmap: (id) => decoded.get(id),

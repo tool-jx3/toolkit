@@ -5,7 +5,7 @@
 import { downloadBytes, downloadText } from '@/core/files';
 import { googleFontCssUrl } from '@/core/fonts';
 import { PAPER_SIZES, paperFileName, printPages, settleContent } from '@/core/paged';
-import type { FontCache, PdfFontSource } from '@/core/paged/pdf';
+import type { FontCache, PdfFontSource, PdfOptions } from '@/core/paged/pdf';
 import { idbGet, idbSet, toolDb } from '@/core/storage';
 import { exportHtml } from './exportHtml';
 import { appendixPagesHtml } from './layout';
@@ -126,6 +126,8 @@ export interface PdfProgress {
   onProgress?: (done: number, total: number) => void;
   /** 測試用：換掉字型來源 */
   fonts?: PdfFontSource[];
+  /** 測試用：換掉補字（預設向 Google Fonts 下載 Noto Serif JP／Noto Sans JP 的子集） */
+  missingGlyphs?: PdfOptions['missingGlyphs'];
 }
 
 export async function pdfRange(
@@ -134,7 +136,9 @@ export async function pdfRange(
   range: OutputRange,
   p: PdfProgress = {},
 ): Promise<Uint8Array> {
-  const { dataUrlBytes, notoFontSources, pagesToPdf } = await import('@/core/paged/pdf');
+  const { dataUrlBytes, googleSubsetFallback, notoFontSources, pagesToPdf } = await import(
+    '@/core/paged/pdf'
+  );
   const html = outputPagesHtml(doc, pages, range);
   const host = offscreenHost();
   try {
@@ -153,6 +157,8 @@ export async function pdfRange(
         ...notoFontSources(pdfFontCache(), p.signal),
       ],
       fallback: { serif: ['Noto Serif TC'], sans: ['Noto Sans TC'] },
+      /* 繁中字型沒有的字（NPC 卡系統資料的日文漢字等）：下載 Noto Serif JP／Noto Sans JP 的子集補上 */
+      missingGlyphs: p.missingGlyphs ?? googleSubsetFallback(),
       title: doc.title,
       signal: p.signal,
       onProgress: p.onProgress,

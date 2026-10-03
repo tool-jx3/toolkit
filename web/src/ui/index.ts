@@ -130,6 +130,12 @@ export { type FontPoolItem, FontPoolList, type FontPoolListProps } from './FontP
 export { GestureScope, type GestureScopeProps } from './GestureScope';
 export { GradientField, type GradientFieldProps } from './GradientField';
 export { GroupTabs } from './GroupTabs';
+export {
+  type HighlightLine,
+  HighlightTextArea,
+  type HighlightTextAreaHandle,
+  type HighlightTextAreaProps,
+} from './HighlightTextArea';
 export { HsvPanel, type HsvPanelProps, hsvToHex } from './HsvPanel';
 export {
   type DroppedImage,
@@ -138,6 +144,17 @@ export {
   ImageDrop,
   type ImageDropProps,
 } from './ImageDrop';
+export {
+  type FrameTransform,
+  fitTransform,
+  frameIn,
+  ImageFrameDialog,
+  type ImageFrameDialogProps,
+  renderFrame,
+  turnAt,
+  turnedSize,
+  zoomAt,
+} from './ImageFrameDialog';
 export { ImageSampler, type ImageSamplerProps, type SamplePoint } from './ImageSampler';
 export { InspirationFooter } from './InspirationFooter';
 export {
@@ -150,6 +167,14 @@ export {
 export { ItemListEditor, type ItemListEditorProps } from './ItemListEditor';
 export { Kbd } from './Kbd';
 export { KeyframeTable, type KeyframeTableProps } from './KeyframeTable';
+export {
+  type CanvasPicker,
+  createCanvasPicker,
+  LayoutCanvas,
+  type LayoutCanvasProps,
+  type LayoutSticker,
+  type StickerPhase,
+} from './LayoutCanvas';
 export {
   type LayoutChange,
   LayoutEditor,
@@ -191,11 +216,25 @@ export {
 export { type PartOption, PartPicker, type PartPickerProps } from './PartPicker';
 export { PathPad, type PathPadLabel, type PathPadProps } from './PathPad';
 export {
+  PostEditor,
+  type PostEditorHandle,
+  type PostEditorMessages,
+  type PostEditorProps,
+} from './PostEditor';
+export {
   ProjectMenu,
   ProjectMenuItem,
   type ProjectMenuProps,
   type ProjectNotice,
 } from './ProjectMenu';
+export {
+  domToOffset,
+  offsetToDom,
+  RichTextField,
+  type RichTextFieldProps,
+  readRichDom,
+  writeRichDom,
+} from './RichTextField';
 export {
   type RevealInput,
   type RevealResult,
@@ -294,5 +333,10 @@ export { UsageSection, type UsageSectionProps } from './UsageSection';
 export { useConfirmedReset } from './useConfirmedReset';
 export { type Playback, type PlaybackOptions, usePlayback } from './usePlayback';
 export { type SortableOptions, useSortable } from './useSortable';
+export {
+  type UseVideoPlaybackOptions,
+  useVideoPlayback,
+  type VideoPlayback,
+} from './useVideoPlayback';
 export { useVirtualRows, type VirtualRows, type VirtualRowsOptions } from './useVirtualRows';
 export { WindowDrop, type WindowDropProps } from './WindowDrop';

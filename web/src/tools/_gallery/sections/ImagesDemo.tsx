@@ -40,7 +40,7 @@ export function ImagesDemo() {
   const nextId = useRef(1);
   const [active, setActive] = useState(0);
   const [crops, setCrops] = useState<Record<number, Rect>>({});
-  const [cropOpen, setCropOpen] = useState<'free' | 'square' | null>(null);
+  const [cropOpen, setCropOpen] = useState<'free' | 'square' | 'two' | null>(null);
   const [info, setInfo] = useState<{ colors: DominantColor[]; bounds: Rect | null } | null>(null);
   const img = images[active];
 
@@ -122,6 +122,9 @@ export function ImagesDemo() {
           <Button icon={<Crop />} disabled={!img} onClick={() => setCropOpen('square')}>
             裁切（固定 1:1）
           </Button>
+          <Button icon={<Crop />} disabled={!img} onClick={() => setCropOpen('two')}>
+            裁切（兩個套用按鈕＋預覽）
+          </Button>
         </div>
         {!img ? <p className="m-0 text-xs text-muted">先在上面加入一張圖片。</p> : null}
         {img && crops[active] ? (
@@ -137,6 +140,27 @@ export function ImagesDemo() {
           aspect={cropOpen === 'square' ? 1 : undefined}
           initialRect={crops[active]}
           onConfirm={(r) => setCrops((c) => ({ ...c, [active]: r }))}
+          confirmLabel={cropOpen === 'two' ? '套用到這張' : undefined}
+          secondaryConfirm={
+            cropOpen === 'two'
+              ? {
+                  label: '套用到所有圖片',
+                  onConfirm: (r) =>
+                    setCrops(
+                      Object.fromEntries(images.map((im) => [im.id, r])) as Record<number, Rect>,
+                    ),
+                }
+              : null
+          }
+          renderPreview={
+            cropOpen === 'two'
+              ? (r) => (
+                  <p className="m-0 text-xs text-muted tabular-nums">
+                    預覽（renderPreview）：{r.width}×{r.height}
+                  </p>
+                )
+              : undefined
+          }
         />
       </Section>
       <Section title="影像分析（core/image）">

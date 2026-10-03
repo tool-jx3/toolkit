@@ -3,7 +3,12 @@
  * 清單輸出（3.7，逐字）、JSON 匯出入（3.10）。
  */
 import { describe, expect, it } from 'vitest';
-import { type SessionRow, selfNameSet } from '@/core/sessions';
+import {
+  countCoPlayers,
+  countUniqueScenarios,
+  type SessionRow,
+  selfNameSet,
+} from '@/core/sessions';
 import {
   addCustomColumn,
   type ColumnsData,
@@ -21,6 +26,7 @@ import {
   resetColumns,
   resizeColumn,
   showColumn,
+  storedColumnWidth,
 } from '../../src/tools/session-log/columns';
 import {
   buildExportText,
@@ -31,10 +37,12 @@ import {
 import {
   classifyMediaUrl,
   computeStats,
+  countUpProgress,
   createSampleRows,
   DEFAULT_FILTER,
   dateDisplay,
   dateTitle,
+  dialogChoice,
   exportJsonFileName,
   exportJsonText,
   filterRows,
@@ -122,8 +130,18 @@ describe('欄位（F19、F38～F43）', () => {
     expect(clampColumnWidth('scenario', 10000)).toBe(520);
     expect(clampColumnWidth('scenario', 10)).toBe(180);
     expect(clampColumnWidth('gm', 999)).toBe(360);
-    expect(clampColumnWidth('custom_1', 0)).toBe(140);
     expect(clampColumnWidth('custom_1', 50)).toBe(72);
+    /* 拖過頭算出 0 以下時夾到最小值，不是預設寬度（F43） */
+    expect(clampColumnWidth('custom_1', 0)).toBe(72);
+    expect(clampColumnWidth('note', -250)).toBe(160);
+    expect(clampColumnWidth('scenario', -1)).toBe(180);
+    /* 不是數字時才用預設寬度 */
+    expect(clampColumnWidth('custom_1', Number.NaN)).toBe(140);
+    expect(storedColumnWidth('custom_1', 0)).toBe(140);
+    expect(storedColumnWidth('note', undefined)).toBe(250);
+    expect(storedColumnWidth('note', 'abc')).toBe(250);
+    expect(storedColumnWidth('note', -5)).toBe(160);
+    expect(storedColumnWidth('note', '300')).toBe(300);
   });
 
   it('加入欄位插在送出欄前；移除欄位記住；重設保留自訂欄位的定義', () => {
@@ -214,6 +232,10 @@ describe('欄位（F19、F38～F43）', () => {
     const c = resizeColumn(defaultColumns(), 'scenario', 999);
     expect(c.find((x) => x.key === 'scenario')?.width).toBe(520);
     expect(resizeColumn(c, 'report', 300).find((x) => x.key === 'report')?.width).toBe(116);
+    /* 備註欄 250 往左拖 500 px：250 − 500 → 最小值 160（F43） */
+    const note = resizeColumn(defaultColumns(), 'note', 250 - 500);
+    expect(note.find((x) => x.key === 'note')?.width).toBe(160);
+    expect(resizeColumn(defaultColumns(), 'gm', 0).find((x) => x.key === 'gm')?.width).toBe(96);
   });
 
   it('匯入：可選欄位自動加入、JSON 的欄位合併（主題標籤除外）', () => {
@@ -236,6 +258,8 @@ describe('欄位（F19、F38～F43）', () => {
         { key: 'report', width: 116 },
         { key: 'date', width: 200 },
         { key: 'custom_5', label: '地點', width: 150 },
+        { key: 'note', width: 0 },
+        { key: 'gm', width: -40 },
         'x',
         { key: '' },
       ],
@@ -245,6 +269,9 @@ describe('欄位（F19、F38～F43）', () => {
       { key: 'reported', width: 78, locked: true },
       { key: 'date', width: 112 },
       { key: 'custom_5', width: 150, custom: true, label: '地點' },
+      /* 存檔的寬度 0、沒有 → 預設；負數 → 最小值（照舊版） */
+      { key: 'note', width: 250 },
+      { key: 'gm', width: 96 },
       { key: 'report', width: 116, locked: true },
     ]);
   });
@@ -421,6 +448,62 @@ describe('統計（F10～F13）', () => {
     expect(formatStat(12, false)).toBe('12');
     expect(formatStat(7.0, true)).toBe('7');
     expect(computeStats(ROWS, selfNameSet('阿德、小林')).coPlayers).toBe(5);
+  });
+
+  it('每列只算一次；改過的列（新的物件）重算，結果與核心模組的算法相同', () => {
+    const self = selfNameSet('阿德');
+    const expected = (rows: SessionRow[]) => {
+      const real = rows.filter((r) => !r.sample);
+      return {
+        scenarios: countUniqueScenarios(real),
+        coPlayers: countCoPlayers(real, self),
+      };
+    };
+    expect(computeStats(ROWS, self)).toMatchObject(expected(ROWS));
+    const changed = ROWS.map((r) =>
+      r.id === 'r1' ? { ...r, players: `${r.players ?? ''}、新朋友`, scenario: '新的劇本' } : r,
+    );
+    const after = computeStats(changed, self);
+    expect(after).toMatchObject(expected(changed));
+    expect(after.coPlayers).toBe(computeStats(ROWS, self).coPlayers + 1);
+    /* 自己的名字換了：同一批列也照新的名字排除 */
+    expect(computeStats(ROWS, selfNameSet('')).coPlayers).toBe(
+      countCoPlayers(
+        ROWS.filter((r) => !r.sample),
+        selfNameSet(''),
+      ),
+    );
+  });
+
+  it('數字動畫的進度夾在 0～1（F14：第一個畫面不出現負數）', () => {
+    expect(countUpProgress(-16)).toBe(0);
+    expect(countUpProgress(-1000)).toBe(0);
+    expect(countUpProgress(0)).toBe(0);
+    expect(countUpProgress(350)).toBeCloseTo(0.875, 5);
+    expect(countUpProgress(700)).toBe(1);
+    expect(countUpProgress(5000)).toBe(1);
+    const steps = [-5, 0, 100, 200, 400, 600, 700, 900].map((t) => countUpProgress(t));
+    for (const p of steps) expect(p).toBeGreaterThanOrEqual(0);
+    expect([...steps].sort((a, b) => a - b)).toEqual(steps);
+  });
+});
+
+describe('新增／編輯對話框的選單（F48）', () => {
+  it('不在選單裡的身分、狀態、生還：顯示並儲存第一項（PL、新規、未設定）', () => {
+    expect(dialogChoice('role', '')).toBe('PL');
+    expect(dialogChoice('role', undefined)).toBe('PL');
+    expect(dialogChoice('role', 'pl')).toBe('PL');
+    expect(dialogChoice('role', 'ST')).toBe('PL');
+    expect(dialogChoice('role', 'KP')).toBe('KP');
+    expect(dialogChoice('role', 'DL')).toBe('DL');
+    expect(dialogChoice('status', '')).toBe('新規');
+    expect(dialogChoice('status', 'ended')).toBe('新規');
+    expect(dialogChoice('status', '進行中')).toBe('新規');
+    expect(dialogChoice('status', '中止')).toBe('中止');
+    expect(dialogChoice('survival', 'lost')).toBe('');
+    expect(dialogChoice('survival', '半生還')).toBe('');
+    expect(dialogChoice('survival', 'ロスト')).toBe('ロスト');
+    expect(dialogChoice('survival', '')).toBe('');
   });
 });
 

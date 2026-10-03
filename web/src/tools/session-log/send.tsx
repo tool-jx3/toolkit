@@ -11,7 +11,7 @@ import {
 import { getTool, hrefToTool } from '@/registry';
 import { Dialog, DialogClose, TextOutputPanel, useConfirm } from '@/ui';
 import { notify } from './notify';
-import { useLog } from './store';
+import { flushRowDraft, useLog } from './store';
 import { S } from './strings';
 
 /** 新版團報產生器的網址（還沒上線時在 next/） */
@@ -32,6 +32,7 @@ export function SendBridge() {
   const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
     const run = async (id: string) => {
+      flushRowDraft();
       const row = useLog.getState().data.rows.find((r) => r.id === id);
       if (!row) return;
       const ok = await confirm({

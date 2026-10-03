@@ -1,9 +1,11 @@
 /**
- * 詳細・感想側欄（F56～F69）：從右側滑出，編輯選取的團。每次輸入立即存檔（不取消範例標記）。
+ * 詳細・感想側欄（F56～F69）：從右側滑出，編輯選取的團（不取消範例標記）。
+ * 打字時先放在草稿（store 的 editRow：只有側欄重畫），停頓 300 ms、離開欄位或關閉側欄時寫回存檔，
+ * 表格、統計、清單輸出在那時才更新（主控 7.1：2000 列時每鍵不比舊版慢）。選單與新增、刪除貼文或連結馬上寫回。
  * 日期、時間、系統、生還欄打字時保留打的字，看得懂才寫回正規值；離開欄位後顯示整理後的值。
  */
 import { ExternalLink, Plus, Trash2, X } from 'lucide-react';
-import { type ComponentPropsWithRef, useId, useState } from 'react';
+import { type ComponentPropsWithRef, useEffect, useId, useMemo, useState } from 'react';
 import {
   normalizeRowDates,
   normalizeTimeValue,
@@ -39,11 +41,13 @@ import { sendToReport } from './send';
 import {
   closeDetail,
   deleteRow,
+  editRow,
+  flushRowDraft,
   openEditDialog,
-  patchRow,
-  setRowField,
+  type RowDraft,
   useActiveRow,
   useLog,
+  useRowDraft,
   useUi,
 } from './store';
 import { S } from './strings';
@@ -86,10 +90,11 @@ function MediaSection({ row }: { row: SessionRow }) {
       setError(true);
       return;
     }
-    setRowField(row.id, 'media', [
-      ...media,
-      { type: classifyMediaUrl(clean), url: clean, caption: '' },
-    ]);
+    editRow(
+      row.id,
+      { media: [...media, { type: classifyMediaUrl(clean), url: clean, caption: '' }] },
+      { immediate: true },
+    );
     setUrl('');
     setError(false);
   };
@@ -159,11 +164,7 @@ function MediaSection({ row }: { row: SessionRow }) {
                   size="sm"
                   variant="ghost"
                   onClick={() =>
-                    setRowField(
-                      row.id,
-                      'media',
-                      media.filter((_, j) => j !== i),
-                    )
+                    editRow(row.id, { media: media.filter((_, j) => j !== i) }, { immediate: true })
                   }
                 />
               </div>
@@ -172,11 +173,9 @@ function MediaSection({ row }: { row: SessionRow }) {
                 placeholder={S.detail.captionPlaceholder}
                 value={m.caption}
                 onChange={(e) =>
-                  setRowField(
-                    row.id,
-                    'media',
-                    media.map((x, j) => (j === i ? { ...x, caption: e.target.value } : x)),
-                  )
+                  editRow(row.id, {
+                    media: media.map((x, j) => (j === i ? { ...x, caption: e.target.value } : x)),
+                  })
                 }
               />
             </li>
@@ -191,12 +190,18 @@ function MediaSection({ row }: { row: SessionRow }) {
 
 function LinksSection({ row }: { row: SessionRow }) {
   const links = row.cushionLinks ?? [];
-  const set = (next: typeof links) => setRowField(row.id, 'cushionLinks', next);
+  /* 新增、刪除馬上寫回；打字先放在草稿 */
+  const set = (next: typeof links, immediate = false) =>
+    editRow(row.id, { cushionLinks: next }, { immediate });
   return (
     <section className="flex flex-col gap-2" aria-label={S.detail.links}>
       <div className="flex items-center gap-2">
         <h3 className="m-0 flex-1 text-sm font-semibold">{S.detail.links}</h3>
-        <Button size="sm" icon={<Plus />} onClick={() => set([...links, { label: '', url: '' }])}>
+        <Button
+          size="sm"
+          icon={<Plus />}
+          onClick={() => set([...links, { label: '', url: '' }], true)}
+        >
           {S.detail.addLink}
         </Button>
       </div>
@@ -240,7 +245,12 @@ function LinksSection({ row }: { row: SessionRow }) {
                 icon={<X />}
                 size="sm"
                 variant="ghost"
-                onClick={() => set(links.filter((_, j) => j !== i))}
+                onClick={() =>
+                  set(
+                    links.filter((_, j) => j !== i),
+                    true,
+                  )
+                }
               />
             </li>
           ))}
@@ -252,17 +262,30 @@ function LinksSection({ row }: { row: SessionRow }) {
   );
 }
 
-function DetailBody({ row }: { row: SessionRow }) {
+const NO_PATCH: RowDraft['patch'] = Object.freeze({});
+
+/** 存檔的列加上側欄還沒寫回的修改 */
+function useDraftRow(saved: SessionRow): SessionRow {
+  const patch = useRowDraft((s) => (s.id === saved.id ? s.patch : NO_PATCH));
+  return useMemo(() => (patch === NO_PATCH ? saved : { ...saved, ...patch }), [saved, patch]);
+}
+
+function DetailBody({ row: saved }: { row: SessionRow }) {
+  const row = useDraftRow(saved);
   const rows = useLog((s) => s.data.rows);
   const listId = useId();
+  /* 換一團或關閉側欄時寫回 */
+  useEffect(() => () => flushRowDraft(), []);
   const set = (key: string) => (e: { target: { value: string } }) =>
-    setRowField(row.id, key, e.target.value);
-  const systems = [
-    ...new Set([...SESSION_SYSTEMS.map((s) => s.value), ...systemFilterValues(rows)]),
-  ];
+    editRow(row.id, { [key]: e.target.value });
+  const systems = useMemo(
+    () => [...new Set([...SESSION_SYSTEMS.map((s) => s.value), ...systemFilterValues(rows)])],
+    [rows],
+  );
   const datesText = normalizeRowDates(row).dates.join(', ');
   return (
-    <div className="flex flex-col gap-4">
+    // biome-ignore lint/a11y/noStaticElementInteractions: 只接住欄位冒泡上來的 focusout（離開欄位時寫回草稿）
+    <div className="flex flex-col gap-4" onBlur={() => flushRowDraft()}>
       <Field label={S.detail.scenario}>
         <TextInput
           value={str(row.scenario)}
@@ -280,8 +303,8 @@ function DetailBody({ row }: { row: SessionRow }) {
               const list = splitFlexibleDates(text);
               if (list.length) {
                 const dates = [...new Set(list)].sort();
-                patchRow(row.id, { dates, date: dates[0] });
-              } else if (!text.trim()) patchRow(row.id, { dates: [], date: '' });
+                editRow(row.id, { dates, date: dates[0] });
+              } else if (!text.trim()) editRow(row.id, { dates: [], date: '' });
             }}
           />
         </Field>
@@ -289,13 +312,15 @@ function DetailBody({ row }: { row: SessionRow }) {
           <DraftInput
             value={systemLabel(row.system)}
             list={listId}
-            onCommit={(text) => setRowField(row.id, 'system', systemInput(text))}
+            onCommit={(text) => editRow(row.id, { system: systemInput(text) })}
           />
         </Field>
         <Field label={S.detail.role}>
           <Select
             value={SESSION_ROLES.includes(str(row.role)) ? str(row.role) : NONE}
-            onValueChange={(v) => setRowField(row.id, 'role', v === NONE ? '' : v)}
+            onValueChange={(v) =>
+              editRow(row.id, { role: v === NONE ? '' : v }, { immediate: true })
+            }
             options={[
               { value: NONE, label: S.detail.none },
               ...SESSION_ROLES.map((r) => ({ value: r, label: r })),
@@ -308,7 +333,9 @@ function DetailBody({ row }: { row: SessionRow }) {
         <Field label={S.detail.status}>
           <Select
             value={SESSION_STATUSES.some((s) => s.value === row.status) ? str(row.status) : NONE}
-            onValueChange={(v) => setRowField(row.id, 'status', v === NONE ? '' : v)}
+            onValueChange={(v) =>
+              editRow(row.id, { status: v === NONE ? '' : v }, { immediate: true })
+            }
             options={[
               { value: NONE, label: S.detail.none },
               ...SESSION_STATUSES.map((s) => ({ value: s.value, label: s.label })),
@@ -328,7 +355,7 @@ function DetailBody({ row }: { row: SessionRow }) {
           <DraftInput
             inputMode="decimal"
             value={str(row.time)}
-            onCommit={(text) => setRowField(row.id, 'time', normalizeTimeValue(text))}
+            onCommit={(text) => editRow(row.id, { time: normalizeTimeValue(text) })}
           />
         </Field>
         <Field label={S.detail.ending}>
@@ -337,7 +364,7 @@ function DetailBody({ row }: { row: SessionRow }) {
         <Field label={S.detail.survival}>
           <DraftInput
             value={survivalLabel(row.survival)}
-            onCommit={(text) => setRowField(row.id, 'survival', survivalInput(text))}
+            onCommit={(text) => editRow(row.id, { survival: survivalInput(text) })}
           />
         </Field>
       </FieldRow>
@@ -379,12 +406,17 @@ function DetailBody({ row }: { row: SessionRow }) {
 export function DetailSheet() {
   const open = useUi((s) => s.detailOpen);
   const row = useActiveRow();
+  /* 說明文字的劇本名稱跟著側欄還沒寫回的修改 */
+  const draftScenario = useRowDraft((s) =>
+    s.id && s.id === row?.id ? s.patch.scenario : undefined,
+  );
+  const scenario = str(draftScenario ?? row?.scenario);
   const confirm = useConfirm();
   const remove = async () => {
     if (!row) return;
     const ok = await confirm({
       title: S.dialog.deleteTitle,
-      description: S.dialog.deleteDesc(str(row.scenario)),
+      description: S.dialog.deleteDesc(scenario),
       confirmLabel: S.dialog.deleteConfirm,
       danger: true,
     });
@@ -402,7 +434,7 @@ export function DetailSheet() {
       placement="right"
       size="lg"
       title={S.detail.title}
-      description={row ? S.detail.description(str(row.scenario)) : S.detail.emptyDesc}
+      description={row ? S.detail.description(scenario) : S.detail.emptyDesc}
       footer={
         row ? (
           <>
@@ -420,7 +452,10 @@ export function DetailSheet() {
             <Button onClick={() => void sendToReport(row.id)}>{S.detail.toReport}</Button>
             <Button
               variant="primary"
-              onClick={() => notify({ title: S.detail.saved, tone: 'success' })}
+              onClick={() => {
+                flushRowDraft();
+                notify({ title: S.detail.saved, tone: 'success' });
+              }}
             >
               {S.detail.save}
             </Button>

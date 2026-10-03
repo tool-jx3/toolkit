@@ -168,13 +168,20 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | log-converter | ✅ | ✅ | ✅ | ✅ |
 | room-zip | ✅ | ✅ | ✅ | ✅ |
 | psd-studio | ✅ | ✅ | ✅ | ✅ |
-| scenario-editor | ✅ | ✅ | ⬜ | ⬜ |
-| session-log | ⬜ | ⬜ | ⬜ | ⬜ |
-| session-report | ⬜ | ⬜ | ⬜ | ⬜ |
-| coc-typesetter | ⬜ | ⬜ | ⬜ | ⬜ |
-| 其餘 8 個（G7～G9） | ⬜ | ⬜ | ⬜ | ⬜ |
+| scenario-editor | ✅ | ✅ | ✅ | ✅ |
+| session-log | ✅ | ✅ | ✅ | ✅ |
+| session-report | ✅ | ✅ | ✅ | ✅ |
+| coc-typesetter | ✅ | ✅ | ✅ | ✅ |
+| video-anim | ✅ | ✅ | ✅ | ✅ |
+| gif-combiner | ✅ | ✅ | ✅ | ✅ |
+| pair-maker | ✅ | ✅ | ✅ | ✅ |
+| character-select | ✅ | ✅ | ✅ | ✅ |
+| magic-circle | ✅ | ✅ | ✅ | ✅ |
+| acrylic-goods | ⬜ | ⬜ | ⬜ | ⬜ |
+| trpg-lab | ⬜ | ⬜ | ⬜ | ⬜ |
+| anime-rig | ⬜ | ⬜ | ⬜ | ⬜ |
 
-（每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 ✅。）
+（每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 ✅、G5 ✅、G6 ✅、G8 ✅、G7 的版型畫布 ✅（3D 等 acrylic-goods 開始時再做）。）
 
 ## 7. 往後新增工具
 

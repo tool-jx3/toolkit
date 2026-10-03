@@ -165,13 +165,19 @@
     scrollbar-color: var(--border-strong) transparent;
   }
 
+  /*
+   * 動畫留 0.01ms（Radix 等元件要等 animationend 才卸載）；轉場直接關掉：transition-property 的預設值是 all，
+   * 給每個元素一段 0.01ms 會讓「所有」樣式變更都變成要等下一格才完成的轉場，
+   * 這段期間版面還停在舊值（例如貼紙的點選區還在拖曳前的位置，點下去會點到底下的元素）。
+   */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
+      transition-duration: 0s !important;
+      transition-delay: 0s !important;
       scroll-behavior: auto !important;
     }
   }

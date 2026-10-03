@@ -8,7 +8,7 @@
  */
 import { createEncoder, encodePngColorsAsync } from '../encode/client';
 import type { EncodedFile } from '../encode/frames';
-import { GIF_MAX_FPS } from '../encode/gif';
+import { GIF_MAX_FPS, type GifDither } from '../encode/gif';
 import type { EncoderSpec } from '../encode/local';
 import type { PaletteMethod } from '../encode/palette';
 import { encodePngColors } from '../encode/still';
@@ -110,8 +110,17 @@ export interface ExportAnimationOptions {
   paletteMethod?: PaletteMethod;
   /** GIF 每格各自減色（每格自己的區域調色盤；預設 false＝整段共用一個全域調色盤） */
   gifLocalPalettes?: boolean;
+  /** GIF 調色盤的色數上限（2～256；不給＝256，與以前相同） */
+  gifMaxColors?: number;
+  /** GIF 抖色（'floyd-steinberg'；不給＝'none'，與以前相同） */
+  gifDither?: GifDither;
   /** APNG 合併連續相同的影格（預設 true） */
   mergeIdentical?: boolean;
+  /**
+   * APNG（全彩）：範圍裡沒變的像素存成透明、以「疊上」畫上去，必要時和前兩格比（ApngEncoder 的 transparentUnchanged，
+   * 舊版 UPNG.js 的做法；影片這類每格都有細微變化的動畫檔案小很多，畫面不變）。不給＝false，與以前相同。
+   */
+  apngTransparentUnchanged?: boolean;
   /** APNG 加上預設圖（不支援 APNG 的看圖程式顯示代表畫面） */
   still?: boolean;
   /** APNG 減色時，不放預設圖也把代表畫面（stillTime）加權列入色彩統計 */
@@ -339,7 +348,10 @@ export async function exportAnimation(
     colors,
     paletteMethod,
     gifLocalPalettes = false,
+    gifMaxColors,
+    gifDither,
     mergeIdentical = true,
+    apngTransparentUnchanged = false,
     still = false,
     stillForPalette = false,
     stillWeightMin,
@@ -477,6 +489,7 @@ export async function exportAnimation(
             ...(maxColors ? { maxColors: Math.max(2, maxColors) } : {}),
             ...(paletteMethod ? { paletteMethod } : {}),
             mergeIdentical,
+            ...(apngTransparentUnchanged ? { transparentUnchanged: true } : {}),
             embedStill: still,
             ...(stillWeightMin !== undefined ? { stillWeightMin } : {}),
           },
@@ -493,6 +506,8 @@ export async function exportAnimation(
               ...(gifAlphaThreshold !== undefined ? { alphaThreshold: gifAlphaThreshold } : {}),
               ...(paletteMethod ? { paletteMethod } : {}),
               ...(gifLocalPalettes ? { localPalettes: true } : {}),
+              ...(gifMaxColors !== undefined ? { maxColors: gifMaxColors } : {}),
+              ...(gifDither ? { dither: gifDither } : {}),
             },
           }
         : format === 'webp'

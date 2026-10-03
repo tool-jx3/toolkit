@@ -4,7 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import { parseDelimited } from '@/core/csv';
 import { type SessionRow, selfNameSet } from '@/core/sessions';
-import { parseListExport, parseReportText } from '../../src/tools/session-log/importReport';
+import {
+  parseListExport,
+  parseReportText,
+  textImportColumnKeys,
+} from '../../src/tools/session-log/importReport';
 import {
   applySelfRole,
   buildRowFromCells,
@@ -313,5 +317,27 @@ describe('團報文字（3.8.5）', () => {
       { scenario: 'A', role: 'KP' },
       { scenario: 'B' },
     ]);
+  });
+
+  it('匯入後自動加入的欄位：依資料中第一次出現的順序（照舊版，3.8.7）', () => {
+    const row = (r: Partial<SessionRow>) => ({ id: 'x', ...r }) as SessionRow;
+    expect(
+      textImportColumnKeys([
+        row({ ending: 'END A', survival: '生還' }),
+        row({ hashtag: '#團報', ending: 'END B' }),
+        row({ ho: 'HO1', campaign: '' }),
+      ]),
+    ).toEqual(['ending', 'survival', 'hashtag', 'ho']);
+    /* 同一列裡依 主題標籤、結局、生還、長團、HO 的順序 */
+    expect(
+      textImportColumnKeys([row({ ho: 'HO2', campaign: '長團', survival: '生還', hashtag: '#a' })]),
+    ).toEqual(['hashtag', 'survival', 'campaign', 'ho']);
+    expect(textImportColumnKeys([row({ scenario: '雨夜' })])).toEqual([]);
+    /* 實際的團報：第一篇只有 HO，第二篇有主題標籤、結局與生還 */
+    const rows = finishPartialRows(
+      parseReportText(`${REPORT_B}\n---\n${REPORT_A}`),
+      selfNameSet(''),
+    );
+    expect(textImportColumnKeys(rows)).toEqual(['ho', 'hashtag', 'ending', 'survival']);
   });
 });

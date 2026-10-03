@@ -208,6 +208,39 @@ interface DragState {
   side: 'before' | 'after';
 }
 
+type DropSide = 'before' | 'after';
+const NO_DROP: { target: string | null; side: DropSide } = { target: null, side: 'before' };
+
+/**
+ * 拖曳排序的落點（F42）：指標 x 底下「看得到」的欄位標題，與指標在它的左半或右半。
+ * - 固定在右側的送出欄疊在其他欄上面，被它蓋住的欄不算（先看送出欄）。
+ * - 表格區以外（橫向捲出去、看不到的部分）不算。
+ */
+function dropTargetAt(
+  scroller: HTMLElement | null,
+  x: number,
+  from: string,
+): { target: string | null; side: DropSide } {
+  if (!scroller) return NO_DROP;
+  const box = scroller.getBoundingClientRect();
+  const left = box.left + scroller.clientLeft;
+  if (x < left || x >= left + scroller.clientWidth) return NO_DROP;
+  const ths = [...scroller.querySelectorAll<HTMLElement>('th[data-col]')];
+  const ordered = [
+    ...ths.filter((th) => th.dataset.col === REPORT_KEY),
+    ...ths.filter((th) => th.dataset.col !== REPORT_KEY),
+  ];
+  for (const th of ordered) {
+    const r = th.getBoundingClientRect();
+    if (x >= r.left && x < r.right) {
+      const key = th.dataset.col ?? null;
+      if (!key || key === from) return NO_DROP;
+      return { target: key, side: x < r.left + r.width / 2 ? 'before' : 'after' };
+    }
+  }
+  return NO_DROP;
+}
+
 function HeaderCell({
   col,
   drop,
@@ -256,8 +289,11 @@ function HeaderCell({
       className={cn(
         'relative h-9 overflow-hidden border-b border-border bg-surface-2 px-2.5 text-left text-xs font-semibold whitespace-nowrap text-muted',
         'sticky top-0 z-[2]',
+        col.key === REPORT_KEY && 'right-0 z-[3]',
+        /* 送出欄的左側陰影；拖曳到送出欄上時改畫插入位置（兩個 box-shadow 會互相蓋掉） */
         col.key === REPORT_KEY &&
-          'right-0 z-[3] group-data-[at-end=false]/table:shadow-[-8px_0_8px_-8px_var(--overlay)]',
+          !drop &&
+          'group-data-[at-end=false]/table:shadow-[-8px_0_8px_-8px_var(--overlay)]',
         drop === 'before' && 'shadow-[inset_3px_0_0_var(--accent)]',
         drop === 'after' && 'shadow-[inset_-3px_0_0_var(--accent)]',
       )}
@@ -380,22 +416,6 @@ export function SessionTable({ rows }: { rows: readonly SessionRow[] }) {
     scroller.current?.querySelector<HTMLElement>(`[data-col-handle="${CSS.escape(key)}"]`)?.focus();
   });
 
-  const targetAt = (
-    x: number,
-    from: string,
-  ): { target: string | null; side: 'before' | 'after' } => {
-    const ths = [...(scroller.current?.querySelectorAll<HTMLElement>('th[data-col]') ?? [])];
-    for (const th of ths) {
-      const r = th.getBoundingClientRect();
-      if (x >= r.left && x < r.right) {
-        const key = th.dataset.col ?? null;
-        if (!key || key === from) return { target: null, side: 'before' };
-        return { target: key, side: x < r.left + r.width / 2 ? 'before' : 'after' };
-      }
-    }
-    return { target: null, side: 'before' };
-  };
-
   const onHandleDown = (e: ReactPointerEvent<HTMLButtonElement>, key: string) => {
     if (e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -412,7 +432,7 @@ export function SessionTable({ rows }: { rows: readonly SessionRow[] }) {
       const d = dragRef.current;
       if (!d) return;
       if (!d.active && Math.abs(ev.clientX - d.startX) < 4) return;
-      const { target, side } = targetAt(ev.clientX, d.key);
+      const { target, side } = dropTargetAt(scroller.current, ev.clientX, d.key);
       dragRef.current = { ...d, active: true, target, side };
       setDrag(dragRef.current);
     };

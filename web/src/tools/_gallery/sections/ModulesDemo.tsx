@@ -1,8 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { createRandom, EASE, EASING_CHOICES, type EasingName } from '@/core/timeline';
 import { Section } from '@/ui';
+import { FlowDemo } from './FlowDemo';
 import { PagedDemo } from './PagedDemo';
+import { PostDemo } from './PostDemo';
 import { TypesetDemo } from './TypesetDemo';
+import { VideoDemo } from './VideoDemo';
 
 function Curve({ name }: { name: EasingName }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -68,6 +71,9 @@ export function ModulesDemo() {
       </Section>
       <TypesetDemo />
       <PagedDemo />
+      <PostDemo />
+      <FlowDemo />
+      <VideoDemo />
     </div>
   );
 }

@@ -374,6 +374,10 @@ export interface ApngFrame {
   delayDen: number;
   /** zlib 壓好的影像資料 */
   data: Uint8Array;
+  /** dispose_op（不給＝0 NONE；2＝PREVIOUS：顯示完還原成這格畫上去之前的畫面） */
+  dispose?: 0 | 1 | 2;
+  /** blend_op（不給＝0 SOURCE；1＝OVER：依透明度疊上，完全透明的像素保留底下的畫面） */
+  blend?: 0 | 1;
 }
 
 function fctl(seq: number, f: ApngFrame): Bytes {
@@ -386,8 +390,8 @@ function fctl(seq: number, f: ApngFrame): Bytes {
   dv.setUint32(16, f.y);
   dv.setUint16(20, f.delayNum);
   dv.setUint16(22, f.delayDen);
-  d[24] = 0; // dispose_op: NONE（保留這一格，下一格只改變化的範圍）
-  d[25] = 0; // blend_op: SOURCE（範圍內整個覆寫，透明也照寫）
+  d[24] = f.dispose ?? 0; // dispose_op：預設 NONE（保留這一格，下一格只改變化的範圍）
+  d[25] = f.blend ?? 0; // blend_op：預設 SOURCE（範圍內整個覆寫，透明也照寫）
   return chunk('fcTL', d);
 }
 

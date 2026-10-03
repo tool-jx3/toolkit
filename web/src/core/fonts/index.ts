@@ -177,6 +177,53 @@ export function loadPreviewFont(family: string, text: string): Promise<string> {
   return p;
 }
 
+/* ---------- 子集字型檔（PDF 補字等） ---------- */
+
+/** css2 樣式表裡的字型檔網址（依出現順序、不重複） */
+export function fontUrlsFromCss(css: string): string[] {
+  const out: string[] = [];
+  for (const m of String(css ?? '').matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g))
+    if (!out.includes(m[2])) out.push(m[2]);
+  return out;
+}
+
+export interface FontSubsetOptions {
+  signal?: AbortSignal;
+  /** 每批最多幾個字（網址不要太長；預設 200） */
+  maxChars?: number;
+}
+
+/**
+ * 下載 Google Fonts 只含指定字的子集字型檔（css2 的 `text=`；劇本排版台修正時新增）。
+ * 目錄裡的字型取它有的最接近字重；目錄外的字型（例如 Noto Sans Symbols 2）用預設字重（400）。
+ * 字很多時分批，回傳每批的字型檔（瀏覽器拿到的通常是 WOFF2；字型沒有的字不在檔案裡）。
+ * 網路錯誤、HTTP 錯誤、樣式表裡沒有字型網址時丟 Error（原因由呼叫端說明）；signal 中止時丟 AbortError。
+ */
+export async function fetchGoogleFontSubset(
+  family: string,
+  weight: number,
+  text: string,
+  { signal, maxChars = 200 }: FontSubsetOptions = {},
+): Promise<Uint8Array[]> {
+  const entry = findGoogleFont(family);
+  const ws = entry ? [nearestWeight(entry.weights, weight)] : undefined;
+  const chars = [...new Set(text)];
+  const out: Uint8Array[] = [];
+  for (let i = 0; i < chars.length; i += Math.max(1, maxChars)) {
+    const part = chars.slice(i, i + Math.max(1, maxChars)).join('');
+    const res = await fetch(googleFontCssUrl(entry?.family ?? family, ws, part), { signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const urls = fontUrlsFromCss(await res.text());
+    if (!urls.length) throw new Error('樣式表裡沒有字型檔。');
+    for (const url of urls) {
+      const f = await fetch(url, { signal });
+      if (!f.ok) throw new Error(`HTTP ${f.status}`);
+      out.push(new Uint8Array(await f.arrayBuffer()));
+    }
+  }
+  return out;
+}
+
 /* ---------- 電腦字型 ---------- */
 
 interface LocalFontData {

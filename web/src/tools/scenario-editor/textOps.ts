@@ -28,6 +28,18 @@ let bound = false;
 export function trackFields(): void {
   if (bound || typeof document === 'undefined') return;
   bound = true;
+  /*
+   * 在文字欄裡按 Esc＝結束輸入：記住的選取範圍跟著作廢（原作在 Esc 時重畫文字欄，選取範圍就不見了），
+   * 之後按注音、註解、顏色、巢狀書式不再作用在看不到的範圍（F070、F072、F074、F078）。
+   * 用捕獲階段，在欄位自己處理 Esc（blur、選取段落）之前就作廢；輸入法選字中的 Esc 不算。
+   */
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (e.key === 'Escape' && !e.isComposing && last && e.target === last.el) last = null;
+    },
+    true,
+  );
   document.addEventListener('focusin', (e) => {
     const t = e.target;
     if (t instanceof HTMLTextAreaElement && t.dataset.bid)
