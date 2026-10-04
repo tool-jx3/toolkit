@@ -491,7 +491,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把去背圖做成可以轉動的 3D 壓克力立牌、會晃動的搖搖樂與多層的立體透視，調整厚度、留白與打光，存成會旋轉的 APNG、GIF、WebP 或 GLB 模型。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/acrylic-goods',
       url: 'https://github.com/sotsotssi/acrylic-goods',

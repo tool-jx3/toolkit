@@ -1,5 +1,5 @@
 /**
- * 壓克力周邊工房（建置產物 next/acrylic-goods/）的端對端測試（WebGL 在無頭 Chromium 走 SwiftShader）：
+ * 壓克力周邊工房（建置產物 tools/acrylic-goods/）的端對端測試（WebGL 在無頭 Chromium 走 SwiftShader）：
  * - 開頁：沒有 console error、三種周邊的示範內容、外框與頁尾、分頁記住；
  * - 立牌：換正面圖、移除背面圖、正反面各自算（轉到背面換一塊）、底座開關與形狀、錯誤訊息（沒有正面圖、整張透明、不是圖片）；
  * - 搖搖樂：零件數、加零件與刪除、數量、外框形狀、錯誤訊息、物理（零件往下掉）、拖曳搖晃、搖一搖、陀螺儀（沉浸模式、傾斜、Esc 返回）；
@@ -279,7 +279,7 @@ test('立牌：換圖、背面、正反面各自算、底座、錯誤訊息', as
     mimeType: 'image/png',
     buffer: Buffer.from('not an image'),
   });
-  await expect(page.getByText('「note.png」不是可以讀取的圖片。')).toBeVisible();
+  await expect(page.getByText('「note.png」不是可以讀取的圖片。').first()).toBeVisible();
   /* 復原回到透明的那張 → 再復原回到人物 */
   await page.keyboard.press('Control+z');
   await expectError(page, '抓不出外框（圖片可能整張都是透明的）。');
