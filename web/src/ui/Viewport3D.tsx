@@ -186,7 +186,7 @@ export function Viewport3D({
             <div
               role="status"
               className={cn(
-                'absolute inset-0 flex flex-col items-center justify-center gap-2 bg-overlay text-sm text-fg backdrop-blur-[2px]',
+                'absolute inset-0 flex flex-col items-center justify-center gap-2 bg-overlay text-sm text-fg',
                 busyDelay > 0 && 'animate-[tk-fade-in_150ms_var(--ease-out)_both]',
               )}
               style={busyDelay > 0 ? { animationDelay: `${busyDelay}ms` } : undefined}

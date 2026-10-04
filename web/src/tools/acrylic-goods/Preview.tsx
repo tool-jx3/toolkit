@@ -25,6 +25,8 @@ import { S } from './strings';
 
 /** 產生中的遮罩延後多久才淡入（ms）：很快就組好時不閃一下（舊版按產生後固定等 0.1 秒） */
 const BUSY_DELAY_MS = 100;
+/** 上一次重建超過這麼久（ms）時，下一次的遮罩不等延遲直接出現：大圖重建時要先看得到提示，才開始卡住 */
+const SLOW_BUILD_MS = 120;
 
 /** 這個種類用到的圖 */
 function neededImages(kind: Kind, s: Settings): string[] {
@@ -63,6 +65,8 @@ export function Preview() {
   const lastRebuild = useRef(rebuild);
   /* 上一次組好（或確定組不出來）時的 key：匯出結束時 key 沒變就不重建（搖搖樂的零件留在原地） */
   const built = useRef<string | null>(null);
+  /** 上一次組場景（含第一次算繪）花的時間 */
+  const lastBuildMs = useRef(0);
   /** 等著組的場景：hold＝拉桿還在動（不蓋遮罩）、paint＝遮罩畫上畫面後就組 */
   const [pending, setPending] = useState<{ key: string; phase: 'hold' | 'paint' } | null>(null);
   /** 停頓到了、放開滑鼠時再檢查一次 */
@@ -101,6 +105,7 @@ export function Preview() {
     const e = getEngine();
     if (!e) return;
     const { key: k, kind: kd, seed: sd, rebuild: rb } = latest.current;
+    const t0 = performance.now();
     const now = useSettings.getState().data;
     const r = buildScene(kd, now, e.prepareTexture, sd);
     const kindChanged = lastKind.current !== kd;
@@ -108,6 +113,9 @@ export function Preview() {
     if (r.ok) {
       e.setBuild(r.build, kindChanged || forced ? 'always' : 'auto');
       applyLayerOffsets(r.build, now);
+      /* 新場景的第一次算繪（編譯著色器、上傳貼圖）可能要一秒以上：在遮罩還在畫面上時先畫一次，再拿掉遮罩 */
+      e.view.render();
+      lastBuildMs.current = performance.now() - t0;
       lastKind.current = kd;
       lastRebuild.current = rb;
       built.current = k;
@@ -158,17 +166,22 @@ export function Preview() {
     setPending({ key, phase: 'paint' });
   }, [key, exporting, wake]);
 
-  /* 遮罩已經在畫面上（這個 effect 在它進 DOM 之後才跑）：下一個畫面畫完才組 */
+  /*
+   * 遮罩已經在 DOM 裡（這個 effect 在它進 DOM 之後才跑）：等兩個畫面（遮罩確實畫上螢幕）才組。
+   * 只等一個畫面時，組場景與第一次算繪（編譯著色器）可能在遮罩送上螢幕之前就把 GPU 佔住，卡住的期間看不到提示。
+   */
   // biome-ignore lint/correctness/useExhaustiveDependencies: runBuild 讀的是 ref 裡最新的值
   useEffect(() => {
     if (pending?.phase !== 'paint') return;
     let t = 0;
-    const raf = requestAnimationFrame(() => {
-      t = window.setTimeout(() => {
-        if (useSession.getState().exporting) return;
-        if (latest.current.key === pending.key) runBuild();
-        setPending((p) => (p === pending ? null : p));
-      }, 0);
+    let raf = requestAnimationFrame(() => {
+      raf = requestAnimationFrame(() => {
+        t = window.setTimeout(() => {
+          if (useSession.getState().exporting) return;
+          if (latest.current.key === pending.key) runBuild();
+          setPending((p) => (p === pending ? null : p));
+        }, 0);
+      });
     });
     return () => {
       cancelAnimationFrame(raf);
@@ -234,7 +247,7 @@ export function Preview() {
               ? S.view.building(kind)
               : null
         }
-        busyDelay={exporting ? 0 : BUSY_DELAY_MS}
+        busyDelay={exporting || lastBuildMs.current > SLOW_BUILD_MS ? 0 : BUSY_DELAY_MS}
         immersive={immersive}
         onExitImmersive={exitGyro}
         exitLabel={S.shaker.exitGyro}
