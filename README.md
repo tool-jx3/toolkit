@@ -40,7 +40,7 @@
 | [房間 ZIP 產生器](tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；工作進度可存成 .ccproj 檔 |
 | [角色介紹圖產生器](tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；也有會自動分頁、能匯出 PDF 的文字記錄版型；可存到存檔槽或匯出成編輯檔 |
 | [角色配色條產生器](tools/color-palette/) | 把角色的配色排成一條色塊圖，可直接從立繪取色（手動滴管或自動抓主色），輸出 PNG |
-| [壓克力周邊工房](tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光，匯出 APNG／GIF／WebM 或 .glb 模型 |
+| [壓克力周邊工房](tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光、搖晃，匯出 APNG／GIF／WebP／PNG 或 .glb 模型 |
 | [影片轉動圖工具](tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
 | [GIF 接合器](tools/gif-combiner/) | 把多張 GIF 的影格對齊時間軸排進同一張畫面，拖曳排版後合成一張 GIF |
 | [違法建築的 TRPG 實驗室](tools/trpg-lab/) | 一站收齊九個跑團工具：CoC 7 版擲骰、調查員角色卡、NPC 製作／管理、TRPG 地圖編輯器、網格／六角格產生器與量尺產生器、BCDice 傷害計算 |
@@ -133,13 +133,13 @@ npm test
 | `magic-circle` | [魔法陣製作器](tools/magic-circle/) | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) |
 | `pair-maker` | [角色介紹圖產生器](tools/pair-maker/) | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) |
 | `character-select` | [選角畫面產生器](tools/character-select/) | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) |
+| `acrylic-goods` | [壓克力周邊工房](tools/acrylic-goods/) | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：`acrylic-goods` 為韓文，
-`trpg-lab` 與
+介面預設為繁體中文，可由右上角切換回該工具的原文：`trpg-lab` 與
 `anime-rig` 為日文。
 
 `text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。

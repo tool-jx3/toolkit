@@ -23,57 +23,11 @@
 
 | 工具 | 原始 repo | 來源 commit | 授權 |
 |---|---|---|---|
-| acrylic-goods | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `8b1b1e2` | MIT |
 | trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
 | jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | —（連到原站；2026-09-25～30 曾收錄 `1b48bea` 的副本） | MIT |
 | anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 
 收錄副本的 MIT 工具，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
-
-## sotsotssi 的角色美術周邊工具
-
-`acrylic-goods` 是一批同時收錄的
-MIT 小工具之一，路數與合輯其餘工具相同（角色美術周邊），也是純靜態頁面（同批的 `color-palette`、`gif-combiner`、`video-anim`
-已由本站重寫，見下方「本站重寫的工具」）：
-
-| 目錄 | 上游名稱 | 做什麼 |
-|---|---|---|
-| `acrylic-goods` | `acrylic-goods`（사이버 아크릴 굿즈 공방） | 3D 壓克力立牌／搖搖樂／立體透視。搖搖樂裡的零件走 cannon.js 物理，手機上可用陀螺儀傾倒 |
-
-`acrylic-goods` 同作者另有一個 `acrylic-stand`，功能是 `acrylic-goods` 的子集
-（只有立牌），因此只收後者。
-
-依慣例，寫在 `index.html` 裡的 `<style>` 與 `<script>` 區塊抽成 `styles.css` 與
-`app.js`；`acrylic-goods` 上游本來就分開，只是把 `style.css`／`script.js` 改名對齊
-其餘工具。指向原作者 X 帳號的 `@bb_uu_t` 連結照 sotsotssi 其餘工具的
-做法保留，標題改用 `data-i18n-node` 只換文字、留著連結。
-
-### 函式庫照上游走 CDN，沒有改成同捆
-
-這幾個工具的外部相依（Tailwind Play CDN、three.js、cannon.js、gif.js、gifuct-js、
-gifshot、pako、upng-js、Font Awesome）全部照上游原樣以 CDN 載入，本 repo 不散布
-它們的檔案；各工具目錄下的 `THIRD_PARTY_NOTICES.md` 列出版本、來源與授權。
-合輯本來就是這個做法，README 也已寫明「部分工具會從 CDN 載入函式庫與字型」。
-
-`acrylic-goods` 另外自帶一個「開源授權」對話框，把同一份清單顯示給使用者看，
-那是上游就有的，收錄版只把兩句說明譯成繁中。
-
-### 刻意保留的一處署名
-
-`acrylic-goods` 會在 3D 畫面右下角燒一行浮水印進輸出的圖片。那是原作者在自己
-工具的成品上署名，照樣保留；工具名跟著介面語言走，`@bb_uu_t` 不動，因此它是
-字典裡的 `watermark`（繁中「壓克力周邊工房 @bb_uu_t」／韓文原文）。切語言時
-`updateBackground()` 會重畫這張貼圖。
-
-### 切語言時要重跑的幾處
-
-這幾個工具的固定文字都走 `data-i18n`，但各有一些是程式寫進去的，切語言時得自己
-重寫；每個工具的 `I18N.onChange` 就是在做這件事：
-
-- `acrylic-goods`：兩份動態清單（搖搖樂零件、立體透視圖層）與畫布上的浮水印。
-  3D 場景本身不含文字，不用重建。
-
-已經彈出去的 toast 不重寫——那是過去事件的訊息，回頭改寫它的語言只會讓人困惑。
 
 ## trpg-lab：違法建築的 TRPG 實驗室
 
@@ -300,6 +254,7 @@ WebM。
 | `magic-circle` | 魔法陣製作器 | [sotsotssi/magic-circle-maker](https://github.com/sotsotssi/magic-circle-maker) | `83fd605` |
 | `pair-maker` | 角色介紹圖產生器 | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `83fd605` |
 | `character-select` | 選角畫面產生器 | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `83fd605` |
+| `acrylic-goods` | 壓克力周邊工房 | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `83fd605` |
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
@@ -352,8 +307,6 @@ WebM。
 ## 繁體中文翻譯
 
 仍收錄副本的工具，翻譯與 i18n 改造為本 repo 新增（`jizura` 連到原作者的官方繁中版，不在此列）。
-
-各工具程式碼中的原始（韓文）原始碼註解，已一併譯為繁體中文（`trpg-lab` 的日文註解例外，見上）。
 
 ## 本 repo 新增的部分
 

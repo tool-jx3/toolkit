@@ -87,7 +87,7 @@ interface Proj {
     transparent: boolean;
     background: string;
   };
-  symmetry: { enabled: boolean; count: number; centerX: number; centerY: number };
+  symmetry: { enabled: boolean; count: number; centerX: number; centerY: number; offset: number };
   snap: Record<string, unknown>;
   animation: { duration: number; fps: number; plays: number };
   elements: El[];

@@ -98,6 +98,16 @@
   }
 }
 
+/* 淡入（Viewport3D 處理中遮罩的 busyDelay；acrylic-goods 對等驗證後新增） */
+@keyframes tk-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Tooltip：Radix 外層的定位元素也不接收滑鼠事件，點擊穿過提示落到底下的按鈕（psd-studio F31） */
 [data-radix-popper-content-wrapper]:has(> [data-tk-tooltip]) {
   pointer-events: none;

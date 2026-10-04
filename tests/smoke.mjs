@@ -59,7 +59,7 @@ const HANGUL = /[가-힣]/;
  * 未翻譯（真正的片假名詞一定帶有假名字母，不會因此漏掉）。 */
 const KANA = /[\u3041-\u3096\u30A1-\u30FA\uFF66-\uFF9D]/;
 
-/* dir: 'tools/acrylic-goods'；dict: 字典檔名；
+/* dir: 'tools/anime-rig'；dict: 字典檔名；
  * locale: 該工具原文語言的字典代碼（sotsotssi 的工具為 ko，shiki365 的為 ja）；
  * scripts: 需掃描的 JS 檔名陣列；styles: 需掃描原文洩漏的 CSS 檔名陣列
  * （不檢查 T() key 引用，CSS 本來就不會呼叫 T()）；
@@ -164,64 +164,8 @@ function stripComments(src, kind) {
   return out;
 }
 
-/* ---- sotsotssi 的四個角色美術周邊工具 ---- */
-/* 一批同時收錄、做法一致的小工具：純靜態、MIT、函式庫照上游走 CDN。
- * 共通的檢查寫成迴圈，各自的特別之處放在後面。 */
-const SOTSOT_FOUR = [
-  /* authorLink：上游在標題旁放了 @bb_uu_t 的連結。acrylic-goods 沒有——
-   * 那個工具的署名只出現在燒進輸出圖片的浮水印上（見下方的 watermark 檢查）。 */
-  { dir: 'tools/acrylic-goods', dict: 'i18n.acrylic-goods.js', minHooks: 50, inline: 35, attrs: 4, authorLink: false },
-];
-for (const t of SOTSOT_FOUR) {
-  checkTool({ dir: t.dir, dict: t.dict, scripts: ['app.js'], styles: ['styles.css'], minHooks: t.minHooks });
-}
-
-section('sotsotssi 的角色美術周邊工具');
-/* 上游把函式庫掛在 CDN 上，收錄版照舊（理由見 ATTRIBUTION）。既然不同捆，
- * 版本與出處就只剩 THIRD_PARTY_NOTICES.md 記著——漏記等於查不到來源。 */
+/* trpg-lab 的函式庫照上游走 CDN；出處記在 THIRD_PARTY_NOTICES.md，下面逐一比對。 */
 const CDN_HOSTS = /https:\/\/(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|esm\.sh|cdn\.tailwindcss\.com)[^"'`) ]*/g;
-for (const t of SOTSOT_FOUR) {
-  check(`${t.dir} 有第三方函式庫的出處說明`, exists(`${t.dir}/THIRD_PARTY_NOTICES.md`));
-  const notices = read(`${t.dir}/THIRD_PARTY_NOTICES.md`);
-  const urls = new Set();
-  for (const f of ['index.html', 'app.js']) {
-    for (const m of read(`${t.dir}/${f}`).matchAll(CDN_HOSTS)) urls.add(m[0]);
-  }
-  check(`${t.dir} 確實有 CDN 相依`, urls.size > 0, `found ${urls.size}`);
-  const undocumented = [...urls].filter(u => {
-    if (u.startsWith('https://cdn.tailwindcss.com')) return !notices.includes('cdn.tailwindcss.com');
-    const m = u.match(/@(\d+\.\d+\.\d+)|\/(\d+\.\d+\.\d+)\/|\/(r\d+)\//);
-    const version = m && (m[1] || m[2] || m[3]);
-    return !version || !notices.includes(version);
-  });
-  check(`${t.dir} 的 CDN 相依都記在 THIRD_PARTY_NOTICES`, undocumented.length === 0,
-    `未記載: ${undocumented.join(', ')}`);
-  /* 切語言時，程式自己寫進畫面的文字要重寫一次；四個工具都靠 onChange 做這件事。 */
-  const app = read(`${t.dir}/app.js`);
-  check(`${t.dir} 掛了語言切換器`, app.includes("I18N.mountSwitcher(document.getElementById('localeSelect'))"));
-  check(`${t.dir} 切語言時重寫程式畫出來的文字`, /I18N\.onChange\(\(\) => \{/.test(app));
-  /* 原作者的 X 連結照 sotsotssi 其餘工具的做法保留（有的工具上游就沒有）。 */
-  check(`${t.dir} ${t.authorLink ? '保留' : '本來就沒有'}原作者的連結`,
-    read(`${t.dir}/index.html`).includes('https://x.com/bb_uu_t') === t.authorLink);
-}
-
-/* acrylic-goods：畫布上的浮水印是作者署名，走字典而不是寫死。 */
-const agApp = read('tools/acrylic-goods/app.js');
-check('acrylic-goods 的浮水印走字典', agApp.includes("ctx.fillText(T('watermark'), 390, 35)"));
-const agDict = loadI18N(['tools/acrylic-goods/i18n.acrylic-goods.js']).messages;
-for (const locale of ['zh-TW', 'ko']) {
-  check(`acrylic-goods ${locale} 的浮水印保留原作者署名`,
-    (agDict[locale]['watermark'] || '').includes('@bb_uu_t'), agDict[locale]['watermark']);
-}
-/* 工具自己那個「開源授權」對話框與 THIRD_PARTY_NOTICES 講的是同一批函式庫。 */
-const agHtml = read('tools/acrylic-goods/index.html');
-const agNotices = read('tools/acrylic-goods/THIRD_PARTY_NOTICES.md');
-for (const lib of ['Three.js', 'Cannon.js', 'GIF.js', 'UPNG.js', 'Pako']) {
-  check(`acrylic-goods 的授權對話框列了 ${lib}`, agHtml.includes(`<strong>${lib}</strong>`));
-}
-for (const lib of ['three.js', 'cannon.js', 'gif.js', 'upng-js', 'pako', 'GLTFExporter', 'OrbitControls']) {
-  check(`acrylic-goods 的 THIRD_PARTY_NOTICES 列了 ${lib}`, agNotices.includes(lib));
-}
 
 /* 一段連續的假名／漢字。刻意保留的日文清單逐段比對用（同一行多出一段新的原文仍然會被擋下）。 */
 const KANA_RUN = /[ぁ-ゖァ-ヺｦ-ﾝ・ー一-鿿]+/g;
@@ -644,9 +588,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
 
 checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
 checkInlineText('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 110);
-for (const t of SOTSOT_FOUR) {
-  checkInlineText(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.inline);
-}
 for (const page of LAB_PAGES) {
   checkInlineText(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.inline);
 }
@@ -713,9 +654,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
 
 checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
 checkAttrPairs('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 24);
-for (const t of SOTSOT_FOUR) {
-  checkAttrPairs(t.dir, `${t.dir}/index.html`, [`${t.dir}/${t.dict}`], t.attrs);
-}
 for (const page of LAB_PAGES) {
   checkAttrPairs(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.attrs);
 }
@@ -731,16 +669,8 @@ const attribution = read('ATTRIBUTION.md');
 for (const name of TOOLS) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
-for (const sha of ['8b1b1e2', 'd39f79e', '1b48bea', '7ddbd99']) {
+for (const sha of ['d39f79e', '1b48bea', '7ddbd99']) {
   check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
-}
-/* 四個新工具的函式庫沒有同捆，理由與出處要寫下來才查得到。 */
-check('ATTRIBUTION.md 說明四個工具的函式庫為何走 CDN',
-  /sotsotssi 的角色美術周邊工具[\s\S]{0,2500}沒有改成同捆/.test(attribution));
-check('ATTRIBUTION.md 說明 acrylic-goods 的浮水印為何保留',
-  attribution.includes('watermark') && /浮水印[\s\S]{0,300}@bb_uu_t/.test(attribution));
-for (const dir of ['acrylic-goods']) {
-  check(`ATTRIBUTION.md 記載 ${dir} 的上游`, new RegExp(`\\| ${dir} \\| \\[sotsotssi/`).test(attribution));
 }
 
 /* 需要另外建置的上游專案（cutin、obs-tachie、character-editor）都已由本站重寫，vendor/ 不再存在。 */

@@ -15,6 +15,9 @@
  * - 只想從把手開始拖（例如每列都是輸入欄的表單）：把 rowProps 的 ref 給整列、其餘的指標事件給把手。
  *   把手本身（標 `data-drag-handle`）可以是 `<button>`（有名稱、可聚焦）：按鈕、輸入欄等不能開始拖的元素
  *   只有在把手裡面時例外（character-editor 移植時新增；原本的把手都是 span，行為不變）。
+ * - handleOnly（選填）：指標事件照樣給整列，但滑鼠也只能從把手（`[data-drag-handle]`）開始拖，
+ *   從列上其他地方按住只算點一下（同觸控）。每列有縮圖、拖放區等大塊內容時用，避免從那裡拖到卻排了序
+ *   （acrylic-goods 對等驗證後新增，不給時行為不變）。
  */
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react';
 
@@ -35,6 +38,8 @@ export interface SortableOptions {
   cancelOutside?: boolean;
   /** 'y'（預設，直向清單）或 'xy'（格狀／橫向排列：依指標所在的那一張決定目標） */
   axis?: 'y' | 'xy';
+  /** 滑鼠也只能從把手（`[data-drag-handle]`）開始拖（預設 false：滑鼠可以從列上任何不是輸入欄、按鈕的地方開始） */
+  handleOnly?: boolean;
   /**
    * 沒有可捲動的上層容器（清單直接放在頁面上）時，指標離視窗上下緣在這個距離（px）內就慢慢捲動整頁，
    * 越靠近邊緣越快（每個畫面最多 WINDOW_SCROLL_MAX px）。不給時不捲動整頁（行為不變）。
@@ -82,7 +87,7 @@ export function useSortable(options: SortableOptions) {
   const rows = useRef(new Map<number, HTMLElement>());
   const [state, setState] = useState<{ drag: number; over: number } | null>(null);
   const g = useRef<{
-    /** 觸控、不是從把手開始：不拖（交給捲動），放開仍算點一下 */
+    /** 不是從把手開始的觸控（或 handleOnly 時的滑鼠）：不拖（觸控交給捲動），放開仍算點一下 */
     touchOnly: boolean;
     id: number;
     index: number;
@@ -240,8 +245,17 @@ export function useSortable(options: SortableOptions) {
       const target = e.target as Element;
       const blocked = target.closest?.(NO_DRAG);
       if (blocked && !blocked.closest('[data-drag-handle]')) return;
-      /* 觸控時整列留給捲動，只有拖曳把手（[data-drag-handle]，要加 touch-none）可以拖 */
-      const touchOnly = e.pointerType === 'touch' && !target.closest?.('[data-drag-handle]');
+      /* 觸控時整列留給捲動，只有拖曳把手（[data-drag-handle]，要加 touch-none）可以拖；handleOnly 時滑鼠也一樣 */
+      const fromHandle = !!target.closest?.('[data-drag-handle]');
+      const touchOnly = (e.pointerType === 'touch' || !!opts.current.handleOnly) && !fromHandle;
+      /*
+       * handleOnly：列上的文字可以選取（從那裡拖不會排序），選取範圍蓋到把手時，從把手按下會變成拖曳選取的文字
+       * （瀏覽器原生的拖放，指標事件被取消）。從把手按下時不讓瀏覽器開始選取或拖放。
+       */
+      if (opts.current.handleOnly && fromHandle && e.pointerType !== 'touch') {
+        e.preventDefault();
+        window.getSelection?.()?.removeAllRanges();
+      }
       /* 還沒開始拖就離開這一列放開時，清掉這次按下 */
       const id = e.pointerId;
       const clear = (ev: globalThis.PointerEvent) => {
