@@ -4,6 +4,7 @@ import { Section } from '@/ui';
 import { FlowDemo } from './FlowDemo';
 import { PagedDemo } from './PagedDemo';
 import { PostDemo } from './PostDemo';
+import { ThreeDemo } from './ThreeDemo';
 import { TypesetDemo } from './TypesetDemo';
 import { VideoDemo } from './VideoDemo';
 
@@ -74,6 +75,7 @@ export function ModulesDemo() {
       <PostDemo />
       <FlowDemo />
       <VideoDemo />
+      <ThreeDemo />
     </div>
   );
 }

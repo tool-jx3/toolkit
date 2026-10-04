@@ -96,6 +96,12 @@ export {
   useChoice,
   useConfirm,
 } from './Dialog';
+export {
+  clampToDisk,
+  DirectionPad,
+  type DirectionPadProps,
+  type PadVector,
+} from './DirectionPad';
 export { EffectGrid, type EffectGridItem, type EffectGridProps } from './EffectGrid';
 export {
   animationFormats,
@@ -339,4 +345,5 @@ export {
   type VideoPlayback,
 } from './useVideoPlayback';
 export { useVirtualRows, type VirtualRows, type VirtualRowsOptions } from './useVirtualRows';
+export { Viewport3D, type Viewport3DProps } from './Viewport3D';
 export { WindowDrop, type WindowDropProps } from './WindowDrop';
