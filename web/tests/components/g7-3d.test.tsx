@@ -2,7 +2,8 @@
 /**
  * G7 的 3D 共用元件（acrylic-goods 移植時新增）：
  * - DirectionPad：方向鍵移動（Shift ×4）、夾進單位圓、Home 回到預設、onCommit、朗讀文字、停用；
- * - Viewport3D：底色或棋盤格、處理中的遮罩、疊加訊息、工具列與下方內容、沉浸模式（Esc 返回、頁面不捲動）。
+ * - Viewport3D：底色或棋盤格、處理中的遮罩（busyDelay 延後淡入）、疊加訊息、工具列與下方內容、
+ *   沉浸模式（Esc 返回、頁面不捲動、放進頂層〔Popover API〕蓋住頁首，acrylic-goods F28）。
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createRef, useState } from 'react';
@@ -91,7 +92,54 @@ describe('Viewport3D', () => {
     expect(box).toHaveAttribute('data-viewport-background', 'transparent');
     expect(box.className).toContain('checker');
     expect(screen.getByTestId('viewport-busy')).toHaveTextContent('匯出中…');
+    /* 不給 busyDelay：立刻顯示（沒有淡入動畫） */
+    expect(screen.getByTestId('viewport-busy').style.animationDelay).toBe('');
     expect(screen.getByText('請先選一張正面圖。')).toBeInTheDocument();
+  });
+
+  it('busyDelay：遮罩延後淡入（很快就做完的處理不會閃一下）', () => {
+    const ref = createRef<HTMLCanvasElement>();
+    render(<Viewport3D canvasRef={ref} busy="產生壓克力立牌中…" busyDelay={100} />);
+    const busy = screen.getByTestId('viewport-busy');
+    expect(busy).toHaveTextContent('產生壓克力立牌中…');
+    expect(busy).toHaveAttribute('role', 'status');
+    expect(busy.style.animationDelay).toBe('100ms');
+    expect(busy.className).toContain('tk-fade-in');
+  });
+
+  it('沉浸模式放進頂層（showPopover）：蓋住頁首等所有內容；返回時拿出來，畫布不重建', () => {
+    const proto = HTMLElement.prototype as unknown as {
+      showPopover?: () => void;
+      hidePopover?: () => void;
+    };
+    const show = vi.fn();
+    const hide = vi.fn();
+    proto.showPopover = show;
+    proto.hidePopover = hide;
+    try {
+      const ref = createRef<HTMLCanvasElement>();
+      const { rerender, container } = render(
+        <Viewport3D canvasRef={ref} onExitImmersive={() => {}} />,
+      );
+      const root = container.firstElementChild as HTMLElement;
+      const canvas = ref.current;
+      expect(show).not.toHaveBeenCalled();
+      expect(root).not.toHaveAttribute('popover');
+      rerender(<Viewport3D canvasRef={ref} immersive onExitImmersive={() => {}} />);
+      expect(show).toHaveBeenCalledTimes(1);
+      expect(show.mock.contexts[0]).toBe(root);
+      expect(root).toHaveAttribute('popover', 'manual');
+      /* 返回按鈕在畫布下方（不疊在畫布上）；jsdom 沒有頂層，popover 元素被當成隱藏 */
+      const exit = screen.getByRole('button', { name: '回到編輯畫面', hidden: true });
+      expect(exit.className).not.toContain('absolute');
+      rerender(<Viewport3D canvasRef={ref} onExitImmersive={() => {}} />);
+      expect(hide).toHaveBeenCalledTimes(1);
+      expect(root).not.toHaveAttribute('popover');
+      expect(ref.current).toBe(canvas);
+    } finally {
+      delete proto.showPopover;
+      delete proto.hidePopover;
+    }
   });
 
   it('沉浸模式：全螢幕、返回按鈕、Esc 返回、頁面不捲動，結束後恢復', () => {

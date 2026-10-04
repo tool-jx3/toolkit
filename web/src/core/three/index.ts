@@ -6,7 +6,12 @@
  * `@/core/three/glbInfo` 引用（不載入 three.js）。
  */
 export { disposeObject } from './dispose';
-export { type ExportGlbOptions, exportGlb } from './glb';
+export {
+  type ExportGlbOptions,
+  exportGlb,
+  LEGACY_GLB_NON_PBR,
+  type NonPbrFactors,
+} from './glb';
 export { GLB_MAGIC, type GlbInfo, type GlbJson, parseGlb } from './glbInfo';
 export {
   type ColorPipeline,

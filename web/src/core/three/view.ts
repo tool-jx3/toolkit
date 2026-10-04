@@ -5,6 +5,7 @@
  *   半透明的物件疊在底色上的結果與「把底色畫進場景」相同。
  * - 繪圖緩衝區的大小固定（例如 800 × 800），顯示大小由 CSS 決定；匯出時 `capture` 可以換成輸出尺寸。
  * - 算繪迴圈只在需要時重畫：`invalidate()`、鏡頭在動（含慣性）、或 `onFrame` 的回呼回傳 true（例如自動旋轉、物理）。
+ * - 游標：滑鼠在畫面上是手掌（grab）、拖曳中是抓住（grabbing）。
  * - 色彩：`colorPipeline: 'legacy'` 照 three.js r152 以前的做法（貼圖與輸出都不做 sRGB 轉換，顏色值原樣進出），
  *   搭配 `LEGACY_LIGHT_SCALE` 把燈光強度換算成舊版的亮度；新工具用預設的 'srgb'。
  *
@@ -95,7 +96,7 @@ export interface OrbitView {
   frameObject(object: Object3D, options?: FrameOptions): void;
   /** 繞著目標轉（弧度；左右、上下），鍵盤操作用 */
   orbit(azimuth: number, polar: number): void;
-  /** 拉近（factor > 1）或拉遠（< 1） */
+  /** 拉近（factor > 1，鏡頭到目標的距離 ÷ factor）或拉遠（< 1）；與滾輪同方向 */
   zoom(factor: number): void;
   /** 依色彩設定標記貼圖的色彩空間（彩色圖片） */
   prepareTexture<T extends Texture>(texture: T): T;
@@ -143,6 +144,11 @@ export function createOrbitView(canvas: HTMLCanvasElement, options: OrbitViewOpt
   camera.position.set(position[0], position[1], position[2]);
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = damping;
+  /*
+   * 游標：滑鼠在畫面上是手掌、拖曳中是抓住。r186 的 OrbitControls 建構時把畫布的行內樣式設成 cursor: auto
+   * （蓋過 CSS 的 cursor-grab），改用它自己的 cursorStyle：按下時換成 grabbing、放開時換回 grab。
+   */
+  controls.cursorStyle = 'grab';
 
   const size = { width, height };
   const callbacks = new Set<FrameCallback>();
@@ -236,8 +242,8 @@ export function createOrbitView(canvas: HTMLCanvasElement, options: OrbitViewOpt
       dirty = true;
     },
     zoom(factor) {
-      if (factor > 1) controls.dollyIn(factor);
-      else if (factor > 0 && factor < 1) controls.dollyOut(1 / factor);
+      /* r186 的 dollyIn(s) 把距離乘上 s（滾輪拉近時傳 < 1 的值）：距離 ÷ factor＝factor > 1 時拉近 */
+      if (factor > 0 && factor !== 1) controls.dollyIn(1 / factor);
       dirty = true;
     },
     prepareTexture(texture) {

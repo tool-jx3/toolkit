@@ -8,6 +8,8 @@
  * - 鍵盤：列有焦點時 ↑／↓ 移到上一列／下一列並選取，Alt＋↑／↓ 調整順序。
  * - `sortDisabled`（例如篩選中）：不能拖，按住只會選取。
  * - `cancelOutside`（drop 模式）：拖到清單範圍外放開不移動（一頁有好幾個清單時，拖到別的清單上不算）。
+ * - `handleOnly`：滑鼠也只能從拖曳把手（`[data-drag-handle]`）開始拖（觸控本來就是），從列上其他地方按住只算點一下；
+ *   每列有縮圖、拖放區等大塊內容時用（不給時行為不變）。
  *
  * LayerList：SortableList＋常見的圖層列：選取、縮圖（底部對齊、左右置中）、名稱、列內數字欄、顯示／隱藏、上移／下移按鈕、緊密列距。
  *
@@ -50,6 +52,8 @@ export interface SortableListProps<T> {
   sortDisabled?: boolean;
   /** drop 模式：指標在清單範圍外時沒有目標列、放開不移動（預設 false：落在最近的列） */
   cancelOutside?: boolean;
+  /** 滑鼠也只能從拖曳把手（`[data-drag-handle]`）開始拖（預設 false：從列上任何不是輸入欄、按鈕的地方都可以） */
+  handleOnly?: boolean;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   /** 沒有項目時 */
@@ -70,6 +74,7 @@ export function SortableList<T>({
   mode = 'live',
   sortDisabled,
   cancelOutside,
+  handleOnly,
   selectedId,
   onSelect,
   empty,
@@ -83,6 +88,7 @@ export function SortableList<T>({
     mode,
     disabled: sortDisabled,
     cancelOutside,
+    handleOnly,
     onMove,
     onMoveStart: () => onMoveStart?.(),
     onMoveEnd: () => onMoveEnd?.(),

@@ -23,10 +23,16 @@ export interface GlbJson {
   }[];
   meshes?: { primitives: { attributes: Record<string, number>; material?: number }[] }[];
   materials?: {
+    name?: string;
     alphaMode?: string;
     doubleSided?: boolean;
     extensions?: Record<string, unknown>;
-    pbrMetallicRoughness?: { baseColorTexture?: { index: number }; baseColorFactor?: number[] };
+    pbrMetallicRoughness?: {
+      baseColorTexture?: { index: number };
+      baseColorFactor?: number[];
+      metallicFactor?: number;
+      roughnessFactor?: number;
+    };
   }[];
   textures?: { source?: number }[];
   images?: { mimeType?: string; bufferView?: number }[];
