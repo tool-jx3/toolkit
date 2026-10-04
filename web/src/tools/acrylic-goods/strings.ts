@@ -1,7 +1,14 @@
 /**
  * 壓克力周邊工房的介面文字（繁中；用詞照 DESIGN.md 第 5 節）。原作 MIT，說明參考舊版的繁中譯文改寫。
  */
+import type { Kind } from './model';
 import type { BuildError } from './scene';
+
+const S_KINDS: Record<Kind, string> = {
+  stand: '壓克力立牌',
+  shaker: '壓克力搖搖樂',
+  diorama: '壓克力立體透視',
+};
 
 export const S = {
   usage: [
@@ -15,7 +22,7 @@ export const S = {
   undo: '復原',
   redo: '重做',
   kindsAria: '周邊種類',
-  kinds: { stand: '壓克力立牌', shaker: '壓克力搖搖樂', diorama: '壓克力立體透視' },
+  kinds: S_KINDS,
   kindsShort: { stand: '立牌', shaker: '搖搖樂', diorama: '立體透視' },
 
   image: {
@@ -25,6 +32,7 @@ export const S = {
     drop: '把圖片拖到這裡',
     dropHint: '去背的 PNG（也可以用 WebP、GIF、JPG）',
     empty: '還沒有圖',
+    unnamed: '放進來的圖片',
     loading: '讀取中…',
     missing: '讀不到這張圖',
     notImage: (name: string) => `「${name}」不是可以讀取的圖片。`,
@@ -138,7 +146,8 @@ export const S = {
     rebuildHint: '重新組一次（搖搖樂的零件重新放進去），並重設鏡頭',
     spin: '自動旋轉',
     spinOff: '不轉',
-    building: '產生中…',
+    /** 產生（讀圖、組場景）中的遮罩：依種類（同舊版） */
+    building: (kind: Kind) => `產生${S_KINDS[kind]}中…`,
     exporting: '匯出中…',
   },
 

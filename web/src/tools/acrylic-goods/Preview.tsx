@@ -1,9 +1,11 @@
 /**
  * 預覽欄：3D 預覽（共用 Viewport3D＋core/three）、重設鏡頭、重新產生、搖一搖、自動旋轉，匯出區與 GLB。
  * 設定改了就重新組場景（不必按「產生」）；只動了偏移、打光、背景、自動旋轉時不必重建。
+ * 重建前先蓋上「產生壓克力立牌中…」等遮罩、等它畫上畫面才開始組（大圖算外框時不會無聲地凍住）；
+ * 拉桿拖曳、鍵盤連續調整時不每一步都重建，放開或停頓 REBUILD_IDLE_MS 後才重建（規格 F07）。
  */
 import { Maximize2, RefreshCw, Vibrate } from 'lucide-react';
-import { type KeyboardEvent, useEffect, useMemo, useRef } from 'react';
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Field, Slider, Viewport3D } from '@/ui';
 import { exitGyro, getEngine, setEngine } from './actions';
 import { ExportArea } from './ExportArea';
@@ -11,8 +13,18 @@ import { AcrylicEngine } from './engine';
 import { loadImageInfo, useImages } from './media';
 import { type Kind, normalizeKind, RANGE, type Settings } from './model';
 import { applyLayerOffsets, buildScene } from './scene';
-import { requestRebuild, useSession, useSettings, useView } from './store';
+import {
+  rebuildHoldMs,
+  releaseRebuildHold,
+  requestRebuild,
+  useSession,
+  useSettings,
+  useView,
+} from './store';
 import { S } from './strings';
+
+/** 產生中的遮罩延後多久才淡入（ms）：很快就組好時不閃一下（舊版按產生後固定等 0.1 秒） */
+const BUSY_DELAY_MS = 100;
 
 /** 這個種類用到的圖 */
 function neededImages(kind: Kind, s: Settings): string[] {
@@ -46,11 +58,15 @@ export function Preview() {
   const s = useSettings((st) => st.data);
   const kind = normalizeKind(useView((st) => st.data.kind));
   const images = useImages((st) => st.images);
-  const { error, building, exporting, immersive, seed, rebuild } = useSession();
+  const { error, busy, exporting, immersive, seed, rebuild } = useSession();
   const lastKind = useRef<Kind | null>(null);
   const lastRebuild = useRef(rebuild);
   /* 上一次組好（或確定組不出來）時的 key：匯出結束時 key 沒變就不重建（搖搖樂的零件留在原地） */
   const built = useRef<string | null>(null);
+  /** 等著組的場景：hold＝拉桿還在動（不蓋遮罩）、paint＝遮罩畫上畫面後就組 */
+  const [pending, setPending] = useState<{ key: string; phase: 'hold' | 'paint' } | null>(null);
+  /** 停頓到了、放開滑鼠時再檢查一次 */
+  const [wake, setWake] = useState(0);
 
   /* 引擎：開頁建立一次（開發模式的 StrictMode 會建兩次：新的引擎要重新組場景） */
   useEffect(() => {
@@ -76,33 +92,89 @@ export function Preview() {
     return e === 'error' ? 'x' : e && e !== 'loading' ? 'o' : '.';
   });
   const key = `${shapeKey(kind, s)}|${readiness.join('')}|${seed}`;
+  /* 組場景時用最新的值（組的時機可能晚一兩個畫面） */
+  const latest = useRef({ key, kind, seed, rebuild });
+  latest.current = { key, kind, seed, rebuild };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 形狀、圖片、種子改變時才重建；匯出中延後
-  useEffect(() => {
+  /** 依目前的設定組場景 */
+  const runBuild = () => {
     const e = getEngine();
-    if (!e || exporting || built.current === key) return;
+    if (!e) return;
+    const { key: k, kind: kd, seed: sd, rebuild: rb } = latest.current;
     const now = useSettings.getState().data;
-    const r = buildScene(kind, now, e.prepareTexture, seed);
-    const kindChanged = lastKind.current !== kind;
-    const forced = lastRebuild.current !== rebuild;
+    const r = buildScene(kd, now, e.prepareTexture, sd);
+    const kindChanged = lastKind.current !== kd;
+    const forced = lastRebuild.current !== rb;
     if (r.ok) {
       e.setBuild(r.build, kindChanged || forced ? 'always' : 'auto');
       applyLayerOffsets(r.build, now);
-      lastKind.current = kind;
-      lastRebuild.current = rebuild;
-      built.current = key;
-      useSession.setState({ info: r.build.info, error: null, building: false });
+      lastKind.current = kd;
+      lastRebuild.current = rb;
+      built.current = k;
+      useSession.setState({ info: r.build.info, error: null, building: false, busy: false });
     } else if (r.error === 'loading') {
-      /* 讀圖中：換了種類就先清掉舊的 */
+      /* 讀圖中：換了種類就先清掉舊的；圖讀好時 key 會變，再組一次 */
       if (kindChanged) e.setBuild(null);
-      useSession.setState({ building: true, error: null });
+      useSession.setState({ building: true, busy: true, error: null });
     } else {
       e.setBuild(null);
       lastKind.current = null;
-      built.current = key;
-      useSession.setState({ info: null, error: r.error, building: false });
+      built.current = k;
+      useSession.setState({ info: null, error: r.error, building: false, busy: false });
     }
-  }, [key, exporting]);
+  };
+
+  /* 放開滑鼠（拉桿拖完）：不必等停頓 */
+  useEffect(() => {
+    const onUp = () => {
+      if (releaseRebuildHold()) setWake((n) => n + 1);
+    };
+    window.addEventListener('pointerup', onUp, true);
+    window.addEventListener('pointercancel', onUp, true);
+    return () => {
+      window.removeEventListener('pointerup', onUp, true);
+      window.removeEventListener('pointercancel', onUp, true);
+    };
+  }, []);
+
+  /* 形狀、圖片、種子改變時重建；拉桿還在動時等停頓，匯出中延後 */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: wake 只用來在停頓、放開時重新檢查
+  useEffect(() => {
+    const e = getEngine();
+    if (!e || exporting) return;
+    if (built.current === key) {
+      /* 例如拉桿拖回原本的值：不必重建 */
+      setPending(null);
+      if (useSession.getState().building) useSession.setState({ building: false, busy: false });
+      return;
+    }
+    if (!useSession.getState().building) useSession.setState({ building: true });
+    const wait = rebuildHoldMs();
+    if (wait > 0) {
+      setPending({ key, phase: 'hold' });
+      const t = window.setTimeout(() => setWake((n) => n + 1), wait);
+      return () => window.clearTimeout(t);
+    }
+    setPending({ key, phase: 'paint' });
+  }, [key, exporting, wake]);
+
+  /* 遮罩已經在畫面上（這個 effect 在它進 DOM 之後才跑）：下一個畫面畫完才組 */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runBuild 讀的是 ref 裡最新的值
+  useEffect(() => {
+    if (pending?.phase !== 'paint') return;
+    let t = 0;
+    const raf = requestAnimationFrame(() => {
+      t = window.setTimeout(() => {
+        if (useSession.getState().exporting) return;
+        if (latest.current.key === pending.key) runBuild();
+        setPending((p) => (p === pending ? null : p));
+      }, 0);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+    };
+  }, [pending]);
 
   /* 偏移與旋轉（立體透視）：不必重建 */
   useEffect(() => {
@@ -155,7 +227,14 @@ export function Preview() {
         aria-label={S.view.aria}
         canvasRef={canvas}
         background={background}
-        busy={exporting ? S.view.exporting : building ? S.view.building : null}
+        busy={
+          exporting
+            ? S.view.exporting
+            : busy || pending?.phase === 'paint'
+              ? S.view.building(kind)
+              : null
+        }
+        busyDelay={exporting ? 0 : BUSY_DELAY_MS}
         immersive={immersive}
         onExitImmersive={exitGyro}
         exitLabel={S.shaker.exitGyro}

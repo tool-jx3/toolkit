@@ -112,6 +112,8 @@ export interface Settings {
   /** 自動旋轉速度 0～10（0＝不轉） */
   spin: number;
   export: ExportSettings;
+  /** 放進來的圖的檔名（圖片 id → 檔名，圖片欄顯示用；示範圖不放） */
+  names: Record<string, string>;
 }
 
 /* ---------- 範圍與預設 ---------- */
@@ -143,6 +145,9 @@ export const SCALE_CHOICES = [0.5, 0.75, 1, 1.5, 2] as const;
 /** 預覽與匯出的畫面大小（px，舊版固定 800 × 800） */
 export const CANVAS_SIZE = 800;
 
+/** 檔名最多記幾個字 */
+export const IMAGE_NAME_MAX = 255;
+
 export function defaultSettings(): Settings {
   return {
     stand: {
@@ -161,6 +166,7 @@ export function defaultSettings(): Settings {
     background: { color: '#eef1f5', transparent: false },
     spin: 0,
     export: { format: 'apng', fps: 20, scale: 1, plays: 0, quantize: false },
+    names: {},
   };
 }
 
@@ -217,7 +223,7 @@ export function normalizeSettings(raw: unknown): Settings | null {
   const len = Math.hypot(rx, ry);
   const lx = Math.round((len > 1 ? rx / len : rx) * 1000) / 1000;
   const ly = Math.round((len > 1 ? ry / len : ry) * 1000) / 1000;
-  return {
+  const out: Settings = {
     stand: {
       front: imageId(st.front),
       back: imageId(st.back),
@@ -283,7 +289,30 @@ export function normalizeSettings(raw: unknown): Settings | null {
       plays: num(ex.plays, 0, [0, 99]),
       quantize: ex.quantize === true,
     },
+    names: {},
   };
+  /* 檔名：只留設定裡用到的圖 */
+  const used = new Set(imageIdsOf(out));
+  for (const [id, name] of Object.entries(obj(r.names))) {
+    const n = typeof name === 'string' ? name.trim().slice(0, IMAGE_NAME_MAX) : '';
+    if (n && used.has(id)) out.names[id] = n;
+  }
+  return out;
+}
+
+/**
+ * 記下圖片的檔名（放進新的圖時）：回傳新的檔名表，順便拿掉設定裡已經沒用到的圖的檔名
+ * （id 是依內容產生的，同一張圖放在兩個欄位時共用最後一次的檔名）。
+ */
+export function withImageName(s: Settings, id: string, name: string): Record<string, string> {
+  const keep = new Set(imageIdsOf(s));
+  keep.add(id);
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(s.names)) if (keep.has(k)) out[k] = v;
+  const n = name.trim().slice(0, IMAGE_NAME_MAX);
+  if (n) out[id] = n;
+  else delete out[id];
+  return out;
 }
 
 /** 周邊種類（不合法時立牌） */

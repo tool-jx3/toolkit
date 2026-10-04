@@ -5,7 +5,7 @@ import { RotateCcw } from 'lucide-react';
 import { historyGesture } from '@/core/storage';
 import { Button, ColorField, DirectionPad, Field, Section, Segmented, Slider, Toggle } from '@/ui';
 import { DEFAULT_LIGHT, type Finish, RANGE } from './model';
-import { edit, step, useSettings } from './store';
+import { edit, editLive, step, useSettings } from './store';
 import { S } from './strings';
 
 const gesture = historyGesture(useSettings);
@@ -18,7 +18,7 @@ export function MaterialSection() {
         <Slider
           value={m.thickness}
           onChange={(v) =>
-            edit((d) => {
+            editLive((d) => {
               d.material.thickness = v;
             })
           }
@@ -32,7 +32,7 @@ export function MaterialSection() {
         <Slider
           value={m.margin}
           onChange={(v) =>
-            edit((d) => {
+            editLive((d) => {
               d.material.margin = v;
             })
           }

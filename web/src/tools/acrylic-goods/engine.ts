@@ -15,6 +15,7 @@ import {
   createOrbitView,
   disposeObject,
   exportGlb,
+  LEGACY_GLB_NON_PBR,
   LEGACY_LIGHT_SCALE,
   type OrbitView,
 } from '@/core/three';
@@ -50,6 +51,9 @@ export class AcrylicEngine {
   shake: Pt = { x: 0, y: 0 };
   /** 陀螺儀：開著時是最近一次的傾斜（還沒收到時 0） */
   gyro: { gamma: number; beta: number } | null = null;
+  /** 換過幾次周邊、最近一次換的時間（performance.now()；測試與檢查用） */
+  builds = 0;
+  builtAt = 0;
   private acc = 0;
   private fitted: { w: number; h: number; d: number } | null = null;
   private exporting = false;
@@ -79,6 +83,8 @@ export class AcrylicEngine {
 
   /** 換成新的周邊（舊的釋放）；refit：'always'／'auto'（大小差很多才對準）／'never' */
   setBuild(build: Build | null, refit: 'always' | 'auto' | 'never' = 'auto'): void {
+    this.builds++;
+    this.builtAt = performance.now();
     const old = this.build;
     const keepY = old?.root.rotation.y ?? 0;
     if (old) {
@@ -309,10 +315,13 @@ export class AcrylicEngine {
     this.view.start();
   }
 
-  /** GLB：目前的周邊（含目前的角度、零件位置；正反面各自算時只有目前看得到的那面） */
+  /**
+   * GLB：目前的周邊（含目前的角度、零件位置；正反面各自算時只有目前看得到的那面）。
+   * Phong 材質（壓克力、亮面的印圖）照舊版（r128）的換算寫 metallic 0.5、roughness 0.5；霧面不受光照。
+   */
   async glb(): Promise<Uint8Array | null> {
     if (!this.build) return null;
-    return exportGlb(this.build.root);
+    return exportGlb(this.build.root, { nonPbr: LEGACY_GLB_NON_PBR });
   }
 
   prepareTexture = (t: CanvasTexture): CanvasTexture => this.view.prepareTexture(t);

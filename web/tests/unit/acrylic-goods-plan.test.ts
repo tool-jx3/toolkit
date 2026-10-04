@@ -1,15 +1,17 @@
 /**
  * 壓克力周邊工房（acrylic-goods）的數值規則：燈光位置（3.5）、立牌底面圖（3.2）、搖搖樂的尺寸、碰撞牆、零件、重力（3.3）、
- * 立體透視的圖層深度與底座（3.4）、匯出的影格計畫與搖晃角度（3.6）、設定的清理（2.）。
+ * 立體透視的圖層深度與底座（3.4）、匯出的影格計畫與搖晃角度（3.6）、設定的清理（2.）與圖片的檔名（F69）。
  */
 import { describe, expect, it } from 'vitest';
 import {
   defaultSettings,
+  IMAGE_NAME_MAX,
   imageIdsOf,
   normalizeKind,
   normalizeSettings,
   RANGE,
   turn,
+  withImageName,
 } from '@/tools/acrylic-goods/model';
 import {
   baseImageSize,
@@ -246,5 +248,29 @@ describe('設定的清理', () => {
     s.diorama.layers = [{ id: 'l', image: 'def', x: 0, y: 0, rotation: 0 }];
     expect(imageIdsOf(s)).toEqual(['abc', 'def']);
     expect(imageIdsOf(s, true)).toEqual(['demo:hero', 'abc', 'def']);
+  });
+  it('檔名（F69）：只留用到的圖、去掉前後空白、最多 IMAGE_NAME_MAX 字；不是字串的拿掉', () => {
+    const long = 'x'.repeat(IMAGE_NAME_MAX + 20);
+    const s = normalizeSettings({
+      stand: { front: 'abc', back: 'def', baseImage: 'ghi' },
+      names: {
+        abc: '  char.png ',
+        def: long,
+        ghi: 42,
+        unused: 'old.png',
+        'demo:hero': '示範',
+      },
+    })!;
+    expect(s.names).toEqual({ abc: 'char.png', def: 'x'.repeat(IMAGE_NAME_MAX) });
+    expect(normalizeSettings({ names: 'nope' })!.names).toEqual({});
+  });
+  it('檔名（F69）：放進新的圖時記下檔名，順便拿掉沒用到的圖的檔名', () => {
+    const s = defaultSettings();
+    s.stand.front = 'abc';
+    s.names = { abc: 'front.png', gone: 'old.png' };
+    expect(withImageName(s, 'def', ' back.png ')).toEqual({ abc: 'front.png', def: 'back.png' });
+    /* 同一張圖（同一個 id）用最後一次的檔名；空的檔名不記 */
+    expect(withImageName(s, 'abc', 'again.png')).toEqual({ abc: 'again.png' });
+    expect(withImageName(s, 'def', '  ')).toEqual({ abc: 'front.png' });
   });
 });

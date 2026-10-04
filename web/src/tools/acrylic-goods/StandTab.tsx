@@ -4,7 +4,7 @@
 import { Field, Section, Segmented, Show, Slider, Toggle } from '@/ui';
 import { ImageSlot } from './ImageSlot';
 import { type BaseShape, type OutlineMode, RANGE } from './model';
-import { edit, step, useSession, useSettings } from './store';
+import { editLive, step, useSession, useSettings } from './store';
 import { S } from './strings';
 
 export function StandTab() {
@@ -88,7 +88,7 @@ export function StandTab() {
             <Slider
               value={st.baseSize}
               onChange={(v) =>
-                edit((d) => {
+                editLive((d) => {
                   d.stand.baseSize = v;
                 })
               }

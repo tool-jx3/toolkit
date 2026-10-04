@@ -79,8 +79,8 @@ function useTestHook() {
       settings: () => settingsNow(),
       kind: () => kindNow(),
       session: () => {
-        const { info, error, building, exporting, immersive, seed } = useSession.getState();
-        return { info, error, building, exporting, immersive, seed };
+        const { info, error, building, busy, exporting, immersive, seed } = useSession.getState();
+        return { info, error, building, busy, exporting, immersive, seed };
       },
       set: (path: string, value: unknown) =>
         edit((d) => {
@@ -117,6 +117,8 @@ function useTestHook() {
           bufferSize: { ...e.view.size },
           outputColorSpace: e.view.renderer.outputColorSpace,
           running: e.view.running,
+          builds: e.builds,
+          builtAt: e.builtAt,
         };
       },
       /** 停住／繼續預覽的算繪迴圈（截圖用） */

@@ -11,12 +11,12 @@
  * - 390 寬沒有橫向捲動；1280／390 視覺基準圖（3D 畫面遮住，只比對介面）。
  */
 import { readFileSync } from 'node:fs';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { encodePng } from '../../src/core/encode/png';
 import { parseWebp } from '../../src/core/encode/webp';
 import { parseGlb } from '../../src/core/three/glbInfo';
 import { getTool, outputDir } from '../../src/registry';
-import { parseGif } from '../helpers/gif';
+import { gifFrameRgba, parseGif } from '../helpers/gif';
 import { composeApng, decodePixels, parseApng, parseChunks, readIhdr } from '../helpers/png';
 
 const URL = `/${outputDir(getTool('acrylic-goods') ?? { id: 'acrylic-goods', status: 'next' })}/`;
@@ -48,6 +48,9 @@ interface EngineInfo {
   bufferSize: { width: number; height: number };
   outputColorSpace: string;
   running: boolean;
+  /** 組過幾次場景、最近一次組好的時間（performance.now()） */
+  builds: number;
+  builtAt: number;
 }
 interface Session {
   info: Info | null;
@@ -219,7 +222,7 @@ test('開頁：示範內容、三個分頁、外框與頁尾、沒有錯誤', as
 test('立牌：換圖、背面、正反面各自算、底座、錯誤訊息', async ({ page }) => {
   const errors = await open(page);
   await slot(page, '正面圖').setInputFiles(file('char.png', await charPng()));
-  await expect(page.locator('[data-image-slot="正面圖"] [data-testid="image-meta"]')).toHaveText(
+  await expect(page.locator('[data-image-slot="正面圖"] [data-testid="image-size"]')).toHaveText(
     '300 × 400',
   );
   /* 外框＝不透明範圍（像素中心 75.5～224.5、45.5～379.5）＋四周各 15 */
@@ -233,7 +236,7 @@ test('立牌：換圖、背面、正反面各自算、底座、錯誤訊息', as
   /* 移除背面圖：背面印正面圖（左右相反），只有一塊 */
   await page.getByRole('button', { name: '背面圖（可省略）：移除' }).click();
   await expect(
-    page.locator('[data-image-slot="背面圖（可省略）"] [data-testid="image-meta"]'),
+    page.locator('[data-image-slot="背面圖（可省略）"] [data-testid="image-name"]'),
   ).toHaveText('還沒有圖');
   await expect.poll(async () => (await engine(page)).sides).toBeNull();
   /* 正反面各自算（有背面圖時）：轉到背面時換成背面那一塊 */
@@ -636,9 +639,9 @@ test('復原／重做、自動保存、專案檔', async ({ page }) => {
   );
   await ready(page, 'stand');
   expect(await settings(page)).toEqual(saved);
-  await expect(page.locator('[data-image-slot="正面圖"] [data-testid="image-meta"]')).toHaveText(
-    '300 × 400',
-  );
+  const front = page.locator('[data-image-slot="正面圖"]');
+  await expect(front.getByTestId('image-name')).toHaveText('char.png');
+  await expect(front.getByTestId('image-size')).toHaveText('300 × 400');
 
   /* 存成專案檔（ZIP，含圖）→ 重設 → 開啟 */
   await page.getByRole('button', { name: '專案' }).click();
@@ -662,9 +665,338 @@ test('復原／重做、自動保存、專案檔', async ({ page }) => {
   await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
   await expect.poll(async () => settings(page)).toEqual(saved);
   await ready(page, 'stand');
+  /* 專案檔讀回也有檔名 */
+  await expect(front.getByTestId('image-name')).toHaveText('char.png');
+  await expect(front.getByTestId('image-size')).toHaveText('300 × 400');
   const b = (await session(page)).info!.bounds!;
   expect(Math.abs(b.maxY - b.minY - 364)).toBeLessThanOrEqual(2);
   expect(errors).toEqual([]);
+});
+
+/* ---------- 對等驗證後的修正（規格 7.1） ---------- */
+
+test.describe('對等驗證後的修正', () => {
+  /** 鏡頭到目標的距離 */
+  const distance = async (page: Page) => {
+    const e = await engine(page);
+    return Math.hypot(...e.camera.map((v, i) => v - e.target[i]));
+  };
+
+  test('F74 鍵盤：＋ 拉近、− 拉遠（與滾輪同方向）', async ({ page }) => {
+    const errors = await open(page);
+    await call(page, '(h) => h.rotateTo(0)');
+    await page.getByRole('button', { name: '重設鏡頭' }).click();
+    const d0 = await distance(page);
+    const canvas = page.getByTestId('acrylic-canvas');
+    await canvas.focus();
+    await page.keyboard.press('+');
+    await expect.poll(() => distance(page)).toBeLessThan(d0 * 0.95);
+    expect(await distance(page)).toBeCloseTo(d0 / 1.15, 0);
+    await page.keyboard.press('-');
+    await expect.poll(() => distance(page)).toBeGreaterThan(d0 * 0.99);
+    expect(await distance(page)).toBeCloseTo(d0, 0);
+    await page.keyboard.press('-');
+    await expect.poll(() => distance(page)).toBeGreaterThan(d0 * 1.1);
+    /* 滾輪往上（deltaY < 0）也是拉近 */
+    const d1 = await distance(page);
+    const box = (await canvas.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, -100);
+    await expect.poll(() => distance(page)).toBeLessThan(d1 * 0.99);
+    expect(errors).toEqual([]);
+  });
+
+  test('F48 預覽的游標：滑鼠在上面是手掌、拖曳中是抓住', async ({ page }) => {
+    const errors = await open(page);
+    const canvas = page.getByTestId('acrylic-canvas');
+    const cursor = () => canvas.evaluate((el) => getComputedStyle(el).cursor);
+    expect(await cursor()).toBe('grab');
+    const box = (await canvas.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await expect.poll(cursor).toBe('grabbing');
+    await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2, { steps: 4 });
+    expect(await cursor()).toBe('grabbing');
+    await page.mouse.up();
+    await expect.poll(cursor).toBe('grab');
+    expect(errors).toEqual([]);
+  });
+
+  test('F55 不透明背景的 GIF 每格各自減色（壓克力外框不會被併進底色）', async ({ page }) => {
+    const errors = await open(page);
+    /* 對等驗證用的人形圖（沒有背面圖）、圓形底座 */
+    await slot(page, '正面圖').setInputFiles(file('char.png', await charPng()));
+    await page.getByRole('button', { name: '背面圖（可省略）：移除' }).click();
+    await expect.poll(async () => (await engine(page)).sides).toBeNull();
+    await ready(page, 'stand');
+    await page.getByRole('combobox', { name: '尺寸' }).click();
+    await page.getByRole('option', { name: /^50%/ }).click();
+    const apng = composeApng(parseApng((await exportAs(page, 'APNG')).bytes));
+    const g = parseGif((await exportAs(page, 'GIF')).bytes);
+    expect(g.frames).toHaveLength(52);
+    /* 第 2 格起每格都有自己的調色盤 */
+    expect(g.frames.slice(1).every((f) => f.localPalette !== null)).toBe(true);
+    /*
+     * 第一格與 APNG 的第一格幾乎相同。整段共用一個調色盤時，淡灰色的壓克力外框與底座被併進底色：
+     * 平均每通道差 2.45、最大 36（修正後 0.02、最大 5）。
+     */
+    const f0 = gifFrameRgba(g, g.frames[0]);
+    let max = 0;
+    let sum = 0;
+    for (let i = 0; i < f0.length; i++) {
+      const d = Math.abs(f0[i] - apng[0][i]);
+      sum += d;
+      if (d > max) max = d;
+    }
+    expect(max).toBeLessThanOrEqual(16);
+    expect(sum / f0.length).toBeLessThan(0.3);
+    expect(errors).toEqual([]);
+  });
+
+  test('F56 GLB：亮面（Phong）材質 metallic 0.5、roughness 0.5；霧面不受光照', async ({ page }) => {
+    const errors = await open(page);
+    const glbJson = async () => {
+      const [dl] = await Promise.all([
+        page.waitForEvent('download'),
+        page.getByRole('button', { name: '匯出 GLB' }).click(),
+      ]);
+      return parseGlb(new Uint8Array(readFileSync((await dl.path()) as string))).json;
+    };
+    let json = await glbJson();
+    const acrylic = json.materials!.find((m) => m.name === '壓克力')!;
+    expect(acrylic.pbrMetallicRoughness).toMatchObject({
+      metallicFactor: 0.5,
+      roughnessFactor: 0.5,
+    });
+    const prints = json.materials!.filter((m) => m.pbrMetallicRoughness?.baseColorTexture);
+    expect(prints.length).toBe(2);
+    for (const m of prints) {
+      expect(m.pbrMetallicRoughness).toMatchObject({ metallicFactor: 0.5, roughnessFactor: 0.5 });
+      expect(m.extensions?.KHR_materials_unlit).toBeUndefined();
+    }
+    await page.getByRole('radio', { name: '霧面' }).click();
+    await expect.poll(async () => (await settings(page)).material.finish).toBe('matte');
+    await ready(page, 'stand');
+    json = await glbJson();
+    const matte = json.materials!.filter((m) => m.pbrMetallicRoughness?.baseColorTexture);
+    expect(matte.length).toBe(2);
+    for (const m of matte) expect(m.extensions?.KHR_materials_unlit).toEqual({});
+    expect(json.materials!.find((m) => m.name === '壓克力')!.pbrMetallicRoughness).toMatchObject({
+      metallicFactor: 0.5,
+      roughnessFactor: 0.5,
+    });
+    expect(errors).toEqual([]);
+  });
+
+  test('F69 圖片欄：檔名與尺寸，太長時省略並有完整名稱的提示', async ({ page }) => {
+    const errors = await open(page);
+    const meta = (label: string) => page.locator(`[data-image-slot="${label}"]`);
+    await expect(meta('正面圖').getByTestId('image-name')).toHaveText('示範：冒險者');
+    await expect(meta('正面圖').getByTestId('image-size')).toHaveText('360 × 520');
+    await slot(page, '正面圖').setInputFiles(file('char.png', await charPng()));
+    await expect(meta('正面圖').getByTestId('image-name')).toHaveText('char.png');
+    await expect(meta('正面圖').getByTestId('image-size')).toHaveText('300 × 400');
+    const long = `${'冒險者的立牌正面圖－第二版－去背完成－'.repeat(4)}final.png`;
+    await slot(page, '背面圖（可省略）').setInputFiles(
+      file(long, await boxPng(200, 300, [0, 150, 0])),
+    );
+    const name = meta('背面圖（可省略）').getByTestId('image-name');
+    await expect(name).toHaveText(long);
+    await expect(name).toHaveAttribute('title', long);
+    expect(await name.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    await expect(meta('背面圖（可省略）').getByTestId('image-size')).toHaveText('200 × 300');
+    /* 移除後沒有檔名 */
+    await page.getByRole('button', { name: '背面圖（可省略）：移除' }).click();
+    await expect(name).toHaveText('還沒有圖');
+    await expect(meta('背面圖（可省略）').getByTestId('image-size')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('F24 零件清單只能從把手（☰）拖曳排序', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1400 });
+    const errors = await open(page);
+    await page.getByRole('tab', { name: '壓克力搖搖樂' }).click();
+    await ready(page, 'shaker');
+    /* 停住 3D 的算繪迴圈（無頭環境畫一格很慢，滑鼠事件會跟著等） */
+    await call(page, '(h) => h.pause()');
+    const order = async () =>
+      (await settings(page)).shaker.parts.map((p: { id: string }) => p.id) as string[];
+    const start = await order();
+    const rows = page.locator('[data-part]');
+    const drag = async (from: Locator, to: Locator) => {
+      /* 兩列都在畫面中間（指標拖不到畫面外；靠近上下緣會自動捲動） */
+      await to.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+      const a = (await from.boundingBox())!;
+      const b = (await to.boundingBox())!;
+      const sx = a.x + a.width / 2;
+      const sy = a.y + a.height / 2;
+      await page.mouse.move(sx, sy);
+      await page.mouse.down();
+      for (let i = 1; i <= 12; i++) await page.mouse.move(sx, sy + ((b.y + 30 - sy) * i) / 12);
+      await page.mouse.up();
+      await page.waitForTimeout(100);
+    };
+    /* 從圖片欄的縮圖、名稱拖：不排序 */
+    await drag(rows.nth(3).locator('[data-image-slot] .checker').first(), rows.nth(2));
+    expect(await order()).toEqual(start);
+    await drag(rows.nth(3).getByTestId('image-name'), rows.nth(2));
+    expect(await order()).toEqual(start);
+    await drag(rows.nth(3).getByText('零件 4', { exact: true }), rows.nth(2));
+    expect(await order()).toEqual(start);
+    /* 從把手拖：移到那個位置 */
+    await drag(rows.nth(3).locator('[data-drag-handle]'), rows.nth(2));
+    expect(await order()).toEqual([start[0], start[1], start[3], start[2]]);
+    expect(errors).toEqual([]);
+  });
+
+  test('F28 沉浸模式蓋住整個畫面（含頁首），返回鈕在畫布下方', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const errors = await open(page);
+    await page.getByRole('tab', { name: '壓克力搖搖樂' }).click();
+    await ready(page, 'shaker');
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await page.getByRole('button', { name: '開啟陀螺儀（手機）' }).click();
+    await expect(page.locator('[data-immersive]')).toBeVisible();
+    const r = await page.evaluate(() => {
+      const vp = document.querySelector('[data-immersive]') as HTMLElement;
+      const points = [
+        [innerWidth / 2, 5],
+        [20, 20],
+        [innerWidth - 20, 20],
+        [innerWidth / 2, innerHeight - 5],
+      ];
+      const rect = (el: Element) => {
+        const b = el.getBoundingClientRect();
+        return { top: b.top, bottom: b.bottom, left: b.left, right: b.right };
+      };
+      const exit = [...vp.querySelectorAll('button')].find((b) =>
+        b.textContent?.includes('回到編輯畫面'),
+      ) as HTMLElement;
+      return {
+        hits: points.map(([x, y]) => vp.contains(document.elementFromPoint(x, y))),
+        canvas: rect(vp.querySelector('[data-testid=acrylic-canvas]') as Element),
+        exit: rect(exit),
+        exitOnTop: exit.contains(
+          document.elementFromPoint(
+            exit.getBoundingClientRect().left + 10,
+            exit.getBoundingClientRect().top + 10,
+          ),
+        ),
+        vw: innerWidth,
+        vh: innerHeight,
+      };
+    });
+    expect(r.hits).toEqual([true, true, true, true]);
+    expect(r.canvas.top).toBeGreaterThanOrEqual(0);
+    expect(r.canvas.bottom).toBeLessThanOrEqual(r.vh);
+    expect(r.canvas.right - r.canvas.left).toBeGreaterThan(r.vh * 0.75);
+    expect(r.exitOnTop).toBe(true);
+    expect(r.exit.top).toBeGreaterThanOrEqual(r.canvas.bottom);
+    expect(r.exit.bottom).toBeLessThanOrEqual(r.vh);
+    /* Esc 與「回到編輯畫面」照舊 */
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-immersive]')).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1, name: '壓克力周邊工房' })).toBeVisible();
+    await page.getByRole('button', { name: '開啟陀螺儀（手機）' }).click();
+    await expect(page.locator('[data-immersive]')).toBeVisible();
+    await page.getByRole('button', { name: '回到編輯畫面' }).click();
+    await expect(page.locator('[data-immersive]')).toHaveCount(0);
+    expect((await session(page)).immersive).toBe(false);
+    expect(errors).toEqual([]);
+  });
+
+  test('F07 重建時顯示依種類的處理中文字；拉桿拖曳中不重建，放開或停頓後才重建', async ({
+    page,
+  }) => {
+    /* 記下處理中的遮罩出現過的文字，以及遮罩畫上畫面的時間（下一個畫面） */
+    await page.addInitScript(() => {
+      const w = window as unknown as { __busy: (string | null)[]; __busyPainted: number[] };
+      w.__busy = [];
+      w.__busyPainted = [];
+      let seen = false;
+      new MutationObserver(() => {
+        const b = document.querySelector('[data-testid=viewport-busy]');
+        if (b && !seen) {
+          w.__busy.push(b.textContent);
+          requestAnimationFrame(() => w.__busyPainted.push(performance.now()));
+        }
+        seen = !!b;
+      }).observe(document, { subtree: true, childList: true, characterData: true });
+    });
+    const errors = await open(page);
+    type BusyLog = { __busy: string[]; __busyPainted: number[] };
+    const log = () => page.evaluate(() => (window as unknown as BusyLog).__busy);
+    const clearLog = () =>
+      page.evaluate(() => {
+        const w = window as unknown as BusyLog;
+        w.__busy = [];
+        w.__busyPainted = [];
+      });
+    const builds = async () => (await engine(page)).builds;
+
+    /* 拉桿拖曳：中途不重建，放開後重建一次 */
+    const thumb = page.getByRole('slider', { name: '外框留白' });
+    await thumb.scrollIntoViewIfNeeded();
+    const tb = (await thumb.boundingBox())!;
+    const b0 = await builds();
+    const m0 = (await settings(page)).material.margin;
+    await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) {
+      await page.mouse.move(tb.x + tb.width / 2 + i * 5, tb.y + tb.height / 2);
+      await page.waitForTimeout(30);
+    }
+    expect((await settings(page)).material.margin).toBeGreaterThan(m0);
+    expect(await builds()).toBe(b0);
+    await page.mouse.up();
+    await expect.poll(builds).toBe(b0 + 1);
+    await ready(page, 'stand');
+    await page.waitForTimeout(400);
+    expect(await builds()).toBe(b0 + 1);
+
+    /* 鍵盤：連按時不重建，停頓後重建一次 */
+    await thumb.focus();
+    for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+    expect(await builds()).toBe(b0 + 1);
+    await expect.poll(builds).toBe(b0 + 2);
+    await page.waitForTimeout(400);
+    expect(await builds()).toBe(b0 + 2);
+
+    /* 依種類的文字 */
+    await clearLog();
+    await page.getByRole('tab', { name: '壓克力搖搖樂' }).click();
+    await ready(page, 'shaker');
+    await page.getByRole('tab', { name: '壓克力立體透視' }).click();
+    await ready(page, 'diorama');
+    await page.getByRole('tab', { name: '壓克力立牌' }).click();
+    await ready(page, 'stand');
+    expect(await log()).toEqual(
+      expect.arrayContaining(['產生壓克力搖搖樂中…', '產生壓克力立體透視中…', '產生壓克力立牌中…']),
+    );
+
+    /* 大圖（3000 × 3000）改留白：先畫出提示，再算外框 */
+    await slot(page, '正面圖').setInputFiles(
+      file(
+        'big.png',
+        await png(3000, 3000, (x, y) =>
+          Math.hypot(x - 1500, y - 1500) < 1300 ? [200, 60, 60, 255] : [0, 0, 0, 0],
+        ),
+      ),
+    );
+    await expect
+      .poll(async () => (await session(page)).info?.bounds?.maxX ?? 0, { timeout: 60_000 })
+      .toBeGreaterThan(1000);
+    await ready(page, 'stand');
+    await clearLog();
+    await setNumber(page, '外框留白', 40);
+    await expect.poll(async () => (await settings(page)).material.margin).toBe(40);
+    await ready(page, 'stand');
+    expect(await log()).toContain('產生壓克力立牌中…');
+    const painted = await page.evaluate(() => (window as unknown as BusyLog).__busyPainted);
+    expect(painted.length).toBeGreaterThan(0);
+    expect(painted[0]).toBeLessThan((await engine(page)).builtAt);
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe('版面', () => {

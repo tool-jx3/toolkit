@@ -17,7 +17,7 @@ import {
 import { enableGyro } from './actions';
 import { ImageSlot } from './ImageSlot';
 import { type FrameShape, RANGE } from './model';
-import { addPartId, edit, step, useSession, useSettings } from './store';
+import { addPartId, edit, editLive, step, useSession, useSettings } from './store';
 import { S } from './strings';
 
 export function ShakerTab() {
@@ -62,7 +62,7 @@ export function ShakerTab() {
           <Slider
             value={sh.frameSize}
             onChange={(v) =>
-              edit((d) => {
+              editLive((d) => {
                 d.shaker.frameSize = v;
               })
             }
@@ -76,7 +76,7 @@ export function ShakerTab() {
           <Slider
             value={sh.padding}
             onChange={(v) =>
-              edit((d) => {
+              editLive((d) => {
                 d.shaker.padding = v;
               })
             }
@@ -118,6 +118,7 @@ export function ShakerTab() {
           }
           onMoveStart={() => useSettings.beginGesture()}
           onMoveEnd={() => useSettings.endGesture()}
+          handleOnly
           renderItem={(p, { index }) => {
             const name = S.shaker.partName(index + 1);
             return (
@@ -155,7 +156,7 @@ export function ShakerTab() {
                       aria-label={`${name}的${S.shaker.qty}`}
                       value={p.qty}
                       onChange={(v) =>
-                        edit((d) => {
+                        editLive((d) => {
                           const x = d.shaker.parts.find((q) => q.id === p.id);
                           if (x) x.qty = v;
                         })
@@ -171,7 +172,7 @@ export function ShakerTab() {
                       aria-label={`${name}的${S.shaker.scale}`}
                       value={p.scale}
                       onChange={(v) =>
-                        edit((d) => {
+                        editLive((d) => {
                           const x = d.shaker.parts.find((q) => q.id === p.id);
                           if (x) x.scale = v;
                         })
@@ -203,7 +204,7 @@ export function ShakerTab() {
   );
 }
 
-/** 拖曳排序的把手（觸控時只能從這裡拖） */
+/** 拖曳排序的把手（清單設了 handleOnly：滑鼠、觸控都只能從這裡拖） */
 export function DragHandle() {
   return (
     <span

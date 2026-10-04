@@ -20,7 +20,7 @@ import {
 import { getEngine, notify } from './actions';
 import { CANVAS_SIZE, type ExportFormatId, FPS_CHOICES, type Kind, SCALE_CHOICES } from './model';
 import { exportPlan } from './plan';
-import { edit, settingsNow, useSession, useSettings } from './store';
+import { edit, settingsNow, useSession, useSettings, whenBuilt } from './store';
 import { S } from './strings';
 
 /** 處理量上限（寬 × 高 × 影格數） */
@@ -51,6 +51,8 @@ export function ExportArea({ kind }: { kind: Kind }) {
     set: ExportSettings,
     { signal, onProgress }: ExportContext,
   ): Promise<ExportOutput> => {
+    /* 拉桿剛放開、圖還在讀時：等畫面跟上設定再匯出 */
+    await whenBuilt(signal);
     const engine = getEngine();
     const issue = useSession.getState().error;
     if (!engine?.build) throw new Error(issue ? S.err[issue] : S.exp.noBuild);
@@ -79,6 +81,13 @@ export function ExportArea({ kind }: { kind: Kind }) {
         plays: set.plays,
         scale: set.scale,
         quantize: set.quantize,
+        /*
+         * GIF 每格各自減色（同舊版）：整段共用一個調色盤時，淡灰色的壓克力外框會被併進底色。
+         * 調色盤用主成分切割：大片的底色不吃名額，壓克力的淡灰與印圖的細節都分得到顏色
+         * （中位切割在示範圖這種色彩多的格子仍會把外框併進底色）。
+         */
+        gifLocalPalettes: true,
+        ...(format === 'gif' ? { paletteMethod: 'pca' as const } : {}),
         background: now.background.transparent ? null : now.background.color,
         fileName: still ? S.exp.stillBase : S.exp.fileBase,
         signal,
@@ -116,6 +125,7 @@ export function ExportArea({ kind }: { kind: Kind }) {
   };
 
   const glb = async () => {
+    await whenBuilt();
     const engine = getEngine();
     if (!engine?.build) {
       notify({ title: error ? S.err[error] : S.exp.noBuild, tone: 'danger' });

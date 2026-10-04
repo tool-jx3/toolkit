@@ -90,7 +90,11 @@ interface Materials {
 }
 
 function createMaterials(finish: Finish, prepare: (t: CanvasTexture) => CanvasTexture): Materials {
-  /* 壓克力：白色、35% 不透明、強烈的鏡面反光、不寫深度（後面的東西透得過來） */
+  /*
+   * 壓克力：白色、35% 不透明、強烈的鏡面反光、不寫深度（後面的東西透得過來）。
+   * 雙面一次畫完（forceSinglePass）：three.js r150 起半透明的雙面材質預設分兩次畫（先背面再正面），
+   * 透過頂面看到的底座後側會比舊版（r128，一次畫）亮；照舊版一次畫。
+   */
   const acrylic = new MeshPhongMaterial({
     color: 0xffffff,
     transparent: true,
@@ -99,6 +103,7 @@ function createMaterials(finish: Finish, prepare: (t: CanvasTexture) => CanvasTe
     specular: 0xffffff,
     side: DoubleSide,
     depthWrite: false,
+    forceSinglePass: true,
   });
   acrylic.name = '壓克力';
   const cache = new Map<string, Material>();

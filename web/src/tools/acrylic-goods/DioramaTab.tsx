@@ -7,7 +7,7 @@ import { Button, Field, IconButton, Section, Slider, SortableList } from '@/ui';
 import { ImageSlot } from './ImageSlot';
 import { OFFSET_INPUT_MAX, RANGE, turn } from './model';
 import { DragHandle } from './ShakerTab';
-import { addLayerId, edit, step, useSession, useSettings } from './store';
+import { addLayerId, edit, editLive, step, useSession, useSettings } from './store';
 import { S } from './strings';
 
 export function DioramaTab() {
@@ -20,7 +20,7 @@ export function DioramaTab() {
           <Slider
             value={di.baseMargin}
             onChange={(v) =>
-              edit((d) => {
+              editLive((d) => {
                 d.diorama.baseMargin = v;
               })
             }
@@ -34,7 +34,7 @@ export function DioramaTab() {
           <Slider
             value={di.gap}
             onChange={(v) =>
-              edit((d) => {
+              editLive((d) => {
                 d.diorama.gap = v;
               })
             }
@@ -76,6 +76,7 @@ export function DioramaTab() {
           }
           onMoveStart={() => useSettings.beginGesture()}
           onMoveEnd={() => useSettings.endGesture()}
+          handleOnly
           renderItem={(l, { index }) => {
             const name = S.diorama.layerName(index + 1);
             const set = (fn: (x: (typeof di.layers)[number]) => void) =>

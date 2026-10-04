@@ -93,8 +93,10 @@ export interface Session {
   info: BuildInfo | null;
   /** 建不出來的原因 */
   error: BuildError | null;
-  /** 產生中（讀圖、組場景） */
+  /** 畫面還沒跟上設定（拉桿還在動、讀圖、組場景） */
   building: boolean;
+  /** 預覽蓋著「產生…中」的遮罩（讀圖、組場景；拉桿還在動時不蓋） */
+  busy: boolean;
   exporting: boolean;
   /** 陀螺儀的沉浸模式 */
   immersive: boolean;
@@ -108,6 +110,7 @@ export const useSession = create<Session>(() => ({
   info: null,
   error: null,
   building: false,
+  busy: false,
   exporting: false,
   immersive: false,
   seed: 1,
@@ -116,4 +119,53 @@ export const useSession = create<Session>(() => ({
 
 export function requestRebuild(): void {
   useSession.setState((s) => ({ seed: s.seed + 1, rebuild: s.rebuild + 1 }));
+}
+
+/* ---------- 拉桿的連續調整：停頓或放開才重建（規格 F07） ---------- */
+
+/** 會改變形狀的拉桿、數字欄連續調整時，停頓這麼久（ms）才重建 */
+export const REBUILD_IDLE_MS = 200;
+let liveUntil = 0;
+
+/**
+ * 拉桿、數字欄的連續調整（拖曳、鍵盤、打字）：設定照改（畫面上的數字跟著動），
+ * 但預覽等停頓 REBUILD_IDLE_MS 或放開滑鼠（releaseRebuildHold）才重建，大圖時拖曳不會一步一卡。
+ */
+export function editLive(recipe: (d: Settings) => void): void {
+  liveUntil = performance.now() + REBUILD_IDLE_MS;
+  edit(recipe);
+}
+
+/** 預覽還要等多久才重建（ms；0＝不用等） */
+export const rebuildHoldMs = (): number => Math.max(0, liveUntil - performance.now());
+
+/** 放開滑鼠（拉桿拖完）：不必等停頓；回傳原本是不是在等 */
+export function releaseRebuildHold(): boolean {
+  const held = liveUntil > performance.now();
+  liveUntil = 0;
+  return held;
+}
+
+/** 等畫面跟上目前的設定（拉桿停頓、讀圖、組場景都做完）；signal 取消時丟 AbortError */
+export function whenBuilt(signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!useSession.getState().building) {
+      resolve();
+      return;
+    }
+    const onAbort = () => {
+      stop();
+      reject(new DOMException('已取消', 'AbortError'));
+    };
+    const unsub = useSession.subscribe((st) => {
+      if (st.building) return;
+      stop();
+      resolve();
+    });
+    const stop = () => {
+      unsub();
+      signal?.removeEventListener('abort', onAbort);
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
