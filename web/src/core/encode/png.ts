@@ -1,7 +1,7 @@
 /**
  * PNG／APNG 的底層編碼：CRC、chunk、zlib、掃描線濾波、組檔。
  *
- * 移植自 text-fx（本專案原創，MIT）的 png.js，改寫成 TypeScript。
+ * 移植自 text-fx（本站以無塵室方式撰寫，MIT）的 png.js，改寫成 TypeScript。
  * 壓縮預設用瀏覽器內建的 CompressionStream('deflate')（輸出正好是 IDAT 要的 zlib 格式）；
  * 沒有時改用 fflate。兩者輸出都是決定性的：同樣的輸入每次得到同樣的位元組。
  */

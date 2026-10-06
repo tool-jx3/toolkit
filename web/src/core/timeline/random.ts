@@ -1,6 +1,6 @@
 /**
  * 決定性亂數：同一組設定每次畫出來的影格都要一模一樣，所以不用 Math.random。
- * hashUnit／seedOf 取自 text-fx（本專案原創，MIT）。
+ * hashUnit／seedOf 取自 text-fx（本站以無塵室方式撰寫，MIT）。
  */
 
 /** 由整數組合（例如字序、時間桶、用途編號）雜湊出 [0, 1) 的值 */

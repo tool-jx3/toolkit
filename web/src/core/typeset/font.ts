@@ -5,7 +5,7 @@
  * - 遇到韓文時接上同風格的韓文字型（中文字型通常沒有韓文）；
  * - 最後是 serif／sans-serif。
  *
- * 移植自 text-fx（本專案原創，MIT）的 fonts.js。字型實際的下載與等待用 core/fonts 的 ensureFont。
+ * 移植自 text-fx（本站以無塵室方式撰寫，MIT）的 fonts.js。字型實際的下載與等待用 core/fonts 的 ensureFont。
  */
 
 export type FontStyleClass = 'serif' | 'sans';

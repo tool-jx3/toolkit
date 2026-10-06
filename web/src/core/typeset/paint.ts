@@ -6,7 +6,7 @@
  *   flash ─ 字形剪影（塗色＋外框範圍）塗白，給「閃白」效果用（用到時才畫）
  *
  * 淡入淡出時整張 body 一起變透明，所以半透明的字裡不會透出外框或陰影。
- * 移植自 text-fx（本專案原創，MIT）的 glyphs.js；漸層改成任意色標（舊的 2～3 色＝平均分布的色標）。
+ * 移植自 text-fx（本站以無塵室方式撰寫，MIT）的 glyphs.js；漸層改成任意色標（舊的 2～3 色＝平均分布的色標）。
  */
 import type { DecorationRect } from './decoration';
 import type { GlyphMetrics } from './measure';

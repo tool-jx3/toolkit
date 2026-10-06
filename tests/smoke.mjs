@@ -500,7 +500,7 @@ for (const id of REWRITTEN) {
   check(`ATTRIBUTION.md 把 ${id} 列在靈感來源`, new RegExp(`\\| \`${id}\` \\|`).test(read('ATTRIBUTION.md').split('## 本站重寫的工具（靈感來源）')[1] || ''));
 }
 check('THIRD_PARTY_NOTICES 由建置產生', exists('assets/build/THIRD_PARTY_NOTICES.md'));
-check('LICENSE 的涵蓋範圍寫進了 web/ 與原創的 text-fx', read('LICENSE').includes('`web/` framework') && read('LICENSE').includes('tools/text-fx/'));
+check('LICENSE 的涵蓋範圍寫進了 web/ 與無塵室開發的 text-fx', read('LICENSE').includes('`web/` framework') && read('LICENSE').includes('tools/text-fx/'));
 
 const TOOLS_EXTERNAL = ['jizura'];
 check('首頁的 JIZURA 卡片標示連到原站', /href="\.\/tools\/jizura\/"[\s\S]{0,1600}?data-i18n="license\.external"/.test(homeHtml));

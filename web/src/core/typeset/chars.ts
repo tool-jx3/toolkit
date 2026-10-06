@@ -1,6 +1,6 @@
 /**
  * 字元分類：全形／半形、禁則、直書的旋轉與位移、逐字顯示的停頓。
- * 移植自 text-fx（本專案原創，MIT）的 typeset.js。
+ * 移植自 text-fx（本站以無塵室方式撰寫，MIT）的 typeset.js。
  */
 
 const setOf = (s: string): ReadonlySet<string> => new Set(Array.from(s));
