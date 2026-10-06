@@ -16,6 +16,8 @@
  * 容器的組法是純函式（`mp4Header`、`aviParts`），可以在 Node 測試。（character-select 移植時新增）
  */
 
+import { movieLayout } from './mp4';
+
 /** 檔案大小上限（1 GiB） */
 export const VIDEO_MAX_BYTES = 1024 * 1024 * 1024;
 
@@ -49,9 +51,14 @@ const MESSAGES: Record<VideoEncodeErrorCode, string> = {
 
 const fail = (code: VideoEncodeErrorCode, detail?: string) =>
   new VideoEncodeError(code, detail ? `${MESSAGES[code]}（${detail}）` : MESSAGES[code]);
+/** （core/video 內部共用）依代碼產生錯誤，detail 加在訊息後面的括號裡 */
+export const videoEncodeError = fail;
 
 const abortError = () => new DOMException('已取消', 'AbortError');
 const nextTask = () => new Promise<void>((r) => setTimeout(r, 0));
+
+/** （core/video 內部共用） */
+export { abortError, nextTask };
 
 export type VideoFrameCanvas = CanvasImageSource & { width: number; height: number };
 
@@ -70,7 +77,8 @@ export interface VideoEncodeOptions {
   maxBytes?: number;
 }
 
-function validate(o: VideoEncodeOptions, even: boolean) {
+/** （core/video 內部共用）檢查尺寸、FPS、影格數；even＝寬高必須是偶數 */
+export function validate(o: VideoEncodeOptions, even: boolean) {
   const { width, height, fps, frameCount } = o;
   if (
     ![width, height, fps, frameCount].every(Number.isInteger) ||
@@ -89,7 +97,8 @@ function validate(o: VideoEncodeOptions, even: boolean) {
   if (o.signal?.aborted) throw abortError();
 }
 
-async function frameOf(o: VideoEncodeOptions, i: number): Promise<VideoFrameCanvas> {
+/** （core/video 內部共用）畫第 i 格並檢查尺寸 */
+export async function frameOf(o: VideoEncodeOptions, i: number): Promise<VideoFrameCanvas> {
   if (o.signal?.aborted) throw abortError();
   const c = await o.renderFrame(i);
   if (o.signal?.aborted) throw abortError();
@@ -120,80 +129,14 @@ function ints(values: readonly number[], bytes: 2 | 4, little: boolean): Uint8Ar
   });
   return out;
 }
-const u32 = (...v: number[]) => ints(v, 4, false);
-const u16 = (...v: number[]) => ints(v, 2, false);
 const le32 = (...v: number[]) => ints(v, 4, true);
 const le16 = (...v: number[]) => ints(v, 2, true);
 
 /* ---------- MP4 ---------- */
 
-const box = (type: string, ...parts: Uint8Array[]) =>
-  concat([u32(8 + parts.reduce((n, p) => n + p.byteLength, 0)), ascii(type), ...parts]);
-const fullBox = (type: string, versionFlags: number, ...parts: Uint8Array[]) =>
-  box(type, u32(versionFlags), ...parts);
-/** 單位矩陣（16.16、16.16、2.30） */
-const unityMatrix = () => u32(0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000);
-
-function moovBox(
-  sizes: readonly number[],
-  description: Uint8Array,
-  width: number,
-  height: number,
-  fps: number,
-  dataOffset: number,
-): Uint8Array {
-  const n = sizes.length;
-  const mvhd = fullBox(
-    'mvhd',
-    0,
-    u32(0, 0, fps, n, 0x10000),
-    u16(0x100, 0),
-    new Uint8Array(8),
-    unityMatrix(),
-    new Uint8Array(24),
-    u32(2),
-  );
-  const tkhd = fullBox(
-    'tkhd',
-    7,
-    u32(0, 0, 1, 0, n),
-    new Uint8Array(8),
-    u16(0, 0, 0, 0),
-    unityMatrix(),
-    u32(width * 65536, height * 65536),
-  );
-  const mdhd = fullBox('mdhd', 0, u32(0, 0, fps, n), u16(0x55c4, 0));
-  const hdlr = fullBox('hdlr', 0, u32(0), ascii('vide'), new Uint8Array(12), ascii('Video\0'));
-  const avc1 = box(
-    'avc1',
-    new Uint8Array(6),
-    u16(1),
-    new Uint8Array(16),
-    u16(width, height),
-    u32(0x480000, 0x480000, 0),
-    u16(1),
-    new Uint8Array(32),
-    u16(24, 0xffff),
-    box('avcC', description),
-  );
-  const keys = u32(...Array.from({ length: n }, (_, i) => i + 1));
-  const stbl = box(
-    'stbl',
-    fullBox('stsd', 0, u32(1), avc1),
-    fullBox('stts', 0, u32(1, n, 1)),
-    fullBox('stsc', 0, u32(1, 1, n, 1)),
-    fullBox('stsz', 0, u32(0, n), u32(...sizes)),
-    fullBox('stco', 0, u32(1, dataOffset)),
-    fullBox('stss', 0, u32(n), keys),
-  );
-  const dinf = box('dinf', fullBox('dref', 0, u32(1), fullBox('url ', 1)));
-  const minf = box('minf', fullBox('vmhd', 1, u16(0, 0, 0, 0)), dinf, stbl);
-  return box('moov', mvhd, box('trak', tkhd, box('mdia', mdhd, hdlr, minf)));
-}
-
 /**
  * MP4 的檔頭：ftyp＋moov（時間單位＝fps、每個樣本 1 個單位、全部是同步樣本、單一區塊）＋mdat 的標頭。
- * 檔案＝[head, ...每格的資料]（依序接在後面）。
+ * 檔案＝[head, ...每格的資料]（依序接在後面）。（組法在 `mp4.ts` 的 movieLayout；輸出與改版前逐位元組相同）
  */
 export function mp4Header(
   sizes: readonly number[],
@@ -202,12 +145,7 @@ export function mp4Header(
   height: number,
   fps: number,
 ): Uint8Array {
-  const ftyp = box('ftyp', ascii('isom'), u32(0x200), ascii('isomiso2avc1mp41'));
-  const media = sizes.reduce((a, b) => a + b, 0);
-  const probe = moovBox(sizes, description, width, height, fps, 0);
-  const dataOffset = ftyp.byteLength + probe.byteLength + 8;
-  const moov = moovBox(sizes, description, width, height, fps, dataOffset);
-  return concat([ftyp, moov, u32(media + 8), ascii('mdat')]);
+  return movieLayout({ codec: 'avc1', config: description, width, height, fps, sizes }).head;
 }
 
 /** H.264 的等級：level_idc、最多幾個巨集區塊、每秒最多幾個、位元率上限（bps） */
@@ -227,15 +165,25 @@ const H264_LEVELS: readonly (readonly [number, number, number, number])[] = [
 export const mp4Bitrate = (width: number, height: number, fps: number) =>
   Math.round(Math.min(50_000_000, Math.max(2_000_000, width * height * fps * 0.6)));
 
-/** 候選的編碼設定（依等級由低到高，每個等級試 Baseline、Main、High） */
+export type H264Profile = 'baseline' | 'main' | 'high';
+const PROFILE_IDC: Record<H264Profile, string> = { baseline: '4200', main: '4d00', high: '6400' };
+
+/**
+ * 候選的編碼設定（依等級由低到高，每個等級依序試 Baseline、Main、High）。
+ * 選填（music-frame 移植時新增，不給時與以前相同）：`bitrate`（預設 mp4Bitrate）、`profiles`（每個等級試的順序）。
+ */
 export function mp4ConfigCandidates({
   width,
   height,
   fps,
+  bitrate: wantBitrate,
+  profiles = ['baseline', 'main', 'high'],
 }: {
   width: number;
   height: number;
   fps: number;
+  bitrate?: number;
+  profiles?: readonly H264Profile[];
 }): VideoEncoderConfig[] {
   if (
     ![width, height, fps].every(Number.isInteger) ||
@@ -248,13 +196,13 @@ export function mp4ConfigCandidates({
   )
     return [];
   const blocks = Math.ceil(width / 16) * Math.ceil(height / 16);
-  const bitrate = mp4Bitrate(width, height, fps);
+  const bitrate = Math.round(wantBitrate ?? mp4Bitrate(width, height, fps));
   const out: VideoEncoderConfig[] = [];
   for (const [level, maxBlocks, maxRate, maxBitrate] of H264_LEVELS) {
     if (blocks > maxBlocks || blocks * fps > maxRate || bitrate > maxBitrate) continue;
-    for (const profile of ['4200', '4d00', '6400'])
+    for (const profile of profiles)
       out.push({
-        codec: `avc1.${profile}${level.toString(16).padStart(2, '0')}`,
+        codec: `avc1.${PROFILE_IDC[profile]}${level.toString(16).padStart(2, '0')}`,
         width,
         height,
         framerate: fps,
@@ -387,9 +335,9 @@ export async function encodeMp4(o: VideoEncodeOptions): Promise<Blob> {
   }
 }
 
-/** 等編碼器把送進去的影格全部吐出來（中途可以取消；60 秒沒有回應就放棄） */
-async function flush(
-  encoder: VideoEncoder,
+/** （core/video 內部共用）等編碼器把送進去的影格全部吐出來（中途可以取消；60 秒沒有回應就放棄） */
+export async function flush(
+  encoder: { flush(): Promise<void> },
   signal: AbortSignal | undefined,
   error: () => Error | null,
 ) {

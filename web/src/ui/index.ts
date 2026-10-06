@@ -336,6 +336,7 @@ export { SEGMENT_COLORS, Transport, type TransportProps } from './Transport';
 export { getTheme, setTheme, type Theme, useTheme } from './theme';
 export { UiProvider } from './UiProvider';
 export { UsageSection, type UsageSectionProps } from './UsageSection';
+export { type AudioPlayback, useAudioPlayback } from './useAudioPlayback';
 export { useConfirmedReset } from './useConfirmedReset';
 export { type Playback, type PlaybackOptions, usePlayback } from './usePlayback';
 export { type SortableOptions, useSortable } from './useSortable';
