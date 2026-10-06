@@ -1,5 +1,5 @@
 /**
- * 斷行與禁則。移植自 text-fx（本專案原創，MIT）的 typeset.js。
+ * 斷行與禁則。移植自 text-fx（本站以無塵室方式撰寫，MIT）的 typeset.js。
  */
 import { isBlankChar, isHangul, isWide, NO_LINE_END, NO_LINE_START } from './chars';
 import { type SplitUnit, splitChars } from './graphemes';

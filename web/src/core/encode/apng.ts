@@ -9,7 +9,7 @@
  * - quantize 開啟時減成最多 256 色（含半透明，見 palette.ts；paletteMethod 選調色盤的選法）；關閉時為全彩 RGBA。
  * - palette 給了固定調色盤時直接用它（不統計、不減色），像素必須是調色盤裡的顏色；完全透明的像素也保留原本的 RGB。
  *
- * 移植自 text-fx（本專案原創，MIT）的匯出流程，改成「一格一格餵進來」的串流介面。
+ * 移植自 text-fx（本站以無塵室方式撰寫，MIT）的匯出流程，改成「一格一格餵進來」的串流介面。
  */
 import {
   assertFrameSize,

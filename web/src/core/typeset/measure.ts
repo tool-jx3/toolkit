@@ -1,6 +1,6 @@
 /**
  * 字形量測：字寬與墨跡範圍（canvas measureText），同一個字型字串共用快取。
- * 移植自 text-fx（本專案原創，MIT）的 typeset.js。
+ * 移植自 text-fx（本站以無塵室方式撰寫，MIT）的 typeset.js。
  */
 import { hasCjk } from './chars';
 

@@ -15,7 +15,7 @@
 [Eon-00](https://github.com/Eon-00) 與
 [fyam-hamu](https://github.com/fyam-hamu) 與
 [usagineko7865-debug](https://github.com/usagineko7865-debug) 與
-[zznaptime](https://github.com/zznaptime) 等人製作的 41 個網頁小工具，加上本 repo 原創的「文字演出產生器」，共 42 個工具的合輯（其中兩個工具的作者不明），附繁體中文介面。
+[zznaptime](https://github.com/zznaptime) 等人製作的網頁小工具為原作或靈感來源的 42 個工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫）（其中兩個工具的作者不明），附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -62,7 +62,7 @@
 | [CCFOLIA & 圖片調色工作室](tools/psd-studio/) | 把 CCFOLIA 房間 ZIP、PSD 或圖片一次統一調色（色相、曲線、漸層對應），APNG 自動壓到 5 MB 以下，再輸出成房間 ZIP |
 | [文字方框產生器](tools/textbox/) | 用框線字元和全形空白排出可以直接貼進聊天欄的文字方框與表格，自動補正全形字寬 |
 | [戰鬥地圖產生器](tools/battlemap/) | 一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈 |
-| [文字演出產生器](tools/text-fx/) | TRPG Toolkit 原創工具：把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，支援直書，可輸出 APNG（含 256 色減色）、GIF、WebP、PNG 或連番 ZIP |
+| [文字演出產生器](tools/text-fx/) | 把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，支援直書，可輸出 APNG（含 256 色減色）、GIF、WebP、PNG 或連番 ZIP |
 
 以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
 
@@ -100,7 +100,7 @@ npm test
 |---|---|---|
 | `battlemap` | [戰鬥地圖產生器](tools/battlemap/) | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) |
 | `apng-wipe` | [輕量轉場 APNG 產生器](tools/apng-wipe/) | 出處不明的轉場 APNG 小工具 |
-| `text-fx` | [文字演出產生器](tools/text-fx/) | （本站原創） |
+| `text-fx` | [文字演出產生器](tools/text-fx/) | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發） |
 | `textbox` | [文字方框產生器](tools/textbox/) | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) |
 | `portrait-size` | [立繪尺寸統一器](tools/portrait-size/) | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) |
 | `text-path` | [文字軌跡產生器](tools/text-path/) | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) |
@@ -145,7 +145,7 @@ npm test
 介面預設為繁體中文，可由右上角切換回該工具的原文：`trpg-lab` 與
 `anime-rig` 為日文。
 
-`text-fx`（文字演出產生器）是本 repo 原創的工具，只有繁體中文介面。
+`text-fx`（文字演出產生器）的程式是本 repo 以無塵室方式獨立撰寫的，只有繁體中文介面。
 
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
@@ -173,7 +173,7 @@ npm test
 
 ## 授權
 
-根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：新框架 `web/` 與本站重寫的工具（見下）、`docs/`、原創工具 `tools/text-fx/`、`assets/`、
+根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：新框架 `web/` 與本站重寫的工具（見下）、`docs/`、本 repo 自己撰寫的 `tools/text-fx/`、`assets/`、
 `index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁、`anime-rig`
 的繁中使用說明。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。

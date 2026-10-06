@@ -230,7 +230,7 @@ test.describe('文字演出產生器', () => {
     await page.getByRole('button', { name: '說明' }).click();
     const help = page.getByRole('dialog', { name: '文字演出產生器：使用方式' });
     await expect(help).toContainText('空一行就是換頁');
-    await expect(help).toContainText('原創工具');
+    await expect(help).toContainText('無塵室方式獨立撰寫');
     await page.keyboard.press('Escape');
     expect(errors).toEqual([]);
   });

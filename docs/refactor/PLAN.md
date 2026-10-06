@@ -19,7 +19,7 @@
 
 | 工具 id | 名稱 | 靈感來源 | 原授權 | 群組 |
 |---|---|---|---|---|
-| text-fx | 文字演出產生器 | （本專案原創） | MIT | G1 |
+| text-fx | 文字演出產生器 | くま。/TRPG WEBツール観測所（文字画像APNGメーカー；無塵室開發） | 作者條款（本站程式 MIT） | G1 |
 | typewriter | 打字機動畫產生器 | sotsotssi/Typewriter-apng | MIT | G1 |
 | cutin | 切入素材產生器 | Taku-Taku-Taku/cutin-maker | MIT | G1 |
 | text-path | 文字軌跡產生器 | sotsotssi/text-path-generator | MIT | G1 |
@@ -145,7 +145,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | textbox | ✅ | ✅ | ✅ | ✅ |
 | apng-wipe | ✅ | ✅ | ✅ | ✅ |
 | portrait-size | ✅ | ✅ | ✅ | ✅ |
-| text-fx | —（原創，直接移植） | ✅ | ✅ | ✅ |
+| text-fx | —（無塵室開發，直接移植） | ✅ | ✅ | ✅ |
 | status-bar | ✅ | ✅ | ✅ | ✅ |
 | message-box | ✅ | ✅ | ✅ | ✅ |
 | chat-window | ✅ | ✅ | ✅ | ✅ |
