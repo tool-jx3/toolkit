@@ -239,3 +239,30 @@ test.describe('示範動畫匯出', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test('模組：音樂與歌詞的示範（播放、目前這一句、打點、有聲音的影片）', async ({ page }) => {
+  const errors = await openGallery(page);
+  await page.getByRole('tab', { name: '模組' }).click();
+  const section = page.getByTestId('music-demo');
+  await section.getByRole('button', { name: '產生 4 秒的示範音樂' }).click();
+  await expect(section.getByTestId('transport-time')).toHaveText('0:00／0:04');
+  await expect(section.getByTestId('music-demo-line')).toContainText('目前：—');
+  await section.getByRole('slider', { name: '時間軸' }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(section.getByTestId('music-demo-line')).toHaveText(
+    '目前：擲出骰子　下一句：命運開始轉動',
+  );
+  /* 打點：游標在第四行 → 寫上目前的時間（1 秒），尾端補換行 */
+  const area = section.getByRole('textbox', { name: '示範歌詞' });
+  await area.evaluate((el: HTMLTextAreaElement) => {
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  });
+  await section.getByRole('button', { name: '打點' }).click();
+  await expect(area).toHaveValue(/\[00:01\.00\] 第四句還沒有時間\n$/);
+  await section.getByRole('button', { name: /編成有聲音的影片/ }).click();
+  await expect(section.getByTestId('music-demo-movie')).toContainText(/示範\.(mp4|mov)/, {
+    timeout: 30_000,
+  });
+  expect(errors).toEqual([]);
+});
