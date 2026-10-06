@@ -88,6 +88,11 @@ export interface ProjectMenuProps<T> {
   /** 重設項目停用（例如沒有內容可以重設時；height-board 實作時新增，不給時行為不變） */
   resetDisabled?: boolean;
   /**
+   * 「開啟專案檔…」停用（例如匯出中不能換掉內容時；music-frame 修正時新增，不給時行為不變）。
+   * 停用時不開選檔視窗；選檔視窗開著時才變成不能開啟的情況，由 onLoad 丟出說明原因的錯誤。
+   */
+  openDisabled?: boolean;
+  /**
    * 取代旁邊的自動存檔狀態文字（例如「自動保存無法使用」）；讀取／準備專案檔中仍顯示進度。
    * height-board 實作時新增，不給時行為不變。
    */
@@ -149,6 +154,7 @@ export function ProjectMenu<T>({
   resetText,
   extraItems,
   resetDisabled,
+  openDisabled,
   statusText,
   openAccept,
   className,
@@ -286,7 +292,11 @@ export function ProjectMenu<T>({
               <Save aria-hidden />
               存成專案檔…
             </DropdownMenu.Item>
-            <DropdownMenu.Item className={itemClass} onSelect={open}>
+            <DropdownMenu.Item
+              className={cn(itemClass, 'data-disabled:cursor-not-allowed data-disabled:opacity-50')}
+              disabled={openDisabled}
+              onSelect={open}
+            >
               <FolderOpen aria-hidden />
               開啟專案檔…
             </DropdownMenu.Item>
