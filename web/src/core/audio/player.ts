@@ -37,6 +37,10 @@ export interface AudioPlayer {
   time(): number;
   /** 解碼並換成這首（停止目前的播放、回到 0）；失敗丟 AudioDecodeError（訊息可直接顯示） */
   load(data: Blob | ArrayBuffer): Promise<PcmAudio>;
+  /** 只解碼（不換掉目前的音樂；同時有好幾個檔案在解碼、只要最後一個時用）；失敗丟 AudioDecodeError */
+  decode(data: Blob | ArrayBuffer): Promise<AudioBuffer>;
+  /** 換成這首已解碼的音樂（停止目前的播放、回到 0） */
+  use(buffer: AudioBuffer): PcmAudio;
   /** 拿掉音樂 */
   unload(): void;
   /** 從 from（預設目前位置；在結尾時從 0）播放 */
@@ -157,12 +161,11 @@ export function createAudioPlayer({
       return ctx;
     },
     time,
-    async load(data) {
+    async decode(data) {
       const c = ensureContext();
       const bytes = data instanceof ArrayBuffer ? data.slice(0) : await data.arrayBuffer();
-      let decoded: AudioBuffer;
       try {
-        decoded = await new Promise<AudioBuffer>((resolve, reject) => {
+        return await new Promise<AudioBuffer>((resolve, reject) => {
           /* 舊版 Safari 只有回呼形式 */
           const p = c.decodeAudioData(bytes, resolve, reject);
           if (p && typeof (p as Promise<AudioBuffer>).then === 'function')
@@ -171,6 +174,8 @@ export function createAudioPlayer({
       } catch {
         throw new AudioDecodeError();
       }
+    },
+    use(decoded) {
       if (playing) player.pause();
       stopSource();
       buffer = decoded;
@@ -178,6 +183,9 @@ export function createAudioPlayer({
       playing = false;
       emit();
       return pcmFromAudioBuffer(decoded);
+    },
+    async load(data) {
+      return player.use(await player.decode(data));
     },
     unload() {
       stopSource();

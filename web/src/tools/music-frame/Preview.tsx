@@ -1,5 +1,5 @@
 /**
- * 預覽（規格 F46～F49）：1920 × 1080 的畫布（每個畫面重畫；沒有變化時不重畫）、播放列（有音樂時控制音樂，
+ * 預覽（規格 F52～F56）：1920 × 1080 的畫布（每個畫面重畫；沒有變化時不重畫）、播放列（有音樂時控制音樂，
  * 沒有音樂時控制循環的預覽）、移除音樂、儲存 PNG。
  */
 import { ImageDown, Music2 } from 'lucide-react';
@@ -41,6 +41,17 @@ export function Preview() {
   useEffect(() => {
     if (hasAudio) loopRef.current.pause();
   }, [hasAudio]);
+
+  /* 改了循環長度：從頭重新計時（同原作） */
+  const firstLength = useRef(true);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只在循環長度改變時
+  useEffect(() => {
+    if (firstLength.current) {
+      firstLength.current = false;
+      return;
+    }
+    loopRef.current.onTimeChange(0);
+  }, [loopLength]);
 
   useEffect(() => {
     controls = {

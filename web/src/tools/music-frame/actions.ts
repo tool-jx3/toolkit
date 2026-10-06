@@ -120,10 +120,12 @@ export async function syncAudio(id: string | null): Promise<void> {
     return;
   }
   try {
-    const pcm = await player.load(blob);
+    /* 先解碼、確定還是最新的要求才換上（解碼期間又換了音樂時不蓋掉新的） */
+    const decoded = await player.decode(blob);
     if (job !== audioJob) return;
+    const pcm = player.use(decoded);
     useSession.setState({
-      audio: { id, pcm, duration: player.duration, peaks: waveformPeaks(pcm, 220) },
+      audio: { id, pcm, duration: decoded.duration, peaks: waveformPeaks(pcm, 220) },
       audioState: 'ready',
     });
   } catch {
@@ -138,17 +140,20 @@ export async function addAudio(file: File): Promise<void> {
   const before = useSession.getState().audioState;
   useSession.setState({ audioState: 'loading' });
   const job = ++audioJob;
-  let pcm: Awaited<ReturnType<typeof player.load>>;
+  let decoded: AudioBuffer;
   try {
-    pcm = await player.load(file);
+    decoded = await player.decode(file);
   } catch {
     if (job === audioJob) useSession.setState({ audioState: before });
     notify({ title: S.toast.audioFailed(file.name || '檔案'), tone: 'danger' });
     return;
   }
-  const duration = player.duration;
+  if (job !== audioJob) return;
+  const pcm = player.use(decoded);
+  const duration = decoded.duration;
   const r = await assets.add(file);
   if (!r.persisted) notify({ title: S.toast.notPersisted, tone: 'warning' });
+  if (job !== audioJob) return;
   useSession.setState({
     audio: { id: r.id, pcm, duration, peaks: waveformPeaks(pcm, 220) },
     audioState: 'ready',

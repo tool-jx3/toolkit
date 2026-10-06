@@ -87,6 +87,14 @@ function useFontSync() {
     const t = setTimeout(() => void syncFonts(settingsNow()), 250);
     return () => clearTimeout(t);
   }, [key]);
+  /* 任何字型（含 Google Fonts 分段載入的字）載好時重新量字、重畫 */
+  useEffect(() => {
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+    if (!fonts?.addEventListener) return;
+    const bump = () => useSession.setState((st) => ({ fontTick: st.fontTick + 1 }));
+    fonts.addEventListener('loadingdone', bump);
+    return () => fonts.removeEventListener('loadingdone', bump);
+  }, []);
 }
 
 declare global {
@@ -176,8 +184,22 @@ export function App() {
         },
         allowInInput: true,
       },
-      { keys: 'mod+z', label: S.keys.undo, group: S.keys.group, handler: undo },
-      { keys: ['shift+mod+z', 'mod+y'], label: S.keys.redo, group: S.keys.group, handler: redo },
+      {
+        keys: 'mod+z',
+        label: S.keys.undo,
+        group: S.keys.group,
+        handler: () => {
+          if (!useSession.getState().exporting) undo();
+        },
+      },
+      {
+        keys: ['shift+mod+z', 'mod+y'],
+        label: S.keys.redo,
+        group: S.keys.group,
+        handler: () => {
+          if (!useSession.getState().exporting) redo();
+        },
+      },
     ],
     [undo, redo],
   );
@@ -229,6 +251,10 @@ export function App() {
               return `${settingsNow().title.trim() || TOOL_ID}_${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
             }}
             onLoad={async (data, project, files) => {
+              if (useSession.getState().exporting) {
+                notify({ title: S.toast.busy, tone: 'warning' });
+                return false;
+              }
               const missing = await openProject(data, project.version, files);
               if (missing) notify({ title: S.project.missing(missing), tone: 'warning' });
               return true;

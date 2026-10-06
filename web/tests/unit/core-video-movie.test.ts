@@ -10,6 +10,7 @@ import {
   type MoviePlan,
   movieLayout,
   parseOpusHead,
+  pickRecordingType,
   vp9Level,
   vpcCFor,
 } from '@/core/video';
@@ -621,5 +622,24 @@ describe('encodeMovie（模擬的編碼器）', () => {
         signal: ctrl.signal,
       }),
     ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});
+
+describe('pickRecordingType', () => {
+  const stub = (ok: (t: string) => boolean) =>
+    vi.stubGlobal('MediaRecorder', { isTypeSupported: ok } as unknown as typeof MediaRecorder);
+  it('不給參數時與以前相同（先 WebM）；preferMp4 先試 H.264 的 MP4；audio 時含聲音的候選', () => {
+    stub((t) => t === 'video/webm;codecs=vp9' || t.startsWith('video/mp4'));
+    expect(pickRecordingType()).toBe('video/webm;codecs=vp9');
+    expect(pickRecordingType({ preferMp4: true })).toBe('video/mp4;codecs=avc1.640032');
+    expect(pickRecordingType({ preferMp4: true, audio: true })).toBe(
+      'video/mp4;codecs=avc1.640032,mp4a.40.2',
+    );
+    stub((t) => t === 'video/webm;codecs=vp8,opus');
+    expect(pickRecordingType({ preferMp4: true, audio: true })).toBe('video/webm;codecs=vp8,opus');
+    stub(() => {
+      throw new Error('不支援');
+    });
+    expect(pickRecordingType({ preferMp4: true })).toBe('');
   });
 });
