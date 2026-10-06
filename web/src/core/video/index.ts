@@ -9,6 +9,8 @@
  * const blob = await recordCanvas({ width: 640, height: 360, seconds: 3, draw });   // 畫布錄成 WebM
  * const mp4 = await encodeMp4({ width: 960, height: 540, fps: 30, frameCount: 90, renderFrame });   // 逐格編成 MP4（H.264）
  * const avi = await encodeAvi({ width: 960, height: 540, fps: 30, frameCount: 90, renderFrame });   // 逐格編成 AVI（MJPEG）
+ * const plan = await findMoviePlan({ width: 1920, height: 1080, fps: 30, audio: { sampleRate: 48000 } });
+ * const movie = await encodeMovie({ plan, width: 1920, height: 1080, fps: 30, frameCount, renderFrame, audio: { pcm } });  // 有聲音的 MP4／MOV
  * ```
  *
  * - 解碼交給瀏覽器（<video>）：能播放的格式都能讀；讀不到丟 VideoLoadError（訊息可直接顯示）。
@@ -29,6 +31,7 @@ export {
   encodeAvi,
   encodeMp4,
   findMp4Config,
+  type H264Profile,
   mp4Bitrate,
   mp4ConfigCandidates,
   mp4Header,
@@ -48,6 +51,29 @@ export {
   seekTimeFor,
 } from './frames';
 export {
+  encodeMovie,
+  findMoviePlan,
+  type MovieAudioPlan,
+  type MovieEncodeOptions,
+  type MoviePlan,
+  type MoviePlanRequest,
+} from './movie';
+export {
+  aacAudioSpecificConfig,
+  type MovieAudioCodec,
+  type MovieChunk,
+  type MovieContainer,
+  type MovieLayout,
+  type MovieLayoutOptions,
+  type MovieVideoCodec,
+  type MuxAudioTrack,
+  type MuxVideoTrack,
+  movieLayout,
+  parseOpusHead,
+  vp9Level,
+  vpcCFor,
+} from './mp4';
+export {
   ensureFiniteDuration,
   FRAME_WAIT_MS,
   type OpenVideoOptions,
@@ -60,8 +86,11 @@ export {
   VideoLoadError,
 } from './open';
 export {
+  type CanvasRecording,
+  type CanvasRecordingOptions,
   canRecordCanvas,
   pickRecordingType,
   type RecordCanvasOptions,
   recordCanvas,
+  startCanvasRecording,
 } from './record';

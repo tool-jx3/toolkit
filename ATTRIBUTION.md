@@ -15,7 +15,8 @@
 [くま。](https://github.com/kumachansteps) 與
 [Eon-00](https://github.com/Eon-00) 與
 [fyam-hamu](https://github.com/fyam-hamu) 與
-[usagineko7865-debug](https://github.com/usagineko7865-debug) 製作的網頁工具，以及一個作者不明的工具，並為其加上繁體中文介面。所有收錄工具的原始著作權屬各自的原作者所有。
+[usagineko7865-debug](https://github.com/usagineko7865-debug) 與
+[zznaptime](https://github.com/zznaptime) 製作的網頁工具，以及一個作者不明的工具，並為其加上繁體中文介面。所有收錄工具的原始著作權屬各自的原作者所有。
 
 另有一部分工具已依 [docs/refactor/](docs/refactor/PLAN.md) 的流程**由本站重寫**：用本站自己的框架與元件重新實作，介面上不放作者標示，只保留「靈感來源」連結，見下方「[本站重寫的工具（靈感來源）](#本站重寫的工具靈感來源)」。
 
@@ -255,6 +256,9 @@ WebM。
 | `pair-maker` | 角色介紹圖產生器 | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `83fd605` |
 | `character-select` | 選角畫面產生器 | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `83fd605` |
 | `acrylic-goods` | 壓克力周邊工房 | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `83fd605` |
+| `music-frame` | 音樂播放畫面產生器 | [zznaptime/1007mv](https://github.com/zznaptime/1007mv)（未授權） | —（新收錄，沒有舊版） |
+
+`music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 

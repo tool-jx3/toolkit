@@ -19,10 +19,139 @@ export function canRecordCanvas(): boolean {
   );
 }
 
-/** 錄影用的影片類型（支援的第一個）；都不支援時回傳空字串（交給瀏覽器決定） */
-export function pickRecordingType(): string {
+/** 有聲音、優先 MP4 時的候選（music-frame：先試 H.264＋AAC 的 MP4，再試 WebM） */
+const MP4_FIRST_AUDIO = [
+  'video/mp4;codecs=avc1.640032,mp4a.40.2',
+  'video/mp4;codecs=avc1.640028,mp4a.40.2',
+  'video/mp4;codecs=avc1.4d0028,mp4a.40.2',
+  'video/mp4;codecs=avc1,mp4a.40.2',
+  'video/mp4;codecs=avc1,opus',
+  'video/mp4',
+  'video/webm;codecs=vp9,opus',
+  'video/webm;codecs=vp8,opus',
+  'video/webm',
+] as const;
+const MP4_FIRST_SILENT = [
+  'video/mp4;codecs=avc1.640032',
+  'video/mp4;codecs=avc1.640028',
+  'video/mp4;codecs=avc1.4d0028',
+  'video/mp4;codecs=avc1',
+  'video/mp4',
+  'video/webm;codecs=vp9',
+  'video/webm',
+] as const;
+
+/**
+ * 錄影用的影片類型（支援的第一個）；都不支援時回傳空字串（交給瀏覽器決定）。
+ * 選填（music-frame 移植時新增，不給時與以前相同：先 WebM 再 MP4）：`preferMp4`（先試 H.264 的 MP4）、
+ * `audio`（有聲音時的候選，含 AAC／Opus）。
+ */
+export function pickRecordingType(options: { audio?: boolean; preferMp4?: boolean } = {}): string {
   if (typeof MediaRecorder === 'undefined') return '';
-  return CANDIDATE_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
+  const list: readonly string[] = options.preferMp4
+    ? options.audio
+      ? MP4_FIRST_AUDIO
+      : MP4_FIRST_SILENT
+    : CANDIDATE_TYPES;
+  return (
+    list.find((t) => {
+      try {
+        return MediaRecorder.isTypeSupported(t);
+      } catch {
+        return false;
+      }
+    }) ?? ''
+  );
+}
+
+export interface CanvasRecording {
+  /** 實際的影片類型（例如 video/webm;codecs=vp9,opus） */
+  readonly mimeType: string;
+  /** 停止並取得影片 */
+  stop(): Promise<Blob>;
+  /** 停止並丟掉 */
+  cancel(): void;
+}
+
+export interface CanvasRecordingOptions {
+  /** 擷取的每秒格數 */
+  fps: number;
+  /** 一起錄進去的聲音（例如 AudioPlayer 的 recordingStream()） */
+  audio?: MediaStream | null;
+  mimeType?: string;
+  videoBitsPerSecond?: number;
+  audioBitsPerSecond?: number;
+}
+
+/**
+ * 即時錄下一個已經在畫面上（或由工具自己逐格畫）的畫布：開始後畫布上的變化與 audio 的聲音依實際時間錄進去，
+ * stop() 拿到影片。用在瀏覽器不能逐格編碼（沒有 WebCodecs）時的退路；錄出來的 WebM 通常沒有寫總長。
+ * 開始失敗時丟錯（訊息可直接顯示）。（music-frame 移植時新增）
+ */
+export function startCanvasRecording(
+  canvas: HTMLCanvasElement,
+  { fps, audio, mimeType, videoBitsPerSecond, audioBitsPerSecond }: CanvasRecordingOptions,
+): CanvasRecording {
+  if (!canRecordCanvas()) throw new Error('這個瀏覽器不支援錄製影片。');
+  const stream = canvas.captureStream(fps);
+  for (const t of audio?.getAudioTracks() ?? []) stream.addTrack(t);
+  let recorder: MediaRecorder;
+  try {
+    recorder = new MediaRecorder(stream, {
+      ...(mimeType ? { mimeType } : {}),
+      ...(videoBitsPerSecond ? { videoBitsPerSecond } : {}),
+      ...(audioBitsPerSecond ? { audioBitsPerSecond } : {}),
+    });
+  } catch (e) {
+    for (const t of stream.getVideoTracks()) t.stop();
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  const chunks: Blob[] = [];
+  let done: ((b: Blob) => void) | null = null;
+  let failed: ((e: Error) => void) | null = null;
+  const finished = new Promise<Blob>((resolve, reject) => {
+    done = resolve;
+    failed = reject;
+  });
+  /* 沒有人等的時候不要變成未處理的錯誤 */
+  finished.catch(() => {});
+  const stopTracks = () => {
+    /* 只停畫布的軌：聲音的軌屬於呼叫端（之後還要播放） */
+    for (const t of stream.getVideoTracks()) t.stop();
+  };
+  let cancelled = false;
+  recorder.ondataavailable = (e) => {
+    if (e.data.size) chunks.push(e.data);
+  };
+  recorder.onstop = () => {
+    stopTracks();
+    if (cancelled) failed?.(new DOMException('已取消', 'AbortError'));
+    else
+      done?.(
+        new Blob(chunks, { type: (recorder.mimeType || mimeType || 'video/webm').split(';')[0] }),
+      );
+  };
+  recorder.onerror = () => {
+    stopTracks();
+    failed?.(new Error('錄製影片失敗。'));
+  };
+  recorder.start(1000);
+  const halt = () => {
+    if (recorder.state !== 'inactive') recorder.stop();
+  };
+  return {
+    get mimeType() {
+      return recorder.mimeType || mimeType || '';
+    },
+    stop() {
+      halt();
+      return finished;
+    },
+    cancel() {
+      cancelled = true;
+      halt();
+    },
+  };
 }
 
 export interface RecordCanvasOptions {

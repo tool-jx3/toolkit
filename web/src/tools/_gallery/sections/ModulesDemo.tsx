@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { createRandom, EASE, EASING_CHOICES, type EasingName } from '@/core/timeline';
 import { Section } from '@/ui';
 import { FlowDemo } from './FlowDemo';
+import { MusicDemo } from './MusicDemo';
 import { PagedDemo } from './PagedDemo';
 import { PostDemo } from './PostDemo';
 import { ThreeDemo } from './ThreeDemo';
@@ -75,6 +76,7 @@ export function ModulesDemo() {
       <PostDemo />
       <FlowDemo />
       <VideoDemo />
+      <MusicDemo />
       <ThreeDemo />
     </div>
   );

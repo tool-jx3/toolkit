@@ -15,7 +15,7 @@
 4. **功能對等**：每個重寫的工具在上線前，必須逐項通過「對等驗證」——原有的每個功能都要做到，並與舊版並排比對。
 5. **往後新增工具也走同一套流程**：讀原作程式 → 功能清單 → 用本專案元件改寫 → 對等驗證，不再「整份複製＋繁中化」。
 
-## 2. 現況盤點（41 個工具）
+## 2. 現況盤點（42 個工具）
 
 | 工具 id | 名稱 | 靈感來源 | 原授權 | 群組 |
 |---|---|---|---|---|
@@ -56,6 +56,7 @@
 | acrylic-goods | 壓克力周邊工房 | sotsotssi/acrylic-goods | MIT | G7 |
 | video-anim | 影片轉動圖工具 | sotsotssi/video-to-pic | MIT | G8 |
 | gif-combiner | GIF 接合器 | sotsotssi/GIF-Combiner | MIT | G8 |
+| music-frame | 音樂播放畫面產生器 | zznaptime/1007mv | 未授權 | G8 |
 | battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator | MIT | G8 |
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
@@ -75,7 +76,7 @@
 | G5 CCFOLIA 資料 | 房間 ZIP、角色 JSON、聊天面板、日誌解析 | character-editor、room-zip、psd-studio、foreground-frame、log-converter、scenario-cards |
 | G6 劇本與紀錄 | 富文本與分頁排版、列印／PDF、紀錄資料庫 | scenario-editor、coc-typesetter、session-log、session-report |
 | G7 介紹圖與宣傳 | 版型畫布（Konva）、3D（three.js） | pair-maker、character-select、magic-circle、acrylic-goods |
-| G8 影像與動圖 | 影片解碼、動圖編碼、程序生成 | video-anim、gif-combiner、battlemap |
+| G8 影像與動圖 | 影片解碼、動圖編碼、程序生成 | video-anim、gif-combiner、battlemap、music-frame |
 | G9 綜合 | 依子工具而定 | trpg-lab（拆成獨立工具）、anime-rig |
 
 ## 4. 技術架構
@@ -174,6 +175,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | coc-typesetter | ✅ | ✅ | ✅ | ✅ |
 | video-anim | ✅ | ✅ | ✅ | ✅ |
 | gif-combiner | ✅ | ✅ | ✅ | ✅ |
+| music-frame | ✅ | ✅ | ✅ | ✅ |
 | pair-maker | ✅ | ✅ | ✅ | ✅ |
 | character-select | ✅ | ✅ | ✅ | ✅ |
 | magic-circle | ✅ | ✅ | ✅ | ✅ |

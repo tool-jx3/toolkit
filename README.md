@@ -14,7 +14,8 @@
 [くま。](https://github.com/kumachansteps) 與
 [Eon-00](https://github.com/Eon-00) 與
 [fyam-hamu](https://github.com/fyam-hamu) 與
-[usagineko7865-debug](https://github.com/usagineko7865-debug) 等人製作的 40 個網頁小工具，加上本 repo 原創的「文字演出產生器」，共 41 個工具的合輯（其中兩個工具的作者不明），附繁體中文介面。
+[usagineko7865-debug](https://github.com/usagineko7865-debug) 與
+[zznaptime](https://github.com/zznaptime) 等人製作的 41 個網頁小工具，加上本 repo 原創的「文字演出產生器」，共 42 個工具的合輯（其中兩個工具的作者不明），附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -43,6 +44,7 @@
 | [壓克力周邊工房](tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光、搖晃，匯出 APNG／GIF／WebP／PNG 或 .glb 模型 |
 | [影片轉動圖工具](tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
 | [GIF 接合器](tools/gif-combiner/) | 把多張 GIF 的影格對齊時間軸排進同一張畫面，拖曳排版後合成一張 GIF |
+| [音樂播放畫面產生器](tools/music-frame/) | 放進封面與音樂，做出跑團 BGM、角色主題曲的「正在播放」畫面：三種版面、聲音視覺化、邊框與隨時間出現的歌詞（LRC／SRT），存成 1920 × 1080 的 PNG 或有聲音的影片 |
 | [違法建築的 TRPG 實驗室](tools/trpg-lab/) | 一站收齊九個跑團工具：CoC 7 版擲骰、調查員角色卡、NPC 製作／管理、TRPG 地圖編輯器、網格／六角格產生器與量尺產生器、BCDice 傷害計算 |
 | [JIZURA 字面](tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
 | [Anime2.5DRig](tools/anime-rig/) | 把分好部件的 PSD 拖進來就自動綁定成 2.5D 虛擬形象：眨眼、嘴型、頭髮物理、攝影機臉部追蹤與麥克風嘴型，可匯出透明 PNG 與 WebM／MP4 |
@@ -134,6 +136,7 @@ npm test
 | `pair-maker` | [角色介紹圖產生器](tools/pair-maker/) | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) |
 | `character-select` | [選角畫面產生器](tools/character-select/) | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) |
 | `acrylic-goods` | [壓克力周邊工房](tools/acrylic-goods/) | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) |
+| `music-frame` | [音樂播放畫面產生器](tools/music-frame/) | [zznaptime/1007mv](https://github.com/zznaptime/1007mv) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

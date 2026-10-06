@@ -136,4 +136,62 @@ describe('ProjectMenu', () => {
       screen.getByRole('menuitem', { name: '重設…' }).getAttribute('aria-disabled'),
     ).toBeNull();
   });
+
+  it('openDisabled 停用「開啟專案檔…」：不開選檔視窗；不給時照常（music-frame 新增）', async () => {
+    const onLoad = vi.fn();
+    const { rerender } = render(
+      <UiProvider>
+        <ProjectMenu
+          toolId="demo"
+          getData={() => ({})}
+          onLoad={onLoad}
+          onReset={() => {}}
+          openDisabled
+        />
+      </UiProvider>,
+    );
+    await openMenu();
+    const item = screen.getByRole('menuitem', { name: /開啟專案檔/ });
+    expect(item.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      screen.getByRole('menuitem', { name: /存成專案檔/ }).getAttribute('aria-disabled'),
+    ).toBeNull();
+    await userEvent.click(item);
+    expect(files.pickFiles).not.toHaveBeenCalled();
+    await userEvent.keyboard('{Escape}');
+    rerender(
+      <UiProvider>
+        <ProjectMenu toolId="demo" getData={() => ({})} onLoad={onLoad} onReset={() => {}} />
+      </UiProvider>,
+    );
+    files.pickFiles.mockResolvedValueOnce([]);
+    await openMenu();
+    const enabled = screen.getByRole('menuitem', { name: /開啟專案檔/ });
+    expect(enabled.getAttribute('aria-disabled')).toBeNull();
+    await userEvent.click(enabled);
+    expect(files.pickFiles).toHaveBeenCalledTimes(1);
+  });
+
+  it('onLoad 丟出的錯誤照原文顯示（不是「專案檔的內容無法使用」）', async () => {
+    const notices: ProjectNotice[] = [];
+    render(
+      <UiProvider>
+        <ProjectMenu
+          toolId="demo"
+          getData={() => ({})}
+          onLoad={() => {
+            throw new Error('匯出中，請等匯出完成或取消後再操作。');
+          }}
+          onReset={() => {}}
+          confirmOpen={false}
+          onNotify={(n) => notices.push(n)}
+        />
+      </UiProvider>,
+    );
+    files.pickFiles.mockResolvedValueOnce([file('ok.json', serializeProject('demo', 1, { a: 2 }))]);
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: /開啟專案檔/ }));
+    await waitFor(() => expect(notices.at(-1)?.kind).toBe('open-failed'));
+    expect(notices.at(-1)?.message).toBe('匯出中，請等匯出完成或取消後再操作。');
+  });
 });

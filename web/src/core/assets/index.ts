@@ -13,6 +13,7 @@
  * ```
  */
 import { useEffect, useState } from 'react';
+import { AUDIO_FILE_INFO, detectAudioType } from '../audio/analysis';
 import { bytesToHex, subtleSha256 } from '../files/hash';
 import { createImageStore, detectImageType, type ImageSaveFailure, loadImage } from '../image';
 import type { ToolStore } from '../storage';
@@ -95,10 +96,16 @@ export async function assetIdFor(bytes: Uint8Array): Promise<string> {
   return digest ? `a${bytesToHex(digest.slice(0, 12))}` : `a${fallbackHash(bytes)}`;
 }
 
-/** 依檔頭推副檔名與 MIME（認不得時 png） */
+/**
+ * 依檔頭推副檔名與 MIME（認不得時 png）。圖片以外也認得常見的音訊檔（MP3、WAV、OGG、FLAC、M4A、AAC、WebM；
+ * music-frame 把音樂放進同一個資產庫時新增，圖片的結果不變）。
+ */
 export function assetFileInfo(bytes: Uint8Array): { ext: string; mime: string } {
   const kind = detectImageType(bytes);
-  return { ext: kind ? EXT[kind] : 'png', mime: kind ? MIME[kind] : 'image/png' };
+  if (kind) return { ext: EXT[kind], mime: MIME[kind] };
+  const audio = detectAudioType(bytes);
+  if (audio) return AUDIO_FILE_INFO[audio];
+  return { ext: 'png', mime: 'image/png' };
 }
 
 /**

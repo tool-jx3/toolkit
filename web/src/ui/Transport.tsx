@@ -6,6 +6,9 @@
  * G2 擴充（選填，不給時行為不變）：
  * - `onRateChange`（＋`rate`、`rateRange`、`rateStep`）：顯示「預覽速度」數字欄（只影響預覽，不影響匯出）。
  * - `frames`（影格表）：時間軸聚焦時 ←／→ 移到上一格／下一格的開始（每格長度不同時用）。
+ *
+ * music-frame 加的選填（不給時行為不變）：
+ * - `formatTime`：時間的寫法（例如音樂的「分:秒」）；給了就顯示「目前／總長」不加「秒」，螢幕閱讀器也念這個寫法。
  */
 import { Pause, Play, Repeat, RotateCcw } from 'lucide-react';
 import { type KeyboardEvent, type PointerEvent, useRef } from 'react';
@@ -50,6 +53,8 @@ export interface TransportProps {
   rateRange?: readonly [number, number];
   /** 速度欄的間隔（預設 0.1） */
   rateStep?: number;
+  /** 時間的寫法（預設秒數到小數兩位＋「秒」）；例如音樂用「分:秒」 */
+  formatTime?: (t: number) => string;
   disabled?: boolean;
   className?: string;
 }
@@ -74,6 +79,7 @@ export function Transport({
   onRateChange,
   rateRange = [0.1, 4],
   rateStep = 0.1,
+  formatTime,
   disabled,
   className,
 }: TransportProps) {
@@ -187,7 +193,11 @@ export function Transport({
           aria-valuemin={0}
           aria-valuemax={Number(fmt(duration))}
           aria-valuenow={Number(fmt(time))}
-          aria-valuetext={`${fmt(time)} 秒${current ? `（${current.label}）` : ''}，共 ${fmt(duration)} 秒`}
+          aria-valuetext={
+            formatTime
+              ? `${formatTime(time)}${current ? `（${current.label}）` : ''}，共 ${formatTime(duration)}`
+              : `${fmt(time)} 秒${current ? `（${current.label}）` : ''}，共 ${fmt(duration)} 秒`
+          }
           onPointerDown={onPointer}
           onPointerMove={onPointer}
           onPointerUp={onPointer}
@@ -229,8 +239,13 @@ export function Transport({
             style={{ left: pct(time) }}
           />
         </div>
-        <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
-          {fmt(time)}／{fmt(duration)} 秒
+        <span
+          className="shrink-0 font-mono text-xs tabular-nums text-muted"
+          data-testid="transport-time"
+        >
+          {formatTime
+            ? `${formatTime(time)}／${formatTime(duration)}`
+            : `${fmt(time)}／${fmt(duration)} 秒`}
         </span>
         {onLoopChange ? (
           <IconButton
