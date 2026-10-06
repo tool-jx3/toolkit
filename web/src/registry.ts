@@ -124,6 +124,10 @@ export const TOOLS: readonly ToolEntry[] = [
       '把文字做成有登場、停留、退場動畫的透明素材（標語、長文、字幕），匯出 APNG、GIF、WebP、PNG。',
     group: 'G1',
     status: 'live',
+    inspiration: {
+      name: 'くま。／文字画像APNGメーカー',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/',
+    },
   },
   {
     id: 'obs-tachie',

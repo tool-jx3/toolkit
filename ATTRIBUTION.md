@@ -220,7 +220,7 @@ WebM。
 |---|---|---|---|
 | `battlemap` | 戰鬥地圖產生器 | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `cb0c619` |
 | `apng-wipe` | 輕量轉場 APNG 產生器 | 出處不明的轉場 APNG 小工具（使用者提供的單檔 HTML，沒有可連結的網址） | `cb0c619` |
-| `text-fx` | 文字演出產生器 | （本站原創，見下節；移植到新框架，與舊版逐格相同） | `cb0c619` |
+| `text-fx` | 文字演出產生器 | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發，沒有使用原作的程式碼，見下節） | `cb0c619` |
 | `textbox` | 文字方框產生器 | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) | `cb0c619` |
 | `portrait-size` | 立繪尺寸統一器 | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `cb0c619` |
 | `text-path` | 文字軌跡產生器 | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) | `b8a22a1` |
@@ -262,9 +262,9 @@ WebM。
 
 新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
 
-## text-fx：文字演出產生器（本 repo 原創）
+## text-fx：文字演出產生器（無塵室開發）
 
-`text-fx` 不是收錄的工具，而是本 repo 自己寫的原創工具（MIT，見根目錄 [LICENSE](LICENSE)；原本是獨立的單頁程式，已移植到新框架 `web/`，
+`text-fx` 不是收錄的工具，程式是本 repo 自己寫的（MIT，見根目錄 [LICENSE](LICENSE)；原本是獨立的單頁程式，已移植到新框架 `web/`，
 與舊版逐格相同，見 [docs/refactor/specs/text-fx.md](docs/refactor/specs/text-fx.md)），
 把文字做成透明背景的 APNG 動畫：標語大字、長文旁白、地點與時間字幕三種模式，二十多種登場與
 退場效果、停留效果、九種裝飾、直書與禁則、256 色減色、相同影格合併與只存變化範圍。
@@ -281,6 +281,8 @@ WebM。
 
 另外，第一次嘗試時實作者讀了原作程式碼，寫出來的版本有照搬的痕跡（相同的資料結構與內部常數），
 那一版沒有提交就整個作廢，才改用上述流程重做。
+
+2026-10-06 起，介面頁尾與上表把くま。的「文字画像APNGメーカー」列為**靈感來源**（與其他くま。的工具一致），首頁徽章改為「本站重寫」。網站整體的利用規約（`terms.html`）只限制站內的圖片與圖示，但這個工具自己的利用規約（工具目錄下的 `terms.html`，「禁止」與第 7 條）明文禁止無斷複製、再散布工具本體或主要部分、公開複製的工具，所以程式維持上述的無塵室版本，不讀原作程式移植。
 
 ## 繁體中文字型
 
