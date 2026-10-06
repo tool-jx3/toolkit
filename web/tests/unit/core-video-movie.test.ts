@@ -11,6 +11,7 @@ import {
   movieLayout,
   parseOpusHead,
   pickRecordingType,
+  VIDEO_MAX_BYTES,
   vp9Level,
   vpcCFor,
 } from '@/core/video';
@@ -601,6 +602,46 @@ describe('encodeMovie（模擬的編碼器）', () => {
     expect(ascii(r.bytes, vs.start + 20)).toBe('vp09');
     expect(ascii(r.bytes, child(stblOf(audio), 'stsd')!.start + 20)).toBe('Opus');
     expect(table(r.bytes, child(stblOf(video), 'stss')!, 1, 1).flat()).toEqual([1, 6]);
+  });
+
+  it('超過檔案大小上限（預設 1 GiB）：畫面或聲音的資料一超過就丟 too-large', async () => {
+    expect(VIDEO_MAX_BYTES).toBe(1024 ** 3);
+    installCodecs({ avc: () => true, aac: true });
+    const plan = (await findMoviePlan({
+      width: 64,
+      height: 36,
+      fps: 10,
+      audio: { sampleRate: 48000 },
+    }))!;
+    let rendered = 0;
+    const options = (maxBytes: number, audio: boolean) => ({
+      plan: audio ? plan : { ...plan, audio: null },
+      width: 64,
+      height: 36,
+      fps: 10,
+      frameCount: 20,
+      renderFrame: () => {
+        rendered++;
+        return canvas;
+      },
+      audio: audio ? { pcm: song(3), start: 0, end: 2 } : null,
+      /* 預估的封裝：每格 16 位元組＋8192；剩下的給資料 */
+      maxBytes: 20 * 16 + 8192 + maxBytes,
+    });
+    /* 畫面：每格 20～26 位元組，200 位元組的額度在第 10 格前就超過 */
+    await expect(encodeMovie(options(200, false))).rejects.toMatchObject({
+      name: 'VideoEncodeError',
+      code: 'too-large',
+    });
+    expect(rendered).toBeGreaterThan(0);
+    expect(rendered).toBeLessThan(20);
+    /* 聲音：AAC 每個封包 9 位元組，2 秒約 94 個，在畫第一格之前就超過 */
+    rendered = 0;
+    await expect(encodeMovie(options(200, true))).rejects.toMatchObject({ code: 'too-large' });
+    expect(rendered).toBe(0);
+    /* 額度夠時照常完成 */
+    const blob = await encodeMovie(options(64 * 1024, true));
+    expect(blob.type).toBe('video/mp4');
   });
 
   it('沒有聲音、取消、聲音設定不一致', async () => {

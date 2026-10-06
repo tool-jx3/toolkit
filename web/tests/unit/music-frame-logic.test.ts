@@ -3,6 +3,7 @@
  * 視覺化的數值、時間的寫法、設定的正規化、檔名與匯出範圍。
  */
 import { describe, expect, it } from 'vitest';
+import { fontStack } from '@/tools/music-frame/fonts';
 import {
   bottomLyricDims,
   buildStack,
@@ -303,6 +304,22 @@ describe('時間、設定、檔名', () => {
     expect(Number.isNaN(parseClock('abc'))).toBe(true);
     expect(Number.isNaN(parseClock(''))).toBe(true);
     expect(Number.isNaN(parseClock('1::2'))).toBe(true);
+  });
+  it('字型堆疊：等寬、像素體的退路有 monospace（ui-monospace 只有 Safari 認得），中文再退回黑體', () => {
+    for (const id of ['mono', 'pixel'] as const) {
+      const list = fontStack(id)
+        .split(',')
+        .map((f) => f.trim());
+      expect(list).toContain('ui-monospace');
+      expect(list).toContain('monospace');
+      expect(list.indexOf('monospace')).toBeLessThan(list.indexOf('sans-serif'));
+    }
+    expect(fontStack('mono').startsWith('"Roboto Mono", "Noto Sans TC", ')).toBe(true);
+    expect(
+      fontStack('sans')
+        .split(',')
+        .map((f) => f.trim()),
+    ).not.toContain('monospace');
   });
   it('科技風的時間碼（每秒 30 格）', () => {
     expect(timecode(328)).toBe('00:05:28:00');

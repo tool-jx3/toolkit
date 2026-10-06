@@ -87,6 +87,7 @@ interface Hook {
     seek: (t: number) => void;
   };
   forceRealtime: (v: boolean) => void;
+  fontStack: (id: string) => string;
 }
 type W = { __musicFrame: Hook };
 const hook = <T>(page: Page, fn: (h: Hook) => T) =>
@@ -207,6 +208,55 @@ async function coverPng(w = 300, h = 200): Promise<Buffer> {
       px.set(x < w / 2 ? [220, 40, 40, 255] : [30, 60, 200, 255], (y * w + x) * 4);
   return Buffer.from(await encodePng(px, w, h));
 }
+
+/** 單色的 PNG（灰色封面：配色全是灰色，文字的彩度只來自反鋸齒） */
+async function solidPng(w: number, h: number, rgb: [number, number, number]): Promise<Buffer> {
+  const px = new Uint8Array(w * h * 4);
+  for (let i = 0; i < w * h; i++) px.set([...rgb, 255], i * 4);
+  return Buffer.from(await encodePng(px, w, h));
+}
+
+/**
+ * 一塊區域的文字像素：最大彩度（R、G、B 的最大差）與亮的像素數；
+ * png 給了就量那張 PNG，否則量預覽。另外回傳整張圖最小的不透明度。
+ */
+const textChroma = (page: Page, rect: [number, number, number, number], png?: Buffer) =>
+  page.evaluate(
+    async ([[x, y, w, h], b64]) => {
+      let g: CanvasRenderingContext2D;
+      if (b64) {
+        const bin = atob(b64);
+        const u8 = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        const bmp = await createImageBitmap(new Blob([u8], { type: 'image/png' }), {
+          premultiplyAlpha: 'none',
+        });
+        const c = document.createElement('canvas');
+        c.width = bmp.width;
+        c.height = bmp.height;
+        g = c.getContext('2d')!;
+        g.drawImage(bmp, 0, 0);
+      } else
+        g = document
+          .querySelector<HTMLCanvasElement>('[data-testid="preview-canvas"]')!
+          .getContext('2d')!;
+      const d = g.getImageData(x, y, w, h).data;
+      let maxChroma = 0;
+      let textPixels = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        maxChroma = Math.max(
+          maxChroma,
+          Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]),
+        );
+        if (d[i] + d[i + 1] + d[i + 2] > 300) textPixels++;
+      }
+      const all = g.getImageData(0, 0, g.canvas.width, g.canvas.height).data;
+      let minAlpha = 255;
+      for (let i = 3; i < all.length; i += 4) minAlpha = Math.min(minAlpha, all[i]);
+      return { maxChroma, textPixels, minAlpha };
+    },
+    [rect, png?.toString('base64') ?? ''] as const,
+  );
 
 const file = (name: string, mimeType: string, buffer: Buffer) => ({ name, mimeType, buffer });
 const coverInput = (page: Page) => page.locator('input[type=file][accept^="image/png"]');
@@ -435,6 +485,24 @@ test.describe('音樂播放畫面產生器', () => {
     expect(errors).toEqual([]);
   });
 
+  test('字型：等寬、像素體載不到時退回電腦的等寬字（monospace）', async ({ page }) => {
+    const errors = await open(page);
+    /* 這裡的 Google Fonts 都是空的：Roboto Mono、DotGothic16 都沒有載入，只剩字型堆疊後面的退路 */
+    const stacks = await hook(page, (h) => [h.fontStack('mono'), h.fontStack('pixel')]);
+    const widths = await page.evaluate((list) => {
+      const g = document.createElement('canvas').getContext('2d')!;
+      return list.map((stack) =>
+        ['iiiiiiii', 'MMMMMMMM', '00:00:00'].map((t) => {
+          g.font = `400 40px ${stack}`;
+          return Math.round(g.measureText(t).width * 10) / 10;
+        }),
+      );
+    }, stacks);
+    for (const [i, w] of widths.entries())
+      expect(new Set(w).size, `${stacks[i]}：${w.join('／')}`).toBe(1);
+    expect(errors).toEqual([]);
+  });
+
   test('動態：視覺化、進度條、漂浮、顆粒、沒有音樂時的曲長與進度', async ({ page }) => {
     const errors = await open(page);
     /* 循環預覽停在 2 秒（相位不是 0 才看得出漂浮的差別） */
@@ -471,6 +539,62 @@ test.describe('音樂播放畫面產生器', () => {
     expect((await settings(page)).fakePosition).toBeCloseTo(0.8);
     const s = await settings(page);
     expect([s.motion, s.grain, s.progress, s.viz]).toEqual([false, false, true, 'bars']);
+    expect(errors).toEqual([]);
+  });
+
+  test('時間欄：有小數的值離開欄位後保留（只有改了文字才重新解析）', async ({ page }) => {
+    const errors = await open(page);
+    const elsewhere = () => page.getByRole('heading', { level: 1 }).click();
+    /* 曲長（沒有音樂，F29） */
+    await tab(page, '動態').click();
+    const dur = page.getByRole('textbox', { name: '曲長' });
+    await dur.fill('4:05.5');
+    await dur.press('Enter');
+    expect((await settings(page)).fakeDuration).toBe(245.5);
+    await expect(dur).toHaveValue('4:05');
+    /* 點一下欄位、點別處；Enter 確定後再離開：都不重新解析顯示的「4:05」 */
+    await dur.click();
+    await elsewhere();
+    await dur.focus();
+    await dur.press('Enter');
+    await dur.press('Tab');
+    expect((await settings(page)).fakeDuration).toBe(245.5);
+    /* 看不懂時還原成原本的值（小數保留） */
+    await dur.fill('abc');
+    await dur.press('Tab');
+    await expect(dur).toHaveValue('4:05');
+    expect((await settings(page)).fakeDuration).toBe(245.5);
+    /* 改成別的值照常生效 */
+    await dur.fill('3:00');
+    await dur.press('Tab');
+    expect((await settings(page)).fakeDuration).toBe(180);
+
+    /* 匯出的指定區間（F44）：開始 2.4、結束 3.5 → 1.1 秒，不是「區間太短」 */
+    await loadAudio(page);
+    await tab(page, '匯出').click();
+    await page.getByRole('radio', { name: '指定區間', exact: true }).click();
+    const start = page.getByRole('textbox', { name: '開始' });
+    const end = page.getByRole('textbox', { name: '結束' });
+    await start.fill('0:02.4');
+    await start.press('Enter');
+    await end.fill('0:03.5');
+    await end.press('Enter');
+    await elsewhere();
+    await end.click();
+    await start.click();
+    await elsewhere();
+    let s = await settings(page);
+    expect([s.export.start, s.export.end]).toEqual([2.4, 3.5]);
+    await expect(page.getByTestId('range-error')).toHaveCount(0);
+    /* Tab 離開後再點進去、Esc */
+    await end.fill('0:04.25');
+    await end.press('Tab');
+    await end.click();
+    await end.press('Escape');
+    await elsewhere();
+    s = await settings(page);
+    expect(s.export.end).toBe(4.25);
+    await expect(end).toHaveValue('0:04');
     expect(errors).toEqual([]);
   });
 
@@ -716,6 +840,38 @@ test.describe('音樂播放畫面產生器', () => {
     expect(errors).toEqual([]);
   });
 
+  test('文字反鋸齒：預覽與 PNG 的小字是灰階（沒有彩色的邊）、PNG 不透明', async ({ page }) => {
+    const errors = await open(page);
+    /* 灰色封面：底色、文字色都是灰色，文字像素的彩度只會來自 LCD 次像素反鋸齒 */
+    const drawn = await rendered(page);
+    await coverInput(page).setInputFiles(
+      file('gray.png', 'image/png', await solidPng(300, 300, [128, 128, 128])),
+    );
+    await expect.poll(async () => (await session(page)).coverState).toBe('ready');
+    await hook(page, (h) => {
+      h.set('grain', false);
+      h.set('motion', false);
+    });
+    await expect.poll(() => rendered(page)).toBeGreaterThan(drawn);
+    await page.waitForTimeout(150);
+    /* 歌手那一行（34 px，左右版面 x 910、y 約 457～501） */
+    const artist: [number, number, number, number] = [900, 450, 420, 60];
+    const live = await textChroma(page, artist);
+    expect(live.textPixels, '區域裡要有文字').toBeGreaterThan(200);
+    expect(live.maxChroma, `預覽：文字像素的最大彩度 ${live.maxChroma}`).toBeLessThanOrEqual(12);
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('save-png').click(),
+    ]);
+    const png = readFileSync((await download.path()) as string);
+    const out = await textChroma(page, artist, png);
+    expect(out.textPixels).toBeGreaterThan(200);
+    expect(out.maxChroma, `PNG：文字像素的最大彩度 ${out.maxChroma}`).toBeLessThanOrEqual(12);
+    /* 背景鋪滿：輸出照樣不透明 */
+    expect(out.minAlpha).toBe(255);
+    expect(errors).toEqual([]);
+  });
+
   test('影片（逐格）：有音樂的區間 → MP4（畫面＋聲音，可以播放）；區間太短', async ({ page }) => {
     test.setTimeout(150_000);
     const errors = await open(page);
@@ -903,6 +1059,62 @@ test.describe('音樂播放畫面產生器', () => {
     await expect.poll(async () => settings(page)).toEqual(saved);
     await expect.poll(async () => (await session(page)).coverState).toBe('ready');
     await expect.poll(async () => (await session(page)).audioState).toBe('ready');
+    expect(errors).toEqual([]);
+  });
+
+  test('匯出中：專案選單的「開啟專案檔」「重設」停用；被擋下時不說專案檔壞了', async ({ page }) => {
+    test.setTimeout(150_000);
+    const errors = await open(page);
+    const menu = () => page.getByRole('button', { name: '專案' }).click();
+    const item = (name: string) => page.getByRole('menuitem', { name });
+    await menu();
+    const [proj] = await Promise.all([page.waitForEvent('download'), item('存成專案檔…').click()]);
+    const zipPath = (await proj.path()) as string;
+    await dismissToasts(page);
+    await tab(page, '匯出').click();
+    const loop = page.getByRole('spinbutton', { name: '循環長度' });
+    await loop.fill('20');
+    await loop.press('Enter');
+    const exportButton = page.getByRole('button', { name: /^匯出 / });
+
+    /* 匯出中打開選單：會換掉內容的項目停用，存檔照常 */
+    await exportButton.click();
+    await expect(page.getByRole('progressbar')).toBeVisible();
+    await menu();
+    await expect(item('開啟專案檔…')).toBeDisabled();
+    await expect(item('重設…')).toBeDisabled();
+    await expect(item('存成專案檔…')).toBeEnabled();
+    let chooser = false;
+    page.once('filechooser', () => {
+      chooser = true;
+    });
+    await item('開啟專案檔…').click({ force: true });
+    await page.waitForTimeout(300);
+    expect(chooser, '停用時不開選檔視窗').toBe(false);
+    await page.keyboard.press('Escape');
+    await expect(item('開啟專案檔…')).toHaveCount(0);
+    await page.getByRole('button', { name: '取消' }).click();
+    await expect.poll(async () => (await session(page)).exporting).toBe(false);
+    await dismissToasts(page);
+    await menu();
+    await expect(item('開啟專案檔…')).toBeEnabled();
+    await expect(item('重設…')).toBeEnabled();
+
+    /* 選檔視窗開著時開始匯出：開啟被擋下，只說「匯出中」，不說專案檔的內容無法使用 */
+    const [picker] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      item('開啟專案檔…').click(),
+    ]);
+    await exportButton.click();
+    await expect(page.getByRole('progressbar')).toBeVisible();
+    await picker.setFiles(zipPath);
+    await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
+    await expect(page.getByText('匯出中，請等匯出完成或取消後再操作。').first()).toBeVisible();
+    await page.waitForTimeout(300);
+    await expect(page.getByText('專案檔的內容無法使用')).toHaveCount(0);
+    expect((await settings(page)).export.loopLength).toBe(20);
+    await page.getByRole('button', { name: '取消' }).click();
+    await expect.poll(async () => (await session(page)).exporting).toBe(false);
     expect(errors).toEqual([]);
   });
 

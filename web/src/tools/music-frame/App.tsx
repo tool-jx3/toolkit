@@ -27,8 +27,9 @@ import {
   syncFonts,
 } from './actions';
 import { savePng, setForceRealtime } from './exporter';
+import { fontStack } from './fonts';
 import { frameLayout } from './layout';
-import { normalizeSettings, type Settings } from './model';
+import { type FontId, normalizeSettings, type Settings } from './model';
 import { Preview, togglePreview } from './Preview';
 import { DesignTab, ExportTab, LyricsTab, MotionTab, TrackTab } from './panels';
 import { parsedLyrics, previewBridge } from './scene';
@@ -146,6 +147,7 @@ function useTestHook() {
       },
       savePng: () => savePng(),
       forceRealtime: (v: boolean) => setForceRealtime(v),
+      fontStack: (id: FontId) => fontStack(id),
     };
   }, []);
 }
@@ -251,10 +253,8 @@ export function App() {
               return `${settingsNow().title.trim() || TOOL_ID}_${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`;
             }}
             onLoad={async (data, project, files) => {
-              if (useSession.getState().exporting) {
-                notify({ title: S.toast.busy, tone: 'warning' });
-                return false;
-              }
+              /* 選檔視窗開著時開始匯出：說明原因（不要回傳 false，那會被當成專案檔的內容不能用） */
+              if (useSession.getState().exporting) throw new Error(S.toast.busy);
               const missing = await openProject(data, project.version, files);
               if (missing) notify({ title: S.project.missing(missing), tone: 'warning' });
               return true;
@@ -262,6 +262,7 @@ export function App() {
             onReset={resetAll}
             resetText={{ title: S.project.resetTitle, description: S.project.resetText }}
             resetDisabled={exporting}
+            openDisabled={exporting}
             savedAt={savedAt}
           />
         </>

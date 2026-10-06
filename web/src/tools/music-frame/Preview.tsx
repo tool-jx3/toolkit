@@ -82,7 +82,11 @@ export function Preview() {
   /* 畫面：每個畫面檢查要不要重畫 */
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d', { alpha: false });
+    /*
+     * 預設的透明度（不要 alpha: false）：Chromium 在不透明的畫布上替小字改用 LCD 次像素反鋸齒，字邊有彩色的邊；
+     * 背景每格都鋪滿，畫面照樣不透明。PNG、影片的畫布同樣（exporter.ts 的 newCanvas）。
+     */
+    const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
     const renderer = new FrameRenderer(ctx);
     const freq = new Uint8Array(1024);

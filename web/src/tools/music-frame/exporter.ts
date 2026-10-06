@@ -122,7 +122,8 @@ function newCanvas() {
   const c = document.createElement('canvas');
   c.width = FRAME_W;
   c.height = FRAME_H;
-  const ctx = c.getContext('2d', { alpha: false });
+  /* 預設的透明度：小字用灰階反鋸齒（alpha: false 時 Chromium 改用有彩色邊的 LCD 反鋸齒）；背景鋪滿，輸出照樣不透明 */
+  const ctx = c.getContext('2d');
   if (!ctx) throw new Error('無法建立畫布');
   return { canvas: c, ctx };
 }

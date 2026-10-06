@@ -11,6 +11,7 @@ const gesture = historyGesture(useSettings);
 
 /**
  * 時間欄：顯示「分:秒」，確定時解析（分:秒、時:分:秒、秒數）；accept 不接受時還原成原本的值。
+ * 只有文字真的改了才解析（同原作的 change）：顯示的「分:秒」捨去了小數，沒改就重新解析會把 12.5 秒變成 12 秒。
  */
 export function ClockInput({
   value,
@@ -36,6 +37,8 @@ export function ClockInput({
   }, [value, editing]);
   const commit = () => {
     setEditing(false);
+    /* 沒有改（含 Enter 確定後再離開欄位）：保留原本的值 */
+    if (text === formatClock(value)) return;
     const v = parseClock(text);
     if (Number.isFinite(v) && accept(v)) {
       onCommit(v);

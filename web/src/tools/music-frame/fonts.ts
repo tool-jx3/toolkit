@@ -19,6 +19,8 @@ export interface FontChoice {
 
 const SANS_FALLBACK = '"Microsoft JhengHei", "PingFang TC", "Noto Sans CJK TC", sans-serif';
 const SERIF_FALLBACK = '"PMingLiU", "Songti TC", "Noto Serif CJK TC", serif';
+/** 等寬的退路：ui-monospace 只有 Safari 認得，Chromium、Firefox 要靠 monospace；中文再退回黑體 */
+const MONO_FALLBACK = `ui-monospace, monospace, ${SANS_FALLBACK}`;
 
 export const FONT_CHOICES: Record<FontId, FontChoice> = {
   sans: {
@@ -46,7 +48,7 @@ export const FONT_CHOICES: Record<FontId, FontChoice> = {
     id: 'pixel',
     family: 'DotGothic16',
     cjk: 'Noto Sans TC',
-    generic: `ui-monospace, ${SANS_FALLBACK}`,
+    generic: MONO_FALLBACK,
     single: true,
   },
   hand: { id: 'hand', family: 'Iansui', cjk: 'Noto Sans TC', generic: SANS_FALLBACK, single: true },
@@ -54,7 +56,7 @@ export const FONT_CHOICES: Record<FontId, FontChoice> = {
     id: 'mono',
     family: 'Roboto Mono',
     cjk: 'Noto Sans TC',
-    generic: `ui-monospace, ${SANS_FALLBACK}`,
+    generic: MONO_FALLBACK,
     single: false,
   },
 };
