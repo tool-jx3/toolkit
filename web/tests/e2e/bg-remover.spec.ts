@@ -1,5 +1,5 @@
 /**
- * 立繪去背工具（建置產物 next/bg-remover/）的端對端測試：
+ * 立繪去背工具（建置產物 tools/bg-remover/）的端對端測試：
  * - 開頁沒有 pageerror／console error；AI 模式先告知模型的大小、來源、授權；推論尺寸固定 1024；
  * - 模型下載：固定 revision 的網址、HTTP 錯誤、進度與取消、SHA-256 不符時丟棄、存進 Cache Storage 後不再下載、刪除；
  * - AI 去背：用小的假模型（tests/fixtures/bg-remover-fake-model.onnx，形狀與名稱同真模型）跑完整流程，

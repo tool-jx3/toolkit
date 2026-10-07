@@ -15,7 +15,7 @@
 4. **功能對等**：每個重寫的工具在上線前，必須逐項通過「對等驗證」——原有的每個功能都要做到，並與舊版並排比對。
 5. **往後新增工具也走同一套流程**：讀原作程式 → 功能清單 → 用本專案元件改寫 → 對等驗證，不再「整份複製＋繁中化」。
 
-## 2. 現況盤點（42 個工具）
+## 2. 現況盤點（43 個工具）
 
 | 工具 id | 名稱 | 靈感來源 | 原授權 | 群組 |
 |---|---|---|---|---|
@@ -31,6 +31,7 @@
 | loading-maker | 讀取動畫產生器 | sotsotssi/loading-maker | 未授權 | G2 |
 | ccfolia-cropper | 立繪裁切器 | kimtaehee2018-maker/ccfolia-cropper | 未授權 | G3 |
 | portrait-size | 立繪尺寸統一器 | woolwag3338/character-image-size | MIT | G3 |
+| bg-remover | 立繪去背工具 | SkyTNT/anime-segmentation | Apache-2.0 | G3 |
 | icon-maker | 簡易頭像產生器 | くま。/TRPG WEBツール観測所 | 未授權 | G3 |
 | variant-manager | 角色差分管理器 | くま。/TRPG WEBツール観測所 | 未授權 | G3 |
 | height-board | 立繪身高比較板 | woolwag3338/character-height-board | MIT | G3 |
@@ -71,7 +72,7 @@
 |---|---|---|
 | G1 文字演出 | 文字排版（直書、禁則、自動縮小）、逐字動畫時間軸、字型 | text-fx、typewriter、cutin、text-path、collage-letter、textbox |
 | G2 轉場與動態 | 時間軸、遮罩與轉場、圖片動態 | scene-transition、apng-wipe、bg-motion、loading-maker |
-| G3 立繪工作台 | 圖片匯入、批次處理、裁切、透明邊偵測、取色 | ccfolia-cropper、portrait-size、icon-maker、variant-manager、height-board、color-palette、emotion-maker |
+| G3 立繪工作台 | 圖片匯入、批次處理、裁切、透明邊偵測、取色 | ccfolia-cropper、portrait-size、icon-maker、variant-manager、height-board、color-palette、emotion-maker、bg-remover |
 | G4 OBS 疊加 | CCFOLIA／Discord 畫面模擬、CSS 產生器、預覽 | status-bar、chat-window、message-box、obs-tachie |
 | G5 CCFOLIA 資料 | 房間 ZIP、角色 JSON、聊天面板、日誌解析 | character-editor、room-zip、psd-studio、foreground-frame、log-converter、scenario-cards |
 | G6 劇本與紀錄 | 富文本與分頁排版、列印／PDF、紀錄資料庫 | scenario-editor、coc-typesetter、session-log、session-report |
@@ -145,6 +146,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | textbox | ✅ | ✅ | ✅ | ✅ |
 | apng-wipe | ✅ | ✅ | ✅ | ✅ |
 | portrait-size | ✅ | ✅ | ✅ | ✅ |
+| bg-remover | ✅ | ✅ | ✅ | ✅ |
 | text-fx | —（無塵室開發，直接移植） | ✅ | ✅ | ✅ |
 | status-bar | ✅ | ✅ | ✅ | ✅ |
 | message-box | ✅ | ✅ | ✅ | ✅ |

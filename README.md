@@ -15,7 +15,8 @@
 [Eon-00](https://github.com/Eon-00) 與
 [fyam-hamu](https://github.com/fyam-hamu) 與
 [usagineko7865-debug](https://github.com/usagineko7865-debug) 與
-[zznaptime](https://github.com/zznaptime) 等人製作的網頁小工具為原作或靈感來源的 42 個工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫）（其中兩個工具的作者不明），附繁體中文介面。
+[zznaptime](https://github.com/zznaptime) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為原作或靈感來源的 43 個工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫）（其中兩個工具的作者不明），附繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -37,6 +38,7 @@
 | [聊天視窗產生器](tools/chat-window/) | 做出自訂 CSS，把 CCFOLIA 的骰子結果與秘匿聊天以喜歡的樣式顯示在 OBS 上，可在預覽中一邊送訊息一邊調整 |
 | [訊息框產生器](tools/message-box/) | 做出自訂 CSS，把 CCFOLIA 發言時出現在畫面下方、附立繪的訊息框以喜歡的樣式顯示在 OBS 上；8 種範本可再細調，預覽中能送出範例訊息、一邊看一邊調整 |
 | [立繪尺寸統一器](tools/portrait-size/) | 把同一角色的差分立繪裁掉透明邊並統一寬度，切換立繪時棋子圖就不會忽大忽小；也能單張拿來裁邊與轉 WebP |
+| [立繪去背工具](tools/bg-remover/) | 去掉立繪的背景：AI 模型（第一次使用時下載約 176 MB，之後存在瀏覽器）認得動漫角色，白底與單色底也能依顏色去掉；用筆刷修邊，可以批次處理，存成透明 PNG／WebP 或 ZIP |
 | [立繪身高比較板](tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
 | [房間 ZIP 產生器](tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；工作進度可存成 .ccproj 檔 |
 | [角色介紹圖產生器](tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；也有會自動分頁、能匯出 PDF 的文字記錄版型；可存到存檔槽或匯出成編輯檔 |
@@ -137,6 +139,7 @@ npm test
 | `character-select` | [選角畫面產生器](tools/character-select/) | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) |
 | `acrylic-goods` | [壓克力周邊工房](tools/acrylic-goods/) | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) |
 | `music-frame` | [音樂播放畫面產生器](tools/music-frame/) | [zznaptime/1007mv](https://github.com/zznaptime/1007mv) |
+| `bg-remover` | [立繪去背工具](tools/bg-remover/) | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

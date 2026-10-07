@@ -279,7 +279,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '去掉立繪、角色圖的背景：AI 模型認得動漫角色，白底與單色底也能依顏色去掉，再用筆刷修邊，存成透明 PNG／WebP。',
     group: 'G3',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'SkyTNT/anime-segmentation',
       url: 'https://github.com/SkyTNT/anime-segmentation',
