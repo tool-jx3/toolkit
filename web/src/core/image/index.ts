@@ -544,6 +544,8 @@ export function resizeCrop(
   return clampCrop({ x: x0, y: y0, width, height }, bounds, aspect, minSize);
 }
 
+/* ---------- 去背（bg-remover）：純色去背、遮罩處理、與 OpenCV 相同的雙線性縮放 ---------- */
+export * from './colorkey';
 /* ---------- 立繪工作台（G3）：剪影效果、畫布小工具、依鮮豔度取主色 ---------- */
 export * from './draw';
 export * from './effects';
@@ -552,6 +554,8 @@ export * from './embed';
 /* ---------- G2：濾鏡零件、畫質決定的輸出尺寸 ---------- */
 export * from './filterPresets';
 export * from './filters';
+export * from './mask';
+export * from './resample';
 export * from './sizing';
 export * from './store';
 export * from './vivid';

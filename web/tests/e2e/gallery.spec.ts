@@ -266,3 +266,40 @@ test('模組：音樂與歌詞的示範（播放、目前這一句、打點、�
   });
   expect(errors).toEqual([]);
 });
+
+test('模組：模型下載卡（假的下載）：告知、進度、取消、驗證失敗、下載完成、刪除', async ({
+  page,
+}) => {
+  const errors = await openGallery(page);
+  await page.getByRole('tab', { name: '模組' }).click();
+  const panel = page.getByTestId('model-panel');
+  await expect(panel).toHaveAttribute('data-status', 'missing');
+  await expect(panel).toContainText('要先下載 AI 模型才能使用：示範模型（假的），約 2 MB。');
+  await expect(panel).toContainText('授權：MIT');
+  /* 下載中：進度條與 MB 數；取消 */
+  await panel.getByRole('button', { name: '下載模型（約 2 MB）' }).click();
+  await expect(panel).toHaveAttribute('data-status', 'downloading');
+  await expect(panel.getByRole('progressbar')).toBeVisible();
+  await expect(panel.getByTestId('model-progress-text')).toHaveText(/^\d+\.\d／2\.0 MB（\d+%）$/);
+  await panel.getByRole('button', { name: '取消下載' }).click();
+  await expect(panel).toContainText('已取消下載。');
+  /* 下載壞掉的檔案：SHA-256 不符 */
+  await page.getByRole('switch', { name: '下次下載壞掉的檔案（示範驗證失敗）' }).click();
+  await panel.getByRole('button', { name: '下載模型（約 2 MB）' }).click();
+  await expect(panel.getByRole('alert')).toHaveText(
+    '下載的檔案與官方版本不符（SHA-256 不同），已丟棄。請再試一次。',
+    { timeout: 15_000 },
+  );
+  /* 正常下載 → 已下載 → 刪除（先確認） */
+  await page.getByRole('switch', { name: '下次下載壞掉的檔案（示範驗證失敗）' }).click();
+  await panel.getByRole('button', { name: '重新下載' }).click();
+  await expect(panel).toHaveAttribute('data-status', 'ready', { timeout: 15_000 });
+  await expect(panel).toContainText('模型已下載（約 2 MB，存在這個瀏覽器）：示範模型（假的）');
+  await panel.getByRole('button', { name: '刪除已下載的模型' }).click();
+  await page
+    .getByRole('alertdialog', { name: '刪除已下載的模型？' })
+    .getByRole('button', { name: '刪除' })
+    .click();
+  await expect(panel).toHaveAttribute('data-status', 'missing');
+  expect(errors).toEqual([]);
+});

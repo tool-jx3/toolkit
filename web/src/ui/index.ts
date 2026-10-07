@@ -202,6 +202,14 @@ export {
   type MessageComposerProps,
   parseComposerText,
 } from './MessageComposer';
+export {
+  type ModelCache,
+  type ModelCacheOptions,
+  type ModelCacheState,
+  ModelDownloadPanel,
+  type ModelDownloadPanelProps,
+  useModelCache,
+} from './ModelDownload';
 export { NativeNumberInput, type NativeNumberInputProps, spinStep } from './NativeNumberInput';
 export { Notice, type NoticeProps, type NoticeTone } from './Notice';
 export { NumberInput, type NumberInputProps } from './NumberInput';
@@ -227,6 +235,7 @@ export {
   type PostEditorMessages,
   type PostEditorProps,
 } from './PostEditor';
+export { ProgressBar, type ProgressBarProps } from './ProgressBar';
 export {
   ProjectMenu,
   ProjectMenuItem,

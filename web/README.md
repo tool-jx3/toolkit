@@ -51,7 +51,9 @@ web/
   src/core/               storage、files、fonts、encode、timeline、typeset、image、color、gradient、worker、css（OBS 自訂 CSS 產生核心）、
                           textfx（整段文字的裝飾層、卡拉 OK）、fxlayers（循環特效）、path（軌跡）、audio（音效與 WAV）、share（網址分享）、html
                           assets（圖片資產庫）、layout（版面幾何）、ruler（尺規）、compose（圖層合成）、sheet（格狀合輯）
-                          three（3D 檢視、逐格擷取、GLB；只有 3D 工具 import，three.js 不會進其他工具的檔案）
+                          three（3D 檢視、逐格擷取、GLB；只有 3D 工具 import，three.js 不會進其他工具的檔案）、
+                          models（大型模型檔的下載、驗證與快取）、onnx（ONNX 推論 Worker：onnxruntime-web 與它約 27 MB 的
+                          WebAssembly 檔只有開了模型的工具才載入）
   src/ccfolia/            CCFOLIA／Discord Streamkit／OBS 的外部事實（網址、選擇器、擲骰分類、匯出用途的容量與格式）
   src/ccfolia/mock/       依外部事實自己寫的模擬頁（CssPreviewFrame 的預覽與測試用）
   src/tools/<id>/         各工具：index.html、main.tsx、App.tsx、strings.ts
