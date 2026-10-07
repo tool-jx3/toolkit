@@ -905,9 +905,97 @@ test.describe('對等驗證後的修正', () => {
     expect(errors).toEqual([]);
   });
 
-  test('F07 重建時顯示依種類的處理中文字；拉桿拖曳中不重建，放開或停頓後才重建', async ({
-    page,
-  }) => {
+  test('F07 拉桿拖曳、鍵盤連按中不重建，放開或停頓 0.2 秒後才重建', async ({ page }) => {
+    /*
+     * 「停頓」以頁面的時間為準：測試控制頁面的時鐘（拖曳、連按時每一步只讓頁面過 40 ms），
+     * 機器負載高、測試送出輸入變慢時，也不會被頁面當成停頓。
+     */
+    await page.clock.install();
+    const errors = await open(page);
+    const builds = async () => (await engine(page)).builds;
+    const margin = async () => (await settings(page)).material.margin as number;
+    /** 停住頁面的時鐘（時鐘照常走時，目標時間要留得夠遠，負載高時才不會已經過了） */
+    const pause = async () => {
+      for (let i = 0; ; i++) {
+        const t = await page.evaluate(() => Date.now());
+        try {
+          return await page.clock.pauseAt(t + 1000);
+        } catch (e) {
+          if (i >= 2 || !String(e).includes('past')) throw e;
+        }
+      }
+    };
+    /** 讓頁面一次過 40 ms，直到組好的次數變成 n（停頓之後的重建） */
+    const tickUntilBuilds = async (n: number) => {
+      for (let i = 0; i < 50 && (await builds()) < n; i++) await page.clock.runFor(40);
+      expect(await builds()).toBe(n);
+    };
+    const thumb = page.getByRole('slider', { name: '外框留白' });
+    await thumb.scrollIntoViewIfNeeded();
+    const tb = (await thumb.boundingBox())!;
+    const x = tb.x + tb.width / 2;
+    const y = tb.y + tb.height / 2;
+    const b0 = await builds();
+    const m0 = await margin();
+
+    /* 拖曳 8 步（每步頁面過 40 ms）：每一步都改了值，但不重建；放開後重建一次 */
+    await pause();
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    let last = m0;
+    for (let i = 1; i <= 8; i++) {
+      await page.mouse.move(x + i * 10, y);
+      await page.clock.runFor(40);
+      const m = await margin();
+      expect(m).toBeGreaterThan(last);
+      last = m;
+    }
+    expect(await builds()).toBe(b0);
+    await page.mouse.up();
+    await tickUntilBuilds(b0 + 1);
+    await page.clock.runFor(400);
+    expect(await builds()).toBe(b0 + 1);
+
+    /* 拖到一半停住 0.2 秒以上：還按著就重建一次；再拖再放：再一次 */
+    await page.mouse.move(x + 80, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 3; i++) {
+      await page.mouse.move(x + 80 - i * 10, y);
+      await page.clock.runFor(40);
+    }
+    expect(await builds()).toBe(b0 + 1);
+    await page.clock.runFor(160);
+    await tickUntilBuilds(b0 + 2);
+    for (let i = 4; i <= 6; i++) {
+      await page.mouse.move(x + 80 - i * 10, y);
+      await page.clock.runFor(40);
+    }
+    expect(await builds()).toBe(b0 + 2);
+    await page.mouse.up();
+    await tickUntilBuilds(b0 + 3);
+
+    /* 鍵盤：連按（每次頁面過 40 ms）時不重建，停頓後重建一次 */
+    await thumb.focus();
+    const before = await margin();
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press('ArrowRight');
+      await page.clock.runFor(40);
+    }
+    expect(await margin()).toBe(before + 3);
+    expect(await builds()).toBe(b0 + 3);
+    await page.clock.runFor(160);
+    await tickUntilBuilds(b0 + 4);
+    await page.clock.runFor(400);
+    expect(await builds()).toBe(b0 + 4);
+
+    /* 時間照常走：畫面組好、停在最後的值 */
+    await page.clock.resume();
+    await ready(page, 'stand');
+    expect(await builds()).toBe(b0 + 4);
+    expect(errors).toEqual([]);
+  });
+
+  test('F07 重建時先畫出依種類的處理中文字，再組場景', async ({ page }) => {
     /* 記下處理中的遮罩出現過的文字，以及遮罩畫上畫面的時間（下一個畫面） */
     await page.addInitScript(() => {
       const w = window as unknown as { __busy: (string | null)[]; __busyPainted: number[] };
@@ -932,35 +1020,6 @@ test.describe('對等驗證後的修正', () => {
         w.__busy = [];
         w.__busyPainted = [];
       });
-    const builds = async () => (await engine(page)).builds;
-
-    /* 拉桿拖曳：中途不重建，放開後重建一次 */
-    const thumb = page.getByRole('slider', { name: '外框留白' });
-    await thumb.scrollIntoViewIfNeeded();
-    const tb = (await thumb.boundingBox())!;
-    const b0 = await builds();
-    const m0 = (await settings(page)).material.margin;
-    await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
-    await page.mouse.down();
-    for (let i = 1; i <= 8; i++) {
-      await page.mouse.move(tb.x + tb.width / 2 + i * 5, tb.y + tb.height / 2);
-      await page.waitForTimeout(30);
-    }
-    expect((await settings(page)).material.margin).toBeGreaterThan(m0);
-    expect(await builds()).toBe(b0);
-    await page.mouse.up();
-    await expect.poll(builds).toBe(b0 + 1);
-    await ready(page, 'stand');
-    await page.waitForTimeout(400);
-    expect(await builds()).toBe(b0 + 1);
-
-    /* 鍵盤：連按時不重建，停頓後重建一次 */
-    await thumb.focus();
-    for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
-    expect(await builds()).toBe(b0 + 1);
-    await expect.poll(builds).toBe(b0 + 2);
-    await page.waitForTimeout(400);
-    expect(await builds()).toBe(b0 + 2);
 
     /* 依種類的文字 */
     await clearLog();

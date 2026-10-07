@@ -239,11 +239,12 @@ test('390 寬：點畫布上另一個角色的元素時，設定欄切過去並�
     ['left/looks', '左 外觀說明'],
     ['left/name', '左 名字與標語'],
   ]) {
-    /* 回到頂端（上一次的平滑捲動可能還在進行：捲到停在 0 為止） */
+    /* 回到頂端（上一次的平滑捲動可能還在進行：捲到頂端後要停在 0 至少 300 ms 才算） */
     await expect
       .poll(() =>
-        page.evaluate(() => {
+        page.evaluate(async () => {
           window.scrollTo({ top: 0, behavior: 'instant' });
+          await new Promise((r) => setTimeout(r, 300));
           return window.scrollY;
         }),
       )

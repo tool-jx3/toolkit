@@ -274,6 +274,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'bg-remover',
+    name: '立繪去背工具',
+    summary:
+      '去掉立繪、角色圖的背景：AI 模型認得動漫角色，白底與單色底也能依顏色去掉，再用筆刷修邊，存成透明 PNG／WebP。',
+    group: 'G3',
+    status: 'live',
+    inspiration: {
+      name: 'SkyTNT/anime-segmentation',
+      url: 'https://github.com/SkyTNT/anime-segmentation',
+    },
+  },
+  {
     id: 'scene-transition',
     name: '場景轉換素材產生器',
     summary:
