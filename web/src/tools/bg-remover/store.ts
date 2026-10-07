@@ -69,7 +69,10 @@ export interface PreviewState {
   brushSize: number;
   brushHardness: number;
   view: ViewMode;
+  /** 預覽背景（背景圖的網址不存：圖放在素材庫，見 stageBgImage） */
   stageBg: StageBackground;
+  /** 預覽背景圖在素材庫的 id（重新整理後還在） */
+  stageBgImage: string | null;
   /** 原圖的資產 id → AI 遮罩（PNG）的資產 id */
   aiMasks: Record<string, string>;
 }
@@ -81,6 +84,7 @@ export const usePreview = createPreviewStore<PreviewState>(TOOL_ID, {
   brushHardness: RANGE.brushHardness.default,
   view: 'result',
   stageBg: { kind: 'checker' },
+  stageBgImage: null,
   aiMasks: {},
 });
 
@@ -95,14 +99,15 @@ export function currentItem(s: Settings = settingsNow(), p: PreviewState = previ
   return s.images.find((it) => it.id === p.current) ?? s.images[0] ?? null;
 }
 
-/** 目前設定與復原／重做歷史用到的原圖，以及它們的 AI 遮罩（gc 時保留） */
+/** 目前設定與復原／重做歷史用到的原圖、它們的 AI 遮罩，以及預覽背景圖（gc 時保留） */
 export function referencedIds(): Set<string> {
   const keep = referencedAssetIds(useSettings, (d) => d.images.map((it) => it.asset));
-  const masks = previewNow().aiMasks;
+  const { aiMasks: masks, stageBgImage } = previewNow();
   for (const id of [...keep]) {
     const m = masks[id];
     if (m) keep.add(m);
   }
+  if (stageBgImage) keep.add(stageBgImage);
   return keep;
 }
 

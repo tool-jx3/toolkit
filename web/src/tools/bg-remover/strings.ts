@@ -128,8 +128,10 @@ export const S = {
   statusDone: '已去背',
   sizeMeta: (w: number, h: number) => `${w}×${h}`,
   loaded: (n: number) => `已加入 ${n} 張圖片。`,
+  adding: (i: number, n: number) => `讀取圖片中（第 ${i}／${n} 張）…`,
   readFailed: (names: string[]) => `無法讀取：${names.join('、')}`,
   typeError: '只能放入圖片（PNG、JPG、WebP、GIF、BMP、AVIF）。',
+  skipped: (n: number) => `略過 ${n} 個不是圖片的檔案。`,
   tooLarge: (name: string) => `${name} 太大了（超過 6,000 萬像素），請先縮小再放進來。`,
   storageWarn: '瀏覽器的儲存空間不足，這次加入的圖片重新整理後就不見了（照常可以去背、匯出）。',
   removed: (name: string) => `已移除 ${name}（可以復原）。`,
@@ -170,6 +172,8 @@ export const S = {
   exportProgress: (i: number, n: number) => `第 ${i}／${n} 張`,
   exportNeedsAi: (names: string[]) => `這些圖還沒 AI 去背：${names.join('、')}`,
   exportEmpty: '還沒有圖片。',
+  exportCancelling: '正在取消…',
+  exportCancelled: '已取消匯出。',
   zipName: '去背',
 
   /* 快捷鍵 */

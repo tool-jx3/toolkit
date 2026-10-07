@@ -97,6 +97,8 @@ export function App() {
         group: S.keys.edit,
         handler: () => exportRef.current?.exportNow(),
       },
+      /* Esc：從圖上取色時取消（上面的 keydown 處理；這裡只列在快捷鍵一覽） */
+      { keys: 'escape', label: S.keys.cancel, group: S.keys.edit },
       { keys: 'mod+z', label: S.keys.undo, group: S.keys.edit, handler: safe(undo) },
       {
         keys: ['shift+mod+z', 'mod+y'],

@@ -28,7 +28,7 @@ import {
   type Settings,
   type StoredStroke,
 } from './model';
-import { applyStrokes, type KeyParams, MIME, type SourceImage } from './pipeline';
+import { type KeyParams, MIME, type SourceImage } from './pipeline';
 import { createPixelClient, NeedsAiError } from './pixels';
 import {
   assets,
@@ -106,6 +106,8 @@ interface Buffers {
   bg: [number, number, number] | null;
   colorsKey: string | null;
   colors: Uint8ClampedArray<ArrayBuffer> | null;
+  /** 去色邊開著時：Worker 記得這組顏色的鍵（原圖＋設定；預覽合成不必再傳一次顏色） */
+  despillKey: string | null;
   refineKey: string | null;
   refined: Mask | null;
   /** final 已經畫進去的筆刷 */
@@ -124,6 +126,7 @@ const empty = (): Buffers => ({
   bg: null,
   colorsKey: null,
   colors: null,
+  despillKey: null,
   refineKey: null,
   refined: null,
   applied: null,
@@ -241,9 +244,13 @@ async function syncOnce(): Promise<void> {
   const despill = s.mode === 'color' && s.despill && !!buf.bg;
   const colorsKey = `${baseKey}:${despill}`;
   if (buf.colorsKey !== colorsKey) {
+    buf.despillKey = null;
     if (despill) {
       const blob = await assets.get(item.asset);
-      buf.colors = blob ? await pixels.despill(item.asset, blob, buf.base, buf.bg!) : src.rgba;
+      /* Worker 記住這組顏色的鍵：哪一張圖＋哪一組設定 */
+      const key = `${item.asset}|${colorsKey}`;
+      buf.colors = blob ? await pixels.despill(item.asset, blob, buf.base, buf.bg!, key) : src.rgba;
+      if (blob) buf.despillKey = key;
     } else {
       buf.colors = src.rgba;
     }
@@ -266,8 +273,13 @@ async function syncOnce(): Promise<void> {
   if (buf.applied !== strokes) {
     if (!sameStrokesPlusPending(strokes, buf.applied, buf.pending) || !buf.final) {
       const final = new Uint8Array(buf.refined!) as Mask;
-      applyStrokes(final, src.width, src.height, strokes);
-      buf.final = final;
+      if (strokes.length) {
+        /* 筆刷重播（大圖、很多筆時要一陣子）在 Worker 裡做 */
+        useWork.setState({ phase: 'processing' });
+        buf.final = await pixels.finalMask(final, src.width, src.height, strokes);
+      } else {
+        buf.final = final;
+      }
     }
     buf.applied = strokes;
     buf.pending = null;
@@ -518,6 +530,7 @@ export const backendLabel = (b: OnnxBackend) => ONNX_BACKEND_LABELS[b];
 /* ---------- 匯出 ---------- */
 
 const EXPORT_EXT: Record<OutFormat, string> = { png: 'png', webp: 'webp', jpg: 'jpg' };
+let renderSeq = 0;
 
 /** 匯出這張或全部（ExportPanel 的 onExport） */
 export async function exportImages(
@@ -543,16 +556,22 @@ export async function exportImages(
   };
   const used = new Set<string>();
   const files: ExportOutput[] = [];
+  const aborted = () => new DOMException('aborted', 'AbortError');
   for (let i = 0; i < list.length; i++) {
-    if (signal.aborted) throw new DOMException('aborted', 'AbortError');
+    if (signal.aborted) throw aborted();
     const it = list[i];
     onProgress(i / list.length, S.exportProgress(i + 1, list.length));
     const blob = await assets.get(it.asset);
     if (!blob) throw new Error(S.readFailed([it.name]));
     const maskId = masks[it.asset];
     const aiMask = s.mode === 'ai' && maskId ? ((await assets.get(maskId)) ?? null) : null;
+    /* 取消：Worker 在下一個檢查點停下來（不必等這張畫完） */
+    const id = ++renderSeq;
+    const stop = () => void pixels.cancelRender(id).catch(() => {});
+    signal.addEventListener('abort', stop, { once: true });
     try {
       const r = await pixels.render({
+        id,
         key: it.asset,
         blob,
         mode: s.mode,
@@ -572,10 +591,14 @@ export async function exportImages(
         height: r.height,
       });
     } catch (e) {
+      if (signal.aborted || (e as Error)?.name === 'AbortError') throw aborted();
       if (e instanceof NeedsAiError || (e as Error)?.name === 'NeedsAiError')
         throw new Error(S.exportNeedsAi([it.name]));
       throw e;
+    } finally {
+      signal.removeEventListener('abort', stop);
     }
+    if (signal.aborted) throw aborted();
   }
   onProgress(1, S.exportProgress(list.length, list.length));
   if (s.scope === 'all') return { files, zipName: S.zipName };
@@ -595,14 +618,22 @@ export function sampleSource(x: number, y: number): string | null {
   return hexOf([src.rgba[k], src.rgba[k + 1], src.rgba[k + 2]]);
 }
 
-/** 預覽要畫的東西（null＝還沒有） */
+/** 預覽要畫的東西（null＝還沒有）；asset：原圖的資產 id、despillKey：去色邊開著時 Worker 記得的顏色 */
 export function previewSource(): {
+  asset: string;
   src: SourceImage;
   colors: Uint8ClampedArray<ArrayBuffer> | null;
+  despillKey: string | null;
   final: Mask | null;
 } | null {
-  if (!buf.src) return null;
-  return { src: buf.src, colors: buf.colors, final: buf.final };
+  if (!buf.src || !buf.asset) return null;
+  return {
+    asset: buf.asset,
+    src: buf.src,
+    colors: buf.colors,
+    despillKey: buf.despillKey,
+    final: buf.final,
+  };
 }
 
 export const itemsNow = (): readonly ImageItem[] => settingsNow().images;

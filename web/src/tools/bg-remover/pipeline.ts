@@ -155,12 +155,24 @@ export interface RenderedImage {
   rgba: Uint8ClampedArray<ArrayBuffer>;
 }
 
-/** 去背圖的顏色：純色模式開了去色邊時用基礎遮罩把背景色扣掉，否則原圖 */
+/** 去色邊也處理去背邊界旁這麼寬（px）的一圈不透明像素（規格 3.2） */
+export const DESPILL_EDGE = 2;
+
+/**
+ * 去背圖的顏色：純色模式開了去色邊時用基礎遮罩把背景色扣掉（半透明的像素，以及去背邊界旁 2 px 內
+ * 顏色朝背景色偏的像素），否則原圖
+ */
 export function cutoutColors(
   src: SourceImage,
   despill: { base: Mask; bg: Rgb } | null,
 ): Uint8ClampedArray<ArrayBuffer> {
-  return despill ? decontaminate(src.rgba, despill.base, despill.bg) : src.rgba;
+  return despill
+    ? decontaminate(src.rgba, despill.base, despill.bg, {
+        width: src.width,
+        height: src.height,
+        edge: DESPILL_EDGE,
+      })
+    : src.rgba;
 }
 
 /** 不透明度 > 0 的範圍（整張透明時 null） */

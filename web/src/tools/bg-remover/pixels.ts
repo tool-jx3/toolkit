@@ -5,7 +5,15 @@
 import { canUseWorker, type WorkerHandle, wrapWorker } from '@/core/worker';
 import { createPixelApi, type PixelApi } from './pixelApi';
 
-export { NeedsAiError, type RenderJob, type RenderResult } from './pixelApi';
+export {
+  type InspectResult,
+  NeedsAiError,
+  type PreviewImage,
+  type PreviewJob,
+  type RenderJob,
+  type RenderResult,
+  THUMB_SIZE,
+} from './pixelApi';
 
 type Promisified<T> = {
   [K in keyof T]: T[K] extends (...a: infer A) => infer R
@@ -53,6 +61,8 @@ export function createPixelClient(): Promisified<PixelApi> & { dispose(): void }
       return (getLocal()[name] as any)(...args);
     };
   return {
+    inspect: call('inspect'),
+    thumb: call('thumb'),
     load: call('load'),
     colorBase: call('colorBase'),
     aiInput: call('aiInput'),
@@ -60,7 +70,10 @@ export function createPixelClient(): Promisified<PixelApi> & { dispose(): void }
     decodeMask: call('decodeMask'),
     refine: call('refine'),
     despill: call('despill'),
+    finalMask: call('finalMask'),
+    preview: call('preview'),
     render: call('render'),
+    cancelRender: call('cancelRender'),
     forget: call('forget'),
     dispose() {
       handle?.terminate();

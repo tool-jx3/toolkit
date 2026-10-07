@@ -7,7 +7,10 @@
  * - 真模型（設定 BG_REMOVER_MODEL、BG_REMOVER_REF 時才跑）：匯出的遮罩、白底圖與 Python 參考做法比對；
  * - 純色去背（自動偵測、只去掉相連的背景、從圖上取色）、筆刷（擦掉、補回、復原／重做、快捷鍵）；
  * - 批次與 ZIP、匯出格式（PNG／WebP／JPG、背景、裁透明邊、遮罩、比較圖）；
- * - 自動保存與重新整理後還原、專案檔；390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
+ * - 自動保存與重新整理後還原、專案檔；390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準；
+ * - 對等驗證後的修正（規格 7.1）：顯示卡建不起來時改用 CPU（F05）、Wi-Fi 提醒（F12）、SHA-256 階段看得到（F13）、
+ *   自動 AI 去背遇到壞掉的模型（F20）、取消 AI 去背的訊息（F21）、預覽背景圖重新整理後還在（F41）、第一張圖的「讀取中…」（F43）、
+ *   去色邊處理邊界旁一圈（F32）、快捷鍵一覽的 Esc（F58）、大圖不凍住畫面、匯出取消的訊息、略過不是圖片的檔案。
  *
  * 模型網址一律用 page.route 攔下：假模型直接回傳位元組；慢速下載與真模型由測試裡的小伺服器（隨機 port）提供，
  * 再以 302 轉過去（大檔案不能直接塞進 route.fulfill）。
@@ -17,6 +20,7 @@ import {
   createReadStream,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readdirSync,
   readFileSync,
   statSync,
@@ -24,6 +28,8 @@ import {
 } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
 import { unzipSync } from 'fflate';
 import { decodePng } from '../../src/core/decode/png';
@@ -203,6 +209,19 @@ async function expectReady(page: Page) {
   await expect(canvas(page)).toHaveAttribute('data-phase', 'ready', { timeout: 60_000 });
 }
 
+/** 預覽畫好了目前的狀態（整張在 Worker 裡合成，畫好後畫布的 data-painted＝「data-tick:檢視」） */
+async function expectPainted(page: Page, view: 'result' | 'original' | 'mask') {
+  await expect(canvas(page)).toHaveAttribute('data-phase', 'ready');
+  await page.waitForFunction(
+    (v) => {
+      const c = document.querySelector('[data-testid="preview-canvas"]');
+      return c?.getAttribute('data-painted') === `${c?.getAttribute('data-tick')}:${v}`;
+    },
+    view,
+    { timeout: 30_000 },
+  );
+}
+
 async function downloadModel(page: Page) {
   await page.getByRole('button', { name: /^下載模型/ }).click();
   await expect(modelPanel(page)).toHaveAttribute('data-status', 'ready', { timeout: 120_000 });
@@ -310,6 +329,8 @@ test('開頁沒有錯誤；AI 模式先告知模型的大小、來源與授權�
     '要先下載 AI 模型才能使用：anime-seg（isnetis.onnx），約 176 MB。',
   );
   await expect(modelPanel(page)).toContainText('授權：Apache-2.0');
+  /* 檔案很大：建議用 Wi-Fi（第 7 節 D1） */
+  await expect(modelPanel(page)).toContainText('建議在 Wi-Fi 下下載。');
   await expect(
     modelPanel(page).getByRole('link', { name: /Hugging Face 上 SkyTNT 的 anime-seg/ }),
   ).toHaveAttribute('href', 'https://huggingface.co/skytnt/anime-seg');
@@ -847,6 +868,7 @@ test('預覽：結果／原圖／遮罩（1／2／3）；上一張／下一張�
   await expect(canvas(page)).toHaveAttribute('data-view', 'original');
   await page.keyboard.press('3');
   await expect(canvas(page)).toHaveAttribute('data-view', 'mask');
+  await expectPainted(page, 'mask');
   const corner = await canvas(page).evaluate((c: HTMLCanvasElement) =>
     Array.from(c.getContext('2d')!.getImageData(0, 0, 1, 1).data),
   );
@@ -989,6 +1011,433 @@ test('自動保存：重新整理後圖片、筆刷與設定還在；專案檔�
   await expect(items(page)).toHaveCount(2);
   await expectReady(page);
   await expect(strokeCount(page)).toHaveText('這張有 1 筆');
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 對等驗證後的修正（規格 7.1） ---------- */
+
+/** 推論 Worker 的腳本前面加一段（模擬顯示卡建不起來、讓回覆停住）；第 n 次載入用 stubs[n]（沒有就原樣） */
+async function stubOnnxWorker(page: Page, stubs: readonly (string | null)[]) {
+  let n = 0;
+  await page.route(/\/assets\/build\/onnx\.worker-[^/]+\.js$/, async (route) => {
+    const stub = stubs[n++] ?? null;
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: stub ? stub + (await res.text()) : undefined });
+  });
+}
+
+/** 有 WebGPU adapter，但 requestDevice() 失敗（驅動、記憶體）——只在推論 Worker 裡 */
+const GPU_DEVICE_FAILS = `Object.defineProperty(WorkerNavigator.prototype, 'gpu', { configurable: true, get() {
+  return { requestAdapter: async () => ({ features: new Set(), limits: {}, info: { vendor: 'stub' }, isFallbackAdapter: false,
+    requestDevice: async () => { throw new DOMException('stub adapter: requestDevice failed', 'OperationError'); } }),
+    getPreferredCanvasFormat: () => 'rgba8unorm', wgslLanguageFeatures: new Set() };
+} });\n`;
+
+/** 推論 Worker 不回覆某一種呼叫（模擬很慢的載入或推論）：open 的回覆有 backend、run 的回覆有 mask */
+const holdReply = (field: 'backend' | 'mask') =>
+  `(() => { const pm = self.postMessage.bind(self); self.postMessage = (m, t) => {
+    if (m && m.value && typeof m.value === 'object' && ${JSON.stringify(field)} in m.value) return;
+    return pm(m, t); }; })();\n`;
+
+/** 大圖（寫成檔案、用路徑放進去：用 buffer 時 Playwright 自己會在頁面裡把 base64 轉成 File，本身就是長工作） */
+const bigDir = mkdtempSync(join(tmpdir(), 'bg-remover-e2e-'));
+const bigFiles = new Map<string, Promise<string>>();
+function bigPngFile(w: number, h: number): Promise<string> {
+  const key = `${w}x${h}`;
+  let p = bigFiles.get(key);
+  if (!p) {
+    p = (async () => {
+      /* 白底中間一個橢圓（顏色漸層），純色去背會去掉白底 */
+      const px = new Uint8Array(w * h * 4);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const k = (y * w + x) * 4;
+          const dx = (x - w / 2) / (w * 0.3);
+          const dy = (y - h / 2) / (h * 0.4);
+          if (dx * dx + dy * dy < 1) {
+            px[k] = (x * 7) & 255;
+            px[k + 1] = (y * 5) & 127;
+            px[k + 2] = ((x + y) * 3) & 255;
+          } else {
+            px[k] = px[k + 1] = px[k + 2] = 255;
+          }
+          px[k + 3] = 255;
+        }
+      }
+      const file = join(bigDir, `big-${key}.png`);
+      writeFileSync(file, await encodePng(px, w, h));
+      return file;
+    })();
+    bigFiles.set(key, p);
+  }
+  return p;
+}
+
+/** 頁面裡記下狀態列、預覽中間的文字、模型下載的文字與長工作（addInitScript：重新整理後也記） */
+async function recordTimeline(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as {
+      __rec: { status: string[]; stage: string[]; model: string[]; long: [number, number][] };
+    };
+    const rec: typeof w.__rec = { status: [], stage: [], model: [], long: [] };
+    w.__rec = rec;
+    const push = (list: string[], v: string | null | undefined) => {
+      if (v && list[list.length - 1] !== v) list.push(v);
+    };
+    const watch = () => {
+      new MutationObserver(() => {
+        push(rec.status, document.querySelector('[data-testid="status-text"]')?.textContent);
+        push(rec.model, document.querySelector('[data-testid="model-progress-text"]')?.textContent);
+        const c = document.querySelector('[data-testid="preview-canvas"]');
+        /* 預覽欄：舞台（section）外面兩層，裡面直接放的 p 是疊在預覽中間的文字 */
+        const box = c?.closest('section')?.parentElement?.parentElement;
+        if (c && box) {
+          const texts = Array.from(box.querySelectorAll(':scope > p')).map((p) => p.textContent);
+          push(rec.stage, `${c.getAttribute('data-phase')}|${texts.join('/')}`);
+        }
+      }).observe(document.documentElement, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['data-phase'],
+      });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch);
+    else watch();
+    try {
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries()) rec.long.push([e.startTime, e.duration]);
+      }).observe({ type: 'longtask', buffered: true });
+    } catch {
+      /* 沒有 longtask 的瀏覽器 */
+    }
+  });
+}
+
+const timeline = (page: Page) =>
+  page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __rec: { status: string[]; stage: string[]; model: string[]; long: [number, number][] };
+        }
+      ).__rec,
+  );
+
+test('F05：「自動」時顯示卡建不起來（requestDevice 失敗）就改用 CPU 並說明；選「GPU」時說明失敗，不會一直等', async ({
+  page,
+}) => {
+  await stubOnnxWorker(page, [GPU_DEVICE_FAILS, GPU_DEVICE_FAILS]);
+  const { errors } = await open(page, { spec: FAKE_SPEC });
+  await downloadModel(page);
+  await fileInput(page).setInputFiles({
+    name: '方塊.png',
+    mimeType: 'image/png',
+    buffer: await squarePng(),
+  });
+  await expect(status(page)).toHaveText('已完成 AI 去背。', { timeout: 30_000 });
+  await expect(page.getByTestId('backend-in-use')).toHaveText(
+    '目前使用：CPU（WebAssembly）（顯示卡無法使用，已改用 CPU。）',
+  );
+  /* 指定 GPU：建不起來時說明（不改用 CPU） */
+  await chooseBackend(page, 'GPU（WebGPU）');
+  await page.getByRole('button', { name: '重新 AI 去背' }).click();
+  await expect(status(page)).toHaveText(
+    'AI 去背失敗：無法建立推論：這個瀏覽器可能不支援，或模型檔有問題。',
+    { timeout: 30_000 },
+  );
+  expect(errors).toEqual([]);
+});
+
+test('F13：下載完先顯示「正在檢查檔案是否完整（SHA-256）…」再「正在存進瀏覽器…」（SHA-256 在 Worker 裡算）', async ({
+  page,
+}) => {
+  await recordTimeline(page);
+  const workers: string[] = [];
+  page.on('worker', (w) => workers.push(w.url()));
+  const { errors } = await open(page, { spec: SLOW_SPEC });
+  await page.getByRole('button', { name: '下載模型（約 3 MB）' }).click();
+  await expect(modelPanel(page)).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  const { model } = await timeline(page);
+  const verify = model.indexOf('正在檢查檔案是否完整（SHA-256）…');
+  expect(verify, model.join(' → ')).toBeGreaterThan(0);
+  expect(model.indexOf('正在存進瀏覽器…')).toBeGreaterThan(verify);
+  expect(workers.some((u) => /hash\.worker-[^/]+\.js$/.test(u))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('F20：存著的模型壞掉時，放進新圖自動 AI 去背會說明，下載區回到「要先下載」', async ({
+  page,
+}) => {
+  const { errors } = await open(page, { spec: FAKE_SPEC });
+  await downloadModel(page);
+  /* 把 Cache Storage 裡的模型改壞一個位元組（大小與標頭不變） */
+  await page.evaluate(async (url) => {
+    const cache = await caches.open('trpg-toolkit:models');
+    const res = (await cache.match(url)) as Response;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    bytes[bytes.length - 3] ^= 1;
+    await cache.put(url, new Response(bytes, { headers: res.headers }));
+  }, FAKE_SPEC.url);
+  await page.reload();
+  await expect(modelPanel(page)).toHaveAttribute('data-status', 'ready');
+  await fileInput(page).setInputFiles({
+    name: '方塊.png',
+    mimeType: 'image/png',
+    buffer: await squarePng(),
+  });
+  await expect(status(page)).toHaveText(
+    'AI 去背失敗：下載的檔案與官方版本不符（SHA-256 不同），已丟棄。請再試一次。',
+    { timeout: 30_000 },
+  );
+  await expect(modelPanel(page)).toHaveAttribute('data-status', 'missing');
+  await expect(page.getByRole('button', { name: 'AI 去背這張' })).toBeDisabled();
+  expect(errors).toEqual([]);
+});
+
+test('F21：AI 去背中、載入模型中按「取消」都顯示「已取消 AI 去背。」，下次重開推論', async ({
+  page,
+}) => {
+  /* 第 1 個推論 Worker：推論不回覆；第 2 個：載入模型不回覆；第 3 個：正常 */
+  await stubOnnxWorker(page, [holdReply('mask'), holdReply('backend')]);
+  const { errors } = await open(page, { spec: FAKE_SPEC });
+  await downloadModel(page);
+  const ai = page.getByTestId('ai-progress');
+  await fileInput(page).setInputFiles({
+    name: '一.png',
+    mimeType: 'image/png',
+    buffer: await squarePng(),
+  });
+  await expect(ai).toHaveText('AI 去背中…', { timeout: 30_000 });
+  await expect(status(page)).toHaveText('已加入 1 張圖片。');
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(status(page)).toHaveText('已取消 AI 去背。');
+  await expect(ai).toHaveCount(0);
+  /* 第二張：自動去背，停在載入模型 */
+  await fileInput(page).setInputFiles({
+    name: '二.png',
+    mimeType: 'image/png',
+    buffer: await squarePng(40, 30),
+  });
+  await expect(ai).toHaveText('正在載入模型…', { timeout: 30_000 });
+  await expect(status(page)).toHaveText('已加入 1 張圖片。');
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(status(page)).toHaveText('已取消 AI 去背。');
+  /* 再按一次：重開推論，正常完成 */
+  await page.getByRole('button', { name: 'AI 去背這張' }).click();
+  await expect(status(page)).toHaveText('已完成 AI 去背。', { timeout: 30_000 });
+  expect(errors).toEqual([]);
+});
+
+test('F41：預覽背景「圖」存在素材庫，重新整理後還在', async ({ page }) => {
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await loadDemo(page);
+  const px = new Uint8Array(32 * 24 * 4);
+  for (let i = 0; i < px.length; i += 4) px.set([200, 40, 60, 255], i);
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('radio', { name: '背景圖（只供預覽）' }).click(),
+  ]);
+  await chooser.setFiles({
+    name: '背景.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(await encodePng(px, 32, 24)),
+  });
+  const stage = page.getByRole('region', { name: '去背預覽' });
+  await expect(stage).toHaveCSS('background-image', /^url\("blob:/);
+  await page.reload();
+  await expectReady(page);
+  await expect(page.getByRole('radio', { name: '背景圖（只供預覽）' })).toBeChecked();
+  await expect(stage).toHaveCSS('background-image', /^url\("blob:/);
+  const size = await stage.evaluate(async (el) => {
+    const url = /url\("(.+)"\)/.exec(getComputedStyle(el).backgroundImage)?.[1];
+    if (!url) return null;
+    try {
+      const bmp = await createImageBitmap(await (await fetch(url)).blob());
+      return [bmp.width, bmp.height];
+    } catch {
+      return null;
+    }
+  });
+  expect(size).toEqual([32, 24]);
+  /* 全部重來：背景圖留著 */
+  await page.getByRole('button', { name: '專案' }).click();
+  await page.getByRole('menuitem', { name: '重設…' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
+  await expect(items(page)).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('radio', { name: '背景圖（只供預覽）' })).toBeChecked();
+  await expect(stage).toHaveCSS('background-image', /^url\("blob:/);
+  expect(errors).toEqual([]);
+});
+
+test('F43：清單是空的時放進第一張圖、重新整理後第一次讀圖，讀取中顯示「讀取中…」', async ({
+  page,
+}) => {
+  const big = await bigPngFile(3000, 3000);
+  await recordTimeline(page);
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await fileInput(page).setInputFiles(big);
+  await expectReady(page);
+  const loading = (await timeline(page)).stage.filter((s) => s.startsWith('loading|'));
+  expect(loading.length).toBeGreaterThan(0);
+  expect(loading).toEqual(loading.map(() => 'loading|讀取中…'));
+  await page.reload();
+  await expectReady(page);
+  const again = (await timeline(page)).stage.filter((s) => s.startsWith('loading|'));
+  expect(again.length).toBeGreaterThan(0);
+  expect(again).toEqual(again.map(() => 'loading|讀取中…'));
+  expect(errors).toEqual([]);
+});
+
+test('F32：去色邊也處理去背邊界旁一圈：範例圖（預設值）疊在黑底時，馬尾外圈的淺色邊變淡', async ({
+  page,
+}) => {
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await loadDemo(page);
+  const ring = (png: Buffer) => {
+    /* 左邊馬尾（x 40～124、y 140～424）：外圈＝不透明度 > 0、旁邊（8 連通）有完全透明的像素；頭髮本身＝9 × 9 都不透明 */
+    const img = decodePng(png);
+    const { width: w, rgba } = img;
+    const a = (x: number, y: number) => rgba[(y * w + x) * 4 + 3];
+    const bright = (x: number, y: number) => {
+      const k = (y * w + x) * 4;
+      return (((rgba[k] + rgba[k + 1] + rgba[k + 2]) / 3) * rgba[k + 3]) / 255;
+    };
+    let rs = 0;
+    let rn = 0;
+    let hs = 0;
+    let hn = 0;
+    for (let y = 140; y < 425; y++) {
+      for (let x = 40; x < 125; x++) {
+        if (!a(x, y)) continue;
+        let edge = false;
+        let solid = true;
+        for (let dy = -4; dy <= 4; dy++) {
+          for (let dx = -4; dx <= 4; dx++) {
+            const v = a(x + dx, y + dy);
+            if (v !== 255) solid = false;
+            if (!v && Math.abs(dx) <= 1 && Math.abs(dy) <= 1) edge = true;
+          }
+        }
+        if (edge) {
+          rs += bright(x, y);
+          rn++;
+        } else if (solid) {
+          hs += bright(x, y);
+          hn++;
+        }
+      }
+    }
+    return { ring: rs / rn, hair: hs / hn, n: rn };
+  };
+  const on = ring(await exportOne(page, 'PNG'));
+  await page.getByRole('switch', { name: '去色邊' }).click();
+  await expectReady(page);
+  const off = ring(await exportOne(page));
+  test.info().annotations.push({
+    type: '外圈平均亮度（疊在黑底）',
+    description: `去色邊開 ${on.ring.toFixed(1)}、關 ${off.ring.toFixed(1)}；頭髮本身 ${on.hair.toFixed(1)}（外圈 ${on.n} px）`,
+  });
+  expect(on.n).toBeGreaterThan(300);
+  expect(off.ring).toBeGreaterThan(on.hair + 25);
+  /* 開著時外圈接近頭髮本身的亮度 */
+  expect(on.ring).toBeLessThan(on.hair + 12);
+  expect(on.ring).toBeLessThan(off.ring - 25);
+  expect(errors).toEqual([]);
+});
+
+test('F58：快捷鍵一覽列出「Esc 取消取色」', async ({ page }) => {
+  const { errors } = await open(page);
+  await blur(page);
+  await page.keyboard.press('?');
+  const dialog = page.getByRole('dialog', { name: '快捷鍵' });
+  await expect(dialog).toBeVisible();
+  const row = dialog.locator('dt', { hasText: '取消取色' });
+  await expect(row).toHaveCount(1);
+  await expect(row.locator('xpath=following-sibling::dd[1]')).toHaveText('Esc');
+  expect(errors).toEqual([]);
+});
+
+test('大圖：放進 4000 × 4000 與改設定時畫面不凍住（解碼、縮圖、合成在 Worker 裡）', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const big = await bigPngFile(4000, 4000);
+  await recordTimeline(page);
+  const { errors } = await open(page);
+  await useColorMode(page);
+  const longIn = async (fn: () => Promise<void>) => {
+    const t0 = await page.evaluate(() => performance.now());
+    await fn();
+    await page.waitForTimeout(1000);
+    return (await timeline(page)).long.filter(([s]) => s >= t0).map(([, d]) => Math.round(d));
+  };
+  /* 預覽畫好了目前的狀態；等不到也繼續（只量長工作；修正前沒有 data-painted） */
+  const painted = () => expectPainted(page, 'result').catch(() => {});
+  const add = await longIn(async () => {
+    await fileInput(page).setInputFiles(big);
+    await expect(status(page)).toHaveText('已加入 1 張圖片。', { timeout: 60_000 });
+    await expectReady(page);
+    await painted();
+  });
+  const tol = await longIn(async () => {
+    const tick = await canvas(page).getAttribute('data-tick');
+    const f = page.getByRole('spinbutton', { name: '容許度' });
+    await f.fill('20');
+    await f.press('Enter');
+    await expect(canvas(page)).not.toHaveAttribute('data-tick', tick ?? '');
+    await expectReady(page);
+    await painted();
+  });
+  test.info().annotations.push({
+    type: '主執行緒的長工作（毫秒）',
+    description: `放進 4000 × 4000：${add.join('、') || '無'}；改容許度：${tol.join('、') || '無'}`,
+  });
+  expect(Math.max(0, ...add)).toBeLessThan(300);
+  expect(Math.max(0, ...tol)).toBeLessThan(200);
+  expect(errors).toEqual([]);
+});
+
+test('匯出：按「取消」立刻顯示「正在取消…」，停下來後「已取消匯出。」', async ({ page }) => {
+  test.setTimeout(120_000);
+  const big = await bigPngFile(4000, 4000);
+  await recordTimeline(page);
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await fileInput(page).setInputFiles(big);
+  await expect(status(page)).toHaveText('已加入 1 張圖片。', { timeout: 60_000 });
+  await expectReady(page);
+  const area = exportArea(page);
+  await area.getByRole('button', { name: '匯出 PNG' }).click();
+  await expect(area.getByRole('progressbar')).toBeVisible();
+  const t0 = Date.now();
+  await area.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(status(page)).toHaveText('已取消匯出。', { timeout: 30_000 });
+  const ms = Date.now() - t0;
+  const seen = (await timeline(page)).status;
+  expect(seen.indexOf('正在取消…')).toBeGreaterThan(0);
+  expect(seen.indexOf('已取消匯出。')).toBeGreaterThan(seen.indexOf('正在取消…'));
+  await expect(area.getByRole('button', { name: '匯出 PNG' })).toBeVisible();
+  await expect(area.getByTestId('export-result')).toHaveCount(0);
+  test.info().annotations.push({ type: '按取消到停下來', description: `${ms} ms` });
+  expect(errors).toEqual([]);
+});
+
+test('放進來的檔案裡有不是圖片的：「略過 N 個不是圖片的檔案。」', async ({ page }) => {
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await fileInput(page).setInputFiles([
+    { name: '方塊.png', mimeType: 'image/png', buffer: await squarePng() },
+    { name: '筆記.txt', mimeType: 'text/plain', buffer: Buffer.from('不是圖片') },
+    { name: '假的.png', mimeType: 'image/png', buffer: Buffer.from('也不是圖片') },
+  ]);
+  await expect(status(page)).toHaveText('已加入 1 張圖片。 略過 2 個不是圖片的檔案。');
+  await expect(items(page)).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 

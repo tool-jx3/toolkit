@@ -2,11 +2,11 @@
  * 使用者的動作：加圖、移除、切換、取色、專案檔、全部重來。
  */
 import { importAssetFiles } from '@/core/assets';
-import { readAsBytes } from '@/core/files';
-import { detectImageType } from '@/core/image';
 import { ProjectFileError, resetToolStore } from '@/core/storage';
-import { useWork } from './engine';
+import type { StageBackground } from '@/ui';
+import { pixels, useWork } from './engine';
 import { type ImageItem, normalizeSettings, PROJECT_VERSION, type Settings } from './model';
+import type { InspectResult } from './pixels';
 import {
   assets,
   collectGarbage,
@@ -20,6 +20,7 @@ import {
   useSettings,
 } from './store';
 import { S } from './strings';
+import { rememberThumb } from './thumbs';
 
 /** 一張圖最多 6,000 萬像素（瀏覽器的畫布放得下、記憶體也還夠） */
 export const MAX_PIXELS = 60_000_000;
@@ -35,34 +36,41 @@ export interface AddResult {
   rejected: number;
 }
 
-/** 讀檔頭判斷是不是圖片（不看副檔名） */
-async function isImage(file: File): Promise<boolean> {
-  return detectImageType(await readAsBytes(file.slice(0, 64))) !== null;
-}
-
-async function measure(file: Blob): Promise<{ width: number; height: number }> {
-  const bmp = await createImageBitmap(file);
-  const size = { width: bmp.width, height: bmp.height };
-  bmp.close();
-  return size;
-}
-
-/** 加入圖片（放在清單最後，選取第一張新加的；算一步復原） */
-export async function addFiles(files: readonly File[]): Promise<AddResult> {
+/**
+ * 加入圖片（放在清單最後，選取第一張新加的；算一步復原）。每個檔案在 Worker 裡檢查（看檔頭判斷是不是圖片——不看副檔名、
+ * 解碼量尺寸、做清單的縮圖），畫面不卡；onProgress(i, n) 在開始處理第 i 個（0 起）檔案前呼叫。
+ */
+export async function addFiles(
+  files: readonly File[],
+  onProgress?: (i: number, n: number) => void,
+): Promise<AddResult> {
   const result: AddResult = { added: [], failed: [], tooLarge: [], notStored: false, rejected: 0 };
-  for (const file of files) {
-    if (!(await isImage(file))) {
+  for (let k = 0; k < files.length; k++) {
+    const file = files[k];
+    onProgress?.(k, files.length);
+    let info: InspectResult;
+    try {
+      info = await pixels.inspect(file);
+    } catch {
+      info = { kind: 'failed' };
+    }
+    if (info.kind === 'not-image') {
       result.rejected++;
       continue;
     }
+    if (info.kind === 'failed') {
+      result.failed.push(file.name);
+      continue;
+    }
+    const { width, height } = info;
+    if (width * height > MAX_PIXELS) {
+      result.tooLarge.push(file.name);
+      continue;
+    }
     try {
-      const { width, height } = await measure(file);
-      if (width * height > MAX_PIXELS) {
-        result.tooLarge.push(file.name);
-        continue;
-      }
       const r = await assets.add(file);
       if (!r.persisted) result.notStored = true;
+      rememberThumb(r.id, info.thumb);
       result.added.push({
         id: newId(),
         name: file.name || 'image.png',
@@ -191,13 +199,37 @@ export async function openProject(
   return missing;
 }
 
-/** 全部重來：清單、筆刷、設定都清掉（下載好的模型留著） */
+/** 全部重來：清單、筆刷、設定都清掉（下載好的模型、預覽背景留著） */
 export function resetAll(): void {
   resetToolStore(useSettings);
-  const keepBg = previewNow().stageBg;
+  const { stageBg, stageBgImage } = previewNow();
   usePreview.getState().reset();
-  setPreview({ stageBg: keepBg });
+  setPreview({ stageBg, stageBgImage });
   void collectGarbage();
+}
+
+/* ---------- 預覽背景 ---------- */
+
+/**
+ * 換預覽背景。背景圖：Stage 給的是剛選的檔案的物件網址（重新整理後就失效），這裡讀出檔案放進素材庫、只記 id；
+ * currentUrl 是目前背景圖的網址（同一張圖不必再存一次）。
+ */
+export async function setStageBackground(
+  bg: StageBackground,
+  currentUrl: string | null,
+): Promise<void> {
+  const next: StageBackground = { kind: bg.kind, ...(bg.color ? { color: bg.color } : null) };
+  if (bg.kind === 'image' && bg.imageUrl && bg.imageUrl !== currentUrl) {
+    try {
+      const blob = await (await fetch(bg.imageUrl)).blob();
+      const r = await assets.add(blob);
+      setPreview({ stageBg: next, stageBgImage: r.id });
+      return;
+    } catch {
+      /* 讀不到這個檔案：只換種類 */
+    }
+  }
+  setPreview({ stageBg: next });
 }
 
 export { referencedIds };

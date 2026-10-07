@@ -24,6 +24,7 @@ import { clientToLocal } from '@/core/layout';
 import {
   Button,
   ColorField,
+  type ExportContext,
   ExportPanel,
   type ExportPanelHandle,
   Field,
@@ -40,11 +41,12 @@ import {
   Toggle,
   useWebpSupport,
 } from '@/ui';
-import { addFiles, finishPick, go, removeImage, selectImage } from './actions';
+import { addFiles, finishPick, go, removeImage, selectImage, setStageBackground } from './actions';
 import { demoFiles } from './demo';
 import {
   cancelAi,
   exportImages,
+  pixels,
   previewSource,
   runAi,
   sampleSource,
@@ -63,8 +65,10 @@ import {
   RANGE,
   type ViewMode,
 } from './model';
+import type { PreviewImage, PreviewJob } from './pixels';
 import { assets, edit, setPreview, settingsNow, step, usePreview, useSettings } from './store';
 import { S } from './strings';
+import { thumbUrl } from './thumbs';
 
 /* ---------- 狀態列 ---------- */
 
@@ -88,10 +92,16 @@ function StatusLine() {
 
 /* ---------- 載入 ---------- */
 
-/** 加圖並回報；AI 模式、模型已下載時自動去背新加的圖 */
-export async function addAndReport(files: readonly File[], autoAi: boolean) {
+/**
+ * 加圖並回報；AI 模式、模型已下載時自動去背新加的圖。
+ * model：AI 去背時發現模型不見了或驗證不符，要讓下載區重新檢查（回到「要先下載」）。
+ */
+export async function addAndReport(files: readonly File[], model: ModelCache | null) {
   if (!files.length) return;
-  const r = await addFiles(files);
+  const autoAi = model?.state.status === 'ready';
+  const r = await addFiles(files, (i, n) => {
+    if (n > 1) setNote({ tone: 'progress', text: S.adding(i + 1, n) });
+  });
   if (!r.added.length) {
     setNote({
       tone: 'danger',
@@ -104,6 +114,7 @@ export async function addAndReport(files: readonly File[], autoAi: boolean) {
     return;
   }
   const extra = [
+    r.rejected ? S.skipped(r.rejected) : '',
     r.failed.length ? S.readFailed(r.failed) : '',
     r.tooLarge.length ? S.tooLarge(r.tooLarge[0]) : '',
     r.notStored ? S.storageWarn : '',
@@ -114,7 +125,7 @@ export async function addAndReport(files: readonly File[], autoAi: boolean) {
     tone: extra ? 'warning' : 'success',
     text: `${S.loaded(r.added.length)}${extra ? ` ${extra}` : ''}`,
   });
-  if (autoAi && settingsNow().mode === 'ai') await runAiAndReport(r.added, null);
+  if (autoAi && settingsNow().mode === 'ai') await runAiAndReport(r.added, model);
 }
 
 /** AI 去背並把結果寫到狀態列 */
@@ -131,7 +142,7 @@ export async function runAiAndReport(
   else if (r.done) setNote({ tone: 'success', text: S.aiDone(r.done) });
 }
 
-function LoadArea({ autoAi }: { autoAi: boolean }) {
+function LoadArea({ model }: { model: ModelCache }) {
   const [busy, setBusy] = useState(false);
   return (
     <div className="flex flex-col gap-2">
@@ -146,7 +157,7 @@ function LoadArea({ autoAi }: { autoAi: boolean }) {
         label={S.dropLabel}
         buttonLabel={S.dropButton}
         hint={S.dropHint}
-        onFiles={(files) => void addAndReport(files, autoAi)}
+        onFiles={(files) => void addAndReport(files, model)}
       />
       <Button
         size="sm"
@@ -157,7 +168,7 @@ function LoadArea({ autoAi }: { autoAi: boolean }) {
         onClick={async () => {
           setBusy(true);
           try {
-            await addAndReport(await demoFiles(S.demoNames), autoAi);
+            await addAndReport(await demoFiles(S.demoNames), model);
           } finally {
             setBusy(false);
           }
@@ -171,25 +182,39 @@ function LoadArea({ autoAi }: { autoAi: boolean }) {
 
 /* ---------- 清單 ---------- */
 
-function useAssetUrls(ids: readonly string[]): Record<string, string> {
+/** 清單的縮圖網址（在 Worker 裡做的小圖；做好一張就換上一張） */
+function useThumbUrls(ids: readonly string[]): Record<string, string> {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const key = ids.join('|');
   // biome-ignore lint/correctness/useExhaustiveDependencies: key 就是 ids
   useEffect(() => {
     let alive = true;
-    void (async () => {
-      const out: Record<string, string> = {};
-      for (const id of ids) {
-        const u = await assets.url(id);
-        if (u) out[id] = u;
-      }
-      if (alive) setUrls(out);
-    })();
+    for (const id of new Set(ids)) {
+      void thumbUrl(id).then((u) => {
+        if (alive && u) setUrls((prev) => (prev[id] === u ? prev : { ...prev, [id]: u }));
+      });
+    }
     return () => {
       alive = false;
     };
   }, [key]);
   return urls;
+}
+
+/** 素材庫裡一張圖的網址（id 是 null 或找不到時 null） */
+function useAssetUrl(id: string | null): string | null {
+  const [url, setUrl] = useState<{ id: string; url: string | null } | null>(null);
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    void assets.url(id).then((u) => {
+      if (alive) setUrl({ id, url: u ?? null });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+  return id && url?.id === id ? url.url : null;
 }
 
 function ImageList() {
@@ -198,7 +223,7 @@ function ImageList() {
   const current = usePreview((st) => st.data.current);
   const masks = usePreview((st) => st.data.aiMasks);
   const running = useWork((st) => !!st.ai);
-  const urls = useAssetUrls(images.map((it) => it.asset));
+  const urls = useThumbUrls(images.map((it) => it.asset));
   const selected = images.find((it) => it.id === current)?.id ?? images[0]?.id ?? null;
   if (!images.length) return null;
   return (
@@ -275,17 +300,17 @@ function Navigator() {
 
 /* ---------- 預覽畫布 ---------- */
 
-/** 畫整張（view：結果／原圖／遮罩） */
-function drawFull(c: HTMLCanvasElement, view: ViewMode) {
+/** 正在畫的整張、排在後面的那一次（只留最新的）；筆刷畫過幾次 */
+let drawing = false;
+let queuedDraw: (() => void) | null = null;
+let paintSeq = 0;
+
+/** 主執行緒自己合成（Worker 不能用、合成失敗時的退路；結果相同） */
+function drawFullHere(c: HTMLCanvasElement, view: ViewMode) {
   const ps = previewSource();
   const ctx = c.getContext('2d');
-  if (!ctx) return;
-  if (!ps) {
-    ctx.clearRect(0, 0, c.width, c.height);
-    return;
-  }
+  if (!ps || !ctx) return;
   const { src, colors, final } = ps;
-  if (c.width !== src.width || c.height !== src.height) return;
   const data =
     view === 'original' || !final
       ? src.rgba
@@ -293,6 +318,75 @@ function drawFull(c: HTMLCanvasElement, view: ViewMode) {
         ? maskToRgba(final)
         : applyMask(colors ?? src.rgba, final);
   ctx.putImageData(new ImageData(new Uint8ClampedArray(data), src.width, src.height), 0, 0);
+}
+
+/**
+ * 畫整張（view：結果／原圖／遮罩）。合成在 Worker 裡做（大圖的合成要幾百毫秒），這裡只 drawImage；
+ * 畫好後畫布的 data-painted 寫上 tag（測試等這個）。同時只畫一次，期間又要求的只畫最新的那一次。
+ */
+function drawFull(c: HTMLCanvasElement, view: ViewMode, tag: string): void {
+  if (drawing) {
+    queuedDraw = () => drawFull(c, view, tag);
+    return;
+  }
+  drawing = true;
+  void composeAndDraw(c, view, tag).finally(() => {
+    drawing = false;
+    const next = queuedDraw;
+    queuedDraw = null;
+    next?.();
+  });
+}
+
+async function composeAndDraw(c: HTMLCanvasElement, view: ViewMode, tag: string) {
+  const ps = previewSource();
+  const ctx = c.getContext('2d');
+  if (!ctx) return;
+  if (!ps) {
+    ctx.clearRect(0, 0, c.width, c.height);
+    c.dataset.painted = tag;
+    return;
+  }
+  const { src, final } = ps;
+  if (c.width !== src.width || c.height !== src.height) return;
+  const painted = paintSeq;
+  const blob = await assets.get(ps.asset);
+  let img: PreviewImage | null = null;
+  if (blob) {
+    const job: PreviewJob = {
+      key: ps.asset,
+      blob,
+      view,
+      mask: view === 'original' ? null : final,
+      colorsKey: ps.despillKey,
+      colors: null,
+    };
+    try {
+      img = await pixels.preview(job);
+      /* Worker 不記得這組去色邊的顏色：附上再叫一次 */
+      if (!img && ps.despillKey) img = await pixels.preview({ ...job, colors: ps.colors });
+    } catch {
+      img = null;
+    }
+  }
+  /* 等的時候筆刷畫過（那一塊已經是最新的）、換了圖：這次的整張作廢（筆刷寫進清單後會再畫一次） */
+  const stale =
+    painted !== paintSeq ||
+    c.width !== src.width ||
+    c.height !== src.height ||
+    previewSource()?.src !== src;
+  if (img && 'bitmap' in img) {
+    if (!stale) {
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.drawImage(img.bitmap, 0, 0);
+    }
+    img.bitmap.close();
+  } else if (img) {
+    if (!stale) ctx.putImageData(new ImageData(img.rgba, img.width, img.height), 0, 0);
+  } else if (!stale) {
+    drawFullHere(c, view);
+  }
+  if (!stale) c.dataset.painted = tag;
 }
 
 /** 筆刷畫過的範圍只重畫那一塊 */
@@ -320,6 +414,7 @@ function drawRect(c: HTMLCanvasElement, view: ViewMode, r: BrushRect) {
     }
   }
   ctx.putImageData(new ImageData(out, r.width, r.height), r.x, r.y);
+  paintSeq++;
 }
 
 function BrushLayer({
@@ -418,6 +513,8 @@ function PreviewStage({ model }: { model: ModelCache }) {
   const h = useWork((st) => st.height);
   const view = usePreview((st) => st.data.view);
   const stageBg = usePreview((st) => st.data.stageBg);
+  const stageBgImage = usePreview((st) => st.data.stageBgImage);
+  const stageBgUrl = useAssetUrl(stageBgImage);
   const picking = useWork((st) => st.picking);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState<number | 'fit'>('fit');
@@ -435,17 +532,23 @@ function PreviewStage({ model }: { model: ModelCache }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick 代表遮罩或原圖換了
   useLayoutEffect(() => {
     const c = canvas.current;
-    if (c) drawFull(c, view);
+    if (c) drawFull(c, view, `${tick}:${view}`);
   }, [tick, view, width, height]);
 
+  /* 讀取中（包括清單本來是空的、第一張圖還沒讀完時）；AI 模式還沒去背 */
   const overlay =
-    phase === 'needs-ai'
-      ? model.state.status === 'ready'
-        ? S.needsAiStage
-        : S.needsModelStage
-      : phase === 'loading'
-        ? S.loadingStage
+    phase === 'loading'
+      ? S.loadingStage
+      : has && phase === 'needs-ai'
+        ? model.state.status === 'ready'
+          ? S.needsAiStage
+          : S.needsModelStage
         : null;
+  /* 預覽背景圖存在素材庫（id），這裡換成網址交給 Stage */
+  const background =
+    stageBg.kind === 'image'
+      ? { kind: stageBg.kind, imageUrl: stageBgUrl ?? undefined }
+      : { kind: stageBg.kind, color: stageBg.color };
 
   return (
     <div className="relative min-w-0">
@@ -462,8 +565,8 @@ function PreviewStage({ model }: { model: ModelCache }) {
         onZoomChange={(z) => setZoom(z === 'fit' ? 1 : z)}
         pan={pan}
         onPanChange={setPan}
-        background={stageBg}
-        onBackgroundChange={(b) => setPreview({ stageBg: b })}
+        background={background}
+        onBackgroundChange={(b) => void setStageBackground(b, stageBgUrl)}
         toolbarExtra={
           <>
             <Segmented<ViewMode>
@@ -509,16 +612,16 @@ function PreviewStage({ model }: { model: ModelCache }) {
           />
         ) : null}
       </Stage>
-      {!has ? (
-        <p className="pointer-events-none absolute inset-x-4 top-1/2 m-0 -translate-y-1/2 pt-8 text-center text-sm text-muted">
-          {S.emptyStage}
-        </p>
-      ) : overlay ? (
+      {overlay ? (
         <p
           className="pointer-events-none absolute inset-x-4 top-1/2 m-0 -translate-y-1/2 rounded-md bg-surface/90 px-3 py-2 text-center text-sm text-fg"
           data-testid="stage-overlay"
         >
           {overlay}
+        </p>
+      ) : !has ? (
+        <p className="pointer-events-none absolute inset-x-4 top-1/2 m-0 -translate-y-1/2 pt-8 text-center text-sm text-muted">
+          {S.emptyStage}
         </p>
       ) : phase === 'processing' ? (
         <p className="pointer-events-none absolute top-14 left-3 m-0 rounded-md bg-surface/90 px-2 py-1 text-xs text-muted">
@@ -705,6 +808,24 @@ function ExportExtra() {
   );
 }
 
+/** 匯出；取消時狀態列立刻顯示「正在取消…」，停下來後「已取消匯出。」 */
+async function exportWithStatus(format: OutFormat, ctx: ExportContext) {
+  const onAbort = () => setNote({ tone: 'warning', text: S.exportCancelling });
+  ctx.signal.addEventListener('abort', onAbort, { once: true });
+  try {
+    const out = await exportImages(format, ctx);
+    /* 最後一張剛好畫完才按取消：ExportPanel 一樣當成取消 */
+    if (ctx.signal.aborted) setNote({ tone: 'warning', text: S.exportCancelled });
+    return out;
+  } catch (e) {
+    if (ctx.signal.aborted || (e as { name?: string } | null)?.name === 'AbortError')
+      setNote({ tone: 'warning', text: S.exportCancelled });
+    throw e;
+  } finally {
+    ctx.signal.removeEventListener('abort', onAbort);
+  }
+}
+
 function ExportArea({ panelRef }: { panelRef: Ref<ExportPanelHandle> }) {
   const s = useSettings((st) => st.data);
   const tick = useWork((st) => st.tick);
@@ -741,7 +862,7 @@ function ExportArea({ panelRef }: { panelRef: Ref<ExportPanelHandle> }) {
           d.format = x.format as OutFormat;
         })
       }
-      onExport={(x, ctx) => exportImages(x.format as OutFormat, ctx)}
+      onExport={(x, ctx) => exportWithStatus(x.format as OutFormat, ctx)}
       extra={<ExportExtra />}
       resetKey={resetKey}
       sizeWarningHint={S.sizeWarningHint}
@@ -756,11 +877,10 @@ export function PreviewColumn({
   model: ModelCache;
   exportRef: Ref<ExportPanelHandle>;
 }) {
-  const autoAi = model.state.status === 'ready';
   return (
     <div className={PREVIEW_GRID}>
       <div className="flex min-w-0 flex-col gap-3 xl:col-start-2 xl:row-start-1">
-        <LoadArea autoAi={autoAi} />
+        <LoadArea model={model} />
         <ImageList />
         <Navigator />
       </div>
