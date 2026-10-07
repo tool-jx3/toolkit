@@ -1,8 +1,9 @@
 /**
- * core/models：大型模型檔的下載（進度、取消）、SHA-256 驗證、快取、讀回與刪除。
+ * core/models：大型模型檔的下載（進度、取消）、SHA-256 驗證（主執行緒上在 Worker 裡算）、快取、讀回與刪除。
  * 用記憶體的存放處與假的 fetch（分段送出的 ReadableStream）。
  */
-import { describe, expect, it } from 'vitest';
+import * as Comlink from 'comlink';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sha256Hex } from '@/core/files';
 import {
   chainStorage,
@@ -10,6 +11,7 @@ import {
   downloadModel,
   formatModelProgress,
   formatModelSize,
+  hashModelBytes,
   loadModel,
   MODEL_ERROR_MESSAGES,
   ModelError,
@@ -229,5 +231,93 @@ describe('core/models', () => {
     expect(formatModelSize(176_069_933)).toBe('約 176 MB');
     expect(formatModelProgress(12_345_678, 176_069_933)).toBe('12.3／176.1 MB（7%）');
     expect(formatModelProgress(0, 0)).toBe('0.0／0.0 MB（0%）');
+  });
+});
+
+/*
+ * 主執行緒上的 SHA-256 在另一個 Worker 裡算（Chromium 的 crypto.subtle.digest 對大檔案是同步的，會凍住畫面）。
+ * Node 沒有 Worker：用 MessageChannel 做一個假的（另一端用 Comlink 公開和 hash.worker.ts 一樣的 api），記下被叫了幾次。
+ */
+describe('core/models：SHA-256 在 Worker 裡算', () => {
+  const hashed: number[] = [];
+  const hashApi = {
+    ping: () => true as const,
+    async sha256(bytes: Uint8Array<ArrayBuffer>) {
+      hashed.push(bytes.length);
+      return Comlink.transfer({ hex: await sha256Hex(bytes), bytes }, [bytes.buffer]);
+    },
+  };
+  class HashWorker extends EventTarget {
+    static made = 0;
+    readonly channel = new MessageChannel();
+    constructor(
+      _url: URL,
+      readonly options?: WorkerOptions,
+    ) {
+      super();
+      HashWorker.made++;
+      this.channel.port1.onmessage = (e) =>
+        this.dispatchEvent(new MessageEvent('message', { data: e.data }));
+      Comlink.expose(hashApi, this.channel.port2);
+    }
+    postMessage(msg: unknown, transfer: Transferable[] = []) {
+      this.channel.port1.postMessage(msg, transfer);
+    }
+    terminate() {
+      this.channel.port1.close();
+      this.channel.port2.close();
+    }
+  }
+  /** 載不到的 Worker（像 404）：error 事件 */
+  class BrokenWorker extends EventTarget {
+    constructor() {
+      super();
+      setTimeout(() => this.dispatchEvent(new Event('error')), 0);
+    }
+    postMessage() {}
+    terminate() {}
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    hashed.length = 0;
+  });
+
+  it('下載完的檢查交給 Worker（位元組轉移過去再傳回來），存進去的內容相同', async () => {
+    vi.stubGlobal('Worker', HashWorker);
+    vi.stubGlobal('window', globalThis);
+    const spec = await specFor(DATA);
+    const storage = memoryBackend();
+    const phases: string[] = [];
+    await downloadModel(spec, {
+      storage,
+      fetch: fakeFetch(DATA).impl,
+      onProgress: (p) => {
+        if (phases[phases.length - 1] !== p.phase) phases.push(p.phase);
+      },
+    });
+    expect(hashed).toEqual([DATA.length]);
+    expect(phases).toEqual(['download', 'verify', 'save']);
+    expect(await loadModel(spec, { storage })).toEqual(DATA);
+  });
+
+  it('Worker 不符時照樣丟棄；Worker 載不到時就地算（結果相同）', async () => {
+    vi.stubGlobal('Worker', HashWorker);
+    vi.stubGlobal('window', globalThis);
+    const spec = await specFor(DATA);
+    const bad = DATA.slice();
+    bad[5] ^= 1;
+    const storage = memoryBackend();
+    await expect(
+      downloadModel(spec, { storage, fetch: fakeFetch(bad).impl }),
+    ).rejects.toMatchObject({ kind: 'checksum' });
+    expect(hashed).toEqual([DATA.length]);
+    expect(await modelStatus(spec, storage)).toBe('missing');
+    vi.stubGlobal('Worker', BrokenWorker);
+    const h = await hashModelBytes(DATA.slice());
+    expect(h.hex).toBe(spec.sha256);
+    expect(h.bytes).toEqual(DATA);
+    await downloadModel(spec, { storage, fetch: fakeFetch(DATA).impl });
+    expect(await modelStatus(spec, storage)).toBe('cached');
   });
 });

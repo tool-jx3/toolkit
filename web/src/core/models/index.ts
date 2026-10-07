@@ -13,12 +13,16 @@
  *
  * - 網址要固定版本（例：Hugging Face 的 `resolve/<commit>/…`），快取以網址為鍵；換版本＝另一個檔案。
  * - 下載時依 `bytes` 預先配置記憶體並顯示進度；收到的位元組數、SHA-256 與規格不符時丟棄，不寫進快取。
+ *   主執行緒上的 SHA-256 在另一個 Worker 裡算（`hashModelBytes`）：Chromium 的 `crypto.subtle.digest` 對大檔案是同步的，
+ *   176 MB 會凍住畫面約 1.3 秒，「正在檢查檔案是否完整」也來不及畫出來。
  * - 錯誤一律是 `ModelError`（`kind`：network／http／aborted／size／checksum／quota／storage／missing），
  *   `MODEL_ERROR_MESSAGES` 有可以直接顯示的說明。
  */
 import { sha256Hex } from '../files/hash';
 import { isQuotaError } from '../image/store';
 import { hasIndexedDb, idbDel, idbGet, idbSet, idbStore } from '../storage/idb';
+import { canUseWorker, transfer, type WorkerHandle, wrapWorker } from '../worker';
+import type { ModelHashWorkerApi } from './hash.worker';
 
 export interface ModelSpec {
   /** 代號（不同模型不同） */
@@ -286,6 +290,49 @@ export interface DownloadModelOptions {
 const isAbort = (e: unknown, signal?: AbortSignal) =>
   signal?.aborted || (e as { name?: string } | null)?.name === 'AbortError';
 
+/** 讓出一次畫面（主執行緒上：等下一個畫面畫完；其他環境：下一個事件迴圈） */
+const yieldFrame = () =>
+  new Promise<void>((resolve) => {
+    if (typeof window !== 'undefined' && typeof requestAnimationFrame === 'function')
+      requestAnimationFrame(() => setTimeout(resolve, 0));
+    else setTimeout(resolve, 0);
+  });
+
+/**
+ * 算 SHA-256（64 個小寫十六進位字元）。主執行緒上改在 Worker 裡算，畫面不凍住：bytes 轉移過去、算完再傳回來，
+ * **之後要用回傳的 bytes**（原來的那個已經轉移走了）。Worker 不能用（Node、在 Worker 裡、Worker 檔案載不到）時就地算，
+ * 主執行緒上會先讓出一個畫面（例如「正在檢查檔案是否完整」先畫出來）。
+ */
+export async function hashModelBytes(
+  bytes: Uint8Array<ArrayBuffer>,
+): Promise<{ hex: string; bytes: Uint8Array<ArrayBuffer> }> {
+  if (canUseWorker()) {
+    let handle: WorkerHandle<ModelHashWorkerApi> | null = null;
+    try {
+      handle = wrapWorker<ModelHashWorkerApi>(
+        new Worker(new URL('./hash.worker.ts', import.meta.url), {
+          type: 'module',
+          name: '檢查模型檔',
+        }),
+      );
+      /* 先確認 Worker 載得到，位元組才轉移過去（載不到時位元組還在這裡，改成就地算） */
+      await handle.api.ping();
+    } catch {
+      handle?.terminate();
+      handle = null;
+    }
+    if (handle) {
+      try {
+        return await handle.api.sha256(transfer(bytes, [bytes.buffer]));
+      } finally {
+        handle.terminate();
+      }
+    }
+  }
+  await yieldFrame();
+  return { hex: await sha256Hex(bytes), bytes };
+}
+
 /** 下載、驗證、存進瀏覽器。失敗時什麼都不留，丟出 ModelError */
 export async function downloadModel(
   spec: ModelSpec,
@@ -332,12 +379,12 @@ export async function downloadModel(
   if (signal?.aborted) throw new ModelError('aborted');
   if (loaded !== total) throw new ModelError('size');
   report('verify', loaded);
-  const hex = await sha256Hex(buf);
+  const { hex, bytes: verified } = await hashModelBytes(buf);
   if (hex !== spec.sha256) throw new ModelError('checksum');
   if (signal?.aborted) throw new ModelError('aborted');
   report('save', loaded);
   try {
-    await storageOf(storage).write(spec.url, new Blob([buf]), { sha256: hex, bytes: total });
+    await storageOf(storage).write(spec.url, new Blob([verified]), { sha256: hex, bytes: total });
   } catch (e) {
     throw new ModelError(isQuotaError(e) ? 'quota' : 'storage', { cause: e });
   }

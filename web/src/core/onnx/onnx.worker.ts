@@ -4,7 +4,8 @@
  * - 用 `onnxruntime-web/webgpu` 這一份建置：同一個 WebAssembly 檔同時有 WebGPU 與 CPU（wasm）兩種運算方式（約 27 MB；
  *   只有 CPU 的建置約 14 MB，但沒有 WebGPU；JSEP 版約 28 MB）。檔案由 Vite 打包進 `assets/build/`，不從 CDN 載入。
  * - CPU 單執行緒（numThreads ＝ 1）：沒有跨來源隔離就不能用多執行緒。
- * - 'auto'：先試 WebGPU（要得到 adapter 才試），建不起來就改用 CPU，並回報原因。
+ * - 'auto'：先試 WebGPU（要拿得到 adapter、而且建得起裝置才用），建不起來就改用 CPU，並回報原因。
+ *   onnxruntime-web 在「有 adapter、requestDevice() 失敗」時不丟錯、一直等，所以先用 probeWebGpu() 自己試一次。
  */
 
 import wasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url';
@@ -12,7 +13,6 @@ import * as ort from 'onnxruntime-web/webgpu';
 import { loadModel } from '../models';
 import { exposeApi, transfer } from '../worker';
 import {
-  hasWebGpu,
   isMemoryError,
   type OnnxBackend,
   type OnnxBackendChoice,
@@ -20,6 +20,7 @@ import {
   type OnnxModelSource,
   type OnnxSessionInfo,
   type OnnxTensor,
+  probeWebGpu,
 } from './types';
 
 ort.env.wasm.numThreads = 1;
@@ -44,9 +45,15 @@ const api = {
     await api.close();
     /* 模型：從 core/models 的快取讀（驗 SHA-256），或直接給位元組 */
     const bytes = 'model' in source ? await loadModel(source.model) : source.bytes;
-    let backend: OnnxBackend = choice === 'webgpu' ? 'webgpu' : 'wasm';
+    let backend: OnnxBackend = 'wasm';
     let fallbackReason: string | undefined;
-    if (choice === 'auto') backend = (await hasWebGpu()) ? 'webgpu' : 'wasm';
+    if (choice !== 'wasm') {
+      /* 'auto'：沒有顯示卡就直接用 CPU；有顯示卡但建不起裝置時也用 CPU，並回報原因 */
+      const gpu = await probeWebGpu();
+      if (gpu.ok) backend = 'webgpu';
+      else if (choice === 'webgpu') throw new OnnxError('session', gpu.reason);
+      else if (gpu.adapter) fallbackReason = gpu.reason;
+    }
     try {
       session = await createSession(bytes, backend);
     } catch (e) {

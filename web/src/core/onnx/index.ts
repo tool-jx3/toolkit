@@ -14,6 +14,8 @@
  * - CPU 只用單執行緒：GitHub Pages 沒有跨來源隔離標頭，不能用 SharedArrayBuffer。
  * - 錯誤：開模型失敗丟 `OnnxError`（kind：load／session／run／memory）或 `core/models` 的 `ModelError`
  *   （模型沒下載、驗證不符）；Worker 本身壞掉時是 `core/worker` 的 `WorkerFailedError`。
+ * - 取消：推論不能中途停止，`terminate()` 直接結束 Worker；還在等的 open／run／close 立刻以 `OnnxError`（kind：aborted）
+ *   拒絕（不會一直等下去），之後的呼叫也一樣。
  */
 import { MODEL_ERROR_MESSAGES, ModelError, type ModelErrorKind } from '../models';
 import { canUseWorker, transfer, type WorkerHandle, wrapWorker } from '../worker';
@@ -61,7 +63,7 @@ export interface OnnxClient {
   run(feeds: Record<string, OnnxTensor>, outputs?: string[]): Promise<Record<string, OnnxTensor>>;
   /** 關掉模型（釋放記憶體），Worker 留著 */
   close(): Promise<void>;
-  /** 結束 Worker（進行中的推論會被中斷，之後的呼叫以 WorkerFailedError 拒絕） */
+  /** 結束 Worker：進行中的推論被中斷，還在等的呼叫與之後的呼叫都以 OnnxError（kind：aborted）拒絕 */
   terminate(): void;
   /** 目前開著的模型 */
   readonly info: OnnxSessionInfo | null;
@@ -73,27 +75,47 @@ export function createOnnxClient({ name = 'ONNX 推論' }: { name?: string } = {
   const worker = new Worker(new URL('./onnx.worker.ts', import.meta.url), { type: 'module', name });
   const handle: WorkerHandle<OnnxWorkerApi> = wrapWorker<OnnxWorkerApi>(worker);
   let info: OnnxSessionInfo | null = null;
-  const revive = <T>(p: Promise<T>): Promise<T> =>
-    p.catch((e: unknown) => {
-      throw reviveOnnxError(e);
+  /** 還在等 Worker 回覆的呼叫（terminate 時讓它們以取消結束：Worker 結束後不會再回覆） */
+  const pending = new Set<(e: unknown) => void>();
+  let terminated = false;
+  const call = <T>(start: () => Promise<T>): Promise<T> => {
+    if (terminated) return Promise.reject(new OnnxError('aborted'));
+    return new Promise<T>((resolve, reject) => {
+      pending.add(reject);
+      start().then(
+        (v) => {
+          pending.delete(reject);
+          resolve(v);
+        },
+        (e: unknown) => {
+          pending.delete(reject);
+          reject(reviveOnnxError(e));
+        },
+      );
     });
+  };
   return {
     async open(source, { backend = 'auto' } = {}) {
       info = null;
-      info = await revive(handle.api.open(source, backend));
+      info = await call(() => handle.api.open(source, backend));
       return info;
     },
     async run(feeds, outputs) {
       const buffers = Object.values(feeds).map((t) => t.data.buffer as ArrayBuffer);
-      return revive(handle.api.run(transfer(feeds, buffers), outputs));
+      return call(() => handle.api.run(transfer(feeds, buffers), outputs));
     },
     async close() {
       info = null;
-      await revive(handle.api.close());
+      await call(() => handle.api.close());
     },
     terminate() {
       info = null;
+      if (terminated) return;
+      terminated = true;
       handle.terminate();
+      const waiting = [...pending];
+      pending.clear();
+      for (const reject of waiting) reject(new OnnxError('aborted'));
     },
     get info() {
       return info;

@@ -29,6 +29,9 @@ import { useConfirm } from './Dialog';
 import { Notice } from './Notice';
 import { ProgressBar } from './ProgressBar';
 
+/** 下載前的提醒（檔案很大；手機用行動數據時特別要注意） */
+const WIFI_HINT = '建議在 Wi-Fi 下下載。';
+
 export type ModelCacheState =
   | { status: 'checking' }
   | { status: 'missing' }
@@ -166,6 +169,7 @@ export function ModelDownloadPanel({
   const about = (
     <span className="text-xs text-muted">
       來源：{source}；授權：{spec.license}。只要下載一次，存在這個瀏覽器裡，之後離線也能用。
+      {WIFI_HINT}
     </span>
   );
 

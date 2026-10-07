@@ -1,6 +1,6 @@
 /**
  * core/image 的遮罩處理（mask.ts）與純色去背（colorkey.ts）：
- * 收縮／擴張（與逐點暴力算法比對）、羽化、筆刷、套用與鋪底、量化；色鍵、背景色偵測、去色邊。
+ * 收縮／擴張（與逐點暴力算法比對）、羽化、筆刷、套用與鋪底、量化；色鍵、背景色偵測、去色邊（含去背邊界旁一圈）。
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -315,5 +315,138 @@ describe('core/image：純色去背', () => {
     expect(Math.abs(out[0] - 200)).toBeLessThanOrEqual(2);
     expect(Math.abs(out[1] - 40)).toBeLessThanOrEqual(2);
     expect(Array.from(out.slice(4))).toEqual([1, 2, 3, 255]);
+  });
+
+  /** 照 colorkey.ts 的說明逐點暴力算的邊緣一圈（純前景＝收縮 edge px 後仍是 255；視窗逐格加總） */
+  function bruteEdgeDespill(
+    rgba: Uint8ClampedArray,
+    mask: Uint8Array,
+    w: number,
+    h: number,
+    bg: [number, number, number],
+    edge: number,
+  ): Uint8ClampedArray {
+    const out = decontaminate(rgba, mask, bg);
+    const inner = bruteGrow(mask, w, h, -edge);
+    const win = edge + 2;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        if (mask[i] !== 255 || inner[i] === 255) continue;
+        let n = 0;
+        const sum = [0, 0, 0];
+        for (let yy = Math.max(0, y - win); yy <= Math.min(h - 1, y + win); yy++) {
+          for (let xx = Math.max(0, x - win); xx <= Math.min(w - 1, x + win); xx++) {
+            const j = yy * w + xx;
+            if (inner[j] !== 255) continue;
+            n++;
+            for (let c = 0; c < 3; c++) sum[c] += rgba[j * 4 + c];
+          }
+        }
+        if (!n) continue;
+        const d = sum.map((v, c) => v / n - bg[c]);
+        const l2 = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+        if (l2 < 256) continue;
+        const v = [0, 1, 2].map((c) => rgba[i * 4 + c] - bg[c]);
+        const t = (v[0] * d[0] + v[1] * d[1] + v[2] * d[2]) / l2;
+        if (!(t > 0 && t < 1)) continue;
+        const r = [0, 1, 2].map((c) => v[c] - t * d[c]);
+        if (r[0] * r[0] + r[1] * r[1] + r[2] * r[2] > 0.2 * 0.2 * l2) continue;
+        for (let c = 0; c < 3; c++) {
+          const nv = rgba[i * 4 + c] + (1 - t) * d[c];
+          out[i * 4 + c] = nv < 0 ? 0 : nv > 255 ? 255 : Math.round(nv);
+        }
+      }
+    }
+    return out;
+  }
+
+  /** 白底上一塊紅色（12 × 12），外面一圈（不透明）是紅白各半的反鋸齒色、有一格是藍色（不是混到背景的顏色） */
+  function fringeImage() {
+    const w = 20;
+    const h = 20;
+    const rgba = new Uint8ClampedArray(w * h * 4).fill(255);
+    const mask = new Uint8Array(w * h);
+    for (let y = 3; y < 17; y++) {
+      for (let x = 3; x < 17; x++) {
+        const ring = x === 3 || x === 16 || y === 3 || y === 16;
+        rgba.set(ring ? [228, 148, 148, 255] : [200, 40, 40, 255], (y * w + x) * 4);
+        mask[y * w + x] = 255;
+      }
+    }
+    rgba.set([40, 40, 220, 255], (3 * w + 9) * 4);
+    return { rgba, mask, w, h };
+  }
+
+  it('去色邊（邊緣一圈）：不透明但混到背景色的邊換成前景色；別的顏色、裡面、不給 edge 時不變', () => {
+    const { rgba, mask, w, h } = fringeImage();
+    const px = (a: Uint8ClampedArray, x: number, y: number) =>
+      Array.from(a.slice((y * w + x) * 4, (y * w + x) * 4 + 4));
+    const plain = decontaminate(rgba, mask, [255, 255, 255]);
+    expect(px(plain, 3, 8)).toEqual([228, 148, 148, 255]);
+    const out = decontaminate(rgba, mask, [255, 255, 255], { width: w, height: h, edge: 2 });
+    /* 外圈：紅白各半 → 紅（t ≈ 0.49，換回前景色） */
+    for (const [x, y] of [
+      [3, 8],
+      [16, 12],
+      [8, 16],
+      [3, 3],
+    ] as const) {
+      const [r, g, b, a] = px(out, x, y);
+      expect(Math.abs(r - 200) + Math.abs(g - 40) + Math.abs(b - 40), `${x},${y}`).toBeLessThan(6);
+      expect(a).toBe(255);
+    }
+    /* 藍色那一格不是混到背景色：不變 */
+    expect(px(out, 9, 3)).toEqual([40, 40, 220, 255]);
+    /* 裡面、背景不變 */
+    expect(px(out, 9, 9)).toEqual([200, 40, 40, 255]);
+    expect(px(out, 4, 8)).toEqual([200, 40, 40, 255]);
+    expect(px(out, 0, 0)).toEqual([255, 255, 255, 255]);
+  });
+
+  it('去色邊（邊緣一圈）：比前景色更深（t ≥ 1）、前景色和背景色太像時不處理', () => {
+    const { rgba, mask, w, h } = fringeImage();
+    rgba.set([120, 10, 10, 255], (8 * w + 3) * 4);
+    const out = decontaminate(rgba, mask, [255, 255, 255], { width: w, height: h, edge: 2 });
+    expect(Array.from(out.slice((8 * w + 3) * 4, (8 * w + 3) * 4 + 3))).toEqual([120, 10, 10]);
+    /* 前景本身接近白色：不處理 */
+    const pale = new Uint8ClampedArray(rgba);
+    for (let i = 0; i < w * h; i++) if (mask[i]) pale.set([250, 250, 250, 255], i * 4);
+    pale.set([252, 252, 252, 255], (8 * w + 3) * 4);
+    const o2 = decontaminate(pale, mask, [255, 255, 255], { width: w, height: h, edge: 2 });
+    expect(Array.from(o2.slice((8 * w + 3) * 4, (8 * w + 3) * 4 + 3))).toEqual([252, 252, 252]);
+  });
+
+  it('去色邊（邊緣一圈）：與逐點暴力算法完全相同（亂數的圖與遮罩、各種寬度）', () => {
+    let seed = 7;
+    const rnd = () => {
+      seed = (seed * 1103515245 + 12345) >>> 0;
+      return seed / 2 ** 32;
+    };
+    for (const [w, h, edge] of [
+      [23, 17, 2],
+      [40, 31, 1],
+      [9, 50, 3],
+      [64, 48, 2],
+    ] as const) {
+      const rgba = new Uint8ClampedArray(w * h * 4);
+      const mask = new Uint8Array(w * h);
+      const bg: [number, number, number] = [240, 250, 230];
+      const fg = [60, 120, 30];
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = y * w + x;
+          /* 一個圓（前景）＋雜點；邊上混一點背景色 */
+          const d = Math.hypot(x - w / 2, y - h / 2) / (Math.min(w, h) * 0.35);
+          const t = Math.min(1, Math.max(0, 1.6 - d)) * (0.8 + 0.2 * rnd());
+          for (let c = 0; c < 3; c++)
+            rgba[i * 4 + c] = Math.round(bg[c] + t * (fg[c] - bg[c]) + (rnd() - 0.5) * 12);
+          rgba[i * 4 + 3] = 255;
+          mask[i] = d < 0.9 ? 255 : d < 1 ? Math.round(rnd() * 254) : rnd() < 0.05 ? 255 : 0;
+        }
+      }
+      const got = decontaminate(rgba, mask, bg, { width: w, height: h, edge });
+      expect(got, `${w}×${h} edge ${edge}`).toEqual(bruteEdgeDespill(rgba, mask, w, h, bg, edge));
+    }
   });
 });

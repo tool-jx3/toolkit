@@ -5,7 +5,7 @@
  * ```ts
  * const bg = estimateBackground(rgba, w, h);              // 從四邊找最多的顏色
  * const mask = colorKeyMask(rgba, w, h, { color: bg.color, tolerance: 12, softness: 8, connected: true });
- * const clean = decontaminate(rgba, mask, bg.color);      // 去色邊
+ * const clean = decontaminate(rgba, mask, bg.color, { width: w, height: h, edge: 2 });   // 去色邊（含邊緣一圈）
  * ```
  *
  * - 顏色差：RGB 歐氏距離換成 0～100（黑與白的距離＝100）。
@@ -150,15 +150,71 @@ export function estimateBackground(
   };
 }
 
+export interface DecontaminateOptions {
+  /** 圖的寬高（edge > 0 時要） */
+  width: number;
+  height: number;
+  /**
+   * 也處理去背邊界旁這麼寬（px）的一圈不透明像素（預設 0＝只處理半透明的像素）。純色去背的反鋸齒邊緣多半是不透明的
+   * （顏色已經混到背景色，但差距超過容許度＋柔邊），換到深色背景時會留一圈淺色邊。
+   */
+  edge?: number;
+}
+
 /**
- * 去色邊：半透明的像素（0 < 遮罩 < 255）把混進去的背景色扣掉——
- * 看到的顏色 C ＝ a × F ＋（1 − a）× B，還原 F ＝（C −（1 − a）× B）÷ a（夾在 0～255，四捨五入）。
- * 回傳新的 RGBA（透明度不變；遮罩 0 或 255 的像素原樣）。
+ * 1＝離遮罩 < 255 的像素 r px 以內（圓形範圍）。結果同「`growMask(mask, w, h, -r)` 不是 255」，但只看邊界：
+ * 最近的那個遮罩 < 255 的像素一定緊鄰（上下左右）遮罩 255 的像素，所以只要在這種像素周圍蓋半徑 r 的圓
+ * （圖外當成和最近的邊相同也不會更近）。大圖時比整張做形態學快很多。
+ */
+function nearMap(mask: Uint8Array, w: number, h: number, r: number): Uint8Array {
+  const near = new Uint8Array(w * h);
+  const disk: [number, number][] = [];
+  for (let dy = -r; dy <= r; dy++) {
+    const hw = Math.floor(Math.sqrt(r * r - dy * dy));
+    for (let dx = -hw; dx <= hw; dx++) disk.push([dx, dy]);
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (mask[i] === 255) continue;
+      near[i] = 1;
+      const edge =
+        (x > 0 && mask[i - 1] === 255) ||
+        (x < w - 1 && mask[i + 1] === 255) ||
+        (y > 0 && mask[i - w] === 255) ||
+        (y < h - 1 && mask[i + w] === 255);
+      if (!edge) continue;
+      for (const [dx, dy] of disk) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx >= 0 && xx < w && yy >= 0 && yy < h) near[yy * w + xx] = 1;
+      }
+    }
+  }
+  return near;
+}
+
+/** 邊緣一圈：前景色和背景色至少要差這麼多（RGB 0～255 的歐氏距離）才處理 */
+const EDGE_MIN_CONTRAST = 16;
+/** 邊緣一圈：顏色離「背景色 → 前景色」這條線最多這麼遠（× 兩色的距離）才算混到背景色 */
+const EDGE_MAX_RESIDUAL = 0.2;
+
+/**
+ * 去色邊：把邊緣混到的背景色扣掉。回傳新的 RGBA（透明度不變；其他像素原樣）。
+ *
+ * - 半透明的像素（0 < 遮罩 < 255）：看到的顏色 C ＝ a × F ＋（1 − a）× B，還原 F ＝（C −（1 − a）× B）÷ a
+ *   （夾在 0～255，四捨五入）。
+ * - edge > 0 時另外處理去背邊界旁一圈（遮罩 255、與遮罩 < 255 的像素距離 ≤ edge px，圓形範圍）：
+ *   前景色 F̄ ＝ 周圍 (2 × (edge＋2)＋1) 見方裡「離邊界超過 edge px」的像素的平均色（沒有就不處理）；D ＝ F̄ − B；
+ *   t ＝ (C − B)·D ÷ |D|²（C 在背景色 → 前景色這條線上的位置）。只處理 |D| ≥ 16、0 < t < 1、
+ *   而且 |C − B − tD| ≤ 0.2 |D|（顏色是前景色混到背景色，不是另一種顏色）的像素：新顏色 ＝ C ＋（1 − t）D
+ *   （混到的背景色換成前景色），夾在 0～255，四捨五入。
  */
 export function decontaminate(
   rgba: Uint8Array | Uint8ClampedArray,
   mask: Uint8Array,
   bg: Rgb,
+  options?: DecontaminateOptions,
 ): Uint8ClampedArray<ArrayBuffer> {
   const out = new Uint8ClampedArray(rgba);
   for (let i = 0, p = 0; i < mask.length; i++, p += 4) {
@@ -169,6 +225,60 @@ export function decontaminate(
     for (let c = 0; c < 3; c++) {
       const v = (rgba[p + c] - k * bg[c]) / a;
       out[p + c] = v < 0 ? 0 : v > 255 ? 255 : Math.round(v);
+    }
+  }
+  const edge = Math.round(options?.edge ?? 0);
+  if (!options || edge <= 0) return out;
+  const { width: w, height: h } = options;
+  /* 1＝離去背邊界 edge px 以內；遮罩 255 而且不在這裡的是「純」前景（同收縮 edge px 後仍是 255） */
+  const near = nearMap(mask, w, h, edge);
+  const win = edge + 2;
+  const minL2 = EDGE_MIN_CONTRAST * EDGE_MIN_CONTRAST;
+  const maxR2 = EDGE_MAX_RESIDUAL * EDGE_MAX_RESIDUAL;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (mask[i] !== 255 || !near[i]) continue;
+      /* 周圍純前景的平均色 */
+      let n = 0;
+      let sr = 0;
+      let sg = 0;
+      let sb = 0;
+      const y1 = Math.min(h - 1, y + win);
+      const x0 = Math.max(0, x - win);
+      const x1 = Math.min(w - 1, x + win);
+      for (let yy = Math.max(0, y - win); yy <= y1; yy++) {
+        for (let j = yy * w + x0, je = yy * w + x1; j <= je; j++) {
+          if (near[j] || mask[j] !== 255) continue;
+          n++;
+          sr += rgba[j * 4];
+          sg += rgba[j * 4 + 1];
+          sb += rgba[j * 4 + 2];
+        }
+      }
+      if (!n) continue;
+      const dr = sr / n - bg[0];
+      const dg = sg / n - bg[1];
+      const db = sb / n - bg[2];
+      const l2 = dr * dr + dg * dg + db * db;
+      if (l2 < minL2) continue;
+      const p = i * 4;
+      const vr = rgba[p] - bg[0];
+      const vg = rgba[p + 1] - bg[1];
+      const vb = rgba[p + 2] - bg[2];
+      const t = (vr * dr + vg * dg + vb * db) / l2;
+      if (!(t > 0 && t < 1)) continue;
+      const rr = vr - t * dr;
+      const rg = vg - t * dg;
+      const rb = vb - t * db;
+      if (rr * rr + rg * rg + rb * rb > maxR2 * l2) continue;
+      const k = 1 - t;
+      const nr = rgba[p] + k * dr;
+      const ng = rgba[p + 1] + k * dg;
+      const nb = rgba[p + 2] + k * db;
+      out[p] = nr < 0 ? 0 : nr > 255 ? 255 : Math.round(nr);
+      out[p + 1] = ng < 0 ? 0 : ng > 255 ? 255 : Math.round(ng);
+      out[p + 2] = nb < 0 ? 0 : nb > 255 ? 255 : Math.round(nb);
     }
   }
   return out;
