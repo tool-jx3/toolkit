@@ -8,6 +8,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import { getTool, outputDir, type ToolEntry } from '../src/registry.ts';
 
@@ -87,6 +88,9 @@ export function collectNotices(): Plugin {
   };
 }
 
+/** 沒有附授權檔的套件，授權全文補在這裡（檔名＝套件名，scope 的「/」換成「__」） */
+const SUPPLEMENTARY_LICENSES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'licenses');
+
 /** 參考 MIT／CC0 原作改寫的工具：原作的授權全文放在 `web/src/tools/<id>/UPSTREAM_LICENSE`，建置時併入通知檔。 */
 const UPSTREAM_LICENSE = 'UPSTREAM_LICENSE';
 
@@ -130,6 +134,15 @@ function noticesMarkdown(tools: readonly ToolEntry[] = [], srcToolsDir = ''): st
     if (licenseFile) {
       const body = readFileSync(path.join(dir, licenseFile), 'utf8').trim();
       texts.push(`### ${key}\n\n\`\`\`\n${body}\n\`\`\``);
+    } else {
+      /* 套件沒有附授權檔（例如 onnxruntime-web）：用 build/licenses/<套件名>.txt 補上上游 repo 的授權全文 */
+      const extra = path.join(SUPPLEMENTARY_LICENSES, `${pkg.name.replace('/', '__')}.txt`);
+      if (existsSync(extra)) {
+        const body = readFileSync(extra, 'utf8').trim();
+        texts.push(
+          `### ${key}（套件沒有附授權檔，以下為上游 repo 的授權全文）\n\n\`\`\`\n${body}\n\`\`\``,
+        );
+      }
     }
   }
   return [
