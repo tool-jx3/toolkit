@@ -68,6 +68,9 @@ export interface PreviewState {
   tool: BrushTool;
   brushSize: number;
   brushHardness: number;
+  /** 同色擦掉／補回：容許度、只選相連的（規格 F61） */
+  fillTolerance: number;
+  fillContiguous: boolean;
   view: ViewMode;
   /** 預覽背景（背景圖的網址不存：圖放在素材庫，見 stageBgImage） */
   stageBg: StageBackground;
@@ -82,6 +85,8 @@ export const usePreview = createPreviewStore<PreviewState>(TOOL_ID, {
   tool: 'move',
   brushSize: RANGE.brushSize.default,
   brushHardness: RANGE.brushHardness.default,
+  fillTolerance: RANGE.fillTolerance.default,
+  fillContiguous: true,
   view: 'result',
   stageBg: { kind: 'checker' },
   stageBgImage: null,

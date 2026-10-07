@@ -3,10 +3,10 @@
  * Worker（pixels.worker.ts）與主執行緒的退路共用。這個檔案不建立 Worker（Worker 也 import 它）。
  */
 import { errorText } from '@/core/diagnostics/error';
-import { applyMask, detectImageType, type Mask, maskToRgba } from '@/core/image';
+import { applyMask, detectImageType, type Mask, maskToRgba, type Rect } from '@/core/image';
 import { transfer } from '@/core/worker';
 import type { Letterbox } from './animeSeg';
-import type { Mode, StoredStroke, ViewMode } from './model';
+import type { FillStroke, Mode, StoredStroke, ViewMode } from './model';
 import {
   aiInput,
   aiMask,
@@ -19,6 +19,7 @@ import {
   decodeSource,
   encodeImage,
   encodeMaskPng,
+  fillRegion,
   type KeyParams,
   type OutputSpec,
   refineMask,
@@ -70,6 +71,17 @@ export type InspectResult =
   | { kind: 'not-image' }
   /** 認得檔頭（format）但瀏覽器解不開：error 是瀏覽器回報的錯誤（給「複製錯誤資訊」） */
   | { kind: 'failed'; format: string; error: string };
+
+/** 同色擦掉／補回的範圍預覽：選到幾個像素、外框，以及蓋在外框上的半透明色塊（沒有選到時 null） */
+export interface FillPreview {
+  count: number;
+  bounds: Rect | null;
+  image: PreviewImage | null;
+}
+
+/** 範圍預覽的斜紋：tint 色（不透明度 FILL_TINT_ALPHA）與深色（FILL_DARK_ALPHA）交替，什麼顏色的地方都看得出來 */
+const FILL_TINT_ALPHA = 200;
+const FILL_DARK_ALPHA = 110;
 
 /** 預覽要畫的一張：ImageBitmap（主執行緒直接 drawImage）；環境不能做 ImageBitmap 時是像素 */
 export type PreviewImage =
@@ -138,6 +150,8 @@ export function createPixelApi() {
   const cancelled = new Set<number>();
   /** despill 上次算出的顏色（預覽合成直接用） */
   let lastColors: { key: string; colors: Uint8ClampedArray<ArrayBuffer> } | null = null;
+  /** 同色範圍預覽用的「目前的遮罩」（主執行緒的版本號；游標移動時不必每次重傳整張遮罩） */
+  let fillMask: { version: number; mask: Mask } | null = null;
   const checkpoint = async (id: number | undefined) => {
     if (id === undefined) return;
     await yieldToEvents();
@@ -235,15 +249,57 @@ export function createPixelApi() {
       const r = colors.slice();
       return transfer(r, [r.buffer]);
     },
-    /** 最終遮罩：邊緣調整後的遮罩畫上存起來的筆刷（依序） */
+    /** 最終遮罩：邊緣調整後的遮罩（或目前的遮罩）依序畫上存起來的筆刷與同色擦掉／補回 */
     async finalMask(
-      refined: Mask,
-      w: number,
-      h: number,
+      key: string,
+      blob: Blob,
+      mask: Mask,
       strokes: readonly StoredStroke[],
     ): Promise<Mask> {
-      applyStrokes(refined, w, h, strokes);
-      return transfer(refined, [refined.buffer]);
+      applyStrokes(mask, await source(key, blob), strokes);
+      return transfer(mask, [mask.buffer]);
+    },
+    /**
+     * 同色擦掉／補回的範圍預覽（規格 F61）：依目前的遮罩與原圖的顏色算範圍，回傳選到幾個像素、外框與斜紋色塊
+     * （tint 色與深色交替，一條寬 stripe 個像素；主執行緒依畫面縮放給，畫面上大約一樣寬）。
+     * 遮罩用版本號記住：Worker 記得的版本不同又沒有附 mask 時回傳 null（請主執行緒附上 mask 再叫一次）。
+     */
+    async fillPreview(
+      key: string,
+      blob: Blob,
+      version: number,
+      mask: Mask | null,
+      fill: FillStroke,
+      tint: readonly [number, number, number],
+      stripe = 4,
+    ): Promise<FillPreview | null> {
+      if (mask) fillMask = { version, mask };
+      else if (fillMask?.version !== version) return null;
+      const src = await source(key, blob);
+      const current = fillMask.mask;
+      if (current.length !== src.width * src.height) return null;
+      const r = fillRegion(current, src, fill);
+      if (!r.count || !r.bounds) return { count: 0, bounds: null, image: null };
+      const { x, y, width, height } = r.bounds;
+      const rgba = new Uint8ClampedArray(width * height * 4);
+      const band = Math.max(1, Math.round(stripe));
+      for (let j = 0; j < height; j++) {
+        const row = (y + j) * src.width + x;
+        for (let i = 0; i < width; i++) {
+          if (!r.region[row + i]) continue;
+          const o = (j * width + i) * 4;
+          /* 斜紋：以圖片座標算，換位置時紋路不會跳 */
+          if (Math.floor((x + i + y + j) / band) % 2 === 0) {
+            rgba[o] = tint[0];
+            rgba[o + 1] = tint[1];
+            rgba[o + 2] = tint[2];
+            rgba[o + 3] = FILL_TINT_ALPHA;
+          } else {
+            rgba[o + 3] = FILL_DARK_ALPHA;
+          }
+        }
+      }
+      return { count: r.count, bounds: r.bounds, image: await previewImage(rgba, width, height) };
     },
     /**
      * 預覽要畫的整張（結果／原圖／遮罩）：在這裡合成，主執行緒只要 drawImage。
@@ -276,7 +332,7 @@ export function createPixelApi() {
         await checkpoint(id);
         const final = refineMask(base.mask, src.width, src.height, job.grow, job.feather);
         await checkpoint(id);
-        applyStrokes(final, src.width, src.height, job.strokes);
+        applyStrokes(final, src, job.strokes);
         const colors = cutoutColors(
           src,
           job.mode === 'color' && job.despill && 'bg' in base

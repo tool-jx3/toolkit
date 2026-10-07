@@ -555,6 +555,7 @@ export * from './embed';
 export * from './filterPresets';
 export * from './filters';
 export * from './mask';
+export * from './region';
 export * from './resample';
 export * from './sizing';
 export * from './store';

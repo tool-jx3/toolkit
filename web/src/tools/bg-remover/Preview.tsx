@@ -19,6 +19,7 @@ import {
   useState,
 } from 'react';
 import { create } from 'zustand';
+import { parseColor } from '@/core/color';
 import { applyMask, type BrushRect, maskToRgba } from '@/core/image';
 import { clientToLocal } from '@/core/layout';
 import {
@@ -40,14 +41,18 @@ import {
   type StagePan,
   ThumbnailList,
   Toggle,
+  useStageScale,
   useWebpSupport,
 } from '@/ui';
 import { addFiles, finishPick, go, removeImage, selectImage, setStageBackground } from './actions';
 import { demoFiles } from './demo';
 import {
   cancelAi,
+  cancelFillPreview,
   detailsFor,
   exportImages,
+  fillAt,
+  fillPreviewAt,
   pixels,
   previewSource,
   runAi,
@@ -60,6 +65,7 @@ import {
 } from './engine';
 import {
   effectiveBackground,
+  isFillTool,
   type OutBackground,
   type OutContent,
   type OutFormat,
@@ -67,7 +73,7 @@ import {
   RANGE,
   type ViewMode,
 } from './model';
-import type { PreviewImage, PreviewJob } from './pixels';
+import type { FillPreview, PreviewImage, PreviewJob } from './pixels';
 import { assets, edit, setPreview, settingsNow, step, usePreview, useSettings } from './store';
 import { S } from './strings';
 import { thumbUrl } from './thumbs';
@@ -83,6 +89,16 @@ export interface Note {
 
 export const useNote = create<{ note: Note | null }>(() => ({ note: null }));
 export const setNote = (note: Note | null) => useNote.setState({ note });
+
+/** 同色擦掉／補回的範圍預覽（游標停著或手指按住的地方；規格 F61） */
+export const useFillHover = create<{ hover: FillPreview | null }>(() => ({ hover: null }));
+
+/** 換上新的範圍預覽；舊的色塊已經畫過、不會再用，釋放它的 ImageBitmap（大圖時一張可能幾十 MB） */
+function setFillHover(hover: FillPreview | null) {
+  const prev = useFillHover.getState().hover;
+  useFillHover.setState({ hover });
+  if (prev && prev !== hover && prev.image && 'bitmap' in prev.image) prev.image.bitmap.close();
+}
 
 /** 正在加圖（檢查檔頭、量尺寸；Worker 還沒交回第一張之前預覽也要顯示「讀取中…」，F43） */
 export const useAdding = create<{ adding: boolean }>(() => ({ adding: false }));
@@ -457,13 +473,69 @@ function BrushLayer({
 }) {
   const tool = usePreview((st) => st.data.tool);
   const size = usePreview((st) => st.data.brushSize);
+  const itemId = useWork((st) => st.itemId);
   const picking = useWork((st) => st.picking);
   const ready = useWork((st) => st.phase === 'ready');
   const ref = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const active = picking || tool !== 'move';
+  /* 同色擦掉／補回：游標停著（滑鼠）或按住（手指、筆）時顯示範圍，放開才套用（規格 F61） */
+  const fill = isFillTool(tool) && !picking;
+  const press = useRef<number | null>(null);
+  const want = useRef<{ x: number; y: number } | null>(null);
+  const asking = useRef(false);
+  const scale = useRef(1);
+  scale.current = useStageScale();
   const local = (e: ReactPointerEvent) =>
     clientToLocal(e.clientX, e.clientY, ref.current!.getBoundingClientRect(), { width, height });
+
+  /** 範圍預覽的顏色：擦掉用 --danger、補回用 --success（和筆刷的游標相同） */
+  const tint = (): [number, number, number] => {
+    const v = ref.current
+      ? getComputedStyle(ref.current).getPropertyValue(
+          tool === 'fill-erase' ? '--danger' : '--success',
+        )
+      : '';
+    const c = parseColor(v.trim());
+    return c ? [c.r, c.g, c.b] : tool === 'fill-erase' ? [179, 38, 30] : [29, 115, 64];
+  };
+  /** 要 (x, y) 的範圍；同時只問一次，問完時如果又移動了就問最新的位置 */
+  const ask = (p: { x: number; y: number }) => {
+    want.current = p;
+    if (asking.current) return;
+    asking.current = true;
+    void (async () => {
+      try {
+        while (want.current) {
+          const q = want.current;
+          want.current = null;
+          /* 斜紋在畫面上大約 6 px 寬 */
+          const r = await fillPreviewAt(q.x, q.y, tint(), FILL_STRIPE_PX / scale.current);
+          if (!want.current) setFillHover(r);
+        }
+      } finally {
+        asking.current = false;
+      }
+    })();
+  };
+  const clearFill = () => {
+    want.current = null;
+    cancelFillPreview();
+    setFillHover(null);
+  };
+  /** 放開的地方在預覽的可見範圍、而且在圖上 */
+  const releasedInside = (e: ReactPointerEvent, p: { x: number; y: number }) => {
+    const r = ref.current?.closest('section')?.getBoundingClientRect();
+    const inView =
+      !r ||
+      (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom);
+    return inView && p.x >= 0 && p.y >= 0 && p.x < width && p.y < height;
+  };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 換工具、換圖時拿掉範圍預覽
+  useEffect(() => {
+    press.current = null;
+    clearFill();
+  }, [tool, itemId, picking]);
 
   const down = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!active || e.button !== 0) return;
@@ -475,6 +547,13 @@ function BrushLayer({
       return;
     }
     if (usePreview.getState().data.view === 'original') setPreview({ view: 'result' });
+    if (fill) {
+      if (!ready) return;
+      press.current = e.pointerId;
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      ask(p);
+      return;
+    }
     const r = strokeStart(p.x, p.y);
     if (r === false) return;
     e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -484,9 +563,23 @@ function BrushLayer({
     if (!active) return;
     const p = local(e);
     setCursor(p);
+    if (fill) {
+      if (press.current === e.pointerId || (press.current === null && e.pointerType === 'mouse'))
+        ask(p);
+      return;
+    }
     if (strokeActive()) onPaint(strokeMove(p.x, p.y));
   };
-  const up = () => {
+  const up = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (fill) {
+      if (press.current !== e.pointerId) return;
+      press.current = null;
+      const p = local(e);
+      const apply = e.type === 'pointerup' && releasedInside(e, p);
+      clearFill();
+      if (apply) void fillAt(p.x, p.y);
+      return;
+    }
     if (strokeActive()) strokeEnd();
   };
   return (
@@ -497,16 +590,27 @@ function BrushLayer({
       data-tool={picking ? 'pick' : tool}
       style={{
         pointerEvents: active ? 'auto' : 'none',
-        cursor: picking ? 'crosshair' : active ? (ready ? 'none' : 'not-allowed') : undefined,
+        cursor:
+          picking || (fill && ready)
+            ? 'crosshair'
+            : active
+              ? ready
+                ? 'none'
+                : 'not-allowed'
+              : undefined,
         touchAction: active ? 'none' : undefined,
       }}
       onPointerDown={down}
       onPointerMove={move}
       onPointerUp={up}
       onPointerCancel={up}
-      onPointerLeave={() => setCursor(null)}
+      onPointerLeave={() => {
+        setCursor(null);
+        if (fill && press.current === null) clearFill();
+      }}
     >
-      {cursor && active && !picking ? (
+      {fill ? <FillOverlay /> : null}
+      {cursor && active && !picking && !fill ? (
         <div
           aria-hidden
           className="pointer-events-none absolute rounded-full border-solid"
@@ -522,6 +626,49 @@ function BrushLayer({
         />
       ) : null}
     </div>
+  );
+}
+
+/** 範圍預覽的斜紋在畫面上的寬（px） */
+const FILL_STRIPE_PX = 6;
+
+/** 同色擦掉／補回的範圍：只畫範圍的外框那一塊（圖片座標，跟著畫面縮放） */
+function FillOverlay() {
+  const hover = useFillHover((st) => st.hover);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  useLayoutEffect(() => {
+    const c = canvas.current;
+    const img = hover?.image;
+    if (!c || !img) return;
+    c.width = img.width;
+    c.height = img.height;
+    const g = c.getContext('2d');
+    if (!g) return;
+    g.clearRect(0, 0, img.width, img.height);
+    try {
+      if ('bitmap' in img) g.drawImage(img.bitmap, 0, 0);
+      else g.putImageData(new ImageData(img.rgba, img.width, img.height), 0, 0);
+    } catch {
+      /* 已經換成下一個範圍（色塊已釋放）：不用畫 */
+    }
+  }, [hover]);
+  const b = hover?.bounds;
+  if (!b || !hover.image) return null;
+  return (
+    <canvas
+      ref={canvas}
+      aria-hidden
+      data-testid="fill-preview"
+      data-count={hover.count}
+      className="pointer-events-none absolute"
+      style={{
+        left: b.x,
+        top: b.y,
+        width: b.width,
+        height: b.height,
+        imageRendering: 'pixelated',
+      }}
+    />
   );
 }
 
@@ -545,6 +692,8 @@ function PreviewStage({ model }: { model: ModelCache }) {
   const stageBgImage = usePreview((st) => st.data.stageBgImage);
   const stageBgUrl = useAssetUrl(stageBgImage);
   const picking = useWork((st) => st.picking);
+  const tool = usePreview((st) => st.data.tool);
+  const fillHover = useFillHover((st) => st.hover);
   const error = useWork((st) => (st.phase === 'error' ? st.error : null));
   const errorDetails = useWork((st) => st.errorDetails);
   const adding = useAdding((st) => st.adding);
@@ -674,6 +823,13 @@ function PreviewStage({ model }: { model: ModelCache }) {
       {picking ? (
         <p className="pointer-events-none absolute top-14 right-3 m-0 rounded-md bg-accent px-2 py-1 text-xs text-accent-contrast">
           {S.picking}
+        </p>
+      ) : isFillTool(tool) && fillHover ? (
+        <p
+          className="pointer-events-none absolute bottom-3 left-1/2 m-0 -translate-x-1/2 whitespace-nowrap rounded-md bg-surface/90 px-2 py-1 text-xs text-fg"
+          data-testid="fill-count"
+        >
+          {fillHover.count ? S.fillCount(tool, fillHover.count) : S.fillNone(tool)}
         </p>
       ) : null}
     </div>

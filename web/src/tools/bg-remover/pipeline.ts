@@ -13,8 +13,10 @@ import { canvasWebpEncoder } from '@/core/encode/webp';
 import type { Rgb } from '@/core/image';
 import {
   applyMask,
+  applyRegion,
   applyStroke,
   colorKeyMask,
+  colorRegion,
   decontaminate,
   estimateBackground,
   featherMask,
@@ -25,7 +27,14 @@ import {
   quantizeMask,
 } from '@/core/image';
 import { fromModelOutput, type Letterbox, MODEL_SIZE, toModelInput } from './animeSeg';
-import type { OutBackground, OutContent, OutFormat, StoredStroke } from './model';
+import {
+  type FillStroke,
+  isFillStroke,
+  type OutBackground,
+  type OutContent,
+  type OutFormat,
+  type StoredStroke,
+} from './model';
 
 export interface SourceImage {
   width: number;
@@ -125,9 +134,26 @@ export function refineMask(base: Mask, w: number, h: number, grow: number, feath
   return m === base ? (new Uint8Array(base) as Mask) : m;
 }
 
-/** 存起來的筆刷依序畫到遮罩上（直接改 mask） */
-export function applyStrokes(mask: Mask, w: number, h: number, strokes: readonly StoredStroke[]) {
+/** 同色擦掉／補回的範圍（依目前的遮罩與原圖的顏色） */
+export function fillRegion(mask: Mask, src: SourceImage, f: FillStroke) {
+  return colorRegion(src.rgba, mask, src.width, src.height, {
+    x: f.x,
+    y: f.y,
+    tolerance: f.t,
+    contiguous: f.c,
+    target: f.m === 'fe' ? 'visible' : 'removed',
+  });
+}
+
+/** 存起來的筆刷與同色擦掉／補回依序畫到遮罩上（直接改 mask） */
+export function applyStrokes(mask: Mask, src: SourceImage, strokes: readonly StoredStroke[]) {
+  const { width: w, height: h } = src;
   for (const s of strokes) {
+    if (isFillStroke(s)) {
+      const r = fillRegion(mask, src, s);
+      if (r.count) applyRegion(mask, r.region, s.m === 'fe' ? 'erase' : 'restore');
+      continue;
+    }
     applyStroke(mask, w, h, {
       mode: s.m === 'r' ? 'restore' : 'erase',
       size: s.s,

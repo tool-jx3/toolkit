@@ -1,7 +1,7 @@
 /**
  * 設定欄：去背方式、AI 模型（下載、運算方式、推論尺寸）、背景色（純色）、邊緣調整、筆刷修邊、使用方式。
  */
-import { Brush, Eraser, Hand, Pipette, Trash2 } from 'lucide-react';
+import { Brush, Eraser, Hand, PaintBucket, Pipette, Trash2, WandSparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { OnnxBackendChoice } from '@/core/onnx/types';
 import { historyGesture } from '@/core/storage';
@@ -21,7 +21,7 @@ import {
 } from '@/ui';
 import { finishPick, pickFromImage } from './actions';
 import { backendLabel, clearStrokes, resetAi, useWork } from './engine';
-import { type BrushTool, type Mode, modelSpec, RANGE } from './model';
+import { type BrushTool, isFillTool, type Mode, modelSpec, RANGE } from './model';
 import { edit, setPreview, step, usePreview, useSettings } from './store';
 import { S } from './strings';
 
@@ -284,12 +284,18 @@ const TOOL_ICONS: Record<BrushTool, ReactNode> = {
   move: <Hand />,
   erase: <Eraser />,
   restore: <Brush />,
+  'fill-erase': <WandSparkles />,
+  'fill-restore': <PaintBucket />,
 };
+
+const TOOLS: readonly BrushTool[] = ['move', 'erase', 'restore', 'fill-erase', 'fill-restore'];
 
 function BrushSection() {
   const tool = usePreview((st) => st.data.tool);
   const size = usePreview((st) => st.data.brushSize);
   const hardness = usePreview((st) => st.data.brushHardness);
+  const fillTolerance = usePreview((st) => st.data.fillTolerance);
+  const fillContiguous = usePreview((st) => st.data.fillContiguous);
   const current = usePreview((st) => st.data.current);
   const strokes = useSettings(
     (st) =>
@@ -297,38 +303,61 @@ function BrushSection() {
   );
   return (
     <Section title={S.sectionBrush} fixed>
-      <Field label={S.tool} hint={S.toolHint}>
+      <Field label={S.tool} hint={isFillTool(tool) ? S.fillHint[tool] : S.toolHint}>
         <Segmented<BrushTool>
           value={tool}
           onValueChange={(v) => setPreview({ tool: v })}
           fullWidth
-          options={(['move', 'erase', 'restore'] as const).map((v) => ({
+          options={TOOLS.map((v) => ({
             value: v,
             label: S.tools[v],
             icon: TOOL_ICONS[v],
           }))}
         />
       </Field>
-      <Field label={S.brushSize}>
-        <Slider
-          value={size}
-          onChange={(v) => setPreview({ brushSize: Math.round(v) })}
-          min={RANGE.brushSize.min}
-          max={RANGE.brushSize.max}
-          step={RANGE.brushSize.step}
-          unit="px"
-        />
-      </Field>
-      <Field label={S.brushHardness} hint={S.brushHardnessHint}>
-        <Slider
-          value={hardness}
-          onChange={(v) => setPreview({ brushHardness: Math.round(v) })}
-          min={RANGE.brushHardness.min}
-          max={RANGE.brushHardness.max}
-          step={RANGE.brushHardness.step}
-          unit="%"
-        />
-      </Field>
+      {isFillTool(tool) ? (
+        <>
+          <Field label={S.fillTolerance} hint={S.fillToleranceHint}>
+            <Slider
+              value={fillTolerance}
+              onChange={(v) => setPreview({ fillTolerance: Math.round(v) })}
+              min={RANGE.fillTolerance.min}
+              max={RANGE.fillTolerance.max}
+              step={RANGE.fillTolerance.step}
+              unit="%"
+            />
+          </Field>
+          <Field label={S.fillContiguous} hint={S.fillContiguousHint} layout="inline">
+            <Toggle
+              checked={fillContiguous}
+              onCheckedChange={(v) => setPreview({ fillContiguous: v })}
+            />
+          </Field>
+        </>
+      ) : (
+        <>
+          <Field label={S.brushSize}>
+            <Slider
+              value={size}
+              onChange={(v) => setPreview({ brushSize: Math.round(v) })}
+              min={RANGE.brushSize.min}
+              max={RANGE.brushSize.max}
+              step={RANGE.brushSize.step}
+              unit="px"
+            />
+          </Field>
+          <Field label={S.brushHardness} hint={S.brushHardnessHint}>
+            <Slider
+              value={hardness}
+              onChange={(v) => setPreview({ brushHardness: Math.round(v) })}
+              min={RANGE.brushHardness.min}
+              max={RANGE.brushHardness.max}
+              step={RANGE.brushHardness.step}
+              unit="%"
+            />
+          </Field>
+        </>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"

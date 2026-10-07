@@ -78,6 +78,18 @@ export function App() {
         handler: () => setPreview({ tool: 'restore' }),
       },
       {
+        keys: 'shift+e',
+        label: S.keys.fillErase,
+        group: S.keys.tools,
+        handler: () => setPreview({ tool: 'fill-erase' }),
+      },
+      {
+        keys: 'shift+r',
+        label: S.keys.fillRestore,
+        group: S.keys.tools,
+        handler: () => setPreview({ tool: 'fill-restore' }),
+      },
+      {
         keys: 'v',
         label: S.keys.move,
         group: S.keys.tools,

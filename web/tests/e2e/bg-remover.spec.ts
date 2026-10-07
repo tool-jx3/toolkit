@@ -815,7 +815,7 @@ test('筆刷：擦掉與補回、筆刷大小快捷鍵、復原／重做', async
   await blur(page);
   /* E：擦掉；[ ]：筆刷大小 */
   await page.keyboard.press('e');
-  await expect(page.getByRole('radio', { name: '擦掉' })).toBeChecked();
+  await expect(page.getByRole('radio', { name: '擦掉', exact: true })).toBeChecked();
   const size = page.getByRole('spinbutton', { name: '筆刷大小' });
   await expect(size).toHaveValue('40');
   await page.keyboard.press(']');
@@ -830,7 +830,7 @@ test('筆刷：擦掉與補回、筆刷大小快捷鍵、復原／重做', async
   /* R：補回背景的一塊 */
   await blur(page);
   await page.keyboard.press('r');
-  await expect(page.getByRole('radio', { name: '補回' })).toBeChecked();
+  await expect(page.getByRole('radio', { name: '補回', exact: true })).toBeChecked();
   await drag(page, [30, 30], [60, 30]);
   await expect(strokeCount(page)).toHaveText('這張有 2 筆');
   mask = await exportOne(page);
@@ -858,6 +858,215 @@ test('筆刷：擦掉與補回、筆刷大小快捷鍵、復原／重做', async
   await drag(page, [100, 100], [150, 150]);
   await expect(strokeCount(page)).toHaveText('這張有 1 筆');
   expect(errors).toEqual([]);
+});
+
+/* ---------- 同色擦掉／補回（F61） ---------- */
+
+/**
+ * 200 × 160 白底，中間 80 × 80 的紅方塊（60～139, 40～119），紅方塊裡兩塊 20 × 20 的白（領子 80～99, 60～79；
+ * 亮點 110～129, 90～109，都沒有和外面的白底相連）。純色模式（只去掉相連的背景）時：白底去掉，紅與兩塊白留著。
+ */
+async function collarPng(): Promise<Buffer> {
+  const w = 200;
+  const h = 160;
+  const px = new Uint8Array(w * h * 4).fill(255);
+  const fill = (x0: number, y0: number, x1: number, y1: number, rgb: number[]) => {
+    for (let y = y0; y < y1; y++)
+      for (let x = x0; x < x1; x++) px.set([...rgb, 255], (y * w + x) * 4);
+  };
+  fill(60, 40, 140, 120, [200, 40, 40]);
+  fill(80, 60, 100, 80, [255, 255, 255]);
+  fill(110, 90, 130, 110, [255, 255, 255]);
+  return Buffer.from(await encodePng(px, w, h));
+}
+
+/** 預覽畫布（遮罩檢視）在圖片座標 (x, y) 的值 */
+async function previewMaskAt(page: Page, x: number, y: number) {
+  await blur(page);
+  await page.keyboard.press('3');
+  await expectPainted(page, 'mask');
+  const v = await canvas(page).evaluate(
+    (c: HTMLCanvasElement, [px, py]) => c.getContext('2d')!.getImageData(px, py, 1, 1).data[0],
+    [x, y],
+  );
+  await page.keyboard.press('1');
+  return v;
+}
+
+async function hoverAt(page: Page, x: number, y: number) {
+  const p = await toScreen(page, x, y);
+  await page.mouse.move(p.x, p.y);
+}
+
+async function clickAt(page: Page, x: number, y: number) {
+  const p = await toScreen(page, x, y);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.up();
+}
+
+const fillPreview = (page: Page) => page.getByTestId('fill-preview');
+const fillCount = (page: Page) => page.getByTestId('fill-count');
+
+test('F61 同色擦掉／補回：游標停著顯示範圍與像素數，點一下套用；相連／整張；復原、重新整理後還在，匯出和預覽相同', async ({
+  page,
+}) => {
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await fileInput(page).setInputFiles({
+    name: '領子.png',
+    mimeType: 'image/png',
+    buffer: await collarPng(),
+  });
+  await expect(status(page)).toHaveText('已加入 1 張圖片。');
+  await expectReady(page);
+  await canvas(page).evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await setExport(page, '遮罩');
+  await setExport(page, 'PNG');
+  await blur(page);
+  /* Shift＋E：同色擦掉；筆刷大小、硬度換成容許度與「只選相連的」 */
+  await page.keyboard.press('Shift+E');
+  await expect(page.getByRole('radio', { name: '同色擦掉' })).toBeChecked();
+  await expect(page.getByRole('spinbutton', { name: '筆刷大小' })).toHaveCount(0);
+  /* 純色背景的容許度＋同色工具的容許度 */
+  await expect(page.getByRole('spinbutton', { name: '容許度' })).toHaveCount(2);
+  await expect(page.getByRole('spinbutton', { name: '容許度' }).nth(1)).toHaveValue('12');
+  await expect(page.getByRole('switch', { name: '只選相連的' })).toBeChecked();
+  /* 停在領子上：只選領子（不經過已經去掉的白底，不連到亮點） */
+  await hoverAt(page, 90, 70);
+  await expect(fillCount(page)).toHaveText('會擦掉 400 個像素');
+  await expect(fillPreview(page)).toHaveAttribute('data-count', '400');
+  const box = await fillPreview(page).evaluate((el: HTMLElement) => [
+    el.style.left,
+    el.style.top,
+    el.style.width,
+    el.style.height,
+  ]);
+  expect(box).toEqual(['80px', '60px', '20px', '20px']);
+  /* 停在已經去掉的白底上：沒有可以擦掉的 */
+  await hoverAt(page, 10, 10);
+  await expect(fillCount(page)).toHaveText('這裡沒有可以擦掉的');
+  await expect(fillPreview(page)).toHaveCount(0);
+  /* 移出預覽：範圍與文字消失 */
+  await page.mouse.move(5, 5);
+  await expect(fillCount(page)).toHaveCount(0);
+  /* 點領子：擦掉（一步） */
+  await clickAt(page, 90, 70);
+  await expect(strokeCount(page)).toHaveText('這張有 1 筆');
+  await expectReady(page);
+  expect(await previewMaskAt(page, 90, 70)).toBe(0);
+  expect(await previewMaskAt(page, 120, 100)).toBe(255);
+  /* 關掉「只選相連的」：停在紅色上，整張看得到的紅都選（80 × 80 − 兩塊白 = 5,600） */
+  await page.getByRole('switch', { name: '只選相連的' }).click();
+  await hoverAt(page, 70, 50);
+  await expect(fillCount(page)).toHaveText('會擦掉 5,600 個像素');
+  /* 停在亮點：整張看得到的白（只剩亮點；領子已經擦掉、白底已經去掉） */
+  await hoverAt(page, 120, 100);
+  await expect(fillCount(page)).toHaveText('會擦掉 400 個像素');
+  await clickAt(page, 120, 100);
+  await expect(strokeCount(page)).toHaveText('這張有 2 筆');
+  await expectReady(page);
+  expect(await previewMaskAt(page, 120, 100)).toBe(0);
+  /* 復原一步：亮點回來 */
+  await page.keyboard.press('Control+z');
+  await expect(strokeCount(page)).toHaveText('這張有 1 筆');
+  await expectReady(page);
+  expect(await previewMaskAt(page, 120, 100)).toBe(255);
+  /* Shift＋R：同色補回；停在白底（相連）：選得到被去掉的白底，領子（被去掉但被紅包住）不選 */
+  await blur(page);
+  await page.keyboard.press('Shift+R');
+  await expect(page.getByRole('radio', { name: '同色補回' })).toBeChecked();
+  await page.getByRole('switch', { name: '只選相連的' }).click();
+  await expect(page.getByRole('switch', { name: '只選相連的' })).toBeChecked();
+  await hoverAt(page, 10, 10);
+  await expect(fillCount(page)).toHaveText('會補回 25,600 個像素');
+  /* 停在看得到的紅：沒有可以補回的 */
+  await hoverAt(page, 70, 50);
+  await expect(fillCount(page)).toHaveText('這裡沒有可以補回的');
+  /* 點領子補回 */
+  await clickAt(page, 90, 70);
+  await expect(strokeCount(page)).toHaveText('這張有 2 筆');
+  await expectReady(page);
+  expect(await previewMaskAt(page, 90, 70)).toBe(255);
+  expect(await previewMaskAt(page, 10, 10)).toBe(0);
+  /* 匯出的遮罩和預覽相同 */
+  const before = await exportOne(page);
+  for (const [x, y, v] of [
+    [90, 70, 255],
+    [120, 100, 255],
+    [70, 50, 255],
+    [10, 10, 0],
+  ] as const)
+    expect(pngPixel(before, x, y)[0], `${x},${y}`).toBe(v);
+  /* 重新整理後還在（兩步：同色擦掉領子、同色補回領子） */
+  await page.reload();
+  await expectReady(page);
+  await expect(strokeCount(page)).toHaveText('這張有 2 筆');
+  await expect(page.getByRole('radio', { name: '同色補回' })).toBeChecked();
+  const after = await exportOne(page);
+  expect(decodePng(after).rgba).toEqual(decodePng(before).rgba);
+  expect(errors).toEqual([]);
+});
+
+test('F61 觸控：按住顯示範圍、拖曳換位置、放開才套用；拖到預覽外放開就取消', async ({
+  browser,
+}) => {
+  const ctx = await browser.newContext({
+    hasTouch: true,
+    viewport: { width: 1280, height: 900 },
+    reducedMotion: 'reduce',
+  });
+  const page = await ctx.newPage();
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await fileInput(page).setInputFiles({
+    name: '領子.png',
+    mimeType: 'image/png',
+    buffer: await collarPng(),
+  });
+  await expectReady(page);
+  await page.getByRole('radio', { name: '同色擦掉' }).click();
+  await canvas(page).evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  const cdp = await ctx.newCDPSession(page);
+  const touch = async (type: 'touchStart' | 'touchMove' | 'touchEnd', x?: number, y?: number) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: x === undefined ? [] : [{ x, y: y as number }],
+    });
+  /* 按住領子：顯示範圍，還沒有套用 */
+  const collar = await toScreen(page, 90, 70);
+  await touch('touchStart', collar.x, collar.y);
+  await expect(fillPreview(page)).toHaveAttribute('data-count', '400');
+  await expect(fillCount(page)).toHaveText('會擦掉 400 個像素');
+  await expect(strokeCount(page)).toHaveText('這張還沒有筆刷');
+  /* 拖到亮點：範圍跟著換 */
+  const spot = await toScreen(page, 120, 100);
+  for (let i = 1; i <= 5; i++)
+    await touch(
+      'touchMove',
+      collar.x + ((spot.x - collar.x) * i) / 5,
+      collar.y + ((spot.y - collar.y) * i) / 5,
+    );
+  await expect(fillPreview(page)).toHaveCSS('left', '110px');
+  /* 放開：擦掉亮點，範圍消失 */
+  await touch('touchEnd');
+  await expect(strokeCount(page)).toHaveText('這張有 1 筆');
+  await expect(fillPreview(page)).toHaveCount(0);
+  await expectReady(page);
+  expect(await previewMaskAt(page, 120, 100)).toBe(0);
+  expect(await previewMaskAt(page, 90, 70)).toBe(255);
+  /* 按住領子、拖到預覽外放開：取消 */
+  await touch('touchStart', collar.x, collar.y);
+  await expect(fillPreview(page)).toHaveAttribute('data-count', '400');
+  const stage = (await page.getByRole('region', { name: '去背預覽' }).boundingBox())!;
+  await touch('touchMove', collar.x, stage.y + stage.height + 40);
+  await touch('touchEnd');
+  await expect(fillPreview(page)).toHaveCount(0);
+  await page.waitForTimeout(300);
+  await expect(strokeCount(page)).toHaveText('這張有 1 筆');
+  expect(await previewMaskAt(page, 90, 70)).toBe(255);
+  expect(errors).toEqual([]);
+  await ctx.close();
 });
 
 test('預覽：結果／原圖／遮罩（1／2／3）；上一張／下一張（A／D）', async ({ page }) => {
