@@ -1247,6 +1247,17 @@ test('F41：預覽背景「圖」存在素材庫，重新整理後還在', async
   });
   const stage = page.getByRole('region', { name: '去背預覽' });
   await expect(stage).toHaveCSS('background-image', /^url\("blob:/);
+  /* 換成黑底再換回「圖」：直接用存著的圖，不再跳出選檔視窗 */
+  let choosers = 0;
+  page.on('filechooser', () => {
+    choosers++;
+  });
+  await page.getByRole('radio', { name: '黑色背景' }).click();
+  await expect(stage).not.toHaveCSS('background-image', /^url\("blob:/);
+  await page.getByRole('radio', { name: '背景圖（只供預覽）' }).click();
+  await expect(stage).toHaveCSS('background-image', /^url\("blob:/);
+  await page.waitForTimeout(300);
+  expect(choosers).toBe(0);
   await page.reload();
   await expectReady(page);
   await expect(page.getByRole('radio', { name: '背景圖（只供預覽）' })).toBeChecked();

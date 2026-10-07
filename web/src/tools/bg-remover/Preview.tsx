@@ -80,6 +80,9 @@ export interface Note {
 export const useNote = create<{ note: Note | null }>(() => ({ note: null }));
 export const setNote = (note: Note | null) => useNote.setState({ note });
 
+/** 正在加圖（檢查檔頭、量尺寸；Worker 還沒交回第一張之前預覽也要顯示「讀取中…」，F43） */
+export const useAdding = create<{ adding: boolean }>(() => ({ adding: false }));
+
 function StatusLine() {
   const note = useNote((st) => st.note);
   if (!note) return null;
@@ -99,9 +102,15 @@ function StatusLine() {
 export async function addAndReport(files: readonly File[], model: ModelCache | null) {
   if (!files.length) return;
   const autoAi = model?.state.status === 'ready';
-  const r = await addFiles(files, (i, n) => {
-    if (n > 1) setNote({ tone: 'progress', text: S.adding(i + 1, n) });
-  });
+  useAdding.setState({ adding: true });
+  let r: Awaited<ReturnType<typeof addFiles>>;
+  try {
+    r = await addFiles(files, (i, n) => {
+      if (n > 1) setNote({ tone: 'progress', text: S.adding(i + 1, n) });
+    });
+  } finally {
+    useAdding.setState({ adding: false });
+  }
   if (!r.added.length) {
     setNote({
       tone: 'danger',
@@ -516,6 +525,7 @@ function PreviewStage({ model }: { model: ModelCache }) {
   const stageBgImage = usePreview((st) => st.data.stageBgImage);
   const stageBgUrl = useAssetUrl(stageBgImage);
   const picking = useWork((st) => st.picking);
+  const adding = useAdding((st) => st.adding);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState<number | 'fit'>('fit');
   const [pan, setPan] = useState<StagePan>({ x: 0, y: 0 });
@@ -537,7 +547,7 @@ function PreviewStage({ model }: { model: ModelCache }) {
 
   /* 讀取中（包括清單本來是空的、第一張圖還沒讀完時）；AI 模式還沒去背 */
   const overlay =
-    phase === 'loading'
+    phase === 'loading' || (adding && !has)
       ? S.loadingStage
       : has && phase === 'needs-ai'
         ? model.state.status === 'ready'
@@ -545,10 +555,12 @@ function PreviewStage({ model }: { model: ModelCache }) {
           : S.needsModelStage
         : null;
   /* 預覽背景圖存在素材庫（id），這裡換成網址交給 Stage */
-  const background =
-    stageBg.kind === 'image'
-      ? { kind: stageBg.kind, imageUrl: stageBgUrl ?? undefined }
-      : { kind: stageBg.kind, color: stageBg.color };
+  /* 換成別的背景時也帶著圖的網址：再切回「圖」時直接顯示，不再跳出選檔視窗 */
+  const background = {
+    kind: stageBg.kind,
+    color: stageBg.color,
+    imageUrl: stageBgUrl ?? undefined,
+  };
 
   return (
     <div className="relative min-w-0">
