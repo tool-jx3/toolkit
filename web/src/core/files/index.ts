@@ -163,6 +163,31 @@ export function matchesAccept(file: Pick<File, 'name' | 'type'>, accept?: string
     });
 }
 
+export interface ReadFilesNowResult {
+  /** 讀進記憶體的檔案（內容、檔名、類型、修改時間都和原本相同；順序照原本） */
+  files: File[];
+  /** 讀不到的檔案與瀏覽器回報的錯誤 */
+  failed: { file: File; error: unknown }[];
+}
+
+/**
+ * 選檔、拖放、貼上拿到的檔案**立刻**讀進記憶體，回傳內容相同的新 File。
+ * Android 的相片挑選器給的檔案，瀏覽器的讀取權限之後會失效：晚一點再讀（例如等 Worker 開好、前一張處理完）
+ * 會丟 NotReadableError（bg-remover 手機回報後新增）。之後要交給 Worker 或晚一點才讀的檔案，先經過這裡。
+ * 檔案全部放在記憶體裡，影片等很大的檔案不要用。
+ */
+export async function readFilesNow(files: readonly File[]): Promise<ReadFilesNowResult> {
+  const settled = await Promise.allSettled(files.map((f) => f.arrayBuffer()));
+  const out: ReadFilesNowResult = { files: [], failed: [] };
+  settled.forEach((r, i) => {
+    const f = files[i];
+    if (r.status === 'fulfilled')
+      out.files.push(new File([r.value], f.name, { type: f.type, lastModified: f.lastModified }));
+    else out.failed.push({ file: f, error: r.reason });
+  });
+  return out;
+}
+
 /* ---------- 剪貼簿 ---------- */
 
 /**

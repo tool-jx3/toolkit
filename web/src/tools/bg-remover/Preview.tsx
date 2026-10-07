@@ -118,6 +118,8 @@ export async function addAndReport(files: readonly File[], model: ModelCache | n
   } finally {
     useAdding.setState({ adding: false });
   }
+  const readFailedText = () =>
+    r.notReadable ? `${S.readFailed(r.failed)}（${S.notReadable}）` : S.readFailed(r.failed);
   /* 讀不進來的檔案：附上「複製錯誤資訊」（哪一步失敗、瀏覽器回報的錯誤） */
   const withDetails = async (note: Note) =>
     setNote(
@@ -129,14 +131,14 @@ export async function addAndReport(files: readonly File[], model: ModelCache | n
       text: r.tooLarge.length
         ? S.tooLarge(r.tooLarge[0])
         : r.failed.length
-          ? S.readFailed(r.failed)
+          ? readFailedText()
           : S.typeError,
     });
     return;
   }
   const extra = [
     r.rejected ? S.skipped(r.rejected) : '',
-    r.failed.length ? S.readFailed(r.failed) : '',
+    r.failed.length ? readFailedText() : '',
     r.tooLarge.length ? S.tooLarge(r.tooLarge[0]) : '',
     r.notStored ? S.storageWarn : '',
   ]

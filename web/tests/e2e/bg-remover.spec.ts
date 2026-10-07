@@ -1504,6 +1504,69 @@ test('讀不進來的圖：狀態列「無法讀取」旁有「複製錯誤資�
   expect(errors).toEqual([]);
 });
 
+test('選好的檔案之後就讀不到了（Android 相片挑選器的權限過期）：選的當下先讀進記憶體，照常加入', async ({
+  page,
+}) => {
+  /*
+   * 手機回報：Android 的相片挑選器給的檔案，讀取權限之後會失效；Worker 第一次用時才開（還要下載），
+   * 等它去讀時已經 NotReadableError。這裡用「選好之後改掉磁碟上的檔案」重現同一個錯誤（Chrome 一樣回報
+   * NotReadableError），並讓 Worker 晚 2 秒才載入。
+   */
+  const dir = mkdtempSync(join(tmpdir(), 'bg-remover-picked-'));
+  const path = join(dir, '1000003457.png');
+  writeFileSync(path, await squarePng());
+  await page.route(/pixels\.worker-[^/]+\.js$/, async (r) => {
+    await new Promise((ok) => setTimeout(ok, 2000));
+    await r.continue();
+  });
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await fileInput(page).setInputFiles(path);
+  await page.waitForTimeout(300);
+  /* 選好之後檔案變了（之後再讀就是 NotReadableError） */
+  writeFileSync(path, Buffer.concat([await squarePng(), Buffer.alloc(16)]));
+  await expect(status(page)).toHaveText('已加入 1 張圖片。', { timeout: 30_000 });
+  await expect(items(page)).toHaveCount(1);
+  await expectReady(page);
+  expect(errors).toEqual([]);
+});
+
+test('選的當下就讀不到（NotReadableError，例如雲端相簿的照片）：說明怎麼辦，錯誤資訊寫「讀取檔案（選的當下）」', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.addInitScript(() => {
+    const read = Blob.prototype.arrayBuffer;
+    Blob.prototype.arrayBuffer = function (this: Blob) {
+      if (this instanceof File && this.name === '雲端.png')
+        return Promise.reject(
+          new DOMException(
+            'The requested file could not be read, typically due to permission problems that have occurred after a reference to a file was acquired.',
+            'NotReadableError',
+          ),
+        );
+      return read.call(this);
+    };
+  });
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await fileInput(page).setInputFiles([
+    { name: '雲端.png', mimeType: 'image/png', buffer: await squarePng() },
+    { name: '方塊.png', mimeType: 'image/png', buffer: await squarePng(50, 40) },
+  ]);
+  await expect(status(page)).toHaveText(
+    '已加入 1 張圖片。 無法讀取：雲端.png（瀏覽器沒有權限讀取這個檔案：請再選一次；雲端相簿的照片請先下載到手機再選。）',
+  );
+  await page.getByRole('status').getByRole('button', { name: '複製錯誤資訊' }).click();
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  expect(text).toContain('— 雲端.png —');
+  expect(text).toContain(
+    '步驟：讀取檔案（選的當下）\n錯誤：NotReadableError: The requested file could not be read',
+  );
+  expect(errors).toEqual([]);
+});
+
 test('加進來了但原圖解不成像素：預覽顯示「無法讀取」與「複製錯誤資訊」（例如手機的畫布上限）', async ({
   page,
   context,
