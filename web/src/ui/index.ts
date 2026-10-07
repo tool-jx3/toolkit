@@ -51,6 +51,7 @@ export {
   DEFAULT_SWATCHES,
 } from './ColorField';
 export { type ColorPairItem, ColorPairList, type ColorPairListProps } from './ColorPairList';
+export { CopyDiagnostics, type CopyDiagnosticsProps } from './CopyDiagnostics';
 export {
   type AspectOption,
   CROP_HOLD_TO_MOVE_MS,

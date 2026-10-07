@@ -22,7 +22,11 @@ type Promisified<T> = {
 };
 
 /** 主執行緒用的入口：Worker 可用時轉給 Worker，否則（或 Worker 壞了）在主執行緒做 */
-export function createPixelClient(): Promisified<PixelApi> & { dispose(): void } {
+export function createPixelClient(): Promisified<PixelApi> & {
+  /** 目前在哪裡處理（給「複製錯誤資訊」）：Worker，或 Worker 不能用、壞了之後的主執行緒 */
+  backend(): 'worker' | 'main';
+  dispose(): void;
+} {
   let local: PixelApi | null = null;
   const getLocal = () => (local ??= createPixelApi());
   let handle: WorkerHandle<PixelApi> | null = null;
@@ -61,6 +65,7 @@ export function createPixelClient(): Promisified<PixelApi> & { dispose(): void }
       return (getLocal()[name] as any)(...args);
     };
   return {
+    backend: () => (broken ? 'main' : 'worker'),
     inspect: call('inspect'),
     thumb: call('thumb'),
     load: call('load'),

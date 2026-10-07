@@ -2,6 +2,7 @@
  * 像素處理的函式集（加圖時的檢查與縮圖、讀圖、色鍵、AI 的前後處理、邊緣調整、筆刷重播、預覽合成、匯出）：
  * Worker（pixels.worker.ts）與主執行緒的退路共用。這個檔案不建立 Worker（Worker 也 import 它）。
  */
+import { errorText } from '@/core/diagnostics/error';
 import { applyMask, detectImageType, type Mask, maskToRgba } from '@/core/image';
 import { transfer } from '@/core/worker';
 import type { Letterbox } from './animeSeg';
@@ -67,7 +68,8 @@ class RenderCancelledError extends Error {
 export type InspectResult =
   | { kind: 'image'; width: number; height: number; thumb: Blob | null }
   | { kind: 'not-image' }
-  | { kind: 'failed' };
+  /** 認得檔頭（format）但瀏覽器解不開：error 是瀏覽器回報的錯誤（給「複製錯誤資訊」） */
+  | { kind: 'failed'; format: string; error: string };
 
 /** 預覽要畫的一張：ImageBitmap（主執行緒直接 drawImage）；環境不能做 ImageBitmap 時是像素 */
 export type PreviewImage =
@@ -167,12 +169,13 @@ export function createPixelApi() {
     /** 加圖時檢查一個檔案：看檔頭是不是圖片、解碼量尺寸、做縮圖（都在 Worker 裡，畫面不卡） */
     async inspect(blob: Blob, thumbSize = THUMB_SIZE): Promise<InspectResult> {
       const head = new Uint8Array(await blob.slice(0, 64).arrayBuffer());
-      if (!detectImageType(head)) return { kind: 'not-image' };
+      const format = detectImageType(head);
+      if (!format) return { kind: 'not-image' };
       let bmp: ImageBitmap;
       try {
         bmp = await createImageBitmap(blob);
-      } catch {
-        return { kind: 'failed' };
+      } catch (e) {
+        return { kind: 'failed', format, error: errorText(e) };
       }
       try {
         const thumb = await thumbnailOf(bmp, thumbSize).catch(() => null);

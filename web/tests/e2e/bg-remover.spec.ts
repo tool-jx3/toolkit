@@ -1127,7 +1127,9 @@ const timeline = (page: Page) =>
 
 test('F05：「自動」時顯示卡建不起來（requestDevice 失敗）就改用 CPU 並說明；選「GPU」時說明失敗，不會一直等', async ({
   page,
+  context,
 }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await stubOnnxWorker(page, [GPU_DEVICE_FAILS, GPU_DEVICE_FAILS]);
   const { errors } = await open(page, { spec: FAKE_SPEC });
   await downloadModel(page);
@@ -1147,6 +1149,12 @@ test('F05：「自動」時顯示卡建不起來（requestDevice 失敗）就改
     'AI 去背失敗：無法建立推論：這個瀏覽器可能不支援，或模型檔有問題。',
     { timeout: 30_000 },
   );
+  /* F60：失敗的那張、在哪一步、瀏覽器回報的錯誤 */
+  await page.getByRole('alert').getByRole('button', { name: '複製錯誤資訊' }).click();
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  expect(text).toContain('訊息：AI 去背失敗：無法建立推論：這個瀏覽器可能不支援，或模型檔有問題。');
+  expect(text).toContain('— 方塊.png —\n尺寸：64 × 48\n步驟：AI 去背：載入模型\n運算方式：');
+  expect(text).toMatch(/錯誤：\S/);
   expect(errors).toEqual([]);
 });
 
@@ -1449,6 +1457,95 @@ test('放進來的檔案裡有不是圖片的：「略過 N 個不是圖片的�
   ]);
   await expect(status(page)).toHaveText('已加入 1 張圖片。 略過 2 個不是圖片的檔案。');
   await expect(items(page)).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test('讀不進來的圖：狀態列「無法讀取」旁有「複製錯誤資訊」（哪一步、瀏覽器回報的錯誤、檔案、裝置）', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const { errors } = await open(page);
+  await useColorMode(page);
+  /* 檔頭是 JPEG、內容壞掉：認得是圖片，但瀏覽器解不開 */
+  const broken = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(400, 7)]);
+  await fileInput(page).setInputFiles({ name: '壞掉.jpg', mimeType: 'image/jpeg', buffer: broken });
+  await expect(status(page)).toHaveText('無法讀取：壞掉.jpg');
+  const copy = page.getByRole('alert').getByRole('button', { name: '複製錯誤資訊' });
+  await expect(copy).toBeVisible();
+  await copy.click();
+  await expect(page.getByRole('button', { name: '已複製' })).toBeVisible();
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  expect(text).toContain('【立繪去背工具】錯誤資訊\n訊息：無法讀取：壞掉.jpg\n處理方式：Worker');
+  expect(text).toContain('— 壞掉.jpg —\n大小：404 B（404 位元組）\n類型：image/jpeg\n檔頭：jpeg');
+  expect(text).toContain('步驟：解碼圖片（createImageBitmap）');
+  expect(text).toMatch(/錯誤：\S+Error: \S/);
+  expect(text).toContain('— 瀏覽器與裝置 —');
+  expect(text).toMatch(/瀏覽器：Mozilla\/5\.0 /);
+  expect(text).toMatch(/CPU 核心：\d+/);
+  /* 好圖和壞圖一起放：「已加入 1 張圖片。 無法讀取：…」也可以複製 */
+  await fileInput(page).setInputFiles([
+    { name: '方塊.png', mimeType: 'image/png', buffer: await squarePng() },
+    { name: '壞掉2.jpg', mimeType: 'image/jpeg', buffer: broken },
+  ]);
+  await expect(status(page)).toHaveText('已加入 1 張圖片。 無法讀取：壞掉2.jpg');
+  await page.getByRole('status').getByRole('button', { name: '複製錯誤資訊' }).click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toContain('— 壞掉2.jpg —');
+  /* 下一則訊息沒有錯誤：按鈕跟著消失 */
+  await fileInput(page).setInputFiles({
+    name: '方塊2.png',
+    mimeType: 'image/png',
+    buffer: await squarePng(50, 40),
+  });
+  await expect(status(page)).toHaveText('已加入 1 張圖片。');
+  await expect(page.getByRole('button', { name: '複製錯誤資訊' })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('加進來了但原圖解不成像素：預覽顯示「無法讀取」與「複製錯誤資訊」（例如手機的畫布上限）', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  /* 沒有 Worker（在主執行緒處理），OffscreenCanvas 超過 100 萬像素就拿不到 2D（模擬手機瀏覽器的畫布上限） */
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'Worker', { value: undefined, configurable: true });
+    const get = OffscreenCanvas.prototype.getContext;
+    OffscreenCanvas.prototype.getContext = function (this: OffscreenCanvas, ...a: unknown[]) {
+      if (this.width * this.height > 1_000_000) return null;
+      return (get as (...x: unknown[]) => unknown).apply(this, a);
+    } as typeof get;
+  });
+  const { errors } = await open(page);
+  await useColorMode(page);
+  const jpeg = Buffer.from(
+    await page.evaluate(async () => {
+      const c = document.createElement('canvas');
+      c.width = 1500;
+      c.height = 1000;
+      const g = c.getContext('2d')!;
+      g.fillStyle = '#fff';
+      g.fillRect(0, 0, 1500, 1000);
+      g.fillStyle = '#c33';
+      g.fillRect(500, 200, 500, 600);
+      const b = await new Promise<Blob>((r) => c.toBlob((x) => r(x!), 'image/jpeg', 0.9));
+      return [...new Uint8Array(await b.arrayBuffer())];
+    }),
+  );
+  await fileInput(page).setInputFiles({ name: '大圖.jpg', mimeType: 'image/jpeg', buffer: jpeg });
+  await expect(status(page)).toHaveText('已加入 1 張圖片。');
+  const box = page.getByTestId('stage-error');
+  await expect(box).toContainText('無法讀取：大圖.jpg');
+  await box.getByRole('button', { name: '複製錯誤資訊' }).click();
+  await expect(box.getByRole('button', { name: '已複製' })).toBeVisible();
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  expect(text).toContain('訊息：無法讀取：大圖.jpg\n處理方式：主執行緒（Worker 不能用）');
+  expect(text).toContain('— 大圖.jpg —');
+  expect(text).toContain('尺寸：1500 × 1000');
+  expect(text).toContain('步驟：讀取原圖的像素');
+  expect(text).toContain('錯誤：Error: decode');
   expect(errors).toEqual([]);
 });
 
