@@ -2006,6 +2006,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+The WebAssembly build also contains third-party components listed in
+ONNX Runtime's ThirdPartyNotices.txt:
+https://github.com/microsoft/onnxruntime/blob/v1.30.0/ThirdPartyNotices.txt
 ```
 ### pako@2.1.0
 
