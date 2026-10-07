@@ -24,6 +24,7 @@ import { clientToLocal } from '@/core/layout';
 import {
   Button,
   ColorField,
+  CopyDiagnostics,
   type ExportContext,
   ExportPanel,
   type ExportPanelHandle,
@@ -45,6 +46,7 @@ import { addFiles, finishPick, go, removeImage, selectImage, setStageBackground 
 import { demoFiles } from './demo';
 import {
   cancelAi,
+  detailsFor,
   exportImages,
   pixels,
   previewSource,
@@ -75,6 +77,8 @@ import { thumbUrl } from './thumbs';
 export interface Note {
   tone: NoticeTone;
   text: string;
+  /** 出錯時「複製錯誤資訊」的內容（有才顯示按鈕） */
+  details?: string;
 }
 
 export const useNote = create<{ note: Note | null }>(() => ({ note: null }));
@@ -87,7 +91,10 @@ function StatusLine() {
   const note = useNote((st) => st.note);
   if (!note) return null;
   return (
-    <Notice tone={note.tone}>
+    <Notice
+      tone={note.tone}
+      action={note.details ? <CopyDiagnostics text={note.details} /> : undefined}
+    >
       <span data-testid="status-text">{note.text}</span>
     </Notice>
   );
@@ -111,8 +118,13 @@ export async function addAndReport(files: readonly File[], model: ModelCache | n
   } finally {
     useAdding.setState({ adding: false });
   }
+  /* 讀不進來的檔案：附上「複製錯誤資訊」（哪一步失敗、瀏覽器回報的錯誤） */
+  const withDetails = async (note: Note) =>
+    setNote(
+      r.problems.length ? { ...note, details: await detailsFor(note.text, r.problems) } : note,
+    );
   if (!r.added.length) {
-    setNote({
+    await withDetails({
       tone: 'danger',
       text: r.tooLarge.length
         ? S.tooLarge(r.tooLarge[0])
@@ -130,7 +142,7 @@ export async function addAndReport(files: readonly File[], model: ModelCache | n
   ]
     .filter(Boolean)
     .join(' ');
-  setNote({
+  await withDetails({
     tone: extra ? 'warning' : 'success',
     text: `${S.loaded(r.added.length)}${extra ? ` ${extra}` : ''}`,
   });
@@ -145,7 +157,13 @@ export async function runAiAndReport(
 ): Promise<void> {
   const r = await runAi(items, force);
   if (r.error) {
-    setNote({ tone: 'danger', text: S.aiFailed(r.error) });
+    const text = S.aiFailed(r.error);
+    setNote({ tone: 'danger', text });
+    if (r.problem) {
+      const details = await detailsFor(text, [r.problem]);
+      /* 整理的期間狀態列沒換成別的訊息才補上 */
+      if (useNote.getState().note?.text === text) setNote({ tone: 'danger', text, details });
+    }
     if (r.modelGone) void model?.refresh();
   } else if (r.cancelled) setNote({ tone: 'info', text: S.aiCancelled });
   else if (r.done) setNote({ tone: 'success', text: S.aiDone(r.done) });
@@ -525,6 +543,8 @@ function PreviewStage({ model }: { model: ModelCache }) {
   const stageBgImage = usePreview((st) => st.data.stageBgImage);
   const stageBgUrl = useAssetUrl(stageBgImage);
   const picking = useWork((st) => st.picking);
+  const error = useWork((st) => (st.phase === 'error' ? st.error : null));
+  const errorDetails = useWork((st) => st.errorDetails);
   const adding = useAdding((st) => st.adding);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState<number | 'fit'>('fit');
@@ -624,7 +644,16 @@ function PreviewStage({ model }: { model: ModelCache }) {
           />
         ) : null}
       </Stage>
-      {overlay ? (
+      {error ? (
+        <div
+          role="alert"
+          className="absolute inset-x-4 top-1/2 flex -translate-y-1/2 flex-col items-center gap-2 rounded-md bg-surface/90 px-3 py-2 text-center text-sm text-danger"
+          data-testid="stage-error"
+        >
+          <p className="m-0">{error}</p>
+          {errorDetails ? <CopyDiagnostics text={errorDetails} /> : null}
+        </div>
+      ) : overlay ? (
         <p
           className="pointer-events-none absolute inset-x-4 top-1/2 m-0 -translate-y-1/2 rounded-md bg-surface/90 px-3 py-2 text-center text-sm text-fg"
           data-testid="stage-overlay"

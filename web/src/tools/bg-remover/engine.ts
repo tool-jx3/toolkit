@@ -6,6 +6,7 @@
  */
 import { create } from 'zustand';
 import { parseColor } from '@/core/color';
+import { type DiagnosticItem, diagnosticText, errorText, fileFields } from '@/core/diagnostics';
 import { uniqueFileName } from '@/core/files';
 import { type Mask, StrokePainter } from '@/core/image';
 import { ModelError } from '@/core/models';
@@ -67,6 +68,8 @@ export interface WorkState {
   keyColor: string | null;
   keyRatio: number;
   error: string | null;
+  /** 出錯時「複製錯誤資訊」的內容（整理好之前、沒有錯誤時是 null） */
+  errorDetails: string | null;
   /** 遮罩或原圖換了就加一（預覽重畫） */
   tick: number;
   /** AI 去背進行中 */
@@ -86,6 +89,7 @@ export const useWork = create<WorkState>(() => ({
   keyColor: null,
   keyRatio: 1,
   error: null,
+  errorDetails: null,
   tick: 0,
   ai: null,
   backend: null,
@@ -95,6 +99,23 @@ export const useWork = create<WorkState>(() => ({
 
 const bump = (patch: Partial<WorkState> = {}) =>
   useWork.setState((s) => ({ ...patch, tick: s.tick + 1 }));
+
+/** 「複製錯誤資訊」的內容：處理方式、每個出錯的對象（例如檔案）、瀏覽器與裝置 */
+export const detailsFor = (summary: string, items: DiagnosticItem[] = []): Promise<string> =>
+  diagnosticText({
+    tool: S.diag.tool,
+    summary,
+    fields: [[S.diag.backend, pixels.backend() === 'worker' ? S.diag.worker : S.diag.main]],
+    items,
+  });
+
+/** 這張處理不下去：預覽顯示 error，再補上「複製錯誤資訊」的內容 */
+async function fail(error: string, item: DiagnosticItem): Promise<void> {
+  bump({ phase: 'error', error, errorDetails: null });
+  const details = await detailsFor(error, [item]);
+  const w = useWork.getState();
+  if (w.phase === 'error' && w.error === error) useWork.setState({ errorDetails: details });
+}
 
 /** 目前這張的緩衝區 */
 interface Buffers {
@@ -166,24 +187,43 @@ async function syncOnce(): Promise<void> {
   const item = currentItem(s, p);
   if (!item) {
     Object.assign(buf, empty());
-    bump({ phase: 'empty', itemId: null, width: 0, height: 0, error: null, keyColor: null });
+    bump({
+      phase: 'empty',
+      itemId: null,
+      width: 0,
+      height: 0,
+      error: null,
+      errorDetails: null,
+      keyColor: null,
+    });
     return;
   }
   /* 原圖 */
   if (buf.asset !== item.asset || !buf.src) {
     Object.assign(buf, empty());
-    useWork.setState({ phase: 'loading', itemId: item.id, error: null });
+    useWork.setState({ phase: 'loading', itemId: item.id, error: null, errorDetails: null });
     const blob = await assets.get(item.asset);
     if (!blob) {
-      bump({ phase: 'error', error: S.readFailed([item.name]) });
+      await fail(S.readFailed([item.name]), {
+        title: item.name,
+        fields: [['步驟', S.diag.missing]],
+      });
       return;
     }
     try {
       const src = await pixels.load(item.asset, blob);
       buf.asset = item.asset;
       buf.src = src;
-    } catch {
-      bump({ phase: 'error', error: S.readFailed([item.name]) });
+    } catch (e) {
+      await fail(S.readFailed([item.name]), {
+        title: item.name,
+        fields: [
+          ...fileFields(blob),
+          ['尺寸', `${item.width} × ${item.height}`],
+          ['步驟', S.diag.load],
+          ['錯誤', errorText(e)],
+        ],
+      });
       return;
     }
   }
@@ -284,7 +324,7 @@ async function syncOnce(): Promise<void> {
     buf.applied = strokes;
     buf.pending = null;
   }
-  bump({ phase: 'ready', error: null });
+  bump({ phase: 'ready', error: null, errorDetails: null });
 }
 
 let running = false;
@@ -304,7 +344,11 @@ export function requestSync(): void {
         try {
           await syncOnce();
         } catch (e) {
-          bump({ phase: 'error', error: e instanceof Error ? e.message : String(e) });
+          const item = currentItem(settingsNow(), previewNow());
+          await fail(e instanceof Error ? e.message : String(e), {
+            title: item?.name,
+            fields: [['錯誤', errorText(e)]],
+          });
         }
       } while (again);
     } finally {
@@ -452,6 +496,8 @@ export interface AiResult {
   done: number;
   cancelled: boolean;
   error: string | null;
+  /** 出錯的那張與步驟、瀏覽器回報的錯誤（給「複製錯誤資訊」） */
+  problem?: DiagnosticItem;
   /** 模型不見了或驗證不符（要重新檢查下載狀態） */
   modelGone: boolean;
 }
@@ -467,9 +513,12 @@ export async function runAi(items: readonly ImageItem[], force = false): Promise
   if (!todo.length) return result;
   const abort = { aborted: false };
   aiAbort = abort;
+  let it: ImageItem | null = null;
+  let stage: keyof typeof S.diag.aiStages = 'model';
   try {
     for (let i = 0; i < todo.length; i++) {
-      const it = todo[i];
+      const cur = todo[i];
+      it = cur;
       useWork.setState({
         ai: {
           index: i + 1,
@@ -478,25 +527,30 @@ export async function runAi(items: readonly ImageItem[], force = false): Promise
           startedAt: Date.now(),
         },
       });
-      const blob = await assets.get(it.asset);
+      const blob = await assets.get(cur.asset);
       if (!blob) continue;
+      stage = 'model';
       const client = await session();
       if (abort.aborted) break;
       useWork.setState((st) => ({ ai: st.ai ? { ...st.ai, stage: 'infer' } : st.ai }));
-      const prep = await pixels.aiInput(it.asset, blob);
+      stage = 'prepare';
+      const prep = await pixels.aiInput(cur.asset, blob);
       if (abort.aborted) break;
+      stage = 'infer';
       const out = await client.run({
         [MODEL_INPUT]: { data: prep.tensor, dims: [1, 3, MODEL_SIZE, MODEL_SIZE] },
       });
       if (abort.aborted) break;
       const pred = out[MODEL_OUTPUT];
       if (!pred) throw new Error(S.wrongModel);
+      stage = 'mask';
       const r = await pixels.aiMask(pred.data, prep.box);
+      stage = 'save';
       const added = await assets.add(
         new Blob([r.png as Uint8Array<ArrayBuffer>], { type: 'image/png' }),
       );
       usePreview.getState().update((d) => {
-        d.aiMasks[it.asset] = added.id;
+        d.aiMasks[cur.asset] = added.id;
       });
       result.done++;
     }
@@ -507,6 +561,16 @@ export async function runAi(items: readonly ImageItem[], force = false): Promise
         e instanceof OnnxError || e instanceof ModelError || e instanceof Error
           ? e.message
           : String(e);
+      const backend = useWork.getState().backend;
+      result.problem = {
+        title: it?.name,
+        fields: [
+          ...(it ? ([['尺寸', `${it.width} × ${it.height}`]] as const) : []),
+          ['步驟', `${S.diag.ai}：${S.diag.aiStages[stage]}`],
+          ['運算方式', backend ?? S.diag.noBackend],
+          ['錯誤', errorText(e)],
+        ],
+      };
       if (!(e instanceof ModelError)) dropOnnx();
     }
   } finally {

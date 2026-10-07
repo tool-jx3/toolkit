@@ -2,6 +2,12 @@
  * 使用者的動作：加圖、移除、切換、取色、專案檔、全部重來。
  */
 import { importAssetFiles } from '@/core/assets';
+import {
+  type DiagnosticField,
+  type DiagnosticItem,
+  errorText,
+  fileFields,
+} from '@/core/diagnostics';
 import { ProjectFileError, resetToolStore } from '@/core/storage';
 import type { StageBackground } from '@/ui';
 import { pixels, useWork } from './engine';
@@ -31,6 +37,8 @@ const newId = () => `img-${Date.now().toString(36)}-${(++seq).toString(36)}`;
 export interface AddResult {
   added: ImageItem[];
   failed: string[];
+  /** 讀不進來的檔案各一段：哪一步失敗、瀏覽器回報的錯誤（給「複製錯誤資訊」） */
+  problems: DiagnosticItem[];
   tooLarge: string[];
   notStored: boolean;
   rejected: number;
@@ -44,22 +52,41 @@ export async function addFiles(
   files: readonly File[],
   onProgress?: (i: number, n: number) => void,
 ): Promise<AddResult> {
-  const result: AddResult = { added: [], failed: [], tooLarge: [], notStored: false, rejected: 0 };
+  const result: AddResult = {
+    added: [],
+    failed: [],
+    problems: [],
+    tooLarge: [],
+    notStored: false,
+    rejected: 0,
+  };
+  const fail = (file: File, fields: DiagnosticField[]) => {
+    result.failed.push(file.name);
+    result.problems.push({ title: file.name, fields: [...fileFields(file), ...fields] });
+  };
   for (let k = 0; k < files.length; k++) {
     const file = files[k];
     onProgress?.(k, files.length);
     let info: InspectResult;
     try {
       info = await pixels.inspect(file);
-    } catch {
-      info = { kind: 'failed' };
+    } catch (e) {
+      fail(file, [
+        ['步驟', S.diag.inspect],
+        ['錯誤', errorText(e)],
+      ]);
+      continue;
     }
     if (info.kind === 'not-image') {
       result.rejected++;
       continue;
     }
     if (info.kind === 'failed') {
-      result.failed.push(file.name);
+      fail(file, [
+        ['檔頭', info.format],
+        ['步驟', S.diag.decode],
+        ['錯誤', info.error],
+      ]);
       continue;
     }
     const { width, height } = info;
@@ -79,8 +106,12 @@ export async function addFiles(
         height,
         strokes: [],
       });
-    } catch {
-      result.failed.push(file.name);
+    } catch (e) {
+      fail(file, [
+        ['尺寸', `${width} × ${height}`],
+        ['步驟', S.diag.save],
+        ['錯誤', errorText(e)],
+      ]);
     }
   }
   if (result.added.length) {

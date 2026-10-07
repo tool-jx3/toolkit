@@ -1,9 +1,11 @@
 import { Copy, Info } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { diagnosticText } from '@/core/diagnostics';
 import { copyText } from '@/core/files';
 import type { ToolEntry } from '@/registry';
 import {
   Button,
+  CopyDiagnostics,
   Dialog,
   DialogClose,
   GroupTabs,
@@ -22,6 +24,32 @@ const SAMPLE_TABS: ToolEntry[] = [
   { id: 'demo-b', name: '聊天視窗', summary: '', group: 'G4', status: 'next' },
   { id: 'demo-c', name: '訊息框', summary: '', group: 'G4', status: 'next' },
 ];
+
+/** 出錯時附上「複製錯誤資訊」：core/diagnostics 整理文字（哪一步、瀏覽器回報的錯誤、檔案、裝置），CopyDiagnostics 複製 */
+function DiagnosticsNotice() {
+  const [details, setDetails] = useState<string | null>(null);
+  useEffect(() => {
+    void diagnosticText({
+      tool: '元件展示頁',
+      summary: '無法讀取：範例.jpg',
+      fields: [['處理方式', 'Worker']],
+      items: [
+        {
+          title: '範例.jpg',
+          fields: [
+            ['步驟', '解碼圖片（createImageBitmap）'],
+            ['錯誤', 'InvalidStateError: The source image could not be decoded.'],
+          ],
+        },
+      ],
+    }).then(setDetails);
+  }, []);
+  return (
+    <Notice tone="danger" action={details ? <CopyDiagnostics text={details} /> : undefined}>
+      無法讀取：範例.jpg
+    </Notice>
+  );
+}
 
 /** 對話框、確認、通知、快捷鍵說明、使用方式、群組分頁 */
 export function DialogsDemo() {
@@ -111,6 +139,7 @@ export function DialogsDemo() {
         <Notice tone="danger" action={<Button size="sm">重試</Button>}>
           無法讀取「立繪.png」，檔案可能已損壞。
         </Notice>
+        <DiagnosticsNotice />
         <Button
           icon={<Copy />}
           onClick={async () => {

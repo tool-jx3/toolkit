@@ -136,6 +136,28 @@ export const S = {
   storageWarn: '瀏覽器的儲存空間不足，這次加入的圖片重新整理後就不見了（照常可以去背、匯出）。',
   removed: (name: string) => `已移除 ${name}（可以復原）。`,
 
+  /* 「複製錯誤資訊」的內容 */
+  diag: {
+    tool: '立繪去背工具',
+    backend: '處理方式',
+    worker: 'Worker',
+    main: '主執行緒（Worker 不能用）',
+    inspect: '檢查檔案（Worker）',
+    decode: '解碼圖片（createImageBitmap）',
+    save: '存進瀏覽器',
+    missing: '取回原圖（瀏覽器裡找不到）',
+    load: '讀取原圖的像素',
+    ai: 'AI 去背',
+    aiStages: {
+      model: '載入模型',
+      prepare: '準備影像',
+      infer: '推論',
+      mask: '做遮罩',
+      save: '存遮罩',
+    },
+    noBackend: '還沒開始',
+  },
+
   /* 匯出 */
   exportTitle: '匯出',
   scope: '範圍',
