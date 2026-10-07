@@ -33,6 +33,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { filesInMemory } from '@/core/files';
 import { IconButton } from './Button';
 import { ColorField } from './ColorField';
 import { cn } from './cn';
@@ -383,10 +384,13 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
               const f = e.target.files?.[0];
               e.target.value = '';
               if (!f) return;
-              if (lastUrl.current) URL.revokeObjectURL(lastUrl.current);
-              const url = URL.createObjectURL(f);
-              lastUrl.current = url;
-              setBg({ kind: 'image' as K, imageUrl: url });
+              /* 先讀進記憶體再做網址：背景圖之後切換時還會再讀（Android 的相片挑選器給的檔案，讀取權限之後會失效） */
+              void filesInMemory([f]).then(([copy]) => {
+                if (lastUrl.current) URL.revokeObjectURL(lastUrl.current);
+                const url = URL.createObjectURL(copy);
+                lastUrl.current = url;
+                setBg({ kind: 'image' as K, imageUrl: url });
+              });
             }}
           />
           <div className="ml-auto flex items-center gap-0.5">

@@ -10,7 +10,7 @@
  */
 import { ImagePlus } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { matchesAccept } from '@/core/files';
+import { filesInMemory, matchesAccept } from '@/core/files';
 import { cn } from './cn';
 
 export interface WindowDropProps {
@@ -23,6 +23,11 @@ export interface WindowDropProps {
   hint?: ReactNode;
   icon?: ReactNode;
   disabled?: boolean;
+  /**
+   * 交給 onDrop 前先把檔案讀進記憶體（預設 true，見 `@/core/files` 的 filesInMemory：Android 的相片挑選器給的檔案，
+   * 讀取權限之後會失效）。false：直接交出原本的 File。
+   */
+  readNow?: boolean;
   className?: string;
   /**
    * 覆蓋層出現／消失時呼叫（拖著檔案進入視窗＝true；拖出、放開、停用＝false）。工具可以據此讓自己的載入區變醒目
@@ -39,13 +44,14 @@ export function WindowDrop({
   hint,
   icon = <ImagePlus />,
   disabled,
+  readNow = true,
   className,
   onActiveChange,
 }: WindowDropProps) {
   const [over, setOver] = useState(false);
   const depth = useRef(0);
-  const cb = useRef({ onDrop, onReject, accept, onActiveChange });
-  cb.current = { onDrop, onReject, accept, onActiveChange };
+  const cb = useRef({ onDrop, onReject, accept, onActiveChange, readNow });
+  cb.current = { onDrop, onReject, accept, onActiveChange, readNow };
   const reported = useRef(false);
   useEffect(() => {
     if (reported.current === over) return;
@@ -85,7 +91,10 @@ export function WindowDrop({
       const ok = files.filter((f) => matchesAccept(f, acc));
       const bad = files.filter((f) => !matchesAccept(f, acc));
       if (bad.length) cb.current.onReject?.(bad);
-      if (ok.length) cb.current.onDrop(ok, { clientX: e.clientX, clientY: e.clientY });
+      if (!ok.length) return;
+      const at = { clientX: e.clientX, clientY: e.clientY };
+      if (!cb.current.readNow) cb.current.onDrop(ok, at);
+      else void filesInMemory(ok).then((list) => cb.current.onDrop(list, at));
     };
     window.addEventListener('dragenter', enter);
     window.addEventListener('dragleave', leave);

@@ -84,3 +84,25 @@ describe('core/assets：bitmap 的快取', () => {
     expect(decode).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('core/assets：add 存讀出來的位元組，不存傳進來的 File', () => {
+  it('之後原本的 File 讀不到（Android 的相片挑選器權限失效）：縮圖、取回、專案檔照常', async () => {
+    const assets = createAssetStore('assets-add-copy');
+    const picked = new File(['png-bytes'], '1000003457.png', { type: 'image/png' });
+    const { id } = await assets.add(picked);
+    /* 之後再讀原本的 File 就丟 NotReadableError */
+    const gone = () => Promise.reject(new DOMException('could not be read', 'NotReadableError'));
+    picked.arrayBuffer = gone;
+    picked.text = gone;
+    picked.stream = () => {
+      throw new DOMException('could not be read', 'NotReadableError');
+    };
+    const got = await assets.get(id);
+    expect(got).not.toBe(picked);
+    expect(await got?.text()).toBe('png-bytes');
+    expect(got?.type).toBe('image/png');
+    expect(src(await assets.bitmap(id))).toBe('png-bytes');
+    const files = await assets.exportFiles([id]);
+    expect(new TextDecoder().decode(files[0].data)).toBe('png-bytes');
+  });
+});

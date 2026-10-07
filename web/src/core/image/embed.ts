@@ -120,8 +120,10 @@ export async function fileToDataUri(
       'too-large',
       `圖片太大（${formatEmbedBytes(blob.size)}），上限是 ${formatEmbedBytes(maxBytes)}。`,
     );
-  const head = new Uint8Array(await blob.slice(0, 64).arrayBuffer());
-  const kind = detectImageType(head);
+  /* 一開始就整個讀進記憶體，之後都用這份（Android 的相片挑選器給的檔案，讀取權限之後會失效） */
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  blob = new Blob([bytes], { type: blob.type });
+  const kind = detectImageType(bytes.subarray(0, 64));
   let bitmap: ImageBitmap;
   try {
     bitmap = await loadImage(blob);

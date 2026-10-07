@@ -4,7 +4,7 @@
  */
 import { ImagePlus, Upload } from 'lucide-react';
 import { type DragEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
-import { matchesAccept } from '@/core/files';
+import { filesInMemory, matchesAccept } from '@/core/files';
 import { loadImage } from '@/core/image';
 import { buttonClass } from './Button';
 import { cn } from './cn';
@@ -42,6 +42,11 @@ export interface FileDropProps {
    */
   clickable?: boolean;
   disabled?: boolean;
+  /**
+   * 交給 onFiles 前先把檔案讀進記憶體（預設 true，見 `@/core/files` 的 filesInMemory：Android 的相片挑選器給的檔案，
+   * 讀取權限之後會失效）。onFiles 因此晚一點（讀完）才呼叫。false：直接交出原本的 File（例如要自己邊讀邊處理的大檔）。
+   */
+  readNow?: boolean;
   className?: string;
   'aria-label'?: string;
 }
@@ -60,6 +65,7 @@ export function FileDrop({
   compact,
   clickable = false,
   disabled,
+  readNow = true,
   className,
   ...rest
 }: FileDropProps) {
@@ -68,8 +74,8 @@ export function FileDrop({
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const depth = useRef(0);
-  const handlers = useRef({ onFiles, onReject });
-  handlers.current = { onFiles, onReject };
+  const handlers = useRef({ onFiles, onReject, readNow });
+  handlers.current = { onFiles, onReject, readNow };
 
   const deliver = (list: File[]) => {
     if (disabled || !list.length) return;
@@ -77,7 +83,14 @@ export function FileDrop({
     const ok = list.filter(pass);
     const bad = list.filter((f) => !pass(f));
     if (bad.length) handlers.current.onReject?.(bad);
-    if (ok.length) handlers.current.onFiles(multiple ? ok : ok.slice(0, 1));
+    if (!ok.length) return;
+    const picked = multiple ? ok : ok.slice(0, 1);
+    if (!handlers.current.readNow) {
+      handlers.current.onFiles(picked);
+      return;
+    }
+    /* 在拖放、貼上、選檔的當下就開始讀（filesInMemory 同步開始每個檔案的讀取） */
+    void filesInMemory(picked).then((files) => handlers.current.onFiles(files));
   };
   const deliverRef = useRef(deliver);
   deliverRef.current = deliver;

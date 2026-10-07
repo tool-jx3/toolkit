@@ -5,6 +5,7 @@ import { FolderCog, Frame, Layers, Shapes, SwatchBook } from 'lucide-react';
 import { useEffect } from 'react';
 import { GRID_PX } from '@/ccfolia';
 import { referencedAssetIds } from '@/core/assets';
+import { filesInMemory } from '@/core/files';
 import { useSaveStatus } from '@/core/storage';
 import {
   ProjectMenu,
@@ -131,7 +132,9 @@ function useMediaSync() {
 }
 
 /** F31：拖放與貼上。有專案檔就開啟專案（忽略其他檔案），否則字型當字型、圖片當圖片圖層 */
-async function handleFiles(files: File[]): Promise<void> {
+async function handleFiles(picked: File[]): Promise<void> {
+  /* 先全部讀進記憶體（貼上是自己接的；字型、圖片是依序處理，Android 的相片挑選器給的檔案之後會讀不到） */
+  const files = await filesInMemory(picked);
   const project = files.find((f) => /\.(json|zip)$/i.test(f.name));
   if (project) {
     await openProjectFile(project);

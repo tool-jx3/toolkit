@@ -10,8 +10,11 @@
  * - 復原／重做、自動保存（重新整理後還原，含上傳的圖）、專案檔（存、重設、開）；
  * - 390 寬沒有橫向捲動；1280／390 視覺基準圖（3D 畫面遮住，只比對介面）。
  */
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, type Locator, type Page, test } from '@playwright/test';
+import { unzipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { parseWebp } from '../../src/core/encode/webp';
 import { parseGlb } from '../../src/core/three/glbInfo';
@@ -615,6 +618,31 @@ test('匯出：搖搖樂左右搖 90 格；沒有周邊時的訊息', async ({ p
     '至少要加一張零件圖。',
   );
   await expect(page.getByRole('button', { name: '匯出 GLB' })).toBeDisabled();
+  expect(errors).toEqual([]);
+});
+
+test('選好的檔案之後就讀不到（Android 相片挑選器的權限失效）：存成專案檔照常含原圖', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const dir = mkdtempSync(join(tmpdir(), 'acrylic-picked-'));
+  const path = join(dir, '1000003457.png');
+  const original = await charPng();
+  writeFileSync(path, original);
+  await slot(page, '正面圖').setInputFiles(path);
+  await expect.poll(async () => (await settings(page)).stand.front).not.toMatch(/^demo:/);
+  await ready(page, 'stand');
+  await page.waitForTimeout(300);
+  /* 選好之後改掉磁碟上的檔案：之後再讀原本的 File 會 NotReadableError（同手機上權限失效） */
+  writeFileSync(path, Buffer.concat([original, Buffer.alloc(16)]));
+  await page.getByRole('button', { name: '專案' }).click();
+  const [proj] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+  ]);
+  const zip = unzipSync(new Uint8Array(readFileSync((await proj.path()) as string)));
+  const images = Object.entries(zip).filter(([name]) => /^files\/.+\.png$/.test(name));
+  expect(images.some(([, data]) => Buffer.from(data).equals(original))).toBe(true);
   expect(errors).toEqual([]);
 });
 

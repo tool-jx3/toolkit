@@ -3,7 +3,7 @@
  * 立繪工作台（G3）共用元件：useChoice、ThumbnailList 的擴充、SortableList／LayerList、SelectableCardList、
  * Chips、PartPicker、LayoutEditor、CropFrame、WindowDrop、ImageSampler、PanZoomViewport、Stage 的擴充。
  */
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -596,7 +596,7 @@ describe('WindowDrop', () => {
     return e;
   };
 
-  it('拖進視窗出現覆蓋層；放開交出檔案與位置；不符合 accept 的交給 onReject', () => {
+  it('拖進視窗出現覆蓋層；放開交出檔案（讀進記憶體的複本）與位置；不符合 accept 的交給 onReject', async () => {
     const onDrop = vi.fn();
     const onReject = vi.fn();
     render(<WindowDrop accept="image/*" onDrop={onDrop} onReject={onReject} hint="PNG／WebP" />);
@@ -608,8 +608,12 @@ describe('WindowDrop', () => {
     const txt = new File(['x'], 'b.txt', { type: 'text/plain' });
     drag('drop', [png, txt], { clientX: 120, clientY: 80 });
     expect(screen.queryByTestId('window-drop')).toBeNull();
-    expect(onDrop).toHaveBeenCalledWith([png], { clientX: 120, clientY: 80 });
     expect(onReject).toHaveBeenCalledWith([txt]);
+    await waitFor(() => expect(onDrop).toHaveBeenCalledTimes(1));
+    const [list, at] = onDrop.mock.calls[0] as [File[], { clientX: number; clientY: number }];
+    expect(list.map((f) => [f.name, f.type])).toEqual([['a.png', 'image/png']]);
+    expect(list[0]).not.toBe(png);
+    expect(at).toEqual({ clientX: 120, clientY: 80 });
   });
 });
 

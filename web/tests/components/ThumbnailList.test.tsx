@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { FileDrop, ThumbnailList, UiProvider } from '@/ui';
 
@@ -65,18 +65,38 @@ describe('FileDrop filterByAccept', () => {
     new File(['y'], 'a.png', { type: 'image/png' }),
   ];
 
-  it('預設依 accept 過濾', () => {
+  it('預設依 accept 過濾', async () => {
     const onFiles = vi.fn();
     const onReject = vi.fn();
     const { container } = render(
       <FileDrop multiple accept="image/png" onFiles={onFiles} onReject={onReject} />,
     );
     fireEvent.change(container.querySelector('input[type=file]')!, { target: { files } });
-    expect(onFiles.mock.calls[0][0].map((f: File) => f.name)).toEqual(['a.png']);
     expect(onReject.mock.calls[0][0].map((f: File) => f.name)).toEqual(['沒有副檔名']);
+    await waitFor(() => expect(onFiles).toHaveBeenCalledTimes(1));
+    expect(onFiles.mock.calls[0][0].map((f: File) => f.name)).toEqual(['a.png']);
   });
 
-  it('filterByAccept={false}：全部交給 onFiles，accept 只用在選檔視窗', () => {
+  it('預設先讀進記憶體再交出（內容、檔名、類型相同的新 File）；readNow={false} 直接交出原本的 File', async () => {
+    const onFiles = vi.fn();
+    const { container, rerender } = render(<FileDrop multiple onFiles={onFiles} />);
+    fireEvent.change(container.querySelector('input[type=file]')!, { target: { files } });
+    expect(onFiles).not.toHaveBeenCalled();
+    await waitFor(() => expect(onFiles).toHaveBeenCalledTimes(1));
+    const got = onFiles.mock.calls[0][0] as File[];
+    expect(got.map((f) => [f.name, f.type])).toEqual([
+      ['沒有副檔名', ''],
+      ['a.png', 'image/png'],
+    ]);
+    expect(got[1]).not.toBe(files[1]);
+    expect(await got[1].text()).toBe('y');
+    rerender(<FileDrop multiple readNow={false} onFiles={onFiles} />);
+    fireEvent.change(container.querySelector('input[type=file]')!, { target: { files } });
+    expect(onFiles).toHaveBeenCalledTimes(2);
+    expect(onFiles.mock.calls[1][0][1]).toBe(files[1]);
+  });
+
+  it('filterByAccept={false}：全部交給 onFiles，accept 只用在選檔視窗', async () => {
     const onFiles = vi.fn();
     const onReject = vi.fn();
     const { container } = render(
@@ -91,6 +111,7 @@ describe('FileDrop filterByAccept', () => {
     const input = container.querySelector('input[type=file]')!;
     expect(input).toHaveAttribute('accept', 'image/png');
     fireEvent.change(input, { target: { files } });
+    await waitFor(() => expect(onFiles).toHaveBeenCalledTimes(1));
     expect(onFiles.mock.calls[0][0]).toHaveLength(2);
     expect(onReject).not.toHaveBeenCalled();
   });
