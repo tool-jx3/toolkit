@@ -3,6 +3,7 @@ import {
   fileNameWithExt,
   formatBytes,
   matchesAccept,
+  readFilesNow,
   safeFileName,
   sequenceName,
   splitExtension,
@@ -53,5 +54,31 @@ describe('其他檔案工具', () => {
     expect(matchesAccept({ name: 'a.json', type: 'application/json' }, 'application/json')).toBe(
       true,
     );
+  });
+});
+
+describe('readFilesNow（選的當下先讀進記憶體）', () => {
+  it('內容、檔名、類型、修改時間不變，順序照原本；讀不到的另外列出（含錯誤）', async () => {
+    const a = new File([new Uint8Array([1, 2, 3])], 'a.png', {
+      type: 'image/png',
+      lastModified: 1000,
+    });
+    const b = new File([new Uint8Array([9])], 'b.png', { type: 'image/png', lastModified: 2000 });
+    const gone = new File([new Uint8Array([7])], '1000003457.png', { type: 'image/png' });
+    const err = new DOMException('The requested file could not be read', 'NotReadableError');
+    gone.arrayBuffer = () => Promise.reject(err);
+    const r = await readFilesNow([a, gone, b]);
+    expect(r.files.map((f) => [f.name, f.type, f.lastModified])).toEqual([
+      ['a.png', 'image/png', 1000],
+      ['b.png', 'image/png', 2000],
+    ]);
+    expect(r.files[0]).not.toBe(a);
+    expect([...new Uint8Array(await r.files[0].arrayBuffer())]).toEqual([1, 2, 3]);
+    expect([...new Uint8Array(await r.files[1].arrayBuffer())]).toEqual([9]);
+    expect(r.failed).toEqual([{ file: gone, error: err }]);
+  });
+
+  it('沒有檔案時回傳空的', async () => {
+    expect(await readFilesNow([])).toEqual({ files: [], failed: [] });
   });
 });

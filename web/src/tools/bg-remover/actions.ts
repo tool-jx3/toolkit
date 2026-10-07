@@ -8,6 +8,7 @@ import {
   errorText,
   fileFields,
 } from '@/core/diagnostics';
+import { readFilesNow } from '@/core/files';
 import { ProjectFileError, resetToolStore } from '@/core/storage';
 import type { StageBackground } from '@/ui';
 import { pixels, useWork } from './engine';
@@ -42,16 +43,21 @@ export interface AddResult {
   tooLarge: string[];
   notStored: boolean;
   rejected: number;
+  /** 有檔案在選的當下就讀不到（NotReadableError：瀏覽器沒有讀取權限，例如雲端相簿還沒下載的照片） */
+  notReadable: boolean;
 }
 
 /**
- * 加入圖片（放在清單最後，選取第一張新加的；算一步復原）。每個檔案在 Worker 裡檢查（看檔頭判斷是不是圖片——不看副檔名、
- * 解碼量尺寸、做清單的縮圖），畫面不卡；onProgress(i, n) 在開始處理第 i 個（0 起）檔案前呼叫。
+ * 加入圖片（放在清單最後，選取第一張新加的；算一步復原）。先把所有檔案讀進記憶體（Android 的相片挑選器給的檔案，
+ * 讀取權限之後會失效），再一個一個在 Worker 裡檢查（看檔頭判斷是不是圖片——不看副檔名、解碼量尺寸、做清單的縮圖），
+ * 畫面不卡；onProgress(i, n) 在開始處理第 i 個（0 起）檔案前呼叫。
  */
 export async function addFiles(
-  files: readonly File[],
+  picked: readonly File[],
   onProgress?: (i: number, n: number) => void,
 ): Promise<AddResult> {
+  /* 選的當下就讀：不要在這之前 await 別的東西 */
+  const read = readFilesNow(picked);
   const result: AddResult = {
     added: [],
     failed: [],
@@ -59,11 +65,21 @@ export async function addFiles(
     tooLarge: [],
     notStored: false,
     rejected: 0,
+    notReadable: false,
   };
   const fail = (file: File, fields: DiagnosticField[]) => {
     result.failed.push(file.name);
     result.problems.push({ title: file.name, fields: [...fileFields(file), ...fields] });
   };
+  const { files, failed: unreadable } = await read;
+  for (const { file, error } of unreadable) {
+    if ((error as { name?: unknown } | null)?.name === 'NotReadableError')
+      result.notReadable = true;
+    fail(file, [
+      ['步驟', S.diag.read],
+      ['錯誤', errorText(error)],
+    ]);
+  }
   for (let k = 0; k < files.length; k++) {
     const file = files[k];
     onProgress?.(k, files.length);
