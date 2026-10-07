@@ -98,6 +98,31 @@ describe('bg-remover：模型與設定', () => {
     expect(normalizeSettings(null)).toEqual(d);
   });
 
+  it('設定修正：同色擦掉／補回（F61）的位置取整數、容許度夾回、沒寫相連時當成相連，壞掉的拿掉', () => {
+    const s = normalizeSettings({
+      images: [
+        {
+          id: 'a',
+          name: 'a.png',
+          asset: 'x',
+          width: 10,
+          height: 20,
+          strokes: [
+            { m: 'fe', x: 3.6, y: -2, t: 150, c: false },
+            { m: 'fr', x: 1, y: 2 },
+            { m: 'fe', x: 'a', y: 2, t: 5, c: true },
+            { m: 'e', s: 10, h: 80, p: [1, 1] },
+          ],
+        },
+      ],
+    });
+    expect(s.images[0].strokes).toEqual([
+      { m: 'fe', x: 4, y: 0, t: 100, c: false },
+      { m: 'fr', x: 1, y: 2, t: 12, c: true },
+      { m: 'e', s: 10, h: 80, p: [1, 1] },
+    ]);
+  });
+
   it('輸出檔名：原檔名＋_去背／_遮罩／_比較', () => {
     expect(outputName('角色A.png', 'cutout', 'png')).toBe('角色A_去背.png');
     expect(outputName('角色A.jpg', 'mask', 'webp')).toBe('角色A_遮罩.webp');
@@ -246,12 +271,35 @@ describe('bg-remover：純色、邊緣與筆刷', () => {
 
   it('存起來的筆刷（擦掉、補回）依序重播', () => {
     const m = new Uint8Array(144).fill(255) as Mask;
-    applyStrokes(m, 12, 12, [
+    applyStrokes(m, src, [
       { m: 'e', s: 8, h: 100, p: [6, 6] },
       { m: 'r', s: 4, h: 100, p: [6, 6] },
     ]);
     expect(m[3 * 12 + 6]).toBe(0);
     expect(m[5 * 12 + 5]).toBe(255);
     expect(m[0]).toBe(255);
+  });
+
+  it('同色擦掉／補回（F61）依當下的遮罩重播，和筆刷照順序', () => {
+    const zeros = (m: Uint8Array) => m.reduce((a, v) => a + (v === 0 ? 1 : 0), 0);
+    const m = new Uint8Array(144).fill(255) as Mask;
+    /* 點紅色中心：只擦掉相連的紅（4 × 4），粉紅與白不動 */
+    applyStrokes(m, src, [{ m: 'fe', x: 5, y: 5, t: 5, c: true }]);
+    expect(zeros(m)).toBe(16);
+    expect(m[5 * 12 + 5]).toBe(0);
+    expect(m[3 * 12 + 3]).toBe(255);
+    /* 筆刷整張擦掉，再點白底同色補回：只補回被去掉的白（粉紅、紅還是去掉的） */
+    applyStrokes(m, src, [
+      { m: 'e', s: 30, h: 100, p: [6, 6] },
+      { m: 'fr', x: 0, y: 0, t: 5, c: true },
+    ]);
+    expect(zeros(m)).toBe(36);
+    expect(m[0]).toBe(255);
+    expect(m[3 * 12 + 3]).toBe(0);
+    expect(m[5 * 12 + 5]).toBe(0);
+    /* 點到的地方不符合條件（同色補回點看得到的白）：不動 */
+    const before = Uint8Array.from(m);
+    applyStrokes(m, src, [{ m: 'fr', x: 0, y: 0, t: 5, c: true }]);
+    expect(m).toEqual(before);
   });
 });

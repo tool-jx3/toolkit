@@ -21,7 +21,9 @@ import type { ExportBatchOutput, ExportContext, ExportOutput } from '@/ui';
 import { MODEL_INPUT, MODEL_OUTPUT, MODEL_SIZE } from './animeSeg';
 import {
   effectiveBackground,
+  type FillStroke,
   type ImageItem,
+  isFillTool,
   modelSpec,
   type OutFormat,
   outputName,
@@ -30,7 +32,7 @@ import {
   type StoredStroke,
 } from './model';
 import { type KeyParams, MIME, type SourceImage } from './pipeline';
-import { createPixelClient, NeedsAiError } from './pixels';
+import { createPixelClient, type FillPreview, NeedsAiError } from './pixels';
 import {
   assets,
   currentItem,
@@ -156,6 +158,8 @@ const empty = (): Buffers => ({
 });
 
 export const buf: Buffers = empty();
+/** buf.final 每次換掉或畫上筆刷就加一（同色範圍預覽用：Worker 手上的遮罩是不是最新的） */
+let maskVersion = 0;
 
 export function keyParamsOf(s: Settings): KeyParams {
   const c = s.keyAuto ? null : parseColor(s.keyColor);
@@ -169,6 +173,15 @@ export function keyParamsOf(s: Settings): KeyParams {
 
 const hexOf = (c: readonly number[]) =>
   `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+
+/** next 是不是 applied 後面再加幾筆（是的話回傳加的那幾筆；只要從目前的遮罩接著畫） */
+const appendedTo = (
+  next: readonly StoredStroke[],
+  applied: readonly StoredStroke[] | null,
+): readonly StoredStroke[] | null =>
+  applied && next.length > applied.length && applied.every((s, i) => next[i] === s)
+    ? next.slice(applied.length)
+    : null;
 
 const sameStrokesPlusPending = (
   next: readonly StoredStroke[],
@@ -312,14 +325,19 @@ async function syncOnce(): Promise<void> {
   const strokes = latest?.id === item.id ? latest.strokes : item.strokes;
   if (buf.applied !== strokes) {
     if (!sameStrokesPlusPending(strokes, buf.applied, buf.pending) || !buf.final) {
-      const final = new Uint8Array(buf.refined!) as Mask;
-      if (strokes.length) {
-        /* 筆刷重播（大圖、很多筆時要一陣子）在 Worker 裡做 */
+      /* 只是後面多了幾筆（例如同色擦掉／補回）：從目前的遮罩接著畫；否則從邊緣調整後的遮罩全部重播 */
+      const added = buf.final ? appendedTo(strokes, buf.applied) : null;
+      const todo = added ?? strokes;
+      const mask = new Uint8Array(added ? buf.final! : buf.refined!) as Mask;
+      const blob = todo.length ? await assets.get(item.asset) : undefined;
+      if (blob) {
+        /* 重播（大圖、很多筆時要一陣子）在 Worker 裡做；同色擦掉／補回要用原圖的顏色 */
         useWork.setState({ phase: 'processing' });
-        buf.final = await pixels.finalMask(final, src.width, src.height, strokes);
+        buf.final = await pixels.finalMask(item.asset, blob, mask, todo);
       } else {
-        buf.final = final;
+        buf.final = mask;
       }
+      maskVersion++;
     }
     buf.applied = strokes;
     buf.pending = null;
@@ -388,7 +406,13 @@ let live: { item: string; points: number[]; mode: 'e' | 'r'; size: number; hard:
 /** 開始一筆（回傳 false＝目前不能畫） */
 export function strokeStart(x: number, y: number): ReturnType<StrokePainter['add']> | false {
   const p = previewNow();
-  if (p.tool === 'move' || !buf.final || !buf.src || useWork.getState().phase !== 'ready')
+  if (
+    p.tool === 'move' ||
+    isFillTool(p.tool) ||
+    !buf.final ||
+    !buf.src ||
+    useWork.getState().phase !== 'ready'
+  )
     return false;
   const mode = p.tool === 'erase' ? 'e' : 'r';
   painter = new StrokePainter(
@@ -422,6 +446,7 @@ export function strokeMove(x: number, y: number): ReturnType<StrokePainter['add'
     if (dx * dx + dy * dy < Math.max(1, live.size / 8) ** 2) return null;
   }
   live.points.push(px, py);
+  maskVersion++;
   return painter.add(px, py);
 }
 
@@ -450,6 +475,94 @@ export function clearStrokes(): void {
     const it = d.images.find((x) => x.id === item.id);
     if (it) it.strokes = [];
   });
+}
+
+/* ---------- 同色擦掉／補回（規格 F61） ---------- */
+
+/** 點 (x, y)（圖片座標）時存起來的那一步：目前的工具（同色擦掉／補回）、容許度、只選相連的 */
+function fillStrokeAt(x: number, y: number): FillStroke | null {
+  const p = previewNow();
+  if (!isFillTool(p.tool) || !buf.src) return null;
+  const { width, height } = buf.src;
+  if (x < 0 || y < 0 || x >= width || y >= height) return null;
+  return {
+    m: p.tool === 'fill-erase' ? 'fe' : 'fr',
+    x: Math.floor(x),
+    y: Math.floor(y),
+    t: p.fillTolerance,
+    c: p.fillContiguous,
+  };
+}
+
+/** Worker 手上的遮罩是哪一版（不同時要附上目前的遮罩） */
+let workerMaskVersion = -1;
+let fillSeq = 0;
+
+async function fillRegionAt(
+  fill: FillStroke,
+  tint: readonly [number, number, number],
+  stripe?: number,
+): Promise<FillPreview | null> {
+  const item = currentItem();
+  const final = buf.final;
+  if (!item || !final || buf.itemId !== item.id || useWork.getState().phase !== 'ready')
+    return null;
+  const blob = await assets.get(item.asset);
+  if (!blob) return null;
+  const version = maskVersion;
+  const send = (withMask: boolean) =>
+    pixels.fillPreview(
+      item.asset,
+      blob,
+      version,
+      withMask ? (new Uint8Array(final) as Mask) : null,
+      fill,
+      tint,
+      stripe,
+    );
+  /* Worker 已經有這一版就不必再傳整張遮罩；它沒有（例如 Worker 重開）時回傳 null，再附上遮罩 */
+  let r = workerMaskVersion === version ? await send(false) : null;
+  if (!r) {
+    workerMaskVersion = version;
+    r = await send(true);
+  }
+  return r;
+}
+
+/**
+ * 游標（或按住的手指）在 (x, y) 時會擦掉／補回的範圍；不是同色工具、還沒準備好時 null。
+ * 有更新的請求時，舊的那次回傳 null（不用畫）。tint：預覽斜紋的顏色；stripe：一條紋的寬（圖片像素）。
+ */
+export async function fillPreviewAt(
+  x: number,
+  y: number,
+  tint: readonly [number, number, number],
+  stripe?: number,
+): Promise<FillPreview | null> {
+  const seq = ++fillSeq;
+  const fill = fillStrokeAt(x, y);
+  if (!fill) return null;
+  const r = await fillRegionAt(fill, tint, stripe);
+  return seq === fillSeq ? r : null;
+}
+
+/** 在 (x, y) 同色擦掉／補回（算一步復原）；範圍是空的時不做事，回傳 false */
+export async function fillAt(x: number, y: number): Promise<boolean> {
+  fillSeq++;
+  const fill = fillStrokeAt(x, y);
+  const itemId = buf.itemId;
+  if (!fill || !itemId) return false;
+  const r = await fillRegionAt(fill, [0, 0, 0]);
+  if (!r?.count || buf.itemId !== itemId) return false;
+  step((d) => {
+    d.images.find((it) => it.id === itemId)?.strokes.push(fill);
+  });
+  return true;
+}
+
+/** 取消範圍預覽（之前送出的請求回來時不用畫） */
+export function cancelFillPreview(): void {
+  fillSeq++;
 }
 
 /* ---------- AI 去背 ---------- */

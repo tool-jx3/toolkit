@@ -33,16 +33,36 @@ export type OutContent = 'cutout' | 'mask' | 'compare';
 export type OutBackground = 'transparent' | 'white' | 'color';
 export type OutFormat = 'png' | 'webp' | 'jpg';
 export type OutScope = 'current' | 'all';
-export type BrushTool = 'move' | 'erase' | 'restore';
+export type BrushTool = 'move' | 'erase' | 'restore' | 'fill-erase' | 'fill-restore';
+/** 點一下選同色範圍的工具（同色擦掉、同色補回） */
+export const isFillTool = (t: BrushTool): t is 'fill-erase' | 'fill-restore' =>
+  t === 'fill-erase' || t === 'fill-restore';
 export type ViewMode = 'result' | 'original' | 'mask';
 
-/** 存起來的一筆（欄位名稱縮短，存檔小一點）：m 擦掉／補回、s 直徑、h 硬度、p 點（小數一位） */
-export interface StoredStroke {
+/** 存起來的一筆筆刷（欄位名稱縮短，存檔小一點）：m 擦掉／補回、s 直徑、h 硬度、p 點（小數一位） */
+export interface PaintStroke {
   m: 'e' | 'r';
   s: number;
   h: number;
   p: number[];
 }
+
+/**
+ * 同色擦掉／補回的一次（規格 F61）：m 'fe' 同色擦掉、'fr' 同色補回；x、y 點的位置（像素，整數）；
+ * t 容許度（0～100）；c 只選相連的。重播時依當下的遮罩重新算範圍（core/image 的 colorRegion）。
+ */
+export interface FillStroke {
+  m: 'fe' | 'fr';
+  x: number;
+  y: number;
+  t: number;
+  c: boolean;
+}
+
+/** 修邊的一步（依序重播） */
+export type StoredStroke = PaintStroke | FillStroke;
+
+export const isFillStroke = (s: StoredStroke): s is FillStroke => s.m === 'fe' || s.m === 'fr';
 
 export interface ImageItem {
   /** 清單裡的 id（同一張圖放兩次是兩個項目） */
@@ -96,6 +116,7 @@ export const RANGE = {
   trimPad: { min: 0, max: 200, step: 1, default: 0 },
   brushSize: { min: 1, max: 500, step: 1, default: 40 },
   brushHardness: { min: 0, max: 100, step: 1, default: 80 },
+  fillTolerance: { min: 0, max: 100, step: 1, default: 12 },
 } as const;
 
 export function defaultSettings(): Settings {
@@ -129,7 +150,23 @@ const hex = (v: unknown, fallback: string) =>
   typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : fallback;
 
 function normalizeStroke(raw: unknown): StoredStroke | null {
-  const s = raw as Partial<StoredStroke> | null;
+  const f = raw as Partial<FillStroke> | null;
+  if (f && typeof f === 'object' && (f.m === 'fe' || f.m === 'fr')) {
+    if (!Number.isFinite(f.x) || !Number.isFinite(f.y)) return null;
+    return {
+      m: f.m,
+      x: Math.max(0, Math.round(f.x as number)),
+      y: Math.max(0, Math.round(f.y as number)),
+      t: clampNum(
+        f.t,
+        RANGE.fillTolerance.min,
+        RANGE.fillTolerance.max,
+        RANGE.fillTolerance.default,
+      ),
+      c: f.c !== false,
+    };
+  }
+  const s = raw as Partial<PaintStroke> | null;
   if (!s || typeof s !== 'object' || !Array.isArray(s.p)) return null;
   const p = s.p.filter((v) => typeof v === 'number' && Number.isFinite(v));
   if (p.length < 2) return null;

@@ -6,6 +6,7 @@ import { canUseWorker, type WorkerHandle, wrapWorker } from '@/core/worker';
 import { createPixelApi, type PixelApi } from './pixelApi';
 
 export {
+  type FillPreview,
   type InspectResult,
   NeedsAiError,
   type PreviewImage,
@@ -76,6 +77,7 @@ export function createPixelClient(): Promisified<PixelApi> & {
     refine: call('refine'),
     despill: call('despill'),
     finalMask: call('finalMask'),
+    fillPreview: call('fillPreview'),
     preview: call('preview'),
     render: call('render'),
     cancelRender: call('cancelRender'),

@@ -93,8 +93,29 @@ export const S = {
   /* 筆刷 */
   sectionBrush: '筆刷修邊',
   tool: '工具',
-  tools: { move: '移動畫面', erase: '擦掉', restore: '補回' } satisfies Record<BrushTool, string>,
+  tools: {
+    move: '移動畫面',
+    erase: '擦掉',
+    restore: '補回',
+    'fill-erase': '同色擦掉',
+    'fill-restore': '同色補回',
+  } satisfies Record<BrushTool, string>,
   toolHint: '在預覽上塗：擦掉＝變透明，補回＝回到原圖。每一筆都可以復原。',
+  /* 同色擦掉／補回（規格 F61） */
+  fillHint: {
+    'fill-erase':
+      '點一下，把和那裡同色、還看得到的地方擦掉；滑鼠停著時紅色的是會被擦掉的範圍。手機上按住看範圍、放開才擦掉，拖到預覽外再放開就取消。',
+    'fill-restore':
+      '點一下，把和那裡同色、被去掉的地方補回；滑鼠停著時綠色的是會被補回的範圍。手機上按住看範圍、放開才補回，拖到預覽外再放開就取消。',
+  },
+  fillTolerance: '容許度',
+  fillToleranceHint: '越大，差越多的顏色也一起選。',
+  fillContiguous: '只選相連的',
+  fillContiguousHint: '關掉時，整張圖同色的地方都會選到。',
+  fillCount: (tool: 'fill-erase' | 'fill-restore', n: number) =>
+    `${tool === 'fill-erase' ? '會擦掉' : '會補回'} ${n.toLocaleString('zh-TW')} 個像素`,
+  fillNone: (tool: 'fill-erase' | 'fill-restore') =>
+    tool === 'fill-erase' ? '這裡沒有可以擦掉的' : '這裡沒有可以補回的',
   brushSize: '筆刷大小',
   brushHardness: '硬度',
   brushHardnessHint: '越低邊緣越柔。',
@@ -208,6 +229,8 @@ export const S = {
     edit: '編輯',
     erase: '擦掉',
     restore: '補回',
+    fillErase: '同色擦掉',
+    fillRestore: '同色補回',
     move: '移動畫面',
     smaller: '筆刷變小',
     bigger: '筆刷變大',
