@@ -280,3 +280,13 @@ e2e 另設 `BG_REMOVER_OUT` 可以把匯出的遮罩與白底圖寫出來（`tes
 
 | 編號 | 結果 | 方法與證據（截圖／腳本路徑） | 備註 |
 |---|---|---|---|
+
+## 7. 主控裁定（審查者，2026-10-07）
+
+- **評估（PROCESS.md 第 6 節第 1 步）**：收錄。原作（靈感來源）是 SkyTNT/anime-segmentation（Apache-2.0，`UPSTREAM_LICENSE`）；模型 `isnetis.onnx` 同樣是 Apache-2.0，**不進 repo**，使用者第一次用 AI 去背時從 Hugging Face 的固定 revision 下載並驗證 SHA-256（使用者已決定）。不能用的方案：`@imgly/background-removal`（AGPL）、BRIA RMBG（不可商用）。
+- **第 5 節 D1～D12**：全部照建議做法，驗證時以建議做法為預期。
+- **D1**：告知文字加一句「建議在 Wi-Fi 下下載」。Hugging Face 的轉址與 CORS 在這個環境測不到，上線後要實際下載一次確認（記在已知狀況）。
+- **D3**：用單一的 26.8 MB wasm（WebGPU 與 CPU 共用），只在這個工具第一次跑 AI 去背時載入；不另外放 CPU 專用版。
+- **D4**：推論尺寸固定 1024（官方 ONNX 檔的形狀寫死），介面顯示但不能改。
+- **D11**：主控已處理——建置外掛支援「套件沒附授權檔時的補充全文」（`web/build/licenses/<套件名>.txt`），onnxruntime-web 的 MIT 全文與上游 ThirdPartyNotices 的連結已進 `assets/build/THIRD_PARTY_NOTICES.md`。
+- **對等驗證的方法**：AI 去背以 Python 參考（`get_mask()`＋同一個 ONNX 檔，onnxruntime＋OpenCV）為準，比對前處理張量、後處理遮罩、完整遮罩（8 位元一致的比例、最大差）；原作 `app.py` 的白底、只輸出去背圖、比較圖照 D6～D8 的預期。本站新增的部分（純色去背、筆刷、批次、匯出、模型快取）照規格驗新版本身。
