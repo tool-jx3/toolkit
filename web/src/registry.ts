@@ -556,6 +556,30 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
     },
   },
+  {
+    id: 'grid-maker',
+    name: '網格產生器',
+    summary:
+      '產生透明背景的方格或六角格 PNG：設定格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸。',
+    group: 'G10',
+    status: 'next',
+    inspiration: {
+      name: 'ihoukentiku/ihoukentiku.github.io',
+      url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
+    },
+  },
+  {
+    id: 'range-ruler',
+    name: '距離量尺產生器',
+    summary:
+      '以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG；點格子就能個別改文字與顏色。',
+    group: 'G10',
+    status: 'next',
+    inspiration: {
+      name: 'ihoukentiku/ihoukentiku.github.io',
+      url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
