@@ -3,24 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>開發用工具清單｜TRPG Toolkit</title>
+    <meta
+      name="description"
+      content="跑團用的網頁小工具合輯：文字演出、轉場動畫、立繪處理、OBS 疊加、CCFOLIA 資料、劇本與紀錄、宣傳圖、地圖。全部在瀏覽器裡執行，繁體中文介面。"
+    />
+    <title>TRPG Toolkit｜跑團用的網頁小工具</title>
   </head>
   <body>
-    <!-- 只在 npm run dev 時使用（不在建置輸入裡）：列出 registry 的所有工具 -->
-    <main style="max-width: 40rem; margin: 2rem auto; padding: 0 1rem">
-      <h1>TRPG Toolkit 開發伺服器</h1>
-      <ul id="tools"></ul>
-    </main>
-    <script type="module">
-      import '@/ui/styles.css';
-      import { TOOLS } from '@/registry';
-
-      const ul = document.getElementById('tools');
-      for (const t of TOOLS) {
-        const li = document.createElement('li');
-        li.innerHTML = `<a href="./tools/${t.id}/">${t.name}</a>（${t.status === 'live' ? '已上線' : '重寫中'}）：${t.summary}`;
-        ul.appendChild(li);
-      }
-    </script>
+    <!-- 首頁：建置後輸出到 repo 根目錄的 index.html -->
+    <div id="root"></div>
+    <script type="module" src="./home/main.tsx"></script>
   </body>
 </html>

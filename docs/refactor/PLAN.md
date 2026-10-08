@@ -96,6 +96,7 @@ web/                        新框架（Vite 專案，有自己的 package.json�
   src/ccfolia/              CCFOLIA 與 OBS 相關的資料格式與選擇器（CCFOLIA 改版只改這裡）
   src/tools/<id>/           各工具：頁面、範本、文字（strings.ts）
   src/tools/<id>/index.html 每個工具一頁（多頁輸出）
+  src/index.html、src/home/ 首頁（建置到 repo 根目錄的 index.html；卡片從 registry 產生）
   tests/                    Vitest 單元測試、Playwright 端對端與視覺回歸
 docs/refactor/              本計畫、流程、設計、各工具規格
 tools/<id>/                 對外網址。舊版工具在重寫上線前留在這裡；上線時換成新框架的建置產物
@@ -127,7 +128,7 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 - GitHub Pages 維持「從 main 分支根目錄發佈」，與現在相同。
 - `web/` 建置成多頁輸出：上線的工具寫到 `tools/<id>/`，重寫中的寫到 `next/<id>/`，共用的程式與樣式寫到
   `assets/build/`。建置產物提交進 repo（和現在的 cutin、character-editor 一樣）。
-- 工具清單與上線狀態集中在 `web/src/registry.ts`，建置設定與首頁卡片都從這裡讀。
+- 工具清單與上線狀態集中在 `web/src/registry.ts`，建置設定與首頁卡片都從這裡讀。首頁也由 `web/` 建置，寫到 repo 根目錄的 `index.html`。
 
 ## 5. 遷移階段
 
@@ -137,6 +138,9 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | P1 試點 | battlemap、textbox、apng-wipe、portrait-size（小工具，涵蓋畫布、文字、APNG、批次圖片）；text-fx 移入新框架 | 五個工具對等驗證通過並上線；元件與流程依試點經驗修正 |
 | P2～P9 | 依群組 G4 → G3 → G1 → G2 → G5 → G6 → G8 → G7 → G9 逐組重寫 | 每個工具對等驗證通過才上線 |
 | P10 收尾 | 首頁移入新框架（只有繁中）、移除 `assets/i18n.js` 與所有字典、`vendor/`、舊測試；ATTRIBUTION 改成「靈感來源」清單 | 全站只剩新框架的程式；所有測試通過 |
+
+P10 進度：✅ 首頁移入新框架（`web/src/index.html`＋`web/src/home/`；舊的 `assets/home.*`、`assets/i18n.home.js` 已刪除）；
+⬜ `assets/i18n.js` 與其餘字典、舊測試（等 G9 的舊版 trpg-lab、anime-rig 換掉後一起刪）；⬜ ATTRIBUTION 改成「靈感來源」清單。
 
 每個工具上線時：舊版的檔案、字典、vendor 原始碼一併刪除；舊版所在的 `main` commit 記在 ATTRIBUTION，日後要再對照時可以取回。
 

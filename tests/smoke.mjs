@@ -429,50 +429,22 @@ for (const page of LAB_PAGES) {
 check('trpg-lab 的介面字型在繁中時改用 Noto Sans TC',
   read(`${LAB}/common.css`).includes(":root:lang(zh) {\n    --font-main: 'Noto Sans TC', 'Noto Sans JP', sans-serif;"));
 
-/* ---- 首頁 ---- */
+/* ---- 首頁（web/ 新框架建置產物）---- */
+/* 首頁由 web/src/index.html 建置到 repo 根目錄的 index.html，卡片從 web/src/registry.ts 產生
+ * （內容與連結由 web/tests/e2e/home.spec.ts 檢查）。這裡只確認建置產物與舊版檔案已移除。 */
 section('index.html');
-const home = loadI18N(['assets/i18n.home.js']);
-const homeZh = new Set(Object.keys(home.messages['zh-TW']));
-const homeKo = new Set(Object.keys(home.messages.ko));
-check('首頁字典定義了 app.title', homeZh.has('app.title'));
-check('首頁 ko 涵蓋所有 zh-TW key',
-  [...homeZh].every(k => homeKo.has(k)),
-  `missing: ${[...homeZh].filter(k => !homeKo.has(k)).join(', ')}`);
-
 const homeHtml = read('index.html');
-const homeKeys = [...homeHtml.matchAll(/data-i18n(?:-html|-node|-title|-aria-label|-placeholder|-alt)?="([^"]+)"/g)].map(m => m[1]);
-check('首頁標記僅引用已知 key',
-  [...new Set(homeKeys)].every(k => homeZh.has(k)),
-  `unknown: ${[...new Set(homeKeys)].filter(k => !homeZh.has(k)).join(', ')}`);
-check('首頁無殘留韓文', !/[가-힣]/.test(homeHtml));
-check('首頁 html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(homeHtml));
+check('首頁是建置產物：載入 assets/build/ 的共用程式', /src="\.\/assets\/build\/[^"]+\.js"/.test(homeHtml));
+check('首頁只有繁中（沒有 i18n 引擎）', /<html lang="zh-Hant-TW">/.test(homeHtml) && !homeHtml.includes('assets/i18n.js'));
+check('首頁沒有 noindex', !/name="robots"/.test(homeHtml));
+check('舊版首頁的程式、樣式與字典已移除',
+  !exists('assets/home.js') && !exists('assets/home.css') && !exists('assets/i18n.home.js'));
+/* 首頁列出的舊版工具（還沒重寫完）連結要指得到。 */
+const homeEntriesSrc = read('web/src/home/entries.ts');
+const LEGACY_LINKS = [...homeEntriesSrc.split('export const EXTERNAL')[0].matchAll(/href: '\.\/tools\/([^/]+)\/'/g)].map(m => m[1]);
+check('首頁的舊版工具清單解析得到', LEGACY_LINKS.length >= 1, LEGACY_LINKS.join(', '));
+for (const name of LEGACY_LINKS) check(`首頁的舊版工具 tools/${name}/ 存在`, exists(`tools/${name}/index.html`));
 
-const homeTitleMatch = homeHtml.match(/<title>([^<]*)<\/title>/);
-check('首頁 <title> 與 app.title 的 zh-TW 值一致',
-  !!homeTitleMatch && homeTitleMatch[1] === home.messages['zh-TW']['app.title'],
-  `<title>="${homeTitleMatch ? homeTitleMatch[1] : '(none)'}" app.title="${home.messages['zh-TW']['app.title']}"`);
-
-/* assets/home.js 與 assets/home.css 不屬於任何工具的 checkTool()，
- * 韓文洩漏檢查需在此另外涵蓋，理由與各工具的 styles 掃描相同。 */
-check('assets/home.js 無殘留韓文', !HANGUL.test(read('assets/home.js')));
-check('assets/home.css 無殘留韓文', !HANGUL.test(read('assets/home.css')));
-
-/* 每個工具的連結都要指得到。 */
-const TOOLS = ['magic-circle', 'typewriter', 'text-path', 'collage-letter', 'emotion-maker',
-  'loading-maker', 'foreground-frame', 'scene-transition', 'status-bar', 'cutin',
-  'ccfolia-cropper', 'character-select', 'character-editor', 'chat-window', 'portrait-size',
-  'height-board', 'bg-remover', 'room-zip', 'pair-maker',
-  'color-palette', 'acrylic-goods', 'video-anim', 'gif-combiner', 'music-frame', 'trpg-lab', 'jizura', 'anime-rig', 'coc-typesetter', 'apng-wipe', 'message-box',
-  'scenario-editor', 'obs-tachie', 'bg-motion', 'icon-maker', 'session-log', 'session-report', 'variant-manager', 'scenario-cards',
-  'psd-studio', 'textbox', 'battlemap', 'log-converter', 'text-fx'];
-for (const name of TOOLS) {
-  check(`連結 tools/${name}/ 有效`,
-    homeHtml.includes(`tools/${name}/`) && exists(`tools/${name}/index.html`));
-}
-
-/* 每張卡片的授權徽章都要跟該工具目錄裡有沒有 LICENSE 對得上。徽章是手寫的，
- * 新增工具時很容易沿用上一張卡片而標錯（把未授權的標成 MIT 就是誤導）。
- * （emotion-maker 已由本站重寫；license.unlicensed.assets 這種徽章目前沒有工具用。） */
 /* ---- 重寫上線的工具（web/ 新框架）---- */
 /* 依 docs/refactor 的流程重寫、對等驗證後上線的工具：tools/<id>/ 只剩建置產物 index.html，
  * 程式在 web/src/tools/<id>/，共用的 JS／CSS 在 assets/build/。清單從 web/src/registry.ts 讀。 */
@@ -480,12 +452,9 @@ section('重寫上線的工具');
 const registrySrc = read('web/src/registry.ts');
 const registryEntries = registrySrc.split(/\n  \{\n/).slice(1).map(block => ({
   id: (block.match(/id: '([^']+)'/) || [])[1],
-  live: /status: 'live'/.test(block),
-  original: !/inspiration:/.test(block)
+  live: /status: 'live'/.test(block)
 }));
 const REWRITTEN = registryEntries.filter(e => e.live).map(e => e.id);
-/* 本站原創（沒有靈感來源）的工具，徽章標「本站原創」。 */
-const ORIGINAL = registryEntries.filter(e => e.live && e.original).map(e => e.id);
 check('registry 解析出已上線的工具', REWRITTEN.length >= 1, REWRITTEN.join(', '));
 for (const id of REWRITTEN) {
   const files = listFiles(`tools/${id}`);
@@ -502,36 +471,6 @@ for (const id of REWRITTEN) {
 check('THIRD_PARTY_NOTICES 由建置產生', exists('assets/build/THIRD_PARTY_NOTICES.md'));
 check('LICENSE 的涵蓋範圍寫進了 web/ 與無塵室開發的 text-fx', read('LICENSE').includes('`web/` framework') && read('LICENSE').includes('tools/text-fx/'));
 
-const TOOLS_EXTERNAL = ['jizura'];
-check('首頁的 JIZURA 卡片標示連到原站', /href="\.\/tools\/jizura\/"[\s\S]{0,1600}?data-i18n="license\.external"/.test(homeHtml));
-check('首頁字典有七種授權徽章',
-  ['license.mit', 'license.cc0', 'license.custom', 'license.unlicensed', 'license.unlicensed.assets', 'license.rewritten', 'license.original'].every(k => homeZh.has(k)));
-const homeCards = [...homeHtml.matchAll(/<li class="tool-card">([\s\S]*?)<\/li>/g)].map(m => m[1]);
-check('首頁卡片數與工具數一致', homeCards.length === TOOLS.length,
-  `cards: ${homeCards.length}, tools: ${TOOLS.length}`);
-for (const card of homeCards) {
-  const name = (card.match(/href="\.\/tools\/([^/]+)\//) || [])[1];
-  const badge = (card.match(/class="badge(?: [^"]*)?" data-i18n="([^"]+)"/) || [])[1];
-  /* 不再收錄副本、改連到原作者網站的工具，徽章標「連到原站」。 */
-  /* 沒有 LICENSE、但作者在頁面上寫了自己的條款（例如允許免費再散布修改版）的工具，
-   * 條款原文與翻譯收在 TERMS.md，徽章標「作者條款」。 */
-  const expected = TOOLS_EXTERNAL.includes(name) ? ['license.external']
-    : ORIGINAL.includes(name) ? ['license.original']
-    : REWRITTEN.includes(name) ? ['license.rewritten']
-    : exists(`tools/${name}/TERMS.md`) ? ['license.custom']
-    : exists(`tools/${name}/LICENSE`)
-    ? [/CC0 1\.0 Universal/.test(read(`tools/${name}/LICENSE`)) ? 'license.cc0' : 'license.mit']
-    : ['license.unlicensed', 'license.unlicensed.assets'];
-  check(`首頁 ${name} 的授權徽章與目錄裡的 LICENSE 相符`,
-    !!name && expected.includes(badge), `badge: ${badge}`);
-}
-check('首頁標示原作者出處',
-  ['sotsotssi', 'shiki365', 'Taku-Taku-Taku', 'kimtaehee2018-maker', 'organon-torah',
-    'woolwag3338', 'johnko00', 'baegop157902', 'ihoukentiku', '852wa', 'max-enterme', 'sedn14636361', 'kumachansteps', 'fyam-hamu', 'usagineko7865-debug', 'Eon-00', 'zznaptime', 'SkyTNT']
-    .every(a => homeHtml.includes(`github.com/${a}`)));
-/* coc-typesetter 的作者不明，至少要標出取得的網址。 */
-check('首頁標示 coc-typesetter 的來源網址', homeHtml.includes('https://scenario-tool-jade.vercel.app/coc-typesetter.html'));
-check('首頁說明作者不明的工具', homeHtml.includes('（CoC 劇本排版工具的作者不明）'));
 
 /* ---- 內嵌文字與 zh-TW 字典一致 ---- */
 /* 六個頁面（五個工具＋首頁）在 script 執行前顯示的畫面，其 HTML 內嵌文字必須
@@ -586,7 +525,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
   check(`${label} 比對數量達最低門檻 ${minCompared}`, compared >= minCompared, `got: ${compared}`);
 }
 
-checkInlineText('index.html', 'index.html', ['assets/i18n.home.js'], 15);
 checkInlineText('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 110);
 for (const page of LAB_PAGES) {
   checkInlineText(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.inline);
@@ -652,7 +590,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
   check(`${label} 屬性比對數量達最低門檻 ${minPairs}`, compared >= minPairs, `got: ${compared}`);
 }
 
-checkAttrPairs('index.html', 'index.html', ['assets/i18n.home.js'], 1);
 checkAttrPairs('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 24);
 for (const page of LAB_PAGES) {
   checkAttrPairs(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.attrs);
@@ -666,7 +603,8 @@ check('根目錄 LICENSE 存在', exists('LICENSE'));
 check('.nojekyll 存在', exists('.nojekyll'));
 
 const attribution = read('ATTRIBUTION.md');
-for (const name of TOOLS) {
+/* 已上線的工具在「重寫上線的工具」一節檢查；這裡檢查還沒重寫完的舊版工具與連到原站的工具。 */
+for (const name of [...LEGACY_LINKS, 'jizura']) {
   check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
 }
 for (const sha of ['d39f79e', '1b48bea', '7ddbd99']) {

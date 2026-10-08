@@ -44,10 +44,16 @@ export default defineConfig({
     sourcemap: false,
     chunkSizeWarningLimit: 900,
     rolldownOptions: {
-      /* 每個工具一頁：web/src/tools/<id>/index.html → dist/tools/<id>/index.html */
-      input: Object.fromEntries(
-        TOOLS.map((t) => [t.id, path.join(srcDir, 'tools', t.id, 'index.html')]),
-      ),
+      /*
+       * 首頁：web/src/index.html → dist/index.html（發布到 repo 根目錄的 index.html）；
+       * 每個工具一頁：web/src/tools/<id>/index.html → dist/tools/<id>/index.html
+       */
+      input: {
+        index: path.join(srcDir, 'index.html'),
+        ...Object.fromEntries(
+          TOOLS.map((t) => [t.id, path.join(srcDir, 'tools', t.id, 'index.html')]),
+        ),
+      },
     },
   },
 });

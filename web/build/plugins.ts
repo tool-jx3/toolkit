@@ -3,7 +3,7 @@
  *
  * - toolkitHtml：每個工具頁共用的 <head>（字型、配色、主題初始化）。
  * - collectNotices：記下實際打包進去的 npm 套件，用來產生 THIRD_PARTY_NOTICES.md。
- * - publishToRepo：把 web/dist 的產物搬到 repo 根目錄（next/<id>/、tools/<id>/、assets/build/）。
+ * - publishToRepo：把 web/dist 的產物搬到 repo 根目錄（index.html、next/<id>/、tools/<id>/、assets/build/）。
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
@@ -19,15 +19,18 @@ const FONT_CSS =
 const THEME_INIT =
   "try{var t=localStorage.getItem('trpg-toolkit:theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}";
 
+/** 首頁（web/src/index.html）在 Vite 裡的路徑 */
+const HOME_PAGE = '/index.html';
+
 export function toolkitHtml(): Plugin {
   return {
     name: 'toolkit-html',
     transformIndexHtml: {
       order: 'pre',
       handler(_html, ctx) {
-        /* 重寫中（next）的頁面不讓搜尋引擎收錄；上線（live）後拿掉。 */
+        /* 重寫中（next）的頁面不讓搜尋引擎收錄；上線（live）後拿掉。首頁一律收錄。 */
         const id = /\/tools\/([^/]+)\/index\.html$/.exec(ctx.path)?.[1];
-        const live = id ? getTool(id)?.status === 'live' : false;
+        const live = ctx.path === HOME_PAGE || (id ? getTool(id)?.status === 'live' : false);
         return [
           ...(live
             ? []
@@ -197,7 +200,8 @@ function assertInside(root: string, target: string) {
  * 建置成功後：
  * 1. 清空 repo 的 `assets/build/` 與 `next/`（只動這兩個資料夾）；
  * 2. 複製共用程式到 `assets/build/`；
- * 3. 依 registry 把每個工具頁複製到 `next/<id>/` 或 `tools/<id>/`（live 工具只覆寫建置產物，不刪資料夾內其他檔案）。
+ * 3. 依 registry 把每個工具頁複製到 `next/<id>/` 或 `tools/<id>/`（live 工具只覆寫建置產物，不刪資料夾內其他檔案）；
+ * 4. 首頁複製到 repo 根目錄的 `index.html`。
  *
  * 清空放在「確定這次建置成功」之後才做，建置失敗時不會留下半套產物。
  */
@@ -212,8 +216,11 @@ export function publishToRepo(opts: PublishOptions): Plugin {
     async closeBundle() {
       if (failed) return;
       const { repoRoot, distDir, assetsDir, tools } = opts;
-      for (const tool of tools) {
-        const html = path.join(distDir, 'tools', tool.id, 'index.html');
+      const home = path.join(distDir, 'index.html');
+      for (const html of [
+        home,
+        ...tools.map((tool) => path.join(distDir, 'tools', tool.id, 'index.html')),
+      ]) {
         if (!existsSync(html)) throw new Error(`找不到建置產物：${html}`);
       }
       const assetsTarget = path.join(repoRoot, assetsDir);
@@ -237,7 +244,8 @@ export function publishToRepo(opts: PublishOptions): Plugin {
         await mkdir(target, { recursive: true });
         await cp(path.join(distDir, 'tools', tool.id), target, { recursive: true });
       }
-      this.info?.(`已輸出 ${tools.length} 個工具頁到 repo 根目錄`);
+      await cp(home, path.join(repoRoot, 'index.html'));
+      this.info?.(`已輸出首頁與 ${tools.length} 個工具頁到 repo 根目錄`);
     },
   };
 }
