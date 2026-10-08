@@ -1,9 +1,11 @@
 /**
  * 格子上的座標文字（網格產生器）：5 種格式、起點四角、從 0 或 1 開始；六角格另有列的算法（壓縮／以半列計）。
- * 規則與數值照舊版（違法建築的 TRPG 實驗室的網格產生器）；只有六角格的流水號依主控裁定改成連續編號（hexSerialNumbers）。
+ * 規則與數值照舊版（違法建築的 TRPG 實驗室的網格產生器），主控裁定的兩處改善除外：六角格的流水號改成依畫面連續編號（hexSerialNumbers，D3），
+ * 直向（尖頂）六角格的欄號、列號與起點改成以畫面為準（hexCoordIndex 的 orientation，D10）。
  */
 import { colParity } from './hex';
 import { type HexSheet, hexSheetCells } from './sheet';
+import type { HexOrientation } from './types';
 
 /** 1-1、1,1、0101（各補零到 2 位）、A1（欄用英文字母）、流水號 */
 export type CoordFormat = 'hyphen' | 'comma' | 'zero' | 'letter' | 'serial';
@@ -118,12 +120,23 @@ export interface HexCoordIndexOptions {
   rows: number;
   origin: CoordOrigin;
   rowMode: HexRowMode;
+  /** 方向（預設平頂）。尖頂時欄號、列號與起點都以畫面為準（主控裁定 D10） */
+  orientation?: HexOrientation;
 }
 
 /**
- * 六角格 (col, row)（半列座標）依起點與列的算法換算出的欄號、列號。舊版的規則：
+ * 六角格 (col, row)（半列座標）換算出的欄號、列號（從 0 起算）。
+ *
+ * 平頂（橫向）照舊版的規則：
+ * - 欄號＝col（起點在右邊時 cols − 1 − col）。
  * - 壓縮：列號＝⌊row ÷ 2⌋；起點在下面時＝⌈rows ÷ 2⌉ − 1 − ⌊row ÷ 2⌋。
  * - 以半列計：列號＝row；起點在下面時以「這一欄同奇偶的最大半列」往回數，奇數欄再加 2。
+ *
+ * 尖頂（直向）以畫面為準（主控裁定 D10，取代舊版把平頂的欄列與起點原樣套上去的做法）：
+ * 平頂座標系的一欄 col 是畫面上水平的一列，半列 row 是畫面上由左到右錯開半格的位置。
+ * - 列號＝col（起點在下面時 cols − 1 − col）。
+ * - 壓縮：欄號＝⌊從起點那一邊數的半列 ÷ 2⌋（從左：row；從右：rows − 1 − row），每一列最靠起點的那一格是 0。
+ * - 以半列計：欄號＝從起點那一邊數的半列（同一列每次加 2）。
  */
 export function hexCoordIndex(
   col: number,
@@ -131,6 +144,13 @@ export function hexCoordIndex(
   o: HexCoordIndexOptions,
 ): { dc: number; dr: number } {
   const { flipCol, flipRow } = originFlips(o.origin);
+  if (o.orientation === 'pointy') {
+    const fromStart = flipCol ? o.rows - 1 - row : row;
+    return {
+      dc: o.rowMode === 'compress' ? Math.floor(fromStart / 2) : fromStart,
+      dr: flipRow ? o.cols - 1 - col : col,
+    };
+  }
   const dc = flipCol ? o.cols - 1 - col : col;
   if (o.rowMode === 'compress') {
     const sr = Math.floor(row / 2);

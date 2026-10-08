@@ -423,6 +423,123 @@ describe('座標文字', () => {
                   }
     expect(sheets).toBe(2 * 2 * 2 * 2 * 4 * 2 * 6 * 7);
   });
+
+  it('直向（主控裁定 D10）：欄號是畫面上的第幾欄、列號是第幾列，起點以畫面為準；橫向不變', () => {
+    /* 3 × 3 直向：平頂座標系的格子 (0,0)、(0,2)、(1,1)、(2,0)、(2,2)；畫面上 col＝第幾列、row＝由左到右的半格 */
+    const sheet = hexSheet({
+      cols: 3,
+      rows: 3,
+      size: 48,
+      orientation: 'pointy',
+      fit: false,
+      shift: false,
+    });
+    const opt = (origin: 'tl' | 'tr' | 'bl' | 'br', rowMode: 'compress' | 'half' = 'compress') => ({
+      cols: sheet.cols,
+      rows: sheet.rows,
+      origin,
+      rowMode,
+      orientation: 'pointy' as const,
+    });
+    expect(hexCoordIndex(0, 0, opt('tl'))).toEqual({ dc: 0, dr: 0 });
+    expect(hexCoordIndex(0, 2, opt('tl'))).toEqual({ dc: 1, dr: 0 });
+    expect(hexCoordIndex(1, 1, opt('tl'))).toEqual({ dc: 0, dr: 1 });
+    /* 右上：畫面右上那一格 (0, 2) 是 0-0 */
+    expect(hexCoordIndex(0, 2, opt('tr'))).toEqual({ dc: 0, dr: 0 });
+    /* 左下：畫面左下那一格 (2, 0) 是 0-0 */
+    expect(hexCoordIndex(2, 0, opt('bl'))).toEqual({ dc: 0, dr: 0 });
+    expect(hexCoordIndex(1, 1, opt('br', 'half'))).toEqual({ dc: 1, dr: 1 });
+    expect(hexCoordIndex(2, 0, opt('br', 'half'))).toEqual({ dc: 2, dr: 0 });
+    expect(hexCoordLabel(0, 2, { ...opt('tl'), format: 'hyphen', start: 1 })).toBe('2-1');
+    expect(hexCoordLabel(2, 2, { ...opt('tl'), format: 'letter', start: 1 })).toBe('B3');
+    /* 橫向（平頂）照舊版 */
+    expect(
+      hexCoordIndex(0, 2, {
+        cols: 3,
+        rows: 3,
+        origin: 'tl',
+        rowMode: 'compress',
+        orientation: 'flat',
+      }),
+    ).toEqual({ dc: 0, dr: 1 });
+    expect(hexCoordIndex(0, 2, { cols: 3, rows: 3, origin: 'tr', rowMode: 'compress' })).toEqual({
+      dc: 2,
+      dr: 1,
+    });
+  });
+
+  it('直向：四個起點 × 錯開 × 網格化 × 列的算法 × 從 0／1，欄、列號和格子中心在畫面上的排序一致、起點角落是起始值', () => {
+    const failures: string[] = [];
+    let sheets = 0;
+    for (const origin of ['tl', 'tr', 'bl', 'br'] as const)
+      for (const shift of [false, true])
+        for (const fit of [false, true])
+          for (const rowMode of ['compress', 'half'] as const)
+            for (const start of [0, 1])
+              for (let cols = 1; cols <= 6; cols++)
+                for (let rows = 1; rows <= 7; rows++) {
+                  const sheet = hexSheet({
+                    cols,
+                    rows,
+                    size: 40,
+                    orientation: 'pointy',
+                    fit,
+                    shift,
+                  });
+                  const fromRight = origin === 'tr' || origin === 'br';
+                  const fromBottom = origin === 'bl' || origin === 'br';
+                  /* sx、sy：畫面座標，越靠起點越小 */
+                  const pts = hexSheetCells(sheet, false).map((c) => {
+                    const i = hexCoordIndex(c.col, c.row, {
+                      cols: sheet.cols,
+                      rows: sheet.rows,
+                      origin,
+                      rowMode,
+                      orientation: 'pointy',
+                    });
+                    const p = hexSheetCenter(sheet, c.col, c.row);
+                    return {
+                      id: `${cols}x${rows} ${origin} shift=${shift} fit=${fit} ${rowMode} (${c.col},${c.row})`,
+                      col: i.dc + start,
+                      row: i.dr + start,
+                      sx: fromRight ? -p.x : p.x,
+                      sy: fromBottom ? -p.y : p.y,
+                    };
+                  });
+                  sheets++;
+                  /* 1 欄 × 1 列又錯開時沒有格子 */
+                  if (!pts.length) continue;
+                  const eps = 1e-6;
+                  for (const a of pts)
+                    for (const b of pts) {
+                      if (a === b) continue;
+                      /* 列：同一個 y 就是同一列；y 越靠起點列號越小 */
+                      const dy = Math.abs(a.sy - b.sy) < eps ? 0 : Math.sign(a.sy - b.sy);
+                      if (Math.sign(a.row - b.row) !== dy) failures.push(`列 ${a.id} ↔ ${b.id}`);
+                      /* 欄：欄號較小的 x 一定較靠起點；x 較靠起點的欄號不會較大 */
+                      if (a.col < b.col && !(a.sx < b.sx - eps))
+                        failures.push(`欄 ${a.id} ↔ ${b.id}`);
+                      if (a.sx < b.sx - eps && a.col > b.col)
+                        failures.push(`欄序 ${a.id} ↔ ${b.id}`);
+                      /* 同一列裡欄號不重複、依 x 排序 */
+                      if (a.row === b.row && Math.sign(a.col - b.col) !== Math.sign(a.sx - b.sx))
+                        failures.push(`同列 ${a.id} ↔ ${b.id}`);
+                    }
+                  /*
+                   * 起點角落那一格：最靠起點的一列裡最靠起點的那一格。
+                   * 只有半格寬（設定的欄數 1）時每隔一列是空的（最靠起點的那一列可能沒有格子），列號照格子的位置算，不檢查角落。
+                   */
+                  if (sheet.rows < 2) continue;
+                  const corner = [...pts].sort((a, b) => a.sy - b.sy || a.sx - b.sx)[0];
+                  if (corner.row !== start) failures.push(`角落列 ${corner.id}`);
+                  if (rowMode === 'compress' ? corner.col !== start : corner.col > start + 1)
+                    failures.push(`角落欄 ${corner.id}`);
+                  if (rowMode === 'compress' && Math.min(...pts.map((p) => p.col)) !== start)
+                    failures.push(`最小欄 ${corner.id}`);
+                }
+    expect(failures.slice(0, 10)).toEqual([]);
+    expect(sheets).toBe(4 * 2 * 2 * 2 * 2 * 6 * 7);
+  });
 });
 
 describe('距離', () => {
