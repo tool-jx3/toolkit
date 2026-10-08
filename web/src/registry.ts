@@ -580,6 +580,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
     },
   },
+  {
+    id: 'map-editor',
+    name: '地圖編輯器',
+    summary:
+      '在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG。',
+    group: 'G10',
+    status: 'next',
+    inspiration: {
+      name: 'ihoukentiku/ihoukentiku.github.io',
+      url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
