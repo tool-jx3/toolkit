@@ -77,8 +77,13 @@
 | G5 CCFOLIA 資料 | 房間 ZIP、角色 JSON、聊天面板、日誌解析 | character-editor、room-zip、psd-studio、foreground-frame、log-converter、scenario-cards |
 | G6 劇本與紀錄 | 富文本與分頁排版、列印／PDF、紀錄資料庫 | scenario-editor、coc-typesetter、session-log、session-report |
 | G7 介紹圖與宣傳 | 版型畫布（Konva）、3D（three.js） | pair-maker、character-select、magic-circle、acrylic-goods |
-| G8 影像與動圖 | 影片解碼、動圖編碼、程序生成 | video-anim、gif-combiner、battlemap、music-frame |
-| G9 綜合 | 依子工具而定 | trpg-lab（拆成獨立工具）、anime-rig |
+| G8 影像與動圖 | 影片解碼、動圖編碼、程序生成 | video-anim、gif-combiner、music-frame |
+| G9 CoC 跑團輔助 | CoC 規則（骰子算式、成功等級、DB／體格、衍生值） | coc-dice、coc-npc、coc-sheet（由 trpg-lab 拆出） |
+| G10 地圖與網格 | 格子幾何（方格／六角格、座標、距離）、地圖畫布（Fabric） | map-editor、grid-maker、range-ruler（由 trpg-lab 拆出）、battlemap（從 G8 移來） |
+
+G9 的決定（2026-10-08，使用者裁定）：trpg-lab 拆成 6 個工具（擲骰＋傷害計算合成 coc-dice、方格＋六角格合成 grid-maker、兩個量尺合成 range-ruler）、
+實驗室首頁與共用頁首捨棄（舊網址轉址）；anime-rig 維持獨立工具、放 G3；地圖編輯器用 Fabric（從 npm 打包，舊地圖可以搬過來）；
+anime-rig 的臉部追蹤用 npm 的 MediaPipe、模型第一次使用時下載；原作的 OBS 連動不移植（說明改寫成綠幕／透明 WebM 的用法）。
 
 ## 4. 技術架構
 
@@ -182,7 +187,12 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | character-select | ✅ | ✅ | ✅ | ✅ |
 | magic-circle | ✅ | ✅ | ✅ | ✅ |
 | acrylic-goods | ✅ | ✅ | ✅ | ✅ |
-| trpg-lab | ⬜ | ⬜ | ⬜ | ⬜ |
+| coc-dice（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| coc-npc（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| coc-sheet（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| grid-maker（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| range-ruler（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| map-editor（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
 | anime-rig | ⬜ | ⬜ | ⬜ | ⬜ |
 
 （每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 ✅、G5 ✅、G6 ✅、G8 ✅、G7 ✅（版型畫布、3D）。）
