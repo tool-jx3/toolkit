@@ -90,7 +90,10 @@ export {
   type CanvasRecordingOptions,
   canRecordCanvas,
   pickRecordingType,
+  RECORDING_FORMATS,
   type RecordCanvasOptions,
+  type RecordingFormat,
   recordCanvas,
+  recordingFormats,
   startCanvasRecording,
 } from './record';

@@ -287,6 +287,15 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'anime-rig',
+    name: '2.5D 動態立繪',
+    summary:
+      '拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理，可以用攝影機或麥克風帶動，匯出透明 PNG 或影片。',
+    group: 'G3',
+    status: 'next',
+    inspiration: { name: '852wa/Anime2.5DRig', url: 'https://github.com/852wa/Anime2.5DRig' },
+  },
+  {
     id: 'scene-transition',
     name: '場景轉換素材產生器',
     summary:
