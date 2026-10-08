@@ -36,6 +36,8 @@ export const S = {
   errExt: '請選擇副檔名為 .psd 的檔案。',
   errTooLarge: 'PSD 請控制在 128 MB 以下。',
   errWorker: '無法開始解析 PSD（可能是記憶體不足），請縮小 PSD 或重新整理頁面再試一次。',
+  /** 解析 PSD 的函式庫丟出的錯誤（英文）：說明加上原文（對等驗證後新增） */
+  errParse: (detail: string) => `無法解析這個 PSD，檔案可能已損壞（${detail}）。`,
   errWebgl: '這個瀏覽器無法使用 WebGL，請開啟硬體加速。',
   errGlInit: (msg: string) => `繪圖初始化失敗：${msg}`,
   errViewport: (px: number) => `超過這台裝置能繪製的尺寸（${px} px），請縮小 PSD。`,

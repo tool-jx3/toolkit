@@ -256,6 +256,19 @@ test('讀入 PSD：自動綁定、診斷、圖層清單', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('讀入新的 PSD 後預覽回到全圖（對等驗證後修正）', async ({ page }) => {
+  const errors = await open(page);
+  await loadPsd(page);
+  const stage = page.locator('section[data-zoom]');
+  const fit = Number(await stage.getAttribute('data-zoom'));
+  await page.getByRole('button', { name: '放大', exact: true }).click();
+  await page.getByRole('button', { name: '放大', exact: true }).click();
+  await expect(stage).not.toHaveAttribute('data-zoom', String(fit));
+  await loadPsd(page);
+  await expect(stage).toHaveAttribute('data-zoom', String(fit));
+  expect(errors).toEqual([]);
+});
+
 test('讀入失敗：副檔名、壞檔的訊息，目前的模型保留', async ({ page }) => {
   await open(page);
   await choosePsd(page, new Uint8Array([1, 2, 3]), 'note.txt');
@@ -263,7 +276,10 @@ test('讀入失敗：副檔名、壞檔的訊息，目前的模型保留', async
   await loadPsd(page);
   const broken = new Uint8Array(PSD.slice(0, 200));
   await choosePsd(page, broken, 'broken.psd');
-  await expect(status(page)).toHaveText(/^錯誤：/);
+  /* 函式庫的英文錯誤包成中文說明，原文放在括號裡 */
+  await expect(status(page)).toHaveText(
+    /^錯誤：(無法解析這個 PSD，檔案可能已損壞（.+）。|.*[\u3400-\u9fff].*)$/,
+  );
   expect((await state(page)).model?.name).toBe('test-avatar.psd');
   const psb = new Uint8Array(PSD);
   psb[5] = 2;

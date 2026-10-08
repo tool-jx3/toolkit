@@ -497,6 +497,11 @@ export function PreviewColumn() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [glError, setGlError] = useState<string | null>(null);
 
+  /* 讀入新的 PSD（model 只在讀入時換新）後回到全圖（F09；對等驗證後修正） */
+  useEffect(() => {
+    if (model) fitView();
+  }, [model]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;

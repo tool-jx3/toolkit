@@ -142,7 +142,9 @@ export async function loadPsdFile(file: File): Promise<void> {
   } catch (err) {
     if (ticket !== loadTicket || (err as { name?: string })?.name === 'AbortError') return;
     useSession.setState({ loading: null });
-    setStatus(S.loadError(err instanceof Error ? err.message : String(err)), 'danger');
+    const raw = err instanceof Error ? err.message : String(err);
+    /* 本站的訊息都是中文；沒有中文的是解析 PSD 的函式庫（ag-psd）丟出的原文 */
+    setStatus(S.loadError(/[\u3400-\u9fff]/.test(raw) ? raw : S.errParse(raw)), 'danger');
   }
 }
 
