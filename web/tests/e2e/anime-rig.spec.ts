@@ -481,6 +481,49 @@ test('錄影：WebM、提早停止並儲存', async ({ page }) => {
   expect((await state(page)).recording).toBe(false);
 });
 
+test('錄影：長度 3 秒到了自動停止、60 fps、格式選單', async ({ page }) => {
+  await open(page);
+  await loadPsd(page);
+  const exportArea = settings(page).locator('[data-section="export"]');
+  await exportArea.getByRole('combobox').first().click();
+  await page.getByRole('option', { name: '3 秒' }).click();
+  await exportArea.getByRole('radio', { name: '60 fps' }).click();
+  await exportArea.getByRole('combobox').nth(1).click();
+  await expect(page.getByRole('option', { name: 'WebM（VP9，支援透明）' })).toBeVisible();
+  await page.getByRole('option', { name: 'WebM（VP8，支援透明）' }).click();
+  const dl = page.waitForEvent('download', { timeout: 30_000 });
+  await exportArea.getByRole('button', { name: '開始錄影' }).click();
+  await expect(exportArea.getByRole('button', { name: '停止錄影並儲存' })).toBeVisible();
+  const d = await dl;
+  expect(d.suggestedFilename()).toBe('test-avatar.webm');
+  await expect(status(page)).toHaveText(/^已匯出影片（512 × 512 px，3\.\d 秒，[\d.]+ MB）$/);
+  const prefs = JSON.parse(
+    (await page.evaluate(() => localStorage.getItem('trpg-toolkit:anime-rig:preview'))) ?? '{}',
+  );
+  expect(prefs.state.data).toMatchObject({
+    recSeconds: 3,
+    recFps: 60,
+    recFormat: 'video/webm;codecs=vp8',
+  });
+});
+
+test('滑鼠追蹤：頭部與視線朝向預覽上的滑鼠', async ({ page }) => {
+  await open(page);
+  await loadPsd(page);
+  for (const name of ['待機動作', '隨機動作']) {
+    await settings(page).getByRole('switch', { name }).click();
+  }
+  await settings(page).getByRole('switch', { name: '滑鼠追蹤' }).click();
+  const box = await page.getByTestId('rig-canvas').boundingBox();
+  if (!box) throw new Error('no canvas');
+  await page.mouse.move(box.x + box.width - 4, box.y + box.height / 2);
+  await expect.poll(async () => (await state(page)).frame?.angleX ?? 0).toBeGreaterThan(0.6);
+  await expect.poll(async () => (await state(page)).frame?.eyeX ?? 0).toBeGreaterThan(0.8);
+  await page.mouse.move(box.x + 4, box.y + 4);
+  await expect.poll(async () => (await state(page)).frame?.angleX ?? 0).toBeLessThan(-0.6);
+  await expect.poll(async () => (await state(page)).frame?.angleY ?? 0).toBeGreaterThan(0.5);
+});
+
 test('儲存輕量 PSD：去掉雜點、裁過，讀得回來', async ({ page }) => {
   await open(page);
   await loadPsd(page);
