@@ -98,7 +98,8 @@ ATTRIBUTION「本站重寫的工具」表的 commit 取回——理解功能、�
    本環境的 git 代理只允許推送工作分支，無法推送標籤，所以用 `main` 上的 commit 代替 `legacy/<id>` 標籤。
 4. `web/src/registry.ts` 把該工具改成「已上線」，建置後產物寫到 `tools/<id>/`；刪除舊版檔案、字典、`vendor/` 原始碼、
    舊的 smoke 測試段落。
-5. 首頁卡片換成新說明；README 與 ATTRIBUTION（靈感來源清單）更新；PLAN.md 進度表打勾。
+5. 首頁卡片從 registry 自動產生（名稱、說明、圖示在 `web/src/home/icons.tsx`）；舊版拆成好幾個工具時（例如 trpg-lab），
+   全部上線後把它從 `web/src/home/entries.ts` 的 `LEGACY` 移除。README 與 ATTRIBUTION（靈感來源清單）更新；PLAN.md 進度表打勾。
 
 ## 6. 新工具引入流程（往後一律如此）
 

@@ -10,7 +10,7 @@
 
 export type ToolStatus = 'next' | 'live';
 
-export type GroupId = 'G1' | 'G2' | 'G3' | 'G4' | 'G5' | 'G6' | 'G7' | 'G8' | 'G9' | 'dev';
+export type GroupId = 'G1' | 'G2' | 'G3' | 'G4' | 'G5' | 'G6' | 'G7' | 'G8' | 'G9' | 'G10' | 'dev';
 
 export interface Inspiration {
   /** 顯示在頁尾「靈感來源：」後面的名稱 */
@@ -41,7 +41,8 @@ export const GROUPS: Record<GroupId, { name: string }> = {
   G6: { name: '劇本與紀錄' },
   G7: { name: '介紹圖與宣傳' },
   G8: { name: '影像與動圖' },
-  G9: { name: '綜合' },
+  G9: { name: 'CoC 跑團輔助' },
+  G10: { name: '地圖與網格' },
   dev: { name: '開發用' },
 };
 

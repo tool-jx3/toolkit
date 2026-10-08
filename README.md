@@ -70,14 +70,15 @@
 
 ## 本機執行
 
-發佈出去的檔案全部是靜態的，沒有建置步驟。直接以瀏覽器開啟 `index.html` 即可，
-或啟動本機伺服器：
+網站（首頁與重寫過的工具）由 `web/` 建置，建置產物**不提交進 repo**：GitHub Actions（`.github/workflows/deploy.yml`）
+在 main 有新 commit 時建置，把整個網站推到 `gh-pages` 分支，GitHub Pages 從那裡發布。本機要看完整的網站：
 
 ```
-npm run serve
+cd web
+npm ci
+npm run build      # 整個網站在 web/dist/
+npm run preview    # http://localhost:8123/
 ```
-
-然後開啟 http://localhost:8080/
 
 
 ## 測試
@@ -89,7 +90,7 @@ npm test
 靜態檢查，無外部相依。檢查項目包含：字典 key 完整性、兩語言 key 集合對稱、
 `{n}` 佔位符一致、標記引用的 key 皆存在、**無殘留未翻譯的原文**
 （韓文查諺文，日文查平假名與片假名）、
-首頁連結有效、
+首頁是 `web/` 的建置產物、首頁列出的舊版工具連結有效（首頁內容由 `web/` 的端對端測試檢查）、
 **HTML 內嵌文字與 zh-TW 字典逐字相符**（含元素內文與 `title`／`aria-label`／`placeholder` 屬性兩類比對）。
 
 ## 本站重寫的工具
@@ -153,7 +154,7 @@ npm test
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
 
-選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），首頁與各工具共用。
+選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），這兩個舊版工具共用。首頁與重寫過的工具只有繁體中文。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，
 反之亦然。停在沒有該語言字典的頁面時會以繁體中文呈現，但不會覆寫使用者的選擇——

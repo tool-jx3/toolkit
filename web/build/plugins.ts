@@ -3,10 +3,10 @@
  *
  * - toolkitHtml：每個工具頁共用的 <head>（字型、配色、主題初始化）。
  * - collectNotices：記下實際打包進去的 npm 套件，用來產生 THIRD_PARTY_NOTICES.md。
- * - publishToRepo：把 web/dist 的產物搬到 repo 根目錄（next/<id>/、tools/<id>/、assets/build/）。
+ * - assembleSite：把 web/dist 整理成整個網站（index.html、tools/<id>/、next/<id>/、assets/build/、還沒重寫的舊版檔案）。
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { copyFile, mkdir, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
@@ -19,15 +19,18 @@ const FONT_CSS =
 const THEME_INIT =
   "try{var t=localStorage.getItem('trpg-toolkit:theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}";
 
+/** 首頁（web/src/index.html）在 Vite 裡的路徑 */
+const HOME_PAGE = '/index.html';
+
 export function toolkitHtml(): Plugin {
   return {
     name: 'toolkit-html',
     transformIndexHtml: {
       order: 'pre',
       handler(_html, ctx) {
-        /* 重寫中（next）的頁面不讓搜尋引擎收錄；上線（live）後拿掉。 */
+        /* 重寫中（next）的頁面不讓搜尋引擎收錄；上線（live）後拿掉。首頁一律收錄。 */
         const id = /\/tools\/([^/]+)\/index\.html$/.exec(ctx.path)?.[1];
-        const live = id ? getTool(id)?.status === 'live' : false;
+        const live = ctx.path === HOME_PAGE || (id ? getTool(id)?.status === 'live' : false);
         return [
           ...(live
             ? []
@@ -174,70 +177,95 @@ function noticesMarkdown(tools: readonly ToolEntry[] = [], srcToolsDir = ''): st
   ].join('\n');
 }
 
-/* ---------- 搬到 repo 根目錄 ---------- */
+/* ---------- 組成整個網站 ---------- */
 
-export interface PublishOptions {
-  /** repo 根目錄 */
+export interface SiteOptions {
+  /** repo 根目錄（舊版工具的原始檔從這裡複製） */
   repoRoot: string;
-  /** Vite 的 outDir（web/dist） */
+  /** Vite 的 outDir（web/dist）：建置完就是整個網站，CI 把它推到 gh-pages 分支 */
   distDir: string;
-  /** 共用程式與樣式的資料夾（相對於 outDir 與 repo 根目錄，兩邊相同） */
+  /** 共用程式與樣式的資料夾（相對於 outDir） */
   assetsDir: string;
   tools: readonly ToolEntry[];
+  /**
+   * 還沒重寫成新版、直接照原樣上線的檔案或資料夾（相對於 repo 根目錄，網站上的路徑相同），
+   * 例如舊版工具 `tools/trpg-lab` 與它用的 `assets/i18n.js`。
+   */
+  staticPaths: readonly string[];
 }
 
 function assertInside(root: string, target: string) {
   const rel = path.relative(root, target);
   if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error(`拒絕寫入 repo 以外或根目錄本身：${target}`);
+    throw new Error(`拒絕寫入 ${root} 以外或根目錄本身：${target}`);
   }
 }
 
+/** 列出資料夾（或單一檔案）裡所有檔案，路徑相對於 base */
+function listFiles(base: string, rel: string): string[] {
+  const full = path.join(base, rel);
+  if (!statSync(full).isDirectory()) return [rel];
+  return readdirSync(full).flatMap((name) => listFiles(base, path.join(rel, name)));
+}
+
 /**
- * 建置成功後：
- * 1. 清空 repo 的 `assets/build/` 與 `next/`（只動這兩個資料夾）；
- * 2. 複製共用程式到 `assets/build/`；
- * 3. 依 registry 把每個工具頁複製到 `next/<id>/` 或 `tools/<id>/`（live 工具只覆寫建置產物，不刪資料夾內其他檔案）。
+ * 建置成功後把 web/dist 整理成整個網站（和 GitHub Pages 上的路徑相同）：
+ * 1. 首頁在 `index.html`，已上線的工具在 `tools/<id>/`，重寫中的工具搬到 `next/<id>/`（都在根目錄下兩層，相對路徑不變）；
+ * 2. 共用程式在 `assets/build/`，另外產生 `assets/build/THIRD_PARTY_NOTICES.md`；
+ * 3. 從 repo 複製還沒重寫的舊版檔案（staticPaths），不能蓋掉建置產物；
+ * 4. `.nojekyll`：GitHub Pages 不要跑 Jekyll（否則 `next/_gallery/` 這種底線開頭的路徑不會發布）。
  *
- * 清空放在「確定這次建置成功」之後才做，建置失敗時不會留下半套產物。
+ * 不會寫入 repo 的其他地方；建置產物不提交，由 CI（.github/workflows/deploy.yml）建置後推到 gh-pages 分支。
  */
-export function publishToRepo(opts: PublishOptions): Plugin {
+export function assembleSite(opts: SiteOptions): Plugin {
   let failed = false;
   return {
-    name: 'toolkit-publish',
+    name: 'toolkit-site',
     apply: 'build',
     buildEnd(error) {
       if (error) failed = true;
     },
     async closeBundle() {
       if (failed) return;
-      const { repoRoot, distDir, assetsDir, tools } = opts;
-      for (const tool of tools) {
-        const html = path.join(distDir, 'tools', tool.id, 'index.html');
+      const { repoRoot, distDir, assetsDir, tools, staticPaths } = opts;
+      for (const html of [
+        path.join(distDir, 'index.html'),
+        ...tools.map((tool) => path.join(distDir, 'tools', tool.id, 'index.html')),
+      ]) {
         if (!existsSync(html)) throw new Error(`找不到建置產物：${html}`);
       }
-      const assetsTarget = path.join(repoRoot, assetsDir);
-      const nextTarget = path.join(repoRoot, 'next');
-      assertInside(repoRoot, assetsTarget);
-      assertInside(repoRoot, nextTarget);
-      if (path.basename(assetsTarget) !== 'build') throw new Error('assetsDir 必須是 assets/build');
 
-      await rm(assetsTarget, { recursive: true, force: true });
-      await rm(nextTarget, { recursive: true, force: true });
+      for (const tool of tools) {
+        if (tool.status === 'live') continue;
+        const target = path.join(distDir, outputDir(tool));
+        assertInside(distDir, target);
+        await mkdir(path.dirname(target), { recursive: true });
+        await rename(path.join(distDir, 'tools', tool.id), target);
+      }
 
-      await cp(path.join(distDir, assetsDir), assetsTarget, { recursive: true });
       await writeFile(
-        path.join(assetsTarget, 'THIRD_PARTY_NOTICES.md'),
+        path.join(distDir, assetsDir, 'THIRD_PARTY_NOTICES.md'),
         noticesMarkdown(tools, path.join(repoRoot, 'web', 'src', 'tools')),
       );
 
-      for (const tool of tools) {
-        const target = path.join(repoRoot, outputDir(tool));
-        assertInside(repoRoot, target);
-        await mkdir(target, { recursive: true });
-        await cp(path.join(distDir, 'tools', tool.id), target, { recursive: true });
+      let copied = 0;
+      for (const rel of staticPaths) {
+        assertInside(repoRoot, path.join(repoRoot, rel));
+        if (!existsSync(path.join(repoRoot, rel)))
+          throw new Error(`找不到要照原樣上線的檔案：${rel}`);
+        for (const file of listFiles(repoRoot, rel)) {
+          const target = path.join(distDir, file);
+          assertInside(distDir, target);
+          if (existsSync(target)) throw new Error(`舊版檔案會蓋掉建置產物：${file}`);
+          await mkdir(path.dirname(target), { recursive: true });
+          await copyFile(path.join(repoRoot, file), target);
+          copied++;
+        }
       }
-      this.info?.(`已輸出 ${tools.length} 個工具頁到 repo 根目錄`);
+      await writeFile(path.join(distDir, '.nojekyll'), '');
+      this.info?.(
+        `網站已組好（${path.relative(repoRoot, distDir)}/）：首頁、${tools.length} 個工具頁、${copied} 個舊版檔案`,
+      );
     },
   };
 }

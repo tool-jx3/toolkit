@@ -6,8 +6,8 @@
  * 結果寫到 tests/parity/text-fx/out/（results.json、report.md、差異圖；不提交）。
  *
  * text-fx 已上線（2026-10-01）：舊版從 tools/text-fx/ 移除、新版改輸出到 tools/text-fx/。
- * 要重跑時先把舊版放回（`git show cb0c619:tools/text-fx/...` 或 `git worktree add` 該 commit），
- * 並把 registry 暫時改回 next。這支腳本保留作為上線前對等驗證的紀錄。
+ * 要重跑時先把 registry 暫時改回 next 再建置，然後把舊版放進建置好的網站 web/dist/tools/text-fx/
+ * （`git show cb0c619:tools/text-fx/...` 或 `git worktree add` 該 commit）。這支腳本保留作為上線前對等驗證的紀錄。
  */
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -39,7 +39,7 @@ export default defineConfig({
     launchOptions: { env: { ...process.env, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } },
   },
   webServer: {
-    command: `npx http-server .. -p ${PORT} -c-1 -s`,
+    command: `npx http-server dist -p ${PORT} -c-1 -s`,
     cwd: webDir,
     url: `http://127.0.0.1:${PORT}/next/text-fx/`,
     reuseExistingServer: true,

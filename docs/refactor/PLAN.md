@@ -77,8 +77,13 @@
 | G5 CCFOLIA 資料 | 房間 ZIP、角色 JSON、聊天面板、日誌解析 | character-editor、room-zip、psd-studio、foreground-frame、log-converter、scenario-cards |
 | G6 劇本與紀錄 | 富文本與分頁排版、列印／PDF、紀錄資料庫 | scenario-editor、coc-typesetter、session-log、session-report |
 | G7 介紹圖與宣傳 | 版型畫布（Konva）、3D（three.js） | pair-maker、character-select、magic-circle、acrylic-goods |
-| G8 影像與動圖 | 影片解碼、動圖編碼、程序生成 | video-anim、gif-combiner、battlemap、music-frame |
-| G9 綜合 | 依子工具而定 | trpg-lab（拆成獨立工具）、anime-rig |
+| G8 影像與動圖 | 影片解碼、動圖編碼、程序生成 | video-anim、gif-combiner、music-frame |
+| G9 CoC 跑團輔助 | CoC 規則（骰子算式、成功等級、DB／體格、衍生值） | coc-dice、coc-npc、coc-sheet（由 trpg-lab 拆出） |
+| G10 地圖與網格 | 格子幾何（方格／六角格、座標、距離）、地圖畫布（Fabric） | map-editor、grid-maker、range-ruler（由 trpg-lab 拆出）、battlemap（從 G8 移來） |
+
+G9 的決定（2026-10-08，使用者裁定）：trpg-lab 拆成 6 個工具（擲骰＋傷害計算合成 coc-dice、方格＋六角格合成 grid-maker、兩個量尺合成 range-ruler）、
+實驗室首頁與共用頁首捨棄（舊網址轉址）；anime-rig 維持獨立工具、放 G3；地圖編輯器用 Fabric（從 npm 打包，舊地圖可以搬過來）；
+anime-rig 的臉部追蹤用 npm 的 MediaPipe、模型第一次使用時下載；原作的 OBS 連動不移植（說明改寫成綠幕／透明 WebM 的用法）。
 
 ## 4. 技術架構
 
@@ -91,10 +96,18 @@ web/                        新框架（Vite 專案，有自己的 package.json�
   src/ccfolia/              CCFOLIA 與 OBS 相關的資料格式與選擇器（CCFOLIA 改版只改這裡）
   src/tools/<id>/           各工具：頁面、範本、文字（strings.ts）
   src/tools/<id>/index.html 每個工具一頁（多頁輸出）
+  src/index.html、src/home/ 首頁（建置到網站根目錄的 index.html；卡片從 registry 產生）
   tests/                    Vitest 單元測試、Playwright 端對端與視覺回歸
+  dist/                     建置產物＝整個網站（不提交；CI 推到 gh-pages 分支）
 docs/refactor/              本計畫、流程、設計、各工具規格
-tools/<id>/                 對外網址。舊版工具在重寫上線前留在這裡；上線時換成新框架的建置產物
-next/<id>/                  重寫中的工具的建置產物（不連到首頁，只供對等驗證）
+tools/<id>/                 還沒重寫的舊版工具（照原樣複製進網站）；重寫上線時刪除
+.github/workflows/          CI：檢查、建置、部署到 gh-pages
+
+網站（gh-pages 分支、web/dist/）：
+index.html                  首頁
+tools/<id>/                 對外網址：已上線的工具（新框架）與還沒重寫的舊版工具
+next/<id>/                  重寫中的工具（不連到首頁，只供對等驗證）
+assets/build/               共用程式與樣式、THIRD_PARTY_NOTICES.md
 ```
 
 ### 4.2 技術棧
@@ -119,9 +132,10 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 
 ### 4.3 建置與部署
 
-- GitHub Pages 維持「從 main 分支根目錄發佈」，與現在相同。
-- `web/` 建置成多頁輸出：上線的工具寫到 `tools/<id>/`，重寫中的寫到 `next/<id>/`，共用的程式與樣式寫到
-  `assets/build/`。建置產物提交進 repo（和現在的 cutin、character-editor 一樣）。
+- `web/` 建置成多頁輸出，`web/dist/` 就是整個網站：首頁 `index.html`、上線的工具在 `tools/<id>/`、重寫中的在 `next/<id>/`、
+  共用的程式與樣式在 `assets/build/`，還沒重寫的舊版工具從 repo 照原樣複製進去。
+- **建置產物不提交進 repo**（2026-10 起）：GitHub Actions 在 main 有新 commit 時檢查、建置，把 `web/dist/` 強制推到
+  `gh-pages` 分支（orphan，只留最新一次部署）；GitHub Pages 從 `gh-pages` 的根目錄發布。
 - 工具清單與上線狀態集中在 `web/src/registry.ts`，建置設定與首頁卡片都從這裡讀。
 
 ## 5. 遷移階段
@@ -132,6 +146,9 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | P1 試點 | battlemap、textbox、apng-wipe、portrait-size（小工具，涵蓋畫布、文字、APNG、批次圖片）；text-fx 移入新框架 | 五個工具對等驗證通過並上線；元件與流程依試點經驗修正 |
 | P2～P9 | 依群組 G4 → G3 → G1 → G2 → G5 → G6 → G8 → G7 → G9 逐組重寫 | 每個工具對等驗證通過才上線 |
 | P10 收尾 | 首頁移入新框架（只有繁中）、移除 `assets/i18n.js` 與所有字典、`vendor/`、舊測試；ATTRIBUTION 改成「靈感來源」清單 | 全站只剩新框架的程式；所有測試通過 |
+
+P10 進度：✅ 首頁移入新框架（`web/src/index.html`＋`web/src/home/`；舊的 `assets/home.*`、`assets/i18n.home.js` 已刪除）；
+⬜ `assets/i18n.js` 與其餘字典、舊測試（等 G9 的舊版 trpg-lab、anime-rig 換掉後一起刪）；⬜ ATTRIBUTION 改成「靈感來源」清單。
 
 每個工具上線時：舊版的檔案、字典、vendor 原始碼一併刪除；舊版所在的 `main` commit 記在 ATTRIBUTION，日後要再對照時可以取回。
 
@@ -182,7 +199,12 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 | character-select | ✅ | ✅ | ✅ | ✅ |
 | magic-circle | ✅ | ✅ | ✅ | ✅ |
 | acrylic-goods | ✅ | ✅ | ✅ | ✅ |
-| trpg-lab | ⬜ | ⬜ | ⬜ | ⬜ |
+| coc-dice（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| coc-npc（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| coc-sheet（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| grid-maker（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| range-ruler（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| map-editor（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
 | anime-rig | ⬜ | ⬜ | ⬜ | ⬜ |
 
 （每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 ✅、G5 ✅、G6 ✅、G8 ✅、G7 ✅（版型畫布、3D）。）

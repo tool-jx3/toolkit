@@ -24,4 +24,5 @@
 
 - 舊版的靜態檢查：`npm test`（根目錄，`tests/smoke.mjs`）
 - 新框架：`cd web && npm ci && npm run dev | build | test | e2e | lint`
-- 本機伺服器：`npx http-server -p 8123 -c-1 .`（repo 根目錄）
+- 建置產物不提交：`web/dist/` 是整個網站，CI（`.github/workflows/deploy.yml`）建置後推到 `gh-pages` 分支
+- 本機看整個網站：`cd web && npm run build && npm run preview`（http-server 開 `web/dist`，port 8123）
