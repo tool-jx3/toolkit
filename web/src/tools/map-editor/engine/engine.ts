@@ -221,6 +221,14 @@ export class MapEngine {
       usePrefs.subscribe((s, prev) => {
         if (s.data.textFont !== prev.data.textFont) this.canvas.requestRenderAll();
       }),
+      useEditor.subscribe((s, prev) => {
+        if (s.exportMode === prev.exportMode) return;
+        if (s.exportMode === 'pick') this.canvas.discardActiveObject();
+        this.applyInteractivity();
+        this.canvas.defaultCursor =
+          s.exportMode === 'pick' ? 'crosshair' : this.cursorFor(this.tool);
+        this.canvas.requestRenderAll();
+      }),
     );
   }
 
@@ -869,19 +877,26 @@ export class MapEngine {
       if (top && !useEditor.getState().selectedIds.includes(top._layerId ?? -1))
         setEditor({ selectedIds: [top._layerId ?? -1] });
     }
-    c.defaultCursor = tool === 'text' ? 'text' : tool === 'freehand' ? 'crosshair' : 'default';
+    c.defaultCursor = this.cursorFor(tool);
     setEditor({ tool });
     c.requestRenderAll();
     this.sync();
   }
 
+  private cursorFor(tool: ToolName): string {
+    return tool === 'text' ? 'text' : tool === 'freehand' ? 'crosshair' : 'default';
+  }
+
   /** 物件能不能點（選取工具：全部；文字工具：只有文字） */
   applyInteractivity(): void {
-    const isSelect = this.tool === 'select';
+    /* 選匯出範圍的期間，物件不能點、不能框選（點到物件上也是在選範圍） */
+    const pick = useEditor.getState().exportMode === 'pick';
+    const isSelect = this.tool === 'select' && !pick;
     for (const o of mapLayers(this.canvas)) {
-      const on = isSelect || (this.tool === 'text' && !!o._isMapText);
+      const on = isSelect || (!pick && this.tool === 'text' && !!o._isMapText);
       o.set({ selectable: on, evented: on });
     }
+    this.canvas.selection = isSelect;
   }
 
   /** 進行中的作圖全部取消（不含匯出模式） */
@@ -1966,12 +1981,15 @@ export class MapEngine {
     const c = t.getCenterPoint();
     const snapped = this.snap({ x: c.x, y: c.y });
     if (snapped) t.setPositionByOrigin(new Point(snapped.x, snapped.y), 'center', 'center');
+    /* 吸附標示（物件的中心） */
+    this.snapPt = snapped;
     applyPatternOrigin(t);
     this.queueSync();
   }
 
   private onModified(t: MapObj | undefined): void {
     if (!t) return;
+    this.snapPt = null;
     if (t === this.textJustExited) {
       this.textJustExited = null;
       return;

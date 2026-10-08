@@ -1691,3 +1691,43 @@ test.describe('其他', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('補充', () => {
+  test('格子圖層拖曳：整格移動；匯出範圍點在物件上不選取物件', async ({ page }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    await page.keyboard.press('b');
+    await clickAt(page, 36, 36);
+    await clickAt(page, 108, 36);
+    await page.keyboard.press('v');
+    await layerRow(page, '格子1').click();
+    await dragWorld(page, [36, 36], [116, 46], 10);
+    const cells = await page.evaluate(() => {
+      const e = (
+        window as unknown as {
+          __mapEditor: { engine: { canvas: { getObjects(): Record<string, unknown>[] } } };
+        }
+      ).__mapEditor.engine;
+      const o = e.canvas.getObjects().find((x) => x._layerName === '格子1') as Record<
+        string,
+        unknown
+      >;
+      return [...(o._cellData as Map<string, { col: number; row: number }>).values()]
+        .map((c) => `${c.col},${c.row}`)
+        .sort();
+    });
+    expect(cells).toEqual(['1,0', '2,0']);
+    await expect(statusMsg(page)).toHaveText('變更 格子1');
+    /* 匯出範圍：從物件上開始點 */
+    await drawRect(page, [-216, -216], [-72, -72]);
+    await page.keyboard.press('v');
+    const before = (await objects(page)).find((o) => o.name === '矩形1');
+    await page.getByTestId('export-start').click();
+    await dragWorld(page, [-144, -144], [0, 0], 6);
+    await expect(page.getByTestId('export-dialog')).toBeVisible();
+    await expect(page.getByTestId('export-info')).toHaveText('2.0 × 2.0 格（內部：144 × 144 px）');
+    expect((await objects(page)).find((o) => o.name === '矩形1')).toEqual(before);
+    expect(await selectedNames(page)).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});
