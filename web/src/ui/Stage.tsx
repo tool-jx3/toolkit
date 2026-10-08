@@ -67,7 +67,10 @@ export interface StageProps<K extends StageAnyBackgroundKind = StageBackgroundKi
   onZoomChange?: (zoom: StageZoom) => void;
   /** 顯示工具列（預設 true） */
   toolbar?: boolean;
-  /** 工具列提供哪些背景（預設：透明、黑、白、自訂色、背景圖；依這個順序排列）；加 'scene' 才有示意場景 */
+  /**
+   * 工具列提供哪些背景（預設：透明、黑、白、自訂色、背景圖；依這個順序排列）；加 'scene' 才有示意場景。
+   * 空陣列：工具列不顯示背景選項（背景由工具自己控制，例如 anime-rig 的透明／綠幕／深色；anime-rig 移植時新增）。
+   */
   backgrounds?: readonly K[];
   /** 工具列右側的額外按鈕 */
   toolbarExtra?: ReactNode;
@@ -345,16 +348,18 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
     >
       {toolbar ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-2 py-1.5">
-          <Segmented
-            aria-label="預覽背景"
-            size="sm"
-            value={bg.kind}
-            onValueChange={(kind) => {
-              if (kind === 'image' && !bg.imageUrl) fileInput.current?.click();
-              setBg({ ...bg, kind: kind as K });
-            }}
-            options={backgrounds.flatMap((k) => BACKGROUND_OPTIONS.filter((o) => o.value === k))}
-          />
+          {backgrounds.length ? (
+            <Segmented
+              aria-label="預覽背景"
+              size="sm"
+              value={bg.kind}
+              onValueChange={(kind) => {
+                if (kind === 'image' && !bg.imageUrl) fileInput.current?.click();
+                setBg({ ...bg, kind: kind as K });
+              }}
+              options={backgrounds.flatMap((k) => BACKGROUND_OPTIONS.filter((o) => o.value === k))}
+            />
+          ) : null}
           {bg.kind === 'color' ? (
             <ColorField
               aria-label="背景色"
