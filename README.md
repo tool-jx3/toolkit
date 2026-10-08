@@ -70,14 +70,15 @@
 
 ## 本機執行
 
-發佈出去的檔案全部是靜態的，沒有建置步驟。直接以瀏覽器開啟 `index.html` 即可，
-或啟動本機伺服器：
+網站（首頁與重寫過的工具）由 `web/` 建置，建置產物**不提交進 repo**：GitHub Actions（`.github/workflows/deploy.yml`）
+在 main 有新 commit 時建置，把整個網站推到 `gh-pages` 分支，GitHub Pages 從那裡發布。本機要看完整的網站：
 
 ```
-npm run serve
+cd web
+npm ci
+npm run build      # 整個網站在 web/dist/
+npm run preview    # http://localhost:8123/
 ```
-
-然後開啟 http://localhost:8080/
 
 
 ## 測試

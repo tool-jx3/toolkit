@@ -96,11 +96,18 @@ web/                        新框架（Vite 專案，有自己的 package.json�
   src/ccfolia/              CCFOLIA 與 OBS 相關的資料格式與選擇器（CCFOLIA 改版只改這裡）
   src/tools/<id>/           各工具：頁面、範本、文字（strings.ts）
   src/tools/<id>/index.html 每個工具一頁（多頁輸出）
-  src/index.html、src/home/ 首頁（建置到 repo 根目錄的 index.html；卡片從 registry 產生）
+  src/index.html、src/home/ 首頁（建置到網站根目錄的 index.html；卡片從 registry 產生）
   tests/                    Vitest 單元測試、Playwright 端對端與視覺回歸
+  dist/                     建置產物＝整個網站（不提交；CI 推到 gh-pages 分支）
 docs/refactor/              本計畫、流程、設計、各工具規格
-tools/<id>/                 對外網址。舊版工具在重寫上線前留在這裡；上線時換成新框架的建置產物
-next/<id>/                  重寫中的工具的建置產物（不連到首頁，只供對等驗證）
+tools/<id>/                 還沒重寫的舊版工具（照原樣複製進網站）；重寫上線時刪除
+.github/workflows/          CI：檢查、建置、部署到 gh-pages
+
+網站（gh-pages 分支、web/dist/）：
+index.html                  首頁
+tools/<id>/                 對外網址：已上線的工具（新框架）與還沒重寫的舊版工具
+next/<id>/                  重寫中的工具（不連到首頁，只供對等驗證）
+assets/build/               共用程式與樣式、THIRD_PARTY_NOTICES.md
 ```
 
 ### 4.2 技術棧
@@ -125,10 +132,11 @@ next/<id>/                  重寫中的工具的建置產物（不連到首頁�
 
 ### 4.3 建置與部署
 
-- GitHub Pages 維持「從 main 分支根目錄發佈」，與現在相同。
-- `web/` 建置成多頁輸出：上線的工具寫到 `tools/<id>/`，重寫中的寫到 `next/<id>/`，共用的程式與樣式寫到
-  `assets/build/`。建置產物提交進 repo（和現在的 cutin、character-editor 一樣）。
-- 工具清單與上線狀態集中在 `web/src/registry.ts`，建置設定與首頁卡片都從這裡讀。首頁也由 `web/` 建置，寫到 repo 根目錄的 `index.html`。
+- `web/` 建置成多頁輸出，`web/dist/` 就是整個網站：首頁 `index.html`、上線的工具在 `tools/<id>/`、重寫中的在 `next/<id>/`、
+  共用的程式與樣式在 `assets/build/`，還沒重寫的舊版工具從 repo 照原樣複製進去。
+- **建置產物不提交進 repo**（2026-10 起）：GitHub Actions 在 main 有新 commit 時檢查、建置，把 `web/dist/` 強制推到
+  `gh-pages` 分支（orphan，只留最新一次部署）；GitHub Pages 從 `gh-pages` 的根目錄發布。
+- 工具清單與上線狀態集中在 `web/src/registry.ts`，建置設定與首頁卡片都從這裡讀。
 
 ## 5. 遷移階段
 

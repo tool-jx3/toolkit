@@ -15,30 +15,35 @@
 cd web
 npm ci              # 安裝相依（只裝在 web/，根目錄的 package.json 維持沒有相依）
 npm run dev         # 開發伺服器：http://localhost:5173/ 列出所有工具，元件展示頁在 /tools/_gallery/
-npm run build       # 建置並輸出到 repo 根目錄（見下方）
+npm run build       # 建置整個網站到 web/dist/（見下方）
 npm test            # Vitest：核心模組單元測試＋元件測試
-npm run e2e         # 先 build，再用 Playwright 測建置產物（http-server 開 repo 根目錄，port 8123）
+npm run e2e         # 先 build，再用 Playwright 測建置產物（http-server 開 web/dist，port 8123）
 npm run e2e:update  # 同上，並重產視覺回歸基準圖（tests/__screenshots__/）
 npm run lint        # Biome（格式＋檢查）；npm run format 自動修正
 npm run typecheck   # tsc（瀏覽器端與 Node 端兩份設定）
 ```
 
-本機看建置結果：在 repo 根目錄執行 `npx http-server -p 8123 -c-1 .`，開 `http://127.0.0.1:8123/`（首頁）或 `http://127.0.0.1:8123/next/_gallery/`。
+本機看建置結果：`npm run preview`（http-server 開 `web/dist`），開 `http://127.0.0.1:8123/`（首頁）或 `http://127.0.0.1:8123/next/_gallery/`。
 
 ## 建置輸出
 
-工具清單在 `src/registry.ts`，建置設定（`vite.config.ts`）依每個工具的 `status` 決定輸出位置：
+`npm run build` 把**整個網站**建到 `web/dist/`（路徑和 GitHub Pages 上相同）。工具清單在 `src/registry.ts`，建置設定（`vite.config.ts`）依每個工具的 `status` 決定位置：
 
-| status | 輸出到（repo 根目錄） | 說明 |
+| status | 網站上的位置（`web/dist/`） | 說明 |
 |---|---|---|
 | （首頁） | `index.html` | `src/index.html`＋`src/home/`；卡片從 registry 產生，只列 `live` 的工具（開發伺服器也列 `next`） |
 | `next` | `next/<id>/index.html` | 重寫中，只供對等驗證，不連到首頁 |
-| `live` | `tools/<id>/index.html` | 已上線，取代舊版（只覆寫建置產物，不刪資料夾裡其他檔案） |
+| `live` | `tools/<id>/index.html` | 已上線，取代舊版 |
 | （共用） | `assets/build/` | 所有工具共用的 JS、CSS、Worker，以及自動產生的 `THIRD_PARTY_NOTICES.md` |
+| （舊版） | `tools/trpg-lab/` 等 | 還沒重寫的舊版工具，從 repo 照原樣複製（`vite.config.ts` 的 `STATIC_PATHS`） |
 
-流程：Vite 先建到 `web/dist/`（每次清空），**建置成功後**由 `build/plugins.ts` 的 `publishToRepo` 清空 repo 的 `assets/build/` 與 `next/`，
-再把產物複製過去。除了這兩個資料夾、首頁和 `live` 工具的 `index.html`，不會動到 repo 裡的其他檔案；建置失敗時也不會清空。
-頁面用相對路徑（`base: './'`）引用 `../../assets/build/…`，放在 GitHub Pages 的子路徑下也能運作。建置產物要提交進 repo。
+流程：Vite 先建到 `web/dist/`（每次清空），**建置成功後**由 `build/plugins.ts` 的 `assembleSite` 把重寫中的工具搬到 `next/<id>/`、
+產生 `THIRD_PARTY_NOTICES.md`、複製舊版檔案、寫入 `.nojekyll`，`web/dist/` 就是整個網站；不會寫入 repo 的其他地方。
+頁面用相對路徑（`base: './'`）引用 `../../assets/build/…`，放在 GitHub Pages 的子路徑下也能運作。
+
+**建置產物不提交進 repo。** GitHub Actions（`.github/workflows/deploy.yml`）在 pull request 與 main 上跑舊版的靜態檢查、lint、
+typecheck、單元測試與建置；main 有新 commit 時把 `web/dist/` 強制推到 `gh-pages` 分支（orphan，只有最新一次部署的一個 commit），
+GitHub Pages 從 `gh-pages` 的根目錄發布。端對端測試在本機跑（`npm run e2e`）。
 
 `THIRD_PARTY_NOTICES.md` 由實際打包進去的模組產生（含 Worker），列出套件、版本、授權與授權全文。
 
@@ -63,7 +68,7 @@ web/
   src/home/               首頁：工具清單（entries.ts：registry＋還沒重寫完的舊版＋其他網站）、卡片圖示（icons.tsx）
   tests/unit/             核心模組單元測試（Node 環境）
   tests/components/       元件測試（jsdom，檔頭寫 @vitest-environment jsdom）
-  tests/e2e/              Playwright（測建置產物）
+  tests/e2e/              Playwright（測 web/dist 的建置產物）
   tests/__screenshots__/  視覺回歸基準圖
   tests/helpers/          測試用的 PNG／APNG／GIF 解析器與影格產生器
 ```
@@ -74,7 +79,7 @@ web/
 2. 建 `src/tools/<id>/`：複製 `_gallery/index.html`（改 `<title>`）與 `main.tsx`，寫 `App.tsx` 與 `strings.ts`。
 3. 用 `ToolShell` 當外框，設定面板用 `Tabs`／`Section`／`Field`＋控制項，預覽用 `Stage`（動畫加 `Transport`、`ExportPanel`）。
 4. 設定要自動存檔就用 `createToolStore('<id>', 預設值)`；規格寫「不保留狀態」就加 `{ persist: false }`。
-5. 在 `tests/e2e/` 加該工具的 Playwright 測試；`npm run build` 後產物在 `next/<id>/`。
+5. 在 `tests/e2e/` 加該工具的 Playwright 測試；`npm run build` 後產物在 `web/dist/next/<id>/`。
 6. 在 `src/home/icons.tsx` 幫工具挑一個首頁卡片的圖示（單元測試會檢查每個工具都有）。上線（`status: 'live'`）後首頁自動多一張卡片。
 
 缺少的元件先做成共用元件（`src/ui/` 或 `src/core/`），放進元件展示頁並登記在 DESIGN.md 第 4 節。

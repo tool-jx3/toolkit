@@ -1,0 +1,70 @@
+# 檢查、建置網站，main 有新 commit 時推到 gh-pages 分支（GitHub Pages 從 gh-pages 的根目錄發布）。
+#
+# - pull request 與 main：舊版的靜態檢查（npm test）、web/ 的 lint、typecheck、單元測試、建置。
+# - 只有 main：把建置好的 web/dist（整個網站）推到 gh-pages。gh-pages 是 orphan 分支，
+#   每次部署都是一個沒有歷史的新 commit（強制推送），repo 不會因為建置產物越長越大。
+#   要退回舊版：在 Actions 頁面對舊的 main commit 重新執行這個 workflow（Re-run all jobs）。
+# - 端對端測試（Playwright）在本機跑：cd web && npm run e2e。
+name: 建置與部署
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: 舊版的靜態檢查
+        run: npm test
+
+      - name: 安裝套件
+        working-directory: web
+        run: npm ci
+
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: web
+        run: npm run typecheck
+
+      - name: 單元測試
+        working-directory: web
+        run: npm test
+
+      - name: 建置
+        working-directory: web
+        run: npm run build
+
+      - name: 推到 gh-pages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        working-directory: web/dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init -q -b gh-pages
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -q -m "部署 ${GITHUB_SHA}"
+          git push -q --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
