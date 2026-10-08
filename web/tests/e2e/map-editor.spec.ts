@@ -1765,3 +1765,143 @@ test.describe('共用元件（元件展示頁）', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('面板的其他控制項', () => {
+  test('手繪的筆刷設定、文字的描邊與樣式、圖樣細節、房間牆壁的陰影、牆壁的線型、裝飾的垂直翻轉', async ({
+    page,
+  }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    const brush = () =>
+      page.evaluate(() => {
+        const b = (
+          window as unknown as {
+            __mapEditor: {
+              engine: {
+                canvas: { freeDrawingBrush: { width: number; color: string; decimate: number } };
+              };
+            };
+          }
+        ).__mapEditor.engine.canvas.freeDrawingBrush;
+        return { width: b.width, color: b.color, decimate: b.decimate };
+      });
+    /* 手繪 */
+    await tool(page, 'freehand').click();
+    await setColor(page, '顏色', '#ff0000');
+    await setNumber(page, '線寬', 9);
+    await setNumber(page, '平滑化', 2);
+    expect(await brush()).toEqual({ width: 9, color: 'rgba(255,0,0,1)', decimate: 2 });
+    /* 文字：描邊、樣式按鈕 */
+    await tool(page, 'text').click();
+    await setNumber(page, '描邊的粗細', 3);
+    await setColor(page, '描邊', '#00ff00');
+    await clickAt(page, -200, -150);
+    await page.keyboard.type('Ab');
+    await page.keyboard.press('Escape');
+    expect(await detail(page, '文字1')).toMatchObject({
+      stroke: 'rgba(0,255,0,1)',
+      strokeWidth: 3,
+    });
+    await tool(page, 'select').click();
+    await layerRow(page, '文字1').click();
+    await tool(page, 'text').click();
+    await clickAt(page, -190, -150);
+    await page.keyboard.press('Control+a');
+    for (const k of ['italic', 'underline', 'linethrough'])
+      await page.locator(`[data-text-style="${k}"]`).click();
+    await page.keyboard.press('Escape');
+    const styles = JSON.stringify((await detail(page, '文字1')).styles);
+    expect(styles).toContain('"fontStyle":"italic"');
+    expect(styles).toContain('"underline":true');
+    expect(styles).toContain('"linethrough":true');
+    /* 地面的圖樣細節：只影響之後的物件 */
+    await tool(page, 'ground').click();
+    await pickOption(page, '形狀', '矩形');
+    const ground = page.getByTestId('ground-panel');
+    await ground.getByRole('button', { name: '圖樣細節' }).click();
+    await setNumber(page, '偏移 X', 10, ground);
+    await setNumber(page, '縮放', 200, ground);
+    await clickAt(page, 0, 0);
+    await clickAt(page, 72, 72);
+    expect(await detail(page, '地面_矩形1')).toMatchObject({
+      _patternOffsetX: 10,
+      _patternScale: 2,
+    });
+    /* 牆壁的線型：依厚度換算 */
+    await tool(page, 'wall').click();
+    await pickOption(page, '線型', '虛線');
+    await clickAt(page, 144, 0);
+    await clickAt(page, 216, 72);
+    expect(await detail(page, '牆_矩形1')).toMatchObject({ strokeDashArray: [60, 36] });
+    /* 房間：牆壁的陰影關掉 */
+    await tool(page, 'room').click();
+    const roomPanel = page.getByTestId('room-panel');
+    const shadowBtns = roomPanel.getByRole('button', { name: '陰影' });
+    await shadowBtns.nth(1).click();
+    await roomPanel.getByRole('switch', { name: '加上陰影' }).last().click();
+    await clickAt(page, -216, 72);
+    await clickAt(page, -72, 216);
+    const room = await detail(page, '房間_矩形1');
+    expect((room.objects as Record<string, unknown>[])[1].shadow).toBeNull();
+    /* 裝飾：垂直翻轉 */
+    await tool(page, 'decor').click();
+    await page.locator('[data-decor="desk"]').click();
+    await page.getByRole('button', { name: '垂直' }).click();
+    await clickAt(page, 252, 180);
+    expect(await detail(page, '裝飾_書桌1')).toMatchObject({ flipY: true, _decorFlipY: true });
+    expect(errors).toEqual([]);
+  });
+
+  test('圖層面板的群組與刪除按鈕、地圖設定的網格顏色與吸附種類、縮小、立即儲存、匯出的白底與重新選範圍', async ({
+    page,
+  }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    await drawRect(page, [0, 0], [72, 72]);
+    await drawRect(page, [144, 0], [216, 72]);
+    await page.keyboard.press('v');
+    await layerRow(page, '矩形1').click();
+    await layerRow(page, '矩形2').click({ modifiers: ['Control'] });
+    await page.getByTestId('layer-group').click();
+    expect(await names(page)).toEqual(['群組1']);
+    await page.getByTestId('layer-group').click();
+    expect(await names(page)).toEqual(['矩形1', '矩形2']);
+    await layerRow(page, '矩形2').click();
+    await page.getByTestId('layer-delete').click();
+    expect(await names(page)).toEqual(['矩形1']);
+    /* 地圖設定 */
+    await page.getByRole('tab', { name: '地圖設定' }).click();
+    const settings = page.getByTestId('settings-panel');
+    await setColor(page, '顏色', '#ff000080');
+    await settings.getByRole('checkbox', { name: '格子中心' }).click();
+    const data = await page.evaluate(() =>
+      (
+        window as unknown as { __mapEditor: { engine: { serialize(): Record<string, unknown> } } }
+      ).__mapEditor.engine.serialize(),
+    );
+    expect(data.gridColor).toBe('#ff000080');
+    expect(
+      await page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem('trpg-toolkit:map-editor:preview') ?? '{}').state.data
+            .snapCenter,
+      ),
+    ).toBe(false);
+    /* 縮小、立即儲存 */
+    await page.getByRole('button', { name: '縮小' }).click();
+    await expect(page.getByTestId('status-zoom')).toHaveText('80%');
+    await page.getByTestId('save-now').click();
+    await expect(page.getByTestId('save-status')).toHaveText('已儲存');
+    /* 匯出：白底、重新選範圍 */
+    await pickExportRegion(page, [-72, -72], [144, 144]);
+    const dlg = page.getByTestId('export-dialog');
+    await dlg.getByRole('radio', { name: '白色' }).click();
+    const png = pngPixels((await download(page)).bytes);
+    expect(px(png, 10, 10)).toEqual([255, 255, 255, 255]);
+    await pickExportRegion(page, [-72, -72], [144, 144]);
+    await page.getByRole('button', { name: '重新選範圍' }).click();
+    await expect(page.getByTestId('export-banner')).toBeVisible();
+    await expect(page.getByTestId('export-dialog')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+});
