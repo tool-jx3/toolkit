@@ -1,8 +1,9 @@
 /**
  * 格子上的座標文字（網格產生器）：5 種格式、起點四角、從 0 或 1 開始；六角格另有列的算法（壓縮／以半列計）。
- * 規則與數值照舊版（違法建築的 TRPG 實驗室的網格產生器）。
+ * 規則與數值照舊版（違法建築的 TRPG 實驗室的網格產生器）；只有六角格的流水號依主控裁定改成連續編號（hexSerialNumbers）。
  */
 import { colParity } from './hex';
+import { type HexSheet, hexSheetCells } from './sheet';
 
 /** 1-1、1,1、0101（各補零到 2 位）、A1（欄用英文字母）、流水號 */
 export type CoordFormat = 'hyphen' | 'comma' | 'zero' | 'letter' | 'serial';
@@ -142,38 +143,45 @@ export function hexCoordIndex(
 }
 
 /**
- * 六角格的流水號（舊版的公式）：
- * n＝dc × ⌈R ÷ 2⌉ − (R mod 2) × (⌊dc ÷ 2⌋ ＋（起點在下面 ? dc mod 2 : 0）) ＋ dr ＋ start。
- * R 是**設定面板上的「列數」**——舊版在直向時也用這個值（沒有對調），所以直向、或錯開第 1 欄時號碼會跳號或重複；
- * 照舊版保留（規格 grid-maker 第 5 節）。
+ * 六角格的流水號（主控裁定 2026-10-08：取代舊版會跳號、重複的公式，屬刻意改善）。
+ * 和方格的流水號同樣的走法：從起點的角落開始，在**畫面上先橫向走完一列、再換下一列**，
+ * 依實際有畫的格子連續編號（start、start＋1…，不跳號、不重複；外圈的格子不編號）。
+ * 畫面上的「列」：
+ * - 橫向（平頂）：鋸齒狀的一列——半列 0、1 是第 1 列，2、3 是第 2 列…（同 1-1 格式「壓縮」的列）；同一列依欄號由起點那一邊往另一邊。
+ * - 直向（尖頂）：平頂座標系的一欄就是畫面上水平的一列；同一列依半列號由起點那一邊往另一邊。
+ * 起點的角落以畫面為準（右上＝畫面右上），直向時也一樣。
+ * 回傳「"col,row"（半列座標）→ 號碼」。
  */
-export function hexSerial(
-  dc: number,
-  dr: number,
-  { rows, origin, start }: { rows: number; origin: CoordOrigin; start: number },
-): number {
-  const fromBottom = origin === 'bl' || origin === 'br' ? 1 : 0;
-  return (
-    dc * Math.ceil(rows / 2) -
-    (rows % 2) * (Math.floor(dc / 2) + fromBottom * (dc % 2)) +
-    dr +
-    start
-  );
+export function hexSerialNumbers(
+  sheet: HexSheet,
+  origin: CoordOrigin,
+  start: number,
+): Map<string, number> {
+  const { flipCol, flipRow } = originFlips(origin);
+  const pointy = sheet.metrics.orientation === 'pointy';
+  const keyed = hexSheetCells(sheet, false).map(({ col, row }) => {
+    const screenRow = pointy ? col : Math.floor(row / 2);
+    const screenCol = pointy ? row : col;
+    return {
+      key: `${col},${row}`,
+      rowKey: flipRow ? -screenRow : screenRow,
+      colKey: flipCol ? -screenCol : screenCol,
+    };
+  });
+  keyed.sort((a, b) => a.rowKey - b.rowKey || a.colKey - b.colKey);
+  return new Map(keyed.map((k, i) => [k.key, i + start]));
 }
 
 export interface HexCoordOptions extends HexCoordIndexOptions {
   format: CoordFormat;
   start: number;
-  /** 流水號公式用的列數（設定面板上的值，見 hexSerial） */
-  serialRows: number;
+  /** 流水號（hexSerialNumbers 的結果；格式是流水號時才需要） */
+  serials?: ReadonlyMap<string, number>;
 }
 
 /** 六角格 (col, row) 的座標文字 */
 export function hexCoordLabel(col: number, row: number, o: HexCoordOptions): string {
   const { dc, dr } = hexCoordIndex(col, row, o);
-  const serial =
-    o.format === 'serial'
-      ? hexSerial(dc, dr, { rows: o.serialRows, origin: o.origin, start: o.start })
-      : 0;
+  const serial = o.format === 'serial' ? (o.serials?.get(`${col},${row}`) ?? 0) : 0;
   return formatCoord(dc, dr, o.format, o.start, serial);
 }
