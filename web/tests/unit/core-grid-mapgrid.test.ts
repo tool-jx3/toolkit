@@ -3,7 +3,6 @@
  * 逐點比對（直接執行舊版的檔案）：像素→格、吸附點、鄰格、整格位移；外框、格線、nearestSnap。
  */
 import { describe, expect, it } from 'vitest';
-import LEGACY_SRC from '../../../tools/trpg-lab/trpg_map_maker/map_grid.js?raw';
 import {
   composeMapGridType,
   isMapGridType,
@@ -14,6 +13,7 @@ import {
   nearestSnap,
   parseMapGridType,
 } from '@/core/grid';
+import LEGACY_SRC from '../../../tools/trpg-lab/trpg_map_maker/map_grid.js?raw';
 
 interface LegacyAdapter {
   pxToCell(x: number, y: number): { col: number; row: number };

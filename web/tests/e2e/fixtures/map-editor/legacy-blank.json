@@ -1,1 +1,20 @@
-{"id":"muz7lhzkzfka","name":"空白地圖","gridType":"square","createdAt":"2026-10-08T07:22:36.752Z","updatedAt":"2026-10-08T07:22:36.752Z","thumbnail":null,"data":{"version":1,"cellSize":72,"gridType":"square","gridColor":"#535353ff","gridLineWidth":1,"gridDashArray":[10,5],"nextLayerId":10,"layerCounters":{},"viewportTransform":null,"canvas":{"version":"5.3.1","objects":[],"background":null}}}
+{
+  "id": "muz7lhzkzfka",
+  "name": "空白地圖",
+  "gridType": "square",
+  "createdAt": "2026-10-08T07:22:36.752Z",
+  "updatedAt": "2026-10-08T07:22:36.752Z",
+  "thumbnail": null,
+  "data": {
+    "version": 1,
+    "cellSize": 72,
+    "gridType": "square",
+    "gridColor": "#535353ff",
+    "gridLineWidth": 1,
+    "gridDashArray": [10, 5],
+    "nextLayerId": 10,
+    "layerCounters": {},
+    "viewportTransform": null,
+    "canvas": { "version": "5.3.1", "objects": [], "background": null }
+  }
+}
