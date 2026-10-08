@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   fileNameWithExt,
+  filesInMemory,
   formatBytes,
   matchesAccept,
   readFilesNow,
@@ -80,5 +81,35 @@ describe('readFilesNow（選的當下先讀進記憶體）', () => {
 
   it('沒有檔案時回傳空的', async () => {
     expect(await readFilesNow([])).toEqual({ files: [], failed: [] });
+  });
+});
+
+describe('filesInMemory（FileDrop、WindowDrop、pickFiles 預設經過這裡）', () => {
+  const gone = () => Promise.reject(new DOMException('could not be read', 'NotReadableError'));
+
+  it('讀得到的換成記憶體裡的複本（順序、檔名、類型、修改時間、資料夾路徑都照原本）；讀不到、太大的照原樣交出', async () => {
+    const a = new File([new Uint8Array([1, 2])], 'a.png', { type: 'image/png', lastModified: 5 });
+    Object.defineProperty(a, 'webkitRelativePath', { value: '資料夾/a.png' });
+    const bad = new File([new Uint8Array([3])], 'bad.png', { type: 'image/png' });
+    bad.arrayBuffer = gone;
+    const big = new File([new Uint8Array(10)], 'big.mp4', { type: 'video/mp4' });
+    const r = await filesInMemory([a, bad, big], { maxBytes: 4 });
+    expect(r.map((f) => f.name)).toEqual(['a.png', 'bad.png', 'big.mp4']);
+    expect(r[0]).not.toBe(a);
+    expect([r[0].type, r[0].lastModified, r[0].webkitRelativePath]).toEqual([
+      'image/png',
+      5,
+      '資料夾/a.png',
+    ]);
+    expect([...new Uint8Array(await r[0].arrayBuffer())]).toEqual([1, 2]);
+    expect(r[1]).toBe(bad);
+    expect(r[2]).toBe(big);
+  });
+
+  it('讀檔在呼叫的當下就開始（不等其他事情）', () => {
+    const f = new File(['x'], 'x.png');
+    const spy = vi.spyOn(f, 'arrayBuffer');
+    void filesInMemory([f]);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

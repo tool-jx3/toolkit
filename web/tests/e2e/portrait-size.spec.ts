@@ -9,7 +9,9 @@
  * - 效能：8 張 2000×3000 的 PNG 處理時間；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { crc32, deflateSync } from 'node:zlib';
 import { type Download, expect, type Locator, type Page, test } from '@playwright/test';
 import { encodePng } from '../../src/core/encode/png';
@@ -321,6 +323,24 @@ test('處理：進度、完成、處理後縮圖；改選項提示；移除、�
   await expectButtons(page, false, false, false);
   await input(page).setInputFiles([file('A.png', a)]);
   await expect(items(page)).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test('選好的檔案之後就讀不到（Android 相片挑選器的權限失效）：選的當下讀進記憶體，按「處理」照常', async ({
+  page,
+}) => {
+  /* 選好之後改掉磁碟上的檔案：之後再讀原本的 File，Chrome 回報 NotReadableError（同手機上權限失效） */
+  const errors = await open(page);
+  const dir = mkdtempSync(join(tmpdir(), 'portrait-picked-'));
+  const paths = [join(dir, '1000003457.png'), join(dir, '1000003458.png')];
+  writeFileSync(paths[0], await A());
+  writeFileSync(paths[1], await B());
+  await input(page).setInputFiles(paths);
+  await expect(items(page)).toHaveCount(2);
+  await page.waitForTimeout(300);
+  for (const p of paths) writeFileSync(p, Buffer.concat([readFileSync(p), Buffer.alloc(16)]));
+  await btn(page, '處理').click();
+  await expect(status(page)).toHaveText(/^處理完成：共 2 張/);
   expect(errors).toEqual([]);
 });
 

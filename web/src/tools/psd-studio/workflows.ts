@@ -2,7 +2,7 @@
  * 操作流程（載入、畫布尺寸、匯出、單張下載、試算、還原、清除）：讀寫 store、交給處理 Worker、顯示處理中畫面與通知。
  */
 import { readRoomZip } from '@/ccfolia';
-import { downloadBytes, readAsBytes } from '@/core/files';
+import { downloadBytes, filesInMemory, readAsBytes } from '@/core/files';
 import type { ConfirmOptions, ToastOptions } from '@/ui';
 import { type AssetAdjust, compileAdjust } from './adjust';
 import { busy } from './Busy';
@@ -110,7 +110,11 @@ export async function handleFiles(ctx: Ctx, files: File[]): Promise<void> {
   }
   if (d.kind === 'psd') return loadPsd(ctx, d.file);
   if (d.kind === 'zip') return loadZip(ctx, d.file);
-  return loadImages(ctx, d.files);
+  /*
+   * 圖片是一張一張處理：先全部讀進記憶體（保留資料夾裡的相對路徑），後面的檔案才不會等到讀不到
+   * （Android 的相片挑選器給的檔案，讀取權限之後會失效）。PSD、ZIP 本來就是一開始就讀。
+   */
+  return loadImages(ctx, await filesInMemory(d.files));
 }
 
 function newAsset(

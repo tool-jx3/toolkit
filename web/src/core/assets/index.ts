@@ -159,7 +159,14 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
       const id = await assetIdFor(bytes);
       /* 同一張圖已經存過：不必再寫一次 */
       if (blobs.has(id) && saved.has(id)) return { id, persisted: true };
-      return put(id, blobs.get(id) ?? blob);
+      /*
+       * 存剛讀出來的位元組，不存傳進來的 File：Android 的相片挑選器給的檔案，讀取權限之後會失效，
+       * 之後的縮圖、存進 IndexedDB、專案檔再讀原本的 File 會丟 NotReadableError。
+       */
+      return put(
+        id,
+        blobs.get(id) ?? new Blob([bytes], { type: blob.type || assetFileInfo(bytes).mime }),
+      );
     },
     put,
     get,

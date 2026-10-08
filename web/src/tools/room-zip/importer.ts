@@ -4,6 +4,7 @@
  * 以處理後的內容算 SHA-256 決定識別名，已有同名素材就算合併（那張素材的圖片資料不見了時順便補回，F280）。
  */
 import { packRoomImage, roomImageExt } from '@/ccfolia';
+import { filesInMemory } from '@/core/files';
 import { addMaterial, autoRoomBackground } from './actions';
 import {
   ANIMATION_SCAN_BYTES,
@@ -142,9 +143,14 @@ export interface ImportOptions {
 
 /** 匯入檔案到素材一覽；結束時房間背景是空的就自動設定（F043） */
 export async function importFiles(
-  files: readonly File[],
+  picked: readonly File[],
   opts: ImportOptions = {},
 ): Promise<ImportResult> {
+  /*
+   * 一開始就把所有檔案讀進記憶體（各個拖放區、選檔都直接呼叫這裡）：一張一張處理時，後面的檔案要等前面的做完才讀，
+   * Android 的相片挑選器給的檔案那時已經讀不到了。讀不到的照原樣交給 processFile，照常算失敗。
+   */
+  const files = await filesInMemory(picked);
   const out: ImportResult = { names: [], added: 0, dup: 0, failed: 0, heavy: [] };
   const total = files.length;
   const busy = opts.busyTitle ?? (total > 1 ? '匯入圖片中' : '讀取圖片中');

@@ -126,10 +126,22 @@ export interface PickFilesOptions {
   /** 例如 'image/*'、'.json,application/json' */
   accept?: string;
   multiple?: boolean;
+  /**
+   * 選好的檔案先讀進記憶體再交出（預設 true，見 filesInMemory：Android 的相片挑選器給的檔案之後會讀不到）。
+   * false：交出原本的 File（很大、要邊讀邊處理的檔案）。
+   */
+  readNow?: boolean;
 }
 
-/** 開啟選檔視窗。使用者取消時回傳空陣列。必須在使用者操作（點擊）的事件裡呼叫。 */
-export function pickFiles({ accept, multiple = false }: PickFilesOptions = {}): Promise<File[]> {
+/**
+ * 開啟選檔視窗。使用者取消時回傳空陣列。必須在使用者操作（點擊）的事件裡呼叫。
+ * 預設交出的是讀進記憶體的複本（readNow），之後什麼時候讀都可以。
+ */
+export function pickFiles({
+  accept,
+  multiple = false,
+  readNow = true,
+}: PickFilesOptions = {}): Promise<File[]> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -140,7 +152,15 @@ export function pickFiles({ accept, multiple = false }: PickFilesOptions = {}): 
       input.remove();
       resolve(files);
     };
-    input.addEventListener('change', () => done(Array.from(input.files ?? [])), { once: true });
+    input.addEventListener(
+      'change',
+      () => {
+        const picked = Array.from(input.files ?? []);
+        if (readNow) void filesInMemory(picked).then(done);
+        else done(picked);
+      },
+      { once: true },
+    );
     input.addEventListener('cancel', () => done([]), { once: true });
     document.body.appendChild(input);
     input.click();
@@ -181,11 +201,41 @@ export async function readFilesNow(files: readonly File[]): Promise<ReadFilesNow
   const out: ReadFilesNowResult = { files: [], failed: [] };
   settled.forEach((r, i) => {
     const f = files[i];
-    if (r.status === 'fulfilled')
-      out.files.push(new File([r.value], f.name, { type: f.type, lastModified: f.lastModified }));
+    if (r.status === 'fulfilled') out.files.push(memoryCopy(f, r.value));
     else out.failed.push({ file: f, error: r.reason });
   });
   return out;
+}
+
+/** 內容相同、放在記憶體裡的 File（檔名、類型、修改時間、資料夾裡的相對路徑都照原本） */
+function memoryCopy(f: File, bytes: ArrayBuffer): File {
+  const copy = new File([bytes], f.name, { type: f.type, lastModified: f.lastModified });
+  if (f.webkitRelativePath)
+    Object.defineProperty(copy, 'webkitRelativePath', { value: f.webkitRelativePath });
+  return copy;
+}
+
+/** filesInMemory 預設的大小上限：再大的檔案照原樣交出（一次全讀進記憶體，手機會吃不消） */
+export const READ_NOW_MAX_BYTES = 256 * 1024 * 1024;
+
+/**
+ * 選檔、拖放、貼上拿到的檔案立刻讀進記憶體，回傳內容相同的新 File（順序不變）。
+ * 讀不到的、超過 maxBytes 的照原樣回傳，工具自己讀的時候照常報錯。FileDrop、WindowDrop、pickFiles 預設都經過這裡
+ * （Android 的相片挑選器給的檔案，讀取權限之後會失效：晚一點才讀會丟 NotReadableError）。
+ */
+export async function filesInMemory(
+  files: readonly File[],
+  { maxBytes = READ_NOW_MAX_BYTES }: { maxBytes?: number } = {},
+): Promise<File[]> {
+  const settled = await Promise.allSettled(
+    files.map((f) =>
+      f.size <= maxBytes ? f.arrayBuffer() : Promise.reject(new Error('too-large')),
+    ),
+  );
+  return files.map((f, i) => {
+    const r = settled[i];
+    return r.status === 'fulfilled' ? memoryCopy(f, r.value) : f;
+  });
 }
 
 /* ---------- 剪貼簿 ---------- */
