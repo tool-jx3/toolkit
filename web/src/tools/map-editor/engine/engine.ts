@@ -141,6 +141,8 @@ export class MapEngine {
   private disposed = false;
   private syncQueued = false;
   private unsubs: (() => void)[] = [];
+  /** 剛結束編輯的文字（略過接著來的 object:modified） */
+  private textJustExited: FabricObject | null = null;
   /** 已經確認載入的字型（字型｜字重｜文字） */
   private fontsReady = new Set<string>();
   /** 文字編輯前的內容（編輯完比較有沒有改） */
@@ -561,6 +563,14 @@ export class MapEngine {
     };
     wrapper.addEventListener('mousedown', onMouseDown, true);
 
+    /* 按到畫布時，面板上的輸入欄失去焦點（之後的 Enter、Esc、快捷鍵給畫布；文字編輯用的隱藏輸入欄除外） */
+    const onPointerDown = () => {
+      const a = document.activeElement as HTMLElement | null;
+      if (!a || a === document.body || a.getAttribute('data-fabric') === 'textarea') return;
+      if (!this.host.contains(a)) a.blur();
+    };
+    wrapper.addEventListener('pointerdown', onPointerDown, true);
+
     /* 滾輪縮放（以游標為中心） */
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey && Math.abs(e.deltaY) < 1) return;
@@ -628,6 +638,7 @@ export class MapEngine {
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
       wrapper.removeEventListener('mousedown', onMouseDown, true);
+      wrapper.removeEventListener('pointerdown', onPointerDown, true);
       wrapper.removeEventListener('wheel', onWheel);
       upper.removeEventListener('contextmenu', onContextMenu);
       upper.removeEventListener('touchstart', onTouchStart, true);
@@ -1885,6 +1896,8 @@ export class MapEngine {
   private onTextExited(t: IText & MapObj): void {
     const before = this.textBefore;
     this.textBefore = null;
+    /* 接著 Fabric 會發 object:modified（內容有改時）：已經在這裡記了一步，那一次略過 */
+    this.textJustExited = t;
     if (t._isMapText && (t.text ?? '').trim() === '') {
       this.canvas.remove(t);
       this.canvas.discardActiveObject();
@@ -1939,6 +1952,10 @@ export class MapEngine {
 
   private onModified(t: MapObj | undefined): void {
     if (!t) return;
+    if (t === this.textJustExited) {
+      this.textJustExited = null;
+      return;
+    }
     if (t._isCellLayer && t._snapAccum) {
       const { colDelta, rowDelta } = t._snapAccum;
       if (colDelta || rowDelta) {

@@ -1,11 +1,9 @@
 /**
  * core/grid 的 mapGrid（地圖編輯器的網格種類）：與舊版 `tools/trpg-lab/trpg_map_maker/map_grid.js` 的 GridAdapter
- * 逐點比對（直接在 node:vm 裡執行舊版的檔案）：像素→格、吸附點、鄰格、整格位移；外框、格線、nearestSnap。
+ * 逐點比對（直接執行舊版的檔案）：像素→格、吸附點、鄰格、整格位移；外框、格線、nearestSnap。
  */
-import fs from 'node:fs';
-import path from 'node:path';
-import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
+import LEGACY_SRC from '../../../tools/trpg-lab/trpg_map_maker/map_grid.js?raw';
 import {
   composeMapGridType,
   isMapGridType,
@@ -27,13 +25,10 @@ interface LegacyAdapter {
   ): { colDelta: number; rowDelta: number; snappedDx: number; snappedDy: number };
 }
 
-const LEGACY = path.resolve(__dirname, '../../../tools/trpg-lab/trpg_map_maker/map_grid.js');
-
+/** 舊版的檔案原封不動地執行（全域的 App 由參數提供） */
 function legacyAdapters(cellSize: number): Record<string, LegacyAdapter> {
-  const ctx: Record<string, unknown> = { App: { cellSize, gridType: 'square' }, Math, console };
-  vm.createContext(ctx);
-  vm.runInContext(`${fs.readFileSync(LEGACY, 'utf8')}\nthis.__adapters = GridAdapters;`, ctx);
-  return ctx.__adapters as Record<string, LegacyAdapter>;
+  const run = new Function('App', `${LEGACY_SRC}\nreturn GridAdapters;`);
+  return run({ cellSize, gridType: 'square' }) as Record<string, LegacyAdapter>;
 }
 
 /** 固定的亂數（每次測同一組點） */

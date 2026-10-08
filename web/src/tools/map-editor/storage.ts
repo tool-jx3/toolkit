@@ -281,6 +281,14 @@ export async function migrateLegacyMaps(): Promise<number> {
   return count;
 }
 
+let migration: Promise<number> | null = null;
+
+/** 舊版的搬移在這一頁只做一次（一覽、直接開 `?id=` 都會先等它） */
+export function ensureLegacyMigrated(): Promise<number> {
+  if (!migration) migration = migrateLegacyMaps().catch(() => 0);
+  return migration;
+}
+
 /** 測試用：清掉記住的連線 */
 export function resetStorageForTest(): void {
   kvPromise = null;

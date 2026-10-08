@@ -18,7 +18,7 @@ import { LayersPanel } from './panels/LayersPanel';
 import { SidePanel } from './panels/SidePanel';
 import { getEngine, setRuntime, useRuntime } from './runtime';
 import { MapSession } from './session';
-import { getMapData, getMeta } from './storage';
+import { ensureLegacyMigrated, getMapData, getMeta } from './storage';
 import { INITIAL_EDITOR, setEditor, useEditor } from './stores';
 import { S } from './strings';
 
@@ -86,6 +86,8 @@ export function Editor({ id, onBack, onMissing }: EditorProps) {
     ro.observe(host);
     void (async () => {
       try {
+        /* 舊版的網址（map_editor.html?id=）轉過來時，那張地圖可能還沒搬進來 */
+        await ensureLegacyMigrated();
         const meta = await getMeta(id);
         const data = meta ? await getMapData(id) : null;
         if (disposed) return;

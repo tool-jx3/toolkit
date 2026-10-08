@@ -203,24 +203,20 @@ export function DecorPanel() {
               {S.decor.resetColor}
             </Button>
           </div>
-          <FieldRow columns={2}>
-            <Field label={S.decor.fill} hint={mp.decorFill ? undefined : S.decor.original}>
-              <ColorField
-                value={mp.decorFill ?? '#505050ff'}
-                onChange={(decorFill) => setMapPrefs({ decorFill })}
-                alpha
-                showInput={false}
-              />
-            </Field>
-            <Field label={S.decor.stroke} hint={mp.decorStroke ? undefined : S.decor.original}>
-              <ColorField
-                value={mp.decorStroke ?? '#00000000'}
-                onChange={(decorStroke) => setMapPrefs({ decorStroke })}
-                alpha
-                showInput={false}
-              />
-            </Field>
-          </FieldRow>
+          <Field label={S.decor.fill} hint={mp.decorFill ? undefined : S.decor.original}>
+            <ColorField
+              value={mp.decorFill ?? '#505050ff'}
+              onChange={(decorFill) => setMapPrefs({ decorFill })}
+              alpha
+            />
+          </Field>
+          <Field label={S.decor.stroke} hint={mp.decorStroke ? undefined : S.decor.original}>
+            <ColorField
+              value={mp.decorStroke ?? '#00000000'}
+              onChange={(decorStroke) => setMapPrefs({ decorStroke })}
+              alpha
+            />
+          </Field>
         </div>
       ) : null}
       <DrawShadow cat="decor" />

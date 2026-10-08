@@ -23,19 +23,18 @@ import {
   createMap,
   deleteMap,
   duplicateMap,
+  ensureLegacyMigrated,
   getMapData,
   getMeta,
   importMapJson,
   isMemoryOnly,
   listMaps,
   MapFileError,
-  migrateLegacyMaps,
   putMeta,
 } from './storage';
 import { S } from './strings';
 
-/** 舊版的搬移只在開頁時做一次 */
-let migration: Promise<number> | null = null;
+/** 搬移的提示只顯示一次 */
 let migrationShown = false;
 
 export interface MapListProps {
@@ -63,8 +62,7 @@ export function MapList({ onOpen, flash, onFlashShown }: MapListProps) {
   useEffect(() => {
     let live = true;
     void (async () => {
-      if (!migration) migration = migrateLegacyMaps().catch(() => 0);
-      const count = await migration;
+      const count = await ensureLegacyMigrated();
       if (!live) return;
       if (count > 0 && !migrationShown) {
         migrationShown = true;

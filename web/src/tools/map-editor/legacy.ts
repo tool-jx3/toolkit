@@ -69,9 +69,16 @@ export interface ConvertOptions {
 
 /** 一個 Fabric 物件（含群組的子物件、clipPath）：型別名稱、版本、拿掉的貼圖 */
 /** 定位點（originX／Y）→ Fabric 的偏移係數 */
-const ORIGIN_FACTOR: Readonly<Record<string, number>> = { left: -0.5, top: -0.5, center: 0, right: 0.5, bottom: 0.5 };
+const ORIGIN_FACTOR: Readonly<Record<string, number>> = {
+  left: -0.5,
+  top: -0.5,
+  center: 0,
+  right: 0.5,
+  bottom: 0.5,
+};
 
-const numOr = (v: unknown, d: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const numOr = (v: unknown, d: number): number =>
+  typeof v === 'number' && Number.isFinite(v) ? v : d;
 
 /**
  * 平頭的水平／垂直直線：Fabric 5 算位置時外接框不含線寬（線的方向），Fabric 7 含，同一個 left、top 會差半個線寬。
