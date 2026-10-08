@@ -1,1 +1,0 @@
-var e=96/25.4,t=72/96,n=t=>t*e,r={A4:{w:210,h:297},A5:{w:148,h:210},B5:{w:182,h:257}},i=[.25,.35,.5,.65,.8,1,1.25,1.5,2,2.5,3];function a(e,t){return(t>0?i.find(t=>t>e+.001):[...i].reverse().find(t=>t<e-.001))??null}function o(e,t,n=`scenario`){return`${String(e??``).replace(/[\\/:*?"<>|]/g,`_`)||n}.${t}`}export{o as a,n as i,r as n,a as o,t as r,e as t};
