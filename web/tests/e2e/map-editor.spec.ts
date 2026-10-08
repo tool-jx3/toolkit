@@ -259,6 +259,7 @@ test.describe('地圖一覽', () => {
     await page.goBack();
     await expect(page.getByTestId('map-list')).toBeVisible();
     await expect(page.getByTestId('map-card-name')).toHaveText(['測試地圖']);
+    await expect(page).toHaveTitle('地圖編輯器｜TRPG Toolkit');
     expect(errors).toEqual([]);
   });
 

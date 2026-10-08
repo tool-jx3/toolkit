@@ -82,6 +82,11 @@ export function MapList({ onOpen, flash, onFlashShown }: MapListProps) {
     };
   }, [refresh]);
 
+  /* 從編輯畫面回來：分頁標題回到工具名稱 */
+  useEffect(() => {
+    document.title = `${S.toolName}｜TRPG Toolkit`;
+  }, []);
+
   useEffect(() => {
     if (!flash) return;
     toast({ title: flash, tone: 'warning' });
