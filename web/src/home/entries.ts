@@ -28,7 +28,7 @@ export const LEGACY: readonly HomeEntry[] = [
     id: 'trpg-lab',
     name: 'TRPG 實驗室（舊版）',
     summary:
-      'CoC 7 版擲骰、調查員角色卡、NPC 管理、地圖編輯器、網格與量尺產生器的舊版合輯，正在逐一改寫成新版。',
+      '調查員角色卡與地圖編輯器的舊版（正在改寫成新版；擲骰、NPC、網格與量尺已經是上面的新工具）。',
     href: './tools/trpg-lab/',
     group: 'G9',
     kind: 'legacy',

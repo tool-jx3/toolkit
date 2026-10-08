@@ -180,14 +180,7 @@ const KANA_RUN = /[ぁ-ゖァ-ヺｦ-ﾝ・ー一-鿿]+/g;
 const LAB = 'tools/trpg-lab';
 const LAB_PAGES = [
   { html: 'index.html', scripts: ['index.js', 'common.js'], styles: ['index.css', 'common.css'], hooks: 23, inline: 10, attrs: 9 },
-  { html: 'coc7_dice.html', scripts: ['coc7_dice.js'], styles: ['coc7_dice.css'], hooks: 42, inline: 7, attrs: 27 },
   { html: 'coc7_Investigator_sheet.html', scripts: ['coc7_Investigator_sheet.js'], styles: ['coc7_Investigator_sheet.css'], hooks: 140, inline: 135, attrs: 3 },
-  { html: 'coc_npc_token.html', scripts: ['coc_npc_token.js'], styles: ['coc_npc_token.css'], hooks: 48, inline: 32, attrs: 4 },
-  { html: 'damage_sum.html', scripts: ['damage_sum.js'], styles: ['damage_sum.css'], hooks: 9, inline: 7, attrs: 2, standalone: true },
-  { html: 'grid_maker.html', scripts: ['grid_maker.js'], styles: ['grid_maker.css'], hooks: 71, inline: 68, attrs: 1 },
-  { html: 'grid_ruler.html', scripts: ['grid_ruler.js'], styles: ['grid_ruler.css'], hooks: 69, inline: 64, attrs: 2 },
-  { html: 'hex_maker.html', scripts: ['hex_maker.js'], styles: ['hex_maker.css'], hooks: 85, inline: 80, attrs: 1 },
-  { html: 'hex_ruler.html', scripts: ['hex_ruler.js'], styles: ['hex_ruler.css'], hooks: 70, inline: 63, attrs: 2 },
   { html: 'third-party-licenses.html', scripts: [], styles: ['third-party-licenses.css'], hooks: 45, inline: 38, attrs: 4 },
   { html: 'trpg_map_maker/map_list.html', scripts: ['trpg_map_maker/map_list.js', 'trpg_map_maker/map_storage.js'],
     styles: ['trpg_map_maker/map_list.css'], hooks: 23, inline: 19, attrs: 1 },
@@ -225,6 +218,21 @@ const labTools = LAB_PAGES.map(page => ({ page, tool: checkTool({
 
 section('tools/trpg-lab');
 const labFiles = listFiles(LAB).map(f => f.replace(`${LAB}/`, ''));
+/* 已改寫成新版的頁面：舊網址只剩轉址頁（舊版存在瀏覽器的資料由新版第一次開啟時讀進來）。 */
+const LAB_REDIRECTS = {
+  'coc7_dice.html': 'coc-dice', 'damage_sum.html': 'coc-dice', 'coc_npc_token.html': 'coc-npc',
+  'grid_maker.html': 'grid-maker', 'hex_maker.html': 'grid-maker',
+  'grid_ruler.html': 'range-ruler', 'hex_ruler.html': 'range-ruler',
+};
+for (const [page, id] of Object.entries(LAB_REDIRECTS)) {
+  const html = read(`${LAB}/${page}`);
+  const base = page.replace(/\.html$/, '');
+  check(`trpg-lab ${page} 轉到新版 ${id}`,
+    html.includes(`url=../${id}/`) && html.includes(`location.replace('../${id}/'`) && /<html lang="zh-Hant-TW">/.test(html)
+    && !/<script[^>]+src=/.test(html));
+  check(`trpg-lab ${page} 的舊版程式、樣式與字典已刪除`,
+    !exists(`${LAB}/${base}.js`) && !exists(`${LAB}/${base}.css`) && !exists(`${LAB}/i18n.${base}.js`));
+}
 /* 上游只在 ihoukentiku.github.io 上載入 gtag；收錄版整組拿掉，連同只在說明分析的
  * 隱私權政策頁。 */
 check('trpg-lab 沒有任何存取分析',

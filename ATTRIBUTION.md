@@ -51,6 +51,11 @@
 上游 repo 裡另有一個 `grid_paint.html`，站上沒有任何連結指向它（功能已由地圖編輯器
 取代），不收。
 
+**已改寫成新版的頁面（2026-10）**：擲骰（`coc7_dice.html`）與傷害計算（`damage_sum.html`）→ `coc-dice`、
+NPC（`coc_npc_token.html`）→ `coc-npc`、網格（`grid_maker.html`／`hex_maker.html`）→ `grid-maker`、
+量尺（`grid_ruler.html`／`hex_ruler.html`）→ `range-ruler`。這些頁面的舊版程式、樣式與字典已刪除，舊網址只剩轉到新版的轉址頁；
+舊版在 `main` commit `6957b28`。調查員角色卡與地圖編輯器還是舊版（正在改寫）。
+
 ### 作者保留權利的素材不收
 
 程式碼是 MIT（repo 的 `LICENSE` 與站上的授權頁都這麼寫），但授權頁另外聲明：網站
@@ -259,12 +264,16 @@ WebM。
 | `acrylic-goods` | 壓克力周邊工房 | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `83fd605` |
 | `music-frame` | 音樂播放畫面產生器 | [zznaptime/1007mv](https://github.com/zznaptime/1007mv)（未授權） | —（新收錄，沒有舊版） |
 | `bg-remover` | 立繪去背工具 | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation)（Apache-2.0） | —（新收錄，沒有舊版） |
+| `coc-dice` | CoC 擲骰工具 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的擲骰頁與 BCDice 傷害加總頁合併） | `6957b28` |
+| `coc-npc` | CoC NPC 產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的 NPC 頁） | `6957b28` |
+| `grid-maker` | 網格產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格產生器合併） | `6957b28` |
+| `range-ruler` | 距離量尺產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格量尺合併） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
 
 `bg-remover` 同樣照新工具引入流程直接在新框架做：AI 去背照 SkyTNT/anime-segmentation（Apache-2.0，授權全文在通知檔）的 `get_mask()` 前後處理。模型 `isnetis.onnx`（Apache-2.0，約 176 MB）**不在本 repo**：使用者第一次用 AI 去背時，瀏覽器從 Hugging Face 的 [skytnt/anime-seg](https://huggingface.co/skytnt/anime-seg) 固定 revision `493cb608` 下載，驗證 SHA-256 後存在瀏覽器裡。推論用 onnxruntime-web（MIT）。
 
-新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
+新版用到的 npm 套件與授權，建置時自動整理在網站的 [assets/build/THIRD_PARTY_NOTICES.md](https://tool-jx3.github.io/toolkit/assets/build/THIRD_PARTY_NOTICES.md)（建置產物，不在 repo 裡）。
 
 ## text-fx：文字演出產生器（無塵室開發）
 

@@ -58,7 +58,7 @@
 | video-anim | 影片轉動圖工具 | sotsotssi/video-to-pic | MIT | G8 |
 | gif-combiner | GIF 接合器 | sotsotssi/GIF-Combiner | MIT | G8 |
 | music-frame | 音樂播放畫面產生器 | zznaptime/1007mv | 未授權 | G8 |
-| battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator | MIT | G8 |
+| battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator | MIT | G10（原 G8） |
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
 | jizura | JIZURA 字面 | 852wa/JIZURA | MIT | 外部連結（不重寫，維持轉址） |
@@ -199,13 +199,13 @@ P10 進度：✅ 首頁移入新框架（`web/src/index.html`＋`web/src/home/`�
 | character-select | ✅ | ✅ | ✅ | ✅ |
 | magic-circle | ✅ | ✅ | ✅ | ✅ |
 | acrylic-goods | ✅ | ✅ | ✅ | ✅ |
-| coc-dice（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
-| coc-npc（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| coc-dice（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
+| coc-npc（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
 | coc-sheet（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
-| grid-maker（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
-| range-ruler（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
-| map-editor（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
-| anime-rig | ⬜ | ⬜ | ⬜ | ⬜ |
+| grid-maker（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
+| range-ruler（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
+| map-editor（trpg-lab） | 🔨 | 🔨 | ⬜ | ⬜ |
+| anime-rig | ✅ | ✅ | 🔍 | ⬜ |
 
 （每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 ✅、G5 ✅、G6 ✅、G8 ✅、G7 ✅（版型畫布、3D）。）
 
