@@ -70,11 +70,14 @@ export function sanitizeSettings(raw: unknown): DiceSettings {
 
 /* ---------- 技能檢定 ---------- */
 
-/** 技能值欄的值：空白時 null；其他照舊版以 parseInt 取整數（讀不出數字時也當成沒填） */
+/**
+ * 技能值欄的值：空白或讀不出數字時 null；其他取整數部分。和數字欄的增減鈕用同一種解讀
+ * （`1e2` 是 100、`55.9` 是 55），擲骰的值和按鈕加減的起點才會一致（對等驗證後裁定）。
+ */
 export function parseSkill(raw: string): number | null {
-  if (!raw) return null;
-  const n = Number.parseInt(raw, 10);
-  return Number.isNaN(n) ? null : n;
+  if (!raw.trim()) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
 /** 要不要判定成功等級（舊版：技能值不是 0 才判定） */
@@ -105,7 +108,8 @@ export function customLogText(normalized: string, result: DiceRollResult): strin
  * 最後一項與按鈕都是整數 → 相加；最後一項是減號開頭時不合併、改成接在後面；其他情況接「+按鈕」。
  */
 export function appendQuickDice(current: string, token: string): string {
-  const cur = normalizeDiceText(current);
+  /* 算式只有正負號（例如只打了「+」）時當成空白（舊版會出錯；對等驗證後裁定） */
+  const cur = /^[+-]*$/.test(normalizeDiceText(current)) ? '' : normalizeDiceText(current);
   const parts = splitDiceParts(cur);
   const last = parts.length ? parts[parts.length - 1] : '';
   const lastDice = /^([+-]?)(\d+)?D(\d+)$/i.exec(last);

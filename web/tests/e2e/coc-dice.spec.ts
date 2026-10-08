@@ -169,6 +169,15 @@ test.describe('減少動態（立刻揭曉）', () => {
     await btn(page, '技能值：減少').click();
     await expect(skillInput(page)).toHaveValue('1');
 
+    /* 指數寫法：擲骰和增減鈕用同一個值（1e2 是 100；對等驗證後修正） */
+    await skillInput(page).fill('1e2');
+    await setRandom(page, [r(1, 10), r(10, 10)]);
+    await btn(page, '技能檢定：擲骰').click();
+    await expect(total(page)).toHaveText('90');
+    expect((await storedLog(page))[0].text).toContain('技能值[100]');
+    await btn(page, '技能值：增加').click();
+    await expect(skillInput(page)).toHaveValue('101');
+
     const cases: [number, number, string][] = [
       [60, 12, '極限成功'],
       [60, 13, '困難成功'],
@@ -204,9 +213,16 @@ test.describe('減少動態（立刻揭曉）', () => {
     await expect(total(page)).toHaveText('1');
     expect((await storedLog(page))[0].text).toBe('-1d6-2D4+10 ＞ -1D6[4]-2D4[1,4]+10 ＞ 1');
 
-    /* 快速加骰 */
-    await btn(page, '清除算式').click();
+    /* 快速加骰；清除鈕按了就消失，焦點移回算式欄（對等驗證後修正） */
+    await btn(page, '清除算式').focus();
+    await page.keyboard.press('Enter');
     await expect(exprInput(page)).toHaveValue('');
+    await expect(exprInput(page)).toBeFocused();
+    /* 只打了正負號時加骰當成空白（對等驗證後修正） */
+    await exprInput(page).fill('+');
+    await btn(page, '算式加上 1D6').click();
+    await expect(exprInput(page)).toHaveValue('1D6');
+    await btn(page, '清除算式').click();
     const quick = (t: string) => btn(page, `算式加上 ${t}`).click();
     await quick('1D6');
     await expect(exprInput(page)).toHaveValue('1D6');

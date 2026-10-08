@@ -62,6 +62,10 @@ function legacyAppend(value: string, diceType: string): string {
 describe('快速加骰', () => {
   it('合併同面數、整數相加、減號不合併', () => {
     expect(appendQuickDice('', '1D6')).toBe('1D6');
+    /* 只有正負號：當成空白 */
+    expect(appendQuickDice('+', '1D6')).toBe('1D6');
+    expect(appendQuickDice(' - ', '1D6')).toBe('1D6');
+    expect(appendQuickDice('＋＋', '3')).toBe('3');
     expect(appendQuickDice('1D6', '1D6')).toBe('2D6');
     expect(appendQuickDice('2D6', '1')).toBe('2D6+1');
     expect(appendQuickDice('2D6+1', '1')).toBe('2D6+2');
@@ -128,11 +132,15 @@ describe('紀錄文字', () => {
     expect(customLogText(lower.normalized, lower)).toBe('2d4-1 ＞ 2D4[1,4]-1 ＞ 4');
   });
 
-  it('技能值欄的解讀（parseInt）', () => {
+  it('技能值欄的解讀：和數字欄的增減鈕一致（取整數部分）', () => {
     expect(parseSkill('')).toBeNull();
+    expect(parseSkill('  ')).toBeNull();
+    expect(parseSkill('abc')).toBeNull();
     expect(parseSkill('55')).toBe(55);
     expect(parseSkill('55.9')).toBe(55);
-    expect(parseSkill('.5')).toBeNull();
+    expect(parseSkill('1e2')).toBe(100);
+    expect(parseSkill('.5')).toBe(0);
+    expect(parseSkill('-5')).toBe(-5);
     expect(clampBonus(5)).toBe(2);
     expect(clampBonus(-3)).toBe(-2);
     expect(clampBonus(Number.NaN)).toBe(0);

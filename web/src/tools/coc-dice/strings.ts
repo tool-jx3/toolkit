@@ -3,10 +3,6 @@
  */
 import { DICE_LIMITS, type DiceParseError } from '@/core/coc';
 
-/** 說明最後的一句（非官方、商標；規格 5. D14） */
-export const NOTICE =
-  '本工具是玩家自製的非官方工具；《克蘇魯的呼喚》（Call of Cthulhu）是 Chaosium Inc. 的註冊商標。';
-
 export const S = {
   tabsLabel: '功能',
   tabs: { roll: '擲骰', damage: '傷害計算' },
@@ -121,7 +117,6 @@ export const S = {
     resetTitle: '重設所有輸入？',
     resetDescription:
       '技能值、獎勵骰／懲罰骰、算式、護甲與傷害擲骰結果會回到預設值（可以用「復原」回來）。擲骰紀錄不會刪除。',
-    invalid: '這不是 CoC 擲骰工具的專案檔。',
   },
 
   usage: [
@@ -131,6 +126,5 @@ export const S = {
     '技能檢定與自訂擲骰共用同一個結果區與擲骰紀錄；紀錄存在這個瀏覽器裡，最多保留最新的 200 筆。',
     '傷害計算：從 CCFOLIA 貼上 BCDice 的傷害擲骰結果、填護甲後按「計算」，每一筆扣掉護甲再加總，並產生「:HP-總和」的指令，點一下就能複製。',
     '設定會自動儲存；「專案」選單可以把目前的輸入與擲骰紀錄存成專案檔。',
-    NOTICE,
   ],
 };

@@ -4,10 +4,6 @@
  */
 import { DICE_LIMITS, type DiceParseError } from '@/core/coc';
 
-/** 說明最後的一句（非官方、商標；規格 5. D9） */
-const NOTICE =
-  '本工具是玩家自製的非官方工具；《克蘇魯的呼喚》（Call of Cthulhu）是 Chaosium Inc. 的註冊商標。';
-
 /** 輸出用的字（與舊版的繁中輸出相同） */
 export const OUT = {
   /** 7 版的體格（params 與聊天面板的 //體格=） */
@@ -136,6 +132,5 @@ export const S = {
     '技能與指令：名稱空白的技能、算式空白的指令不輸出；指令算式裡的 DB 會換成 {DB}。6 版可以選 CC 或 CCB。',
     '右邊是輸出：「CCFOLIA」是角色 JSON（在 CCFOLIA 房間按 Ctrl＋V 貼上就會新增角色），「聊天面板」是給 BCDice 的指令清單。「擲骰並複製」會先全部擲骰再複製。',
     '內容會自動儲存在這個瀏覽器；「專案」選單可以把所有 NPC 存成專案檔帶到別台電腦。',
-    NOTICE,
   ],
 };

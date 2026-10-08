@@ -4,7 +4,7 @@
  * 技能值欄、算式欄按 Enter 就擲骰（各自是一個表單，擲骰鈕是送出鈕；選字中的 Enter 不算）。
  */
 import { Dices, X } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { type FormEvent, useRef } from 'react';
 import {
   Button,
   Field,
@@ -65,6 +65,7 @@ export function RollTab({
   const log = usePrefs((p) => p.data.log);
   const patchPrefs = usePrefs((p) => p.patch);
   const toast = useToast();
+  const exprRef = useRef<HTMLInputElement>(null);
   const send = (o: RollOutcome) => {
     onSendToDamage(o);
     toast({ title: S.result.toDamageDone, tone: 'success', duration: 2000 });
@@ -138,6 +139,7 @@ export function RollTab({
                 <div className="flex min-w-0 items-center gap-2">
                   <div className="relative flex min-w-0 flex-1 items-center">
                     <TextInput
+                      ref={exprRef}
                       value={s.expr}
                       onChange={(e) => onExprChange(e.target.value)}
                       placeholder={S.custom.placeholder}
@@ -152,7 +154,11 @@ export function RollTab({
                         label={S.custom.clear}
                         icon={<X />}
                         size="sm"
-                        onClick={() => settingsStep(() => onExprChange(''))}
+                        onClick={() => {
+                          settingsStep(() => onExprChange(''));
+                          /* 清除鈕按了就消失：焦點移回算式欄（對等驗證後修正） */
+                          exprRef.current?.focus();
+                        }}
                         className="absolute right-1"
                       />
                     ) : null}
