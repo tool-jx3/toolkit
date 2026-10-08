@@ -74,6 +74,36 @@ describe('useChoice', () => {
   });
 });
 
+describe('useChoice：關閉後焦點回到開啟前的元素', () => {
+  it('選了之後焦點回到觸發的按鈕', async () => {
+    function FocusProbe() {
+      const choose = useChoice();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            choose({ title: '匯入？', choices: [{ value: 'append', label: '加在後面' }] })
+          }
+        >
+          匯入
+        </button>
+      );
+    }
+    render(
+      <UiProvider>
+        <FocusProbe />
+      </UiProvider>,
+    );
+    const trigger = screen.getByRole('button', { name: '匯入' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dlg = await screen.findByRole('alertdialog');
+    await act(async () => fireEvent.click(within(dlg).getByRole('button', { name: '加在後面' })));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+});
+
 describe('ThumbnailList（選取、↑↓、自訂欄位、序號）', () => {
   function Harness({ onReorder }: { onReorder?: (a: number, b: number) => void }) {
     const [sel, setSel] = useState<string | null>('a');

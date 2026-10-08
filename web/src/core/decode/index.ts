@@ -23,8 +23,10 @@ export { decodeApng, decodePng, isApng, isPng } from './png';
 export {
   type AgPsd,
   type AgPsdLayer,
+  type AgPsdModule,
   type FlattenPsdOptions,
   flattenPsdLayers,
+  loadAgPsd,
   type PsdDocument,
   type PsdGroupInfo,
   type PsdLayerInfo,

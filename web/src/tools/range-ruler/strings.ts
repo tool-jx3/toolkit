@@ -1,0 +1,120 @@
+/** 距離量尺產生器的介面文字 */
+import type { HexDistanceMethod, SquareDistanceMethod } from '@/core/grid';
+import type { Scheme, Shape } from './settings';
+
+export const S = {
+  shape: '形狀',
+  shapeHint: '方格與六角格的設定與自訂格分開保存，切換時會回到各自上次的設定。',
+  shapes: { square: '方格', hex: '六角格' } satisfies Record<Shape, string>,
+
+  sectionBasic: '範圍與距離',
+  orientation: '方向',
+  orientations: { flat: '橫向（平頂）', pointy: '直向（尖頂）' },
+  range: '範圍',
+  rangeUnit: '格',
+  rangeHint: '從中心格算起的最大距離。改範圍時，各距離的顏色會依配色重新設定。',
+  method: '距離計算',
+  squareMethods: {
+    manhattan: '曼哈頓',
+    chebyshev: '切比雪夫',
+    ceil: '直線（無條件進位）',
+    round: '直線（四捨五入）',
+    floor: '直線（無條件捨去）',
+  } satisfies Record<SquareDistanceMethod, string>,
+  squareMethodDescriptions: {
+    manhattan: '縱向與橫向移動的格數相加，只能上下左右走',
+    chebyshev: '縱、橫、斜向都算一步，適合 8 方向移動',
+    ceil: '兩格中心的直線距離，無條件進位',
+    round: '兩格中心的直線距離，四捨五入',
+    floor: '兩格中心的直線距離，無條件捨去',
+  } satisfies Record<SquareDistanceMethod, string>,
+  hexMethods: { steps: '格數', straight: '直線' } satisfies Record<HexDistanceMethod, string>,
+  hexMethodHint: '格數：在六角格之間移動的步數。直線：兩格中心的直線距離換算成格數。',
+  cellSize: '格子大小',
+  hexSize: '六角格大小',
+  hexSizeHint: '橫向時是一格的高，直向時是一格的寬。',
+  fit: '使用網格（CCFOLIA 等）',
+  fitHint:
+    '把六角格橫向（直向時縱向）拉長，讓它剛好對齊正方形網格；在只支援正方形網格的工具使用時開啟。',
+
+  sectionColor: '格子顏色',
+  scheme: '配色',
+  schemes: {
+    rainbow: '彩虹',
+    heat: '暖色（紅→黃）',
+    cold: '冷色（藍→深藍）',
+    mono: '灰階',
+    none: '無色',
+    custom: '自訂',
+  } satisfies Record<Scheme, string>,
+  schemeHint: '換配色時，下面每個距離的顏色會一起換掉；選「自訂」會全部變成灰色，再逐一設定。',
+  distLabel: (d: number) => (d === 0 ? '中心' : `距離 ${d}`),
+  distColorsLabel: '各距離的顏色',
+  cellOpacity: '格子不透明度',
+  cellOpacityHint: '一次調整所有格子顏色的不透明度，會乘上各顏色自己的不透明度。',
+
+  sectionText: '文字',
+  textColor: '文字顏色',
+  fontSize: '文字大小',
+  fontSizeHint: '自訂格可以個別改文字大小。',
+  textOpacity: '文字不透明度',
+  textOpacityHint: '一次調整所有文字（含描邊）的不透明度，會乘上顏色自己的不透明度。',
+  stroke: '描邊',
+  strokeHint: '在文字外圍加一圈描邊，透明背景上也看得清楚。',
+  strokeColor: '描邊顏色',
+
+  sectionCustom: '自訂格子',
+  customHint: '點預覽裡的格子（或聚焦預覽後用方向鍵）就能個別設定文字、顏色與文字大小。',
+  customCount: (n: number) => `自訂格數：${n}`,
+  clearCustoms: '清除全部自訂',
+
+  editorTitle: (shape: Shape, x: number, y: number, d: number) =>
+    `${shape === 'square' ? '格子' : '六角格'} (${x}, ${y})／預設距離：${d}`,
+  editorText: '文字',
+  editorTextPlaceholder: '距離數字',
+  editorTextHint: '空白時顯示距離數字；最多 8 個字。',
+  editorCellColor: '格子顏色',
+  editorTextColor: '文字顏色',
+  editorFontSize: '文字大小',
+  editorReset: '還原這一格',
+  editorClose: '關閉',
+  editorCloseKey: '關閉格子的編輯面板',
+  editorCustomized: '已自訂',
+
+  canvasLabel: '量尺：點格子編輯',
+  canvasHint: '點格子即可編輯；聚焦後可用方向鍵選格子、Esc 關閉編輯。',
+
+  exportPng: '匯出 PNG',
+  exporting: '正在匯出 PNG…',
+  exported: (name: string) => `已匯出 ${name}`,
+  exportFailed: (message: string) => `匯出失敗：${message}`,
+  stageLabel: '量尺預覽',
+  sizeInfo: (w: number, h: number) => `${w} × ${h} px`,
+  fileInfo: (name: string) => `檔名：${name}`,
+  tooLarge: (w: number, h: number) => `畫布 ${w} × ${h} px 太大，瀏覽器畫不出來。`,
+  transparentNote: '背景是透明的；預覽區的底色只供檢查，不會匯出。編輯中的醒目框也不會匯出。',
+
+  undo: '復原',
+  redo: '重做',
+  keysGroup: '編輯',
+  exportGroup: '匯出',
+  resetLabel: '全部重設',
+  resetTitle: '全部重設？',
+  resetDescription: '方格與六角格的設定與自訂格都會回到預設值。之後還可以按「復原」取回。',
+  projectName: '距離量尺',
+
+  usageIntro:
+    '以中心格為起點，把每一格的距離寫在格子上並依距離上色，做成可以疊在地圖上的量尺 PNG（透明背景）。',
+  usageSteps: [
+    '在最上方選「方格」或「六角格」，兩種形狀的設定與自訂格各自保存。',
+    '設定範圍（從中心算起幾格）、距離的算法與格子大小。',
+    '選配色，或逐一改每個距離的顏色；用不透明度調整整體的濃淡。',
+    '點預覽裡的格子，可以個別改那一格的文字、顏色與文字大小（例如標出障礙物）。',
+    '按「匯出 PNG」（或 D 鍵）下載。',
+  ],
+  usageNotes: [
+    '設定與自訂格會自動保存在這個瀏覽器；可以用「專案」選單存成專案檔，或全部重設。',
+    'Ctrl＋Z 復原、Ctrl＋Shift＋Z 重做。',
+    '方格的檔名是 grid_ruler_每邊格數x每邊格數.png；六角格使用網格時是 hex_ruler_寬x高.png，其他情況是 hex_ruler.png。',
+  ],
+} as const;

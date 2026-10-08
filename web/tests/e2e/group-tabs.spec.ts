@@ -2,7 +2,7 @@
  * 群組分頁（共用 GroupTabs）的端對端測試：
  * - 放不下時整列橫向捲動、開頁時目前的分頁捲進可見範圍；
  * - 還有分頁藏在某一端外時那一端淡出（data-fade-left／right＋mask-image），捲到底的那一端不淡出；放得下時不淡出。
- * 用 G3 立繪工作台（7 個工具）：390 寬放不下，1280 寬放得下。
+ * 用 G3 立繪工作台（9 個工具）：390 寬放不下，1600 寬放得下（anime-rig 加入 G3 後 1280 寬放不下了）。
  */
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { getTool, outputDir, toolsInGroup } from '../../src/registry';
@@ -66,8 +66,8 @@ test.describe('390 寬（放不下）', () => {
   });
 });
 
-test.describe('1280 寬（放得下）', () => {
-  test.use({ viewport: { width: 1280, height: 800 } });
+test.describe('1600 寬（放得下）', () => {
+  test.use({ viewport: { width: 1600, height: 800 } });
 
   test('不捲動、不淡出', async ({ page }) => {
     await page.goto(url(FIRST));

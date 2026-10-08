@@ -4,6 +4,7 @@
  * 結果配色 class 是 CCFOLIA（emotion）依樣式自動產生的雜湊名稱（觀察日期 2026-09，CCFOLIA 1.37.4），
  * 改主題或改版就可能變：改版時只改這裡。聊天欄與房間訊息框用的是同一組 class。
  */
+import { BCDICE_SEPARATOR } from '@/core/coc/bcdice';
 
 export type DiceOutcome = 'success' | 'failure' | 'other';
 
@@ -34,8 +35,8 @@ export function classifyDiceResult(text: string): DiceOutcome {
   return 'other';
 }
 
-/** 結果分隔符號（BCDice 的全形「＞」） */
-export const RESULT_SEPARATOR = '＞';
+/** 結果分隔符號（BCDice 的全形「＞」；與 `@/core/coc` 的 BCDICE_SEPARATOR 是同一個） */
+export const RESULT_SEPARATOR = BCDICE_SEPARATOR;
 
 /**
  * 房間訊息框只顯示結果最後的「＞ …」一段，前面加「🎲 」。

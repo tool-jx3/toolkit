@@ -94,6 +94,11 @@ export function collectNotices(): Plugin {
 /** 沒有附授權檔的套件，授權全文補在這裡（檔名＝套件名，scope 的「/」換成「__」） */
 const SUPPLEMENTARY_LICENSES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'licenses');
 
+/** 讀授權檔：換行一律 LF（有些套件的授權檔是 CRLF），去掉前後空白 */
+function readText(file: string): string {
+  return readFileSync(file, 'utf8').replace(/\r\n?/g, '\n').trim();
+}
+
 /** 參考 MIT／CC0 原作改寫的工具：原作的授權全文放在 `web/src/tools/<id>/UPSTREAM_LICENSE`，建置時併入通知檔。 */
 const UPSTREAM_LICENSE = 'UPSTREAM_LICENSE';
 
@@ -102,7 +107,7 @@ function upstreamNotices(tools: readonly ToolEntry[], srcToolsDir: string): stri
   for (const tool of tools) {
     const file = path.join(srcToolsDir, tool.id, UPSTREAM_LICENSE);
     if (!existsSync(file)) continue;
-    const body = readFileSync(file, 'utf8').trim();
+    const body = readText(file);
     const source = tool.inspiration
       ? tool.inspiration.url
         ? `[${tool.inspiration.name}](${tool.inspiration.url})`
@@ -135,13 +140,13 @@ function noticesMarkdown(tools: readonly ToolEntry[] = [], srcToolsDir = ''): st
     rows.push(`| ${pkg.name} | ${pkg.version} | ${pkg.license ?? '（未標示）'} | ${url} |`);
     const licenseFile = readdirSync(dir).find((f) => /^(licen[cs]e|copying)(\.|$)/i.test(f));
     if (licenseFile) {
-      const body = readFileSync(path.join(dir, licenseFile), 'utf8').trim();
+      const body = readText(path.join(dir, licenseFile));
       texts.push(`### ${key}\n\n\`\`\`\n${body}\n\`\`\``);
     } else {
       /* 套件沒有附授權檔（例如 onnxruntime-web）：用 build/licenses/<套件名>.txt 補上上游 repo 的授權全文 */
       const extra = path.join(SUPPLEMENTARY_LICENSES, `${pkg.name.replace('/', '__')}.txt`);
       if (existsSync(extra)) {
-        const body = readFileSync(extra, 'utf8').trim();
+        const body = readText(extra);
         texts.push(
           `### ${key}（套件沒有附授權檔，以下為上游 repo 的授權全文）\n\n\`\`\`\n${body}\n\`\`\``,
         );

@@ -237,6 +237,8 @@ export interface ConfirmDialogProps extends ConfirmOptions {
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   onCancel?: () => void;
+  /** 關閉後把焦點還給這個元素（還在頁面上時；useConfirm 會帶入開啟前的焦點） */
+  returnFocus?: HTMLElement | null;
 }
 
 /** 確認對話框（受控） */
@@ -250,6 +252,7 @@ export function ConfirmDialog({
   confirmLabel = '確定',
   cancelLabel = '取消',
   danger,
+  returnFocus,
 }: ConfirmDialogProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   return (
@@ -260,6 +263,7 @@ export function ConfirmDialog({
           ref={contentRef}
           data-escape-fallback=""
           className={contentClass('sm', 'p-4')}
+          onCloseAutoFocus={(e) => restoreFocus(e, returnFocus)}
         >
           <EscapeFallback
             contentRef={contentRef}
@@ -296,15 +300,30 @@ export function ConfirmDialog({
 
 /* ---------- useConfirm ---------- */
 
+/** 開啟對話框前有焦點的元素（沒有觸發按鈕的對話框，關閉後要自己還焦點） */
+function focusedElement(): HTMLElement | null {
+  const el = typeof document === 'undefined' ? null : document.activeElement;
+  return el instanceof HTMLElement && el !== document.body ? el : null;
+}
+
+/** 對話框關閉時把焦點還給開啟前的元素；那個元素已經不在頁面上時照 Radix 的預設 */
+function restoreFocus(e: Event, el: HTMLElement | null | undefined) {
+  if (!el?.isConnected) return;
+  e.preventDefault();
+  el.focus({ preventScroll: true });
+}
+
 type ConfirmFn = (options: ConfirmOptions) => Promise<boolean>;
 const ConfirmContext = createContext<ConfirmFn | null>(null);
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<(ConfirmOptions & { open: boolean }) | null>(null);
+  const [state, setState] = useState<
+    (ConfirmOptions & { open: boolean; returnFocus: HTMLElement | null }) | null
+  >(null);
   const resolver = useRef<((ok: boolean) => void) | null>(null);
   const confirm = useCallback<ConfirmFn>((options) => {
     resolver.current?.(false);
-    setState({ ...options, open: true });
+    setState({ ...options, open: true, returnFocus: focusedElement() });
     return new Promise<boolean>((resolve) => {
       resolver.current = resolve;
     });
@@ -367,6 +386,8 @@ export interface ChoiceDialogProps<V extends string = string> extends ChoiceOpti
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onChoose: (value: V | null) => void;
+  /** 關閉後把焦點還給這個元素（還在頁面上時；useChoice 會帶入開啟前的焦點） */
+  returnFocus?: HTMLElement | null;
 }
 
 /** 多選一確認對話框（受控）。取消在最左邊，其他選項依序排在右邊。 */
@@ -378,6 +399,7 @@ export function ChoiceDialog<V extends string = string>({
   description,
   choices,
   cancelLabel = '取消',
+  returnFocus,
 }: ChoiceDialogProps<V>) {
   const contentRef = useRef<HTMLDivElement>(null);
   return (
@@ -388,6 +410,7 @@ export function ChoiceDialog<V extends string = string>({
           ref={contentRef}
           data-escape-fallback=""
           className={contentClass('sm', 'p-4')}
+          onCloseAutoFocus={(e) => restoreFocus(e, returnFocus)}
         >
           <EscapeFallback
             contentRef={contentRef}
@@ -431,11 +454,13 @@ type ChoiceFn = <V extends string>(options: ChoiceOptions<V>) => Promise<V | nul
 const ChoiceContext = createContext<ChoiceFn | null>(null);
 
 export function ChoiceProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<(ChoiceOptions<string> & { open: boolean }) | null>(null);
+  const [state, setState] = useState<
+    (ChoiceOptions<string> & { open: boolean; returnFocus: HTMLElement | null }) | null
+  >(null);
   const resolver = useRef<((v: string | null) => void) | null>(null);
   const choose = useCallback((options: ChoiceOptions<string>) => {
     resolver.current?.(null);
-    setState({ ...options, open: true });
+    setState({ ...options, open: true, returnFocus: focusedElement() });
     return new Promise<string | null>((resolve) => {
       resolver.current = resolve;
     });
