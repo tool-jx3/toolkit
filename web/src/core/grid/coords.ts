@@ -1,8 +1,11 @@
 /**
  * 格子上的座標文字（網格產生器）：5 種格式、起點四角、從 0 或 1 開始；六角格另有列的算法（壓縮／以半列計）。
- * 規則與數值照舊版（違法建築的 TRPG 實驗室的網格產生器）。
+ * 規則與數值照舊版（違法建築的 TRPG 實驗室的網格產生器），主控裁定的兩處改善除外：六角格的流水號改成依畫面連續編號（hexSerialNumbers，D3），
+ * 直向（尖頂）六角格的欄號、列號與起點改成以畫面為準（hexCoordIndex 的 orientation，D10）。
  */
 import { colParity } from './hex';
+import { type HexSheet, hexSheetCells } from './sheet';
+import type { HexOrientation } from './types';
 
 /** 1-1、1,1、0101（各補零到 2 位）、A1（欄用英文字母）、流水號 */
 export type CoordFormat = 'hyphen' | 'comma' | 'zero' | 'letter' | 'serial';
@@ -117,12 +120,23 @@ export interface HexCoordIndexOptions {
   rows: number;
   origin: CoordOrigin;
   rowMode: HexRowMode;
+  /** 方向（預設平頂）。尖頂時欄號、列號與起點都以畫面為準（主控裁定 D10） */
+  orientation?: HexOrientation;
 }
 
 /**
- * 六角格 (col, row)（半列座標）依起點與列的算法換算出的欄號、列號。舊版的規則：
+ * 六角格 (col, row)（半列座標）換算出的欄號、列號（從 0 起算）。
+ *
+ * 平頂（橫向）照舊版的規則：
+ * - 欄號＝col（起點在右邊時 cols − 1 − col）。
  * - 壓縮：列號＝⌊row ÷ 2⌋；起點在下面時＝⌈rows ÷ 2⌉ − 1 − ⌊row ÷ 2⌋。
  * - 以半列計：列號＝row；起點在下面時以「這一欄同奇偶的最大半列」往回數，奇數欄再加 2。
+ *
+ * 尖頂（直向）以畫面為準（主控裁定 D10，取代舊版把平頂的欄列與起點原樣套上去的做法）：
+ * 平頂座標系的一欄 col 是畫面上水平的一列，半列 row 是畫面上由左到右錯開半格的位置。
+ * - 列號＝col（起點在下面時 cols − 1 − col）。
+ * - 壓縮：欄號＝⌊從起點那一邊數的半列 ÷ 2⌋（從左：row；從右：rows − 1 − row），每一列最靠起點的那一格是 0。
+ * - 以半列計：欄號＝從起點那一邊數的半列（同一列每次加 2）。
  */
 export function hexCoordIndex(
   col: number,
@@ -130,6 +144,13 @@ export function hexCoordIndex(
   o: HexCoordIndexOptions,
 ): { dc: number; dr: number } {
   const { flipCol, flipRow } = originFlips(o.origin);
+  if (o.orientation === 'pointy') {
+    const fromStart = flipCol ? o.rows - 1 - row : row;
+    return {
+      dc: o.rowMode === 'compress' ? Math.floor(fromStart / 2) : fromStart,
+      dr: flipRow ? o.cols - 1 - col : col,
+    };
+  }
   const dc = flipCol ? o.cols - 1 - col : col;
   if (o.rowMode === 'compress') {
     const sr = Math.floor(row / 2);
@@ -142,38 +163,45 @@ export function hexCoordIndex(
 }
 
 /**
- * 六角格的流水號（舊版的公式）：
- * n＝dc × ⌈R ÷ 2⌉ − (R mod 2) × (⌊dc ÷ 2⌋ ＋（起點在下面 ? dc mod 2 : 0）) ＋ dr ＋ start。
- * R 是**設定面板上的「列數」**——舊版在直向時也用這個值（沒有對調），所以直向、或錯開第 1 欄時號碼會跳號或重複；
- * 照舊版保留（規格 grid-maker 第 5 節）。
+ * 六角格的流水號（主控裁定 2026-10-08：取代舊版會跳號、重複的公式，屬刻意改善）。
+ * 和方格的流水號同樣的走法：從起點的角落開始，在**畫面上先橫向走完一列、再換下一列**，
+ * 依實際有畫的格子連續編號（start、start＋1…，不跳號、不重複；外圈的格子不編號）。
+ * 畫面上的「列」：
+ * - 橫向（平頂）：鋸齒狀的一列——半列 0、1 是第 1 列，2、3 是第 2 列…（同 1-1 格式「壓縮」的列）；同一列依欄號由起點那一邊往另一邊。
+ * - 直向（尖頂）：平頂座標系的一欄就是畫面上水平的一列；同一列依半列號由起點那一邊往另一邊。
+ * 起點的角落以畫面為準（右上＝畫面右上），直向時也一樣。
+ * 回傳「"col,row"（半列座標）→ 號碼」。
  */
-export function hexSerial(
-  dc: number,
-  dr: number,
-  { rows, origin, start }: { rows: number; origin: CoordOrigin; start: number },
-): number {
-  const fromBottom = origin === 'bl' || origin === 'br' ? 1 : 0;
-  return (
-    dc * Math.ceil(rows / 2) -
-    (rows % 2) * (Math.floor(dc / 2) + fromBottom * (dc % 2)) +
-    dr +
-    start
-  );
+export function hexSerialNumbers(
+  sheet: HexSheet,
+  origin: CoordOrigin,
+  start: number,
+): Map<string, number> {
+  const { flipCol, flipRow } = originFlips(origin);
+  const pointy = sheet.metrics.orientation === 'pointy';
+  const keyed = hexSheetCells(sheet, false).map(({ col, row }) => {
+    const screenRow = pointy ? col : Math.floor(row / 2);
+    const screenCol = pointy ? row : col;
+    return {
+      key: `${col},${row}`,
+      rowKey: flipRow ? -screenRow : screenRow,
+      colKey: flipCol ? -screenCol : screenCol,
+    };
+  });
+  keyed.sort((a, b) => a.rowKey - b.rowKey || a.colKey - b.colKey);
+  return new Map(keyed.map((k, i) => [k.key, i + start]));
 }
 
 export interface HexCoordOptions extends HexCoordIndexOptions {
   format: CoordFormat;
   start: number;
-  /** 流水號公式用的列數（設定面板上的值，見 hexSerial） */
-  serialRows: number;
+  /** 流水號（hexSerialNumbers 的結果；格式是流水號時才需要） */
+  serials?: ReadonlyMap<string, number>;
 }
 
 /** 六角格 (col, row) 的座標文字 */
 export function hexCoordLabel(col: number, row: number, o: HexCoordOptions): string {
   const { dc, dr } = hexCoordIndex(col, row, o);
-  const serial =
-    o.format === 'serial'
-      ? hexSerial(dc, dr, { rows: o.serialRows, origin: o.origin, start: o.start })
-      : 0;
+  const serial = o.format === 'serial' ? (o.serials?.get(`${col},${row}`) ?? 0) : 0;
   return formatCoord(dc, dr, o.format, o.start, serial);
 }

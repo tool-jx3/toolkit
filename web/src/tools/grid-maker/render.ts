@@ -11,6 +11,7 @@ import {
   gridLineDash,
   hexCoordLabel,
   hexCorners,
+  hexSerialNumbers,
   hexSheet,
   hexSheetCells,
   hexSheetCenter,
@@ -144,9 +145,15 @@ export function drawHexGrid(ctx: Ctx, raw: HexSettings): void {
     rows: sheet.rows,
     origin: s.coordOrigin,
     rowMode: s.rowMode,
+    /* 直向時欄號、列號與起點以畫面為準（主控裁定，規格 grid-maker D10） */
+    orientation: s.orientation,
     format: s.coordFormat,
     start: s.coordStart,
-    serialRows: s.rows,
+    /* 流水號：依畫面上的位置連續編號（主控裁定，規格 grid-maker D3） */
+    serials:
+      s.showCoords && s.coordFormat === 'serial'
+        ? hexSerialNumbers(sheet, s.coordOrigin, s.coordStart)
+        : undefined,
   };
   /* 上／下時文字離中心的距離：平頂是半高，尖頂是上方兩個角的高度（step ÷ 3），都乘上縮小比例 */
   const halfY = pointy ? (m.step / 3) * scale : (s.size / 2) * scale;
