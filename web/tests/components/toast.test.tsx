@@ -240,3 +240,38 @@ describe('useConfirm：關閉後焦點回到開啟前的元素', () => {
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
   });
 });
+
+describe('useConfirm：工具在確認後自己移動焦點時不搶回來', () => {
+  it('確認後焦點移到文字欄：關閉後留在文字欄', async () => {
+    function Probe() {
+      const confirm = useConfirm();
+      return (
+        <>
+          <button
+            type="button"
+            onClick={async () => {
+              if (await confirm({ title: '新建？' }))
+                document.getElementById('title-field')?.focus();
+            }}
+          >
+            新建
+          </button>
+          <input id="title-field" aria-label="標題" />
+        </>
+      );
+    }
+    render(
+      <UiProvider>
+        <Probe />
+      </UiProvider>,
+    );
+    const trigger = screen.getByRole('button', { name: '新建' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dlg = await screen.findByRole('alertdialog');
+    fireEvent.click(within(dlg).getByRole('button', { name: '確定' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: '標題' }));
+  });
+});

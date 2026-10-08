@@ -306,9 +306,19 @@ function focusedElement(): HTMLElement | null {
   return el instanceof HTMLElement && el !== document.body ? el : null;
 }
 
-/** 對話框關閉時把焦點還給開啟前的元素；那個元素已經不在頁面上時照 Radix 的預設 */
+/**
+ * 對話框關閉時把焦點還給開啟前的元素；那個元素已經不在頁面上，或工具在確認後已經把焦點移到別處
+ * （例如「新建」後移到標題欄）時，照 Radix 的預設（不搶焦點）。
+ */
 function restoreFocus(e: Event, el: HTMLElement | null | undefined) {
   if (!el?.isConnected) return;
+  const active = document.activeElement;
+  const movedElsewhere =
+    active instanceof HTMLElement &&
+    active !== document.body &&
+    active !== el &&
+    !active.closest('[role="alertdialog"]');
+  if (movedElsewhere) return;
   e.preventDefault();
   el.focus({ preventScroll: true });
 }
