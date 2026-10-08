@@ -150,12 +150,13 @@ export function GridDemo() {
   );
 }
 
+/** 選項直接寫種類的代號（同一頁上面的示範已經有「方格」等選項，名稱不重複） */
 const MAP_GRID_LABELS: Record<MapGridType, string> = {
-  square: '方格',
-  'hex-flat': '平頂',
-  'hex-flat-fit': '平頂・對齊',
-  'hex-pointy': '尖頂',
-  'hex-pointy-fit': '尖頂・對齊',
+  square: 'square',
+  'hex-flat': 'hex-flat',
+  'hex-flat-fit': 'hex-flat-fit',
+  'hex-pointy': 'hex-pointy',
+  'hex-pointy-fit': 'hex-pointy-fit',
 };
 
 /**
