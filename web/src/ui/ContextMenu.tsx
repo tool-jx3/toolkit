@@ -12,7 +12,7 @@
  * 選單打開時焦點移到第一項，↑↓ 移動、Enter 選取、Esc 關閉。
  */
 import { DropdownMenu } from 'radix-ui';
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, type ReactNode, useEffect, useRef } from 'react';
 import { cn } from './cn';
 
 export interface ContextMenuItem {
@@ -57,6 +57,17 @@ export function contextMenuPoint(e: {
 }
 
 export function ContextMenu({ state, onClose, ...rest }: ContextMenuProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  /* 打開時焦點移到第一個可以選的項目（Radix 由程式打開時只聚焦在選單本身） */
+  useEffect(() => {
+    if (!state) return;
+    const id = requestAnimationFrame(() => {
+      contentRef.current
+        ?.querySelector<HTMLElement>('[role="menuitem"]:not([data-disabled])')
+        ?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [state]);
   return (
     <DropdownMenu.Root
       open={!!state}
@@ -76,6 +87,7 @@ export function ContextMenu({ state, onClose, ...rest }: ContextMenuProps) {
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
+          ref={contentRef}
           align="start"
           side="bottom"
           sideOffset={2}

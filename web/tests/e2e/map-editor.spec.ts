@@ -1731,3 +1731,37 @@ test.describe('補充', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('共用元件（元件展示頁）', () => {
+  test('ContextMenu：右鍵與 Shift＋F10 打開、選取項目；mapGrid 示範：塗格子、合併外框', async ({
+    page,
+  }) => {
+    const errors = watchErrors(page);
+    await blockFonts(page);
+    await page.goto('/next/_gallery/');
+    await page.getByRole('tab', { name: '對話框' }).click();
+    const target = page.getByTestId('context-menu-demo');
+    await target.click({ button: 'right' });
+    const menu = page.getByTestId('context-menu');
+    await expect(menu.getByRole('menuitem')).toHaveText(['重新命名', '鎖定', '刪除']);
+    await expect(menu.getByRole('menuitem').first()).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('選了：鎖定')).toBeVisible();
+    await target.focus();
+    await page.keyboard.press('Shift+F10');
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    await page.getByRole('tab', { name: '模組' }).click();
+    const demo = page.getByTestId('map-grid-demo');
+    await demo.scrollIntoViewIfNeeded();
+    const b = await demo.boundingBox();
+    if (!b) throw new Error('no demo');
+    await page.mouse.click(b.x + b.width * 0.3, b.y + b.height * 0.4);
+    await expect(page.getByTestId('map-grid-demo-info')).toHaveText('已塗 1 格；外框 1 條迴圈');
+    await page.getByRole('radio', { name: 'square', exact: true }).click();
+    await expect(page.getByTestId('map-grid-demo-info')).toHaveText('已塗 0 格；外框 0 條迴圈');
+    expect(errors).toEqual([]);
+  });
+});
