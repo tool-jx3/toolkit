@@ -1,6 +1,7 @@
 /**
  * 數字輸入框（role="spinbutton"）。
- * - 打字時，數字在範圍內就即時套用；離開欄位或按 Enter 時夾到範圍內並對齊小數位；Esc 還原。
+ * - 打字時，數字在範圍內就即時套用；離開欄位或按 Enter 時夾到範圍內並對齊小數位（四捨五入）；Esc 還原。
+ * - 全形數字與全形符號照樣接受（先做 NFKC 正規化：「６０」→ 60、「－５」→ -5、「１，２００」→ 1200）。
  * - ↑／↓ 加減一個 step（Shift ×10、Alt ×0.1）；PageUp／PageDown ×10；Home／End 到最小／最大值。
  */
 import { type KeyboardEvent, useState } from 'react';
@@ -73,8 +74,10 @@ export function NumberInput({
   const [draft, setDraft] = useState<string | null>(null);
 
   const parse = (s: string) => {
-    const n = Number(s.replace(/[，,]/g, '').replace(/[＋]/g, '+').replace(/[－−]/g, '-').trim());
-    return s.trim() === '' || !Number.isFinite(n) ? null : n;
+    /* 全形數字與符號先做 NFKC（「６０」→ 60、「－５」→ -5、「１２．５」→ 12.5）；減號 − 另外換 */
+    const t = s.normalize('NFKC').replace(/,/g, '').replace(/−/g, '-').trim();
+    const n = Number(t);
+    return t === '' || !Number.isFinite(n) ? null : n;
   };
   const commit = (v: number) => {
     const c = clampStep(v, { min, max, step, precision: p });

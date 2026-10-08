@@ -160,11 +160,9 @@ export function App() {
             <Usage />
           </UsageSection>
           <div className="grid min-w-0 grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(200px,240px)_minmax(0,1fr)_minmax(300px,400px)]">
-            <div className="min-w-0 lg:sticky lg:top-16 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto">
-              {list}
-            </div>
+            <div className="min-w-0 lg:sticky-pane">{list}</div>
             <EditForm key={npc.id} npc={npc} />
-            <div className="min-w-0 lg:sticky lg:top-16 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto">
+            <div className="min-w-0 lg:sticky-pane">
               <OutputPanel npc={npc} />
             </div>
           </div>

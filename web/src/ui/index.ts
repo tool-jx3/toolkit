@@ -318,6 +318,7 @@ export {
 } from './TestValueRow';
 export { TextArea, type TextAreaProps, TextInput, type TextInputProps } from './TextInput';
 export {
+  selectAllInPlace,
   type TextOutputMessages,
   TextOutputPanel,
   type TextOutputPanelProps,

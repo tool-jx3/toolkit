@@ -2,7 +2,6 @@
  * 目前 NPC 的編輯表單：基本資料、屬性、衍生值、技能、指令、備註。
  */
 import { Dices, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
 import { CHARACTERISTICS, type Characteristic, type CocEdition } from '@/core/coc';
 import {
   Button,
@@ -23,6 +22,7 @@ import {
   patchCurrent,
   patchCurrentStep,
   patchSkill,
+  pendingSkipped,
   removeCommand,
   removeSkill,
   rollAll,
@@ -32,6 +32,7 @@ import {
   setEdition,
 } from './actions';
 import { type CommandType, diceError, movLabel, type Npc } from './logic';
+import { useRollNotice } from './store';
 import { S } from './strings';
 
 const EDITION_OPTIONS = ([7, 6] as const).map((e) => ({
@@ -83,12 +84,8 @@ function AbilityRow({ npc, stat }: { npc: Npc; stat: Characteristic }) {
 }
 
 export function EditForm({ npc }: { npc: Npc }) {
-  const [rollErrors, setRollErrors] = useState<string | null>(null);
-
-  const doRollAll = () => {
-    const errors = rollAll();
-    setRollErrors(errors.length ? S.abilities.rolledWithErrors(errors) : null);
-  };
+  const notice = useRollNotice();
+  const skipped = pendingSkipped(npc, notice);
 
   return (
     <div className="flex min-w-0 flex-col gap-3" data-testid="npc-form">
@@ -120,8 +117,14 @@ export function EditForm({ npc }: { npc: Npc }) {
           ))}
         </ul>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {rollErrors ? <p className="m-0 flex-1 text-xs text-warning">{rollErrors}</p> : null}
-          <Button variant="primary" icon={<Dices />} onClick={doRollAll}>
+          <p
+            role="status"
+            data-testid="roll-skipped"
+            className="m-0 flex-1 text-xs text-warning empty:hidden"
+          >
+            {skipped.length ? S.abilities.rolledWithErrors(skipped) : ''}
+          </p>
+          <Button variant="primary" icon={<Dices />} onClick={() => void rollAll()}>
             {S.abilities.rollAll}
           </Button>
         </div>

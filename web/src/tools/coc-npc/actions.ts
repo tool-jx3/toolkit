@@ -7,13 +7,14 @@ import {
   blankCommand,
   blankSkill,
   currentNpc,
+  diceError,
   type Npc,
   newNpc,
   recalc,
   rollAbility,
   rollAllAbilities,
 } from './logic';
-import { useNpcs, useView } from './store';
+import { useNpcs, useRollNotice, useView } from './store';
 
 /** 一個獨立的復原步驟 */
 export function step<T>(fn: () => T): T {
@@ -47,6 +48,7 @@ export function patchCurrentStep(patch: Partial<Npc>): void {
 }
 
 export function selectNpc(id: string): void {
+  if (useView.getState().data.currentId !== id) useRollNotice.setState({ npcId: null, stats: [] });
   useView.getState().patch({ currentId: id });
 }
 
@@ -100,11 +102,25 @@ export function rollOne(stat: Characteristic): DiceParseError | null {
   return r.error;
 }
 
-/** 全部擲骰（回傳看不懂、沒有擲的項目） */
+/**
+ * 全部擲骰（「全部擲骰」鈕、快捷鍵 R、擲骰並複製共用）：回傳看不懂、沒有擲的項目，並記在 useRollNotice
+ * （全部擲成功時清掉說明）。
+ */
 export function rollAll(): Characteristic[] {
-  const r = rollAllAbilities(getCurrent());
+  const npc = getCurrent();
+  const r = rollAllAbilities(npc);
   step(() => updateCurrent(() => r.npc));
+  useRollNotice.setState({ npcId: npc.id, stats: r.errors });
   return r.errors;
+}
+
+/** 目前還要顯示的跳過項目：最近一次全部擲骰跳過、而且現在仍然看不懂的（改好或清空的不再列） */
+export function pendingSkipped(
+  npc: Npc,
+  notice: { npcId: string | null; stats: readonly Characteristic[] },
+): Characteristic[] {
+  if (notice.npcId !== npc.id) return [];
+  return notice.stats.filter((s) => diceError(npc.abilities[s]?.dice ?? '') !== null);
 }
 
 /* ---------- 技能與指令 ---------- */
