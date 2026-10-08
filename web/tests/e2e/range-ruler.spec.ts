@@ -308,6 +308,17 @@ test('自動保存（含自訂格）與復原', async ({ page }) => {
   await expect(page.getByTestId('custom-count')).toHaveText('自訂格數：0');
   await btn(page, '復原（Ctrl＋Z）').click();
   await expect(page.getByTestId('custom-count')).toHaveText('自訂格數：1');
+
+  /* 全部重設之後也能復原（對等驗證後修正） */
+  await page.waitForTimeout(450);
+  await btn(page, '專案').click();
+  await page.getByRole('menuitem', { name: /重設/ }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: /重設/ }).click();
+  await expect(page.getByTestId('custom-count')).toHaveText('自訂格數：0');
+  await expect(sizeText(page)).not.toHaveText('624 × 624 px');
+  await btn(page, '復原（Ctrl＋Z）').click();
+  await expect(page.getByTestId('custom-count')).toHaveText('自訂格數：1');
+  await expect(sizeText(page)).toHaveText('624 × 624 px');
   const [dl] = await Promise.all([
     page.waitForEvent('download'),
     (async () => {

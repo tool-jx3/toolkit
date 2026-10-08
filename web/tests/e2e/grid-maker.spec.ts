@@ -289,6 +289,15 @@ test('自動保存、復原／重做、快捷鍵 D、畫布太大', async ({ pag
   await btn(page, '復原（Ctrl＋Z）').click();
   await expect(sizeText(page)).toHaveText('450 × 450 px');
 
+  /* 全部重設之後也能復原（對等驗證後修正） */
+  await page.waitForTimeout(450);
+  await btn(page, '專案').click();
+  await page.getByRole('menuitem', { name: /重設/ }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: /重設/ }).click();
+  await expect(sizeText(page)).toHaveText('720 × 720 px');
+  await btn(page, '復原（Ctrl＋Z）').click();
+  await expect(sizeText(page)).toHaveText('450 × 450 px');
+
   /* D 匯出 */
   const [dl] = await Promise.all([page.waitForEvent('download'), page.keyboard.press('d')]);
   expect(dl.suggestedFilename()).toBe('grid_15x15_30px.png');

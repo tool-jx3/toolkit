@@ -265,7 +265,7 @@ export function App() {
           return true;
         }}
         onReset={() => {
-          resetToolStore(useSettings);
+          resetToolStore(useSettings, { clearHistory: false });
           close();
         }}
         savedAt={savedAt}

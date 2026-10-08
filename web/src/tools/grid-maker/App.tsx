@@ -160,7 +160,7 @@ export function App() {
           clear();
           return true;
         }}
-        onReset={() => resetToolStore(useSettings)}
+        onReset={() => resetToolStore(useSettings, { clearHistory: false })}
         savedAt={savedAt}
         fileName={S.projectName}
         resetText={{ label: S.resetLabel, title: S.resetTitle, description: S.resetDescription }}
