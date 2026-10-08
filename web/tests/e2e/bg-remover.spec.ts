@@ -1214,9 +1214,11 @@ test('自動保存：重新整理後圖片、筆刷與設定還在；專案檔�
     page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
   ]);
   await chooser.setFiles(zipPath);
-  const confirm = page.getByRole('alertdialog', { name: '開啟專案檔？' });
-  if (await confirm.isVisible().catch(() => false))
-    await confirm.getByRole('button', { name: /開啟/ }).click();
+  /* 讀完檔案才問（選的檔案先讀進記憶體），等對話框出現再按 */
+  await page
+    .getByRole('alertdialog', { name: '開啟專案檔？' })
+    .getByRole('button', { name: /開啟/ })
+    .click();
   await expect(items(page)).toHaveCount(2);
   await expectReady(page);
   await expect(strokeCount(page)).toHaveText('這張有 1 筆');
