@@ -1,0 +1,177 @@
+{
+  "seq": [
+    0.013,
+    0.932,
+    0.851,
+    0.77,
+    0.689,
+    0.608,
+    0.527,
+    0.446,
+    0.365,
+    0.284,
+    0.203,
+    0.122,
+    0.041,
+    0.96,
+    0.879,
+    0.798,
+    0.717,
+    0.636,
+    0.555,
+    0.474,
+    0.393,
+    0.312,
+    0.231,
+    0.15,
+    0.069,
+    0.988,
+    0.907,
+    0.826,
+    0.745,
+    0.664,
+    0.583,
+    0.502,
+    0.421,
+    0.34,
+    0.259,
+    0.178,
+    0.097,
+    0.016,
+    0.935,
+    0.854,
+    0.773,
+    0.692,
+    0.611,
+    0.53,
+    0.449,
+    0.368,
+    0.287,
+    0.206,
+    0.125,
+    0.044,
+    0.963,
+    0.882,
+    0.801,
+    0.72,
+    0.639,
+    0.558,
+    0.477,
+    0.396,
+    0.315,
+    0.234
+  ],
+  "cases": {
+    "v7": {
+      "input": {
+        "id": "v7",
+        "edition": 7,
+        "dice": {
+          "STR": "3D6",
+          "CON": "3D6",
+          "POW": "3D6",
+          "DEX": "3D6",
+          "APP": "3D6",
+          "SIZ": "2D6+6",
+          "INT": "2D6+6",
+          "EDU": "2D6+6"
+        },
+        "name": "港口的看守人",
+        "skills": [
+          [
+            "聆聽",
+            "60"
+          ],
+          [
+            "",
+            "30"
+          ],
+          [
+            "閃避",
+            "40"
+          ]
+        ],
+        "commands": [
+          [
+            "",
+            "1D3+DB"
+          ],
+          [
+            "",
+            "1D6+db"
+          ],
+          [
+            "",
+            "{db}+1"
+          ],
+          [
+            "",
+            "DBX+1D4"
+          ]
+        ],
+        "memo": "晚上才會出現\n帶著提燈",
+        "mov": "8"
+      },
+      "json": "{\n  \"kind\": \"character\",\n  \"data\": {\n    \"name\": \"港口的看守人\",\n    \"initiative\": 25,\n    \"externalUrl\": \"\",\n    \"status\": [\n      {\n        \"label\": \"HP\",\n        \"value\": 15,\n        \"max\": 15\n      },\n      {\n        \"label\": \"MP\",\n        \"value\": 10,\n        \"max\": 10\n      },\n      {\n        \"label\": \"SAN\",\n        \"value\": 50,\n        \"max\": 50\n      }\n    ],\n    \"params\": [\n      {\n        \"label\": \"STR\",\n        \"value\": \"65\"\n      },\n      {\n        \"label\": \"CON\",\n        \"value\": \"70\"\n      },\n      {\n        \"label\": \"POW\",\n        \"value\": \"50\"\n      },\n      {\n        \"label\": \"DEX\",\n        \"value\": \"25\"\n      },\n      {\n        \"label\": \"APP\",\n        \"value\": \"65\"\n      },\n      {\n        \"label\": \"SIZ\",\n        \"value\": \"80\"\n      },\n      {\n        \"label\": \"INT\",\n        \"value\": \"70\"\n      },\n      {\n        \"label\": \"EDU\",\n        \"value\": \"60\"\n      },\n      {\n        \"label\": \"DB\",\n        \"value\": \"+1D4\"\n      },\n      {\n        \"label\": \"體格\",\n        \"value\": \"1\"\n      },\n      {\n        \"label\": \"MOV\",\n        \"value\": \"8\"\n      }\n    ],\n    \"commands\": \"CC<=50 理智檢定\\nCC<=65 STR\\nCC<=70 CON\\nCC<=50 POW\\nCC<=25 DEX\\nCC<=65 APP\\nCC<=80 SIZ\\nCC<=70 INT\\nCC<=60 EDU\\nCC<=60 聆聽\\nCC<=40 閃避\\n1D3+{DB}\\n1D6+{DB}\\n{DB}+1\\nDBX+1D4\\n//HP=15\\n//MP=10\\n//SAN=50\\n//DB=+1D4\\n//體格=1\\n//MOV=8\\n//STR=65\\n//CON=70\\n//POW=50\\n//DEX=25\\n//APP=65\\n//SIZ=80\\n//INT=70\\n//EDU=60\",\n    \"memo\": \"晚上才會出現\\n帶著提燈\"\n  }\n}",
+      "palette": "CC<=50 理智檢定\nCC<=65 STR\nCC<=70 CON\nCC<=50 POW\nCC<=25 DEX\nCC<=65 APP\nCC<=80 SIZ\nCC<=70 INT\nCC<=60 EDU\nCC<=60 聆聽\nCC<=40 閃避\n1D3+{DB}\n1D6+{DB}\n{DB}+1\nDBX+1D4\n//HP=15\n//MP=10\n//SAN=50\n//DB=+1D4\n//體格=1\n//MOV=8\n//STR=65\n//CON=70\n//POW=50\n//DEX=25\n//APP=65\n//SIZ=80\n//INT=70\n//EDU=60"
+    },
+    "v6-ccb-nosan": {
+      "input": {
+        "id": "v6-ccb-nosan",
+        "edition": 6,
+        "dice": {
+          "STR": "3D6",
+          "CON": "3D6",
+          "POW": "3D6",
+          "DEX": "3D6",
+          "APP": "3D6",
+          "SIZ": "2D6+6",
+          "INT": "2D6+6",
+          "EDU": "3D6+3"
+        },
+        "name": "",
+        "skills": [
+          [
+            "回避",
+            "50"
+          ]
+        ],
+        "commands": [
+          [
+            "",
+            "1D4+DB"
+          ]
+        ],
+        "memo": "",
+        "mov": "",
+        "sanOff": true,
+        "ccb": true
+      },
+      "json": "{\n  \"kind\": \"character\",\n  \"data\": {\n    \"name\": \"無名氏\",\n    \"initiative\": 5,\n    \"externalUrl\": \"\",\n    \"status\": [\n      {\n        \"label\": \"HP\",\n        \"value\": 15,\n        \"max\": 15\n      },\n      {\n        \"label\": \"MP\",\n        \"value\": 10,\n        \"max\": 10\n      }\n    ],\n    \"params\": [\n      {\n        \"label\": \"STR\",\n        \"value\": \"13\"\n      },\n      {\n        \"label\": \"CON\",\n        \"value\": \"14\"\n      },\n      {\n        \"label\": \"POW\",\n        \"value\": \"10\"\n      },\n      {\n        \"label\": \"DEX\",\n        \"value\": \"5\"\n      },\n      {\n        \"label\": \"APP\",\n        \"value\": \"13\"\n      },\n      {\n        \"label\": \"SIZ\",\n        \"value\": \"16\"\n      },\n      {\n        \"label\": \"INT\",\n        \"value\": \"14\"\n      },\n      {\n        \"label\": \"EDU\",\n        \"value\": \"11\"\n      },\n      {\n        \"label\": \"DB\",\n        \"value\": \"+1D4\"\n      }\n    ],\n    \"commands\": \"CCB<=65 STR\\nCCB<=70 CON\\nCCB<=50 POW\\nCCB<=25 DEX\\nCCB<=65 APP\\nCCB<=80 SIZ\\nCCB<=70 INT\\nCCB<=55 EDU\\nCCB<=50 回避\\n1D4+{DB}\\n//HP=15\\n//MP=10\\n//DB=+1D4\\n//STR=13\\n//CON=14\\n//POW=10\\n//DEX=5\\n//APP=13\\n//SIZ=16\\n//INT=14\\n//EDU=11\",\n    \"memo\": \"\"\n  }\n}",
+      "palette": "CCB<=65 STR\nCCB<=70 CON\nCCB<=50 POW\nCCB<=25 DEX\nCCB<=65 APP\nCCB<=80 SIZ\nCCB<=70 INT\nCCB<=55 EDU\nCCB<=50 回避\n1D4+{DB}\n//HP=15\n//MP=10\n//DB=+1D4\n//STR=13\n//CON=14\n//POW=10\n//DEX=5\n//APP=13\n//SIZ=16\n//INT=14\n//EDU=11"
+    },
+    "v7-empty": {
+      "input": {
+        "id": "v7-empty",
+        "edition": 7,
+        "dice": {
+          "STR": "",
+          "CON": "",
+          "POW": "",
+          "DEX": "",
+          "APP": "",
+          "SIZ": "",
+          "INT": "",
+          "EDU": ""
+        },
+        "name": "新 NPC",
+        "skills": [],
+        "commands": [],
+        "memo": "",
+        "mov": ""
+      },
+      "json": "{\n  \"kind\": \"character\",\n  \"data\": {\n    \"name\": \"新 NPC\",\n    \"initiative\": 0,\n    \"externalUrl\": \"\",\n    \"status\": [\n      {\n        \"label\": \"HP\",\n        \"value\": 0,\n        \"max\": 0\n      },\n      {\n        \"label\": \"MP\",\n        \"value\": 0,\n        \"max\": 0\n      },\n      {\n        \"label\": \"SAN\",\n        \"value\": 0,\n        \"max\": 0\n      }\n    ],\n    \"params\": [\n      {\n        \"label\": \"STR\",\n        \"value\": \"0\"\n      },\n      {\n        \"label\": \"CON\",\n        \"value\": \"0\"\n      },\n      {\n        \"label\": \"POW\",\n        \"value\": \"0\"\n      },\n      {\n        \"label\": \"DEX\",\n        \"value\": \"0\"\n      },\n      {\n        \"label\": \"APP\",\n        \"value\": \"0\"\n      },\n      {\n        \"label\": \"SIZ\",\n        \"value\": \"0\"\n      },\n      {\n        \"label\": \"INT\",\n        \"value\": \"0\"\n      },\n      {\n        \"label\": \"EDU\",\n        \"value\": \"0\"\n      },\n      {\n        \"label\": \"DB\",\n        \"value\": \"-2\"\n      },\n      {\n        \"label\": \"體格\",\n        \"value\": \"-2\"\n      }\n    ],\n    \"commands\": \"CC<=0 理智檢定\\nCC<=0 STR\\nCC<=0 CON\\nCC<=0 POW\\nCC<=0 DEX\\nCC<=0 APP\\nCC<=0 SIZ\\nCC<=0 INT\\nCC<=0 EDU\\n//HP=0\\n//MP=0\\n//SAN=0\\n//DB=-2\\n//體格=-2\\n//STR=0\\n//CON=0\\n//POW=0\\n//DEX=0\\n//APP=0\\n//SIZ=0\\n//INT=0\\n//EDU=0\",\n    \"memo\": \"\"\n  }\n}",
+      "palette": "CC<=0 理智檢定\nCC<=0 STR\nCC<=0 CON\nCC<=0 POW\nCC<=0 DEX\nCC<=0 APP\nCC<=0 SIZ\nCC<=0 INT\nCC<=0 EDU\n//HP=0\n//MP=0\n//SAN=0\n//DB=-2\n//體格=-2\n//STR=0\n//CON=0\n//POW=0\n//DEX=0\n//APP=0\n//SIZ=0\n//INT=0\n//EDU=0"
+    }
+  }
+}
