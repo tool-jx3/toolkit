@@ -99,7 +99,7 @@ export function ToolShell({
               id="tool-preview"
               aria-label="預覽"
               tabIndex={-1}
-              className="order-1 flex min-w-0 flex-col gap-3 outline-none lg:sticky lg:top-16 lg:order-2 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto"
+              className="order-1 flex min-w-0 flex-col gap-3 outline-none lg:sticky-pane lg:order-2"
             >
               {preview}
             </section>

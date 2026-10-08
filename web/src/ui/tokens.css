@@ -77,6 +77,12 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-fast: 120ms;
   --duration: 200ms;
+
+  /* ---- 版面：寬畫面的固定欄（styles.css 的 sticky-pane） ---- */
+  /* 固定欄的頂端：頁首（約 49 px）下方再留一點間距 */
+  --sticky-top: 4rem;
+  /* 固定欄下方要留的高度：頁尾（約 43 px）＋主體的下邊距（16 px）。捲到頁尾時固定欄才不會被往上推到頁首底下 */
+  --sticky-bottom: 4rem;
 }
 
 :root[data-theme='light'] {

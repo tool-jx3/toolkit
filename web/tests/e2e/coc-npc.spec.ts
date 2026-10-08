@@ -271,6 +271,129 @@ test.describe('1280 寬', () => {
       expect(text).toBe(await output(page).inputValue());
       expect(errors).toEqual([]);
     });
+
+    test('7.1 F13：按鈕、快捷鍵 R、擲骰並複製都說明跳過的項目；改好的不再列、全部擲成功時清掉', async ({
+      page,
+    }) => {
+      const errors = await open(page);
+      const notice = page.getByTestId('roll-skipped');
+      await field(page, 'STR 的算式').fill('3D6');
+      await field(page, 'POW 的算式').fill('(2D6+6)');
+      await field(page, 'EDU 的算式').fill('abc');
+      await expect(notice).toBeEmpty();
+
+      /* 快捷鍵 R */
+      await setRandom(page, [r(2, 6)]);
+      await page.locator('body').click({ position: { x: 5, y: 500 } });
+      await page.keyboard.press('r');
+      await expect(field(page, 'STR 的值')).toHaveValue('30');
+      await expect(notice).toHaveText('POW、EDU 的算式看不懂，沒有擲；其他的已經擲好。');
+      /* 改好 EDU（不必再擲）：只剩 POW；清空 POW：說明消失 */
+      await field(page, 'EDU 的算式').fill('3D6');
+      await expect(notice).toHaveText('POW 的算式看不懂，沒有擲；其他的已經擲好。');
+      await field(page, 'POW 的算式').fill('');
+      await expect(notice).toBeEmpty();
+
+      /* 擲骰並複製：通知也說明跳過的項目，畫面上的說明一致 */
+      await field(page, 'APP 的算式').fill('3D6×5');
+      await btn(page, '擲骰並複製').click();
+      const toast = page
+        .getByRole('status')
+        .filter({ hasText: '已全部擲骰並複製到剪貼簿' })
+        .first();
+      await expect(toast).toContainText('APP 的算式看不懂，沒有擲');
+      await expect(notice).toHaveText('APP 的算式看不懂，沒有擲；其他的已經擲好。');
+
+      /* 全部擲成功（按鈕）：說明清掉 */
+      await field(page, 'APP 的算式').fill('3D6');
+      await field(page, 'POW 的算式').fill('(2D6+6)');
+      await btn(page, '全部擲骰').click();
+      await expect(notice).toHaveText('POW 的算式看不懂，沒有擲；其他的已經擲好。');
+      await field(page, 'POW 的算式').fill('3D6');
+      await page.locator('body').click({ position: { x: 5, y: 500 } });
+      await page.keyboard.press('r');
+      await expect(notice).toBeEmpty();
+
+      /* 換 NPC 時清掉 */
+      await field(page, 'POW 的算式').fill('x');
+      await btn(page, '全部擲骰').click();
+      await expect(notice).not.toBeEmpty();
+      await btn(page, '新增 NPC').click();
+      await expect(notice).toBeEmpty();
+      expect(errors).toEqual([]);
+    });
+  });
+
+  test('7.1 F28：擲骰並複製遇到剪貼簿不能用時，輸出全選（不捲動）', async ({ page }) => {
+    const errors = await open(page);
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: () => Promise.reject(new Error('blocked')) },
+        configurable: true,
+      });
+      document.execCommand = () => false;
+    });
+    await field(page, 'STR 的算式').fill('3D6');
+    const before = await page.evaluate(() => window.scrollY);
+    await btn(page, '擲骰並複製').click();
+    await expect(page.getByText('無法寫入剪貼簿').first()).toBeVisible();
+    const sel = await output(page).evaluate((el: HTMLTextAreaElement) => ({
+      focused: document.activeElement === el,
+      start: el.selectionStart,
+      end: el.selectionEnd,
+      length: el.value.length,
+    }));
+    expect(sel).toEqual({ focused: true, start: 0, end: sel.length, length: sel.length });
+    expect(await page.evaluate(() => window.scrollY)).toBe(before);
+    expect(errors).toEqual([]);
+  });
+
+  test.describe('剪貼簿（F27）', () => {
+    test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
+    test('7.1 F27：改過內容再按「複製」，固定欄與整頁都不捲動', async ({ page }) => {
+      const errors = await open(page);
+      await field(page, '名稱').fill('不要捲動');
+      await setRandom(page, [0.5]);
+      await field(page, 'STR 的算式').fill('3D6');
+      await btn(page, '全部擲骰').click();
+      const pane = page.getByTestId('npc-output').locator('xpath=..');
+      const before = await pane.evaluate((el) => [el.scrollTop, window.scrollY]);
+      await btn(page, '複製').click();
+      await expect(page.getByText('已複製到剪貼簿').first()).toBeVisible();
+      await page.waitForTimeout(200);
+      expect(await pane.evaluate((el) => [el.scrollTop, window.scrollY])).toEqual(before);
+      expect(await output(page).evaluate((el) => document.activeElement === el)).toBe(true);
+      expect(errors).toEqual([]);
+    });
+  });
+
+  test('7.1 F12：屬性的值可以打全形數字', async ({ page }) => {
+    await open(page);
+    await field(page, 'STR 的值').fill('６０');
+    await field(page, 'SIZ 的值').fill('６５');
+    await field(page, 'SIZ 的值').blur();
+    await expect(field(page, 'STR 的值')).toHaveValue('60');
+    await expect(field(page, 'SIZ 的值')).toHaveValue('65');
+    await expect(field(page, 'DB')).toHaveValue('+1D4');
+  });
+
+  test('7.1 F34：捲到頁尾時固定欄（清單、輸出）不會被推到頁首底下，分頁點得到', async ({
+    page,
+  }) => {
+    await open(page);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(200);
+    const headerBottom = await page
+      .locator('header')
+      .first()
+      .evaluate((el) => el.getBoundingClientRect().bottom);
+    const tabs = page.getByRole('radio', { name: '聊天面板' });
+    const box = (await tabs.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(headerBottom);
+    await tabs.click({ trial: true, timeout: 2000 });
+    await tabs.click();
+    await expect(tabs).toBeChecked();
   });
 
   test('壞掉的存檔：整理後照常開啟', async ({ page }) => {
@@ -331,6 +454,19 @@ test.describe('1280 寬', () => {
     await expect(listItems(page)).toHaveCount(2);
     await expect(field(page, '名稱')).toHaveValue('舊的乙');
     await expect(listItems(page).nth(1)).toContainText('6 版');
+    /* 7.1 F30：沒有切換就直接改目前的 NPC、重新整理，目前的仍是舊版選的那個 */
+    expect(
+      await page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem('trpg-toolkit:coc-npc:preview') ?? 'null')?.state?.data
+            ?.currentId,
+      ),
+    ).toBe('old2');
+    await field(page, '備註').fill('搬來之後改的');
+    await page.waitForTimeout(100);
+    await page.reload();
+    await expect(field(page, '名稱')).toHaveValue('舊的乙');
+    await expect(field(page, '備註')).toHaveValue('搬來之後改的');
     await listItems(page).first().getByRole('button', { name: '舊的甲', exact: true }).click();
     await expect(field(page, 'STR 的算式')).toHaveValue('3D6');
     await expect(field(page, 'STR 的值')).toHaveValue('50');
@@ -404,6 +540,25 @@ test.describe('1280 寬', () => {
 
 test.describe('390 寬', () => {
   test.use({ contextOptions: { reducedMotion: 'reduce' }, viewport: { width: 390, height: 844 } });
+
+  test.describe('剪貼簿', () => {
+    test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
+    test('7.1 F27：改過內容再按「複製」，整頁不捲動、複製鈕還在原處', async ({ page }) => {
+      const errors = await open(page);
+      await field(page, '名稱').fill('長頁面');
+      const copy = btn(page, '複製');
+      await copy.scrollIntoViewIfNeeded();
+      const before = await page.evaluate(() => window.scrollY);
+      const y = (await copy.boundingBox())!.y;
+      await copy.click();
+      await expect(page.getByText('已複製到剪貼簿').first()).toBeVisible();
+      await page.waitForTimeout(200);
+      expect(await page.evaluate(() => window.scrollY)).toBe(before);
+      expect((await copy.boundingBox())!.y).toBeCloseTo(y, 0);
+      expect(errors).toEqual([]);
+    });
+  });
 
   test('清單預設收合（標題顯示目前的 NPC）、沒有橫向捲動；視覺回歸', async ({ page }) => {
     const errors = await open(page);

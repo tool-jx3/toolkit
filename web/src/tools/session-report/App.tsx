@@ -257,7 +257,7 @@ export function App() {
             </section>
             <section
               aria-label="預覽"
-              className="order-1 min-w-0 lg:sticky lg:top-16 lg:order-2 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto"
+              className="order-1 min-w-0 lg:sticky-pane lg:order-2 lg:[--sticky-bottom:7rem]"
             >
               <PreviewPanel editorRef={editor} onRegenerate={regenerate} />
             </section>

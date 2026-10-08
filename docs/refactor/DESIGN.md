@@ -24,7 +24,7 @@
 
 另有補充 token：`--surface-3`（hover 底色）、`--border-strong`（輸入框邊框，對比 ≥ 3:1）、`--accent-hover`、`--accent-soft`（選取底色）、
 `--danger-contrast`／`--warning-contrast`／`--success-contrast`（實心底上的文字）、`--danger-soft`／`--warning-soft`／`--success-soft`（淡底）、
-`--focus`（焦點框）、`--overlay`（對話框遮罩）、`--checker-a`／`--checker-b`（透明棋盤格）、`--source-outline`（CSS 預覽裡標出來源範圍的粉紅虛線）。深色預設、淺色寫在 `:root[data-theme='light']`；
+`--focus`（焦點框）、`--overlay`（對話框遮罩）、`--checker-a`／`--checker-b`（透明棋盤格）、`--source-outline`（CSS 預覽裡標出來源範圍的粉紅虛線）、`--sticky-top`／`--sticky-bottom`（寬畫面固定欄的上下留白，`sticky-pane` 用；見第 3 節）。深色預設、淺色寫在 `:root[data-theme='light']`；
 對比由 `web/tests/unit/tokens.test.ts` 自動檢查（文字 ≥ 4.5:1、輸入框邊框 ≥ 3:1）。
 
 Tailwind v4 的主題直接對應這些變數（`web/src/ui/styles.css` 的 `@theme inline`）；元件只用 token，不寫死顏色。
@@ -37,7 +37,7 @@ Tailwind 預設色票已清空，只能用下列類別：
 | 邊框 | `border-border`、`border-border-strong`、`border-accent` |
 | 字級 | `text-xs`～`text-xl`（12、13、14、16、20 px） |
 | 圓角／陰影 | `rounded-sm`、`rounded-md`（＝`--radius`）、`rounded-lg`；`shadow-1`、`shadow-2` |
-| 其他 | `font-ui`、`font-mono`、`ease-out`、`checker`（棋盤格底）、`focus-ring`；深色變體 `dark:` |
+| 其他 | `font-ui`、`font-mono`、`ease-out`、`checker`（棋盤格底）、`focus-ring`、`sticky-pane`（寬畫面的固定欄，見第 3 節）；深色變體 `dark:` |
 
 主題切換：`useTheme()`／`setTheme('light' | 'dark')`（記在 localStorage `trpg-toolkit:theme`，所有工具共用；頁首有切換按鈕）。
 
@@ -47,7 +47,11 @@ Tailwind 預設色票已清空，只能用下列類別：
 - 設定面板：分頁（Tabs）→ 區塊（Section，可收合）→ 欄位列（Field：標籤、控制項、說明）。
 - 預覽區：預覽舞台（Stage）＋播放列（Transport，動畫工具才有）＋匯出區（ExportPanel）。
 - 斷點：≥ 1024 px 左右排列；< 1024 px 上下排列，預覽在上；390 px 寬不得出現橫向捲動。
-- 桌面版的預覽欄固定在畫面上（sticky），內容比畫面長時自己捲動；Stage 的高度跟著內容比例，最高 60dvh／560 px（工具可以用 `maxViewportHeight` 或 CSS 變數 `--stage-max-h` 放寬，例如立繪裁切器 ≥ 1280 px 時把控制項排到右側一欄、預覽放到 `calc(100dvh - 8rem)`）。
+- 桌面版的預覽欄固定在畫面上（sticky），內容比畫面長時自己捲動。固定欄一律用共用的 **`lg:sticky-pane`**（`styles.css`）：
+  `top: var(--sticky-top)`（4rem，頁首約 49 px 下方）、`max-height: calc(100dvh − var(--sticky-top) − var(--sticky-bottom))`（`--sticky-bottom` 4rem＝頁尾約 43 px＋主體下邊距 16 px）、`overflow-y: auto`；
+  捲到頁尾時固定欄才不會被往上推到頁首底下、點不到（原本的 `top-16`＋`max-h-[calc(100dvh-5rem)]` 會被推上去約 43 px；coc-npc 對等驗證 F34）。
+  ToolShell 的預覽欄、工具自己的固定欄（coc-npc 的清單與輸出、emotion-maker、session-report）都用它；固定欄下面還有別的內容（例如 session-report 的免責聲明）時，在同一個元素加大 `--sticky-bottom`（`lg:[--sticky-bottom:7rem]`）。
+  Stage 的高度跟著內容比例，最高 60dvh／560 px（工具可以用 `maxViewportHeight` 或 CSS 變數 `--stage-max-h` 放寬，例如立繪裁切器 ≥ 1280 px 時把控制項排到右側一欄、預覽放到 `calc(100dvh - 8rem)`）。
 
 ## 4. 共用元件與模組
 
@@ -99,7 +103,7 @@ export function App() {
 
 | 元件 | 主要 props | 說明 |
 |---|---|---|
-| `ToolShell` | `toolId`、`settings`、`preview`、`headerActions?`、`shortcuts?: Shortcut[]`、`usage?`、`title?`、`inspiration?`、`body?` | 頁首＋設定／預覽兩欄＋頁尾。≥ 1024 px 左右、以下上下（預覽在上）。標題、群組分頁、靈感來源從 registry 讀；傳 `shortcuts` 會自動綁定並可按 `?` 看說明；`usage` 會出現在頁首「說明」按鈕。已包 `UiProvider`。**`body`**（選填，cutin 移植時新增）：整頁內容，給了就取代設定／預覽兩欄（例如開頁先顯示的範本一覽），頁首、頁尾照舊；這時 `settings`、`preview` 可以不給。不給時行為不變。 |
+| `ToolShell` | `toolId`、`settings`、`preview`、`headerActions?`、`shortcuts?: Shortcut[]`、`usage?`、`title?`、`inspiration?`、`body?` | 頁首＋設定／預覽兩欄＋頁尾。≥ 1024 px 左右、以下上下（預覽在上）；寬畫面的預覽欄是 `sticky-pane`（第 3 節，捲到頁尾也不會被推到頁首底下）。標題、群組分頁、靈感來源從 registry 讀；傳 `shortcuts` 會自動綁定並可按 `?` 看說明；`usage` 會出現在頁首「說明」按鈕。已包 `UiProvider`。**`body`**（選填，cutin 移植時新增）：整頁內容，給了就取代設定／預覽兩欄（例如開頁先顯示的範本一覽），頁首、頁尾照舊；這時 `settings`、`preview` 可以不給。不給時行為不變。 |
 | `ToolHeader` | `toolId`、`title`、`actions?`、`onHelp?`、`onShortcuts?`、`homeHref?`（預設 `../../`） | ToolShell 內部使用；「← TRPG Toolkit」連回首頁。 |
 | `GroupTabs` | `toolId`、`tools?` | 同群組工具的分頁連結（`../../tools/<id>/` 或 `../../next/<id>/`）；只有一個工具時不顯示。永遠只佔一行：寬畫面時在標題與按鈕之間吃掉剩下的寬度，放不下就橫向捲動；窄畫面時自成一行；開頁時目前的分頁捲進可見範圍；還有分頁藏在某一端外時那一端淡出（`data-fade-left`／`data-fade-right`），提示可以捲動。頁首高度因此不隨群組的工具數量改變。 |
 | `InspirationFooter` | `inspiration?: { name, url? } \| null` | 只顯示「靈感來源：<名稱>」；原創工具不顯示。出處不明、沒有網址（registry 的 `url` 不填）時只顯示名稱、不加連結。 |
@@ -135,7 +139,7 @@ export function App() {
 | `AnchorPicker` | `value`（`'tl'`～`'br'`：t／m／b＋l／c／r）、`onChange`、`labels?`、`showLabel?` | 九宮格位置（左上、上方中央…右下）；radiogroup，方向鍵在九格間上下左右移動並選取，Home／End 到左上／右下；旁邊顯示目前的名稱。值與 `core/typeset` 的 `Anchor` 相同。`ANCHOR_VALUES`、`ANCHOR_LABELS` 一起匯出。（text-fx 移植時新增） |
 | `Select` | `value`、`onValueChange`、`options`（可分組 `{ label, options }`）、`placeholder?`、`size?` | 選項多時用；選項可帶 `description`。 |
 | `TextInput`／`TextArea` | 原生 input／textarea 的 props＋`invalid?` | |
-| `NumberInput` | `value`、`onChange`、`min?`、`max?`、`step?`、`precision?`、`unit?`、`onCommit?` | role=spinbutton；打字時在範圍內即時套用，離開／Enter 夾到範圍，Esc 還原；↑↓（Shift ×10、Alt ×0.1）、PageUp／PageDown、Home／End。 |
+| `NumberInput` | `value`、`onChange`、`min?`、`max?`、`step?`、`precision?`、`unit?`、`onCommit?` | role=spinbutton；打字時在範圍內即時套用，離開／Enter 夾到範圍並四捨五入到 `precision`（或 step 的小數位數），Esc 還原；↑↓（Shift ×10、Alt ×0.1）、PageUp／PageDown、Home／End。**全形數字與全形符號照樣接受**：解讀前先做 NFKC 正規化（「６０」→ 60、「－５」→ -5、「１，２００」→ 1200、「１２．５」→ 12.5；減號「−」也算），所有工具受惠（coc-npc 對等驗證 F12 後修正）。 |
 | `NativeNumberInput`、`spinStep(el, dir)` | `value: string`、`onChange(value: string)`、`min?`、`max?`、`step?`、`unit?`、`stepLabels?: { up, down }`、`invalid?`、`size?` | 原生 `<input type="number">`，解析與微調全照瀏覽器：值就是原生數字欄的值字串（全形「１２」→「12」；「5-」「1e」這類無效的寫法是空字串；「12.9」「3e1」照原樣），不夾範圍、不改寫，由工具自己解讀。鍵盤 ↑↓、滾輪是原生微調；給 `stepLabels` 時右邊顯示減少／增加按鈕（取代原生小箭頭），規則與原生微調鈕相同（`spinStep`：空白或無效時走到範圍內、超出範圍時只往範圍內走、不在格點上先對齊）。規格要求「與瀏覽器數字欄相同」時用這個（例：textbox 的寬度上限）；一般數值用 `NumberInput`。 |
 | `Slider` | `value`、`onChange`、`min`、`max`、`step?`、`unit?`、`precision?`、`showInput?`、`inputMin?`／`inputMax?`、`onCommit?`、`valueText?` | 滑桿＋數字欄；`inputMin/inputMax` 讓數字欄可超出滑桿範圍。滑桿代表索引或代碼時（例如 11 段固定時長）用 `valueText(v)` 給螢幕閱讀器念的文字，搭配 `showInput={false}` 與 Field 的 `labelSuffix` 顯示目前值。 |
 | `Tooltip` | `content`、`children`、`side?` | 滑鼠停留／鍵盤聚焦提示。提示本身不接收滑鼠事件（蓋住相鄰按鈕時點擊會穿過去，psd-studio F31）。 |
@@ -249,7 +253,7 @@ const { undo, redo, canUndo, canRedo } = useUndoRedo(useSettings);
 | `ThumbChoice` | `options: { value, label, description?, disabled? }[]`、`value`、`onValueChange`、`draw(ctx, value, t)`、`thumbWidth?`／`thumbHeight?`（畫布像素，預設 192）、`minItemWidth?`（預設 88）、`frames?`＋`fps?`、`stillTime?`（預設 0.25）、`renderMeta?` | 即時畫縮圖的單選格線（Radix RadioGroup：方向鍵、空白鍵）：每個選項的縮圖是「目前設定套上這個選項」；平常靜止在 `stillTime`，滑鼠停留或鍵盤聚焦的那一個才循環播放（`data-playing`）；目前選取的有醒目框線（焦點框只在鍵盤聚焦時出現，icon-maker 移植時修正：原本每個選項都一直有焦點框，看不出哪個被選取）。`draw` 換了就重畫，呼叫端用 `useCallback` 包好。靜態縮圖（例如配色卡片的色條）不給 `frames` 即可。 |
 | `LoopThumb` | `width`、`height`、`draw(ctx, t)`、`playing`、`stillTime?`、`frames?`＋`fps?`（依格跳）或 `period?`（秒，連續） | 單張循環縮圖（ThumbChoice、TemplateGallery 的函式縮圖用）；requestAnimationFrame 只在 `playing` 時跑。 |
 | `AdvancedToggle`、`useAdvancedMode(toolId)`、`getAdvancedMode`／`setAdvancedMode` | `toolId`、`label?`（預設「顯示進階設定」） | 「進階設定」開關，記在瀏覽器（localStorage `trpg-toolkit:<id>:advanced`），同一頁所有用到同一工具 id 的地方同步；存不進瀏覽器時只在這次開頁有效。搭配 `<Show when={advanced}>`。 |
-| `TextOutputPanel` | `text`、`title?`（預設「輸出」，也是輸出欄的名稱）、`count?`（預設「共 N 行」；可給函式算字數，`null` 不顯示）、`hint?`、`copyLabel?`、`messages?: { copied, failed, failedHint, empty }`、`wrap?: 'soft' \| 'off'`、`font?: { family, size?, lineHeight? } \| 'mono'`、`placeholder?`、`actions?`、`messageDuration?` | 純文字結果面板（由文字方框產生器的輸出區提升而來，textbox 改用它、行為不變）：唯讀輸出欄＋「複製」（原封不動，含行尾空白、全形空白；複製後維持全選；成功／失敗用 Toast；空白時提示沒有內容）。高度跟著內容；`wrap="off"`＋`font="mono"` 是等寬、不折行、可橫向捲動（文字圖案）。`messageDuration`（毫秒，選填）統一複製通知的顯示時間（不給時照舊：成功與空白 2 秒、失敗依 Toast 預設；text-path 用 3000）。 |
+| `TextOutputPanel` | `text`、`title?`（預設「輸出」，也是輸出欄的名稱）、`count?`（預設「共 N 行」；可給函式算字數，`null` 不顯示）、`hint?`、`copyLabel?`、`messages?: { copied, failed, failedHint, empty }`、`wrap?: 'soft' \| 'off'`、`font?: { family, size?, lineHeight? } \| 'mono'`、`placeholder?`、`actions?`、`messageDuration?` | 純文字結果面板（由文字方框產生器的輸出區提升而來，textbox 改用它、行為不變）：唯讀輸出欄＋「複製」（原封不動，含行尾空白、全形空白；複製後維持全選，**全選時輸出欄、外層捲動區與整頁都不捲動**——焦點 `focus({ preventScroll: true })`、選取後還原捲動位置，共用函式 `selectAllInPlace(textarea)` 也從 `@/ui` 匯出，工具自己的「擲骰並複製」這類按鈕用它〔coc-npc 對等驗證 F27、F28 後修正〕；成功／失敗用 Toast；空白時提示沒有內容）。高度跟著內容；`wrap="off"`＋`font="mono"` 是等寬、不折行、可橫向捲動（文字圖案）。`messageDuration`（毫秒，選填）統一複製通知的顯示時間（不給時照舊：成功與空白 2 秒、失敗依 Toast 預設；text-path 用 3000）。 |
 | `ColorPairList` | `items: { id, name, a, b, enabled, custom? }[]`、`onChange(items)`、`aria-label`、`labels?: { a, b }`（預設底色／字色）、`addDefaults?`、`customName?`（預設「自訂」）、`addLabel?`、`sampleText?`／`renderSwatch?`、`onAdded?`、`onRemoved?` | 可勾選＋新增／刪除的配色對清單：每列勾選框、小樣張（底色上寫字）、名稱；自訂的有刪除鈕（內建的不能刪）；下方兩個 ColorField＋「新增」（加在最後、預設勾選）；顯示「已勾選 n／N 組」。 |
 | `FontPoolList` | `items: { id, font: FontValue, label?, enabled, custom? }[]`、`onChange(items)`、`aria-label`、`previewText?`、`addLabel?`、`onAdded?`、`onDuplicate?` | 可複選的字型池：名稱用字型本身顯示（Google 字型只下載名稱用到的字）；下方 FontPicker（Google／電腦／上傳）＋「加入字型」；已在清單裡的不重複加入（改成勾選並呼叫 `onDuplicate`）。 |
 | `PathPad` | `width`、`height`（邏輯尺寸）、`points`、`onChange(points)`（一筆畫完）、`onDrawStart?`、`minDistance?`（預設 2）、`hint?`、`labels?: { x, y, text }[]`＋`labelSize?`／`labelFont?`（疊字）、`disabled?`、`aria-label` | 軌跡繪製區：以邏輯尺寸作畫、等比縮放顯示（不同螢幕結果相同）；滑鼠、觸控、筆（Pointer Events，`touch-action: none`，畫線時頁面不捲動）；按下開始新的一筆、離前一點不到 minDistance 不加點、放開或離開繪製區就結束；主色粗線＋紅色起點；沒有軌跡時中央顯示 hint（不給 hint 就不顯示，例如選了預設形狀時）；`data-points` 是目前的點數。`labelFont` 可以寫 CSS 變數（預設 `var(--font-ui)`，畫到 canvas 前換成實際的字型堆疊；text-path 實作時修正：canvas 的 font 不認 `var()`）。座標工具在 `@/core/path`。 |

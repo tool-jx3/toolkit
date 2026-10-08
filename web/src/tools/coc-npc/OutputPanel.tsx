@@ -2,9 +2,9 @@
  * 輸出：CCFOLIA 角色 JSON／聊天面板，「複製」與「擲骰並複製」。
  */
 import { Dices } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { copyText } from '@/core/files';
-import { Button, Segmented, TextOutputPanel, useToast } from '@/ui';
+import { Button, Segmented, selectAllInPlace, TextOutputPanel, useToast } from '@/ui';
 import { getCurrent, rollAll } from './actions';
 import { type Npc, type OutputKind, outputText } from './logic';
 import { useView } from './store';
@@ -20,20 +20,33 @@ export function OutputPanel({ npc }: { npc: Npc }) {
   const patchView = useView((v) => v.patch);
   const toast = useToast();
   const text = useMemo(() => outputText(npc, kind), [npc, kind]);
+  const box = useRef<HTMLDivElement>(null);
 
-  /** 擲骰並複製：先全部擲骰，再複製擲完的輸出 */
+  /**
+   * 擲骰並複製：走同一個「全部擲骰」（跳過看不懂的算式時通知裡說明），再複製擲完的輸出；
+   * 之後和「複製」一樣把輸出全選（不捲動），剪貼簿不能用時可以直接 Ctrl＋C。
+   */
   const rollAndCopy = async () => {
-    rollAll();
+    const skipped = rollAll();
     const next = outputText(getCurrent(), useView.getState().data.output);
-    if (await copyText(next)) {
-      toast({ title: S.output.rollCopied, tone: 'success', duration: 2000 });
-    } else {
+    const ok = await copyText(next);
+    const area = box.current?.querySelector('textarea');
+    if (area) selectAllInPlace(area);
+    if (!ok) {
       toast({ title: S.output.copyFailed, description: S.output.copyFailedHint, tone: 'danger' });
+    } else if (skipped.length) {
+      toast({
+        title: S.output.rollCopied,
+        description: S.output.rollCopiedSkipped(skipped),
+        tone: 'warning',
+      });
+    } else {
+      toast({ title: S.output.rollCopied, tone: 'success', duration: 2000 });
     }
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-2" data-testid="npc-output">
+    <div ref={box} className="flex min-w-0 flex-col gap-2" data-testid="npc-output">
       <Segmented
         aria-label={S.output.kind}
         fullWidth

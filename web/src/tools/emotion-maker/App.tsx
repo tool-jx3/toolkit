@@ -104,7 +104,7 @@ export function App() {
           <div className="order-2 flex min-w-0 flex-col gap-4 lg:order-1">
             <PartsPanel />
           </div>
-          <div className="contents lg:sticky lg:top-16 lg:order-2 lg:flex lg:max-h-[calc(100dvh-5rem)] lg:min-w-0 lg:flex-col lg:gap-4 lg:overflow-y-auto">
+          <div className="contents lg:sticky-pane lg:order-2 lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
             <div className="order-1 min-w-0">
               <EditorPanel />
             </div>

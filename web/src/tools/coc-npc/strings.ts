@@ -109,6 +109,8 @@ export const S = {
     copied: '已複製到剪貼簿',
     rollCopy: '擲骰並複製',
     rollCopied: '已全部擲骰並複製到剪貼簿',
+    rollCopiedSkipped: (stats: readonly string[]) =>
+      `${stats.join('、')} 的算式看不懂，沒有擲；複製的是其他項目擲好之後的內容。`,
     copyFailed: '無法寫入剪貼簿',
     copyFailedHint: '輸出已全選，請按 Ctrl＋C（Mac 為 ⌘＋C）手動複製。',
   },

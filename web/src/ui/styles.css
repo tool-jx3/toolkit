@@ -76,6 +76,19 @@
 /* 深色變體：預設就是深色，`data-theme="light"` 時不套用 */
 @custom-variant dark (&:where(:root:not([data-theme='light']), :root:not([data-theme='light']) *));
 
+/*
+ * 寬畫面固定在畫面上的欄（ToolShell 的預覽欄、工具自己的輸出欄）：頂端在頁首下方（--sticky-top），
+ * 最高到「畫面高度 − 頁首 − 頁尾」（--sticky-bottom），內容太長時自己捲動。用 `lg:sticky-pane`。
+ * 原本的 top-16＋max-h-[calc(100dvh-5rem)] 比頁尾留給它的空間高，捲到頁尾時整欄被往上推到頁首底下、點不到
+ * （coc-npc 對等驗證 F34）。欄的下面還有別的內容（例如免責聲明）時，在同一個元素加大 --sticky-bottom。
+ */
+@utility sticky-pane {
+  position: sticky;
+  top: var(--sticky-top);
+  max-height: calc(100dvh - var(--sticky-top) - var(--sticky-bottom));
+  overflow-y: auto;
+}
+
 /* 透明背景的棋盤格 */
 @utility checker {
   background-color: var(--checker-b);
