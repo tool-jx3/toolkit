@@ -60,7 +60,8 @@ export class MapSession {
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = null;
-      void this.save();
+      /* 這段時間內關掉了自動儲存：不存 */
+      if (useAutoSave.getState().enabled) void this.save();
     }, AUTOSAVE_DELAY_MS);
   }
 

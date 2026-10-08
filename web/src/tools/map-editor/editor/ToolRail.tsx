@@ -71,7 +71,7 @@ export function ToolRail({ className }: { className?: string }) {
     <nav
       aria-label={S.toolbar}
       className={cn(
-        'flex min-w-0 flex-row items-center gap-0.5 overflow-x-auto rounded-md border border-border bg-surface p-1 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto',
+        'relative flex min-w-0 flex-row items-center gap-0.5 overflow-x-auto rounded-md border border-border bg-surface p-1 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto',
         className,
       )}
       data-testid="tool-rail"

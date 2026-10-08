@@ -130,6 +130,8 @@ export class MapEngine {
   private snapPt: Pt | null = null;
   private shiftHeld = false;
   private spaceHeld = false;
+  /** 滑鼠在畫布上 */
+  private pointerInside = false;
   private pan: { x: number; y: number } | null = null;
   private touch: { d: number; mx: number; my: number } | null = null;
   private previews: FabricObject[] = [];
@@ -403,6 +405,8 @@ export class MapEngine {
       lastAction: last,
     });
     if (kind !== 'clear') this.onDirty?.();
+    /* 每一步之後圖層清單與選取資訊都要跟上（名稱、鎖定、顯示…） */
+    this.queueSync();
   }
 
   push(name: string): void {
@@ -530,8 +534,19 @@ export class MapEngine {
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') this.shiftHeld = false;
-      if (e.code === 'Space') this.spaceHeld = false;
+      if (e.code === 'Space' && this.spaceHeld) {
+        this.spaceHeld = false;
+        e.preventDefault();
+      }
     };
+    const onEnter = () => {
+      this.pointerInside = true;
+    };
+    const onLeave = () => {
+      this.pointerInside = false;
+    };
+    wrapper.addEventListener('pointerenter', onEnter);
+    wrapper.addEventListener('pointerleave', onLeave);
     const onBlur = () => {
       this.shiftHeld = false;
       this.spaceHeld = false;
@@ -639,6 +654,8 @@ export class MapEngine {
       window.removeEventListener('blur', onBlur);
       wrapper.removeEventListener('mousedown', onMouseDown, true);
       wrapper.removeEventListener('pointerdown', onPointerDown, true);
+      wrapper.removeEventListener('pointerenter', onEnter);
+      wrapper.removeEventListener('pointerleave', onLeave);
       wrapper.removeEventListener('wheel', onWheel);
       upper.removeEventListener('contextmenu', onContextMenu);
       upper.removeEventListener('touchstart', onTouchStart, true);
@@ -648,12 +665,15 @@ export class MapEngine {
     });
   }
 
-  /** 空白鍵平移：焦點在頁面本身或畫布上、而且不是在編輯文字時（按鈕、輸入欄上的空白鍵照常） */
+  /**
+   * 空白鍵平移：不是在打字（輸入欄、文字編輯）時，焦點在頁面本身或畫布上、或滑鼠在畫布上
+   * （例如剛按過面板的按鈕、滑鼠移回畫布時；滑鼠不在畫布上時按鈕上的空白鍵照常）。
+   */
   private spaceTarget(target: EventTarget | null): boolean {
+    if (this.typing(target)) return false;
+    if (this.pointerInside) return true;
     const t = target as HTMLElement | null;
-    if (t && t !== document.body && t !== document.documentElement && !this.host.contains(t))
-      return false;
-    return !this.typing(target);
+    return !t || t === document.body || t === document.documentElement || this.host.contains(t);
   }
 
   private typing(target: EventTarget | null): boolean {

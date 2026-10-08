@@ -13,6 +13,7 @@ import {
   IconButton,
   Notice,
   TextInput,
+  UsageSection,
   useConfirm,
   useToast,
   WindowDrop,
@@ -33,6 +34,7 @@ import {
   putMeta,
 } from './storage';
 import { S } from './strings';
+import { Usage } from './Usage';
 
 /** 搬移的提示只顯示一次 */
 let migrationShown = false;
@@ -256,6 +258,9 @@ export function MapList({ onOpen, flash, onFlashShown }: MapListProps) {
           ))}
         </ul>
       )}
+      <UsageSection persistKey="map-editor">
+        <Usage />
+      </UsageSection>
       <NewMapDialog open={creating} onOpenChange={setCreating} onCreate={create} />
       <RenameDialog
         target={renaming}
