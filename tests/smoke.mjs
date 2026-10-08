@@ -429,14 +429,18 @@ for (const page of LAB_PAGES) {
 check('trpg-lab 的介面字型在繁中時改用 Noto Sans TC',
   read(`${LAB}/common.css`).includes(":root:lang(zh) {\n    --font-main: 'Noto Sans TC', 'Noto Sans JP', sans-serif;"));
 
-/* ---- 首頁（web/ 新框架建置產物）---- */
-/* 首頁由 web/src/index.html 建置到 repo 根目錄的 index.html，卡片從 web/src/registry.ts 產生
- * （內容與連結由 web/tests/e2e/home.spec.ts 檢查）。這裡只確認建置產物與舊版檔案已移除。 */
-section('index.html');
-const homeHtml = read('index.html');
-check('首頁是建置產物：載入 assets/build/ 的共用程式', /src="\.\/assets\/build\/[^"]+\.js"/.test(homeHtml));
-check('首頁只有繁中（沒有 i18n 引擎）', /<html lang="zh-Hant-TW">/.test(homeHtml) && !homeHtml.includes('assets/i18n.js'));
-check('首頁沒有 noindex', !/name="robots"/.test(homeHtml));
+/* ---- 建置產物不提交 ---- */
+/* 網站（首頁與重寫過的工具）由 web/ 建置在 web/dist/，CI（.github/workflows/deploy.yml）推到 gh-pages 分支發布；
+ * repo 裡不放建置產物。首頁的內容與連結由 web/tests/e2e/home.spec.ts 檢查。 */
+section('建置產物不提交');
+check('repo 裡沒有建置產物（首頁、assets/build、next、.nojekyll）',
+  !exists('index.html') && !exists('assets/build') && !exists('next') && !exists('.nojekyll'));
+const deployYml = exists('.github/workflows/deploy.yml') ? read('.github/workflows/deploy.yml') : '';
+check('CI 建置並推到 gh-pages', deployYml.includes('npm run build') && /push[^\n]*gh-pages/.test(deployYml));
+const buildPlugins = read('web/build/plugins.ts');
+check('建置時產生 THIRD_PARTY_NOTICES 與 .nojekyll', buildPlugins.includes("'THIRD_PARTY_NOTICES.md'") && buildPlugins.includes("'.nojekyll'"));
+const homeSrc = read('web/src/index.html');
+check('首頁的原始檔只有繁中', /<html lang="zh-Hant-TW">/.test(homeSrc) && !homeSrc.includes('assets/i18n.js'));
 check('舊版首頁的程式、樣式與字典已移除',
   !exists('assets/home.js') && !exists('assets/home.css') && !exists('assets/i18n.home.js'));
 /* 首頁列出的舊版工具（還沒重寫完）連結要指得到。 */
@@ -446,8 +450,8 @@ check('首頁的舊版工具清單解析得到', LEGACY_LINKS.length >= 1, LEGAC
 for (const name of LEGACY_LINKS) check(`首頁的舊版工具 tools/${name}/ 存在`, exists(`tools/${name}/index.html`));
 
 /* ---- 重寫上線的工具（web/ 新框架）---- */
-/* 依 docs/refactor 的流程重寫、對等驗證後上線的工具：tools/<id>/ 只剩建置產物 index.html，
- * 程式在 web/src/tools/<id>/，共用的 JS／CSS 在 assets/build/。清單從 web/src/registry.ts 讀。 */
+/* 依 docs/refactor 的流程重寫、對等驗證後上線的工具：程式在 web/src/tools/<id>/，建置後在網站的 tools/<id>/
+ * （repo 裡的 tools/<id>/ 是舊版，上線時刪掉）。清單從 web/src/registry.ts 讀。 */
 section('重寫上線的工具');
 const registrySrc = read('web/src/registry.ts');
 const registryEntries = registrySrc.split(/\n  \{\n/).slice(1).map(block => ({
@@ -457,18 +461,14 @@ const registryEntries = registrySrc.split(/\n  \{\n/).slice(1).map(block => ({
 const REWRITTEN = registryEntries.filter(e => e.live).map(e => e.id);
 check('registry 解析出已上線的工具', REWRITTEN.length >= 1, REWRITTEN.join(', '));
 for (const id of REWRITTEN) {
-  const files = listFiles(`tools/${id}`);
-  check(`tools/${id}/ 只剩建置產物 index.html`, files.length === 1 && files[0] === `tools/${id}/index.html`, files.join(', '));
-  const page = read(`tools/${id}/index.html`);
-  check(`tools/${id}/index.html 載入 assets/build/ 的共用程式`, /src="\.\.\/\.\.\/assets\/build\/[^"]+\.js"/.test(page));
-  check(`tools/${id}/index.html 只有繁中（沒有 i18n 引擎）`, /<html lang="zh-Hant-TW">/.test(page) && !page.includes('assets/i18n.js'));
-  check(`tools/${id}/index.html 沒有 noindex`, !/name="robots"/.test(page));
+  check(`repo 裡沒有 tools/${id}/（舊版已刪、建置產物不提交）`, !exists(`tools/${id}`));
+  const page = read(`web/src/tools/${id}/index.html`);
+  check(`web/src/tools/${id}/index.html 只有繁中（沒有 i18n 引擎）`, /<html lang="zh-Hant-TW">/.test(page) && !page.includes('assets/i18n.js'));
   check(`web/src/tools/${id}/ 有原始碼與 strings.ts`, exists(`web/src/tools/${id}/App.tsx`) && exists(`web/src/tools/${id}/strings.ts`));
   check(`docs/refactor/specs/${id}.md 有對等驗證紀錄`, /## 6\. 對等驗證紀錄[\s\S]*\| F0*1 \| (?:✅|⚠️|通過)/.test(read(`docs/refactor/specs/${id}.md`)));
   check(`README.md 把 ${id} 列在重寫的工具`, new RegExp(`\\| \`${id}\` \\|`).test(read('README.md').split('## 本站重寫的工具')[1] || ''));
   check(`ATTRIBUTION.md 把 ${id} 列在靈感來源`, new RegExp(`\\| \`${id}\` \\|`).test(read('ATTRIBUTION.md').split('## 本站重寫的工具（靈感來源）')[1] || ''));
 }
-check('THIRD_PARTY_NOTICES 由建置產生', exists('assets/build/THIRD_PARTY_NOTICES.md'));
 check('LICENSE 的涵蓋範圍寫進了 web/ 與無塵室開發的 text-fx', read('LICENSE').includes('`web/` framework') && read('LICENSE').includes('tools/text-fx/'));
 
 
@@ -600,7 +600,6 @@ section('docs');
 check('ATTRIBUTION.md 存在', exists('ATTRIBUTION.md'));
 check('README.md 存在', exists('README.md'));
 check('根目錄 LICENSE 存在', exists('LICENSE'));
-check('.nojekyll 存在', exists('.nojekyll'));
 
 const attribution = read('ATTRIBUTION.md');
 /* 已上線的工具在「重寫上線的工具」一節檢查；這裡檢查還沒重寫完的舊版工具與連到原站的工具。 */
