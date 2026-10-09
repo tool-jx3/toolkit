@@ -540,6 +540,78 @@ test.describe('選取與編輯', () => {
   });
 });
 
+test.describe('工具列', () => {
+  const bg = (loc: ReturnType<Page['locator']>) =>
+    loc.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const TRANSPARENT = 'rgba(0, 0, 0, 0)';
+
+  for (const width of [1280, 390])
+    test(`${width} 寬：按鈕上有快捷鍵字母、目前的工具看得出按下（F30、D14）`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const errors = await open(page);
+      const strip = page.getByTestId('tool-strip');
+      for (const [tool, key] of [
+        ['select', 'V'],
+        ['hand', 'H'],
+        ['room', 'B'],
+        ['wall', 'W'],
+        ['door', 'D'],
+        ['window', 'N'],
+        ['text', 'T'],
+        ['eraser', 'E'],
+      ]) {
+        const btn = strip.locator(`[data-tool="${tool}"]`);
+        const letter = btn.locator('[data-tool-key]');
+        await expect(letter).toHaveText(key);
+        await expect(letter).toBeVisible();
+        /* 字母在按鈕裡面（不擠出去） */
+        const [b, l] = [await btn.boundingBox(), await letter.boundingBox()];
+        expect(b && l && l.x >= b.x && l.y >= b.y && l.x + l.width <= b.x + b.width + 0.5).toBe(
+          true,
+        );
+        expect(l && b && l.y + l.height <= b.y + b.height + 0.5).toBe(true);
+      }
+      await noHorizontalScroll(page);
+      const room = strip.locator('[data-tool="room"]');
+      const select = strip.locator('[data-tool="select"]');
+      await expect(select).toHaveAttribute('aria-pressed', 'true');
+      expect(await bg(select)).not.toBe(TRANSPARENT);
+      expect(await bg(room)).toBe(TRANSPARENT);
+      await page.getByTestId('map-canvas').focus();
+      await page.keyboard.press('b');
+      await expect(room).toHaveAttribute('aria-pressed', 'true');
+      expect(await bg(room)).not.toBe(TRANSPARENT);
+      expect(await bg(select)).toBe(TRANSPARENT);
+      expect(errors).toEqual([]);
+    });
+
+  test('迷你工具列的線索、GM 按鈕看得出按下（F125）', async ({ page }) => {
+    const errors = await open(page);
+    await blank(page);
+    await run(page, 'addObject', 'item', {
+      id: 'i1',
+      t: 'crate',
+      x: 4,
+      y: 4,
+      w: 1.6,
+      h: 1.6,
+      rot: 0,
+    });
+    await click(page, 4.8, 4.8);
+    const clue = page.getByTestId('mini-bar').locator('[data-mini="clue"]');
+    await expect(clue).toHaveAttribute('aria-pressed', 'false');
+    expect(await bg(clue)).toBe(TRANSPARENT);
+    await clue.click();
+    await expect(clue).toHaveAttribute('aria-pressed', 'true');
+    expect(await bg(clue)).not.toBe(TRANSPARENT);
+    const gm = page.getByTestId('mini-bar').locator('[data-mini="gm"]');
+    await gm.click();
+    await expect(gm).toHaveAttribute('aria-pressed', 'true');
+    expect(await bg(gm)).not.toBe(TRANSPARENT);
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('焦點', () => {
   test('按兩下門窗或牆：選取並把焦點放到「種類」（F62）', async ({ page }) => {
     const errors = await open(page);

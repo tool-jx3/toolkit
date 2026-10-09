@@ -58,10 +58,22 @@ function ToolStrip() {
       {TOOLS.map((t) => (
         <div key={t.id} className="contents">
           {t.sep ? <span aria-hidden className="my-0.5 h-px w-6 self-center bg-border" /> : null}
+          {/* 按鈕右下角寫快捷鍵字母（D14；名稱與提示另有「（B）」） */}
           <IconButton
             size="sm"
             variant="ghost"
-            icon={t.icon}
+            className="relative"
+            icon={
+              <>
+                <span className="inline-flex -translate-x-0.5 -translate-y-0.5">{t.icon}</span>
+                <span
+                  className="absolute right-px bottom-px text-[9px] leading-none font-bold opacity-70"
+                  data-tool-key
+                >
+                  {t.key}
+                </span>
+              </>
+            }
             label={`${S.tools[t.id as Exclude<ToolId, 'place'>]}（${t.key}）`}
             pressed={tool === t.id}
             onClick={() => act.setTool(t.id)}
