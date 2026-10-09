@@ -15,7 +15,7 @@ import {
   Select,
   TextInput,
 } from '@/ui';
-import { addWeapon, moveWeapon, removeWeapon, updateSheet } from './actions';
+import { addWeapon, moveWeapon, removeWeapon, step, updateSheet } from './actions';
 import { AutoNumberField, AutoTextField } from './controls';
 import { type Sheet, WEAPON_SLOTS, type Weapon } from './model';
 import {
@@ -70,9 +70,11 @@ function WeaponDetails({ weapon, sheet }: { weapon: Weapon; sheet: Sheet }) {
             aria-label={`${W.skill}（${name}）`}
             value={linked ? (weapon.skillId as string) : MANUAL}
             onValueChange={(id) =>
-              updateWeapon(weapon.id, (w) => {
-                w.skillId = id === MANUAL ? null : id;
-              })
+              step(() =>
+                updateWeapon(weapon.id, (w) => {
+                  w.skillId = id === MANUAL ? null : id;
+                }),
+              )
             }
             options={[{ value: MANUAL, label: W.skillManual }, ...options]}
           />

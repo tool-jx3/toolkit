@@ -23,6 +23,7 @@ import {
   insertSkill,
   moveSkill,
   removeSkill,
+  step,
   updateSheet,
   updateSkill,
 } from './actions';
@@ -45,19 +46,22 @@ const C = S.skills.columns;
 /** 技能表的版面：窄的時候兩行（點數在第二行），寬的時候一行（container query） */
 export const SKILL_TABLE_CSS = `
 .cs-skt{container-type:inline-size}
-.cs-skr{display:grid;align-items:center;gap:.25rem .375rem;padding:.25rem .375rem;grid-template-columns:1rem 1.25rem minmax(0,1fr) 3.4rem 3.6rem 5.5rem;grid-template-areas:"drag check name total thr act" ". . pts pts pts pts"}
-.cs-skr>.a-drag{grid-area:drag}.cs-skr>.a-check{grid-area:check}.cs-skr>.a-name{grid-area:name;min-width:0}
+.cs-skr{display:grid;align-items:end;gap:.25rem .375rem;padding:.25rem .375rem;grid-template-columns:1rem 1.25rem minmax(0,1fr) 3rem 3.2rem;grid-template-areas:"drag check name act act" ". . pts total thr"}
+.cs-skr>.a-drag{grid-area:drag;align-self:center}.cs-skr>.a-check{grid-area:check;align-self:center}.cs-skr>.a-name{grid-area:name;min-width:0;align-self:center}
 .cs-skr>.a-pts{grid-area:pts;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.25rem}
-.cs-skr>.a-total{grid-area:total}.cs-skr>.a-thr{grid-area:thr}.cs-skr>.a-act{grid-area:act;display:flex;gap:.125rem;justify-content:flex-end}
+.cs-skr>.a-total{grid-area:total;display:flex;flex-direction:column;gap:.0625rem;min-width:0}
+.cs-skr>.a-thr{grid-area:thr;display:flex;flex-direction:column;gap:.0625rem;min-width:0}
+.cs-skr>.a-act{grid-area:act;display:flex;gap:.125rem;justify-content:flex-end;align-self:center}
 .cs-skr .a-pts>.cs-pt{display:flex;flex-direction:column;gap:.0625rem;min-width:0}
-.cs-skr .a-pts>.cs-pt>span[aria-hidden]{font-size:.6875rem;color:var(--text-muted);line-height:1}
+.cs-skr .cs-nl{font-size:.6875rem;color:var(--text-muted);line-height:1;white-space:nowrap;overflow:hidden}
+.cs-skr .a-thr>.cs-tv{height:1.75rem;display:flex;align-items:center;justify-content:center}
 .cs-skh{display:none}
 @container (min-width:34rem){
-.cs-skr{grid-template-columns:1rem 1.25rem minmax(0,1fr) 10.6rem 3rem 3.4rem 5.5rem;grid-template-areas:"drag check name pts total thr act"}
-.cs-skr .a-pts>.cs-pt>span[aria-hidden]{display:none}
+.cs-skr{align-items:center;grid-template-columns:1rem 1.25rem minmax(0,1fr) 10.6rem 3rem 3.4rem 5.5rem;grid-template-areas:"drag check name pts total thr act"}
+.cs-skr .cs-nl{display:none}
 .cs-skh{display:grid;font-size:.75rem;color:var(--text-muted);padding:0 .375rem .25rem calc(.375rem + 1px)}
 .cs-skh>.a-pts>span{text-align:center}
-.cs-skh>.a-thr{white-space:nowrap;overflow:visible}
+.cs-skh>.a-thr{white-space:nowrap;overflow:visible;text-align:center}
 }
 `;
 
@@ -119,7 +123,9 @@ const SkillRow = memo(function SkillRow({ skill, index, stats }: RowProps) {
   const formula = skill.base === 'DEX/2' || skill.base === 'EDU';
   const pts = (key: 'occupation' | 'interest' | 'growth', text: string) => (
     <div className="cs-pt">
-      <span aria-hidden>{text}</span>
+      <span aria-hidden className="cs-nl">
+        {text}
+      </span>
       <OptionalNumberInput
         size="sm"
         aria-label={`${text}（${label}）`}
@@ -149,9 +155,11 @@ const SkillRow = memo(function SkillRow({ skill, index, stats }: RowProps) {
             aria-label={`${C.checkLabel}（${label}）`}
             checked={skill.checked}
             onCheckedChange={(v) =>
-              set((k) => {
-                k.checked = v;
-              })
+              step(() =>
+                set((k) => {
+                  k.checked = v;
+                }),
+              )
             }
           />
         ) : (
@@ -191,7 +199,9 @@ const SkillRow = memo(function SkillRow({ skill, index, stats }: RowProps) {
       </span>
       <span className="a-pts">
         <div className="cs-pt">
-          <span aria-hidden>{C.base}</span>
+          <span aria-hidden className="cs-nl">
+            {C.base}
+          </span>
           {formula ? (
             <span
               className="flex h-7 items-center justify-center rounded-md border border-border px-1 text-xs whitespace-nowrap text-muted tabular-nums"
@@ -224,6 +234,9 @@ const SkillRow = memo(function SkillRow({ skill, index, stats }: RowProps) {
         {pts('growth', C.growth)}
       </span>
       <span className="a-total">
+        <span aria-hidden className="cs-nl">
+          {C.total}
+        </span>
         <OptionalNumberInput
           size="sm"
           aria-label={`${C.total}（${label}）`}
@@ -240,12 +253,14 @@ const SkillRow = memo(function SkillRow({ skill, index, stats }: RowProps) {
           }
         />
       </span>
-      <span
-        className="a-thr text-center text-xs text-muted tabular-nums whitespace-nowrap"
-        data-testid="skill-thresholds"
-      >
-        <span className="sr-only">{`${C.thresholds}（${label}）：`}</span>
-        {t.hard === null ? '—' : `${t.hard}／${t.extreme}`}
+      <span className="a-thr text-xs text-muted tabular-nums whitespace-nowrap">
+        <span aria-hidden className="cs-nl">
+          {C.thresholdsShort}
+        </span>
+        <span className="cs-tv" data-testid="skill-thresholds">
+          <span className="sr-only">{`${C.thresholds}（${label}）：`}</span>
+          {t.hard === null ? '—' : `${t.hard}／${t.extreme}`}
+        </span>
       </span>
       <span className="a-act">
         {skill.value !== null ? (
@@ -254,9 +269,11 @@ const SkillRow = memo(function SkillRow({ skill, index, stats }: RowProps) {
             label={`${S.stats.resetAuto}（${label}）`}
             icon={<RotateCcw />}
             onClick={() =>
-              set((k) => {
-                k.value = null;
-              })
+              step(() =>
+                set((k) => {
+                  k.value = null;
+                }),
+              )
             }
           />
         ) : null}

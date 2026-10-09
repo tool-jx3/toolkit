@@ -7,7 +7,6 @@
  * - 「調查員乙」：日文介面（標籤是日文、帶語言掛勾）；
  * - 自動儲存：乙改了名字（「佐藤（改）」），和兩份存檔都不同。
  */
-import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   AUTOSAVE_TITLE,
@@ -157,14 +156,17 @@ describe('調查員甲（繁中介面）', () => {
     expect(s.memo).toBe('第一行\n第二行');
   });
 
-  it('頭像：520×640 的 PNG，id 是 SHA-256 的前 24 位十六進位（與 core/assets 相同）', () => {
+  it('頭像：520×640 的 PNG，id 是 SHA-256 的前 24 位十六進位（與 core/assets 相同）', async () => {
     const { sheet: s, portrait } = A();
     expect(portrait).not.toBeNull();
     const p = portrait as NonNullable<typeof portrait>;
     expect(p.mime).toBe('image/png');
     expect([p.width, p.height]).toEqual([520, 640]);
-    const hex = createHash('sha256').update(p.bytes).digest('hex').slice(0, 24);
-    expect(p.assetId).toBe(`a${hex}`);
+    const digest = new Uint8Array(
+      await crypto.subtle.digest('SHA-256', p.bytes.slice() as Uint8Array<ArrayBuffer>),
+    );
+    const hex = [...digest].map((x) => x.toString(16).padStart(2, '0')).join('');
+    expect(p.assetId).toBe(`a${hex.slice(0, 24)}`);
     expect(s.portrait).toEqual({
       assetId: p.assetId,
       crop: { x: 0, y: 0, width: 520, height: 640 },

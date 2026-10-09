@@ -2,7 +2,7 @@
  * 屬性與狀態分頁（規格 F17～F27）：8 項屬性（困難／極限自動算）、幸運、移動力、生命值、魔法值、理智、狀態勾選。
  */
 import { Checkbox, Field, FieldRow, OptionalNumberInput, Section } from '@/ui';
-import { updateSheet } from './actions';
+import { step, updateSheet } from './actions';
 import { AutoNumberField } from './controls';
 import { FLAG_KEYS, type FlagKey, type Sheet, STAT_KEYS, type StatKey } from './model';
 import { autoDerived, thresholds } from './rules';
@@ -47,9 +47,11 @@ function Flag({ sheet, k }: { sheet: Sheet; k: FlagKey }) {
       checked={sheet.flags[k]}
       label={FLAG_LABELS[k]}
       onCheckedChange={(v) =>
-        updateSheet((s) => {
-          s.flags[k] = v;
-        })
+        step(() =>
+          updateSheet((s) => {
+            s.flags[k] = v;
+          }),
+        )
       }
     />
   );
@@ -113,7 +115,7 @@ export function StatsTab({ sheet }: { sheet: Sheet }) {
       <Section title={S.stats.hp} persistKey="coc-sheet:hp">
         <FieldRow columns={2}>
           <AutoNumberField
-            label={S.stats.max}
+            label={S.stats.hpMax}
             value={sheet.hp.max}
             auto={a.hpMax}
             formula={S.stats.hpFormula}
@@ -125,9 +127,9 @@ export function StatsTab({ sheet }: { sheet: Sheet }) {
             }
           />
           <Current
-            label={S.stats.current}
+            label={S.stats.hpNow}
             value={sheet.hp.current}
-            max={43}
+            max={99}
             onChange={(n) =>
               updateSheet((s) => {
                 s.hp.current = n;
@@ -144,7 +146,7 @@ export function StatsTab({ sheet }: { sheet: Sheet }) {
       <Section title={S.stats.mp} persistKey="coc-sheet:mp">
         <FieldRow columns={2}>
           <AutoNumberField
-            label={S.stats.max}
+            label={S.stats.mpMax}
             value={sheet.mp.max}
             auto={a.mpMax}
             formula={S.stats.mpFormula}
@@ -156,9 +158,9 @@ export function StatsTab({ sheet }: { sheet: Sheet }) {
             }
           />
           <Current
-            label={S.stats.current}
+            label={S.stats.mpNow}
             value={sheet.mp.current}
-            max={23}
+            max={99}
             onChange={(n) =>
               updateSheet((s) => {
                 s.mp.current = n;
@@ -195,7 +197,7 @@ export function StatsTab({ sheet }: { sheet: Sheet }) {
           />
         </FieldRow>
         <Current
-          label={S.stats.current}
+          label={S.stats.sanNow}
           value={sheet.san.current}
           max={99}
           onChange={(n) =>

@@ -3,6 +3,7 @@
  */
 import type { ReactNode } from 'react';
 import { Button, Field, OptionalNumberInput, TextArea, TextInput } from '@/ui';
+import { step } from './actions';
 import { S } from './strings';
 
 /** 自動算、也可以手改的數字欄：空白時提示自動的值；有填時旁邊顯示「改回自動」 */
@@ -30,7 +31,13 @@ export function AutoNumberField({
       hint={autoText === null ? S.stats.autoNone : S.stats.auto(autoText)}
       labelSuffix={
         value !== null ? (
-          <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={() => onChange(null)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-1.5"
+            aria-label={typeof label === 'string' ? `${S.stats.resetAuto}（${label}）` : undefined}
+            onClick={() => step(() => onChange(null))}
+          >
             {S.stats.resetAuto}
           </Button>
         ) : null
@@ -69,7 +76,13 @@ export function AutoTextField({
       hint={autoText === null ? S.stats.autoNone : S.stats.auto(autoText)}
       labelSuffix={
         value.trim() ? (
-          <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={() => onChange('')}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-1.5"
+            aria-label={typeof label === 'string' ? `${S.stats.resetAuto}（${label}）` : undefined}
+            onClick={() => step(() => onChange(''))}
+          >
             {S.stats.resetAuto}
           </Button>
         ) : null
