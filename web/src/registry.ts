@@ -694,7 +694,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '盲選排行榜：放進角色的名字與照片，一次揭曉一位、當場決定名次，下一位是誰事先不知道、名次確定後就不能改，排完存成 PNG 或 WebP。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/would-you-rank',
       url: 'https://github.com/sotsotssi/would-you-rank',
