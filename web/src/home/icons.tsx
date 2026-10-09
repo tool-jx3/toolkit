@@ -40,6 +40,7 @@ import {
   Palette,
   Ruler,
   Scaling,
+  ScanEye,
   ScanFace,
   ScrollText,
   Smile,
@@ -100,6 +101,7 @@ const ICONS: Record<string, LucideIcon> = {
   'character-select': Users,
   'magic-circle': Orbit,
   'acrylic-goods': Box,
+  'ai-fail': ScanEye,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,
