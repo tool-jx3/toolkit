@@ -557,6 +557,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'coc-sheet',
+    name: 'CoC 7 版調查員角色卡',
+    summary:
+      '在瀏覽器填好 CoC 7 版調查員角色卡：屬性的困難／極限、HP、SAN、DB、移動力與技能點數自動算，可以管理多張角色卡、裁切頭像，印成 A4 兩頁或存成 PDF、PNG，也能複製成 CCFOLIA 角色。',
+    group: 'G9',
+    status: 'next',
+    inspiration: {
+      name: 'ihoukentiku/ihoukentiku.github.io',
+      url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
+    },
+  },
+  {
     id: 'grid-maker',
     name: '網格產生器',
     summary:
