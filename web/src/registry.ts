@@ -421,7 +421,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '貼上台本或描寫，切成一則一則的 CCFOLIA 劇本文字（シナリオテキスト），台詞帶說話者的立繪與差分、描寫與 HO 附圖，匯出成可以直接讀入房間的 ZIP。',
     group: 'G5',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'shiki365/scenario-text-maker',
       url: 'https://github.com/shiki365/scenario-text-maker',

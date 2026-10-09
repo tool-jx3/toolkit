@@ -218,7 +218,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | 工具 id | 名稱 | 靈感來源 | 原授權 | 群組 | 規格 | 實作 | 對等驗證 | 上線 |
 |---|---|---|---|---|---|---|---|---|
 | ai-fail | AI 誤判梗圖產生器 | swoonqx/ai-fails-meme-maker | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
-| scenario-text | 劇本文字產生器（CCFOLIA シナリオテキスト） | shiki365/scenario-text-maker | MIT | G5 | ✅ | ✅ | ✅ | ⬜ |
+| scenario-text | 劇本文字產生器（CCFOLIA シナリオテキスト） | shiki365/scenario-text-maker | MIT | G5 | ✅ | ✅ | ✅ | ✅ |
 | floor-plan | 室內平面圖產生器 | くま。／TRPG室内図メーカー | 未授權 | G10 | ✅ | ✅ | ⬜ | ⬜ |
 | house-rules | CoC 房規表產生器 | くま。／CoCハウスルール表メーカー | 未授權 | G9 | ✅ | ✅ | 🔍 | ⬜ |
 | speech-bubble | 動態對話泡泡產生器 | sotsotssi/TextBubbleMaker-preview | 未授權 | G1 | ⬜ | ⬜ | ⬜ | ⬜ |
@@ -239,6 +239,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | log-converter | 新增匯出 EPUB 電子書 | sotsotssi/CcfoliaLogConverter（未授權） | ⬜ |
 | session-log、session-report | 跑團紀錄簿的 SKP 角色；團報產生器用括號包住選取的文字、裝飾面板分頁 | くま。 session-log-tool v1.100、session-report-generator v1.73～1.76 | ⬜ |
 | floor-plan | 再補範本：學校、警局、寺廟、洞窟等（目前 8 個，見規格 7. D10） | 本站 | ⬜ |
+| 全站 | 介面文字的「保存」改成「儲存」或「存下來」（約 60 個檔案；DESIGN.md 第 5 節，scenario-text 對等驗證時發現） | 本站 | ⬜ |
 
 ## 7. 往後新增工具
 

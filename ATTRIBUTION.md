@@ -90,6 +90,7 @@
 | `map-editor` | 地圖編輯器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的地圖一覽與地圖編輯器合併） | `6b497bd` |
 | `ai-fail` | AI 誤判梗圖產生器 | [swoonqx/ai-fails-meme-maker](https://github.com/swoonqx/ai-fails-meme-maker)（未授權） | —（新收錄，沒有舊版） |
 | `discord-color` | Discord 彩色文字產生器 | [rebane2001／Discord Colored Text Generator](https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c)（公有領域，Unlicense） | —（新收錄，沒有舊版） |
+| `scenario-text` | 劇本文字產生器 | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker)（MIT） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -99,6 +100,8 @@
 `ai-fail` 照新工具引入流程直接在新框架做（2026-10-09 使用者選定）：原作（commit `8ce1f07`）沒有授權條款，只照原作的功能、版面與數值，程式、介面文字、說明與範例都由本站自做；預設標籤「object」是 AI 物件辨識介面的通用詞。
 
 `discord-color` 照新工具引入流程直接在新框架做：原作（gist commit `f8daa79`）是公有領域（Unlicense，全文在通知檔），ANSI 輸出的算法照原作，介面與說明翻成繁中；原作在三種格式下會吃掉字或換行，新版修正（見規格第 7 節）。
+
+`scenario-text` 照新工具引入流程直接在新框架做：原作（commit `a71e9ac`）是 MIT（授權全文在通知檔），台本的解析與房間 ZIP 的組裝照原作，範例文字與預設說話者翻成繁中；名字結尾的冒號、繁中的引號照規格第 5 節的裁定處理。
 
 `anime-rig` 參考 852wa/Anime2.5DRig（MIT，原作 commit `7ddbd99`，授權全文在通知檔）的程式改寫：自動綁定、物理與繪製的演算法和數值照原作，舊版與新版拿同一個 PSD 綁定的結果相同（單元測試並排比對過）。原作的範例 PSD（圖畫權利屬於各自的作者）不收，測試用的 PSD 由程式自己畫；原作需要本機 Python 中繼伺服器的 OBS 連動不移植，改成綠幕背景與透明影片的說明。臉部追蹤用 npm 的 @mediapipe/tasks-vision（Apache-2.0）；特徵點模型 `face_landmarker.task`（Apache-2.0，約 3.8 MB）**不在本 repo**：使用者第一次開攝影機追蹤時，瀏覽器從 Google 的 MediaPipe 官方模型網址下載，驗證 SHA-256 後存在瀏覽器裡。
 

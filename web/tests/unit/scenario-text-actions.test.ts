@@ -27,7 +27,7 @@ import {
 } from '@/tools/scenario-text/actions';
 import { entriesOf } from '@/tools/scenario-text/derived';
 import { defaultDoc } from '@/tools/scenario-text/model';
-import { useDoc, useUi } from '@/tools/scenario-text/store';
+import { select, useDoc, useUi } from '@/tools/scenario-text/store';
 
 const doc = () => useDoc.getState().data;
 const list = () => entriesOf(doc());
@@ -93,6 +93,17 @@ describe('清單與手動修改', () => {
     deleteEntry(0);
     expect(useUi.getState().selected).toBe(0);
     expect(list().map((e) => e.text)).toEqual(['「一」', '（新的劇本文字）']);
+  });
+
+  it('清單變短時選取跟著夾回範圍；清單變空後再貼上不會選回原來的位置', () => {
+    setScript('艾莉絲「一」\n鮑伯「二」\n艾莉絲「三」');
+    select(2);
+    setScript('艾莉絲「一」\n鮑伯「二」');
+    expect(useUi.getState().selected).toBe(1);
+    setScript('');
+    expect(useUi.getState().selected).toBe(-1);
+    setScript('艾莉絲「一」\n鮑伯「二」\n艾莉絲「三」');
+    expect(useUi.getState().selected).toBe(-1);
   });
 
   it('可以復原（修改前的清單與文字）', () => {

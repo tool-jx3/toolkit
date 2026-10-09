@@ -103,7 +103,7 @@ export async function packRoomImage(
 }
 
 /**
- * JSON 裡引用到的房間圖片檔名（掃描所有字串值，符合 ROOM_IMAGE_NAME_RE 的），依第一次出現的順序。
+ * JSON 裡引用到的房間圖片檔名（掃描欄位名稱以 Url 結尾的字串值，符合 ROOM_IMAGE_NAME_RE 的），依第一次出現的順序。
  * `__data.json` 傳整份時只掃 `entities`（resources 的鍵不算引用）。
  */
 export function collectRoomImageNames(data: unknown): string[] {
@@ -112,15 +112,20 @@ export function collectRoomImageNames(data: unknown): string[] {
       ? (data as { entities: unknown }).entities
       : data;
   const seen = new Set<string>();
-  const walk = (v: unknown) => {
+  /*
+   * 只認欄位名稱以 Url 結尾的字串（iconUrl、imageUrl、backgroundUrl…；差分 faces 的 iconUrl 在陣列裡）：
+   * 劇本文字的內文、名稱、備註剛好寫成「64 位十六進位.png」時不是圖片引用（scenario-text 對等驗證）。
+   */
+  const walk = (v: unknown, key: string) => {
     if (typeof v === 'string') {
-      if (ROOM_IMAGE_NAME_RE.test(v)) seen.add(v);
+      if (/Url$/.test(key) && ROOM_IMAGE_NAME_RE.test(v)) seen.add(v);
       return;
     }
     if (!v || typeof v !== 'object') return;
-    for (const x of Object.values(v)) walk(x);
+    if (Array.isArray(v)) for (const x of v) walk(x, key);
+    else for (const [k, x] of Object.entries(v)) walk(x, k);
   };
-  walk(root);
+  walk(root, '');
   return [...seen];
 }
 

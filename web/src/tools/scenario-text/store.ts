@@ -9,6 +9,7 @@ import { create } from 'zustand';
 import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { createPreviewStore, createToolStore, hasIndexedDb } from '@/core/storage';
 import type { NoticeTone } from '@/ui';
+import { entriesOf } from './derived';
 import { cleanDoc, type Doc, defaultDoc } from './model';
 import { S } from './strings';
 
@@ -85,6 +86,15 @@ export function say(area: StatusArea, text: string, tone: NoticeTone = 'info'): 
 }
 
 export const select = (i: number): void => useUi.setState({ selected: i });
+
+/*
+ * 清單變短（改文字、刪除、復原…）時選取跟著夾回範圍；清單變空就取消選取，
+ * 之後再貼上文字不會選回原來的位置。
+ */
+useDoc.subscribe((s) => {
+  const last = entriesOf(s.data).length - 1;
+  if (useUi.getState().selected > last) useUi.setState({ selected: last });
+});
 
 export function setBusy(key: keyof UiState['busy'], v: boolean): void {
   useUi.setState((s) => ({ busy: { ...s.busy, [key]: v } }));

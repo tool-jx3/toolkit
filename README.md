@@ -18,7 +18,7 @@
 [zznaptime](https://github.com/zznaptime) 與
 [swoonqx](https://github.com/swoonqx) 與
 [rebane2001](https://github.com/rebane2001) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 49 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 50 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -44,6 +44,7 @@
 | [立繪去背工具](https://tool-jx3.github.io/toolkit/tools/bg-remover/) | 去掉立繪的背景：AI 模型（第一次使用時下載約 176 MB，之後存在瀏覽器）認得動漫角色，白底與單色底也能依顏色去掉；用筆刷修邊，可以批次處理，存成透明 PNG／WebP 或 ZIP |
 | [立繪身高比較板](https://tool-jx3.github.io/toolkit/tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
 | [房間 ZIP 產生器](https://tool-jx3.github.io/toolkit/tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；工作進度可存成 .ccproj 檔 |
+| [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | 貼上台本或描寫，切成一則一則的 CCFOLIA 劇本文字（シナリオテキスト），台詞帶說話者的立繪與差分，匯出成可以直接讀入房間的 ZIP |
 | [角色介紹圖產生器](https://tool-jx3.github.io/toolkit/tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；也有會自動分頁、能匯出 PDF 的文字記錄版型；可存到存檔槽或匯出成編輯檔 |
 | [AI 誤判梗圖產生器](https://tool-jx3.github.io/toolkit/tools/ai-fail/) | 放一張照片，畫上 AI 物件辨識風格的綠框與標籤（例如把貓標成「object」），做成「AI 認錯了」的梗圖：可以多個框、改顏色與字級、調整前後，存成 PNG |
 | [角色配色條產生器](https://tool-jx3.github.io/toolkit/tools/color-palette/) | 把角色的配色排成一條色塊圖，可直接從立繪取色（手動滴管或自動抓主色），輸出 PNG |
@@ -160,6 +161,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `map-editor` | [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `ai-fail` | [AI 誤判梗圖產生器](https://tool-jx3.github.io/toolkit/tools/ai-fail/) | [swoonqx/ai-fails-meme-maker](https://github.com/swoonqx/ai-fails-meme-maker) |
 | `discord-color` | [Discord 彩色文字產生器](https://tool-jx3.github.io/toolkit/tools/discord-color/) | [rebane2001／Discord Colored Text Generator](https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c) |
+| `scenario-text` | [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
