@@ -15,6 +15,11 @@ export const CARD_SIZE_MAX = 0.9;
 export const CARD_SIZE_DEFAULT = 0.58;
 /** 文字欄的上限（字元數，emoji 算一個字） */
 export const LIMITS = { name: 30, intro: 40, subject: 80, question: 100, character: 50 } as const;
+/**
+ * 存檔（自動儲存、專案檔）的上限：連接文字與主題多留原作助詞與空白的位置（讀原作設定檔時接在文字裡，
+ * 上限只套在原本的文字，接上之後不再截；規格 3.7、對等驗證 7.1）。
+ */
+export const STORED_LIMITS = { name: 30, intro: 42, subject: 81, question: 100 } as const;
 export const SPIN_CHOICES = [1000, 1800, 2800, 4000] as const;
 export type SpinMs = (typeof SPIN_CHOICES)[number];
 /** 確定之後自動抽下一位的等待時間 */
@@ -268,11 +273,12 @@ export const canvasHeight = (c: Pick<Config, 'format'>): number => FORMAT_HEIGHT
 /* ---------- 標題 ---------- */
 
 const ASCII_WORD = /[A-Za-z0-9]/;
-const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+/** 中文、日文（韓文不算：韓文的助詞直接接在名字後面，例「Kim이」，對等驗證 7.1） */
+const CJ = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
 
 /**
- * 接兩段文字：英數字接英數字、英數字接中日韓文字時中間加一個半形空白（例「Kim 的盲選排行」「Kim presents」），
- * 中文接中文、或接標點時直接相連（「小明的盲選排行」）。後一段以空白開頭時一律隔一個空白（使用者自己決定）。
+ * 接兩段文字：英數字接英數字、英數字與中文或日文相接時中間加一個半形空白（例「Kim 的盲選排行」「Kim presents」），
+ * 中文接中文、接韓文、接標點時直接相連（「小明的盲選排行」「Kim이 말아주는」）。後一段以空白開頭時一律隔一個空白（使用者自己決定）。
  */
 export function joinWords(a: string, b: string): string {
   if (!a) return b.trim();
@@ -282,7 +288,7 @@ export function joinWords(a: string, b: string): string {
   const r = chars(b)[0] ?? '';
   const lw = ASCII_WORD.test(l);
   const rw = ASCII_WORD.test(r);
-  const space = (lw && rw) || (lw && CJK.test(r)) || (rw && CJK.test(l));
+  const space = (lw && rw) || (lw && CJ.test(r)) || (rw && CJ.test(l));
   return space ? `${a} ${b}` : `${a}${b}`;
 }
 
@@ -353,7 +359,7 @@ export function normalizeConfig(v: unknown, reducedMotion = false): Config {
   const d = defaultConfig(reducedMotion);
   if (!isObj(v)) return d;
   const text = (k: 'name' | 'intro' | 'subject' | 'question') =>
-    typeof v[k] === 'string' ? limitChars(v[k] as string, LIMITS[k]) : d[k];
+    typeof v[k] === 'string' ? limitChars(v[k] as string, STORED_LIMITS[k]) : d[k];
   const bool = (k: 'confirmRank' | 'autoNext' | 'reducedMotion') =>
     typeof v[k] === 'boolean' ? (v[k] as boolean) : d[k];
   const portrait = isObj(v.portrait) ? v.portrait : {};

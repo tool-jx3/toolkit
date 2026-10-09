@@ -19,7 +19,6 @@ import {
   withShortcut,
 } from '@/ui';
 import { endGame } from './game';
-import { isImageFile } from './images';
 import { fileNamePart } from './model';
 import { PoolTab, usePhotoAdder } from './PoolTab';
 import { Preview } from './Preview';
@@ -79,7 +78,11 @@ function useAssetCleanup() {
   }, []);
 }
 
-/** 開頁時的通知（接著上一局、還原完成的排行榜、存下來的遊戲讀不到）與自動儲存失敗 */
+/**
+ * 開頁時的通知（接著上一局、還原完成的排行榜、存下來的遊戲讀不到）與自動儲存失敗。
+ * 自動儲存失敗只在「成功 → 失敗」時通知一次（每存一次都失敗時不重複跳；照原作，對等驗證 7.1）。
+ * 只放一個（在頁首的按鈕旁），切換播放畫面時不會重新掛上而再通知。
+ */
 function Notices() {
   const toast = useToast();
   const boot = useSession((s) => s.boot);
@@ -92,16 +95,16 @@ function Notices() {
     });
     useSession.setState({ boot: null });
   }, [boot, toast]);
+  const failed = !!saveError;
   useEffect(() => {
-    if (saveError) toast({ title: S.saveFailed, tone: 'warning' });
-  }, [saveError, toast]);
+    if (failed) toast({ title: S.saveFailed, tone: 'warning' });
+  }, [failed, toast]);
   return null;
 }
 
 /** 整個視窗都可以拖放照片（加進角色名單） */
 function PhotoWindowDrop() {
   const add = usePhotoAdder();
-  const toast = useToast();
   const locked = useGame((s) => s.data.run !== null);
   return (
     <WindowDrop
@@ -109,13 +112,10 @@ function PhotoWindowDrop() {
       hint={S.windowDropHint}
       disabled={locked}
       onDrop={(files) => {
-        const imgs = files.filter(isImageFile);
-        if (!imgs.length) {
-          if (files.length) toast({ title: S.notImage(files[0].name), tone: 'danger' });
-          return;
-        }
+        if (!files.length) return;
+        /* 不是圖片的檔也交給 add：列在「無法加入」裡（對等驗證 7.1） */
         setTab('pool');
-        void add(imgs);
+        void add(files);
       }}
     />
   );
@@ -130,7 +130,6 @@ function Settings() {
   ];
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <Notices />
       <LockNotice />
       <Tabs<TabId> aria-label={S.tabsLabel} value={tab} onValueChange={setTab} items={items} />
       <PhotoWindowDrop />
@@ -193,6 +192,7 @@ function HeaderActions() {
   const toast = useToast();
   return (
     <>
+      <Notices />
       <IconButton
         label={withShortcut(S.undo, 'mod+z')}
         icon={<Undo2 />}
@@ -283,7 +283,6 @@ export function App() {
       body={
         focus ? (
           <div className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-3 [--stage-max-h:calc(100dvh-20rem)]">
-            <Notices />
             <Preview />
           </div>
         ) : undefined

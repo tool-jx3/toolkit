@@ -129,9 +129,21 @@ export interface Session {
   fontTick: number;
 }
 
+/** 窄畫面（≤ 760 px；開始與接著玩時自動進入播放畫面） */
+export const isNarrow = (): boolean => {
+  try {
+    return typeof matchMedia === 'function' && matchMedia('(max-width: 760px)').matches;
+  } catch {
+    return false;
+  }
+};
+
+const boot = bootRun();
+
 export const useSession = create<Session>(() => ({
   tab: 'topic',
-  focus: false,
+  /* 窄畫面接著玩（重新整理時有這一局）：直接進入播放畫面（照原作，對等驗證 7.1） */
+  focus: runNow() !== null && isNarrow(),
   placing: false,
   spinId: null,
   images: {},
@@ -139,7 +151,7 @@ export const useSession = create<Session>(() => ({
   exporting: false,
   exportScale: 1,
   includeMissing: false,
-  boot: bootRun(),
+  boot,
   fontTick: 0,
 }));
 

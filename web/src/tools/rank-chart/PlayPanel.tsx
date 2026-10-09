@@ -20,6 +20,7 @@ import { ExportSizeError, placeholderThumb, renderImage } from './render';
 import {
   configNow,
   imageOf,
+  isNarrow,
   runNow,
   setTab,
   thumbOf,
@@ -29,13 +30,7 @@ import {
 } from './store';
 import { S } from './strings';
 
-const narrow = () => {
-  try {
-    return window.matchMedia('(max-width: 760px)').matches;
-  } catch {
-    return false;
-  }
-};
+const narrow = isNarrow;
 
 /** 開始前的檢查沒過：通知、切到對應的分頁、焦點移到要改的欄位 */
 export function useProblemReporter() {

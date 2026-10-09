@@ -1200,3 +1200,84 @@ test('390 寬沒有橫向捲動；1280 與 390 的視覺基準（F75）', async 
   await noHorizontalScroll(page);
   expect(errors).toEqual([]);
 });
+
+/* ---------- 對等驗證後的修正（規格 7.1） ---------- */
+
+test('7.1：自動儲存失敗只通知一次，再次存成功後又失敗才再通知（F71）', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    const w = window as unknown as { __failSave: boolean; __saveToasts: number };
+    w.__failSave = true;
+    w.__saveToasts = 0;
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k: string, v: string) {
+      if (w.__failSave && String(k).startsWith('trpg-toolkit:rank-chart'))
+        throw new DOMException('full', 'QuotaExceededError');
+      return set.call(this, k, v);
+    };
+    new MutationObserver((ms) => {
+      for (const m of ms)
+        for (const n of m.addedNodes)
+          if (
+            n instanceof HTMLElement &&
+            n.matches('li') &&
+            n.textContent?.includes('自動儲存失敗')
+          )
+            w.__saveToasts++;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  const toasts = () =>
+    page.evaluate(() => (window as unknown as { __saveToasts: number }).__saveToasts);
+  const name = page.getByRole('textbox', { name: '排名的人' });
+  await name.click();
+  await page.keyboard.type('abcdefghij', { delay: 60 });
+  await page.waitForTimeout(800);
+  expect(await toasts()).toBe(1);
+  /* 存成功一次 → 之後又失敗：再通知一次 */
+  await page.evaluate(() => {
+    (window as unknown as { __failSave: boolean }).__failSave = false;
+  });
+  await page.keyboard.type('k', { delay: 60 });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    (window as unknown as { __failSave: boolean }).__failSave = true;
+  });
+  await page.keyboard.type('lmn', { delay: 60 });
+  await page.waitForTimeout(800);
+  expect(await toasts()).toBe(2);
+});
+
+test('7.1：一次加很多張照片時混了不是圖片的檔：列出「不是圖片檔」，圖片照樣加入（F21）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await tab(page, /角色名單/).click();
+  await dropInput(page).setInputFiles([
+    file('a.png', await quadPng()),
+    file('notes.txt', Buffer.from('hello'), 'text/plain'),
+  ]);
+  await expect(toast(page, '已加入 1 張照片。需要時可以重新裁切。')).toBeVisible();
+  await expect(toast(page, '有些照片無法加入')).toBeVisible();
+  await expect(toast(page, '「notes.txt」不是圖片檔。')).toBeVisible();
+  await expect(page.getByTestId('pool-count')).toHaveText('11 位');
+  expect((await config(page)).characters.at(-1)?.name).toBe('a');
+  expect(errors).toEqual([]);
+});
+
+test('7.1：窄畫面在遊戲中重新整理時進入播放畫面（寬畫面不會）（F58）', async ({ page }) => {
+  const errors = await open(page);
+  await quick(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await main(page).click();
+  await waitRevealed(page);
+  await page.reload();
+  await expect(main(page)).toHaveText('請選擇名次');
+  await expect(page.getByTestId('focus-toggle')).toHaveText('顯示設定');
+  await expect(page.getByRole('complementary', { name: '設定' })).toHaveCount(0);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.reload();
+  await expect(main(page)).toHaveText('請選擇名次');
+  await expect(page.getByTestId('focus-toggle')).toHaveText('播放畫面');
+  await expect(page.getByRole('complementary', { name: '設定' })).toBeVisible();
+  expect(errors).toEqual([]);
+});

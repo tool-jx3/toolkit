@@ -253,7 +253,7 @@ describe('遊戲', () => {
 });
 
 describe('標題、檢查與名單', () => {
-  it('joinWords：英數字與英數字／中日韓文字之間加空格，中文接中文、標點直接接；以空白開頭時一律隔一格', () => {
+  it('joinWords：英數字與英數字／中文、日文之間加空格，中文接中文、標點直接接；韓文前後不自動加；以空白開頭時一律隔一格', () => {
     expect(joinWords('小明', '的盲選排行')).toBe('小明的盲選排行');
     expect(joinWords('Kim', '的盲選排行')).toBe('Kim 的盲選排行');
     expect(joinWords('小明', 'presents')).toBe('小明 presents');
@@ -262,6 +262,25 @@ describe('標題、檢查與名單', () => {
     expect(joinWords('김씨', '가 말아주는')).toBe('김씨가 말아주는');
     expect(joinWords('김씨', ' 말아주는')).toBe('김씨 말아주는');
     expect(joinWords('小明', '   ')).toBe('小明');
+    /* 韓文（諺文）前後不自動加空白：助詞直接接在英數字後面（對等驗證 7.1） */
+    expect(joinWords('Kim', '이 말아주는')).toBe('Kim이 말아주는');
+    expect(joinWords('2024', '가')).toBe('2024가');
+    expect(joinWords('K-pop', '가 말아주는')).toBe('K-pop가 말아주는');
+    expect(joinWords('지수', 'abc')).toBe('지수abc');
+    /* 日文照舊 */
+    expect(joinWords('Kim', 'の')).toBe('Kim の');
+    expect(joinWords('あ', 'B')).toBe('あ B');
+  });
+
+  it('存檔的字數上限比輸入欄多留助詞與空白的位置（連接文字 42、主題 81），讀回時不會截掉', () => {
+    const n = normalizeConfig({
+      intro: `가 ${'x'.repeat(45)}`,
+      subject: '가'.repeat(90),
+      name: 'n'.repeat(40),
+    });
+    expect(Array.from(n.intro)).toHaveLength(42);
+    expect(Array.from(n.subject)).toHaveLength(81);
+    expect(Array.from(n.name)).toHaveLength(30);
   });
 
   it('titleParts：名字空白時「我」、主題空白時「角色」；問題空白時沒有第三行', () => {

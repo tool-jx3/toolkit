@@ -38,7 +38,7 @@ import {
   reorderCharacter,
 } from './actions';
 import { CropEditor, type CropTarget } from './CropEditor';
-import { isImageFile, PHOTO_ACCEPT, PhotoError, sourceBitmap, storePhoto } from './images';
+import { PHOTO_ACCEPT, PhotoError, sourceBitmap, storePhoto } from './images';
 import {
   DEFAULT_CROP,
   LIMITS,
@@ -324,12 +324,8 @@ export function PoolTab() {
         </div>
         <FileDrop
           onFiles={(files) => {
-            const imgs = files.filter(isImageFile);
-            if (files.length && !imgs.length) {
-              toast({ title: S.notImage(files[0].name), tone: 'danger' });
-              return;
-            }
-            void addPhotosNow(imgs);
+            /* 不是圖片的檔也交給 addPhotos：列在「無法加入」裡，圖片照樣加入（對等驗證 7.1） */
+            void addPhotosNow(files);
           }}
           accept={PHOTO_ACCEPT}
           multiple

@@ -142,6 +142,7 @@ async function legacyPhoto(src: unknown, index: number, maxSide: number) {
 /**
  * 原作「設定 JSON」（app: blind-pick-studio、version 1）→ 本工具的設定。
  * 標題：原作的助詞接進文字裡（名字的助詞放在連接文字前面、主題的助詞接在主題後面），排出來的標題與原作相同。
+ * 字數上限只套在原作各欄原本的文字；接上助詞或空白之後不再截（存檔的上限多留了位置，見 STORED_LIMITS）。
  */
 export async function importLegacy(text: string): Promise<ImportResult> {
   let data: unknown;
@@ -164,7 +165,7 @@ export async function importLegacy(text: string): Promise<ImportResult> {
   const sp = particleFor(subject.trim() || '캐릭터', raw.subjectParticle ?? 'with');
   d.name = name;
   d.intro = intro ? `${np || ' '}${np ? ' ' : ''}${intro}` : np;
-  d.subject = subject ? trimText(`${subject}${sp}`, LIMITS.subject) : subject;
+  d.subject = subject ? `${subject}${sp}` : subject;
   d.question = txt('question');
   d.slots = Math.round(finite(raw.slots, 6, 1, MAX_RANKS));
   d.spinMs = (SPIN_CHOICES as readonly number[]).includes(raw.spinMs as number)

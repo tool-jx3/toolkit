@@ -118,7 +118,16 @@ export function LimitedInput({
       data-field={field}
       data-count={charLength(value)}
       onFocus={gesture.begin}
-      onChange={(e) => onChange(limitChars(e.currentTarget.value, max))}
+      onChange={(e) => {
+        /*
+         * 上限以字元計；讀原作設定檔時接上助詞的文字可能比上限長（存檔多留了位置）：這時可以刪、可以改，
+         * 但不能再變長（不截掉原本的字）。一般情況貼上太長時截到上限。
+         */
+        const v = e.currentTarget.value;
+        const cap = Math.max(max, charLength(value));
+        if (charLength(v) <= cap) onChange(v);
+        else if (charLength(value) < cap) onChange(limitChars(v, cap));
+      }}
       onBlur={(e) => {
         onBlurValue?.(e.currentTarget.value);
         gesture.commit();
