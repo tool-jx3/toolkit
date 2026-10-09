@@ -148,7 +148,7 @@ assets/build/               共用程式與樣式、THIRD_PARTY_NOTICES.md
 | P10 收尾 | 首頁移入新框架（只有繁中）、移除 `assets/i18n.js` 與所有字典、`vendor/`、舊測試；ATTRIBUTION 改成「靈感來源」清單 | 全站只剩新框架的程式；所有測試通過 |
 
 P10 進度：✅ 首頁移入新框架（`web/src/index.html`＋`web/src/home/`；舊的 `assets/home.*`、`assets/i18n.home.js` 已刪除）；
-⬜ `assets/i18n.js` 與其餘字典、舊測試（等 G9 的舊版 trpg-lab、anime-rig 換掉後一起刪）；⬜ ATTRIBUTION 改成「靈感來源」清單。
+⬜ `assets/i18n.js` 與其餘字典、舊測試（等 G9 的舊版 trpg-lab 換掉後一起刪；anime-rig 已換成新版）；⬜ ATTRIBUTION 改成「靈感來源」清單。
 
 每個工具上線時：舊版的檔案、字典、vendor 原始碼一併刪除；舊版所在的 `main` commit 記在 ATTRIBUTION，日後要再對照時可以取回。
 
@@ -201,11 +201,11 @@ P10 進度：✅ 首頁移入新框架（`web/src/index.html`＋`web/src/home/`�
 | acrylic-goods | ✅ | ✅ | ✅ | ✅ |
 | coc-dice（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
 | coc-npc（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
-| coc-sheet（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
+| coc-sheet（trpg-lab） | 🔨 | 🔨 | ⬜ | ⬜ |
 | grid-maker（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
 | range-ruler（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
-| map-editor（trpg-lab） | 🔨 | 🔨 | ⬜ | ⬜ |
-| anime-rig | ✅ | ✅ | 🔍 | ⬜ |
+| map-editor（trpg-lab） | ✅ | ✅ | 🔍 | ⬜ |
+| anime-rig | ✅ | ✅ | ✅ | ✅ |
 
 （每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 ✅、G5 ✅、G6 ✅、G8 ✅、G7 ✅（版型畫布、3D）。）
 

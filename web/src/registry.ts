@@ -292,7 +292,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理，可以用攝影機或麥克風帶動，匯出透明 PNG 或影片。',
     group: 'G3',
-    status: 'next',
+    status: 'live',
     inspiration: { name: '852wa/Anime2.5DRig', url: 'https://github.com/852wa/Anime2.5DRig' },
   },
   {

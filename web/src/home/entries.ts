@@ -37,16 +37,6 @@ export const LEGACY: readonly HomeEntry[] = [
       url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
     },
   },
-  {
-    id: 'anime-rig',
-    name: 'Anime2.5DRig',
-    summary:
-      '把分好部件的 PSD 拖進來就自動綁定，眨眼、嘴型、頭髮物理立刻動起來；可以用攝影機追蹤臉部，匯出透明 PNG 與影片。',
-    href: './tools/anime-rig/',
-    group: 'G3',
-    kind: 'legacy',
-    inspiration: { name: '852wa/Anime2.5DRig', url: 'https://github.com/852wa/Anime2.5DRig' },
-  },
 ];
 
 /** 其他網站的工具（不重寫，直接連過去） */
