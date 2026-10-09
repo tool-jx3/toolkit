@@ -13,6 +13,7 @@ import {
   type FontSpec,
   layoutSheet,
   type MeasureFn,
+  paintSheet,
   SHEET,
   SHEET_COLORS,
   type SheetOp,
@@ -174,6 +175,65 @@ describe('內容', () => {
   });
 });
 
+describe('畫到 canvas（crossword 對等驗證 F33）', () => {
+  /** 假的 2D context：記下每次 fillRect 在裝置像素裡的範圍（只處理縮放＋平移的變換） */
+  function fakeCtx(width: number, height: number) {
+    let m = [1, 0, 0, 1, 0, 0];
+    const stack: number[][] = [];
+    const fills: { x0: number; y0: number; x1: number; y1: number; style: string }[] = [];
+    const ctx = {
+      canvas: { width, height },
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      font: '',
+      textAlign: 'left',
+      textBaseline: 'alphabetic',
+      shadowColor: '',
+      shadowBlur: 0,
+      shadowOffsetY: 0,
+      save: () => stack.push(m),
+      restore: () => {
+        m = stack.pop() ?? [1, 0, 0, 1, 0, 0];
+      },
+      setTransform: (a: number, b: number, c: number, d: number, e: number, f: number) => {
+        m = [a, b, c, d, e, f];
+      },
+      fillRect(x: number, y: number, w: number, h: number) {
+        fills.push({
+          x0: m[0] * x + m[4],
+          y0: m[3] * y + m[5],
+          x1: m[0] * (x + w) + m[4],
+          y1: m[3] * (y + h) + m[5],
+          style: String(this.fillStyle),
+        });
+      },
+      beginPath() {},
+      rect() {},
+      roundRect() {},
+      fill() {},
+      stroke() {},
+      fillText() {},
+    };
+    return { ctx, fills };
+  }
+
+  it('倍率讓圖寬不是整數時，白底照樣鋪滿整張 canvas（最右、最下一欄不會半透明）', () => {
+    const layout = layoutSheet(SMALL, opts(), measure);
+    const scale = 1.7161;
+    const w = Math.round(layout.width * scale);
+    const h = Math.round(layout.height * scale);
+    expect(layout.width * scale).not.toBe(w);
+    const { ctx, fills } = fakeCtx(w, h);
+    paintSheet(ctx as unknown as CanvasRenderingContext2D, layout, opts().fonts, scale);
+    const bg = fills.find((f) => f.style === SHEET_COLORS.page);
+    expect(bg).toBeDefined();
+    expect(bg && [bg.x0, bg.y0]).toEqual([0, 0]);
+    expect(bg?.x1).toBeGreaterThanOrEqual(w);
+    expect(bg?.y1).toBeGreaterThanOrEqual(h);
+  });
+});
+
 describe('斷行（提示）', () => {
   const font: FontSpec = { role: 'clues', size: 10, weight: 400 };
   const bold: FontSpec = { role: 'clues', size: 10, weight: 700 };
@@ -221,6 +281,9 @@ describe('斷行（提示）', () => {
       { text: '○○○○○○○○○', bold: true },
       { text: '.', bold: false },
     ]);
+    /* 韓文詞後面的半形標點不單獨放到行首（對等驗證 F29）：連詞一起換行 */
+    const ko = wrapRuns([{ text: '기록을 찾아볼래요!', bold: false }], 88, font, bold, measure);
+    expect(ko.map((l) => l.runs[0].text)).toEqual(['기록을', '찾아볼래요!']);
     const en = wrapRuns(
       [{ text: 'the cellar door was locked', bold: false }],
       70,

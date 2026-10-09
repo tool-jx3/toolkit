@@ -480,9 +480,11 @@ export function paintSheet(
   scale: number,
 ): void {
   ctx.save();
-  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  /* 白底鋪滿整張 canvas（裝置像素）：倍率讓圖寬不是整數時，最右、最下一欄也不會只畫到一部分（對等驗證 F33） */
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = SHEET_COLORS.page;
-  ctx.fillRect(0, 0, layout.width, layout.height);
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
   for (const op of layout.ops) {
     if (op.t === 'rect') {
       ctx.beginPath();

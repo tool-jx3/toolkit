@@ -408,6 +408,17 @@ export function parseList(text: string): ListParse {
   return out;
 }
 
+/**
+ * 盤面 → 「自己列答案」的清單文字（改成答案清單，F46）：依號碼（同號碼橫向在前），一行「答案：提示」；
+ * 提示裡的換行（\r、\n）換成一個空白，清單的行數＝詞數。
+ */
+export function puzzleListText(p: Puzzle): string {
+  const words = [...p.words].sort(
+    (a, b) => a.num - b.num || (a.dir === b.dir ? 0 : a.dir === 'across' ? -1 : 1),
+  );
+  return words.map((w) => `${w.answer}：${w.hint.replace(/\s*[\r\n]+\s*/g, ' ')}`).join('\n');
+}
+
 /** 盤面用到的所有字（載入字型用） */
 export function puzzleText(p: Puzzle | null): string {
   if (!p) return '';

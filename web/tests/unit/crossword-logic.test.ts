@@ -26,6 +26,7 @@ import {
   parseList,
   placeWords,
   puzzleCells,
+  puzzleListText,
   seededRng,
   shuffle,
   weightedPool,
@@ -54,6 +55,9 @@ function fakeSegmenter(dict: string[]) {
     return out;
   };
 }
+
+const compactWords = (list: { answer: string; count: number; sentences: string[] }[]) =>
+  list.map((w) => [w.answer, w.count, w.sentences]);
 
 /** 盤面裡每個詞的字都和格子相同、交叉的格子沒有衝突 */
 function expectConsistent(p: Puzzle) {
@@ -247,6 +251,42 @@ describe('排列（3.4～3.6）', () => {
     expect(r.puzzle?.words.map((w) => w.answer).sort()).toEqual(['下水道', '地下室']);
     expect(r.unplaced).toEqual(['貓咪']);
     expect(r.found).toBe(3);
+  });
+});
+
+describe('只用 CR（\\r）換行的文字（crossword 對等驗證 §4）', () => {
+  const text =
+    'The keeper sleeps in the tower.\rThe keeper wakes up at night\rand the keeper walks to the tower.';
+
+  it('擷取時 \\r 當換行：提示裡不留 \\r（CRLF 照舊）', () => {
+    const words = extractWords(text);
+    for (const w of words) for (const s of w.sentences) expect(s).not.toMatch(/\r/);
+    expect(words.find((w) => w.answer === 'keeper')?.sentences).toEqual([
+      'and the keeper walks to the tower.',
+      'The keeper sleeps in the tower.',
+      'The keeper wakes up at night',
+    ]);
+    expect(compactWords(extractWords(text.replace(/\r/g, '\r\n')))).toEqual(compactWords(words));
+  });
+
+  it('改成答案清單：提示裡的換行（\\r、\\n）換成空白，清單的答案數＝盤面的詞數', () => {
+    const p: Puzzle = {
+      width: 6,
+      height: 1,
+      words: [
+        {
+          answer: 'keeper',
+          hint: 'The keeper\rwakes up\r\nat night',
+          x: 0,
+          y: 0,
+          dir: 'across',
+          num: 1,
+        },
+      ],
+    };
+    const list = puzzleListText(p);
+    expect(list).toBe('keeper：The keeper wakes up at night');
+    expect(parseList(list).entries).toHaveLength(1);
   });
 });
 

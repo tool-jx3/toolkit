@@ -118,12 +118,27 @@ function Toolbar() {
   );
 }
 
-function ExportRow({ version, disabled }: { version: Version; disabled: boolean }) {
+type ExportKind = 'png' | 'html' | 'print';
+/** 進行中的匯出（題目與解答兩列共用：一個在處理時所有匯出按鈕都暫停） */
+type ExportBusy = { version: Version; kind: ExportKind } | null;
+
+function ExportRow({
+  version,
+  disabled,
+  busyAll,
+  setBusyAll,
+}: {
+  version: Version;
+  disabled: boolean;
+  busyAll: ExportBusy;
+  setBusyAll: (b: ExportBusy) => void;
+}) {
   const toast = useToast();
-  const [busy, setBusy] = useState<'png' | 'html' | 'print' | null>(null);
+  const busy = busyAll?.version === version ? busyAll.kind : null;
   const label = S.export.versions[version];
-  const run = async (kind: 'png' | 'html' | 'print') => {
-    setBusy(kind);
+  const run = async (kind: ExportKind) => {
+    if (busyAll) return;
+    setBusyAll({ version, kind });
     try {
       if (kind === 'print') await printSheet(dataNow(), version);
       else {
@@ -137,7 +152,7 @@ function ExportRow({ version, disabled }: { version: Version; disabled: boolean 
         tone: 'danger',
       });
     } finally {
-      setBusy(null);
+      setBusyAll(null);
     }
   };
   return (
@@ -161,7 +176,7 @@ function ExportRow({ version, disabled }: { version: Version; disabled: boolean 
         title={S.export.pngTitle(label)}
         aria-label={`${label}：${S.export.png}`}
         loading={busy === 'png'}
-        disabled={disabled || !!busy}
+        disabled={disabled || !!busyAll}
         onClick={() => void run('png')}
       >
         {S.export.png}
@@ -172,7 +187,7 @@ function ExportRow({ version, disabled }: { version: Version; disabled: boolean 
         title={S.export.htmlTitle(label)}
         aria-label={`${label}：${S.export.html}`}
         loading={busy === 'html'}
-        disabled={disabled || !!busy}
+        disabled={disabled || !!busyAll}
         onClick={() => void run('html')}
       >
         {S.export.html}
@@ -183,7 +198,7 @@ function ExportRow({ version, disabled }: { version: Version; disabled: boolean 
         title={S.export.printTitle(label)}
         aria-label={`${label}：${S.export.print}`}
         loading={busy === 'print'}
-        disabled={disabled || !!busy}
+        disabled={disabled || !!busyAll}
         onClick={() => void run('print')}
       >
         {S.export.print}
@@ -200,6 +215,7 @@ export function Preview() {
   const emptyTransparent = useCrossword((s) => s.data.emptyTransparent);
   const fonts = useCrossword((s) => s.data.fonts);
   const showAnswers = useView((s) => s.data.showAnswers);
+  const [exportBusy, setExportBusy] = useState<ExportBusy>(null);
   const options = useMemo(
     () => sheetOptions({ layout, title, emptyColor, emptyTransparent, fonts }, showAnswers),
     [layout, title, emptyColor, emptyTransparent, fonts, showAnswers],
@@ -226,8 +242,18 @@ export function Preview() {
         <h2 id="cw-export-title" className="m-0 text-sm font-semibold text-fg">
           {S.export.title}
         </h2>
-        <ExportRow version="question" disabled={!puzzle} />
-        <ExportRow version="answer" disabled={!puzzle} />
+        <ExportRow
+          version="question"
+          disabled={!puzzle}
+          busyAll={exportBusy}
+          setBusyAll={setExportBusy}
+        />
+        <ExportRow
+          version="answer"
+          disabled={!puzzle}
+          busyAll={exportBusy}
+          setBusyAll={setExportBusy}
+        />
         <p className="m-0 text-xs text-muted">{puzzle ? S.export.hint : S.export.needPuzzle}</p>
       </section>
     </div>

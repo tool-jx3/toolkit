@@ -8,7 +8,13 @@
 import type { StateStorage } from 'zustand/middleware';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
 import { extractWords } from './extract';
-import { buildFromCandidates, buildFromEntries, parseList, type Rng } from './generate';
+import {
+  buildFromCandidates,
+  buildFromEntries,
+  parseList,
+  puzzleListText,
+  type Rng,
+} from './generate';
 import {
   AUTOSAVE_TEXT_LIMIT,
   type CrosswordData,
@@ -99,11 +105,13 @@ export function step(recipe: (d: CrosswordData) => void): void {
   useCrossword.endGesture();
 }
 
-/** 讀進文字檔：取代文字、記下檔名、切到「從文字擷取」（一步復原） */
+/** 讀進文字檔：取代文字（換行統一成 \n）、記下檔名、切到「從文字擷取」（一步復原） */
 export function loadText(text: string, fileName: string): void {
+  /* 換行一律換成 \n（只用 \r 換行的舊 Mac 檔案、CRLF；對等驗證 §4） */
+  const normalized = text.replace(/\r\n?/g, '\n');
   step((d) => {
     d.mode = 'text';
-    d.text = text;
+    d.text = normalized;
     d.fileName = fileName;
   });
 }
@@ -145,25 +153,22 @@ export function generate(rng: Rng = Math.random): GenerateResult {
  * 回傳放進清單的答案數。
  */
 export function puzzleToList(): number {
-  const d = dataNow();
-  const p = d.puzzle;
+  const p = dataNow().puzzle;
   if (!p) return 0;
-  const words = [...p.words].sort(
-    (a, b) => a.num - b.num || (a.dir === b.dir ? 0 : a.dir === 'across' ? -1 : 1),
-  );
-  const list = words.map((w) => `${w.answer}：${w.hint.replace(/\s*\n\s*/g, ' ')}`).join('\n');
+  const list = puzzleListText(p);
+  const n = p.words.length;
   step((x) => {
     x.mode = 'list';
     x.list = list;
     x.stats = {
       mode: 'list',
-      found: words.length,
-      target: words.length,
+      found: n,
+      target: n,
       unplaced: [],
       key: inputKey({ ...x, mode: 'list', list }),
     };
   });
-  return words.length;
+  return n;
 }
 
 export function toggleAnswers(): void {

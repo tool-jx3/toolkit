@@ -93,6 +93,29 @@ describe('斷行與禁則', () => {
   it('比一整行還長的單字才從中間斷', () => {
     expect(join(wrapChars(Array.from('abcdefghij'), 2, unit))).toEqual(['abcd', 'efgh', 'ij']);
   });
+  it('半形標點緊接在字後面時不放行首：黏在前一個字（詞）上一起換行（crossword 對等驗證 F29）', () => {
+    const one = () => 1;
+    /* 韓文詞＋半形標點：整個詞連標點一起換到下一行（同 CSS keep-all） */
+    expect(join(wrapChars(Array.from('기록을 찾아볼래요!'), 9, one))).toEqual([
+      '기록을',
+      '찾아볼래요!',
+    ]);
+    /* 比一整行還長的詞：從中間斷，標點留在行尾 */
+    expect(join(wrapChars(Array.from('있지요.'), 3, one))).toEqual(['있지요.']);
+    /* 中文＋半形標點：最後一個字連標點一起換行 */
+    expect(join(wrapChars(Array.from('今天下雨!'), 4, one))).toEqual(['今天下', '雨!']);
+    expect(join(wrapChars(Array.from('一二三,四五'), 3, one))).toEqual(['一二', '三,四', '五']);
+    /* 全形標點照舊留在行尾（允許超出） */
+    expect(join(wrapChars(Array.from('今天下雨！'), 4, one))).toEqual(['今天下雨！']);
+    /* 英文本來就連在單字上；空白後面的標點照舊可以換行 */
+    expect(join(wrapChars(Array.from('the key opened it!'), 17, one))).toEqual([
+      'the key opened',
+      'it!',
+    ]);
+    expect(join(wrapChars(Array.from('ab !'), 2, one))).toEqual(['ab', '!']);
+    /* 一行放不下兩個字時不多出空行 */
+    expect(join(wrapChars(Array.from('雨!'), 1, one))).toEqual(['雨!']);
+  });
   it('保留原本的換行與空行', () => {
     expect(join(breakText('一二\n\n三', { limit: 0, unit }))).toEqual(['一二', '', '三']);
     expect(join(breakText('一二三四\r\n五', { limit: 2, unit }))).toEqual(['一二', '三四', '五']);

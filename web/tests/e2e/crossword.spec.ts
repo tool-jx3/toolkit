@@ -401,6 +401,50 @@ test.describe('1280 寬', () => {
     expect(errors).toEqual([]);
   });
 
+  test('匯出處理中：題目與解答兩列的匯出按鈕都暫停（規格 4.）', async ({ page }) => {
+    const errors = await open(page);
+    /* 讓 PNG 編碼慢一點，看得到處理中 */
+    await page.evaluate(() => {
+      const toBlob = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (cb, ...rest) {
+        setTimeout(() => toBlob.call(this, cb, ...rest), 1500);
+      };
+    });
+    const buttons = page.getByTestId('export-panel').getByRole('button');
+    await expect(buttons).toHaveCount(6);
+    const dl = page.waitForEvent('download');
+    await page.getByRole('button', { name: '題目：下載 PNG' }).click();
+    for (let i = 0; i < 6; i++) await expect(buttons.nth(i)).toBeDisabled();
+    await dl;
+    for (let i = 0; i < 6; i++) await expect(buttons.nth(i)).toBeEnabled();
+    expect(errors).toEqual([]);
+  });
+
+  test('只用 CR（\\r）換行的文字檔：讀入時當換行，提示不留 \\r、改成答案清單不多出答案', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await radio(page, '從文字擷取').click();
+    const text =
+      'The keeper sleeps in the tower.\rThe keeper wakes up at night\rand the keeper walks to the tower.\rThe tower light keeps the sailors safe.';
+    await page.locator('input[type="file"][accept*=".txt"]').setInputFiles({
+      name: 'old-mac.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from(text),
+    });
+    await expect(page.getByTestId('text-input')).toHaveValue(text.replace(/\r/g, '\n'));
+    expect((await stored(page)).text).toBe(text.replace(/\r/g, '\n'));
+    await generateNow(page);
+    const d = await stored(page);
+    const n = d.puzzle?.words.length ?? 0;
+    expect(n).toBeGreaterThan(1);
+    for (const w of d.puzzle?.words ?? []) expect(w.hint).not.toMatch(/[\r\n]/);
+    await btn(page, '改成答案清單').click();
+    await expect(page.getByTestId('list-count')).toHaveText(`${n} 個答案`);
+    await expect(page.getByTestId('list-issues')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
   test('自動儲存、復原／重做、專案檔、全部重來、很長的文字', async ({ page }) => {
     const errors = await open(page);
     const list = page.getByTestId('list-input');

@@ -93,7 +93,8 @@ export function cleanSource(text: string, extended = true): string {
   clean = clean.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
   clean = clean.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
   clean = clean.replace(/<[^>]*>?/gm, '');
-  if (extended) clean = decodeEntities(clean);
+  /* 新版：HTML 實體；只用 \r 換行的文字（舊 Mac）也照換行切（CRLF 的結果不變） */
+  if (extended) clean = decodeEntities(clean).replace(/\r\n?/g, '\n');
   return clean;
 }
 
