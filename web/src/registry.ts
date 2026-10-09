@@ -215,6 +215,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'discord-color',
+    name: 'Discord 彩色文字產生器',
+    summary:
+      '選取文字套上粗體、底線、經典 8 色、自訂色或彩虹、漸層效果，預覽 Discord 四種主題，複製成 ANSI 程式碼區塊貼進 Discord 就是彩色訊息。',
+    group: 'G1',
+    status: 'next',
+    inspiration: {
+      name: 'rebane2001／Discord Colored Text Generator',
+      url: 'https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c',
+    },
+  },
+  {
     id: 'ccfolia-cropper',
     name: '立繪裁切器',
     summary:
@@ -557,6 +569,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'coc-sheet',
+    name: 'CoC 7 版調查員角色卡',
+    summary:
+      '在瀏覽器填好 CoC 7 版調查員角色卡：屬性的困難／極限、HP、SAN、DB、移動力與技能點數自動算，可以管理多張角色卡、裁切頭像，印成 A4 兩頁或存成 PDF、PNG，也能複製成 CCFOLIA 角色。',
+    group: 'G9',
+    status: 'live',
+    inspiration: {
+      name: 'ihoukentiku/ihoukentiku.github.io',
+      url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
+    },
+  },
+  {
     id: 'grid-maker',
     name: '網格產生器',
     summary:
@@ -586,10 +610,22 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG。',
     group: 'G10',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'ihoukentiku/ihoukentiku.github.io',
       url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
+    },
+  },
+  {
+    id: 'ai-fail',
+    name: 'AI 誤判梗圖產生器',
+    summary:
+      '放一張照片，畫上 AI 物件辨識風格的綠框與標籤（例如把貓標成「object」），做成「AI 認錯了」的梗圖：可以多個框、改顏色與字級、調整前後，存成 PNG。',
+    group: 'G7',
+    status: 'live',
+    inspiration: {
+      name: 'swoonqx/ai-fails-meme-maker',
+      url: 'https://github.com/swoonqx/ai-fails-meme-maker',
     },
   },
 ];

@@ -782,3 +782,31 @@ describe('CropDialog（數值範圍＋兩段式確認）', () => {
     });
   });
 });
+
+describe('ItemListEditor：每一項的佔位（getPlaceholder，coc-sheet 加的）', () => {
+  it('名稱空白時改顯示 getPlaceholder 給的字：輸入框的灰字、改名欄與刪除鈕的名稱都用它；沒給時照舊用 placeholder', () => {
+    render(
+      <UiProvider>
+        <ItemListEditor<{ id: string; title: string; who: string }>
+          aria-label="角色卡"
+          items={[
+            { id: 'a', title: '', who: '林子安' },
+            { id: 'b', title: '', who: '' },
+          ]}
+          getId={(i) => i.id}
+          getName={(i) => i.title}
+          placeholder="未命名的角色卡"
+          getPlaceholder={(i) => i.who || '未命名的角色卡'}
+          renameLabel="角色卡名稱"
+          onRename={() => {}}
+          onRemove={() => {}}
+        />
+      </UiProvider>,
+    );
+    const inputs = screen.getAllByRole('textbox');
+    expect(inputs.map((i) => i.getAttribute('placeholder'))).toEqual(['林子安', '未命名的角色卡']);
+    expect(screen.getByRole('textbox', { name: '角色卡名稱（林子安）' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '刪除「林子安」' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '刪除「未命名的角色卡」' })).toBeTruthy();
+  });
+});

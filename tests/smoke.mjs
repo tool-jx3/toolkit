@@ -1,391 +1,92 @@
-/* 靜態 smoke 檢查。以 `npm test` 執行。 */
-import { check, section, summary, loadI18N, read, exists, listFiles } from './harness.mjs';
+/* 靜態 smoke 檢查。以 `npm test` 執行。
+ * 全站已改寫到 web/ 新框架（P10）：repo 裡只剩新框架的程式、文件與舊網址的轉址頁。
+ * 新框架本身的檢查在 web/（lint、typecheck、單元測試、端對端測試）；這裡檢查 repo 的組成與文件。 */
+import { check, section, summary, read, exists, listFiles } from './harness.mjs';
 
-/* ---- 引擎行為 ---- */
-section('i18n engine');
-const I18N = loadI18N();
+/* 日文只查平假名與片假名「字母」（漢字與中文重疊，不能當判準）。 */
+const KANA = /[ぁ-ゖァ-ヺｦ-ﾝ]/;
+const stripHtmlComments = src => src.replace(/<!--[\s\S]*?-->/g, '');
 
-check('預設語言為 zh-TW', I18N.locale === 'zh-TW', `got: ${I18N.locale}`);
-check('註冊了 zh-TW、ko、ja 與 en 四種語言',
-  Object.keys(I18N.locales).join(',') === 'zh-TW,ko,ja,en',
-  `got: ${Object.keys(I18N.locales).join(',')}`);
-check('每種語言都有顯示名稱與 lang 屬性',
-  Object.values(I18N.locales).every(m => m.label && m.lang));
-check('初始字典為空', Object.keys(I18N.messages['zh-TW']).length === 0);
-check('未載入任何字典時只有預設語言可用',
-  I18N.availableLocales().join(',') === 'zh-TW',
-  `got: ${I18N.availableLocales().join(',')}`);
-
-I18N.register({ 'zh-TW': { greet: '你好 {0}', only: '僅繁中' }, ko: { greet: '안녕 {0}' } });
-check('register() 併入 zh-TW', I18N.t('greet') === '你好 {0}');
-/* 語言選單只列出該頁確實載入字典的語言：只註冊了 ko，就不該出現 ja。 */
-check('只列出已載入字典的語言',
-  I18N.availableLocales().join(',') === 'zh-TW,ko',
-  `got: ${I18N.availableLocales().join(',')}`);
-check('切換至沒有字典的語言回傳 false', I18N.setLocale('ja') === false);
-check('t() 代入位置參數', I18N.t('greet', '世界') === '你好 世界');
-check('未知 key 回傳 key 本身', I18N.t('no.such.key') === 'no.such.key');
-
-check('setLocale() 切換成功', I18N.setLocale('ko') === true);
-check('切換後查得 ko 值', I18N.t('greet', '세계') === '안녕 세계');
-check('ko 缺 key 時退回 zh-TW', I18N.t('only') === '僅繁中');
-check('切換至相同語言回傳 false', I18N.setLocale('ko') === false);
-/* applyStaticDom() 需要真的 DOM，沙箱裡跑不到；掛勾有沒有接上改以原始碼確認。 */
-check('引擎支援五種屬性掛勾',
-  ['-title', '-aria-label', '-placeholder', '-alt', '-html']
-    .every(suffix => read('assets/i18n.js').includes(`[data-i18n${suffix}]`)));
-check('切換至未知語言回傳 false', I18N.setLocale('fr') === false);
-
-/* 偏好全站共用，但工具只載入自己的原文語言字典：停在沒有該語言字典的
- * 頁面時，resolveLocale() 應退回預設語言呈現。 */
-check('頁面缺少該語言字典時退回預設語言',
-  I18N.resolveLocale() === 'ko' && (I18N.locale = 'ja', I18N.resolveLocale()) === 'zh-TW',
-  `got: ${I18N.locale}`);
-I18N.setLocale('ko');
-
-let notified = null;
-I18N.onChange(locale => { notified = locale; });
-I18N.setLocale('zh-TW');
-check('onChange 監聽器收到通知', notified === 'zh-TW', `got: ${notified}`);
-
-I18N.register({ 'zh-TW': { second: '第二份' } });
-check('register() 可多次呼叫且不覆蓋既有內容',
-  I18N.t('second') === '第二份' && I18N.t('greet') === '你好 {0}');
-
-/* ---- 各工具共用檢查 ---- */
-const HANGUL = /[가-힣]/;
-/* 日文只查平假名與片假名「字母」：漢字與中文重疊，不能當判準；片假名區塊裡的
- * 中點「・」與長音符「ー」也排除在外——前者中文同樣會用到，會把正常譯文誤判為
- * 未翻譯（真正的片假名詞一定帶有假名字母，不會因此漏掉）。 */
-const KANA = /[\u3041-\u3096\u30A1-\u30FA\uFF66-\uFF9D]/;
-
-/* dir: 'tools/trpg-lab'；dict: 字典檔名；
- * locale: 該工具原文語言的字典代碼（sotsotssi 的工具為 ko，shiki365 的為 ja）；
- * scripts: 需掃描的 JS 檔名陣列；styles: 需掃描原文洩漏的 CSS 檔名陣列
- * （不檢查 T() key 引用，CSS 本來就不會呼叫 T()）；
- * minHooks: 標記中 i18n 掛勾的最低數量；
- * allowSource(line, lineNo, file): 回傳 true 表示該行允許出現原文字元。 */
-/* html 與 shared 給多頁工具用：同一個目錄裡的每一頁各自檢查一次，shared 是
- * 各頁都先載入的共用字典（路徑相對於 dir）。 */
-function checkTool({ dir, dict, html: page = 'index.html', shared = [], locale = 'ko', locales, scripts, styles = [], minHooks, allowSource = () => false, licence = true }) {
-  section(page === 'index.html' ? dir : `${dir}/${page}`);
-  const tool = loadI18N([...shared.map(f => `${dir}/${f}`), `${dir}/${dict}`]);
-  const zh = new Set(Object.keys(tool.messages['zh-TW']));
-  /* 大多數工具只有「繁中＋原文」兩種語言；room-zip 另外補了韓文，
-   * 因此語言清單可以由呼叫端指定。 */
-  const want = locales || ['zh-TW', locale];
-  /* 原文洩漏的判準隨語言而異：韓文查諺文，日文查平假名與片假名——漢字
-   * 與中文重疊，拿來當判準會把正常的譯文誤判為未翻譯。 */
-  const SOURCE_CHARS = { ko: HANGUL, ja: KANA }[locale];
-  /* 英文和程式碼用的是同一套字母，沒辦法靠字元類別判斷「原文沒翻到」；英文工具的
-   * 洩漏檢查改由各工具自己的專節處理（見 battlemap）。 */
-
-  check(`只載入 ${want.join('、')} 的字典`,
-    Object.keys(tool.messages).filter(l => Object.keys(tool.messages[l]).length).join(',') === want.join(','),
-    `got: ${Object.keys(tool.messages).filter(l => Object.keys(tool.messages[l]).length).join(',')}`);
-
-  check('字典非空', zh.size > 0, `zh-TW keys: ${zh.size}`);
-  check('定義了 app.title', zh.has('app.title'));
-
-  const ph = v => [...new Set(String(v).match(/\{\d+\}/g) || [])].sort().join(',');
-  for (const other of want.filter(l => l !== 'zh-TW')) {
-    const keys = new Set(Object.keys(tool.messages[other]));
-    const missing = [...zh].filter(k => !keys.has(k));
-    const extra = [...keys].filter(k => !zh.has(k));
-    check(`${other} 涵蓋所有 zh-TW key`, missing.length === 0, `missing: ${missing.join(', ')}`);
-    check(`${other} 無多餘 key`, extra.length === 0, `unknown: ${extra.join(', ')}`);
-    const badPh = [...zh].filter(k => ph(tool.messages['zh-TW'][k]) !== ph(tool.messages[other][k] ?? ''));
-    check(`zh-TW 與 ${other} 的 {n} 佔位符一致`, badPh.length === 0, `mismatched: ${badPh.join(', ')}`);
-  }
-
-  const html = read(`${dir}/${page}`);
-  const htmlKeys = [...html.matchAll(/data-i18n(?:-html|-node|-title|-aria-label|-placeholder|-alt)?="([^"]+)"/g)].map(m => m[1]);
-  const unknownHtml = [...new Set(htmlKeys)].filter(k => !zh.has(k));
-  check('標記僅引用已知 key', unknownHtml.length === 0, `unknown: ${unknownHtml.join(', ')}`);
-  check(`標記帶有至少 ${minHooks} 個 i18n 掛勾`, htmlKeys.length >= minHooks, `found ${htmlKeys.length}`);
-
-  check(`${page} 載入共用引擎`, html.includes('assets/i18n.js'));
-  check(`${page} 載入自身字典`, html.includes(dict.split('/').pop()));
-  for (const f of shared) check(`${page} 載入共用字典 ${f}`, html.includes(f.replace(/^(\.\.\/)+/, '')));
-  check('html lang 為 zh-Hant-TW', /<html[^>]*lang="zh-Hant-TW"/.test(html));
-
-  const titleMatch = html.match(/<title>([^<]*)<\/title>/);
-  check('<title> 與 app.title 的 zh-TW 值一致',
-    !!titleMatch && titleMatch[1] === tool.messages['zh-TW']['app.title'],
-    `<title>="${titleMatch ? titleMatch[1] : '(none)'}" app.title="${tool.messages['zh-TW']['app.title']}"`);
-
-  const leakedIn = (src, file) => !SOURCE_CHARS ? [] : src.split('\n')
-    .map((line, i) => [i + 1, line])
-    .filter(([n, line]) => SOURCE_CHARS.test(line) && !allowSource(line, n, file));
-  const report = rows => rows.slice(0, 5)
-    .map(([n, l]) => `L${n}: ${l.trim().slice(0, 80)}`).join('\n       ');
-
-  for (const file of scripts) {
-    const src = read(`${dir}/${file}`);
-    /* A capture ending in '.' isn't a real key — it's the static prefix of a
-     * runtime-concatenated call like T('rune.' + name). Skip those here;
-     * their coverage is asserted separately (see the rune checks below). */
-    const keys = [...src.matchAll(/\bT\((['"`])([a-zA-Z][\w.]*)\1/g)].map(m => m[2]).filter(k => !k.endsWith('.'));
-    const unknown = [...new Set(keys)].filter(k => !zh.has(k));
-    check(`${file} 僅引用已知 key`, unknown.length === 0, `unknown: ${unknown.join(', ')}`);
-
-    const leaked = leakedIn(src, file);
-    check(`${file} 無殘留原文`, leaked.length === 0, report(leaked));
-  }
-
-  const htmlLeaked = leakedIn(html, page);
-  check(`${page} 無殘留原文`, htmlLeaked.length === 0, report(htmlLeaked));
-
-  for (const file of styles) {
-    const src = read(`${dir}/${file}`);
-    const leaked = leakedIn(src, file);
-    check(`${file} 無殘留原文`, leaked.length === 0, report(leaked));
-  }
-
-  /* 未授權收錄的工具沒有原始 LICENSE，傳入 licence: false。 */
-  if (licence) check('保留原始 LICENSE', exists(`${dir}/LICENSE`));
-  return tool;
+/* 轉址頁：繁中、不讓搜尋引擎收錄、meta refresh 與 location.replace 都指到同一個新網址、沒有外部程式。 */
+function checkRedirect(file, target, { keepSearch = false } = {}) {
+  const html = read(file);
+  const js = keepSearch ? `location.replace('${target}' + location.search + location.hash)`
+    : target.includes('#') || target.endsWith('.md') ? `location.replace('${target}')`
+      : `location.replace('${target}' + location.hash)`;
+  check(`${file} 轉到 ${target}`,
+    /<html lang="zh-Hant-TW">/.test(html) && html.includes('<meta name="robots" content="noindex">')
+    && html.includes(`<meta http-equiv="refresh" content="0; url=${target}">`) && html.includes(js)
+    && html.includes(`href="${target}"`) && !/<script[^>]+src=/.test(html) && !KANA.test(stripHtmlComments(html)));
 }
 
-/* ---- 註解保留原文的工具共用：stripComments ---- */
-/* 有些工具的註解密度很高、多半是演算法與版面取捨的說明，逐句轉譯的風險大於效益，
- * 保留日文原文（trpg-lab）。
- *
- * 但「只有註解可以是日文」這件事要能被檢查，否則就等於放行。做法是把註解整段
- * 抹成空白（保留行結構）之後再掃一次：程式碼與標記裡只要出現假名就會被擋下。 */
-function stripComments(src, kind) {
-  const blank = text => text.replace(/[^\n]/g, ' ');
-  let out = src;
-  if (kind === 'html') out = out.replace(/<!--[\s\S]*?-->/g, blank);
-  else {
-    out = out.replace(/\/\*[\s\S]*?\*\//g, blank);
-    if (kind === 'js') out = out.replace(/(^|[^:\\])\/\/[^\n]*/g, (m, p) => p + blank(m.slice(p.length)));
-  }
-  return out;
-}
-
-/* trpg-lab 的函式庫照上游走 CDN；出處記在 THIRD_PARTY_NOTICES.md，下面逐一比對。 */
-const CDN_HOSTS = /https:\/\/(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|esm\.sh|cdn\.tailwindcss\.com)[^"'`) ]*/g;
-
-/* 一段連續的假名／漢字。刻意保留的日文清單逐段比對用（同一行多出一段新的原文仍然會被擋下）。 */
-const KANA_RUN = /[ぁ-ゖァ-ヺｦ-ﾝ・ー一-鿿]+/g;
-
-/* ---- trpg-lab（違法建築的 TRPG 實驗室）---- */
-/* 合輯裡頁數最多的工具：一個目錄裝了 hub（index.html）、九個工具頁、第三方授權頁，
- * 以及 trpg_map_maker/ 底下的地圖清單與地圖編輯器。每頁一份字典，頁首、頁尾與說明
- * 視窗底下的授權連結等共用字串放在 i18n.trpg-lab.js，各頁先載入它。
- *
- * 上游的註解維持日文（map_editor.js 一檔就有上千行），理由與 room-zip
- * 相同；規則也相同：把註解抹成空白之後，程式碼與標記裡不准再出現假名。 */
+/* ---- TRPG 實驗室：舊網址的轉址頁 ---- */
+/* 違法建築的 TRPG 實驗室已拆成六個新工具（G9、G10）。舊版的程式、樣式、字典與素材都刪了（舊版在 main commit
+ * 6b497bd），每個舊網址留一個轉址頁；舊版存在瀏覽器裡的資料（同一個網域）由新版第一次開啟時讀進來。 */
+section('tools/trpg-lab（轉址頁）');
 const LAB = 'tools/trpg-lab';
-const LAB_PAGES = [
-  { html: 'index.html', scripts: ['index.js', 'common.js'], styles: ['index.css', 'common.css'], hooks: 23, inline: 10, attrs: 9 },
-  { html: 'coc7_Investigator_sheet.html', scripts: ['coc7_Investigator_sheet.js'], styles: ['coc7_Investigator_sheet.css'], hooks: 140, inline: 135, attrs: 3 },
-  { html: 'third-party-licenses.html', scripts: [], styles: ['third-party-licenses.css'], hooks: 45, inline: 38, attrs: 4 },
-  { html: 'trpg_map_maker/map_list.html', scripts: ['trpg_map_maker/map_list.js', 'trpg_map_maker/map_storage.js'],
-    styles: ['trpg_map_maker/map_list.css'], hooks: 23, inline: 19, attrs: 1 },
-  { html: 'trpg_map_maker/map_editor.html', scripts: ['trpg_map_maker/map_editor.js', 'trpg_map_maker/map_grid.js'],
-    styles: ['trpg_map_maker/map_editor.css'], hooks: 350, inline: 247, attrs: 57 },
-];
-const labDict = page => page.html.replace(/[^/]+\.html$/, f => `i18n.${f.replace(/\.html$/, '')}.js`);
-const labDicts = page => [...(page.standalone ? [] : [`${LAB}/i18n.trpg-lab.js`]), `${LAB}/${labDict(page)}`];
-
-const LAB_KINDS = {};
-for (const page of LAB_PAGES) {
-  LAB_KINDS[page.html] = 'html';
-  for (const f of page.scripts) LAB_KINDS[f] = 'js';
-  for (const f of page.styles) LAB_KINDS[f] = 'css';
-}
-const labCode = Object.fromEntries(Object.entries(LAB_KINDS)
-  .map(([file, kind]) => [file, stripComments(read(`${LAB}/${file}`), kind).split('\n')]));
-const labAllow = (line, lineNo, file) => {
-  const code = labCode[file];
-  return !!code && !KANA.test(code[lineNo - 1] || '');
-};
-
-const labTools = LAB_PAGES.map(page => ({ page, tool: checkTool({
-  dir: LAB,
-  html: page.html,
-  dict: labDict(page),
-  shared: page.standalone ? [] : ['i18n.trpg-lab.js'],
-  locale: 'ja',
-  scripts: page.scripts,
-  styles: page.styles,
-  minHooks: page.hooks,
-  allowSource: labAllow,
-  licence: page.html === 'index.html'
-}) }));
-
-section('tools/trpg-lab');
-const labFiles = listFiles(LAB).map(f => f.replace(`${LAB}/`, ''));
-/* 已改寫成新版的頁面：舊網址只剩轉址頁（舊版存在瀏覽器的資料由新版第一次開啟時讀進來）。 */
 const LAB_REDIRECTS = {
-  'coc7_dice.html': 'coc-dice', 'damage_sum.html': 'coc-dice', 'coc_npc_token.html': 'coc-npc',
-  'grid_maker.html': 'grid-maker', 'hex_maker.html': 'grid-maker',
-  'grid_ruler.html': 'range-ruler', 'hex_ruler.html': 'range-ruler',
+  'index.html': '../../#group-G9',
+  'coc7_dice.html': '../coc-dice/', 'damage_sum.html': '../coc-dice/', 'coc_npc_token.html': '../coc-npc/',
+  'coc7_Investigator_sheet.html': '../coc-sheet/',
+  'grid_maker.html': '../grid-maker/', 'hex_maker.html': '../grid-maker/',
+  'grid_ruler.html': '../range-ruler/', 'hex_ruler.html': '../range-ruler/',
+  'third-party-licenses.html': '../../assets/build/THIRD_PARTY_NOTICES.md',
+  'trpg_map_maker/map_list.html': '../../map-editor/',
 };
-for (const [page, id] of Object.entries(LAB_REDIRECTS)) {
-  const html = read(`${LAB}/${page}`);
-  const base = page.replace(/\.html$/, '');
-  check(`trpg-lab ${page} 轉到新版 ${id}`,
-    html.includes(`url=../${id}/`) && html.includes(`location.replace('../${id}/'`) && /<html lang="zh-Hant-TW">/.test(html)
-    && !/<script[^>]+src=/.test(html));
-  check(`trpg-lab ${page} 的舊版程式、樣式與字典已刪除`,
-    !exists(`${LAB}/${base}.js`) && !exists(`${LAB}/${base}.css`) && !exists(`${LAB}/i18n.${base}.js`));
-}
-/* 上游只在 ihoukentiku.github.io 上載入 gtag；收錄版整組拿掉，連同只在說明分析的
- * 隱私權政策頁。 */
-check('trpg-lab 沒有任何存取分析',
-  !labFiles.some(f => /analytics|googlead|privacy-policy/.test(f))
-  && !labFiles.filter(f => /\.(html|js)$/.test(f)).some(f => /gtag|googletagmanager|analytics\.js/.test(read(`${LAB}/${f}`))));
-/* 作者在授權頁保留了自製素材的權利（間取り図 SVG、AI 生成的貼圖），擲骰音效出自
- * ニコニ・コモンズ；這些都不收。 */
-const LAB_FLOORPLAN = ['fp-door', 'fp-door-large', 'fp-door-open', 'fp-door-double-open', 'bed_single', 'bed_double',
-  'bed_queen', 'chair', 'toilet', 'table_4', 'table_chair_6', 'kitchen', 'window_single', 'window_double', 'stairs_straight'];
-check('trpg-lab 不收作者保留權利的素材',
-  !labFiles.some(f => f.startsWith('trpg_map_maker/patterns/') || /\.(webp|wav|mp3|ico)$/.test(f)
-    || LAB_FLOORPLAN.some(n => f === `trpg_map_maker/decors/svg/${n}.svg`)));
-check('trpg-lab 收了 56 個可再散布的裝飾 SVG',
-  labFiles.filter(f => f.startsWith('trpg_map_maker/decors/svg/')).length === 56);
-check('trpg-lab 各頁都走相對路徑（沒有指向站台根目錄的連結）',
-  LAB_PAGES.every(p => !/(?:href|src)="\/(?!\/)/.test(read(`${LAB}/${p.html}`))));
-/* 函式庫照上游走 CDN，版本與出處只剩 THIRD_PARTY_NOTICES.md 記著。 */
-const labNotices = read(`${LAB}/THIRD_PARTY_NOTICES.md`);
-const labCdn = new Set();
-for (const page of LAB_PAGES) {
-  for (const f of [page.html, ...page.scripts]) for (const m of read(`${LAB}/${f}`).matchAll(CDN_HOSTS)) labCdn.add(m[0]);
-}
-check('trpg-lab 確實有 CDN 相依', labCdn.size >= 6, `found ${labCdn.size}`);
-const labUndocumented = [...labCdn].filter(u => {
-  const m = u.match(/@(\d+\.\d+\.\d+)|\/(\d+\.\d+\.\d+)\//);
-  const version = m && (m[1] || m[2]);
-  return !version || !labNotices.includes(version);
-});
-check('trpg-lab 的 CDN 相依都有版本且記在 THIRD_PARTY_NOTICES', labUndocumented.length === 0,
-  `未記載: ${labUndocumented.join(', ')}`);
-/* 各工具頁是「整個視窗減掉頁首高度」的版面，合輯的回首頁連結與語言選單放在 lab 自己的頁首。 */
-const labCommon = read(`${LAB}/common.js`);
-check('trpg-lab 的頁首有回合輯首頁的連結',
-  labCommon.includes("toolkitHome: new URL('../../', LAB_ROOT).href") && labCommon.includes('data-i18n="nav.home"'));
-check('trpg-lab 的頁首掛了語言選單', labCommon.includes("I18N.mountSwitcher(document.getElementById('localeSelect'))"));
-/* 次數也要對：說明視窗底下與頁尾各有一組授權連結與版權列，說明與主題按鈕各掛了 aria-label 與 title。 */
-const LAB_HEADER_HOOKS = { 'lab.homeAria': 1, 'lab.logo': 1, 'lab.navAria': 1, 'nav.home': 1, 'lang.aria': 1,
-  'lab.guide': 2, 'lab.twitter': 1, 'lab.theme': 2, 'lab.thirdParty': 2, 'lab.copyright': 2 };
-const labHookMiss = Object.entries(LAB_HEADER_HOOKS)
-  .filter(([k, n]) => [...labCommon.matchAll(new RegExp(`data-i18n(?:-[a-z-]+)?="${k.replace('.', '\\.')}"`, 'g'))].length !== n)
-  .map(([k]) => k);
-check('trpg-lab 的頁首文字切語言時由共用引擎重套（掛了 data-i18n）', labHookMiss.length === 0,
-  `次數不對: ${labHookMiss.join(', ')}`);
-check('trpg-lab 拿掉了隱私權政策的連結（那頁只在說明已移除的存取分析）', !labCommon.includes('privacyPolicy'));
-
-/* 地圖編輯器：內建貼圖與格局圖 SVG 不收，登錄表也要清掉，否則挑選器會一直要 404。 */
-const mapEditor = read(`${LAB}/trpg_map_maker/map_editor.js`);
-const mapEditorCode = stripComments(mapEditor, 'js');
-check('地圖編輯器沒有內建貼圖', /\nconst PATTERNS = \[\];/.test(mapEditor) && !/patterns\/(full|thumb)|\.webp'/.test(mapEditorCode));
-const mapDecorFiles = [...mapEditorCode.matchAll(/type: 'svg', file: '([\w-]+\.svg)'/g)].map(m => m[1]);
-check('地圖編輯器的裝飾登錄表剛好對上收錄的 56 個 SVG',
-  mapDecorFiles.length === 56 && mapDecorFiles.every(f => labFiles.includes(`trpg_map_maker/decors/svg/${f}`)),
-  `entries: ${mapDecorFiles.length}`);
-check('地圖編輯器沒有格局圖（floorplan）分類', !/'floorplan'/.test(mapEditorCode));
-/* 存檔裡引用了內建貼圖的，讀進來時換成上游本來的備用色，不去要那張圖。 */
-check('地圖編輯器把舊存檔裡的內建貼圖換成單色', /function replaceRemovedPatterns\(/.test(mapEditor)
-  && /replaceRemovedPatterns\(data\.canvas\);/.test(mapEditorCode)
-  && /const REMOVED_PATTERN_COLORS = \{[\s\S]{0,600}grass: '#4a8c3f'[\s\S]{0,600}gravel: '#9a948a'/.test(mapEditor));
-/* 上游把匯出面板的連結改寫成站台根目錄的 /hex_maker.html 等，收錄版要相對路徑。 */
-check('地圖編輯器匯出面板的連結是相對路徑',
-  mapEditor.includes("gridLink.href = isHex ? '../hex_maker.html' : '../grid_maker.html'")
-  && mapEditor.includes("rulerLink.href = isHex ? '../hex_ruler.html' : '../grid_ruler.html'"));
-/* 文字工具的字型清單加了五套繁中字型；optgroup 的 label 引擎管不到，改由 data-label-key 交給程式套。 */
-const mapEditorHtml = read(`${LAB}/trpg_map_maker/map_editor.html`);
-check('地圖編輯器的字型清單有五套繁中字型',
-  ['Noto Sans TC', 'Noto Serif TC', 'LXGW WenKai TC', 'Chocolate Classical Sans', 'Cactus Classical Serif']
-    .every(f => mapEditorHtml.includes(`<option value="${f}"`)));
-const mapEditorDict = labTools.find(t => t.page.html === 'trpg_map_maker/map_editor.html').tool.messages;
-const mapLabelKeys = [...mapEditorHtml.matchAll(/data-label-key="([^"]+)"/g)].map(m => m[1]);
-check('地圖編輯器的 optgroup 標籤都有兩種語言的譯文', mapLabelKeys.length >= 6
-  && mapLabelKeys.every(k => mapEditorDict['zh-TW'][k] && mapEditorDict.ja[k]), `keys: ${mapLabelKeys.length}`);
-check('地圖編輯器切語言時重套 optgroup 標籤', /data-label-key/.test(mapEditor));
+for (const [page, target] of Object.entries(LAB_REDIRECTS)) checkRedirect(`${LAB}/${page}`, target);
+/* 地圖編輯器的網址帶著 ?id=（地圖的 id；搬過來的地圖 id 不變）。 */
+checkRedirect(`${LAB}/trpg_map_maker/map_editor.html`, '../../map-editor/', { keepSearch: true });
+const labPages = [...Object.keys(LAB_REDIRECTS), 'trpg_map_maker/map_editor.html'].map(p => `${LAB}/${p}`).sort();
+check('tools/trpg-lab 只剩轉址頁（舊版的程式、樣式、字典、素材與授權檔都刪了）',
+  listFiles(LAB).join(',') === labPages.join(','), listFiles(LAB).filter(f => !labPages.includes(f)).join(', '));
 
 /* ---- jizura ---- */
-/* JIZURA 的原作者已提供官方繁中版（社群貢獻，上游 PR #6），合輯不再收錄副本。
- * tools/jizura/ 只剩轉址頁：依共用的語言設定跳到原站的對應版本，沒有 JavaScript 時導到繁中版。 */
-section('tools/jizura');
+/* JIZURA 的原作者已提供官方繁中版（社群貢獻，上游 PR #6），合輯不收錄副本，首頁直接連到原站。
+ * tools/jizura/ 只剩舊網址的轉址頁：依以前的語言設定跳到原站的對應版本，沒有 JavaScript 時導到繁中版。 */
+section('tools/jizura（轉址頁）');
 const JZ_BASE = 'https://852wa.github.io/JIZURA/';
 const jzPage = read('tools/jizura/index.html');
-check('不再收錄 JIZURA 的副本（vendor/jizura 與建置產物都移除了）',
-  !exists('vendor/jizura') && listFiles('tools/jizura').sort().join(',') === 'tools/jizura/index.html,tools/jizura/ja/index.html');
-check('轉址頁依共用的語言設定選原站版本', jzPage.includes("localStorage.getItem('trpg-toolkit-locale')")
+check('不收錄 JIZURA 的副本', !exists('vendor/jizura')
+  && listFiles('tools/jizura').join(',') === 'tools/jizura/index.html,tools/jizura/ja/index.html');
+check('轉址頁依以前的語言設定選原站版本', jzPage.includes("localStorage.getItem('trpg-toolkit-locale')")
   && jzPage.includes(`var BASE = '${JZ_BASE}';`)
   && jzPage.includes("var EDITION = { 'ja': '', 'ko': 'ko/', 'zh-TW': 'zh-hant/' };"));
 check('沒有 JavaScript 時導到原站的繁中版', jzPage.includes(`<meta http-equiv="refresh" content="0; url=${JZ_BASE}zh-hant/">`));
 check('轉址頁附上三種語言的手動連結與回合輯首頁的連結',
   [`${JZ_BASE}zh-hant/`, `${JZ_BASE}"`, `${JZ_BASE}ko/`].every(u => jzPage.includes(`href="${u.replace(/"$/, '')}"`))
-  && jzPage.includes('<a class="back" href="../../">← TRPG Toolkit</a>') && !KANA.test(stripComments(jzPage, 'html').replace(/<a [^>]*lang="ja"[^>]*>[^<]*<\/a>/, '')));
+  && jzPage.includes('<a class="back" href="../../">← TRPG Toolkit</a>')
+  && !KANA.test(stripHtmlComments(jzPage).replace(/<a [^>]*lang="ja"[^>]*>[^<]*<\/a>/, '')));
 check('舊的日文頁網址導到原站的日文版', read('tools/jizura/ja/index.html').includes(`location.replace('${JZ_BASE}')`));
 
-/* ---- 繁體中文網頁字型 ---- */
-/* 五套字型分散在四個工具裡，各自用不同的寫法要求 Google Fonts。字重寫錯會讓
- * 整個 family 的 @font-face 靜靜地不見（Google Fonts 對不存在的字重回 400，
- * 整個 css2 請求就失敗），畫面上看起來只是「字型沒套用」，很難追。
- * 下面把各處宣告的字重跟這張驗證過的表對起來，寫錯就會在這裡被擋下。 */
-section('Traditional Chinese webfonts');
-
-/* 以 fonts.googleapis.com/css2 逐一驗證過（2026-09-15）。 */
-const TC_WEIGHTS = {
-  'Noto Sans TC': [100, 200, 300, 400, 500, 600, 700, 800, 900],
-  'Noto Serif TC': [200, 300, 400, 500, 600, 700, 800, 900],
-  'LXGW WenKai TC': [300, 400, 700],
-  'Chocolate Classical Sans': [400],
-  'Cactus Classical Serif': [400],
-};
-const TC_FAMILIES = Object.keys(TC_WEIGHTS);
-
-/* css2 的網址裡，family 用 + 連字，字重寫在 :wght@ 後面並以 ; 分隔。 */
-function checkCss2Url(label, url) {
-  for (const m of url.matchAll(/family=([^&:]+)(?::wght@([\d;]+))?/g)) {
-    const family = decodeURIComponent(m[1]).replace(/\+/g, ' ');
-    if (!TC_FAMILIES.includes(family)) continue; /* 日／韓／拉丁字型不在這張表裡 */
-    const asked = (m[2] ?? '').split(';').filter(Boolean).map(Number);
-    const bad = asked.filter(w => !TC_WEIGHTS[family].includes(w));
-    check(`${label}：${family} 要求的字重都存在`, bad.length === 0,
-      `不存在的字重: ${bad.join(', ')}（可用: ${TC_WEIGHTS[family].join(', ')}）`);
-  }
-}
-
-/* trpg-lab：介面是繁中時改用 Noto Sans TC（common.css 依 <html lang> 切換），每頁的
- * Google Fonts 連結都要一起載入它，字重也要真的存在。 */
-for (const page of LAB_PAGES) {
-  const html = read(`${LAB}/${page.html}`);
-  const links = [...html.matchAll(/href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&'));
-  check(`trpg-lab ${page.html} 載入 Noto Sans TC`, links.some(u => u.includes('family=Noto+Sans+TC')));
-  links.forEach((u, i) => checkCss2Url(`trpg-lab ${page.html} 字型連結 ${i + 1}`, u));
-}
-check('trpg-lab 的介面字型在繁中時改用 Noto Sans TC',
-  read(`${LAB}/common.css`).includes(":root:lang(zh) {\n    --font-main: 'Noto Sans TC', 'Noto Sans JP', sans-serif;"));
-
-/* ---- 建置產物不提交 ---- */
-/* 網站（首頁與重寫過的工具）由 web/ 建置在 web/dist/，CI（.github/workflows/deploy.yml）推到 gh-pages 分支發布；
- * repo 裡不放建置產物。首頁的內容與連結由 web/tests/e2e/home.spec.ts 檢查。 */
-section('建置產物不提交');
+/* ---- repo 的組成 ---- */
+/* 網站由 web/ 建置在 web/dist/，CI（.github/workflows/deploy.yml）推到 gh-pages 分支發布；repo 裡不放建置產物。
+ * 首頁的內容與連結由 web/tests/e2e/home.spec.ts 檢查。 */
+section('repo 的組成');
 check('repo 裡沒有建置產物（首頁、assets/build、next、.nojekyll）',
   !exists('index.html') && !exists('assets/build') && !exists('next') && !exists('.nojekyll'));
 const deployYml = exists('.github/workflows/deploy.yml') ? read('.github/workflows/deploy.yml') : '';
 check('CI 建置並推到 gh-pages', deployYml.includes('npm run build') && /push[^\n]*gh-pages/.test(deployYml));
 const buildPlugins = read('web/build/plugins.ts');
 check('建置時產生 THIRD_PARTY_NOTICES 與 .nojekyll', buildPlugins.includes("'THIRD_PARTY_NOTICES.md'") && buildPlugins.includes("'.nojekyll'"));
+check('網站只照原樣複製轉址頁（tools/trpg-lab、tools/jizura）',
+  /const STATIC_PATHS = \['tools\/trpg-lab', 'tools\/jizura'\];/.test(read('web/vite.config.ts')));
 const homeSrc = read('web/src/index.html');
 check('首頁的原始檔只有繁中', /<html lang="zh-Hant-TW">/.test(homeSrc) && !homeSrc.includes('assets/i18n.js'));
-check('舊版首頁的程式、樣式與字典已移除',
-  !exists('assets/home.js') && !exists('assets/home.css') && !exists('assets/i18n.home.js'));
-/* 首頁列出的舊版工具（還沒重寫完）連結要指得到。 */
+/* 舊的語言切換引擎與字典（assets/i18n.js、各工具的 i18n.*.js）、舊版首頁都已刪除。 */
+const repoTools = listFiles('tools');
+check('舊的語言切換引擎、字典與舊版首頁都已刪除',
+  !exists('assets') && !repoTools.some(f => /\/i18n\.[^/]*\.js$/.test(f)));
+check('tools/ 只剩轉址頁（HTML）', repoTools.every(f => f.endsWith('.html')), repoTools.filter(f => !f.endsWith('.html')).join(', '));
+check('不再收錄需要建置的上游專案（vendor/）', !exists('vendor'));
+/* 首頁列出的舊版工具（還沒重寫完）連結要指得到；全部重寫完時清單是空的。 */
 const homeEntriesSrc = read('web/src/home/entries.ts');
 const LEGACY_LINKS = [...homeEntriesSrc.split('export const EXTERNAL')[0].matchAll(/href: '\.\/tools\/([^/]+)\/'/g)].map(m => m[1]);
-check('首頁的舊版工具清單解析得到', LEGACY_LINKS.length >= 1, LEGACY_LINKS.join(', '));
 for (const name of LEGACY_LINKS) check(`首頁的舊版工具 tools/${name}/ 存在`, exists(`tools/${name}/index.html`));
+check('首頁沒有列出已經刪掉的 TRPG 實驗室舊版', !LEGACY_LINKS.includes('trpg-lab'));
 
 /* ---- 重寫上線的工具（web/ 新框架）---- */
-/* 依 docs/refactor 的流程重寫、對等驗證後上線的工具：程式在 web/src/tools/<id>/，建置後在網站的 tools/<id>/
- * （repo 裡的 tools/<id>/ 是舊版，上線時刪掉）。清單從 web/src/registry.ts 讀。 */
+/* 依 docs/refactor 的流程重寫、對等驗證後上線的工具：程式在 web/src/tools/<id>/，建置後在網站的 tools/<id>/。
+ * 清單從 web/src/registry.ts 讀。 */
 section('重寫上線的工具');
 const registrySrc = read('web/src/registry.ts');
 const registryEntries = registrySrc.split(/\n  \{\n/).slice(1).map(block => ({
@@ -393,163 +94,36 @@ const registryEntries = registrySrc.split(/\n  \{\n/).slice(1).map(block => ({
   live: /status: 'live'/.test(block)
 }));
 const REWRITTEN = registryEntries.filter(e => e.live).map(e => e.id);
-check('registry 解析出已上線的工具', REWRITTEN.length >= 1, REWRITTEN.join(', '));
+check('registry 解析出已上線的工具', REWRITTEN.length >= 40, REWRITTEN.join(', '));
+const readme = read('README.md');
+const attribution = read('ATTRIBUTION.md');
 for (const id of REWRITTEN) {
   check(`repo 裡沒有 tools/${id}/（舊版已刪、建置產物不提交）`, !exists(`tools/${id}`));
   const page = read(`web/src/tools/${id}/index.html`);
   check(`web/src/tools/${id}/index.html 只有繁中（沒有 i18n 引擎）`, /<html lang="zh-Hant-TW">/.test(page) && !page.includes('assets/i18n.js'));
   check(`web/src/tools/${id}/ 有原始碼與 strings.ts`, exists(`web/src/tools/${id}/App.tsx`) && exists(`web/src/tools/${id}/strings.ts`));
   check(`docs/refactor/specs/${id}.md 有對等驗證紀錄`, /## 6\. 對等驗證紀錄[\s\S]*\| F0*1 \| (?:✅|⚠️|通過)/.test(read(`docs/refactor/specs/${id}.md`)));
-  check(`README.md 把 ${id} 列在重寫的工具`, new RegExp(`\\| \`${id}\` \\|`).test(read('README.md').split('## 本站重寫的工具')[1] || ''));
-  check(`ATTRIBUTION.md 把 ${id} 列在靈感來源`, new RegExp(`\\| \`${id}\` \\|`).test(read('ATTRIBUTION.md').split('## 本站重寫的工具（靈感來源）')[1] || ''));
-}
-check('LICENSE 的涵蓋範圍寫進了 web/ 與無塵室開發的 text-fx', read('LICENSE').includes('`web/` framework') && read('LICENSE').includes('tools/text-fx/'));
-
-
-/* ---- 內嵌文字與 zh-TW 字典一致 ---- */
-/* 六個頁面（五個工具＋首頁）在 script 執行前顯示的畫面，其 HTML 內嵌文字必須
- * 與該頁 zh-TW 字典值逐字相同——這正是頁面能在任何腳本執行前就正確顯示繁體中文
- * 的原因。目前其餘檢查只驗證標記引用的 key「存在」，從未比對內嵌文字本身是否
- * 等於字典值，兩者可能各自修改而悄悄分歧；一旦分歧，畫面會在 i18n 初始化時
- * 「閃字」：使用者先看到一個字串，隨即被換成字典裡的另一個字串。
- *
- * 只比對「簡單形式」的 data-i18n：屬性值就是 key，元素內容是不含巢狀標籤的
- * 純文字，例如 <h1 data-i18n="key">文字</h1>。刻意排除的僅剩兩者：
- *   - data-i18n-node：內容本身是巢狀標籤組成的結構，並非單一文字節點；
- *   - data-i18n-html：注入的是 HTML 片段而非純文字。
- * 這兩種情況下，正規表示式無法可靠取得「應比對的那段文字」，勉強比對只會
- * 產生假陽性或假陰性，因此不在此檢查範圍內。
- *
- * data-i18n-title / data-i18n-aria-label / data-i18n-placeholder 原先也被排除，
- * 理由是「regex 無法可靠讀取」——這個理由其實不成立：這三者鎖定的是同一標籤上
- * 的另一個屬性（title / aria-label / placeholder），屬性配對其實比對元素內文
- * 更容易可靠比對，兩者都在同一個開始標籤的字串內，順序不拘，直接取出比對即可。
- * 這三者改由下方獨立的「inline attribute vs zh-TW dictionary」檢查涵蓋。 */
-section('inline text vs zh-TW dictionary');
-
-/* 擷取 <tag ... data-i18n="key" ...>文字</tag>：
- * - `\bdata-i18n="` 前後以 [^>]* 允許任意數量、任意順序的其他屬性（包含
- *   同一元素上額外的 data-i18n-title 等變體），但literal "data-i18n=\""
- *   這個子字串不會出現在 "data-i18n-title=\"" 之類的變體屬性中，故不會誤取。
- * - 以反向參照 \1 要求收尾標籤與開頭標籤同名，確保 [^<]* 取到的文字沒有
- *   跨過巢狀標籤——若內容含巢狀標籤，[^<]* 會在遇到內層的 `<` 時停止，
- *   導致後面無法接上 `</同名標籤>`，該元素就不會被比對到（正確地略過，
- *   而不是取到錯誤的片段文字）。 */
-const INLINE_TEXT_RE = /<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\sdata-i18n="([^"]+)"[^>]*>([^<]*)<\/\1>/g;
-
-const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: '\u00a0' };
-const decodeEntities = text => text.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, name) => ENTITIES[name]);
-
-function checkInlineText(label, htmlPath, dictPaths, minCompared) {
-  const html = read(htmlPath);
-  const dict = loadI18N(dictPaths).messages['zh-TW'];
-  let compared = 0;
-  const mismatches = [];
-  for (const m of html.matchAll(INLINE_TEXT_RE)) {
-    const key = m[2];
-    if (!(key in dict)) continue; /* 未知 key 已由其他檢查把關，這裡不重複報告 */
-    compared += 1;
-    /* data-i18n 走 textContent，所以要比的是瀏覽器算繪後的文字，不是原始標記。 */
-    const text = decodeEntities(m[3].trim());
-    if (text !== dict[key]) mismatches.push(`${key}: html="${text}" 字典="${dict[key]}"`);
-  }
-  check(`${label} 內嵌文字與 zh-TW 字典一致（比對了 ${compared} 個元素）`,
-    mismatches.length === 0, mismatches.slice(0, 10).join('\n       '));
-  /* 比對數量若遠低於預期，代表 regex 沒抓到東西，比「頁面本身沒問題」更值得懷疑。 */
-  check(`${label} 比對數量達最低門檻 ${minCompared}`, compared >= minCompared, `got: ${compared}`);
-}
-
-for (const page of LAB_PAGES) {
-  checkInlineText(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.inline);
-}
-
-/* ---- 內嵌屬性與 zh-TW 字典一致 ---- */
-/* data-i18n-title / data-i18n-aria-label / data-i18n-placeholder 各鎖定同一標籤上
- * 的 title / aria-label / placeholder 屬性；那個屬性的靜態值同樣必須與 zh-TW
- * 字典逐字相同，理由與上面的內嵌文字檢查一致（避免 script 執行前後「閃字」）。
- *
- * 做法：先用 ATTR_TAG_RE 逐一取出完整的開始標籤字串（例如
- * `<button ... data-i18n-title="k" title="文字" ...>`），標籤內的屬性順序不拘，
- * 兩個屬性都在同一段字串內，直接各自以 regex 取值再比較即可，不需要像內文
- * 檢查那樣處理巢狀標籤或反向參照。
- *
- * 每個屬性值的 regex 前面加上 (?<![-a-z])，是為了避免：
- *   - "title="  誤配到 "data-i18n-title=\"...\"" 尾端那段 "title=\"...\""
- *     （其前一個字元是連字號 "-"，會被此負向後顧排除）；
- *   - "aria-label=" 同理，避免誤配到 "data-i18n-aria-label=\"...\"" 尾端；
- *     這裡比對的是完整字面值 "aria-label="，而非鬆散的 "label="，因此也不會
- *     被其他帶有 "label" 的無關屬性誤配；
- *   - "placeholder=" 同理，避免誤配到 "data-i18n-placeholder=\"...\"" 尾端。
- * 三者皆與 data-i18n（不含 -title/-aria-label/-placeholder 後綴）的比對邏輯
- * 相同：literal 子字串 "title=\""／"aria-label=\""／"placeholder=\"" 不會出現
- * 在對應的 data-i18n-* 變體屬性名稱中間，只會出現在其「值」的部分，
- * 負向後顧排除的正是這種情況。
- *
- * data-i18n-node 與 data-i18n-html 依然不在此檢查範圍內：見上方內嵌文字檢查的
- * 說明，原因不變。 */
-section('inline attribute vs zh-TW dictionary');
-
-const ATTR_TAG_RE = /<[a-zA-Z][a-zA-Z0-9]*\b[^>]*>/g;
-const ATTR_PAIRS = [
-  { i18nAttr: /data-i18n-title="([^"]+)"/, valAttr: /(?<![-a-z])title="([^"]*)"/, name: 'title' },
-  { i18nAttr: /data-i18n-aria-label="([^"]+)"/, valAttr: /(?<![-a-z])aria-label="([^"]*)"/, name: 'aria-label' },
-  { i18nAttr: /data-i18n-placeholder="([^"]+)"/, valAttr: /(?<![-a-z])placeholder="([^"]*)"/, name: 'placeholder' },
-  { i18nAttr: /data-i18n-alt="([^"]+)"/, valAttr: /(?<![-a-z])alt="([^"]*)"/, name: 'alt' }
-];
-
-function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
-  const html = read(htmlPath);
-  const dict = loadI18N(dictPaths).messages['zh-TW'];
-  let compared = 0;
-  const mismatches = [];
-  for (const tagMatch of html.matchAll(ATTR_TAG_RE)) {
-    const tag = tagMatch[0];
-    for (const { i18nAttr, valAttr, name } of ATTR_PAIRS) {
-      const keyM = tag.match(i18nAttr);
-      if (!keyM) continue;
-      const key = keyM[1];
-      if (!(key in dict)) continue; /* 未知 key 已由其他檢查把關，這裡不重複報告 */
-      compared += 1;
-      const valM = tag.match(valAttr);
-      const text = valM ? valM[1] : undefined;
-      if (text !== dict[key]) {
-        mismatches.push(`${name}[${key}]: html=${JSON.stringify(text)} 字典=${JSON.stringify(dict[key])}`);
-      }
-    }
-  }
-  check(`${label} 屬性內嵌值與 zh-TW 字典一致（比對了 ${compared} 組屬性）`,
-    mismatches.length === 0, mismatches.slice(0, 10).join('\n       '));
-  /* 比對數量若遠低於預期，代表 regex 沒抓到東西，比「頁面本身沒問題」更值得懷疑。 */
-  check(`${label} 屬性比對數量達最低門檻 ${minPairs}`, compared >= minPairs, `got: ${compared}`);
-}
-
-for (const page of LAB_PAGES) {
-  checkAttrPairs(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.attrs);
+  check(`README.md 把 ${id} 列在重寫的工具`, new RegExp(`\\| \`${id}\` \\|`).test(readme.split('## 本站重寫的工具')[1] || ''));
+  check(`ATTRIBUTION.md 把 ${id} 列在靈感來源`, new RegExp(`\\| \`${id}\` \\|`).test(attribution.split('## 本站重寫的工具（靈感來源）')[1] || ''));
 }
 
 /* ---- 文件 ---- */
 section('docs');
-check('ATTRIBUTION.md 存在', exists('ATTRIBUTION.md'));
-check('README.md 存在', exists('README.md'));
-check('根目錄 LICENSE 存在', exists('LICENSE'));
-
-const attribution = read('ATTRIBUTION.md');
-/* 已上線的工具在「重寫上線的工具」一節檢查；這裡檢查還沒重寫完的舊版工具與連到原站的工具。 */
-for (const name of [...LEGACY_LINKS, 'jizura']) {
-  check(`ATTRIBUTION.md 記載 ${name}`, attribution.includes(name));
-}
+check('ATTRIBUTION.md、README.md、LICENSE 存在', exists('ATTRIBUTION.md') && exists('README.md') && exists('LICENSE'));
+const licence = read('LICENSE');
+check('LICENSE 涵蓋整個 repo（web/ 新框架、無塵室開發的 text-fx、文件、測試、轉址頁）',
+  licence.includes('`web/` framework') && licence.includes('text-fx') && licence.includes('redirect pages'));
+/* 收錄過副本的上游 commit 留在 ATTRIBUTION（舊版的出處）。 */
 for (const sha of ['d39f79e', '1b48bea', '7ddbd99']) {
-  check(`ATTRIBUTION.md 記載來源 commit ${sha}`, attribution.includes(sha));
+  check(`ATTRIBUTION.md 記載上游的 commit ${sha}`, attribution.includes(sha));
 }
-
-/* 需要另外建置的上游專案（cutin、obs-tachie、character-editor）都已由本站重寫，vendor/ 不再存在。 */
-check('不再收錄需要建置的上游專案（vendor/）', !exists('vendor'));
-/* ATTRIBUTION 與 README 之間的錨點連結：標題改了就會失效。 */
-check('ATTRIBUTION.md 說明 jizura 改為連到原作者網站的官方繁中版',
+check('ATTRIBUTION.md 說明 jizura 連到原作者網站的官方繁中版',
   /## jizura：JIZURA 字面（連到原站）(?=[\s\S]*Zaious)(?=[\s\S]*zh-hant\/)/.test(attribution));
+check('ATTRIBUTION.md 說明 TRPG 實驗室的作者保留權利的素材不收',
+  /間取り図[\s\S]*dice_sound\.wav/.test(attribution));
+check('README.md 沒有語言切換的說明（只有繁體中文）', !readme.includes('## 語言') && !readme.includes('trpg-toolkit-locale'));
 
 const pkg = JSON.parse(read('package.json'));
-check('package.json 無執行期相依',
-  !pkg.dependencies && !pkg.devDependencies);
+check('package.json 無執行期相依', !pkg.dependencies && !pkg.devDependencies);
 
 process.exit(summary() ? 1 : 0);

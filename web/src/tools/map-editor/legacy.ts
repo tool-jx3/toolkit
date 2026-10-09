@@ -115,13 +115,21 @@ function convertObject(o: Json, opts: ConvertOptions): Json | null {
   if (typeof out.type === 'string' && TYPE_MAP[out.type]) out.type = TYPE_MAP[out.type];
   if (typeof out.version === 'string') out.version = FABRIC_VERSION;
 
-  /* 拿掉的內建貼圖 → 單色（舊版 replaceRemovedPatterns） */
+  /*
+   * 拿掉的內建貼圖 → 單色（舊版 replaceRemovedPatterns）。圖片存在物件裡（data URL）的自訂圖樣，
+   * 圖樣從這張地圖刪掉之後也照舊顯示（F113：刪除時說「已經畫好的物件不受影響」；舊版重新開啟時會變單色）。
+   */
   let solid: string | null = null;
   const st = out._patternState;
+  const embedded = (['fill', 'stroke'] as const).some((prop) => {
+    const v = out[prop];
+    return isPattern(v) && typeof v.source === 'string' && v.source.startsWith('data:');
+  });
   if (
     isObj(st) &&
     st.mode === 'pattern' &&
-    !(typeof st.id === 'string' && opts.patternIds.has(st.id))
+    !(typeof st.id === 'string' && opts.patternIds.has(st.id)) &&
+    !embedded
   ) {
     const id = typeof st.id === 'string' ? st.id : '';
     solid =

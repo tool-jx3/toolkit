@@ -40,7 +40,7 @@ import {
   styleOfDash,
   thumbSize,
 } from '../geometry';
-import { CELL_SIZE, MAP_DATA_VERSION, type MapData, type MapPrefs } from '../model';
+import { CELL_SIZE, MAP_DATA_VERSION, type MapData, type MapPrefs, prunePatterns } from '../model';
 import {
   type EditorState,
   flashStatus,
@@ -100,6 +100,12 @@ interface TwoPoint {
 }
 
 const DRAG_THRESHOLD = 6;
+
+/** 觸控的指標事件（Fabric 預設用 pointer events；舊式的 TouchEvent 也算） */
+function isTouch(e: TPointerEvent): boolean {
+  if ((e as PointerEvent).pointerType === 'touch') return true;
+  return typeof TouchEvent !== 'undefined' && e instanceof TouchEvent;
+}
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 20;
 
@@ -333,15 +339,19 @@ export class MapEngine {
 
   /** 地圖資料（3.1） */
   serialize(): MapData {
+    const prefs = mapPrefsNow();
+    const canvas = this.canvasJson();
     return {
-      ...mapPrefsNow(),
+      ...prefs,
+      /* 刪掉了、也沒有物件用到的自訂圖樣不存（F113） */
+      userPatterns: prunePatterns(prefs.userPatterns, canvas),
       version: MAP_DATA_VERSION,
       cellSize: this.cellSize,
       gridType: this.gridType,
       nextLayerId: this.nextLayerId,
       layerCounters: { ...this.layerCounters },
       viewportTransform: [...this.canvas.viewportTransform],
-      canvas: this.canvasJson(),
+      canvas,
     };
   }
 
@@ -860,6 +870,8 @@ export class MapEngine {
     const isSelect = tool === 'select';
     c.selection = isSelect;
     if (!isSelect) c.discardActiveObject();
+    /* 圖層清單的選取也清掉（F024，同舊版）；格子、手繪工具在下面對準要畫的圖層 */
+    if (!isSelect && useEditor.getState().selectedIds.length) setEditor({ selectedIds: [] });
     this.applyInteractivity();
     if (tool === 'cell') {
       const top = mapLayers(c)
@@ -1285,6 +1297,16 @@ export class MapEngine {
     if (!this.two || this.two.kind !== kind) {
       this.two = { kind, start: q, pressed: true, dragged: false, downClient: this.clientOf(e) };
       if (kind === 'export') setEditor({ exportRect: null });
+      return;
+    }
+    if (isTouch(e)) {
+      /*
+       * 觸控：第二點在手指放開時才完成（放開的位置）。兩指縮放的第一指也是一次按下，
+       * 當場完成的話會在那裡多出一個圖形；放開前第二指落下時整個取消（F033，abortInProgress）。
+       */
+      this.two.pressed = true;
+      this.two.dragged = true;
+      this.two.downClient = this.clientOf(e);
       return;
     }
     this.twoPointFinish(q);
@@ -1934,11 +1956,18 @@ export class MapEngine {
     /* 接著 Fabric 會發 object:modified（內容有改時）：已經在這裡記了一步，那一次略過 */
     this.textJustExited = t;
     if (t._isMapText && (t.text ?? '').trim() === '') {
-      this.canvas.remove(t);
-      this.canvas.discardActiveObject();
-      this.canvas.requestRenderAll();
-      if (before !== null && before !== '') this.push(S.hist.textDelete);
-      this.queueSync();
+      /*
+       * Fabric 發完 text:editing:exited 之後還會用 this.canvas 發 object:modified：當場拿掉的話
+       * 文字的 canvas 已經是 undefined，丟出 TypeError（F150；舊版也會）。等這一輪事件發完再拿掉。
+       */
+      queueMicrotask(() => {
+        if (!this.canvas.getObjects().includes(t)) return;
+        this.canvas.remove(t);
+        if (this.canvas.getActiveObject() === t) this.canvas.discardActiveObject();
+        this.canvas.requestRenderAll();
+        if (before !== null && before !== '') this.push(S.hist.textDelete);
+        this.queueSync();
+      });
       return;
     }
     this.canvas.requestRenderAll();

@@ -2,7 +2,7 @@
   "name": "trpg-toolkit",
   "version": "1.0.0",
   "private": true,
-  "description": "sotsotssi 製作的網頁小工具合輯，附繁體中文介面",
+  "description": "TRPG 網頁工具合輯（繁體中文）；網站在 web/，這裡只有 repo 的靜態檢查",
   "scripts": {
     "test": "node tests/smoke.mjs"
   },

@@ -190,9 +190,3 @@ export function applyPatternStateToTarget(
   applyPatternOrigin(target);
   target.dirty = true;
 }
-
-/** 刪掉自訂圖樣時清快取 */
-export function forgetPattern(id: string): void {
-  images.delete(id);
-  for (const k of [...scaledSources.keys()]) if (k.startsWith(`${id}@`)) scaledSources.delete(k);
-}

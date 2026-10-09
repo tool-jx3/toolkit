@@ -19,6 +19,11 @@ export interface ItemListEditorProps<T> {
   getName: (item: T) => string;
   /** 名稱空白時的佔位（預設「未命名」） */
   placeholder?: string;
+  /**
+   * 每一項自己的佔位（選填，coc-sheet 加的）：名稱空白時顯示這個（例如角色卡名稱空白時顯示調查員姓名），
+   * 改名欄的灰字、無障礙名稱、刪除鈕都用它；不給時與以前相同（`placeholder`）。
+   */
+  getPlaceholder?: (item: T) => string;
   /** 清單的無障礙名稱 */
   'aria-label': string;
   /** 標題（會在後面附上數量）；不給就不顯示標題列（新增按鈕仍會顯示） */
@@ -51,6 +56,7 @@ export function ItemListEditor<T>({
   getId,
   getName,
   placeholder = '未命名',
+  getPlaceholder,
   title,
   selectedId,
   onSelect,
@@ -117,7 +123,8 @@ export function ItemListEditor<T>({
             const id = getId(item);
             const name = getName(item);
             const selected = selectedId === id;
-            const label = name.trim() || placeholder;
+            const hint = getPlaceholder?.(item) || placeholder;
+            const label = name.trim() || hint;
             return (
               <li
                 key={id}
@@ -134,7 +141,7 @@ export function ItemListEditor<T>({
                         data-item-name=""
                         aria-label={`${renameLabel}（${label}）`}
                         value={name}
-                        placeholder={placeholder}
+                        placeholder={hint}
                         onChange={(e) => onRename(id, e.target.value)}
                       />
                     ) : onSelect ? (

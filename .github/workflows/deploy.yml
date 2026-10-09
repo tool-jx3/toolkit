@@ -48,6 +48,11 @@ jobs:
         working-directory: web
         run: npm run typecheck
 
+      # 和舊版並排比對的單元測試要讀舊版的檔案；舊版已從 repo 刪除，從它們最後所在的 main commit 取回
+      # （只取那兩個 commit，不取整個歷史；web/tests/helpers/legacySource.ts、animeRigLegacy.ts）。
+      - name: 取回舊版（並排比對用）
+        run: git fetch --no-tags --depth=1 origin 6957b284d8b7eae895623cebc554ac62683b61d3 6b497bd363545620c4b44963a3dc8ded2e9a2d13
+
       - name: 單元測試
         working-directory: web
         run: npm test

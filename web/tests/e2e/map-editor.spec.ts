@@ -848,7 +848,9 @@ test.describe('地圖工具', () => {
     expect(errors).toEqual([]);
   });
 
-  test('自訂圖樣：上傳、用在地面與牆壁、刪除後改回單色', async ({ page }) => {
+  test('自訂圖樣：上傳、用在地面（矩形、格子）與牆壁、刪除後選擇改回單色、畫好的物件重新開啟後也不變', async ({
+    page,
+  }) => {
     const errors = await openList(page);
     await createMap(page);
     await tool(page, 'ground').click();
@@ -868,6 +870,12 @@ test.describe('地圖工具', () => {
     expect(g.fillIsPattern).toBe(true);
     expect((g._patternState as { mode: string }).mode).toBe('pattern');
     expect(g._patternScale).toBe(0.5);
+    /* 格子形狀的地面也用這個圖樣 */
+    await pickOption(page, '形狀', '格子');
+    await clickAt(page, 252, 36);
+    const cellFill = async () =>
+      ((await detail(page, '地面_格子1')).objects as { fill: unknown }[] | undefined)?.[0]?.fill;
+    expect(await cellFill()).toMatchObject({ type: 'pattern' });
     /* 太大的檔案 */
     const big = page.waitForEvent('filechooser');
     await page.getByTestId('ground-pattern').getByTestId('pattern-add').click();
@@ -901,6 +909,24 @@ test.describe('地圖工具', () => {
       page.getByTestId('wall-pattern').getByRole('button', { name: '單色' }),
     ).toHaveAttribute('aria-pressed', 'true');
     expect((await detail(page, '牆_矩形1')).strokeIsPattern).toBe(true);
+    expect(await cellFill()).toMatchObject({ type: 'pattern' });
+    /* 重新開啟後也不變：圖片存在物件裡（F113；舊版重新開啟時會改成單色） */
+    await page.keyboard.press('Control+s');
+    await expect(page.getByRole('status').filter({ hasText: /^已儲存$/ })).toBeVisible();
+    await page.reload();
+    await ready(page);
+    const g2 = await detail(page, '地面_矩形1');
+    expect(g2.fillIsPattern).toBe(true);
+    expect((g2._patternState as { mode: string }).mode).toBe('pattern');
+    const w2 = await detail(page, '牆_矩形1');
+    expect(w2.strokeIsPattern).toBe(true);
+    expect((w2._patternState as { mode: string }).mode).toBe('pattern');
+    expect(await cellFill()).toMatchObject({ type: 'pattern' });
+    /* 圖樣清單不再列出刪掉的圖樣 */
+    await tool(page, 'ground').click();
+    await expect(
+      page.getByTestId('ground-pattern').getByRole('button', { name: '石板', exact: true }),
+    ).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
@@ -914,6 +940,7 @@ test.describe('地圖工具', () => {
     await moveTo(page, 30, 40);
     await expect.poll(async () => (await previewInfo(page)).count).toBeGreaterThan(0);
     await clickAt(page, 36, 36);
+    await expect.poll(() => names(page)).toEqual(['裝飾_床1']);
     const bed = (await objects(page))[0];
     expect(bed).toMatchObject({ name: '裝飾_床1', cx: 36, cy: 36 });
     expect(Math.max(bed.w, bed.h)).toBeCloseTo(72, 0);
@@ -921,6 +948,7 @@ test.describe('地圖工具', () => {
     await expect(page.getByRole('spinbutton', { name: '旋轉', exact: true })).toHaveValue('30');
     await page.getByRole('button', { name: '水平' }).click();
     await clickAt(page, 180, 36);
+    await expect.poll(() => names(page)).toContain('裝飾_床2');
     const d2 = await detail(page, '裝飾_床2');
     expect(d2.angle).toBe(30);
     /* 負的縮放：Fabric 換成 flipX（舊版亦同） */
@@ -931,6 +959,8 @@ test.describe('地圖工具', () => {
     await setNumber(page, '大小', 200);
     await setColor(page, '填色', '#ff0000ff');
     await clickAt(page, 36, 180);
+    /* 放置是非同步的（第一次用的圖章要先載入 SVG） */
+    await expect.poll(() => names(page)).toContain('裝飾_學校1');
     const sc = await detail(page, '裝飾_學校1');
     expect(String(sc._decorFill).slice(0, 7)).toBe('#ff0000');
     expect(sc._decorScale).toBe(2);
@@ -1747,6 +1777,8 @@ test.describe('共用元件（元件展示頁）', () => {
     await expect(menu.getByRole('menuitem')).toHaveText(['重新命名', '鎖定', '刪除']);
     await expect(menu.getByRole('menuitem').first()).toBeFocused();
     await page.keyboard.press('ArrowDown');
+    /* Radix 在 setTimeout 裡才移動焦點：等移到第二項再按 Enter */
+    await expect(menu.getByRole('menuitem').nth(1)).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByText('選了：鎖定')).toBeVisible();
     await target.focus();
@@ -1904,5 +1936,232 @@ test.describe('面板的其他控制項', () => {
     await expect(page.getByTestId('export-banner')).toBeVisible();
     await expect(page.getByTestId('export-dialog')).toHaveCount(0);
     expect(errors).toEqual([]);
+  });
+});
+
+test.describe('對等驗證後的修正（7.1）', () => {
+  type Pt = { key: string; x: number; y: number };
+  /** 選取中物件看得到的控制點（視窗座標，只列在畫布範圍內的） */
+  async function controlPoints(page: Page): Promise<Pt[]> {
+    return page.evaluate(() => {
+      const c = (
+        window as unknown as {
+          __mapEditor: {
+            engine: {
+              canvas: {
+                upperCanvasEl: HTMLCanvasElement;
+                getActiveObject(): {
+                  setCoords(): void;
+                  isControlVisible(key: string): boolean;
+                  oCoords: Record<string, { x: number; y: number }>;
+                } | null;
+              };
+            };
+          };
+        }
+      ).__mapEditor.engine.canvas;
+      const o = c.getActiveObject();
+      if (!o) return [];
+      o.setCoords();
+      const r = c.upperCanvasEl.getBoundingClientRect();
+      return Object.entries(o.oCoords)
+        .filter(([k]) => o.isControlVisible(k))
+        .map(([key, p]) => ({ key, x: r.left + p.x, y: r.top + p.y }))
+        .filter((p) => p.x > r.left && p.x < r.right && p.y > r.top && p.y < r.bottom);
+    });
+  }
+
+  /** 控制點上面是畫布（沒有被動作列或其他東西蓋住） */
+  async function covered(page: Page, pts: Pt[]): Promise<string[]> {
+    return page.evaluate(
+      (list) =>
+        list
+          .filter((p) => document.elementFromPoint(p.x, p.y)?.tagName !== 'CANVAS')
+          .map((p) => p.key),
+      pts,
+    );
+  }
+
+  test('F051：動作列不擋住控制點，拖曳旋轉控制點可以旋轉（轉過之後、物件靠近上緣時也一樣）', async ({
+    page,
+  }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    await drawRect(page, [0, 0], [144, 72]);
+    await page.keyboard.press('v');
+    await clickAt(page, 72, 36);
+    await expect(page.getByTestId('action-bar')).toBeVisible();
+    const pts = await controlPoints(page);
+    expect(pts.map((p) => p.key)).toContain('mtr');
+    expect(await covered(page, pts)).toEqual([]);
+    const h = pts.find((p) => p.key === 'mtr') as Pt;
+    await page.mouse.move(h.x, h.y);
+    await page.mouse.down();
+    await page.mouse.move(h.x + 120, h.y + 90, { steps: 8 });
+    await page.mouse.up();
+    const angle = Number((await detail(page, '矩形1')).angle);
+    expect(angle).toBeGreaterThan(20);
+    expect(angle).toBeLessThan(160);
+    /* 轉過之後控制點換了位置：動作列仍然不擋 */
+    await expect.poll(async () => covered(page, await controlPoints(page))).toEqual([]);
+
+    /* 靠近畫布上緣（上方放不下，動作列放到下方）：下方的控制點也不擋 */
+    const top = await page.evaluate(() => {
+      const e = (
+        window as unknown as {
+          __mapEditor: {
+            engine: {
+              canvas: { upperCanvasEl: HTMLCanvasElement };
+              worldToClient(x: number, y: number): { x: number; y: number };
+            };
+          };
+        }
+      ).__mapEditor.engine;
+      const r = e.canvas.upperCanvasEl.getBoundingClientRect();
+      const o = e.worldToClient(0, 0);
+      return Math.ceil((r.top + 4 - o.y) / 72) * 72;
+    });
+    await drawRect(page, [-216, top], [-72, top + 72]);
+    await page.keyboard.press('v');
+    await clickAt(page, -144, top + 36);
+    await expect(page.getByTestId('select-panel')).toContainText('矩形2');
+    await expect.poll(async () => covered(page, await controlPoints(page))).toEqual([]);
+    /* 動作列整個在控制點的上方或下方（1280×720 時上方放不下，放在下方） */
+    const bar = await page.getByTestId('action-bar').boundingBox();
+    const ys = (await controlPoints(page)).map((p) => p.y);
+    if (!bar) throw new Error('沒有動作列');
+    expect(bar.y + bar.height <= Math.min(...ys) || bar.y >= Math.max(...ys)).toBe(true);
+    expect(bar.y).toBeGreaterThan(Math.max(...ys));
+    expect(errors).toEqual([]);
+  });
+  test('F122：多個形狀的 SVG 圖章以 SVG 的畫布（不是內容的外接框）的長邊對齊一格，和舊版同大', async ({
+    page,
+  }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    await tool(page, 'decor').click();
+    /* 水田：250×250 的畫布、內容只佔中間一部分（舊版 72×72；用內容的外接框時會變大） */
+    await page.locator('[data-decor="jp-rice-field"]').click();
+    await moveTo(page, 30, 40);
+    await expect.poll(async () => (await previewInfo(page)).count).toBeGreaterThan(0);
+    await clickAt(page, 36, 36);
+    await expect.poll(() => names(page)).toEqual(['裝飾_水田1']);
+    const o = (await objects(page))[0];
+    expect(o.w).toBeCloseTo(72, 1);
+    expect(o.h).toBeCloseTo(72, 1);
+    expect(o).toMatchObject({ cx: 36, cy: 36 });
+    expect(errors).toEqual([]);
+  });
+  test('F150：既有的文字刪成空白後結束編輯：刪掉文字、記一步「刪除文字」、主控台沒有錯誤（Esc、點別處、切工具）', async ({
+    page,
+  }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    const finish = [
+      () => page.keyboard.press('Escape'),
+      /* 文字工具點別處：結束編輯，在那裡開始一段新的文字（空白，Esc 就消失、不記步驟） */
+      async () => {
+        await clickAt(page, 300, 200);
+        await page.keyboard.press('Escape');
+      },
+      () => tool(page, 'rect').click(),
+    ];
+    for (const end of finish) {
+      await page.keyboard.press('t');
+      await clickAt(page, 0, 0);
+      await page.keyboard.type('XYZ');
+      await page.keyboard.press('Escape');
+      await expect.poll(async () => (await names(page)).length).toBe(1);
+      await page.keyboard.press('t');
+      await clickAt(page, 20, 20);
+      await page.keyboard.press('Control+a');
+      await page.keyboard.press('Backspace');
+      await end();
+      await expect.poll(() => names(page)).toEqual([]);
+      await expect(statusMsg(page)).toHaveText('刪除文字');
+    }
+    expect(errors).toEqual([]);
+  });
+  test('F173：自動儲存關著時改過，再打開自動儲存：約 2.5 秒後存好（同舊版）', async ({ page }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    await page.getByRole('tab', { name: '地圖設定' }).click();
+    const toggle = page.getByTestId('settings-panel').getByRole('switch', { name: '自動儲存' });
+    await toggle.click();
+    await drawRect(page, [-200, -200], [-100, -100]);
+    await expect(page.getByTestId('save-status')).toHaveText('未儲存');
+    await page.getByRole('tab', { name: '地圖設定' }).click();
+    await toggle.click();
+    await expect(toggle).toBeChecked();
+    await saved(page);
+    expect(errors).toEqual([]);
+  });
+  test('F024：選取物件後切到作圖工具，圖層清單的選取標示也清掉（同舊版）；格子工具照舊對準格子圖層', async ({
+    page,
+  }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    await drawRect(page, [0, 0], [144, 72]);
+    await page.keyboard.press('v');
+    await clickAt(page, 72, 36);
+    await expect(layerRow(page, '矩形1')).toHaveAttribute('data-selected', 'true');
+    await tool(page, 'ellipse').click();
+    await expect(layerRow(page, '矩形1')).not.toHaveAttribute('data-selected', /.*/);
+    /* 格子工具：對準最上面的格子圖層（F094） */
+    await page.keyboard.press('b');
+    await clickAt(page, 252, 36);
+    await page.keyboard.press('v');
+    await clickAt(page, 72, 36);
+    await page.keyboard.press('b');
+    await expect(layerRow(page, '格子1')).toHaveAttribute('data-selected', 'true');
+    await expect(layerRow(page, '矩形1')).not.toHaveAttribute('data-selected', /.*/);
+    expect(errors).toEqual([]);
+  });
+  test('F033：觸控時點一下後兩指縮放，矩形取消、不會多出一個（第二點在手指放開時才完成）；單指點兩下照常畫', async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+      isMobile: true,
+      locale: 'zh-TW',
+      colorScheme: 'dark',
+    });
+    const page = await context.newPage();
+    const errors = await openList(page);
+    await createMap(page);
+    const cdp = await context.newCDPSession(page);
+    const pt = async (x: number, y: number) => toClient(page, x, y);
+    const tap = async (x: number, y: number) => {
+      const c = await pt(x, y);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [c] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+    await tool(page, 'rect').click();
+    /* 點一下（第一點），接著兩指縮放：第一指落下時還不完成，第二指落下就取消 */
+    await tap(-72, -72);
+    const z0 = await page.getByTestId('status-zoom').textContent();
+    const a = await pt(0, 0);
+    const b = await pt(72, 0);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [a] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [a, b] });
+    for (const d of [10, 20, 30])
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [
+          { x: a.x - d, y: a.y },
+          { x: b.x + d, y: b.y },
+        ],
+      });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(page.getByTestId('status-zoom')).not.toHaveText(z0 ?? '');
+    expect(await names(page)).toEqual([]);
+    expect(await previewInfo(page)).toMatchObject({ count: 0 });
+    /* 單指點兩下：照常畫出矩形 */
+    await tap(0, 0);
+    await tap(72, 72);
+    await expect.poll(() => names(page)).toEqual(['矩形1']);
+    expect(errors).toEqual([]);
+    await context.close();
   });
 });

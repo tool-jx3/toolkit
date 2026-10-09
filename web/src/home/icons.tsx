@@ -18,6 +18,7 @@ import {
   Gauge,
   Grid3x3,
   HeartHandshake,
+  Highlighter,
   IdCard,
   Images,
   Keyboard,
@@ -40,6 +41,7 @@ import {
   Palette,
   Ruler,
   Scaling,
+  ScanEye,
   ScanFace,
   ScrollText,
   Smile,
@@ -63,6 +65,7 @@ const ICONS: Record<string, LucideIcon> = {
   'text-path': Spline,
   'collage-letter': Mail,
   textbox: Table,
+  'discord-color': Highlighter,
   /* G2 轉場與動態 */
   'scene-transition': Clapperboard,
   'apng-wipe': Blend,
@@ -100,6 +103,7 @@ const ICONS: Record<string, LucideIcon> = {
   'character-select': Users,
   'magic-circle': Orbit,
   'acrylic-goods': Box,
+  'ai-fail': ScanEye,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,

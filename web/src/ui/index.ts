@@ -223,6 +223,11 @@ export { Notice, type NoticeProps, type NoticeTone } from './Notice';
 export { NumberInput, type NumberInputProps } from './NumberInput';
 export { ObsGuide, type ObsGuideProps } from './ObsGuide';
 export {
+  OptionalNumberInput,
+  type OptionalNumberInputProps,
+  parseOptionalNumber,
+} from './OptionalNumberInput';
+export {
   PagedViewport,
   type PagedViewportHandle,
   type PagedViewportProps,

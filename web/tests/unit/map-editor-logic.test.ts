@@ -52,15 +52,21 @@ import {
   generateMapId,
   mapJsonFileName,
   newMapData,
+  prunePatterns,
   sanitizeMapData,
   sanitizeMapPrefs,
+  type UserPattern,
+  usedPatternIds,
 } from '@/tools/map-editor/model';
 import { unwrapMapJson } from '@/tools/map-editor/storage';
-import EDITOR_SRC from '../../../tools/trpg-lab/trpg_map_maker/map_editor.js?raw';
 import HEX_FIX from '../e2e/fixtures/map-editor/legacy-hex-flat.json';
 import SQUARE_FIX from '../e2e/fixtures/map-editor/legacy-square.json';
+import { legacySource } from '../helpers/legacySource';
 
 /* ---------- 舊版的原始碼 ---------- */
+
+/** 舊版的 map_editor.js（上線後從 git 歷史取回，見 helpers/legacySource.ts） */
+const EDITOR_SRC = await legacySource('tools/trpg-lab/trpg_map_maker/map_editor.js');
 
 /** 從舊版的 map_editor.js 取出一個頂層的 function 或 const（大括號配對），在給定的全域下執行 */
 function legacy<T>(name: string, scope: Record<string, unknown> = {}): T {
@@ -334,6 +340,12 @@ describe('舊版存檔的轉換', () => {
       getPatternDef: () => null,
     })(expected);
     const got = convertMapData({ version: 1, canvas: structuredClone(canvas) }).canvas.objects;
+    /* 唯一刻意的差異（F113，7.1）：圖片存在物件裡（data URL）的自訂圖樣，圖樣刪掉之後照舊保留（舊版改成單色） */
+    (expected.objects as Json[])[1] = structuredClone(canvas.objects[1] as Json);
+    expect(got[1]).toMatchObject({
+      _patternState: { mode: 'pattern', id: 'unknown-x' },
+      stroke: { type: 'pattern', source: 'data:image/png;base64,AAA' },
+    });
     /* 預覽刪掉、型別名稱換掉，其餘與舊版相同 */
     const norm = (list: Json[]): Json[] =>
       list
@@ -624,5 +636,53 @@ describe('復原的步驟（F185、F186）', () => {
     expect(u.h.size).toBe(1);
     expect(await u.h.undo()).toBe('拖滑桿');
     expect(u.get()).toBe(0);
+  });
+});
+
+describe('刪掉的自訂圖樣（F113，7.1）', () => {
+  const pat = (id: string, removed?: boolean): UserPattern => ({
+    id,
+    name: id,
+    type: 'raster',
+    dataUrl: 'data:image/png;base64,AAA',
+    color: '#888888',
+    scale: 0.5,
+    ground: 'user',
+    wall: 'user',
+    ...(removed ? { removed: true } : {}),
+  });
+  const canvas = {
+    objects: [
+      { type: 'rect', _patternState: { mode: 'pattern', id: 'a' } },
+      { type: 'rect', _patternState: { mode: 'solid', id: 'x' } },
+      {
+        type: 'group',
+        objects: [
+          {
+            type: 'group',
+            _cellEntries: [
+              { col: 0, row: 0, mode: 'pattern', patternId: 'b' },
+              { col: 1, row: 0, mode: 'solid', patternId: 'y' },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it('用到的圖樣：物件的選擇（只算圖樣模式）、群組裡的格子', () => {
+    expect([...usedPatternIds(canvas)].sort()).toEqual(['a', 'b']);
+    expect(usedPatternIds(null).size).toBe(0);
+  });
+
+  it('儲存時：刪掉而且沒人用的拿掉，刪掉但還有物件用的留著，沒刪的都留著', () => {
+    const list = [pat('a', true), pat('b', true), pat('c', true), pat('d')];
+    expect(prunePatterns(list, canvas).map((p) => p.id)).toEqual(['a', 'b', 'd']);
+    expect(prunePatterns([pat('d')], { objects: [] }).map((p) => p.id)).toEqual(['d']);
+  });
+
+  it('讀檔時保留 removed（舊版的存檔沒有這個欄位）', () => {
+    const prefs = sanitizeMapPrefs({ userPatterns: [pat('a', true), pat('b')] });
+    expect(prefs.userPatterns.map((p) => p.removed ?? false)).toEqual([true, false]);
   });
 });
