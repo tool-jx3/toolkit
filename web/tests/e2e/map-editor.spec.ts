@@ -2050,4 +2050,34 @@ test.describe('對等驗證後的修正（7.1）', () => {
     expect(o).toMatchObject({ cx: 36, cy: 36 });
     expect(errors).toEqual([]);
   });
+  test('F150：既有的文字刪成空白後結束編輯：刪掉文字、記一步「刪除文字」、主控台沒有錯誤（Esc、點別處、切工具）', async ({
+    page,
+  }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    const finish = [
+      () => page.keyboard.press('Escape'),
+      /* 文字工具點別處：結束編輯，在那裡開始一段新的文字（空白，Esc 就消失、不記步驟） */
+      async () => {
+        await clickAt(page, 300, 200);
+        await page.keyboard.press('Escape');
+      },
+      () => tool(page, 'rect').click(),
+    ];
+    for (const end of finish) {
+      await page.keyboard.press('t');
+      await clickAt(page, 0, 0);
+      await page.keyboard.type('XYZ');
+      await page.keyboard.press('Escape');
+      await expect.poll(async () => (await names(page)).length).toBe(1);
+      await page.keyboard.press('t');
+      await clickAt(page, 20, 20);
+      await page.keyboard.press('Control+a');
+      await page.keyboard.press('Backspace');
+      await end();
+      await expect.poll(() => names(page)).toEqual([]);
+      await expect(statusMsg(page)).toHaveText('刪除文字');
+    }
+    expect(errors).toEqual([]);
+  });
 });

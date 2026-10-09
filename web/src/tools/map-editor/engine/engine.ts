@@ -1938,11 +1938,18 @@ export class MapEngine {
     /* 接著 Fabric 會發 object:modified（內容有改時）：已經在這裡記了一步，那一次略過 */
     this.textJustExited = t;
     if (t._isMapText && (t.text ?? '').trim() === '') {
-      this.canvas.remove(t);
-      this.canvas.discardActiveObject();
-      this.canvas.requestRenderAll();
-      if (before !== null && before !== '') this.push(S.hist.textDelete);
-      this.queueSync();
+      /*
+       * Fabric 發完 text:editing:exited 之後還會用 this.canvas 發 object:modified：當場拿掉的話
+       * 文字的 canvas 已經是 undefined，丟出 TypeError（F150；舊版也會）。等這一輪事件發完再拿掉。
+       */
+      queueMicrotask(() => {
+        if (!this.canvas.getObjects().includes(t)) return;
+        this.canvas.remove(t);
+        if (this.canvas.getActiveObject() === t) this.canvas.discardActiveObject();
+        this.canvas.requestRenderAll();
+        if (before !== null && before !== '') this.push(S.hist.textDelete);
+        this.queueSync();
+      });
       return;
     }
     this.canvas.requestRenderAll();
