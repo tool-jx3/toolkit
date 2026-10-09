@@ -1,5 +1,5 @@
 /**
- * 動作列（F057、D13）：選取框上方（放不下時在下方）的按鈕列，不超出畫布。
+ * 動作列（F057、D13）：選取框上方（放不下時在下方）的按鈕列，不超出畫布；不擋住控制點（F051）。
  * 群組／解散群組、複製、顯示／隱藏、鎖定、移到最上層、移到最下層、刪除；可以布林運算時多一列。
  */
 import {
@@ -44,11 +44,13 @@ export function ActionBar() {
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const show = !!sel?.box && tool === 'select' && exportMode === 'off';
   const box = sel?.box ?? null;
+  /* 上下的位置避開控制點（旋轉控制點在選取框上方 40 px，F051）；左右對齊選取框的中央 */
+  const around = sel?.controlsBox ?? box;
 
   useLayoutEffect(() => {
     const el = ref.current;
     const parent = el?.parentElement;
-    if (!show || !el || !parent || !box) {
+    if (!show || !el || !parent || !box || !around) {
       setPos(null);
       return;
     }
@@ -56,13 +58,13 @@ export function ActionBar() {
     const H = parent.clientHeight;
     const w = el.offsetWidth;
     const h = el.offsetHeight;
-    let top = box.y - h - GAP;
-    if (top < 4) top = box.y + box.h + GAP;
+    let top = around.y - h - GAP;
+    if (top < 4) top = around.y + around.h + GAP;
     top = Math.min(Math.max(4, top), Math.max(4, H - h - 4));
     let left = box.x + box.w / 2 - w / 2;
     left = Math.min(Math.max(4, left), Math.max(4, W - w - 4));
     setPos({ left, top });
-  }, [show, box]);
+  }, [show, box, around]);
 
   if (!show || !sel) return null;
   const eng = getEngine();

@@ -914,6 +914,7 @@ test.describe('地圖工具', () => {
     await moveTo(page, 30, 40);
     await expect.poll(async () => (await previewInfo(page)).count).toBeGreaterThan(0);
     await clickAt(page, 36, 36);
+    await expect.poll(() => names(page)).toEqual(['裝飾_床1']);
     const bed = (await objects(page))[0];
     expect(bed).toMatchObject({ name: '裝飾_床1', cx: 36, cy: 36 });
     expect(Math.max(bed.w, bed.h)).toBeCloseTo(72, 0);
@@ -921,6 +922,7 @@ test.describe('地圖工具', () => {
     await expect(page.getByRole('spinbutton', { name: '旋轉', exact: true })).toHaveValue('30');
     await page.getByRole('button', { name: '水平' }).click();
     await clickAt(page, 180, 36);
+    await expect.poll(() => names(page)).toContain('裝飾_床2');
     const d2 = await detail(page, '裝飾_床2');
     expect(d2.angle).toBe(30);
     /* 負的縮放：Fabric 換成 flipX（舊版亦同） */
@@ -931,6 +933,8 @@ test.describe('地圖工具', () => {
     await setNumber(page, '大小', 200);
     await setColor(page, '填色', '#ff0000ff');
     await clickAt(page, 36, 180);
+    /* 放置是非同步的（第一次用的圖章要先載入 SVG） */
+    await expect.poll(() => names(page)).toContain('裝飾_學校1');
     const sc = await detail(page, '裝飾_學校1');
     expect(String(sc._decorFill).slice(0, 7)).toBe('#ff0000');
     expect(sc._decorScale).toBe(2);
@@ -1903,6 +1907,103 @@ test.describe('面板的其他控制項', () => {
     await page.getByRole('button', { name: '重新選範圍' }).click();
     await expect(page.getByTestId('export-banner')).toBeVisible();
     await expect(page.getByTestId('export-dialog')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('對等驗證後的修正（7.1）', () => {
+  type Pt = { key: string; x: number; y: number };
+  /** 選取中物件看得到的控制點（視窗座標，只列在畫布範圍內的） */
+  async function controlPoints(page: Page): Promise<Pt[]> {
+    return page.evaluate(() => {
+      const c = (
+        window as unknown as {
+          __mapEditor: {
+            engine: {
+              canvas: {
+                upperCanvasEl: HTMLCanvasElement;
+                getActiveObject(): {
+                  setCoords(): void;
+                  isControlVisible(key: string): boolean;
+                  oCoords: Record<string, { x: number; y: number }>;
+                } | null;
+              };
+            };
+          };
+        }
+      ).__mapEditor.engine.canvas;
+      const o = c.getActiveObject();
+      if (!o) return [];
+      o.setCoords();
+      const r = c.upperCanvasEl.getBoundingClientRect();
+      return Object.entries(o.oCoords)
+        .filter(([k]) => o.isControlVisible(k))
+        .map(([key, p]) => ({ key, x: r.left + p.x, y: r.top + p.y }))
+        .filter((p) => p.x > r.left && p.x < r.right && p.y > r.top && p.y < r.bottom);
+    });
+  }
+
+  /** 控制點上面是畫布（沒有被動作列或其他東西蓋住） */
+  async function covered(page: Page, pts: Pt[]): Promise<string[]> {
+    return page.evaluate(
+      (list) =>
+        list
+          .filter((p) => document.elementFromPoint(p.x, p.y)?.tagName !== 'CANVAS')
+          .map((p) => p.key),
+      pts,
+    );
+  }
+
+  test('F051：動作列不擋住控制點，拖曳旋轉控制點可以旋轉（轉過之後、物件靠近上緣時也一樣）', async ({
+    page,
+  }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    await drawRect(page, [0, 0], [144, 72]);
+    await page.keyboard.press('v');
+    await clickAt(page, 72, 36);
+    await expect(page.getByTestId('action-bar')).toBeVisible();
+    const pts = await controlPoints(page);
+    expect(pts.map((p) => p.key)).toContain('mtr');
+    expect(await covered(page, pts)).toEqual([]);
+    const h = pts.find((p) => p.key === 'mtr') as Pt;
+    await page.mouse.move(h.x, h.y);
+    await page.mouse.down();
+    await page.mouse.move(h.x + 120, h.y + 90, { steps: 8 });
+    await page.mouse.up();
+    const angle = Number((await detail(page, '矩形1')).angle);
+    expect(angle).toBeGreaterThan(20);
+    expect(angle).toBeLessThan(160);
+    /* 轉過之後控制點換了位置：動作列仍然不擋 */
+    await expect.poll(async () => covered(page, await controlPoints(page))).toEqual([]);
+
+    /* 靠近畫布上緣（上方放不下，動作列放到下方）：下方的控制點也不擋 */
+    const top = await page.evaluate(() => {
+      const e = (
+        window as unknown as {
+          __mapEditor: {
+            engine: {
+              canvas: { upperCanvasEl: HTMLCanvasElement };
+              worldToClient(x: number, y: number): { x: number; y: number };
+            };
+          };
+        }
+      ).__mapEditor.engine;
+      const r = e.canvas.upperCanvasEl.getBoundingClientRect();
+      const o = e.worldToClient(0, 0);
+      return Math.ceil((r.top + 4 - o.y) / 72) * 72;
+    });
+    await drawRect(page, [-216, top], [-72, top + 72]);
+    await page.keyboard.press('v');
+    await clickAt(page, -144, top + 36);
+    await expect(page.getByTestId('select-panel')).toContainText('矩形2');
+    await expect.poll(async () => covered(page, await controlPoints(page))).toEqual([]);
+    /* 動作列整個在控制點的上方或下方（1280×720 時上方放不下，放在下方） */
+    const bar = await page.getByTestId('action-bar').boundingBox();
+    const ys = (await controlPoints(page)).map((p) => p.y);
+    if (!bar) throw new Error('沒有動作列');
+    expect(bar.y + bar.height <= Math.min(...ys) || bar.y >= Math.max(...ys)).toBe(true);
+    expect(bar.y).toBeGreaterThan(Math.max(...ys));
     expect(errors).toEqual([]);
   });
 });

@@ -2,7 +2,16 @@
  * 畫布 → 面板的狀態：圖層清單的列（F160）、選取物件的資訊（F053～F057）、文字的樣式（F153）。
  * 引擎在選取、移動、記一步之後呼叫，結果寫進 useEditor。
  */
-import { type Canvas, FabricImage, FabricText, Group, IText, Point, Rect } from 'fabric';
+import {
+  type Canvas,
+  FabricImage,
+  type FabricObject,
+  FabricText,
+  Group,
+  IText,
+  Point,
+  Rect,
+} from 'fabric';
 import { cssToHex8, styleOfDash } from '../geometry';
 import type { LayerRow, SelectionInfo, TextStyleState } from '../stores';
 import { boolCategory, isBooleanTarget } from './boolean';
@@ -82,6 +91,31 @@ interface EngineView {
   readonly canvas: Canvas;
 }
 
+type Box = { x: number; y: number; w: number; h: number };
+
+/**
+ * 選取框加上看得到的控制點（`oCoords` 是畫布上的螢幕座標，含旋轉控制點）各留半個控制點大小（F051）。
+ * 鎖定、格子圖層這類沒有控制點的物件就是選取框本身。
+ */
+export function withControls(o: FabricObject, box: Box): Box {
+  let x0 = box.x;
+  let y0 = box.y;
+  let x1 = box.x + box.w;
+  let y1 = box.y + box.h;
+  if (o.hasControls) {
+    o.setCoords();
+    const pad = (o.cornerSize ?? 13) / 2 + 2;
+    for (const [key, p] of Object.entries(o.oCoords ?? {})) {
+      if (!o.isControlVisible(key)) continue;
+      x0 = Math.min(x0, p.x - pad);
+      y0 = Math.min(y0, p.y - pad);
+      x1 = Math.max(x1, p.x + pad);
+      y1 = Math.max(y1, p.y + pad);
+    }
+  }
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
 /** 選取物件的資訊；沒有選取時 null */
 export function computeSelection(
   engine: EngineView,
@@ -95,6 +129,7 @@ export function computeSelection(
   const pos = active.length === 1 ? topLeftOf(first) : { x: 0, y: 0 };
   const ao = c.getActiveObject();
   let box: SelectionInfo['box'] = null;
+  let controlsBox: SelectionInfo['controlsBox'] = null;
   if (ao) {
     const v = c.viewportTransform;
     const pts = ao.getCoords();
@@ -103,6 +138,7 @@ export function computeSelection(
     const x = Math.min(...xs);
     const y = Math.min(...ys);
     box = { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+    controlsBox = withControls(ao, box);
   }
   const sh = shadowProbe(first).shadow;
   const groupish = first instanceof Group && !isContainerLayer(first);
@@ -136,6 +172,7 @@ export function computeSelection(
     canGroup: active.length >= 2 && !containers,
     canBoolean: active.length >= 2 && bool.length >= 2 && cats.size === 1,
     box,
+    controlsBox,
     shadow: sh
       ? {
           color: cssToHex8(sh.color) ?? '#0000008c',

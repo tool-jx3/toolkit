@@ -217,8 +217,10 @@ export interface SelectionInfo {
   isGroup: boolean;
   canGroup: boolean;
   canBoolean: boolean;
-  /** 動作列放在畫布上的位置（螢幕 px，相對於畫布左上角） */
+  /** 選取框（螢幕 px，相對於畫布左上角） */
   box: { x: number; y: number; w: number; h: number } | null;
+  /** 選取框加上看得到的控制點（含旋轉控制點）的範圍：動作列放在這個範圍外，不擋住控制點（F051） */
+  controlsBox: { x: number; y: number; w: number; h: number } | null;
   /** 陰影（第一個物件；房間取地面或牆壁） */
   shadow: { color: string; blur: number; offsetX: number; offsetY: number } | null;
   /** 文字（選到一段文字時） */
