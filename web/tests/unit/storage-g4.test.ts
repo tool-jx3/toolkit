@@ -231,3 +231,19 @@ describe('套用範本：換掉一部分、保留一部分', () => {
     expect(next.bars[1]).toEqual(current.bars[1]);
   });
 });
+
+describe('清空復原紀錄後的第一個變更', () => {
+  it('取代內容並清空復原紀錄後馬上改：記成一步（不併進清掉的那一步）', () => {
+    const s = createToolStore('clear-coalesce', { v: 1 }, { persist: false });
+    /* 開頁整理、開專案檔：取代內容再清空復原紀錄 */
+    s.getState().replace({ v: 2 });
+    s.temporal.getState().clear();
+    /* 0.4 秒內接著改 */
+    s.getState().update((d) => {
+      d.v = 3;
+    });
+    expect(s.temporal.getState().pastStates.length).toBe(1);
+    s.temporal.getState().undo();
+    expect(s.getState().data.v).toBe(2);
+  });
+});

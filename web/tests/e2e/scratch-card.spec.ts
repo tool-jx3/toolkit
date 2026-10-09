@@ -575,7 +575,7 @@ test('分享連結：畫面只有卡片、能刮、不動到自己存的內容�
   await btn(page, '分享連結…').click();
   const link = page.getByTestId('share-dialog').getByRole('textbox', { name: '連結' });
   const url = await link.inputValue();
-  expect(url).toMatch(/\/next\/scratch-card\/#c=/);
+  expect(url).toMatch(/\/(next|tools)\/scratch-card\/#c=/);
   expect(url).not.toContain('秘密');
   await page.keyboard.press('Escape');
   const before = await stored(page);

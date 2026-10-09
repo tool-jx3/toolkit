@@ -43,8 +43,15 @@ export const useScratch = createToolStore<ScratchState>(TOOL_ID, initialState(),
   } catch {
     saved = true;
   }
+  /*
+   * 暫停復原紀錄再寫：沒暫停時這一筆會被記成「最後一次變更」，開頁後 0.4 秒內的第一個變更會併進這一步（已經清掉），
+   * 就不能復原（scenario-text 同樣的做法）
+   */
+  const t = useScratch.temporal.getState();
+  t.pause();
   if (!saved || JSON.stringify(fixed) !== JSON.stringify(cur)) useScratch.getState().replace(fixed);
-  useScratch.temporal.getState().clear();
+  t.resume();
+  t.clear();
 }
 
 /** 文字欄：從聚焦到離開算一步 */

@@ -517,7 +517,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '做一張可以用滑鼠或手指刮開的刮刮卡當 handout：底下藏著隨機抽出的圖示、句子或圖片，刮開時噴出彩帶；可以存成能刮的互動 HTML，或複製分享連結給玩家。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/Scratchcard',
       url: 'https://github.com/sotsotssi/Scratchcard',

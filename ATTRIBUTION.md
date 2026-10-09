@@ -99,6 +99,7 @@
 | `review-grid` | 劇本心得九宮格 | [sotsotssi/scenario-review](https://github.com/sotsotssi/scenario-review)（未授權） | —（新收錄，沒有舊版） |
 | `polaroid` | 拍立得相框產生器 | [swoonqx/sw-polaroid](https://github.com/swoonqx/sw-polaroid)（未授權） | —（新收錄，沒有舊版） |
 | `crossword` | 填字遊戲產生器 | [sotsotssi/text2crossword](https://github.com/sotsotssi/text2crossword)（MIT） | —（新收錄，沒有舊版） |
+| `scratch-card` | 刮刮卡產生器 | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard)（未授權） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -126,6 +127,8 @@
 `polaroid` 照新工具引入流程直接在新框架做：原作沒有授權條款，只照原作的功能、版面數值與畫法，程式、介面文字與說明都由本站自做；英文字型照原作用 Poppins／Caveat（Google Fonts，SIL OFL）。
 
 `crossword` 照新工具引入流程直接在新框架做：原作（commit `1031c06`）是 MIT（授權全文在通知檔），擷取規則與排法照原作（同樣的輸入與種子得到同樣的盤面，用原作的程式對照過），另外加上自己列答案與中文斷詞；原作的編號錯誤與大盤面的版面錯誤修正。
+
+`scratch-card` 照新工具引入流程直接在新框架做：原作沒有授權條款，只照原作的功能、數值與做法（抽籤、塗層、刮開判定和原作相同），程式、介面文字、8 個圖示與彩帶都由本站自做，不載入原作用的 CDN；可以開啟原作的設定檔（JSON）。
 
 `anime-rig` 參考 852wa/Anime2.5DRig（MIT，原作 commit `7ddbd99`，授權全文在通知檔）的程式改寫：自動綁定、物理與繪製的演算法和數值照原作，舊版與新版拿同一個 PSD 綁定的結果相同（單元測試並排比對過）。原作的範例 PSD（圖畫權利屬於各自的作者）不收，測試用的 PSD 由程式自己畫；原作需要本機 Python 中繼伺服器的 OBS 連動不移植，改成綠幕背景與透明影片的說明。臉部追蹤用 npm 的 @mediapipe/tasks-vision（Apache-2.0）；特徵點模型 `face_landmarker.task`（Apache-2.0，約 3.8 MB）**不在本 repo**：使用者第一次開攝影機追蹤時，瀏覽器從 Google 的 MediaPipe 官方模型網址下載，驗證 SHA-256 後存在瀏覽器裡。
 

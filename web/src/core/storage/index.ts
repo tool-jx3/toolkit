@@ -267,6 +267,17 @@ export function createToolStore<T extends object>(
     last = 0;
   };
   out.inGesture = () => gesture.active;
+  /*
+   * 清空復原紀錄時，連續變更的計時也重來：開頁整理、開專案檔、重設都是「取代內容再清空」，
+   * 沒重來時 0.4 秒內的下一個變更會併進已經清掉的那一步，不能復原（scratch-card 的 E2E 偶發失敗發現）。
+   */
+  const clearHistory = out.temporal.getState().clear;
+  out.temporal.setState({
+    clear: () => {
+      clearHistory();
+      last = 0;
+    },
+  });
   return out;
 }
 
