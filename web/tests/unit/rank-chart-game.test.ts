@@ -243,7 +243,7 @@ describe('原作的設定檔', () => {
     await expect(importLegacy('{')).rejects.toThrow('格式錯誤');
     await expect(
       importLegacy(JSON.stringify({ app: 'x', version: 1, config: {} })),
-    ).rejects.toThrow('Would You Rank');
+    ).rejects.toThrow('這不是原作存的第 1 版設定檔。');
     await expect(
       importLegacy(
         JSON.stringify({ app: 'blind-pick-studio', version: 2, config: { characters: [] } }),

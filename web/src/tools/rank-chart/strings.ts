@@ -279,11 +279,11 @@ export const S = {
   tooBig: (name: string) => `「${name}」超過 25 MB，請換小一點的照片。`,
   tooManyPixels: (name: string) => `「${name}」的像素太多，請縮小長寬再試一次。`,
   decodeError: (name: string) => `無法讀取「${name}」，檔案可能已損壞。`,
-  notPersisted: '瀏覽器空間不足或無法存檔：照片這次可以用，但重新整理後就沒了。請存成專案檔保存。',
+  notPersisted: '瀏覽器空間不足或無法存檔：照片這次可以用，但重新整理後就沒了。請存成專案檔。',
   resumed: '接著上次的抽選與確定的名次繼續。',
   restoredDone: '已還原完成的排行榜。',
   runLost: '設定已還原，但存下來的遊戲讀不到，已準備新的一局。',
-  saveFailed: '自動儲存失敗（瀏覽器空間不足或被封鎖），請存成專案檔保存。',
+  saveFailed: '自動儲存失敗（瀏覽器空間不足或被封鎖），請存成專案檔。',
   photoMissing: '排名者的照片讀不到了（可能已從這個瀏覽器清除），請重新放照片。',
 
   /* ---- 專案檔 ---- */
@@ -310,7 +310,7 @@ export const S = {
     confirmLabel: '開啟',
   }),
   legacyOk: '已開啟原作的設定檔，可以開始新的一局。',
-  legacyBad: '這不是原作（Would You Rank）存的第 1 版設定檔。',
+  legacyBad: '這不是原作存的第 1 版設定檔。',
   legacyJson: 'JSON 檔的內容格式錯誤。',
   legacyTooMany: `角色最多 ${MAX_POOL} 位，這個設定檔太多了。`,
   legacyImage: (i: number) =>

@@ -1176,7 +1176,7 @@ test('專案檔：存成 ZIP（設定＋照片，不含這一局）、重設、�
     page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click(),
   ]);
   await chooser3.setFiles(file('x.json', Buffer.from('{"app":"other"}'), 'application/json'));
-  await expect(toast(page, '這不是原作（Would You Rank）存的第 1 版設定檔。')).toBeVisible();
+  await expect(toast(page, '這不是原作存的第 1 版設定檔。')).toBeVisible();
   expect((await config(page)).characters).toHaveLength(2);
   expect(errors).toEqual([]);
 });
