@@ -176,10 +176,10 @@ export function SelectedSection() {
         <Field label={S.label} hint={S.labelHint(Array.from(box.label).length, LABEL_MAX)}>
           <TextInput
             value={box.label}
-            maxLength={LABEL_MAX}
             placeholder={S.labelPlaceholder}
             onFocus={gesture.begin}
             onBlur={gesture.commit}
+            /* 上限以字元計（emoji 算一個，和下面的字數一致）；不用 maxLength（它以 UTF-16 計，emoji 算兩個） */
             onChange={(e) => set({ label: clipLabel(e.target.value) })}
           />
         </Field>

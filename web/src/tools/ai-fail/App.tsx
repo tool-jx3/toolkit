@@ -24,6 +24,7 @@ import { importProject, projectAssetIds } from './project';
 import {
   assets,
   DATA_VERSION,
+  historyStep,
   memeNow,
   nudgeSelected,
   referencedPhotos,
@@ -78,6 +79,8 @@ function Settings() {
   useEffect(() => {
     if (saveError) toast({ title: S.saveFailed, tone: 'warning' });
   }, [saveError, toast]);
+  /* 有框時才提醒「會清掉目前所有的框」 */
+  const hasBoxes = useMeme((s) => s.data.boxes.length > 0);
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <PhotoSection onFiles={(f) => void loader.load(f)} onReject={loader.reject} />
@@ -88,7 +91,7 @@ function Settings() {
       <WindowDrop
         accept="image/*"
         label={S.windowDrop}
-        hint={S.windowDropHint}
+        hint={hasBoxes ? S.windowDropHint : undefined}
         onDrop={(files) => void loader.load(files)}
         onReject={loader.reject}
       />
@@ -124,7 +127,10 @@ function onEscape() {
 const ARROWS = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'] as const;
 
 export function App() {
-  const { undo, redo, canUndo, canRedo } = useUndoRedo(useMeme);
+  const { canUndo, canRedo } = useUndoRedo(useMeme);
+  /* 方向鍵的連按先結束、拖曳中不做（F50） */
+  const undo = () => historyStep('undo');
+  const redo = () => historyStep('redo');
   const savedAt = useSaveStatus(TOOL_ID);
   const saveError = useSaveError(TOOL_ID);
   const ui = useUi();

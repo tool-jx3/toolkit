@@ -13,6 +13,7 @@ import {
   applyPhoto,
   flushNudge,
   gesture,
+  historyStep,
   memeNow,
   moveBoxLayer,
   nudgeSelected,
@@ -179,5 +180,70 @@ describe('復原', () => {
     expect(steps()).toBe(before + 1);
     undo();
     expect(memeNow().boxes[0].x).toBe(100);
+  });
+});
+
+describe('復原：方向鍵連按還沒結束時（對等驗證 F50，7.1）', () => {
+  function setup() {
+    applyPhoto(PHOTO);
+    addBox({ x: 100, y: 100, width: 50, height: 50 });
+    const id = useUi.getState().selectedId as string;
+    gesture.begin();
+    patchBox(id, { x: 150 });
+    gesture.commit();
+    return id;
+  }
+  const box = (id: string) => memeNow().boxes.find((b) => b.id === id);
+
+  it('連按方向鍵後馬上復原：只復原方向鍵那一步，可以重做', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const id = setup();
+      await Promise.resolve();
+      for (let i = 0; i < 4; i++) nudgeSelected(0, 1);
+      historyStep('undo');
+      expect(box(id)).toMatchObject({ x: 150, y: 100 });
+      vi.advanceTimersByTime(600);
+      expect(useMeme.temporal.getState().futureStates.length).toBe(1);
+      historyStep('redo');
+      expect(box(id)).toMatchObject({ x: 150, y: 104 });
+      historyStep('undo');
+      historyStep('undo');
+      expect(box(id)).toMatchObject({ x: 100, y: 100 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('連按方向鍵後馬上刪除、換上下層、換比例：各自是另一步', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const id = setup();
+      await Promise.resolve();
+      const before = steps();
+      nudgeSelected(1, 0);
+      removeBox(id);
+      expect(steps()).toBe(before + 2);
+      undo();
+      expect(box(id)).toMatchObject({ x: 151 });
+      select(id);
+      nudgeSelected(1, 0);
+      setAspect('1:1');
+      vi.advanceTimersByTime(600);
+      undo();
+      expect(memeNow().aspect).not.toBe('1:1');
+      expect(box(id)).toMatchObject({ x: 152 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('拖曳中（還沒放開）不復原、不重做', () => {
+    const id = setup();
+    gesture.begin();
+    patchBox(id, { x: 300 });
+    historyStep('undo');
+    expect(box(id)).toMatchObject({ x: 300 });
+    gesture.commit();
   });
 });

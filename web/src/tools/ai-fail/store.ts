@@ -71,11 +71,24 @@ export const setMode = (mode: Mode): void => useUi.setState({ mode, drawing: nul
 
 export const memeNow = (): MemeState => useMeme.getState().data;
 
-/** 一次變更＝一步復原（手勢中除外） */
+/** 一次變更＝一步復原（手勢中除外）；方向鍵的連按還沒結束時先結束（F50：不和方向鍵併成同一步） */
 export function edit(recipe: (d: MemeState) => void): void {
+  if (!nudging) flushNudge();
   useMeme.getState().update((d) => {
     recipe(d as MemeState);
   });
+}
+
+/**
+ * 復原／重做（快捷鍵與頁首按鈕）：方向鍵的連按還沒結束時先結束成一步再復原（F50）；
+ * 拖曳中（滑鼠還沒放開）不做事，免得跳過上一步。
+ */
+export function historyStep(kind: 'undo' | 'redo'): void {
+  flushNudge();
+  if (useMeme.inGesture()) return;
+  const t = useMeme.temporal.getState();
+  if (kind === 'undo') t.undo();
+  else t.redo();
 }
 
 /* ---------- 照片 ---------- */
@@ -170,12 +183,18 @@ export function stepLayer(dir: 1 | -1): void {
 
 /* 方向鍵：連按（停頓 0.5 秒以內）算一步復原 */
 let nudgeTimer: ReturnType<typeof setTimeout> | undefined;
+let nudging = false;
 export function nudgeSelected(dx: number, dy: number): void {
   const id = useUi.getState().selectedId;
   const b = memeNow().boxes.find((x) => x.id === id);
   if (!b) return;
   useMeme.beginGesture();
-  patchBox(b.id, { x: b.x + dx, y: b.y + dy });
+  nudging = true;
+  try {
+    patchBox(b.id, { x: b.x + dx, y: b.y + dy });
+  } finally {
+    nudging = false;
+  }
   clearTimeout(nudgeTimer);
   nudgeTimer = setTimeout(flushNudge, 500);
 }

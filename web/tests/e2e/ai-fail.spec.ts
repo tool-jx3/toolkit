@@ -958,3 +958,45 @@ test('390 寬沒有橫向捲動；1280 與 390 的視覺基準', async ({ page }
   await noHorizontalScroll(page);
   expect(errors).toEqual([]);
 });
+
+test('對等驗證後的修正（7.1）：連按方向鍵後馬上復原只復原方向鍵那一步；emoji 標籤的字數；沒有框時拖放不提醒清掉框', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  /* 沒有框時，全視窗拖放的提示不說「會清掉目前所有的框」 */
+  const dragOver = async () =>
+    page.evaluate(() => {
+      const dt = new DataTransfer();
+      dt.items.add(new File([new Uint8Array([1])], 'x.png', { type: 'image/png' }));
+      window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }));
+    });
+  const dragLeave = async () =>
+    page.evaluate(() => window.dispatchEvent(new DragEvent('dragleave', { bubbles: true })));
+  await dragOver();
+  await expect(page.getByText('放開即可換成這張照片')).toBeVisible();
+  await expect(page.getByText('會清掉目前所有的框（可以復原）')).toHaveCount(0);
+  await dragLeave();
+  await loadPhoto(page);
+  await drawBox(page, [100, 100], [300, 300]);
+  await dragOver();
+  await expect(page.getByText('會清掉目前所有的框（可以復原）')).toBeVisible();
+  await dragLeave();
+  /* emoji 算一個字：40 個 emoji 都留得下，字數也是 40 */
+  const label = panel(page).getByRole('textbox', { name: '標籤文字' });
+  await label.fill('🐱'.repeat(45));
+  await expect(label).toHaveValue('🐱'.repeat(40));
+  await expect(panel(page)).toContainText('40／40 字');
+  await label.fill('cat');
+  await label.blur();
+  /* 拖曳移動一步，接著連按方向鍵，馬上復原：只回到拖曳後的位置，可以重做 */
+  const x0 = (await state(page)).boxes[0].x;
+  await dragCanvas(page, [200, 200], [250, 200]);
+  await expect.poll(async () => (await state(page)).boxes[0].x).toBe(x0 + 50);
+  await layer(page).focus();
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await state(page)).boxes[0].x).toBe(x0 + 50);
+  await page.waitForTimeout(700);
+  await expect(page.getByRole('button', { name: /^重做/ })).toBeEnabled();
+  expect(errors).toEqual([]);
+});
