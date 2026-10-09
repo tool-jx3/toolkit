@@ -1,13 +1,16 @@
 /**
- * @/core/social：X 的字數、發文網址、Unicode 花式英數字（session-report 規格 3.3、3.6、3.7）。
+ * @/core/social：X 的字數、發文網址、Unicode 花式英數字（session-report 規格 3.3、3.6、3.7）、
+ * 編輯欄的插入（自成一行）與用括號包住（P11 新增 F57、F59）。
  */
 import { describe, expect, it } from 'vitest';
 import {
   fromSmallCaps,
+  insertText,
   isUnicodeTextStyle,
   toUnicodeStyle,
   UNICODE_TEXT_STYLE_IDS,
   UNICODE_TEXT_STYLES,
+  wrapText,
   X_POST_LIMIT,
   xIntentUrl,
   xPostLength,
@@ -108,5 +111,53 @@ describe('toUnicodeStyle', () => {
     expect(isUnicodeTextStyle('toString')).toBe(false);
     expect(isUnicodeTextStyle('smallCaps')).toBe(true);
     expect(toUnicodeStyle('ᴋA', 'bogus' as never)).toBe('KA');
+  });
+});
+
+describe('insertText（P11 新增：自成一行）', () => {
+  it('取代 [start, end)，游標在插入的文字後面；範圍夾在文字裡', () => {
+    expect(insertText('ABCDEF', 2, 4, '★')).toEqual({ text: 'AB★EF', caret: 3 });
+    expect(insertText('AB', 5, 9, '★')).toEqual({ text: 'AB★', caret: 3 });
+    expect(insertText('AB', 1, 0, '★')).toEqual({ text: 'A★B', caret: 2 });
+  });
+  it('ownLine：前後不是換行時補換行；開頭、結尾、已經在行首行尾時不補', () => {
+    expect(insertText('甲乙', 1, 1, '━━', { ownLine: true })).toEqual({
+      text: '甲\n━━\n乙',
+      caret: 5,
+    });
+    expect(insertText('甲\n乙', 2, 2, '━━', { ownLine: true })).toEqual({
+      text: '甲\n━━\n乙',
+      caret: 5,
+    });
+    expect(insertText('甲乙', 0, 0, '━━', { ownLine: true })).toEqual({
+      text: '━━\n甲乙',
+      caret: 3,
+    });
+    expect(insertText('甲乙', 2, 2, '━━', { ownLine: true })).toEqual({
+      text: '甲乙\n━━',
+      caret: 5,
+    });
+    expect(insertText('', 0, 0, '━━', { ownLine: true })).toEqual({ text: '━━', caret: 2 });
+    /* 選取的文字整段換掉 */
+    expect(insertText('甲XX乙', 1, 3, '━━', { ownLine: true }).text).toBe('甲\n━━\n乙');
+  });
+});
+
+describe('wrapText（P11 新增：用括號包住選取的文字）', () => {
+  it('有選取：前後加上括號，範圍維持在原本的文字上', () => {
+    expect(wrapText('霧港燈塔', 0, 2, '「', '」')).toEqual({
+      text: '「霧港」燈塔',
+      start: 1,
+      end: 3,
+    });
+    expect(wrapText('A霧港B', 1, 3, '✦ ', ' ✦')).toEqual({
+      text: 'A✦ 霧港 ✦B',
+      start: 3,
+      end: 5,
+    });
+  });
+  it('沒有選取：插入一對括號，游標在中間；範圍夾在文字裡', () => {
+    expect(wrapText('AB', 1, 1, '『', '』')).toEqual({ text: 'A『』B', start: 2, end: 2 });
+    expect(wrapText('AB', 9, 9, '【', '】')).toEqual({ text: 'AB【】', start: 3, end: 3 });
   });
 });

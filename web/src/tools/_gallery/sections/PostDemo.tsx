@@ -47,7 +47,16 @@ export function PostDemo() {
       <Chips
         aria-label="插入符號"
         items={['★', '✦', '━━━━━━', '🎲']}
-        onPick={(v) => editor.current?.insert(v)}
+        onPick={(v) => editor.current?.insert(v, { ownLine: v.startsWith('━') })}
+      />
+      <p className="m-0 text-sm text-muted">
+        分隔線用 <code>insert(text, {'{ ownLine: true }'})</code> 自成一行；括號用{' '}
+        <code>wrap(open, close)</code> 包住選取的文字（沒有選取時游標放在括號中間）。
+      </p>
+      <Chips
+        aria-label="用括號包住"
+        items={['「」', '『』', '【】']}
+        onPick={(v) => editor.current?.wrap(v[0], v[1])}
       />
     </Section>
   );

@@ -5,6 +5,7 @@
  *   日期、主題標籤；備註不寫進團報。
  * - 範本與文字樣式：選單、快速切換列（記一步復原）、Ctrl＋Alt＋方向鍵循環（文字欄、選單上也有效）。
  * - 預覽：直接編輯（改輸入時保留）、重新產生（按鈕與 Ctrl＋Alt＋R）、清除預覽、文字裝飾插入、復原／重做（按鈕與快捷鍵）、字數超過上限。
+ * - 文字裝飾依類型分頁、分隔線自成一行、括號包住選取的文字（P11 新增）。
  * - 輸出：複製（剪貼簿的內容原封不動；Ctrl＋Enter、Ctrl＋Shift＋C）、貼到 X（攔截開啟的網址並解析 text 參數；
  *   Ctrl＋Shift＋P、Ctrl＋Shift＋Enter；空白時不開）、Ctrl＋E。
  * - 跑團紀錄簿的交接資料：讀入、稍後、捨棄、損壞。
@@ -370,19 +371,21 @@ test('預覽：直接編輯、重新產生、清除、文字裝飾、復原／�
   await expect(preview(page)).toHaveValue(fresh);
   await expect(preview(page)).toBeFocused();
 
-  /* 文字裝飾：插入在游標位置（預覽沒有焦點時用最後的位置），之後游標在插入的文字後面 */
+  /*
+   * 文字裝飾：插入在游標位置（預覽沒有焦點時用最後的位置）。
+   * 分隔線自成一行（P11 新增：後面有字時補換行），之後游標在補上的換行後面。
+   */
   await preview(page).evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(0, 0));
   await box(page, '主題標籤').focus();
   const lines = page.getByRole('group', { name: '分隔線', exact: true });
   await lines.getByRole('button', { name: '━━━━' }).click();
   const LINE = '━━━━━━━━━━━━━━';
-  await expect(preview(page)).toHaveValue(`${LINE}${fresh}`);
-  await expect(preview(page)).toBeFocused();
-  expect(await sel(page)).toEqual([LINE.length, LINE.length]);
-  await page.keyboard.press('Enter');
   await expect(preview(page)).toHaveValue(`${LINE}\n${fresh}`);
-  /* 有選取時取代選取的文字 */
+  await expect(preview(page)).toBeFocused();
+  expect(await sel(page)).toEqual([LINE.length + 1, LINE.length + 1]);
+  /* 有選取時取代選取的文字（單一符號在自己的分頁） */
   await preview(page).evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(0, 14));
+  await page.getByRole('tab', { name: '單一符號' }).click();
   await page.getByRole('group', { name: '單一符號' }).getByRole('button', { name: '★' }).click();
   await expect(preview(page)).toHaveValue(`★\n${fresh}`);
   expect(await sel(page)).toEqual([1, 1]);
@@ -413,6 +416,68 @@ test('預覽：直接編輯、重新產生、清除、文字裝飾、復原／�
   await preview(page).fill('abc團報🎲');
   await expect(count(page)).toContainText(`${3 + 4 + 2} / 280`);
   await expect(count(page)).not.toHaveAttribute('data-over', 'true');
+  expect(errors).toEqual([]);
+});
+
+test('文字裝飾依類型分頁；括號包住選取的文字（P11 新增 F57～F59）', async ({ page }) => {
+  const errors = await open(page);
+  await plain(page);
+  /* 四個分頁：分隔線（預設）、括號、單一符號、點綴；一次只顯示一個類型 */
+  const tabs = page.getByRole('tablist', { name: '文字裝飾的類型' });
+  await expect(tabs.getByRole('tab')).toHaveText(['分隔線', '括號', '單一符號', '點綴']);
+  await expect(page.getByRole('tab', { name: '分隔線' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('group', { name: '括號' })).toHaveCount(0);
+  await page.getByRole('tab', { name: '括號' }).click();
+  const brackets = page.getByRole('group', { name: '括號' });
+  await expect(brackets.getByRole('button')).toHaveCount(12);
+  await expect(page.getByRole('group', { name: '分隔線', exact: true })).toHaveCount(0);
+  await expect(brackets.getByRole('button', { name: '「…」' })).toHaveAttribute(
+    'title',
+    '用 「…」 包住選取的文字',
+  );
+
+  /* 選取劇本名稱（預覽沒有焦點時用最後的選取範圍）→ 前後加上『』，選取範圍仍在劇本名稱上；可以復原 */
+  const before = await text(page);
+  const name = '劇本名稱';
+  await box(page, '劇本名稱').fill(name);
+  const generated = await text(page);
+  expect(generated).not.toBe(before);
+  const at = generated.indexOf(name);
+  expect(at).toBeGreaterThan(-1);
+  await preview(page).focus();
+  await preview(page).evaluate(
+    (el: HTMLTextAreaElement, [s, e]) => el.setSelectionRange(s, e),
+    [at, at + name.length],
+  );
+  await box(page, '主題標籤').focus();
+  await brackets.getByRole('button', { name: '『…』' }).click();
+  const wrapped = `${generated.slice(0, at)}『${name}』${generated.slice(at + name.length)}`;
+  await expect(preview(page)).toHaveValue(wrapped);
+  await expect(preview(page)).toBeFocused();
+  expect(await sel(page)).toEqual([at + 1, at + 1 + name.length]);
+  await expect(page.getByTestId('dirty-note')).toBeVisible();
+  /* 選取還在：再按一次【】就包在外面 */
+  await brackets.getByRole('button', { name: '【…】' }).click();
+  await expect(preview(page)).toHaveValue(
+    `${generated.slice(0, at)}『【${name}】』${generated.slice(at + name.length)}`,
+  );
+  await btn(page, /^復原/).click();
+  await expect(preview(page)).toHaveValue(wrapped);
+  await btn(page, /^復原/).click();
+  await expect(preview(page)).toHaveValue(generated);
+
+  /* 沒有選取：插入一對括號，游標放在中間，接著打字就在括號裡 */
+  await preview(page).click();
+  await page.keyboard.press('Control+End');
+  await brackets.getByRole('button', { name: '「…」' }).click();
+  await expect(preview(page)).toHaveValue(`${generated}「」`);
+  expect(await sel(page)).toEqual([generated.length + 1, generated.length + 1]);
+  await page.keyboard.type('好玩');
+  await expect(preview(page)).toHaveValue(`${generated}「好玩」`);
+
+  /* 裝飾的按鈕在 390 寬也不會撐出橫向捲動 */
+  await page.setViewportSize({ width: 390, height: 844 });
+  await noHorizontalScroll(page);
   expect(errors).toEqual([]);
 });
 

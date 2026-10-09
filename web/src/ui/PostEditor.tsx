@@ -2,10 +2,12 @@
  * 貼文編輯欄（仿 X 的貼文卡片）：可以直接編輯的文字欄＋字數（X 的簡易計算與上限）＋「複製」「貼到 X」。
  * 團報產生器移植時新增；別的工具要產生貼到社群的文字時共用。
  *
- * - 受控元件：`value`＋`onChange(next, reason)`；reason 分「input」（使用者打字）與「insert」（`insert()` 插入），
+ * - 受控元件：`value`＋`onChange(next, reason)`；reason 分「input」（使用者打字）與「insert」（`insert()`、`wrap()`），
  *   工具可以在套用前記一步自己的復原紀錄。
- * - `ref.insert(text)`：在游標位置插入（有選取時取代；欄位沒有焦點時用它最後的選取位置——值被程式換掉後是文字最後面），
- *   插入後焦點回到欄位、游標在插入的文字後面。`ref.focus({ atEnd })`、`ref.copy()`、`ref.post()` 給快捷鍵用。
+ * - `ref.insert(text, { ownLine? })`：在游標位置插入（有選取時取代；欄位沒有焦點時用它最後的選取位置——值被程式換掉後是文字最後面），
+ *   插入後焦點回到欄位、游標在插入的文字後面；ownLine 時插入的內容自成一行（分隔線用，`insertText`）。
+ * - `ref.wrap(open, close)`：用括號包住選取的文字（沒有選取時插入一對括號、游標在中間；`wrapText`），之後選取範圍仍在原本的文字上。
+ *   `ref.focus({ atEnd })`、`ref.copy()`、`ref.post()` 給快捷鍵用。
  * - 複製：原封不動（不去空白）；成功、失敗（全選文字方便手動複製）、空白各有通知。
  * - 貼到 X：去頭尾空白後在新分頁開啟 X 的發文畫面（`xIntentUrl`）；空白時通知、不開分頁。
  * - 字數：預設 `xPostLength`／`X_POST_LIMIT`；超過時顯示「超過 N 字」（危險色、`data-over`）。
@@ -14,7 +16,7 @@
 import { Copy, Send } from 'lucide-react';
 import { type ReactNode, type Ref, useId, useImperativeHandle, useRef } from 'react';
 import { copyText } from '@/core/files';
-import { X_POST_LIMIT, xIntentUrl, xPostLength } from '@/core/social';
+import { insertText, wrapText, X_POST_LIMIT, xIntentUrl, xPostLength } from '@/core/social';
 import { Button } from './Button';
 import { cn } from './cn';
 import { useToast } from './Toast';
@@ -23,8 +25,10 @@ export interface PostEditorHandle {
   textarea: HTMLTextAreaElement | null;
   /** 焦點移到欄位；atEnd 時游標放在最後 */
   focus: (options?: { atEnd?: boolean }) => void;
-  /** 在游標位置插入文字（取代選取的部分） */
-  insert: (text: string) => void;
+  /** 在游標位置插入文字（取代選取的部分）；ownLine 時自成一行 */
+  insert: (text: string, options?: { ownLine?: boolean }) => void;
+  /** 用 open、close 包住選取的文字（沒有選取時插入一對括號、游標在中間） */
+  wrap: (open: string, close: string) => void;
   /** 等同按「複製」 */
   copy: () => Promise<boolean>;
   /** 等同按「貼到 X」；有開分頁時回傳 true */
@@ -145,33 +149,42 @@ export function PostEditor({
     if (ta) lastSel.current = { start: ta.selectionStart, end: ta.selectionEnd, value: ta.value };
   };
 
-  const insert = (text: string) => {
+  /** 要插入或包住的範圍：欄位有焦點時用目前的選取，否則用最後的選取位置（值被換掉後是文字最後面） */
+  const targetRange = (): { start: number; end: number } => {
     const ta = area.current;
-    const current = latest.current.value;
-    const len = current.length;
-    let start = len;
-    let end = len;
-    if (ta && typeof document !== 'undefined' && document.activeElement === ta) {
-      start = ta.selectionStart;
-      end = ta.selectionEnd;
-    } else if (lastSel.current && lastSel.current.value === current) {
-      ({ start, end } = lastSel.current);
-    }
-    start = Math.min(start, len);
-    end = Math.max(start, Math.min(end, len));
-    const next = current.slice(0, start) + text + current.slice(end);
-    const caret = start + text.length;
-    latest.current.onChange(next, 'insert');
-    /* 受控的值換掉後瀏覽器會把游標移到最後：等畫面更新後再把游標放回插入的文字後面 */
+    const len = latest.current.value.length;
+    if (ta && typeof document !== 'undefined' && document.activeElement === ta)
+      return { start: ta.selectionStart, end: ta.selectionEnd };
+    if (lastSel.current && lastSel.current.value === latest.current.value)
+      return { start: lastSel.current.start, end: lastSel.current.end };
+    return { start: len, end: len };
+  };
+
+  /* 受控的值換掉後瀏覽器會把游標移到最後：等畫面更新後再把焦點與選取範圍放回去 */
+  const placeSelection = (start: number, end: number) => {
     const place = () => {
       const el = area.current;
       if (!el) return;
       el.focus();
-      const pos = Math.min(caret, el.value.length);
-      el.setSelectionRange(pos, pos);
+      const len = el.value.length;
+      el.setSelectionRange(Math.min(start, len), Math.min(end, len));
     };
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(place);
     else place();
+  };
+
+  const insert = (text: string, options?: { ownLine?: boolean }) => {
+    const { start, end } = targetRange();
+    const r = insertText(latest.current.value, start, end, text, options);
+    latest.current.onChange(r.text, 'insert');
+    placeSelection(r.caret, r.caret);
+  };
+
+  const wrap = (open: string, close: string) => {
+    const { start, end } = targetRange();
+    const r = wrapText(latest.current.value, start, end, open, close);
+    latest.current.onChange(r.text, 'insert');
+    placeSelection(r.start, r.end);
   };
 
   const copy = async () => {
@@ -207,6 +220,7 @@ export function PostEditor({
     },
     focus,
     insert,
+    wrap,
     copy,
     post,
   }));
