@@ -590,7 +590,7 @@ test.describe('1280 寬', () => {
     await btn(page, '專案').click();
     await page.getByRole('menuitem', { name: /全部重來/ }).click();
     await expect(page.getByRole('alertdialog')).toContainText('刪除所有角色卡、重新開始？');
-    await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: '全部重來' }).click();
     await expect(sheets(page)).toHaveCount(1);
     await expect(field(page, '姓名')).toHaveValue('');
 
@@ -744,6 +744,51 @@ test.describe('1280 寬', () => {
       mask: [page.getByRole('status').filter({ hasText: '自動儲存' })],
     });
     await noHorizontalScroll(page);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('對等驗證後的修正（7.1）', () => {
+  test('F06 清單的名稱、F52 裝備與資產超過行數的提醒、自訂欄標題空白時的高度、縮小到頭時停用', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* F06：角色卡名稱空白、姓名有填時，清單的灰字與刪除鈕都用姓名 */
+    await btn(page, '新增角色卡').click();
+    await expect(sheets(page)).toHaveCount(2);
+    await field(page, '姓名').fill('林子安');
+    const nameBox = sheets(page).nth(1).getByRole('textbox');
+    await nameBox.fill('');
+    await expect(nameBox).toHaveAttribute('placeholder', '林子安');
+    await expect(sheets(page).nth(1).getByRole('button', { name: '刪除「林子安」' })).toBeVisible();
+    /* F52：裝備超過 20 行、資產的「其他」超過 7 行時，預覽上方提醒 */
+    await tab(page, '背景與物品');
+    await field(page, '裝備與隨身物品').fill(
+      Array.from({ length: 22 }, (_, i) => `物品 ${i + 1}`).join('\n'),
+    );
+    await expect(warnings(page)).toContainText(
+      '裝備與隨身物品有 22 行；角色卡只印得下 20 行，第 21 行以後不會印出來。',
+    );
+    await field(page, '其他').fill(Array.from({ length: 8 }, (_, i) => `資產 ${i + 1}`).join('\n'));
+    await expect(warnings(page)).toContainText('現金與資產的「其他」有 8 行；角色卡只印得下 7 行');
+    await field(page, '裝備與隨身物品').fill('手電筒\n\n\n');
+    await field(page, '其他').fill('');
+    await expect(warnings(page)).toHaveCount(0);
+    /* 自訂欄的標題空白時，標題帶和有字時一樣高 */
+    await tab(page, '基本資料');
+    const head = page1(page).locator('.cs-custom .cs-head');
+    await field(page, '標題').fill('線索');
+    const h1 = (await head.boundingBox())?.height ?? 0;
+    await field(page, '標題').fill('');
+    await expect
+      .poll(async () => Math.round((await head.boundingBox())?.height ?? 0))
+      .toBe(Math.round(h1));
+    /* 縮小到 25% 之後「縮小」停用 */
+    const value = page.getByTestId('zoom-value');
+    for (let i = 0; i < 8 && (await btn(page, '縮小').isEnabled()); i++)
+      await btn(page, '縮小').click();
+    await expect(value).toHaveText('25%');
+    await expect(btn(page, '縮小')).toBeDisabled();
     expect(errors).toEqual([]);
   });
 });

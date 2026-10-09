@@ -239,6 +239,11 @@ describe('migrateLegacy', () => {
       .replace(/>70</g, '><')
       .replace(/>50</g, '><');
     expect(migrateLegacy('{}', blank)).toBeNull();
+    /* 空白的具名存檔也不搬（7.1）；全部空白時沒有東西可以搬 */
+    const withBlank = migrateLegacy(JSON.stringify({ 空白: blank, ...saves }), null);
+    expect(withBlank?.sheets.map((s) => s.title)).toEqual(['調查員甲', '調查員乙']);
+    expect(withBlank?.currentId).toBe(withBlank?.sheets[0].id);
+    expect(migrateLegacy(JSON.stringify({ 空白: blank }), blank)).toBeNull();
     expect(migrateLegacy('not json', null)).toBeNull();
     expect(migrateLegacy('[1,2]', '')).toBeNull();
     expect(migrateLegacy(JSON.stringify({ 壞的: 5 }), null)).toBeNull();

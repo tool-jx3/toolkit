@@ -323,6 +323,10 @@ export const S = {
     assetsLabel: '資產',
     otherAssets: '其他',
     otherAssetsHint: '每行一項，印 7 行。',
+    gearLimit: (n: number) =>
+      `裝備與隨身物品有 ${n} 行；角色卡只印得下 20 行，第 21 行以後不會印出來。`,
+    otherAssetsLimit: (n: number) =>
+      `現金與資產的「其他」有 ${n} 行；角色卡只印得下 7 行，第 8 行以後不會印出來。`,
     memo: '備註',
     memoHint: '印 20 行（左右兩欄各 10 行）。',
     lines: (n: number) => `印 ${n} 行。`,
@@ -399,6 +403,7 @@ export const S = {
     idea: '靈感',
     know: '知識',
     damage: (name: string) => `${name}（傷害）`,
+    weapon: '武器',
     build: '體格',
     mov: 'MOV',
     luck: '幸運',

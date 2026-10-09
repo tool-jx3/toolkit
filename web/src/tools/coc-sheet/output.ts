@@ -101,7 +101,8 @@ export function chatPalette(sheet: Sheet): string {
     const name = w.name.trim();
     const v = weaponValue(w, sheet);
     if (name && v !== null) lines.push(`CC<=${v} ${name}`);
-    if (isDamage(w.damage)) lines.push(`${damageCommand(w.damage)} ${C.damage(name || '')}`.trim());
+    /* 沒有名稱的武器：傷害的標籤用「武器」（不會變成「2D6 （傷害）」，7.1） */
+    if (isDamage(w.damage)) lines.push(`${damageCommand(w.damage)} ${C.damage(name || C.weapon)}`);
   }
   lines.push(`//DB=${d.db ?? '0'}`);
   if (d.build !== null) lines.push(`//${C.build}=${d.build}`);

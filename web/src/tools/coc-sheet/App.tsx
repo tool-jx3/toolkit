@@ -138,6 +138,7 @@ function SheetList({ sheet, sheets }: { sheet: Sheet; sheets: readonly Sheet[] }
         getId={(s) => s.id}
         getName={(s) => s.title}
         placeholder={S.list.unnamed}
+        getPlaceholder={(s) => s.info.name.trim() || S.list.unnamed}
         renameLabel={S.list.rename}
         onRename={renameSheet}
         selectedId={sheet.id}
@@ -267,6 +268,7 @@ export function App() {
         fileName={S.project.fileName}
         resetText={{
           label: S.project.resetLabel,
+          confirmLabel: S.project.resetLabel,
           title: S.project.resetTitle,
           description: S.project.resetDescription,
         }}

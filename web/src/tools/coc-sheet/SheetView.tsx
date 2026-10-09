@@ -19,14 +19,11 @@ import {
   type StoryKey,
   WEAPON_SLOTS,
 } from './model';
-import { baseLabel, derived, skillValue, thresholds, weaponValue } from './rules';
+import { baseLabel, derived, digitClass, skillValue, thresholds, weaponValue } from './rules';
 import { SHEET_ROOT_CLASS } from './sheetCss';
 import { SHEET } from './strings';
 
-const digits = (v: number | string | null) => {
-  const n = v === null ? 0 : String(v).length;
-  return n >= 5 ? 'n5' : n === 4 ? 'n4' : n === 3 ? 'n3' : '';
-};
+const digits = digitClass;
 
 const show = (v: number | null) => (v === null ? '' : String(v));
 
@@ -278,7 +275,11 @@ function PageOne({ sheet, portraitUrl }: { sheet: Sheet; portraitUrl: string | n
       </div>
 
       <div className="cs-status">
-        <Box className="cs-custom" title={sheet.custom.title}>
+        {/* 標題空白時標題帶照舊一行高（7.1） */}
+        <Box
+          className="cs-custom"
+          title={sheet.custom.title.trim() ? sheet.custom.title : '\u00a0'}
+        >
           <div className="cs-body">
             <Lines
               id="custom"

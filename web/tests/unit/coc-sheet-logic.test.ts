@@ -18,6 +18,7 @@ import {
   duplicateSheet,
   newSheet,
   newSkill,
+  newWeapon,
   readProject,
   type Sheet,
   SKILL_CATALOG,
@@ -39,9 +40,11 @@ import {
   autoSkillValue,
   baseLabel,
   derived,
+  digitClass,
   skillDisplayName,
   skillValue,
   thresholds,
+  usedLines,
   usedPoints,
   weaponValue,
 } from '@/tools/coc-sheet/rules';
@@ -438,5 +441,32 @@ describe('檔名', () => {
     expect(pngFileName(s, '1')).toBe('林_子安_角色卡_第1頁.png');
     expect(pngFileName(s, 'both')).toBe('林_子安_角色卡.png');
     expect(outputTitle(newSheet(''))).toBe('調查員角色卡');
+  });
+});
+
+describe('對等驗證後的修正（7.1）', () => {
+  it('F14：數字框的字級 class 一級一級累加（5 位以上仍套得到 4 位的最小字）', () => {
+    expect([null, 5, 42, 999, 1000, 12345, 1234567].map(digitClass)).toEqual([
+      '',
+      '',
+      '',
+      'n3',
+      'n3 n4',
+      'n3 n4 n5',
+      'n3 n4 n5',
+    ]);
+    expect(digitClass('-1')).toBe('');
+  });
+
+  it('F52：多行欄位用到的行數（最後一個非空白行為止）', () => {
+    expect(usedLines('')).toBe(0);
+    expect(usedLines('a\n\nb\n\n  \n')).toBe(3);
+    expect(usedLines(Array.from({ length: 22 }, (_, i) => `第 ${i + 1} 行`).join('\n'))).toBe(22);
+  });
+
+  it('CCFOLIA：沒有名稱的武器，傷害的標籤寫「武器」', () => {
+    const s = newSheet('測試');
+    s.weapons = [newWeapon({ name: '', damage: '2D6' })];
+    expect(chatPalette(s).split('\n')).toContain('2D6 武器（傷害）');
   });
 });

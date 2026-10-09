@@ -7,8 +7,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { mmToPx, stepZoom } from '@/core/paged';
 import { Button, IconButton, Notice, PagedViewport, type PagedViewportHandle } from '@/ui';
-import { type Sheet, SKILL_SLOTS, WEAPON_SLOTS } from './model';
+import { ASSET_LINES, GEAR_LINES, type Sheet, SKILL_SLOTS, WEAPON_SLOTS } from './model';
 import { usePortraitUrl } from './portrait';
+import { usedLines } from './rules';
 import { SheetView } from './SheetView';
 import { SCREEN_CSS, SHEET_CSS } from './sheetCss';
 import { useView } from './store';
@@ -102,6 +103,11 @@ export function Preview({ sheet }: { sheet: Sheet }) {
   const notices: string[] = [];
   if (sheet.skills.length > SKILL_SLOTS) notices.push(S.skills.printLimit(sheet.skills.length));
   if (sheet.weapons.length > WEAPON_SLOTS) notices.push(S.combat.printLimit(sheet.weapons.length));
+  /* 裝備、資產的「其他」超過紙面的行數（舊版用 Enter 一直加行的存檔搬過來時會遇到，F52） */
+  const gearLines = usedLines(sheet.gear);
+  if (gearLines > GEAR_LINES) notices.push(S.story.gearLimit(gearLines));
+  const otherLines = usedLines(sheet.assets.other);
+  if (otherLines > ASSET_LINES) notices.push(S.story.otherAssetsLimit(otherLines));
   if (overflow.length) notices.push(S.preview.overflow(overflow.join('、')));
 
   return (
@@ -112,7 +118,7 @@ export function Preview({ sheet }: { sheet: Sheet }) {
           icon={<ZoomOut />}
           size="sm"
           onClick={() => step(-1)}
-          disabled={z <= ZOOM_MIN + 0.001}
+          disabled={stepZoom(z, -1) === null}
         />
         <span className="w-12 text-center text-sm tabular-nums" data-testid="zoom-value">
           {Math.round(z * 100)}%
@@ -122,7 +128,7 @@ export function Preview({ sheet }: { sheet: Sheet }) {
           icon={<ZoomIn />}
           size="sm"
           onClick={() => step(1)}
-          disabled={z >= ZOOM_MAX - 0.001}
+          disabled={stepZoom(z, 1) === null}
         />
         <Button
           size="sm"

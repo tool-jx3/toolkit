@@ -135,3 +135,20 @@ export function weaponValue(weapon: Weapon, sheet: Sheet): number | null {
 
 /** 屬性的值 */
 export const statValue = (sheet: Sheet, key: StatKey): number | null => sheet.stats[key];
+
+/**
+ * 數字框的字級（F14）：位數的 class 一級一級累加（3 位＝n3、4 位＝n3 n4、5 位以上＝n3 n4 n5），
+ * 紙面的樣式只寫到某一級的框（例如能力值只到 n4）就停在最小的那一級，不會回到最大字。
+ */
+export function digitClass(v: number | string | null): string {
+  const n = v === null ? 0 : String(v).length;
+  return ['n3', 'n4', 'n5'].slice(0, Math.max(0, Math.min(3, n - 2))).join(' ');
+}
+
+/** 多行欄位實際用到幾行（最後一個非空白行為止；後面的空行不算，F52） */
+export function usedLines(text: string): number {
+  const lines = text.split('\n');
+  let n = lines.length;
+  while (n > 0 && lines[n - 1].trim() === '') n--;
+  return n;
+}

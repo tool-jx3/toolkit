@@ -443,7 +443,7 @@ export interface LegacyMigration {
  * 讀舊版的 localStorage 值，轉成新版的角色卡。沒有可以搬的內容時 null。
  * - 每個具名存檔一張（名稱＝存檔名稱，依存檔的順序）；
  * - 自動儲存的內容和某個存檔相同時不另外加，目前的角色卡就是那一張；不同時另外加一張「自動儲存的角色卡」
- *   放在最前面、設為目前的角色卡（那是使用者最後看到的內容）；空白的角色卡不搬。
+ *   放在最前面、設為目前的角色卡（那是使用者最後看到的內容）；空白的角色卡（具名存檔也是）不搬。
  */
 export function migrateLegacy(
   savesJson: string | null,
@@ -461,7 +461,9 @@ export function migrateLegacy(
   }
   for (const [name, html] of Object.entries(saves)) {
     if (typeof html !== 'string' || !html.trim()) continue;
-    items.push(parseLegacySheet(html, name, parse));
+    const it = parseLegacySheet(html, name, parse);
+    /* 什麼都沒填的具名存檔也不搬（7.1；和自動儲存一樣） */
+    if (sheetFingerprint(it.sheet) !== blank) items.push(it);
   }
   let currentId = items[0]?.sheet.id ?? '';
   if (autosaveHtml?.trim()) {
