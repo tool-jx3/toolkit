@@ -13,7 +13,7 @@ import type {
 import type { PartGroup } from './rigger';
 
 /** 臉部特徵點模型的大小（3,758,596 位元組）：下載卡的說明、按鈕、刪除確認與使用說明都用同一個寫法 */
-const MODEL_SIZE = '約 3.6 MB';
+const MODEL_SIZE = '約 3.8 MB'; // 3,758,596 bytes；和其他工具一樣 1 MB＝10⁶ bytes
 
 export const S = {
   /* ---------- 頁首、讀入 ---------- */

@@ -831,10 +831,10 @@ test('攝影機追蹤：模型沒下載時提示、下載（驗 SHA-256）後接
   await expect(modelPanel(page)).toHaveAttribute('data-status', 'missing');
   await expect(modelPanel(page)).toContainText('授權：Apache-2.0');
   await expect(modelPanel(page)).toContainText('Google 的 MediaPipe');
-  /* 大小的寫法一致（說明、按鈕、刪除確認都是「約 3.6 MB」；對等驗證後修正） */
-  await expect(modelPanel(page)).toContainText('約 3.6 MB');
+  /* 大小的寫法一致（說明、按鈕、刪除確認都是「約 3.8 MB」；對等驗證後修正） */
+  await expect(modelPanel(page)).toContainText('約 3.8 MB');
   await expect(
-    modelPanel(page).getByRole('button', { name: '下載模型（約 3.6 MB）' }),
+    modelPanel(page).getByRole('button', { name: '下載模型（約 3.8 MB）' }),
   ).toBeVisible();
   await expect(modelPanel(page)).not.toContainText(/約 \d+ MB/);
   await camToggle(page).click();
@@ -851,9 +851,9 @@ test('攝影機追蹤：模型沒下載時提示、下載（驗 SHA-256）後接
   expect(errors.filter((e) => !/face_landmarker|tasks-vision|wasm|Model|graph/i.test(e))).toEqual(
     [],
   );
-  await expect(modelPanel(page)).toContainText('模型已下載（約 3.6 MB');
+  await expect(modelPanel(page)).toContainText('模型已下載（約 3.8 MB');
   await modelPanel(page).getByRole('button', { name: '刪除已下載的模型' }).click();
-  await expect(page.getByRole('alertdialog')).toContainText('需要重新下載（約 3.6 MB）');
+  await expect(page.getByRole('alertdialog')).toContainText('需要重新下載（約 3.8 MB）');
   await page.getByRole('alertdialog').getByRole('button', { name: '取消' }).click();
   /* tasks-vision 的使用統計（POST odml.pa.googleapis.com/v1/log）：載入追蹤模組後就不會送出（對等驗證後修正）。
      真的模型關掉追蹤時才會送（下面 ANIME_RIG_FACE_MODEL 的測試）；這裡直接用同一個 fetch 確認被擋在瀏覽器裡 */

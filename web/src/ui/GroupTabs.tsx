@@ -1,11 +1,11 @@
 /**
  * 群組分頁：同一群組的工具互相切換（一般連結，每個工具仍是獨立網址）。
- * 群組只有一個工具時不顯示。
+ * 群組只有一個工具時不顯示。已上線的頁面只列已上線的工具（`groupTabTools`）。
  * 分頁永遠只佔一行：放不下時整列橫向捲動（觸控可滑、鍵盤 Tab 聚焦時自動捲到），開頁時目前的分頁捲進可見範圍。
  * 還有分頁藏在左右兩端外時，那一端淡出（提示可以捲動）；捲到底的那一端不淡出。
  */
 import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react';
-import { GROUPS, getTool, hrefToTool, type ToolEntry, toolsInGroup } from '@/registry';
+import { GROUPS, getTool, groupTabTools, hrefToTool, type ToolEntry } from '@/registry';
 import { cn } from './cn';
 
 export interface GroupTabsProps {
@@ -38,7 +38,7 @@ function fadeMask(left: boolean, right: boolean): CSSProperties | undefined {
 export function GroupTabs({ toolId, tools, className }: GroupTabsProps) {
   const navRef = useRef<HTMLElement>(null);
   const tool = tools?.find((t) => t.id === toolId) ?? getTool(toolId);
-  const siblings = tool ? (tools ?? toolsInGroup(tool.group)) : [];
+  const siblings = tool ? (tools ?? groupTabTools(tool, import.meta.env.DEV)) : [];
   // biome-ignore lint/correctness/useExhaustiveDependencies: 換工具或分頁清單時重新對齊
   useLayoutEffect(() => {
     if (navRef.current) revealCurrent(navRef.current);

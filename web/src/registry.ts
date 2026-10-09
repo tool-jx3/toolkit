@@ -602,6 +602,15 @@ export function toolsInGroup(group: GroupId): ToolEntry[] {
   return TOOLS.filter((t) => t.group === group);
 }
 
+/**
+ * 群組分頁要列的工具：已上線的頁面只列已上線的工具（重寫中、還沒驗證的不出現在正式網站的分頁）；
+ * 重寫中的頁面（`next/<id>/`）與開發伺服器列出整組。
+ */
+export function groupTabTools(tool: Pick<ToolEntry, 'group' | 'status'>, dev = false): ToolEntry[] {
+  const all = toolsInGroup(tool.group);
+  return dev || tool.status !== 'live' ? all : all.filter((t) => t.status === 'live');
+}
+
 /** 工具建置後所在的目錄（相對於 repo 根目錄） */
 export function outputDir(tool: Pick<ToolEntry, 'id' | 'status'>): string {
   return tool.status === 'live' ? `tools/${tool.id}` : `next/${tool.id}`;
