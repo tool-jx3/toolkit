@@ -73,6 +73,10 @@ export function removeSheet(id: string): void {
 
 /* ---------- 技能列 ---------- */
 
+/** 目前角色卡的技能列 */
+export const currentSkills = (): readonly Skill[] =>
+  currentSheet(useSheets.getState().data, useView.getState().data.currentId).skills;
+
 export function updateSkill(skillId: string, recipe: (s: Draft<Skill>) => void): void {
   updateSheet((s) => {
     const k = s.skills.find((x) => x.id === skillId);

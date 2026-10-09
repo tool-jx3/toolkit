@@ -127,10 +127,11 @@ export function splitLabel(text: string): { name: string; base: SkillBase } {
 
 /** 初始值的寫法：「15%」「15」→ 15、「DEX×½」→ DEX/2、「EDU%」→ EDU；看不懂 → undefined */
 function parseBase(s: string): SkillBase | undefined {
-  const t = s.normalize('NFKC').replace(/\s+/g, '').toUpperCase();
+  /* NFKC 把「½」變成「1⁄2」（分數斜線） */
+  const t = s.normalize('NFKC').replace(/\s+/g, '').replace(/⁄/g, '/').toUpperCase();
   const n = t.match(/^(\d{1,3})%?$/);
   if (n) return Number(n[1]);
-  if (/^DEX(×|X|\*)?(½|1\/2)$/.test(t) || t === 'DEX/2') return 'DEX/2';
+  if (/^DEX(×|X|\*)?1\/2$/.test(t) || t === 'DEX/2') return 'DEX/2';
   if (/^EDU%?$/.test(t)) return 'EDU';
   return undefined;
 }
@@ -420,12 +421,13 @@ function isBlankSkill(s: Skill): boolean {
 
 /** 比較兩張角色卡的內容（不看 id、名稱） */
 export function sheetFingerprint(sheet: Sheet): string {
+  const index = (id: string | null) => (id ? sheet.skills.findIndex((s) => s.id === id) : null);
   return JSON.stringify({
     ...sheet,
     id: '',
     title: '',
     skills: sheet.skills.map((s) => ({ ...s, id: '' })),
-    weapons: sheet.weapons.map((w) => ({ ...w, id: '' })),
+    weapons: sheet.weapons.map((w) => ({ ...w, id: '', skillId: index(w.skillId) })),
   });
 }
 

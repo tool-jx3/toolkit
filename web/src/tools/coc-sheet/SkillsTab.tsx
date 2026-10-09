@@ -3,7 +3,8 @@
  * （成長勾選、名稱／專長、初始、職業、興趣、成長、技能值〔空白＝自動〕、困難／極限；插入、刪除、拖曳或 Alt＋↑／↓ 調整順序；搜尋）。
  */
 import { GripVertical, Plus, RotateCcw, Trash2 } from 'lucide-react';
-import { memo, useMemo, useState } from 'react';
+import { type KeyboardEvent, memo, useEffect, useMemo, useRef, useState } from 'react';
+import { create } from 'zustand';
 import { historyGesture } from '@/core/storage';
 import {
   Button,
@@ -17,7 +18,14 @@ import {
   SortableList,
   TextInput,
 } from '@/ui';
-import { insertSkill, moveSkill, removeSkill, updateSheet, updateSkill } from './actions';
+import {
+  currentSkills,
+  insertSkill,
+  moveSkill,
+  removeSkill,
+  updateSheet,
+  updateSkill,
+} from './actions';
 import { AutoNumberField } from './controls';
 import { type Sheet, SKILL_SLOTS, type Skill } from './model';
 import {
@@ -53,6 +61,41 @@ export const SKILL_TABLE_CSS = `
 }
 `;
 
+/** 要把游標移過去的技能列（插入、刪除空白列之後） */
+const useFocusRow = create<{ id: string | null }>(() => ({ id: null }));
+
+/** 名稱欄的按鍵（舊版的操作）：Enter 在下面插入一列並移過去；空白的自訂列按 Backspace 刪掉、回到上一列 */
+function nameKeyDown(
+  e: KeyboardEvent<HTMLInputElement>,
+  skill: Skill,
+  field: 'name' | 'specialty',
+) {
+  if (e.nativeEvent.isComposing) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    useFocusRow.setState({ id: insertSkill(skill.id) });
+    return;
+  }
+  if (e.key === 'Backspace' && field === 'name' && isEmptyRow(skill)) {
+    e.preventDefault();
+    const rows = currentSkills();
+    const i = rows.findIndex((r) => r.id === skill.id);
+    const prev = rows[i - 1] ?? rows[i + 1] ?? null;
+    removeSkill(skill.id);
+    useFocusRow.setState({ id: prev?.id ?? null });
+  }
+}
+
+const isEmptyRow = (k: Skill) =>
+  k.kind === 'custom' &&
+  !k.name &&
+  k.base === null &&
+  k.occupation === null &&
+  k.interest === null &&
+  k.growth === null &&
+  k.value === null &&
+  !k.checked;
+
 interface RowProps {
   skill: Skill;
   index: number;
@@ -61,6 +104,13 @@ interface RowProps {
 }
 
 const SkillRow = memo(function SkillRow({ skill, index, stats }: RowProps) {
+  const nameRef = useRef<HTMLInputElement>(null);
+  const focusMe = useFocusRow((f) => f.id === skill.id);
+  useEffect(() => {
+    if (!focusMe) return;
+    nameRef.current?.focus();
+    useFocusRow.setState({ id: null });
+  }, [focusMe]);
   const label = skillDisplayName(skill) || S.skills.rowLabel(index + 1);
   const auto = autoSkillValue(skill, stats);
   const total = skill.value ?? auto;
@@ -112,10 +162,12 @@ const SkillRow = memo(function SkillRow({ skill, index, stats }: RowProps) {
       </span>
       <span className="a-name flex min-w-0 gap-1">
         <TextInput
+          ref={nameRef}
           className={cn('h-7 text-xs', skill.kind === 'specialty' ? 'w-[45%]' : 'w-full')}
           aria-label={`${S.skills.name}（${S.skills.rowLabel(index + 1)}）`}
           value={skill.name}
           placeholder={skill.kind === 'custom' ? S.skills.customPlaceholder : ''}
+          onKeyDown={(e) => nameKeyDown(e, skill, 'name')}
           onChange={(e) =>
             set((k) => {
               k.name = e.target.value;
@@ -128,6 +180,7 @@ const SkillRow = memo(function SkillRow({ skill, index, stats }: RowProps) {
             aria-label={`${S.skills.specialty}（${skill.name || label}）`}
             value={skill.specialty}
             placeholder={S.skills.specialtyPlaceholder}
+            onKeyDown={(e) => nameKeyDown(e, skill, 'specialty')}
             onChange={(e) =>
               set((k) => {
                 k.specialty = e.target.value;
@@ -211,7 +264,7 @@ const SkillRow = memo(function SkillRow({ skill, index, stats }: RowProps) {
           size="sm"
           label={S.skills.insert(label)}
           icon={<Plus />}
-          onClick={() => insertSkill(skill.id)}
+          onClick={() => useFocusRow.setState({ id: insertSkill(skill.id) })}
         />
         <IconButton
           size="sm"
@@ -282,6 +335,12 @@ function Budget({ sheet }: { sheet: Sheet }) {
   );
 }
 
+function addAtEnd(select: (id: string) => void) {
+  const id = insertSkill();
+  select(id);
+  useFocusRow.setState({ id });
+}
+
 export function SkillsTab({ sheet }: { sheet: Sheet }) {
   const [filter, setFilter] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
@@ -298,7 +357,7 @@ export function SkillsTab({ sheet }: { sheet: Sheet }) {
         title={`${S.skills.section}（${sheet.skills.length}）`}
         fixed
         actions={
-          <Button size="sm" icon={<Plus />} onClick={() => setSelected(insertSkill())}>
+          <Button size="sm" icon={<Plus />} onClick={() => addAtEnd(setSelected)}>
             {S.skills.add}
           </Button>
         }

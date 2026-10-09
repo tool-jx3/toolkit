@@ -1,8 +1,9 @@
 /**
- * 書頁（core/paged＋PagedViewport）的示範：一串段落自動分頁（段落不切開），放進可縮放的檢視區。
+ * 書頁（core/paged＋PagedViewport）的示範：一串段落自動分頁（段落不切開），放進可縮放的檢視區；
+ * 「第 1 頁畫成 PNG」示範 rasterizeElement（coc-sheet 的匯出 PNG 移植時新增）。
  */
 import { useEffect, useRef, useState } from 'react';
-import { mmToPx, paginate, stepZoom } from '@/core/paged';
+import { mmToPx, paginate, rasterizeElement, stepZoom } from '@/core/paged';
 import { Button, PagedViewport, type PagedViewportHandle, Section } from '@/ui';
 
 const PAGE = { w: 90, h: 70 };
@@ -23,6 +24,13 @@ export function PagedDemo() {
   const vp = useRef<PagedViewportHandle>(null);
   const [zoom, setZoom] = useState(1);
   const [pages, setPages] = useState(0);
+  const [png, setPng] = useState<{ url: string; width: number; height: number } | null>(null);
+  const toPng = async () => {
+    const first = stage.current?.firstElementChild as HTMLElement | null;
+    if (!first) return;
+    const canvas = await rasterizeElement(first, { css: '', scale: 1, background: null });
+    setPng({ url: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height });
+  };
   useEffect(() => {
     const h = host.current;
     const st = stage.current;
@@ -66,7 +74,16 @@ export function PagedDemo() {
         <Button size="sm" variant="ghost" onClick={() => setZoom(vp.current?.fitWidthZoom() ?? 1)}>
           配合寬度
         </Button>
+        <Button size="sm" variant="secondary" onClick={() => void toPng()}>
+          第 1 頁畫成 PNG
+        </Button>
       </div>
+      {png ? (
+        <p className="m-0 flex items-center gap-2 text-sm" data-testid="paged-demo-png">
+          <img src={png.url} alt="第 1 頁的 PNG" className="h-16 border border-border" />
+          {png.width} × {png.height} px（倍率 1，頁面的排版尺寸）
+        </p>
+      ) : null}
       <div
         ref={host}
         aria-hidden
