@@ -450,6 +450,7 @@ function TrackingSection({ model }: { model: ModelCache }) {
         spec={faceModelSpec()}
         {...model}
         intro={<span>{S.modelIntro}</span>}
+        sizeLabel={S.modelSize}
         deleteDisabled={cam !== 'off'}
         className={needModel ? 'ring-2 ring-warning' : undefined}
       />
@@ -531,15 +532,13 @@ function ExportSection() {
       </Item>
       <Item text={S.recFormat}>
         <Field label={S.recFormat}>
+          {/* 不能錄影時沒有選項：空的值顯示 placeholder「（不支援）」 */}
           <Select<string>
             value={format?.mimeType ?? ''}
+            placeholder={S.recFormatNone}
             disabled={!formats.length}
             onValueChange={(v) => setPrefs({ recFormat: v })}
-            options={
-              formats.length
-                ? formats.map((f) => ({ value: f.mimeType, label: f.label }))
-                : [{ value: '', label: S.recFormatNone }]
-            }
+            options={formats.map((f) => ({ value: f.mimeType, label: f.label }))}
           />
         </Field>
       </Item>
@@ -607,7 +606,7 @@ function SaveSection() {
           </Button>
         </Item>
         <Item text={S.resetParams}>
-          <Button size="sm" variant="secondary" onClick={resetParams}>
+          <Button size="sm" variant="secondary" disabled={!hasModel} onClick={resetParams}>
             {S.resetParams}
           </Button>
         </Item>

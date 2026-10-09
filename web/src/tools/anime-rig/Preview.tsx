@@ -572,11 +572,12 @@ export function PreviewColumn() {
           zoomRange={[0.5, 16]}
           fitUpscale
           dragPan
+          onViewportDoubleClick={fitView}
           aria-label={S.previewLabel}
           maxViewportHeight="calc(100dvh - 14rem)"
         >
-          {/* biome-ignore lint/a11y/noStaticElementInteractions: 按兩下回到全圖（鍵盤用 F） */}
-          <div className="relative size-full" onDoubleClick={fitView} data-testid="stage-content">
+          {/* 按兩下回到全圖：Stage 的 onViewportDoubleClick（拖曳平移會捕捉指標，內容收不到 dblclick；鍵盤用 F） */}
+          <div className="relative size-full" data-testid="stage-content">
             <canvas
               ref={canvasRef}
               className="block size-full"

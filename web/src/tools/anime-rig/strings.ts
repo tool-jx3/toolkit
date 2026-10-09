@@ -12,6 +12,9 @@ import type {
 } from './params';
 import type { PartGroup } from './rigger';
 
+/** 臉部特徵點模型的大小（3,758,596 位元組）：下載卡的說明、按鈕、刪除確認與使用說明都用同一個寫法 */
+const MODEL_SIZE = '約 3.6 MB';
+
 export const S = {
   /* ---------- 頁首、讀入 ---------- */
   open: '開啟 PSD',
@@ -199,7 +202,8 @@ export const S = {
   /* 攝影機與麥克風 */
   trackHint:
     '攝影機追蹤會從臉部特徵點讀取頭部朝向、眨眼、視線、嘴巴、眉毛與笑臉。攝影機畫面只在這個瀏覽器裡處理。',
-  modelIntro: '攝影機追蹤要先下載臉部特徵點模型（MediaPipe Face Landmarker，約 3.6 MB）。',
+  modelSize: MODEL_SIZE,
+  modelIntro: `攝影機追蹤要先下載臉部特徵點模型（MediaPipe Face Landmarker，${MODEL_SIZE}）。`,
   modelNeeded: '要先下載臉部追蹤模型。',
   calibrate: '記錄正面（校正）',
   calibrateHint: '攝影機追蹤時面向正前方，以自然的表情按下。',
@@ -295,6 +299,7 @@ export const S = {
   saveError: '無法儲存到瀏覽器，請匯出設定 JSON。',
   jsonExported: '已匯出設定 JSON。',
   jsonTooLarge: '設定 JSON 請控制在 1 MB 以下。',
+  jsonInvalid: '不是有效的 JSON 檔案。',
   modelChanged: '模型已經換了，請重新選擇設定。',
   imported: (diff: string) => `已讀入設定${diff}。按「儲存調整」就能記住。`,
   importError: (msg: string) => `無法讀入設定：${msg}`,
@@ -461,7 +466,7 @@ export const USAGE = {
     {
       title: '攝影機與麥克風',
       items: [
-        '第一次開「攝影機追蹤」前要先下載臉部特徵點模型（約 3.6 MB，Google 的 MediaPipe，Apache-2.0）；只要下載一次，存在這個瀏覽器裡。',
+        `第一次開「攝影機追蹤」前要先下載臉部特徵點模型（${MODEL_SIZE}，Google 的 MediaPipe，Apache-2.0）；只要下載一次，存在這個瀏覽器裡。`,
         '追蹤頭部朝向、眨眼、視線、嘴巴開合、眉毛與笑臉。預覽左上角有攝影機小畫面（可以關掉）。網址加 ?cam=1 時開頁就開始追蹤。',
         '「記錄正面（校正）」：追蹤中面向正前方、以自然的表情按下，之後以你的臉為基準判斷，眼睛偏細、嘴角上揚等個人差異比較不會誤判。',
         '關掉「左右眼同步眨眼」就能偵測單眼眨眼；眉毛與笑臉的追蹤可以個別關掉；頭部、眨眼、嘴巴、眉毛、視線的靈敏度與平滑度都可以調整。',

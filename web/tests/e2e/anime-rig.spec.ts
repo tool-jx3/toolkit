@@ -227,6 +227,8 @@ test('開頁：讀入畫面、頁尾只有靈感來源、沒有錯誤', async ({
     'https://github.com/852wa/Anime2.5DRig',
   );
   await expect(page.getByRole('button', { name: '儲存 PNG' }).first()).toBeDisabled();
+  /* 沒有模型時「重設數值」也停用（對等驗證後修正） */
+  await expect(settings(page).getByRole('button', { name: '重設數值' })).toBeDisabled();
   expect(errors).toEqual([]);
 });
 
@@ -266,6 +268,51 @@ test('讀入新的 PSD 後預覽回到全圖（對等驗證後修正）', async 
   await expect(stage).not.toHaveAttribute('data-zoom', String(fit));
   await loadPsd(page);
   await expect(stage).toHaveAttribute('data-zoom', String(fit));
+  expect(errors).toEqual([]);
+});
+
+test('預覽上按兩下回到全圖（滾輪放大、拖曳平移之後；控點上不算）（對等驗證後修正）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await loadPsd(page);
+  const stage = page.locator('section[data-zoom]');
+  const content = page.getByTestId('stage-content');
+  const box = await stage.boundingBox();
+  if (!box) throw new Error('no stage');
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const fitBox = await content.boundingBox();
+  await page.mouse.move(cx, cy);
+  await page.mouse.wheel(0, -100);
+  await expect(stage).toHaveAttribute('data-zoom', '116');
+  await page.mouse.down();
+  await page.mouse.move(cx + 60, cy + 30, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(async () => (await content.boundingBox())?.x).not.toBe(fitBox?.x);
+  /* 真的滑鼠按兩下（pointerdown 時舞台捕捉指標，dblclick 的目標是舞台區域本身） */
+  await page.mouse.dblclick(cx, cy);
+  await expect(stage).toHaveAttribute('data-zoom', '100');
+  await expect
+    .poll(async () => {
+      const b = await content.boundingBox();
+      return b && fitBox ? Math.abs(b.x - fitBox.x) + Math.abs(b.y - fitBox.y) : 99;
+    })
+    .toBeLessThan(1);
+  /* 錨點的控點上按兩下不回到全圖（與舊版相同） */
+  await page.mouse.move(cx, cy);
+  await page.mouse.wheel(0, -100);
+  await expect(stage).toHaveAttribute('data-zoom', '116');
+  await page
+    .getByRole('toolbar', { name: '預覽的操作' })
+    .getByRole('button', { name: '編輯錨點' })
+    .click();
+  const handle = page.locator('[data-anchor="neck"]');
+  const hb = await handle.boundingBox();
+  if (!hb) throw new Error('no handle');
+  await page.mouse.dblclick(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.waitForTimeout(300);
+  await expect(stage).toHaveAttribute('data-zoom', '116');
   expect(errors).toEqual([]);
 });
 
@@ -523,6 +570,22 @@ test('錄影：長度 3 秒到了自動停止、60 fps、格式選單', async ({
   });
 });
 
+test('不能錄影的瀏覽器：格式選單顯示「（不支援）」、錄影按鈕停用（對等驗證後修正）', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    delete (window as unknown as { MediaRecorder?: unknown }).MediaRecorder;
+  });
+  const errors = await open(page);
+  await loadPsd(page);
+  const exportArea = settings(page).locator('[data-section="export"]');
+  const format = exportArea.getByRole('combobox').nth(1);
+  await expect(format).toHaveText('（不支援）');
+  await expect(format).toBeDisabled();
+  await expect(exportArea.getByRole('button', { name: '開始錄影' })).toBeDisabled();
+  expect(errors).toEqual([]);
+});
+
 test('滑鼠追蹤：頭部與視線朝向預覽上的滑鼠', async ({ page }) => {
   await open(page);
   await loadPsd(page);
@@ -662,6 +725,16 @@ test('設定 JSON：匯出、讀入 v1、其他模型的 JSON', async ({ page })
   await expect(status(page)).toHaveText(
     '無法讀入設定：這是其他 PSD 的設定。請讀入與儲存時相同的 PSD。',
   );
+  /* 不是 JSON 的檔案：中文說明（不是瀏覽器的英文錯誤；對等驗證後修正） */
+  chooser = page.waitForEvent('filechooser');
+  await settings(page).getByRole('button', { name: '讀入設定 JSON' }).click();
+  await (await chooser).setFiles({
+    name: 'broken.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"format": "anime25d-settings", '),
+  });
+  await expect(status(page)).toHaveText('無法讀入設定：不是有效的 JSON 檔案。');
+  expect((await state(page)).preset).toBeNull();
 });
 
 test('舊版的存檔：anime25d.settings.<指紋> 與 anime25d.prefs 讀得到', async ({ page }) => {
@@ -744,10 +817,26 @@ test('攝影機追蹤：模型沒下載時提示、下載（驗 SHA-256）後接
       sha256: sha(FAKE_TASK),
     },
   );
+  /* 對外的請求：googleapis.com 只有模型的網址（這個測試換成 models.invalid，所以一個都沒有） */
+  const google: string[] = [];
+  page.on('request', (r) => {
+    if (/googleapis\.com/.test(r.url()) && !/fonts\.googleapis/.test(r.url())) google.push(r.url());
+  });
+  const telemetry: string[] = [];
+  await page.route('https://odml.pa.googleapis.com/**', (r) => {
+    telemetry.push(r.request().url());
+    return r.fulfill({ status: 200, body: '{}', headers: { 'access-control-allow-origin': '*' } });
+  });
   const errors = await open(page);
   await expect(modelPanel(page)).toHaveAttribute('data-status', 'missing');
   await expect(modelPanel(page)).toContainText('授權：Apache-2.0');
   await expect(modelPanel(page)).toContainText('Google 的 MediaPipe');
+  /* 大小的寫法一致（說明、按鈕、刪除確認都是「約 3.6 MB」；對等驗證後修正） */
+  await expect(modelPanel(page)).toContainText('約 3.6 MB');
+  await expect(
+    modelPanel(page).getByRole('button', { name: '下載模型（約 3.6 MB）' }),
+  ).toBeVisible();
+  await expect(modelPanel(page)).not.toContainText(/約 \d+ MB/);
   await camToggle(page).click();
   await expect(status(page)).toHaveText('要先下載臉部追蹤模型。');
   expect((await state(page)).auto.cam).toBe(false);
@@ -762,6 +851,20 @@ test('攝影機追蹤：模型沒下載時提示、下載（驗 SHA-256）後接
   expect(errors.filter((e) => !/face_landmarker|tasks-vision|wasm|Model|graph/i.test(e))).toEqual(
     [],
   );
+  await expect(modelPanel(page)).toContainText('模型已下載（約 3.6 MB');
+  await modelPanel(page).getByRole('button', { name: '刪除已下載的模型' }).click();
+  await expect(page.getByRole('alertdialog')).toContainText('需要重新下載（約 3.6 MB）');
+  await page.getByRole('alertdialog').getByRole('button', { name: '取消' }).click();
+  /* tasks-vision 的使用統計（POST odml.pa.googleapis.com/v1/log）：載入追蹤模組後就不會送出（對等驗證後修正）。
+     真的模型關掉追蹤時才會送（下面 ANIME_RIG_FACE_MODEL 的測試）；這裡直接用同一個 fetch 確認被擋在瀏覽器裡 */
+  const blocked = await page.evaluate(async () => {
+    const r = await fetch('https://odml.pa.googleapis.com/v1/log', { method: 'POST', body: 'x' });
+    return r.status;
+  });
+  expect(blocked).toBe(204);
+  await page.waitForTimeout(300);
+  expect(telemetry).toEqual([]);
+  expect(google).toEqual([]);
 });
 
 test('攝影機追蹤（假的特徵點）：參數跟著臉、小畫面、校正、關掉', async ({ page }) => {
@@ -837,11 +940,36 @@ test('麥克風嘴型：Chromium 的假裝置、音量表', async ({ page }) => 
   expect(errors).toEqual([]);
 });
 
+test('麥克風沒有權限：開關關掉、不再寫「準備中」（對等驗證後修正）', async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      throw new DOMException('denied', 'NotAllowedError');
+    };
+  });
+  await open(page);
+  await loadPsd(page);
+  const toggle = settings(page).getByRole('switch', { name: '麥克風嘴型' });
+  await toggle.click();
+  await expect(status(page)).toHaveText(/^無法啟動麥克風：/);
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  expect((await state(page)).mic).toBe('off');
+  await expect(settings(page).locator('[data-section="auto"]')).not.toContainText('麥克風準備中');
+});
+
 test('真的臉部模型（ANIME_RIG_FACE_MODEL）：下載、驗證、在假的攝影機畫面上偵測', async ({
   page,
 }) => {
   test.skip(!REAL_MODEL || !existsSync(REAL_MODEL), '沒有設定 ANIME_RIG_FACE_MODEL');
   test.skip(!!FACE_VIDEO, '假攝影機播的是有臉的影片（另一個測試）');
+  const google: string[] = [];
+  page.on('request', (r) => {
+    if (/googleapis\.com/.test(r.url()) && !/fonts\.googleapis/.test(r.url())) google.push(r.url());
+  });
+  const telemetry: string[] = [];
+  await page.route('https://odml.pa.googleapis.com/**', (r) => {
+    telemetry.push(r.request().url());
+    return r.fulfill({ status: 200, body: '{}', headers: { 'access-control-allow-origin': '*' } });
+  });
   const errors = await open(page);
   await loadPsd(page);
   await modelPanel(page)
@@ -851,12 +979,20 @@ test('真的臉部模型（ANIME_RIG_FACE_MODEL）：下載、驗證、在假的
   await camToggle(page).click();
   await expect.poll(async () => (await state(page)).cam, { timeout: 60_000 }).toBe('on');
   /* 假的攝影機畫面沒有臉：追蹤值不採用，小畫面顯示「偵測不到臉」 */
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(3000);
   /* 偵測照常執行（出錯時追蹤會停止、開關關掉） */
   expect((await state(page)).cam).toBe('on');
   expect((await state(page)).camLive).toBe(false);
   await expect(page.getByTestId('cam-preview')).toBeVisible();
-  expect(errors.filter((e) => !/WebGL|GPU|XNNPACK|TensorFlow/i.test(e))).toEqual([]);
+  /* 關掉追蹤：tasks-vision 關閉偵測器時會把使用統計 POST 到 odml.pa.googleapis.com（每 60 秒也會送一次）；
+     本站擋在瀏覽器裡，對 googleapis.com 只有下載模型的請求（對等驗證後修正） */
+  await camToggle(page).click();
+  expect((await state(page)).cam).toBe('off');
+  await page.waitForTimeout(1500);
+  expect(telemetry).toEqual([]);
+  expect(google).toEqual([FACE_LANDMARKER_MODEL.url]);
+  /* MediaPipe 的 INFO（XNNPACK）不再以 console.error 印出 */
+  expect(errors.filter((e) => !/WebGL|GPU/i.test(e))).toEqual([]);
 });
 
 /* 真的模型＋有臉的影片（Chromium 的假攝影機讀 Y4M）：ANIME_RIG_FACE_MODEL 與 ANIME_RIG_FACE_VIDEO 都設定才跑 */

@@ -140,6 +140,11 @@ export interface ModelDownloadPanelProps extends ModelCache {
   readyExtra?: ReactNode;
   /** 停用刪除（例如推論中） */
   deleteDisabled?: boolean;
+  /**
+   * 大小的文字（預設 formatModelSize(spec.bytes)，以 10⁶ 位元組四捨五入到整數，例如「約 176 MB」）。
+   * 小模型要寫得精確一點、或與工具說明的寫法一致時給（anime-rig 加的，例如「約 3.6 MB」）；按鈕、已下載、刪除確認都用這個。
+   */
+  sizeLabel?: string;
   className?: string;
 }
 
@@ -153,11 +158,12 @@ export function ModelDownloadPanel({
   intro,
   readyExtra,
   deleteDisabled,
+  sizeLabel,
   className,
 }: ModelDownloadPanelProps) {
   const confirm = useConfirm();
   const labelId = useId();
-  const size = formatModelSize(spec.bytes);
+  const size = sizeLabel ?? formatModelSize(spec.bytes);
   const source = spec.homepage ? (
     <a href={spec.homepage} target="_blank" rel="noreferrer" className="text-accent underline">
       {spec.source}
