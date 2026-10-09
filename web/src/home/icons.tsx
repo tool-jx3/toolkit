@@ -25,6 +25,7 @@ import {
   Layers,
   LayoutDashboard,
   LayoutGrid,
+  ListChecks,
   Loader,
   type LucideIcon,
   Mail,
@@ -113,6 +114,7 @@ const ICONS: Record<string, LucideIcon> = {
   /* G9 CoC 跑團輔助 */
   'coc-dice': Dices,
   'coc-npc': UserCog,
+  'house-rules': ListChecks,
   'coc-sheet': NotebookTabs,
   'trpg-lab': FlaskConical,
   /* G10 地圖與網格 */
