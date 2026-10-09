@@ -864,6 +864,8 @@ export class MapEngine {
     const isSelect = tool === 'select';
     c.selection = isSelect;
     if (!isSelect) c.discardActiveObject();
+    /* 圖層清單的選取也清掉（F024，同舊版）；格子、手繪工具在下面對準要畫的圖層 */
+    if (!isSelect && useEditor.getState().selectedIds.length) setEditor({ selectedIds: [] });
     this.applyInteractivity();
     if (tool === 'cell') {
       const top = mapLayers(c)

@@ -2094,4 +2094,25 @@ test.describe('對等驗證後的修正（7.1）', () => {
     await saved(page);
     expect(errors).toEqual([]);
   });
+  test('F024：選取物件後切到作圖工具，圖層清單的選取標示也清掉（同舊版）；格子工具照舊對準格子圖層', async ({
+    page,
+  }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    await drawRect(page, [0, 0], [144, 72]);
+    await page.keyboard.press('v');
+    await clickAt(page, 72, 36);
+    await expect(layerRow(page, '矩形1')).toHaveAttribute('data-selected', 'true');
+    await tool(page, 'ellipse').click();
+    await expect(layerRow(page, '矩形1')).not.toHaveAttribute('data-selected', /.*/);
+    /* 格子工具：對準最上面的格子圖層（F094） */
+    await page.keyboard.press('b');
+    await clickAt(page, 252, 36);
+    await page.keyboard.press('v');
+    await clickAt(page, 72, 36);
+    await page.keyboard.press('b');
+    await expect(layerRow(page, '格子1')).toHaveAttribute('data-selected', 'true');
+    await expect(layerRow(page, '矩形1')).not.toHaveAttribute('data-selected', /.*/);
+    expect(errors).toEqual([]);
+  });
 });
