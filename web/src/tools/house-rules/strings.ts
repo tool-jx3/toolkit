@@ -149,6 +149,11 @@ export const S = {
     resetDescription:
       '表的資訊、每條規則的設定與自己加的規則都會回到開頁的樣子（可以用「復原」回來）。',
     resetConfirm: '全部重來',
+    openOriginal: '開啟原作的房規表檔（.hrt.json）…',
+    openedOriginal: (name: string) => `已開啟「${name}」`,
+    openOriginalFailed: (name: string) =>
+      `「${name}」不是房規表檔（原作「CoCハウスルール表メーカー」存的 .hrt.json），沒有開啟。`,
+    openedHint: '可以用「復原」回到開啟前。',
   },
 
   undo: '復原',

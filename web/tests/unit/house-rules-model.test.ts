@@ -26,6 +26,7 @@ import {
   hasNotes,
   hasRows,
   initialData,
+  parseOriginalFile,
   sanitizeData,
 } from '@/tools/house-rules/model';
 import {
@@ -514,5 +515,18 @@ describe('修改動作（store）', () => {
       expect(Object.keys(d.secs[s.id].rows).sort()).toEqual(
         SECTION_BY_ID[s.id].rules.map((r) => r.id).sort(),
       );
+  });
+});
+
+describe('原作的房規表檔（.hrt.json，7. 裁定 D6）', () => {
+  it('原作的檔案：取出 state 照讀檔的整理；其他檔案不收', () => {
+    const state = initialData('2026-10-09');
+    state.info.title = '週五團';
+    const file = JSON.stringify({ app: 'house-rule-table', version: 1, savedAt: '', state });
+    expect(parseOriginalFile(file)).toEqual(sanitizeData(state));
+    expect(parseOriginalFile(file)?.info.title).toBe('週五團');
+    expect(parseOriginalFile(JSON.stringify({ app: 'other', state }))).toBeNull();
+    expect(parseOriginalFile(JSON.stringify({ app: 'house-rule-table' }))).toBeNull();
+    expect(parseOriginalFile('not json')).toBeNull();
   });
 });

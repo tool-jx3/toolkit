@@ -6,13 +6,14 @@
  * 目錄改成編輯區上方的橫向列；更窄時由上而下（目錄列黏在頂端、輸出在最下面）。
  * 規格：docs/refactor/specs/house-rules.md。
  */
-import { Redo2, Undo2 } from 'lucide-react';
+import { FileJson, Redo2, Undo2 } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
-import { downloadText } from '@/core/files';
+import { downloadText, pickFiles, readAsText } from '@/core/files';
 import { resetToolStore, serializeProject, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   IconButton,
   ProjectMenu,
+  ProjectMenuItem,
   type Shortcut,
   type ToastOptions,
   ToolShell,
@@ -21,7 +22,14 @@ import {
   withShortcut,
 } from '@/ui';
 import { InfoCard, RemarksCard } from './InfoCard';
-import { DATA_VERSION, fileBase, type HouseRulesData, sanitizeData, TOOL_ID } from './model';
+import {
+  DATA_VERSION,
+  fileBase,
+  type HouseRulesData,
+  parseOriginalFile,
+  sanitizeData,
+  TOOL_ID,
+} from './model';
 import { OutputPanel } from './OutputPanel';
 import { EDITION_SECTIONS } from './rules';
 import { SheetSection } from './SheetSection';
@@ -97,6 +105,25 @@ export function App() {
   const { undo, redo, canUndo, canRedo } = useUndoRedo(useRules);
   const layoutRef = useRef<HTMLDivElement>(null);
   useHeaderHeight(layoutRef);
+  /* App 在 ToolShell 的 UiProvider 外面：通知用 toastRef（由裡面的元件設定） */
+  const toast = (o: ToastOptions) => toastRef.current?.(o);
+
+  /* 原作存的 .hrt.json（7. 裁定 D6）：讀進來取代目前的表，可以復原 */
+  const openOriginal = async () => {
+    const [file] = await pickFiles({ accept: '.json,application/json' });
+    if (!file) return;
+    const data = parseOriginalFile(await readAsText(file));
+    if (!data) {
+      toast({ title: S.project.openOriginalFailed(file.name), tone: 'danger' });
+      return;
+    }
+    useRules.getState().replace(data);
+    toast({
+      title: S.project.openedOriginal(file.name),
+      description: S.project.openedHint,
+      tone: 'success',
+    });
+  };
 
   const shortcuts = useMemo<Shortcut[]>(
     () => [
@@ -149,6 +176,11 @@ export function App() {
           description: S.project.resetDescription,
           confirmLabel: S.project.resetConfirm,
         }}
+        extraItems={
+          <ProjectMenuItem icon={<FileJson aria-hidden />} onSelect={() => void openOriginal()}>
+            {S.project.openOriginal}
+          </ProjectMenuItem>
+        }
       />
     </>
   );

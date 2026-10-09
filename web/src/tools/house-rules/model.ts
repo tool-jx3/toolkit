@@ -183,6 +183,21 @@ const INFO_LIMITS: Record<keyof TableInfo, number> = {
  * 不認得的規則、選項丟掉；數字夾到選項的範圍內；自訂規則的分類要在那一區裡。
  * 完全不是物件時回傳 null。
  */
+/**
+ * 原作「CoCハウスルール表メーカー」存的房規表檔（`.hrt.json`：`{ app: 'house-rule-table', version, savedAt, state }`）：
+ * state 的結構和本工具相同，照讀檔的整理（sanitizeData）讀進來；不是原作的檔案時 null（7. 裁定 D6）。
+ */
+export function parseOriginalFile(text: string): HouseRulesData | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text.replace(/^\uFEFF/, ''));
+  } catch {
+    return null;
+  }
+  if (!isObj(raw) || raw.app !== 'house-rule-table' || !isObj(raw.state)) return null;
+  return sanitizeData(raw.state);
+}
+
 export function sanitizeData(raw: unknown, date = today()): HouseRulesData | null {
   if (!isObj(raw)) return null;
   const base = initialData(date);

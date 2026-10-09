@@ -451,7 +451,7 @@ const R7: RuleDef[] = [
   statMethod,
   reroll,
   swap,
-  rule('exceptional', 'creation', '出眾的調查員', null, OX, 'x', 'x'),
+  rule('exceptional', 'creation', '真正出眾的調查員', null, OX, 'x', 'x'),
   rule('occpts', 'creation', '職業技能點數', null, [o('byocc', '依職業的公式')], 'byocc', 'byocc'),
   rule('hobpts', 'creation', '興趣技能點數', null, [o('int2', 'INT×2')], 'int2', 'int2'),
   skillCap(80),

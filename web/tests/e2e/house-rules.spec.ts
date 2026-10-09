@@ -728,3 +728,40 @@ test.describe('390 寬', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test('開啟原作的房規表檔（.hrt.json）：取代目前的表、可以復原；不是房規表檔時說明（7. 裁定 D6）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await page.getByLabel('表的標題').fill('目前的表');
+  await page.getByLabel('表的標題').blur();
+  /* 原作的檔案：{ app, version, savedAt, state }，state 的結構和本工具相同 */
+  await expect
+    .poll(async () => page.evaluate((k) => localStorage.getItem(k) ?? '', KEY))
+    .toContain('目前的表');
+  const state = await page.evaluate(
+    (k) => JSON.parse(localStorage.getItem(k) ?? '{}').state.data,
+    KEY,
+  );
+  state.info.title = '原作的表';
+  const openOriginal = async (name: string, body: string) => {
+    await btn(page, '專案').click();
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('menuitem', { name: '開啟原作的房規表檔（.hrt.json）…' }).click(),
+    ]);
+    await chooser.setFiles({ name, mimeType: 'application/json', buffer: Buffer.from(body) });
+  };
+  await openOriginal(
+    '週五團.hrt.json',
+    JSON.stringify({ app: 'house-rule-table', version: 1, savedAt: '', state }),
+  );
+  await expect(page.getByLabel('表的標題')).toHaveValue('原作的表');
+  await expect(page.getByText('已開啟「週五團.hrt.json」').first()).toBeVisible();
+  await page.getByRole('button', { name: /^復原/ }).click();
+  await expect(page.getByLabel('表的標題')).toHaveValue('目前的表');
+  await openOriginal('other.json', JSON.stringify({ app: 'other' }));
+  await expect(page.getByText(/「other\.json」不是房規表檔/).first()).toBeVisible();
+  await expect(page.getByLabel('表的標題')).toHaveValue('目前的表');
+  expect(errors).toEqual([]);
+});
