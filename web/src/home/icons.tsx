@@ -4,6 +4,7 @@ import {
   BookOpen,
   Box,
   ChartNoAxesColumnIncreasing,
+  ChartScatter,
   CircleUser,
   Clapperboard,
   ClipboardList,
@@ -112,6 +113,7 @@ const ICONS: Record<string, LucideIcon> = {
   'acrylic-goods': Box,
   'ai-fail': ScanEye,
   'rank-chart': Trophy,
+  'char-chart': ChartScatter,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,

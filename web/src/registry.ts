@@ -665,6 +665,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'char-chart',
+    name: '角色分析圖產生器',
+    summary:
+      '同一份角色清單做成兩種圖：把角色拖到性格四象限上（可以好幾頁，還能算兩人的契合度），或排成一圈畫關係圖、用不同的線連起來，存成 PNG。',
+    group: 'G7',
+    status: 'next',
+    inspiration: {
+      name: 'sotsotssi/char-quadrant',
+      url: 'https://github.com/sotsotssi/char-quadrant',
+    },
+  },
+  {
     id: 'floor-plan',
     name: '室內平面圖產生器',
     summary:
