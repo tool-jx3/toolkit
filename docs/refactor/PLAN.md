@@ -218,9 +218,9 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | 工具 id | 名稱 | 靈感來源 | 原授權 | 群組 | 規格 | 實作 | 對等驗證 | 上線 |
 |---|---|---|---|---|---|---|---|---|
 | ai-fail | AI 誤判梗圖產生器 | swoonqx/ai-fails-meme-maker | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
-| scenario-text | 劇本文字產生器（CCFOLIA シナリオテキスト） | shiki365/scenario-text-maker | MIT | G5 | 🔨 | 🔨 | ⬜ | ⬜ |
-| floor-plan | 室內平面圖產生器 | くま。／TRPG室内図メーカー | 未授權 | G10 | ⬜ | ⬜ | ⬜ | ⬜ |
-| house-rules | CoC 房規表產生器 | くま。／CoCハウスルール表メーカー | 未授權 | G9 | ⬜ | ⬜ | ⬜ | ⬜ |
+| scenario-text | 劇本文字產生器（CCFOLIA シナリオテキスト） | shiki365/scenario-text-maker | MIT | G5 | ✅ | ✅ | ⬜ | ⬜ |
+| floor-plan | 室內平面圖產生器 | くま。／TRPG室内図メーカー | 未授權 | G10 | 🔨 | 🔨 | ⬜ | ⬜ |
+| house-rules | CoC 房規表產生器 | くま。／CoCハウスルール表メーカー | 未授權 | G9 | 🔨 | 🔨 | ⬜ | ⬜ |
 | speech-bubble | 動態對話泡泡產生器 | sotsotssi/TextBubbleMaker-preview | 未授權 | G1 | ⬜ | ⬜ | ⬜ | ⬜ |
 | rank-chart | 排行榜產生器 | sotsotssi/would-you-rank | MIT | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
 | char-chart | 角色分析圖產生器（性格四象限＋CP 表） | sotsotssi/char-quadrant、visual-coupling-map | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
@@ -228,7 +228,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | polaroid | 拍立得相框產生器 | swoonqx/sw-polaroid | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
 | crossword | 填字遊戲產生器 | sotsotssi/text2crossword | MIT | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
 | scratch-card | 刮刮卡產生器 | sotsotssi/Scratchcard | 未授權 | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
-| discord-color | Discord 彩色文字產生器 | rebane2001（gist：discord-colored-text-generator） | 公有領域（Unlicense） | G1 | 🔨 | 🔨 | ⬜ | ⬜ |
+| discord-color | Discord 彩色文字產生器 | rebane2001（gist：discord-colored-text-generator） | 公有領域（Unlicense） | G1 | ✅ | ✅ | 🔍 | ⬜ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 
