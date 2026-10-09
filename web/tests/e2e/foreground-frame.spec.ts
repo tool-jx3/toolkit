@@ -8,6 +8,7 @@
  *   預覽上的點選／拖曳／Shift／方向鍵／Delete、差分（切換列、縮圖、種類、至少一個、新增、顏色）、字型上傳；
  * - 匯出：PNG（尺寸、透明的窗、檔名、與畫面相同的內容）、ZIP（跳號的檔名、每張 PNG）；
  * - 自動存檔與還原、設定分頁、專案檔（JSON 與帶圖片的 ZIP）、全部重來；
+ * - 圖片資產稽核：一次拖放字型與圖片的結果合成狀態列的一則；IndexedDB 不能用時開啟專案檔的提醒；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
  */
 import { readFileSync } from 'node:fs';
@@ -1022,6 +1023,61 @@ test.describe('存檔與專案', () => {
     await expect(page.getByTestId('font-list').getByRole('listitem')).toHaveCount(1);
     await page.getByRole('button', { name: '移除字型「Liberation Serif」' }).click();
     await expect(status(page)).toHaveText('已移除字型「Liberation Serif」。');
+  });
+});
+
+test.describe('圖片資產稽核', () => {
+  test('一次拖放字型與圖片：同一批的結果合成狀態列的一則（字型讀不了的訊息不會被圖片的結果蓋掉）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const png = (await testPng(30, 20, [0, 128, 255, 255])).toString('base64');
+    await dropFiles(page, [
+      { name: 'broken.ttf', type: 'font/ttf', b64: btoa('not a font') },
+      { name: '徽章.png', type: 'image/png', b64: png },
+    ]);
+    await expect(page.getByTestId('layer-row')).toHaveText(['徽章']);
+    await expect(status(page)).toContainText('「broken.ttf」不是可用的字型檔。');
+    await expect(status(page)).toContainText('已新增 1 張圖片。');
+    expect(errors).toEqual([]);
+  });
+
+  test('IndexedDB 不能用時開啟專案檔：狀態列的「已開啟」同一則提醒圖片重新整理後會消失', async ({
+    page,
+  }) => {
+    await open(page);
+    await tab(page, '圖層').click();
+    const [fc] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      btn(page, '新增圖片').click(),
+    ]);
+    await fc.setFiles([
+      { name: '徽記.png', mimeType: 'image/png', buffer: await testPng(40, 20, [255, 0, 0, 255]) },
+    ]);
+    await expect(page.getByTestId('layer-row')).toHaveCount(1);
+    await page.getByRole('button', { name: '專案' }).click();
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+    ]);
+    const path = (await dl.path()) as string;
+    /* 另一個分頁：這個瀏覽器存不了圖片 */
+    const other = await page.context().newPage();
+    await other.addInitScript(() => {
+      Object.defineProperty(window, 'indexedDB', { get: () => undefined, configurable: true });
+    });
+    const errors = await open(other);
+    await other.getByRole('button', { name: '專案' }).click();
+    const [fc2] = await Promise.all([
+      other.waitForEvent('filechooser'),
+      other.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
+    ]);
+    await fc2.setFiles(path);
+    await expect(status(other)).toContainText(/已開啟「/);
+    await expect(status(other)).toContainText('專案檔裡的圖片存不進這個瀏覽器，重新整理後會消失');
+    expect((await getState(other)).layers).toHaveLength(1);
+    expect(errors).toEqual([]);
+    await other.close();
   });
 });
 
