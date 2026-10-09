@@ -73,6 +73,21 @@ function modalOpen(): boolean {
   );
 }
 
+/**
+ * 輸入欄（文字、多行、數字）裡按 Esc：離開輸入欄（和原作一樣；F174）。在捕捉階段登記、等這次按鍵處理完才離開，
+ * 所以欄位自己的 Esc 照常先做（數字欄還原打到一半的字、樓層改名取消）；對話框、選單裡的不管（Esc 照舊關對話框）。
+ */
+export function handleEscapeCapture(e: KeyboardEvent): void {
+  if (e.key !== 'Escape' || e.isComposing) return;
+  const target = e.target;
+  if (!(target instanceof HTMLElement) || !isEditableTarget(target)) return;
+  if (target.closest('[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"]')) return;
+  if (modalOpen()) return;
+  setTimeout(() => {
+    if (document.activeElement === target) target.blur();
+  }, 0);
+}
+
 export function handleKeyDown(e: KeyboardEvent): void {
   if (e.defaultPrevented || e.isComposing) return;
   const target = e.target;

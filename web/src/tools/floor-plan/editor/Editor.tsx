@@ -11,7 +11,7 @@ import { EditorBar } from './EditorBar';
 import { ExportDialog } from './ExportDialog';
 import { FloorBar } from './FloorBar';
 import { OPEN_ACCEPT, openFile } from './files';
-import { handleKeyDown, handleKeyUp } from './keys';
+import { handleEscapeCapture, handleKeyDown, handleKeyUp } from './keys';
 import { Library } from './Library';
 import { PropsPanel } from './PropsPanel';
 import { onPersistError } from './store';
@@ -31,6 +31,7 @@ export function Editor() {
       warned = true;
       notify(S.msg.storageFull, 'warning', { duration: 6000 });
     });
+    window.addEventListener('keydown', handleEscapeCapture, true);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     installTestHook();
@@ -38,6 +39,7 @@ export function Editor() {
       bindUi(null, null);
       bindView(null);
       onPersistError(null);
+      window.removeEventListener('keydown', handleEscapeCapture, true);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };

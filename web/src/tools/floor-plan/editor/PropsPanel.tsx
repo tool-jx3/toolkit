@@ -513,6 +513,7 @@ function WallProps({ w }: { w: Wall }) {
             })
           }
           options={WALL_KINDS.map((k) => ({ value: k.id, label: S.walls[k.id] }))}
+          data-focus="kind"
         />
       </Field>
       <Readout

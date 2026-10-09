@@ -31,7 +31,16 @@ export interface SelectProps<V extends string = string> {
   'aria-labelledby'?: string;
   size?: 'sm' | 'md';
   className?: string;
+  /**
+   * data-* 屬性放到觸發按鈕上（例如 `data-focus="kind"`，工具用選擇器找到下拉選單並聚焦；
+   * floor-plan 對等驗證後新增，不給時行為不變）
+   */
+  [data: `data-${string}`]: string | number | boolean | undefined;
 }
+
+/** props 裡的 data-* 屬性 */
+const dataAttrs = (props: object): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(props).filter(([k]) => k.startsWith('data-')));
 
 const isGroup = <V extends string>(o: SelectOption<V> | SelectGroup<V>): o is SelectGroup<V> =>
   'options' in o;
@@ -66,6 +75,7 @@ export function Select<V extends string = string>({
   return (
     <S.Root value={value} onValueChange={(v) => onValueChange(v as V)} disabled={disabled}>
       <S.Trigger
+        {...dataAttrs(rest)}
         id={field.id}
         aria-label={rest['aria-label']}
         aria-labelledby={rest['aria-label'] ? undefined : field['aria-labelledby']}

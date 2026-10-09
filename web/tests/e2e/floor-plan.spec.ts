@@ -540,6 +540,75 @@ test.describe('選取與編輯', () => {
   });
 });
 
+test.describe('焦點', () => {
+  test('按兩下門窗或牆：選取並把焦點放到「種類」（F62）', async ({ page }) => {
+    const errors = await open(page);
+    await twoRooms(page);
+    await page.keyboard.press('d');
+    await click(page, 4, 7.6);
+    await page.keyboard.press('Escape');
+    const d = (await floor(page)).openings[0];
+    const dp = await at(page, d.x + d.len / 2, d.y);
+    await page.mouse.dblclick(dp.x, dp.y);
+    const kind = page.locator('[data-focus="kind"]');
+    await expect(kind).toBeFocused();
+    await expect(kind).toHaveText('單開門');
+    expect((await editorState(page)).sel).toEqual([{ type: 'opening', id: d.id }]);
+    /* 手畫的牆 */
+    await page.getByTestId('map-canvas').focus();
+    await page.keyboard.press('w');
+    await drag(page, [2, 3], [6, 3]);
+    await page.keyboard.press('Escape');
+    const wp = await at(page, 4, 3);
+    await page.mouse.dblclick(wp.x, wp.y);
+    await expect(kind).toBeFocused();
+    await expect(kind).toHaveText('內牆');
+    expect((await editorState(page)).sel[0].type).toBe('wall');
+    expect(errors).toEqual([]);
+  });
+
+  test('輸入欄裡按 Esc 離開輸入欄（文字、多行、數字），選取不變；對話框、樓層改名的 Esc 照舊（F174）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await twoRooms(page);
+    await click(page, 4, 4);
+    const panel = page.getByTestId('props-panel');
+    const active = () => page.evaluate(() => document.activeElement?.tagName ?? '');
+    for (const field of [
+      panel.locator('[data-focus="name"]'),
+      panel.getByRole('textbox', { name: 'GM 筆記' }),
+      panel.getByRole('spinbutton', { name: 'Y' }),
+    ]) {
+      await field.click();
+      await expect(field).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(field).not.toBeFocused();
+      expect(await active()).toBe('BODY');
+      expect((await editorState(page)).sel).toHaveLength(1);
+    }
+    /* 數字欄打到一半按 Esc：一次就離開，打的數字留著 */
+    const y = panel.getByRole('spinbutton', { name: 'Y' });
+    await y.click();
+    await y.fill('2');
+    await page.keyboard.press('Escape');
+    await expect(y).not.toBeFocused();
+    expect((await floor(page)).rooms[0].y).toBe(2);
+    await expect(y).toHaveValue('2');
+    /* 樓層改名的 Esc＝取消 */
+    await page.locator('[data-floor="0"]').dblclick();
+    await page.getByTestId('floor-rename').fill('屋頂');
+    await page.getByTestId('floor-rename').press('Escape');
+    expect((await project(page)).floors[0].name).toBe('1F');
+    /* 對話框裡的 Esc 關對話框 */
+    await page.getByRole('button', { name: '範本' }).click();
+    await expect(page.getByTestId('template-dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('template-dialog')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('檢視', () => {
   test('GM／PL 檢視：GM 專用的房間在 PL 檢視蓋灰、裡面的東西藏起來，PL 名字；P 切換', async ({
     page,
