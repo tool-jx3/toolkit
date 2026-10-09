@@ -77,7 +77,8 @@ export function TemplateDialog() {
       tags: [groupName(t.group)],
       data: t.id,
     }));
-    list.splice(3, 0, {
+    /* 空白地圖在每個分類（含「全部」）都是最後一張 */
+    list.push({
       id: 'blank',
       name: S.tpl.blank,
       description: S.tpl.blankDesc,
@@ -86,7 +87,7 @@ export function TemplateDialog() {
           <Plus aria-hidden className="size-8" />
         </span>
       ),
-      tags: [groupName('home')],
+      tags: TEMPLATE_GROUPS.map((g) => g.name),
       data: 'blank',
     });
     return list;

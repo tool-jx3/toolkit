@@ -805,6 +805,27 @@ test('樓層：新增、改名（按兩下）、複製、左右移動、刪除�
   expect(errors).toEqual([]);
 });
 
+test('範本對話框：預設「全部」；空白地圖在每個分類（含「全部」）都是最後一張（F190）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await page.getByRole('button', { name: '範本' }).click();
+  const dialog = page.getByTestId('template-dialog');
+  await expect(dialog.getByRole('radio', { name: '全部' })).toBeChecked();
+  const cards = dialog.getByRole('list').getByRole('button');
+  for (const [tag, n] of [
+    ['全部', 9],
+    ['住宅', 4],
+    ['飯店・醫院', 3],
+    ['廢墟・事件', 4],
+  ] as const) {
+    await dialog.getByRole('radio', { name: tag }).click();
+    await expect(cards, tag).toHaveCount(n);
+    await expect(cards.last(), tag).toContainText('空白地圖');
+  }
+  expect(errors).toEqual([]);
+});
+
 test('範本：分類、只載入格局、放入隱藏線索、空白地圖；可以復原', async ({ page }) => {
   const errors = await open(page);
   await page.getByRole('button', { name: '範本' }).click();
