@@ -2006,4 +2006,22 @@ test.describe('對等驗證後的修正（7.1）', () => {
     expect(bar.y).toBeGreaterThan(Math.max(...ys));
     expect(errors).toEqual([]);
   });
+  test('F122：多個形狀的 SVG 圖章以 SVG 的畫布（不是內容的外接框）的長邊對齊一格，和舊版同大', async ({
+    page,
+  }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    await tool(page, 'decor').click();
+    /* 水田：250×250 的畫布、內容只佔中間一部分（舊版 72×72；用內容的外接框時會變大） */
+    await page.locator('[data-decor="jp-rice-field"]').click();
+    await moveTo(page, 30, 40);
+    await expect.poll(async () => (await previewInfo(page)).count).toBeGreaterThan(0);
+    await clickAt(page, 36, 36);
+    await expect.poll(() => names(page)).toEqual(['裝飾_水田1']);
+    const o = (await objects(page))[0];
+    expect(o.w).toBeCloseTo(72, 1);
+    expect(o.h).toBeCloseTo(72, 1);
+    expect(o).toMatchObject({ cx: 36, cy: 36 });
+    expect(errors).toEqual([]);
+  });
 });

@@ -1,8 +1,15 @@
 /**
  * 裝飾圖章（規格 1.9）：SVG（可以改色）或圖片。第一次用到時載入，之後複製。
- * 大小：圖章原始外接框的長邊＝一格 × 大小（3.4）；以中心定位；翻轉＝負的縮放（與舊版的存檔相同）。
+ * 大小：圖章原始外接框（多個形狀的 SVG 是 SVG 的畫布，F122）的長邊＝一格 × 大小（3.4）；以中心定位；翻轉＝負的縮放（與舊版的存檔相同）。
  */
-import { FabricImage, type FabricObject, Group, loadSVGFromString, util } from 'fabric';
+import {
+  FabricImage,
+  type FabricObject,
+  FixedLayout,
+  Group,
+  LayoutManager,
+  loadSVGFromString,
+} from 'fabric';
 import { findDecor } from '../decorCatalog';
 import { decorUrl } from '../decors';
 import type { UserDecor } from '../model';
@@ -82,6 +89,30 @@ async function svgText(src: Source): Promise<string> {
   return res.text();
 }
 
+/**
+ * SVG 的形狀合成一個圖章，照舊版（Fabric 5 的 groupSVGElements）：有 width／height 時群組的範圍是 SVG 的畫布
+ * （形狀留在畫布上原本的位置），不是內容的外接框——大小（長邊＝一格）與中心都以畫布為準（F122）。
+ * 只有一個形狀時就是那個形狀（新舊版相同）。
+ */
+export function svgGroup(
+  list: FabricObject[],
+  options: { width?: unknown; height?: unknown },
+): FabricObject {
+  if (list.length === 1) return list[0] as FabricObject;
+  const width = Number(options.width);
+  const height = Number(options.height);
+  if (!(width > 0 && height > 0)) return new Group(list);
+  return new Group(list, {
+    layoutManager: new LayoutManager(new FixedLayout()),
+    originX: 'left',
+    originY: 'top',
+    left: 0,
+    top: 0,
+    width,
+    height,
+  });
+}
+
 /** 載入（已經載入或載入中時回傳同一個） */
 export function loadDecor(id: string): Promise<DecorAsset> {
   const hit = cache.get(id);
@@ -97,7 +128,7 @@ export function loadDecor(id: string): Promise<DecorAsset> {
         const list = objects.filter((o): o is FabricObject => !!o);
         if (!list.length) throw new Error('SVG 是空的');
         entry.colors = list.map((o) => ({ fill: o.fill, stroke: o.stroke }));
-        const base = util.groupSVGElements(list, options);
+        const base = svgGroup(list, options);
         entry.base = base;
         entry.baseWidth = (base.width ?? 1) * (base.scaleX ?? 1);
         entry.baseHeight = (base.height ?? 1) * (base.scaleY ?? 1);
