@@ -7,6 +7,7 @@ import type { Card } from './card';
 import { mountScratch, type ScratchHandle } from './engine';
 import { usePreviewSources } from './images';
 import { cardCss, cardHtml, engineConfig } from './markup';
+import type { ShareCrops } from './share';
 
 const SCOPE = '.scx-view';
 const POP = 'scx-view-pop';
@@ -15,6 +16,7 @@ const CSS = cardCss(SCOPE, POP);
 export function CardView({
   card,
   fit = false,
+  crops,
   onHandle,
   onReveal,
   onRecover,
@@ -23,6 +25,8 @@ export function CardView({
   card: Card;
   /** 等比縮小到外層的寬（分享連結的畫面） */
   fit?: boolean;
+  /** 分享連結帶來的裁切範圍（網址的圖照這個裁，不再讀像素） */
+  crops?: ShareCrops;
   onHandle?: (h: ScratchHandle | null) => void;
   onReveal?: () => void;
   /** 重新掛上（重新蓋上）時 */
@@ -31,7 +35,7 @@ export function CardView({
   onImages?: (s: { pending: number; missing: number }) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  const { src, pending, missing } = usePreviewSources(card);
+  const { src, pending, missing } = usePreviewSources(card, crops);
   const html = useMemo(() => cardHtml(card, { src, pop: true }), [card, src]);
   const cfgKey = useMemo(
     () => JSON.stringify(engineConfig(card, { popClass: POP, confetti: true, fit })),

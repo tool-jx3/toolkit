@@ -8,20 +8,32 @@ import { CardView } from './CardView';
 import { buildCard, specOf } from './card';
 import { HtmlDialog, ShareDialog } from './Dialogs';
 import { CARD_BORDER } from './markup';
-import { encodeShare, SHARE_MAX_LENGTH, shareUrlFor, usesUploadedImages } from './share';
-import { newTicket, recover, revealNow, setPreviewHandle, useScratch, useUi } from './store';
+import { encodeShare, SHARE_MAX_LENGTH, usesUploadedImages } from './share';
+import {
+  newTicket,
+  recover,
+  revealNow,
+  STAGE_BGS,
+  type StageBg,
+  setPreviewHandle,
+  stageBgOf,
+  usePrefs,
+  useScratch,
+  useUi,
+} from './store';
 import { S } from './strings';
 
 export function PreviewArea() {
   const data = useScratch((s) => s.data);
   const draws = useUi((s) => s.draws);
+  const stageBg = stageBgOf(usePrefs((s) => s.data.stageBg));
   const revealed = useUi((s) => s.revealed);
   const specKey = JSON.stringify(specOf(data));
   const spec = useMemo(() => JSON.parse(specKey) as ReturnType<typeof specOf>, [specKey]);
   const card = useMemo(() => buildCard(spec), [spec]);
   const [images, setImages] = useState({ pending: 0, missing: 0 });
   const [htmlOpen, setHtmlOpen] = useState(false);
-  const [share, setShare] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const shareBlock = usesUploadedImages(spec)
     ? S.shareUploaded
@@ -43,8 +55,11 @@ export function PreviewArea() {
       <Stage
         width={card.width + CARD_BORDER * 2}
         height={card.height + CARD_BORDER * 2}
-        backgrounds={['light', 'dark', 'checker']}
-        defaultBackground={{ kind: 'light' }}
+        backgrounds={STAGE_BGS}
+        background={{ kind: stageBg }}
+        onBackgroundChange={(bg) =>
+          usePrefs.getState().patch({ stageBg: stageBgOf(bg.kind) as StageBg })
+        }
         aria-label={S.stageLabel}
       >
         <CardView
@@ -83,11 +98,7 @@ export function PreviewArea() {
           <Button icon={<Code2 />} onClick={() => setHtmlOpen(true)}>
             {S.exportHtml}
           </Button>
-          <Button
-            icon={<Share2 />}
-            disabled={!!shareBlock}
-            onClick={() => setShare(shareUrlFor(spec, location.href))}
-          >
+          <Button icon={<Share2 />} disabled={!!shareBlock} onClick={() => setShareOpen(true)}>
             {S.shareLink}
           </Button>
         </div>
@@ -98,13 +109,7 @@ export function PreviewArea() {
         ) : null}
       </section>
       <HtmlDialog open={htmlOpen} onOpenChange={setHtmlOpen} card={card} pool={data.images} />
-      <ShareDialog
-        open={share !== null}
-        onOpenChange={(o) => {
-          if (!o) setShare(null);
-        }}
-        url={share ?? ''}
-      />
+      <ShareDialog open={shareOpen} onOpenChange={setShareOpen} spec={spec} />
     </div>
   );
 }

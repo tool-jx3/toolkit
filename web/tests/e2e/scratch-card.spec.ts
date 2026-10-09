@@ -183,6 +183,26 @@ const iconNames = (page: Page) =>
 const imagesDrop = (page: Page) =>
   page.getByRole('group', { name: '把圖片拖到這裡' }).locator('input[type=file]');
 
+/** 60 × 60，中間 20 × 10 不透明（四周透明） */
+const paddedPng = () =>
+  png(60, 60, (x, y) => (x >= 20 && x < 40 && y >= 25 && y < 35 ? [0, 128, 0, 255] : [0, 0, 0, 0]));
+
+/** 裁切顯示的幾何：裁切範圍的方塊（相對結果的方塊）與裡面的圖（相對裁切方塊的百分比） */
+const cropGeometry = (root: Locator) =>
+  root
+    .locator('.scx-crop')
+    .first()
+    .evaluate((e) => {
+      const el = e as HTMLElement;
+      const img = el.querySelector('img') as HTMLImageElement;
+      return {
+        box: [el.offsetLeft, el.offsetTop, el.offsetWidth, el.offsetHeight],
+        overflow: getComputedStyle(el).overflow,
+        img: [img.style.left, img.style.top, img.style.width, img.style.height],
+        src: img.getAttribute('src'),
+      };
+    });
+
 /* ---------- 開頁 ---------- */
 
 test('開頁：沒有錯誤、預設 350 × 180、3 個圖示、塗層蓋住、頁尾只有靈感來源、抽了 1 張（F02、F18、F30、F58）', async ({
@@ -379,7 +399,9 @@ test('圖片：加入（不是圖片的寫在同一則通知）、網址、小�
   expect(errors).toEqual([]);
 });
 
-test('去掉透明留白：小圖裁掉四周透明的部分（F24）', async ({ page }) => {
+test('去掉透明留白：小圖只顯示四周透明以外的範圍（圖片本身不改，顯示時才裁）（F24）', async ({
+  page,
+}) => {
   await open(page);
   await seed(page, { kind: 'image-icon', count: 1, imageStyle: 'contain' });
   /* 60 × 60，中間 20 × 10 不透明 */
@@ -389,14 +411,16 @@ test('去掉透明留白：小圖裁掉四周透明的部分（F24）', async ({
   await imagesDrop(page).setInputFiles([file('pad.png', img)]);
   await expect(toast(page, '已加入 1 張圖片。')).toBeVisible();
   const el = card(page).locator('img.scx-img');
-  const natural = () =>
-    el.evaluate((e) => [
-      (e as HTMLImageElement).naturalWidth,
-      (e as HTMLImageElement).naturalHeight,
-    ]);
-  await expect.poll(natural).toEqual([60, 60]);
+  await expect.poll(() => el.evaluate((e) => (e as HTMLImageElement).naturalWidth)).toBe(60);
+  await expect(card(page).locator('.scx-crop')).toHaveCount(0);
   await page.getByRole('switch', { name: '去掉透明留白' }).click();
-  await expect.poll(natural).toEqual([20, 10]);
+  /* 完整顯示：20 × 10 放大 4 倍放進 80 × 80 → (0, 20, 80, 40)；裡面還是原圖（60 × 60） */
+  await expect.poll(async () => (await cropGeometry(card(page))).box).toEqual([0, 20, 80, 40]);
+  expect(
+    await card(page)
+      .locator('.scx-crop img')
+      .evaluate((e) => (e as HTMLImageElement).naturalWidth),
+  ).toBe(60);
 });
 
 /* ---------- 塗層與進階設定 ---------- */
@@ -727,4 +751,178 @@ test('版面：390 寬沒有橫向捲動；1280 與 390 的視覺基準（F59）
   await page.mouse.move(0, 0);
   await expect(page).toHaveScreenshot('scratch-card-390.png', { fullPage: true });
   expect(errors).toEqual([]);
+});
+
+/* ---------- 對等驗證後的修正（規格 7.1） ---------- */
+
+test('7.1：網址圖片＋去掉透明留白：照樣用網址＋裁切範圍、顯示時才裁（預覽、互動 HTML、分享連結）；待填的網址不影響網址圖（F24、F26、F46）', async ({
+  page,
+  context,
+}) => {
+  const errors = await open(page);
+  const pad = await paddedPng();
+  await page.route('https://example.com/pad.png', (r) =>
+    r.fulfill({ status: 200, contentType: 'image/png', body: pad }),
+  );
+  await seed(page, {
+    kind: 'image-icon',
+    count: 1,
+    imageStyle: 'contain',
+    trim: true,
+    fixedSeed: true,
+    seed: 1,
+    images: [{ kind: 'url', url: 'https://example.com/pad.png', name: 'pad.png' }],
+  });
+  /* 預覽：80 × 80 的方塊、完整顯示：裁切範圍 20 × 10 放大 4 倍 → (0, 20, 80, 40)；圖照樣是網址 */
+  const expected = {
+    box: [0, 20, 80, 40],
+    overflow: 'hidden',
+    img: ['-100%', '-250%', '300%', '600%'],
+    src: 'https://example.com/pad.png',
+  };
+  await expect.poll(() => cropGeometry(card(page))).toEqual(expected);
+
+  /* 互動 HTML：網址＋裁切範圍，沒有 data URL；待填的網址開關不影響網址圖 */
+  await btn(page, '互動 HTML…').click();
+  const dialog = page.getByTestId('html-dialog');
+  const code = dialog.getByRole('textbox', { name: '程式碼' });
+  await expect(code).toHaveValue(/https:\/\/example\.com\/pad\.png/);
+  expect(await code.inputValue()).not.toContain('data:image');
+  await dialog.getByRole('switch', { name: '上傳的圖片改成待填的網址' }).click();
+  await expect(code).toHaveValue(/https:\/\/example\.com\/pad\.png/);
+  expect(await code.inputValue()).not.toMatch(/請換成第\d+張圖片的網址/);
+  const html = await code.inputValue();
+  await dialog.getByRole('switch', { name: '上傳的圖片改成待填的網址' }).click();
+  await page.keyboard.press('Escape');
+  const p2 = await context.newPage();
+  await p2.route('https://example.com/pad.png', (r) =>
+    r.fulfill({ status: 200, contentType: 'image/png', body: pad }),
+  );
+  await p2.setContent(`<!doctype html><meta charset="utf-8"><body>${html}</body>`);
+  await expect.poll(() => cropGeometry(p2.locator('[data-scx="card"]'))).toEqual(expected);
+  await p2.close();
+
+  /* 分享連結：網址＋裁切範圍，開連結的畫面照樣裁 */
+  await btn(page, '分享連結…').click();
+  const link = page.getByTestId('share-dialog').getByRole('textbox', { name: '連結' });
+  await expect(link).toHaveValue(/#c=/);
+  const url = await link.inputValue();
+  await page.keyboard.press('Escape');
+  await page.goto(url);
+  await expect(page.getByTestId('player')).toBeVisible();
+  await expect.poll(() => cropGeometry(card(page))).toEqual(expected);
+  expect(errors).toEqual([]);
+});
+
+test('7.1：上傳的圖＋去掉透明留白：互動 HTML 放原圖＋裁切範圍；待填的網址也保留裁切範圍（F24、F46）', async ({
+  page,
+}) => {
+  await open(page);
+  await seed(page, { kind: 'image-icon', count: 1, imageStyle: 'contain', trim: true });
+  await imagesDrop(page).setInputFiles([file('pad.png', await paddedPng())]);
+  await expect(toast(page, '已加入 1 張圖片。')).toBeVisible();
+  await expect.poll(async () => (await cropGeometry(card(page))).box).toEqual([0, 20, 80, 40]);
+  await btn(page, '互動 HTML…').click();
+  const dialog = page.getByTestId('html-dialog');
+  const code = dialog.getByRole('textbox', { name: '程式碼' });
+  await expect(code).toHaveValue(/data:image\/png;base64,/);
+  expect(await code.inputValue()).toContain('class="scx-crop"');
+  await dialog.getByRole('switch', { name: '上傳的圖片改成待填的網址' }).click();
+  await expect(code).toHaveValue(/請換成第1張圖片的網址/);
+  expect(await code.inputValue()).not.toContain('data:image');
+  expect(await code.inputValue()).toContain('class="scx-crop"');
+});
+
+test('7.1：同一張圖被抽到好幾次時，互動 HTML 裡只放一份（F49）', async ({ page, context }) => {
+  await open(page);
+  await seed(page, { kind: 'image-icon', count: 5, fixedSeed: true, seed: 3 });
+  await imagesDrop(page).setInputFiles([file('red.png', await solid(255, 0, 0))]);
+  await expect(toast(page, '已加入 1 張圖片。')).toBeVisible();
+  await btn(page, '互動 HTML…').click();
+  const code = page.getByTestId('html-dialog').getByRole('textbox', { name: '程式碼' });
+  await expect(code).toHaveValue(/data:image\/png;base64,/);
+  const html = await code.inputValue();
+  expect(html.match(/data:image\/png;base64,/g)).toHaveLength(1);
+  const p2 = await context.newPage();
+  await p2.setContent(`<!doctype html><meta charset="utf-8"><body>${html}</body>`);
+  const imgs = p2.locator('img.scx-img');
+  await expect(imgs).toHaveCount(5);
+  await expect
+    .poll(() => imgs.evaluateAll((els) => els.map((e) => (e as HTMLImageElement).naturalWidth)))
+    .toEqual([40, 40, 40, 40, 40]);
+  await p2.close();
+});
+
+test('7.1：預覽背景記在瀏覽器（重新整理後還在、不列入復原）（F59）', async ({ page }) => {
+  await open(page);
+  const radio = (name: string) => page.getByRole('radio', { name, exact: true });
+  await expect(radio('白色背景')).toHaveAttribute('aria-checked', 'true');
+  await radio('棋盤格（透明）').click();
+  await expect(radio('棋盤格（透明）')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('button', { name: /^復原/ })).toBeDisabled();
+  await page.reload();
+  await expect(radio('棋盤格（透明）')).toHaveAttribute('aria-checked', 'true');
+  await radio('黑色背景').click();
+  await page.reload();
+  await expect(radio('黑色背景')).toHaveAttribute('aria-checked', 'true');
+});
+
+test('7.1：自動儲存失敗只通知一次，再次存成功後又失敗才再通知（F56）', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    const w = window as unknown as { __failSave: boolean; __saveToasts: number };
+    w.__failSave = true;
+    w.__saveToasts = 0;
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k: string, v: string) {
+      if (w.__failSave && String(k).startsWith('trpg-toolkit:scratch-card'))
+        throw new DOMException('full', 'QuotaExceededError');
+      return set.call(this, k, v);
+    };
+    new MutationObserver((ms) => {
+      for (const m of ms)
+        for (const n of m.addedNodes)
+          if (
+            n instanceof HTMLElement &&
+            n.matches('li') &&
+            n.textContent?.includes('自動儲存失敗')
+          )
+            w.__saveToasts++;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  const toasts = () =>
+    page.evaluate(() => (window as unknown as { __saveToasts: number }).__saveToasts);
+  const text = page.getByRole('textbox', { name: '塗層文字' });
+  for (const v of ['a', 'ab', 'abc']) {
+    await text.fill(v);
+    await text.blur();
+    await page.waitForTimeout(500);
+  }
+  expect(await toasts()).toBe(1);
+  /* 存成功一次 → 之後又失敗：再通知一次 */
+  await page.evaluate(() => {
+    (window as unknown as { __failSave: boolean }).__failSave = false;
+  });
+  await text.fill('abcd');
+  await text.blur();
+  await page.waitForTimeout(500);
+  await page.evaluate(() => {
+    (window as unknown as { __failSave: boolean }).__failSave = true;
+  });
+  await text.fill('abcde');
+  await text.blur();
+  await page.waitForTimeout(500);
+  expect(await toasts()).toBe(2);
+});
+
+test('7.1：壞掉的分享連結開成編輯畫面後拿掉網址的 #c=，重新整理不再通知（F51）', async ({
+  page,
+}) => {
+  await open(page, `${URL}#c=broken`);
+  await expect(toast(page, '分享連結的內容讀不出來。')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('');
+  await page.reload();
+  await expect(page.getByRole('complementary', { name: '設定' })).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(toast(page, '分享連結的內容讀不出來。')).toHaveCount(0);
 });

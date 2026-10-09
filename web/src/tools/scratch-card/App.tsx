@@ -5,9 +5,9 @@
  */
 import { Redo2, Undo2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { clearShareHash } from '@/core/share';
 import { useSaveError, useUndoRedo } from '@/core/storage';
 import { IconButton, type Shortcut, ToolShell, useToast, withShortcut } from '@/ui';
-import type { CardSpec } from './card';
 import {
   BackgroundSection,
   CardSection,
@@ -20,7 +20,7 @@ import {
 import { Player } from './Player';
 import { PreviewArea } from './Preview';
 import { ProjectActions } from './ProjectActions';
-import { readShare } from './share';
+import { readShare, type SharedCard } from './share';
 import {
   assets,
   historyStep,
@@ -46,13 +46,16 @@ function Settings({ brokenShare }: { brokenShare: boolean }) {
   const toast = useToast();
   const expert = useScratch((s) => s.data.expert);
   const kind = useScratch((s) => s.data.kind);
-  const saveError = useSaveError(TOOL_ID);
+  /* 自動儲存失敗只在「成功 → 失敗」時通知一次（每次寫入都失敗時不重複跳；規格 F56、7.1） */
+  const saveFailed = !!useSaveError(TOOL_ID);
   useEffect(() => {
-    if (saveError) toast({ title: S.saveFailed, tone: 'warning' });
-  }, [saveError, toast]);
+    if (saveFailed) toast({ title: S.saveFailed, tone: 'warning' });
+  }, [saveFailed, toast]);
+  /* 壞掉的分享連結：通知一次，並拿掉網址的 #c=（重新整理不再通知；規格 F51、7.1） */
   useEffect(() => {
-    if (brokenShare)
-      toast({ title: S.player.broken, description: S.player.brokenHint, tone: 'warning' });
+    if (!brokenShare) return;
+    toast({ title: S.player.broken, description: S.player.brokenHint, tone: 'warning' });
+    clearShareHash();
   }, [brokenShare, toast]);
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -77,7 +80,7 @@ function Usage() {
   );
 }
 
-function useShare(): CardSpec | 'none' | 'broken' {
+function useShare(): SharedCard | 'none' | 'broken' {
   const [share, setShare] = useState(() => readShare(location.hash));
   useEffect(() => {
     const on = () => setShare(readShare(location.hash));
@@ -130,6 +133,6 @@ function Editor({ brokenShare }: { brokenShare: boolean }) {
 export function App() {
   const share = useShare();
   if (typeof share === 'object')
-    return <ToolShell toolId={TOOL_ID} body={<Player spec={share} />} />;
+    return <ToolShell toolId={TOOL_ID} body={<Player shared={share} />} />;
   return <Editor brokenShare={share === 'broken'} />;
 }

@@ -1,20 +1,22 @@
 /**
  * 圖片：讀進資產庫（解碼確認 → 長邊超過 1024 時縮小 → 記成這次開頁的圖 → 存 IndexedDB），
- * 以及卡片上的圖片網址（預覽：物件網址；互動 HTML：data URL 或待填的網址）與「去掉透明留白」。
+ * 以及卡片上的圖片網址（預覽：物件網址；互動 HTML：data URL 或待填的網址；網址加入的圖一律照樣用網址）
+ * 與「去掉透明留白」的裁切範圍（圖片本身不改，顯示時才裁）。
  */
 import { useEffect, useMemo, useState } from 'react';
 import { readAsDataUrl } from '@/core/files';
 import {
   canvasToBlob,
-  cropImage,
   dataUriToBlob,
   getImageData,
   loadImage,
   opaqueBounds,
   resizeImage,
 } from '@/core/image';
-import { type Card, cardImages } from './card';
-import { IMAGE_MAX_SIDE, type ImageRef, imageKey } from './model';
+import { type Card, type CardSpec, cardImages } from './card';
+import type { ImageSource } from './markup';
+import { type Crop, IMAGE_MAX_SIDE, type ImageRef, imageKey } from './model';
+import { type ShareCrops, trimmedUrls } from './share';
 import { assets } from './store';
 import { S } from './strings';
 
@@ -106,9 +108,9 @@ export async function loadImageFiles(files: readonly File[]): Promise<{
   return { loaded, notImages, failed };
 }
 
-/* ---------- 去掉透明留白 ---------- */
+/* ---------- 去掉透明留白（裁切範圍；圖片本身不改，顯示時才裁，規格 F24、7.1） ---------- */
 
-const trims = new Map<string, Promise<Blob | null>>();
+const crops = new Map<string, Promise<Crop | null>>();
 
 async function decode(image: ImageRef): Promise<ImageBitmap | null> {
   try {
@@ -119,10 +121,10 @@ async function decode(image: ImageRef): Promise<ImageBitmap | null> {
   }
 }
 
-/** 裁掉透明（不透明度 ≤ 10）留白後的 PNG；沒有留白、整張透明、讀不到像素（跨網域）時 null */
-export function trimmedBlob(image: ImageRef): Promise<Blob | null> {
+/** 透明（不透明度 ≤ 10）留白以外的範圍；沒有留白、整張透明、讀不到像素（跨網域）時 null */
+export function cropOf(image: ImageRef): Promise<Crop | null> {
   const key = imageKey(image);
-  let p = trims.get(key);
+  let p = crops.get(key);
   if (!p) {
     p = (async () => {
       const bmp = await decode(image);
@@ -131,16 +133,26 @@ export function trimmedBlob(image: ImageRef): Promise<Blob | null> {
         const px = getImageData(bmp);
         const r = opaqueBounds(px, 10);
         if (!r || (r.width === px.width && r.height === px.height)) return null;
-        return await canvasToBlob(cropImage(bmp, r), 'image/png');
+        return { x: r.x, y: r.y, w: r.width, h: r.height, nw: px.width, nh: px.height };
       } catch {
         return null;
       } finally {
         if (image.kind === 'url') bmp.close?.();
       }
     })();
-    trims.set(key, p);
+    crops.set(key, p);
   }
   return p;
+}
+
+/** 分享連結要帶的裁切範圍（結果裡要裁的網址圖片；讀不到像素的不帶＝照原圖） */
+export async function shareCropsOf(spec: CardSpec): Promise<ShareCrops> {
+  const out: ShareCrops = {};
+  for (const url of trimmedUrls(spec)) {
+    const c = await cropOf({ kind: 'url', url, name: '' });
+    if (c) out[url] = c;
+  }
+  return out;
 }
 
 /* ---------- 預覽用的網址 ---------- */
@@ -148,31 +160,28 @@ export function trimmedBlob(image: ImageRef): Promise<Blob | null> {
 export const srcKey = (image: ImageRef, trim: boolean): string =>
   `${imageKey(image)}${trim ? '#trim' : ''}`;
 
-const trimUrls = new Map<string, string>();
+const EMPTY: ImageSource = { src: '', crop: null };
 
-/** 預覽的圖片網址（上傳的圖：物件網址；讀不到時 null） */
-export async function previewSrc(image: ImageRef, trim: boolean): Promise<string | null> {
-  if (trim) {
-    const key = imageKey(image);
-    const hit = trimUrls.get(key);
-    if (hit) return hit;
-    const b = await trimmedBlob(image);
-    if (b) {
-      const url = URL.createObjectURL(b);
-      trimUrls.set(key, url);
-      return url;
-    }
-  }
-  if (image.kind === 'url') return image.url;
-  return (await assets.url(image.id).catch(() => undefined)) ?? null;
+/** 預覽的圖片：上傳的圖是物件網址、網址的圖照樣用網址，要裁時加上裁切範圍；讀不到時 null */
+export async function previewSource(image: ImageRef, trim: boolean): Promise<ImageSource | null> {
+  const src =
+    image.kind === 'url'
+      ? image.url
+      : ((await assets.url(image.id).catch(() => undefined)) ?? null);
+  if (!src) return null;
+  return { src, crop: trim ? await cropOf(image) : null };
 }
 
 /**
- * 卡片上用到的圖片網址（預覽）：還沒讀好的是空字串。
+ * 卡片上用到的圖片（預覽）：還沒讀好的是空字串。
+ * fixedCrops：分享連結帶來的裁切範圍（給了就照它，網址的圖不再讀像素）。
  * missing：讀不到的上傳圖片數（可能被瀏覽器清掉）；pending：還在讀的張數。
  */
-export function usePreviewSources(card: Card): {
-  src: (image: ImageRef, trim: boolean) => string;
+export function usePreviewSources(
+  card: Card,
+  fixedCrops?: ShareCrops,
+): {
+  src: (image: ImageRef, trim: boolean) => ImageSource;
   pending: number;
   missing: number;
 } {
@@ -182,21 +191,28 @@ export function usePreviewSources(card: Card): {
     return m;
   }, [card]);
   const key = [...needed.keys()].sort().join('\n');
-  const [resolved, setResolved] = useState<ReadonlyMap<string, string | null>>(() => new Map());
+  const [resolved, setResolved] = useState<ReadonlyMap<string, ImageSource | null>>(
+    () => new Map(),
+  );
   // biome-ignore lint/correctness/useExhaustiveDependencies: key 代表 needed 的內容
   useEffect(() => {
     let alive = true;
     for (const [k, it] of needed) {
       if (resolved.has(k)) continue;
-      previewSrc(it.image, it.trim).then(
-        (url) => alive && setResolved((m) => new Map(m).set(k, url)),
+      if (fixedCrops && it.image.kind === 'url') {
+        const crop = it.trim ? (fixedCrops[it.image.url] ?? null) : null;
+        setResolved((m) => new Map(m).set(k, { src: (it.image as { url: string }).url, crop }));
+        continue;
+      }
+      previewSource(it.image, it.trim).then(
+        (v) => alive && setResolved((m) => new Map(m).set(k, v)),
         () => alive && setResolved((m) => new Map(m).set(k, null)),
       );
     }
     return () => {
       alive = false;
     };
-  }, [key]);
+  }, [key, fixedCrops]);
   return useMemo(() => {
     let pending = 0;
     let missing = 0;
@@ -205,7 +221,7 @@ export function usePreviewSources(card: Card): {
       else if (resolved.get(k) === null) missing++;
     }
     return {
-      src: (image: ImageRef, trim: boolean) => resolved.get(srcKey(image, trim)) ?? '',
+      src: (image: ImageRef, trim: boolean) => resolved.get(srcKey(image, trim)) ?? EMPTY,
       pending,
       missing,
     };
@@ -239,34 +255,31 @@ export function useThumbUrls(images: readonly ImageRef[]): ReadonlyMap<string, s
 /* ---------- 互動 HTML 用的網址 ---------- */
 
 /**
- * 互動 HTML 的圖片網址：網址加入的圖照樣用網址；上傳的圖（與裁過的圖）是 data URL，
- * placeholder 給了時換成待填的網址（F46）。讀不到時空字串。
+ * 互動 HTML 的圖片：網址加入的圖一律照樣用網址；上傳的圖是原圖的 data URL，placeholder 給了時換成待填的網址（F46）。
+ * 要裁時加上裁切範圍（顯示時才裁；網址的圖讀不到像素時不裁，原作同）。讀不到時空字串。
  */
-export async function exportSrc(
+export async function exportSource(
   image: ImageRef,
   trim: boolean,
   placeholder: string | null,
-): Promise<string> {
-  if (trim) {
-    const b = await trimmedBlob(image);
-    if (b) return placeholder ?? (await readAsDataUrl(b));
-  }
-  if (image.kind === 'url') return image.url;
-  if (placeholder) return placeholder;
+): Promise<ImageSource> {
+  const crop = trim ? await cropOf(image) : null;
+  if (image.kind === 'url') return { src: image.url, crop };
+  if (placeholder) return { src: placeholder, crop };
   const blob = await assets.get(image.id).catch(() => undefined);
-  return blob ? readAsDataUrl(blob) : '';
+  return { src: blob ? await readAsDataUrl(blob) : '', crop };
 }
 
 /**
- * 卡片用到的圖片 → 互動 HTML 的網址（瀏覽器）。placeholders：要放進程式碼的圖換成待填的網址，
- * 結果的圖用圖片清單裡的順序編號（清單裡找不到時依出現的順序）。
+ * 卡片用到的圖片 → 互動 HTML 的網址（瀏覽器）。placeholders：上傳的圖換成待填的網址，
+ * 結果的圖用圖片清單裡的順序編號（清單裡找不到時依出現的順序）；網址加入的圖不受影響。
  */
 export async function resolveExportSources(
   card: Card,
   pool: readonly ImageRef[],
   placeholders: boolean,
-): Promise<(image: ImageRef, trim: boolean) => string> {
-  const out = new Map<string, string>();
+): Promise<(image: ImageRef, trim: boolean) => ImageSource> {
+  const out = new Map<string, ImageSource>();
   let extra = pool.length;
   const numbers = new Map<string, number>();
   pool.forEach((im, i) => {
@@ -276,7 +289,7 @@ export async function resolveExportSources(
     const k = srcKey(it.image, it.trim);
     if (out.has(k)) continue;
     let placeholder: string | null = null;
-    if (placeholders) {
+    if (placeholders && it.image.kind === 'asset') {
       if (it.role === 'bg') placeholder = S.html.placeholderBg;
       else {
         let n = numbers.get(imageKey(it.image));
@@ -287,7 +300,7 @@ export async function resolveExportSources(
         placeholder = S.html.placeholderImage(n);
       }
     }
-    out.set(k, await exportSrc(it.image, it.trim, placeholder));
+    out.set(k, await exportSource(it.image, it.trim, placeholder));
   }
-  return (image, trim) => out.get(srcKey(image, trim)) ?? '';
+  return (image, trim) => out.get(srcKey(image, trim)) ?? EMPTY;
 }

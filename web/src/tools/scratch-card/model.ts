@@ -45,6 +45,28 @@ export interface Rect {
   h: number;
 }
 
+/**
+ * 「去掉透明留白」的裁切範圍（原圖的像素，nw × nh 是原圖大小）。圖片本身不改，顯示時才裁（規格 F24、7.1）。
+ */
+export interface Crop extends Rect {
+  nw: number;
+  nh: number;
+}
+
+/** 裁切範圍（讀分享連結用）：整數、範圍在圖裡面；不合理時 null */
+export function cleanCrop(v: unknown): Crop | null {
+  const a = Array.isArray(v)
+    ? v
+    : v && typeof v === 'object'
+      ? (['x', 'y', 'w', 'h', 'nw', 'nh'] as const).map((k) => (v as Record<string, unknown>)[k])
+      : null;
+  if (a?.length !== 6 || !a.every((n) => Number.isInteger(n))) return null;
+  const [x, y, w, h, nw, nh] = a as number[];
+  if (nw < 1 || nh < 1 || nw > 100_000 || nh > 100_000) return null;
+  if (x < 0 || y < 0 || w < 1 || h < 1 || x + w > nw || y + h > nh) return null;
+  return { x, y, w, h, nw, nh };
+}
+
 export interface ScratchState {
   /** 進階設定（原作的專家模式；關閉時背景、刮開區、標題、句子顏色、塗層形狀都不作用） */
   expert: boolean;

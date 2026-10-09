@@ -14,10 +14,11 @@ import {
   Toggle,
   useToast,
 } from '@/ui';
-import type { Card } from './card';
+import type { Card, CardSpec } from './card';
 import { buildInteractiveHtml, htmlFileName } from './exportHtml';
-import { resolveExportSources } from './images';
+import { resolveExportSources, shareCropsOf } from './images';
 import type { ImageRef } from './model';
+import { SHARE_MAX_LENGTH, shareUrlFor } from './share';
 import { usePrefs } from './store';
 import { S } from './strings';
 
@@ -124,12 +125,27 @@ export function HtmlDialog({
 export function ShareDialog({
   open,
   onOpenChange,
-  url,
+  spec,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  url: string;
+  spec: CardSpec;
 }) {
+  /* 網址圖片要裁時先算裁切範圍（讀圖片的像素），再組連結 */
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    setUrl(null);
+    shareCropsOf(spec).then(
+      (crops) => alive && setUrl(shareUrlFor(spec, location.href, crops)),
+      () => alive && setUrl(shareUrlFor(spec, location.href)),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [open, spec]);
+  const tooLong = url !== null && new URL(url).hash.length - 1 > SHARE_MAX_LENGTH;
   return (
     <Dialog
       open={open}
@@ -140,25 +156,33 @@ export function ShareDialog({
     >
       <div className="flex min-w-0 flex-col gap-3" data-testid="share-dialog">
         <p className="m-0 text-sm text-muted">{S.share.note}</p>
-        <TextOutputPanel
-          text={url}
-          title={S.share.link}
-          count={(t) => S.share.count(t.length)}
-          copyLabel={S.share.copy}
-          messages={{ copied: S.share.copied }}
-          className="max-h-[30dvh] overflow-auto"
-        />
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonClass('secondary', 'md')}
-          >
-            <ExternalLink aria-hidden className="size-4" />
-            {S.share.open}
-          </a>
-        </div>
+        {url === null ? (
+          <Notice tone="progress">{S.html.generating}</Notice>
+        ) : tooLong ? (
+          <Notice tone="danger">{S.shareTooLong}</Notice>
+        ) : (
+          <>
+            <TextOutputPanel
+              text={url}
+              title={S.share.link}
+              count={(t) => S.share.count(t.length)}
+              copyLabel={S.share.copy}
+              messages={{ copied: S.share.copied }}
+              className="max-h-[30dvh] overflow-auto"
+            />
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonClass('secondary', 'md')}
+              >
+                <ExternalLink aria-hidden className="size-4" />
+                {S.share.open}
+              </a>
+            </div>
+          </>
+        )}
       </div>
     </Dialog>
   );

@@ -6,11 +6,12 @@ import { Eraser, PenLine, RotateCcw } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { Button, buttonClass } from '@/ui';
 import { CardView } from './CardView';
-import { buildCard, type CardSpec } from './card';
+import { buildCard } from './card';
 import type { ScratchHandle } from './engine';
+import type { SharedCard } from './share';
 import { S } from './strings';
 
-export function Player({ spec }: { spec: CardSpec }) {
+export function Player({ shared: { spec, crops } }: { shared: SharedCard }) {
   const card = useMemo(() => buildCard(spec), [spec]);
   const handle = useRef<ScratchHandle | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -24,6 +25,7 @@ export function Player({ spec }: { spec: CardSpec }) {
         <CardView
           card={card}
           fit
+          crops={crops}
           onHandle={(h) => {
             handle.current = h;
           }}

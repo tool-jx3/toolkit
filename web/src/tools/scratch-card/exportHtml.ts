@@ -1,13 +1,21 @@
 /**
  * 互動 HTML（規格 3.7）：一段可以貼進網頁的程式碼（`<div>`＋`<style>`＋`<script>`，樣式以元件自己的 id 為範圍），
  * 以及包了這段的獨立 HTML。刮刮卡的程式和工具的預覽是同一份（engine.ts 的 mountScratch，原樣放進 <script>）。
- * buildInteractiveHtml 是純函式（圖片網址由呼叫端給；瀏覽器裡用 images.ts 的 resolveExportSources 把圖片變成 data URL）。
+ * buildInteractiveHtml 是純函式（圖片網址由呼叫端給；瀏覽器裡用 images.ts 的 resolveExportSources 把上傳的圖變成 data URL）。
+ * 結果的圖放在一張圖片表裡（同一張只放一份），開頁時由程式填進 `<img data-scx-img>`；裁切範圍照樣寫在 HTML 裡（顯示時才裁）。
  */
 import { safeFileName } from '@/core/files';
 import { escapeHtml } from '@/core/html';
 import type { Card } from './card';
 import { mountScratch } from './engine';
-import { CARD_BORDER, CARD_FONT, cardCss, cardHtml, engineConfig } from './markup';
+import {
+  CARD_BORDER,
+  CARD_FONT,
+  cardCss,
+  cardHtml,
+  engineConfig,
+  type ImageSource,
+} from './markup';
 import type { ImageRef } from './model';
 import { S } from './strings';
 
@@ -32,7 +40,7 @@ export interface InteractiveHtml {
 
 export function buildInteractiveHtml(
   card: Card,
-  src: (image: ImageRef, trim: boolean) => string,
+  src: (image: ImageRef, trim: boolean) => ImageSource,
   { id = widgetId(), engine = engineSource() }: { id?: string; engine?: string } = {},
 ): InteractiveHtml {
   const scope = `#${id}`;
@@ -47,10 +55,16 @@ export function buildInteractiveHtml(
     `${scope} .scx-reset:focus-visible{outline:2px solid #2563eb;outline-offset:2px}`,
   ].join('\n');
   const config = engineConfig(card, { popClass: null, confetti: true, fit: true });
+  const table: string[] = [];
+  const cardMarkup = cardHtml(card, { src, pop: false, table });
   const script = `(function () {
   var root = document.getElementById(${scriptJson(id)});
   if (!root || root.getAttribute('data-ready') === '1') return;
   root.setAttribute('data-ready', '1');
+  var images = ${scriptJson(table)};
+  Array.prototype.forEach.call(root.querySelectorAll('img[data-scx-img]'), function (el) {
+    el.src = images[Number(el.getAttribute('data-scx-img'))] || '';
+  });
   var mount = (${engine});
   var handle = mount(root.querySelector('[data-scx="card"]'), ${scriptJson(config)}, {});
   var reset = root.querySelector('.scx-reset');
@@ -58,7 +72,7 @@ export function buildInteractiveHtml(
 })();`;
   const snippet = `<!-- ${S.html.commentStart} -->
 <div id="${id}" class="scx">
-<div class="scx-fit">${cardHtml(card, { src, pop: false })}</div>
+<div class="scx-fit">${cardMarkup}</div>
 <div class="scx-actions"><button type="button" class="scx-reset">${escapeHtml(S.recover)}</button></div>
 </div>
 <style>

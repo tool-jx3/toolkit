@@ -1,7 +1,7 @@
 /**
  * 狀態與動作：
  * - useScratch：刮刮卡的內容（自動儲存、可以復原；文字欄從聚焦到離開算一步）；
- * - usePrefs：互動 HTML 的「上傳的圖片改成待填的網址」（自動儲存，不列入復原）；
+ * - usePrefs：互動 HTML 的「上傳的圖片改成待填的網址」、預覽背景（自動儲存，不列入復原）；
  * - useUi：只在這次開頁有效的東西（抽了幾張、刮開了沒）；
  * - 圖片存在 IndexedDB 的資產庫（core/assets），狀態只記 id。
  */
@@ -75,12 +75,25 @@ export function historyStep(kind: 'undo' | 'redo'): void {
 
 /* ---------- 偏好（不列入復原） ---------- */
 
+/** 預覽（舞台）的背景 */
+export type StageBg = 'light' | 'dark' | 'checker';
+export const STAGE_BGS: readonly StageBg[] = ['light', 'dark', 'checker'];
+
 export interface Prefs {
+  /** 預覽背景（規格 F59、7.1） */
+  stageBg: StageBg;
   /** 互動 HTML：上傳的圖片改成待填的網址 */
   placeholders: boolean;
 }
 
-export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, { placeholders: false });
+export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
+  stageBg: 'light',
+  placeholders: false,
+});
+
+/** 存的預覽背景（壞掉時白） */
+export const stageBgOf = (v: unknown): StageBg =>
+  STAGE_BGS.includes(v as StageBg) ? (v as StageBg) : 'light';
 
 /* ---------- 這次開頁的狀態 ---------- */
 
