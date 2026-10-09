@@ -19,6 +19,7 @@ import {
   useToast,
 } from '@/ui';
 import { type Legend, LIMITS, LINE_STYLES, type LineStyle, mapMembers, PALETTE } from './model';
+import { releaseFocus } from './QuadLayer';
 import {
   activeLegendOf,
   addLegend,
@@ -110,6 +111,7 @@ export function LegendsSection() {
                 data-drag-handle
                 aria-hidden
                 className="-ml-1 flex shrink-0 cursor-grab touch-none text-muted [&_svg]:size-4"
+                onPointerDown={releaseFocus}
               >
                 <GripVertical />
               </span>

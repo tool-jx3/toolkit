@@ -41,6 +41,8 @@ export const S = {
   added: (name: string) => `已加入「${name}」。`,
   addedMany: (n: number) => `已加入 ${n} 個角色。`,
   limitReached: (n: number) => `角色最多 ${n} 個。`,
+  batchOverLimit: (max: number, n: number) => `角色最多 ${max} 個，有 ${n} 張沒有加入。`,
+  batchNone: '沒有加入任何角色。',
   listLabel: '角色清單',
   listEmpty: '還沒有角色。在上面輸入名字加入，或一次加入多張圖片。',
   listHint: '拖曳左邊的把手調整順序（四象限：後面的畫在上面；關係圖：繞圈的順序）。',
@@ -70,7 +72,7 @@ export const S = {
   inMapHint: '拿出關係圖時，這個人的連線會一起刪掉（可以復原）。',
   unplace: '從這一頁拿掉',
   deleteCharacter: '刪除角色',
-  selectedHint: '方向鍵移動 1 px（Shift 10 px），Delete 從這一頁拿掉。',
+  selectedHint: '在預覽上按方向鍵移動 1 px（Shift 10 px），Delete 從這一頁拿掉。',
 
   /* 四象限：頁 */
   sectionPage: '這一頁',
@@ -173,7 +175,7 @@ export const S = {
 
   /* 預覽 */
   previewLabel: (kind: ChartKind) => (kind === 'quadrant' ? '四象限預覽' : '關係圖預覽'),
-  quadLayer: '四象限：拖曳角色調整位置',
+  quadLayer: '四象限：拖曳角色調整位置，方向鍵移動選取的角色',
   relationLayer: '關係圖：依序點兩個人連線',
   nodeLabel: (name: string) => name || '（沒有名字）',
   hintQuadrant: '拖曳角色調整位置；在標題或軸名上按兩下可以直接修改。',
@@ -210,6 +212,8 @@ export const S = {
   projectBad: '這個專案檔的內容無法使用。',
   projectMissingImage: '專案檔裡少了角色的圖片，或圖片無法讀取。',
   saveFailed: '自動儲存失敗（瀏覽器空間不足或被封鎖）',
+  saveDroppedImages: (names: string[]) =>
+    `「${names.join('」「')}」的圖片讀不到了，專案檔裡這些角色沒有圖片。`,
 
   /* 原作的檔案 */
   backupMenu: '貼上原作的備份碼…',
@@ -234,8 +238,8 @@ export const S = {
   groupEdit: '編輯',
   groupQuadrant: '四象限',
   groupRelation: '關係圖',
-  shortcutNudge: '移動選取的角色 1 px',
-  shortcutNudgeBig: '移動選取的角色 10 px',
+  shortcutNudge: '移動選取的角色 1 px（焦點在預覽上或沒有焦點時）',
+  shortcutNudgeBig: '移動選取的角色 10 px（焦點在預覽上或沒有焦點時）',
   shortcutUnplace: '把選取的角色從這一頁拿掉',
   shortcutEscape: '取消選取',
   shortcutCancelLink: '取消點了第一個人的連線',

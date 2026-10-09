@@ -5,7 +5,7 @@
  */
 import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import { clientToLocal } from '@/core/layout';
-import { useStageScale } from '@/ui';
+import { isFormControlTarget, useStageScale } from '@/ui';
 import { LabelEditor } from './LabelEditor';
 import {
   type Character,
@@ -39,6 +39,17 @@ const DOUBLE_MS = 450;
 const DOUBLE_PX = 10;
 /** 觸控、滑鼠按到角色的範圍至少這麼大（螢幕 px） */
 const MIN_HIT_SCREEN = 14;
+
+/**
+ * 方向鍵移動角色的焦點條件（規格 F31）：沒有焦點（頁面）、或焦點在預覽欄裡不是表單控制項的地方（操作層、工具列按鈕）；
+ * 角色清單的列、文字欄、選單、單選鈕上都不移動。
+ */
+export function canNudgeFrom(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return true;
+  if (target === document.body || target === document.documentElement) return true;
+  if (isFormControlTarget(target)) return false;
+  return !!target.closest('#tool-preview');
+}
 
 /** 清掉頁面上的反白、讓正在輸入的欄位離開（文字欄的一步復原在離開時結束，快捷鍵也回到頁面上） */
 export function releaseFocus() {
@@ -149,14 +160,15 @@ export function QuadLayer({ page, characters }: { page: QuadPage; characters: Ch
   const textOf = (key: LabelKey) => (key === 'title' ? page.title : page.labels[key]);
 
   return (
-    // biome-ignore lint/a11y/useSemanticElements: 疊在預覽上的指標操作區；鍵盤操作走角色清單與快捷鍵
     <div
       ref={root}
-      role="group"
+      role="application"
       aria-label={S.quadLayer}
       data-testid="quad-layer"
       data-selected={selectedId ?? ''}
-      className="absolute inset-0 touch-none select-none"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: 預覽可以聚焦，焦點在這裡時方向鍵移動選取的角色（規格 F31）
+      tabIndex={0}
+      className="absolute inset-0 touch-none select-none outline-none focus-visible:ring-4 focus-visible:ring-focus"
       style={{ cursor }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

@@ -194,6 +194,34 @@ describe('原作 Q：全部備份碼', () => {
   });
 });
 
+describe('對等驗證後（7.1）', () => {
+  it('圖片不是 data URL（例如網址）的人算進讀不了的圖片；沒有圖片欄位的不算', () => {
+    const r = fromRelationFile({
+      images: [
+        { name: '網址', src: 'https://example.com/a.png' },
+        { name: '沒有' },
+        { name: '空白', src: '' },
+        { name: '好的', src: 'data:image/png;base64,iVBORw0KGgo=' },
+      ],
+      legends: [],
+    });
+    expect(r.invalid).toBe(1);
+    expect([...r.images.keys()]).toEqual([3]);
+    const q = fromBackupCode(
+      encode({
+        characters: [
+          { name: '甲', type: 'image', imageSrc: 'http://example.com/x.png' },
+          { name: '乙', type: 'dot' },
+          { name: '丙', type: 'image', imageSrc: 'data:image/png;base64,iVBORw0KGgo=' },
+        ],
+      }),
+      initialState(),
+    );
+    expect(q.invalid).toBe(1);
+    expect([...q.images.keys()]).toEqual([2]);
+  });
+});
+
 describe('data URL', () => {
   it('Base64 與文字的 data URL → Blob（類型保留）；看不懂時 null', async () => {
     const b = dataUrlToBlob('data:image/png;base64,iVBORw0KGgo=');

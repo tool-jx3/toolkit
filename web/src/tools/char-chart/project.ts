@@ -4,7 +4,7 @@
  */
 import { importAssetFiles } from '@/core/assets';
 import { type ChartState, imageIds, normalizeState } from './model';
-import { assets } from './store';
+import { assets, markSessionImage } from './store';
 import { S } from './strings';
 
 export class ProjectDataError extends Error {}
@@ -19,10 +19,29 @@ export async function importProject(
   if (typeof data !== 'object' || data === null || Array.isArray(data))
     throw new ProjectDataError(S.projectBad);
   const next = normalizeState(data);
-  await importAssetFiles(assets, files.entries());
+  const imported = await importAssetFiles(assets, files.entries());
+  for (const id of imported.ids) markSessionImage(id);
   for (const id of projectAssetIds(next)) {
     const bmp = await assets.bitmap(id).catch(() => undefined);
     if (!bmp) throw new ProjectDataError(S.projectMissingImage);
   }
   return next;
+}
+
+/**
+ * 存專案檔時讀不到的圖片：那些角色存成沒有圖片（四象限畫圓點），存出來的檔開得了（規格 F74、7.1）。
+ * 回傳要存的狀態與受影響的角色名字。
+ */
+export function dropMissingImages(
+  d: ChartState,
+  missing: ReadonlySet<string>,
+): { data: ChartState; names: string[] } {
+  if (!missing.size) return { data: d, names: [] };
+  const names: string[] = [];
+  const characters = d.characters.map((c) => {
+    if (!c.image || !missing.has(c.image.id)) return c;
+    names.push(c.name || S.noName);
+    return { ...c, image: null, marker: 'dot' as const };
+  });
+  return { data: { ...d, characters }, names };
 }

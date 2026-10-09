@@ -7,7 +7,9 @@
  * - 復原：一次動作一步；方向鍵連按算一步、馬上復原只復原方向鍵那一步；拖曳手勢放開才算一步。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { splitImageFiles } from '@/tools/char-chart/images';
 import { initialState, LIMITS, PALETTE } from '@/tools/char-chart/model';
+import { dropMissingImages } from '@/tools/char-chart/project';
 import {
   addCharacter,
   addImageCharacters,
@@ -24,11 +26,13 @@ import {
   gesture,
   goPage,
   historyStep,
+  markSessionImage,
   nudgeSelected,
   patchCharacter,
   patchLegend,
   placeCharacter,
   randomConnect,
+  referencedImages,
   removeCharacter,
   removeLegend,
   replaceAll,
@@ -269,5 +273,47 @@ describe('復原', () => {
     expect(steps()).toBe(before + 1);
     historyStep('undo');
     expect(chartNow().pages[0].positions.c1).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('對等驗證後（7.1）', () => {
+  it('這次開頁放進圖片庫、還沒寫進狀態的圖，整理圖片庫時也保留', () => {
+    addCharacter({ name: 'a', image: IMG }, null);
+    expect([...referencedImages()]).toContain('aimg1');
+    expect(referencedImages().has('apending01')).toBe(false);
+    markSessionImage('apending01');
+    expect(referencedImages().has('apending01')).toBe(true);
+  });
+
+  it('存專案檔時讀不到的圖片：那些角色存成沒有圖片（圓點），回傳名字；都讀得到時原樣', () => {
+    addCharacter({ name: '甲', image: IMG }, null);
+    addCharacter({ name: '', image: { ...IMG, id: 'aimg2' } }, null);
+    addCharacter({ name: '丙' }, null);
+    const d = chartNow();
+    expect(dropMissingImages(d, new Set())).toEqual({ data: d, names: [] });
+    const r = dropMissingImages(d, new Set(['aimg2', 'aother']));
+    expect(r.names).toEqual(['（沒有名字）']);
+    expect(r.data.characters.map((c) => [c.image?.id ?? null, c.marker])).toEqual([
+      ['aimg1', 'image'],
+      [null, 'dot'],
+      [null, 'dot'],
+    ]);
+    /* 目前的狀態不動 */
+    expect(chartNow().characters[1].image?.id).toBe('aimg2');
+  });
+
+  it('分出圖片與不是圖片的檔案：類型或副檔名是圖片的算；其他看檔頭', async () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]);
+    const files = [
+      new File([png], 'a.png', { type: 'image/png' }),
+      new File([png], 'noext', { type: '' }),
+      new File([jpeg], 'photo.bin', { type: 'application/octet-stream' }),
+      new File(['hello'], 'notes.txt', { type: 'text/plain' }),
+      new File(['x'], 'face.webp', { type: '' }),
+    ];
+    const r = await splitImageFiles(files);
+    expect(r.images.map((f) => f.name)).toEqual(['a.png', 'noext', 'photo.bin', 'face.webp']);
+    expect(r.others.map((f) => f.name)).toEqual(['notes.txt']);
   });
 });

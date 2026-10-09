@@ -65,8 +65,21 @@ export const gesture = historyGesture(useChart);
 
 export const assets = createAssetStore(TOOL_ID);
 
-/** 狀態與復原紀錄裡用到的圖片（gc 時保留） */
-export const referencedImages = (): Set<string> => referencedAssetIds(useChart, imageIds);
+/**
+ * 這次開頁放進圖片庫的圖（新增區選好、還沒按「加入角色」的，換圖片、讀檔…）：
+ * 還沒寫進狀態也要在整理時保留（規格 3.6、7.1）。
+ */
+const sessionImages = new Set<string>();
+export const markSessionImage = (id: string): void => {
+  sessionImages.add(id);
+};
+
+/** 整理圖片庫時保留的圖：狀態與復原紀錄裡用到的＋這次開頁放進來的 */
+export function referencedImages(): Set<string> {
+  const keep = referencedAssetIds(useChart, imageIds);
+  for (const id of sessionImages) keep.add(id);
+  return keep;
+}
 
 export const chartNow = (): ChartState => useChart.getState().data;
 

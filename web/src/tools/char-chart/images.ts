@@ -3,9 +3,9 @@
  * 畫圖時用 useImageBitmaps 取得目前用到的圖（重新整理後從資產庫讀回；讀不到的列在 missing）。
  */
 import { useEffect, useMemo, useState } from 'react';
-import { canvasToBlob, loadImage, resizeImage } from '@/core/image';
+import { canvasToBlob, detectImageType, loadImage, resizeImage } from '@/core/image';
 import { IMAGE_MAX_SIDE, type ImageRef } from './model';
-import { assets } from './store';
+import { assets, markSessionImage } from './store';
 
 export class ImageLoadError extends Error {
   constructor(readonly fileName: string) {
@@ -50,6 +50,7 @@ export async function loadCharacterImage(
     bmp.close?.();
   }
   const added = await assets.add(blob);
+  markSessionImage(added.id);
   const check = await assets.bitmap(added.id).catch(() => undefined);
   if (!check) {
     await assets.remove(added.id).catch(() => undefined);
@@ -59,6 +60,34 @@ export async function loadCharacterImage(
     ref: { id: added.id, name, width: check.width, height: check.height },
     persisted: added.persisted,
   };
+}
+
+const IMAGE_EXT = /\.(png|apng|jpe?g|jfif|webp|gif|avif|bmp|svg)$/i;
+
+/**
+ * 分出圖片與不是圖片的檔案：類型是 image/*、或副檔名是圖片的算圖片；其他（例如沒有副檔名、類型空白）看檔頭
+ * （PNG、JPEG、GIF、WebP、AVIF、BMP）。是不是真的讀得了，之後解碼時才知道。
+ */
+export async function splitImageFiles(
+  files: readonly File[],
+): Promise<{ images: File[]; others: File[] }> {
+  const images: File[] = [];
+  const others: File[] = [];
+  for (const f of files) {
+    if (f.type.startsWith('image/') || IMAGE_EXT.test(f.name)) {
+      images.push(f);
+      continue;
+    }
+    let head: Uint8Array | null = null;
+    try {
+      head = new Uint8Array(await f.slice(0, 64).arrayBuffer());
+    } catch {
+      head = null;
+    }
+    if (head && detectImageType(head)) images.push(f);
+    else others.push(f);
+  }
+  return { images, others };
 }
 
 /** 一次讀好幾張；讀不了的列在 failed（不中斷其他張） */

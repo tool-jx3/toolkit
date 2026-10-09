@@ -27,7 +27,7 @@ export interface LegacyResult {
 
 async function apply(imp: LegacyImport): Promise<LegacyResult> {
   const d: ChartState = structuredClone(imp.state);
-  let failed = 0;
+  let failed = imp.invalid;
   let notSaved = false;
   for (const [i, url] of imp.images) {
     const c = d.characters[i];

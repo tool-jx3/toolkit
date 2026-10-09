@@ -3,14 +3,15 @@
  * 規格：docs/refactor/specs/char-chart.md。
  */
 import { Redo2, Undo2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { arrowDelta } from '@/core/layout';
 import { useSaveError, useUndoRedo } from '@/core/storage';
 import { IconButton, type Shortcut, ToolShell, useToast, WindowDrop, withShortcut } from '@/ui';
-import { loadCharacterImages, useImageBitmaps } from './images';
+import { loadCharacterImages, splitImageFiles, useImageBitmaps } from './images';
 import { imageIds, LIMITS, nameFromFile } from './model';
 import { PreviewArea } from './Preview';
 import { ProjectActions } from './ProjectActions';
+import { canNudgeFrom } from './QuadLayer';
 import { PageSection, ScoreSection, ShareSection } from './QuadPanel';
 import { LegendsSection, LinksSection, RelationSection } from './RelationPanel';
 import { CharactersSection, SelectedSection } from './Roster';
@@ -41,38 +42,48 @@ function useAssetCleanup() {
   }, []);
 }
 
-/** 一次加入多張圖片（選檔、拖放、貼上都走這裡）；要在 ToolShell 裡面用（通知） */
+/**
+ * 一次加入多張圖片（選檔、拖放、貼上都走這裡）；要在 ToolShell 裡面用（通知）。
+ * 同一批的結果合成一則通知：加了幾個、哪些讀不了、哪些不是圖片、超過上限（規格 F06、7.1）。
+ */
 function useBatchAdd() {
   const toast = useToast();
-  const add = async (files: File[]) => {
-    const images = files.filter((f) => f.type.startsWith('image/') || !f.type);
-    if (!images.length) return;
-    const room = LIMITS.characters - chartNow().characters.length;
-    if (room <= 0) {
-      toast({ title: S.limitReached(LIMITS.characters), tone: 'warning' });
-      return;
+  return async (files: File[]) => {
+    if (!files.length) return;
+    const { images, others } = await splitImageFiles(files);
+    const room = Math.max(0, LIMITS.characters - chartNow().characters.length);
+    const take = images.slice(0, room);
+    const notes: string[] = [];
+    let ids: string[] = [];
+    let firstName = '';
+    if (take.length) {
+      const { loaded, failed } = await loadCharacterImages(take);
+      if (failed.length) notes.push(S.decodeError(failed.join('、')));
+      if (loaded.some((l) => !l.persisted)) notes.push(S.imageNotSaved);
+      if (loaded.length) {
+        const place = usePrefs.getState().data.chart === 'quadrant' ? currentPageIndex() : null;
+        firstName = nameFromFile(loaded[0].file.name);
+        ids = addImageCharacters(
+          loaded.map((l) => ({ name: nameFromFile(l.file.name), image: l.ref })),
+          place,
+        );
+      }
     }
-    const { loaded, failed } = await loadCharacterImages(images.slice(0, room));
-    if (failed.length) toast({ title: S.decodeError(failed.join('、')), tone: 'danger' });
-    if (loaded.some((l) => !l.persisted)) toast({ title: S.imageNotSaved, tone: 'warning' });
-    if (!loaded.length) return;
-    const place = usePrefs.getState().data.chart === 'quadrant' ? currentPageIndex() : null;
-    const ids = addImageCharacters(
-      loaded.map((l) => ({ name: nameFromFile(l.file.name), image: l.ref })),
-      place,
-    );
-    if (ids.length === 1)
-      toast({ title: S.added(nameFromFile(loaded[0].file.name)), tone: 'success', replace: true });
-    else if (ids.length) toast({ title: S.addedMany(ids.length), tone: 'success', replace: true });
-    if (images.length > room) toast({ title: S.limitReached(LIMITS.characters), tone: 'warning' });
+    if (others.length) notes.push(S.notImage(others.map((f) => f.name).join('、')));
+    if (images.length > take.length)
+      notes.push(S.batchOverLimit(LIMITS.characters, images.length - take.length));
+    toast({
+      title:
+        ids.length === 1 ? S.added(firstName) : ids.length ? S.addedMany(ids.length) : S.batchNone,
+      description: notes.length ? notes.join('') : undefined,
+      tone: !notes.length ? 'success' : ids.length ? 'warning' : 'danger',
+      replace: true,
+    });
   };
-  const reject = (files: File[]) =>
-    toast({ title: S.notImage(files.map((f) => f.name).join('、')), tone: 'danger' });
-  return { add, reject };
 }
 
 function Settings() {
-  const batch = useBatchAdd();
+  const batchAdd = useBatchAdd();
   const toast = useToast();
   const chart = usePrefs((s) => s.data.chart);
   const d = useChart((s) => s.data);
@@ -83,11 +94,7 @@ function Settings() {
   }, [saveError, toast]);
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <CharactersSection
-        bitmaps={bitmaps}
-        onBatch={(f) => void batch.add(f)}
-        onReject={batch.reject}
-      />
+      <CharactersSection bitmaps={bitmaps} onBatch={(f) => void batchAdd(f)} />
       <SelectedSection bitmaps={bitmaps} />
       {chart === 'quadrant' ? (
         <>
@@ -103,11 +110,9 @@ function Settings() {
         </>
       )}
       <WindowDrop
-        accept="image/*"
         label={S.windowDrop}
         hint={S.windowDropHint}
-        onDrop={(files) => void batch.add(files)}
-        onReject={batch.reject}
+        onDrop={(files) => void batchAdd(files)}
       />
     </div>
   );
@@ -147,25 +152,31 @@ export function App() {
   /* 沒有選取時方向鍵、Delete 留給頁面（捲動等）：只在有事可做時綁定 */
   const when = <T,>(on: boolean, fn: T) => (on ? fn : undefined);
   const quadSel = chart === 'quadrant' && placed;
-  const nudge = (step: number) => (e: KeyboardEvent) => {
-    const dd = arrowDelta(e.key, step);
-    if (dd) nudgeSelected(dd.dx, dd.dy);
-  };
+  /*
+   * 方向鍵移動選取的角色：只在焦點在預覽或頁面上時（canNudgeFrom）；其他地方（角色清單的列…）照常交給那個元件、
+   * 也不擋捲動。快捷鍵說明照樣列出（下面的 shortcuts 沒有 handler）。
+   */
+  const nudgeOn = useRef(quadSel);
+  nudgeOn.current = quadSel;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!nudgeOn.current || e.defaultPrevented || e.isComposing) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const dd = arrowDelta(e.key, e.shiftKey ? 10 : 1);
+      if (!dd || !canNudgeFrom(e.target)) return;
+      if (e.target instanceof Element && e.target.closest('[role="dialog"],[role="alertdialog"]'))
+        return;
+      e.preventDefault();
+      nudgeSelected(dd.dx, dd.dy);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const shortcuts: Shortcut[] = [
     { keys: 'mod+z', label: S.undo, group: S.groupEdit, handler: undo },
     { keys: ['shift+mod+z', 'mod+y'], label: S.redo, group: S.groupEdit, handler: redo },
-    {
-      keys: [...ARROWS],
-      label: S.shortcutNudge,
-      group: S.groupQuadrant,
-      handler: when(quadSel, nudge(1)),
-    },
-    {
-      keys: ARROWS.map((k) => `shift+${k}`),
-      label: S.shortcutNudgeBig,
-      group: S.groupQuadrant,
-      handler: when(quadSel, nudge(10)),
-    },
+    { keys: [...ARROWS], label: S.shortcutNudge, group: S.groupQuadrant },
+    { keys: ARROWS.map((k) => `shift+${k}`), label: S.shortcutNudgeBig, group: S.groupQuadrant },
     {
       keys: ['delete', 'backspace'],
       label: S.shortcutUnplace,

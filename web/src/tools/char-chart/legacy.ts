@@ -32,6 +32,8 @@ export interface LegacyImport {
   page: number;
   /** 超過上限沒有讀進來的角色數 */
   dropped: number;
+  /** 圖片欄位不是圖片的 data URL（例如網址）的人數：這些人沒有圖片，算進讀不了的圖片 */
+  invalid: number;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
@@ -68,10 +70,12 @@ export function fromRelationFile(raw: unknown): LegacyImport {
   const all = raw.images as unknown[];
   const list = all.slice(0, LIMITS.characters);
   const images = new Map<number, string>();
+  let invalid = 0;
   const characters = list.map((it, i) => {
     const o = isObj(it) ? it : {};
     const url = imageUrl(o.src);
     if (url) images.set(i, url);
+    else if (o.src !== undefined && o.src !== null && o.src !== '') invalid++;
     return character(i, text(o.name));
   });
   /* 線的種類：原作的 id（數字）換成 l1、l2…（順序不變） */
@@ -107,7 +111,7 @@ export function fromRelationFile(raw: unknown): LegacyImport {
       links,
     },
   });
-  return { kind: 'relation', state, images, page: 0, dropped: all.length - list.length };
+  return { kind: 'relation', state, images, page: 0, dropped: all.length - list.length, invalid };
 }
 
 /* ---------- 原作 Q：全部專案備份碼 ---------- */
@@ -159,11 +163,13 @@ export function fromBackupCode(code: string, current: ChartState): LegacyImport 
   const all = Array.isArray(raw.characters) ? raw.characters : [];
   const list = all.slice(0, LIMITS.characters);
   const images = new Map<number, string>();
+  let invalid = 0;
   const characters = list.map((it, i) => {
     const o = isObj(it) ? it : {};
     const c = character(i, text(o.name), o.color);
     const url = o.type === 'image' ? imageUrl(o.imageSrc) : null;
     if (url) images.set(i, url);
+    else if (o.type === 'image') invalid++;
     /* 每頁的位置（舊版：沒有 positions 時 x、y 是第 1 頁） */
     const positions: Record<string, unknown> = isObj(o.positions)
       ? o.positions
@@ -182,7 +188,7 @@ export function fromBackupCode(code: string, current: ChartState): LegacyImport 
     relation: { ...current.relation, links: [] },
   });
   const page = Math.max(0, Math.min(state.pages.length - 1, Math.floor(num(raw.currentPage) ?? 0)));
-  return { kind: 'quadrant', state, images, page, dropped: all.length - list.length };
+  return { kind: 'quadrant', state, images, page, dropped: all.length - list.length, invalid };
 }
 
 /** data URL → Blob（看不懂時 null） */

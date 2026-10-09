@@ -10,6 +10,7 @@
  * - 下載 PNG（檔名、尺寸、2 倍、像素、與預覽相同、不含選取標示）；
  * - 自動儲存與還原（含圖片）、復原／重做；專案檔 ZIP（內容、重設、開啟、缺圖片）；觸控；
  * - 原作的檔案：原作 R 的專案 JSON（開啟專案檔）、原作 Q 的全部備份碼（貼上原作的備份碼…）；
+ * - 對等驗證後的修正（規格 7.1）：開頁的圖片整理保留新增區的圖、存檔時讀不到的圖、一批的結果合成一則通知、方向鍵的焦點條件、排序前離開文字欄；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準。
  */
 import { readFileSync } from 'node:fs';
@@ -474,7 +475,8 @@ test('人數上限 50：新增區停用、一次加入只加到上限（F17）',
     file('b.png', await solidPng('#2244cc')),
   ]);
   await expect.poll(async () => (await state(page)).characters.length).toBe(50);
-  await expect(toast(page, '角色最多 50 個。')).toBeVisible();
+  await expect(toast(page, '角色最多 50 個，有 1 張沒有加入。')).toBeVisible();
+  await expect(toast(page, '已加入「a」。')).toBeVisible();
   await expect(addForm(page).getByRole('button', { name: '加入角色' })).toBeDisabled();
   await expect(addForm(page).getByRole('textbox', { name: '名字' })).toBeDisabled();
   expect(errors).toEqual([]);
@@ -1311,6 +1313,179 @@ test('觸控：拖曳角色、點兩下改字、點人連線（F76）', async ({
   expect((await state(page)).relation.links).toEqual([{ from: 'c1', to: 'c2', legend: 'l1' }]);
   expect(errors).toEqual([]);
   await ctx.close();
+});
+
+/* ---------- 對等驗證後的修正（規格 7.1） ---------- */
+
+const toastItems = (page: Page) => page.getByRole('region', { name: /^通知/ }).locator('li');
+
+test('7.1 F05：新增區選好的圖片過了開頁的圖片整理才加入，專案檔裡有圖、重新整理後還在', async ({
+  page,
+}) => {
+  await page.clock.install();
+  const errors = await open(page);
+  await addForm(page)
+    .getByRole('group', { name: '角色圖片' })
+    .locator('input[type=file]')
+    .setInputFiles(file('race.png', await solidPng('#c026d3', 90, 60)));
+  await expect(addForm(page).getByTestId('add-image')).toBeVisible();
+  /* 開頁約 5 秒的圖片整理 */
+  await page.clock.runFor(6000);
+  await page.waitForTimeout(800);
+  await addForm(page).getByRole('textbox', { name: '名字' }).fill('慢慢加');
+  await addForm(page).getByRole('button', { name: '加入角色' }).click();
+  const id = (await state(page)).characters[0].image?.id;
+  expect(id).toBeTruthy();
+  /* 存專案檔：ZIP 裡有這張圖 */
+  await page.getByRole('button', { name: '專案' }).click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+  ]);
+  const entries = unzipSync(new Uint8Array(readFileSync((await dl.path()) as string)));
+  expect(Object.keys(entries)).toContain(`files/${id}.png`);
+  /* 重新整理：圖片從這個瀏覽器讀得回來 */
+  await page.reload();
+  await expect
+    .poll(async () => near(await pixel(quad(page), 380, 400), [0xc0, 0x26, 0xd3]))
+    .toBe(true);
+  await expect(page.getByText('有些角色的圖片讀不到了')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('7.1 F05：存專案檔時有角色的圖片讀不到：那些圖片拿掉再存並提醒，存出來的檔開得了', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, {
+    characters: [
+      ...chars(1),
+      {
+        id: 'c2',
+        name: '凱特',
+        color: PALETTE[1],
+        image: { id: 'amissingimg01', name: 'k.png', width: 50, height: 50 },
+        marker: 'image',
+        inMap: true,
+      },
+    ],
+  });
+  await expect(page.getByText('有些角色的圖片讀不到了')).toBeVisible();
+  await page.getByRole('button', { name: '專案' }).click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+  ]);
+  await expect(toast(page, '「凱特」的圖片讀不到了，專案檔裡這些角色沒有圖片。')).toBeVisible();
+  const bytes = readFileSync((await dl.path()) as string);
+  const project = JSON.parse(strFromU8(unzipSync(new Uint8Array(bytes))['project.json']));
+  expect(project.data.characters[1]).toMatchObject({ name: '凱特', image: null, marker: 'dot' });
+  /* 目前的內容不動（之後換圖片還來得及） */
+  expect((await state(page)).characters[1].image?.id).toBe('amissingimg01');
+  /* 存出來的檔開得了 */
+  await openProjectFile(page, 'saved.zip', bytes, 'application/zip');
+  await expect(toast(page, '已開啟專案檔。')).toBeVisible();
+  expect((await state(page)).characters[1]).toMatchObject({ name: '凱特', image: null });
+  expect(errors).toEqual([]);
+});
+
+test('7.1 F06：一次加入多張的結果合成一則通知（加了幾個、哪些讀不了、哪些不是圖片），有錯時是警告；沒有副檔名、類型空白的圖片依檔頭加入', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await batchInput(page).setInputFiles([
+    file('好.png', await solidPng('#2244cc')),
+    file('broken.png', Buffer.from('not a png')),
+    file('notes.txt', Buffer.from('hello'), 'text/plain'),
+    file('noext', await solidPng('#22aa44'), ''),
+  ]);
+  await expect.poll(async () => (await state(page)).characters.length).toBe(2);
+  expect((await state(page)).characters.map((c) => c.name)).toEqual(['好', 'noext']);
+  await expect(toastItems(page)).toHaveCount(1);
+  const item = toastItems(page).first();
+  await expect(item).toContainText('已加入 2 個角色。');
+  await expect(item).toContainText('無法讀取「broken.png」');
+  await expect(item).toContainText('「notes.txt」不是圖片檔。');
+  /* 全視窗拖放：圖片＋文字檔 */
+  const b64 = (await solidPng('#ddaa22')).toString('base64');
+  await page.evaluate(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const dt = new DataTransfer();
+    dt.items.add(new File([bytes], 'gold.png', { type: 'image/png' }));
+    dt.items.add(new File(['x'], 'memo.txt', { type: 'text/plain' }));
+    window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }));
+    window.dispatchEvent(
+      new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }),
+    );
+  }, b64);
+  await expect.poll(async () => (await state(page)).characters.length).toBe(3);
+  await expect(toastItems(page)).toHaveCount(1);
+  await expect(toastItems(page).first()).toContainText('已加入「gold」。');
+  await expect(toastItems(page).first()).toContainText('「memo.txt」不是圖片檔。');
+  /* 全部讀不了：沒有加入任何角色 */
+  await batchInput(page).setInputFiles([file('bad.png', Buffer.from('nope'))]);
+  await expect(toast(page, '沒有加入任何角色。')).toBeVisible();
+  expect((await state(page)).characters).toHaveLength(3);
+  expect(errors).toEqual([]);
+});
+
+test('7.1 F31：焦點在角色清單的列上時 ← → 不移動角色（↑ ↓ 換選取）；焦點在預覽或頁面上時才移動', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await addChar(page, '甲');
+  await addChar(page, '乙');
+  await row(page, 'c1').click();
+  await expect(quadLayer(page)).toHaveAttribute('data-selected', 'c1');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Shift+ArrowLeft');
+  expect((await state(page)).pages[0].positions.c1).toEqual({ x: 0, y: 0 });
+  await page.keyboard.press('ArrowDown');
+  await expect(quadLayer(page)).toHaveAttribute('data-selected', 'c2');
+  expect((await state(page)).pages[0].positions.c2).toEqual({ x: 0, y: 0 });
+  /* 預覽（操作層）有焦點：移動 */
+  await quadLayer(page).focus();
+  await expect(quadLayer(page)).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Shift+ArrowUp');
+  await expect
+    .poll(async () => (await state(page)).pages[0].positions.c2)
+    .toEqual({ x: 1, y: -10 });
+  /* 頁面（沒有焦點）：移動 */
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press('ArrowLeft');
+  await expect
+    .poll(async () => (await state(page)).pages[0].positions.c2)
+    .toEqual({ x: 0, y: -10 });
+  expect(errors).toEqual([]);
+});
+
+test('7.1 排序：從把手拖曳排序時文字欄先離開，之後 Ctrl＋Z 復原的是排序', async ({ page }) => {
+  const errors = await open(page);
+  await toRelation(page);
+  const name = page.getByTestId('legend-editor').getByRole('textbox', { name: '名稱' });
+  await name.fill('改過的名稱');
+  await expect(name).toBeFocused();
+  const legends = page.getByRole('list', { name: /^線的種類/ });
+  const handle = legends.locator('[data-legend-row="l5"] [data-drag-handle]');
+  const first = legends.locator('[data-legend-row="l1"]');
+  const hb = await handle.boundingBox();
+  const fb = await first.boundingBox();
+  if (!hb || !fb) throw new Error('找不到清單');
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + hb.width / 2, fb.y + 2, { steps: 12 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await state(page)).relation.legends.map((l) => l.id)[0])
+    .toBe('l5');
+  await expect(name).not.toBeFocused();
+  await page.keyboard.press('Control+z');
+  await expect
+    .poll(async () => (await state(page)).relation.legends.map((l) => l.id))
+    .toEqual(['l1', 'l2', 'l3', 'l4', 'l5']);
+  expect((await state(page)).relation.legends[0].label).toBe('改過的名稱');
+  expect(errors).toEqual([]);
 });
 
 /* ---------- 版面 ---------- */

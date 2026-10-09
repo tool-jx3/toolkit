@@ -3,7 +3,7 @@
  * 以及「貼上原作的備份碼…」（原作 Q 的全部專案備份；規格 F46、3.9）。
  */
 import { ClipboardPaste } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSaveError, useSaveStatus } from '@/core/storage';
 import {
   Button,
@@ -17,8 +17,8 @@ import {
 } from '@/ui';
 import { LegacyFileError } from './legacy';
 import { type LegacyResult, openBackupCode, openRelationFile } from './legacyImport';
-import { initialState } from './model';
-import { importProject, projectAssetIds } from './project';
+import { type ChartState, initialState } from './model';
+import { dropMissingImages, importProject, projectAssetIds } from './project';
 import { assets, chartNow, DATA_VERSION, replaceAll, TOOL_ID } from './store';
 import { S } from './strings';
 
@@ -46,14 +46,33 @@ export function ProjectActions() {
   const savedAt = useSaveStatus(TOOL_ID);
   const saveError = useSaveError(TOOL_ID);
   const done = useLegacyToast();
+  const toast = useToast();
   const [backupOpen, setBackupOpen] = useState(false);
+  /*
+   * 存專案檔：先收圖片（getFiles），讀不到的圖片記下來，存的狀態把那些圖片拿掉（getData 在 getFiles 之後呼叫），
+   * 存好之後提醒（規格 F74）。
+   */
+  const saving = useRef<{ data: ChartState; names: string[] } | null>(null);
+  const collectFiles = async () => {
+    const d = chartNow();
+    const ids = projectAssetIds(d);
+    const files = await assets.exportFiles(ids);
+    const have = new Set(files.map((f) => f.name.replace(/\.[^.]+$/, '')));
+    saving.current = dropMissingImages(d, new Set(ids.filter((id) => !have.has(id))));
+    return files;
+  };
   return (
     <>
       <ProjectMenu<unknown>
         toolId={TOOL_ID}
         version={DATA_VERSION}
-        getData={() => chartNow()}
-        getFiles={() => assets.exportFiles(projectAssetIds(chartNow()))}
+        getData={() => saving.current?.data ?? chartNow()}
+        getFiles={collectFiles}
+        onSaved={() => {
+          const names = saving.current?.names ?? [];
+          saving.current = null;
+          if (names.length) toast({ title: S.saveDroppedImages(names), tone: 'warning' });
+        }}
         confirmOpen={{
           title: S.openConfirmTitle,
           description: S.openConfirmDesc,

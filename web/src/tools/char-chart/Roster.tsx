@@ -30,7 +30,7 @@ import {
   useConfirm,
   useToast,
 } from '@/ui';
-import { type LoadedImage, loadCharacterImage } from './images';
+import { type LoadedImage, loadCharacterImage, splitImageFiles } from './images';
 import {
   type Character,
   type ChartKind,
@@ -40,6 +40,7 @@ import {
   mapMembers,
   PALETTE,
 } from './model';
+import { releaseFocus } from './QuadLayer';
 import {
   addCharacter,
   canAddCharacter,
@@ -91,25 +92,38 @@ function Thumb({ c, bitmaps, size = 32 }: { c: Character; bitmaps: Bitmaps; size
   );
 }
 
-/** 圖片載入的結果通知（存不進瀏覽器時提醒） */
-function useImageToasts() {
+/**
+ * 單張圖片（新增區、選取面板）：不是圖片（類型、副檔名、檔頭都不像）或讀不了時通知；
+ * 存不進瀏覽器時提醒。讀好時回傳結果。
+ */
+function useSingleImage() {
   const toast = useToast();
-  return {
-    notSaved: () => toast({ title: S.imageNotSaved, tone: 'warning' }),
-    failed: (names: string[]) => toast({ title: S.decodeError(names.join('、')), tone: 'danger' }),
-    rejected: (files: File[]) =>
-      toast({ title: S.notImage(files.map((f) => f.name).join('、')), tone: 'danger' }),
+  return async (files: File[]): Promise<LoadedImage | null> => {
+    const { images, others } = await splitImageFiles(files.slice(0, 1));
+    const f = images[0];
+    if (!f) {
+      if (others.length)
+        toast({ title: S.notImage(others.map((x) => x.name).join('、')), tone: 'danger' });
+      return null;
+    }
+    try {
+      const r = await loadCharacterImage(f);
+      if (!r.persisted) toast({ title: S.imageNotSaved, tone: 'warning' });
+      return r;
+    } catch {
+      toast({ title: S.decodeError(f.name), tone: 'danger' });
+      return null;
+    }
   };
 }
 
 export function CharactersSection({
   bitmaps,
   onBatch,
-  onReject,
 }: {
   bitmaps: Bitmaps;
+  /** 一次加入的檔案（不先依類型過濾：沒有副檔名的圖片看檔頭，不是圖片的在同一則通知裡說明） */
   onBatch: (files: File[]) => void;
-  onReject: (files: File[]) => void;
 }) {
   const characters = useChart((s) => s.data.characters);
   const chart = usePrefs((s) => s.data.chart);
@@ -138,8 +152,8 @@ export function CharactersSection({
           label={S.batchDrop}
           hint={full ? S.limitReached(LIMITS.characters) : S.batchHint}
           buttonLabel={S.batchButton}
+          filterByAccept={false}
           onFiles={onBatch}
-          onReject={onReject}
         />
       </Field>
       {characters.length > 1 ? <p className="m-0 text-xs text-muted">{S.listHint}</p> : null}
@@ -170,7 +184,7 @@ export function CharactersSection({
 
 function AddForm({ chart, disabled }: { chart: ChartKind; disabled: boolean }) {
   const toast = useToast();
-  const notes = useImageToasts();
+  const loadOne = useSingleImage();
   const count = useChart((s) => s.data.characters.length);
   const [name, setName] = useState('');
   const [color, setColor] = useState(suggestedColor);
@@ -209,15 +223,8 @@ function AddForm({ chart, disabled }: { chart: ChartKind; disabled: boolean }) {
   };
 
   const pickImage = async (files: File[]) => {
-    const f = files[0];
-    if (!f) return;
-    try {
-      const r = await loadCharacterImage(f);
-      if (!r.persisted) notes.notSaved();
-      setImage(r);
-    } catch {
-      notes.failed([f.name]);
-    }
+    const r = await loadOne(files);
+    if (r) setImage(r);
   };
 
   return (
@@ -278,8 +285,8 @@ function AddForm({ chart, disabled }: { chart: ChartKind; disabled: boolean }) {
             icon={<ImageIcon />}
             label={S.imageDropLabel}
             buttonLabel={S.imageChoose}
+            filterByAccept={false}
             onFiles={(f) => void pickImage(f)}
-            onReject={notes.rejected}
           />
         )}
       </Field>
@@ -336,6 +343,7 @@ function RosterList({
               data-drag-handle
               aria-hidden
               className="-ml-1 flex shrink-0 cursor-grab touch-none text-muted [&_svg]:size-4"
+              onPointerDown={releaseFocus}
             >
               <GripVertical />
             </span>
@@ -415,19 +423,12 @@ export function SelectedSection({ bitmaps }: { bitmaps: Bitmaps }) {
     const p = s.data.pages[Math.min(pageIndex, s.data.pages.length - 1)];
     return !!(c && p?.positions[c.id]);
   });
-  const notes = useImageToasts();
+  const loadOne = useSingleImage();
   if (!c) return null;
   const missing = !!c.image && !bitmaps.get(c.image.id);
   const changeImage = async (files: File[]) => {
-    const f = files[0];
-    if (!f) return;
-    try {
-      const r = await loadCharacterImage(f);
-      if (!r.persisted) notes.notSaved();
-      setCharacterImage(c.id, r.ref);
-    } catch {
-      notes.failed([f.name]);
-    }
+    const r = await loadOne(files);
+    if (r) setCharacterImage(c.id, r.ref);
   };
   return (
     <Section title={S.sectionSelected}>
@@ -476,8 +477,8 @@ export function SelectedSection({ bitmaps }: { bitmaps: Bitmaps }) {
               icon={<ImagePlus />}
               label={c.image ? S.changeImage : S.addImage}
               buttonLabel={S.imageChoose}
+              filterByAccept={false}
               onFiles={(f) => void changeImage(f)}
-              onReject={notes.rejected}
             />
           </div>
         </Field>
