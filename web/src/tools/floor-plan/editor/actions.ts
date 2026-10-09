@@ -85,7 +85,15 @@ const undoAction = () => ({ label: S.undo, onClick: undo });
 
 export const floorBox = (f: Floor): Rect | null => floorBounds(f);
 
-const update = (fn: (p: Project) => void) => useProject.getState().update(fn);
+/**
+ * 改地圖（一步復原）。方向鍵移動的那一步還沒結束時先結束它，
+ * 不然 0.7 秒內做的其他變更（例如 Ctrl＋D）會被併進方向鍵的那一步。
+ */
+export function updateProject(fn: (p: Project) => void): void {
+  flushNudge();
+  useProject.getState().update(fn);
+}
+const update = updateProject;
 const cur = (p: Project) => p.floors[p.active];
 
 export function addObject(type: ObjType, obj: AnyObj): void {
@@ -444,7 +452,7 @@ export function nudge(dx: number, dy: number, big: boolean): boolean {
   const hasRoom = refs.some((s) => s.type === 'room');
   const step = hasRoom ? (big ? 4 : 1) : big ? 1 : 0.25;
   useProject.beginGesture();
-  update((p) => {
+  useProject.getState().update((p) => {
     for (const r of refs) {
       const o = getObj(cur(p), r.type, r.id);
       if (o) translateObj(r.type, o, dx * step, dy * step);
@@ -455,10 +463,12 @@ export function nudge(dx: number, dy: number, big: boolean): boolean {
   return true;
 }
 
+/** 結束方向鍵移動的那一步（沒有在移動時不動別的手勢，例如正在打字） */
 export function flushNudge(): void {
-  if (nudgeTimer) clearTimeout(nudgeTimer);
+  if (!nudgeTimer) return;
+  clearTimeout(nudgeTimer);
   nudgeTimer = null;
-  if (useProject.inGesture()) useProject.endGesture();
+  useProject.endGesture();
 }
 
 /* ---------- 復原 ---------- */
@@ -593,6 +603,7 @@ export function newMap(): void {
     showSize: p.showSize,
     showNames: p.showNames !== false,
   };
+  flushNudge();
   useProject.getState().replace(next);
   setEditor({ sel: [], templatesOpen: false });
   setTool('room');
@@ -611,6 +622,7 @@ export function loadTemplate(id: string, opts: { structureOnly: boolean; clues: 
         ? 'horror'
         : 'clean'
       : p.theme;
+  flushNudge();
   useProject
     .getState()
     .replace({ ...p, floors, active: groundFloorIndex(floors), name: tpl.name, theme });
@@ -628,6 +640,7 @@ export function openProjectData(raw: unknown, source: 'project' | 'legacy'): Ope
   const report: NormalizeReport = { droppedItems: 0 };
   const project = normalizeProject(raw, isAsset, report);
   if (!project) return { ok: false };
+  flushNudge();
   useProject.getState().replace(project);
   setEditor({ sel: [] });
   setTool('select');

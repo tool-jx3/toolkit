@@ -884,6 +884,7 @@ export class EditorController {
   /* ---------- 指標 ---------- */
 
   private beginEdit(): Project {
+    act.flushNudge();
     useProject.beginGesture();
     return useProject.getState().data;
   }

@@ -466,6 +466,16 @@ test.describe('選取與編輯', () => {
     await page.waitForTimeout(800);
     await page.keyboard.press('Control+z');
     expect((await floor(page)).rooms[0]).toMatchObject({ x: 0, y: 0 });
+    /* 方向鍵之後馬上做別的變更（0.7 秒內）：各算一步，不會併在一起 */
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Control+d');
+    expect((await floor(page)).rooms).toHaveLength(6);
+    await page.keyboard.press('Control+z');
+    f = await floor(page);
+    expect([f.rooms.length, f.rooms[0].x]).toEqual([5, 1]);
+    await page.keyboard.press('Control+z');
+    f = await floor(page);
+    expect([f.rooms.length, f.rooms[0].x]).toEqual([5, 0]);
     await click(page, 5, 5);
     await page.keyboard.press('Delete');
     expect((await floor(page)).rooms).toHaveLength(4);

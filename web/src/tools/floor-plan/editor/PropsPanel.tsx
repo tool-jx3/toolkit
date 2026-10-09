@@ -42,7 +42,14 @@ const g = historyGesture(useProject);
 function Typing({ children }: { children: ReactNode }) {
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: 只追蹤裡面欄位的聚焦（復原的一步），不是互動元素
-    <div className="contents" onFocus={g.begin} onBlur={g.commit}>
+    <div
+      className="contents"
+      onFocus={() => {
+        act.flushNudge();
+        g.begin();
+      }}
+      onBlur={g.commit}
+    >
       {children}
     </div>
   );
@@ -156,7 +163,7 @@ function MapProps() {
   const p = useProject((s) => s.data);
   const prefs = usePrefs((s) => s.data);
   const f = p.floors[p.active];
-  const update = useProject.getState().update;
+  const update = act.updateProject;
   return (
     <>
       <Head kicker={S.props.mapTitle} title={p.name || S.untitled} />
