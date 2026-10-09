@@ -104,7 +104,7 @@ function guestRoom(b: FloorBuilder, x: number, w: number, number: string, south:
   u.room(`${number} 號房`, 'bedroom', 0, 0, w, 10)
     .room('浴室', 'wet', 0, 6, 3, 4)
     .dh(w - 2.25, 10, 1.5, -1, 1)
-    .dv(3, 6.5, 1.5, -1, 0)
+    .dv(3, 7, 1.5, -1, 1)
     .wh(1.5, 0, 3)
     .item('bed_double', 0, 1, 270, 4, 2.8)
     .item('nightstand', 0, 0.05, 270, 0.9, 0.9)
@@ -174,13 +174,13 @@ export function hotel(): TplFloor[] {
     .item('lowtable', 19.7, 10.6)
     .item('armchair', 16.6, 10.2, 90)
     .item('armchair', 23.4, 10.2, 270)
-    .item('plant', 10.6, 15.6)
+    .item('plant', 10.3, 14.6)
     .item('plant', 34.6, 5.4)
     .item('plant', 34.6, 15.6)
     .item('bench', 28.5, 13, 0, { size: [4, 1] })
     .item('counter', 10.2, 20.6, 180, { size: [3, 1.2] })
     .item('table_round', 13.6, 18.4, 0, { size: [1.4, 1.4] })
-    .item('meeting6', 27.5, 17.7, 0, { size: [6, 3.6] })
+    .item('meeting6', 27.5, 18.1, 0, { size: [6, 3.6] })
     .item('whiteboard', 35.6, 18.2, 90)
     .item('plant', 16.4, 18.4)
     .item('plant', 22.4, 18.4);
@@ -198,8 +198,8 @@ export function hotel(): TplFloor[] {
   u.dh(18.5, 10, 5, 1, 0, 'open').dh(24.3, 10, 1.5, -1, 0).dv(36, 10.75, 1.5, 1, 0).wh(19.5, 0, 3);
   u.item('elevator', 19, 0, 0, { size: [4, 3.6] })
     .item('stairs', 26.4, 0.3, 180, { size: [2.4, 4.4] })
-    .item('vending', 18.2, 8.6, 180)
-    .item('bench', 20.6, 9, 180, { size: [3, 0.9] })
+    .item('vending', 18, 5, 270)
+    .item('bench', 23.1, 4.6, 90, { size: [3, 0.9] })
     .item('plant', 0.3, 11);
   u.find('205 號房').note = '房客登記的名字是假名。';
   return [g.f, u.f];
@@ -275,7 +275,7 @@ export function hospital(): TplFloor[] {
     .wh(22, 23, 2.5)
     .wv(40, 16, 2)
     .wv(40, 3, 3);
-  g.item('reception', 1.5, 8.4)
+  g.item('reception', 1.5, 7.5)
     .item('office_desk', 0.6, 0.6)
     .item('office_desk', 3.6, 0.6)
     .item('filing', 7, 0.2)
@@ -341,7 +341,7 @@ export function hospital(): TplFloor[] {
     .wh(20, 23, 6)
     .wh(35, 23, 3)
     .wh(27.5, 0, 3);
-  u.item('reception', 26.5, 8.4, 0, { size: [5, 1.4] })
+  u.item('reception', 26.5, 7.5, 0, { size: [5, 1.4] })
     .item('office_desk', 26.4, 0.4)
     .item('med_cabinet', 28.9, 0)
     .item('filing', 30.8, 4.2)

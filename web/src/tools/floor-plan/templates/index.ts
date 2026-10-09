@@ -62,11 +62,11 @@ function abandonedHospital(): TplFloor[] {
     .item('morgue', 26.2, 0, 0)
     .item('morgue', 30.6, 0, 0, { size: [3.2, 2.4] })
     .item('op_table', 28.5, 3.8, 0, { size: [2.4, 4] })
-    .item('tank', 16.5, 14, 0)
-    .item('tank', 19.5, 14, 0)
+    .item('tank', 16.5, 14.6, 0)
+    .item('tank', 19.5, 14.6, 0)
     .item('rack', 24.4, 18.6)
     .item('crate', 34.4, 6.8)
-    .item('crate', 36.4, 7.8)
+    .item('crate', 38.2, 2.2)
     .item('barrel', 38.4, 0.3)
     .item('tank', 27, 14.5, 0, { gm: true })
     .item('tank', 30, 14.5, 0, { gm: true })
@@ -92,7 +92,7 @@ function ruinedHouse(): TplFloor[] {
     g.items.push(
       { t: 'bush', x: 0.6, y: 1, w: 1.6, h: 1.6, rot: 0 },
       { t: 'bush', x: 9.4, y: 0.6, w: 1.6, h: 1.6, rot: 0 },
-      { t: 'tree', x: 6.2, y: 0.2, w: 3, h: 3, rot: 0 },
+      { t: 'tree', x: 6.4, y: 0, w: 3, h: 3, rot: 0 },
     );
     const bath = g.rooms.find((r) => r.name === '浴室');
     if (bath) bath.note = '浴缸裡積著黑色的水，底下好像有東西。';
@@ -112,10 +112,10 @@ function crimeScene(): TplFloor[] {
     .item('evidence', 8.4, 9.4, 0, { label: '2' })
     .item('evidence', 6.4, 6.2, 0, { label: '3' })
     .item('evidence', 11, 8.6, 0, { label: '4' })
-    .item('evidence', 1, 3.4, 0, { label: '5' })
+    .item('evidence', 1.5, 3, 0, { label: '5' })
     .item('knife', 7.2, 7.4, 0)
     .item('footprints', 3.6, 5.4, 90, { size: [0.9, 2.8] })
-    .item('tape', -0.9, 0.6, 90, { size: [3.4, 0.35] })
+    .item('tape', -1.9, 0.6, 90, { size: [3.4, 0.35] })
     .item('safe', 12.6, 6.4, 0, { gm: true, label: '帳簿' });
   const bed = b.find('臥室');
   bed.note = '衣櫃旁的保險箱裡有第二本帳簿：被害人在勒索某人。';
