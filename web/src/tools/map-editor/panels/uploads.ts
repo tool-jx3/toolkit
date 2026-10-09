@@ -10,7 +10,6 @@ import {
   USER_ASSET_MAX_BYTES,
 } from '../assets';
 import { forgetDecor } from '../engine/decor';
-import { forgetPattern } from '../engine/patterns';
 import type { UserDecor, UserPattern } from '../model';
 import { flashStatus, setMapPrefs, useMapPrefs } from '../stores';
 import { S } from '../strings';
@@ -40,15 +39,18 @@ export async function uploadPatterns(): Promise<UserPattern[]> {
   return files.length ? addPatternFiles(files) : [];
 }
 
+/**
+ * 刪除自訂圖樣（F113）：清單不再列出、正在用的選擇改回單色；已經畫好的物件（含格子）照舊顯示——
+ * 圖片先留在地圖裡（`removed`），儲存時沒有物件用到才拿掉（model.ts 的 prunePatterns）。
+ */
 export function removeUserPattern(id: string): void {
   const mp = useMapPrefs.getState();
   const patch: Parameters<typeof setMapPrefs>[0] = {
-    userPatterns: mp.userPatterns.filter((p) => p.id !== id),
+    userPatterns: mp.userPatterns.map((p) => (p.id === id ? { ...p, removed: true } : p)),
   };
   if (mp.groundPattern.id === id)
     patch.groundPattern = { ...mp.groundPattern, mode: 'solid', id: null };
   if (mp.wallPattern.id === id) patch.wallPattern = { ...mp.wallPattern, mode: 'solid', id: null };
-  forgetPattern(id);
   setMapPrefs(patch);
 }
 

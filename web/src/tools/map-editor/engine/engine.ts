@@ -40,7 +40,7 @@ import {
   styleOfDash,
   thumbSize,
 } from '../geometry';
-import { CELL_SIZE, MAP_DATA_VERSION, type MapData, type MapPrefs } from '../model';
+import { CELL_SIZE, MAP_DATA_VERSION, type MapData, type MapPrefs, prunePatterns } from '../model';
 import {
   type EditorState,
   flashStatus,
@@ -333,15 +333,19 @@ export class MapEngine {
 
   /** 地圖資料（3.1） */
   serialize(): MapData {
+    const prefs = mapPrefsNow();
+    const canvas = this.canvasJson();
     return {
-      ...mapPrefsNow(),
+      ...prefs,
+      /* 刪掉了、也沒有物件用到的自訂圖樣不存（F113） */
+      userPatterns: prunePatterns(prefs.userPatterns, canvas),
       version: MAP_DATA_VERSION,
       cellSize: this.cellSize,
       gridType: this.gridType,
       nextLayerId: this.nextLayerId,
       layerCounters: { ...this.layerCounters },
       viewportTransform: [...this.canvas.viewportTransform],
-      canvas: this.canvasJson(),
+      canvas,
     };
   }
 

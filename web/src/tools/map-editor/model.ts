@@ -30,6 +30,11 @@ export interface UserPattern {
   scale: number;
   ground: string;
   wall: string;
+  /**
+   * 使用者刪掉了（F113，7.1）：圖樣清單不再列出，但已經畫好的物件（含格子）還在用時圖片留著，
+   * 儲存時沒有物件用到才真的拿掉（`prunePatterns`）。
+   */
+  removed?: boolean;
 }
 
 /** 自訂裝飾（跟著地圖儲存） */
@@ -348,7 +353,32 @@ function userPatterns(v: unknown): UserPattern[] {
       scale: num(p.scale, 0.5, 0.0001, 1000),
       ground: str(p.ground, 'user'),
       wall: str(p.wall, 'user'),
+      ...(p.removed === true ? { removed: true } : {}),
     }));
+}
+
+/** 畫布資料（Fabric 的 toObject）裡用到的圖樣 id：物件的 `_patternState`、格子圖層的 `_cellEntries`（含群組裡的） */
+export function usedPatternIds(canvas: unknown): Set<string> {
+  const ids = new Set<string>();
+  const walk = (o: unknown): void => {
+    if (!o || typeof o !== 'object') return;
+    const r = o as Record<string, unknown>;
+    const st = r._patternState as { mode?: unknown; id?: unknown } | undefined;
+    if (st && st.mode === 'pattern' && typeof st.id === 'string') ids.add(st.id);
+    if (Array.isArray(r._cellEntries))
+      for (const e of r._cellEntries as { mode?: unknown; patternId?: unknown }[])
+        if (e && e.mode === 'pattern' && typeof e.patternId === 'string') ids.add(e.patternId);
+    if (Array.isArray(r.objects)) for (const c of r.objects) walk(c);
+  };
+  walk(canvas);
+  return ids;
+}
+
+/** 儲存前：刪掉了而且沒有物件用到的圖樣拿掉（F113） */
+export function prunePatterns(list: readonly UserPattern[], canvas: unknown): UserPattern[] {
+  if (!list.some((p) => p.removed)) return [...list];
+  const used = usedPatternIds(canvas);
+  return list.filter((p) => !p.removed || used.has(p.id));
 }
 
 function userDecors(v: unknown): UserDecor[] {

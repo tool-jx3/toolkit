@@ -848,7 +848,9 @@ test.describe('地圖工具', () => {
     expect(errors).toEqual([]);
   });
 
-  test('自訂圖樣：上傳、用在地面與牆壁、刪除後改回單色', async ({ page }) => {
+  test('自訂圖樣：上傳、用在地面（矩形、格子）與牆壁、刪除後選擇改回單色、畫好的物件重新開啟後也不變', async ({
+    page,
+  }) => {
     const errors = await openList(page);
     await createMap(page);
     await tool(page, 'ground').click();
@@ -868,6 +870,12 @@ test.describe('地圖工具', () => {
     expect(g.fillIsPattern).toBe(true);
     expect((g._patternState as { mode: string }).mode).toBe('pattern');
     expect(g._patternScale).toBe(0.5);
+    /* 格子形狀的地面也用這個圖樣 */
+    await pickOption(page, '形狀', '格子');
+    await clickAt(page, 252, 36);
+    const cellFill = async () =>
+      ((await detail(page, '地面_格子1')).objects as { fill: unknown }[] | undefined)?.[0]?.fill;
+    expect(await cellFill()).toMatchObject({ type: 'pattern' });
     /* 太大的檔案 */
     const big = page.waitForEvent('filechooser');
     await page.getByTestId('ground-pattern').getByTestId('pattern-add').click();
@@ -901,6 +909,24 @@ test.describe('地圖工具', () => {
       page.getByTestId('wall-pattern').getByRole('button', { name: '單色' }),
     ).toHaveAttribute('aria-pressed', 'true');
     expect((await detail(page, '牆_矩形1')).strokeIsPattern).toBe(true);
+    expect(await cellFill()).toMatchObject({ type: 'pattern' });
+    /* 重新開啟後也不變：圖片存在物件裡（F113；舊版重新開啟時會改成單色） */
+    await page.keyboard.press('Control+s');
+    await expect(page.getByRole('status').filter({ hasText: /^已儲存$/ })).toBeVisible();
+    await page.reload();
+    await ready(page);
+    const g2 = await detail(page, '地面_矩形1');
+    expect(g2.fillIsPattern).toBe(true);
+    expect((g2._patternState as { mode: string }).mode).toBe('pattern');
+    const w2 = await detail(page, '牆_矩形1');
+    expect(w2.strokeIsPattern).toBe(true);
+    expect((w2._patternState as { mode: string }).mode).toBe('pattern');
+    expect(await cellFill()).toMatchObject({ type: 'pattern' });
+    /* 圖樣清單不再列出刪掉的圖樣 */
+    await tool(page, 'ground').click();
+    await expect(
+      page.getByTestId('ground-pattern').getByRole('button', { name: '石板', exact: true }),
+    ).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 

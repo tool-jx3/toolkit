@@ -2,6 +2,7 @@
  * 圖樣選擇（F110、F113）：分類（全部／自訂）、單色方塊＋色彩欄、自訂圖樣的方塊（× 刪除）、「＋」新增。
  */
 import { Plus, X } from 'lucide-react';
+import { useMemo } from 'react';
 import { ColorField, cn, Field, Segmented, useConfirm } from '@/ui';
 import type { PatternState, UserPattern } from '../model';
 import { useMapPrefs } from '../stores';
@@ -20,7 +21,9 @@ const tile =
   'relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border text-xs outline-none focus-visible:ring-2 focus-visible:ring-focus';
 
 export function PatternPicker({ value, onChange, label, testId }: PatternPickerProps) {
-  const patterns = useMapPrefs((s) => s.userPatterns);
+  const all = useMapPrefs((s) => s.userPatterns);
+  /* 刪掉的不列（圖片還留著給已經畫好的物件用，F113） */
+  const patterns = useMemo(() => all.filter((p) => !p.removed), [all]);
   const confirm = useConfirm();
   const genres = patterns.length ? (['all', 'user'] as const) : (['all'] as const);
   const genre = genres.includes(value.genreId as 'all') ? (value.genreId as 'all' | 'user') : 'all';
