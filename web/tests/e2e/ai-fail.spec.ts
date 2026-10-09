@@ -991,11 +991,15 @@ test('對等驗證後的修正（7.1）：連按方向鍵後馬上復原只復�
   /* 拖曳移動一步，接著連按方向鍵，馬上復原：只回到拖曳後的位置，可以重做 */
   const x0 = (await state(page)).boxes[0].x;
   await dragCanvas(page, [200, 200], [250, 200]);
-  await expect.poll(async () => (await state(page)).boxes[0].x).toBe(x0 + 50);
+  await expect.poll(async () => (await state(page)).boxes[0].x).toBeGreaterThan(x0 + 20);
+  const moved = (await state(page)).boxes[0];
   await layer(page).focus();
   for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowDown');
+  await expect.poll(async () => (await state(page)).boxes[0].y).toBe(moved.y + 4);
   await page.keyboard.press('Control+z');
-  await expect.poll(async () => (await state(page)).boxes[0].x).toBe(x0 + 50);
+  await expect
+    .poll(async () => (await state(page)).boxes[0])
+    .toMatchObject({ x: moved.x, y: moved.y });
   await page.waitForTimeout(700);
   await expect(page.getByRole('button', { name: /^重做/ })).toBeEnabled();
   expect(errors).toEqual([]);

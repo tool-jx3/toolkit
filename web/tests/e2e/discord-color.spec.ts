@@ -586,11 +586,16 @@ async function expectSame(ours: Page, orig: Page, note: string): Promise<boolean
   const want = await orig.evaluate(() =>
     (window as unknown as { getANSIResult: () => string }).getANSIResult(),
   );
-  const text = (await orig.locator('#textarea').evaluate((e) => e.textContent)) ?? '';
+  /* 全文（換行在編輯區裡是 <br>，innerText 才看得到） */
+  const text = await orig.locator('#textarea').evaluate((e) => (e as HTMLElement).innerText);
   await expect.poll(async () => visibleText(await output(ours).inputValue()), note).toBe(text);
   const lost = visibleText(want) !== text;
   if (!lost) await expect(output(ours), note).toHaveValue(want);
-  expect(await ours.locator('[data-dc-editor]').evaluate((e) => e.textContent), note).toBe(text);
+  const [a, b] = await Promise.all([
+    ours.locator('[data-dc-editor]').evaluate((e) => e.textContent),
+    orig.locator('#textarea').evaluate((e) => e.textContent),
+  ]);
+  expect(a, note).toBe(b);
   return lost;
 }
 
@@ -655,7 +660,9 @@ test.describe('與原作對照', () => {
     await ctx.close();
   });
 
-  test('改過效果的顏色、打字與 Enter、跨行的效果：輸出逐字相同', async ({ browser }) => {
+  test('改過效果的顏色、打字與 Enter、跨行的效果：輸出逐字相同（原作吃掉換行的那一步新版保留）', async ({
+    browser,
+  }) => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     await ctx.addInitScript(`window.selectIn = ${selectIn.toString()}`);
     const ours = await ctx.newPage();
@@ -699,7 +706,8 @@ test.describe('與原作對照', () => {
     );
     /* 跨行的效果（原作的換行在輸出裡消失：怪癖三；新版保留換行） */
     await applyBoth(ours, orig, { kind: 'effect', id: 'gradient', fg: true }, 4, 16);
-    await expectSame(ours, orig, 'gradient across lines');
+    /* 原作在這一步吃掉換行（怪癖三），新版保留（D1） */
+    expect(await expectSame(ours, orig, 'gradient across lines')).toBe(true);
     await applyBoth(ours, orig, { kind: 'effect', id: 'zebra', fg: false }, 0, 5);
     await expectSame(ours, orig, 'zebra');
     await applyBoth(ours, orig, { kind: 'effect', id: 'rainbow', fg: true }, 6, 20);
