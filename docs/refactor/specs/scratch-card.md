@@ -309,3 +309,14 @@ JSON 物件，有 `scratchText`、`imagePool`、`coverType`、`isExpertMode` 其
 
 | 編號 | 結果 | 方法與證據（截圖／腳本路徑） | 備註 |
 |---|---|---|---|
+
+## 7. 主控裁定（2026-10-09）
+
+- **評估**：收錄（P11，使用者 2026-10-09 選定「Scratch-card handout」）。原作 sotsotssi/Scratchcard 沒有授權條款：只參考功能、數值與做法，
+  程式、介面文字、8 個圖示、彩帶都由本站自做，不放 `UPSTREAM_LICENSE`；不載入原作用的 CDN（canvas-confetti、Font Awesome）。G6「劇本與紀錄」。
+- **D1～D20 照「建議做法」核准**，補充：
+  - **D1**：輸出做「互動 HTML」（不載入外部資源）＋**分享連結**（`#c=`，給 CCFOLIA、Discord 用；用到上傳的圖片時停用並說明）；原作的 Tistory 版改成平台無關的「上傳的圖片改成待填的網址」開關；不做 PNG。
+    分享連結把結果放在網址裡（懂的人解得開），對話框已說明——核准；要藏住答案需要伺服器，不在範圍內。
+  - 派工摘要寫「刮開看到圖或文字」，原作實際是四種內容（隨機圖示、隨機句子、小圖、蓋滿的圖），照原作。
+  - **D13**：原作的設定 JSON 從「開啟專案檔…」讀（共用 ProjectMenu 的 `onForeignFile`），沒有值的欄位保留目前的值（照原作）。
+- **上線**：對等驗證通過後 `status: 'live'`，README、ATTRIBUTION、PLAN 6.1 跟著改。
