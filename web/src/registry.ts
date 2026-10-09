@@ -505,7 +505,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把答案與提示（或從劇本、跑團日誌挑出的單字與句子）自動排成填字遊戲，當作劇本的謎題講義；題目版與解答版都能下載 PNG、HTML 或列印。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/text2crossword',
       url: 'https://github.com/sotsotssi/text2crossword',
