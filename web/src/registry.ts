@@ -610,7 +610,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '放一張照片，畫上 AI 物件辨識風格的綠框與標籤（例如把貓標成「object」），做成「AI 認錯了」的梗圖：可以多個框、改顏色與字級、調整前後，存成 PNG。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'swoonqx/ai-fails-meme-maker',
       url: 'https://github.com/swoonqx/ai-fails-meme-maker',
