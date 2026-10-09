@@ -1,6 +1,7 @@
 /** 首頁卡片的圖示（工具 id → lucide 圖示）；沒有列的用扳手 */
 import {
   Blend,
+  BookHeart,
   BookOpen,
   Box,
   ChartNoAxesColumnIncreasing,
@@ -106,6 +107,7 @@ const ICONS: Record<string, LucideIcon> = {
   'coc-typesetter': Newspaper,
   'session-log': NotebookPen,
   'session-report': ClipboardList,
+  'review-grid': BookHeart,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,
