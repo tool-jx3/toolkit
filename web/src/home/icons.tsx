@@ -19,6 +19,7 @@ import {
   Grid3x3,
   HeartHandshake,
   Highlighter,
+  House,
   IdCard,
   Images,
   Keyboard,
@@ -122,6 +123,7 @@ const ICONS: Record<string, LucideIcon> = {
   'map-editor': MapPinned,
   'grid-maker': Grid3x3,
   'range-ruler': Ruler,
+  'floor-plan': House,
   /* 其他網站 */
   jizura: MicVocal,
 };
