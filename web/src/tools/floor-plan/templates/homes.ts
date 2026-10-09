@@ -350,7 +350,7 @@ export function mansion(): TplFloor[] {
     .item('desk', 1.6, 20.8, 180)
     .item('armchair', 1, 12.6, 0)
     .item('bathtub', 10.2, 13.6, 90, { size: [1.5, 2.6] })
-    .item('toilet', 12.9, 15.4, 90, { size: [1, 1.4] })
+    .item('toilet', 12.5, 15.4, 90, { size: [1, 1.4] })
     .item('bookshelf', 10.3, 21.2, 180, { size: [3.4, 0.8] })
     .item('crate', 10.4, 18.4)
     .item('piano', 33.5, 14.5)

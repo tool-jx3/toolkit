@@ -195,7 +195,7 @@ export function hotel(): TplFloor[] {
   guestRoom(u, 29, 7, '205', false);
   for (const [i, n] of ['206', '207', '208', '209', '210', '211'].entries())
     guestRoom(u, i * 6, 6, n, true);
-  u.dh(18.5, 10, 5, 1, 0, 'open').dh(24.3, 10, 1.5, -1, 0).dv(36, 10.75, 1.5, 1, 0).wh(19.5, 0, 3);
+  u.dh(18.5, 10, 5, 1, 0, 'open').dh(24.3, 10, 1.5, -1, 0).wv(36, 10.75, 1.5).wh(19.5, 0, 3);
   u.item('elevator', 19, 0, 0, { size: [4, 3.6] })
     .item('stairs', 26.4, 0.3, 180, { size: [2.4, 4.4] })
     .item('vending', 18, 5, 270)
@@ -337,7 +337,7 @@ export function hospital(): TplFloor[] {
     .dh(19.5, 13, 3, 1, 0, 'auto')
     .dh(29.5, 13, 1.5, 1, 0)
     .dh(36.5, 13, 1.5, 1, 0)
-    .dv(40, 10.75, 1.5, 1, 0)
+    .wv(40, 10.75, 1.5)
     .wh(20, 23, 6)
     .wh(35, 23, 3)
     .wh(27.5, 0, 3);

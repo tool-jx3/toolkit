@@ -13,7 +13,7 @@ import { groundFloorIndex } from '@/tools/floor-plan/model/ops';
 import type { Floor, Item, Opening, Rect } from '@/tools/floor-plan/model/types';
 import { computeWalls, wallLines } from '@/tools/floor-plan/model/walls';
 import { getTemplate, instantiateTemplate, TEMPLATES } from '@/tools/floor-plan/templates';
-import { wrapClueText } from '@/tools/floor-plan/templates/clues';
+import { findSpot, wrapClueText } from '@/tools/floor-plan/templates/clues';
 
 const build = (id: string, opts = {}) => instantiateTemplate(id, opts) as Floor[];
 
@@ -115,6 +115,42 @@ function openingsOffWall(f: Floor): string[] {
         (r) =>
           r.o === o.o && Math.abs(r.c - line) < EPS && a >= r.a - EPS && a + o.len <= r.b + EPS,
       );
+    })
+    .map((o) => `${f.name}：${at(o)}`);
+}
+
+/** 穿過牆的家具（牆線從家具中間穿過；複驗發現洋館 2F 的馬桶突出到走道） */
+function itemsAcrossWalls(f: Floor): string[] {
+  const lines = wallLines(f);
+  return f.items
+    .filter((it) =>
+      lines.some((r) => {
+        const [c0, c1, a0, a1] =
+          r.o === 'h'
+            ? [it.y, it.y + it.h, it.x, it.x + it.w]
+            : [it.x, it.x + it.w, it.y, it.y + it.h];
+        return c0 < r.c - EPS && c1 > r.c + EPS && overlapLen(a0, a1, r.a, r.b) > EPS;
+      }),
+    )
+    .map((it) => `${f.name}：${box(it)}`);
+}
+
+/** 地面層以外的門：兩側都要是房間（陽台、走廊也算），不能開到建築外面的半空中 */
+function doorsToNowhere(f: Floor): string[] {
+  const inRoom = (x: number, y: number) =>
+    f.rooms.some(
+      (r) => x > r.x + EPS && x < r.x + r.w - EPS && y > r.y + EPS && y < r.y + r.h - EPS,
+    );
+  return f.openings
+    .filter(doorKinds)
+    .filter((o) => {
+      const mid = o.o === 'h' ? { x: o.x + o.len / 2, y: o.y } : { x: o.x, y: o.y + o.len / 2 };
+      const d = 0.25;
+      const sides =
+        o.o === 'h'
+          ? [inRoom(mid.x, mid.y - d), inRoom(mid.x, mid.y + d)]
+          : [inRoom(mid.x - d, mid.y), inRoom(mid.x + d, mid.y)];
+      return !sides.every(Boolean);
     })
     .map((o) => `${f.name}：${at(o)}`);
 }
@@ -257,6 +293,15 @@ describe.each(TEMPLATES.map((t) => [t.id, t] as const))('範本 %s', (id, tpl) =
       expect(blockedDoors(f)).toEqual([]);
     });
 
+    it('家具不穿過牆', () => {
+      expect(itemsAcrossWalls(f)).toEqual([]);
+    });
+
+    it('地面層以外的門兩側都是房間（不開到半空中）', () => {
+      if (floors.indexOf(f) === groundFloorIndex(floors)) return;
+      expect(doorsToNowhere(f)).toEqual([]);
+    });
+
     it('和下一層之間，樓梯或電梯至少有一座位置相同', () => {
       const i = floors.indexOf(f);
       if (i === 0) return;
@@ -291,6 +336,8 @@ describe.each(TEMPLATES.map((t) => [t.id, t] as const))('範本 %s', (id, tpl) =
     }
     const total = withClues.reduce((n, f) => n + f.items.filter((i) => i.clue).length, 0);
     expect(total).toBe(tpl.clues.length);
+    /* 線索小物也照 F194：不放在門的開門範圍與門前一格（複驗發現透天厝 1F 的「刀」在開口前） */
+    for (const f of withClues) expect(blockedDoors(f), f.name).toEqual([]);
   });
 });
 
@@ -323,6 +370,24 @@ describe('格局規則的檢查本身（抓得到違規）', () => {
     f.openings = [{ id: 'o', kind: 'door2', o: 'h', x: 1, y: 4, len: 3, side: -1, hinge: 0 }];
     f.items = [chair(3, 2)];
     expect(blockedDoors(f)).toHaveLength(1);
+  });
+
+  it('線索的空位不放在門前一格（開口也算；複驗發現線索小物落在開口前 0.85 格）', () => {
+    /* A 的左邊被床佔滿，只剩靠 B 的那一側；A、B 之間的牆上有開口 (6, 1)～(6, 3) */
+    const f = {
+      name: '1F',
+      rooms: [
+        { x: 0, y: 0, w: 6, h: 4, name: 'A', cat: 'living' },
+        { x: 6, y: 0, w: 4, h: 4, name: 'B', cat: 'bedroom' },
+      ],
+      walls: [],
+      openings: [{ kind: 'open', o: 'v', x: 6, y: 1, len: 2, side: 1, hinge: 0 }],
+      items: [{ t: 'bed', x: 0, y: 0, w: 4.2, h: 4, rot: 0 }],
+      texts: [],
+    } as unknown as Parameters<typeof findSpot>[0];
+    const spot = findSpot(f, f.rooms[0], 0.6, 0.6);
+    const front = { x: 6 - FRONT, y: 1, w: FRONT * 2, h: 2 };
+    if (spot) expect(rectsOverlap({ ...spot, w: 0.6, h: 0.6 }, front)).toBe(false);
   });
 
   it('走得到：沒有門的房間走不到；窗戶不能走；樓梯接到上一層', () => {

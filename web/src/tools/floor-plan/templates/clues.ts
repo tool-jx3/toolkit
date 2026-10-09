@@ -103,9 +103,10 @@ export function findSpot(
   }
   for (const o of f.openings) {
     const swing = SWING_DOORS.has(o.kind);
-    const near = OPEN[o.kind].group === 'door' ? 0.6 : 0.4;
-    const plus = swing && o.side > 0 ? o.len + 0.1 : near;
-    const minus = swing && o.side < 0 ? o.len + 0.1 : near;
+    /* 門（含開口）前後各一格不放（F194 的門前一格），會開的門那一側再讓出門板掃過的範圍；窗前 0.4 格 */
+    const near = OPEN[o.kind].group === 'door' ? 1.05 : 0.4;
+    const plus = swing && o.side > 0 ? Math.max(o.len + 0.1, near) : near;
+    const minus = swing && o.side < 0 ? Math.max(o.len + 0.1, near) : near;
     blocks.push(
       o.o === 'h'
         ? { x: o.x - 0.1, y: o.y - minus, w: o.len + 0.2, h: minus + plus }

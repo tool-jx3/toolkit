@@ -93,6 +93,7 @@
 | `scenario-text` | 劇本文字產生器 | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker)（MIT） | —（新收錄，沒有舊版） |
 | `house-rules` | CoC 房規表產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`house-rule-table`，未授權） | —（新收錄，沒有舊版） |
 | `speech-bubble` | 動態對話泡泡產生器 | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview)（未授權） | —（新收錄，沒有舊版） |
+| `floor-plan` | 室內平面圖產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`indoor-map-maker`，未授權） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -108,6 +109,8 @@
 `house-rules` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、規則條目與數值（預設集的值和原作逐條相同），規則名稱、說明、選項文字、PNG 的版面與配色都由本站自寫；可以開啟原作匯出的 `.hrt.json`。
 
 `speech-bubble` 照新工具引入流程直接在新框架做：原作（commit `b81c5b7`）只有範本預覽頁、沒有授權條款，製作工具本體在作者的 Postype（付費、不公開）。範本一覽照預覽頁的行為做；編輯與匯出的功能依預覽動畫逐格量到的數值、由本站自己設計；28 組範本的文字、配色與造型都由本站自做，不沿用原作的預覽圖與文字。
+
+`floor-plan` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、牆壁與匯出的算法和數值，程式、介面文字、說明、範本、家具圖形與配色都由本站自做；可以開啟原作存的 `.trpgmap.json`（帖換算成坪）。
 
 `anime-rig` 參考 852wa/Anime2.5DRig（MIT，原作 commit `7ddbd99`，授權全文在通知檔）的程式改寫：自動綁定、物理與繪製的演算法和數值照原作，舊版與新版拿同一個 PSD 綁定的結果相同（單元測試並排比對過）。原作的範例 PSD（圖畫權利屬於各自的作者）不收，測試用的 PSD 由程式自己畫；原作需要本機 Python 中繼伺服器的 OBS 連動不移植，改成綠幕背景與透明影片的說明。臉部追蹤用 npm 的 @mediapipe/tasks-vision（Apache-2.0）；特徵點模型 `face_landmarker.task`（Apache-2.0，約 3.8 MB）**不在本 repo**：使用者第一次開攝影機追蹤時，瀏覽器從 Google 的 MediaPipe 官方模型網址下載，驗證 SHA-256 後存在瀏覽器裡。
 

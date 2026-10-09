@@ -18,7 +18,7 @@
 [zznaptime](https://github.com/zznaptime) 與
 [swoonqx](https://github.com/swoonqx) 與
 [rebane2001](https://github.com/rebane2001) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 52 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 53 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -60,6 +60,7 @@
 | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | 產生透明背景的方格或六角格 PNG：格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸 |
 | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | 以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG |
 | [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | 在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG |
+| [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | 探索場景用的室內平面圖：從住宅、洋館、飯店、醫院、廢墟等範本開始擺房間（牆自動產生）、門窗與家具，GM 用與 PL 用分開匯出 PNG |
 | [JIZURA 字面](https://tool-jx3.github.io/toolkit/tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
 | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理，可以用攝影機（臉部追蹤，模型第一次使用時下載約 3.8 MB）或麥克風帶動，匯出透明 PNG 或影片 |
 | [CoC 劇本排版工具](https://tool-jx3.github.io/toolkit/tools/coc-typesetter/) | 把克蘇魯神話 TRPG 劇本貼進來，排成書本般的紙面：章節自動編號、自動目錄，描述、檢定、KP 資訊、理智檢定各有樣式，印成 A5／B5／A4 的 PDF |
@@ -166,6 +167,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `scenario-text` | [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker) |
 | `house-rules` | [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | [くま。／CoCハウスルール表メーカー](https://kumachansteps.github.io/trpg-web-tools/) |
 | `speech-bubble` | [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview) |
+| `floor-plan` | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | [くま。／TRPG室内図メーカー](https://kumachansteps.github.io/trpg-web-tools/) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

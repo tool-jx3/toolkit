@@ -682,7 +682,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '探索場景用的室內平面圖：從套房、透天厝、洋館、飯店、醫院、廢墟等範本開始，擺房間（牆自動產生）、門窗與家具；GM 專用的房間在 PL 圖裡蓋灰，隱藏線索可以另外開關，多樓層匯出 PNG。',
     group: 'G10',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'くま。／TRPG室内図メーカー',
       url: 'https://kumachansteps.github.io/trpg-web-tools/',
