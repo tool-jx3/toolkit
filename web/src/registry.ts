@@ -730,7 +730,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把角色圖放進拍立得相框、在下方白邊寫一行字，再用壓克力筆分三個圖層塗鴉、貼上自動加白邊的貼紙，存成 PNG。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'swoonqx/sw-polaroid',
       url: 'https://github.com/swoonqx/sw-polaroid',
