@@ -52,20 +52,9 @@ export const gesture = historyGesture(useScratch);
 
 export const assets = createAssetStore(TOOL_ID);
 
-/**
- * 這次開頁放進圖片庫的圖（一次加入多張、開原作的設定檔、開專案檔讀到一半、還沒寫進狀態的也算）：
- * 整理圖片庫時一律保留。**在寫進圖片庫之前**就記下。
- */
-const sessionImages = new Set<string>();
-export const markSessionImage = (id: string): void => {
-  sessionImages.add(id);
-};
-
-/** 整理圖片庫時保留的圖：狀態與復原紀錄裡用到的＋這次開頁放進來的 */
+/** 整理圖片庫時保留的圖：狀態與復原紀錄裡用到的（這次開頁放進來的由 `gcStale` 保留） */
 export function referencedImages(): Set<string> {
-  const keep = referencedAssetIds(useScratch, assetIds);
-  for (const id of sessionImages) keep.add(id);
-  return keep;
+  return referencedAssetIds(useScratch, assetIds);
 }
 
 export const scratchNow = (): ScratchState => useScratch.getState().data;

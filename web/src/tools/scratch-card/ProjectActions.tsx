@@ -45,8 +45,8 @@ export function ProjectActions() {
       onLoad={async (data, _file, files) => {
         const r = await importProject(data, files);
         replaceAll(r.state);
-        if (r.notSaved) toast({ title: S.imageNotSaved, tone: 'warning' });
-        return true;
+        /* 圖片存不進瀏覽器：和「已開啟專案檔」合成一則 */
+        return { warnings: [r.notSaved && S.imageNotSaved] };
       }}
       onForeignFile={async (_file, bytes) => {
         const json = parseJson(bytes);

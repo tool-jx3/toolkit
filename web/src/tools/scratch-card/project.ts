@@ -23,7 +23,7 @@ import {
   type ScratchState,
   urlImageName,
 } from './model';
-import { assets, markSessionImage } from './store';
+import { assets } from './store';
 import { S } from './strings';
 
 export class ProjectDataError extends Error {}
@@ -44,12 +44,6 @@ export async function importProject(
   if (typeof data !== 'object' || data === null || Array.isArray(data))
     throw new ProjectDataError(S.projectBad);
   const next = normalizeState(data);
-  /* 換掉狀態之前，開頁的整理不能刪掉這些圖（先記下再寫進圖片庫） */
-  for (const name of files.keys()) {
-    const id = (name.split('/').pop() ?? name).replace(/\.[^.]+$/, '');
-    if (id) markSessionImage(id);
-  }
-  for (const id of projectAssetIds(next)) markSessionImage(id);
   const imported = await importAssetFiles(assets, files.entries());
   for (const id of projectAssetIds(next)) {
     const bmp = await assets.bitmap(id).catch(() => undefined);

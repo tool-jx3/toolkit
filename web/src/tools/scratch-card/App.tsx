@@ -32,11 +32,11 @@ import {
 } from './store';
 import { S } from './strings';
 
-/** 開頁約 5 秒後整理一次圖片庫：狀態、復原紀錄與這次開頁放進來的圖都保留 */
+/** 開頁約 5 秒後整理一次圖片庫：只清以前留下、沒人用的圖（這次開頁寫進或讀過的都保留，`gcStale`） */
 function useAssetCleanup() {
   useEffect(() => {
     const t = setTimeout(() => {
-      void assets.gc(referencedImages()).catch(() => undefined);
+      void assets.gcStale(referencedImages()).catch(() => undefined);
     }, 5000);
     return () => clearTimeout(t);
   }, []);

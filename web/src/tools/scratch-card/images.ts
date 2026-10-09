@@ -3,7 +3,6 @@
  * 以及卡片上的圖片網址（預覽：物件網址；互動 HTML：data URL 或待填的網址）與「去掉透明留白」。
  */
 import { useEffect, useMemo, useState } from 'react';
-import { assetIdFor } from '@/core/assets';
 import { readAsDataUrl } from '@/core/files';
 import {
   canvasToBlob,
@@ -16,7 +15,7 @@ import {
 } from '@/core/image';
 import { type Card, cardImages } from './card';
 import { IMAGE_MAX_SIDE, type ImageRef, imageKey } from './model';
-import { assets, markSessionImage } from './store';
+import { assets } from './store';
 import { S } from './strings';
 
 export class ImageLoadError extends Error {}
@@ -60,11 +59,8 @@ export async function loadScratchImage(file: Blob, name: string): Promise<Loaded
   } finally {
     bmp.close?.();
   }
-  /* 寫進圖片庫之前先記下：開頁的整理剛好發生在寫入途中也保留 */
   const bytes = new Uint8Array(await blob.arrayBuffer());
-  markSessionImage(await assetIdFor(bytes));
   const added = await assets.add(new Blob([bytes], { type: blob.type }));
-  markSessionImage(added.id);
   const check = await assets.bitmap(added.id).catch(() => undefined);
   if (!check) {
     await assets.remove(added.id).catch(() => undefined);
