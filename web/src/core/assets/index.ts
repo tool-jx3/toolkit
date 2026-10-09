@@ -44,7 +44,7 @@ export interface AssetStore {
   /** 一次讀回多張（重新整理後還原）；回傳找不到的 id */
   preload(ids: Iterable<string>): Promise<{ missing: string[] }>;
   remove(id: string): Promise<void>;
-  /** 刪掉 keep 以外的所有圖（記憶體與 IndexedDB），回傳刪掉的 id */
+  /** 刪掉 keep 以外的所有圖（記憶體與 IndexedDB），回傳刪掉的 id；寫入中與 gc 開始之後才寫入的圖不刪 */
   gc(keep: Iterable<string>): Promise<string[]>;
   /** 所有已知的 id（記憶體＋IndexedDB） */
   ids(): Promise<string[]>;
@@ -119,6 +119,13 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
   const urls = new Map<string, string>();
   /** 已確定存進 IndexedDB 的 id */
   const saved = new Set<string>();
+  /*
+   * gc 不刪「寫入中」與「gc 開始之後才寫入」的圖：工具通常在 add 結束後才把 id 寫進狀態（一批讀完才一起寫的也有），
+   * gc 的 keep 是呼叫當下算的，這段時間差裡的新圖會被當成沒人用而刪掉（char-chart、review-grid 對等驗證）。
+   */
+  const writing = new Set<string>();
+  let putCount = 0;
+  const putOrder = new Map<string, number>();
 
   const forget = (id: string) => {
     blobs.delete(id);
@@ -132,13 +139,19 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
   };
 
   const put = async (id: string, blob: Blob): Promise<AssetAddResult> => {
-    blobs.set(id, blob);
-    /* 還沒解碼成功的查詢（例如先前找不到這張圖）作廢，下一次 bitmap(id) 讀這張新的 */
-    if (!decoded.has(id)) bitmaps.delete(id);
-    const r = await db.put(id, blob);
-    if (!r.ok) return { id, persisted: false, reason: r.reason };
-    saved.add(id);
-    return { id, persisted: true };
+    writing.add(id);
+    putOrder.set(id, ++putCount);
+    try {
+      blobs.set(id, blob);
+      /* 還沒解碼成功的查詢（例如先前找不到這張圖）作廢，下一次 bitmap(id) 讀這張新的 */
+      if (!decoded.has(id)) bitmaps.delete(id);
+      const r = await db.put(id, blob);
+      if (!r.ok) return { id, persisted: false, reason: r.reason };
+      saved.add(id);
+      return { id, persisted: true };
+    } finally {
+      writing.delete(id);
+    }
   };
 
   const get = async (id: string): Promise<Blob | undefined> => {
@@ -216,9 +229,12 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
     },
     async gc(keep) {
       const k = new Set(keep);
+      /* gc 開始時還在寫的、開始之後才寫的都不刪（在 gc 跑的期間寫完的也算） */
+      for (const id of writing) k.add(id);
+      const start = putCount;
       const removed: string[] = [];
       for (const id of await store.ids()) {
-        if (k.has(id)) continue;
+        if (k.has(id) || writing.has(id) || (putOrder.get(id) ?? 0) > start) continue;
         await store.remove(id);
         removed.push(id);
       }
