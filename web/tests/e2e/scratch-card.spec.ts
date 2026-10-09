@@ -391,7 +391,8 @@ test('圖片：加入（不是圖片的寫在同一則通知）、網址、小�
   await pickSelect(page, '內容種類', '圖片（蓋滿）');
   await expect(card(page).locator('img.scx-full')).toHaveCount(1);
   await expect(card(page).locator('img.scx-full')).toHaveCSS('border-radius', '12px');
-  /* 刪除（可以復原） */
+  /* 刪除（可以復原）：0.4 秒內接連的變更會併成一步復原（共用的連續變更合併），隔開再刪才是單獨的一步 */
+  await page.waitForTimeout(450);
   await list.getByRole('button', { name: '刪除「red.png」' }).click();
   await expect(list.getByRole('listitem')).toHaveCount(1);
   await page.keyboard.press('Control+z');
