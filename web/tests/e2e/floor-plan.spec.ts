@@ -575,13 +575,14 @@ test.describe('工具列', () => {
       const room = strip.locator('[data-tool="room"]');
       const select = strip.locator('[data-tool="select"]');
       await expect(select).toHaveAttribute('aria-pressed', 'true');
-      expect(await bg(select)).not.toBe(TRANSPARENT);
-      expect(await bg(room)).toBe(TRANSPARENT);
+      /* 底色有 transition（transition-colors）：等變完再看 */
+      await expect.poll(() => bg(select)).not.toBe(TRANSPARENT);
+      await expect.poll(() => bg(room)).toBe(TRANSPARENT);
       await page.getByTestId('map-canvas').focus();
       await page.keyboard.press('b');
       await expect(room).toHaveAttribute('aria-pressed', 'true');
-      expect(await bg(room)).not.toBe(TRANSPARENT);
-      expect(await bg(select)).toBe(TRANSPARENT);
+      await expect.poll(() => bg(room)).not.toBe(TRANSPARENT);
+      await expect.poll(() => bg(select)).toBe(TRANSPARENT);
       expect(errors).toEqual([]);
     });
 
@@ -600,14 +601,14 @@ test.describe('工具列', () => {
     await click(page, 4.8, 4.8);
     const clue = page.getByTestId('mini-bar').locator('[data-mini="clue"]');
     await expect(clue).toHaveAttribute('aria-pressed', 'false');
-    expect(await bg(clue)).toBe(TRANSPARENT);
+    await expect.poll(() => bg(clue)).toBe(TRANSPARENT);
     await clue.click();
     await expect(clue).toHaveAttribute('aria-pressed', 'true');
-    expect(await bg(clue)).not.toBe(TRANSPARENT);
+    await expect.poll(() => bg(clue)).not.toBe(TRANSPARENT);
     const gm = page.getByTestId('mini-bar').locator('[data-mini="gm"]');
     await gm.click();
     await expect(gm).toHaveAttribute('aria-pressed', 'true');
-    expect(await bg(gm)).not.toBe(TRANSPARENT);
+    await expect.poll(() => bg(gm)).not.toBe(TRANSPARENT);
     expect(errors).toEqual([]);
   });
 });
