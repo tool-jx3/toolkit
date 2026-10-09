@@ -11,7 +11,7 @@ import { ProjectMenu, type ProjectNotice, UiProvider } from '@/ui';
 
 const files = vi.hoisted(() => ({
   downloadText: vi.fn(),
-  pickFiles: vi.fn<() => Promise<File[]>>(async () => []),
+  pickFiles: vi.fn<(options?: { accept?: string }) => Promise<File[]>>(async () => []),
 }));
 
 vi.mock('@/core/files', async (orig) => ({
@@ -170,6 +170,98 @@ describe('ProjectMenu', () => {
     expect(enabled.getAttribute('aria-disabled')).toBeNull();
     await userEvent.click(enabled);
     expect(files.pickFiles).toHaveBeenCalledTimes(1);
+  });
+
+  it('onForeignFile：不是本工具的專案檔時先交給工具；工具處理了就不顯示錯誤（floor-plan 新增）', async () => {
+    const notices: ProjectNotice[] = [];
+    const onLoad = vi.fn();
+    const onForeignFile = vi.fn(async (_file: File, bytes: Uint8Array) =>
+      new TextDecoder().decode(bytes).includes('legacy'),
+    );
+    render(
+      <UiProvider>
+        <ProjectMenu
+          toolId="demo"
+          getData={() => ({})}
+          onLoad={onLoad}
+          onReset={() => {}}
+          confirmOpen={false}
+          onNotify={(n) => notices.push(n)}
+          onForeignFile={onForeignFile}
+          openAccept=".json,.legacy"
+        />
+      </UiProvider>,
+    );
+    /* 工具認得的檔案：交給工具，ProjectMenu 不通知、不呼叫 onLoad */
+    const legacy = file('old.legacy', '{"app":"legacy","floors":[]}');
+    files.pickFiles.mockResolvedValueOnce([legacy]);
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: /開啟專案檔/ }));
+    await waitFor(() => expect(onForeignFile).toHaveBeenCalledTimes(1));
+    expect(files.pickFiles.mock.calls[0][0]).toMatchObject({ accept: '.json,.legacy' });
+    const [f, bytes, error] = onForeignFile.mock.calls[0] as unknown as [File, Uint8Array, Error];
+    expect(f).toBe(legacy);
+    expect(new TextDecoder().decode(bytes)).toContain('legacy');
+    expect(error.message).toBe('這不是 TRPG Toolkit 的專案檔。');
+    expect(onLoad).not.toHaveBeenCalled();
+    expect(notices).toEqual([]);
+    /* 工具也不認得：照常顯示共用的錯誤 */
+    files.pickFiles.mockResolvedValueOnce([file('bad.json', '{ nope')]);
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: /開啟專案檔/ }));
+    await waitFor(() => expect(notices.at(-1)?.kind).toBe('open-failed'));
+    expect(onForeignFile).toHaveBeenCalledTimes(2);
+    expect(notices.at(-1)?.message).toBe('這不是有效的專案檔（JSON 格式錯誤）。');
+    /* 本工具的專案檔：不經過 onForeignFile */
+    files.pickFiles.mockResolvedValueOnce([file('ok.json', serializeProject('demo', 1, { a: 2 }))]);
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: /開啟專案檔/ }));
+    await waitFor(() => expect(onLoad).toHaveBeenCalledTimes(1));
+    expect(onForeignFile).toHaveBeenCalledTimes(2);
+    expect(notices.at(-1)).toEqual({ kind: 'opened', tone: 'success', fileName: 'ok.json' });
+  });
+
+  it('onForeignFile 丟出的錯誤照原文顯示；不給 onForeignFile 時別的工具的專案檔照舊是錯誤', async () => {
+    const notices: ProjectNotice[] = [];
+    const other = () => file('other.json', serializeProject('other', 1, {}));
+    const { rerender } = render(
+      <UiProvider>
+        <ProjectMenu
+          toolId="demo"
+          getData={() => ({})}
+          onLoad={() => {}}
+          onReset={() => {}}
+          confirmOpen={false}
+          onNotify={(n) => notices.push(n)}
+          onForeignFile={() => {
+            throw new Error('原作的檔案壞掉了。');
+          }}
+        />
+      </UiProvider>,
+    );
+    files.pickFiles.mockResolvedValueOnce([other()]);
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: /開啟專案檔/ }));
+    await waitFor(() => expect(notices.at(-1)?.kind).toBe('open-failed'));
+    expect(notices.at(-1)?.message).toBe('原作的檔案壞掉了。');
+    rerender(
+      <UiProvider>
+        <ProjectMenu
+          toolId="demo"
+          getData={() => ({})}
+          onLoad={() => {}}
+          onReset={() => {}}
+          confirmOpen={false}
+          onNotify={(n) => notices.push(n)}
+        />
+      </UiProvider>,
+    );
+    files.pickFiles.mockResolvedValueOnce([other()]);
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: /開啟專案檔/ }));
+    await waitFor(() => expect(notices).toHaveLength(2));
+    expect(notices[1].message).toBe('這是其他工具（other）的專案檔，無法在這裡開啟。');
+    expect(files.pickFiles.mock.calls[1][0]).toMatchObject({ accept: '.json,application/json' });
   });
 
   it('onLoad 丟出的錯誤照原文顯示（不是「專案檔的內容無法使用」）', async () => {

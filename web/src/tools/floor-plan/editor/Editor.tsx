@@ -10,7 +10,7 @@ import { editor } from './controller';
 import { EditorBar } from './EditorBar';
 import { ExportDialog } from './ExportDialog';
 import { FloorBar } from './FloorBar';
-import { openFile } from './files';
+import { OPEN_ACCEPT, openFile } from './files';
 import { handleKeyDown, handleKeyUp } from './keys';
 import { Library } from './Library';
 import { PropsPanel } from './PropsPanel';
@@ -46,7 +46,7 @@ export function Editor() {
   return (
     <div className="flex min-w-0 flex-col gap-2" data-testid="floor-plan">
       <WindowDrop
-        accept=".json,.zip,.trpgmap,application/json,application/zip"
+        accept={OPEN_ACCEPT}
         label={S.project.dropHint}
         onDrop={(files) => {
           if (files[0]) void openFile(files[0]);

@@ -5,9 +5,15 @@
 import { FileInput } from 'lucide-react';
 import { useSaveStatus } from '@/core/storage';
 import { ProjectMenu, ProjectMenuItem, ToolShell } from '@/ui';
-import { fileBase, newMap, notify, openProjectData } from './editor/actions';
+import { fileBase, newMap, notify } from './editor/actions';
 import { Editor } from './editor/Editor';
-import { importLegacyFile } from './editor/files';
+import {
+  importLegacyFile,
+  notifyOpenFailed,
+  OPEN_ACCEPT,
+  openForeign,
+  openProject,
+} from './editor/files';
 import { SHORTCUT_HELP } from './editor/keys';
 import { DATA_VERSION, TOOL_ID, useProject } from './editor/store';
 import { S } from './strings';
@@ -27,11 +33,13 @@ export function App() {
           getData={() => useProject.getState().data}
           saveFileName={() => `${fileBase(useProject.getState().data.name)}.floor-plan.json`}
           confirmOpen={false}
+          openAccept={OPEN_ACCEPT}
           onNotify={(n) => {
             if (n.kind === 'saved') notify(S.msg.saved(n.fileName ?? ''), 'success');
-            else if (n.kind === 'open-failed') notify(n.message ?? S.project.openFailed, 'danger');
+            else if (n.kind === 'open-failed') notifyOpenFailed(n.message);
           }}
-          onLoad={(data) => openProjectData(data, 'project').ok}
+          onLoad={(_data, file) => openProject(file)}
+          onForeignFile={(_file, bytes) => openForeign(bytes)}
           onReset={newMap}
           savedAt={savedAt}
           resetText={{

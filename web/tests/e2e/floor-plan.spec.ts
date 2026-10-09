@@ -855,6 +855,113 @@ test.describe('存檔', () => {
     expect(errors).toEqual([]);
   });
 
+  test('開啟的四條路（選單、Ctrl＋O、拖放、匯入）結果相同：原作的檔讀得到、讀不了時「這個檔案讀不進來」＋原因、版本太新的不開（F06、F08、D15）', async ({
+    page,
+  }) => {
+    /* 通知的紀錄（每一則的文字），一樣的通知連續出現也分得出來 */
+    await page.addInitScript(() => {
+      const w = window as unknown as { __toasts: string[] };
+      w.__toasts = [];
+      new MutationObserver((muts) => {
+        for (const m of muts)
+          for (const n of m.addedNodes)
+            if (n instanceof HTMLElement && n.matches('li[data-radix-collection-item]'))
+              w.__toasts.push(n.innerText);
+      }).observe(document, { childList: true, subtree: true });
+    });
+    const errors = await open(page);
+    const toasts = () =>
+      page.evaluate(() => (window as unknown as { __toasts: string[] }).__toasts.slice());
+    const legacy = {
+      app: 'indoor-map-maker',
+      v: 1,
+      name: '古い家',
+      showSize: 'jo',
+      floors: [
+        {
+          id: 'f',
+          name: '1F',
+          rooms: [{ id: 'r', x: 0, y: 0, w: 6, h: 4, name: '居間', cat: 'living' }],
+          walls: [],
+          openings: [],
+          items: [],
+          texts: [],
+        },
+      ],
+      active: 0,
+    };
+    const newer = {
+      format: 'trpg-toolkit-project',
+      tool: 'floor-plan',
+      version: 99,
+      savedAt: '2030-01-01T00:00:00.000Z',
+      data: { ...legacy, app: undefined, name: '未來的地圖' },
+    };
+    const json = (name: string, data: unknown) => ({
+      name,
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(data)),
+    });
+    const FAILED = '這個檔案讀不進來。請選本工具的專案檔，或原作存的 .trpgmap.json。';
+    const NEWER = '這個專案檔是用較新版本的工具存的，請重新整理頁面後再開啟。';
+    type Way = 'menu' | 'ctrlO' | 'import' | 'drop';
+    const openWith = async (way: Way, file: ReturnType<typeof json>) => {
+      if (way === 'drop') {
+        await page.evaluate(
+          ([name, text]) => {
+            const dt = new DataTransfer();
+            dt.items.add(new File([text], name, { type: 'application/json' }));
+            window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }));
+            window.dispatchEvent(
+              new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }),
+            );
+          },
+          [file.name, file.buffer.toString('utf8')] as const,
+        );
+        return;
+      }
+      const chooser = page.waitForEvent('filechooser');
+      if (way === 'ctrlO') {
+        await page.getByTestId('map-canvas').focus();
+        await page.keyboard.press('Control+o');
+      } else {
+        await page.getByRole('button', { name: '專案' }).click();
+        await page
+          .getByRole('menuitem', {
+            name: way === 'menu' ? '開啟專案檔…' : '匯入「TRPG 室內圖メーカー」的地圖檔…',
+          })
+          .click();
+      }
+      const fc = await chooser;
+      /* 選檔視窗都接受原作的 .trpgmap.json */
+      expect(await fc.element().getAttribute('accept')).toContain('.trpgmap');
+      await fc.setFiles(file);
+    };
+    const expectToast = async (n: number, ...texts: string[]) => {
+      await expect.poll(async () => (await toasts()).length).toBe(n);
+      const last = (await toasts()).at(-1) ?? '';
+      for (const t of texts) expect(last).toContain(t);
+    };
+    const ways: Way[] = ['menu', 'ctrlO', 'import', 'drop'];
+    let count = 0;
+    for (const way of ways) {
+      await blank(page);
+      count = (await toasts()).length;
+      /* 原作的地圖檔：已匯入＋復原 */
+      await openWith(way, json('古い家.trpgmap.json', legacy));
+      await expectToast(count + 1, '已匯入「古い家」', '復原');
+      expect((await project(page)).name, way).toBe('古い家');
+      /* 不是地圖檔：讀不進來＋原因，地圖不變 */
+      await openWith(way, json('hello.json', { hello: 'world' }));
+      await expectToast(count + 2, FAILED, '這不是 TRPG Toolkit 的專案檔。');
+      /* 版本太新的專案檔（D15）：讀不進來＋原因，地圖不變 */
+      await openWith(way, json('future.floor-plan.json', newer));
+      await expectToast(count + 3, FAILED, NEWER);
+      expect((await project(page)).name, way).toBe('古い家');
+    }
+    expect(errors).toEqual([]);
+  });
+
   test('自動保存：重新整理後還原地圖與偏好；壞掉的存檔換回預設', async ({ page }) => {
     const errors = await open(page);
     await twoRooms(page);

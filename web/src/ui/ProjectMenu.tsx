@@ -2,7 +2,7 @@
  * 專案選單：存成專案檔（.json；有附加檔案時 .zip）、開啟專案檔、重設；旁邊顯示自動存檔狀態。
  * 專案檔格式見 core/storage/project.ts（開啟時自動分辨 JSON 或 ZIP）。
  * 檔名、確認與重設的文字可以換；存檔／開啟的結果也可以交給工具（onNotify、onSaved、onLoadError、
- * onLoad 的第四個參數），讓工具寫進自己的狀態列。
+ * onLoad 的第四個參數），讓工具寫進自己的狀態列。不是這個工具的專案檔時可以先交給工具（onForeignFile，例如讀原作的檔案）。
  */
 import { ChevronDown, FolderOpen, RotateCcw, Save } from 'lucide-react';
 import { DropdownMenu } from 'radix-ui';
@@ -102,6 +102,17 @@ export interface ProjectMenuProps<T> {
    * 只有部分專案檔帶附加檔案（getFiles 依設定給或不給）時，用它讓兩種都能開（loading-maker 移植時新增）。
    */
   openAccept?: string;
+  /**
+   * 讀到的檔案不是這個工具的專案檔時（JSON 壞掉、不是專案檔、別的工具的專案檔、ZIP 裡沒有 project.json），
+   * 先交給工具（例如讀原作存的檔案）：回傳 true＝工具處理了（結果由工具自己通知），ProjectMenu 不再顯示錯誤；
+   * false＝照常顯示共用的錯誤；丟出的錯誤照原文顯示。可以 async。讀檔後的確認（confirmOpen 預設）不會問，要問由工具自己問。
+   * bytes 是檔案內容，error 是共用讀取的錯誤（訊息可直接顯示）。floor-plan 對等驗證後新增，不給時行為不變。
+   */
+  onForeignFile?: (
+    file: File,
+    bytes: Uint8Array,
+    error: ProjectFileError,
+  ) => boolean | Promise<boolean>;
   className?: string;
 }
 
@@ -157,6 +168,7 @@ export function ProjectMenu<T>({
   openDisabled,
   statusText,
   openAccept,
+  onForeignFile,
   className,
 }: ProjectMenuProps<T>) {
   const confirm = useConfirm();
@@ -222,7 +234,16 @@ export function ProjectMenu<T>({
     if (!file) return;
     setBusy('open');
     try {
-      const project: ParsedProject<T> = parseProjectBytes<T>(await readAsBytes(file), toolId);
+      const bytes = await readAsBytes(file);
+      let project: ParsedProject<T>;
+      try {
+        project = parseProjectBytes<T>(bytes, toolId);
+      } catch (e) {
+        /* 不是這個工具的專案檔：先交給工具（例如原作的檔案），工具處理了就到此為止 */
+        if (onForeignFile && e instanceof ProjectFileError && (await onForeignFile(file, bytes, e)))
+          return;
+        throw e;
+      }
       if (confirmOpen === undefined || confirmOpen === true) {
         const ok = await confirm({
           title: '開啟專案檔？',
