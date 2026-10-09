@@ -893,7 +893,7 @@ export const S = {
   kpAddPc: '加入 PC',
   kpTemplates: 'KP 範本',
   kpTplFields: { main: '通用骰子與進行', scene: '場景與切入', memo: '備忘' },
-  kpTplNote: '每個系統各自保存一份。',
+  kpTplNote: '每個系統各自儲存一份。',
   kpShared: '共用 KP 範本',
   kpSharedLoad: '讀取',
   kpSharedSave: '存到共用',
@@ -1005,7 +1005,7 @@ export const S = {
   manageImport: '讀取範本檔',
   manageImported: (n: number) => `已加入 ${n} 個範本`,
   manageImportFailed: '讀不了這個範本檔',
-  manageNote: '部件、棋子、演出預設與切入範本會在瀏覽器保存圖片本體；匯出的範本檔不含圖片。',
+  manageNote: '部件、棋子、演出預設與切入範本會在瀏覽器儲存圖片本體；匯出的範本檔不含圖片。',
   manageKinds: {
     scene: '場景範本',
     marker: '共用標記',

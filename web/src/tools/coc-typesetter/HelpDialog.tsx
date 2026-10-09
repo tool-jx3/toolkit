@@ -122,7 +122,7 @@ export function HelpDialog({
         <section className="flex flex-col gap-1">
           <h3>存檔</h3>
           <p className="m-0">
-            內文與設定只存在這個瀏覽器裡，不會傳到任何伺服器；換瀏覽器或裝置就看不到了。重要的劇本請另外保存一份（例如「儲存列印用
+            內文與設定只存在這個瀏覽器裡，不會傳到任何伺服器；換瀏覽器或裝置就看不到了。重要的劇本請另外儲存一份（例如「儲存列印用
             HTML」，或把內文複製到別的地方）。
           </p>
         </section>

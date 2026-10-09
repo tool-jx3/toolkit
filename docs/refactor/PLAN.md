@@ -239,7 +239,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | log-converter | 新增匯出 EPUB 電子書 | sotsotssi/CcfoliaLogConverter（未授權） | ⬜ |
 | session-log、session-report | 跑團紀錄簿的 SKP 角色；團報產生器用括號包住選取的文字、裝飾面板分頁 | くま。 session-log-tool v1.100、session-report-generator v1.73～1.76 | ⬜ |
 | floor-plan | 再補範本：學校、警局、寺廟、洞窟等（目前 8 個，見規格 7. D10） | 本站 | ⬜ |
-| 全站 | 介面文字的「保存」改成「儲存」或「存下來」（約 60 個檔案；DESIGN.md 第 5 節，scenario-text 對等驗證時發現） | 本站 | ⬜ |
+| 全站 | 介面文字的「保存」改成「儲存」（28 個工具 60 處；「方便保存、分享」這類「留著」的意思不改；DESIGN.md 第 5 節，scenario-text 對等驗證時發現） | 本站 | ✅ |
 
 ## 7. 往後新增工具
 

@@ -532,7 +532,7 @@ test('設定寫不進瀏覽器時提醒、工具照常可用（F45）', async ({
   });
   await open(page);
   await addFiles(page, [GIF_A], 1);
-  await expect(page.getByText(/排版與設定沒辦法保存在這個瀏覽器/).first()).toBeVisible();
+  await expect(page.getByText(/排版與設定沒辦法儲存在這個瀏覽器/).first()).toBeVisible();
   expect((await data(page)).items).toHaveLength(1);
 });
 

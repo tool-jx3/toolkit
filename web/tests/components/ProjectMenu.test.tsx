@@ -113,11 +113,11 @@ describe('ProjectMenu', () => {
           savedAt={Date.now()}
           resetDisabled
           resetText={{ label: '全部刪除…' }}
-          statusText="自動保存無法使用"
+          statusText="自動儲存無法使用"
         />
       </UiProvider>,
     );
-    expect(screen.getByText('自動保存無法使用')).toBeTruthy();
+    expect(screen.getByText('自動儲存無法使用')).toBeTruthy();
     await openMenu();
     const item = screen.getByRole('menuitem', { name: '全部刪除…' });
     expect(item.getAttribute('aria-disabled')).toBe('true');

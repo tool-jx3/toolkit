@@ -23,10 +23,10 @@ export const S = {
     loading: (n: number) => `讀取中…（還有 ${n} 個檔案）`,
     failed: (name: string) => `處理這個檔案時出錯了：${name}`,
     truncated: (name: string, n: number) => `「${name}」超過 ${n} 格，只用了前 ${n} 格。`,
-    notSaved: '動圖沒辦法保存在這個瀏覽器（重新整理後會消失）；需要保留時請存成專案檔。',
+    notSaved: '動圖沒辦法儲存在這個瀏覽器（重新整理後會消失）；需要保留時請存成專案檔。',
     settingsNotSaved:
-      '排版與設定沒辦法保存在這個瀏覽器（重新整理後會消失）；需要保留時請存成專案檔。',
-    restoredMissing: (n: number) => `有 ${n} 張動圖沒有保存在瀏覽器裡，已從畫布拿掉。`,
+      '排版與設定沒辦法儲存在這個瀏覽器（重新整理後會消失）；需要保留時請存成專案檔。',
+    restoredMissing: (n: number) => `有 ${n} 張動圖沒有儲存在瀏覽器裡，已從畫布拿掉。`,
     untitled: '未命名',
   },
 

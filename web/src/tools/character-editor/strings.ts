@@ -186,6 +186,6 @@ export const USAGE_STEPS = [
 ] as const;
 
 export const USAGE_NOTES = [
-  '資料只在這個瀏覽器分頁裡處理，不會上傳，也不會保存；重新整理後會回到新角色。',
+  '資料只在這個瀏覽器分頁裡處理，不會上傳，也不會儲存；重新整理後會回到新角色。',
   '輸出只包含這裡能編輯的欄位，頭像、差分、座標等貼進 CCFOLIA 時由 CCFOLIA 補上預設值。',
 ] as const;

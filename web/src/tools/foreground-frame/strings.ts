@@ -560,7 +560,7 @@ export const S = {
     layerRemoved: '已刪除圖層（可以復原）。',
     imagesAdded: (n: number) => `已新增 ${n} 張圖片。`,
     imageFailed: (name: string) => `無法讀取「${name}」（例如沒有寫寬高的 SVG），已略過。`,
-    imageNotSaved: '瀏覽器無法保存圖片，重新整理後圖片會消失；請用專案檔保存。',
+    imageNotSaved: '瀏覽器無法儲存圖片，重新整理後圖片會消失；請用專案檔儲存。',
     fontsLoaded: (n: number) => `已載入 ${n} 個字型，所有字型選單都可以選。`,
     fontFailed: (name: string) => `「${name}」不是可用的字型檔。`,
     fontRemoved: (name: string) => `已移除字型「${name}」。`,
