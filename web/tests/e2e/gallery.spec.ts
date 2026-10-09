@@ -303,3 +303,20 @@ test('模組：模型下載卡（假的下載）：告知、進度、取消、�
   await expect(panel).toHaveAttribute('data-status', 'missing');
   expect(errors).toEqual([]);
 });
+
+test('模組：自動牆壁（squareEdgeRuns、subtractSpans）；對話框：附帶動作的通知', async ({
+  page,
+}) => {
+  const errors = await openGallery(page);
+  await page.getByRole('tab', { name: '模組' }).click();
+  const info = page.getByTestId('edge-runs-demo-info');
+  /* 外框 4 段；兩個房間之間的內牆 2 段，其中一段被門切成兩段 */
+  await expect(info).toHaveText('外牆 4 段、內牆 3 段');
+  await page.getByRole('switch', { name: '在第一段內牆開一扇門（subtractSpans）' }).click();
+  await expect(info).toHaveText('外牆 4 段、內牆 2 段');
+  await page.getByRole('tab', { name: '對話框' }).click();
+  await page.getByRole('button', { name: '附帶動作' }).click();
+  await page.getByTestId('toast-action').click();
+  await expect(page.getByText('已復原', { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});

@@ -134,6 +134,19 @@ export function DialogsDemo() {
           >
             錯誤
           </Button>
+          <Button
+            onClick={() =>
+              toast({
+                title: '已刪除 1 個',
+                action: {
+                  label: '復原',
+                  onClick: () => toast({ title: '已復原', tone: 'success' }),
+                },
+              })
+            }
+          >
+            附帶動作
+          </Button>
         </div>
       </Section>
       <Section title="狀態訊息 Notice">

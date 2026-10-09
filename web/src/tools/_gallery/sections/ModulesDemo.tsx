@@ -3,7 +3,7 @@ import { createRandom, EASE, EASING_CHOICES, type EasingName } from '@/core/time
 import { Section } from '@/ui';
 import { CocDemo } from './CocDemo';
 import { FlowDemo } from './FlowDemo';
-import { GridDemo, MapGridDemo } from './GridDemo';
+import { EdgeRunsDemo, GridDemo, MapGridDemo } from './GridDemo';
 import { ModelDemo } from './ModelDemo';
 import { MusicDemo } from './MusicDemo';
 import { PagedDemo } from './PagedDemo';
@@ -85,6 +85,7 @@ export function ModulesDemo() {
       <CocDemo />
       <GridDemo />
       <MapGridDemo />
+      <EdgeRunsDemo />
     </div>
   );
 }

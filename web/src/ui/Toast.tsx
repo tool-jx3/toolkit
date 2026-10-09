@@ -26,6 +26,11 @@ export interface ToastOptions {
    * 鍵盤照舊用 × 或 Esc。
    */
   dismissOnClick?: boolean;
+  /**
+   * 通知上的一個動作按鈕（例如「復原」）：按了呼叫 onClick 並關閉通知。室內平面圖移植時新增，不給時行為不變。
+   * `altText` 給螢幕閱讀器（說明不用通知上的按鈕時怎麼做，預設＝label）。
+   */
+  action?: { label: string; onClick: () => void; altText?: string };
 }
 
 interface ToastItem extends ToastOptions {
@@ -117,6 +122,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   </T.Description>
                 ) : null}
               </div>
+              {t.action ? (
+                <T.Action
+                  altText={t.action.altText ?? t.action.label}
+                  onClick={t.action.onClick}
+                  className="shrink-0 self-center rounded-sm border border-border-strong px-2 py-0.5 text-xs font-medium text-fg hover:bg-surface-3 focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none"
+                  data-testid="toast-action"
+                >
+                  {t.action.label}
+                </T.Action>
+              ) : null}
               <T.Close aria-label="關閉通知" className="rounded-sm p-0.5 text-muted hover:text-fg">
                 <X aria-hidden className="size-4" />
               </T.Close>

@@ -168,6 +168,30 @@ export function limitScale(width: number, height: number, limits?: ResolutionLim
   return limitResolution(1, { width, height }, limits);
 }
 
+/** iPhone／iPad 的 Safari：畫布面積超過 16,777,216 px（4096²）就畫不出來（空白） */
+export const IOS_RESOLUTION_LIMITS: Required<ResolutionLimits> = {
+  maxPixels: 16_777_216,
+  maxSide: 16_000,
+};
+
+/**
+ * 這台裝置的大圖上限：iPhone、iPad（含「桌面版網站」模式）回傳 IOS_RESOLUTION_LIMITS，其他回傳 `{}`（limitResolution 的預設）。
+ * ```ts
+ * const pxPerCell = limitResolution(48, { width: cols, height: rows }, deviceResolutionLimits());
+ * ```
+ */
+export function deviceResolutionLimits(
+  nav:
+    | { userAgent?: string; platform?: string; maxTouchPoints?: number }
+    | undefined = typeof navigator === 'undefined' ? undefined : navigator,
+): ResolutionLimits {
+  if (!nav) return {};
+  const ios =
+    /iP(hone|ad|od)/.test(nav.userAgent ?? '') ||
+    (nav.platform === 'MacIntel' && (nav.maxTouchPoints ?? 0) > 1);
+  return ios ? IOS_RESOLUTION_LIMITS : {};
+}
+
 /**
  * 直接對影像讀某幾列（y0 ≤ y < y1）的不透明左右界（結果同 opaqueSpanInRows(getImageData(img), …)），
  * 只讀那幾列。
