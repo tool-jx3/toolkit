@@ -687,3 +687,7 @@ UTF-8（有 BOM）、CRLF。第一列是標題：日期、劇本名稱、系統�
 - 測試：單元 `tests/unit/core-sessions.test.ts`（別名、分組、整理）、`tests/unit/session-log-logic.test.ts`（篩選、標籤、清單輸出、存檔讀回）、
   `tests/unit/session-log-import.test.ts`（試算表的身分欄）；e2e `tests/e2e/session-log.spec.ts`「SKP（副 KP，P11 新增 F115）」。視覺基準沒有變。
 - 待主控裁定：第 5 節 D28～D31。
+
+#### 主控裁定（2026-10-09）
+- **D28～D31 照「建議做法」核准**（SKP 照原作 v1.100 的順序與分組，算在 GM 組；匯入別名另加「副KP」「副守密人」）。
+- 驗證：依原作的更新（`1ea9c8b`）比對邏輯一致，新功能有單元與 E2E；沒有另外做瀏覽器並排的對等驗證。

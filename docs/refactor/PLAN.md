@@ -234,10 +234,10 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 
 | 工具 | 內容 | 來源 | 狀態 |
 |---|---|---|---|
-| text-fx | 自訂範本（存、讀、用檔案分享）、批次匯出、理智檢定（SAN）範本 | くま。／文字画像APNGメーカー v1.05～1.12 | ⬜ |
+| text-fx | 自訂範本（存、讀、用檔案分享）、批次匯出、理智檢定（SAN）範本 | くま。／文字画像APNGメーカー v1.05～1.12 | ✅ |
 | pair-maker | 背景改成單色或圖片（可模糊）、段落標題可以改 | baegop157902/PairMaker 2026-10-01 | ⬜ |
 | log-converter | 新增匯出 EPUB 電子書 | sotsotssi/CcfoliaLogConverter（未授權） | ⬜ |
-| session-log、session-report | 跑團紀錄簿的 SKP 角色；團報產生器用括號包住選取的文字、裝飾面板分頁 | くま。 session-log-tool v1.100、session-report-generator v1.73～1.76 | ⬜ |
+| session-log、session-report | 跑團紀錄簿的 SKP 角色；團報產生器用括號包住選取的文字、裝飾面板分頁 | くま。 session-log-tool v1.100、session-report-generator v1.73～1.76 | ✅ |
 | floor-plan | 再補範本：學校、警局、寺廟、洞窟等（目前 8 個，見規格 7. D10） | 本站 | ⬜ |
 | char-chart | 關係圖的頭像可以調整範圍（目前固定取圖片中央；可用共用的 ImageFrameDialog） | 本站 | ⬜ |
 | char-chart、review-grid | 兩個工具的 `images.ts`（縮到長邊 1024、存資產庫、讀回圖片的 hook）幾乎相同，合併成 `core/assets` 的共用函式 | 本站 | ⬜ |
