@@ -100,6 +100,12 @@ interface TwoPoint {
 }
 
 const DRAG_THRESHOLD = 6;
+
+/** 觸控的指標事件（Fabric 預設用 pointer events；舊式的 TouchEvent 也算） */
+function isTouch(e: TPointerEvent): boolean {
+  if ((e as PointerEvent).pointerType === 'touch') return true;
+  return typeof TouchEvent !== 'undefined' && e instanceof TouchEvent;
+}
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 20;
 
@@ -1291,6 +1297,16 @@ export class MapEngine {
     if (!this.two || this.two.kind !== kind) {
       this.two = { kind, start: q, pressed: true, dragged: false, downClient: this.clientOf(e) };
       if (kind === 'export') setEditor({ exportRect: null });
+      return;
+    }
+    if (isTouch(e)) {
+      /*
+       * 觸控：第二點在手指放開時才完成（放開的位置）。兩指縮放的第一指也是一次按下，
+       * 當場完成的話會在那裡多出一個圖形；放開前第二指落下時整個取消（F033，abortInProgress）。
+       */
+      this.two.pressed = true;
+      this.two.dragged = true;
+      this.two.downClient = this.clientOf(e);
       return;
     }
     this.twoPointFinish(q);

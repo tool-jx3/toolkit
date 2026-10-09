@@ -1777,6 +1777,8 @@ test.describe('共用元件（元件展示頁）', () => {
     await expect(menu.getByRole('menuitem')).toHaveText(['重新命名', '鎖定', '刪除']);
     await expect(menu.getByRole('menuitem').first()).toBeFocused();
     await page.keyboard.press('ArrowDown');
+    /* Radix 在 setTimeout 裡才移動焦點：等移到第二項再按 Enter */
+    await expect(menu.getByRole('menuitem').nth(1)).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByText('選了：鎖定')).toBeVisible();
     await target.focus();
@@ -2114,5 +2116,52 @@ test.describe('對等驗證後的修正（7.1）', () => {
     await expect(layerRow(page, '格子1')).toHaveAttribute('data-selected', 'true');
     await expect(layerRow(page, '矩形1')).not.toHaveAttribute('data-selected', /.*/);
     expect(errors).toEqual([]);
+  });
+  test('F033：觸控時點一下後兩指縮放，矩形取消、不會多出一個（第二點在手指放開時才完成）；單指點兩下照常畫', async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+      isMobile: true,
+      locale: 'zh-TW',
+      colorScheme: 'dark',
+    });
+    const page = await context.newPage();
+    const errors = await openList(page);
+    await createMap(page);
+    const cdp = await context.newCDPSession(page);
+    const pt = async (x: number, y: number) => toClient(page, x, y);
+    const tap = async (x: number, y: number) => {
+      const c = await pt(x, y);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [c] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+    await tool(page, 'rect').click();
+    /* 點一下（第一點），接著兩指縮放：第一指落下時還不完成，第二指落下就取消 */
+    await tap(-72, -72);
+    const z0 = await page.getByTestId('status-zoom').textContent();
+    const a = await pt(0, 0);
+    const b = await pt(72, 0);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [a] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [a, b] });
+    for (const d of [10, 20, 30])
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [
+          { x: a.x - d, y: a.y },
+          { x: b.x + d, y: b.y },
+        ],
+      });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(page.getByTestId('status-zoom')).not.toHaveText(z0 ?? '');
+    expect(await names(page)).toEqual([]);
+    expect(await previewInfo(page)).toMatchObject({ count: 0 });
+    /* 單指點兩下：照常畫出矩形 */
+    await tap(0, 0);
+    await tap(72, 72);
+    await expect.poll(() => names(page)).toEqual(['矩形1']);
+    expect(errors).toEqual([]);
+    await context.close();
   });
 });
