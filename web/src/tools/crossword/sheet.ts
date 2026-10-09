@@ -2,8 +2,9 @@
  * 填字遊戲的整張圖（規格 3.7）：標題＋盤面＋橫向／直向提示。先排版（純計算，量字寬的函式由外面給，
  * 單元測試可以用假的），再畫到 canvas。預覽、下載 PNG、列印用同一份排版；下載是 2 倍。
  *
- * 尺寸照原作的匯出：外圍留白 60 px、卡片內距 40 px；卡片寬度左右排列時 max(1300, 盤面寬 + 600)、
- * 上下排列時 max(900, 盤面寬 + 100)；格子 48 px、格線 1 px、盤面內距 2 px。
+ * 尺寸照原作的匯出：外圍留白 60 px、卡片內距 40 px；格子 48 px、格線 1 px、盤面內距 2 px。
+ * 卡片寬：左右排列時 max(1300, 盤面 ＋ 外框 ＋ 間隔 ＋ 兩欄提示〔每欄至少 300 px〕＋ 內距)＝max(1300, 盤面寬 ＋ 810)
+ * （原作把盤面寬量成 0，卡片永遠 1300、大盤面時提示欄被擠窄；規格 5. D6 修正）；上下排列時 max(900, 盤面寬 ＋ 100)。
  */
 import { ensureFont, fontFamilyCss } from '@/core/fonts';
 import { wrapChars } from '@/core/typeset';
@@ -75,7 +76,8 @@ export const SHEET = {
   outer: 60,
   cardPad: 40,
   rowMinWidth: 1300,
-  rowExtra: 600,
+  /** 左右排列時提示每一欄的最小寬度（5. D6） */
+  clueMinColumn: 300,
   colMinWidth: 900,
   colExtra: 100,
   cell: 48,
@@ -132,11 +134,16 @@ export function boardSize(p: Pick<Puzzle, 'width' | 'height'>, transparent: bool
   };
 }
 
-/** 卡片的寬度（原作的匯出寬度） */
+/**
+ * 卡片的寬度：小盤面（9 欄以下）時同原作的 1300／900；左右排列的盤面比較寬時，卡片加寬到提示每欄至少
+ * clueMinColumn（5. D6）：盤面 ＋ 外框（內距 24 × 2 ＋ 框線 2）＋ 間隔 48 ＋ 兩欄與欄間距 ＋ 卡片內距 80。
+ */
 export function cardWidth(boardW: number, layout: SheetLayout): number {
-  return layout === 'row'
-    ? Math.max(SHEET.rowMinWidth, boardW + SHEET.rowExtra)
-    : Math.max(SHEET.colMinWidth, boardW + SHEET.colExtra);
+  const S = SHEET;
+  if (layout === 'col') return Math.max(S.colMinWidth, boardW + S.colExtra);
+  const wrap = boardW + S.wrapPad * 2 + 2;
+  const clues = S.clueMinColumn * 2 + S.columnGap;
+  return Math.max(S.rowMinWidth, wrap + S.layoutGap + clues + S.cardPad * 2);
 }
 
 /* ---------- 斷行（提示裡的答案是粗體，量字寬時分開） ---------- */

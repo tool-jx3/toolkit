@@ -2,7 +2,8 @@
  * crossword：整張圖的排版（規格 3.7）與 HTML（3.9）。量字寬用假的（全形 1 em、半形 0.6 em、粗體 ×1.05）。
  */
 import { describe, expect, it } from 'vitest';
-import type { Puzzle } from '../../src/tools/crossword/generate';
+import { extractWords } from '../../src/tools/crossword/extract';
+import { buildFromCandidates, type Puzzle, seededRng } from '../../src/tools/crossword/generate';
 import { sheetHtml } from '../../src/tools/crossword/html';
 import { initialData } from '../../src/tools/crossword/sample';
 import {
@@ -20,6 +21,7 @@ import {
   wrapRuns,
 } from '../../src/tools/crossword/sheet';
 import { S } from '../../src/tools/crossword/strings';
+import fixture from './fixtures/crossword-upstream.json';
 
 const measure: MeasureFn = (text: string, f: FontSpec) =>
   Array.from(text).reduce(
@@ -59,9 +61,11 @@ describe('尺寸（照原作的匯出）', () => {
     expect(boardSize({ width: 3, height: 2 }, true)).toEqual({ w: 144, h: 96 });
   });
 
-  it('卡片寬：左右 max(1300, 盤面 + 600)、上下 max(900, 盤面 + 100)；整張圖再加外圍 60 × 2', () => {
+  it('卡片寬：左右 max(1300, 盤面 + 810)（9 欄以下同原作）、上下 max(900, 盤面 + 100)；整張圖再加外圍 60 × 2', () => {
     expect(cardWidth(300, 'row')).toBe(1300);
-    expect(cardWidth(800, 'row')).toBe(1400);
+    expect(cardWidth(9 * 49 + 3, 'row')).toBe(1300);
+    expect(cardWidth(10 * 49 + 3, 'row')).toBe(1303);
+    expect(cardWidth(800, 'row')).toBe(1610);
     expect(cardWidth(300, 'col')).toBe(900);
     expect(cardWidth(850, 'col')).toBe(950);
     const l = layoutSheet(SMALL, opts(), measure);
@@ -69,6 +73,31 @@ describe('尺寸（照原作的匯出）', () => {
     const c = layoutSheet(SMALL, opts({ layout: 'col' }), measure);
     expect(c.width).toBe(900 + 120);
     expect(c.height).toBeGreaterThan(l.height);
+  });
+
+  it('大盤面（5. D6）：提示欄每欄至少 300 px，不被擠窄；卡片跟著變寬', () => {
+    /* 原作的英文 50 詞那組（37 × 26 格，種子 5） */
+    const words = extractWords((fixture as { texts: Record<string, string> }).texts.enStory, {
+      extended: false,
+    });
+    const { puzzle } = buildFromCandidates(
+      words,
+      { target: 50, freqWeight: 50, lenWeight: 50 },
+      seededRng(5),
+    );
+    expect(puzzle && [puzzle.width, puzzle.height]).toEqual([37, 26]);
+    if (!puzzle) return;
+    const l = layoutSheet(puzzle, opts(), measure);
+    /* 兩欄提示的標題文字的 x（色塊左緣 ＋ 12） → 欄寬 */
+    const t = texts(l.ops);
+    const across = t.find((o) => o.text === S.sheet.across)?.x ?? 0;
+    const down = t.find((o) => o.text === S.sheet.down)?.x ?? 0;
+    const colW = down - across - SHEET.columnGap;
+    expect(colW).toBeGreaterThanOrEqual(300);
+    /* 盤面 1816 ＋ 外框 50 ＋ 間隔 48 ＋ 兩欄 632 ＋ 卡片內距 80 ＝ 2626；整張 2746 */
+    expect(l.width).toBe(2746);
+    /* 提示不再擠成細長的一條：圖不比寬還高 */
+    expect(l.height).toBeLessThan(l.width);
   });
 
   it('盤面的位置：外圍 60 ＋ 卡片內距 40 ＋ 外框 1 ＋ 外框內距 24；標題區在上面', () => {
