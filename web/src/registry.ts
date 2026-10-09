@@ -493,7 +493,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把跑過的劇本排成九宮格或清單：每格放劇本的圖、規則、作者，挑最多 3 個心得標籤（標籤可以自己改），存成 PNG 分享；收集團員的檔案還能排出同一個劇本的心得比較圖。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/scenario-review',
       url: 'https://github.com/sotsotssi/scenario-review',
