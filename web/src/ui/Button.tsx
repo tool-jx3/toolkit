@@ -17,6 +17,9 @@ const VARIANTS: Record<ButtonVariant, string> = {
   danger: 'bg-danger text-danger-contrast border border-transparent hover:opacity-90',
 };
 
+/** 切換型按鈕按下時：取代變體的底色、字色與框（兩個底色並存時哪個生效看 CSS 的順序，按下的樣子會被蓋掉） */
+const PRESSED = 'bg-accent-soft text-accent border border-accent';
+
 const SIZES: Record<ButtonSize, string> = {
   sm: 'h-7 px-2.5 text-xs gap-1.5',
   md: 'h-8 px-3 text-sm gap-2',
@@ -27,12 +30,13 @@ export function buttonClass(
   variant: ButtonVariant = 'secondary',
   size: ButtonSize = 'md',
   className?: string,
+  pressed?: boolean,
 ) {
   return cn(
     'inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-md font-medium',
     'transition-colors duration-(--duration-fast) disabled:cursor-not-allowed disabled:opacity-50',
     'aria-disabled:cursor-not-allowed aria-disabled:opacity-50',
-    VARIANTS[variant],
+    pressed ? PRESSED : VARIANTS[variant],
     SIZES[size],
     className,
   );
@@ -109,10 +113,9 @@ export function IconButton({
       aria-label={label}
       aria-pressed={pressed}
       className={cn(
-        buttonClass(variant, size),
+        buttonClass(variant, size, undefined, pressed),
         ICON_SIZES[size],
         'px-0 [&_svg]:size-4',
-        pressed && 'bg-accent-soft text-accent border-accent',
         className,
       )}
       {...rest}

@@ -132,8 +132,8 @@ export function App() {
 
 | 元件 | 主要 props | 說明 |
 |---|---|---|
-| `Button` | `variant?: 'primary' \| 'secondary' \| 'ghost' \| 'danger'`、`size?: 'sm' \| 'md' \| 'lg'`、`icon?`、`loading?` | `buttonClass(variant, size)` 可給 `<a>`、`<label>` 套同樣外觀。 |
-| `IconButton` | `label`（必填，成為 aria-label 與提示）、`icon`、`pressed?`、`variant?`、`size?`、`noTooltip?` | 只有圖示的按鈕；`pressed` 為切換狀態（aria-pressed）。 |
+| `Button` | `variant?: 'primary' \| 'secondary' \| 'ghost' \| 'danger'`、`size?: 'sm' \| 'md' \| 'lg'`、`icon?`、`loading?` | `buttonClass(variant, size, className?, pressed?)` 可給 `<a>`、`<label>` 套同樣外觀（`pressed` 時換成按下的顏色）。 |
+| `IconButton` | `label`（必填，成為 aria-label 與提示）、`icon`、`pressed?`、`variant?`、`size?`、`noTooltip?` | 只有圖示的按鈕；`pressed` 為切換狀態（aria-pressed）：按下時強調色的底、字與框**取代**變體的顏色（floor-plan 對等驗證後修正：原本兩個底色並存，ghost 的透明底蓋掉了按下的樣子）。 |
 | `Toggle` | `checked`、`onCheckedChange`、`label?`、`disabled?` | 開關（Radix Switch）。在 Field 裡用 `layout="inline"` 不必再給 label。 |
 | `Segmented` | `value`、`onValueChange`、`options: { value, label, icon?, ariaLabel?, disabled? }[]`、`size?`、`fullWidth?`、`onReselect?` | 2～5 個選項的單選；方向鍵移動；不能取消選取。再按一次已選的選項時呼叫 `onReselect(value)`（例如 battlemap「再選一次同一種地形也重新產生」）。 |
 | `AnchorPicker` | `value`（`'tl'`～`'br'`：t／m／b＋l／c／r）、`onChange`、`labels?`、`showLabel?` | 九宮格位置（左上、上方中央…右下）；radiogroup，方向鍵在九格間上下左右移動並選取，Home／End 到左上／右下；旁邊顯示目前的名稱。值與 `core/typeset` 的 `Anchor` 相同。`ANCHOR_VALUES`、`ANCHOR_LABELS` 一起匯出。（text-fx 移植時新增） |
