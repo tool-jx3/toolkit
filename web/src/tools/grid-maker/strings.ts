@@ -4,7 +4,7 @@ import type { CoordPos, Shape } from './settings';
 
 export const S = {
   shape: '形狀',
-  shapeHint: '方格與六角格的設定分開保存，切換時會回到各自上次的設定。',
+  shapeHint: '方格與六角格的設定分開儲存，切換時會回到各自上次的設定。',
   shapes: { square: '方格', hex: '六角格' } satisfies Record<Shape, string>,
 
   sectionSize: '格數與大小',
@@ -102,14 +102,14 @@ export const S = {
 
   usageIntro: '產生透明背景的方格或六角格 PNG，可以疊在地圖上，或直接放進 CCFOLIA 當前景、面板。',
   usageSteps: [
-    '在最上方選「方格」或「六角格」，兩種形狀的設定各自保存。',
+    '在最上方選「方格」或「六角格」，兩種形狀的設定各自儲存。',
     '設定格數與大小、線條的顏色、線寬、線型與發光。',
     '需要座標時開啟「座標」，選格式、起點與位置。',
     '六角格要放進 CCFOLIA 時開啟「用於 CCFOLIA（網格化）」，檔名與預覽下方會顯示要設定的大小。',
     '按「匯出 PNG」（或 D 鍵）下載。',
   ],
   usageNotes: [
-    '設定會自動保存在這個瀏覽器；可以用「專案」選單存成專案檔，或全部重設。',
+    '設定會自動儲存在這個瀏覽器；可以用「專案」選單存成專案檔，或全部重設。',
     'Ctrl＋Z 復原、Ctrl＋Shift＋Z 重做。',
     '方格的檔名是 grid_欄數x列數_大小px.png；六角格網格化時是 hex_欄x列.png，其他情況是 hex.png。',
   ],

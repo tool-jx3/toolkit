@@ -230,7 +230,7 @@
 | D4 | **套用的範圍**：原作可以套用到頁面上任何選取的文字（作者刻意保留的錯誤），沒有選取時效果按鈕會出錯（主控台錯誤、畫面不變）。新版只套用在編輯區；焦點離開時用最後一次在編輯區的選取並標出來；從沒選取過時提示。 | 建議接受。 |
 | D5 | **自訂色的編輯方式**：原作在色塊右下角的小三角（約 12 px）開瀏覽器的調色盤。新版移到設定欄的 8 個色彩欄（可以打色碼、手機也點得到），加「回到預設的 8 色」；工具列的色塊只負責套用。 | 建議接受。 |
 | D6 | **效果顏色的保存**：原作重新整理後回到預設；新版和自訂色一樣自動保存、存進專案檔，另有「回到預設」。 | 建議接受。 |
-| D7 | **打字時的清理**：原作在沒有 Sanitizer API 的瀏覽器（例如本機測試的 Chromium 141）只要編輯區裡有 RGB 色，打任何一個字就把**所有格式**拿掉（範例文字一開始就有 RGB 色）；有 Sanitizer API 時只留 span 與換行。新版一律只拿掉不認得的標記（內容保留）。 | 建議接受。e2e 的對照在原作打字的步驟只用樣式與經典色。 |
+| D7 | **打字時的清理**：原作在沒有 Sanitizer API 的瀏覽器（例如本機測試的 Chromium 141）只要編輯區裡有 RGB 色，打任何一個字就把**有 RGB 色的格式**拿掉（樣式與經典色留下；7.1 改正）（範例文字一開始就有 RGB 色）；有 Sanitizer API 時只留 span 與換行。新版一律只拿掉不認得的標記（內容保留）。 | 建議接受。e2e 的對照在原作打字的步驟只用樣式與經典色。 |
 | D8 | **複製貼上保留顏色**：原作靠瀏覽器複製的 HTML（選取的端點在格式裡面時，瀏覽器只給 inline style、沒有 class，顏色就不見；而且只在有 Sanitizer API 時保留）。新版自己處理複製／剪下（剪貼簿放本工具的結構，含包住選取範圍的外層格式）與貼上（HTML 裡有本工具的格式才用，否則用純文字）。 | 建議接受。 |
 | D9 | **Enter**：原作在整頁攔下 Enter（焦點在按鈕上時按 Enter 也不會按下按鈕）；新版只在編輯區，輸入法選字中的 Enter 不算。 | 建議接受。 |
 | D10 | **複製失敗**：原作用兩個瀏覽器警告視窗（第二個顯示整段文字讓人手動複製）；新版紅色通知＋輸出欄全選。 | 建議接受。 |
@@ -241,8 +241,90 @@
 
 ## 6. 對等驗證紀錄（驗證者填）
 
+- 驗證對象：`/home/user/verify-tree6`（commit 42dd383，已建置），新版 `http://127.0.0.1:8133/next/discord-color/`
+- 原作：`/home/user/upstream/rebane2001_discord-colored-text/discord-colored-text-generator.html`（gist f8daa79；與 `web/tests/unit/fixtures/discord-color-original.html` 逐位元相同），用 `file://` 開。
+- 瀏覽器：Playwright Chromium 141（沒有 Sanitizer API），1280×900 與 390×844；啟動時 `LANG=C.UTF-8`（和 `web/playwright.config` 相同）。
+- 腳本、輸出、截圖都在 `SCRATCH`＝`/tmp/claude-0/-home-user-toolkit/4d5f38ef-cf3b-5354-95f1-00b7850b7d3f/scratchpad/verify-discord/`（截圖在 `shots/`）。
+- 並排比對的作法（`parity.mjs`＋`lib.mjs`）：兩邊用同樣的鍵盤操作輸入文字（`insertText`＋Enter），用同一段程式依字數放選取範圍，按對應的按鈕；每一步比
+  (1) 原作 `getANSIResult()` 與新版輸出欄逐字、(2) 兩邊編輯區的 DOM 結構、(3) 用 ANSI 模擬器算出每個字在 Discord 的屬性，對照編輯區的格式。
+  判定照第 7 節 D1：原作沒吃字（去掉色碼後等於編輯區全文）→ 必須逐字相同；原作吃字 → 新版去掉色碼後必須等於全文。
+- 並排總量：具名情境 21 組＋隨機操作 14 組（共 1,009 個比對步驟，其中 388 步原作吃字）＋格式樹 600 組（實作者的 200 組在原作頁面重算＋自己產生的 400 組）——**全部 0 個不符、DOM 結構 0 個分歧**。
+- 另跑實作者的單元測試 `npx vitest run tests/unit/discord-color`：3 檔 42 項通過（僅作旁證）。
+
+修正過的列：結果寫「✅ 通過（7.1 修正後）」，驗證時的結果寫在括號裡；修正的內容見 7.1。
+
 | 編號 | 結果 | 方法與證據（截圖／腳本路徑） | 備註 |
 |---|---|---|---|
+| F01 | ✅ 通過 | `t_visual.mjs`（`t_visual.out.json` F01）、`shots/new-1280-default.png`、`orig-default.png`：編輯區「歡迎使用 Discord 彩色文字產生器！」；結構＝`"歡迎使用 " [rgb #5865F2 背景 [rgb #FFFFFF 前景 "Discord"]] " " [ansi-1 [ansi-31 彩]…[ansi-37 器]] "！"`；Discord 底色 rgb(88,101,242)、白字；「彩色文字產生器」font-weight 700；字數 245、輸出長度 245（=規格 3.4）。原作同位置為 Rebane 紅、Discord 藍紫底白字、Colored 粗體＋31～37。 | 翻譯範例拿掉了「Rebane」紅字（規格本來就這樣寫）。 |
+| F02 | ✅ 通過 | `t_edit.mjs` F02：CDP `Input.imeSetComposition`→`insertText` 在紅字後組字「ㄋㄧˇ」→「你」，進到紅色格式（`[ansi-31 "紅你"]`）、再打「好」也在裡面；組字中輸出不變、確認後才更新。選取取代、Backspace 正常。`parity.mjs typing`、`caretThenType`：在紅字／粗體後面打字、游標放在空格式後打字，兩邊每步 DOM 與輸出逐字相同（15＋9 步）。 | 輸入法用 CDP 模擬（無真的輸入法）。 |
+| F03 | ⚠️ 差異（已核准 D9） | `t_edit.mjs` F03、`t_clear.mjs`：Enter、Shift＋Enter 插入換行字元，兩邊 DOM 都是 `a\n\nxb\nc`、輸出相同；結尾 Enter、全選刪除後 Chrome 留的 `<br>` 也兩邊相同；`parity.mjs lines` 跨行套用逐字相同。新版：工具列按鈕上 Enter／空白鍵＝套用（不換行）、色碼欄按 Enter 編輯區不變；組字中（isComposing）的 Enter 不換行。原作：焦點在按鈕上按 Enter 會把編輯區選取的字換成換行（D9）。 | |
+| F04 | ✅ 通過 | `t_visual.mjs` F04、`shots/F04-long-line-wrap.png`：本站等寬字型、14px、行高 18px、圓角 4px、1px 實線框、`white-space: pre-wrap`、`overflow-wrap:anywhere`；長行（中文、英數、長網址）自動折行、無橫向捲動（scrollWidth=clientWidth=806）。底色／字色／框線依主題（見 F31）。 | 內距量到 8px（0.5rem），規格寫 0.5em（14px 字＝7px，原作 7px），差 1px，目視無差別。 |
+| F05 | ⚠️ 差異（已核准 D14） | `t_visual.mjs` F05：寬 808（跟著欄寬）、高 200、`resize: vertical`、`min-height: 200px`；拖右下角往下拉 → 高 323、寬不變。原作 `resize: both`、固定 600px 寬。 | |
+| F06 | ✅ 通過 | `t_visual.mjs` F06（`getComputedStyle(…, '::selection')`）：Light 是 rgba(0,0,0,.4)＋白色 1px 陰影；Ash／Dark／Onyx 是 rgba(255,255,255,.4)＋黑色陰影，四個主題都和原作的值相同。`shots/F06-selection-ash.png`：選取蓋過有色字仍看得到底色。 | |
+| F07 | ⚠️ 差異（已核准 D3） | `t_count.mjs`：輸出 2,000 字「2,000/2,000」淡色（opacity .4）；2,001「2,001/4,000（Nitro）」橘 rgb(255,165,0)；4,000 仍橘；4,001「4,001/4,000（Nitro）」紅 rgb(255,0,0) opacity .8；打字即時跨界 1,999→2,000→2,001→刪回 2,000。原作 2,000 整就橘、4,000 整就紅（D3）。`shots/F07-counter-2001.png`、`F07-counter-4001.png`。 | 字數在編輯框外的右下方（原作在框內角落），目視可接受。 |
+| F08 | ⚠️ 差異（已核准 D8） | `t_edit.mjs` F08：外部 HTML（div、b、font、i、p、script）→只留文字、換行保留 `Bold text\nsecond line\npara`，script 沒執行；含本工具格式的 HTML（`ansi-31`、`ansi-rgb` 小寫 `#abcdef`、`#123`）→保留格式、色碼轉大寫 `#ABCDEF`、`#112233`；無效的 `ansi-38`／`data-hex="zzz"`→純文字；純文字 `\r\n`、`\r`、`\n` 都變換行；表情、組合字、全形照原樣；`<pre>` 的縮排保留；貼在紅字裡跟著紅色；貼上可復原。原作（D8）：部分選取紅字複製時剪貼簿只有 inline style、貼回後顏色不見（`D8orig`）。 | |
+| F09 | ✅ 通過 | `t_edit.mjs` F09：選取「粗體＞紅色」裡的「ell」複製 → `text/html`＝`<span class="ansi-1"><span class="ansi-31">ell</span></span>`、`text/plain`＝`ell`；跨格式與換行的選取含 `<br>` 與外層 RGB；貼回保留格式；剪下：剪貼簿同上、內容刪掉、可復原／重做，剪下後貼到他處格式保留（搬移有色文字）。 | 只有 Chromium 可測（機器上沒有 Firefox／WebKit），「任何瀏覽器」未實測。 |
+| F10 | ⚠️ 差異（已核准 D7） | `t_edit.mjs` F10：實際跨紅字邊界刪除再打字，結果乾淨 `<span class="ansi-31">abXY</span>ef`；手動插入 `<font><b>Q</b><i style>W</i></font>`＋input → 標記拿掉、內容保留，游標留在第 4 字，再打「!」接在後面。原作（D7）：有 RGB 色時打一個字，RGB 格式全部消失（`D7orig`、`t_count` 效能段原作打字後 span 數 0）。 | 見其他紀錄 2（D7 的描述不精確）。 |
+| F11 | ✅ 通過 | `parity.mjs nesting`、`basic`、`clearInRed`、`caretThenType`＋隨機操作：一層包一層、選取跨進跨出格式、同色再包、只有游標時放空格式（輸出略過、之後打字進格式），兩邊 DOM 與輸出逐字相同；1,009 步中 DOM 結構 0 分歧。 | |
+| F12 | ✅ 通過 | `parity.mjs basic`／`classic16`（含「套用到：背景」下按樣式，代碼不變）逐字相同；`t_visual.mjs` F12：按鈕字 清除 400／粗體 700／斜體 italic／底線 underline／刪除線 line-through；鍵盤 Tab＋空白鍵／Enter 可套用（`t_edit` F03）。 | 名稱提示（含 Ctrl＋B/I/U）是新增（D13）。 |
+| F13 | ✅ 通過 | `parity.mjs classic16`：前景 30～37、背景 40～47 一字一色逐字相同；`t_tips.mjs`：背景模式按鈕的 data-code 40～47；四個主題下色塊顏色和原作色塊逐值相同。 | |
+| F14 | ✅ 通過 | `t_tips2.mjs`：滑鼠停留顯示 黑色、紅色、綠色、棕色、淺藍色、粉紅色、藍綠色、淺灰色；無障礙名稱「經典色：紅色」等；背景模式名稱不變。原作 Red…（`t_visual` origTips）。`shots/F14-tooltip-red.png`。 | |
+| F15 | ✅ 通過 | `parity.mjs custom`：8 色前景／背景、與經典色混用、同色相鄰，逐字相同（25 步）；預設 #000000、#FFFFFF、#DE4040、#40DE40、#4040DE、#FFD800、#F5A9B8、#5BCEFA；提示為大寫色碼（`t_tips2`）。 | |
+| F16 | ⚠️ 差異（已核准 D5） | `t_store.mjs` F16、`t_picker.mjs`：設定欄 8 個色彩欄；打 `#abc`→存 `#AABBCC`、`rgb(1, 2, 3)`→`#010203`、`#a1b2c3`→`#A1B2C3`、`zzz`→還原；調色盤點一下工具列立刻換色並存大寫；已套用的文字不變、新套用用新色；重新整理保留；「回到預設的 8 色」。`shots/F16-picker.png`。 | 色碼欄顯示小寫（共用元件），存檔與提示是大寫。3 碼與 rgb() 在離開欄位時才生效。 |
+| F17 | ✅ 通過 | `t_store.mjs` F17：選取「one」→按「背景」→選取仍是「one」→按紅色得 `␛[7;41mone`；`preview` 存 `target:"bg"`，重新整理後仍是背景；復原不影響。並排（`parity.mjs` 各情境與隨機操作中的切換）逐字相同。 | 「會記住」是新增。原作按已選著的那一邊會把選取移到切換鈕的字上（見其他紀錄 7），新版不會。 |
+| F18 | ⚠️ 差異（已核准 D1、D2） | `t_fx.mjs`：5 字彩虹＝#FF0000、#7FFF00、#00FFFF、#7F00FF、#FF0000（兩邊相同）；`parity.mjs effects`（表情 👍🏽、組合字 é、國旗 🇹🇼、全形）逐字相同。跨行（`quirk3`、`quirk3b`）：原作輸出變一行，新版保留 `\n`（D1）；只選一個字：原作 `#NANNANNAN`／`␛[38;2;NaN;NaN;10m`，新版 #FF0000（D2）。 | |
+| F19 | ⚠️ 差異（已核准 D1、D2） | `t_fx.mjs`：預設 3 字＝#FD9855、#E77C7B、#D161A2（兩邊相同）；`quirk3` 跨行漸層新版保留換行；一個字原作 NaN、新版起點色 #FD9855。 | |
+| F20 | ⚠️ 差異（已核准 D1） | `t_fx.mjs`：斑馬一字一字 #A35454／#FFB2B2，「👍🏽＋U+0301」算一個字（兩邊同）；一個字兩邊都用顏色 1；`quirk3` 背景斑馬跨行新版保留換行。 | |
+| F21 | ⚠️ 差異（已核准 D6） | `t_store.mjs` F21：新版設定欄改成漸層 #102030→#F0E0D0、斑馬 #00FF00／#0000FF；原作用按鈕上的調色盤改成同樣的值；同樣的文字與選取套用漸層、斑馬、背景漸層 → 輸出逐字相同。新版存大寫、重新整理後保留、「回到預設」回 #FD9855／#D161A2／#A35454／#FFB2B2。 | |
+| F22 | ✅ 通過 | `t_visual.mjs` F22、`t_misc.mjs`：彩虹 `linear-gradient(90deg in hsl longer hue, …)`；漸層、斑馬色條改色後立刻變（#123456、#00ff00），回到預設也跟著變；提示「彩虹：…」「漸層：…」「斑馬：…」。`shots/F22-toolbar-changed.png`、`F22-tooltip-gradient.png`。 | |
+| F23 | ✅ 通過 | `t_fx.mjs`：彩虹後選取文字＝「abcde」，起訖點在編輯區（和原作同）；`parity.mjs fxThenStyle`／`effects`：效果後直接按粗體、紅色、自訂色，兩邊逐字相同。 | |
+| F24 | ⚠️ 差異（已核准 D4） | `t_edit.mjs` F24：從沒選取過按紅色 → 提示「先在編輯區選取要套用的文字。」、輸出不變；選取設定欄的說明文字後按粗體 → 同樣提示、設定欄 DOM 不變；在編輯區選「beta」後點進自訂色欄 → `CSS.highlights` 標出「beta」（`shots/F24-saved-selection-highlight.png`），按自訂色 5 套到 beta；改自訂色 1 後再按 → 包在 beta 的新格式裡。原作把 h3「About」染紅、沒有選取時效果按鈕丟錯（`D4orig`）。 | |
+| F25 | ✅ 通過 | `t_edit.mjs` F25：Ctrl＋B／I／U 與按鈕結果相同，且和原作用按鈕做同樣操作逐字相同；連按（選取是新格式）會一層包一層。原作按 Ctrl＋B 沒有作用（結構仍是 `"abc"`）。 | 新增（D13）。 |
+| F26 | ⚠️ 差異（已核准 D1） | `parity.mjs all`（407 步，88 步原作吃字）、`fuzz:7…14`（602 步，300 步原作吃字）、`t_fixture.mjs`（實作者 200 組在原作頁面重算 0 不符；放進新版 166 組逐字相同、34 組原作吃字新版全文；自己的 400 組 257 相同、143 組新版全文；0 失敗）。規格 3.5 的三個例子：怪癖一新版 `␛[7;31mA␛[7;32mab␛[7;34mc␛[0m␛[7;32m␛[0m`、怪癖二新版保留 `\n`、怪癖三保留換行。 | 原作吃字的步驟，去掉換行後每個字的顏色和原作相同（可逐字對齊的 302 步全部相同）；見其他紀錄 3、4。 |
+| F27 | ✅ 通過 | `t_copy.mjs` F27：按「複製」→ 剪貼簿＝輸出欄全文（245 字）、通知「已複製！」、輸出欄全選。`shots/F27-copied.png`。 | |
+| F28 | ✅ 通過（7.1 修正後）（驗證時：⚠️ 差異（需裁定）） | `t_copy.mjs`、`t_fx.mjs`：1～11 次依序「已複製！」…「超越神的複製！！！！」（綠色勾的成功通知，約 2.4 秒消失）；間隔 1.7 秒繼續、2.3 秒從頭；**第 12 次起每次都是同一串 16 個漢字**（例 `趗獽夁溱茚誢虼晃嬋醏鶵諘冮矔綆跾` 連續 4 次相同）。原作第 12 次起每次重新隨機（`t_fx.out.json` F28.orig 三次都不同）。`shots/F28-streak.png`。 | 原因：`App.tsx` 的 `copiedMessage = S.copied[streak] ?? gibberish()` 只在重繪時算，streak 停在 11 後 `setStreak(11)` 不重繪。 |
+| F29 | ⚠️ 差異（已核准 D10） | `t_copy.mjs` F29（把 `navigator.clipboard.writeText` 改成失敗、`execCommand('copy')` 回 false）：紅色通知「無法寫入剪貼簿／輸出已全選，請按 Ctrl＋C（Mac 為 ⌘＋C）手動複製。」、輸出欄有焦點且全選（0～245）、沒有瀏覽器警告視窗；第二次失敗一樣。`shots/F29-copy-failed.png`。 | |
+| F30 | ✅ 通過 | `t_copy.mjs` F30、`t_count.mjs`：唯讀、`wrap=off`、`white-space: pre`、`overflow-x: auto`（scrollWidth 2087＞clientWidth 804）；ESC 顯示成小方塊（`shots/F30-output.png`）；標題旁「2,000／2,000 字」→「2,001／4,000 字（超過 2,000 字，要 Nitro 才能送出）」橘 →「4,001／4,000 字（太長，送不出去）」紅（`shots/F30-panel-4001.png`）。 | |
+| F31 | ✅ 通過 | `t_visual.mjs` F31：Light／Ash／Dark／Onyx 四個選項（Light（淺色）等說明）；每個主題的預覽底色、程式碼區塊底色、框線、字色、經典 8 色前景與背景都和原作同主題的計算值逐值相同；輸出不變；存 `trpg-toolkit:discord-color:preview`，重新整理後保留。`shots/F31-new-*.png`、`F31-orig-*.png`。 | |
+| F32 | ⚠️ 差異（已核准 D12） | `t_visual.mjs`：切四個主題時頁面底色固定 rgb(18,17,22)、設定欄不變，只換預覽區與工具列經典色色塊（`shots/F32-toolbar-*.png`）；本站切淺色主題時預覽仍是 Discord Ash（`new-1280-site-light.png`）。原作換整頁。 | |
+| F33 | ✅ 通過 | `t_visual.mjs` F33：頁面沒有 About、Changelog、Source Code、回報信箱、舊版連結；說明改寫在「使用方式」。 | 不移植（規格）。 |
+| F34 | ✅ 通過 | `t_visual.mjs` F34、`shots/F40-usage-section.png`：使用方式注意事項最後一條「本工具不是 Discord 官方製作或認可的工具。」 | |
+| F35 | ✅ 通過 | `t_visual.mjs` F35：沒有 `script#discord:component-embed`、沒有 og: meta。 | 不移植。 |
+| F36 | ✅ 通過 | `t_store.mjs` F36：開頁前在本站放 `discord-colored-text-rgb`＝#111111…，新版自訂色仍是預設 8 色。 | 不搬移。 |
+| F37 | ✅ 通過 | `t_store.mjs` F37：只有 `trpg-toolkit:discord-color`（`{state:{data:{doc,custom,gradient,zebra}},version:1}`）與 `…:preview`（`{theme,target}`）；改文字、彩虹、Onyx、自訂色後重新整理全部保留；壞資料（代碼 99、未知節點、`#abc`、custom 只有 1 個、gradient 錯）整理後可用；整份壞 JSON → 回範例。 | |
+| F38 | ✅ 通過 | `t_store.mjs` F38：初始復原／重做都停用；0.05 秒間隔打「abc」一步、隔 0.6 秒的「d」「e」各一步；粗體、紅色、斑馬各一步；預覽主題不列入（復原後仍 Light）；編輯區裡 Ctrl＋Z、Ctrl＋Shift＋Z、Ctrl＋Y、頁首按鈕、編輯區外 Ctrl＋Z 都是工具的復原；復原後 DOM 與輸出一致、打字後重做清空；貼上、剪下（間隔 0.6 秒）各一步；瀏覽器選單的復原（CDP 編輯指令 undo，`t_nativeundo.mjs`）也走工具的復原。 | 打字後 0.4 秒內貼上會併成同一步（見其他紀錄 5）。 |
+| F39 | ✅ 通過 | `t_store.mjs` F39（`LANG=C.UTF-8`）：下載 `Discord彩色文字_20261009.json`，內容 `{format:'trpg-toolkit-project',tool:'discord-color',version:1,savedAt,data:{doc,custom,gradient,zebra}}`；重設確認「重設成範例文字？」→ 範例＋預設色，可復原；開啟前確認、開啟後還原文字與自訂色；需整理的檔：相鄰文字合併、無效代碼 12／色碼 red 只留內容、`#aBc123` 無 fg → 背景 `#ABC123`、custom 補齊、gradient 缺的用預設；其他工具的檔「這是其他工具（textbox）的專案檔，無法在這裡開啟。」、壞 JSON「這不是有效的專案檔（JSON 格式錯誤）。」，內容不變。 | 未知 type 的節點連內容一起略過（規格「認不得的節點略過」）。 |
+| F40 | ✅ 通過 | `t_visual.mjs` F40：「說明」開出使用方式對話框；按「?」開快捷鍵（復原、重做、顯示快捷鍵、換行 Enter、粗體／斜體／底線）；設定欄最下方「使用方式」。`shots/F40-help.png`、`F40-shortcuts.png`、`F40-usage-section.png`。 | |
+| F41 | ✅ 通過 | `t_visual.mjs` F41：頁尾只有「靈感來源：rebane2001／Discord Colored Text Generator」，唯一連結 `https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c`。 | |
+
+小計（驗證時）：✅ 26、⚠️ 15（已核准 14、需裁定 1）、❌ 0。7.1 修正後：✅ 27、⚠️ 14、❌ 0。
+
+### 6.1 共通檢查
+
+- 390 寬：`scrollWidth = clientWidth = 390`（站台深色、淺色都量過），編輯區 24～366px（`shots/new-390.png`）。
+- 深淺色主題：本站切淺色時工具列、設定欄跟著換，預覽區維持 Discord 主題（`shots/new-1280-site-light.png`）。
+- 主控台：所有腳本的新版頁面 pageerror／console.error 都是 0（原作只有字型檔、favicon 載入失敗與 D4 的錯誤）。
+- 鍵盤：Ctrl＋B／I／U、Enter、Shift＋Enter、Ctrl＋Z／Shift＋Z／Y、Tab 到工具列按 Enter／空白鍵、? 都驗過。
+- 效能（`t_count.mjs`）：約 3,400 字的輸出（彩虹 180 字）套用 93ms（原作 66ms）、在 181 個格式的文字裡打 20 個字 364ms（原作此時格式已被 D7 清掉，43ms）；沒有卡頓。
+
+### 6.2 其他紀錄（驗證者）
+
+1. **F28 第 12 次以後的隨機字不會換**（需裁定，見表格）：重現——開新版，連續按「複製」（每次間隔 2 秒內）15 次，第 12～15 次的通知文字完全相同；原作每次都重新產生。
+2. **規格 D7 的描述不精確**：原作在沒有 Sanitizer API 的 Chromium 打字時，拿掉的是**有 RGB 色的格式**（帶 data-hex 屬性的 span），樣式與經典色的 span 會留下（`t_edit.out.json` D7orig：範例的 Discord 藍紫底消失，Rebane 紅與 Colored 粗體＋7 色保留）。不是「把所有格式拿掉」。不影響新版。
+3. **修正模式的顏色**：原作吃換行的步驟，新版補回換行後，每個字的顏色和原作完全相同（只多了換行）。原作吃字（怪癖一）的步驟新版全文都在，但隨機操作 fuzz7～14 的 81 步中有 14 步，有個別字在 Discord 的顏色和編輯區不一致（例 `fuzz11#73`：「界」多了外層的經典色前景）——原作在這些步驟連字都少，新版仍較好；只是「修正」不保證顏色全對。
+4. **沿用的原作配色問題（非 D1 範圍、兩邊逐字相同）**：同一個經典色裡，兩段相鄰、同色的 RGB 格式，第二段在 Discord 會顯示成外層的經典色。重現：打「ABCDEFGH」→全選按紅色→選 CD 按自訂色 3→選 EF 按自訂色 3 → 輸出 `␛[7;31mAB␛[38;2;222;64;64mCD␛[7;31mEF␛[0m␛[7;31mGH␛[0m`，EF 變紅色（`parity.mjs sameRgbRepro`）。依「逐字相同」的決定照原作，記下供主控參考。
+5. **復原的細節**：(a) 打字後 0.4 秒內按 Ctrl＋V，打字與貼上併成一步復原（`t_store.out.json` F38.typeThenPasteFast）；規格只寫「連續打字算一步」，貼上沒有寫，現行行為可接受。(b) 用工具復原後，瀏覽器右鍵選單的「重做」沒有作用（瀏覽器自己的重做堆疊是空的，不會送 historyRedo）；鍵盤與頁首按鈕不受影響。
+6. **全選刪除後的換行**：在編輯區 Ctrl＋A、Delete 後 Chrome 會留一個 `<br>`，輸出是 ` ```ansi\n\n\n``` `（13 字，多一個空行）；原作完全相同（`t_clear.out.json`），屬對等。
+7. **原作的切換鈕問題（新版已無）**：原作按「Foreground／Background」中**已經選著的那一邊**時，瀏覽器選取會移到切換鈕的字上（沒有 input 事件可以還原），接著按效果會丟錯、按樣式會把空格式插進切換鈕裡。新版沒有這個問題（歸在 D4 的範圍）。隨機對照時因此改成只切到另一邊。
+8. **測試環境**：Chromium 在沒有 UTF-8 語系時，中文檔名的下載會被 Playwright 報成「download」；用 `LANG=C.UTF-8`（和 `web/playwright.config` 相同）就正確（`t_dl.out.json`）。不是工具的問題。
+9. 隨機選取偶爾會切在表情符號的代理對中間（產生孤立的 surrogate），兩邊行為相同，不影響判定；真人選取不會發生。
+
+### 6.3 腳本與輸出
+
+- `lib.mjs`（共用：開頁、依字數選取、兩邊的按鈕、ANSI 模擬）
+- `parity.mjs`（並排：`node parity.mjs all｜<情境>｜fuzz:1,2,…`；`N=150` 改步數）→ `parity-*.json`、`parity-all.txt`、`fuzz1-6.txt`、`fuzz7-14.txt`；`semcheck.mjs`（吃字步驟的顏色比較）
+- `t_fixture.mjs`（600 組格式樹）、`t_visual.mjs`、`t_tips.mjs`／`t_tips2.mjs`／`t_misc.mjs`、`t_count.mjs`、`t_edit.mjs`、`t_store.mjs`、`t_copy.mjs`、`t_fx.mjs`、`t_clear.mjs`、`t_nativeundo.mjs`、`t_picker.mjs`、`t_dl.mjs` → 對應的 `*.out.json`
+- 截圖：`shots/`（檔名前綴是功能編號）
 
 ## 7. 主控裁定（2026-10-09）
 
@@ -256,3 +338,16 @@
 - **其他（實作回報）**：共用的 `TextOutputPanel` 加選填的 `onCopied?(ok)`（DESIGN.md 已記）；編輯區處理巢狀的 ANSI 格式，放在工具目錄（共用的 RichTextField 只有粗體與顏色）。
   在編輯區裡用滑鼠拖曳搬移有色文字會掉格式（交給瀏覽器，原作相同）——核准，說明裡寫「要搬移有色文字請用剪下、貼上」。
 - **上線**：對等驗證通過後 `status: 'live'`，README、ATTRIBUTION、PLAN 6.1 跟著改。
+
+### 7.1 對等驗證後的裁定與修正（主控，2026-10-09）
+
+驗證結果 ✅ 26、⚠️ 15（已核准 14、需裁定 1）、❌ 0。驗證者自己寫的並排腳本：具名情境 21 組＋隨機操作 14 組共 1,009 步，另有 600 組格式樹，
+輸出與編輯區的 DOM 結構和原作 0 不符；原作吃字或吃換行的 388 步，新版每一步都保留全文（D1）。新版主控台沒有錯誤。
+
+1. **F28（需裁定 → 修）**：連續複製第 12 次以後的提示每次都是同一串漢字（次數停在上限，畫面不重繪）。改成次數不設上限，每次都重新產生（同原作）。測試：e2e（修正前失敗）。
+2. **其他紀錄的處理**：
+   - 原作的配色問題（同一個自訂色在相鄰的兩段之間，後一段在 Discord 上顯示成經典色）照搬，兩邊逐字相同：不在 D1 的「吃字、吃換行」範圍內，核准照原作，之後有人回報再改。
+   - D7 的描述改正：原作打字時拿掉的是有 RGB 色的格式（樣式與經典色會留下），不是「所有格式」。
+   - 修正模式在原作吃字的步驟裡，81 步有 14 步個別字的顏色和編輯區不一致（全文都在；原作連字都少）——核准，比原作好；之後要逐字對色時再改算法。
+   - 打字後 0.4 秒內貼上會和打字併成一步復原、用工具復原後瀏覽器右鍵選單的「重做」沒有作用（鍵盤與頁首按鈕正常）——核准。
+   - F04 的內距量到 8px（規格寫 0.5em＝7px），目視沒有差別——核准，規格照新版。

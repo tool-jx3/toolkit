@@ -60,7 +60,7 @@ export const MODEL_ERROR_MESSAGES: Record<ModelErrorKind, string> = {
   size: '下載的檔案大小與官方版本不同，已丟棄。請再試一次。',
   checksum: '下載的檔案與官方版本不符（SHA-256 不同），已丟棄。請再試一次。',
   quota: '瀏覽器的儲存空間不足，模型存不進去。請清出空間（或刪除其他網站的資料）後再試一次。',
-  storage: '這個瀏覽器不能保存模型（可能是無痕模式或封鎖了網站資料）。',
+  storage: '這個瀏覽器不能儲存模型（可能是無痕模式或封鎖了網站資料）。',
   missing: '還沒有下載模型。',
 };
 

@@ -1156,7 +1156,7 @@ test('自動保存：重新整理後原樣還原（沒有選取、倍率 100%、
   await page.getByRole('textbox', { name: '依名稱篩選角色' }).fill('A');
   const saved = await chars(page);
   await page.waitForTimeout(700);
-  await expect(page.getByText(/已自動保存（\d\d:\d\d）/)).toBeVisible();
+  await expect(page.getByText(/已自動儲存（\d\d:\d\d）/)).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: '立繪身高比較板' })).toBeVisible();
   await expect.poll(async () => (await chars(page)).length).toBe(2);
@@ -1181,7 +1181,7 @@ test('自動保存失敗：狀態列提示，工具照常運作', async ({ page 
   });
   const errors = await open(page);
   await addOne(page, file('A.png', await imgA()), 160);
-  await expect(page.getByTestId('save-status')).toContainText('自動保存無法使用');
+  await expect(page.getByTestId('save-status')).toContainText('自動儲存無法使用');
   await btn(page, '複製').click();
   expect(await chars(page)).toHaveLength(2);
   expect(errors).toEqual([]);

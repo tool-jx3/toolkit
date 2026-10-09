@@ -290,7 +290,8 @@ function Workspace({ undo, redo }: { undo: () => void; redo: () => void }) {
         }}
         onCopied={(ok) => {
           if (!ok) return;
-          setStreak((n) => Math.min(S.copied.length, n + 1));
+          /* 不設上限：每次都重繪，11 次之後的隨機漢字每次重新產生（F28，同原作） */
+          setStreak((n) => n + 1);
           if (streakTimer.current) clearTimeout(streakTimer.current);
           streakTimer.current = setTimeout(() => setStreak(0), COPY_STREAK_MS);
         }}

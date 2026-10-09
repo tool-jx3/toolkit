@@ -60,8 +60,9 @@ const time = (ms: number) =>
 /**
  * 一列存檔槽。名稱欄由這一列管理：離開欄位（或按 Enter）時整理成實際的名稱（空白→「存檔槽」）並改名；
  * 「覆蓋」帶著欄位裡的名稱（改名後直接按覆蓋也保留新名稱）。
+ * 存檔槽的名稱變了（例如上一次改名寫完、清單重讀）時欄位跟著換，但正在輸入時不換（不蓋掉打到一半的字）。
  */
-function SlotRow({
+export function SlotRow({
   r,
   onRename,
   onOverwrite,
@@ -75,7 +76,10 @@ function SlotRow({
   onRemove: () => void;
 }) {
   const [name, setName] = useState(r.name);
-  useEffect(() => setName(r.name), [r.name]);
+  const editing = useRef(false);
+  useEffect(() => {
+    if (!editing.current) setName(r.name);
+  }, [r.name]);
   const settle = () => {
     const next = slotName(name, S.slotDefaultName);
     setName(next);
@@ -90,7 +94,13 @@ function SlotRow({
           value={name}
           maxLength={SLOT_NAME_MAX}
           onChange={(e) => setName(e.target.value)}
-          onBlur={() => onRename(settle())}
+          onFocus={() => {
+            editing.current = true;
+          }}
+          onBlur={() => {
+            editing.current = false;
+            onRename(settle());
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
           }}

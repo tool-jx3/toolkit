@@ -17,7 +17,8 @@
 [fyam-hamu](https://github.com/fyam-hamu) 與
 [usagineko7865-debug](https://github.com/usagineko7865-debug) 與
 [zznaptime](https://github.com/zznaptime) 與
-[swoonqx](https://github.com/swoonqx) 製作的網頁工具、[SkyTNT](https://github.com/SkyTNT) 等人的開源專案，以及兩個作者不明的工具為靈感來源，
+[swoonqx](https://github.com/swoonqx) 與
+[rebane2001](https://github.com/rebane2001) 製作的網頁工具、[SkyTNT](https://github.com/SkyTNT) 等人的開源專案，以及兩個作者不明的工具為靈感來源，
 由本站以自己的框架（`web/`）重寫，
 只有繁體中文介面；介面上不放原作者的其他標示，只在頁尾放「靈感來源」連結。所有原作的著作權屬各自的作者所有。
 
@@ -88,6 +89,13 @@
 | `coc-sheet` | CoC 7 版調查員角色卡 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的調查員角色卡） | `6b497bd` |
 | `map-editor` | 地圖編輯器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的地圖一覽與地圖編輯器合併） | `6b497bd` |
 | `ai-fail` | AI 誤判梗圖產生器 | [swoonqx/ai-fails-meme-maker](https://github.com/swoonqx/ai-fails-meme-maker)（未授權） | —（新收錄，沒有舊版） |
+| `discord-color` | Discord 彩色文字產生器 | [rebane2001／Discord Colored Text Generator](https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c)（公有領域，Unlicense） | —（新收錄，沒有舊版） |
+| `scenario-text` | 劇本文字產生器 | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker)（MIT） | —（新收錄，沒有舊版） |
+| `house-rules` | CoC 房規表產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`house-rule-table`，未授權） | —（新收錄，沒有舊版） |
+| `speech-bubble` | 動態對話泡泡產生器 | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview)（未授權） | —（新收錄，沒有舊版） |
+| `floor-plan` | 室內平面圖產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`indoor-map-maker`，未授權） | —（新收錄，沒有舊版） |
+| `rank-chart` | 排行榜產生器 | [sotsotssi/would-you-rank](https://github.com/sotsotssi/would-you-rank)（MIT） | —（新收錄，沒有舊版） |
+| `char-chart` | 角色分析圖產生器 | [sotsotssi/char-quadrant](https://github.com/sotsotssi/char-quadrant)、[sotsotssi/visual-coupling-map](https://github.com/sotsotssi/visual-coupling-map)（都未授權） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -95,6 +103,20 @@
 `bg-remover` 同樣照新工具引入流程直接在新框架做：AI 去背照 SkyTNT/anime-segmentation（Apache-2.0，授權全文在通知檔）的 `get_mask()` 前後處理。模型 `isnetis.onnx`（Apache-2.0，約 176 MB）**不在本 repo**：使用者第一次用 AI 去背時，瀏覽器從 Hugging Face 的 [skytnt/anime-seg](https://huggingface.co/skytnt/anime-seg) 固定 revision `493cb608` 下載，驗證 SHA-256 後存在瀏覽器裡。推論用 onnxruntime-web（MIT）。
 
 `ai-fail` 照新工具引入流程直接在新框架做（2026-10-09 使用者選定）：原作（commit `8ce1f07`）沒有授權條款，只照原作的功能、版面與數值，程式、介面文字、說明與範例都由本站自做；預設標籤「object」是 AI 物件辨識介面的通用詞。
+
+`discord-color` 照新工具引入流程直接在新框架做：原作（gist commit `f8daa79`）是公有領域（Unlicense，全文在通知檔），ANSI 輸出的算法照原作，介面與說明翻成繁中；原作在三種格式下會吃掉字或換行，新版修正（見規格第 7 節）。
+
+`scenario-text` 照新工具引入流程直接在新框架做：原作（commit `a71e9ac`）是 MIT（授權全文在通知檔），台本的解析與房間 ZIP 的組裝照原作，範例文字與預設說話者翻成繁中；名字結尾的冒號、繁中的引號照規格第 5 節的裁定處理。
+
+`house-rules` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、規則條目與數值（預設集的值和原作逐條相同），規則名稱、說明、選項文字、PNG 的版面與配色都由本站自寫；可以開啟原作匯出的 `.hrt.json`。
+
+`speech-bubble` 照新工具引入流程直接在新框架做：原作（commit `b81c5b7`）只有範本預覽頁、沒有授權條款，製作工具本體在作者的 Postype（付費、不公開）。範本一覽照預覽頁的行為做；編輯與匯出的功能依預覽動畫逐格量到的數值、由本站自己設計；28 組範本的文字、配色與造型都由本站自做，不沿用原作的預覽圖與文字。
+
+`floor-plan` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、牆壁與匯出的算法和數值，程式、介面文字、說明、範本、家具圖形與配色都由本站自做；可以開啟原作存的 `.trpgmap.json`（帖換算成坪）。
+
+`rank-chart` 照新工具引入流程直接在新框架做：原作（commit `f323b87`）是 MIT（授權全文在通知檔），盲選排行的玩法、版面數值與預設文字照原作（翻成繁中），圖上不放原作名稱與作者帳號；可以開啟原作存的設定檔（JSON）。
+
+`char-chart` 照新工具引入流程直接在新框架做，合併兩個原作（char-quadrant `d8d19d5`、visual-coupling-map `cdb093b`）：兩個都沒有授權條款，只照原作的功能、數值與畫法，程式、介面文字、說明、預設的頁面與線的種類都由本站自做；原作畫面上註明的梗圖格式出處不放；可以開啟原作的關係圖 JSON 與全部備份碼。
 
 `anime-rig` 參考 852wa/Anime2.5DRig（MIT，原作 commit `7ddbd99`，授權全文在通知檔）的程式改寫：自動綁定、物理與繪製的演算法和數值照原作，舊版與新版拿同一個 PSD 綁定的結果相同（單元測試並排比對過）。原作的範例 PSD（圖畫權利屬於各自的作者）不收，測試用的 PSD 由程式自己畫；原作需要本機 Python 中繼伺服器的 OBS 連動不移植，改成綠幕背景與透明影片的說明。臉部追蹤用 npm 的 @mediapipe/tasks-vision（Apache-2.0）；特徵點模型 `face_landmarker.task`（Apache-2.0，約 3.8 MB）**不在本 repo**：使用者第一次開攝影機追蹤時，瀏覽器從 Google 的 MediaPipe 官方模型網址下載，驗證 SHA-256 後存在瀏覽器裡。
 

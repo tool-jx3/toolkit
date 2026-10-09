@@ -1,0 +1,324 @@
+/**
+ * 動態對話泡泡產生器的介面文字（繁中；用詞照 DESIGN.md 第 5 節）。
+ */
+import type {
+  Align,
+  Arrange,
+  CursorId,
+  EnterId,
+  ExitId,
+  IconId,
+  IdleId,
+  OrderId,
+  StyleId,
+  TextAnimId,
+} from './model';
+import type { CategoryId } from './presets';
+import type { StyleGroup } from './styles';
+
+export const STYLE_NAMES: Record<StyleId, string> = {
+  messenger: '訊息泡泡',
+  speech: '漫畫泡泡',
+  thought: '想法泡泡',
+  shout: '吶喊泡泡',
+  'chat-card': '聊天卡片',
+  rpg: 'RPG 對話框',
+  battle: '戰鬥訊息',
+  tag: '道具標籤',
+  sticky: '便利貼',
+  notebook: '筆記紙',
+  parchment: '羊皮紙',
+  neon: '霓虹招牌',
+  news: '新聞快訊',
+  toast: '通知條',
+  window: '系統視窗',
+  glass: '玻璃面板',
+  capsule: '膠囊',
+  card: '卡片',
+  hud: '科幻面板',
+  terminal: '終端機',
+  hologram: '全息面板',
+};
+
+export const STYLE_GROUP_NAMES: Record<StyleGroup, string> = {
+  chat: '對話',
+  game: '遊戲・RPG',
+  paper: '便條・紙張',
+  show: '直播・標題',
+  system: '通知・系統',
+  sf: '科幻・賽博',
+};
+
+export const CATEGORY_NAMES: Record<CategoryId, string> = {
+  chat: '對話',
+  game: '遊戲・RPG',
+  paper: '便條・紙張',
+  show: '直播・標題',
+  system: '通知・系統',
+  card: '卡片・狀態',
+  sf: '科幻・賽博',
+};
+
+/** 標題欄的名稱（依造型） */
+export const TITLE_LABELS: Record<StyleId, string> = {
+  messenger: '名字',
+  speech: '名字',
+  thought: '名字',
+  shout: '名字',
+  'chat-card': '名字',
+  rpg: '名字',
+  battle: '標題',
+  tag: '標籤',
+  sticky: '標題',
+  notebook: '標題',
+  parchment: '標題',
+  neon: '標題',
+  news: '標籤',
+  toast: '標題',
+  window: '視窗標題',
+  glass: '標題',
+  capsule: '標籤',
+  card: '標籤',
+  hud: '標題列',
+  terminal: '視窗標題',
+  hologram: '標題',
+};
+
+export const ICON_NAMES: Record<IconId, string> = {
+  none: '不顯示',
+  check: '勾勾',
+  cross: '叉叉',
+  warn: '驚嘆號',
+  info: '資訊',
+  question: '問號',
+  person: '人像',
+  star: '星星',
+  heart: '愛心',
+  bell: '鈴鐺',
+  dot: '圓點',
+};
+
+export const ALIGN_NAMES: Record<Align, string> = { left: '靠左', center: '置中', right: '靠右' };
+
+export const ARRANGE_NAMES: Record<Arrange, string> = {
+  column: '直向排列',
+  grid: '格狀',
+  pile: '疊放',
+  swap: '輪流出現',
+};
+
+export const ARRANGE_HINTS: Record<Arrange, string> = {
+  column: '由上往下排；靠左與靠右的泡泡會互相錯開（聊天室）。',
+  grid: '排成幾欄的格子（隊伍、選單）。',
+  pile: '一張疊一張，越晚出現的越上面、越往右上。',
+  swap: '一次只出現一個：前一個退場時下一個登場（同一個位置）。',
+};
+
+export const ENTER_NAMES: Record<EnterId, string> = {
+  pop: '彈出',
+  fade: '淡入',
+  zoom: '放大淡入',
+  side: '從所在側滑入',
+  left: '從左滑入',
+  right: '從右滑入',
+  up: '由下往上滑入',
+  down: '由上往下滑入',
+  wipe: '橫向展開',
+  unroll: '向下展開',
+  glitch: '故障閃現',
+  drop: '貼上',
+  spin: '旋轉放大',
+};
+
+export const EXIT_NAMES: Record<ExitId, string> = {
+  none: '不退場（停在最後）',
+  fade: '淡出',
+  zoom: '縮小淡出',
+  pop: '縮小消失',
+  side: '往所在側滑出',
+  left: '往左滑出',
+  right: '往右滑出',
+  up: '往上滑出',
+  down: '往下滑出',
+  wipe: '橫向收合',
+  unroll: '向上收起',
+  glitch: '故障消失',
+  fall: '掉落',
+  spin: '旋轉縮小',
+};
+
+export const IDLE_NAMES: Record<IdleId, string> = {
+  none: '不動',
+  float: '上下漂浮',
+  breathe: '呼吸縮放',
+  sway: '左右搖晃',
+  shake: '抖動',
+  shine: '閃光掃過',
+  scan: '掃描線',
+  flicker: '霓虹閃爍',
+  glitch: '偶爾故障',
+};
+
+export const TEXT_ANIM_NAMES: Record<TextAnimId, string> = {
+  with: '跟著泡泡出現',
+  fade: '泡泡出現後淡入',
+  type: '逐字打出',
+  line: '逐行出現',
+};
+
+export const CURSOR_NAMES: Record<CursorId, string> = {
+  none: '不顯示',
+  block: '方塊 ▋',
+  bar: '底線 _',
+};
+
+export const ORDER_NAMES: Record<OrderId, string> = { list: '清單順序', random: '隨機' };
+
+export const S = {
+  toolName: '動態對話泡泡產生器',
+  usage: [
+    '在「範本一覽」選一個喜歡的範本（可以用分類或關鍵字找），就會進到編輯畫面。',
+    '在「泡泡」分頁改文字：每個泡泡可以換造型、名字或標題、圖示、位置與配色；可以新增到 12 個泡泡。',
+    '在「動畫」分頁選登場、停留、文字出現與退場的動作，調整間隔與停留時間；「版面」分頁改字型、排列與畫布。',
+    '右邊的預覽會一直循環播放；確認後在下方選格式（APNG、GIF、WebP…）匯出透明背景的動畫。',
+    '設定會自動存在這個瀏覽器；要換電腦或備份時用「專案」選單存成專案檔。',
+  ],
+  undo: '復原',
+  redo: '重做',
+  /* 範本一覽 */
+  galleryTitle: '範本一覽',
+  galleryLead: '選一個範本開始，之後文字、造型、配色、動畫都可以改。',
+  searchLabel: '搜尋範本',
+  searchPlaceholder: '名稱、分類、造型或文字',
+  categoryLabel: '分類',
+  all: '全部',
+  resultCount: (n: number, total: number) => `${n}／${total}`,
+  resultCountLabel: (n: number, total: number) => `顯示 ${n} 個範本，共 ${total} 個`,
+  empty: '沒有符合條件的範本。',
+  clearFilters: '清除篩選',
+  thumbBg: '縮圖背景',
+  thumbBgs: { dark: '深色', light: '淺色', checker: '透明' } as const,
+  motion: '縮圖一起播放',
+  motionHint: '關閉時只播放滑鼠停留或鍵盤聚焦的那一個。',
+  continueEditing: '繼續編輯',
+  continueHint: (name: string) => `目前的內容：${name}`,
+  /* 先換成毫秒的整數再四捨五入（2.95 秒的浮點數是 2.9499…，直接 toFixed(1) 會變 2.9） */
+  presetMeta: (styles: string, sec: number) =>
+    `${styles}・${(Math.round(Math.round(sec * 1000) / 100) / 10).toFixed(1)} 秒`,
+  styleCount: (n: number) => `${n} 種造型`,
+  presetListLabel: '範本',
+  /* 編輯畫面 */
+  presetNow: '範本',
+  custom: '自訂',
+  modified: '已修改',
+  prevPreset: '上一個範本',
+  nextPreset: '下一個範本',
+  backToGallery: '範本一覽',
+  tabsLabel: '設定分類',
+  tabs: { bubbles: '泡泡', motion: '動畫', layout: '版面' },
+  /* 泡泡 */
+  listTitle: '泡泡清單',
+  listLabel: '泡泡清單（依畫的順序）',
+  listHint: '拖曳或按 Alt＋↑／↓ 調整順序；清單上面的先出現。',
+  addBubble: '新增泡泡',
+  addLimit: (n: number) => `最多 ${n} 個泡泡。`,
+  duplicate: '複製這個泡泡',
+  remove: '刪除這個泡泡',
+  removeDisabled: '至少要留一個泡泡',
+  moveUp: '往前',
+  moveDown: '往後',
+  untitled: '（空白）',
+  rowLabel: (n: number) => `第 ${n} 個泡泡`,
+  editing: (n: number) => `第 ${n} 個泡泡`,
+  style: '造型',
+  styleHint: '換造型時配色換成新造型的預設配色（可以復原）。',
+  text: '內文',
+  textPlaceholder: '要放進泡泡的文字（可以換行）',
+  textHint: '超過「版面」分頁的文字寬度上限會自動換行。',
+  icon: '圖示',
+  button: '按鈕文字',
+  buttonPlaceholder: '空白就不顯示按鈕',
+  titlePlaceholder: '空白就不顯示',
+  align: '位置',
+  alignHint: '在欄裡靠哪一邊，也是尾巴的方向。',
+  colors: '配色',
+  colorNames: { fill: '底色', border: '邊框', text: '文字', accent: '強調' },
+  colorHints: {
+    accent: '標題、圖示、裝飾與光暈的顏色。',
+  },
+  resetColors: '恢復造型的預設配色',
+  applyAll: '套用到全部泡泡',
+  applyAllHint: '把這個泡泡的造型、配色與圖示套用到其他泡泡（文字不變）。',
+  appliedAll: (n: number) => `已套用到 ${n} 個泡泡。`,
+  /* 動畫 */
+  enterSection: '登場',
+  enter: '登場動作',
+  enterDur: '登場時間',
+  idleSection: '停留',
+  idle: '停留時的動作',
+  hold: '停留時間',
+  holdHint: '全部出現完之後停多久才開始退場。',
+  textSection: '文字出現',
+  textAnim: '文字出現的方式',
+  typeSpeed: '打字速度',
+  cursor: '游標',
+  exitSection: '退場',
+  exit: '退場動作',
+  exitDur: '退場時間',
+  orderSection: '順序與間隔',
+  stagger: '依序出現的間隔',
+  staggerHint: '每個泡泡比前一個晚多久出現。輪流出現時不用。',
+  order: '出現順序',
+  orderHint: '隨機時同樣的泡泡數量每次的順序相同。',
+  exitTogether: '一起退場',
+  exitTogetherHint: '關閉時依出現的順序、同樣的間隔一個一個退場。',
+  sec: '秒',
+  perSec: '字／秒',
+  /* 版面 */
+  fontSection: '文字',
+  font: '字型',
+  fontPreview: '對話泡泡 Aa 123',
+  fontSize: '字級',
+  lineHeight: '行距',
+  lineHeightUnit: '倍',
+  wrapWidth: '文字寬度上限',
+  arrangeSection: '排列',
+  arrange: '排列方式',
+  columns: '欄數',
+  gap: '間距',
+  pileGap: '每張的位移',
+  indent: '左右錯開',
+  indentHint: '同時有靠左與靠右的泡泡時，兩邊互相錯開的距離。',
+  shadow: '陰影',
+  shadowHint: '卡片、視窗、紙張類的造型下方加一層柔和的陰影。',
+  canvasSection: '畫布',
+  canvasMode: '畫布大小',
+  canvasModes: { auto: '自動', fixed: '自訂' } as const,
+  margin: '留白',
+  marginHint: '自動畫布：內容四周的留白（動畫超出的部分也要靠它容納）。',
+  marginFixedHint: '自訂畫布：內容離畫布邊緣的距離。',
+  width: '寬',
+  height: '高',
+  anchor: '內容位置',
+  /* 預覽 */
+  previewLabel: '動畫預覽',
+  meta: (w: number, h: number, fps: number, sec: number, frames: number) =>
+    `${w} × ${h}・${fps} fps・${sec.toFixed(2)} 秒・${frames} 格`,
+  emptyNotice: '泡泡裡沒有文字。請在「泡泡」分頁輸入內文或標題。',
+  overflowNotice: '內容比畫布大，超出的部分會被裁掉。請放大畫布、縮小字級或改成自動畫布。',
+  capNotice: '內容太大，自動畫布已經到上限（4096 px），超出的部分會被裁掉。',
+  tooManyFrames: (n: number, max: number) =>
+    `影格數 ${n} 超過上限 ${max}，請降低 FPS 或縮短停留時間。`,
+  loadingFonts: '正在載入字型…',
+  exportTitle: '匯出',
+  fixedFpsHint: '',
+  fileName: '檔名：bubble_時間戳',
+  colorsDetail: '色數',
+  lossless: (n: number) => `${n} 色（無損）`,
+  colorCount: (n: number) => `${n} 色`,
+  noContent: '泡泡裡沒有文字，沒有東西可以匯出。',
+  /* 專案 */
+  projectFile: '對話泡泡',
+  resetTitle: '全部重設？',
+  resetDescription: '泡泡與所有設定會回到預設的範本（可以用「復原」回來）。',
+} as const;

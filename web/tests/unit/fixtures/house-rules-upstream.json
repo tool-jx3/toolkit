@@ -1,0 +1,5002 @@
+{
+ "note": "原作（CoCハウスルール表メーカー v1.00）在本機產生的對照資料：預設集的值與輸出骨架（見 tests/helpers/houseRulesSkeleton.ts）。",
+ "presets": {
+  "raw": {
+   "6": {
+    "cmd": {
+     "val": "ccb",
+     "vis": true
+    },
+    "special": {
+     "val": "o",
+     "vis": true
+    },
+    "fumbletable": {
+     "val": "x",
+     "vis": false
+    },
+    "sancf": {
+     "val": "off",
+     "vis": true
+    },
+    "tempmad": {
+     "val": "either",
+     "vis": true
+    },
+    "indef": {
+     "val": "o",
+     "vis": true
+    },
+    "insight": {
+     "val": "o",
+     "vis": false
+    },
+    "mythosgrow": {
+     "val": "x",
+     "vis": false
+    },
+    "init": {
+     "val": "dex",
+     "vis": true
+    },
+    "atkdodge": {
+     "val": "both",
+     "vis": true
+    },
+    "parrydodge": {
+     "val": "both",
+     "vis": false
+    },
+    "dodgespot": {
+     "val": "x",
+     "vis": false
+    },
+    "impale": {
+     "val": "o",
+     "vis": true
+    },
+    "knockout": {
+     "val": "o",
+     "vis": false
+    },
+    "readyfire": {
+     "val": "o",
+     "vis": false
+    },
+    "burst": {
+     "val": "o",
+     "vis": false
+    },
+    "grapple": {
+     "val": "x",
+     "vis": false
+    },
+    "martial": {
+     "val": "x",
+     "vis": false
+    },
+    "aidcount": {
+     "val": "1",
+     "vis": true
+    },
+    "aidmed": {
+     "val": "o",
+     "vis": true
+    },
+    "autoko": {
+     "val": "o",
+     "vis": false
+    },
+    "shock": {
+     "val": "o",
+     "vis": false
+    },
+    "dying": {
+     "val": "raw",
+     "vis": false
+    },
+    "growcheck": {
+     "val": "raw",
+     "vis": true
+    },
+    "growamount": {
+     "val": "d10",
+     "vis": false
+    },
+    "instant": {
+     "val": "x",
+     "vis": true
+    },
+    "interlude": {
+     "val": "x",
+     "vis": false
+    },
+    "statmethod": {
+     "val": "dice",
+     "vis": false
+    },
+    "reroll": {
+     "val": "none",
+     "vis": true
+    },
+    "swap": {
+     "val": "x",
+     "vis": true
+    },
+    "occpts": {
+     "val": "edu20",
+     "vis": false
+    },
+    "hobpts": {
+     "val": "int10",
+     "vis": false
+    },
+    "skillcap": {
+     "val": "none",
+     "vis": true
+    },
+    "age": {
+     "val": "o",
+     "vis": false
+    },
+    "occspec": {
+     "val": "o",
+     "vis": false
+    },
+    "traits": {
+     "val": "none",
+     "vis": true
+    },
+    "critticket": {
+     "val": "x",
+     "vis": false
+    }
+   },
+   "7": {
+    "push": {
+     "val": "o",
+     "vis": true
+    },
+    "luckspend": {
+     "val": "x",
+     "vis": true
+    },
+    "fumble7": {
+     "val": "raw",
+     "vis": false
+    },
+    "difficulty": {
+     "val": "raw",
+     "vis": false
+    },
+    "sancf": {
+     "val": "off",
+     "vis": true
+    },
+    "tempmad": {
+     "val": "either",
+     "vis": true
+    },
+    "indef": {
+     "val": "o",
+     "vis": true
+    },
+    "latent": {
+     "val": "o",
+     "vis": false
+    },
+    "delusion": {
+     "val": "o",
+     "vis": false
+    },
+    "phobia": {
+     "val": "o",
+     "vis": false
+    },
+    "insight": {
+     "val": "o",
+     "vis": false
+    },
+    "numb": {
+     "val": "o",
+     "vis": false
+    },
+    "init": {
+     "val": "dex",
+     "vis": true
+    },
+    "readyfire": {
+     "val": "o",
+     "vis": false
+    },
+    "knockout": {
+     "val": "o",
+     "vis": false
+    },
+    "burst": {
+     "val": "o",
+     "vis": false
+    },
+    "impale": {
+     "val": "o",
+     "vis": true
+    },
+    "chase": {
+     "val": "o",
+     "vis": false
+    },
+    "aidcount": {
+     "val": "1",
+     "vis": true
+    },
+    "aidmed": {
+     "val": "o",
+     "vis": true
+    },
+    "majorwound": {
+     "val": "o",
+     "vis": false
+    },
+    "luckdeath": {
+     "val": "x",
+     "vis": false
+    },
+    "growcheck": {
+     "val": "raw",
+     "vis": true
+    },
+    "growamount": {
+     "val": "d10",
+     "vis": false
+    },
+    "instant": {
+     "val": "x",
+     "vis": true
+    },
+    "luckrecover": {
+     "val": "o",
+     "vis": false
+    },
+    "statmethod": {
+     "val": "dice",
+     "vis": false
+    },
+    "reroll": {
+     "val": "none",
+     "vis": true
+    },
+    "swap": {
+     "val": "x",
+     "vis": true
+    },
+    "exceptional": {
+     "val": "x",
+     "vis": false
+    },
+    "occpts": {
+     "val": "byocc",
+     "vis": false
+    },
+    "hobpts": {
+     "val": "int2",
+     "vis": false
+    },
+    "skillcap": {
+     "val": "none",
+     "vis": true
+    },
+    "age": {
+     "val": "o",
+     "vis": false
+    },
+    "exppack": {
+     "val": "x",
+     "vis": false
+    },
+    "talent": {
+     "val": "none",
+     "vis": false
+    }
+   },
+   "common": {
+    "secret": {
+     "val": "kp",
+     "vis": true
+    },
+    "retry": {
+     "val": "no",
+     "vis": true
+    },
+    "combine": {
+     "val": "x",
+     "vis": false
+    },
+    "timing": {
+     "val": "pl",
+     "vis": false
+    },
+    "kpdice": {
+     "val": "case",
+     "vis": false
+    },
+    "info": {
+     "val": "free",
+     "vis": true
+    },
+    "meta": {
+     "val": "light",
+     "vis": false
+    },
+    "pvp": {
+     "val": "consult",
+     "vis": false
+    },
+    "continuing": {
+     "val": "both",
+     "vis": true
+    },
+    "lost": {
+     "val": "on",
+     "vis": true
+    },
+    "carry": {
+     "val": "consult",
+     "vis": false
+    },
+    "stream": {
+     "val": "consult",
+     "vis": false
+    },
+    "spoiler": {
+     "val": "hide",
+     "vis": false
+    }
+   }
+  },
+  "pop": {
+   "6": {
+    "cmd": {
+     "val": "ccb",
+     "vis": true
+    },
+    "special": {
+     "val": "o",
+     "vis": true
+    },
+    "fumbletable": {
+     "val": "x",
+     "vis": false
+    },
+    "sancf": {
+     "val": "on",
+     "vis": true
+    },
+    "tempmad": {
+     "val": "either",
+     "vis": true
+    },
+    "indef": {
+     "val": "o",
+     "vis": true
+    },
+    "insight": {
+     "val": "o",
+     "vis": false
+    },
+    "mythosgrow": {
+     "val": "x",
+     "vis": false
+    },
+    "init": {
+     "val": "dex",
+     "vis": true
+    },
+    "atkdodge": {
+     "val": "both",
+     "vis": true
+    },
+    "parrydodge": {
+     "val": "both",
+     "vis": false
+    },
+    "dodgespot": {
+     "val": "x",
+     "vis": false
+    },
+    "impale": {
+     "val": "o",
+     "vis": true
+    },
+    "knockout": {
+     "val": "o",
+     "vis": false
+    },
+    "readyfire": {
+     "val": "o",
+     "vis": false
+    },
+    "burst": {
+     "val": "o",
+     "vis": false
+    },
+    "grapple": {
+     "val": "x",
+     "vis": false
+    },
+    "martial": {
+     "val": "x",
+     "vis": false
+    },
+    "aidcount": {
+     "val": "1",
+     "vis": true
+    },
+    "aidmed": {
+     "val": "o",
+     "vis": true
+    },
+    "autoko": {
+     "val": "o",
+     "vis": false
+    },
+    "shock": {
+     "val": "o",
+     "vis": false
+    },
+    "dying": {
+     "val": "raw",
+     "vis": false
+    },
+    "growcheck": {
+     "val": "raw",
+     "vis": true
+    },
+    "growamount": {
+     "val": "d10",
+     "vis": false
+    },
+    "instant": {
+     "val": "init",
+     "vis": true
+    },
+    "interlude": {
+     "val": "x",
+     "vis": false
+    },
+    "statmethod": {
+     "val": "dice",
+     "vis": false
+    },
+    "reroll": {
+     "val": "inf",
+     "vis": true
+    },
+    "swap": {
+     "val": "x",
+     "vis": true
+    },
+    "occpts": {
+     "val": "edu20",
+     "vis": false
+    },
+    "hobpts": {
+     "val": "int10",
+     "vis": false
+    },
+    "skillcap": {
+     "val": "cap",
+     "vis": true,
+     "n": 90
+    },
+    "age": {
+     "val": "o",
+     "vis": false
+    },
+    "occspec": {
+     "val": "o",
+     "vis": false
+    },
+    "traits": {
+     "val": "two",
+     "vis": true
+    },
+    "critticket": {
+     "val": "x",
+     "vis": false
+    }
+   },
+   "7": {
+    "push": {
+     "val": "o",
+     "vis": true
+    },
+    "luckspend": {
+     "val": "o",
+     "vis": true
+    },
+    "fumble7": {
+     "val": "raw",
+     "vis": false
+    },
+    "difficulty": {
+     "val": "raw",
+     "vis": false
+    },
+    "sancf": {
+     "val": "on",
+     "vis": true
+    },
+    "tempmad": {
+     "val": "either",
+     "vis": true
+    },
+    "indef": {
+     "val": "o",
+     "vis": true
+    },
+    "latent": {
+     "val": "o",
+     "vis": false
+    },
+    "delusion": {
+     "val": "o",
+     "vis": false
+    },
+    "phobia": {
+     "val": "o",
+     "vis": false
+    },
+    "insight": {
+     "val": "o",
+     "vis": false
+    },
+    "numb": {
+     "val": "o",
+     "vis": false
+    },
+    "init": {
+     "val": "dex",
+     "vis": true
+    },
+    "readyfire": {
+     "val": "o",
+     "vis": false
+    },
+    "knockout": {
+     "val": "o",
+     "vis": false
+    },
+    "burst": {
+     "val": "o",
+     "vis": false
+    },
+    "impale": {
+     "val": "o",
+     "vis": true
+    },
+    "chase": {
+     "val": "o",
+     "vis": false
+    },
+    "aidcount": {
+     "val": "1",
+     "vis": true
+    },
+    "aidmed": {
+     "val": "o",
+     "vis": true
+    },
+    "majorwound": {
+     "val": "o",
+     "vis": false
+    },
+    "luckdeath": {
+     "val": "x",
+     "vis": false
+    },
+    "growcheck": {
+     "val": "raw",
+     "vis": true
+    },
+    "growamount": {
+     "val": "d10",
+     "vis": false
+    },
+    "instant": {
+     "val": "x",
+     "vis": true
+    },
+    "luckrecover": {
+     "val": "used",
+     "vis": true
+    },
+    "statmethod": {
+     "val": "dice",
+     "vis": false
+    },
+    "reroll": {
+     "val": "inf",
+     "vis": true
+    },
+    "swap": {
+     "val": "x",
+     "vis": true
+    },
+    "exceptional": {
+     "val": "x",
+     "vis": false
+    },
+    "occpts": {
+     "val": "byocc",
+     "vis": false
+    },
+    "hobpts": {
+     "val": "int2",
+     "vis": false
+    },
+    "skillcap": {
+     "val": "cap",
+     "vis": true,
+     "n": 80
+    },
+    "age": {
+     "val": "o",
+     "vis": false
+    },
+    "exppack": {
+     "val": "x",
+     "vis": false
+    },
+    "talent": {
+     "val": "none",
+     "vis": false
+    }
+   },
+   "common": {
+    "secret": {
+     "val": "kp",
+     "vis": true
+    },
+    "retry": {
+     "val": "no",
+     "vis": true
+    },
+    "combine": {
+     "val": "x",
+     "vis": false
+    },
+    "timing": {
+     "val": "pl",
+     "vis": false
+    },
+    "kpdice": {
+     "val": "case",
+     "vis": false
+    },
+    "info": {
+     "val": "free",
+     "vis": true
+    },
+    "meta": {
+     "val": "light",
+     "vis": false
+    },
+    "pvp": {
+     "val": "consult",
+     "vis": false
+    },
+    "continuing": {
+     "val": "both",
+     "vis": true
+    },
+    "lost": {
+     "val": "on",
+     "vis": true
+    },
+    "carry": {
+     "val": "consult",
+     "vis": false
+    },
+    "stream": {
+     "val": "consult",
+     "vis": false
+    },
+    "spoiler": {
+     "val": "hide",
+     "vis": false
+    }
+   }
+  },
+  "clearAfterPop": {
+   "6": {
+    "cmd": {
+     "val": null,
+     "vis": true
+    },
+    "special": {
+     "val": null,
+     "vis": true
+    },
+    "fumbletable": {
+     "val": null,
+     "vis": false
+    },
+    "sancf": {
+     "val": null,
+     "vis": true
+    },
+    "tempmad": {
+     "val": null,
+     "vis": true
+    },
+    "indef": {
+     "val": null,
+     "vis": true
+    },
+    "insight": {
+     "val": null,
+     "vis": false
+    },
+    "mythosgrow": {
+     "val": null,
+     "vis": false
+    },
+    "init": {
+     "val": null,
+     "vis": true
+    },
+    "atkdodge": {
+     "val": null,
+     "vis": true
+    },
+    "parrydodge": {
+     "val": null,
+     "vis": false
+    },
+    "dodgespot": {
+     "val": null,
+     "vis": false
+    },
+    "impale": {
+     "val": null,
+     "vis": true
+    },
+    "knockout": {
+     "val": null,
+     "vis": false
+    },
+    "readyfire": {
+     "val": null,
+     "vis": false
+    },
+    "burst": {
+     "val": null,
+     "vis": false
+    },
+    "grapple": {
+     "val": null,
+     "vis": false
+    },
+    "martial": {
+     "val": null,
+     "vis": false
+    },
+    "aidcount": {
+     "val": null,
+     "vis": true
+    },
+    "aidmed": {
+     "val": null,
+     "vis": true
+    },
+    "autoko": {
+     "val": null,
+     "vis": false
+    },
+    "shock": {
+     "val": null,
+     "vis": false
+    },
+    "dying": {
+     "val": null,
+     "vis": false
+    },
+    "growcheck": {
+     "val": null,
+     "vis": true
+    },
+    "growamount": {
+     "val": null,
+     "vis": false
+    },
+    "instant": {
+     "val": null,
+     "vis": true
+    },
+    "interlude": {
+     "val": null,
+     "vis": false
+    },
+    "statmethod": {
+     "val": null,
+     "vis": false
+    },
+    "reroll": {
+     "val": null,
+     "vis": true
+    },
+    "swap": {
+     "val": null,
+     "vis": true
+    },
+    "occpts": {
+     "val": null,
+     "vis": false
+    },
+    "hobpts": {
+     "val": null,
+     "vis": false
+    },
+    "skillcap": {
+     "val": null,
+     "vis": true
+    },
+    "age": {
+     "val": null,
+     "vis": false
+    },
+    "occspec": {
+     "val": null,
+     "vis": false
+    },
+    "traits": {
+     "val": null,
+     "vis": true
+    },
+    "critticket": {
+     "val": null,
+     "vis": false
+    }
+   },
+   "7": {
+    "push": {
+     "val": null,
+     "vis": true
+    },
+    "luckspend": {
+     "val": null,
+     "vis": true
+    },
+    "fumble7": {
+     "val": null,
+     "vis": false
+    },
+    "difficulty": {
+     "val": null,
+     "vis": false
+    },
+    "sancf": {
+     "val": null,
+     "vis": true
+    },
+    "tempmad": {
+     "val": null,
+     "vis": true
+    },
+    "indef": {
+     "val": null,
+     "vis": true
+    },
+    "latent": {
+     "val": null,
+     "vis": false
+    },
+    "delusion": {
+     "val": null,
+     "vis": false
+    },
+    "phobia": {
+     "val": null,
+     "vis": false
+    },
+    "insight": {
+     "val": null,
+     "vis": false
+    },
+    "numb": {
+     "val": null,
+     "vis": false
+    },
+    "init": {
+     "val": null,
+     "vis": true
+    },
+    "readyfire": {
+     "val": null,
+     "vis": false
+    },
+    "knockout": {
+     "val": null,
+     "vis": false
+    },
+    "burst": {
+     "val": null,
+     "vis": false
+    },
+    "impale": {
+     "val": null,
+     "vis": true
+    },
+    "chase": {
+     "val": null,
+     "vis": false
+    },
+    "aidcount": {
+     "val": null,
+     "vis": true
+    },
+    "aidmed": {
+     "val": null,
+     "vis": true
+    },
+    "majorwound": {
+     "val": null,
+     "vis": false
+    },
+    "luckdeath": {
+     "val": null,
+     "vis": false
+    },
+    "growcheck": {
+     "val": null,
+     "vis": true
+    },
+    "growamount": {
+     "val": null,
+     "vis": false
+    },
+    "instant": {
+     "val": null,
+     "vis": true
+    },
+    "luckrecover": {
+     "val": null,
+     "vis": true
+    },
+    "statmethod": {
+     "val": null,
+     "vis": false
+    },
+    "reroll": {
+     "val": null,
+     "vis": true
+    },
+    "swap": {
+     "val": null,
+     "vis": true
+    },
+    "exceptional": {
+     "val": null,
+     "vis": false
+    },
+    "occpts": {
+     "val": null,
+     "vis": false
+    },
+    "hobpts": {
+     "val": null,
+     "vis": false
+    },
+    "skillcap": {
+     "val": null,
+     "vis": true
+    },
+    "age": {
+     "val": null,
+     "vis": false
+    },
+    "exppack": {
+     "val": null,
+     "vis": false
+    },
+    "talent": {
+     "val": null,
+     "vis": false
+    }
+   },
+   "common": {
+    "secret": {
+     "val": null,
+     "vis": true
+    },
+    "retry": {
+     "val": null,
+     "vis": true
+    },
+    "combine": {
+     "val": null,
+     "vis": false
+    },
+    "timing": {
+     "val": null,
+     "vis": false
+    },
+    "kpdice": {
+     "val": null,
+     "vis": false
+    },
+    "info": {
+     "val": null,
+     "vis": true
+    },
+    "meta": {
+     "val": null,
+     "vis": false
+    },
+    "pvp": {
+     "val": null,
+     "vis": false
+    },
+    "continuing": {
+     "val": null,
+     "vis": true
+    },
+    "lost": {
+     "val": null,
+     "vis": true
+    },
+    "carry": {
+     "val": null,
+     "vis": false
+    },
+    "stream": {
+     "val": null,
+     "vis": false
+    },
+    "spoiler": {
+     "val": null,
+     "vis": false
+    }
+   }
+  }
+ },
+ "cases": [
+  {
+   "name": "raw-6",
+   "state": {
+    "edition": "6",
+    "info": {
+     "title": "",
+     "kp": "",
+     "system": "",
+     "scenario": "",
+     "date": "2026-10-09",
+     "remarks": ""
+    },
+    "secs": {
+     "6": {
+      "rows": {
+       "cmd": {
+        "note": "",
+        "val": "ccb",
+        "vis": true
+       },
+       "special": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "fumbletable": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "sancf": {
+        "note": "",
+        "val": "off",
+        "vis": true
+       },
+       "tempmad": {
+        "note": "",
+        "val": "either",
+        "vis": true
+       },
+       "indef": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "insight": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "mythosgrow": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "init": {
+        "note": "",
+        "val": "dex",
+        "vis": true
+       },
+       "atkdodge": {
+        "note": "",
+        "val": "both",
+        "vis": true
+       },
+       "parrydodge": {
+        "note": "",
+        "val": "both",
+        "vis": false
+       },
+       "dodgespot": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "impale": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "knockout": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "readyfire": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "burst": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "grapple": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "martial": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "aidcount": {
+        "note": "",
+        "val": "1",
+        "vis": true
+       },
+       "aidmed": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "autoko": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "shock": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "dying": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "growcheck": {
+        "note": "",
+        "val": "raw",
+        "vis": true
+       },
+       "growamount": {
+        "note": "",
+        "val": "d10",
+        "vis": false
+       },
+       "instant": {
+        "note": "",
+        "val": "x",
+        "vis": true
+       },
+       "interlude": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "statmethod": {
+        "note": "",
+        "val": "dice",
+        "vis": false
+       },
+       "reroll": {
+        "note": "",
+        "val": "none",
+        "vis": true
+       },
+       "swap": {
+        "note": "",
+        "val": "x",
+        "vis": true
+       },
+       "occpts": {
+        "note": "",
+        "val": "edu20",
+        "vis": false
+       },
+       "hobpts": {
+        "note": "",
+        "val": "int10",
+        "vis": false
+       },
+       "skillcap": {
+        "note": "",
+        "val": "none",
+        "vis": true
+       },
+       "age": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "occspec": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "traits": {
+        "note": "",
+        "val": "none",
+        "vis": true
+       },
+       "critticket": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       }
+      },
+      "custom": []
+     },
+     "7": {
+      "rows": {
+       "push": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "luckspend": {
+        "note": "",
+        "val": "x",
+        "vis": true
+       },
+       "fumble7": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "difficulty": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "sancf": {
+        "note": "",
+        "val": "off",
+        "vis": true
+       },
+       "tempmad": {
+        "note": "",
+        "val": "either",
+        "vis": true
+       },
+       "indef": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "latent": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "delusion": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "phobia": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "insight": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "numb": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "init": {
+        "note": "",
+        "val": "dex",
+        "vis": true
+       },
+       "readyfire": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "knockout": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "burst": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "impale": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "chase": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "aidcount": {
+        "note": "",
+        "val": "1",
+        "vis": true
+       },
+       "aidmed": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "majorwound": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "luckdeath": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "growcheck": {
+        "note": "",
+        "val": "raw",
+        "vis": true
+       },
+       "growamount": {
+        "note": "",
+        "val": "d10",
+        "vis": false
+       },
+       "instant": {
+        "note": "",
+        "val": "x",
+        "vis": true
+       },
+       "luckrecover": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "statmethod": {
+        "note": "",
+        "val": "dice",
+        "vis": false
+       },
+       "reroll": {
+        "note": "",
+        "val": "none",
+        "vis": true
+       },
+       "swap": {
+        "note": "",
+        "val": "x",
+        "vis": true
+       },
+       "exceptional": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "occpts": {
+        "note": "",
+        "val": "byocc",
+        "vis": false
+       },
+       "hobpts": {
+        "note": "",
+        "val": "int2",
+        "vis": false
+       },
+       "skillcap": {
+        "note": "",
+        "val": "none",
+        "vis": true
+       },
+       "age": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "exppack": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "talent": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       }
+      },
+      "custom": []
+     },
+     "common": {
+      "rows": {
+       "secret": {
+        "note": "",
+        "val": "kp",
+        "vis": true
+       },
+       "retry": {
+        "note": "",
+        "val": "no",
+        "vis": true
+       },
+       "combine": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "timing": {
+        "note": "",
+        "val": "pl",
+        "vis": false
+       },
+       "kpdice": {
+        "note": "",
+        "val": "case",
+        "vis": false
+       },
+       "info": {
+        "note": "",
+        "val": "free",
+        "vis": true
+       },
+       "meta": {
+        "note": "",
+        "val": "light",
+        "vis": false
+       },
+       "pvp": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "continuing": {
+        "note": "",
+        "val": "both",
+        "vis": true
+       },
+       "lost": {
+        "note": "",
+        "val": "on",
+        "vis": true
+       },
+       "carry": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "stream": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "spoiler": {
+        "note": "",
+        "val": "hide",
+        "vis": false
+       }
+      },
+      "custom": []
+     }
+    },
+    "collapsed": {}
+   },
+   "outputs": {
+    "txt|notes|legend": [
+     "title",
+     "meta",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt#1",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:×",
+     "category",
+     "row:opt",
+     "row:×",
+     "row:opt",
+     "row:opt",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "row:opt",
+     "category",
+     "row:opt",
+     "category",
+     "row:opt",
+     "row:opt",
+     "",
+     "legend",
+     ""
+    ],
+    "txt|nonotes|legend": [
+     "title",
+     "meta",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt#1",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:×",
+     "category",
+     "row:opt",
+     "row:×",
+     "row:opt",
+     "row:opt",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "row:opt",
+     "category",
+     "row:opt",
+     "category",
+     "row:opt",
+     "row:opt",
+     "",
+     "legend",
+     ""
+    ],
+    "txt|notes|nolegend": [
+     "title",
+     "meta",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt#1",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:×",
+     "category",
+     "row:opt",
+     "row:×",
+     "row:opt",
+     "row:opt",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "row:opt",
+     "category",
+     "row:opt",
+     "category",
+     "row:opt",
+     "row:opt",
+     ""
+    ],
+    "md|notes|legend": [
+     "h1",
+     "",
+     "meta",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt#1",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:×",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:×",
+     "row:opt",
+     "row:opt",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "",
+     "legend",
+     ""
+    ],
+    "md|nonotes|legend": [
+     "h1",
+     "",
+     "meta",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt#1",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:×",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:×",
+     "row:opt",
+     "row:opt",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "",
+     "legend",
+     ""
+    ],
+    "md|notes|nolegend": [
+     "h1",
+     "",
+     "meta",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt#1",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:×",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:×",
+     "row:opt",
+     "row:opt",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     ""
+    ]
+   },
+   "empty": false,
+   "png": {
+    "wide": [
+     1920,
+     2764
+    ],
+    "narrow": [
+     1200,
+     2718
+    ]
+   }
+  },
+  {
+   "name": "pop-both",
+   "state": {
+    "edition": "both",
+    "info": {
+     "title": "週五團的房規",
+     "kp": "阿明",
+     "system": "",
+     "scenario": "雨夜的來訪者",
+     "date": "2026-10-01",
+     "remarks": "有問題隨時問我\n第二行備註"
+    },
+    "secs": {
+     "6": {
+      "rows": {
+       "cmd": {
+        "note": "戰鬥輪也用 CCB",
+        "val": "ccb",
+        "vis": true
+       },
+       "special": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "fumbletable": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "sancf": {
+        "note": "",
+        "val": "on",
+        "vis": true
+       },
+       "tempmad": {
+        "note": "",
+        "val": "either",
+        "vis": true
+       },
+       "indef": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "insight": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "mythosgrow": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "init": {
+        "note": "",
+        "val": "dex",
+        "vis": true
+       },
+       "atkdodge": {
+        "note": "",
+        "val": "both",
+        "vis": true
+       },
+       "parrydodge": {
+        "note": "",
+        "val": "both",
+        "vis": false
+       },
+       "dodgespot": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "impale": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "knockout": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "readyfire": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "burst": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "grapple": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "martial": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "aidcount": {
+        "note": "",
+        "val": "1",
+        "vis": true
+       },
+       "aidmed": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "autoko": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "shock": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "dying": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "growcheck": {
+        "note": "",
+        "val": "raw",
+        "vis": true
+       },
+       "growamount": {
+        "note": "",
+        "val": "d10",
+        "vis": false
+       },
+       "instant": {
+        "note": "",
+        "val": "init",
+        "vis": true
+       },
+       "interlude": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "statmethod": {
+        "note": "",
+        "val": "dice",
+        "vis": false
+       },
+       "reroll": {
+        "note": "",
+        "val": "each",
+        "vis": true,
+        "n": 5
+       },
+       "swap": {
+        "note": "",
+        "val": "x",
+        "vis": true
+       },
+       "occpts": {
+        "note": "",
+        "val": "edu20",
+        "vis": false
+       },
+       "hobpts": {
+        "note": "",
+        "val": "int10",
+        "vis": false
+       },
+       "skillcap": {
+        "note": "",
+        "val": "cap",
+        "vis": true,
+        "n": 85
+       },
+       "age": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "occspec": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "traits": {
+        "note": "",
+        "val": "two",
+        "vis": true
+       },
+       "critticket": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       }
+      },
+      "custom": []
+     },
+     "7": {
+      "rows": {
+       "push": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "luckspend": {
+        "note": "一次最多 10 點\n大失敗不能改",
+        "val": "m",
+        "vis": true
+       },
+       "fumble7": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "difficulty": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "sancf": {
+        "note": "",
+        "val": "on",
+        "vis": true
+       },
+       "tempmad": {
+        "note": "",
+        "val": "either",
+        "vis": true
+       },
+       "indef": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "latent": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "delusion": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "phobia": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "insight": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "numb": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "init": {
+        "note": "",
+        "val": "dex",
+        "vis": true
+       },
+       "readyfire": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "knockout": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "burst": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "impale": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "chase": {
+        "note": "",
+        "val": "o",
+        "vis": true,
+        "name": "追逐戰"
+       },
+       "aidcount": {
+        "note": "",
+        "val": "1",
+        "vis": true
+       },
+       "aidmed": {
+        "note": "",
+        "val": "o",
+        "vis": true
+       },
+       "majorwound": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "luckdeath": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "growcheck": {
+        "note": "",
+        "val": "raw",
+        "vis": true
+       },
+       "growamount": {
+        "note": "",
+        "val": "d10",
+        "vis": false
+       },
+       "instant": {
+        "note": "",
+        "val": "x",
+        "vis": true
+       },
+       "luckrecover": {
+        "note": "",
+        "val": "used",
+        "vis": true
+       },
+       "statmethod": {
+        "note": "",
+        "val": "dice",
+        "vis": false
+       },
+       "reroll": {
+        "note": "",
+        "val": "total",
+        "vis": true,
+        "n": 7
+       },
+       "swap": {
+        "note": "",
+        "val": "x",
+        "vis": true
+       },
+       "exceptional": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "occpts": {
+        "note": "",
+        "val": "byocc",
+        "vis": false
+       },
+       "hobpts": {
+        "note": "",
+        "val": "int2",
+        "vis": false
+       },
+       "skillcap": {
+        "note": "",
+        "val": "cap",
+        "vis": true,
+        "n": 80
+       },
+       "age": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "exppack": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "talent": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       }
+      },
+      "custom": [
+       {
+        "id": "c7",
+        "cat": "table",
+        "name": "餅乾規則",
+        "val": "o",
+        "text": "",
+        "note": "帶餅乾來",
+        "vis": true
+       }
+      ]
+     },
+     "common": {
+      "rows": {
+       "secret": {
+        "note": "",
+        "val": "kp",
+        "vis": true
+       },
+       "retry": {
+        "note": "",
+        "val": "no",
+        "vis": true
+       },
+       "combine": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "timing": {
+        "note": "",
+        "val": "pl",
+        "vis": false
+       },
+       "kpdice": {
+        "note": "",
+        "val": "case",
+        "vis": false
+       },
+       "info": {
+        "note": "",
+        "val": "free",
+        "vis": true
+       },
+       "meta": {
+        "note": "",
+        "val": "light",
+        "vis": false
+       },
+       "pvp": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "continuing": {
+        "note": "",
+        "val": "both",
+        "vis": true
+       },
+       "lost": {
+        "note": "",
+        "val": "on",
+        "vis": true
+       },
+       "carry": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "stream": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "spoiler": {
+        "note": "",
+        "val": "hide",
+        "vis": false
+       }
+      },
+      "custom": [
+       {
+        "id": "c1",
+        "cat": "dice",
+        "name": "骰子的顏色",
+        "val": "o",
+        "text": "",
+        "note": "",
+        "vis": true
+       },
+       {
+        "id": "c2",
+        "cat": "dice",
+        "name": "",
+        "val": "text",
+        "text": "每人一顆",
+        "note": "自由發揮",
+        "vis": true
+       },
+       {
+        "id": "c3",
+        "cat": "play",
+        "name": "遲到",
+        "val": "m",
+        "text": "",
+        "note": "先說一聲",
+        "vis": true
+       },
+       {
+        "id": "c4",
+        "cat": "play",
+        "name": "藏起來的",
+        "val": "x",
+        "text": "",
+        "note": "",
+        "vis": false
+       },
+       {
+        "id": "c5",
+        "cat": "share",
+        "name": "沒設定",
+        "val": null,
+        "text": "",
+        "note": "",
+        "vis": true
+       },
+       {
+        "id": "c6",
+        "cat": "share",
+        "name": "空白內容",
+        "val": "text",
+        "text": "",
+        "note": "",
+        "vis": true
+       }
+      ]
+     }
+    },
+    "collapsed": {}
+   },
+   "outputs": {
+    "txt|notes|legend": [
+     "title",
+     "meta",
+     "meta",
+     "meta",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "note:戰鬥輪也用 CCB",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt#1",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "category",
+     "row:opt#5",
+     "row:×",
+     "row:opt#85",
+     "row:opt#2",
+     "",
+     "section",
+     "category",
+     "row:○",
+     "row:※",
+     "note:一次最多 10 點",
+     "note+:大失敗不能改",
+     "row:—",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:○",
+     "row:○",
+     "category",
+     "row:opt#1",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:×",
+     "row:opt",
+     "category",
+     "row:opt#7",
+     "row:×",
+     "row:opt#80",
+     "category",
+     "row:○",
+     "note:帶餅乾來",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "row:opt",
+     "note:自由發揮",
+     "category",
+     "row:opt",
+     "row:※",
+     "note:先說一聲",
+     "category",
+     "row:opt",
+     "row:opt",
+     "category",
+     "row:—",
+     "row:—",
+     "",
+     "section",
+     "text:有問題隨時問我",
+     "text:第二行備註",
+     "",
+     "legend",
+     ""
+    ],
+    "txt|nonotes|legend": [
+     "title",
+     "meta",
+     "meta",
+     "meta",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt#1",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "category",
+     "row:opt#5",
+     "row:×",
+     "row:opt#85",
+     "row:opt#2",
+     "",
+     "section",
+     "category",
+     "row:○",
+     "row:※",
+     "row:—",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:○",
+     "row:○",
+     "category",
+     "row:opt#1",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:×",
+     "row:opt",
+     "category",
+     "row:opt#7",
+     "row:×",
+     "row:opt#80",
+     "category",
+     "row:○",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "row:opt",
+     "category",
+     "row:opt",
+     "row:※",
+     "category",
+     "row:opt",
+     "row:opt",
+     "category",
+     "row:—",
+     "row:—",
+     "",
+     "section",
+     "text:有問題隨時問我",
+     "text:第二行備註",
+     "",
+     "legend",
+     ""
+    ],
+    "txt|notes|nolegend": [
+     "title",
+     "meta",
+     "meta",
+     "meta",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "note:戰鬥輪也用 CCB",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt#1",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:opt",
+     "category",
+     "row:opt#5",
+     "row:×",
+     "row:opt#85",
+     "row:opt#2",
+     "",
+     "section",
+     "category",
+     "row:○",
+     "row:※",
+     "note:一次最多 10 點",
+     "note+:大失敗不能改",
+     "row:—",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:○",
+     "row:○",
+     "category",
+     "row:opt#1",
+     "row:○",
+     "category",
+     "row:opt",
+     "row:×",
+     "row:opt",
+     "category",
+     "row:opt#7",
+     "row:×",
+     "row:opt#80",
+     "category",
+     "row:○",
+     "note:帶餅乾來",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "row:opt",
+     "note:自由發揮",
+     "category",
+     "row:opt",
+     "row:※",
+     "note:先說一聲",
+     "category",
+     "row:opt",
+     "row:opt",
+     "category",
+     "row:—",
+     "row:—",
+     "",
+     "section",
+     "text:有問題隨時問我",
+     "text:第二行備註",
+     ""
+    ],
+    "md|notes|legend": [
+     "h1",
+     "",
+     "meta",
+     "meta",
+     "meta",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:戰鬥輪也用 CCB",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt#1:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt#5:",
+     "row:×:",
+     "row:opt#85:",
+     "row:opt#2:",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:○:",
+     "row:※:一次最多 10 點<br>大失敗不能改",
+     "row:—:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:○:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt#1:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:×:",
+     "row:opt:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt#7:",
+     "row:×:",
+     "row:opt#80:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:○:帶餅乾來",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "row:○:",
+     "row:opt:自由發揮",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:※:先說一聲",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:—:",
+     "row:—:",
+     "",
+     "h2",
+     "",
+     "text:有問題隨時問我",
+     "text:第二行備註",
+     "",
+     "legend",
+     ""
+    ],
+    "md|nonotes|legend": [
+     "h1",
+     "",
+     "meta",
+     "meta",
+     "meta",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt#1",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt#5",
+     "row:×",
+     "row:opt#85",
+     "row:opt#2",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:○",
+     "row:※",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:○",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt#1",
+     "row:○",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:×",
+     "row:opt",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt#7",
+     "row:×",
+     "row:opt#80",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:○",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "row:○",
+     "row:opt",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:※",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "row:opt",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h2",
+     "",
+     "text:有問題隨時問我",
+     "text:第二行備註",
+     "",
+     "legend",
+     ""
+    ],
+    "md|notes|nolegend": [
+     "h1",
+     "",
+     "meta",
+     "meta",
+     "meta",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:戰鬥輪也用 CCB",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt#1:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt#5:",
+     "row:×:",
+     "row:opt#85:",
+     "row:opt#2:",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:○:",
+     "row:※:一次最多 10 點<br>大失敗不能改",
+     "row:—:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:○:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt#1:",
+     "row:○:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:×:",
+     "row:opt:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt#7:",
+     "row:×:",
+     "row:opt#80:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:○:帶餅乾來",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "row:○:",
+     "row:opt:自由發揮",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:※:先說一聲",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:opt:",
+     "row:opt:",
+     "",
+     "h3",
+     "",
+     "head:3",
+     "| --- | :---: | --- |",
+     "row:—:",
+     "row:—:",
+     "",
+     "h2",
+     "",
+     "text:有問題隨時問我",
+     "text:第二行備註",
+     ""
+    ]
+   },
+   "empty": false,
+   "png": {
+    "wide": [
+     1920,
+     5468
+    ],
+    "narrow": [
+     1200,
+     5636
+    ]
+   }
+  },
+  {
+   "name": "clear-7",
+   "state": {
+    "edition": "7",
+    "info": {
+     "title": "空白",
+     "kp": "",
+     "system": "自訂系統",
+     "scenario": "",
+     "date": "",
+     "remarks": ""
+    },
+    "secs": {
+     "6": {
+      "rows": {
+       "cmd": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "special": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "fumbletable": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "sancf": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "tempmad": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "indef": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "insight": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "mythosgrow": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "init": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "atkdodge": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "parrydodge": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "dodgespot": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "impale": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "knockout": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "readyfire": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "burst": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "grapple": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "martial": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "aidcount": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "aidmed": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "autoko": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "shock": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "dying": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "growcheck": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "growamount": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "instant": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "interlude": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "statmethod": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "reroll": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "swap": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "occpts": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "hobpts": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "skillcap": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "age": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "occspec": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "traits": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "critticket": {
+        "note": "",
+        "val": null,
+        "vis": false
+       }
+      },
+      "custom": []
+     },
+     "7": {
+      "rows": {
+       "push": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "luckspend": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "fumble7": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "difficulty": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "sancf": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "tempmad": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "indef": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "latent": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "delusion": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "phobia": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "insight": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "numb": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "init": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "readyfire": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "knockout": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "burst": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "impale": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "chase": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "aidcount": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "aidmed": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "majorwound": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "luckdeath": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "growcheck": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "growamount": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "instant": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "luckrecover": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "statmethod": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "reroll": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "swap": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "exceptional": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "occpts": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "hobpts": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "skillcap": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "age": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "exppack": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "talent": {
+        "note": "",
+        "val": null,
+        "vis": false
+       }
+      },
+      "custom": []
+     },
+     "common": {
+      "rows": {
+       "secret": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "retry": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "combine": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "timing": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "kpdice": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "info": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "meta": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "pvp": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "continuing": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "lost": {
+        "note": "",
+        "val": null,
+        "vis": true
+       },
+       "carry": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "stream": {
+        "note": "",
+        "val": null,
+        "vis": false
+       },
+       "spoiler": {
+        "note": "",
+        "val": null,
+        "vis": false
+       }
+      },
+      "custom": []
+     }
+    },
+    "collapsed": {}
+   },
+   "outputs": {
+    "txt|notes|legend": [
+     "title",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "section",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "",
+     "legend",
+     ""
+    ],
+    "txt|nonotes|legend": [
+     "title",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "section",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "",
+     "legend",
+     ""
+    ],
+    "txt|notes|nolegend": [
+     "title",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "section",
+     "category",
+     "row:—",
+     "row:—",
+     "category",
+     "row:—",
+     "category",
+     "row:—",
+     "row:—",
+     ""
+    ],
+    "md|notes|legend": [
+     "h1",
+     "",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "legend",
+     ""
+    ],
+    "md|nonotes|legend": [
+     "h1",
+     "",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "legend",
+     ""
+    ],
+    "md|notes|nolegend": [
+     "h1",
+     "",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "row:—",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:—",
+     "row:—",
+     ""
+    ]
+   },
+   "empty": false,
+   "png": {
+    "wide": [
+     1920,
+     2662
+    ],
+    "narrow": [
+     1200,
+     2576
+    ]
+   }
+  },
+  {
+   "name": "custom-only",
+   "state": {
+    "edition": "6",
+    "info": {
+     "title": "",
+     "kp": "",
+     "system": "",
+     "scenario": "",
+     "date": "2026-01-02",
+     "remarks": ""
+    },
+    "secs": {
+     "6": {
+      "rows": {
+       "cmd": {
+        "note": "",
+        "val": "ccb",
+        "vis": false
+       },
+       "special": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "fumbletable": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "sancf": {
+        "note": "",
+        "val": "off",
+        "vis": false
+       },
+       "tempmad": {
+        "note": "",
+        "val": "either",
+        "vis": false
+       },
+       "indef": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "insight": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "mythosgrow": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "init": {
+        "note": "",
+        "val": "dex",
+        "vis": false
+       },
+       "atkdodge": {
+        "note": "",
+        "val": "both",
+        "vis": false
+       },
+       "parrydodge": {
+        "note": "",
+        "val": "both",
+        "vis": false
+       },
+       "dodgespot": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "impale": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "knockout": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "readyfire": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "burst": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "grapple": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "martial": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "aidcount": {
+        "note": "",
+        "val": "1",
+        "vis": false
+       },
+       "aidmed": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "autoko": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "shock": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "dying": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "growcheck": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "growamount": {
+        "note": "",
+        "val": "d10",
+        "vis": false
+       },
+       "instant": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "interlude": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "statmethod": {
+        "note": "",
+        "val": "dice",
+        "vis": false
+       },
+       "reroll": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       },
+       "swap": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "occpts": {
+        "note": "",
+        "val": "edu20",
+        "vis": false
+       },
+       "hobpts": {
+        "note": "",
+        "val": "int10",
+        "vis": false
+       },
+       "skillcap": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       },
+       "age": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "occspec": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "traits": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       },
+       "critticket": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       }
+      },
+      "custom": []
+     },
+     "7": {
+      "rows": {
+       "push": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "luckspend": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "fumble7": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "difficulty": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "sancf": {
+        "note": "",
+        "val": "off",
+        "vis": false
+       },
+       "tempmad": {
+        "note": "",
+        "val": "either",
+        "vis": false
+       },
+       "indef": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "latent": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "delusion": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "phobia": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "insight": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "numb": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "init": {
+        "note": "",
+        "val": "dex",
+        "vis": false
+       },
+       "readyfire": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "knockout": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "burst": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "impale": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "chase": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "aidcount": {
+        "note": "",
+        "val": "1",
+        "vis": false
+       },
+       "aidmed": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "majorwound": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "luckdeath": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "growcheck": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "growamount": {
+        "note": "",
+        "val": "d10",
+        "vis": false
+       },
+       "instant": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "luckrecover": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "statmethod": {
+        "note": "",
+        "val": "dice",
+        "vis": false
+       },
+       "reroll": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       },
+       "swap": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "exceptional": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "occpts": {
+        "note": "",
+        "val": "byocc",
+        "vis": false
+       },
+       "hobpts": {
+        "note": "",
+        "val": "int2",
+        "vis": false
+       },
+       "skillcap": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       },
+       "age": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "exppack": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "talent": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       }
+      },
+      "custom": []
+     },
+     "common": {
+      "rows": {
+       "secret": {
+        "note": "",
+        "val": "kp",
+        "vis": false
+       },
+       "retry": {
+        "note": "",
+        "val": "no",
+        "vis": false
+       },
+       "combine": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "timing": {
+        "note": "",
+        "val": "pl",
+        "vis": false
+       },
+       "kpdice": {
+        "note": "",
+        "val": "case",
+        "vis": false
+       },
+       "info": {
+        "note": "",
+        "val": "free",
+        "vis": false
+       },
+       "meta": {
+        "note": "",
+        "val": "light",
+        "vis": false
+       },
+       "pvp": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "continuing": {
+        "note": "",
+        "val": "both",
+        "vis": false
+       },
+       "lost": {
+        "note": "",
+        "val": "on",
+        "vis": false
+       },
+       "carry": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "stream": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "spoiler": {
+        "note": "",
+        "val": "hide",
+        "vis": false
+       }
+      },
+      "custom": [
+       {
+        "id": "c1",
+        "cat": "char",
+        "name": "角色卡",
+        "val": "text",
+        "text": "開團前一天給",
+        "note": "",
+        "vis": true
+       }
+      ]
+     }
+    },
+    "collapsed": {}
+   },
+   "outputs": {
+    "txt|notes|legend": [
+     "title",
+     "meta",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "",
+     "legend",
+     ""
+    ],
+    "txt|nonotes|legend": [
+     "title",
+     "meta",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     "",
+     "legend",
+     ""
+    ],
+    "txt|notes|nolegend": [
+     "title",
+     "meta",
+     "meta",
+     "",
+     "section",
+     "category",
+     "row:opt",
+     ""
+    ],
+    "md|notes|legend": [
+     "h1",
+     "",
+     "meta",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "",
+     "legend",
+     ""
+    ],
+    "md|nonotes|legend": [
+     "h1",
+     "",
+     "meta",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     "",
+     "legend",
+     ""
+    ],
+    "md|notes|nolegend": [
+     "h1",
+     "",
+     "meta",
+     "meta",
+     "",
+     "h2",
+     "",
+     "h3",
+     "",
+     "head:2",
+     "| --- | :---: |",
+     "row:opt",
+     ""
+    ]
+   },
+   "empty": false,
+   "png": {
+    "wide": [
+     1920,
+     612
+    ],
+    "narrow": [
+     1200,
+     602
+    ]
+   }
+  },
+  {
+   "name": "empty",
+   "state": {
+    "edition": "7",
+    "info": {
+     "title": "",
+     "kp": "",
+     "system": "",
+     "scenario": "",
+     "date": "2026-10-09",
+     "remarks": "只有備註"
+    },
+    "secs": {
+     "6": {
+      "rows": {
+       "cmd": {
+        "note": "",
+        "val": "ccb",
+        "vis": false
+       },
+       "special": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "fumbletable": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "sancf": {
+        "note": "",
+        "val": "off",
+        "vis": false
+       },
+       "tempmad": {
+        "note": "",
+        "val": "either",
+        "vis": false
+       },
+       "indef": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "insight": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "mythosgrow": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "init": {
+        "note": "",
+        "val": "dex",
+        "vis": false
+       },
+       "atkdodge": {
+        "note": "",
+        "val": "both",
+        "vis": false
+       },
+       "parrydodge": {
+        "note": "",
+        "val": "both",
+        "vis": false
+       },
+       "dodgespot": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "impale": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "knockout": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "readyfire": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "burst": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "grapple": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "martial": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "aidcount": {
+        "note": "",
+        "val": "1",
+        "vis": false
+       },
+       "aidmed": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "autoko": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "shock": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "dying": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "growcheck": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "growamount": {
+        "note": "",
+        "val": "d10",
+        "vis": false
+       },
+       "instant": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "interlude": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "statmethod": {
+        "note": "",
+        "val": "dice",
+        "vis": false
+       },
+       "reroll": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       },
+       "swap": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "occpts": {
+        "note": "",
+        "val": "edu20",
+        "vis": false
+       },
+       "hobpts": {
+        "note": "",
+        "val": "int10",
+        "vis": false
+       },
+       "skillcap": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       },
+       "age": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "occspec": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "traits": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       },
+       "critticket": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       }
+      },
+      "custom": []
+     },
+     "7": {
+      "rows": {
+       "push": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "luckspend": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "fumble7": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "difficulty": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "sancf": {
+        "note": "",
+        "val": "off",
+        "vis": false
+       },
+       "tempmad": {
+        "note": "",
+        "val": "either",
+        "vis": false
+       },
+       "indef": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "latent": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "delusion": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "phobia": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "insight": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "numb": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "init": {
+        "note": "",
+        "val": "dex",
+        "vis": false
+       },
+       "readyfire": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "knockout": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "burst": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "impale": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "chase": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "aidcount": {
+        "note": "",
+        "val": "1",
+        "vis": false
+       },
+       "aidmed": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "majorwound": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "luckdeath": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "growcheck": {
+        "note": "",
+        "val": "raw",
+        "vis": false
+       },
+       "growamount": {
+        "note": "",
+        "val": "d10",
+        "vis": false
+       },
+       "instant": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "luckrecover": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "statmethod": {
+        "note": "",
+        "val": "dice",
+        "vis": false
+       },
+       "reroll": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       },
+       "swap": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "exceptional": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "occpts": {
+        "note": "",
+        "val": "byocc",
+        "vis": false
+       },
+       "hobpts": {
+        "note": "",
+        "val": "int2",
+        "vis": false
+       },
+       "skillcap": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       },
+       "age": {
+        "note": "",
+        "val": "o",
+        "vis": false
+       },
+       "exppack": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "talent": {
+        "note": "",
+        "val": "none",
+        "vis": false
+       }
+      },
+      "custom": []
+     },
+     "common": {
+      "rows": {
+       "secret": {
+        "note": "",
+        "val": "kp",
+        "vis": false
+       },
+       "retry": {
+        "note": "",
+        "val": "no",
+        "vis": false
+       },
+       "combine": {
+        "note": "",
+        "val": "x",
+        "vis": false
+       },
+       "timing": {
+        "note": "",
+        "val": "pl",
+        "vis": false
+       },
+       "kpdice": {
+        "note": "",
+        "val": "case",
+        "vis": false
+       },
+       "info": {
+        "note": "",
+        "val": "free",
+        "vis": false
+       },
+       "meta": {
+        "note": "",
+        "val": "light",
+        "vis": false
+       },
+       "pvp": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "continuing": {
+        "note": "",
+        "val": "both",
+        "vis": false
+       },
+       "lost": {
+        "note": "",
+        "val": "on",
+        "vis": false
+       },
+       "carry": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "stream": {
+        "note": "",
+        "val": "consult",
+        "vis": false
+       },
+       "spoiler": {
+        "note": "",
+        "val": "hide",
+        "vis": false
+       }
+      },
+      "custom": []
+     }
+    },
+    "collapsed": {}
+   },
+   "outputs": {},
+   "empty": true
+  }
+ ]
+}

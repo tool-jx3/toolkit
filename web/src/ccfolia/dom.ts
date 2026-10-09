@@ -156,6 +156,54 @@ export const MESSAGE_BOX = Object.freeze({
 /** 窄視窗時 CCFOLIA 會縮小立繪與骰子圖（視窗寬 < 900／< 600 px） */
 export const MESSAGE_BOX_BREAKPOINTS = Object.freeze({ narrow: 900, small: 600 });
 
+/**
+ * 訊息框的尺寸與外觀（CCFOLIA 1.37.4 的樣式；shiki365/scenario-text-maker 2026-10-03 以真實房間送出直式 1:2、正方形、
+ * 橫式 2:1、3:4 四種圖確認；與 `@/ccfolia/mock` 的房間模擬頁相同）：
+ * - 方框寬＝min(`maxWidth`, 視窗寬 − `sideInset`)（左 16 px、右 88 px），貼在畫面底部 16 px。
+ * - 立繪寬固定（`portraitWidth`：視窗寬 ≥ 900 px 時 240、< 900 px 時 180、< 600 px 時 120），高依圖的比例；
+ *   在方框上緣往上長、距方框左緣 `portraitLeft`，太高時被畫面切掉上面。
+ * - 標題列高 48 px（左右 24 px；名稱 14 px、粗 500），內文區高 80 px（內距 0 24 px 16 px；16 px、行高 1.5、保留換行），
+ *   底色 rgba(22, 22, 22, 0.84)、字色 #f5f5f5。
+ * - 聊天欄（日誌）裡同一則的圖是約 40 px 見方的頭像（object-fit: cover、靠上）。
+ */
+export const MESSAGE_BOX_LAYOUT = Object.freeze({
+  observed: '2026-10-03',
+  ccfoliaVersion: '1.37.4',
+  maxWidth: 720,
+  sideInset: 104,
+  bottom: 16,
+  portraitWidth: Object.freeze({ wide: 240, narrow: 180, small: 120 }),
+  portraitLeft: 8,
+  toolbarHeight: 48,
+  toolbarPaddingX: 24,
+  nameSize: 14,
+  bodyHeight: 80,
+  bodyPadding: '0 24px 16px',
+  textSize: 16,
+  lineHeight: 1.5,
+  background: 'rgba(22, 22, 22, 0.84)',
+  color: '#f5f5f5',
+  logIconSize: 40,
+  /** 標題列右邊兩個按鈕的圖示（MUI 的 FastForward、Close，24 × 24 的 SVG 路徑） */
+  icons: Object.freeze({
+    skip: 'M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z',
+    close:
+      'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+  }),
+});
+
+/** 視窗寬 → 訊息框的寬與立繪寬（`MESSAGE_BOX_LAYOUT`） */
+export function messageBoxSize(viewportWidth: number): { box: number; portrait: number } {
+  const L = MESSAGE_BOX_LAYOUT;
+  const portrait =
+    viewportWidth < MESSAGE_BOX_BREAKPOINTS.small
+      ? L.portraitWidth.small
+      : viewportWidth < MESSAGE_BOX_BREAKPOINTS.narrow
+        ? L.portraitWidth.narrow
+        : L.portraitWidth.wide;
+  return { box: Math.max(0, Math.min(L.maxWidth, viewportWidth - L.sideInset)), portrait };
+}
+
 /** CCFOLIA 決定的節奏（CSS 改不了；預覽照這個模擬） */
 export const MESSAGE_BOX_TIMING = Object.freeze({
   /** 每字約 80 ms */

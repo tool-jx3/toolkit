@@ -11,6 +11,7 @@
  */
 import { sha256Hex, unzipFiles, type ZipEntry, type ZipOptions, zipFiles } from '@/core/files';
 import {
+  type CcfoliaAppendRoomData,
   type CcfoliaResource,
   type CcfoliaRoomData,
   newRoomToken,
@@ -102,7 +103,7 @@ export async function packRoomImage(
 }
 
 /**
- * JSON 裡引用到的房間圖片檔名（掃描所有字串值，符合 ROOM_IMAGE_NAME_RE 的），依第一次出現的順序。
+ * JSON 裡引用到的房間圖片檔名（掃描欄位名稱以 Url 結尾的字串值，符合 ROOM_IMAGE_NAME_RE 的），依第一次出現的順序。
  * `__data.json` 傳整份時只掃 `entities`（resources 的鍵不算引用）。
  */
 export function collectRoomImageNames(data: unknown): string[] {
@@ -111,15 +112,20 @@ export function collectRoomImageNames(data: unknown): string[] {
       ? (data as { entities: unknown }).entities
       : data;
   const seen = new Set<string>();
-  const walk = (v: unknown) => {
+  /*
+   * 只認欄位名稱以 Url 結尾的字串（iconUrl、imageUrl、backgroundUrl…；差分 faces 的 iconUrl 在陣列裡）：
+   * 劇本文字的內文、名稱、備註剛好寫成「64 位十六進位.png」時不是圖片引用（scenario-text 對等驗證）。
+   */
+  const walk = (v: unknown, key: string) => {
     if (typeof v === 'string') {
-      if (ROOM_IMAGE_NAME_RE.test(v)) seen.add(v);
+      if (/Url$/.test(key) && ROOM_IMAGE_NAME_RE.test(v)) seen.add(v);
       return;
     }
     if (!v || typeof v !== 'object') return;
-    for (const x of Object.values(v)) walk(x);
+    if (Array.isArray(v)) for (const x of v) walk(x, key);
+    else for (const [k, x] of Object.entries(v)) walk(x, k);
   };
-  walk(root);
+  walk(root, '');
   return [...seen];
 }
 
@@ -130,10 +136,13 @@ export interface BuildRoomZipOptions extends ZipOptions {
   token?: string;
 }
 
-export interface BuiltRoomZip {
+/** buildRoomZip 收的資料：完整的房間資料，或只追加的房間資料（`createAppendRoomData`，room 是 `{}`） */
+export type RoomZipData = CcfoliaRoomData | CcfoliaAppendRoomData;
+
+export interface BuiltRoomZip<T extends RoomZipData = CcfoliaRoomData> {
   bytes: Uint8Array<ArrayBuffer>;
   /** 實際寫進 ZIP 的 `__data.json`（resources 已依引用重建） */
-  data: CcfoliaRoomData;
+  data: T;
   /** JSON 有引用、但 images 裡沒有的檔名（不會進 ZIP；自我檢查會報「引用的圖不在 ZIP 裡」） */
   missing: string[];
 }
@@ -141,12 +150,13 @@ export interface BuiltRoomZip {
 /**
  * 組出房間 ZIP（room-zip 3.1.1、3.2.12）：掃描 entities 裡引用的圖片檔名 → resources 只收「有引用而且有圖」的，
  * 一張一檔（images 裡沒被引用的不收）。ZIP 項目順序：`__data.json`（不縮排）、`.token`、圖片（依 resources 的順序）。
+ * data 也可以是只追加的房間資料（scenario-text 加的；回傳的 data 型別跟著傳入的）。
  */
-export function buildRoomZip(
-  data: CcfoliaRoomData,
+export function buildRoomZip<T extends RoomZipData = CcfoliaRoomData>(
+  data: T,
   images: Iterable<RoomImageFile>,
   { token, ...zipOptions }: BuildRoomZipOptions = {},
-): BuiltRoomZip {
+): BuiltRoomZip<T> {
   const pool = new Map<string, RoomImageFile>();
   for (const img of images) if (!pool.has(img.name)) pool.set(img.name, img);
   const resources: Record<string, CcfoliaResource> = {};
@@ -156,7 +166,7 @@ export function buildRoomZip(
     if (img) resources[name] = { type: img.type };
     else missing.push(name);
   }
-  const out: CcfoliaRoomData = { ...data, resources };
+  const out: T = { ...data, resources };
   const entries: ZipEntry[] = [
     { name: ROOM_DATA_FILE, data: JSON.stringify(out) },
     { name: ROOM_TOKEN_FILE, data: token ?? newRoomToken() },

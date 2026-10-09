@@ -21,7 +21,7 @@ export const S = {
     '預覽下方的「儲存 PNG」存成 1920 × 1080 的圖；「匯出」分頁把整首（或一段）存成影片。',
   ],
   about:
-    '適合做跑團的 BGM、角色主題曲的「正在播放」畫面。檔案只在瀏覽器裡處理，不會上傳；設定、封面與音樂會自動保存在這個瀏覽器。',
+    '適合做跑團的 BGM、角色主題曲的「正在播放」畫面。檔案只在瀏覽器裡處理，不會上傳；設定、封面與音樂會自動儲存在這個瀏覽器。',
   tabsAria: '設定分類',
   tabs: { track: '曲目', design: '設計', motion: '動態', lyrics: '歌詞', export: '匯出' },
 
@@ -227,7 +227,7 @@ export const S = {
     audioRemoved: '已移除音樂。',
     audioFailed: (name: string) => `「${name}」無法播放，請改用 MP3、WAV、M4A 等音訊檔。`,
     notSupported: (name: string) => `「${name}」不是圖片、音樂或歌詞檔。`,
-    notPersisted: '瀏覽器空間不足，這個檔案無法自動保存（重新整理後要再放一次）。',
+    notPersisted: '瀏覽器空間不足，這個檔案無法自動儲存（重新整理後要再放一次）。',
     png: (name: string) => `已儲存 ${name}`,
     pngFailed: 'PNG 產生失敗，請再試一次。',
     exported: (name: string) => `影片已完成：${name}`,

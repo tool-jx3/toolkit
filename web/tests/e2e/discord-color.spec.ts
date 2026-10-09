@@ -466,6 +466,17 @@ test('複製：剪貼簿與輸出逐字相同；連續複製的提示一次比�
   await copy.click();
   await expect(page.getByText('已複製！', { exact: true }).last()).toBeVisible();
   await expect(page.getByText('主宰全場！！')).toHaveCount(0);
+  /* 第 12 次之後是 16 個隨機的漢字，每次重新產生（F28；7.1） */
+  for (let i = 0; i < 10; i++) await copy.click();
+  await expect(page.getByText('超越神的複製！！！！').last()).toBeVisible();
+  const gibberish = page.getByText(/^[\u4e00-\u9fff]{16}$/);
+  const seen = new Set<string>();
+  for (let i = 0; i < 4; i++) {
+    await copy.click();
+    await expect(gibberish.last()).toBeVisible();
+    seen.add((await gibberish.last().textContent()) ?? '');
+  }
+  expect(seen.size).toBeGreaterThan(1);
   expect(errors).toEqual([]);
 });
 

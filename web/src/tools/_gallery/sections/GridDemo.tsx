@@ -23,8 +23,10 @@ import {
   squareCellAt,
   squareCorners,
   squareDistance,
+  squareEdgeRuns,
   squareGridLines,
   squareNeighbors,
+  subtractSpans,
 } from '@/core/grid';
 import { Field, Section, Segmented, Toggle } from '@/ui';
 
@@ -251,6 +253,97 @@ export function MapGridDemo() {
         mapGrid(種類, 大小)
         把方格與四種六角格包成同一組介面：cellAt、cellPath、outline（合併外框）、neighbors、
         snapPoints（交點、格子中心、邊的中點）、snapDelta（整格移動）、gridLines。地圖編輯器用。
+      </p>
+    </Section>
+  );
+}
+
+const EDGE_COLS = 10;
+const EDGE_ROWS = 6;
+const EDGE_CELL = 30;
+/** 0＝空、1＝房間 A、2＝房間 B（點一下輪流換） */
+const EDGE_START = [
+  '1111122200',
+  '1111122200',
+  '1111122200',
+  '1111111100',
+  '1111111100',
+  '0000000000',
+].map((row) => Array.from(row, Number));
+const EDGE_FILL = ['transparent', 'var(--accent)', 'var(--warning)'];
+
+/**
+ * squareEdgeRuns＋subtractSpans（室內平面圖的自動牆壁）：格子的主人決定每條邊——兩個房間之間是內牆（細）、
+ * 房間與外面之間是外牆（粗）；同一條線上相鄰、同種類的邊接成一段。「門」把第一段內牆中間切開 1 格。
+ */
+export function EdgeRunsDemo() {
+  const [cells, setCells] = useState(EDGE_START);
+  const [door, setDoor] = useState(true);
+  const runs = squareEdgeRuns(
+    { x0: 0, y0: 0, x1: EDGE_COLS, y1: EDGE_ROWS },
+    (x, y) => cells[y]?.[x] || null,
+    (a, b) => (a === b ? null : a && b ? 'int' : 'ext'),
+  );
+  const firstInt = runs.find((r) => r.kind === 'int');
+  const pieces = runs.flatMap((r) => {
+    if (!door || r !== firstInt) return [r];
+    const mid = Math.floor((r.a + r.b) / 2);
+    return subtractSpans([r], [[mid, mid + 1]]);
+  });
+  const S = EDGE_CELL;
+  return (
+    <Section title="自動牆壁（core/grid 的 squareEdgeRuns、subtractSpans）">
+      <Field label="在第一段內牆開一扇門（subtractSpans）" layout="inline">
+        <Toggle checked={door} onCheckedChange={setDoor} />
+      </Field>
+      <svg
+        viewBox={`-6 -6 ${EDGE_COLS * S + 12} ${EDGE_ROWS * S + 12}`}
+        className="block w-full max-w-80 cursor-pointer rounded-sm bg-surface-2"
+        role="img"
+        aria-label="點格子輪流換成房間 A、房間 B、空白；牆會自動重算"
+        data-testid="edge-runs-demo"
+      >
+        <title>自動牆壁</title>
+        {cells.flatMap((row, y) =>
+          row.map((v, x) => (
+            <rect
+              // biome-ignore lint/suspicious/noArrayIndexKey: 固定大小的格子
+              key={`${x},${y}`}
+              x={x * S}
+              y={y * S}
+              width={S}
+              height={S}
+              fill={EDGE_FILL[v]}
+              fillOpacity={v ? 0.35 : 0}
+              stroke="var(--border)"
+              strokeWidth={0.5}
+              onPointerDown={() =>
+                setCells((prev) =>
+                  prev.map((r, yy) =>
+                    yy === y ? r.map((c, xx) => (xx === x ? (c + 1) % 3 : c)) : r,
+                  ),
+                )
+              }
+            />
+          )),
+        )}
+        {pieces.map((r) => (
+          <line
+            key={`${r.o}${r.c}:${r.a}-${r.b}`}
+            x1={(r.o === 'h' ? r.a : r.c) * S}
+            y1={(r.o === 'h' ? r.c : r.a) * S}
+            x2={(r.o === 'h' ? r.b : r.c) * S}
+            y2={(r.o === 'h' ? r.c : r.b) * S}
+            stroke="var(--text)"
+            strokeWidth={r.kind === 'ext' ? 6 : 3}
+            strokeLinecap="square"
+            pointerEvents="none"
+          />
+        ))}
+      </svg>
+      <p className="m-0 text-sm tabular-nums" data-testid="edge-runs-demo-info">
+        外牆 {pieces.filter((r) => r.kind === 'ext').length} 段、內牆{' '}
+        {pieces.filter((r) => r.kind === 'int').length} 段
       </p>
     </Section>
   );

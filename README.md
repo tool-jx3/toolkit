@@ -17,7 +17,8 @@
 [usagineko7865-debug](https://github.com/usagineko7865-debug) 與
 [zznaptime](https://github.com/zznaptime) 與
 [swoonqx](https://github.com/swoonqx) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 48 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[rebane2001](https://github.com/rebane2001) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 55 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -26,6 +27,8 @@
 | [魔法陣製作器](https://tool-jx3.github.io/toolkit/tools/magic-circle/) | 繪製魔法陣與簽名動態，支援對稱、貝茲曲線、時間軸與 GIF／APNG 匯出 |
 | [打字機動畫產生器](https://tool-jx3.github.io/toolkit/tools/typewriter/) | 輸入文字，產生逐字打出效果的 APNG／GIF／WebP 動畫圖 |
 | [文字軌跡產生器](https://tool-jx3.github.io/toolkit/tools/text-path/) | 讓文字沿著圓、螺旋、愛心或手繪的軌跡排列，輸出可以直接貼進聊天欄的純文字 |
+| [Discord 彩色文字產生器](https://tool-jx3.github.io/toolkit/tools/discord-color/) | 選取文字套上粗體、底線、經典 8 色、自訂色或彩虹、漸層效果，預覽 Discord 四種主題，複製成 ANSI 程式碼區塊貼進 Discord 就是彩色訊息 |
+| [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | 選一個範本改文字、造型與配色，做出依序彈出、逐字打出、漂浮後退場的對話泡泡與訊息框，匯出透明背景的 APNG／GIF／WebP |
 | [匿名拼貼信產生器](https://tool-jx3.github.io/toolkit/tools/collage-letter/) | 把一段文字做成剪報拼貼的匿名信，可下載圖片或複製成 HTML、Roll20 格式 |
 | [表情產生器](https://tool-jx3.github.io/toolkit/tools/emotion-maker/) | 組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖 |
 | [讀取動畫產生器](https://tool-jx3.github.io/toolkit/tools/loading-maker/) | 把角色動畫、讀取條與上下文字合成一張畫布，輸出為 APNG／WebP／GIF |
@@ -42,8 +45,11 @@
 | [立繪去背工具](https://tool-jx3.github.io/toolkit/tools/bg-remover/) | 去掉立繪的背景：AI 模型（第一次使用時下載約 176 MB，之後存在瀏覽器）認得動漫角色，白底與單色底也能依顏色去掉；用筆刷修邊，可以批次處理，存成透明 PNG／WebP 或 ZIP |
 | [立繪身高比較板](https://tool-jx3.github.io/toolkit/tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
 | [房間 ZIP 產生器](https://tool-jx3.github.io/toolkit/tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；工作進度可存成 .ccproj 檔 |
+| [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | 貼上台本或描寫，切成一則一則的 CCFOLIA 劇本文字（シナリオテキスト），台詞帶說話者的立繪與差分，匯出成可以直接讀入房間的 ZIP |
 | [角色介紹圖產生器](https://tool-jx3.github.io/toolkit/tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；也有會自動分頁、能匯出 PDF 的文字記錄版型；可存到存檔槽或匯出成編輯檔 |
 | [AI 誤判梗圖產生器](https://tool-jx3.github.io/toolkit/tools/ai-fail/) | 放一張照片，畫上 AI 物件辨識風格的綠框與標籤（例如把貓標成「object」），做成「AI 認錯了」的梗圖：可以多個框、改顏色與字級、調整前後，存成 PNG |
+| [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | 盲選排行榜：一次揭曉一位、當場決定名次，名次確定後就不能改，排完存成 PNG 或 WebP |
+| [角色分析圖產生器](https://tool-jx3.github.io/toolkit/tools/char-chart/) | 一份角色清單做成兩張圖：性格四象限（拖曳角色、算契合度）與關係圖（頭像排成一圈、用不同的線連起來），存成 PNG |
 | [角色配色條產生器](https://tool-jx3.github.io/toolkit/tools/color-palette/) | 把角色的配色排成一條色塊圖，可直接從立繪取色（手動滴管或自動抓主色），輸出 PNG |
 | [壓克力周邊工房](https://tool-jx3.github.io/toolkit/tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光、搖晃，匯出 APNG／GIF／WebP／PNG 或 .glb 模型 |
 | [影片轉動圖工具](https://tool-jx3.github.io/toolkit/tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
@@ -52,9 +58,11 @@
 | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | CoC 7 版的技能檢定（獎勵骰、懲罰骰、自動判定成功等級）與自訂算式擲骰，附擲骰紀錄；另有傷害計算：貼上 BCDice 的結果扣護甲後加總成「:HP-」指令 |
 | [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | 在瀏覽器填好 CoC 7 版調查員角色卡：屬性的困難／極限、HP、SAN、DB、移動力與技能點數自動算，可以管理多張角色卡、裁切頭像，印成 A4 兩頁或存成 PDF、PNG，也能複製成 CCFOLIA 角色 |
 | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | 一次管理多個 CoC 7 版／6 版的 NPC：擲屬性、自動算衍生值、加技能與攻擊指令，輸出可以直接貼進 CCFOLIA 的角色 JSON 與聊天面板 |
+| [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | 把 CoC 6 版／7 版團的房規整理成一張表：從常見的規則勾選、調整數值、寫注記，匯出 PNG、純文字或 Markdown |
 | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | 產生透明背景的方格或六角格 PNG：格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸 |
 | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | 以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG |
 | [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | 在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG |
+| [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | 探索場景用的室內平面圖：從住宅、洋館、飯店、醫院、廢墟等範本開始擺房間（牆自動產生）、門窗與家具，GM 用與 PL 用分開匯出 PNG |
 | [JIZURA 字面](https://tool-jx3.github.io/toolkit/tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
 | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理，可以用攝影機（臉部追蹤，模型第一次使用時下載約 3.8 MB）或麥克風帶動，匯出透明 PNG 或影片 |
 | [CoC 劇本排版工具](https://tool-jx3.github.io/toolkit/tools/coc-typesetter/) | 把克蘇魯神話 TRPG 劇本貼進來，排成書本般的紙面：章節自動編號、自動目錄，描述、檢定、KP 資訊、理智檢定各有樣式，印成 A5／B5／A4 的 PDF |
@@ -157,6 +165,13 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `coc-sheet` | [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `map-editor` | [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `ai-fail` | [AI 誤判梗圖產生器](https://tool-jx3.github.io/toolkit/tools/ai-fail/) | [swoonqx/ai-fails-meme-maker](https://github.com/swoonqx/ai-fails-meme-maker) |
+| `discord-color` | [Discord 彩色文字產生器](https://tool-jx3.github.io/toolkit/tools/discord-color/) | [rebane2001／Discord Colored Text Generator](https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c) |
+| `scenario-text` | [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker) |
+| `house-rules` | [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | [くま。／CoCハウスルール表メーカー](https://kumachansteps.github.io/trpg-web-tools/) |
+| `speech-bubble` | [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview) |
+| `floor-plan` | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | [くま。／TRPG室内図メーカー](https://kumachansteps.github.io/trpg-web-tools/) |
+| `rank-chart` | [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | [sotsotssi/would-you-rank](https://github.com/sotsotssi/would-you-rank) |
+| `char-chart` | [角色分析圖產生器](https://tool-jx3.github.io/toolkit/tools/char-chart/) | [sotsotssi/char-quadrant](https://github.com/sotsotssi/char-quadrant)、[sotsotssi/visual-coupling-map](https://github.com/sotsotssi/visual-coupling-map) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

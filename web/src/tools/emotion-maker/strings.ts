@@ -69,10 +69,10 @@ export const S = {
   notImage: '選的檔案不是圖片',
   addedParts: (category: string, count: number) => `已在「${category}」新增 ${count} 張`,
   skippedFiles: (count: number) => `略過 ${count} 個不是圖片的檔案。`,
-  partsNotSaved: (count: number) => `瀏覽器空間不足，${count} 張圖片無法保存，重新整理後會消失。`,
-  partsUnavailable: '這個瀏覽器無法保存圖片，重新整理後自訂部件的圖片會消失。',
+  partsNotSaved: (count: number) => `瀏覽器空間不足，${count} 張圖片無法儲存，重新整理後會消失。`,
+  partsUnavailable: '這個瀏覽器無法儲存圖片，重新整理後自訂部件的圖片會消失。',
   partRemoved: (name: string) => `已刪除自訂部件「${name}」`,
-  listNotSaved: '瀏覽器空間不足，表情清單無法自動保存。',
+  listNotSaved: '瀏覽器空間不足，表情清單無法自動儲存。',
   partsMissing: (count: number) => `有 ${count} 個自訂部件的圖片找不到，圖不會畫出來。`,
   noneChecked: '沒有勾選的表情',
   deletedChecked: (count: number) => `已刪除 ${count} 個`,
@@ -144,7 +144,7 @@ export const S = {
   usageNotesTitle: '小提醒',
   usageNotes: [
     '各類標題旁的「加圖片」可以放自己的部件：建議用和頭部同樣是正方形、背景透明、對準臉部位置的圖。',
-    '表情清單和自訂部件會自動保存在這個瀏覽器；換電腦時用「匯出清單」（ZIP，含自訂部件的圖片）再「匯入清單」。',
+    '表情清單和自訂部件會自動儲存在這個瀏覽器；換電腦時用「匯出清單」（ZIP，含自訂部件的圖片）再「匯入清單」。',
     '所有處理都在瀏覽器裡完成，圖片不會上傳。',
   ],
 } as const;

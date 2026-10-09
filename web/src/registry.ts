@@ -220,10 +220,22 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '選取文字套上粗體、底線、經典 8 色、自訂色或彩虹、漸層效果，預覽 Discord 四種主題，複製成 ANSI 程式碼區塊貼進 Discord 就是彩色訊息。',
     group: 'G1',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'rebane2001／Discord Colored Text Generator',
       url: 'https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c',
+    },
+  },
+  {
+    id: 'speech-bubble',
+    name: '動態對話泡泡產生器',
+    summary:
+      '選造型、填文字，做出會彈出、打字、漂浮再退場的對話泡泡、通知視窗與 RPG 對話框，匯出透明背景的 APNG、GIF、WebP 動畫。',
+    group: 'G1',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/TextBubbleMaker-preview',
+      url: 'https://github.com/sotsotssi/TextBubbleMaker-preview',
     },
   },
   {
@@ -416,6 +428,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'scenario-text',
+    name: '劇本文字產生器',
+    summary:
+      '貼上台本或描寫，切成一則一則的 CCFOLIA 劇本文字（シナリオテキスト），台詞帶說話者的立繪與差分、描寫與 HO 附圖，匯出成可以直接讀入房間的 ZIP。',
+    group: 'G5',
+    status: 'live',
+    inspiration: {
+      name: 'shiki365/scenario-text-maker',
+      url: 'https://github.com/shiki365/scenario-text-maker',
+    },
+  },
+  {
     id: 'scenario-editor',
     name: '劇本排版台',
     summary:
@@ -461,6 +485,18 @@ export const TOOLS: readonly ToolEntry[] = [
     inspiration: {
       name: 'scenario-tool（作者不明）',
       url: 'https://scenario-tool-jade.vercel.app/coc-typesetter.html',
+    },
+  },
+  {
+    id: 'review-grid',
+    name: '劇本心得九宮格',
+    summary:
+      '把跑過的劇本排成九宮格或清單：每格放劇本的圖、規則、作者，挑最多 3 個心得標籤（標籤可以自己改），存成 PNG 分享；收集團員的檔案還能排出同一個劇本的心得比較圖。',
+    group: 'G6',
+    status: 'next',
+    inspiration: {
+      name: 'sotsotssi/scenario-review',
+      url: 'https://github.com/sotsotssi/scenario-review',
     },
   },
   {
@@ -581,6 +617,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'house-rules',
+    name: 'CoC 房規表產生器',
+    summary:
+      '把 CoC 6 版／7 版團的房規整理成一張表：從常見的規則勾選、調整數值、寫注記，也能加自己的規則，匯出 PNG 圖片、純文字或 Markdown，貼到 Discord 或招募文。',
+    group: 'G9',
+    status: 'live',
+    inspiration: {
+      name: 'くま。／CoCハウスルール表メーカー',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
+  {
     id: 'grid-maker',
     name: '網格產生器',
     summary:
@@ -626,6 +674,42 @@ export const TOOLS: readonly ToolEntry[] = [
     inspiration: {
       name: 'swoonqx/ai-fails-meme-maker',
       url: 'https://github.com/swoonqx/ai-fails-meme-maker',
+    },
+  },
+  {
+    id: 'char-chart',
+    name: '角色分析圖產生器',
+    summary:
+      '同一份角色清單做成兩種圖：把角色拖到性格四象限上（可以好幾頁，還能算兩人的契合度），或排成一圈畫關係圖、用不同的線連起來，存成 PNG。',
+    group: 'G7',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/char-quadrant',
+      url: 'https://github.com/sotsotssi/char-quadrant',
+    },
+  },
+  {
+    id: 'floor-plan',
+    name: '室內平面圖產生器',
+    summary:
+      '探索場景用的室內平面圖：從套房、透天厝、洋館、飯店、醫院、廢墟等範本開始，擺房間（牆自動產生）、門窗與家具；GM 專用的房間在 PL 圖裡蓋灰，隱藏線索可以另外開關，多樓層匯出 PNG。',
+    group: 'G10',
+    status: 'live',
+    inspiration: {
+      name: 'くま。／TRPG室内図メーカー',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/',
+    },
+  },
+  {
+    id: 'rank-chart',
+    name: '排行榜產生器',
+    summary:
+      '盲選排行榜：放進角色的名字與照片，一次揭曉一位、當場決定名次，下一位是誰事先不知道、名次確定後就不能改，排完存成 PNG 或 WebP。',
+    group: 'G7',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/would-you-rank',
+      url: 'https://github.com/sotsotssi/would-you-rank',
     },
   },
 ];

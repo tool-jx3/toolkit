@@ -96,7 +96,7 @@ export const S = {
     heads: (all: number, ch: number, sc: number) => `標題 ${all} 個（章 ${ch}、探索點 ${sc}）`,
     pages: (paper: string, n: number) => `${paper}・共 ${n} 頁`,
     over: (n: number) => `有放不進一頁的內容（${n} 頁，以紅框標出）`,
-    saveFailed: '無法自動存檔（瀏覽器的儲存空間已滿或被封鎖），請另外保存內文。',
+    saveFailed: '無法自動存檔（瀏覽器的儲存空間已滿或被封鎖），請另外儲存內文。',
   },
   errors: {
     layout: (m: string) => `排版時發生錯誤：${m}`,

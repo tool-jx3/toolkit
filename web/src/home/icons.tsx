@@ -1,9 +1,11 @@
 /** 首頁卡片的圖示（工具 id → lucide 圖示）；沒有列的用扳手 */
 import {
   Blend,
+  BookHeart,
   BookOpen,
   Box,
   ChartNoAxesColumnIncreasing,
+  ChartScatter,
   CircleUser,
   Clapperboard,
   ClipboardList,
@@ -19,17 +21,20 @@ import {
   Grid3x3,
   HeartHandshake,
   Highlighter,
+  House,
   IdCard,
   Images,
   Keyboard,
   Layers,
   LayoutDashboard,
   LayoutGrid,
+  ListChecks,
   Loader,
   type LucideIcon,
   Mail,
   Map as MapIcon,
   MapPinned,
+  MessageCircleMore,
   MessageSquareText,
   MessagesSquare,
   MicVocal,
@@ -49,6 +54,8 @@ import {
   Spline,
   SquareUser,
   Table,
+  TextQuote,
+  Trophy,
   UserCog,
   Users,
   Waves,
@@ -66,6 +73,7 @@ const ICONS: Record<string, LucideIcon> = {
   'collage-letter': Mail,
   textbox: Table,
   'discord-color': Highlighter,
+  'speech-bubble': MessageCircleMore,
   /* G2 轉場與動態 */
   'scene-transition': Clapperboard,
   'apng-wipe': Blend,
@@ -93,17 +101,21 @@ const ICONS: Record<string, LucideIcon> = {
   'foreground-frame': Frame,
   'log-converter': ScrollText,
   'scenario-cards': LayoutGrid,
+  'scenario-text': TextQuote,
   /* G6 劇本與紀錄 */
   'scenario-editor': BookOpen,
   'coc-typesetter': Newspaper,
   'session-log': NotebookPen,
   'session-report': ClipboardList,
+  'review-grid': BookHeart,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,
   'magic-circle': Orbit,
   'acrylic-goods': Box,
   'ai-fail': ScanEye,
+  'rank-chart': Trophy,
+  'char-chart': ChartScatter,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,
@@ -111,6 +123,7 @@ const ICONS: Record<string, LucideIcon> = {
   /* G9 CoC 跑團輔助 */
   'coc-dice': Dices,
   'coc-npc': UserCog,
+  'house-rules': ListChecks,
   'coc-sheet': NotebookTabs,
   'trpg-lab': FlaskConical,
   /* G10 地圖與網格 */
@@ -118,6 +131,7 @@ const ICONS: Record<string, LucideIcon> = {
   'map-editor': MapPinned,
   'grid-maker': Grid3x3,
   'range-ruler': Ruler,
+  'floor-plan': House,
   /* 其他網站 */
   jizura: MicVocal,
 };

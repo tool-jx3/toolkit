@@ -543,4 +543,16 @@ describe('collectRoomImageNames', () => {
     expect(collectRoomImageNames(d)).toEqual([b, a]);
     expect(isRoomImageName('ABC.png')).toBe(false);
   });
+
+  it('只認 …Url 欄位：文字（劇本文字的內文、名稱、備註）剛好是圖片檔名的樣子時不算引用；差分的 iconUrl 算', () => {
+    const a = `${'a'.repeat(64)}.png`;
+    const t = `${'d'.repeat(64)}.png`;
+    const data = {
+      entities: {
+        notes: { n1: { name: t, text: t, iconUrl: a, order: 1 } },
+        characters: { c1: { memo: t, faces: [{ label: '笑', iconUrl: a }] } },
+      },
+    };
+    expect(collectRoomImageNames(data)).toEqual([a]);
+  });
 });

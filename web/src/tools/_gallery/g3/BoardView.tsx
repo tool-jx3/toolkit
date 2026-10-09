@@ -292,8 +292,8 @@ export function BoardView() {
             toast({
               title:
                 reason === 'quota'
-                  ? '瀏覽器空間不足，圖片無法自動保存'
-                  : '這個瀏覽器無法自動保存圖片',
+                  ? '瀏覽器空間不足，圖片無法自動儲存'
+                  : '這個瀏覽器無法自動儲存圖片',
               tone: 'warning',
             });
         }}
