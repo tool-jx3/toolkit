@@ -227,6 +227,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'speech-bubble',
+    name: '動態對話泡泡產生器',
+    summary:
+      '選造型、填文字，做出會彈出、打字、漂浮再退場的對話泡泡、通知視窗與 RPG 對話框，匯出透明背景的 APNG、GIF、WebP 動畫。',
+    group: 'G1',
+    status: 'next',
+    inspiration: {
+      name: 'sotsotssi/TextBubbleMaker-preview',
+      url: 'https://github.com/sotsotssi/TextBubbleMaker-preview',
+    },
+  },
+  {
     id: 'ccfolia-cropper',
     name: '立繪裁切器',
     summary:

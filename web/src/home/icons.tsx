@@ -32,6 +32,7 @@ import {
   Mail,
   Map as MapIcon,
   MapPinned,
+  MessageCircleMore,
   MessageSquareText,
   MessagesSquare,
   MicVocal,
@@ -69,6 +70,7 @@ const ICONS: Record<string, LucideIcon> = {
   'collage-letter': Mail,
   textbox: Table,
   'discord-color': Highlighter,
+  'speech-bubble': MessageCircleMore,
   /* G2 轉場與動態 */
   'scene-transition': Clapperboard,
   'apng-wipe': Blend,
