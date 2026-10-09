@@ -610,7 +610,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把 CoC 6 版／7 版團的房規整理成一張表：從常見的規則勾選、調整數值、寫注記，也能加自己的規則，匯出 PNG 圖片、純文字或 Markdown，貼到 Discord 或招募文。',
     group: 'G9',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'くま。／CoCハウスルール表メーカー',
       url: 'https://kumachansteps.github.io/trpg-web-tools/',

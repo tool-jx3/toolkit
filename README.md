@@ -18,7 +18,7 @@
 [zznaptime](https://github.com/zznaptime) 與
 [swoonqx](https://github.com/swoonqx) 與
 [rebane2001](https://github.com/rebane2001) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 50 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 51 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -55,6 +55,7 @@
 | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | CoC 7 版的技能檢定（獎勵骰、懲罰骰、自動判定成功等級）與自訂算式擲骰，附擲骰紀錄；另有傷害計算：貼上 BCDice 的結果扣護甲後加總成「:HP-」指令 |
 | [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | 在瀏覽器填好 CoC 7 版調查員角色卡：屬性的困難／極限、HP、SAN、DB、移動力與技能點數自動算，可以管理多張角色卡、裁切頭像，印成 A4 兩頁或存成 PDF、PNG，也能複製成 CCFOLIA 角色 |
 | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | 一次管理多個 CoC 7 版／6 版的 NPC：擲屬性、自動算衍生值、加技能與攻擊指令，輸出可以直接貼進 CCFOLIA 的角色 JSON 與聊天面板 |
+| [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | 把 CoC 6 版／7 版團的房規整理成一張表：從常見的規則勾選、調整數值、寫注記，匯出 PNG、純文字或 Markdown |
 | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | 產生透明背景的方格或六角格 PNG：格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸 |
 | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | 以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG |
 | [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | 在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG |
@@ -162,6 +163,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `ai-fail` | [AI 誤判梗圖產生器](https://tool-jx3.github.io/toolkit/tools/ai-fail/) | [swoonqx/ai-fails-meme-maker](https://github.com/swoonqx/ai-fails-meme-maker) |
 | `discord-color` | [Discord 彩色文字產生器](https://tool-jx3.github.io/toolkit/tools/discord-color/) | [rebane2001／Discord Colored Text Generator](https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c) |
 | `scenario-text` | [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker) |
+| `house-rules` | [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | [くま。／CoCハウスルール表メーカー](https://kumachansteps.github.io/trpg-web-tools/) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

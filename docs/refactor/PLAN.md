@@ -220,8 +220,8 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | ai-fail | AI 誤判梗圖產生器 | swoonqx/ai-fails-meme-maker | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
 | scenario-text | 劇本文字產生器（CCFOLIA シナリオテキスト） | shiki365/scenario-text-maker | MIT | G5 | ✅ | ✅ | ✅ | ✅ |
 | floor-plan | 室內平面圖產生器 | くま。／TRPG室内図メーカー | 未授權 | G10 | ✅ | ✅ | 🔍 | ⬜ |
-| house-rules | CoC 房規表產生器 | くま。／CoCハウスルール表メーカー | 未授權 | G9 | ✅ | ✅ | 🔍 | ⬜ |
-| speech-bubble | 動態對話泡泡產生器 | sotsotssi/TextBubbleMaker-preview | 未授權 | G1 | ✅ | ✅ | ⬜ | ⬜ |
+| house-rules | CoC 房規表產生器 | くま。／CoCハウスルール表メーカー | 未授權 | G9 | ✅ | ✅ | ✅ | ✅ |
+| speech-bubble | 動態對話泡泡產生器 | sotsotssi/TextBubbleMaker-preview | 未授權 | G1 | ✅ | ✅ | 🔍 | ⬜ |
 | rank-chart | 排行榜產生器 | sotsotssi/would-you-rank | MIT | G7 | 📝 | 🔨 | ⬜ | ⬜ |
 | char-chart | 角色分析圖產生器（性格四象限＋CP 表） | sotsotssi/char-quadrant、visual-coupling-map | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
 | review-grid | 劇本心得九宮格 | sotsotssi/scenario-review | 未授權 | G6 | ⬜ | ⬜ | ⬜ | ⬜ |

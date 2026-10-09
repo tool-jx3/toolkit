@@ -254,6 +254,7 @@ function sanitizeRow(r: RuleDef, got: Record<string, unknown>, def: RowState): R
     note: str(got.note, LIMITS.note) ?? '',
     vis: typeof got.vis === 'boolean' ? got.vis : def.vis,
   };
+  /* 數字只在目前選的是數字選項時讀（夾到範圍）；其他時候不讀，之後選數字選項用預設值（照原作重開檔案，7.1） */
   const numOp = r.opts.find((op) => op.num && op.id === val);
   const n = Number(got.n);
   if (numOp?.num) {
@@ -261,8 +262,6 @@ function sanitizeRow(r: RuleDef, got: Record<string, unknown>, def: RowState): R
       got.n !== undefined && got.n !== null && got.n !== '' && Number.isFinite(n)
         ? clampNum(n, numOp.num.min, numOp.num.max)
         : (def.n ?? numOp.num.def);
-  } else if (got.n !== undefined && Number.isFinite(n)) {
-    row.n = Math.round(n);
   }
   const name = str(got.name, LIMITS.name);
   if (name?.trim() && name.trim() !== r.name) row.name = name;

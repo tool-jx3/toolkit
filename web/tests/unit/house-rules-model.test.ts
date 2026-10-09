@@ -176,6 +176,15 @@ describe('讀檔整理（sanitizeData）', () => {
     expect(d?.secs.common.custom.map((x) => x.id)).toEqual(['c1', 'c2', 'c3', 'c4', 'c5', 'c6']);
   });
 
+  it('目前選的不是數字選項時，檔案裡的數字不讀（照原作重開檔案；之後選數字選項用預設值）', () => {
+    const d = sanitizeData(
+      { secs: { '6': { rows: { reroll: { val: 'none', n: 500, vis: true } } } } },
+      DATE,
+    );
+    expect(d?.secs['6'].rows.reroll.val).toBe('none');
+    expect(d?.secs['6'].rows.reroll).not.toHaveProperty('n');
+  });
+
   it('壞掉的欄位用預設值：不認得的版本、選項、規則、分類；數字夾到範圍；長度截斷', () => {
     const d = sanitizeData(
       {

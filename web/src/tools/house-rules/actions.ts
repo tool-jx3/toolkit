@@ -60,7 +60,11 @@ export function toggleOption(secId: SectionId, ruleId: string, optId: string): v
     }
     row.val = optId;
     const op = def.opts.find((x) => x.id === optId);
-    if (op?.num && !Number.isFinite(row.n)) row.n = op.num.def;
+    if (op?.num) {
+      row.n = Number.isFinite(row.n)
+        ? clampNum(row.n as number, op.num.min, op.num.max)
+        : op.num.def;
+    }
     row.vis = true;
   });
 }

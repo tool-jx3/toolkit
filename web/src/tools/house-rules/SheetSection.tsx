@@ -4,9 +4,9 @@
  */
 import { ChevronDown, Eye, EyeOff, Plus } from 'lucide-react';
 import { memo, useState } from 'react';
-import { cn, IconButton } from '@/ui';
+import { cn, IconButton, useToast } from '@/ui';
 import { addCustom, setCollapsed, toggleCategory } from './actions';
-import { bucketItems, type SectionState } from './model';
+import { bucketItems, LIMITS, type SectionState } from './model';
 import { BuiltinRow, CustomRuleRow, ROW_GRID } from './RuleRow';
 import { CATEGORY_NAMES, type CategoryId, SECTION_BY_ID, type SectionId } from './rules';
 import { collapseKey, useRules, useView } from './store';
@@ -24,6 +24,7 @@ const Category = memo(function Category({
   collapsed: boolean;
 }) {
   const [added, setAdded] = useState<string | null>(null);
+  const toast = useToast();
   const items = bucketItems(bucket, secId, catId);
   const shown = items.filter((i) => i.row.vis).length;
   const allOn = items.length > 0 && shown === items.length;
@@ -75,7 +76,11 @@ const Category = memo(function Category({
           <button
             type="button"
             aria-label={S.sheet.addAria(name, SECTION_BY_ID[secId].title)}
-            onClick={() => setAdded(addCustom(secId, catId))}
+            onClick={() => {
+              const id = addCustom(secId, catId);
+              if (id) setAdded(id);
+              else toast({ title: S.sheet.addFull(LIMITS.custom), tone: 'warning' });
+            }}
             className="mt-1.5 inline-flex h-7 items-center gap-1.5 self-start rounded-md border border-dashed border-border-strong px-2.5 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-accent focus-visible:focus-ring"
           >
             <Plus aria-hidden className="size-4" />

@@ -320,6 +320,31 @@ test.describe('1280 寬', () => {
     expect(errors).toEqual([]);
   });
 
+  test('自己加的規則：一區滿 200 條時新增會說明（7.1）', async ({ page }) => {
+    const errors = await open(page);
+    await seed(page, {});
+    await page.evaluate((key) => {
+      const raw = JSON.parse(localStorage.getItem(key) as string);
+      raw.state.data.secs.common.custom = Array.from({ length: 200 }, (_, i) => ({
+        id: `c${i}`,
+        cat: 'dice',
+        name: `規則 ${i + 1}`,
+        val: 'o',
+        text: '',
+        note: '',
+        vis: false,
+      }));
+      localStorage.setItem(key, JSON.stringify(raw));
+    }, KEY);
+    await page.reload();
+    const custom = page.locator('[data-row^="common:"][data-custom]');
+    await expect(custom).toHaveCount(200);
+    await page.getByRole('button', { name: '新增規則到「各版通用・擲骰」' }).click();
+    await expect(page.getByText('這一區已經有 200 條自己加的規則，不能再加了。').first()).toBeVisible();
+    await expect(custom).toHaveCount(200);
+    expect(errors).toEqual([]);
+  });
+
   test('收合分類：記住；目錄點收合的分類會展開並捲過去', async ({ page }) => {
     const errors = await open(page);
     const head = page

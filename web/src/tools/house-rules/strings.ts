@@ -78,6 +78,7 @@ export const S = {
     hideAll: (cat: string) => `全部從表上拿掉：${cat}`,
     add: '新增規則',
     addAria: (cat: string, sec: string) => `新增規則到「${sec}・${cat}」`,
+    addFull: (max: number) => `這一區已經有 ${max} 條自己加的規則，不能再加了。`,
   },
 
   row: {
