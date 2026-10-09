@@ -112,8 +112,8 @@ export const SESSION_SURVIVALS: readonly SessionValueOption[] = Object.freeze([
   { value: '不明', label: '不明' },
 ]);
 
-/** 身分的選項（依序） */
-export const SESSION_ROLES: readonly string[] = Object.freeze(['PL', 'KP', 'GM', 'DL']);
+/** 身分的選項（依序；SKP＝副 KP，P11 新增） */
+export const SESSION_ROLES: readonly string[] = Object.freeze(['PL', 'KP', 'SKP', 'GM', 'DL']);
 
 /** 新開一團時的狀態 */
 export const DEFAULT_STATUS = '新規';
@@ -190,6 +190,11 @@ export function importSystem(value: string): string {
 export const ROLE_IMPORT_ALIASES: Readonly<Record<string, string>> = Object.freeze({
   キーパー: 'KP',
   kp: 'KP',
+  skp: 'SKP',
+  サブkp: 'SKP',
+  サブキーパー: 'SKP',
+  副kp: 'SKP',
+  副守密人: 'SKP',
   ゲームマスター: 'GM',
   マスター: 'GM',
   gm: 'GM',
@@ -202,7 +207,7 @@ export const ROLE_IMPORT_ALIASES: Readonly<Record<string, string>> = Object.free
   玩家: 'PL',
 });
 
-/** 匯入的身分：別名（原樣或小寫）→ 轉大寫後在 PL／KP／GM／DL 裡 → 原值 */
+/** 匯入的身分：別名（原樣或小寫）→ 轉大寫後在 PL／KP／SKP／GM／DL 裡 → 原值 */
 export function importRole(value: string): string {
   const raw = value.normalize('NFKC').trim();
   return (
@@ -212,17 +217,17 @@ export function importRole(value: string): string {
   );
 }
 
-/** 身分的分組：GM、KP、DL（不分大小寫）→ 'GM'；PL → 'PL'；其他回傳轉大寫的值 */
+/** 身分的分組：GM、KP、SKP、DL（不分大小寫）→ 'GM'；PL → 'PL'；其他回傳轉大寫的值 */
 export function normalizeRoleGroup(role: unknown): string {
   const v = String(role ?? '')
     .trim()
     .toUpperCase();
-  if (v === 'GM' || v === 'KP' || v === 'DL') return 'GM';
+  if (v === 'GM' || v === 'KP' || v === 'SKP' || v === 'DL') return 'GM';
   if (v === 'PL') return 'PL';
   return v;
 }
 
-/** 屬於 GM 組但不是正式選項（例如小寫 kp）的身分 → 'GM'（F107） */
+/** 屬於 GM 組但不是正式選項（例如小寫 kp、skp）的身分 → 'GM'（F107，同舊版） */
 export function normalizeRole(role: string | undefined): string | undefined {
   if (role && normalizeRoleGroup(role) === 'GM' && !SESSION_ROLES.includes(role)) return 'GM';
   return role;

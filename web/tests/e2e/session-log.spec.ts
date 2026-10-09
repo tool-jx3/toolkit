@@ -483,7 +483,7 @@ test('搜尋、系統與身分篩選、排序', async ({ page }) => {
   await expect(rows(page)).toHaveCount(1);
   await expect(rows(page).first()).toContainText('星砂與回聲');
   await pick(page, page.getByRole('combobox', { name: '依系統篩選' }), '所有系統');
-  await pick(page, page.getByRole('combobox', { name: '依身分篩選' }), 'GM・KP・DL');
+  await pick(page, page.getByRole('combobox', { name: '依身分篩選' }), 'GM・KP・SKP・DL');
   await expect(rows(page)).toHaveCount(2);
   await pick(page, page.getByRole('combobox', { name: '依身分篩選' }), '所有身分');
   const dates = () => rows(page).locator('td[data-col="date"]').allTextContents();
@@ -837,6 +837,47 @@ test('編輯對話框：身分、狀態、生還不在選單裡時，儲存選�
       expected.role,
     );
   }
+  expect(errors).toEqual([]);
+});
+
+test('SKP（副 KP，P11 新增 F115）：對話框與側欄的身分選單、表格標籤、身分篩選', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await deleteSamples(page);
+  await toolbarBtn(page, '新增團').click();
+  const dlg = page.getByRole('dialog', { name: '新增團' });
+  await dlg.getByRole('textbox', { name: '劇本', exact: true }).fill('燈塔');
+  await dlg.getByRole('combobox', { name: '身分' }).click();
+  await expect(page.getByRole('option')).toHaveText(['PL', 'KP', 'SKP', 'GM', 'DL']);
+  await page.getByRole('option', { name: 'SKP', exact: true }).click();
+  await dlg.getByRole('button', { name: '儲存' }).click();
+  await expect(dlg).toHaveCount(0);
+  expect((await storedRows(page)).find((r) => r.scenario === '燈塔')).toMatchObject({
+    role: 'SKP',
+  });
+  const cell = rowByScenario(page, '燈塔').locator('td[data-col="role"]');
+  await expect(cell).toHaveText('SKP');
+  /* 標籤顏色同 GM 組（與 KP 的列相同） */
+  await addSession(page, { scenario: '雨夜' });
+  await rowByScenario(page, '雨夜').locator('td[data-col="role"]').dblclick();
+  const edit = page.getByRole('dialog', { name: '編輯團資訊' });
+  await pick(page, edit.getByRole('combobox', { name: '身分' }), 'KP');
+  await edit.getByRole('button', { name: '儲存', exact: true }).click();
+  const pillClass = (name: string) =>
+    rowByScenario(page, name).locator('td[data-col="role"] span').first().getAttribute('class');
+  expect(await pillClass('燈塔')).toBe(await pillClass('雨夜'));
+  /* 身分篩選：GM 組含 SKP；PL 不含 */
+  await pick(page, page.getByRole('combobox', { name: '依身分篩選' }), 'GM・KP・SKP・DL');
+  await expect(rows(page)).toHaveCount(2);
+  await pick(page, page.getByRole('combobox', { name: '依身分篩選' }), 'PL');
+  await expect(rows(page)).toHaveCount(0);
+  await pick(page, page.getByRole('combobox', { name: '依身分篩選' }), '所有身分');
+  /* 側欄的身分選單也有 SKP */
+  await rowByScenario(page, '燈塔').click();
+  await toolbarBtn(page, '詳細・感想').click();
+  const sheet = page.getByRole('dialog', { name: '詳細・感想' });
+  await expect(sheet.getByRole('combobox', { name: '身分' })).toHaveText('SKP');
   expect(errors).toEqual([]);
 });
 
