@@ -20,24 +20,10 @@ export interface HomeEntry {
 }
 
 /**
- * 還沒重寫成新版的舊版工具（舊版介面）。重寫上線後：同 id 的會自動換成新版；
- * trpg-lab 拆成好幾個工具，全部上線後從這裡刪掉。
+ * 還沒重寫成新版的舊版工具（舊版介面）。重寫上線後同 id 的會自動換成新版。
+ * 目前全部的工具都已重寫（P10）；之後收錄舊版副本時才加到這裡。
  */
-export const LEGACY: readonly HomeEntry[] = [
-  {
-    id: 'trpg-lab',
-    name: 'TRPG 實驗室（舊版）',
-    summary:
-      '調查員角色卡與地圖編輯器的舊版（正在改寫成新版；擲骰、NPC、網格與量尺已經是上面的新工具）。',
-    href: './tools/trpg-lab/',
-    group: 'G9',
-    kind: 'legacy',
-    inspiration: {
-      name: 'ihoukentiku/ihoukentiku.github.io',
-      url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
-    },
-  },
-];
+export const LEGACY: readonly HomeEntry[] = [];
 
 /** 其他網站的工具（不重寫，直接連過去） */
 export const EXTERNAL: readonly HomeEntry[] = [

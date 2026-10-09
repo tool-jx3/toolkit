@@ -59,11 +59,14 @@ import {
   usedPatternIds,
 } from '@/tools/map-editor/model';
 import { unwrapMapJson } from '@/tools/map-editor/storage';
-import EDITOR_SRC from '../../../tools/trpg-lab/trpg_map_maker/map_editor.js?raw';
 import HEX_FIX from '../e2e/fixtures/map-editor/legacy-hex-flat.json';
 import SQUARE_FIX from '../e2e/fixtures/map-editor/legacy-square.json';
+import { legacySource } from '../helpers/legacySource';
 
 /* ---------- 舊版的原始碼 ---------- */
+
+/** 舊版的 map_editor.js（上線後從 git 歷史取回，見 helpers/legacySource.ts） */
+const EDITOR_SRC = await legacySource('tools/trpg-lab/trpg_map_maker/map_editor.js');
 
 /** 從舊版的 map_editor.js 取出一個頂層的 function 或 const（大括號配對），在給定的全域下執行 */
 function legacy<T>(name: string, scope: Record<string, unknown> = {}): T {

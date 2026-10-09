@@ -13,10 +13,10 @@ const distDir = path.join(webDir, 'dist');
 /** 共用程式與樣式在網站上的位置 */
 const ASSETS_DIR = 'assets/build';
 /**
- * 還沒重寫成新版、照原樣上線的檔案（相對於 repo 根目錄，網站上的路徑相同）。
- * 舊版工具換成新版後從這裡拿掉（P10 收尾時清空）。
+ * 照原樣上線的靜態檔（相對於 repo 根目錄，網站上的路徑相同）：舊網址的轉址頁——
+ * TRPG 實驗室的各頁轉到改寫後的新工具、JIZURA 轉到原作者的網站。
  */
-const STATIC_PATHS = ['tools/trpg-lab', 'tools/jizura', 'assets/i18n.js'];
+const STATIC_PATHS = ['tools/trpg-lab', 'tools/jizura'];
 
 export default defineConfig({
   root: srcDir,

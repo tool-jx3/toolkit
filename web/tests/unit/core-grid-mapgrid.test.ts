@@ -13,7 +13,10 @@ import {
   nearestSnap,
   parseMapGridType,
 } from '@/core/grid';
-import LEGACY_SRC from '../../../tools/trpg-lab/trpg_map_maker/map_grid.js?raw';
+import { legacySource } from '../helpers/legacySource';
+
+/** 舊版的 map_grid.js（上線後從 git 歷史取回，見 helpers/legacySource.ts） */
+const LEGACY_SRC = await legacySource('tools/trpg-lab/trpg_map_maker/map_grid.js');
 
 interface LegacyAdapter {
   pxToCell(x: number, y: number): { col: number; row: number };

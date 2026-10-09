@@ -3,7 +3,7 @@
  *
  * - toolkitHtml：每個工具頁共用的 <head>（字型、配色、主題初始化）。
  * - collectNotices：記下實際打包進去的 npm 套件，用來產生 THIRD_PARTY_NOTICES.md。
- * - assembleSite：把 web/dist 整理成整個網站（index.html、tools/<id>/、next/<id>/、assets/build/、還沒重寫的舊版檔案）。
+ * - assembleSite：把 web/dist 整理成整個網站（index.html、tools/<id>/、next/<id>/、assets/build/、舊網址的轉址頁）。
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { copyFile, mkdir, rename, writeFile } from 'node:fs/promises';
@@ -185,7 +185,7 @@ function noticesMarkdown(tools: readonly ToolEntry[] = [], srcToolsDir = ''): st
 /* ---------- 組成整個網站 ---------- */
 
 export interface SiteOptions {
-  /** repo 根目錄（舊版工具的原始檔從這裡複製） */
+  /** repo 根目錄（照原樣上線的靜態檔從這裡複製） */
   repoRoot: string;
   /** Vite 的 outDir（web/dist）：建置完就是整個網站，CI 把它推到 gh-pages 分支 */
   distDir: string;
@@ -194,7 +194,7 @@ export interface SiteOptions {
   tools: readonly ToolEntry[];
   /**
    * 還沒重寫成新版、直接照原樣上線的檔案或資料夾（相對於 repo 根目錄，網站上的路徑相同），
-   * 例如舊版工具 `tools/trpg-lab` 與它用的 `assets/i18n.js`。
+   * 例如舊網址的轉址頁 `tools/trpg-lab`、`tools/jizura`。
    */
   staticPaths: readonly string[];
 }
@@ -217,7 +217,7 @@ function listFiles(base: string, rel: string): string[] {
  * 建置成功後把 web/dist 整理成整個網站（和 GitHub Pages 上的路徑相同）：
  * 1. 首頁在 `index.html`，已上線的工具在 `tools/<id>/`，重寫中的工具搬到 `next/<id>/`（都在根目錄下兩層，相對路徑不變）；
  * 2. 共用程式在 `assets/build/`，另外產生 `assets/build/THIRD_PARTY_NOTICES.md`；
- * 3. 從 repo 複製還沒重寫的舊版檔案（staticPaths），不能蓋掉建置產物；
+ * 3. 從 repo 照原樣複製靜態檔（staticPaths：舊網址的轉址頁），不能蓋掉建置產物；
  * 4. `.nojekyll`：GitHub Pages 不要跑 Jekyll（否則 `next/_gallery/` 這種底線開頭的路徑不會發布）。
  *
  * 不會寫入 repo 的其他地方；建置產物不提交，由 CI（.github/workflows/deploy.yml）建置後推到 gh-pages 分支。
@@ -261,7 +261,7 @@ export function assembleSite(opts: SiteOptions): Plugin {
         for (const file of listFiles(repoRoot, rel)) {
           const target = path.join(distDir, file);
           assertInside(distDir, target);
-          if (existsSync(target)) throw new Error(`舊版檔案會蓋掉建置產物：${file}`);
+          if (existsSync(target)) throw new Error(`照原樣複製的檔案會蓋掉建置產物：${file}`);
           await mkdir(path.dirname(target), { recursive: true });
           await copyFile(path.join(repoRoot, file), target);
           copied++;
@@ -269,7 +269,7 @@ export function assembleSite(opts: SiteOptions): Plugin {
       }
       await writeFile(path.join(distDir, '.nojekyll'), '');
       this.info?.(
-        `網站已組好（${path.relative(repoRoot, distDir)}/）：首頁、${tools.length} 個工具頁、${copied} 個舊版檔案`,
+        `網站已組好（${path.relative(repoRoot, distDir)}/）：首頁、${tools.length} 個工具頁、${copied} 個照原樣複製的檔案（轉址頁）`,
       );
     },
   };

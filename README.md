@@ -16,7 +16,7 @@
 [fyam-hamu](https://github.com/fyam-hamu) 與
 [usagineko7865-debug](https://github.com/usagineko7865-debug) 與
 [zznaptime](https://github.com/zznaptime) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為原作或靈感來源的 43 個工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫）（其中兩個工具的作者不明），附繁體中文介面。
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 47 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -47,11 +47,12 @@
 | [影片轉動圖工具](https://tool-jx3.github.io/toolkit/tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
 | [GIF 接合器](https://tool-jx3.github.io/toolkit/tools/gif-combiner/) | 把多張 GIF 的影格對齊時間軸排進同一張畫面，拖曳排版後合成一張 GIF |
 | [音樂播放畫面產生器](https://tool-jx3.github.io/toolkit/tools/music-frame/) | 放進封面與音樂，做出跑團 BGM、角色主題曲的「正在播放」畫面：三種版面、聲音視覺化、邊框與隨時間出現的歌詞（LRC／SRT），存成 1920 × 1080 的 PNG 或有聲音的影片 |
-| [TRPG 實驗室（舊版）](https://tool-jx3.github.io/toolkit/tools/trpg-lab/) | 調查員角色卡與 TRPG 地圖編輯器的舊版（正在改寫成新版；擲骰、NPC、網格與量尺已改寫成下面的新工具） |
 | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | CoC 7 版的技能檢定（獎勵骰、懲罰骰、自動判定成功等級）與自訂算式擲骰，附擲骰紀錄；另有傷害計算：貼上 BCDice 的結果扣護甲後加總成「:HP-」指令 |
+| [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | 在瀏覽器填好 CoC 7 版調查員角色卡：屬性的困難／極限、HP、SAN、DB、移動力與技能點數自動算，可以管理多張角色卡、裁切頭像，印成 A4 兩頁或存成 PDF、PNG，也能複製成 CCFOLIA 角色 |
 | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | 一次管理多個 CoC 7 版／6 版的 NPC：擲屬性、自動算衍生值、加技能與攻擊指令，輸出可以直接貼進 CCFOLIA 的角色 JSON 與聊天面板 |
 | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | 產生透明背景的方格或六角格 PNG：格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸 |
 | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | 以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG |
+| [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | 在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG |
 | [JIZURA 字面](https://tool-jx3.github.io/toolkit/tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
 | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理，可以用攝影機（臉部追蹤，模型第一次使用時下載約 3.8 MB）或麥克風帶動，匯出透明 PNG 或影片 |
 | [CoC 劇本排版工具](https://tool-jx3.github.io/toolkit/tools/coc-typesetter/) | 把克蘇魯神話 TRPG 劇本貼進來，排成書本般的紙面：章節自動編號、自動目錄，描述、檢定、KP 資訊、理智檢定各有樣式，印成 A5／B5／A4 的 PDF |
@@ -70,7 +71,7 @@
 | [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | 一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈 |
 | [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | 把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，支援直書，可輸出 APNG（含 256 色減色）、GIF、WebP、PNG 或連番 ZIP |
 
-以下工具全部在瀏覽器本機執行，不會上傳你建立的任何內容；但部分工具會從 CDN 載入函式庫與字型。
+所有工具都在瀏覽器本機執行，不會上傳你建立的任何內容。字型從 Google Fonts 載入；用到 AI 模型的工具（立繪去背、2.5D 動態立繪的臉部追蹤）第一次使用時才下載模型，存在瀏覽器裡。
 
 ## 本機執行
 
@@ -88,18 +89,19 @@ npm run preview    # http://localhost:8123/
 ## 測試
 
 ```
-npm test
+npm test           # repo 的靜態檢查：轉址頁、沒有建置產物與舊版檔案、每個上線工具的規格與文件（無外部相依）
+cd web
+npm run lint       # Biome
+npm run typecheck  # 兩個 tsconfig
+npm test           # 單元與元件測試（Vitest）
+npm run e2e        # 端對端測試（Playwright，先 npm run build）
 ```
 
-靜態檢查，無外部相依。檢查項目包含：字典 key 完整性、兩語言 key 集合對稱、
-`{n}` 佔位符一致、標記引用的 key 皆存在、**無殘留未翻譯的原文**
-（韓文查諺文，日文查平假名與片假名）、
-repo 裡沒有建置產物（網站由 CI 建置後推到 `gh-pages`）、首頁列出的舊版工具連結有效（首頁內容由 `web/` 的端對端測試檢查）、
-**HTML 內嵌文字與 zh-TW 字典逐字相符**（含元素內文與 `title`／`aria-label`／`placeholder` 屬性兩類比對）。
+CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typecheck、單元測試與建置；端對端測試在本機跑。
 
 ## 本站重寫的工具
 
-正在依 [docs/refactor/PLAN.md](docs/refactor/PLAN.md) 把收錄的工具逐一改寫到新框架 `web/`（Vite＋React＋TypeScript）：
+收錄過的工具都已依 [docs/refactor/PLAN.md](docs/refactor/PLAN.md) 改寫到新框架 `web/`（Vite＋React＋TypeScript）：
 共用元件與設計、只有繁中介面、介面上原作者只列為靈感來源（參考原作的程式用本站元件改寫；開放授權原作的授權全文保留在
 網站的 [`assets/build/THIRD_PARTY_NOTICES.md`](https://tool-jx3.github.io/toolkit/assets/build/THIRD_PARTY_NOTICES.md)，未授權原作的素材與範本文字不沿用）。已上線的工具：
 
@@ -150,41 +152,19 @@ repo 裡沒有建置產物（網站由 CI 建置後推到 `gh-pages`）、首頁
 | `grid-maker` | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `range-ruler` | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `anime-rig` | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) |
+| `coc-sheet` | [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
+| `map-editor` | [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
-## 語言
+## 舊網址
 
-介面預設為繁體中文，還沒改寫完的 `trpg-lab`（舊版）可由右上角切換回原文（日文）。
-
-`text-fx`（文字演出產生器）的程式是本 repo 以無塵室方式獨立撰寫的，只有繁體中文介面。
-
-`jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
-`tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
-
-選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），`trpg-lab` 與 `jizura` 的轉址頁共用。首頁與重寫過的工具只有繁體中文。
-
-語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，
-反之亦然。停在沒有該語言字典的頁面時會以繁體中文呈現，但不會覆寫使用者的選擇——
-回到有該語言的頁面時仍會恢復。
-
-### 字型
-
-有字型清單的工具，除了原本的韓文／日文字型之外，都另外收了同一組五套繁體中文
-字型（思源黑體、思源宋體、霞鶩文楷、巧克力黑體、仙人掌明體，皆為 SIL OFL 1.1，
-自 Google Fonts 載入）。原有選項與預設值都沒有改動，需要中文字形時自行挑選即可。
-詳見 [ATTRIBUTION.md](ATTRIBUTION.md#繁體中文字型)。
-
-### 新增語言
-
-1. 在 `assets/i18n.js` 的 `LOCALES` 加入一筆，指定顯示名稱與 `lang` 屬性
-2. 在需要該語言的 `i18n.*.js` 字典中加入同名的語言區塊
-3. 執行 `npm test` 確認沒有漏 key
-
-不需更動任何 HTML 或工具程式碼。
+以前收錄的副本都已刪除，舊網址留著轉址頁：TRPG 實驗室（`tools/trpg-lab/` 的各頁）轉到改寫後的新工具，
+舊版存在這個瀏覽器裡的資料（同一個網域）由新版第一次開啟時讀進來；`tools/jizura/` 轉到 JIZURA 字面的原站。
 
 ## 授權
 
-根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：新框架 `web/` 與本站重寫的工具（見下）、`docs/`、本 repo 自己撰寫的 `tools/text-fx/`、`assets/`、
-`index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁。
-各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。
+根目錄 [LICENSE](LICENSE)（MIT）涵蓋整個 repo：新框架 `web/` 與用它改寫的工具、`docs/`、`tests/`、`tools/` 的轉址頁。
+參考開放授權原作改寫的部分保留原作的著作權與授權（各工具的 `web/src/tools/<id>/UPSTREAM_LICENSE`，建置時整理在網站的
+[`assets/build/THIRD_PARTY_NOTICES.md`](https://tool-jx3.github.io/toolkit/assets/build/THIRD_PARTY_NOTICES.md)）；
+每個工具的靈感來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。

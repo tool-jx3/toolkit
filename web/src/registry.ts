@@ -562,7 +562,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '在瀏覽器填好 CoC 7 版調查員角色卡：屬性的困難／極限、HP、SAN、DB、移動力與技能點數自動算，可以管理多張角色卡、裁切頭像，印成 A4 兩頁或存成 PDF、PNG，也能複製成 CCFOLIA 角色。',
     group: 'G9',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'ihoukentiku/ihoukentiku.github.io',
       url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
@@ -598,7 +598,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG。',
     group: 'G10',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'ihoukentiku/ihoukentiku.github.io',
       url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',

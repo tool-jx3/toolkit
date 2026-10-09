@@ -35,7 +35,7 @@ npm run typecheck   # tsc（瀏覽器端與 Node 端兩份設定）
 | `next` | `next/<id>/index.html` | 重寫中，只供對等驗證，不連到首頁 |
 | `live` | `tools/<id>/index.html` | 已上線，取代舊版 |
 | （共用） | `assets/build/` | 所有工具共用的 JS、CSS、Worker，以及自動產生的 `THIRD_PARTY_NOTICES.md` |
-| （舊版） | `tools/trpg-lab/` 等 | 還沒重寫的舊版工具，從 repo 照原樣複製（`vite.config.ts` 的 `STATIC_PATHS`） |
+| （轉址頁） | `tools/trpg-lab/`、`tools/jizura/` | 舊網址的轉址頁，從 repo 照原樣複製（`vite.config.ts` 的 `STATIC_PATHS`） |
 
 流程：Vite 先建到 `web/dist/`（每次清空），**建置成功後**由 `build/plugins.ts` 的 `assembleSite` 把重寫中的工具搬到 `next/<id>/`、
 產生 `THIRD_PARTY_NOTICES.md`、複製舊版檔案、寫入 `.nojekyll`，`web/dist/` 就是整個網站；不會寫入 repo 的其他地方。

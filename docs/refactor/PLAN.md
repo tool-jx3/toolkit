@@ -100,12 +100,12 @@ web/                        新框架（Vite 專案，有自己的 package.json�
   tests/                    Vitest 單元測試、Playwright 端對端與視覺回歸
   dist/                     建置產物＝整個網站（不提交；CI 推到 gh-pages 分支）
 docs/refactor/              本計畫、流程、設計、各工具規格
-tools/<id>/                 還沒重寫的舊版工具（照原樣複製進網站）；重寫上線時刪除
+tools/<id>/                 舊網址的轉址頁（trpg-lab 的各頁、jizura；照原樣複製進網站）
 .github/workflows/          CI：檢查、建置、部署到 gh-pages
 
 網站（gh-pages 分支、web/dist/）：
 index.html                  首頁
-tools/<id>/                 對外網址：已上線的工具（新框架）與還沒重寫的舊版工具
+tools/<id>/                 對外網址：已上線的工具（新框架）與舊網址的轉址頁
 next/<id>/                  重寫中的工具（不連到首頁，只供對等驗證）
 assets/build/               共用程式與樣式、THIRD_PARTY_NOTICES.md
 ```
@@ -133,7 +133,7 @@ assets/build/               共用程式與樣式、THIRD_PARTY_NOTICES.md
 ### 4.3 建置與部署
 
 - `web/` 建置成多頁輸出，`web/dist/` 就是整個網站：首頁 `index.html`、上線的工具在 `tools/<id>/`、重寫中的在 `next/<id>/`、
-  共用的程式與樣式在 `assets/build/`，還沒重寫的舊版工具從 repo 照原樣複製進去。
+  共用的程式與樣式在 `assets/build/`，舊網址的轉址頁（`tools/trpg-lab/`、`tools/jizura/`）從 repo 照原樣複製進去。
 - **建置產物不提交進 repo**（2026-10 起）：GitHub Actions 在 main 有新 commit 時檢查、建置，把 `web/dist/` 強制推到
   `gh-pages` 分支（orphan，只留最新一次部署）；GitHub Pages 從 `gh-pages` 的根目錄發布。
 - 工具清單與上線狀態集中在 `web/src/registry.ts`，建置設定與首頁卡片都從這裡讀。
@@ -148,7 +148,7 @@ assets/build/               共用程式與樣式、THIRD_PARTY_NOTICES.md
 | P10 收尾 | 首頁移入新框架（只有繁中）、移除 `assets/i18n.js` 與所有字典、`vendor/`、舊測試；ATTRIBUTION 改成「靈感來源」清單 | 全站只剩新框架的程式；所有測試通過 |
 
 P10 進度：✅ 首頁移入新框架（`web/src/index.html`＋`web/src/home/`；舊的 `assets/home.*`、`assets/i18n.home.js` 已刪除）；
-⬜ `assets/i18n.js` 與其餘字典、舊測試（等 G9 的舊版 trpg-lab 換掉後一起刪；anime-rig 已換成新版）；⬜ ATTRIBUTION 改成「靈感來源」清單。
+✅ `assets/i18n.js` 與所有字典、舊版的程式與素材、舊的靜態檢查已刪除（2026-10-09，G9／G10 全部上線後；`tools/` 只剩舊網址的轉址頁，`npm test` 改成檢查轉址頁、repo 的組成與文件）；✅ ATTRIBUTION 改成「靈感來源」清單。和舊版並排比對的單元測試從 git 歷史取回舊版（`web/tests/helpers/legacySource.ts`；CI 先 `git fetch --depth=1` 那兩個 commit）。
 
 每個工具上線時：舊版的檔案、字典、vendor 原始碼一併刪除；舊版所在的 `main` commit 記在 ATTRIBUTION，日後要再對照時可以取回。
 
@@ -201,10 +201,10 @@ P10 進度：✅ 首頁移入新框架（`web/src/index.html`＋`web/src/home/`�
 | acrylic-goods | ✅ | ✅ | ✅ | ✅ |
 | coc-dice（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
 | coc-npc（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
-| coc-sheet（trpg-lab） | 🔨 | 🔨 | ⬜ | ⬜ |
+| coc-sheet（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
 | grid-maker（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
 | range-ruler（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
-| map-editor（trpg-lab） | ✅ | ✅ | 🔍 | ⬜ |
+| map-editor（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
 | anime-rig | ✅ | ✅ | ✅ | ✅ |
 
 （每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 ✅、G5 ✅、G6 ✅、G8 ✅、G7 ✅（版型畫布、3D）。）
@@ -217,8 +217,8 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 
 | 工具 id | 名稱 | 靈感來源 | 原授權 | 群組 | 規格 | 實作 | 對等驗證 | 上線 |
 |---|---|---|---|---|---|---|---|---|
-| ai-fail | AI 誤判梗圖產生器 | swoonqx/ai-fails-meme-maker | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
-| scenario-text | 劇本文字產生器（CCFOLIA シナリオテキスト） | shiki365/scenario-text-maker | MIT | G5 | ⬜ | ⬜ | ⬜ | ⬜ |
+| ai-fail | AI 誤判梗圖產生器 | swoonqx/ai-fails-meme-maker | 未授權 | G7 | ✅ | ✅ | 🔍 | ⬜ |
+| scenario-text | 劇本文字產生器（CCFOLIA シナリオテキスト） | shiki365/scenario-text-maker | MIT | G5 | 🔨 | 🔨 | ⬜ | ⬜ |
 | floor-plan | 室內平面圖產生器 | くま。／TRPG室内図メーカー | 未授權 | G10 | ⬜ | ⬜ | ⬜ | ⬜ |
 | house-rules | CoC 房規表產生器 | くま。／CoCハウスルール表メーカー | 未授權 | G9 | ⬜ | ⬜ | ⬜ | ⬜ |
 | speech-bubble | 動態對話泡泡產生器 | sotsotssi/TextBubbleMaker-preview | 未授權 | G1 | ⬜ | ⬜ | ⬜ | ⬜ |
@@ -228,7 +228,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | polaroid | 拍立得相框產生器 | swoonqx/sw-polaroid | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
 | crossword | 填字遊戲產生器 | sotsotssi/text2crossword | MIT | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
 | scratch-card | 刮刮卡產生器 | sotsotssi/Scratchcard | 未授權 | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
-| discord-color | Discord 彩色文字產生器 | rebane2001（gist：discord-colored-text-generator） | 公有領域（Unlicense） | G1 | ⬜ | ⬜ | ⬜ | ⬜ |
+| discord-color | Discord 彩色文字產生器 | rebane2001（gist：discord-colored-text-generator） | 公有領域（Unlicense） | G1 | 🔨 | 🔨 | ⬜ | ⬜ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 

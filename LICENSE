@@ -1,20 +1,20 @@
 Scope of this licence
 ----------------------
 
-This MIT licence covers only what this repository adds on top of the
-bundled tools: the `web/` framework and every tool rewritten with it
-(its build output in `assets/build/`, `next/` and the rewritten
-`tools/<id>/index.html` pages listed in README.md), `docs/`, the
-clean-room tool `tools/text-fx/` (inspired by くま。's
-文字画像APNGメーカー; no code taken from it), `assets/`, `index.html`,
-`tests/`, each `tools/*/i18n.*.js`
-dictionary, the JIZURA redirect page `tools/jizura/`, the
-Anime2.5DRig guide `tools/anime-rig/guide.zh-TW.md`, the coc-typesetter
-sample scenario (`SAMPLE_META` and `SAMPLE_TEXT` in
-`tools/coc-typesetter/app.js`).
+This MIT licence covers this repository: the `web/` framework and every
+tool rewritten with it (`web/src/`, built by CI into the site that is
+published from the `gh-pages` branch), `docs/`, `tests/`, the
+clean-room tool `text-fx` (inspired by くま。's 文字画像APNGメーカー;
+no code taken from it), and the redirect pages under `tools/` that send
+old addresses to the rewritten tools.
 
-Each bundled tool under `tools/` keeps its own upstream licence — see
-`ATTRIBUTION.md` for the per-tool source and licence status.
+Some rewritten tools adapt code, templates or presets from upstream
+projects under open licences (MIT, CC0, Unlicense, Apache-2.0). Those
+parts keep their upstream copyright and licence: each such tool carries
+the upstream licence in `web/src/tools/<id>/UPSTREAM_LICENSE`, and the
+build collects them, together with the npm dependencies' licences, in
+the site's `assets/build/THIRD_PARTY_NOTICES.md`. See `ATTRIBUTION.md`
+for the inspiration and source of every tool.
 
 MIT License
 
