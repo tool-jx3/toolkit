@@ -209,6 +209,35 @@ P10 進度：✅ 首頁移入新框架（`web/src/index.html`＋`web/src/home/`�
 
 （每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 ✅、G5 ✅、G6 ✅、G8 ✅、G7 ✅（版型畫布、3D）。）
 
+### 6.1 P11 新工具引入與上游跟進（2026-10-09 使用者選定）
+
+上游檢查（2026-10-09）：31 個收錄過的上游裡 24 個沒有新 commit；shiki365 的五個工具只有英、韓文介面與說明（功能新版已有）；
+zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連到原站。新工具照 [PROCESS.md](PROCESS.md) 第 6 節引入；
+未授權的原作只參考功能與做法，程式、文字、素材自己做。
+
+| 工具 id | 名稱 | 靈感來源 | 原授權 | 群組 | 規格 | 實作 | 對等驗證 | 上線 |
+|---|---|---|---|---|---|---|---|---|
+| ai-fail | AI 誤判梗圖產生器 | swoonqx/ai-fails-meme-maker | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
+| scenario-text | 劇本文字產生器（CCFOLIA シナリオテキスト） | shiki365/scenario-text-maker | MIT | G5 | ⬜ | ⬜ | ⬜ | ⬜ |
+| floor-plan | 室內平面圖產生器 | くま。／TRPG室内図メーカー | 未授權 | G10 | ⬜ | ⬜ | ⬜ | ⬜ |
+| house-rules | CoC 房規表產生器 | くま。／CoCハウスルール表メーカー | 未授權 | G9 | ⬜ | ⬜ | ⬜ | ⬜ |
+| speech-bubble | 動態對話泡泡產生器 | sotsotssi/TextBubbleMaker-preview | 未授權 | G1 | ⬜ | ⬜ | ⬜ | ⬜ |
+| rank-chart | 排行榜產生器 | sotsotssi/would-you-rank | MIT | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
+| char-chart | 角色分析圖產生器（性格四象限＋CP 表） | sotsotssi/char-quadrant、visual-coupling-map | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
+| review-grid | 劇本心得九宮格 | sotsotssi/scenario-review | 未授權 | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
+| polaroid | 拍立得相框產生器 | swoonqx/sw-polaroid | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
+| crossword | 填字遊戲產生器 | sotsotssi/text2crossword | MIT | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
+| scratch-card | 刮刮卡產生器 | sotsotssi/Scratchcard | 未授權 | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
+
+上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
+
+| 工具 | 內容 | 來源 | 狀態 |
+|---|---|---|---|
+| text-fx | 自訂範本（存、讀、用檔案分享）、批次匯出、理智檢定（SAN）範本 | くま。／文字画像APNGメーカー v1.05～1.12 | ⬜ |
+| pair-maker | 背景改成單色或圖片（可模糊）、段落標題可以改 | baegop157902/PairMaker 2026-10-01 | ⬜ |
+| log-converter | 新增匯出 EPUB 電子書 | sotsotssi/CcfoliaLogConverter（未授權） | ⬜ |
+| session-log、session-report | 跑團紀錄簿的 SKP 角色；團報產生器用括號包住選取的文字、裝飾面板分頁 | くま。 session-log-tool v1.100、session-report-generator v1.73～1.76 | ⬜ |
+
 ## 7. 往後新增工具
 
 一律照 [PROCESS.md](PROCESS.md) 的流程：評估（含授權） → 讀原作程式寫功能清單 → 差距分析（缺的元件先補進元件庫） →
