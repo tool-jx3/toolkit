@@ -32,6 +32,8 @@ export function TimePanel({ scene }: { scene: Scene }) {
   const charDef = INTRO[c.flow.charFx] || INTRO.fade;
   const outroDef = OUTRO[c.outro.fx] || OUTRO.fadeOut;
   const n = frameCount(scene.duration, c.fps);
+  /* 登場動畫關閉（P11）：開始前空白不使用、沒有登場時長 */
+  const introOff = c.introOn === false && !isScroll;
 
   return (
     <div className="flex flex-col gap-3">
@@ -93,8 +95,9 @@ export function TimePanel({ scene }: { scene: Scene }) {
           step={0.05}
           unit="秒"
           digits={2}
+          hint={introOff ? S.introSwitch.preBlankOff : undefined}
         />
-        {!isLong && !introDef.instant ? (
+        {!isLong && !introOff && !introDef.instant ? (
           <NumField
             label="登場時長"
             path="intro.dur"
@@ -105,7 +108,10 @@ export function TimePanel({ scene }: { scene: Scene }) {
             digits={2}
           />
         ) : null}
-        {isLong && !['big', 'stack', 'scroll'].includes(c.flow.kind) && !charDef.instant ? (
+        {isLong &&
+        !introOff &&
+        !['big', 'stack', 'scroll'].includes(c.flow.kind) &&
+        !charDef.instant ? (
           <NumField
             label="單字出現時間"
             path="flow.charDur"

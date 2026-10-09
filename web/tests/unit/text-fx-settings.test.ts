@@ -17,8 +17,8 @@ import {
 import { initialData, normalizeData, templateEntry } from '@/tools/text-fx/store';
 
 describe('範本庫', () => {
-  it('標語 28、長文 8、字幕 8 個，分組與名稱', () => {
-    expect(TEMPLATES.title).toHaveLength(28);
+  it('標語 33、長文 8、字幕 8 個，分組與名稱（理智與瘋狂 5 個是 P11 新增）', () => {
+    expect(TEMPLATES.title).toHaveLength(33);
     expect(TEMPLATES.long).toHaveLength(8);
     expect(TEMPLATES.caption).toHaveLength(8);
     expect([...new Set(TEMPLATES.title.map((t) => t.group))]).toEqual([
@@ -28,6 +28,14 @@ describe('範本庫', () => {
       'CoC 7 版',
       'CoC 6 版',
       '通用',
+      '理智與瘋狂',
+    ]);
+    expect(TEMPLATES.title.filter((t) => t.group === '理智與瘋狂').map((t) => t.name)).toEqual([
+      '理智喪失',
+      '臨時性瘋狂',
+      '不定性瘋狂',
+      'SAN 值歸零',
+      '理智回復',
     ]);
     expect(STYLE_KITS).toHaveLength(11);
     expect(GRADIENT_KITS).toHaveLength(8);
@@ -109,13 +117,20 @@ describe('設定修正與舊版存檔', () => {
 });
 
 describe('範本與文字記憶', () => {
-  it('套用範本保留畫面尺寸與退場開關，並恢復記住的文字', () => {
-    const prev = { ...baseSettings('title'), canvasW: 960, canvasH: 540, outroOn: false };
+  it('套用範本保留畫面尺寸與登場、退場開關，並恢復記住的文字', () => {
+    const prev = {
+      ...baseSettings('title'),
+      canvasW: 960,
+      canvasH: 540,
+      introOn: false,
+      outroOn: false,
+    };
     const memo = { title: { enemy: { text: '敵襲', sub: '' } }, long: {}, caption: null };
     const e = templateEntry({ memo }, 'title', 'enemy', prev);
-    expect([e.s.canvasW, e.s.canvasH, e.s.outroOn, e.s.text, e.s.sub]).toEqual([
+    expect([e.s.canvasW, e.s.canvasH, e.s.introOn, e.s.outroOn, e.s.text, e.s.sub]).toEqual([
       960,
       540,
+      false,
       false,
       '敵襲',
       '',
@@ -141,6 +156,14 @@ describe('範本與文字記憶', () => {
     expect(d.modes.long.s.text).toBe('自己的');
     expect(d.modes.title.tpl).toBe('battle-start');
     expect(normalizeData(null)).toEqual(initialData());
+    /* 舊的存檔沒有登場開關：當作開（P11） */
+    expect(d.modes.long.s.introOn).toBe(true);
+    /* 套用中的我的範本（P11）照樣保留；不是字串的丟掉 */
+    const m = normalizeData({
+      modes: { title: { tpl: 'enemy', s: {}, mine: 'm1' }, long: { s: {}, mine: 3 } },
+    });
+    expect(m.modes.title.mine).toBe('m1');
+    expect('mine' in m.modes.long).toBe(false);
   });
 });
 
@@ -167,5 +190,10 @@ describe('檔名', () => {
     const long = settingsFromTemplate('long', TEMPLATES.long[0]);
     expect(autoFileName(long)).toBe('那年秋天，雨下了整整一個禮拜_逐字打出');
     expect(baseName(s, '我的 素材.png')).toBe('我的_素材');
+    /* 登場動畫關閉（P11）：效果名稱換成「無登場」；向上捲動不受影響 */
+    expect(autoFileName({ ...s, introOn: false })).toBe('戰鬥開始_無登場');
+    expect(autoFileName({ ...long, introOn: false })).toBe('那年秋天，雨下了整整一個禮拜_無登場');
+    const credits = settingsFromTemplate('long', TEMPLATES.long[7]);
+    expect(autoFileName({ ...credits, introOn: false })).toMatch(/_向上捲動$/);
   });
 });

@@ -7,11 +7,14 @@ import type { Draft } from 'immer';
 import { create } from 'zustand';
 import { createToolStore } from '@/core/storage';
 import { settingsFromTemplate, TEMPLATES, templateById } from './library';
+import { addParsed, makeMine, mineOf, type ParsedTemplate, useMine } from './mine';
 import { deepClone, MODES, type Mode, normalizeSettings, type Settings } from './settings';
 
 export interface ModeEntry {
   tpl: string;
   s: Settings;
+  /** 套用中的「我的範本」（P11；套用內建範本時清掉） */
+  mine?: string | null;
 }
 
 export interface TextMemo {
@@ -32,7 +35,7 @@ export const TOOL_ID = 'text-fx';
 export const LEGACY_KEY = 'trpg-toolkit:text-fx:v1';
 const isMode = (m: unknown): m is Mode => MODES.some(([k]) => k === m);
 
-/** 套用範本：畫面尺寸與退場開關保留原本的設定，其他回到「基礎預設＋範本差異」，並恢復記住的文字 */
+/** 套用範本：畫面尺寸與登場、退場開關保留原本的設定，其他回到「基礎預設＋範本差異」，並恢復記住的文字 */
 export function templateEntry(
   data: Pick<TfxData, 'memo'>,
   mode: Mode,
@@ -45,6 +48,7 @@ export function templateEntry(
   if (prev) {
     s.canvasW = prev.canvasW;
     s.canvasH = prev.canvasH;
+    s.introOn = prev.introOn;
     s.outroOn = prev.outroOn;
   }
   if (!ignoreMemo) {
@@ -93,8 +97,15 @@ export function normalizeData(raw: unknown): TfxData {
   };
   const modes = { ...base.modes };
   for (const [m] of MODES) {
-    const e = (r.modes as Record<string, { tpl?: string; s?: unknown }> | undefined)?.[m];
-    if (e?.s) modes[m] = { tpl: templateById(m, e.tpl).id, s: normalizeSettings(m, e.s) };
+    const e = (
+      r.modes as Record<string, { tpl?: string; s?: unknown; mine?: unknown }> | undefined
+    )?.[m];
+    if (e?.s)
+      modes[m] = {
+        tpl: templateById(m, e.tpl).id,
+        s: normalizeSettings(m, e.s),
+        ...(typeof e.mine === 'string' && e.mine ? { mine: e.mine } : {}),
+      };
   }
   out.modes = modes;
   return out;
@@ -130,6 +141,10 @@ export interface ViewPrefs {
   tab: string;
   format: string;
   scale: number;
+  /** 一次匯出多個（P11）：off／每一行（長文每一頁）各一個／勾選的範本 */
+  batch: 'off' | 'lines' | 'templates';
+  /** 批次匯出勾選的範本（每個模式各自；內建 b:<id>、我的範本 m:<id>） */
+  batchPick: Record<Mode, string[]>;
 }
 
 export const VIEW_DEFAULTS: ViewPrefs = {
@@ -139,6 +154,8 @@ export const VIEW_DEFAULTS: ViewPrefs = {
   tab: 'mode',
   format: 'apng',
   scale: 1,
+  batch: 'off',
+  batchPick: { title: [], long: [], caption: [] },
 };
 
 export const useView = createToolStore<ViewPrefs>(`${TOOL_ID}:view`, VIEW_DEFAULTS, {
@@ -182,6 +199,8 @@ const bumpReplay = () => useReplay.setState((s) => ({ token: s.token + 1 }));
 export const cfgOf = (d: TfxData): Settings => d.modes[d.mode].s;
 
 function rememberText(d: Draft<TfxData>): void {
+  /* 套用中的是「我的範本」：文字跟著那一組設定，不記到內建範本 */
+  if (d.modes[d.mode].mine) return;
   const s = d.modes[d.mode].s;
   const tpl = d.modes[d.mode].tpl;
   if (d.mode === 'caption') d.memo.caption = { text: s.text, sub: s.sub };
@@ -211,6 +230,7 @@ export function setMode(m: Mode): void {
 
 export function applyTemplate(id: string): void {
   const d = useTfx.getState().data;
+  /* 整組換掉：套用中的我的範本也一起清掉 */
   const entry = templateEntry(d, d.mode, id, d.modes[d.mode].s);
   useTfx.getState().update((x) => {
     x.modes[x.mode] = entry;
@@ -218,9 +238,14 @@ export function applyTemplate(id: string): void {
   bumpReplay();
 }
 
-/** 把目前模式的所有設定（含文字）恢復成範本原樣 */
+/** 把目前模式的所有設定（含文字）恢復成範本原樣（套用中的是我的範本時回到那個範本） */
 export function resetTemplate(): void {
   const d = useTfx.getState().data;
+  const mine = mineOf(d.modes[d.mode].mine);
+  if (mine && mine.mode === d.mode) {
+    applyMine(mine.id);
+    return;
+  }
   const id = d.modes[d.mode].tpl;
   const entry = templateEntry(d, d.mode, id, deepClone(d.modes[d.mode].s), { ignoreMemo: true });
   useTfx.getState().update((x) => {
@@ -230,6 +255,57 @@ export function resetTemplate(): void {
     x.modes[x.mode] = entry;
   });
   bumpReplay();
+}
+
+/* ---------- 我的範本（P11） ---------- */
+
+/** 套用我的範本：完整的設定（含文字、登場與退場開關），只保留目前的畫面尺寸 */
+export function mineEntry(prev: ModeEntry, mineS: Settings, mode: Mode, id: string): ModeEntry {
+  const s = normalizeSettings(mode, deepClone(mineS));
+  s.canvasW = prev.s.canvasW;
+  s.canvasH = prev.s.canvasH;
+  return { tpl: prev.tpl, s, mine: id };
+}
+
+export function applyMine(id: string): void {
+  const item = mineOf(id);
+  const d = useTfx.getState().data;
+  if (!item || item.mode !== d.mode) return;
+  const entry = mineEntry(d.modes[d.mode], item.s, d.mode, item.id);
+  useTfx.getState().update((x) => {
+    x.modes[x.mode] = entry;
+  });
+  bumpReplay();
+}
+
+/** 把目前模式的設定存成我的範本（回傳新的範本） */
+export function saveMine(name: string) {
+  const d = useTfx.getState().data;
+  const item = makeMine(useMine.getState().data.items, d.mode, d.modes[d.mode].s, name);
+  useMine.getState().update((m) => {
+    m.items.push(item);
+  });
+  return item;
+}
+
+export function renameMine(id: string, name: string): void {
+  useMine.getState().update((m) => {
+    const t = m.items.find((x) => x.id === id);
+    /* 打字中可以是空的（顯示「未命名範本」）；最多 40 字 */
+    if (t) t.name = Array.from(name).slice(0, 40).join('');
+  });
+}
+
+/** 讀入的範本加進清單（名稱重複時加編號） */
+export function importMine(parsed: readonly ParsedTemplate[]): void {
+  if (!parsed.length) return;
+  useMine.getState().replace({ items: addParsed(useMine.getState().data.items, parsed) });
+}
+
+export function removeMine(id: string): void {
+  useMine.getState().update((m) => {
+    m.items = m.items.filter((x) => x.id !== id);
+  });
 }
 
 export function setManualName(v: string): void {

@@ -1,5 +1,5 @@
 /**
- * 匯出檔名：「文字開頭_效果名稱[_無退場][_循環]」，或使用者填的檔名。
+ * 匯出檔名：「文字開頭_效果名稱[_無退場][_循環]」（登場動畫關閉時效果名稱是「無登場」），或使用者填的檔名。
  */
 import { INTRO } from './motion';
 import { FLOW_NAMES, type Settings } from './settings';
@@ -47,7 +47,14 @@ export function sanitizeName(s: string): string {
 }
 
 export function autoFileName(c: Settings): string {
-  const fx = c.mode === 'long' ? FLOW_NAMES[c.flow.kind] : (INTRO[c.intro.fx] || INTRO.fade).name;
+  const scroll = c.mode === 'long' && c.flow.kind === 'scroll';
+  /* 登場動畫關閉（P11）時效果名稱換成「無登場」 */
+  const fx =
+    c.introOn === false && !scroll
+      ? '無登場'
+      : c.mode === 'long'
+        ? FLOW_NAMES[c.flow.kind]
+        : (INTRO[c.intro.fx] || INTRO.fade).name;
   const parts = [textHead(c.text) || textHead(c.sub) || '文字演出', fx];
   if (!c.outroOn) parts.push('無退場');
   if (c.loop === 'infinite') parts.push('循環');

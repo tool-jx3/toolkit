@@ -404,11 +404,13 @@ export function buildScene(cfg: Settings, opts: BuildOptions = {}): Scene {
 
   /* ---- 時間 ---- */
   const outroOn = !!cfg.outroOn;
+  /* 登場動畫關閉（P11）：每一頁的文字、裝飾從頭就是完成狀態，不用開始前空白（向上捲動不適用） */
+  const instant = cfg.introOn === false && !scroll;
   const decoOn = deco.kind !== 'none';
   const decoDur = decoOn && deco.anim !== 'none' ? deco.animTime : 0;
   const holdFx = HOLD[cfg.hold.fx] || HOLD.none;
   const pages: ScenePage[] = [];
-  let t = Math.max(0, cfg.preBlank);
+  let t = instant ? 0 : Math.max(0, cfg.preBlank);
   const preEnd = t;
   const bgSync = cfg.bg.kind !== 'none' && cfg.bg.sync;
   const pad = paintPad(cfg, k);
@@ -528,7 +530,7 @@ export function buildScene(cfg: Settings, opts: BuildOptions = {}): Scene {
       decoOut: null,
     };
     const wrapDelay =
-      decoOn && WRAP_DECOS.has(deco.kind) && deco.anim !== 'none'
+      !instant && decoOn && WRAP_DECOS.has(deco.kind) && deco.anim !== 'none'
         ? Math.min(0.6 * decoDur, 0.3)
         : 0;
     page.textStart = t + wrapDelay;
@@ -568,7 +570,10 @@ export function buildScene(cfg: Settings, opts: BuildOptions = {}): Scene {
           measure: opts.measure,
           paint: opts.paint !== false,
         });
-    introEnd = Math.max(introEnd, page.t0 + decoDur);
+    if (instant) {
+      showAtOnce(page, groups);
+      introEnd = page.textStart;
+    } else introEnd = Math.max(introEnd, page.t0 + decoDur);
     page.introEnd = introEnd;
     page.holdEnd = introEnd + Math.max(0, cfg.holdTime);
 
@@ -590,7 +595,7 @@ export function buildScene(cfg: Settings, opts: BuildOptions = {}): Scene {
       page.end = page.holdEnd;
       page.visibleEnd = isLast ? Number.POSITIVE_INFINITY : page.holdEnd; // 中間的頁在停留結束時瞬間消失
     }
-    page.decoIn = decoOn ? { start: page.t0, dur: decoDur } : null;
+    page.decoIn = decoOn ? { start: page.t0, dur: instant ? 0 : decoDur } : null;
     page.repTime = page.introEnd;
     pages.push(page);
     t = page.end + (isLast ? 0 : Math.max(0, long ? flow.pageGap : 0));
@@ -614,6 +619,7 @@ export function buildScene(cfg: Settings, opts: BuildOptions = {}): Scene {
     lastEnd,
     preEnd,
     outroOn,
+    instant,
     holdFx,
     glowStrength,
     deco,
@@ -623,6 +629,23 @@ export function buildScene(cfg: Settings, opts: BuildOptions = {}): Scene {
     flowKind,
     shrunk: k < 0.999 ? { from: S0, to: S } : null,
   });
+}
+
+/**
+ * 登場動畫關閉（P11）：排好的登場時間表全部換成「文字開始時就整個出現」。
+ * 名次（停留效果的波浪等會用到）照原本排的；中央大字輪播與整句砸下拿掉；打字游標從頭就停在最後一個字後面。
+ */
+function showAtOnce(page: ScenePage, groups: SceneGroup[]): void {
+  const start = page.textStart;
+  for (const grp of groups) {
+    grp.inBlock = null;
+    for (const g of grp.glyphs) {
+      g.inStart = start;
+      g.inDur = 0;
+    }
+  }
+  page.big = undefined;
+  if (page.cursor) page.cursor.typedAt = start;
 }
 
 /* ---------- 短句（標語、字幕）的登場時間表 ---------- */
@@ -1032,6 +1055,8 @@ export interface SceneInit {
   lastEnd: number;
   preEnd: number;
   outroOn: boolean;
+  /** 登場動畫關閉（從頭就是完成狀態） */
+  instant: boolean;
   holdFx: HoldFx;
   glowStrength: number;
   deco: DecoSettings;
@@ -1056,6 +1081,7 @@ export class Scene implements SceneInit {
   lastEnd!: number;
   preEnd!: number;
   outroOn!: boolean;
+  instant!: boolean;
   holdFx!: HoldFx;
   glowStrength!: number;
   deco!: DecoSettings;
@@ -1112,7 +1138,8 @@ export class Scene implements SceneInit {
     if (this.cfg.bg.kind === 'none') return 0;
     if (!this.bgSync) return 1;
     if (t < this.preEnd) return 0;
-    let a = EASE.out(clamp01((t - this.preEnd) / 0.4));
+    /* 登場動畫關閉時背景也從頭就是完整的（只在退場時淡出） */
+    let a = this.instant ? 1 : EASE.out(clamp01((t - this.preEnd) / 0.4));
     if (this.outroOn) {
       if (t >= this.lastEnd) return 0;
       const u = clamp01((t - (this.lastEnd - 0.4)) / 0.4);

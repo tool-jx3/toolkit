@@ -382,6 +382,215 @@ test.describe('匯出', () => {
   });
 });
 
+test.describe('P11 新增：登場開關、理智範本、我的範本、一次匯出多個', () => {
+  test.use({ contextOptions: { reducedMotion: 'reduce' }, viewport: { width: 1280, height: 900 } });
+
+  const blankHash = (page: Page) =>
+    page.getByTestId('tfx-canvas').evaluate((c: HTMLCanvasElement) => {
+      const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 0) return false;
+      return true;
+    });
+
+  test('登場開關（F297）：關掉時第一格就是完成狀態、自動檔名「無登場」、登場的欄位收起來', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* 開著：第一格（開始前空白）是空的 */
+    await hook(page, '(t) => t.seek(0)');
+    await expect.poll(() => blankHash(page)).toBe(true);
+    const bar = page.getByRole('switch', { name: '登場', exact: true });
+    await expect(bar).toBeChecked();
+    await bar.click();
+    expect(await hook<boolean>(page, '(t) => t.app.cfg().introOn')).toBe(false);
+    await hook(page, '(t) => t.seek(0)');
+    await expect.poll(() => blankHash(page)).toBe(false);
+    expect(await hook<number>(page, '(t) => t.scene.repTime')).toBe(0);
+    await expect(page.getByRole('textbox', { name: '檔名（留空＝自動命名）' })).toHaveAttribute(
+      'placeholder',
+      '戰鬥開始_無登場',
+    );
+    /* 模式分頁：登場的開關同步、效果欄位收起來；時間分頁：開始前空白註明不使用 */
+    const sw = page.getByRole('switch', { name: '要有登場' });
+    await expect(sw).not.toBeChecked();
+    await expect(page.getByRole('combobox', { name: '效果' })).toHaveCount(2); // 停留、退場
+    await expect(page.getByText('副文字登場')).toHaveCount(0);
+    await page.getByRole('tab', { name: '時間與尺寸' }).click();
+    await expect(page.getByText('登場動畫關閉時不使用（第一格就是完成狀態）。')).toBeVisible();
+    /* 套用內建範本：保留登場開關（同退場開關） */
+    await hook(page, "(t) => t.app.applyTemplate('coc7-critical')");
+    expect(await hook<boolean>(page, '(t) => t.app.cfg().introOn')).toBe(false);
+    /* 長文：開關在「顯示流程」，關掉時顯示說明；向上捲動時不顯示開關 */
+    await page.getByRole('tab', { name: '模式' }).click();
+    await page.getByRole('radio', { name: /^長文/ }).click();
+    await page.getByRole('switch', { name: '要有登場' }).click();
+    await expect(page.getByTestId('intro-off-note')).toBeVisible();
+    await hook(page, "(t) => t.app.set('flow.kind', 'scroll')");
+    await expect(page.getByRole('switch', { name: '要有登場' })).toHaveCount(0);
+    /* 復原 */
+    await page.locator('body').click({ position: { x: 5, y: 300 } });
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => hook<string>(page, '(t) => t.app.cfg().flow.kind')).toBe('seq');
+    expect(errors).toEqual([]);
+  });
+
+  test('理智與瘋狂範本（F305～F309）：分組、套用', async ({ page }) => {
+    const errors = await open(page);
+    await page.getByRole('radio', { name: '理智與瘋狂' }).click();
+    const cards = page.getByRole('list', { name: '標語範本' }).getByRole('button');
+    await expect(cards).toHaveText([
+      '理智喪失',
+      '臨時性瘋狂',
+      '不定性瘋狂',
+      'SAN 值歸零',
+      '理智回復',
+    ]);
+    await page.getByRole('button', { name: /^SAN 值歸零/ }).click();
+    expect(await hook<string>(page, '(t) => t.app.tplId()')).toBe('san-zero');
+    await expect(page.getByTestId('meta-line')).toContainText('SAN 值歸零');
+    expect(await hook<string>(page, '(t) => t.app.cfg().sub')).toBe('SANITY : 0');
+    expect(errors).toEqual([]);
+  });
+
+  test('我的範本（F298～F301）：存、改名、套用、匯出、讀入（合成一則通知）、刪除、重新整理後還在', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await hook(page, "(t) => { t.app.set('text', '我的字卡'); t.app.set('hold.fx', 'wave'); }");
+    const section = page.getByRole('list', { name: '我的範本清單' });
+    await page.getByRole('button', { name: '存成我的範本' }).click();
+    /* 新增後游標在名稱欄，直接改名 */
+    const name = page.getByRole('textbox', { name: '範本名稱（我的字卡）' });
+    await expect(name).toBeFocused();
+    await name.fill('理智字卡');
+    await expect(section.getByRole('listitem')).toHaveCount(1);
+    expect(await hook<string[]>(page, '(t) => t.app.mine().map((m) => m.name)')).toEqual([
+      '理智字卡',
+    ]);
+
+    /* 換成別的範本、改尺寸，再套用我的範本：設定回來、尺寸保留、資訊列顯示範本名稱 */
+    await page.getByRole('radio', { name: 'CoC 7 版' }).click();
+    await page.getByRole('button', { name: /^大成功/ }).click();
+    await hook(page, "(t) => { t.app.set('canvasW', 960); t.app.set('canvasH', 540); }");
+    await page.getByRole('button', { name: '套用「理智字卡」' }).click();
+    expect(await hook<string>(page, '(t) => t.app.cfg().text')).toBe('我的字卡');
+    expect(await hook<string>(page, '(t) => t.app.cfg().hold.fx')).toBe('wave');
+    expect(await hook<number>(page, '(t) => t.app.cfg().canvasW')).toBe(960);
+    await expect(page.getByTestId('meta-line')).toContainText('標語／理智字卡');
+    await expect(page.getByRole('button', { name: '套用「理智字卡」' })).toHaveText('套用中');
+
+    /* 匯出一個：範本檔（JSON） */
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: '匯出「理智字卡」' }).click(),
+    ]);
+    expect(dl.suggestedFilename()).toBe('文字演出範本_理智字卡.json');
+    const file = JSON.parse(readFileSync(await dl.path(), 'utf8'));
+    expect(file.format).toBe('trpg-toolkit:text-fx-templates');
+    expect(file.templates).toHaveLength(1);
+    expect(file.templates[0]).toMatchObject({ name: '理智字卡', mode: 'title' });
+    expect(file.templates[0].settings.text).toBe('我的字卡');
+
+    /* 讀入兩個檔：一個是範本檔（含一個長文範本）、一個不是 → 一則通知同時說明成功與失敗 */
+    const good = JSON.stringify({
+      ...file,
+      templates: [file.templates[0], { name: '長文的', mode: 'long', settings: { text: '長文' } }],
+    });
+    await expect(page.getByText('讀入範本檔', { exact: true })).toBeVisible();
+    await page.locator('input[type=file][accept*=".json"]').setInputFiles([
+      { name: 'good.json', mimeType: 'application/json', buffer: Buffer.from(good) },
+      { name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"rows":[]}') },
+    ]);
+    const toast = page.getByRole('status').filter({ hasText: '已讀入 2 個範本，1 個檔案讀不到' });
+    await expect(toast).toBeVisible();
+    await expect(toast).toContainText('長文 1 個');
+    await expect(toast).toContainText('bad.json：不是文字演出產生器的範本檔。');
+    await expect(section.getByRole('listitem')).toHaveCount(2);
+    await expect(page.getByRole('textbox', { name: '範本名稱（理智字卡（2））' })).toBeVisible();
+    await expect(page.getByText('其他模式還有 1 個我的範本（切換模式就看得到）。')).toBeVisible();
+
+    /* 刪除（確認） */
+    await page.getByRole('button', { name: '刪除「理智字卡（2）」' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: '刪除' }).click();
+    await expect(section.getByRole('listitem')).toHaveCount(1);
+
+    /* 重新整理後還在；長文模式看得到讀入的長文範本 */
+    await page.reload();
+    await page.waitForFunction(() => !!(window as unknown as { __textFx?: unknown }).__textFx);
+    await expect(
+      page.getByRole('list', { name: '我的範本清單' }).getByRole('listitem'),
+    ).toHaveCount(1);
+    await page.getByRole('radio', { name: /^長文/ }).click();
+    await expect(page.getByRole('textbox', { name: '範本名稱（長文的）' })).toBeVisible();
+    /* 390 寬：清單的列（縮圖、名稱、套用、匯出、刪除）不會撐出橫向捲動 */
+    await page.setViewportSize({ width: 390, height: 844 });
+    await noHorizontalScroll(page);
+    expect(errors).toEqual([]);
+  });
+
+  test('一次匯出多個（F302～F304）：每一行各一個、勾選的範本；打包成 ZIP', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = await open(page);
+    await hook(
+      page,
+      "(t) => { t.app.set('text', '大成功\\n成功'); t.app.set('sub', 'CRITICAL\\nSUCCESS'); t.app.set('fps', 12); }",
+    );
+    await page.getByRole('combobox', { name: '一次匯出多個' }).click();
+    await page.getByRole('option', { name: '每一行各一個' }).click();
+    await expect(page.getByTestId('batch-note')).toContainText('會做出 2 個：「大成功」、「成功」');
+    await expect(page.getByTestId('batch-note')).toContainText('依行配對');
+    /* 連番 PNG 不能用 */
+    await expect(page.getByRole('radio', { name: '連番 PNG' })).toBeDisabled();
+
+    await page.getByRole('radio', { name: 'PNG', exact: true }).click();
+    await page.getByRole('button', { name: '匯出 PNG' }).click();
+    const batch = page.getByTestId('export-batch');
+    await expect(batch).toBeVisible({ timeout: 60_000 });
+    await expect(batch).toContainText('共 2 個檔案');
+    await expect(batch).toContainText('每一行各一個，共 2 個');
+    await expect(batch.getByTestId('export-result')).toHaveCount(2);
+    await expect(batch.getByTestId('export-result').nth(0)).toContainText(
+      '01_大成功_巨大撞擊_靜止.png',
+    );
+    await expect(batch.getByTestId('export-result').nth(1)).toContainText(
+      '02_成功_巨大撞擊_靜止.png',
+    );
+    const [zipDl] = await Promise.all([
+      page.waitForEvent('download'),
+      batch.getByRole('button', { name: '打包成 ZIP' }).click(),
+    ]);
+    expect(zipDl.suggestedFilename()).toBe('大成功_巨大撞擊_批次.zip');
+    const files = unzipSync(new Uint8Array(readFileSync(await zipDl.path())));
+    expect(Object.keys(files).sort()).toEqual([
+      '01_大成功_巨大撞擊_靜止.png',
+      '02_成功_巨大撞擊_靜止.png',
+    ]);
+    expect(Buffer.from(files['02_成功_巨大撞擊_靜止.png'].subarray(1, 4)).toString()).toBe('PNG');
+
+    /* 勾選的範本：對話框裡依分組勾選 */
+    await page.getByRole('combobox', { name: '一次匯出多個' }).click();
+    await page.getByRole('option', { name: '勾選的範本' }).click();
+    await page.getByRole('button', { name: '選擇範本（已選 0 個）' }).click();
+    const dlg = page.getByRole('dialog', { name: '一次匯出的範本' });
+    await dlg.getByRole('button', { name: '「理智與瘋狂」全選／全不選' }).click();
+    await dlg.getByRole('checkbox', { name: '理智回復' }).click();
+    await dlg.getByRole('button', { name: '完成' }).click();
+    await expect(page.getByRole('button', { name: '選擇範本（已選 4 個）' })).toBeVisible();
+    await page.getByRole('radio', { name: 'APNG', exact: true }).click();
+    await page.getByRole('button', { name: '匯出 APNG' }).click();
+    await expect(batch).toContainText('勾選的範本，共 4 個', { timeout: 120_000 });
+    const names = await batch.getByTestId('export-result').allTextContents();
+    expect(names.map((n) => /^(\S+?\.png)/.exec(n)?.[1])).toEqual([
+      '01_理智喪失_模糊對焦.png',
+      '02_臨時性瘋狂_上下交錯.png',
+      '03_不定性瘋狂_四散聚合.png',
+      '04_SAN_值歸零_巨大撞擊.png',
+    ]);
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('版面', () => {
   test.use({ contextOptions: { reducedMotion: 'reduce' } });
 
