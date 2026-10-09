@@ -49,6 +49,7 @@ import {
   Spline,
   SquareUser,
   Table,
+  TextQuote,
   UserCog,
   Users,
   Waves,
@@ -93,6 +94,7 @@ const ICONS: Record<string, LucideIcon> = {
   'foreground-frame': Frame,
   'log-converter': ScrollText,
   'scenario-cards': LayoutGrid,
+  'scenario-text': TextQuote,
   /* G6 劇本與紀錄 */
   'scenario-editor': BookOpen,
   'coc-typesetter': Newspaper,

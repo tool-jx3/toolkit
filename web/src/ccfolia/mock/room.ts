@@ -17,7 +17,7 @@ import {
   messageBoxResultText,
   SECRET_DICE_MESSAGE_BOX_TEXT,
 } from '../dice';
-import { MESSAGE_BOX, MESSAGE_BOX_TIMING } from '../dom';
+import { MESSAGE_BOX, MESSAGE_BOX_LAYOUT, MESSAGE_BOX_TIMING } from '../dom';
 import { mockAvatar, mockDie } from './assets';
 import {
   addStyle,
@@ -133,9 +133,8 @@ body { margin: 0; background-color: #121212; color: #fff; font-family: Roboto, H
 @media (max-width: 599.95px) { .${C.portrait} { width: 120px; } }
 `;
 
-const ICON_SKIP = 'M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z';
-const ICON_CLOSE =
-  'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z';
+const ICON_SKIP = MESSAGE_BOX_LAYOUT.icons.skip;
+const ICON_CLOSE = MESSAGE_BOX_LAYOUT.icons.close;
 
 export class RoomScene implements MockScene {
   private opts: RoomSceneOptions;

@@ -11,6 +11,7 @@
  * - `messageChannels` 預設是 CCFOLIA 新房間的三個分頁 `メイン`、`情報`、`雑談`。
  * - 角色的差分 `faces` 是 `{ label, iconUrl }`（原作輸出 `{ name, imageUrl }` 是錯的，room-zip 第 7 節裁定修正）。
  * - 場景的 `markers` 是整組：切到該場景時取代房間的マーカーパネル。
+ * - 只追加資料（例如只加劇本文字）時 `room` 要是 `{}`（`createAppendRoomData`），不能用 `createRoom()` 的預設值。
  */
 import {
   type CcfoliaFace,
@@ -207,11 +208,21 @@ export interface CcfoliaEffect {
   [key: string]: unknown;
 }
 
-/** 共有メモ（`entities.notes` 的一筆；原作的格式模組支援的欄位） */
+/**
+ * 劇本文字（シナリオテキスト，舊稱共有メモ；`entities.notes` 的一筆）。
+ * CCFOLIA 1.37.4（scenario-text 規格 3.1，原作以真實房間驗證）：從「[GM] シナリオテキスト一覧」送出時，
+ * 以 `name` 當發言者名稱（空字串＝聊天欄目前的名稱）、`iconUrl` 當立繪（訊息框會顯示）發言 `text`；
+ * 一覽依 `order` 由小到大排列。`iconUrl` 可以是網址，或 ZIP 裡的圖片檔名（讀入時上傳並換成網址）；沒有圖時 `""` 或 null。
+ * 畫面上沒有設定 `iconUrl` 的地方，只能經由房間資料讀入。
+ */
 export interface CcfoliaNote {
+  /** 標題（送出時的名稱） */
   name: string;
+  /** 本文（空白時 CCFOLIA 會改送聊天欄裡的文字） */
   text: string;
+  /** 一覽的順序（由小到大） */
   order: number;
+  /** 送出時的圖（立繪） */
   iconUrl: string | null;
   [key: string]: unknown;
 }
@@ -408,7 +419,7 @@ export function createEffect(patch: Partial<CcfoliaEffect> = {}): CcfoliaEffect 
   };
 }
 
-/** 共有メモ */
+/** 劇本文字（シナリオテキスト；舊稱共有メモ） */
 export function createNote(patch: Partial<CcfoliaNote> = {}): CcfoliaNote {
   return { name: '', text: '', order: 1, iconUrl: null, ...patch };
 }
@@ -435,6 +446,37 @@ export function createRoomData(
   };
 }
 
+/**
+ * 「只追加」的房間資料：`entities.room` 是空物件 `{}`。CCFOLIA 讀入房間資料時依 ID 一筆一筆寫入各類別，
+ * `room` 是 `{}` 時只更新房間的更新時間、不改設定，其他類別空的就什麼都不變——所以讀入只會**多出**給的資料
+ * （例：scenario-text 只追加劇本文字）。不要用 `createRoom()` 的預設值（會把房間的背景、盤面等設定蓋掉）。
+ */
+export interface CcfoliaAppendRoomData extends Omit<CcfoliaRoomData, 'entities'> {
+  entities: Omit<CcfoliaRoomEntities, 'room'> & { room: Record<string, never> };
+}
+
+/** 組成「只追加」的 `__data.json`（room 是 `{}`；entities 依 ROOM_ENTITY_KINDS 的順序；resources 由 buildRoomZip 填） */
+export function createAppendRoomData(
+  entities: Partial<Omit<CcfoliaRoomEntities, 'room'>> = {},
+  resources: Record<string, CcfoliaResource> = {},
+): CcfoliaAppendRoomData {
+  return {
+    meta: { version: ROOM_META_VERSION },
+    entities: {
+      room: {},
+      items: entities.items ?? {},
+      decks: entities.decks ?? {},
+      notes: entities.notes ?? {},
+      characters: entities.characters ?? {},
+      effects: entities.effects ?? {},
+      scenes: entities.scenes ?? {},
+      savedatas: entities.savedatas ?? {},
+      snapshots: entities.snapshots ?? {},
+    },
+    resources,
+  };
+}
+
 /* ---------- ID 與權杖 ---------- */
 
 let lastId = 0;
@@ -446,7 +488,11 @@ export function newRoomEntityId(): string {
   return now.toString(36);
 }
 
-/** `.token` 的內容：「0.」＋64 個小寫十六進位亂數（CCFOLIA 不檢查值，但檔案必須存在） */
+/**
+ * `.token` 的內容：「0.」＋64 個小寫十六進位亂數。檔案必須存在；CCFOLIA 1.37.4 會比對「0.」＋SHA-256(`__data.json`)，
+ * 不符時讀入前顯示「外部ツールで作成および編集されたデータです…」確認後照常讀入（scenario-text 規格 3.1；
+ * 外部工具的資料讓使用者看到這個確認比較好，所以刻意不算真正的值）。
+ */
 export function newRoomToken(): string {
   const bytes = new Uint8Array(32);
   globalThis.crypto.getRandomValues(bytes);
