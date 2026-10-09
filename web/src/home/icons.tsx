@@ -4,6 +4,7 @@ import {
   BookHeart,
   BookOpen,
   Box,
+  Camera,
   ChartNoAxesColumnIncreasing,
   ChartScatter,
   CircleUser,
@@ -116,6 +117,7 @@ const ICONS: Record<string, LucideIcon> = {
   'ai-fail': ScanEye,
   'rank-chart': Trophy,
   'char-chart': ChartScatter,
+  polaroid: Camera,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,

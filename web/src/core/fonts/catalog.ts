@@ -622,6 +622,15 @@ export const GOOGLE_FONTS: readonly FontEntry[] = [
   },
   /* G10 地圖編輯器（2026-10-08 以 css2 驗證） */
   { family: 'Eater', label: 'Eater', scripts: ['latin'], category: 'display', weights: [400] },
+  /* G7 拍立得相框產生器的文字（2026-10-09 以 css2 驗證字重） */
+  { family: 'Poppins', label: 'Poppins', scripts: ['latin'], category: 'sans', weights: ALL },
+  {
+    family: 'Caveat',
+    label: 'Caveat（手寫）',
+    scripts: ['latin'],
+    category: 'handwriting',
+    weights: [400, 500, 600, 700],
+  },
 ];
 
 /** 繁中的基本五套 */
