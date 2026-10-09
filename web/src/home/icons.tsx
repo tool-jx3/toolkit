@@ -45,6 +45,7 @@ import {
   NotebookTabs,
   Orbit,
   Palette,
+  Puzzle,
   Ruler,
   Scaling,
   ScanEye,
@@ -109,6 +110,7 @@ const ICONS: Record<string, LucideIcon> = {
   'session-log': NotebookPen,
   'session-report': ClipboardList,
   'review-grid': BookHeart,
+  crossword: Puzzle,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,
