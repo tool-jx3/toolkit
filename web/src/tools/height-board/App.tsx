@@ -117,7 +117,6 @@ import {
   disableAutosave,
   flushAutosave,
   getBitmapVersion,
-  markSessionAsset,
   PROJECT_VERSION,
   prepareImage,
   requestBitmap,
@@ -239,7 +238,6 @@ async function restoreOnce(onMissing: (n: number) => void): Promise<void> {
     t.resume();
   }
   const ids = [...new Set(clean.characters.map((c) => c.imageId))];
-  for (const id of ids) markSessionAsset(id);
   const { missing } = await assets.preload(ids).catch(() => ({ missing: ids }));
   if (missing.length) {
     const gone = new Set(missing);
@@ -605,7 +603,6 @@ export function App() {
     const clean = sanitizeBoard(data);
     if (!clean) throw new ProjectFileError(S.projectInvalid);
     const imported = await importAssetFiles(assets, files);
-    for (const id of imported.ids) markSessionAsset(id);
     const crops = new Map<string, Character['crop']>();
     for (const id of new Set(clean.characters.map((c) => c.imageId))) {
       if (!(await assets.get(id))) throw new ProjectFileError(S.projectMissingImage);

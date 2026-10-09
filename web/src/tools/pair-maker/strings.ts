@@ -31,6 +31,8 @@ export const S = {
   imageTooManyPixels: '圖片解析度太大了，請縮到 4,000 萬像素以下。',
   imageUnreadable: '讀不到這張圖片。',
   imageNotSaved: '圖片無法儲存在瀏覽器裡（空間可能不足），重新整理後就會不見。',
+  projectImagesNotSaved:
+    '專案檔裡的圖片無法儲存在瀏覽器裡（空間可能不足），重新整理後就會不見（要再開一次專案檔）。',
   slotPreview: (label: string) => `${label}的圖片`,
   emptySlot: '還沒有圖片',
 

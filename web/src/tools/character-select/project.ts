@@ -62,19 +62,18 @@ function applyLoaded(next: Settings) {
   restartPreview();
 }
 
-/** 開啟新版的專案檔 */
-/** 開啟新版的專案檔：成功時 true，有圖片找不到時回傳略過的角色數 */
+/** 開啟新版的專案檔：回傳圖片找不到而略過的角色數、存不進瀏覽器的圖片數 */
 export async function openProject(
   data: ProjectData,
   version: number,
   files: Map<string, Uint8Array>,
-): Promise<true | number> {
+): Promise<{ missing: number; notPersisted: number }> {
   if (version > PROJECT_VERSION) throw new ProjectFileError(S.project.newer);
   if (!data || typeof data !== 'object' || !data.settings)
     throw new ProjectFileError(S.project.invalid);
   const next = normalizeSettings(data.settings);
   const fontName = data.font?.file;
-  await importAssetFiles(
+  const { notPersisted } = await importAssetFiles(
     assets,
     [...files].filter(([name]) => name !== fontName),
   );
@@ -98,7 +97,7 @@ export async function openProject(
     if (next.background.type === 'image') next.background.type = 'gradient';
   }
   applyLoaded(normalizeSettings(next));
-  return missing === 0 ? true : missing;
+  return { missing, notPersisted };
 }
 
 /* ---------- 舊版的專案檔 ---------- */
@@ -120,11 +119,11 @@ export function isLegacyProject(v: unknown): boolean {
 
 /**
  * 舊版的專案 JSON → 新版的設定。圖片（data URL）放進圖片庫；內建角色（上游的插圖）換成本站的內建角色；
- * 字型檔改成上傳字型。回傳略過的圖片數。
+ * 字型檔改成上傳字型。回傳略過的圖片數與存不進瀏覽器的圖片數。
  */
 export async function importLegacyProject(
   text: string,
-): Promise<{ settings: Settings; skipped: number }> {
+): Promise<{ settings: Settings; skipped: number; notPersisted: number }> {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -135,6 +134,7 @@ export async function importLegacyProject(
   const src = obj(raw);
   const out: Loose = { ...src };
   let skipped = 0;
+  let notPersisted = 0;
   let demoIndex = 0;
   const characters: Loose[] = [];
   for (const item of src.characters as unknown[]) {
@@ -160,7 +160,8 @@ export async function importLegacyProject(
     }
     try {
       const blob = await storableImage(dataUriToBlob(c.src));
-      const { id } = await assets.add(blob);
+      const { id, persisted } = await assets.add(blob);
+      if (!persisted) notPersisted++;
       characters.push({
         ...base,
         name: typeof c.name === 'string' ? c.name : '',
@@ -176,7 +177,8 @@ export async function importLegacyProject(
   const bg = { ...obj(src.background) };
   if (typeof bg.imageSrc === 'string' && bg.imageSrc.startsWith('data:')) {
     try {
-      const { id } = await assets.add(await storableImage(dataUriToBlob(bg.imageSrc)));
+      const { id, persisted } = await assets.add(await storableImage(dataUriToBlob(bg.imageSrc)));
+      if (!persisted) notPersisted++;
       bg.image = id;
     } catch {
       skipped++;
@@ -205,12 +207,14 @@ export async function importLegacyProject(
   } else if (typeof font.family === 'string' && font.family.trim()) {
     out.font = { source: 'local', family: font.family.trim(), weight: 400 };
   } else out.font = null;
-  return { settings: normalizeSettings(out), skipped };
+  return { settings: normalizeSettings(out), skipped, notPersisted };
 }
 
-/** 匯入舊版的專案檔並套用 */
-export async function openLegacyProject(text: string): Promise<number> {
-  const { settings, skipped } = await importLegacyProject(text);
+/** 匯入舊版的專案檔並套用；回傳略過的圖片數與存不進瀏覽器的圖片數 */
+export async function openLegacyProject(
+  text: string,
+): Promise<{ skipped: number; notPersisted: number }> {
+  const { settings, skipped, notPersisted } = await importLegacyProject(text);
   applyLoaded(settings);
-  return skipped;
+  return { skipped, notPersisted };
 }

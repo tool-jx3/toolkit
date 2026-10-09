@@ -57,19 +57,11 @@ export const gesture = historyGesture(useReview);
 export const assets = createAssetStore(TOOL_ID);
 
 /**
- * 這次開頁放進圖片庫的圖（一次放入多張、開原作的備份、開專案檔…讀到一半，還沒寫進狀態的也算）：
- * 整理圖片庫時一律保留（規格 F38、7.1）。**在寫進圖片庫之前**就要記下，整理剛好發生在寫入途中也不會被刪。
+ * 整理圖片庫時保留的圖：狀態與復原紀錄裡用到的。這次開頁放進圖片庫的圖（一次放入多張、開原作的備份、
+ * 開專案檔…讀到一半，還沒寫進狀態的也算）由開頁的整理 assets.gcStale 保留（規格 F38、7.1）。
  */
-const sessionImages = new Set<string>();
-export const markSessionImage = (id: string): void => {
-  sessionImages.add(id);
-};
-
-/** 整理圖片庫時保留的圖：狀態與復原紀錄裡用到的＋這次開頁放進來的 */
 export function referencedImages(): Set<string> {
-  const keep = referencedAssetIds(useReview, imageIds);
-  for (const id of sessionImages) keep.add(id);
-  return keep;
+  return referencedAssetIds(useReview, imageIds);
 }
 
 export const reviewNow = (): ReviewState => useReview.getState().data;

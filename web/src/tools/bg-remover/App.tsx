@@ -36,7 +36,7 @@ export function App() {
 
   useEffect(() => {
     const stop = startEngine();
-    void collectGarbage();
+    void collectGarbage({ onOpen: true });
     return stop;
   }, []);
 
@@ -147,9 +147,10 @@ export function App() {
             getFiles={projectFiles}
             onLoad={async (data, project, files) => {
               if (useWork.getState().ai) throw new Error(S.aiRunning(1, 1));
-              const missing = await openProject(data, project.version, files);
-              if (missing) setNote({ tone: 'warning', text: S.project.missing(missing) });
-              return true;
+              const r = await openProject(data, project.version, files);
+              if (r.missing) setNote({ tone: 'warning', text: S.project.missing(r.missing) });
+              /* 存不進瀏覽器：和「已開啟專案檔」合成一則 */
+              return { warnings: [r.notPersisted > 0 && S.project.notPersisted] };
             }}
             onReset={resetAll}
             resetText={{ title: S.project.resetTitle, description: S.project.resetText }}

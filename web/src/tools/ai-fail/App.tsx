@@ -38,11 +38,14 @@ import {
 } from './store';
 import { S } from './strings';
 
-/** 開頁約 5 秒後整理一次照片庫：目前的狀態與復原紀錄都沒用到的照片才刪 */
+/**
+ * 開頁約 5 秒後整理一次照片庫：以前留下、目前的狀態與復原紀錄都沒用到的照片才刪
+ * （這次開頁放進來、還在解碼還沒換上的照片不刪）
+ */
 function useAssetCleanup() {
   useEffect(() => {
     const t = setTimeout(() => {
-      void assets.gc(referencedPhotos()).catch(() => undefined);
+      void assets.gcStale(referencedPhotos()).catch(() => undefined);
     }, 5000);
     return () => clearTimeout(t);
   }, []);
@@ -223,10 +226,11 @@ export function App() {
             }}
             openedMessage={S.projectOpened}
             onLoad={async (data, _file, files) => {
-              const next = await importProject(data, files);
-              useMeme.getState().replace(next);
+              const r = await importProject(data, files);
+              useMeme.getState().replace(r.state);
               useUi.setState({ selectedId: null, drawing: null, mode: 'select' });
-              return true;
+              /* 照片存不進瀏覽器：和「已開啟專案檔」合成一則 */
+              return { warnings: [r.notSaved && S.photoNotSaved] };
             }}
             onReset={() => {
               useMeme.getState().replace(initialState());

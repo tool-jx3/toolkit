@@ -29,14 +29,17 @@ async function isImageFile(file: File): Promise<boolean> {
   return detectImageType(head) !== null;
 }
 
-/** 刪掉沒有任何自訂部件用到的圖片 */
-export async function collectUnusedImages(): Promise<void> {
+/**
+ * 刪掉沒有任何自訂部件用到的圖片。開頁時（onOpen）只清以前留下的（gcStale：這次開頁放進來、
+ * 還沒寫進清單的圖不刪，例如一次加入多張時先寫完的）；刪掉部件之後照常釋放（gc）。
+ */
+export async function collectUnusedImages({ onOpen = false } = {}): Promise<void> {
   const keep = useEmotions
     .getState()
     .data.customParts.map((p) => p.assetId)
     .filter((id): id is string => !!id);
   try {
-    await partAssets.gc(keep);
+    await (onOpen ? partAssets.gcStale(keep) : partAssets.gc(keep));
   } catch {
     /* IndexedDB 不能用：不影響操作 */
   }

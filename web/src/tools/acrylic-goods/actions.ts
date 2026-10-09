@@ -3,7 +3,7 @@
  */
 import type { ToastOptions } from '@/ui';
 import type { AcrylicEngine } from './engine';
-import { addImageFile, markSessionAsset } from './media';
+import { addImageFile } from './media';
 import { useSession } from './store';
 import { S } from './strings';
 
@@ -26,7 +26,6 @@ let warnedNotSaved = false;
 export async function addImage(file: File): Promise<string | null> {
   try {
     const r = await addImageFile(file);
-    markSessionAsset(r.id);
     if (!r.persisted && !warnedNotSaved) {
       warnedNotSaved = true;
       notify({ title: S.image.notSaved, tone: 'warning' });

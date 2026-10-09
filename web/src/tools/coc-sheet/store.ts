@@ -157,10 +157,13 @@ if (legacy) {
   });
 }
 
-/** 刪掉沒有角色卡用到的頭像（目前的狀態＋復原歷史都算有用到） */
+/**
+ * 開頁的整理：刪掉以前留下、沒有角色卡用到的頭像（目前的狀態＋復原歷史都算有用到；
+ * 這次開頁放進來的不刪——assets.gcStale）
+ */
 export async function collectPortraits(): Promise<void> {
   try {
-    await assets.gc(referencedAssetIds(useSheets, portraitIds));
+    await assets.gcStale(referencedAssetIds(useSheets, portraitIds));
   } catch {
     /* IndexedDB 不能用：不清 */
   }

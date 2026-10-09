@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import { nextStickerId, STICKER_MAX, type Sticker, stickerBaseSize, stickerStart } from './model';
-import { addStickers, applyPhoto, assets, docNow, markSessionAsset } from './store';
+import { addStickers, applyPhoto, assets, docNow } from './store';
 import { S } from './strings';
 
 export const isImageFile = (f: File): boolean =>
@@ -32,7 +32,6 @@ async function storeImage(
     /* 讀不到檔案本身（例如手機的相片權限已失效），不是檔案壞掉 */
     return { ok: false, reason: S.readError(file.name) };
   }
-  markSessionAsset(added.id);
   /*
    * 解碼失敗（bitmap 丟錯）才是「檔案可能已損壞」；圖從資產庫裡不見了（bitmap 是 undefined）是另一回事，
    * 不能說成檔案壞掉（對等驗證 F51：寫入很慢時圖曾被開頁的整理刪掉，訊息卻說無法讀取）。

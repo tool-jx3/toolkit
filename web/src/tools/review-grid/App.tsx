@@ -15,11 +15,11 @@ import { ProjectActions } from './ProjectActions';
 import { assets, historyStep, referencedImages, TOOL_ID, useReview } from './store';
 import { S } from './strings';
 
-/** 開頁約 5 秒後整理一次圖片庫：目前的狀態與復原紀錄都沒用到的圖片才刪 */
+/** 開頁約 5 秒後整理一次圖片庫：以前留下、目前的狀態與復原紀錄都沒用到的圖片才刪（這次開頁放進來的不刪） */
 function useAssetCleanup() {
   useEffect(() => {
     const t = setTimeout(() => {
-      void assets.gc(referencedImages()).catch(() => undefined);
+      void assets.gcStale(referencedImages()).catch(() => undefined);
     }, 5000);
     return () => clearTimeout(t);
   }, []);

@@ -43,17 +43,7 @@ import {
   usageMap,
   withFace,
 } from './resolve';
-import {
-  assets,
-  markMissing,
-  markSessionAsset,
-  type StatusArea,
-  say,
-  select,
-  setBusy,
-  useDoc,
-  useUi,
-} from './store';
+import { assets, markMissing, type StatusArea, say, select, setBusy, useDoc, useUi } from './store';
 import { BUNDLE_TEXT, S, SAMPLES } from './strings';
 
 const doc = (): Doc => useDoc.getState().data;
@@ -97,7 +87,6 @@ export async function addFiles(
       continue;
     }
     const r = await assets.add(new Blob([bytes], { type }));
-    markSessionAsset(r.id);
     markMissing([r.id], false);
     if (!r.persisted) notSaved = true;
     const had = [...doc().images, ...fresh].find((im) => im.kind === 'file' && im.asset === r.id);
@@ -708,19 +697,24 @@ async function checkMissing(d: Doc): Promise<void> {
   }
 }
 
-/** 開啟本站的專案檔（F65） */
-export async function loadProject(data: unknown, files: Map<string, Uint8Array>): Promise<void> {
+/** 開啟本站的專案檔（F65）；回傳存不進瀏覽器的圖片數 */
+export async function loadProject(
+  data: unknown,
+  files: Map<string, Uint8Array>,
+): Promise<{ notPersisted: number }> {
   const next = cleanDoc(data);
   const r = await importAssetFiles(assets, files);
-  for (const id of r.ids) markSessionAsset(id);
   const merged = mergeShelf(next);
   useDoc.getState().replace(merged);
   select(-1);
   await checkMissing(merged);
+  return { notPersisted: r.notPersisted };
 }
 
-/** 開啟原作的專案檔（.json）。回傳放進圖片庫的圖片張數；不是原作的專案檔時丟錯 */
-export async function loadLegacyProject(text: string): Promise<number> {
+/** 開啟原作的專案檔（.json）。回傳放進圖片庫的圖片張數與存不進瀏覽器的張數；不是原作的專案檔時丟錯 */
+export async function loadLegacyProject(
+  text: string,
+): Promise<{ images: number; notPersisted: number }> {
   let json: unknown;
   try {
     json = JSON.parse(text.replace(/^﻿/, ''));
@@ -730,9 +724,10 @@ export async function loadLegacyProject(text: string): Promise<number> {
   const legacy = readLegacyProject(json);
   if (!legacy) throw new Error(S.notProject);
   const assetOf = new Map<string, string>();
+  let notPersisted = 0;
   for (const f of legacy.files) {
     const r = await assets.add(new Blob([f.bytes as Uint8Array<ArrayBuffer>], { type: f.type }));
-    markSessionAsset(r.id);
+    if (!r.persisted) notPersisted++;
     markMissing([r.id], false);
     assetOf.set(f.id, r.id);
   }
@@ -746,7 +741,7 @@ export async function loadLegacyProject(text: string): Promise<number> {
   useDoc.getState().replace(merged);
   select(-1);
   await checkMissing(merged);
-  return legacy.files.length;
+  return { images: legacy.files.length, notPersisted };
 }
 
 /** 重來（F66）：說話者、文字、讀取方式、清單、已確定回預設，圖片庫留著 */

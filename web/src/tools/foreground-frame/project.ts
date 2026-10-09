@@ -73,20 +73,24 @@ export function projectData(withFiles: boolean): ProjectData {
   };
 }
 
-/** 開啟專案檔；不合用時丟 ProjectFileError（訊息直接顯示） */
+/**
+ * 開啟專案檔；不合用時丟 ProjectFileError（訊息直接顯示）。回傳要提醒的事（圖片存不進瀏覽器；
+ * ProjectMenu 和「已開啟」合成一則，狀態列也寫在同一則）。
+ */
 export async function openProject(
   data: unknown,
   version: number,
   files: Map<string, Uint8Array>,
   fileName: string,
-): Promise<boolean> {
+): Promise<{ warnings: string[] }> {
   if (version > PROJECT_VERSION) throw new ProjectFileError(S.project.newer);
   const d = (data && typeof data === 'object' ? data : null) as Partial<ProjectData> | null;
   if (!d?.state || typeof d.state !== 'object') throw new ProjectFileError(S.project.invalid);
   const next = normalizeState(d.state);
   /* 圖片 */
   const images = [...files].filter(([name]) => !/^font-/.test(name.split('/').pop() ?? ''));
-  await importAssetFiles(assets, images);
+  const { notPersisted } = await importAssetFiles(assets, images);
+  const warnings = notPersisted ? [S.status.projectImagesNotSaved] : [];
   /* 字型：放進共用字型庫，名稱有變時跟著改 */
   for (const f of Array.isArray(d.fonts) ? d.fonts : []) {
     const bytes = files.get(f.file);
@@ -113,8 +117,11 @@ export async function openProject(
   });
   useSession.setState({ selected: null, decoSelected: null });
   bump();
-  setStatus(S.status.projectOpened(fileName), 'success');
-  return true;
+  setStatus(
+    S.status.projectOpened(fileName) + warnings.join(''),
+    warnings.length ? 'warning' : 'success',
+  );
+  return { warnings };
 }
 
 /** 拖放進來的專案檔（.json 或專案 ZIP） */

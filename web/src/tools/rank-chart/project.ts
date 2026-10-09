@@ -46,6 +46,8 @@ export interface ImportResult {
   config: Config;
   /** 讀不到的照片數（那些角色改成名字卡、排名者照片拿掉） */
   missing: number;
+  /** 有照片（或裁切圖）存不進瀏覽器（這次可以用，重新整理之後就沒了） */
+  notSaved: boolean;
 }
 
 /** 照片確實讀得到（資產庫或剛讀進來的 ZIP） */
@@ -62,7 +64,7 @@ export async function importProject(
   if (typeof data !== 'object' || data === null || Array.isArray(data))
     throw new ProjectDataError(S.projectBad);
   const config = normalizeConfig(data);
-  await importAssetFiles(assets, files.entries());
+  let notSaved = (await importAssetFiles(assets, files.entries())).notPersisted > 0;
   let missing = 0;
   if (config.portrait.photo && !(await decodable(config.portrait.photo))) {
     config.portrait.photo = null;
@@ -81,9 +83,13 @@ export async function importProject(
       continue;
     }
     const thumbOk = ch.thumb ? await assets.bitmap(ch.thumb).catch(() => undefined) : undefined;
-    if (!thumbOk) ch.thumb = (await storeThumb(src, ch.photo, ch.crop)).id;
+    if (!thumbOk) {
+      const t = await storeThumb(src, ch.photo, ch.crop);
+      ch.thumb = t.id;
+      if (!t.persisted) notSaved = true;
+    }
   }
-  return { config, missing };
+  return { config, missing, notSaved };
 }
 
 /* ---------- 原作的設定檔 ---------- */
@@ -155,6 +161,7 @@ export async function importLegacy(text: string): Promise<ImportResult> {
     throw new ProjectDataError(S.legacyBad);
   const raw = data.config;
   if (!isObj(raw) || !Array.isArray(raw.characters)) throw new ProjectDataError(S.legacyBad);
+  let notSaved = false;
   if (raw.characters.length > MAX_POOL) throw new ProjectDataError(S.legacyTooMany);
   const d = defaultConfig();
   const txt = (k: 'name' | 'intro' | 'subject' | 'question') => trimText(raw[k], LIMITS[k], d[k]);
@@ -196,7 +203,11 @@ export async function importLegacy(text: string): Promise<ImportResult> {
       x: finite(p.x, 0, -1, 1),
       y: finite(p.y, 0, -1, 1),
     };
-    if (p.source) d.portrait.photo = (await legacyPhoto(p.source, -1, PORTRAIT_MAX_SIDE)).ref;
+    if (p.source) {
+      const stored = await legacyPhoto(p.source, -1, PORTRAIT_MAX_SIDE);
+      d.portrait.photo = stored.ref;
+      if (!stored.persisted) notSaved = true;
+    }
   }
   const ids = new Set<string>();
   const list: RankCharacter[] = [];
@@ -212,10 +223,12 @@ export async function importLegacy(text: string): Promise<ImportResult> {
     if (src) {
       const stored = await legacyPhoto(src, i, PHOTO_MAX_SIDE);
       ch.photo = stored.ref;
-      ch.thumb = (await storeThumb(stored.bitmap, stored.ref, ch.crop)).id;
+      const thumb = await storeThumb(stored.bitmap, stored.ref, ch.crop);
+      ch.thumb = thumb.id;
+      if (!stored.persisted || !thumb.persisted) notSaved = true;
     }
     list.push(ch);
   }
   d.characters = list;
-  return { config: normalizeConfig(d), missing: 0 };
+  return { config: normalizeConfig(d), missing: 0, notSaved };
 }

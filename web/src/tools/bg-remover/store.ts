@@ -116,8 +116,11 @@ export function referencedIds(): Set<string> {
   return keep;
 }
 
-/** 清掉沒有人用的檔案與 AI 遮罩的紀錄 */
-export async function collectGarbage(): Promise<void> {
+/**
+ * 清掉沒有人用的檔案與 AI 遮罩的紀錄。開了別的專案檔、全部重來之後照常釋放（gc）；
+ * 開頁時（onOpen）只清以前留下的（gcStale：這次開頁放進來、還沒寫進清單的圖不刪，例如一次加入多張時先寫完的）。
+ */
+export async function collectGarbage({ onOpen = false } = {}): Promise<void> {
   try {
     const keep = referencedIds();
     const masks = previewNow().aiMasks;
@@ -127,7 +130,7 @@ export async function collectGarbage(): Promise<void> {
         for (const k of stale) delete d.aiMasks[k];
       });
     }
-    await assets.gc(referencedIds());
+    await (onOpen ? assets.gcStale(referencedIds()) : assets.gc(referencedIds()));
   } catch {
     /* 下次再清 */
   }

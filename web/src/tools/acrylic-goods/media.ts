@@ -143,12 +143,6 @@ export async function addImageFile(file: Blob) {
   return r;
 }
 
-/** 這次開頁之後加入的圖（清理時一律保留，避免和進行中的加入互相干擾） */
-export const sessionAssets = new Set<string>();
-export const markSessionAsset = (id: string): void => {
-  sessionAssets.add(id);
-};
-
 /** 開啟專案檔後：讀不到的舊結果作廢 */
 export function forgetImage(id: string): void {
   pending.delete(id);

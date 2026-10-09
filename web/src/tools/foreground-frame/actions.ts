@@ -29,6 +29,7 @@ import {
   DEFAULT_PREVIEW,
   edit,
   frameNow,
+  type StatusTone,
   select,
   selectDeco,
   setStatus,
@@ -202,10 +203,37 @@ async function addImageAsset(
   }
 }
 
+/** 一批檔案的結果（狀態列的一則：文字與色調） */
+export interface FileReport {
+  text: string;
+  tone: StatusTone;
+}
+
+const SEVERITY: StatusTone[] = ['progress', 'info', 'success', 'warning', 'danger'];
+
+/** 同一批的幾段結果合成一則（文字接起來、色調取最嚴重的）：後面的成功不會蓋掉前面的錯誤 */
+export function mergeReports(reports: readonly (FileReport | null)[]): FileReport | null {
+  const list = reports.filter((r): r is FileReport => !!r);
+  if (!list.length) return null;
+  return {
+    text: list.map((r) => r.text).join(''),
+    tone: list.reduce<StatusTone>(
+      (t, r) => (SEVERITY.indexOf(r.tone) > SEVERITY.indexOf(t) ? r.tone : t),
+      'progress',
+    ),
+  };
+}
+
 /** F30：每張圖片成為一個圖層（名稱＝檔名去掉副檔名），比例接近畫布且夠大時拉伸鋪滿，否則縮到 40% 以內 */
 export async function addImageFiles(files: File[]): Promise<void> {
+  const r = await loadImageFiles(files);
+  if (r) setStatus(r.text, r.tone);
+}
+
+/** addImageFiles 的本體：加入圖層，回傳結果（不寫狀態列） */
+async function loadImageFiles(files: File[]): Promise<FileReport | null> {
   const list = files.filter(isImageFile);
-  if (!list.length) return;
+  if (!list.length) return null;
   const added: Layer[] = [];
   const failed: string[] = [];
   let notSaved = false;
@@ -235,7 +263,10 @@ export async function addImageFiles(files: File[]): Promise<void> {
     ...failed,
     ...(notSaved ? [S.status.imageNotSaved] : []),
   ];
-  setStatus(parts.join(''), failed.length ? 'danger' : notSaved ? 'warning' : 'success');
+  return {
+    text: parts.join(''),
+    tone: failed.length ? 'danger' : notSaved ? 'warning' : 'success',
+  };
 }
 
 /** F46：在原圖層正上方插入名稱加「 的複本」、往右下各偏 2% 的複本並選取 */
@@ -416,6 +447,15 @@ export function removePreviewBgImage(): void {
 
 /** F72：讀不到的字型顯示錯誤、不加入清單（第 7 節裁定修正） */
 export async function addFontFiles(files: File[]): Promise<FontValue['family'][]> {
+  const r = await loadFontFiles(files);
+  if (r.report) setStatus(r.report.text, r.report.tone);
+  return r.families;
+}
+
+/** addFontFiles 的本體：註冊字型，回傳字型名稱與結果（不寫狀態列） */
+async function loadFontFiles(
+  files: File[],
+): Promise<{ families: FontValue['family'][]; report: FileReport | null }> {
   const list = files.filter(isFontFile);
   const families: string[] = [];
   const failed: string[] = [];
@@ -426,10 +466,24 @@ export async function addFontFiles(files: File[]): Promise<FontValue['family'][]
       failed.push(f.name);
     }
   }
-  if (failed.length) setStatus(failed.map((n) => S.status.fontFailed(n)).join(''), 'danger');
-  else if (families.length) setStatus(S.status.fontsLoaded(families.length), 'success');
   if (families.length) bump();
-  return families;
+  const report: FileReport | null = failed.length
+    ? { text: failed.map((n) => S.status.fontFailed(n)).join(''), tone: 'danger' }
+    : families.length
+      ? { text: S.status.fontsLoaded(families.length), tone: 'success' }
+      : null;
+  return { families, report };
+}
+
+/**
+ * 拖放、貼上的一批檔案（F31）：字型與圖片一起處理，結果合成狀態列的一則
+ * （字型讀不了的訊息不會被之後「已新增 N 張圖片」蓋掉）。
+ */
+export async function addDroppedFiles(fonts: File[], images: File[]): Promise<void> {
+  const font = fonts.length ? (await loadFontFiles(fonts)).report : null;
+  const image = images.length ? await loadImageFiles(images) : null;
+  const r = mergeReports([font, image]);
+  if (r) setStatus(r.text, r.tone);
 }
 
 /* ---------- 全部重來 ---------- */

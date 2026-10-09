@@ -1,6 +1,7 @@
 /**
- * 劇本心得九宮格（review-grid）的圖片庫整理（規格 F38、7.1）：開頁約 5 秒的整理（gc）不能刪掉「已經放進圖片庫、還沒寫進狀態」的圖——
- * 一張一張讀（一次放入多張）、開原作的備份、開本工具的 ZIP 都一樣，連「正在寫進圖片庫、還沒回來」的那一張也要留著。
+ * 劇本心得九宮格（review-grid）的圖片庫整理（規格 F38、7.1）：開頁約 5 秒的整理（assets.gcStale）不能刪掉「已經放進圖片庫、
+ * 還沒寫進狀態」的圖——一張一張讀（一次放入多張）、開原作的備份、開本工具的 ZIP 都一樣，連「正在寫進圖片庫、還沒回來」的那一張也要留著。
+ * 工具不再自己記這次開頁放進來的 id（圖片資產稽核），由 core/assets 保留。
  * Node 沒有 createImageBitmap 與 IndexedDB：解碼換成假的（每張 40 × 30），圖片只放在記憶體（persisted＝false）。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -49,7 +50,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('圖片庫的整理（gc）', () => {
+describe('圖片庫的開頁整理（gcStale）', () => {
   it('讀一張圖：寫進圖片庫、還沒回來時整理，圖片留著', async () => {
     const bytes = fakePng();
     const id = await assetIdFor(bytes);
@@ -57,13 +58,13 @@ describe('圖片庫的整理（gc）', () => {
     const p = loadReviewImage(new Blob([bytes], { type: 'image/png' }), 'a.png');
     await vi.waitFor(() => expect(h.held()).toBe(1));
     expect(assets.has(id)).toBe(true);
-    await assets.gc(referencedImages());
+    await assets.gcStale(referencedImages());
     h.release();
     const r = await p;
     expect(r.ref.id).toBe(id);
     expect(assets.has(id)).toBe(true);
     /* 狀態還沒用到：之後的整理也留著（這次開頁放進來的） */
-    await assets.gc(referencedImages());
+    await assets.gcStale(referencedImages());
     expect(assets.has(id)).toBe(true);
   });
 
@@ -76,7 +77,7 @@ describe('圖片庫的整理（gc）', () => {
     const h = hold('add');
     const p = openLegacyFile(new TextEncoder().encode(JSON.stringify(backup)));
     await vi.waitFor(() => expect(h.held()).toBe(1));
-    await assets.gc(referencedImages());
+    await assets.gcStale(referencedImages());
     h.release();
     const r = await p;
     expect(r).toMatchObject({ cells: 3, failed: 0, notSaved: true });
@@ -93,7 +94,7 @@ describe('圖片庫的整理（gc）', () => {
     const h = hold('put');
     const p = importProject(data, new Map([[`${id}.png`, bytes]]));
     await vi.waitFor(() => expect(h.held()).toBe(1));
-    await assets.gc(referencedImages());
+    await assets.gcStale(referencedImages());
     h.release();
     const r = await p;
     expect(r.state.cells[0].image?.id).toBe(id);

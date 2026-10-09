@@ -157,23 +157,18 @@ export const selectSticker = (id: string | null): void => useUi.setState({ selec
 
 export const assets = createAssetStore(TOOL_ID);
 
-/** 這次開頁放進資產庫的圖（清掉沒用到的圖時一律保留：還沒寫進狀態的、剛讀完的專案檔） */
-const sessionAssets = new Set<string>();
-export const markSessionAsset = (id: string): void => {
-  sessionAssets.add(id);
-};
-
 /** 一份狀態用到的圖 */
 export const docAssetIds = (d: PolaroidState): string[] => [
   ...(d.photo ? [d.photo.id] : []),
   ...d.stickers.map((s) => s.asset),
 ];
 
-/** 目前的狀態、復原紀錄與這次開頁放進來的圖（清掉沒用到的圖時保留） */
+/**
+ * 目前的狀態與復原紀錄用到的圖（開頁的整理時保留）。這次開頁放進來、還沒寫進狀態的圖（剛讀完的照片、
+ * 一張一張寫進資產庫的專案檔）由 assets.gcStale 保留，不必另外記。
+ */
 export function referencedImages(): Set<string> {
-  const ids = referencedAssetIds(useDoc, docAssetIds);
-  for (const id of sessionAssets) ids.add(id);
-  return ids;
+  return referencedAssetIds(useDoc, docAssetIds);
 }
 
 /* ---------- 尺寸 ---------- */

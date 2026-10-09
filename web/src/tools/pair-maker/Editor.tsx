@@ -166,10 +166,19 @@ function SettingsArea({
     if (!ok) return;
     try {
       const project = parseProjectBytes<unknown>(await readAsBytes(file), TOOL_ID);
-      const next = await importProject(def, project.data, project.files, file.size);
-      store.getState().replace(next);
+      const r = await importProject(def, project.data, project.files, file.size);
+      store.getState().replace(r.draft);
       useUi.getState().setSticker(null);
-      toast({ title: S.projectOpened, description: file.name, tone: 'success' });
+      /* 圖片存不進瀏覽器：同一則通知裡提醒 */
+      toast(
+        r.notSaved
+          ? {
+              title: S.projectOpened,
+              description: `${file.name}：${S.projectImagesNotSaved}`,
+              tone: 'warning',
+            }
+          : { title: S.projectOpened, description: file.name, tone: 'success' },
+      );
     } catch (e) {
       toast({ title: e instanceof Error ? e.message : String(e), tone: 'danger' });
     }
@@ -248,10 +257,11 @@ export function Editor({
             }}
             openedMessage={S.projectOpened}
             onLoad={async (data, _file, files, source) => {
-              const next = await importProject(def, data, files, source.size);
-              store.getState().replace(next);
+              const r = await importProject(def, data, files, source.size);
+              store.getState().replace(r.draft);
               useUi.getState().setSticker(null);
-              return true;
+              /* 圖片存不進瀏覽器：和「已開啟專案檔」合成一則 */
+              return { warnings: [r.notSaved && S.projectImagesNotSaved] };
             }}
             onReset={() => {
               store.getState().replace(def.initial());

@@ -20,14 +20,17 @@ const readUrl = (): string | null => {
   }
 };
 
-/** 開頁約 5 秒後整理一次圖片庫：所有版型（含復原紀錄）與存檔槽都沒用到的圖片才刪 */
+/**
+ * 開頁約 5 秒後整理一次圖片庫：以前留下、所有版型（含復原紀錄）與存檔槽都沒用到的圖片才刪
+ * （這次開頁放進來的不刪：讀到一半的專案檔、還沒寫進版型的圖）
+ */
 function useAssetCleanup() {
   useEffect(() => {
     const t = setTimeout(() => {
       void (async () => {
         try {
           const keep = await referencedIds(await slotAssetIds());
-          await assets.gc(keep);
+          await assets.gcStale(keep);
         } catch {
           /* 整理失敗就下次再整理 */
         }

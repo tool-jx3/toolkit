@@ -292,17 +292,17 @@ export const mediaIds = (s: Settings) =>
 
 export const projectFiles = () => assets.exportFiles(mediaIds(settingsNow()));
 
-/** 開啟專案檔；回傳找不到的檔案數（已從設定拿掉） */
+/** 開啟專案檔；回傳找不到的檔案數（已從設定拿掉）與存不進瀏覽器的檔案數 */
 export async function openProject(
   data: unknown,
   version: number,
   files: Map<string, Uint8Array>,
-): Promise<number> {
+): Promise<{ missing: number; notPersisted: number }> {
   if (version > PROJECT_VERSION) throw new ProjectFileError(S.project.newer);
   if (!data || typeof data !== 'object' || Array.isArray(data))
     throw new ProjectFileError(S.project.invalid);
   const s = normalizeSettings(data);
-  await importAssetFiles(assets, files);
+  const { notPersisted } = await importAssetFiles(assets, files);
   let missing = 0;
   for (const key of ['cover', 'audio'] as const) {
     const id = s[key].id;
@@ -315,13 +315,22 @@ export async function openProject(
   useSettings.getState().replace(s);
   useSettings.temporal.getState().clear();
   void collectGarbage();
-  return missing;
+  return { missing, notPersisted };
 }
 
-/** 清掉沒有人用的檔案（目前的設定＋復原／重做歷史） */
+/** 清掉沒有人用的檔案（目前的設定＋復原／重做歷史）：開了別的專案檔、全部重來之後釋放 */
 export async function collectGarbage(): Promise<void> {
   try {
     await assets.gc(referencedAssetIds(useSettings, mediaIds));
+  } catch {
+    /* 下次再清 */
+  }
+}
+
+/** 開頁的整理：只清以前留下、沒人用的檔案（這次開頁放進來的不刪） */
+export async function cleanupOnOpen(): Promise<void> {
+  try {
+    await assets.gcStale(referencedAssetIds(useSettings, mediaIds));
   } catch {
     /* 下次再清 */
   }

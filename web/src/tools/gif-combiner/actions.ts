@@ -10,7 +10,7 @@ import {
   newItemId,
   normalizeData,
 } from './logic';
-import { addFile, assets, collectGarbage, loadMedia, markSessionAsset } from './media';
+import { addFile, assets, collectGarbage, loadMedia } from './media';
 import { addItem, dataNow, PROJECT_VERSION, select, useCombiner, useUi } from './store';
 import { S } from './strings';
 
@@ -43,7 +43,6 @@ export async function addFiles(
     for (const file of files) {
       try {
         const r = await addFile(file);
-        markSessionAsset(r.asset);
         const d = dataNow();
         const box = centeredBox(d.canvas, r.media.width, r.media.height);
         addItem({
@@ -75,7 +74,7 @@ export async function addFiles(
   return added;
 }
 
-/** 開頁時只做一次：整理存檔、解碼保存的動圖（找不到的拿掉）、清空復原紀錄、清掉沒人用的檔案 */
+/** 開頁時只做一次：整理存檔、解碼保存的動圖（找不到的拿掉）、清空復原紀錄、清掉以前留下、沒人用的檔案 */
 let restored = false;
 export async function restoreOnce(notify: Notify): Promise<void> {
   if (restored) return;
@@ -89,7 +88,6 @@ export async function restoreOnce(notify: Notify): Promise<void> {
     t.resume();
   }
   const ids = [...new Set(clean.items.map((it) => it.asset))];
-  for (const id of ids) markSessionAsset(id);
   const missing = new Set<string>();
   await Promise.all(
     ids.map((id) =>
@@ -111,20 +109,22 @@ export async function restoreOnce(notify: Notify): Promise<void> {
     }
   }
   useCombiner.temporal.getState().clear();
-  await collectGarbage();
+  await collectGarbage({ onOpen: true });
 }
 
-/** 開啟專案檔（F45）：動圖放回資產庫並解碼，全部成功才換掉目前的內容 */
+/**
+ * 開啟專案檔（F45）：動圖放回資產庫並解碼，全部成功才換掉目前的內容。
+ * 動圖存不進瀏覽器時回傳提醒（和「已開啟專案檔」合成一則）。
+ */
 export async function openProject(
   data: CombinerData,
   project: ProjectFile<CombinerData>,
   files: Map<string, Uint8Array>,
-): Promise<boolean> {
+): Promise<{ warnings: string[] }> {
   if (project.version > PROJECT_VERSION) throw new ProjectFileError(S.project.newer);
   const clean = normalizeData(data);
   if (!clean) throw new ProjectFileError(S.project.invalid);
   const imported = await importAssetFiles(assets, files);
-  for (const id of imported.ids) markSessionAsset(id);
   for (const it of clean.items) {
     if (!(await assets.get(it.asset))) throw new ProjectFileError(S.project.missing);
     try {
@@ -138,6 +138,7 @@ export async function openProject(
   useCombiner.temporal.getState().clear();
   select(null);
   useUi.setState({ zoom: 'fit' });
+  /* 換掉的內容用的動圖已經沒人用（復原紀錄也清了）：釋放 */
   void collectGarbage();
-  return true;
+  return { warnings: imported.notPersisted ? [S.project.notSaved] : [] };
 }

@@ -3,7 +3,7 @@
  * 規格：docs/refactor/specs/polaroid.md。
  */
 import { Redo2, Undo2 } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import { pickFiles } from '@/core/files';
 import { useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
@@ -48,11 +48,11 @@ import {
 } from './store';
 import { S, type TabId } from './strings';
 
-/** 開頁約 5 秒後整理一次圖片庫：目前的狀態、復原紀錄、這次開頁放進來的都沒用到的圖才刪 */
+/** 開頁約 5 秒後整理一次圖片庫：以前留下、目前的狀態與復原紀錄都沒用到的圖才刪（這次開頁放進來的不刪） */
 function useAssetCleanup() {
   useEffect(() => {
     const t = setTimeout(() => {
-      void assets.gc(referencedImages()).catch(() => undefined);
+      void assets.gcStale(referencedImages()).catch(() => undefined);
     }, 5000);
     return () => clearTimeout(t);
   }, []);
@@ -162,13 +162,12 @@ function Settings() {
 
 /**
  * 頁首的「專案」選單。結果合成一則通知：開啟的專案檔有圖存不進這個瀏覽器時，「已開啟專案檔。」改成提醒
- * （重新整理之後就不見了；對等驗證 F51），不另外跳第二則。
+ * （重新整理之後就不見了；對等驗證 F51；onLoad 回傳的 warnings），不另外跳第二則。
  */
 function ProjectActions() {
   const toast = useToast();
   const savedAt = useSaveStatus(TOOL_ID);
   const saveError = useSaveError(TOOL_ID);
-  const lastOpen = useRef({ notSaved: false });
   return (
     <ProjectMenu<unknown>
       toolId={TOOL_ID}
@@ -181,17 +180,15 @@ function ProjectActions() {
         confirmLabel: S.openConfirmLabel,
       }}
       onLoad={async (data, _file, files) => {
-        lastOpen.current.notSaved = false;
         const r = await importProject(data, files);
         resetAll(r.state);
-        lastOpen.current.notSaved = r.notSaved;
-        return true;
+        return { warnings: [r.notSaved && S.projectNotSaved] };
       }}
       onNotify={(n) => {
         if (n.kind === 'opened')
           toast(
-            lastOpen.current.notSaved
-              ? { title: S.projectOpened, description: S.projectNotSaved, tone: 'warning' }
+            n.warnings
+              ? { title: S.projectOpened, description: n.warnings.join(''), tone: 'warning' }
               : { title: S.projectOpened, description: n.fileName, tone: 'success' },
           );
         else if (n.kind === 'saved')

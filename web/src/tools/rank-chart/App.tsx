@@ -68,11 +68,11 @@ function useFontSync() {
   }, [text]);
 }
 
-/** 開頁約 5 秒後清掉沒用到的圖（目前的設定與復原紀錄都沒用到的才刪） */
+/** 開頁約 5 秒後清掉以前留下、沒用到的圖（目前的設定與復原紀錄都沒用到的才刪；這次開頁放進來的不刪） */
 function useAssetCleanup() {
   useEffect(() => {
     const t = setTimeout(() => {
-      void assets.gc(referencedImages()).catch(() => undefined);
+      void assets.gcStale(referencedImages()).catch(() => undefined);
     }, 5000);
     return () => clearTimeout(t);
   }, []);
@@ -170,7 +170,11 @@ function LegacyItem() {
         try {
           const r = await importLegacy(await file.text());
           replaceConfig(r.config);
-          toast({ title: S.legacyOk, tone: 'success' });
+          toast(
+            r.notSaved
+              ? { title: S.legacyOk, description: S.notPersisted, tone: 'warning' }
+              : { title: S.legacyOk, tone: 'success' },
+          );
         } catch (e) {
           toast({
             title: e instanceof ProjectDataError ? e.message : S.legacyBad,
@@ -217,7 +221,8 @@ function HeaderActions() {
           const r = await importProject(data, files);
           replaceConfig(r.config);
           if (r.missing) toast({ title: S.projectMissing(r.missing), tone: 'warning' });
-          return true;
+          /* 照片存不進瀏覽器：和「已開啟專案檔」合成一則 */
+          return { warnings: [r.notSaved && S.projectNotPersisted] };
         }}
         onReset={() => replaceConfig(initialConfig())}
         resetText={{ title: S.resetTitle, description: S.resetDesc }}

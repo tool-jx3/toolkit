@@ -115,21 +115,17 @@ export function markMissing(ids: Iterable<string>, missing: boolean): void {
 
 export const assets = createAssetStore(TOOL_ID);
 
-/** 這次開頁加進資產庫的圖（清理時保留） */
-const sessionAssets = new Set<string>();
-export const markSessionAsset = (id: string): void => {
-  sessionAssets.add(id);
-};
-
 const assetIdsOf = (d: Doc): string[] =>
   d.images.flatMap((im) => (im.kind === 'file' ? [im.asset] : []));
 
-/** 清掉沒有人用的圖（目前＋復原／重做歷史＋這次開頁加入的都保留） */
+/**
+ * 開頁的整理：清掉以前留下、沒有人用的圖（目前＋復原／重做歷史都保留；這次開頁加進資產庫的也保留——
+ * assets.gcStale，一次加入多張、讀到一半的專案檔不會被刪）
+ */
 export async function collectGarbage(): Promise<void> {
   const keep = referencedAssetIds(useDoc, assetIdsOf);
-  for (const id of sessionAssets) keep.add(id);
   try {
-    await assets.gc(keep);
+    await assets.gcStale(keep);
   } catch {
     /* 清不掉就下次再清 */
   }

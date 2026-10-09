@@ -64,18 +64,11 @@ export function edit(recipe: (d: Config) => void): void {
 
 export const assets = createAssetStore(TOOL_ID);
 
-/** 這次開頁才放進資產庫的圖（例如裁切視窗開著、還沒套用的新照片）：清掉沒用到的圖時一律保留 */
-const fresh = new Set<string>();
-export const markFresh = (id: string): void => {
-  fresh.add(id);
-};
-
-/** 目前的設定、復原紀錄與這次開頁新放的圖片（清掉沒用到的圖時保留） */
-export const referencedImages = (): Set<string> => {
-  const ids = referencedAssetIds(useConfig, configAssetIds);
-  for (const id of fresh) ids.add(id);
-  return ids;
-};
+/**
+ * 目前的設定與復原紀錄用到的圖片（開頁的整理時保留）。這次開頁才放進資產庫的圖（例如裁切視窗開著、
+ * 還沒套用的新照片）由 assets.gcStale 保留，不必另外記。
+ */
+export const referencedImages = (): Set<string> => referencedAssetIds(useConfig, configAssetIds);
 
 /* ---------- 這一局 ---------- */
 
