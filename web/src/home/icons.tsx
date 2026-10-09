@@ -18,6 +18,7 @@ import {
   Gauge,
   Grid3x3,
   HeartHandshake,
+  Highlighter,
   IdCard,
   Images,
   Keyboard,
@@ -64,6 +65,7 @@ const ICONS: Record<string, LucideIcon> = {
   'text-path': Spline,
   'collage-letter': Mail,
   textbox: Table,
+  'discord-color': Highlighter,
   /* G2 轉場與動態 */
   'scene-transition': Clapperboard,
   'apng-wipe': Blend,

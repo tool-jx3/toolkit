@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<title>Rebane's Discord Colored Text Generator</title>
+<meta charset="UTF-8">
+<meta name="description" content="Rebane's Discord Colored Text Generator">
+<meta name="author" content="rebane2001">
+<meta content="#5865F2" name="theme-color">
+<script id="discord:component-embed" type="application/json">
+{
+  "component": {
+    "type": 17,
+    "accent_color": 5793266,
+    "components": [
+      {
+        "type": 10,
+        "content": "### [Rebane's Discord Colored Text Generator](https://rebane2001.com/discord-colored-text-generator/)\n```ansi\nSimple app to make \u001b[48;2;59;61;78m\u001b[2;3;2m\u001b[38;2;255;0;0mc\u001b[2;2m\u001b[3;2m\u001b[48;2;59;61;78m\u001b[38;2;255;255;0mo\u001b[2;2m\u001b[3;2m\u001b[48;2;59;61;78m\u001b[38;2;0;255;0ml\u001b[2;2m\u001b[3;2m\u001b[48;2;59;61;78m\u001b[38;2;0;255;255mo\u001b[2;2m\u001b[3;2m\u001b[48;2;59;61;78m\u001b[38;2;0;0;255m\u001b[7;34mr\u001b[0m\u001b[2;2m\u001b[3;2m\u001b[38;2;0;0;255m\u001b[48;2;59;61;78m\u001b[0m\u001b[2;2m\u001b[3;2m\u001b[48;2;59;61;78m\u001b[38;2;255;0;255me\u001b[2;2m\u001b[3;2m\u001b[48;2;59;61;78m\u001b[38;2;255;0;0md\u001b[0m\u001b[2;2m\u001b[3;2m\u001b[48;2;59;61;78m\u001b[0m\u001b[48;2;59;61;78m\u001b[0m \u001b[48;2;88;101;242m\u001b[38;2;255;255;255m\u001b[2;1;2mDiscord\u001b[0m\u001b[38;2;255;255;255m\u001b[48;2;88;101;242m\u001b[0m\u001b[48;2;88;101;242m\u001b[0m text \u001b[2;4;2m\u001b[38;2;244;141;100ml\u001b[2;2m\u001b[4;2m\u001b[38;2;239;135;108mi\u001b[2;2m\u001b[4;2m\u001b[38;2;235;130;115mk\u001b[2;2m\u001b[4;2m\u001b[38;2;231;124;123me\u001b[2;2m\u001b[4;2m\u001b[38;2;226;119;131m \u001b[2;2m\u001b[4;2m\u001b[38;2;222;113;138mt\u001b[2;2m\u001b[4;2m\u001b[38;2;217;108;146mh\u001b[2;2m\u001b[4;2m\u001b[38;2;213;102;154mi\u001b[2;2m\u001b[4;2m\u001b[38;2;209;97;162ms\u001b[0m\u001b[2;2m\u001b[4;2m\u001b[0m!\n```"
+      }
+    ]
+  }
+}
+</script>
+<style>
+/*
+This license applies to the entire page, not just the style block.
+    
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>
+*/
+
+@font-face {
+    font-display: swap;
+    font-family: gg mono;
+    font-style: normal;
+    font-weight: 400;
+    src: url(./249d0a057895c668.woff2) format("woff2")
+}
+
+@font-face {
+    font-display: swap;
+    font-family: gg mono;
+    font-style: normal;
+    font-weight: 700;
+    src: url(./45efa6936fdfb918.woff2) format("woff2")
+}
+
+:root {
+    --font-code: "gg mono","Source Code Pro",Consolas,"Andale Mono WT","Andale Mono","Lucida Console","Lucida Sans Typewriter","DejaVu Sans Mono","Bitstream Vera Sans Mono","Liberation Mono","Nimbus Mono L",Monaco,"Courier New",Courier,monospace;
+    --saturation-factor: 1;
+    --black: hsl(0 calc(var(--saturation-factor, 1)*0%) 0%);
+    --neutral-20: hsl(230 calc(var(--saturation-factor, 1)*4.286%) 72.549%);
+    --blue-new-31: hsl(213.191 calc(var(--saturation-factor, 1)*85.455%) 67.647%);
+    --blue-new-39: hsl(212.695 calc(var(--saturation-factor, 1)*81.463%) 59.804%);
+    --blue-new-42: hsl(212.514 calc(var(--saturation-factor, 1)*80.995%) 56.667%);
+    --blue-new-47: hsl(211.176 calc(var(--saturation-factor, 1)*80.315%) 50.196%);
+    --blue-new-52: hsl(209.309 calc(var(--saturation-factor, 1)*100%) 42.549%);
+    --blue-new-53: hsl(209.151 calc(var(--saturation-factor, 1)*100%) 41.569%);
+    --green-new-32: hsl(139.31 calc(var(--saturation-factor, 1)*36.1%) 52.745%);
+    --green-new-38: hsl(141.064 calc(var(--saturation-factor, 1)*40.517%) 45.49%);
+    --green-new-41: hsl(142.041 calc(var(--saturation-factor, 1)*46.226%) 41.569%);
+    --green-new-47: hsl(146.316 calc(var(--saturation-factor, 1)*67.857%) 32.941%);
+    --green-new-52: hsl(151.406 calc(var(--saturation-factor, 1)*100%) 25.098%);
+    --red-new-29: hsl(1.875 calc(var(--saturation-factor, 1)*88.889%) 71.765%);
+    --red-new-36: hsl(0.863 calc(var(--saturation-factor, 1)*78.531%) 65.294%);
+    --red-new-39: hsl(0 calc(var(--saturation-factor, 1)*74.869%) 62.549%);
+    --red-new-44: hsl(358.421 calc(var(--saturation-factor, 1)*69.725%) 57.255%);
+    --red-new-50: hsl(355.636 calc(var(--saturation-factor, 1)*64.706%) 50%);
+    --teal-new-32: hsl(184.959 calc(var(--saturation-factor, 1)*48.207%) 49.216%);
+    --teal-new-39: hsl(183.976 calc(var(--saturation-factor, 1)*95.402%) 34.118%);
+    --teal-new-42: hsl(184.049 calc(var(--saturation-factor, 1)*100%) 31.961%);
+    --teal-new-43: hsl(184.099 calc(var(--saturation-factor, 1)*100%) 31.569%);
+    --teal-new-48: hsl(184.832 calc(var(--saturation-factor, 1)*100%) 29.216%);
+    --teal-new-53: hsl(184.889 calc(var(--saturation-factor, 1)*100%) 26.471%);
+    --yellow-new-55: hsl(38.571 calc(var(--saturation-factor, 1)*100%) 43.922%);
+    --yellow-new-59: hsl(37.573 calc(var(--saturation-factor, 1)*100%) 40.392%);
+    --yellow-new-62: hsl(36.875 calc(var(--saturation-factor, 1)*100%) 37.647%);
+    --yellow-new-65: hsl(36.201 calc(var(--saturation-factor, 1)*100%) 35.098%);
+    --yellow-new-68: hsl(35.273 calc(var(--saturation-factor, 1)*100%) 32.353%);
+    --pink-42: hsl(315.294 calc(var(--saturation-factor, 1)*100%) 70%);
+    --pink-52: hsl(315.349 calc(var(--saturation-factor, 1)*89.583%) 62.353%);
+    --pink-55: hsl(315.375 calc(var(--saturation-factor, 1)*74.766%) 58.039%);
+    --pink-58: hsl(315.6 calc(var(--saturation-factor, 1)*64.103%) 54.118%);
+    --pink-59: hsl(315.51 calc(var(--saturation-factor, 1)*60.996%) 52.745%);
+    --pink-62: hsl(315.766 calc(var(--saturation-factor, 1)*55.02%) 48.824%);
+    --pink-63: hsl(315.672 calc(var(--saturation-factor, 1)*55.372%) 47.451%);
+    --neutral-2: hsl(0 calc(var(--saturation-factor, 1)*0%) 98.431%);
+    --neutral-69: hsl(231.429 calc(var(--saturation-factor, 1)*6.542%) 20.98%);
+    --neutral-86: hsl(240 calc(var(--saturation-factor, 1)*7.143%) 10.98%);
+    --neutral-97: hsl(240 calc(var(--saturation-factor, 1)*12.5%) 3.137%);
+    --neutral-1: hsl(0 calc(var(--saturation-factor, 1)*0%) 100%);
+    --neutral-8: hsl(240 calc(var(--saturation-factor, 1)*3.846%) 89.804%);
+    --neutral-13: hsl(240 calc(var(--saturation-factor, 1)*4.545%) 82.745%);
+    --neutral-66: hsl(232.5 calc(var(--saturation-factor, 1)*6.897%) 22.745%);
+    --opacity-20: 240 calc(var(--saturation-factor, 1)*4%) 60.784%;
+    --opacity-24: 240 calc(var(--saturation-factor, 1)*4%) 60.784%;
+    --opacity-40: 240 calc(var(--saturation-factor, 1)*4%) 60.784%;
+    --opacity-blurple-4: 234.935 calc(var(--saturation-factor, 1)*85.556%) 64.706%;
+    --opacity-blurple-8: 234.935 calc(var(--saturation-factor, 1)*85.556%) 64.706%;
+/* html:has(#theme [value="dark"]:checked) */
+    --ansi-black: var(--black);
+    --ansi-blue: var(--blue-new-39);
+    --ansi-cyan: var(--teal-new-39);
+    --ansi-green: var(--green-new-38);
+    --ansi-magenta: var(--pink-52);
+    --ansi-red: var(--red-new-36);
+    --ansi-white: var(--neutral-20);
+    --ansi-yellow: var(--yellow-new-59);
+    --background-code: hsl(var(--opacity-blurple-8)/0.0784313725490196);
+    --background-base-lower: var(--neutral-69);
+    --border-normal: hsl(var(--opacity-20)/0.2);
+    --text-code: var(--neutral-1);
+}
+
+html:has(#theme [value="light"]:checked) {
+    --ansi-black: var(--black);
+    --ansi-blue: var(--blue-new-42);
+    --ansi-cyan: var(--teal-new-42);
+    --ansi-green: var(--green-new-41);
+    --ansi-magenta: var(--pink-55);
+    --ansi-red: var(--red-new-39);
+    --ansi-white: var(--neutral-20);
+    --ansi-yellow: var(--yellow-new-62);
+    --background-code: hsl(var(--opacity-blurple-4)/0.0392156862745098);
+    --background-base-lower: var(--neutral-2);
+    --border-normal: hsl(var(--opacity-40)/0.4);
+    --text-code: var(--neutral-66);
+    color: #000;
+    color-scheme: light;
+}
+
+html:has(#theme [value="midnight"]:checked) {
+    --ansi-black: var(--black);
+    --ansi-blue: var(--blue-new-53);
+    --ansi-cyan: var(--teal-new-53);
+    --ansi-green: var(--green-new-52);
+    --ansi-magenta: var(--pink-63);
+    --ansi-red: var(--red-new-50);
+    --ansi-white: var(--neutral-20);
+    --ansi-yellow: var(--yellow-new-68);
+    --background-code: hsl(var(--opacity-blurple-8)/0.0784313725490196);
+    --background-base-lower: var(--neutral-97);
+    --border-normal: hsl(var(--opacity-24)/0.23921568627450981);
+    --text-code: var(--neutral-13);
+    .button.ansi-30-bg,.button.ansi-40 {
+        outline: 1px solid #888;
+    }
+}
+
+html:has(#theme [value="darker"]:checked) {
+    --ansi-black: var(--black);
+    --ansi-blue: var(--blue-new-47);
+    --ansi-cyan: var(--teal-new-48);
+    --ansi-green: var(--green-new-47);
+    --ansi-magenta: var(--pink-58);
+    --ansi-red: var(--red-new-44);
+    --ansi-white: var(--neutral-20);
+    --ansi-yellow: var(--yellow-new-65);
+    --background-code: hsl(var(--opacity-blurple-8)/0.0784313725490196);
+    --background-base-lower: var(--neutral-86);
+    --border-normal: hsl(var(--opacity-20)/0.2);
+    --text-code: var(--neutral-8);
+    .button.ansi-30-bg,.button.ansi-40 {
+        outline: 1px solid #888;
+    }
+}
+
+    html {
+        font-family: sans-serif;
+        background-color: var(--background-base-lower);
+        text-align: center;
+        color: #FFF;
+        color-scheme: dark;
+    }
+
+    .container {
+        max-width: 500px;
+        margin: auto;
+    }
+
+    .flex {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #textarea {
+        width: 600px;
+        height: 200px;
+        border-radius: 4px;
+        resize: both;
+        overflow: auto;
+        text-align: left;
+        font-family: var(--font-code);
+        background-color: var(--background-code);
+        color: var(--text-code);
+        border: var(--border-normal) 1px solid;
+        padding: .5em;
+        display: inline-block;
+        
+        white-space: pre-wrap;
+        font-size: 0.875rem;
+        line-height: 1.125rem;
+        text-indent: 0;
+
+        &::selection,::selection {
+            background: light-dark(#0006, #FFF6);
+            text-shadow: 1px 1px 0 light-dark(#FFF, #000);
+        }
+
+        position: relative;
+        &::after {
+            position: absolute;
+            content: attr(data-len) "/2000";
+            right: 10px;
+            bottom: 4px;
+            font-size: 0.75em;
+            opacity: 0.4;
+        }
+        &[data-lim="1"]::after {
+            content: attr(data-len) "/4000 (Nitro)";
+            color: orange;
+        }
+        &:not([data-lim="0"]):not([data-lim="1"])::after {
+            content: attr(data-len) "/4000 (Nitro)";
+            color: red;
+            opacity: 0.8;
+        }
+    }
+
+    .button {
+        min-height: 32px;
+        min-width: 32px;
+        border: none;
+        border-radius: 3px;
+        color: #fff;
+        background-color: #4f545c;
+        font-size: 14px;
+        padding: 2px 16px;
+        cursor: pointer;
+        transition: background-color 250ms linear;
+    }
+
+    a,a:visited {
+        color: #00AFF4
+    }
+
+    .tooltip {
+        display: none;
+        position: fixed;
+        background-color: #3BA55D;
+        border: none;
+        border-radius: 3px;
+        color: #fff;
+        font-size: 14px;
+        padding: 8px 16px;
+        top: 0;
+    }
+
+    .typeLabel {
+        display: inline-block;
+    }
+
+.ansi-0 { font-weight:initial;font-style:initial;text-decoration:initial;color:initial;background:initial }
+.ansi-1 { font-weight:700 }
+.ansi-3 { font-style: italic }
+.ansi-4 { text-decoration:underline }
+.ansi-9 { text-decoration:line-through }
+
+.ansi-30 { color: var(--ansi-black); }
+.ansi-31 { color: var(--ansi-red); }
+.ansi-32 { color: var(--ansi-green); }
+.ansi-33 { color: var(--ansi-yellow); }
+.ansi-34 { color: var(--ansi-blue); }
+.ansi-35 { color: var(--ansi-magenta); }
+.ansi-36 { color: var(--ansi-cyan); }
+.ansi-37 { color: var(--ansi-white); }
+
+.ansi-30-bg { background-color: var(--ansi-black); }
+.ansi-31-bg { background-color: var(--ansi-red); }
+.ansi-32-bg { background-color: var(--ansi-green); }
+.ansi-33-bg { background-color: var(--ansi-yellow); }
+.ansi-34-bg { background-color: var(--ansi-blue); }
+.ansi-35-bg { background-color: var(--ansi-magenta); }
+.ansi-36-bg { background-color: var(--ansi-cyan); }
+.ansi-37-bg { background-color: var(--ansi-white); }
+
+.ansi-40 { background-color: var(--ansi-black); }
+.ansi-41 { background-color: var(--ansi-red); }
+.ansi-42 { background-color: var(--ansi-green); }
+.ansi-43 { background-color: var(--ansi-yellow); }
+.ansi-44 { background-color: var(--ansi-blue); }
+.ansi-45 { background-color: var(--ansi-magenta); }
+.ansi-46 { background-color: var(--ansi-cyan); }
+.ansi-47 { background-color: var(--ansi-white); }
+    
+/* old colors
+.ansi-40 { background-color: #002b36; }
+.ansi-41 { background-color: #cb4b16; }
+.ansi-42 { background-color: #586e75; }
+.ansi-43 { background-color: #657b83; }
+.ansi-44 { background-color: #839496; }
+.ansi-45 { background-color: #6c71c4; }
+.ansi-46 { background-color: #93a1a1; }
+.ansi-47 { background-color: #fdf6e3; }
+*/
+
+button-row {
+    display: flex;
+    margin-bottom: 4px;
+    align-items: center;
+    flex-wrap: wrap;
+    & > strong {
+        min-width: 60px;
+        margin-right: 4px;
+        text-align: right;
+    }
+    & > div {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        max-width: 320px;
+    }
+    & > div > button {
+        width: 36px;
+        height: 32px;
+        position: relative;
+        & > .editBtn {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            clip-path: polygon(100% 0, 100% 100%, 0 100%);
+            background: linear-gradient(in hsl longer hue 45deg, #44E, #44E);
+            &.editBtnLeft {
+                right: initial;
+                left: 0;
+                clip-path: polygon(0 0, 100% 100%, 0 100%);
+                background: linear-gradient(in hsl longer hue -45deg, #44E, #44E);
+            }
+            width: 12px;
+            height: 12px;
+            border-bottom-right-radius: 3px;
+            cursor: pointer;
+            appearance: none;
+            padding: 0;
+            border: 0;
+            & > input[type=color] {
+                opacity: 0;
+                position: absolute;
+                pointer-events: none;
+            }
+        }
+        /*&:last-child::after {
+            color: light-dark(green, #3BA55D);
+            background: light-dark(green, #3BA55D44);
+            content:"+";
+            position: absolute;
+            top: 0;
+            left: calc(100% + 4px);
+            width: 36px;
+            height: 32px;
+            outline: 1px solid;
+            border-radius: 3px;
+        }*/
+    }
+    & > #effectBtns {
+        flex:1;
+        & > button { width: unset;flex:1 }
+        .fx-rainbow {
+            background: linear-gradient(in hsl longer hue 90deg, #E44, #E44);
+        }
+        .fx-gradient {
+            background: linear-gradient(90deg, #FD9855, #D161A2);
+        }
+        .fx-zebra {
+            background: linear-gradient(90deg, #a35454 50%, #ffb2b2 50%);
+            background-size: 20% 100%;
+        }
+    }
+}
+
+.fgSwitch {
+    margin: 8px auto;
+    background:#3a3e45;
+    width: fit-content;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    & > label {
+        position: relative;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        border-radius: 0 3px 3px 0;
+        &:first-child {
+            border-radius: 3px 0 0 3px;
+        }
+        &:has(:focus-visible) {
+            outline: 2px solid #FFF;
+            z-index: 1;
+        }
+    }
+    & > label:has(:checked) { font-weight: 600; background: #5865F2 }
+    input {
+      opacity: 0;
+      position: absolute;
+      pointer-events: none;
+    }
+}
+</style>
+</head>
+<body>
+<h1>Rebane's Discord <span style="color:#5865F2">Colored</span> Text Generator</h1>
+<div class="container">
+<p id="oct2026" style="font-style:italic;color:orange;font-size:0.8em">Note: This is a newly released version of the app that supports all colors.<br>If you encounter any issues with the update, please e-mail me at <code style="white-space:pre;color:#EEE">discord-color-feedback [at] lyra.horse</code> or write a comment <a href="https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c">on github</a>,<br>and keep using the <a href="legacy.html">old version</a> for now.</p>
+<h3>About</h3>
+<p>This is a simple app that creates colored Discord messages using the ANSI color codes available on the latest Discord desktop versions.</p>
+<p>To use this, write your text, select parts of it and assign colors to them, then copy it using the button below, and send in a Discord message.</p>
+<h3>Source Code</h3>
+<p>This app runs entirely in your browser and the source code is freely available on <a href="https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c">GitHub</a>. Shout out to kkrypt0nn for <a href="https://gist.github.com/kkrypt0nn/a02506f3712ff2d1c8ca7c9e0aed7c06">this guide</a>.</p>
+<details style="text-wrap:pretty">
+    <summary>Changelog</summary>
+<h4 style="margin-bottom:0">2026 October update</h4>
+<p>As of October 2026, Discord has significantly increased the amount of ansi codes supported. Thus, you're now able to use far more colors, as well as additional formatting options. These have been added to the website.</p>
+<p>Okay here's like a more proper changelog (2026-10-07):<ul>
+    <li>Italic and strikethrough options available</li>
+    <li>Custom colors can now be used, picked, and saved</li>
+    <li>Various effects are now available</li>
+    <li>FG/BG is a toggle instead of separate button rows</li>
+    <li>Text selection is now subtle to make it easier to see changes</li>
+    <li>Copy-pasting colored text now retains color</li>
+    <li>Multiple formatting options can be applied together now</li>
+    <li>Fixed various cases of nested formatting not copying correctly</li>
+    <li>Random tweaks and optimizations and fixes</li>
+    <li>Still handwritten <3 (i dont use ai)</li>
+</ul></p>
+<p>If you don't like this new update, the legacy version of my tool is available <a href="legacy.html">here</a>, and the gist will always have the history of the source code changes.</p>
+<p>Thank you <a href="https://gist.github.com/kkrypt0nn/a02506f3712ff2d1c8ca7c9e0aed7c06?permalink_comment_id=6224323#gistcomment-6224323">TinyVirtual</a> for letting us know about this change.</p>
+<h4 style="margin-bottom:0">2026 August update</h4>
+<p>As of August 2026, Discord has changed the color palette used for ansi colors. I have updated this website to match that, as well as added an option to choose the Discord theme to preview the colored text as.</p>
+<h4 style="margin-bottom:0">2022 Initial release</h4>
+<p>This webapp was first made in May 2022. It has since received various updates, the full list of code changes can be found in the GitHub history.</p>
+</details>
+</div>
+<h2>Create your text</h2>
+<button data-ansi="0" class="button style-button">Clear</button>
+<button data-ansi="1" class="button style-button ansi-1">Bold</button>
+<button data-ansi="3" class="button style-button ansi-3">Italic</button>
+<button data-ansi="4" class="button style-button ansi-4">Line</button>
+<button data-ansi="9" class="button style-button ansi-9">Strike</button>
+<br><br>
+<div style="width:fit-content;margin:auto">
+<button-row><strong>Classic</strong><div><button data-ansi="30" class="button style-button ansi-30-bg">&nbsp;</button>
+<button data-ansi="31" class="button style-button ansi-31-bg">&nbsp;</button>
+<button data-ansi="32" class="button style-button ansi-32-bg">&nbsp;</button>
+<button data-ansi="33" class="button style-button ansi-33-bg">&nbsp;</button>
+<button data-ansi="34" class="button style-button ansi-34-bg">&nbsp;</button>
+<button data-ansi="35" class="button style-button ansi-35-bg">&nbsp;</button>
+<button data-ansi="36" class="button style-button ansi-36-bg">&nbsp;</button>
+<button data-ansi="37" class="button style-button ansi-37-bg">&nbsp;</button></div></button-row>
+<button-row><strong>Custom</strong><div id="customColorBtns"></div></button-row>
+<button-row><strong>Effects</strong><div id="effectBtns">
+    <button data-tooltip="Rainbow" class="button effect-button fx-rainbow">&nbsp;</button>
+    <button data-tooltip="Gradient" class="button effect-button fx-gradient">&nbsp;<div class="editBtn editBtnLeft"><input type="color"></div><div class="editBtn"><input type="color"></div></button>
+    <button data-tooltip="Zebra" class="button effect-button fx-zebra">&nbsp;<div class="editBtn editBtnLeft"><input type="color"></div><div class="editBtn"><input type="color"></div></button>
+</div></button-row>
+</div>
+<div class="fgSwitch" role="radiogroup">
+    <label class="button">Foreground<input type="radio" name="fgSwitch" id="fgCheck" checked></label>
+    <label class="button">Background<input type="radio" name="fgSwitch"></label>
+</div>
+<br>
+<div class="flex"><div id="textarea" data-len="276" data-lim="0" contenteditable="true">Welcome to&nbsp;<span class="ansi-31">Rebane</span>'s <span class="ansi-rgb" data-hex="#5865f2" style="background-color: rgb(88, 101, 242);"><span class="ansi-rgb" data-hex="#FFFFFF" data-fg="1" style="color: rgb(255, 255, 255);">Discord</span></span>&nbsp;<span class="ansi-1"><span class="ansi-31">C</span><span class="ansi-32">o</span><span class="ansi-33">l</span><span class="ansi-34">o</span><span class="ansi-35">r</span><span class="ansi-36">e</span><span class="ansi-37">d</span></span>&nbsp;Text Generator!</div></div>
+<br>
+<button class="button copy">Copy text as Discord formatted</button>
+<br>
+<br>
+<label>Preview as: <select id="theme">
+    <option value=light>Light</option>
+    <option value=dark selected>Ash</option>
+    <option value=darker>Dark</option>
+    <option value=midnight>Onyx</option>
+</select></label><br>
+<br>
+<small>This is an unofficial tool, it is not made or endorsed by Discord.</small>
+<div class="tooltip">Tooltip</div>
+<script type="text/javascript">
+    const textarea = document.querySelector("#textarea");
+    const copybtn = document.querySelector(".button.copy");
+    const tooltip = document.querySelector(".tooltip");
+    const fgCheck = document.querySelector("#fgCheck");
+
+    const tooltipTexts = {
+        // FG
+        "30": "Black",
+        "31": "Red",
+        "32": "Green",
+        "33": "Brown",
+        "34": "Light Blue",
+        "35": "Pink",
+        "36": "Teal",
+        "37": "Light Gray",
+        // BG
+        "40": "Black",
+        "41": "Red",
+        "42": "Green",
+        "43": "Brown",
+        "44": "Light Blue",
+        "45": "Pink",
+        "46": "Teal",
+        "47": "Light Gray",
+        /* old colors
+        "40": "Blueish Black",
+        "41": "Rust Brown",
+        "42": "Gray (40%)",
+        "43": "Gray (45%)",
+        "44": "Light Gray (55%)",
+        "45": "Blurple",
+        "46": "Light Gray (60%)",
+        "47": "Cream White",
+        */
+    };
+
+    const defaultCustomColors = [
+        { color: "#000000" },
+        { color: "#FFFFFF" },
+        { color: "#DE4040" },
+        { color: "#40DE40" },
+        { color: "#4040DE" },
+        { color: "#FFD800" },
+        { color: "#F5A9B8" },
+        { color: "#5BCEFA" },
+    ];
+    const customColors = JSON.parse(localStorage.getItem("discord-colored-text-rgb") || JSON.stringify(defaultCustomColors));
+
+    const gradientColors = ["#FD9855", "#D161A2"];
+    const zebraColors = ["#A35454", "#FFB2B2"];
+
+    let textareaHadPaste = false;
+    textarea.onpaste = () => textareaHadPaste = true;
+
+    // Some basic escaping of pasted HTML tags, not ideal but good enough for this situation.
+    function sanitizeTextarea() {
+        if ("Sanitizer" in window) {
+            const sanitizer = new Sanitizer({
+              elements: ["span", "br", "html"],
+              attributes: ["class", "style", "data-hex", "data-fg"],
+              replaceWithChildrenElements: ["body"],
+              comments: false,
+              dataAttributes: false,
+            });
+            // We regex-sanitize this html to make it more likely for a random
+            // paste to be valid. However, due to this not being a proper sanitization
+            // we also throw it through an actual sanitizer.
+            const unsanitized = textarea.innerHTML.replace(/<\/?([a-z]+)[^>]*>/gi, (match, tag) => ["span", "br"].includes(tag) ? match : "");
+            if (unsanitized == textarea.innerHTML) {
+                if (!textareaHadPaste)
+                    return;
+            } else {
+                //console.log(textarea.innerHTML,unsanitized)
+                //console.log(Document.parseHTML(unsanitized, {sanitizer}).querySelector("html").innerHTML)
+                //console.log(123,Document.parseHTML(unsanitized, {sanitizer}).querySelector("html").innerHTML != unsanitized)
+                //if (Document.parseHTML(unsanitized, {sanitizer}).querySelector("html").innerHTML != unsanitized)
+                textarea.setHTML(unsanitized, {sanitizer});
+            }
+            textareaHadPaste = false;
+            textarea.querySelectorAll(':not(span[class^="ansi"],span:not(class)):not(br)').forEach(e=>e.remove());
+            textarea.querySelectorAll('[style]').forEach(e=>e.removeAttribute("style"));
+            textarea.querySelectorAll('span[data-hex]').forEach(e=>{
+                e.style[e.dataset.fg ? "color" : "backgroundColor"] = e.dataset.hex;
+            });
+        } else {
+            const base = textarea.innerHTML.replace(/<(\/?(br|span|span class="ansi-[0-9]*"))>/g,"[$1]");
+            if (base.includes("<") || base.includes(">")) textarea.innerHTML = base.replace(/<.*?>/g,"").replace(/[<>]/g,"").replace(/\[(\/?(br|span|span class="ansi-[0-9]*"))\]/g,"<$1>");
+        }
+    }
+
+    function updateTextLength() {
+        const newLength = getANSIResult().length;
+        textarea.dataset.len = newLength;
+        textarea.dataset.lim = Math.floor(newLength / 2000);
+    }
+
+    textarea.oninput = () => {
+        sanitizeTextarea();
+        updateTextLength();
+    };
+
+    // https://stackoverflow.com/a/64090995/2251833
+    function hsl2rgb(h,s,l) {
+        let a=s*Math.min(l,1-l);
+        let f= (n,k=(n+h/30)%12) => l - a*Math.max(Math.min(k-3,9-k,1),-1);
+        return [f(0),f(8),f(4)];
+    }   
+
+    // https://stackoverflow.com/a/61237402/2251833
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            document.execCommand('insertLineBreak')
+            event.preventDefault()
+        }
+    });
+
+    let refocusText = false;
+    document.querySelectorAll(".fgSwitch label").forEach((radio) => {
+        radio.onmousedown = () => refocusText = document.activeElement == textarea && window.getSelection().getRangeAt(0);
+        radio.querySelector("input").oninput = () => refocusText && (window.getSelection().empty(), window.getSelection().addRange(refocusText), refocusText = false);
+    });
+
+    function setupColorBtn(btn) {
+        btn.onclick = () => {
+            if (!btn.dataset.ansi) {
+                textarea.innerText = textarea.innerText;
+                updateTextLength();
+                return;
+            }
+
+            const selection = window.getSelection();
+            const text = window.getSelection().toString();
+
+            let ansiCode = btn.dataset.ansi;
+            if (!isNaN(ansiCode) && ansiCode > 9 && !fgCheck.checked)
+                ansiCode = +ansiCode + 10;
+            
+            const span = document.createElement("span");
+            span.innerText = text;
+            span.classList.add(`ansi-${ansiCode}`);
+            if (btn.dataset.hex) {
+                span.dataset.hex = btn.dataset.hex;
+                if (fgCheck.checked) span.dataset.fg = 1;
+                span.style[fgCheck.checked ? "color" : "backgroundColor"] = btn.dataset.hex;
+            }
+
+            const range = selection.getRangeAt(0);
+            // There is a bug where you can apply styles to *any* part of the page
+            // It is a fun bug so I am not fixing it, but I am making sure you don't
+            // mess up the buttons and stuff, which would break the site entirely
+            if (range.cloneContents().querySelector(".button"))
+                return;
+            range.deleteContents();
+            range.insertNode(span);
+
+            range.selectNodeContents(span);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            updateTextLength();
+        };
+        btn.onmouseenter = () => {
+            if (!(btn.dataset.ansi > 9) && !btn.dataset.hex) return;
+            const rect = btn.getBoundingClientRect();
+            tooltip.style.display = "block";
+            tooltip.innerText = btn.dataset.hex || tooltipTexts[btn.dataset.ansi];
+            tooltip.style.top = `${rect.top - 36}px`;
+            tooltip.style.left = `${rect.left - tooltip.clientWidth/2 + btn.clientWidth/2}px`;
+        };
+        btn.onmouseleave = () => {
+            tooltip.style.display = "none";
+        };
+    }
+
+    document.querySelectorAll(".style-button").forEach(setupColorBtn);
+
+    function addCustomColor({color}) {
+        const colorBtn = document.createElement("button");
+        colorBtn.classList.add("button");
+        colorBtn.classList.add("style-button");
+        colorBtn.classList.add("ansi-rgb");
+        colorBtn.dataset.hex = color;
+        colorBtn.style.backgroundColor = color;
+        colorBtn.dataset.ansi = "rgb";
+        const colorPicker = document.createElement("input");
+        colorPicker.type = "color";
+        colorPicker.oninput = () => {
+            color = colorPicker.value.toUpperCase();
+            colorBtn.dataset.hex = color;
+            colorBtn.style.backgroundColor = color;
+            const btnIdx = [...colorBtn.parentNode.childNodes].indexOf(colorBtn);
+            customColors[btnIdx].color = color;
+            localStorage.setItem("discord-colored-text-rgb", JSON.stringify(customColors));
+        };
+        const editBtn = document.createElement("button");
+        editBtn.classList.add("editBtn");
+        editBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            colorPicker.value = colorBtn.dataset.hex;
+            colorPicker.click();
+        });
+        editBtn.appendChild(colorPicker);
+        colorBtn.appendChild(editBtn);
+        document.getElementById("customColorBtns").appendChild(colorBtn);
+        setupColorBtn(colorBtn);
+    }
+
+    customColors.forEach(addCustomColor);
+
+    const fxRainbowBtn = document.querySelector(".effect-button.fx-rainbow");
+    const fxGradientBtn = document.querySelector(".effect-button.fx-gradient");
+    const fxZebraBtn = document.querySelector(".effect-button.fx-zebra");
+    function updateFxBtns() {
+        fxGradientBtn.style.backgroundImage = `linear-gradient(90deg, ${gradientColors})`;
+        fxZebraBtn.style.backgroundImage = `linear-gradient(90deg, ${zebraColors[0]} 50%, ${zebraColors[1]} 50%)`;
+        fxZebraBtn.style.backgroundSize = `20% 100%`;
+    }
+
+    // yeah yeah dry code whatever
+    function setupFxBtn(btn) {
+        const editBtns = [...btn.querySelectorAll(".editBtn")];
+        editBtns.forEach((editBtn,i) => {
+            const colorPicker = editBtn.querySelector("input");
+            colorPicker.oninput = () => {
+                (btn.classList.contains("fx-gradient")?gradientColors:zebraColors)[i] = colorPicker.value.toUpperCase();
+                updateFxBtns();
+            }
+            editBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                colorPicker.value = (btn.classList.contains("fx-gradient")?gradientColors:zebraColors)[i];
+                colorPicker.click();
+            });
+        });
+        btn.onclick = () => {
+            const selection = window.getSelection();
+            const text = window.getSelection().toString();
+
+            const range = selection.getRangeAt(0);
+            // There is a bug where you can apply styles to *any* part of the page
+            // It is a fun bug so I am not fixing it, but I am making sure you don't
+            // mess up the buttons and stuff, which would break the site entirely
+            if (range.cloneContents().querySelector(".button"))
+                return;
+            range.deleteContents();
+
+            const characters = [...new Intl.Segmenter().segment(text)];
+            const spans = characters.map((char,idx) => {
+                const span = document.createElement("span");
+                span.innerText = char.segment;
+                span.classList.add(`ansi-rgb`);
+                if (fgCheck.checked) span.dataset.fg = 1;
+
+                let color = "#000000";
+                if (btn.classList.contains("fx-rainbow")) {
+                    const t = idx/(characters.length-1);
+                    color = "#" + hsl2rgb(t*360,1,0.5).map(e=>Math.floor(e*255).toString(16).padStart(2,0)).join("").toUpperCase();
+                } else if (btn.classList.contains("fx-gradient")) {
+                    const t = idx/(characters.length-1);
+                    const rgbA = [
+                        parseInt(gradientColors[0].slice(1,3), 16),
+                        parseInt(gradientColors[0].slice(3,5), 16),
+                        parseInt(gradientColors[0].slice(5,7), 16),
+                    ];
+                    const rgbB = [
+                        parseInt(gradientColors[1].slice(1,3), 16),
+                        parseInt(gradientColors[1].slice(3,5), 16),
+                        parseInt(gradientColors[1].slice(5,7), 16),
+                    ];
+                    // yeah this is a naive interpolation method
+                    // i could make it better but maybe some other day
+                    const rgbOut = rgbA.map((_,i)=>rgbA[i]*(1-t)+rgbB[i]*t);
+                    color = "#" + rgbOut.map(e=>Math.floor(e).toString(16).padStart(2,0)).join("").toUpperCase();
+                } else if (btn.classList.contains("fx-zebra")) {
+                    color = zebraColors[idx%2];
+                }
+
+                span.dataset.hex = color;
+                span.style[fgCheck.checked ? "color" : "backgroundColor"] = color;
+                return span;
+            });
+
+            spans.slice().reverse().forEach(span => range.insertNode(span))
+            
+
+            range.setStartBefore(spans.at(0));
+            range.setEndAfter(spans.at(-1));
+            selection.removeAllRanges();
+            selection.addRange(range);
+            updateTextLength();
+        };
+        btn.onmouseenter = () => {
+            const rect = btn.getBoundingClientRect();
+            tooltip.style.display = "block";
+            tooltip.innerText = btn.dataset.tooltip;
+            tooltip.style.top = `${rect.top - 36}px`;
+            tooltip.style.left = `${rect.left - tooltip.clientWidth/2 + btn.clientWidth/2}px`;
+        };
+        btn.onmouseleave = () => {
+            tooltip.style.display = "none";
+        };
+    }
+
+    document.querySelectorAll(".effect-button").forEach(setupFxBtn);
+
+    // global state lmao
+    let lastChange;
+    let styleReset = false;
+    const ENABLE_OPTIMIZE = true;
+    function nodesToANSI(nodes, states) {
+        let text = ""
+        for (const node of nodes) {
+            if (node.nodeType === 3) {
+                if (node.textContent.length) {
+                   lastChange[2] = true;
+                   if (states.at(-1).fg === 2 && lastChange[0] == "fg")
+                    lastChange[0] = null;
+                   if (states.at(-1).bg === 2 && lastChange[0] == "bg")
+                    lastChange[0] = null;
+                }
+                text += node.textContent;
+                continue;
+            }
+            if (node.nodeName === "BR") {
+                text += "\n";
+                continue;   
+            }
+            if (node.textContent === "") {
+                continue;   
+            }
+
+            const newState = Object.assign({}, states.at(-1));
+            let newChange = [null,null,false,0];
+            if (node.dataset?.hex) {
+                const rgbValues = [
+                    parseInt(node.dataset?.hex.slice(1,3), 16),
+                    parseInt(node.dataset?.hex.slice(3,5), 16),
+                    parseInt(node.dataset?.hex.slice(5,7), 16),
+                ];
+                const rgbText = `\x1b[${node.dataset.fg?38:48};2;${rgbValues.join(";")}m`;
+                newState[node.dataset.fg?"fg":"bg"] = rgbText;
+                newChange = [node.dataset.fg?"fg":"bg",rgbText,false,0];
+                states.push(newState)
+                
+                if (ENABLE_OPTIMIZE && styleReset && lastChange[0] == newChange[0]) {
+                    const lastReset = text.lastIndexOf("\x1b[0m");
+                    text = text.slice(0,lastReset) + text.slice(lastReset+4);
+                }
+                if (!ENABLE_OPTIMIZE || (lastChange[0] != newChange[0] || lastChange[1] != newChange[1])) {
+                    if (ENABLE_OPTIMIZE && lastChange[0] == newChange[0] && !lastChange[2]) {
+                        const lastStyle = text.lastIndexOf("\x1b");
+                        text = text.slice(0,lastStyle);
+                    }
+                    text += rgbText;
+                }
+            } else {
+                const ansiCode = +(node.className.split("-")[1]);
+    
+                if (ansiCode < 30) newState.st += `;${ansiCode}`;
+                if (ansiCode >= 30 && ansiCode < 40) newState.fg = ansiCode;
+                if (ansiCode >= 40) newState.bg = ansiCode;
+
+                if (ansiCode < 30)  newChange = [null,null,false,0];
+                if (ansiCode >= 30) newChange = ["fg",ansiCode,false,0];
+                if (ansiCode >= 40) newChange = ["bg",ansiCode,false,0];
+    
+                states.push(newState)
+
+                if (ansiCode < 30) {
+                    text += `\x1b[${newState.st};2m`;
+                } else {
+                    if (ENABLE_OPTIMIZE && styleReset && lastChange[0] && lastChange[0] == newChange[0]) {
+                        const lastReset = text.lastIndexOf("\x1b[0m");
+                        text = text.slice(0,lastReset) + text.slice(lastReset+4);
+                    }
+                    if (!ENABLE_OPTIMIZE || (lastChange[0] != newChange[0] || lastChange[1] != newChange[1])) {
+                        if (ENABLE_OPTIMIZE && lastChange[0] == newChange[0] && !lastChange[2]) {
+                            const lastStyle = text.lastIndexOf("\x1b");
+                            text = text.slice(0,lastStyle);
+                        }
+                        text += `\x1b[7;${(ansiCode >= 40) ? newState.bg : newState.fg}m`;
+                    }
+                }
+            }
+            lastChange = newChange;
+            text += nodesToANSI(node.childNodes, states);
+            const poppedState = states.pop();
+            if (poppedState.st == states.at(-1).st &&
+                poppedState.fg == states.at(-1).fg &&
+                poppedState.bg == states.at(-1).bg) {
+                styleReset = false;
+            } else {
+                text += `\x1b[0m`;
+                if (states.at(-1).st !== 2) text += (states.at(-1).st+"").split(";").map(s => `\x1b[${s};2m`).join("");
+                if (states.at(-1).fg !== 2) text += (states.at(-1).fg+"").includes(";") ? states.at(-1).fg : `\x1b[7;${states.at(-1).fg}m`;
+                if (states.at(-1).bg !== 2) text += (states.at(-1).bg+"").includes(";") ? states.at(-1).bg : `\x1b[7;${states.at(-1).bg}m`;
+                styleReset = true;
+            }
+
+        }
+        lastChange[3]++;
+        if (lastChange[3] > 1)
+            lastChange[0] = null;
+        return text;
+    }
+
+    function getANSIResult() {
+        lastChange = [null,null,true,0];
+        styleReset = false;
+        return "```ansi\n" + nodesToANSI(textarea.childNodes, [{ fg: 2, bg: 2, st:2 }]) + "\n```";
+    }
+
+    let copyCount = 0;
+    let copyTimeout = null;
+
+    copybtn.onclick = () => {
+        const toCopy = getANSIResult();
+        navigator.clipboard.writeText(toCopy).then(() => {
+            if (copyTimeout) clearTimeout(copyTimeout);
+
+            const funnyCopyMessages = copybtn.innerText = ["Copied!", "Double Copy!", "Triple Copy!", "Dominating!!", "Rampage!!", "Mega Copy!!", "Unstoppable!!", "Wicked Sick!!", "Monster Copy!!!", "GODLIKE!!!", "BEYOND GODLIKE!!!!", Array(16).fill(0).reduce(p => p + String.fromCharCode(Math.floor(Math.random() * 65535)),"")];
+
+            copybtn.style.backgroundColor = (copyCount <= 8) ? "#3BA55D" : "#ED4245";
+            copybtn.innerText = funnyCopyMessages[copyCount];
+            copyCount = Math.min(11, copyCount + 1);
+            copyTimeout = setTimeout(() => {
+                copyCount = 0;
+                copybtn.style.backgroundColor = null;
+                copybtn.innerText = "Copy text as Discord formatted";
+            }, 2000)
+
+        }, (err) => {
+            // We don't need to stop the users if they get a little too excited about the button
+            if (copyCount > 2) return;
+            alert("Copying failed for some reason, let's try showing an alert, maybe you can copy it instead.");
+            alert(toCopy);
+        });
+    }
+
+    // Hide update message after ~1 month
+    if (new Date("2026-11") < Date.now())
+        document.getElementById("oct2026").style.display = "none";
+</script>
+</body>
+</html>

@@ -45,6 +45,11 @@ export interface TextOutputPanelProps {
   actions?: ReactNode;
   /** 複製通知顯示的毫秒數（不給時：成功與空白 2 秒、失敗依 Toast 預設） */
   messageDuration?: number;
+  /**
+   * 每次按「複製」（有內容時）寫完剪貼簿之後呼叫，ok＝成功（例如依連續複製的次數換下一次的提示文字；
+   * discord-color 移植時新增，不給時行為不變）
+   */
+  onCopied?: (ok: boolean) => void;
   className?: string;
 }
 
@@ -88,6 +93,7 @@ export function TextOutputPanel({
   placeholder,
   actions,
   messageDuration,
+  onCopied,
   className,
 }: TextOutputPanelProps) {
   const toast = useToast();
@@ -146,6 +152,7 @@ export function TextOutputPanel({
         tone: 'danger',
         duration: messageDuration,
       });
+    onCopied?.(ok);
   };
 
   const style =

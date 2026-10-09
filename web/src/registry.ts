@@ -215,6 +215,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'discord-color',
+    name: 'Discord 彩色文字產生器',
+    summary:
+      '選取文字套上粗體、底線、經典 8 色、自訂色或彩虹、漸層效果，預覽 Discord 四種主題，複製成 ANSI 程式碼區塊貼進 Discord 就是彩色訊息。',
+    group: 'G1',
+    status: 'next',
+    inspiration: {
+      name: 'rebane2001／Discord Colored Text Generator',
+      url: 'https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c',
+    },
+  },
+  {
     id: 'ccfolia-cropper',
     name: '立繪裁切器',
     summary:
