@@ -172,6 +172,11 @@ export function Preview({
     },
   }));
 
+  /* 內容或匯出設定（格式、次數、倍率、減色）改了：上次的結果卡作廢 */
+  const resetKey = useMemo(
+    () => ({ d, format: prefs.format, plays: prefs.plays, scale: prefs.scale, q: prefs.quantize }),
+    [d, prefs.format, prefs.plays, prefs.scale, prefs.quantize],
+  );
   const formats = useMemo(
     () => animationFormats(['apng', 'gif', 'webp', 'png', 'zip'], { webpSupported }),
     [webpSupported],
@@ -267,7 +272,7 @@ export function Preview({
                 duration: scene.duration,
               }
         }
-        resetKey={d}
+        resetKey={resetKey}
         onExport={(s, { signal, onProgress }) =>
           runExport(useSb.getState().data, s, signal, onProgress)
         }

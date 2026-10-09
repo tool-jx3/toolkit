@@ -154,6 +154,20 @@ describe('時間表', () => {
     expect(o).not.toEqual([0, 1, 2, 3, 4]);
     expect(appearanceOrder(ids, 'list')).toEqual([0, 1, 2, 3, 4]);
   });
+
+  it('隨機順序：2 個以上時一定和清單順序不同（7.1）', () => {
+    for (let n = 2; n <= 12; n++) {
+      /* b5a、b5b、b5c：洗牌剛好是原順序的例子 */
+      for (const prefix of ['a', 'bubble-', 'x', 'q', 'b5']) {
+        const ids = Array.from({ length: n }, (_, i) =>
+          prefix === 'b5' ? `b5${String.fromCharCode(97 + i)}` : `${prefix}${i}`,
+        );
+        const o = appearanceOrder(ids, 'random');
+        expect([...o].sort((a, b) => a - b)).toEqual(ids.map((_, i) => i));
+        expect(o, `${prefix}×${n}`).not.toEqual(ids.map((_, i) => i));
+      }
+    }
+  });
 });
 
 describe('動態', () => {
@@ -163,9 +177,9 @@ describe('動態', () => {
     for (const k of ENTER_IDS) {
       expect(enterPose(k, 1, ctx), k).toEqual(REST);
       const p0 = enterPose(k, 0, ctx);
+      /* 第一格是空的（3.4）：完全透明或裁成 0（故障閃現在任何時間點開始都一樣） */
       const hidden =
-        p0.alpha < 0.2 ||
-        p0.scale < 0.5 ||
+        [0, 0.07, 0.4, 1.3].every((t) => enterPose(k, 0, { ...ctx, t }).alpha === 0) ||
         (p0.clipX !== null && p0.clipX[1] - p0.clipX[0] < 0.01) ||
         (p0.clipY !== null && p0.clipY[1] - p0.clipY[0] < 0.01);
       expect(hidden, k).toBe(true);
@@ -206,6 +220,23 @@ describe('動態', () => {
     expect(idlePose('scan', 0.8, c).scan).toBeCloseTo(0.5, 9);
     for (const k of IDLE_IDS) expect(idlePose(k, 1.234, c)).toEqual(idlePose(k, 1.234, c));
     expect(idlePose('float', -0.1, c)).toEqual(REST);
+  });
+
+  it('停留：錯開的相位從 0 慢慢加上去，登場完那一格不會跳（7.1）', () => {
+    const c = { fs: 20, seed: 3, phase: 0.37 };
+    expect(idlePose('float', 0, c).dy).toBeCloseTo(0, 9);
+    expect(idlePose('breathe', 0, c).scale).toBeCloseTo(1, 9);
+    expect(idlePose('sway', 0, c).rotate).toBeCloseTo(0, 9);
+    /* 16 FPS 的下一格：位移不到 1 px */
+    expect(Math.abs(idlePose('float', 1 / 16, c).dy)).toBeLessThan(1);
+    /* 加完之後幅度照舊 */
+    const peak = Math.max(
+      ...Array.from(
+        { length: 200 },
+        (_, i) => -idlePose('float', 1 + (i / 200) * FLOAT_PERIOD, c).dy,
+      ),
+    );
+    expect(peak).toBeCloseTo(FLOAT_EM * 20, 1);
   });
 
   it('疊加：透明度、縮放相乘，位移相加，裁切取交集', () => {
@@ -393,5 +424,16 @@ describe('場景', () => {
       s.render(b.ctx, t);
       expect(a.texts).toEqual(b.texts);
     }
+  });
+});
+
+describe('卡片的秒數', () => {
+  it('四捨五入到 0.1 秒（2.95 秒顯示 3.0 秒，不受浮點數影響）', async () => {
+    const { S } = await import('@/tools/speech-bubble/strings');
+    expect(S.presetMeta('聊天', 2.95)).toBe('聊天・3.0 秒');
+    /* 登場＋停留＋退場加起來是 2.9499…（實際的範本） */
+    expect(S.presetMeta('聊天', 0.35 + 2.3 + 0.3)).toBe('聊天・3.0 秒');
+    expect(S.presetMeta('聊天', 2.94)).toBe('聊天・2.9 秒');
+    expect(S.presetMeta('聊天', 4.45)).toBe('聊天・4.5 秒');
   });
 });

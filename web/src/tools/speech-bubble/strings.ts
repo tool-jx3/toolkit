@@ -202,7 +202,9 @@ export const S = {
   motionHint: '關閉時只播放滑鼠停留或鍵盤聚焦的那一個。',
   continueEditing: '繼續編輯',
   continueHint: (name: string) => `目前的內容：${name}`,
-  presetMeta: (styles: string, sec: number) => `${styles}・${sec.toFixed(1)} 秒`,
+  /* 先換成毫秒的整數再四捨五入（2.95 秒的浮點數是 2.9499…，直接 toFixed(1) 會變 2.9） */
+  presetMeta: (styles: string, sec: number) =>
+    `${styles}・${(Math.round(Math.round(sec * 1000) / 100) / 10).toFixed(1)} 秒`,
   styleCount: (n: number) => `${n} 種造型`,
   presetListLabel: '範本',
   /* 編輯畫面 */

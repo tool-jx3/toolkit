@@ -340,7 +340,9 @@ test.describe('1280 寬', () => {
     const custom = page.locator('[data-row^="common:"][data-custom]');
     await expect(custom).toHaveCount(200);
     await page.getByRole('button', { name: '新增規則到「各版通用・擲骰」' }).click();
-    await expect(page.getByText('這一區已經有 200 條自己加的規則，不能再加了。').first()).toBeVisible();
+    await expect(
+      page.getByText('這一區已經有 200 條自己加的規則，不能再加了。').first(),
+    ).toBeVisible();
     await expect(custom).toHaveCount(200);
     expect(errors).toEqual([]);
   });

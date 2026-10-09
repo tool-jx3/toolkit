@@ -232,7 +232,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '選造型、填文字，做出會彈出、打字、漂浮再退場的對話泡泡、通知視窗與 RPG 對話框，匯出透明背景的 APNG、GIF、WebP 動畫。',
     group: 'G1',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/TextBubbleMaker-preview',
       url: 'https://github.com/sotsotssi/TextBubbleMaker-preview',

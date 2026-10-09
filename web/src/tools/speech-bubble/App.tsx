@@ -171,7 +171,8 @@ export function App() {
           return true;
         }}
         onReset={() => {
-          resetToolStore(useSb);
+          /* 確認框寫「可以用『復原』回來」：留著復原紀錄 */
+          resetToolStore(useSb, { clearHistory: false });
           usePrefs.getState().patch({ started: false });
           useUi.setState({ screen: 'gallery', selectedId: null });
         }}

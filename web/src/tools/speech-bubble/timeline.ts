@@ -67,6 +67,8 @@ export function appearanceOrder(ids: readonly string[], order: SbData['order']):
     const j = Math.floor(rnd.next() * (i + 1));
     [idx[i], idx[j]] = [idx[j], idx[i]];
   }
+  /* 洗牌剛好是原順序時（3 個時每 6 次就有 1 次）看不出「隨機」：第一個移到最後 */
+  if (idx.every((v, i) => v === i)) idx.push(idx.shift() as number);
   return idx;
 }
 

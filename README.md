@@ -18,7 +18,7 @@
 [zznaptime](https://github.com/zznaptime) 與
 [swoonqx](https://github.com/swoonqx) 與
 [rebane2001](https://github.com/rebane2001) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 51 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 52 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -28,6 +28,7 @@
 | [打字機動畫產生器](https://tool-jx3.github.io/toolkit/tools/typewriter/) | 輸入文字，產生逐字打出效果的 APNG／GIF／WebP 動畫圖 |
 | [文字軌跡產生器](https://tool-jx3.github.io/toolkit/tools/text-path/) | 讓文字沿著圓、螺旋、愛心或手繪的軌跡排列，輸出可以直接貼進聊天欄的純文字 |
 | [Discord 彩色文字產生器](https://tool-jx3.github.io/toolkit/tools/discord-color/) | 選取文字套上粗體、底線、經典 8 色、自訂色或彩虹、漸層效果，預覽 Discord 四種主題，複製成 ANSI 程式碼區塊貼進 Discord 就是彩色訊息 |
+| [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | 選一個範本改文字、造型與配色，做出依序彈出、逐字打出、漂浮後退場的對話泡泡與訊息框，匯出透明背景的 APNG／GIF／WebP |
 | [匿名拼貼信產生器](https://tool-jx3.github.io/toolkit/tools/collage-letter/) | 把一段文字做成剪報拼貼的匿名信，可下載圖片或複製成 HTML、Roll20 格式 |
 | [表情產生器](https://tool-jx3.github.io/toolkit/tools/emotion-maker/) | 組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖 |
 | [讀取動畫產生器](https://tool-jx3.github.io/toolkit/tools/loading-maker/) | 把角色動畫、讀取條與上下文字合成一張畫布，輸出為 APNG／WebP／GIF |
@@ -164,6 +165,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `discord-color` | [Discord 彩色文字產生器](https://tool-jx3.github.io/toolkit/tools/discord-color/) | [rebane2001／Discord Colored Text Generator](https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c) |
 | `scenario-text` | [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker) |
 | `house-rules` | [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | [くま。／CoCハウスルール表メーカー](https://kumachansteps.github.io/trpg-web-tools/) |
+| `speech-bubble` | [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

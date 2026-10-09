@@ -53,7 +53,7 @@ const inBack = (u: number) => {
 export const EASINGS = { outCubic, inCubic, inOut, outBack, inBack };
 
 /** 滑入的距離（內文字級的倍數） */
-export const SLIDE_EM = 2.6;
+export const SLIDE_EM = 5;
 /** 掉落時往下的距離（內文字級的倍數） */
 export const FALL_EM = 3.5;
 
@@ -66,8 +66,9 @@ export const sideDir = (align: Align): Dir =>
 const dirVec = (d: Dir): [number, number] =>
   d === 'left' ? [-1, 0] : d === 'right' ? [1, 0] : d === 'up' ? [0, -1] : [0, 1];
 
-/** 故障時的閃爍：每秒 15 次換一次，進度越前面越常消失 */
+/** 故障時的閃爍：每秒 15 次換一次，進度越前面越常消失；進度 0 時完全透明（第一格是空的，3.4） */
 function glitchAlpha(p: number, seed: number, t: number): number {
+  if (p <= 0) return 0;
   const r = hashUnit(seed, timeSlot(t, 15), 7);
   return r < 0.45 * (1 - p) ? 0.15 : Math.min(1, 0.4 + p);
 }
@@ -219,6 +220,10 @@ export const SHINE_SWEEP = 1.1;
 /** 掃描線：每 1.6 秒從上到下一次 */
 export const SCAN_PERIOD = 1.6;
 
+/** 停留的動作的幅度從 0 加到全幅的時間（秒） */
+const IDLE_RAMP = 0.3;
+const smoothstep = (x: number) => x * x * (3 - 2 * x);
+
 /**
  * 停留時的動作（u：這個泡泡登場完之後過了幾秒；phase：每個泡泡錯開的相位 0～1）。
  * 登場、退場時也照算，跟登場、退場的姿勢疊在一起。
@@ -231,16 +236,18 @@ export function idlePose(
   if (kind === 'none' || u < 0) return REST;
   const pose: Pose = { ...REST };
   const TAU = Math.PI * 2;
+  /* 錯開的相位讓第 2 個以後的泡泡登場完時不在原位：幅度在 IDLE_RAMP 秒內從 0 加上去，那一格才不會跳 */
+  const ramp = u >= IDLE_RAMP ? 1 : smoothstep(u / IDLE_RAMP);
   switch (kind) {
     case 'float':
       /* 登場完先往上：-sin */
-      pose.dy = -Math.sin(TAU * (u / FLOAT_PERIOD + ctx.phase)) * FLOAT_EM * ctx.fs;
+      pose.dy = -Math.sin(TAU * (u / FLOAT_PERIOD + ctx.phase)) * FLOAT_EM * ctx.fs * ramp;
       break;
     case 'breathe':
-      pose.scale = 1 + 0.025 * Math.sin(TAU * (u / 1.6 + ctx.phase));
+      pose.scale = 1 + 0.025 * Math.sin(TAU * (u / 1.6 + ctx.phase)) * ramp;
       break;
     case 'sway':
-      pose.rotate = 1.5 * Math.sin(TAU * (u / 2 + ctx.phase));
+      pose.rotate = 1.5 * Math.sin(TAU * (u / 2 + ctx.phase)) * ramp;
       break;
     case 'shake': {
       const s = timeSlot(u, 20);

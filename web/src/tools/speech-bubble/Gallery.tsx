@@ -150,9 +150,18 @@ export function Gallery({ searchRef }: { searchRef: Ref<HTMLInputElement> }) {
           <span className="text-sm text-muted">{S.continueHint(current?.name ?? S.custom)}</span>
         </div>
       ) : null}
+      {/* 焦點在分類、縮圖背景、一起播放上時（共用快捷鍵在表單控制項上不觸發單鍵），/ 也跳到搜尋欄（照原作） */}
       <section
         className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-surface p-3"
         aria-label={S.searchLabel}
+        onKeyDown={(e) => {
+          if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+          const t = e.target as HTMLElement;
+          if (t.isContentEditable || t instanceof HTMLTextAreaElement) return;
+          if (t instanceof HTMLInputElement && t.type !== 'checkbox' && t.type !== 'radio') return;
+          e.preventDefault();
+          if (searchRef && typeof searchRef === 'object') searchRef.current?.focus();
+        }}
       >
         <Field
           label={S.searchLabel}

@@ -12,7 +12,7 @@ import {
   RotateCcw,
   Trash2,
 } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { canvasMeasure } from '@/core/typeset/measure';
 import {
   AnchorPicker,
@@ -160,9 +160,20 @@ export function PresetBar() {
   const d = useSb((s) => s.data);
   const p = presetOf(d.presetId);
   const modified = isModified(d);
+  /* 從範本一覽進來時（卡片已經不在了）焦點不掉到 body：移到範本名稱，鍵盤可以從這裡接著走 */
+  const nameRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    const a = document.activeElement;
+    if (!a || a === document.body) nameRef.current?.focus({ preventScroll: true });
+  }, []);
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5" data-testid="preset-bar">
-      <p className="m-0 min-w-0 flex-1 text-sm" data-testid="preset-name">
+      <p
+        ref={nameRef}
+        tabIndex={-1}
+        className="m-0 min-w-0 flex-1 rounded-sm text-sm outline-none focus-visible:focus-ring"
+        data-testid="preset-name"
+      >
         <span className="text-muted">{S.presetNow}：</span>
         <span className="font-semibold text-fg">{p ? p.name : S.custom}</span>
         {p && modified ? (

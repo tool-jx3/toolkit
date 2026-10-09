@@ -218,6 +218,14 @@ test.describe('範本一覽', () => {
     await page.keyboard.press('/');
     await expect(search(page)).toBeFocused();
     await expect(search(page)).toHaveValue('');
+    /* 焦點在分類（radio）、一起播放（switch）上時 / 也跳到搜尋欄（7.1） */
+    await category(page, '對話').click();
+    await page.keyboard.press('/');
+    await expect(search(page)).toBeFocused();
+    await expect(search(page)).toHaveValue('');
+    await page.getByRole('switch', { name: '縮圖一起播放' }).focus();
+    await page.keyboard.press('/');
+    await expect(search(page)).toBeFocused();
     expect(errors).toEqual([]);
   });
 
@@ -275,6 +283,11 @@ test.describe('範本一覽', () => {
     await expect(card(page, 'toast-success')).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: '繼續編輯' }).click();
     await expect(text(page)).toHaveValue('改過了');
+    /* 用鍵盤進入編輯畫面：焦點移到範本列（不是掉到 body，7.1） */
+    await page.getByRole('button', { name: '範本一覽' }).click();
+    await card(page, 'toast-success').focus();
+    await page.keyboard.press('Enter');
+    await expect(presetName(page)).toBeFocused();
     expect(errors).toEqual([]);
   });
 });
@@ -702,6 +715,9 @@ test.describe('存檔與復原', () => {
     await expect(page.getByTestId('gallery')).toBeVisible();
     expect((await data(page)).presetId).toBe('chat-blue');
     await expect(page.getByRole('button', { name: '繼續編輯' })).toHaveCount(0);
+    /* 確認框寫「可以用『復原』回來」：Ctrl＋Z 回到重設前的內容（7.1） */
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => JSON.stringify(await data(page))).toContain('專案檔測試');
     expect(errors).toEqual([]);
   });
 });
