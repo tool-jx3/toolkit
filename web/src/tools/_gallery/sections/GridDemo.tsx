@@ -13,6 +13,12 @@ import {
   hexGridPolylines,
   hexMetrics,
   hexNeighbors,
+  loopsToSvgPath,
+  MAP_GRID_TYPES,
+  type MapGridType,
+  mapGrid,
+  nearestSnap,
+  type Point,
   pixelToAxial,
   squareCellAt,
   squareCorners,
@@ -139,6 +145,112 @@ export function GridDemo() {
       <p className="m-0 text-xs text-muted">
         像素↔格子（pixelToAxial、squareCellAt）、鄰格（hexNeighbors）、步數距離（axialDistance；方格用切比雪夫）、
         可見範圍的格線（hexGridPolylines：每格只畫 3 條邊）。網格產生器、距離量尺與地圖編輯器共用。
+      </p>
+    </Section>
+  );
+}
+
+/** 選項直接寫種類的代號（同一頁上面的示範已經有「方格」等選項，名稱不重複） */
+const MAP_GRID_LABELS: Record<MapGridType, string> = {
+  square: 'square',
+  'hex-flat': 'hex-flat',
+  'hex-flat-fit': 'hex-flat-fit',
+  'hex-pointy': 'hex-pointy',
+  'hex-pointy-fit': 'hex-pointy-fit',
+};
+
+/**
+ * mapGrid（地圖編輯器的網格種類）：點格子塗色、同色的格子合成一個外框（evenodd，挖空的洞）、滑鼠附近的吸附點。
+ */
+export function MapGridDemo() {
+  const [type, setType] = useState<MapGridType>('hex-flat');
+  const [cells, setCells] = useState<Map<string, { col: number; row: number }>>(() => new Map());
+  const [snap, setSnap] = useState<Point | null>(null);
+  const g = mapGrid(type, 28);
+  const d = loopsToSvgPath(g.outline([...cells.values()]));
+
+  const toPoint = (e: PointerEvent<SVGSVGElement>) =>
+    clientToCanvas(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect(), W, H);
+
+  return (
+    <Section title="地圖的網格種類（core/grid 的 mapGrid）">
+      <Segmented
+        value={type}
+        onValueChange={(v) => {
+          setType(v);
+          setCells(new Map());
+        }}
+        options={MAP_GRID_TYPES.map((v) => ({ value: v, label: MAP_GRID_LABELS[v] }))}
+        size="sm"
+        aria-label="網格種類"
+      />
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="block w-full max-w-80 cursor-crosshair rounded-sm bg-surface-2"
+        role="img"
+        aria-label="點格子塗色（再點一次擦掉），同色的格子合成一個外框；青色方框是最近的吸附點"
+        onPointerMove={(e) => {
+          const p = toPoint(e);
+          setSnap(
+            nearestSnap(g.snapPoints(p.x, p.y), p.x, p.y, 10, {
+              intersection: true,
+              center: true,
+              midpoint: true,
+            }),
+          );
+        }}
+        onPointerLeave={() => setSnap(null)}
+        onPointerDown={(e) => {
+          const p = toPoint(e);
+          const c = g.cellAt(p.x, p.y);
+          const key = g.cellKey(c.col, c.row);
+          setCells((prev) => {
+            const next = new Map(prev);
+            if (next.has(key)) next.delete(key);
+            else next.set(key, c);
+            return next;
+          });
+        }}
+        data-testid="map-grid-demo"
+      >
+        <title>地圖的網格種類</title>
+        {d ? (
+          <path
+            d={d}
+            fill="var(--accent)"
+            fillOpacity={0.5}
+            fillRule="evenodd"
+            stroke="var(--accent)"
+          />
+        ) : null}
+        <path
+          d={g
+            .gridLines({ left: 0, top: 0, right: W, bottom: H })
+            .map((l) => `M${l.map((q) => `${q.x} ${q.y}`).join('L')}`)
+            .join('')}
+          fill="none"
+          stroke="var(--border-strong)"
+          strokeWidth={1}
+        />
+        {snap ? (
+          <rect
+            x={snap.x - 4}
+            y={snap.y - 4}
+            width={8}
+            height={8}
+            fill="none"
+            stroke="#00bcd4"
+            strokeWidth={1.5}
+          />
+        ) : null}
+      </svg>
+      <p className="m-0 text-sm tabular-nums" data-testid="map-grid-demo-info">
+        已塗 {cells.size} 格；外框 {g.outline([...cells.values()]).length} 條迴圈
+      </p>
+      <p className="m-0 text-xs text-muted">
+        mapGrid(種類, 大小)
+        把方格與四種六角格包成同一組介面：cellAt、cellPath、outline（合併外框）、neighbors、
+        snapPoints（交點、格子中心、邊的中點）、snapDelta（整格移動）、gridLines。地圖編輯器用。
       </p>
     </Section>
   );

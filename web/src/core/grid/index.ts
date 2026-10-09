@@ -8,6 +8,7 @@
  * - distance.ts：距離（方格 5 種、六角格的步數與直線近似）。
  * - hit.ts：最近的格子中心、滑鼠位置換算成畫布座標。
  * - outline.ts：一群格子的外框（地圖編輯器的填色合併）。
+ * - mapGrid.ts：地圖編輯器的網格種類（方格、四種六角格）包成同一組介面、吸附的最近點。
  * - canvas.ts：線型、色碼 → canvas 的 rgba 字串。
  *
  * ```ts
@@ -23,6 +24,7 @@ export * from './coords';
 export * from './distance';
 export * from './hex';
 export * from './hit';
+export * from './mapGrid';
 export * from './outline';
 export * from './sheet';
 export * from './square';
