@@ -25,6 +25,10 @@ export class MapSession {
     this.unsubs.push(
       /* 跟著地圖儲存的設定改了也要存（復原不管這些，D10） */
       useMapPrefs.subscribe(() => this.markDirty()),
+      /* 自動儲存打開時：關著的期間改過的，照一般的修改排程儲存（F173，同舊版） */
+      useAutoSave.subscribe((s, prev) => {
+        if (s.enabled && !prev.enabled && this.dirty) this.markDirty();
+      }),
     );
     const onHidden = () => {
       if (document.visibilityState === 'hidden' && this.dirty && useAutoSave.getState().enabled)

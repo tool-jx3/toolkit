@@ -2080,4 +2080,18 @@ test.describe('對等驗證後的修正（7.1）', () => {
     }
     expect(errors).toEqual([]);
   });
+  test('F173：自動儲存關著時改過，再打開自動儲存：約 2.5 秒後存好（同舊版）', async ({ page }) => {
+    const errors = await openList(page);
+    await createMap(page);
+    await page.getByRole('tab', { name: '地圖設定' }).click();
+    const toggle = page.getByTestId('settings-panel').getByRole('switch', { name: '自動儲存' });
+    await toggle.click();
+    await drawRect(page, [-200, -200], [-100, -100]);
+    await expect(page.getByTestId('save-status')).toHaveText('未儲存');
+    await page.getByRole('tab', { name: '地圖設定' }).click();
+    await toggle.click();
+    await expect(toggle).toBeChecked();
+    await saved(page);
+    expect(errors).toEqual([]);
+  });
 });
