@@ -6,7 +6,9 @@
  * - 圖片：這一格、一次放入多張、拖到預覽上的格子、貼上（滑鼠指著的／選取的格子）、頭像、拿掉；
  * - 排列與比例（清單、依原圖）；下載 PNG（檔名、倍率、像素）；
  * - 自動儲存與還原（含圖片）、復原／重做；專案檔（ZIP、重設、開啟、缺圖片）；原作的資料備份；
- * - 比較多人的心得；390 寬沒有橫向捲動；1280 與 390 的視覺基準。
+ * - 比較多人的心得；390 寬沒有橫向捲動；1280 與 390 的視覺基準；
+ * - 對等驗證後的修正（規格 7.1）：同一批的通知合成一則、存不進瀏覽器的提醒、開頁的圖片整理不刪讀到一半的圖（假時鐘＋CPU 變慢）、
+ *   比較區不是專案檔的檔、標籤欄的字數／上限。
  */
 import { readFileSync } from 'node:fs';
 import { expect, type Locator, type Page, test } from '@playwright/test';
@@ -723,6 +725,268 @@ test('比較多人的心得：本工具的 ZIP＋原作的 JSON → 比較圖（
   expect(found).toBe(true);
   await dialog.locator('button', { hasText: '關閉' }).click();
   await expect(dialog).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 對等驗證後的修正（規格 7.1） ---------- */
+
+/** 通知區裡含有這段文字的那一則（標題＋說明） */
+const toastItem = (page: Page, text: string | RegExp) =>
+  page.getByRole('region', { name: /^通知/ }).locator('li').filter({ hasText: text });
+
+/** 圖片庫（IndexedDB）裡有幾張圖（資料庫還沒建立時 0；不能替工具建立空的資料庫） */
+async function storedImages(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const name = 'trpg-toolkit:tool:review-grid:assets';
+    const dbs = await indexedDB.databases();
+    if (!dbs.some((d) => d.name === name)) return 0;
+    const db = await new Promise<IDBDatabase | null>((res) => {
+      const req = indexedDB.open(name);
+      req.onupgradeneeded = () => req.transaction?.abort();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => res(null);
+    });
+    if (!db) return 0;
+    let n = 0;
+    for (const store of [...db.objectStoreNames]) {
+      const tx = db.transaction(store, 'readonly');
+      n += await new Promise<number>((res) => {
+        const r = tx.objectStore(store).count();
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => res(0);
+      });
+    }
+    db.close();
+    return n;
+  });
+}
+
+/** 讓 CPU 變慢（讀圖跨過開頁的整理時間） */
+async function throttle(page: Page, rate: number) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate });
+  return cdp;
+}
+
+test('一次放入多張圖片：同一批的結果合成一則通知（放進幾格、不是圖片、讀不了），拖到預覽的格子也一樣（F14）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await dropInput(page, '一次放入多張圖片').setInputFiles([
+    file('sq.png', await solidPng('#2244cc')),
+    file('broken.png', Buffer.from('not a png at all')),
+    file('note.txt', Buffer.from('hello'), 'text/plain'),
+    file('tall.png', await solidPng('#22aa44', 40, 80)),
+  ]);
+  await expect.poll(async () => (await state(page)).cells.filter((c) => c.image).length).toBe(2);
+  const item = toastItem(page, '已放進 2 格。');
+  await expect(item).toBeVisible();
+  await expect(item).toContainText('「note.txt」不是圖片檔。');
+  await expect(item).toContainText('無法讀取「broken.png」');
+  await expect(item).toHaveClass(/border-warning/);
+  /* 拖到預覽上的第 5 格：[note.txt, broken.png, sq.png] */
+  const [x, y] = cellCenter(4);
+  const at = await screenAt(page, x, y);
+  const b64 = (await solidPng('#ddaa22')).toString('base64');
+  await page.evaluate(
+    ({ b64, x, y }) => {
+      const dt = new DataTransfer();
+      dt.items.add(new File(['hello'], 'note.txt', { type: 'text/plain' }));
+      dt.items.add(new File(['broken'], 'broken.png', { type: 'image/png' }));
+      dt.items.add(
+        new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], 'gold.png', {
+          type: 'image/png',
+        }),
+      );
+      window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }));
+      window.dispatchEvent(
+        new DragEvent('drop', {
+          dataTransfer: dt,
+          bubbles: true,
+          cancelable: true,
+          clientX: x,
+          clientY: y,
+        }),
+      );
+    },
+    { b64, x: at.x, y: at.y },
+  );
+  await expect.poll(async () => (await state(page)).cells[4].image?.name).toBe('gold.png');
+  const dropped = toastItem(page, '已放進圖片。');
+  await expect(dropped).toBeVisible();
+  await expect(dropped).toContainText('「note.txt」不是圖片檔。');
+  await expect(dropped).toContainText('無法讀取「broken.png」');
+  /* 全部都放不進去：錯誤色 */
+  await dropInput(page, '一次放入多張圖片').setInputFiles([
+    file('a.txt', Buffer.from('x'), 'text/plain'),
+  ]);
+  const failed = toastItem(page, '「a.txt」不是圖片檔。');
+  await expect(failed).toBeVisible();
+  await expect(failed).toHaveClass(/border-danger/);
+  expect(errors).toEqual([]);
+});
+
+test('圖片存不進瀏覽器（IndexedDB 擋掉）時看得到提醒：放進格子、開本工具的 ZIP（F38）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  /* 先存一份有圖片的專案檔 */
+  await dropInput(page, '這一格的圖片').setInputFiles(file('red.png', await solidPng('#dd2222')));
+  await expect.poll(async () => (await state(page)).cells[0].image).not.toBeNull();
+  const saved = await saveProject(page);
+  await page.addInitScript(() => {
+    const orig = IDBFactory.prototype.open;
+    IDBFactory.prototype.open = function (name: string, ...rest: [number?]) {
+      if (String(name).includes('review-grid')) throw new DOMException('blocked', 'SecurityError');
+      return orig.call(this, name, ...rest);
+    };
+  });
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: '劇本心得九宮格' })).toBeVisible();
+  await cellList(page).locator('[data-cell-row="c2"]').click();
+  await dropInput(page, '這一格的圖片').setInputFiles(file('blue.png', await solidPng('#2244cc')));
+  await expect.poll(async () => (await state(page)).cells[1].image?.name).toBe('blue.png');
+  const placed = toastItem(page, '已放進圖片。');
+  await expect(placed).toContainText('瀏覽器空間不足或無法存檔');
+  await openProjectFile(page, saved.name, saved.bytes, 'application/zip');
+  await expect(toastItem(page, '已開啟專案檔')).toBeVisible();
+  await expect(toast(page, /瀏覽器空間不足或無法存檔/).first()).toBeVisible();
+  expect(errors.filter((e) => !e.includes('blocked'))).toEqual([]);
+});
+
+test('開頁約 5 秒的圖片整理不會刪掉讀到一半的圖（一次放入多張）（F38）', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.clock.install();
+  const errors = await open(page);
+  /* 時間停住：開頁 5 秒的整理等下面 fastForward 才發生 */
+  await page.clock.pauseAt(new Date(Date.now() + 300));
+  const N = 16;
+  const big = await Promise.all(
+    Array.from({ length: N }, (_, i) =>
+      solidPng(`#${(0x203040 + i * 0x0a0b0c).toString(16).slice(-6)}`, 2000, 1500),
+    ),
+  );
+  const cdp = await throttle(page, 4);
+  await dropInput(page, '一次放入多張圖片').setInputFiles(
+    big.map((b, i) => file(`big-${i}.png`, b)),
+  );
+  /* 有幾張已經進了圖片庫、還沒寫進狀態時，讓開頁 5 秒的整理發生 */
+  await expect
+    .poll(() => storedImages(page), { timeout: 90_000, intervals: [50] })
+    .toBeGreaterThanOrEqual(2);
+  expect((await state(page)).cells.filter((c) => c.image).length).toBe(0);
+  await page.clock.fastForward(6000);
+  await expect
+    .poll(async () => (await state(page)).cells.filter((c) => c.image).length, {
+      timeout: 120_000,
+    })
+    .toBe(N);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  await expect.poll(() => storedImages(page)).toBe(N);
+  await expect(page.getByText('有圖片讀不到了')).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: '劇本心得九宮格' })).toBeVisible();
+  await page.clock.fastForward(6000);
+  await expect.poll(() => storedImages(page)).toBe(N);
+  await expect(page.getByText('有圖片讀不到了')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('原作的備份讀到一半時的圖片整理：讀完每一格的圖片都在（F38）', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.clock.install();
+  const errors = await open(page);
+  /* 時間停住：開頁 5 秒的整理等下面 fastForward 才發生 */
+  await page.clock.pauseAt(new Date(Date.now() + 300));
+  const N = 10;
+  const imgs = await Promise.all(
+    Array.from({ length: N }, (_, i) =>
+      solidPng(`#${(0x405060 + i * 0x0b0a09).toString(16).slice(-6)}`, 2000, 1500),
+    ),
+  );
+  const backup = {
+    profile: { img: null, nickname: 'race', handle: '' },
+    scenarios: imgs.map((b, i) => ({
+      img: `data:image/png;base64,${b.toString('base64')}`,
+      rule: '',
+      title: `R${i}`,
+      writer: '',
+      comment: '',
+      chips: [],
+    })),
+  };
+  const cdp = await throttle(page, 4);
+  await openProjectFile(page, 'race.json', Buffer.from(JSON.stringify(backup)), 'application/json');
+  await expect
+    .poll(() => storedImages(page), { timeout: 90_000, intervals: [50] })
+    .toBeGreaterThanOrEqual(2);
+  expect((await state(page)).cells.filter((c) => c.image).length).toBe(0);
+  await page.clock.fastForward(6000);
+  await expect(toastItem(page, `已讀入原作的資料備份：${N} 格。`)).toBeVisible({
+    timeout: 120_000,
+  });
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  const s = await state(page);
+  expect(s.cells.filter((c) => c.image).length).toBe(N);
+  await expect.poll(() => storedImages(page)).toBe(N);
+  await expect(page.getByText('有圖片讀不到了')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('比較：不是 .zip／.json 的檔要通知檔名，能讀的照樣比較（F44）', async ({ page }) => {
+  const errors = await open(page);
+  await page.getByRole('button', { name: '比較多人的心得' }).click();
+  const input = dropInput(page, '比較多人的心得：選擇檔案');
+  const second = JSON.parse(originalFile().toString('utf8'));
+  second.profile.nickname = 'Second';
+  /* 只有一個能讀的＋一張圖：說明要 2 個以上，也說明圖片沒有列入 */
+  await input.setInputFiles([
+    file('original.json', originalFile(), 'application/json'),
+    file('sq.png', await solidPng('#2244cc')),
+  ]);
+  const need = toastItem(page, '請選 2 個以上的檔案（每個檔案是一個人）。');
+  await expect(need).toBeVisible();
+  await expect(need).toContainText('「sq.png」不是專案檔');
+  /* 兩個能讀的＋一張圖：照樣比較，另外說明圖片沒有列入 */
+  await input.setInputFiles([
+    file('original.json', originalFile(), 'application/json'),
+    file('second.json', Buffer.from(JSON.stringify(second)), 'application/json'),
+    file('sq.png', await solidPng('#2244cc')),
+  ]);
+  const dialog = page.getByRole('dialog', { name: '比較圖' });
+  await expect(dialog).toContainText('2 人、2 個劇本');
+  await expect(dialog).toContainText(
+    '有檔案沒有列入比較。「sq.png」不是專案檔（.zip、.json），沒有列入比較。',
+  );
+  expect(errors).toEqual([]);
+});
+
+test('標籤的文字欄：顯示字數／上限，超過 20 字打不進去（F21、F22）', async ({ page }) => {
+  const errors = await open(page);
+  const long = '一二三四五六七八九十一二三四五六七八九十多出來的字';
+  /* 自己寫一個標籤 */
+  const quick = editor(page).getByRole('textbox', { name: '自己寫一個標籤' });
+  await quick.fill(long);
+  await expect(quick).toHaveValue(long.slice(0, 20));
+  await expect(page.getByTestId('quick-tag-count')).toHaveText('20／20');
+  await quick.fill('KP');
+  await expect(page.getByTestId('quick-tag-count')).toHaveText('2／20');
+  /* 新的標籤 */
+  await page.getByRole('button', { name: '心得標籤清單' }).click();
+  const fresh = page.getByRole('textbox', { name: '新的標籤' });
+  await fresh.fill(long);
+  await expect(fresh).toHaveValue(long.slice(0, 20));
+  await expect(page.getByTestId('new-tag-count')).toHaveText('20／20');
+  /* 清單裡改字 */
+  const list = page.getByRole('list', { name: '心得標籤清單' });
+  const row = list.getByRole('textbox', { name: '標籤「後勁超強」的文字' });
+  await row.fill(long);
+  await expect(row).toHaveValue(long.slice(0, 20));
+  await expect(list.locator('[data-tag-row="後勁超強"]').getByTestId('tag-text-count')).toHaveText(
+    '20／20',
+  );
+  await row.press('Enter');
+  expect((await state(page)).tags).toContain(long.slice(0, 20));
   expect(errors).toEqual([]);
 });
 

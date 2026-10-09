@@ -37,7 +37,9 @@ export function ProjectActions() {
       }}
       openedMessage={S.projectOpened}
       onLoad={async (data, _file, files) => {
-        replaceAll(await importProject(data, files));
+        const r = await importProject(data, files);
+        replaceAll(r.state);
+        if (r.notSaved) toast({ title: S.imageNotSaved, tone: 'warning' });
         return true;
       }}
       onForeignFile={async (_file, bytes) => {

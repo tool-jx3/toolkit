@@ -1,11 +1,12 @@
 /**
- * 圖片的載入與讀回：解碼確認 → 太大時縮小（長邊 1024）→ 放進資產庫（IndexedDB）。
+ * 圖片的載入與讀回：解碼確認 → 太大時縮小（長邊 1024）→ 記成這次開頁的圖 → 放進資產庫（IndexedDB）。
  * 畫圖時用 useImageBitmaps 取得目前用到的圖（重新整理後從資產庫讀回；讀不到的列在 missing）。
  */
 import { useEffect, useMemo, useState } from 'react';
+import { assetIdFor } from '@/core/assets';
 import { canvasToBlob, loadImage, resizeImage } from '@/core/image';
 import { IMAGE_MAX_SIDE, type ImageRef } from './model';
-import { assets } from './store';
+import { assets, markSessionImage } from './store';
 
 export class ImageLoadError extends Error {
   constructor(readonly fileName: string) {
@@ -49,7 +50,11 @@ export async function loadReviewImage(
   } finally {
     bmp.close?.();
   }
-  const added = await assets.add(blob);
+  /* 寫進圖片庫之前先記下：開頁的整理剛好發生在寫入途中也保留（規格 F38） */
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  markSessionImage(await assetIdFor(bytes));
+  const added = await assets.add(new Blob([bytes], { type: blob.type }));
+  markSessionImage(added.id);
   const check = await assets.bitmap(added.id).catch(() => undefined);
   if (!check) {
     await assets.remove(added.id).catch(() => undefined);
