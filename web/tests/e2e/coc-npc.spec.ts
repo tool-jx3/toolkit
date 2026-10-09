@@ -1,5 +1,5 @@
 /**
- * CoC NPC 產生器（建置產物 next/coc-npc/）的端對端測試。亂數用頁面上的注入點 `window.__cocRandom` 固定：
+ * CoC NPC 產生器（建置產物 tools/coc-npc/）的端對端測試。亂數用頁面上的注入點 `window.__cocRandom` 固定：
  * - 開頁沒有錯誤、頁尾只有靈感來源、開頁的 NPC 與輸出；
  * - 照舊版的操作做出同一個 NPC，CCFOLIA 角色 JSON 與聊天面板和舊版逐字相同（tests/unit/fixtures/coc-npc-legacy.json）；
  * - 單項擲、全部擲骰（快捷鍵 R）、看不懂的算式、衍生值自動算與手改、版本切換、SAN 開關、MOV；

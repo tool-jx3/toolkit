@@ -1,5 +1,5 @@
 /**
- * 2.5D 動態立繪（建置產物 next/anime-rig/）的端對端測試：
+ * 2.5D 動態立繪（建置產物 tools/anime-rig/）的端對端測試：
  * - 開頁沒有 pageerror／console error；讀入畫面；頁尾只有靈感來源；
  * - 讀入程式畫的 PSD（tests/helpers/animeRig.ts）：自動綁定的結果（部件、左右、未分類、內建差分、髮束）、診斷、圖層清單；
  *   副檔名錯誤、壞檔的訊息與保留目前的模型；

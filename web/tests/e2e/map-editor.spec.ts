@@ -1358,11 +1358,11 @@ test.describe('匯出', () => {
     await expect(page.getByTestId('export-preview')).toBeVisible();
     await expect(dlg.getByRole('link', { name: '製作座標網格（方格）' })).toHaveAttribute(
       'href',
-      '../../next/grid-maker/',
+      `../../${outputDir(getTool('grid-maker') ?? { id: 'grid-maker', status: 'next' })}/`,
     );
     await expect(dlg.getByRole('link', { name: '製作量尺（方格）' })).toHaveAttribute(
       'href',
-      '../../next/range-ruler/',
+      `../../${outputDir(getTool('range-ruler') ?? { id: 'range-ruler', status: 'next' })}/`,
     );
     await setNumber(page, '每格解析度', 36, dlg);
     await expect(page.getByTestId('export-size')).toHaveText('輸出尺寸：144 × 144 px');
