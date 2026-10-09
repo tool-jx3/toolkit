@@ -401,7 +401,7 @@ export const S = {
     zoomOut: '縮小',
     floorDown: '往下一層',
     floorUp: '往上一層',
-    esc: '放下工具、取消選取、取消拖曳',
+    esc: '放下工具、取消選取、取消拖曳；在輸入欄裡＝離開輸入欄',
     space: '按住拖曳平移畫面',
   },
   usage: {
