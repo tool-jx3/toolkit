@@ -14,7 +14,14 @@
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準。
  */
 import { readFileSync } from 'node:fs';
-import { type BrowserContext, expect, type Locator, type Page, test } from '@playwright/test';
+import {
+  type Browser,
+  type BrowserContext,
+  expect,
+  type Locator,
+  type Page,
+  test,
+} from '@playwright/test';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
@@ -1172,5 +1179,204 @@ test('390 寬沒有橫向捲動；1280 與 390 的視覺基準', async ({ page }
   await noHorizontalScroll(page);
   await page.goto(URL);
   await noHorizontalScroll(page);
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 對等驗證後的修正（7.1） ---------- */
+
+/** IndexedDB 的寫入（readwrite 交易的完成通知）延後 delay 毫秒：模擬慢的儲存空間 */
+function slowIdb(delay: number) {
+  const desc = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete');
+  if (!desc?.set || !desc.get) return;
+  const { get, set } = desc;
+  Object.defineProperty(IDBTransaction.prototype, 'oncomplete', {
+    configurable: true,
+    get() {
+      return get.call(this);
+    },
+    set(fn) {
+      if (this.mode !== 'readwrite' || typeof fn !== 'function') {
+        set.call(this, fn);
+        return;
+      }
+      set.call(this, (e: Event) => setTimeout(() => fn.call(this, e), delay));
+    },
+  });
+}
+
+/** 新的瀏覽器環境（自己的儲存空間）；init 在每次開頁前執行 */
+async function freshPage(
+  browser: Browser,
+  init?: { fn: (arg: number) => void; arg: number } | { fn: () => void },
+) {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  if (init && 'arg' in init) await page.addInitScript(init.fn, init.arg);
+  else if (init) await page.addInitScript(init.fn as () => void);
+  const errors = await open(page);
+  return { ctx, page, errors };
+}
+
+/** 專案檔 ZIP：照片＋兩張貼紙（在另一個瀏覽器環境裡做） */
+async function projectZip(browser: Browser): Promise<Buffer> {
+  const { ctx, page } = await freshPage(browser);
+  await loadPhoto(page);
+  await addSticker(page, 'a.png', await stickerPng([200, 0, 0]));
+  await addSticker(page, 'b.png', await stickerPng([0, 0, 200]));
+  await page.getByRole('button', { name: '專案' }).click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+  ]);
+  const bytes = readFileSync((await dl.path()) as string);
+  await ctx.close();
+  return bytes;
+}
+
+async function openZipFile(page: Page, bytes: Buffer) {
+  await openProjectItem(page, '開啟專案檔…');
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    dialog(page).getByRole('button', { name: '開啟' }).click(),
+  ]);
+  await chooser.setFiles(file('memory.zip', bytes, 'application/zip'));
+}
+
+const sinceLoad = (page: Page) => page.evaluate(() => performance.now());
+
+test('7.1 F51：開頁的圖片整理不刪正在寫進 IndexedDB 的照片（寫入很慢時也不會誤報「無法讀取」）', async ({
+  browser,
+}) => {
+  test.setTimeout(60_000);
+  const { ctx, page, errors } = await freshPage(browser, { fn: slowIdb, arg: 3000 });
+  /* 開頁約 2.5 秒時放照片：寫進 IndexedDB 要 3 秒，開頁 5 秒的整理剛好在寫入途中 */
+  await page.waitForTimeout(Math.max(0, 2500 - (await sinceLoad(page))));
+  await photoInput(page).setInputFiles(file('slow.png', await quadPng()));
+  await expect
+    .poll(async () => (await state(page))?.photo?.name, { timeout: 15_000 })
+    .toBe('slow.png');
+  await expect(toast(page, /無法讀取/)).toHaveCount(0);
+  /* 等整理與寫入都結束，重新整理：照片還在 */
+  await page.waitForTimeout(Math.max(0, 9000 - (await sinceLoad(page))));
+  await page.reload();
+  await expect
+    .poll(async () => near(await pixel(page, 100, 100), RED), { timeout: 10_000 })
+    .toBe(true);
+  await expect(page.getByText('上次的照片讀不到了')).toHaveCount(0);
+  expect(errors).toEqual([]);
+  await ctx.close();
+});
+
+test('7.1 F51：開啟專案檔時圖片寫得很慢，開頁的圖片整理也不刪已經寫好、還沒換上的圖', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  const zip = await projectZip(browser);
+  const { ctx, page, errors } = await freshPage(browser, { fn: slowIdb, arg: 2500 });
+  /* 三張圖依序寫入，每張 2.5 秒：開頁 5 秒的整理時第一張已經寫好、整個專案還沒換上 */
+  await openZipFile(page, zip);
+  await expect(toast(page, '已開啟專案檔。')).toBeVisible({ timeout: 20_000 });
+  const s = await state(page);
+  expect(s.photo?.name).toBe('quad.png');
+  expect(s.stickers).toHaveLength(2);
+  await page.waitForTimeout(Math.max(0, 12_000 - (await sinceLoad(page))));
+  await page.reload();
+  await expect
+    .poll(async () => near(await pixel(page, 100, 100), RED), { timeout: 10_000 })
+    .toBe(true);
+  await expect(page.getByText(/讀不到了/)).toHaveCount(0);
+  expect(errors).toEqual([]);
+  await ctx.close();
+});
+
+test('7.1 F51：IndexedDB 不能用時開啟專案檔，同一則通知提醒圖片重新整理後會不見', async ({
+  browser,
+}) => {
+  const zip = await projectZip(browser);
+  const { ctx, page, errors } = await freshPage(browser, {
+    fn: () => {
+      Object.defineProperty(window, 'indexedDB', { get: () => undefined, configurable: true });
+    },
+  });
+  await openZipFile(page, zip);
+  await expect(toast(page, '已開啟專案檔。')).toBeVisible();
+  await expect(toast(page, /重新整理之後就不見了/)).toBeVisible();
+  await expect(toasts(page)).toHaveCount(1);
+  expect((await state(page)).stickers).toHaveLength(2);
+  expect(errors).toEqual([]);
+  await ctx.close();
+});
+
+/** 在某個元素上模擬拖著檔案經過（dragenter＋dragover） */
+async function dragOverWith(target: Locator, name: string, b64: string) {
+  await target.evaluate(
+    (el, { name, b64 }) => {
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const dt = new DataTransfer();
+      dt.items.add(new File([bytes], name, { type: 'image/png' }));
+      (window as unknown as { __dt: DataTransfer }).__dt = dt;
+      for (const type of ['dragenter', 'dragover'])
+        el.dispatchEvent(
+          new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }),
+        );
+    },
+    { name, b64 },
+  );
+}
+
+/** 在某個元素上放開（用 dragOverWith 準備好的檔案） */
+async function dropOn(target: Locator) {
+  await target.evaluate((el) => {
+    const dt = (window as unknown as { __dt: DataTransfer }).__dt;
+    el.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+  });
+}
+
+test('7.1 F33：拖到貼紙區時提示「加入貼紙」；已滿 5 張時拖到貼紙區說明已滿、不換照片', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await loadPhoto(page);
+  await tab(page, '裝飾').click();
+  const zone = page.getByRole('group', { name: '把貼紙圖片拖到這裡' });
+  const png = (await stickerPng([0, 160, 0])).toString('base64');
+  /* 拖到貼紙區：覆蓋層說加入貼紙；拖到別的地方：說換照片 */
+  await dragOverWith(zone, 'x.png', png);
+  await expect(page.getByTestId('window-drop')).toContainText('放開即可加入貼紙');
+  await dragOverWith(page.locator('footer'), 'x.png', png);
+  await expect(page.getByTestId('window-drop')).toContainText('放開即可換成這張照片');
+  await dragOverWith(zone, 'x.png', png);
+  await dropOn(zone);
+  await expect.poll(async () => (await state(page)).stickers.length).toBe(1);
+  await expect(page.getByTestId('window-drop')).toHaveCount(0);
+  /* 加到滿 5 張 */
+  await stickerInput(page).setInputFiles([
+    file('b.png', await stickerPng([200, 0, 0])),
+    file('c.png', await stickerPng([0, 0, 200])),
+    file('d.png', await stickerPng([200, 200, 0])),
+    file('e.png', await stickerPng([0, 200, 200])),
+  ]);
+  await expect(page.getByTestId('sticker-count')).toHaveText('5 / 5');
+  const before = await state(page);
+  /* 已滿：覆蓋層說已滿；放開不換照片，通知說超過上限 */
+  await dragOverWith(zone, 'sixth.png', png);
+  await expect(page.getByTestId('window-drop')).toContainText('貼紙已經有 5 張');
+  await dropOn(zone);
+  await expect(toast(page, /超過 5 張的上限，沒有加入「sixth\.png」/)).toBeVisible();
+  const after = await state(page);
+  expect(after.photo?.name).toBe(before.photo?.name);
+  expect(after.stickers).toHaveLength(5);
+  expect(errors).toEqual([]);
+});
+
+test('7.1 F15：開頁時就載入字型按鈕用到的字（「手寫」以霞鶩文楷顯示）', async ({ page }) => {
+  const fonts: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('fonts.googleapis.com')) fonts.push(decodeURIComponent(r.url()));
+  });
+  const errors = await open(page);
+  await expect.poll(() => fonts.some((u) => /LXGW\+WenKai\+TC|LXGW WenKai TC/.test(u))).toBe(true);
+  /* 文字是空白、還沒選過手寫 */
+  expect((await state(page))?.caption?.text ?? '').toBe('');
   expect(errors).toEqual([]);
 });

@@ -29,13 +29,22 @@ async function storeImage(
   try {
     added = await assets.add(file);
   } catch {
-    return { ok: false, reason: S.decodeError(file.name) };
+    /* 讀不到檔案本身（例如手機的相片權限已失效），不是檔案壞掉 */
+    return { ok: false, reason: S.readError(file.name) };
   }
   markSessionAsset(added.id);
-  const bitmap = await assets.bitmap(added.id).catch(() => undefined);
-  if (!bitmap?.width || !bitmap.height) {
+  /*
+   * 解碼失敗（bitmap 丟錯）才是「檔案可能已損壞」；圖從資產庫裡不見了（bitmap 是 undefined）是另一回事，
+   * 不能說成檔案壞掉（對等驗證 F51：寫入很慢時圖曾被開頁的整理刪掉，訊息卻說無法讀取）。
+   */
+  let bitmap: ImageBitmap | undefined;
+  try {
+    bitmap = await assets.bitmap(added.id);
+  } catch {
     return { ok: false, reason: S.decodeError(file.name) };
   }
+  if (!bitmap) return { ok: false, reason: S.lostError(file.name) };
+  if (!bitmap.width || !bitmap.height) return { ok: false, reason: S.decodeError(file.name) };
   return { ok: true, id: added.id, bitmap, persisted: added.persisted };
 }
 

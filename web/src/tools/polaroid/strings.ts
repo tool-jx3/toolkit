@@ -50,6 +50,8 @@ export const S = {
   photoFailed: '沒有換照片',
   notImage: (name: string) => `「${name}」不是圖片檔`,
   decodeError: (name: string) => `「${name}」無法讀取，檔案可能已損壞`,
+  readError: (name: string) => `「${name}」讀取失敗（檔案可能已經移走或沒有權限讀取），請再選一次`,
+  lostError: (name: string) => `「${name}」暫存時遺失了，請再加一次`,
   onlyFirst: (names: string) => `一次只能放一張照片，沒有使用「${names}」`,
 
   /* 文字 */
@@ -123,6 +125,13 @@ export const S = {
   stickerOver: (names: string, max: number) => `超過 ${max} 張的上限，沒有加入「${names}」`,
   stickerNotSaved: '瀏覽器空間不足或無法存檔：貼紙這次可以用，但重新整理之後就不見了。',
   stickerMissing: (n: number) => `有 ${n} 張貼紙的圖片讀不到了，請刪掉後重新加入。`,
+  stickerNeedPhoto: '先放進照片才能加貼紙。',
+  stickerOverlay: '放開即可加入貼紙',
+  stickerOverlayHint: (n: number, max: number) => `目前 ${n} / ${max} 張；超過上限的不會加入`,
+  stickerOverlayFull: (max: number) => `貼紙已經有 ${max} 張（上限）`,
+  stickerOverlayFullHint: '放開也不會加入，照片也不會被換掉；刪掉一張才能再加。',
+  stickerOverlayLocked: '先放進照片才能加貼紙',
+  stickerOverlayLockedHint: '要換照片請放在貼紙區以外的地方。',
 
   /* 預覽與輸出 */
   previewLabel: '拍立得預覽',
@@ -147,6 +156,11 @@ export const S = {
   openConfirmDesc: '目前的照片、文字、筆畫與貼紙會被專案檔的內容取代（可以復原）。',
   openConfirmLabel: '開啟',
   projectOpened: '已開啟專案檔。',
+  projectNotSaved:
+    '瀏覽器空間不足或無法存檔：專案檔裡的照片與貼紙這次可以用，但重新整理之後就不見了。',
+  projectSaved: '已存成專案檔',
+  projectOpenFailed: '無法開啟專案檔',
+  projectReset: '已重設',
   projectBad: '這個專案檔的內容無法使用。',
   projectMissingImage: '專案檔裡少了照片或貼紙的圖片，或圖片無法讀取。',
   saveFailed: '自動儲存失敗（瀏覽器空間不足或被封鎖）',

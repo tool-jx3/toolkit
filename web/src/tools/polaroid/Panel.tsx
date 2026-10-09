@@ -10,6 +10,8 @@ import {
   Sticker as StickerIcon,
   Trash2,
 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { ensureFont } from '@/core/fonts';
 import {
   Button,
   ColorField,
@@ -24,6 +26,7 @@ import {
   Slider,
   TextInput,
   useConfirm,
+  useToast,
 } from '@/ui';
 import { useAssetImages } from './media';
 import {
@@ -203,6 +206,13 @@ export function PhotoSection({ onFiles }: { onFiles: (files: File[]) => void }) 
 
 export function CaptionSection() {
   const c = useDoc((s) => s.data.caption);
+  /* 字型按鈕以各自的字型顯示（D1）：開頁就載入按鈕上的字（「粗體」「手寫」由補字的中文字型顯示，只下載這兩個字） */
+  useEffect(() => {
+    for (const f of CAPTION_FONTS) {
+      const spec = CAPTION_FONT_SPEC[f];
+      void ensureFont(spec.cjk, spec.cjkWeight, S.fonts[f]);
+    }
+  }, []);
   const set = (recipe: (cap: typeof c) => void) =>
     edit((d) => {
       recipe(d.caption);
@@ -492,6 +502,34 @@ export function StickersSection({ onFiles }: { onFiles: (files: File[]) => void 
   const selected = useUi((s) => s.selectedSticker);
   const { images } = useAssetImages(stickers.map((s) => s.asset));
   const full = stickers.length >= STICKER_MAX;
+  const blocked = !hasPhoto || full;
+  const toast = useToast();
+  const zone = useRef<HTMLDivElement>(null);
+  /* 拖著檔案經過貼紙區時，全視窗拖放的提示改說「加入貼紙」（對等驗證 F33） */
+  useEffect(() => {
+    const set = (v: boolean) => {
+      if (useUi.getState().dropOnSticker !== v) useUi.setState({ dropOnSticker: v });
+    };
+    const over = (e: DragEvent) => {
+      const el = zone.current;
+      set(!!el && e.target instanceof Node && el.contains(e.target));
+    };
+    const leave = (e: DragEvent) => {
+      if (!e.relatedTarget) set(false);
+    };
+    const done = () => set(false);
+    window.addEventListener('dragenter', over, true);
+    window.addEventListener('dragover', over, true);
+    window.addEventListener('dragleave', leave, true);
+    window.addEventListener('drop', done);
+    return () => {
+      window.removeEventListener('dragenter', over, true);
+      window.removeEventListener('dragover', over, true);
+      window.removeEventListener('dragleave', leave, true);
+      window.removeEventListener('drop', done);
+      set(false);
+    };
+  }, []);
   const items = stickers
     .map((s, i) => ({
       id: s.id,
@@ -508,20 +546,38 @@ export function StickersSection({ onFiles }: { onFiles: (files: File[]) => void 
         </span>
       }
     >
-      <FileDrop
-        aria-label={S.stickerDropLabel}
-        accept="image/*"
-        multiple
-        paste="off"
-        filterByAccept={false}
-        compact
-        icon={<StickerIcon />}
-        label={S.stickerDropLabel}
-        buttonLabel={S.stickerButton}
-        hint={full ? S.stickerFull(STICKER_MAX) : S.stickerHint}
-        disabled={!hasPhoto || full}
-        onFiles={onFiles}
-      />
+      {/* 貼紙區停用（沒有照片、已滿 5 張）時拖放區不處理放開：這一層接住，說明原因，不交給全視窗拖放去換照片 */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: 只接住拖放的放開（拖放本來就沒有鍵盤操作；鍵盤用裡面的選檔按鈕） */}
+      <div
+        ref={zone}
+        onDragOver={(e) => {
+          if (blocked && Array.from(e.dataTransfer.types).includes('Files')) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          if (!blocked) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const files = Array.from(e.dataTransfer.files);
+          if (!files.length) return;
+          if (!hasPhoto) toast({ title: S.stickerNeedPhoto, tone: 'warning' });
+          else onFiles(files);
+        }}
+      >
+        <FileDrop
+          aria-label={S.stickerDropLabel}
+          accept="image/*"
+          multiple
+          paste="off"
+          filterByAccept={false}
+          compact
+          icon={<StickerIcon />}
+          label={S.stickerDropLabel}
+          buttonLabel={S.stickerButton}
+          hint={full ? S.stickerFull(STICKER_MAX) : S.stickerHint}
+          disabled={blocked}
+          onFiles={onFiles}
+        />
+      </div>
       <LayerList
         aria-label={S.stickersLabel}
         items={items}

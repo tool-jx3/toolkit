@@ -3,7 +3,7 @@
  * 規格：docs/refactor/specs/polaroid.md。
  */
 import { Redo2, Undo2 } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { pickFiles } from '@/core/files';
 import { useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
@@ -17,7 +17,7 @@ import {
   withShortcut,
 } from '@/ui';
 import { addStickerFiles, type BatchNotice, loadPhotoFiles } from './media';
-import { initialState } from './model';
+import { initialState, STICKER_MAX } from './model';
 import {
   CaptionSection,
   FrameSection,
@@ -91,6 +91,23 @@ function SaveErrorNotice() {
   return null;
 }
 
+/**
+ * 整個視窗都可以拖放照片。拖到貼紙區時提示改說「加入貼紙」（放開由貼紙區處理），貼紙區停用時說明原因（對等驗證 F33）。
+ */
+function PhotoWindowDrop({ onDrop }: { onDrop: (files: File[]) => void }) {
+  const onSticker = useUi((s) => s.dropOnSticker);
+  const hasPhoto = useDoc((s) => !!s.data.photo);
+  const count = useDoc((s) => s.data.stickers.length);
+  const [label, hint] = !onSticker
+    ? [S.windowDrop, S.windowDropHint]
+    : !hasPhoto
+      ? [S.stickerOverlayLocked, S.stickerOverlayLockedHint]
+      : count >= STICKER_MAX
+        ? [S.stickerOverlayFull(STICKER_MAX), S.stickerOverlayFullHint]
+        : [S.stickerOverlay, S.stickerOverlayHint(count, STICKER_MAX)];
+  return <WindowDrop label={label} hint={hint} onDrop={onDrop} />;
+}
+
 function Settings() {
   const loader = usePhotoLoader();
   const addStickers = useStickerLoader();
@@ -138,12 +155,59 @@ function Settings() {
         items={items}
         keepMounted
       />
-      <WindowDrop
-        label={S.windowDrop}
-        hint={S.windowDropHint}
-        onDrop={(files) => void loader.load(files)}
-      />
+      <PhotoWindowDrop onDrop={(files) => void loader.load(files)} />
     </div>
+  );
+}
+
+/**
+ * 頁首的「專案」選單。結果合成一則通知：開啟的專案檔有圖存不進這個瀏覽器時，「已開啟專案檔。」改成提醒
+ * （重新整理之後就不見了；對等驗證 F51），不另外跳第二則。
+ */
+function ProjectActions() {
+  const toast = useToast();
+  const savedAt = useSaveStatus(TOOL_ID);
+  const saveError = useSaveError(TOOL_ID);
+  const lastOpen = useRef({ notSaved: false });
+  return (
+    <ProjectMenu<unknown>
+      toolId={TOOL_ID}
+      version={DATA_VERSION}
+      getData={() => docNow()}
+      getFiles={() => assets.exportFiles(projectAssetIds(docNow()))}
+      confirmOpen={{
+        title: S.openConfirmTitle,
+        description: S.openConfirmDesc,
+        confirmLabel: S.openConfirmLabel,
+      }}
+      onLoad={async (data, _file, files) => {
+        lastOpen.current.notSaved = false;
+        const r = await importProject(data, files);
+        resetAll(r.state);
+        lastOpen.current.notSaved = r.notSaved;
+        return true;
+      }}
+      onNotify={(n) => {
+        if (n.kind === 'opened')
+          toast(
+            lastOpen.current.notSaved
+              ? { title: S.projectOpened, description: S.projectNotSaved, tone: 'warning' }
+              : { title: S.projectOpened, description: n.fileName, tone: 'success' },
+          );
+        else if (n.kind === 'saved')
+          toast({ title: S.projectSaved, description: n.fileName, tone: 'success' });
+        else if (n.kind === 'open-failed')
+          toast({ title: S.projectOpenFailed, description: n.message, tone: 'danger' });
+        else toast({ title: S.projectReset });
+      }}
+      onReset={() => {
+        resetAll(initialState());
+        usePen.getState().replace(initialPen());
+      }}
+      resetText={{ title: S.resetTitle, description: S.resetDesc }}
+      savedAt={savedAt}
+      statusText={saveError ? S.saveFailed : undefined}
+    />
   );
 }
 
@@ -183,8 +247,6 @@ export function App() {
   const { canUndo, canRedo } = useUndoRedo(useDoc);
   const undo = () => historyStep('undo');
   const redo = () => historyStep('redo');
-  const savedAt = useSaveStatus(TOOL_ID);
-  const saveError = useSaveError(TOOL_ID);
   const hasPhoto = useDoc((s) => !!s.data.photo);
   const stickerIds = useDoc((s) => s.data.stickers.map((x) => x.id).join('|'));
   const selected = useUi((s) => s.selectedSticker);
@@ -231,30 +293,7 @@ export function App() {
             onClick={redo}
             disabled={!canRedo}
           />
-          <ProjectMenu<unknown>
-            toolId={TOOL_ID}
-            version={DATA_VERSION}
-            getData={() => docNow()}
-            getFiles={() => assets.exportFiles(projectAssetIds(docNow()))}
-            confirmOpen={{
-              title: S.openConfirmTitle,
-              description: S.openConfirmDesc,
-              confirmLabel: S.openConfirmLabel,
-            }}
-            openedMessage={S.projectOpened}
-            onLoad={async (data, _file, files) => {
-              const next = await importProject(data, files);
-              resetAll(next);
-              return true;
-            }}
-            onReset={() => {
-              resetAll(initialState());
-              usePen.getState().replace(initialPen());
-            }}
-            resetText={{ title: S.resetTitle, description: S.resetDesc }}
-            savedAt={savedAt}
-            statusText={saveError ? S.saveFailed : undefined}
-          />
+          <ProjectActions />
         </>
       }
       settings={<Settings />}

@@ -141,9 +141,15 @@ export interface UiState {
   selectedSticker: string | null;
   /** 正在畫的一筆（放開時才寫進 useDoc） */
   drawing: LiveStroke | null;
+  /** 拖著檔案經過貼紙區（全視窗拖放的提示改說「加入貼紙」） */
+  dropOnSticker: boolean;
 }
 
-export const useUi = create<UiState>(() => ({ selectedSticker: null, drawing: null }));
+export const useUi = create<UiState>(() => ({
+  selectedSticker: null,
+  drawing: null,
+  dropOnSticker: false,
+}));
 
 export const selectSticker = (id: string | null): void => useUi.setState({ selectedSticker: id });
 
@@ -348,5 +354,5 @@ export function flushBurst(): void {
 export function resetAll(next: PolaroidState = initialState()): void {
   flushBurst();
   useDoc.getState().replace(next);
-  useUi.setState({ selectedSticker: null, drawing: null });
+  useUi.setState({ selectedSticker: null, drawing: null, dropOnSticker: false });
 }
