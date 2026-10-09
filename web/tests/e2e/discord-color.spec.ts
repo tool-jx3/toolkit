@@ -573,17 +573,25 @@ async function applyBoth(ours: Page, orig: Page, given: Op, a: number, b: number
   }
 }
 
-/** 兩邊的全文相同、輸出逐字相同 */
-async function expectSame(ours: Page, orig: Page, note: string) {
+/** 輸出裡看得到的文字（拿掉程式碼區塊的頭尾與 ANSI 碼） */
+const ANSI_CODE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
+const visibleText = (message: string) =>
+  message.slice('```ansi\n'.length, -'\n```'.length).replace(ANSI_CODE, '');
+
+/**
+ * 兩邊的全文相同；原作沒有吃字、吃換行時輸出逐字相同，原作吃掉了的時候（規格 3.5 的怪癖）
+ * 新版照樣保留全文（5. D1 修正；7. 裁定）。回傳原作這一步有沒有出錯。
+ */
+async function expectSame(ours: Page, orig: Page, note: string): Promise<boolean> {
   const want = await orig.evaluate(() =>
     (window as unknown as { getANSIResult: () => string }).getANSIResult(),
   );
-  await expect(output(ours), note).toHaveValue(want);
-  const [a, b] = await Promise.all([
-    ours.locator('[data-dc-editor]').evaluate((e) => e.textContent),
-    orig.locator('#textarea').evaluate((e) => e.textContent),
-  ]);
-  expect(a, note).toBe(b);
+  const text = (await orig.locator('#textarea').evaluate((e) => e.textContent)) ?? '';
+  await expect.poll(async () => visibleText(await output(ours).inputValue()), note).toBe(text);
+  const lost = visibleText(want) !== text;
+  if (!lost) await expect(output(ours), note).toHaveValue(want);
+  expect(await ours.locator('[data-dc-editor]').evaluate((e) => e.textContent), note).toBe(text);
+  return lost;
 }
 
 /** 字素的交界（選取不會切開表情符號） */
@@ -689,7 +697,7 @@ test.describe('與原作對照', () => {
     await orig.evaluate(
       "gradientColors[0] = '#102030'; gradientColors[1] = '#F0E0D0'; zebraColors[0] = '#010203';",
     );
-    /* 跨行的效果（原作的換行在輸出裡消失：怪癖三，照原作） */
+    /* 跨行的效果（原作的換行在輸出裡消失：怪癖三；新版保留換行） */
     await applyBoth(ours, orig, { kind: 'effect', id: 'gradient', fg: true }, 4, 16);
     await expectSame(ours, orig, 'gradient across lines');
     await applyBoth(ours, orig, { kind: 'effect', id: 'zebra', fg: false }, 0, 5);

@@ -44,11 +44,12 @@ const visible = (message: string) =>
 describe('原作的對照值', () => {
   it(`${CASES.length} 組隨機的格式樹逐字相同`, () => {
     expect(CASES.length).toBeGreaterThanOrEqual(150);
-    for (const [compact, want] of CASES) expect(ansiMessage(decode(compact))).toBe(want);
+    for (const [compact, want] of CASES)
+      expect(ansiMessage(decode(compact), { repair: false })).toBe(want);
   });
 
-  it('工具預設照原作輸出（不修正）', () => {
-    expect(ANSI_OPTIONS.repair).toBe(false);
+  it('工具預設修正原作吃字、吃換行的情況（規格 5. D1，7. 裁定）', () => {
+    expect(ANSI_OPTIONS.repair).toBe(true);
   });
 });
 
@@ -108,7 +109,7 @@ describe('規格 3.4 的範例', () => {
   });
 });
 
-describe('規格 3.5：原作的怪癖（照原作）與修正模式', () => {
+describe('規格 3.5：原作的怪癖（原作的算法）與修正模式（工具用的）', () => {
   const loseText = [code(31, [text('A')]), code(32, [text('ab'), code(34, [text('c')])])];
   const loseBreak = [code(31, [br(), code(34, [text('c')])])];
   const breakOnly = [
@@ -118,21 +119,27 @@ describe('規格 3.5：原作的怪癖（照原作）與修正模式', () => {
   ];
 
   it('怪癖一：前一段同種顏色的重設碼在外層時，吃掉字', () => {
-    expect(toAnsi(loseText)).toBe(`${E}[7;31mA${E}[7;32ma${E}[7;34mc${E}[0m${E}[7;32m${E}[0m`);
+    expect(toAnsi(loseText, { repair: false })).toBe(
+      `${E}[7;31mA${E}[7;32ma${E}[7;34mc${E}[0m${E}[7;32m${E}[0m`,
+    );
     expect(toAnsi(loseText, { repair: true })).toBe(
       `${E}[7;31mA${E}[7;32mab${E}[7;34mc${E}[0m${E}[7;32m${E}[0m`,
     );
   });
 
   it('怪癖二：同種顏色直接包在裡面、前面只有換行時，吃掉換行', () => {
-    expect(toAnsi(loseBreak)).toBe(`${E}[7;31m${E}[7;34mc${E}[0m${E}[7;31m${E}[0m`);
+    expect(toAnsi(loseBreak, { repair: false })).toBe(
+      `${E}[7;31m${E}[7;34mc${E}[0m${E}[7;31m${E}[0m`,
+    );
     expect(toAnsi(loseBreak, { repair: true })).toBe(
       `${E}[7;31m\n${E}[7;34mc${E}[0m${E}[7;31m${E}[0m`,
     );
   });
 
   it('怪癖三：只有換行的格式（效果套在跨行的文字上）連換行一起略過', () => {
-    expect(toAnsi(breakOnly)).toBe(`${E}[38;2;255;0;0ma${E}[38;2;0;0;255mb${E}[0m`);
+    expect(toAnsi(breakOnly, { repair: false })).toBe(
+      `${E}[38;2;255;0;0ma${E}[38;2;0;0;255mb${E}[0m`,
+    );
     expect(toAnsi(breakOnly, { repair: true })).toBe(
       `${E}[38;2;255;0;0ma\n${E}[38;2;0;0;255mb${E}[0m`,
     );

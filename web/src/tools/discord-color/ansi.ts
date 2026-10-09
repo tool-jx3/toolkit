@@ -251,10 +251,10 @@ export interface AnsiOptions {
 }
 
 /**
- * 工具目前用的設定：照主控的決定與原作逐字相同。規格 5. D1 裁定要修正時改成 `{ repair: true }`
- * （單元測試 discord-color-ansi.test.ts 已涵蓋兩種）。
+ * 工具用的設定：修正原作會吃掉字、換行的三個情況（規格 5. D1，主控 7. 裁定）；原作沒出錯的情況輸出和原作逐字相同
+ * （單元測試 discord-color-ansi.test.ts 兩種都比對）。
  */
-export const ANSI_OPTIONS: AnsiOptions = { repair: false };
+export const ANSI_OPTIONS: AnsiOptions = { repair: true };
 
 /** 格式樹 → ANSI 文字（不含程式碼區塊的頭尾） */
 export function toAnsi(nodes: readonly AnsiNode[], options: AnsiOptions = ANSI_OPTIONS): string {
