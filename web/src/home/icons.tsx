@@ -53,6 +53,7 @@ import {
   SquareUser,
   Table,
   TextQuote,
+  Trophy,
   UserCog,
   Users,
   Waves,
@@ -110,6 +111,7 @@ const ICONS: Record<string, LucideIcon> = {
   'magic-circle': Orbit,
   'acrylic-goods': Box,
   'ai-fail': ScanEye,
+  'rank-chart': Trophy,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,
