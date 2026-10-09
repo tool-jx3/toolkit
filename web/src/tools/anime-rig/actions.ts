@@ -330,7 +330,13 @@ export async function importSettingsFile(file: File): Promise<void> {
   try {
     if (!id) throw new Error(S.needModel);
     if (file.size > JSON_MAX_BYTES) throw new Error(S.jsonTooLarge);
-    const value = JSON.parse(await file.text());
+    let value: unknown;
+    try {
+      value = JSON.parse(await file.text());
+    } catch {
+      /* 瀏覽器的 SyntaxError 是英文：換成中文說明 */
+      throw new Error(S.jsonInvalid);
+    }
     if (model()?.id !== id) throw new Error(S.modelChanged);
     const data = applySettingsValue(value);
     setStatus(S.imported(layerDiffNote(data)), 'success');
@@ -374,6 +380,7 @@ export function presetByNumber(n: number): void {
 }
 
 export function resetParams(): void {
+  if (!model()) return;
   edit((d) => {
     d.params = defaultParams();
     d.preset = null;
@@ -776,6 +783,8 @@ export async function setMicrophone(on: boolean): Promise<void> {
     await mic.start();
   } catch (err) {
     useAuto.setState({ mic: false });
+    /* 失敗時 createMic 不再送出狀態（安靜地停止），這裡把「準備中」改回關閉 */
+    useSession.setState({ mic: 'off', micRaw: 0 });
     setStatus(S.micStartError(err instanceof Error ? err.message : String(err)), 'danger');
     updateLiveTicker();
   }
