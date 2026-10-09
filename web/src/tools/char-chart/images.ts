@@ -19,19 +19,22 @@ export interface LoadedImage {
   persisted: boolean;
 }
 
-/** 讀一張圖（解碼失敗丟 ImageLoadError） */
-export async function loadCharacterImage(file: File): Promise<LoadedImage> {
+/** 讀一張圖（解碼失敗丟 ImageLoadError）；Blob 時用 name 當檔名 */
+export async function loadCharacterImage(
+  file: Blob,
+  name = file instanceof File ? file.name : '',
+): Promise<LoadedImage> {
   let bmp: ImageBitmap;
   try {
     bmp = await loadImage(file);
   } catch {
-    throw new ImageLoadError(file.name);
+    throw new ImageLoadError(name);
   }
   let blob: Blob = file;
   let width = bmp.width;
   let height = bmp.height;
   try {
-    if (width < 1 || height < 1) throw new ImageLoadError(file.name);
+    if (width < 1 || height < 1) throw new ImageLoadError(name);
     const long = Math.max(width, height);
     if (long > IMAGE_MAX_SIDE) {
       const s = IMAGE_MAX_SIDE / long;
@@ -50,10 +53,10 @@ export async function loadCharacterImage(file: File): Promise<LoadedImage> {
   const check = await assets.bitmap(added.id).catch(() => undefined);
   if (!check) {
     await assets.remove(added.id).catch(() => undefined);
-    throw new ImageLoadError(file.name);
+    throw new ImageLoadError(name);
   }
   return {
-    ref: { id: added.id, name: file.name, width: check.width, height: check.height },
+    ref: { id: added.id, name, width: check.width, height: check.height },
     persisted: added.persisted,
   };
 }

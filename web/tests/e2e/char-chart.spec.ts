@@ -9,6 +9,7 @@
  * - 關係圖：連線規則、箭頭方向、線的種類（新增、改、排序、刪除）、連線清單、隨機連線、清除、顯示名字、放進關係圖、13 人以上、Esc；
  * - 下載 PNG（檔名、尺寸、2 倍、像素、與預覽相同、不含選取標示）；
  * - 自動儲存與還原（含圖片）、復原／重做；專案檔 ZIP（內容、重設、開啟、缺圖片）；觸控；
+ * - 原作的檔案：原作 R 的專案 JSON（開啟專案檔）、原作 Q 的全部備份碼（貼上原作的備份碼…）；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準。
  */
 import { readFileSync } from 'node:fs';
@@ -1146,6 +1147,127 @@ test('專案檔：存成 ZIP（設定＋圖片）、重設、開啟還原；缺�
   await openZip('missing.zip', zipSync({ 'project.json': strToU8(JSON.stringify(missing)) }));
   await expect(page.getByText('專案檔裡少了角色的圖片，或圖片無法讀取。').first()).toBeVisible();
   expect((await state(page)).characters).toHaveLength(2);
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 原作的檔案 ---------- */
+
+/** 原作存的檔（用原作的頁面產生；內容是自己的測試資料） */
+const originalFile = (name: string) =>
+  readFileSync(new globalThis.URL(`../unit/fixtures/${name}`, import.meta.url));
+
+async function openProjectFile(page: Page, name: string, bytes: Buffer, mimeType: string) {
+  await openProjectItem(page, '開啟專案檔…');
+  await expect(page.getByRole('alertdialog')).toContainText('開啟專案檔？');
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click(),
+  ]);
+  await chooser.setFiles(file(name, bytes, mimeType));
+}
+
+test('原作 R 的專案 JSON：「開啟專案檔」讀進來（人與圖片、線的種類、連線、標題、顯示名字），可以復原；不認得的 JSON 不套用（F74、D14）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await addChar(page, '原本的人');
+  /* 不認得的 JSON：共用的錯誤，內容不變 */
+  await openProjectFile(page, 'other.json', Buffer.from('{"foo":1}'), 'application/json');
+  await expect(toast(page, '無法開啟專案檔')).toBeVisible();
+  expect((await state(page)).characters.map((c) => c.name)).toEqual(['原本的人']);
+  /* 原作存的檔 */
+  await openProjectFile(
+    page,
+    '測試關係圖_project.json',
+    originalFile('char-chart-original-relation.json'),
+    'application/json',
+  );
+  await expect(toast(page, '已讀入原作的關係圖：3 個人、3 條連線。')).toBeVisible();
+  await expect(rel(page)).toBeVisible();
+  const s = await state(page);
+  expect(s.characters.map((c) => [c.name, c.marker, c.inMap, !!c.image])).toEqual([
+    ['紅色', 'image', true, true],
+    ['藍色', 'image', true, true],
+    ['綠色', 'image', true, true],
+  ]);
+  expect(s.characters.map((c) => [c.image?.width, c.image?.height])).toEqual([
+    [120, 90],
+    [80, 120],
+    [100, 100],
+  ]);
+  expect(s.relation).toMatchObject({ title: '測試關係圖', showNames: false });
+  expect(s.relation.legends.map((l) => [l.label, l.style])).toEqual([
+    ['同伴', 'solid'],
+    ['敵視', 'dash'],
+    ['在意', 'arrow'],
+  ]);
+  expect(s.relation.links).toEqual([
+    { from: 'c1', to: 'c2', legend: 'l1' },
+    { from: 'c3', to: 'c1', legend: 'l3' },
+    { from: 'c2', to: 'c3', legend: 'l2' },
+  ]);
+  expect(s.pages.every((p) => Object.keys(p.positions).length === 0)).toBe(true);
+  /* 頭像：3 人，第一個在正上方 (500, 120)；中央白、旁邊是圖片的顏色 */
+  await expect
+    .poll(async () => near(await pixel(rel(page), 530, 120), [0xcc, 0x22, 0x22]))
+    .toBe(true);
+  expect(near(await pixel(rel(page), 500, 120), [255, 255, 255])).toBe(true);
+  /* 一步復原：回到原本的內容 */
+  await page.getByRole('button', { name: /^復原/ }).click();
+  expect((await state(page)).characters.map((c) => c.name)).toEqual(['原本的人']);
+  expect(errors).toEqual([]);
+});
+
+test('原作 Q 的全部備份碼：「貼上原作的備份碼…」讀進來（頁、角色、位置、圖片、目前的頁），錯誤時內容不變；貼到座標碼欄時提醒（F46、D14）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await toRelation(page);
+  await page.getByTestId('legend-editor').getByRole('textbox', { name: '名稱' }).fill('自己的線');
+  await page.getByTestId('legend-editor').getByRole('textbox', { name: '名稱' }).blur();
+  await addChar(page, '原本的人');
+  const code = originalFile('char-chart-original-backup.txt').toString('utf8');
+  const dialog = page.getByRole('dialog', { name: '貼上原作的備份碼' });
+  await openProjectItem(page, '貼上原作的備份碼…');
+  await expect(dialog).toBeVisible();
+  /* 空白、不是備份碼：說明，內容不變 */
+  await dialog.getByRole('button', { name: '讀入' }).click();
+  await expect(dialog.getByText('請先貼上備份碼。')).toBeVisible();
+  await dialog.getByRole('textbox', { name: '備份碼' }).fill(code.slice(0, 200));
+  await dialog.getByRole('button', { name: '讀入' }).click();
+  await expect(dialog.getByText('這不是原作的備份碼（可能少複製了一段）。')).toBeVisible();
+  expect((await state(page)).characters.map((c) => c.name)).toEqual(['原本的人']);
+  /* 原作複製的碼 */
+  await dialog.getByRole('textbox', { name: '備份碼' }).fill(code);
+  await dialog.getByRole('button', { name: '讀入' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(toast(page, '已讀入原作的備份碼：3 個角色、2 頁。')).toBeVisible();
+  await expect(quad(page)).toBeVisible();
+  await expect(page.getByTestId('page-indicator')).toHaveText('第 2／2 頁');
+  const s = await state(page);
+  expect(s.pages.map((p) => p.title)).toEqual(['冒險者的性格', '戰鬥風格']);
+  expect(s.characters.map((c) => [c.name, c.color, c.marker, !!c.image])).toEqual([
+    ['艾琳', '#ef4444', 'dot', false],
+    ['布魯斯', '#3b82f6', 'dot', false],
+    ['凱特', '#ef4444', 'image', true],
+  ]);
+  expect(s.pages[1].positions).toEqual({ c1: { x: 40.5, y: 60 }, c3: { x: -200, y: -100 } });
+  /* 關係圖的線的種類留著、連線清掉 */
+  expect(s.relation.legends[0].label).toBe('自己的線');
+  expect(s.relation.links).toEqual([]);
+  /* 第 2 頁：凱特的圖片標記（原作縮成 50 × 75）在 (200, 300) */
+  await expect
+    .poll(async () => near(await pixel(quad(page), 200, 280), [0x22, 0x44, 0xcc]))
+    .toBe(true);
+  expect(near(await pixel(quad(page), 440, 460), hex('#ef4444'))).toBe(true);
+  /* 貼到座標碼欄：提醒改用備份碼的選項 */
+  await page.getByRole('button', { name: '座標碼', exact: true }).click();
+  await page.getByRole('textbox', { name: '這一頁的座標碼' }).fill(code);
+  await page.getByRole('button', { name: '加入座標' }).click();
+  await expect(toast(page, /這是原作的全部備份碼/)).toBeVisible();
+  /* 一步復原 */
+  await page.keyboard.press('Control+z');
+  expect((await state(page)).characters.map((c) => c.name)).toEqual(['原本的人']);
   expect(errors).toEqual([]);
 });
 

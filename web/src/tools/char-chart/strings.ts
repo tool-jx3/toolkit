@@ -211,6 +211,25 @@ export const S = {
   projectMissingImage: '專案檔裡少了角色的圖片，或圖片無法讀取。',
   saveFailed: '自動儲存失敗（瀏覽器空間不足或被封鎖）',
 
+  /* 原作的檔案 */
+  backupMenu: '貼上原作的備份碼…',
+  backupTitle: '貼上原作的備份碼',
+  backupDesc:
+    '原作的「全部專案備份」複製出來的一長串英數字。讀入後會取代目前的角色與四象限的頁面（關係圖的標題與線的種類留著，連線清掉；可以復原）。',
+  backupLabel: '備份碼',
+  backupPlaceholder: '把備份碼貼在這裡',
+  backupApply: '讀入',
+  backupEmpty: '請先貼上備份碼。',
+  backupBad: '這不是原作的備份碼（可能少複製了一段）。',
+  backupFailed: '讀入時發生問題，內容沒有變更，請再試一次。',
+  cancel: '取消',
+  legacyRelationDone: (n: number, links: number) =>
+    `已讀入原作的關係圖：${n} 個人、${links} 條連線。`,
+  legacyBackupDone: (n: number, pages: number) => `已讀入原作的備份碼：${n} 個角色、${pages} 頁。`,
+  legacyFailedImages: (n: number) => `${n} 張圖片讀不了，那些角色沒有圖片。`,
+  legacyDropped: (n: number) => `角色最多 50 個，後面的 ${n} 個沒有讀進來。`,
+  shareIsBackup: '這是原作的全部備份碼：請用「專案」選單的「貼上原作的備份碼…」讀入。',
+
   /* 快捷鍵 */
   groupEdit: '編輯',
   groupQuadrant: '四象限',
@@ -229,5 +248,6 @@ export const S = {
     '「座標碼」可以把這一頁的名字、顏色與位置複製給別人，或把別人的座標碼加進這一頁。',
     '關係圖：在「線的種類」選好要用的線，再在圖上依序點兩個人連線；同一對再連一次會刪掉那條線。箭頭畫在後點的那個人那一端。',
     '按「下載 PNG」存成圖片。內容會自動儲存在這個瀏覽器，也可以從「專案」選單存成專案檔。',
+    '用過原作的話：原作存的關係圖 JSON 可以用「專案 → 開啟專案檔…」開，原作的全部備份碼用「專案 → 貼上原作的備份碼…」讀進來。',
   ],
 };

@@ -15,6 +15,7 @@ import {
   TextInput,
   useToast,
 } from '@/ui';
+import { decodeBackupCode } from './legacy';
 import {
   type AxisKey,
   type ChartState,
@@ -228,6 +229,16 @@ function GroupResult({ d }: { d: ChartState }) {
   );
 }
 
+/** 貼到座標碼欄的是原作的全部備份碼（提醒改用「貼上原作的備份碼…」） */
+function looksLikeBackup(text: string): boolean {
+  try {
+    decodeBackupCode(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function ShareSection() {
   const toast = useToast();
   const [text, setText] = useState('');
@@ -252,7 +263,11 @@ export function ShareSection() {
     try {
       entries = parseShareCode(raw);
     } catch {
-      toast({ title: S.shareBad, tone: 'danger', replace: true });
+      toast({
+        title: looksLikeBackup(raw) ? S.shareIsBackup : S.shareBad,
+        tone: 'danger',
+        replace: true,
+      });
       return;
     }
     const r = applyShare(entries);

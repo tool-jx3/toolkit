@@ -5,20 +5,12 @@
 import { Redo2, Undo2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { arrowDelta } from '@/core/layout';
-import { useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
-import {
-  IconButton,
-  ProjectMenu,
-  type Shortcut,
-  ToolShell,
-  useToast,
-  WindowDrop,
-  withShortcut,
-} from '@/ui';
+import { useSaveError, useUndoRedo } from '@/core/storage';
+import { IconButton, type Shortcut, ToolShell, useToast, WindowDrop, withShortcut } from '@/ui';
 import { loadCharacterImages, useImageBitmaps } from './images';
-import { imageIds, initialState, LIMITS, nameFromFile } from './model';
+import { imageIds, LIMITS, nameFromFile } from './model';
 import { PreviewArea } from './Preview';
-import { importProject, projectAssetIds } from './project';
+import { ProjectActions } from './ProjectActions';
 import { PageSection, ScoreSection, ShareSection } from './QuadPanel';
 import { LegendsSection, LinksSection, RelationSection } from './RelationPanel';
 import { CharactersSection, SelectedSection } from './Roster';
@@ -27,11 +19,9 @@ import {
   assets,
   chartNow,
   currentPageIndex,
-  DATA_VERSION,
   historyStep,
   nudgeSelected,
   referencedImages,
-  replaceAll,
   select,
   TOOL_ID,
   unplaceCharacter,
@@ -139,8 +129,6 @@ export function App() {
   const { canUndo, canRedo } = useUndoRedo(useChart);
   const undo = () => historyStep('undo');
   const redo = () => historyStep('redo');
-  const savedAt = useSaveStatus(TOOL_ID);
-  const saveError = useSaveError(TOOL_ID);
   const chart = usePrefs((s) => s.data.chart);
   const page = usePrefs((s) => s.data.page);
   const ui = useUi();
@@ -221,26 +209,7 @@ export function App() {
             onClick={redo}
             disabled={!canRedo}
           />
-          <ProjectMenu<unknown>
-            toolId={TOOL_ID}
-            version={DATA_VERSION}
-            getData={() => chartNow()}
-            getFiles={() => assets.exportFiles(projectAssetIds(chartNow()))}
-            confirmOpen={{
-              title: S.openConfirmTitle,
-              description: S.openConfirmDesc,
-              confirmLabel: S.openConfirmLabel,
-            }}
-            openedMessage={S.projectOpened}
-            onLoad={async (data, _file, files) => {
-              replaceAll(await importProject(data, files));
-              return true;
-            }}
-            onReset={() => replaceAll(initialState())}
-            resetText={{ title: S.resetTitle, description: S.resetDesc }}
-            savedAt={savedAt}
-            statusText={saveError ? S.saveFailed : undefined}
-          />
+          <ProjectActions />
         </>
       }
       settings={<Settings />}
