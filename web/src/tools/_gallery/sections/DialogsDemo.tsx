@@ -1,11 +1,14 @@
-import { Copy, Info } from 'lucide-react';
+import { Copy, Info, Lock, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { diagnosticText } from '@/core/diagnostics';
 import { copyText } from '@/core/files';
 import type { ToolEntry } from '@/registry';
 import {
   Button,
+  ContextMenu,
+  type ContextMenuState,
   CopyDiagnostics,
+  contextMenuPoint,
   Dialog,
   DialogClose,
   GroupTabs,
@@ -57,6 +60,8 @@ export function DialogsDemo() {
   const toast = useToast();
   const [keys, setKeys] = useState(false);
   const [answer, setAnswer] = useState<string>('（尚未詢問）');
+  const [menu, setMenu] = useState<ContextMenuState | null>(null);
+  const [picked, setPicked] = useState('（還沒選）');
   return (
     <div className="flex flex-col gap-3">
       <Section title="對話框 Dialog／ConfirmDialog">
@@ -166,6 +171,34 @@ export function DialogsDemo() {
             { keys: ['arrowleft', 'arrowright'], label: '上一格／下一格', group: '播放' },
           ]}
         />
+      </Section>
+      <Section title="右鍵選單 ContextMenu">
+        <button
+          type="button"
+          className="w-full rounded-md border border-dashed border-border-strong px-3 py-6 text-sm text-muted"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setMenu({
+              ...contextMenuPoint(e),
+              items: [
+                { label: '重新命名', icon: <Pencil />, onSelect: () => setPicked('重新命名') },
+                { label: '鎖定', icon: <Lock />, onSelect: () => setPicked('鎖定') },
+                {
+                  label: '刪除',
+                  icon: <Trash2 />,
+                  danger: true,
+                  separatorBefore: true,
+                  onSelect: () => setPicked('刪除'),
+                },
+              ],
+            });
+          }}
+          data-testid="context-menu-demo"
+        >
+          在這裡按右鍵（或聚焦後按 Shift＋F10）
+        </button>
+        <p className="m-0 text-xs text-muted">選了：{picked}</p>
+        <ContextMenu state={menu} onClose={() => setMenu(null)} aria-label="示範選單" />
       </Section>
       <Section title="提示 Tooltip">
         <Tooltip content="提示文字：滑鼠停留或鍵盤聚焦時出現。">

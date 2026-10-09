@@ -51,6 +51,13 @@ export {
   DEFAULT_SWATCHES,
 } from './ColorField';
 export { type ColorPairItem, ColorPairList, type ColorPairListProps } from './ColorPairList';
+export {
+  ContextMenu,
+  type ContextMenuItem,
+  type ContextMenuProps,
+  type ContextMenuState,
+  contextMenuPoint,
+} from './ContextMenu';
 export { CopyDiagnostics, type CopyDiagnosticsProps } from './CopyDiagnostics';
 export {
   type AspectOption,
@@ -318,6 +325,7 @@ export {
 } from './TestValueRow';
 export { TextArea, type TextAreaProps, TextInput, type TextInputProps } from './TextInput';
 export {
+  selectAllInPlace,
   type TextOutputMessages,
   TextOutputPanel,
   type TextOutputPanelProps,

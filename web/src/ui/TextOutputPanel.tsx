@@ -4,7 +4,8 @@
  * - wrap="soft"（預設）：畫面太窄時只是顯示折行，複製的內容不受影響；
  *   wrap="off"：不折行、可以橫向捲動（文字圖案這類靠對齊的輸出），通常搭配 font="mono"（等寬）。
  * - 高度跟著內容（含畫面上的折行），不出現內捲軸；字型載入或寬度改變時重新量。
- * - 複製後輸出維持全選（剪貼簿不能用時方便手動 Ctrl＋C）；成功／失敗用 Toast 提示；文字是空的時提示沒有內容可複製。
+ * - 複製後輸出維持全選（剪貼簿不能用時方便手動 Ctrl＋C），全選時輸出欄與頁面都不捲動（selectAllInPlace）；
+ *   成功／失敗用 Toast 提示；文字是空的時提示沒有內容可複製。
  *
  * 由文字方框產生器（textbox）的輸出區提升而來。
  */
@@ -45,6 +46,27 @@ export interface TextOutputPanelProps {
   /** 複製通知顯示的毫秒數（不給時：成功與空白 2 秒、失敗依 Toast 預設） */
   messageDuration?: number;
   className?: string;
+}
+
+/**
+ * 全選輸出欄的文字，但**不捲動**：焦點用 preventScroll 移過去，選取後把輸出欄自己、外層的捲動區與整頁的捲動位置
+ * 都還原（輸出很長、在固定欄或手機的長頁面裡時，原本的 focus()＋select() 會捲到輸出的最底下；coc-npc 對等驗證 F27）。
+ */
+export function selectAllInPlace(el: HTMLTextAreaElement | HTMLInputElement): void {
+  const saved: [HTMLElement, number, number][] = [];
+  for (let p = el.parentElement; p; p = p.parentElement) saved.push([p, p.scrollTop, p.scrollLeft]);
+  const own = [el.scrollTop, el.scrollLeft] as const;
+  const page = typeof window === 'undefined' ? null : ([window.scrollX, window.scrollY] as const);
+  el.focus({ preventScroll: true });
+  el.select();
+  el.scrollTop = own[0];
+  el.scrollLeft = own[1];
+  for (const [p, top, left] of saved) {
+    if (p.scrollTop !== top) p.scrollTop = top;
+    if (p.scrollLeft !== left) p.scrollLeft = left;
+  }
+  if (page && (window.scrollX !== page[0] || window.scrollY !== page[1]))
+    window.scrollTo(page[0], page[1]);
 }
 
 const DEFAULT_MESSAGES: Required<TextOutputMessages> = {
@@ -115,11 +137,7 @@ export function TextOutputPanel({
       return;
     }
     const ok = await copyText(text);
-    const ta = area.current;
-    if (ta) {
-      ta.focus();
-      ta.select();
-    }
+    if (area.current) selectAllInPlace(area.current);
     if (ok) toast({ title: msg.copied, tone: 'success', duration: messageDuration ?? 2000 });
     else
       toast({

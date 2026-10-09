@@ -224,11 +224,15 @@ export function flattenPsdLayers(
   return { width: psd.width, height: psd.height, layers };
 }
 
-type AgPsdModule = typeof import('ag-psd');
+export type AgPsdModule = typeof import('ag-psd');
 let agPsd: Promise<AgPsdModule> | null = null;
 
-/** 第一次用時才載入 ag-psd，並設定成「像素放在一般陣列」（不需要 canvas，Worker 也能用） */
-function loadAgPsd(): Promise<AgPsdModule> {
+/**
+ * 第一次用時才載入 ag-psd，並設定成「像素放在一般陣列」（不需要 canvas，Worker 也能用）。
+ * 要直接用 ag-psd 的 `readPsd`／`writePsd`（例如 anime-rig 在 Worker 裡讀圖層樹、存回輕量 PSD）時用這個取得模組
+ * （anime-rig 移植時匯出；readPsdLayers 的行為不變）。
+ */
+export function loadAgPsd(): Promise<AgPsdModule> {
   agPsd ??= import('ag-psd').then((mod) => {
     const m = ((mod as { default?: AgPsdModule }).default ?? mod) as AgPsdModule;
     m.initializeCanvas(

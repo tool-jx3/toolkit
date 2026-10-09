@@ -64,6 +64,55 @@ export function pickRecordingType(options: { audio?: boolean; preferMp4?: boolea
   );
 }
 
+/** 即時錄影（MediaRecorder）的一種格式 */
+export interface RecordingFormat {
+  /** MediaRecorder 的類型 */
+  mimeType: string;
+  /** 副檔名（webm、mp4） */
+  extension: 'webm' | 'mp4';
+  /** 能不能保留透明背景（Chromium 的 WebM） */
+  alpha: boolean;
+  /** 選單上的名稱 */
+  label: string;
+}
+
+/** 即時錄影的候選格式（順序即優先順序；anime-rig 移植時新增） */
+export const RECORDING_FORMATS: readonly RecordingFormat[] = [
+  {
+    mimeType: 'video/webm;codecs=vp9',
+    extension: 'webm',
+    alpha: true,
+    label: 'WebM（VP9，支援透明）',
+  },
+  {
+    mimeType: 'video/webm;codecs=vp8',
+    extension: 'webm',
+    alpha: true,
+    label: 'WebM（VP8，支援透明）',
+  },
+  { mimeType: 'video/webm', extension: 'webm', alpha: true, label: 'WebM' },
+  {
+    mimeType: 'video/mp4;codecs=avc1',
+    extension: 'mp4',
+    alpha: false,
+    label: 'MP4（H.264，不支援透明）',
+  },
+  { mimeType: 'video/mp4', extension: 'mp4', alpha: false, label: 'MP4（不支援透明）' },
+];
+
+/** 這個瀏覽器的 MediaRecorder 支援的錄影格式（不支援錄影時是空陣列） */
+export function recordingFormats(): RecordingFormat[] {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function')
+    return [];
+  return RECORDING_FORMATS.filter((f) => {
+    try {
+      return MediaRecorder.isTypeSupported(f.mimeType);
+    } catch {
+      return false;
+    }
+  });
+}
+
 export interface CanvasRecording {
   /** 實際的影片類型（例如 video/webm;codecs=vp9,opus） */
   readonly mimeType: string;

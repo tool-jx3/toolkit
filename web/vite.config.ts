@@ -16,7 +16,7 @@ const ASSETS_DIR = 'assets/build';
  * 還沒重寫成新版、照原樣上線的檔案（相對於 repo 根目錄，網站上的路徑相同）。
  * 舊版工具換成新版後從這裡拿掉（P10 收尾時清空）。
  */
-const STATIC_PATHS = ['tools/trpg-lab', 'tools/anime-rig', 'tools/jizura', 'assets/i18n.js'];
+const STATIC_PATHS = ['tools/trpg-lab', 'tools/jizura', 'assets/i18n.js'];
 
 export default defineConfig({
   root: srcDir,

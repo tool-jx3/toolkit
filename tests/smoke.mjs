@@ -59,7 +59,7 @@ const HANGUL = /[가-힣]/;
  * 未翻譯（真正的片假名詞一定帶有假名字母，不會因此漏掉）。 */
 const KANA = /[\u3041-\u3096\u30A1-\u30FA\uFF66-\uFF9D]/;
 
-/* dir: 'tools/anime-rig'；dict: 字典檔名；
+/* dir: 'tools/trpg-lab'；dict: 字典檔名；
  * locale: 該工具原文語言的字典代碼（sotsotssi 的工具為 ko，shiki365 的為 ja）；
  * scripts: 需掃描的 JS 檔名陣列；styles: 需掃描原文洩漏的 CSS 檔名陣列
  * （不檢查 T() key 引用，CSS 本來就不會呼叫 T()）；
@@ -180,14 +180,7 @@ const KANA_RUN = /[ぁ-ゖァ-ヺｦ-ﾝ・ー一-鿿]+/g;
 const LAB = 'tools/trpg-lab';
 const LAB_PAGES = [
   { html: 'index.html', scripts: ['index.js', 'common.js'], styles: ['index.css', 'common.css'], hooks: 23, inline: 10, attrs: 9 },
-  { html: 'coc7_dice.html', scripts: ['coc7_dice.js'], styles: ['coc7_dice.css'], hooks: 42, inline: 7, attrs: 27 },
   { html: 'coc7_Investigator_sheet.html', scripts: ['coc7_Investigator_sheet.js'], styles: ['coc7_Investigator_sheet.css'], hooks: 140, inline: 135, attrs: 3 },
-  { html: 'coc_npc_token.html', scripts: ['coc_npc_token.js'], styles: ['coc_npc_token.css'], hooks: 48, inline: 32, attrs: 4 },
-  { html: 'damage_sum.html', scripts: ['damage_sum.js'], styles: ['damage_sum.css'], hooks: 9, inline: 7, attrs: 2, standalone: true },
-  { html: 'grid_maker.html', scripts: ['grid_maker.js'], styles: ['grid_maker.css'], hooks: 71, inline: 68, attrs: 1 },
-  { html: 'grid_ruler.html', scripts: ['grid_ruler.js'], styles: ['grid_ruler.css'], hooks: 69, inline: 64, attrs: 2 },
-  { html: 'hex_maker.html', scripts: ['hex_maker.js'], styles: ['hex_maker.css'], hooks: 85, inline: 80, attrs: 1 },
-  { html: 'hex_ruler.html', scripts: ['hex_ruler.js'], styles: ['hex_ruler.css'], hooks: 70, inline: 63, attrs: 2 },
   { html: 'third-party-licenses.html', scripts: [], styles: ['third-party-licenses.css'], hooks: 45, inline: 38, attrs: 4 },
   { html: 'trpg_map_maker/map_list.html', scripts: ['trpg_map_maker/map_list.js', 'trpg_map_maker/map_storage.js'],
     styles: ['trpg_map_maker/map_list.css'], hooks: 23, inline: 19, attrs: 1 },
@@ -225,6 +218,21 @@ const labTools = LAB_PAGES.map(page => ({ page, tool: checkTool({
 
 section('tools/trpg-lab');
 const labFiles = listFiles(LAB).map(f => f.replace(`${LAB}/`, ''));
+/* 已改寫成新版的頁面：舊網址只剩轉址頁（舊版存在瀏覽器的資料由新版第一次開啟時讀進來）。 */
+const LAB_REDIRECTS = {
+  'coc7_dice.html': 'coc-dice', 'damage_sum.html': 'coc-dice', 'coc_npc_token.html': 'coc-npc',
+  'grid_maker.html': 'grid-maker', 'hex_maker.html': 'grid-maker',
+  'grid_ruler.html': 'range-ruler', 'hex_ruler.html': 'range-ruler',
+};
+for (const [page, id] of Object.entries(LAB_REDIRECTS)) {
+  const html = read(`${LAB}/${page}`);
+  const base = page.replace(/\.html$/, '');
+  check(`trpg-lab ${page} 轉到新版 ${id}`,
+    html.includes(`url=../${id}/`) && html.includes(`location.replace('../${id}/'`) && /<html lang="zh-Hant-TW">/.test(html)
+    && !/<script[^>]+src=/.test(html));
+  check(`trpg-lab ${page} 的舊版程式、樣式與字典已刪除`,
+    !exists(`${LAB}/${base}.js`) && !exists(`${LAB}/${base}.css`) && !exists(`${LAB}/i18n.${base}.js`));
+}
 /* 上游只在 ihoukentiku.github.io 上載入 gtag；收錄版整組拿掉，連同只在說明分析的
  * 隱私權政策頁。 */
 check('trpg-lab 沒有任何存取分析',
@@ -314,80 +322,6 @@ check('轉址頁附上三種語言的手動連結與回合輯首頁的連結',
   [`${JZ_BASE}zh-hant/`, `${JZ_BASE}"`, `${JZ_BASE}ko/`].every(u => jzPage.includes(`href="${u.replace(/"$/, '')}"`))
   && jzPage.includes('<a class="back" href="../../">← TRPG Toolkit</a>') && !KANA.test(stripComments(jzPage, 'html').replace(/<a [^>]*lang="ja"[^>]*>[^<]*<\/a>/, '')));
 check('舊的日文頁網址導到原站的日文版', read('tools/jizura/ja/index.html').includes(`location.replace('${JZ_BASE}')`));
-
-/* ---- anime-rig ---- */
-/* Anime2.5DRig：rigger.js 裡比對 PSD 圖層名稱的日文別名表（ALIAS_GROUPS），以及處理
- * Photoshop 自動命名（「のコピー」「レイヤー 1」「閉じ目2」）的幾行是解析用的資料，
- * 不是介面文字，原樣保留。只放行這幾處，其餘程式碼（連註解）都不准有假名。 */
-const RIG = 'tools/anime-rig';
-const rigRigger = read(`${RIG}/lib/rigger.js`).split('\n');
-const rigAliasStart = rigRigger.findIndex(l => /^\s*var ALIAS_GROUPS = \{$/.test(l));
-const rigAliasEnd = rigRigger.findIndex((l, i) => i > rigAliasStart && /^\s*\};$/.test(l));
-const RIG_KEPT = ['のコピー', "'レイヤー 1'", '閉じ目)2$/', '"閉じ目2" select the long closed-eye variant'];
-const rigAllow = (line, lineNo, file) => file === 'lib/rigger.js'
-  && ((rigAliasStart >= 0 && lineNo - 1 > rigAliasStart && lineNo - 1 < rigAliasEnd) || RIG_KEPT.some(k => line.includes(k)));
-const RIG_SCRIPTS = ['lib/app.js', 'lib/rigger.js', 'lib/runtime.js', 'lib/devices.js', 'lib/recorder.js',
-  'lib/renderer.js', 'lib/obs-sync.js', 'lib/psd-worker.js', 'lib/face-features.js'];
-const rig = checkTool({
-  dir: RIG,
-  dict: 'i18n.anime-rig.js',
-  locale: 'ja',
-  scripts: RIG_SCRIPTS,
-  styles: ['lib/app.css'],
-  minHooks: 150,
-  allowSource: rigAllow
-});
-section('tools/anime-rig');
-check('rigger.js 的圖層別名表還在（放行範圍有對到東西）',
-  rigAliasStart > 0 && rigAliasEnd - rigAliasStart >= 25 && rigRigger[rigAliasStart + 1].includes('前髪'),
-  `ALIAS_GROUPS: ${rigAliasStart}–${rigAliasEnd}`);
-check('rigger.js 放行的四處 Photoshop 命名處理都還在', RIG_KEPT.every(k => rigRigger.some(l => l.includes(k))));
-/* rigger.js、runtime.js 也在 worker 裡跑，用自己的 tr() 包裝；警告存成 {key, args}，顯示時才翻。 */
-const rigZh = rig.messages['zh-TW'];
-const rigLibKeys = ['lib/rigger.js', 'lib/runtime.js'].flatMap(f => [
-  ...[...read(`${RIG}/${f}`).matchAll(/\btr\('([\w.]+)'/g)].map(m => m[1]),
-  ...[...read(`${RIG}/${f}`).matchAll(/\bkey: '([\w.]+)'/g)].map(m => m[1])
-]);
-const rigLibMissing = [...new Set(rigLibKeys)].filter(k => !rigZh[k] && !k.endsWith('.'));
-check('rigger.js／runtime.js 的訊息 key 都有定義', rigLibKeys.length >= 30 && rigLibMissing.length === 0,
-  `found ${rigLibKeys.length}; missing: ${rigLibMissing.join(', ')}`);
-check('rigger.js 不再拋出或推入寫死的字串',
-  !/throw new Error\('|warnings\.push\('/.test(stripComments(read(`${RIG}/lib/rigger.js`), 'js')));
-const rigRoles = [...read(`${RIG}/lib/rigger.js`).match(/var ROLE_LABELS = \{([\s\S]*?)\};/)[1].matchAll(/: '(\w+)'/g)].map(m => m[1]);
-check('每個部件角色都有兩種語言的名稱（role.*）', rigRoles.length >= 29
-  && rigRoles.every(r => rigZh[`role.${r}`] && rig.messages.ja[`role.${r}`]), `roles: ${rigRoles.length}`);
-check('未知圖層的頭／身體分類有兩種語言的名稱', ['group.head', 'group.body'].every(k => rigZh[k] && rig.messages.ja[k]));
-check('worker 由主執行緒拿到目前語言的字典', read(`${RIG}/lib/app.js`).includes("messages:Object.assign({},I18N.messages['zh-TW'],I18N.messages[I18N.locale])")
-  && read(`${RIG}/lib/psd-worker.js`).includes('messages=ev.data.messages||{}'));
-check('app.js 的區域變數 T 已改名，沒有遮蔽 i18n 的 T()', !/\bconst T\s*=/.test(read(`${RIG}/lib/app.js`)));
-check('拖放提示改由 data-drop-label 依語言設定', read(`${RIG}/lib/app.css`).includes('content:attr(data-drop-label)')
-  && read(`${RIG}/lib/app.js`).includes("dataset.dropLabel=T('stage.drop')"));
-/* 範例 PSD 的圖畫權利屬於各自的作者；閉眼閉嘴原圖、OBS 中繼伺服器、測試與 MediaPipe 同捆檔都不收。 */
-const rigFiles = listFiles(RIG).map(f => f.replace(`${RIG}/`, ''));
-check('anime-rig 沒有任何 PSD 檔', !rigFiles.some(f => /\.psd$/i.test(f)));
-check('anime-rig 不收 OBS 中繼伺服器、測試與 MediaPipe 同捆檔',
-  !rigFiles.some(f => /obs_server|start_obs|^tests\/|package\.json|lib\/vendor\//.test(f)));
-const rigApp = stripComments(read(`${RIG}/lib/app.js`), 'js');
-const rigHtml = read(`${RIG}/index.html`);
-check('頁面不再去抓範例 PSD、閉眼閉嘴原圖或 README.md',
-  !/sample2?\.psd|data-sample|eye_close\.psd|mouth_close\.psd|'README\.md'/.test(rigApp + rigHtml));
-check('使用說明兩種語言都在，由字典指定檔名', exists(`${RIG}/guide.zh-TW.md`) && exists(`${RIG}/guide.ja.md`)
-  && rigZh['guide.file'] === 'guide.zh-TW.md' && rig.messages.ja['guide.file'] === 'guide.ja.md');
-check('繁中使用說明沒有殘留假名（圖層別名與 Photoshop 命名除外）',
-  read(`${RIG}/guide.zh-TW.md`).split('\n').filter(l => KANA.test(l))
-    .every(l => /^\| `/.test(l) || /`[^`]*[ぁ-ゖァ-ヺ][^`]*`|「のコピー」/.test(l)));
-check('OBS 區塊說明需要原作的本機伺服器，同步開關只在有中繼伺服器時顯示',
-  /id="obsKit" data-i18n-html="obs\.kit"/.test(rigHtml) && /<div id="obsControls" hidden>/.test(rigHtml)
-  && rigApp.includes("$('obsControls').hidden=!st.relay;$('obsKit').hidden=st.relay;")
-  && rigZh['obs.kit'].includes('https://github.com/852wa/Anime2.5DRig'));
-check('頁首有回合輯首頁的連結與語言選單', rigHtml.includes('<a class="tk-home" href="../../" data-i18n="nav.home">')
-  && read(`${RIG}/lib/app.js`).includes("I18N.mountSwitcher($('langSwitch'))"));
-/* MediaPipe 走 CDN：版本要與 THIRD_PARTY_NOTICES 對得上；ag-psd 是同捆的，版本也要記著。 */
-const rigNotices = read(`${RIG}/THIRD_PARTY_NOTICES.md`);
-const rigFm = (read(`${RIG}/lib/devices.js`).match(/const FM_VERSION='([\d.]+)'/) || [])[1];
-check('MediaPipe 從 jsDelivr 載入，版本記在 THIRD_PARTY_NOTICES', !!rigFm && rigNotices.includes(rigFm)
-  && read(`${RIG}/lib/devices.js`).includes("'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@'+FM_VERSION+'/'"));
-check('同捆的 ag-psd 附上 MIT 授權', rigNotices.includes('ag-psd 31.0.2') && rigNotices.includes('Copyright (c) 2016 Agamnentzar'));
 
 /* ---- 繁體中文網頁字型 ---- */
 /* 五套字型分散在四個工具裡，各自用不同的寫法要求 Google Fonts。字重寫錯會讓
@@ -525,7 +459,6 @@ function checkInlineText(label, htmlPath, dictPaths, minCompared) {
   check(`${label} 比對數量達最低門檻 ${minCompared}`, compared >= minCompared, `got: ${compared}`);
 }
 
-checkInlineText('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 110);
 for (const page of LAB_PAGES) {
   checkInlineText(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.inline);
 }
@@ -590,7 +523,6 @@ function checkAttrPairs(label, htmlPath, dictPaths, minPairs) {
   check(`${label} 屬性比對數量達最低門檻 ${minPairs}`, compared >= minPairs, `got: ${compared}`);
 }
 
-checkAttrPairs('tools/anime-rig', 'tools/anime-rig/index.html', ['tools/anime-rig/i18n.anime-rig.js'], 24);
 for (const page of LAB_PAGES) {
   checkAttrPairs(`${LAB}/${page.html}`, `${LAB}/${page.html}`, labDicts(page), page.attrs);
 }
@@ -615,9 +547,6 @@ check('不再收錄需要建置的上游專案（vendor/）', !exists('vendor'))
 /* ATTRIBUTION 與 README 之間的錨點連結：標題改了就會失效。 */
 check('ATTRIBUTION.md 說明 jizura 改為連到原作者網站的官方繁中版',
   /## jizura：JIZURA 字面（連到原站）(?=[\s\S]*Zaious)(?=[\s\S]*zh-hant\/)/.test(attribution));
-check('ATTRIBUTION.md 說明 anime-rig 不收範例 PSD、OBS 中繼伺服器與 MediaPipe 同捆檔',
-  /## anime-rig：Anime2\.5DRig[\s\S]*sample\.psd[\s\S]*obs_server\.py/.test(attribution)
-  && /## anime-rig[\s\S]*lib\/vendor\/face_mesh/.test(attribution));
 
 const pkg = JSON.parse(read('package.json'));
 check('package.json 無執行期相依',

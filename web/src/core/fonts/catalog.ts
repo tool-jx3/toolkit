@@ -323,6 +323,49 @@ export const GOOGLE_FONTS: readonly FontEntry[] = [
     category: 'display',
     weights: [400],
   },
+  /* G10 地圖編輯器：舊版文字工具的字型清單補齊（2026-10-08 以 css2 驗證，都只有 400） */
+  {
+    family: 'Sawarabi Gothic',
+    label: 'Sawarabi Gothic',
+    scripts: ['jp', 'latin'],
+    category: 'sans',
+    weights: [400],
+  },
+  {
+    family: 'Sawarabi Mincho',
+    label: 'Sawarabi Mincho',
+    scripts: ['jp', 'latin'],
+    category: 'serif',
+    weights: [400],
+  },
+  {
+    family: 'Hina Mincho',
+    label: 'Hina Mincho',
+    scripts: ['jp', 'latin'],
+    category: 'serif',
+    weights: [400],
+  },
+  {
+    family: 'Aoboshi One',
+    label: 'Aoboshi One',
+    scripts: ['jp', 'latin'],
+    category: 'display',
+    weights: [400],
+  },
+  {
+    family: 'Yomogi',
+    label: 'Yomogi',
+    scripts: ['jp', 'latin'],
+    category: 'handwriting',
+    weights: [400],
+  },
+  {
+    family: 'Stick',
+    label: 'Stick',
+    scripts: ['jp', 'latin'],
+    category: 'display',
+    weights: [400],
+  },
 
   /* ---- 韓文 ---- */
   {
@@ -577,6 +620,8 @@ export const GOOGLE_FONTS: readonly FontEntry[] = [
     category: 'sans',
     weights: ALL,
   },
+  /* G10 地圖編輯器（2026-10-08 以 css2 驗證） */
+  { family: 'Eater', label: 'Eater', scripts: ['latin'], category: 'display', weights: [400] },
 ];
 
 /** 繁中的基本五套 */

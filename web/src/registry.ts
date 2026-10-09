@@ -87,7 +87,7 @@ export const TOOLS: readonly ToolEntry[] = [
     name: '戰鬥地圖產生器',
     summary:
       '一鍵產生俯視的地下城戰鬥地圖（22 × 16 格），有石砌地城、洞穴、墓室三種地形，可匯出 PNG 當 VTT 背景。',
-    group: 'G8',
+    group: 'G10',
     status: 'live',
     inspiration: {
       name: 'usagineko7865-debug/battlemap-generator',
@@ -285,6 +285,15 @@ export const TOOLS: readonly ToolEntry[] = [
       name: 'SkyTNT/anime-segmentation',
       url: 'https://github.com/SkyTNT/anime-segmentation',
     },
+  },
+  {
+    id: 'anime-rig',
+    name: '2.5D 動態立繪',
+    summary:
+      '拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理，可以用攝影機或麥克風帶動，匯出透明 PNG 或影片。',
+    group: 'G3',
+    status: 'live',
+    inspiration: { name: '852wa/Anime2.5DRig', url: 'https://github.com/852wa/Anime2.5DRig' },
   },
   {
     id: 'scene-transition',
@@ -523,6 +532,66 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/sotsotssi/acrylic-goods',
     },
   },
+  {
+    id: 'coc-dice',
+    name: 'CoC 擲骰工具',
+    summary:
+      'CoC 7 版的技能檢定（獎勵骰、懲罰骰、自動判定成功等級）與自訂算式擲骰，附擲骰紀錄；另有傷害計算：貼上 BCDice 的擲骰結果，扣掉護甲後加總成「:HP-」指令。',
+    group: 'G9',
+    status: 'live',
+    inspiration: {
+      name: 'ihoukentiku/ihoukentiku.github.io',
+      url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
+    },
+  },
+  {
+    id: 'coc-npc',
+    name: 'CoC NPC 產生器',
+    summary:
+      '一次管理多個 CoC 7 版／6 版的 NPC：用骰子算式擲屬性，自動算出 HP、MP、SAN、DB 與體格，加上技能與攻擊指令，輸出可以直接貼進 CCFOLIA 的角色 JSON 與聊天面板。',
+    group: 'G9',
+    status: 'live',
+    inspiration: {
+      name: 'ihoukentiku/ihoukentiku.github.io',
+      url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
+    },
+  },
+  {
+    id: 'grid-maker',
+    name: '網格產生器',
+    summary:
+      '產生透明背景的方格或六角格 PNG：設定格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸。',
+    group: 'G10',
+    status: 'live',
+    inspiration: {
+      name: 'ihoukentiku/ihoukentiku.github.io',
+      url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
+    },
+  },
+  {
+    id: 'range-ruler',
+    name: '距離量尺產生器',
+    summary:
+      '以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG；點格子就能個別改文字與顏色。',
+    group: 'G10',
+    status: 'live',
+    inspiration: {
+      name: 'ihoukentiku/ihoukentiku.github.io',
+      url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
+    },
+  },
+  {
+    id: 'map-editor',
+    name: '地圖編輯器',
+    summary:
+      '在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG。',
+    group: 'G10',
+    status: 'next',
+    inspiration: {
+      name: 'ihoukentiku/ihoukentiku.github.io',
+      url: 'https://github.com/ihoukentiku/ihoukentiku.github.io',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
@@ -531,6 +600,15 @@ export function getTool(id: string): ToolEntry | undefined {
 
 export function toolsInGroup(group: GroupId): ToolEntry[] {
   return TOOLS.filter((t) => t.group === group);
+}
+
+/**
+ * 群組分頁要列的工具：已上線的頁面只列已上線的工具（重寫中、還沒驗證的不出現在正式網站的分頁）；
+ * 重寫中的頁面（`next/<id>/`）與開發伺服器列出整組。
+ */
+export function groupTabTools(tool: Pick<ToolEntry, 'group' | 'status'>, dev = false): ToolEntry[] {
+  const all = toolsInGroup(tool.group);
+  return dev || tool.status !== 'live' ? all : all.filter((t) => t.status === 'live');
 }
 
 /** 工具建置後所在的目錄（相對於 repo 根目錄） */

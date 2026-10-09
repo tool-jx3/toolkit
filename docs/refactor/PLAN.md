@@ -58,7 +58,7 @@
 | video-anim | 影片轉動圖工具 | sotsotssi/video-to-pic | MIT | G8 |
 | gif-combiner | GIF 接合器 | sotsotssi/GIF-Combiner | MIT | G8 |
 | music-frame | 音樂播放畫面產生器 | zznaptime/1007mv | 未授權 | G8 |
-| battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator | MIT | G8 |
+| battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator | MIT | G10（原 G8） |
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
 | jizura | JIZURA 字面 | 852wa/JIZURA | MIT | 外部連結（不重寫，維持轉址） |
@@ -148,7 +148,7 @@ assets/build/               共用程式與樣式、THIRD_PARTY_NOTICES.md
 | P10 收尾 | 首頁移入新框架（只有繁中）、移除 `assets/i18n.js` 與所有字典、`vendor/`、舊測試；ATTRIBUTION 改成「靈感來源」清單 | 全站只剩新框架的程式；所有測試通過 |
 
 P10 進度：✅ 首頁移入新框架（`web/src/index.html`＋`web/src/home/`；舊的 `assets/home.*`、`assets/i18n.home.js` 已刪除）；
-⬜ `assets/i18n.js` 與其餘字典、舊測試（等 G9 的舊版 trpg-lab、anime-rig 換掉後一起刪）；⬜ ATTRIBUTION 改成「靈感來源」清單。
+⬜ `assets/i18n.js` 與其餘字典、舊測試（等 G9 的舊版 trpg-lab 換掉後一起刪；anime-rig 已換成新版）；⬜ ATTRIBUTION 改成「靈感來源」清單。
 
 每個工具上線時：舊版的檔案、字典、vendor 原始碼一併刪除；舊版所在的 `main` commit 記在 ATTRIBUTION，日後要再對照時可以取回。
 
@@ -199,15 +199,45 @@ P10 進度：✅ 首頁移入新框架（`web/src/index.html`＋`web/src/home/`�
 | character-select | ✅ | ✅ | ✅ | ✅ |
 | magic-circle | ✅ | ✅ | ✅ | ✅ |
 | acrylic-goods | ✅ | ✅ | ✅ | ✅ |
-| coc-dice（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
-| coc-npc（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
-| coc-sheet（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
-| grid-maker（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
-| range-ruler（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
-| map-editor（trpg-lab） | ⬜ | ⬜ | ⬜ | ⬜ |
-| anime-rig | ⬜ | ⬜ | ⬜ | ⬜ |
+| coc-dice（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
+| coc-npc（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
+| coc-sheet（trpg-lab） | 🔨 | 🔨 | ⬜ | ⬜ |
+| grid-maker（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
+| range-ruler（trpg-lab） | ✅ | ✅ | ✅ | ✅ |
+| map-editor（trpg-lab） | ✅ | ✅ | 🔍 | ⬜ |
+| anime-rig | ✅ | ✅ | ✅ | ✅ |
 
 （每個群組開始時把該組工具逐列展開到這張表。共用層：G4 ✅、G3 ✅、G1 ✅、G2 ✅、G5 ✅、G6 ✅、G8 ✅、G7 ✅（版型畫布、3D）。）
+
+### 6.1 P11 新工具引入與上游跟進（2026-10-09 使用者選定）
+
+上游檢查（2026-10-09）：31 個收錄過的上游裡 24 個沒有新 commit；shiki365 的五個工具只有英、韓文介面與說明（功能新版已有）；
+zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連到原站。新工具照 [PROCESS.md](PROCESS.md) 第 6 節引入；
+未授權的原作只參考功能與做法，程式、文字、素材自己做。
+
+| 工具 id | 名稱 | 靈感來源 | 原授權 | 群組 | 規格 | 實作 | 對等驗證 | 上線 |
+|---|---|---|---|---|---|---|---|---|
+| ai-fail | AI 誤判梗圖產生器 | swoonqx/ai-fails-meme-maker | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
+| scenario-text | 劇本文字產生器（CCFOLIA シナリオテキスト） | shiki365/scenario-text-maker | MIT | G5 | ⬜ | ⬜ | ⬜ | ⬜ |
+| floor-plan | 室內平面圖產生器 | くま。／TRPG室内図メーカー | 未授權 | G10 | ⬜ | ⬜ | ⬜ | ⬜ |
+| house-rules | CoC 房規表產生器 | くま。／CoCハウスルール表メーカー | 未授權 | G9 | ⬜ | ⬜ | ⬜ | ⬜ |
+| speech-bubble | 動態對話泡泡產生器 | sotsotssi/TextBubbleMaker-preview | 未授權 | G1 | ⬜ | ⬜ | ⬜ | ⬜ |
+| rank-chart | 排行榜產生器 | sotsotssi/would-you-rank | MIT | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
+| char-chart | 角色分析圖產生器（性格四象限＋CP 表） | sotsotssi/char-quadrant、visual-coupling-map | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
+| review-grid | 劇本心得九宮格 | sotsotssi/scenario-review | 未授權 | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
+| polaroid | 拍立得相框產生器 | swoonqx/sw-polaroid | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
+| crossword | 填字遊戲產生器 | sotsotssi/text2crossword | MIT | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
+| scratch-card | 刮刮卡產生器 | sotsotssi/Scratchcard | 未授權 | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
+| discord-color | Discord 彩色文字產生器 | rebane2001（gist：discord-colored-text-generator） | 公有領域（Unlicense） | G1 | ⬜ | ⬜ | ⬜ | ⬜ |
+
+上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
+
+| 工具 | 內容 | 來源 | 狀態 |
+|---|---|---|---|
+| text-fx | 自訂範本（存、讀、用檔案分享）、批次匯出、理智檢定（SAN）範本 | くま。／文字画像APNGメーカー v1.05～1.12 | ⬜ |
+| pair-maker | 背景改成單色或圖片（可模糊）、段落標題可以改 | baegop157902/PairMaker 2026-10-01 | ⬜ |
+| log-converter | 新增匯出 EPUB 電子書 | sotsotssi/CcfoliaLogConverter（未授權） | ⬜ |
+| session-log、session-report | 跑團紀錄簿的 SKP 角色；團報產生器用括號包住選取的文字、裝飾面板分頁 | くま。 session-log-tool v1.100、session-report-generator v1.73～1.76 | ⬜ |
 
 ## 7. 往後新增工具
 

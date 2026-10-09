@@ -19,6 +19,9 @@
  * 工具列的背景按鈕依 `backgrounds` 的順序排列。
  * scene-transition 加的（選填）：`backgroundArea="content"` 背景只鋪在內容的範圍內（舞台其他地方是素色），
  * 給「半透明圖層要和背景一樣大」的預覽用；不給時與以前相同（鋪滿整個舞台區域）。
+ * anime-rig 對等驗證後加的（選填）：`onViewportDoubleClick` 在舞台區域（空白處或內容）按兩下時呼叫，例如「回到全圖」。
+ * 開了 `dragPan` 時 pointerdown 會捕捉指標，dblclick 的目標變成舞台區域本身，內容上的 onDoubleClick 收不到，所以要用這個。
+ * 在 pointerdown 時 stopPropagation 的子元素（控點、裁切框）與捲軸上按兩下不算。
  */
 import { ImagePlus, Maximize, Minus, Plus } from 'lucide-react';
 import {
@@ -67,7 +70,10 @@ export interface StageProps<K extends StageAnyBackgroundKind = StageBackgroundKi
   onZoomChange?: (zoom: StageZoom) => void;
   /** 顯示工具列（預設 true） */
   toolbar?: boolean;
-  /** 工具列提供哪些背景（預設：透明、黑、白、自訂色、背景圖；依這個順序排列）；加 'scene' 才有示意場景 */
+  /**
+   * 工具列提供哪些背景（預設：透明、黑、白、自訂色、背景圖；依這個順序排列）；加 'scene' 才有示意場景。
+   * 空陣列：工具列不顯示背景選項（背景由工具自己控制，例如 anime-rig 的透明／綠幕／深色；anime-rig 移植時新增）。
+   */
   backgrounds?: readonly K[];
   /** 工具列右側的額外按鈕 */
   toolbarExtra?: ReactNode;
@@ -105,6 +111,11 @@ export interface StageProps<K extends StageAnyBackgroundKind = StageBackgroundKi
    * （例如轉場預覽：背景圖鋪滿 16:9 的畫面，四周不會露出沒被蓋到的背景）。
    */
   backgroundArea?: 'viewport' | 'content';
+  /**
+   * 在舞台區域（空白處或內容）按兩下（anime-rig 加的，選填）。開了 dragPan 時內容收不到 dblclick（指標被舞台捕捉），
+   * 要用這個；在 pointerdown 時 stopPropagation 的子元素（控點、裁切框）與捲軸上按兩下不會呼叫。
+   */
+  onViewportDoubleClick?: () => void;
 }
 
 export interface StagePan {
@@ -218,6 +229,7 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
   pan,
   onPanChange,
   backgroundArea = 'viewport',
+  onViewportDoubleClick,
   ...rest
 }: StageProps<K>) {
   const [innerBg, setInnerBg] = useState<StageBackground<K>>(defaultBackground);
@@ -299,14 +311,21 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
   /* 拖曳平移：子元素（裁切框、版面物件）在 pointerdown 時 stopPropagation 就不會觸發 */
   const panDrag = useRef<{ id: number; x: number; y: number; start: StagePan } | null>(null);
   const [panning, setPanning] = useState(false);
-  const onPanDown = (e: ReactPointerEvent<HTMLElement>) => {
-    if (!dragPan || (e.button !== 0 && e.button !== 1)) return;
+  /* 最後一次 pointerdown 是否到了舞台區域（沒被子元素擋下、不在捲軸上）；按兩下時用 */
+  const downOnViewport = useRef(false);
+  const onViewportDown = (e: ReactPointerEvent<HTMLElement>) => {
     const el = e.currentTarget;
-    /* 點在捲軸上時不平移 */
+    /* 點在捲軸上時不算（不平移） */
     if (e.target === el) {
       const r = el.getBoundingClientRect();
       if (e.clientX - r.left > el.clientWidth || e.clientY - r.top > el.clientHeight) return;
     }
+    downOnViewport.current = true;
+    onPanDown(e);
+  };
+  const onPanDown = (e: ReactPointerEvent<HTMLElement>) => {
+    if (!dragPan || (e.button !== 0 && e.button !== 1)) return;
+    const el = e.currentTarget;
     if (e.button === 1) e.preventDefault();
     panDrag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, start: p };
     el.setPointerCapture?.(e.pointerId);
@@ -345,16 +364,18 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
     >
       {toolbar ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-2 py-1.5">
-          <Segmented
-            aria-label="預覽背景"
-            size="sm"
-            value={bg.kind}
-            onValueChange={(kind) => {
-              if (kind === 'image' && !bg.imageUrl) fileInput.current?.click();
-              setBg({ ...bg, kind: kind as K });
-            }}
-            options={backgrounds.flatMap((k) => BACKGROUND_OPTIONS.filter((o) => o.value === k))}
-          />
+          {backgrounds.length ? (
+            <Segmented
+              aria-label="預覽背景"
+              size="sm"
+              value={bg.kind}
+              onValueChange={(kind) => {
+                if (kind === 'image' && !bg.imageUrl) fileInput.current?.click();
+                setBg({ ...bg, kind: kind as K });
+              }}
+              options={backgrounds.flatMap((k) => BACKGROUND_OPTIONS.filter((o) => o.value === k))}
+            />
+          ) : null}
           {bg.kind === 'color' ? (
             <ColorField
               aria-label="背景色"
@@ -440,7 +461,21 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
             ...(onContent ? null : look.style),
           } as CSSProperties
         }
-        onPointerDown={dragPan ? onPanDown : undefined}
+        onPointerDownCapture={
+          onViewportDoubleClick
+            ? () => {
+                downOnViewport.current = false;
+              }
+            : undefined
+        }
+        onPointerDown={dragPan || onViewportDoubleClick ? onViewportDown : undefined}
+        onDoubleClick={
+          onViewportDoubleClick
+            ? () => {
+                if (downOnViewport.current) onViewportDoubleClick();
+              }
+            : undefined
+        }
         onPointerMove={dragPan ? onPanMove : undefined}
         onPointerUp={dragPan ? onPanUp : undefined}
         onPointerCancel={dragPan ? onPanUp : undefined}

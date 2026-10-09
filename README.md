@@ -47,9 +47,13 @@
 | [影片轉動圖工具](https://tool-jx3.github.io/toolkit/tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
 | [GIF 接合器](https://tool-jx3.github.io/toolkit/tools/gif-combiner/) | 把多張 GIF 的影格對齊時間軸排進同一張畫面，拖曳排版後合成一張 GIF |
 | [音樂播放畫面產生器](https://tool-jx3.github.io/toolkit/tools/music-frame/) | 放進封面與音樂，做出跑團 BGM、角色主題曲的「正在播放」畫面：三種版面、聲音視覺化、邊框與隨時間出現的歌詞（LRC／SRT），存成 1920 × 1080 的 PNG 或有聲音的影片 |
-| [違法建築的 TRPG 實驗室](https://tool-jx3.github.io/toolkit/tools/trpg-lab/) | 一站收齊九個跑團工具：CoC 7 版擲骰、調查員角色卡、NPC 製作／管理、TRPG 地圖編輯器、網格／六角格產生器與量尺產生器、BCDice 傷害計算 |
+| [TRPG 實驗室（舊版）](https://tool-jx3.github.io/toolkit/tools/trpg-lab/) | 調查員角色卡與 TRPG 地圖編輯器的舊版（正在改寫成新版；擲骰、NPC、網格與量尺已改寫成下面的新工具） |
+| [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | CoC 7 版的技能檢定（獎勵骰、懲罰骰、自動判定成功等級）與自訂算式擲骰，附擲骰紀錄；另有傷害計算：貼上 BCDice 的結果扣護甲後加總成「:HP-」指令 |
+| [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | 一次管理多個 CoC 7 版／6 版的 NPC：擲屬性、自動算衍生值、加技能與攻擊指令，輸出可以直接貼進 CCFOLIA 的角色 JSON 與聊天面板 |
+| [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | 產生透明背景的方格或六角格 PNG：格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸 |
+| [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | 以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG |
 | [JIZURA 字面](https://tool-jx3.github.io/toolkit/tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
-| [Anime2.5DRig](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 把分好部件的 PSD 拖進來就自動綁定成 2.5D 虛擬形象：眨眼、嘴型、頭髮物理、攝影機臉部追蹤與麥克風嘴型，可匯出透明 PNG 與 WebM／MP4 |
+| [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理，可以用攝影機（臉部追蹤，模型第一次使用時下載約 3.8 MB）或麥克風帶動，匯出透明 PNG 或影片 |
 | [CoC 劇本排版工具](https://tool-jx3.github.io/toolkit/tools/coc-typesetter/) | 把克蘇魯神話 TRPG 劇本貼進來，排成書本般的紙面：章節自動編號、自動目錄，描述、檢定、KP 資訊、理智檢定各有樣式，印成 A5／B5／A4 的 PDF |
 | [輕量轉場 APNG 產生器](https://tool-jx3.github.io/toolkit/tools/apng-wipe/) | 做出 15×15 px 起跳、只有幾 KB 的透明轉場動畫：淡入淡出或 8 個方向的抹除，可選顏色、秒數、播一次或循環 |
 | [劇本排版台](https://tool-jx3.github.io/toolkit/tools/scenario-editor/) | 左邊寫稿、右邊即時排成 A4 書頁的 TRPG 劇本排版工具：標題、對話、檢定框、表格、流程圖、NPC 卡、目錄，可以印成 PDF 或匯出閱覽用 HTML；原稿存在瀏覽器裡，也能存成 JSON 檔 |
@@ -97,7 +101,7 @@ repo 裡沒有建置產物（網站由 CI 建置後推到 `gh-pages`）、首頁
 
 正在依 [docs/refactor/PLAN.md](docs/refactor/PLAN.md) 把收錄的工具逐一改寫到新框架 `web/`（Vite＋React＋TypeScript）：
 共用元件與設計、只有繁中介面、介面上原作者只列為靈感來源（參考原作的程式用本站元件改寫；開放授權原作的授權全文保留在
-`assets/build/THIRD_PARTY_NOTICES.md`，未授權原作的素材與範本文字不沿用）。已上線的工具：
+網站的 [`assets/build/THIRD_PARTY_NOTICES.md`](https://tool-jx3.github.io/toolkit/assets/build/THIRD_PARTY_NOTICES.md)，未授權原作的素材與範本文字不沿用）。已上線的工具：
 
 | 工具 | 名稱 | 靈感來源 |
 |---|---|---|
@@ -141,20 +145,24 @@ repo 裡沒有建置產物（網站由 CI 建置後推到 `gh-pages`）、首頁
 | `acrylic-goods` | [壓克力周邊工房](https://tool-jx3.github.io/toolkit/tools/acrylic-goods/) | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) |
 | `music-frame` | [音樂播放畫面產生器](https://tool-jx3.github.io/toolkit/tools/music-frame/) | [zznaptime/1007mv](https://github.com/zznaptime/1007mv) |
 | `bg-remover` | [立繪去背工具](https://tool-jx3.github.io/toolkit/tools/bg-remover/) | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation) |
+| `coc-dice` | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
+| `coc-npc` | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
+| `grid-maker` | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
+| `range-ruler` | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
+| `anime-rig` | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
 ## 語言
 
-介面預設為繁體中文，可由右上角切換回該工具的原文：`trpg-lab` 與
-`anime-rig` 為日文。
+介面預設為繁體中文，還沒改寫完的 `trpg-lab`（舊版）可由右上角切換回原文（日文）。
 
 `text-fx`（文字演出產生器）的程式是本 repo 以無塵室方式獨立撰寫的，只有繁體中文介面。
 
 `jizura` 連到原作者的網站：原作者已提供官方繁體中文版，合輯不再收錄副本。
 `tools/jizura/` 只是一個轉址頁，依下面這個共用的 key 選版本（繁中、日文或韓文）後跳到原站。
 
-選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），這兩個舊版工具共用。首頁與重寫過的工具只有繁體中文。
+選擇記錄於 `localStorage`（key：`trpg-toolkit-locale`），`trpg-lab` 與 `jizura` 的轉址頁共用。首頁與重寫過的工具只有繁體中文。
 
 語言選單只會列出「該頁確實載入字典」的語言，因此韓文工具不會出現日文選項，
 反之亦然。停在沒有該語言字典的頁面時會以繁體中文呈現，但不會覆寫使用者的選擇——
@@ -178,6 +186,5 @@ repo 裡沒有建置產物（網站由 CI 建置後推到 `gh-pages`）、首頁
 ## 授權
 
 根目錄 [LICENSE](LICENSE)（MIT）僅涵蓋本 repo 新增的部分：新框架 `web/` 與本站重寫的工具（見下）、`docs/`、本 repo 自己撰寫的 `tools/text-fx/`、`assets/`、
-`index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁、`anime-rig`
-的繁中使用說明。
+`index.html`、`tests/`、各 `i18n.*.js` 字典、`tools/jizura/` 的轉址頁。
 各工具的原始授權與來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。

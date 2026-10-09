@@ -27,9 +27,9 @@
 |---|---|---|---|
 | trpg-lab | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) | `d39f79e` | MIT（程式碼；作者保留權利的素材不收，見下） |
 | jizura | [852wa/JIZURA](https://github.com/852wa/JIZURA) | —（連到原站；2026-09-25～30 曾收錄 `1b48bea` 的副本） | MIT |
-| anime-rig | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) | `7ddbd99` | MIT（程式碼；範例 PSD 不收，見下） |
 
 收錄副本的 MIT 工具，原始 `LICENSE` 檔都保留於各自目錄中（`jizura` 不再收錄副本，見下）。
+`anime-rig`（[852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) `7ddbd99`）已由本站重寫，收錄副本移除，見「[本站重寫的工具（靈感來源）](#本站重寫的工具靈感來源)」。
 
 ## trpg-lab：違法建築的 TRPG 實驗室
 
@@ -50,6 +50,11 @@
 
 上游 repo 裡另有一個 `grid_paint.html`，站上沒有任何連結指向它（功能已由地圖編輯器
 取代），不收。
+
+**已改寫成新版的頁面（2026-10）**：擲骰（`coc7_dice.html`）與傷害計算（`damage_sum.html`）→ `coc-dice`、
+NPC（`coc_npc_token.html`）→ `coc-npc`、網格（`grid_maker.html`／`hex_maker.html`）→ `grid-maker`、
+量尺（`grid_ruler.html`／`hex_ruler.html`）→ `range-ruler`。這些頁面的舊版程式、樣式與字典已刪除，舊網址只剩轉到新版的轉址頁；
+舊版在 `main` commit `6957b28`。調查員角色卡與地圖編輯器還是舊版（正在改寫）。
 
 ### 作者保留權利的素材不收
 
@@ -159,55 +164,6 @@ Google Fonts 連結一併載入）；Noto Sans JP 雖然有漢字，字形是日
 沒有 JavaScript 時由 `<meta http-equiv="refresh">` 導到繁中版。以前收錄版的日文頁網址
 `tools/jizura/ja/` 也留著，會導到原站的日文版。首頁卡片的徽章改成「連到原作者網站的官方繁中版」。
 
-## anime-rig：Anime2.5DRig
-
-上游 `852wa/Anime2.5DRig`（hakoniwa）把分好部件的 PSD 自動綁定成 2.5D 虛擬形象：眨眼、嘴型、
-頭髮物理、攝影機臉部追蹤與麥克風嘴型，可匯出透明 PNG 與影片。
-
-### 收了什麼
-
-`index.html`、`lib/` 的程式與樣式、`LICENSE`。下列檔案不收，細節見
-`tools/anime-rig/THIRD_PARTY_NOTICES.md`：
-
-- 範例模型 `sample.psd`、`sample2.psd`：上游 README 寫明範例 PSD 的圖畫權利屬於各自的作者。
-  頁首與拖放區的「讀取範例 A／B」按鈕一併拿掉；OBS 專用畫面（`?obs=1`）沒有指定模型時，
-  上游會載入 `sample.psd`，收錄版改成不載入。
-- 閉眼、閉嘴差分的原圖 `eye_close.psd`、`mouth_close.psd`：上游讀不到這兩個檔時本來就會
-  改用 `lib/genericparts.js` 內建的差分，收錄版直接用內建的，不去抓不存在的檔案。
-- MediaPipe Face Mesh 的同捆檔（`lib/vendor/face_mesh/`，約 11 MB）：改走上游原本就有的
-  jsDelivr 備援路徑（同一個鎖定版本），第一次開啟攝影機追蹤時需要連網。
-- OBS 連動用的本機中繼伺服器（`obs_server.py`、`start_obs.bat`）、`tests/`、`package.json`、
-  `IMPROVEMENTS.md`。
-
-### OBS 連動
-
-上游的 OBS 連動要在自己的電腦上用 Python 跑 `obs_server.py`，由它在編輯畫面與 OBS 的瀏覽器
-來源之間轉送 PSD、設定與追蹤數值；網頁版做不到。收錄版的「OBS 連動」區塊改成說明這件事並
-連到上游，同步開關與 OBS 用網址只在偵測到中繼伺服器時才顯示（程式照上游保留，把收錄版
-放進上游的整套裡仍然能用）。只用網頁版的話，可以用綠幕背景加 OBS 的視窗擷取，或匯出透明
-WebM。
-
-### 使用說明
-
-上游的「使い方」視窗直接顯示 `README.md`。收錄版改成依介面語言讀 `guide.zh-TW.md` 或
-`guide.ja.md`：日文版以 README 為底，拿掉範例 PSD、本機伺服器與開發測試等收錄版用不到的
-段落，並改寫 MediaPipe 與 OBS 的說明；繁中版由日文版翻譯。圖層命名規約表裡的別名
-（`前髪`、`白目`、`bangs` 等）是工具實際比對的字，兩種語言都照原樣列出——工具不認得中文
-的圖層名稱。
-
-### i18n 的幾處改造
-
-- 上游 `app.js` 用一個叫 `T` 的區域變數存各參數的目標值，會遮蔽合輯 i18n 的全域 `T()`，
-  改名為 `TGT`。
-- PSD 在 Web Worker 裡解析（`lib/psd-worker.js`），worker 載入不了合輯的 i18n 引擎（它用到
-  `window` 與 `document`）。主執行緒把目前語言的字典隨 PSD 一起傳過去，worker 提供一個同樣
-  介面的 `T()`，`rigger.js`、`runtime.js` 在兩邊都用同一組 key。
-- 自動綁定的警告原本是日文字串，`app.js` 再用正規表示式挑出要顯示在診斷清單裡的幾則；
-  改成帶 key 與參數的物件，顯示時才翻譯，切換語言時診斷清單跟著重畫。
-- `rigger.js` 裡比對 PSD 圖層名稱的日文別名表（`前髪 まえがみ`、`閉じ目` 等）與
-  `のコピー`、`レイヤー 1` 這類 Photoshop 自動命名的處理是解析用的資料，不是介面文字，
-  原樣保留；`tests/smoke.mjs` 只放行這幾行。
-
 ## 本站重寫的工具（靈感來源）
 
 下列工具已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的流程改寫到本站的 `web/` 框架，
@@ -259,12 +215,19 @@ WebM。
 | `acrylic-goods` | 壓克力周邊工房 | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `83fd605` |
 | `music-frame` | 音樂播放畫面產生器 | [zznaptime/1007mv](https://github.com/zznaptime/1007mv)（未授權） | —（新收錄，沒有舊版） |
 | `bg-remover` | 立繪去背工具 | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation)（Apache-2.0） | —（新收錄，沒有舊版） |
+| `coc-dice` | CoC 擲骰工具 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的擲骰頁與 BCDice 傷害加總頁合併） | `6957b28` |
+| `coc-npc` | CoC NPC 產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的 NPC 頁） | `6957b28` |
+| `grid-maker` | 網格產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格產生器合併） | `6957b28` |
+| `range-ruler` | 距離量尺產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格量尺合併） | `6957b28` |
+| `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
 
 `bg-remover` 同樣照新工具引入流程直接在新框架做：AI 去背照 SkyTNT/anime-segmentation（Apache-2.0，授權全文在通知檔）的 `get_mask()` 前後處理。模型 `isnetis.onnx`（Apache-2.0，約 176 MB）**不在本 repo**：使用者第一次用 AI 去背時，瀏覽器從 Hugging Face 的 [skytnt/anime-seg](https://huggingface.co/skytnt/anime-seg) 固定 revision `493cb608` 下載，驗證 SHA-256 後存在瀏覽器裡。推論用 onnxruntime-web（MIT）。
 
-新版用到的 npm 套件與授權，建置時自動整理在 [assets/build/THIRD_PARTY_NOTICES.md](assets/build/THIRD_PARTY_NOTICES.md)。
+`anime-rig` 參考 852wa/Anime2.5DRig（MIT，原作 commit `7ddbd99`，授權全文在通知檔）的程式改寫：自動綁定、物理與繪製的演算法和數值照原作，舊版與新版拿同一個 PSD 綁定的結果相同（單元測試並排比對過）。原作的範例 PSD（圖畫權利屬於各自的作者）不收，測試用的 PSD 由程式自己畫；原作需要本機 Python 中繼伺服器的 OBS 連動不移植，改成綠幕背景與透明影片的說明。臉部追蹤用 npm 的 @mediapipe/tasks-vision（Apache-2.0）；特徵點模型 `face_landmarker.task`（Apache-2.0，約 3.8 MB）**不在本 repo**：使用者第一次開攝影機追蹤時，瀏覽器從 Google 的 MediaPipe 官方模型網址下載，驗證 SHA-256 後存在瀏覽器裡。
+
+新版用到的 npm 套件與授權，建置時自動整理在網站的 [assets/build/THIRD_PARTY_NOTICES.md](https://tool-jx3.github.io/toolkit/assets/build/THIRD_PARTY_NOTICES.md)（建置產物，不在 repo 裡）。
 
 ## text-fx：文字演出產生器（無塵室開發）
 
@@ -320,6 +283,5 @@ WebM。
 
 ## 本 repo 新增的部分
 
-新框架 `web/`（含其建置產物 `assets/build/`、`next/` 與重寫上線的 `tools/<id>/index.html`）、`docs/`、`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁、`anime-rig` 的
-`guide.zh-TW.md`，
+新框架 `web/`（含其建置產物 `assets/build/`、`next/` 與重寫上線的 `tools/<id>/index.html`）、`docs/`、`assets/`、`index.html`、`tests/`、各工具的 `i18n.*.js` 字典檔、`tools/jizura/` 的轉址頁，
 以 MIT 授權釋出，詳見 [LICENSE](LICENSE)。

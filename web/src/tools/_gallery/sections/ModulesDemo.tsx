@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { createRandom, EASE, EASING_CHOICES, type EasingName } from '@/core/timeline';
 import { Section } from '@/ui';
+import { CocDemo } from './CocDemo';
 import { FlowDemo } from './FlowDemo';
+import { GridDemo, MapGridDemo } from './GridDemo';
 import { ModelDemo } from './ModelDemo';
 import { MusicDemo } from './MusicDemo';
 import { PagedDemo } from './PagedDemo';
@@ -80,6 +82,9 @@ export function ModulesDemo() {
       <MusicDemo />
       <ModelDemo />
       <ThreeDemo />
+      <CocDemo />
+      <GridDemo />
+      <MapGridDemo />
     </div>
   );
 }
