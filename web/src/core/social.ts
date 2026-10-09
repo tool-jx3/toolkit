@@ -4,6 +4,7 @@
  * - X 的字數：`xPostLength`（簡易計算：拉丁、一般標點算 1，其他算 2）、上限 `X_POST_LIMIT`
  * - X 的發文網址：`xIntentUrl`
  * - Unicode 的花式英數字（數學英數字區的粗體、斜體、等寬…與小型大寫）：`toUnicodeStyle`、`UNICODE_TEXT_STYLES`
+ * - 編輯欄的插入（可以自成一行）與用括號包住選取的文字：`insertText`、`wrapText`
  *
  * 規格：docs/refactor/specs/session-report.md 3.3、3.6、3.7。
  */
@@ -31,6 +32,59 @@ export function xPostLength(text: string): number {
 /** 開啟 X 發文畫面的網址（文字原樣編碼，不去空白；要去空白由呼叫端處理） */
 export function xIntentUrl(text: string): string {
   return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+}
+
+/* ---------- 編輯欄的插入與包住（PostEditor 用；P11 團報產生器新增包住與自成一行） ---------- */
+
+/** 把選取範圍夾在文字裡（start ≤ end） */
+function clampRange(value: string, start: number, end: number): [number, number] {
+  const len = value.length;
+  const s = Math.max(0, Math.min(start, len));
+  return [s, Math.max(s, Math.min(end, len))];
+}
+
+/**
+ * 把 [start, end) 換成 text，回傳新文字與插入後的游標位置（插入的文字後面）。
+ * ownLine：插入的內容自成一行——前面有文字而且不是換行時先補一個換行、後面有文字而且不是換行時再補一個
+ * （分隔線不會黏在前後的字上）；游標放在補上的換行後面。
+ */
+export function insertText(
+  value: string,
+  start: number,
+  end: number,
+  text: string,
+  { ownLine = false }: { ownLine?: boolean } = {},
+): { text: string; caret: number } {
+  const [s, e] = clampRange(value, start, end);
+  const before = value.slice(0, s);
+  const after = value.slice(e);
+  let insert = text;
+  if (ownLine) {
+    if (before && !before.endsWith('\n')) insert = `\n${insert}`;
+    if (after && !after.startsWith('\n')) insert = `${insert}\n`;
+  }
+  return { text: before + insert + after, caret: s + insert.length };
+}
+
+/**
+ * 用 open、close 包住 [start, end)（例如「」『』【】），回傳新文字與包住的內容的範圍：
+ * 有選取時選取範圍維持在原本的文字上；沒有選取時插入一對括號、游標放在兩個括號中間。
+ */
+export function wrapText(
+  value: string,
+  start: number,
+  end: number,
+  open: string,
+  close: string,
+): { text: string; start: number; end: number } {
+  const [s, e] = clampRange(value, start, end);
+  const inner = value.slice(s, e);
+  const from = s + open.length;
+  return {
+    text: value.slice(0, s) + open + inner + close + value.slice(e),
+    start: from,
+    end: from + inner.length,
+  };
 }
 
 /* ---------- Unicode 花式英數字 ---------- */

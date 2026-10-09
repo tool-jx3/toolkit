@@ -12,8 +12,33 @@ interface Token {
 
 /**
  * 一行拆成「詞」：中文字一字一詞；連續的西文或韓文（中間沒有空白）是一個詞，不從中間斷開。
+ * 緊接在字後面（中間沒有空白）的半形行首禁則標點（! . , ? ) 等）黏在前一個詞上，例如「찾아볼래요!」「雨!」，
+ * 換行時和前面的字一起移動，不會單獨落在下一行行首（crossword 對等驗證 F29；同 CSS 的禁則）。
  */
 export function tokenize(chars: readonly string[]): Token[] {
+  return attachClosingPunct(splitTokens(chars));
+}
+
+/** 詞開頭的半形行首禁則標點移到前一個詞（前一個不是空白時）；移完是空的詞拿掉 */
+function attachClosingPunct(tokens: Token[]): Token[] {
+  const out: Token[] = [];
+  for (const tok of tokens) {
+    const prev = out[out.length - 1];
+    if (tok.word && prev && !prev.space) {
+      let n = 0;
+      while (n < tok.chars.length && NO_LINE_START.has(tok.chars[n])) n++;
+      if (n > 0) {
+        out[out.length - 1] = { ...prev, chars: [...prev.chars, ...tok.chars.slice(0, n)] };
+        if (n < tok.chars.length) out.push({ ...tok, chars: tok.chars.slice(n) });
+        continue;
+      }
+    }
+    out.push(tok);
+  }
+  return out;
+}
+
+function splitTokens(chars: readonly string[]): Token[] {
   const out: Token[] = [];
   const wordy = (c: string) => !isBlankChar(c) && (!isWide(c) || isHangul(c));
   let i = 0;
@@ -91,6 +116,11 @@ export function wrapChars(chars: readonly string[], limit: number, unit: UnitFn)
         }
         pushChar(c);
       }
+      continue;
+    }
+    /* 空的一行放不下（字比上限寬）：直接放，不多出空行 */
+    if (cur.length === 0) {
+      tok.chars.forEach(pushChar);
       continue;
     }
     const carry: string[] = [];

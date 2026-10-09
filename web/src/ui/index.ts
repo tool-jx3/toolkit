@@ -250,6 +250,7 @@ export {
 } from './PostEditor';
 export { ProgressBar, type ProgressBarProps } from './ProgressBar';
 export {
+  type ProjectLoadResult,
   ProjectMenu,
   ProjectMenuItem,
   type ProjectMenuProps,

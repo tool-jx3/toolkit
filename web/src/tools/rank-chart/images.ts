@@ -12,7 +12,7 @@ import {
   type PhotoRef,
   THUMB_SIZE,
 } from './model';
-import { assets, markFresh, putImage } from './store';
+import { assets, putImage } from './store';
 import { S } from './strings';
 
 export class PhotoError extends Error {}
@@ -61,7 +61,6 @@ export async function storePhoto(file: File, maxSide: number): Promise<StoredPho
   }
   const blob = await shrink(file, src, maxSide);
   const added = await assets.add(blob);
-  markFresh(added.id);
   const bitmap = blob === file ? src : await assets.bitmap(added.id);
   if (blob !== file) src.close?.();
   if (!bitmap) throw new PhotoError(S.decodeError(file.name));
@@ -98,7 +97,6 @@ export async function storeThumb(
   const canvas = drawThumb(img, size, crop);
   const blob = await canvasToBlob(canvas, 'image/png');
   const added = await assets.add(blob);
-  markFresh(added.id);
   const bmp = await createImageBitmap(canvas);
   putImage(added.id, bmp);
   return { id: added.id, persisted: added.persisted };

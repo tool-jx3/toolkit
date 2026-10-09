@@ -138,6 +138,7 @@ export function App() {
             resetToolStore(useCombiner);
             select(null);
             useUi.setState({ zoom: 'fit' });
+            /* 清掉的動圖已經沒人用（復原紀錄也清了）：從瀏覽器刪掉、釋放解碼好的影格 */
             void collectGarbage();
           }}
           resetText={{

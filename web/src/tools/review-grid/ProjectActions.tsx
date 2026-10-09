@@ -37,8 +37,10 @@ export function ProjectActions() {
       }}
       openedMessage={S.projectOpened}
       onLoad={async (data, _file, files) => {
-        replaceAll(await importProject(data, files));
-        return true;
+        const r = await importProject(data, files);
+        replaceAll(r.state);
+        /* 圖片存不進瀏覽器：和「已開啟專案檔」合成一則 */
+        return { warnings: [r.notSaved && S.imageNotSaved] };
       }}
       onForeignFile={async (_file, bytes) => {
         const r = await openLegacyFile(bytes);

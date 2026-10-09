@@ -11,10 +11,18 @@
  * - 自動儲存與還原（含圖片）、復原／重做；專案檔 ZIP（內容、重設、開啟、缺圖片）；觸控；
  * - 原作的檔案：原作 R 的專案 JSON（開啟專案檔）、原作 Q 的全部備份碼（貼上原作的備份碼…）；
  * - 對等驗證後的修正（規格 7.1）：開頁的圖片整理保留新增區的圖、存檔時讀不到的圖、一批的結果合成一則通知、方向鍵的焦點條件、排序前離開文字欄；
+ * - 圖片資產稽核：開專案檔時圖片寫得很慢，開頁的整理不刪已經寫好、還沒換上的圖；IndexedDB 不能用時「已開啟專案檔」同一則提醒；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準。
  */
 import { readFileSync } from 'node:fs';
-import { type BrowserContext, expect, type Locator, type Page, test } from '@playwright/test';
+import {
+  type Browser,
+  type BrowserContext,
+  expect,
+  type Locator,
+  type Page,
+  test,
+} from '@playwright/test';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
@@ -1489,6 +1497,127 @@ test('7.1 排序：從把手拖曳排序時文字欄先離開，之後 Ctrl＋Z 
 });
 
 /* ---------- 版面 ---------- */
+
+/* ---------- 圖片資產稽核：開頁的圖片整理、開專案檔的提醒 ---------- */
+
+/** IndexedDB 的寫入（readwrite 交易的完成通知）延後 delay 毫秒：模擬慢的儲存空間 */
+function slowIdb(delay: number) {
+  const desc = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete');
+  if (!desc?.set || !desc.get) return;
+  const { get, set } = desc;
+  Object.defineProperty(IDBTransaction.prototype, 'oncomplete', {
+    configurable: true,
+    get() {
+      return get.call(this);
+    },
+    set(fn) {
+      if (this.mode !== 'readwrite' || typeof fn !== 'function') {
+        set.call(this, fn);
+        return;
+      }
+      set.call(this, (e: Event) => setTimeout(() => fn.call(this, e), delay));
+    },
+  });
+}
+
+/** 圖片庫（IndexedDB）裡有幾張圖（資料庫還沒建立時 0；不替工具建立空的資料庫） */
+async function storedImages(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const name = 'trpg-toolkit:tool:char-chart:assets';
+    const dbs = await indexedDB.databases();
+    if (!dbs.some((d) => d.name === name)) return 0;
+    const db = await new Promise<IDBDatabase | null>((res) => {
+      const req = indexedDB.open(name);
+      req.onupgradeneeded = () => req.transaction?.abort();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => res(null);
+    });
+    if (!db) return 0;
+    let n = 0;
+    for (const store of [...db.objectStoreNames]) {
+      const tx = db.transaction(store, 'readonly');
+      n += await new Promise<number>((res) => {
+        const r = tx.objectStore(store).count();
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => res(0);
+      });
+    }
+    db.close();
+    return n;
+  });
+}
+
+/** 有 n 個帶圖片角色的專案檔 ZIP（在另一個瀏覽器環境裡做） */
+async function imagesProjectZip(browser: Browser, n: number): Promise<Buffer> {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  await open(page);
+  const colors = ['#d03030', '#30a040', '#3050d0', '#c0a020'];
+  const files = [];
+  for (let i = 0; i < n; i++)
+    files.push(file(`角色${i + 1}.png`, await solidPng(colors[i % colors.length], 300, 300)));
+  await batchInput(page).setInputFiles(files);
+  await expect.poll(async () => (await state(page)).characters.length).toBe(n);
+  await page.getByRole('button', { name: '專案' }).click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+  ]);
+  const bytes = readFileSync((await dl.path()) as string);
+  await ctx.close();
+  return bytes;
+}
+
+const sinceLoad = (page: Page) => page.evaluate(() => performance.now());
+
+test('圖片資產稽核：開專案檔時圖片寫得很慢，開頁約 5 秒的整理也不刪已經寫好、還沒換上的圖', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  const zip = await imagesProjectZip(browser, 3);
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  await page.addInitScript(slowIdb, 2500);
+  const errors = await open(page);
+  /* 三張圖依序寫入，每張 2.5 秒：開頁 5 秒的整理時第一張已經寫好、第二張在寫、整個專案還沒換上 */
+  await openProjectFile(page, 'slow.zip', zip, 'application/zip');
+  await expect(toast(page, '已開啟專案檔。')).toBeVisible({ timeout: 20_000 });
+  expect((await state(page)).characters.filter((c) => c.image)).toHaveLength(3);
+  /* 整理與寫入都結束之後：三張都在這個瀏覽器裡，重新整理後讀得回來 */
+  await page.waitForTimeout(Math.max(0, 13_000 - (await sinceLoad(page))));
+  expect(await storedImages(page)).toBe(3);
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: '角色分析圖產生器' })).toBeVisible();
+  await page.waitForTimeout(1500);
+  await expect(page.getByText('有些角色的圖片讀不到了')).toHaveCount(0);
+  expect(await storedImages(page)).toBe(3);
+  expect(errors).toEqual([]);
+  await ctx.close();
+});
+
+test('圖片資產稽核：IndexedDB 不能用時開啟專案檔，「已開啟專案檔」同一則通知提醒圖片重新整理後會不見', async ({
+  browser,
+}) => {
+  const zip = await imagesProjectZip(browser, 2);
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'indexedDB', { get: () => undefined, configurable: true });
+  });
+  const errors = await open(page);
+  await openProjectFile(page, 'pics.zip', zip, 'application/zip');
+  const item = toastItems(page).filter({ hasText: '已開啟專案檔。' });
+  await expect(item).toBeVisible();
+  await expect(item).toContainText('pics.zip');
+  await expect(item).toContainText(
+    '瀏覽器空間不足或無法存檔：圖片這次可以用，但重新整理之後就不見了。',
+  );
+  await expect(item).toHaveClass(/border-warning/);
+  await expect(toastItems(page)).toHaveCount(1);
+  expect((await state(page)).characters.filter((c) => c.image)).toHaveLength(2);
+  expect(errors).toEqual([]);
+  await ctx.close();
+});
 
 test('390 寬沒有橫向捲動；1280 與 390 的視覺基準', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-10-09T10:00:00+08:00'));

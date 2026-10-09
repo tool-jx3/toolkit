@@ -1,7 +1,8 @@
 /**
- * 團報產生器的預覽：手動編輯的保留（規格 3.8）、復原紀錄（3.9）。
+ * 團報產生器的預覽：手動編輯的保留（規格 3.8）、復原紀錄（3.9）、文字裝飾的分頁（P11 新增）。
  */
 import { describe, expect, it } from 'vitest';
+import { DECORATIONS } from '@/tools/session-report/decorations';
 import {
   applyGenerated,
   clearPreview,
@@ -121,5 +122,29 @@ describe('復原紀錄（3.9）', () => {
   it('重新產生：記一步、捨棄手動編輯', () => {
     const s = regenerate(state({ text: 'gen!', base: 'gen', dirty: true }), 'gen');
     expect(s).toMatchObject({ text: 'gen', base: 'gen', dirty: false, past: ['gen!'] });
+  });
+});
+
+describe('文字裝飾的分頁（P11 新增 F57、F58）', () => {
+  it('四個類型依序：分隔線（自成一行）、括號（包住）、單一符號、點綴（插入）', () => {
+    expect(DECORATIONS.map((g) => [g.id, g.mode])).toEqual([
+      ['lines', 'line'],
+      ['brackets', 'wrap'],
+      ['symbols', 'insert'],
+      ['accents', 'insert'],
+    ]);
+  });
+  it('括號：每一個都有左右兩邊，「」『』【】在最前面；同一類型裡按鈕字樣不重複', () => {
+    const brackets = DECORATIONS.find((g) => g.id === 'brackets')!;
+    expect(brackets.items.every((it) => it.value && it.close)).toBe(true);
+    expect(brackets.items.slice(0, 3).map((it) => it.value + it.close)).toEqual([
+      '「」',
+      '『』',
+      '【】',
+    ]);
+    for (const g of DECORATIONS) {
+      expect(new Set(g.items.map((it) => it.label)).size).toBe(g.items.length);
+      if (g.mode !== 'wrap') expect(g.items.every((it) => it.close === undefined)).toBe(true);
+    }
   });
 });

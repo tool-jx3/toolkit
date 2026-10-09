@@ -368,6 +368,8 @@ export const S = {
     resetDescription: '所有角色卡與頭像都會刪除，只留一張新的角色卡（可以復原）。',
     invalid: '專案檔的內容無法使用。',
     missingImages: (n: number) => `專案檔裡有 ${n} 張頭像找不到，這些角色卡的頭像會是空白。`,
+    notSaved:
+      '瀏覽器的空間不足（或無法使用），專案檔裡的頭像只在這次開啟時有效；重新整理後要再開一次專案檔。',
   },
   migrate: {
     autosaveTitle: '自動儲存的角色卡',

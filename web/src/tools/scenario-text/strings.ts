@@ -22,6 +22,7 @@ export const S = {
   openedLegacy: (name: string, n: number) =>
     `已開啟原作的專案檔「${name}」${n ? `，圖片 ${n} 張放進了圖片庫` : ''}（可以復原）。`,
   saved: (name: string) => `已存成專案檔「${name}」。`,
+  projectNotSaved: '這個瀏覽器存不了專案檔裡的圖片，重新整理後圖片會讀不到（要再開一次專案檔）。',
   openFailed: (msg: string) => `無法開啟專案檔：${msg}`,
   notProject: '這不是劇本文字產生器的專案檔。',
   openLegacy: '開啟原作的專案檔（.json）…',

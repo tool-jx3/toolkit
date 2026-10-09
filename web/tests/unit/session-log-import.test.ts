@@ -233,6 +233,12 @@ describe('範本 CSV（3.11）', () => {
       '2026-01-01',
     ]);
   });
+
+  it('身分欄的 SKP、サブKP、副KP 都匯入成 SKP（P11 新增 F116）', () => {
+    for (const v of ['SKP', 'skp', 'サブKP', 'サブキーパー', '副KP', '副守密人']) {
+      expect(sheetRowToSession(['霧港', v], ['scenario', 'role'], SELF).role).toBe('SKP');
+    }
+  });
 });
 
 const REPORT_A = [

@@ -25,6 +25,7 @@ import {
   TEMPLATES,
   templateById,
 } from './library';
+import { useMine } from './mine';
 import { type PlayHandle, Preview } from './Preview';
 import { DecoPanel } from './panels/DecoPanel';
 import { ModePanel } from './panels/ModePanel';
@@ -41,11 +42,13 @@ import {
   type Settings,
 } from './settings';
 import {
+  applyMine,
   applyTemplate,
   cfgOf,
   normalizeData,
   replaceAll,
   resetTemplate,
+  saveMine,
   setMode,
   type TfxData,
   TOOL_ID,
@@ -102,9 +105,14 @@ const USAGE = (
       <li>「樣式」「裝飾」可以換字型、顏色、外框、光暈，加上線條、框或色帶。</li>
       <li>
         在預覽下方的「匯出」選格式（APNG、GIF、WebP、PNG、連番
-        PNG）、fps、循環方式與色數，按「匯出」。
+        PNG）、fps、循環方式與色數，按「匯出」。想一次做好幾個，在「一次匯出多個」選
+        <b>每一行各一個</b>（長文是每一頁）或<b>勾選的範本</b>，完成後可以打包成 ZIP。
       </li>
     </ol>
+    <p>
+      調好的設定可以在「模式」的<b>我的範本</b>存起來，之後一鍵套用；也能匯出成範本檔分享給別人。
+      不想要登場動畫時，把「要有登場」關掉，第一格就是完成狀態。
+    </p>
     <p>
       做好的 APNG 背景是透明的，可以直接上傳到 CCFOLIA
       等線上跑團平台，或疊在直播、影片畫面上。檔案超過 5 MB 時建議降低 fps、縮小尺寸或使用 256 色。
@@ -158,6 +166,9 @@ export function App() {
       setMode,
       applyTemplate,
       resetTemplate,
+      mine: () => useMine.getState().data.items,
+      saveMine,
+      applyMine,
       exportApng: () => exportRef.current?.exportNow('apng'),
     };
     window.__textFx = {

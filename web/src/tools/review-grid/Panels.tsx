@@ -71,6 +71,8 @@ import { usePlaceImages } from './usePlaceImages';
 type Bitmaps = ReadonlyMap<string, ImageBitmap>;
 
 const count = (s: string) => Array.from(s).length;
+/** 標籤的文字欄：超過上限的字打不進去 */
+const clipTag = (s: string) => Array.from(s).slice(0, LIMITS.tag).join('');
 
 /* ---------- 小元件 ---------- */
 
@@ -101,7 +103,6 @@ function ImageField({
   bitmaps,
   dropLabel,
   onFiles,
-  onReject,
   onClear,
   testId,
 }: {
@@ -109,7 +110,6 @@ function ImageField({
   bitmaps: Bitmaps;
   dropLabel: string;
   onFiles: (files: File[]) => void;
-  onReject: (files: File[]) => void;
   onClear: () => void;
   testId: string;
 }) {
@@ -136,8 +136,8 @@ function ImageField({
         icon={<ImagePlus />}
         label={image ? S.changeImage : S.dropImage}
         buttonLabel={S.chooseImage}
+        filterByAccept={false}
         onFiles={onFiles}
-        onReject={onReject}
       />
     </div>
   );
@@ -213,7 +213,7 @@ export function LayoutSection() {
 
 export function ProfileSection({ bitmaps }: { bitmaps: Bitmaps }) {
   const profile = useReview((s) => s.data.profile);
-  const { place, reject } = usePlaceImages();
+  const { place } = usePlaceImages();
   return (
     <div id="rg-profile" className="scroll-mt-16">
       <Section
@@ -227,8 +227,7 @@ export function ProfileSection({ bitmaps }: { bitmaps: Bitmaps }) {
             bitmaps={bitmaps}
             dropLabel={S.avatarDrop}
             testId="avatar-field"
-            onFiles={(f) => void place(f.slice(0, 1), { kind: 'profile' })}
-            onReject={reject}
+            onFiles={(f) => void place(f, { kind: 'profile' }, { max: 1 })}
             onClear={() => setProfileImage(null)}
           />
         </Field>
@@ -258,7 +257,7 @@ export function CellsSection({ bitmaps }: { bitmaps: Bitmaps }) {
   const selectedId = useUi((s) => s.selectedId);
   const selected = useReview((s) => selectedCellOf(s.data, selectedId));
   const toast = useToast();
-  const { place, reject } = usePlaceImages();
+  const { place } = usePlaceImages();
   const full = cells.length >= LIMITS.cells;
   return (
     <Section
@@ -349,8 +348,8 @@ export function CellsSection({ bitmaps }: { bitmaps: Bitmaps }) {
           label={S.batchDrop}
           hint={S.batchHint}
           buttonLabel={S.chooseImage}
+          filterByAccept={false}
           onFiles={(f) => void place(f, null)}
-          onReject={reject}
         />
       </Field>
     </Section>
@@ -364,7 +363,7 @@ export function CellEditor({ bitmaps }: { bitmaps: Bitmaps }) {
   const cell = useReview((s) => selectedCellOf(s.data, selectedId));
   const index = useReview((s) => s.data.cells.findIndex((c) => c.id === cell.id));
   const view = useReview((s) => s.data.view);
-  const { place, reject } = usePlaceImages();
+  const { place } = usePlaceImages();
   const set = (key: CellText) => (v: string) => setCellText(cell.id, key, v);
   return (
     <div id="rg-cell-editor" className="scroll-mt-16">
@@ -376,8 +375,7 @@ export function CellEditor({ bitmaps }: { bitmaps: Bitmaps }) {
               bitmaps={bitmaps}
               dropLabel={S.cellImageDrop}
               testId="cell-image-field"
-              onFiles={(f) => void place(f.slice(0, 1), { kind: 'cell', id: cell.id })}
-              onReject={reject}
+              onFiles={(f) => void place(f, { kind: 'cell', id: cell.id }, { max: 1 })}
               onClear={() => setCellImage(cell.id, null)}
             />
           </Field>
@@ -513,7 +511,7 @@ function TagPicker({ cell }: { cell: Cell }) {
               placeholder={S.quickTagPlaceholder}
               invalid={!!error}
               onChange={(e) => {
-                setDraft(e.target.value);
+                setDraft(clipTag(e.target.value));
                 setError(null);
               }}
               onKeyDown={(e) => {
@@ -523,11 +521,18 @@ function TagPicker({ cell }: { cell: Cell }) {
                 }
               }}
             />
-            {error ? (
-              <p className="m-0 mt-1 text-xs text-danger" role="alert">
-                {error}
-              </p>
-            ) : null}
+            <div className="mt-1 flex items-start gap-2 text-xs">
+              {error ? (
+                <p className="m-0 flex-1 text-danger" role="alert">
+                  {error}
+                </p>
+              ) : (
+                <span className="flex-1" />
+              )}
+              <span className="shrink-0 text-muted tabular-nums" data-testid="quick-tag-count">
+                {S.tagCount(count(draft), LIMITS.tag)}
+              </span>
+            </div>
           </div>
           <Button icon={<Plus />} onClick={quickAdd}>
             {S.quickTagAdd}
@@ -602,6 +607,7 @@ export function TagsSection() {
             </span>
             <TagText
               tag={t}
+              used={S.tagUsed(tagUsage(cells, t))}
               onCommit={(v) => {
                 const err = renameTag(index, v);
                 if (err)
@@ -613,9 +619,7 @@ export function TagsSection() {
                 return !err;
               }}
             />
-            <span className="w-10 shrink-0 text-right text-xs text-muted tabular-nums">
-              {S.tagUsed(tagUsage(cells, t))}
-            </span>
+
             <IconButton
               size="sm"
               variant="ghost"
@@ -626,13 +630,21 @@ export function TagsSection() {
           </div>
         )}
       />
-      <Field label={S.newTag} error={error ?? undefined}>
+      <Field
+        label={S.newTag}
+        error={error ?? undefined}
+        labelSuffix={
+          <span className="tabular-nums" data-testid="new-tag-count">
+            {S.tagCount(count(draft), LIMITS.tag)}
+          </span>
+        }
+      >
         <div className="flex min-w-0 gap-2">
           <TextInput
             value={draft}
             placeholder={S.newTagPlaceholder}
             onChange={(e) => {
-              setDraft(e.target.value);
+              setDraft(clipTag(e.target.value));
               setError(null);
             }}
             onKeyDown={(e) => {
@@ -668,32 +680,55 @@ export function TagsSection() {
   );
 }
 
-/** 標籤的文字欄：Enter 或離開時套用，Esc 還原；不能用（空白、重複）時還原 */
-function TagText({ tag, onCommit }: { tag: string; onCommit: (v: string) => boolean }) {
+/**
+ * 標籤的文字欄：Enter 或離開時套用，Esc 還原；不能用（空白、重複）時還原。
+ * 右邊平常是用了幾格，改字時換成「字數／上限」（超過上限的字打不進去）。
+ */
+function TagText({
+  tag,
+  used,
+  onCommit,
+}: {
+  tag: string;
+  used: string;
+  onCommit: (v: string) => boolean;
+}) {
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
     if (draft !== null && draft !== tag) onCommit(draft);
     setDraft(null);
   };
   return (
-    <div className="min-w-0 flex-1">
-      <TextInput
-        aria-label={S.tagText(tag)}
-        value={draft ?? tag}
-        onFocus={() => setDraft(tag)}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            e.currentTarget.blur();
-          } else if (e.key === 'Escape') {
-            e.preventDefault();
-            setDraft(tag);
-            requestAnimationFrame(() => (e.target as HTMLInputElement).blur());
-          }
-        }}
-      />
-    </div>
+    <>
+      <div className="min-w-0 flex-1">
+        <TextInput
+          aria-label={S.tagText(tag)}
+          value={draft ?? tag}
+          onFocus={() => setDraft(tag)}
+          onChange={(e) => setDraft(clipTag(e.target.value))}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              e.currentTarget.blur();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setDraft(tag);
+              requestAnimationFrame(() => (e.target as HTMLInputElement).blur());
+            }
+          }}
+        />
+      </div>
+      {draft !== null ? (
+        <span
+          className="w-12 shrink-0 text-right text-xs text-muted tabular-nums"
+          data-testid="tag-text-count"
+        >
+          {S.tagCount(count(draft), LIMITS.tag)}
+        </span>
+      ) : (
+        <span className="w-12 shrink-0 text-right text-xs text-muted tabular-nums">{used}</span>
+      )}
+    </>
   );
 }

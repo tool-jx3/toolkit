@@ -79,6 +79,8 @@ export function galleryVariant(kind: GalleryKind, id: string, base: Settings): S
   const c = deepClone(base);
   c.preBlank = 0.15;
   c.postBlank = 0.1;
+  /* 登場效果、長文流程、每個字的一覽一定要有登場動畫（登場關閉時也示範） */
+  if (kind === 'intro' || kind === 'flow' || kind === 'char') c.introOn = true;
   if (c.mode === 'long') {
     c.text = firstPage(c.text);
     c.paging = false;

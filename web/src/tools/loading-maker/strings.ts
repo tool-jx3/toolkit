@@ -48,6 +48,8 @@ export const S = {
     loadWhileExporting: '匯出中無法開啟專案檔，請等匯出結束。',
     staleLoad: '載入途中有其他編輯，這次載入已取消。',
     notPersisted: '瀏覽器空間不足，這次上傳的圖片只在目前開著的頁面有效，重新整理後會消失。',
+    projectNotPersisted:
+      '瀏覽器空間不足或無法儲存，專案檔裡的圖片只在目前開著的頁面有效，重新整理後會消失。',
     skipped: (n: number) => `（略過 ${n} 個不是圖片的檔案）`,
     decodeFailed: (msg: string) => `${msg} 已改回內建角色。`,
     restoreFailed: '找不到之前上傳的圖片（瀏覽器的資料可能已被清除），已改用內建角色與底形。',

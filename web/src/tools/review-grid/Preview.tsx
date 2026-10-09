@@ -46,7 +46,7 @@ export function PreviewArea() {
   const d = useReview((s) => s.data);
   const selectedId = useUi((s) => s.selectedId);
   const { bitmaps, missing } = useImageBitmaps(imageIds(d));
-  const { place, reject } = usePlaceImages();
+  const { place } = usePlaceImages();
 
   /* 字型：用到的字載入後重新排版（字寬會變） */
   const fontsKey = useMemo(() => JSON.stringify(cardFontUses(d)), [d]);
@@ -173,12 +173,11 @@ export function PreviewArea() {
       <p className="m-0 text-xs text-muted" data-testid="preview-hint">
         {S.hint}
       </p>
+      {/* 不先濾掉不是圖片的檔：同一批的結果合成一則通知（規格 F14） */}
       <WindowDrop
-        accept="image/*"
         label={S.windowDrop}
         hint={S.windowDropHint}
         onDrop={(files, at) => void place(files, targetAt(at.clientX, at.clientY))}
-        onReject={reject}
       />
     </div>
   );

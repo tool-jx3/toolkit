@@ -5,7 +5,7 @@
 import { importAssetFiles, referencedAssetIds } from '@/core/assets';
 import { ProjectFileError, resetToolStore } from '@/core/storage';
 import { isDemoImage } from './demo';
-import { assets, forgetImage, sessionAssets } from './media';
+import { assets, forgetImage } from './media';
 import { imageIdsOf, type Kind, normalizeKind, normalizeSettings, type Settings } from './model';
 import { kindNow, PROJECT_VERSION, setKind, settingsNow, useSettings, useView } from './store';
 import { S } from './strings';
@@ -36,21 +36,18 @@ function dropImages(s: Settings, keep: (id: string) => boolean): number {
   return n;
 }
 
-/** 開啟專案檔；回傳拿掉的圖片數 */
+/** 開啟專案檔；回傳拿掉的圖片數與存不進瀏覽器的圖片數 */
 export async function openProject(
   data: unknown,
   version: number,
   files: Map<string, Uint8Array>,
-): Promise<number> {
+): Promise<{ dropped: number; notPersisted: number }> {
   if (version > PROJECT_VERSION) throw new ProjectFileError(S.project.newer);
   const raw = data && typeof data === 'object' ? (data as Partial<ProjectData>) : null;
   const settings = normalizeSettings(raw?.settings);
   if (!raw || !settings) throw new ProjectFileError(S.project.invalid);
   const imported = await importAssetFiles(assets, files);
-  for (const id of imported.ids) {
-    forgetImage(id);
-    sessionAssets.add(id);
-  }
+  for (const id of imported.ids) forgetImage(id);
   const present = new Set<string>();
   for (const id of imageIdsOf(settings)) if (await assets.get(id)) present.add(id);
   const dropped = dropImages(settings, (id) => present.has(id));
@@ -58,25 +55,26 @@ export async function openProject(
   useSettings.getState().replace(settings);
   useSettings.temporal.getState().clear();
   setKind(normalizeKind(raw.kind));
-  void collectGarbage();
-  return dropped;
+  void collectGarbage({ keepThisSession: true });
+  return { dropped, notPersisted: imported.notPersisted };
 }
 
-/** 清掉沒有人用的圖片（目前的設定＋復原／重做歷史） */
-export async function collectGarbage(): Promise<void> {
+/**
+ * 清掉沒有人用的圖片（目前的設定＋復原／重做歷史）。keepThisSession：這次開頁放進來的也保留
+ * （assets.gcStale；開頁時、開啟專案檔之後，避免和進行中的加入互相干擾）；全部重來時照常刪（gc）。
+ */
+export async function collectGarbage({ keepThisSession = false } = {}): Promise<void> {
   try {
     const keep = referencedAssetIds(useSettings, (d) => imageIdsOf(d));
-    for (const id of sessionAssets) keep.add(id);
-    await assets.gc(keep);
+    await (keepThisSession ? assets.gcStale(keep) : assets.gc(keep));
   } catch {
     /* 清不掉就下次再清 */
   }
 }
 
-/** 全部重來：回到示範內容、清掉圖片 */
+/** 全部重來：回到示範內容、清掉圖片（這次開頁放進來的也從瀏覽器刪掉） */
 export function resetAll(): void {
   resetToolStore(useSettings);
   useView.getState().reset();
-  sessionAssets.clear();
   void collectGarbage();
 }

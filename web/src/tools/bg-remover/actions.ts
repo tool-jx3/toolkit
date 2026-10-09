@@ -210,18 +210,18 @@ export async function projectFiles() {
   return assets.exportFiles(ids);
 }
 
-/** 開啟專案檔；回傳找不到的圖片數（已從清單拿掉） */
+/** 開啟專案檔；回傳找不到的圖片數（已從清單拿掉）與存不進瀏覽器的檔案數 */
 export async function openProject(
   data: unknown,
   version: number,
   files: Map<string, Uint8Array>,
-): Promise<number> {
+): Promise<{ missing: number; notPersisted: number }> {
   if (version > PROJECT_VERSION) throw new ProjectFileError(S.project.newer);
   if (!data || typeof data !== 'object' || Array.isArray(data))
     throw new ProjectFileError(S.project.invalid);
   const s = normalizeSettings(data);
   const rawMasks = (data as { aiMasks?: unknown }).aiMasks;
-  await importAssetFiles(assets, files);
+  const { notPersisted } = await importAssetFiles(assets, files);
   let missing = 0;
   const kept: ImageItem[] = [];
   for (const it of s.images) {
@@ -243,7 +243,7 @@ export async function openProject(
     d.current = s.images[0]?.id ?? null;
   });
   void collectGarbage();
-  return missing;
+  return { missing, notPersisted };
 }
 
 /** 全部重來：清單、筆刷、設定都清掉（下載好的模型、預覽背景留著） */

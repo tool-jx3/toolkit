@@ -55,6 +55,7 @@ import {
   parseImportJson,
   passesFilter,
   restoreLogData,
+  roleKind,
   systemFilterValues,
   systemInput,
   timeDisplay,
@@ -496,6 +497,7 @@ describe('新增／編輯對話框的選單（F48）', () => {
     expect(dialogChoice('role', 'ST')).toBe('PL');
     expect(dialogChoice('role', 'KP')).toBe('KP');
     expect(dialogChoice('role', 'DL')).toBe('DL');
+    expect(dialogChoice('role', 'SKP')).toBe('SKP');
     expect(dialogChoice('status', '')).toBe('新規');
     expect(dialogChoice('status', 'ended')).toBe('新規');
     expect(dialogChoice('status', '進行中')).toBe('新規');
@@ -504,6 +506,40 @@ describe('新增／編輯對話框的選單（F48）', () => {
     expect(dialogChoice('survival', '半生還')).toBe('');
     expect(dialogChoice('survival', 'ロスト')).toBe('ロスト');
     expect(dialogChoice('survival', '')).toBe('');
+  });
+});
+
+describe('SKP（副 KP，P11 新增 F115）', () => {
+  const skp = row('k1', {
+    dates: ['2026-04-01'],
+    scenario: '燈塔',
+    system: 'CoC 7版',
+    role: 'SKP',
+    gm: '小林',
+    players: '阿德',
+  });
+  it('身分篩選「GM・KP・SKP・DL」包含 SKP；標籤顏色同 GM 組', () => {
+    const ids = (r: SessionRow[]) => r.map((x) => x.id);
+    expect(ids(filterRows([...ROWS, skp], { ...DEFAULT_FILTER, role: 'GM' }))).toEqual([
+      'k1',
+      'r3',
+      'r4',
+    ]);
+    expect(ids(filterRows([...ROWS, skp], { ...DEFAULT_FILTER, role: 'PL' }))).toEqual([
+      'r2',
+      'r1',
+    ]);
+    expect(roleKind('SKP')).toBe('gm');
+  });
+  it('清單輸出：依 PL／KP 算在 KP / GM；場次明細寫 KP/GM', () => {
+    expect(buildExportText([skp], 'role')).toBe(
+      ['■ 以 KP / GM 身分通關（1 部）', '【CoC 7版】', '　1PL', '　　1. 燈塔'].join('\n'),
+    );
+    expect(buildExportText([skp], 'sessions')).toContain('2026-04-01　CoC 7版　KP/GM　燈塔');
+  });
+  it('存檔讀回：SKP 照原樣（不是 GM）', () => {
+    const data = restoreLogData({ rows: [{ ...skp }] });
+    expect(data?.rows[0].role).toBe('SKP');
   });
 });
 

@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { canvasToBlob, detectImageType, loadImage, resizeImage } from '@/core/image';
 import { IMAGE_MAX_SIDE, type ImageRef } from './model';
-import { assets, markSessionImage } from './store';
+import { assets } from './store';
 
 export class ImageLoadError extends Error {
   constructor(readonly fileName: string) {
@@ -50,7 +50,6 @@ export async function loadCharacterImage(
     bmp.close?.();
   }
   const added = await assets.add(blob);
-  markSessionImage(added.id);
   const check = await assets.bitmap(added.id).catch(() => undefined);
   if (!check) {
     await assets.remove(added.id).catch(() => undefined);

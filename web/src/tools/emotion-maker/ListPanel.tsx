@@ -247,7 +247,11 @@ export function ListPanel() {
       notify(
         S.imported(merged.expressions.length),
         stored.notPersisted ? 'warning' : 'success',
-        stored.notPersisted ? S.partsNotSaved(stored.notPersisted) : undefined,
+        stored.notPersisted
+          ? stored.reason === 'unavailable'
+            ? S.partsUnavailable
+            : S.partsNotSaved(stored.notPersisted)
+          : undefined,
       );
     } catch (e) {
       notify(

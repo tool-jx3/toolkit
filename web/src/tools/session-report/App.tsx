@@ -253,7 +253,13 @@ export function App() {
           <PendingImport />
           <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,560px)]">
             <section aria-label="輸入" className="order-2 min-w-0 lg:order-1">
-              <InputPanel today={today} onInsert={(t) => editor.current?.insert(t)} />
+              <InputPanel
+                today={today}
+                decorations={{
+                  insert: (t, ownLine) => editor.current?.insert(t, { ownLine }),
+                  wrap: (open, close) => editor.current?.wrap(open, close),
+                }}
+              />
             </section>
             <section
               aria-label="預覽"

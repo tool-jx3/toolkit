@@ -13,7 +13,7 @@ import {
   withShortcut,
 } from '@/ui';
 import {
-  collectGarbage,
+  cleanupOnOpen,
   dropFiles,
   notify,
   openProject,
@@ -162,9 +162,9 @@ export function App() {
   useMediaSync();
   useFontSync();
   useTestHook();
-  /* 開頁時清掉沒有用到的檔案 */
+  /* 開頁時清掉以前留下、沒有用到的檔案 */
   useEffect(() => {
-    void collectGarbage();
+    void cleanupOnOpen();
   }, []);
 
   const shortcuts = useMemo<Shortcut[]>(
@@ -255,9 +255,10 @@ export function App() {
             onLoad={async (data, project, files) => {
               /* 選檔視窗開著時開始匯出：說明原因（不要回傳 false，那會被當成專案檔的內容不能用） */
               if (useSession.getState().exporting) throw new Error(S.toast.busy);
-              const missing = await openProject(data, project.version, files);
-              if (missing) notify({ title: S.project.missing(missing), tone: 'warning' });
-              return true;
+              const r = await openProject(data, project.version, files);
+              if (r.missing) notify({ title: S.project.missing(r.missing), tone: 'warning' });
+              /* 存不進瀏覽器：和「已開啟專案檔」合成一則 */
+              return { warnings: [r.notPersisted > 0 && S.project.notPersisted] };
             }}
             onReset={resetAll}
             resetText={{ title: S.project.resetTitle, description: S.project.resetText }}

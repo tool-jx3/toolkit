@@ -88,18 +88,15 @@ export async function addFile(file: Blob): Promise<AddedFile> {
   return { asset: r.id, media, persisted: r.persisted, reason: r.reason };
 }
 
-/** 這次開頁之後加入的檔案（清理時一律保留，避免和進行中的加入互相干擾） */
-const sessionIds = new Set<string>();
-export const markSessionAsset = (id: string): void => {
-  sessionIds.add(id);
-};
-
-/** 清掉沒有人用的檔案（目前的畫布＋復原／重做歷史＋這次開頁加入的都保留） */
-export async function collectGarbage(): Promise<void> {
+/**
+ * 清掉沒有人用的檔案（目前的畫布＋復原／重做歷史都保留），解碼好的影格一起釋放。
+ * 開頁時（onOpen）只清以前留下的（gcStale：這次開頁加入、讀到一半的檔案不刪，避免和進行中的加入互相干擾）；
+ * 全部重設、開了別的專案檔之後照常釋放（gc：這次開頁加入、已經不用的也刪）。
+ */
+export async function collectGarbage({ onOpen = false } = {}): Promise<void> {
   const keep = referencedAssetIds(useCombiner, (d) => d.items.map((it) => it.asset));
-  for (const id of sessionIds) keep.add(id);
   try {
-    const removed = await assets.gc(keep);
+    const removed = await (onOpen ? assets.gcStale(keep) : assets.gc(keep));
     if (!removed.length) return;
     useMedia.setState((s) => {
       const media = { ...s.media };

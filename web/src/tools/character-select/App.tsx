@@ -197,10 +197,10 @@ export function App() {
   /* 正在指定目標的玩家要在播放的玩家裡 */
   // biome-ignore lint/correctness/useExhaustiveDependencies: 玩家設定改了才檢查
   useEffect(() => syncEditingPlayer(settingsNow()), [players]);
-  /* 開頁時清掉沒有用到的圖片（IndexedDB） */
+  /* 開頁時清掉以前留下、沒有用到的圖片（IndexedDB；這次開頁放進來、還沒寫進設定的不刪） */
   useEffect(() => {
     void assets
-      .gc(
+      .gcStale(
         referencedAssetIds(useSettings, (d) =>
           [...d.characters.map((c) => c.image), d.background.image].filter(
             (id): id is string => !!id && !isDemoImage(id),
@@ -261,8 +261,9 @@ export function App() {
             }}
             onLoad={async (data, project, files) => {
               const r = await openProject(data, project.version, files);
-              if (typeof r === 'number') notify({ title: S.project.missing(r), tone: 'warning' });
-              return true;
+              if (r.missing) notify({ title: S.project.missing(r.missing), tone: 'warning' });
+              /* 圖片存不進瀏覽器：和「已開啟專案檔」合成一則 */
+              return { warnings: [r.notPersisted > 0 && S.project.projectNotPersisted] };
             }}
             onReset={resetAll}
             resetText={{ title: S.project.resetTitle, description: S.project.resetText }}
@@ -275,9 +276,17 @@ export function App() {
                   const [file] = await pickFiles({ accept: '.json,application/json' });
                   if (!file) return;
                   try {
-                    const skipped = await openLegacyProject(await file.text());
-                    notify({ title: S.project.legacyOk, tone: 'success' });
-                    if (skipped) notify({ title: S.project.missing(skipped), tone: 'warning' });
+                    const r = await openLegacyProject(await file.text());
+                    /* 同一次匯入的結果合成一則：略過的圖片、存不進瀏覽器 */
+                    const notes = [
+                      r.skipped ? S.project.missing(r.skipped) : '',
+                      r.notPersisted ? S.project.projectNotPersisted : '',
+                    ].filter(Boolean);
+                    notify({
+                      title: S.project.legacyOk,
+                      description: notes.length ? notes.join('') : undefined,
+                      tone: notes.length ? 'warning' : 'success',
+                    });
                   } catch (e) {
                     notify({
                       title:

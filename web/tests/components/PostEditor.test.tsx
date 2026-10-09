@@ -107,6 +107,28 @@ describe('PostEditor', () => {
     expect(onChange).toHaveBeenLastCalledWith('重新產生的團報★', 'insert');
   });
 
+  it('insert({ ownLine })：自成一行；wrap：用括號包住選取的文字、沒有選取時游標在括號中間', async () => {
+    const onChange = vi.fn();
+    const ref = createRef<PostEditorHandle>();
+    render(<Harness initial="甲乙丙" editorRef={ref} onChange={onChange} />);
+    area().focus();
+    area().setSelectionRange(1, 1);
+    act(() => ref.current?.insert('━━', { ownLine: true }));
+    expect(onChange).toHaveBeenLastCalledWith('甲\n━━\n乙丙', 'insert');
+    await waitFor(() => expect(area().selectionStart).toBe(5));
+    /* 選取「乙丙」後包住：選取範圍仍在「乙丙」上 */
+    area().setSelectionRange(5, 7);
+    act(() => ref.current?.wrap('「', '」'));
+    expect(onChange).toHaveBeenLastCalledWith('甲\n━━\n「乙丙」', 'insert');
+    await waitFor(() => expect([area().selectionStart, area().selectionEnd]).toEqual([6, 8]));
+    /* 沒有選取：插入一對括號，游標在中間 */
+    area().setSelectionRange(0, 0);
+    act(() => ref.current?.wrap('【', '】'));
+    expect(onChange).toHaveBeenLastCalledWith('【】甲\n━━\n「乙丙」', 'insert');
+    await waitFor(() => expect([area().selectionStart, area().selectionEnd]).toEqual([1, 1]));
+    expect(document.activeElement).toBe(area());
+  });
+
   it('focus({ atEnd })：游標放在最後', () => {
     const ref = createRef<PostEditorHandle>();
     render(<Harness initial="ABC" editorRef={ref} />);

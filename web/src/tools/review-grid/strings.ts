@@ -85,6 +85,7 @@ export const S = {
   newTag: '新的標籤',
   newTagPlaceholder: '例如 KP 帶得超好',
   addTag: '加入標籤',
+  tagCount: (n: number, max: number) => `${n}／${max}`,
   tagEmpty: '請輸入標籤的文字。',
   tagDuplicate: '清單裡已經有這個標籤。',
   tagListFull: (n: number) => `標籤最多 ${n} 個。`,
@@ -107,6 +108,8 @@ export const S = {
   compareNeedTwo: '請選 2 個以上的檔案（每個檔案是一個人）。',
   compareFailed: (names: string) =>
     `無法讀取「${names}」（不是這個工具的專案檔，也不是原作的資料備份）。`,
+  compareNotProject: (names: string) => `「${names}」不是專案檔（.zip、.json），沒有列入比較。`,
+  compareSkipped: '有檔案沒有列入比較。',
   compareNotEnough: '能讀的檔案不到 2 個，無法比較。',
   compareNoTitle: '這些檔案裡沒有填了劇本名稱的格子，無法比較。',
   compareTitle: '比較圖',

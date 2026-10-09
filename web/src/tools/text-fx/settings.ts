@@ -156,6 +156,8 @@ export interface Settings {
   glow: GlowSettings;
   glitchA: string;
   glitchB: string;
+  /** 登場動畫（P11 新增）：false 時每一頁從頭就是完成狀態（向上捲動不適用） */
+  introOn: boolean;
   intro: MotionSettings;
   subIntro: string;
   subOffset: number;
@@ -245,6 +247,7 @@ export function baseSettings(mode: Mode): Settings {
     glow: { on: false, color: '#8fd3ff', spread: 28, strength: 1 },
     glitchA: '#ff2a6d',
     glitchB: '#23e5ff',
+    introOn: true,
     intro: {
       fx: long ? 'fade' : 'rise',
       dur: long ? 0.6 : 0.8,

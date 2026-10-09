@@ -21,10 +21,13 @@ import {
   usePlayback,
   useWebpSupport,
 } from '@/ui';
+import { BatchField } from './BatchField';
+import { batchByLines, batchByTemplates, batchNames, batchZipName, runBatch } from './batch';
 import { setCfg } from './controls';
 import { MAX_FRAMES, phaseLabel, runExport, sceneSegments } from './exporter';
 import { autoFileName, baseName } from './filename';
 import { templateById } from './library';
+import { useMine } from './mine';
 import type { Scene } from './scene';
 import { FPS_CHOICES, MODES, playsOf, type Settings } from './settings';
 import { setManualName, updateCfg, useReplay, useTfx, useView } from './store';
@@ -152,6 +155,8 @@ export function Preview({
   const view = useView((st) => st.data);
   const mode = useTfx((st) => st.data.mode);
   const tplId = useTfx((st) => st.data.modes[st.data.mode].tpl);
+  const mineId = useTfx((st) => st.data.modes[st.data.mode].mine);
+  const mineName = useMine((st) => st.data.items.find((t) => t.id === mineId)?.name);
   const playback = usePlayback({ duration: scene.duration, loop: view.loop });
   const canvas = useRef<HTMLCanvasElement>(null);
   const webp = useWebpSupport();
@@ -225,7 +230,17 @@ export function Preview({
     quantize: cfg.colors === 256,
   };
   const modeName = MODES.find((m) => m[0] === mode)?.[1] ?? '';
-  const tplName = templateById(mode, tplId).name;
+  /* 套用中的是我的範本時顯示它的名稱 */
+  const tplName =
+    mineName !== undefined ? mineName.trim() || S.mine.unnamed : templateById(mode, tplId).name;
+  const isScroll = cfg.mode === 'long' && cfg.flow.kind === 'scroll';
+  const batchOn = (view.batch ?? 'off') !== 'off';
+  /* 一次匯出多個時不能用連番 PNG（每個都會是一包 ZIP） */
+  const formats = animationFormats(['apng', 'gif', 'webp', 'png', 'zip'], {
+    webpSupported: webp,
+  }).map((f) =>
+    batchOn && f.id === 'zip' ? { ...f, disabled: true, disabledReason: S.batch.zipOff } : f,
+  );
 
   return (
     <>
@@ -275,6 +290,14 @@ export function Preview({
         fps={cfg.fps}
       />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-xs text-muted">
+        {!isScroll ? (
+          <Toggle
+            label={S.introSwitch.bar}
+            checked={cfg.introOn !== false}
+            onCheckedChange={(on) => setCfg('introOn', on)}
+            aria-label={S.introSwitch.barAria}
+          />
+        ) : null}
         <Toggle
           label="退場"
           checked={cfg.outroOn}
@@ -292,7 +315,7 @@ export function Preview({
       <Hints scene={scene} cfg={cfg} />
       <ExportPanel
         ref={exportRef}
-        formats={animationFormats(['apng', 'gif', 'webp', 'png', 'zip'], { webpSupported: webp })}
+        formats={formats}
         baseSize={{ width: scene.W, height: scene.H }}
         fpsOptions={FPS_CHOICES}
         maxPlays={999}
@@ -334,6 +357,7 @@ export function Preview({
               <Toggle checked={cfg.autoCrop} onCheckedChange={(on) => setCfg('autoCrop', on)} />
             </Field>
             <NameField cfg={cfg} />
+            <BatchField cfg={cfg} />
             {view.format === 'png' ? (
               <p className="m-0 text-xs text-muted">{S.export.pngNote}</p>
             ) : null}
@@ -343,6 +367,40 @@ export function Preview({
           const d = useTfx.getState().data;
           const c = d.modes[d.mode].s;
           const p = state.current.playback;
+          const batch = useView.getState().data.batch ?? 'off';
+          if (batch !== 'off') {
+            /* 一次匯出多個（P11）：用目前的匯出設定，預設圖、裁邊照目前的設定 */
+            const picked = useView.getState().data.batchPick?.[d.mode] ?? [];
+            const items =
+              batch === 'lines'
+                ? batchByLines(c)
+                : batchByTemplates(d, picked, useMine.getState().data.items);
+            if (!items.length) throw new Error(batch === 'lines' ? S.export.noText : S.batch.none);
+            for (const it of items) {
+              it.cfg.stillFallback = c.stillFallback;
+              it.cfg.autoCrop = c.autoCrop;
+            }
+            const manual = d.names[d.mode];
+            const kindName =
+              batch === 'templates'
+                ? S.batch.templates
+                : d.mode === 'long'
+                  ? S.batch.pages
+                  : S.batch.lines;
+            return runBatch({
+              items,
+              names: batchNames(items, manual),
+              zipName: batchZipName(batch, c, manual),
+              summary: S.batch.summary(kindName, items.length),
+              format: s.format as AnimationExportFormat,
+              fps: s.fps,
+              plays: s.plays,
+              scale: s.scale,
+              quantize: s.quantize,
+              signal,
+              onProgress,
+            });
+          }
           return runExport({
             cfg: c,
             format: s.format as AnimationExportFormat,

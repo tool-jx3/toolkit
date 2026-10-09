@@ -208,7 +208,7 @@ export function App() {
   const savedAt = useSaveStatus(TOOL_ID);
   const { undo, redo, canUndo, canRedo, clear } = useUndoRedo(useSheets);
 
-  /* 開頁：讀回頭像、清掉沒有用到的圖 */
+  /* 開頁：讀回頭像、清掉以前留下、沒有用到的圖 */
   useEffect(() => {
     void assets.preload(portraitIds(useSheets.getState().data)).then(() => collectPortraits());
   }, []);
@@ -250,7 +250,7 @@ export function App() {
         onLoad={async (raw, _project, files) => {
           const project = readProject(raw);
           if (!project) throw new Error(S.project.invalid);
-          await importAssetFiles(assets, files);
+          const { notPersisted } = await importAssetFiles(assets, files);
           const ids = project.sheets.flatMap((s) => (s.portrait ? [s.portrait.assetId] : []));
           const { missing } = await assets.preload(ids);
           useSheets.getState().replace({ sheets: project.sheets });
@@ -258,7 +258,8 @@ export function App() {
           clear();
           if (missing.length)
             notify({ title: S.project.missingImages(missing.length), tone: 'warning' });
-          return true;
+          /* 頭像存不進瀏覽器：和「已開啟專案檔」合成一則 */
+          return { warnings: [notPersisted > 0 && S.project.notSaved] };
         }}
         onReset={() => {
           resetToolStore(useSheets, { clearHistory: false });

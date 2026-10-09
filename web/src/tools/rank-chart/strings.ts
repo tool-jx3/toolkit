@@ -299,6 +299,8 @@ export const S = {
   projectOpened: '已開啟專案檔，可以開始新的一局。',
   projectBad: '專案檔的內容無法使用。',
   projectMissing: (n: number) => `專案檔裡少了 ${n} 張照片，那些角色改成名字卡。`,
+  projectNotPersisted:
+    '瀏覽器空間不足或無法存檔：專案檔裡的照片這次可以用，但重新整理後就沒了（要再開一次專案檔）。',
   resetTitle: '重設？',
   resetDesc: '設定與名單回到預設（範例名單），這一局也會清掉。設定的部分可以復原。',
   legacyOpen: '開啟原作的設定檔（JSON）…',

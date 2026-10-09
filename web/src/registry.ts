@@ -493,10 +493,34 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把跑過的劇本排成九宮格或清單：每格放劇本的圖、規則、作者，挑最多 3 個心得標籤（標籤可以自己改），存成 PNG 分享；收集團員的檔案還能排出同一個劇本的心得比較圖。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'sotsotssi/scenario-review',
       url: 'https://github.com/sotsotssi/scenario-review',
+    },
+  },
+  {
+    id: 'crossword',
+    name: '填字遊戲產生器',
+    summary:
+      '把答案與提示（或從劇本、跑團日誌挑出的單字與句子）自動排成填字遊戲，當作劇本的謎題講義；題目版與解答版都能下載 PNG、HTML 或列印。',
+    group: 'G6',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/text2crossword',
+      url: 'https://github.com/sotsotssi/text2crossword',
+    },
+  },
+  {
+    id: 'scratch-card',
+    name: '刮刮卡產生器',
+    summary:
+      '做一張可以用滑鼠或手指刮開的刮刮卡當 handout：底下藏著隨機抽出的圖示、句子或圖片，刮開時噴出彩帶；可以存成能刮的互動 HTML，或複製分享連結給玩家。',
+    group: 'G6',
+    status: 'live',
+    inspiration: {
+      name: 'sotsotssi/Scratchcard',
+      url: 'https://github.com/sotsotssi/Scratchcard',
     },
   },
   {
@@ -710,6 +734,18 @@ export const TOOLS: readonly ToolEntry[] = [
     inspiration: {
       name: 'sotsotssi/would-you-rank',
       url: 'https://github.com/sotsotssi/would-you-rank',
+    },
+  },
+  {
+    id: 'polaroid',
+    name: '拍立得相框產生器',
+    summary:
+      '把角色圖放進拍立得相框、在下方白邊寫一行字，再用壓克力筆分三個圖層塗鴉、貼上自動加白邊的貼紙，存成 PNG。',
+    group: 'G7',
+    status: 'live',
+    inspiration: {
+      name: 'swoonqx/sw-polaroid',
+      url: 'https://github.com/swoonqx/sw-polaroid',
     },
   },
 ];

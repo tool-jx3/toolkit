@@ -68,12 +68,15 @@ async function projectFiles(): Promise<ProjectBinary[]> {
   return files;
 }
 
-/** 開啟專案檔（F02）：素材放回資產庫、字型重新註冊、解碼完才換掉目前的內容；途中有其他編輯就作廢 */
+/**
+ * 開啟專案檔（F02）：素材放回資產庫、字型重新註冊、解碼完才換掉目前的內容；途中有其他編輯就作廢。
+ * 圖片存不進瀏覽器時回傳提醒（和「已開啟專案檔」合成一則）。
+ */
 async function openProject(
   data: ProjectData,
   version: number,
   files: Map<string, Uint8Array>,
-): Promise<boolean> {
+): Promise<{ warnings: string[] }> {
   if (useRuntime.getState().exporting) throw new ProjectFileError(S.status.loadWhileExporting);
   if (version > PROJECT_VERSION) throw new ProjectFileError(S.project.newer);
   const next = normalizeSettings((data as Partial<ProjectData> | null)?.settings);
@@ -83,10 +86,11 @@ async function openProject(
   const unsub = useLm.subscribe(() => {
     stale = true;
   });
+  let notPersisted = 0;
   try {
     await withBusy(S.busy.project, async (progress) => {
       const images = [...files].filter(([name]) => !/^font-/.test(name.split('/').pop() ?? ''));
-      await importAssetFiles(assets, images);
+      notPersisted = (await importAssetFiles(assets, images)).notPersisted;
       /* 字型 */
       for (const f of Array.isArray(data.fonts) ? data.fonts : []) {
         const bytes = files.get(f.file);
@@ -121,7 +125,7 @@ async function openProject(
   } finally {
     unsub();
   }
-  return true;
+  return { warnings: notPersisted ? [S.status.projectNotPersisted] : [] };
 }
 
 function useMediaSync() {
@@ -285,9 +289,9 @@ export function App() {
   const s = useLm((st) => st.data);
   useMediaSync();
   useTestHook(preview);
-  /* 開頁時清掉沒有用到的上傳圖片（IndexedDB） */
+  /* 開頁時清掉以前留下、沒有用到的上傳圖片（IndexedDB；這次開頁放進來的不刪） */
   useEffect(() => {
-    void assets.gc(referencedAssetIds(useLm, assetIdsOf)).catch(() => {});
+    void assets.gcStale(referencedAssetIds(useLm, assetIdsOf)).catch(() => {});
   }, []);
 
   const withFiles =
@@ -301,7 +305,11 @@ export function App() {
   const onNotify = (n: ProjectNotice) => {
     if (n.kind === 'saved')
       setStatus('success', S.status.projectSaved(withFiles, n.fileName ?? ''));
-    else if (n.kind === 'opened') setStatus('success', S.status.projectLoaded(n.fileName ?? ''));
+    else if (n.kind === 'opened')
+      setStatus(
+        n.warnings ? 'warning' : 'success',
+        S.status.projectLoaded(n.fileName ?? '') + (n.warnings ? `。${n.warnings.join('')}` : ''),
+      );
     else if (n.kind === 'open-failed') setStatus('danger', n.message ?? S.project.invalid);
     else setStatus('success', S.status.projectReset);
   };

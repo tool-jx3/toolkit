@@ -151,6 +151,26 @@ describe('core/assets', () => {
     expect(assets.has(old)).toBe(true);
   });
 
+  it('gc 不刪寫入中、或 gc 開始之後才放進來的圖（工具還來不及把 id 寫進狀態；char-chart、review-grid 對等驗證）', async () => {
+    const assets = createAssetStore('g3-test-gc-race');
+    const { id: old } = await assets.add(blob('old'));
+    /* 寫入中（IndexedDB 還沒寫完）就開始 gc，keep 是空的 */
+    const freshBlob = blob('fresh');
+    const fresh = await assetIdFor(new Uint8Array(await freshBlob.arrayBuffer()));
+    const writing = assets.put(fresh, freshBlob);
+    const removed = await assets.gc([]);
+    await writing;
+    expect(removed).toEqual([old]);
+    expect(assets.has(fresh)).toBe(true);
+    expect(await assets.ids()).toEqual([fresh]);
+    /* gc 開始之後才放進來的：保留（開始前就在、沒有人用的照常刪）；之後的 gc 照常 */
+    const g = assets.gc([]);
+    const { id: late } = await assets.add(blob('late'));
+    expect(await g).toEqual([fresh]);
+    expect(assets.has(late)).toBe(true);
+    expect(await assets.gc([])).toEqual([late]);
+  });
+
   it('專案檔：exportFiles 的檔名是 <id>.<副檔名>，importAssetFiles 保留 id', async () => {
     const src = createAssetStore('g3-export');
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9, 9]);

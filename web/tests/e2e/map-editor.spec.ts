@@ -1881,7 +1881,10 @@ test.describe('面板的其他控制項', () => {
     await page.locator('[data-decor="desk"]').click();
     await page.getByRole('button', { name: '垂直' }).click();
     await clickAt(page, 252, 180);
-    expect(await detail(page, '裝飾_書桌1')).toMatchObject({ flipY: true, _decorFlipY: true });
+    /* 裝飾是非同步放上去的（讀圖形）：等它出現再看 */
+    await expect
+      .poll(() => detail(page, '裝飾_書桌1'))
+      .toMatchObject({ flipY: true, _decorFlipY: true });
     expect(errors).toEqual([]);
   });
 

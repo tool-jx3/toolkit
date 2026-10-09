@@ -93,6 +93,7 @@ export const S = {
     newer: '這個專案檔是較新的版本，請更新頁面後再開啟。',
     missing: '專案檔裡少了動圖檔，無法開啟。',
     broken: (name: string) => `專案檔裡的動圖無法解碼：${name}`,
+    notSaved: '專案檔裡的動圖沒辦法儲存在這個瀏覽器（重新整理後會消失，要再開一次專案檔）。',
     resetTitle: '全部重設？',
     resetDescription: '會清掉所有動圖，數值回到預設。這個動作無法復原。',
   },

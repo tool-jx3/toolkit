@@ -16,6 +16,7 @@ import {
   addLegend,
   addPage,
   applyShare,
+  assets,
   chartNow,
   clearCharacters,
   clearLinks,
@@ -26,7 +27,6 @@ import {
   gesture,
   goPage,
   historyStep,
-  markSessionImage,
   nudgeSelected,
   patchCharacter,
   patchLegend,
@@ -277,12 +277,13 @@ describe('復原', () => {
 });
 
 describe('對等驗證後（7.1）', () => {
-  it('這次開頁放進圖片庫、還沒寫進狀態的圖，整理圖片庫時也保留', () => {
+  it('這次開頁放進圖片庫、還沒寫進狀態的圖，開頁的整理（assets.gcStale）也保留', async () => {
     addCharacter({ name: 'a', image: IMG }, null);
     expect([...referencedImages()]).toContain('aimg1');
-    expect(referencedImages().has('apending01')).toBe(false);
-    markSessionImage('apending01');
-    expect(referencedImages().has('apending01')).toBe(true);
+    const pending = await assets.add(new Blob(['pending'], { type: 'image/png' }));
+    expect(referencedImages().has(pending.id)).toBe(false);
+    expect(await assets.gcStale(referencedImages())).toEqual([]);
+    expect(assets.has(pending.id)).toBe(true);
   });
 
   it('存專案檔時讀不到的圖片：那些角色存成沒有圖片（圓點），回傳名字；都讀得到時原樣', () => {

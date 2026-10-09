@@ -4,7 +4,7 @@
  */
 import { importAssetFiles } from '@/core/assets';
 import { type ChartState, imageIds, normalizeState } from './model';
-import { assets, markSessionImage } from './store';
+import { assets } from './store';
 import { S } from './strings';
 
 export class ProjectDataError extends Error {}
@@ -12,20 +12,29 @@ export class ProjectDataError extends Error {}
 /** 存進專案檔的圖片 */
 export const projectAssetIds = (d: ChartState): string[] => [...new Set(imageIds(d))];
 
+export interface ImportedProject {
+  state: ChartState;
+  /** 有圖片存不進瀏覽器（這次可以用，重新整理之後就沒了） */
+  notSaved: boolean;
+}
+
+/**
+ * 讀本工具的專案檔。圖片一張一張寫進圖片庫時開頁的整理可能剛好在中間執行：已經寫好、還沒換上狀態的圖
+ * 由 assets.gcStale 保留（這次開頁寫進或讀過的圖不刪）。
+ */
 export async function importProject(
   data: unknown,
   files: Map<string, Uint8Array>,
-): Promise<ChartState> {
+): Promise<ImportedProject> {
   if (typeof data !== 'object' || data === null || Array.isArray(data))
     throw new ProjectDataError(S.projectBad);
   const next = normalizeState(data);
   const imported = await importAssetFiles(assets, files.entries());
-  for (const id of imported.ids) markSessionImage(id);
   for (const id of projectAssetIds(next)) {
     const bmp = await assets.bitmap(id).catch(() => undefined);
     if (!bmp) throw new ProjectDataError(S.projectMissingImage);
   }
-  return next;
+  return { state: next, notSaved: imported.notPersisted > 0 };
 }
 
 /**

@@ -78,8 +78,16 @@ function HeaderActions() {
     const [file] = await pickFiles({ accept: '.json,application/json' });
     if (!file) return;
     try {
-      const n = await loadLegacyProject(await readAsText(file));
-      toast({ title: S.openedLegacy(file.name, n), tone: 'success' });
+      const r = await loadLegacyProject(await readAsText(file));
+      toast(
+        r.notPersisted
+          ? {
+              title: S.openedLegacy(file.name, r.images),
+              description: S.projectNotSaved,
+              tone: 'warning',
+            }
+          : { title: S.openedLegacy(file.name, r.images), tone: 'success' },
+      );
     } catch (e) {
       toast({
         title: S.openFailed(e instanceof Error ? e.message : String(e)),
@@ -112,7 +120,9 @@ function HeaderActions() {
         statusText={saveError ? S.autosaveFailed : undefined}
         confirmOpen={false}
         onLoad={async (data, _file, files) => {
-          await loadProject(data, files);
+          const r = await loadProject(data, files);
+          /* 圖片存不進瀏覽器：和「已開啟專案檔」合成一則 */
+          return { warnings: [r.notPersisted > 0 && S.projectNotSaved] };
         }}
         onReset={resetAll}
         resetText={{
@@ -124,7 +134,15 @@ function HeaderActions() {
         onNotify={(n) => {
           if (n.kind === 'saved') toast({ title: S.saved(n.fileName ?? ''), tone: 'success' });
           else if (n.kind === 'opened') {
-            toast({ title: S.opened(n.fileName ?? ''), tone: 'success' });
+            toast(
+              n.warnings
+                ? {
+                    title: S.opened(n.fileName ?? ''),
+                    description: n.warnings.join(''),
+                    tone: 'warning',
+                  }
+                : { title: S.opened(n.fileName ?? ''), tone: 'success' },
+            );
           } else if (n.kind === 'open-failed') {
             toast({ title: S.openFailed(n.message ?? ''), tone: 'danger' });
           }

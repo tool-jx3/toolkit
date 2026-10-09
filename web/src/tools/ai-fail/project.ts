@@ -12,17 +12,23 @@ export class ProjectDataError extends Error {}
 /** 存進專案檔的照片 */
 export const projectAssetIds = (d: MemeState): string[] => (d.photo ? [d.photo.id] : []);
 
+export interface ImportedProject {
+  state: MemeState;
+  /** 照片存不進瀏覽器（這次可以用，重新整理之後就沒了） */
+  notSaved: boolean;
+}
+
 export async function importProject(
   data: unknown,
   files: Map<string, Uint8Array>,
-): Promise<MemeState> {
+): Promise<ImportedProject> {
   if (typeof data !== 'object' || data === null || Array.isArray(data))
     throw new ProjectDataError(S.projectBad);
   const next = normalizeState(data);
-  await importAssetFiles(assets, files.entries());
+  const imported = await importAssetFiles(assets, files.entries());
   if (next.photo) {
     const bmp = await assets.bitmap(next.photo.id).catch(() => undefined);
     if (!bmp) throw new ProjectDataError(S.projectMissingPhoto);
   }
-  return next;
+  return { state: next, notSaved: imported.notPersisted > 0 };
 }

@@ -9,6 +9,7 @@
  *   頭像位置、文字置中）、Esc／遮罩／關閉鈕、同一次開頁保留選項、重新整理回到預設；
  * - 匯出 ZIP（設定 JSON＋自訂部件圖片）→ 清空 → 匯入（直接載入、接在後面、取代、取消、無效檔案）；
  * - 自動保存：清單、勾選與自訂部件（含圖片）重新整理後還原，編輯區不保存；
+ * - 圖片資產稽核：開頁讀回自訂部件時一次加入多張（圖片庫很慢），開頁的整理不刪已經寫好、還沒加進清單的圖；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
  */
 import { readFileSync } from 'node:fs';
@@ -936,6 +937,112 @@ test('自動保存：清單、勾選、自訂部件（含圖片）重新整理�
   );
   expect(stored.state.data.expressions).toHaveLength(21);
   expect(stored.state.data.customParts[0]).toMatchObject({ category: 'deco', name: '紅塊' });
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 圖片資產稽核：開頁的整理 ---------- */
+
+/**
+ * 自訂部件的圖片庫（IndexedDB）變慢：讀取（get）的結果延後 read 毫秒、寫入（readwrite 交易的完成通知）延後 write 毫秒。
+ * localStorage 的 e2e-slow-parts 是 '1' 時才變慢（最後關掉再重新整理，確認圖片真的存在）。
+ */
+function slowParts({ read, write }: { read: number; write: number }) {
+  if (localStorage.getItem('e2e-slow-parts') !== '1') return;
+  const DB = 'trpg-toolkit:tool:emotion-maker:parts';
+  const slow = new WeakSet<IDBRequest>();
+  const get = IDBObjectStore.prototype.get;
+  IDBObjectStore.prototype.get = function (this: IDBObjectStore, query: IDBValidKey | IDBKeyRange) {
+    const req = get.call(this, query);
+    if (this.transaction.db.name === DB) slow.add(req);
+    return req;
+  };
+  const rd = Object.getOwnPropertyDescriptor(IDBRequest.prototype, 'onsuccess');
+  const wd = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete');
+  if (!rd?.get || !rd.set || !wd?.get || !wd.set) return;
+  const [rget, rset, wget, wset] = [rd.get, rd.set, wd.get, wd.set];
+  Object.defineProperty(IDBRequest.prototype, 'onsuccess', {
+    configurable: true,
+    get() {
+      return rget.call(this);
+    },
+    set(fn) {
+      if (!slow.has(this) || typeof fn !== 'function') return rset.call(this, fn);
+      rset.call(this, (e: Event) => setTimeout(() => fn.call(this, e), read));
+    },
+  });
+  Object.defineProperty(IDBTransaction.prototype, 'oncomplete', {
+    configurable: true,
+    get() {
+      return wget.call(this);
+    },
+    set(fn) {
+      if (this.mode !== 'readwrite' || this.db.name !== DB || typeof fn !== 'function')
+        return wset.call(this, fn);
+      wset.call(this, (e: Event) => setTimeout(() => fn.call(this, e), write));
+    },
+  });
+}
+
+/** 自訂部件的圖片庫（IndexedDB）裡有幾張圖 */
+async function storedParts(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const name = 'trpg-toolkit:tool:emotion-maker:parts';
+    const dbs = await indexedDB.databases();
+    if (!dbs.some((d) => d.name === name)) return 0;
+    const db = await new Promise<IDBDatabase | null>((res) => {
+      const req = indexedDB.open(name);
+      req.onupgradeneeded = () => req.transaction?.abort();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => res(null);
+    });
+    if (!db) return 0;
+    let n = 0;
+    for (const store of [...db.objectStoreNames]) {
+      const tx = db.transaction(store, 'readonly');
+      n += await new Promise<number>((res) => {
+        const r = tx.objectStore(store).count();
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => res(0);
+      });
+    }
+    db.close();
+    return n;
+  });
+}
+
+test('圖片資產稽核：開頁讀回自訂部件時一次加入多張（圖片庫很慢），開頁的整理不刪已經寫好、還沒加進清單的圖', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(slowParts, { read: 3000, write: 1500 });
+  const errors = await open(page);
+  /* 先有一個自訂部件：重新整理時要從圖片庫讀回 */
+  await addImages(page, '眼睛', [file('原本.png', await png(64, 64, [200, 40, 40]))]);
+  await expect(notice(page, '已在「眼睛」新增 1 張')).toBeVisible();
+  await expect.poll(() => storedParts(page)).toBe(1);
+  /*
+   * 圖片庫變慢之後重新整理：讀回原本的部件要 3 秒，讀完才做開頁的整理；
+   * 這段時間裡一次加入 3 張（每張寫 1.5 秒，全部寫完才加進清單）——整理時第 1 張已經寫好、還沒加進清單
+   */
+  await page.evaluate(() => localStorage.setItem('e2e-slow-parts', '1'));
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: '表情產生器' })).toBeVisible();
+  await addImages(page, '嘴巴', [
+    file('一.png', await png(64, 64, [40, 160, 40])),
+    file('二.png', await png(64, 64, [40, 40, 200])),
+    file('三.png', await png(64, 64, [200, 160, 40])),
+  ]);
+  await expect(notice(page, '已在「嘴巴」新增 3 張')).toBeVisible({ timeout: 20_000 });
+  /* 整理（刪除也要 1.5 秒）與寫入都結束之後：4 張都在 */
+  await page.waitForTimeout(Math.max(0, 11_000 - (await page.evaluate(() => performance.now()))));
+  expect(await storedParts(page)).toBe(4);
+  /* 圖片庫恢復正常，重新整理：4 個自訂部件的圖片都讀得到 */
+  await page.evaluate(() => localStorage.removeItem('e2e-slow-parts'));
+  await page.reload();
+  await expect(page.getByRole('button', { name: '嘴巴：自訂 三' })).toBeVisible();
+  await page.waitForTimeout(1000);
+  await expect(page.getByText(/自訂部件的圖片找不到/)).toHaveCount(0);
+  expect(await storedParts(page)).toBe(4);
   expect(errors).toEqual([]);
 });
 

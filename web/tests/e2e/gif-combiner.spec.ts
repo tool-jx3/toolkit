@@ -8,6 +8,7 @@
  * - 匯出 GIF 並解析：尺寸與倍率、延遲（累計換算）、每個時間點的畫面、無限循環、檔名；透明背景；APNG；
  *   沒有動圖時的訊息（F25～F33、F42～F44、3.1～3.4）。
  * - 自動保存（重新整理後還原）、專案檔（存成 ZIP、重設、開啟）（F45）。
+ * - 圖片資產稽核：重設、開了別的專案檔之後不用的動圖從瀏覽器刪掉（使用中釋放）；開頁的整理不刪用到的。
  * - 390 寬沒有橫向捲動；1280／390 視覺基準圖。
  */
 import { readFileSync } from 'node:fs';
@@ -570,6 +571,86 @@ test('自動保存與專案檔', async ({ page }) => {
   await chooser.setFiles(zipPath);
   await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
   await expect.poll(async () => (await data(page)).items.map(box)).toEqual(before.items.map(box));
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 圖片資產稽核：使用中釋放（gc）與開頁的整理（gcStale） ---------- */
+
+/** 動圖庫（IndexedDB）裡有幾個檔案（資料庫還沒建立時 0；不替工具建立空的資料庫） */
+async function storedGifs(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const name = 'trpg-toolkit:tool:gif-combiner:assets';
+    const dbs = await indexedDB.databases();
+    if (!dbs.some((d) => d.name === name)) return 0;
+    const db = await new Promise<IDBDatabase | null>((res) => {
+      const req = indexedDB.open(name);
+      req.onupgradeneeded = () => req.transaction?.abort();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => res(null);
+    });
+    if (!db) return 0;
+    let n = 0;
+    for (const store of [...db.objectStoreNames]) {
+      const tx = db.transaction(store, 'readonly');
+      n += await new Promise<number>((res) => {
+        const r = tx.objectStore(store).count();
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => res(0);
+      });
+    }
+    db.close();
+    return n;
+  });
+}
+
+test('圖片資產稽核：全部重設、開了別的專案檔之後，不用的動圖從瀏覽器刪掉（這次開頁加入的也是）；開頁的整理不刪用到的', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await addFiles(page, [GIF_A, GIF_B], 2);
+  await expect.poll(() => storedGifs(page)).toBe(2);
+  /* 重新整理：開頁的整理不刪用到的 */
+  await page.reload();
+  await page.waitForFunction(
+    () => !!(window as unknown as { __gifCombiner?: unknown }).__gifCombiner,
+  );
+  await expect.poll(async () => (await data(page)).items.length).toBe(2);
+  await page.waitForTimeout(500);
+  expect(await storedGifs(page)).toBe(2);
+  /* 存成專案檔（a、b） */
+  await page.getByRole('button', { name: '專案' }).click();
+  const [saved] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+  ]);
+  const zipPath = (await saved.path()) as string;
+  /* 全部重設：清掉的動圖已經沒人用（復原紀錄也清了），從這個瀏覽器刪掉 */
+  const reset = async () => {
+    await page.getByRole('button', { name: '專案' }).click();
+    await page.getByRole('menuitem', { name: '重設…' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
+    await expect.poll(async () => (await data(page)).items.length).toBe(0);
+  };
+  await reset();
+  await expect.poll(() => storedGifs(page)).toBe(0);
+  /* 這次開頁加入的也一樣：加入 c、重設 → 刪掉 */
+  await addFiles(page, [GIF_C], 1);
+  await expect.poll(() => storedGifs(page)).toBe(1);
+  await reset();
+  await expect.poll(() => storedGifs(page)).toBe(0);
+  /* 開了別的專案檔：換掉的內容用的動圖（c）刪掉，專案檔的（a、b）留著 */
+  await addFiles(page, [GIF_C], 1);
+  await page.getByRole('button', { name: '專案' }).click();
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
+  ]);
+  await chooser.setFiles(zipPath);
+  await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
+  await expect
+    .poll(async () => (await data(page)).items.map((it) => it.name))
+    .toEqual(['a.gif', 'b.gif']);
+  await expect.poll(() => storedGifs(page)).toBe(2);
   expect(errors).toEqual([]);
 });
 

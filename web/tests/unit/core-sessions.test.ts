@@ -30,6 +30,7 @@ import {
   primaryDate,
   REPORT_PENDING_IMPORT_KEY,
   readPendingReportImport,
+  SESSION_ROLES,
   type SessionRow,
   scenarioCountKey,
   selfNameSet,
@@ -94,6 +95,20 @@ describe('正規值 ↔ 顯示名稱（3.1）', () => {
     expect(normalizeRole('kp')).toBe('GM');
     expect(normalizeRole('KP')).toBe('KP');
     expect(normalizeRole('觀戰')).toBe('觀戰');
+  });
+  it('SKP（副 KP，P11 新增 F115、F116）：身分選項、匯入別名、算在 GM 組', () => {
+    expect(SESSION_ROLES).toEqual(['PL', 'KP', 'SKP', 'GM', 'DL']);
+    expect(importRole('SKP')).toBe('SKP');
+    expect(importRole('skp')).toBe('SKP');
+    expect(importRole('サブKP')).toBe('SKP');
+    expect(importRole('サブキーパー')).toBe('SKP');
+    expect(importRole('副KP')).toBe('SKP');
+    expect(importRole('副守密人')).toBe('SKP');
+    expect(normalizeRoleGroup('SKP')).toBe('GM');
+    expect(normalizeRoleGroup(' skp ')).toBe('GM');
+    expect(normalizeRole('SKP')).toBe('SKP');
+    /* 存檔裡的小寫 skp 跟小寫 kp 一樣整理成 GM（F107，同舊版） */
+    expect(normalizeRole('skp')).toBe('GM');
   });
 });
 

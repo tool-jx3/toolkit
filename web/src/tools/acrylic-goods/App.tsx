@@ -164,8 +164,9 @@ export function App() {
   const kind = normalizeKind(useView((st) => st.data.kind));
   const exporting = useSession((st) => st.exporting);
   useTestHook();
+  /* 開頁時清掉以前留下、沒有用到的圖片（這次開頁放進來的不刪） */
   useEffect(() => {
-    void collectGarbage();
+    void collectGarbage({ keepThisSession: true });
   }, []);
 
   const shortcuts = useMemo<Shortcut[]>(
@@ -228,9 +229,10 @@ export function App() {
             getFiles={projectFiles}
             openAccept=".zip,.json,application/zip,application/json"
             onLoad={async (data, project, files) => {
-              const dropped = await openProject(data, project.version, files);
-              if (dropped) notify({ title: S.project.missing(dropped), tone: 'warning' });
-              return true;
+              const r = await openProject(data, project.version, files);
+              if (r.dropped) notify({ title: S.project.missing(r.dropped), tone: 'warning' });
+              /* 圖片存不進瀏覽器：和「已開啟專案檔」合成一則 */
+              return { warnings: [r.notPersisted > 0 && S.project.notSaved] };
             }}
             onReset={resetAll}
             resetText={{ title: S.project.resetTitle, description: S.project.resetText }}

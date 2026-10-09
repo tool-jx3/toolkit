@@ -1,5 +1,5 @@
 /**
- * 圖片的載入與讀回：解碼確認 → 太大時縮小（長邊 1024）→ 放進資產庫（IndexedDB）。
+ * 圖片的載入與讀回：解碼確認 → 太大時縮小（長邊 1024）→ 記成這次開頁的圖 → 放進資產庫（IndexedDB）。
  * 畫圖時用 useImageBitmaps 取得目前用到的圖（重新整理後從資產庫讀回；讀不到的列在 missing）。
  */
 import { useEffect, useMemo, useState } from 'react';
@@ -49,6 +49,7 @@ export async function loadReviewImage(
   } finally {
     bmp.close?.();
   }
+  /* 開頁的整理剛好發生在寫入途中、或寫好還沒寫進狀態時也保留（assets.gcStale，規格 F38） */
   const added = await assets.add(blob);
   const check = await assets.bitmap(added.id).catch(() => undefined);
   if (!check) {

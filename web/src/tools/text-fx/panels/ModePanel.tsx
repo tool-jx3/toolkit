@@ -13,11 +13,13 @@ import {
   useCfg,
 } from '../controls';
 import { TEMPLATES, type Template } from '../library';
+import { useMine } from '../mine';
 import { fxGroups, HOLD, INTRO, ORDER_CHOICES, OUTRO } from '../motion';
 import { MODES, type Mode } from '../settings';
 import { applyTemplate, resetTemplate, setMode, useTfx } from '../store';
 import { S } from '../strings';
 import { useTemplateThumbs } from '../thumbs';
+import { MinePanel } from './MinePanel';
 
 const CURVE_CHOICES: readonly Choice[] = [
   ['auto', '自動（依效果）'],
@@ -56,6 +58,9 @@ function GalleryButton({ kind, onOpen }: { kind: GalleryKind; onOpen: (k: Galler
 function TemplateSection() {
   const mode = useTfx((st) => st.data.mode);
   const tplId = useTfx((st) => st.data.modes[st.data.mode].tpl);
+  /* 套用中的是我的範本時，內建範本都不標示 */
+  const mineId = useTfx((st) => st.data.modes[st.data.mode].mine);
+  const mineOn = useMine((st) => !!mineId && st.data.items.some((t) => t.id === mineId));
   const thumbs = useTemplateThumbs(mode);
   const confirm = useConfirm();
   const list: readonly Template[] = TEMPLATES[mode];
@@ -91,7 +96,7 @@ function TemplateSection() {
           confirm={false}
           size="sm"
           defaultTag={list.find((t) => t.id === tplId)?.group}
-          activeId={tplId}
+          activeId={mineOn ? null : tplId}
           onApply={(t) => applyTemplate(t.id)}
           templates={list.map((t) => ({
             id: t.id,
@@ -119,9 +124,10 @@ export function ModePanel({ onGallery }: { onGallery: (k: GalleryKind) => void }
   const hasSub = !!c.sub.trim();
   const usesGlitch =
     c.hold.fx === 'glitchPulse' ||
-    (isShort && c.intro.fx === 'glitch') ||
+    (isShort && c.introOn !== false && c.intro.fx === 'glitch') ||
     (c.outroOn && c.outro.fx === 'glitchOut');
-  const charSection = isLong && !['big', 'stack', 'scroll'].includes(c.flow.kind);
+  const introOn = c.introOn !== false;
+  const charSection = isLong && introOn && !['big', 'stack', 'scroll'].includes(c.flow.kind);
 
   return (
     <div className="flex flex-col gap-3">
@@ -142,62 +148,69 @@ export function ModePanel({ onGallery }: { onGallery: (k: GalleryKind) => void }
 
       <TemplateSection />
 
+      <MinePanel />
+
       {isShort ? (
         <Section title={S.intro.title} persistKey="text-fx:intro">
-          <SelectField
-            label="效果"
-            path="intro.fx"
-            options={fxGroups(INTRO)}
-            onPick={pickIntro}
-            hint={introDef.unit === 'block' ? S.intro.blockNote : S.intro.glyphNote}
-            labelSuffix={<GalleryButton kind="intro" onOpen={onGallery} />}
-          />
-          {introDef.dirs ? (
-            <SelectField label="方向" path="intro.dir" options={introDef.dirs} />
-          ) : null}
-          {!introDef.instant ? (
-            <NumField
-              label="時長"
-              path="intro.dur"
-              min={0.05}
-              max={4}
-              step={0.01}
-              unit="秒"
-              digits={2}
-            />
-          ) : null}
-          {introDef.unit === 'glyph' ? (
+          <ToggleField label={S.introSwitch.label} path="introOn" hint={S.introSwitch.hint} />
+          {introOn ? (
             <>
-              <NumField
-                label="字間隔"
-                path="intro.gap"
-                min={0}
-                max={0.6}
-                step={0.005}
-                unit="秒"
-                digits={3}
+              <SelectField
+                label="效果"
+                path="intro.fx"
+                options={fxGroups(INTRO)}
+                onPick={pickIntro}
+                hint={introDef.unit === 'block' ? S.intro.blockNote : S.intro.glyphNote}
+                labelSuffix={<GalleryButton kind="intro" onOpen={onGallery} />}
               />
-              <SelectField label="順序" path="intro.order" options={ORDER_CHOICES} />
+              {introDef.dirs ? (
+                <SelectField label="方向" path="intro.dir" options={introDef.dirs} />
+              ) : null}
+              {!introDef.instant ? (
+                <NumField
+                  label="時長"
+                  path="intro.dur"
+                  min={0.05}
+                  max={4}
+                  step={0.01}
+                  unit="秒"
+                  digits={2}
+                />
+              ) : null}
+              {introDef.unit === 'glyph' ? (
+                <>
+                  <NumField
+                    label="字間隔"
+                    path="intro.gap"
+                    min={0}
+                    max={0.6}
+                    step={0.005}
+                    unit="秒"
+                    digits={3}
+                  />
+                  <SelectField label="順序" path="intro.order" options={ORDER_CHOICES} />
+                </>
+              ) : null}
+              {!introDef.instant && introDef.curve !== null ? (
+                <SelectField label="曲線" path="intro.curve" options={CURVE_CHOICES} />
+              ) : null}
+              {introDef.power !== false && !introDef.instant ? (
+                <NumField
+                  label="強度"
+                  path="intro.power"
+                  min={0.2}
+                  max={2.5}
+                  step={0.05}
+                  unit="倍"
+                  digits={2}
+                />
+              ) : null}
             </>
-          ) : null}
-          {!introDef.instant && introDef.curve !== null ? (
-            <SelectField label="曲線" path="intro.curve" options={CURVE_CHOICES} />
-          ) : null}
-          {introDef.power !== false && !introDef.instant ? (
-            <NumField
-              label="強度"
-              path="intro.power"
-              min={0.2}
-              max={2.5}
-              step={0.05}
-              unit="倍"
-              digits={2}
-            />
           ) : null}
         </Section>
       ) : null}
 
-      {isShort && hasSub ? (
+      {isShort && hasSub && introOn ? (
         <Section title={S.sub.title} persistKey="text-fx:sub-intro">
           <SelectField label="方式" path="subIntro" options={SUB_CHOICES} />
           <NumField
@@ -218,16 +231,24 @@ export function ModePanel({ onGallery }: { onGallery: (k: GalleryKind) => void }
 
       {isLong ? (
         <Section title={S.flow.title} persistKey="text-fx:flow">
+          {!isScroll ? (
+            <ToggleField label={S.introSwitch.label} path="introOn" hint={S.introSwitch.hint} />
+          ) : null}
           <SelectField
             label="流程"
             path="flow.kind"
             options={FLOW_CHOICES}
             labelSuffix={<GalleryButton kind="flow" onOpen={onGallery} />}
           />
-          {['seq', 'big'].includes(c.flow.kind) ? (
+          {!introOn && !isScroll ? (
+            <p className="m-0 text-xs text-muted" data-testid="intro-off-note">
+              {S.introSwitch.longOff}
+            </p>
+          ) : null}
+          {introOn && ['seq', 'big'].includes(c.flow.kind) ? (
             <NumField label="每秒字數" path="flow.cps" min={2} max={40} step={1} unit="字" />
           ) : null}
-          {c.flow.kind === 'seq' ? (
+          {introOn && c.flow.kind === 'seq' ? (
             <>
               <NumField
                 label="句讀停頓"
@@ -259,7 +280,7 @@ export function ModePanel({ onGallery }: { onGallery: (k: GalleryKind) => void }
               ) : null}
             </>
           ) : null}
-          {c.flow.kind === 'big' ? (
+          {introOn && c.flow.kind === 'big' ? (
             <>
               <NumField
                 label="大字尺寸"
@@ -291,7 +312,7 @@ export function ModePanel({ onGallery }: { onGallery: (k: GalleryKind) => void }
               />
             </>
           ) : null}
-          {c.flow.kind === 'stack' ? (
+          {introOn && c.flow.kind === 'stack' ? (
             <>
               <NumField
                 label="疊合停留"
@@ -313,7 +334,7 @@ export function ModePanel({ onGallery }: { onGallery: (k: GalleryKind) => void }
               />
             </>
           ) : null}
-          {['line', 'scan'].includes(c.flow.kind) ? (
+          {introOn && ['line', 'scan'].includes(c.flow.kind) ? (
             <NumField
               label="行間隔"
               path="flow.lineGap"
@@ -324,7 +345,7 @@ export function ModePanel({ onGallery }: { onGallery: (k: GalleryKind) => void }
               digits={2}
             />
           ) : null}
-          {c.flow.kind === 'scan' ? (
+          {introOn && c.flow.kind === 'scan' ? (
             <NumField
               label="一行掃完"
               path="flow.scanTime"

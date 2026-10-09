@@ -16,7 +16,7 @@ import { collectUnusedImages, PartsPanel } from './PartsPanel';
 import { partAssets, TOOL_ID, useCustomImages, useEmotions } from './store';
 import { S } from './strings';
 
-/** 讀回自訂部件的圖片（重新整理後還原）；只在開頁時清一次沒用到的圖片 */
+/** 讀回自訂部件的圖片（重新整理後還原）；只在開頁時清一次以前留下、沒用到的圖片 */
 function Startup() {
   const customParts = useEmotions((s) => s.data.customParts);
   const notify = useNotify();
@@ -45,7 +45,7 @@ function Startup() {
     const isFirst = first.current;
     first.current = false;
     if (!ids.length) {
-      if (isFirst) void collectUnusedImages();
+      if (isFirst) void collectUnusedImages({ onOpen: true });
       return;
     }
     let alive = true;
@@ -64,7 +64,7 @@ function Startup() {
         reported.current = true;
         notify(S.partsMissing(lost), 'warning');
       }
-      if (isFirst) void collectUnusedImages();
+      if (isFirst) void collectUnusedImages({ onOpen: true });
     })();
     return () => {
       alive = false;

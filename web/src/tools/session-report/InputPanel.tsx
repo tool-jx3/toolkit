@@ -14,10 +14,11 @@ import {
   Section,
   Segmented,
   Select,
+  Tabs,
   TextArea,
   TextInput,
 } from '@/ui';
-import { DECORATIONS } from './decorations';
+import { DECORATIONS, type DecorationGroup, type DecorationGroupId } from './decorations';
 import {
   DL_SYSTEMS,
   GM_ROLES,
@@ -399,29 +400,69 @@ function MiscSection({ today }: { today: string }) {
   );
 }
 
-function DecorationSection({ onInsert }: { onInsert: (text: string) => void }) {
+/** 插入裝飾的方式（App 交給預覽的 PostEditor） */
+export interface DecorationActions {
+  /** 在游標位置插入；ownLine 時自成一行（分隔線） */
+  insert: (text: string, ownLine: boolean) => void;
+  /** 用括號包住選取的文字 */
+  wrap: (open: string, close: string) => void;
+}
+
+/** 一個類型的按鈕：分隔線自成一行、括號包住選取的文字、其他插入在游標位置 */
+function DecorationChips({
+  group,
+  actions,
+}: {
+  group: DecorationGroup;
+  actions: DecorationActions;
+}) {
+  const name = S.deco.groups[group.id];
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="m-0 text-xs text-muted">{S.deco.modeHints[group.id]}</p>
+      <Chips
+        aria-label={name}
+        items={group.items.map((it) => ({
+          value: it.label,
+          label: it.label,
+          title: it.close !== undefined ? S.deco.wrapTitle(it.value, it.close) : it.value,
+        }))}
+        onPick={(label) => {
+          const it = group.items.find((x) => x.label === label);
+          if (!it) return;
+          if (group.mode === 'wrap') actions.wrap(it.value, it.close ?? '');
+          else actions.insert(it.value, group.mode === 'line');
+        }}
+      />
+    </div>
+  );
+}
+
+/** 文字裝飾（F29）：依類型分頁（P11 新增 F58） */
+function DecorationSection({ actions }: { actions: DecorationActions }) {
+  const [tab, setTab] = useState<DecorationGroupId>('lines');
   return (
     <Section title={S.sections.deco} persistKey="session-report:deco" description={S.deco.hint}>
-      {DECORATIONS.map((g) => (
-        <div key={g.id} className="flex flex-col gap-1.5">
-          <h4 className="m-0 text-xs font-medium text-muted">{S.deco.groups[g.id]}</h4>
-          <Chips
-            aria-label={S.deco.groups[g.id]}
-            items={g.items.map((it) => ({ value: it.value, label: it.label, title: it.value }))}
-            onPick={onInsert}
-          />
-        </div>
-      ))}
+      <Tabs<DecorationGroupId>
+        aria-label={S.deco.tabsLabel}
+        value={tab}
+        onValueChange={setTab}
+        items={DECORATIONS.map((g) => ({
+          value: g.id,
+          label: S.deco.groups[g.id],
+          content: <DecorationChips group={g} actions={actions} />,
+        }))}
+      />
     </Section>
   );
 }
 
 export function InputPanel({
   today,
-  onInsert,
+  decorations,
 }: {
   today: string;
-  onInsert: (text: string) => void;
+  decorations: DecorationActions;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -430,7 +471,7 @@ export function InputPanel({
       <GmSection />
       <PlayerSection />
       <MiscSection today={today} />
-      <DecorationSection onInsert={onInsert} />
+      <DecorationSection actions={decorations} />
     </div>
   );
 }

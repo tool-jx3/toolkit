@@ -122,9 +122,6 @@ export const useBoard = createToolStore<BoardData>(TOOL_ID, EMPTY_BOARD, {
 
 export const assets = createAssetStore(TOOL_ID);
 
-/** 這次開頁之後加進資產庫的圖（清理時一律保留，避免和進行中的加入互相干擾） */
-const sessionIds = new Set<string>();
-
 export interface PreparedImage {
   imageId: string;
   /** 去除透明留白後的範圍（門檻 16；整張透明時是整張圖） */
@@ -143,7 +140,6 @@ export function cropOf(bmp: ImageBitmap): Rect {
 /** 存進資產庫並解碼、找出範圍；讀不了時丟錯 */
 export async function prepareImage(file: Blob): Promise<PreparedImage> {
   const r = await assets.add(file);
-  sessionIds.add(r.id);
   let bmp: ImageBitmap | undefined;
   try {
     bmp = await assets.bitmap(r.id);
@@ -154,16 +150,14 @@ export async function prepareImage(file: Blob): Promise<PreparedImage> {
   return { imageId: r.id, crop: cropOf(bmp), persisted: r.persisted, reason: r.reason };
 }
 
-export const markSessionAsset = (id: string): void => {
-  sessionIds.add(id);
-};
-
-/** 清掉沒有人用的圖（目前的角色＋復原／重做歷史＋這次開頁加入的都保留） */
+/**
+ * 清掉以前留下、沒有人用的圖（目前的角色＋復原／重做歷史都保留；這次開頁加進資產庫的也保留——
+ * assets.gcStale，避免和進行中的加入、讀到一半的專案檔互相干擾）。開頁還原後、開啟專案檔後呼叫。
+ */
 export async function collectGarbage(): Promise<void> {
   const keep = referencedAssetIds(useBoard, (d) => d.characters.map((c) => c.imageId));
-  for (const id of sessionIds) keep.add(id);
   try {
-    await assets.gc(keep);
+    await assets.gcStale(keep);
   } catch {
     /* 清不掉就下次再清 */
   }

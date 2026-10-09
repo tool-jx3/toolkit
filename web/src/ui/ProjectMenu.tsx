@@ -25,11 +25,32 @@ import { useToast } from './Toast';
 /** 專案選單的結果通知（給了 onNotify 時改用它，不跳通知；工具可以寫進自己的狀態列） */
 export interface ProjectNotice {
   kind: 'saved' | 'opened' | 'open-failed' | 'reset';
-  tone: 'success' | 'danger' | 'info';
+  /** opened 有 warnings 時是 warning */
+  tone: 'success' | 'warning' | 'danger' | 'info';
   /** 存檔或開啟的檔名 */
   fileName?: string;
   /** 開啟失敗的原因（可直接顯示） */
   message?: string;
+  /** 開啟成功、但有要提醒的事（onLoad 回傳的 warnings；沒有時不帶這個欄位） */
+  warnings?: string[];
+}
+
+/**
+ * onLoad 可以回傳它：開啟成功，但有要提醒的事（例如專案檔的圖片存不進這個瀏覽器、重新整理之後就不見了）。
+ * 和「已開啟專案檔」合成一則警告色的通知（給了 onNotify 時放在 notice.warnings）。空字串、null、false 略過。
+ */
+export interface ProjectLoadResult {
+  warnings: readonly (string | null | undefined | false)[];
+}
+
+/** onLoad 的回傳值裡的提醒（不是 ProjectLoadResult 時沒有） */
+function loadWarnings(r: unknown): string[] {
+  if (!r || typeof r !== 'object' || !Array.isArray((r as ProjectLoadResult).warnings)) return [];
+  return [
+    ...new Set(
+      (r as ProjectLoadResult).warnings.filter((w): w is string => typeof w === 'string' && !!w),
+    ),
+  ];
 }
 
 export interface ProjectMenuProps<T> {
@@ -41,6 +62,7 @@ export interface ProjectMenuProps<T> {
   getData: () => T;
   /**
    * 開啟專案檔後套用（回傳 false 或丟錯表示資料不合用，會顯示錯誤；可以是 async）。
+   * 回傳 `{ warnings }`（ProjectLoadResult）時，提醒和「已開啟專案檔」合成一則警告色的通知。
    * files：ZIP 專案檔附帶的檔案（名稱 → 位元組；JSON 專案檔是空的）；source：使用者選的檔案（顯示檔名用）。
    */
   onLoad: (data: T, file: ProjectFile<T>, files: Map<string, Uint8Array>, source: File) => unknown;
@@ -252,10 +274,33 @@ export function ProjectMenu<T>({
         });
         if (!ok) return;
       }
-      if ((await onLoad(project.data, project, project.files, file)) === false)
-        throw new ProjectFileError('專案檔的內容無法使用。');
-      if (onNotify) onNotify({ kind: 'opened', tone: 'success', fileName: file.name });
-      else toast({ title: openedMessage, description: file.name, tone: 'success' });
+      const loaded = await onLoad(project.data, project, project.files, file);
+      if (loaded === false) throw new ProjectFileError('專案檔的內容無法使用。');
+      /* 開啟成功但有要提醒的事：同一則通知，警告色 */
+      const warnings = loadWarnings(loaded);
+      if (onNotify)
+        onNotify(
+          warnings.length
+            ? { kind: 'opened', tone: 'warning', fileName: file.name, warnings }
+            : { kind: 'opened', tone: 'success', fileName: file.name },
+        );
+      else
+        toast({
+          title: openedMessage,
+          description: warnings.length ? (
+            <>
+              {file.name}
+              {warnings.map((w) => (
+                <span key={w} className="block">
+                  {w}
+                </span>
+              ))}
+            </>
+          ) : (
+            file.name
+          ),
+          tone: warnings.length ? 'warning' : 'success',
+        });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (onNotify) onNotify({ kind: 'open-failed', tone: 'danger', fileName: file.name, message });

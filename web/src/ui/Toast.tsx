@@ -19,7 +19,11 @@ export interface ToastOptions {
   tone?: ToastTone;
   /** 顯示毫秒數（預設 4000；錯誤 7000） */
   duration?: number;
-  /** 取代畫面上現有的通知（一次只顯示這一則；emotion-maker 移植時新增，不給時行為不變） */
+  /**
+   * 取代之前同樣用 replace 發的通知（這一類一次只顯示一則；emotion-maker 移植時新增，不給時行為不變）。
+   * 沒有用 replace 發的通知不受影響：同一批先發出的錯誤、存檔失敗、「已開啟專案檔」等留著，
+   * 不會被之後的成功通知清掉（圖片資產稽核時修正；原本會清掉畫面上所有的通知）。
+   */
   replace?: boolean;
   /**
    * 點通知本體（× 以外的地方）也立刻關閉（bg-motion 修正時新增，不給時行為不變：只有 × 與滑掉能關）。
@@ -54,7 +58,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const toast = useCallback<ToastFn>((o) => {
     const id = ++seq;
-    setItems((list) => [...(o.replace ? [] : list.slice(-3)), { ...o, id, open: true }]);
+    /* replace 只換掉之前的 replace 通知；其他的照舊最多留 3 則＋新的一則 */
+    setItems((list) => [
+      ...(o.replace ? list.filter((x) => !x.replace) : list).slice(-3),
+      { ...o, id, open: true },
+    ]);
   }, []);
   const close = useCallback((id: number) => {
     setItems((list) => list.map((x) => (x.id === id ? { ...x, open: false } : x)));

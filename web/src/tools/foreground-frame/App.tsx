@@ -16,14 +16,7 @@ import {
   UsageSection,
   WindowDrop,
 } from '@/ui';
-import {
-  addFontFiles,
-  addImageFiles,
-  isFontFile,
-  isImageFile,
-  resetEverything,
-  setTab,
-} from './actions';
+import { addDroppedFiles, isFontFile, isImageFile, resetEverything, setTab } from './actions';
 import { TextGestureScope } from './controls';
 import { ensureStateFonts, fontRequests } from './fonts';
 import { useTestHook } from './hook';
@@ -89,7 +82,7 @@ const USAGE = (
   </div>
 );
 
-/** 開頁：狀態列顯示已還原或就緒；清掉沒用到的圖片 */
+/** 開頁：狀態列顯示已還原或就緒；清掉以前留下、沒用到的圖片 */
 function useStartup() {
   useEffect(() => {
     if (!AUTOSAVE_OK) setStatus(S.status.noAutosave, 'warning');
@@ -97,7 +90,8 @@ function useStartup() {
     const keep = referencedAssetIds(useFrame, stateAssetIds);
     const bg = usePreview.getState().data.bgAsset;
     if (bg) keep.add(bg);
-    void assets.gc(keep).catch(() => undefined);
+    /* 只清以前留下的（這次開頁放進來、還沒寫進狀態的圖不刪） */
+    void assets.gcStale(keep).catch(() => undefined);
   }, []);
 }
 
@@ -141,9 +135,9 @@ async function handleFiles(picked: File[]): Promise<void> {
     return;
   }
   const fonts = files.filter(isFontFile);
-  if (fonts.length) await addFontFiles(fonts);
   const images = files.filter((f) => !isFontFile(f) && isImageFile(f));
-  if (images.length) await addImageFiles(images);
+  /* 同一批的結果合成狀態列的一則 */
+  await addDroppedFiles(fonts, images);
 }
 
 function usePaste() {
@@ -180,7 +174,11 @@ export function App() {
 
   const onNotify = (n: ProjectNotice) => {
     if (n.kind === 'saved') setStatus(S.status.projectSaved(n.fileName ?? ''), 'success');
-    else if (n.kind === 'opened') setStatus(S.status.projectOpened(n.fileName ?? ''), 'success');
+    else if (n.kind === 'opened')
+      setStatus(
+        S.status.projectOpened(n.fileName ?? '') + (n.warnings ?? []).join(''),
+        n.warnings ? 'warning' : 'success',
+      );
     else if (n.kind === 'open-failed') setStatus(n.message ?? S.project.invalid, 'danger');
   };
 
