@@ -228,6 +228,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | polaroid | 拍立得相框產生器 | swoonqx/sw-polaroid | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
 | crossword | 填字遊戲產生器 | sotsotssi/text2crossword | MIT | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
 | scratch-card | 刮刮卡產生器 | sotsotssi/Scratchcard | 未授權 | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
+| discord-color | Discord 彩色文字產生器 | rebane2001（gist：discord-colored-text-generator） | 公有領域（Unlicense） | G1 | ⬜ | ⬜ | ⬜ | ⬜ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 
