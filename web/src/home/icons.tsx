@@ -57,6 +57,7 @@ import {
   SquareUser,
   Table,
   TextQuote,
+  Ticket,
   Trophy,
   UserCog,
   Users,
@@ -111,6 +112,7 @@ const ICONS: Record<string, LucideIcon> = {
   'session-report': ClipboardList,
   'review-grid': BookHeart,
   crossword: Puzzle,
+  'scratch-card': Ticket,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,
