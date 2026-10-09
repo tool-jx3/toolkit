@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /**
- * useToast 的 replace（emotion-maker 移植時新增）：新通知取代畫面上現有的通知；不給時照舊疊起來（最多 4 則）。
+ * useToast 的 replace（emotion-maker 移植時新增）：新通知取代之前同樣用 replace 發的通知；不給時照舊疊起來（最多 4 則）。
+ * 沒有用 replace 發的通知（同一批先發出的錯誤、存檔失敗、已開啟專案檔）不會被 replace 清掉（圖片資產稽核時修正）。
  * dismissOnClick（bg-motion 修正時新增）：點通知本體立刻關閉；不給時點本體不會關（只有 ×）。
  * Esc（room-zip 修正時新增）：有對話框時 Esc 交給對話框（通知留著）；沒有對話框時照舊關閉通知。
  */
@@ -47,6 +48,35 @@ describe('useToast', () => {
     fireEvent.click(screen.getByRole('button', { name: '二' }));
     expect(await screen.findByText('第二則')).toBeTruthy();
     expect(screen.queryByText('第一則')).toBeNull();
+  });
+
+  it('replace 只取代之前同樣用 replace 發的通知：同一批先發出的錯誤（沒有 replace）留著', async () => {
+    function BatchProbe() {
+      const toast = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            toast({ title: '上一個動作', replace: true });
+            toast({ title: '無法讀取 a.png', tone: 'danger' });
+            toast({ title: '無法讀取 b.png', tone: 'danger' });
+            toast({ title: '已加入 3 張', tone: 'success', replace: true });
+          }}
+        >
+          加入
+        </button>
+      );
+    }
+    render(
+      <UiProvider>
+        <BatchProbe />
+      </UiProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '加入' }));
+    expect(await screen.findByText('已加入 3 張')).toBeTruthy();
+    expect(screen.getByText('無法讀取 a.png')).toBeTruthy();
+    expect(screen.getByText('無法讀取 b.png')).toBeTruthy();
+    expect(screen.queryByText('上一個動作')).toBeNull();
   });
 
   it('dismissOnClick：點通知本體立刻關閉', async () => {

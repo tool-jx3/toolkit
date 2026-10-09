@@ -286,4 +286,61 @@ describe('ProjectMenu', () => {
     await waitFor(() => expect(notices.at(-1)?.kind).toBe('open-failed'));
     expect(notices.at(-1)?.message).toBe('匯出中，請等匯出完成或取消後再操作。');
   });
+
+  it('onLoad 回傳 warnings：和「已開啟專案檔」合成一則警告色的通知；onNotify 收到 tone warning 與 warnings（圖片資產稽核）', async () => {
+    const warn = '專案檔裡的圖片存不進這個瀏覽器，重新整理之後就不見了。';
+    render(
+      <UiProvider>
+        <ProjectMenu
+          toolId="demo"
+          getData={() => ({})}
+          onLoad={async () => ({ warnings: [warn, null, ''] })}
+          onReset={() => {}}
+          confirmOpen={false}
+        />
+      </UiProvider>,
+    );
+    files.pickFiles.mockResolvedValueOnce([file('pics.json', serializeProject('demo', 1, {}))]);
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: /開啟專案檔/ }));
+    const title = await screen.findByText('已開啟專案檔');
+    const item = title.closest('li') as HTMLElement;
+    expect(item.textContent).toContain('pics.json');
+    expect(item.textContent).toContain(warn);
+    expect(item.className).toContain('border-warning');
+    expect(screen.getAllByText(/已開啟專案檔/)).toHaveLength(1);
+  });
+
+  it('onLoad 回傳 warnings 且給了 onNotify：opened 的通知帶 warnings；沒有提醒時照舊（不帶 warnings）', async () => {
+    const notices: ProjectNotice[] = [];
+    let warnings: string[] = ['圖片存不進這個瀏覽器。'];
+    render(
+      <UiProvider>
+        <ProjectMenu
+          toolId="demo"
+          getData={() => ({})}
+          onLoad={() => ({ warnings })}
+          onReset={() => {}}
+          confirmOpen={false}
+          onNotify={(n) => notices.push(n)}
+        />
+      </UiProvider>,
+    );
+    files.pickFiles.mockResolvedValueOnce([file('a.json', serializeProject('demo', 1, {}))]);
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: /開啟專案檔/ }));
+    await waitFor(() => expect(notices).toHaveLength(1));
+    expect(notices[0]).toEqual({
+      kind: 'opened',
+      tone: 'warning',
+      fileName: 'a.json',
+      warnings: ['圖片存不進這個瀏覽器。'],
+    });
+    warnings = [];
+    files.pickFiles.mockResolvedValueOnce([file('b.json', serializeProject('demo', 1, {}))]);
+    await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: /開啟專案檔/ }));
+    await waitFor(() => expect(notices).toHaveLength(2));
+    expect(notices[1]).toStrictEqual({ kind: 'opened', tone: 'success', fileName: 'b.json' });
+  });
 });

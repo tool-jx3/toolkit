@@ -8,7 +8,9 @@
  * if (!persisted) toast({ title: reason === 'quota' ? '瀏覽器空間不足，圖片無法自動保存' : '這個瀏覽器無法自動保存圖片', tone: 'warning' });
  * update((d) => { d.characters.push({ imageId: id, … }); });
  * const bmp = await assets.bitmap(id);                              // 重新整理後也拿得到（從 IndexedDB 讀回）
- * // 定期清掉沒人用的圖（目前的狀態＋復原歷史都算「有人用」）
+ * // 開頁的整理：清掉以前留下、沒人用的圖（目前的狀態＋復原歷史都算「有人用」；這次開頁寫進或讀過的圖不刪）
+ * await assets.gcStale(referencedAssetIds(useBoard, (d) => d.characters.map((c) => c.imageId)));
+ * // 使用中釋放刪掉的圖（重設、開了別的專案檔之後）：沒人用就刪
  * await assets.gc(referencedAssetIds(useBoard, (d) => d.characters.map((c) => c.imageId)));
  * ```
  */
@@ -44,8 +46,17 @@ export interface AssetStore {
   /** 一次讀回多張（重新整理後還原）；回傳找不到的 id */
   preload(ids: Iterable<string>): Promise<{ missing: string[] }>;
   remove(id: string): Promise<void>;
-  /** 刪掉 keep 以外的所有圖（記憶體與 IndexedDB），回傳刪掉的 id；寫入中與 gc 開始之後才寫入的圖不刪 */
+  /**
+   * 使用中釋放刪掉的圖（重設、開了別的專案檔之後）：刪掉 keep 以外的所有圖（記憶體與 IndexedDB），回傳刪掉的 id；
+   * 寫入中與 gc 開始之後才寫入的圖不刪
+   */
   gc(keep: Iterable<string>): Promise<string[]>;
+  /**
+   * 開頁的整理：只刪以前留下、沒人用的圖——keep 以外、**這次開頁沒有寫進也沒有讀過**的（add、put、get 過的 id 一律留著）。
+   * 工具常在圖寫進資產庫之後才把 id 寫進狀態（一批讀完才一起寫、開專案檔時一張一張寫完才換狀態），
+   * 這段時間差裡的圖不會被當成沒人用而刪掉；這次開頁放進來又不用的圖留到下次開頁再清。回傳刪掉的 id。
+   */
+  gcStale(keep: Iterable<string>): Promise<string[]>;
   /** 所有已知的 id（記憶體＋IndexedDB） */
   ids(): Promise<string[]>;
   clear(): Promise<void>;
@@ -126,6 +137,11 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
   const writing = new Set<string>();
   let putCount = 0;
   const putOrder = new Map<string, number>();
+  /*
+   * 這次開頁寫進（add、put）或讀過（get，開始讀就算）的 id：開頁的整理（gcStale）不刪。
+   * 一批裡先寫完、工具還沒寫進狀態的圖，gc 開始前就寫完也留著（不再靠各工具自己記）。
+   */
+  const touched = new Set<string>();
 
   const forget = (id: string) => {
     blobs.delete(id);
@@ -139,6 +155,7 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
   };
 
   const put = async (id: string, blob: Blob): Promise<AssetAddResult> => {
+    touched.add(id);
     writing.add(id);
     putOrder.set(id, ++putCount);
     try {
@@ -155,6 +172,7 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
   };
 
   const get = async (id: string): Promise<Blob | undefined> => {
+    touched.add(id);
     const hit = blobs.get(id);
     if (hit) return hit;
     const v = await db.load(id);
@@ -166,10 +184,27 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
     return undefined;
   };
 
+  /** gc／gcStale：stale 時這次開頁寫進或讀過的也不刪（刪之前才檢查，整理途中才寫的也算） */
+  const sweep = async (keep: Iterable<string>, stale: boolean): Promise<string[]> => {
+    const k = new Set(keep);
+    /* gc 開始時還在寫的、開始之後才寫的都不刪（在 gc 跑的期間寫完的也算） */
+    for (const id of writing) k.add(id);
+    const start = putCount;
+    const removed: string[] = [];
+    for (const id of await store.ids()) {
+      if (k.has(id) || writing.has(id) || (putOrder.get(id) ?? 0) > start) continue;
+      if (stale && touched.has(id)) continue;
+      await store.remove(id);
+      removed.push(id);
+    }
+    return removed;
+  };
+
   const store: AssetStore = {
     async add(blob) {
       const bytes = new Uint8Array(await blob.arrayBuffer());
       const id = await assetIdFor(bytes);
+      touched.add(id);
       /* 同一張圖已經存過：不必再寫一次 */
       if (blobs.has(id) && saved.has(id)) return { id, persisted: true };
       /*
@@ -227,19 +262,8 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
       forget(id);
       await db.remove(id);
     },
-    async gc(keep) {
-      const k = new Set(keep);
-      /* gc 開始時還在寫的、開始之後才寫的都不刪（在 gc 跑的期間寫完的也算） */
-      for (const id of writing) k.add(id);
-      const start = putCount;
-      const removed: string[] = [];
-      for (const id of await store.ids()) {
-        if (k.has(id) || writing.has(id) || (putOrder.get(id) ?? 0) > start) continue;
-        await store.remove(id);
-        removed.push(id);
-      }
-      return removed;
-    },
+    gc: (keep) => sweep(keep, false),
+    gcStale: (keep) => sweep(keep, true),
     async ids() {
       return [...new Set([...blobs.keys(), ...(await db.keys())])];
     },
