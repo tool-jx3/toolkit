@@ -1,0 +1,1 @@
+import{Ds as e}from"./ui-DouBP5Qg.js";var t=[`solid`,`dashed`,`dotted`];function n(e,t){return e===`dashed`?[t*4,t*3]:e===`dotted`?[t,t*2.5]:[]}function r(t,n=1,r){let i=e(t)??{r:0,g:0,b:0,a:1},a=r??i.a*n;return`rgba(${Math.round(i.r)},${Math.round(i.g)},${Math.round(i.b)},${a.toFixed(4)})`}function i(t){return e(t)?.a??1}export{n as i,r as n,i as r,t};
