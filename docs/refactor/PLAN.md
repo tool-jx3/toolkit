@@ -242,6 +242,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | floor-plan | 再補範本：學校、警局、寺廟、洞窟等（目前 8 個，見規格 7. D10） | 本站 | ⬜ |
 | char-chart | 關係圖的頭像可以調整範圍（目前固定取圖片中央；可用共用的 ImageFrameDialog） | 本站 | ⬜ |
 | char-chart、review-grid | 兩個工具的 `images.ts`（縮到長邊 1024、存資產庫、讀回圖片的 hook）幾乎相同，合併成 `core/assets` 的共用函式 | 本站 | ⬜ |
+| 全站 GIF | 全不透明的 GIF 打開共用編碼器的 `cropFrames`（第 2 格起只寫變化的矩形，檔案小很多；lock-screen 引入時加的選項，見其規格 D7） | 本站 | ⬜ |
 | 全站 | 介面文字的「保存」改成「儲存」（28 個工具 60 處；「方便保存、分享」這類「留著」的意思不改；DESIGN.md 第 5 節，scenario-text 對等驗證時發現） | 本站 | ✅ |
 
 ## 7. 往後新增工具
