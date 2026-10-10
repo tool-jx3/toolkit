@@ -226,6 +226,8 @@ describe('bg-remover：輸出', () => {
 });
 
 describe('bg-remover：純色、邊緣與筆刷', () => {
+  /** 只有一個背景色（其他背景色沒有） */
+  const one = { extra: [], blend: false };
   /* 白底中間一個紅色方塊，方塊邊上有一圈淡粉紅（反鋸齒） */
   const src = image(12, 12, (x, y) => {
     if (x >= 4 && x < 8 && y >= 4 && y < 8) return [220, 30, 30, 255];
@@ -234,7 +236,7 @@ describe('bg-remover：純色、邊緣與筆刷', () => {
   });
 
   it('自動偵測背景色（四邊最多的顏色），柔邊的像素半透明', () => {
-    const r = colorBase(src, { color: null, tolerance: 5, softness: 60, connected: true });
+    const r = colorBase(src, { ...one, color: null, tolerance: 5, softness: 60, connected: true });
     expect(r.bg).toEqual([255, 255, 255]);
     expect(r.ratio).toBe(1);
     expect(r.mask[0]).toBe(0);
@@ -245,22 +247,28 @@ describe('bg-remover：純色、邊緣與筆刷', () => {
   });
 
   it('指定顏色：用指定的顏色（不偵測）', () => {
-    const r = colorBase(src, { color: [220, 30, 30], tolerance: 5, softness: 0, connected: false });
+    const r = colorBase(src, {
+      ...one,
+      color: [220, 30, 30],
+      tolerance: 5,
+      softness: 0,
+      connected: false,
+    });
     expect(r.bg).toEqual([220, 30, 30]);
     expect(r.mask[5 * 12 + 5]).toBe(0);
     expect(r.mask[0]).toBe(255);
   });
 
   it('去色邊：半透明邊緣的顏色扣掉白色後接近方塊的紅', () => {
-    const r = colorBase(src, { color: null, tolerance: 5, softness: 60, connected: true });
-    const colors = cutoutColors(src, { base: r.mask, bg: r.bg });
+    const r = colorBase(src, { ...one, color: null, tolerance: 5, softness: 60, connected: true });
+    const colors = cutoutColors(src, { base: r.mask, keys: r.keys });
     const k = (3 * 12 + 3) * 4;
     expect(colors[k]).toBeGreaterThan(colors[k + 1] + 60);
     expect(cutoutColors(src, null)).toBe(src.rgba);
   });
 
   it('邊緣調整：0 是複本；收縮讓方塊變小', () => {
-    const r = colorBase(src, { color: null, tolerance: 30, softness: 0, connected: true });
+    const r = colorBase(src, { ...one, color: null, tolerance: 30, softness: 0, connected: true });
     const same = refineMask(r.mask, 12, 12, 0, 0);
     expect(same).not.toBe(r.mask);
     expect(Array.from(same)).toEqual(Array.from(r.mask));

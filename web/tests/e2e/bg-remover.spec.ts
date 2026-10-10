@@ -3,14 +3,16 @@
  * - 開頁沒有 pageerror／console error；AI 模式先告知模型的大小、來源、授權；推論尺寸固定 1024；
  * - 模型下載：固定 revision 的網址、HTTP 錯誤、進度與取消、SHA-256 不符時丟棄、存進 Cache Storage 後不再下載、刪除；
  * - AI 去背：用小的假模型（tests/fixtures/bg-remover-fake-model.onnx，形狀與名稱同真模型）跑完整流程，
- *   匯出的遮罩與「新版前後處理＋假模型的算式」逐像素比對；
- * - 真模型（設定 BG_REMOVER_MODEL、BG_REMOVER_REF 時才跑）：匯出的遮罩、白底圖與 Python 參考做法比對；
+ *   匯出的遮罩與「新版前後處理＋假模型的算式＋色階」逐像素比對；
+ * - 真模型（設定 BG_REMOVER_MODEL、BG_REMOVER_REF 時才跑）：匯出的遮罩、白底圖與 Python 參考做法（加同樣的色階）比對；
  * - 純色去背（自動偵測、只去掉相連的背景、從圖上取色）、筆刷（擦掉、補回、復原／重做、快捷鍵）；
  * - 批次與 ZIP、匯出格式（PNG／WebP／JPG、背景、裁透明邊、遮罩、比較圖）；
  * - 自動保存與重新整理後還原、專案檔；390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準；
  * - 對等驗證後的修正（規格 7.1）：顯示卡建不起來時改用 CPU（F05）、Wi-Fi 提醒（F12）、SHA-256 階段看得到（F13）、
  *   自動 AI 去背遇到壞掉的模型（F20）、取消 AI 去背的訊息（F21）、預覽背景圖重新整理後還在（F41）、第一張圖的「讀取中…」（F43）、
- *   去色邊處理邊界旁一圈（F32）、快捷鍵一覽的 Esc（F58）、大圖不凍住畫面、匯出取消的訊息、略過不是圖片的檔案。
+ *   去色邊處理邊界旁一圈（F32）、快捷鍵一覽的 Esc（F58）、大圖不凍住畫面、匯出取消的訊息、略過不是圖片的檔案；
+ * - 2026-10 的擴充：多個背景色（建議、取色加入、改色、刪除、混色）、AI＋背景色（假模型）、去掉孤島、
+ *   AI 遮罩的色階（完全不透明）、新設定的自動保存與專案檔（版本 2）、舊存檔與舊專案檔（版本 1）。
  *
  * 模型網址一律用 page.route 攔下：假模型直接回傳位元組；慢速下載與真模型由測試裡的小伺服器（隨機 port）提供，
  * 再以 302 轉過去（大檔案不能直接塞進 route.fulfill）。
@@ -31,14 +33,16 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
-import { unzipSync } from 'fflate';
+import { unzipSync, zipSync } from 'fflate';
 import { decodePng } from '../../src/core/decode/png';
 import { encodePng } from '../../src/core/encode/png';
-import { quantizeMask } from '../../src/core/image/mask';
+import { borderColors, colorKeyMask, decontaminate } from '../../src/core/image/colorkey';
+import { levelsMask, type Mask, quantizeMask } from '../../src/core/image/mask';
 import type { ModelSpec } from '../../src/core/models';
 import { getTool, outputDir } from '../../src/registry';
 import { fromModelOutput, MODEL_SIZE, toModelInput } from '../../src/tools/bg-remover/animeSeg';
-import { ANIME_SEG_MODEL } from '../../src/tools/bg-remover/model';
+import { ANIME_SEG_MODEL, defaultSettings } from '../../src/tools/bg-remover/model';
+import { AI_LEVELS, aiBase, comboBase, keyParamsOf } from '../../src/tools/bg-remover/pipeline';
 import { fakeSegValue } from '../helpers/onnx';
 
 const URL = `/${outputDir(getTool('bg-remover') ?? { id: 'bg-remover', status: 'next' })}/`;
@@ -249,15 +253,21 @@ async function squarePng(w = 64, h = 48): Promise<Buffer> {
   return Buffer.from(await encodePng(px, w, h));
 }
 
-/** 用新版的前後處理＋假模型的算式算出的遮罩（0～255） */
-function expectedFakeMask(png: Buffer): { mask: Uint8Array; width: number; height: number } {
+/** 用新版的前後處理＋假模型的算式算出的遮罩（0～255，套過色階；stored 是存著的 8 位元遮罩） */
+function expectedFakeMask(png: Buffer): {
+  mask: Mask;
+  stored: Mask;
+  width: number;
+  height: number;
+} {
   const img = decodePng(png);
   const { tensor, box } = toModelInput(img.rgba, img.width, img.height, MODEL_SIZE);
   const plane = MODEL_SIZE * MODEL_SIZE;
   const pred = new Float32Array(plane);
   for (let i = 0; i < plane; i++)
     pred[i] = fakeSegValue(tensor[i], tensor[plane + i], tensor[2 * plane + i]);
-  return { mask: quantizeMask(fromModelOutput(pred, box)), width: img.width, height: img.height };
+  const stored = quantizeMask(fromModelOutput(pred, box));
+  return { mask: aiBase(stored), stored, width: img.width, height: img.height };
 }
 
 /** 匯出（目前的範圍與設定）；單檔回傳下載，多檔回傳結果區 */
@@ -468,8 +478,13 @@ test('AI 去背（假模型）：放進圖自動去背，匯出的遮罩與前�
     if (!d) same++;
     maxDiff = Math.max(maxDiff, d);
   }
-  expect(maxDiff).toBeLessThanOrEqual(1);
+  /* 存著的值差 1 時，色階拉開後差 1～2 */
+  expect(maxDiff).toBeLessThanOrEqual(2);
   expect(same / want.mask.length).toBeGreaterThan(0.99);
+  /* 色階：黑方塊裡面完全不透明（存著的是 254）、白底 0 */
+  expect(want.stored[20 * 64 + 30]).toBe(254);
+  expect(got.rgba[(20 * 64 + 30) * 4]).toBe(255);
+  expect(got.rgba[0]).toBe(0);
   /* 去背圖：透明度＝遮罩、RGB 原樣 */
   await setExport(page, '去背圖');
   const cut = decodePng(await exportOne(page));
@@ -549,8 +564,9 @@ interface RealCompare {
 }
 
 /**
- * 真模型：把參考資料夾的圖全部 AI 去背，匯出遮罩與白底圖，和 Python 參考做法（get_mask＋app.py 的白底）逐像素比對。
- * 回傳每張的結果（寫進測試的註記）。
+ * 真模型：把參考資料夾的圖全部 AI 去背，匯出遮罩與白底圖，和 Python 參考做法逐像素比對。參考做法加同樣的色階：
+ * get_mask 的 8 位元遮罩（`.alpha.png`）套 AI_LEVELS 當成期望的遮罩；白底＝原圖以這個遮罩做一般的 alpha 合成（四捨五入）
+ * 鋪白（原作 app.py 的白底用的是沒有色階的浮點數遮罩，色階之後就不能直接比）。回傳每張的結果（寫進測試的註記）。
  */
 async function compareWithReference(page: Page, o: RealCompare) {
   const { errors } = await open(page);
@@ -599,24 +615,29 @@ async function compareWithReference(page: Page, o: RealCompare) {
     const got = decodePng(masks[`${n}_遮罩.png`]);
     const ref = decodePng(readFileSync(`${REAL_REF}/ref/${n}.alpha.png`));
     expect([got.width, got.height]).toEqual([ref.width, ref.height]);
+    const px = got.width * got.height;
+    /* 參考的 alpha PNG 是灰階，decodePng 展開成 RGBA；套同樣的色階 */
+    const refStored = new Uint8Array(px);
+    for (let i = 0; i < px; i++) refStored[i] = ref.rgba[i * 4];
+    const refMask = levelsMask(refStored, AI_LEVELS.lo, AI_LEVELS.hi);
     let same = 0;
     let max = 0;
     let sum = 0;
-    const px = got.width * got.height;
     for (let i = 0; i < px; i++) {
-      /* 參考的 alpha PNG 是灰階，decodePng 展開成 RGBA */
-      const d = Math.abs(got.rgba[i * 4] - ref.rgba[i * 4]);
+      const d = Math.abs(got.rgba[i * 4] - refMask[i]);
       if (!d) same++;
       sum += d;
       max = Math.max(max, d);
     }
     const white = decodePng(whites[`${n}_去背.png`]);
-    const refWhite = decodePng(readFileSync(`${REAL_REF}/ref/${n}.white.png`));
+    const src = decodePng(readFileSync(`${REAL_REF}/images/${n}.png`));
     let wSame = 0;
     let wMax = 0;
     for (let i = 0; i < px * 4; i++) {
       if (i % 4 === 3) continue;
-      const d = Math.abs(white.rgba[i] - refWhite.rgba[i]);
+      const a = refMask[i >> 2];
+      const want = Math.round((src.rgba[i] * a + 255 * (255 - a)) / 255);
+      const d = Math.abs(white.rgba[i] - want);
       if (!d) wSame++;
       wMax = Math.max(wMax, d);
     }
@@ -641,11 +662,11 @@ async function compareWithReference(page: Page, o: RealCompare) {
 test('真模型（CPU）：匯出的遮罩與白底圖和 Python 參考做法（get_mask）比對', async ({ page }) => {
   test.skip(!REAL_MODEL || !REAL_REF, '設定 BG_REMOVER_MODEL 與 BG_REMOVER_REF 才跑');
   test.setTimeout(900_000);
-  /* 無頭瀏覽器沒有 WebGPU：「自動」用 CPU */
+  /* 無頭瀏覽器沒有 WebGPU：「自動」用 CPU。存著的遮罩差 1 時，色階拉開後差 1～2 */
   await compareWithReference(page, {
     backendText: '目前使用：CPU（WebAssembly）',
     minSame: 0.999,
-    maxDiff: 1,
+    maxDiff: 2,
     maxWhiteDiff: 2,
     outName: 'wasm',
   });
@@ -716,7 +737,7 @@ gpuTest(
     let maxDiff = 0;
     for (let i = 0; i < want.mask.length; i++)
       maxDiff = Math.max(maxDiff, Math.abs(got.rgba[i * 4] - want.mask[i]));
-    expect(maxDiff).toBeLessThanOrEqual(1);
+    expect(maxDiff).toBeLessThanOrEqual(2);
     expect(errors).toEqual([]);
   },
 );
@@ -734,7 +755,7 @@ gpuTest(
       backend: 'GPU（WebGPU）',
       backendText: '目前使用：GPU（WebGPU）',
       minSame: 0.999,
-      maxDiff: 2,
+      maxDiff: 3,
       maxWhiteDiff: 3,
       outName: 'webgpu',
     });
@@ -1593,7 +1614,7 @@ test('F58：快捷鍵一覽列出「Esc 取消取色」', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('大圖：放進 4000 × 4000 與改設定時畫面不凍住（解碼、縮圖、合成在 Worker 裡）', async ({
+test('大圖：放進 4000 × 4000 與改設定（含去掉孤島、多個背景色）時畫面不凍住（解碼、縮圖、合成在 Worker 裡）', async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -1624,12 +1645,36 @@ test('大圖：放進 4000 × 4000 與改設定時畫面不凍住（解碼、縮
     await expectReady(page);
     await painted();
   });
+  /* 2026-10：去掉孤島、多個背景色（混色）也在 Worker 裡算 */
+  const change = async (fn: () => Promise<void>) => {
+    const tick = await canvas(page).getAttribute('data-tick');
+    const t0 = Date.now();
+    await fn();
+    await expect(canvas(page)).not.toHaveAttribute('data-tick', tick ?? '', { timeout: 60_000 });
+    await expectReady(page);
+    await painted();
+    return Date.now() - t0;
+  };
+  let islMs = 0;
+  const isl = await longIn(async () => {
+    islMs = await change(() => page.getByRole('switch', { name: '去掉孤島' }).click());
+  });
+  let multiMs = 0;
+  const multi = await longIn(async () => {
+    multiMs = await change(async () => {
+      await page.getByRole('button', { name: '在圖上點一下加入' }).click();
+      const p = await toScreen(page, 2000, 2000);
+      await page.mouse.click(p.x, p.y);
+    });
+  });
   test.info().annotations.push({
     type: '主執行緒的長工作（毫秒）',
-    description: `放進 4000 × 4000：${add.join('、') || '無'}；改容許度：${tol.join('、') || '無'}`,
+    description: `放進 4000 × 4000：${add.join('、') || '無'}；改容許度：${tol.join('、') || '無'}；去掉孤島：${isl.join('、') || '無'}（到畫好 ${islMs} ms）；多一個背景色（混色）：${multi.join('、') || '無'}（到畫好 ${multiMs} ms）`,
   });
   expect(Math.max(0, ...add)).toBeLessThan(300);
   expect(Math.max(0, ...tol)).toBeLessThan(200);
+  expect(Math.max(0, ...isl)).toBeLessThan(200);
+  expect(Math.max(0, ...multi)).toBeLessThan(200);
   expect(errors).toEqual([]);
 });
 
@@ -1820,6 +1865,540 @@ test('加進來了但原圖解不成像素：預覽顯示「無法讀取」與�
   expect(text).toContain('尺寸：1500 × 1000');
   expect(text).toContain('步驟：讀取原圖的像素');
   expect(text).toContain('錯誤：Error: decode');
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 2026-10：多個背景色、AI＋背景色、去掉孤島、AI 遮罩完全不透明 ---------- */
+
+const PURPLE = [144, 120, 153] as const;
+const DARK = [46, 38, 56] as const;
+/**
+ * 淡膚色（和白差約 11，預設容許度 12 以內）與淡黃的衣服／方塊（假模型算出來幾乎是 0：AI 認不出來）。
+ * 衣服用淡黃不用淡橘：淡橘、淡粉紅離「白－紫」的連線很近（約 15），混色開著時連到圖外的會被當成半透明的背景。
+ */
+const SKIN = [250, 228, 215] as const;
+const DRESS = [255, 245, 130] as const;
+
+/**
+ * 合成的測試圖（320 × 240，重現使用者那張魔女圖的特性）：
+ * - 背景：左邊白（x < 140）、右邊紫（x ≥ 200），中間 140～169 是白紫的網點（4 × 4 的 Bayer 抖色）、170～199 是平滑的漸層；
+ * - 角色：深色的框（4 px 線條）圍住淡膚色（臉）與淡黃的衣服，跨在白、紫之間；右邊連著一條深色細長的尾巴（在紫底上）；
+ * - 紫底上兩塊和衣服同色的方塊（12 × 12，背景的花紋）。
+ * 假模型（越暗越像角色）：深色的線條與尾巴 255、淡膚色與淡黃 0、白 0、紫約一半。
+ */
+async function twoTonePng() {
+  const w = 320;
+  const h = 240;
+  const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const px = new Uint8Array(w * h * 4);
+  const mix = (t: number) => [0, 1, 2].map((k) => Math.round(255 + t * (PURPLE[k] - 255)));
+  const nearTail = (x: number, y: number) => {
+    /* (200, 150) → (300, 110)，半寬 3 */
+    const [ax, ay, bx, by] = [200, 150, 300, 110];
+    const t = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / 11600));
+    return Math.hypot(x - (ax + t * (bx - ax)), y - (ay + t * (by - ay))) <= 3;
+  };
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let c: readonly number[];
+      if (x < 140) c = [255, 255, 255];
+      else if (x < 170)
+        c =
+          (bayer[(y % 4) * 4 + (x % 4)] + 0.5) / 16 < (x - 140 + 0.5) / 30
+            ? PURPLE
+            : [255, 255, 255];
+      else if (x < 200) c = mix((x - 170 + 0.5) / 30);
+      else c = PURPLE;
+      const inChar = x >= 100 && x < 200 && y >= 40 && y < 200;
+      if (inChar) {
+        const frame = x < 104 || x >= 196 || y < 44 || y >= 196 || (y >= 100 && y < 104);
+        c = frame ? DARK : y < 100 ? SKIN : DRESS;
+      }
+      if (nearTail(x, y)) c = DARK;
+      if (
+        (x >= 250 && x < 262 && y >= 30 && y < 42) ||
+        (x >= 280 && x < 292 && y >= 200 && y < 212)
+      )
+        c = DRESS;
+      px.set([c[0], c[1], c[2], 255], (y * w + x) * 4);
+    }
+  }
+  const png = Buffer.from(await encodePng(px, w, h));
+  /* 「四邊還有這些常見的顏色」會列出的紫（和工具用同一個函式算） */
+  const purple = borderColors(px, w, h, { minRatio: 0.1 }).find((c) => c.color[0] < 200);
+  if (!purple) throw new Error('沒有紫色的建議');
+  const purpleHex = `#${purple.color.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+  return { png, rgba: px, w, h, purpleHex };
+}
+
+/** 匯出目前這張的遮罩（灰階）；回傳讀值的函式 */
+async function exportMask(page: Page) {
+  await setExport(page, '遮罩');
+  const img = decodePng(await exportOne(page, 'PNG'));
+  const at = (x: number, y: number) => img.rgba[(y * img.width + x) * 4];
+  return Object.assign(at, { img });
+}
+
+const extraField = (page: Page, n = 2) => page.getByRole('textbox', { name: `背景色 ${n}色碼` });
+const blendSwitch = (page: Page) =>
+  page.getByRole('switch', { name: '兩個背景色之間的混色也算背景' });
+
+async function addTwoTone(page: Page) {
+  const img = await twoTonePng();
+  await fileInput(page).setInputFiles({ name: '白紫.png', mimeType: 'image/png', buffer: img.png });
+  await expect(status(page)).toHaveText('已加入 1 張圖片。');
+  return img;
+}
+
+test('多個背景色（F62～F64）：加入建議的顏色、在圖上點一下加入、改色、刪除；混色開關；復原', async ({
+  page,
+}) => {
+  const { errors } = await open(page);
+  await useColorMode(page);
+  const img = await addTwoTone(page);
+  await expectReady(page);
+  /* 自動偵測只用最多的那一色（白）；紫列成建議 */
+  await expect(page.getByTestId('key-detected')).toContainText('偵測到：#ffffff');
+  let m = await exportMask(page);
+  expect(m(10, 10)).toBe(0);
+  expect(m(310, 120)).toBe(255);
+  const suggest = page.getByTestId('key-suggest');
+  await expect(suggest).toContainText(`${img.purpleHex}（四邊有`);
+  await page.getByRole('button', { name: `加入背景色 ${img.purpleHex}` }).click();
+  await expect(extraField(page)).toHaveValue(img.purpleHex);
+  await expect(suggest).toHaveCount(0);
+  await expectReady(page);
+  /* 白＋紫（混色預設開）：紫底、網點、漸層都去掉；角色、被線條圍住的淡膚色、尾巴、方塊（只看顏色）留著 */
+  await expect(blendSwitch(page)).toBeChecked();
+  m = await exportMask(page);
+  expect(m(10, 10)).toBe(0);
+  expect(m(310, 120)).toBe(0);
+  expect(m(155, 10)).toBe(0);
+  expect(m(185, 10)).toBe(0);
+  expect(m(130, 70)).toBe(255);
+  expect(m(150, 150)).toBe(255);
+  expect(m(250, 130)).toBe(255);
+  expect(m(255, 35)).toBe(255);
+  /* 混色關掉：網點（純白、純紫）照樣去掉，漸層的中段留著 */
+  await blendSwitch(page).click();
+  await expectReady(page);
+  m = await exportMask(page);
+  expect(m(155, 10)).toBe(0);
+  expect(m(185, 10)).toBe(255);
+  await page.waitForTimeout(450);
+  await blendSwitch(page).click();
+  await expectReady(page);
+  /* 刪除；只剩一個背景色時沒有混色的開關 */
+  await page.waitForTimeout(450);
+  await page.getByRole('button', { name: `刪除背景色 ${img.purpleHex}` }).click();
+  await expect(extraField(page)).toHaveCount(0);
+  await expect(blendSwitch(page)).toHaveCount(0);
+  await expectReady(page);
+  /* 在圖上點一下加入：點紫底 */
+  await page.getByRole('button', { name: '在圖上點一下加入' }).click();
+  await expect(page.getByTestId('brush-layer')).toHaveAttribute('data-tool', 'pick');
+  await expect(
+    page.getByRole('button', { name: '點一下預覽裡要加入的背景色（Esc 取消）' }),
+  ).toBeVisible();
+  const p = await toScreen(page, 310, 120);
+  await page.mouse.click(p.x, p.y);
+  await expect(extraField(page)).toHaveValue('#907899');
+  await expectReady(page);
+  m = await exportMask(page);
+  expect(m(310, 120)).toBe(0);
+  /* 改色（改成綠；黑不行：紫在「白－黑」的灰色連線附近，混色開著時照樣去掉）：紫底又留著；復原回到紫 */
+  await page.waitForTimeout(450);
+  await extraField(page).fill('#00ff00');
+  await extraField(page).press('Enter');
+  await expectReady(page);
+  m = await exportMask(page);
+  expect(m(310, 120)).toBe(255);
+  await blur(page);
+  await page.waitForTimeout(450);
+  await page.keyboard.press('Control+z');
+  await expect(extraField(page)).toHaveValue('#907899');
+  await page.keyboard.press('Control+z');
+  await expect(extraField(page)).toHaveCount(0);
+  await page.keyboard.press('Control+Shift+z');
+  await expect(extraField(page)).toHaveValue('#907899');
+  expect(errors).toEqual([]);
+});
+
+test('多個背景色：最多 4 個；滿了不能再加、沒有建議', async ({ page }) => {
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await addTwoTone(page);
+  await expectReady(page);
+  const add = page.getByRole('button', { name: '在圖上點一下加入' });
+  for (const [x, y, n] of [
+    [310, 120, 2],
+    [130, 70, 3],
+    [150, 150, 4],
+  ] as const) {
+    await add.click();
+    const p = await toScreen(page, x, y);
+    await page.mouse.click(p.x, p.y);
+    await expect(extraField(page, n)).toBeVisible();
+    await page.waitForTimeout(450);
+  }
+  await expect(add).toBeDisabled();
+  await expect(page.getByText('已經有 4 個背景色了。')).toBeVisible();
+  await expect(page.getByTestId('key-suggest')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('只有一個背景色時輸出不變：範例圖的遮罩、去背圖和單色的色鍵＋去色邊逐位元組相同', async ({
+  page,
+}) => {
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await loadDemo(page);
+  /* 原圖：比較圖的左邊一格 */
+  await setExport(page, '比較圖');
+  const cmp = decodePng(await exportOne(page, 'PNG'));
+  const w = cmp.width / 3;
+  const h = cmp.height;
+  const src = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++)
+    src.set(cmp.rgba.subarray(y * cmp.width * 4, y * cmp.width * 4 + w * 4), y * w * 4);
+  const mask = colorKeyMask(src, w, h, {
+    color: [255, 255, 255],
+    tolerance: 12,
+    softness: 8,
+    connected: true,
+  });
+  const colors = decontaminate(src, mask, [255, 255, 255], { width: w, height: h, edge: 2 });
+  const got = await exportMask(page);
+  for (let i = 0; i < w * h; i++) {
+    if (got.img.rgba[i * 4] !== mask[i]) throw new Error(`遮罩 ${i} 不同`);
+  }
+  await setExport(page, '去背圖');
+  const cut = decodePng(await exportOne(page, 'PNG'));
+  for (let i = 0; i < w * h; i++) {
+    const a = mask[i];
+    const want = a ? [colors[i * 4], colors[i * 4 + 1], colors[i * 4 + 2], a] : [0, 0, 0, 0];
+    for (let k = 0; k < 4; k++)
+      if (cut.rgba[i * 4 + k] !== want[k]) throw new Error(`去背圖 ${i} 不同`);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('AI＋背景色（F65，假模型）：AI 找出的角色＋連著的背景色結果補回，背景色上的邊去掉、方塊不加回；容許度／柔邊另外記', async ({
+  page,
+}) => {
+  const { errors } = await open(page, { spec: FAKE_SPEC });
+  await page.getByRole('radio', { name: 'AI＋背景色' }).click();
+  await expect(page.getByText('AI 找出角色，再用背景色修正：', { exact: false })).toBeVisible();
+  /* 設定欄同時有「AI 模型」與「背景色」；容許度／柔邊 6 */
+  await expect(modelPanel(page)).toBeVisible();
+  await expect(page.getByRole('radio', { name: '自動偵測' })).toBeChecked();
+  await expect(page.getByRole('spinbutton', { name: '容許度' })).toHaveValue('6');
+  await expect(page.getByRole('spinbutton', { name: '柔邊' })).toHaveValue('6');
+  const img = await addTwoTone(page);
+  /* 沒有模型：同 AI 去背的說明 */
+  await expect(canvas(page)).toHaveAttribute('data-phase', 'needs-ai');
+  await expect(page.getByTestId('stage-overlay')).toHaveText(
+    '先在「AI 模型」下載模型，或改用「純色背景」。',
+  );
+  await downloadModel(page);
+  await page.getByRole('button', { name: 'AI 去背這張' }).click();
+  await expect(status(page)).toHaveText('已完成 AI 去背。', { timeout: 60_000 });
+  await expectReady(page);
+  await expect(items(page).first()).toContainText('已去背');
+  await page.getByRole('button', { name: `加入背景色 ${img.purpleHex}` }).click();
+  await expect(extraField(page)).toHaveValue(img.purpleHex);
+  await expectReady(page);
+  const m = await exportMask(page);
+  /* AI 認出的線條與尾巴、AI 沒認出但和角色相連的淡膚色與衣服：留下 */
+  expect(m(101, 120)).toBe(255);
+  expect(m(250, 130)).toBe(255);
+  expect(m(130, 70)).toBe(255);
+  expect(m(150, 150)).toBe(255);
+  /* 背景色（AI 在紫底上約一半）、網點、漸層：去掉；和衣服同色的方塊：不加回 */
+  for (const [x, y] of [
+    [10, 10],
+    [310, 120],
+    [155, 10],
+    [185, 10],
+    [255, 35],
+    [285, 205],
+  ] as const)
+    expect(m(x, y), `${x},${y}`).toBe(0);
+  /* 整張和「假模型的算式＋色階＋合併規則」比對（推論的浮點數誤差，相同的比例 > 99.9%） */
+  const ai = expectedFakeMask(img.png).mask;
+  const want = comboBase(
+    { width: img.w, height: img.h, rgba: new Uint8ClampedArray(img.rgba) },
+    ai,
+    keyParamsOf({ ...defaultSettings(), mode: 'combo', keyExtra: [img.purpleHex] }),
+  ).mask;
+  let same = 0;
+  for (let i = 0; i < want.length; i++) if (m.img.rgba[i * 4] === want[i]) same++;
+  expect(same / want.length).toBeGreaterThan(0.999);
+  /* AI 去背（同一張圖、不用重跑）：線條 255、白底 0、AI 認不出的淡膚色 0 */
+  await page.getByRole('radio', { name: 'AI 去背' }).click();
+  await expectReady(page);
+  const a = await exportMask(page);
+  expect(a(101, 120)).toBe(255);
+  expect(a(10, 10)).toBe(0);
+  expect(a(130, 70)).toBe(0);
+  /* 純色背景的容許度、柔邊照舊（12／8），和 AI＋背景色分開記 */
+  await useColorMode(page);
+  await expect(page.getByRole('spinbutton', { name: '容許度' })).toHaveValue('12');
+  await expect(page.getByRole('spinbutton', { name: '柔邊' })).toHaveValue('8');
+  expect(errors).toEqual([]);
+});
+
+test('去掉孤島（F66）：預設關；開了以後和角色分開的方塊去掉、角色留著；保留的大小調小時留著', async ({
+  page,
+}) => {
+  const { errors } = await open(page);
+  await useColorMode(page);
+  const img = await addTwoTone(page);
+  await expectReady(page);
+  await page.getByRole('button', { name: `加入背景色 ${img.purpleHex}` }).click();
+  await expectReady(page);
+  const sw = page.getByRole('switch', { name: '去掉孤島' });
+  await expect(sw).not.toBeChecked();
+  await expect(page.getByRole('spinbutton', { name: '保留的大小' })).toHaveCount(0);
+  let m = await exportMask(page);
+  expect(m(255, 35)).toBe(255);
+  expect(m(285, 205)).toBe(255);
+  await page.waitForTimeout(450);
+  await sw.click();
+  const keep = page.getByRole('spinbutton', { name: '保留的大小' });
+  await expect(keep).toHaveValue('1');
+  await expectReady(page);
+  m = await exportMask(page);
+  /* 方塊 144 px，角色約 1.7 萬 px：小於 1% 去掉 */
+  expect(m(255, 35)).toBe(0);
+  expect(m(285, 205)).toBe(0);
+  expect(m(130, 70)).toBe(255);
+  expect(m(250, 130)).toBe(255);
+  await page.waitForTimeout(450);
+  await keep.fill('0.5');
+  await keep.press('Enter');
+  await expectReady(page);
+  m = await exportMask(page);
+  expect(m(255, 35)).toBe(255);
+  /* 復原：回到 1% */
+  await blur(page);
+  await page.waitForTimeout(450);
+  await page.keyboard.press('Control+z');
+  await expect(keep).toHaveValue('1');
+  expect(errors).toEqual([]);
+});
+
+test('新設定自動保存、存進專案檔（版本 2）、重設後開啟還原', async ({ page }) => {
+  const { errors } = await open(page);
+  await useColorMode(page);
+  const img = await addTwoTone(page);
+  await expectReady(page);
+  await page.getByRole('button', { name: `加入背景色 ${img.purpleHex}` }).click();
+  await page.waitForTimeout(450);
+  await blendSwitch(page).click();
+  await page.waitForTimeout(450);
+  await page.getByRole('switch', { name: '去掉孤島' }).click();
+  await page.waitForTimeout(450);
+  const keep = page.getByRole('spinbutton', { name: '保留的大小' });
+  await keep.fill('2.5');
+  await keep.press('Enter');
+  await page.waitForTimeout(450);
+  await page.getByRole('radio', { name: 'AI＋背景色' }).click();
+  const tol = page.getByRole('spinbutton', { name: '容許度' });
+  await tol.fill('9');
+  await tol.press('Enter');
+  const check = async () => {
+    await expect(page.getByRole('radio', { name: 'AI＋背景色' })).toBeChecked();
+    await expect(extraField(page)).toHaveValue(img.purpleHex);
+    await expect(blendSwitch(page)).not.toBeChecked();
+    await expect(page.getByRole('switch', { name: '去掉孤島' })).toBeChecked();
+    await expect(page.getByRole('spinbutton', { name: '保留的大小' })).toHaveValue('2.5');
+    await expect(page.getByRole('spinbutton', { name: '容許度' })).toHaveValue('9');
+  };
+  await check();
+  await page.reload();
+  await expect(items(page)).toHaveCount(1);
+  await check();
+  /* 純色背景的容許度沒動 */
+  await useColorMode(page);
+  await expect(page.getByRole('spinbutton', { name: '容許度' })).toHaveValue('12');
+  await page.getByRole('radio', { name: 'AI＋背景色' }).click();
+  /* 專案檔：版本 2，設定都在 */
+  await page.getByRole('button', { name: '專案' }).click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+  ]);
+  const zipPath = (await dl.path()) as string;
+  const project = JSON.parse(
+    new TextDecoder().decode(unzipSync(readFileSync(zipPath))['project.json']),
+  );
+  expect(project.version).toBe(2);
+  expect(project.data).toMatchObject({
+    mode: 'combo',
+    keyExtra: [img.purpleHex],
+    keyBlend: false,
+    islands: true,
+    islandKeep: 2.5,
+    comboTolerance: 9,
+    comboSoftness: 6,
+    tolerance: 12,
+  });
+  await page.getByRole('button', { name: '專案' }).click();
+  await page.getByRole('menuitem', { name: '重設…' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
+  await expect(items(page)).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'AI 去背' })).toBeChecked();
+  await page.getByRole('button', { name: '專案' }).click();
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
+  ]);
+  await chooser.setFiles(zipPath);
+  await page
+    .getByRole('alertdialog', { name: '開啟專案檔？' })
+    .getByRole('button', { name: /開啟/ })
+    .click();
+  await expect(items(page)).toHaveCount(1);
+  await check();
+  expect(errors).toEqual([]);
+});
+
+test('舊存檔（版本 1）：單色設定變成第一個背景色，新設定用預設值', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem(
+      'trpg-toolkit:bg-remover',
+      JSON.stringify({
+        state: {
+          data: {
+            mode: 'color',
+            backend: 'auto',
+            keyAuto: false,
+            keyColor: '#A9DCBB',
+            tolerance: 20,
+            softness: 3,
+            connected: true,
+            despill: true,
+            grow: 0,
+            feather: 0,
+            content: 'cutout',
+            background: 'transparent',
+            bgColor: '#ffffff',
+            format: 'png',
+            scope: 'current',
+            trim: false,
+            trimPad: 0,
+            images: [],
+          },
+        },
+        version: 1,
+      }),
+    );
+  });
+  const { errors } = await open(page);
+  await expect(page.getByRole('radio', { name: '純色背景' })).toBeChecked();
+  await expect(page.getByRole('radio', { name: '指定顏色' })).toBeChecked();
+  await expect(page.getByRole('textbox', { name: '顏色', exact: true })).toHaveValue('#a9dcbb');
+  await expect(page.getByRole('spinbutton', { name: '容許度' })).toHaveValue('20');
+  await expect(page.getByTestId('key-extra').getByRole('textbox')).toHaveCount(0);
+  await expect(page.getByRole('switch', { name: '去掉孤島' })).not.toBeChecked();
+  await page.getByRole('radio', { name: 'AI＋背景色' }).click();
+  await expect(page.getByRole('spinbutton', { name: '容許度' })).toHaveValue('6');
+  expect(errors).toEqual([]);
+});
+
+test('舊專案檔（版本 1）的 AI 遮罩：不用重跑 AI，開啟後就是完全不透明（色階）', async ({
+  page,
+}) => {
+  const { errors, modelRequests } = await open(page, { spec: FAKE_SPEC });
+  const w = 40;
+  const h = 30;
+  const src = new Uint8Array(w * h * 4).fill(255);
+  for (let y = 8; y < 22; y++)
+    for (let x = 10; x < 30; x++) src.set([200, 60, 60, 255], (y * w + x) * 4);
+  /* 舊版存的 AI 遮罩：照原作無條件捨去（角色 254、淡霧 3、半透明的邊 100） */
+  const mask = new Uint8Array(w * h * 4);
+  for (let i = 0; i < w * h; i++) {
+    const x = i % w;
+    const y = Math.floor(i / w);
+    const v = x >= 10 && x < 30 && y >= 8 && y < 22 ? 254 : x === 9 && y >= 8 && y < 22 ? 100 : 3;
+    mask.set([v, v, v, 255], i * 4);
+  }
+  const zip = zipSync({
+    'project.json': new TextEncoder().encode(
+      JSON.stringify({
+        format: 'trpg-toolkit-project',
+        tool: 'bg-remover',
+        version: 1,
+        savedAt: '2026-10-08T00:00:00.000Z',
+        data: {
+          mode: 'ai',
+          backend: 'auto',
+          keyAuto: true,
+          keyColor: '#ffffff',
+          tolerance: 12,
+          softness: 8,
+          connected: true,
+          despill: true,
+          grow: 0,
+          feather: 0,
+          content: 'mask',
+          background: 'transparent',
+          bgColor: '#ffffff',
+          format: 'png',
+          scope: 'current',
+          trim: false,
+          trimPad: 0,
+          images: [
+            { id: 'img-old', name: '舊.png', asset: 'oldsrc', width: w, height: h, strokes: [] },
+          ],
+          aiMasks: { oldsrc: 'oldmask' },
+        },
+      }),
+    ),
+    'files/oldsrc.png': await encodePng(src, w, h),
+    'files/oldmask.png': await encodePng(mask, w, h),
+  });
+  const file = join(bigDir, 'old-v1.zip');
+  writeFileSync(file, zip);
+  await page.getByRole('button', { name: '專案' }).click();
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
+  ]);
+  await chooser.setFiles(file);
+  await page
+    .getByRole('alertdialog', { name: '開啟專案檔？' })
+    .getByRole('button', { name: /開啟/ })
+    .click();
+  await expect(items(page)).toHaveCount(1);
+  await expect(items(page).first()).toContainText('已去背');
+  await expectReady(page);
+  const m = await exportMask(page);
+  expect(m(20, 15)).toBe(255);
+  expect(m(0, 0)).toBe(0);
+  expect(m(9, 15)).toBe(Math.round(((100 - AI_LEVELS.lo) * 255) / (AI_LEVELS.hi - AI_LEVELS.lo)));
+  /* 沒有下載模型、沒有推論 */
+  expect(modelRequests).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('390 寬：背景色清單、建議與 AI＋背景色的設定沒有橫向捲動', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { errors } = await open(page);
+  await useColorMode(page);
+  const img = await addTwoTone(page);
+  await expectReady(page);
+  await expect(page.getByTestId('key-suggest')).toBeVisible();
+  await noHorizontalScroll(page);
+  await page.getByRole('button', { name: `加入背景色 ${img.purpleHex}` }).click();
+  await expect(extraField(page)).toBeVisible();
+  await page.getByRole('switch', { name: '去掉孤島' }).click();
+  await page.getByRole('radio', { name: 'AI＋背景色' }).click();
+  await expect(modelPanel(page)).toBeVisible();
+  await noHorizontalScroll(page);
   expect(errors).toEqual([]);
 });
 

@@ -2,13 +2,13 @@
  * 目前這張的處理狀態（不放進 React state 的大型緩衝區）、AI 去背的排程、筆刷、匯出。
  *
  * 目前這張依序算（每一步都有快取鍵，只重算變了的部分；同時只跑一輪，期間的變更跑完再補一輪）：
- *   原圖（解碼）→ 基礎遮罩（AI 遮罩或色鍵）→ 去色邊後的顏色 → 邊緣調整 → 筆刷 → 預覽
+ *   原圖（解碼）→ 基礎遮罩（AI 遮罩、色鍵，或兩者合併）→ 去色邊後的顏色 → 邊緣調整（去掉孤島、收縮／擴張、羽化）
+ *   → 筆刷 → 預覽
  */
 import { create } from 'zustand';
-import { parseColor } from '@/core/color';
 import { type DiagnosticItem, diagnosticText, errorText, fileFields } from '@/core/diagnostics';
 import { uniqueFileName } from '@/core/files';
-import { type Mask, StrokePainter } from '@/core/image';
+import { type BorderColor, type KeyColors, type Mask, StrokePainter } from '@/core/image';
 import { ModelError } from '@/core/models';
 import {
   createOnnxClient,
@@ -30,8 +30,10 @@ import {
   roundPoint,
   type Settings,
   type StoredStroke,
+  usesAi,
+  usesKey,
 } from './model';
-import { type KeyParams, MIME, type SourceImage } from './pipeline';
+import { keyParamsOf, MIME, type SourceImage } from './pipeline';
 import { createPixelClient, type FillPreview, NeedsAiError } from './pixels';
 import {
   assets,
@@ -46,6 +48,9 @@ import {
 import { S } from './strings';
 
 export const pixels = createPixelClient();
+
+/** 去掉孤島：開著時是「比最大一塊的這個比例」（0～1），關著時 null */
+export const islandRatio = (s: Settings): number | null => (s.islands ? s.islandKeep / 100 : null);
 
 /* ---------- 目前這張 ---------- */
 
@@ -66,9 +71,11 @@ export interface WorkState {
   itemId: string | null;
   width: number;
   height: number;
-  /** 純色：實際用的背景色與四邊的比例 */
+  /** 用背景色的方式：實際用的第一個背景色與四邊的比例 */
   keyColor: string | null;
   keyRatio: number;
+  /** 四邊常見的顏色（Worker 算的；介面拿掉已經在清單裡的，其餘列成建議） */
+  keySuggest: BorderColor[];
   error: string | null;
   /** 出錯時「複製錯誤資訊」的內容（整理好之前、沒有錯誤時是 null） */
   errorDetails: string | null;
@@ -81,7 +88,11 @@ export interface WorkState {
   backendFallback: boolean;
   /** 從圖上取背景色中 */
   picking: boolean;
+  /** 取色是為了什麼：換第一個背景色、加入一個背景色、色彩欄（改某個顏色） */
+  pickFor: PickPurpose | null;
 }
+
+export type PickPurpose = 'first' | 'add' | 'field';
 
 export const useWork = create<WorkState>(() => ({
   phase: 'empty',
@@ -90,6 +101,7 @@ export const useWork = create<WorkState>(() => ({
   height: 0,
   keyColor: null,
   keyRatio: 1,
+  keySuggest: [],
   error: null,
   errorDetails: null,
   tick: 0,
@@ -97,6 +109,7 @@ export const useWork = create<WorkState>(() => ({
   backend: null,
   backendFallback: false,
   picking: false,
+  pickFor: null,
 }));
 
 const bump = (patch: Partial<WorkState> = {}) =>
@@ -126,7 +139,8 @@ interface Buffers {
   src: SourceImage | null;
   baseKey: string | null;
   base: Mask | null;
-  bg: [number, number, number] | null;
+  /** 用背景色的方式：實際用的背景色集合（去色邊用） */
+  keys: KeyColors | null;
   colorsKey: string | null;
   colors: Uint8ClampedArray<ArrayBuffer> | null;
   /** 去色邊開著時：Worker 記得這組顏色的鍵（原圖＋設定；預覽合成不必再傳一次顏色） */
@@ -146,7 +160,7 @@ const empty = (): Buffers => ({
   src: null,
   baseKey: null,
   base: null,
-  bg: null,
+  keys: null,
   colorsKey: null,
   colors: null,
   despillKey: null,
@@ -160,16 +174,6 @@ const empty = (): Buffers => ({
 export const buf: Buffers = empty();
 /** buf.final 每次換掉或畫上筆刷就加一（同色範圍預覽用：Worker 手上的遮罩是不是最新的） */
 let maskVersion = 0;
-
-export function keyParamsOf(s: Settings): KeyParams {
-  const c = s.keyAuto ? null : parseColor(s.keyColor);
-  return {
-    color: c ? [c.r, c.g, c.b] : null,
-    tolerance: s.tolerance,
-    softness: s.softness,
-    connected: s.connected,
-  };
-}
 
 const hexOf = (c: readonly number[]) =>
   `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
@@ -246,46 +250,65 @@ async function syncOnce(): Promise<void> {
   /* 基礎遮罩 */
   const kp = keyParamsOf(s);
   const maskId = p.aiMasks[item.asset] ?? null;
+  const keyKey = [
+    kp.color?.join(',') ?? 'auto',
+    kp.extra.map((c) => c.join(',')).join(';'),
+    kp.blend,
+    kp.tolerance,
+    kp.softness,
+    kp.connected,
+  ].join(':');
   const baseKey =
     s.mode === 'ai'
       ? `ai:${maskId ?? ''}`
-      : `color:${kp.color?.join(',') ?? 'auto'}:${kp.tolerance}:${kp.softness}:${kp.connected}`;
+      : s.mode === 'color'
+        ? `color:${keyKey}`
+        : `combo:${maskId ?? ''}:${keyKey}`;
   if (buf.baseKey !== baseKey) {
     buf.colorsKey = buf.refineKey = null;
     buf.applied = null;
-    if (s.mode === 'ai' && !maskId) {
+    if (usesAi(s.mode) && !maskId) {
       buf.baseKey = baseKey;
       buf.base = null;
-      buf.bg = null;
-      bump({ phase: 'needs-ai', keyColor: null });
+      buf.keys = null;
+      bump({ phase: 'needs-ai', keyColor: null, keySuggest: [] });
       return;
     }
     useWork.setState({ phase: 'processing' });
-    const blob = await assets.get(s.mode === 'ai' ? maskId! : item.asset);
-    if (!blob) {
-      if (s.mode === 'ai') {
+    const blob = usesKey(s.mode) ? await assets.get(item.asset) : undefined;
+    const maskBlob = usesAi(s.mode) && maskId ? await assets.get(maskId) : undefined;
+    const maskGone = usesAi(s.mode) && !maskBlob;
+    if (maskGone || (usesKey(s.mode) && !blob)) {
+      if (maskGone) {
         /* 遮罩不見了（例如儲存空間被清掉）：當成還沒去背 */
         usePreview.getState().update((d) => {
           delete d.aiMasks[item.asset];
         });
       }
-      bump({ phase: s.mode === 'ai' ? 'needs-ai' : 'error', error: S.readFailed([item.name]) });
+      bump({ phase: maskGone ? 'needs-ai' : 'error', error: S.readFailed([item.name]) });
       return;
     }
     if (s.mode === 'ai') {
-      const m = await pixels.decodeMask(blob);
+      const m = await pixels.aiBase(maskBlob!);
       if (m.width !== src.width || m.height !== src.height) {
         bump({ phase: 'needs-ai' });
         return;
       }
       buf.base = m.mask;
-      buf.bg = null;
-      useWork.setState({ keyColor: null, keyRatio: 1 });
+      buf.keys = null;
+      useWork.setState({ keyColor: null, keyRatio: 1, keySuggest: [] });
     } else {
-      const r = await pixels.colorBase(item.asset, blob, kp);
+      const r =
+        s.mode === 'color'
+          ? await pixels.colorBase(item.asset, blob!, kp)
+          : await pixels.comboBase(item.asset, blob!, kp, maskBlob!);
+      if (!r) {
+        bump({ phase: 'needs-ai' });
+        return;
+      }
       buf.base = r.mask;
-      buf.bg = r.bg;
-      useWork.setState({ keyColor: hexOf(r.bg), keyRatio: r.ratio });
+      buf.keys = r.keys;
+      useWork.setState({ keyColor: hexOf(r.bg), keyRatio: r.ratio, keySuggest: r.suggest });
     }
     buf.baseKey = baseKey;
   }
@@ -294,7 +317,7 @@ async function syncOnce(): Promise<void> {
     return;
   }
   /* 去色邊後的顏色 */
-  const despill = s.mode === 'color' && s.despill && !!buf.bg;
+  const despill = usesKey(s.mode) && s.despill && !!buf.keys;
   const colorsKey = `${baseKey}:${despill}`;
   if (buf.colorsKey !== colorsKey) {
     buf.despillKey = null;
@@ -302,20 +325,23 @@ async function syncOnce(): Promise<void> {
       const blob = await assets.get(item.asset);
       /* Worker 記住這組顏色的鍵：哪一張圖＋哪一組設定 */
       const key = `${item.asset}|${colorsKey}`;
-      buf.colors = blob ? await pixels.despill(item.asset, blob, buf.base, buf.bg!, key) : src.rgba;
+      buf.colors = blob
+        ? await pixels.despill(item.asset, blob, buf.base, buf.keys!, key)
+        : src.rgba;
       if (blob) buf.despillKey = key;
     } else {
       buf.colors = src.rgba;
     }
     buf.colorsKey = colorsKey;
   }
-  /* 邊緣調整 */
-  const refineKey = `${baseKey}:${s.grow}:${s.feather}`;
+  /* 邊緣調整（去掉孤島 → 收縮／擴張 → 羽化） */
+  const islands = islandRatio(s);
+  const refineKey = `${baseKey}:${islands}:${s.grow}:${s.feather}`;
   if (buf.refineKey !== refineKey) {
     useWork.setState({ phase: 'processing' });
     buf.refined =
-      s.grow || s.feather > 0
-        ? await pixels.refine(buf.base, src.width, src.height, s.grow, s.feather)
+      islands !== null || s.grow || s.feather > 0
+        ? await pixels.refine(buf.base, src.width, src.height, s.grow, s.feather, islands)
         : buf.base;
     buf.refineKey = refineKey;
     buf.applied = null;
@@ -719,7 +745,7 @@ export async function exportImages(
   const cur = currentItem(s);
   const list = s.scope === 'all' ? s.images : cur ? [cur] : [];
   if (!list.length) throw new Error(S.exportEmpty);
-  if (s.mode === 'ai') {
+  if (usesAi(s.mode)) {
     const missing = list.filter((it) => !masks[it.asset]).map((it) => it.name);
     if (missing.length) throw new Error(S.exportNeedsAi(missing));
   }
@@ -741,7 +767,7 @@ export async function exportImages(
     const blob = await assets.get(it.asset);
     if (!blob) throw new Error(S.readFailed([it.name]));
     const maskId = masks[it.asset];
-    const aiMask = s.mode === 'ai' && maskId ? ((await assets.get(maskId)) ?? null) : null;
+    const aiMask = usesAi(s.mode) && maskId ? ((await assets.get(maskId)) ?? null) : null;
     /* 取消：Worker 在下一個檢查點停下來（不必等這張畫完） */
     const id = ++renderSeq;
     const stop = () => void pixels.cancelRender(id).catch(() => {});
@@ -754,6 +780,7 @@ export async function exportImages(
         mode: s.mode,
         keyParams: keyParamsOf(s),
         aiMask,
+        islands: islandRatio(s),
         grow: s.grow,
         feather: s.feather,
         despill: s.despill,

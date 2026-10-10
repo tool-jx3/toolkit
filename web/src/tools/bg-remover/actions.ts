@@ -11,8 +11,14 @@ import {
 import { readFilesNow } from '@/core/files';
 import { ProjectFileError, resetToolStore } from '@/core/storage';
 import type { StageBackground } from '@/ui';
-import { pixels, useWork } from './engine';
-import { type ImageItem, normalizeSettings, PROJECT_VERSION, type Settings } from './model';
+import { type PickPurpose, pixels, useWork } from './engine';
+import {
+  type ImageItem,
+  MAX_KEY_COLORS,
+  migrateSettings,
+  PROJECT_VERSION,
+  type Settings,
+} from './model';
 import type { InspectResult } from './pixels';
 import {
   assets,
@@ -171,10 +177,13 @@ export function removeImage(id: string): void {
 
 let pickResolve: ((hex: string | null) => void) | null = null;
 
-/** 等使用者點預覽上的一個位置（Esc 取消）；回傳色碼或 null */
-export function pickFromImage(): Promise<string | null> {
+/**
+ * 等使用者點預覽上的一個位置（Esc 取消）；回傳色碼或 null。
+ * purpose：換第一個背景色、加入一個背景色、色彩欄（按鈕依這個顯示「點一下預覽…」）。
+ */
+export function pickFromImage(purpose: PickPurpose = 'field'): Promise<string | null> {
   pickResolve?.(null);
-  useWork.setState({ picking: true });
+  useWork.setState({ picking: true, pickFor: purpose });
   return new Promise((resolve) => {
     pickResolve = resolve;
   });
@@ -183,8 +192,28 @@ export function pickFromImage(): Promise<string | null> {
 export function finishPick(hex: string | null): void {
   const r = pickResolve;
   pickResolve = null;
-  useWork.setState({ picking: false });
+  useWork.setState({ picking: false, pickFor: null });
   r?.(hex);
+}
+
+/* ---------- 背景色清單 ---------- */
+
+/** 加入一個背景色（算一步復原）；已經有 4 個、或清單裡已經有這個色碼時不加，回傳 false */
+export function addKeyColor(hex: string): boolean {
+  const s = settingsNow();
+  const c = hex.toLowerCase();
+  if (1 + s.keyExtra.length >= MAX_KEY_COLORS || s.keyExtra.includes(c)) return false;
+  step((d) => {
+    d.keyExtra.push(c);
+  });
+  return true;
+}
+
+/** 刪除第 i 個「其他背景色」（算一步復原） */
+export function removeKeyColor(i: number): void {
+  step((d) => {
+    d.keyExtra.splice(i, 1);
+  });
 }
 
 /* ---------- 專案檔 ---------- */
@@ -219,7 +248,8 @@ export async function openProject(
   if (version > PROJECT_VERSION) throw new ProjectFileError(S.project.newer);
   if (!data || typeof data !== 'object' || Array.isArray(data))
     throw new ProjectFileError(S.project.invalid);
-  const s = normalizeSettings(data);
+  /* 版本 1 的專案檔：單色設定變成清單的第一個背景色，新設定用預設值；AI 遮罩照存著的用（使用時套色階） */
+  const s = migrateSettings(data, version);
   const rawMasks = (data as { aiMasks?: unknown }).aiMasks;
   const { notPersisted } = await importAssetFiles(assets, files);
   let missing = 0;

@@ -1,20 +1,23 @@
 /**
  * 去背的處理流程（純函式；主執行緒與 Worker 共用，預覽與匯出走同一條路，結果相同）：
  *
- *   原圖 → 基礎遮罩（AI：模型的遮罩；純色：色鍵）→ 收縮／擴張 → 羽化 → 筆刷 → 套到原圖（純色可去色邊）→ 輸出
+ *   原圖 → 基礎遮罩（AI：模型的遮罩套色階；純色：色鍵；AI＋背景色：兩者合併）→ 去掉孤島 → 收縮／擴張 → 羽化 → 筆刷
+ *   → 套到原圖（用背景色的方式可去色邊）→ 輸出
  *
- * 遮罩一律是 0～255（AI 的浮點數遮罩以 floor(m × 255) 量化，同原作的 `(mask * 255).astype(np.uint8)`）。
+ * 遮罩一律是 0～255。AI 的浮點數遮罩存成 floor(m × 255)（同原作的 `(mask * 255).astype(np.uint8)`），
+ * 用的時候再套色階（AI_LEVELS）：舊版存的遮罩也是同一套規則，不必重跑 AI。
  */
 
 import { parseColor } from '@/core/color';
 import { decodePng } from '@/core/decode/png';
 import { encodePng } from '@/core/encode/png';
 import { canvasWebpEncoder } from '@/core/encode/webp';
-import type { Rgb } from '@/core/image';
+import type { BorderColor, KeyColors, Rgb } from '@/core/image';
 import {
   applyMask,
   applyRegion,
   applyStroke,
+  borderColors,
   colorKeyMask,
   colorRegion,
   decontaminate,
@@ -22,9 +25,14 @@ import {
   featherMask,
   flattenRgba,
   growMask,
+  keepPieces,
+  levelsMask,
   type Mask,
+  maskPieces,
   maskToRgba,
+  piecesTouching,
   quantizeMask,
+  removeIslands,
 } from '@/core/image';
 import { fromModelOutput, type Letterbox, MODEL_SIZE, toModelInput } from './animeSeg';
 import {
@@ -33,6 +41,7 @@ import {
   type OutBackground,
   type OutContent,
   type OutFormat,
+  type Settings,
   type StoredStroke,
 } from './model';
 
@@ -89,19 +98,52 @@ export async function decodeSource(blob: Blob): Promise<SourceImage> {
 /* ---------- 基礎遮罩 ---------- */
 
 export interface KeyParams {
-  /** null＝自動偵測（從四邊找最多的顏色） */
+  /** 第一個背景色；null＝自動偵測（從四邊找最多的顏色） */
   color: Rgb | null;
+  /** 其他背景色（所有圖共用） */
+  extra: Rgb[];
+  /** 兩個背景色之間的混色也算背景 */
+  blend: boolean;
   tolerance: number;
   softness: number;
   connected: boolean;
 }
 
+const rgbOrNull = (hex: string): Rgb | null => {
+  const c = parseColor(hex);
+  return c ? [c.r, c.g, c.b] : null;
+};
+
+/**
+ * 設定 → 色鍵的參數：第一色自動或指定、其他背景色；只有一個背景色時混色當成關（結果相同，切換時不必重算）；
+ * AI＋背景色用自己的容許度／柔邊。
+ */
+export function keyParamsOf(s: Settings): KeyParams {
+  const extra = s.keyExtra.map(rgbOrNull).filter((c): c is Rgb => !!c);
+  const combo = s.mode === 'combo';
+  return {
+    color: s.keyAuto ? null : rgbOrNull(s.keyColor),
+    extra,
+    blend: extra.length > 0 && s.keyBlend,
+    tolerance: combo ? s.comboTolerance : s.tolerance,
+    softness: combo ? s.comboSoftness : s.softness,
+    connected: s.connected,
+  };
+}
+
+/** 四邊其他常見的顏色：比例到這麼多才列成建議 */
+export const SUGGEST_MIN_RATIO = 0.1;
+
 export interface ColorBase {
   mask: Mask;
-  /** 實際用的背景色 */
+  /** 實際用的第一個背景色（自動偵測時是偵測到的顏色） */
   bg: [number, number, number];
   /** 自動偵測時四邊是這個顏色的比例 */
   ratio: number;
+  /** 實際用的背景色集合（去色邊用） */
+  keys: KeyColors;
+  /** 四邊常見的顏色（比例 ≥ SUGGEST_MIN_RATIO，由多到少；介面拿掉已經在清單裡的，其餘列成建議） */
+  suggest: BorderColor[];
 }
 
 export function colorBase(src: SourceImage, p: KeyParams): ColorBase {
@@ -109,11 +151,19 @@ export function colorBase(src: SourceImage, p: KeyParams): ColorBase {
   const bg: [number, number, number] = p.color ? [p.color[0], p.color[1], p.color[2]] : est!.color;
   const mask = colorKeyMask(src.rgba, src.width, src.height, {
     color: bg,
+    extra: p.extra,
+    blend: p.blend,
     tolerance: p.tolerance,
     softness: p.softness,
     connected: p.connected,
   }) as Mask;
-  return { mask, bg, ratio: est?.ratio ?? 1 };
+  return {
+    mask,
+    bg,
+    ratio: est?.ratio ?? 1,
+    keys: { colors: [bg, ...p.extra], blend: p.blend },
+    suggest: borderColors(src.rgba, src.width, src.height, { minRatio: SUGGEST_MIN_RATIO }),
+  };
 }
 
 /** AI 的前處理（給推論 Worker 的張量） */
@@ -121,15 +171,65 @@ export function aiInput(src: SourceImage): { tensor: Float32Array; box: Letterbo
   return toModelInput(src.rgba, src.width, src.height, MODEL_SIZE);
 }
 
-/** AI 的後處理：模型輸出 → 原圖尺寸的 0～255 遮罩 */
+/** AI 的後處理：模型輸出 → 原圖尺寸的 0～255 遮罩（存起來的就是這個：同原作無條件捨去） */
 export function aiMask(pred: Float32Array, box: Letterbox): Mask {
   return quantizeMask(fromModelOutput(pred, box));
 }
 
+/**
+ * AI 遮罩的色階（存著的 8 位元值）：≤ 5（模型輸出 < 約 0.024）→ 0、≥ 204（≥ 0.8）→ 255，中間線性。
+ * 模型的輸出到不了 1.0（內部多半是 254，有些地方 200 多），淡霧 1～5 佔了大片背景；量測見規格第 5 節 D13。
+ */
+export const AI_LEVELS = { lo: 5, hi: 204 } as const;
+
+/** AI 的基礎遮罩：存著的 8 位元遮罩套色階（新舊遮罩同一套規則） */
+export function aiBase(stored: Mask): Mask {
+  return levelsMask(stored, AI_LEVELS.lo, AI_LEVELS.hi);
+}
+
+/** AI＋背景色：背景色的結果以這個門檻分塊（至少一半不透明才算連在一起） */
+export const COMBO_LINK = 128;
+
+/**
+ * AI＋背景色的合併（ai 是套過色階的 AI 遮罩、key 是色鍵的遮罩）：
+ * - AI 認定是角色（255）的地方：255（和背景同色的荷葉邊、白衣服也留著）；
+ * - 否則背景色的結果是 0（是背景色，開著「只去掉相連的」時還要連到圖外）：0（去掉 AI 留下的半透明邊、淡霧）；
+ * - 否則取 AI 和「背景色的結果裡連到 AI 角色的塊」較大的（AI 漏掉的翅膀、尾巴補回來，邊緣用背景色的柔邊；
+ *   和角色分開的花紋、方塊不會被加回來）。塊＝背景色的結果 ≥ COMBO_LINK 的八連通塊，塊裡有 AI 255 的像素才算連到角色。
+ */
+export function comboMask(ai: Mask, key: Mask, w: number, h: number): Mask {
+  const pieces = maskPieces(key, w, h, COMBO_LINK);
+  const linked = keepPieces(key, w, h, pieces, piecesTouching(pieces, ai, 255));
+  const out = new Uint8Array(w * h) as Mask;
+  for (let i = 0; i < out.length; i++) {
+    const a = ai[i];
+    out[i] = a === 255 ? 255 : key[i] === 0 ? 0 : a > linked[i] ? a : linked[i];
+  }
+  return out;
+}
+
+/** AI＋背景色的基礎遮罩（ai 已套色階）；背景色的偵測、建議同 colorBase */
+export function comboBase(src: SourceImage, ai: Mask, p: KeyParams): ColorBase {
+  const key = colorBase(src, p);
+  return { ...key, mask: comboMask(ai, key.mask, src.width, src.height) };
+}
+
 /* ---------- 邊緣調整與筆刷 ---------- */
 
-export function refineMask(base: Mask, w: number, h: number, grow: number, feather: number): Mask {
-  let m = grow ? growMask(base, w, h, grow) : base;
+/**
+ * 邊緣調整：去掉孤島（islands＝留比最大一塊的這個比例大的塊，0～1；null＝關）→ 收縮／擴張 → 羽化。
+ * 都沒做時回傳複本。
+ */
+export function refineMask(
+  base: Mask,
+  w: number,
+  h: number,
+  grow: number,
+  feather: number,
+  islands: number | null = null,
+): Mask {
+  let m = islands === null ? base : removeIslands(base, w, h, { minRatio: islands });
+  if (grow) m = growMask(m, w, h, grow);
   if (feather > 0) m = featherMask(m, w, h, feather);
   return m === base ? (new Uint8Array(base) as Mask) : m;
 }
@@ -185,15 +285,15 @@ export interface RenderedImage {
 export const DESPILL_EDGE = 2;
 
 /**
- * 去背圖的顏色：純色模式開了去色邊時用基礎遮罩把背景色扣掉（半透明的像素，以及去背邊界旁 2 px 內
- * 顏色朝背景色偏的像素），否則原圖
+ * 去背圖的顏色：用背景色的方式（純色背景、AI＋背景色）開了去色邊時，用基礎遮罩把背景色扣掉（半透明的像素，
+ * 以及去背邊界旁 2 px 內顏色朝背景色偏的像素；多個背景色時每個像素用附近的背景最接近的背景色），否則原圖
  */
 export function cutoutColors(
   src: SourceImage,
-  despill: { base: Mask; bg: Rgb } | null,
+  despill: { base: Mask; keys: KeyColors } | null,
 ): Uint8ClampedArray<ArrayBuffer> {
   return despill
-    ? decontaminate(src.rgba, despill.base, despill.bg, {
+    ? decontaminate(src.rgba, despill.base, despill.keys, {
         width: src.width,
         height: src.height,
         edge: DESPILL_EDGE,

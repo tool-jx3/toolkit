@@ -12,6 +12,7 @@ import type { StageBackground } from '@/ui';
 import {
   type BrushTool,
   defaultSettings,
+  migrateSettings,
   normalizeSettings,
   PROJECT_VERSION,
   RANGE,
@@ -26,7 +27,7 @@ export const assets = createAssetStore(TOOL_ID);
 
 export const useSettings = createToolStore<Settings>(TOOL_ID, defaultSettings(), {
   version: PROJECT_VERSION,
-  migrate: (persisted) => normalizeSettings(persisted),
+  migrate: migrateSettings,
 });
 
 /* 存檔裡的值不合法時（被改壞、舊版本）修正一次 */

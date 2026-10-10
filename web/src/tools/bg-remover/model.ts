@@ -5,7 +5,11 @@ import type { ModelSpec } from '@/core/models';
 import type { OnnxBackendChoice } from '@/core/onnx/types';
 
 export const TOOL_ID = 'bg-remover';
-export const PROJECT_VERSION = 1;
+/**
+ * 存檔與專案檔的版本。2（2026-10）：多個背景色（keyExtra、keyBlend）、AI＋背景色（mode 'combo'、
+ * comboTolerance、comboSoftness）、去掉孤島（islands、islandKeep）。版本 1 的單色設定就是清單的第一個背景色。
+ */
+export const PROJECT_VERSION = 2;
 
 /**
  * 模型：SkyTNT/anime-segmentation 的 isnetis.onnx（Apache-2.0），固定 Hugging Face 的 revision。
@@ -28,7 +32,15 @@ export function modelSpec(): ModelSpec {
   return override && typeof override.url === 'string' ? override : ANIME_SEG_MODEL;
 }
 
-export type Mode = 'ai' | 'color';
+/** 去背方式：AI 去背／純色背景／AI＋背景色（AI 的結果再用背景色修正） */
+export type Mode = 'ai' | 'color' | 'combo';
+export const MODES: readonly Mode[] = ['ai', 'color', 'combo'];
+/** 這個方式要 AI 模型（AI 去背、AI＋背景色） */
+export const usesAi = (m: Mode) => m !== 'color';
+/** 這個方式用背景色（純色背景、AI＋背景色） */
+export const usesKey = (m: Mode) => m !== 'ai';
+/** 背景色最多幾個（第一色＋其他背景色） */
+export const MAX_KEY_COLORS = 4;
 export type OutContent = 'cutout' | 'mask' | 'compare';
 export type OutBackground = 'transparent' | 'white' | 'color';
 export type OutFormat = 'png' | 'webp' | 'jpg';
@@ -81,18 +93,29 @@ export interface Settings {
   mode: Mode;
   /** AI 的運算方式 */
   backend: OnnxBackendChoice;
-  /** 純色：背景色自動偵測（每張各自偵測） */
+  /** 背景色：第一色自動偵測（每張各自偵測） */
   keyAuto: boolean;
-  /** 純色：指定的背景色 */
+  /** 背景色：指定的第一色 */
   keyColor: string;
-  /** 純色：容許度 0～100 */
+  /** 背景色：其他背景色（多色背景，最多 MAX_KEY_COLORS − 1 個；所有圖共用） */
+  keyExtra: string[];
+  /** 背景色：兩個背景色之間的混色也算背景（2 色以上才有作用） */
+  keyBlend: boolean;
+  /** 純色背景：容許度 0～100 */
   tolerance: number;
-  /** 純色：柔邊 0～50 */
+  /** 純色背景：柔邊 0～50 */
   softness: number;
-  /** 純色：只去掉和圖邊相連的背景 */
+  /** AI＋背景色：容許度、柔邊（和純色背景分開，預設比較嚴） */
+  comboTolerance: number;
+  comboSoftness: number;
+  /** 背景色：只去掉和圖邊相連的背景 */
   connected: boolean;
-  /** 純色：去色邊 */
+  /** 背景色：去色邊 */
   despill: boolean;
+  /** 去掉孤島（邊緣調整的第一步） */
+  islands: boolean;
+  /** 去掉孤島：留比最大一塊的這個百分比大的塊 */
+  islandKeep: number;
   /** 收縮（負）／擴張（正），px */
   grow: number;
   /** 羽化，px */
@@ -111,6 +134,9 @@ export interface Settings {
 export const RANGE = {
   tolerance: { min: 0, max: 100, step: 1, default: 12 },
   softness: { min: 0, max: 50, step: 1, default: 8 },
+  comboTolerance: { min: 0, max: 100, step: 1, default: 6 },
+  comboSoftness: { min: 0, max: 50, step: 1, default: 6 },
+  islandKeep: { min: 0, max: 50, step: 0.5, default: 1 },
   grow: { min: -20, max: 20, step: 1, default: 0 },
   feather: { min: 0, max: 20, step: 0.5, default: 0 },
   trimPad: { min: 0, max: 200, step: 1, default: 0 },
@@ -125,10 +151,16 @@ export function defaultSettings(): Settings {
     backend: 'auto',
     keyAuto: true,
     keyColor: '#ffffff',
+    keyExtra: [],
+    keyBlend: true,
     tolerance: RANGE.tolerance.default,
     softness: RANGE.softness.default,
+    comboTolerance: RANGE.comboTolerance.default,
+    comboSoftness: RANGE.comboSoftness.default,
     connected: true,
     despill: true,
+    islands: false,
+    islandKeep: RANGE.islandKeep.default,
     grow: RANGE.grow.default,
     feather: RANGE.feather.default,
     content: 'cutout',
@@ -148,6 +180,16 @@ const oneOf = <T extends string>(v: unknown, list: readonly T[], fallback: T): T
   list.includes(v as T) ? (v as T) : fallback;
 const hex = (v: unknown, fallback: string) =>
   typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : fallback;
+/** 色碼清單：只留合法的（小寫）、不重複，最多 max 個 */
+const hexList = (v: unknown, max: number): string[] => {
+  const out: string[] = [];
+  for (const c of Array.isArray(v) ? v : []) {
+    const h = hex(c, '');
+    if (h && !out.includes(h)) out.push(h);
+    if (out.length >= max) break;
+  }
+  return out;
+};
 
 function normalizeStroke(raw: unknown): StoredStroke | null {
   const f = raw as Partial<FillStroke> | null;
@@ -210,14 +252,30 @@ export function normalizeSettings(raw: unknown): Settings {
       return true;
     });
   return {
-    mode: oneOf(r.mode, ['ai', 'color'] as const, d.mode),
+    mode: oneOf(r.mode, MODES, d.mode),
     backend: oneOf(r.backend, ['auto', 'webgpu', 'wasm'] as const, d.backend),
     keyAuto: typeof r.keyAuto === 'boolean' ? r.keyAuto : d.keyAuto,
     keyColor: hex(r.keyColor, d.keyColor),
+    keyExtra: hexList(r.keyExtra, MAX_KEY_COLORS - 1),
+    keyBlend: typeof r.keyBlend === 'boolean' ? r.keyBlend : d.keyBlend,
     tolerance: clampNum(r.tolerance, RANGE.tolerance.min, RANGE.tolerance.max, d.tolerance),
     softness: clampNum(r.softness, RANGE.softness.min, RANGE.softness.max, d.softness),
+    comboTolerance: clampNum(
+      r.comboTolerance,
+      RANGE.comboTolerance.min,
+      RANGE.comboTolerance.max,
+      d.comboTolerance,
+    ),
+    comboSoftness: clampNum(
+      r.comboSoftness,
+      RANGE.comboSoftness.min,
+      RANGE.comboSoftness.max,
+      d.comboSoftness,
+    ),
     connected: typeof r.connected === 'boolean' ? r.connected : d.connected,
     despill: typeof r.despill === 'boolean' ? r.despill : d.despill,
+    islands: typeof r.islands === 'boolean' ? r.islands : d.islands,
+    islandKeep: clampNum(r.islandKeep, RANGE.islandKeep.min, RANGE.islandKeep.max, d.islandKeep),
     grow: Math.round(clampNum(r.grow, RANGE.grow.min, RANGE.grow.max, d.grow)),
     feather: clampNum(r.feather, RANGE.feather.min, RANGE.feather.max, d.feather),
     content: oneOf(r.content, ['cutout', 'mask', 'compare'] as const, d.content),
@@ -229,6 +287,14 @@ export function normalizeSettings(raw: unknown): Settings {
     trimPad: Math.round(clampNum(r.trimPad, RANGE.trimPad.min, RANGE.trimPad.max, d.trimPad)),
     images,
   };
+}
+
+/**
+ * 舊存檔、舊專案檔讀進來：版本 1 只有一個背景色（keyAuto／keyColor），就是清單的第一個；
+ * 新的設定（其他背景色、混色、AI＋背景色的容許度／柔邊、去掉孤島）用預設值。其餘照 normalizeSettings 修正。
+ */
+export function migrateSettings(raw: unknown, _fromVersion: number): Settings {
+  return normalizeSettings(raw);
 }
 
 /** 筆刷點存檔時取到小數一位 */
