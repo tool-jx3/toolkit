@@ -339,6 +339,20 @@ export function maskFromRgba(rgba: Uint8Array | Uint8ClampedArray): Mask {
   return out;
 }
 
+/**
+ * 色階：值 ≤ lo 變 0、≥ hi 變 255，中間線性拉開（四捨五入）。回傳新的遮罩。
+ * 用途：AI 的遮罩把看不到的淡霧清成 0、把模型「幾乎確定」的地方變成完全不透明，邊緣的半透明照樣保留。
+ */
+export function levelsMask(mask: Uint8Array, lo: number, hi: number): Mask {
+  const out = new Uint8Array(mask.length) as Mask;
+  const span = hi - lo;
+  for (let i = 0; i < mask.length; i++) {
+    const v = mask[i];
+    out[i] = v <= lo ? 0 : v >= hi ? 255 : Math.round(((v - lo) * 255) / span);
+  }
+  return out;
+}
+
 /** 0～1 的浮點數遮罩 → 0～255：floor(float32(m × 255))，與 numpy 的 `(mask * 255).astype(np.uint8)` 相同（先夾在 0～1） */
 export function quantizeMask(mask: Float32Array): Mask {
   const out = new Uint8Array(mask.length) as Mask;

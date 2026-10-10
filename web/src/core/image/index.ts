@@ -554,6 +554,7 @@ export * from './embed';
 /* ---------- G2：濾鏡零件、畫質決定的輸出尺寸 ---------- */
 export * from './filterPresets';
 export * from './filters';
+export * from './islands';
 export * from './mask';
 /* ---------- 圖片在框裡的位置（lock-screen：可以存起來、重新裁切時還原） ---------- */
 export * from './placement';

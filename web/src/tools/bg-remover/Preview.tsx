@@ -71,6 +71,7 @@ import {
   type OutFormat,
   type OutScope,
   RANGE,
+  usesAi,
   type ViewMode,
 } from './model';
 import type { FillPreview, PreviewImage, PreviewJob } from './pixels';
@@ -164,7 +165,7 @@ export async function addAndReport(files: readonly File[], model: ModelCache | n
     tone: extra ? 'warning' : 'success',
     text: `${S.loaded(r.added.length)}${extra ? ` ${extra}` : ''}`,
   });
-  if (autoAi && settingsNow().mode === 'ai') await runAiAndReport(r.added, model);
+  if (autoAi && usesAi(settingsNow().mode)) await runAiAndReport(r.added, model);
 }
 
 /** AI 去背並把結果寫到狀態列 */
@@ -290,7 +291,7 @@ function ImageList() {
         name: it.name,
         image: urls[it.asset] ?? null,
         meta: S.sizeMeta(it.width, it.height),
-        status: mode === 'ai' && masks[it.asset] ? ('done' as const) : undefined,
+        status: usesAi(mode) && masks[it.asset] ? ('done' as const) : undefined,
         statusLabel: S.statusDone,
       }))}
     />
@@ -857,7 +858,7 @@ function AiBar({ model }: { model: ModelCache }) {
   const current = usePreview((st) => st.data.current);
   const masks = usePreview((st) => st.data.aiMasks);
   const ai = useWork((st) => st.ai);
-  if (mode !== 'ai' || !images.length) return null;
+  if (!usesAi(mode) || !images.length) return null;
   const ready = model.state.status === 'ready';
   const item = images.find((it) => it.id === current) ?? images[0] ?? null;
   const pending = images.filter(

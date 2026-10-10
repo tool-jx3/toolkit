@@ -3,16 +3,26 @@
  * Worker（pixels.worker.ts）與主執行緒的退路共用。這個檔案不建立 Worker（Worker 也 import 它）。
  */
 import { errorText } from '@/core/diagnostics/error';
-import { applyMask, detectImageType, type Mask, maskToRgba, type Rect } from '@/core/image';
+import {
+  applyMask,
+  detectImageType,
+  type KeyColors,
+  type Mask,
+  maskToRgba,
+  type Rect,
+  type Rgb,
+} from '@/core/image';
 import { transfer } from '@/core/worker';
 import type { Letterbox } from './animeSeg';
 import type { FillStroke, Mode, StoredStroke, ViewMode } from './model';
 import {
+  aiBase,
   aiInput,
   aiMask,
   applyStrokes,
   type ColorBase,
   colorBase,
+  comboBase,
   composeOutput,
   cutoutColors,
   decodeMaskPng,
@@ -20,7 +30,9 @@ import {
   encodeImage,
   encodeMaskPng,
   fillRegion,
+  type KeyInfo,
   type KeyParams,
+  keyInfo,
   type OutputSpec,
   refineMask,
   type SourceImage,
@@ -34,8 +46,10 @@ export interface RenderJob {
   blob: Blob;
   mode: Mode;
   keyParams: KeyParams;
-  /** AI 的遮罩（PNG）；AI 模式還沒去背時 null */
+  /** AI 的遮罩（存著的 8 位元 PNG，用的時候套色階）；要 AI 的方式還沒去背時 null */
   aiMask: Blob | null;
+  /** 去掉孤島：留比最大一塊的這個比例（0～1）大的塊；null＝關 */
+  islands: number | null;
   grow: number;
   feather: number;
   despill: boolean;
@@ -176,7 +190,8 @@ export function createPixelApi() {
     if (!job.aiMask) throw new NeedsAiError();
     const m = decodeMaskPng(new Uint8Array(await job.aiMask.arrayBuffer()));
     if (m.width !== src.width || m.height !== src.height) throw new NeedsAiError();
-    return { mask: m.mask };
+    const ai = aiBase(m.mask);
+    return job.mode === 'combo' ? comboBase(src, ai, job.keyParams) : { mask: ai };
   };
 
   return {
@@ -213,8 +228,20 @@ export function createPixelApi() {
       const rgba = src.rgba.slice();
       return transfer({ width: src.width, height: src.height, rgba }, [rgba.buffer]);
     },
+    /** 背景色的偵測與建議（AI＋背景色還沒 AI 去背時也要顯示） */
+    async keyInfo(key: string, blob: Blob, color: Rgb | null): Promise<KeyInfo> {
+      return keyInfo(await source(key, blob), color);
+    },
     async colorBase(key: string, blob: Blob, p: KeyParams): Promise<ColorBase> {
       const r = colorBase(await source(key, blob), p);
+      return transfer(r, [r.mask.buffer]);
+    },
+    /** AI＋背景色的基礎遮罩（aiPng：存著的 AI 遮罩；尺寸不合時 null＝當成還沒 AI 去背） */
+    async comboBase(key: string, blob: Blob, p: KeyParams, aiPng: Blob): Promise<ColorBase | null> {
+      const src = await source(key, blob);
+      const m = decodeMaskPng(new Uint8Array(await aiPng.arrayBuffer()));
+      if (m.width !== src.width || m.height !== src.height) return null;
+      const r = comboBase(src, aiBase(m.mask), p);
       return transfer(r, [r.mask.buffer]);
     },
     async aiInput(key: string, blob: Blob): Promise<{ tensor: Float32Array; box: Letterbox }> {
@@ -227,12 +254,22 @@ export function createPixelApi() {
       const png = await encodeMaskPng(mask, box.w0, box.h0);
       return transfer({ mask, png }, [mask.buffer, png.buffer as ArrayBuffer]);
     },
-    async decodeMask(png: Blob): Promise<{ mask: Mask; width: number; height: number }> {
+    /** AI 的基礎遮罩：存著的 8 位元遮罩（PNG）讀回來套色階 */
+    async aiBase(png: Blob): Promise<{ mask: Mask; width: number; height: number }> {
       const r = decodeMaskPng(new Uint8Array(await png.arrayBuffer()));
-      return transfer(r, [r.mask.buffer]);
+      const mask = aiBase(r.mask);
+      return transfer({ mask, width: r.width, height: r.height }, [mask.buffer]);
     },
-    async refine(mask: Mask, w: number, h: number, grow: number, feather: number): Promise<Mask> {
-      const r = refineMask(mask, w, h, grow, feather);
+    /** 邊緣調整：去掉孤島（islands：比例 0～1，null＝關）→ 收縮／擴張 → 羽化 */
+    async refine(
+      mask: Mask,
+      w: number,
+      h: number,
+      grow: number,
+      feather: number,
+      islands: number | null = null,
+    ): Promise<Mask> {
+      const r = refineMask(mask, w, h, grow, feather, islands);
       return transfer(r, [r.buffer]);
     },
     /** 去色邊後的顏色（純色模式預覽用）；colorsKey 給了就記住，預覽合成時不必再傳回來 */
@@ -240,11 +277,11 @@ export function createPixelApi() {
       key: string,
       blob: Blob,
       base: Mask,
-      bg: [number, number, number],
+      keys: KeyColors,
       colorsKey: string | null = null,
     ): Promise<Uint8ClampedArray<ArrayBuffer>> {
       const src = await source(key, blob);
-      const colors = cutoutColors(src, { base, bg });
+      const colors = cutoutColors(src, { base, keys });
       lastColors = colorsKey ? { key: colorsKey, colors } : null;
       const r = colors.slice();
       return transfer(r, [r.buffer]);
@@ -330,13 +367,20 @@ export function createPixelApi() {
         await checkpoint(id);
         const base = await baseOf(job, src);
         await checkpoint(id);
-        const final = refineMask(base.mask, src.width, src.height, job.grow, job.feather);
+        const final = refineMask(
+          base.mask,
+          src.width,
+          src.height,
+          job.grow,
+          job.feather,
+          job.islands,
+        );
         await checkpoint(id);
         applyStrokes(final, src, job.strokes);
         const colors = cutoutColors(
           src,
-          job.mode === 'color' && job.despill && 'bg' in base
-            ? { base: base.mask, bg: base.bg }
+          job.mode !== 'ai' && job.despill && 'keys' in base
+            ? { base: base.mask, keys: base.keys }
             : null,
         );
         await checkpoint(id);

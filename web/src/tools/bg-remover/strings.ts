@@ -8,10 +8,10 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 export const S = {
   usageIntro:
-    '把立繪、角色圖的背景去掉，存成透明背景的 PNG／WebP。可以用 AI 模型（動漫角色專用）或依背景色去掉純色背景，再用筆刷修邊。全部在瀏覽器裡處理，圖片不會上傳。',
+    '把立繪、角色圖的背景去掉，存成透明背景的 PNG／WebP。可以用 AI 模型（動漫角色專用）、依背景色去掉純色背景，或兩者合用，再用筆刷修邊。全部在瀏覽器裡處理，圖片不會上傳。',
   usageSteps: [
     '把圖片拖進來（可以一次放好幾張），或按「放入範例圖」試試看。',
-    '選去背方式：「AI 去背」第一次要先下載模型（約 176 MB，只要一次）；白底、單色底用「純色背景」比較快。',
+    '選去背方式：「AI 去背」第一次要先下載模型（約 176 MB，只要一次）；白底、單色底用「純色背景」比較快；AI 漏掉翅膀、尾巴，或背景留下花紋時，改用「AI＋背景色」。',
     '需要的話調整邊緣（收縮、羽化），再用筆刷把漏掉的地方擦掉、或把被去掉的地方補回來。',
     '在「匯出」選格式與背景，匯出這張或全部（全部可以打包成 ZIP）。',
   ],
@@ -19,7 +19,8 @@ export const S = {
   usageNotes: [
     'AI 去背在可以用顯示卡（WebGPU）的瀏覽器上一張約幾秒；只能用 CPU 時一張約十幾秒到一分鐘，處理中可以取消。',
     'AI 模型是 SkyTNT 的 anime-segmentation（Apache-2.0），從 Hugging Face 下載，存在這個瀏覽器裡，之後離線也能用；不需要時可以刪除。',
-    '純色背景：角色身上和背景同色的地方（白衣服、眼白）預設會留著；有漏掉的用筆刷補回。',
+    '純色背景：角色身上和背景同色的地方（白衣服、眼白）預設會留著；有漏掉的用筆刷補回。背景有兩種以上的顏色（例如左白右紫）時，在「其他背景色」加進來。',
+    '背景留下的小點點、方塊：開啟「邊緣調整」的「去掉孤島」。',
     '快捷鍵：E 擦掉、R 補回、V 移動畫面、[ ] 筆刷大小、1／2／3 切換預覽、A／D 上一張／下一張、Ctrl＋Z 復原（按 ? 看全部）。',
   ],
   disclaimer: '圖片只在你的瀏覽器裡處理，不會上傳到任何地方。',
@@ -27,10 +28,12 @@ export const S = {
   /* 去背方式 */
   sectionMethod: '去背方式',
   modeLabel: '方式',
-  modes: { ai: 'AI 去背', color: '純色背景' } satisfies Record<Mode, string>,
+  modes: { ai: 'AI 去背', color: '純色背景', combo: 'AI＋背景色' } satisfies Record<Mode, string>,
   modeHints: {
     ai: '用 AI 模型找出角色（動漫角色專用），背景再複雜也可以。',
     color: '依背景色與容許度去掉白底、單色底，不需要下載模型。',
+    combo:
+      'AI 找出角色，再用背景色修正：AI 漏掉的部分（例如翅膀、尾巴）只要和背景色不同、和角色相連就補回來，AI 留在背景色上的邊去掉。要先下載 AI 模型。',
   } satisfies Record<Mode, string>,
 
   /* AI */
@@ -82,6 +85,20 @@ export const S = {
   connectedHint: '角色身上和背景同色的地方（白衣服、眼白）會留著。關掉時整張圖同色的都去掉。',
   despill: '去色邊',
   despillHint: '把半透明邊緣混到的背景色扣掉，換到深色背景時不會有一圈白邊。',
+  /* 多個背景色（規格 F62～F64） */
+  keyExtra: '其他背景色',
+  keyExtraHint: '背景有兩種以上的顏色時（例如左白右紫）加進來；連同上面的最多 4 個。',
+  keyFull: '已經有 4 個背景色了。',
+  keyColorN: (n: number) => `背景色 ${n}`,
+  removeKey: (hex: string) => `刪除背景色 ${hex}`,
+  addPicked: '在圖上點一下加入',
+  addPicking: '點一下預覽裡要加入的背景色（Esc 取消）',
+  suggestTitle: '四邊還有這些常見的顏色：',
+  suggestItem: (hex: string, ratio: number) => `${hex}（四邊有 ${pct(ratio)}）`,
+  addSuggested: '加入',
+  addSuggestedLabel: (hex: string) => `加入背景色 ${hex}`,
+  blend: '兩個背景色之間的混色也算背景',
+  blendHint: '兩色之間的漸層、網點也去掉（看顏色離兩色連線多遠）。',
 
   /* 邊緣 */
   sectionEdge: '邊緣調整',
@@ -89,6 +106,10 @@ export const S = {
   growHint: '負數往內收（去掉殘留的背景邊），正數往外擴。',
   feather: '羽化',
   featherHint: '把邊緣變柔和。',
+  islands: '去掉孤島',
+  islandsHint: '去掉和角色分開的小塊（背景留下的點點、方塊）。',
+  islandKeep: '保留的大小',
+  islandKeepHint: '比最大一塊的這個百分比大的塊會留著（例如兩個角色、和角色分開的道具）。',
 
   /* 筆刷 */
   sectionBrush: '筆刷修邊',

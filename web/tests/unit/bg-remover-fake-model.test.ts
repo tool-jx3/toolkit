@@ -2,11 +2,12 @@
  * e2e 用的假模型（tests/fixtures/bg-remover-fake-model.onnx）：
  * - 檔案與 tests/helpers/onnx.ts 的 fakeSegModel() 產生的位元組相同（改了產生方式要重新產生檔案）；
  * - 輸入輸出的名稱與形狀和真模型相同，onnxruntime-web 跑得動，結果符合 sigmoid(6 − 4(R＋G＋B))；
- * - 搭配新版的前後處理：白底黑方塊的圖，遮罩是方塊。
+ * - 搭配新版的前後處理：白底黑方塊的圖，遮罩是方塊（存著的 254，用的時候套色階變 255）。
  */
 import { describe, expect, it } from 'vitest';
 import { quantizeMask } from '@/core/image';
 import { fromModelOutput, MODEL_SIZE, toModelInput } from '@/tools/bg-remover/animeSeg';
+import { aiBase } from '@/tools/bg-remover/pipeline';
 import { fakeSegModel, fakeSegValue } from '../helpers/onnx';
 
 interface Fs {
@@ -53,6 +54,10 @@ describe('bg-remover：e2e 的假模型', () => {
     const mask = quantizeMask(fromModelOutput(pred, box));
     expect(mask[0]).toBe(0);
     expect(mask[6 * w + 10]).toBe(254);
+    /* 用的時候套色階：方塊裡面完全不透明（存著的 254 → 255），白底 0 */
+    const used = aiBase(mask);
+    expect(used[6 * w + 10]).toBe(255);
+    expect(used[0]).toBe(0);
     await session.release();
   }, 60_000);
 });

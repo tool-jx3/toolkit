@@ -1,14 +1,26 @@
 /**
- * 設定欄：去背方式、AI 模型（下載、運算方式、推論尺寸）、背景色（純色）、邊緣調整、筆刷修邊、使用方式。
+ * 設定欄：去背方式、AI 模型（下載、運算方式、推論尺寸）、背景色（純色背景、AI＋背景色）、邊緣調整、筆刷修邊、使用方式。
  */
-import { Brush, Eraser, Hand, PaintBucket, Pipette, Trash2, WandSparkles } from 'lucide-react';
+import {
+  Brush,
+  Eraser,
+  Hand,
+  PaintBucket,
+  Pipette,
+  Plus,
+  Trash2,
+  WandSparkles,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
+import { parseColor } from '@/core/color';
+import { colorDistance } from '@/core/image';
 import type { OnnxBackendChoice } from '@/core/onnx/types';
 import { historyGesture } from '@/core/storage';
 import {
   Button,
   ColorField,
   Field,
+  IconButton,
   type ModelCache,
   ModelDownloadPanel,
   Notice,
@@ -19,9 +31,19 @@ import {
   Toggle,
   UsageSection,
 } from '@/ui';
-import { finishPick, pickFromImage } from './actions';
-import { backendLabel, clearStrokes, resetAi, useWork } from './engine';
-import { type BrushTool, isFillTool, type Mode, modelSpec, RANGE } from './model';
+import { addKeyColor, finishPick, pickFromImage, removeKeyColor } from './actions';
+import { backendLabel, clearStrokes, type PickPurpose, resetAi, useWork } from './engine';
+import {
+  type BrushTool,
+  isFillTool,
+  MAX_KEY_COLORS,
+  MODES,
+  type Mode,
+  modelSpec,
+  RANGE,
+  usesAi,
+  usesKey,
+} from './model';
 import { edit, setPreview, step, usePreview, useSettings } from './store';
 import { S } from './strings';
 
@@ -59,7 +81,7 @@ function MethodSection() {
             })
           }
           fullWidth
-          options={(['ai', 'color'] as const).map((v) => ({ value: v, label: S.modes[v] }))}
+          options={MODES.map((v) => ({ value: v, label: S.modes[v] }))}
         />
       </Field>
     </Section>
@@ -115,25 +137,65 @@ function AiSection({ model }: { model: ModelCache }) {
   );
 }
 
+const hexOf = (c: readonly number[]) =>
+  `#${c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
+
+/** 建議的背景色和清單裡的顏色差這麼多（0～100）以內時當成已經有了（同四邊顏色分群的門檻） */
+const SUGGEST_SAME = 12;
+
+function Swatch({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-block h-3.5 w-5 shrink-0 rounded-sm border border-border-strong"
+      style={{ background: color }}
+    />
+  );
+}
+
 function KeySection() {
   const s = useSettings((st) => st.data);
   const keyColor = useWork((st) => st.keyColor);
   const ratio = useWork((st) => st.keyRatio);
+  const suggestRaw = useWork((st) => st.keySuggest);
   const picking = useWork((st) => st.picking);
+  const pickFor = useWork((st) => st.pickFor);
   const hasImage = useWork((st) => !!st.itemId);
-  const pick = async () => {
-    if (picking) {
+  const combo = s.mode === 'combo';
+  const count = 1 + s.keyExtra.length;
+  const full = count >= MAX_KEY_COLORS;
+  /* 建議：四邊常見、清單裡還沒有（也不接近清單裡的顏色）的顏色 */
+  const listed = [s.keyAuto ? keyColor : s.keyColor, ...s.keyExtra]
+    .map((h) => (h ? parseColor(h) : null))
+    .filter((c): c is NonNullable<typeof c> => !!c);
+  const suggest = full
+    ? []
+    : suggestRaw
+        .filter((c) =>
+          listed.every(
+            (l) =>
+              colorDistance(c.color[0], c.color[1], c.color[2], [l.r, l.g, l.b]) > SUGGEST_SAME,
+          ),
+        )
+        .slice(0, MAX_KEY_COLORS - count);
+  /** 從圖上取色（再按一次同一個按鈕取消） */
+  const pick = async (purpose: PickPurpose, apply: (hex: string) => void) => {
+    if (picking && pickFor === purpose) {
       finishPick(null);
       return;
     }
-    const hex = await pickFromImage();
-    if (hex) {
+    const hex = await pickFromImage(purpose);
+    if (hex) apply(hex);
+  };
+  const pickFirst = () =>
+    pick('first', (hex) =>
       step((d) => {
         d.keyAuto = false;
         d.keyColor = hex;
-      });
-    }
-  };
+      }),
+    );
+  const tolKey = combo ? 'comboTolerance' : 'tolerance';
+  const softKey = combo ? 'comboSoftness' : 'softness';
   return (
     <Section title={S.sectionKey} fixed>
       <Field label={S.keySource} hint={s.keyAuto ? S.keyAutoHint : undefined}>
@@ -156,11 +218,7 @@ function KeySection() {
       {s.keyAuto ? (
         keyColor ? (
           <p className="m-0 flex items-center gap-2 text-xs text-muted" data-testid="key-detected">
-            <span
-              aria-hidden
-              className="inline-block h-3.5 w-5 shrink-0 rounded-sm border border-border-strong"
-              style={{ background: keyColor }}
-            />
+            <Swatch color={keyColor} />
             {S.detected(keyColor, ratio)}
           </p>
         ) : null
@@ -173,7 +231,7 @@ function KeySection() {
                 d.keyColor = v;
               })
             }
-            pickFromCanvas={hasImage ? pickFromImage : undefined}
+            pickFromCanvas={hasImage ? () => pickFromImage('field') : undefined}
             pickFromCanvasLabel={S.pickFromImage}
           />
         </Field>
@@ -181,40 +239,114 @@ function KeySection() {
       <Button
         size="sm"
         icon={<Pipette />}
-        onClick={() => void pick()}
+        onClick={() => void pickFirst()}
         disabled={!hasImage}
-        aria-pressed={picking}
+        aria-pressed={picking && pickFor === 'first'}
         className="self-start"
       >
-        {picking ? S.picking : S.pickFromImage}
+        {picking && pickFor === 'first' ? S.picking : S.pickFromImage}
       </Button>
-      {s.keyAuto && keyColor && ratio < 0.5 ? <Notice tone="warning">{S.lowRatio}</Notice> : null}
+      {s.keyAuto && keyColor && ratio < 0.5 && !s.keyExtra.length ? (
+        <Notice tone="warning">{S.lowRatio}</Notice>
+      ) : null}
+      <Field label={S.keyExtra} hint={full ? S.keyFull : S.keyExtraHint}>
+        <div className="flex flex-col gap-2" data-testid="key-extra">
+          {s.keyExtra.map((hex, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: 位置就是身分（以色碼當 key 時，在調色盤裡改顏色會讓色彩欄重建、調色盤關掉）
+            <div key={i} className="flex items-center gap-2">
+              <ColorField
+                value={hex}
+                aria-label={S.keyColorN(i + 2)}
+                className="min-w-0 flex-1"
+                onChange={(v) =>
+                  edit((d) => {
+                    d.keyExtra[i] = v.toLowerCase();
+                  })
+                }
+                pickFromCanvas={hasImage ? () => pickFromImage('field') : undefined}
+                pickFromCanvasLabel={S.pickFromImage}
+              />
+              <IconButton
+                label={S.removeKey(hex)}
+                icon={<Trash2 />}
+                size="sm"
+                onClick={() => removeKeyColor(i)}
+              />
+            </div>
+          ))}
+          <Button
+            size="sm"
+            icon={<Plus />}
+            onClick={() => void pick('add', (hex) => addKeyColor(hex))}
+            disabled={!hasImage || full}
+            aria-pressed={picking && pickFor === 'add'}
+            className="self-start"
+          >
+            {picking && pickFor === 'add' ? S.addPicking : S.addPicked}
+          </Button>
+        </div>
+      </Field>
+      {suggest.length ? (
+        <div className="flex flex-col gap-1.5" data-testid="key-suggest">
+          <p className="m-0 text-xs text-muted">{S.suggestTitle}</p>
+          {suggest.map((c) => {
+            const hex = hexOf(c.color);
+            return (
+              <div key={hex} className="flex items-center gap-2 text-xs">
+                <Swatch color={hex} />
+                <span className="min-w-0 flex-1 tabular-nums">{S.suggestItem(hex, c.ratio)}</span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<Plus />}
+                  aria-label={S.addSuggestedLabel(hex)}
+                  onClick={() => addKeyColor(hex)}
+                >
+                  {S.addSuggested}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+      {count > 1 ? (
+        <Field label={S.blend} hint={S.blendHint} layout="inline">
+          <Toggle
+            checked={s.keyBlend}
+            onCheckedChange={(v) =>
+              step((d) => {
+                d.keyBlend = v;
+              })
+            }
+          />
+        </Field>
+      ) : null}
       <Field label={S.tolerance} hint={S.toleranceHint}>
         <Slider
-          value={s.tolerance}
+          value={s[tolKey]}
           onChange={g.live((v) =>
             edit((d) => {
-              d.tolerance = v;
+              d[tolKey] = v;
             }),
           )}
           onCommit={g.commit}
-          min={RANGE.tolerance.min}
-          max={RANGE.tolerance.max}
-          step={RANGE.tolerance.step}
+          min={RANGE[tolKey].min}
+          max={RANGE[tolKey].max}
+          step={RANGE[tolKey].step}
         />
       </Field>
       <Field label={S.softness} hint={S.softnessHint}>
         <Slider
-          value={s.softness}
+          value={s[softKey]}
           onChange={g.live((v) =>
             edit((d) => {
-              d.softness = v;
+              d[softKey] = v;
             }),
           )}
           onCommit={g.commit}
-          min={RANGE.softness.min}
-          max={RANGE.softness.max}
-          step={RANGE.softness.step}
+          min={RANGE[softKey].min}
+          max={RANGE[softKey].max}
+          step={RANGE[softKey].step}
         />
       </Field>
       <Field label={S.connected} hint={S.connectedHint} layout="inline">
@@ -244,8 +376,37 @@ function KeySection() {
 function EdgeSection() {
   const grow = useSettings((st) => st.data.grow);
   const feather = useSettings((st) => st.data.feather);
+  const islands = useSettings((st) => st.data.islands);
+  const islandKeep = useSettings((st) => st.data.islandKeep);
   return (
     <Section title={S.sectionEdge} fixed>
+      <Field label={S.islands} hint={S.islandsHint} layout="inline">
+        <Toggle
+          checked={islands}
+          onCheckedChange={(v) =>
+            step((d) => {
+              d.islands = v;
+            })
+          }
+        />
+      </Field>
+      {islands ? (
+        <Field label={S.islandKeep} hint={S.islandKeepHint}>
+          <Slider
+            value={islandKeep}
+            onChange={g.live((v) =>
+              edit((d) => {
+                d.islandKeep = v;
+              }),
+            )}
+            onCommit={g.commit}
+            min={RANGE.islandKeep.min}
+            max={RANGE.islandKeep.max}
+            step={RANGE.islandKeep.step}
+            unit="%"
+          />
+        </Field>
+      ) : null}
       <Field label={S.grow} hint={S.growHint}>
         <Slider
           value={grow}
@@ -381,7 +542,8 @@ export function SettingsPanel({ model }: { model: ModelCache }) {
   return (
     <>
       <MethodSection />
-      {mode === 'ai' ? <AiSection model={model} /> : <KeySection />}
+      {usesAi(mode) ? <AiSection model={model} /> : null}
+      {usesKey(mode) ? <KeySection /> : null}
       <EdgeSection />
       <BrushSection />
       <UsageSection persistKey="bg-remover">
