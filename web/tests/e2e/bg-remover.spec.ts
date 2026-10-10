@@ -2024,6 +2024,47 @@ test('多個背景色（F62～F64）：加入建議的顏色、在圖上點一�
   expect(errors).toEqual([]);
 });
 
+test('多個背景色：點到的顏色和第一色（自動偵測到的或指定的）相同時不加進「其他背景色」', async ({
+  page,
+}) => {
+  const { errors } = await open(page);
+  await useColorMode(page);
+  await addTwoTone(page);
+  await expectReady(page);
+  await expect(page.getByTestId('key-detected')).toContainText('偵測到：#ffffff');
+  const add = page.getByRole('button', { name: '在圖上點一下加入' });
+  const pickAt = async (x: number, y: number) => {
+    await add.click();
+    await expect(page.getByTestId('brush-layer')).toHaveAttribute('data-tool', 'pick');
+    const p = await toScreen(page, x, y);
+    await page.mouse.click(p.x, p.y);
+    await expect(page.getByTestId('brush-layer')).not.toHaveAttribute('data-tool', 'pick');
+  };
+  /* 自動偵測到白：點白底不加 */
+  await pickAt(10, 10);
+  await expect(page.getByTestId('key-extra').getByRole('textbox')).toHaveCount(0);
+  /* 指定顏色（白）：點白底也不加 */
+  await page.getByRole('radio', { name: '指定顏色' }).click();
+  await expect(page.getByRole('textbox', { name: '顏色', exact: true })).toHaveValue('#ffffff');
+  await pickAt(10, 10);
+  await expect(page.getByTestId('key-extra').getByRole('textbox')).toHaveCount(0);
+  /* 第一色改成紫：點紫底不加、點白底加 */
+  await page.getByRole('button', { name: '從圖上取色', exact: true }).click();
+  const p = await toScreen(page, 310, 120);
+  await page.mouse.click(p.x, p.y);
+  await expect(page.getByRole('textbox', { name: '顏色', exact: true })).toHaveValue('#907899');
+  await expectReady(page);
+  await pickAt(310, 120);
+  await expect(page.getByTestId('key-extra').getByRole('textbox')).toHaveCount(0);
+  await pickAt(10, 10);
+  await expect(extraField(page)).toHaveValue('#ffffff');
+  await expect(page.getByTestId('key-extra').getByRole('textbox')).toHaveCount(1);
+  /* 建議也不列和清單裡相同的顏色（白、紫都在清單裡） */
+  await expectReady(page);
+  await expect(page.getByTestId('key-suggest')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('多個背景色：最多 4 個；滿了不能再加、沒有建議', async ({ page }) => {
   const { errors } = await open(page);
   await useColorMode(page);

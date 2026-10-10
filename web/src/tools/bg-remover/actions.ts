@@ -198,11 +198,16 @@ export function finishPick(hex: string | null): void {
 
 /* ---------- 背景色清單 ---------- */
 
-/** 加入一個背景色（算一步復原）；已經有 4 個、或清單裡已經有這個色碼時不加，回傳 false */
+/**
+ * 加入一個背景色（算一步復原）；已經有 4 個、或清單裡已經有這個色碼時不加，回傳 false。
+ * 清單＝第一色（自動偵測時是目前這張偵測到的顏色，指定時是指定的顏色）＋其他背景色。
+ */
 export function addKeyColor(hex: string): boolean {
   const s = settingsNow();
   const c = hex.toLowerCase();
-  if (1 + s.keyExtra.length >= MAX_KEY_COLORS || s.keyExtra.includes(c)) return false;
+  const first = (s.keyAuto ? useWork.getState().keyColor : s.keyColor)?.toLowerCase();
+  if (1 + s.keyExtra.length >= MAX_KEY_COLORS || c === first || s.keyExtra.includes(c))
+    return false;
   step((d) => {
     d.keyExtra.push(c);
   });
