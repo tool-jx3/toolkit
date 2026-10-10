@@ -2083,6 +2083,54 @@ test('只有一個背景色時輸出不變：範例圖的遮罩、去背圖和�
   expect(errors).toEqual([]);
 });
 
+test('AI＋背景色：還沒 AI 去背時就顯示偵測到的背景色與建議（只看原圖）；預覽的提示同 AI 去背', async ({
+  page,
+}) => {
+  const { errors } = await open(page, { spec: FAKE_SPEC });
+  await page.getByRole('radio', { name: 'AI＋背景色' }).click();
+  const img = await addTwoTone(page);
+  /* 沒有模型：預覽提示同 AI 去背；背景色的偵測與建議照樣出現 */
+  await expect(canvas(page)).toHaveAttribute('data-phase', 'needs-ai');
+  const noModel = '先在「AI 模型」下載模型，或改用「純色背景」。';
+  await expect(page.getByTestId('stage-overlay')).toHaveText(noModel);
+  await expect(page.getByTestId('key-detected')).toHaveText(
+    /^偵測到：#ffffff（四邊有 \d+% 是這個顏色）$/,
+  );
+  await expect(page.getByTestId('key-suggest')).toContainText(`${img.purpleHex}（四邊有`);
+  /* 加入建議的顏色：還是要先 AI 去背 */
+  await page.getByRole('button', { name: `加入背景色 ${img.purpleHex}` }).click();
+  await expect(extraField(page)).toHaveValue(img.purpleHex);
+  await expect(page.getByTestId('key-suggest')).toHaveCount(0);
+  await expect(page.getByTestId('key-detected')).toContainText('#ffffff');
+  await expect(canvas(page)).toHaveAttribute('data-phase', 'needs-ai');
+  await expect(page.getByTestId('stage-overlay')).toHaveText(noModel);
+  /* AI 去背：同一張圖、同樣的提示 */
+  await page.getByRole('radio', { name: 'AI 去背' }).click();
+  await expect(canvas(page)).toHaveAttribute('data-phase', 'needs-ai');
+  await expect(page.getByTestId('stage-overlay')).toHaveText(noModel);
+  /* 模型下載好了、這張還沒 AI 去背：兩種方式都是「這張還沒 AI 去背…」，偵測照樣顯示 */
+  await downloadModel(page);
+  const needsAi = '這張還沒 AI 去背：按「AI 去背這張」。';
+  await expect(page.getByTestId('stage-overlay')).toHaveText(needsAi);
+  await page.getByRole('radio', { name: 'AI＋背景色' }).click();
+  await expect(page.getByTestId('stage-overlay')).toHaveText(needsAi);
+  await expect(page.getByTestId('key-detected')).toContainText('#ffffff');
+  /* 指定顏色：顯示色彩欄，不顯示偵測 */
+  await page.getByRole('radio', { name: '指定顏色' }).click();
+  await expect(page.getByTestId('key-detected')).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: '顏色', exact: true })).toHaveValue('#ffffff');
+  await page.getByRole('radio', { name: '自動偵測' }).click();
+  await expect(page.getByTestId('key-detected')).toContainText('#ffffff');
+  /* AI 去背之後：提示消失，偵測與清單照舊 */
+  await page.getByRole('button', { name: 'AI 去背這張' }).click();
+  await expect(status(page)).toHaveText('已完成 AI 去背。', { timeout: 60_000 });
+  await expectReady(page);
+  await expect(page.getByTestId('stage-overlay')).toHaveCount(0);
+  await expect(page.getByTestId('key-detected')).toContainText('#ffffff');
+  await expect(extraField(page)).toHaveValue(img.purpleHex);
+  expect(errors).toEqual([]);
+});
+
 test('AI＋背景色（F65，假模型）：AI 找出的角色＋連著的背景色結果補回，背景色上的邊去掉、方塊不加回；容許度／柔邊另外記', async ({
   page,
 }) => {

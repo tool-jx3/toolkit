@@ -134,36 +134,43 @@ export function keyParamsOf(s: Settings): KeyParams {
 /** 四邊其他常見的顏色：比例到這麼多才列成建議 */
 export const SUGGEST_MIN_RATIO = 0.1;
 
-export interface ColorBase {
+export interface ColorBase extends KeyInfo {
   mask: Mask;
+  /** 實際用的背景色集合（去色邊用） */
+  keys: KeyColors;
+}
+
+/** 背景色的偵測與建議（只看原圖，和 AI 無關；AI＋背景色在 AI 去背之前也顯示） */
+export interface KeyInfo {
   /** 實際用的第一個背景色（自動偵測時是偵測到的顏色） */
   bg: [number, number, number];
   /** 自動偵測時四邊是這個顏色的比例 */
   ratio: number;
-  /** 實際用的背景色集合（去色邊用） */
-  keys: KeyColors;
   /** 四邊常見的顏色（比例 ≥ SUGGEST_MIN_RATIO，由多到少；介面拿掉已經在清單裡的，其餘列成建議） */
   suggest: BorderColor[];
 }
 
+/** 第一個背景色（color：指定的顏色；null＝自動偵測）與建議的背景色 */
+export function keyInfo(src: SourceImage, color: Rgb | null): KeyInfo {
+  const est = color ? null : estimateBackground(src.rgba, src.width, src.height);
+  return {
+    bg: color ? [color[0], color[1], color[2]] : est!.color,
+    ratio: est?.ratio ?? 1,
+    suggest: borderColors(src.rgba, src.width, src.height, { minRatio: SUGGEST_MIN_RATIO }),
+  };
+}
+
 export function colorBase(src: SourceImage, p: KeyParams): ColorBase {
-  const est = p.color ? null : estimateBackground(src.rgba, src.width, src.height);
-  const bg: [number, number, number] = p.color ? [p.color[0], p.color[1], p.color[2]] : est!.color;
+  const info = keyInfo(src, p.color);
   const mask = colorKeyMask(src.rgba, src.width, src.height, {
-    color: bg,
+    color: info.bg,
     extra: p.extra,
     blend: p.blend,
     tolerance: p.tolerance,
     softness: p.softness,
     connected: p.connected,
   }) as Mask;
-  return {
-    mask,
-    bg,
-    ratio: est?.ratio ?? 1,
-    keys: { colors: [bg, ...p.extra], blend: p.blend },
-    suggest: borderColors(src.rgba, src.width, src.height, { minRatio: SUGGEST_MIN_RATIO }),
-  };
+  return { ...info, mask, keys: { colors: [info.bg, ...p.extra], blend: p.blend } };
 }
 
 /** AI 的前處理（給推論 Worker 的張量） */

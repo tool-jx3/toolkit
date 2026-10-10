@@ -33,6 +33,7 @@ import {
   decodeMaskPng,
   encodeMaskPng,
   type KeyParams,
+  keyInfo,
   keyParamsOf,
   refineMask,
   type SourceImage,
@@ -180,6 +181,12 @@ describe('bg-remover：多個背景色', () => {
     expect(r.bg).toEqual([255, 255, 255]);
     expect(r.suggest.map((c) => c.color)).toEqual([[255, 255, 255], PURPLE]);
     expect(r.suggest[1].ratio).toBeGreaterThan(0.1);
+  });
+
+  it('背景色的偵測與建議只看原圖（AI＋背景色在 AI 去背之前也能顯示）：和色鍵的結果相同', () => {
+    const r = colorBase(src, keyParams());
+    expect(keyInfo(src, null)).toEqual({ bg: r.bg, ratio: r.ratio, suggest: r.suggest });
+    expect(keyInfo(src, [1, 2, 3])).toMatchObject({ bg: [1, 2, 3], ratio: 1 });
   });
 
   it('白＋紫：兩邊的背景都去掉，角色、翅膀、方塊留著（純色背景照樣只看顏色）', () => {

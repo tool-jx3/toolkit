@@ -271,7 +271,16 @@ async function syncOnce(): Promise<void> {
       buf.baseKey = baseKey;
       buf.base = null;
       buf.keys = null;
-      bump({ phase: 'needs-ai', keyColor: null, keySuggest: [] });
+      /* AI＋背景色：背景色的偵測與建議只看原圖，還沒 AI 去背時也顯示（同純色背景） */
+      const blob = usesKey(s.mode) ? await assets.get(item.asset) : undefined;
+      const info = blob ? await pixels.keyInfo(item.asset, blob, kp.color) : null;
+      if (buf.baseKey !== baseKey) return;
+      bump({
+        phase: 'needs-ai',
+        keyColor: info ? hexOf(info.bg) : null,
+        keyRatio: info?.ratio ?? 1,
+        keySuggest: info?.suggest ?? [],
+      });
       return;
     }
     useWork.setState({ phase: 'processing' });

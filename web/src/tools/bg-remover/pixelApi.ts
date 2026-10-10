@@ -10,6 +10,7 @@ import {
   type Mask,
   maskToRgba,
   type Rect,
+  type Rgb,
 } from '@/core/image';
 import { transfer } from '@/core/worker';
 import type { Letterbox } from './animeSeg';
@@ -29,7 +30,9 @@ import {
   encodeImage,
   encodeMaskPng,
   fillRegion,
+  type KeyInfo,
   type KeyParams,
+  keyInfo,
   type OutputSpec,
   refineMask,
   type SourceImage,
@@ -224,6 +227,10 @@ export function createPixelApi() {
       const src = await source(key, blob);
       const rgba = src.rgba.slice();
       return transfer({ width: src.width, height: src.height, rgba }, [rgba.buffer]);
+    },
+    /** 背景色的偵測與建議（AI＋背景色還沒 AI 去背時也要顯示） */
+    async keyInfo(key: string, blob: Blob, color: Rgb | null): Promise<KeyInfo> {
+      return keyInfo(await source(key, blob), color);
     },
     async colorBase(key: string, blob: Blob, p: KeyParams): Promise<ColorBase> {
       const r = colorBase(await source(key, blob), p);

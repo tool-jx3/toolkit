@@ -70,6 +70,7 @@ export function createPixelClient(): Promisified<PixelApi> & {
     inspect: call('inspect'),
     thumb: call('thumb'),
     load: call('load'),
+    keyInfo: call('keyInfo'),
     colorBase: call('colorBase'),
     comboBase: call('comboBase'),
     aiInput: call('aiInput'),
