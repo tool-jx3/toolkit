@@ -529,7 +529,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '做一張角色手機的鎖定畫面當 handout：換上桌布、寫下最多 4 則訊息，匯出 PNG 或訊息一則一則跳出來的 GIF，也能把手機放在外框照片上。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: { name: 'TEXTSCENE', url: 'https://textscene.netlify.app/' },
   },
   {
