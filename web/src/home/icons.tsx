@@ -51,6 +51,7 @@ import {
   ScanEye,
   ScanFace,
   ScrollText,
+  Smartphone,
   Smile,
   Sparkles,
   Spline,
@@ -113,6 +114,7 @@ const ICONS: Record<string, LucideIcon> = {
   'review-grid': BookHeart,
   crossword: Puzzle,
   'scratch-card': Ticket,
+  'lock-screen': Smartphone,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,

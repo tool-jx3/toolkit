@@ -179,6 +179,34 @@ function mergeData<T>(initial: T, persisted: unknown): T {
 }
 
 /**
+ * 兩份狀態的內容是否相同（結構相等）：同一個參照直接相同（Immer 沒改到的部分共用參照，所以很快）；
+ * 陣列與一般物件逐項比；其他物件（Date、型別陣列…）只比參照。
+ */
+export function sameData(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!sameData(a[i], b[i])) return false;
+    return true;
+  }
+  const plain = (o: object) => {
+    const p = Object.getPrototypeOf(o);
+    return p === Object.prototype || p === null;
+  };
+  if (!plain(a) || !plain(b)) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  for (const k of ka) {
+    if (!Object.hasOwn(b, k)) return false;
+    if (!sameData((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
+      return false;
+  }
+  return true;
+}
+
+/**
  * 建立工具的設定 store：自動存檔（localStorage，鍵名 `trpg-toolkit:<id>`）＋復原／重做。
  * 只有 `data` 會被存檔與記錄歷史。
  */
@@ -262,7 +290,8 @@ export function createToolStore<T extends object>(
     const past = gesture.past;
     gesture.past = null;
     const current = { data: out.getState().data };
-    if (past && past.data !== current.data && out.temporal.getState().isTracking)
+    /* 內容相同（例：打字之後用瀏覽器原生的復原改回原樣）時不記這一步，不會留下一步沒有變化的復原 */
+    if (past && !sameData(past.data, current.data) && out.temporal.getState().isTracking)
       saveStep?.(past, undefined, current, undefined);
     last = 0;
   };

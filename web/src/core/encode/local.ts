@@ -16,7 +16,7 @@ export type EncoderSpec =
 
 /** 編碼器（有些格式另外支援預設圖） */
 export interface Encoder extends FrameEncoder {
-  /** 設定預設圖（只有 APNG 有作用；其他格式忽略） */
+  /** 設定預設圖（APNG；GIF 給了 stillWeight 時用在調色盤的統計；其他格式忽略） */
   setStill(rgba: RgbaPixels): Promise<void>;
 }
 
@@ -30,9 +30,13 @@ export function createLocalEncoder(spec: EncoderSpec): Encoder {
       inner = e;
       break;
     }
-    case 'gif':
-      inner = new GifEncoder(spec.options);
+    case 'gif': {
+      const e = new GifEncoder(spec.options);
+      /* GIF：代表畫面只用在調色盤的統計（stillWeight > 0 時；預設不做事） */
+      still = (rgba) => e.setStill(rgba);
+      inner = e;
       break;
+    }
     case 'webp':
       inner = new WebpEncoder(spec.options);
       break;

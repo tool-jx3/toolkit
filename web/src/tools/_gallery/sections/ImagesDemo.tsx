@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   type DominantColor,
   dominantColors,
+  type FramePlacement,
   getImageData,
   opaqueBounds,
   type Rect,
@@ -14,6 +15,7 @@ import {
   Field,
   FileDrop,
   ImageDrop,
+  ImageFrameDialog,
   Section,
   ThumbnailList,
   useToast,
@@ -42,6 +44,9 @@ export function ImagesDemo() {
   const [crops, setCrops] = useState<Record<number, Rect>>({});
   const [cropOpen, setCropOpen] = useState<'free' | 'square' | 'two' | null>(null);
   const [info, setInfo] = useState<{ colors: DominantColor[]; bounds: Rect | null } | null>(null);
+  /* 放進框（蓋滿模式）：記住位置，再打開時從這裡開始 */
+  const [frameOpen, setFrameOpen] = useState(false);
+  const [placement, setPlacement] = useState<FramePlacement | null>(null);
   const img = images[active];
 
   useEffect(() => {
@@ -161,6 +166,32 @@ export function ImagesDemo() {
                 )
               : undefined
           }
+        />
+      </Section>
+      <Section title="圖片放進框 ImageFrameDialog（蓋滿模式）">
+        <p className="m-0 text-xs text-muted">
+          蓋滿模式（cover）：圖片一定蓋滿框、縮放
+          100%～400%；三分線；兩指捏合；套用時回傳位置（onApply），再打開時從上次的位置開始（initialPlacement）。
+        </p>
+        <Button icon={<Crop />} disabled={!img} onClick={() => setFrameOpen(true)}>
+          放進手機畫面的框（9：19.5）
+        </Button>
+        {placement ? (
+          <p className="m-0 text-xs text-muted tabular-nums" data-testid="frame-placement">
+            位置：縮放 {placement.zoom.toFixed(2)}、x {placement.x.toFixed(3)}、y{' '}
+            {placement.y.toFixed(3)}、轉 {placement.turns * 90}°
+          </p>
+        ) : null}
+        <ImageFrameDialog
+          open={frameOpen}
+          onOpenChange={setFrameOpen}
+          image={img?.bitmap ?? null}
+          aspect={1080 / 2340}
+          output={{ width: 1080, height: 2340 }}
+          cover
+          guides="thirds"
+          initialPlacement={placement}
+          onApply={setPlacement}
         />
       </Section>
       <Section title="影像分析（core/image）">

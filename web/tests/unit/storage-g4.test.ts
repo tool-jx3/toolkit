@@ -64,6 +64,38 @@ describe('手勢：滑桿放開才記一步復原', () => {
     expect(s.temporal.getState().pastStates).toHaveLength(0);
   });
 
+  it('手勢中改了又改回原樣（內容相同、不同的物件）：不記一步（lock-screen 對等驗證 F61）', async () => {
+    const s = createToolStore('g5', { text: 'abc', list: [{ a: 1 }], n: 1 }, { coalesceMs: 0 });
+    s.getState().patch({ n: 2 });
+    expect(s.temporal.getState().pastStates).toHaveLength(1);
+    const g = historyGesture(s);
+    /* 在文字欄打字，再用瀏覽器原生的復原改回原樣後離開 */
+    g.begin();
+    s.getState().update((d) => {
+      d.text = 'abcd';
+      d.list[0].a = 2;
+    });
+    s.getState().update((d) => {
+      d.text = 'abc';
+      d.list[0].a = 1;
+    });
+    g.commit();
+    await Promise.resolve();
+    expect(s.temporal.getState().pastStates).toHaveLength(1);
+    /* 第一次復原就回到 n: 1（不會有一步沒有變化的復原） */
+    s.temporal.getState().undo();
+    expect(s.getState().data).toEqual({ text: 'abc', list: [{ a: 1 }], n: 1 });
+    /* 真的有改的手勢照常記一步 */
+    s.temporal.getState().redo();
+    g.begin();
+    s.getState().update((d) => {
+      d.text = 'xyz';
+    });
+    g.commit();
+    await Promise.resolve();
+    expect(s.temporal.getState().pastStates).toHaveLength(2);
+  });
+
   it('resetToolStore 回到初始值並清空復原紀錄', () => {
     const s = createToolStore('g3', { v: 1 }, { coalesceMs: 0 });
     s.getState().patch({ v: 2 });

@@ -555,6 +555,8 @@ export * from './embed';
 export * from './filterPresets';
 export * from './filters';
 export * from './mask';
+/* ---------- 圖片在框裡的位置（lock-screen：可以存起來、重新裁切時還原） ---------- */
+export * from './placement';
 export * from './region';
 export * from './resample';
 export * from './sizing';
