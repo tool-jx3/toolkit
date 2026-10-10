@@ -26,12 +26,15 @@ export {
 } from './frames';
 export {
   ditherRect,
+  ditherRectLuma,
   GIF_MAX_FPS,
   type GifDither,
   GifEncoder,
   type GifEncoderOptions,
   gifAlphaThresholdInclusive,
   gifRepeat,
+  type LumaTable,
+  lumaTable,
 } from './gif';
 export { createLocalEncoder, type Encoder, type EncoderSpec } from './local';
 export {

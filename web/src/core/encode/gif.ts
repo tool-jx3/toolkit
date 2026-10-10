@@ -13,6 +13,9 @@
  * - `maxColors`（2～256，預設 256）：調色盤的色數上限（video-anim 移植時新增；預設時輸出不變）。
  * - `dither: 'floyd-steinberg'`：減色有損時以 Floyd–Steinberg 誤差擴散對應顏色（由左到右、由上到下，只在變化的範圍內；
  *   完全透明的像素不擴散誤差）。調色盤無損（色數在上限內）時不抖色。預設 'none'＝最近色（輸出不變）。
+ * - `cropFrames: true`（lock-screen 移植時新增；預設 false＝輸出逐位元組不變）：第 2 格起只寫和前一格不同的矩形
+ *   （影像描述區塊記下位置），沒有透明像素、共用調色盤時才這樣做（有透明時要「清成背景」，每格仍寫整格）。
+ *   解碼出來的每一格完全相同，只有檔案變小（例：手機畫面 540 × 1170 的 25 格只有通知卡片在動，約小一半）。
  */
 import { GIFEncoder, type GifPalette } from 'gifenc';
 import {
@@ -60,9 +63,15 @@ export interface GifEncoderOptions {
   maxColors?: number;
   /** 抖色：'none'（預設，最近色）或 'floyd-steinberg'（誤差擴散；調色盤無損時不作用） */
   dither?: GifDither;
+  /** 第 2 格起只寫變化的矩形（沒有透明、共用調色盤時；預設 false） */
+  cropFrames?: boolean;
 }
 
-export type GifDither = 'none' | 'floyd-steinberg';
+/**
+ * 'none'：最近色；'floyd-steinberg'：RGB 誤差擴散；'luma'：只擴散亮度的誤差（上限 ±48）、從色度最近的 4 色裡挑
+ * （漸層不會冒出別的色相的雜點；lock-screen 移植時新增）。
+ */
+export type GifDither = 'none' | 'floyd-steinberg' | 'luma';
 
 interface Change {
   r: Rect;
@@ -101,6 +110,7 @@ export class GifEncoder implements FrameEncoder {
       paletteMethod: 'median-cut',
       maxColors: 256,
       dither: 'none',
+      cropFrames: false,
       ...options,
     };
     this.opt.maxColors = Math.max(2, Math.min(256, Math.round(this.opt.maxColors) || 256));
@@ -153,6 +163,7 @@ export class GifEncoder implements FrameEncoder {
       paletteMethod,
       maxColors,
       dither,
+      cropFrames,
     } = this.opt;
     const toGifPalette = (p: Palette): GifPalette => {
       const out: GifPalette = [];
@@ -163,6 +174,8 @@ export class GifEncoder implements FrameEncoder {
     /* 全域調色盤（每格各自減色時在迴圈裡逐格建立） */
     const shared = localPalettes ? null : buildPalette(this.stats, maxColors, paletteMethod);
     let pal: Palette | null = shared;
+    /* 'luma' 抖色的色調表（調色盤換了才重建） */
+    let luma: LumaTable | null = null;
     /* 無損時 0 號是完全透明（排序時排在最前面）；減色時 0 號固定保留給透明 */
     let transparent = this.sawTransparent;
     /* 減色資訊：每格各自減色時，全部無損才算無損、色數取最多的一格 */
@@ -196,6 +209,9 @@ export class GifEncoder implements FrameEncoder {
       maxCount = Math.max(maxCount, p.count);
       if (dither === 'floyd-steinberg' && !p.lossless) {
         ditherRect(canvas, index, W, r, p);
+      } else if (dither === 'luma' && !p.lossless) {
+        if (!luma || luma.palette !== p) luma = lumaTable(p);
+        ditherRectLuma(canvas, index, W, r, luma);
       } else {
         for (let y = r.y; y < r.y + r.h; y++) {
           for (let x = r.x; x < r.x + r.w; x++) {
@@ -213,14 +229,31 @@ export class GifEncoder implements FrameEncoder {
       const endCs = Math.max(writtenCs + 2, Math.round((tick * 100) / fps));
       const delayCs = endCs - writtenCs;
       writtenCs = endCs;
-      gif.writeFrame(index, W, H, {
+      const frameOpts = {
         palette: ci === 0 || localPalettes ? toGifPalette(p) : undefined,
         delay: delayCs * 10,
         repeat: gifRepeat(plays),
         transparent,
         transparentIndex: 0,
         dispose: this.sawTransparent ? 2 : 1,
-      });
+      };
+      if (cropFrames && ci > 0 && !localPalettes && !this.sawTransparent) {
+        /* 只寫變化的矩形：gifenc 的影像描述區塊一律寫在 (0, 0)，寫完再補上位置 */
+        const sub = new Uint8Array(c.r.w * c.r.h);
+        for (let y = 0; y < c.r.h; y++) {
+          const k = (c.r.y + y) * W + c.r.x;
+          sub.set(index.subarray(k, k + c.r.w), y * c.r.w);
+        }
+        const at = gif.bytesView().length;
+        gif.writeFrame(sub, c.r.w, c.r.h, frameOpts);
+        const v = gif.bytesView();
+        /* 圖形控制擴充區塊 8 個位元組之後是影像描述區塊（0x2C、左、上） */
+        if (v[at + 8] !== 0x2c) throw new Error('GIF 影像描述區塊的位置不對');
+        v[at + 9] = c.r.x & 255;
+        v[at + 10] = c.r.x >> 8;
+        v[at + 11] = c.r.y & 255;
+        v[at + 12] = c.r.y >> 8;
+      } else gif.writeFrame(index, W, H, frameOpts);
       if (ci % 8 === 7) await yieldToEventLoop();
     }
     gif.finish();
@@ -291,5 +324,149 @@ export function ditherRect(
     const t = cur;
     cur = next;
     next = t;
+  }
+}
+
+/* ---------- 只擴散亮度的抖色（'luma'） ---------- */
+
+/** 亮度誤差的上限：誤差不會越積越多、把孤立的顏色擴散出去 */
+const LUMA_ERROR_LIMIT = 48;
+/** 每個顏色桶（RGB 565）的候選色數 */
+const LUMA_CANDIDATES = 4;
+
+export interface LumaTable {
+  palette: Palette;
+  /** 每色的 [亮度, R−G, B−G]；透明的色是 NaN（不當候選） */
+  tones: Float32Array;
+  /** RGB 565 桶 → 色度最近的 4 色（第一次用到時才算） */
+  candidates: Uint8Array;
+  ready: Uint8Array;
+  /** 完全透明對應的索引 */
+  clear: number;
+}
+
+const lumaOf = (r: number, g: number, b: number) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+/** 調色盤 → 'luma' 抖色用的色調表 */
+export function lumaTable(p: Palette): LumaTable {
+  const tones = new Float32Array(p.count * 3);
+  for (let i = 0; i < p.count; i++) {
+    const [r, g, b, a] = [
+      p.colors[i * 4],
+      p.colors[i * 4 + 1],
+      p.colors[i * 4 + 2],
+      p.colors[i * 4 + 3],
+    ];
+    if (a !== 255) {
+      tones[i * 3] = Number.NaN;
+      continue;
+    }
+    tones[i * 3] = lumaOf(r, g, b);
+    tones[i * 3 + 1] = r - g;
+    tones[i * 3 + 2] = b - g;
+  }
+  return {
+    palette: p,
+    tones,
+    candidates: new Uint8Array(65536 * LUMA_CANDIDATES),
+    ready: new Uint8Array(65536),
+    clear: p.indexOf(0),
+  };
+}
+
+/** 顏色與色調的距離：亮度差² ＋ 2 ×（色度差²） */
+const toneDistance = (t: Float32Array, j: number, y: number, rg: number, bg: number) =>
+  (y - t[j * 3]) ** 2 + 2 * ((rg - t[j * 3 + 1]) ** 2 + (bg - t[j * 3 + 2]) ** 2);
+
+/** 這個顏色（依原色、不含累積的誤差）的候選色：色度與亮度綜合最近的 4 色 */
+function lumaCandidates(L: LumaTable, key: number): number {
+  const base = key * LUMA_CANDIDATES;
+  if (L.ready[key]) return base;
+  const cr = ((key >> 11) & 31) * 8 + 3.5;
+  const cg = ((key >> 5) & 63) * 4 + 1.5;
+  const cb = (key & 31) * 8 + 3.5;
+  const y = lumaOf(cr, cg, cb);
+  const best = [Infinity, Infinity, Infinity, Infinity];
+  const n = L.palette.count;
+  for (let j = 0; j < n; j++) {
+    if (Number.isNaN(L.tones[j * 3])) continue;
+    const d = toneDistance(L.tones, j, y, cr - cg, cb - cg);
+    for (let k = 0; k < LUMA_CANDIDATES; k++) {
+      if (d < best[k]) {
+        for (let m = LUMA_CANDIDATES - 1; m > k; m--) {
+          best[m] = best[m - 1];
+          L.candidates[base + m] = L.candidates[base + m - 1];
+        }
+        best[k] = d;
+        L.candidates[base + k] = j;
+        break;
+      }
+    }
+  }
+  /* 不透明的色不到 4 個：空的位置補第一個 */
+  for (let k = 1; k < LUMA_CANDIDATES; k++)
+    if (best[k] === Infinity) L.candidates[base + k] = L.candidates[base];
+  L.ready[key] = 1;
+  return base;
+}
+
+/**
+ * 只擴散亮度的抖色：r 範圍內蛇行掃描（偶數列往右、奇數列往左），目標亮度＝原本的亮度＋累積的誤差（夾在 ±48），
+ * 在這個顏色的 4 個候選色裡挑最接近（亮度用目標、色度用原色）的；誤差照 Floyd–Steinberg 的比例只往亮度擴散。
+ * 完全透明（0）的像素對應到透明、不擴散。
+ */
+export function ditherRectLuma(
+  canvas: Uint32Array,
+  index: Uint8Array,
+  W: number,
+  r: Rect,
+  L: LumaTable,
+): void {
+  const w = r.w;
+  let cur = new Float32Array(w + 2);
+  let next = new Float32Array(w + 2);
+  const lim = LUMA_ERROR_LIMIT;
+  const t = L.tones;
+  for (let row = 0; row < r.h; row++) {
+    const y = r.y + row;
+    const dir = row % 2 ? -1 : 1;
+    next.fill(0);
+    for (let i = 0; i < w; i++) {
+      const lx = dir === 1 ? i : w - 1 - i;
+      const k = y * W + r.x + lx;
+      const v = canvas[k];
+      if (v >>> 24 === 0) {
+        index[k] = L.clear;
+        continue;
+      }
+      const R = v & 255;
+      const G = (v >>> 8) & 255;
+      const B = (v >>> 16) & 255;
+      const e = lx + 1;
+      const target = Math.max(
+        0,
+        Math.min(255, lumaOf(R, G, B) + Math.max(-lim, Math.min(lim, cur[e]))),
+      );
+      const base = lumaCandidates(L, ((R >> 3) << 11) | ((G >> 2) << 5) | (B >> 3));
+      let chosen = L.candidates[base];
+      let min = Infinity;
+      for (let c = 0; c < LUMA_CANDIDATES; c++) {
+        const j = L.candidates[base + c];
+        const d = toneDistance(t, j, target, R - G, B - G);
+        if (d < min) {
+          min = d;
+          chosen = j;
+        }
+      }
+      index[k] = chosen;
+      const delta = Math.max(-lim, Math.min(lim, target - t[chosen * 3]));
+      cur[e + dir] += (delta * 7) / 16;
+      next[e - dir] += (delta * 3) / 16;
+      next[e] += (delta * 5) / 16;
+      next[e + dir] += delta / 16;
+    }
+    const tmp = cur;
+    cur = next;
+    next = tmp;
   }
 }
