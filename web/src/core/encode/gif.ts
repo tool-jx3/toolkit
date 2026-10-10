@@ -65,6 +65,12 @@ export interface GifEncoderOptions {
   dither?: GifDither;
   /** 第 2 格起只寫變化的矩形（沒有透明、共用調色盤時；預設 false） */
   cropFrames?: boolean;
+  /**
+   * 代表畫面（setStill）在調色盤統計裡算幾格（預設 0＝不用代表畫面，輸出與以前相同）。
+   * 統計原本是「第一格整格＋之後每格變化的範圍」，一直在動的地方算了很多次、不動的地方只算一次；
+   * 不動的小區塊（例：桌布上的月亮）可能分不到顏色。給代表畫面（例：最後的靜態畫面）與份量就補回來。
+   */
+  stillWeight?: number;
 }
 
 /**
@@ -91,6 +97,8 @@ export class GifEncoder implements FrameEncoder {
   private readonly changes: Change[] = [];
   private readonly stats: ColorStats;
   private sawTransparent = false;
+  /** 代表畫面（1 位元透明之後；stillWeight > 0 時才留著） */
+  private still: Uint32Array | null = null;
   private added = 0;
   private ticks = 0;
   private aborted = false;
@@ -111,6 +119,7 @@ export class GifEncoder implements FrameEncoder {
       maxColors: 256,
       dither: 'none',
       cropFrames: false,
+      stillWeight: 0,
       ...options,
     };
     this.opt.maxColors = Math.max(2, Math.min(256, Math.round(this.opt.maxColors) || 256));
@@ -145,8 +154,26 @@ export class GifEncoder implements FrameEncoder {
     this.changes.push({ r, px: copyRect(u32, W, r), count: t });
   }
 
+  /**
+   * 代表畫面：只用在調色盤的統計（份量＝stillWeight 格），不放進檔案。stillWeight 是 0（預設）時不做事。
+   */
+  setStill(rgba: RgbaPixels): void {
+    const weight = this.opt.stillWeight;
+    if (!(weight > 0) || this.opt.localPalettes) return;
+    assertFrameSize(rgba, this.opt.width, this.opt.height);
+    const src = toU32(rgba);
+    const u32 = new Uint32Array(src.length);
+    const th = this.opt.alphaThreshold;
+    for (let i = 0; i < src.length; i++) {
+      const v = src[i];
+      u32[i] = v >>> 24 < th ? 0 : (v | 0xff000000) >>> 0;
+    }
+    this.still = u32;
+  }
+
   abort(): void {
     this.aborted = true;
+    this.still = null;
     this.changes.length = 0;
     this.prev = null;
   }
@@ -172,6 +199,10 @@ export class GifEncoder implements FrameEncoder {
       return out;
     };
     /* 全域調色盤（每格各自減色時在迴圈裡逐格建立） */
+    if (this.still && !localPalettes) {
+      this.stats.add(this.still, 0, this.still.length, this.opt.stillWeight);
+      this.still = null;
+    }
     const shared = localPalettes ? null : buildPalette(this.stats, maxColors, paletteMethod);
     let pal: Palette | null = shared;
     /* 'luma' 抖色的色調表（調色盤換了才重建） */

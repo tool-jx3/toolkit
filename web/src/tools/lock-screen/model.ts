@@ -198,6 +198,11 @@ export const CARD = {
   textWidth: 338,
   lineHeight: 18,
   baseHeight: 70,
+  /**
+   * 行尾最多掛多寬的標點（行首禁則字，D6）：約一個全形字（15 號字）。文字區右端 361 ＋ 16＝377，
+   * 離卡片右緣（380）還有 3；再多就連同前一個字推到下一行（對等驗證 F06 後加的上限）。
+   */
+  hang: 16,
 } as const;
 
 export const cardHeight = (lines: number): number =>
@@ -221,7 +226,7 @@ export function ellipsize(text: string, width: number, measure: Measure): string
 }
 
 /**
- * 內容斷行（F23）：保留原本的換行、依寬度自動換行（行首、行尾禁則；英文單字不從中間斷），最多 4 行；
+ * 內容斷行（F06）：保留原本的換行、依寬度自動換行（行首、行尾禁則；英文單字不從中間斷；行尾掛的標點最多 CARD.hang 寬），最多 4 行；
  * 超過時第 4 行的最後加「…」。空白的內容算一行。
  */
 export function wrapBody(
@@ -239,7 +244,9 @@ export function wrapBody(
     }
     return w;
   };
-  const all = breakText(text, { limit: width, unit, segment: 'grapheme' }).map((l) => l.join(''));
+  const all = breakText(text, { limit: width, unit, segment: 'grapheme', maxHang: CARD.hang }).map(
+    (l) => l.join(''),
+  );
   if (!all.length) all.push('');
   if (all.length <= max) return { lines: all, clipped: false };
   const lines = all.slice(0, max);

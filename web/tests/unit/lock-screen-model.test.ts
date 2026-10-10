@@ -4,6 +4,7 @@
  * 漸層的起訖、檔名、存檔的整理。
  */
 import { describe, expect, it } from 'vitest';
+import { isWide } from '@/core/typeset';
 import {
   animationDuration,
   CARD,
@@ -114,6 +115,21 @@ describe('卡片的文字（F04、F06）', () => {
     expect(wrapBody(text, measure).lines).toEqual([text]);
     const en = wrapBody(`${'a'.repeat(38)} hello`, measure).lines;
     expect(en).toEqual(['a'.repeat(38), 'hello']);
+  });
+
+  it('行尾掛標點最多一個全形字：每行（含掛在行尾的標點）右端不超過文字區 ＋ 16（對等驗證 F06）', () => {
+    /* 全形字（含刪節號、破折號）15、半形 8 */
+    const wide = (t: string) => Array.from(t).reduce((w, ch) => w + (isWide(ch) ? 15 : 8), 0);
+    for (const text of [
+      `${'一'.repeat(22)}……」`,
+      `你還在嗎${'……'.repeat(14)}`,
+      `${'一'.repeat(22)}——————`,
+      `${'一'.repeat(21)}。」』）`,
+    ]) {
+      const { lines } = wrapBody(text, wide, CARD.textWidth, 99);
+      expect(lines.join('')).toBe(text);
+      for (const l of lines) expect(wide(l)).toBeLessThanOrEqual(338 + 16);
+    }
   });
 
   it('卡片高 70 ＋ 每行 18', () => {

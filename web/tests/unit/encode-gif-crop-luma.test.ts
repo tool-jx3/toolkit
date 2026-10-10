@@ -165,3 +165,84 @@ describe("dither: 'luma'：只擴散亮度的抖色", () => {
     expect(rgba[(10 * W + 10) * 4 + 3]).toBe(255);
   });
 });
+
+describe('stillWeight：代表畫面加進調色盤的統計（lock-screen 對等驗證 F52）', () => {
+  const MOON = [215, 207, 186];
+  /**
+   * 上半部一直在動（藍灰色的雜訊、每格不同），下半部不動（深藍漸層＋一個小小的米色圓＝月亮）：
+   * 統計是「第一格整格＋每格變化的範圍」，動的地方算了 24 次、月亮只算一次，調色盤分不到米色。
+   */
+  function scene(n = 24, w = 64, h = 96, band = 48, moonR = 3): Uint8ClampedArray[] {
+    const out: Uint8ClampedArray[] = [];
+    for (let f = 0; f < n; f++) {
+      const px = new Uint8ClampedArray(w * h * 4);
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+          let c: number[];
+          if (y < band) {
+            let v = (x * 73856093) ^ (y * 19349663) ^ ((f + 1) * 83492791);
+            v = (v ^ (v >>> 13)) * 1274126177;
+            c = [
+              110 + (((v >>> 0) % 997) / 997) * 90,
+              120 + (((v >>> 8) % 991) / 991) * 90,
+              180 + (((v >>> 16) % 983) / 983) * 75,
+            ];
+          } else {
+            c = [
+              10 + (y - band) * 0.5 + x * 0.3,
+              20 + (y - band) * 0.8,
+              70 + (y - band) * 1.1 + x * 0.4,
+            ];
+            const mx = w * 0.7;
+            const my = band + (h - band) / 2;
+            if (Math.hypot(x - mx, y - my) <= moonR)
+              c = [MOON[0] - (x - mx), MOON[1] - (x - mx), MOON[2] - (y - my)];
+          }
+          px.set(
+            [...c.map((v) => Math.max(0, Math.min(255, Math.round(v)))), 255],
+            (y * w + x) * 4,
+          );
+        }
+      out.push(px);
+    }
+    return out;
+  }
+
+  async function encodeScene(stillWeight: number | undefined, withStill = true) {
+    const frames = scene();
+    const enc = new GifEncoder({
+      width: 64,
+      height: 96,
+      fps: 10,
+      dither: 'luma',
+      cropFrames: true,
+      ...(stillWeight === undefined ? {} : { stillWeight }),
+    });
+    if (withStill) enc.setStill(frames[frames.length - 1].slice());
+    for (const f of copyFrames(frames)) await enc.addFrame(f);
+    return enc.finish();
+  }
+
+  const nearestMoon = (pal: Uint8Array) => {
+    let best = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < pal.length / 3; i++)
+      best = Math.min(
+        best,
+        Math.hypot(pal[i * 3] - MOON[0], pal[i * 3 + 1] - MOON[1], pal[i * 3 + 2] - MOON[2]),
+      );
+    return best;
+  };
+
+  it('沒有代表畫面時調色盤裡沒有月亮色；代表畫面算 24 格時有', async () => {
+    const without = parseGif((await encodeScene(0)).bytes);
+    expect(nearestMoon(without.globalPalette)).toBeGreaterThan(12);
+    const withStill = parseGif((await encodeScene(24)).bytes);
+    expect(nearestMoon(withStill.globalPalette)).toBeLessThan(4);
+  });
+
+  it('不給 stillWeight（或 0）時 setStill 不影響輸出', async () => {
+    const plain = await encodeScene(undefined, false);
+    expect(sameBytes((await encodeScene(undefined, true)).bytes, plain.bytes)).toBe(true);
+    expect(sameBytes((await encodeScene(0, true)).bytes, plain.bytes)).toBe(true);
+  });
+});

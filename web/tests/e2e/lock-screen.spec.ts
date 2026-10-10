@@ -808,6 +808,46 @@ test('匯出 GIF：影格表、只寫變化的範圍、播放次數、三種寬�
   expect(errors).toEqual([]);
 });
 
+test('匯出 GIF：預設內容的 1080 寬，月亮的米色留得住（調色盤加入靜態畫面；對等驗證 F52）', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const errors = await open(page);
+  await setPreview(page, '手機畫面');
+  await seek(page, Number.POSITIVE_INFINITY);
+  /* 預覽（＝PNG）上月亮的平均色：中心 (800, 1290)、半徑 96（1080 寬的像素） */
+  const moonMean = (px: (x: number, y: number) => Rgba | Promise<Rgba>) => async () => {
+    const sum = [0, 0, 0];
+    let n = 0;
+    for (let y = 1290 - 70; y <= 1290 + 70; y += 7)
+      for (let x = 800 - 70; x <= 800 + 70; x += 7) {
+        if (Math.hypot(x - 800, y - 1290) > 70) continue;
+        const c = await px(x, y);
+        for (let i = 0; i < 3; i++) sum[i] += c[i];
+        n++;
+      }
+    return sum.map((v) => v / n);
+  };
+  const k = 390 / 1080;
+  const preview = await moonMean((x, y) => pixel(page, x * k, y * k))();
+  expect(near(preview, [214, 207, 186], 12)).toBe(true);
+  const gif = await exportFile(page, 'GIF', '手機畫面', 1080);
+  const g = gifFrames(gif.bytes);
+  expect([g.info.width, g.info.height]).toEqual([1080, 2340]);
+  const last = await moonMean((x, y) => g.at(24, x, y))();
+  expect(near(last, preview, 6)).toBe(true);
+  /* 調色盤裡有月亮色 */
+  const pal = g.info.globalPalette;
+  let best = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < pal.length / 3; i++)
+    best = Math.min(
+      best,
+      Math.hypot(pal[i * 3] - preview[0], pal[i * 3 + 1] - preview[1], pal[i * 3 + 2] - preview[2]),
+    );
+  expect(best).toBeLessThan(8);
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 儲存 ---------- */
 
 test('自動儲存與還原（含照片）、照片讀不到的提醒；復原／重做（F58、F61）', async ({ page }) => {

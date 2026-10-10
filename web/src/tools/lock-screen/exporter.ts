@@ -154,11 +154,19 @@ export async function runExport(
       plays: job.plays,
       dither: GIF_DITHER,
       cropFrames: true,
+      /* 靜態畫面（全部的訊息都出現）在調色盤的統計裡算「影格數」那麼多格（D7、對等驗證 F52） */
+      stillWeight: frames.length,
     },
   });
   const stop = () => enc.abort();
   signal.addEventListener('abort', stop);
   try {
+    /*
+     * 調色盤：共用編碼器統計「第一格整格＋每格變化的範圍」，一直在動的卡片那一帶算了二十幾次、桌布不動的地方只算一次，
+     * 月亮這種不動的小區塊會分不到顏色（預設內容的 1080 寬就是這樣）。把靜態畫面加進統計補回來。
+     */
+    p.render(Number.POSITIVE_INFINITY);
+    await abortable(enc.setStill(p.ctx.getImageData(0, 0, width, height).data), signal);
     for (let i = 0; i < frames.length; i++) {
       if (signal.aborted) throw aborted();
       p.render(frames[i].t);
