@@ -154,7 +154,9 @@ describe('關係表（3.6）', () => {
   });
 
   it('與原作的 parseRelTableText 相同的結果（對照原作實際輸出）', () => {
-    const t = parseRelTable('來源\t目標\t關係\t備註\n阿明\t小美\t喜歡\t"一\n二"\n\t乙\t朋友\n乙,丙\n小美\t阿明\t\n');
+    const t = parseRelTable(
+      '來源\t目標\t關係\t備註\n阿明\t小美\t喜歡\t"一\n二"\n\t乙\t朋友\n乙,丙\n小美\t阿明\t\n',
+    );
     expect(t).toEqual({
       rows: [
         { from: '阿明', to: '小美', rel: '喜歡', note: '一\n二' },
