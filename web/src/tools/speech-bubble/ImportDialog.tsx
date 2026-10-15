@@ -188,7 +188,7 @@ export function ImportDialog({
                     </span>
                     <Segmented<Align>
                       size="sm"
-                      aria-label={`${name}：位置`}
+                      aria-label={S.importSideLabel(name)}
                       value={sides[c.speaker] ?? 'left'}
                       onValueChange={(v) => setSides((p) => chooseSide(p, counts, c.speaker, v))}
                       options={ALIGNS.map((a) => ({ value: a, label: SIDE_NAMES[a] }))}

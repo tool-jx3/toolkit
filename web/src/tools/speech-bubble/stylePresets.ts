@@ -29,6 +29,7 @@ import {
   type StyleId,
   setLook,
 } from './model';
+import { S } from './strings';
 
 export const STYLE_FILE_FORMAT = 'trpg-toolkit-bubble-style';
 export const STYLE_FILE_VERSION = 1;
@@ -142,7 +143,7 @@ export function normalizeSavedStyles(raw: unknown): SavedStyle[] {
     out.push({
       ...s,
       id,
-      name: cleanStyleName(typeof x.name === 'string' ? x.name : '') || '樣式',
+      name: cleanStyleName(typeof x.name === 'string' ? x.name : '') || S.styleFallbackName,
     });
   }
   return out;
@@ -179,12 +180,11 @@ export function parseStyleFile(text: string): { style: SavedStyle; image: string
   try {
     raw = JSON.parse(text);
   } catch {
-    throw new StyleFileError('檔案不是 JSON，可能已經損壞。');
+    throw new StyleFileError(S.styleFileNotJson);
   }
-  if (!isObj(raw) || raw.format !== STYLE_FILE_FORMAT)
-    throw new StyleFileError('這不是對話泡泡的樣式檔。');
+  if (!isObj(raw) || raw.format !== STYLE_FILE_FORMAT) throw new StyleFileError(S.styleFileWrong);
   const s = normalizeStyleSet(raw);
-  if (!s) throw new StyleFileError('樣式檔的內容無法使用。');
+  if (!s) throw new StyleFileError(S.styleFileBad);
   const image =
     typeof raw.image === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,/.test(raw.image)
       ? raw.image
@@ -194,7 +194,7 @@ export function parseStyleFile(text: string): { style: SavedStyle; image: string
     style: {
       ...s,
       id: newStyleId(),
-      name: cleanStyleName(typeof raw.name === 'string' ? raw.name : '') || '匯入的樣式',
+      name: cleanStyleName(typeof raw.name === 'string' ? raw.name : '') || S.styleImportedName,
     },
     image,
   };
@@ -202,7 +202,7 @@ export function parseStyleFile(text: string): { style: SavedStyle; image: string
 
 /** 樣式檔的檔名（不含副檔名的部分去掉不能當檔名的字） */
 export const styleFileName = (name: string): string =>
-  `${name.replace(/[\\/:*?"<>|]/g, '_') || '樣式'}.bubble-style.json`;
+  `${name.replace(/[\\/:*?"<>|]/g, '_') || S.styleFallbackName}.bubble-style.json`;
 
 /* ---------- 內建的樣式（本站自己配的） ---------- */
 
