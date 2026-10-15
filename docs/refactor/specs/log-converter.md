@@ -773,7 +773,7 @@ XHTML 1.1 的 DOCTYPE）；書名預設「TRPG Log Book」、作者預設「Unkn
 
 小計：✅ 86、⚠️ 12、❌ 0（另有不移植 5 項，共 103 項）
 
-### 6.2 匯出 EPUB 的驗證紀錄（2026-10）
+### 6.1 匯出 EPUB 的驗證紀錄（2026-10）
 
 - **新版**：`/home/user/verify-tree29`（79bea4f，沒有重新建置、沒有改檔），`npx http-server dist -p 8166 -c-1 -s`，`http://127.0.0.1:8166/tools/log-converter/`。
 - **改之前**：`git worktree add --detach /home/user/verify-tree30 9d08b40`，node_modules 用連結，`npm run -s build`（`log-converter-dQtCGyhb.js`），port 8168。
