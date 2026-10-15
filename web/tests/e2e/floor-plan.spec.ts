@@ -3,7 +3,7 @@
  * - 開頁沒有錯誤、預設的套房、頁尾只有靈感來源；
  * - 各工具：房間（拖曳、預設尺寸、從面板拖放）、牆、門窗（吸附、重疊、方向）、家具（貼牆轉向、連續放）、文字、橡皮擦、平移；
  * - 選取：點選、Shift、框選、移動（連同內容／Alt 只動房間）、控制點、鎖定、刪除、複製、剪貼簿、方向鍵、旋轉、翻轉；
- * - 屬性面板、GM／PL 檢視、隱藏線索、樓層、範本（格局、線索）、匯出（尺寸、檔名、PL／GM 像素、每層各一張、透明）、
+ * - 屬性面板、GM／PL 檢視、隱藏線索、樓層、範本（格局、線索；2026-10 增補的 7 個範本與分類、視覺基準）、匯出（尺寸、檔名、PL／GM 像素、每層各一張、透明）、
  *   專案檔（存、開、原作的 .trpgmap.json）、自動保存、復原；
  * - 1280／390 視覺基準、390 寬沒有橫向捲動。
  */
@@ -814,10 +814,19 @@ test('範本對話框：預設「全部」；空白地圖在每個分類（含�
   const dialog = page.getByTestId('template-dialog');
   await expect(dialog.getByRole('radio', { name: '全部' })).toBeChecked();
   const cards = dialog.getByRole('list').getByRole('button');
+  /* 2026-10：分類改成住宅／公共場所／野外・地下／廢墟・事件，範本 15 個（D17） */
+  await expect(dialog.getByRole('radio')).toHaveText([
+    '全部',
+    '住宅',
+    '公共場所',
+    '野外・地下',
+    '廢墟・事件',
+  ]);
   for (const [tag, n] of [
-    ['全部', 9],
-    ['住宅', 4],
-    ['飯店・醫院', 3],
+    ['全部', 16],
+    ['住宅', 5],
+    ['公共場所', 7],
+    ['野外・地下', 3],
     ['廢墟・事件', 4],
   ] as const) {
     await dialog.getByRole('radio', { name: tag }).click();
@@ -832,7 +841,7 @@ test('範本：分類、只載入格局、放入隱藏線索、空白地圖；�
   await page.getByRole('button', { name: '範本' }).click();
   const dialog = page.getByTestId('template-dialog');
   await expect(dialog.getByRole('button', { name: /洋館/ })).toBeVisible();
-  await dialog.getByRole('radio', { name: '飯店・醫院' }).click();
+  await dialog.getByRole('radio', { name: '公共場所' }).click();
   await expect(dialog.getByRole('button', { name: /洋館/ })).toHaveCount(0);
   await dialog.getByRole('radio', { name: '全部' }).click();
   await dialog.getByRole('switch', { name: '放入隱藏線索' }).click();
@@ -859,6 +868,74 @@ test('範本：分類、只載入格局、放入隱藏線索、空白地圖；�
   expect([p.name, p.floors.length, p.floors[0].rooms.length]).toEqual(['新的地圖', 1, 0]);
   expect((await editorState(page)).tool).toBe('room');
   expect(errors).toEqual([]);
+});
+
+test.describe('2026-10 增補的範本', () => {
+  /** 從範本對話框載入（分類 → 卡片），回傳載入後的專案 */
+  async function loadFromDialog(page: Page, tag: string, name: RegExp) {
+    await page.getByRole('button', { name: '範本' }).click();
+    const dialog = page.getByTestId('template-dialog');
+    await dialog.getByRole('radio', { name: tag }).click();
+    await dialog.getByRole('button', { name }).click();
+    await expect(page.getByTestId('template-dialog')).toHaveCount(0);
+    return project(page);
+  }
+
+  test('學校、警察局、圖書館、寺廟、洞窟、山中小屋、地下教團據點都載入得了（分類、樓層、地面層、樣式）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    for (const [tag, name, title, floors, active, theme] of [
+      ['公共場所', /^學校/, '學校（教室大樓）', ['1F', '2F', '屋頂'], 0, 'clean'],
+      ['公共場所', /^警察局/, '警察局（派出所）', ['1F'], 0, 'clean'],
+      ['公共場所', /^圖書館/, '圖書館（地下書庫）', ['B1', '1F'], 1, 'clean'],
+      ['公共場所', /^寺廟/, '寺廟（台灣的廟）', ['1F'], 0, 'clean'],
+      ['野外・地下', /^洞窟/, '洞窟', ['洞窟'], 0, 'clean'],
+      ['野外・地下', /^地下教團據點/, '地下教團據點', ['B1', '1F'], 1, 'horror'],
+      ['住宅', /^山中小屋/, '山中小屋（兩層）', ['1F', '2F'], 0, 'clean'],
+    ] as const) {
+      const p = await loadFromDialog(page, tag, name);
+      expect([p.name, p.floors.map((f) => f.name), p.active, p.theme], title).toEqual([
+        title,
+        floors,
+        active,
+        theme,
+      ]);
+      expect(p.floors.every((f) => f.rooms.length > 0)).toBe(true);
+      await expect(page.getByText(`已載入「${title}」`, { exact: true })).toBeVisible();
+    }
+    /* 放入隱藏線索：寺廟 4 條（小物＋說明都標成線索） */
+    await page.getByRole('button', { name: '範本' }).click();
+    await page.getByTestId('template-dialog').getByRole('switch', { name: '放入隱藏線索' }).click();
+    await page.keyboard.press('Escape');
+    const p = await loadFromDialog(page, '公共場所', /^寺廟/);
+    const [f] = p.floors;
+    expect(f.items.filter((i) => i.clue)).toHaveLength(4);
+    expect(f.texts.filter((t) => t.clue).map((t) => t.text.replace('\n', ''))).toContain(
+      '金爐旁掉落的照片',
+    );
+    expect(errors).toEqual([]);
+  });
+
+  test('視覺基準：範本對話框的「野外・地下」、洞窟載入後的畫布', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const errors = await open(page);
+    await page.getByRole('button', { name: '範本' }).click();
+    const dialog = page.getByTestId('template-dialog');
+    await dialog.getByRole('radio', { name: '野外・地下' }).click();
+    const cards = dialog.getByRole('list').getByRole('button');
+    await expect(cards).toHaveCount(3);
+    /* 縮圖在打開之後才一張一張畫 */
+    await expect(cards.locator('img')).toHaveCount(2);
+    await page.mouse.move(0, 0);
+    await expect(dialog.getByRole('list')).toHaveScreenshot('floor-plan-tpl-wild.png');
+    await cards.first().click();
+    await expect(page.getByTestId('template-dialog')).toHaveCount(0);
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(300);
+    await expect(page.getByTestId('map-canvas')).toHaveScreenshot('floor-plan-tpl-cave.png');
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe('匯出', () => {

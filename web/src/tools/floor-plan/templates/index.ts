@@ -1,5 +1,6 @@
 /**
- * 範本目錄（全部是本站自己畫的）：住宅、飯店與醫院、廢墟與事件。
+ * 範本目錄（全部是本站自己畫的）：住宅、公共場所、野外・地下、廢墟・事件（2026-10 增補學校、警察局、
+ * 圖書館、寺廟、洞窟、山中小屋、地下教團據點，分類由三類改成四類）。
  * 每個範本可以「只載入格局（不含家具）」或「放入隱藏線索」。
  */
 import type { Floor, ThemeId } from '../model/types';
@@ -7,13 +8,16 @@ import { FloorBuilder, type TplFloor, toFloor } from './builder';
 import { hospital, hotel } from './buildings';
 import { addClues, type ClueSpec } from './clues';
 import { decay } from './decay';
-import { mansion, studio, townhouse } from './homes';
+import { lodge, mansion, studio, townhouse } from './homes';
+import { library, police, school, temple } from './public';
+import { cave, cult } from './wild';
 
-export type TemplateGroupId = 'home' | 'facility' | 'ruins';
+export type TemplateGroupId = 'home' | 'public' | 'wild' | 'ruins';
 
 export const TEMPLATE_GROUPS: readonly { id: TemplateGroupId; name: string }[] = [
   { id: 'home', name: '住宅' },
-  { id: 'facility', name: '飯店・醫院' },
+  { id: 'public', name: '公共場所' },
+  { id: 'wild', name: '野外・地下' },
   { id: 'ruins', name: '廢墟・事件' },
 ];
 
@@ -165,8 +169,22 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     ],
   },
   {
+    id: 'lodge',
+    group: 'home',
+    name: '山中小屋（兩層）',
+    description:
+      '大雪封山的山莊：1F 有壁爐的客廳、餐廳與廚房、管理員室、柴房，前面是木造露台；2F 四間客房、主人房與浴室。',
+    build: lodge,
+    clues: [
+      C('1F', '客廳', 'photo', '壁爐上倒扣的合照'),
+      C('1F', '管理員室', 'key', '少了一把的鑰匙串'),
+      C('2F', '客房 3', 'memo', '從門縫塞進來的警告'),
+      C('2F', '主人房', 'diary', '提到「那場雪」的日記'),
+    ],
+  },
+  {
     id: 'hotel',
-    group: 'facility',
+    group: 'public',
     name: '商務飯店',
     description:
       '1F 大廳、櫃台、餐廳與會議室；2F 中走廊兩側排滿客房（每間有浴室）。電梯與樓梯上下對齊。',
@@ -180,7 +198,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
   },
   {
     id: 'hospital',
-    group: 'facility',
+    group: 'public',
     name: '綜合醫院',
     description: '1F 掛號、藥局、候診區、診間、檢驗與急診；2F 三人病房、單人房、護理站與手術室。',
     build: hospital,
@@ -189,6 +207,94 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '檢驗室', 'photo', 'X 光片上的異物'),
       C('2F', '手術室', 'pills', '沒有登記的藥劑'),
       C('2F', '值班室', 'diary', '值班日誌的最後一頁'),
+    ],
+  },
+  {
+    id: 'school',
+    group: 'public',
+    name: '學校（教室大樓）',
+    description:
+      '一字型的教室大樓：1F 保健室、理化教室與準備室、教師辦公室，2F 三間教室，屋頂有水塔；東西兩座樓梯上下對齊。',
+    build: school,
+    clues: [
+      C('1F', '保健室', 'diary', '借用紀錄上重複的名字'),
+      C('1F', '準備室', 'key', '標本櫃的備用鑰匙'),
+      C('1F', '教師辦公室', 'memo', '被退回的轉學申請'),
+      C('2F', '二年三班', 'photo', '畢業紀念冊被剪下的一頁'),
+      C('屋頂', '屋頂', 'memo', '寫著「放學後來屋頂」的紙條'),
+    ],
+  },
+  {
+    id: 'police',
+    group: 'public',
+    name: '警察局（派出所）',
+    description:
+      '一層的派出所：大廳的值班台、辦公室、偵訊室（隔著單向玻璃的觀察室）、兩間留置室、上鎖的證物室與槍械室、備勤室與車庫。',
+    build: police,
+    clues: [
+      C('1F', '證物室', 'memo', '登記簿被撕掉的一頁'),
+      C('1F', '偵訊室', 'photo', '嫌犯的不在場證明照片'),
+      C('1F', '留置室 2', 'clue', '牆上刻的記號'),
+      C('1F', '辦公室', 'diary', '刑警的辦案筆記'),
+      C('1F', '所長室', 'key', '證物室的備用鑰匙'),
+    ],
+  },
+  {
+    id: 'library',
+    group: 'public',
+    name: '圖書館（地下書庫）',
+    description:
+      '1F 開架閱覽區、期刊區、服務台與兒童閱覽區；B1 閉架書庫、修復室、上鎖的古籍室，書架後面有 GM 專用的禁書庫。樓梯與電梯上下對齊。',
+    build: library,
+    clues: [
+      C('1F', '開架閱覽區', 'memo', '夾在書裡的借書單'),
+      C('1F', '大廳・服務台', 'diary', '借閱紀錄上重複出現的名字'),
+      C('B1', '古籍室', 'key', '刻著「禁」字的鑰匙'),
+      C('B1', '修復室', 'photo', '修復到一半的古地圖'),
+    ],
+  },
+  {
+    id: 'temple',
+    group: 'public',
+    name: '寺廟（台灣的廟）',
+    description:
+      '廟埕（金爐、石獅、戲台）→ 前殿（三川門）→ 天井（天公爐）→ 正殿；兩側廂房是廟務辦公室、香客休息與廟公房，前殿兩旁是鐘樓、鼓樓。',
+    build: temple,
+    clues: [
+      C('1F', '正殿', 'memo', '寫著失蹤者名字的光明燈'),
+      C('1F', '廟務辦公室', 'diary', '少了一頁的香油錢帳本'),
+      C('1F', '東廂房', 'idol', '用紅布包著的神像'),
+      C('1F', '廟埕', 'photo', '金爐旁掉落的照片'),
+    ],
+  },
+  {
+    id: 'cave',
+    group: 'wild',
+    name: '洞窟',
+    description:
+      '從山徑走進不規則的洞室與通道：探險隊的營地、大洞室、崩落的支洞、地底湖，最深處是祭壇；窄縫後面有 GM 專用的封印之間。',
+    build: cave,
+    clues: [
+      C('洞窟', '洞口', 'diary', '前一支探險隊的日誌'),
+      C('洞窟', '大洞室', 'phone', '只剩一格電的手機'),
+      C('洞窟', '祭壇', 'memo', '被撕下的禱文'),
+      C('洞窟', '湖畔', 'photo', '泡過水的合照'),
+      C('洞窟', '崩落的支洞', 'key', '生鏽的鐵籠鑰匙'),
+    ],
+  },
+  {
+    id: 'cult',
+    group: 'wild',
+    name: '地下教團據點',
+    description:
+      '1F 是不起眼的舊書店，上鎖的樓梯通往 B1：宿舍、資料室、教主室、有魔法陣的集會廳與兩間牢房；走廊盡頭的暗門後是 GM 專用的獻祭室。',
+    build: cult,
+    theme: 'horror',
+    clues: [
+      C('1F', '舊書店', 'memo', '只寫著日期與時刻的訂書單'),
+      C('B1', '資料室', 'diary', '信徒名冊'),
+      C('B1', '教主室', 'key', '刻著符號的鑰匙'),
+      C('B1', '牢房 1', 'phone', '失蹤者的手機'),
     ],
   },
   {
