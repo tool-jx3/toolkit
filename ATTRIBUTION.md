@@ -92,7 +92,7 @@
 | `discord-color` | Discord 彩色文字產生器 | [rebane2001／Discord Colored Text Generator](https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c)（公有領域，Unlicense） | —（新收錄，沒有舊版） |
 | `scenario-text` | 劇本文字產生器 | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker)（MIT） | —（新收錄，沒有舊版） |
 | `house-rules` | CoC 房規表產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`house-rule-table`，未授權） | —（新收錄，沒有舊版） |
-| `speech-bubble` | 動態對話泡泡產生器 | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview)（未授權） | —（新收錄，沒有舊版） |
+| `speech-bubble` | 動態對話泡泡產生器 | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview)（未授權）、[aokmri/dp-cardmaker](https://github.com/aokmri/dp-cardmaker)（對話卡片，未授權） | —（新收錄，沒有舊版） |
 | `floor-plan` | 室內平面圖產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`indoor-map-maker`，未授權） | —（新收錄，沒有舊版） |
 | `rank-chart` | 排行榜產生器 | [sotsotssi/would-you-rank](https://github.com/sotsotssi/would-you-rank)（MIT） | —（新收錄，沒有舊版） |
 | `char-chart` | 角色分析圖產生器 | [sotsotssi/char-quadrant](https://github.com/sotsotssi/char-quadrant)、[sotsotssi/visual-coupling-map](https://github.com/sotsotssi/visual-coupling-map)（都未授權） | —（新收錄，沒有舊版） |
@@ -117,7 +117,7 @@
 
 `house-rules` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、規則條目與數值（預設集的值和原作逐條相同），規則名稱、說明、選項文字、PNG 的版面與配色都由本站自寫；可以開啟原作匯出的 `.hrt.json`。
 
-`speech-bubble` 照新工具引入流程直接在新框架做：原作（commit `b81c5b7`）只有範本預覽頁、沒有授權條款，製作工具本體在作者的 Postype（付費、不公開）。範本一覽照預覽頁的行為做；編輯與匯出的功能依預覽動畫逐格量到的數值、由本站自己設計；28 組範本的文字、配色與造型都由本站自做，不沿用原作的預覽圖與文字。
+`speech-bubble` 照新工具引入流程直接在新框架做：原作（commit `b81c5b7`）只有範本預覽頁、沒有授權條款，製作工具本體在作者的 Postype（付費、不公開）。範本一覽照預覽頁的行為做；編輯與匯出的功能依預覽動畫逐格量到的數值、由本站自己設計；28 組範本的文字、配色與造型都由本站自做，不沿用原作的預覽圖與文字。2026-10 整合 aokmri/dp-cardmaker（commit `b97dd12`，沒有授權條款）的對話卡片功能（整段貼上拆成泡泡、左右兩側的預設樣式、說話者與日期、卡片底、樣式預設、泡泡裡的部分文字格式）：只照功能與做法，程式、介面文字、內建樣式與紋理都由本站自做；頁尾的靈感來源仍只放 TextBubbleMaker-preview。
 
 `floor-plan` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、牆壁與匯出的算法和數值，程式、介面文字、說明、範本、家具圖形與配色都由本站自做；可以開啟原作存的 `.trpgmap.json`（帖換算成坪）。
 
