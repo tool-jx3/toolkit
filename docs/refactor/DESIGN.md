@@ -599,6 +599,10 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 **之後可以再做的**（這次不做）：有透明像素時逐格判斷能不能「留著」（前一格不透明的像素這格沒有變透明時，前一格用處置 1、這格只寫變化的範圍）；
 每格各自減色時改用「解碼後的顏色」比較出變化的範圍——兩者都要改動影格的處置方式或範圍的算法，需要另外驗證。
 
+**主控裁定（2026-10-15）**：採用「預設開」（使用者 2026-10-15「繼續暫停的項目」，PLAN 6.1 跟進表）。主控驗證：單元 23 項（改版前指紋、透明與每格各自減色時逐位元組不變）、
+5 個受惠工具的 E2E 以 Chromium 的 `ImageDecoder` 逐格比對改版前與預設（預設暫時改回關時 5 項都失敗），合併前的整套 E2E 再跑一次。
+測試注入點 `window.__gifCropFrames` 照 `__cocRandom` 的先例放在正式程式（只認 false）——核准。有透明時逐格判斷處置方式、每格各自減色時以解碼後的顏色找變化的範圍，留待之後（要另外驗證）。
+
 ### 4.3 尚未提供（之後依需要補進共用層）
 
 - three.js：已加（`@/core/three`＋`@/ui` 的 `Viewport3D`、`DirectionPad`，acrylic-goods 移植時新增；見 4.1「3D」、4.2）。沒有共用的：由透明度算外框（`web/src/tools/acrylic-goods/contour.ts`：縮圖、外擴、描邊、平滑；別的工具要做貼紙裁切線時可以搬進 `core/image`）、壓克力的材質與組法（`scene.ts`）、搖搖樂的物理（`physics.ts`，cannon-es）。不用 @react-three/fiber（命令式的 `OrbitView` 就夠，React 只管外框）。不用 Konva：G3 的版面編輯層與 G7 的版型畫布都是 canvas 繪圖＋DOM 疊加層（見 4.1「立繪工作台」「版型畫布」）。影片的讀取與抽影格由 `core/video` 提供（瀏覽器的 `<video>`，G8 video-anim）；影片編碼也由 `core/video` 提供 MP4（WebCodecs H.264）與 AVI（MJPEG）的逐格編碼（character-select），沒有用 Mediabunny（WebM 輸出之後需要時再加）。有聲音的 MP4／MOV（H.264／VP9＋AAC／Opus／PCM，關鍵影格間隔可調）與即時錄影一張畫布＋聲音由 music-frame 移植時補上（`core/video` 的 `encodeMovie`、`startCanvasRecording`）；即時錄影的 WebM 沒有寫總長（需要時在共用層補上 Duration）。
