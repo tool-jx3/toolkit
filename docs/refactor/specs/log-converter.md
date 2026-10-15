@@ -773,6 +773,66 @@ XHTML 1.1 的 DOCTYPE）；書名預設「TRPG Log Book」、作者預設「Unkn
 
 小計：✅ 86、⚠️ 12、❌ 0（另有不移植 5 項，共 103 項）
 
+### 6.2 匯出 EPUB 的驗證紀錄（2026-10）
+
+- **新版**：`/home/user/verify-tree29`（79bea4f，沒有重新建置、沒有改檔），`npx http-server dist -p 8166 -c-1 -s`，`http://127.0.0.1:8166/tools/log-converter/`。
+- **改之前**：`git worktree add --detach /home/user/verify-tree30 9d08b40`，node_modules 用連結，`npm run -s build`（`log-converter-dQtCGyhb.js`），port 8168。
+- **原作**：`/home/user/upstream/sotsotssi_CcfoliaLogConverter/index.html`（3f4d51f）複製到 SCRATCH 的 `upstream-site/`，用 `file://` 開；cdnjs 的 JSZip 3.10.1 由 Playwright route 從本機送（實作者 `epub-work/jszip/` 的檔）。port 8167 沒有用到。
+- Playwright 1.56.1 Chromium（`LANG=C.UTF-8`），Google Fonts 一律回空的 CSS，`example.com` 回 404（網址插圖）。系統時區 UTC。
+- epubcheck 5.4.0（OpenJDK 21），檔名非 ASCII 時加 `-Dsun.jnu.encoding=UTF-8`。
+- 輸入：附件 `log-converter.examples.json` 的舊格式樣本（`[小芋、阿和] 霧港燈塔 [main].html`）與新格式 5 檔，驗證者自造的 `logs/`：怪字元（舊、新格式：控制字元、U+FFFE／U+FFFF、emoji／ZWJ／變體選擇字／擴充 B、`wbr`、`font`、`strike`、`big`、`rb`、`script`、`img onerror`、沒關上的標籤、不安全的 style、各種實體、空白則、`***`、怪分頁名、秘匿分頁、超長名稱）、長篇 3,000 則（含 2,000 則連續閒聊）、2 萬則（重複內容／不重複的隨機漢字）、隨機 HTML 片段 22 份 2,042 則、沒有名稱的發言者、空白分頁名。
+- 腳本、輸出都在 SCRATCH（`/tmp/claude-0/-home-user-toolkit/4d5f38ef-cf3b-5354-95f1-00b7850b7d3f/scratchpad/verify-lc2/`），下表的檔名相對於它；`*.mjs` 的結果在同名或註明的 `*.json`，EPUB 在 `out/`，截圖在 `shots/`。
+- 修正後（`72edfdd`）主控用驗證者的腳本在 `/home/user/verify-tree32`（port 8166）重跑 `ruby.mjs`、`fuzz.mjs`、`marker.mjs`、`persist.mjs`（`scratchpad/verify-lc3/`），結果見下表的修正列。
+
+| 編號 | 結果 | 方法與證據 | 備註 |
+|---|---|---|---|
+| F14 | ✅ 通過 | `ui.mjs`（F104、F106-F108-F110）：開關關閉時作者、分章、排版、字型、角色顏色、字型檔、封面都是 0 個，開啟後各 1 個；標記文字只在依標記、每章則數只在依則數出現；隱藏後值保留（標記「第一天\n第二天」、每章 777；關掉開關再開，依則數與 777 都在） | |
+| F66 | ✅ 通過 | `persist.mjs`（F66-export、F66-v1-project、F66-F107-invalid）：「存成專案檔…」→ `ccfolia-log-converter_20261015.json`，version 2、40 個設定含 8 個 EPUB 設定、不含封面與字型的位元組（`out/persist/new-project.json`）；改之前（8168）存的版本 1 專案檔（`out/persist/old-project.json`）在新版開啟：32 個既有設定全部相同、EPUB 的 8 個回到預設；版本 2 專案檔裡的不合法值（每章則數 0、-3、3.5、100001、"1000"、null；分章 "weird"、排版 "diagonal"…）→ 預設（500、不分章…），1 與 100000 照用 | |
+| F93 | ✅ 通過 | `persist.mjs`（F93-new、F93-v1-localStorage）：8 個 EPUB 設定改成非預設 → `trpg-toolkit:log-converter` 版本 2，重新整理後介面全部還原（開、作者、依則數 42、標記、直排、黑體、色塊）；封面與字型檔沒有記住（session 為 null，存檔 1,140 字元不含圖片與字型）；改之前的自動存檔（版本 1、32 個設定，`out/persist/old-localStorage.json`）放進新版：32 個設定相同、EPUB 用預設，改設定後寫回版本 2 | 同版本存檔裡的不合法值見 F107 |
+| F94 | ✅ 通過 | `ui.mjs`（F94）：「使用方式」一開始收起（aria-expanded=false）；有「進階：…部落格貼文版、EPUB 電子書。」與提示「要放進手機或電子書閱讀器看時，開啟「進階 → EPUB 電子書」…」 | |
+| F104 | ✅ 通過 | `ui.mjs`（F104）：進階分頁「EPUB 電子書」區塊，開關預設關，說明含「電子書用自己的版面」「沒有頭像」；關閉時下載區只有「下載 HTML」；轉換後才打開 → 沒有 EPUB 按鈕（要再轉換）；轉換後改作者、分章、標題、甚至關掉開關，下載的仍是轉換當時（作者「轉換時的作者」、書名「霧港燈塔」、1 章），關掉後再轉換按鈕消失；`snapshot.mjs`：轉換後移除封面、加字型檔、加插圖 → 這次下載仍有封面、沒有字型與插圖，再轉換才換；關閉時既有輸出逐位元組不變（見「既有輸出」列） | |
+| F105 | ✅ 通過 | `ui.mjs`（F105）：標題「  霧港  」→ dc:title、書名頁、NCX、XHTML title 都是「霧港」；作者「  作者甲  」→ dc:creator 與書名頁「作者甲」；副標題、摘要在書名頁，摘要是 dc:description；標題與作者只有空白 → 書名「跑團日誌」、沒有 dc:creator、書名頁只有書名；「標題<b>&"'」「A&B <C>」「<副>」「&摘要<」解析回來與輸入相同；EPUB 檔名主體與 HTML 相同（霧港、`[小芋、阿和] 霧港燈塔 [main]`、`標題_b_&_'`）；matrix M16 標題清空 → 依 3.2 從檔名取「霧港燈塔」 | 標題只有空白時網頁版 h1 照原樣是空白、電子書用預設標題，照 F105 |
+| F106 | ✅ 通過 | `ui.mjs`：四個選項、預設不分章、說明依選項換（四種文字都不同）；`matrix.mjs` 19 組的目錄與每章內容和驗證者自己的模型一致（不分章 7、依分頁 4、依標記 3、依則數 5），另有 `marker.mjs`、`notab.mjs` | 分章規則的差異見 3.13.3 |
+| F107 | ✅ 通過（修正後） | 第一輪 ⚠️（需裁定）：同版本（2）自動存檔裡的不合法值（`epubChapterSize:-1`、`epubChapters:"nope"`）沒有換成預設。修正 `72edfdd`：讀進設定後用 `normalizeEpubSettings` 整理 EPUB 的 8 個設定並寫回。主控重跑 `verify-lc3/persist.mjs`：F66-F107-invalid 通過（不合法時「不分章」、每章 500 則；0、1、1000 等邊界照規格）。其餘（標記多行欄、每章則數預設 500、夾住）第一輪已通過。 | 共用 store 不檢查同版本的值是既有行為，這次只在工具裡整理 |
+| F108 | ✅ 通過 | `ui.mjs`：橫排／直排、預設橫排、說明隨選項換；matrix 7 組直排：CSS `html { writing-mode: vertical-rl; -webkit-…; -epub-… }`、spine `page-progression-direction="rtl"`、OPF `primary-writing-mode` vertical-rl；橫排的 12 組三者都沒有 | |
+| F109 | ✅ 通過 | `ui.mjs`（F109）：選檔 accept `.ttf,.otf,.woff,.woff2`；假的 TTF（PK 開頭）與 TTC（ttcf）→ 通知「「fake.ttf」不是 TrueType、OpenType 或 WOFF 字型檔。」、不採用；副檔名 .bin、檔頭 OTTO → 採用；TTF 401.2 KB、OTF 49.8 KB、WOFF 205.0 KB、WOFF2 17.7 KB 顯示檔名、大小與移除按鈕；說明有授權與「數 MB 到十幾 MB」；matrix M03／M09（TTF）、M06（OTF）、M08（WOFF）、M04（WOFF2）→ `fonts/book.*`、font/ttf…、`@font-face` 在字型堆疊最前，epubcheck 0；明體／黑體堆疊同 3.13.5；字型檔不記住 | 字型都是真的字型（Liberation、DejaVu、Loma、Fraunces；WOFF 由驗證者自己從 TTF 包） |
+| F110 | ✅ 通過 | `checks.mjs`／`model.mjs` colorOk（名稱文字 10 組、色塊 5 組、不使用 4 組）：對比不到 4.5:1 的顏色調到 4.5～4.75:1、RGB 等比例變暗（色相、HSV 彩度不變），例 #e91e63 → #e41d61、#2196f3 → #1b7ac7、#ffffff → #767676、#00ff00 → #008a00、副旁白「旁白（指定顏色）」#ffeeee → #7d7474；夠深的不動（#9c27b0、#123456）；色塊＝名稱前「■」用調深的顏色、名稱沒有顏色；不使用時名稱與指定顏色的旁白都沒有顏色（M17）；`parity.mjs` 28 組對話名稱顏色＝網頁版的名稱顏色調深後 | |
+| F111 | ✅ 通過 | `ui.mjs`（F111）、matrix、`quality.mjs`：accept image/*；600×900 PNG、600×900 JPEG、剛好 2560×1600 PNG → 照原檔（位元組相同）；3000×4000 PNG → 1920×2560 JPEG（同一張圖在 Chromium 以 0.92 編碼 57,745 B，與書裡的完全相同；0.91／0.93 都不同）；4000×3000 透明 PNG → 2560×1920 PNG；2000×5120 JPEG → 1000×2560 JPEG；WebP → JPEG、透明 WebP → PNG、透明 GIF → PNG、SVG（300×400）→ JPEG；壞檔 → 通知「封面圖片讀不了：無法解碼這張圖片」、不採用；顯示縮圖、檔名、尺寸、「移除封面」；有封面才有 cover.xhtml、`meta name="cover"`、cover-image；不記住 | |
+| F112 | ✅ 通過 | `ui.mjs`（F112）：單檔＋部落格貼文版 →「下載 HTML、下載部落格貼文版、下載 EPUB 電子書」；分割 →「全部下載（ZIP）、部落格貼文版・全部（ZIP）、下載 EPUB 電子書、下載第 1 檔…」，EPUB 只有一個、1 個章節檔；2 萬則時按鈕停用、依序顯示「產生電子書中……（0%）」到「（90%）」共 18 種，完成後回到「下載 EPUB 電子書」可再按；檔名 `霧港燈塔.epub`、`長篇.epub`；擋掉 `client-*.js` → 通知「產生電子書失敗：…」、按鈕回復；`net.mjs`：client 與 worker 只在第一次按下載時才載入；Worker 與退路見「效能」 | 載入失敗後在同一頁再按仍失敗（瀏覽器記住失敗的動態 import，重新整理才好，`probe10.mjs`）；通知裡夾著瀏覽器的英文訊息「Failed to fetch dynamically imported module: http://…」 |
+| F113 | ✅ 通過 | matrix 19 組、`parity.mjs` 28 組、`fuzz.mjs` 22 份：分類、旁白角色、閒聊分頁與三種呈現、系統訊息顯示／隱藏、輸出的分頁、合併、副旁白四種、場景分隔（「***」「  ***  」→ 分隔，「她低聲說：***」照常）、上傳的插圖都照網頁；`ui.mjs` F113-unused：改成 CCFOLIA 風格、自訂字型網址與名稱、字級／行距／頁寬、名稱換行、分頁配色、配色預設、部落格貼文版、固定檔數分割、關掉序號 → 8 個檔（除 dcterms:modified）與預設完全相同；網址插圖不放（M08）；新格式的頭像不放（M05 manifest 只有封面） | |
+| 3.13.1 | ✅ 通過（規格改寫） | 第一輪 ⚠️（需裁定）：封面、插圖、WOFF／WOFF2 不壓縮，和規格「其餘以 Deflate 壓縮」不符——主控裁定改規格（這些格式本來就壓過）；matrix 19 組 `checks.mjs` 每本 39～40 項全過、mimetype 第一個且不壓縮。 | |
+| 3.13.2 | ✅ 通過（修正後） | 第一輪 ⚠️（需裁定）：ruby 結構不完整（`rp`／`rt` 在 ruby 外、ruby 裡沒有 rt）時 epubcheck ERROR RSC-005。修正 `72edfdd`：rt／rp 只在有 rt 的 ruby 底下保留，其他地方只留文字；沒有 rt 的 ruby 只留內容。主控重跑（verify-tree32）`ruby.mjs` 7 種寫法、`fuzz.mjs` 4 本都 0 fatal／0 error／0 warning，XHTML 和網頁版逐區塊 0 差異；控制字元、`<wbr>`、`<font>` 等第一輪已通過。 | |
+| 3.13.3 | ✅ 通過（修正後） | 第一輪 ⚠️（需裁定）：依標記分章時，整則只有章名那一行的系統訊息仍在內文出現系統框。修正 `72edfdd`：和旁白、對話同規則不重複。主控重跑 `marker.mjs`：「[ 林曉雨 ] 【章】HP : 11 → 9」那章只有章名（腳本的預期仍是修正前的 1 個框，實際 0 個＝新的規格）；其他章、閒聊不換章、依則數的章名第一輪已通過。 | |
+| 3.13.4 | ✅ 通過 | CSS（M01、M02）：不設背景、文字色、字級，框線 #999999、行距 1.8；旁白段後 1em；對話名稱粗體＋全形「：」、懸掛縮排 1em、多行各自換行；系統框實線圓角 0.9em、名稱「系統」（system 或空白）；閒聊虛線框 0.85em、「閒聊訊息（n 則）」／F52 關閉時「閒聊訊息」／全部顯示沒有標題、內容一律展開；場景分隔置中上下 2em；插圖 40／60／80／100%、靠左／置中／靠右、alt「插圖」；書名頁靠開頭；沒有名稱的對話只有台詞、沒有名稱的閒聊只有內容（`net.mjs`） | |
+| 3.13.5 | ✅ 通過 | 直排 7 組：方向相關的留白換邊（margin 右／左、懸掛縮排改 padding-top、框的內距換向、插圖用 height、色塊 margin-bottom）；字型堆疊同規格、嵌入字型在最前；XHTML 沒有外部資源、CSS 沒有外部網址 | 實機閱讀器沒有測（同 7.2 的已知狀況） |
+| 3.13.6 | ✅ 通過 | `ident.mjs`：同一份日誌兩次匯出識別碼相同（urn:uuid:b62a262e-43da-892e-82aa-04ceba73a8e6），dcterms:modified 不同（09:42:07Z／09:42:10Z），兩本只差 content.opf；驗證者用 Node 的 SHA-256 依「書名＋每則序號、種類、分頁、發言者、內容」重算相同（第 8 版、variant 10）；換分章、直排、作者 → 相同；換書名、換日誌 → 不同；matrix：同一份日誌 6 種設定與隱藏分頁都不影響；modified 在按下前後之間、ZIP 的檔案時間（DOS）等於 modified | 換旁白角色或合併同人對話（則的種類／內容變了）識別碼也變（照 3.13.6；D9「更新設定後…同一本書」只對版面類設定成立） |
+| 4.（EPUB） | ✅ 通過 | 設定在進階分頁、自動記住、存進專案檔版本 2、封面與字型檔不記住（`persist.mjs`）；下載時在背景產生、按鈕顯示進度（`ui.mjs` F112）、Worker 匯出時主執行緒沒有長工作（`perf.mjs`） | |
+| D1 | ✅ 通過 | EPUB 3（OPF 3.0）＋nav＋NCX、zh-Hant；epubcheck 5.4.0：matrix 19、和原作並排 8、效能 2、`net.mjs` 2、沒有 ruby 的隨機片段 9 本都「No errors or warnings detected」 | |
+| D2 | ✅ 通過 | 見 3.13.3、F106 | 系統訊息當章名時重複出現，列在 3.13.3 |
+| D3 | ✅ 通過 | `upstream.mjs`：原作 U5（U+0001）FATAL RSC-016、U6（`wbr`）FATAL＋ERROR、U7（`font`）ERROR、U4／U8 新格式 FATAL（「CC<=60」沒跳脫），U8 可解析的章發言者全是「System」；新版同樣 8 組全部 0 錯；驗證者的 60 本 epubcheck 都沒有 FATAL（XML 格式正確），matrix、fuzz、效能的 XHTML 在 DOMParser（XML 模式）解析 0 錯 | XML 都格式正確；ruby 的 epubcheck 錯誤列在 3.13.2 |
+| D4 | ✅ 通過 | 見 F108、3.13.5；預設橫排 | |
+| D5 | ✅ 通過 | 見 F109、3.13.5；自訂字型網址與名稱不影響電子書（F113-unused） | |
+| D6 | ✅ 通過 | 見 F110 | |
+| D7 | ✅ 通過 | 封面 WebP → JPEG（M12）、透明 → PNG（M07、F111）；上傳插圖（網頁版是 WebP）→ ill-001.jpg 800×400、透明的 → ill-002.png（M08）；頭像不放、網址插圖不放；用不到的插圖不放（M18 #999、M19 #9／#12） | |
+| D8 | ✅ 通過 | `perf.mjs`（轉換後等 1.5 秒才匯出）：2 萬則依則數 → 40 章、目錄最後「第 19,501～20,000 則」、epubcheck 0。重複內容：Worker 匯出 504～597 ms、97 KB、主執行緒長工作 0 個、畫面更新最長間隔 17 ms；Worker 載不到 619～633 ms、長工作 1 個 86～87 ms；沒有 Worker 602 ms、1 個 109 ms。不重複的隨機漢字：Worker 722～827 ms、1,789 KB、長工作 0 個、間隔 17 ms；載不到 833～901 ms、最長 257～263 ms；沒有 Worker 885 ms、最長 296 ms。同次「開始轉換」145～461 ms。分塊：client 16,616 B、worker 46,156 B | 轉換一完成就按下載（`perf-nopause.json`）時，Worker 模式也量到 1～2 個 177～182 ms 的長工作，是轉換與預覽收尾（既有行為；`probe12.mjs`：送進 Worker 的 postMessage 33～38 ms、等一下再按就是 0 個） |
+| D9 | ✅ 通過 | 見 3.13.6；原作兩次匯出識別碼不同（`upstream.json` upstreamIdTwice） | |
+| D10 | ✅ 通過 | 規格列的組合都重做過：舊格式不分章含作者（M01）、依分頁＋直排＋色塊（M02）、依則數（M04）、依標記（M03）、新格式依標記＋封面（M07）、插圖＋黑體（M05、M08）、新格式多檔依分頁（M06、U8）、怪字元＋嵌入 TTF（M09）→ 0 fatal／0 error／0 warning | 例外是不完整的 ruby（3.13.2） |
+| D11 | ✅ 通過 | CSS 沒有依成敗上色的規則、系統框不改內容的字色；秘匿分頁用「輸出的分頁」排除：M05、M06、M10、M11、M19 的隱藏分頁內容 0 筆出現在 XHTML（`hiddenAbsent`）；不排除時秘密骰原樣輸出（M07「（只給林曉雨）…」、U8） | |
+| 7.2 | ✅ 通過 | D1～D11 照建議做法（上列）；開關在進階分頁、預設關；關著時既有輸出不變、視覺基準不變（`visual.mjs`）；使用說明有提到；工具頁尾只有「靈感來源：Eon-00/eon-ccfolia-log-converter」（`footer.mjs`） | |
+| 7.2（README／ATTRIBUTION） | ✅ 通過（補上） | 第一輪 ❌：README、ATTRIBUTION 沒有記 sotsotssi/CcfoliaLogConverter。主控補上（`d85518d`）：README 的工具說明與重寫工具表、ATTRIBUTION 的表格與說明段落。 | |
+| 內容對等 | ✅ 通過 | `parity.mjs` 28 組（4 份日誌 × 閒聊全部顯示／完全隱藏／不顯示數量／系統訊息隱藏／合併／不指定閒聊分頁／時間軸樣式）＋matrix 不分章 7 組＋fuzz 22 份：網頁版（小說）與 EPUB 的區塊數、順序、說話者、分類（旁白、對話、系統、閒聊、場景分隔、插圖）、每行文字、斜體全部相同，名稱顏色＝網頁版調深後；隱藏與秘匿分頁不出現 | 唯一差異是 F52 關閉時閒聊標題（網頁空白、電子書「閒聊訊息」），照 3.13.4 |
+| 和原作比 | ✅ 通過 | `upstream.mjs`（`upstream.json`、`out/upstream/`）：附件舊格式樣本——原作 EPUB 2.0、ko、「TRPG Log Book」「Unknown」、隨機 UUID、沒有 modified、1 章（章名是檔名）、18 則（含空白、「system」照寫）；新版 EPUB 3、zh-Hant、「霧港燈塔」、沒有作者、固定識別碼、有 modified、不分章、17 則＝旁白 5、對話 6、系統 3、閒聊一組 2 則、場景分隔 1，發言者順序與原作相同；觸發句「線索、樓上有聲音、泡個麵」——原作 4 章（Start、【線索】…、「我去泡個麵 5 分鐘」閒聊也觸發、「「等等，樓上有聲音。」我抬頭看向樓梯。」兩行連在一起），新版 3 章（開頭、【線索】…整則只有章名不重複、「「等等，樓上有聲音。」」）；合併同人連續兩邊都有；原作的 D3 問題在新版都不出現 | 和規格「和原作的對照」表相符 |
+| 既有輸出 | ✅ 通過 | `bytes.mjs`（固定時間與亂數）：舊格式小說單檔、新格式時間軸＋部落格貼文版＋依則數分割、怪字元 CCFOLIA 風格＋部落格貼文版＋分頁配色＋固定 3 檔、長篇依大小分割（10 檔＋ZIP）、時間軸＋上傳插圖＋副旁白＋部落格貼文版 → 25 個下載檔與預覽 HTML，在 EPUB 關閉、以及開啟（依分頁、直排、封面）時，都和改之前（8168）SHA-256 完全相同 | `bytes.json`、`out/bytes/` |
+| zipFiles／room-zip | ✅ 通過 | `bytes.mjs`：room-zip 載入範例專案匯出房間 ZIP，新舊 SHA-256 都是 3c0a56b1372750a4…（40,755 B、8 項、Deflate）；其他 zipFiles 的呼叫端都沒有給每個項目的 level（grep） | |
+| 視覺基準 | ✅ 通過 | `visual.mjs`：同一流程（載入、轉換、基本分頁）整頁截圖，新舊 1280／390 都 0 個像素不同（第一次 1280 有 15 個 ±1 的反鋸齒雜訊，重跑 0）；進階分頁新版多了 EPUB 區塊（高 +147／+148 px，預期） | |
+| 鍵盤 | ✅ 通過 | `ui.mjs`（keyboard）：Space 開開關、Tab 到作者打字、Tab 進分章、方向鍵移動＋Space 選依標記、Tab 到標記文字打字，接著依序是排版、字型、選擇字型檔、角色顏色、選擇圖片，下載按鈕用 Enter 下載（目錄「開頭」…） | Radix 的方向鍵移動焦點是非同步的，腳本在按鍵間等 100 ms |
+| 390 寬 | ✅ 通過 | `ui.mjs`（narrow-390-and-themes）：EPUB 設定全開、封面、字型檔、很長的作者，轉換前後 scrollWidth＝clientWidth＝390；`shots/epub-section-390-*.png`、`epub-downloads-390-*.png` | |
+| 深淺色 | ✅ 通過 | 深色（預設）與淺色（`trpg-toolkit:theme`）都正常：說明文字 rgb(171,165,157) on rgb(27,26,32)／rgb(91,87,81) on #fff；`shots/epub-section-{390,1280}-{light,dark}.png` 目視 | |
+| 主控台 | ✅ 通過 | 所有腳本收集 pageerror 與 console error：只有網址插圖故意連不到的 404（M08）與故意擋掉的分塊（F112、效能） | |
+| 復原／重做 | ✅ 通過 | 工具沒有復原／重做（規格 4.，改之前也是 historyLimit 1）；EPUB 設定後按 Ctrl+Z、Ctrl+Shift+Z 不變、頁面沒有復原按鈕（`ui.mjs` undo-redo） | 文字欄裡是瀏覽器原生的復原 |
+
+小計（修正後）：✅ 44、⚠️ 0、❌ 0（第一輪 ✅ 39、⚠️ 需裁定 4、❌ 1）。
+
 ## 7. 主控裁定（審查者，2026-10-01）
 
 - 規格審查通過：CCFOLIA 日誌 HTML 結構屬外部格式事實；新格式的部分事實是從舊版辨識規則推得，實作時照規格寫的規則，日後拿到真實匯出檔再補驗。
@@ -803,3 +863,5 @@ XHTML 1.1 的 DOCTYPE）；書名預設「TRPG Log Book」、作者預設「Unkn
 - **開關放在進階分頁、預設關**（同部落格貼文版）：核准；關著時既有的輸出與視覺基準不變，使用說明有提到。
 - **靈感來源**：工具頁尾維持 Eon-00（registry 只放一個）；EPUB 的靈感 sotsotssi/CcfoliaLogConverter 記在 README 的靈感來源欄與 ATTRIBUTION（同 char-chart 有兩個來源的寫法）。
 - 直排的插圖高度依閱讀器的頁高，實機閱讀器（Kindle、Kobo、Apple Books）沒有測過——記在已知狀況。
+- **驗證後（2026-10-15）**：第一輪 ✅ 39、⚠️ 需裁定 4、❌ 1。ruby 結構（3.13.2）、依標記分章時系統訊息重複（3.13.3）、同版本存檔的不合法值（F107）修正；圖片與網頁字型不壓縮照實際改寫規格（3.13.1）；
+  靈感來源補進 README、ATTRIBUTION。另外修正：產生 EPUB 的程式改成跟頁面一起載入（不會因為動態載入失敗而一直失敗），失敗時顯示繁中說明與「複製錯誤資訊」；D9 的說法改成和 3.13.6 一致。
