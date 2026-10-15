@@ -71,9 +71,21 @@ export function paint(ctx: Ctx, def: TemplateDef, d: Draft, nodes: readonly Scen
   drawStickers(ctx, def, d);
 }
 
-/** 確認用到的圖片都讀進記憶體（輸出前） */
-export async function ensureImages(d: Draft): Promise<{ missing: string[] }> {
-  return assets.preload(draftAssets(d));
+/**
+ * 確認用到的圖片都讀進記憶體並解碼（輸出前、重新整理後的預覽）：畫圖用的是解碼好的圖（peekBitmap），
+ * 只讀回檔案（assets.preload）的話重新整理後畫不出來。回傳讀不到的 id。
+ */
+export async function ensureImages(
+  d: Draft,
+  ids: readonly string[] = draftAssets(d),
+): Promise<{ missing: string[] }> {
+  const missing: string[] = [];
+  await Promise.all(
+    ids.map(async (id) => {
+      if (!(await assets.bitmap(id).catch(() => undefined))) missing.push(id);
+    }),
+  );
+  return { missing };
 }
 
 /** 輸出用：讀好圖與字型後畫成新的畫布（scale：倍率） */

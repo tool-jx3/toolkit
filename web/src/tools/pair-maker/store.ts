@@ -8,12 +8,19 @@ import { create } from 'zustand';
 import { createAssetStore } from '@/core/assets';
 import { makeCanvas } from '@/core/image';
 import { createToolStore, type ToolStore } from '@/core/storage';
-import { type Draft, draftAssets, type TemplateDef, validateDraft } from './model';
+import {
+  DRAFT_VERSION,
+  type Draft,
+  draftAssets,
+  migrateDraft,
+  type TemplateDef,
+  validateDraft,
+} from './model';
 import { TEMPLATES } from './templates';
 
 export const TOOL_ID = 'pair-maker';
-/** 專案檔的資料版本 */
-export const PROJECT_VERSION = 1;
+/** 專案檔的資料版本（與自動儲存、存檔槽相同） */
+export const PROJECT_VERSION = DRAFT_VERSION;
 
 export const assets = createAssetStore(TOOL_ID);
 
@@ -34,8 +41,14 @@ function localGet(key: string): string | null {
 export function draftStore(def: TemplateDef): ToolStore<Draft> {
   let s = stores.get(def.id);
   if (!s) {
-    s = createToolStore<Draft>(draftToolId(def.id), def.initial(), {
-      version: 1,
+    const initial = def.initial();
+    s = createToolStore<Draft>(draftToolId(def.id), initial, {
+      version: DRAFT_VERSION,
+      /* 舊版本的自動儲存：補上新的設定（之後 openDraft 再檢查一次） */
+      migrate: (data, from) => {
+        const m = migrateDraft(def, data, from);
+        return m && typeof m === 'object' ? { ...initial, ...(m as Partial<Draft>) } : initial;
+      },
       historyLimit: 60,
       coalesceMs: 500,
     });

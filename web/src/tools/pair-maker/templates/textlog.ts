@@ -188,6 +188,12 @@ export function logStyle(serif: boolean, kind: LogKind): LogStyle {
   };
 }
 
+/**
+ * 繪製範圍左右各多留的 px（2026-10，同原作 textLog-pair）：明體的負字距讓行尾的字形超出欄邊，
+ * 靠右的欄每一行都會，不留的話會被切掉一條。換行寬度不變。
+ */
+export const LOG_BLEED = 3;
+
 const isSerif = (d: Draft) => str(d.v, 'o.font') !== 'sans';
 export const lanesOf = (variant: LogVariant, d: Draft): readonly Lane[] =>
   !isSerif(d) && variant.sans ? variant.sans : variant.lanes;
@@ -206,6 +212,7 @@ function richNode(box: Box4, doc: RichDoc, st: LogStyle, more: Partial<RichNode>
     letterSpacing: st.letterSpacing,
     spaceScale: st.spaceScale,
     scaleX: st.scaleX,
+    bleed: LOG_BLEED,
     ...more,
   };
 }

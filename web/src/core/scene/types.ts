@@ -87,6 +87,11 @@ export interface ImageNode extends Base {
   circle?: boolean;
   /** 高斯模糊的標準差（px） */
   blur?: number;
+  /**
+   * 模糊時框外怎麼算：'clear'（預設）＝當成透明，四周會淡出；'clamp'＝用最外圈的像素往外延伸，
+   * 四周不會變淡（像 StackBlur）。只有 blur 時有用。
+   */
+  blurEdge?: 'clear' | 'clamp';
   shadow?: Shadow;
   /** 沿某個方向淡出（0～1 的位置：from 處完全不透明、to 處完全透明；方向 'x' 或 'y'；reverse 反過來） */
   fade?: { axis: 'x' | 'y'; from: number; to: number; reverse?: boolean };
@@ -149,6 +154,8 @@ export interface RichNode extends Base {
   valign?: 'top' | 'middle' | 'bottom';
   /** 最多幾行（預設依框高） */
   maxLines?: number;
+  /** 繪製範圍左右各多留的 px（負字距、字形突出的部分不被裁掉；換行寬度仍是 w）；預設 0 */
+  bleed?: number;
 }
 
 export interface GroupNode extends Base {

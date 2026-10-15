@@ -195,6 +195,46 @@ export function fadeCanvas(
   ctx.restore();
 }
 
+/**
+ * 圖片畫進 w × h 的新畫布（f＝fitImage 的結果）。clampSigma > 0 時另外做「四周用最外圈的像素延伸的模糊」
+ * （ImageNode 的 blurEdge 'clamp'）：圖畫在加了邊的畫布中間、最外一列（行）拉伸到邊裡，模糊後切回 w × h；
+ * 邊寬是標準差的 3 倍（高斯的 99.7%）。
+ */
+function paddedImage(
+  image: CanvasImageSource,
+  f: ReturnType<typeof fitImage>,
+  w: number,
+  h: number,
+  clampSigma: number,
+  quality: ImageSmoothingQuality | undefined,
+): AnyCanvas {
+  const out = makeCanvas(w, h);
+  const o = out.getContext('2d') as Ctx;
+  const pad = clampSigma > 0 ? Math.ceil(clampSigma * 3) : 0;
+  if (!pad) {
+    o.imageSmoothingEnabled = true;
+    o.imageSmoothingQuality = quality ?? 'high';
+    o.drawImage(image, f.sx, f.sy, f.sw, f.sh, f.dx, f.dy, f.dw, f.dh);
+    return out;
+  }
+  const iw = out.width;
+  const ih = out.height;
+  const big = makeCanvas(iw + pad * 2, ih + pad * 2);
+  const b = big.getContext('2d') as Ctx;
+  b.imageSmoothingEnabled = true;
+  b.imageSmoothingQuality = quality ?? 'high';
+  b.drawImage(image, f.sx, f.sy, f.sw, f.sh, f.dx + pad, f.dy + pad, f.dw, f.dh);
+  /* 最外圈往外延伸：先上下（圖的寬），再左右（含四角） */
+  b.imageSmoothingEnabled = false;
+  b.drawImage(big, pad, pad, iw, 1, pad, 0, iw, pad);
+  b.drawImage(big, pad, pad + ih - 1, iw, 1, pad, pad + ih, iw, pad);
+  b.drawImage(big, pad, 0, 1, ih + pad * 2, 0, 0, pad, ih + pad * 2);
+  b.drawImage(big, pad + iw - 1, 0, 1, ih + pad * 2, pad + iw, 0, pad, ih + pad * 2);
+  blurCanvas(big, clampSigma);
+  o.drawImage(big, pad, pad, iw, ih, 0, 0, iw, ih);
+  return out;
+}
+
 /* ---------- 各種節點 ---------- */
 
 function drawRect(ctx: Ctx, n: RectNode): void {
@@ -238,12 +278,16 @@ function drawImageNode(ctx: Ctx, n: ImageNode): void {
     return;
   }
   /* 先在另一張畫布上處理（模糊、淡出、形狀），再整張畫上去（含陰影） */
-  const tmp = makeCanvas(n.w, n.h);
+  const tmp = paddedImage(
+    n.image,
+    f,
+    n.w,
+    n.h,
+    n.blur && n.blurEdge === 'clamp' ? n.blur : 0,
+    n.quality,
+  );
   const t = tmp.getContext('2d') as Ctx;
-  t.imageSmoothingEnabled = true;
-  t.imageSmoothingQuality = n.quality ?? 'high';
-  t.drawImage(n.image, f.sx, f.sy, f.sw, f.sh, f.dx, f.dy, f.dw, f.dh);
-  if (n.blur) blurCanvas(tmp, n.blur);
+  if (n.blur && n.blurEdge !== 'clamp') blurCanvas(tmp, n.blur);
   if (n.fade) fadeCanvas(tmp, n.fade.axis, n.fade.from, n.fade.to, n.fade.reverse);
   if (n.radius || n.circle) {
     t.save();
@@ -302,9 +346,10 @@ function drawText(ctx: Ctx, n: TextNode): void {
 
 function drawRich(ctx: Ctx, n: RichNode): void {
   const lay = layoutRichNode(ctx, n);
+  const bleed = n.bleed ?? 0;
   ctx.save();
   ctx.beginPath();
-  ctx.rect(n.x, n.y, n.w, n.h);
+  ctx.rect(n.x - bleed, n.y, n.w + bleed * 2, n.h);
   ctx.clip();
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';

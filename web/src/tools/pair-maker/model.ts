@@ -37,6 +37,8 @@ export interface Draft {
   members?: number[];
   /** 多人資料框：下一個預設分頁名稱用的號碼（只增不減） */
   nextNo?: number;
+  /** 多人資料框：每列幾張卡（2～5，沒有時 3；2026-10） */
+  cols?: number;
   /** 文字記錄：頁的編號（依顯示順序） */
   pages?: number[];
   /** 文字記錄：目前的頁 */
@@ -195,6 +197,8 @@ export interface TemplateDef {
   stickerVisible?: (d: Draft, s: Sticker) => boolean;
   /** 讀入外來資料時：檢查並建立結構（人數、頁數），回傳以預設值填好的 Draft；不合格丟 DraftError */
   restore?: (raw: Partial<Draft>) => Draft;
+  /** 舊版本的資料補上新的設定（from：資料的版本，小於 DRAFT_VERSION）；不給時原樣 */
+  migrate?: (raw: Partial<Draft>, from: number) => Partial<Draft>;
 }
 
 export class DraftError extends Error {
@@ -311,6 +315,25 @@ export const downscaleRatio = (w: number, h: number, max = IMAGE_MAX_SIDE): numb
 
 /** 貼紙寬高的上限：畫布長邊 × 2 */
 export const stickerMax = (size: Size): number => Math.max(size.width, size.height) * 2;
+
+/* ---------- 資料版本 ---------- */
+
+/**
+ * 編輯內容的資料版本（自動儲存、存檔槽、專案檔共用）。
+ * 2（2026-10）：雙人資料卡加了背景與段落標題、多人資料卡加了每列張數。
+ */
+export const DRAFT_VERSION = 2;
+
+/**
+ * 舊版本的編輯內容 → 目前的版本：交給版型的 migrate 補上新的設定（之後一樣要 validateDraft）。
+ * 已經是目前版本的、不是物件的原樣回傳。
+ */
+export function migrateDraft(def: TemplateDef, raw: unknown, from: number): unknown {
+  if (from >= DRAFT_VERSION || !def.migrate || !raw || typeof raw !== 'object') return raw;
+  const d = raw as Partial<Draft>;
+  if (!d.v || typeof d.v !== 'object') return raw;
+  return def.migrate(d, from);
+}
 
 /* ---------- 讀入資料的檢查 ---------- */
 

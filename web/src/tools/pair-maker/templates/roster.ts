@@ -1,5 +1,5 @@
 /**
- * 多人資料卡（1～30 人）：每人一張 615 × 694 的卡，一列最多 3 張；兩列以上的高度多 2 px（與舊版相同）。
+ * 多人資料卡（1～30 人）：每人一張 615 × 694 的卡，每列 2～5 張（預設 3；2026-10）；兩列以上的高度多 2 px（與舊版相同）。
  * 角色有編號（新增時取 1～30 沒用過的最小號），分頁名稱的預設號碼另外遞增（刪掉的號碼不會再用在預設名稱）。
  */
 import type { SceneNode } from '@/core/scene';
@@ -21,6 +21,9 @@ const L = T.roster;
 export const CARD_W = 615;
 export const CARD_H = 694;
 export const MAX_MEMBERS = 30;
+/** 每列張數的選項與預設值（2026-10，同原作的 2～5 단） */
+export const COLS = [2, 3, 4, 5] as const;
+export const DEFAULT_COLS = 3;
 
 export const memberSide = (n: number) => `m${n}`;
 export const memberNo = (side: string): number | null => {
@@ -28,16 +31,27 @@ export const memberNo = (side: string): number | null => {
   return m ? Number(m[1]) : null;
 };
 
-/** n 人時的畫布大小 */
-export function rosterSize(count: number): { width: number; height: number } {
-  const rows = Math.ceil(count / 3);
-  return { width: Math.min(count, 3) * CARD_W, height: rows * CARD_H + (rows > 1 ? 2 : 0) };
+/** n 人、每列 cols 張時的畫布大小 */
+export function rosterSize(count: number, cols = DEFAULT_COLS): { width: number; height: number } {
+  const rows = Math.ceil(count / cols);
+  return { width: Math.min(count, cols) * CARD_W, height: rows * CARD_H + (rows > 1 ? 2 : 0) };
 }
 
-/** 第 i 張（0 起算）的左上角 */
-export function cardOrigin(i: number): { x: number; y: number } {
-  const row = Math.floor(i / 3);
-  return { x: (i % 3) * CARD_W, y: row * CARD_H + (row > 0 ? 2 : 0) };
+/** 第 i 張（0 起算）的左上角（每列 cols 張） */
+export function cardOrigin(i: number, cols = DEFAULT_COLS): { x: number; y: number } {
+  const row = Math.floor(i / cols);
+  return { x: (i % cols) * CARD_W, y: row * CARD_H + (row > 0 ? 2 : 0) };
+}
+
+const isCols = (n: unknown): n is (typeof COLS)[number] => (COLS as readonly unknown[]).includes(n);
+
+/** 每列張數（沒有或不對時 3） */
+export const colsOf = (d: Draft): number => (isCols(d.cols) ? d.cols : DEFAULT_COLS);
+
+/** 改每列張數（不是 2～5、或跟現在一樣時 null） */
+export function setCols(d: Draft, cols: number): Draft | null {
+  if (!isCols(cols) || cols === colsOf(d)) return null;
+  return { ...d, cols };
 }
 
 /** 一個角色的預設值（no：分頁名稱的號碼） */
@@ -254,13 +268,13 @@ function cardNodes(d: Draft, env: SceneEnv, n: number, x: number, y: number): Sc
   return nodes;
 }
 
-/** 卡與卡之間的虛線 */
-function separators(count: number, width: number): SceneNode[] {
+/** 卡與卡之間的虛線（每列 perRow 張） */
+function separators(count: number, width: number, perRow: number): SceneNode[] {
   const out: SceneNode[] = [];
-  const rows = Math.ceil(count / 3);
+  const rows = Math.ceil(count / perRow);
   for (let r = 0; r < rows; r++) {
     const y = r * CARD_H + (r > 0 ? 2 : 0);
-    const cols = Math.min(3, count - r * 3);
+    const cols = Math.min(perRow, count - r * perRow);
     for (let c = 1; c < cols; c++)
       out.push({
         kind: 'line',
@@ -302,8 +316,9 @@ export const roster: TemplateDef = {
     stickers: [],
     members: [1],
     nextNo: 2,
+    cols: DEFAULT_COLS,
   }),
-  size: (d) => rosterSize(members(d).length),
+  size: (d) => rosterSize(members(d).length, colsOf(d)),
   sides: (d): SideDef[] =>
     members(d).map((n) => {
       const label = str(d.v, `${memberSide(n)}.tab`) || L.member(n);
@@ -321,17 +336,18 @@ export const roster: TemplateDef = {
   },
   scene: (d, env) => {
     const list = members(d);
-    const size = rosterSize(list.length);
+    const cols = colsOf(d);
+    const size = rosterSize(list.length, cols);
     return [
       { kind: 'rect', x: 0, y: 0, w: size.width, h: size.height, fill: '#fbfbfb' },
-      ...separators(list.length, size.width),
+      ...separators(list.length, size.width, cols),
       ...list.flatMap((n, i) => {
-        const o = cardOrigin(i);
+        const o = cardOrigin(i, cols);
         return cardNodes(d, env, n, o.x, o.y);
       }),
     ];
   },
-  stickerArea: (d) => ({ x: 0, y: 0, ...rosterSize(members(d).length) }),
+  stickerArea: (d) => ({ x: 0, y: 0, ...rosterSize(members(d).length, colsOf(d)) }),
   restore: (raw) => {
     const list = raw.members;
     if (
@@ -345,10 +361,14 @@ export const roster: TemplateDef = {
     const nextNo = raw.nextNo;
     if (typeof nextNo !== 'number' || !Number.isSafeInteger(nextNo) || nextNo < 2)
       throw new DraftError('角色編號不正確。');
+    const cols = raw.cols === undefined ? DEFAULT_COLS : raw.cols;
+    if (!isCols(cols)) throw new DraftError('每列張數不正確。');
     const v: Record<string, Value> = {};
     for (const n of list) Object.assign(v, memberDefaults(n, n));
-    return { v, touched: {}, images: {}, stickers: [], members: [...list], nextNo };
+    return { v, touched: {}, images: {}, stickers: [], members: [...list], nextNo, cols };
   },
+  /* 版本 1 沒有每列張數：當 3（以前的固定排法） */
+  migrate: (raw) => ({ ...raw, cols: raw.cols === undefined ? DEFAULT_COLS : raw.cols }),
 };
 
 /* ---------- 角色的新增、刪除、移動（回傳新的 Draft；做不到時 null） ---------- */

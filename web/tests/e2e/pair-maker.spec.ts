@@ -10,6 +10,9 @@
  *   PDF（頁數、頁面大小、可選取的文字）、貼上後直接下載 PDF／PNG 也先分頁；
  * - 保存：自動保存與還原通知、存檔槽（建立、改名、改名後直接覆蓋、空白名稱、讀取、刪除）、
  *   專案檔 ZIP（匯出解析、重設、讀回、別的版型拒絕、缺圖的失敗後完整的讀得進來）；
+ * - 2026-10 跟進原作：雙人資料卡的背景（單色、圖片、模糊時四周不變淡、出處、全身圖淡入背景、重新整理後圖片畫得回來）、
+ *   段落標題（清空、改字、靠右、空白不畫）、多人資料卡的每列張數 2～5（大小、輸出、方向鍵、復原、重新整理、專案檔）、
+ *   舊的資料（版本 1 的自動儲存、專案檔、存檔槽）照常讀、文字記錄行尾的字不被欄邊切掉；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準圖。
  */
 import { readFileSync } from 'node:fs';
@@ -233,6 +236,8 @@ test('點畫布開啟項目；預設文字第一次聚焦清空；條件顯示�
 test('390 寬：點畫布上另一個角色的元素時，設定欄切過去並捲到欄位', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const errors = await open(page, 'duo-sheet');
+  /* 2026-10 起第一個分頁是「共用」（背景，欄位少、沒有分類按鈕）：先切到左邊的角色，同以前開頁的狀態 */
+  await page.getByRole('tab', { name: '左邊的角色' }).click();
   for (const [key, title] of [
     ['left/colors', '左 髮色與瞳色'],
     ['right/colors', '右 髮色與瞳色'],
@@ -762,6 +767,388 @@ test('保存：自動保存與還原、存檔槽、專案檔 ZIP（匯出、重�
   await list.first().getByRole('button', { name: '刪除' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: '刪除' }).click();
   await expect(list).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 2026-10：跟進原作的更新（背景、段落標題、每列張數、文字不被欄邊切掉、舊資料） ---------- */
+
+const BLUE: [number, number, number] = [30, 60, 200];
+const YELLOW: [number, number, number] = [240, 200, 40];
+
+/** 左半 a、右半 b 的 PNG */
+async function halves(
+  w: number,
+  h: number,
+  a: [number, number, number],
+  b: [number, number, number],
+): Promise<Buffer> {
+  const px = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const k = (y * w + x) * 4;
+      const c = x < w / 2 ? a : b;
+      px[k] = c[0];
+      px[k + 1] = c[1];
+      px[k + 2] = c[2];
+      px[k + 3] = 255;
+    }
+  return Buffer.from(await encodePng(px, w, h));
+}
+
+/** 範圍裡比 limit 暗的像素數（白底上的字） */
+function ink(p: Png, x0: number, y0: number, x1: number, y1: number, limit = 200): number {
+  let n = 0;
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (p.at(x, y)[0] < limit) n++;
+  return n;
+}
+
+/** 兩張 PNG 在範圍裡不同的像素數 */
+function changed(a: Png, b: Png, x0: number, y0: number, x1: number, y1: number): number {
+  let n = 0;
+  for (let y = y0; y < y1; y++)
+    for (let x = x0; x < x1; x++) if (!near(a.at(x, y), b.at(x, y), 3)) n++;
+  return n;
+}
+
+/** 點選區用鍵盤開啟（同一個項目可能有好幾塊重疊的點選區） */
+async function openItem(page: Page, key: string) {
+  await region(page, key).focus();
+  await page.keyboard.press('Enter');
+}
+
+async function applyCrop(page: Page, size?: string) {
+  const dialog = page.getByRole('dialog', { name: '裁切圖片' });
+  await expect(dialog).toBeVisible();
+  if (size) await expect(dialog.getByTestId('frame-output')).toHaveText(size);
+  await dialog.getByRole('button', { name: '套用' }).click();
+  await expect(dialog).toBeHidden();
+}
+
+test('雙人資料卡的背景：單色、圖片（模糊時四周不變淡）、出處、全身圖淡入背景（2026-10）', async ({
+  page,
+}) => {
+  const errors = await open(page, 'duo-sheet');
+  /* 共用（背景）排第一個 */
+  await expect(page.getByRole('tab').first()).toHaveText('共用');
+  /* 點畫布上沒有其他元素的地方 → 共用 背景 */
+  const at = await screenAt(page, 960, 100);
+  await page.mouse.click(at.x, at.y);
+  await expect(heading(page)).toHaveText('共用 背景');
+  await expect(page.getByRole('radio', { name: '單色' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('switch', { name: '背景模糊' })).toHaveCount(0);
+  await page.getByRole('textbox', { name: '背景色色碼' }).fill('#204060');
+  let { png: out } = await downloadPng(page);
+  expect(near(out.at(960, 100), [0x20, 0x40, 0x60])).toBe(true);
+  /* 全身圖的空格子：深色底淡入背景色（以前是淡入固定的底色） */
+  expect(near(out.at(335, 540), [0x20, 0x40, 0x60], 20)).toBe(true);
+
+  /* 圖片：背景色藏起來、出現模糊與圖片格；還沒放圖時是預設的底色 */
+  await page.waitForTimeout(600);
+  await page.getByRole('radio', { name: '圖片' }).click();
+  await expect(page.getByRole('textbox', { name: '背景色色碼' })).toHaveCount(0);
+  await expect(page.getByRole('switch', { name: '背景模糊' })).toBeVisible();
+  ({ png: out } = await downloadPng(page));
+  expect(near(out.at(960, 100), [0xf3, 0xf1, 0xec])).toBe(true);
+  /* 左半藍、右半黃：裁切框 16:9、存成 1920 × 1080 */
+  await choose(page, page.getByRole('button', { name: '背景圖片：選擇圖片' }), [
+    file('bg.png', await halves(1920, 1080, BLUE, YELLOW)),
+  ]);
+  await applyCrop(page, '1920 × 1080 px');
+  await expect(page.locator('[data-slot="c.bg"] img')).toBeVisible();
+  ({ png: out } = await downloadPng(page));
+  expect(near(out.at(600, 10), BLUE)).toBe(true);
+  expect(near(out.at(1320, 10), YELLOW)).toBe(true);
+  expect(near(out.at(956, 10), BLUE)).toBe(true);
+  expect(near(out.at(964, 10), YELLOW)).toBe(true);
+  /* 全身圖的空格子淡入背景圖：格子右緣附近透出藍色 */
+  const edge = out.at(335, 540);
+  expect(edge[2]).toBeGreaterThan(150);
+  expect(edge[0]).toBeLessThan(80);
+
+  /* 模糊：交界變模糊；四周用邊上的像素延伸，不會淡出一圈底色 */
+  await page.getByRole('switch', { name: '背景模糊' }).click();
+  ({ png: out } = await downloadPng(page));
+  expect(near(out.at(956, 10), BLUE)).toBe(false);
+  expect(near(out.at(964, 10), YELLOW)).toBe(false);
+  expect(near(out.at(600, 0), BLUE, 4)).toBe(true);
+  expect(near(out.at(1320, 0), YELLOW, 4)).toBe(true);
+
+  /* 出處：畫在畫布下緣中央 */
+  const noCite = out;
+  await page.getByRole('textbox', { name: '背景圖片：出處' }).fill('某某攝');
+  ({ png: out } = await downloadPng(page));
+  expect(changed(noCite, out, 860, 1052, 1060, 1078)).toBeGreaterThan(20);
+  expect(changed(noCite, out, 0, 1052, 700, 1078)).toBe(0);
+
+  /* 全身圖（紅）：左半部不透明，右緣附近透出後面的背景圖（藍） */
+  await openItem(page, 'left/full');
+  await expect(heading(page)).toHaveText('左 全身圖');
+  await choose(page, page.getByRole('button', { name: '全身圖：選擇圖片' }), [
+    file('red.png', await png(340, 1080, [220, 30, 40])),
+  ]);
+  await applyCrop(page, '340 × 1080 px');
+  ({ png: out } = await downloadPng(page));
+  expect(near(out.at(100, 540), [220, 30, 40])).toBe(true);
+  const mix = out.at(330, 540);
+  expect(mix[2]).toBeGreaterThan(120);
+  expect(mix[0]).toBeGreaterThan(60);
+  expect(near(out.at(350, 540), BLUE, 12)).toBe(true);
+
+  /* 重新整理後還原（背景模式、圖片、模糊、出處） */
+  await page.waitForTimeout(300);
+  await page.reload();
+  await expect(notice(page, '已載入最近一次的編輯。')).toBeVisible();
+  await page.getByRole('tab', { name: '共用' }).click();
+  await expect(page.getByRole('radio', { name: '圖片' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('switch', { name: '背景模糊' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(page.getByRole('textbox', { name: '背景圖片：出處' })).toHaveValue('某某攝');
+  const { png: again } = await downloadPng(page);
+  expect(changed(out, again, 0, 0, 1920, 1080)).toBe(0);
+  /* 切回單色：圖片的設定保留，畫面回到背景色 */
+  await page.getByRole('radio', { name: '單色' }).click();
+  await expect(page.getByRole('textbox', { name: '背景色色碼' })).toHaveValue('#204060');
+  ({ png: out } = await downloadPng(page));
+  expect(near(out.at(600, 10), [0x20, 0x40, 0x60])).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('雙人資料卡的段落標題：預設文字第一次聚焦清空、改字、右邊靠右、空白不畫（2026-10）', async ({
+  page,
+}) => {
+  const errors = await open(page, 'duo-sheet');
+  const { png: before } = await downloadPng(page);
+  await openItem(page, 'left/looks');
+  await expect(heading(page)).toHaveText('左 外觀說明');
+  const title = page.getByRole('textbox', { name: '平常服裝：標題' });
+  await expect(title).toHaveValue('平常服裝');
+  await expect(page.getByRole('textbox', { name: '平常服裝：內容' })).toBeVisible();
+  /* 標題的位置（左：x 400～670、y 268～296）有字 */
+  expect(ink(before, 400, 268, 670, 296)).toBeGreaterThan(20);
+  await title.focus();
+  await expect(title).toHaveValue('');
+  let { png: out } = await downloadPng(page);
+  expect(ink(out, 400, 268, 670, 296)).toBe(0);
+  await title.fill('日常穿搭');
+  ({ png: out } = await downloadPng(page));
+  expect(ink(out, 400, 268, 670, 296)).toBeGreaterThan(20);
+  /* 右邊的角色：靠右（框 x 1250～1520、y 400～428） */
+  await openItem(page, 'right/looks');
+  await expect(heading(page)).toHaveText('右 外觀說明');
+  const right = page.getByRole('textbox', { name: '外觀特徵：標題' });
+  await right.focus();
+  await right.fill('甲');
+  ({ png: out } = await downloadPng(page));
+  expect(ink(before, 1250, 400, 1480, 428)).toBeGreaterThan(0);
+  expect(ink(out, 1250, 400, 1480, 428)).toBe(0);
+  expect(ink(out, 1480, 400, 1520, 428)).toBeGreaterThan(5);
+  /* 重新整理後還原；改過的不再清空 */
+  await page.waitForTimeout(300);
+  await page.reload();
+  await openItem(page, 'left/looks');
+  await expect(title).toHaveValue('日常穿搭');
+  await title.focus();
+  await expect(title).toHaveValue('日常穿搭');
+  expect(errors).toEqual([]);
+});
+
+test('多人資料卡的每列張數 2～5：畫布大小、輸出、方向鍵、復原、重新整理、專案檔（2026-10）', async ({
+  page,
+}) => {
+  const errors = await open(page, 'roster');
+  const cols = page.getByRole('radiogroup', { name: '每列人數' });
+  const opt = (n: number) => cols.getByRole('radio', { name: `${n} 人` });
+  await expect(opt(3)).toHaveAttribute('aria-checked', 'true');
+  const add = page.getByTestId('preview').getByRole('button', { name: '新增角色' });
+  for (let i = 0; i < 3; i++) await add.click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '1845x1390');
+  await page.waitForTimeout(600);
+  await opt(2).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '1230x1390');
+  await expect(page.getByTestId('export-size')).toHaveText('1230 × 1390 px');
+  const { png: out } = await downloadPng(page);
+  expect([out.width, out.height]).toEqual([1230, 1390]);
+  await page.waitForTimeout(600);
+  await opt(4).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '2460x694');
+  await page.waitForTimeout(600);
+  await opt(5).click();
+  for (let i = 0; i < 3; i++) await add.click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '3075x1390');
+  /* 方向鍵＋空白鍵 */
+  await page.waitForTimeout(600);
+  await opt(5).focus();
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('Space');
+  await expect(opt(4)).toHaveAttribute('aria-checked', 'true');
+  await expect(canvas(page)).toHaveAttribute('data-size', '2460x1390');
+  /* 復原一步：回到每列 5 張 */
+  await page.waitForTimeout(600);
+  await page.getByRole('button', { name: '復原' }).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '3075x1390');
+  await expect(opt(5)).toHaveAttribute('aria-checked', 'true');
+  /* 只看這一張（7 人以上）照樣是一張卡 */
+  await page.getByRole('button', { name: '只看這一張' }).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '615x694');
+  await page.getByRole('button', { name: '看全部' }).click();
+  /* 重新整理後還原 */
+  await page.waitForTimeout(300);
+  await page.reload();
+  await expect(canvas(page)).toHaveAttribute('data-size', '3075x1390');
+  await expect(opt(5)).toHaveAttribute('aria-checked', 'true');
+  /* 專案檔：版本 2、記著每列張數 */
+  await page.getByRole('button', { name: '專案' }).click();
+  const zipDl = await download(page, page.getByRole('menuitem', { name: '存成專案檔…' }));
+  const entries = unzipSync(new Uint8Array(readFileSync((await zipDl.path()) as string)));
+  const project = JSON.parse(strFromU8(entries['project.json']));
+  expect(project.version).toBe(2);
+  expect(project.data.draft.cols).toBe(5);
+  expect(errors).toEqual([]);
+});
+
+test('舊的資料（版本 1）照常讀：自動儲存、專案檔、存檔槽（2026-10）', async ({ page }) => {
+  const errors = await open(page, 'duo-sheet');
+  await region(page, 'left/name').click();
+  await page.getByRole('textbox', { name: '名字', exact: true }).fill('舊資料');
+  await page.waitForTimeout(300);
+  /* 自動儲存改成版本 1：拿掉 2026-10 新增的設定 */
+  const DUO_NEW = [
+    'c.bgMode',
+    'c.bgColor',
+    'c.bgBlur',
+    'left.outfitTitle',
+    'left.featuresTitle',
+    'right.outfitTitle',
+    'right.featuresTitle',
+  ];
+  const toV1 = (key: string, drop: string[], dropTop: string[]) =>
+    page.evaluate(
+      ([key, drop, dropTop]) => {
+        const raw = JSON.parse(localStorage.getItem(key as string) ?? '{}');
+        for (const k of drop as string[]) delete raw.state.data.v[k];
+        for (const k of dropTop as string[]) delete raw.state.data[k];
+        raw.version = 1;
+        localStorage.setItem(key as string, JSON.stringify(raw));
+        return raw.state.data;
+      },
+      [key, drop, dropTop] as const,
+    );
+  const oldDuo = await toV1('trpg-toolkit:pair-maker:duo-sheet', DUO_NEW, []);
+  expect(oldDuo.v['c.bgMode']).toBeUndefined();
+  await page.reload();
+  await expect(notice(page, '已載入最近一次的編輯。')).toBeVisible();
+  await region(page, 'left/name').click();
+  await expect(page.getByRole('textbox', { name: '名字', exact: true })).toHaveValue('舊資料');
+  const { png: out } = await downloadPng(page);
+  expect(near(out.at(960, 100), [0xf3, 0xf1, 0xec])).toBe(true);
+  expect(ink(out, 400, 268, 670, 296)).toBeGreaterThan(20);
+  await openItem(page, 'left/looks');
+  await expect(page.getByRole('textbox', { name: '平常服裝：標題' })).toHaveValue('平常服裝');
+
+  /* 多人資料卡：沒有每列張數 → 3 */
+  await page.goto(`${URL}?t=roster`);
+  await expect(page.getByTestId('template-name')).toBeVisible();
+  const cols = page.getByRole('radiogroup', { name: '每列人數' });
+  await page.getByTestId('preview').getByRole('button', { name: '新增角色' }).click();
+  await page.waitForTimeout(600);
+  await cols.getByRole('radio', { name: '2 人' }).click();
+  for (let i = 0; i < 2; i++)
+    await page.getByTestId('preview').getByRole('button', { name: '新增角色' }).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '1230x1390');
+  await page.waitForTimeout(300);
+  /* 先存一份專案檔與存檔槽（之後改成版本 1 再讀） */
+  await page.getByRole('button', { name: '專案' }).click();
+  const zipDl = await download(page, page.getByRole('menuitem', { name: '存成專案檔…' }));
+  const entries = unzipSync(new Uint8Array(readFileSync((await zipDl.path()) as string)));
+  const project = JSON.parse(strFromU8(entries['project.json']));
+  await openProjectItem(page, '存檔槽…');
+  const slots = page.getByRole('dialog', { name: '存檔槽' });
+  await slots.getByRole('button', { name: '建立新的存檔槽' }).click();
+  await expect(slots.getByTestId('slot-list').getByRole('listitem')).toHaveCount(1);
+  await slots.getByRole('button', { name: '關閉' }).first().click();
+  /* 自動儲存（版本 1）→ 每列 3 張 */
+  await toV1('trpg-toolkit:pair-maker:roster', [], ['cols']);
+  await page.reload();
+  await expect(canvas(page)).toHaveAttribute('data-size', '1845x1390');
+  await expect(cols.getByRole('radio', { name: '3 人' })).toHaveAttribute('aria-checked', 'true');
+  /* 專案檔（版本 1、沒有 cols）→ 每列 3 張 */
+  await page.waitForTimeout(600);
+  await cols.getByRole('radio', { name: '4 人' }).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '2460x694');
+  delete project.data.draft.cols;
+  project.version = 1;
+  await page.getByRole('button', { name: '專案' }).click();
+  await page.getByRole('menuitem', { name: '開啟專案檔…' }).click();
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click(),
+  ]);
+  await chooser.setFiles(
+    file(
+      'old.zip',
+      Buffer.from(zipSync({ ...entries, 'project.json': strToU8(JSON.stringify(project)) })),
+      'application/zip',
+    ),
+  );
+  await expect(notice(page, '已開啟專案檔。')).toBeVisible();
+  await expect(canvas(page)).toHaveAttribute('data-size', '1845x1390');
+  /* 存檔槽（以前沒有記版本、沒有 cols）→ 每列 3 張 */
+  await page.waitForTimeout(600);
+  await cols.getByRole('radio', { name: '2 人' }).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '1230x1390');
+  const fixed = await page.evaluate(
+    () =>
+      new Promise<number>((resolve, reject) => {
+        const req = indexedDB.open('trpg-toolkit:tool:pair-maker:slots');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const db = req.result;
+          const tx = db.transaction('kv', 'readwrite');
+          const kv = tx.objectStore('kv');
+          let n = 0;
+          const cur = kv.openCursor();
+          cur.onsuccess = () => {
+            const c = cur.result;
+            if (!c) return;
+            const r = c.value;
+            if (r.templateId === 'roster') {
+              delete r.version;
+              delete r.data.cols;
+              c.update(r);
+              n++;
+            }
+            c.continue();
+          };
+          tx.oncomplete = () => {
+            db.close();
+            resolve(n);
+          };
+        };
+      }),
+  );
+  expect(fixed).toBe(1);
+  await openProjectItem(page, '存檔槽…');
+  await slots
+    .getByTestId('slot-list')
+    .getByRole('listitem')
+    .first()
+    .getByRole('button', { name: '讀取' })
+    .click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '讀取' }).click();
+  await expect(notice(page, '已讀取存檔槽。')).toBeVisible();
+  await expect(canvas(page)).toHaveAttribute('data-size', '1845x1390');
+  expect(errors).toEqual([]);
+});
+
+test('文字記錄：行尾的字不被欄邊切掉（雙欄配對的右欄、明體）（2026-10）', async ({ page }) => {
+  const errors = await open(page, 'log-duo');
+  const { png: out } = await downloadPng(page);
+  /* 右欄本文的框是 x 436～728、y 440～1030，每一行靠右：行尾的字形超出欄邊的部分要畫出來 */
+  expect(ink(out, 700, 440, 728, 1020, 235)).toBeGreaterThan(50);
+  expect(ink(out, 728, 440, 731, 1020, 235)).toBeGreaterThan(0);
+  expect(ink(out, 732, 440, 760, 1020, 235)).toBe(0);
   expect(errors).toEqual([]);
 });
 
