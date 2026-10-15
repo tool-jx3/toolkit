@@ -4,6 +4,7 @@
  */
 import { Redo2, Undo2 } from 'lucide-react';
 import { useEffect } from 'react';
+import { useAssetImage } from '@/core/assets';
 import { pickFiles } from '@/core/files';
 import { arrowDelta } from '@/core/layout';
 import { useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
@@ -19,7 +20,7 @@ import {
 import { initialState } from './model';
 import { AspectSection, FontSection, ListSection, PhotoSection, SelectedSection } from './Panel';
 import { Preview } from './Preview';
-import { loadPhotoFile, usePhotoBitmap } from './photo';
+import { loadPhotoFile } from './photo';
 import { importProject, projectAssetIds } from './project';
 import {
   assets,
@@ -105,7 +106,7 @@ function Settings() {
 function PreviewArea() {
   const loader = usePhotoLoader();
   const photoId = useMeme((s) => s.data.photo?.id ?? null);
-  const { bitmap, status } = usePhotoBitmap(photoId);
+  const { bitmap, status } = useAssetImage(assets, photoId);
   return <Preview bitmap={bitmap} status={status} onPick={() => void loader.pick()} />;
 }
 

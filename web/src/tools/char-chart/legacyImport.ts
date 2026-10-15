@@ -2,7 +2,7 @@
  * 把原作的檔案讀進來（規格 3.9）：解析（legacy.ts）→ 圖片的 data URL 放進圖片庫 → 取代目前的內容（一步復原）。
  * 讀不了的圖片：那個角色照樣加入（沒有圖片）。
  */
-import { loadCharacterImage } from './images';
+import { addImageFile } from '@/core/assets';
 import {
   dataUrlToBlob,
   fromBackupCode,
@@ -10,8 +10,8 @@ import {
   isRelationFile,
   type LegacyImport,
 } from './legacy';
-import { type ChartState, normalizeState } from './model';
-import { chartNow, replaceAll, usePrefs } from './store';
+import { type ChartState, IMAGE_MAX_SIDE, normalizeState } from './model';
+import { assets, chartNow, replaceAll, usePrefs } from './store';
 
 export interface LegacyResult {
   kind: LegacyImport['kind'];
@@ -37,7 +37,10 @@ async function apply(imp: LegacyImport): Promise<LegacyResult> {
       continue;
     }
     try {
-      const r = await loadCharacterImage(blob, c.name || `image-${i + 1}`);
+      const r = await addImageFile(assets, blob, {
+        name: c.name || `image-${i + 1}`,
+        maxSide: IMAGE_MAX_SIDE,
+      });
       if (!r.persisted) notSaved = true;
       c.image = r.ref;
       c.marker = 'image';

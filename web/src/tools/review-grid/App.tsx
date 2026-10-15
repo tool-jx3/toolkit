@@ -4,10 +4,10 @@
  */
 import { Redo2, Undo2 } from 'lucide-react';
 import { useEffect } from 'react';
+import { useAssetBitmaps } from '@/core/assets';
 import { useSaveError, useUndoRedo } from '@/core/storage';
 import { IconButton, type Shortcut, ToolShell, useToast, withShortcut } from '@/ui';
 import { CompareSection } from './CompareSection';
-import { useImageBitmaps } from './images';
 import { imageIds } from './model';
 import { CellEditor, CellsSection, LayoutSection, ProfileSection, TagsSection } from './Panels';
 import { PreviewArea } from './Preview';
@@ -28,7 +28,7 @@ function useAssetCleanup() {
 function Settings() {
   const toast = useToast();
   const d = useReview((s) => s.data);
-  const { bitmaps } = useImageBitmaps(imageIds(d));
+  const { bitmaps } = useAssetBitmaps(assets, imageIds(d));
   const saveError = useSaveError(TOOL_ID);
   useEffect(() => {
     if (saveError) toast({ title: S.saveFailed, tone: 'warning' });

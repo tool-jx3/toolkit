@@ -3,11 +3,11 @@
  */
 import { Download, MousePointer2, SquareDashedMousePointer } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import type { AssetImageStatus } from '@/core/assets';
 import { downloadBlob } from '@/core/files';
 import { Button, Notice, Segmented, Stage, useToast } from '@/ui';
 import { EditLayer } from './EditLayer';
 import { canvasSize, photoRect } from './model';
-import type { PhotoStatus } from './photo';
 import { drawMeme, ensureLabelFont, labelText, renderPng } from './render';
 import { memeNow, setMode, useMeme, useUi } from './store';
 import { type Mode, S } from './strings';
@@ -18,7 +18,7 @@ export function Preview({
   onPick,
 }: {
   bitmap: ImageBitmap | null;
-  status: PhotoStatus;
+  status: AssetImageStatus;
   onPick: () => void;
 }) {
   const d = useMeme((s) => s.data);

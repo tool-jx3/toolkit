@@ -1,26 +1,18 @@
 /**
- * 圖片：讀進資產庫（解碼確認 → 長邊超過 1024 時縮小 → 記成這次開頁的圖 → 存 IndexedDB），
+ * 圖片：讀進資產庫（共用的 `addImageFile`：解碼確認 → 長邊超過 1024 時縮小 → 存 IndexedDB；開頁的整理不刪這次開頁寫進的圖），
  * 以及卡片上的圖片網址（預覽：物件網址；互動 HTML：data URL 或待填的網址；網址加入的圖一律照樣用網址）
  * 與「去掉透明留白」的裁切範圍（圖片本身不改，顯示時才裁）。
  */
 import { useEffect, useMemo, useState } from 'react';
+import { addImageFile, ImageLoadError } from '@/core/assets';
 import { readAsDataUrl } from '@/core/files';
-import {
-  canvasToBlob,
-  dataUriToBlob,
-  getImageData,
-  loadImage,
-  opaqueBounds,
-  resizeImage,
-} from '@/core/image';
+import { dataUriToBlob, getImageData, loadImage, opaqueBounds } from '@/core/image';
 import { type Card, type CardSpec, cardImages } from './card';
 import type { ImageSource } from './markup';
 import { type Crop, IMAGE_MAX_SIDE, type ImageRef, imageKey } from './model';
 import { type ShareCrops, trimmedUrls } from './share';
 import { assets } from './store';
 import { S } from './strings';
-
-export class ImageLoadError extends Error {}
 
 export type AssetImage = Extract<ImageRef, { kind: 'asset' }>;
 
@@ -33,45 +25,10 @@ export interface LoadedImage {
 export const isImageFile = (f: File): boolean =>
   f.type.startsWith('image/') || (!f.type && /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(f.name));
 
-/** 讀一張圖進資產庫（解碼失敗丟 ImageLoadError） */
+/** 讀一張圖進資產庫（讀不了時丟 ImageLoadError） */
 export async function loadScratchImage(file: Blob, name: string): Promise<LoadedImage> {
-  let bmp: ImageBitmap;
-  try {
-    bmp = await loadImage(file);
-  } catch {
-    throw new ImageLoadError(name);
-  }
-  let blob: Blob = file;
-  try {
-    if (bmp.width < 1 || bmp.height < 1) throw new ImageLoadError(name);
-    const long = Math.max(bmp.width, bmp.height);
-    if (long > IMAGE_MAX_SIDE) {
-      const k = IMAGE_MAX_SIDE / long;
-      const canvas = resizeImage(
-        bmp,
-        Math.max(1, Math.round(bmp.width * k)),
-        Math.max(1, Math.round(bmp.height * k)),
-        { quality: 'smooth' },
-      );
-      blob =
-        file.type === 'image/jpeg'
-          ? await canvasToBlob(canvas, 'image/jpeg', 0.92)
-          : await canvasToBlob(canvas, 'image/png');
-    }
-  } finally {
-    bmp.close?.();
-  }
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  const added = await assets.add(new Blob([bytes], { type: blob.type }));
-  const check = await assets.bitmap(added.id).catch(() => undefined);
-  if (!check) {
-    await assets.remove(added.id).catch(() => undefined);
-    throw new ImageLoadError(name);
-  }
-  return {
-    ref: { kind: 'asset', id: added.id, name, width: check.width, height: check.height },
-    persisted: added.persisted,
-  };
+  const r = await addImageFile(assets, file, { name, maxSide: IMAGE_MAX_SIDE });
+  return { ref: { kind: 'asset', ...r.ref }, persisted: r.persisted };
 }
 
 /** data URL（原作的設定檔）→ 資產庫 */

@@ -5,8 +5,7 @@
  * Node 沒有 createImageBitmap 與 IndexedDB：解碼換成假的（每張 40 × 30），圖片只放在記憶體（persisted＝false）。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { assetIdFor } from '@/core/assets';
-import { loadReviewImage } from '@/tools/review-grid/images';
+import { addImageFile, assetIdFor } from '@/core/assets';
 import { openLegacyFile } from '@/tools/review-grid/legacyImport';
 import { initialState } from '@/tools/review-grid/model';
 import { placeNotice } from '@/tools/review-grid/notices';
@@ -55,7 +54,7 @@ describe('圖片庫的開頁整理（gcStale）', () => {
     const bytes = fakePng();
     const id = await assetIdFor(bytes);
     const h = hold('add');
-    const p = loadReviewImage(new Blob([bytes], { type: 'image/png' }), 'a.png');
+    const p = addImageFile(assets, new Blob([bytes], { type: 'image/png' }), { name: 'a.png' });
     await vi.waitFor(() => expect(h.held()).toBe(1));
     expect(assets.has(id)).toBe(true);
     await assets.gcStale(referencedImages());

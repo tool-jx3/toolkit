@@ -2,11 +2,11 @@
  * 把原作的資料備份讀進來（規格 3.8）：解析（legacy.ts）→ 圖片的 data URL 放進圖片庫 → 換掉個人資料與格子（一步復原）。
  * 排列、圖片比例、心得標籤清單留著（原作的備份沒有這些）。讀不了的圖片：那一格照樣讀進來（沒有圖片）。
  */
+import { addImageFile } from '@/core/assets';
 import { dataUriToBlob } from '@/core/image';
-import { loadReviewImage } from './images';
 import { fromLegacyBackup, isLegacyBackup } from './legacy';
-import { type ImageRef, normalizeState, type ReviewState } from './model';
-import { replaceAll, reviewNow } from './store';
+import { IMAGE_MAX_SIDE, type ImageRef, normalizeState, type ReviewState } from './model';
+import { assets, replaceAll, reviewNow } from './store';
 
 export interface LegacyResult {
   cells: number;
@@ -23,7 +23,7 @@ type Loaded = { ref: ImageRef; persisted: boolean } | 'failed' | null;
 async function toImage(url: string | null, name: string): Promise<Loaded> {
   if (!url) return null;
   try {
-    return await loadReviewImage(dataUriToBlob(url), name);
+    return await addImageFile(assets, dataUriToBlob(url), { name, maxSide: IMAGE_MAX_SIDE });
   } catch {
     return 'failed';
   }

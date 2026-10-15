@@ -12,9 +12,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { loadAssetBitmaps, useAssetBitmaps } from '@/core/assets';
 import { downloadBlob, safeFileName } from '@/core/files';
 import { Button, IconButton, Notice, Segmented, Stage, useConfirm, useToast } from '@/ui';
-import { loadBitmaps, useImageBitmaps } from './images';
 import {
   type ChartKind,
   type ChartState,
@@ -40,6 +40,7 @@ import {
 import {
   activeLegendOf,
   addPage,
+  assets,
   canAddPage,
   chartNow,
   currentPageIndex,
@@ -57,7 +58,7 @@ import { S } from './strings';
 export function PreviewArea() {
   const chart = usePrefs((s) => s.data.chart);
   const d = useChart((s) => s.data);
-  const { bitmaps, missing } = useImageBitmaps(imageIds(d));
+  const { bitmaps, missing } = useAssetBitmaps(assets, imageIds(d));
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <Segmented<ChartKind>
@@ -266,7 +267,7 @@ function ExportBar({ chart, d }: { chart: ChartKind; d: ChartState }) {
     setBusy(true);
     try {
       const now = chartNow();
-      const bitmaps = await loadBitmaps(imageIds(now));
+      const bitmaps = await loadAssetBitmaps(assets, imageIds(now));
       const s = usePrefs.getState().data.scale;
       let blob: Blob;
       let title: string;

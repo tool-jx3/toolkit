@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { type AddedImage, addImageFile, splitImageFiles } from '@/core/assets';
 import {
   Button,
   Checkbox,
@@ -30,10 +31,10 @@ import {
   useConfirm,
   useToast,
 } from '@/ui';
-import { type LoadedImage, loadCharacterImage, splitImageFiles } from './images';
 import {
   type Character,
   type ChartKind,
+  IMAGE_MAX_SIDE,
   LIMITS,
   MARKERS,
   type Marker,
@@ -43,6 +44,7 @@ import {
 import { releaseFocus } from './QuadLayer';
 import {
   addCharacter,
+  assets,
   canAddCharacter,
   clearCharacters,
   currentPageIndex,
@@ -98,7 +100,7 @@ function Thumb({ c, bitmaps, size = 32 }: { c: Character; bitmaps: Bitmaps; size
  */
 function useSingleImage() {
   const toast = useToast();
-  return async (files: File[]): Promise<LoadedImage | null> => {
+  return async (files: File[]): Promise<AddedImage | null> => {
     const { images, others } = await splitImageFiles(files.slice(0, 1));
     const f = images[0];
     if (!f) {
@@ -107,7 +109,7 @@ function useSingleImage() {
       return null;
     }
     try {
-      const r = await loadCharacterImage(f);
+      const r = await addImageFile(assets, f, { maxSide: IMAGE_MAX_SIDE });
       if (!r.persisted) toast({ title: S.imageNotSaved, tone: 'warning' });
       return r;
     } catch {
@@ -188,7 +190,7 @@ function AddForm({ chart, disabled }: { chart: ChartKind; disabled: boolean }) {
   const count = useChart((s) => s.data.characters.length);
   const [name, setName] = useState('');
   const [color, setColor] = useState(suggestedColor);
-  const [image, setImage] = useState<LoadedImage | null>(null);
+  const [image, setImage] = useState<AddedImage | null>(null);
   const [error, setError] = useState(false);
   const nameInput = useRef<HTMLInputElement>(null);
   /* 角色變多變少時（加入、刪除、復原），預設顏色跟著換成下一個沒人用的 */

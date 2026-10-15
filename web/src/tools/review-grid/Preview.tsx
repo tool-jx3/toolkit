@@ -4,6 +4,7 @@
  */
 import { Download } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { loadAssetBitmaps, useAssetBitmaps } from '@/core/assets';
 import { downloadBlob } from '@/core/files';
 import { drawScene, type HitRegion, hitRegionAt } from '@/core/scene';
 import {
@@ -16,12 +17,12 @@ import {
   useToast,
   WindowDrop,
 } from '@/ui';
-import { loadBitmaps, useImageBitmaps } from './images';
 import { cardFontUses, layoutCard } from './layout';
 import { imageIds } from './model';
 import { layoutEnv, loadCardFonts, outputScale, renderCardPng } from './render';
 import { revealSection } from './reveal';
 import {
+  assets,
   type ExportScale,
   reviewNow,
   select,
@@ -45,7 +46,7 @@ const targetOf = (key: string | null | undefined): Target | null =>
 export function PreviewArea() {
   const d = useReview((s) => s.data);
   const selectedId = useUi((s) => s.selectedId);
-  const { bitmaps, missing } = useImageBitmaps(imageIds(d));
+  const { bitmaps, missing } = useAssetBitmaps(assets, imageIds(d));
   const { place } = usePlaceImages();
 
   /* 字型：用到的字載入後重新排版（字寬會變） */
@@ -195,7 +196,7 @@ function ExportBar({ width: baseW, height: baseH }: { width: number; height: num
     setBusy(true);
     try {
       const now = reviewNow();
-      const images = await loadBitmaps(imageIds(now));
+      const images = await loadAssetBitmaps(assets, imageIds(now));
       const want = usePrefs.getState().data.scale;
       const r = await renderCardPng(now, images, want);
       const name = `${now.view === 'grid' ? S.fileGrid : S.fileList}.png`;
