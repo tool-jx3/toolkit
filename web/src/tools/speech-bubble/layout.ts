@@ -1,17 +1,28 @@
 /**
  * 排版（規格 3.1、3.3）：量文字、換行、算每個泡泡的大小與內容的位置，再把泡泡排到畫布上。
  * 純函式；字寬由 measure 提供（瀏覽器用 canvas，單元測試用假的）。
+ * 2026-10：樣式的其他項目（字距、對齊、內距、圓角、尾巴與角、陰影、說話者與日期…，`LayoutOptions.fmt`）；
+ * 不給或是預設值時，每一個數值的算法都和以前相同（沒用到新功能時輸出不變）。
  */
 import { type FontValue, fontCss } from '@/core/fonts';
 import { anchorRatio } from '@/core/typeset/fit';
 import type { MeasureFn } from '@/core/typeset/measure';
 import { breakText } from '@/core/typeset/wrap';
-import { type Bubble, MAX_CANVAS, type SbData, singleLine } from './model';
-import { type StyleSpec, styleOf } from './styles';
+import {
+  type Bubble,
+  type CornerId,
+  DEFAULT_FMT,
+  type Fmt,
+  MAX_CANVAS,
+  type MetaModeId,
+  type SbData,
+  singleLine,
+} from './model';
+import { type StyleSpec, styleOf, type TailKind } from './styles';
 
 export interface TextLine {
   chars: string[];
-  /** 每個字的前進寬度 */
+  /** 每個字的前進寬度（含字距） */
   adv: number[];
   w: number;
   /** 行的左緣（相對於泡泡左上角） */
@@ -32,6 +43,28 @@ export interface Extents {
   t: number;
   r: number;
   b: number;
+}
+
+/** 說話者與日期的版面（相對於泡泡本體左上角；本體外的部分算進 ext） */
+export interface MetaLayout {
+  mode: Exclude<MetaModeId, 'off'>;
+  color: string;
+  /** 字級、行高 */
+  size: number;
+  lh: number;
+  /** 名字（粗體）與日期時間的字型 */
+  nameFont: string;
+  timeFont: string;
+  speaker: string;
+  time: string;
+  nameW: number;
+  timeW: number;
+  /** 名字、日期時間、中間的「・」的左緣與中線；沒有就是 null */
+  name: { x: number; cy: number } | null;
+  timeAt: { x: number; cy: number } | null;
+  sep: { x: number; cy: number } | null;
+  /** 泡泡內時的分隔線 */
+  divider: { x0: number; x1: number; y: number } | null;
 }
 
 export interface BubbleLayout {
@@ -72,6 +105,23 @@ export interface BubbleLayout {
   /** 畫出來會超出本體的範圍 */
   ext: Extents;
   align: Bubble['align'];
+  /* ---- 2026-10 的樣式（預設值時畫法和以前相同） ---- */
+  /** 實際的尾巴（「尾巴與角」選了沒有尾巴時是 none） */
+  tail: TailKind;
+  corner: CornerId;
+  /** 圓角（畫布 px）；null＝造型預設 */
+  radius: number | null;
+  /** 邊框粗細的倍數 */
+  borderScale: number;
+  /** 柔和陰影：跟著「版面」（auto）／一律開／一律關 */
+  softShadow: Fmt['softShadow'];
+  /** 底部實色陰影 */
+  solid: { color: string; offset: number } | null;
+  /** 想法泡泡的雲朵大小 */
+  puff: number;
+  /** 字距（畫布 px） */
+  ls: number;
+  meta: MetaLayout | null;
 }
 
 export interface LayoutOptions {
@@ -80,7 +130,20 @@ export interface LayoutOptions {
   lineHeight: number;
   wrapWidth: number;
   shadow: boolean;
+  /**
+   * 2026-10：樣式的其他項目（不給＝預設，和以前相同）。字型、字級、行距已經換算進上面三個欄位，
+   * 這裡的 font／fontSize／lineHeight 不看。
+   */
+  fmt?: Fmt;
+  /** 說話者與日期的字型（不給＝和內文相同） */
+  metaFont?: FontValue;
 }
+
+/** 排版需要的泡泡內容（測試、縮圖可以只給這些） */
+export type LayoutInput = Pick<Bubble, 'style' | 'title' | 'text' | 'icon' | 'button' | 'align'> & {
+  speaker?: string;
+  time?: string;
+};
 
 export const boldWeight = (w: number): number => Math.min(900, Math.max(700, w));
 
@@ -107,12 +170,17 @@ const graphemes = (s: string): string[] => {
   return Array.from(s);
 };
 
-const widthOf = (unit: Unit, font: string, s: string): number =>
+export const widthOf = (unit: Unit, font: string, s: string): number =>
   graphemes(s).reduce((sum, ch) => sum + unit(font, ch), 0);
 
+/** 實際的尾巴：「全圓」沒有尾巴；「尖角」時訊息泡泡的小勾換成尖角（漫畫、想法泡泡照舊） */
+export const effectiveTail = (spec: StyleSpec, corner: CornerId): TailKind =>
+  corner === 'round' ? 'none' : corner === 'point' && spec.tail === 'hook' ? 'none' : spec.tail;
+
 /** 一個泡泡的版面（規格 3.3） */
-export function layoutBubble(b: Bubble, o: LayoutOptions, unit: Unit): BubbleLayout {
+export function layoutBubble(b: LayoutInput, o: LayoutOptions, unit: Unit): BubbleLayout {
   const spec = styleOf(b.style);
+  const f = o.fmt ?? DEFAULT_FMT;
   const fs = o.fontSize;
   const lineH = fs * o.lineHeight;
   const ts = Math.round(fs * spec.titleScale * 10) / 10;
@@ -124,17 +192,21 @@ export function layoutBubble(b: Bubble, o: LayoutOptions, unit: Unit): BubbleLay
   );
   const bs = Math.round(fs * 0.72 * 10) / 10;
   const buttonFont = fontCss({ family: o.font.family, weight: boldWeight(o.font.weight) }, bs);
+  const ls = f.letterSpacing;
+  const bodyUnit = ls ? (ch: string) => unit(font, ch) + ls : (ch: string) => unit(font, ch);
 
   /* 內文：保留原本的換行，超過寬度上限自動換行（中文逐字、英文單字不切、避頭尾） */
   const text = b.text.replace(/\s+$/, '');
   const raw = text
-    ? breakText(text, { limit: o.wrapWidth, unit: (ch) => unit(font, ch), segment: 'grapheme' })
+    ? breakText(text, { limit: o.wrapWidth, unit: bodyUnit, segment: 'grapheme' })
     : [];
   const lines: TextLine[] = raw.map((chars) => {
-    const adv = chars.map((ch) => unit(font, ch));
+    const adv = chars.map(bodyUnit);
     return { chars, adv, w: adv.reduce((s, v) => s + v, 0), x: 0, cy: 0 };
   });
-  const textW = lines.reduce((m, l) => Math.max(m, l.w), 0);
+  const fitW = lines.reduce((m, l) => Math.max(m, l.w), 0);
+  /* 寬度不貼合文字：內文的寬度固定是文字寬度上限 */
+  const textW = f.fitWidth ? fitW : Math.max(fitW, o.wrapWidth);
   const textH = lines.length * lineH;
   const chars = lines.reduce((s, l) => s + l.chars.length, 0);
 
@@ -145,10 +217,10 @@ export function layoutBubble(b: Bubble, o: LayoutOptions, unit: Unit): BubbleLay
   const buttonW = button ? widthOf(unit, buttonFont, button) : 0;
 
   const [pt0, pr0, pb0, pl0] = spec.pad;
-  const pt = pt0 * fs;
-  const pr = pr0 * fs;
-  const pb = pb0 * fs;
-  const pl = pl0 * fs;
+  const pt = pt0 * fs * f.padY;
+  const pr = pr0 * fs * f.padX;
+  const pb = pb0 * fs * f.padY;
+  const pl = pl0 * fs * f.padX;
 
   /* 圖示欄 */
   const hasIcon = spec.icon !== 'none' && b.icon !== 'none';
@@ -161,6 +233,19 @@ export function layoutBubble(b: Bubble, o: LayoutOptions, unit: Unit): BubbleLay
         : fs * 1.6;
   const iconGap = !hasIcon ? 0 : spec.icon === 'badge' ? ts * 0.55 : fs * 0.6;
   const iconCol = hasIcon ? iconSize + iconGap : 0;
+
+  /* 說話者與日期 */
+  const speaker = singleLine(b.speaker ?? '').trim();
+  const timeText = singleLine(b.time ?? '').trim();
+  const metaMode = f.meta !== 'off' && (speaker || timeText) ? f.meta : null;
+  const mFont = o.metaFont ?? o.font;
+  const ms = Math.round(fs * f.metaScale * 10) / 10;
+  const metaLH = ms * 1.3;
+  const nameFont = fontCss({ family: mFont.family, weight: boldWeight(mFont.weight) }, ms);
+  const timeFont = fontCss(mFont, ms);
+  const nameW = metaMode && speaker ? widthOf(unit, nameFont, speaker) : 0;
+  const timeW = metaMode && timeText ? widthOf(unit, timeFont, timeText) : 0;
+  const sepW = speaker && timeText ? ms * 1.1 : 0;
 
   /* 內容（標題＋內文） */
   const gapTT = fs * 0.25;
@@ -187,6 +272,15 @@ export function layoutBubble(b: Bubble, o: LayoutOptions, unit: Unit): BubbleLay
   if (button) {
     innerH += (blockH > 0 ? fs * 0.7 : 0) + btnH;
     innerW = Math.max(innerW, btnW);
+  }
+  /* 說話者與日期在泡泡裡：最下面加一列（分隔線＋名字・日期時間） */
+  const innerBase = innerH;
+  const inside = metaMode === 'inside';
+  const rowGap = ms * 0.7;
+  const rowW = nameW + sepW + timeW;
+  if (inside) {
+    innerH += rowGap + metaLH;
+    innerW = Math.max(innerW, rowW);
   }
 
   let barH = 0;
@@ -231,10 +325,12 @@ export function layoutBubble(b: Bubble, o: LayoutOptions, unit: Unit): BubbleLay
   const contentW = areaW - iconCol;
   const content: Rect = { x: contentLeft, y: top, w: contentW, h: innerH };
 
-  /* 標題與內文的位置 */
-  const center = spec.textAlign === 'center';
+  /* 標題與內文的位置（文字對齊：造型預設或自己選的靠左／置中／靠右） */
+  const ha = f.textAlign === 'auto' ? spec.textAlign : f.textAlign;
+  const center = ha === 'center';
+  const right = ha === 'right';
   const placeLine = (lw: number, left: number, width: number) =>
-    center ? left + (width - lw) / 2 : left;
+    center ? left + (width - lw) / 2 : right ? left + width - lw : left;
   let titleX = 0;
   let titleCy = 0;
   let textTop = top;
@@ -267,18 +363,22 @@ export function layoutBubble(b: Bubble, o: LayoutOptions, unit: Unit): BubbleLay
     titleX = tagBox.x + (tagBox.w - titleW) / 2;
     titleCy = 0;
   }
-  const blockTextW = mode === 'side' ? textW : center ? contentW : textW;
+  const blockTextW = mode === 'side' ? textW : center || right ? contentW : textW;
   lines.forEach((l, i) => {
     l.x =
       mode === 'side'
         ? center
           ? textLeft + (textAreaW - l.w) / 2
-          : textLeft
-        : placeLine(l.w, textLeft, center ? textAreaW : blockTextW);
+          : right
+            ? textLeft + textAreaW - l.w
+            : textLeft
+        : placeLine(l.w, textLeft, center || right ? textAreaW : blockTextW);
     l.cy = textTop + i * lineH + lineH / 2;
   });
   /* 左側標題對齊內文的第一行 */
   if (mode === 'side' && lines.length) titleCy = lines[0].cy;
+  /* 文字上下微調（只移動內文） */
+  if (f.textDy) for (const l of lines) l.cy += f.textDy;
 
   let icon: BubbleLayout['icon'] = null;
   if (hasIcon) {
@@ -290,10 +390,11 @@ export function layoutBubble(b: Bubble, o: LayoutOptions, unit: Unit): BubbleLay
     icon = { cx, cy, size: iconSize };
   }
   const buttonBox: Rect | null = button
-    ? { x: w - pr - btnW, y: top + innerH - btnH, w: btnW, h: btnH }
+    ? { x: w - pr - btnW, y: top + innerBase - btnH, w: btnW, h: btnH }
     : null;
 
   /* 超出本體的範圍：名字、名牌、尾巴、光暈、陰影 */
+  const tail = effectiveTail(spec, f.corner);
   const ext: Extents = { l: 2, t: 2, r: 2, b: 2 };
   if (mode === 'outside' && hasTitle) {
     ext.t += titleLH + fs * 0.15;
@@ -306,19 +407,20 @@ export function layoutBubble(b: Bubble, o: LayoutOptions, unit: Unit): BubbleLay
           : fs * 0.3;
   }
   if (tagBox) ext.t = Math.max(ext.t, tagBox.h / 2 + 2);
-  if (spec.tail === 'hook') {
+  if (tail === 'hook') {
     ext.b += fs * 0.4;
     if (b.align === 'left') ext.l += fs * 0.35;
     if (b.align === 'right') ext.r += fs * 0.35;
   }
-  if (spec.tail === 'point') ext.b += fs * 1.25;
-  if (spec.tail === 'dots') ext.b += fs * 1.8;
-  const ov = spec.overflow * fs;
+  if (tail === 'point') ext.b += fs * 1.25;
+  if (tail === 'dots') ext.b += fs * 1.8;
+  const ov = spec.overflow * fs * (spec.id === 'thought' ? f.cloudPuff : 1);
   ext.l += ov;
   ext.r += ov;
   ext.t += ov;
   ext.b += ov;
-  if (spec.shadow && o.shadow) {
+  const shadowExt = f.softShadow === 'auto' ? spec.shadow && o.shadow : f.softShadow === 'on';
+  if (shadowExt) {
     const blur = fs * 0.6;
     const off = fs * 0.22;
     ext.l += blur;
@@ -326,6 +428,96 @@ export function layoutBubble(b: Bubble, o: LayoutOptions, unit: Unit): BubbleLay
     ext.t += Math.max(0, blur - off);
     ext.b += blur + off;
   }
+  if (f.solidShadow) ext.b += f.solidOffset;
+
+  /* 說話者與日期 */
+  let meta: MetaLayout | null = null;
+  if (metaMode) {
+    meta = {
+      mode: metaMode,
+      color: f.metaColor,
+      size: ms,
+      lh: metaLH,
+      nameFont,
+      timeFont,
+      speaker,
+      time: timeText,
+      nameW,
+      timeW,
+      name: null,
+      timeAt: null,
+      sep: null,
+      divider: null,
+    };
+    if (inside) {
+      const rowAlign = b.align === 'right' ? 'right' : ha;
+      const rx =
+        rowAlign === 'center'
+          ? contentLeft + (contentW - rowW) / 2
+          : rowAlign === 'right'
+            ? contentLeft + contentW - rowW
+            : contentLeft;
+      const cy = top + innerBase + rowGap + metaLH / 2;
+      if (speaker) meta.name = { x: rx, cy };
+      if (sepW) meta.sep = { x: rx + nameW, cy };
+      if (timeText) meta.timeAt = { x: rx + nameW + sepW, cy };
+      meta.divider = {
+        x0: contentLeft,
+        x1: contentLeft + contentW,
+        y: top + innerBase + rowGap * 0.4,
+      };
+    } else {
+      /* 泡泡外：放在名字、名牌、光暈的外面 */
+      const gapM = ms * 0.35;
+      const edge = fs * 0.3;
+      const above =
+        (mode === 'outside' && hasTitle ? titleLH + fs * 0.15 : 0) +
+        (tagBox ? tagBox.h / 2 : 0) +
+        ov;
+      const placeX = (wd: number) =>
+        b.align === 'right' ? w - wd - edge : b.align === 'center' ? (w - wd) / 2 : edge;
+      const m2 = metaMode === 'side' && b.align === 'center' ? 'above' : metaMode;
+      if (m2 === 'above' || m2 === 'header') {
+        const gapNT = speaker && timeText ? ms * 0.6 : 0;
+        const rowOut = m2 === 'header' ? nameW + gapNT + timeW : nameW;
+        if (rowOut > 0) {
+          const cy = -(above + gapM + metaLH / 2);
+          const x = placeX(rowOut);
+          if (speaker) meta.name = { x, cy };
+          if (m2 === 'header' && timeText) meta.timeAt = { x: x + nameW + gapNT, cy };
+          ext.t = Math.max(ext.t, above + gapM + metaLH + 2);
+        }
+        if (m2 === 'above' && timeText) {
+          const cy = h - metaLH / 2;
+          const need = ov + gapM + timeW + 2;
+          if (b.align === 'right') {
+            meta.timeAt = { x: -(ov + gapM + timeW), cy };
+            ext.l = Math.max(ext.l, need);
+          } else {
+            meta.timeAt = { x: w + ov + gapM, cy };
+            ext.r = Math.max(ext.r, need);
+          }
+        }
+      } else {
+        /* 旁邊：靠左的泡泡放在左邊、靠右的放在右邊（外側），上緣對齊泡泡 */
+        const leftSide = b.align === 'left';
+        const edgeX = leftSide ? -(ov + gapM) : w + ov + gapM;
+        const xOf = (wd: number) => (leftSide ? edgeX - wd : edgeX);
+        let cy = metaLH / 2;
+        if (speaker) {
+          meta.name = { x: xOf(nameW), cy };
+          cy += metaLH;
+        }
+        if (timeText) meta.timeAt = { x: xOf(timeW), cy };
+        const need = ov + gapM + Math.max(nameW, timeW) + 2;
+        if (leftSide) ext.l = Math.max(ext.l, need);
+        else ext.r = Math.max(ext.r, need);
+        const blockOut = (speaker ? metaLH : 0) + (timeText ? metaLH : 0);
+        ext.b = Math.max(ext.b, blockOut - h + 2);
+      }
+    }
+  }
+
   /* 尾巴的位置：訊息泡泡在角落，漫畫、想法泡泡在底部約三成處 */
   const inset = spec.tail === 'hook' ? fs * 1.1 : w * 0.28;
   const tailX = b.align === 'right' ? w - inset : b.align === 'center' ? w / 2 : inset;
@@ -357,6 +549,15 @@ export function layoutBubble(b: Bubble, o: LayoutOptions, unit: Unit): BubbleLay
     tailX,
     ext,
     align: b.align,
+    tail,
+    corner: f.corner,
+    radius: f.radius,
+    borderScale: f.borderScale,
+    softShadow: f.softShadow,
+    solid: f.solidShadow ? { color: f.solidColor, offset: f.solidOffset } : null,
+    puff: f.cloudPuff,
+    ls,
+    meta,
   };
 }
 
@@ -505,15 +706,33 @@ export interface CanvasPlan {
 }
 
 /** 畫布大小與內容的位置（規格 3.1） */
+/** 比例畫布的寬高比（寬:高） */
+export const CANVAS_RATIOS = { square: [1, 1], story: [9, 16], wide: [16, 9] } as const;
+
+/** 畫布大小與內容的位置（規格 3.1） */
 export function planCanvas(
   content: { width: number; height: number },
-  o: Pick<SbData, 'canvasMode' | 'margin' | 'width' | 'height' | 'anchor'>,
+  o: Pick<SbData, 'canvasMode' | 'margin' | 'width' | 'height' | 'anchor'> & {
+    minHeight?: number;
+  },
 ): CanvasPlan {
   const m = o.margin;
+  const minH = o.minHeight ?? 0;
   if (o.canvasMode === 'auto') {
     const wantW = Math.ceil(content.width + 2 * m - 1e-6);
     const wantH = Math.ceil(content.height + 2 * m - 1e-6);
     const width = Math.max(1, Math.min(MAX_CANVAS, wantW));
+    if (minH > wantH) {
+      /* 最小高度撐高：多出來的高度依內容位置的上下比例分配 */
+      const height = Math.min(MAX_CANVAS, minH);
+      return {
+        width,
+        height,
+        ox: m + (width - (content.width + 2 * m)) / 2,
+        oy: m + (height - 2 * m - content.height) * anchorRatio(o.anchor).y,
+        overflow: wantW > MAX_CANVAS || minH > MAX_CANVAS,
+      };
+    }
     const height = Math.max(1, Math.min(MAX_CANVAS, wantH));
     /* 進位多出來的不到 1 px 平均分到兩邊 */
     return {
@@ -525,6 +744,24 @@ export function planCanvas(
     };
   }
   const { x: ax, y: ay } = anchorRatio(o.anchor);
+  if (o.canvasMode !== 'fixed') {
+    /* 比例畫布：放得下內容（與最小高度）的最小整數倍，例如 9:16 是 9k × 16k */
+    const [rw, rh] = CANVAS_RATIOS[o.canvasMode];
+    const needW = content.width + 2 * m;
+    const needH = Math.max(content.height + 2 * m, minH);
+    const want = Math.max(1, Math.ceil(Math.max(needW / rw, needH / rh) - 1e-6));
+    const kMax = Math.floor(MAX_CANVAS / Math.max(rw, rh));
+    const k = Math.min(want, kMax);
+    const width = rw * k;
+    const height = rh * k;
+    return {
+      width,
+      height,
+      ox: m + (width - 2 * m - content.width) * ax,
+      oy: m + (height - 2 * m - content.height) * ay,
+      overflow: want > kMax,
+    };
+  }
   const width = o.width;
   const height = o.height;
   return {

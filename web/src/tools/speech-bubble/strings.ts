@@ -1,17 +1,26 @@
 /**
  * 動態對話泡泡產生器的介面文字（繁中；用詞照 DESIGN.md 第 5 節）。
  */
+import type { ChatFormat } from './chatImport';
 import type {
   Align,
   Arrange,
+  CornerId,
   CursorId,
+  DividerId,
   EnterId,
   ExitId,
   IconId,
   IdleId,
+  ImageFitId,
+  MetaModeId,
+  NoteAlignId,
   OrderId,
+  ShadowModeId,
   StyleId,
+  TextAlignId,
   TextAnimId,
+  TextureId,
 } from './model';
 import type { CategoryId } from './presets';
 import type { StyleGroup } from './styles';
@@ -174,13 +183,89 @@ export const CURSOR_NAMES: Record<CursorId, string> = {
 
 export const ORDER_NAMES: Record<OrderId, string> = { list: '清單順序', random: '隨機' };
 
+/* ---------- 2026-10：對話卡片 ---------- */
+
+/** 三側（「兩側的預設」的分頁、說明用） */
+export const SIDE_NAMES: Record<Align, string> = { left: '靠左', center: '置中', right: '靠右' };
+
+export const TEXT_ALIGN_NAMES: Record<TextAlignId, string> = {
+  auto: '預設',
+  left: '靠左',
+  center: '置中',
+  right: '靠右',
+};
+
+export const CORNER_NAMES: Record<CornerId, string> = {
+  auto: '造型預設',
+  point: '尖角',
+  round: '全圓',
+};
+
+export const SHADOW_MODE_NAMES: Record<ShadowModeId, string> = {
+  auto: '跟著版面',
+  on: '開',
+  off: '關',
+};
+
+export const META_MODE_NAMES: Record<MetaModeId, string> = {
+  above: '名字在上方、時間在旁邊',
+  header: '名字與時間都在上方',
+  side: '名字與時間在泡泡旁邊',
+  inside: '泡泡裡的最下面',
+  off: '不顯示',
+};
+
+export const TEXTURE_NAMES: Record<TextureId, string> = {
+  none: '沒有',
+  paper: '紙張',
+  grain: '顆粒',
+  crumple: '皺紙',
+  grid: '方格',
+  dots: '點格',
+  lines: '橫線',
+};
+
+export const IMAGE_FIT_NAMES: Record<ImageFitId, string> = {
+  cover: '蓋滿',
+  contain: '完整',
+  repeat: '重複',
+};
+
+export const DIVIDER_NAMES: Record<DividerId, string> = {
+  none: '不畫',
+  solid: '實線',
+  dashed: '虛線',
+  double: '雙線',
+};
+
+export const NOTE_ALIGN_NAMES: Record<NoteAlignId, string> = {
+  left: '靠左',
+  center: '置中',
+  right: '靠右',
+};
+
+export const CHAT_FORMAT_NAMES: Record<ChatFormat | 'auto', string> = {
+  auto: '自動判斷',
+  colon: '名字：內容',
+  line: 'LINE 聊天記錄',
+  discord: 'Discord 訊息',
+  plain: '一行一則（沒有名字）',
+};
+
+export const DATE_MODE_NAMES = {
+  none: '不帶入',
+  time: '只有時間',
+  datetime: '日期＋時間',
+} as const;
+
 export const S = {
   toolName: '動態對話泡泡產生器',
   usage: [
     '在「範本一覽」選一個喜歡的範本（可以用分類或關鍵字找），就會進到編輯畫面。',
-    '在「泡泡」分頁改文字：每個泡泡可以換造型、名字或標題、圖示、位置與配色；可以新增到 12 個泡泡。',
-    '在「動畫」分頁選登場、停留、文字出現與退場的動作，調整間隔與停留時間；「版面」分頁改字型、排列與畫布。',
-    '右邊的預覽會一直循環播放；確認後在下方選格式（APNG、GIF、WebP…）匯出透明背景的動畫。',
+    '在「泡泡」分頁改文字：每個泡泡可以換造型、名字或標題、說話者與日期時間、圖示、位置與配色；可以新增到 40 個泡泡。「整段貼上」可以把一段對話（「名字：內容」、LINE 匯出的聊天記錄、Discord 複製的訊息）一次拆成泡泡。',
+    '「樣式」分頁設定靠左、置中、靠右三側各自的預設樣式（造型、配色、字型、內距、圓角、陰影、說話者與日期…），改了會套用到那一側沒有單獨改過的泡泡；整組樣式可以存成樣式預設、匯出成檔案。',
+    '在「動畫」分頁選登場、停留、文字出現與退場的動作，調整間隔與停留時間；「版面」分頁改字型、排列、畫布（自動、正方形、限動、橫幅、自訂）與卡片底（底色、背景圖、紋理、頁首頁尾）。',
+    '右邊的預覽會一直循環播放；按預覽上方的「拖曳調整位置」可以直接拖曳泡泡。確認後在下方選格式（APNG、GIF、WebP、PNG…）匯出；沒有卡片底時背景透明。',
     '設定會自動存在這個瀏覽器；要換電腦或備份時用「專案」選單存成專案檔。',
   ],
   undo: '復原',
@@ -215,7 +300,7 @@ export const S = {
   nextPreset: '下一個範本',
   backToGallery: '範本一覽',
   tabsLabel: '設定分類',
-  tabs: { bubbles: '泡泡', motion: '動畫', layout: '版面' },
+  tabs: { bubbles: '泡泡', style: '樣式', motion: '動畫', layout: '版面' },
   /* 泡泡 */
   listTitle: '泡泡清單',
   listLabel: '泡泡清單（依畫的順序）',
@@ -293,7 +378,13 @@ export const S = {
   shadowHint: '卡片、視窗、紙張類的造型下方加一層柔和的陰影。',
   canvasSection: '畫布',
   canvasMode: '畫布大小',
-  canvasModes: { auto: '自動', fixed: '自訂' } as const,
+  canvasModes: {
+    auto: '自動',
+    square: '方形',
+    story: '限動',
+    wide: '橫幅',
+    fixed: '自訂',
+  } as const,
   margin: '留白',
   marginHint: '自動畫布：內容四周的留白（動畫超出的部分也要靠它容納）。',
   marginFixedHint: '自訂畫布：內容離畫布邊緣的距離。',
@@ -317,6 +408,185 @@ export const S = {
   lossless: (n: number) => `${n} 色（無損）`,
   colorCount: (n: number) => `${n} 色`,
   noContent: '泡泡裡沒有文字，沒有東西可以匯出。',
+  /* ---- 2026-10：對話卡片 ---- */
+  speaker: '說話者',
+  speakerPlaceholder: '對話卡片上顯示的名字（空白就不顯示）',
+  time: '日期時間',
+  timePlaceholder: '例如 下午 2:30（照打的顯示）',
+  metaHint: '顯示的位置、顏色與字型在「樣式」分頁的「說話者與日期」。',
+  offsetLabel: '拖曳的位移',
+  offsetValue: (x: number, y: number) => `往右 ${x} px、往下 ${y} px`,
+  resetOffset: '回到排列的位置',
+  resetAllOffsets: '全部回到排列的位置',
+  lookSection: '這個泡泡的樣式',
+  lookHint:
+    '這裡改的項目會標示「單獨調整」，不跟著「樣式」分頁的兩側預設；沒有標示的項目跟著這一側的預設。',
+  customBadge: '單獨調整',
+  resetLook: '回到這一側的預設',
+  resetLookHint: '取消這個泡泡所有單獨調整的樣式。',
+  saveAsSide: '存成這一側的預設',
+  saveAsSideHint: '把這個泡泡的樣式當成這一側的預設（同一側沒有單獨改過的泡泡跟著換）。',
+  savedAsSide: (side: string) => `已存成「${side}」的預設。`,
+  customCount: (n: number) => (n ? `單獨調整了 ${n} 項` : '全部跟著這一側的預設'),
+  /* 樣式分頁 */
+  stylePresetsSection: '樣式預設檔',
+  stylePresetsHint:
+    '整組樣式（三側的預設、卡片底、頁首頁尾、文字設定）可以存成預設，之後一鍵套用；也可以匯出成檔案。',
+  builtinTag: '內建',
+  applyStyle: '套用',
+  applyStyleLabel: (name: string) => `套用樣式：${name}`,
+  applyStyleTitle: (name: string) => `套用「${name}」？`,
+  applyStyleDescription:
+    '三側的預設、卡片底與文字設定會換掉，所有泡泡換成自己那一側的樣式（單獨調整的也會換掉；可以用「復原」回來）。',
+  appliedStyle: (name: string) => `已套用「${name}」。`,
+  saveStyle: '存成樣式預設…',
+  saveStyleTitle: '存成樣式預設',
+  saveStyleDescription: '目前的三側預設、卡片底、頁首頁尾與文字設定會存在這個瀏覽器。',
+  styleName: '名稱',
+  styleNameDefault: '我的樣式',
+  savedStyle: (name: string) => `已存成「${name}」。`,
+  styleLimit: (n: number) => `樣式預設最多 ${n} 組，請先刪掉不用的。`,
+  exportStyle: '匯出',
+  exportStyleLabel: (name: string) => `匯出樣式檔：${name}`,
+  importStyle: '匯入樣式檔…',
+  importedStyle: (name: string) => `已匯入「${name}」。`,
+  importStyleFailed: '無法匯入樣式檔',
+  deleteStyle: '刪除',
+  deleteStyleLabel: (name: string) => `刪除樣式：${name}`,
+  deleteStyleTitle: (name: string) => `刪除「${name}」？`,
+  deleteStyleDescription: '只會刪掉這組存著的樣式，目前的泡泡不受影響。',
+  stylesLabel: '樣式預設',
+  sidesSection: '兩側的預設',
+  sidesHint: '改這裡會套用到這一側沒有單獨調整過的泡泡；新增、整段貼上的泡泡也用這裡的樣式。',
+  sidePick: '要改哪一側',
+  sideOption: (name: string, n: number) => `${name}（${n}）`,
+  sideCount: (name: string, n: number) => `${name}的泡泡：${n} 個`,
+  copySideTo: '複製到',
+  copySideLabel: (to: string) => `把這一側的預設複製到${to}`,
+  copiedSide: (from: string, to: string) => `已把「${from}」的預設複製到「${to}」。`,
+  sideStyle: '造型',
+  sideColors: '配色',
+  sideIcon: '圖示',
+  textGroup: '文字',
+  frameGroup: '外框與陰影',
+  metaGroup: '說話者與日期',
+  fontInherit: '沿用「版面」的字型',
+  fontSizeAuto: (v: number) => `沿用版面（${v} px）`,
+  lineHeightAuto: (v: number) => `沿用版面（${v} 倍）`,
+  letterSpacing: '字距',
+  textAlign: '文字對齊',
+  textAlignHint: '「預設」是造型原本的對齊。',
+  textDy: '文字上下微調',
+  textDyHint: '只移動內文，往下為正。',
+  padX: '左右內距',
+  padY: '上下內距',
+  padHint: '造型原本內距的倍數。',
+  radius: '圓角',
+  radiusAuto: '造型預設',
+  radiusHint: '留白＝造型原本的圓角；只對方形、圓角的造型有效。',
+  corner: '尾巴與角',
+  cornerHint: '「尖角」：沒有尾巴，指向的那一側上角變尖；「全圓」：沒有尾巴。',
+  borderScale: '邊框粗細',
+  borderScaleHint: '造型原本邊框的倍數；0 就不畫邊框。',
+  softShadow: '柔和陰影',
+  softShadowHint: '「跟著版面」：照「版面」分頁的陰影開關與造型。',
+  solidShadow: '底部實色陰影',
+  solidShadowHint: '不模糊、往下錯開的一層實色。',
+  solidColor: '實色陰影的顏色',
+  solidOffset: '實色陰影的距離',
+  fitWidth: '寬度貼合文字',
+  fitWidthHint: '關閉時內文寬度固定是「文字寬度上限」（每個泡泡一樣寬）。',
+  cloudPuff: '雲朵大小',
+  cloudPuffHint: '想法泡泡外圈小圓的大小。',
+  metaMode: '顯示位置',
+  metaColor: '顏色',
+  metaFont: '字型',
+  metaFontInherit: '和內文相同',
+  metaScale: '字級',
+  metaScaleHint: '內文字級的倍數。',
+  times: '倍',
+  /* 整段貼上 */
+  importButton: '整段貼上…',
+  importTitle: '整段貼上拆成泡泡',
+  importDescription:
+    '貼上一段對話：「名字：內容」、LINE 匯出的聊天記錄、Discord 複製的訊息都認得。確認每個人放在哪一側之後加進來。',
+  importText: '對話內容',
+  importPlaceholder: '阿明：今天要開團嗎？\n小華：好啊，幾點？\n阿明：晚上八點，老地方',
+  importOpenFile: '開啟文字檔…',
+  importFormat: '格式',
+  importDetected: (name: string, n: number) => `辨識為「${name}」，共 ${n} 則。`,
+  importSkipped: (n: number) => `略過 ${n} 則系統訊息（收回、加入群組…）。`,
+  importNone: '還沒有辨識到訊息。',
+  importSpeakers: '說話者放在哪一側',
+  importSpeakersHint: '只有兩個人時，選了一個人的一側，另一個人自動放到另一側。',
+  importNoName: '（沒有名字）',
+  importCount: (n: number) => `${n} 則`,
+  importSwap: '左右互換',
+  importDates: '日期時間',
+  importDatesHint: '帶入時放進每個泡泡的「日期時間」。',
+  importDateSeparators: '每天的日期做成置中的泡泡',
+  importMerge: '同一人連續的訊息合成一個泡泡',
+  importMergeHint:
+    '關閉時一則一個泡泡；開啟時相鄰、同一個人的訊息合成一個泡泡（中間換行；空行、換日會分開）。',
+  importMode: '加入方式',
+  importAppend: '加在後面',
+  importReplace: '取代目前的泡泡',
+  importLimit: (n: number, total: number, max: number) =>
+    `泡泡最多 ${max} 個：只會加入前 ${n} 則（共 ${total} 則）。`,
+  importFull: (max: number) => `泡泡已經有 ${max} 個，請改成「取代目前的泡泡」或先刪掉一些。`,
+  importConfirm: (n: number) => `加入 ${n} 個泡泡`,
+  imported: (n: number) => `已加入 ${n} 個泡泡。`,
+  importReadFailed: '無法讀取這個檔案。',
+  cancel: '取消',
+  /* 版面：畫布、卡片底、頁首頁尾 */
+  canvasModeLabels: {
+    auto: '自動（依內容）',
+    square: '正方形（1:1）',
+    story: '限動（9:16）',
+    wide: '橫幅（16:9）',
+    fixed: '自訂寬高',
+  } as const,
+  minHeight: '最小高度',
+  minHeightHint: '0＝不限。內容比較矮時撐高，多出來的空間依「內容位置」分配。',
+  ratioHint: '畫布照比例放大到放得下內容；匯出時可以再用尺寸倍率放大。',
+  cardSection: '卡片底',
+  cardBg: '畫卡片底',
+  cardBgHint: '關閉時背景透明（和以前相同）；開啟時動畫的每一格都有卡片底。',
+  cardColor: '底色',
+  cardRadius: '卡片圓角',
+  cardImage: '背景圖',
+  cardImageHint: '只存在這個瀏覽器（專案檔會一起存）；長邊超過 2048 px 會縮小。',
+  cardImageDrop: '把背景圖拖到這裡',
+  removeImage: '移除背景圖',
+  imageFit: '鋪法',
+  imageOpacity: '背景圖不透明度',
+  imageNotSaved: '背景圖存不進這個瀏覽器（容量不足或不支援），重新整理後會不見。',
+  imageMissing: '找不到背景圖（可能已經被瀏覽器清掉），請重新選一張。',
+  imageFailed: (name: string) => `無法讀取圖片「${name}」。`,
+  texture: '紋理',
+  textureStrength: '紋理強度',
+  darkBoost: '深色底自動加強',
+  darkBoostHint: '底色很暗時紋理改用淺色並加深，才看得見。',
+  notesSection: '頁首與頁尾',
+  header: '頁首',
+  footer: '頁尾',
+  notePlaceholder: '空白就不畫（可以換行）',
+  noteAlign: '對齊',
+  noteColor: '文字顏色',
+  noteSize: '字級',
+  noteFont: '字型',
+  noteFontInherit: '沿用「版面」的字型',
+  divider: '分隔線',
+  dividerHint: '畫在泡泡區的上下。',
+  dividerColor: '分隔線顏色',
+  /* 預覽：拖曳、複製圖片 */
+  dragToggle: '拖曳調整位置',
+  dragHint: '在預覽上拖曳泡泡移動位置；選取後可以用方向鍵微調（Shift 一次 10 px）。',
+  dragHandle: (n: number) => `第 ${n} 個泡泡（拖曳或用方向鍵移動）`,
+  copyImage: '複製圖片',
+  copyImageHint: '把全部出現的畫面（PNG）放進剪貼簿。',
+  copiedImage: '已複製圖片（全部出現的畫面）。',
+  copyImageFailed: '無法複製圖片，請改用匯出 PNG。',
   /* 專案 */
   projectFile: '對話泡泡',
   resetTitle: '全部重設？',

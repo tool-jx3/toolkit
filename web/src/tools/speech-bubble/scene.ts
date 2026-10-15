@@ -1,20 +1,41 @@
 /**
  * 場景（規格 3）：把設定排版成畫布、算好時間表，提供 render(ctx, t) 給預覽與匯出共用（AnimationSource）。
+ * 2026-10：每個泡泡各自的樣式（兩側的預設＋單獨調整）、自由拖曳的位移、頁首與頁尾、卡片底（底色、背景圖、紋理）、
+ * 卡片比例與最小高度。沒用到這些時，每一步的算法都和以前相同（輸出不變）。
  */
-import { ensureFont } from '@/core/fonts';
+import { ensureFont, type FontValue, fontCss } from '@/core/fonts';
 import { type AnimationSource, type Ctx2D, clamp01, hashSigned, timeSlot } from '@/core/timeline';
 import { canvasMeasure, type MeasureFn } from '@/core/typeset/measure';
-import { type DrawEnv, deviceScale, drawBubble, FULL_TEXT, type TextState } from './draw';
+import { breakText } from '@/core/typeset/wrap';
+import {
+  type DrawEnv,
+  deviceScale,
+  drawBubble,
+  FULL_TEXT,
+  roundRectPath,
+  type TextState,
+} from './draw';
 import {
   arrangeBubbles,
   type BubbleLayout,
   boldWeight,
   cachedUnit,
+  type LayoutOptions,
   layoutBubble,
   planCanvas,
+  visualBox,
 } from './layout';
-import { type Bubble, hasContent, type SbData } from './model';
+import {
+  type Bubble,
+  bubbleFmt,
+  type CardStyle,
+  DEFAULT_FMT,
+  type DividerId,
+  hasContent,
+  type SbData,
+} from './model';
 import { combine, enterPose, exitPose, idlePose, type Pose } from './motion';
+import { textureCanvas } from './texture';
 import {
   appearanceOrder,
   computeTiming,
@@ -39,6 +60,50 @@ export interface SceneItem {
   phase: number;
 }
 
+/** 頁首、頁尾的一行字（畫布座標） */
+export interface NoteLine {
+  text: string;
+  x: number;
+  cy: number;
+}
+
+export interface NoteBlock {
+  font: string;
+  color: string;
+  lines: NoteLine[];
+}
+
+/** 泡泡區上下的分隔線（畫布座標） */
+export interface DividerLine {
+  x0: number;
+  x1: number;
+  y: number;
+  style: Exclude<DividerId, 'none'>;
+  color: string;
+}
+
+/**
+ * 畫布的幾何（拖曳中要固定住的部分）：泡泡區的外接範圍（排好、加上位移之後；左上角相對於排列的原點）、
+ * 泡泡區的大小、畫布大小與內容的位置。
+ */
+export interface SceneGeometry {
+  bx0: number;
+  by0: number;
+  blockW: number;
+  blockH: number;
+  width: number;
+  height: number;
+  ox: number;
+  oy: number;
+}
+
+export interface SceneOptions {
+  /** 卡片的背景圖（已解碼；沒有就不畫） */
+  image?: CanvasImageSource | null;
+  /** 拖曳中：畫布大小與內容的位置固定住（放開之後才重新計算） */
+  freeze?: SceneGeometry | null;
+}
+
 export interface Scene extends AnimationSource {
   width: number;
   height: number;
@@ -53,11 +118,17 @@ export interface Scene extends AnimationSource {
   timing: Timing;
   /** 沒有任何內容 */
   empty: boolean;
-  /** 自訂畫布放不下內容（會被裁掉） */
+  /** 自訂畫布放不下內容（會被裁掉）；自動、比例畫布超過 4096 */
   overflow: boolean;
   /** 要載入的字型（預覽與匯出前） */
   fontLoads: { family: string; weight: number; text: string }[];
   fontKey: string;
+  /** 卡片底（沒開時 null） */
+  card: CardStyle | null;
+  image: CanvasImageSource | null;
+  notes: NoteBlock[];
+  dividers: DividerLine[];
+  geometry: SceneGeometry;
 }
 
 /** 沒有內容時的畫布 */
@@ -66,21 +137,109 @@ export const EMPTY_SIZE = { width: 320, height: 180 };
 /** 每個泡泡的亂數種子：只看清單位置（改字、換造型時外形不會跳） */
 export const itemSeed = (index: number): number => 7919 * (index + 1) + 101;
 
-export function buildScene(d: SbData, measure: MeasureFn = canvasMeasure): Scene {
-  const unit = cachedUnit(measure);
-  const opts = {
+/** 一個泡泡的排版設定：樣式沒設的字型、字級、行距沿用「版面」 */
+export function layoutOptionsFor(d: SbData, b: Bubble): LayoutOptions {
+  const f = bubbleFmt(b);
+  const base = {
     font: d.font,
     fontSize: d.fontSize,
     lineHeight: d.lineHeight,
     wrapWidth: d.wrapWidth,
     shadow: d.shadow,
   };
+  if (f === DEFAULT_FMT) return base;
+  const font = f.font ?? d.font;
+  return {
+    ...base,
+    font,
+    fontSize: f.fontSize ?? d.fontSize,
+    lineHeight: f.lineHeight ?? d.lineHeight,
+    fmt: f,
+    metaFont: f.metaFont ?? font,
+  };
+}
+
+/** 頁首、頁尾與分隔線的排法（內容座標：泡泡區在 blockX, blockY） */
+function layoutNotes(
+  d: SbData,
+  blockW: number,
+  blockH: number,
+  unit: (font: string, ch: string) => number,
+): {
+  width: number;
+  height: number;
+  blockX: number;
+  blockY: number;
+  notes: NoteBlock[];
+  dividers: DividerLine[];
+} | null {
+  const c = d.card;
+  const header = c.header.replace(/\s+$/, '');
+  const footer = c.footer.replace(/\s+$/, '');
+  const div = c.divider;
+  if (!header && !footer && div === 'none') return null;
+  const font = fontCss(c.noteFont ?? d.font, c.noteSize);
+  const lh = c.noteSize * 1.5;
+  const limit = Math.max(blockW, 160);
+  const wrap = (text: string) =>
+    text
+      ? breakText(text, { limit, unit: (ch) => unit(font, ch), segment: 'grapheme' }).map(
+          (chars) => ({ text: chars.join(''), w: chars.reduce((s, ch) => s + unit(font, ch), 0) }),
+        )
+      : [];
+  const hdr = wrap(header);
+  const ftr = wrap(footer);
+  const width = Math.max(blockW, ...hdr.map((l) => l.w), ...ftr.map((l) => l.w));
+  const gap = c.noteSize * 0.8;
+  const thick = div === 'double' ? 4 : 1;
+  const placeX = (w: number) =>
+    c.noteAlign === 'center' ? (width - w) / 2 : c.noteAlign === 'right' ? width - w : 0;
+  const notes: NoteBlock[] = [];
+  const dividers: DividerLine[] = [];
+  let y = 0;
+  if (hdr.length) {
+    notes.push({
+      font,
+      color: c.noteColor,
+      lines: hdr.map((l, i) => ({ text: l.text, x: placeX(l.w), cy: y + i * lh + lh / 2 })),
+    });
+    y += hdr.length * lh + gap;
+  }
+  if (div !== 'none') {
+    dividers.push({ x0: 0, x1: width, y, style: div, color: c.dividerColor });
+    y += thick + gap;
+  }
+  const blockY = y;
+  y += blockH;
+  if (div !== 'none') {
+    y += gap;
+    dividers.push({ x0: 0, x1: width, y, style: div, color: c.dividerColor });
+    y += thick;
+  }
+  if (ftr.length) {
+    y += gap;
+    notes.push({
+      font,
+      color: c.noteColor,
+      lines: ftr.map((l, i) => ({ text: l.text, x: placeX(l.w), cy: y + i * lh + lh / 2 })),
+    });
+    y += ftr.length * lh;
+  }
+  return { width, height: y, blockX: (width - blockW) / 2, blockY, notes, dividers };
+}
+
+export function buildScene(
+  d: SbData,
+  measure: MeasureFn = canvasMeasure,
+  opts: SceneOptions = {},
+): Scene {
+  const unit = cachedUnit(measure);
   const live = d.bubbles
     .map((bubble, index) => ({ bubble, index }))
     .filter((x) => hasContent(x.bubble));
   const layouts = live.map(({ bubble, index }) => ({
     index,
-    layout: layoutBubble(bubble, opts, unit),
+    layout: layoutBubble(bubble, layoutOptionsFor(d, bubble), unit),
   }));
   const allOrder = appearanceOrder(
     d.bubbles.map((_, i) => String(i)),
@@ -88,7 +247,51 @@ export function buildScene(d: SbData, measure: MeasureFn = canvasMeasure): Scene
   );
   const order = allOrder.filter((i) => layouts.some((l) => l.index === i));
   const arranged = arrangeBubbles(layouts, d, order);
-  const plan = planCanvas(arranged, d);
+
+  /* 自由拖曳的位移：排好之後再移動；泡泡區的範圍重新算（有位移時才算） */
+  const offsets = arranged.items.map((p) => {
+    const b = d.bubbles[p.index];
+    return { dx: b.dx ?? 0, dy: b.dy ?? 0 };
+  });
+  const moved = offsets.some((o) => o.dx || o.dy);
+  let bx0 = 0;
+  let by0 = 0;
+  let blockW = arranged.width;
+  let blockH = arranged.height;
+  if (moved) {
+    const boxes = arranged.items.map((p, i) => {
+      const v = visualBox(p.layout, p.rotate);
+      const x = p.x + offsets[i].dx;
+      const y = p.y + offsets[i].dy;
+      return { x0: x + v.x0, y0: y + v.y0, x1: x + v.x1, y1: y + v.y1 };
+    });
+    bx0 = Math.min(...boxes.map((b) => b.x0));
+    by0 = Math.min(...boxes.map((b) => b.y0));
+    blockW = Math.max(...boxes.map((b) => b.x1)) - bx0;
+    blockH = Math.max(...boxes.map((b) => b.y1)) - by0;
+  }
+
+  /* 頁首、頁尾與分隔線；畫布 */
+  const fz = opts.freeze ?? null;
+  const notesLayout = layoutNotes(d, fz ? fz.blockW : blockW, fz ? fz.blockH : blockH, unit);
+  const contentW = notesLayout ? notesLayout.width : blockW;
+  const contentH = notesLayout ? notesLayout.height : blockH;
+  const plan = planCanvas({ width: contentW, height: contentH }, d);
+  const geometry: SceneGeometry = fz ?? {
+    bx0,
+    by0,
+    blockW,
+    blockH,
+    width: plan.width,
+    height: plan.height,
+    ox: plan.ox,
+    oy: plan.oy,
+  };
+  /* 泡泡的位置＝畫布上泡泡區的原點＋（排好的位置＋位移） */
+  const baseX = geometry.ox + (notesLayout ? notesLayout.blockX : 0) - geometry.bx0;
+  const baseY = geometry.oy + (notesLayout ? notesLayout.blockY : 0) - geometry.by0;
+  const plain = !moved && !notesLayout && !fz;
+
   const timing = computeTiming(
     layouts.map(({ index, layout }) => ({
       index,
@@ -98,14 +301,14 @@ export function buildScene(d: SbData, measure: MeasureFn = canvasMeasure): Scene
     d,
   );
   const byIndex = new Map(timing.items.map((t) => [t.index, t]));
-  const items: SceneItem[] = arranged.items.map((p) => {
+  const items: SceneItem[] = arranged.items.map((p, i) => {
     const tm = byIndex.get(p.index)!;
     return {
       index: p.index,
       bubble: d.bubbles[p.index],
       layout: p.layout,
-      x: plan.ox + p.x,
-      y: plan.oy + p.y,
+      x: plain ? plan.ox + p.x : baseX + p.x + offsets[i].dx,
+      y: plain ? plan.oy + p.y : baseY + p.y + offsets[i].dy,
       rotate: p.rotate,
       timing: tm,
       seed: itemSeed(p.index),
@@ -114,16 +317,25 @@ export function buildScene(d: SbData, measure: MeasureFn = canvasMeasure): Scene
   });
   const drawOrder = [...items].sort((a, b) => a.timing.rank - b.timing.rank);
   const empty = items.length === 0;
-  const width = empty ? EMPTY_SIZE.width : plan.width;
-  const height = empty ? EMPTY_SIZE.height : plan.height;
+  const width = empty ? EMPTY_SIZE.width : geometry.width;
+  const height = empty ? EMPTY_SIZE.height : geometry.height;
   const duration = empty ? 1 : Math.max(0.05, timing.duration);
 
-  const bodyText = live.map((x) => x.bubble.text).join('');
-  const titleText = live.map((x) => x.bubble.title + x.bubble.button).join('');
-  const fontLoads = [
-    { family: d.font.family, weight: d.font.weight, text: bodyText || '永' },
-    { family: d.font.family, weight: boldWeight(d.font.weight), text: titleText || '永' },
-  ];
+  const ox = geometry.ox;
+  const oy = geometry.oy;
+  const notes: NoteBlock[] =
+    !empty && notesLayout
+      ? notesLayout.notes.map((n) => ({
+          ...n,
+          lines: n.lines.map((l) => ({ ...l, x: ox + l.x, cy: oy + l.cy })),
+        }))
+      : [];
+  const dividers: DividerLine[] =
+    !empty && notesLayout
+      ? notesLayout.dividers.map((v) => ({ ...v, x0: ox + v.x0, x1: ox + v.x1, y: oy + v.y }))
+      : [];
+
+  const fontLoads = sceneFontLoads(d, live);
 
   const scene: Scene = {
     width,
@@ -137,9 +349,14 @@ export function buildScene(d: SbData, measure: MeasureFn = canvasMeasure): Scene
     drawOrder,
     timing,
     empty,
-    overflow: plan.overflow,
+    overflow: fz ? false : plan.overflow,
     fontLoads,
     fontKey: JSON.stringify(fontLoads),
+    card: d.card.bg && !empty ? d.card : null,
+    image: opts.image ?? null,
+    notes,
+    dividers,
+    geometry,
     prepare: async () => {
       await loadSceneFonts(scene);
     },
@@ -148,12 +365,54 @@ export function buildScene(d: SbData, measure: MeasureFn = canvasMeasure): Scene
   return scene;
 }
 
+/**
+ * 要載入的字型與用到的字：先放「版面」的字型（內文、粗體），沒用到新功能時和以前完全相同；
+ * 泡泡自己的字型、說話者與日期、頁首頁尾的字型接在後面。
+ */
+function sceneFontLoads(
+  d: SbData,
+  live: readonly { bubble: Bubble }[],
+): { family: string; weight: number; text: string }[] {
+  const body = { family: d.font.family, weight: d.font.weight, text: '' };
+  const bodyBold = { family: d.font.family, weight: boldWeight(d.font.weight), text: '' };
+  const extra = new Map<string, { family: string; weight: number; text: string }>();
+  const add = (font: Pick<FontValue, 'family' | 'weight'>, text: string) => {
+    const k = `${font.family}\u0000${font.weight}`;
+    const cur = extra.get(k);
+    if (cur) cur.text += text;
+    else extra.set(k, { family: font.family, weight: font.weight, text });
+  };
+  const bold = (f: Pick<FontValue, 'family' | 'weight'>) => ({
+    family: f.family,
+    weight: boldWeight(f.weight),
+  });
+  for (const { bubble: b } of live) {
+    const f = bubbleFmt(b);
+    if (f.font) {
+      add(f.font, b.text);
+      add(bold(f.font), b.title + b.button);
+    } else {
+      body.text += b.text;
+      bodyBold.text += b.title + b.button;
+    }
+    const speaker = (b.speaker ?? '').trim();
+    const time = (b.time ?? '').trim();
+    if (f.meta !== 'off' && (speaker || time)) {
+      const mf = f.metaFont ?? f.font ?? d.font;
+      if (speaker) add(bold(mf), speaker);
+      if (time) add(mf, `${time}・`);
+    }
+  }
+  const c = d.card;
+  if (c.header.trim() || c.footer.trim()) add(c.noteFont ?? d.font, c.header + c.footer);
+  return [body, bodyBold, ...extra.values()].map((x) => ({ ...x, text: x.text || '永' }));
+}
+
 export async function loadSceneFonts(scene: Pick<Scene, 'fontLoads'>): Promise<void> {
   await Promise.all(
     scene.fontLoads.map((f) => ensureFont(f.family, f.weight, f.text).catch(() => false)),
   );
 }
-
 /** 這個泡泡在 t 秒的文字狀態（規格 3.4） */
 export function textStateAt(d: SbData, it: SceneItem, t: number): TextState {
   const tm = it.timing;
@@ -291,7 +550,88 @@ function drawGlitched(ctx: Ctx2D, it: SceneItem, env: DrawEnv, g: number, t: num
 }
 
 /** 畫 t 秒的畫面（畫布已清空；原點在畫布左上角） */
+/** 卡片的背景圖：蓋滿（裁掉多的）／完整（留邊）／重複（原尺寸鋪滿） */
+function drawCardImage(
+  ctx: Ctx2D,
+  img: CanvasImageSource,
+  c: CardStyle,
+  W: number,
+  H: number,
+): void {
+  const size = img as { width?: number; height?: number };
+  const iw = Number(size.width) || 0;
+  const ih = Number(size.height) || 0;
+  if (!iw || !ih) return;
+  ctx.save();
+  ctx.globalAlpha *= c.imageOpacity / 100;
+  if (c.imageFit === 'repeat') {
+    const pat = ctx.createPattern(img, 'repeat');
+    if (pat) {
+      ctx.fillStyle = pat;
+      ctx.fillRect(0, 0, W, H);
+    }
+  } else {
+    const k = c.imageFit === 'cover' ? Math.max(W / iw, H / ih) : Math.min(W / iw, H / ih);
+    const dw = iw * k;
+    const dh = ih * k;
+    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  }
+  ctx.restore();
+}
+
+/** 卡片底：底色 → 背景圖 → 紋理（卡片有圓角時角落外透明） */
+function drawCard(ctx: Ctx2D, scene: Scene): void {
+  const c = scene.card;
+  if (!c) return;
+  const W = scene.width;
+  const H = scene.height;
+  ctx.save();
+  ctx.beginPath();
+  if (c.radius > 0) roundRectPath(ctx, 0, 0, W, H, c.radius);
+  else ctx.rect(0, 0, W, H);
+  ctx.clip();
+  ctx.fillStyle = c.color;
+  ctx.fillRect(0, 0, W, H);
+  if (scene.image && c.image) drawCardImage(ctx, scene.image, c, W, H);
+  const tile = textureCanvas(c);
+  const pat = tile ? ctx.createPattern(tile as CanvasImageSource, 'repeat') : null;
+  if (pat) {
+    ctx.fillStyle = pat;
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
+}
+
+/** 頁首、頁尾與分隔線（靜止，不跟著泡泡動） */
+function drawNotes(ctx: Ctx2D, scene: Scene): void {
+  if (!scene.notes.length && !scene.dividers.length) return;
+  ctx.save();
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  for (const n of scene.notes) {
+    ctx.font = n.font;
+    ctx.fillStyle = n.color;
+    for (const l of n.lines) ctx.fillText(l.text, l.x, l.cy);
+  }
+  for (const v of scene.dividers) {
+    ctx.strokeStyle = v.color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash(v.style === 'dashed' ? [6, 4] : []);
+    const ys = v.style === 'double' ? [v.y + 0.5, v.y + 3.5] : [v.y + 0.5];
+    ctx.beginPath();
+    for (const y of ys) {
+      ctx.moveTo(v.x0, y);
+      ctx.lineTo(v.x1, y);
+    }
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
 export function renderScene(ctx: Ctx2D, scene: Scene, d: SbData, t: number): void {
+  drawCard(ctx, scene);
+  drawNotes(ctx, scene);
   for (const it of scene.drawOrder) {
     const pose = poseAt(d, it, t, scene);
     if (!pose) continue;

@@ -285,14 +285,14 @@ describe('範本與整理', () => {
     expect(presetBubble({ style: 'toast' }).icon).toBe('check');
   });
 
-  it('整理：數值夾在範圍內、不認得的值用預設、泡泡最多 12 個、id 不重複', () => {
+  it('整理：數值夾在範圍內、不認得的值用預設、泡泡數量有上限、id 不重複', () => {
     const raw = {
       ...defaultData(),
       fontSize: 500,
       lineHeight: 'x',
       enter: 'nope',
       fps: 3,
-      bubbles: Array.from({ length: 20 }, () => ({
+      bubbles: Array.from({ length: MAX_BUBBLES + 8 }, () => ({
         id: 'same',
         style: 'what',
         text: 'a'.repeat(1000),

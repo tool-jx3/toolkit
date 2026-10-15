@@ -7,11 +7,8 @@
  *
  * 重新產生基準（只在整合前的舊程式上做過一次）：`SB_GOLDEN=write npx vitest run tests/unit/speech-bubble-compat.test.ts`
  */
-import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { bytesToHex, sha256Sync } from '../../src/core/files';
 import type { MeasureFn } from '../../src/core/typeset/measure';
 import { normalizeData, STYLE_IDS } from '../../src/tools/speech-bubble/model';
 import { applyPreset, PRESETS } from '../../src/tools/speech-bubble/presets';
@@ -19,8 +16,15 @@ import { buildScene } from '../../src/tools/speech-bubble/scene';
 import { styleDefaults } from '../../src/tools/speech-bubble/styles';
 import { recordCanvas } from '../helpers/canvasRecorder';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const FIXTURE = path.join(here, 'fixtures', 'speech-bubble-v1-golden.json');
+const FS = 'node:fs';
+const { readFileSync, writeFileSync } = (await import(/* @vite-ignore */ FS)) as {
+  readFileSync: (p: string, enc: 'utf8') => string;
+  writeFileSync: (p: string, data: string) => void;
+};
+const FIXTURE = new URL('./fixtures/speech-bubble-v1-golden.json', import.meta.url).pathname;
+const WRITE =
+  (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env
+    .SB_GOLDEN === 'write';
 
 const fakeMeasure: MeasureFn = (font, ch) => {
   const px = Number(/([\d.]+)px/.exec(font)?.[1] ?? 16);
@@ -44,7 +48,7 @@ interface Golden {
   cases: GoldenCase[];
 }
 
-const sha = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
+const sha = (v: unknown) => bytesToHex(sha256Sync(new TextEncoder().encode(JSON.stringify(v))));
 
 /** 一個場景在幾個代表時間點的指令雜湊 */
 function capture(raw: Raw): { size: [number, number, number]; hashes: string[] } {
@@ -218,7 +222,7 @@ function makeCases(): {
 }
 
 describe('沒用到新功能時輸出不變（第 1 版的資料）', () => {
-  if (process.env.SB_GOLDEN === 'write') {
+  if (WRITE) {
     it('寫入基準', () => {
       const { base, cases } = makeCases();
       const out: Golden = {

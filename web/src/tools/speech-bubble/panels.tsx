@@ -4,16 +4,19 @@
 import {
   ChevronLeft,
   ChevronRight,
+  ClipboardPaste,
   Copy,
   GripVertical,
   LayoutGrid,
   Paintbrush,
   Plus,
   RotateCcw,
+  Save,
   Trash2,
+  Undo2,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { canvasMeasure } from '@/core/typeset/measure';
+import { useEffect, useRef, useState } from 'react';
+import { addImageFile, useAssetImage } from '@/core/assets';
 import {
   AnchorPicker,
   Button,
@@ -23,6 +26,8 @@ import {
   FontPicker,
   GestureScope,
   IconButton,
+  ImageDrop,
+  Notice,
   NumberInput,
   Section,
   Segmented,
@@ -32,49 +37,66 @@ import {
   SortableList,
   TextArea,
   TextInput,
-  ThumbChoice,
   Toggle,
   useToast,
 } from '@/ui';
-import { drawBubble, FULL_TEXT } from './draw';
-import { useFontTick } from './fontTick';
-import { cachedUnit, layoutBubble } from './layout';
+import { ImportDialog } from './ImportDialog';
+import { CustomBadge, FrameFields, MetaFields, PaletteFields, TextFields } from './LookFields';
 import {
   ALIGNS,
   ARRANGES,
   type Bubble,
+  bubbleCustom,
   CANVAS_MODES,
+  CARD_RANGES,
+  type CardStyle,
   CURSOR_IDS,
+  DIVIDER_IDS,
   ENTER_IDS,
   EXIT_IDS,
   ICON_IDS,
   IDLE_IDS,
+  IMAGE_FIT_IDS,
+  type LookKey,
+  lookOf,
   MAX_BUBBLES,
   MAX_BUTTON,
+  MAX_NOTE,
+  MAX_SPEAKER,
   MAX_TEXT,
+  MAX_TIME,
   MAX_TITLE,
+  NOTE_ALIGN_IDS,
   ORDER_IDS,
-  PALETTE_KEYS,
   RANGES,
   type SbData,
-  STYLE_IDS,
-  type StyleId,
   TEXT_ANIM_IDS,
+  TEXTURE_IDS,
 } from './model';
 import { applyPreset, PRESETS, presetOf } from './presets';
+import { StyleChoice } from './StyleChoice';
 import { filterPresets } from './search';
 import {
   addBubble,
   applyLookToAll,
+  assets,
   choosePreset,
   duplicateBubble,
   edit,
+  editCard,
   gesture,
+  hasOffset,
+  type LookPatch,
   moveBubble,
   patchBubble,
+  patchBubbleLook,
   removeBubble,
+  resetBubbleLook,
+  resetOffsets,
+  saveBubbleAsSide,
   select,
   selectedBubble,
+  setAlign,
   setStyle,
   usePrefs,
   useSb,
@@ -85,18 +107,22 @@ import {
   ARRANGE_HINTS,
   ARRANGE_NAMES,
   CURSOR_NAMES,
+  DIVIDER_NAMES,
   ENTER_NAMES,
   EXIT_NAMES,
   ICON_NAMES,
   IDLE_NAMES,
+  IMAGE_FIT_NAMES,
+  NOTE_ALIGN_NAMES,
   ORDER_NAMES,
   S,
-  STYLE_GROUP_NAMES,
+  SIDE_NAMES,
   STYLE_NAMES,
   TEXT_ANIM_NAMES,
+  TEXTURE_NAMES,
   TITLE_LABELS,
 } from './strings';
-import { STYLE_GROUPS, styleDefaults, styleFields, styleOf } from './styles';
+import { styleDefaults, styleFields } from './styles';
 
 /* ---------- 共用 ---------- */
 
@@ -210,6 +236,7 @@ const excerpt = (b: Bubble): string => {
 
 function BubbleList() {
   const bubbles = useSb((s) => s.data.bubbles);
+  const [importing, setImporting] = useState(false);
   const selectedId = useUi((u) => u.selectedId);
   const sel = bubbles.find((b) => b.id === selectedId) ?? bubbles[0];
   const full = bubbles.length >= MAX_BUBBLES;
@@ -274,93 +301,12 @@ function BubbleList() {
         <Button icon={<Plus />} disabled={full} onClick={() => addBubble(sel.id)}>
           {S.addBubble}
         </Button>
+        <Button icon={<ClipboardPaste />} onClick={() => setImporting(true)}>
+          {S.importButton}
+        </Button>
         {full ? <span className="text-xs text-muted">{S.addLimit(MAX_BUBBLES)}</span> : null}
       </div>
-    </Section>
-  );
-}
-
-/** 造型縮圖：各造型的預設配色＋範例文字，畫在中性的灰底上 */
-function useStyleThumb() {
-  const font = useSb((s) => s.data.font);
-  const tick = useFontTick();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫
-  return useCallback(
-    (ctx: CanvasRenderingContext2D, style: StyleId) => {
-      const W = ctx.canvas.width;
-      const H = ctx.canvas.height;
-      ctx.fillStyle = '#4b505c';
-      ctx.fillRect(0, 0, W, H);
-      const d = styleDefaults(style);
-      const b: Bubble = {
-        id: 'thumb',
-        style,
-        title:
-          style === 'news'
-            ? '快訊'
-            : style === 'card' || style === 'capsule' || style === 'tag'
-              ? 'A'
-              : '標題',
-        text: '對話',
-        icon: d.icon,
-        button: '好',
-        align: 'left',
-        colors: d.colors,
-      };
-      const unit = cachedUnit(canvasMeasure);
-      const L = layoutBubble(
-        b,
-        { font, fontSize: 18, lineHeight: 1.4, wrapWidth: 200, shadow: true },
-        unit,
-      );
-      const vw = L.w + L.ext.l + L.ext.r;
-      const vh = L.h + L.ext.t + L.ext.b;
-      const k = Math.min((W * 0.9) / vw, (H * 0.86) / vh);
-      ctx.translate((W - vw * k) / 2 + L.ext.l * k, (H - vh * k) / 2 + L.ext.t * k);
-      ctx.scale(k, k);
-      if (L.spec.tilt) {
-        ctx.translate(L.w / 2, L.h / 2);
-        ctx.rotate((L.spec.tilt * Math.PI) / 180);
-        ctx.translate(-L.w / 2, -L.h / 2);
-      }
-      drawBubble(ctx, L, b, {
-        shadow: true,
-        u: 0.3,
-        seed: 1,
-        text: FULL_TEXT,
-        shine: null,
-        scan: null,
-      });
-    },
-    [font, tick],
-  );
-}
-
-function StyleSection({ bubble }: { bubble: Bubble }) {
-  const draw = useStyleThumb();
-  const options = useMemo(
-    () =>
-      STYLE_GROUPS.flatMap((g) =>
-        STYLE_IDS.filter((s) => styleOf(s).group === g).map((s) => ({
-          value: s,
-          label: STYLE_NAMES[s],
-          description: STYLE_GROUP_NAMES[g],
-        })),
-      ),
-    [],
-  );
-  return (
-    <Section title={S.style} persistKey="speech-bubble:style" description={S.styleHint}>
-      <ThumbChoice<StyleId>
-        aria-label={S.style}
-        options={options}
-        value={bubble.style}
-        onValueChange={(v) => setStyle(bubble.id, v)}
-        draw={(ctx, v) => draw(ctx, v)}
-        thumbWidth={160}
-        thumbHeight={96}
-        minItemWidth={76}
-      />
+      <ImportDialog open={importing} onOpenChange={setImporting} />
     </Section>
   );
 }
@@ -376,6 +322,9 @@ function BubbleEditor({
 }) {
   const f = styleFields(bubble.style);
   const patch = (p: Partial<Omit<Bubble, 'id'>>) => patchBubble(bubble.id, p);
+  const look = (p: LookPatch) => patchBubbleLook(bubble.id, p);
+  const custom = bubbleCustom(bubble);
+  const badge = (k: LookKey) => <CustomBadge on={custom.includes(k)} />;
   const toast = useToast();
   return (
     <Section title={S.editing(number)} persistKey="speech-bubble:bubble">
@@ -422,47 +371,77 @@ function BubbleEditor({
           </Field>
         </Show>
         <FieldRow columns={2}>
+          <Field label={S.speaker}>
+            <TextInput
+              value={bubble.speaker ?? ''}
+              placeholder={S.speakerPlaceholder}
+              data-testid="bubble-speaker"
+              onFocus={gesture.begin}
+              onBlur={gesture.commit}
+              onChange={(e) =>
+                patch({
+                  speaker: Array.from(e.target.value.replace(/\n/g, ' '))
+                    .slice(0, MAX_SPEAKER)
+                    .join(''),
+                })
+              }
+            />
+          </Field>
+          <Field label={S.time}>
+            <TextInput
+              value={bubble.time ?? ''}
+              placeholder={S.timePlaceholder}
+              data-testid="bubble-time"
+              onFocus={gesture.begin}
+              onBlur={gesture.commit}
+              onChange={(e) =>
+                patch({
+                  time: Array.from(e.target.value.replace(/\n/g, ' ')).slice(0, MAX_TIME).join(''),
+                })
+              }
+            />
+          </Field>
+        </FieldRow>
+        <p className="-mt-1 m-0 text-xs text-muted">{S.metaHint}</p>
+        <FieldRow columns={2}>
           <Field label={S.align} hint={S.alignHint}>
             <Segmented<Bubble['align']>
               value={bubble.align}
-              onValueChange={(v) => patch({ align: v })}
+              onValueChange={(v) => setAlign(bubble.id, v)}
               options={ALIGNS.map((a) => ({ value: a, label: ALIGN_NAMES[a] }))}
               fullWidth
             />
           </Field>
-          <Field label={S.icon} hidden={!f.icon}>
+          <Field label={S.icon} hidden={!f.icon} labelSuffix={badge('icon')}>
             <Select<Bubble['icon']>
               value={bubble.icon}
-              onValueChange={(v) => patch({ icon: v })}
+              onValueChange={(v) => look({ icon: v })}
               options={ICON_IDS.map((i) => ({ value: i, label: ICON_NAMES[i] }))}
             />
           </Field>
         </FieldRow>
+        {hasOffset(bubble) ? (
+          <div className="flex flex-wrap items-center gap-2" data-testid="bubble-offset">
+            <span className="text-xs text-muted">
+              {S.offsetLabel}：{S.offsetValue(bubble.dx ?? 0, bubble.dy ?? 0)}
+            </span>
+            <Button size="sm" icon={<Undo2 />} onClick={() => resetOffsets(bubble.id)}>
+              {S.resetOffset}
+            </Button>
+          </div>
+        ) : null}
       </div>
       <div className="flex flex-col gap-2 border-t border-border pt-3">
         <h4 className="m-0 text-sm font-semibold">{S.colors}</h4>
-        <GestureScope gesture={gesture}>
-          <FieldRow columns={2}>
-            {PALETTE_KEYS.map((k) => (
-              <Field
-                key={k}
-                label={S.colorNames[k]}
-                hint={k === 'accent' ? S.colorHints.accent : undefined}
-              >
-                <ColorField
-                  alpha
-                  value={bubble.colors[k]}
-                  onChange={(v) => patch({ colors: { ...bubble.colors, [k]: v.toLowerCase() } })}
-                />
-              </Field>
-            ))}
-          </FieldRow>
-        </GestureScope>
+        <PaletteFields look={lookOf(bubble)} custom={custom} onChange={look} />
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             icon={<RotateCcw />}
-            onClick={() => patch({ colors: styleDefaults(bubble.style).colors })}
+            onClick={() => {
+              const d = styleDefaults(bubble.style).colors;
+              look({ fill: d.fill, border: d.border, text: d.text, accent: d.accent });
+            }}
           >
             {S.resetColors}
           </Button>
@@ -484,16 +463,77 @@ function BubbleEditor({
   );
 }
 
+/** 這個泡泡的樣式：單獨調整（文字、外框與陰影、說話者與日期）；回到這一側的預設、存成這一側的預設 */
+function BubbleLookSection({ bubble }: { bubble: Bubble }) {
+  const custom = bubbleCustom(bubble);
+  const lk = lookOf(bubble);
+  const change = (p: LookPatch) => patchBubbleLook(bubble.id, p);
+  const toast = useToast();
+  return (
+    <Section
+      title={S.lookSection}
+      description={S.lookHint}
+      persistKey="speech-bubble:bubble-look"
+      defaultOpen={false}
+    >
+      <div className="flex flex-wrap items-center gap-2" data-testid="bubble-look-actions">
+        <span className="text-xs text-muted" data-testid="custom-count">
+          {S.customCount(custom.length)}
+        </span>
+        <Button
+          size="sm"
+          icon={<RotateCcw />}
+          title={S.resetLookHint}
+          disabled={!custom.length}
+          onClick={() => resetBubbleLook(bubble.id)}
+        >
+          {S.resetLook}
+        </Button>
+        <Button
+          size="sm"
+          icon={<Save />}
+          title={S.saveAsSideHint}
+          onClick={() => {
+            saveBubbleAsSide(bubble.id);
+            toast({ title: S.savedAsSide(SIDE_NAMES[bubble.align]), tone: 'success' });
+          }}
+        >
+          {S.saveAsSide}
+        </Button>
+      </div>
+      <h4 className="m-0 text-sm font-semibold">{S.textGroup}</h4>
+      <TextFields look={lk} custom={custom} onChange={change} />
+      <h4 className="m-0 border-t border-border pt-3 text-sm font-semibold">{S.frameGroup}</h4>
+      <FrameFields look={lk} custom={custom} onChange={change} />
+      <h4 className="m-0 border-t border-border pt-3 text-sm font-semibold">{S.metaGroup}</h4>
+      <MetaFields look={lk} custom={custom} onChange={change} />
+    </Section>
+  );
+}
+
 export function BubblesPanel() {
   const d = useSb((s) => s.data);
   const selectedId = useUi((u) => u.selectedId);
   const bubble = selectedBubble(d, selectedId);
   const number = d.bubbles.findIndex((b) => b.id === bubble.id) + 1;
+  const custom = bubbleCustom(bubble);
   return (
     <div className="flex flex-col gap-3">
       <BubbleList />
       <BubbleEditor bubble={bubble} number={number} total={d.bubbles.length} />
-      <StyleSection bubble={bubble} />
+      <Section
+        title={S.style}
+        persistKey="speech-bubble:style"
+        description={S.styleHint}
+        actions={<CustomBadge on={custom.includes('style')} />}
+      >
+        <StyleChoice
+          label={S.style}
+          value={bubble.style}
+          onChange={(v) => setStyle(bubble.id, v)}
+        />
+      </Section>
+      <BubbleLookSection bubble={bubble} />
     </div>
   );
 }
@@ -639,16 +679,26 @@ export function LayoutPanel() {
         </Field>
       </Section>
       <Section title={S.canvasSection} persistKey="speech-bubble:canvas">
-        <Field label={S.canvasMode}>
+        <Field
+          label={S.canvasMode}
+          hint={d.canvasMode !== 'auto' && d.canvasMode !== 'fixed' ? S.ratioHint : undefined}
+        >
           <Segmented
             value={d.canvasMode}
             onValueChange={(v) => set('canvasMode', v)}
-            options={CANVAS_MODES.map((v) => ({ value: v, label: S.canvasModes[v] }))}
+            options={CANVAS_MODES.map((v) => ({
+              value: v,
+              label: S.canvasModes[v],
+              ariaLabel: v === 'auto' || v === 'fixed' ? undefined : S.canvasModeLabels[v],
+            }))}
             fullWidth
           />
         </Field>
         <Field label={S.margin} hint={d.canvasMode === 'auto' ? S.marginHint : S.marginFixedHint}>
           <RangeSlider k="margin" unit="px" />
+        </Field>
+        <Field label={S.minHeight} hint={S.minHeightHint} hidden={d.canvasMode === 'fixed'}>
+          <RangeSlider k="minHeight" unit="px" />
         </Field>
         <Show when={d.canvasMode === 'fixed'}>
           <FieldRow columns={2}>
@@ -675,11 +725,224 @@ export function LayoutPanel() {
               />
             </Field>
           </FieldRow>
-          <Field label={S.anchor}>
-            <AnchorPicker value={d.anchor} onChange={(v) => set('anchor', v)} />
+        </Show>
+        <Field label={S.anchor} hidden={d.canvasMode === 'auto' && d.minHeight <= 0}>
+          <AnchorPicker value={d.anchor} onChange={(v) => set('anchor', v)} />
+        </Field>
+      </Section>
+      <CardSection />
+      <NotesSection />
+    </div>
+  );
+}
+
+/* ---------- 卡片底、頁首與頁尾（F61～F63） ---------- */
+
+type CardNumKey = keyof typeof CARD_RANGES;
+
+function CardSlider({ k, unit }: { k: CardNumKey; unit?: string }) {
+  const value = useSb((s) => s.data.card[k]);
+  const r = CARD_RANGES[k];
+  return (
+    <Slider
+      value={value}
+      min={r.min}
+      max={r.max}
+      step={r.step}
+      unit={unit}
+      onChange={gesture.live((v: number) =>
+        editCard((c) => {
+          c[k] = v;
+        }),
+      )}
+      onCommit={gesture.commit}
+    />
+  );
+}
+
+const setCard = <K extends keyof CardStyle>(k: K, v: CardStyle[K]) =>
+  editCard((c) => {
+    c[k] = v;
+  });
+
+function CardSection() {
+  const c = useSb((s) => s.data.card);
+  const toast = useToast();
+  const img = useAssetImage(assets, c.image);
+  const addImage = async (files: File[]) => {
+    const file = files[0];
+    if (!file) return;
+    try {
+      const { ref, persisted } = await addImageFile(assets, file, { maxSide: 2048 });
+      setCard('image', ref.id);
+      if (!persisted) toast({ title: S.imageNotSaved, tone: 'warning' });
+    } catch {
+      toast({ title: S.imageFailed(file.name), tone: 'danger' });
+    }
+  };
+  return (
+    <Section title={S.cardSection} persistKey="speech-bubble:card">
+      <Field label={S.cardBg} hint={S.cardBgHint} layout="inline">
+        <Toggle checked={c.bg} onCheckedChange={(v) => setCard('bg', v)} />
+      </Field>
+      <Show when={c.bg}>
+        <FieldRow columns={2}>
+          <Field label={S.cardColor}>
+            <GestureScope gesture={gesture}>
+              <ColorField
+                alpha
+                value={c.color}
+                onChange={(v) => setCard('color', v.toLowerCase())}
+              />
+            </GestureScope>
+          </Field>
+          <Field label={S.cardRadius}>
+            <CardSlider k="radius" unit="px" />
+          </Field>
+        </FieldRow>
+        <Field label={S.cardImage} hint={S.cardImageHint}>
+          {c.image ? (
+            <div className="flex flex-col gap-2" data-testid="card-image">
+              {img.status === 'missing' ? <Notice tone="warning">{S.imageMissing}</Notice> : null}
+              <div>
+                <Button size="sm" icon={<Trash2 />} onClick={() => setCard('image', null)}>
+                  {S.removeImage}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <ImageDrop
+              compact
+              paste="focus"
+              label={S.cardImageDrop}
+              onFiles={(files) => void addImage(files)}
+            />
+          )}
+        </Field>
+        <Show when={!!c.image}>
+          <FieldRow columns={2}>
+            <Field label={S.imageFit}>
+              <Segmented
+                value={c.imageFit}
+                onValueChange={(v) => setCard('imageFit', v)}
+                options={IMAGE_FIT_IDS.map((v) => ({ value: v, label: IMAGE_FIT_NAMES[v] }))}
+                fullWidth
+              />
+            </Field>
+            <Field label={S.imageOpacity}>
+              <CardSlider k="imageOpacity" unit="%" />
+            </Field>
+          </FieldRow>
+        </Show>
+        <Field label={S.texture}>
+          <Select
+            value={c.texture}
+            onValueChange={(v) => setCard('texture', v)}
+            options={TEXTURE_IDS.map((v) => ({ value: v, label: TEXTURE_NAMES[v] }))}
+          />
+        </Field>
+        <Show when={c.texture !== 'none'}>
+          <Field label={S.textureStrength}>
+            <CardSlider k="strength" unit="%" />
+          </Field>
+          <Field label={S.darkBoost} hint={S.darkBoostHint} layout="inline">
+            <Toggle checked={c.darkBoost} onCheckedChange={(v) => setCard('darkBoost', v)} />
           </Field>
         </Show>
-      </Section>
-    </div>
+      </Show>
+    </Section>
+  );
+}
+
+const noteText = (v: string) => Array.from(v).slice(0, MAX_NOTE).join('');
+
+function NotesSection() {
+  const c = useSb((s) => s.data.card);
+  const globalFont = useSb((s) => s.data.font);
+  const hasNotes = !!(c.header.trim() || c.footer.trim());
+  return (
+    <Section title={S.notesSection} persistKey="speech-bubble:notes">
+      <Field label={S.header}>
+        <TextArea
+          rows={2}
+          value={c.header}
+          placeholder={S.notePlaceholder}
+          data-testid="card-header"
+          onFocus={gesture.begin}
+          onBlur={gesture.commit}
+          onChange={(e) => setCard('header', noteText(e.target.value))}
+        />
+      </Field>
+      <Field label={S.footer}>
+        <TextArea
+          rows={2}
+          value={c.footer}
+          placeholder={S.notePlaceholder}
+          data-testid="card-footer"
+          onFocus={gesture.begin}
+          onBlur={gesture.commit}
+          onChange={(e) => setCard('footer', noteText(e.target.value))}
+        />
+      </Field>
+      <Show when={hasNotes}>
+        <FieldRow columns={2}>
+          <Field label={S.noteAlign}>
+            <Segmented
+              value={c.noteAlign}
+              onValueChange={(v) => setCard('noteAlign', v)}
+              options={NOTE_ALIGN_IDS.map((v) => ({ value: v, label: NOTE_ALIGN_NAMES[v] }))}
+              fullWidth
+            />
+          </Field>
+          <Field label={S.noteSize}>
+            <CardSlider k="noteSize" unit="px" />
+          </Field>
+        </FieldRow>
+        <Field label={S.noteColor}>
+          <GestureScope gesture={gesture}>
+            <ColorField
+              alpha
+              value={c.noteColor}
+              onChange={(v) => setCard('noteColor', v.toLowerCase())}
+            />
+          </GestureScope>
+        </Field>
+        <Field label={S.noteFont}>
+          <div className="flex flex-col gap-2">
+            <Toggle
+              label={S.noteFontInherit}
+              checked={c.noteFont === null}
+              onCheckedChange={(on) => setCard('noteFont', on ? null : { ...globalFont })}
+            />
+            {c.noteFont ? (
+              <FontPicker
+                value={c.noteFont}
+                previewText={S.fontPreview}
+                onChange={(v) => setCard('noteFont', { ...v })}
+              />
+            ) : null}
+          </div>
+        </Field>
+      </Show>
+      <Field label={S.divider} hint={S.dividerHint}>
+        <Segmented
+          value={c.divider}
+          onValueChange={(v) => setCard('divider', v)}
+          options={DIVIDER_IDS.map((v) => ({ value: v, label: DIVIDER_NAMES[v] }))}
+          fullWidth
+        />
+      </Field>
+      <Show when={c.divider !== 'none'}>
+        <Field label={S.dividerColor}>
+          <GestureScope gesture={gesture}>
+            <ColorField
+              alpha
+              value={c.dividerColor}
+              onChange={(v) => setCard('dividerColor', v.toLowerCase())}
+            />
+          </GestureScope>
+        </Field>
+      </Show>
+    </Section>
   );
 }

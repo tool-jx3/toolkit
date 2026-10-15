@@ -6,6 +6,11 @@ import {
   type Align,
   BASE_SETTINGS,
   type Bubble,
+  cloneFmt,
+  DEFAULT_CARD,
+  DEFAULT_FMT,
+  deriveSides,
+  diffKeys,
   type IconId,
   newBubbleId,
   type Palette,
@@ -505,17 +510,30 @@ export function presetBubble(pb: PresetBubble): Bubble {
     button: pb.button ?? '',
     align: pb.align ?? 'left',
     colors: { ...d.colors, ...pb.colors },
+    speaker: '',
+    time: '',
+    fmt: cloneFmt(DEFAULT_FMT),
+    dx: 0,
+    dy: 0,
   };
 }
 
-/** 套用範本：所有設定換成範本的（範本沒寫的用預設值） */
+/**
+ * 套用範本：所有設定換成範本的（範本沒寫的用預設值）。
+ * 三側的預設從範本的泡泡推出來（每一側的第一個泡泡），和預設不同的項目記成「單獨改過」。
+ */
 export function applyPreset(p: Preset): SbData {
+  const bubbles = p.bubbles.map(presetBubble);
+  const sides = deriveSides(bubbles);
+  for (const b of bubbles) b.custom = diffKeys(b, sides[b.align]);
   return {
     ...BASE_SETTINGS,
     ...p.settings,
     font: { ...(p.settings.font ?? BASE_SETTINGS.font) },
     presetId: p.id,
-    bubbles: p.bubbles.map(presetBubble),
+    bubbles,
+    sides,
+    card: { ...DEFAULT_CARD },
   };
 }
 

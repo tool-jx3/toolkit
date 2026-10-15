@@ -7,7 +7,7 @@ import { parseColor, readableTextColor } from '@/core/color';
 import { traceShape } from '@/core/shapes';
 import type { Ctx2D } from '@/core/timeline';
 import { hashSigned, hashUnit } from '@/core/timeline';
-import type { BubbleLayout } from './layout';
+import type { BubbleLayout, TextLine } from './layout';
 import type { Bubble, CursorId, IconId, Palette } from './model';
 
 /* ---------- 顏色 ---------- */
@@ -53,6 +53,52 @@ export function roundRectPath(ctx: Ctx2D, x: number, y: number, w: number, h: nu
   ctx.arcTo(x, y, x + rr, y, rr);
   ctx.closePath();
 }
+
+/** 圓角矩形，其中一個角是尖的（「尾巴與角」選尖角：指向側的上角） */
+export function roundRectSharp(
+  ctx: Ctx2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  sharp: 'tl' | 'tr',
+) {
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
+  const tl = sharp === 'tl' ? 0 : rr;
+  const tr = sharp === 'tr' ? 0 : rr;
+  ctx.moveTo(x + tl, y);
+  ctx.lineTo(x + w - tr, y);
+  if (tr) ctx.arcTo(x + w, y, x + w, y + tr, tr);
+  else ctx.lineTo(x + w, y);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.arcTo(x + w, y + h, x + w - rr, y + h, rr);
+  ctx.lineTo(x + rr, y + h);
+  ctx.arcTo(x, y + h, x, y + h - rr, rr);
+  ctx.lineTo(x, y + tl);
+  if (tl) ctx.arcTo(x, y, x + tl, y, tl);
+  ctx.closePath();
+}
+
+/**
+ * 本體的圓角矩形：圓角用自己設的（沒設＝造型預設 def）；「尖角」時指向側的上角是尖的。
+ * 沒改過時和以前一樣呼叫 roundRectPath（沒用到新功能時輸出不變）。
+ */
+function bodyRect(ctx: Ctx2D, L: BubbleLayout, def: number): void {
+  const r = L.radius ?? def;
+  if (L.corner === 'point' && L.align !== 'center')
+    roundRectSharp(ctx, 0, 0, L.w, L.h, r, L.align === 'left' ? 'tl' : 'tr');
+  else roundRectPath(ctx, 0, 0, L.w, L.h, r);
+}
+
+/** 方角的造型（科幻面板、新聞快訊）：設了圓角或尖角才改用圓角矩形 */
+function squareRect(ctx: Ctx2D, L: BubbleLayout): void {
+  if (L.radius === null && L.corner !== 'point') ctx.rect(0, 0, L.w, L.h);
+  else bodyRect(ctx, L, 0);
+}
+
+/** 邊框粗細（造型預設的倍數） */
+const bw = (L: BubbleLayout, w: number): number => w * L.borderScale;
 
 const ellipsePath = (ctx: Ctx2D, cx: number, cy: number, rx: number, ry: number) => {
   ctx.moveTo(cx + rx, cy);
@@ -116,12 +162,13 @@ const polyPath = (ctx: Ctx2D, pts: readonly [number, number][]) => {
 };
 
 /** 想法泡泡：橢圓周圍一圈小圓（雲朵） */
-function cloudCircles(w: number, h: number, fs: number): [number, number, number][] {
+function cloudCircles(w: number, h: number, fs: number, puff = 1): [number, number, number][] {
   const rx = w / 2;
   const ry = h / 2;
   const perim = Math.PI * (rx + ry);
-  const n = Math.max(8, Math.min(22, Math.round(perim / (fs * 1.35))));
-  const rb = Math.max(fs * 0.55, (perim / n) * 0.62);
+  /* 雲朵大小（倍數）：圓變大、數量變少 */
+  const n = Math.max(8, Math.min(22, Math.round(perim / (fs * 1.35 * puff))));
+  const rb = Math.max(fs * 0.55 * puff, (perim / n) * 0.62);
   const out: [number, number, number][] = [];
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
@@ -130,20 +177,31 @@ function cloudCircles(w: number, h: number, fs: number): [number, number, number
   return out;
 }
 
+/** 想法泡泡往所在側斜下的三個小圓點 */
+function thoughtDots(L: BubbleLayout): [number, number, number][] {
+  const dir = L.align === 'right' ? 1 : L.align === 'left' ? -1 : 0;
+  const fs = L.fs;
+  return [
+    [L.tailX + dir * fs * 0.25, L.h + fs * 0.35, fs * 0.34],
+    [L.tailX + dir * fs * 0.7, L.h + fs * 1.0, fs * 0.22],
+    [L.tailX + dir * fs * 1.0, L.h + fs * 1.5, fs * 0.13],
+  ];
+}
+
 /** 泡泡本體的路徑（填色、裁切閃光與掃描線用；不含尾巴） */
 export function traceBody(ctx: Ctx2D, L: BubbleLayout, seed: number): void {
   const { w, h, fs } = L;
   ctx.beginPath();
   switch (L.spec.id) {
     case 'messenger':
-      roundRectPath(ctx, 0, 0, w, h, Math.min(h / 2, fs * 0.95));
+      bodyRect(ctx, L, Math.min(h / 2, fs * 0.95));
       break;
     case 'speech':
       ellipsePath(ctx, w / 2, h / 2, w / 2, h / 2);
       break;
     case 'thought':
       ellipsePath(ctx, w / 2, h / 2, w / 2 - fs * 0.1, h / 2 - fs * 0.1);
-      for (const [cx, cy, r] of cloudCircles(w, h, fs)) circlePath(ctx, cx, cy, r);
+      for (const [cx, cy, r] of cloudCircles(w, h, fs, L.puff)) circlePath(ctx, cx, cy, r);
       break;
     case 'shout':
       polyPath(ctx, burstPoints(w, h, fs, seed));
@@ -175,35 +233,43 @@ export function traceBody(ctx: Ctx2D, L: BubbleLayout, seed: number): void {
       polyPath(ctx, roughPoints(w, h, fs, seed));
       break;
     case 'capsule':
-      roundRectPath(ctx, 0, 0, w, h, h / 2);
+      bodyRect(ctx, L, h / 2);
       break;
     case 'hud':
     case 'news':
-      ctx.rect(0, 0, w, h);
+      squareRect(ctx, L);
       break;
     case 'notebook':
-      roundRectPath(ctx, 0, 0, w, h, 3);
+      bodyRect(ctx, L, 3);
       break;
     case 'rpg':
     case 'battle':
     case 'hologram':
-      roundRectPath(ctx, 0, 0, w, h, fs * 0.16);
+      bodyRect(ctx, L, fs * 0.16);
       break;
     case 'chat-card':
-      roundRectPath(ctx, 0, 0, w, h, fs * 0.55);
+      bodyRect(ctx, L, fs * 0.55);
       break;
     case 'glass':
-      roundRectPath(ctx, 0, 0, w, h, fs * 0.7);
+      bodyRect(ctx, L, fs * 0.7);
       break;
     case 'neon':
-      roundRectPath(ctx, 0, 0, w, h, fs * 0.45);
+      bodyRect(ctx, L, fs * 0.45);
       break;
     case 'toast':
-      roundRectPath(ctx, 0, 0, w, h, fs * 0.4);
+      bodyRect(ctx, L, fs * 0.4);
       break;
     default:
-      roundRectPath(ctx, 0, 0, w, h, fs * 0.32);
+      bodyRect(ctx, L, fs * 0.32);
   }
+}
+
+/** 本體連同尾巴（訊息泡泡的小勾、漫畫泡泡的尖角、想法泡泡的小圓點）的剪影：實色陰影、強制的柔和陰影用 */
+export function traceSilhouette(ctx: Ctx2D, L: BubbleLayout, seed: number): void {
+  traceBody(ctx, L, seed);
+  if (L.tail === 'hook') messengerTail(ctx, L);
+  else if (L.tail === 'point') speechTail(ctx, L);
+  else if (L.tail === 'dots') for (const [cx, cy, r] of thoughtDots(L)) circlePath(ctx, cx, cy, r);
 }
 
 /* ---------- 陰影與光暈 ---------- */
@@ -432,6 +498,101 @@ function drawTitle(ctx: Ctx2D, L: BubbleLayout, c: Palette): void {
   ctx.restore();
 }
 
+/** 畫一行的前 n 個字：沒有字距時整串一起畫（和以前相同），有字距時一個字一個字畫 */
+function fillLine(
+  ctx: Ctx2D,
+  L: BubbleLayout,
+  line: TextLine,
+  n: number,
+  s: string,
+  x: number,
+  y: number,
+): void {
+  if (!L.ls) {
+    ctx.fillText(s, x, y);
+    return;
+  }
+  let cx = x;
+  for (let k = 0; k < n; k++) {
+    ctx.fillText(line.chars[k], cx, y);
+    cx += line.adv[k];
+  }
+}
+
+/** 說話者與日期（名字粗體；日期時間淡一點；泡泡內時上面有分隔線、中間有「・」） */
+function drawMeta(ctx: Ctx2D, L: BubbleLayout): void {
+  const m = L.meta;
+  if (!m) return;
+  ctx.save();
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  if (m.divider) {
+    ctx.beginPath();
+    ctx.moveTo(m.divider.x0, m.divider.y);
+    ctx.lineTo(m.divider.x1, m.divider.y);
+    strokeIf(ctx, rgba(m.color, 0.35), 1);
+  }
+  if (m.name) {
+    ctx.font = m.nameFont;
+    ctx.fillStyle = m.color;
+    ctx.fillText(m.speaker, m.name.x, m.name.cy);
+  }
+  if (m.sep) {
+    ctx.font = m.timeFont;
+    ctx.fillStyle = rgba(m.color, 0.6);
+    ctx.textAlign = 'center';
+    ctx.fillText('・', m.sep.x + m.size * 0.55, m.sep.cy);
+    ctx.textAlign = 'left';
+  }
+  if (m.timeAt) {
+    ctx.font = m.timeFont;
+    ctx.fillStyle = rgba(m.color, 0.85);
+    ctx.fillText(m.time, m.timeAt.x, m.timeAt.cy);
+  }
+  ctx.restore();
+}
+
+/** 底部實色陰影：本體＋尾巴的剪影往下錯開，不模糊 */
+function drawSolidShadow(ctx: Ctx2D, L: BubbleLayout, seed: number): void {
+  if (!L.solid) return;
+  ctx.save();
+  ctx.translate(0, L.solid.offset);
+  traceSilhouette(ctx, L, seed);
+  fillIf(ctx, L.solid.color);
+  ctx.restore();
+}
+
+/** 這些造型本來沒有柔和陰影：選了「一律開」時另外在底下畫一層 */
+const NO_SHADOW_BACK = new Set<Bubble['style']>([
+  'messenger',
+  'speech',
+  'thought',
+  'shout',
+  'neon',
+  'hud',
+  'hologram',
+]);
+
+/**
+ * 只畫陰影、不畫形狀：剪影移到很遠的地方畫，陰影再用位移拉回原位
+ * （陰影的位移不跟著變換，所以用目前的矩陣換算；旋轉、縮放時一樣對齊）。
+ */
+function drawShadowUnderlay(ctx: Ctx2D, L: BubbleLayout, seed: number): void {
+  const m = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null;
+  const s = deviceScale(ctx);
+  const far = L.w + L.h + 2000;
+  ctx.save();
+  ctx.translate(-far, 0);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.24)';
+  ctx.shadowBlur = L.fs * 0.6 * s;
+  ctx.shadowOffsetX = far * (m ? m.a : 1);
+  ctx.shadowOffsetY = far * (m ? m.b : 0) + L.fs * 0.22 * s;
+  traceSilhouette(ctx, L, seed);
+  ctx.fillStyle = '#000000';
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawBodyText(ctx: Ctx2D, L: BubbleLayout, c: Palette, st: TextState): void {
   if (!L.lines.length && st.cursor === 'none') return;
   ctx.save();
@@ -455,16 +616,16 @@ function drawBodyText(ctx: Ctx2D, L: BubbleLayout, c: Palette, st: TextState): v
       if (la) ctx.globalAlpha *= la.alpha;
       if (holo) {
         ctx.fillStyle = rgba(c.accent, 0.55);
-        ctx.fillText(s, line.x - L.fs * 0.07, line.cy + dy);
+        fillLine(ctx, L, line, n, s, line.x - L.fs * 0.07, line.cy + dy);
         ctx.fillStyle = rgba('#ff5ad9', 0.4);
-        ctx.fillText(s, line.x + L.fs * 0.07, line.cy + dy);
+        fillLine(ctx, L, line, n, s, line.x + L.fs * 0.07, line.cy + dy);
       }
       ctx.fillStyle = c.text;
       if (soft) {
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
         ctx.shadowBlur = L.fs * 0.2 * deviceScale(ctx);
       }
-      withGlow(ctx, c.accent, glow, () => ctx.fillText(s, line.x, line.cy + dy));
+      withGlow(ctx, c.accent, glow, () => fillLine(ctx, L, line, n, s, line.x, line.cy + dy));
       ctx.restore();
     }
     if (n < line.chars.length && !cursorAt) {
@@ -585,49 +746,44 @@ type BackFn = (ctx: Ctx2D, L: BubbleLayout, c: Palette, env: DrawEnv) => void;
 const BACK: Partial<Record<Bubble['style'], BackFn>> = {
   messenger: (ctx, L, c) => {
     ctx.beginPath();
-    roundRectPath(ctx, 0, 0, L.w, L.h, Math.min(L.h / 2, L.fs * 0.95));
-    messengerTail(ctx, L);
+    bodyRect(ctx, L, Math.min(L.h / 2, L.fs * 0.95));
+    if (L.tail === 'hook') messengerTail(ctx, L);
     fillIf(ctx, c.fill);
-    strokeIf(ctx, c.border, Math.max(1, L.fs * 0.06));
+    strokeIf(ctx, c.border, bw(L, Math.max(1, L.fs * 0.06)));
   },
   speech: (ctx, L, c) => {
-    const bw = Math.max(1.5, L.fs * 0.11);
+    const lw = bw(L, Math.max(1.5, L.fs * 0.11));
     outlined(
       ctx,
       () => {
         ellipsePath(ctx, L.w / 2, L.h / 2, L.w / 2, L.h / 2);
-        speechTail(ctx, L);
+        if (L.tail !== 'none') speechTail(ctx, L);
       },
       c.fill,
       c.border,
-      bw,
+      lw,
     );
   },
   thought: (ctx, L, c) => {
-    const bw = Math.max(1.5, L.fs * 0.1);
-    const dir = L.align === 'right' ? 1 : L.align === 'left' ? -1 : 0;
+    const lw = bw(L, Math.max(1.5, L.fs * 0.1));
     const fs = L.fs;
-    const dots: [number, number, number][] = [
-      [L.tailX + dir * fs * 0.25, L.h + fs * 0.35, fs * 0.34],
-      [L.tailX + dir * fs * 0.7, L.h + fs * 1.0, fs * 0.22],
-      [L.tailX + dir * fs * 1.0, L.h + fs * 1.5, fs * 0.13],
-    ];
     outlined(
       ctx,
       () => {
         ellipsePath(ctx, L.w / 2, L.h / 2, L.w / 2 - fs * 0.1, L.h / 2 - fs * 0.1);
-        for (const [cx, cy, r] of cloudCircles(L.w, L.h, fs)) circlePath(ctx, cx, cy, r);
+        for (const [cx, cy, r] of cloudCircles(L.w, L.h, fs, L.puff)) circlePath(ctx, cx, cy, r);
       },
       c.fill,
       c.border,
-      bw,
+      lw,
     );
-    for (const [cx, cy, r] of dots)
-      outlined(ctx, () => circlePath(ctx, cx, cy, r), c.fill, c.border, bw * 0.8);
+    if (L.tail !== 'none')
+      for (const [cx, cy, r] of thoughtDots(L))
+        outlined(ctx, () => circlePath(ctx, cx, cy, r), c.fill, c.border, lw * 0.8);
   },
   shout: (ctx, L, c, env) => {
-    const bw = Math.max(2, L.fs * 0.13);
-    outlined(ctx, () => polyPath(ctx, burstPoints(L.w, L.h, L.fs, env.seed)), c.fill, c.border, bw);
+    const lw = bw(L, Math.max(2, L.fs * 0.13));
+    outlined(ctx, () => polyPath(ctx, burstPoints(L.w, L.h, L.fs, env.seed)), c.fill, c.border, lw);
   },
   'chat-card': (ctx, L, c, env) => {
     withShadow(ctx, env.shadow, L.fs, () => {
@@ -635,7 +791,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
       fillIf(ctx, c.fill);
     });
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, c.border, 1);
+    strokeIf(ctx, c.border, bw(L, 1));
   },
   rpg: (ctx, L, c, env) => {
     const { w, h, fs } = L;
@@ -650,7 +806,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
       );
     });
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, c.border, Math.max(1.5, fs * 0.09));
+    strokeIf(ctx, c.border, bw(L, Math.max(1.5, fs * 0.09)));
     ctx.beginPath();
     roundRectPath(ctx, fs * 0.2, fs * 0.2, w - fs * 0.4, h - fs * 0.4, fs * 0.1);
     strokeIf(ctx, rgba(c.border, 0.45), 1);
@@ -674,7 +830,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
       fillIf(ctx, g);
     });
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, c.border, 1);
+    strokeIf(ctx, c.border, bw(L, 1));
     ctx.beginPath();
     ctx.rect(fs * 0.18, fs * 0.18, w - fs * 0.36, h - fs * 0.36);
     strokeIf(ctx, rgba(c.accent, 0.3), 1);
@@ -701,7 +857,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
       );
     });
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, c.border, Math.max(1.2, L.fs * 0.07));
+    strokeIf(ctx, c.border, bw(L, Math.max(1.2, L.fs * 0.07)));
   },
   sticky: (ctx, L, c, env) => {
     const { w, h, fs } = L;
@@ -764,7 +920,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
     }
     ctx.restore();
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, rgba(c.border, 0.8), 1);
+    strokeIf(ctx, rgba(c.border, 0.8), bw(L, 1));
   },
   parchment: (ctx, L, c, env) => {
     const { w, h, fs } = L;
@@ -784,7 +940,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
       fillIf(ctx, g);
     });
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, c.border, Math.max(1.5, fs * 0.1));
+    strokeIf(ctx, c.border, bw(L, Math.max(1.5, fs * 0.1)));
   },
   neon: (ctx, L, c, env) => {
     const { fs } = L;
@@ -792,16 +948,16 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
     fillIf(ctx, c.fill);
     withGlow(ctx, c.border, fs * 0.9, () => {
       traceBody(ctx, L, env.seed);
-      strokeIf(ctx, c.border, Math.max(2, fs * 0.13));
+      strokeIf(ctx, c.border, bw(L, Math.max(2, fs * 0.13)));
     });
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, mix(c.border, '#ffffff', 0.55), Math.max(1, fs * 0.045));
+    strokeIf(ctx, mix(c.border, '#ffffff', 0.55), bw(L, Math.max(1, fs * 0.045)));
   },
   news: (ctx, L, c, env) => {
     const { w, h, fs } = L;
     withShadow(ctx, env.shadow, fs, () => {
       ctx.beginPath();
-      ctx.rect(0, 0, w, h);
+      squareRect(ctx, L);
       fillIf(
         ctx,
         vGradient(ctx, h, [
@@ -810,6 +966,14 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
         ]),
       );
     });
+    /* 設了圓角或尖角時，標籤與底部色條裁在本體裡 */
+    const rounded = L.radius !== null || L.corner === 'point';
+    if (rounded) {
+      ctx.save();
+      ctx.beginPath();
+      squareRect(ctx, L);
+      ctx.clip();
+    }
     if (L.labelW > 0) {
       ctx.beginPath();
       ctx.rect(0, 0, L.labelW, h);
@@ -824,6 +988,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
     ctx.beginPath();
     ctx.rect(0, h - fs * 0.14, w, fs * 0.14);
     fillIf(ctx, c.border);
+    if (rounded) ctx.restore();
   },
   toast: (ctx, L, c, env) => {
     const { h, fs } = L;
@@ -838,7 +1003,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
     ctx.fillRect(0, 0, fs * 0.2, h);
     ctx.restore();
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, c.border, 1);
+    strokeIf(ctx, c.border, bw(L, 1));
     /* 關閉的 × */
     const x = L.w - fs * 0.75;
     const y = fs * 0.7;
@@ -867,7 +1032,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
     ctx.lineTo(w, barH);
     strokeIf(ctx, rgba(c.border, 0.8), 1);
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, c.border, Math.max(1, fs * 0.07));
+    strokeIf(ctx, c.border, bw(L, Math.max(1, fs * 0.07)));
     /* －□× */
     const cy = barH / 2;
     const k = ts * 0.3;
@@ -911,7 +1076,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
       ]),
     );
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, c.border, Math.max(1, fs * 0.05));
+    strokeIf(ctx, c.border, bw(L, Math.max(1, fs * 0.05)));
   },
   capsule: (ctx, L, c, env) => {
     withShadow(ctx, env.shadow, L.fs, () => {
@@ -919,7 +1084,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
       fillIf(ctx, c.fill);
     });
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, c.border, Math.max(1.2, L.fs * 0.07));
+    strokeIf(ctx, c.border, bw(L, Math.max(1.2, L.fs * 0.07)));
   },
   card: (ctx, L, c, env) => {
     withShadow(ctx, env.shadow, L.fs, () => {
@@ -933,17 +1098,17 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
     ctx.fillRect(0, 0, L.w, Math.max(2, L.fs * 0.14));
     ctx.restore();
     traceBody(ctx, L, env.seed);
-    strokeIf(ctx, c.border, 1);
+    strokeIf(ctx, c.border, bw(L, 1));
   },
   hud: (ctx, L, c) => {
     const { w, h, fs, barH, ts } = L;
     ctx.beginPath();
-    ctx.rect(0, 0, w, h);
+    squareRect(ctx, L);
     fillIf(ctx, c.fill);
     /* 細橫紋 */
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, 0, w, h);
+    squareRect(ctx, L);
     ctx.clip();
     ctx.fillStyle = rgba(c.accent, 0.06);
     for (let y = barH; y < h; y += 4) ctx.fillRect(0, y, w, 1);
@@ -955,8 +1120,8 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
     ctx.lineTo(w, barH);
     strokeIf(ctx, rgba(c.border, 0.7), 1);
     ctx.beginPath();
-    ctx.rect(0, 0, w, h);
-    strokeIf(ctx, rgba(c.border, 0.85), 1);
+    squareRect(ctx, L);
+    strokeIf(ctx, rgba(c.border, 0.85), bw(L, 1));
     /* 標題列右邊三個點 */
     for (let i = 0; i < 3; i++) {
       ctx.beginPath();
@@ -1015,7 +1180,7 @@ const BACK: Partial<Record<Bubble['style'], BackFn>> = {
     ctx.restore();
     withGlow(ctx, c.border, fs * 0.5, () => {
       traceBody(ctx, L, env.seed);
-      strokeIf(ctx, c.border, Math.max(1.2, fs * 0.07));
+      strokeIf(ctx, c.border, bw(L, Math.max(1.2, fs * 0.07)));
     });
   },
 };
@@ -1071,12 +1236,22 @@ function drawOverlays(ctx: Ctx2D, L: BubbleLayout, c: Palette, env: DrawEnv): vo
 }
 
 /** 畫一個泡泡（原點在本體左上角） */
-export function drawBubble(ctx: Ctx2D, L: BubbleLayout, b: Bubble, env: DrawEnv): void {
+export function drawBubble(
+  ctx: Ctx2D,
+  L: BubbleLayout,
+  b: Pick<Bubble, 'colors' | 'icon'>,
+  env0: DrawEnv,
+): void {
   const c = b.colors;
+  /* 柔和陰影：跟著「版面」（auto）時照舊；選了一律開／關時蓋過去 */
+  const env = L.softShadow === 'auto' ? env0 : { ...env0, shadow: L.softShadow === 'on' };
   ctx.save();
+  if (L.softShadow === 'on' && NO_SHADOW_BACK.has(L.spec.id)) drawShadowUnderlay(ctx, L, env.seed);
+  if (L.solid) drawSolidShadow(ctx, L, env.seed);
   const back = BACK[L.spec.id];
   if (back) back(ctx, L, c, env);
   drawTitle(ctx, L, c);
+  drawMeta(ctx, L);
   if (L.icon) {
     const big = L.spec.icon === 'big';
     const fg = L.spec.icon === 'small' ? c.fill : readableTextColor(c.accent);
