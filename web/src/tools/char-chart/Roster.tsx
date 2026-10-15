@@ -1,8 +1,10 @@
 /**
  * 設定欄的角色（兩張圖共用）：新增角色（名字、顏色、圖片）、一次加入多張圖片、角色清單（排序、放到這一頁、
- * 放進關係圖、刪除）、刪除所有角色；選取的角色（名字、顏色、圖片、四象限的標記、放進關係圖、從這一頁拿掉、刪除）。
+ * 放進關係圖、調整頭像範圍、刪除）、刪除所有角色；選取的角色（名字、顏色、圖片、關係圖的頭像、四象限的標記、
+ * 放進關係圖、從這一頁拿掉、刪除）。
  */
 import {
+  Crop,
   GripVertical,
   Image as ImageIcon,
   ImagePlus,
@@ -31,6 +33,7 @@ import {
   useConfirm,
   useToast,
 } from '@/ui';
+import { AvatarPreview } from './Avatar';
 import {
   type Character,
   type ChartKind,
@@ -50,6 +53,7 @@ import {
   currentPageIndex,
   gesture,
   moveCharacter,
+  openAvatar,
   patchCharacter,
   placeCharacter,
   removeCharacter,
@@ -381,6 +385,16 @@ function RosterList({
               </span>
             </div>
             <div className="flex shrink-0 items-center gap-1">
+              {chart === 'relation' && c.image ? (
+                <IconButton
+                  size="sm"
+                  variant="ghost"
+                  label={S.avatarAdjustFor(name)}
+                  icon={<Crop />}
+                  disabled={!bitmaps.get(c.image.id)}
+                  onClick={() => openAvatar(c.id)}
+                />
+              ) : null}
               {chart === 'quadrant' ? (
                 onPage ? null : (
                   <IconButton
@@ -427,7 +441,8 @@ export function SelectedSection({ bitmaps }: { bitmaps: Bitmaps }) {
   });
   const loadOne = useSingleImage();
   if (!c) return null;
-  const missing = !!c.image && !bitmaps.get(c.image.id);
+  const bitmap = c.image ? bitmaps.get(c.image.id) : undefined;
+  const missing = !!c.image && !bitmap;
   const changeImage = async (files: File[]) => {
     const r = await loadOne(files);
     if (r) setCharacterImage(c.id, r.ref);
@@ -484,6 +499,26 @@ export function SelectedSection({ bitmaps }: { bitmaps: Bitmaps }) {
             />
           </div>
         </Field>
+        {c.image ? (
+          <Field label={S.avatarField} hint={missing ? S.avatarMissing : S.avatarHint}>
+            <div className="flex min-w-0 items-center gap-3" data-testid="selected-avatar">
+              {bitmap ? <AvatarPreview c={c} bitmap={bitmap} /> : null}
+              <div className="flex min-w-0 flex-col items-start gap-1.5">
+                <span className="text-xs text-muted">
+                  {c.avatar ? S.avatarCustom : S.avatarCentered}
+                </span>
+                <Button
+                  size="sm"
+                  icon={<Crop />}
+                  disabled={!bitmap}
+                  onClick={() => openAvatar(c.id)}
+                >
+                  {S.avatarAdjust}
+                </Button>
+              </div>
+            </div>
+          </Field>
+        ) : null}
         <Field label={S.marker} hint={S.markerHint}>
           <Segmented<Marker>
             value={c.image ? c.marker : 'dot'}

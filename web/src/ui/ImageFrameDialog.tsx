@@ -15,6 +15,10 @@
  *   多一個「縮放」滑桿（100%～400%），沒有「整張放入」；直式的框（比例 < 1）檢視區加高。
  * - `guides="thirds"`：框裡畫三分線。
  *
+ * char-chart 的頭像範圍加的選填（不給時行為不變）：
+ * - `outline="shape"`：虛線沿著形狀畫（`shape="circle"` 時畫圓、不畫方框，圓的下面先描一圈半透明的黑，淺色的圖上也看得到）；
+ *   預設 `"frame"` 照舊畫方框。圓形頭像這種「只有圓裡面會用到」的框用它，對話框裡看得出圓形的範圍。
+ *
  * ```tsx
  * <ImageFrameDialog open={open} onOpenChange={setOpen} image={bmp} aspect={194 / 194} output={{ width: 194, height: 194 }}
  *   shape="circle" onConfirm={(canvas) => save(canvas)} />
@@ -78,8 +82,12 @@ export interface ImageFrameDialogProps {
   /** 框裡的輔助線（'thirds'＝三分線） */
   guides?: 'thirds' | null;
   title?: string;
-  /** 框的形狀提示（圓形格子時畫一個圓形的參考線；輸出仍是方形） */
+  /** 框的形狀提示（圓形格子時圓以外變暗；輸出仍是方形） */
   shape?: 'rect' | 'circle';
+  /**
+   * 虛線畫在哪裡：'frame'（預設）＝方框；'shape'＝沿著形狀（圓形時畫圓、不畫方框；char-chart 的頭像範圍加的）
+   */
+  outline?: 'frame' | 'shape';
   /** 下方的說明（預設說明「整張放入」的透明留白；cover 時說明拖曳與縮放） */
   note?: ReactNode;
 }
@@ -198,6 +206,7 @@ export function ImageFrameDialog({
   guides = null,
   title = '裁切圖片',
   shape = 'rect',
+  outline = 'frame',
   note,
 }: ImageFrameDialogProps) {
   /*
@@ -349,12 +358,26 @@ export function ImageFrameDialog({
       ctx.restore();
     }
     ctx.save();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([6, 4]);
-    ctx.strokeRect(frame.x, frame.y, frame.width, frame.height);
+    if (outline === 'shape' && shape === 'circle') {
+      /* 圓形的範圍：先描一圈半透明的黑（淺色的圖上也看得到），再畫白色虛線 */
+      const r = Math.min(frame.width, frame.height) / 2;
+      ctx.beginPath();
+      ctx.arc(frame.x + frame.width / 2, frame.y + frame.height / 2, r, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(frame.x, frame.y, frame.width, frame.height);
+    }
     ctx.restore();
-  }, [canvasEl, image, open, view, t, frame, shape, guides, img.width, img.height]);
+  }, [canvasEl, image, open, view, t, frame, shape, outline, guides, img.width, img.height]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const r = canvas.current?.getBoundingClientRect();

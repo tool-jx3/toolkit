@@ -50,7 +50,7 @@ export function dropMissingImages(
   const characters = d.characters.map((c) => {
     if (!c.image || !missing.has(c.image.id)) return c;
     names.push(c.name || S.noName);
-    return { ...c, image: null, marker: 'dot' as const };
+    return { ...c, image: null, marker: 'dot' as const, avatar: null };
   });
   return { data: { ...d, characters }, names };
 }

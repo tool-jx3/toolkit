@@ -4,7 +4,7 @@
  */
 import { readableTextColor } from '@/core/color';
 import { ensureFont, fontCss } from '@/core/fonts';
-import { canvasToBlob, makeCanvas } from '@/core/image';
+import { canvasToBlob, DEFAULT_PLACEMENT, drawPlacedCrop, makeCanvas } from '@/core/image';
 import {
   axisRadius,
   type Character,
@@ -258,7 +258,10 @@ export function drawRelation(ctx: Ctx2D, d: ChartState, bitmaps: Bitmaps, scale 
       arrowHead(ctx, b.ax, b.ay, Math.atan2(b.ay - a.ay, b.ax - a.ax), l.color);
   }
 
-  /* 頭像：圓形，取圖片中央的正方形；沒有圖片時用角色的顏色與第一個字 */
+  /*
+   * 頭像：圓形，照頭像範圍取圖片的一塊（沒調整過＝中央的正方形，drawImage 的參數與以前完全相同）；
+   * 沒有圖片時用角色的顏色與第一個字
+   */
   const R = REL.nodeRadius;
   for (const c of members) {
     const n = nodes.get(c.id);
@@ -270,21 +273,12 @@ export function drawRelation(ctx: Ctx2D, d: ChartState, bitmaps: Bitmaps, scale 
     ctx.closePath();
     ctx.clip();
     if (bmp && c.image) {
-      const iw = c.image.width;
-      const ih = c.image.height;
-      const side = Math.min(iw, ih);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(
+      drawPlacedCrop(
+        ctx,
         bmp,
-        (iw - side) / 2,
-        (ih - side) / 2,
-        side,
-        side,
-        n.x - R,
-        n.y - R,
-        R * 2,
-        R * 2,
+        c.image,
+        { x: n.x - R, y: n.y - R, width: R * 2, height: R * 2 },
+        c.avatar ?? DEFAULT_PLACEMENT,
       );
     } else {
       ctx.fillStyle = c.color;

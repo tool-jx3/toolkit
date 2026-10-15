@@ -3,6 +3,7 @@
  * 角色清單（兩張圖共用）、四象限的頁面與位置、契合度、座標碼、關係圖的排列與連線、讀檔時的整理。
  * 這裡不碰 DOM，單元測試直接用。四象限的位置以「畫布中心」為原點、往右往下為正（畫布 px）。
  */
+import { type FramePlacement, normalizePlacement } from '@/core/image';
 
 /* ---------- 型別 ---------- */
 
@@ -39,6 +40,11 @@ export interface Character {
   marker: Marker;
   /** 放在關係圖上 */
   inMap: boolean;
+  /**
+   * 關係圖的頭像取圖片的哪一部分（2026-10）：`ImageFrameDialog` 的位置（縮放以蓋滿為 1、位移以框為 1、轉了幾個 90°）。
+   * null＝取圖片中央的正方形（預設；舊存檔沒有這個欄位時也是）。換圖片、拿掉圖片時回到 null。
+   */
+  avatar: FramePlacement | null;
 }
 
 export interface Point {
@@ -104,6 +110,9 @@ export const LIMITS = {
 
 /** 加入的圖片超過這個長邊時先縮小（四象限畫 50 px 寬、關係圖畫直徑 120 px） */
 export const IMAGE_MAX_SIDE = 1024;
+
+/** 頭像範圍最多放大幾倍（以蓋滿圓框為 1；團體照裡的臉約要 6 倍，D22） */
+export const AVATAR_MAX_ZOOM = 8;
 
 /** 四象限 */
 export const QUAD = {
@@ -516,6 +525,7 @@ export function createCharacter(
     image,
     marker: image ? 'image' : 'dot',
     inMap: true,
+    avatar: null,
   };
 }
 
@@ -663,6 +673,26 @@ function normalizeImage(raw: unknown): ImageRef | null {
   return { id: raw.id, name: str(raw.name, 200), width: Math.round(w), height: Math.round(h) };
 }
 
+/**
+ * 頭像範圍的整理（存檔、專案檔、對話框套用時）：縮放夾在 1～8、位移夾在「圓框〔正方形〕被圖片蓋滿」的範圍、turns 0～3；
+ * 沒有圖片、看不懂、置中（預設）時 null。只用 min／max 夾，整理兩次結果完全相同。
+ */
+export function normalizeAvatar(raw: unknown, image: Size | null): FramePlacement | null {
+  if (!image || !isObj(raw) || !(image.width > 0 && image.height > 0)) return null;
+  const p = normalizePlacement(raw, { minZoom: 1, maxZoom: AVATAR_MAX_ZOOM });
+  const odd = p.turns % 2 === 1;
+  const iw = odd ? image.height : image.width;
+  const ih = odd ? image.width : image.height;
+  const side = Math.min(iw, ih);
+  /* 圖片在框裡的寬高（框寬為 1）＝ 縮放 × 邊長 ÷ 較短的邊；中心最多移（寬 − 1）÷ 2 */
+  const limX = Math.max(0, ((p.zoom * iw) / side - 1) / 2);
+  const limY = Math.max(0, ((p.zoom * ih) / side - 1) / 2);
+  const x = clamp(p.x, -limX, limX) || 0;
+  const y = clamp(p.y, -limY, limY) || 0;
+  if (p.zoom === 1 && x === 0 && y === 0 && p.turns === 0) return null;
+  return { zoom: p.zoom, x, y, turns: p.turns };
+}
+
 function normalizeCharacters(raw: unknown): Character[] {
   const out: Character[] = [];
   if (!Array.isArray(raw)) return out;
@@ -684,6 +714,7 @@ function normalizeCharacters(raw: unknown): Character[] {
       image,
       marker: image && it.marker !== 'dot' ? 'image' : 'dot',
       inMap: it.inMap !== false,
+      avatar: normalizeAvatar(it.avatar, image),
     });
   }
   return out;

@@ -8,6 +8,7 @@ import { addImageFiles, splitImageFiles, useAssetBitmaps } from '@/core/assets';
 import { arrowDelta } from '@/core/layout';
 import { useSaveError, useUndoRedo } from '@/core/storage';
 import { IconButton, type Shortcut, ToolShell, useToast, WindowDrop, withShortcut } from '@/ui';
+import { AvatarDialog } from './Avatar';
 import { IMAGE_MAX_SIDE, imageIds, LIMITS, nameFromFile } from './model';
 import { PreviewArea } from './Preview';
 import { ProjectActions } from './ProjectActions';
@@ -114,6 +115,7 @@ function Settings() {
         hint={S.windowDropHint}
         onDrop={(files) => void batchAdd(files)}
       />
+      <AvatarDialog bitmaps={bitmaps} />
     </div>
   );
 }
