@@ -7,6 +7,7 @@
  * - 格式、對齊、分頁、Enter、貼上、拖放都直接改資料再重寫畫面並放回游標（不用 execCommand），所以資料與畫面一致。
  * - 沒有選取時按格式：接下來打的字用這個格式（游標移走就取消）。
  * - Ctrl／⌘＋B 粗體、＋I 斜體、＋Shift＋X 刪除線、＋Enter 分頁；段落開頭按 Backspace 先拿掉分頁。
+ * - 底線（speech-bubble 加的）：`toolbar.underline` 打開時才有按鈕與 Ctrl／⌘＋U（沒打開時和以前一樣：Ctrl＋U 不作用）。
  * - 貼上、拖放只取純文字（格式跟著游標前面的字）；拖進來的檔案不處理（交給 WindowDrop 等）。
  * - 復原／重做由工具的 store 負責：瀏覽器的復原（Ctrl＋Z 以外的來源，例如右鍵選單）交給 onHistory；
  *   外部的值改了（復原、讀檔）就重寫畫面，游標放在改變的地方（插入的字後面、刪掉的字的位置）。
@@ -29,6 +30,7 @@ import {
   Italic,
   SeparatorHorizontal,
   Strikethrough,
+  Underline,
 } from 'lucide-react';
 import { Popover } from 'radix-ui';
 import {
@@ -109,6 +111,8 @@ export interface RichToolbarOptions {
   pageBreak?: boolean;
   /** 段落對齊（預設 true） */
   paragraphAlign?: boolean;
+  /** 底線按鈕與 Ctrl／⌘＋U（預設 false；speech-bubble 加的） */
+  underline?: boolean;
 }
 
 export interface RichTextEditorHandle {
@@ -178,6 +182,7 @@ export const RICH_EDITOR_TEXT = {
   bold: '粗體',
   italic: '斜體',
   strike: '刪除線',
+  underline: '底線',
   color: '文字顏色',
   colorDefault: '回到預設字色',
   highlight: '螢光筆',
@@ -247,6 +252,7 @@ const styleFormat = (st: RichStyle): RichFormat => ({
   bold: st.bold,
   italic: !!st.italic,
   strike: !!st.strike,
+  underline: !!st.underline,
   color: st.color,
   highlight: st.highlight || null,
   size: st.size || null,
@@ -254,7 +260,14 @@ const styleFormat = (st: RichStyle): RichFormat => ({
 });
 
 const isPlainStyle = (st: RichStyle) =>
-  !st.bold && !st.italic && !st.strike && !st.color && !st.highlight && !st.size && !st.font;
+  !st.bold &&
+  !st.italic &&
+  !st.strike &&
+  !st.underline &&
+  !st.color &&
+  !st.highlight &&
+  !st.size &&
+  !st.font;
 
 export function RichTextEditor({
   value,
@@ -302,6 +315,9 @@ export function RichTextEditor({
 
   const cb = useRef({ onChange, onSelectionChange, onHistory, onNotice, maxLength });
   cb.current = { onChange, onSelectionChange, onHistory, onNotice, maxLength };
+  /* 底線打開了嗎（快捷鍵、beforeinput 用） */
+  const underlineOn = useRef(false);
+  underlineOn.current = toolbar !== false && !!toolbar.underline;
 
   const domOpts: RichDomOptions = {
     full: true,
@@ -322,6 +338,7 @@ export function RichTextEditor({
         bold: p.bold,
         italic: !!p.italic,
         strike: !!p.strike,
+        ...(p.underline ? { underline: true } : {}),
         color: p.color,
         highlight: p.highlight ?? '',
         size: p.size ?? 0,
@@ -526,6 +543,7 @@ export function RichTextEditor({
           bold: !base.bold,
           italic: !base.italic,
           strike: !base.strike,
+          underline: !base.underline,
         }),
       );
       pending.current =
@@ -631,6 +649,12 @@ export function RichTextEditor({
           sel.current = readSel() ?? sel.current;
           format({ strike: 'toggle' });
           return;
+        case 'formatUnderline':
+          e.preventDefault();
+          if (!underlineOn.current) return;
+          sel.current = readSel() ?? sel.current;
+          format({ underline: 'toggle' });
+          return;
         case 'insertFromPaste':
         case 'insertFromDrop':
           return;
@@ -670,6 +694,13 @@ export function RichTextEditor({
       return;
     }
     const pick = (letter: string) => key === letter || e.code === `Key${letter.toUpperCase()}`;
+    /* 底線（toolbar.underline 打開時；沒打開時照下面的舊規則：Ctrl＋U 不作用） */
+    if (underlineOn.current && !e.shiftKey && pick('u')) {
+      e.preventDefault();
+      sel.current = readSel() ?? sel.current;
+      format({ underline: 'toggle' });
+      return;
+    }
     if (!e.shiftKey && pick('b')) {
       e.preventDefault();
       sel.current = readSel() ?? sel.current;
@@ -881,6 +912,17 @@ export function RichTextEditor({
             {markButton('bold', T.bold, <Bold />, 'mod+b')}
             {markButton('italic', T.italic, <Italic />, 'mod+i')}
             {markButton('strike', T.strike, <Strikethrough />, 'shift+mod+x')}
+            {tb.underline ? (
+              <IconButton
+                label={withShortcut(T.underline, 'mod+u')}
+                icon={<Underline />}
+                pressed={!!m.underline}
+                disabled={disabled}
+                onPointerDown={keep}
+                onClick={() => format({ underline: 'toggle' })}
+                data-mark="underline"
+              />
+            ) : null}
             <span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
             {colorButton('text')}
             {colorButton('highlight')}

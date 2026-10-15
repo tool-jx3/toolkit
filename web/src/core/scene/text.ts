@@ -194,9 +194,9 @@ export interface RichGlyph {
   italic?: boolean;
 }
 
-/** 完整格式的裝飾（螢光筆的底色、刪除線），畫布座標 */
+/** 完整格式的裝飾（螢光筆的底色、刪除線、底線〔speech-bubble 加的〕），畫布座標 */
 export interface RichMark {
-  kind: 'highlight' | 'strike';
+  kind: 'highlight' | 'strike' | 'underline';
   x: number;
   y: number;
   w: number;
@@ -258,6 +258,8 @@ export function richAdvance(
 /** 這個節點要不要用完整格式的排版（對齊、換行規則、片段或段落有完整格式） */
 export function usesFullRich(n: RichNode): boolean {
   if (n.wrap === 'word' || n.align === 'center' || n.align === 'justify' || n.openEnd) return true;
+  /* 底線（speech-bubble 加的）也是完整格式 */
+  if (n.doc.lines.some((l) => l.runs.some((r) => r.underline))) return true;
   return n.doc.lines.some(
     (l) =>
       !!l.align ||
@@ -269,6 +271,8 @@ export function usesFullRich(n: RichNode): boolean {
 /** 刪除線的位置（基線以上，字級的倍數）與粗細 */
 export const STRIKE_POSITION = 0.32;
 export const STRIKE_THICKNESS = 0.055;
+/** 底線的位置（基線以下，字級的倍數；粗細同刪除線；speech-bubble 加的） */
+export const UNDERLINE_POSITION = 0.14;
 
 /**
  * 完整格式一行的高度與基線：每種字級的行框（字級 × 行高，字身框置中）以基線對齊，
@@ -329,6 +333,7 @@ function layoutRichFull(ctx: Ctx, n: RichNode): RichLayout {
     valign === 'middle' ? n.y + (n.h - height) / 2 : valign === 'bottom' ? n.y + n.h - height : n.y;
   const glyphs: RichGlyph[] = [];
   const marks: RichMark[] = [];
+  const underlines: RichMark[] = [];
   const rowBoxes: { top: number; height: number }[] = [];
   const fallback = n.color ?? '#000000';
   let y = top;
@@ -364,6 +369,7 @@ function layoutRichFull(ctx: Ctx, n: RichNode): RichLayout {
     }
     let hl: RichMark | null = null;
     let st: RichMark | null = null;
+    let ul: RichMark | null = null;
     cells.forEach((c, j) => {
       const f = richRunFont(n, c.run);
       const color = c.run.color || fallback;
@@ -406,6 +412,15 @@ function layoutRichFull(ctx: Ctx, n: RichNode): RichLayout {
             marks.push(st);
           }
         } else st = null;
+        if (c.run.underline) {
+          const thick = Math.max(1, f.size * STRIKE_THICKNESS);
+          const uy = baseline + f.size * UNDERLINE_POSITION - thick / 2;
+          if (ul && ul.color === color && Math.abs(ul.y - uy) < 0.01) ul.w = end - ul.x;
+          else {
+            ul = { kind: 'underline', x, y: uy, w: c.adv, h: thick, color };
+            underlines.push(ul);
+          }
+        } else ul = null;
       }
       x += c.adv;
       if (j + 1 < vis && gap && justifyOpportunity(c.ch, cells[j + 1].ch)) x += gap;
@@ -413,6 +428,8 @@ function layoutRichFull(ctx: Ctx, n: RichNode): RichLayout {
   }
   /* 螢光筆畫在最下面：先放螢光筆，再放刪除線 */
   marks.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'highlight' ? -1 : 1));
+  /* 底線（speech-bubble 加的）放在最後 */
+  marks.push(...underlines);
   return { rows, shown, lineHeightPx, top, height, glyphs, rowBoxes, marks };
 }
 

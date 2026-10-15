@@ -386,6 +386,12 @@ function drawRich(ctx: Ctx, n: RichNode): void {
     ctx.fillStyle = m.color;
     ctx.fillRect(m.x, m.y, m.w, m.h);
   }
+  /* 底線（speech-bubble 加的）也在字的上面 */
+  for (const m of marks) {
+    if (m.kind !== 'underline') continue;
+    ctx.fillStyle = m.color;
+    ctx.fillRect(m.x, m.y, m.w, m.h);
+  }
   ctx.restore();
 }
 

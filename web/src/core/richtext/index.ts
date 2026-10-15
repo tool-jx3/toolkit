@@ -13,6 +13,9 @@
  * 片段可以另外有斜體、刪除線、螢光筆、字級、字型，顏色可以是空字串（＝跟著預設字色）；
  * 每一段可以有自己的對齊（靠左、置中、靠右、左右對齊）與「從新的一頁開始」（手動分頁）。
  * 編輯用 `RichTextEditor`（@/ui），排版用 `layoutRich` 的 `wrap: 'word'`（英數字詞不拆開）與 `paginateRows`（分頁）。
+ *
+ * **底線**（動態對話泡泡 speech-bubble 加的，選填）：片段的 `underline`；沒有底線的資料與以前完全相同
+ * （`rangeMarks` 只有範圍全部有底線時才多出 `underline: true`）。
  */
 
 export interface RichRun {
@@ -24,6 +27,8 @@ export interface RichRun {
   italic?: boolean;
   /** 刪除線（完整格式） */
   strike?: boolean;
+  /** 底線（完整格式；speech-bubble 加的） */
+  underline?: boolean;
   /** 螢光筆（小寫 #rrggbb；完整格式） */
   highlight?: string;
   /** 字級（px；不給＝跟著整段的字級；完整格式） */
@@ -66,6 +71,7 @@ export function sameStyle(a: RichStyle, b: RichStyle): boolean {
     a.color === b.color &&
     !!a.italic === !!b.italic &&
     !!a.strike === !!b.strike &&
+    !!a.underline === !!b.underline &&
     (a.highlight || '') === (b.highlight || '') &&
     (a.size || 0) === (b.size || 0) &&
     (a.font || '') === (b.font || '')
@@ -77,6 +83,7 @@ function cleanRun(r: RichRun): RichRun {
   const out: RichRun = { text: r.text, bold: r.bold, color: r.color };
   if (r.italic) out.italic = true;
   if (r.strike) out.strike = true;
+  if (r.underline) out.underline = true;
   if (r.highlight) out.highlight = r.highlight;
   if (r.size) out.size = r.size;
   if (r.font) out.font = r.font;
@@ -214,6 +221,8 @@ export function validateDoc(
         color: r.color.toLowerCase(),
         italic: r.italic,
         strike: r.strike,
+        /* 底線：只認 true（其他的值當作沒有、不丟錯：加這個欄位之前讀得了的資料照樣讀得了） */
+        underline: r.underline === true,
         highlight: r.highlight?.toLowerCase(),
         size: r.size,
         font: r.font,
@@ -603,22 +612,23 @@ export interface RichFormat {
   bold?: boolean | 'toggle';
   /** 顏色（完整格式裡空字串＝回到預設字色） */
   color?: string;
-  /** 以下為完整格式：斜體、刪除線（同粗體的寫法） */
+  /** 以下為完整格式：斜體、刪除線、底線（同粗體的寫法；底線是 speech-bubble 加的） */
   italic?: boolean | 'toggle';
   strike?: boolean | 'toggle';
+  underline?: boolean | 'toggle';
   /** 螢光筆：色碼；null＝拿掉 */
   highlight?: string | null;
   /** 字級：px；null＝回到整段的字級 */
   size?: number | null;
   /** 字型：family；null＝回到整段的字型 */
   font?: string | null;
-  /** 清除格式（粗體、斜體、刪除線、顏色〔回到 clearColor〕、螢光筆、字級、字型）；先清再套用其他項目 */
+  /** 清除格式（粗體、斜體、刪除線、底線、顏色〔回到 clearColor〕、螢光筆、字級、字型）；先清再套用其他項目 */
   clear?: boolean;
   /** 清除格式時的顏色（預設空字串＝預設字色） */
   clearColor?: string;
 }
 
-type Flag = 'bold' | 'italic' | 'strike';
+type Flag = 'bold' | 'italic' | 'strike' | 'underline';
 
 /** 範圍 [start, end) 的片段都有某個開關格式嗎（空範圍看游標前一個字；什麼字都沒有時 false） */
 function isRangeFlag(doc: RichDoc, start: number, end: number, flag: Flag): boolean {
@@ -655,6 +665,8 @@ export interface RangeMarks {
   bold: boolean;
   italic: boolean;
   strike: boolean;
+  /** 範圍全部有底線時 true；否則沒有這個欄位（沒有底線時結果與以前相同） */
+  underline?: boolean;
   /** 共同的顏色（'' 是預設字色）；不同時 null */
   color: string | null;
   /** 共同的螢光筆（'' 是沒有）；不同時 null */
@@ -703,6 +715,8 @@ export function rangeMarks(doc: RichDoc, start: number, end: number): RangeMarks
     highlight: common((r) => r.highlight ?? '', ''),
     size: common((r) => r.size ?? 0, 0),
     font: common((r) => r.font ?? '', ''),
+    /* 底線（speech-bubble 加的）：範圍全部有底線時才有這個欄位 */
+    ...(runsIn.length > 0 && runsIn.every((r) => !!r.underline) ? { underline: true } : {}),
   };
 }
 
@@ -725,6 +739,7 @@ export function applyStyle(
   flag('bold');
   flag('italic');
   flag('strike');
+  flag('underline');
   if (f.color !== undefined) next.color = f.color.toLowerCase();
   if (f.highlight !== undefined) {
     if (f.highlight) next.highlight = f.highlight.toLowerCase();
@@ -747,7 +762,7 @@ export function applyRichFormat(doc: RichDoc, start: number, end: number, f: Ric
   const b = Math.max(start, end);
   if (a === b) return doc;
   const toggled: Partial<Record<Flag, boolean>> = {};
-  for (const name of ['bold', 'italic', 'strike'] as const)
+  for (const name of ['bold', 'italic', 'strike', 'underline'] as const)
     if (f[name] === 'toggle') toggled[name] = !isRangeFlag(doc, a, b, name);
   let offset = 0;
   const lines = doc.lines.map((line, i) => {

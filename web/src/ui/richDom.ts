@@ -2,10 +2,10 @@
  * 完整格式的格式化文字 ↔ 編輯區的 DOM（RichTextEditor 用；`readRichDom`／`writeRichDom` 給了 `{ full: true }` 時也走這裡）。
  *
  * 寫出的結構：每一段一個 `<div>`（段落的對齊寫在 style 的 text-align、「從新的一頁開始」是 `data-page-break` 屬性），
- * 每個片段一個 `<span>`：粗體、顏色、斜體、刪除線、螢光筆（底色）、字級（相對整段字級的 em，另記 `data-size`）、
- * 字型（font-family，另記 `data-font`）。空段落放 `<br>`。
+ * 每個片段一個 `<span>`：粗體、顏色、斜體、刪除線、底線（speech-bubble 加的；和刪除線一起寫在 text-decoration-line）、
+ * 螢光筆（底色）、字級（相對整段字級的 em，另記 `data-size`）、字型（font-family，另記 `data-font`）。空段落放 `<br>`。
  *
- * 讀回時以 data 屬性為準；瀏覽器自己產生的元素（例如刪掉跨段的文字時補的 span、`<b>`、`<i>`）照 style 與標籤解讀。
+ * 讀回時以 data 屬性為準；瀏覽器自己產生的元素（例如刪掉跨段的文字時補的 span、`<b>`、`<i>`、`<u>`）照 style 與標籤解讀。
  */
 import type { RichAlign, RichDoc, RichLine, RichRun, RichStyle } from '@/core/richtext';
 
@@ -96,6 +96,7 @@ export function readRichDomFull(root: Node, o: RichDomOptions = {}): RichDoc {
       const deco = `${s?.textDecorationLine ?? ''} ${s?.textDecoration ?? ''}`;
       if (deco.includes('line-through') || ['S', 'STRIKE', 'DEL'].includes(el.nodeName))
         next.strike = true;
+      if (deco.includes('underline') || ['U', 'INS'].includes(el.nodeName)) next.underline = true;
       const hl = cssColorHex(s?.backgroundColor);
       if (hl) next.highlight = hl;
       const ds = Number(el.dataset?.size);
@@ -180,6 +181,7 @@ function sameStyleLoose(a: RichStyle, b: RichStyle): boolean {
     a.color === b.color &&
     !!a.italic === !!b.italic &&
     !!a.strike === !!b.strike &&
+    !!a.underline === !!b.underline &&
     (a.highlight || '') === (b.highlight || '') &&
     (a.size || 0) === (b.size || 0) &&
     (a.font || '') === (b.font || '')
@@ -190,6 +192,7 @@ function cleanRun(r: RichRun): RichRun {
   const out: RichRun = { text: r.text, bold: !!r.bold, color: r.color ?? '' };
   if (r.italic) out.italic = true;
   if (r.strike) out.strike = true;
+  if (r.underline) out.underline = true;
   if (r.highlight) out.highlight = r.highlight;
   if (r.size) out.size = r.size;
   if (r.font) out.font = r.font;
@@ -215,6 +218,8 @@ export function writeRichDomFull(root: HTMLElement, doc: RichDoc, o: RichDomOpti
       if (r.color) span.style.color = r.color;
       if (r.italic) span.style.fontStyle = 'italic';
       if (r.strike) span.style.textDecorationLine = 'line-through';
+      if (r.underline)
+        span.style.textDecorationLine = r.strike ? 'underline line-through' : 'underline';
       if (r.highlight) span.style.backgroundColor = r.highlight;
       if (r.size) {
         span.style.fontSize = `${Math.round((r.size / base) * 10000) / 10000}em`;

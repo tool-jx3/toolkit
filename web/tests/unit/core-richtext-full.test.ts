@@ -275,3 +275,62 @@ describe('編輯：完整格式', () => {
     expect(styleAtCaret(d, 0)).toEqual({ bold: true, color: '', size: 40 });
   });
 });
+
+describe('底線（選填；speech-bubble 加的，沒有底線的資料與以前相同）', () => {
+  it('整理、切開都保留底線；沒有底線時不出現', () => {
+    const d = normalizeDoc({
+      lines: [{ runs: [r('甲', { underline: true }), r('乙', { underline: true }), r('丙')] }],
+    });
+    expect(d.lines[0].runs).toEqual([r('甲乙', { underline: true }), r('丙')]);
+    expect(sliceDoc(d, 1, 2).lines[0].runs).toEqual([r('乙', { underline: true })]);
+    expect(Object.keys(normalizeDoc(plainDoc('甲', '')).lines[0].runs[0])).not.toContain(
+      'underline',
+    );
+    expect(sameDoc(d, plainDoc('甲乙丙', ''))).toBe(false);
+  });
+
+  it('檢查外來的資料：full 時留下 true 的底線，其他的值當作沒有（不丟錯）；不給 full 時丟掉', () => {
+    const raw = { lines: [{ runs: [r('甲', { underline: true }), r('乙', { underline: 'x' })] }] };
+    expect(validateDoc(raw, 100, { full: true }).lines[0].runs).toEqual([
+      r('甲', { underline: true }),
+      r('乙'),
+    ]);
+    const plain = {
+      lines: [{ runs: [{ text: '甲', bold: false, color: '#000000', underline: true }] }],
+    };
+    expect(validateDoc(plain, 100).lines[0].runs[0]).toEqual({
+      text: '甲',
+      bold: false,
+      color: '#000000',
+    });
+  });
+
+  it('套用：切換、設定、清除格式；範圍的格式只有全部有底線時才出現 underline', () => {
+    const d = plainDoc('一二三', '');
+    const a = applyRichFormat(d, 0, 2, { underline: 'toggle' });
+    expect(a.lines[0].runs).toEqual([r('一二', { underline: true }), r('三')]);
+    expect(applyRichFormat(a, 0, 3, { underline: 'toggle' }).lines[0].runs).toEqual([
+      r('一二三', { underline: true }),
+    ]);
+    expect(applyRichFormat(a, 0, 2, { underline: 'toggle' }).lines[0].runs).toEqual([r('一二三')]);
+    expect(applyRichFormat(a, 0, 3, { clear: true }).lines[0].runs).toEqual([r('一二三')]);
+    expect(applyRichFormat(a, 1, 3, { underline: false }).lines[0].runs).toEqual([
+      r('一', { underline: true }),
+      r('二三'),
+    ]);
+    expect(rangeMarks(a, 0, 2).underline).toBe(true);
+    expect(rangeMarks(a, 0, 3).underline).toBeUndefined();
+    expect(rangeMarks(a, 1, 1).underline).toBe(true);
+    expect(styleAtCaret(a, 2)).toEqual({ bold: false, color: '', underline: true });
+    /* 沒有底線的範圍：和以前一樣只有原本的欄位 */
+    expect(Object.keys(rangeMarks(d, 0, 3))).toEqual([
+      'bold',
+      'italic',
+      'strike',
+      'color',
+      'highlight',
+      'size',
+      'font',
+    ]);
+  });
+});

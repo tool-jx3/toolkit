@@ -17,6 +17,7 @@ import {
   cssColorHex,
   insertedRange,
   isCanonicalRichDom,
+  RichTextEditor,
   readRichDom,
   readRichDomFull,
   UiProvider,
@@ -97,6 +98,71 @@ describe('完整格式的 DOM 換算', () => {
     expect(readRichDom(root, '#123456')).toEqual({
       lines: [{ runs: [{ text: '斜', bold: false, color: '#123456' }] }],
     });
+  });
+});
+
+describe('底線（speech-bubble 加的，選填）', () => {
+  it('寫出再讀回；瀏覽器的 <u>、text-decoration 也讀得懂；和刪除線並用', () => {
+    const doc: RichDoc = {
+      lines: [
+        {
+          runs: [
+            { text: '甲', bold: false, color: '', underline: true },
+            { text: '乙', bold: false, color: '', underline: true, strike: true },
+            { text: '丙', bold: false, color: '', strike: true },
+          ],
+        },
+      ],
+    };
+    const root = document.createElement('div');
+    writeRichDomFull(root, doc, opts);
+    const spans = root.querySelectorAll('span');
+    expect(spans[0].style.textDecorationLine).toBe('underline');
+    expect(spans[1].style.textDecorationLine).toBe('underline line-through');
+    expect(spans[2].style.textDecorationLine).toBe('line-through');
+    expect(normalizeDoc(readRichDomFull(root, opts))).toEqual(normalizeDoc(doc));
+    root.innerHTML =
+      '<div><u>底</u><span style="text-decoration: underline line-through">兩</span></div>';
+    expect(readRichDomFull(root, opts).lines[0].runs).toEqual([
+      { text: '底', bold: false, color: '', underline: true },
+      { text: '兩', bold: false, color: '', underline: true, strike: true },
+    ]);
+  });
+
+  it('工具列的底線按鈕要用 toolbar.underline 打開；按了套用到選取的字', async () => {
+    const user = userEvent.setup();
+    const changes: RichDoc[] = [];
+    const doc: RichDoc = { lines: [{ runs: [{ text: '一二三', bold: false, color: '' }] }] };
+    const { rerender } = render(
+      <UiProvider>
+        <RichTextEditor value={doc} onChange={(d) => changes.push(d)} aria-label="內文" />
+      </UiProvider>,
+    );
+    expect(screen.queryByRole('button', { name: /底線/ })).toBeNull();
+    rerender(
+      <UiProvider>
+        <RichTextEditor
+          value={doc}
+          onChange={(d) => changes.push(d)}
+          aria-label="內文"
+          toolbar={{ underline: true, pageBreak: false, paragraphAlign: false }}
+        />
+      </UiProvider>,
+    );
+    const button = screen.getByRole('button', { name: /底線/ });
+    const box = screen.getByRole('textbox', { name: '內文' });
+    const text = box.querySelector('span')?.firstChild as Text;
+    const r = document.createRange();
+    r.setStart(text, 0);
+    r.setEnd(text, 2);
+    document.getSelection()?.removeAllRanges();
+    document.getSelection()?.addRange(r);
+    document.dispatchEvent(new Event('selectionchange'));
+    await user.click(button);
+    expect(changes.at(-1)?.lines[0].runs).toEqual([
+      { text: '一二', bold: false, color: '', underline: true },
+      { text: '三', bold: false, color: '' },
+    ]);
   });
 });
 

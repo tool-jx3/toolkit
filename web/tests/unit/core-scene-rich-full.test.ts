@@ -8,11 +8,14 @@ import { plainDoc, type RichDoc } from '@/core/richtext';
 import {
   clearTextCache,
   collectFonts,
+  drawScene,
   layoutRichNode,
   type RichNode,
   STRIKE_POSITION,
+  UNDERLINE_POSITION,
   usesFullRich,
 } from '@/core/scene';
+import { recordCanvas } from '../helpers/canvasRecorder';
 
 /** 假的 canvas：每個字寬＝字級、字身框上 0.8、下 0.2 */
 function fakeCtx(): CanvasRenderingContext2D {
@@ -135,6 +138,42 @@ describe('行高與裝飾', () => {
     expect(Math.abs((st?.y ?? 0) + (st?.h ?? 0) / 2 - (13 - 10 * STRIKE_POSITION))).toBeLessThan(
       1e-9,
     );
+  });
+
+  it('底線（speech-bubble 加的）：在基線下方，相鄰同色的字合成一條；畫在字的上面', () => {
+    const ctx = fakeCtx();
+    const doc: RichDoc = {
+      lines: [
+        {
+          runs: [
+            { text: '一二', bold: false, color: '', underline: true },
+            { text: '三', bold: false, color: '#ff0000', underline: true, strike: true },
+            { text: '四', bold: false, color: '' },
+          ],
+        },
+      ],
+    };
+    const n = node(doc);
+    expect(usesFullRich(n)).toBe(true);
+    const plainUl: RichDoc = {
+      lines: [{ runs: [{ text: '甲', bold: false, color: '#000000', underline: true }] }],
+    };
+    expect(usesFullRich(node(plainUl, { wrap: undefined }))).toBe(true);
+    const lay = layoutRichNode(ctx, n);
+    const ul = (lay.marks ?? []).filter((m) => m.kind === 'underline');
+    expect(ul.map((m) => [m.x, m.w, m.color])).toEqual([
+      [0, 20, '#111111'],
+      [20, 10, '#ff0000'],
+    ]);
+    expect(Math.abs(ul[0].y + ul[0].h / 2 - (13 + 10 * UNDERLINE_POSITION))).toBeLessThan(1e-9);
+    /* 刪除線與底線都畫在字的上面 */
+    const rec = recordCanvas(200, 200);
+    drawScene(rec.ctx, [n]);
+    const ops = rec.log.map((x) => (x as unknown[])[0]);
+    const lastText = ops.lastIndexOf('fillText');
+    const rects = ops.map((o, i) => (o === 'fillRect' ? i : -1)).filter((i) => i >= 0);
+    expect(rects.length).toBe(3);
+    expect(rects.every((i) => i > lastText)).toBe(true);
   });
 
   it('框高放不下時只畫放得下的行（至少一行）', () => {
