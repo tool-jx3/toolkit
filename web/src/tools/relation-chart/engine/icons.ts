@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 角色圖示集：原作內嵌的向量圖示（24 × 24、單色，fill 繼承角色的外框色），所有匯出都畫得一樣。
  */

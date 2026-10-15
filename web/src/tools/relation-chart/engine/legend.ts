@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 圖例（關係總覽）與名冊（角色總覽）：原作的 buildLegend、buildCharLegend、legendPlaceBox、legendFlow、legendOutPad。
  */
@@ -164,7 +164,7 @@ export function legendTypes(ctx: SheetCtx): RelType[] {
 }
 
 /** 圖例裡的線型與端點樣本 */
-function typeSample(
+export function typeSample(
   ctx: SheetCtx,
   t: RelType,
   x: number,

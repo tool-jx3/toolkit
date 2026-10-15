@@ -85,6 +85,19 @@ export const useProject = createToolStore<Project>(TOOL_ID, initialProject(), {
 /** 拖曳、滑桿、文字欄：放開（離開）才記一步 */
 export const gesture = historyGesture(useProject);
 
+/*
+ * 好幾件事同時要「合成一步復原」時（磁鐵跑著、同時拖曳角色）：誰先開始誰開手勢，最後一個放開才結束。
+ */
+const holds = new Set<string>();
+export function holdHistory(key: string): void {
+  if (!holds.size) useProject.beginGesture();
+  holds.add(key);
+}
+export function releaseHistory(key: string): void {
+  if (!holds.delete(key)) return;
+  if (!holds.size) useProject.endGesture();
+}
+
 export const assets = createAssetStore(TOOL_ID);
 
 /** 狀態與復原紀錄裡用到的圖 */

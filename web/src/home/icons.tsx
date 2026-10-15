@@ -40,6 +40,7 @@ import {
   MessagesSquare,
   MicVocal,
   Music,
+  Network,
   Newspaper,
   NotebookPen,
   NotebookTabs,
@@ -124,6 +125,7 @@ const ICONS: Record<string, LucideIcon> = {
   'rank-chart': Trophy,
   'char-chart': ChartScatter,
   polaroid: Camera,
+  'relation-chart': Network,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,

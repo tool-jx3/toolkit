@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見同目錄上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 專案資料的型別（規格 3.8）。欄位的意義照原作（角色、關係類型＝原作的 tag、關係線＝rel、分頁層級設定），
  * 結構是本站自己的：沒有角色庫（D5），圖片存資產 id。

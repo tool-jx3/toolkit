@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 關係線的 SVG（原作的 edgeSvgFor、selfEdgeSvgFor、onlineLabelSvg、buildEdgeObstacleIndex）：
  * 捆綁主幹與中央接點、平行車道、避讓第三者的弧線、手動彎曲、名字讓位、端點、線型、外框、跳線、線上標籤。

@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 角色節點的 SVG（原作 render() 的節點迴圈、charFaceSvg、selfMiniAvatarSvg）。
  */

@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 對齊與分佈（原作的 doAlign、doDistribute、doEqualSpacing）：釘選的角色不參與基準也不移動；
  * 選取 2 位以上時彼此對齊，否則以畫布為對象（未釘選角色整組平移）。

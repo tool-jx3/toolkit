@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 磁鐵排列＝常駐的力導向（原作的 runForceSimulationStep）：連線像彈簧（雙向較硬）、角色互斥（含最小間距硬推）、
  * 往畫布中心集中；間距倍率同步縮放。積分用速度制：v = (v + F·α·0.55)·0.6，x += v。

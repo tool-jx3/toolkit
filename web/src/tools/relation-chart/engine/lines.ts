@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 線條樣式與端點樣式的 SVG（原作的 wavyPathD、zigzag／square／lace、圖章線、capDecoSvg、跳線 buildBridgedPathD）。
  * 幾何一律以 bez(t)（0～1）取樣，直線、彎曲、自我關係、圖例樣本共用。

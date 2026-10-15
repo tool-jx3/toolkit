@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 讀原作「匯出專案」的檔案（規格 3.9；原作的 loadProject、openProjectFile）：ZIP（資料夾裡的 project.json＋images/）
  * 或只有 project.json。轉成本工具的分頁；圖片先留路徑，由呼叫端放進資產庫。
@@ -35,7 +35,8 @@ export interface LegacyImport {
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
-const num = (v: unknown) => Number(v);
+const num = (v: unknown): number =>
+  typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : Number.NaN;
 const fin = (v: unknown) => Number.isFinite(num(v));
 
 /** 原作的 project.json 嗎 */

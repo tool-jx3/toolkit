@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 預設值與整理（原作的 SHEET_SETTINGS_DEFAULTS／sanitizeSettings、各種 normalize）：自動儲存、專案檔、
  * 原作的專案檔讀進來時都過這一關（範圍外的值換回預設、顏色只收合法的寫法）。
@@ -130,8 +130,9 @@ export const newSettings = (base?: SheetSettings): SheetSettings =>
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
+/** 數字或數字字串才算數（null、空字串、true 都不是 0） */
 const num = (v: unknown): number =>
-  typeof v === 'string' && v.trim() === '' ? Number.NaN : Number(v);
+  typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : Number.NaN;
 const finite = (v: unknown): boolean => Number.isFinite(num(v));
 const inRange = (v: unknown, lo: number, hi: number, def: number): number => {
   const n = num(v);

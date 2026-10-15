@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 一張分頁的 SVG（原作的 render()）：編輯畫面、PNG、分層 SVG／PSD、互動網頁共用同一份畫法（規格 3.4）。
  * 圖層由下而上：背景（底色、背景圖）→ 輔助線 → 關係線（含線上標籤）→ 角色 →（名稱）→ 圖例與名冊。
@@ -173,7 +173,7 @@ export function viewerSvg(sheet: Sheet, opts: Omit<RenderOpts, 'mode'>): string 
   const p = chartParts(sheet, { ...opts, mode: 'viewer' });
   const { W, H } = p.ctx;
   const pad = p.pad;
-  return `${svgOpen(opts.font, `class="chart" viewBox="${-pad} ${-pad} ${W + pad * 2} ${H + pad * 2}" width="${W + pad * 2}" height="${H + pad * 2}"`)}<defs>${p.defs}</defs>${contentLayers(p, {})}</svg>`;
+  return `${svgOpen(opts.font, `class="chart" viewBox="${-pad} ${-pad} ${W + pad * 2} ${H + pad * 2}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"`)}<defs>${p.defs}</defs>${contentLayers(p, {})}</svg>`;
 }
 
 export interface LayerPart {

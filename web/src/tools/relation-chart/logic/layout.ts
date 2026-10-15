@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 排列與碰撞（原作的 layoutCircle／layoutLine／layoutShape／layoutCross／layoutRandom、separateAll、pushAwayFrom、
  * getNonOverlappingPosition、fitLayoutToCanvas、fitCanvasToContent）。直接改傳進來的角色座標（可以是 Immer 的 draft）。

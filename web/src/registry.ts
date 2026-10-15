@@ -757,6 +757,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/swoonqx/sw-polaroid',
     },
   },
+  {
+    id: 'relation-chart',
+    name: '角色關係圖產生器',
+    summary:
+      '在畫布上擺角色、定義關係的顏色與線型、點兩個人拉出關係線，自動排列後匯出 PNG、分層 SVG／PSD 或可以分享的互動網頁。',
+    group: 'G7',
+    status: 'next',
+    inspiration: {
+      name: 'PaiTei4234／Relationship Chart Maker',
+      url: 'https://paitei4234.itch.io/relationshipchartmaker',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

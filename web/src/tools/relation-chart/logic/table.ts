@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 關係表（規格 3.6；原作的 parseRelTableText、buildRelTableText、planRelTableImport、relLabelNorm、
  * 批次建立的 parseBatchPasteCells）。純函式。

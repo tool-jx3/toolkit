@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 節點的幾何與外觀解析（原作的 getCharRadius、charBorderW、charIsSquare、charHasBorder、配色 helpers…）：
  * 解析順序一律「個別設定 → 分頁設定 → 自動值」。純函式，不碰 DOM。
@@ -257,3 +257,16 @@ export const esc = (s: string): string =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+
+/** 分頁的顯示名稱（沒填時「分頁 N」） */
+export const sheetName = (s: Pick<Sheet, 'name' | 'defNo'>): string =>
+  (s.name || `分頁${s.defNo}`).replace(/\n+/g, ' ');
+
+/** 聚焦時其他元素的亮度（原作的 focusDimSet：線、圖例按固定比例跟著角色的值） */
+export const FOCUS_DIM = 0.15;
+export function focusDimSet(raw: number): { node: number; edge: number; legend: number } {
+  const d = Number.isFinite(raw) && raw >= 0 && raw <= 0.6 ? raw : FOCUS_DIM;
+  const k = d / FOCUS_DIM;
+  const cl = (x: number) => Math.max(0, Math.min(1, Math.round(x * 1000) / 1000));
+  return { node: cl(d), edge: cl(0.07 * k), legend: cl(0.3 * k) };
+}

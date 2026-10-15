@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 專案的修改（原作的新增角色、批次建立、複製、刪除、關係類型、建立關係模式、關係線的編輯、分頁、排列…）。
  * 每個動作是一步復原（拖曳、滑桿、文字欄由呼叫端用手勢包成一步）。

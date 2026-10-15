@@ -1,5 +1,5 @@
 /*
- * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見上一層的 UPSTREAM_LICENSE。
+ * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 範例（原作的 buildSample；規格 3.7）：故事人物、家族樹、屬性克制表、心智圖。頭像一律用內建圖示。
  * 回傳的是用區域 id 寫的分頁，加入專案時再換成專案的 id（store 的 addSheetFrom）。
