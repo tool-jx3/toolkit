@@ -207,6 +207,7 @@ export const RICH_EDITOR_TEXT = {
     string
   >,
   overLimit: (n: number) => `最多可以輸入 ${n.toLocaleString('en-US')} 字。`,
+  pasteCut: (n: number) => `超過上限的部分沒有貼上（最多 ${n.toLocaleString('en-US')} 字）。`,
   toolbar: '文字格式',
 } as const;
 
@@ -600,18 +601,37 @@ export function RichTextEditor({
     const s = at ?? readSel() ?? sel.current;
     const st =
       (s.start === pendingAt.current ? pending.current : null) ?? styleAtCaret(cur, s.start);
-    const r = replaceText(cur, s.start, s.end, text, st);
-    if (docLength(r.doc) > cb.current.maxLength) {
+    /*
+     * 放不下時只放進放得下的部分（以字為單位，不切開表情符號）並說明；一個字都放不下時照舊不接受
+     * （speech-bubble 驗證後的修正，規格 7.4；以前整段不貼）
+     */
+    const clean = String(text ?? '').replace(/\r\n?/g, '\n');
+    const room = cb.current.maxLength - (docLength(cur) - Math.abs(s.end - s.start));
+    let put = clean;
+    if (put.length > room) {
+      let n = 0;
+      const kept: string[] = [];
+      for (const ch of put) {
+        if (n + ch.length > room) break;
+        kept.push(ch);
+        n += ch.length;
+      }
+      put = kept.join('');
+    }
+    const cut = put.length < clean.length;
+    const r = replaceText(cur, s.start, s.end, put, st);
+    if (!put || docLength(r.doc) > cb.current.maxLength) {
       setOver(true);
       cb.current.onNotice?.(T.overLimit(cb.current.maxLength), 'warning');
       return;
     }
-    setOver(false);
+    setOver(cut);
+    if (cut) cb.current.onNotice?.(T.pasteCut(cb.current.maxLength), 'warning');
     const c = { start: r.caret, end: r.caret };
     /* Enter 之後的空段落：接下來打的字沿用前面的格式 */
     const li = lineIndexAt(r.doc, r.caret);
     const emptyLine = !r.doc.lines[li]?.runs.length;
-    pending.current = text.endsWith('\n') && emptyLine && !isPlainStyle(st) ? st : null;
+    pending.current = put.endsWith('\n') && emptyLine && !isPlainStyle(st) ? st : null;
     pendingAt.current = r.caret;
     apply(r.doc, c);
   };

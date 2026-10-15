@@ -6,7 +6,7 @@
  * - 復原後游標的位置（改變的地方）、打進來的字的範圍（「接下來打的字」的格式）；
  * - 不給 full 時 readRichDom／writeRichDom 與以前相同（角色介紹圖）。
  */
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -17,6 +17,7 @@ import {
   cssColorHex,
   insertedRange,
   isCanonicalRichDom,
+  RICH_EDITOR_TEXT,
   RichTextEditor,
   readRichDom,
   readRichDomFull,
@@ -98,6 +99,86 @@ describe('完整格式的 DOM 換算', () => {
     expect(readRichDom(root, '#123456')).toEqual({
       lines: [{ runs: [{ text: '斜', bold: false, color: '#123456' }] }],
     });
+  });
+});
+
+describe('貼上超過字數上限（speech-bubble 驗證後的修正，規格 7.4）', () => {
+  /** 編輯區（游標放在最後面）貼上一段純文字 */
+  function pasteAtEnd(box: HTMLElement, text: string) {
+    const last = box.querySelector('span:last-of-type')?.firstChild as Text;
+    const r = document.createRange();
+    r.setStart(last, last.length);
+    r.collapse(true);
+    document.getSelection()?.removeAllRanges();
+    document.getSelection()?.addRange(r);
+    document.dispatchEvent(new Event('selectionchange'));
+    fireEvent.paste(box, { clipboardData: { getData: () => text } });
+  }
+
+  /** 受控的編輯區（改了就把值放回去，和工具的用法相同） */
+  function Ed({
+    max,
+    label,
+    changes,
+    notices,
+  }: {
+    max: number;
+    label: string;
+    changes: RichDoc[];
+    notices?: string[];
+  }) {
+    const [v, setV] = useState<RichDoc>({
+      lines: [{ runs: [{ text: '一二三', bold: false, color: '' }] }],
+    });
+    return (
+      <RichTextEditor
+        value={v}
+        maxLength={max}
+        onChange={(d) => {
+          changes.push(d);
+          setV(d);
+        }}
+        onNotice={(m) => notices?.push(m)}
+        aria-label={label}
+      />
+    );
+  }
+
+  it('放進放得下的部分，說明「超過上限的部分沒有貼上（最多 N 字）」；一個字都放不下時照舊不接受', () => {
+    const changes: RichDoc[] = [];
+    const notices: string[] = [];
+    render(
+      <UiProvider>
+        <Ed max={5} label="內文" changes={changes} notices={notices} />
+      </UiProvider>,
+    );
+    const box = screen.getByRole('textbox', { name: '內文' });
+    pasteAtEnd(box, 'AB😀CD');
+    expect(
+      changes
+        .at(-1)
+        ?.lines[0].runs.map((r) => r.text)
+        .join(''),
+    ).toBe('一二三AB');
+    expect(notices.at(-1)).toBe('超過上限的部分沒有貼上（最多 5 字）。');
+    expect(RICH_EDITOR_TEXT.pasteCut(20000)).toBe('超過上限的部分沒有貼上（最多 20,000 字）。');
+    /* 已經滿了：不改、說明「最多可以輸入 5 字。」 */
+    const before = changes.length;
+    pasteAtEnd(box, 'X');
+    expect(changes.length).toBe(before);
+    expect(notices.at(-1)).toBe('最多可以輸入 5 字。');
+  });
+
+  it('表情符號不會被切成一半', () => {
+    const changes: RichDoc[] = [];
+    render(
+      <UiProvider>
+        <Ed max={4} label="內文二" changes={changes} />
+      </UiProvider>,
+    );
+    pasteAtEnd(screen.getByRole('textbox', { name: '內文二' }), '😀A');
+    /* 😀 是兩個 UTF-16 單位，放不下：一個字都沒放 */
+    expect(changes).toHaveLength(0);
   });
 });
 

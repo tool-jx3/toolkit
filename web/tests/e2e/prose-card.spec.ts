@@ -636,6 +636,45 @@ test('貼上、拖放只取純文字；格式跟著游標前面的字', async ({
   expect(errors).toEqual([]);
 });
 
+test('字數上限 20,000：貼上超過時放進放得下的部分並說明；滿了之後打字、貼上都不接受（F31，speech-bubble 7.4）', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors = await open(page);
+  await setBody(page, '字'.repeat(19_995));
+  await page.waitForTimeout(450);
+  const pasteAtEnd = (text: string) =>
+    editor(page).evaluate((el, t) => {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let last: Text | null = null;
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) last = n as Text;
+      (el as HTMLElement).focus();
+      const r = document.createRange();
+      r.setStart(last as Text, (last as Text).length);
+      r.collapse(true);
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(r);
+      const dt = new DataTransfer();
+      dt.setData('text/plain', t);
+      el.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
+      );
+    }, text);
+  await page.waitForTimeout(80);
+  await pasteAtEnd('A'.repeat(50));
+  await expect.poll(async () => (await bodyText(page)).length).toBe(20_000);
+  expect((await bodyText(page)).endsWith('字AAAAA')).toBe(true);
+  await expect(toast(page, '超過上限的部分沒有貼上（最多 20,000 字）。')).toBeVisible();
+  /* 滿了：打字、再貼上都不接受，下方說明 */
+  await page.waitForTimeout(450);
+  await page.keyboard.type('B');
+  await pasteAtEnd('C');
+  await page.waitForTimeout(200);
+  expect((await bodyText(page)).length).toBe(20_000);
+  await expect(page.getByText('最多可以輸入 20,000 字。').first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 復原 ---------- */
 
 test('復原／重做：打字中也可以，游標放在改變的地方；頁首的按鈕', async ({ page }) => {
