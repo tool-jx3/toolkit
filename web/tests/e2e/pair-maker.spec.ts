@@ -11,7 +11,8 @@
  * - 保存：自動保存與還原通知、存檔槽（建立、改名、改名後直接覆蓋、空白名稱、讀取、刪除）、
  *   專案檔 ZIP（匯出解析、重設、讀回、別的版型拒絕、缺圖的失敗後完整的讀得進來）；
  * - 2026-10 跟進原作：雙人資料卡的背景（單色、圖片、模糊時四周不變淡、出處、全身圖淡入背景、重新整理後圖片畫得回來）、
- *   段落標題（清空、改字、靠右、空白不畫）、多人資料卡的每列張數 2～5（大小、輸出、方向鍵、復原、重新整理、專案檔）、
+ *   段落標題（清空、改字、靠右、空白不畫）、多人資料卡的每列張數 2～5（大小、輸出、方向鍵、復原、重新整理、專案檔；
+ *   畫布變小時貼紙拉回、同一步復原）、全身圖淡到格子內緣剛好透明、
  *   舊的資料（版本 1 的自動儲存、專案檔、存檔槽）照常讀、文字記錄行尾的字不被欄邊切掉；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準圖。
  */
@@ -889,9 +890,11 @@ test('雙人資料卡的背景：單色、圖片（模糊時四周不變淡）�
   await applyCrop(page, '340 × 1080 px');
   ({ png: out } = await downloadPng(page));
   expect(near(out.at(100, 540), [220, 30, 40])).toBe(true);
-  const mix = out.at(330, 540);
-  expect(mix[2]).toBeGreaterThan(120);
-  expect(mix[0]).toBeGreaterThan(60);
+  const mix = out.at(300, 540);
+  expect(mix[2]).toBeGreaterThan(110);
+  expect(mix[0]).toBeGreaterThan(90);
+  /* 到格子內緣（x 340）剛好透明：最後一欄已經幾乎是背景，沒有一道直階（7.2 修正） */
+  expect(near(out.at(339, 540), BLUE, 8)).toBe(true);
   expect(near(out.at(350, 540), BLUE, 12)).toBe(true);
 
   /* 重新整理後還原（背景模式、圖片、模糊、出處） */
@@ -958,8 +961,8 @@ test('多人資料卡的每列張數 2～5：畫布大小、輸出、方向鍵�
   page,
 }) => {
   const errors = await open(page, 'roster');
-  const cols = page.getByRole('radiogroup', { name: '每列人數' });
-  const opt = (n: number) => cols.getByRole('radio', { name: `${n} 人` });
+  const cols = page.getByRole('radiogroup', { name: '每列張數' });
+  const opt = (n: number) => cols.getByRole('radio', { name: `${n} 張` });
   await expect(opt(3)).toHaveAttribute('aria-checked', 'true');
   const add = page.getByTestId('preview').getByRole('button', { name: '新增角色' });
   for (let i = 0; i < 3; i++) await add.click();
@@ -1008,6 +1011,54 @@ test('多人資料卡的每列張數 2～5：畫布大小、輸出、方向鍵�
   expect(errors).toEqual([]);
 });
 
+test('多人資料卡：每列張數或人數讓畫布變小時，貼紙拉回畫布內（與改張數同一步復原）（7.2）', async ({
+  page,
+}) => {
+  const errors = await open(page, 'roster');
+  const add = page.getByTestId('preview').getByRole('button', { name: '新增角色' });
+  for (let i = 1; i < 30; i++) await add.click();
+  const cols = page.getByRole('radiogroup', { name: '每列張數' });
+  await page.waitForTimeout(600);
+  await cols.getByRole('radio', { name: '2 張' }).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '1230x10412');
+  /* 貼紙加在畫布中央（615, 5206） */
+  await page.waitForTimeout(600);
+  await page.getByRole('tab', { name: '貼紙' }).click();
+  await choose(page, page.getByRole('button', { name: '加入貼紙' }), [
+    file('blue.png', await png(400, 200, [30, 60, 200])),
+  ]);
+  await expect(stickerBtn(page)).toHaveCount(1);
+  expect(await placement(page)).toEqual([615, 5206, 300, 150, 0]);
+  /* 每列 5 張（3075 × 4166）：拉回到下緣往內 16 px 還看得到 */
+  await page.waitForTimeout(600);
+  await cols.getByRole('radio', { name: '5 張' }).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '3075x4166');
+  expect(await placement(page)).toEqual([615, 4166 - 16 + 75, 300, 150, 0]);
+  const { png: out } = await downloadPng(page);
+  expect(near(out.at(615, 4166 - 4), [30, 60, 200])).toBe(true);
+  /* 復原一步：每列 2 張、貼紙回到原位 */
+  await page.waitForTimeout(600);
+  await page.getByRole('button', { name: '復原' }).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '1230x10412');
+  expect(await placement(page)).toEqual([615, 5206, 300, 150, 0]);
+  /* 刪除角色讓畫布變矮時也一樣：每列 5 張、刪到剩 5 人（3075 × 694） */
+  await page.getByRole('button', { name: '重做' }).click();
+  await expect(canvas(page)).toHaveAttribute('data-size', '3075x4166');
+  for (let n = 30; n > 5; n--) {
+    await page.getByRole('tab', { name: `角色 ${n}` }).click();
+    await page.getByTestId('editor-panel').getByRole('button', { name: '刪除這個角色' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: '刪除這個角色' }).click();
+  }
+  await expect(canvas(page)).toHaveAttribute('data-size', '3075x694');
+  expect(await placement(page)).toEqual([615, 694 - 16 + 75, 300, 150, 0]);
+  /* 重新整理後照樣讀得回來 */
+  await page.waitForTimeout(300);
+  await page.reload();
+  await expect(notice(page, '已載入最近一次的編輯。')).toBeVisible();
+  expect(await placement(page)).toEqual([615, 694 - 16 + 75, 300, 150, 0]);
+  expect(errors).toEqual([]);
+});
+
 test('舊的資料（版本 1）照常讀：自動儲存、專案檔、存檔槽（2026-10）', async ({ page }) => {
   const errors = await open(page, 'duo-sheet');
   await region(page, 'left/name').click();
@@ -1050,10 +1101,10 @@ test('舊的資料（版本 1）照常讀：自動儲存、專案檔、存檔槽
   /* 多人資料卡：沒有每列張數 → 3 */
   await page.goto(`${URL}?t=roster`);
   await expect(page.getByTestId('template-name')).toBeVisible();
-  const cols = page.getByRole('radiogroup', { name: '每列人數' });
+  const cols = page.getByRole('radiogroup', { name: '每列張數' });
   await page.getByTestId('preview').getByRole('button', { name: '新增角色' }).click();
   await page.waitForTimeout(600);
-  await cols.getByRole('radio', { name: '2 人' }).click();
+  await cols.getByRole('radio', { name: '2 張' }).click();
   for (let i = 0; i < 2; i++)
     await page.getByTestId('preview').getByRole('button', { name: '新增角色' }).click();
   await expect(canvas(page)).toHaveAttribute('data-size', '1230x1390');
@@ -1072,10 +1123,10 @@ test('舊的資料（版本 1）照常讀：自動儲存、專案檔、存檔槽
   await toV1('trpg-toolkit:pair-maker:roster', [], ['cols']);
   await page.reload();
   await expect(canvas(page)).toHaveAttribute('data-size', '1845x1390');
-  await expect(cols.getByRole('radio', { name: '3 人' })).toHaveAttribute('aria-checked', 'true');
+  await expect(cols.getByRole('radio', { name: '3 張' })).toHaveAttribute('aria-checked', 'true');
   /* 專案檔（版本 1、沒有 cols）→ 每列 3 張 */
   await page.waitForTimeout(600);
-  await cols.getByRole('radio', { name: '4 人' }).click();
+  await cols.getByRole('radio', { name: '4 張' }).click();
   await expect(canvas(page)).toHaveAttribute('data-size', '2460x694');
   delete project.data.draft.cols;
   project.version = 1;
@@ -1096,7 +1147,7 @@ test('舊的資料（版本 1）照常讀：自動儲存、專案檔、存檔槽
   await expect(canvas(page)).toHaveAttribute('data-size', '1845x1390');
   /* 存檔槽（以前沒有記版本、沒有 cols）→ 每列 3 張 */
   await page.waitForTimeout(600);
-  await cols.getByRole('radio', { name: '2 人' }).click();
+  await cols.getByRole('radio', { name: '2 張' }).click();
   await expect(canvas(page)).toHaveAttribute('data-size', '1230x1390');
   const fixed = await page.evaluate(
     () =>

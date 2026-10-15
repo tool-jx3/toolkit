@@ -41,10 +41,13 @@ export const DUO_BG = '#f3f1ec';
 /** 背景圖的模糊（標準差；原作 Konva 的模糊半徑 10） */
 export const DUO_BG_BLUR = 5;
 const SIDES = ['left', 'right'] as const;
-/** 全身圖的寬；往內淡出的範圍（左邊的角色：x 252 起，到 x 360 完全透明；右邊左右相反） */
+/**
+ * 全身圖的寬與往內淡出的範圍（左邊的角色；右邊左右相反）：圖片從 x 252 起變透明、到格子內緣 x 340 剛好透明（同原作，7.2）；
+ * 空格子的深色底維持以前的範圍（到 x 360 才透明），預設畫面逐像素不變。
+ */
 const FULL_W = 340;
 const FADE_FROM = 252;
-const FADE_TO = 360;
+const EMPTY_FADE_TO = 360;
 
 const sideLabel = (side: string) => (side === 'left' ? T.left : T.right);
 const sideShort = (side: string) => (side === 'left' ? T.leftShort : T.rightShort);
@@ -431,16 +434,18 @@ function backdrop(d: Draft, env: SceneEnv): SceneNode[] {
 }
 
 /**
- * 全身圖：圖片本身往畫布內側變透明（背景是顏色或圖片都會透出來）；空格子的深色底同樣淡出。
- * 淡出的範圍與 2026-10 以前「蓋一層底色漸層」相同（規格 3.11）。出處畫在淡出之後。
+ * 全身圖：圖片本身往畫布內側變透明，到格子內緣剛好透明（背景是顏色或圖片都會透出來，沒有直階）；
+ * 空格子的深色底同樣淡出，範圍與 2026-10 以前「蓋一層底色漸層」相同（規格 3.11）。出處畫在淡出之後。
  */
 function fullNodes(d: Draft, env: SceneEnv, side: string): SceneNode[] {
   const right = side === 'right';
   const x = right ? W - FULL_W : 0;
   const img = env.image(`${side}.full`);
-  /* 淡出的範圍（畫布座標）：左邊 252 → 360，右邊 1668 → 1560 */
-  const x0 = right ? W - FADE_TO : FADE_FROM;
-  const x1 = right ? W - FADE_FROM : FADE_TO;
+  /* 空格子的淡出範圍（畫布座標）：左邊 252 → 360，右邊 1668 → 1560 */
+  const x0 = right ? W - EMPTY_FADE_TO : FADE_FROM;
+  const x1 = right ? W - FADE_FROM : EMPTY_FADE_TO;
+  /* 圖片的淡出（格子內的比例）：左邊 252 → 340，右邊 1580 → 1668 */
+  const solid = (FULL_W - FADE_FROM) / FULL_W;
   const dark = DARK_SLOT.empty;
   const clear = 'rgba(58,58,64,0)';
   const nodes: SceneNode[] = [
@@ -481,8 +486,8 @@ function fullNodes(d: Draft, env: SceneEnv, side: string): SceneNode[] {
       h: H,
       image: img,
       fade: right
-        ? { axis: 'x', from: (x0 - x) / FULL_W, to: (x1 - x) / FULL_W, reverse: true }
-        : { axis: 'x', from: x0 / FULL_W, to: x1 / FULL_W },
+        ? { axis: 'x', from: 0, to: solid, reverse: true }
+        : { axis: 'x', from: FADE_FROM / FULL_W, to: 1 },
     });
   else
     nodes.push(

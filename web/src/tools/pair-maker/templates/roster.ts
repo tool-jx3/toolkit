@@ -14,6 +14,7 @@ import {
   type TemplateDef,
   type Value,
 } from '../model';
+import { keepStickersIn } from '../stickers';
 import { T } from '../strings';
 import { LIGHT_SLOT, SANS, slotNodes, text } from './kit';
 
@@ -48,10 +49,14 @@ const isCols = (n: unknown): n is (typeof COLS)[number] => (COLS as readonly unk
 /** 每列張數（沒有或不對時 3） */
 export const colsOf = (d: Draft): number => (isCols(d.cols) ? d.cols : DEFAULT_COLS);
 
-/** 改每列張數（不是 2～5、或跟現在一樣時 null） */
+/** 畫布大小改了之後：貼紙拉回新的範圍（畫布變小時；同一步復原） */
+const fitStickers = (d: Draft): Draft =>
+  keepStickersIn(d, { x: 0, y: 0, ...rosterSize(members(d).length, colsOf(d)) });
+
+/** 改每列張數（不是 2～5、或跟現在一樣時 null）；畫布外的貼紙拉回來 */
 export function setCols(d: Draft, cols: number): Draft | null {
   if (!isCols(cols) || cols === colsOf(d)) return null;
-  return { ...d, cols };
+  return fitStickers({ ...d, cols });
 }
 
 /** 一個角色的預設值（no：分頁名稱的號碼） */
@@ -394,13 +399,13 @@ export function removeMember(d: Draft, side: string): Draft | null {
     Object.fromEntries(
       Object.entries(m).filter(([k]) => !k.startsWith(prefix) && !k.startsWith(`cite:${prefix}`)),
     );
-  return {
+  return fitStickers({
     ...d,
     members: list.filter((k) => k !== n),
     v: keep(d.v),
     touched: keep(d.touched) as Record<string, true>,
     images: keep(d.images),
-  };
+  });
 }
 
 export function moveMember(d: Draft, side: string, dir: -1 | 1): Draft | null {

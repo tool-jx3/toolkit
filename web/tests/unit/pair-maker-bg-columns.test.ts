@@ -15,10 +15,18 @@ import {
   DraftError,
   migrateDraft,
   type SceneEnv,
+  type Sticker,
   validateDraft,
 } from '@/tools/pair-maker/model';
 import { templateById } from '@/tools/pair-maker/templates';
-import { cardOrigin, colsOf, rosterSize, setCols } from '@/tools/pair-maker/templates/roster';
+import {
+  addMember,
+  cardOrigin,
+  colsOf,
+  removeMember,
+  rosterSize,
+  setCols,
+} from '@/tools/pair-maker/templates/roster';
 
 const def = (id: string) => {
   const d = templateById(id);
@@ -155,18 +163,18 @@ describe('雙人資料卡：全身圖往內淡出（F87、3.11）', () => {
           n.x === (side === 'left' ? 0 : 1580),
       );
 
-  it('有圖：圖片本身淡出（左 x 252 → 360、右 x 1668 → 1560），不再蓋底色的漸層', () => {
+  it('有圖：圖片本身淡出，到格子內緣剛好透明（左 x 252 → 340、右 x 1668 → 1580；7.2 修正），不再蓋底色的漸層', () => {
     const d = clone(t.initial());
     d.images = { 'left.full': 'L', 'right.full': 'R' };
     const left = fullNodes(d, 'left').find((n): n is ImageNode => n.kind === 'image');
     const right = fullNodes(d, 'right').find((n): n is ImageNode => n.kind === 'image');
-    expect(left?.fade).toEqual({ axis: 'x', from: 252 / 340, to: 360 / 340 });
-    expect(right?.fade).toEqual({ axis: 'x', from: -20 / 340, to: 88 / 340, reverse: true });
+    expect(left?.fade).toEqual({ axis: 'x', from: 252 / 340, to: 1 });
+    expect(right?.fade).toEqual({ axis: 'x', from: 0, to: 88 / 340, reverse: true });
     /* 沒有寬 360 的底色漸層 */
     expect(t.scene(d, env(d)).some((n) => n.kind === 'rect' && n.w === 360)).toBe(false);
   });
 
-  it('空格子：深色底是同範圍的漸層（#3a3a40 → 透明）', () => {
+  it('空格子：深色底的漸層維持以前的範圍（x 252 → 360；預設畫面逐像素不變）', () => {
     const d = t.initial();
     const [rect] = fullNodes(d, 'left');
     const fill = (rect as RectNode).fill as LinearPaint;
@@ -318,6 +326,65 @@ describe('多人資料卡：每列張數（F89、3.2）', () => {
     const old = clone(t.initial());
     delete old.cols;
     expect(validateDraft(t, old).cols).toBe(3);
+  });
+});
+
+describe('多人資料卡：畫布變小時貼紙拉回範圍內（F89、F73，7.2）', () => {
+  const t = def('roster');
+  const sticker = (id: string, more: Partial<Sticker> = {}): Sticker => ({
+    id,
+    asset: 'a1',
+    name: id,
+    cx: 615,
+    cy: 5206,
+    width: 300,
+    height: 150,
+    rotation: 0,
+    shadow: false,
+    outline: false,
+    cite: '',
+    ...more,
+  });
+  const withMembers = (n: number, cols: number, stickers: Sticker[]): Draft => {
+    let d = t.initial();
+    while ((d.members ?? []).length < n) d = addMember(d)?.draft ?? d;
+    return { ...d, cols, stickers };
+  };
+
+  it('每列 2 → 5（30 人：1230 × 10412 → 3075 × 4166）：畫布外的貼紙拉回到至少 16 px 重疊', () => {
+    const d = withMembers(30, 2, [sticker('s1'), sticker('s2', { cx: 300, cy: 200 })]);
+    expect(t.size(d)).toEqual({ width: 1230, height: 10412 });
+    const next = setCols(d, 5);
+    expect(t.size(next as Draft)).toEqual({ width: 3075, height: 4166 });
+    /* 貼紙上緣 5131 → 4166 − 16 */
+    expect(next?.stickers[0]).toMatchObject({ cx: 615, cy: 4166 - 16 + 75, width: 300 });
+    /* 本來就在範圍內的不動（同一個物件） */
+    expect(next?.stickers[1]).toBe(d.stickers[1]);
+  });
+
+  it('刪除角色讓畫布變小時也拉回；旋轉後用外接範圍', () => {
+    const d = withMembers(4, 3, [sticker('s1', { cx: 1500, cy: 1200, rotation: 90 })]);
+    expect(t.size(d)).toEqual({ width: 1845, height: 1390 });
+    const next = removeMember(d, 'm4') as Draft;
+    expect(t.size(next)).toEqual({ width: 1845, height: 694 });
+    /* 轉 90° 後高 300：上緣 1050 → 694 − 16 */
+    expect(next.stickers[0].cy).toBe(694 - 16 + 150);
+    expect(next.stickers[0].cx).toBe(1500);
+  });
+
+  it('寬高超過新畫布長邊 2 倍時等比縮到上限（否則讀入檢查會拒絕整份內容）', () => {
+    const d = withMembers(30, 2, [sticker('big', { cx: 600, cy: 300, width: 9000, height: 100 })]);
+    const next = setCols(d, 5) as Draft;
+    const s = next.stickers[0];
+    expect(s.width).toBe(4166 * 2);
+    expect(s.height).toBeCloseTo((100 * 8332) / 9000, 6);
+    expect(() => validateDraft(t, JSON.parse(JSON.stringify(next)))).not.toThrow();
+  });
+
+  it('畫布變大或不變時貼紙不動', () => {
+    const d = withMembers(4, 3, [sticker('s1', { cx: 100, cy: 100 })]);
+    expect(setCols(d, 4)?.stickers).toBe(d.stickers);
+    expect(addMember(d)?.draft.stickers).toBe(d.stickers);
   });
 });
 
