@@ -20,6 +20,7 @@ import {
   FolderArchive,
   Frame,
   Gauge,
+  Grid2x2Check,
   Grid3x3,
   HeartHandshake,
   Highlighter,
@@ -128,6 +129,7 @@ const ICONS: Record<string, LucideIcon> = {
   polaroid: Camera,
   'relation-chart': Network,
   'prose-card': Feather,
+  'captcha-card': Grid2x2Check,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,
