@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { unzipSync } from 'fflate';
 import { getTool, outputDir } from '../../src/registry';
+import { expectSameGifFrames, exportGifBeforeAfter } from '../helpers/gifCrop';
 
 const URL = `/${outputDir(getTool('text-fx') ?? { id: 'text-fx', status: 'next' })}/`;
 
@@ -361,6 +362,31 @@ test.describe('匯出', () => {
     await page.getByRole('switch', { name: '自動裁掉透明邊' }).click();
     const named = await exportAs(page, 'PNG');
     expect(named.name).toBe('我的_素材_靜止.png');
+    expect(errors).toEqual([]);
+  });
+
+  test('GIF 只寫變化的範圍（F310、5. D12）：不透明背景時解碼後每一格和改版前相同、檔案變小；透明時照舊', async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    const errors = await open(page);
+    /* 12 fps、50% 尺寸讓測試快一點 */
+    await page.getByRole('combobox', { name: 'FPS' }).click();
+    await page.getByRole('option', { name: '12 fps' }).click();
+    await page.getByRole('combobox', { name: '尺寸' }).click();
+    await page.getByRole('option', { name: /^50%/ }).click();
+    const gif = async () => new Uint8Array((await exportAs(page, 'GIF')).bytes);
+    /* 預設（背景無＝透明）：每格照舊寫整格（逐位元組相同） */
+    const clear = await exportGifBeforeAfter(page, gif);
+    await expectSameGifFrames(page, clear.before, clear.after, { cropped: false });
+    /* 整張背景：單色、不透明、不跟著文字淡入淡出 → 整張不透明，第 2 格起只寫變化的範圍 */
+    await hook(
+      page,
+      "(t) => { t.app.set('bg.kind', 'solid'); t.app.set('bg.alpha', 1); t.app.set('bg.sync', false); }",
+    );
+    const solid = await exportGifBeforeAfter(page, gif);
+    const s = await expectSameGifFrames(page, solid.before, solid.after, { cropped: true });
+    expect(s.cropped).toBeGreaterThan(s.frames / 2);
     expect(errors).toEqual([]);
   });
 

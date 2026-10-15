@@ -1,12 +1,22 @@
 /**
  * 結果區（F69～F80）：開始轉換、狀態列、預覽（不執行任何指令碼的內嵌框，固定高度約 500 px，每次重畫淡入）、
- * 預覽區段（起始編號、則數、檢視、範圍說明）、下載（單檔、分割檔、ZIP、部落格貼文版）。
+ * 預覽區段（起始編號、則數、檢視、範圍說明）、下載（單檔、分割檔、ZIP、部落格貼文版、EPUB 電子書）。
  */
-import { Download, FileArchive, Play } from 'lucide-react';
+import { BookOpen, Download, FileArchive, Play } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { errorText } from '@/core/diagnostics';
 import { downloadBytes, downloadText, zipFiles } from '@/core/files';
-import { Button, Field, NativeNumberInput, Notice, Select, useConfirm, useToast } from '@/ui';
-import { convert, refreshPreview } from './actions';
+import {
+  Button,
+  CopyDiagnostics,
+  Field,
+  NativeNumberInput,
+  Notice,
+  Select,
+  useConfirm,
+  useToast,
+} from '@/ui';
+import { convert, EpubExportError, exportEpub, refreshPreview } from './actions';
 import { blogPage, type ConvertResult, downloadNames } from './render';
 import { useSession } from './store';
 import { S } from './strings';
@@ -104,9 +114,56 @@ function PreviewRange() {
   );
 }
 
-function Downloads({ result, blog }: { result: ConvertResult; blog: boolean }) {
+/** 下載 EPUB（F112）：背景產生，按鈕顯示進度；失敗時交給 onError（「複製錯誤資訊」的內容） */
+function EpubButton({
+  onStart,
+  onError,
+}: {
+  onStart: () => void;
+  onError: (details: string) => void;
+}) {
+  const [pct, setPct] = useState<number | null>(null);
+  const run = async () => {
+    setPct(0);
+    onStart();
+    try {
+      await exportEpub((p) => setPct(Math.round(p * 100)));
+    } catch (e) {
+      onError(e instanceof EpubExportError ? e.details : errorText(e));
+    } finally {
+      setPct(null);
+    }
+  };
+  return (
+    <Button
+      variant="secondary"
+      icon={<BookOpen />}
+      loading={pct !== null}
+      disabled={pct !== null}
+      onClick={() => void run()}
+      data-epub=""
+    >
+      {pct === null ? S.epub.download : S.epub.building(pct)}
+    </Button>
+  );
+}
+
+function Downloads({
+  result,
+  blog,
+  epub,
+}: {
+  result: ConvertResult;
+  blog: boolean;
+  epub: boolean;
+}) {
   const toast = useToast();
   const [zipping, setZipping] = useState<'zip' | 'blog' | null>(null);
+  /* 產生 EPUB 失敗時的「複製錯誤資訊」內容；再按一次時清掉 */
+  const [epubError, setEpubError] = useState<string | null>(null);
+  const epubButton = (
+    <EpubButton onStart={() => setEpubError(null)} onError={(d) => setEpubError(d)} />
+  );
   const total = result.pages.length;
   const names = downloadNames(result.fileBase, total);
   const zip = async (kind: 'zip' | 'blog') => {
@@ -158,6 +215,7 @@ function Downloads({ result, blog }: { result: ConvertResult; blog: boolean }) {
                 {zipping === 'blog' ? S.result.zipping : S.result.downloadBlogZip}
               </Button>
             )}
+            {epub && epubButton}
           </>
         )}
         {result.pages.map((html, i) => (
@@ -183,7 +241,15 @@ function Downloads({ result, blog }: { result: ConvertResult; blog: boolean }) {
             )}
           </span>
         ))}
+        {total === 1 && epub && epubButton}
       </div>
+      {epub && epubError !== null && (
+        <div data-testid="epub-error">
+          <Notice tone="danger" action={<CopyDiagnostics text={epubError} />}>
+            {S.epub.failed}
+          </Notice>
+        </div>
+      )}
     </div>
   );
 }
@@ -192,6 +258,7 @@ export function ResultPanel() {
   const status = useSession((s) => s.status);
   const result = useSession((s) => s.result);
   const blog = useSession((s) => s.resultBlog);
+  const epub = useSession((s) => s.resultEpub !== null);
   const confirm = useConfirm();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -233,7 +300,7 @@ export function ResultPanel() {
       <h2 className="m-0 text-base font-semibold">{S.result.previewTitle}</h2>
       <PreviewFrame />
       <PreviewRange />
-      {result && <Downloads result={result} blog={blog} />}
+      {result && <Downloads result={result} blog={blog} epub={epub} />}
     </div>
   );
 }

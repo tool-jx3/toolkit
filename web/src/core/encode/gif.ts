@@ -13,9 +13,11 @@
  * - `maxColors`（2～256，預設 256）：調色盤的色數上限（video-anim 移植時新增；預設時輸出不變）。
  * - `dither: 'floyd-steinberg'`：減色有損時以 Floyd–Steinberg 誤差擴散對應顏色（由左到右、由上到下，只在變化的範圍內；
  *   完全透明的像素不擴散誤差）。調色盤無損（色數在上限內）時不抖色。預設 'none'＝最近色（輸出不變）。
- * - `cropFrames: true`（lock-screen 移植時新增；預設 false＝輸出逐位元組不變）：第 2 格起只寫和前一格不同的矩形
- *   （影像描述區塊記下位置），沒有透明像素、共用調色盤時才這樣做（有透明時要「清成背景」，每格仍寫整格）。
- *   解碼出來的每一格完全相同，只有檔案變小（例：手機畫面 540 × 1170 的 25 格只有通知卡片在動，約小一半）。
+ * - `cropFrames`（lock-screen 移植時新增；2026-10 起預設 true，全站的 GIF 都受惠）：第 2 格起只寫和前一格不同的矩形
+ *   （影像描述區塊記下位置、處置 1＝留著），沒有透明像素、共用調色盤時才這樣做；有透明時要「清成背景」（處置 2）、
+ *   每格各自減色時沒變的像素也可能換成別的顏色，這兩種情況每格照舊寫整格（輸出和以前逐位元組相同）。
+ *   解碼出來的每一格完全相同、影格數與延遲不變，只有檔案變小（例：手機畫面 540 × 1170 的 25 格只有通知卡片在動，約小一半；
+ *   各工具的量測見 DESIGN.md 4.2 core/encode）。`cropFrames: false`＝以前的預設（每格寫整格，逐位元組相同）。
  */
 import { GIFEncoder, type GifPalette } from 'gifenc';
 import {
@@ -63,7 +65,7 @@ export interface GifEncoderOptions {
   maxColors?: number;
   /** 抖色：'none'（預設，最近色）或 'floyd-steinberg'（誤差擴散；調色盤無損時不作用） */
   dither?: GifDither;
-  /** 第 2 格起只寫變化的矩形（沒有透明、共用調色盤時；預設 false） */
+  /** 第 2 格起只寫變化的矩形（沒有透明、共用調色盤時才作用；預設 true，false＝每格寫整格） */
   cropFrames?: boolean;
   /**
    * 代表畫面（setStill）在調色盤統計裡算幾格（預設 0＝不用代表畫面，輸出與以前相同）。
@@ -118,11 +120,13 @@ export class GifEncoder implements FrameEncoder {
       paletteMethod: 'median-cut',
       maxColors: 256,
       dither: 'none',
-      cropFrames: false,
+      cropFrames: true,
       stillWeight: 0,
       ...options,
     };
     this.opt.maxColors = Math.max(2, Math.min(256, Math.round(this.opt.maxColors) || 256));
+    /* 明確給 undefined 也算預設（開） */
+    this.opt.cropFrames = options.cropFrames !== false;
     this.stats = new ColorStats(this.opt.maxColors);
   }
 

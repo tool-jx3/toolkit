@@ -230,20 +230,21 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | scratch-card | 刮刮卡產生器 | sotsotssi/Scratchcard | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
 | discord-color | Discord 彩色文字產生器 | rebane2001（gist：discord-colored-text-generator） | 公有領域（Unlicense） | G1 | ✅ | ✅ | ✅ | ✅ |
 | lock-screen | 鎖定畫面訊息產生器（2026-10-09 另外加入） | TEXTSCENE（textscene.netlify.app） | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
+| relation-chart | 角色關係圖產生器（2026-10-15 另外加入；分批，第一批＝核心） | PaiTei4234／Relationship Chart Maker（itch.io） | CC BY-NC-SA 4.0（繼承：工具目錄以同一授權釋出，見 LICENSE 的例外） | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 
 | 工具 | 內容 | 來源 | 狀態 |
 |---|---|---|---|
 | text-fx | 自訂範本（存、讀、用檔案分享）、批次匯出、理智檢定（SAN）範本 | くま。／文字画像APNGメーカー v1.05～1.12 | ✅ |
-| pair-maker | 背景改成單色或圖片（可模糊）、段落標題可以改 | baegop157902/PairMaker 2026-10-01 | ⬜ |
-| log-converter | 新增匯出 EPUB 電子書 | sotsotssi/CcfoliaLogConverter（未授權） | ⬜ |
+| pair-maker | 背景改成單色或圖片（可模糊）、段落標題可以改（雙人資料卡）；多人資料卡每列 2～5 張 | baegop157902/PairMaker 2026-10-01 | ✅ |
+| log-converter | 新增匯出 EPUB 電子書 | sotsotssi/CcfoliaLogConverter（未授權） | ✅ |
 | session-log、session-report | 跑團紀錄簿的 SKP 角色；團報產生器用括號包住選取的文字、裝飾面板分頁 | くま。 session-log-tool v1.100、session-report-generator v1.73～1.76 | ✅ |
-| floor-plan | 再補範本：學校、警局、寺廟、洞窟等（目前 8 個，見規格 7. D10） | 本站 | ⬜ |
-| char-chart | 關係圖的頭像可以調整範圍（目前固定取圖片中央；可用共用的 ImageFrameDialog） | 本站 | ⬜ |
-| char-chart、review-grid | 兩個工具的 `images.ts`（縮到長邊 1024、存資產庫、讀回圖片的 hook）幾乎相同，合併成 `core/assets` 的共用函式 | 本站 | ⬜ |
+| floor-plan | 再補範本：學校、警局、寺廟、洞窟等（目前 8 個，見規格 7. D10）→ 2026-10 補 7 個（學校、警察局、圖書館、寺廟、洞窟、山中小屋、地下教團據點），分類改成四類 | 本站 | ✅ |
+| char-chart | 關係圖的頭像可以調整範圍（目前固定取圖片中央；可用共用的 ImageFrameDialog） | 本站 |✅ |
+| char-chart、review-grid | 兩個工具的 `images.ts`（縮到長邊 1024、存資產庫、讀回圖片的 hook）幾乎相同，合併成 `core/assets` 的共用函式 | 本站 |✅ |
 | bg-remover | 去背方式加「AI＋背景色」（AI 漏掉的深色細部用背景色補回、AI 留下的背景色去掉）、純色背景可以有多個背景色（含兩色之間的混色）、去掉孤島、AI 結果完全不透明（原作捨去到 254） | 本站（使用者 2026-10-10） | ✅ |
-| 全站 GIF | 全不透明的 GIF 打開共用編碼器的 `cropFrames`（第 2 格起只寫變化的矩形，檔案小很多；lock-screen 引入時加的選項，見其規格 D7） | 本站 | ⬜ |
+| 全站 GIF | 全不透明的 GIF 打開共用編碼器的 `cropFrames`（第 2 格起只寫變化的矩形，檔案小很多；lock-screen 引入時加的選項，見其規格 D7）→ 2026-10 改成預設開（DESIGN.md 4.2「GIF 只寫變化的範圍」） | 本站 | ✅ |
 | 全站 | 介面文字的「保存」改成「儲存」（28 個工具 60 處；「方便保存、分享」這類「留著」的意思不改；DESIGN.md 第 5 節，scenario-text 對等驗證時發現） | 本站 | ✅ |
 
 ## 7. 往後新增工具

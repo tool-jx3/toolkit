@@ -13,12 +13,16 @@
  * // 使用中釋放刪掉的圖（重設、開了別的專案檔之後）：沒人用就刪
  * await assets.gc(referencedAssetIds(useBoard, (d) => d.characters.map((c) => c.imageId)));
  * ```
+ *
+ * 加入圖片（解碼確認、太大時縮小、存進資產庫）與讀回的 hook 在 `./images`（addImageFile、useAssetBitmaps…，一併從這裡匯出）。
  */
 import { useEffect, useState } from 'react';
 import { AUDIO_FILE_INFO, detectAudioType } from '../audio/analysis';
 import { bytesToHex, subtleSha256 } from '../files/hash';
 import { createImageStore, detectImageType, type ImageSaveFailure, loadImage } from '../image';
 import type { ToolStore } from '../storage';
+
+export * from './images';
 
 export interface AssetAddResult {
   id: string;

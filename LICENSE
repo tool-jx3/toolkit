@@ -16,6 +16,12 @@ build collects them, together with the npm dependencies' licences, in
 the site's `assets/build/THIRD_PARTY_NOTICES.md`. See `ATTRIBUTION.md`
 for the inspiration and source of every tool.
 
+Exception: `web/src/tools/relation-chart/` (and its tests) is adapted from
+Relationship Chart Maker (© PaiTei4234, https://paitei4234.itch.io/relationshipchartmaker)
+and is licensed under CC BY-NC-SA 4.0, not under this MIT licence; see
+`web/src/tools/relation-chart/UPSTREAM_LICENSE`. The shared framework it uses
+stays MIT.
+
 MIT License
 
 Copyright (c) 2026 tool-jx3

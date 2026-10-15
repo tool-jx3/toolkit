@@ -8,9 +8,11 @@ import { canvasToBlob } from '@/core/image';
 import type { ToolStore } from '@/core/storage';
 import { Button, Dialog, Notice, TextInput, useConfirm, useToast } from '@/ui';
 import {
+  DRAFT_VERSION,
   type Draft,
   DraftError,
   draftAssets,
+  migrateDraft,
   newId,
   type TemplateDef,
   validateDraft,
@@ -155,7 +157,7 @@ export function SlotsDialog({
     if (open) void refresh();
   }, [open, refresh]);
 
-  const snapshot = async (): Promise<{ data: Draft; preview: Blob | null }> => {
+  const snapshot = async (): Promise<{ data: Draft; preview: Blob | null; version: number }> => {
     const data = structuredClone(store.getState().data);
     let preview: Blob | null = null;
     try {
@@ -163,7 +165,7 @@ export function SlotsDialog({
     } catch {
       preview = null;
     }
-    return { data, preview };
+    return { data, preview, version: DRAFT_VERSION };
   };
 
   const create = async () => {
@@ -226,7 +228,7 @@ export function SlotsDialog({
     )
       return;
     try {
-      const next = validateDraft(def, r.data);
+      const next = validateDraft(def, migrateDraft(def, r.data, r.version ?? 1));
       for (const id of draftAssets(next)) {
         const bmp = await assets.bitmap(id).catch(() => undefined);
         if (!bmp) throw new DraftError(S.imageUnreadable);

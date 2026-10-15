@@ -166,7 +166,7 @@ function SettingsArea({
     if (!ok) return;
     try {
       const project = parseProjectBytes<unknown>(await readAsBytes(file), TOOL_ID);
-      const r = await importProject(def, project.data, project.files, file.size);
+      const r = await importProject(def, project.data, project.files, file.size, project.version);
       store.getState().replace(r.draft);
       useUi.getState().setSticker(null);
       /* 圖片存不進瀏覽器：同一則通知裡提醒 */
@@ -256,8 +256,8 @@ export function Editor({
               confirmLabel: S.openConfirmLabel,
             }}
             openedMessage={S.projectOpened}
-            onLoad={async (data, _file, files, source) => {
-              const r = await importProject(def, data, files, source.size);
+            onLoad={async (data, file, files, source) => {
+              const r = await importProject(def, data, files, source.size, file.version);
               store.getState().replace(r.draft);
               useUi.getState().setSticker(null);
               /* 圖片存不進瀏覽器：和「已開啟專案檔」合成一則 */

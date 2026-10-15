@@ -3,6 +3,7 @@
  * 平常顯示全部的訊息都出現的畫面；點預覽或按播放才看訊息跳出來的動畫。改任何設定都停止播放、回到靜態畫面。
  */
 import { type Ref, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { useAssetImage } from '@/core/assets';
 import { makeCanvas } from '@/core/image';
 import type { TimelineSegment } from '@/core/timeline';
 import {
@@ -19,7 +20,6 @@ import {
 } from '@/ui';
 import { type ExportJob, outputSize, runExport } from './exporter';
 import { useEnsureFonts, useFontTick } from './fonts';
-import { useAssetImage } from './media';
 import {
   animationDuration,
   type ExportFormat,
@@ -44,7 +44,7 @@ import {
   fontLoads,
   layoutCards,
 } from './render';
-import { type PreviewMode, setPrefs, useDoc, usePrefs } from './store';
+import { assets, type PreviewMode, setPrefs, useDoc, usePrefs } from './store';
 import { S } from './strings';
 
 export interface PlayHandle {
@@ -80,8 +80,8 @@ export function Preview({
 }) {
   const s = useDoc((st) => st.data);
   const prefs = usePrefs((p) => p.data);
-  const wall = useAssetImage(s.wallpaper.image?.id);
-  const outerImg = useAssetImage(s.outer.image?.id);
+  const wall = useAssetImage(assets, s.wallpaper.image?.id);
+  const outerImg = useAssetImage(assets, s.outer.image?.id);
   const loads = useMemo(() => fontLoads(s), [s]);
   useEnsureFonts(loads);
   const cards = useCardLayouts();

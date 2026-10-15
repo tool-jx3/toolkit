@@ -28,6 +28,17 @@ export type SubNarratorStyle =
   | 'colored-narration';
 /** 分頁標示方式（F56，CCFOLIA 風格）：不標示、標出分頁、通知框 */
 export type TabStyle = 'none' | 'label' | 'notice';
+/** EPUB 的分章方式（F106）：不分章、依分頁、依標記、依則數 */
+export type EpubChapterMode = 'single' | 'tab' | 'marker' | 'count';
+/** EPUB 的排版方向（F108） */
+export type EpubWriting = 'horizontal' | 'vertical';
+/** EPUB 的字型（F109）：明體、黑體 */
+export type EpubFont = 'serif' | 'sans';
+/** EPUB 的角色顏色（F110）：名稱文字、名稱前的色塊、不使用 */
+export type EpubNameColor = 'text' | 'mark' | 'none';
+
+/** 存檔與專案檔的資料版本（2026-10 加了 EPUB 的設定 → 2；版本 1 的資料照常讀，沒有的設定用預設值） */
+export const SETTINGS_VERSION = 2;
 
 export const FONT_SIZES = [15, 17, 19, 21] as const;
 export const LINE_HEIGHTS = [1.5, 1.8, 2, 2.2] as const;
@@ -294,7 +305,22 @@ export interface LcSettings {
   splitSizeKb: number;
   splitFiles: number;
   blogMode: boolean;
+  /** 一併產生 EPUB 電子書（F104，2026-10） */
+  epubMode: boolean;
+  epubAuthor: string;
+  epubChapters: EpubChapterMode;
+  /** 標記文字（每行一個） */
+  epubMarkers: string;
+  /** 依則數分章時每章的則數 */
+  epubChapterSize: number;
+  epubWriting: EpubWriting;
+  epubFont: EpubFont;
+  epubNameColor: EpubNameColor;
 }
+
+/** 依則數分章的範圍（F107） */
+export const EPUB_CHAPTER_SIZE_MIN = 1;
+export const EPUB_CHAPTER_SIZE_MAX = 100000;
 
 export const DEFAULT_SETTINGS: LcSettings = {
   style: 'novel',
@@ -329,6 +355,14 @@ export const DEFAULT_SETTINGS: LcSettings = {
   splitSizeKb: 100,
   splitFiles: 2,
   blogMode: false,
+  epubMode: false,
+  epubAuthor: '',
+  epubChapters: 'single',
+  epubMarkers: '',
+  epubChapterSize: 500,
+  epubWriting: 'horizontal',
+  epubFont: 'serif',
+  epubNameColor: 'text',
 };
 
 /* ---------- 圖片品質（F28、3.8） ---------- */
@@ -451,6 +485,50 @@ const SUB_STYLES: readonly SubNarratorStyle[] = [
   'colored-narration',
 ];
 
+/** EPUB 的設定（F104～F110） */
+export const EPUB_SETTING_KEYS = [
+  'epubMode',
+  'epubAuthor',
+  'epubChapters',
+  'epubMarkers',
+  'epubChapterSize',
+  'epubWriting',
+  'epubFont',
+  'epubNameColor',
+] as const satisfies readonly (keyof LcSettings)[];
+
+export type EpubSettingKey = (typeof EPUB_SETTING_KEYS)[number];
+
+/**
+ * EPUB 的設定修正成合法的值（看不懂的用預設值）。匯入設定、舊版本的存檔經 normalizeSettings；
+ * 同版本的自動存檔共用 store 不檢查值，所以讀進來時另外用這個整理一次（store.ts，驗證 F107）。
+ */
+export function normalizeEpubSettings(raw: unknown): Pick<LcSettings, EpubSettingKey> {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const d = DEFAULT_SETTINGS;
+  const size = r.epubChapterSize;
+  return {
+    epubMode: bool(r.epubMode, d.epubMode),
+    epubAuthor: str(r.epubAuthor, d.epubAuthor),
+    epubChapters: oneOf(
+      r.epubChapters,
+      ['single', 'tab', 'marker', 'count'] as const,
+      d.epubChapters,
+    ),
+    epubMarkers: str(r.epubMarkers, d.epubMarkers),
+    epubChapterSize:
+      typeof size === 'number' &&
+      Number.isInteger(size) &&
+      size >= EPUB_CHAPTER_SIZE_MIN &&
+      size <= EPUB_CHAPTER_SIZE_MAX
+        ? size
+        : d.epubChapterSize,
+    epubWriting: oneOf(r.epubWriting, ['horizontal', 'vertical'] as const, d.epubWriting),
+    epubFont: oneOf(r.epubFont, ['serif', 'sans'] as const, d.epubFont),
+    epubNameColor: oneOf(r.epubNameColor, ['text', 'mark', 'none'] as const, d.epubNameColor),
+  };
+}
+
 /** 把任意物件（匯入的設定檔、舊的存檔）修正成完整的設定；看不懂的欄位用預設值 */
 export function normalizeSettings(raw: unknown): LcSettings {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -533,5 +611,6 @@ export function normalizeSettings(raw: unknown): LcSettings {
     splitSizeKb: intIn(r.splitSizeKb, d.splitSizeKb, 1, 100000),
     splitFiles: intIn(r.splitFiles, d.splitFiles, 2, 1000),
     blogMode: bool(r.blogMode, d.blogMode),
+    ...normalizeEpubSettings(r),
   };
 }

@@ -1,8 +1,7 @@
 /**
  * 照片（桌布、外框背景）的載入與讀回：放進資產庫（IndexedDB）→ 解碼確認 → 打開裁切 → 套用時換上照片與位置。
- * 同一批檔案的問題整理成一則通知（不是圖片、讀不到、第二張以後沒有用）。重新整理後從資產庫讀回；讀不到時回報。
+ * 同一批檔案的問題整理成一則通知（不是圖片、讀不到、第二張以後沒有用）。重新整理後從資產庫讀回（共用的 `useAssetImage`）；讀不到時回報。
  */
-import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import type { FramePlacement } from '@/core/image';
 import type { ImageRef } from './model';
@@ -104,56 +103,4 @@ export function appliedNotice(req: CropRequest): BatchNotice | null {
   if (!req.fresh.persisted) notes.push(S.photoNotSaved);
   if (!notes.length) return null;
   return { title: S.photoApplied(req.ref.name), description: notes.join('；'), tone: 'warning' };
-}
-
-/* ---------- 讀回 ---------- */
-
-export type ImageStatus = 'none' | 'loading' | 'ready' | 'missing';
-
-/** 一張圖的解碼結果（id 換了就重讀；同一個 id 只解碼一次） */
-export function useAssetImage(id: string | null | undefined): {
-  bitmap: ImageBitmap | null;
-  status: ImageStatus;
-} {
-  const [state, setState] = useState<{
-    id: string | null;
-    bitmap: ImageBitmap | null;
-    status: ImageStatus;
-  }>(() => {
-    const hit = id ? assets.peekBitmap(id) : undefined;
-    return {
-      id: id ?? null,
-      bitmap: hit ?? null,
-      status: !id ? 'none' : hit ? 'ready' : 'loading',
-    };
-  });
-  useEffect(() => {
-    let alive = true;
-    if (!id) {
-      setState({ id: null, bitmap: null, status: 'none' });
-      return;
-    }
-    const hit = assets.peekBitmap(id);
-    if (hit) {
-      setState({ id, bitmap: hit, status: 'ready' });
-      return;
-    }
-    setState({ id, bitmap: null, status: 'loading' });
-    assets
-      .bitmap(id)
-      .then((b) => {
-        if (alive) setState({ id, bitmap: b ?? null, status: b ? 'ready' : 'missing' });
-      })
-      .catch(() => {
-        if (alive) setState({ id, bitmap: null, status: 'missing' });
-      });
-    return () => {
-      alive = false;
-    };
-  }, [id]);
-  if ((state.id ?? null) !== (id ?? null)) {
-    const hit = id ? assets.peekBitmap(id) : undefined;
-    return { bitmap: hit ?? null, status: !id ? 'none' : hit ? 'ready' : 'loading' };
-  }
-  return { bitmap: state.bitmap, status: state.status };
 }

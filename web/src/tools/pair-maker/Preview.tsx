@@ -1,6 +1,6 @@
 /**
  * 預覽：版型的場景＋貼紙畫在 canvas（與輸出同一段程式），上面疊 LayoutCanvas（點選區、貼紙控點、從畫布取色）。
- * 下方：文字記錄的頁面切換、多人資料框的人數與新增鈕；最下面是下載（PNG，文字記錄另有 PDF；下載前先自動分頁）。
+ * 下方：文字記錄的頁面切換、多人資料框的人數、新增鈕與每列張數；最下面是下載（PNG，文字記錄另有 PDF；下載前先自動分頁）。
  */
 import {
   ArrowLeftToLine,
@@ -28,18 +28,35 @@ import {
   LayoutCanvas,
   type LayoutSticker,
   Notice,
+  Segmented,
   Stage,
   useToast,
 } from '@/ui';
 import { paginateNow } from './autoPaginate';
 import { type Draft, draftAssets, parseHitKey, stickerMax, type TemplateDef } from './model';
 import { addMemberTo, addPageTo, chooseSide } from './Panel';
-import { drawStickers, exportPng, outputName, sceneEnv, stickerPlacement } from './render';
+import {
+  drawStickers,
+  ensureImages,
+  exportPng,
+  outputName,
+  sceneEnv,
+  stickerPlacement,
+} from './render';
 import { selectSticker } from './StickerPanel';
 import { patchSticker, placementToSticker, removeSticker, stepSticker } from './stickers';
 import { assets, measureContext, STICKER_SIDE, silently, useUi } from './store';
 import { S } from './strings';
-import { CARD_H, CARD_W, MAX_MEMBERS, members, soloScene } from './templates/roster';
+import {
+  CARD_H,
+  CARD_W,
+  COLS,
+  colsOf,
+  MAX_MEMBERS,
+  members,
+  setCols,
+  soloScene,
+} from './templates/roster';
 import { activeOf, MAX_PAGES, pagesOf, variantOf } from './templates/textlog';
 
 export interface PreviewProps {
@@ -60,12 +77,12 @@ export function Preview({ def, store, d, picker }: PreviewProps) {
   const side = ui.side[def.id];
   const sticker = ui.sticker;
 
-  /* 圖片：還沒讀進記憶體的先讀，讀好再重畫 */
+  /* 圖片：還沒解碼的（例如重新整理後從瀏覽器讀回的）先讀進來解碼，好了再重畫 */
   useEffect(() => {
     const ids = draftAssets(d).filter((id) => !assets.peekBitmap(id));
     if (!ids.length) return;
     let alive = true;
-    void assets.preload(ids).then(() => alive && setTick((t) => t + 1));
+    void ensureImages(d, ids).then(() => alive && setTick((t) => t + 1));
     return () => {
       alive = false;
     };
@@ -322,7 +339,7 @@ function PageNav({ def, store, d }: { def: TemplateDef; store: ToolStore<Draft>;
   );
 }
 
-/* ---------- 多人資料框：畫布下方的新增鈕（舊版畫布區的「＋」） ---------- */
+/* ---------- 多人資料框：畫布下方的新增鈕（舊版畫布區的「＋」）與每列張數（2026-10） ---------- */
 
 function RosterNav({ def, store, d }: { def: TemplateDef; store: ToolStore<Draft>; d: Draft }) {
   const toast = useToast();
@@ -347,6 +364,21 @@ function RosterNav({ def, store, d }: { def: TemplateDef; store: ToolStore<Draft
       >
         {S.addMember}
       </Button>
+      <span className="flex items-center gap-1.5">
+        <span aria-hidden className="text-sm text-muted">
+          {S.cols}
+        </span>
+        <Segmented
+          size="sm"
+          aria-label={S.colsAria}
+          value={String(colsOf(d))}
+          onValueChange={(v) => {
+            const next = setCols(store.getState().data, Number(v));
+            if (next) store.getState().replace(next);
+          }}
+          options={COLS.map((c) => ({ value: String(c), label: S.colsOption(c) }))}
+        />
+      </span>
     </nav>
   );
 }

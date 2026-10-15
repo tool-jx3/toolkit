@@ -7,7 +7,7 @@
  * - 復原：一次動作一步；方向鍵連按算一步、馬上復原只復原方向鍵那一步；拖曳手勢放開才算一步。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { splitImageFiles } from '@/tools/char-chart/images';
+import { splitImageFiles } from '@/core/assets';
 import { initialState, LIMITS, PALETTE } from '@/tools/char-chart/model';
 import { dropMissingImages } from '@/tools/char-chart/project';
 import {

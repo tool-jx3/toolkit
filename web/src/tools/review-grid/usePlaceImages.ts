@@ -5,11 +5,11 @@
  * - 沒有目標：從頭依序放進沒有圖片的格子；不夠時在最後加格子（到上限）。
  * 不是圖片的檔也交進來（拖放區不先濾掉），同一批的結果合成一則通知（notices.ts）。
  */
+import { addImageFile, addImageFiles } from '@/core/assets';
 import { useToast } from '@/ui';
-import { loadReviewImage, loadReviewImages } from './images';
-import { LIMITS } from './model';
+import { IMAGE_MAX_SIDE, LIMITS } from './model';
 import { placeNotice } from './notices';
-import { fillImages, setProfileImage, type Target } from './store';
+import { assets, fillImages, setProfileImage, type Target } from './store';
 
 export const isImageFile = (f: File): boolean =>
   f.type.startsWith('image/') || (!f.type && /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(f.name));
@@ -37,7 +37,7 @@ export function usePlaceImages() {
       let notSaved = false;
       if (images[0]) {
         try {
-          const r = await loadReviewImage(images[0]);
+          const r = await addImageFile(assets, images[0], { maxSide: IMAGE_MAX_SIDE });
           setProfileImage(r.ref);
           placed = 1;
           notSaved = !r.persisted;
@@ -49,7 +49,7 @@ export function usePlaceImages() {
       return;
     }
     const { loaded, failed } = images.length
-      ? await loadReviewImages(images)
+      ? await addImageFiles(assets, images, { maxSide: IMAGE_MAX_SIDE })
       : { loaded: [], failed: [] };
     const r = loaded.length
       ? fillImages(

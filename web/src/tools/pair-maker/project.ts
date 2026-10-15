@@ -9,6 +9,7 @@ import {
   type Draft,
   DraftError,
   draftAssets,
+  migrateDraft,
   type TemplateDef,
   validateDraft,
 } from './model';
@@ -29,12 +30,14 @@ export const projectData = (def: TemplateDef, d: Draft): ProjectData => ({
 /**
  * 讀入專案檔的內容（不合格丟 DraftError，訊息可以直接顯示）。notSaved：有圖片存不進瀏覽器
  * （這次可以用，重新整理之後就沒了）。圖片一張一張寫進圖片庫時開頁的整理（assets.gcStale）不會刪掉已經寫好的。
+ * version：專案檔的資料版本（舊版本先補上新的設定）。
  */
 export async function importProject(
   def: TemplateDef,
   data: unknown,
   files: Map<string, Uint8Array>,
   sourceSize: number,
+  version = 1,
 ): Promise<{ draft: Draft; notSaved: boolean }> {
   if (sourceSize > ARCHIVE_MAX_BYTES) throw new DraftError(S.archiveTooBig);
   let total = 0;
@@ -48,7 +51,7 @@ export async function importProject(
     const other = templateById(p.template);
     throw new DraftError(other ? S.archiveOtherTemplate(other.name) : S.archiveUnknownTemplate);
   }
-  const draft = validateDraft(def, p.draft);
+  const draft = validateDraft(def, migrateDraft(def, p.draft, version));
   const imported = await importAssetFiles(assets, files.entries());
   for (const id of draftAssets(draft)) {
     const bmp = await assets.bitmap(id).catch(() => undefined);

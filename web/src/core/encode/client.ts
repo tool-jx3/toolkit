@@ -89,10 +89,26 @@ class WorkerEncoder implements Encoder {
  * ```
  */
 export function createEncoder(spec: EncoderSpec, options: CreateEncoderOptions = {}): Encoder {
+  const s = withTestHooks(spec);
   const useWorker = options.worker ?? canUseWorker();
   if (useWorker && canUseWorker())
-    return new WorkerEncoder(spec, Math.max(1, options.maxInFlight ?? 3));
-  return createLocalEncoder(spec);
+    return new WorkerEncoder(s, Math.max(1, options.maxInFlight ?? 3));
+  return createLocalEncoder(s);
+}
+
+/**
+ * 測試用的全域注入點：頁面上設了 `window.__gifCropFrames = false` 時，GIF 照 2026-10 以前的預設每格寫整格
+ * （不管呼叫端給的 cropFrames）。E2E 與對等驗證用來在同一個頁面匯出「打開前」的 GIF 比對；只認 false。
+ */
+export const GIF_CROP_FRAMES_HOOK = '__gifCropFrames';
+
+function withTestHooks(spec: EncoderSpec): EncoderSpec {
+  if (
+    spec.format === 'gif' &&
+    (globalThis as Record<string, unknown>)[GIF_CROP_FRAMES_HOOK] === false
+  )
+    return { format: 'gif', options: { ...spec.options, cropFrames: false } };
+  return spec;
 }
 
 /**

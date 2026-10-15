@@ -2,13 +2,15 @@
  * 貼紙的操作（純函式，回傳新的 Draft）：加入、更新、刪除、前後順序。
  * 清單第一個在最上層；新加入的放在最前面。文字記錄的貼紙用頁面座標，記在哪一頁。
  */
-import { initialPlacement, type Placement } from '@/core/scene';
+import { initialPlacement, keepInside, type Placement, type Rect } from '@/core/scene';
 import {
   type Draft,
   MAX_STICKERS,
   newId,
+  STICKER_MARGIN,
   STICKER_START_SIDE,
   type Sticker,
+  stickerMax,
   type TemplateDef,
 } from './model';
 import { S } from './strings';
@@ -74,4 +76,22 @@ export function moveSticker(d: Draft, from: number, to: number): Draft {
 export function stepSticker(d: Draft, id: string, dir: 'front' | 'back'): Draft {
   const i = d.stickers.findIndex((s) => s.id === id);
   return moveSticker(d, i, dir === 'front' ? i - 1 : i + 1);
+}
+
+/**
+ * 畫布變小之後（多人資料框改每列張數、刪除角色）：貼紙拉回範圍內——規則同拖曳放開時（旋轉後的外接範圍至少 16 px 重疊）；
+ * 寬高超過新畫布長邊 2 倍的等比縮到上限（中心不動），否則讀入檢查會拒絕整份內容。沒有要動的貼紙時回傳同一個 Draft。
+ */
+export function keepStickersIn(d: Draft, area: Rect): Draft {
+  const max = stickerMax(area);
+  let changed = false;
+  const stickers = d.stickers.map((s) => {
+    const k = Math.min(1, max / Math.max(s.width, s.height));
+    const sized: Placement = k < 1 ? { ...s, width: s.width * k, height: s.height * k } : s;
+    const p = keepInside(sized, area, STICKER_MARGIN);
+    if (p === s) return s;
+    changed = true;
+    return { ...s, cx: p.cx, cy: p.cy, width: p.width, height: p.height };
+  });
+  return changed ? { ...d, stickers } : d;
 }

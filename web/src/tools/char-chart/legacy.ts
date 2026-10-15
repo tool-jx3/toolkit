@@ -50,6 +50,7 @@ const character = (i: number, name: string, color?: unknown): Character => ({
   image: null,
   marker: 'dot',
   inMap: true,
+  avatar: null,
 });
 
 /* ---------- 原作 R：關係圖的專案 JSON ---------- */

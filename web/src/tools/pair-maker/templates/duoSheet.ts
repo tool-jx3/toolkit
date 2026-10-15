@@ -1,11 +1,13 @@
 /**
  * 雙人資料卡（1920 × 1080）：左右兩個角色鏡像排列。
- * 每人：全身圖（外側直長、往內淡出）、頭像（圓）、名字＋標語（字型可選、可縮小）、資料卡（服裝、外觀、Q 版圖、身高、萌化、
- * 髮色與瞳色）、追加圖片 3 張、一句話說明。版面為本專案自行設計。
+ * 共用：背景（單色，或圖片＋模糊；2026-10）。
+ * 每人：全身圖（外側直長、圖片本身往內淡出）、頭像（圓）、名字＋標語（字型可選、可縮小）、資料卡（兩段可以改標題的說明、
+ * Q 版圖、身高、萌化、髮色與瞳色）、追加圖片 3 張、一句話說明。版面為本專案自行設計。
  */
 import type { SceneNode } from '@/core/scene';
 import {
   bool,
+  citeId,
   type Draft,
   type FieldDef,
   font,
@@ -20,6 +22,7 @@ import {
 import { T } from '../strings';
 import {
   CARD_SHADOW,
+  citeNode,
   DARK_SLOT,
   mirrorX,
   SANS,
@@ -33,8 +36,18 @@ import {
 const L = T.duoSheet;
 const W = 1920;
 const H = 1080;
-const BG = '#f3f1ec';
+/** 預設的底色（單色的預設值、圖片模式的底） */
+export const DUO_BG = '#f3f1ec';
+/** 背景圖的模糊（標準差；原作 Konva 的模糊半徑 10） */
+export const DUO_BG_BLUR = 5;
 const SIDES = ['left', 'right'] as const;
+/**
+ * 全身圖的寬與往內淡出的範圍（左邊的角色；右邊左右相反）：圖片從 x 252 起變透明、到格子內緣 x 340 剛好透明（同原作，7.2）；
+ * 空格子的深色底維持以前的範圍（到 x 360 才透明），預設畫面逐像素不變。
+ */
+const FULL_W = 340;
+const FADE_FROM = 252;
+const EMPTY_FADE_TO = 360;
 
 const sideLabel = (side: string) => (side === 'left' ? T.left : T.right);
 const sideShort = (side: string) => (side === 'left' ? T.leftShort : T.rightShort);
@@ -75,8 +88,10 @@ function groups(side: string): GroupDef[] {
       id: 'looks',
       label: L.looks,
       fields: [
-        { id: f('outfit'), label: L.outfit, type: 'textarea' },
-        { id: f('features'), label: L.features, type: 'textarea' },
+        { id: f('outfitTitle'), label: L.outfitTitle, type: 'text' },
+        { id: f('outfit'), label: L.outfitBody, type: 'textarea' },
+        { id: f('featuresTitle'), label: L.featuresTitle, type: 'text' },
+        { id: f('features'), label: L.featuresBody, type: 'textarea' },
         { id: f('height'), label: L.height, type: 'text' },
         { id: f('moe'), label: L.moe, type: 'text' },
       ],
@@ -110,8 +125,43 @@ function groups(side: string): GroupDef[] {
   ];
 }
 
+/** 共用：背景（單色／圖片；圖片時可以模糊） */
+function commonGroups(): GroupDef[] {
+  const isImage = { id: 'c.bgMode', is: 'image' } as const;
+  return [
+    {
+      id: 'backdrop',
+      label: L.backdrop,
+      fields: [
+        {
+          id: 'c.bgMode',
+          label: L.bgMode,
+          type: 'radio',
+          options: [
+            { value: 'color', label: L.bgSolid },
+            { value: 'image', label: L.bgImage },
+          ],
+        },
+        { id: 'c.bgColor', label: L.bgColor, type: 'color', when: { id: 'c.bgMode', is: 'color' } },
+        { id: 'c.bgBlur', label: L.bgBlur, type: 'checkbox', when: isImage },
+      ],
+      slots: [{ id: 'c.bg', label: L.bgSlot, width: W, height: H, when: isImage, after: true }],
+    },
+  ];
+}
+
+/** 2026-10（資料版本 2）新增的欄位與預設值 */
+function addedIn2(): Record<string, Value> {
+  const v: Record<string, Value> = { 'c.bgMode': 'color', 'c.bgColor': DUO_BG, 'c.bgBlur': false };
+  for (const side of SIDES) {
+    v[`${side}.outfitTitle`] = L.outfit;
+    v[`${side}.featuresTitle`] = L.features;
+  }
+  return v;
+}
+
 function defaults(): Record<string, Value> {
-  const v: Record<string, Value> = {};
+  const v: Record<string, Value> = addedIn2();
   for (const side of SIDES) {
     for (const key of ['profile', 'extra1', 'extra2', 'extra3']) {
       v[`${side}.${key}.bg`] = false;
@@ -206,14 +256,22 @@ function sideNodes(d: Draft, env: SceneEnv, side: string): SceneNode[] {
   const bodyFont = { family: SANS, weight: 400, size: 18 };
   const tx = mx(400, 270);
   nodes.push(
-    text(tx, 268, 270, 28, L.outfit, labelFont, '#323232', { align, hit: h('looks', L.looks) }),
+    text(tx, 268, 270, 28, str(v, f('outfitTitle')), labelFont, '#323232', {
+      align,
+      shrink: 0.5,
+      hit: h('looks', L.looks),
+    }),
     text(tx, 300, 270, 84, str(v, f('outfit')), bodyFont, '#323232', {
       align,
       wrap: 'char',
       lineHeight: 1.45,
       hit: h('looks', L.looks),
     }),
-    text(tx, 400, 270, 28, L.features, labelFont, '#323232', { align, hit: h('looks', L.looks) }),
+    text(tx, 400, 270, 28, str(v, f('featuresTitle')), labelFont, '#323232', {
+      align,
+      shrink: 0.5,
+      hit: h('looks', L.looks),
+    }),
     text(tx, 432, 270, 150, str(v, f('features')), bodyFont, '#323232', {
       align,
       wrap: 'char',
@@ -341,44 +399,106 @@ function sideNodes(d: Draft, env: SceneEnv, side: string): SceneNode[] {
   return nodes;
 }
 
-function fullNodes(d: Draft, env: SceneEnv, side: string): SceneNode[] {
-  const right = side === 'right';
-  const x = right ? W - 340 : 0;
-  const nodes = slotNodes(env, d, {
-    id: `${side}.full`,
-    x,
-    y: 0,
-    w: 340,
-    h: H,
-    hit: hit(side, 'full', `${sideLabel(side)}：${L.full}`),
-    style: { ...DARK_SLOT, citeBottom: 28 },
-  });
-  /* 往內淡出到背景色（蓋在全身圖上） */
-  const fx = right ? W - 360 : 0;
-  const stops: [number, string][] = right
-    ? [
-        [0, BG],
-        [0.3, 'rgba(243,241,236,0)'],
-      ]
-    : [
-        [0.7, 'rgba(243,241,236,0)'],
-        [1, BG],
-      ];
-  /* 出處要在淡出層上面：先畫圖、再淡出、最後出處 */
-  const cite = nodes.find((n) => n.kind === 'text' && n.text.startsWith('ⓒ'));
-  const rest = nodes.filter((n) => n !== cite);
-  return [
-    ...rest,
+/**
+ * 背景：單色時整張背景色；圖片時預設底色＋蓋滿的背景圖（模糊時四周用邊上的像素延伸），出處在下緣中央。
+ * 整張是點選區（開啟「共用 背景」），上面的元素各自優先。
+ */
+function backdrop(d: Draft, env: SceneEnv): SceneNode[] {
+  const v = d.v;
+  const image = str(v, 'c.bgMode') === 'image';
+  const nodes: SceneNode[] = [
     {
       kind: 'rect',
-      x: fx,
+      x: 0,
       y: 0,
-      w: 360,
+      w: W,
       h: H,
-      fill: { linear: { x0: fx, y0: 0, x1: fx + 360, y1: 0, stops } },
+      fill: image ? DUO_BG : str(v, 'c.bgColor') || DUO_BG,
+      hit: hit('common', 'backdrop', `${T.common}：${L.backdrop}`),
     },
-    ...(cite ? [cite] : []),
   ];
+  const img = image ? env.image('c.bg') : null;
+  if (!img) return nodes;
+  nodes.push({
+    kind: 'image',
+    x: 0,
+    y: 0,
+    w: W,
+    h: H,
+    image: img,
+    ...(bool(v, 'c.bgBlur') ? { blur: DUO_BG_BLUR, blurEdge: 'clamp' as const } : {}),
+  });
+  const cite = str(v, citeId('c.bg')).trim();
+  if (cite) nodes.push(citeNode(cite, W / 2 - 300, 0, 600, H));
+  return nodes;
+}
+
+/**
+ * 全身圖：圖片本身往畫布內側變透明，到格子內緣剛好透明（背景是顏色或圖片都會透出來，沒有直階）；
+ * 空格子的深色底同樣淡出，範圍與 2026-10 以前「蓋一層底色漸層」相同（規格 3.11）。出處畫在淡出之後。
+ */
+function fullNodes(d: Draft, env: SceneEnv, side: string): SceneNode[] {
+  const right = side === 'right';
+  const x = right ? W - FULL_W : 0;
+  const img = env.image(`${side}.full`);
+  /* 空格子的淡出範圍（畫布座標）：左邊 252 → 360，右邊 1668 → 1560 */
+  const x0 = right ? W - EMPTY_FADE_TO : FADE_FROM;
+  const x1 = right ? W - FADE_FROM : EMPTY_FADE_TO;
+  /* 圖片的淡出（格子內的比例）：左邊 252 → 340，右邊 1580 → 1668 */
+  const solid = (FULL_W - FADE_FROM) / FULL_W;
+  const dark = DARK_SLOT.empty;
+  const clear = 'rgba(58,58,64,0)';
+  const nodes: SceneNode[] = [
+    {
+      kind: 'rect',
+      x,
+      y: 0,
+      w: FULL_W,
+      h: H,
+      fill: img
+        ? 'rgba(0,0,0,0)'
+        : {
+            linear: {
+              x0,
+              y0: 0,
+              x1,
+              y1: 0,
+              stops: right
+                ? [
+                    [0, clear],
+                    [1, dark],
+                  ]
+                : [
+                    [0, dark],
+                    [1, clear],
+                  ],
+            },
+          },
+      hit: hit(side, 'full', `${sideLabel(side)}：${L.full}`),
+    },
+  ];
+  if (img)
+    nodes.push({
+      kind: 'image',
+      x,
+      y: 0,
+      w: FULL_W,
+      h: H,
+      image: img,
+      fade: right
+        ? { axis: 'x', from: 0, to: solid, reverse: true }
+        : { axis: 'x', from: FADE_FROM / FULL_W, to: 1 },
+    });
+  else
+    nodes.push(
+      text(x, 0, FULL_W, H, '+', { family: SANS, weight: 300, size: 30 }, DARK_SLOT.plus, {
+        align: 'center',
+        valign: 'middle',
+      }),
+    );
+  const cite = str(d.v, citeId(`${side}.full`)).trim();
+  if (img && cite) nodes.push(citeNode(cite, x, 0, FULL_W, H, { citeBottom: 28 }));
+  return nodes;
 }
 
 export const duoSheet: TemplateDef = {
@@ -389,16 +509,18 @@ export const duoSheet: TemplateDef = {
   kind: 'fixed',
   initial: () => ({ v: defaults(), touched: {}, images: {}, stickers: [] }),
   size: () => ({ width: W, height: H }),
-  sides: (): SideDef[] =>
-    SIDES.map((side) => ({
+  sides: (): SideDef[] => [
+    { id: 'common', label: T.common, groups: commonGroups() },
+    ...SIDES.map((side) => ({
       id: side,
       label: sideLabel(side),
       heading: sideShort(side),
       groups: groups(side),
     })),
+  ],
   defaults: () => defaults(),
   scene: (d, env) => [
-    { kind: 'rect', x: 0, y: 0, w: W, h: H, fill: BG },
+    ...backdrop(d, env),
     ...fullNodes(d, env, 'left'),
     ...fullNodes(d, env, 'right'),
     { kind: 'line', points: [960, 170, 960, 1040], color: '#aaa59b', width: 1, dash: [14, 12] },
@@ -406,4 +528,6 @@ export const duoSheet: TemplateDef = {
     ...sideNodes(d, env, 'right'),
   ],
   stickerArea: () => ({ x: 0, y: 0, width: W, height: H }),
+  /* 版本 1 沒有背景與段落標題：補上預設值（畫面與以前相同） */
+  migrate: (raw) => ({ ...raw, v: { ...addedIn2(), ...raw.v } }),
 };

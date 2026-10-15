@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { type Download, expect, type Page, test } from '@playwright/test';
 import { getTool, outputDir } from '../../src/registry';
 import { parseGif } from '../helpers/gif';
+import { expectSameGifFrames, exportGifBeforeAfter } from '../helpers/gifCrop';
 import { parseApng, parseChunks, readIhdr } from '../helpers/png';
 
 const URL = `/${outputDir(getTool('typewriter') ?? { id: 'typewriter', status: 'next' })}/`;
@@ -507,6 +508,26 @@ test.describe('匯出', () => {
     expect(fastApng.frames.map((f) => (f.delayNum * 1000) / (f.delayDen || 100))).toEqual([
       17, 16, 17, 17, 16, 500,
     ]);
+    expect(errors).toEqual([]);
+  });
+
+  test('GIF 只寫變化的範圍（F84、5. D1）：背景色開時解碼後每一格和改版前相同、檔案變小；透明背景時照舊', async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    const errors = await open(page);
+    await page.getByTestId('typing-text').fill('早安，冒險者。\n今天的委託是\n調查北方的古堡。');
+    const gif = async () => new Uint8Array((await exportAs(page, 'GIF')).bytes);
+    /* 預設透明背景：每格照舊寫整格（逐位元組相同） */
+    const clear = await exportGifBeforeAfter(page, gif);
+    await expectSameGifFrames(page, clear.before, clear.after, { cropped: false });
+    /* 背景色開：整張不透明，第 2 格起只寫新打出來的字附近 */
+    await hook(page, "(t) => t.patch('typing', { bgOn: true })");
+    expect(await hook<boolean>(page, '(t) => t.data().typing.bgOn')).toBe(true);
+    const solid = await exportGifBeforeAfter(page, gif);
+    const s = await expectSameGifFrames(page, solid.before, solid.after, { cropped: true });
+    expect(s.cropped).toBe(s.frames - 1);
+    expect(s.after).toBeLessThan(s.before * 0.3);
     expect(errors).toEqual([]);
   });
 

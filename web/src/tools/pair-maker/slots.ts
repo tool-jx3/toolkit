@@ -13,6 +13,8 @@ export interface SlotRecord {
   /** 預覽圖（PNG） */
   preview: Blob | null;
   savedAt: number;
+  /** 編輯內容的資料版本（2026-10 起記；沒有時是 1） */
+  version?: number;
 }
 
 /** 存檔槽名稱的上限 */

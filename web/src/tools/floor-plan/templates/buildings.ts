@@ -1,99 +1,7 @@
 /**
  * 飯店、醫院的範本（本站自己畫的平面圖）。中走廊型：走廊兩側排房間，電梯與樓梯上下對齊。
  */
-import type { RoomCategory } from '../model/types';
-import { FloorBuilder, type ItemExtra, type TplFloor } from './builder';
-
-/**
- * 走廊北側（south＝false：房間在走廊上方、入口在下）或南側（入口在上）的房間，用「入口在下」的區域座標寫：
- * lx、ly 從房間左上角算，房間深 depth。南側的房間把 y 上下翻轉，家具的方向也跟著轉。
- */
-class Unit {
-  constructor(
-    private b: FloorBuilder,
-    private x: number,
-    private y: number,
-    private depth: number,
-    private south: boolean,
-  ) {}
-
-  private ry(ly: number, h: number): number {
-    return this.south ? this.y + this.depth - ly - h : this.y + ly;
-  }
-
-  room(
-    name: string,
-    cat: RoomCategory,
-    lx: number,
-    ly: number,
-    w: number,
-    h: number,
-    hideLabel = false,
-  ): this {
-    this.b.room(
-      name,
-      cat,
-      this.x + lx,
-      this.ry(ly, h),
-      w,
-      h,
-      hideLabel ? { hideLabel } : undefined,
-    );
-    return this;
-  }
-
-  /** 橫線上的門：ly 是線的位置；side 以「入口在下」為準 */
-  dh(
-    lx: number,
-    ly: number,
-    len: number,
-    side: 1 | -1,
-    hinge: 0 | 1,
-    kind: Parameters<FloorBuilder['dh']>[5] = 'door',
-  ): this {
-    this.b.dh(this.x + lx, this.ry(ly, 0), len, (this.south ? -side : side) as 1 | -1, hinge, kind);
-    return this;
-  }
-
-  dv(
-    lx: number,
-    ly: number,
-    len: number,
-    side: 1 | -1,
-    hinge: 0 | 1,
-    kind: Parameters<FloorBuilder['dv']>[5] = 'door',
-  ): this {
-    this.b.dv(
-      this.x + lx,
-      this.ry(ly, len),
-      len,
-      side,
-      (this.south ? 1 - hinge : hinge) as 0 | 1,
-      kind,
-    );
-    return this;
-  }
-
-  wh(lx: number, ly: number, len: number): this {
-    this.b.wh(this.x + lx, this.ry(ly, 0), len);
-    return this;
-  }
-
-  /** 家具：w、h 是轉向後的外框 */
-  item(
-    t: string,
-    lx: number,
-    ly: number,
-    rot: number,
-    _w: number,
-    h: number,
-    extra?: ItemExtra,
-  ): this {
-    const r = this.south && (rot === 0 || rot === 180) ? (rot + 180) % 360 : rot;
-    this.b.item(t, this.x + lx, this.ry(ly, h), r, extra);
-    return this;
-  }
-}
+import { FloorBuilder, type TplFloor, Unit } from './builder';
 
 /* ---------- 商務飯店（1F 大廳、2F 客房） ---------- */
 
@@ -273,7 +181,7 @@ export function hospital(): TplFloor[] {
     .wv(0, 16, 4)
     .wh(16, 23, 2.5)
     .wh(22, 23, 2.5)
-    .wv(40, 16, 2)
+    .wv(40, 19.5, 2) // 廁所的窗讓開隔間（2026-10：門窗不跨過牆的接點）
     .wv(40, 3, 3);
   g.item('reception', 1.5, 7.5)
     .item('office_desk', 0.6, 0.6)

@@ -1,7 +1,7 @@
 /**
  * 照片與貼紙的載入、讀回：放進資產庫（IndexedDB）→ 解碼確認 → 換上照片／加入貼紙。
  * 同一批檔案的結果整理成一則通知（加入了哪些、哪些沒有加入與原因）。
- * 重新整理後從資產庫讀回；讀不到時回報。
+ * 重新整理後從資產庫讀回（照片用共用的 `useAssetImage`，貼紙用這裡的 `useAssetImages`）；讀不到時回報。
  */
 import { useEffect, useState } from 'react';
 import { nextStickerId, STICKER_MAX, type Sticker, stickerBaseSize, stickerStart } from './model';
@@ -126,57 +126,6 @@ export async function addStickerFiles(files: readonly File[]): Promise<BatchNoti
 }
 
 /* ---------- 讀回 ---------- */
-
-export type ImageStatus = 'none' | 'loading' | 'ready' | 'missing';
-
-/** 一張圖的解碼結果（id 換了就重讀；同一個 id 只解碼一次） */
-export function useAssetImage(id: string | null | undefined): {
-  bitmap: ImageBitmap | null;
-  status: ImageStatus;
-} {
-  const [state, setState] = useState<{
-    id: string | null;
-    bitmap: ImageBitmap | null;
-    status: ImageStatus;
-  }>(() => {
-    const hit = id ? assets.peekBitmap(id) : undefined;
-    return {
-      id: id ?? null,
-      bitmap: hit ?? null,
-      status: !id ? 'none' : hit ? 'ready' : 'loading',
-    };
-  });
-  useEffect(() => {
-    let alive = true;
-    if (!id) {
-      setState({ id: null, bitmap: null, status: 'none' });
-      return;
-    }
-    const hit = assets.peekBitmap(id);
-    if (hit) {
-      setState({ id, bitmap: hit, status: 'ready' });
-      return;
-    }
-    setState({ id, bitmap: null, status: 'loading' });
-    assets
-      .bitmap(id)
-      .then((b) => {
-        if (alive) setState({ id, bitmap: b ?? null, status: b ? 'ready' : 'missing' });
-      })
-      .catch(() => {
-        if (alive) setState({ id, bitmap: null, status: 'missing' });
-      });
-    return () => {
-      alive = false;
-    };
-  }, [id]);
-  /* id 剛換、effect 還沒跑的那一次 render：不要拿舊的圖畫 */
-  if ((state.id ?? null) !== (id ?? null)) {
-    const hit = id ? assets.peekBitmap(id) : undefined;
-    return { bitmap: hit ?? null, status: !id ? 'none' : hit ? 'ready' : 'loading' };
-  }
-  return { bitmap: state.bitmap, status: state.status };
-}
 
 /** 一組圖（貼紙）的解碼結果：資產 id → 圖；讀不到的另外列出 */
 export function useAssetImages(ids: readonly string[]): {

@@ -163,3 +163,28 @@ export function gifFrameRgba(info: GifInfo, f: GifFrame): Uint8Array {
   }
   return out;
 }
+
+/**
+ * 逐格合成成完整畫面（RGBA，照每格的位置疊上去；透明色不蓋掉底下的像素；
+ * 處置 2＝畫完後把那格的範圍清成透明、3＝還原成畫這格之前）。回傳每一格顯示時的整張畫面。
+ */
+export function composeGif(info: GifInfo): Uint8Array[] {
+  const W = info.width;
+  const canvas = new Uint8Array(W * info.height * 4);
+  return info.frames.map((f) => {
+    const saved = f.disposal === 3 ? canvas.slice() : null;
+    const px = gifFrameRgba(info, f);
+    for (let y = 0; y < f.height; y++)
+      for (let x = 0; x < f.width; x++) {
+        const s = (y * f.width + x) * 4;
+        if (px[s + 3] === 0) continue;
+        canvas.set(px.subarray(s, s + 4), ((f.y + y) * W + f.x + x) * 4);
+      }
+    const shown = canvas.slice();
+    if (f.disposal === 2)
+      for (let y = f.y; y < f.y + f.height; y++)
+        canvas.fill(0, (y * W + f.x) * 4, (y * W + f.x + f.width) * 4);
+    else if (saved) canvas.set(saved);
+    return shown;
+  });
+}

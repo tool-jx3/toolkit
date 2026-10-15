@@ -67,7 +67,7 @@
 | `character-editor` | 角色資料編輯器 | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `83fd605` |
 | `foreground-frame` | 前景框產生器 | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `83fd605` |
 | `room-zip` | 房間 ZIP 產生器 | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `83fd605` |
-| `log-converter` | CCFOLIA 日誌轉換器 | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) | `83fd605` |
+| `log-converter` | CCFOLIA 日誌轉換器 | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter)；EPUB 匯出參考 [sotsotssi/CcfoliaLogConverter](https://github.com/sotsotssi/CcfoliaLogConverter)（未授權） | `83fd605` |
 | `scenario-cards` | 劇本資訊卡片產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`scenario-snippet-builder`） | `83fd605` |
 | `psd-studio` | CCFOLIA & 圖片調色工作室 | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) | `83fd605` |
 | `session-log` | 跑團紀錄簿 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`session-log-tool`） | `83fd605` |
@@ -132,6 +132,8 @@
 `scratch-card` 照新工具引入流程直接在新框架做：原作沒有授權條款，只照原作的功能、數值與做法（抽籤、塗層、刮開判定和原作相同），程式、介面文字、8 個圖示與彩帶都由本站自做，不載入原作用的 CDN；可以開啟原作的設定檔（JSON）。
 
 `lock-screen` 照新工具引入流程直接在新框架做：原作（使用者 2026-10-09 提供的網站檔案）沒有授權條款，只照原作的功能、版面數值與動畫曲線（通知卡片的位置、大小與彈出的時間點和原作相同），程式、介面文字、範例訊息、預設桌布、手機外框與圖示都由本站自做；不沿用原作的專有字型（改用思源黑體，SIL OFL），外觀不仿特定廠牌的手機與訊息 App。
+
+`log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 
 `anime-rig` 參考 852wa/Anime2.5DRig（MIT，原作 commit `7ddbd99`，授權全文在通知檔）的程式改寫：自動綁定、物理與繪製的演算法和數值照原作，舊版與新版拿同一個 PSD 綁定的結果相同（單元測試並排比對過）。原作的範例 PSD（圖畫權利屬於各自的作者）不收，測試用的 PSD 由程式自己畫；原作需要本機 Python 中繼伺服器的 OBS 連動不移植，改成綠幕背景與透明影片的說明。臉部追蹤用 npm 的 @mediapipe/tasks-vision（Apache-2.0）；特徵點模型 `face_landmarker.task`（Apache-2.0，約 3.8 MB）**不在本 repo**：使用者第一次開攝影機追蹤時，瀏覽器從 Google 的 MediaPipe 官方模型網址下載，驗證 SHA-256 後存在瀏覽器裡。
 

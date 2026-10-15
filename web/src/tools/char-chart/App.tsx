@@ -4,11 +4,12 @@
  */
 import { Redo2, Undo2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { addImageFiles, splitImageFiles, useAssetBitmaps } from '@/core/assets';
 import { arrowDelta } from '@/core/layout';
 import { useSaveError, useUndoRedo } from '@/core/storage';
 import { IconButton, type Shortcut, ToolShell, useToast, WindowDrop, withShortcut } from '@/ui';
-import { loadCharacterImages, splitImageFiles, useImageBitmaps } from './images';
-import { imageIds, LIMITS, nameFromFile } from './model';
+import { AvatarDialog } from './Avatar';
+import { IMAGE_MAX_SIDE, imageIds, LIMITS, nameFromFile } from './model';
 import { PreviewArea } from './Preview';
 import { ProjectActions } from './ProjectActions';
 import { canNudgeFrom } from './QuadLayer';
@@ -57,7 +58,7 @@ function useBatchAdd() {
     let ids: string[] = [];
     let firstName = '';
     if (take.length) {
-      const { loaded, failed } = await loadCharacterImages(take);
+      const { loaded, failed } = await addImageFiles(assets, take, { maxSide: IMAGE_MAX_SIDE });
       if (failed.length) notes.push(S.decodeError(failed.join('、')));
       if (loaded.some((l) => !l.persisted)) notes.push(S.imageNotSaved);
       if (loaded.length) {
@@ -87,7 +88,7 @@ function Settings() {
   const toast = useToast();
   const chart = usePrefs((s) => s.data.chart);
   const d = useChart((s) => s.data);
-  const { bitmaps } = useImageBitmaps(imageIds(d));
+  const { bitmaps } = useAssetBitmaps(assets, imageIds(d));
   const saveError = useSaveError(TOOL_ID);
   useEffect(() => {
     if (saveError) toast({ title: S.saveFailed, tone: 'warning' });
@@ -114,6 +115,7 @@ function Settings() {
         hint={S.windowDropHint}
         onDrop={(files) => void batchAdd(files)}
       />
+      <AvatarDialog bitmaps={bitmaps} />
     </div>
   );
 }

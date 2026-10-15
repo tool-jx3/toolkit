@@ -1,8 +1,10 @@
 /**
  * 設定欄的角色（兩張圖共用）：新增角色（名字、顏色、圖片）、一次加入多張圖片、角色清單（排序、放到這一頁、
- * 放進關係圖、刪除）、刪除所有角色；選取的角色（名字、顏色、圖片、四象限的標記、放進關係圖、從這一頁拿掉、刪除）。
+ * 放進關係圖、調整頭像範圍、刪除）、刪除所有角色；選取的角色（名字、顏色、圖片、關係圖的頭像、四象限的標記、
+ * 放進關係圖、從這一頁拿掉、刪除）。
  */
 import {
+  Crop,
   GripVertical,
   Image as ImageIcon,
   ImagePlus,
@@ -13,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { type AddedImage, addImageFile, splitImageFiles } from '@/core/assets';
 import {
   Button,
   Checkbox,
@@ -30,10 +33,11 @@ import {
   useConfirm,
   useToast,
 } from '@/ui';
-import { type LoadedImage, loadCharacterImage, splitImageFiles } from './images';
+import { AvatarPreview } from './Avatar';
 import {
   type Character,
   type ChartKind,
+  IMAGE_MAX_SIDE,
   LIMITS,
   MARKERS,
   type Marker,
@@ -43,11 +47,13 @@ import {
 import { releaseFocus } from './QuadLayer';
 import {
   addCharacter,
+  assets,
   canAddCharacter,
   clearCharacters,
   currentPageIndex,
   gesture,
   moveCharacter,
+  openAvatar,
   patchCharacter,
   placeCharacter,
   removeCharacter,
@@ -98,7 +104,7 @@ function Thumb({ c, bitmaps, size = 32 }: { c: Character; bitmaps: Bitmaps; size
  */
 function useSingleImage() {
   const toast = useToast();
-  return async (files: File[]): Promise<LoadedImage | null> => {
+  return async (files: File[]): Promise<AddedImage | null> => {
     const { images, others } = await splitImageFiles(files.slice(0, 1));
     const f = images[0];
     if (!f) {
@@ -107,7 +113,7 @@ function useSingleImage() {
       return null;
     }
     try {
-      const r = await loadCharacterImage(f);
+      const r = await addImageFile(assets, f, { maxSide: IMAGE_MAX_SIDE });
       if (!r.persisted) toast({ title: S.imageNotSaved, tone: 'warning' });
       return r;
     } catch {
@@ -188,7 +194,7 @@ function AddForm({ chart, disabled }: { chart: ChartKind; disabled: boolean }) {
   const count = useChart((s) => s.data.characters.length);
   const [name, setName] = useState('');
   const [color, setColor] = useState(suggestedColor);
-  const [image, setImage] = useState<LoadedImage | null>(null);
+  const [image, setImage] = useState<AddedImage | null>(null);
   const [error, setError] = useState(false);
   const nameInput = useRef<HTMLInputElement>(null);
   /* 角色變多變少時（加入、刪除、復原），預設顏色跟著換成下一個沒人用的 */
@@ -379,6 +385,16 @@ function RosterList({
               </span>
             </div>
             <div className="flex shrink-0 items-center gap-1">
+              {chart === 'relation' && c.image ? (
+                <IconButton
+                  size="sm"
+                  variant="ghost"
+                  label={S.avatarAdjustFor(name)}
+                  icon={<Crop />}
+                  disabled={!bitmaps.get(c.image.id)}
+                  onClick={() => openAvatar(c.id)}
+                />
+              ) : null}
               {chart === 'quadrant' ? (
                 onPage ? null : (
                   <IconButton
@@ -425,7 +441,8 @@ export function SelectedSection({ bitmaps }: { bitmaps: Bitmaps }) {
   });
   const loadOne = useSingleImage();
   if (!c) return null;
-  const missing = !!c.image && !bitmaps.get(c.image.id);
+  const bitmap = c.image ? bitmaps.get(c.image.id) : undefined;
+  const missing = !!c.image && !bitmap;
   const changeImage = async (files: File[]) => {
     const r = await loadOne(files);
     if (r) setCharacterImage(c.id, r.ref);
@@ -482,6 +499,26 @@ export function SelectedSection({ bitmaps }: { bitmaps: Bitmaps }) {
             />
           </div>
         </Field>
+        {c.image ? (
+          <Field label={S.avatarField} hint={missing ? S.avatarMissing : S.avatarHint}>
+            <div className="flex min-w-0 items-center gap-3" data-testid="selected-avatar">
+              {bitmap ? <AvatarPreview c={c} bitmap={bitmap} /> : null}
+              <div className="flex min-w-0 flex-col items-start gap-1.5">
+                <span className="text-xs text-muted">
+                  {c.avatar ? S.avatarCustom : S.avatarCentered}
+                </span>
+                <Button
+                  size="sm"
+                  icon={<Crop />}
+                  disabled={!bitmap}
+                  onClick={() => openAvatar(c.id)}
+                >
+                  {S.avatarAdjust}
+                </Button>
+              </div>
+            </div>
+          </Field>
+        ) : null}
         <Field label={S.marker} hint={S.markerHint}>
           <Segmented<Marker>
             value={c.image ? c.marker : 'dot'}

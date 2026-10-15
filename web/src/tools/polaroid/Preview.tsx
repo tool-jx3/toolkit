@@ -14,6 +14,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useAssetImage } from '@/core/assets';
 import { downloadBlob } from '@/core/files';
 import { clientToLocal } from '@/core/layout';
 import type { Placement } from '@/core/scene';
@@ -27,7 +28,7 @@ import {
   type StickerPhase,
   useToast,
 } from '@/ui';
-import { useAssetImage, useAssetImages } from './media';
+import { useAssetImages } from './media';
 import {
   captionText,
   cardSize,
@@ -59,6 +60,7 @@ import {
 } from './render';
 import {
   activeLayerId,
+  assets,
   commitStroke,
   docNow,
   flushBurst,
@@ -90,7 +92,7 @@ function releaseFocus() {
 export function Preview({ onPick }: { onPick: () => void }) {
   const d = useDoc((s) => s.data);
   const tool = usePen((s) => s.data.tool);
-  const photo = useAssetImage(d.photo?.id);
+  const photo = useAssetImage(assets, d.photo?.id);
   const stickerIds = useMemo(() => d.stickers.map((s) => s.asset), [d.stickers]);
   const stickerImages = useAssetImages(stickerIds);
   const card = cardSize(d.aspect);

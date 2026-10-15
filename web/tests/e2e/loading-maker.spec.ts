@@ -13,6 +13,7 @@ import { deflateSync } from 'node:zlib';
 import { expect, type Page, test } from '@playwright/test';
 import { getTool, outputDir } from '../../src/registry';
 import { parseGif } from '../helpers/gif';
+import { expectSameGifFrames, exportGifBeforeAfter } from '../helpers/gifCrop';
 import { composeApng, parseApng } from '../helpers/png';
 
 const URL = `/${outputDir(getTool('loading-maker') ?? { id: 'loading-maker', status: 'next' })}/`;
@@ -307,6 +308,27 @@ test('匯出 APNG／GIF／WebP：格式、影格、延遲、播放次數、最�
   const apng3 = await exportAs(page, 'APNG');
   expect(apng3.name).toBe('我的-動畫-v1-測試.png');
   expect(parseApng(new Uint8Array(apng3.bytes)).numPlays).toBe(3);
+  expect(errors).toEqual([]);
+});
+
+test('GIF 只寫變化的範圍（F167、5. D1）：不透明時解碼後每一格和改版前相同、檔案變小；有透明時照舊', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const gif = async () => new Uint8Array((await exportAs(page, 'GIF')).bytes);
+  /* 預設透明背景：每格照舊寫整格（逐位元組相同） */
+  const clear = await exportGifBeforeAfter(page, gif);
+  await expectSameGifFrames(page, clear.before, clear.after, { cropped: false });
+  /* 不透明背景但有結尾動作：最後一格全透明（5.），整段照舊 */
+  await set(page, 'canvas.transparent', false);
+  const vanish = await exportGifBeforeAfter(page, gif);
+  await expectSameGifFrames(page, vanish.before, vanish.after, { cropped: false });
+  /* 不透明背景、結尾動作無：整張不透明，第 2 格起只寫變化的範圍 */
+  await set(page, 'bar.vanish', 'none');
+  const solid = await exportGifBeforeAfter(page, gif);
+  const s = await expectSameGifFrames(page, solid.before, solid.after, { cropped: true });
+  expect(s.cropped).toBe(s.frames - 1);
+  expect(s.after).toBeLessThan(s.before * 0.8);
   expect(errors).toEqual([]);
 });
 

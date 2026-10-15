@@ -5,10 +5,12 @@
  * - 座標碼：格式（與原作相容）、讀入的整理、套用（同名更新、新增圓點角色、上限）；
  * - 關係圖：1／2／3 人以上的排列、13 人以上畫布變大、連線的增刪（不論方向）、隨機連線、刪除線的種類；
  * - 角色：預設顏色輪流、檔名當名字、刪除角色連帶位置與連線；
- * - 讀檔整理：壞資料丟掉、id 重編、截字、色碼、指到不存在的東西丟掉、預設頁與線。
+ * - 讀檔整理：壞資料丟掉、id 重編、截字、色碼、指到不存在的東西丟掉、預設頁與線；
+ * - 頭像範圍（2026-10）：沒有／置中＝null、縮放與位移夾在蓋滿的範圍、整理兩次相同、舊存檔沒有這個欄位。
  */
 import { describe, expect, it } from 'vitest';
 import {
+  AVATAR_MAX_ZOOM,
   applyShareEntries,
   type ChartState,
   clampPosition,
@@ -30,6 +32,7 @@ import {
   nameFromFile,
   nextColor,
   nextId,
+  normalizeAvatar,
   normalizeColor,
   normalizeState,
   PALETTE,
@@ -414,5 +417,88 @@ describe('讀檔整理', () => {
     expect(d.relation.legends).toHaveLength(5);
     expect(normalizeColor('#AbCdEf')).toBe('#abcdef');
     expect(normalizeColor('rgb(1,2,3)', '#000000')).toBe('#000000');
+  });
+});
+
+describe('頭像範圍（2026-10）', () => {
+  const wide = { id: 'a1', name: 'w.png', width: 240, height: 120 };
+
+  it('沒有、看不懂、沒有圖片、置中（預設）時是 null＝取圖片中央（和以前一樣）', () => {
+    expect(normalizeAvatar(undefined, wide)).toBeNull();
+    expect(normalizeAvatar('x', wide)).toBeNull();
+    expect(normalizeAvatar({ zoom: 2, x: 0.1, y: 0, turns: 0 }, null)).toBeNull();
+    expect(normalizeAvatar({ zoom: 1, x: 0, y: 0, turns: 0 }, wide)).toBeNull();
+    expect(normalizeAvatar({ zoom: 1, x: -0, y: 0, turns: 4 }, wide)).toBeNull();
+    /* 只有寬：左右不能動，夾回中央 → 置中 */
+    expect(normalizeAvatar({ zoom: 1, x: 0, y: 0.3, turns: 0 }, wide)).toBeNull();
+  });
+
+  it('縮放夾在 1～8；位移夾在蓋滿的範圍（圓框不露出圖外）；turns 0～3', () => {
+    expect(AVATAR_MAX_ZOOM).toBe(8);
+    expect(normalizeAvatar({ zoom: 20, x: 0, y: 0, turns: 0 }, wide)).toEqual({
+      zoom: 8,
+      x: 0,
+      y: 0,
+      turns: 0,
+    });
+    /* 縮放 1：240 × 120 的圖左右最多移 (240 ÷ 120 − 1) ÷ 2 ＝ 0.5 個框、上下不能動 */
+    expect(normalizeAvatar({ zoom: 0.5, x: 3, y: -1, turns: 0 }, wide)).toEqual({
+      zoom: 1,
+      x: 0.5,
+      y: 0,
+      turns: 0,
+    });
+    /* 縮放 2：左右 1.5、上下 0.5 */
+    expect(normalizeAvatar({ zoom: 2, x: -9, y: 9, turns: 0 }, wide)).toEqual({
+      zoom: 2,
+      x: -1.5,
+      y: 0.5,
+      turns: 0,
+    });
+    /* 轉 90°：變成 120 × 240，左右不能動、上下最多 0.5 */
+    expect(normalizeAvatar({ zoom: 1, x: 0.3, y: -0.9, turns: 1 }, wide)).toEqual({
+      zoom: 1,
+      x: 0,
+      y: -0.5,
+      turns: 1,
+    });
+    expect(normalizeAvatar({ zoom: 'a', y: 0.2, turns: -1 }, wide)).toEqual({
+      zoom: 1,
+      x: 0,
+      y: 0.2,
+      turns: 3,
+    });
+  });
+
+  it('整理兩次結果相同（重新整理、開專案檔不會一直改值）', () => {
+    const img = { id: 'a2', name: '', width: 333, height: 1000 };
+    for (const raw of [
+      { zoom: 1.2345678, x: 0.123456789, y: -0.98765, turns: 0 },
+      { zoom: 7.99999, x: -3, y: 3, turns: 1 },
+      { zoom: 2.5, x: 0.1, y: 0.7, turns: 2 },
+    ]) {
+      const once = normalizeAvatar(raw, img);
+      expect(normalizeAvatar(once, img)).toEqual(once);
+      expect(JSON.stringify(normalizeAvatar(JSON.parse(JSON.stringify(once)), img))).toBe(
+        JSON.stringify(once),
+      );
+    }
+  });
+
+  it('新角色沒有頭像範圍；讀檔整理：照存、沒有圖片時拿掉、舊存檔（沒有這個欄位）是 null', () => {
+    expect(createCharacter([], { name: 'a', image: wide }).avatar).toBeNull();
+    const d = normalizeState({
+      characters: [
+        { id: 'c1', name: '甲', image: wide, avatar: { zoom: 2, x: 0.25, y: -0.1, turns: 0 } },
+        { id: 'c2', name: '乙', image: null, avatar: { zoom: 2, x: 0.25, y: 0, turns: 0 } },
+        { id: 'c3', name: '丙', image: wide },
+      ],
+    });
+    expect(d.characters.map((c) => c.avatar)).toEqual([
+      { zoom: 2, x: 0.25, y: -0.1, turns: 0 },
+      null,
+      null,
+    ]);
+    expect(normalizeState(d)).toEqual(d);
   });
 });

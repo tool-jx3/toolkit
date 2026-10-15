@@ -1,7 +1,7 @@
 /**
- * 住宅類範本（本站自己畫的平面圖）：套房、透天厝、洋館。北邊在上；1 格 = 0.5 m。
+ * 住宅類範本（本站自己畫的平面圖）：套房、透天厝、洋館、山中小屋（2026-10 增補）。北邊在上；1 格 = 0.5 m。
  */
-import { FloorBuilder, type TplFloor } from './builder';
+import { FloorBuilder, type TplFloor, Unit } from './builder';
 
 /* ---------- 套房（一房一廳，約 14 坪＋陽台） ---------- */
 
@@ -185,6 +185,131 @@ export function townhouse(): TplFloor[] {
     .item('plant', 0.5, 28.4)
     .item('plant', 2.2, 28.4);
   return [g.f, u.f, t.f];
+}
+
+/* ---------- 山中小屋（兩層的山莊，2026-10 增補） ---------- */
+
+/** 2F 的客房（寬 9）：入口在走廊那一側，兩張單人床靠最裡面的牆、書桌在東邊 */
+function lodgeRoom(
+  b: FloorBuilder,
+  x: number,
+  y: number,
+  depth: number,
+  south: boolean,
+  n: number,
+) {
+  const name = `客房 ${n}`;
+  new Unit(b, x, y, depth, south)
+    .room(name, 'bedroom', 0, 0, 9, depth)
+    .dh(6, depth, 1.5, -1, 1)
+    .wh(3, 0, 3)
+    .item('bed_single', 0.3, 0.2, 0, 2, 4)
+    .item('bed_single', 3.4, 0.2, 0, 2, 4)
+    .item('nightstand', 2.35, 0.2, 0, 0.9, 0.9)
+    .item('desk', 7.8, 0.5, 90, 1.2, 2.4)
+    .item('chair', 6.7, 1.2, 270, 1, 1)
+    .item('wardrobe', 0.6, depth - 1.3, 180, 3, 1.2);
+  b.find(name).ly = south ? -1.6 : 1.6;
+}
+
+export function lodge(): TplFloor[] {
+  const g = new FloorBuilder('1F');
+  g.room('廚房', 'kitchen', 0, 0, 8, 8)
+    .room('餐廳', 'kitchen', 8, 0, 10, 8, { lx: 2.8 })
+    .room('客廳', 'living', 0, 8, 18, 12, {
+      lx: 3,
+      note: '壁爐的灰裡有一張沒燒完的遺囑。',
+    })
+    .room('玄關・樓梯', 'hall', 18, 0, 4, 20, { hideLabel: true })
+    .room('浴室', 'wet', 22, 0, 6, 7)
+    .room('管理員室', 'bedroom', 22, 7, 6, 7)
+    .room('倉庫・柴房', 'storage', 22, 14, 6, 6)
+    .room('露台', 'balcony', 0, 20, 28, 4);
+  g.dh(18.5, 20, 1.5, -1, 0) // 大門
+    .dh(4, 20, 3, 1, 0, 'sliding2')
+    .dh(12, 24, 3, 1, 0, 'open') // 露台的台階
+    .dv(18, 10, 3, 1, 0, 'open')
+    .dv(8, 2, 3, 1, 0, 'open')
+    .dh(10, 8, 4, 1, 0, 'open')
+    .dv(0, 5.5, 1.5, 1, 1) // 廚房的後門
+    .dv(22, 2.5, 1.5, 1, 0)
+    .dv(22, 8, 1.5, 1, 0)
+    .dv(22, 16, 1.5, 1, 0)
+    .dv(28, 17, 1.5, 1, 0) // 柴房通到外面
+    .wh(2.5, 0, 3)
+    .wh(10.5, 0, 3)
+    .wv(0, 9, 2)
+    .wv(0, 16.5, 2)
+    .wh(10, 20, 3)
+    .wh(24, 0, 2)
+    .wv(28, 9, 2);
+  g.item('stairs', 18.2, 0.6, 0, { size: [2.4, 6] })
+    .item('cabinet', 21.2, 18, 90, { size: [2, 0.8] })
+    /* 廚房、餐廳 */
+    .item('fridge', 0.2, 0.1)
+    .item('kitchen', 1.8, 0.1)
+    .item('table', 2, 5.6, 0, { size: [2.8, 1.6] })
+    .item('dining6', 9.4, 1.8)
+    .item('cupboard', 14.9, 0.1)
+    /* 客廳：壁爐、沙發、書架 */
+    .item('fireplace', 0.1, 12, 270)
+    .item('rug', 2.5, 11.5, 0, { size: [5, 4] })
+    .item('sofa3', 7, 11.3, 90)
+    .item('armchair', 3, 9.4)
+    .item('armchair', 3, 16, 180)
+    .item('lowtable', 4.2, 12.4, 90)
+    .item('lamp', 7.2, 16.2)
+    .item('bookshelf', 1, 8.1)
+    .item('bookshelf', 17.1, 14, 90)
+    .item('table_round', 12.4, 16)
+    .item('chair', 11.2, 16.4, 270)
+    .item('chair', 14.4, 16.4, 90)
+    /* 浴室、管理員室、倉庫・柴房 */
+    .item('bathtub', 24.9, 0.2, 90)
+    .item('toilet', 26.4, 5, 90)
+    .item('washbasin', 23.6, 5.8, 180)
+    .item('bed_single', 26, 7.2)
+    .item('desk', 22.1, 10.8, 270)
+    .item('chair', 23.4, 11.5, 90)
+    .item('wardrobe', 24.6, 12.7, 180)
+    .item('log', 24.6, 14.2)
+    .item('log', 24.6, 15.1)
+    .item('crate', 24.4, 18.2)
+    .item('barrel', 22.3, 18.6)
+    /* 露台 */
+    .item('garden_bench', 8.5, 20.1)
+    .item('plant', 0.4, 22.4)
+    .item('plant', 26.4, 22.4);
+
+  const u = new FloorBuilder('2F');
+  u.room('走廊', 'hall', 0, 8, 18, 3, { hideLabel: true })
+    .room('樓梯', 'hall', 18, 0, 4, 11, { hideLabel: true })
+    .room('儲藏室', 'storage', 18, 11, 4, 9)
+    .room('浴室', 'wet', 22, 0, 6, 7)
+    .room('主人房', 'bedroom', 22, 7, 6, 13);
+  lodgeRoom(u, 0, 0, 8, false, 1);
+  lodgeRoom(u, 9, 0, 8, false, 2);
+  lodgeRoom(u, 0, 11, 9, true, 3);
+  lodgeRoom(u, 9, 11, 9, true, 4);
+  u.dv(18, 8, 3, 1, 0, 'open')
+    .dh(18.5, 11, 1.5, 1, 0)
+    .dv(22, 2.5, 1.5, 1, 0)
+    .dv(22, 9, 1.5, 1, 0)
+    .wv(0, 8.75, 1.5)
+    .wh(24, 0, 2)
+    .wh(24.5, 20, 2.5)
+    .wv(28, 8, 1.5);
+  u.item('stairs', 18.2, 0.6, 0, { size: [2.4, 6] })
+    .item('cabinet', 21, 13.5, 90)
+    .item('crate', 19.8, 17.8)
+    .item('shower', 26.2, 0.2)
+    .item('toilet', 26.4, 5, 90)
+    .item('washbasin', 23.4, 0.1)
+    .item('bed_double', 24, 9.8, 90)
+    .item('desk', 23, 18.7, 180)
+    .item('chair', 23.7, 17.6)
+    .item('bookshelf', 27.1, 14.5, 90);
+  return [g.f, u.f];
 }
 
 /* ---------- 洋館（地下室、1F、2F，左右對稱） ---------- */

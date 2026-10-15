@@ -12,6 +12,8 @@
  * - 原作的檔案：原作 R 的專案 JSON（開啟專案檔）、原作 Q 的全部備份碼（貼上原作的備份碼…）；
  * - 對等驗證後的修正（規格 7.1）：開頁的圖片整理保留新增區的圖、存檔時讀不到的圖、一批的結果合成一則通知、方向鍵的焦點條件、排序前離開文字欄；
  * - 圖片資產稽核：開專案檔時圖片寫得很慢，開頁的整理不刪已經寫好、還沒換上的圖；IndexedDB 不能用時「已開啟專案檔」同一則提醒；
+ * - 頭像範圍（2026-10）：從角色清單／選取的角色打開、對話框看得出圓形範圍、拖曳與鍵盤調整、旋轉、套用後關係圖與下載照新的位置畫、
+ *   一步復原、自動儲存、專案檔（資料版本 2）、換圖片時回到中央、四象限不受影響、舊存檔與舊專案檔照舊取中央；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準。
  */
 import { readFileSync } from 'node:fs';
@@ -45,6 +47,8 @@ interface Stored {
     image: { id: string; name: string; width: number; height: number } | null;
     marker: string;
     inMap: boolean;
+    /** 頭像範圍（2026-10；資料版本 1 的存檔沒有） */
+    avatar?: { zoom: number; x: number; y: number; turns: number } | null;
   }[];
   pages: {
     id: string;
@@ -82,6 +86,20 @@ async function solidPng(color: string, w = 120, h = 120): Promise<Buffer> {
 }
 
 const file = (name: string, buffer: Buffer, mimeType = 'image/png') => ({ name, mimeType, buffer });
+
+const RED: Rgba = [255, 0, 0, 255];
+const GREEN: Rgba = [0, 192, 0, 255];
+const BLUE: Rgba = [0, 0, 255, 255];
+
+/** 直條紋的測試圖片（240 × 120）：x 0～79 紅、80～159 綠、160～239 藍 */
+async function stripesPng(): Promise<Buffer> {
+  const w = 240;
+  const h = 120;
+  const px = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) px.set(x < 80 ? RED : x < 160 ? GREEN : BLUE, (y * w + x) * 4);
+  return Buffer.from(await encodePng(px, w, h));
+}
 
 async function open(page: Page) {
   const errors: string[] = [];
@@ -1116,7 +1134,8 @@ test('專案檔：存成 ZIP（設定＋圖片）、重設、開啟還原；缺�
   const entries = unzipSync(new Uint8Array(zipBytes));
   const project = JSON.parse(strFromU8(entries['project.json']));
   expect(project.tool).toBe('char-chart');
-  expect(project.version).toBe(1);
+  /* 資料版本 2：2026-10 角色多了頭像範圍（avatar） */
+  expect(project.version).toBe(2);
   expect(project.data.characters.map((c: { name: string }) => c.name)).toEqual(['藍', '甲']);
   expect(project.data.relation.links).toEqual([{ from: 'c1', to: 'c2', legend: 'l1' }]);
   const imageId = project.data.characters[0].image.id;
@@ -1656,5 +1675,230 @@ test('390 寬沒有橫向捲動；1280 與 390 的視覺基準', async ({ page }
   await noHorizontalScroll(page);
   await page.mouse.move(0, 0);
   await expect(page).toHaveScreenshot('char-chart-390.png', { fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 頭像範圍（2026-10） ---------- */
+
+const avatarDialog = (page: Page, name: string) =>
+  page.getByRole('dialog', { name: `調整頭像範圍：${name}` });
+
+/** 對話框的檢視區：中央、方框的角（圓外）、圓裡靠左的顏色（裝置 px 取樣） */
+async function frameSamples(view: Locator) {
+  return view.locator('canvas').evaluate((el) => {
+    const c = el as HTMLCanvasElement;
+    const ctx = c.getContext('2d');
+    const k = c.width / c.clientWidth;
+    const m = 28 * k;
+    const side = Math.min(c.width - 2 * m, c.height - 2 * m);
+    const x0 = (c.width - side) / 2;
+    const y0 = (c.height - side) / 2;
+    const at = (x: number, y: number) =>
+      Array.from(ctx?.getImageData(Math.round(x), Math.round(y), 1, 1).data ?? []);
+    return {
+      center: at(c.width / 2, c.height / 2),
+      corner: at(x0 + side * 0.08, y0 + side * 0.08),
+      insideLeft: at(x0 + side * 0.12, c.height / 2),
+    };
+  });
+}
+
+test('2026-10 頭像範圍：從角色清單打開（鍵盤也可以）、圓形範圍、方向鍵與拖曳調整、套用後關係圖與下載照新的位置畫；一步復原、自動儲存、四象限不受影響（F78～F80）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await batchInput(page).setInputFiles([file('stripes.png', await stripesPng())]);
+  await expect.poll(async () => (await state(page)).characters.length).toBe(1);
+  /* 四象限：整張圖寬 50（中央綠、左邊紅），之後不受頭像範圍影響 */
+  await expect.poll(async () => near(await pixel(quad(page), 400, 400), GREEN)).toBe(true);
+  const quadLeft = await pixel(quad(page), 380, 400);
+  expect(near(quadLeft, RED)).toBe(true);
+  /* 四象限時清單上沒有調整頭像的按鈕；選取的角色面板有 */
+  await expect(row(page, 'c1').getByRole('button', { name: /^調整頭像範圍/ })).toHaveCount(0);
+  await expect(panel(page).getByTestId('selected-avatar')).toContainText('取圖片中央');
+  await expect(panel(page).getByTestId('avatar-preview')).toHaveAttribute('data-avatar', 'center');
+
+  await toRelation(page);
+  /* 一個人：頭像在 (500, 400)。預設取中央：中間綠、左 50 紅、右 50 藍 */
+  await expect.poll(async () => near(await pixel(rel(page), 500, 400), GREEN)).toBe(true);
+  expect(near(await pixel(rel(page), 450, 400), RED)).toBe(true);
+  expect(near(await pixel(rel(page), 550, 400), BLUE)).toBe(true);
+
+  /* 清單上的按鈕：鍵盤 Enter 打開 */
+  const btn = row(page, 'c1').getByRole('button', { name: '調整頭像範圍：stripes' });
+  await btn.focus();
+  await page.keyboard.press('Enter');
+  const dlg = avatarDialog(page, 'stripes');
+  await expect(dlg).toBeVisible();
+  const view = dlg.getByTestId('frame-view');
+  await expect(view).toHaveAttribute('data-placement', '1.000,0.0000,0.0000,0');
+  await expect(dlg.getByTestId('frame-output')).toHaveText('120 × 120 px');
+  await expect(dlg).toContainText('圓圈裡就是關係圖上的頭像');
+  /* 看得出圓形的範圍：方框的角（圓外）變暗，圓裡同樣是紅色的地方不變暗 */
+  await expect
+    .poll(async () => {
+      const f = await frameSamples(view);
+      return f.insideLeft[0] > 200 && f.corner[0] < 160 && f.corner[0] > 60 && f.center[1] > 150;
+    })
+    .toBe(true);
+  /* 方向鍵（Shift 10 px）往右移到底：左右最多半個框 */
+  await view.focus();
+  for (let i = 0; i < 30; i++) await page.keyboard.press('Shift+ArrowRight');
+  await expect(view).toHaveAttribute('data-placement', '1.000,0.5000,0.0000,0');
+  /* Esc：不套用 */
+  await page.keyboard.press('Escape');
+  await expect(dlg).toBeHidden();
+  expect((await state(page)).characters[0].avatar).toBeNull();
+
+  /* 再開一次（從選取的角色面板）：拖曳往右到底再套用 */
+  await panel(page).getByRole('button', { name: '調整頭像範圍' }).click();
+  await expect(view).toHaveAttribute('data-placement', '1.000,0.0000,0.0000,0');
+  const box = await view.boundingBox();
+  if (!box) throw new Error('找不到檢視區');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 5, box.y + box.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect(view).toHaveAttribute('data-placement', '1.000,0.5000,0.0000,0');
+  await dlg.getByRole('button', { name: '套用' }).click();
+  await expect(dlg).toBeHidden();
+  await expect
+    .poll(async () => (await state(page)).characters[0].avatar)
+    .toEqual({ zoom: 1, x: 0.5, y: 0, turns: 0 });
+  /* 取最左邊的正方形：中間紅、右 50 綠 */
+  await expect.poll(async () => near(await pixel(rel(page), 500, 400), RED)).toBe(true);
+  expect(near(await pixel(rel(page), 550, 400), GREEN)).toBe(true);
+  await expect(panel(page).getByTestId('selected-avatar')).toContainText('已調整範圍');
+  await expect(panel(page).getByTestId('avatar-preview')).toHaveAttribute(
+    'data-avatar',
+    '1.000,0.5000,0.0000,0',
+  );
+
+  /* 下載的 PNG 照新的位置畫（1 倍、2 倍） */
+  const one = await downloadPng(page);
+  expect(near(one.png.at(500, 400), RED)).toBe(true);
+  expect(near(one.png.at(550, 400), GREEN)).toBe(true);
+  await radio(page, '2 倍').click();
+  const two = await downloadPng(page);
+  expect([two.png.width, two.png.height]).toEqual([2000, 1600]);
+  expect(near(two.png.at(1000, 800), RED)).toBe(true);
+  expect(near(two.png.at(1100, 800), GREEN)).toBe(true);
+
+  /* 一步復原、可以重做 */
+  await page.getByRole('button', { name: /^復原/ }).click();
+  expect((await state(page)).characters[0].avatar).toBeNull();
+  await expect.poll(async () => near(await pixel(rel(page), 500, 400), GREEN)).toBe(true);
+  await page.getByRole('button', { name: /^重做/ }).click();
+  expect((await state(page)).characters[0].avatar).toEqual({ zoom: 1, x: 0.5, y: 0, turns: 0 });
+
+  /* 旋轉 90°（先回到初始）：條紋變成橫的，中間綠、上 50 紅、下 50 藍、左右綠 */
+  await btn.click();
+  await expect(view).toHaveAttribute('data-placement', '1.000,0.5000,0.0000,0');
+  await dlg.getByRole('button', { name: '回到初始' }).click();
+  await dlg.getByRole('button', { name: '旋轉 90°' }).click();
+  await expect(view).toHaveAttribute('data-placement', '1.000,0.0000,0.0000,1');
+  await dlg.getByRole('button', { name: '套用' }).click();
+  await expect
+    .poll(async () => (await state(page)).characters[0].avatar)
+    .toEqual({ zoom: 1, x: 0, y: 0, turns: 1 });
+  await expect.poll(async () => near(await pixel(rel(page), 500, 350), RED)).toBe(true);
+  expect(near(await pixel(rel(page), 500, 400), GREEN)).toBe(true);
+  expect(near(await pixel(rel(page), 500, 450), BLUE)).toBe(true);
+  expect(near(await pixel(rel(page), 450, 400), GREEN)).toBe(true);
+
+  /* 自動儲存：重新整理後還在 */
+  await page.reload();
+  await expect(rel(page)).toBeVisible();
+  expect((await state(page)).characters[0].avatar).toEqual({ zoom: 1, x: 0, y: 0, turns: 1 });
+  await expect.poll(async () => near(await pixel(rel(page), 500, 350), RED)).toBe(true);
+
+  /* 四象限不受影響 */
+  await toQuadrant(page);
+  await expect.poll(async () => near(await pixel(quad(page), 400, 400), GREEN)).toBe(true);
+  expect(await pixel(quad(page), 380, 400)).toEqual(quadLeft);
+
+  /* 換圖片：回到中央 */
+  await row(page, 'c1').click();
+  await panel(page)
+    .getByRole('group', { name: '角色圖片' })
+    .locator('input[type=file]')
+    .setInputFiles(file('blue.png', await solidPng('#2244cc', 90, 60)));
+  await expect.poll(async () => (await state(page)).characters[0].image?.name).toBe('blue.png');
+  expect((await state(page)).characters[0].avatar).toBeNull();
+  await expect(panel(page).getByTestId('avatar-preview')).toHaveAttribute('data-avatar', 'center');
+  expect(errors).toEqual([]);
+});
+
+test('2026-10 頭像範圍：舊存檔（版本 1、沒有這個欄位）照舊取中央；專案檔存頭像範圍（版本 2）、開啟後照樣畫；舊的專案檔（版本 1）也開得了（F79、F80）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await batchInput(page).setInputFiles([file('stripes.png', await stripesPng())]);
+  await expect.poll(async () => (await state(page)).characters.length).toBe(1);
+  /* 舊存檔：版本 1、角色沒有 avatar */
+  await page.evaluate((key) => {
+    const raw = JSON.parse(localStorage.getItem(key) ?? '{}');
+    for (const c of raw.state.data.characters) delete c.avatar;
+    raw.version = 1;
+    localStorage.setItem(key, JSON.stringify(raw));
+  }, STORAGE_KEY);
+  await page.reload();
+  await toRelation(page);
+  await expect.poll(async () => near(await pixel(rel(page), 500, 400), GREEN)).toBe(true);
+  expect(near(await pixel(rel(page), 450, 400), RED)).toBe(true);
+  expect((await state(page)).characters[0].avatar).toBeNull();
+
+  /* 調整：往左移到底＝取最右邊（中間藍）；存檔寫成版本 2 */
+  await row(page, 'c1').getByRole('button', { name: '調整頭像範圍：stripes' }).click();
+  const view = avatarDialog(page, 'stripes').getByTestId('frame-view');
+  await view.focus();
+  for (let i = 0; i < 30; i++) await page.keyboard.press('Shift+ArrowLeft');
+  await expect(view).toHaveAttribute('data-placement', '1.000,-0.5000,0.0000,0');
+  await avatarDialog(page, 'stripes').getByRole('button', { name: '套用' }).click();
+  await expect.poll(async () => near(await pixel(rel(page), 500, 400), BLUE)).toBe(true);
+  const saved = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key) ?? '{}').version,
+    STORAGE_KEY,
+  );
+  expect(saved).toBe(2);
+
+  /* 專案檔：版本 2、角色有 avatar */
+  await page.getByRole('button', { name: '專案' }).click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+  ]);
+  const zipBytes = readFileSync((await dl.path()) as string);
+  const entries = unzipSync(new Uint8Array(zipBytes));
+  const project = JSON.parse(strFromU8(entries['project.json']));
+  expect(project.version).toBe(2);
+  expect(project.data.characters[0].avatar).toEqual({ zoom: 1, x: -0.5, y: 0, turns: 0 });
+
+  /* 重設 → 開啟：頭像範圍回來 */
+  await openProjectItem(page, '重設…');
+  await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
+  expect((await state(page)).characters).toEqual([]);
+  await openProjectFile(page, 'new.zip', zipBytes, 'application/zip');
+  await expect(toast(page, '已開啟專案檔。')).toBeVisible();
+  expect((await state(page)).characters[0].avatar).toEqual({ zoom: 1, x: -0.5, y: 0, turns: 0 });
+  await expect.poll(async () => near(await pixel(rel(page), 500, 400), BLUE)).toBe(true);
+
+  /* 舊的專案檔（版本 1、沒有 avatar）：取中央 */
+  const { avatar: _drop, ...plain } = project.data.characters[0];
+  const old = {
+    ...project,
+    version: 1,
+    data: { ...project.data, characters: [plain] },
+  };
+  const oldZip = zipSync({ ...entries, 'project.json': strToU8(JSON.stringify(old)) });
+  await openProjectFile(page, 'old.zip', Buffer.from(oldZip), 'application/zip');
+  await expect.poll(async () => (await state(page)).characters[0].avatar).toBeNull();
+  await expect.poll(async () => near(await pixel(rel(page), 500, 400), GREEN)).toBe(true);
+  /* 390 寬：清單列多了「調整頭像範圍」也不橫向捲動（D23） */
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    row(page, 'c1').getByRole('button', { name: '調整頭像範圍：stripes' }),
+  ).toBeVisible();
+  await noHorizontalScroll(page);
   expect(errors).toEqual([]);
 });

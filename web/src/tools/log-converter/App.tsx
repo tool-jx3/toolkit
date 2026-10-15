@@ -10,7 +10,7 @@ import { ProjectMenu, Tabs, ToolShell, UsageSection } from '@/ui';
 import { LoadSection } from './LoadSection';
 import { AdvancedPanel, AppearancePanel, BasicPanel, IllustrationPanel } from './panels';
 import { ResultPanel } from './Result';
-import { type LcSettings, normalizeSettings, TOOL_ID } from './settings';
+import { type LcSettings, normalizeSettings, SETTINGS_VERSION, TOOL_ID } from './settings';
 import { useSession, useSettings } from './store';
 import { S, USAGE } from './strings';
 import { installTestHook } from './testHook';
@@ -99,6 +99,7 @@ export function App() {
       headerActions={
         <ProjectMenu<LcSettings>
           toolId={TOOL_ID}
+          version={SETTINGS_VERSION}
           getData={() => useSettings.getState().data}
           onLoad={(data) => {
             if (!data || typeof data !== 'object') return false;

@@ -7,16 +7,39 @@ import { create } from 'zustand';
 import { createToolStore } from '@/core/storage';
 import type { NoticeTone } from '@/ui';
 import type { LogEntry } from './classify';
+import type { EpubFontFormat, EpubSettings } from './epub/options';
 import type { LogSource } from './load';
 import type { IllustrationItem, LogChoices } from './pipeline';
 import type { ConvertResult } from './render';
-import { DEFAULT_SETTINGS, type LcSettings, normalizeSettings, TOOL_ID } from './settings';
+import {
+  DEFAULT_SETTINGS,
+  EPUB_SETTING_KEYS,
+  type LcSettings,
+  normalizeEpubSettings,
+  normalizeSettings,
+  SETTINGS_VERSION,
+  TOOL_ID,
+} from './settings';
 
 export const useSettings = createToolStore<LcSettings>(TOOL_ID, DEFAULT_SETTINGS, {
-  version: 1,
+  /* 版本 2（2026-10）多了 EPUB 的設定；版本 1 的存檔經 normalizeSettings 補上預設值 */
+  version: SETTINGS_VERSION,
   migrate: (raw) => normalizeSettings(raw),
   historyLimit: 1,
 });
+
+/**
+ * 同版本的自動存檔不經 migrate（共用 store 只補缺的欄位、不檢查值），所以 EPUB 的設定讀進來時整理一次：
+ * 不合法的值換成預設並寫回，畫面與匯出都用整理後的值（驗證 F107）。存檔是同步讀的，建立 store 後就已經讀好。
+ */
+export function tidyEpubSettings(): void {
+  const data = useSettings.getState().data;
+  const fixed = normalizeEpubSettings(data);
+  if (EPUB_SETTING_KEYS.some((k) => !Object.is(fixed[k], data[k])))
+    useSettings.getState().patch(fixed);
+}
+
+tidyEpubSettings();
 
 export function patchSettings(patch: Partial<LcSettings>): void {
   useSettings.getState().patch(patch);
@@ -44,6 +67,31 @@ export interface StatusLine {
   tone: NoticeTone;
 }
 
+/** EPUB 的封面圖（F111，已轉成 JPEG／PNG；不記住） */
+export interface EpubCoverState {
+  name: string;
+  dataUrl: string;
+  bytes: Uint8Array;
+  mime: 'image/jpeg' | 'image/png';
+  width: number;
+  height: number;
+}
+
+/** EPUB 嵌入的字型檔（F109；不記住） */
+export interface EpubFontState {
+  name: string;
+  bytes: Uint8Array;
+  format: EpubFontFormat;
+}
+
+/** 按下轉換當時的 EPUB 設定、封面、字型與分頁（F104：之後改設定要再轉換一次） */
+export interface EpubSnapshot {
+  settings: EpubSettings;
+  cover: EpubCoverState | null;
+  font: EpubFontState | null;
+  tabs: string[];
+}
+
 export interface Session {
   phase: 'empty' | 'analyzing' | 'loaded' | 'failed';
   source: LogSource | null;
@@ -61,6 +109,10 @@ export interface Session {
   result: ConvertResult | null;
   /** 轉換當下有沒有開啟部落格貼文版（F65、F78） */
   resultBlog: boolean;
+  /** 轉換當下開啟了 EPUB 電子書時的設定快照（F104、F112）；沒開時 null */
+  resultEpub: EpubSnapshot | null;
+  epubCover: EpubCoverState | null;
+  epubFont: EpubFontState | null;
   /** 轉換當下的所有「則」（預覽區段用） */
   entries: LogEntry[];
   previewStart: number;
@@ -95,6 +147,9 @@ export const INITIAL_SESSION: Session = {
   status: null,
   result: null,
   resultBlog: false,
+  resultEpub: null,
+  epubCover: null,
+  epubFont: null,
   entries: [],
   previewStart: 1,
   previewLimit: 500,

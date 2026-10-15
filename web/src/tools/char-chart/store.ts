@@ -8,7 +8,8 @@
 import { create } from 'zustand';
 import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { moveItem } from '@/core/compose';
-import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
+import type { FramePlacement } from '@/core/image';
+import { createPreviewStore, createToolStore, historyGesture, sameData } from '@/core/storage';
 import {
   type AxisKey,
   applyShareEntries,
@@ -32,6 +33,7 @@ import {
   newPageTitle,
   nextColor,
   nextId,
+  normalizeAvatar,
   normalizeState,
   PALETTE,
   type Point,
@@ -42,8 +44,8 @@ import {
 } from './model';
 
 export const TOOL_ID = 'char-chart';
-/** 專案檔與自動儲存的資料版本 */
-export const DATA_VERSION = 1;
+/** 專案檔與自動儲存的資料版本（2：角色多了頭像範圍 avatar，2026-10；版本 1 的存檔照常讀，沒有＝置中） */
+export const DATA_VERSION = 2;
 
 export const useChart = createToolStore<ChartState>(TOOL_ID, initialState(), {
   version: DATA_VERSION,
@@ -138,11 +140,22 @@ export interface UiState {
   linkFrom: string | null;
   /** 正在畫面上改的字 */
   editing: { chart: ChartKind; key: LabelKey } | null;
+  /** 正在調整頭像範圍的角色（對話框開著） */
+  avatarFor: string | null;
 }
 
-export const useUi = create<UiState>(() => ({ selectedId: null, linkFrom: null, editing: null }));
+export const useUi = create<UiState>(() => ({
+  selectedId: null,
+  linkFrom: null,
+  editing: null,
+  avatarFor: null,
+}));
 
 export const select = (id: string | null): void => useUi.setState({ selectedId: id });
+
+/** 打開／關掉調整頭像範圍的對話框 */
+export const openAvatar = (id: string): void => useUi.setState({ avatarFor: id });
+export const closeAvatar = (): void => useUi.setState({ avatarFor: null });
 
 /* ---------- 編輯與復原 ---------- */
 
@@ -231,13 +244,28 @@ export function patchCharacter(
   if (patch.inMap === false && useUi.getState().linkFrom === id) useUi.setState({ linkFrom: null });
 }
 
-/** 換圖片（圖片標記一起打開）；null＝拿掉圖片 */
+/** 換圖片（圖片標記一起打開、頭像範圍回到置中）；null＝拿掉圖片 */
 export function setCharacterImage(id: string, image: ImageRef | null): void {
   edit((d) => {
     const c = d.characters.find((x) => x.id === id);
     if (!c) return;
     c.image = image;
     c.marker = image ? 'image' : 'dot';
+    c.avatar = null;
+  });
+}
+
+/**
+ * 頭像範圍（對話框套用時；規格 F78、F80）：整理後存（置中＝null）；和目前一樣時不記一步。沒有圖片的角色不改。
+ */
+export function setAvatar(id: string, placement: FramePlacement | null): void {
+  const c = chartNow().characters.find((x) => x.id === id);
+  if (!c?.image) return;
+  const next = normalizeAvatar(placement, c.image);
+  if (sameData(next, c.avatar)) return;
+  edit((d) => {
+    const x = d.characters.find((k) => k.id === id);
+    if (x) x.avatar = next;
   });
 }
 
@@ -246,6 +274,7 @@ export function removeCharacter(id: string): void {
   const ui = useUi.getState();
   if (ui.selectedId === id) select(null);
   if (ui.linkFrom === id) useUi.setState({ linkFrom: null });
+  if (ui.avatarFor === id) closeAvatar();
 }
 
 export function moveCharacter(from: number, to: number): void {
@@ -514,7 +543,7 @@ export function clearLinks(): void {
 export function replaceAll(next: ChartState): void {
   flushNudge();
   useChart.getState().replace(next);
-  useUi.setState({ selectedId: null, linkFrom: null, editing: null });
+  useUi.setState({ selectedId: null, linkFrom: null, editing: null, avatarFor: null });
   usePrefs.getState().patch({ page: 0, legend: next.relation.legends[0]?.id ?? '' });
 }
 

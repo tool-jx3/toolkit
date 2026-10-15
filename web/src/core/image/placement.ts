@@ -9,6 +9,7 @@
  * ```ts
  * const t = placedTransform(imgSize, { x: 0, y: 0, width: 1080, height: 2340 }, placement);
  * drawPlaced(ctx, bitmap, imgSize, { x: 0, y: 0, width: 1080, height: 2340 }, placement);
+ * drawPlacedCrop(ctx, bitmap, imgSize, { x: 440, y: 60, width: 120, height: 120 }, placement); // 只取框裡那一塊
  * ```
  */
 import type { Rect, Size } from './index';
@@ -129,6 +130,76 @@ export function drawPlaced(
   ctx.rotate((t.turns * Math.PI) / 2);
   ctx.scale(t.scale, t.scale);
   ctx.drawImage(img, -imgSize.width / 2, -imgSize.height / 2, imgSize.width, imgSize.height);
+  ctx.restore();
+}
+
+/** 依位置看得到的那一塊（原圖座標的矩形，還沒轉之前）與轉了幾個 90° */
+export interface PlacedCrop extends Rect {
+  turns: number;
+}
+
+/**
+ * 依位置，框裡看得到的是原圖的哪一塊（原圖座標；轉 90°、270° 時這一塊的寬高和框的寬高對調）。
+ * 正方形的框、預設位置時就是「取中央的正方形、蓋滿」：x ＝（寬 − 邊）÷ 2、y ＝（高 − 邊）÷ 2、寬高＝較短的邊，數值完全相同
+ * （char-chart 的頭像：沒調整過的頭像輸出不變）。縮小到露出框外（縮放 < 1）時這一塊會超出原圖。
+ */
+export function placedCrop(img: Size, box: Size, p: FramePlacement): PlacedCrop {
+  const turns = turnsOf(p.turns);
+  const odd = turns % 2 === 1;
+  /* 轉過之後的寬高 */
+  const iw = odd ? img.height : img.width;
+  const ih = odd ? img.width : img.height;
+  const zoom = p.zoom > 0 ? p.zoom : 1;
+  /* 框在轉過的圖上的大小（原圖 px）：蓋滿時取 min，再除以縮放（正方形的框是「較短的邊 ÷ 縮放」，沒有誤差） */
+  const w = Math.min(iw, (ih * box.width) / box.height) / zoom;
+  const h = Math.min((iw * box.height) / box.width, ih) / zoom;
+  /* 框中心相對圖片中心（轉過的圖上）→ 轉回原圖的方向 */
+  const vx = -p.x * w;
+  const vy = -p.y * h;
+  const u =
+    turns === 0
+      ? { x: vx, y: vy }
+      : turns === 1
+        ? { x: vy, y: -vx }
+        : turns === 2
+          ? { x: -vx, y: -vy }
+          : { x: -vy, y: vx };
+  const sw = odd ? h : w;
+  const sh = odd ? w : h;
+  return {
+    x: img.width / 2 + u.x - sw / 2,
+    y: img.height / 2 + u.y - sh / 2,
+    width: sw,
+    height: sh,
+    turns,
+  };
+}
+
+/**
+ * 依位置把框裡看得到的那一塊畫到 box（只取那一塊、不必 clip；高品質縮放）。沒有旋轉時是一次
+ * `drawImage(img, 那一塊, box)`、不改變換；有旋轉時移到框中心再轉。框以外不會畫到（drawPlaced 則畫整張圖）。
+ */
+export function drawPlacedCrop(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  img: CanvasImageSource,
+  imgSize: Size,
+  box: Rect,
+  p: FramePlacement,
+): void {
+  const c = placedCrop(imgSize, box, p);
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  if (c.turns === 0) {
+    ctx.drawImage(img, c.x, c.y, c.width, c.height, box.x, box.y, box.width, box.height);
+  } else {
+    const odd = c.turns % 2 === 1;
+    const dw = odd ? box.height : box.width;
+    const dh = odd ? box.width : box.height;
+    ctx.translate(box.x + box.width / 2, box.y + box.height / 2);
+    ctx.rotate((c.turns * Math.PI) / 2);
+    ctx.drawImage(img, c.x, c.y, c.width, c.height, -dw / 2, -dh / 2, dw, dh);
+  }
   ctx.restore();
 }
 

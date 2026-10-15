@@ -67,10 +67,10 @@ describe('版型清單', () => {
         .sides(def(id).initial())
         .flatMap((s) => s.groups.flatMap((g) => g.slots ?? []))
         .map((s) => `${s.shape ?? 'rect'}${s.free ? '/free' : ''}`);
-    /* 兩人資料：每人 全身、頭像（圓）、Q 版、追加 3 張 */
+    /* 兩人資料：共用的背景（2026-10）＋每人 全身、頭像（圓）、Q 版、追加 3 張 */
     expect(slots('duo-sheet')).toEqual(
-      ['circle', 'rect', 'round', 'round', 'round', 'round']
-        .flatMap((x) => [x])
+      ['rect']
+        .concat(['circle', 'rect', 'round', 'round', 'round', 'round'])
         .concat(['circle', 'rect', 'round', 'round', 'round', 'round']),
     );
     /* 兩人配對：背景、主要、參考 3（圓）＋每人頭像（圓）、萌化 */
@@ -255,7 +255,7 @@ describe('多人資料框（規格 3.2、F71～F74）', () => {
       { width: 1845, height: 2084 },
       { width: 1845, height: 6942 },
     ]);
-    expect([0, 2, 3, 5].map(cardOrigin)).toEqual([
+    expect([0, 2, 3, 5].map((i) => cardOrigin(i))).toEqual([
       { x: 0, y: 0 },
       { x: 1230, y: 0 },
       { x: 0, y: 696 },
