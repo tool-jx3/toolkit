@@ -239,7 +239,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | pair-maker | 背景改成單色或圖片（可模糊）、段落標題可以改 | baegop157902/PairMaker 2026-10-01 | ⬜ |
 | log-converter | 新增匯出 EPUB 電子書 | sotsotssi/CcfoliaLogConverter（未授權） | ⬜ |
 | session-log、session-report | 跑團紀錄簿的 SKP 角色；團報產生器用括號包住選取的文字、裝飾面板分頁 | くま。 session-log-tool v1.100、session-report-generator v1.73～1.76 | ✅ |
-| floor-plan | 再補範本：學校、警局、寺廟、洞窟等（目前 8 個，見規格 7. D10） | 本站 | ⬜ |
+| floor-plan | 再補範本：學校、警局、寺廟、洞窟等（目前 8 個，見規格 7. D10）→ 2026-10 補 7 個（學校、警察局、圖書館、寺廟、洞窟、山中小屋、地下教團據點），分類改成四類 | 本站 | ✅ |
 | char-chart | 關係圖的頭像可以調整範圍（目前固定取圖片中央；可用共用的 ImageFrameDialog） | 本站 | ⬜ |
 | char-chart、review-grid | 兩個工具的 `images.ts`（縮到長邊 1024、存資產庫、讀回圖片的 hook）幾乎相同，合併成 `core/assets` 的共用函式 | 本站 | ⬜ |
 | bg-remover | 去背方式加「AI＋背景色」（AI 漏掉的深色細部用背景色補回、AI 留下的背景色去掉）、純色背景可以有多個背景色（含兩色之間的混色）、去掉孤島、AI 結果完全不透明（原作捨去到 254） | 本站（使用者 2026-10-10） | ✅ |
