@@ -19,7 +19,7 @@ import { bindFileUi, OPEN_ACCEPT, openDroppedFile } from './files';
 import { Inspector } from './Inspector';
 import { handleKeyDown } from './keys';
 import { SheetBar } from './SheetBar';
-import { stopSim } from './sim';
+import { stopSim, watchReheat } from './sim';
 import { TypeList } from './TypeList';
 
 export function Editor() {
@@ -44,6 +44,8 @@ export function Editor() {
       stopSim();
     };
   }, [toast, confirm, choose]);
+
+  useEffect(() => watchReheat(), []);
 
   /* 開頁的整理：以前留下、沒人用的圖（狀態與復原紀錄都沒用到）刪掉 */
   useEffect(() => {

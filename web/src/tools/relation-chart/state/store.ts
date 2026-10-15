@@ -26,9 +26,11 @@ function deferredStorage(delayMs = 400, onError?: (e: unknown) => void): StateSt
   };
   const pending = new Map<string, string>();
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let since = 0;
   const flush = () => {
     if (timer) clearTimeout(timer);
     timer = null;
+    since = 0;
     const s = base();
     for (const [k, v] of pending) {
       try {
@@ -49,6 +51,12 @@ function deferredStorage(delayMs = 400, onError?: (e: unknown) => void): StateSt
     getItem: (k) => pending.get(k) ?? base()?.getItem(k) ?? null,
     setItem: (k, v) => {
       pending.set(k, v);
+      /* 一直有變更（磁鐵、拖曳）時至少每 2 秒寫一次 */
+      if (!since) since = Date.now();
+      else if (Date.now() - since >= 2000) {
+        flush();
+        return;
+      }
       if (timer) clearTimeout(timer);
       timer = setTimeout(flush, delayMs);
     },

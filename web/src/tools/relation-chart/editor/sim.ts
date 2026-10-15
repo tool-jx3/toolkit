@@ -16,6 +16,32 @@ const vel: Velocities = new Map();
 /** 拖曳中的角色（模擬不動它） */
 let pinned: ReadonlySet<number> = new Set();
 
+/* 角色或關係增減時磁鐵重新起動（原作的 simReheat）；復原／重做時不要（會蓋掉重做的紀錄） */
+let muted = false;
+export function withoutReheat(fn: () => void): void {
+  muted = true;
+  try {
+    fn();
+  } finally {
+    muted = false;
+  }
+}
+
+/** 掛在編輯畫面上：同一張分頁的角色數或關係數變了就加溫 */
+export function watchReheat(): () => void {
+  const keyOf = () => {
+    const s = activeSheet();
+    return { id: s.id, n: `${s.chars.length}:${s.rels.length}` };
+  };
+  let prev = keyOf();
+  return useProject.subscribe(() => {
+    const k = keyOf();
+    const changed = k.id === prev.id && k.n !== prev.n;
+    prev = k;
+    if (changed && !muted && activeSheet().settings.snapMode) kickSim(0.7);
+  });
+}
+
 export function setSimPinned(ids: ReadonlySet<number>): void {
   pinned = ids;
   if (ids.size) alpha = Math.max(alpha, SIM.dragAlpha);

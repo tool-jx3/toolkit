@@ -9,8 +9,8 @@ import { setPrefs, useUi } from '../state/store';
 import { S } from '../strings';
 import { centerOn, hostRect, zoomBy } from './view';
 
-const MAX_W = 150;
-const MAX_H = 110;
+/** 小地圖的最大尺寸（窄畫面縮小，不要蓋住太多畫布） */
+const MAX = { wide: [150, 110], narrow: [90, 66] } as const;
 
 export function Minimap({
   sheet,
@@ -28,7 +28,8 @@ export function Minimap({
   /* 畫布框的大小（視角一變就重畫，順便重量） */
   const hr = hostRect();
   const host = { w: hr?.width ?? 0, h: hr?.height ?? 0 };
-  const k = Math.min(MAX_W / viewW, MAX_H / viewH);
+  const [maxW, maxH] = host.w && host.w < 560 ? MAX.narrow : MAX.wide;
+  const k = Math.min(maxW / viewW, maxH / viewH);
   const w = Math.max(40, viewW * k);
   const h = Math.max(30, viewH * k);
   const ctx = sheetCtx(sheet);

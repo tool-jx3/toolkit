@@ -55,11 +55,12 @@ export function EditorBar() {
     toast({ title: m, tone: warn ? 'warning' : 'success' });
   const toggleMagnet = () => {
     const on = !magnet;
+    /* 先停：模擬的那一步（移動）和關掉磁鐵分成兩步復原 */
+    if (!on) stopSim();
     updateSettings((s) => {
       s.snapMode = on;
     });
     if (on) kickSim(1);
-    else stopSim();
   };
   const clear = async () => {
     const ok = await confirm({
