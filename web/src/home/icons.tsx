@@ -13,6 +13,7 @@ import {
   Crop,
   Dices,
   Eraser,
+  Feather,
   FileImage,
   Film,
   FlaskConical,
@@ -126,6 +127,7 @@ const ICONS: Record<string, LucideIcon> = {
   'char-chart': ChartScatter,
   polaroid: Camera,
   'relation-chart': Network,
+  'prose-card': Feather,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,
