@@ -1,6 +1,7 @@
 /**
- * GIF 編碼器 lock-screen 移植時加的兩個選項（不給時輸出與以前相同）：
- * - cropFrames：第 2 格起只寫變化的矩形（沒有透明、共用調色盤時），解碼出來每一格相同、檔案變小；
+ * GIF 編碼器 lock-screen 移植時加的兩個選項：
+ * - cropFrames：第 2 格起只寫變化的矩形（沒有透明、共用調色盤時），解碼出來每一格相同、檔案變小
+ *   （2026-10 起預設開；以前的預設＝cropFrames: false，見 encode-gif-crop-default.test.ts）；
  * - dither: 'luma'：只擴散亮度的誤差（上限 ±48），漸層的區塊平均更接近原圖、不會冒出別的色相。
  */
 import { describe, expect, it } from 'vitest';
@@ -93,17 +94,19 @@ function chromaError(a: ArrayLike<number>, b: ArrayLike<number>): number {
 }
 
 describe('cropFrames：只寫變化的矩形', () => {
-  it('不給時輸出與以前相同', async () => {
+  it('不給時＝開（2026-10 起預設；改版前的輸出見 encode-gif-crop-default.test.ts 的指紋）', async () => {
     const frames = slidingSquare(4);
     const a = await encode(frames);
-    const b = await encode(frames, { cropFrames: false });
+    const b = await encode(frames, { cropFrames: true });
     expect(sameBytes(a.bytes, b.bytes)).toBe(true);
+    const c = await encode(frames, { cropFrames: false });
+    expect(sameBytes(a.bytes, c.bytes)).toBe(false);
   });
 
   it('第 2 格起只有變化的範圍、解碼出來每一格相同、檔案較小（含抖色）', async () => {
     const frames = slidingSquare(5);
     for (const dither of ['none', 'floyd-steinberg', 'luma'] as const) {
-      const full = await encode(frames, { dither, maxColors: 32 });
+      const full = await encode(frames, { dither, maxColors: 32, cropFrames: false });
       const crop = await encode(frames, { dither, maxColors: 32, cropFrames: true });
       const info = parseGif(crop.bytes);
       expect(info.frames[0]).toMatchObject({ x: 0, y: 0, width: W, height: H });

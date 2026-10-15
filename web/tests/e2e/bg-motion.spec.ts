@@ -16,6 +16,7 @@ import { encodePng } from '../../src/core/encode/png';
 import { parseWebp } from '../../src/core/encode/webp';
 import { getTool, outputDir } from '../../src/registry';
 import { parseGif } from '../helpers/gif';
+import { expectSameGifFrames, exportGifBeforeAfter } from '../helpers/gifCrop';
 import { parseApng, parseChunks, readIhdr } from '../helpers/png';
 
 const URL = `/${outputDir(getTool('bg-motion') ?? { id: 'bg-motion', status: 'next' })}/`;
@@ -522,6 +523,28 @@ test.describe('匯出', () => {
     expect(g.height).toBe(180);
     /* 2 秒 × 30＝60 格，延遲以 1/100 秒累計，總長 2 秒 */
     expect(g.frames.reduce((s, f) => s + f.delayCs, 0)).toBe(200);
+    expect(errors).toEqual([]);
+  });
+
+  test('GIF 只寫變化的範圍（F109、5. D1）：解碼後每一格和改版前相同、檔案變小；淡化到透明照舊', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await fileInput(page).setInputFiles([
+      file('a.png', await pngOf(320, 180, [200, 60, 40])),
+      file('b.png', await pngOf(320, 180, [30, 90, 200])),
+    ]);
+    await effect(page, '左右擦除').click();
+    const gif = async () => (await exportAs(page, 'GIF')).bytes;
+    /* 擦除切換：每格只有擦過去的那一條在變 */
+    const wipe = await exportGifBeforeAfter(page, gif);
+    const s = await expectSameGifFrames(page, wipe.before, wipe.after, { cropped: true });
+    expect(s.cropped).toBe(s.frames - 1);
+    expect(s.after).toBeLessThan(s.before * 0.5);
+    /* 淡化到透明（E21）：有透明像素，每格照舊寫整格（逐位元組相同） */
+    await effect(page, '淡化到透明').click();
+    const fade = await exportGifBeforeAfter(page, gif);
+    await expectSameGifFrames(page, fade.before, fade.after, { cropped: false });
     expect(errors).toEqual([]);
   });
 

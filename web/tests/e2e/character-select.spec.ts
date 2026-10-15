@@ -15,6 +15,7 @@ import { encodePng } from '../../src/core/encode/png';
 import { parseWebp } from '../../src/core/encode/webp';
 import { getTool, outputDir } from '../../src/registry';
 import { parseGif } from '../helpers/gif';
+import { expectSameGifFrames, exportGifBeforeAfter } from '../helpers/gifCrop';
 import { parseApng } from '../helpers/png';
 
 const URL = `/${outputDir(getTool('character-select') ?? { id: 'character-select', status: 'next' })}/`;
@@ -346,6 +347,29 @@ test.describe('選角畫面產生器', () => {
       .filter((c) => c.fourcc === 'ANMF')
       .reduce((t, c) => t + (c.data[12] | (c.data[13] << 8) | (c.data[14] << 16)), 0);
     expect(ms).toBe(8450);
+    expect(errors).toEqual([]);
+  });
+
+  test('GIF 只寫變化的範圍（F146、5. D22）：解碼後每一格和改版前相同、檔案變小；透明背景時照舊', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const gif = async () => (await exportAs(page, 'GIF')).bytes;
+    /* 預設的漸層背景整張不透明：66 格（3.7），第 2 格起只寫變化的範圍 */
+    const opaque = await exportGifBeforeAfter(page, gif);
+    const s = await expectSameGifFrames(page, opaque.before, opaque.after, { cropped: true });
+    expect(s.frames).toBe(66);
+    expect(s.cropped).toBe(65);
+    expect(s.after).toBeLessThan(s.before * 0.6);
+    /* 透明背景：有透明像素，每格照舊寫整格（逐位元組相同） */
+    await hook(page, (h) =>
+      (h as unknown as { set: (p: string, v: unknown) => void }).set(
+        'background.type',
+        'transparent',
+      ),
+    );
+    const clear = await exportGifBeforeAfter(page, gif);
+    await expectSameGifFrames(page, clear.before, clear.after, { cropped: false });
     expect(errors).toEqual([]);
   });
 

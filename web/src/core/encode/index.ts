@@ -9,6 +9,7 @@ export {
   createEncoder,
   encodePngAsync,
   encodePngColorsAsync,
+  GIF_CROP_FRAMES_HOOK,
   openEncodeWorker,
 } from './client';
 export {
