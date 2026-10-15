@@ -94,7 +94,33 @@ const presetName = (page: Page) => page.getByTestId('preset-name');
 const tab = (page: Page, name: string) => page.getByRole('tab', { name }).click();
 const rows = (page: Page) =>
   page.getByRole('list', { name: '泡泡清單（依畫的順序）' }).locator('[data-bubble-row]');
-const text = (page: Page) => page.getByTestId('bubble-text');
+/** 內文的編輯區（2026-10 第二步：格式化文字編輯區） */
+const text = (page: Page) => page.getByTestId('bubble-text').locator('[data-rich-editor="full"]');
+
+/** 編輯區顯示的內文（段落之間是換行） */
+async function editorText(page: Page): Promise<string> {
+  return text(page).evaluate((el) =>
+    Array.from(el.children)
+      .map((c) => c.textContent ?? '')
+      .join('\n'),
+  );
+}
+
+/** 換掉整個內文：全選後貼上純文字（空字串＝刪掉） */
+async function setText(page: Page, value: string) {
+  await text(page).click();
+  await page.keyboard.press('ControlOrMeta+a');
+  if (value)
+    await text(page).evaluate((el, t) => {
+      const dt = new DataTransfer();
+      dt.setData('text/plain', t);
+      el.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
+      );
+    }, value);
+  else await page.keyboard.press('Delete');
+  await expect.poll(() => editorText(page)).toBe(value);
+}
 const canvas = (page: Page) => page.getByTestId('sb-canvas');
 
 async function choose(page: Page, id: string) {
@@ -277,14 +303,14 @@ test.describe('範本一覽', () => {
     await page.keyboard.press(']');
     await expect(presetName(page)).toHaveText('範本：擲骰成功通知');
     /* 改了內容就標「已修改」 */
-    await text(page).fill('改過了');
+    await setText(page, '改過了');
     await expect(presetName(page)).toContainText('已修改');
     /* 回到一覽：繼續編輯、勾勾 */
     await page.getByRole('button', { name: '範本一覽' }).click();
     await expect(page.getByText('目前的內容：擲骰成功通知')).toBeVisible();
     await expect(card(page, 'toast-success')).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: '繼續編輯' }).click();
-    await expect(text(page)).toHaveValue('改過了');
+    await expect.poll(() => editorText(page)).toBe('改過了');
     /* 用鍵盤進入編輯畫面：焦點移到範本列（不是掉到 body，7.1） */
     await page.getByRole('button', { name: '範本一覽' }).click();
     await card(page, 'toast-success').focus();
@@ -301,8 +327,7 @@ test.describe('泡泡', () => {
     const errors = await open(page);
     await choose(page, 'chat-blue');
     await expect(rows(page)).toHaveCount(1);
-    await text(page).fill('第一行\n第二行很長很長很長很長很長很長很長很長很長很長很長很長很長很長');
-    await text(page).blur();
+    await setText(page, '第一行\n第二行很長很長很長很長很長很長很長很長很長很長很長很長很長很長');
     let s = await scene(page);
     expect(s.items[0].lines[0]).toBe('第一行');
     expect(s.items[0].lines.length).toBeGreaterThan(2);
@@ -323,7 +348,7 @@ test.describe('泡泡', () => {
       align: 'right',
     });
     expect(d.bubbles[1].colors).toEqual(d.bubbles[0].colors);
-    await expect(text(page)).toHaveValue('新的泡泡');
+    await expect.poll(() => editorText(page)).toBe('新的泡泡');
     await page.getByRole('radio', { name: '靠左', exact: true }).click();
     expect((await data(page)).bubbles[1].align).toBe('left');
     /* 直向排列：第二個在第一個下面；靠左與靠右錯開 */
@@ -338,8 +363,7 @@ test.describe('泡泡', () => {
     await expect(rows(page)).toHaveCount(3);
     d = await data(page);
     expect(d.bubbles[2].text).toBe('新的泡泡');
-    await text(page).fill('第三個');
-    await text(page).blur();
+    await setText(page, '第三個');
     await page.getByRole('list', { name: '泡泡清單（依畫的順序）' }).locator('li').nth(2).focus();
     await page.keyboard.press('Alt+ArrowUp');
     d = await data(page);
@@ -408,14 +432,12 @@ test.describe('泡泡', () => {
   test('空白的泡泡不畫；全部空白時提示，匯出說明沒有內容', async ({ page }) => {
     const errors = await open(page);
     await choose(page, 'chat-duo');
-    await text(page).fill('');
-    await text(page).blur();
+    await setText(page, '');
     let s = await scene(page);
     expect(s.items).toHaveLength(1);
     expect(s.items[0].enter0).toBe(0);
     await rows(page).nth(1).click();
-    await text(page).fill('   ');
-    await text(page).blur();
+    await setText(page, '   ');
     s = await scene(page);
     expect(s.empty).toBe(true);
     expect([s.width, s.height]).toEqual([320, 180]);
@@ -627,8 +649,7 @@ test.describe('存檔與復原', () => {
   test('自動儲存：重新整理後回到範本一覽（繼續編輯）、內容還在', async ({ page }) => {
     const errors = await open(page);
     await choose(page, 'rpg-navy');
-    await text(page).fill('存檔測試');
-    await text(page).blur();
+    await setText(page, '存檔測試');
     await expect(page.getByRole('status').filter({ hasText: '已自動儲存' })).toBeVisible();
     const stored = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key) ?? 'null')?.state?.data,
@@ -642,18 +663,18 @@ test.describe('存檔與復原', () => {
     await expect(page.getByTestId('gallery')).toBeVisible();
     await expect(page.getByText('目前的內容：藍色 RPG 對話框')).toBeVisible();
     await page.getByRole('button', { name: '繼續編輯' }).click();
-    await expect(text(page)).toHaveValue('存檔測試');
+    await expect.poll(() => editorText(page)).toBe('存檔測試');
     expect(errors).toEqual([]);
   });
 
-  test('復原／重做：文字欄離開算一步、按鈕與快捷鍵', async ({ page }) => {
+  test('復原／重做：連續打字算一步（2026-10 第二步：0.4 秒內）、按鈕與快捷鍵', async ({ page }) => {
     const errors = await open(page);
     await choose(page, 'chat-blue');
     const before = (await data(page)).bubbles[0].text;
-    await text(page).fill('一');
-    await text(page).fill('一二');
-    await text(page).fill('一二三');
-    await text(page).blur();
+    await text(page).click();
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type('一二三');
+    await expect.poll(() => editorText(page)).toBe('一二三');
     await page.getByRole('radio', { name: '置中', exact: true }).click();
     const undo = page.getByRole('button', { name: /^復原/ });
     await undo.click();
@@ -672,8 +693,7 @@ test.describe('存檔與復原', () => {
   test('專案檔：存、開、壞檔不套用、重設', async ({ page }) => {
     const errors = await open(page);
     await choose(page, 'hud-scan');
-    await text(page).fill('專案檔測試');
-    await text(page).blur();
+    await setText(page, '專案檔測試');
     await page.getByRole('button', { name: '專案' }).click();
     const [download] = await Promise.all([
       page.waitForEvent('download'),
@@ -684,12 +704,11 @@ test.describe('存檔與復原', () => {
     expect(JSON.parse(saved)).toMatchObject({
       format: 'trpg-toolkit-project',
       tool: 'speech-bubble',
-      /* 2026-10：資料第 2 版（兩側的預設、卡片底…）；第 1 版的專案檔照常開（見「對話卡片」的測試） */
-      version: 2,
+      /* 2026-10：資料第 3 版（第 2 版：兩側的預設、卡片底…；第 3 版：內文的部分格式）；舊的專案檔照常開（見「對話卡片」的測試） */
+      version: 3,
       data: { presetId: 'hud-scan', bubbles: [{ style: 'hud', text: '專案檔測試' }], fps: 16 },
     });
-    await text(page).fill('改掉了');
-    await text(page).blur();
+    await setText(page, '改掉了');
     const openFile = async (name: string, body: string) => {
       await page.getByRole('button', { name: '專案' }).click();
       const [chooser] = await Promise.all([
@@ -700,7 +719,7 @@ test.describe('存檔與復原', () => {
       await page.getByRole('button', { name: '開啟', exact: true }).click();
     };
     await openFile('備份.json', saved);
-    await expect(text(page)).toHaveValue('專案檔測試');
+    await expect.poll(() => editorText(page)).toBe('專案檔測試');
     /* 壞檔：內容不變 */
     await openFile(
       '壞的.json',
@@ -712,7 +731,7 @@ test.describe('存檔與復原', () => {
       }),
     );
     await expect(page.getByText(/無法開啟專案檔/).first()).toBeVisible();
-    await expect(text(page)).toHaveValue('專案檔測試');
+    await expect.poll(() => editorText(page)).toBe('專案檔測試');
     /* 重設：回到預設範本與範本一覽 */
     await page.getByRole('button', { name: '專案' }).click();
     await page.getByRole('menuitem', { name: '重設…' }).click();
@@ -995,7 +1014,7 @@ test.describe('對話卡片（2026-10）', () => {
     const zipBytes = readFileSync((await download.path())!);
     const files = unzipSync(new Uint8Array(zipBytes));
     const project = JSON.parse(new TextDecoder().decode(files['project.json']));
-    expect(project).toMatchObject({ version: 2, data: { card: { bg: true, image: id.image } } });
+    expect(project).toMatchObject({ version: 3, data: { card: { bg: true, image: id.image } } });
     expect(Object.keys(files).some((f) => f.startsWith(`files/${id.image}`))).toBe(true);
     /* 移除後開回專案檔：背景圖回來 */
     await page.getByRole('button', { name: '移除背景圖' }).click();
@@ -1048,7 +1067,7 @@ test.describe('對話卡片（2026-10）', () => {
     };
     await openFile('舊的.json', 'application/json', Buffer.from(JSON.stringify(v1)));
     await tab(page, '泡泡');
-    await expect(text(page)).toHaveValue('舊的左邊');
+    await expect.poll(() => editorText(page)).toBe('舊的左邊');
     const d = await data(page);
     expect(d.card).toMatchObject({ bg: false, image: null });
     const sides = d.sides as Record<string, { colors: Record<string, string> }>;
@@ -1179,6 +1198,373 @@ test.describe('對話卡片（2026-10）', () => {
       return [bmp.width, bmp.height];
     });
     expect(size).toEqual([s.width, s.height]);
+    expect(errors).toEqual([]);
+  });
+});
+
+/* ---------- 部分文字格式（2026-10 第二步） ---------- */
+
+test.describe('部分文字格式（2026-10 第二步）', () => {
+  const toolbar = (page: Page) => page.getByRole('toolbar', { name: '內文文字格式' });
+  const mark = (page: Page, name: string) =>
+    toolbar(page).getByRole('button', { name: new RegExp(`^${name}`) });
+  type Run = { text: string; bold: boolean; color: string } & Record<string, unknown>;
+  const runs = async (page: Page): Promise<Run[] | null> => {
+    const b = (await data(page)).bubbles[0] as { rich?: { lines: { runs: Run[] }[] } };
+    return b.rich ? b.rich.lines[0].runs : null;
+  };
+
+  /** 選取內文裡的一段字（第一個出現的地方；不跨段落） */
+  async function selectText(page: Page, s: string) {
+    await text(page).evaluate((el, s) => {
+      const nodes: Text[] = [];
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n as Text);
+      const all = nodes.map((n) => n.nodeValue ?? '').join('');
+      const i = all.indexOf(s);
+      if (i < 0) throw new Error(`找不到「${s}」`);
+      const at = (pos: number, end: boolean): [Text, number] => {
+        let left = pos;
+        for (const n of nodes) {
+          const len = (n.nodeValue ?? '').length;
+          if (end ? left <= len : left < len) return [n, left];
+          left -= len;
+        }
+        const last = nodes[nodes.length - 1];
+        return [last, (last.nodeValue ?? '').length];
+      };
+      (el as HTMLElement).focus();
+      const r = document.createRange();
+      r.setStart(...at(i, false));
+      r.setEnd(...at(i + s.length, true));
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(r);
+    }, s);
+    await page.waitForTimeout(80);
+  }
+
+  /** 游標放在某段字後面 */
+  async function caretAfter(page: Page, s: string) {
+    await text(page).evaluate((el, s) => {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const i = (n.nodeValue ?? '').indexOf(s);
+        if (i < 0) continue;
+        (el as HTMLElement).focus();
+        const r = document.createRange();
+        r.setStart(n, i + s.length);
+        r.collapse(true);
+        getSelection()?.removeAllRanges();
+        getSelection()?.addRange(r);
+        return;
+      }
+      throw new Error(`找不到「${s}」`);
+    }, s);
+    await page.waitForTimeout(80);
+  }
+
+  type Box = { x: number; y: number; w: number; h: number };
+  interface Ink {
+    /** 接近 color 的像素數 */
+    count: number;
+    /** 同一列裡最長的連續一段 */
+    run: number;
+    /** 每一欄的數量（看字形的變化） */
+    cols: number[];
+  }
+  /** 一塊範圍裡接近某個顏色的像素（px：RGBA，寬 width） */
+  function inkOf(px: ArrayLike<number>, width: number, box: Box, color: number[], tol = 48): Ink {
+    let count = 0;
+    let best = 0;
+    const cols: number[] = [];
+    for (let y = Math.ceil(box.y); y < box.y + box.h; y++) {
+      let run = 0;
+      for (let x = Math.ceil(box.x), k = 0; x < box.x + box.w; x++, k++) {
+        const i = (y * width + x) * 4;
+        const ok =
+          px[i + 3] > 200 &&
+          Math.abs(px[i] - color[0]) <= tol &&
+          Math.abs(px[i + 1] - color[1]) <= tol &&
+          Math.abs(px[i + 2] - color[2]) <= tol;
+        if (ok) {
+          count++;
+          run++;
+          best = Math.max(best, run);
+          cols[k] = (cols[k] ?? 0) + 1;
+        } else run = 0;
+      }
+    }
+    return { count, run: best, cols };
+  }
+  /** 預覽畫布的像素 */
+  async function previewPixels(page: Page): Promise<{ width: number; px: number[] }> {
+    return canvas(page).evaluate((el) => {
+      const c = el as HTMLCanvasElement;
+      return {
+        width: c.width,
+        px: Array.from(c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data),
+      };
+    });
+  }
+  /** 預覽畫布上的 inkOf */
+  async function previewInk(page: Page, box: Box, color: number[]): Promise<Ink> {
+    const { width, px } = await previewPixels(page);
+    return inkOf(px, width, box, color);
+  }
+  /** 每一列「比之前亮」的像素數（白字加刪除線：只有一兩列、約兩個字寬） */
+  function brighterRows(a: ArrayLike<number>, b: ArrayLike<number>, width: number, box: Box) {
+    const out: number[] = [];
+    for (let y = Math.ceil(box.y); y < box.y + box.h; y++) {
+      let n = 0;
+      for (let x = Math.ceil(box.x); x < box.x + box.w; x++) {
+        const i = (y * width + x) * 4;
+        const lum = (p: ArrayLike<number>) => p[i] + p[i + 1] + p[i + 2];
+        if (lum(b) - lum(a) > 30) n++;
+      }
+      out.push(n);
+    }
+    return out;
+  }
+  const colDiff = (a: number[], b: number[]) => {
+    let d = 0;
+    for (let i = 0; i < Math.max(a.length, b.length); i++) d += Math.abs((a[i] ?? 0) - (b[i] ?? 0));
+    return d;
+  };
+
+  test('選取文字套粗體、斜體、刪除線、文字顏色：預覽與匯出的 PNG 看得到；一次套用一步復原；重新整理後還在', async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const errors = await open(page);
+    await choose(page, 'chat-blue');
+    await set(page, { idle: 'none' });
+    await setText(page, '格式測試文字');
+    await page.waitForTimeout(450);
+    const fs = (await data(page)).fontSize as number;
+    const WHITE = [255, 255, 255];
+    const RED = [0xd9, 0x3f, 0x3f];
+    const still = async () => {
+      const s = await scene(page);
+      await seek(page, s.ready + 0.2);
+      await page.waitForTimeout(120);
+      return s.items[0];
+    };
+    let box = await still();
+    const plain = await previewInk(page, box, WHITE);
+    expect(plain.count).toBeGreaterThan(100);
+    expect(plain.run).toBeLessThan(fs * 1.3);
+    expect((await previewInk(page, box, RED)).count).toBe(0);
+
+    /* 粗體：選取的兩個字 */
+    await selectText(page, '格式');
+    await mark(page, '粗體').click();
+    await expect
+      .poll(() => runs(page))
+      .toEqual([
+        { text: '格式', bold: true, color: '' },
+        { text: '測試文字', bold: false, color: '' },
+      ]);
+    box = await still();
+    const bold = await previewInk(page, box, WHITE);
+    expect(bold.count).toBeGreaterThan(plain.count * 1.02);
+
+    /* 斜體 */
+    await page.waitForTimeout(450);
+    await selectText(page, '測試');
+    await mark(page, '斜體').click();
+    await expect.poll(async () => (await runs(page))?.[1]).toMatchObject({ italic: true });
+    box = await still();
+    const italic = await previewInk(page, box, WHITE);
+    expect(colDiff(italic.cols, bold.cols)).toBeGreaterThan(40);
+
+    /* 刪除線：兩個字寬的一條橫線（和套用前比，同一列連續變亮） */
+    const noStrike = await previewPixels(page);
+    await page.waitForTimeout(450);
+    await selectText(page, '文字');
+    await mark(page, '刪除線').click();
+    await expect.poll(async () => (await runs(page))?.[2]).toMatchObject({ strike: true });
+    box = await still();
+    const struck = await previewPixels(page);
+    const rowsOn = brighterRows(noStrike.px, struck.px, struck.width, box);
+    expect(Math.max(...rowsOn)).toBeGreaterThan(fs * 0.9);
+    expect(rowsOn.filter((n) => n > 5).length).toBeLessThanOrEqual(4);
+
+    /* 文字顏色：常用色（紅） */
+    await page.waitForTimeout(450);
+    await selectText(page, '格式測試文字');
+    await toolbar(page).locator('[data-color-button="text"]').click();
+    const pop = page.getByRole('dialog', { name: '文字顏色' });
+    await pop.getByRole('button', { name: '套用 #d93f3f' }).click();
+    await expect
+      .poll(async () => (await runs(page))?.every((r) => r.color === '#d93f3f'))
+      .toBe(true);
+    await page.keyboard.press('Escape');
+    box = await still();
+    expect((await previewInk(page, box, RED)).count).toBeGreaterThan(80);
+
+    /* 匯出的 PNG（全部出現的畫面）也看得到 */
+    const png = await exportAs(page, 'PNG');
+    const chunks = parseChunks(png.bytes);
+    const ihdr = readIhdr(chunks);
+    const idat = chunks.filter((c) => c.type === 'IDAT');
+    const all = new Uint8Array(idat.reduce((x, c) => x + c.data.length, 0));
+    let o = 0;
+    for (const c of idat) {
+      all.set(c.data, o);
+      o += c.data.length;
+    }
+    const px = decodePixels(all, ihdr.width, ihdr.height, ihdr.colorType);
+    expect(inkOf(px, ihdr.width, box, RED).count).toBeGreaterThan(80);
+    /* 和預覽（全部出現的畫面）一樣：粗體、斜體、刪除線、顏色都在 */
+    const shown = await previewPixels(page);
+    expect(ihdr.width).toBe(shown.width);
+    let diff = 0;
+    for (let y = Math.ceil(box.y); y < box.y + box.h; y++)
+      for (let x = Math.ceil(box.x); x < box.x + box.w; x++) {
+        const i = (y * shown.width + x) * 4;
+        if ([0, 1, 2, 3].some((k) => Math.abs(px[i + k] - shown.px[i + k]) > 8)) diff++;
+      }
+    expect(diff).toBeLessThan(box.w * box.h * 0.01);
+
+    /* 復原：一次套用＝一步（先拿掉顏色，再拿掉刪除線）；重做 */
+    await page.waitForTimeout(450);
+    await caretAfter(page, '文字');
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect.poll(async () => (await runs(page))?.every((r) => r.color === '')).toBe(true);
+    expect((await runs(page))?.[2]).toMatchObject({ strike: true });
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect.poll(async () => (await runs(page))?.some((r) => r.strike)).toBe(false);
+    expect((await runs(page))?.[1]).toMatchObject({ italic: true });
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await expect.poll(async () => (await runs(page))?.[2]).toMatchObject({ strike: true });
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await expect.poll(async () => (await runs(page))?.[0].color).toBe('#d93f3f');
+
+    /* 重新整理後還在（編輯區也顯示格式） */
+    await page.waitForTimeout(600);
+    const before = await runs(page);
+    await page.reload();
+    await page.getByRole('button', { name: '繼續編輯' }).click();
+    await expect.poll(() => runs(page)).toEqual(before);
+    await expect(text(page).locator('span', { hasText: '格式' })).toHaveCSS('font-weight', '700');
+    await expect(text(page).locator('span', { hasText: '文字' })).toHaveCSS(
+      'text-decoration-line',
+      'line-through',
+    );
+    expect(errors).toEqual([]);
+  });
+
+  test('沒有選取時接下來打的字用這個格式；快捷鍵（B、I、U、Shift＋X）、底線、清除格式；整個泡泡的斜體與底線', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-blue');
+    await setText(page, '一二三');
+    await page.waitForTimeout(450);
+    /* 沒有選取：Ctrl＋B 之後打的字是粗體 */
+    await caretAfter(page, '一二三');
+    await page.keyboard.press('ControlOrMeta+b');
+    await expect(mark(page, '粗體')).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.type('AB');
+    await expect
+      .poll(() => runs(page))
+      .toEqual([
+        { text: '一二三', bold: false, color: '' },
+        { text: 'AB', bold: true, color: '' },
+      ]);
+    /* 快捷鍵：底線、斜體、刪除線（每一個一步） */
+    await page.waitForTimeout(450);
+    await selectText(page, '一二');
+    await page.keyboard.press('ControlOrMeta+u');
+    await expect.poll(async () => (await runs(page))?.[0]).toMatchObject({ underline: true });
+    await page.waitForTimeout(450);
+    await page.keyboard.press('ControlOrMeta+i');
+    await page.waitForTimeout(450);
+    await page.keyboard.press('ControlOrMeta+Shift+x');
+    await expect
+      .poll(async () => (await runs(page))?.[0])
+      .toEqual({
+        text: '一二',
+        bold: false,
+        color: '',
+        italic: true,
+        strike: true,
+        underline: true,
+      });
+    await expect(mark(page, '底線')).toHaveAttribute('aria-pressed', 'true');
+    await page.waitForTimeout(450);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect
+      .poll(async () => (await runs(page))?.[0])
+      .toEqual({ text: '一二', bold: false, color: '', italic: true, underline: true });
+    /* 底線按鈕：再按一次拿掉 */
+    await page.waitForTimeout(450);
+    await selectText(page, '一二');
+    await mark(page, '底線').click();
+    await expect.poll(async () => (await runs(page))?.[0].underline).toBeUndefined();
+    /* 清除格式：全部變回純文字（沒有 rich） */
+    await page.waitForTimeout(450);
+    await selectText(page, '一二三AB');
+    await mark(page, '清除格式').click();
+    await expect.poll(() => runs(page)).toBeNull();
+    expect((await data(page)).bubbles[0].text).toBe('一二三AB');
+    /* 整個泡泡的斜體與底線（這個泡泡的樣式；標示單獨調整） */
+    await page.getByRole('button', { name: '這個泡泡的樣式' }).click();
+    const whole = page.getByTestId('whole-text').first();
+    await whole.getByRole('switch', { name: '斜體' }).click();
+    await whole.getByRole('switch', { name: '底線' }).click();
+    const fmt = (await data(page)).bubbles[0].fmt as Record<string, unknown>;
+    expect(fmt).toMatchObject({ italic: true, strike: false, underline: true });
+    expect((await data(page)).bubbles[0].custom).toEqual(
+      expect.arrayContaining(['italic', 'underline']),
+    );
+    await expect(whole.locator('[data-custom-badge]')).toHaveCount(2);
+    expect(errors).toEqual([]);
+  });
+
+  test('沒有選取時按粗體再打字（一般輸入）＝打的字是粗體、一步復原；輸入法組字中不改內容、Ctrl＋Z 不作用', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-blue');
+    await setText(page, '甲乙');
+    await page.waitForTimeout(450);
+    const cdp = await page.context().newCDPSession(page);
+    /*
+     * 沒有選取時按粗體，再打字（一般輸入 insertText）：打的字是粗體。
+     * 「先按格式再用輸入法組字」會被共用的 RichTextEditor 丟掉格式（組字開始時 selectionchange 清掉 pending），
+     * 由 prose-card 那邊修共用元件；修好之前這裡用一般輸入驗。
+     */
+    await caretAfter(page, '甲乙');
+    await page.keyboard.press('ControlOrMeta+b');
+    await cdp.send('Input.insertText', { text: '八' });
+    await expect
+      .poll(() => runs(page))
+      .toEqual([
+        { text: '甲乙', bold: false, color: '' },
+        { text: '八', bold: true, color: '' },
+      ]);
+    /* 一步復原 */
+    await page.waitForTimeout(450);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect.poll(async () => (await data(page)).bubbles[0].text).toBe('甲乙');
+    await expect.poll(() => editorText(page)).toBe('甲乙');
+    expect(await runs(page)).toBeNull();
+    /* 輸入法組字：組字中內容不變；組字中按 Ctrl＋Z 不會復原掉前面的字；確定後才寫進內文 */
+    await caretAfter(page, '甲乙');
+    await cdp.send('Input.imeSetComposition', { text: 'ㄉ', selectionStart: 1, selectionEnd: 1 });
+    await cdp.send('Input.imeSetComposition', {
+      text: 'ㄉㄧ',
+      selectionStart: 2,
+      selectionEnd: 2,
+    });
+    expect((await data(page)).bubbles[0].text).toBe('甲乙');
+    await page.keyboard.press('ControlOrMeta+z');
+    expect((await data(page)).bubbles[0].text).toBe('甲乙');
+    await cdp.send('Input.insertText', { text: '丁' });
+    await expect.poll(async () => (await data(page)).bubbles[0].text).toBe('甲乙丁');
+    await page.keyboard.type('丙');
+    await expect.poll(async () => (await data(page)).bubbles[0].text).toBe('甲乙丁丙');
     expect(errors).toEqual([]);
   });
 });
