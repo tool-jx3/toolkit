@@ -1,12 +1,12 @@
 /**
  * 結果區（F69～F80）：開始轉換、狀態列、預覽（不執行任何指令碼的內嵌框，固定高度約 500 px，每次重畫淡入）、
- * 預覽區段（起始編號、則數、檢視、範圍說明）、下載（單檔、分割檔、ZIP、部落格貼文版）。
+ * 預覽區段（起始編號、則數、檢視、範圍說明）、下載（單檔、分割檔、ZIP、部落格貼文版、EPUB 電子書）。
  */
-import { Download, FileArchive, Play } from 'lucide-react';
+import { BookOpen, Download, FileArchive, Play } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { downloadBytes, downloadText, zipFiles } from '@/core/files';
 import { Button, Field, NativeNumberInput, Notice, Select, useConfirm, useToast } from '@/ui';
-import { convert, refreshPreview } from './actions';
+import { convert, exportEpub, refreshPreview } from './actions';
 import { blogPage, type ConvertResult, downloadNames } from './render';
 import { useSession } from './store';
 import { S } from './strings';
@@ -104,7 +104,43 @@ function PreviewRange() {
   );
 }
 
-function Downloads({ result, blog }: { result: ConvertResult; blog: boolean }) {
+/** 下載 EPUB（F112）：背景產生，按鈕顯示進度 */
+function EpubButton() {
+  const toast = useToast();
+  const [pct, setPct] = useState<number | null>(null);
+  const run = async () => {
+    setPct(0);
+    try {
+      await exportEpub((p) => setPct(Math.round(p * 100)));
+    } catch (e) {
+      toast({ title: S.epub.failed(e instanceof Error ? e.message : String(e)), tone: 'danger' });
+    } finally {
+      setPct(null);
+    }
+  };
+  return (
+    <Button
+      variant="secondary"
+      icon={<BookOpen />}
+      loading={pct !== null}
+      disabled={pct !== null}
+      onClick={() => void run()}
+      data-epub=""
+    >
+      {pct === null ? S.epub.download : S.epub.building(pct)}
+    </Button>
+  );
+}
+
+function Downloads({
+  result,
+  blog,
+  epub,
+}: {
+  result: ConvertResult;
+  blog: boolean;
+  epub: boolean;
+}) {
   const toast = useToast();
   const [zipping, setZipping] = useState<'zip' | 'blog' | null>(null);
   const total = result.pages.length;
@@ -158,6 +194,7 @@ function Downloads({ result, blog }: { result: ConvertResult; blog: boolean }) {
                 {zipping === 'blog' ? S.result.zipping : S.result.downloadBlogZip}
               </Button>
             )}
+            {epub && <EpubButton />}
           </>
         )}
         {result.pages.map((html, i) => (
@@ -183,6 +220,7 @@ function Downloads({ result, blog }: { result: ConvertResult; blog: boolean }) {
             )}
           </span>
         ))}
+        {total === 1 && epub && <EpubButton />}
       </div>
     </div>
   );
@@ -192,6 +230,7 @@ export function ResultPanel() {
   const status = useSession((s) => s.status);
   const result = useSession((s) => s.result);
   const blog = useSession((s) => s.resultBlog);
+  const epub = useSession((s) => s.resultEpub !== null);
   const confirm = useConfirm();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -233,7 +272,7 @@ export function ResultPanel() {
       <h2 className="m-0 text-base font-semibold">{S.result.previewTitle}</h2>
       <PreviewFrame />
       <PreviewRange />
-      {result && <Downloads result={result} blog={blog} />}
+      {result && <Downloads result={result} blog={blog} epub={epub} />}
     </div>
   );
 }

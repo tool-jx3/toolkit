@@ -3,14 +3,24 @@
  * 規則本身在 load.ts、classify.ts、pipeline.ts、render/；這裡負責更新 store 與提示訊息。
  */
 
+import { downloadBytes } from '@/core/files';
+import {
+  type EpubIllustration,
+  type EpubImage,
+  epubInputFrom,
+  epubSettingsOf,
+  fontFormatOf,
+} from './epub/options';
 import {
   dataUrlBytes,
   dataUrlKb,
+  EPUB_COVER_MAX_SIDE,
   fetchAsDataUrl,
   fileToDataUrl,
   processAvatar,
   processIllustration,
   processLogAvatar,
+  toEpubImage,
 } from './images';
 import {
   addLogFiles,
@@ -34,6 +44,7 @@ import { type ImageSet, illustrationPosition, prepareConversion } from './pipeli
 import { convertLog, previewSlice, renderPreview } from './render';
 import {
   DEFAULT_TAB_TEXT,
+  ILLUSTRATION_MAX_SIDE,
   type LcSettings,
   qualitySpec,
   splitRule,
@@ -101,7 +112,13 @@ export async function loadFiles(files: readonly File[]): Promise<void> {
   }
   const result = loadLogFiles(files.map((f, i) => ({ name: f.name, text: texts[i] })));
   if (!result.ok) {
-    setSession({ phase: 'failed', source: null, result: null, previewHtml: null });
+    setSession({
+      phase: 'failed',
+      source: null,
+      result: null,
+      resultEpub: null,
+      previewHtml: null,
+    });
     return;
   }
   const source = result.source;
@@ -130,6 +147,7 @@ export async function loadFiles(files: readonly File[]): Promise<void> {
     },
     logAvatars: {},
     result: null,
+    resultEpub: null,
     entries: [],
     previewHtml: null,
     status: null,
@@ -197,6 +215,7 @@ export async function removeFile(index: number): Promise<void> {
       source: null,
       fileNotice: S.notices.allRemoved,
       result: null,
+      resultEpub: null,
       entries: [],
       previewHtml: null,
       status: null,
@@ -497,9 +516,18 @@ export async function convert(
     await nextFrame();
     const result = convertLog(conv.entries, conv.options, conv.rule, conv.fileBase);
     const n = result.pages.length;
+    const { epubCover, epubFont } = session();
     setSession({
       result,
       resultBlog: s.blogMode,
+      resultEpub: s.epubMode
+        ? {
+            settings: epubSettingsOf(s),
+            cover: epubCover,
+            font: epubFont,
+            tabs: sourceTabs(source),
+          }
+        : null,
       entries: conv.entries,
       previewStart: 1,
       status: { text: n > 1 ? S.result.doneSplit(n) : S.result.done, tone: 'success' },
@@ -530,6 +558,83 @@ export function refreshPreview(start?: number, limit?: number): void {
     previewLimit: lim,
     previewKey: previewKey + 1,
   });
+}
+
+/* ---------- EPUB 電子書（F104～F113） ---------- */
+
+/** 封面圖片（F111）：長邊 2560 以內，轉成 JPEG／PNG */
+export async function setEpubCover(file: File, onError: (msg: string) => void): Promise<void> {
+  try {
+    const src = await fileToDataUrl(file);
+    const img = await toEpubImage(src, EPUB_COVER_MAX_SIDE);
+    setSession({ epubCover: { name: file.name, ...img } });
+  } catch (e) {
+    onError(S.epub.coverFailed(e instanceof Error ? e.message : String(e)));
+  }
+}
+
+export const clearEpubCover = (): void => setSession({ epubCover: null });
+
+/** 嵌入的字型檔（F109）：以檔頭辨認，不是字型檔時不採用 */
+export async function setEpubFont(file: File, onError: (msg: string) => void): Promise<void> {
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await file.arrayBuffer());
+  } catch {
+    onError(S.epub.fontFileFailed(file.name));
+    return;
+  }
+  const format = fontFormatOf(bytes);
+  if (!format) {
+    onError(S.epub.fontFileBad(file.name));
+    return;
+  }
+  setSession({ epubFont: { name: file.name, bytes, format } });
+}
+
+export const clearEpubFont = (): void => setSession({ epubFont: null });
+
+/**
+ * 下載 EPUB（F112）：用轉換當時的結果與設定快照；上傳的插圖先轉成 JPEG／PNG（網址插圖不放），
+ * 在背景產生後下載「檔名主體.epub」。
+ */
+export async function exportEpub(onProgress: (fraction: number) => void): Promise<void> {
+  const { result, entries, resultEpub: snap } = session();
+  if (!result || !snap) return;
+  const images: EpubImage[] = [];
+  const illustrations: EpubIllustration[] = [];
+  for (const ill of result.options.illustrations) {
+    if (!ill.src.startsWith('data:')) continue;
+    try {
+      const img = await toEpubImage(ill.src, ILLUSTRATION_MAX_SIDE);
+      illustrations.push({
+        position: ill.position,
+        image: images.length,
+        size: ill.size,
+        align: ill.align,
+      });
+      images.push({ bytes: img.bytes, mime: img.mime });
+    } catch {
+      /* 解不開的圖略過（網頁版照樣有） */
+    }
+  }
+  const input = epubInputFrom(
+    result.options,
+    entries,
+    snap.tabs,
+    snap.settings,
+    {
+      images,
+      illustrations,
+      cover: snap.cover ? { bytes: snap.cover.bytes, mime: snap.cover.mime } : null,
+      fontFile: snap.font ? { bytes: snap.font.bytes, format: snap.font.format } : null,
+    },
+    new Date(),
+  );
+  /* 產生 EPUB 的程式下載時才載入（頁面一開始不必載入整套） */
+  const { buildEpubInBackground } = await import('./epub/client');
+  const bytes = await buildEpubInBackground(input, onProgress);
+  downloadBytes(bytes, `${result.fileBase}.epub`, 'application/epub+zip');
 }
 
 export type { LogSource };

@@ -132,5 +132,67 @@ export const dataUrlKb = (url: string | null | undefined): number =>
 /** data URL 的格式（顯示用） */
 export function dataUrlMime(url: string): string | null {
   const m = /^data:([^;,]+)/.exec(url);
-  return m ? m[1] : null;
+  return m ? m[1].toLowerCase() : null;
+}
+
+/** data URL → 位元組 */
+export function dataUrlToBytes(url: string): Uint8Array {
+  const i = url.indexOf(',');
+  const meta = url.slice(0, i);
+  const body = url.slice(i + 1);
+  if (!/;base64$/i.test(meta)) return new TextEncoder().encode(decodeURIComponent(body));
+  const bin = atob(body);
+  const out = new Uint8Array(bin.length);
+  for (let k = 0; k < bin.length; k++) out[k] = bin.charCodeAt(k);
+  return out;
+}
+
+/* ---------- EPUB 用的圖片（F111、3.13、5. D7） ---------- */
+
+/** 封面的長邊上限 */
+export const EPUB_COVER_MAX_SIDE = 2560;
+/** 重新編碼成 JPEG 時的品質 */
+export const EPUB_JPEG_QUALITY = 0.92;
+
+export interface EpubImageData {
+  bytes: Uint8Array;
+  mime: 'image/jpeg' | 'image/png';
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * 給電子書用的圖：長邊超過上限時等比縮小；JPEG、PNG（沒縮小時）照原檔，
+ * 其他格式（WebP、GIF…）或縮小過的重新編碼——有透明的像素時 PNG，否則 JPEG（舊閱讀器不一定認得 WebP）。
+ */
+export async function toEpubImage(src: string, maxSide: number): Promise<EpubImageData> {
+  const mime = dataUrlMime(src);
+  const img = await loadElement(src);
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (!w || !h) throw new Error('無法解碼這張圖片');
+  const size = fitWithin(w, h, maxSide);
+  const resized = size.width !== w || size.height !== h;
+  if (!resized && (mime === 'image/jpeg' || mime === 'image/png'))
+    return { bytes: dataUrlToBytes(src), mime, dataUrl: src, width: w, height: h };
+  const canvas = document.createElement('canvas');
+  canvas.width = size.width;
+  canvas.height = size.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('瀏覽器不支援 canvas');
+  ctx.drawImage(img, 0, 0, size.width, size.height);
+  let alpha = false;
+  if (mime !== 'image/jpeg') {
+    const data = ctx.getImageData(0, 0, size.width, size.height).data;
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 255) {
+        alpha = true;
+        break;
+      }
+    }
+  }
+  const out: 'image/png' | 'image/jpeg' = alpha ? 'image/png' : 'image/jpeg';
+  const dataUrl = canvas.toDataURL(out, EPUB_JPEG_QUALITY);
+  return { bytes: dataUrlToBytes(dataUrl), mime: out, dataUrl, ...size };
 }

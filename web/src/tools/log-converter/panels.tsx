@@ -19,16 +19,21 @@ import {
   Select,
   Show,
   Slider,
+  TextArea,
   TextInput,
   Toggle,
   useToast,
 } from '@/ui';
 import {
   addIllustration,
+  clearEpubCover,
+  clearEpubFont,
   clearProfile,
   removeIllustration,
   renameTab,
   scheduleReprocess,
+  setEpubCover,
+  setEpubFont,
   setProfileUrl,
   totalAvatarBytes,
   uploadIllustration,
@@ -42,6 +47,8 @@ import {
   customSizeEstimate,
   DEFAULT_SUB_NARRATOR_COLOR,
   DEFAULT_TAB_TEXT,
+  EPUB_CHAPTER_SIZE_MAX,
+  EPUB_CHAPTER_SIZE_MIN,
   FONT_SIZES,
   type LcSettings,
   LINE_HEIGHTS,
@@ -1104,6 +1111,175 @@ function SplitSection() {
   );
 }
 
+/* ---------- EPUB 電子書（F104～F111） ---------- */
+
+function EpubFontFile() {
+  const file = useSession((s) => s.epubFont);
+  const toast = useToast();
+  const pick = async () => {
+    const [f] = await pickFiles({ accept: '.ttf,.otf,.woff,.woff2' });
+    if (f) await setEpubFont(f, (msg) => toast({ title: msg, tone: 'danger' }));
+  };
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5" data-testid="epub-font-file">
+      <span className="text-sm font-medium">{S.epub.fontFile}</span>
+      {file ? (
+        <div className="flex min-w-0 items-center gap-2 rounded-md bg-surface-2 p-2">
+          <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
+          <span className="shrink-0 font-mono text-xs text-muted">
+            {formatLimitBytes(file.bytes.length)}
+          </span>
+          <IconButton
+            size="sm"
+            variant="ghost"
+            label={S.epub.fontFileRemove(file.name)}
+            icon={<X />}
+            onClick={clearEpubFont}
+          />
+        </div>
+      ) : (
+        <Button size="sm" variant="secondary" className="self-start" onClick={() => void pick()}>
+          {S.epub.fontFilePick}
+        </Button>
+      )}
+      <p className="m-0 text-xs text-muted">{S.epub.fontFileHint}</p>
+    </div>
+  );
+}
+
+function EpubCover() {
+  const cover = useSession((s) => s.epubCover);
+  const toast = useToast();
+  const pick = async () => {
+    const [f] = await pickFiles({ accept: 'image/*' });
+    if (f) await setEpubCover(f, (msg) => toast({ title: msg, tone: 'danger' }));
+  };
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5" data-testid="epub-cover">
+      <span className="text-sm font-medium">{S.epub.cover}</span>
+      {cover ? (
+        <div className="flex min-w-0 items-center gap-3 rounded-md bg-surface-2 p-2">
+          <img
+            src={cover.dataUrl}
+            alt={S.epub.coverAlt}
+            className="h-20 w-14 shrink-0 rounded-sm border border-border object-contain"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="m-0 truncate text-sm">{cover.name}</p>
+            <p className="m-0 font-mono text-xs text-muted">
+              {cover.width} × {cover.height}
+            </p>
+          </div>
+          <IconButton
+            size="sm"
+            variant="ghost"
+            label={S.epub.coverRemove}
+            icon={<X />}
+            onClick={clearEpubCover}
+          />
+        </div>
+      ) : (
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={<ImageUp />}
+          className="self-start"
+          onClick={() => void pick()}
+        >
+          {S.epub.coverPick}
+        </Button>
+      )}
+      <p className="m-0 text-xs text-muted">{S.epub.coverHint}</p>
+    </div>
+  );
+}
+
+function EpubSection() {
+  const on = useS('epubMode');
+  const author = useS('epubAuthor');
+  const chapters = useS('epubChapters');
+  const markers = useS('epubMarkers');
+  const size = useS('epubChapterSize');
+  const writing = useS('epubWriting');
+  const font = useS('epubFont');
+  const nameColor = useS('epubNameColor');
+  return (
+    <Section title={S.adv.epubTitle} persistKey="log-converter:epub">
+      <ToggleField
+        label={S.epub.enable}
+        hint={S.epub.enableHint}
+        checked={on}
+        onChange={set('epubMode')}
+      />
+      <Show when={on}>
+        <Field label={S.epub.author} hint={S.epub.authorHint}>
+          <TextInput
+            value={author}
+            placeholder={S.epub.authorPlaceholder}
+            onChange={(e) => patchSettings({ epubAuthor: e.target.value })}
+          />
+        </Field>
+        <Field label={S.epub.chapters} hint={S.epub.chapterHints[chapters]}>
+          <Segmented
+            value={chapters}
+            onValueChange={set('epubChapters')}
+            options={opts(S.epub.chapterModes)}
+            fullWidth
+          />
+        </Field>
+        <Show when={chapters === 'marker'}>
+          <Field label={S.epub.markers} hint={S.epub.markersHint}>
+            <TextArea
+              rows={3}
+              value={markers}
+              placeholder={S.epub.markersPlaceholder}
+              onChange={(e) => patchSettings({ epubMarkers: e.target.value })}
+            />
+          </Field>
+        </Show>
+        <Show when={chapters === 'count'}>
+          <Field label={S.epub.chapterSize}>
+            <NumberInput
+              value={size}
+              onChange={set('epubChapterSize')}
+              min={EPUB_CHAPTER_SIZE_MIN}
+              max={EPUB_CHAPTER_SIZE_MAX}
+              step={1}
+              unit="則"
+            />
+          </Field>
+        </Show>
+        <Field label={S.epub.writing} hint={S.epub.writingHints[writing]}>
+          <Segmented
+            value={writing}
+            onValueChange={set('epubWriting')}
+            options={opts(S.epub.writings)}
+            fullWidth
+          />
+        </Field>
+        <Field label={S.epub.font} hint={S.epub.fontHint}>
+          <Segmented
+            value={font}
+            onValueChange={set('epubFont')}
+            options={opts(S.epub.fonts)}
+            fullWidth
+          />
+        </Field>
+        <EpubFontFile />
+        <Field label={S.epub.nameColor} hint={S.epub.nameColorHints[nameColor]}>
+          <Segmented
+            value={nameColor}
+            onValueChange={set('epubNameColor')}
+            options={opts(S.epub.nameColors)}
+            fullWidth
+          />
+        </Field>
+        <EpubCover />
+      </Show>
+    </Section>
+  );
+}
+
 export function AdvancedPanel() {
   const blog = useS('blogMode');
   return (
@@ -1121,6 +1297,7 @@ export function AdvancedPanel() {
           onChange={set('blogMode')}
         />
       </Section>
+      <EpubSection />
       <Section title={S.adv.settingsTitle} persistKey="log-converter:file">
         <p className="m-0 text-sm text-muted">{S.adv.settingsHint}</p>
       </Section>

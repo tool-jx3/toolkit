@@ -331,6 +331,11 @@ export interface ZipEntry {
   /** ZIP 內的路徑（可含「/」子資料夾；以「/」結尾、內容是空的就是資料夾項目） */
   name: string;
   data: Uint8Array | string;
+  /**
+   * 這個檔自己的壓縮等級（沒給時用 ZipOptions 的 level）。0＝不壓縮（stored），例如 EPUB 的 mimetype
+   * 必須不壓縮、JPEG／PNG 本身已壓過。fflate 以檔頭記錄大小，不用資料描述、不加額外欄位。
+   */
+  level?: ZipOptions['level'];
 }
 
 export interface ZipOptions {
@@ -351,7 +356,7 @@ export function zipFiles(
     const name = e.name.replace(/^\/+/, '');
     if (!name) throw new Error('ZIP 內的檔名不可為空');
     if (Object.hasOwn(tree, name)) throw new Error(`ZIP 內有重複的檔名：${name}`);
-    tree[name] = [data, { level, mtime }];
+    tree[name] = [data, { level: e.level ?? level, mtime }];
   }
   return zipSync(tree) as Uint8Array<ArrayBuffer>;
 }

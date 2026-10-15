@@ -6,6 +6,10 @@ import type { OutputLabels } from './render';
 import type {
   ChatMode,
   DialogueLayout,
+  EpubChapterMode,
+  EpubFont,
+  EpubNameColor,
+  EpubWriting,
   NarrationMode,
   OutputStyle,
   QualityPreset,
@@ -28,6 +32,22 @@ export const OUT: OutputLabels = {
 };
 
 const n = (v: number) => v.toLocaleString('zh-TW');
+
+/** EPUB 電子書裡的字樣（3.13；系統、閒聊、插圖、預設標題沿用 OUT） */
+export const EPUB_OUT = {
+  lang: 'zh-Hant',
+  toc: '目錄',
+  landmarks: '導覽',
+  cover: '封面',
+  bodymatter: '本文',
+  /** 依標記分章時，第一個標記之前的那一章 */
+  opening: '開頭',
+  /** 依分頁分章時，名稱空白的分頁 */
+  untitledTab: '（沒有名稱）',
+  /** 依則數分章的章名 */
+  countChapter: (from: number, to: number) => `第 ${n(from)}～${n(to)} 則`,
+  sceneBreak: '***',
+};
 
 export const S = {
   /* ---------- 載入 ---------- */
@@ -304,8 +324,70 @@ export const S = {
     blogMode: '一併產生部落格貼文版',
     blogHint:
       '轉成可以貼進部落格文章的 HTML 片段（沒有 html、head、body），樣式只作用在成品範圍內。有些部落格版型可能讓外觀走樣。',
+    epubTitle: 'EPUB 電子書',
     settingsTitle: '設定檔',
     settingsHint: '設定會自動記在瀏覽器裡。也可以從頁首的「專案」選單存成檔案、開啟或重設。',
+  },
+  /* ---------- EPUB 電子書（2026-10） ---------- */
+  epub: {
+    enable: '一併產生 EPUB 電子書',
+    enableHint:
+      '轉換後多一個下載 EPUB 的按鈕，可以放進手機或電子書閱讀器裡看。電子書用自己的版面（不分小說、時間軸、CCFOLIA 風格），沒有頭像；書名就是「基本」分頁的標題。',
+    author: '作者',
+    authorPlaceholder: '可以不填',
+    authorHint: '寫進電子書的作者欄與書名頁；空白時不寫。',
+    chapters: '分章方式',
+    chapterModes: {
+      single: '不分章',
+      tab: '依分頁',
+      marker: '依標記',
+      count: '依則數',
+    } satisfies Record<EpubChapterMode, string>,
+    chapterHints: {
+      single: '整份日誌是一章。',
+      tab: '每個輸出的分頁一章（例如主要、情報、閒聊各一章），章名是分頁名稱。',
+      marker: '內容含有標記文字的那一則開始新的一章，章名取那一則的第一行。',
+      count: '每幾則一章，章名是「第幾～幾則」。',
+    } satisfies Record<EpubChapterMode, string>,
+    markers: '標記文字',
+    markersPlaceholder: '例：\n第一天\n【場景',
+    markersHint: '每行一個。旁白、對話、系統訊息含有任一個就換章（閒聊不算）。',
+    chapterSize: '每章則數',
+    writing: '排版方向',
+    writings: { horizontal: '橫排', vertical: '直排' } satisfies Record<EpubWriting, string>,
+    writingHints: {
+      horizontal: '由左往右、由上往下讀。',
+      vertical: '直書，由右往左翻頁。擲骰算式這類英數會橫躺。',
+    } satisfies Record<EpubWriting, string>,
+    font: '字型',
+    fonts: { serif: '明體', sans: '黑體' } satisfies Record<EpubFont, string>,
+    fontHint: '閱讀器多半可以自己換字型，這裡是預設。',
+    fontFile: '嵌入字型檔',
+    fontFilePick: '選擇字型檔',
+    fontFileHint:
+      '可以不選。支援 .ttf、.otf、.woff、.woff2；字型的授權要允許嵌入電子書，中文字型檔通常有數 MB 到十幾 MB。',
+    fontFileRemove: (name: string) => `移除字型檔「${name}」`,
+    fontFileBad: (name: string) => `「${name}」不是 TrueType、OpenType 或 WOFF 字型檔。`,
+    fontFileFailed: (name: string) => `讀不到字型檔「${name}」。`,
+    nameColor: '角色顏色',
+    nameColors: { text: '名稱文字', mark: '色塊', none: '不使用' } satisfies Record<
+      EpubNameColor,
+      string
+    >,
+    nameColorHints: {
+      text: '名稱用「外觀」分頁的名稱顏色；太淺的顏色會自動調深，白底上看得清楚。',
+      mark: '名稱前放一個有顏色的方塊，名稱本身用閱讀器的文字色（夜間模式也清楚）。',
+      none: '名稱與旁白都不上色。',
+    } satisfies Record<EpubNameColor, string>,
+    cover: '封面圖片',
+    coverPick: '選擇圖片',
+    coverHint: '可以不放。長邊超過 2560 px 時會縮小；封面與字型檔不會記住。',
+    coverRemove: '移除封面',
+    coverAlt: '封面預覽',
+    coverFailed: (why: string) => `封面圖片讀不了：${why}`,
+    download: '下載 EPUB 電子書',
+    building: (pct: number) => `產生電子書中……（${pct}%）`,
+    failed: (why: string) => `產生電子書失敗：${why}`,
   },
   /* ---------- 轉換、預覽、下載 ---------- */
   result: {
@@ -375,13 +457,14 @@ export const USAGE = {
     '基本：標題、旁白角色與旁白的呈現、閒聊分頁、副旁白。',
     '外觀：頭像圖片與品質、名稱顏色、字型、字級、行距、頁面寬度。',
     '插圖：在指定的訊息之後插入圖片。',
-    '進階：合併同人連續對話、台詞版面、閒聊與系統訊息、分頁、配色、檔案分割、部落格貼文版。',
+    '進階：合併同人連續對話、台詞版面、閒聊與系統訊息、分頁、配色、檔案分割、部落格貼文版、EPUB 電子書。',
   ],
   tips: [
     '日誌很長時，預覽只畫出其中一段；在預覽下方改起始編號與則數，或選「全部」。下載的檔案一定包含全部。',
     '預覽裡每則右上角的「#編號」是訊息序號，插圖用它指定位置；下載的檔案不會有編號。',
     '檔案太大時可以在「進階 → 檔案分割」分成幾個檔，另外有全部打包的 ZIP。',
     '要直接貼進部落格文章時，開啟「進階 → 部落格貼文版」；有些部落格版型可能讓外觀走樣。',
+    '要放進手機或電子書閱讀器看時，開啟「進階 → EPUB 電子書」，轉換後下載 EPUB；可以分章、直排、放封面。',
     '設定會自動記在瀏覽器裡；日誌、頭像與插圖不會記住。',
     '建議用最新版的桌面瀏覽器（Chrome、Edge、Firefox）。',
   ],

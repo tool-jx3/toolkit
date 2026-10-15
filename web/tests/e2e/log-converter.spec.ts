@@ -8,7 +8,10 @@
  *   大圖警告（F70）、設定的記住／匯出／匯入／重設（F66～F68、F93）；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
  */
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import { unzipSync } from 'fflate';
 import { getTool, outputDir } from '../../src/registry';
@@ -648,6 +651,368 @@ test.describe('介面', () => {
   });
 });
 
+/* ---------- EPUB 電子書（2026-10，F104～F113、3.13） ---------- */
+
+/** 拆開下載的 EPUB：ZIP 第一個檔頭、檔名順序，XML 在 Chromium 的 DOMParser 裡逐檔解析 */
+async function inspectEpub(page: Page, bytes: Buffer) {
+  const z = new Uint8Array(bytes);
+  const u16 = (o: number) => z[o] | (z[o + 1] << 8);
+  const header = {
+    signature: u16(0) | (u16(2) << 16),
+    flags: u16(6),
+    method: u16(8),
+    nameLength: u16(26),
+    extraLength: u16(28),
+    name: String.fromCharCode(...z.subarray(30, 38)),
+    content: String.fromCharCode(...z.subarray(38, 58)),
+  };
+  const files = unzipSync(z);
+  const names = Object.keys(files);
+  const texts = Object.fromEntries(
+    names
+      .filter((n) => /\.(xhtml|opf|ncx|xml|css)$/.test(n))
+      .map((n) => [n, new TextDecoder('utf-8', { fatal: true }).decode(files[n])]),
+  );
+  const parsed = await page.evaluate((texts: Record<string, string>) => {
+    const OPF = 'http://www.idpf.org/2007/opf';
+    const DC = 'http://purl.org/dc/elements/1.1/';
+    const errors: string[] = [];
+    const docs: Record<string, Document> = {};
+    for (const [n, t] of Object.entries(texts)) {
+      if (n.endsWith('.css')) continue;
+      const d = new DOMParser().parseFromString(
+        t,
+        n.endsWith('.xhtml') ? 'application/xhtml+xml' : 'application/xml',
+      );
+      if (d.getElementsByTagName('parsererror').length) errors.push(n);
+      docs[n] = d;
+    }
+    const opf = docs['OEBPS/content.opf'];
+    const dc = (tag: string) =>
+      [...opf.getElementsByTagNameNS(DC, tag)].map((e) => e.textContent ?? '');
+    const items = [...opf.getElementsByTagNameNS(OPF, 'item')].map((i) => ({
+      id: i.getAttribute('id'),
+      href: i.getAttribute('href') ?? '',
+      type: i.getAttribute('media-type'),
+      props: i.getAttribute('properties'),
+    }));
+    const spineEl = opf.getElementsByTagNameNS(OPF, 'spine')[0];
+    const spine = [...spineEl.getElementsByTagNameNS(OPF, 'itemref')].map(
+      (r) => items.find((i) => i.id === r.getAttribute('idref'))?.href ?? '?',
+    );
+    const nav = [...docs['OEBPS/nav.xhtml'].querySelectorAll('nav#toc li > a')].map(
+      (a) => a.textContent ?? '',
+    );
+    const chapters = spine
+      .filter((h) => h.startsWith('text/'))
+      .map((h) => {
+        const d = docs[`OEBPS/${h}`];
+        return {
+          href: h,
+          h1: d.querySelector('h1')?.textContent ?? null,
+          text: d.body?.textContent ?? '',
+          dialogues: d.querySelectorAll('p.dlg').length,
+          marks: d.querySelectorAll('.mark').length,
+        };
+      });
+    return {
+      errors,
+      title: dc('title'),
+      creator: dc('creator'),
+      language: dc('language'),
+      items,
+      spine,
+      direction: spineEl.getAttribute('page-progression-direction'),
+      nav,
+      chapters,
+    };
+  }, texts);
+  return { header, names, texts, ...parsed };
+}
+
+/** 環境有 epubcheck（W3C，Java）時對 EPUB 跑一次，要求 0 個錯誤與警告（5. D10）；沒有設定 EPUBCHECK_JAR 時略過 */
+function epubcheck(bytes: Buffer, name: string): string | null {
+  const jar = process.env.EPUBCHECK_JAR;
+  if (!jar) return null;
+  const file = path.join(os.tmpdir(), `lc-${Date.now()}-${name}`);
+  writeFileSync(file, bytes);
+  try {
+    return execFileSync('java', ['-jar', jar, file], { encoding: 'utf8', stdio: 'pipe' });
+  } catch (e) {
+    return String((e as { stdout?: string }).stdout ?? e);
+  } finally {
+    rmSync(file, { force: true });
+  }
+}
+
+test.describe('EPUB 電子書（2026-10）', () => {
+  const teal = () => Buffer.from(ATT.樣本圖片['ill-teal.png'].split(',')[1], 'base64');
+
+  test('設定、封面、字型檔、下載後拆開檢查（F104～F113、3.13）', async ({ page }) => {
+    const errors = await open(page);
+    await loadFiles(page, [fileOf(LEGACY)]);
+    await tab(page, '進階').click();
+    /* 關閉時 EPUB 的設定不出現（F14） */
+    await expect(page.getByRole('textbox', { name: '作者', exact: true })).toHaveCount(0);
+    await page.getByRole('switch', { name: '一併產生 EPUB 電子書' }).click();
+    await page.getByRole('textbox', { name: '作者', exact: true }).fill('小芋 & 阿和');
+    await page.getByRole('radio', { name: '依分頁' }).click();
+    await page.getByRole('radio', { name: '直排' }).click();
+    await page.getByRole('radio', { name: '色塊' }).click();
+    /* 封面 */
+    const [c1] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByTestId('epub-cover').getByRole('button', { name: '選擇圖片' }).click(),
+    ]);
+    await c1.setFiles({ name: 'cover.png', mimeType: 'image/png', buffer: teal() });
+    await expect(page.getByTestId('epub-cover')).toContainText('cover.png');
+    /* 不是字型檔：通知、不採用 */
+    const [c2] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      btn(page, '選擇字型檔').click(),
+    ]);
+    await c2.setFiles({
+      name: 'bad.ttf',
+      mimeType: 'font/ttf',
+      buffer: Buffer.from('PK\u0003\u0004 not a font'),
+    });
+    await expect(
+      page.getByText('「bad.ttf」不是 TrueType、OpenType 或 WOFF 字型檔。').first(),
+    ).toBeVisible();
+    const [c3] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      btn(page, '選擇字型檔').click(),
+    ]);
+    await c3.setFiles({
+      name: 'book.otf',
+      mimeType: 'font/otf',
+      buffer: Buffer.concat([Buffer.from('OTTO'), Buffer.alloc(60)]),
+    });
+    await expect(page.getByTestId('epub-font-file')).toContainText('book.otf');
+    /* 插圖：上傳的（網頁版是 WebP → 電子書換成 JPEG／PNG）放進電子書，網址的不放 */
+    await tab(page, '插圖').click();
+    await btn(page, '新增插圖').click();
+    await page.getByRole('spinbutton', { name: '插在第幾則之後' }).fill('3');
+    const [c4] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.locator('[data-illustration="1"]').getByRole('button', { name: '選擇圖片' }).click(),
+    ]);
+    await c4.setFiles({ name: 'map.png', mimeType: 'image/png', buffer: teal() });
+    await expect(page.locator('[data-illustration="1"] img')).toBeVisible();
+    await btn(page, '新增插圖').click();
+    const second = page.locator('[data-illustration="2"]');
+    await second.getByRole('spinbutton', { name: '插在第幾則之後' }).fill('5');
+    await second.getByRole('radio', { name: '網址' }).click();
+    await second.getByRole('textbox', { name: '圖片網址' }).fill('https://example.com/map.png');
+    await convert(page);
+    /* 單檔：HTML 之後是 EPUB */
+    await expect(page.getByTestId('downloads').getByRole('button')).toHaveText([
+      '下載 HTML',
+      '下載 EPUB 電子書',
+    ]);
+    const workers: string[] = [];
+    page.on('worker', (w) => workers.push(w.url()));
+    const file = await download(page, '下載 EPUB 電子書');
+    expect(file.name).toBe('霧港燈塔.epub');
+    expect(workers.some((u) => /epub\.worker/.test(u))).toBe(true);
+    const book = await inspectEpub(page, file.bytes);
+    expect(book.header).toEqual({
+      signature: 0x04034b50,
+      flags: 0,
+      method: 0,
+      nameLength: 8,
+      extraLength: 0,
+      name: 'mimetype',
+      content: 'application/epub+zip',
+    });
+    expect(book.names.slice(0, 3)).toEqual([
+      'mimetype',
+      'META-INF/container.xml',
+      'OEBPS/content.opf',
+    ]);
+    expect(book.errors).toEqual([]);
+    expect(book.title).toEqual(['霧港燈塔']);
+    expect(book.creator).toEqual(['小芋 & 阿和']);
+    expect(book.language).toEqual(['zh-Hant']);
+    expect(book.direction).toBe('rtl');
+    expect(book.items.find((i) => i.props === 'cover-image')).toMatchObject({
+      href: 'images/cover.png',
+      type: 'image/png',
+    });
+    expect(book.items.find((i) => i.href === 'fonts/book.otf')?.type).toBe('font/otf');
+    expect(book.spine.slice(0, 3)).toEqual(['cover.xhtml', 'title.xhtml', 'nav.xhtml']);
+    expect(book.nav).toEqual(['main', 'info', 'other']);
+    expect(book.chapters.map((c) => c.h1)).toEqual(['main', 'info', 'other']);
+    expect(book.chapters[0].marks).toBeGreaterThan(0);
+    expect(book.chapters[0].text).toContain('林曉雨：「有人在嗎？」');
+    expect(book.chapters[2].text).toContain('閒聊訊息（2 則）');
+    expect(book.texts['OEBPS/style.css']).toContain('writing-mode: vertical-rl');
+    expect(book.texts['OEBPS/style.css']).toMatch(/@font-face \{[^}]*fonts\/book\.otf/);
+    const ill = book.items.filter((i) => i.href.startsWith('images/ill-'));
+    expect(ill).toHaveLength(1);
+    expect(ill[0].href).toMatch(/^images\/ill-001\.(jpg|png)$/);
+    expect(['image/jpeg', 'image/png']).toContain(ill[0].type);
+    expect(book.texts['OEBPS/text/c001-01.xhtml']).toContain(`src="../${ill[0].href}"`);
+    expect(Object.values(book.texts).some((t) => t.includes('example.com'))).toBe(false);
+    expect(errors).toEqual([]);
+  });
+
+  test('關閉時不出現；設定自動記住、存進專案檔（版本 2），封面與字型檔不記住；依標記分章、epubcheck（F93、F104、F106、5. D10）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await loadFiles(page, [fileOf(LEGACY)]);
+    await convert(page);
+    await expect(btn(page, '下載 EPUB 電子書')).toHaveCount(0);
+    await tab(page, '進階').click();
+    await page.getByRole('switch', { name: '一併產生 EPUB 電子書' }).click();
+    await page.getByRole('textbox', { name: '作者', exact: true }).fill('測試');
+    await page.getByRole('radio', { name: '依標記' }).click();
+    await page.getByRole('textbox', { name: '標記文字' }).fill('線索\n樓上有聲音');
+    const [c1] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByTestId('epub-cover').getByRole('button', { name: '選擇圖片' }).click(),
+    ]);
+    await c1.setFiles({ name: 'cover.png', mimeType: 'image/png', buffer: teal() });
+    await expect(page.getByTestId('epub-cover')).toContainText('cover.png');
+    /* 改設定後沒有重新轉換：還是轉換當時（關閉）的結果 */
+    await expect(btn(page, '下載 EPUB 電子書')).toHaveCount(0);
+    await page.waitForTimeout(500);
+    await page.reload();
+    await loadFiles(page, [fileOf(LEGACY)]);
+    await tab(page, '進階').click();
+    await expect(page.getByRole('switch', { name: '一併產生 EPUB 電子書' })).toBeChecked();
+    await expect(page.getByRole('textbox', { name: '作者', exact: true })).toHaveValue('測試');
+    await expect(page.getByRole('radio', { name: '依標記' })).toBeChecked();
+    await expect(page.getByRole('textbox', { name: '標記文字' })).toHaveValue('線索\n樓上有聲音');
+    await expect(
+      page.getByTestId('epub-cover').getByRole('button', { name: '選擇圖片' }),
+    ).toBeVisible();
+    /* 專案檔：資料版本 2、含 EPUB 的設定 */
+    await page.getByRole('button', { name: '專案' }).click();
+    const [d] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+    ]);
+    const json = JSON.parse(readFileSync((await d.path())!, 'utf8'));
+    expect(json).toMatchObject({
+      version: 2,
+      data: { epubMode: true, epubAuthor: '測試', epubChapters: 'marker' },
+    });
+    await convert(page);
+    const file = await download(page, '下載 EPUB 電子書');
+    const book = await inspectEpub(page, file.bytes);
+    expect(book.errors).toEqual([]);
+    expect(book.nav).toEqual([
+      '開頭',
+      '【線索】航海日誌最後一頁寫著：「別讓燈熄了」。',
+      '「等等，樓上有聲音。」',
+    ]);
+    expect(book.items.some((i) => i.props === 'cover-image')).toBe(false);
+    expect(book.direction).toBeNull();
+    const report = epubcheck(file.bytes, 'marker.epub');
+    if (report !== null) expect(report).toContain('No errors or warnings detected');
+    expect(errors).toEqual([]);
+  });
+
+  test('新格式多檔、分割時按鈕在 ZIP 之後；epubcheck（F112）', async ({ page }) => {
+    const errors = await open(page);
+    await loadFiles(
+      page,
+      V2_ALL.map((n) => fileOf(n)),
+    );
+    await tab(page, '進階').click();
+    await page.getByRole('radio', { name: '依則數' }).first().click();
+    await page.getByRole('spinbutton', { name: '每檔則數' }).fill('5');
+    await page.getByRole('spinbutton', { name: '每檔則數' }).press('Enter');
+    await page.getByRole('switch', { name: '一併產生 EPUB 電子書' }).click();
+    await page.getByRole('radio', { name: '依分頁' }).click();
+    await convert(page);
+    const labels = await page.getByTestId('downloads').getByRole('button').allTextContents();
+    expect(labels.slice(0, 2)).toEqual(['全部下載（ZIP）', '下載 EPUB 電子書']);
+    const file = await download(page, '下載 EPUB 電子書');
+    expect(file.name).toBe('霧港燈塔.epub');
+    const book = await inspectEpub(page, file.bytes);
+    expect(book.errors).toEqual([]);
+    expect(book.nav).toEqual(['メイン', '情報', '雑談', '秘密頻道']);
+    expect(book.chapters.at(-1)?.text).toContain('(1D100) ＞ 42');
+    const report = epubcheck(file.bytes, 'v2.epub');
+    if (report !== null) expect(report).toContain('No errors or warnings detected');
+    expect(errors).toEqual([]);
+  });
+
+  /** 記錄主執行緒超過 50 ms 的工作（Long Tasks API） */
+  const watchLongTasks = (page: Page) =>
+    page.evaluate(() => {
+      const w = window as unknown as { __lt: number[]; __lo?: PerformanceObserver };
+      w.__lo?.disconnect();
+      w.__lt = [];
+      w.__lo = new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) w.__lt.push(Math.round(e.duration));
+      });
+      w.__lo.observe({ type: 'longtask' });
+    });
+  const longTasks = (page: Page) =>
+    page.evaluate(() => (window as unknown as { __lt: number[] }).__lt.slice());
+
+  /** 2 萬則（新格式、3 位發言者）依則數分章：轉換、下載 EPUB，記錄時間與主執行緒的長工作 */
+  async function bigExport(page: Page, label: string) {
+    await loadFiles(page, [fileOf('長團 [main].html', longLog(ATT, 20000))]);
+    await tab(page, '進階').click();
+    await page.getByRole('switch', { name: '一併產生 EPUB 電子書' }).click();
+    await page.getByRole('radio', { name: '依則數' }).nth(1).click();
+    await watchLongTasks(page);
+    const t0 = Date.now();
+    await btn(page, '開始轉換').click();
+    await expect(status(page)).toContainText('轉換完成', { timeout: 60_000 });
+    const convertMs = Date.now() - t0;
+    const convertTasks = await longTasks(page);
+    await watchLongTasks(page);
+    const t1 = Date.now();
+    const file = await download(page, '下載 EPUB 電子書');
+    const exportMs = Date.now() - t1;
+    const exportTasks = await longTasks(page);
+    const book = await inspectEpub(page, file.bytes);
+    expect(book.errors).toEqual([]);
+    expect(book.nav).toHaveLength(40);
+    expect(book.nav[39]).toBe('第 19,501～20,000 則');
+    const count = book.chapters.reduce((n, c) => n + (c.text.match(/則訊息/g)?.length ?? 0), 0);
+    expect(count).toBe(20000);
+    const max = (list: number[]) => Math.max(0, ...list);
+    console.log(
+      `${label}｜2 萬則：轉換 ${convertMs} ms（主執行緒長工作 ${convertTasks.length} 個、最長 ${max(convertTasks)} ms）；` +
+        `下載 EPUB ${exportMs} ms（${Math.round(file.bytes.length / 1024)} KB、${book.chapters.length} 個章節檔；` +
+        `主執行緒長工作 ${exportTasks.length} 個、最長 ${max(exportTasks)} ms）`,
+    );
+    return { exportTasks, convertTasks };
+  }
+
+  test('大日誌：2 萬則在 Worker 裡產生、畫面不凍住（5. D8）', async ({ page }) => {
+    test.setTimeout(240_000);
+    const errors = await open(page);
+    const workers: string[] = [];
+    page.on('worker', (w) => workers.push(w.url()));
+    const { exportTasks, convertTasks } = await bigExport(page, 'Worker');
+    expect(workers.some((u) => /epub\.worker/.test(u))).toBe(true);
+    /* 量得到長工作（既有的轉換本身在主執行緒），匯出 EPUB 時沒有超過 300 ms 的 */
+    expect(convertTasks.length).toBeGreaterThan(0);
+    expect(Math.max(0, ...exportTasks)).toBeLessThan(300);
+    expect(errors).toEqual([]);
+  });
+
+  test('大日誌：Worker 載不到時改在主執行緒分段產生（5. D8）', async ({ page, context }) => {
+    test.setTimeout(240_000);
+    await context.route(/epub\.worker[^/]*\.js/, (r) => r.abort());
+    const errors = await open(page);
+    const { exportTasks } = await bigExport(page, '主執行緒');
+    /* 分段讓出：每產生一個章節檔讓出一次，只有最後的壓縮是一整段 */
+    expect(Math.max(0, ...exportTasks)).toBeLessThan(1500);
+    expect(errors.filter((e) => !/epub\.worker|Failed to load|net::ERR_FAILED/.test(e))).toEqual(
+      [],
+    );
+  });
+});
+
 /* ---------- 窄螢幕與視覺回歸 ---------- */
 
 test.describe('版面', () => {
@@ -666,7 +1031,12 @@ test.describe('版面', () => {
       await tab(page, t).click();
       await noHorizontalScroll(page);
     }
+    /* EPUB 電子書的設定（2026-10）：四選一的分章、標記文字 */
+    await page.getByRole('switch', { name: '一併產生 EPUB 電子書' }).click();
+    await page.getByRole('radio', { name: '依標記' }).click();
+    await noHorizontalScroll(page);
     await convert(page);
+    await expect(btn(page, '下載 EPUB 電子書')).toBeVisible();
     await noHorizontalScroll(page);
     expect(errors).toEqual([]);
   });
