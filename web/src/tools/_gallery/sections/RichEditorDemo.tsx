@@ -26,7 +26,7 @@ const SAMPLE: RichDoc = {
     {
       runs: [
         { text: '燈塔的光，終於在第三夜', bold: false, color: '' },
-        { text: '熄滅', bold: false, color: '#8a3b2e', highlight: '#fff0a8' },
+        { text: '熄滅', bold: false, color: '#c0392b', highlight: '#f8e287' },
         {
           text: '了。我們沒有找到船長，只找到他寫在日誌最後一頁的那句話——',
           bold: false,
@@ -58,7 +58,7 @@ function node(doc: RichDoc, y: number, h: number, openEnd = false): RichNode {
     doc,
     font: { family: FAMILY, size: 15, weight: 400 },
     lineHeight: 1.7,
-    color: '#2a2823',
+    color: '#1e1a16',
     wrap: 'word',
     align: 'justify',
     openEnd,
@@ -107,7 +107,7 @@ function Pages({ doc }: { doc: RichDoc }) {
     pages.forEach((n, i) => {
       ctx.save();
       ctx.translate(0, i * (H + 12));
-      ctx.fillStyle = '#f2eee5';
+      ctx.fillStyle = '#f3e8cf';
       ctx.fillRect(0, 0, W, H);
       drawScene(ctx, [n]);
       ctx.restore();
@@ -143,8 +143,8 @@ export function RichEditorDemo() {
         baseSize={15}
         displaySize={15}
         lineHeight={1.7}
-        color="#2a2823"
-        background="#f2eee5"
+        color="#1e1a16"
+        background="#f3e8cf"
         align="justify"
         minHeight="9rem"
         aria-label="示範本文"

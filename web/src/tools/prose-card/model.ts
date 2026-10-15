@@ -51,30 +51,44 @@ export const IMAGE_MAX_SIDE = 3200;
 /** 字型檔的大小上限（MB） */
 export const FONT_MAX_MB = 40;
 
-/** 文字顏色的常用色（本站自己挑的：墨色、灰、白、磚紅、琥珀、苔綠、靛藍、紫） */
+/**
+ * 文字顏色的常用色（本站自己挑的，D22）：預設字色（墨）、白，其他取自本站調色盤的預設色
+ * （ColorField 的 DEFAULT_SWATCHES：灰、紅、橘、黃、綠、藍、紫、棕）。
+ */
 export const TEXT_SWATCHES = [
-  '#272621',
-  '#5d5c56',
-  '#9b9890',
+  '#1e1a16',
+  '#95a5a6',
   '#ffffff',
-  '#8a3b2e',
-  '#b8682c',
-  '#9a7b2f',
-  '#3f5e45',
-  '#2f4a6b',
-  '#5b4a7a',
+  '#c0392b',
+  '#e67e22',
+  '#f1c40f',
+  '#27ae60',
+  '#2980b9',
+  '#7b5ea7',
+  '#8e6e53',
 ] as const;
-/** 螢光筆的常用色（淡黃、杏、粉、玫瑰、薰衣草、天藍、薄荷、嫩綠） */
+/**
+ * 螢光筆的常用色（本站自己挑的，D22）：本站調色盤的預設色混白——黃 50%、橘 45%、紅 40%、紫 40%、藍 40%、
+ * 青 40%、綠 40%、灰 40%（其餘是白）。
+ */
 export const HIGHLIGHT_SWATCHES = [
-  '#fff0a8',
-  '#ffe0b8',
-  '#ffd6cc',
-  '#f6d3e4',
-  '#e3dbf5',
-  '#d4e4f5',
-  '#d3ece2',
-  '#e3edc8',
+  '#f8e287',
+  '#f4c59c',
+  '#e6b0aa',
+  '#cabfdc',
+  '#a9cce3',
+  '#a3e4d7',
+  '#a9dfbf',
+  '#d5dbdb',
 ] as const;
+
+/**
+ * 預設的紙色與字色（D22）：紙色是本站平面圖工具的「紙」（floor-plan 的 #f3e8cf），字色是元件展示頁配色「墨與紙」的墨（#1e1a16）；
+ * 漸層從紙色到「紙色混 20% 的本站棕色 #8e6e53」，由上往下。
+ */
+export const PAPER_COLOR = '#f3e8cf';
+export const INK_COLOR = '#1e1a16';
+export const PAPER_SHADE = '#dfd0b6';
 
 /* ---------- 字型 ---------- */
 
@@ -180,14 +194,14 @@ export function initialState(): ProseState {
     align: 'left',
     bodySize: 30,
     lineHeight: 1.9,
-    textColor: '#2a2823',
+    textColor: INK_COLOR,
     texture: true,
     bg: {
       kind: 'solid',
-      color: '#f2eee5',
-      from: '#efece2',
-      to: '#d9dbe2',
-      angle: 160,
+      color: PAPER_COLOR,
+      from: PAPER_COLOR,
+      to: PAPER_SHADE,
+      angle: 180,
       image: null,
       place: { ...DEFAULT_PLACEMENT },
       blur: 5,

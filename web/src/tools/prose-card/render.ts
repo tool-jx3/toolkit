@@ -6,6 +6,7 @@
  */
 import { drawPlaced, makeCanvas } from '@/core/image';
 import {
+  docText,
   layoutRich,
   paginateRows,
   plainDoc,
@@ -116,9 +117,12 @@ export function bodyTemplate(s: ProseState): RichNode {
 
 const titleText = (s: ProseState) => s.title.trim() || UNTITLED;
 
-function titleNode(s: ProseState, y: number): RichNode {
+const ELLIPSIS = '…';
+
+/** 標題的節點：跟著本文的整體對齊；超過 3 行時截到 3 行、最後一行加刪節號 */
+function titleNode(s: ProseState, y: number, ctx: Ctx): RichNode {
   const size = GEO.titleSize[s.layout];
-  return {
+  const n: RichNode = {
     kind: 'rich',
     x: GEO.mx,
     y,
@@ -131,21 +135,36 @@ function titleNode(s: ProseState, y: number): RichNode {
     letterSpacing: -0.5,
     color: s.textColor,
     wrap: 'word',
-    align: 'left',
+    align: s.align,
     maxLines: GEO.titleMaxLines,
     bleed: 10,
   };
+  return { ...n, doc: clampTitle(ctx, n, s.textColor) };
 }
 
-/** 標題排成幾行（最多 3 行） */
-function titleRows(ctx: Ctx, s: ProseState): number {
-  const n = titleNode(s, 0);
-  const rows = layoutRich(n.doc, {
+const titleLayout = (ctx: Ctx, n: RichNode, doc: RichDoc): RichRow[] =>
+  layoutRich(doc, {
     width: n.w,
     advance: (ch, bold, run) => richAdvance(ctx, n, ch, bold, run),
     wrap: 'word',
   });
-  return Math.max(1, Math.min(GEO.titleMaxLines, rows.length));
+
+/** 超過 3 行：留到第 3 行為止的字，從後面拿掉字直到「字＋刪節號」排得進 3 行 */
+function clampTitle(ctx: Ctx, n: RichNode, color: string): RichDoc {
+  const rows = titleLayout(ctx, n, n.doc);
+  if (rows.length <= GEO.titleMaxLines) return n.doc;
+  const chars = Array.from(docText(n.doc).slice(0, rows[GEO.titleMaxLines - 1].end));
+  for (let k = chars.length; k > 0; k--) {
+    const doc = plainDoc(`${chars.slice(0, k).join('').trimEnd()}${ELLIPSIS}`, color);
+    if (titleLayout(ctx, n, doc).length <= GEO.titleMaxLines) return doc;
+  }
+  return plainDoc(ELLIPSIS, color);
+}
+
+/** 標題排成幾行（最多 3 行） */
+function titleRows(ctx: Ctx, s: ProseState): number {
+  const n = titleNode(s, 0, ctx);
+  return Math.max(1, Math.min(GEO.titleMaxLines, titleLayout(ctx, n, n.doc).length));
 }
 
 /* ---------- 分頁 ---------- */
@@ -358,7 +377,7 @@ function coverOrnament(s: ProseState): SceneNode[] {
   return out;
 }
 
-/** 小標（一行，太長時縮小） */
+/** 小標（一行，太長時縮小）；接續的頁的標題一行也用這個 */
 function kickerNode(s: ProseState, y: number): SceneNode {
   return {
     kind: 'text',
@@ -369,6 +388,8 @@ function kickerNode(s: ProseState, y: number): SceneNode {
     text: s.kicker.trim(),
     font: font(s, GEO.kickerSize),
     color: s.textColor,
+    /* 跟著本文的整體對齊（一行：左右對齊＝靠左） */
+    align: s.align === 'justify' ? 'left' : s.align,
     valign: 'middle',
     letterSpacing: 3.4,
     lineHeight: 1,
@@ -579,7 +600,7 @@ export function pageNodes(s: ProseState, plan: Plan, index: number, env: PageEnv
     const titleBottom = page.doc ? bodyTop - GEO.titleGap.cover : GEO.bodyBottom;
     const titleTop = titleBottom - g.titleBlock;
     if (g.kickerBlock) out.push(kickerNode(s, titleTop - g.kickerBlock));
-    out.push(titleNode(s, titleTop));
+    out.push(titleNode(s, titleTop, env.measure));
     const body = bodyNode(s, page, bodyTop);
     if (body) out.push(body);
   } else if (s.layout === 'page') {
@@ -587,7 +608,7 @@ export function pageNodes(s: ProseState, plan: Plan, index: number, env: PageEnv
     let y = GEO.pageKickerTop;
     if (g.kickerBlock) out.push(kickerNode(s, y));
     y += g.kickerBlock;
-    out.push(titleNode(s, y));
+    out.push(titleNode(s, y, env.measure));
     y += g.titleBlock + GEO.titleGap.page;
     const body = bodyNode(s, page, y);
     if (body) out.push(body);
@@ -596,7 +617,7 @@ export function pageNodes(s: ProseState, plan: Plan, index: number, env: PageEnv
     let y = GEO.photoTop + s.photo.height + GEO.photoGap;
     if (g.kickerBlock) out.push(kickerNode(s, y));
     y += g.kickerBlock;
-    out.push(titleNode(s, y));
+    out.push(titleNode(s, y, env.measure));
     y += g.titleBlock + GEO.titleGap.photo;
     const body = bodyNode(s, page, y);
     if (body) out.push(body);

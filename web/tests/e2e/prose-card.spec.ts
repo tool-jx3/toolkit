@@ -479,13 +479,13 @@ test('文字顏色、螢光筆、我的顏色、選取文字的字型與字級�
   await selectText(page, '二三');
   await toolbar(page).locator('[data-color-button="text"]').click();
   const pop = page.getByRole('dialog', { name: '文字顏色' });
-  await pop.getByRole('button', { name: '套用 #2f4a6b' }).click();
+  await pop.getByRole('button', { name: '套用 #2980b9' }).click();
   await expect
     .poll(async () => (await state(page)).body.lines[0].runs[1])
-    .toEqual({ text: '二三', bold: false, color: '#2f4a6b' });
+    .toEqual({ text: '二三', bold: false, color: '#2980b9' });
   /* 我的顏色：存下目前的顏色 */
   await pop.getByRole('button', { name: '＋ 存成我的顏色' }).click();
-  await expect(pop.getByRole('button', { name: '套用我的顏色 #2f4a6b' })).toBeVisible();
+  await expect(pop.getByRole('button', { name: '套用我的顏色 #2980b9' })).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(
@@ -493,7 +493,7 @@ test('文字顏色、螢光筆、我的顏色、選取文字的字型與字級�
         PREFS_KEY,
       ),
     )
-    .toEqual(['#2f4a6b']);
+    .toEqual(['#2980b9']);
   /* 回到預設字色 */
   await page.waitForTimeout(450);
   await pop.getByRole('button', { name: '回到預設字色' }).click();
@@ -507,21 +507,21 @@ test('文字顏色、螢光筆、我的顏色、選取文字的字型與字級�
   await selectText(page, '四五');
   await toolbar(page).locator('[data-color-button="highlight"]').click();
   const hl = page.getByRole('dialog', { name: '螢光筆' });
-  await hl.getByRole('button', { name: '套用 #fff0a8' }).click();
+  await hl.getByRole('button', { name: '套用 #f8e287' }).click();
   await expect
     .poll(async () => (await state(page)).body.lines[0].runs[1])
-    .toEqual({ text: '四五', bold: false, color: '', highlight: '#fff0a8' });
+    .toEqual({ text: '四五', bold: false, color: '', highlight: '#f8e287' });
   /* 頁面上：螢光筆的底色（淡黃）畫在字的後面（封面的本文只有一行：在頁尾上方） */
   await expect
-    .poll(() => countColor(page, 0, [200, 1300, 80, 92], [255, 240, 168]))
+    .poll(() => countColor(page, 0, [200, 1300, 80, 92], [248, 226, 135]))
     .toBeGreaterThan(300);
   await page.waitForTimeout(450);
   const hex = hl.getByRole('textbox', { name: '色碼' });
-  await hex.fill('#d4e4f5');
+  await hex.fill('#b8d8e8');
   await hex.press('Enter');
   await expect
     .poll(async () => (await state(page)).body.lines[0].runs[1].highlight)
-    .toBe('#d4e4f5');
+    .toBe('#b8d8e8');
   await page.waitForTimeout(450);
   await hl.getByRole('button', { name: '拿掉螢光筆' }).click();
   await expect.poll(async () => (await state(page)).body.lines[0].runs.length).toBe(1);
@@ -695,6 +695,57 @@ test('輸入法：組字中不讀回、組字中的 Ctrl＋Z 不動到內容；�
   expect(errors).toEqual([]);
 });
 
+test('輸入法：沒有選取時按的格式（接下來打的字）套到組好的字；組字中工具列維持按下', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await setBody(page, '甲乙');
+  await page.waitForTimeout(450);
+  const cdp = await page.context().newCDPSession(page);
+  const run = async () => (await state(page)).body.lines[0].runs.at(-1);
+  for (const mark of ['bold', 'italic'] as const) {
+    await page.waitForTimeout(450);
+    await caretAfter(page, (await bodyText(page)).slice(-1));
+    const btn = toolbar(page).locator(`[data-mark="${mark}"]`);
+    await btn.click();
+    await expect(btn).toHaveAttribute('aria-pressed', 'true');
+    /* 注音：ㄘ → ㄘㄜˋ → 選字「測」 */
+    await cdp.send('Input.imeSetComposition', { text: 'ㄘ', selectionStart: 1, selectionEnd: 1 });
+    await page.waitForTimeout(150);
+    await expect(btn).toHaveAttribute('aria-pressed', 'true');
+    await cdp.send('Input.imeSetComposition', {
+      text: 'ㄘㄜˋ',
+      selectionStart: 3,
+      selectionEnd: 3,
+    });
+    await page.waitForTimeout(150);
+    await expect(btn).toHaveAttribute('aria-pressed', 'true');
+    await cdp.send('Input.insertText', { text: '測' });
+    await expect.poll(async () => (await run())?.text).toBe('測');
+    /* 第二個字接在粗體後面：粗體跟著，再加上斜體 */
+    expect(await run()).toEqual(
+      mark === 'bold'
+        ? { text: '測', bold: true, color: '' }
+        : { text: '測', bold: true, color: '', italic: true },
+    );
+    await expect(btn).toHaveAttribute('aria-pressed', 'true');
+  }
+  expect(await bodyText(page)).toBe('甲乙測測');
+  /* 組字取消（沒有組出字）：格式還留著，接著打的字照樣套用 */
+  await page.waitForTimeout(450);
+  await page.keyboard.press('End');
+  const strike = toolbar(page).locator('[data-mark="strike"]');
+  await strike.click();
+  await cdp.send('Input.imeSetComposition', { text: 'ㄅ', selectionStart: 1, selectionEnd: 1 });
+  await page.waitForTimeout(150);
+  await cdp.send('Input.imeSetComposition', { text: '', selectionStart: 0, selectionEnd: 0 });
+  await page.waitForTimeout(150);
+  await page.keyboard.type('丙');
+  await expect.poll(async () => (await run())?.text).toBe('丙');
+  expect((await run())?.strike).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 分頁 ---------- */
 
 test('分頁：Ctrl＋Enter、段落開頭 Backspace 拿掉、工具列；放不下時自動接到下一頁、頁碼', async ({
@@ -702,6 +753,20 @@ test('分頁：Ctrl＋Enter、段落開頭 Backspace 拿掉、工具列；放不
 }) => {
   const errors = await open(page);
   await setBody(page, '甲乙\n丙');
+  await page.waitForTimeout(450);
+  /* 本文最開頭：沒有作用（不設分頁、不畫虛線、按鈕不按下） */
+  await caretAfter(page, '甲');
+  await page.keyboard.press('ArrowLeft');
+  expect(await caretOffset(page)).toBe(0);
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await page.waitForTimeout(200);
+  expect((await state(page)).body.lines[0].pageBreak).toBeUndefined();
+  expect(await bodyText(page)).toBe('甲乙\n丙');
+  await expect(editor(page).locator('[data-page-break]')).toHaveCount(0);
+  await expect(toolbar(page).locator('[data-rich-page-break]')).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
   await page.waitForTimeout(450);
   await caretAfter(page, '甲');
   await page.keyboard.press('ControlOrMeta+Enter');
@@ -785,6 +850,79 @@ test('下載：一頁的 PNG 2400 × 3200（1 倍 1200 × 1600），像素和預
   expect(errors).toEqual([]);
 });
 
+test('下載：字型還在下載時按匯出，等字型載好才畫（和載好後的預覽相同）', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await open(page);
+  await setBody(page, 'The lighthouse went dark on the third night. '.repeat(6));
+  await page.waitForTimeout(450);
+  /* 1 倍，和預覽逐像素比對 */
+  const panel = page.getByRole('region', { name: '下載' });
+  await panel.getByRole('combobox', { name: '尺寸' }).click();
+  await page.getByRole('option', { name: /^100%/ }).click();
+  await expect(page.getByText('每頁 1200 × 1600 px')).toBeVisible();
+  /* 換成還沒載過的字型；字型檔 4 秒後才送到 */
+  let servedAt = 0;
+  await page.route(/fonts\.googleapis\.com/, (r) => {
+    const fam =
+      new globalThis.URL(r.request().url()).searchParams.get('family')?.split(':')[0] ?? '';
+    r.fulfill({
+      status: 200,
+      contentType: 'text/css',
+      body: `@font-face{font-family:'${fam}';font-weight:400;src:url(https://fonts.gstatic.com/s/t/${encodeURIComponent(fam)}.ttf) format('truetype');unicode-range:U+0000-00FF;}`,
+    });
+  });
+  await page.route(/fonts\.gstatic\.com/, async (r) => {
+    await new Promise((res) => setTimeout(res, 4000));
+    servedAt = Date.now();
+    r.fulfill({
+      status: 200,
+      contentType: 'font/ttf',
+      body: readFileSync('/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf'),
+    });
+  });
+  await page.locator('[data-field="font"]').click();
+  await page.getByRole('option', { name: '霞鶩文楷', exact: true }).click();
+  await expect.poll(async () => (await state(page)).font).toBe('LXGW WenKai TC');
+  await page.waitForTimeout(300);
+  await panel.getByRole('button', { name: '匯出 PNG' }).click();
+  const result = page.getByTestId('export-result');
+  await expect(result).toBeVisible({ timeout: 60_000 });
+  const doneAt = Date.now();
+  expect(servedAt).toBeGreaterThan(0);
+  expect(doneAt).toBeGreaterThanOrEqual(servedAt);
+  /* 匯出的圖和字型載好後的預覽相同（本文所在的下半頁；在頁面裡解碼比對） */
+  const png = (await download(page, () => result.getByRole('link', { name: '下載' }).click()))
+    .bytes;
+  expect(readPng(png).width).toBe(1200);
+  const b64 = Buffer.from(png).toString('base64');
+  const compare = () =>
+    pages(page)
+      .first()
+      .evaluate(async (el, b64) => {
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+        const c = document.createElement('canvas');
+        c.width = bmp.width;
+        c.height = bmp.height;
+        const x = c.getContext('2d') as CanvasRenderingContext2D;
+        x.drawImage(bmp, 0, 0);
+        const box = [120, 900, 960, 500] as const;
+        const a = x.getImageData(...box).data;
+        const p = (el as HTMLCanvasElement).getContext('2d')?.getImageData(...box).data;
+        if (!p) return { diff: -1, ink: 0 };
+        let diff = 0;
+        let ink = 0;
+        for (let i = 0; i < a.length; i += 4) {
+          if (a[i] + a[i + 1] + a[i + 2] < 400) ink++;
+          if ([0, 1, 2].some((k) => Math.abs(a[i + k] - p[i + k]) > 8)) diff++;
+        }
+        return { diff, ink };
+      }, b64);
+  await expect.poll(async () => (await compare()).diff, { timeout: 15_000 }).toBeLessThan(200);
+  expect((await compare()).ink).toBeGreaterThan(2000);
+  expect(errors).toEqual([]);
+});
+
 test('下載：兩頁以上——全部、打包成 ZIP、只下載這一頁；檔名有頁碼', async ({ page }) => {
   test.setTimeout(180_000);
   const errors = await open(page);
@@ -818,25 +956,31 @@ test('背景：單色、漸層、圖片（模糊、飽和度、變暗）、預�
   /* 紋理關掉：背景是純色 */
   await page.getByRole('switch', { name: '紙張紋理' }).click();
   await expect.poll(async () => (await state(page)).texture).toBe(false);
-  await expect.poll(async () => mean(page, 0, 20, 20)).toEqual([0xf2, 0xee, 0xe5]);
+  await expect.poll(async () => mean(page, 0, 20, 20)).toEqual([0xf3, 0xe8, 0xcf]);
   await page.waitForTimeout(450);
   await page.getByRole('textbox', { name: '背景顏色色碼' }).fill('#203040');
   await expect.poll(async () => mean(page, 0, 20, 20)).toEqual([0x20, 0x30, 0x40]);
-  /* 漸層：180°（由上往下）＝上面起始色、下面結束色 */
+  /* 漸層：預設 180°（由上往下）＝上面起始色、下面結束色；90°＝由左往右 */
   await page.waitForTimeout(450);
   await page.getByRole('radio', { name: '漸層' }).click();
   await page.getByRole('textbox', { name: '起始顏色色碼' }).fill('#ff0000');
   await page.waitForTimeout(450);
   await page.getByRole('textbox', { name: '結束顏色色碼' }).fill('#0000ff');
-  await page.waitForTimeout(450);
-  const angle = page.getByRole('spinbutton', { name: '漸層角度' });
-  await angle.fill('180');
-  await angle.press('Enter');
   await expect
     .poll(async () => near(await mean(page, 0, 590, 2, 20, 4), [255, 0, 0], 12))
     .toBe(true);
   await expect
     .poll(async () => near(await mean(page, 0, 590, 1594, 20, 4), [0, 0, 255], 12))
+    .toBe(true);
+  await page.waitForTimeout(450);
+  const angle = page.getByRole('spinbutton', { name: '漸層角度' });
+  await angle.fill('90');
+  await angle.press('Enter');
+  await expect
+    .poll(async () => near(await mean(page, 0, 2, 790, 4, 20), [255, 0, 0], 12))
+    .toBe(true);
+  await expect
+    .poll(async () => near(await mean(page, 0, 1194, 790, 4, 20), [0, 0, 255], 12))
     .toBe(true);
   /* 圖片：左紅右綠；模糊後中間混色；飽和度 0 變灰；變暗 */
   await page.waitForTimeout(450);
@@ -934,6 +1078,66 @@ test('照片＋文字：放照片、照片高度、蓋滿／完整顯示、調�
   expect(errors).toEqual([]);
 });
 
+test('一次拖放多個檔案：拖放區與全視窗都用第一張圖片，其他不是圖片的檔列在通知裡', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await page.getByRole('radio', { name: '照片＋文字' }).click();
+  await expect.poll(async () => (await state(page)).layout).toBe('photo');
+  const drop = async (target: 'zone' | 'window', files: [string, string, Buffer][]) => {
+    const list = files.map(([name, type, buf]) => [name, type, buf.toString('base64')]);
+    await page.evaluate(
+      async ([target, list]) => {
+        const dt = new DataTransfer();
+        for (const [name, type, b64] of list as [string, string, string][])
+          dt.items.add(
+            new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], name, { type }),
+          );
+        const el =
+          target === 'zone'
+            ? (document.querySelector('[data-testid="photo-load"] [role="group"]') as HTMLElement)
+            : (document.querySelector('[data-testid="prose-page"]') as HTMLElement);
+        const r = el.getBoundingClientRect();
+        const o = {
+          dataTransfer: dt,
+          bubbles: true,
+          cancelable: true,
+          clientX: r.left + 10,
+          clientY: r.top + 10,
+        };
+        for (const t of ['dragenter', 'dragover']) el.dispatchEvent(new DragEvent(t, o));
+        await new Promise((res) => setTimeout(res, 50));
+        el.dispatchEvent(new DragEvent('drop', o));
+      },
+      [target, list] as const,
+    );
+  };
+  /* 拖放區：[不是圖片, 圖片] → 用圖片，通知列出不是圖片的檔 */
+  await drop('zone', [
+    ['note1.txt', 'text/plain', Buffer.from('hello')],
+    ['red.png', 'image/png', await solidPng(200, 100, [200, 30, 30])],
+    ['green.png', 'image/png', await solidPng(200, 100, [30, 200, 30])],
+  ]);
+  await expect(page.getByTestId('photo-name')).toContainText('red.png');
+  await expect(toast(page, /「note1\.txt」不是圖片。/)).toBeVisible();
+  /* 拖放區的說明：「貼上」只說一次 */
+  const hint = (await page.getByTestId('photo-load').textContent()) ?? '';
+  expect(hint.match(/貼上/g)).toHaveLength(1);
+  /* 全視窗：同樣 */
+  await page.waitForTimeout(450);
+  await drop('window', [
+    ['note2.txt', 'text/plain', Buffer.from('hello')],
+    ['blue.png', 'image/png', await solidPng(200, 100, [30, 30, 200])],
+  ]);
+  await expect(page.getByTestId('photo-name')).toContainText('blue.png');
+  await expect(toast(page, /「note2\.txt」不是圖片。/)).toBeVisible();
+  /* 全視窗只有不是圖片的檔：通知 */
+  await drop('window', [['note3.txt', 'text/plain', Buffer.from('hello')]]);
+  await expect(toast(page, /「note3\.txt」不是圖片。/)).toBeVisible();
+  await expect(page.getByTestId('photo-name')).toContainText('blue.png');
+  expect(errors).toEqual([]);
+});
+
 test('照片太高：第一頁放不下本文，本文從第 2 頁開始', async ({ page }) => {
   const errors = await open(page);
   await page.getByRole('radio', { name: '照片＋文字' }).click();
@@ -969,6 +1173,38 @@ test('我的字型：加入（存在瀏覽器）、整份與選取文字都能�
   await page.getByRole('alertdialog').getByRole('button', { name: '刪除' }).click();
   await expect(page.getByText('還沒有加入字型。')).toBeVisible();
   await expect.poll(async () => (await state(page)).font).toBe('Noto Serif TC');
+  expect(errors).toEqual([]);
+});
+
+test('我的字型：TTC（字型集合）取第一個字型，選用後畫得出來', async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors = await open(page);
+  await page.getByRole('button', { name: '我的字型' }).click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: '加入字型檔…' }).click();
+  await (await chooser).setFiles('/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc');
+  await expect(toast(page, /已加入字型「.+」。/)).toBeVisible({ timeout: 30_000 });
+  const chip = page.getByRole('list', { name: '我的字型' }).getByRole('listitem');
+  await expect(chip).toHaveCount(1);
+  const family = (await chip.textContent())?.trim() ?? '';
+  expect(family).toMatch(/WenQuanYi Zen Hei|文泉/);
+  /* 頁面上註冊了這個字型，而且載得進來 */
+  expect(
+    await page.evaluate(async (f) => {
+      const faces = await document.fonts.load(`16px "${f}"`, '燈塔');
+      return faces.length > 0 && faces.every((x) => x.status === 'loaded');
+    }, family),
+  ).toBe(true);
+  /* 重新整理後還在、也載得進來 */
+  await page.reload();
+  await expect(page.getByRole('list', { name: '我的字型' }).getByRole('listitem')).toHaveCount(1);
+  await page.waitForTimeout(1000);
+  expect(
+    await page.evaluate(async (f) => {
+      const faces = await document.fonts.load(`16px "${f}"`, '燈塔');
+      return faces.length > 0 && faces.every((x) => x.status === 'loaded');
+    }, family),
+  ).toBe(true);
   expect(errors).toEqual([]);
 });
 
@@ -1083,6 +1319,28 @@ test.describe('390 寬', () => {
     await open(page, { mobile: true });
     await page.waitForTimeout(600);
     await expect(page).toHaveScreenshot('prose-card-390.png', { fullPage: true });
+  });
+});
+
+test.describe('觸控螢幕', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test('輸入欄（含調色盤裡的色碼欄）16 px', async ({ page }) => {
+    const errors = await open(page, { mobile: true });
+    expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+    const size = (loc: ReturnType<Page['locator']>) =>
+      loc.evaluate((el) => getComputedStyle(el).fontSize);
+    expect(await size(page.locator('[data-field="title"]'))).toBe('16px');
+    await selectText(page, (await bodyText(page)).slice(0, 2));
+    for (const kind of ['text', 'highlight']) {
+      await toolbar(page).locator(`[data-color-button="${kind}"]`).tap();
+      const hex = page.getByRole('dialog').getByRole('textbox', { name: '色碼' });
+      await expect(hex).toBeVisible();
+      expect(await size(hex)).toBe('16px');
+      await page.keyboard.press('Escape');
+      await expect(hex).toBeHidden();
+    }
+    expect(errors).toEqual([]);
   });
 });
 

@@ -411,6 +411,8 @@ function ImageSlotControls({
           aria-label={slot === 'photo' ? S.photoDrop : S.bgImageDrop}
           accept="image/*"
           paste={paste ? 'document' : 'focus'}
+          /* 全部交給 loadImageFiles：用第一張圖片，其他不是圖片的檔列在通知裡 */
+          multiple
           filterByAccept={false}
           compact={!!image}
           icon={image ? <ImageIcon /> : <ImagePlus />}

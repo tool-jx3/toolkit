@@ -10,6 +10,7 @@ import {
   BODY_SIZES,
   fileBase,
   footerRightText,
+  HIGHLIGHT_SWATCHES,
   initialState,
   LINE_HEIGHTS,
   MAX_PAGES,
@@ -18,8 +19,10 @@ import {
   pageFileName,
   stateAssetIds,
   stateFonts,
+  TEXT_SWATCHES,
 } from '@/tools/prose-card/model';
 import { bodySizeOf, containRatio, GEO, pageNodes, planPages } from '@/tools/prose-card/render';
+import { SAMPLE } from '@/tools/prose-card/strings';
 
 /** 假的 canvas：每個字寬＝字級、字身框上 0.88、下 0.12 */
 function fakeCtx(): CanvasRenderingContext2D {
@@ -201,5 +204,94 @@ describe('每一頁的節點', () => {
     const t = texts(pageNodes(s, plan, 0, { photo: null, measure: ctx }));
     expect(t).toContain('無題');
     expect(t).toContain('✦');
+  });
+});
+
+describe('預設色與常用色（本站自己挑的，D22）', () => {
+  it('紙色、字色、漸層、常用色、範例的強調色與螢光色', () => {
+    const s = initialState();
+    expect(s.textColor).toBe('#1e1a16');
+    expect(s.bg).toMatchObject({ color: '#f3e8cf', from: '#f3e8cf', to: '#dfd0b6', angle: 180 });
+    expect([...TEXT_SWATCHES]).toEqual([
+      '#1e1a16',
+      '#95a5a6',
+      '#ffffff',
+      '#c0392b',
+      '#e67e22',
+      '#f1c40f',
+      '#27ae60',
+      '#2980b9',
+      '#7b5ea7',
+      '#8e6e53',
+    ]);
+    expect([...HIGHLIGHT_SWATCHES]).toEqual([
+      '#f8e287',
+      '#f4c59c',
+      '#e6b0aa',
+      '#cabfdc',
+      '#a9cce3',
+      '#a3e4d7',
+      '#a9dfbf',
+      '#d5dbdb',
+    ]);
+    const runs = SAMPLE.body.lines.flatMap((l) => l.runs);
+    expect(runs.filter((r) => r.color).map((r) => r.color)).toEqual(['#c0392b']);
+    expect(runs.filter((r) => r.highlight).map((r) => r.highlight)).toEqual(['#f8e287']);
+  });
+});
+
+describe('標題與小標', () => {
+  const ctx = fakeCtx();
+  const env = { photo: null, measure: ctx };
+  const titleOf = (nodes: SceneNode[]) =>
+    nodes.find((n) => n.kind === 'rich' && n.font.weight === 700 && n.font.size >= 44);
+  const kickerOf = (nodes: SceneNode[], text: string) =>
+    nodes.find((n) => n.kind === 'text' && n.text === text);
+
+  it('跟著本文的整體對齊（左右對齊時小標靠左）；逐段對齊不影響', () => {
+    for (const layout of ['cover', 'page', 'photo'] as const)
+      for (const [align, kicker] of [
+        ['left', 'left'],
+        ['center', 'center'],
+        ['right', 'right'],
+        ['justify', 'left'],
+      ] as const) {
+        const s = withBody(Array.from({ length: 30 }, (_, i) => `第${i + 1}行`).join('\n'), {
+          layout,
+          align,
+        });
+        const plan = planPages(s, ctx);
+        const p1 = pageNodes(s, plan, 0, env);
+        const t = titleOf(p1);
+        expect(t?.kind === 'rich' && t.align).toBe(align);
+        const k = kickerOf(p1, s.kicker);
+        expect(k?.kind === 'text' && (k.align ?? 'left')).toBe(kicker);
+        /* 接續的頁：標題一行 */
+        const c = kickerOf(pageNodes(s, plan, 1, env), s.title);
+        expect(c?.kind === 'text' && (c.align ?? 'left')).toBe(kicker);
+      }
+    /* 逐段對齊（本文第一段置中）不影響標題與小標 */
+    const s = withBody('一\n二', { align: 'left' });
+    s.body = { lines: s.body.lines.map((l, i) => (i ? l : { ...l, align: 'center' as const })) };
+    const p1 = pageNodes(s, planPages(s, ctx), 0, env);
+    const t = titleOf(p1);
+    expect(t?.kind === 'rich' && t.align).toBe('left');
+    const k = kickerOf(p1, s.kicker);
+    expect(k?.kind === 'text' && (k.align ?? 'left')).toBe('left');
+  });
+
+  it('超過 3 行時最後一行加刪節號；3 行以內照原樣', () => {
+    const long = '燈'.repeat(80);
+    const s = withBody('一', { title: long, layout: 'page' });
+    const plan = planPages(s, ctx);
+    const t = titleOf(pageNodes(s, plan, 0, env));
+    const text = t?.kind === 'rich' ? docText(t.doc) : '';
+    expect(text.endsWith('…')).toBe(true);
+    expect(plan.first.titleRows).toBe(3);
+    /* 每行 17 個字（56 px − 0.5 字距）：前兩行 34 字、第三行 16 字＋刪節號 */
+    expect(text).toBe(`${'燈'.repeat(50)}…`);
+    const short = withBody('一', { title: '燈'.repeat(51), layout: 'page' });
+    const t2 = titleOf(pageNodes(short, planPages(short, ctx), 0, env));
+    expect(t2?.kind === 'rich' ? docText(t2.doc) : '').toBe('燈'.repeat(51));
   });
 });

@@ -94,8 +94,8 @@ function WindowDropHost() {
   const load = useImageLoader();
   const layout = useDoc((s) => s.data.layout);
   return (
+    /* 不限制種類：一次拖進多個檔案時用第一張圖片，其他不是圖片的檔列在通知裡（loadImageFiles） */
     <WindowDrop
-      accept="image/*"
       label={S.imageDropAll}
       hint={S.imageDropAllHint}
       onDrop={(files) => load(layout === 'photo' ? 'photo' : 'bg', files)}
