@@ -6,6 +6,9 @@
  * 內建的樣式預設、整段貼上的結果）在 10 個時間點畫一次，記下所有 canvas 指令的 SHA-256
  * （`fixtures/speech-bubble-v2-golden.json`）。之後用新程式讀同一份資料（經過整理與 migrate）再畫，指令必須完全相同。
  *
+ * 規格 7.4（2026-10-15）：1 px 的分隔線對齊到像素，有分隔線、位置不是整數的 5 組（builtin-cream、builtin-grid、notes、
+ * notesRight、double）重新記錄雜湊（和舊的指令只差分隔線的 y：24.94→24.5 這種），其他 78 組不變。
+ *
  * 重新產生基準（只在加格式之前的程式上做過一次）：`SB_GOLDEN=write npx vitest run tests/unit/speech-bubble-compat-v2.test.ts`
  */
 import { describe, expect, it } from 'vitest';

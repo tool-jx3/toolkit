@@ -9,7 +9,10 @@
  * - **LINE 匯出的聊天記錄**（.txt）：開頭的 [LINE] 標題、儲存日期略過；日期列（2024/01/15（一）…）記下來；
  *   每一則是「時間⇥名字⇥內容」；用雙引號包起來的內容可以換行（"" 是一個引號）；只有兩欄的系統訊息（收回、加入群組…）略過。
  * - **Discord 複製的訊息**：「名字 — 時間」一行，下面每一行是一則；行首的「[時間]」是同一個人的下一則；
- *   精簡模式的「[時間] 名字: 內容」也認得。
+ *   精簡模式的「[時間] 名字: 內容」也認得。2026-10（規格 7.4）：舊的沒有分隔符號的標頭「阿明今天 14:30」
+ *   （名字＋今天／昨天／日期＋時間在行尾），與網頁版複製成好幾行的「阿明／—／今天 21:03」
+ *   （單獨一行的時間：上一行是說話者）也認得。
+ * - 「名字：內容」的冒號前後都是數字（時間，例如「今天 14:30」）時不當成分隔。
  * - 都不是時：每一行一則，沒有名字。
  *
  * 選項「同一人連續的訊息合成一個泡泡」：相鄰、同一個說話者（而且中間沒有空行、沒有換日）的訊息合成一則（換行接起來）。
@@ -59,6 +62,14 @@ const LINE_DATE_RE =
   /^(?:\d{4}[/.\-年]\s?\d{1,2}[/.\-月]\s?\d{1,2}日?(?:\s*[（(]?\s*(?:星期|週|周)?[一二三四五六日天]?[A-Za-z]*\s*[)）]?)?(?:\s*(?:星期|週|周)[一二三四五六日天])?|[A-Za-z]{3,9},?\s+\d{1,2}\/\d{1,2}\/\d{4})$/;
 /** 像時間的字串（Discord 標題列右半邊） */
 const TIMEISH_RE = /\d{1,2}[:：]\d{2}|今天|昨天|前天|Today|Yesterday|\d{4}[/.-]\d{1,2}[/.-]\d{1,2}/;
+/** Discord 的時間戳：今天／昨天／前天／日期＋（上午／下午…）時間 */
+const STAMP = String.raw`(?:今天|昨天|前天|Today at|Yesterday at|\d{4}[/.-]\d{1,2}[/.-]\d{1,2}|\d{1,2}\/\d{1,2}\/\d{4})\s*(?:(?:上午|下午|中午|凌晨|晚上|早上)\s?)?\d{1,2}[:：]\d{2}(?:\s?(?:AM|PM|am|pm))?`;
+/** 單獨一行的時間戳（網頁版複製成好幾行時） */
+const STAMP_LINE_RE = new RegExp(`^${STAMP}$`);
+/** 沒有分隔符號的標頭：名字＋時間戳在行尾 */
+const LOOSE_HEAD_RE = new RegExp(String.raw`^(.+?)\s*(${STAMP})$`);
+/** 只有破折號的一行（網頁版複製成三行時，名字與時間中間那一行） */
+const DASH_LINE_RE = /^[—–-]{1,3}$/;
 
 const isLineTime = (s: string) => TIME_RE.test(s.trim());
 
@@ -74,9 +85,14 @@ export function detectFormat(text: string): ChatFormat {
     return p.length >= 3 && isLineTime(p[0]);
   }).length;
   if (tabbed >= 1 && tabbed >= ls.length * 0.3) return 'line';
-  const headers = ls.filter((l) => discordHeader(l) !== null || discordCompact(l) !== null).length;
+  const headers = ls.filter(
+    (l) => discordHeader(l) !== null || discordCompact(l) !== null || STAMP_LINE_RE.test(l.trim()),
+  ).length;
   if (headers >= 1) return 'discord';
   const named = ls.filter((l) => colonLine(l) !== null).length;
+  /* 沒有分隔符號的標頭（「阿明今天 14:30」）：比「名字：」的行多時才算 Discord（句子剛好以時間結尾的不算） */
+  const loose = ls.filter((l) => discordLooseHeader(l) !== null).length;
+  if (loose >= 1 && loose > named) return 'discord';
   if (named >= 1) return 'colon';
   return 'plain';
 }
@@ -101,6 +117,9 @@ export function colonLine(line: string): [string, string] | null {
   if (/^\d+$/.test(name) || /^https?$/i.test(name) || /[/\\]/.test(name)) return null;
   /* 「12：30」「下午 3：00」這類時間 */
   if (isLineTime(`${m[1]}:${m[2].slice(0, 2)}`)) return null;
+  /* 冒號前後都是數字：是時間（「阿明今天 14:30」「會議 9：30 開始」），不是名字的分隔（規格 7.4） */
+  const at = line.search(/[:：]/);
+  if (/\d/.test(line[at - 1] ?? '') && /\d/.test(line[at + 1] ?? '')) return null;
   return [name, m[2]];
 }
 
@@ -200,6 +219,17 @@ export function discordHeader(line: string): [string, string] | null {
   return [m[1].trim(), m[2].trim()];
 }
 
+/** 沒有分隔符號的標頭「阿明今天 14:30」→ [名字, 時間]（名字裡有冒號的不算：那是「名字：內容」） */
+export function discordLooseHeader(line: string): [string, string] | null {
+  const t = line.trim();
+  if (STAMP_LINE_RE.test(t)) return null;
+  const m = LOOSE_HEAD_RE.exec(t);
+  if (!m) return null;
+  const name = m[1].trim();
+  if (!name || Array.from(name).length > 40 || /[:：]/.test(name)) return null;
+  return [name, m[2].trim()];
+}
+
 /** 精簡模式「[時間] 名字: 內容」→ [時間, 名字, 內容] */
 function discordCompact(line: string): [string, string, string] | null {
   const m = /^\[([^\]]{3,40})\]\s+(.+?):\s(.*)$/.exec(line.trim());
@@ -212,12 +242,27 @@ function parseDiscord(text: string): ChatParse {
   let speaker = '';
   let time = '';
   let blank = false;
+  /* 上一行（不算空行、破折號）是一則訊息時，它在 out 裡的位置（單獨一行的時間：那一行其實是說話者） */
+  let lastLine = -1;
   for (const raw of lines(text)) {
     const t = raw.trim();
     if (!t) {
       blank = true;
       continue;
     }
+    if (DASH_LINE_RE.test(t)) continue;
+    if (STAMP_LINE_RE.test(t)) {
+      time = t;
+      const prev = lastLine >= 0 ? out[lastLine] : undefined;
+      if (prev && lastLine === out.length - 1 && Array.from(prev.text).length <= 40) {
+        speaker = prev.text;
+        out.pop();
+      }
+      lastLine = -1;
+      blank = false;
+      continue;
+    }
+    lastLine = -1;
     const compact = discordCompact(t);
     if (compact) {
       [time, speaker] = compact;
@@ -232,7 +277,7 @@ function parseDiscord(text: string): ChatParse {
       blank = false;
       continue;
     }
-    const head = discordHeader(t);
+    const head = discordHeader(t) ?? discordLooseHeader(t);
     if (head) {
       [speaker, time] = head;
       blank = false;
@@ -246,8 +291,10 @@ function parseDiscord(text: string): ChatParse {
       tm = stamp[1].trim();
       body = stamp[2].trim();
     }
-    if (body)
+    if (body) {
       out.push({ speaker, text: body, time: tm, date: '', breakBefore: blank && out.length > 0 });
+      if (!stamp) lastLine = out.length - 1;
+    }
     blank = false;
   }
   return { format: 'discord', messages: out, skipped: 0 };

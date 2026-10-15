@@ -28,6 +28,7 @@ import {
   swapSides,
 } from './chatImport';
 import { ALIGNS, type Align, MAX_BUBBLES } from './model';
+import { importOverflows } from './scene';
 import { edit, useSb, useUi } from './store';
 import { CHAT_FORMAT_NAMES, DATE_MODE_NAMES, S, SIDE_NAMES } from './strings';
 
@@ -57,6 +58,7 @@ export function ImportDialog({
     setText('');
     setFormat('auto');
     setSides({});
+    setDates('time');
     setSeparators(false);
     setMerge(false);
     setMode('replace');
@@ -93,6 +95,12 @@ export function ImportDialog({
         limit,
       ),
     [parsed, sides, dates, separators, merge, limit, hasTime, hasDate],
+  );
+
+  /* 加入之後畫布會不會超過上限（先估；不擋加入，規格 7.4 D21） */
+  const tooTall = useMemo(
+    () => importOverflows(useSb.getState().data, plan.bubbles, mode),
+    [plan, mode],
   );
 
   const openFile = async () => {
@@ -237,6 +245,11 @@ export function ImportDialog({
           <Notice tone="warning">
             {S.importLimit(plan.bubbles.length, plan.total, MAX_BUBBLES)}
           </Notice>
+        ) : null}
+        {tooTall ? (
+          <div data-testid="import-too-tall">
+            <Notice tone="warning">{S.importTooTall}</Notice>
+          </div>
         ) : null}
       </div>
     </Dialog>

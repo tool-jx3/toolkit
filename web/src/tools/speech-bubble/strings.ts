@@ -387,7 +387,7 @@ export const S = {
   canvasMode: '畫布大小',
   canvasModes: {
     auto: '自動',
-    square: '方形',
+    square: '正方形',
     story: '限動',
     wide: '橫幅',
     fixed: '自訂',
@@ -548,6 +548,7 @@ export const S = {
   importReplace: '取代目前的泡泡',
   importLimit: (n: number, total: number, max: number) =>
     `泡泡最多 ${max} 個：只會加入前 ${n} 則（共 ${total} 則）。`,
+  importTooTall: '會超過畫布的高度上限，最後幾則會被切掉：可以縮小字級或間距，或分成兩張。',
   importFull: (max: number) => `泡泡已經有 ${max} 個，請改成「取代目前的泡泡」或先刪掉一些。`,
   importConfirm: (n: number) => `加入 ${n} 個泡泡`,
   imported: (n: number) => `已加入 ${n} 個泡泡。`,

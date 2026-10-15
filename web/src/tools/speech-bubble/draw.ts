@@ -166,8 +166,13 @@ function cloudCircles(w: number, h: number, fs: number, puff = 1): [number, numb
   const rx = w / 2;
   const ry = h / 2;
   const perim = Math.PI * (rx + ry);
-  /* 雲朵大小（倍數）：圓變大、數量變少 */
-  const n = Math.max(8, Math.min(22, Math.round(perim / (fs * 1.35 * puff))));
+  /*
+   * 雲朵大小（倍數）：圓變大、數量變少。小於 1 倍時數量的上限跟著放寬（1 倍 22 個、0.5 倍 44 個），
+   * 長的泡泡數量到上限時圓也跟著倍數變小，和外觀範圍（造型的 overflow × 倍數）一致（規格 7.4 F60）。
+   * 1 倍以上照舊（1 倍以上數量本來就少，到不了上限）。
+   */
+  const cap = Math.max(22, Math.round(22 / puff));
+  const n = Math.max(8, Math.min(cap, Math.round(perim / (fs * 1.35 * puff))));
   const rb = Math.max(fs * 0.55 * puff, (perim / n) * 0.62);
   const out: [number, number, number][] = [];
   for (let i = 0; i < n; i++) {

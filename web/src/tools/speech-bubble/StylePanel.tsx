@@ -92,12 +92,17 @@ function StylePresets() {
     toast({ title: S.appliedStyle(s.name), tone: 'success' });
   };
 
+  /** 已經存滿了：說明（不打開、或關掉命名的對話框；規格 7.4） */
+  const full = (): boolean => {
+    if (savedStyles().length < MAX_SAVED_STYLES) return false;
+    toast({ title: S.styleLimit(MAX_SAVED_STYLES), tone: 'warning' });
+    setSaving(false);
+    return true;
+  };
+
   const save = () => {
+    if (full()) return;
     const cur = savedStyles();
-    if (cur.length >= MAX_SAVED_STYLES) {
-      toast({ title: S.styleLimit(MAX_SAVED_STYLES), tone: 'warning' });
-      return;
-    }
     const n = cleanStyleName(name) || S.styleNameDefault;
     const style: SavedStyle = { ...captureStyle(useSb.getState().data), id: newStyleId(), name: n };
     usePrefs.getState().patch({ styles: [...cur, style] });
@@ -111,21 +116,19 @@ function StylePresets() {
   };
 
   const importFile = async () => {
+    if (full()) return;
     const [file] = await pickFiles({ accept: '.json,application/json' });
     if (!file) return;
     try {
       const { style, image } = parseStyleFile(await file.text());
+      /* 先看還能不能存，再把背景圖放進圖片庫（存滿時不留下沒人用的圖） */
+      if (full()) return;
       if (image) {
         const blob = await (await fetch(image)).blob();
         const added = await addImageFile(assets, blob, { maxSide: 2048 });
         style.card.image = added.ref.id;
       }
-      const cur = savedStyles();
-      if (cur.length >= MAX_SAVED_STYLES) {
-        toast({ title: S.styleLimit(MAX_SAVED_STYLES), tone: 'warning' });
-        return;
-      }
-      usePrefs.getState().patch({ styles: [...cur, style] });
+      usePrefs.getState().patch({ styles: [...savedStyles(), style] });
       toast({ title: S.importedStyle(style.name), tone: 'success' });
     } catch (e) {
       toast({
@@ -199,6 +202,7 @@ function StylePresets() {
           size="sm"
           icon={<Save />}
           onClick={() => {
+            if (full()) return;
             setName(S.styleNameDefault);
             setSaving(true);
           }}

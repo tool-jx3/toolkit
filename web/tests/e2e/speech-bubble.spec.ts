@@ -1202,6 +1202,183 @@ test.describe('對話卡片（2026-10）', () => {
   });
 });
 
+/* ---------- 驗證後的修正（規格 7.4） ---------- */
+
+test.describe('驗證後的修正（7.4）', () => {
+  const importText = (page: Page) => page.getByTestId('import-text');
+  const dateOption = (page: Page, name: string) =>
+    page.getByTestId('import-dialog').getByRole('radio', { name, exact: true });
+
+  test('整段貼上：重開對話框時「日期時間」回到「只有時間」；Discord 的「阿明今天 14:30」與三行複製', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-duo');
+    await page.getByRole('button', { name: '整段貼上…' }).click();
+    await importText(page).fill('阿明今天 14:30\n今天要開團嗎？\n小雨今天 14:31\n要！');
+    await expect(page.getByTestId('import-status')).toHaveText('辨識為「Discord 訊息」，共 2 則。');
+    const sp = page.getByTestId('import-speakers').locator('li');
+    await expect(sp).toHaveCount(2);
+    await expect(sp.nth(0)).toContainText('阿明');
+    await expect(sp.nth(1)).toContainText('小雨');
+    await expect(dateOption(page, '只有時間')).toBeChecked();
+    await dateOption(page, '不帶入').click();
+    await expect(dateOption(page, '不帶入')).toBeChecked();
+    await page.getByRole('button', { name: '取消' }).click();
+    await expect(page.getByTestId('import-dialog')).toHaveCount(0);
+    /* 重開：都回到預設 */
+    await page.getByRole('button', { name: '整段貼上…' }).click();
+    await expect(importText(page)).toHaveValue('');
+    await importText(page).fill('阿明\n—\n今天 21:03\n第一則\n小雨\n—\n今天 21:05\n收到');
+    await expect(page.getByTestId('import-status')).toHaveText('辨識為「Discord 訊息」，共 2 則。');
+    await expect(dateOption(page, '只有時間')).toBeChecked();
+    await page.getByTestId('import-confirm').click();
+    const d = await data(page);
+    expect(d.bubbles.map((b) => [b.speaker, b.time, b.text])).toEqual([
+      ['阿明', '今天 21:03', '第一則'],
+      ['小雨', '今天 21:05', '收到'],
+    ]);
+    expect(errors).toEqual([]);
+  });
+
+  test('整段貼上：加入後會超過畫布的高度上限時先說明（不擋加入）', async ({ page }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-duo');
+    await page.getByRole('button', { name: '整段貼上…' }).click();
+    const lines = Array.from(
+      { length: 40 },
+      (_, i) =>
+        `21:${String(i).padStart(2, '0')}\t${i % 2 ? '小雨' : '阿明'}\t第 ${i + 1} 則：今天的團要開嗎？我已經準備好角色卡了`,
+    );
+    await importText(page).fill(lines.slice(0, 5).join('\n'));
+    await expect(page.getByTestId('import-status')).toContainText('共 5 則');
+    await expect(page.getByTestId('import-too-tall')).toHaveCount(0);
+    await importText(page).fill(lines.join('\n'));
+    await expect(page.getByTestId('import-status')).toContainText('共 40 則');
+    await expect(page.getByTestId('import-too-tall')).toHaveText(
+      '會超過畫布的高度上限，最後幾則會被切掉：可以縮小字級或間距，或分成兩張。',
+    );
+    await expect(page.getByTestId('import-confirm')).toBeEnabled();
+    await page.getByTestId('import-confirm').click();
+    expect((await data(page)).bubbles).toHaveLength(40);
+    expect((await scene(page)).height).toBe(4096);
+    expect(errors).toEqual([]);
+  });
+
+  test('樣式預設已經 30 組：存成樣式預設不打開命名對話框、匯入不選檔', async ({ page }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-duo');
+    /* 先存一組，再把清單撐到 30 組（存在這個瀏覽器的偏好） */
+    await tab(page, '樣式');
+    await page.getByRole('button', { name: '存成樣式預設…' }).click();
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: '存成樣式預設', exact: true })
+      .click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.evaluate((key) => {
+      const raw = JSON.parse(localStorage.getItem(key) ?? 'null');
+      const one = raw.state.data.styles[0];
+      raw.state.data.styles = Array.from({ length: 30 }, (_, i) => ({
+        ...one,
+        id: `st${i}`,
+        name: `樣式 ${i + 1}`,
+      }));
+      localStorage.setItem(key, JSON.stringify(raw));
+    }, `${STORAGE_KEY}:preview`);
+    await page.reload();
+    await page.getByRole('button', { name: '繼續編輯' }).click();
+    await tab(page, '樣式');
+    await expect(page.locator('[data-style-preset]')).toHaveCount(35);
+    let chooser = false;
+    page.on('filechooser', () => {
+      chooser = true;
+    });
+    await page.getByRole('button', { name: '存成樣式預設…' }).click();
+    await expect(page.getByText('樣式預設最多 30 組，請先刪掉不用的。').first()).toBeVisible();
+    await expect(page.getByRole('dialog', { name: '存成樣式預設' })).toHaveCount(0);
+    await page.getByRole('button', { name: '匯入樣式檔…' }).click();
+    await page.waitForTimeout(300);
+    expect(chooser).toBe(false);
+    expect(errors).toEqual([]);
+  });
+
+  test('內文貼上超過 400 字：放進放得下的部分並說明（共用編輯器）', async ({ page }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-blue');
+    await setText(page, '字'.repeat(395));
+    await page.waitForTimeout(450);
+    await text(page).evaluate((el) => {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let last: Text | null = null;
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) last = n as Text;
+      (el as HTMLElement).focus();
+      const r = document.createRange();
+      r.setStart(last as Text, (last as Text).length);
+      r.collapse(true);
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(r);
+    });
+    await page.waitForTimeout(80);
+    await text(page).evaluate((el) => {
+      const dt = new DataTransfer();
+      dt.setData('text/plain', 'A'.repeat(50));
+      el.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
+      );
+    });
+    await expect.poll(async () => ((await data(page)).bubbles[0].text as string).length).toBe(400);
+    expect(((await data(page)).bubbles[0].text as string).endsWith('字AAAAA')).toBe(true);
+    await expect(page.getByText('超過上限的部分沒有貼上（最多 400 字）。').first()).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test('雲朵大小 0.5、留白 0：長的想法泡泡頂端不會被切平（和 1 倍一樣只碰到邊）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await choose(page, 'comic-thought');
+    const topRow = async (puff: number) => {
+      const d = await data(page);
+      const b0 = d.bubbles[0] as Record<string, unknown>;
+      await set(page, {
+        idle: 'none',
+        margin: 0,
+        bubbles: [
+          {
+            ...b0,
+            title: '',
+            text: '幫我看一下角色卡\n第二行比較長的文字喔',
+            fmt: { ...(b0.fmt as object), cloudPuff: puff },
+          },
+        ],
+      });
+      const s = await scene(page);
+      await seek(page, s.ready + 0.2);
+      await page.waitForTimeout(150);
+      return canvas(page).evaluate((el) => {
+        const c = el as HTMLCanvasElement;
+        const row = c.getContext('2d')!.getImageData(0, 0, c.width, 1).data;
+        let n = 0;
+        for (let i = 3; i < row.length; i += 4) if (row[i] > 128) n++;
+        return n;
+      });
+    };
+    const one = await topRow(1);
+    const half = await topRow(0.5);
+    expect(half).toBeLessThanOrEqual(one + 6);
+    expect(errors).toEqual([]);
+  });
+
+  test('畫布大小的按鈕字是「正方形」', async ({ page }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-duo');
+    await tab(page, '版面');
+    await expect(page.getByRole('radio', { name: '正方形（1:1）' })).toHaveText('正方形');
+    expect(errors).toEqual([]);
+  });
+});
+
 /* ---------- 部分文字格式（2026-10 第二步） ---------- */
 
 test.describe('部分文字格式（2026-10 第二步）', () => {

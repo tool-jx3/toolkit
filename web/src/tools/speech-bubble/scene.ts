@@ -414,6 +414,24 @@ function sceneFontLoads(
   return [body, bodyBold, ...extra.values()].map((x) => ({ ...x, text: x.text || '永' }));
 }
 
+/**
+ * 整段貼上加入之前的估算（規格 7.4 D21）：加入後自動或比例畫布會不會超過上限（最後幾則會被裁掉）。
+ * 自訂畫布不估（放不下本來就會提示）。字型還沒載好時用替代字型量，是估計值。
+ */
+export function importOverflows(
+  d: SbData,
+  bubbles: readonly Bubble[],
+  mode: 'append' | 'replace',
+  measure: MeasureFn = canvasMeasure,
+): boolean {
+  if (d.canvasMode === 'fixed' || !bubbles.length) return false;
+  const next: SbData = {
+    ...d,
+    bubbles: mode === 'replace' ? [...bubbles] : [...d.bubbles, ...bubbles],
+  };
+  return buildScene(next, measure).overflow;
+}
+
 export async function loadSceneFonts(scene: Pick<Scene, 'fontLoads'>): Promise<void> {
   await Promise.all(
     scene.fontLoads.map((f) => ensureFont(f.family, f.weight, f.text).catch(() => false)),
@@ -623,7 +641,9 @@ function drawNotes(ctx: Ctx2D, scene: Scene): void {
     ctx.strokeStyle = v.color;
     ctx.lineWidth = 1;
     ctx.setLineDash(v.style === 'dashed' ? [6, 4] : []);
-    const ys = v.style === 'double' ? [v.y + 0.5, v.y + 3.5] : [v.y + 0.5];
+    /* 1 px 的線對齊到像素（有頁首時位置不是整數，不對齊會畫成兩列淡線；規格 7.4 F63） */
+    const y0 = Math.round(v.y);
+    const ys = v.style === 'double' ? [y0 + 0.5, y0 + 3.5] : [y0 + 0.5];
     ctx.beginPath();
     for (const y of ys) {
       ctx.moveTo(v.x0, y);
