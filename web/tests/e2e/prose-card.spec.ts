@@ -588,7 +588,7 @@ test('段落對齊（選取的段落）、整體對齊、行距、本文字級',
   expect(errors).toEqual([]);
 });
 
-test('貼上只取純文字；格式跟著游標前面的字', async ({ page }) => {
+test('貼上、拖放只取純文字；格式跟著游標前面的字', async ({ page }) => {
   const errors = await open(page);
   await setBody(page, '甲乙');
   await page.waitForTimeout(450);
@@ -608,6 +608,31 @@ test('貼上只取純文字；格式跟著游標前面的字', async ({ page }) 
   const s = await state(page);
   expect(s.body.lines[0].runs).toEqual([{ text: '甲X', bold: true, color: '' }]);
   expect(await caretOffset(page)).toBe(4);
+  /* 拖放：純文字放在放開的位置（最後一段的最後面） */
+  await page.waitForTimeout(450);
+  await editor(page).evaluate((el) => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let last: Text | null = null;
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) last = n as Text;
+    const r = document.createRange();
+    r.setStart(last as Text, (last as Text).length);
+    r.collapse(true);
+    const box = r.getBoundingClientRect();
+    const dt = new DataTransfer();
+    dt.setData('text/plain', 'Z');
+    dt.setData('text/html', '<i>Z</i>');
+    el.dispatchEvent(
+      new DragEvent('drop', {
+        dataTransfer: dt,
+        clientX: box.right + 1,
+        clientY: box.top + box.height / 2,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  await expect.poll(() => bodyText(page)).toBe('甲X\nY乙Z');
+  expect((await state(page)).body.lines[1].runs.every((r) => !r.italic)).toBe(true);
   expect(errors).toEqual([]);
 });
 
@@ -643,6 +668,30 @@ test('復原／重做：打字中也可以，游標放在改變的地方；頁�
   await page.waitForTimeout(450);
   await title.press('ControlOrMeta+z');
   await expect.poll(async () => (await state(page)).title).toBe('霧港燈塔');
+  expect(errors).toEqual([]);
+});
+
+test('輸入法：組字中不讀回、組字中的 Ctrl＋Z 不動到內容；組完的字可以復原、游標接著打', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await setBody(page, '甲乙');
+  await page.waitForTimeout(450);
+  await caretAfter(page, '甲乙');
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.imeSetComposition', { text: 'ㄅ', selectionStart: 1, selectionEnd: 1 });
+  await cdp.send('Input.imeSetComposition', { text: 'ㄅㄚ', selectionStart: 2, selectionEnd: 2 });
+  expect(await bodyText(page)).toBe('甲乙');
+  await page.keyboard.press('ControlOrMeta+z');
+  expect(await bodyText(page)).toBe('甲乙');
+  await cdp.send('Input.insertText', { text: '八' });
+  await expect.poll(() => bodyText(page)).toBe('甲乙八');
+  await page.waitForTimeout(450);
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(() => bodyText(page)).toBe('甲乙');
+  expect(await caretOffset(page)).toBe(2);
+  await page.keyboard.type('丙');
+  await expect.poll(() => bodyText(page)).toBe('甲乙丙');
   expect(errors).toEqual([]);
 });
 
@@ -972,6 +1021,26 @@ test('自動儲存與還原（含圖片）；專案檔存了再開', async ({ pa
   });
   await expect.poll(() => bodyText(page)).toBe('保存的本文');
   await expect(toast(page, '已開啟專案檔')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('重設（可以復原）；快捷鍵說明', async ({ page }) => {
+  const errors = await open(page);
+  await setBody(page, '要被重設的內容');
+  await page.waitForTimeout(450);
+  await page.getByRole('button', { name: '專案' }).click();
+  await page.getByRole('menuitem', { name: /^重設/ }).click();
+  await expect(page.getByRole('alertdialog')).toContainText('全部重來？');
+  await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
+  await expect.poll(async () => (await state(page)).body.lines.length).toBe(11);
+  await page.getByRole('button', { name: /^復原/ }).click();
+  await expect.poll(() => bodyText(page)).toBe('要被重設的內容');
+  /* 快捷鍵說明 */
+  await page.getByRole('button', { name: '快捷鍵（?）' }).click();
+  const help = page.getByRole('dialog', { name: '快捷鍵' });
+  await expect(help).toBeVisible();
+  for (const t of ['復原', '重做', '粗體', '斜體', '刪除線', '分頁（從游標處換到下一頁）'])
+    await expect(help).toContainText(t);
   expect(errors).toEqual([]);
 });
 

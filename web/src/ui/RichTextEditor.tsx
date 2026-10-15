@@ -655,7 +655,11 @@ export function RichTextEditor({
   });
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.nativeEvent.isComposing) return;
+    /* 組字中：Ctrl／⌘ 組合鍵（例如復原）不往外傳，交給輸入法（工具的復原不會在組字中改掉畫面） */
+    if (e.nativeEvent.isComposing || composing.current) {
+      if (e.ctrlKey || e.metaKey) e.stopPropagation();
+      return;
+    }
     const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
     if (!mod) return;
     const key = e.key.toLowerCase();
@@ -959,7 +963,12 @@ export function RichTextEditor({
           suppressContentEditableWarning
           spellCheck={false}
           data-rich-editor="full"
-          onInput={commit}
+          onInput={(e) => {
+            /* 組字中不讀回；不是組字中的輸入一定已經結束組字（瀏覽器漏送 compositionend 時也不會卡住） */
+            if ((e.nativeEvent as InputEvent).isComposing) return;
+            composing.current = false;
+            commit();
+          }}
           onCompositionStart={() => {
             composing.current = true;
           }}
@@ -976,6 +985,7 @@ export function RichTextEditor({
           }}
           onBlur={() => {
             focused.current = false;
+            composing.current = false;
             onBlur?.();
           }}
           className={cn(
