@@ -1,7 +1,7 @@
 /**
  * 編輯面板共用的小元件：一組兩色（可「自動」、可對調）、離開才記一步的文字欄、留空＝自動的數字欄。
  */
-import { ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight, GripVertical } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { ColorField, IconButton, OptionalNumberInput, TextArea, TextInput } from '@/ui';
 import type { ColorValue } from '../model/types';
@@ -107,11 +107,14 @@ export function ColorPair({
 export function LiveText({
   value,
   onChange,
+  onCommit,
   multiline,
   ...rest
 }: {
   value: string;
   onChange: (v: string) => void;
+  /** 離開欄位時（記成一步之前）：例如把空白的名稱補上預設名 */
+  onCommit?: () => void;
   multiline?: boolean;
   placeholder?: string;
   'aria-label'?: string;
@@ -133,6 +136,7 @@ export function LiveText({
     },
     onBlur: () => {
       editing.current = false;
+      onCommit?.();
       gesture.commit();
       setDraft(value);
     },
@@ -161,7 +165,23 @@ export function LiveText({
   );
 }
 
-/** 留空＝自動的數字欄（0／null＝自動） */
+/**
+ * 清單列的拖曳把手：滑鼠從整列都能拖，觸控只能從把手開始（整列留給捲動；共用 SortableList 的規則）。
+ */
+export function DragHandle({ title }: { title: string }) {
+  return (
+    <span
+      data-drag-handle
+      aria-hidden
+      title={title}
+      className="-ml-1 flex shrink-0 cursor-grab touch-none text-muted [&_svg]:size-4"
+    >
+      <GripVertical />
+    </span>
+  );
+}
+
+/** 留空＝自動的數字欄（0／null＝自動；placeholder 預設「自動」，批次面板不一致時是「混合」） */
 export function AutoNumber({
   value,
   onChange,
@@ -169,6 +189,7 @@ export function AutoNumber({
   max,
   step = 1,
   unit,
+  placeholder = S.char.sizeAuto,
   ...rest
 }: {
   value: number | null;
@@ -177,6 +198,7 @@ export function AutoNumber({
   max?: number;
   step?: number;
   unit?: string;
+  placeholder?: string;
   'aria-label'?: string;
   id?: string;
   className?: string;
@@ -190,7 +212,7 @@ export function AutoNumber({
       max={max}
       step={step}
       unit={unit}
-      placeholder={S.char.sizeAuto}
+      placeholder={placeholder}
       size="sm"
     />
   );

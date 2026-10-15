@@ -2,7 +2,8 @@
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 畫布的指標操作（原作 stage 的 pointer 處理）：
- * - 角色：拖曳（碰撞推擠、對齊格線、夾在畫布內）、選取中的整組拖曳、點一下＝聚焦、Shift＋點＝加入／移出選取、
+ * - 角色：拖曳（碰撞推擠、對齊格線、夾在畫布內）、選取中的整組拖曳（保持隊形、畫布邊緣有阻力）、
+ *   拖曳中走快速路徑（live：只移動角色與相連的線，放開才寫回專案）、點一下＝聚焦、Shift＋點＝加入／移出選取、
  *   長按約 0.5 秒＝編輯（建立關係模式中＝指向自己）、按兩下＝編輯。
  * - 線：點一下＝編輯；線上的標籤拖曳＝沿線移動；自我關係的縮小頭貼拖曳＝繞著角色轉。
  * - 圖例：點一項＝只看這種關係／聚焦這個角色（再點取消）。
@@ -10,8 +11,8 @@
  * - 滾輪＝以游標為中心縮放；滑過角色或線＝暫時聚焦。
  */
 import { clampToCanvas, sheetCtx } from '../engine/geom';
-import { pushAwayFrom } from '../logic/layout';
-import type { Sheet } from '../model/types';
+import { groupDragTo, pushAwayFrom } from '../logic/layout';
+import type { Char, Sheet } from '../model/types';
 import { endLink, linkClick, linkSelf } from '../state/actions';
 import {
   activeSheet,
@@ -19,9 +20,10 @@ import {
   holdHistory,
   releaseHistory,
   setUi,
-  useProject,
+  updateProject,
   useUi,
 } from '../state/store';
+import { beginLive, endLive, liveSheet, scheduleLiveFrame } from './live';
 import { kickSim, setSimPinned } from './sim';
 import { setView, toCanvas, zoomBy } from './view';
 
@@ -88,14 +90,23 @@ export interface CanvasInputHooks {
 const closestEl = (t: EventTarget | null, sel: string): Element | null =>
   t instanceof Element ? t.closest(sel) : null;
 
-const curSheet = (): Sheet => activeSheet();
+/** 畫面上的位置（拖曳中、磁鐵跑著時是工作副本） */
+const curSheet = (): Sheet => liveSheet() ?? activeSheet();
 
-/** 改目前分頁的角色（拖曳中；外面包 holdHistory） */
-function mutateChars(fn: (s: Sheet) => void): void {
-  useProject.getState().update((p) => {
+/** 改目前的分頁（標籤、縮小頭貼的拖曳；外面包 holdHistory） */
+function mutateSheet(fn: (s: Sheet) => void): void {
+  updateProject((p) => {
     const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     if (s) fn(s as Sheet);
   });
+}
+
+/** 對齊格線（原作 snapNodeToGrid） */
+function snapToGrid(s: Sheet, c: { x: number; y: number }): void {
+  if (!s.settings.gridSnap) return;
+  const g = s.settings.gridStep >= 10 ? s.settings.gridStep : 50;
+  c.x = Math.round(c.x / g) * g;
+  c.y = Math.round(c.y / g) * g;
 }
 
 export class CanvasInput {
@@ -147,6 +158,7 @@ export class CanvasInput {
 
   private endHistory(): void {
     setSimPinned(new Set());
+    endLive('drag');
     releaseHistory('drag');
   }
 
@@ -320,6 +332,7 @@ export class CanvasInput {
     if (d.kind === 'node') {
       if (useUi.getState().link || d.longDone) return;
       holdHistory('drag');
+      beginLive('drag');
       setSimPinned(new Set(d.start.keys()));
       kickSim(0.3);
     } else if (d.kind === 'label' || d.kind === 'self') {
@@ -333,35 +346,31 @@ export class CanvasInput {
     const v = useUi.getState().view;
     if (d.kind === 'node') {
       if (useUi.getState().link || d.longDone) return;
+      const s = liveSheet();
+      if (!s) return;
       const dx = (e.clientX - d.sx) / v.zoom;
       const dy = (e.clientY - d.sy) / v.zoom;
-      mutateChars((s) => {
-        const ctx = sheetCtx(s);
-        if (d.start.size === 1) {
-          const c = s.chars.find((x) => x.id === d.id);
-          const st = d.start.get(d.id);
-          if (!c || !st) return;
-          let nx = st.x + dx;
-          let ny = st.y + dy;
-          if (s.settings.gridSnap) {
-            const g = s.settings.gridStep >= 10 ? s.settings.gridStep : 50;
-            nx = Math.round(nx / g) * g;
-            ny = Math.round(ny / g) * g;
-          }
-          c.x = nx;
-          c.y = ny;
-          clampToCanvas(ctx, c);
-          if (!s.settings.noCollision) pushAwayFrom(ctx, c);
-        } else {
-          for (const c of s.chars) {
-            const st = d.start.get(c.id);
-            if (!st) continue;
-            c.x = st.x + dx;
-            c.y = st.y + dy;
-            clampToCanvas(ctx, c);
-          }
+      const ctx = sheetCtx(s);
+      const c = s.chars.find((x) => x.id === d.id);
+      const st = d.start.get(d.id);
+      if (!c || !st) return;
+      const to = { x: st.x + dx, y: st.y + dy };
+      snapToGrid(s, to);
+      if (d.start.size === 1) {
+        c.x = to.x;
+        c.y = to.y;
+        clampToCanvas(ctx, c);
+        if (!s.settings.noCollision) pushAwayFrom(ctx, c);
+      } else {
+        /* 整組：保持隊形、只加邊緣阻力（原作的 getOverflow／resist），不推人 */
+        const members: { c: Char; dx: number; dy: number }[] = [];
+        for (const m of s.chars) {
+          const ms = d.start.get(m.id);
+          if (ms && m !== c) members.push({ c: m, dx: ms.x - st.x, dy: ms.y - st.y });
         }
-      });
+        groupDragTo(ctx, c, members, to.x, to.y);
+      }
+      scheduleLiveFrame();
       kickSim(0.3);
       return;
     }
@@ -383,7 +392,7 @@ export class CanvasInput {
         }
       }
       const t = Math.min(0.95, Math.max(0.05, best));
-      mutateChars((s) => {
+      mutateSheet((s) => {
         const r = s.rels.find((x) => x.id === d.relId);
         if (r) r.labelT = t;
       });
@@ -391,7 +400,7 @@ export class CanvasInput {
     }
     if (d.kind === 'self') {
       const pt = toCanvas(e.clientX, e.clientY);
-      mutateChars((s) => {
+      mutateSheet((s) => {
         const c = s.chars.find((x) => x.id === d.charId);
         if (!c) return;
         const ang = Math.atan2(pt.y - c.y, pt.x - c.x);
@@ -433,10 +442,9 @@ export class CanvasInput {
     this.drag = null;
     this.clearTimers();
     if (d.moved) {
-      if (d.kind === 'node' || d.kind === 'label' || d.kind === 'self') {
-        this.endHistory();
-        if (d.kind === 'node') kickSim(0.3);
-      } else if (d.mode === 'box') {
+      if (d.kind === 'node') this.dropNode(d);
+      else if (d.kind === 'label' || d.kind === 'self') this.endHistory();
+      else if (d.mode === 'box') {
         const ids = this.boxIds(d, e);
         const u0 = useUi.getState();
         this.hooks.onBox(null, []);
@@ -447,6 +455,18 @@ export class CanvasInput {
       return;
     }
     this.tap(d, e);
+  }
+
+  /** 放開角色：磁鐵關著＝單獨拖曳的再推一次（原作）、寫回；開著＝加溫，停下時才寫回 */
+  private dropNode(d: Extract<Drag, { kind: 'node' }>): void {
+    const s = liveSheet();
+    const active = !useUi.getState().link && !d.longDone;
+    if (s && active && !s.settings.snapMode && d.start.size === 1 && !s.settings.noCollision) {
+      const c = s.chars.find((x) => x.id === d.id);
+      if (c) pushAwayFrom(sheetCtx(s), c);
+    }
+    this.endHistory();
+    if (active) kickSim(0.6);
   }
 
   private boxIds(d: Extract<Drag, { kind: 'empty' }>, e: PointerEvent): number[] {

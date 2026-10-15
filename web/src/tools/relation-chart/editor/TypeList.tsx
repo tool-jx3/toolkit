@@ -2,17 +2,19 @@
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 關係類型清單（原作的「關係列表」）：顯示核取方塊（Alt＋點＝只顯示這一種）、線型樣本、名稱、編輯鈕；
- * 點一列＝進入這種關係的建立關係模式（再點一次結束）；拖曳換順序（圖例照這個順序）。
+ * 點一列＝進入這種關係的建立關係模式（再點一次結束）；拖曳換順序（圖例照這個順序；觸控從列左邊的把手拖）。
  */
 import { Pencil, Plus } from 'lucide-react';
 import { IconButton, SortableList } from '@/ui';
 import type { SheetCtx } from '../engine/geom';
+import { typeLabel } from '../model/factory';
 import type { RelType } from '../model/types';
 import { addType, moveType, startLink, toggleTypeHidden } from '../state/actions';
 import { holdHistory, releaseHistory, setUi, useUi } from '../state/store';
 import { S } from '../strings';
 import { useCtx, useSheet } from './hooks';
 import { TypeSample } from './thumbs';
+import { DragHandle } from './widgets';
 
 function Row({ t, ctx, active }: { t: RelType; ctx: SheetCtx; active: boolean }) {
   return (
@@ -21,6 +23,7 @@ function Row({ t, ctx, active }: { t: RelType; ctx: SheetCtx; active: boolean })
       data-testid="type-row"
       data-type-id={t.id}
     >
+      <DragHandle title={S.types.dragTip} />
       <input
         type="checkbox"
         className="size-4 shrink-0 accent-(--accent)"
@@ -39,7 +42,7 @@ function Row({ t, ctx, active }: { t: RelType; ctx: SheetCtx; active: boolean })
       <span
         className={`min-w-0 flex-1 truncate text-sm ${t.hidden ? 'text-muted line-through' : ''}`}
       >
-        {t.label.replace(/\n+/g, ' ') || S.types.unnamed(0)}
+        {typeLabel(t, ctx.sheet.types)}
       </span>
       <IconButton
         size="sm"

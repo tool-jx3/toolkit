@@ -11,6 +11,7 @@ import { forceStep } from '@/tools/relation-chart/logic/force';
 import {
   applyLayout,
   fitCanvasToContent,
+  groupDragTo,
   reorderKeepSlots,
   resizeCanvas,
   separateAll,
@@ -36,6 +37,7 @@ import {
   makeChar,
   makeRel,
   makeType,
+  typeLabel,
   unnamedTypeLabel,
 } from '@/tools/relation-chart/model/factory';
 import {
@@ -119,6 +121,15 @@ describe('讀檔整理（3.8）', () => {
   it('最小未用的編號', () => {
     expect(smallestFree([1, 2, 4])).toBe(3);
     expect(smallestFree([])).toBe(1);
+  });
+});
+
+describe('關係類型的名稱（F083）', () => {
+  it('名稱清空＝「未命名關係（現有最大編號＋1）」', () => {
+    const types = [makeType(1, '未命名關係2'), makeType(2, ''), makeType(3, '友情\n好友')];
+    expect(typeLabel(types[1], types)).toBe('未命名關係3');
+    expect(typeLabel(types[2], types)).toBe('友情 好友');
+    expect(typeLabel(makeType(4, '  '), [])).toBe('未命名關係1');
   });
 });
 
@@ -297,6 +308,33 @@ describe('排列（3.3）', () => {
   });
 });
 
+describe('整組拖曳（F072）', () => {
+  it('拖到畫布外：保持隊形、只加邊緣阻力（原作 getOverflow × 0.35 兩次），可以進出血區', () => {
+    /* 驗證者 m4d：原作把甲(350,360)、丙(600,760) 拖到 (1200,1300) → 甲(808,700)、丙(1058,1100) */
+    const s = sheetWith(3);
+    const [a, b, c] = s.chars;
+    Object.assign(a, { x: 350, y: 360 });
+    Object.assign(b, { x: 750, y: 300 });
+    Object.assign(c, { x: 600, y: 760 });
+    const ctx = sheetCtx(s);
+    groupDragTo(ctx, c, [{ c: a, dx: a.x - c.x, dy: a.y - c.y }], 1200, 1300);
+    expect([c, a, b].map((k) => [Math.round(k.x), Math.round(k.y)])).toEqual([
+      [1058, 1100],
+      [808, 700],
+      [750, 300],
+    ]);
+  });
+
+  it('在畫布內：照指標移動、不推人', () => {
+    const s = sheetWith(2);
+    const [a, b] = s.chars;
+    Object.assign(a, { x: 300, y: 300 });
+    Object.assign(b, { x: 400, y: 300 });
+    groupDragTo(sheetCtx(s), a, [{ c: b, dx: 100, dy: 0 }], 500, 520);
+    expect([a.x, a.y, b.x, b.y]).toEqual([500, 520, 600, 520]);
+  });
+});
+
 describe('對齊與分佈（F110）', () => {
   it('選取的角色彼此對齊；均分至少 3 位', () => {
     const s = sheetWith(3);
@@ -432,6 +470,21 @@ describe('原作的專案檔（3.9）', () => {
       crop: { zoom: 1.5, ox: 10, oy: -5 },
     });
     expect(r.skipped).toEqual(expect.arrayContaining(['便利貼']));
+  });
+
+  it('文件字型（docFont）：對應到本站的字型；匯入的字型檔對應不到 → 黑體並記下', () => {
+    expect(convertLegacy({ ...legacy, docFont: 'kai' })).toMatchObject({
+      font: 'kai',
+      fontNote: null,
+    });
+    expect(convertLegacy(legacy)).toMatchObject({ font: 'sans', fontNote: null });
+    expect(convertLegacy({ ...legacy, docFont: 'nope' })).toMatchObject({
+      font: 'sans',
+      fontNote: null,
+    });
+    const r = convertLegacy({ ...legacy, docFont: 'f:abc123' });
+    expect(r.font).toBe('sans');
+    expect(r.fontNote).toContain('匯入的文件字型');
   });
 
   it('原作的裁切換算成圖片在框裡的位置', () => {

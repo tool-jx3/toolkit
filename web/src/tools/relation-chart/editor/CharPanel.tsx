@@ -19,6 +19,7 @@ import {
   type SheetCtx,
 } from '../engine/geom';
 import { CHAR_ICONS } from '../engine/icons';
+import { typeLabel } from '../model/factory';
 import type { Char, Sheet } from '../model/types';
 import {
   addLabel,
@@ -229,16 +230,17 @@ function AvatarBlock({ c, ctx, sheet }: { c: Char; ctx: SheetCtx; sheet: Sheet }
         </div>
       ) : null}
       <p className="text-xs text-muted">{S.char.avatarNote}</p>
-      <Toggle
-        checked={!c.noAvatar}
-        onCheckedChange={(v) =>
-          updateCharSeparate(c.id, (d) => {
-            d.noAvatar = !v;
-          })
-        }
-        label={S.char.showAvatar}
-        data-testid="char-show-avatar"
-      />
+      <div data-testid="char-show-avatar">
+        <Toggle
+          checked={!c.noAvatar}
+          onCheckedChange={(v) =>
+            updateCharSeparate(c.id, (d) => {
+              d.noAvatar = !v;
+            })
+          }
+          label={S.char.showAvatar}
+        />
+      </div>
       {c.noAvatar ? <p className="text-xs text-muted">{S.char.showAvatarHint}</p> : null}
     </Block>
   );
@@ -259,8 +261,7 @@ function RelsOf({ c, sheet }: { c: Char; sheet: Sheet }) {
       {byType.map(({ t, list }) => (
         <details key={t.id} open className="rounded-md border border-border">
           <summary className="cursor-pointer px-2 py-1 text-sm">
-            {t.label.replace(/\n+/g, ' ') || S.types.unnamed(0)}{' '}
-            <span className="text-xs text-muted">{list.length}</span>
+            {typeLabel(t, sheet.types)} <span className="text-xs text-muted">{list.length}</span>
           </summary>
           <ul className="px-1 pb-1">
             {list.map((r) => {
@@ -464,16 +465,17 @@ export function CharPanel({ id }: { id: number }) {
       </Block>
       <Section title={S.char.advanced} defaultOpen={false} persistKey="relation-chart:char-adv">
         <div className="flex flex-col gap-3">
-          <Toggle
-            checked={c.locked}
-            onCheckedChange={(v) =>
-              updateChar(c.id, (d) => {
-                d.locked = v;
-              })
-            }
-            label={S.char.lock}
-            data-testid="char-lock"
-          />
+          <div data-testid="char-lock">
+            <Toggle
+              checked={c.locked}
+              onCheckedChange={(v) =>
+                updateChar(c.id, (d) => {
+                  d.locked = v;
+                })
+              }
+              label={S.char.lock}
+            />
+          </div>
           <Toggle
             checked={c.relIgnore}
             onCheckedChange={(v) =>

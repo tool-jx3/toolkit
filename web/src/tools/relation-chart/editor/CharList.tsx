@@ -2,7 +2,7 @@
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 角色清單（原作的「角色列表」）：小頭像、重要度、名字、編輯鈕；點一列＝聚焦並把畫面移過去；
- * 拖曳換順序（未釘選的角色接手位置）；搜尋；角色 8 位以上而且有標籤時可以依標籤分組。
+ * 拖曳換順序（未釘選的角色接手位置；觸控從列左邊的把手拖）；搜尋；角色 8 位以上而且有標籤時可以依標籤分組。
  */
 import { Pencil, Plus, Search, Tags } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -24,6 +24,7 @@ import { S } from '../strings';
 import { useCtx, useHref, useSheet } from './hooks';
 import { CharThumb } from './thumbs';
 import { centerOnChar } from './view';
+import { DragHandle } from './widgets';
 
 function pickChar(id: number): void {
   const u = useUi.getState();
@@ -37,11 +38,14 @@ function Row({
   ctx,
   href,
   selected,
+  handle,
 }: {
   c: Char;
   ctx: SheetCtx;
   href: ImageHref;
   selected: boolean;
+  /** 可以拖曳排序（分組時不行） */
+  handle?: boolean;
 }) {
   const lv = charLevel(c);
   return (
@@ -50,6 +54,7 @@ function Row({
       data-testid="char-row"
       data-char-id={c.id}
     >
+      {handle ? <DragHandle title={S.chars.dragTip} /> : null}
       <CharThumb ctx={ctx} c={c} href={href} size={26} />
       {lv ? (
         <span className="shrink-0 rounded-sm bg-surface-3 px-1 text-[10px] font-semibold tabular-nums text-muted">
@@ -215,7 +220,9 @@ export function CharList() {
             onMove={(from, to) => reorderChar(from, to)}
             onMoveStart={() => holdHistory('list')}
             onMoveEnd={() => releaseHistory('list')}
-            renderItem={(c) => <Row c={c} ctx={ctx} href={href} selected={selSet.has(c.id)} />}
+            renderItem={(c) => (
+              <Row c={c} ctx={ctx} href={href} selected={selSet.has(c.id)} handle />
+            )}
             empty={S.chars.empty}
           />
         )}

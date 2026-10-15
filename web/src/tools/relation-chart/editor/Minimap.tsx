@@ -1,13 +1,15 @@
 /**
  * 小地圖：畫布縮圖、角色點、目前看得到的範圍框；點／拖＝移動視角、滾輪＝縮放、×＝關閉。
+ * 拖曳與磁鐵跑著時角色點跟著工作副本走（最多每 120 ms 一次）。
  */
 import { X } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import { charRingColor, PALETTES, sheetCtx } from '../engine/geom';
 import type { Sheet } from '../model/types';
 import { setPrefs, useUi } from '../state/store';
 import { S } from '../strings';
-import { centerOn, hostRect, zoomBy } from './view';
+import { displaySheet, liveTick, subscribeLiveTick } from './live';
+import { centerOn, zoomBy } from './view';
 
 /** 小地圖的最大尺寸（窄畫面縮小，不要蓋住太多畫布） */
 const MAX = { wide: [150, 110], narrow: [90, 66] } as const;
@@ -17,17 +19,19 @@ export function Minimap({
   pad,
   viewW,
   viewH,
+  host,
 }: {
   sheet: Sheet;
   pad: number;
   viewW: number;
   viewH: number;
+  /** 畫布框的大小（編輯畫面量好傳進來；render 裡量會強迫排版） */
+  host: { w: number; h: number };
 }) {
   const view = useUi((u) => u.view);
   const ref = useRef<SVGSVGElement>(null);
-  /* 畫布框的大小（視角一變就重畫，順便重量） */
-  const hr = hostRect();
-  const host = { w: hr?.width ?? 0, h: hr?.height ?? 0 };
+  useSyncExternalStore(subscribeLiveTick, liveTick, liveTick);
+  const chars = displaySheet(sheet).chars;
   const [maxW, maxH] = host.w && host.w < 560 ? MAX.narrow : MAX.wide;
   const k = Math.min(maxW / viewW, maxH / viewH);
   const w = Math.max(40, viewW * k);
@@ -82,7 +86,7 @@ export function Minimap({
           stroke={pal.guide}
           strokeWidth={2 / k}
         />
-        {sheet.chars.map((c) => (
+        {chars.map((c) => (
           <circle
             key={c.id}
             cx={c.x + pad}

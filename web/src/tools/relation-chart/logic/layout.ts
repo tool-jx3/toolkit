@@ -619,6 +619,53 @@ export function pushAwayFrom(ctx: SheetCtx, anchor: Char, rand: Rand = Math.rand
   }
 }
 
+export interface GroupMember {
+  c: Char;
+  /** 相對於帶頭的角色（被抓著的那位）的位置 */
+  dx: number;
+  dy: number;
+}
+
+/**
+ * 整組拖曳（原作的 getOverflow／resist）：帶頭的角色移到 (x, y)，其他人保持隊形；
+ * 整組超出畫布時只加邊緣阻力（超出量 × 0.35，算兩次），不各自夾回，可以進出血區；不推人。
+ */
+export function groupDragTo(
+  ctx: SheetCtx,
+  lead: Char,
+  members: readonly GroupMember[],
+  x: number,
+  y: number,
+): void {
+  const all: GroupMember[] = [{ c: lead, dx: 0, dy: 0 }, ...members];
+  const RESIST = 0.35;
+  const overflow = (ax: number, ay: number) => {
+    let left = 0;
+    let right = 0;
+    let top = 0;
+    let bottom = 0;
+    for (const m of all) {
+      const r = charRadius(ctx, m.c);
+      const mx = ax + m.dx;
+      const my = ay + m.dy;
+      left = Math.max(left, -(mx - r));
+      right = Math.max(right, mx + r - ctx.W);
+      top = Math.max(top, -(my - r));
+      bottom = Math.max(bottom, my + r - ctx.H);
+    }
+    return { left, right, top, bottom };
+  };
+  for (let k = 0; k < 2; k++) {
+    const o = overflow(x, y);
+    x += (o.left - o.right) * RESIST;
+    y += (o.top - o.bottom) * RESIST;
+  }
+  for (const m of all) {
+    m.c.x = x + m.dx;
+    m.c.y = y + m.dy;
+  }
+}
+
 /** 打亂座位：洗牌未釘選角色（有選取時只洗選取的）的現有位置；洗完不會全部留在原地 */
 export function shuffleSeats(pool: Char[], rand: Rand = Math.random): boolean {
   const free = pool.filter((c) => !c.locked);

@@ -8,6 +8,7 @@ import { ArrowDown, ArrowLeftRight, ArrowUpDown, Combine, Split, Trash2 } from '
 import { useState } from 'react';
 import { Button, Checkbox, Field, Segmented, Select, Slider } from '@/ui';
 import { displayName } from '../engine/geom';
+import { typeLabel } from '../model/factory';
 import {
   changeRelType,
   deleteRel,
@@ -50,7 +51,7 @@ export function RelPanel({ id }: { id: number }) {
             <ArrowDown className="size-4 text-muted" />
           )}
           {t ? <TypeSample ctx={ctx} t={t} width={64} height={20} /> : null}
-          <span>{t?.label.replace(/\n+/g, ' ') || S.types.unnamed(0)}</span>
+          <span>{t ? typeLabel(t, sheet.types) : '?'}</span>
           {r.both ? (
             <ArrowUpDown className="size-4 text-muted" />
           ) : (
@@ -66,7 +67,7 @@ export function RelPanel({ id }: { id: number }) {
             }}
             options={sheet.types.map((x) => ({
               value: String(x.id),
-              label: x.label.replace(/\n+/g, ' ') || S.types.unnamed(0),
+              label: typeLabel(x, sheet.types),
             }))}
             aria-label={S.rel.type}
             data-testid="rel-type"
@@ -153,17 +154,18 @@ export function RelPanel({ id }: { id: number }) {
           ) : null}
           {info.typeSkip ? <p className="text-xs text-muted">{S.rel.pairSkipType}</p> : null}
           <Field label={S.rel.curve}>
-            <Segmented
-              size="sm"
-              value={String(info.curve)}
-              onValueChange={(v) => setCurve(r.id, Number(v) as 0 | 1 | -1)}
-              options={[
-                { value: '0', label: S.rel.curveAuto },
-                { value: '1', label: S.rel.curvePos },
-                { value: '-1', label: S.rel.curveNeg },
-              ]}
-              data-testid="rel-curve"
-            />
+            <div data-testid="rel-curve">
+              <Segmented
+                size="sm"
+                value={String(info.curve)}
+                onValueChange={(v) => setCurve(r.id, Number(v) as 0 | 1 | -1)}
+                options={[
+                  { value: '0', label: S.rel.curveAuto },
+                  { value: '1', label: S.rel.curvePos },
+                  { value: '-1', label: S.rel.curveNeg },
+                ]}
+              />
+            </div>
           </Field>
         </Block>
       )}

@@ -13,11 +13,11 @@ import {
   parseJsonBytes,
 } from '../logic/legacy';
 import { normalizeProject, projectAssetIds } from '../model/normalize';
-import type { Avatar, Project, Sheet } from '../model/types';
+import type { Avatar, FontKey, Project, Sheet } from '../model/types';
 import { S } from '../strings';
 import { insertSheet } from './actions';
 import { avatarFromBlob, backgroundFromBlob, renderAvatar } from './images';
-import { assets, projectNow, setUi, useProject, useUi } from './store';
+import { assets, projectNow, setUi, syncProject, updateProject, useUi } from './store';
 
 /* ---------- 本工具的專案檔 ---------- */
 
@@ -50,6 +50,7 @@ let saving: { data: Project; dropped: number } | null = null;
 
 /** ProjectMenu 的 getFiles：收圖片，讀不到的記下來（getData 在這之後呼叫） */
 export async function collectProjectFiles(): Promise<{ name: string; data: Uint8Array }[]> {
+  syncProject();
   const p = projectNow();
   const ids = projectAssetIds(p);
   const files = await assets.exportFiles(ids);
@@ -86,7 +87,7 @@ export async function importOwnProject(
 
 /** 換掉整個專案（開啟專案檔、全部重設；可以復原） */
 export function replaceProject(p: Project): void {
-  useProject.getState().update((d) => {
+  updateProject((d) => {
     d.sheets = p.sheets;
     d.active = Math.min(Math.max(0, p.active), p.sheets.length - 1);
     d.labels = p.labels;
@@ -242,7 +243,7 @@ export async function importLegacy(
       } else if (read.zip) failed++;
     }
   }
-  applyLegacySheets(conv.sheets, conv.labels, conv.activeIdx, mode);
+  applyLegacySheets(conv.sheets, conv.labels, conv.activeIdx, mode, conv.font);
   return {
     sheets: conv.sheets.length,
     chars: conv.sheets.reduce((n, s) => n + s.chars.length, 0),
@@ -250,7 +251,7 @@ export async function importLegacy(
     failedImages: failed,
     noImages: !read.zip && referenced > 0,
     notSaved,
-    skipped: conv.skipped,
+    skipped: mode === 'replace' && conv.fontNote ? [...conv.skipped, conv.fontNote] : conv.skipped,
   };
 }
 
@@ -259,12 +260,15 @@ function applyLegacySheets(
   labels: { id: number; text: string }[],
   activeIdx: number,
   mode: 'append' | 'replace',
+  font: FontKey,
 ): void {
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     if (mode === 'replace') {
       p.sheets = [];
       p.labels = [];
       p.active = 0;
+      /* 文件字型跟著開進來的檔（加入為新分頁時不動；原作也是） */
+      p.font = font;
     }
     const labelMap = new Map<number, number>();
     for (const l of labels) {

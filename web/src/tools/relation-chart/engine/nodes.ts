@@ -151,7 +151,7 @@ export function nodeSvg(
       extra += `<g class="link-done-badge" pointer-events="none"><circle cx="${f1(c.x + curR * 0.74)}" cy="${f1(c.y - curR * 0.62)}" r="${Math.round(9 * k)}" fill="${ink}"/><text x="${f1(c.x + curR * 0.74)}" y="${f1(c.y - curR * 0.62 + 4 * k)}" text-anchor="middle" font-size="${Math.round(12 * k)}" font-weight="900" fill="${ctx.pal.bg}">✓</text></g>`;
     }
     if (ui.selected?.has(c.id))
-      extra += `<g class="sel-ring" pointer-events="none">${ringShape(sq, c.x, c.y, curR + 8, 'fill="none" stroke="var(--rc-accent, #7c5cff)" stroke-width="2.5" stroke-dasharray="7 5"')}</g>`;
+      extra += `<g class="sel-ring" pointer-events="none">${ringShape(sq, c.x, c.y, curR + 8, 'fill="none" stroke="#7c5cff" stroke-width="2.5" stroke-dasharray="7 5"')}</g>`;
   }
 
   let body: string;

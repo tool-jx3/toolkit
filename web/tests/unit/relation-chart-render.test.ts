@@ -167,6 +167,21 @@ describe('匯出（3.1～3.3）', () => {
     expect(sheetLayeredSvg(s, input)).toContain('<!-- 角色圖示改編自 Relationship Chart Maker');
   });
 
+  it('分層 SVG 的圖例：滑過框寫實際的色碼（獨立的 SVG 檔裡屬性不能用 var()）', () => {
+    const s = pair();
+    s.rels.push(makeRel(1, 1, 2, 10));
+    const svg = sheetLayeredSvg(s, {
+      sheets: [s],
+      font: 'sans',
+      labels: [],
+      uris: new Map(),
+      transparent: false,
+    });
+    expect(svg).toContain('legend-pill');
+    expect(svg).not.toMatch(/="var\(/);
+    expect(editorSvg(s, { href: noImg, font: 'sans' }).svg).not.toMatch(/="var\(/);
+  });
+
   it('檔名：一張分頁／多張（ZIP）、去背的 PNG', () => {
     const one = [{ name: '本篇', defNo: 1 }];
     const two = [...one, { name: '', defNo: 2 }];

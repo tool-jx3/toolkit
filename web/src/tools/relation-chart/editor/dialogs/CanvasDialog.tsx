@@ -182,24 +182,26 @@ function Body({ onDone }: { onDone: () => void }) {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end gap-3">
         <Field label={C.width}>
-          <NumberInput
-            value={rect.w}
-            min={0}
-            max={100000}
-            unit="px"
-            onChange={(v) => setSize(Math.round(v), rect.h)}
-            data-testid="canvas-w"
-          />
+          <div data-testid="canvas-w">
+            <NumberInput
+              value={rect.w}
+              min={0}
+              max={100000}
+              unit="px"
+              onChange={(v) => setSize(Math.round(v), rect.h)}
+            />
+          </div>
         </Field>
         <Field label={C.height}>
-          <NumberInput
-            value={rect.h}
-            min={0}
-            max={100000}
-            unit="px"
-            onChange={(v) => setSize(rect.w, Math.round(v))}
-            data-testid="canvas-h"
-          />
+          <div data-testid="canvas-h">
+            <NumberInput
+              value={rect.h}
+              min={0}
+              max={100000}
+              unit="px"
+              onChange={(v) => setSize(rect.w, Math.round(v))}
+            />
+          </div>
         </Field>
         <Field label={C.anchor}>
           <AnchorGrid

@@ -8,7 +8,7 @@ import { strFromU8 } from 'fflate';
 import type { FramePlacement } from '@/core/image';
 import { makeChar, makeRel, makeType } from '../model/factory';
 import { normalizeSettings, safeColor } from '../model/normalize';
-import type { Char, Label, Rel, RelType, Shape, Sheet } from '../model/types';
+import type { Char, FontKey, Label, Rel, RelType, Shape, Sheet } from '../model/types';
 
 export class LegacyFileError extends Error {}
 
@@ -29,8 +29,22 @@ export interface LegacyImport {
   activeIdx: number;
   /** 淺色主題的檔案 */
   light: boolean;
+  /** 文件字型（原作的 docFont；取代目前內容時才用，原作也是） */
+  font: FontKey;
+  /** 文件字型對應不到本站的字型時（原作匯入的字型檔）：略過的通知裡的一項 */
+  fontNote: string | null;
   /** 略過的內容（給通知用） */
   skipped: string[];
+}
+
+/** 原作的 FONT_STACKS 和本站的字型是同一組鍵；'f:…'＝原作匯入的字型檔（本站沒有） */
+const LEGACY_FONTS: readonly FontKey[] = ['sans', 'serif', 'round', 'kai', 'mono'];
+function legacyFont(v: unknown): { font: FontKey; note: string | null } {
+  if (typeof v === 'string' && (LEGACY_FONTS as readonly string[]).includes(v))
+    return { font: v as FontKey, note: null };
+  if (typeof v === 'string' && v.startsWith('f:'))
+    return { font: 'sans', note: '匯入的文件字型（改用黑體）' };
+  return { font: 'sans', note: null };
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
@@ -346,6 +360,7 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
   if (Array.isArray(data.noteBin) && data.noteBin.length) skipped.add('便利貼庫');
   if (Array.isArray(data.settingsLib) && data.settingsLib.length) skipped.add('設定集');
   if (!sheets.length) throw new LegacyFileError('原作的專案檔裡沒有分頁。');
+  const docFont = legacyFont(data.docFont);
   return {
     sheets,
     avatars,
@@ -353,6 +368,8 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
     labels,
     activeIdx: Math.min(Math.max(0, num(data.activeSheetIdx) || 0), sheets.length - 1),
     light,
+    font: docFont.font,
+    fontNote: docFont.note,
     skipped: [...skipped],
   };
 }

@@ -5,7 +5,14 @@ import { isEditableTarget, isFormControlTarget, type Shortcut } from '@/ui';
 import { clampToCanvas, sheetCtx } from '../engine/geom';
 import type { Sheet } from '../model/types';
 import { deleteChars, endLink } from '../state/actions';
-import { activeSheet, holdHistory, releaseHistory, setUi, useProject, useUi } from '../state/store';
+import {
+  activeSheet,
+  holdHistory,
+  releaseHistory,
+  setUi,
+  updateProject,
+  useUi,
+} from '../state/store';
 import { S } from '../strings';
 import { saveProjectFile } from './files';
 import { redo, undo } from './undo';
@@ -45,7 +52,7 @@ function nudge(dx: number, dy: number): void {
   const sel = new Set(useUi.getState().sel);
   if (!sel.size) return;
   holdHistory('nudge');
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))] as Sheet;
     const ctx = sheetCtx(s);
     for (const c of s.chars) {

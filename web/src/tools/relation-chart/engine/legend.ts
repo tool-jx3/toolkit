@@ -110,7 +110,7 @@ function shell(
   const hy = y - hh * 0.5;
   const box = (cls: string, extra: string) =>
     `<rect${cls ? ` class="${cls}"` : ''} x="${f1(hx)}" y="${f1(hy)}" width="${f1(hw)}" height="${f1(hh)}" ${extra}/>`;
-  return `<g class="legend-item" ${attr}="${id}" pointer-events="all"><title>${esc(tip)}</title>${box('', 'fill="rgba(0,0,0,0)"')}${box('legend-pill', `fill="var(--rc-accent, #7c5cff)" fill-opacity="0.17" stroke="var(--rc-accent, #7c5cff)" stroke-width="${f1(2.2 * kk)}" opacity="0"`)}${body}</g>`;
+  return `<g class="legend-item" ${attr}="${id}" pointer-events="all"><title>${esc(tip)}</title>${box('', 'fill="rgba(0,0,0,0)"')}${box('legend-pill', `fill="#7c5cff" fill-opacity="0.17" stroke="#7c5cff" stroke-width="${f1(2.2 * kk)}" opacity="0"`)}${body}</g>`;
 }
 
 function pack<T>(items: T[], itemW: (it: T) => number, GAP: number, maxW: number): T[][] {

@@ -11,7 +11,7 @@ import { FONT_KEYS, LEGEND_POSITIONS, SETTINGS_DEFAULTS } from '../model/normali
 import type { FontKey, LegendPos, SheetSettings } from '../model/types';
 import { editSheet, setSpacing, updateSettings } from '../state/actions';
 import { backgroundFromBlob } from '../state/images';
-import { gesture, setPrefs, setUi, usePrefs, useProject } from '../state/store';
+import { gesture, setPrefs, setUi, updateProject, usePrefs, useProject } from '../state/store';
 import { S } from '../strings';
 import { useSheet } from './hooks';
 import { kickSim } from './sim';
@@ -77,7 +77,7 @@ export function SettingsPanel() {
               size="sm"
               value={font}
               onValueChange={(v) =>
-                useProject.getState().update((p) => {
+                updateProject((p) => {
                   p.font = v as FontKey;
                 })
               }
@@ -231,12 +231,13 @@ export function SettingsPanel() {
       <Section title={T.secRels} persistKey="relation-chart:set-rels">
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-x-4 gap-y-2">
-            <Toggle
-              checked={s.showRelName}
-              onCheckedChange={set('showRelName')}
-              label={T.showRelName}
-              data-testid="set-rel-name"
-            />
+            <div data-testid="set-rel-name">
+              <Toggle
+                checked={s.showRelName}
+                onCheckedChange={set('showRelName')}
+                label={T.showRelName}
+              />
+            </div>
             <Toggle
               checked={s.showRelNote}
               onCheckedChange={set('showRelNote')}

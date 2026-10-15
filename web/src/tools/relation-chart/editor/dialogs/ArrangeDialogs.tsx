@@ -189,14 +189,18 @@ const ROWS: { title: string; items: AlignAction[] }[] = [
 function AlignBody() {
   const sheet = useSheet();
   const sel = useUi((u) => u.sel);
-  const useSel = sel.length >= 2;
-  const targets = useSel ? sheet.chars.filter((c) => sel.includes(c.id)) : sheet.chars;
+  const picked = sheet.chars.filter((c) => sel.includes(c.id));
+  const targets = picked.length ? picked : sheet.chars;
   const free = targets.filter((c) => !c.locked);
   const canDist = canDistribute(free);
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm" data-testid="align-target">
-        {useSel ? A.targetSel(targets.length) : A.targetCanvas(targets.length)}
+        {picked.length >= 2
+          ? A.targetSel(targets.length)
+          : picked.length === 1
+            ? A.targetOne
+            : A.targetCanvas(targets.length)}
       </p>
       {ROWS.map((row) => (
         <section key={row.title} className="flex flex-col gap-1.5">

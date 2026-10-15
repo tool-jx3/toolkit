@@ -855,15 +855,20 @@ function selfEdgeSvg(ectx: EdgeCtx, r: Rel, c: Char, tg: RelType, i: number, k: 
   return `<g class="edge self-edge" data-relid="${r.id}" data-from="${r.from}" data-to="${r.to}" data-type="${r.type}"><title>${tip}</title><path class="edge-hit" d="M ${f1(sx0)} ${f1(sy0)} L ${f1(ex)} ${f1(ey)}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="${f1(Math.max(16, lw + 12))}"/>${visLine}${endDeco}${startDeco}${mini}${labelSvg}</g>`;
 }
 
-/** 這張圖全部的關係線（粗的先畫）；回傳線的 markup（標籤在最後）與自我關係頭貼的 defs */
-export function edgesSvg(ectx: EdgeCtx): string {
-  const { ctx } = ectx;
+/** 兩人之間的線一組（key＝「小 id-大 id」）；粗的組排前面（先畫、在下面）。編輯畫面的快速路徑也用（editor/live） */
+export interface EdgePair {
+  key: string;
+  loId: number;
+  list: Rel[];
+}
+
+export function edgePairs(ctx: SheetCtx): EdgePair[] {
   const vis = ctx.sheet.rels.filter(
     (r) => visibleType(ctx, r) && ctx.byId.has(r.from) && ctx.byId.has(r.to),
   );
   const pairs = new Map<string, Rel[]>();
   for (const r of vis) {
-    const key = `${Math.min(r.from, r.to)}-${Math.max(r.from, r.to)}`;
+    const key = pairKey(r);
     let l = pairs.get(key);
     if (!l) {
       l = [];
@@ -885,10 +890,16 @@ export function edgesSvg(ectx: EdgeCtx): string {
     );
   }
   keys.sort((a, b) => (maxW.get(b) ?? 0) - (maxW.get(a) ?? 0));
+  return keys.map((key) => ({ key, loId: Number(key.split('-')[0]), list: pairs.get(key) ?? [] }));
+}
+
+const pairKey = (r: Pick<Rel, 'from' | 'to'>): string =>
+  `${Math.min(r.from, r.to)}-${Math.max(r.from, r.to)}`;
+
+/** 這張圖全部的關係線（粗的先畫）；回傳線的 markup（標籤在最後）；自我關係頭貼的 defs 放進 ectx.defs */
+export function edgesSvg(ectx: EdgeCtx): string {
   let out = '';
-  for (const key of keys) {
-    const list = pairs.get(key) ?? [];
-    const loId = Number(key.split('-')[0]);
+  for (const { list, loId } of edgePairs(ectx.ctx)) {
     list.forEach((r, i) => {
       out += edgeSvg(ectx, r, i, list.length, loId);
     });

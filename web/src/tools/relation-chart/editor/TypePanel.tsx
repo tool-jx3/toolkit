@@ -9,7 +9,7 @@ import { Button, Checkbox, Field, OptionalNumberInput, Select, Slider, useConfir
 import { typeLineColor, typeOutlineColor } from '../engine/geom';
 import { CAP_STYLES, LINE_STYLES } from '../model/normalize';
 import type { CapStyle, LineStyle } from '../model/types';
-import { copyType, deleteType, updateType } from '../state/actions';
+import { copyType, deleteType, fillTypeLabel, updateType } from '../state/actions';
 import { gesture, setUi } from '../state/store';
 import { S } from '../strings';
 import { useCtx, useSheet } from './hooks';
@@ -53,6 +53,7 @@ export function TypePanel({ id }: { id: number }) {
                 d.label = v.slice(0, 200);
               })
             }
+            onCommit={() => fillTypeLabel(t.id)}
             data-testid="type-name"
           />
         </Field>

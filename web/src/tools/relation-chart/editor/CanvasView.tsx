@@ -1,29 +1,34 @@
 /**
  * 畫布：同一份 SVG 畫法（engine/chart）放進可以平移縮放的框；聚焦淡化、框選、長按進度環、
  * 建立關係模式的橫幅、縮放按鈕、小地圖、空畫布的起手提示。
+ * 拖曳與磁鐵跑著時畫面由 live 直接改（快速路徑）；這裡整張重畫時用 live 的位置，重畫後告訴 live 新的基準。
  */
 import { Maximize, Minus, Plus } from 'lucide-react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Button, IconButton, withShortcut } from '@/ui';
 import { editorSvg } from '../engine/chart';
 import { displayName, focusDimSet, PALETTES } from '../engine/geom';
+import { typeLabel } from '../model/factory';
 import type { Sheet } from '../model/types';
 import { addChar, endLink } from '../state/actions';
 import { drawnImageIds, useImageUrls } from '../state/images';
 import { activeIndex, type FocusRef, setUi, usePrefs, useProject, useUi } from '../state/store';
 import { S } from '../strings';
 import { type BoxRect, CanvasInput } from './canvasInput';
+import { bindLive, displaySheet, liveEpoch, liveRebase, subscribeLive } from './live';
 import { Minimap } from './Minimap';
 import { bindView, fitView, zoomBy } from './view';
 
 const CANVAS_CSS = `
+.rc-host .rc-chart{display:block;width:100%;height:100%}
 .rc-host .rc-chart .node,.rc-host .rc-chart .edge,.rc-host .rc-chart .layer-legend{transition:opacity .2s ease}
 .rc-host .rc-chart.focus-active .node{opacity:var(--fdim-node,.15)}
 .rc-host .rc-chart.focus-active .edge{opacity:var(--fdim-edge,.07)}
 .rc-host .rc-chart.focus-active.dim-legend .layer-legend{opacity:var(--fdim-legend,.3)}
 .rc-host .rc-chart.focus-active .node.focusedV,.rc-host .rc-chart.focus-active .edge.focusedV{opacity:1}
 .rc-host .rc-chart .legend-item{cursor:pointer}
-.rc-host .rc-chart .legend-item .legend-pill{transition:opacity .18s ease}
+.rc-host .rc-chart .legend-item .legend-pill{transition:opacity .18s ease;fill:var(--accent);stroke:var(--accent)}
+.rc-host .rc-chart .sel-ring>*{stroke:var(--accent)}
 .rc-host .rc-chart .legend-item.legend-on .legend-pill{opacity:1}
 .rc-host .rc-chart .node{cursor:grab}
 .rc-host .rc-chart .edge{cursor:pointer}
@@ -68,12 +73,18 @@ function applyFocus(svg: SVGSVGElement, f: FocusRef | null, fromLegend: boolean)
   if (legendSel) for (const el of svg.querySelectorAll(legendSel)) el.classList.add('legend-on');
 }
 
+/** 畫面上的那張 SVG（拖曳時底下可能還有一張放動到的線的，見 live） */
+const chartSvg = (el: HTMLElement | null): SVGSVGElement | null =>
+  el?.querySelector<SVGSVGElement>(':scope > svg:not(.rc-live-under)') ?? null;
+const chartSvgs = (el: HTMLElement | null): SVGSVGElement[] =>
+  el ? [...el.querySelectorAll<SVGSVGElement>(':scope > svg')] : [];
+
 function LinkBanner({ sheet }: { sheet: Sheet }) {
   const link = useUi((u) => u.link);
   if (!link) return null;
   const type = sheet.types.find((t) => t.id === link.typeId);
   const from = link.from === null ? null : sheet.chars.find((c) => c.id === link.from);
-  const label = (type?.label || S.types.unnamed(0)).replace(/\n+/g, ' ');
+  const label = type ? typeLabel(type, sheet.types) : '';
   return (
     <div
       data-rc-overlay
@@ -134,9 +145,16 @@ export function CanvasView() {
   const host = useRef<HTMLElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ rect: BoxRect; ids: number[] } | null>(null);
+  const [hostSize, setHostSize] = useState({ w: 0, h: 0 });
+  /* 快速路徑要求整張重畫時加一 */
+  const epoch = useSyncExternalStore(subscribeLive, liveEpoch, liveEpoch);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: epoch＝工作副本的位置變了（同一個物件）
+  const display = useMemo(() => displaySheet(sheet), [sheet, epoch]);
 
   const imageIds = useMemo(() => drawnImageIds({ sheets: [sheet] }), [sheet]);
   const urls = useImageUrls(imageIds);
+  const urlsRef = useRef(urls);
+  urlsRef.current = urls;
   const linkDone = useMemo(() => {
     const out = new Set<number>();
     if (!link) return out;
@@ -148,17 +166,22 @@ export function CanvasView() {
     return out;
   }, [link, sheet.rels]);
   const selected = useMemo(() => new Set([...sel, ...(box?.ids ?? [])]), [sel, box]);
-  const out = useMemo(
-    () =>
-      editorSvg(sheet, {
-        href: (id) => urls.get(id) ?? null,
-        font,
-        ui: { selected, linkFrom: link?.from ?? null, linkDone },
-      }),
-    [sheet, urls, font, selected, link?.from, linkDone],
-  );
+  const out = useMemo(() => {
+    const r = editorSvg(display, {
+      href: (id) => urls.get(id) ?? null,
+      font,
+      ui: { selected, linkFrom: link?.from ?? null, linkDone },
+    });
+    /* 每次都換掉整份 SVG（快速路徑改過的畫面不留） */
+    return {
+      ...r,
+      svg: `${r.svg}<!--${epoch}-->`,
+      pos: new Map(display.chars.map((c) => [c.id, { x: c.x, y: c.y }])),
+    };
+  }, [display, urls, font, selected, link?.from, linkDone, epoch]);
   const contentRef = useRef(out);
   contentRef.current = out;
+  const rendered = useRef<SVGSVGElement | null>(null);
 
   /* 指標操作與視角 */
   useEffect(() => {
@@ -194,6 +217,7 @@ export function CanvasView() {
     const ro = new ResizeObserver(() => {
       const w = el.clientWidth;
       const h = el.clientHeight;
+      setHostSize({ w, h });
       if (first || Math.abs(w - last.w) > 40 || Math.abs(h - last.h) > 40) fitView();
       first = false;
       last = { w, h };
@@ -204,15 +228,32 @@ export function CanvasView() {
 
   /* 聚焦淡化（每次重畫後重新套上） */
   const eff = focus ?? hover;
+  const effRef = useRef(eff);
+  effRef.current = eff;
   useLayoutEffect(() => {
-    const svg = layer.current?.querySelector('svg');
+    const svg = chartSvg(layer.current);
     if (!svg) return;
+    /* 換了一份 SVG：告訴快速路徑新的基準位置 */
+    if (svg !== rendered.current) {
+      rendered.current = svg;
+      liveRebase(svg, display.id, out.pos, out.parts.bleed);
+    }
     const d = focusDimSet(sheet.settings.focusDim);
     svg.style.setProperty('--fdim-node', String(d.node));
     svg.style.setProperty('--fdim-edge', String(d.edge));
     svg.style.setProperty('--fdim-legend', String(d.legend));
-    applyFocus(svg, eff, eff?.kind === 'type');
+    for (const el of chartSvgs(layer.current)) applyFocus(el, eff, eff?.kind === 'type');
   });
+  useEffect(() => {
+    bindLive({
+      href: (id) => urlsRef.current.get(id) ?? null,
+      refocus: () => {
+        const f = effRef.current;
+        for (const el of chartSvgs(layer.current)) applyFocus(el, f, f?.kind === 'type');
+      },
+    });
+    return () => bindLive(null);
+  }, []);
 
   const pal = PALETTES[sheet.settings.palette];
   const openDialog = (dialog: 'samples' | 'paste') => setUi({ dialog });
@@ -220,18 +261,19 @@ export function CanvasView() {
     <section
       ref={host}
       className={`rc-host relative h-[min(70dvh,34rem)] min-h-[18rem] w-full touch-none select-none overflow-hidden rounded-lg border border-border lg:h-auto lg:min-h-0 lg:flex-1${link ? ' rc-linking' : ''}`}
-      style={{ background: pal.bg, ['--rc-accent' as string]: 'var(--accent)' }}
+      style={{ background: pal.bg }}
       aria-label={S.view.canvasLabel}
       data-testid="canvas"
     >
       <style>{CANVAS_CSS}</style>
       <div
         ref={layer}
-        className="absolute top-0 left-0 origin-top-left"
+        className="absolute top-0 left-0 will-change-transform"
         style={{
-          width: out.viewW,
-          height: out.viewH,
-          transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
+          /* 用縮放後的大小排版（SVG 撐滿），不用 scale()：大張的圖縮小時才會以螢幕解析度繪製（scale 會以原尺寸點陣化，拖曳很慢） */
+          width: out.viewW * view.zoom,
+          height: out.viewH * view.zoom,
+          transform: `translate(${view.x}px, ${view.y}px)`,
         }}
         // biome-ignore lint/security/noDangerouslySetInnerHtml: 自己產生的 SVG（文字都經過跳脫）
         dangerouslySetInnerHTML={{ __html: out.svg }}
@@ -308,7 +350,9 @@ export function CanvasView() {
           data-testid="zoom-fit"
         />
       </div>
-      {minimap ? <Minimap sheet={sheet} pad={out.pad} viewW={out.viewW} viewH={out.viewH} /> : null}
+      {minimap ? (
+        <Minimap sheet={sheet} pad={out.pad} viewW={out.viewW} viewH={out.viewH} host={hostSize} />
+      ) : null}
     </section>
   );
 }

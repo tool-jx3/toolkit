@@ -93,7 +93,7 @@ export const S = {
     ungrouped: '未分類',
     level: (n: number) => `H${n}`,
     listLabel: '角色清單',
-    dragTip: '拖曳可以調整順序（觸控需先長按）；未釘選的角色會跟著順序交換位置',
+    dragTip: '拖曳可以調整順序（觸控：按住這個把手拖）；未釘選的角色會跟著順序交換位置',
   },
 
   types: {
@@ -105,7 +105,7 @@ export const S = {
     linkTip: '點一下開始建立關係（點角色 A → 角色 B 直接拉線，可以連續建立）；再點一次結束',
     edit: '編輯關係類型',
     listLabel: '關係類型清單',
-    unnamed: (n: number) => `未命名關係${n}`,
+    dragTip: '拖曳可以調整順序（觸控：按住這個把手拖）；圖例照這個順序',
   },
 
   panel: {
@@ -420,7 +420,8 @@ export const S = {
   align: {
     title: '對齊與分佈',
     targetSel: (n: number) => `對象：選取的 ${n} 位角色`,
-    targetCanvas: (n: number) => `沒有選取 2 位以上 → 以畫布為對象（${n} 位角色）`,
+    targetOne: '對象：選取的 1 位角色（以畫布為參考）',
+    targetCanvas: (n: number) => `沒有選取 → 以畫布為對象（${n} 位角色）`,
     secAlign: '對齊',
     secDist: '均分（等距分佈）',
     secGap: '等間隔',

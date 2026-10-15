@@ -88,6 +88,12 @@ export function unnamedTypeLabel(types: readonly RelType[]): string {
   return `${prefix}${max + 1}`;
 }
 
+/** 清單、下拉、橫幅上的關係名稱（一行）；名稱是空的＝「未命名關係 N」（N 照其他關係類型算） */
+export function typeLabel(t: RelType, types: readonly RelType[]): string {
+  const s = t.label.replace(/\s*\n+\s*/g, ' ').trim();
+  return s || unnamedTypeLabel(types.filter((x) => x.id !== t.id));
+}
+
 /** 複製關係類型的名稱：「名稱（複製 N）」（N＝已有的最大編號＋1） */
 export function copyTypeLabel(label: string, types: readonly RelType[]): string {
   const rawBase = String(label || '')

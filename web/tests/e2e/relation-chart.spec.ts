@@ -271,7 +271,8 @@ test('新增角色：編輯面板即時套用、名字可以換行、文字欄�
   expect((await sheet(page)).chars[0]).toMatchObject({ color: 'auto', nameColor: 'auto' });
   /* 進階：釘選、形狀、尺寸、重要度、標籤 */
   await page.getByRole('button', { name: '進階' }).click();
-  await page.getByRole('switch', { name: '釘選位置' }).click();
+  await expect(page.getByTestId('char-show-avatar').getByRole('switch')).toBeVisible();
+  await page.getByTestId('char-lock').getByRole('switch', { name: '釘選位置' }).click();
   await page.getByRole('radio', { name: '方形' }).click();
   await page.getByRole('spinbutton', { name: '頭像 px' }).fill('80');
   await page.getByRole('spinbutton', { name: '頭像 px' }).press('Enter');
@@ -287,14 +288,14 @@ test('新增角色：編輯面板即時套用、名字可以換行、文字欄�
   expect(c.labels).toEqual([p?.labels[0].id]);
   await expect(node(page, c.id).locator('.pin-badge')).toHaveCount(1);
   await expect(node(page, c.id).locator(':scope > rect')).toHaveAttribute('width', '80');
-  /* 複製：名字數字＋1、外觀與標籤一起、不釘選 */
+  /* 複製：名字數字＋1、外觀與標籤一起、釘選也照抄（原作） */
   await page.getByTestId('char-copy').click();
   const s1 = await sheet(page);
   expect(s1.chars).toHaveLength(2);
   expect(s1.chars[1]).toMatchObject({
     name: '阿明\nAlex2',
     shape: 'square',
-    locked: false,
+    locked: true,
     labels: c.labels,
   });
   await expect(title(page)).toHaveText('編輯角色');
@@ -517,6 +518,17 @@ test('關係類型的編輯：線型、端點、粗細、外框、隱藏於圖�
   await seed(page, project([s0]));
   await page.getByTestId('type-edit').click();
   await expect(page.getByTestId('type-used')).toHaveText('目前有 1 條線、2 位角色使用這種關係。');
+  /* 名稱清空＝存成「未命名關係（現有最大編號＋1）」；清單、下拉、圖例都顯示這個名字（原作） */
+  const nameBox = page.getByTestId('type-name');
+  await nameBox.fill('');
+  await expect(page.getByTestId('type-row').first()).toContainText('未命名關係1');
+  await nameBox.blur();
+  expect((await sheet(page)).types[0].label).toBe('未命名關係1');
+  await expect(chart(page).locator('.legend-item[data-legend-type="10"]')).toContainText(
+    '未命名關係1',
+  );
+  await nameBox.fill('友情');
+  await nameBox.blur();
   await page.getByTestId('type-line-style').click();
   await page.getByRole('option', { name: '波浪線' }).click();
   await page.getByTestId('type-cap-style').click();
@@ -590,7 +602,7 @@ test('關係線的編輯：點線打開、備註、反轉、合併與拆開、�
   await page.getByTestId('rel-bundle').click();
   expect((await sheet(page)).rels.every((r) => !r.pairSkip)).toBe(true);
   /* 彎曲 */
-  await panel.getByRole('radio', { name: '反向弧' }).click();
+  await panel.getByTestId('rel-curve').getByRole('radio', { name: '反向弧' }).click();
   expect((await sheet(page)).rels.map((r) => r.curveDir)).toEqual([-1, -1]);
   /* 換了類型之後可以反轉 */
   await page.getByTestId('rel-flip').click();
@@ -694,15 +706,119 @@ test('畫布：拖曳、碰撞推擠、點選聚焦、框選與群組拖曳、Sh
   expect(errors).toEqual([]);
 });
 
+test('拖曳的快速路徑：拖曳中只移動角色與相連的線、不整張重畫，放開才寫回；120 位時每次移動夠快', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s0 = emptySheet(1, 1, { W: 2400, H: 1800 });
+  s0.types.push(makeType(10, '友情'));
+  for (let i = 0; i < 120; i++)
+    s0.chars.push(
+      makeChar(i + 1, `角色${i + 1}`, 140 + (i % 12) * 190, 140 + Math.floor(i / 12) * 170, {
+        defNo: i + 1,
+      }),
+    );
+  for (let i = 1; i < 120; i++) s0.rels.push(makeRel(1000 + i, i, i + 1, 10));
+  await seed(page, project([s0]));
+  /* 畫面那張 SVG（拖曳時底下另有一張放動到的線） */
+  const svg = chart(page).locator('svg.rc-chart:not(.rc-live-under)');
+  await svg.evaluate((el) => el.setAttribute('data-mark', 'before'));
+  const line = chart(page).locator('.edge[data-relid="1030"] path').last();
+  const d0 = await line.getAttribute('d');
+  const a = await nodeCenter(page, 30);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  const t0 = Date.now();
+  for (let i = 1; i <= 30; i++) await page.mouse.move(a.x + i * 2, a.y + i);
+  const perMove = (Date.now() - t0) / 30;
+  await page.waitForTimeout(100);
+  /* 拖曳中：同一份 SVG（沒有整張重畫），被拖的角色用 transform 移動，相連的線跟著重畫 */
+  await expect(svg).toHaveAttribute('data-mark', 'before');
+  await expect(node(page, 30)).toHaveAttribute('transform', /^translate\(/);
+  expect(await line.getAttribute('d')).not.toBe(d0);
+  await page.mouse.up();
+  /* 放開：寫回專案、整張重畫 */
+  await expect(svg).not.toHaveAttribute('data-mark', 'before');
+  const s = await sheet(page);
+  const c30 = s.chars.find((c) => c.id === 30);
+  expect(c30?.x).toBeGreaterThan(s0.chars[29].x + 100);
+  await expect(node(page, 30)).not.toHaveAttribute('transform', /translate/);
+  /* 一步復原 */
+  await page.getByTestId('undo').click();
+  expect((await sheet(page)).chars[29]).toMatchObject({ x: s0.chars[29].x, y: s0.chars[29].y });
+  /* 寬鬆的上限（機器忙時也穩）；每次移動都整張重畫的舊做法，驗證者量到 120 位約 174 ms */
+  expect(perMove).toBeLessThan(100);
+  expect(errors).toEqual([]);
+});
+
+test('整組拖到畫布外：保持隊形、只加邊緣阻力（可以進出血區）', async ({ page }) => {
+  const errors = await open(page);
+  await seed(page, project([trio()]));
+  await node(page, 1).click({ modifiers: ['Shift'] });
+  await node(page, 3).click({ modifiers: ['Shift'] });
+  await expect(title(page)).toHaveText('已選 2 位');
+  const from = await nodeCenter(page, 3);
+  const zoom = Number.parseInt((await page.getByTestId('zoom-level').textContent()) ?? '0', 10);
+  const k = zoom / 100;
+  /* 丙(500,200) 往右拖 600、往上拖 300（畫布座標） */
+  await drag(page, from, { x: from.x + 600 * k, y: from.y - 300 * k });
+  const s = await sheet(page);
+  const [a, , c] = s.chars;
+  /* 隊形不變（甲和丙的相對位置）、丙超出畫布右上（進出血區）、乙不動 */
+  expect(Math.round(c.x - a.x)).toBe(250);
+  expect(Math.round(c.y - a.y)).toBe(-300);
+  expect(c.x).toBeGreaterThan(1000 - 46);
+  expect(c.y).toBeLessThan(46);
+  expect(s.chars[1]).toMatchObject({ x: 750, y: 500 });
+  expect(errors).toEqual([]);
+});
+
+test('磁鐵停下時解開重疊（原作的 separateAll）、整段一步復原', async ({ page }) => {
+  const errors = await open(page);
+  const s0 = emptySheet(1, 1);
+  /* 兩位釘選的角色中間夾一位：力量左右抵消，只有停下時的解開重疊會移動它 */
+  s0.chars.push(
+    makeChar(1, '甲', 400, 500, { defNo: 1, locked: true }),
+    makeChar(2, '乙', 500, 500, { defNo: 2 }),
+    makeChar(3, '丙', 600, 500, { defNo: 3, locked: true }),
+  );
+  await seed(page, project([s0]));
+  await page.getByTestId('magnet').click();
+  await expect(page.getByTestId('magnet').locator('svg')).toHaveClass(/animate-pulse/);
+  await expect(page.getByTestId('magnet').locator('svg')).not.toHaveClass(/animate-pulse/, {
+    timeout: 10000,
+  });
+  const s = await sheet(page);
+  expect(s.chars.map((c) => [c.x, c.y])).toEqual([
+    [400, 500],
+    [492, 500],
+    [600, 500],
+  ]);
+  await page.getByTestId('undo').click();
+  expect((await sheet(page)).chars[1]).toMatchObject({ x: 500, y: 500 });
+  expect(errors).toEqual([]);
+});
+
 test('批次編輯面板：釘選、形狀、混合、尺寸、重要度、複製、刪除', async ({ page }) => {
   const errors = await open(page);
   const s0 = trio();
   s0.chars[0].shape = 'square';
+  s0.chars[0].size = 120;
   await seed(page, project([s0]));
   await page.keyboard.press('Control+a');
   const panel = page.getByTestId('batch-panel');
   await expect(panel).toBeVisible();
   await expect(panel.locator('.text-warning', { hasText: '混合' })).toHaveCount(0);
+  /* 尺寸欄：不一致＝「混合」，大家都是自動才是「自動」 */
+  await expect(panel.getByRole('spinbutton', { name: '頭像 px' })).toHaveAttribute(
+    'placeholder',
+    '混合',
+  );
+  await expect(panel.getByRole('spinbutton', { name: '頭像 px' })).toHaveValue('');
+  await expect(panel.getByRole('spinbutton', { name: '名字 px' })).toHaveAttribute(
+    'placeholder',
+    '自動',
+  );
   await panel.getByRole('radio', { name: '圓形' }).click();
   expect((await sheet(page)).chars.map((c) => c.shape)).toEqual(['circle', 'circle', 'circle']);
   await panel.getByTestId('batch-lock').click();
@@ -868,6 +984,34 @@ test('角色清單：搜尋、點一列＝聚焦、依標籤分組（8 位以上
   expect(errors).toEqual([]);
 });
 
+test('角色清單與關係類型清單：觸控按住把手拖曳換順序', async ({ page }) => {
+  const errors = await open(page);
+  const s0 = trio();
+  s0.types.push(makeType(10, '友情'), makeType(11, '敵對'));
+  await seed(page, project([s0]));
+  const rows = page.getByTestId('char-row');
+  const handle = rows.first().locator('[data-drag-handle]');
+  await expect(handle).toHaveAttribute('title', /觸控/);
+  const a = await center(handle);
+  const end = await center(rows.nth(2));
+  await touch(page, 'pointerdown', 1, a.x, a.y);
+  for (let k = 1; k <= 6; k++)
+    await touch(page, 'pointermove', 1, a.x, a.y + ((end.y + 6 - a.y) * k) / 6);
+  await touch(page, 'pointerup', 1, a.x, end.y + 6);
+  const s = await sheet(page);
+  expect(s.chars.map((c) => c.name)).toEqual(['乙', '丙', '甲']);
+  /* 關係類型清單也一樣 */
+  const trows = page.getByTestId('type-row');
+  const h2 = await center(trows.first().locator('[data-drag-handle]'));
+  const e2 = await center(trows.nth(1));
+  await touch(page, 'pointerdown', 1, h2.x, h2.y);
+  for (let k = 1; k <= 6; k++)
+    await touch(page, 'pointermove', 1, h2.x, h2.y + ((e2.y + 6 - h2.y) * k) / 6);
+  await touch(page, 'pointerup', 1, h2.x, e2.y + 6);
+  expect((await sheet(page)).types.map((t) => t.label)).toEqual(['敵對', '友情']);
+  expect(errors).toEqual([]);
+});
+
 test('排列：預覽、取消回到原位、確定一步復原；對齊與分佈；打亂座位', async ({ page }) => {
   const errors = await open(page);
   await seed(page, project([sample('story')]));
@@ -923,6 +1067,20 @@ test('排列：預覽、取消回到原位、確定一步復原；對齊與分�
     .map((c) => c.id);
   expect(moved.length).toBeGreaterThanOrEqual(2);
   expect(moved.every((id) => [2, 3, 5].includes(id))).toBe(true);
+  /* 只選 1 位：只移動那一位、以畫布為參考（原作） */
+  await page.keyboard.press('Escape');
+  if ((await title(page).textContent()) !== '分頁設定') await page.keyboard.press('Escape');
+  await expect(title(page)).toHaveText('分頁設定');
+  await node(page, 4).click({ modifiers: ['Shift'] });
+  const one = (await sheet(page)).chars.map((c) => [c.id, c.x, c.y]);
+  await page.getByTestId('open-align').click();
+  await expect(al.getByTestId('align-target')).toHaveText('對象：選取的 1 位角色（以畫布為參考）');
+  await al.getByTestId('align-left').click();
+  s = await sheet(page);
+  expect(s.chars.filter((c, i) => c.x !== one[i][1] || c.y !== one[i][2]).map((c) => c.id)).toEqual(
+    [4],
+  );
+  expect(s.chars.find((c) => c.id === 4)?.x).toBeLessThan(Number(one.find((r) => r[0] === 4)?.[1]));
   expect(errors).toEqual([]);
 });
 
@@ -962,9 +1120,9 @@ test('畫布尺寸（基準點、預覽拖曳）、畫布貼合內容、背景�
   await seed(page, project([trio()]));
   await more(page, 'menu-canvas');
   const dlg = page.getByRole('dialog', { name: '修改畫布尺寸' });
-  await dlg.getByRole('spinbutton', { name: '寬' }).fill('1200');
+  await dlg.getByTestId('canvas-w').getByRole('spinbutton', { name: '寬' }).fill('1200');
   await dlg.getByRole('spinbutton', { name: '寬' }).press('Tab');
-  await dlg.getByRole('spinbutton', { name: '高' }).fill('800');
+  await dlg.getByTestId('canvas-h').getByRole('spinbutton', { name: '高' }).fill('800');
   await dlg.getByRole('spinbutton', { name: '高' }).press('Tab');
   await dlg.getByRole('radio', { name: '左上' }).click();
   await dlg.getByTestId('canvas-ok').click();
@@ -1121,7 +1279,7 @@ test('分頁設定：畫布配色、關係名稱、間距重排；頭像的網�
   await expect(chart(page).locator('rect.layer-bg')).toHaveAttribute('fill', '#f5f5f5');
   /* 關係名稱 */
   await expect(chart(page).locator('.edge-lbl')).toHaveCount(0);
-  await page.getByRole('switch', { name: '關係名稱' }).click();
+  await page.getByTestId('set-rel-name').getByRole('switch', { name: '關係名稱' }).click();
   /* 一般的線：標籤在最上層的 .edge-lbl；自我關係的標籤在自己的群組裡 */
   await expect(chart(page).locator('.edge-lbl')).toHaveCount(1);
   await expect(chart(page).locator('.edge-lbl text')).toHaveText('友情');
@@ -1389,6 +1547,7 @@ async function legacyZip(withImages = true): Promise<Buffer> {
     app: 'CharRelDiagram',
     format: 7,
     activeSheetIdx: 0,
+    docFont: 'serif',
     labels: [{ id: 3, text: '學生' }],
     prefs: { light: false },
     library: [
@@ -1478,6 +1637,8 @@ test('原作的專案檔：ZIP（頭像、原圖與位置、背景圖、標籤�
   expect(s.rels[0]).toMatchObject({ both: true, note: '青梅竹馬' });
   expect(q?.labels.map((l) => l.text)).toEqual(['學生']);
   expect(s.chars[0].labels).toEqual([q?.labels[0].id]);
+  /* 加入為新分頁：文件字型不變（原作也一樣） */
+  expect(q?.font).toBe('sans');
   await expect(node(page, s.chars[0].id).locator('image.av-img')).toHaveCount(1);
   await expect(chart(page).locator('image.canvas-bgimg')).toHaveCount(1);
   /* 只有 project.json：取代、提醒沒有圖片 */
@@ -1494,6 +1655,22 @@ test('原作的專案檔：ZIP（頭像、原圖與位置、背景圖、標籤�
   await page.getByRole('alertdialog').getByRole('button', { name: '取代目前內容' }).click();
   await expect(toast(page, /頭像與背景圖不在檔案裡/)).toBeVisible();
   await expect(page.getByTestId('sheet-tab')).toHaveText(['原作的分頁']);
+  /* 取代：文件字型跟著原作的檔（明體） */
+  await expect.poll(async () => (await saved(page))?.font).toBe('serif');
+  await expect(chart(page).locator('svg')).toHaveAttribute('font-family', /Noto Serif TC/);
+  /* 原作匯入的字型檔（f:…）對應不到：改用黑體，列在略過的內容 */
+  const [fc3] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    openProjectItem(page, '開啟專案檔…'),
+  ]);
+  await fc3.setFiles({
+    name: 'project.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(json.replace('"docFont": "serif"', '"docFont": "f:abc123"')),
+  });
+  await page.getByRole('alertdialog').getByRole('button', { name: '取代目前內容' }).click();
+  await expect(toast(page, /匯入的文件字型/).first()).toBeVisible();
+  await expect.poll(async () => (await saved(page))?.font).toBe('sans');
   expect(errors).toEqual([]);
 });
 

@@ -35,7 +35,15 @@ import type {
   Sheet,
   SheetSettings,
 } from '../model/types';
-import { activeIndex, activeSheet, projectNow, setUi, useProject, useUi } from './store';
+import {
+  activeIndex,
+  activeSheet,
+  projectNow,
+  setUi,
+  updateProject,
+  useProject,
+  useUi,
+} from './store';
 
 /* ---------- 共用 ---------- */
 
@@ -44,7 +52,7 @@ type DProject = Draft<Project>;
 
 /** 改目前的分頁 */
 export function editSheet(recipe: (s: DSheet, p: DProject) => void): void {
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     if (s) recipe(s, p);
   });
@@ -96,7 +104,7 @@ useProject.temporal.subscribe(() => queueMicrotask(pruneUi));
 export function switchSheet(idx: number): void {
   const p = projectNow();
   if (idx === activeIndex(p) || idx < 0 || idx >= p.sheets.length) return;
-  useProject.getState().update((d) => {
+  updateProject((d) => {
     d.active = idx;
   });
   const u = useUi.getState();
@@ -113,7 +121,7 @@ export function switchSheet(idx: number): void {
 
 /** 新增分頁（copy＝複製目前的分頁；角色各自獨立，D5） */
 export function addSheet(copy: boolean): void {
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const cur = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     const id = takeId(p);
     const defNo = nextSheetDefNo(p);
@@ -159,7 +167,7 @@ export function addSheet(copy: boolean): void {
 }
 
 export function renameSheet(idx: number, name: string): void {
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const s = p.sheets[idx];
     if (s) s.name = name.trim().slice(0, 200);
   });
@@ -169,7 +177,7 @@ export function renameSheet(idx: number, name: string): void {
 export function deleteSheet(idx: number): boolean {
   const p = projectNow();
   if (p.sheets.length <= 1 || !p.sheets[idx]) return false;
-  useProject.getState().update((d) => {
+  updateProject((d) => {
     d.sheets.splice(idx, 1);
     if (d.active >= d.sheets.length) d.active = d.sheets.length - 1;
     else if (d.active > idx) d.active--;
@@ -180,7 +188,7 @@ export function deleteSheet(idx: number): boolean {
 }
 
 export function moveSheet(from: number, to: number): void {
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     if (from === to || !p.sheets[from] || to < 0 || to >= p.sheets.length) return;
     const activeId = p.sheets[p.active]?.id;
     const [s] = p.sheets.splice(from, 1);
@@ -240,7 +248,7 @@ export function insertSheet(
 
 /** 加入範例（新分頁，不動現有內容） */
 export function addSample(sheet: Sheet): void {
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     p.active = insertSheet(p, sheet);
   });
   const u = useUi.getState();
@@ -275,7 +283,7 @@ export function setSpacing(pct: number): void {
 /** 新增一位角色（畫布中央附近不重疊的位置），回傳 id */
 export function addChar(rand: () => number = Math.random): number {
   let id = 0;
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     const ctx = ctxOf(s);
     const pos = nonOverlapping(
@@ -298,7 +306,7 @@ export function addChars(
 ): number[] {
   const ids: number[] = [];
   if (!items.length) return ids;
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     const wasEmpty = s.chars.length === 0;
     for (const it of items) {
@@ -353,7 +361,7 @@ export function updateChars(
 export function copyChars(ids: readonly number[], rand: () => number = Math.random): number[] {
   const out: number[] = [];
   const set = new Set(ids);
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     const src = s.chars.filter((c) => set.has(c.id));
     for (const c of src) {
@@ -361,7 +369,6 @@ export function copyChars(ids: readonly number[], rand: () => number = Math.rand
       cp.id = takeId(p);
       cp.name = copyName(c.name, s.chars);
       cp.defNo = nextCharDefNo(p);
-      cp.locked = false;
       if (src.length === 1) {
         const pos = nonOverlapping(ctxOf(s), c.x + 60, c.y + 60, null);
         cp.x = pos.x;
@@ -405,7 +412,7 @@ export function addLabel(charIds: readonly number[], text: string): number | nul
   if (!t) return null;
   let lid = 0;
   const set = new Set(charIds);
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     let l = p.labels.find((x) => x.text === t);
     if (!l) {
       l = { id: takeId(p), text: t };
@@ -429,7 +436,7 @@ export function toggleLabel(charIds: readonly number[], labelId: number, on: boo
 
 export function addType(): number {
   let id = 0;
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     id = takeId(p);
     s.types.push(makeType(id, unnamedTypeLabel(s.types as RelType[])));
@@ -445,9 +452,19 @@ export function updateType(id: number, recipe: (t: Draft<RelType>) => void): voi
   });
 }
 
+/** 名稱欄離開時：清空的名稱存成「未命名關係 N」（N＝其他關係類型的最大編號＋1；原作存檔時的做法） */
+export function fillTypeLabel(id: number): void {
+  const t = activeSheet().types.find((x) => x.id === id);
+  if (!t || t.label.trim()) return;
+  editSheet((s) => {
+    const d = s.types.find((x) => x.id === id);
+    if (d) d.label = unnamedTypeLabel(s.types.filter((x) => x.id !== id) as RelType[]);
+  });
+}
+
 export function copyType(id: number): number {
   let nid = 0;
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     const src = s.types.find((t) => t.id === id);
     if (!src) return;
@@ -586,7 +603,7 @@ export function linkClick(charId: number): void {
     return;
   }
   let nid = 0;
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const d = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     nid = takeId(p);
     d.rels.push(makeRel(nid, from, to, l.typeId));
@@ -613,7 +630,7 @@ export function linkSelf(charId: number): void {
     return;
   }
   let nid = 0;
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const d = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     nid = takeId(p);
     d.rels.push(makeRel(nid, charId, charId, l.typeId));
@@ -664,7 +681,7 @@ export function mergeRel(id: number): void {
 }
 
 export function splitRel(id: number): void {
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     const r = s.rels.find((x) => x.id === id);
     if (!r?.both) return;
@@ -763,12 +780,13 @@ export function shuffle(rand: () => number = Math.random): void {
   });
 }
 
+/** 對齊與分佈：選 2 位以上＝以選取範圍為參考；只選 1 位＝只移動那一位、以畫布為參考；沒有選取＝全部、以畫布為參考（原作） */
 export function align(action: AlignAction): void {
   const sel = new Set(useUi.getState().sel);
   editSheet((s) => {
-    const toCanvas = sel.size < 2;
-    const targets = toCanvas ? s.chars : s.chars.filter((c) => sel.has(c.id));
-    applyAlign(ctxOf(s), targets as Char[], action, toCanvas);
+    const picked = s.chars.filter((c) => sel.has(c.id));
+    const targets = picked.length ? picked : s.chars;
+    applyAlign(ctxOf(s), targets as Char[], action, picked.length < 2);
   });
 }
 
@@ -784,7 +802,7 @@ export function fitCanvas(): boolean {
 
 export function importTable(parsed: ParsedTable, rand: () => number = Math.random): number {
   let made = 0;
-  useProject.getState().update((p) => {
+  updateProject((p) => {
     const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     const plan = planImport(parsed, s.chars as Char[], s.types as RelType[]);
     const wasEmpty = s.chars.length === 0;

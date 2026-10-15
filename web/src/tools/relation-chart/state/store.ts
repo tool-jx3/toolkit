@@ -4,6 +4,7 @@
  * - usePrefs：這台瀏覽器的偏好（依標籤分組、用檔名當角色名、小地圖、匯出設定）；不列入復原。
  * - useUi：只在這次開頁有效的東西（選取、聚焦、建立關係模式、右側面板、對話框、視角）。
  */
+import type { Draft } from 'immer';
 import { create } from 'zustand';
 import type { StateStorage } from 'zustand/middleware';
 import { createAssetStore, referencedAssetIds } from '@/core/assets';
@@ -92,6 +93,33 @@ export const useProject = createToolStore<Project>(TOOL_ID, initialProject(), {
 
 /** 拖曳、滑桿、文字欄：放開（離開）才記一步 */
 export const gesture = historyGesture(useProject);
+
+/*
+ * 改專案一律走 updateProject：拖曳或磁鐵跑著時，角色的位置暫時在編輯畫面的工作副本裡（editor/live），
+ * 改之前先把那些位置放回專案，動作才會從畫面上的位置算起。
+ */
+type ProjectRecipe = (p: Draft<Project>) => void;
+let beforeUpdate: ProjectRecipe | null = null;
+let pendingLive: () => boolean = () => false;
+export function setBeforeUpdate(fn: ProjectRecipe | null, pending?: () => boolean): void {
+  beforeUpdate = fn;
+  pendingLive = pending ?? (() => false);
+}
+/** 匯出、存檔之前：畫面上還在動的位置（拖曳、磁鐵）先放回專案 */
+export function syncProject(): void {
+  if (beforeUpdate && pendingLive()) updateProject(() => {});
+}
+export function updateProject(recipe: ProjectRecipe): void {
+  const pre = beforeUpdate;
+  useProject.getState().update(
+    pre
+      ? (p) => {
+          pre(p);
+          recipe(p);
+        }
+      : recipe,
+  );
+}
 
 /*
  * 好幾件事同時要「合成一步復原」時（磁鐵跑著、同時拖曳角色）：誰先開始誰開手勢，最後一個放開才結束。

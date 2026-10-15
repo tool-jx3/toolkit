@@ -29,6 +29,16 @@ function same<T>(list: readonly Char[], f: (c: Char) => T): T | null {
   return list.every((c) => f(c) === v) ? v : null;
 }
 
+/** 尺寸欄（0／null＝自動）：大家一樣時是那個值（都是自動＝null），不一致時 mixed */
+function sameSize(list: readonly Char[], f: (c: Char) => number | null) {
+  const norm = (c: Char) => {
+    const v = f(c);
+    return v && v > 0 ? v : null;
+  };
+  const v = list.length ? norm(list[0]) : null;
+  return { value: v, mixed: list.some((c) => norm(c) !== v) };
+}
+
 function MixedToggle({
   value,
   label,
@@ -57,9 +67,9 @@ export function BatchPanel({ ids }: { ids: readonly number[] }) {
   const shape = same(list, (c) => c.shape || 'auto');
   const fill = same(list, (c) => c.nameColor);
   const ring = same(list, (c) => c.color);
-  const size = same(list, (c) => c.size);
-  const nameSize = same(list, (c) => c.nameSize);
-  const borderW = same(list, (c) => c.borderW);
+  const size = sameSize(list, (c) => c.size);
+  const nameSize = sameSize(list, (c) => c.nameSize);
+  const borderW = sameSize(list, (c) => c.borderW);
   const level = same(list, (c) => charLevel(c));
   const setColor = (key: 'color' | 'nameColor', v: ColorValue) =>
     updateChars(ids, (c) => {
@@ -207,7 +217,8 @@ export function BatchPanel({ ids }: { ids: readonly number[] }) {
             <div key={key} className="flex flex-col gap-1 text-xs text-muted">
               {label}
               <AutoNumber
-                value={v}
+                value={v.mixed ? null : v.value}
+                placeholder={v.mixed ? S.batch.mixed : S.char.sizeAuto}
                 min={min}
                 max={max}
                 aria-label={label}

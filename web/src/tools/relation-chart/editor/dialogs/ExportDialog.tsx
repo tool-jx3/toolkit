@@ -18,6 +18,7 @@ import {
   projectNow,
   setPrefs,
   setUi,
+  syncProject,
   usePrefs,
   useProject,
   useUi,
@@ -35,6 +36,7 @@ const HINTS: Record<ExportFormat, string> = {
 
 /** 這次要匯出的分頁索引（沒有角色的不匯出） */
 function pickIndexes(scope: ExportScope, picked: ReadonlySet<number>): number[] {
+  syncProject();
   const p = projectNow();
   const all = p.sheets.map((_, i) => i).filter((i) => p.sheets[i].chars.length > 0);
   if (p.sheets.length <= 1 || scope === 'cur') return all.filter((i) => i === activeIndex(p));
@@ -43,6 +45,7 @@ function pickIndexes(scope: ExportScope, picked: ReadonlySet<number>): number[] 
 }
 
 async function prepare(idx: readonly number[], transparent: boolean) {
+  syncProject();
   const p = projectNow();
   const uris = await dataUris(drawnImageIds(p, idx));
   return {
