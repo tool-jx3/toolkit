@@ -222,6 +222,15 @@ describe('編輯：完整格式', () => {
     expect(docText(start.doc)).toBe('一二\n三');
     expect(start.doc.lines[1].pageBreak).toBe(true);
     expect(setPageBreak(start.doc, 1, false).lines[1].pageBreak).toBeUndefined();
+    /* 全文最開頭：沒有作用（原樣回傳，不設分頁、不刪選取的字） */
+    for (const [a, b] of [
+      [0, 0],
+      [0, 1],
+    ]) {
+      const head = insertPageBreak(d, a, b);
+      expect(head.doc).toBe(d);
+      expect(head.caret).toBe(0);
+    }
   });
 
   it('段落對齊：選取範圍碰到的段落；拿掉＝跟著整體', () => {

@@ -887,7 +887,7 @@ export function replaceText(
 
 /**
  * 在游標處分頁：[start, end) 的字刪掉，後面的字從新的一頁開始（游標在段落開頭時直接把那一段設成從新的一頁開始）。
- * 回傳新的格式化文字與游標位置（新的一段的開頭）。
+ * 回傳新的格式化文字與游標位置（新的一段的開頭）。全文最開頭（選取從 0 開始）沒有作用：原樣回傳 doc（同一個物件）。
  */
 export function insertPageBreak(
   doc: RichDoc,
@@ -896,6 +896,7 @@ export function insertPageBreak(
 ): { doc: RichDoc; caret: number } {
   const a = Math.max(0, Math.min(start, end));
   const b = Math.max(start, end);
+  if (a === 0) return { doc, caret: 0 };
   const base = a === b ? doc : replaceText(doc, a, b, '').doc;
   const li = lineIndexAt(base, a);
   if (a === lineStartOf(base, li)) return { doc: setPageBreak(base, li, true), caret: a };

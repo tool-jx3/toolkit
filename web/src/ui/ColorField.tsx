@@ -318,7 +318,11 @@ function HexInput({
           setDraft(null);
         }
       }}
-      className={inputClass(invalid, 'h-7 min-w-0 flex-1 font-mono text-xs')}
+      /* 觸控螢幕：16 px（iOS 點輸入欄時不會放大畫面；調色盤在 portal 裡，工具的設定欄管不到） */
+      className={inputClass(
+        invalid,
+        'h-7 min-w-0 flex-1 font-mono text-xs [@media(pointer:coarse)]:text-[16px]',
+      )}
     />
   );
 }

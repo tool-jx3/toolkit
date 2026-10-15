@@ -14,7 +14,7 @@
  *
  * ```tsx
  * <RichTextEditor value={doc} onChange={setDoc} fontFamily={fontFamilyCss(font)} baseSize={30} displaySize={16}
- *   lineHeight={1.9} color="#272621" background="#f3efe6" align="left" onHistory={(k) => k === 'undo' ? undo() : redo()}
+ *   lineHeight={1.9} color="#1e1a16" background="#f3e8cf" align="left" onHistory={(k) => k === 'undo' ? undo() : redo()}
  *   toolbar={{ fonts, sizes: [18, 24, 30, 40], textSwatches, highlightSwatches }} aria-label="本文" />
  * ```
  */
@@ -333,7 +333,8 @@ export function RichTextEditor({
   function computeState(doc: RichDoc, s: Sel): RichSelectionState {
     let marks = rangeMarks(doc, s.start, s.end);
     const p = pending.current;
-    if (p && s.start === s.end && s.start === pendingAt.current)
+    /* 組字中游標跟著組字的字移動，工具列照樣顯示「接下來打的字」的格式 */
+    if (p && s.start === s.end && (s.start === pendingAt.current || composing.current))
       marks = {
         bold: p.bold,
         italic: !!p.italic,
@@ -460,14 +461,21 @@ export function RichTextEditor({
     if (hasFocus) placeSel(sel.current);
   }, [baseSize, displaySize, pageBreakLabel]);
 
-  /* 選取範圍改變：記下位置、更新工具列；游標移走就取消「接下來打的字」的格式 */
+  /*
+   * 選取範圍改變：記下位置、更新工具列；游標移走就取消「接下來打的字」的格式
+   * （組字中游標跟著組字的字移動，不算移走：組字結束時套到組好的字）
+   */
   useEffect(() => {
     const d = editor.current?.ownerDocument;
     if (!d) return;
     const onSel = () => {
       const s = readSel();
       if (!s) return;
-      if (pending.current && (s.start !== s.end || s.start !== pendingAt.current))
+      if (
+        pending.current &&
+        !composing.current &&
+        (s.start !== s.end || s.start !== pendingAt.current)
+      )
         pending.current = null;
       sel.current = s;
       publish(current(), s);
@@ -517,8 +525,9 @@ export function RichTextEditor({
       if (ins) {
         doc = applyRichFormat(doc, ins.start, ins.end, styleFormat(p));
         rewrite = true;
-      }
-      pending.current = null;
+        pending.current = null;
+      } else if (s.start !== pendingAt.current) pending.current = null;
+      /* 沒有打出字、游標也沒動（例如取消組字）：格式留著 */
     }
     if (rewrite) {
       show(doc);
@@ -574,6 +583,8 @@ export function RichTextEditor({
       return;
     }
     const r = docInsertPageBreak(cur, s.start, s.end);
+    /* 全文最開頭：沒有作用 */
+    if (r.doc === cur) return;
     if (docLength(r.doc) > cb.current.maxLength) {
       cb.current.onNotice?.(T.overLimit(cb.current.maxLength), 'warning');
       return;
@@ -763,7 +774,7 @@ export function RichTextEditor({
       placeSel(sel.current);
     }, 0);
   const textColor = m.color === null ? color : m.color || color;
-  const hlColor = m.highlight || tb?.highlightSwatches?.[0] || '#fff0a8';
+  const hlColor = m.highlight || tb?.highlightSwatches?.[0] || '#f8e287';
 
   const markButton = (
     name: 'bold' | 'italic' | 'strike',

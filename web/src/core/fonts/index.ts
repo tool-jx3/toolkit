@@ -6,7 +6,7 @@
 import { safeFileName } from '../files';
 import { idbDel, idbGet, idbKeys, idbSet, idbStore } from '../storage/idb';
 import { DEFAULT_FONT_FAMILY, findGoogleFont, googleFontCssUrl, nearestWeight } from './catalog';
-import { readFontNames } from './sfnt';
+import { extractTtcFace, readFontNames, ttcFaceOffsets } from './sfnt';
 
 export * from './catalog';
 export {
@@ -386,11 +386,18 @@ function registerFace(meta: UploadedFont, data: ArrayBuffer): Promise<FontFace> 
 
 /**
  * 上傳字型：讀出字型名稱、註冊到頁面、存進 IndexedDB（下次開啟自動恢復）。
- * 名稱讀不出來時用檔名。
+ * 名稱讀不出來時用檔名。TTC／OTC（字型集合；瀏覽器的 FontFace 不收）取第一個字型，重組成單獨的字型檔再註冊、存起來
+ * （和 PDF 嵌字型的 firstFaceOf 相同做法）。
  */
 export async function uploadFont(file: File): Promise<UploadedFont> {
-  const data = await file.arrayBuffer();
-  const names = readFontNames(new Uint8Array(data));
+  const raw = new Uint8Array(await file.arrayBuffer());
+  const offs = ttcFaceOffsets(raw);
+  const bytes = offs?.length ? extractTtcFace(raw, offs[0]) : raw;
+  const data =
+    bytes === raw
+      ? (raw.buffer as ArrayBuffer)
+      : (bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
+  const names = readFontNames(bytes);
   const base = safeFileName(file.name.replace(/\.[^.]+$/, ''), { fallback: '上傳字型' });
   const existing = await listUploadedFonts();
   let family = names?.family || base;
