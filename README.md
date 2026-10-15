@@ -80,7 +80,7 @@
 | [團報產生器](https://tool-jx3.github.io/toolkit/tools/session-report/) | 填入劇本、KP／PL／PC 與結果，從 17 種範本產生可直接貼到 X 的團報文，能即時預覽、編輯 |
 | [角色差分管理器](https://tool-jx3.github.io/toolkit/tools/variant-manager/) | 一次檢查立繪與表情差分、整理好檔名打包成 ZIP，並產生 CCFOLIA 用的 @差分 聊天面板 |
 | [劇本資訊卡片產生器](https://tool-jx3.github.io/toolkit/tools/scenario-cards/) | 把劇本內文裡的場景、探索地點、資料、技能成功等資訊做成卡片，複製成 CCFOLIA／Discord 用的文字或 CCFOLIA 的卡片 JSON |
-| [CCFOLIA 日誌轉換器](https://tool-jx3.github.io/toolkit/tools/log-converter/) | 把 CCFOLIA 匯出的日誌 HTML 轉成小說、時間軸或 CCFOLIA 風格的網頁；可指定旁白、插入插圖、依則數分割檔案，或轉成部落格貼文用的格式 |
+| [CCFOLIA 日誌轉換器](https://tool-jx3.github.io/toolkit/tools/log-converter/) | 把 CCFOLIA 匯出的日誌 HTML 轉成小說、時間軸或 CCFOLIA 風格的網頁；可指定旁白、插入插圖、依則數分割檔案，或轉成部落格貼文用的格式；也能匯出 EPUB 電子書 |
 | [CCFOLIA & 圖片調色工作室](https://tool-jx3.github.io/toolkit/tools/psd-studio/) | 把 CCFOLIA 房間 ZIP、PSD 或圖片一次統一調色（色相、曲線、漸層對應），APNG 自動壓到 5 MB 以下，再輸出成房間 ZIP |
 | [文字方框產生器](https://tool-jx3.github.io/toolkit/tools/textbox/) | 用框線字元和全形空白排出可以直接貼進聊天欄的文字方框與表格，自動補正全形字寬 |
 | [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | 一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈 |
@@ -147,7 +147,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `character-editor` | [角色資料編輯器](https://tool-jx3.github.io/toolkit/tools/character-editor/) | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) |
 | `foreground-frame` | [前景框產生器](https://tool-jx3.github.io/toolkit/tools/foreground-frame/) | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) |
 | `room-zip` | [房間 ZIP 產生器](https://tool-jx3.github.io/toolkit/tools/room-zip/) | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) |
-| `log-converter` | [CCFOLIA 日誌轉換器](https://tool-jx3.github.io/toolkit/tools/log-converter/) | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter) |
+| `log-converter` | [CCFOLIA 日誌轉換器](https://tool-jx3.github.io/toolkit/tools/log-converter/) | [Eon-00/eon-ccfolia-log-converter](https://github.com/Eon-00/eon-ccfolia-log-converter)、[sotsotssi/CcfoliaLogConverter](https://github.com/sotsotssi/CcfoliaLogConverter)（EPUB 匯出） |
 | `scenario-cards` | [劇本資訊卡片產生器](https://tool-jx3.github.io/toolkit/tools/scenario-cards/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `psd-studio` | [CCFOLIA & 圖片調色工作室](https://tool-jx3.github.io/toolkit/tools/psd-studio/) | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) |
 | `session-log` | [跑團紀錄簿](https://tool-jx3.github.io/toolkit/tools/session-log/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
