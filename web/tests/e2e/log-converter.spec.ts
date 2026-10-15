@@ -915,6 +915,105 @@ test.describe('EPUB 電子書（2026-10）', () => {
     expect(errors).toEqual([]);
   });
 
+  test('ruby 結構不完整的日誌也是合法的 EPUB（驗證 3.13.2）', async ({ page }) => {
+    const errors = await open(page);
+    const rows = [
+      '<rp>(</rp>括號',
+      '文字<rt>注音</rt>',
+      '<ruby>職曾</ruby>沒有注音',
+      '漢<rp>(</rp><rt>かん</rt><rp>)</rp>沒有 ruby',
+      '<ruby>漢<rp>(</rp><rt>かん</rt><rp>)</rp></ruby>字',
+      '<ruby><ruby>甲<rt>a</rt></ruby><rt>b</rt></ruby>',
+      '<ruby>漢<b><rt>かん</rt></b></ruby>',
+      '<ruby>漢<rp><b>(</b></rp><rt>かん</rt><rp>)</rp></ruby>',
+    ]
+      .map((t) => `<p><span> [main]</span><span>林曉雨</span> : <span>${t}</span></p>`)
+      .join('\n');
+    await loadFiles(page, [fileOf('ruby.html', rows)]);
+    await tab(page, '進階').click();
+    await page.getByRole('switch', { name: '一併產生 EPUB 電子書' }).click();
+    await convert(page);
+    const file = await download(page, '下載 EPUB 電子書');
+    const book = await inspectEpub(page, file.bytes);
+    expect(book.errors).toEqual([]);
+    const text = book.texts['OEBPS/text/c001-01.xhtml'];
+    expect(text).toContain('林曉雨</span><span class="sep">：</span>(括號</p>');
+    expect(text).toContain('<ruby>漢<rp>(</rp><rt>かん</rt><rp>)</rp></ruby>字');
+    const report = epubcheck(file.bytes, 'ruby.epub');
+    if (report !== null) expect(report).toContain('No errors or warnings detected');
+    expect(errors).toEqual([]);
+  });
+
+  test('同版本存檔裡不合法的 EPUB 設定，讀進來時換成預設（驗證 F107）', async ({ page }) => {
+    const errors = await open(page);
+    await loadFiles(page, [fileOf(LEGACY)]);
+    await tab(page, '進階').click();
+    await page.getByRole('switch', { name: '一併產生 EPUB 電子書' }).click();
+    await page.waitForTimeout(500);
+    await page.evaluate(() => {
+      const key = 'trpg-toolkit:log-converter';
+      const saved = JSON.parse(localStorage.getItem(key) ?? '{}');
+      saved.state.data.epubChapterSize = -1;
+      saved.state.data.epubChapters = 'nope';
+      localStorage.setItem(key, JSON.stringify(saved));
+    });
+    await page.reload();
+    await loadFiles(page, [fileOf(LEGACY)]);
+    await tab(page, '進階').click();
+    await expect(page.getByRole('switch', { name: '一併產生 EPUB 電子書' })).toBeChecked();
+    await expect(page.getByRole('radio', { name: '不分章' })).toBeChecked();
+    await page.getByRole('radio', { name: '依則數' }).nth(1).click();
+    await expect(page.getByRole('spinbutton', { name: '每章則數' })).toHaveValue('500');
+    expect(errors).toEqual([]);
+  });
+
+  test('產生失敗時顯示繁中說明與「複製錯誤資訊」；再按一次會重新開 Worker（驗證 F112）', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    /* 第一次：Worker 載不到、主執行緒產生時出錯（測試注入）；第二次照常 */
+    await page.addInitScript(() => {
+      const encode = TextEncoder.prototype.encode;
+      TextEncoder.prototype.encode = function (this: TextEncoder, input?: string) {
+        const w = window as unknown as { __failEpub?: boolean };
+        if (w.__failEpub) {
+          w.__failEpub = false;
+          throw new Error('Injected failure for test');
+        }
+        return encode.call(this, input);
+      };
+    });
+    let blockWorker = true;
+    await context.route(/epub\.worker[^/]*\.js/, (r) => (blockWorker ? r.abort() : r.continue()));
+    const errors = await open(page);
+    await loadFiles(page, [fileOf(LEGACY)]);
+    await tab(page, '進階').click();
+    await page.getByRole('switch', { name: '一併產生 EPUB 電子書' }).click();
+    await convert(page);
+    await page.evaluate(() => {
+      (window as unknown as { __failEpub?: boolean }).__failEpub = true;
+    });
+    await btn(page, '下載 EPUB 電子書').click();
+    const notice = page.getByTestId('epub-error');
+    await expect(notice).toContainText('產生電子書失敗');
+    await expect(notice).not.toContainText('Injected failure');
+    await expect(btn(page, '下載 EPUB 電子書')).toBeEnabled();
+    await notice.getByRole('button', { name: '複製錯誤資訊' }).click();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied).toContain('Injected failure for test');
+    expect(copied).toContain('CCFOLIA 日誌轉換器');
+    /* 再按一次：重新開 Worker（不沿用失敗的結果），成功後說明消失 */
+    blockWorker = false;
+    const workers: string[] = [];
+    page.on('worker', (w) => workers.push(w.url()));
+    const file = await download(page, '下載 EPUB 電子書');
+    expect(file.name).toBe('霧港燈塔.epub');
+    expect(workers.some((u) => /epub\.worker/.test(u))).toBe(true);
+    await expect(notice).toHaveCount(0);
+    expect(errors.filter((e) => !/epub\.worker|net::ERR_FAILED/.test(e))).toEqual([]);
+  });
+
   test('新格式多檔、分割時按鈕在 ZIP 之後；epubcheck（F112）', async ({ page }) => {
     const errors = await open(page);
     await loadFiles(

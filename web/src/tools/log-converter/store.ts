@@ -13,7 +13,9 @@ import type { IllustrationItem, LogChoices } from './pipeline';
 import type { ConvertResult } from './render';
 import {
   DEFAULT_SETTINGS,
+  EPUB_SETTING_KEYS,
   type LcSettings,
+  normalizeEpubSettings,
   normalizeSettings,
   SETTINGS_VERSION,
   TOOL_ID,
@@ -25,6 +27,19 @@ export const useSettings = createToolStore<LcSettings>(TOOL_ID, DEFAULT_SETTINGS
   migrate: (raw) => normalizeSettings(raw),
   historyLimit: 1,
 });
+
+/**
+ * 同版本的自動存檔不經 migrate（共用 store 只補缺的欄位、不檢查值），所以 EPUB 的設定讀進來時整理一次：
+ * 不合法的值換成預設並寫回，畫面與匯出都用整理後的值（驗證 F107）。存檔是同步讀的，建立 store 後就已經讀好。
+ */
+export function tidyEpubSettings(): void {
+  const data = useSettings.getState().data;
+  const fixed = normalizeEpubSettings(data);
+  if (EPUB_SETTING_KEYS.some((k) => !Object.is(fixed[k], data[k])))
+    useSettings.getState().patch(fixed);
+}
+
+tidyEpubSettings();
 
 export function patchSettings(patch: Partial<LcSettings>): void {
   useSettings.getState().patch(patch);

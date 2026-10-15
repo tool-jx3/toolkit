@@ -4,9 +4,19 @@
  */
 import { BookOpen, Download, FileArchive, Play } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { errorText } from '@/core/diagnostics';
 import { downloadBytes, downloadText, zipFiles } from '@/core/files';
-import { Button, Field, NativeNumberInput, Notice, Select, useConfirm, useToast } from '@/ui';
-import { convert, exportEpub, refreshPreview } from './actions';
+import {
+  Button,
+  CopyDiagnostics,
+  Field,
+  NativeNumberInput,
+  Notice,
+  Select,
+  useConfirm,
+  useToast,
+} from '@/ui';
+import { convert, EpubExportError, exportEpub, refreshPreview } from './actions';
 import { blogPage, type ConvertResult, downloadNames } from './render';
 import { useSession } from './store';
 import { S } from './strings';
@@ -104,16 +114,22 @@ function PreviewRange() {
   );
 }
 
-/** 下載 EPUB（F112）：背景產生，按鈕顯示進度 */
-function EpubButton() {
-  const toast = useToast();
+/** 下載 EPUB（F112）：背景產生，按鈕顯示進度；失敗時交給 onError（「複製錯誤資訊」的內容） */
+function EpubButton({
+  onStart,
+  onError,
+}: {
+  onStart: () => void;
+  onError: (details: string) => void;
+}) {
   const [pct, setPct] = useState<number | null>(null);
   const run = async () => {
     setPct(0);
+    onStart();
     try {
       await exportEpub((p) => setPct(Math.round(p * 100)));
     } catch (e) {
-      toast({ title: S.epub.failed(e instanceof Error ? e.message : String(e)), tone: 'danger' });
+      onError(e instanceof EpubExportError ? e.details : errorText(e));
     } finally {
       setPct(null);
     }
@@ -143,6 +159,11 @@ function Downloads({
 }) {
   const toast = useToast();
   const [zipping, setZipping] = useState<'zip' | 'blog' | null>(null);
+  /* 產生 EPUB 失敗時的「複製錯誤資訊」內容；再按一次時清掉 */
+  const [epubError, setEpubError] = useState<string | null>(null);
+  const epubButton = (
+    <EpubButton onStart={() => setEpubError(null)} onError={(d) => setEpubError(d)} />
+  );
   const total = result.pages.length;
   const names = downloadNames(result.fileBase, total);
   const zip = async (kind: 'zip' | 'blog') => {
@@ -194,7 +215,7 @@ function Downloads({
                 {zipping === 'blog' ? S.result.zipping : S.result.downloadBlogZip}
               </Button>
             )}
-            {epub && <EpubButton />}
+            {epub && epubButton}
           </>
         )}
         {result.pages.map((html, i) => (
@@ -220,8 +241,15 @@ function Downloads({
             )}
           </span>
         ))}
-        {total === 1 && epub && <EpubButton />}
+        {total === 1 && epub && epubButton}
       </div>
+      {epub && epubError !== null && (
+        <div data-testid="epub-error">
+          <Notice tone="danger" action={<CopyDiagnostics text={epubError} />}>
+            {S.epub.failed}
+          </Notice>
+        </div>
+      )}
     </div>
   );
 }

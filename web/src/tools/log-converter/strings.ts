@@ -387,7 +387,27 @@ export const S = {
     coverFailed: (why: string) => `封面圖片讀不了：${why}`,
     download: '下載 EPUB 電子書',
     building: (pct: number) => `產生電子書中……（${pct}%）`,
-    failed: (why: string) => `產生電子書失敗：${why}`,
+    failed:
+      '產生電子書失敗。請再按一次「下載 EPUB 電子書」；還是不行時，重新整理頁面、再轉換一次。一直失敗的話，可以按「複製錯誤資訊」把內容貼給維護者。',
+    /* 「複製錯誤資訊」的內容 */
+    diag: {
+      tool: 'CCFOLIA 日誌轉換器',
+      step: '步驟',
+      error: '錯誤',
+      mode: '處理方式',
+      modes: { worker: 'Worker', main: '主執行緒（Worker 不能用）', none: '—' },
+      entries: '則數',
+      chapters: '分章方式',
+      writing: '排版方向',
+      cover: '封面',
+      fontFile: '嵌入字型檔',
+      none: '沒有',
+      steps: {
+        images: '轉換插圖',
+        build: '產生電子書',
+        download: '下載',
+      },
+    },
   },
   /* ---------- 轉換、預覽、下載 ---------- */
   result: {

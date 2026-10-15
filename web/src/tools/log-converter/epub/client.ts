@@ -1,6 +1,7 @@
 /**
  * 在背景產生 EPUB（規格 F112、5. D8）：環境支援就開一個 Worker（每次匯出一個，做完就結束），
  * Worker 開不起來或載不到時，同一份程式在主執行緒跑，每產生一個章節檔就讓出一次（畫面照樣能更新進度）。
+ * 每次都開新的 Worker：上一次載不到，下一次照樣重新載入（驗證 F112）。
  */
 import {
   canUseWorker,
@@ -22,11 +23,16 @@ export function buildEpubOnMainThread(
   return buildEpub(input, { onProgress, pause: yieldToBrowser });
 }
 
+/** 在哪裡產生（「複製錯誤資訊」用） */
+export type EpubBuildMode = 'worker' | 'main';
+
 export async function buildEpubInBackground(
   input: EpubInput,
   onProgress?: (fraction: number) => void,
+  onMode?: (mode: EpubBuildMode) => void,
 ): Promise<Uint8Array> {
   if (canUseWorker()) {
+    onMode?.('worker');
     let handle: WorkerHandle<EpubWorkerApi> | null = null;
     try {
       const worker = new Worker(new URL('./epub.worker.ts', import.meta.url), {
@@ -46,5 +52,6 @@ export async function buildEpubInBackground(
       handle?.terminate();
     }
   }
+  onMode?.('main');
   return buildEpubOnMainThread(input, onProgress);
 }

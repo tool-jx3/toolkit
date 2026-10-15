@@ -309,7 +309,8 @@ function* chapterBodies(
       if (e.kind === 'system') {
         /* 系統訊息先把閒聊組輸出（同網頁小說，第 5 節第 3 項）；隱藏時也是閒聊的分組邊界（7.1 F86） */
         flushChat();
-        if (!input.hideSystem) {
+        /* 依標記時整則只有章名那一行的，只當章名（同旁白、對話；驗證 3.13.3） */
+        if (!input.hideSystem && !ch.skip.has(e.num)) {
           const name = e.speaker && e.speaker !== 'system' ? e.speaker : OUT.system;
           emit(
             `<div class="sys"><p class="sys-name">${xmlText(name)}</p><p class="sys-body">${linesOf(e)}</p></div>`,

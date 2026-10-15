@@ -5,7 +5,7 @@
  * 分章（不分章、依分頁、依標記、依則數）、章節順序與內容、XHTML 的跳脫與淨化、直排、封面、字型檔、
  * 角色顏色、識別碼、大日誌（2 萬則）、設定的讀回（資料版本 2）。
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { contrastRatio } from '@/core/color';
 import { unzipFiles, zipFiles } from '@/core/files';
 import type { LogEntry } from '@/tools/log-converter/classify';
@@ -425,6 +425,27 @@ describe('章節內容（3.13.3、3.13.4、F113）', () => {
     expect(plan[0].skip.size).toBe(0);
   });
 
+  it('依標記：整則只有章名那一行的系統訊息也不重複出現在內文（驗證 3.13.3）', async () => {
+    const text = [
+      '<p><span> [main]</span><span>GM</span> : <span>開場</span></p>',
+      '<p><span> [main]</span><span>system</span> : <span>[ 林曉雨 ] 【章】HP : 11 → 9</span></p>',
+      '<p><span> [main]</span><span>林曉雨</span> : <span>「好痛」</span></p>',
+      '<p><span> [main]</span><span>system</span> : <span>[ 林曉雨 ] 【章】SAN : 50 → 49<br>（第二行）</span></p>',
+    ].join('');
+    const b = await open(
+      inputFor([{ name: 'x.html', text }], { epubChapters: 'marker', epubMarkers: '【章】' }, {}),
+    );
+    expect(navLabels(b)).toEqual([
+      '開頭',
+      '[ 林曉雨 ] 【章】HP : 11 → 9',
+      '[ 林曉雨 ] 【章】SAN : 50 → 49',
+    ]);
+    const second = b.xml(b.chapters[1]);
+    expect(blockKinds(second)).toEqual(['章名', '對話']);
+    /* 還有第二行：系統框照常出現 */
+    expect(blockKinds(b.xml(b.chapters[2]))).toEqual(['章名', '擲骰']);
+  });
+
   it('依則數：每 n 則一章，章名「第 a～b 則」', async () => {
     const b = await open(legacyInput({ epubChapters: 'count', epubChapterSize: 5 }));
     expect(navLabels(b)).toEqual(['第 1～5 則', '第 6～10 則', '第 11～15 則', '第 16～17 則']);
@@ -627,6 +648,50 @@ describe('XHTML 的跳脫與淨化（3.13.2、5. D3）', () => {
     }
   });
 
+  it('ruby 結構不完整時：rt／rp 只在 ruby 裡保留，外面的只留文字；沒有 rt 的 ruby 只留內容（驗證 3.13.2）', () => {
+    const cases: [string, string][] = [
+      ['<rp>(</rp>括號', '(括號'],
+      ['文字<rt>注音</rt>', '文字注音'],
+      ['漢<rp>(</rp><rt>かん</rt><rp>)</rp>', '漢(かん)'],
+      ['<ruby>職曾</ruby>', '職曾'],
+      ['<ruby><b>職</b>曾<rp>(</rp></ruby>後', '<b>職</b>曾(後'],
+      [
+        '<ruby>漢<rp>(</rp><rt>かん</rt><rp>)</rp></ruby>字',
+        '<ruby>漢<rp>(</rp><rt>かん</rt><rp>)</rp></ruby>字',
+      ],
+      [
+        '<ruby><ruby>甲<rt>a</rt></ruby><rt>b</rt></ruby>',
+        '<ruby><ruby>甲<rt>a</rt></ruby><rt>b</rt></ruby>',
+      ],
+      ['<ruby>漢<b><rt>かん</rt></b></ruby>', '漢<b>かん</b>'],
+      ['<ruby>漢<rt><b>かん</b></rt></ruby>', '<ruby>漢<rt><b>かん</b></rt></ruby>'],
+      [
+        '<ruby>漢<rp><b>(</b></rp><rt>かん</rt><rp>)</rp></ruby>',
+        '<ruby>漢<rp>(</rp><rt>かん</rt><rp>)</rp></ruby>',
+      ],
+      /* 排成 epubcheck 接受的結構：rp 只在「rp rt rp」時保留、最後沒有 rt 的底字移到 ruby 後面 */
+      ['<ruby>漢<rp>(</rp><rt>かん</rt></ruby>', '<ruby>漢<rt>かん</rt></ruby>'],
+      ['<ruby>甲<rp>(</rp><rp>(</rp><rt>a</rt></ruby>', '<ruby>甲<rt>a</rt></ruby>'],
+      ['<ruby>甲<rt>a</rt>乙</ruby>', '<ruby>甲<rt>a</rt></ruby>乙'],
+      ['<ruby><rt>a</rt>甲</ruby>', '<ruby><rt>a</rt></ruby>甲'],
+      [
+        '<ruby>甲<rp>(</rp><rt>a</rt><rp>)</rp>乙<rp>(</rp><rt>b</rt><rp>)</rp></ruby>',
+        '<ruby>甲<rp>(</rp><rt>a</rt><rp>)</rp>乙<rp>(</rp><rt>b</rt><rp>)</rp></ruby>',
+      ],
+      [
+        '<ruby>甲<rp>(</rp><rt>a</rt><rp>)</rp><rt>b</rt></ruby>',
+        '<ruby>甲<rt>a</rt><rt>b</rt></ruby>',
+      ],
+      ['<ruby>漢<rt>か<rt>ん</rt></rt></ruby>', '<ruby>漢<rt>かん</rt></ruby>'],
+      ['<ruby>漢<rt>かん', '<ruby>漢<rt>かん</rt></ruby>'],
+      ['<ruby>漢<rp>(', '漢('],
+    ];
+    for (const [input, out] of cases) {
+      expect(htmlToXhtml(input), input).toBe(out);
+      expect(() => wellFormed(htmlToXhtml(input)), input).not.toThrow();
+    }
+  });
+
   it('新格式的內容（跳脫過的純文字＋<br>）', () => {
     const v2 = '「&lt;秘密&gt;」 &amp; &quot;引號&quot; &#39;單引號&#39;<br>第二行 🎲';
     expect(htmlToXhtml(v2)).toBe('「&lt;秘密&gt;」 &amp; "引號" \'單引號\'<br/>第二行 🎲');
@@ -821,6 +886,57 @@ describe('設定（F104～F110、資料版本 2）', () => {
       font: 'sans',
       nameColor: 'mark',
     });
+  });
+});
+
+describe('同版本存檔裡不合法的 EPUB 設定（驗證 F107）', () => {
+  it('讀進設定時整理成合法的值並寫回（畫面與匯出都用整理後的值）', async () => {
+    const key = 'trpg-toolkit:log-converter';
+    const bad = {
+      ...DEFAULT_SETTINGS,
+      epubMode: 'yes',
+      epubAuthor: 5,
+      epubChapters: 'nope',
+      epubMarkers: null,
+      epubChapterSize: -1,
+      epubWriting: 'diagonal',
+      epubFont: 'comic',
+      epubNameColor: 'rainbow',
+      fontSize: 21,
+    };
+    localStorage.setItem(key, JSON.stringify({ state: { data: bad }, version: 2 }));
+    vi.resetModules();
+    const { useSettings } = await import('@/tools/log-converter/store');
+    const data = useSettings.getState().data;
+    expect(data).toMatchObject({
+      epubMode: false,
+      epubAuthor: '',
+      epubChapters: 'single',
+      epubMarkers: '',
+      epubChapterSize: 500,
+      epubWriting: 'horizontal',
+      epubFont: 'serif',
+      epubNameColor: 'text',
+      fontSize: 21,
+    });
+    const saved = JSON.parse(localStorage.getItem(key) ?? '{}');
+    expect(saved.state.data).toMatchObject({ epubChapters: 'single', epubChapterSize: 500 });
+    /* 合法的值照用、不重寫 */
+    const good = {
+      ...DEFAULT_SETTINGS,
+      epubMode: true,
+      epubChapters: 'count',
+      epubChapterSize: 42,
+    };
+    localStorage.setItem(key, JSON.stringify({ state: { data: good }, version: 2 }));
+    vi.resetModules();
+    const again = await import('@/tools/log-converter/store');
+    expect(again.useSettings.getState().data).toMatchObject({
+      epubMode: true,
+      epubChapters: 'count',
+      epubChapterSize: 42,
+    });
+    localStorage.removeItem(key);
   });
 });
 

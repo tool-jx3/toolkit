@@ -212,22 +212,100 @@ function attrsOf(name: string, raw: string): string {
 const textOf = (raw: string): string => xmlText(decodeEntities(raw));
 
 /**
+ * 輸出中的一段：一般的內容是字串；ruby 直接的子元素 rt、rp 先記成物件（rt 是整個元素、rp 只有文字），
+ * ruby 關上時才排成合法的結構
+ */
+type Part = string | { kind: 'rt' | 'rp'; html: string };
+
+interface Frame {
+  /** 原文的標籤名（找結束標籤用） */
+  src: string;
+  /** null＝只留內容 */
+  tag: string | null;
+  attrs: string;
+  parts: Part[];
+  /** ruby：裡面有沒有 rt */
+  hasRt: boolean;
+}
+
+/** 一般元素的內容（rt、rp 只會出現在 ruby 裡；萬一有，rt 照用、rp 只留文字） */
+const joinParts = (parts: readonly Part[]): string =>
+  parts.map((p) => (typeof p === 'string' ? p : p.html)).join('');
+
+/**
+ * 有 rt 的 ruby 排成 epubcheck 接受的結構（驗證 3.13.2）：每一組是「底字＋一個以上的 rt」，
+ * 一組只有一個 rt、而且前後剛好各有一個 rp 時保留「rp rt rp」，其他的 rp 拿掉（ruby 裡的 rp 本來就不顯示）；
+ * 最後一組沒有 rt 的底字移到 ruby 後面。
+ */
+function rubyHtml(f: Frame): string {
+  type Group = { base: string[]; ann: Exclude<Part, string>[] };
+  const groups: Group[] = [{ base: [], ann: [] }];
+  for (const p of f.parts) {
+    const g = groups[groups.length - 1];
+    if (typeof p !== 'string') {
+      g.ann.push(p);
+      continue;
+    }
+    if (g.ann.some((a) => a.kind === 'rt')) groups.push({ base: [p], ann: [] });
+    else {
+      g.ann = [];
+      g.base.push(p);
+    }
+  }
+  let inner = '';
+  let trailing = '';
+  for (const g of groups) {
+    const rts = g.ann.filter((a) => a.kind === 'rt');
+    if (!rts.length) {
+      trailing += g.base.join('');
+      continue;
+    }
+    const k = g.ann;
+    const wrapped =
+      k.length === 3 && k[0].kind === 'rp' && k[1].kind === 'rt' && k[2].kind === 'rp';
+    inner += g.base.join('');
+    inner += wrapped
+      ? `<rp>${k[0].html}</rp>${k[1].html}<rp>${k[2].html}</rp>`
+      : rts.map((a) => a.html).join('');
+  }
+  return `<ruby${f.attrs}>${inner}</ruby>${trailing}`;
+}
+
+/**
  * 網頁用的 HTML 片段（一行日誌內容）→ 格式正確的 XHTML 片段：
  * 白名單標籤照用或換成等義的、`br` → `<br/>`、其他標籤拿掉留下文字、script 之類連內容拿掉、
  * 字元參照解開再重新跳脫、沒關上的標籤在結尾關上、多出來的結束標籤略過。
+ * ruby（驗證 3.13.2）：rt、rp 只在 ruby 裡（直接的子元素）保留，其他地方只留文字（「漢(かん)」照樣讀得懂）；
+ * rp 裡只留文字；沒有 rt 的 ruby 只留內容（裡面的 rp 也只留文字）；有 rt 的 ruby 排成合法的結構（rubyHtml）。
  */
 export function htmlToXhtml(html: string): string {
   const s = String(html ?? '');
-  let out = '';
-  const stack: { src: string; out: string | null }[] = [];
+  const root: Frame = { src: '', tag: null, attrs: '', parts: [], hasRt: false };
+  const stack: Frame[] = [root];
+  const top = () => stack[stack.length - 1];
+  const emit = (text: string) => {
+    if (text) top().parts.push(text);
+  };
+  const close = () => {
+    const f = stack.pop()!;
+    const parent = top();
+    const inner = joinParts(f.parts);
+    if (f.tag === 'rp') parent.parts.push({ kind: 'rp', html: inner });
+    else if (f.tag === 'rt') parent.parts.push({ kind: 'rt', html: `<rt${f.attrs}>${inner}</rt>` });
+    else if (f.tag === 'ruby')
+      parent.parts.push(
+        f.hasRt ? rubyHtml(f) : f.parts.map((p) => (typeof p === 'string' ? p : p.html)).join(''),
+      );
+    else parent.parts.push(f.tag ? `<${f.tag}${f.attrs}>${inner}</${f.tag}>` : inner);
+  };
   let i = 0;
   while (i < s.length) {
     const lt = s.indexOf('<', i);
     if (lt < 0) {
-      out += textOf(s.slice(i));
+      emit(textOf(s.slice(i)));
       break;
     }
-    if (lt > i) out += textOf(s.slice(i, lt));
+    if (lt > i) emit(textOf(s.slice(i, lt)));
     if (s.startsWith('<!--', lt)) {
       const end = s.indexOf('-->', lt + 4);
       i = end < 0 ? s.length : end + 3;
@@ -240,7 +318,7 @@ export function htmlToXhtml(html: string): string {
     }
     const tag = readTag(s, lt);
     if (!tag) {
-      out += '&lt;';
+      emit('&lt;');
       i = lt + 1;
       continue;
     }
@@ -255,30 +333,37 @@ export function htmlToXhtml(html: string): string {
       }
       continue;
     }
+    const inRp = top().tag === 'rp';
     if (name === 'br') {
-      if (!tag.closing) out += '<br/>';
+      if (!tag.closing && !inRp) emit('<br/>');
       continue;
     }
-    const mapped = KEEP.has(name) ? name : (RENAME[name] ?? (UNWRAP.has(name) ? null : undefined));
+    let mapped: string | null | undefined = KEEP.has(name)
+      ? name
+      : (RENAME[name] ?? (UNWRAP.has(name) ? null : undefined));
     if (mapped === undefined) continue;
     if (tag.closing) {
       let k = stack.length - 1;
-      while (k >= 0 && stack[k].src !== name) k -= 1;
-      if (k < 0) continue;
-      while (stack.length > k) {
-        const t = stack.pop()!;
-        if (t.out) out += `</${t.out}>`;
-      }
+      while (k > 0 && stack[k].src !== name) k -= 1;
+      if (k === 0) continue;
+      while (stack.length > k) close();
       continue;
     }
-    stack.push({ src: name, out: mapped });
-    if (mapped) out += `<${mapped}${attrsOf(name, tag.attrs)}>`;
+    if (inRp) mapped = null;
+    else if (name === 'rt' || name === 'rp') {
+      if (top().tag !== 'ruby') mapped = null;
+      else if (name === 'rt') top().hasRt = true;
+    }
+    stack.push({
+      src: name,
+      tag: mapped,
+      attrs: mapped ? attrsOf(name, tag.attrs) : '',
+      parts: [],
+      hasRt: false,
+    });
   }
-  while (stack.length) {
-    const t = stack.pop()!;
-    if (t.out) out += `</${t.out}>`;
-  }
-  return out;
+  while (stack.length > 1) close();
+  return joinParts(root.parts);
 }
 
 /** 純文字（標記比對、章名）：br 換成換行、去掉標籤與註解、解開字元參照、拿掉 XML 不允許的字元 */

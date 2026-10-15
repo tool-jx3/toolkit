@@ -3,7 +3,13 @@
  * 規則本身在 load.ts、classify.ts、pipeline.ts、render/；這裡負責更新 store 與提示訊息。
  */
 
-import { downloadBytes } from '@/core/files';
+import { diagnosticText, errorText } from '@/core/diagnostics';
+import { downloadBytes, formatBytes } from '@/core/files';
+/*
+ * 產生 EPUB 的程式跟頁面一起載入（約 17 KB）：按下載時才動態載入的話，載入失敗後瀏覽器會記住失敗，
+ * 同一頁再按也不會重新載入（驗證 F112）。Worker 每次匯出重新開；Worker 載不到時同一份程式在主執行緒跑。
+ */
+import { buildEpubInBackground, type EpubBuildMode } from './epub/client';
 import {
   type EpubIllustration,
   type EpubImage,
@@ -594,47 +600,84 @@ export async function setEpubFont(file: File, onError: (msg: string) => void): P
 
 export const clearEpubFont = (): void => setSession({ epubFont: null });
 
+/** 產生 EPUB 失敗（F112）：畫面上是繁中的說明（S.epub.failed），details 是「複製錯誤資訊」的內容 */
+export class EpubExportError extends Error {
+  constructor(readonly details: string) {
+    super(S.epub.failed);
+    this.name = 'EpubExportError';
+  }
+}
+
 /**
  * 下載 EPUB（F112）：用轉換當時的結果與設定快照；上傳的插圖先轉成 JPEG／PNG（網址插圖不放），
- * 在背景產生後下載「檔名主體.epub」。
+ * 在背景產生後下載「檔名主體.epub」。失敗時丟出 EpubExportError（哪一步、瀏覽器回報的錯誤、處理方式）。
  */
 export async function exportEpub(onProgress: (fraction: number) => void): Promise<void> {
   const { result, entries, resultEpub: snap } = session();
   if (!result || !snap) return;
-  const images: EpubImage[] = [];
-  const illustrations: EpubIllustration[] = [];
-  for (const ill of result.options.illustrations) {
-    if (!ill.src.startsWith('data:')) continue;
-    try {
-      const img = await toEpubImage(ill.src, ILLUSTRATION_MAX_SIDE);
-      illustrations.push({
-        position: ill.position,
-        image: images.length,
-        size: ill.size,
-        align: ill.align,
-      });
-      images.push({ bytes: img.bytes, mime: img.mime });
-    } catch {
-      /* 解不開的圖略過（網頁版照樣有） */
+  const D = S.epub.diag;
+  let step: string = D.steps.images;
+  let mode: EpubBuildMode | 'none' = 'none';
+  try {
+    const images: EpubImage[] = [];
+    const illustrations: EpubIllustration[] = [];
+    for (const ill of result.options.illustrations) {
+      if (!ill.src.startsWith('data:')) continue;
+      try {
+        const img = await toEpubImage(ill.src, ILLUSTRATION_MAX_SIDE);
+        illustrations.push({
+          position: ill.position,
+          image: images.length,
+          size: ill.size,
+          align: ill.align,
+        });
+        images.push({ bytes: img.bytes, mime: img.mime });
+      } catch {
+        /* 解不開的圖略過（網頁版照樣有） */
+      }
     }
+    step = D.steps.build;
+    const input = epubInputFrom(
+      result.options,
+      entries,
+      snap.tabs,
+      snap.settings,
+      {
+        images,
+        illustrations,
+        cover: snap.cover ? { bytes: snap.cover.bytes, mime: snap.cover.mime } : null,
+        fontFile: snap.font ? { bytes: snap.font.bytes, format: snap.font.format } : null,
+      },
+      new Date(),
+    );
+    const bytes = await buildEpubInBackground(input, onProgress, (m) => {
+      mode = m;
+    });
+    step = D.steps.download;
+    downloadBytes(bytes, `${result.fileBase}.epub`, 'application/epub+zip');
+  } catch (e) {
+    const details = await diagnosticText({
+      tool: D.tool,
+      summary: S.epub.failed,
+      fields: [
+        [D.step, step],
+        [D.error, errorText(e)],
+        [D.mode, D.modes[mode]],
+        [D.entries, entries.length.toLocaleString('en-US')],
+        [D.chapters, S.epub.chapterModes[snap.settings.chapters] ?? String(snap.settings.chapters)],
+        [D.writing, S.epub.writings[snap.settings.writing] ?? String(snap.settings.writing)],
+        [
+          D.cover,
+          snap.cover ? `${snap.cover.width} × ${snap.cover.height}（${snap.cover.mime}）` : D.none,
+        ],
+        [
+          D.fontFile,
+          snap.font ? `${snap.font.format}（${formatBytes(snap.font.bytes.length)}）` : D.none,
+        ],
+      ],
+    });
+    throw new EpubExportError(details);
   }
-  const input = epubInputFrom(
-    result.options,
-    entries,
-    snap.tabs,
-    snap.settings,
-    {
-      images,
-      illustrations,
-      cover: snap.cover ? { bytes: snap.cover.bytes, mime: snap.cover.mime } : null,
-      fontFile: snap.font ? { bytes: snap.font.bytes, format: snap.font.format } : null,
-    },
-    new Date(),
-  );
-  /* 產生 EPUB 的程式下載時才載入（頁面一開始不必載入整套） */
-  const { buildEpubInBackground } = await import('./epub/client');
-  const bytes = await buildEpubInBackground(input, onProgress);
-  downloadBytes(bytes, `${result.fileBase}.epub`, 'application/epub+zip');
 }
 
 export type { LogSource };
