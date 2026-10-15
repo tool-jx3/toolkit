@@ -125,7 +125,7 @@ export interface UiState {
   screen: Screen;
   selectedId: string | null;
   tab: Tab;
-  /** 預覽上可以拖曳泡泡（F64） */
+  /** 預覽上可以拖曳泡泡（F67） */
   drag: boolean;
   /** 「樣式」分頁正在改哪一側 */
   side: Align;
@@ -264,7 +264,7 @@ export function setAlign(id: string, align: Align): void {
   });
 }
 
-/* ---------- 自由拖曳的位移（F64） ---------- */
+/* ---------- 自由拖曳的位移（F67） ---------- */
 
 const clampOffset = (v: number) =>
   Math.round(Math.min(MAX_OFFSET, Math.max(-MAX_OFFSET, v)) * 10) / 10;
@@ -291,7 +291,7 @@ export function resetOffsets(id?: string): void {
 
 export const hasOffset = (b: Pick<Bubble, 'dx' | 'dy'>): boolean => !!(b.dx || b.dy);
 
-/* ---------- 卡片底、頁首與頁尾（F61～F63） ---------- */
+/* ---------- 卡片底、頁首與頁尾（F62、F63） ---------- */
 
 export function editCard(recipe: (c: SbData['card']) => void): void {
   edit((d) => recipe(d.card));

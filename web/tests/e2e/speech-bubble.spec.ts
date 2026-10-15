@@ -7,7 +7,9 @@
  * - 預覽像素（第一格空的、全部出現時有泡泡的底色）；
  * - 匯出：APNG（尺寸、無限循環、格數、總長、第一格透明、中間有泡泡）、GIF、WebP、PNG、連番 PNG 的 ZIP、檔名；
  * - 自動儲存與還原、復原／重做、專案檔（存、開、重設）；
- * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準。
+ * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準；
+ * - 2026-10 對話卡片：整段貼上（名字：內容、LINE 文字檔）、兩側的預設與單獨調整、說話者與日期、卡片底（比例、最小高度、
+ *   頁首頁尾、紋理、圓角、匯出的第一格）、背景圖與 ZIP 專案檔、第 1 版的專案檔、自由拖曳、樣式預設檔、複製圖片。
  */
 import { readFileSync } from 'node:fs';
 import { expect, type Locator, type Page, test } from '@playwright/test';
@@ -351,11 +353,13 @@ test.describe('泡泡', () => {
       .getByRole('button', { name: /^刪除這個泡泡/ })
       .click();
     await expect(rows(page)).toHaveCount(2);
-    /* 上限 12 */
-    for (let i = 0; i < 10; i++) await page.getByRole('button', { name: '新增泡泡' }).click();
-    await expect(rows(page)).toHaveCount(12);
+    /* 上限 40（2026-10 從 12 放寬）：先放 39 個，再新增一個 */
+    const one = (await data(page)).bubbles[0];
+    await set(page, { bubbles: Array.from({ length: 39 }, (_, i) => ({ ...one, id: `x${i}` })) });
+    await page.getByRole('button', { name: '新增泡泡' }).click();
+    await expect(rows(page)).toHaveCount(40);
     await expect(page.getByRole('button', { name: '新增泡泡' })).toBeDisabled();
-    await expect(page.getByText('最多 12 個泡泡。')).toBeVisible();
+    await expect(page.getByText('最多 40 個泡泡。')).toBeVisible();
     expect(errors).toEqual([]);
   });
 
@@ -680,7 +684,8 @@ test.describe('存檔與復原', () => {
     expect(JSON.parse(saved)).toMatchObject({
       format: 'trpg-toolkit-project',
       tool: 'speech-bubble',
-      version: 1,
+      /* 2026-10：資料第 2 版（兩側的預設、卡片底…）；第 1 版的專案檔照常開（見「對話卡片」的測試） */
+      version: 2,
       data: { presetId: 'hud-scan', bubbles: [{ style: 'hud', text: '專案檔測試' }], fps: 16 },
     });
     await text(page).fill('改掉了');
@@ -722,6 +727,462 @@ test.describe('存檔與復原', () => {
   });
 });
 
+/* ---------- 對話卡片（2026-10，規格 F57～F69） ---------- */
+
+const sideEditor = (page: Page) => page.getByTestId('side-editor');
+const prefs = (page: Page) => hook<{ styles: { name: string }[] }>(page, '(h) => h.prefs()');
+
+/** 頁面裡畫一張單色的 PNG（背景圖用） */
+async function solidPng(page: Page, color: string, w = 60, h = 40): Promise<Buffer> {
+  const b64 = await page.evaluate(
+    ([c, ww, hh]) => {
+      const cv = document.createElement('canvas');
+      cv.width = ww as number;
+      cv.height = hh as number;
+      const x = cv.getContext('2d')!;
+      x.fillStyle = c as string;
+      x.fillRect(0, 0, ww as number, hh as number);
+      return cv.toDataURL('image/png').split(',')[1];
+    },
+    [color, w, h],
+  );
+  return Buffer.from(b64, 'base64');
+}
+
+async function commitHex(scope: Page | Locator, name: string, hex: string) {
+  const box = scope.getByRole('textbox', { name, exact: true });
+  await box.fill(hex);
+  await box.press('Enter');
+}
+
+const LINE_TXT = [
+  '[LINE] 與「霧港調查團」的聊天記錄',
+  '儲存日期：2026/10/15 22:10',
+  '',
+  '2026/10/14（三）',
+  '21:03\t阿明\t今晚要開團嗎？',
+  '21:04\t小華\t"好啊',
+  '老地方見"',
+  '21:05\t\t小華已收回訊息',
+  '2026/10/15（四）',
+  '下午02:30\t阿明\t到了！',
+].join('\r\n');
+
+test.describe('對話卡片（2026-10）', () => {
+  test('整段貼上：辨識「名字：內容」與則數、兩個人自動對側、合併同一人、取代；一步復原', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-duo');
+    const before = (await data(page)).bubbles.map((b) => b.text);
+    await page.getByRole('button', { name: '整段貼上…' }).click();
+    await page
+      .getByTestId('import-text')
+      .fill('阿明：今天要開團嗎？\n小華：好啊\n幾點？\n阿明：八點，老地方');
+    await expect(page.getByTestId('import-status')).toHaveText('辨識為「名字：內容」，共 4 則。');
+    const sp = page.getByTestId('import-speakers').locator('li');
+    await expect(sp).toHaveCount(2);
+    await expect(sp.nth(0)).toContainText('阿明');
+    await expect(sp.nth(0)).toContainText('2 則');
+    await expect(sp.nth(1)).toContainText('小華');
+    await expect(sp.nth(0).getByRole('radio', { name: '靠左' })).toBeChecked();
+    await expect(sp.nth(1).getByRole('radio', { name: '靠右' })).toBeChecked();
+    /* 只有兩個人：阿明換到靠右，小華自動換到靠左 */
+    await sp.nth(0).getByRole('radio', { name: '靠右' }).click();
+    await expect(sp.nth(1).getByRole('radio', { name: '靠左' })).toBeChecked();
+    await expect(page.getByTestId('import-confirm')).toHaveText('加入 4 個泡泡');
+    await page.getByRole('switch', { name: '同一人連續的訊息合成一個泡泡' }).click();
+    await expect(page.getByTestId('import-confirm')).toHaveText('加入 3 個泡泡');
+    await page.getByTestId('import-confirm').click();
+    await expect(page.getByTestId('import-dialog')).toHaveCount(0);
+    const d = await data(page);
+    expect(d.bubbles.map((b) => [b.align, b.speaker, b.text])).toEqual([
+      ['right', '阿明', '今天要開團嗎？'],
+      ['left', '小華', '好啊\n幾點？'],
+      ['right', '阿明', '八點，老地方'],
+    ]);
+    /* 樣式用那一側的預設（兩人對話：靠左灰、靠右藍） */
+    expect((d.bubbles[1].colors as Record<string, string>).fill).toBe('#eceff3');
+    expect((d.bubbles[0].colors as Record<string, string>).fill).toBe('#3b82f6');
+    /* 名字畫在泡泡上方：場景的泡泡往下移 */
+    const s = await scene(page);
+    expect(s.items[0].y).toBeGreaterThan(30);
+    await page.keyboard.press('Control+z');
+    expect((await data(page)).bubbles.map((b) => b.text)).toEqual(before);
+    expect(errors).toEqual([]);
+  });
+
+  test('整段貼上：開啟 LINE 匯出的文字檔，帶入日期＋時間、每天的日期做成置中的泡泡、加在後面', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-blue');
+    await page.getByRole('button', { name: '整段貼上…' }).click();
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('button', { name: '開啟文字檔…' }).click(),
+    ]);
+    await chooser.setFiles({
+      name: '[LINE]霧港調查團.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from(LINE_TXT),
+    });
+    const status = page.getByTestId('import-status');
+    await expect(status).toContainText('辨識為「LINE 聊天記錄」，共 3 則。');
+    await expect(status).toContainText('略過 1 則系統訊息');
+    await page.getByRole('radio', { name: '日期＋時間' }).click();
+    await page.getByRole('switch', { name: '每天的日期做成置中的泡泡' }).click();
+    await page.getByRole('radio', { name: '加在後面' }).click();
+    await page.getByTestId('import-confirm').click();
+    const d = await data(page);
+    expect(d.bubbles.slice(1).map((b) => [b.align, b.speaker, b.text, b.time])).toEqual([
+      ['center', '', '2026/10/14（三）', ''],
+      ['left', '阿明', '今晚要開團嗎？', '2026/10/14（三） 21:03'],
+      ['right', '小華', '好啊\n老地方見', '2026/10/14（三） 21:04'],
+      ['center', '', '2026/10/15（四）', ''],
+      ['left', '阿明', '到了！', '2026/10/15（四） 下午02:30'],
+    ]);
+    expect(errors).toEqual([]);
+  });
+
+  test('兩側的預設：改一側套用到沒有單獨調整的泡泡；單獨調整的標示、回到預設、換位置換成那一側', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-duo');
+    /* 第 2 個靠左的泡泡，底色單獨改成紅色 */
+    await page.getByRole('button', { name: '新增泡泡' }).click();
+    await commitHex(page, '底色', '#ff0000');
+    await expect(page.locator('[data-custom-badge]')).toHaveCount(1);
+    let d = await data(page);
+    expect(d.bubbles[1].custom).toEqual(['fill']);
+    await tab(page, '樣式');
+    await expect(page.getByRole('radio', { name: '靠左（2）' })).toBeChecked();
+    await commitHex(sideEditor(page), '底色', '#00ff00');
+    await fillNumber(sideEditor(page), '字級', 30);
+    d = await data(page);
+    expect(d.bubbles.map((b) => (b.colors as Record<string, string>).fill)).toEqual([
+      '#00ff00',
+      '#ff0000',
+      '#3b82f6',
+    ]);
+    expect(d.bubbles.map((b) => (b.fmt as Record<string, unknown>).fontSize)).toEqual([
+      30,
+      30,
+      null,
+    ]);
+    /* 回到這一側的預設 */
+    await tab(page, '泡泡');
+    await page.getByRole('button', { name: '這個泡泡的樣式' }).click();
+    await expect(page.getByTestId('custom-count')).toHaveText('單獨調整了 1 項');
+    await page.getByRole('button', { name: '回到這一側的預設' }).click();
+    d = await data(page);
+    expect((d.bubbles[1].colors as Record<string, string>).fill).toBe('#00ff00');
+    await expect(page.getByTestId('custom-count')).toHaveText('全部跟著這一側的預設');
+    /* 換位置：換成靠右的樣式 */
+    await page
+      .getByTestId('bubble-editor')
+      .getByRole('radio', { name: '靠右', exact: true })
+      .click();
+    d = await data(page);
+    expect((d.bubbles[1].colors as Record<string, string>).fill).toBe('#3b82f6');
+    expect((d.bubbles[1].fmt as Record<string, unknown>).fontSize).toBeNull();
+    expect(errors).toEqual([]);
+  });
+
+  test('說話者與日期：泡泡外上方＋旁邊、泡泡裡、不顯示', async ({ page }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-blue');
+    const s0 = await scene(page);
+    await page.getByTestId('bubble-speaker').fill('小明');
+    await page.getByTestId('bubble-speaker').blur();
+    await page.getByTestId('bubble-time').fill('下午 2:30');
+    await page.getByTestId('bubble-time').blur();
+    const s1 = await scene(page);
+    expect(s1.height).toBeGreaterThan(s0.height);
+    expect(s1.width).toBeGreaterThan(s0.width);
+    await tab(page, '樣式');
+    await page.getByRole('radio', { name: '靠右（1）' }).click();
+    await pickSelect(page, '顯示位置', '泡泡裡的最下面');
+    const s2 = await scene(page);
+    expect(s2.items[0].h).toBeGreaterThan(s1.items[0].h);
+    await pickSelect(page, '顯示位置', '不顯示');
+    const s3 = await scene(page);
+    expect([s3.width, s3.height]).toEqual([s0.width, s0.height]);
+    expect(errors).toEqual([]);
+  });
+
+  test('卡片底：底色、圓角、紋理；正方形、限動、橫幅、最小高度；頁首頁尾；第一格就有卡片', async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const errors = await open(page);
+    await choose(page, 'chat-blue');
+    await set(page, { idle: 'none' });
+    await tab(page, '版面');
+    await page.getByRole('switch', { name: '畫卡片底' }).click();
+    await commitHex(page, '底色', '#204060');
+    await seek(page, 0);
+    await expect.poll(() => pixel(page, 3, 3)).toEqual([0x20, 0x40, 0x60, 255]);
+    /* 比例 */
+    await page.getByRole('radio', { name: '正方形（1:1）' }).click();
+    let s = await scene(page);
+    expect(s.width).toBe(s.height);
+    await page.getByRole('radio', { name: '限動（9:16）' }).click();
+    s = await scene(page);
+    expect(s.width * 16).toBe(s.height * 9);
+    await page.getByRole('radio', { name: '橫幅（16:9）' }).click();
+    s = await scene(page);
+    expect(s.width * 9).toBe(s.height * 16);
+    await page.getByRole('radio', { name: '自動', exact: true }).click();
+    const auto = await scene(page);
+    await fillNumber(page, '最小高度', 400);
+    s = await scene(page);
+    expect([s.width, s.height]).toEqual([auto.width, 400]);
+    await fillNumber(page, '最小高度', 0);
+    /* 頁首頁尾與分隔線 */
+    await page.getByTestId('card-header').fill('第三章　霧之港');
+    await page.getByTestId('card-header').blur();
+    await page.getByRole('radio', { name: '雙線' }).click();
+    s = await scene(page);
+    expect(s.height).toBeGreaterThan(auto.height + 30);
+    /* 紋理：方格的線和底色不同 */
+    await pickSelect(page, '紋理', '方格');
+    await seek(page, 0);
+    await expect.poll(async () => (await pixel(page, 40, 8)).join()).not.toBe('32,64,96,255');
+    expect(await pixel(page, 45, 8)).toEqual([0x20, 0x40, 0x60, 255]);
+    /* 卡片圓角：角落外透明 */
+    await fillNumber(page, '卡片圓角', 30);
+    await expect.poll(async () => (await pixel(page, 0, 0))[3]).toBe(0);
+    /* 匯出的 APNG：第一格就有卡片底（泡泡還沒出現） */
+    s = await scene(page);
+    const apng = await exportAs(page, 'APNG');
+    const a = parseApng(apng.bytes);
+    expect(a.ihdr).toMatchObject({ width: s.width, height: s.height });
+    const first = composeApng(a)[0];
+    const k = (35 * s.width + 35) * 4;
+    expect(Array.from(first.subarray(k, k + 4))).toEqual([0x20, 0x40, 0x60, 255]);
+    expect(first[3]).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('背景圖：放進卡片、專案檔存成 ZIP（含圖片）並讀回；第 1 版的專案檔照常開', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const errors = await open(page);
+    await choose(page, 'chat-blue');
+    await set(page, { idle: 'none' });
+    await tab(page, '版面');
+    await page.getByRole('switch', { name: '畫卡片底' }).click();
+    const png = await solidPng(page, '#ff0000');
+    await page
+      .getByRole('group', { name: '把背景圖拖到這裡' })
+      .locator('input[type=file]')
+      .setInputFiles({ name: '背景.png', mimeType: 'image/png', buffer: png });
+    await expect(page.getByRole('button', { name: '移除背景圖' })).toBeVisible();
+    const id = (await data(page)).card as Record<string, unknown>;
+    expect(id.image).toMatch(/^[0-9a-z]+$/i);
+    await seek(page, 0);
+    await expect.poll(() => pixel(page, 3, 3)).toEqual([255, 0, 0, 255]);
+    /* 專案檔：有背景圖時存成 ZIP（project.json＋files/圖片） */
+    await page.getByRole('button', { name: '專案' }).click();
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^對話泡泡_\d{8}\.zip$/);
+    const zipBytes = readFileSync((await download.path())!);
+    const files = unzipSync(new Uint8Array(zipBytes));
+    const project = JSON.parse(new TextDecoder().decode(files['project.json']));
+    expect(project).toMatchObject({ version: 2, data: { card: { bg: true, image: id.image } } });
+    expect(Object.keys(files).some((f) => f.startsWith(`files/${id.image}`))).toBe(true);
+    /* 移除後開回專案檔：背景圖回來 */
+    await page.getByRole('button', { name: '移除背景圖' }).click();
+    expect(((await data(page)).card as Record<string, unknown>).image).toBeNull();
+    const openFile = async (name: string, mimeType: string, buffer: Buffer) => {
+      await page.getByRole('button', { name: '專案' }).click();
+      const [ch] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
+      ]);
+      await ch.setFiles({ name, mimeType, buffer });
+      await page.getByRole('button', { name: '開啟', exact: true }).click();
+    };
+    await openFile('備份.zip', 'application/zip', zipBytes);
+    await expect(page.getByRole('button', { name: '移除背景圖' })).toBeVisible();
+    await seek(page, 0);
+    await expect.poll(() => pixel(page, 3, 3)).toEqual([255, 0, 0, 255]);
+    /* 第 1 版的專案檔（整合前存的）：沒有兩側的預設、卡片底 */
+    const v1 = {
+      format: 'trpg-toolkit-project',
+      tool: 'speech-bubble',
+      version: 1,
+      savedAt: '2026-10-10T00:00:00.000Z',
+      data: {
+        presetId: 'chat-duo',
+        fontSize: 22,
+        bubbles: [
+          {
+            id: 'a',
+            style: 'messenger',
+            title: '',
+            text: '舊的左邊',
+            icon: 'none',
+            button: '',
+            align: 'left',
+            colors: { fill: '#eceff3', border: '#00000000', text: '#1f2937', accent: '#94a3b8' },
+          },
+          {
+            id: 'b',
+            style: 'messenger',
+            title: '',
+            text: '舊的右邊',
+            icon: 'none',
+            button: '',
+            align: 'right',
+            colors: { fill: '#3b82f6', border: '#00000000', text: '#ffffff', accent: '#94a3b8' },
+          },
+        ],
+      },
+    };
+    await openFile('舊的.json', 'application/json', Buffer.from(JSON.stringify(v1)));
+    await tab(page, '泡泡');
+    await expect(text(page)).toHaveValue('舊的左邊');
+    const d = await data(page);
+    expect(d.card).toMatchObject({ bg: false, image: null });
+    const sides = d.sides as Record<string, { colors: Record<string, string> }>;
+    expect(sides.left.colors.fill).toBe('#eceff3');
+    expect(sides.right.colors.fill).toBe('#3b82f6');
+    expect(d.bubbles.map((b) => b.custom)).toEqual([[], []]);
+    expect(errors).toEqual([]);
+  });
+
+  test('自由拖曳：拖曳中畫布不變、放開後重算；方向鍵微調；一次拖曳一步復原；回到排列的位置', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-duo');
+    const s0 = await scene(page);
+    await page.getByTestId('drag-toggle').click();
+    await expect(page.getByTestId('drag-toggle')).toHaveAttribute('aria-pressed', 'true');
+    const handle = page.locator('[data-drag-bubble]').nth(1);
+    const box = (await handle.boundingBox())!;
+    const zoom = box.width / s0.items[1].w;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++)
+      await page.mouse.move(
+        box.x + box.width / 2 - i * 10 * zoom,
+        box.y + box.height / 2 + i * 5 * zoom,
+      );
+    /* 拖曳中：畫布大小與第一個泡泡不動 */
+    const mid = await scene(page);
+    expect([mid.width, mid.height]).toEqual([s0.width, s0.height]);
+    expect(mid.items[0].x).toBeCloseTo(s0.items[0].x, 3);
+    await page.mouse.up();
+    let d = await data(page);
+    expect([d.bubbles[1].dx, d.bubbles[1].dy]).toEqual([-80, 40]);
+    const s1 = await scene(page);
+    expect(s1.height).toBe(s0.height + 40);
+    expect(s1.items[1].x - s1.items[0].x).toBeCloseTo(s0.items[1].x - s0.items[0].x - 80, 3);
+    /* 方向鍵：1 px、Shift 10 px，每按一下一步 */
+    await handle.focus();
+    await page.keyboard.press('Shift+ArrowRight');
+    await page.keyboard.press('ArrowUp');
+    d = await data(page);
+    expect([d.bubbles[1].dx, d.bubbles[1].dy]).toEqual([-70, 39]);
+    await expect(page.getByTestId('bubble-offset')).toContainText('往左 70 px、往下 39 px');
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('Control+z');
+    d = await data(page);
+    expect([d.bubbles[1].dx, d.bubbles[1].dy]).toEqual([-80, 40]);
+    await page.keyboard.press('Control+z');
+    d = await data(page);
+    expect([d.bubbles[1].dx, d.bubbles[1].dy]).toEqual([0, 0]);
+    await page.keyboard.press('Control+Shift+z');
+    await page.getByRole('button', { name: '回到排列的位置' }).click();
+    d = await data(page);
+    expect([d.bubbles[1].dx, d.bubbles[1].dy]).toEqual([0, 0]);
+    expect(errors).toEqual([]);
+  });
+
+  test('樣式預設檔：套用內建（可以復原）、存成預設、匯出、刪除、匯入', async ({ page }) => {
+    const errors = await open(page);
+    await choose(page, 'chat-duo');
+    await tab(page, '樣式');
+    await page.getByRole('button', { name: '套用樣式：深夜咖啡' }).click();
+    await page.getByRole('button', { name: '套用', exact: true }).click();
+    let d = await data(page);
+    expect(d.card).toMatchObject({ bg: true, color: '#1d1915', texture: 'grain' });
+    expect((d.bubbles[0].colors as Record<string, string>).fill).toBe('#c7a063');
+    await seek(page, 0);
+    await expect.poll(async () => (await pixel(page, 20, 20))[3]).toBe(255);
+    await page.keyboard.press('Control+z');
+    expect(((await data(page)).card as Record<string, unknown>).bg).toBe(false);
+    await page.keyboard.press('Control+Shift+z');
+    /* 存成樣式預設 */
+    await page.getByRole('button', { name: '存成樣式預設…' }).click();
+    await page.getByRole('textbox', { name: '名稱' }).fill('我的深夜');
+    await page.getByRole('button', { name: '存成樣式預設', exact: true }).click();
+    const mine = page.locator('[data-style-preset]').filter({ hasText: '我的深夜' });
+    await expect(mine).toHaveCount(1);
+    expect((await prefs(page)).styles.map((s) => s.name)).toEqual(['我的深夜']);
+    /* 匯出成檔案 */
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: '匯出樣式檔：我的深夜' }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('我的深夜.bubble-style.json');
+    const file = readFileSync((await download.path())!, 'utf8');
+    expect(JSON.parse(file)).toMatchObject({
+      format: 'trpg-toolkit-bubble-style',
+      version: 1,
+      name: '我的深夜',
+      card: { color: '#1d1915' },
+    });
+    /* 刪除 → 匯入 */
+    await page.getByRole('button', { name: '刪除樣式：我的深夜' }).click();
+    await page.getByRole('button', { name: '刪除', exact: true }).click();
+    await expect(mine).toHaveCount(0);
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('button', { name: '匯入樣式檔…' }).click(),
+    ]);
+    await chooser.setFiles({
+      name: '我的深夜.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(file),
+    });
+    await expect(mine).toHaveCount(1);
+    /* 換成別的再套用匯入的 */
+    await page.getByRole('button', { name: '套用樣式：留言本' }).click();
+    await page.getByRole('button', { name: '套用', exact: true }).click();
+    await page.getByRole('button', { name: '套用樣式：我的深夜' }).click();
+    await page.getByRole('button', { name: '套用', exact: true }).click();
+    d = await data(page);
+    expect((d.card as Record<string, unknown>).color).toBe('#1d1915');
+    expect(errors).toEqual([]);
+  });
+
+  test('複製圖片：全部出現的畫面放進剪貼簿', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    const errors = await open(page);
+    await choose(page, 'chat-blue');
+    const s = await scene(page);
+    await page.getByRole('button', { name: '複製圖片' }).click();
+    await expect(page.getByText('已複製圖片（全部出現的畫面）。').first()).toBeVisible();
+    const size = await page.evaluate(async () => {
+      const [item] = await navigator.clipboard.read();
+      const blob = await item.getType('image/png');
+      const bmp = await createImageBitmap(blob);
+      return [bmp.width, bmp.height];
+    });
+    expect(size).toEqual([s.width, s.height]);
+    expect(errors).toEqual([]);
+  });
+});
+
 /* ---------- 版面與視覺基準 ---------- */
 
 test.describe('版面與視覺基準', () => {
@@ -749,7 +1210,7 @@ test.describe('版面與視覺基準', () => {
     const errors = await open(page);
     await noHorizontalScroll(page, '範本一覽：');
     await choose(page, 'window-warn');
-    for (const name of ['動畫', '版面', '泡泡']) {
+    for (const name of ['樣式', '動畫', '版面', '泡泡']) {
       await tab(page, name);
       await noHorizontalScroll(page, `${name}：`);
     }

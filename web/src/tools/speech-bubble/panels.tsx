@@ -736,7 +736,7 @@ export function LayoutPanel() {
   );
 }
 
-/* ---------- 卡片底、頁首與頁尾（F61～F63） ---------- */
+/* ---------- 卡片底、頁首與頁尾（F62、F63） ---------- */
 
 type CardNumKey = keyof typeof CARD_RANGES;
 

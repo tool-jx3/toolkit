@@ -410,12 +410,14 @@ export const S = {
   noContent: '泡泡裡沒有文字，沒有東西可以匯出。',
   /* ---- 2026-10：對話卡片 ---- */
   speaker: '說話者',
-  speakerPlaceholder: '對話卡片上顯示的名字（空白就不顯示）',
+  speakerPlaceholder: '空白就不顯示',
   time: '日期時間',
-  timePlaceholder: '例如 下午 2:30（照打的顯示）',
-  metaHint: '顯示的位置、顏色與字型在「樣式」分頁的「說話者與日期」。',
+  timePlaceholder: '例如 下午 2:30',
+  metaHint:
+    '對話卡片上的名字與時間（照打的顯示）；位置、顏色與字型在「樣式」分頁的「說話者與日期」。',
   offsetLabel: '拖曳的位移',
-  offsetValue: (x: number, y: number) => `往右 ${x} px、往下 ${y} px`,
+  offsetValue: (x: number, y: number) =>
+    `${x < 0 ? '往左' : '往右'} ${Math.abs(x)} px、${y < 0 ? '往上' : '往下'} ${Math.abs(y)} px`,
   resetOffset: '回到排列的位置',
   resetAllOffsets: '全部回到排列的位置',
   lookSection: '這個泡泡的樣式',
@@ -499,10 +501,10 @@ export const S = {
   cloudPuff: '雲朵大小',
   cloudPuffHint: '想法泡泡外圈小圓的大小。',
   metaMode: '顯示位置',
-  metaColor: '顏色',
-  metaFont: '字型',
+  metaColor: '名字與時間的顏色',
+  metaFont: '名字與時間的字型',
   metaFontInherit: '和內文相同',
-  metaScale: '字級',
+  metaScale: '名字與時間的字級',
   metaScaleHint: '內文字級的倍數。',
   times: '倍',
   /* 整段貼上 */
