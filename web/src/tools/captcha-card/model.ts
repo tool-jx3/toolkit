@@ -350,7 +350,10 @@ export const selectedIndices = (d: Pick<CaptchaState, 'cols' | 'cells'>): number
     .filter((i) => i >= 0);
 
 /**
- * 依序放圖：從 start 開始（給了就先放那一格，即使那一格有圖也換掉），其餘依序放進看得到的空格子。
+ * 依序放圖（規格 7.1 的裁定）：
+ * - 給了 start（點選、拖放、貼上指著的那一格）：第一張放那一格（有圖也換掉），其他從那一格**往後**依序放進看得到的空格子，
+ *   後面沒有空格時再從第一格往後找（到 start 之前為止）；
+ * - 沒有 start：從第一格依序放進空格子。
  * 回傳每張圖放在哪一格，與沒有位置的張數。
  */
 export function planFill(
@@ -360,9 +363,12 @@ export function planFill(
 ): { slots: number[]; dropped: number } {
   const n = visibleCount(d.cols);
   const slots: number[] = [];
-  if (start !== null && start >= 0 && start < n && count > 0) slots.push(start);
-  for (let i = 0; i < n && slots.length < count; i++) {
-    if (i === start) continue;
+  const from = start !== null && start >= 0 && start < n ? start : null;
+  if (from !== null && count > 0) slots.push(from);
+  const first = from === null ? 0 : from + 1;
+  for (let k = 0; k < n && slots.length < count; k++) {
+    const i = (first + k) % n;
+    if (i === from) continue;
     if (!d.cells[i].image) slots.push(i);
   }
   return { slots, dropped: Math.max(0, count - slots.length) };

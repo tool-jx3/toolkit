@@ -244,7 +244,7 @@ export function swapCells(a: number, b: number): void {
 }
 
 /**
- * 依序放圖（一步復原）：start 給了就先放那一格，其餘依序放進空格子；回傳放進的格子與沒有位置的張數。
+ * 依序放圖（一步復原）：start 給了就先放那一格，其他從那一格往後放進空格子、後面沒有再從頭找（planFill）；回傳放進的格子與沒有位置的張數。
  */
 export function fillImages(
   images: readonly CardImage[],

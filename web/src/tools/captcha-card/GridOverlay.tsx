@@ -16,6 +16,20 @@ import { S } from './strings';
 /** 預覽畫布的倍率（卡片單位 → 畫布 px） */
 export const PREVIEW_SCALE = 2;
 
+/** 格子的工具按鈕：一排三顆（28 px、間隔 4，螢幕 px），放在格子的右下角、離邊 TOOL_MARGIN（卡片單位） */
+const TOOL_ROW_PX = 28 * 3 + 4 * 2;
+const TOOL_MARGIN = 5;
+/**
+ * 工具列的縮小比例：格子在螢幕上放不下一整排（手機上的 4 × 4）時縮小（最小 0.55），一定留在格子裡。
+ * 放在右下角：勾勾圓在左上角（離邊 6、直徑 24），觸控畫面一直顯示時也不會蓋住（規格 7.1）。
+ * cellPx：格子的寬（預覽畫布 px）；k：1 ÷ 舞台倍率（畫布 px → 螢幕 px 要除以 k）。
+ */
+export function toolFit(cellPx: number, k: number): number {
+  const screen = cellPx / k;
+  const margin = (TOOL_MARGIN * PREVIEW_SCALE) / k;
+  return Math.max(0.55, Math.min(1, (screen - margin * 2) / TOOL_ROW_PX));
+}
+
 interface Drag {
   from: number;
   pointer: number;
@@ -299,10 +313,10 @@ export function GridOverlay({
               <div
                 className="absolute flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
                 style={{
-                  right: 5 * PS,
-                  top: 5 * PS,
-                  transform: `scale(${k})`,
-                  transformOrigin: 'top right',
+                  right: TOOL_MARGIN * PS,
+                  bottom: TOOL_MARGIN * PS,
+                  transform: `scale(${k * toolFit(r.width * PS, k)})`,
+                  transformOrigin: 'bottom right',
                 }}
                 data-testid="cell-tools"
               >
@@ -320,7 +334,11 @@ export function GridOverlay({
                   aria-label={S.cellAdjust(i + 1)}
                   title={S.cellAdjust(i + 1)}
                   className={toolBtn}
-                  onClick={() => void openFrame({ kind: 'cell', index: i })}
+                  onClick={() =>
+                    void openFrame({ kind: 'cell', index: i }).then((ok) => {
+                      if (!ok) notify({ title: S.imageGone, tone: 'warning' });
+                    })
+                  }
                 >
                   <Crop aria-hidden />
                 </button>

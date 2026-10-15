@@ -115,6 +115,8 @@ export function AvatarSection() {
           aria-label={S.avatarDropArea}
           accept="image/*"
           paste="focus"
+          /* 一次拖放、選了好幾張時全部交給 placeFiles：只用第一張，通知說明其他沒有用到（規格 7.1 F06） */
+          multiple
           filterByAccept={false}
           compact={!!image}
           icon={image ? <ImageIcon /> : <ImagePlus />}
@@ -154,7 +156,7 @@ export function AvatarSection() {
           disabled={!image}
           onClick={() =>
             void openFrame({ kind: 'avatar' }).then((ok) => {
-              if (!ok) toast({ title: S.imagesMissing, tone: 'warning' });
+              if (!ok) toast({ title: S.imageGone, tone: 'warning', replace: true });
             })
           }
         >

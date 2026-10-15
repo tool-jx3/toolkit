@@ -4,7 +4,7 @@
  * 也負責整個視窗的拖放（放在哪一格就從那一格開始放）與 Ctrl＋V 貼上（滑鼠指著的格子）。
  */
 import { ArrowLeftRight, Check, ImagePlus, ListChecks, Shuffle, Trash2 } from 'lucide-react';
-import { type Ref, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { type Ref, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { loadAssetBitmaps } from '@/core/assets';
 import { pickFiles } from '@/core/files';
 import { type AnimationExportFormat, exportAnimation } from '@/core/timeline';
@@ -126,10 +126,15 @@ export function Preview({ exportRef }: { exportRef: Ref<ExportPanelHandle> }) {
   };
 
   const notify = useNotify();
-  const live = useRef(notify);
-  live.current = notify;
+  const live = useRef({ notify, targetAt });
+  live.current = { notify, targetAt };
+  /*
+   * 貼上：掛在 window（冒泡最後才到），document 上的監聽（例如代表圖載入區的 FileDrop：焦點在它裡面時它處理並 preventDefault）
+   * 先處理；已經處理過的事件（defaultPrevented）不再放進格子（規格 7.1 F06）。
+   */
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
+      if (e.defaultPrevented) return;
       const dt = e.clipboardData;
       if (!dt) return;
       const files = Array.from(dt.files).filter((f) => f.type.startsWith('image/'));
@@ -137,10 +142,24 @@ export function Preview({ exportRef }: { exportRef: Ref<ExportPanelHandle> }) {
       /* 在文字欄裡貼上文字時照常貼上 */
       if (isEditableTarget(e.target) && dt.types.includes('text/plain')) return;
       e.preventDefault();
-      void placeFiles(files, useUi.getState().hover).then((n) => live.current(n));
+      void placeFiles(files, useUi.getState().hover).then((n) => live.current.notify(n));
     };
-    document.addEventListener('paste', onPaste);
-    return () => document.removeEventListener('paste', onPaste);
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, []);
+
+  /* 拖曳中：指著代表圖（預覽上的、或設定欄的載入區）時，提示改成「放開即可換代表圖」（規格 7.1） */
+  const [dropAvatar, setDropAvatar] = useState(false);
+  useEffect(() => {
+    const onOver = (e: DragEvent) => {
+      const el = e.target instanceof Element ? e.target : null;
+      const avatar =
+        !!el?.closest('[data-testid="avatar-load"]') ||
+        live.current.targetAt(e.clientX, e.clientY)?.kind === 'avatar';
+      setDropAvatar(avatar);
+    };
+    window.addEventListener('dragover', onOver);
+    return () => window.removeEventListener('dragover', onOver);
   }, []);
 
   return (
@@ -168,8 +187,8 @@ export function Preview({ exportRef }: { exportRef: Ref<ExportPanelHandle> }) {
         {S.previewHint}
       </p>
       <WindowDrop
-        label={S.windowDrop}
-        hint={S.windowDropHint}
+        label={dropAvatar ? S.windowDropAvatar : S.windowDrop}
+        hint={dropAvatar ? undefined : S.windowDropHint}
         onDrop={(files, at) =>
           void placeFiles(files, targetAt(at.clientX, at.clientY)).then(notify)
         }

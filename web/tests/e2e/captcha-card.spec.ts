@@ -247,18 +247,59 @@ async function dropAt(page: Page, at: { x: number; y: number }, files: [string, 
   );
 }
 
-async function paste(page: Page, name: string, buffer: Buffer) {
+/** 貼上（和真的 Ctrl＋V 一樣，事件發給目前有焦點的元素） */
+async function paste(page: Page, name: string, buffer: Buffer, more: [string, Buffer][] = []) {
   await page.evaluate(
-    ({ name, b64 }) => {
-      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    ({ files }) => {
       const dt = new DataTransfer();
-      dt.items.add(new File([bytes], name, { type: 'image/png' }));
-      document.body.dispatchEvent(
+      for (const [name, b64] of files) {
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        dt.items.add(new File([bytes], name, { type: 'image/png' }));
+      }
+      (document.activeElement ?? document.body).dispatchEvent(
         new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
       );
     },
-    { name, b64: buffer.toString('base64') },
+    {
+      files: [[name, buffer] as [string, Buffer], ...more].map(
+        ([n, b]) => [n, b.toString('base64')] as [string, string],
+      ),
+    },
   );
+}
+
+/** 在某個元素上發拖曳事件（clientX／Y 是元素中央；給檔案時帶著） */
+async function dragEvent(
+  target: Locator,
+  type: 'dragenter' | 'dragover' | 'dragleave' | 'drop',
+  files: [string, Buffer][] = [['x.png', Buffer.from([0x89, 0x50, 0x4e, 0x47])]],
+) {
+  await target.evaluate(
+    (el, { type, files }) => {
+      const dt = new DataTransfer();
+      for (const [name, b64] of files) {
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        dt.items.add(new File([bytes], name, { type: 'image/png' }));
+      }
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(
+        new DragEvent(type, {
+          dataTransfer: dt,
+          bubbles: true,
+          cancelable: true,
+          clientX: r.left + r.width / 2,
+          clientY: r.top + r.height / 2,
+        }),
+      );
+    },
+    { type, files: files.map(([n, b]) => [n, b.toString('base64')] as [string, string]) },
+  );
+}
+
+async function removeImage(page: Page, i: number) {
+  await cellBox(page, i).hover();
+  await page.getByRole('button', { name: `第 ${i + 1} 格：拿掉圖片` }).click();
+  await expect(cellBox(page, i)).toHaveAttribute('data-state', 'empty');
 }
 
 async function chooseFiles(page: Page, trigger: Locator, files: ReturnType<typeof file>[]) {
@@ -592,8 +633,10 @@ test('拖放與貼上：拖到某一格從那一格開始放、拖到代表圖�
     ['pink.png', await solidPng('#ee66aa')],
   ]);
   await expect.poll(async () => (await state(page)).cells[4].image?.name).toBe('gold.png');
+  /* 第二張接在第 5 格後面（7.1：從那一格往後放） */
   let s = await state(page);
-  expect(s.cells[0].image?.name).toBe('pink.png');
+  expect(s.cells[5].image?.name).toBe('pink.png');
+  expect(s.cells[0].image).toBeNull();
   await settle(page);
   /* 拖到代表圖上 */
   const av = await screenAt(page, 318, 60);
@@ -1010,7 +1053,173 @@ test('專案檔：存成 ZIP（設定＋圖片）、重設、開啟還原；缺�
 
 /* ---------- 版面 ---------- */
 
-test('390 寬沒有橫向捲動；1280 與 390 的視覺基準', async ({ page }) => {
+/* ---------- 對等驗證後的修正（規格 7.1） ---------- */
+
+test('7.1 F06：焦點在代表圖載入區時貼上只換代表圖（格子不動）；載入區一次拖放兩張只用第一張並說明', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await removeImage(page, 1);
+  await settle(page);
+  const assetCells = async () =>
+    ((await state(page))?.cells ?? [])
+      .map((c, i) => (c.image?.kind === 'asset' ? i : -1))
+      .filter((i) => i >= 0);
+  await page.mouse.move(5, 5);
+  await page.getByRole('group', { name: '代表圖載入區' }).getByRole('button').focus();
+  await paste(page, 'focus.png', await solidPng('#f2711c'));
+  await expect.poll(async () => (await state(page)).avatar.image?.name).toBe('focus.png');
+  await page.waitForTimeout(600);
+  expect(await assetCells()).toEqual([]);
+  await expect(cellBox(page, 1)).toHaveAttribute('data-state', 'empty');
+  await expect(toast(page, '已換上代表圖')).toBeVisible();
+  await settle(page);
+  /* 載入區一次拖放兩張：只用第一張，通知說明第二張沒有用到 */
+  const area = page.getByRole('group', { name: '代表圖載入區' });
+  await dragEvent(area, 'dragenter');
+  await dragEvent(area, 'drop', [
+    ['first.png', await solidPng('#2244cc')],
+    ['second.png', await solidPng('#22aa44')],
+  ]);
+  await expect.poll(async () => (await state(page)).avatar.image?.name).toBe('first.png');
+  await expect(toast(page, '代表圖只用第一張，「second.png」沒有用到。')).toBeVisible();
+  expect(await assetCells()).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('7.1 F17、F21、F28：多張圖片從那一格往後放，後面沒有空格時再從頭找', async ({ page }) => {
+  const errors = await open(page);
+  for (const i of [1, 6, 7]) {
+    await removeImage(page, i);
+    await settle(page);
+  }
+  /* 點第 7 格（空）選 2 張 → 第 7、8 格（不是第 2 格） */
+  await chooseFiles(page, cell(page, 6), [
+    file('a.png', await solidPng('#dd2222')),
+    file('b.png', await solidPng('#2244cc')),
+  ]);
+  await expect.poll(async () => (await state(page)).cells[7].image?.name).toBe('b.png');
+  let s = await state(page);
+  expect(s.cells[6].image?.name).toBe('a.png');
+  expect(s.cells[1].image).toBeNull();
+  await settle(page);
+  /* 拖到第 5 格（有圖）2 張：第 5 格換掉，後面沒有空格 → 從頭找到第 2 格 */
+  await dropAt(page, await screenAt(page, ...center3(4)), [
+    ['c.png', await solidPng('#ddaa22')],
+    ['d.png', await solidPng('#ee66aa')],
+  ]);
+  await expect.poll(async () => (await state(page)).cells[1].image?.name).toBe('d.png');
+  s = await state(page);
+  expect(s.cells[4].image?.name).toBe('c.png');
+  await settle(page);
+  /* 貼上：指著第 5 格貼 2 張，空格是第 1、9 格 → 第 5、9 格 */
+  await removeImage(page, 0);
+  await settle(page);
+  await removeImage(page, 8);
+  await settle(page);
+  await cellBox(page, 4).hover();
+  await paste(page, 'e.png', await solidPng('#11aaaa'), [['f.png', await solidPng('#112266')]]);
+  await expect.poll(async () => (await state(page)).cells[8].image?.name).toBe('f.png');
+  s = await state(page);
+  expect(s.cells[4].image?.name).toBe('e.png');
+  expect(s.cells[0].image).toBeNull();
+  expect(errors).toEqual([]);
+});
+
+test('7.1：拖到代表圖上時提示「放開即可換代表圖」，拖到格子上時「放開即可放入格子」', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const avatar = page.getByRole('button', { name: '代表圖：按一下放入或調整範圍' });
+  await dragEvent(avatar, 'dragenter');
+  await dragEvent(avatar, 'dragover');
+  await expect(page.getByTestId('window-drop')).toContainText('放開即可換代表圖');
+  await dragEvent(cellBox(page, 4), 'dragover');
+  await expect(page.getByTestId('window-drop')).toContainText('放開即可放入格子');
+  await dragEvent(page.getByRole('group', { name: '代表圖載入區' }), 'dragover');
+  await expect(page.getByTestId('window-drop')).toContainText('放開即可換代表圖');
+  await dragEvent(avatar, 'dragleave');
+  await expect(page.getByTestId('window-drop')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('7.1：讀不回來的圖片按「調整範圍」時說明「這張圖片讀不回來，請重新放入」', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await page.evaluate((key) => {
+    const h = (window as unknown as { __captchaCard: { doc: () => Stored } }).__captchaCard;
+    const data = h.doc();
+    const gone = {
+      kind: 'asset' as const,
+      id: 'f'.repeat(64),
+      name: 'gone.png',
+      width: 100,
+      height: 100,
+    };
+    data.cells[0].image = gone;
+    data.avatar.image = gone;
+    localStorage.setItem(key, JSON.stringify({ state: { data }, version: 1 }));
+  }, STORAGE_KEY);
+  await page.reload();
+  await expect(page.getByText(/有些圖片已經從這個瀏覽器清除/)).toBeVisible();
+  await cellBox(page, 0).hover();
+  await page.getByRole('button', { name: '第 1 格：調整範圍' }).click();
+  await expect(toast(page, '這張圖片讀不回來，請重新放入')).toBeVisible();
+  await expect(dialog(page)).toHaveCount(0);
+  await page.getByRole('button', { name: '調整範圍', exact: true }).click();
+  await expect(toast(page, '這張圖片讀不回來，請重新放入')).toBeVisible();
+  await expect(dialog(page)).toHaveCount(0);
+  expect(errors.filter((e) => !/Failed to load resource/.test(e))).toEqual([]);
+});
+
+/* ---------- 版面 ---------- */
+
+test('390 寬（觸控）：格子的工具按鈕一直顯示，不蓋住勾勾圓、不超出格子', async ({ browser }) => {
+  const ctx = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+    deviceScaleFactor: 1,
+    colorScheme: 'dark',
+    locale: 'zh-TW',
+  });
+  const page = await ctx.newPage();
+  const errors = await open(page);
+  for (const cols of ['3 × 3', '4 × 4'] as const) {
+    await page.getByRole('radio', { name: cols }).click();
+    const n = cols === '3 × 3' ? 3 : 4;
+    const unit = cols === '3 × 3' ? 123.333 : 92;
+    for (const i of [0, n + 1]) {
+      const box = await cellBox(page, i).boundingBox();
+      if (!box) throw new Error('no cell');
+      const k = box.width / unit;
+      const badge = { x: box.x + 6 * k, y: box.y + 6 * k, w: 24 * k, h: 24 * k };
+      for (const name of ['換一張圖片', '調整範圍', '拿掉圖片']) {
+        const b = await page.getByRole('button', { name: `第 ${i + 1} 格：${name}` }).boundingBox();
+        if (!b) throw new Error('no tool');
+        await expect(cellBox(page, i).getByTestId('cell-tools')).toHaveCSS('opacity', '1');
+        const overlap =
+          b.x < badge.x + badge.w &&
+          b.x + b.width > badge.x &&
+          b.y < badge.y + badge.h &&
+          b.y + b.height > badge.y;
+        expect(overlap, `${cols} 第 ${i + 1} 格的「${name}」不蓋住勾勾圓`).toBe(false);
+        expect(b.x).toBeGreaterThanOrEqual(box.x - 0.5);
+        expect(b.y).toBeGreaterThanOrEqual(box.y - 0.5);
+        expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 0.5);
+        expect(b.y + b.height).toBeLessThanOrEqual(box.y + box.height + 0.5);
+      }
+    }
+  }
+  expect(errors).toEqual([]);
+  await ctx.close();
+});
+
+test('390 寬沒有橫向捲動；1280 與 390 的視覺基準＋390 觸控畫面的卡片（格子的工具按鈕一直顯示，在右下角）', async ({
+  page,
+  browser,
+}) => {
   const errors = await open(page);
   await noHorizontalScroll(page);
   await page.mouse.move(0, 0);
@@ -1019,6 +1228,25 @@ test('390 寬沒有橫向捲動；1280 與 390 的視覺基準', async ({ page }
   await noHorizontalScroll(page);
   await page.mouse.move(0, 0);
   await expect(page).toHaveScreenshot('captcha-card-390.png', { fullPage: true });
+  /*
+   * 觸控畫面（hover: none）：格子的工具按鈕一直顯示（規格 7.1：移到右下角、不蓋住勾勾圓）。
+   * 整頁截圖在觸控的 context 裡會暫時換掉裝置模擬、工具又藏起來，所以只截預覽的卡片。
+   */
+  const ctx = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+    deviceScaleFactor: 1,
+    colorScheme: 'dark',
+    locale: 'zh-TW',
+  });
+  const touch = await ctx.newPage();
+  const touchErrors = await open(touch);
+  await noHorizontalScroll(touch);
+  await expect(touch.getByTestId('cell-tools').first()).toHaveCSS('opacity', '1');
+  await expect(touch.getByTestId('grid-overlay')).toHaveScreenshot('captcha-card-390-touch.png');
+  expect(touchErrors).toEqual([]);
+  await ctx.close();
   await tab(page, '動畫').click();
   await noHorizontalScroll(page);
   await page.getByRole('radio', { name: '跳出視窗' }).click();

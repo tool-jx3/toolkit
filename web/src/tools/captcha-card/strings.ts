@@ -126,7 +126,7 @@ export const S = {
 
   /* 圖片的載入 */
   windowDrop: '放開即可放入格子',
-  windowDropAvatar: '放開換成代表圖',
+  windowDropAvatar: '放開即可換代表圖',
   windowDropHint: '放在預覽的哪一格就從那一格開始放。',
   placed: (n: number) => `已放入 ${n} 張圖片`,
   avatarPlaced: '已換上代表圖',
@@ -137,6 +137,7 @@ export const S = {
   onlyFirst: (names: string) => `代表圖只用第一張，「${names}」沒有用到。`,
   notSaved: '有圖片存不進這個瀏覽器，重新整理之後就不見了（可以存成專案檔保留）。',
   loadFailed: '沒有放入圖片',
+  imageGone: '這張圖片讀不回來，請重新放入',
   imagesMissing:
     '有些圖片已經從這個瀏覽器清除，讀不到（格子會顯示成空的）。可以重新放入，或開啟有這些圖片的專案檔。',
   frameTitle: { avatar: '調整代表圖的範圍', cell: (i: number) => `調整第 ${i} 格的範圍` },

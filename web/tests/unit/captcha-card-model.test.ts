@@ -146,10 +146,25 @@ describe('格子', () => {
     const d = withImages([0, 2]);
     expect(planFill(d, 3)).toEqual({ slots: [1, 3, 4], dropped: 0 });
     expect(planFill(d, 9)).toEqual({ slots: [1, 3, 4, 5, 6, 7, 8], dropped: 2 });
-    expect(planFill(d, 3, 2)).toEqual({ slots: [2, 1, 3], dropped: 0 });
+    expect(planFill(d, 3, 2)).toEqual({ slots: [2, 3, 4], dropped: 0 });
     expect(planFill(withImages([0, 1, 2, 3, 4, 5, 6, 7, 8]), 2)).toEqual({ slots: [], dropped: 2 });
     /* 4 × 4 時第 9 格以後也算 */
     expect(planFill(withImages([0, 1, 2, 3, 4, 5, 6, 7, 8], 4), 2).slots).toEqual([9, 10]);
+  });
+
+  it('從某一格開始（7.1 裁定）：其他從那一格往後依序放進空格子，後面沒有空格時再從頭找', () => {
+    /* 空格 1、6、7 */
+    const d = withImages([0, 2, 3, 4, 5, 8]);
+    expect(planFill(d, 2, 6)).toEqual({ slots: [6, 7], dropped: 0 });
+    expect(planFill(d, 3, 6)).toEqual({ slots: [6, 7, 1], dropped: 0 });
+    expect(planFill(d, 5, 6)).toEqual({ slots: [6, 7, 1], dropped: 2 });
+    /* 起點有圖：換掉那一格，其他接在後面 */
+    expect(planFill(d, 3, 4)).toEqual({ slots: [4, 6, 7], dropped: 0 });
+    expect(planFill(d, 4, 4)).toEqual({ slots: [4, 6, 7, 1], dropped: 0 });
+    /* 起點是最後一格：其他從頭找 */
+    expect(planFill(d, 2, 8)).toEqual({ slots: [8, 1], dropped: 0 });
+    /* 沒有起點：從頭 */
+    expect(planFill(d, 2)).toEqual({ slots: [1, 6], dropped: 0 });
   });
 
   it('全選：還有沒勾的就全部勾，都勾了就全部取消；沒有圖時 null', () => {
