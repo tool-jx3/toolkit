@@ -435,7 +435,7 @@ Google 字型由 curl 轉送（`../verify-collage-letter/vl.mjs` 的 fontRoute�
 - **用詞**：專案選單是共用的「存成專案檔…／開啟專案檔…」與「已存成專案檔」，工具自己的文字是「讀取編輯檔？」「已讀取編輯檔。」「請存成編輯檔備份」，同一個東西兩種叫法。
 - **通知時間**：第 4 節寫新版通知約 2 秒，實際共用通知 4 秒（錯誤 7 秒），見 F61。
 
-### 6.2 跟進原作 2026-10-01 更新的驗證紀錄
+### 6.1 跟進原作 2026-10-01 更新的驗證紀錄
 
 - 新版：`/home/user/verify-tree27`（commit 6387219，已建置的 `web/dist`，`pair-maker-D8y1bbYO.js`），`http-server` 開在 8163（`/tools/pair-maker/`）。
 - 改之前：worktree `/home/user/verify-tree28`（commit c07a734，連 `toolkit/web/node_modules` 後 `npm run -s build`，`pair-maker-ezOBnzyL.js`），開在 8165。驗完已移除 worktree。
