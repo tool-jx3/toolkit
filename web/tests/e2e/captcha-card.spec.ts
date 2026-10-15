@@ -1,5 +1,5 @@
 /**
- * 驗證題梗圖產生器（建置產物 next/captcha-card/）的端對端測試（規格 docs/refactor/specs/captcha-card.md）：
+ * 驗證題梗圖產生器（建置產物 tools/captcha-card/）的端對端測試（規格 docs/refactor/specs/captcha-card.md）：
  * - 開頁沒有錯誤、預設內容（範例的 9 格、4 格勾選）、頁尾只有靈感來源；
  * - 題目文字、關鍵字（點預覽上的關鍵字跳到欄位）、補充說明、按鈕文字；
  * - 格子：點一下勾選／取消、空格子選檔、換一張、拿掉、調整範圍（共用的圖片放進框）；

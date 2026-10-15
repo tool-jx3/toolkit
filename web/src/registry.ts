@@ -787,7 +787,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '做一張「請選出所有包含 ○○ 的圖片」的驗證題梗圖：放代表圖與 3 × 3／4 × 4 的圖片格、勾選答案，匯出 PNG，或游標一格一格點選、按下驗證的 GIF 動畫。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'dearmysn1p3r/DearMySn1p3r_44',
       url: 'https://dearmysn1p3r.github.io/DearMySn1p3r_44/',
