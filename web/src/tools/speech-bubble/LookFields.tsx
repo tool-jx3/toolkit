@@ -103,7 +103,7 @@ export function PaletteFields({ look, custom, onChange }: LookFieldsProps) {
   );
 }
 
-/** 文字：字型、字級、行距、字距、對齊、上下微調 */
+/** 文字：字型、字級、行距、字距、對齊、整個內文的斜體／刪除線／底線、上下微調 */
 export function TextFields({ look, custom, onChange }: LookFieldsProps) {
   const f = look.fmt;
   const badge = badgeOf(custom);
@@ -175,6 +175,20 @@ export function TextFields({ look, custom, onChange }: LookFieldsProps) {
           options={TEXT_ALIGN_IDS.map((v) => ({ value: v, label: TEXT_ALIGN_NAMES[v] }))}
           fullWidth
         />
+      </Field>
+      <Field label={S.wholeText} hint={S.wholeTextHint}>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2" data-testid="whole-text">
+          {(['italic', 'strike', 'underline'] as const).map((k) => (
+            <span key={k} className="inline-flex items-center gap-1.5">
+              <Toggle
+                label={{ italic: S.italicAll, strike: S.strikeAll, underline: S.underlineAll }[k]}
+                checked={f[k]}
+                onCheckedChange={(on) => onChange({ [k]: on })}
+              />
+              {badge(k)}
+            </span>
+          ))}
+        </div>
       </Field>
       <Field label={S.textDy} hint={S.textDyHint} labelSuffix={badge('textDy')}>
         <LiveSlider

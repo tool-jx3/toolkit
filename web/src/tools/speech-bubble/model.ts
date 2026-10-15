@@ -3,6 +3,15 @@
  * 這個檔案不依賴 React 與瀏覽器（單元測試在 Node 跑）。
  */
 import { DEFAULT_FONT, type FontValue } from '@/core/fonts';
+import {
+  docText,
+  normalizeDoc,
+  plainDoc,
+  type RichDoc,
+  type RichRun,
+  sliceDoc,
+  validateDoc,
+} from '@/core/richtext';
 import type { Anchor } from '@/core/typeset/fit';
 import { styleDefaults } from './styles';
 
@@ -95,6 +104,11 @@ export interface Bubble {
   /** 自由拖曳的位移（畫布 px；排好之後再移動） */
   dx?: number;
   dy?: number;
+  /**
+   * 內文的部分文字格式（2026-10 第二步，規格 F70～、3.15）：粗體、斜體、刪除線、底線、文字顏色（空字串＝泡泡的內文色）、
+   * 螢光筆。只有內文裡有格式時才有這個欄位，`docText(rich)` 一定等於 `text`（純文字的內文照舊只有 `text`）。
+   */
+  rich?: RichDoc;
 }
 
 /* ---------- 樣式：兩側的預設與單獨調整（2026-10，規格 F57～） ---------- */
@@ -135,6 +149,10 @@ export interface Fmt {
   textAlign: TextAlignId;
   /** 文字上下微調（畫布 px，往下為正） */
   textDy: number;
+  /** 整個內文斜體、刪除線、底線（2026-10 第二步；和部分格式疊加：其中一個有就有） */
+  italic: boolean;
+  strike: boolean;
+  underline: boolean;
   /** 內距（造型預設的倍數）：左右、上下 */
   padX: number;
   padY: number;
@@ -168,6 +186,9 @@ export const FMT_KEYS = [
   'letterSpacing',
   'textAlign',
   'textDy',
+  'italic',
+  'strike',
+  'underline',
   'padX',
   'padY',
   'radius',
@@ -216,6 +237,9 @@ export const DEFAULT_FMT: Fmt = {
   letterSpacing: 0,
   textAlign: 'auto',
   textDy: 0,
+  italic: false,
+  strike: false,
+  underline: false,
   padX: 1,
   padY: 1,
   radius: null,
@@ -610,6 +634,9 @@ export function normalizeFmt(raw: unknown, fallback: Fmt = DEFAULT_FMT): Fmt {
     letterSpacing: numIn(r.letterSpacing, R.letterSpacing, f.letterSpacing),
     textAlign: oneOf(TEXT_ALIGN_IDS, r.textAlign, f.textAlign),
     textDy: numIn(r.textDy, R.textDy, f.textDy),
+    italic: typeof r.italic === 'boolean' ? r.italic : f.italic,
+    strike: typeof r.strike === 'boolean' ? r.strike : f.strike,
+    underline: typeof r.underline === 'boolean' ? r.underline : f.underline,
     padX: numIn(r.padX, R.padX, f.padX),
     padY: numIn(r.padY, R.padY, f.padY),
     radius:
@@ -719,7 +746,89 @@ export function normalizeBubble(
     dy: off(r.dy),
   };
   if (Array.isArray(r.custom)) out.custom = normalizeCustom(r.custom);
+  const rich = normalizeRich(r.rich, out.text);
+  if (rich) out.rich = rich;
   return out;
+}
+
+/* ---------- 內文的部分文字格式（2026-10 第二步） ---------- */
+
+/** 文字顏色的常用色（泡泡的內文色、強調色排在前面） */
+export const TEXT_SWATCHES = [
+  '#222222',
+  '#ffffff',
+  '#d93f3f',
+  '#e07b1a',
+  '#2f8a3e',
+  '#2463c4',
+  '#7a45c2',
+  '#8a8478',
+] as const;
+
+/** 螢光筆的常用色（黑色＝把字塗黑，像防雷遮罩） */
+export const HIGHLIGHT_SWATCHES = [
+  '#fff0a8',
+  '#ffd6cc',
+  '#d4f2d0',
+  '#d6e6ff',
+  '#eadcff',
+  '#222222',
+] as const;
+
+const HEX6 = /^#[0-9a-f]{6}$/i;
+
+/** 片段只留泡泡用得到的格式（粗體、斜體、刪除線、底線、顏色、螢光筆）；顏色只收 6 碼色碼 */
+function bubbleRun(r: RichRun): RichRun {
+  const out: RichRun = {
+    text: r.text,
+    bold: !!r.bold,
+    color: HEX6.test(r.color) ? r.color.toLowerCase() : '',
+  };
+  if (r.italic) out.italic = true;
+  if (r.strike) out.strike = true;
+  if (r.underline) out.underline = true;
+  if (r.highlight && HEX6.test(r.highlight)) out.highlight = r.highlight.toLowerCase();
+  return out;
+}
+
+/** 有沒有任何格式（沒有的話就是純文字，不用存 rich） */
+export const hasMarks = (doc: RichDoc): boolean =>
+  doc.lines.some((l) =>
+    l.runs.some((r) => r.bold || r.italic || r.strike || r.underline || !!r.color || !!r.highlight),
+  );
+
+/** 整理外來的內文格式：壞掉、和內文不一致、沒有任何格式時 undefined；字級、字型、段落屬性丟掉 */
+export function normalizeRich(raw: unknown, text: string): RichDoc | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  let doc: RichDoc;
+  try {
+    doc = validateDoc(raw, MAX_TEXT * 2, { full: true });
+  } catch {
+    return undefined;
+  }
+  const out = normalizeDoc({ lines: doc.lines.map((l) => ({ runs: l.runs.map(bubbleRun) })) });
+  if (docText(out) !== text || !hasMarks(out)) return undefined;
+  return out;
+}
+
+/** 這個泡泡的內文格式（沒有、或和內文不一致時 null） */
+export const bubbleRich = (b: Pick<Bubble, 'text' | 'rich'>): RichDoc | null =>
+  b.rich && docText(b.rich) === b.text ? b.rich : null;
+
+/** 編輯區顯示的內容：有格式就是格式，沒有就是純文字（顏色空白＝泡泡的內文色） */
+export const bubbleDoc = (b: Pick<Bubble, 'text' | 'rich'>): RichDoc =>
+  bubbleRich(b) ?? plainDoc(b.text, '');
+
+/** 編輯區的內容 → 內文與格式（超過字數上限的截掉；沒有格式時只有 text） */
+export function richContent(doc: RichDoc): { text: string; rich?: RichDoc } {
+  let d = normalizeDoc({ lines: doc.lines.map((l) => ({ runs: l.runs.map(bubbleRun) })) });
+  let text = docText(d);
+  const cps = Array.from(text);
+  if (cps.length > MAX_TEXT) {
+    text = cps.slice(0, MAX_TEXT).join('');
+    d = normalizeDoc(sliceDoc(d, 0, text.length));
+  }
+  return hasMarks(d) ? { text, rich: d } : { text };
 }
 
 /** 單獨改過的項目：只留認得的、依 LOOK_KEYS 的順序、不重複 */

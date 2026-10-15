@@ -28,6 +28,7 @@ import {
 import {
   type Bubble,
   bubbleFmt,
+  bubbleRich,
   type CardStyle,
   DEFAULT_FMT,
   type DividerId,
@@ -388,12 +389,17 @@ function sceneFontLoads(
   });
   for (const { bubble: b } of live) {
     const f = bubbleFmt(b);
+    /* 內文裡粗體的字（部分格式）也要載入粗體 */
+    const boldText =
+      bubbleRich(b)
+        ?.lines.flatMap((l) => l.runs.filter((r) => r.bold).map((r) => r.text))
+        .join('') ?? '';
     if (f.font) {
       add(f.font, b.text);
-      add(bold(f.font), b.title + b.button);
+      add(bold(f.font), b.title + b.button + boldText);
     } else {
       body.text += b.text;
-      bodyBold.text += b.title + b.button;
+      bodyBold.text += b.title + b.button + boldText;
     }
     const speaker = (b.speaker ?? '').trim();
     const time = (b.time ?? '').trim();

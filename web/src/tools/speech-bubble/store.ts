@@ -1,17 +1,20 @@
 /**
  * 狀態：
- * - useSb：泡泡與所有設定（自動儲存 `trpg-toolkit:speech-bubble`、可復原；拖曳、滑桿、文字欄放開／離開才記一步）。
+ * - useSb：泡泡與所有設定（自動儲存 `trpg-toolkit:speech-bubble`、可復原；拖曳、滑桿、文字欄放開／離開才記一步；
+ *   內文的格式化編輯區：連續打字、連續改顏色合成一步，套用一次格式＝一步）。
  * - usePrefs：不列入復原的偏好（範本一覽的分類、搜尋、縮圖背景與播放、匯出格式、是否開始編輯過）。
  * - useUi：這次開頁的畫面（範本一覽／編輯、選取的泡泡、分頁），不存。
  */
 import { create } from 'zustand';
 import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { moveItem } from '@/core/compose';
+import { plainDoc, type RichDoc, type RichRun, sameDoc } from '@/core/richtext';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
 import {
   type Align,
   type Bubble,
   bubbleCustom,
+  bubbleDoc,
   cloneFmt,
   cloneLook,
   DEFAULT_FMT,
@@ -24,6 +27,7 @@ import {
   newBubbleId,
   normalizeCustom,
   normalizeData,
+  richContent,
   type SbData,
   type StyleId,
   sameLookValue,
@@ -34,8 +38,11 @@ import { applyPreset, type CategoryId, defaultData, type Preset } from './preset
 import { normalizeSavedStyles, type SavedStyle } from './stylePresets';
 import { styleDefaults } from './styles';
 
-/** 資料版本：2026-10 整合對話卡片時從 1 加到 2（兩側的預設、單獨改過的項目、卡片底…；舊的存檔與專案檔由 normalize 補齊） */
-export const DATA_VERSION = 2;
+/**
+ * 資料版本：2026-10 整合對話卡片時從 1 加到 2（兩側的預設、單獨改過的項目、卡片底…）；
+ * 同月加部分文字格式時加到 3（泡泡的 rich、整個內文的斜體／刪除線／底線）。舊的存檔與專案檔由 normalize 補齊。
+ */
+export const DATA_VERSION = 3;
 
 export const normalize = (raw: unknown): SbData | null =>
   normalizeData(raw, styleDefaults, () => defaultData().bubbles);
@@ -65,6 +72,80 @@ export function edit(recipe: (d: SbData) => void): void {
   useSb.getState().update((d) => {
     recipe(d as SbData);
   });
+}
+
+/* ---------- 內文的格式化編輯區（F70～）：復原的分步 ---------- */
+
+/** 連續打字、連續改顏色：停下來超過這麼久才算一步（和其他工具的 0.4 秒相同） */
+export const TEXT_COALESCE_MS = 400;
+
+/** 進行中的一串變更（打字或改顏色）：手勢開著，停下來或換成別種變更時結束 */
+let burst: { kind: 'type' | 'color'; timer: ReturnType<typeof setTimeout> | null } | null = null;
+
+/** 結束進行中的打字或改顏色（記成一步）。離開編輯區、復原、重做之前呼叫 */
+export function flushTextHistory(): void {
+  const b = burst;
+  if (!b) return;
+  burst = null;
+  if (b.timer) clearTimeout(b.timer);
+  useSb.endGesture();
+}
+
+/** 拿掉顏色與螢光筆的值（比較兩份內容是不是只差在顏色） */
+const colorless = (doc: RichDoc): RichDoc => ({
+  lines: doc.lines.map((l) => ({
+    runs: l.runs.map(
+      (r): RichRun => ({ ...r, color: '', highlight: r.highlight ? '#000000' : undefined }),
+    ),
+  })),
+});
+
+/**
+ * 編輯區改了內文或格式（F70、F73）：
+ * - 打字（內文變了）：連續的合成一步；
+ * - 只改顏色、螢光筆的顏色（例如拖曳調色盤）：連續的合成一步；
+ * - 其他格式（粗體、斜體、刪除線、底線、清除格式、加上或拿掉螢光筆）：一次＝一步。
+ */
+export function setBubbleRich(id: string, doc: RichDoc): void {
+  const cur = sbNow().bubbles.find((b) => b.id === id);
+  if (!cur) return;
+  const next = richContent(doc);
+  const before = bubbleDoc(cur);
+  const after = next.rich ?? plainDoc(next.text, '');
+  if (next.text === cur.text && sameDoc(before, after)) return;
+  const kind: 'type' | 'color' | 'format' =
+    next.text !== cur.text
+      ? 'type'
+      : sameDoc(colorless(before), colorless(after))
+        ? 'color'
+        : 'format';
+  if (burst && burst.kind !== kind) flushTextHistory();
+  if (kind !== 'format' && !burst && !useSb.inGesture()) {
+    useSb.beginGesture();
+    burst = { kind, timer: null };
+  }
+  edit((d) => {
+    const b = d.bubbles.find((x) => x.id === id);
+    if (!b) return;
+    b.text = next.text;
+    if (next.rich) b.rich = next.rich;
+    else delete b.rich;
+  });
+  if (burst) {
+    if (burst.timer) clearTimeout(burst.timer);
+    burst.timer = setTimeout(flushTextHistory, TEXT_COALESCE_MS);
+  }
+}
+
+/** 復原、重做：先結束進行中的打字 */
+export function undoStep(): void {
+  flushTextHistory();
+  useSb.temporal.getState().undo();
+}
+
+export function redoStep(): void {
+  flushTextHistory();
+  useSb.temporal.getState().redo();
 }
 
 export type ThumbBg = 'dark' | 'light' | 'checker';
@@ -301,10 +382,11 @@ export function editCard(recipe: (c: SbData['card']) => void): void {
 export function addBubble(afterId: string | null): string | null {
   const d = sbNow();
   if (d.bubbles.length >= MAX_BUBBLES) return null;
-  const src = selectedBubble(d, afterId);
+  const { rich: _rich, ...src } = selectedBubble(d, afterId);
   const id = newBubbleId();
   edit((x) => {
     const at = x.bubbles.findIndex((b) => b.id === src.id);
+    /* 內文是純文字（不照抄格式） */
     x.bubbles.splice(at + 1, 0, {
       ...src,
       id,
@@ -323,7 +405,7 @@ export function addBubble(afterId: string | null): string | null {
   return id;
 }
 
-/** 複製泡泡（含文字），放在原本的後面 */
+/** 複製泡泡（含文字與格式），放在原本的後面 */
 export function duplicateBubble(id: string): string | null {
   const d = sbNow();
   if (d.bubbles.length >= MAX_BUBBLES) return null;

@@ -266,7 +266,8 @@ describe('兩側的預設與單獨調整（F57～F59）', () => {
     const s = deriveSides(d.bubbles);
     expect(diffKeys(d.bubbles[0], s.left)).toEqual([]);
     expect(diffKeys(d.bubbles[2], s.left)).toEqual(['fill']);
-    expect(LOOK_KEYS).toHaveLength(27);
+    /* 27 項＋整個內文的斜體、刪除線、底線（2026-10 第二步） */
+    expect(LOOK_KEYS).toHaveLength(30);
   });
 });
 

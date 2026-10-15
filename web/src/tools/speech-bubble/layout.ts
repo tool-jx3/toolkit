@@ -3,11 +3,15 @@
  * 純函式；字寬由 measure 提供（瀏覽器用 canvas，單元測試用假的）。
  * 2026-10：樣式的其他項目（字距、對齊、內距、圓角、尾巴與角、陰影、說話者與日期…，`LayoutOptions.fmt`）；
  * 不給或是預設值時，每一個數值的算法都和以前相同（沒用到新功能時輸出不變）。
+ * 2026-10 第二步：內文的部分文字格式（`LayoutInput.rich`）與整個內文的斜體、刪除線、底線（3.15）——
+ * 每個字記著自己的字型與裝飾（`TextLine.fx`）；沒有格式時走原本的排法（`fx` 不給）。
  */
 import { type FontValue, fontCss } from '@/core/fonts';
+import type { RichDoc, RichRun } from '@/core/richtext';
 import { anchorRatio } from '@/core/typeset/fit';
+import { splitChars } from '@/core/typeset/graphemes';
 import type { MeasureFn } from '@/core/typeset/measure';
-import { breakText } from '@/core/typeset/wrap';
+import { breakText, wrapChars } from '@/core/typeset/wrap';
 import {
   type Bubble,
   type CornerId,
@@ -29,6 +33,20 @@ export interface TextLine {
   x: number;
   /** 行的中線 y（相對於泡泡左上角） */
   cy: number;
+  /** 每個字的格式（有部分格式或整個內文的斜體／刪除線／底線時才有；長度同 chars） */
+  fx?: CharFx[];
+}
+
+/** 一個字的格式（同樣格式的字共用同一個物件） */
+export interface CharFx {
+  /** canvas 的字型（粗體、斜體已算進去） */
+  font: string;
+  /** 文字顏色；null＝泡泡的內文色 */
+  color: string | null;
+  strike: boolean;
+  underline: boolean;
+  /** 螢光筆的顏色；null＝沒有 */
+  highlight: string | null;
 }
 
 export interface Rect {
@@ -143,9 +161,17 @@ export interface LayoutOptions {
 export type LayoutInput = Pick<Bubble, 'style' | 'title' | 'text' | 'icon' | 'button' | 'align'> & {
   speaker?: string;
   time?: string;
+  /** 內文的格式（docText(rich) 要等於 text；不一致時不用） */
+  rich?: RichDoc;
 };
 
 export const boldWeight = (w: number): number => Math.min(900, Math.max(700, w));
+
+/** 內文的格式（和內文不一致時不用） */
+function richOf(rich: RichDoc, text: string): RichDoc | null {
+  const joined = rich.lines.map((l) => l.runs.map((r) => r.text).join('')).join('\n');
+  return joined === text ? rich : null;
+}
 
 /** 字寬快取（同一個字型字串＋字） */
 export function cachedUnit(measure: MeasureFn) {
@@ -173,6 +199,63 @@ const graphemes = (s: string): string[] => {
 export const widthOf = (unit: Unit, font: string, s: string): number =>
   graphemes(s).reduce((sum, ch) => sum + unit(font, ch), 0);
 
+/**
+ * 有格式的內文排成多行（規格 3.15）：換行的規則和純文字相同（`breakText`：保留原本的換行、中文逐字、英文單字不切、避頭尾），
+ * 每個字用自己的字型量寬度（粗體、斜體）。換行時同一個字用它在這一段裡最寬的寫法估（不會超出寬度上限；
+ * 只有顏色、刪除線、底線、螢光筆時和純文字完全相同），排好之後每個字用自己的寬度。
+ */
+function styledLines(
+  text: string,
+  rich: RichDoc | null,
+  limit: number,
+  fxOf: (r: RichRun | null) => CharFx,
+  widthOf: (fx: CharFx, ch: string) => number,
+): TextLine[] {
+  const out: TextLine[] = [];
+  text.split('\n').forEach((hard, li) => {
+    /* 這一段每個字（字素）的格式：字素開頭那個字所在的片段 */
+    const runs = rich?.lines[li]?.runs ?? [];
+    const chars = hard ? splitChars(hard, 'grapheme') : [];
+    const cells: { ch: string; fx: CharFx; w: number }[] = [];
+    let pos = 0;
+    let ri = 0;
+    let rEnd = runs[0]?.text.length ?? 0;
+    for (const ch of chars) {
+      while (ri < runs.length - 1 && pos >= rEnd) {
+        ri += 1;
+        rEnd += runs[ri].text.length;
+      }
+      const fx = fxOf(runs[ri] ?? null);
+      cells.push({ ch, fx, w: widthOf(fx, ch) });
+      pos += ch.length;
+    }
+    if (!cells.length) {
+      out.push({ chars: [], adv: [], w: 0, x: 0, cy: 0, fx: [] });
+      return;
+    }
+    const widest = new Map<string, number>();
+    for (const c of cells) widest.set(c.ch, Math.max(widest.get(c.ch) ?? 0, c.w));
+    const wrapped = limit > 0 ? wrapChars(chars, limit, (ch) => widest.get(ch) ?? 0) : [chars];
+    /* 換行時只會拿掉行頭、行尾的空白：依序對回原本的字 */
+    let p = 0;
+    for (const line of wrapped) {
+      const lc: string[] = [];
+      const adv: number[] = [];
+      const fx: CharFx[] = [];
+      for (const ch of line) {
+        while (p < cells.length && cells[p].ch !== ch) p += 1;
+        const c = cells[p] ?? { ch, fx: fxOf(null), w: 0 };
+        p += 1;
+        lc.push(ch);
+        adv.push(c.w);
+        fx.push(c.fx);
+      }
+      out.push({ chars: lc, adv, w: adv.reduce((s, v) => s + v, 0), x: 0, cy: 0, fx });
+    }
+  });
+  return out;
+}
+
 /** 實際的尾巴：「全圓」沒有尾巴；「尖角」時訊息泡泡的小勾換成尖角（漫畫、想法泡泡照舊） */
 export const effectiveTail = (spec: StyleSpec, corner: CornerId): TailKind =>
   corner === 'round' ? 'none' : corner === 'point' && spec.tail === 'hook' ? 'none' : spec.tail;
@@ -197,13 +280,45 @@ export function layoutBubble(b: LayoutInput, o: LayoutOptions, unit: Unit): Bubb
 
   /* 內文：保留原本的換行，超過寬度上限自動換行（中文逐字、英文單字不切、避頭尾） */
   const text = b.text.replace(/\s+$/, '');
-  const raw = text
-    ? breakText(text, { limit: o.wrapWidth, unit: bodyUnit, segment: 'grapheme' })
-    : [];
-  const lines: TextLine[] = raw.map((chars) => {
-    const adv = chars.map(bodyUnit);
-    return { chars, adv, w: adv.reduce((s, v) => s + v, 0), x: 0, cy: 0 };
-  });
+  const rich = b.rich ? richOf(b.rich, b.text) : null;
+  let lines: TextLine[];
+  if (rich || f.italic || f.strike || f.underline) {
+    /* 有格式：每個字用自己的字型（粗體、斜體）；刪除線、底線、顏色、螢光筆另外記著 */
+    const cache = new Map<string, CharFx>();
+    const fxOf = (r: RichRun | null): CharFx => {
+      const bold = !!r?.bold;
+      const italic = f.italic || !!r?.italic;
+      const key = `${bold ? 1 : 0}${italic ? 1 : 0}${r?.color ?? ''}|${f.strike || r?.strike ? 1 : 0}${f.underline || r?.underline ? 1 : 0}|${r?.highlight ?? ''}`;
+      let fx = cache.get(key);
+      if (!fx) {
+        fx = {
+          font: fontCss(
+            { family: o.font.family, weight: bold ? boldWeight(o.font.weight) : o.font.weight },
+            fs,
+            italic ? 'italic' : 'normal',
+          ),
+          color: r?.color || null,
+          strike: f.strike || !!r?.strike,
+          underline: f.underline || !!r?.underline,
+          highlight: r?.highlight || null,
+        };
+        cache.set(key, fx);
+      }
+      return fx;
+    };
+    const fxUnit = ls
+      ? (fx: CharFx, ch: string) => unit(fx.font, ch) + ls
+      : (fx: CharFx, ch: string) => unit(fx.font, ch);
+    lines = text ? styledLines(text, rich, o.wrapWidth, fxOf, fxUnit) : [];
+  } else {
+    const raw = text
+      ? breakText(text, { limit: o.wrapWidth, unit: bodyUnit, segment: 'grapheme' })
+      : [];
+    lines = raw.map((chars) => {
+      const adv = chars.map(bodyUnit);
+      return { chars, adv, w: adv.reduce((s, v) => s + v, 0), x: 0, cy: 0 };
+    });
+  }
   const fitW = lines.reduce((m, l) => Math.max(m, l.w), 0);
   /* 寬度不貼合文字：內文的寬度固定是文字寬度上限 */
   const textW = f.fitWidth ? fitW : Math.max(fitW, o.wrapWidth);

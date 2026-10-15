@@ -33,8 +33,10 @@ import {
   assets,
   DATA_VERSION,
   normalize,
+  redoStep,
   referencedImages,
   type Tab,
+  undoStep,
   usePrefs,
   useSb,
   useUi,
@@ -155,7 +157,10 @@ export function App() {
     }, 5000);
     return () => clearTimeout(t);
   }, []);
-  const { undo, redo, canUndo, canRedo } = useUndoRedo(useSb);
+  const { canUndo, canRedo } = useUndoRedo(useSb);
+  /* 內文的編輯區還在連續打字時，先把打的字記成一步再復原 */
+  const undo = undoStep;
+  const redo = redoStep;
   const playRef = useRef<PlayHandle>(null);
   const exportRef = useRef<ExportPanelHandle>(null);
   const searchRef = useRef<HTMLInputElement>(null);

@@ -40,6 +40,7 @@ import {
   Toggle,
   useToast,
 } from '@/ui';
+import { BodyEditor } from './BodyEditor';
 import { ImportDialog } from './ImportDialog';
 import { CustomBadge, FrameFields, MetaFields, PaletteFields, TextFields } from './LookFields';
 import {
@@ -63,7 +64,6 @@ import {
   MAX_BUTTON,
   MAX_NOTE,
   MAX_SPEAKER,
-  MAX_TEXT,
   MAX_TIME,
   MAX_TITLE,
   NOTE_ALIGN_IDS,
@@ -329,19 +329,7 @@ function BubbleEditor({
   return (
     <Section title={S.editing(number)} persistKey="speech-bubble:bubble">
       <div className="flex flex-col gap-3" data-testid="bubble-editor" data-bubble={bubble.id}>
-        <Field label={S.text} hint={S.textHint}>
-          <TextArea
-            rows={3}
-            value={bubble.text}
-            placeholder={S.textPlaceholder}
-            data-testid="bubble-text"
-            onFocus={gesture.begin}
-            onBlur={gesture.commit}
-            onChange={(e) =>
-              patch({ text: Array.from(e.target.value).slice(0, MAX_TEXT).join('') })
-            }
-          />
-        </Field>
+        <BodyEditor bubble={bubble} />
         <Field label={TITLE_LABELS[bubble.style]}>
           <TextInput
             value={bubble.title}

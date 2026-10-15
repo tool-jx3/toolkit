@@ -7,7 +7,7 @@ import { parseColor, readableTextColor } from '@/core/color';
 import { traceShape } from '@/core/shapes';
 import type { Ctx2D } from '@/core/timeline';
 import { hashSigned, hashUnit } from '@/core/timeline';
-import type { BubbleLayout, TextLine } from './layout';
+import type { BubbleLayout, CharFx, TextLine } from './layout';
 import type { Bubble, CursorId, IconId, Palette } from './model';
 
 /* ---------- 顏色 ---------- */
@@ -519,6 +519,122 @@ function fillLine(
   }
 }
 
+/* ---------- 有格式的內文（2026-10 第二步，規格 3.15） ---------- */
+
+/**
+ * 裝飾的位置（字級的倍數，從行的中線算；內文用 textBaseline 'middle' 畫，基線約在中線下方 0.38 字級）：
+ * 刪除線在基線上方 0.32（同 core/scene）＝中線下方 0.06；底線在基線下方 0.14（同 core/scene）＝中線下方 0.52；
+ * 粗細 0.055 字級（至少 1 px）。螢光筆從中線上下各 0.62 字級（不超過半個行高）。
+ */
+export const STRIKE_FROM_MIDDLE = 0.06;
+export const UNDERLINE_FROM_MIDDLE = 0.52;
+export const DECOR_THICKNESS = 0.055;
+export const HIGHLIGHT_HALF = 0.62;
+
+/** 一行裡連續同樣格式的字：[開始, 結束)、左緣 */
+interface Seg {
+  fx: CharFx;
+  from: number;
+  to: number;
+  x: number;
+  w: number;
+}
+
+function segmentsOf(line: TextLine, fx: CharFx[], n: number, x0: number): Seg[] {
+  const out: Seg[] = [];
+  let x = x0;
+  for (let k = 0; k < n; k++) {
+    const last = out[out.length - 1];
+    if (last && last.fx === fx[k]) last.to = k + 1;
+    else out.push({ fx: fx[k], from: k, to: k + 1, x, w: 0 });
+    out[out.length - 1].w += line.adv[k];
+    x += line.adv[k];
+  }
+  return out;
+}
+
+/** 畫一段字（沒有字距時整串一起畫，有字距時一個字一個字畫） */
+function fillSeg(ctx: Ctx2D, L: BubbleLayout, line: TextLine, s: Seg, dx: number, y: number): void {
+  if (!L.ls) {
+    ctx.fillText(line.chars.slice(s.from, s.to).join(''), s.x + dx, y);
+    return;
+  }
+  let cx = s.x + dx;
+  for (let k = s.from; k < s.to; k++) {
+    ctx.fillText(line.chars[k], cx, y);
+    cx += line.adv[k];
+  }
+}
+
+/** 一條裝飾（相鄰、同色、同種的合成一條） */
+function decorRuns(segs: Seg[], pick: (fx: CharFx) => string | null) {
+  const out: { x: number; w: number; color: string }[] = [];
+  for (const s of segs) {
+    const color = pick(s.fx);
+    const last = out[out.length - 1];
+    if (!color) continue;
+    if (last && last.color === color && Math.abs(last.x + last.w - s.x) < 1e-6) last.w += s.w;
+    else out.push({ x: s.x, w: s.w, color });
+  }
+  return out;
+}
+
+/** 有格式的一行的前 n 個字：螢光筆 → （全息的錯位）→ 字 → 刪除線、底線 */
+function drawStyledLine(
+  ctx: Ctx2D,
+  L: BubbleLayout,
+  line: TextLine,
+  fx: CharFx[],
+  n: number,
+  y: number,
+  c: Palette,
+  look: { holo: boolean; soft: boolean; glow: number },
+): void {
+  const fs = L.fs;
+  const segs = segmentsOf(line, fx, n, line.x);
+  const half = Math.min(fs * HIGHLIGHT_HALF, L.lineH / 2);
+  for (const h of decorRuns(segs, (f) => f.highlight)) {
+    ctx.fillStyle = h.color;
+    ctx.fillRect(h.x, y - half, h.w, half * 2);
+  }
+  if (look.holo) {
+    for (const [dx, color] of [
+      [-fs * 0.07, rgba(c.accent, 0.55)],
+      [fs * 0.07, rgba('#ff5ad9', 0.4)],
+    ] as const) {
+      ctx.fillStyle = color;
+      for (const s of segs) {
+        ctx.font = s.fx.font;
+        fillSeg(ctx, L, line, s, dx, y);
+      }
+    }
+  }
+  const colorOf = (f: CharFx) => f.color ?? c.text;
+  ctx.save();
+  if (look.soft) {
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = fs * 0.2 * deviceScale(ctx);
+  }
+  withGlow(ctx, c.accent, look.glow, () => {
+    for (const s of segs) {
+      ctx.font = s.fx.font;
+      ctx.fillStyle = colorOf(s.fx);
+      fillSeg(ctx, L, line, s, 0, y);
+    }
+    const thick = Math.max(1, fs * DECOR_THICKNESS);
+    for (const [pick, at] of [
+      [(f: CharFx) => (f.strike ? colorOf(f) : null), STRIKE_FROM_MIDDLE],
+      [(f: CharFx) => (f.underline ? colorOf(f) : null), UNDERLINE_FROM_MIDDLE],
+    ] as const) {
+      for (const d of decorRuns(segs, pick)) {
+        ctx.fillStyle = d.color;
+        ctx.fillRect(d.x, y + fs * at - thick / 2, d.w, thick);
+      }
+    }
+  });
+  ctx.restore();
+}
+
 /** 說話者與日期（名字粗體；日期時間淡一點；泡泡內時上面有分隔線、中間有「・」） */
 function drawMeta(ctx: Ctx2D, L: BubbleLayout): void {
   const m = L.meta;
@@ -610,7 +726,12 @@ function drawBodyText(ctx: Ctx2D, L: BubbleLayout, c: Palette, st: TextState): v
     left -= n;
     const la = st.lines?.[i];
     const dy = la?.dy ?? 0;
-    if (n > 0 && (la?.alpha ?? 1) > 0) {
+    if (n > 0 && (la?.alpha ?? 1) > 0 && line.fx) {
+      ctx.save();
+      if (la) ctx.globalAlpha *= la.alpha;
+      drawStyledLine(ctx, L, line, line.fx, n, line.cy + dy, c, { holo, soft, glow });
+      ctx.restore();
+    } else if (n > 0 && (la?.alpha ?? 1) > 0) {
       const s = line.chars.slice(0, n).join('');
       ctx.save();
       if (la) ctx.globalAlpha *= la.alpha;

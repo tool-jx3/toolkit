@@ -319,7 +319,14 @@ export const S = {
   styleHint: '換造型時配色換成新造型的預設配色（可以復原）。',
   text: '內文',
   textPlaceholder: '要放進泡泡的文字（可以換行）',
-  textHint: '超過「版面」分頁的文字寬度上限會自動換行。',
+  textHint:
+    '選取一段字再按上面的按鈕套用格式；沒有選取時套用到接下來打的字。超過「版面」分頁的文字寬度上限會自動換行。',
+  /* 整個內文的斜體、刪除線、底線（2026-10 第二步） */
+  wholeText: '整個內文',
+  wholeTextHint: '和內文裡的部分格式疊加（其中一個有就有）。粗體請用字型的字重。',
+  italicAll: '斜體',
+  strikeAll: '刪除線',
+  underlineAll: '底線',
   icon: '圖示',
   button: '按鈕文字',
   buttonPlaceholder: '空白就不顯示按鈕',
