@@ -1,5 +1,5 @@
 /**
- * 短文圖片產生器（建置產物 next/prose-card/）的端對端測試（規格 docs/refactor/specs/prose-card.md）：
+ * 短文圖片產生器（建置產物 tools/prose-card/）的端對端測試（規格 docs/refactor/specs/prose-card.md）：
  * - 開頁沒有錯誤、預設範例一頁、頁尾只有靈感來源；
  * - 標題、小標、頁首、頁尾、自動頁碼與起始頁碼、整份的字型；
  * - 本文：打字、Enter、粗體／斜體／刪除線（快捷鍵與工具列）、沒有選取時接下來打的字、文字顏色、螢光筆、我的顏色、

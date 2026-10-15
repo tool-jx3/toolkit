@@ -18,7 +18,8 @@
 [zznaptime](https://github.com/zznaptime) 與
 [swoonqx](https://github.com/swoonqx) 與
 [rebane2001](https://github.com/rebane2001) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 60 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[dan0030](https://github.com/dan0030) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 61 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -55,6 +56,7 @@
 | [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | 盲選排行榜：一次揭曉一位、當場決定名次，名次確定後就不能改，排完存成 PNG 或 WebP |
 | [角色分析圖產生器](https://tool-jx3.github.io/toolkit/tools/char-chart/) | 一份角色清單做成兩張圖：性格四象限（拖曳角色、算契合度）與關係圖（頭像排成一圈、用不同的線連起來），存成 PNG |
 | [拍立得相框產生器](https://tool-jx3.github.io/toolkit/tools/polaroid/) | 把照片放進拍立得相框：縮放與拖曳照片、寫一行字、用筆在上面畫、貼最多 5 張貼紙，存成高解析度的 PNG |
+| [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | 把台詞、後日談、劇本宣傳文句或心得排成 1200 × 1600 的直式圖片：封面、內文頁或照片＋文字三種版面，文字可以加粗、換色、螢光筆，放不下時自動接到下一頁，存成 PNG 或 ZIP |
 | [角色配色條產生器](https://tool-jx3.github.io/toolkit/tools/color-palette/) | 把角色的配色排成一條色塊圖，可直接從立繪取色（手動滴管或自動抓主色），輸出 PNG |
 | [壓克力周邊工房](https://tool-jx3.github.io/toolkit/tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光、搖晃，匯出 APNG／GIF／WebP／PNG 或 .glb 模型 |
 | [影片轉動圖工具](https://tool-jx3.github.io/toolkit/tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
@@ -182,6 +184,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `polaroid` | [拍立得相框產生器](https://tool-jx3.github.io/toolkit/tools/polaroid/) | [swoonqx/sw-polaroid](https://github.com/swoonqx/sw-polaroid) |
 | `char-chart` | [角色分析圖產生器](https://tool-jx3.github.io/toolkit/tools/char-chart/) | [sotsotssi/char-quadrant](https://github.com/sotsotssi/char-quadrant)、[sotsotssi/visual-coupling-map](https://github.com/sotsotssi/visual-coupling-map) |
 | `lock-screen` | [鎖定畫面訊息產生器](https://tool-jx3.github.io/toolkit/tools/lock-screen/) | [TEXTSCENE](https://textscene.netlify.app/) |
+| `prose-card` | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | [dan0030/writeediter2](https://github.com/dan0030/writeediter2) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

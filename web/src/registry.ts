@@ -775,7 +775,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把台詞、後日談、劇本宣傳文句或心得排成 1200 × 1600 的直式圖片：封面、內文頁或照片＋文字三種版面，文字可以加粗、換色、螢光筆，放不下時自動接到下一頁，存成 PNG 或 ZIP。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'dan0030/writeediter2',
       url: 'https://github.com/dan0030/writeediter2',

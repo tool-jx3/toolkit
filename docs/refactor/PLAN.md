@@ -231,7 +231,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | discord-color | Discord 彩色文字產生器 | rebane2001（gist：discord-colored-text-generator） | 公有領域（Unlicense） | G1 | ✅ | ✅ | ✅ | ✅ |
 | lock-screen | 鎖定畫面訊息產生器（2026-10-09 另外加入） | TEXTSCENE（textscene.netlify.app） | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
 | relation-chart | 角色關係圖產生器（2026-10-15 另外加入；分批，第一批＝核心） | PaiTei4234／Relationship Chart Maker（itch.io） | CC BY-NC-SA 4.0（繼承：工具目錄以同一授權釋出，見 LICENSE 的例外） | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
-| prose-card | 短文圖片產生器（2026-10-15 另外加入） | dan0030/writeediter2（문장 엽서 v2） | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
+| prose-card | 短文圖片產生器（2026-10-15 另外加入） | dan0030/writeediter2（문장 엽서 v2） | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
 | captcha-card | 驗證題梗圖產生器（2026-10-15 另外加入） | dearmysn1p3r/DearMySn1p3r_44（reCAPTCHA Maker） | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
