@@ -353,10 +353,20 @@ function drawRich(ctx: Ctx, n: RichNode): void {
   ctx.clip();
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
+  /* 完整格式：螢光筆在字的下面、刪除線在字的上面 */
+  const marks = lay.marks ?? [];
+  for (const m of marks) {
+    if (m.kind !== 'highlight') continue;
+    ctx.fillStyle = m.color;
+    ctx.fillRect(m.x, m.y, m.w, m.h);
+  }
+  const full = !!lay.rowBoxes;
   let font = '';
   for (const g of lay.glyphs) {
     if (g.ch === ' ' || g.ch === '　') continue;
-    const f = fontString(n.font, g.size, g.weight);
+    const f = full
+      ? fontString({ family: g.family, size: g.size, weight: g.weight, italic: g.italic })
+      : fontString(n.font, g.size, g.weight);
     if (f !== font) {
       font = f;
       ctx.font = f;
@@ -370,6 +380,11 @@ function drawRich(ctx: Ctx, n: RichNode): void {
       ctx.fillText(g.ch, 0, 0);
       ctx.restore();
     }
+  }
+  for (const m of marks) {
+    if (m.kind !== 'strike') continue;
+    ctx.fillStyle = m.color;
+    ctx.fillRect(m.x, m.y, m.w, m.h);
   }
   ctx.restore();
 }
@@ -523,7 +538,11 @@ export function collectFonts(nodes: readonly SceneNode[]): FontUse[] {
       else if (n.kind === 'rich')
         for (const l of n.doc.lines)
           for (const r of l.runs)
-            add(n.font.family, r.bold ? (n.boldWeight ?? 700) : (n.font.weight ?? 400), r.text);
+            add(
+              r.font || n.font.family,
+              r.bold ? (n.boldWeight ?? 700) : (n.font.weight ?? 400),
+              r.text,
+            );
     }
   };
   walk(nodes);

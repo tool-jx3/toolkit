@@ -49,7 +49,20 @@ export interface ColorPickerProps {
   onPickFromCanvas?: () => void;
   /** 「從畫布取色」按鈕的文字（預設「從畫布取色」） */
   pickFromCanvasLabel?: string;
+  /**
+   * 「我的顏色」（prose-card 加的，選填；不給時沒有這一區）：使用者存下來的顏色，點一下套用、× 刪除，
+   * 「存成我的顏色」把目前的顏色加在最後（已經有的、滿了不加，下方說明原因）。清單由呼叫端保存（例如存在瀏覽器）。
+   */
+  presets?: readonly string[];
+  onPresetsChange?: (next: string[]) => void;
+  /** 「我的顏色」最多幾個（預設 24） */
+  presetsMax?: number;
+  /** 色碼欄（prose-card 加的，選填）：取代下方的色碼文字，可以輸入 #rgb、#rrggbb，Enter 或離開時套用 */
+  hexInput?: boolean;
 }
+
+/** 「我的顏色」預設的上限 */
+export const COLOR_PRESETS_MAX = 24;
 
 /** 調色盤本體（可單獨放在任何地方） */
 export function ColorPicker({
@@ -60,6 +73,10 @@ export function ColorPicker({
   eyedropper = true,
   onPickFromCanvas,
   pickFromCanvasLabel = '從畫布取色',
+  presets,
+  onPresetsChange,
+  presetsMax = COLOR_PRESETS_MAX,
+  hexInput = false,
 }: ColorPickerProps) {
   const rgba = parseColor(value) ?? { r: 0, g: 0, b: 0, a: 1 };
   /* 色相在灰階時會遺失，所以自己記著 */
@@ -217,7 +234,11 @@ export function ColorPicker({
             {pickFromCanvasLabel}
           </button>
         ) : null}
-        <span className="font-mono text-xs text-muted">{value}</span>
+        {hexInput ? (
+          <HexInput value={value} alpha={alpha} onCommit={onChange} />
+        ) : (
+          <span className="font-mono text-xs text-muted">{value}</span>
+        )}
       </div>
       {swatches.length ? (
         <fieldset className="m-0 grid min-w-0 grid-cols-6 gap-1.5 border-0 p-0">
@@ -237,7 +258,145 @@ export function ColorPicker({
           ))}
         </fieldset>
       ) : null}
+      {presets && onPresetsChange ? (
+        <ColorPresets
+          value={value}
+          presets={presets}
+          max={presetsMax}
+          onChange={onPresetsChange}
+          onPick={(c) => {
+            const p = parseColor(c);
+            if (p) emit(rgbToHsv(p), alpha ? p.a : 1);
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/** 調色盤裡的色碼欄：打字時不套用，Enter 或離開時套用；看不懂的寫法標成錯誤、Esc 還原 */
+function HexInput({
+  value,
+  alpha,
+  onCommit,
+}: {
+  value: string;
+  alpha: boolean;
+  onCommit: (hex: string) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const invalid = draft !== null && parseHexInput(draft, alpha) === null;
+  const commit = () => {
+    if (draft === null) return;
+    const v = parseHexInput(draft, alpha);
+    if (v) onCommit(v);
+    else return;
+    setDraft(null);
+  };
+  return (
+    <input
+      type="text"
+      spellCheck={false}
+      autoComplete="off"
+      aria-label="色碼"
+      aria-invalid={invalid || undefined}
+      placeholder="#rrggbb"
+      value={draft ?? value}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        commit();
+        setDraft(null);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commit();
+        }
+        if (e.key === 'Escape' && draft !== null) {
+          e.preventDefault();
+          e.stopPropagation();
+          setDraft(null);
+        }
+      }}
+      className={inputClass(invalid, 'h-7 min-w-0 flex-1 font-mono text-xs')}
+    />
+  );
+}
+
+/** 「我的顏色」：存下來的顏色（點一下套用、× 刪除）＋「存成我的顏色」 */
+function ColorPresets({
+  value,
+  presets,
+  max,
+  onChange,
+  onPick,
+}: {
+  value: string;
+  presets: readonly string[];
+  max: number;
+  onChange: (next: string[]) => void;
+  onPick: (hex: string) => void;
+}) {
+  const [note, setNote] = useState('');
+  const cur = value.toLowerCase();
+  const save = () => {
+    if (presets.some((c) => c.toLowerCase() === cur)) {
+      setNote('這個顏色已經在「我的顏色」裡。');
+      return;
+    }
+    if (presets.length >= max) {
+      setNote(`「我的顏色」最多 ${max} 個，請先刪掉不用的。`);
+      return;
+    }
+    onChange([...presets, cur]);
+    setNote(`已存下 ${cur}。`);
+  };
+  return (
+    <fieldset
+      className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0"
+      data-testid="color-presets"
+    >
+      <legend className="mb-1 flex w-full items-center justify-between gap-2 p-0 text-xs text-muted">
+        <span>我的顏色</span>
+        <span>{presets.length ? `${presets.length} / ${max}` : '還沒有存下的顏色'}</span>
+      </legend>
+      {presets.length ? (
+        <ul className="m-0 grid list-none grid-cols-6 gap-1.5 p-0">
+          {presets.map((c) => (
+            <li key={c} className="relative">
+              <button
+                type="button"
+                aria-label={`套用我的顏色 ${c}`}
+                onClick={() => onPick(c)}
+                className="block h-6 w-full rounded-sm border border-border-strong"
+                style={{ background: c }}
+              />
+              <button
+                type="button"
+                aria-label={`從我的顏色刪掉 ${c}`}
+                onClick={() => {
+                  onChange(presets.filter((x) => x !== c));
+                  setNote('');
+                }}
+                className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full border border-border-strong bg-surface text-[10px] leading-none text-fg hover:bg-surface-3"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <button
+        type="button"
+        onClick={save}
+        className="inline-flex h-7 items-center justify-center gap-1 self-start rounded-md border border-border bg-surface-2 px-2 text-xs text-fg hover:bg-surface-3"
+      >
+        ＋ 存成我的顏色
+      </button>
+      <p role="status" className="m-0 min-h-0 text-xs text-muted empty:hidden">
+        {note}
+      </p>
+    </fieldset>
   );
 }
 

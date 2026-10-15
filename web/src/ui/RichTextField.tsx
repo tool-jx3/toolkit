@@ -37,6 +37,7 @@ import {
 import { ColorPicker } from './ColorField';
 import { cn } from './cn';
 import { FieldScope, useFieldControl } from './Field';
+import { type RichDomOptions, readRichDomFull, writeRichDomFull } from './richDom';
 
 /* ---------- DOM ↔ RichDoc ---------- */
 
@@ -64,8 +65,11 @@ function hexOf(color: string, fallback: string): string {
  * 編輯區（或其中一段）的 DOM → RichDoc：文字節點（不換行空白當一般空白）、<br> 是換行、
  * 區塊元素（div、p、li）與相鄰的內容之間換行；只有一個 <br> 的元素是空行。
  * 粗體：<b>、<strong> 或 font-weight ≥ 600；顏色：style 的 color 或 <font color>。
+ * `options.full`（prose-card 加的，選填）：完整格式（斜體、刪除線、螢光筆、字級、字型、段落的對齊與分頁；
+ * 沒有指定顏色的字是空字串），見 `./richDom`；不給時與以前相同。
  */
-export function readRichDom(root: Node, defaultColor: string): RichDoc {
+export function readRichDom(root: Node, defaultColor: string, options?: RichDomOptions): RichDoc {
+  if (options?.full) return readRichDomFull(root, options);
   type Piece = { text: string; bold: boolean; color: string };
   const walk = (node: Node, style: { bold: boolean; color: string }): Piece[] => {
     if (node.nodeType === 3) return [{ text: (node.nodeValue ?? '').replace(/ /g, ' '), ...style }];
@@ -108,8 +112,15 @@ export function readRichDom(root: Node, defaultColor: string): RichDoc {
   return { lines };
 }
 
-/** RichDoc → 編輯區的 DOM（每行一個 div、每段一個 span；空行放 <br>） */
-export function writeRichDom(root: HTMLElement, doc: RichDoc): void {
+/**
+ * RichDoc → 編輯區的 DOM（每行一個 div、每段一個 span；空行放 <br>）。
+ * `options.full`（選填）：完整格式的寫法（見 `./richDom`）；不給時與以前相同。
+ */
+export function writeRichDom(root: HTMLElement, doc: RichDoc, options?: RichDomOptions): void {
+  if (options?.full) {
+    writeRichDomFull(root, doc, options);
+    return;
+  }
   const d = root.ownerDocument;
   root.replaceChildren();
   for (const line of doc.lines) {
