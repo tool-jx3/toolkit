@@ -32,7 +32,7 @@ import { bindView, fitView, lodScale, nextLod, zoomBy } from './view';
 import { ZoomSettle } from './zoomSettle';
 
 /*
- * 聚焦淡化（7.11，D73）：每個角色、線、標籤…的不透明度＝登記過的 --rc-op，轉場掛在 --rc-op 上（0.2 秒 ease，淡化程度同前）。
+ * 聚焦淡化（7.11，D72b）：每個角色、線、標籤…的不透明度＝登記過的 --rc-op，轉場掛在 --rc-op 上（0.2 秒 ease，淡化程度同前）。
  * 不直接轉場 opacity：SVG 子元素的 opacity 轉場會被瀏覽器丟到合成器，120 位時幾百個元素各自變成一個合成層，
  * 開始與結束時整張大圖重新點陣化（滑過、移開、開始拖曳、放開時卡 0.4～1.7 秒）；--rc-op 的轉場在主執行緒，只重畫一層。
  * 文字用 geometricPrecision：淡化中的角色（opacity < 1）裡有文字時，瀏覽器為了保留 LCD 文字不把它併進大圖層，
