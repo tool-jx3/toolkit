@@ -27,7 +27,7 @@ import { sheetCtx, sheetName } from '../engine/geom';
 import { labelColor } from '../engine/labels';
 import { charLabelIds } from '../model/charLabels';
 import { LEGEND_POSITIONS } from '../model/normalize';
-import type { ColorValue, Label, LegendPos, Sheet, SheetSettings } from '../model/types';
+import type { CharEntry, ColorValue, Label, LegendPos, Sheet, SheetSettings } from '../model/types';
 import {
   createLabel,
   deleteLabel,
@@ -88,15 +88,16 @@ export function runLabelAction(key: LibAction['key']): void {
 /* ---------- 標籤的使用情形 ---------- */
 
 /** 全專案掛著這個標籤的角色數（D26）、各分頁有沒有人用 */
-function usage(sheets: readonly Sheet[]) {
+function usage(sheets: readonly Sheet[], library: readonly CharEntry[]) {
+  /* 人數＝角色庫裡有幾個人掛著（任何一件變體有就算；原作的 labelUsageCount，第三批起照原作，D26） */
   const count = new Map<number, number>();
+  for (const e of library) {
+    const ids = new Set(e.variants.flatMap((v) => v.labels));
+    for (const id of ids) count.set(id, (count.get(id) ?? 0) + 1);
+  }
   const bySheet = sheets.map(() => new Set<number>());
   sheets.forEach((s, i) => {
-    for (const c of s.chars)
-      for (const id of charLabelIds(c)) {
-        count.set(id, (count.get(id) ?? 0) + 1);
-        bySheet[i].add(id);
-      }
+    for (const c of s.chars) for (const id of charLabelIds(c)) bySheet[i].add(id);
   });
   return { count, bySheet };
 }
@@ -315,7 +316,8 @@ export function LabelList({ query }: { query: string }) {
   const grouped = usePrefs((p) => p.data.labelsBySheet);
   const mode = useUi((u) => u.libMode);
   const confirm = useConfirm();
-  const { count, bySheet } = useMemo(() => usage(sheets), [sheets]);
+  const library = useProject((s) => s.data.library);
+  const { count, bySheet } = useMemo(() => usage(sheets, library), [sheets, library]);
   const frozen = useRef<{ sig: string; secs: Sec[] } | null>(null);
   const q = query.trim().toLowerCase();
   const items = q ? labels.filter((l) => l.text.toLowerCase().includes(q)) : labels;
