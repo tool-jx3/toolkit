@@ -256,6 +256,7 @@ describe('角色庫（F057）', () => {
     seed(base());
     addSheet('same');
     switchSheet(0);
+    useProject.temporal.getState().clear();
   });
   it('刪除條目：所有分頁的角色與關係一起刪；一步復原全部回來（原作只回來目前分頁）', () => {
     const e = entryOf(1);
@@ -307,6 +308,8 @@ describe('關係庫（F092）', () => {
   beforeEach(() => {
     seed(base());
     addSheet('same');
+    /* 同一毫秒裡的兩個動作會合成一步：準備好之後清掉復原紀錄 */
+    useProject.temporal.getState().clear();
   });
   it('改關係類型＝同步到其他分頁穿同一件的（名稱與樣式；顯示與捆綁忽略不同步）；一步復原兩邊', () => {
     const t1 = sheetAt(1).types[0];

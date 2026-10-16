@@ -152,9 +152,10 @@ function datasets(): Dataset[] {
         labels: conv.labels,
         nextId: 100000,
         font,
-        library: [],
-        relLibrary: [],
-        radarTpls: [],
+        /* 第三批：讀原作的檔也讀進角色庫與關係庫（畫出來要和第一批相同） */
+        library: conv.library,
+        relLibrary: conv.relLibrary,
+        radarTpls: conv.radarTpls,
         frames: [],
         fonts: [],
       },

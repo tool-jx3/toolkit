@@ -240,14 +240,23 @@ export function moveSheet(from: number, to: number): void {
   });
 }
 
+/** 加進專案時的 id 對照（標籤、角色庫的條目與變體、關係庫的條目與變體） */
+export interface SheetMaps {
+  labelMap?: Map<number, number>;
+  entryMap?: Map<number, number>;
+  varMap?: Map<number, number>;
+  relEntryMap?: Map<number, number>;
+  relVarMap?: Map<number, number>;
+}
+
 /**
  * 把一張用區域 id 寫的分頁加進專案（範例、原作的專案檔），id 換成專案的；回傳新分頁的索引。
- * mapChar：舊角色 id → 新 id（原作的頭像對應用）。
+ * mapChar：舊角色 id → 新 id。角色的條目與變體、關係類型的綁定、看法照對照表換（沒有對照的＝沒有綁定，同步時建新的）。
  */
 export function insertSheet(
   p: DProject,
   src: Sheet,
-  opts: { keepName?: boolean; mapChar?: Map<number, number>; labelMap?: Map<number, number> } = {},
+  opts: { keepName?: boolean; mapChar?: Map<number, number> } & SheetMaps = {},
 ): number {
   const snap = JSON.parse(JSON.stringify(src)) as Sheet;
   const charMap = opts.mapChar ?? new Map<number, number>();
@@ -266,12 +275,21 @@ export function insertSheet(
           .map((l) => opts.labelMap?.get(l) ?? -1)
           .filter((l) => l > 0),
       );
+    if (opts.entryMap) {
+      c.lib = opts.entryMap.get(c.lib) ?? 0;
+      c.vari = opts.varMap?.get(c.vari) ?? 0;
+    }
   }
   for (const t of snap.types) {
     const nid = takeId(p);
     typeMap.set(t.id, nid);
     t.id = nid;
+    if (opts.relEntryMap) {
+      t.lib = opts.relEntryMap.get(t.lib) ?? 0;
+      t.vari = opts.relVarMap?.get(t.vari) ?? 0;
+    }
   }
+  snap.views = remapViews(snap.views ?? {}, charMap);
   for (const r of snap.rels) {
     r.id = takeId(p);
     r.from = charMap.get(r.from) ?? r.from;

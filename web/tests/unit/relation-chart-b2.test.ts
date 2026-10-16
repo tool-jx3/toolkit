@@ -224,9 +224,10 @@ describe('讀原作的專案檔：標籤與群體（3.9）', () => {
   });
   it('標籤的顏色與開關、分頁設定、收合、群體關係', () => {
     const conv = convertLegacy(raw());
+    /* 第三批起標籤的頭像框也讀進來（先留原作的雜湊，讀了 frames/ 才換成資產 id） */
     expect(conv.labels).toEqual([
       makeLabel(50, '王國', { color: '#123456', zone: true }),
-      makeLabel(51, '騎士', { hidden: true, noPull: true }),
+      makeLabel(51, '騎士', { hidden: true, noPull: true, frame: 'abc' }),
     ]);
     const s = conv.sheets[0];
     expect(s.settings.showLabelNodes).toBe(true);
@@ -238,8 +239,7 @@ describe('讀原作的專案檔：標籤與群體（3.9）', () => {
       [60, 'L50', 'C2', 30, false, true, [1]],
       [61, 'L51', 'L50', 30, true, false, []],
     ]);
-    expect(conv.skipped).toContain('頭像框');
-    expect(conv.skipped.join()).not.toMatch(/群體關係|陣營框|引力/);
+    expect(conv.skipped.join()).not.toMatch(/群體關係|陣營框|引力|頭像框/);
   });
   it('加入為新分頁：id 換成專案的，端點、例外、收合、標籤節點位置、名稱角度跟著換', () => {
     const conv = convertLegacy(raw());

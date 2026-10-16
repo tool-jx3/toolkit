@@ -1,0 +1,886 @@
+{
+  "_readme": "README.txt",
+  "app": "CharRelDiagram",
+  "format": 7,
+  "savedAt": "2026-10-16T06:29:56.438Z",
+  "activeSheetIdx": 0,
+  "docFont": "f:1ntptex-n3lzhp-plt",
+  "relLibrary": [
+    {
+      "id": 114,
+      "variants": [
+        {
+          "id": 113,
+          "label": "Ally",
+          "color": "#58b368",
+          "textColor": "auto",
+          "lineStyle": "solid",
+          "capStyle": "arrow"
+        }
+      ]
+    },
+    {
+      "id": 116,
+      "variants": [
+        {
+          "id": 115,
+          "label": "Rival",
+          "color": "#c0392b",
+          "textColor": "auto",
+          "lineStyle": "dashed",
+          "capStyle": "arrow"
+        }
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "id": 117,
+      "text": "Guard",
+      "color": "#d0342c",
+      "frame": "yoszaz-94894l-7f2"
+    }
+  ],
+  "sheetLibrary": [],
+  "settingsLib": [],
+  "noteBin": [],
+  "radarLib": [
+    {
+      "id": 118,
+      "name": "能力值",
+      "axes": [
+        {
+          "id": 124,
+          "label": "力量",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 125,
+          "label": "敏捷",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 126,
+          "label": "智力",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 127,
+          "label": "魅力",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 128,
+          "label": "運氣",
+          "max": 10,
+          "unit": ""
+        },
+        {
+          "id": 129,
+          "label": "體力",
+          "max": 500,
+          "unit": "HP"
+        }
+      ],
+      "chart": "radar",
+      "shape": "poly",
+      "rings": 5,
+      "valMode": "raw",
+      "shared": false
+    },
+    {
+      "id": 130,
+      "name": "屬性比例",
+      "axes": [
+        {
+          "id": 136,
+          "label": "火",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 137,
+          "label": "水",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 138,
+          "label": "風",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 139,
+          "label": "土",
+          "max": 100,
+          "unit": ""
+        }
+      ],
+      "chart": "pie",
+      "shape": "poly",
+      "rings": 4,
+      "valMode": "pct",
+      "shared": false
+    },
+    {
+      "id": 140,
+      "name": "技能熟練度",
+      "axes": [
+        {
+          "id": 146,
+          "label": "劍術",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 147,
+          "label": "魔法",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 148,
+          "label": "料理",
+          "max": 100,
+          "unit": ""
+        }
+      ],
+      "chart": "gauge",
+      "shape": "poly",
+      "rings": 4,
+      "valMode": "pct",
+      "shared": true
+    },
+    {
+      "id": 149,
+      "name": "成長曲線",
+      "axes": [
+        {
+          "id": 155,
+          "label": "一章",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 156,
+          "label": "二章",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 157,
+          "label": "三章",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 158,
+          "label": "四章",
+          "max": 100,
+          "unit": ""
+        }
+      ],
+      "chart": "line",
+      "shape": "poly",
+      "rings": 3,
+      "valMode": "raw",
+      "shared": false
+    },
+    {
+      "id": 159,
+      "name": "裝備",
+      "axes": [
+        {
+          "id": 165,
+          "label": "攻擊",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 166,
+          "label": "防禦",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 167,
+          "label": "速度",
+          "max": 100,
+          "unit": ""
+        }
+      ],
+      "chart": "bar",
+      "shape": "circle",
+      "rings": 4,
+      "valMode": "none",
+      "shared": false
+    }
+  ],
+  "library": [
+    {
+      "id": 103,
+      "variants": [
+        {
+          "id": 104,
+          "name": "Aria",
+          "color": "#e5b84b",
+          "nameColor": "auto",
+          "icon": "star",
+          "frame": "12j3a2o-1ez2tte-rlq",
+          "radars": [
+            {
+              "tpl": 118,
+              "state": "",
+              "vals": {
+                "124": 70,
+                "125": 60,
+                "126": 85,
+                "127": 90,
+                "128": 7,
+                "129": 320
+              }
+            },
+            {
+              "tpl": 118,
+              "state": "覺醒",
+              "vals": {
+                "124": 90,
+                "125": 80,
+                "126": 95,
+                "127": 95,
+                "128": 9,
+                "129": 480
+              }
+            },
+            {
+              "tpl": 130,
+              "state": "",
+              "vals": {
+                "136": 40,
+                "137": 30,
+                "138": 20,
+                "139": 10
+              }
+            },
+            {
+              "tpl": 140,
+              "state": "",
+              "vals": {
+                "146": 60,
+                "147": 90,
+                "148": 20
+              }
+            }
+          ]
+        },
+        {
+          "id": 174,
+          "name": "Aria (dark)",
+          "color": "#6c3483",
+          "nameColor": "auto",
+          "icon": "moon",
+          "frame": "yoszaz-94894l-7f2",
+          "radars": [
+            {
+              "tpl": 118,
+              "state": "暗黑",
+              "vals": {
+                "124": 99,
+                "125": 99,
+                "126": 30,
+                "127": 20,
+                "128": 2,
+                "129": 500
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 105,
+      "variants": [
+        {
+          "id": 106,
+          "name": "Bram",
+          "color": "#3b8bd6",
+          "nameColor": "auto",
+          "icon": "shield",
+          "labels": [
+            117
+          ],
+          "radars": [
+            {
+              "tpl": 118,
+              "state": "",
+              "vals": {
+                "124": 95,
+                "125": 50,
+                "126": 40,
+                "127": 60,
+                "128": 5,
+                "129": 450
+              }
+            }
+          ]
+        }
+      ],
+      "font": "f:1logwqt-e5gbu1-wwd"
+    },
+    {
+      "id": 107,
+      "variants": [
+        {
+          "id": 108,
+          "name": "Cleo",
+          "color": "auto",
+          "nameColor": "auto",
+          "icon": "leaf",
+          "radars": [
+            {
+              "tpl": 118,
+              "state": "",
+              "vals": {
+                "124": 40,
+                "125": 85,
+                "126": 70
+              }
+            },
+            {
+              "tpl": 149,
+              "state": "",
+              "vals": {
+                "155": 10,
+                "156": 35,
+                "157": 60,
+                "158": 90
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 109,
+      "variants": [
+        {
+          "id": 110,
+          "name": "Dax",
+          "color": "auto",
+          "nameColor": "auto",
+          "icon": "bolt",
+          "frame": "",
+          "labels": [
+            117
+          ]
+        }
+      ]
+    },
+    {
+      "id": 111,
+      "variants": [
+        {
+          "id": 112,
+          "name": "艾莉",
+          "color": "auto",
+          "nameColor": "auto",
+          "icon": "heart",
+          "radars": [
+            {
+              "tpl": 159,
+              "state": "",
+              "vals": {
+                "165": 30,
+                "166": 70,
+                "167": 55
+              }
+            }
+          ]
+        }
+      ],
+      "font": "serif"
+    }
+  ],
+  "prefs": {
+    "light": false,
+    "theme": "dark",
+    "lang": "zh-TW",
+    "rightPinned": true,
+    "centerPinned": false,
+    "leftPinned": true,
+    "minimap": true,
+    "leftW": 252,
+    "centerW": 290,
+    "rightW": 238,
+    "lockPanelW": false,
+    "lockPanelH": false,
+    "lockLayout": false,
+    "float": [
+      {
+        "id": "mmap",
+        "x": null,
+        "y": null,
+        "w": null,
+        "h": null
+      }
+    ],
+    "layout": {
+      "docks": {
+        "left": [
+          [
+            "chars"
+          ],
+          [
+            "center"
+          ]
+        ],
+        "right": [
+          [
+            "rels"
+          ]
+        ]
+      }
+    }
+  },
+  "sheets": [
+    {
+      "id": 2,
+      "name": "Stats & Frames",
+      "views": {
+        "2": {
+          "1": "Partner for life"
+        },
+        "4": {
+          "2": "下次一定贏你"
+        }
+      },
+      "W": 1400,
+      "H": 1000,
+      "relTypes": [
+        {
+          "id": 101,
+          "label": "Ally",
+          "color": "#58b368",
+          "textColor": "auto",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "hidden": false,
+          "hideInLegend": false,
+          "relLibId": 114,
+          "relVarId": 113
+        },
+        {
+          "id": 102,
+          "label": "Rival",
+          "color": "#c0392b",
+          "textColor": "auto",
+          "lineStyle": "dashed",
+          "capStyle": "arrow",
+          "hidden": false,
+          "hideInLegend": false,
+          "relLibId": 116,
+          "relVarId": 115
+        }
+      ],
+      "settings": {
+        "bgMode": "none",
+        "shapeSquare": false,
+        "bridgeMode": false,
+        "showNames": true,
+        "showLegend": true,
+        "showRelName": false,
+        "showRelNote": false,
+        "showLabelNodes": false,
+        "noCollision": false,
+        "zoneOutline": true,
+        "zoneEdgeW": 1.5,
+        "zoneFillOp": 0.13,
+        "showZones": true,
+        "zoneLink": 5,
+        "zoneThick": 5,
+        "zoneBlend": true,
+        "showLblLegend": false,
+        "showCharLegend": false,
+        "lblNodeScale": 1,
+        "gridStep": 50,
+        "focusDim": 0.15,
+        "relOpacity": 1,
+        "tlSpeed": 1,
+        "defNoBorder": false,
+        "defNoBg": false,
+        "defFrame": "1ws58kx-guz8x5-q06",
+        "spacingPct": 100,
+        "edgeGapPx": 18,
+        "magCenter": 0.5,
+        "magRepel": 10,
+        "magLink": 1,
+        "magDist": 265,
+        "snapMode": false,
+        "gridSnap": false,
+        "pinFlip": false,
+        "fitLayout": false,
+        "lastLayout": "circle",
+        "layoutNoStagger": false,
+        "labelPos": {},
+        "legendPos": "bottom",
+        "lblLegendPos": "right",
+        "charLegendPos": "leftOut",
+        "showFreeLbls": false,
+        "viewerHiddenLbls": true,
+        "zoneLayerStep": 5,
+        "zoneNameAng": {},
+        "defCharSize": 0,
+        "defBorderW": 0,
+        "defNameSize": 0,
+        "defRelNameSize": 0,
+        "defNoteSize": 0,
+        "defStickySize": 0,
+        "defLineW": 0,
+        "edgeStraight": false,
+        "colAvatarRing": "auto",
+        "colAvatarBg": "auto",
+        "colNameStroke": "auto",
+        "colNameText": "auto",
+        "colRelLine": "auto",
+        "colRelText": "auto",
+        "colRelOutline": "auto",
+        "wrapCaps": {}
+      },
+      "chars": [
+        {
+          "id": 1,
+          "libId": 103,
+          "varId": 104,
+          "name": "Aria",
+          "color": "#e5b84b",
+          "nameColor": "auto",
+          "x": 250,
+          "y": 250
+        },
+        {
+          "id": 2,
+          "libId": 105,
+          "varId": 106,
+          "name": "Bram",
+          "color": "#3b8bd6",
+          "nameColor": "auto",
+          "x": 250,
+          "y": 650
+        },
+        {
+          "id": 3,
+          "libId": 107,
+          "varId": 108,
+          "name": "Cleo",
+          "color": "auto",
+          "nameColor": "auto",
+          "x": 600,
+          "y": 250
+        },
+        {
+          "id": 4,
+          "libId": 109,
+          "varId": 110,
+          "name": "Dax",
+          "color": "auto",
+          "nameColor": "auto",
+          "x": 600,
+          "y": 650
+        },
+        {
+          "id": 5,
+          "libId": 111,
+          "varId": 112,
+          "name": "艾莉",
+          "color": "auto",
+          "nameColor": "auto",
+          "x": 425,
+          "y": 450
+        }
+      ],
+      "rels": [
+        {
+          "id": 11,
+          "from": 1,
+          "to": 2,
+          "relTypeId": 101,
+          "both": true
+        },
+        {
+          "id": 12,
+          "from": 3,
+          "to": 1,
+          "relTypeId": 102,
+          "both": false
+        },
+        {
+          "id": 13,
+          "from": 4,
+          "to": 2,
+          "relTypeId": 102,
+          "both": true
+        },
+        {
+          "id": 14,
+          "from": 5,
+          "to": 1,
+          "relTypeId": 101,
+          "both": false
+        }
+      ],
+      "notes": [
+        {
+          "id": 168,
+          "name": "Aria vs Bram",
+          "x": 1050,
+          "y": 250,
+          "noteW": 400,
+          "noteH": 400,
+          "chart": {
+            "tpl": 118,
+            "a": 1,
+            "b": 2,
+            "stA": 1,
+            "stB": 0,
+            "legend": true
+          }
+        },
+        {
+          "id": 169,
+          "name": "",
+          "x": 1050,
+          "y": 700,
+          "noteW": 300,
+          "noteH": 300,
+          "bare": true,
+          "chart": {
+            "tpl": 130,
+            "a": 1,
+            "b": 0,
+            "stA": 0,
+            "stB": 0,
+            "legend": false
+          }
+        },
+        {
+          "id": 170,
+          "name": "Cleo 的成長",
+          "x": 800,
+          "y": 900,
+          "noteW": 300,
+          "noteH": 200,
+          "chart": {
+            "tpl": 149,
+            "a": 3,
+            "b": 0,
+            "stA": 0,
+            "stB": 0,
+            "legend": true
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "defNo": 1,
+      "name": "Variant stats",
+      "W": 1400,
+      "H": 1000,
+      "relTypes": [
+        {
+          "id": 101,
+          "label": "Ally",
+          "color": "#58b368",
+          "textColor": "auto",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "hidden": false,
+          "hideInLegend": false,
+          "relLibId": 114,
+          "relVarId": 113
+        },
+        {
+          "id": 102,
+          "label": "Rival",
+          "color": "#c0392b",
+          "textColor": "auto",
+          "lineStyle": "dashed",
+          "capStyle": "arrow",
+          "hidden": false,
+          "hideInLegend": false,
+          "relLibId": 116,
+          "relVarId": 115
+        }
+      ],
+      "settings": {
+        "bgMode": "none",
+        "shapeSquare": false,
+        "bridgeMode": false,
+        "showNames": true,
+        "showLegend": true,
+        "showRelName": false,
+        "showRelNote": false,
+        "showLabelNodes": false,
+        "noCollision": false,
+        "zoneOutline": true,
+        "zoneEdgeW": 1.5,
+        "zoneFillOp": 0.13,
+        "showZones": true,
+        "zoneLink": 5,
+        "zoneThick": 5,
+        "zoneBlend": true,
+        "showLblLegend": false,
+        "showCharLegend": false,
+        "lblNodeScale": 1,
+        "gridStep": 50,
+        "focusDim": 0.15,
+        "relOpacity": 1,
+        "tlSpeed": 1,
+        "defNoBorder": false,
+        "defNoBg": false,
+        "defFrame": "1ws58kx-guz8x5-q06",
+        "spacingPct": 100,
+        "edgeGapPx": 18,
+        "magCenter": 0.5,
+        "magRepel": 10,
+        "magLink": 1,
+        "magDist": 265,
+        "snapMode": false,
+        "gridSnap": false,
+        "pinFlip": false,
+        "fitLayout": false,
+        "lastLayout": "circle",
+        "layoutNoStagger": false,
+        "labelPos": {},
+        "legendPos": "bottom",
+        "lblLegendPos": "right",
+        "charLegendPos": "leftOut",
+        "showFreeLbls": false,
+        "viewerHiddenLbls": true,
+        "zoneLayerStep": 5,
+        "zoneNameAng": {},
+        "defCharSize": 0,
+        "defBorderW": 0,
+        "defNameSize": 0,
+        "defRelNameSize": 0,
+        "defNoteSize": 0,
+        "defStickySize": 0,
+        "defLineW": 0,
+        "edgeStraight": false,
+        "colAvatarRing": "auto",
+        "colAvatarBg": "auto",
+        "colNameStroke": "auto",
+        "colNameText": "auto",
+        "colRelLine": "auto",
+        "colRelText": "auto",
+        "colRelOutline": "auto",
+        "wrapCaps": {}
+      },
+      "chars": [
+        {
+          "id": 1,
+          "libId": 103,
+          "varId": 174,
+          "name": "Aria (dark)",
+          "color": "#6c3483",
+          "nameColor": "auto",
+          "x": 250,
+          "y": 250
+        },
+        {
+          "id": 2,
+          "libId": 105,
+          "varId": 106,
+          "name": "Bram",
+          "color": "#3b8bd6",
+          "nameColor": "auto",
+          "x": 250,
+          "y": 650
+        },
+        {
+          "id": 3,
+          "libId": 107,
+          "varId": 108,
+          "name": "Cleo",
+          "color": "auto",
+          "nameColor": "auto",
+          "x": 600,
+          "y": 250
+        },
+        {
+          "id": 4,
+          "libId": 109,
+          "varId": 110,
+          "name": "Dax",
+          "color": "auto",
+          "nameColor": "auto",
+          "x": 600,
+          "y": 650
+        },
+        {
+          "id": 5,
+          "libId": 111,
+          "varId": 112,
+          "name": "艾莉",
+          "color": "auto",
+          "nameColor": "auto",
+          "x": 425,
+          "y": 450
+        }
+      ],
+      "rels": [
+        {
+          "id": 11,
+          "from": 1,
+          "to": 2,
+          "relTypeId": 101,
+          "both": true
+        },
+        {
+          "id": 12,
+          "from": 3,
+          "to": 1,
+          "relTypeId": 102,
+          "both": false
+        },
+        {
+          "id": 13,
+          "from": 4,
+          "to": 2,
+          "relTypeId": 102,
+          "both": true
+        },
+        {
+          "id": 14,
+          "from": 5,
+          "to": 1,
+          "relTypeId": 101,
+          "both": false
+        }
+      ],
+      "notes": [
+        {
+          "id": 171,
+          "name": "Aria vs Bram",
+          "x": 1050,
+          "y": 250,
+          "noteW": 400,
+          "noteH": 400,
+          "chart": {
+            "tpl": 118,
+            "a": 1,
+            "b": 2,
+            "stA": 1,
+            "stB": 0,
+            "legend": true
+          }
+        }
+      ]
+    }
+  ]
+}

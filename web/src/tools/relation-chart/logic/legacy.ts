@@ -1,14 +1,40 @@
 /*
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
- * 讀原作「匯出專案」的檔案（規格 3.9；原作的 loadProject、openProjectFile）：ZIP（資料夾裡的 project.json＋images/）
- * 或只有 project.json。轉成本工具的分頁；圖片先留路徑，由呼叫端放進資產庫。
+ * 讀原作「匯出專案」的檔案（規格 3.9；原作的 loadProject、openProjectFile）：ZIP（資料夾裡的 project.json＋images/、
+ * frames/、fonts/）或只有 project.json。轉成本工具的資料；圖片、頭像框、字型、角色資訊裡的圖先留路徑或原作的雜湊，
+ * 由呼叫端放進資產庫再換成資產 id（state/project.ts）。
+ * 第三批：角色庫（條目、每一件變體）、關係庫、數值範本、看法、角色資訊、角色字型、頭像框的參照都讀進來。
  */
 import { strFromU8 } from 'fflate';
 import type { FramePlacement } from '@/core/image';
 import { makeChar, makeRel, makeType } from '../model/factory';
-import { normalizeGrel, normalizeLabel, normalizeSettings, safeColor } from '../model/normalize';
-import type { Char, FontKey, GroupRel, Label, Rel, RelType, Shape, Sheet } from '../model/types';
+import { REL_KEYS } from '../model/library';
+import {
+  normalizeGrel,
+  normalizeLabel,
+  normalizeRadarTpl,
+  normalizeRadarVals,
+  normalizeSettings,
+  normalizeViews,
+  safeColor,
+} from '../model/normalize';
+import type {
+  Char,
+  CharEntry,
+  CharFont,
+  FontKey,
+  GroupRel,
+  Label,
+  RadarTpl,
+  Rel,
+  RelEntry,
+  RelType,
+  RelVariant,
+  Shape,
+  Sheet,
+  Variant,
+} from '../model/types';
 
 export class LegacyFileError extends Error {}
 
@@ -21,31 +47,80 @@ export interface LegacyAvatar {
 
 export interface LegacyImport {
   sheets: Sheet[];
-  /** 角色 id → 頭像來源（同一張分頁內的 id） */
-  avatars: Map<Sheet, Map<number, LegacyAvatar>>;
+  /**
+   * 角色庫（id 照原作；沒有條目的舊檔角色各自一筆，id 是負的）。變體的 frame、條目的 font 還是原作的參照
+   * （頭像框的雜湊、`f:雜湊`），呼叫端讀了 frames/、fonts/ 之後換成資產 id；角色資訊還沒淨化。
+   */
+  library: CharEntry[];
+  relLibrary: RelEntry[];
+  radarTpls: RadarTpl[];
+  /** 變體 id → 頭像來源 */
+  avatars: Map<number, LegacyAvatar>;
   /** 分頁 → 背景圖路徑 */
   backgrounds: Map<Sheet, string>;
+  /** 分頁 → 預設頭像框（原作的雜湊） */
+  defFrames: Map<Sheet, string>;
+  /** 標籤（frame 是原作的雜湊） */
   labels: Label[];
+  /** 角色資訊裡的圖：原作的雜湊 → ZIP 裡的路徑 */
+  richImgs: Map<string, string>;
   activeIdx: number;
   /** 淺色主題的檔案 */
   light: boolean;
   /** 文件字型（原作的 docFont；取代目前內容時才用，原作也是） */
   font: FontKey;
-  /** 文件字型對應不到本站的字型時（原作匯入的字型檔）：略過的通知裡的一項 */
-  fontNote: string | null;
+  /** 文件字型是匯入的字型：原作的雜湊（讀得到字型檔時換成它） */
+  fontRef: string | null;
   /** 略過的內容（給通知用） */
   skipped: string[];
 }
 
-/** 原作的 FONT_STACKS 和本站的字型是同一組鍵；'f:…'＝原作匯入的字型檔（本站沒有） */
+/** 原作的 FONT_STACKS 和本站的字型是同一組鍵；'f:雜湊'＝原作匯入的字型檔 */
 const LEGACY_FONTS: readonly FontKey[] = ['sans', 'serif', 'round', 'kai', 'mono'];
-function legacyFont(v: unknown): { font: FontKey; note: string | null } {
+const HASH_RE = /^[0-9a-z-]{3,40}$/;
+function legacyFontRef(v: unknown): { font: FontKey; ref: string | null } {
   if (typeof v === 'string' && (LEGACY_FONTS as readonly string[]).includes(v))
-    return { font: v as FontKey, note: null };
-  if (typeof v === 'string' && v.startsWith('f:'))
-    return { font: 'sans', note: '匯入的文件字型（改用黑體）' };
-  return { font: 'sans', note: null };
+    return { font: v as FontKey, ref: null };
+  if (typeof v === 'string' && v.startsWith('f:') && HASH_RE.test(v.slice(2)))
+    return { font: 'sans', ref: v.slice(2) };
+  return { font: 'sans', ref: null };
 }
+const legacyCharFont = (v: unknown): CharFont => {
+  if (typeof v !== 'string') return '';
+  if ((LEGACY_FONTS as readonly string[]).includes(v)) return v as FontKey;
+  return v.startsWith('f:') && HASH_RE.test(v.slice(2)) ? (v as CharFont) : '';
+};
+
+/**
+ * 原作的內容雜湊（snapHash）：頭像框、匯入字型、角色資訊圖片的參照都是它。
+ * 參數是整個 data URI（`data:<MIME>;base64,<base64>`）。
+ */
+export function snapHash(s: string): string {
+  let h1 = 5381;
+  let h2 = 52711;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    h1 = Math.imul(h1, 33) ^ c;
+    h2 = Math.imul(h2, 31) ^ c;
+  }
+  return `${(h1 >>> 0).toString(36)}-${(h2 >>> 0).toString(36)}-${s.length.toString(36)}`;
+}
+
+/** 原作的「副檔名 → MIME」（重算雜湊時一定要用同一張表） */
+export const LEGACY_FONT_MIME: Record<string, string> = {
+  ttf: 'font/ttf',
+  otf: 'font/otf',
+  woff: 'font/woff',
+  woff2: 'font/woff2',
+};
+export const LEGACY_FRAME_MIME: Record<string, string> = {
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  apng: 'image/apng',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+};
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -132,26 +207,75 @@ export function legacyCropToPlacement(
   };
 }
 
-interface Variant {
-  name: string;
-  color?: string;
-  nameColor?: string;
-  size?: number;
-  nameSize?: number;
-  borderW?: number;
-  emoji?: string;
-  icon?: string;
-  noAvatar?: boolean;
-  shape?: string;
-  noBorder?: boolean;
-  noBg?: boolean;
-  borderOn?: boolean;
-  bgOn?: boolean;
-  image?: string;
-  imageSrc?: string;
-  crop?: { zoom: number; ox: number; oy: number };
-  labels?: number[];
-  frame?: string;
+/** 原作的身分欄位（變體、format 3 的條目、舊檔的角色） */
+type RawLooks = Record<string, unknown>;
+
+/** 原作的變體 → 本站的變體（parseIdentity 的整理規則；color／nameColor 沒有時 undefined＝等實例捐） */
+function legacyVariant(
+  o: RawLooks,
+  id: number,
+): { v: Variant; noColor: boolean; noNameColor: boolean; emoji: boolean } {
+  const sz = num(o.size);
+  const ns = num(o.nameSize);
+  const bw = num(o.borderW);
+  const shape: Shape = o.shape === 'circle' || o.shape === 'square' ? o.shape : '';
+  const frame =
+    o.frame === '' ? '' : typeof o.frame === 'string' && HASH_RE.test(o.frame) ? o.frame : null;
+  return {
+    v: {
+      id,
+      name: String(o.name ?? '').slice(0, 500),
+      color: safeColor(o.color),
+      nameColor: safeColor(o.nameColor),
+      avatar: null,
+      icon: typeof o.icon === 'string' ? o.icon : null,
+      noAvatar: !!o.noAvatar,
+      shape,
+      noBorder: !!o.noBorder,
+      noBg: !!o.noBg,
+      borderOn: !!o.borderOn,
+      bgOn: !!o.bgOn,
+      size: Number.isFinite(sz) && sz >= 32 ? sz : null,
+      nameSize: Number.isFinite(ns) && ns >= 1 ? ns : null,
+      borderW: Number.isFinite(bw) && bw >= 1 ? bw : null,
+      labels: Array.isArray(o.labels)
+        ? [...new Set(o.labels.map((x) => Math.trunc(num(x))).filter(Number.isFinite))]
+        : [],
+      frame,
+      radars: normalizeRadarVals(o.radars),
+    },
+    noColor: o.color === undefined,
+    noNameColor: o.nameColor === undefined,
+    emoji: !!o.emoji && typeof o.image !== 'string',
+  };
+}
+
+const avatarOf = (o: RawLooks): LegacyAvatar | null => {
+  const img = typeof o.image === 'string' && o.image ? o.image : null;
+  if (!img) return null;
+  const src = typeof o.imageSrc === 'string' && o.imageSrc ? o.imageSrc : null;
+  const crop =
+    isObj(o.crop) && src
+      ? { zoom: num(o.crop.zoom) || 1, ox: num(o.crop.ox) || 0, oy: num(o.crop.oy) || 0 }
+      : null;
+  return { img, src, crop };
+};
+
+/** 原作的關係類型（分頁上的 tag、關係庫的變體）的樣式欄位 */
+function legacyTypeLooks(t: Record<string, unknown>) {
+  const lineW = num(t.lineW);
+  const ow = num(t.outlineW);
+  const mag = Math.round(num(t.magLevel));
+  return {
+    label: String(t.label ?? '').slice(0, 200),
+    color: safeColor(t.color),
+    outlineColor: safeColor(t.outlineColor),
+    lineStyle: (t.lineStyle as RelType['lineStyle']) ?? 'solid',
+    capStyle: (t.capStyle as RelType['capStyle']) ?? 'arrow',
+    lineW: Number.isFinite(lineW) && lineW >= 1 ? lineW : null,
+    outlineW: Number.isFinite(ow) && ow >= 0 ? ow : null,
+    mag: mag >= 1 && mag <= 5 ? mag : 3,
+  };
 }
 
 export function convertLegacy(data: Record<string, unknown>): LegacyImport {
@@ -159,47 +283,82 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
   const prefs = isObj(data.prefs) ? data.prefs : {};
   const light = !!prefs.light || prefs.theme === 'light';
   const format = num(data.format);
-  /* 角色庫：條目 → 變體 */
-  const lib = new Map<
-    number,
-    { variants: Map<number, Variant>; first: Variant | null; font?: string; info?: string }
-  >();
+  let nextLocal = -1;
+  /* 角色庫：條目 → 每一件變體（format 3＝單一身分，包成一件） */
+  const library: CharEntry[] = [];
+  const lib = new Map<number, CharEntry>();
+  const avatars = new Map<number, LegacyAvatar>();
+  /** 變體還沒有自己的顏色：第一個穿它的實例把自己的顏色捐給它（原作 bindCharToLibrary） */
+  const needColor = new Set<number>();
+  const needNameColor = new Set<number>();
+  const addVariant = (o: RawLooks, id: number): Variant => {
+    const r = legacyVariant(o, id);
+    if (r.noColor) needColor.add(id);
+    if (r.noNameColor) needNameColor.add(id);
+    if (r.emoji) skipped.add('表情符號頭像（改成名字的第一個字）');
+    const av = avatarOf(o);
+    if (av) avatars.set(id, av);
+    return r.v;
+  };
   for (const e of Array.isArray(data.library) ? data.library : []) {
     if (!isObj(e) || !fin(e.id)) continue;
-    const variants = new Map<number, Variant>();
-    let first: Variant | null = null;
+    const variants: Variant[] = [];
     if (Array.isArray(e.variants)) {
       for (const v of e.variants) {
-        if (!isObj(v) || !fin(v.id)) continue;
-        const vv = v as unknown as Variant;
-        variants.set(num(v.id), vv);
-        first ??= vv;
+        if (!isObj(v) || !fin(v.id) || variants.some((x) => x.id === num(v.id))) continue;
+        variants.push(addVariant(v, Math.trunc(num(v.id))));
       }
-      if (e.variants.length > 1) skipped.add('角色的變體（只用每張分頁正在用的那一套）');
-    } else {
-      /* format 3：單一身分 */
-      first = e as unknown as Variant;
-    }
-    if (typeof e.info === 'string' && e.info) skipped.add('角色資訊');
-    if (typeof e.font === 'string' && e.font) skipped.add('角色字型');
-    lib.set(num(e.id), { variants, first });
+    } else variants.push(addVariant(e, nextLocal--));
+    if (!variants.length) continue;
+    const entry: CharEntry = {
+      id: Math.trunc(num(e.id)),
+      variants,
+      unified: !!e.unifiedColor,
+      info: typeof e.info === 'string' ? e.info : '',
+      font: legacyCharFont(e.font),
+    };
+    library.push(entry);
+    lib.set(entry.id, entry);
   }
   const labels: Label[] = [];
   for (const l of Array.isArray(data.labels) ? data.labels : []) {
     const n = normalizeLabel(l);
     if (!n || labels.some((x) => x.id === n.id)) continue;
+    /* 標籤的頭像框：原作的雜湊（呼叫端換成資產 id） */
+    if (isObj(l) && typeof l.frame === 'string' && HASH_RE.test(l.frame)) n.frame = l.frame;
     labels.push(n);
-    if (isObj(l) && l.frame) skipped.add('頭像框');
   }
+  /* 關係庫 */
+  const relLibrary: RelEntry[] = [];
+  for (const e of Array.isArray(data.relLibrary) ? data.relLibrary : []) {
+    if (!isObj(e) || !fin(e.id) || !Array.isArray(e.variants)) continue;
+    const variants: RelVariant[] = [];
+    for (const v of e.variants) {
+      if (!isObj(v) || !fin(v.id) || variants.some((x) => x.id === num(v.id))) continue;
+      variants.push({ id: Math.trunc(num(v.id)), ...legacyTypeLooks(v) });
+    }
+    if (variants.length) relLibrary.push({ id: Math.trunc(num(e.id)), variants });
+  }
+  const relLib = new Map(relLibrary.map((e) => [e.id, e]));
+  /* 舊檔沒有關係庫：同一個關係類型 id 出現在好幾張分頁＝同一筆（原作的 ensureRelLibrary） */
+  const relById = new Map<number, { lib: number; vari: number }>();
+  const radarTpls: RadarTpl[] = [];
+  for (const t of Array.isArray(data.radarLib) ? data.radarLib : []) {
+    const n = normalizeRadarTpl(t);
+    if (n && !radarTpls.some((x) => x.id === n.id)) radarTpls.push(n);
+  }
+  const richImgs = new Map<string, string>();
+  if (isObj(data.richImgs))
+    for (const [h, path] of Object.entries(data.richImgs))
+      if (HASH_RE.test(h) && typeof path === 'string') richImgs.set(h, path);
   const legacyTags = Array.isArray(data.relTypes)
     ? data.relTypes
     : Array.isArray(data.tags)
       ? data.tags
       : [];
   const sheets: Sheet[] = [];
-  const avatars = new Map<Sheet, Map<number, LegacyAvatar>>();
   const backgrounds = new Map<Sheet, string>();
-  let nextLocal = -1;
+  const defFrames = new Map<Sheet, string>();
   for (const shRaw of data.sheets as unknown[]) {
     if (!isObj(shRaw)) continue;
     let sh = shRaw;
@@ -226,37 +385,62 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
     const types: RelType[] = [];
     for (const t of typesRaw) {
       if (!isObj(t) || !fin(t.id)) continue;
-      const lineW = num(t.lineW);
-      const ow = num(t.outlineW);
-      const mag = Math.round(num(t.magLevel));
-      types.push(
-        makeType(Math.trunc(num(t.id)), String(t.label ?? '').slice(0, 200), {
-          color: safeColor(t.color),
-          outlineColor: safeColor(t.outlineColor),
-          lineStyle: (t.lineStyle as RelType['lineStyle']) ?? 'solid',
-          capStyle: (t.capStyle as RelType['capStyle']) ?? 'arrow',
-          lineW: Number.isFinite(lineW) && lineW >= 1 ? lineW : null,
-          outlineW: Number.isFinite(ow) && ow >= 0 ? ow : null,
-          mag: mag >= 1 && mag <= 5 ? mag : 3,
-          hidden: !!t.hidden,
-          hideInLegend: !!t.hideInLegend,
-          pairSkip: t.pairSkip === true,
-        }),
-      );
+      const id = Math.trunc(num(t.id));
+      const looks = legacyTypeLooks(t);
+      const tt = makeType(id, looks.label, {
+        ...looks,
+        hidden: !!t.hidden,
+        hideInLegend: !!t.hideInLegend,
+        pairSkip: t.pairSkip === true,
+      });
+      /* 綁定關係庫：有 relLibId 照檔案（變體不在＝第一件）；樣式和變體不同（原作沒同步到）＝不綁，畫出來照分頁上的 */
+      const e = fin(t.relLibId) ? relLib.get(num(t.relLibId)) : undefined;
+      if (e) {
+        const v = e.variants.find((x) => x.id === num(t.relVarId)) ?? e.variants[0];
+        if (REL_KEYS.every((k) => JSON.stringify(v[k]) === JSON.stringify(tt[k]))) {
+          tt.lib = e.id;
+          tt.vari = v.id;
+        }
+      } else {
+        let m = relById.get(id);
+        if (!m) {
+          const ne: RelEntry = { id: nextLocal--, variants: [{ id: nextLocal--, ...looks }] };
+          relLibrary.push(ne);
+          relLib.set(ne.id, ne);
+          m = { lib: ne.id, vari: ne.variants[0].id };
+          relById.set(id, m);
+        }
+        const v = relLib.get(m.lib)?.variants[0];
+        if (v && REL_KEYS.every((k) => JSON.stringify(v[k]) === JSON.stringify(tt[k]))) {
+          tt.lib = m.lib;
+          tt.vari = m.vari;
+        }
+      }
+      types.push(tt);
     }
     const chars: Char[] = [];
-    const av = new Map<number, LegacyAvatar>();
     for (const c of Array.isArray(sh.chars) ? sh.chars : []) {
       if (!isObj(c) || !fin(c.id)) continue;
       if (c.sticky) {
         skipped.add('便利貼');
         continue;
       }
-      const e = fin(c.libId) ? lib.get(num(c.libId)) : undefined;
-      const v: Variant =
-        (e && fin(c.varId) ? e.variants.get(num(c.varId)) : undefined) ??
-        e?.first ??
-        (c as unknown as Variant);
+      /* 條目：有 libId 照檔案（變體不在＝第一件）；沒有（舊檔）＝以角色自己的身分欄位建一筆 */
+      let e = fin(c.libId) ? lib.get(num(c.libId)) : undefined;
+      if (!e) {
+        e = {
+          id: nextLocal--,
+          variants: [addVariant(c, nextLocal--)],
+          unified: false,
+          info: '',
+          font: '',
+        };
+        library.push(e);
+        lib.set(e.id, e);
+      }
+      const v = e.variants.find((x) => x.id === num(c.varId)) ?? e.variants[0];
+      if (needColor.delete(v.id)) v.color = safeColor(c.color);
+      if (needNameColor.delete(v.id)) v.nameColor = safeColor(c.nameColor);
       const id = Math.trunc(num(c.id));
       const level =
         format >= 6
@@ -266,47 +450,29 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
           : num(c.level) >= 1 && num(c.level) <= 6
             ? 7 - num(c.level)
             : 0;
-      const sz = num(v.size);
-      const ns = num(v.nameSize);
-      const bw = num(v.borderW);
-      const shape: Shape = v.shape === 'circle' || v.shape === 'square' ? v.shape : '';
-      const ch = makeChar(id, String(v.name ?? c.name ?? '').slice(0, 500), num(c.x), num(c.y), {
+      const ch = makeChar(id, v.name, num(c.x), num(c.y), {
+        lib: e.id,
+        vari: v.id,
         defNo: fin(c.defNo) ? Math.max(1, Math.trunc(num(c.defNo))) : 0,
         level,
         locked: !!c.locked,
         relIgnore: !!c.relIgnore,
-        color: safeColor(v.color ?? c.color),
-        nameColor: safeColor(v.nameColor ?? c.nameColor),
-        icon: typeof v.icon === 'string' ? v.icon : null,
-        noAvatar: !!v.noAvatar,
-        shape,
-        noBorder: !!v.noBorder,
-        noBg: !!v.noBg,
-        borderOn: !!v.borderOn,
-        bgOn: !!v.bgOn,
-        size: Number.isFinite(sz) && sz >= 32 ? sz : null,
-        nameSize: Number.isFinite(ns) && ns >= 1 ? ns : null,
-        borderW: Number.isFinite(bw) && bw >= 1 ? bw : null,
-        labels: Array.isArray(v.labels)
-          ? v.labels.map((x) => Math.trunc(num(x))).filter(Number.isFinite)
-          : [],
+        color: v.color,
+        nameColor: v.nameColor,
+        icon: v.icon,
+        noAvatar: v.noAvatar,
+        shape: v.shape,
+        noBorder: v.noBorder,
+        noBg: v.noBg,
+        borderOn: v.borderOn,
+        bgOn: v.bgOn,
+        size: v.size,
+        nameSize: v.nameSize,
+        borderW: v.borderW,
+        labels: [...v.labels],
+        frame: v.frame,
+        font: e.font,
       });
-      if (v.emoji && !v.image) skipped.add('表情符號頭像（改成名字的第一個字）');
-      if (v.frame) skipped.add('頭像框');
-      const img =
-        typeof v.image === 'string'
-          ? v.image
-          : typeof (c as { image?: unknown }).image === 'string'
-            ? String((c as { image?: unknown }).image)
-            : null;
-      if (img) {
-        const src = typeof v.imageSrc === 'string' ? v.imageSrc : null;
-        const crop =
-          isObj(v.crop) && src
-            ? { zoom: num(v.crop.zoom) || 1, ox: num(v.crop.ox) || 0, oy: num(v.crop.oy) || 0 }
-            : null;
-        av.set(id, { img, src, crop });
-      }
       chars.push(ch);
     }
     const charIds = new Set(chars.map((c) => c.id));
@@ -336,7 +502,10 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
         }),
       );
     }
-    if (Array.isArray(sh.notes) && sh.notes.length) skipped.add('便利貼');
+    if (Array.isArray(sh.notes) && sh.notes.length)
+      skipped.add(
+        sh.notes.some((n) => isObj(n) && isObj(n.chart)) ? '便利貼（含圖表節點）' : '便利貼',
+      );
     /* 群體關係（新名 relTypeId、舊名 tagId；只驗形狀，端點在不在由畫的時候判斷＝原作 sanitizeGrels） */
     const grels: GroupRel[] = [];
     for (const g of Array.isArray(sh.groupRels) ? sh.groupRels : []) {
@@ -347,7 +516,6 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
     const collapsed = Array.isArray(sh.collapsedLbls)
       ? [...new Set(sh.collapsedLbls.map((x) => Math.trunc(num(x))).filter(Number.isFinite))]
       : [];
-    if (isObj(sh.views) && Object.keys(sh.views).length) skipped.add('看法');
     if (typeof sh.lore === 'string' && sh.lore) skipped.add('世界觀');
     if (typeof sh.memo === 'string' && sh.memo) skipped.add('備忘錄');
     const W = fin(sh.W) && num(sh.W) >= 0 ? Math.round(num(sh.W)) : 1000;
@@ -364,27 +532,33 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
       settings: legacySettings(sh.settings, light, data),
       grels,
       collapsed,
-      views: {},
+      /* 看法（重新淨化；角色 id 是這張分頁的，加進專案時跟著換） */
+      views: normalizeViews(sh.views),
     };
     sheets.push(sheet);
-    avatars.set(sheet, av);
     if (typeof sh.bgImage === 'string' && sh.bgImage) backgrounds.set(sheet, sh.bgImage);
+    const df = isObj(sh.settings) ? sh.settings.defFrame : undefined;
+    if (typeof df === 'string' && HASH_RE.test(df)) defFrames.set(sheet, df);
   }
   if (Array.isArray(data.sheetLibrary) && data.sheetLibrary.length) skipped.add('分頁庫');
-  if (Array.isArray(data.radarLib) && data.radarLib.length) skipped.add('雷達圖');
   if (Array.isArray(data.noteBin) && data.noteBin.length) skipped.add('便利貼庫');
   if (Array.isArray(data.settingsLib) && data.settingsLib.length) skipped.add('設定集');
   if (!sheets.length) throw new LegacyFileError('原作的專案檔裡沒有分頁。');
-  const docFont = legacyFont(data.docFont);
+  const docFont = legacyFontRef(data.docFont);
   return {
     sheets,
+    library,
+    relLibrary,
+    radarTpls,
     avatars,
     backgrounds,
+    defFrames,
     labels,
+    richImgs,
     activeIdx: Math.min(Math.max(0, num(data.activeSheetIdx) || 0), sheets.length - 1),
     light,
     font: docFont.font,
-    fontNote: docFont.note,
+    fontRef: docFont.ref,
     skipped: [...skipped],
   };
 }
