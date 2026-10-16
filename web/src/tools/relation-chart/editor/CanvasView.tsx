@@ -325,8 +325,8 @@ export function CanvasView() {
       frames,
       radarTpls,
       library,
-      /* 遠近簡化：拉遠（中、遠）時才標（近＝和以前的輸出相同）；60 位以上才真的標 */
-      lod: lod !== 'near',
+      /* 遠近簡化的標記：60 位以上的分頁一律帶著（近、中、遠只換 class，換檔不重畫；同原作） */
+      lod: true,
       ui: {
         selected: sel2,
         linkFrom: from && !grelEndIsLbl(from) ? grelEndId(from) : null,
@@ -359,7 +359,6 @@ export function CanvasView() {
     radarTpls,
     library,
     noteEdit,
-    lod,
   ]);
   const contentRef = useRef(out);
   contentRef.current = out;
@@ -445,10 +444,13 @@ export function CanvasView() {
     svg.style.setProperty('--fdim-node', String(d.node));
     svg.style.setProperty('--fdim-edge', String(d.edge));
     svg.style.setProperty('--fdim-legend', String(d.legend));
-    /* 看法氣泡：畫布縮小時不跟著縮（以氣泡底部中央為原點放大回來） */
-    svg.style.setProperty('--vb-k', String(1 / Math.min(1, view.zoom)));
+    /* 看法氣泡：畫布縮小時不跟著縮（以氣泡底部中央為原點放大回來）。只設在氣泡上：
+       設在整張 SVG 上＝每縮放一格整張圖重算樣式（80 位時一格多 20 ms） */
+    const vbk = String(1 / Math.min(1, view.zoom));
+    for (const b of svg.querySelectorAll<SVGGElement>('.view-bubble'))
+      b.style.setProperty('--vb-k', vbk);
     /* 遠近簡化（60 位以上）：換 class，不重畫 */
-    const dense = lod !== 'near' && lodDense(out.parts.ctx);
+    const dense = lodDense(out.parts.ctx);
     svg.classList.toggle('lod-far', dense && lod === 'far');
     svg.classList.toggle('lod-mid', dense && lod === 'mid');
     for (const el of chartSvgs(layer.current))
@@ -470,6 +472,16 @@ export function CanvasView() {
     return () => bindLive(null);
   }, []);
 
+  /* 縮放中先用 transform 縮放（只動合成層、不重新排版），停手 150 ms 再用新的大小排版
+     （SVG 以螢幕解析度重畫；拖曳時仍是排版後的大小，不會以原尺寸點陣化） */
+  const [baseZoom, setBaseZoom] = useState(view.zoom);
+  useEffect(() => {
+    if (baseZoom === view.zoom) return;
+    const t = setTimeout(() => setBaseZoom(view.zoom), 150);
+    return () => clearTimeout(t);
+  }, [view.zoom, baseZoom]);
+  const zk = view.zoom / baseZoom;
+
   const pal = PALETTES[sheet.settings.palette];
   const openDialog = (dialog: 'samples' | 'paste') => setUi({ dialog });
   return (
@@ -486,9 +498,10 @@ export function CanvasView() {
         className="absolute top-0 left-0 will-change-transform"
         style={{
           /* 用縮放後的大小排版（SVG 撐滿），不用 scale()：大張的圖縮小時才會以螢幕解析度繪製（scale 會以原尺寸點陣化，拖曳很慢） */
-          width: out.viewW * view.zoom,
-          height: out.viewH * view.zoom,
-          transform: `translate(${view.x}px, ${view.y}px)`,
+          width: out.viewW * baseZoom,
+          height: out.viewH * baseZoom,
+          transform: `translate(${view.x}px, ${view.y}px)${zk === 1 ? '' : ` scale(${zk})`}`,
+          transformOrigin: '0 0',
         }}
         // biome-ignore lint/security/noDangerouslySetInnerHtml: 自己產生的 SVG（文字都經過跳脫）
         dangerouslySetInnerHTML={{ __html: out.svg }}

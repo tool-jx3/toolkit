@@ -19,7 +19,17 @@ export function bindView(b: Bound | null): void {
   bound = b;
 }
 
-const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+/**
+ * 縮小的下限：10%，大畫布再低到「符合畫面」的 1/10（原作的下限是相對於符合畫面的 0.1；
+ * 只用絕對的 10% 時，大畫布縮不到遠近簡化的「遠」）。
+ */
+function zoomFloor(): number {
+  const r = hostRect();
+  if (!r || r.width < 10 || r.height < 10) return ZOOM_MIN;
+  return Math.min(ZOOM_MIN, fitZoom(r.width, r.height) * 0.1);
+}
+
+const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(zoomFloor(), z));
 
 export function hostRect(): DOMRect | null {
   return bound?.el.getBoundingClientRect() ?? null;

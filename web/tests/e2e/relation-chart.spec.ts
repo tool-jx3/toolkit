@@ -3594,7 +3594,9 @@ test('遠近簡化：60 位以上拉遠＝中（線上標籤、次要名字藏�
   const svg = chart(page).locator('svg.rc-chart').first();
   await page.getByTestId('zoom-fit').click();
   await expect(svg).not.toHaveClass(/lod-/);
-  await expect(chart(page).locator('.lod-dot')).toHaveCount(0);
+  /* 60 位以上一律帶著標記（換檔只換 class）；近的時候都藏著 */
+  await expect(chart(page).locator('.lod-dot')).toHaveCount(80);
+  await expect(chart(page).locator('.lod-dot').first()).toBeHidden();
   /* 縮小到「符合畫面」的 0.8 倍左右：中 */
   await page.getByTestId('zoom-out').click();
   await expect(svg).toHaveClass(/lod-mid/);

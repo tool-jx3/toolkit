@@ -13,7 +13,7 @@
  *   統計與尋路的預期值是原作算出來的（samples-log.json 的 C）。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { nextLod } from '@/tools/relation-chart/editor/view';
+import { bindView, fitView, lodScale, nextLod, zoomBy } from '@/tools/relation-chart/editor/view';
 import { editorSvg, lodDense, viewerSvg } from '@/tools/relation-chart/engine/chart';
 import { displayName, sheetCtx } from '@/tools/relation-chart/engine/geom';
 import { convertLegacy } from '@/tools/relation-chart/logic/legacy';
@@ -48,7 +48,7 @@ import {
   toggleFavPreset,
 } from '@/tools/relation-chart/state/presetActions';
 import { applyLegacy, remapLegacyRefs } from '@/tools/relation-chart/state/project';
-import { setUi, updateProject, useProject } from '@/tools/relation-chart/state/store';
+import { setUi, updateProject, useProject, useUi } from '@/tools/relation-chart/state/store';
 
 const FS = 'node:fs';
 const { readFileSync } = (await import(/* @vite-ignore */ FS)) as {
@@ -298,6 +298,28 @@ describe('遠近簡化：三檔與遲滯、標記（原作 view1 的 80 位情�
     expect(nextLod('near', 0.96)).toBe('mid');
     expect(nextLod('near', 0.3)).toBe('far');
     expect(nextLod('far', 1.2)).toBe('near');
+  });
+
+  it('大畫布也縮得到「遠」：最小倍率＝min(10%, 符合畫面的 1/10)（原作的下限是相對於符合畫面的 0.1）', () => {
+    const el = document.createElement('div');
+    el.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 1024, height: 824, right: 1024, bottom: 824 }) as DOMRect;
+    bindView({ el, content: () => ({ viewW: 10000, viewH: 8000, pad: 0 }) });
+    fitView();
+    const fit = useUi.getState().view.zoom;
+    expect(fit).toBeCloseTo(0.1, 5);
+    expect(lodScale(fit, 1024, 824)).toBeCloseTo(1, 5);
+    for (let i = 0; i < 6; i++) zoomBy(1 / 1.25);
+    const z = useUi.getState().view.zoom;
+    expect(z).toBeCloseTo(fit * 0.8 ** 6, 6);
+    expect(lodScale(z, 1024, 824)).toBeLessThan(0.47);
+    for (let i = 0; i < 30; i++) zoomBy(1 / 1.25);
+    expect(useUi.getState().view.zoom).toBeCloseTo(fit * 0.1, 6);
+    /* 一般大小的畫布：下限照舊 10% */
+    bindView({ el, content: () => ({ viewW: 1000, viewH: 800, pad: 0 }) });
+    for (let i = 0; i < 30; i++) zoomBy(1 / 1.25);
+    expect(useUi.getState().view.zoom).toBeCloseTo(0.1, 6);
+    bindView(null);
   });
 
   function view1(): Sheet {

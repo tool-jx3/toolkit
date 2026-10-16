@@ -19,7 +19,7 @@ import { bleedPad, type SheetCtx, sheetCtx } from '../engine/geom';
 import { aliveGrels, grelEdgesSvg, labelInfo, zonesActive, zonesSvg } from '../engine/labels';
 import type { ImageHref } from '../engine/nodes';
 import type { Project, Sheet } from '../model/types';
-import { activeSheet, projectNow, setBeforeUpdate, useProject, useUi } from '../state/store';
+import { activeSheet, projectNow, setBeforeUpdate, useProject } from '../state/store';
 
 type Pt = { x: number; y: number };
 type PosMap = Map<number, Pt>;
@@ -402,7 +402,7 @@ export function liveFrame(cap: number): void {
     idPrefix: '',
     defs: [],
     /* 遠近簡化的單向線標記（整張重畫時有標的，快速路徑重畫的線也要有） */
-    lod: useUi.getState().lod !== 'near' && lodDense(ctx),
+    lod: lodDense(ctx),
   };
   const layer = D.svg.querySelector(':scope > .canvas-content > .layer-edges');
   if (!layer) {

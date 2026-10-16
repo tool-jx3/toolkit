@@ -51,7 +51,7 @@ async function slimOne(uri: string, need: number, webp: boolean): Promise<string
   c.height = h;
   const g = c.getContext('2d');
   if (!g) return null;
-  g.imageSmoothingQuality = 'high';
+  /* 平滑品質用瀏覽器預設（同原作；實測 256 → 184 px 的 WebP 和原作逐位元組相同） */
   g.drawImage(img, 0, 0, w, h);
   img.close();
   const blob = await new Promise<Blob | null>((res) =>
