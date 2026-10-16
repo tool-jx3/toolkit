@@ -182,6 +182,17 @@ export function SheetBar() {
                     </DropdownMenu.Item>
                     <DropdownMenu.Item
                       className={MENU_ITEM}
+                      title={S.sheets.copyForkTip}
+                      onSelect={() => {
+                        switchSheet(i);
+                        addSheet('fork');
+                      }}
+                      data-testid="sheet-copy-fork"
+                    >
+                      {S.sheets.copyFork}
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className={MENU_ITEM}
                       disabled={i === 0}
                       onSelect={() => moveSheet(i, i - 1)}
                     >

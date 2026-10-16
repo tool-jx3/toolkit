@@ -5,21 +5,57 @@
  * 分頁列的「檔案庫」鈕打開／收起。寬畫面放在編輯區下方（頂端把手上下拖＝高度，中間分隔線左右拖＝左欄寬，
  * 都記在這台瀏覽器）；窄畫面蓋滿整個畫面。頂列：頁籤、搜尋、依分頁分組、收起；下方：這個頁籤的模式鈕、
  * 檢視層級（最少／一般／詳細）與項目大小（小／中／大）。
- * 這一批只有「標籤庫」一個頁籤（其他的庫隨之後的批次加進 TABS；沒有內容的頁籤不顯示）。
+ * 頁籤：角色庫、關係庫、標籤庫｜連線總表（第三批；之後的批次再加分頁庫…）。換頁籤＝模式關掉、搜尋清空。
  */
 import { Layers, X } from 'lucide-react';
-import { type PointerEvent, useEffect, useRef, useState } from 'react';
+import { Fragment, type PointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { IconButton, Segmented, TextInput } from '@/ui';
-import { setPrefs, setUi, usePrefs, useUi } from '../state/store';
+import { type LibMode, type LibTab, setPrefs, setUi, usePrefs, useUi } from '../state/store';
 import { S } from '../strings';
-import { LABEL_ACTIONS, LabelList, LabelSide, runLabelAction } from './LabelLibrary';
+import { CHAR_ACTIONS, CharLibList, CharLibSide } from './CharLibrary';
+import {
+  LABEL_ACTIONS,
+  LabelList,
+  LabelSide,
+  type LibAction,
+  runLabelAction,
+} from './LabelLibrary';
+import { REL_ACTIONS, RelLibList, RelLibSide } from './RelLibrary';
+import { RelTableList, RelTableSide, TABLE_ACTIONS } from './RelTable';
 
 const MIN_H = 160;
 const MIN_SIDE = 140;
 const MIN_LIST = 220;
 
-/** 頁籤（之後的批次在這裡加：角色庫、關係庫、分頁庫…） */
-const TABS = [{ key: 'labels', label: S.lib.tabs.labels }] as const;
+/** 頁籤（之後的批次在這裡加：分頁庫…）；sep＝前面放分隔線 */
+const TABS: readonly { key: LibTab; sep?: boolean }[] = [
+  { key: 'chars' },
+  { key: 'rels' },
+  { key: 'labels' },
+  { key: 'table', sep: true },
+];
+
+const ACTIONS: Record<LibTab, readonly LibAction[]> = {
+  chars: CHAR_ACTIONS,
+  rels: REL_ACTIONS,
+  labels: LABEL_ACTIONS,
+  table: TABLE_ACTIONS,
+};
+
+/** 模式鈕：標籤庫的「新增」是馬上加；其他＝切換模式（互斥，再按＝關閉） */
+function runAction(tab: LibTab, key: LibAction['key']): void {
+  if (tab === 'labels') {
+    runLabelAction(key);
+    return;
+  }
+  const u = useUi.getState();
+  const on = u.libMode !== key;
+  setUi({ libMode: on ? (key as LibMode) : null, libPick: on ? null : u.libPick });
+}
+
+export function switchLibTab(tab: LibTab): void {
+  setUi({ libTab: tab, libMode: null, libEdit: null, libPick: null });
+}
 
 /** 寬畫面（≥ 1024 px）：抽屜放在編輯區下方；窄畫面蓋滿畫面 */
 function useWide(): boolean {
@@ -41,15 +77,19 @@ const maxH = () => Math.max(MIN_H, Math.round(window.innerHeight - 380));
 const clampH = (h: number) => Math.max(MIN_H, Math.min(maxH(), h));
 
 export function closeLibrary(): void {
-  setUi({ libOpen: false, libMode: null, libEdit: null });
+  setUi({ libOpen: false, libMode: null, libEdit: null, libLabelPick: false });
 }
 
 export function LibraryDrawer() {
   const open = useUi((u) => u.libOpen);
   const mode = useUi((u) => u.libMode);
+  const tab = useUi((u) => u.libTab);
   const prefs = usePrefs((p) => p.data);
   const wide = useWide();
   const [query, setQuery] = useState('');
+  /* 換頁籤＝搜尋清空 */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只在換頁籤時清
+  useEffect(() => setQuery(''), [tab]);
   const [h, setH] = useState<number | null>(null);
   const [sideW, setSideW] = useState<number | null>(null);
   const body = useRef<HTMLDivElement>(null);
@@ -57,6 +97,27 @@ export function LibraryDrawer() {
   if (!open) return null;
   const height = clampH(h ?? prefs.libH ?? Math.max(window.innerHeight * 0.4, 300));
   const side = sideW ?? prefs.libSideW;
+  const grouped = tab === 'labels' ? prefs.labelsBySheet : prefs.libGroup;
+  const sideBody: ReactNode =
+    tab === 'chars' ? (
+      <CharLibSide />
+    ) : tab === 'rels' ? (
+      <RelLibSide />
+    ) : tab === 'table' ? (
+      <RelTableSide query={query} />
+    ) : (
+      <LabelSide />
+    );
+  const listBody: ReactNode =
+    tab === 'chars' ? (
+      <CharLibList query={query} />
+    ) : tab === 'rels' ? (
+      <RelLibList query={query} />
+    ) : tab === 'table' ? (
+      <RelTableList query={query} />
+    ) : (
+      <LabelList query={query} />
+    );
 
   const down = (kind: 'h' | 'w') => (e: PointerEvent<HTMLElement>) => {
     e.preventDefault();
@@ -119,16 +180,23 @@ export function LibraryDrawer() {
         <h2 className="text-sm font-semibold">{S.lib.title}</h2>
         <div role="tablist" aria-label={S.lib.tabsLabel} className="flex gap-1">
           {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected
-              className="rounded-full border border-accent px-3 py-0.5 text-sm font-semibold text-accent"
-              data-testid={`library-tab-${t.key}`}
-            >
-              {t.label}
-            </button>
+            <Fragment key={t.key}>
+              {t.sep ? <span className="mx-0.5 w-px self-stretch bg-border" aria-hidden /> : null}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === t.key}
+                className={`rounded-full border px-3 py-0.5 text-sm ${
+                  tab === t.key
+                    ? 'border-accent font-semibold text-accent'
+                    : 'border-border text-muted hover:text-fg'
+                }`}
+                onClick={() => switchLibTab(t.key)}
+                data-testid={`library-tab-${t.key}`}
+              >
+                {S.lib.tabs[t.key]}
+              </button>
+            </Fragment>
           ))}
         </div>
         <div className="ml-auto flex min-w-0 items-center gap-1">
@@ -144,14 +212,20 @@ export function LibraryDrawer() {
           {query ? (
             <IconButton size="sm" icon={<X />} label={S.lib.clear} onClick={() => setQuery('')} />
           ) : null}
-          <IconButton
-            size="sm"
-            icon={<Layers />}
-            label={S.lib.group}
-            pressed={prefs.labelsBySheet}
-            onClick={() => setPrefs({ labelsBySheet: !prefs.labelsBySheet })}
-            data-testid="library-group"
-          />
+          {tab === 'table' ? null : (
+            <IconButton
+              size="sm"
+              icon={<Layers />}
+              label={S.lib.group}
+              pressed={grouped}
+              onClick={() =>
+                tab === 'labels'
+                  ? setPrefs({ labelsBySheet: !prefs.labelsBySheet })
+                  : setPrefs({ libGroup: !prefs.libGroup })
+              }
+              data-testid="library-group"
+            />
+          )}
           <IconButton
             size="sm"
             icon={<X />}
@@ -170,7 +244,7 @@ export function LibraryDrawer() {
           style={wide ? { width: side } : undefined}
           data-testid="library-side"
         >
-          <LabelSide />
+          {sideBody}
         </aside>
         {wide ? (
           // biome-ignore lint/a11y/useSemanticElements: 可以拖曳的分隔線
@@ -187,13 +261,11 @@ export function LibraryDrawer() {
             data-testid="library-divider"
           />
         ) : null}
-        <div className={wide ? 'min-h-0 min-w-0 flex-1 overflow-auto p-3' : 'p-3'}>
-          <LabelList query={query} />
-        </div>
+        <div className={wide ? 'min-h-0 min-w-0 flex-1 overflow-auto p-3' : 'p-3'}>{listBody}</div>
       </div>
       <footer className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
         <fieldset className="m-0 flex items-center gap-1 border-0 p-0" aria-label={S.lib.actions}>
-          {LABEL_ACTIONS.map((a) => (
+          {ACTIONS[tab].map((a) => (
             <IconButton
               key={a.key}
               size="sm"
@@ -201,7 +273,7 @@ export function LibraryDrawer() {
               label={a.tip}
               pressed={a.key === 'add' ? undefined : mode === a.key}
               variant={a.tone === 'danger' && mode === a.key ? 'danger' : undefined}
-              onClick={() => runLabelAction(a.key)}
+              onClick={() => runAction(tab, a.key)}
               data-testid={`library-act-${a.key}`}
             />
           ))}

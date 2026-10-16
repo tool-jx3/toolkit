@@ -69,6 +69,9 @@ export const S = {
     label: '分頁',
     add: '新增分頁',
     copy: '複製分頁',
+    copyTip: '複製分頁＝同一批人（共用角色庫的條目與變體：改名字、換頭像兩邊一起變）',
+    copyFork: '複製成獨立的新角色',
+    copyForkTip: '每位角色都複製成角色庫裡的新條目（之後各改各的）',
     rename: '改名',
     renameLabel: '分頁名稱',
     remove: '刪除分頁',
@@ -502,6 +505,9 @@ export const S = {
   /** 關係庫（F092） */
   relLib: {
     empty: '關係庫是空的。新增關係類型後會自動收錄。',
+    unnamed: '未命名關係',
+    already: '這件已經在這張分頁了。',
+    addToSheet: '加到本分頁（同一件已經在這張分頁就不重複加）',
     noUnused: '沒有未被使用的關係變體。',
     listLabel: '關係庫清單',
     detailHint: '點一種關係，這裡會顯示它的變體與用在幾張分頁。',
@@ -664,6 +670,7 @@ export const S = {
     alignR: '靠右',
     link: '連結',
     linkPrompt: '連結網址（https://…）',
+    linkOk: '確定',
     image: '插入圖片',
     table: '表格',
     tbl22: '插入 2×2 表格',
@@ -714,6 +721,7 @@ export const S = {
     charA: '角色 A',
     charB: '角色 B（比較，可以留空）',
     noCompare: '（不比較）',
+    pickChar: '選擇角色…',
     noChar: '選一位角色 A 來檢視或填數值。',
     editA: '編輯 A 的數值',
     tplTitle: '範本設定',
@@ -1052,6 +1060,7 @@ export const S = {
     copied: (n: number) => `已複製 ${n} 位角色`,
     imageNotSaved: '圖片存不進這個瀏覽器（重新整理之後會不見），建議存成專案檔。',
     simStop: '磁鐵已停止',
+    bigFile: '檔案很大',
   },
 
   usage: {

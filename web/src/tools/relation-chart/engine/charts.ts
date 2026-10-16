@@ -46,7 +46,7 @@ export interface ChartOpts {
 export interface ChartKit {
   PALETTE: readonly string[];
   chartSvg: (tpl: ChartTpl, series: ChartSeries[], o?: ChartOpts) => string;
-  assignColors: (series: ChartSeries[], pal: readonly string[]) => ChartSeries[];
+  assignColors: <T extends ChartSeries>(series: T[], pal: readonly string[]) => T[];
 }
 
 /** 畫法的工具箱（純函式，不碰外面的變數） */
@@ -359,7 +359,7 @@ export function rcCharts(): ChartKit {
   }
 
   /** 配色：有自訂色的用自己的，其餘依序從調色盤取「圖上還沒出現過」的色 */
-  function assignColors(series: ChartSeries[], pal: readonly string[]): ChartSeries[] {
+  function assignColors<T extends ChartSeries>(series: T[], pal: readonly string[]): T[] {
     const used: Record<string, number> = {};
     let next = 0;
     for (const s of series)

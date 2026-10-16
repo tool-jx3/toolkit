@@ -1,5 +1,5 @@
 /**
- * 右側：編輯面板（角色／關係線／關係類型／群體關係／聚合線）、選取 2 位以上時的批次編輯，都沒有時是分頁設定。
+ * 右側：編輯面板（角色／關係線／關係類型／群體關係／聚合線／角色資訊）、選取 2 位以上時的批次編輯，都沒有時是分頁設定。
  */
 import { X } from 'lucide-react';
 import { IconButton } from '@/ui';
@@ -8,6 +8,7 @@ import { S } from '../strings';
 import { BatchPanel } from './BatchPanel';
 import { CharPanel } from './CharPanel';
 import { ColEdgePanel, GrelPanel } from './GrelPanels';
+import { InfoPanel } from './InfoPanel';
 import { RelPanel } from './RelPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { TypePanel } from './TypePanel';
@@ -24,7 +25,9 @@ export function Inspector() {
           ? S.grel.title
           : panel.kind === 'coledge'
             ? S.colEdge.panelTitle
-            : S.type.title
+            : panel.kind === 'info'
+              ? S.info.title
+              : S.type.title
     : sel.length >= 2
       ? S.batch.title(sel.length)
       : S.settings.title;
@@ -59,6 +62,8 @@ export function Inspector() {
           <GrelPanel key={panel.id} id={panel.id} />
         ) : panel?.kind === 'coledge' ? (
           <ColEdgePanel key={panel.key} colKey={panel.key} />
+        ) : panel?.kind === 'info' ? (
+          <InfoPanel key={panel.id} id={panel.id} />
         ) : sel.length >= 2 ? (
           <BatchPanel ids={sel} />
         ) : (

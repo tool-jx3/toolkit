@@ -4,7 +4,7 @@
  */
 import { useEffect } from 'react';
 import { useChoice, useConfirm, useToast, WindowDrop } from '@/ui';
-import { assets, onPersistError, referencedImages, useUi } from '../state/store';
+import { assets, onPersistError, referencedImages, useProject, useUi } from '../state/store';
 import { S } from '../strings';
 import { CanvasView } from './CanvasView';
 import { CharList } from './CharList';
@@ -15,10 +15,14 @@ import { CanvasDialog } from './dialogs/CanvasDialog';
 import { ExportDialog } from './dialogs/ExportDialog';
 import { CopyTableDialog, PasteTableDialog, SamplesDialog } from './dialogs/TableDialogs';
 import { EditorBar } from './EditorBar';
+import { FontsDialog } from './FontUi';
+import { FramesDialog } from './FrameUi';
 import { bindFileUi, OPEN_ACCEPT, openDroppedFile } from './files';
+import { useFontFaces } from './fontFaces';
 import { Inspector } from './Inspector';
 import { handleKeyDown } from './keys';
 import { LibraryDrawer } from './LibraryDrawer';
+import { RadarCompareDialog, RadarTplDialog } from './RadarUi';
 import { SheetBar } from './SheetBar';
 import { stopSim, watchReheat } from './sim';
 import { TypeList } from './TypeList';
@@ -28,6 +32,8 @@ export function Editor() {
   const confirm = useConfirm();
   const choose = useChoice();
   const panelOpen = useUi((u) => u.panel !== null || u.sel.length >= 2);
+  /* 匯入的字型註冊成 FontFace（畫布、清單、面板都用得到） */
+  useFontFaces(useProject((s) => s.data.fonts));
 
   useEffect(() => {
     bindFileUi({ toast, confirm, choose });
@@ -104,6 +110,10 @@ export function Editor() {
       <CanvasDialog />
       <ExportDialog />
       <AvatarCropDialog />
+      <FramesDialog />
+      <FontsDialog />
+      <RadarCompareDialog />
+      <RadarTplDialog />
     </div>
   );
 }

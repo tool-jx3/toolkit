@@ -158,6 +158,8 @@ export interface Prefs {
   libSideW: number;
   libLevel: 'min' | 'normal' | 'detail';
   libSize: 'sm' | 'md' | 'lg';
+  /** 角色庫、關係庫依分頁分組（第三批） */
+  libGroup: boolean;
   nameFromFile: boolean;
   minimap: boolean;
   exportFormat: ExportFormat;
@@ -172,6 +174,7 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   libSideW: 240,
   libLevel: 'detail',
   libSize: 'sm',
+  libGroup: true,
   nameFromFile: false,
   minimap: true,
   exportFormat: 'png',
@@ -275,6 +278,8 @@ export interface UiState {
   radarTpl: number | null;
   radarHide: string[];
   compare: { a: number | null; b: number | null };
+  /** 範本設定關掉時回到哪個對話框（從數值比較進去的＝回數值比較） */
+  radarBack: DialogKind;
   /** 左欄設定中的標籤 */
   libSel: number | null;
   /** 編輯模式中載入的標籤 */
@@ -311,6 +316,7 @@ export const useUi = create<UiState>(() => ({
   radarTpl: null,
   radarHide: [],
   compare: { a: null, b: null },
+  radarBack: null,
   libSel: null,
   libEdit: null,
   libColor: 'auto',

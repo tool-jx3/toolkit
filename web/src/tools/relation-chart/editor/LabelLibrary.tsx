@@ -49,6 +49,7 @@ import {
   useUi,
 } from '../state/store';
 import { S } from '../strings';
+import { FrameSelect } from './FrameUi';
 import { useSheet } from './hooks';
 import { kickSim } from './sim';
 
@@ -230,6 +231,11 @@ function ChipGroup({
     const u = useUi.getState();
     const l = items.find((x) => x.id === id);
     if (!l) return;
+    /* 角色庫的「用標籤篩選」：挑了就回角色庫 */
+    if (u.libLabelPick) {
+      setUi({ libLabelFilter: id, libLabelPick: false, libTab: 'chars', libMode: null });
+      return;
+    }
     if (u.libMode === null) setUi({ libSel: u.libSel === id ? null : id });
     else if (u.libMode === 'edit') setUi({ libEdit: id, libColor: l.color });
     else if (u.libMode === 'del') {
@@ -399,7 +405,23 @@ function LabelColor({ value, onChange }: { value: ColorValue; onChange: (v: Colo
   );
 }
 
-/** 選中的標籤：三個開關、收合 */
+/** 這個標籤的頭像框（框庫是空的時不出現；第三批 F058） */
+function LabelFrame({ l }: { l: Label }) {
+  const has = useProject((s) => s.data.frames.length > 0);
+  if (!has) return null;
+  return (
+    <Field label={S.frame.lblLabel} hint={S.frame.lblHint}>
+      <FrameSelect
+        kind="label"
+        value={l.frame}
+        onChange={(v) => updateLabel(l.id, { frame: v ?? '' })}
+        testId="label-frame"
+      />
+    </Field>
+  );
+}
+
+/** 選中的標籤：三個開關、頭像框、收合 */
 function LabelDetail({ l }: { l: Label }) {
   const sheet = useSheet();
   const members = sheet.chars.filter((c) => charLabelIds(c).includes(l.id)).length;
@@ -428,6 +450,7 @@ function LabelDetail({ l }: { l: Label }) {
         />
       </div>
       <Toggle checked={l.hidden} onCheckedChange={(v) => flag('hidden', v)} label={L.flagHidden} />
+      <LabelFrame l={l} />
       <Toggle checked={!l.noPull} onCheckedChange={(v) => flag('noPull', !v)} label={L.flagPull} />
       <Toggle checked={l.zone} onCheckedChange={(v) => flag('zone', v)} label={L.flagZone} />
       {l.zone && members ? (
@@ -466,8 +489,10 @@ export function LabelSide() {
   useEffect(() => {
     if (editText !== undefined) setText(editText);
   }, [editId]);
-  const hint =
-    mode === 'edit'
+  const picking = useUi((u) => u.libLabelPick);
+  const hint = picking
+    ? S.charLib.labelPickHint
+    : mode === 'edit'
       ? L.hintEdit
       : mode === 'hide'
         ? L.hintHide
@@ -503,6 +528,7 @@ export function LabelSide() {
       <Field label={L.color}>
         <LabelColor value={color} onChange={(v) => setUi({ libColor: v })} />
       </Field>
+      {editing ? <LabelFrame l={editing} /> : null}
       <p className="text-xs text-muted" data-testid="label-hint">
         {hint}
         {mode === null && labels.length > 1

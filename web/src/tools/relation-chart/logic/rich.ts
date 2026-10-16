@@ -375,3 +375,36 @@ export function richUnpack(
     return u ? `src="${u}"` : m;
   });
 }
+
+/**
+ * 文件的樣式（編輯器與互動網頁共用；原作的 .rich-doc）：標題、清單、引用、分隔線、表格框線、圖片最寬 100%、
+ * 連結強調色。sel＝外層的選擇器；顏色用 CSS 變數（--rd-line、--rd-muted、--rd-link），沒給時有後備色。
+ */
+export function richDocCss(sel: string): string {
+  const rules: [string, string][] = [
+    ['', 'line-height:1.6;overflow-wrap:anywhere'],
+    [' h1', 'font-size:1.4em;font-weight:700;margin:.6em 0 .3em;line-height:1.3'],
+    [' h2', 'font-size:1.22em;font-weight:700;margin:.6em 0 .3em;line-height:1.3'],
+    [' h3', 'font-size:1.08em;font-weight:700;margin:.5em 0 .25em;line-height:1.3'],
+    [' p', 'margin:.3em 0'],
+    [' ul', 'margin:.35em 0;padding-left:1.5em;list-style:disc'],
+    [' ol', 'margin:.35em 0;padding-left:1.5em;list-style:decimal'],
+    [
+      ' blockquote',
+      'margin:.5em 0;padding:.15em .8em;border-left:3px solid var(--rd-line,#8888);color:var(--rd-muted,inherit)',
+    ],
+    [' hr', 'border:0;border-top:1px solid var(--rd-line,#8888);margin:.8em 0'],
+    [' table', 'border-collapse:collapse;margin:.5em 0;max-width:100%'],
+    [
+      ' th',
+      'border:1px solid var(--rd-line,#8888);padding:.25em .5em;min-width:2em;vertical-align:top;font-weight:700',
+    ],
+    [
+      ' td',
+      'border:1px solid var(--rd-line,#8888);padding:.25em .5em;min-width:2em;vertical-align:top',
+    ],
+    [' img', 'max-width:100%;height:auto'],
+    [' a', 'color:var(--rd-link,#3b8bd6);text-decoration:underline'],
+  ];
+  return rules.map(([s, b]) => `${sel}${s}{${b}}`).join('');
+}
