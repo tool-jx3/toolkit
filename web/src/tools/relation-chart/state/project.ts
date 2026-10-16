@@ -24,12 +24,14 @@ import { normalizeProject, projectAssetIds } from '../model/normalize';
 import { NOTE_BIN_MAX } from '../model/notes';
 import type {
   Avatar,
+  Char,
   CharFont,
   FontFormat,
   FontItem,
   FontValue,
   FrameItem,
   Project,
+  Sheet,
 } from '../model/types';
 import { S } from '../strings';
 import { insertSheet, type SheetMaps } from './actions';
@@ -64,19 +66,33 @@ export function dropMissingImages(
       return avatar === v.avatar ? v : { ...v, avatar };
     }),
   }));
-  const sheets = p.sheets.map((s) => {
-    const bg = s.bg && missing.has(s.bg) ? null : s.bg;
-    if (bg !== s.bg) dropped++;
-    const chars = s.chars.map((c) => {
+  const fixChars = (list: Char[]) =>
+    list.map((c) => {
       const avatar = fixAv(c.avatar, false);
       return avatar === c.avatar ? c : { ...c, avatar };
     });
-    return { ...s, bg, chars };
-  });
+  const fixSheet = (s: Sheet, count: boolean): Sheet => {
+    const bg = s.bg && missing.has(s.bg) ? null : s.bg;
+    if (bg !== s.bg && count) dropped++;
+    /* 時間軸分頁的每一格 */
+    const tl = s.tl
+      ? {
+          ...s.tl,
+          frames: s.tl.frames.map((f) => {
+            const fb = f.bg && missing.has(f.bg) ? null : f.bg;
+            if (fb !== f.bg && count) dropped++;
+            return { ...f, bg: fb, chars: fixChars(f.chars) };
+          }),
+        }
+      : s.tl;
+    return { ...s, bg, chars: fixChars(s.chars), tl };
+  };
+  const sheets = p.sheets.map((s) => fixSheet(s, true));
+  const sheetLib = (p.sheetLib ?? []).map((it) => ({ ...it, sheet: fixSheet(it.sheet, false) }));
   const frames = p.frames.filter((f) => !missing.has(f.id));
   const fonts = p.fonts.filter((f) => !missing.has(f.id));
   dropped += p.frames.length - frames.length + p.fonts.length - fonts.length;
-  return { data: { ...p, library, sheets, frames, fonts }, dropped };
+  return { data: { ...p, library, sheets, frames, fonts, sheetLib }, dropped };
 }
 
 let saving: { data: Project; dropped: number } | null = null;
@@ -144,6 +160,7 @@ export function replaceProject(p: Project): void {
     d.fonts = p.fonts;
     d.noteBin = p.noteBin;
     d.settingsLib = p.settingsLib;
+    d.sheetLib = p.sheetLib;
   });
   setUi({
     sel: [],
@@ -307,14 +324,16 @@ export function remapLegacyRefs(
   for (const g of conv.settingsLib)
     if (g.values.defFrame) g.values.defFrame = frameRef(g.values.defFrame);
   for (const l of conv.labels) if (l.frame) l.frame = frameRef(l.frame);
-  for (const s of conv.sheets) {
+  for (const s of [...conv.sheets, ...conv.sheetLib.map((it) => it.sheet)]) {
     if (s.lore) s.lore = rich(s.lore);
     const df = conv.defFrames.get(s);
     s.settings.defFrame = df ? frameRef(df) : '';
-    for (const c of s.chars) {
-      if (c.frame) c.frame = frameRef(c.frame);
-      c.font = fontRef(c.font);
-    }
+    /* 時間軸分頁：每一格的角色 */
+    for (const list of [s.chars, ...(s.tl?.frames.map((f) => f.chars) ?? [])])
+      for (const c of list) {
+        if (c.frame) c.frame = frameRef(c.frame);
+        c.font = fontRef(c.font);
+      }
   }
   const docId = conv.fontRef ? fontMap.get(conv.fontRef) : undefined;
   if (conv.fontRef && !docId) lostFonts.add(conv.fontRef);
@@ -380,21 +399,36 @@ export async function importLegacy(
     if (avatar) v.avatar = avatar;
     else if (read.zip) failed++;
   }
-  for (const sheet of conv.sheets) {
-    const bgPath = conv.backgrounds.get(sheet);
-    if (bgPath) {
-      referenced++;
-      const data = fileAt(bgPath);
-      if (data) {
+  /* 背景圖：分頁、時間軸的每一格（ZIP 裡的檔）、分頁庫（內嵌的 data URI） */
+  const bgCache = new Map<string, string | null>();
+  for (const [owner, ref] of conv.backgrounds) {
+    const inline = ref.startsWith('data:');
+    if (!inline) referenced++;
+    let id = bgCache.get(ref);
+    if (id === undefined) {
+      id = null;
+      const blob = inline
+        ? await fetch(ref).then(
+            (r) => r.blob(),
+            () => null,
+          )
+        : (() => {
+            const data = fileAt(ref);
+            return data ? blobOf(data, ref) : null;
+          })();
+      if (blob) {
         try {
-          const r = await backgroundFromBlob(blobOf(data, bgPath));
-          sheet.bg = r.id;
+          const r = await backgroundFromBlob(blob);
+          id = r.id;
           if (!r.persisted) notSaved = true;
         } catch {
-          failed++;
+          id = null;
         }
-      } else if (read.zip) failed++;
+      }
+      bgCache.set(ref, id);
+      if (!id && !inline && (read.zip || blob)) failed++;
     }
+    if (id) owner.bg = id;
   }
   /* 頭像框、匯入的字型、角色資訊裡的圖 */
   const fr = await ingestBundle(read, 'frames/', LEGACY_FRAME_MIME);
@@ -440,6 +474,7 @@ export function applyLegacy(
   updateProject((p) => {
     if (mode === 'replace') {
       p.sheets = [];
+      p.sheetLib = [];
       p.labels = [];
       p.library = [];
       p.relLibrary = [];
@@ -527,6 +562,13 @@ export function applyLegacy(
         const to = maps.sheetMap.get(s.loreFrom);
         s.loreFrom = to !== undefined && to !== s.id ? to : null;
       }
+    /* 分頁庫：照加入分頁的路徑換 id，放進分頁庫（不留在分頁列） */
+    for (const it of conv.sheetLib) {
+      const idx = insertSheet(p, it.sheet, { ...maps, sheetMap: new Map() });
+      const [sh] = p.sheets.splice(idx, 1);
+      sh.loreFrom = sh.loreFrom !== null ? (maps.sheetMap.get(sh.loreFrom) ?? null) : null;
+      p.sheetLib.push({ id: p.nextId++, name: it.name, savedAt: it.savedAt, sheet: sh });
+    }
     /* 便利貼庫、設定集：id 換成專案的（加入為新分頁＝接在後面） */
     for (const n of conv.noteBin) {
       const nn = JSON.parse(JSON.stringify(n)) as typeof n;

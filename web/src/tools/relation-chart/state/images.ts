@@ -11,6 +11,7 @@ import {
   type FramePlacement,
   makeCanvas,
 } from '@/core/image';
+import { bgIds, charLists } from '../model/timeline';
 import type { Avatar, Project } from '../model/types';
 import { assets } from './store';
 
@@ -112,8 +113,9 @@ export function drawnImageIds(
   const out = new Set<string>();
   p.sheets.forEach((s, i) => {
     if (sheetIdx && !sheetIdx.includes(i)) return;
-    if (s.bg) out.add(s.bg);
-    for (const c of s.chars) if (c.avatar) out.add(c.avatar.img);
+    /* 時間軸分頁：每一格（補間預覽、GIF／影片、互動網頁的動畫都會畫到） */
+    for (const b of bgIds(s)) out.add(b);
+    for (const list of charLists(s)) for (const c of list) if (c.avatar) out.add(c.avatar.img);
   });
   for (const f of p.frames ?? []) out.add(f.id);
   return [...out];

@@ -5,7 +5,7 @@
  * 標籤庫、收合、群體關係…）。每個動作是一步復原（拖曳、滑桿、文字欄由呼叫端用手勢包成一步）。
  */
 import type { Draft } from 'immer';
-import { charRadius, displayName, sheetCtx } from '../engine/geom';
+import { charRadius, displayName, sheetCtx, sheetName } from '../engine/geom';
 import { grelEndId, grelEndIsLbl, labelInfo } from '../engine/labels';
 import { type AlignAction, applyAlign } from '../logic/align';
 import {
@@ -13,6 +13,7 @@ import {
   fitCanvasToContent,
   nonOverlapping,
   reorderKeepSlots,
+  resizeCanvas,
   separateAll,
   shuffleSeats,
 } from '../logic/layout';
@@ -28,8 +29,8 @@ import {
   unnamedLabelText,
   unnamedTypeLabel,
 } from '../model/factory';
-import { forkEntry, reclaimVirgin } from '../model/library';
-import { allChars } from '../model/timeline';
+import { entryById, forkEntry, reclaimVirgin, variantFrom, variantOf } from '../model/library';
+import { allChars, shiftOtherFrames } from '../model/timeline';
 import {
   emptySheet,
   GREL_END_RE,
@@ -52,6 +53,7 @@ import type {
   RelType,
   Sheet,
   SheetSettings,
+  Timeline,
 } from '../model/types';
 import {
   activeIndex,
@@ -183,30 +185,54 @@ export function addSheet(copy: boolean | 'same' | 'fork'): void {
       const snap = JSON.parse(JSON.stringify(cur)) as Sheet;
       const charMap = new Map<number, number>();
       const typeMap = new Map<number, number>();
+      const relMap = new Map<number, number>();
+      const noteMap = new Map<number, number>();
       const used = new Set(p.sheets.flatMap((s) => allChars(s as Sheet).map((c) => c.defNo)));
+      /* 複製成獨立的新角色：同一位角色（時間軸的每一格）共用一筆新條目；各格穿的不同變體各自複製進新條目 */
+      const forks = new Map<number, { lib: number; vari: Map<number, number>; defNo: number }>();
+      const fork = (c: Char) => {
+        let f = forks.get(c.id);
+        if (!f) {
+          const r = forkEntry(p as Project, c);
+          f = { lib: r.lib, vari: new Map(r.lib ? [[c.vari, r.vari]] : []), defNo: 0 };
+          if (!c.name) {
+            f.defNo = smallestFree(used);
+            used.add(f.defNo);
+          }
+          forks.set(c.id, f);
+        } else if (f.lib && !f.vari.has(c.vari)) {
+          const v = variantOf(p as Project, c).variant;
+          const e = entryById(p as Project, f.lib);
+          if (v && e) {
+            const nv = variantFrom(v, takeId(p), v.radars);
+            e.variants.push(nv);
+            f.vari.set(c.vari, nv.id);
+          }
+        }
+        const nv = f.vari.get(c.vari);
+        if (f.lib && nv) {
+          c.lib = f.lib;
+          c.vari = nv;
+        }
+        if (f.defNo) c.defNo = f.defNo;
+      };
       for (const c of snap.chars) {
         const nid = takeId(p);
         charMap.set(c.id, nid);
         c.id = nid;
-        if (mode === 'fork') {
-          const f = forkEntry(p as Project, c);
-          if (f.lib) {
-            c.lib = f.lib;
-            c.vari = f.vari;
-          }
-          if (!c.name) {
-            c.defNo = smallestFree(used);
-            used.add(c.defNo);
-          }
-        }
+        if (mode === 'fork') fork(c);
       }
+      /* 時間軸分頁：每一格一起複製（原作只複製目前影格、還變成一般分頁）；同一位角色、同一條線在各格用同一個新 id */
+      remapFrameChars(p, snap.tl, charMap, mode === 'fork' ? fork : null);
       for (const t of snap.types) {
         const nid = takeId(p);
         typeMap.set(t.id, nid);
         t.id = nid;
       }
       for (const r of snap.rels) {
-        r.id = takeId(p);
+        const nid = takeId(p);
+        relMap.set(r.id, nid);
+        r.id = nid;
         r.from = charMap.get(r.from) ?? r.from;
         r.to = charMap.get(r.to) ?? r.to;
         r.type = typeMap.get(r.type) ?? r.type;
@@ -214,7 +240,8 @@ export function addSheet(copy: boolean | 'same' | 'fork'): void {
       remapGrels(p, snap.grels, charMap, typeMap, null);
       snap.views = remapViews(snap.views ?? {}, charMap);
       /* 便利貼與圖表節點一起複製（新 id；圖表節點的 A、B 換成新角色）；世界觀、沿用、備忘錄照抄（原作） */
-      remapNotes(p, snap.notes ?? [], charMap, null);
+      remapNotes(p, snap.notes ?? [], charMap, null, noteMap);
+      remapFrameRest(p, snap.tl, { charMap, typeMap, relMap, noteMap, tplMap: null });
       sheet = { ...snap, id, defNo, name: '' };
     } else {
       sheet = emptySheet(id, defNo, {
@@ -244,11 +271,18 @@ export function renameSheet(idx: number, name: string): void {
   });
 }
 
-/** 刪除分頁（只剩一張時不能刪） */
+/** 刪除分頁（只剩一張時不能刪）：同時封存進分頁庫（新的在前；名稱＝刪除當下的顯示名，原作；7.4 第 14 項） */
 export function deleteSheet(idx: number): boolean {
   const p = projectNow();
   if (p.sheets.length <= 1 || !p.sheets[idx]) return false;
   updateProject((d) => {
+    const gone = d.sheets[idx] as Sheet;
+    d.sheetLib.unshift({
+      id: takeId(d),
+      name: sheetName(gone),
+      savedAt: Date.now(),
+      sheet: JSON.parse(JSON.stringify(gone)) as Sheet,
+    });
     d.sheets.splice(idx, 1);
     if (d.active >= d.sheets.length) d.active = d.sheets.length - 1;
     else if (d.active > idx) d.active--;
@@ -295,9 +329,13 @@ export function remapNotes(
   notes: Note[],
   charMap: ReadonlyMap<number, number>,
   tplMap: ReadonlyMap<number, number> | null,
+  noteMap?: Map<number, number>,
 ): void {
   for (const n of notes) {
-    n.id = takeId(p);
+    const old = n.id;
+    const known = noteMap?.get(old);
+    n.id = known ?? takeId(p);
+    if (noteMap && known === undefined) noteMap.set(old, n.id);
     if (!n.chart) continue;
     /* 不在這張分頁的角色（已刪掉）＝沒有 */
     n.chart.a = charMap.get(n.chart.a) ?? 0;
@@ -318,13 +356,19 @@ export function insertSheet(
   const snap = JSON.parse(JSON.stringify(src)) as Sheet;
   const charMap = opts.mapChar ?? new Map<number, number>();
   const typeMap = new Map<number, number>();
+  const relMap = new Map<number, number>();
+  const noteMap = new Map<number, number>();
   const used = new Set(p.sheets.flatMap((s) => allChars(s as Sheet).map((c) => c.defNo)));
-  for (const c of snap.chars) {
-    const nid = takeId(p);
-    charMap.set(c.id, nid);
-    c.id = nid;
-    if (!c.defNo || used.has(c.defNo)) c.defNo = smallestFree(used);
-    used.add(c.defNo);
+  /* 同一位角色在時間軸的每一格用同一個預設編號 */
+  const defNos = new Map<number, number>();
+  const fixChar = (c: Char) => {
+    const d = defNos.get(c.id);
+    if (d !== undefined) c.defNo = d;
+    else {
+      if (!c.defNo || used.has(c.defNo)) c.defNo = smallestFree(used);
+      used.add(c.defNo);
+      defNos.set(c.id, c.defNo);
+    }
     if (opts.labelMap)
       setCharLabelIds(
         c,
@@ -336,7 +380,14 @@ export function insertSheet(
       c.lib = opts.entryMap.get(c.lib) ?? 0;
       c.vari = opts.varMap?.get(c.vari) ?? 0;
     }
+  };
+  for (const c of snap.chars) {
+    const nid = takeId(p);
+    charMap.set(c.id, nid);
+    c.id = nid;
+    fixChar(c);
   }
+  remapFrameChars(p, snap.tl, charMap, fixChar);
   for (const t of snap.types) {
     const nid = takeId(p);
     typeMap.set(t.id, nid);
@@ -348,7 +399,9 @@ export function insertSheet(
   }
   snap.views = remapViews(snap.views ?? {}, charMap);
   for (const r of snap.rels) {
-    r.id = takeId(p);
+    const nid = takeId(p);
+    relMap.set(r.id, nid);
+    r.id = nid;
     r.from = charMap.get(r.from) ?? r.from;
     r.to = charMap.get(r.to) ?? r.to;
     r.type = typeMap.get(r.type) ?? r.type;
@@ -376,8 +429,9 @@ export function insertSheet(
   const oldId = snap.id;
   snap.id = takeId(p);
   opts.sheetMap?.set(oldId, snap.id);
-  /* 便利貼最後才配 id（沒有便利貼時其他東西的 id 和以前相同） */
-  remapNotes(p, snap.notes ?? [], charMap, opts.tplMap ?? null);
+  /* 便利貼最後才配 id（沒有便利貼時其他東西的 id 和以前相同）；時間軸的其他影格在最後 */
+  remapNotes(p, snap.notes ?? [], charMap, opts.tplMap ?? null, noteMap);
+  remapFrameRest(p, snap.tl, { charMap, typeMap, relMap, noteMap, tplMap: opts.tplMap ?? null });
   if (!snap.defNo || sheetIds.has(snap.defNo)) snap.defNo = nextSheetDefNo(p);
   const fixed = normalizeSheet(snap, snap.id) ?? snap;
   /* normalizeSheet 不會改 id；保險起見把座標壞掉的角色放到中央 */
@@ -387,6 +441,59 @@ export function insertSheet(
   }
   p.sheets.push(fixed);
   return p.sheets.length - 1;
+}
+
+/** 時間軸其他影格的角色換成新的 id（和頂層同一位的照 charMap，只在別格出現的配新的）；fix＝每份角色的其他整理 */
+function remapFrameChars(
+  p: DProject,
+  tl: Timeline | null | undefined,
+  charMap: Map<number, number>,
+  fix: ((c: Char) => void) | null,
+): void {
+  if (!tl) return;
+  tl.frames.forEach((f, k) => {
+    if (k === tl.active) return;
+    for (const c of f.chars) {
+      let nid = charMap.get(c.id);
+      if (nid === undefined) {
+        nid = takeId(p);
+        charMap.set(c.id, nid);
+      }
+      c.id = nid;
+      fix?.(c);
+    }
+  });
+}
+
+/** 時間軸其他影格的影格 id、關係線、便利貼換成新的 id（同一條線、同一張便利貼在各格用同一個新 id） */
+function remapFrameRest(
+  p: DProject,
+  tl: Timeline | null | undefined,
+  m: {
+    charMap: ReadonlyMap<number, number>;
+    typeMap: ReadonlyMap<number, number>;
+    relMap: Map<number, number>;
+    noteMap: Map<number, number>;
+    tplMap: ReadonlyMap<number, number> | null;
+  },
+): void {
+  if (!tl) return;
+  tl.frames.forEach((f, k) => {
+    f.id = takeId(p);
+    if (k === tl.active) return;
+    for (const r of f.rels) {
+      let nid = m.relMap.get(r.id);
+      if (nid === undefined) {
+        nid = takeId(p);
+        m.relMap.set(r.id, nid);
+      }
+      r.id = nid;
+      r.from = m.charMap.get(r.from) ?? r.from;
+      r.to = m.charMap.get(r.to) ?? r.to;
+      r.type = m.typeMap.get(r.type) ?? r.type;
+    }
+    remapNotes(p, f.notes, m.charMap, m.tplMap, m.noteMap);
+  });
 }
 
 /** 群體關係換成新的 id（角色端、例外照 charMap；標籤端照 labelMap，沒給＝不換） */
@@ -1267,9 +1374,26 @@ export function align(action: AlignAction): void {
 export function fitCanvas(): boolean {
   if (!activeSheet().chars.length) return false;
   editSheet((s) => {
+    const c0 = s.chars[0];
+    const x0 = c0.x;
+    const y0 = c0.y;
+    const W0 = s.W;
+    const H0 = s.H;
     fitCanvasToContent(ctxOf(s));
+    /* 時間軸分頁：其他影格一起平移（7.4 第 12 項） */
+    shiftOtherFrames(s as Sheet, s.chars[0].x - x0, s.chars[0].y - y0, W0, H0);
   });
   return true;
+}
+
+/** 修改畫布尺寸（rect＝新畫布在舊座標裡的位置與大小；時間軸分頁的其他影格一起平移，7.4 第 12 項） */
+export function resizeCanvasTo(rect: { x: number; y: number; w: number; h: number }): void {
+  editSheet((s) => {
+    const W0 = s.W;
+    const H0 = s.H;
+    resizeCanvas(s as Sheet, rect);
+    shiftOtherFrames(s as Sheet, -Math.round(rect.x), -Math.round(rect.y), W0, H0);
+  });
 }
 
 /* ---------- 貼上關係表 ---------- */

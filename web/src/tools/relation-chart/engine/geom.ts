@@ -379,9 +379,9 @@ export const esc = (s: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-/** 分頁的顯示名稱（沒填時「分頁 N」） */
-export const sheetName = (s: Pick<Sheet, 'name' | 'defNo'>): string =>
-  (s.name || `分頁${s.defNo}`).replace(/\n+/g, ' ');
+/** 分頁的顯示名稱（沒填時「分頁 N」；時間軸分頁「時間軸分頁 N」，原作） */
+export const sheetName = (s: Pick<Sheet, 'name' | 'defNo'> & { tl?: Sheet['tl'] }): string =>
+  (s.name || (s.tl ? `時間軸分頁 ${s.defNo}` : `分頁${s.defNo}`)).replace(/\n+/g, ' ');
 
 /** 聚焦時其他元素的亮度（原作的 focusDimSet：線、標籤、陣營框、圖例按固定比例跟著角色的值） */
 export const FOCUS_DIM = 0.15;
