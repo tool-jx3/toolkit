@@ -697,6 +697,17 @@ async function checkMissing(d: Doc): Promise<void> {
   }
 }
 
+/**
+ * 整份換掉（開專案檔、重來）並記成獨立的一步復原：不和前後 0.4 秒內的變更合併
+ * （快速連續開兩個專案檔時，復原要回到第一個，不是回到開檔之前）。
+ */
+function replaceAsStep(next: Doc): void {
+  if (useDoc.inGesture()) useDoc.endGesture();
+  useDoc.beginGesture();
+  useDoc.getState().replace(next);
+  useDoc.endGesture();
+}
+
 /** 開啟本站的專案檔（F65）；回傳存不進瀏覽器的圖片數 */
 export async function loadProject(
   data: unknown,
@@ -705,7 +716,7 @@ export async function loadProject(
   const next = cleanDoc(data);
   const r = await importAssetFiles(assets, files);
   const merged = mergeShelf(next);
-  useDoc.getState().replace(merged);
+  replaceAsStep(merged);
   select(-1);
   await checkMissing(merged);
   return { notPersisted: r.notPersisted };
@@ -738,7 +749,7 @@ export async function loadLegacyProject(
     ),
   };
   const merged = mergeShelf(next);
-  useDoc.getState().replace(merged);
+  replaceAsStep(merged);
   select(-1);
   await checkMissing(merged);
   return { images: legacy.files.length, notPersisted };
@@ -746,7 +757,7 @@ export async function loadLegacyProject(
 
 /** 重來（F66）：說話者、文字、讀取方式、清單、已確定回預設，圖片庫留著 */
 export function resetAll(): void {
-  useDoc.getState().replace({ ...defaultDoc(), images: doc().images });
+  replaceAsStep({ ...defaultDoc(), images: doc().images });
   select(-1);
   say('list', S.resetDone, 'info');
 }
