@@ -160,6 +160,7 @@ function datasets(): Dataset[] {
         fonts: [],
         noteBin: [],
         settingsLib: [],
+        sheetLib: [],
       },
     });
   }
@@ -182,6 +183,7 @@ function datasets(): Dataset[] {
         fonts: [],
         noteBin: [],
         settingsLib: [],
+        sheetLib: [],
       },
     });
   }

@@ -12,6 +12,7 @@
  *   關係類型同理（只同步名稱與樣式；顯示、圖例、捆綁忽略是各分頁自己的）；沒有綁定的關係類型在新增、被改動、
  *   開檔整理時才收錄（刪掉變體＝解除綁定，照原作）。
  */
+import { allChars } from './timeline';
 import type {
   Char,
   CharEntry,
@@ -112,7 +113,8 @@ export function entryName(p: Pick<Project, 'sheets'>, e: CharEntry): string {
   if (n) return n;
   let no = 0;
   for (const s of p.sheets)
-    for (const c of s.chars) if (c.lib === e.id && c.defNo && (!no || c.defNo < no)) no = c.defNo;
+    for (const c of allChars(s))
+      if (c.lib === e.id && c.defNo && (!no || c.defNo < no)) no = c.defNo;
   return `角色${no || e.id}`;
 }
 
@@ -127,7 +129,7 @@ export function charLibUsage(sheets: readonly Sheet[]): {
   const per = sheets.map((s) => {
     const es = new Set<number>();
     const vs = new Set<number>();
-    for (const c of s.chars) {
+    for (const c of allChars(s)) {
       es.add(c.lib);
       vs.add(c.vari);
     }
@@ -185,9 +187,9 @@ function syncChars(p: Project, prev: Project | null, take: Take): void {
   const lib = new Map(p.library.map((e) => [e.id, e]));
   const before = new Map<number, Char>();
   if (prev) for (const s of prev.sheets) for (const c of s.chars) before.set(c.id, c);
-  /* ①② 實例的改動寫回變體；沒有條目的建一筆 */
+  /* ①② 實例的改動寫回變體；沒有條目的建一筆（時間軸分頁：每一格的角色都算） */
   for (const s of p.sheets)
-    for (const c of s.chars) {
+    for (const c of allChars(s)) {
       let e = lib.get(c.lib);
       if (!e) {
         const eid = take();
@@ -217,7 +219,7 @@ function syncChars(p: Project, prev: Project | null, take: Take): void {
     }
   /* ③ 副本拉回來 */
   for (const s of p.sheets)
-    for (const c of s.chars) {
+    for (const c of allChars(s)) {
       const e = lib.get(c.lib);
       const v = e?.variants.find((x) => x.id === c.vari);
       if (!e || !v) continue;
@@ -296,7 +298,7 @@ export function forkEntry(
  */
 export function reclaimVirgin(p: Project, entryIds: Iterable<number>): void {
   const used = new Set<number>();
-  for (const s of p.sheets) for (const c of s.chars) used.add(c.lib);
+  for (const s of p.sheets) for (const c of allChars(s)) used.add(c.lib);
   const drop = new Set<number>();
   for (const id of entryIds) {
     if (used.has(id)) continue;

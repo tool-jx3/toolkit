@@ -29,6 +29,7 @@ import {
   unnamedTypeLabel,
 } from '../model/factory';
 import { forkEntry, reclaimVirgin } from '../model/library';
+import { allChars } from '../model/timeline';
 import {
   emptySheet,
   GREL_END_RE,
@@ -90,7 +91,7 @@ function sheetChangedUi(): Pick<UiState, 'panel' | 'statsFocus'> {
 
 /** 全專案未用的角色預設編號 */
 const nextCharDefNo = (p: Project | DProject): number =>
-  smallestFree(p.sheets.flatMap((s) => s.chars.map((c) => c.defNo)));
+  smallestFree(p.sheets.flatMap((s) => allChars(s as Sheet).map((c) => c.defNo)));
 const nextSheetDefNo = (p: Project | DProject): number =>
   smallestFree(p.sheets.map((s) => s.defNo));
 
@@ -182,7 +183,7 @@ export function addSheet(copy: boolean | 'same' | 'fork'): void {
       const snap = JSON.parse(JSON.stringify(cur)) as Sheet;
       const charMap = new Map<number, number>();
       const typeMap = new Map<number, number>();
-      const used = new Set(p.sheets.flatMap((s) => s.chars.map((c) => c.defNo)));
+      const used = new Set(p.sheets.flatMap((s) => allChars(s as Sheet).map((c) => c.defNo)));
       for (const c of snap.chars) {
         const nid = takeId(p);
         charMap.set(c.id, nid);
@@ -317,7 +318,7 @@ export function insertSheet(
   const snap = JSON.parse(JSON.stringify(src)) as Sheet;
   const charMap = opts.mapChar ?? new Map<number, number>();
   const typeMap = new Map<number, number>();
-  const used = new Set(p.sheets.flatMap((s) => s.chars.map((c) => c.defNo)));
+  const used = new Set(p.sheets.flatMap((s) => allChars(s as Sheet).map((c) => c.defNo)));
   for (const c of snap.chars) {
     const nid = takeId(p);
     charMap.set(c.id, nid);
@@ -571,9 +572,19 @@ export function copyChars(ids: readonly number[], rand: () => number = Math.rand
 }
 
 /** 從一張分頁拿掉一些角色：他們的關係、是端點的群體關係、例外名單、看法 */
-export function dropCharsFrom(s: DSheet, set: ReadonlySet<number>): void {
-  s.chars = s.chars.filter((c) => !set.has(c.id));
-  s.rels = s.rels.filter((r) => !set.has(r.from) && !set.has(r.to));
+export function dropCharsFrom(s: DSheet, set0: ReadonlySet<number>, everywhere = false): void {
+  s.chars = s.chars.filter((c) => !set0.has(c.id));
+  s.rels = s.rels.filter((r) => !set0.has(r.from) && !set0.has(r.to));
+  /* 時間軸分頁：everywhere＝每一格都刪（角色庫刪條目）；只刪目前影格時，別格還有這位角色＝群體關係、看法留著 */
+  if (everywhere && s.tl)
+    s.tl.frames.forEach((f, k) => {
+      if (k === s.tl?.active) return;
+      f.chars = f.chars.filter((c) => !set0.has(c.id));
+      f.rels = f.rels.filter((r) => !set0.has(r.from) && !set0.has(r.to));
+    });
+  const left = s.tl ? new Set(allChars(s as Sheet).map((c) => c.id)) : null;
+  const set = left ? new Set([...set0].filter((id) => !left.has(id))) : set0;
+  if (!set.size) return;
   const gone = (e: string) => !grelEndIsLbl(e) && set.has(grelEndId(e));
   s.grels = s.grels.filter((g) => !gone(g.from) && !gone(g.to));
   for (const g of s.grels)

@@ -558,6 +558,7 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
       lore: typeof sh.lore === 'string' ? sh.lore.slice(0, LORE_MAX) : '',
       loreFrom: fin(sh.loreFrom) ? Math.trunc(num(sh.loreFrom)) : null,
       memo: typeof sh.memo === 'string' ? sh.memo.slice(0, MEMO_MAX) : '',
+      tl: null,
     };
     sheets.push(sheet);
     if (typeof sh.bgImage === 'string' && sh.bgImage) backgrounds.set(sheet, sh.bgImage);

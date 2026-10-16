@@ -14,6 +14,7 @@ import { sheetCtx } from '../engine/geom';
 import { nonOverlapping } from '../logic/layout';
 import { makeChar, makeRel, makeType } from '../model/factory';
 import { variantFrom, variantOf } from '../model/library';
+import { allChars } from '../model/timeline';
 import { RADAR_AXES_MAX, RADAR_AXES_MIN, viewText } from '../model/normalize';
 import type {
   Char,
@@ -34,7 +35,7 @@ const take = (p: DProject): number => p.nextId++;
 const cur = (p: DProject) => p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
 const copyName = (n: string) => (n ? `${n}（變體）` : n);
 const nextDefNo = (p: DProject): number => {
-  const used = new Set(p.sheets.flatMap((s) => s.chars.map((c) => c.defNo)));
+  const used = new Set(p.sheets.flatMap((s) => allChars(s as Sheet).map((c) => c.defNo)));
   let n = 1;
   while (used.has(n)) n++;
   return n;
@@ -186,8 +187,12 @@ export function deleteEntries(ids: readonly number[]): void {
   if (!set.size) return;
   updateProject((p) => {
     for (const s of p.sheets) {
-      const rm = new Set(s.chars.filter((c) => set.has(c.lib)).map((c) => c.id));
-      if (rm.size) dropCharsFrom(s, rm);
+      const rm = new Set(
+        allChars(s as Sheet)
+          .filter((c) => set.has(c.lib))
+          .map((c) => c.id),
+      );
+      if (rm.size) dropCharsFrom(s, rm, true);
     }
     p.library = p.library.filter((e) => !set.has(e.id));
   });
@@ -201,7 +206,8 @@ export function deleteVariant(entryId: number, varId: number): void {
     if (!e || e.variants.length <= 1 || !e.variants.some((v) => v.id === varId)) return;
     e.variants = e.variants.filter((v) => v.id !== varId);
     for (const s of p.sheets)
-      for (const c of s.chars) if (c.lib === entryId && c.vari === varId) c.vari = e.variants[0].id;
+      for (const c of allChars(s as Sheet))
+        if (c.lib === entryId && c.vari === varId) c.vari = e.variants[0].id;
   });
 }
 
@@ -335,6 +341,7 @@ export function deleteRelEntries(ids: readonly number[]): void {
       if (!rm.size) continue;
       s.types = s.types.filter((t) => !rm.has(t.id));
       s.rels = s.rels.filter((r) => !rm.has(r.type));
+      for (const f of s.tl?.frames ?? []) f.rels = f.rels.filter((r) => !rm.has(r.type));
       s.grels = s.grels.filter((g) => !rm.has(g.type));
     }
     p.relLibrary = p.relLibrary.filter((e) => !set.has(e.id));

@@ -59,7 +59,14 @@ import { useProject, useUi } from '@/tools/relation-chart/state/store';
 
 type Raw = Omit<
   Project,
-  'library' | 'relLibrary' | 'radarTpls' | 'frames' | 'fonts' | 'noteBin' | 'settingsLib'
+  | 'library'
+  | 'relLibrary'
+  | 'radarTpls'
+  | 'frames'
+  | 'fonts'
+  | 'noteBin'
+  | 'settingsLib'
+  | 'sheetLib'
 > &
   Partial<Project>;
 

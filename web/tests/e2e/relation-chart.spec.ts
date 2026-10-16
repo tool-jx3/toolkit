@@ -105,6 +105,7 @@ function project(sheets: Sheet[], extra: Partial<Project> = {}): Project {
     fonts: [],
     noteBin: [],
     settingsLib: [],
+    sheetLib: [],
     ...extra,
   };
 }

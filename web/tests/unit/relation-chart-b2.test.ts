@@ -432,7 +432,14 @@ describe('標籤節點的位置（F182f、F182k、F182l）', () => {
 function seed(
   p: Omit<
     Project,
-    'library' | 'relLibrary' | 'radarTpls' | 'frames' | 'fonts' | 'noteBin' | 'settingsLib'
+    | 'library'
+    | 'relLibrary'
+    | 'radarTpls'
+    | 'frames'
+    | 'fonts'
+    | 'noteBin'
+    | 'settingsLib'
+    | 'sheetLib'
   >,
 ) {
   useProject.getState().replace(normalizeProject(p) as Project);

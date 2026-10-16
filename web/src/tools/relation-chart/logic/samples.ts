@@ -51,6 +51,7 @@ const sheet = (
   lore: '',
   loreFrom: null,
   memo: '',
+  tl: null,
 });
 
 export function buildSample(key: SampleKey): Sheet {
