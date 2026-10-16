@@ -496,7 +496,12 @@ function LabelDisplaySettings() {
     </Field>
   );
   return (
-    <Section title={D.title} persistKey="relation-chart:lib-disp" defaultOpen={false}>
+    <Section
+      title={D.title}
+      description={D.titleHint}
+      persistKey="relation-chart:lib-disp"
+      defaultOpen={false}
+    >
       <div className="flex flex-col gap-3" data-testid="label-display">
         <Toggle
           checked={s.showLabelNodes}

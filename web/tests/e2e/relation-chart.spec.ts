@@ -23,7 +23,12 @@ import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
 import { buildSample, type SampleKey } from '../../src/tools/relation-chart/logic/samples';
-import { makeChar, makeRel, makeType } from '../../src/tools/relation-chart/model/factory';
+import {
+  makeChar,
+  makeLabel,
+  makeRel,
+  makeType,
+} from '../../src/tools/relation-chart/model/factory';
 import { emptySheet } from '../../src/tools/relation-chart/model/normalize';
 import type { Project, Sheet } from '../../src/tools/relation-chart/model/types';
 import { decodePixels, parseChunks, readIhdr } from '../helpers/png';
@@ -971,7 +976,7 @@ test('角色清單：搜尋、點一列＝聚焦、依標籤分組（8 位以上
   const s0 = emptySheet(1, 1);
   for (let i = 1; i <= 9; i++)
     s0.chars.push(makeChar(i, `角色${i}`, 100 * i, 500, { defNo: i, labels: i <= 3 ? [77] : [] }));
-  await seed(page, project([s0], { labels: [{ id: 77, text: '甲班' }] }));
+  await seed(page, project([s0], { labels: [makeLabel(77, '甲班')] }));
   await page.getByTestId('char-search').fill('角色5');
   await page.getByRole('button', { name: '角色5', exact: true }).click();
   await expect(node(page, 5)).toHaveClass(/focusedV/);
@@ -1409,7 +1414,7 @@ test('互動網頁：出處與授權、不連外部資源；點角色看關係�
   s0.chars[0].labels = [7];
   await seed(
     page,
-    project([s0, sample('mind', 1000, '靈感')], { labels: [{ id: 7, text: '主角群' }] }),
+    project([s0, sample('mind', 1000, '靈感')], { labels: [makeLabel(7, '主角群')] }),
   );
   const h = await runExport(page, '互動網頁（唯讀）', { scope: '全部分頁' });
   expect(h.name).toBe('角色關係圖_互動檢視.html');
@@ -1511,7 +1516,7 @@ test('專案檔：存成 ZIP（含圖片）、全部重設、開啟還原；Ctrl
   const zbytes = readFileSync((await dl.path()) as string);
   const files = unzipSync(new Uint8Array(zbytes));
   const pj = JSON.parse(strFromU8(files['project.json']));
-  expect(pj).toMatchObject({ format: 'trpg-toolkit-project', tool: 'relation-chart', version: 1 });
+  expect(pj).toMatchObject({ format: 'trpg-toolkit-project', tool: 'relation-chart', version: 2 });
   const av = pj.data.sheets[0].chars[0].avatar;
   expect(Object.keys(files)).toEqual(
     expect.arrayContaining([`files/${av.img}.png`, `files/${av.src}.png`]),
@@ -1714,5 +1719,533 @@ test('390 寬沒有橫向捲動；1280 與 390 的視覺基準', async ({ page }
   const listBox = await page.getByTestId('char-list').boundingBox();
   expect(panelBox?.y ?? 0).toBeGreaterThan(canvasBox?.y ?? 0);
   expect(panelBox?.y ?? 0).toBeLessThan(listBox?.y ?? 0);
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 第二批：標籤與群體 ---------- */
+
+/** 八位角色：甲（陣營框：1～3）、乙（4、5）、丙（沒有人用）；朋友、敵人 */
+function zoned(): Project {
+  const s = emptySheet(1, 1, { W: 1200, H: 900, name: '王國' });
+  s.types.push(makeType(10, '朋友'), makeType(11, '敵人', { color: '#e0607e' }));
+  const pos: [number, number][] = [
+    [300, 300],
+    [430, 300],
+    [365, 420],
+    [800, 300],
+    [900, 420],
+    [700, 700],
+    [200, 750],
+    [1000, 750],
+  ];
+  pos.forEach(([x, y], i) => {
+    s.chars.push(
+      makeChar(i + 1, `角色${i + 1}`, x, y, {
+        defNo: i + 1,
+        labels: i < 3 ? [1] : i < 5 ? [2] : [],
+      }),
+    );
+  });
+  s.rels.push(
+    makeRel(100, 1, 2, 10),
+    makeRel(101, 1, 4, 10),
+    makeRel(102, 2, 6, 11),
+    makeRel(103, 4, 5, 10),
+  );
+  return project([s], {
+    labels: [
+      makeLabel(1, '甲', { zone: true, color: '#3366ff' }),
+      makeLabel(2, '乙', { color: '#e67e22' }),
+      makeLabel(3, '丙'),
+    ],
+  });
+}
+
+const lib = (page: Page) => page.getByTestId('library');
+const chip = (page: Page, id: number) =>
+  lib(page).locator(`[data-testid="label-item"][data-label-id="${id}"]`).first();
+
+test('標籤庫（檔案庫）：新增、同名沿用、未命名、依分頁分組、搜尋、三個開關與徽章、編輯模式、隱藏／陣營框／刪除模式、整組刪除、拖曳換順序、復原', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, zoned());
+  await page.getByTestId('library-open').click();
+  await expect(lib(page)).toBeVisible();
+  await expect(lib(page).getByTestId('library-tab-labels')).toHaveText('標籤庫');
+  /* 依分頁分組（預設開）：這張分頁用到的、未使用 */
+  const groups = lib(page).getByTestId('label-group');
+  await expect(groups).toHaveCount(2);
+  await expect(groups.nth(0)).toContainText('王國');
+  await expect(groups.nth(1)).toContainText('未使用');
+  await expect(groups.nth(1).getByTestId('label-item')).toHaveText(['丙0']);
+  /* 使用人數（詳細） */
+  await expect(chip(page, 1).getByTestId('label-item-count')).toHaveText('3');
+  /* 新增：Enter、同名沿用、未命名 */
+  const input = lib(page).getByTestId('label-new');
+  await input.fill('丁');
+  await input.press('Enter');
+  await expect(input).toHaveValue('');
+  await input.fill('甲');
+  await input.press('Enter');
+  await page.waitForTimeout(450);
+  expect((await saved(page))?.labels.map((l) => l.text)).toEqual(['甲', '乙', '丙', '丁']);
+  await lib(page).getByTestId('library-act-add').click();
+  await page.waitForTimeout(450);
+  expect((await saved(page))?.labels.map((l) => l.text)).toEqual([
+    '甲',
+    '乙',
+    '丙',
+    '丁',
+    '未命名標籤1',
+  ]);
+  /* 新增的那一個打開設定 */
+  await expect(lib(page).getByTestId('label-detail')).toContainText('未命名標籤1');
+  /* 搜尋 */
+  await lib(page).getByTestId('library-search').fill('未命名');
+  await expect(lib(page).getByTestId('label-item')).toHaveCount(1);
+  await lib(page).getByTestId('library-search').fill('');
+  /* 不分組 */
+  await lib(page).getByTestId('library-group').click();
+  await expect(groups).toHaveCount(1);
+  await expect(lib(page).getByTestId('label-item')).toHaveCount(5);
+  /* 點一下＝在左欄設定：隱藏 → 畫布上的陣營框不見、徽章出現；點徽章＝取消隱藏 */
+  await chip(page, 1).click();
+  const detail = lib(page).getByTestId('label-detail');
+  await expect(detail).toContainText('甲');
+  await expect(chart(page).locator('.zone-g[data-zone="1"]')).toHaveCount(1);
+  await detail.getByRole('switch', { name: '隱藏' }).click();
+  await expect(chart(page).locator('.zone-g')).toHaveCount(0);
+  await expect(chip(page, 1).getByTestId('label-badge-hidden')).toBeVisible();
+  await chip(page, 1).getByTestId('label-badge-hidden').click();
+  await expect(chart(page).locator('.zone-g[data-zone="1"]')).toHaveCount(1);
+  /* 引力關掉 → 徽章 */
+  await page.waitForTimeout(450);
+  await detail.getByRole('switch', { name: '引力' }).click();
+  await expect(chip(page, 1).getByTestId('label-badge-noPull')).toBeVisible();
+  /* 編輯模式：點標籤＝載入文字，Enter＝覆蓋 */
+  await lib(page).getByTestId('library-act-edit').click();
+  await expect(lib(page).getByTestId('label-hint')).toContainText('編輯模式');
+  await chip(page, 2).click();
+  await expect(input).toHaveValue('乙');
+  await input.fill('乙組');
+  await input.press('Enter');
+  await page.waitForTimeout(450);
+  expect((await saved(page))?.labels[1]).toMatchObject({ text: '乙組', color: '#e67e22' });
+  /* 陣營框模式：點乙＝陣營框（畫布上多一個框）；再點＝取消 */
+  await lib(page).getByTestId('library-act-zone').click();
+  await chip(page, 2).click();
+  await expect(chart(page).locator('.zone-g[data-zone="2"]')).toHaveCount(1);
+  await expect(chip(page, 2).getByTestId('label-badge-zone')).toBeVisible();
+  /* 隱藏模式 */
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('library-act-hide').click();
+  await chip(page, 3).click();
+  await expect(chip(page, 3)).toHaveClass(/opacity-50/);
+  /* 刪除模式：點＝刪除（從角色身上拿掉） */
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('library-act-del').click();
+  await chip(page, 90000).click();
+  await expect(lib(page).getByTestId('label-item')).toHaveCount(4);
+  /* 分組＋刪除模式：整組刪除（確認） */
+  await lib(page).getByTestId('library-group').click();
+  await lib(page).getByTestId('label-group-delete').last().click();
+  const dlg = page.getByRole('alertdialog');
+  await expect(dlg).toContainText('刪除「未使用」組的全部 2 個標籤？');
+  await dlg.getByRole('button', { name: '刪除整組' }).click();
+  await page.waitForTimeout(450);
+  expect((await saved(page))?.labels.map((l) => l.text)).toEqual(['甲', '乙組']);
+  /* 拖曳換順序（一般模式；同一組內） */
+  await lib(page).getByTestId('library-act-del').click();
+  await drag(page, await center(chip(page, 1)), await center(chip(page, 2)));
+  await page.waitForTimeout(450);
+  expect((await saved(page))?.labels.map((l) => l.text)).toEqual(['乙組', '甲']);
+  /* 復原 */
+  await page.getByTestId('undo').click();
+  await page.waitForTimeout(450);
+  expect((await saved(page))?.labels.map((l) => l.text)).toEqual(['甲', '乙組']);
+  /* 收起 */
+  await lib(page).getByTestId('library-close').click();
+  await expect(lib(page)).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('陣營框與收合：拖曳角色時框跟著（快速路徑）、名稱拖曳改方向、點名稱收合、聚合線、拖曳收合節點、點一下展開', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, zoned());
+  const zone = chart(page).locator('.layer-zones .zone-g[data-zone="1"]');
+  await expect(zone).toHaveAttribute('data-members', '1,2,3');
+  await expect(zone.locator('text')).toHaveText('甲');
+  /* 點名稱＝收合 */
+  await chart(page).locator('.zone-colhot[data-zonecol="1"]').click();
+  await expect(chart(page).locator('.colnode[data-collbl="1"]')).toBeVisible();
+  await expect(chart(page).locator('.colnode[data-collbl="1"]')).toContainText('×3');
+  for (const id of [1, 2, 3]) await expect(node(page, id)).toHaveCount(0);
+  let s = await sheet(page);
+  expect(s.collapsed).toEqual([1]);
+  /* 聚合線：1→4（朋友）、2→6（敵人）；同組內的 1→2 不畫 */
+  await expect(chart(page).locator('.col-edge')).toHaveCount(2);
+  await expect(chart(page).locator('.edge[data-relid="100"]')).toHaveCount(0);
+  await chart(page).locator('.col-edge[data-colkey="C4|L1|10"] line').last().click({ force: true });
+  await expect(title(page)).toHaveText('聚合的關係線');
+  await expect(page.getByTestId('coledge-rows')).toContainText('角色1');
+  /* 拖曳收合節點＝整組搬移 */
+  const g = await center(chart(page).locator('.colnode[data-collbl="1"] circle'));
+  const before = (await sheet(page)).chars.slice(0, 3).map((c) => [c.x, c.y]);
+  await drag(page, g, { x: g.x + 60, y: g.y + 40 });
+  const after = (await sheet(page)).chars.slice(0, 3).map((c) => [c.x, c.y]);
+  const dx = after[0][0] - before[0][0];
+  expect(dx).toBeGreaterThan(30);
+  for (let i = 0; i < 3; i++) expect(after[i][0] - before[i][0]).toBeCloseTo(dx, 5);
+  /* 點一下＝展開；復原＝回到收合 */
+  await chart(page).locator('.colnode[data-collbl="1"]').click();
+  await expect(chart(page).locator('.colnode')).toHaveCount(0);
+  await expect(node(page, 1)).toBeVisible();
+  expect((await sheet(page)).collapsed).toEqual([]);
+  await page.getByTestId('undo').click();
+  await expect(chart(page).locator('.colnode[data-collbl="1"]')).toBeVisible();
+  await chart(page).locator('.colnode[data-collbl="1"]').click();
+  await expect(node(page, 1)).toBeVisible();
+  /* 名稱拖曳＝改方向（存角度） */
+  const h = await center(chart(page).locator('.zone-colhot[data-zonecol="1"]'));
+  await drag(page, h, { x: h.x + 120, y: h.y + 80 });
+  s = await sheet(page);
+  expect(s.settings.zoneNameAng['1']).toBeGreaterThan(-1.5);
+  expect(s.collapsed).toEqual([]);
+  /* 拖曳角色：同一份 SVG，陣營框即時跟著 */
+  const svg = chart(page).locator('svg.rc-chart:not(.rc-live-under)');
+  await svg.evaluate((el) => el.setAttribute('data-mark', 'before'));
+  const d0 = await zone.locator('path').first().getAttribute('d');
+  const a = await nodeCenter(page, 3);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) await page.mouse.move(a.x - i * 4, a.y + i * 2);
+  await page.waitForTimeout(100);
+  await expect(svg).toHaveAttribute('data-mark', 'before');
+  const zoneNow = page
+    .getByTestId('chart')
+    .locator('.layer-zones .zone-g[data-zone="1"] path')
+    .first();
+  expect(await zoneNow.getAttribute('d')).not.toBe(d0);
+  await page.mouse.up();
+  await expect(svg).not.toHaveAttribute('data-mark', 'before');
+  expect(errors).toEqual([]);
+});
+
+test('標籤網與群體關係：拖曳標籤節點、點標籤聚焦、建立關係模式點標籤／陣營框＝群體關係、面板（算到每位成員、例外、刪除）、角色面板', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const p = zoned();
+  p.sheets[0].settings.showLabelNodes = true;
+  p.sheets[0].settings.showRelName = true;
+  await seed(page, p);
+  /* 乙是一般標籤＝圓點＋虛線；甲是陣營框（有成員）＝不畫圓點；丙沒有人用＝不畫 */
+  await expect(chart(page).locator('.lbl-node[data-lblnode="2"]')).toBeVisible();
+  await expect(chart(page).locator('.lbl-links[data-lbllink="2"] line')).toHaveCount(2);
+  await expect(chart(page).locator('.lbl-node[data-lblnode="1"]')).toHaveCount(0);
+  await expect(chart(page).locator('.lbl-node[data-lblnode="3"]')).toHaveCount(0);
+  /* 拖曳＝存位置 */
+  const ln = chart(page).locator('.lbl-node[data-lblnode="2"] circle');
+  const l0 = await center(ln);
+  await drag(page, l0, { x: l0.x + 50, y: l0.y + 60 });
+  let s = await sheet(page);
+  expect(s.settings.labelPos['2']).toBeTruthy();
+  /* 點一下＝聚焦（成員亮） */
+  await chart(page).locator('.lbl-node[data-lblnode="2"] circle').click();
+  await expect(chart(page).locator('svg.rc-chart').first()).toHaveClass(/focus-active/);
+  await expect(node(page, 4)).toHaveClass(/focusedV/);
+  await expect(node(page, 1)).not.toHaveClass(/focusedV/);
+  await chart(page).locator('.lbl-node[data-lblnode="2"] circle').click();
+  /* 建立關係模式：點標籤節點＝端點（橫幅顯示標籤名） */
+  await page.getByTestId('type-row').locator('span', { hasText: '敵人' }).click();
+  const banner = page.getByTestId('link-banner');
+  await chart(page).locator('.lbl-node[data-lblnode="2"] circle').click();
+  await expect(banner.getByTestId('link-from-label')).toHaveText('乙');
+  await node(page, 7).click();
+  s = await sheet(page);
+  expect(s.grels).toMatchObject([{ from: 'L2', to: 'C7', type: 11, both: false }]);
+  await expect(chart(page).locator('.grel-edge')).toHaveCount(1);
+  await expect(chart(page).locator('.grel-pill')).toContainText('敵人 ×2');
+  /* 本輪建立的再點一次＝取消 */
+  await node(page, 7).click();
+  expect((await sheet(page)).grels).toEqual([]);
+  /* 陣營框也是端點：換起點＝點陣營框（名稱上） */
+  await chart(page).locator('.lbl-node[data-lblnode="2"] circle').click();
+  await expect(banner).toContainText('點起點');
+  await chart(page).locator('.zone-colhot[data-zonecol="1"]').click();
+  await expect(banner.getByTestId('link-from-label')).toHaveText('甲');
+  await node(page, 8).click();
+  await page.getByTestId('link-end').click();
+  s = await sheet(page);
+  expect(s.grels.map((g) => [g.from, g.to])).toEqual([['L1', 'C8']]);
+  /* 面板：點膠囊 */
+  await chart(page).locator('.grel-pill').click();
+  await expect(title(page)).toHaveText('群體關係');
+  const panel = page.getByTestId('grel-panel');
+  await expect(panel.getByTestId('grel-ends')).toHaveText('甲 → 角色8');
+  await expect(panel.getByTestId('grel-counts')).toHaveText('成員 3 人');
+  await panel.getByRole('switch', { name: '算到每位成員' }).click();
+  await page.waitForTimeout(450);
+  expect((await sheet(page)).grels[0].inherit).toBe(true);
+  /* 角色面板（進階）：成員身分繼承的列（來自標籤：甲），排除＝例外 */
+  await node(page, 2).dblclick();
+  await page.getByRole('button', { name: '進階' }).click();
+  const rows = page.getByTestId('char-grel-row');
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText('來自標籤：甲');
+  await rows.getByTestId('char-grel-except').click();
+  await page.waitForTimeout(450);
+  expect((await sheet(page)).grels[0].except).toEqual([2]);
+  await expect(chart(page).locator('.grel-pill')).toContainText('×2');
+  /* 群體關係面板：清空例外、刪除（可以復原） */
+  await chart(page).locator('.grel-pill').click();
+  await page.getByTestId('grel-clear-except').click();
+  await page.waitForTimeout(450);
+  expect((await sheet(page)).grels[0].except).toEqual([]);
+  await page.getByTestId('grel-delete').click();
+  expect((await sheet(page)).grels).toEqual([]);
+  await page.getByTestId('undo').click();
+  expect((await sheet(page)).grels).toHaveLength(1);
+  /* 刪除角色 8＝群體關係一起刪 */
+  await node(page, 8).dblclick();
+  await page.getByTestId('char-delete').click();
+  expect((await sheet(page)).grels).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('標籤與陣營框的顯示（每張分頁）、標籤圖例：開關與位置、圖例項目＝聚焦標籤；陣營框依標籤順序', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, zoned());
+  await page.getByTestId('library-open').click();
+  await lib(page)
+    .getByRole('button', { name: /標籤與陣營框的顯示/ })
+    .click();
+  const disp = lib(page).getByTestId('label-display');
+  /* 陣營框總開關 */
+  await disp.getByRole('switch', { name: '陣營框' }).click();
+  await expect(chart(page).locator('.layer-zones')).toHaveCount(0);
+  await page.waitForTimeout(450);
+  await disp.getByRole('switch', { name: '陣營框' }).click();
+  await expect(chart(page).locator('.layer-zones .zone-g')).toHaveCount(1);
+  /* 依標籤順序＝不透明填色 */
+  await disp.getByRole('radio', { name: '依標籤順序' }).click();
+  await expect(chart(page).locator('.zone-g path').first()).not.toHaveAttribute(
+    'fill-opacity',
+    /./,
+  );
+  /* 標籤圖例：陣營框標籤列出；開著時框上不畫名稱 */
+  await page.waitForTimeout(450);
+  await disp.getByRole('switch', { name: '標籤圖例' }).click();
+  const item = chart(page).locator('.lbl-legend .legend-item[data-legend-lbl="1"]');
+  await expect(item).toBeVisible();
+  await expect(chart(page).locator('.zone-g text')).toHaveCount(0);
+  await item.click();
+  await expect(item).toHaveClass(/legend-on/);
+  await expect(node(page, 1)).toHaveClass(/focusedV/);
+  await expect(node(page, 6)).not.toHaveClass(/focusedV/);
+  /* 標籤網＋游離標籤：丙也畫（外圈、半透明） */
+  await page.waitForTimeout(450);
+  await disp.getByRole('switch', { name: '標籤網（標籤畫成節點）' }).click();
+  await disp.getByRole('switch', { name: '也畫這張分頁沒用到的標籤' }).click();
+  await expect(chart(page).locator('.lbl-node.lbl-free[data-lblnode="3"]')).toBeVisible();
+  const s = await sheet(page);
+  expect(s.settings).toMatchObject({
+    showZones: true,
+    zoneBlend: false,
+    showLblLegend: true,
+    showLabelNodes: true,
+    showFreeLbls: true,
+  });
+  /* 新分頁沿用設定、各自的值 */
+  await page.getByTestId('sheet-add').click();
+  await disp.getByRole('switch', { name: '標籤圖例' }).click();
+  await page.waitForTimeout(450);
+  const q = await saved(page);
+  expect(q?.sheets.map((x) => x.settings.showLblLegend)).toEqual([true, false]);
+  expect(errors).toEqual([]);
+});
+
+test('匯出：分層 SVG 多一層陣營框、互動網頁（標籤網聚焦、陣營框跟著亮、角色卡的群體關係與隱藏標籤）', async ({
+  page,
+  context,
+}) => {
+  const errors = await open(page);
+  const p = zoned();
+  p.sheets[0].settings.showLabelNodes = true;
+  p.sheets[0].grels.push({
+    id: 300,
+    from: 'L1',
+    to: 'C6',
+    type: 11,
+    both: false,
+    inherit: true,
+    note: '',
+    except: [],
+  });
+  p.labels[2].hidden = true;
+  p.sheets[0].chars[0].labels = [1, 3];
+  await seed(page, p);
+  const svg = strFromU8((await runExport(page, '分層 SVG')).bytes);
+  const layers = [...svg.matchAll(/inkscape:label="([^"]+)"/g)].map((m) => m[1]);
+  expect(layers).toEqual(['背景', '陣營框', '關係線', '角色', '名稱', '圖例']);
+  expect(svg).toContain('class="grel-edge"');
+  expect(svg).not.toContain('zone-colhot');
+  const h = await runExport(page, '互動網頁（唯讀）');
+  const html = strFromU8(h.bytes);
+  const v = await context.newPage();
+  await v.route('**/*', (r) =>
+    r.request().url() === 'http://viewer.test/'
+      ? r.fulfill({ body: html, contentType: 'text/html' })
+      : r.abort(),
+  );
+  await v.setViewportSize({ width: 1100, height: 800 });
+  await v.goto('http://viewer.test/');
+  const c = v.locator('.sheetV.active svg');
+  /* 點標籤節點＝聚焦成員 */
+  const lc = await center(v.locator('.lbl-node[data-lblnode="2"] circle'));
+  await v.mouse.click(lc.x, lc.y);
+  await expect(c).toHaveClass(/focus-active/);
+  await expect(v.locator('.node[data-id="4"]')).toHaveClass(/focusedV/);
+  await expect(v.locator('.lbl-node[data-lblnode="2"]')).toHaveClass(/focusedV/);
+  /* 點角色＝他的陣營框亮；角色卡：群體關係、隱藏的標籤（預設列出） */
+  const nc = await center(v.locator('.node[data-id="1"] > circle').first());
+  await v.mouse.click(nc.x, nc.y);
+  await expect(v.locator('.zone-g[data-zone="1"]')).toHaveClass(/focusedV/);
+  const tip = v.locator('#tipV');
+  await expect(tip).toContainText('敵人');
+  await expect(tip).toContainText('角色6');
+  await expect(tip.locator('.tl')).toHaveText(['甲', '丙']);
+  await v.close();
+  /* 關掉「網頁也顯示隱藏標籤」 */
+  await page.getByTestId('library-open').click();
+  await lib(page)
+    .getByRole('button', { name: /標籤與陣營框的顯示/ })
+    .click();
+  await lib(page).getByRole('switch', { name: '匯出的網頁也顯示隱藏標籤' }).click();
+  const html2 = strFromU8((await runExport(page, '互動網頁（唯讀）')).bytes);
+  expect(html2).not.toContain('"丙"');
+  expect(errors).toEqual([]);
+});
+
+test('原作的專案檔：標籤的顏色與開關、陣營框設定、群體關係、收合狀態都讀進來', async ({ page }) => {
+  const errors = await open(page);
+  await seed(page, project([trio()]));
+  const data = {
+    app: 'CharRelDiagram',
+    format: 7,
+    lblLegendPos: 'leftOut',
+    labels: [
+      { id: 3, text: '學生會', color: '#2980b9', zone: true },
+      { id: 4, text: '社團', hidden: true },
+    ],
+    library: [
+      { id: 106, variants: [{ id: 107, name: '會長', labels: [3] }] },
+      { id: 110, variants: [{ id: 111, name: '副會長', labels: [3, 4] }] },
+      { id: 112, variants: [{ id: 113, name: '外人' }] },
+    ],
+    sheets: [
+      {
+        id: 2,
+        name: '學校',
+        W: 1000,
+        H: 800,
+        relTypes: [{ id: 101, label: '對立' }],
+        settings: { zoneThick: 8, showLblLegend: true },
+        chars: [
+          { id: 1, libId: 106, varId: 107, x: 300, y: 300 },
+          { id: 2, libId: 110, varId: 111, x: 420, y: 330 },
+          { id: 3, libId: 112, varId: 113, x: 800, y: 600 },
+        ],
+        rels: [],
+        collapsedLbls: [3],
+        groupRels: [{ id: 50, from: 'L3', to: 'C3', relTypeId: 101, inherit: true }],
+      },
+    ],
+  };
+  const [fc] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    openProjectItem(page, '開啟專案檔…'),
+  ]);
+  await fc.setFiles({
+    name: 'project.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(data)),
+  });
+  await page.getByRole('alertdialog').getByRole('button', { name: '取代目前內容' }).click();
+  await expect(toast(page, /已讀入原作的專案/)).toBeVisible();
+  await expect(toast(page, /群體關係|陣營框/)).toHaveCount(0);
+  const q = await saved(page);
+  await page.waitForTimeout(450);
+  const p = (await saved(page)) ?? q;
+  expect(p?.labels.map((l) => [l.text, l.color, l.zone, l.hidden])).toEqual([
+    ['學生會', '#2980b9', true, false],
+    ['社團', 'auto', false, true],
+  ]);
+  const s = p?.sheets[0] as Sheet;
+  const lid = p?.labels[0].id as number;
+  expect(s.collapsed).toEqual([lid]);
+  expect(s.settings).toMatchObject({ zoneThick: 8, showLblLegend: true, lblLegendPos: 'leftOut' });
+  expect(s.grels).toMatchObject([{ from: `L${lid}`, to: `C${s.chars[2].id}`, inherit: true }]);
+  await expect(chart(page).locator(`.colnode[data-collbl="${lid}"]`)).toBeVisible();
+  await expect(chart(page).locator('.grel-edge')).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test('120 位＋6 個陣營框：拖曳仍走快速路徑（同一份 SVG、陣營框跟著），每次移動夠快', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s0 = emptySheet(1, 1, { W: 2400, H: 1800 });
+  s0.types.push(makeType(10, '友情'));
+  for (let i = 0; i < 120; i++)
+    s0.chars.push(
+      makeChar(i + 1, `角色${i + 1}`, 140 + (i % 12) * 190, 140 + Math.floor(i / 12) * 170, {
+        defNo: i + 1,
+        labels: [1 + (Math.floor(i / 12) % 6)],
+      }),
+    );
+  for (let i = 1; i < 120; i++) s0.rels.push(makeRel(1000 + i, i, i + 1, 10));
+  await seed(
+    page,
+    project([s0], {
+      labels: [1, 2, 3, 4, 5, 6].map((i) => makeLabel(i, `陣營${i}`, { zone: true })),
+    }),
+  );
+  await expect(chart(page).locator('.zone-g')).toHaveCount(6);
+  const svg = chart(page).locator('svg.rc-chart:not(.rc-live-under)');
+  await svg.evaluate((el) => el.setAttribute('data-mark', 'before'));
+  const a = await nodeCenter(page, 30);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  const t0 = Date.now();
+  for (let i = 1; i <= 30; i++) await page.mouse.move(a.x + i * 2, a.y + i);
+  const perMove = (Date.now() - t0) / 30;
+  await page.waitForTimeout(100);
+  await expect(svg).toHaveAttribute('data-mark', 'before');
+  await expect(chart(page).locator('.zone-g')).toHaveCount(6);
+  await page.mouse.up();
+  await expect(svg).not.toHaveAttribute('data-mark', 'before');
+  expect(perMove).toBeLessThan(100);
+  expect(errors).toEqual([]);
+});
+
+test('390 寬：檔案庫蓋滿畫面、沒有橫向捲動、可以新增標籤與收起', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = await open(page);
+  await seed(page, zoned());
+  await page.getByTestId('library-open').click();
+  const box = await lib(page).boundingBox();
+  expect(box?.width).toBeGreaterThan(380);
+  await noHorizontalScroll(page);
+  await lib(page).getByTestId('label-new').fill('新標籤');
+  await lib(page).getByTestId('label-new').press('Enter');
+  await expect(chip(page, 90000)).toContainText('新標籤');
+  await lib(page).getByTestId('library-close').click();
+  await expect(lib(page)).toBeHidden();
   expect(errors).toEqual([]);
 });

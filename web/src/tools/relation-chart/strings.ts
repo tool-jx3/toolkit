@@ -400,7 +400,7 @@ export const S = {
     size: '項目大小',
     sizes: { sm: '小', md: '中', lg: '大' },
     actions: '模式',
-    dragTip: '拖曳可調整順序（觸控需先長按）。',
+    dragTip: '拖曳可調整順序（鍵盤：Alt＋方向鍵）。',
     dragInGroup: '分組中：只能在同一個分組內調整順序。',
   },
 
@@ -458,7 +458,8 @@ export const S = {
 
   /** 標籤與陣營框的顯示（F173，每張分頁各自） */
   lblDisp: {
-    title: '標籤與陣營框的顯示（這張分頁）',
+    title: '標籤與陣營框的顯示',
+    titleHint: '每張分頁各自的設定。',
     showLabelNodes: '標籤網（標籤畫成節點）',
     showLabelNodesHint: '每個標籤一顆圓點，虛線連到成員；有成員的陣營框標籤由框代替。',
     showFreeLbls: '也畫這張分頁沒用到的標籤',
