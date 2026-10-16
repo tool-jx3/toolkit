@@ -7,7 +7,7 @@
  * 每次匯出都記下格式、範圍與勾選（再次匯出，F147）。預覽不吃這兩個選項（原作也是）。
  */
 import { Copy, Download, Eye } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Checkbox, Dialog, Field, Segmented, TextArea, TextInput, useToast } from '@/ui';
 import { sheetName } from '../../engine/geom';
 import { defaultExportBase, type ExportFormat, exportExt } from '../../export/outputs';
@@ -28,9 +28,22 @@ const HINTS: Record<ExportFormat, string> = {
 /** 嵌入碼＋託管說明（嵌入模式勾著時） */
 const EMBED_CODE = `<iframe src="${E.embedSrc}" style="width:100%;aspect-ratio:4/3;border:0" loading="lazy" allowfullscreen></iframe>`;
 
+/** 剪貼簿 API 不能用時（非 https、權限）退回舊的複製法：選取文字框後 execCommand（原作的做法） */
+function legacyCopy(el: HTMLTextAreaElement | null): boolean {
+  if (!el) return false;
+  try {
+    el.focus();
+    el.select();
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  }
+}
+
 function EmbedTeach() {
   const [copied, setCopied] = useState(false);
   const toast = useToast();
+  const box = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (!copied) return;
     const t = setTimeout(() => setCopied(false), 1200);
@@ -44,6 +57,7 @@ function EmbedTeach() {
       <Field label={E.embedCode}>
         <div className="flex items-start gap-1">
           <TextArea
+            ref={box}
             readOnly
             value={EMBED_CODE}
             rows={3}
@@ -59,7 +73,8 @@ function EmbedTeach() {
                 await navigator.clipboard.writeText(EMBED_CODE);
                 setCopied(true);
               } catch {
-                toast({ title: E.copyFail, tone: 'warning' });
+                if (legacyCopy(box.current)) setCopied(true);
+                else toast({ title: E.copyFail, tone: 'warning' });
               }
             }}
             data-testid="embed-copy"

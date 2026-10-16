@@ -174,9 +174,9 @@ describe('畫法', () => {
     expect(r.svg).toContain(
       '有 1 張便利貼在畫布外：互動網頁看得到，但 .png 只裁畫布、不會包含它們。',
     );
-    /* 互動網頁的可視範圍包含它 */
+    /* 互動網頁的可視範圍＝畫布 ∪ 便利貼，外加 16（原作 viewerViewBox；不是四邊等量的外擴） */
     const v = viewerSvg(s, { href: noImg, font: 'sans' });
-    expect(v).toContain(`viewBox="-496 -496 ${1100 + 992} ${900 + 992}"`);
+    expect(v).toContain(`viewBox="-16 -16 ${1500 + 32} ${900 + 32}"`);
   });
 
   it('編輯中的便利貼：文字讓位給輸入框（note-editing）', () => {

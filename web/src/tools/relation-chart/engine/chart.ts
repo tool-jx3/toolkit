@@ -77,8 +77,10 @@ export interface ChartParts {
   notes: string;
   /** 角色超出畫布的出血 */
   bleed: number;
-  /** 實際外擴（出血 ∪ 界外的圖例／名冊） */
+  /** 實際外擴（出血 ∪ 界外的圖例／名冊 ∪ 頭像框 ∪ 界外的便利貼） */
   pad: number;
+  /** 不算便利貼的外擴（互動網頁的可視範圍從這裡起算） */
+  padBase: number;
 }
 
 /** 整層關係線：一般線 → 聚合線 → 群體關係線 → 線上標籤 → 標籤網的虛線（拖曳的快速路徑也用） */
@@ -169,12 +171,12 @@ export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
     ui: edit ? { editing: ui?.noteEdit ?? null } : null,
   });
   const bleed = bleedPad(ctx);
-  const pad = Math.max(
+  const padBase = Math.max(
     bleed,
     legendOutPad([legendInfo.rel, legendInfo.lbl, legendInfo.chars], W, H),
     framePad(ctx),
-    noteBleedPad(ctx),
   );
+  const pad = Math.max(padBase, noteBleedPad(ctx));
   return {
     ctx,
     defs: defs.join(''),
@@ -190,6 +192,7 @@ export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
     notes,
     bleed,
     pad,
+    padBase,
   };
 }
 
@@ -260,12 +263,37 @@ export function exportSvg(
   return `${svgOpen(p.ctx, `viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"`, opts.fontFaceCss)}<defs>${p.defs}</defs>${contentLayers(p, { transparent: opts.transparent })}</svg>`;
 }
 
+/**
+ * 互動網頁的可視範圍：畫布＋外擴（界外的圖例／名冊、出血、頭像框）；有便利貼在畫布外時再併入
+ * 「畫布 ∪ 便利貼」外加 16（原作的 viewerViewBox），夾在實際畫出的範圍內。沒有界外便利貼＝和以前相同。
+ */
+function viewerBox(p: ChartParts): string {
+  const { W, H } = p.ctx;
+  const b = p.padBase;
+  let x0 = 0;
+  let y0 = 0;
+  let x1 = W;
+  let y1 = H;
+  for (const n of p.ctx.sheet.notes ?? []) {
+    x0 = Math.min(x0, n.x - n.w / 2);
+    y0 = Math.min(y0, n.y - n.h / 2);
+    x1 = Math.max(x1, n.x + n.w / 2);
+    y1 = Math.max(y1, n.y + n.h / 2);
+  }
+  if (x0 === 0 && y0 === 0 && x1 === W && y1 === H)
+    return `${-p.pad} ${-p.pad} ${W + p.pad * 2} ${H + p.pad * 2}`;
+  const m = 16;
+  x0 = Math.max(-p.pad, Math.min(-b, x0 - m));
+  y0 = Math.max(-p.pad, Math.min(-b, y0 - m));
+  x1 = Math.min(W + p.pad, Math.max(W + b, x1 + m));
+  y1 = Math.min(H + p.pad, Math.max(H + b, y1 + m));
+  return `${f1(x0)} ${f1(y0)} ${f1(x1 - x0)} ${f1(y1 - y0)}`;
+}
+
 /** 互動網頁用：含界外的圖例／名冊（viewBox 外擴），不含編輯用的標記 */
 export function viewerSvg(sheet: Sheet, opts: Omit<RenderOpts, 'mode'>): string {
   const p = chartParts(sheet, { ...opts, mode: 'viewer' });
-  const { W, H } = p.ctx;
-  const pad = p.pad;
-  return `${svgOpen(p.ctx, `class="chart" viewBox="${-pad} ${-pad} ${W + pad * 2} ${H + pad * 2}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"`)}<defs>${p.defs}</defs>${contentLayers(p, {})}</svg>`;
+  return `${svgOpen(p.ctx, `class="chart" viewBox="${viewerBox(p)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"`)}<defs>${p.defs}</defs>${contentLayers(p, {})}</svg>`;
 }
 
 export interface LayerPart {

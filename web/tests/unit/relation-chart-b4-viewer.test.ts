@@ -118,6 +118,32 @@ describe('便利貼', () => {
       'layer-notes',
     );
   });
+
+  it('可視範圍：畫布外的便利貼＝畫布 ∪ 便利貼外加 16（原作 viewerViewBox）；都在畫布內＝和以前相同', () => {
+    const p = project();
+    const { W, H } = p.sheets[0];
+    const note = (x: number) => ({
+      id: 1,
+      text: '旁註',
+      x,
+      y: 300,
+      w: 200,
+      h: 200,
+      size: null,
+      locked: false,
+      bare: false,
+      chart: null,
+    });
+    const before = viewerHtml([p.sheets[0]], input(p)).match(
+      /class="chart" viewBox="([^"]+)"/,
+    )?.[1];
+    p.sheets[0].notes.push(note(W - 120));
+    expect(viewerHtml([p.sheets[0]], input(p))).toContain(`class="chart" viewBox="${before}"`);
+    p.sheets[0].notes[0] = note(W + 200);
+    expect(viewerHtml([p.sheets[0]], input(p))).toContain(
+      `class="chart" viewBox="-16 -16 ${W + 300 + 32} ${H + 32}"`,
+    );
+  });
 });
 
 describe('遠近簡化（互動網頁）', () => {
