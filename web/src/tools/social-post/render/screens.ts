@@ -89,3 +89,15 @@ export function assetIdsOf(ops: readonly Op[]): string[] {
 /** 圖的來源：範例圖由程式畫、資產從已經讀好的快取拿（讀不到時 null，畫灰底或預設人像） */
 export const imageSource: ImageSource = (img) =>
   img.kind === 'sample' ? sampleCanvas(img.key) : (assets.peekBitmap(img.id) ?? null);
+
+/** 設定欄縮圖的來源（還沒讀好時 null，顯示讀取中） */
+export const thumbSource = (
+  img: ImageRef | null,
+): ImageBitmap | HTMLCanvasElement | OffscreenCanvas | null =>
+  !img ? null : img.kind === 'sample' ? sampleCanvas(img.key) : (assets.peekBitmap(img.id) ?? null);
+
+/** 圖的來源（等讀好；調整範圍的對話框用） */
+export async function loadImageSource(img: ImageRef): Promise<CanvasImageSource | null> {
+  if (img.kind === 'sample') return sampleCanvas(img.key);
+  return (await assets.bitmap(img.id).catch(() => undefined)) ?? null;
+}

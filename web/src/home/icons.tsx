@@ -38,6 +38,7 @@ import {
   Map as MapIcon,
   MapPinned,
   MessageCircleMore,
+  MessageSquareHeart,
   MessageSquareText,
   MessagesSquare,
   MicVocal,
@@ -130,6 +131,7 @@ const ICONS: Record<string, LucideIcon> = {
   'relation-chart': Network,
   'prose-card': Feather,
   'captcha-card': Grid2x2Check,
+  'social-post': MessageSquareHeart,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,
