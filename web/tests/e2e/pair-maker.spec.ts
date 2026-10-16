@@ -984,6 +984,8 @@ test('多人資料卡的每列張數 2～5：畫布大小、輸出、方向鍵�
   await page.waitForTimeout(600);
   await opt(5).focus();
   await page.keyboard.press('ArrowLeft');
+  /* 負載重時焦點移動會慢一點：確定移到 4 張再按空白鍵 */
+  await expect(opt(4)).toBeFocused();
   await page.keyboard.press('Space');
   await expect(opt(4)).toHaveAttribute('aria-checked', 'true');
   await expect(canvas(page)).toHaveAttribute('data-size', '2460x1390');

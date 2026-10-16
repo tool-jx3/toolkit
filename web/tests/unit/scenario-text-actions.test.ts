@@ -11,6 +11,7 @@ import {
   deleteEntry,
   exportRoomZip,
   fillSample,
+  loadLegacyProject,
   makeFacesFromNames,
   makeFromImages,
   moveBatch,
@@ -278,5 +279,66 @@ describe('重來、匯出前的檢查', () => {
     setScript('鮑伯「三」');
     await exportRoomZip();
     expect(status('export')?.text).toContain('（已確定的第 1 批）');
+  });
+});
+
+describe('開專案檔、重來是獨立的一步復原', () => {
+  const legacy = (script: string) =>
+    JSON.stringify({
+      tool: 'scenario-text-maker',
+      version: 2,
+      state: {
+        images: [],
+        speakers: [{ id: 's1', name: '甲', aliases: '', imageId: null, faces: [] }],
+        script,
+        opts: {
+          mode: 'script',
+          unit: 'line',
+          style: 'auto',
+          keepQuotes: true,
+          narration: 'include',
+          narratorName: '',
+          faceInTitle: false,
+        },
+        edited: null,
+        confirmed: [],
+      },
+    });
+
+  it('緊接在其他變更之後（0.4 秒內）開啟，也不併進前一步', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(2_000_000);
+      await loadLegacyProject(legacy('甲「第一份」'));
+      vi.setSystemTime(2_000_100);
+      await loadLegacyProject(legacy('甲「第二份」'));
+      expect(doc().script).toBe('甲「第二份」');
+      useDoc.temporal.getState().undo();
+      expect(doc().script).toBe('甲「第一份」');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('重來緊接在打字之後，復原回到重來之前', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(3_000_000);
+      setScript('艾莉絲「一」');
+      vi.setSystemTime(3_000_100);
+      resetAll();
+      expect(doc().script).toBe('');
+      useDoc.temporal.getState().undo();
+      expect(doc().script).toBe('艾莉絲「一」');
+      /* 重來之後馬上的變更是新的一步 */
+      vi.setSystemTime(3_000_150);
+      resetAll();
+      vi.setSystemTime(3_000_200);
+      setScript('鮑伯「二」');
+      useDoc.temporal.getState().undo();
+      expect(doc().script).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

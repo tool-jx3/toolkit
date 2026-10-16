@@ -43,6 +43,7 @@ export {
 export { Checkbox, type CheckboxProps } from './Checkbox';
 export { type ChipItem, Chips, type ChipsProps } from './Chips';
 export {
+  COLOR_PRESETS_MAX,
   ColorField,
   type ColorFieldProps,
   ColorPicker,
@@ -257,6 +258,16 @@ export {
   type ProjectNotice,
 } from './ProjectMenu';
 export {
+  caretAfterChange,
+  insertedRange,
+  RICH_EDITOR_TEXT,
+  type RichSelectionState,
+  RichTextEditor,
+  type RichTextEditorHandle,
+  type RichTextEditorProps,
+  type RichToolbarOptions,
+} from './RichTextEditor';
+export {
   domToOffset,
   offsetToDom,
   RichTextField,
@@ -271,6 +282,13 @@ export {
   revealDelta,
   revealInScroller,
 } from './reveal';
+export {
+  cssColorHex,
+  isCanonicalRichDom,
+  type RichDomOptions,
+  readRichDomFull,
+  writeRichDomFull,
+} from './richDom';
 export { Section, type SectionProps } from './Section';
 export { Segmented, type SegmentedOption, type SegmentedProps } from './Segmented';
 export { Select, type SelectGroup, type SelectOption, type SelectProps } from './Select';

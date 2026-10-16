@@ -8,6 +8,7 @@ import { ModelDemo } from './ModelDemo';
 import { MusicDemo } from './MusicDemo';
 import { PagedDemo } from './PagedDemo';
 import { PostDemo } from './PostDemo';
+import { RichEditorDemo } from './RichEditorDemo';
 import { ThreeDemo } from './ThreeDemo';
 import { TypesetDemo } from './TypesetDemo';
 import { VideoDemo } from './VideoDemo';
@@ -77,6 +78,7 @@ export function ModulesDemo() {
       <TypesetDemo />
       <PagedDemo />
       <PostDemo />
+      <RichEditorDemo />
       <FlowDemo />
       <VideoDemo />
       <MusicDemo />

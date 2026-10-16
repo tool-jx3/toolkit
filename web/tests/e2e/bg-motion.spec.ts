@@ -577,7 +577,7 @@ test.describe('匯出', () => {
     const first = await downloadFirstFrame(page);
     expect(first.name).toBe('我的_背景_測試_frame01.png');
     /* 通知：點本體立刻關閉（「已開始下載」原本停留 3.2 秒） */
-    const toast = page.getByText('已開始下載');
+    const toast = page.getByText('已開始下載', { exact: true });
     await expect(toast).toHaveCount(1);
     await toast.click();
     await expect(toast).toHaveCount(0, { timeout: 1500 });

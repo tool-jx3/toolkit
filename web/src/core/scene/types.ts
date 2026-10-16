@@ -150,12 +150,23 @@ export interface RichNode extends Base {
   scaleX?: number;
   indent?: number;
   continued?: boolean;
-  align?: 'left' | 'right';
+  /**
+   * 對齊（預設靠左）。'center'、'justify'（左右對齊：段落最後一行靠左）是完整格式加的（prose-card）；
+   * 段落自己的對齊（RichLine.align）優先。
+   */
+  align?: 'left' | 'right' | 'center' | 'justify';
   valign?: 'top' | 'middle' | 'bottom';
   /** 最多幾行（預設依框高） */
   maxLines?: number;
   /** 繪製範圍左右各多留的 px（負字距、字形突出的部分不被裁掉；換行寬度仍是 w）；預設 0 */
   bleed?: number;
+  /* ---- 完整格式（prose-card 加的，選填；不給、資料也沒有完整格式時畫法與以前完全相同） ---- */
+  /** 顏色是空字串（＝預設字色）的字用的顏色（預設 #000000） */
+  color?: string;
+  /** 換行規則（core/richtext 的 layoutRich；預設 'char'） */
+  wrap?: 'char' | 'word';
+  /** 最後一行不是段落的結尾（下一頁接著）：左右對齊時這一行也撐滿 */
+  openEnd?: boolean;
 }
 
 export interface GroupNode extends Base {

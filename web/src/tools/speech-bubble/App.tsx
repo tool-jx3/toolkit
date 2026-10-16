@@ -2,8 +2,16 @@
  * 動態對話泡泡產生器（規格 docs/refactor/specs/speech-bubble.md）：
  * 開頁先顯示範本一覽；選了範本進入編輯畫面（左邊泡泡／動畫／版面三個分頁，右邊預覽與匯出）。
  */
-import { Clapperboard, LayoutTemplate, MessageCircleMore, Redo2, Undo2 } from 'lucide-react';
+import {
+  Clapperboard,
+  LayoutTemplate,
+  MessageCircleMore,
+  Palette,
+  Redo2,
+  Undo2,
+} from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { importAssetFiles } from '@/core/assets';
 import { resetToolStore, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   type ExportPanelHandle,
@@ -12,6 +20,7 @@ import {
   type Shortcut,
   Tabs,
   ToolShell,
+  useToast,
   withShortcut,
 } from '@/ui';
 import { Gallery } from './Gallery';
@@ -19,7 +28,19 @@ import { type SbData, TOOL_ID } from './model';
 import { type PlayHandle, Preview } from './Preview';
 import { BubblesPanel, LayoutPanel, MotionPanel, PresetBar, stepPreset } from './panels';
 import { applyPreset, PRESETS } from './presets';
-import { DATA_VERSION, normalize, type Tab, usePrefs, useSb, useUi } from './store';
+import { StylePanel } from './StylePanel';
+import {
+  assets,
+  DATA_VERSION,
+  normalize,
+  redoStep,
+  referencedImages,
+  type Tab,
+  undoStep,
+  usePrefs,
+  useSb,
+  useUi,
+} from './store';
 import { S } from './strings';
 
 declare global {
@@ -55,6 +76,12 @@ function EditorSettings() {
             content: <BubblesPanel />,
           },
           {
+            value: 'style',
+            label: S.tabs.style,
+            icon: <Palette />,
+            content: <StylePanel />,
+          },
+          {
             value: 'motion',
             label: S.tabs.motion,
             icon: <Clapperboard />,
@@ -72,10 +99,68 @@ function EditorSettings() {
   );
 }
 
+/** 專案檔要一起存的圖（卡片的背景圖） */
+const projectImages = (d: SbData): string[] => (d.card.image ? [d.card.image] : []);
+
+/** 頁首的「專案」選單（在 ToolShell 裡面，才能用通知） */
+function ProjectActions() {
+  const savedAt = useSaveStatus(TOOL_ID);
+  const cardImage = useSb((s) => s.data.card.image);
+  const toast = useToast();
+  return (
+    <ProjectMenu<SbData>
+      toolId={TOOL_ID}
+      version={DATA_VERSION}
+      getData={() => useSb.getState().data}
+      getFiles={
+        /* 有背景圖時存成 ZIP（project.json＋圖片）；沒有時照舊存 JSON */
+        cardImage ? () => assets.exportFiles(projectImages(useSb.getState().data)) : undefined
+      }
+      openAccept=".json,.zip,application/json,application/zip"
+      onLoad={async (raw, _file, files) => {
+        const next = normalize(raw);
+        if (!next) return false;
+        if (files.size) {
+          const imported = await importAssetFiles(assets, files.entries());
+          if (imported.notPersisted) toast({ title: S.imageNotSaved, tone: 'warning' });
+        }
+        useSb.getState().replace(next);
+        useSb.temporal.getState().clear();
+        usePrefs.getState().patch({ started: true });
+        useUi.setState({ screen: 'editor', selectedId: next.bubbles[0]?.id ?? null });
+        return true;
+      }}
+      onReset={() => {
+        /* 確認框寫「可以用『復原』回來」：留著復原紀錄 */
+        resetToolStore(useSb, { clearHistory: false });
+        usePrefs.getState().patch({ started: false });
+        useUi.setState({ screen: 'gallery', selectedId: null });
+      }}
+      resetConfirm={{
+        title: S.resetTitle,
+        description: S.resetDescription,
+        confirmLabel: '重設',
+      }}
+      savedAt={savedAt}
+      fileName={S.projectFile}
+    />
+  );
+}
+
 export function App() {
   const screen = useUi((u) => u.screen);
-  const savedAt = useSaveStatus(TOOL_ID);
-  const { undo, redo, canUndo, canRedo, clear } = useUndoRedo(useSb);
+
+  /* 開頁約 5 秒後整理一次圖片庫：只清以前留下、沒人用的圖（這次開頁寫進或讀過的都保留） */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void assets.gcStale(referencedImages()).catch(() => undefined);
+    }, 5000);
+    return () => clearTimeout(t);
+  }, []);
+  const { canUndo, canRedo } = useUndoRedo(useSb);
+  /* 內文的編輯區還在連續打字時，先把打的字記成一步再復原 */
+  const undo = undoStep;
+  const redo = redoStep;
   const playRef = useRef<PlayHandle>(null);
   const exportRef = useRef<ExportPanelHandle>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -157,33 +242,7 @@ export function App() {
         onClick={redo}
         disabled={!canRedo}
       />
-      <ProjectMenu<SbData>
-        toolId={TOOL_ID}
-        version={DATA_VERSION}
-        getData={() => useSb.getState().data}
-        onLoad={(raw) => {
-          const next = normalize(raw);
-          if (!next) return false;
-          useSb.getState().replace(next);
-          clear();
-          usePrefs.getState().patch({ started: true });
-          useUi.setState({ screen: 'editor', selectedId: next.bubbles[0]?.id ?? null });
-          return true;
-        }}
-        onReset={() => {
-          /* 確認框寫「可以用『復原』回來」：留著復原紀錄 */
-          resetToolStore(useSb, { clearHistory: false });
-          usePrefs.getState().patch({ started: false });
-          useUi.setState({ screen: 'gallery', selectedId: null });
-        }}
-        resetConfirm={{
-          title: S.resetTitle,
-          description: S.resetDescription,
-          confirmLabel: '重設',
-        }}
-        savedAt={savedAt}
-        fileName={S.projectFile}
-      />
+      <ProjectActions />
     </>
   );
 

@@ -18,7 +18,11 @@
 [zznaptime](https://github.com/zznaptime) 與
 [swoonqx](https://github.com/swoonqx) 與
 [rebane2001](https://github.com/rebane2001) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 60 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[dan0030](https://github.com/dan0030) 與
+[dearmysn1p3r](https://github.com/dearmysn1p3r) 與
+[aokmri](https://github.com/aokmri) 與
+[PaiTei4234](https://paitei4234.itch.io/) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 63 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -28,7 +32,7 @@
 | [打字機動畫產生器](https://tool-jx3.github.io/toolkit/tools/typewriter/) | 輸入文字，產生逐字打出效果的 APNG／GIF／WebP 動畫圖 |
 | [文字軌跡產生器](https://tool-jx3.github.io/toolkit/tools/text-path/) | 讓文字沿著圓、螺旋、愛心或手繪的軌跡排列，輸出可以直接貼進聊天欄的純文字 |
 | [Discord 彩色文字產生器](https://tool-jx3.github.io/toolkit/tools/discord-color/) | 選取文字套上粗體、底線、經典 8 色、自訂色或彩虹、漸層效果，預覽 Discord 四種主題，複製成 ANSI 程式碼區塊貼進 Discord 就是彩色訊息 |
-| [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | 選一個範本改文字、造型與配色，做出依序彈出、逐字打出、漂浮後退場的對話泡泡與訊息框，匯出透明背景的 APNG／GIF／WebP |
+| [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | 選一個範本改文字、造型與配色，做出依序彈出、逐字打出、漂浮後退場的對話泡泡與訊息框，匯出透明背景的 APNG／GIF／WebP；也能把整段對話貼上，做成有說話者、日期與卡片底的對話卡片長圖 |
 | [匿名拼貼信產生器](https://tool-jx3.github.io/toolkit/tools/collage-letter/) | 把一段文字做成剪報拼貼的匿名信，可下載圖片或複製成 HTML、Roll20 格式 |
 | [表情產生器](https://tool-jx3.github.io/toolkit/tools/emotion-maker/) | 組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖 |
 | [讀取動畫產生器](https://tool-jx3.github.io/toolkit/tools/loading-maker/) | 把角色動畫、讀取條與上下文字合成一張畫布，輸出為 APNG／WebP／GIF |
@@ -55,6 +59,9 @@
 | [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | 盲選排行榜：一次揭曉一位、當場決定名次，名次確定後就不能改，排完存成 PNG 或 WebP |
 | [角色分析圖產生器](https://tool-jx3.github.io/toolkit/tools/char-chart/) | 一份角色清單做成兩張圖：性格四象限（拖曳角色、算契合度）與關係圖（頭像排成一圈、用不同的線連起來），存成 PNG |
 | [拍立得相框產生器](https://tool-jx3.github.io/toolkit/tools/polaroid/) | 把照片放進拍立得相框：縮放與拖曳照片、寫一行字、用筆在上面畫、貼最多 5 張貼紙，存成高解析度的 PNG |
+| [角色關係圖產生器](https://tool-jx3.github.io/toolkit/tools/relation-chart/) | 在畫布上擺角色、定義關係的顏色與線型、點兩個人拉出關係線，自動排列後匯出 PNG、分層 SVG／PSD 或可以分享的互動網頁 |
+| [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | 把台詞、後日談、劇本宣傳文句或心得排成 1200 × 1600 的直式圖片：封面、內文頁或照片＋文字三種版面，文字可以加粗、換色、螢光筆，放不下時自動接到下一頁，存成 PNG 或 ZIP |
+| [驗證題梗圖產生器](https://tool-jx3.github.io/toolkit/tools/captcha-card/) | 做一張「請選出所有包含 ○○ 的圖片」的驗證題梗圖：放代表圖與 3 × 3／4 × 4 的圖片格、勾選答案，匯出 PNG，或游標一格一格點選、按下驗證的 GIF 動畫 |
 | [角色配色條產生器](https://tool-jx3.github.io/toolkit/tools/color-palette/) | 把角色的配色排成一條色塊圖，可直接從立繪取色（手動滴管或自動抓主色），輸出 PNG |
 | [壓克力周邊工房](https://tool-jx3.github.io/toolkit/tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光、搖晃，匯出 APNG／GIF／WebP／PNG 或 .glb 模型 |
 | [影片轉動圖工具](https://tool-jx3.github.io/toolkit/tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
@@ -173,7 +180,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `discord-color` | [Discord 彩色文字產生器](https://tool-jx3.github.io/toolkit/tools/discord-color/) | [rebane2001／Discord Colored Text Generator](https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c) |
 | `scenario-text` | [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker) |
 | `house-rules` | [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | [くま。／CoCハウスルール表メーカー](https://kumachansteps.github.io/trpg-web-tools/) |
-| `speech-bubble` | [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview) |
+| `speech-bubble` | [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview)、[aokmri/dp-cardmaker](https://github.com/aokmri/dp-cardmaker)（對話卡片） |
 | `floor-plan` | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | [くま。／TRPG室内図メーカー](https://kumachansteps.github.io/trpg-web-tools/) |
 | `rank-chart` | [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | [sotsotssi/would-you-rank](https://github.com/sotsotssi/would-you-rank) |
 | `scratch-card` | [刮刮卡產生器](https://tool-jx3.github.io/toolkit/tools/scratch-card/) | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard) |
@@ -182,6 +189,9 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `polaroid` | [拍立得相框產生器](https://tool-jx3.github.io/toolkit/tools/polaroid/) | [swoonqx/sw-polaroid](https://github.com/swoonqx/sw-polaroid) |
 | `char-chart` | [角色分析圖產生器](https://tool-jx3.github.io/toolkit/tools/char-chart/) | [sotsotssi/char-quadrant](https://github.com/sotsotssi/char-quadrant)、[sotsotssi/visual-coupling-map](https://github.com/sotsotssi/visual-coupling-map) |
 | `lock-screen` | [鎖定畫面訊息產生器](https://tool-jx3.github.io/toolkit/tools/lock-screen/) | [TEXTSCENE](https://textscene.netlify.app/) |
+| `relation-chart` | [角色關係圖產生器](https://tool-jx3.github.io/toolkit/tools/relation-chart/) | [PaiTei4234／Relationship Chart Maker](https://paitei4234.itch.io/relationshipchartmaker)（CC BY-NC-SA 4.0） |
+| `prose-card` | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | [dan0030/writeediter2](https://github.com/dan0030/writeediter2) |
+| `captcha-card` | [驗證題梗圖產生器](https://tool-jx3.github.io/toolkit/tools/captcha-card/) | [dearmysn1p3r/DearMySn1p3r_44](https://github.com/dearmysn1p3r/DearMySn1p3r_44) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
@@ -193,6 +203,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 ## 授權
 
 根目錄 [LICENSE](LICENSE)（MIT）涵蓋整個 repo：新框架 `web/` 與用它改寫的工具、`docs/`、`tests/`、`tools/` 的轉址頁。
+例外：`web/src/tools/relation-chart/`（角色關係圖產生器，改編自 PaiTei4234 的 Relationship Chart Maker）與它的測試繼承原作的 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)（非商業、相同方式分享），不是 MIT；它用到的共用框架仍是 MIT。
 參考開放授權原作改寫的部分保留原作的著作權與授權（各工具的 `web/src/tools/<id>/UPSTREAM_LICENSE`，建置時整理在網站的
 [`assets/build/THIRD_PARTY_NOTICES.md`](https://tool-jx3.github.io/toolkit/assets/build/THIRD_PARTY_NOTICES.md)）；
 每個工具的靈感來源見 [ATTRIBUTION.md](ATTRIBUTION.md)。

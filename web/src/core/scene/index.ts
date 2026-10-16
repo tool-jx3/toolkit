@@ -28,9 +28,13 @@ export * from './text';
 export * from './types';
 
 const requested = new Map<string, Set<string>>();
+/** 還在下載的字：字型＋字重 → 字 → 那次載入（結束後拿掉） */
+const inflight = new Map<string, Map<string, Promise<boolean>>>();
 
 /**
- * 載入場景用到的字型（每個字型＋字重只請求還沒請求過的字）；有新載入的字時清掉字寬快取並回傳 true（呼叫端重畫）。
+ * 載入場景用到的字型（每個字型＋字重只請求還沒請求過的字）。
+ * 用到的字還在別的呼叫裡下載時一起等（匯出前一定等到字型載好或失敗）。
+ * 有新載入（或等到載完）的字時清掉字寬快取並回傳 true（呼叫端重畫）。
  */
 export async function loadSceneFonts(
   nodes: readonly SceneNode[] | readonly FontUse[],
@@ -39,7 +43,7 @@ export async function loadSceneFonts(
     nodes.length && 'kind' in (nodes[0] as object)
       ? collectFonts(nodes as readonly SceneNode[])
       : (nodes as FontUse[]);
-  const jobs: Promise<boolean>[] = [];
+  const jobs = new Set<Promise<boolean>>();
   for (const u of uses) {
     if (!u.family) continue;
     const key = `${u.family}\n${u.weight}`;
@@ -48,12 +52,29 @@ export async function loadSceneFonts(
       seen = new Set();
       requested.set(key, seen);
     }
-    const fresh = Array.from(u.text).filter((ch) => ch.trim() && !seen.has(ch));
+    let loading = inflight.get(key);
+    const fresh: string[] = [];
+    for (const ch of new Set(Array.from(u.text))) {
+      if (!ch.trim()) continue;
+      const job = loading?.get(ch);
+      if (job) jobs.add(job);
+      else if (!seen.has(ch)) fresh.push(ch);
+    }
     if (!fresh.length) continue;
     for (const ch of fresh) seen.add(ch);
-    jobs.push(ensureFont(u.family, u.weight, fresh.join('')));
+    if (!loading) {
+      loading = new Map();
+      inflight.set(key, loading);
+    }
+    const map = loading;
+    const job = ensureFont(u.family, u.weight, fresh.join('')).catch(() => false);
+    for (const ch of fresh) map.set(ch, job);
+    void job.then(() => {
+      for (const ch of fresh) if (map.get(ch) === job) map.delete(ch);
+    });
+    jobs.add(job);
   }
-  if (!jobs.length) return false;
+  if (!jobs.size) return false;
   await Promise.all(jobs);
   clearTextCache();
   return true;

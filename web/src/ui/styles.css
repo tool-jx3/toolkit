@@ -121,6 +121,32 @@
   }
 }
 
+/*
+ * RichTextEditor（完整格式的格式化文字編輯器，prose-card 移植時新增）：「從新的一頁開始」的段落上方畫一條虛線＋標記文字
+ * （data-page-break 的值）。顏色跟著編輯區的字色，淺色、深色的紙都看得到。
+ */
+.tk-rich-editor [data-page-break] {
+  border-top: 2px dashed color-mix(in srgb, currentColor 38%, transparent);
+  margin-top: 0.9em;
+}
+
+.tk-rich-editor [data-page-break]::before {
+  content: attr(data-page-break);
+  display: block;
+  margin: 0.15em 0 0.35em;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-decoration: none;
+  color: color-mix(in srgb, currentColor 60%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
 /* Tooltip：Radix 外層的定位元素也不接收滑鼠事件，點擊穿過提示落到底下的按鈕（psd-studio F31） */
 [data-radix-popper-content-wrapper]:has(> [data-tk-tooltip]) {
   pointer-events: none;

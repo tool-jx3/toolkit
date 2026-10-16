@@ -230,7 +230,9 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | scratch-card | 刮刮卡產生器 | sotsotssi/Scratchcard | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
 | discord-color | Discord 彩色文字產生器 | rebane2001（gist：discord-colored-text-generator） | 公有領域（Unlicense） | G1 | ✅ | ✅ | ✅ | ✅ |
 | lock-screen | 鎖定畫面訊息產生器（2026-10-09 另外加入） | TEXTSCENE（textscene.netlify.app） | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
-| relation-chart | 角色關係圖產生器（2026-10-15 另外加入；分批，第一批＝核心） | PaiTei4234／Relationship Chart Maker（itch.io） | CC BY-NC-SA 4.0（繼承：工具目錄以同一授權釋出，見 LICENSE 的例外） | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
+| relation-chart | 角色關係圖產生器（2026-10-15 另外加入；分批，第一批＝核心） | PaiTei4234／Relationship Chart Maker（itch.io） | CC BY-NC-SA 4.0（繼承：工具目錄以同一授權釋出，見 LICENSE 的例外） | G7 | ✅ | ✅ | ✅ | ✅ |
+| prose-card | 短文圖片產生器（2026-10-15 另外加入） | dan0030/writeediter2（문장 엽서 v2） | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
+| captcha-card | 驗證題梗圖產生器（2026-10-15 另外加入） | dearmysn1p3r/DearMySn1p3r_44（reCAPTCHA Maker） | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 
@@ -244,6 +246,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | char-chart | 關係圖的頭像可以調整範圍（目前固定取圖片中央；可用共用的 ImageFrameDialog） | 本站 |✅ |
 | char-chart、review-grid | 兩個工具的 `images.ts`（縮到長邊 1024、存資產庫、讀回圖片的 hook）幾乎相同，合併成 `core/assets` 的共用函式 | 本站 |✅ |
 | bg-remover | 去背方式加「AI＋背景色」（AI 漏掉的深色細部用背景色補回、AI 留下的背景色去掉）、純色背景可以有多個背景色（含兩色之間的混色）、去掉孤島、AI 結果完全不透明（原作捨去到 254） | 本站（使用者 2026-10-10） | ✅ |
+| speech-bubble | 靜態的對話卡片長圖（整合 aokmri/dp-cardmaker 的功能）：整段貼上拆成泡泡、左右兩側的預設樣式、說話者＋日期、卡片底（紋理、背景圖）、比例、自由拖曳、樣式預設檔；泡泡裡的部分文字格式（粗體、斜體、刪除線、底線、顏色、螢光筆） | aokmri/dp-cardmaker（未授權，2026-10-15 使用者決定整合） | ✅ |
 | 全站 GIF | 全不透明的 GIF 打開共用編碼器的 `cropFrames`（第 2 格起只寫變化的矩形，檔案小很多；lock-screen 引入時加的選項，見其規格 D7）→ 2026-10 改成預設開（DESIGN.md 4.2「GIF 只寫變化的範圍」） | 本站 | ✅ |
 | 全站 | 介面文字的「保存」改成「儲存」（28 個工具 60 處；「方便保存、分享」這類「留著」的意思不改；DESIGN.md 第 5 節，scenario-text 對等驗證時發現） | 本站 | ✅ |
 
