@@ -12,6 +12,8 @@
 import { gunzipSync, strFromU8 } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { editorSvg } from '../../src/tools/relation-chart/engine/chart';
+import { sheetCtx } from '../../src/tools/relation-chart/engine/geom';
+import { forceStep, type Velocities } from '../../src/tools/relation-chart/logic/force';
 import { convertLegacy } from '../../src/tools/relation-chart/logic/legacy';
 import { normalizeProject } from '../../src/tools/relation-chart/model/normalize';
 import type { FontKey, Project } from '../../src/tools/relation-chart/model/types';
@@ -39,7 +41,15 @@ interface Frag {
 }
 const fixture = JSON.parse(strFromU8(gunzipSync(readFileSync(FIX)))) as Record<
   string,
-  { frag: Frag; project: Record<string, unknown> }
+  {
+    frag: Frag;
+    project: Record<string, unknown>;
+    /** 原作從同一個狀態走 12 步磁鐵（α＝1）之後的角色位置、標籤節點位置 */
+    force: {
+      chars: [number, number, number][];
+      labelPos: Record<string, { x: number; y: number }>;
+    };
+  }
 >;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -138,7 +148,7 @@ function mine(raw: Record<string, unknown>) {
 const outer = (els: Iterable<Element>) => [...els].map((e) => e.outerHTML).join('');
 
 describe('和原作的輸出相同（第二批：標籤與群體）', () => {
-  for (const [name, { frag, project: raw }] of Object.entries(fixture)) {
+  for (const [name, { frag, project: raw, force }] of Object.entries(fixture)) {
     describe(name, () => {
       const { root, r } = mine(raw);
       const q = (sel: string) => root.querySelector(sel);
@@ -186,6 +196,21 @@ describe('和原作的輸出相同（第二批：標籤與群體）', () => {
           ),
         ).toEqual(frag.charLegend);
         expect(r.pad).toBe(frag.bleed);
+      });
+      it('磁鐵：標籤的引力與互斥、收合中的成員不動（12 步之後的位置）', () => {
+        const p = project(raw);
+        const s = p.sheets[p.sheets.length - 1];
+        const vel: Velocities = new Map();
+        for (let i = 0; i < 12; i++) forceStep(sheetCtx(s, p.labels), vel, 1, new Set(), null);
+        const mine = new Map(s.chars.map((c) => [c.id, c]));
+        for (const [id, x, y] of force.chars) {
+          const c = mine.get(id);
+          expect(c, `角色 ${id}`).toBeTruthy();
+          expect(Math.abs((c?.x ?? 0) - x) + Math.abs((c?.y ?? 0) - y), `角色 ${id}`).toBeLessThan(
+            1e-6,
+          );
+        }
+        expect(s.settings.labelPos).toEqual(force.labelPos);
       });
       it('標籤圖例（項目、樣本、名稱、面板位置）', () => {
         const o = frag.lblLegend ? parse(frag.lblLegend) : null;

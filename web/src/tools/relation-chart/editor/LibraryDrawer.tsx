@@ -208,6 +208,7 @@ export function LibraryDrawer() {
             size="sm"
             value={prefs.libLevel}
             onValueChange={(v) => setPrefs({ libLevel: v })}
+            aria-label={S.lib.level}
             options={(['min', 'normal', 'detail'] as const).map((v) => ({
               value: v,
               label: S.lib.levels[v],
@@ -218,6 +219,7 @@ export function LibraryDrawer() {
             size="sm"
             value={prefs.libSize}
             onValueChange={(v) => setPrefs({ libSize: v })}
+            aria-label={S.lib.size}
             options={(['sm', 'md', 'lg'] as const).map((v) => ({
               value: v,
               label: S.lib.sizes[v],

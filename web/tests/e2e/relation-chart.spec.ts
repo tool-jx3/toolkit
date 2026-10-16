@@ -1847,6 +1847,8 @@ test('標籤庫（檔案庫）：新增、同名沿用、未命名、依分頁�
   await lib(page).getByTestId('library-act-del').click();
   await chip(page, 90000).click();
   await expect(lib(page).getByTestId('label-item')).toHaveCount(4);
+  /* 刪掉的原地留墓碑（版面不位移） */
+  await expect(lib(page).getByTestId('label-ghost')).toHaveCount(1);
   /* 分組＋刪除模式：整組刪除（確認） */
   await lib(page).getByTestId('library-group').click();
   await lib(page).getByTestId('label-group-delete').last().click();
@@ -1855,8 +1857,12 @@ test('標籤庫（檔案庫）：新增、同名沿用、未命名、依分頁�
   await dlg.getByRole('button', { name: '刪除整組' }).click();
   await page.waitForTimeout(450);
   expect((await saved(page))?.labels.map((l) => l.text)).toEqual(['甲', '乙組']);
+  await expect(lib(page).getByTestId('label-ghost')).toHaveCount(2);
+  /* Esc＝結束模式（同原作的 Esc 鏈：建立關係 → 面板 → 聚焦 → 模式） */
+  await page.locator('body').press('Escape');
+  await expect(lib(page).getByTestId('library-act-del')).toHaveAttribute('aria-pressed', 'false');
+  await expect(lib(page).getByTestId('label-ghost')).toHaveCount(0);
   /* 拖曳換順序（一般模式；同一組內） */
-  await lib(page).getByTestId('library-act-del').click();
   await drag(page, await center(chip(page, 1)), await center(chip(page, 2)));
   await page.waitForTimeout(450);
   expect((await saved(page))?.labels.map((l) => l.text)).toEqual(['乙組', '甲']);

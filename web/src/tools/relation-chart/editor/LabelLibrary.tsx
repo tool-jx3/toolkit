@@ -8,7 +8,7 @@
  * - 模式（下方的小圓鈕）：新增未命名、編輯、隱藏、引力、陣營框、刪除。
  */
 import { EyeOff, Group, Magnet, Maximize2, Minimize2, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   ColorField,
@@ -189,14 +189,36 @@ function Chip({
   );
 }
 
+/** 刪除模式的墓碑：刪掉的標籤原地留一顆劃掉的灰晶片（版面不位移，連點不會點到遞補上來的下一顆） */
+function GhostChip({ text }: { text: string }) {
+  const size = usePrefs((p) => p.data.libSize);
+  return (
+    <span
+      className={`flex max-w-full select-none items-center rounded-full border border-dashed border-border opacity-30 ${SIZE[size]}`}
+      aria-hidden
+      data-testid="label-ghost"
+    >
+      <span className="min-w-0 truncate line-through">{text}</span>
+    </span>
+  );
+}
+
+interface Row {
+  id: number;
+  text: string;
+}
+
 function ChipGroup({
   title,
   items,
+  rows,
   counts,
   onDeleteGroup,
 }: {
   title: string | null;
   items: Label[];
+  /** 刪除模式凍結的順序（刪掉的＝墓碑）；null＝照 items */
+  rows: readonly Row[] | null;
   counts: ReadonlyMap<number, number>;
   onDeleteGroup: (() => void) | null;
 }) {
@@ -247,26 +269,38 @@ function ChipGroup({
         </div>
       ) : null}
       <div className="flex flex-wrap gap-1.5">
-        {items.map((l, i) => (
-          <Chip
-            key={l.id}
-            l={l}
-            color={labelColor(ctx, l)}
-            count={counts.get(l.id) ?? 0}
-            rowProps={sortable.rowProps(i)}
-            dragging={sortable.dragIndex === i}
-            onKeyDown={(e) => {
-              if (sortable.keyMove(i, e)) return;
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                click(l.id);
-              }
-            }}
-          />
-        ))}
+        {(rows ?? items).map((r) => {
+          const i = ids.indexOf(r.id);
+          const l = items[i];
+          if (!l) return <GhostChip key={r.id} text={r.text} />;
+          return (
+            <Chip
+              key={l.id}
+              l={l}
+              color={labelColor(ctx, l)}
+              count={counts.get(l.id) ?? 0}
+              rowProps={sortable.rowProps(i)}
+              dragging={sortable.dragIndex === i}
+              onKeyDown={(e) => {
+                if (sortable.keyMove(i, e)) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  click(l.id);
+                }
+              }}
+            />
+          );
+        })}
       </div>
     </div>
   );
+}
+
+interface Sec {
+  key: string;
+  title: string | null;
+  list: Label[];
+  sheet: number | null;
 }
 
 export function LabelList({ query }: { query: string }) {
@@ -276,11 +310,13 @@ export function LabelList({ query }: { query: string }) {
   const mode = useUi((u) => u.libMode);
   const confirm = useConfirm();
   const { count, bySheet } = useMemo(() => usage(sheets), [sheets]);
+  const frozen = useRef<{ sig: string; secs: Sec[] } | null>(null);
   const q = query.trim().toLowerCase();
   const items = q ? labels.filter((l) => l.text.toLowerCase().includes(q)) : labels;
-  if (!labels.length) return <p className="text-sm text-muted">{L.empty}</p>;
-  if (!items.length) return <p className="text-sm text-muted">{L.noMatch}</p>;
-  const secs: { key: string; title: string | null; list: Label[]; sheet: number | null }[] = [];
+  if (mode !== 'del') frozen.current = null;
+  if (!labels.length && !frozen.current) return <p className="text-sm text-muted">{L.empty}</p>;
+  if (!items.length && !frozen.current) return <p className="text-sm text-muted">{L.noMatch}</p>;
+  const secs: Sec[] = [];
   if (grouped) {
     sheets.forEach((s, i) => {
       const list = items.filter((l) => bySheet[i].has(l.id));
@@ -290,16 +326,33 @@ export function LabelList({ query }: { query: string }) {
     if (unused.length)
       secs.push({ key: 'unused', title: S.lib.groupUnused, list: unused, sheet: null });
   } else secs.push({ key: 'all', title: null, list: items, sheet: null });
+  /* 刪除模式：進模式（或換了搜尋、分組）時記下版面，之後刪掉的留墓碑；模式中新增的接在最後 */
+  let shown: (Sec & { rows: readonly Row[] | null })[] = secs.map((s) => ({ ...s, rows: null }));
+  if (mode === 'del') {
+    const sig = `${q}|${grouped ? 1 : 0}`;
+    if (frozen.current?.sig !== sig) frozen.current = { sig, secs };
+    const live = new Map(labels.map((l) => [l.id, l]));
+    const seen = new Set<number>();
+    shown = frozen.current.secs.map((s) => {
+      const rows = s.list.map((l) => ({ id: l.id, text: l.text }));
+      for (const r of rows) seen.add(r.id);
+      const list = rows.flatMap((r) => live.get(r.id) ?? []);
+      return { ...s, list, rows };
+    });
+    const extra = items.filter((l) => !seen.has(l.id));
+    if (extra.length) shown.push({ key: 'new', title: null, list: extra, sheet: null, rows: null });
+  }
   return (
     <section className="flex flex-col gap-3" aria-label={L.listLabel} data-testid="label-list">
-      {secs.map((s) => (
+      {shown.map((s) => (
         <ChipGroup
           key={s.key}
           title={s.title}
           items={s.list}
+          rows={s.rows}
           counts={count}
           onDeleteGroup={
-            mode === 'del' && grouped
+            mode === 'del' && grouped && s.title !== null && s.list.length
               ? async () => {
                   const ok = await confirm({
                     title:
@@ -403,6 +456,7 @@ export function LabelSide() {
   const selId = useUi((u) => u.libSel);
   const editId = useUi((u) => u.libEdit);
   const color = useUi((u) => u.libColor);
+  const grouped = usePrefs((p) => p.data.labelsBySheet);
   const [text, setText] = useState('');
   const editing = mode === 'edit' && editId !== null ? labels.find((l) => l.id === editId) : null;
   const sel = mode === null && selId !== null ? labels.find((l) => l.id === selId) : null;
@@ -451,7 +505,9 @@ export function LabelSide() {
       </Field>
       <p className="text-xs text-muted" data-testid="label-hint">
         {hint}
-        {mode === null && labels.length > 1 ? ` ${S.lib.dragTip}` : ''}
+        {mode === null && labels.length > 1
+          ? ` ${S.lib.dragTip}${grouped ? S.lib.dragInGroup : ''}`
+          : ''}
       </p>
       {sel ? <LabelDetail l={sel} /> : null}
       <LabelDisplaySettings />

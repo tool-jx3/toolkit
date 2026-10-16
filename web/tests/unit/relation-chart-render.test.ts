@@ -132,7 +132,13 @@ describe('畫法（3.4）', () => {
   });
 
   it('聚焦時的亮度：線、圖例按比例跟著', () => {
-    expect(focusDimSet(0.15)).toEqual({ node: 0.15, edge: 0.07, lbl: 0.1, zone: 0.12, legend: 0.3 });
+    expect(focusDimSet(0.15)).toEqual({
+      node: 0.15,
+      edge: 0.07,
+      lbl: 0.1,
+      zone: 0.12,
+      legend: 0.3,
+    });
     expect(focusDimSet(0.6)).toEqual({ node: 0.6, edge: 0.28, lbl: 0.4, zone: 0.48, legend: 1 });
     expect(focusDimSet(Number.NaN).node).toBe(0.15);
   });
