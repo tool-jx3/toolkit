@@ -1,7 +1,9 @@
 /**
  * 把畫布上的動畫錄成影片（MediaRecorder）：依實際時間錄指定的秒數，結果是瀏覽器能播放的 WebM（或 MP4）。
- * 用來產生範例影片、測試用影片。錄出來的 WebM 通常沒有寫總長，讀的時候用 openVideo（會先算出總長）。
+ * 用來產生範例影片、測試用影片。錄完的 WebM 補上總長（webm.ts 的 withWebmDuration：分段錄的 WebM 原本沒有寫 Duration，
+ * 播放器打開時不知道多長）；別的來源的 WebM 讀的時候照舊用 openVideo（會先算出總長）。
  */
+import { withWebmDuration } from './webm';
 
 const CANDIDATE_TYPES = [
   'video/webm;codecs=vp9',
@@ -134,7 +136,7 @@ export interface CanvasRecordingOptions {
 
 /**
  * 即時錄下一個已經在畫面上（或由工具自己逐格畫）的畫布：開始後畫布上的變化與 audio 的聲音依實際時間錄進去，
- * stop() 拿到影片。用在瀏覽器不能逐格編碼（沒有 WebCodecs）時的退路；錄出來的 WebM 通常沒有寫總長。
+ * stop() 拿到影片。用在瀏覽器不能逐格編碼（沒有 WebCodecs）時的退路；WebM 錄完補上總長（最後一格的時間，withWebmDuration）。
  * 開始失敗時丟錯（訊息可直接顯示）。（music-frame 移植時新增）
  */
 export function startCanvasRecording(
@@ -175,10 +177,13 @@ export function startCanvasRecording(
   recorder.onstop = () => {
     stopTracks();
     if (cancelled) failed?.(new DOMException('已取消', 'AbortError'));
-    else
-      done?.(
-        new Blob(chunks, { type: (recorder.mimeType || mimeType || 'video/webm').split(';')[0] }),
-      );
+    else {
+      const blob = new Blob(chunks, {
+        type: (recorder.mimeType || mimeType || 'video/webm').split(';')[0],
+      });
+      /* 分段錄的 WebM 沒有寫總長：補上（讀不懂就照原檔） */
+      void withWebmDuration(blob).then((b) => done?.(b));
+    }
   };
   recorder.onerror = () => {
     stopTracks();
@@ -266,7 +271,10 @@ export function recordCanvas({
     recorder.onstop = () => {
       stopTracks();
       if (aborted) reject(new DOMException('已取消', 'AbortError'));
-      else resolve(new Blob(chunks, { type: recorder.mimeType || mimeType || 'video/webm' }));
+      else
+        void withWebmDuration(
+          new Blob(chunks, { type: recorder.mimeType || mimeType || 'video/webm' }),
+        ).then(resolve);
     };
     recorder.onerror = () => {
       if (timer) clearTimeout(timer);
