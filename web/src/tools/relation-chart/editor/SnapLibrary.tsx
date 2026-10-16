@@ -300,6 +300,7 @@ export function SnapList({ query }: { query: string }) {
       meta: meta(m),
       onSheet: false,
       sheets: [],
+      tip: T.itemTip,
     };
   });
   const pickedIdx = pick ? ids.findIndex((m) => m.id === pick) : -1;

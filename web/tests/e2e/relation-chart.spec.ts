@@ -1532,7 +1532,7 @@ test('專案檔：存成 ZIP（含圖片）、全部重設、開啟還原；Ctrl
   const zbytes = readFileSync((await dl.path()) as string);
   const files = unzipSync(new Uint8Array(zbytes));
   const pj = JSON.parse(strFromU8(files['project.json']));
-  expect(pj).toMatchObject({ format: 'trpg-toolkit-project', tool: 'relation-chart', version: 4 });
+  expect(pj).toMatchObject({ format: 'trpg-toolkit-project', tool: 'relation-chart', version: 5 });
   const av = pj.data.sheets[0].chars[0].avatar;
   expect(Object.keys(files)).toEqual(
     expect.arrayContaining([`files/${av.img}.png`, `files/${av.src}.png`]),
@@ -3769,7 +3769,8 @@ test('原作的專案檔（第四批）：便利貼（含畫布外、隱藏紙�
   ]);
   await fc.setFiles({ name: 'notes.zip', mimeType: 'application/zip', buffer: zip });
   await expect(toast(page, /已讀入原作的專案：3 張分頁/)).toBeVisible();
-  await expect(toast(page, /分頁庫/)).toBeVisible();
+  /* 第五批起分頁庫也讀進來：沒有「已略過」的通知 */
+  await expect(toast(page, /已略過/)).toHaveCount(0);
   await page.waitForTimeout(600);
   const p = (await saved(page)) as Project;
   const main = p.sheets[1];
@@ -4036,5 +4037,358 @@ test('便利貼字級（7.11，F190d）：小於 1＝留空、照原作捨去成
   /* 一步復原回 12.5 */
   await page.getByTestId('undo').click();
   await expect(def).toHaveValue('12.5');
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 第五批：版本與動畫 ---------- */
+
+/** GIF 的寬高、存下來的格數、每格延遲（百分之一秒）的總和 */
+function readGif(b: Uint8Array): { sig: string; w: number; h: number; frames: number; cs: number } {
+  const sig = String.fromCharCode(...b.slice(0, 6));
+  const w = b[6] | (b[7] << 8);
+  const h = b[8] | (b[9] << 8);
+  let i = 13;
+  if (b[10] & 0x80) i += 3 * (1 << ((b[10] & 7) + 1));
+  const skipSub = () => {
+    while (b[i]) i += b[i] + 1;
+    i++;
+  };
+  let frames = 0;
+  let cs = 0;
+  while (i < b.length) {
+    const t = b[i++];
+    if (t === 0x3b) break;
+    if (t === 0x21) {
+      const label = b[i++];
+      if (label === 0xf9) cs += b[i + 2] | (b[i + 3] << 8);
+      skipSub();
+    } else if (t === 0x2c) {
+      const packed = b[i + 8];
+      i += 9;
+      if (packed & 0x80) i += 3 * (1 << ((packed & 7) + 1));
+      i++;
+      skipSub();
+      frames++;
+    } else break;
+  }
+  return { sig, w, h, frames, cs };
+}
+
+/** 讀原作的時間軸範例（b45-timeline-notes 的 project.json；圖檔不附） */
+async function openLegacyTimeline(page: Page) {
+  const data0 = readFileSync(
+    `${process.cwd()}/tests/unit/fixtures/relation-chart-b5-timeline.json`,
+    'utf8',
+  );
+  const zip = Buffer.from(zipSync({ '專案/project.json': strToU8(data0) }));
+  const [fc] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    openProjectItem(page, '開啟專案檔…'),
+  ]);
+  await fc.setFiles({ name: 'timeline.zip', mimeType: 'application/zip', buffer: zip });
+  await expect(toast(page, /已讀入原作的專案：3 張分頁/)).toBeVisible();
+  await expect(toast(page, /已略過/)).toHaveCount(0);
+  await page.getByTestId('sheet-tab').nth(1).click();
+  await expect(page.getByTestId('frame-bar')).toBeVisible();
+}
+
+const charX = (s: Sheet, id: number) => s.chars.find((c) => c.id === id)?.x;
+const charCell = (page: Page, k: number) => page.getByTestId('tl-cell-chars').nth(k);
+
+test('時間軸分頁（F028）：轉換、新增影格（延續上一格）＝保持、拖角色自動打關鍵、切影格不記一步、復原跳回那一格、秒數、速度、眼睛與鎖、刪除影格、播放、轉回', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, project([trio()]));
+  await more(page, 'menu-timeline');
+  await page.getByRole('alertdialog').getByRole('button', { name: '轉換' }).click();
+  const marks = page.getByTestId('tl-mark');
+  await expect(marks).toHaveCount(1);
+  await expect(page.getByTestId('sheet-tab').first()).toContainText('時間軸分頁 1');
+  /* 新增影格（延續上一格）：四條軌道都是保持 */
+  await page.waitForTimeout(450);
+  await page.getByRole('button', { name: /^新增影格（延續上一格）/ }).click();
+  await expect(marks).toHaveCount(2);
+  await expect(marks.nth(1)).toHaveAttribute('aria-current', 'true');
+  await expect(charCell(page, 1)).toHaveAttribute('aria-label', '第 2 格的「角色與關係」：保持');
+  /* 第 2 格拖角色＝那一層自動變成關鍵影格 */
+  await page.waitForTimeout(450);
+  const a = await nodeCenter(page, 1);
+  await drag(page, a, { x: a.x + 120, y: a.y });
+  await expect(charCell(page, 1)).toHaveAttribute(
+    'aria-label',
+    '第 2 格的「角色與關係」：關鍵影格',
+  );
+  let s = await sheet(page);
+  const moved = charX(s, 1) as number;
+  expect(moved).toBeGreaterThan(300);
+  expect(s.tl?.frames[1].hold).not.toContain('chars');
+  /* 切到第 1 格：角色回到第 1 格的位置；切影格不記一步 */
+  await marks.nth(0).click();
+  s = await sheet(page);
+  expect(s.tl?.active).toBe(0);
+  expect(charX(s, 1)).toBe(250);
+  /* 復原：拖曳那一步在第 2 格＝跳回第 2 格再復原 */
+  await page.getByTestId('undo').click();
+  s = await sheet(page);
+  expect(s.tl?.active).toBe(1);
+  expect(charX(s, 1)).toBe(250);
+  await expect(charCell(page, 1)).toHaveAttribute('aria-label', '第 2 格的「角色與關係」：保持');
+  /* 重做＝回到按復原時的樣子（在第 1 格），第 2 格又是拖過的關鍵影格 */
+  await page.getByTestId('redo').click();
+  s = await sheet(page);
+  expect(s.tl?.active).toBe(0);
+  expect(s.tl?.frames[1].chars.find((c) => c.id === 1)?.x).toBe(moved);
+  await expect(charCell(page, 1)).toHaveAttribute(
+    'aria-label',
+    '第 2 格的「角色與關係」：關鍵影格',
+  );
+  /* 第 2 格的角色層改回保持（確認） */
+  await marks.nth(1).click();
+  s = await sheet(page);
+  expect(charX(s, 1)).toBe(moved);
+  await page.waitForTimeout(450);
+  await charCell(page, 1).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '改成保持' }).click();
+  await expect(charCell(page, 1)).toHaveAttribute('aria-label', '第 2 格的「角色與關係」：保持');
+  s = await sheet(page);
+  expect(charX(s, 1)).toBe(250);
+  /* 秒數：按兩下第 1 格 */
+  await page.waitForTimeout(450);
+  await marks.nth(0).dblclick();
+  const dur = page.getByTestId('tl-dur');
+  await dur.getByRole('spinbutton', { name: '影格播放時間' }).fill('2.5');
+  await page.getByTestId('tl-dur-ok').click();
+  s = await sheet(page);
+  expect(s.tl?.frames[0].dur).toBe(2.5);
+  await expect(marks.nth(0)).toHaveAttribute('title', /2\.5秒/);
+  /* 速度：1× → 1.5× */
+  await page.waitForTimeout(450);
+  await page.getByTestId('tl-speed').click();
+  await expect(page.getByTestId('tl-speed')).toHaveText('1.5×');
+  /* 眼睛（只影響編輯畫面）與鎖 */
+  await page.waitForTimeout(450);
+  await page.getByTestId('tl-eye-chars').click();
+  await expect(page.getByTestId('tl-eye-chars')).toHaveAttribute('aria-pressed', 'false');
+  await page.waitForTimeout(450);
+  await page.getByTestId('tl-lock-notes').click();
+  s = await sheet(page);
+  expect(s.tl).toMatchObject({ speed: 1.5, hidden: ['chars'], locked: ['notes'] });
+  /* 每一項都能復原 */
+  await page.getByTestId('undo').click();
+  await page.getByTestId('undo').click();
+  await page.getByTestId('undo').click();
+  s = await sheet(page);
+  expect(s.tl).toMatchObject({ speed: 1, hidden: [], locked: [] });
+  /* 刪除模式：點第 2 格＝刪除；復原回來 */
+  await page.waitForTimeout(450);
+  await page.getByTestId('tl-del-mode').click();
+  await marks.nth(1).click();
+  await expect(marks).toHaveCount(1);
+  await page.getByTestId('undo').click();
+  await expect(marks).toHaveCount(2);
+  await page.getByTestId('tl-del-mode').click();
+  /* 播放：播到最後一格停在「2」 */
+  await page.getByRole('button', { name: '播放', exact: true }).click();
+  await expect(page.getByTestId('transport-time')).toHaveText(/^2／2/, { timeout: 8000 });
+  /* 轉回一般分頁（只留目前影格） */
+  await marks.nth(0).click();
+  await page.waitForTimeout(450);
+  await more(page, 'menu-timeline');
+  await page.getByRole('alertdialog').getByRole('button', { name: '轉回' }).click();
+  await expect(page.getByTestId('frame-bar')).toHaveCount(0);
+  s = await sheet(page);
+  expect(s.tl).toBeNull();
+  expect(errors).toEqual([]);
+});
+
+test('讀原作的時間軸（4 格、保持、秒數、鎖、1.5 倍速）；GIF（20 fps、960 × 785、和原作同長）、再次匯出、互動網頁的動畫', async ({
+  page,
+  context,
+}) => {
+  const errors = await open(page);
+  await openLegacyTimeline(page);
+  await expect(page.getByTestId('tl-mark')).toHaveText(['1', '2', '3', '4']);
+  await expect(page.getByTestId('tl-speed')).toHaveText('1.5×');
+  const keys = await page
+    .getByTestId('tl-cell-chars')
+    .evaluateAll((els) => els.map((e) => e.hasAttribute('data-key')));
+  expect(keys).toEqual([true, false, true, false]);
+  await expect(page.getByTestId('tl-lock-bg')).toHaveAttribute('aria-pressed', 'true');
+  /* GIF：計畫和原作相同（65 格、960 × 785） */
+  await page.getByTestId('open-export').click();
+  const dlg = page.getByRole('dialog', { name: '匯出' });
+  await dlg.getByRole('radio', { name: 'GIF／影片' }).click();
+  await dlg.getByRole('radio', { name: 'GIF 動畫' }).click();
+  await expect(dlg.getByText(/65 格、960 × 785、約 4\.20 秒/).first()).toBeVisible();
+  await dlg.getByRole('button', { name: '匯出 GIF 動畫' }).click();
+  const link = dlg.getByRole('link', { name: '下載' });
+  await expect(link).toBeVisible({ timeout: 60000 });
+  const [dl] = await Promise.all([page.waitForEvent('download'), link.click()]);
+  expect(dl.suggestedFilename()).toBe('第一章（時間軸）.gif');
+  const gif = readGif(new Uint8Array(readFileSync((await dl.path()) as string)));
+  /* 相同的連續畫面合併成一格（延遲相加）：總長和原作相同 */
+  expect(gif).toMatchObject({ sig: 'GIF89a', w: 960, h: 785, cs: 420 });
+  expect(gif.frames).toBeLessThanOrEqual(65);
+  await page.keyboard.press('Escape');
+  await expect(dlg).toBeHidden();
+  /* 再次匯出：記得 GIF */
+  const again = page.getByTestId('export-again');
+  await expect(again).toHaveAttribute('aria-label', /GIF/);
+  const [dl2] = await Promise.all([
+    page.waitForEvent('download', { timeout: 60000 }),
+    again.click(),
+  ]);
+  expect(dl2.suggestedFilename()).toMatch(/\.gif$/);
+  /* 互動網頁：預先算好的動畫，帶每格秒數與速度 */
+  const html = strFromU8((await runExport(page, '互動網頁（唯讀）', { scope: '目前分頁' })).bytes);
+  expect(html).toContain('id="animBar"');
+  const w = await context.newPage();
+  const vErrors: string[] = [];
+  w.on('pageerror', (e) => vErrors.push(e.message));
+  await w.route('**/*', (r) =>
+    r.request().url() === 'http://viewer.test/'
+      ? r.fulfill({ body: html, contentType: 'text/html' })
+      : r.abort(),
+  );
+  await w.goto('http://viewer.test/');
+  await expect(w.locator('#animTime')).toHaveText('1 / 4');
+  await w.locator('#animPlay').click();
+  await expect(w.locator('#animTime')).toHaveText('4 / 4', { timeout: 10000 });
+  expect(vErrors).toEqual([]);
+  await w.close();
+  expect(errors).toEqual([]);
+});
+
+test('分頁庫（F027）：刪除分頁＝封存（可以復原）；匯入當前（面板留著，7.10）、複製、刪除（墓碑、不進復原）；全部重設不清分頁庫', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const a = trio();
+  a.name = '主線';
+  const b = sample('story', 1000, '支線');
+  b.memo = '支線的備忘錄';
+  await seed(page, project([a, b]));
+  const tabs = page.getByTestId('sheet-tab');
+  await page.getByTestId('sheet-close').nth(1).click();
+  await expect(tabs).toHaveText(['主線']);
+  await expect(toast(page, '已刪除分頁「支線」（封存在檔案庫的分頁庫）')).toBeVisible();
+  await viewMenu(page, 'menu-memo');
+  await page.getByTestId('library-open').click();
+  await page.getByTestId('library-tab-sheets').click();
+  const entries = lib(page).getByTestId('lib-entry');
+  await expect(entries.getByTestId('lib-entry-name')).toHaveText(['支線']);
+  await expect(entries.getByTestId('lib-entry-meta')).toHaveText([/^6 角色 · \d+ 關係 · /]);
+  /* 匯入當前：加成新分頁並切過去；備忘錄面板留著、換成那一張的 */
+  await page.getByTestId('library-act-import').click();
+  await entries.first().click();
+  await expect(tabs).toHaveText(['主線', '支線']);
+  await expect(title(page)).toHaveText('備忘錄');
+  await expect(page.getByTestId('memo-text')).toHaveValue('支線的備忘錄');
+  /* 複製模式 */
+  await page.getByTestId('library-act-copy').click();
+  await entries.first().click();
+  await expect(entries.getByTestId('lib-entry-name')).toHaveText(['支線', '支線（複製）']);
+  /* 刪除模式：留墓碑，離開模式才收掉；不進復原 */
+  await page.getByTestId('library-act-del').click();
+  await entries.nth(1).click();
+  await expect(lib(page).getByTestId('lib-ghost')).toHaveCount(1);
+  await page.getByTestId('library-act-del').click();
+  await expect(lib(page).getByTestId('lib-ghost')).toHaveCount(0);
+  await expect(entries.getByTestId('lib-entry-name')).toHaveText(['支線']);
+  /* 復原只回到匯入前（分頁庫照舊一筆） */
+  await page.getByTestId('undo').click();
+  await expect(tabs).toHaveText(['主線']);
+  let p = await data(page);
+  expect(p.sheetLib.map((x) => x.name)).toEqual(['支線']);
+  /* 全部重設：分頁庫留著 */
+  await lib(page).getByTestId('library-close').click();
+  await openProjectItem(page, '全部重設…');
+  await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
+  await expect(tabs).toHaveText(['分頁1']);
+  p = await data(page);
+  expect(p.sheetLib.map((x) => x.name)).toEqual(['支線']);
+  expect(errors).toEqual([]);
+});
+
+test('版本快照（F015）：建立（沒名字＝手動快照、命名）、還原整份（先拍「還原前」、可以復原）、只取一個分頁（面板留著，7.10）、匯出全部、匯入原作的備份並取回分頁；全部重設不清快照', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const a = trio();
+  a.name = '主線';
+  const b = sample('story', 1000, '支線');
+  await seed(page, project([a, b]));
+  const tabs = page.getByTestId('sheet-tab');
+  /* 專案選單：建立快照 */
+  await openProjectItem(page, '建立快照');
+  await expect(toast(page, '已建立快照（檔案庫 › 快照）')).toBeVisible();
+  /* 改一點：刪掉第二張 */
+  await page.getByTestId('sheet-close').nth(1).click();
+  await expect(tabs).toHaveText(['主線']);
+  /* 查看快照 → 命名一份（開頁後的自動快照可能也在清單最後） */
+  await openProjectItem(page, '查看快照…');
+  const entries = lib(page).getByTestId('lib-entry');
+  const names = entries.getByTestId('lib-entry-name');
+  const manual = entries.filter({ hasText: '手動快照' });
+  await expect(names.first()).toHaveText('手動快照');
+  await page.getByTestId('snap-name').fill('只剩主線');
+  await page.getByTestId('snap-take').click();
+  await expect(names.first()).toHaveText('只剩主線');
+  await expect(manual).toHaveCount(1);
+  /* 還原整份：先拍「還原前」，可以復原 */
+  await manual.click();
+  await expect(page.getByTestId('snap-panel-name')).toHaveText('手動快照');
+  await page.getByTestId('snap-restore').click();
+  await expect(toast(page, '已還原快照')).toBeVisible();
+  await expect(tabs).toHaveText(['主線', '支線']);
+  await page.getByTestId('snap-back').click();
+  await expect(names.first()).toHaveText('還原前');
+  await page.getByTestId('undo').click();
+  await expect(tabs).toHaveText(['主線']);
+  /* 只取一個分頁：加成新分頁，統計面板留著 */
+  await viewMenu(page, 'menu-stats');
+  await manual.click();
+  await page.getByTestId('snap-pick-sheet').filter({ hasText: '支線' }).click();
+  await expect(toast(page, '已把該分頁加入為新分頁')).toBeVisible();
+  await expect(tabs).toHaveText(['主線', '支線']);
+  await expect(title(page)).toHaveText('統計與尋路（本分頁）');
+  await expect(page.getByTestId('stats-rank').getByTestId('stats-row').first()).toHaveText(
+    '1.主角5',
+  );
+  /* 匯出全部 */
+  await page.getByTestId('snap-back').click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('snap-export').click(),
+  ]);
+  expect(dl.suggestedFilename()).toMatch(/^快照備份_\d{4}-\d{2}-\d{2}\.zip$/);
+  const files = unzipSync(new Uint8Array(readFileSync((await dl.path()) as string)));
+  const manifest = JSON.parse(strFromU8(files['snapshots/snapshots.json']));
+  expect(manifest).toMatchObject({ v: 1, tool: 'relation-chart' });
+  expect(manifest.snaps.length).toBe(await entries.count());
+  /* 匯入原作「匯出全部」的備份：3 份都當成手動快照 */
+  const n0 = await entries.count();
+  const [fc] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByTestId('snap-import').click(),
+  ]);
+  await fc.setFiles(`${process.cwd()}/tests/unit/fixtures/relation-chart-b5-snapshots.zip`);
+  await expect(toast(page, '已匯入 3 份快照（跳過 0 份重複的）')).toBeVisible();
+  await expect(entries).toHaveCount(n0 + 3);
+  await expect(entries.filter({ hasText: '第一份（手動）' })).toHaveCount(1);
+  /* 從原作的快照取回「範例：家族樹」；統計面板照樣留著 */
+  await entries.filter({ hasText: '第一份（手動）' }).click();
+  await page.getByTestId('snap-pick-sheet').filter({ hasText: '範例：家族樹' }).click();
+  await expect(toast(page, '已把該分頁加入為新分頁')).toBeVisible();
+  await expect(tabs).toHaveText(['主線', '支線', '範例：家族樹']);
+  await expect(title(page)).toHaveText('統計與尋路（本分頁）');
+  /* 全部重設：快照不清 */
+  await lib(page).getByTestId('library-close').click();
+  await openProjectItem(page, '全部重設…');
+  await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
+  await expect(tabs).toHaveText(['分頁1']);
+  await openProjectItem(page, '查看快照…');
+  await expect(entries).toHaveCount(n0 + 3);
   expect(errors).toEqual([]);
 });

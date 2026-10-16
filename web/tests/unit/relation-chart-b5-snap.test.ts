@@ -42,7 +42,7 @@ const { addChar, addSample, addSheet, deleteSheet, updateChar } = await import(
   '@/tools/relation-chart/state/actions'
 );
 const snaps = await import('@/tools/relation-chart/state/snapshots');
-const { assets, setUi, updateProject, useProject } = await import(
+const { assets, setUi, updateProject, useProject, useUi } = await import(
   '@/tools/relation-chart/state/store'
 );
 
@@ -144,11 +144,14 @@ describe('版本快照', () => {
     const snapId = snaps.useSnaps.getState().list?.[0].id as string;
     deleteSheet(1);
     expect(p().sheets).toHaveLength(1);
+    /* 世界觀／備忘錄／統計面板留著、換成取回的那一張（7.10） */
+    setUi({ panel: { kind: 'stats' } });
     expect(await snaps.takeSheetFromSnapshot(snapId, 1)).toBe('ok');
     expect(p().sheets).toHaveLength(2);
     expect(p().sheets[1].name).toBe('範例：故事人物');
     expect(p().sheets[1].chars).toHaveLength(6);
     expect(p().active).toBe(1);
+    expect(useUi.getState().panel).toEqual({ kind: 'stats' });
     undo();
     expect(p().sheets).toHaveLength(1);
   });
@@ -225,6 +228,7 @@ describe('版本快照', () => {
     /* 背景圖、頭像是內嵌的 data URI */
     expect([...conv.backgrounds.values()].every((u) => u.startsWith('data:image/'))).toBe(true);
     expect([...conv.avatars.values()][0].img.startsWith('data:image/')).toBe(true);
+    /* 只取其中一張（原作格式的那條路，要解碼圖）在 E2E 測 */
   });
 });
 

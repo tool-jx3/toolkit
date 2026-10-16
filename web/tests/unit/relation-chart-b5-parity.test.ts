@@ -170,9 +170,9 @@ describe('互動網頁的動畫資料和原作相同（再加上每段秒數）'
       ORIG.viewer.steps,
       ORIG.viewer.frames,
     ]);
-    expect(
-      tl.frames.slice(0, -1).map((_f, k) => Math.round(frameDur(tl, k) * 100) / 100),
-    ).toEqual(ORIG.viewer.durs);
+    expect(tl.frames.slice(0, -1).map((_f, k) => Math.round(frameDur(tl, k) * 100) / 100)).toEqual(
+      ORIG.viewer.durs,
+    );
   });
 });
 

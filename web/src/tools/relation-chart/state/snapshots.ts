@@ -24,7 +24,7 @@ import { sheetName } from '../engine/geom';
 import { normalizeProject, projectAssetIds } from '../model/normalize';
 import { allChars, relLists } from '../model/timeline';
 import type { Project, Sheet } from '../model/types';
-import { importSheetFrom } from './actions';
+import { importSheetFrom, sheetChangedUi } from './actions';
 import { dataUriBytes, importLegacy, replaceProject } from './project';
 import { assets, projectNow, setUi, syncProject, updateProject, useProject, useUi } from './store';
 
@@ -314,9 +314,7 @@ export async function restoreSnapshot(id: string, preName: string): Promise<Snap
   try {
     if (rec.legacy) {
       const data = await legacyData(rec);
-      await importLegacy({ data, files: new Map(), base: '', zip: true }, 'replace', {
-        keepSheetLib: true,
-      });
+      await importLegacy({ data, files: new Map(), base: '', zip: true }, 'replace');
     } else {
       await putImages(rec.imgs);
       const p = normalizeProject(rec.data);
@@ -336,7 +334,10 @@ export async function takeSheetFromSnapshot(id: string, idx: number): Promise<Sn
   try {
     if (rec.legacy) {
       const data = await legacyData(rec);
+      /* 世界觀／備忘錄／統計面板留著（7.10）：讀原作格式的那條路會關掉面板，讀完放回去 */
+      const keep = sheetChangedUi();
       await importLegacy({ data, files: new Map(), base: '', zip: true }, 'append', { only: idx });
+      setUi(keep);
       return 'ok';
     }
     await putImages(rec.imgs);
@@ -347,7 +348,14 @@ export async function takeSheetFromSnapshot(id: string, idx: number): Promise<Sn
       p.active = importSheetFrom(p, JSON.parse(JSON.stringify(sheet)) as Sheet, src);
     });
     const u = useUi.getState();
-    setUi({ sel: [], focus: null, hover: null, link: null, panel: null, fitTick: u.fitTick + 1 });
+    setUi({
+      sel: [],
+      focus: null,
+      hover: null,
+      link: null,
+      ...sheetChangedUi(),
+      fitTick: u.fitTick + 1,
+    });
     return 'ok';
   } catch {
     return 'fail';

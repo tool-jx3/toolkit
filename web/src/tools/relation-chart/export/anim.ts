@@ -18,6 +18,7 @@ import { PALETTES } from '../engine/geom';
 import { maxFrameSize, type TweenOpts, tweenAt } from '../logic/tween';
 import { frameDur } from '../model/timeline';
 import type { Sheet } from '../model/types';
+import { S } from '../strings';
 import { fontFaceCss, usedFontIds } from './fonts';
 import type { ExportInput } from './outputs';
 import { svgToCanvas } from './raster';
@@ -281,7 +282,7 @@ export async function buildVideo(
   force?: 'mp4' | 'record',
 ): Promise<AnimResult> {
   const method = force ?? (await videoMethod());
-  if (!method) throw new Error('這個瀏覽器不支援影片錄製，請改用 GIF 動畫。');
+  if (!method) throw new Error(S.anim.noVideo);
   const plan = animPlanFor(sheet, 'video', true);
   const painter = new AnimPainter(sheet, input, plan, run.tween ?? {});
   const canvas = document.createElement('canvas');
@@ -305,7 +306,7 @@ export async function buildVideo(
           if (i < n) await painter.paint(ctx, plan.ps[i]);
           return canvas;
         },
-        onProgress: (done, all) => run.onProgress?.(done / all, `${done}／${all}`),
+        onProgress: (done, all) => run.onProgress?.(done / all, S.anim.rendering(done, all)),
       });
       return {
         blob,
@@ -332,7 +333,7 @@ export async function buildVideo(
       while (i < n) {
         if (run.signal?.aborted) throw abortErr();
         if (i > 0) await painter.paint(ctx, plan.ps[i]);
-        run.onProgress?.(i / n, `${i + 1}／${n}`);
+        run.onProgress?.(i / n, S.anim.recording(i + 1, n));
         let j = i + 1;
         while (j < n - 1 && j * plan.delay < now()) j++;
         if (j >= n) break;

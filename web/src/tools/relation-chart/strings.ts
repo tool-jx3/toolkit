@@ -158,7 +158,6 @@ export const S = {
     durOk: '確定',
     durCancel: '取消',
     preview: '預覽中：左鍵不能編輯，點影格標記回到編輯',
-    frameCount: (cur: number, n: number) => `${cur} / ${n}`,
     lockBg: '背景層鎖住了（時間軸的圖層鎖）',
   },
 
@@ -176,9 +175,7 @@ export const S = {
     webm: '這個瀏覽器不能直接做 MP4：改用即時錄影（WebM），錄多久就要等多久，時長可能差一點。',
     noVideo: '這個瀏覽器不支援影片錄製，請改用 GIF 動畫。',
     rendering: (i: number, n: number) => `正在畫第 ${i} / ${n} 格…`,
-    encoding: '編碼中…',
     recording: (i: number, n: number) => `即時錄影 ${i} / ${n}…`,
-    cancelled: '已取消匯出',
   },
 
   /** 分頁庫（F027） */

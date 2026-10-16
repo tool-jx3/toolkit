@@ -7,7 +7,8 @@
  *   這三個是分頁庫的管理動作，照原作不進復原（7.4 第 14 項）。
  */
 import type { Sheet } from '../model/types';
-import { importSheetFrom } from './actions';
+import { S } from '../strings';
+import { importSheetFrom, sheetChangedUi } from './actions';
 import { reorderIn } from './libActions';
 import { projectNow, setUi, untracked, updateProject, useUi } from './store';
 
@@ -22,7 +23,14 @@ export function restoreFromSheetLib(itemId: number): boolean {
     p.active = importSheetFrom(p, sheet, p);
   });
   const u = useUi.getState();
-  setUi({ sel: [], focus: null, hover: null, link: null, panel: null, fitTick: u.fitTick + 1 });
+  setUi({
+    sel: [],
+    focus: null,
+    hover: null,
+    link: null,
+    ...sheetChangedUi(),
+    fitTick: u.fitTick + 1,
+  });
   return true;
 }
 
@@ -35,7 +43,7 @@ export function copySheetLibItem(itemId: number): void {
       const src = p.sheetLib[i];
       p.sheetLib.splice(i + 1, 0, {
         id: p.nextId++,
-        name: `${src.name}（複製）`.slice(0, 200),
+        name: `${src.name}${S.sheetLib.copySuffix}`.slice(0, 200),
         savedAt: Date.now(),
         sheet: JSON.parse(JSON.stringify(src.sheet)) as Sheet,
       });

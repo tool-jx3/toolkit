@@ -84,6 +84,7 @@ export function SheetLibList({ query }: { query: string }) {
         meta,
         onSheet: false,
         sheets: [],
+        tip: T.itemTip,
       };
     });
   return (

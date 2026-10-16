@@ -189,10 +189,9 @@ export function replaceProject(p: Project): void {
 
 /* ---------- 原作的專案檔 ---------- */
 
-/** 讀原作的資料時的選項（快照）：只取第幾張分頁、取代時保留現有的分頁庫 */
+/** 讀原作的資料時的選項（快照）：只取第幾張分頁 */
 export interface LegacyApplyOpts {
   only?: number;
-  keepSheetLib?: boolean;
 }
 
 /**
@@ -498,7 +497,7 @@ export async function importLegacy(
     name: x.name.slice(0, 100),
     fmt: x.ext as FontFormat,
   }));
-  applyLegacy(conv, mode, refs.font, frames, fonts, opts);
+  applyLegacy(conv, mode, refs.font, frames, fonts);
   return {
     sheets: conv.sheets.length,
     chars: conv.sheets.reduce((n, s) => n + s.chars.length, 0),
@@ -522,13 +521,11 @@ export function applyLegacy(
   font: FontValue,
   frames: readonly FrameItem[],
   fonts: readonly FontItem[],
-  opts: LegacyApplyOpts = {},
 ): void {
   updateProject((p) => {
     if (mode === 'replace') {
       p.sheets = [];
-      /* 還原原作的快照：分頁庫不在復原裡，現有的留著（同 replaceProject） */
-      if (!opts.keepSheetLib) p.sheetLib = [];
+      /* 分頁庫不在復原裡：取代時現有的留著，讀進來的接在前面（同 replaceProject，D80） */
       p.labels = [];
       p.library = [];
       p.relLibrary = [];
@@ -616,13 +613,19 @@ export function applyLegacy(
         const to = maps.sheetMap.get(s.loreFrom);
         s.loreFrom = to !== undefined && to !== s.id ? to : null;
       }
-    /* 分頁庫：照加入分頁的路徑換 id，放進分頁庫（不留在分頁列） */
+    /* 分頁庫：照加入分頁的路徑換 id，放進分頁庫（不留在分頁列）；取代＝接在現有的前面、加入＝接在後面 */
+    const added: Project['sheetLib'] = [];
     for (const it of conv.sheetLib) {
       const idx = insertSheet(p, it.sheet, { ...maps, sheetMap: new Map() });
       const [sh] = p.sheets.splice(idx, 1);
       sh.loreFrom = sh.loreFrom !== null ? (maps.sheetMap.get(sh.loreFrom) ?? null) : null;
-      p.sheetLib.push({ id: p.nextId++, name: it.name, savedAt: it.savedAt, sheet: sh });
+      added.push({ id: p.nextId++, name: it.name, savedAt: it.savedAt, sheet: sh as Sheet });
     }
+    if (added.length)
+      p.sheetLib =
+        mode === 'replace'
+          ? [...added, ...(p.sheetLib as Project['sheetLib'])]
+          : [...(p.sheetLib as Project['sheetLib']), ...added];
     /* 便利貼庫、設定集：id 換成專案的（加入為新分頁＝接在後面） */
     for (const n of conv.noteBin) {
       const nn = JSON.parse(JSON.stringify(n)) as typeof n;

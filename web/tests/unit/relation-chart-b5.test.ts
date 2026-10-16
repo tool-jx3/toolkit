@@ -43,11 +43,18 @@ import {
 import { addNote, updateNote } from '@/tools/relation-chart/state/noteActions';
 import { applyLegacy, remapLegacyRefs } from '@/tools/relation-chart/state/project';
 import {
+  copySheetLibItem,
+  deleteSheetLibItems,
+  reorderSheetLib,
+  restoreFromSheetLib,
+} from '@/tools/relation-chart/state/sheetLibActions';
+import {
   activeSheet,
   DATA_VERSION,
   setUi,
   updateProject,
   useProject,
+  useUi,
 } from '@/tools/relation-chart/state/store';
 import {
   addFrameAfter,
@@ -465,6 +472,62 @@ describe('分頁庫', () => {
     deleteSheet(0);
     expect(p().sheetLib[0].name).toBe('時間軸分頁 1');
   });
+
+  it('匯入當前＝加成新分頁並切過去（條目留著、可以復原）；世界觀／備忘錄／統計面板留著（7.10）', () => {
+    start();
+    updateProject((pp) => {
+      pp.sheets[0].memo = '封存的備忘錄';
+    });
+    addSheet(false);
+    deleteSheet(0);
+    const id = p().sheetLib[0].id;
+    setUi({ panel: { kind: 'memo' } });
+    const before = steps();
+    expect(restoreFromSheetLib(id)).toBe(true);
+    expect(p().sheets).toHaveLength(2);
+    expect(p().active).toBe(1);
+    expect(activeSheet().memo).toBe('封存的備忘錄');
+    expect(activeSheet().chars).toHaveLength(3);
+    /* 角色是新的實例 id、條目照舊 */
+    expect(activeSheet().chars.map((c) => c.lib)).toEqual(
+      p().sheetLib[0].sheet.chars.map((c) => c.lib),
+    );
+    expect(p().sheetLib).toHaveLength(1);
+    expect(useUi.getState().panel).toEqual({ kind: 'memo' });
+    expect(steps()).toBe(before + 1);
+    undo();
+    expect(p().sheets).toHaveLength(1);
+    expect(p().sheetLib).toHaveLength(1);
+    /* 指著角色的面板照舊關掉 */
+    setUi({ panel: { kind: 'char', id: 1 } });
+    restoreFromSheetLib(id);
+    expect(useUi.getState().panel).toBeNull();
+  });
+
+  it('複製（插在後面、名稱加「（複製）」）、刪除、排序：都不進復原，復原也不會帶回來', () => {
+    start();
+    addSheet(true);
+    addSheet(false);
+    deleteSheet(2);
+    deleteSheet(1);
+    const [a, b] = p().sheetLib.map((x) => x.id);
+    const before = steps();
+    copySheetLibItem(a);
+    expect(p().sheetLib.map((x) => x.name)).toEqual(['分頁2', '分頁2（複製）', '分頁3']);
+    expect(p().sheetLib[1].id).not.toBe(a);
+    reorderSheetLib(
+      p().sheetLib.map((x) => x.id),
+      2,
+      0,
+    );
+    expect(p().sheetLib.map((x) => x.name)).toEqual(['分頁3', '分頁2', '分頁2（複製）']);
+    deleteSheetLibItems([b]);
+    expect(p().sheetLib.map((x) => x.name)).toEqual(['分頁2', '分頁2（複製）']);
+    expect(steps()).toBe(before);
+    undo();
+    expect(p().sheets).toHaveLength(2);
+    expect(p().sheetLib.map((x) => x.name)).toEqual(['分頁2', '分頁2（複製）']);
+  });
 });
 
 describe('讀原作的專案檔（第五批）', () => {
@@ -534,6 +597,20 @@ describe('讀原作的專案檔（第五批）', () => {
     /* 角色綁著角色庫的條目（id 換成專案的） */
     const libIds = new Set(pp.library.map((e) => e.id));
     expect(it0.sheet.chars.every((c) => libIds.has(c.lib))).toBe(true);
+  });
+
+  it('取代目前內容：現有的分頁庫留著、讀進來的接在前面（分頁庫不在復原裡，D80）；復原後分頁庫照舊', () => {
+    start();
+    addSheet(false);
+    deleteSheet(1);
+    expect(p().sheetLib.map((x) => x.name)).toEqual(['分頁2']);
+    const conv = convertLegacy(fixture('relation-chart-b5-sheetlib.json'));
+    const refs = remapLegacyRefs(conv, new Map(), new Map(), new Map());
+    applyLegacy(conv, 'replace', refs.font, [], []);
+    expect(p().sheetLib.map((x) => x.name)).toEqual(['被刪掉的草稿', '分頁2']);
+    undo();
+    expect(p().sheets).toHaveLength(1);
+    expect(p().sheetLib.map((x) => x.name)).toEqual(['被刪掉的草稿', '分頁2']);
   });
 
   it('資料版本 5：第四批的存檔（沒有 tl、sheetLib）讀進來補上預設', () => {

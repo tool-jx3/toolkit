@@ -18,6 +18,7 @@ import { buildObstacles, type EdgeCtx, edgePairs, edgeSvg } from '../engine/edge
 import { bleedPad, type SheetCtx, sheetCtx } from '../engine/geom';
 import { aliveGrels, grelEdgesSvg, labelInfo, zonesActive, zonesSvg } from '../engine/labels';
 import type { ImageHref } from '../engine/nodes';
+import { autoKey } from '../model/timeline';
 import type { Project, Sheet } from '../model/types';
 import { activeSheet, projectNow, setBeforeUpdate, useProject } from '../state/store';
 
@@ -98,7 +99,10 @@ function copyPositions(target: Sheet, from: Sheet) {
 function writeBack(L: Live): void {
   useProject.getState().update((p) => {
     const s = p.sheets.find((x) => x.id === L.sheetId);
-    if (s) copyPositions(s, L.sheet);
+    if (!s) return;
+    copyPositions(s, L.sheet);
+    /* 時間軸分頁：在保持中的影格拖了角色＝那一格的角色層變成關鍵影格（同 updateProject；原作的 tlAutoKey） */
+    if (s.tl) autoKey(s as Sheet);
   });
 }
 

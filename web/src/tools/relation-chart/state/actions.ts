@@ -85,7 +85,7 @@ const takeId = (p: DProject): number => p.nextId++;
  * 換了分頁（切換、新增、刪除、加入範例）之後的右側面板：世界觀、備忘錄、統計是跟著分頁的面板，留著並換成新分頁的內容
  * （原作的浮動面板也是；7.10）；指著某位角色、某條關係、某張便利貼的面板關掉。統計鎖定的聚焦指著上一張分頁的角色＝解除。
  */
-function sheetChangedUi(): Pick<UiState, 'panel' | 'statsFocus'> {
+export function sheetChangedUi(): Pick<UiState, 'panel' | 'statsFocus'> {
   const p = useUi.getState().panel;
   const keep = p?.kind === 'lore' || p?.kind === 'memo' || p?.kind === 'stats';
   return { panel: keep ? p : null, statsFocus: null };
