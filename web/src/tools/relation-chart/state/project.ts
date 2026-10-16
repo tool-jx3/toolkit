@@ -34,7 +34,7 @@ import type {
   Sheet,
 } from '../model/types';
 import { S } from '../strings';
-import { insertSheet, type SheetMaps } from './actions';
+import { insertSheet, type SheetMaps, TL_UI_RESET } from './actions';
 import { avatarFromBlob, backgroundFromBlob, renderAvatar } from './images';
 import { assets, projectNow, setUi, syncProject, updateProject, useUi } from './store';
 
@@ -184,6 +184,7 @@ export function replaceProject(p: Project): void {
     panel: null,
     renaming: null,
     fitTick: useUi.getState().fitTick + 1,
+    ...TL_UI_RESET,
   });
 }
 
@@ -645,6 +646,7 @@ export function applyLegacy(
     panel: null,
     renaming: null,
     fitTick: useUi.getState().fitTick + 1,
+    ...TL_UI_RESET,
   });
 }
 

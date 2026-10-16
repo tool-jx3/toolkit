@@ -46,6 +46,7 @@ import {
   tlSpeed,
 } from '../model/timeline';
 import type { Timeline, TlLane } from '../model/types';
+import { TL_UI_RESET } from '../state/actions';
 import { setPrefs, setUi, usePrefs, useUi } from '../state/store';
 import {
   addFrameAfter,
@@ -208,6 +209,9 @@ function Bar({ tl }: { tl: Timeline }) {
   pbRef.current = pb;
   const tlRef = useRef(tl);
   tlRef.current = tl;
+
+  /* 影格列收起（換了分頁、轉回一般分頁、換掉整個專案、復原到別的分頁）：預覽與模式跟著結束（原作 switchSheet） */
+  useEffect(() => () => setUi(TL_UI_RESET), []);
 
   /* 只剩一格：刪除模式關掉（原作） */
   useEffect(() => {

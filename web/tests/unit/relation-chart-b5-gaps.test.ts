@@ -39,10 +39,19 @@ const { viewerHtml } = await import('@/tools/relation-chart/export/viewer');
 const { tweenAt } = await import('@/tools/relation-chart/logic/tween');
 const { charLibUsage, relLibUsage } = await import('@/tools/relation-chart/model/library');
 const { emptySheet, initialProject } = await import('@/tools/relation-chart/model/normalize');
-const { addChar, addSheet, addType, deleteSheet, deleteType, linkClick, startLink, updateChar } =
-  await import('@/tools/relation-chart/state/actions');
+const {
+  addChar,
+  addSheet,
+  addType,
+  deleteSheet,
+  deleteType,
+  linkClick,
+  startLink,
+  switchSheet,
+  updateChar,
+} = await import('@/tools/relation-chart/state/actions');
 const { copySheetLibItem } = await import('@/tools/relation-chart/state/sheetLibActions');
-const { activeSheet, setUi, updateProject, useProject } = await import(
+const { activeSheet, setUi, updateProject, useProject, useUi } = await import(
   '@/tools/relation-chart/state/store'
 );
 const { addFrameAfter, convertToTimeline, copyFrameAt, switchFrame } = await import(
@@ -317,6 +326,25 @@ describe('時間軸的其他影格：刪除關係類型、讀原作的檔', () =
     addFrameAfter();
     expect(activeSheet().chars).toHaveLength(0);
     expect(isBlankProject(p())).toBe(false);
+  });
+});
+
+describe('時間軸的預覽與模式跟著分頁', () => {
+  it('切換、新增、刪除分頁＝預覽與影格列的模式結束（原作 switchSheet）', () => {
+    timelineWithExtra();
+    const ui = () => {
+      const u = useUi.getState();
+      return [u.tlPos, u.tlPlaying, u.tlMode];
+    };
+    setUi({ tlPos: 0.5, tlPlaying: true, tlMode: 'copy' });
+    addSheet(false);
+    expect(ui()).toEqual([null, false, null]);
+    setUi({ tlPos: 0.5, tlPlaying: false, tlMode: 'del' });
+    switchSheet(0);
+    expect(ui()).toEqual([null, false, null]);
+    setUi({ tlPos: 0.5 });
+    deleteSheet(1);
+    expect(ui()).toEqual([null, false, null]);
   });
 });
 

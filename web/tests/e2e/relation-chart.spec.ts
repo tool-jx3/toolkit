@@ -4307,6 +4307,35 @@ test('讀原作的時間軸（4 格、保持、秒數、鎖、1.5 倍速）；GI
   expect(errors).toEqual([]);
 });
 
+test('時間軸的預覽與模式跟著分頁：預覽中（拖過時間軸）、複製模式中切到別的分頁＝結束（原作 switchSheet），一般分頁照樣能拖角色', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await openLegacyTimeline(page);
+  const hint = page.getByTestId('frame-bar').locator('[aria-live=polite]');
+  await page.getByRole('slider', { name: '時間軸' }).focus();
+  await page.keyboard.press('PageUp');
+  await expect(hint).toHaveText('預覽中：左鍵不能編輯，點影格標記回到編輯');
+  await expect(page.getByTestId('canvas')).toHaveClass(/rc-preview/);
+  /* 切到一般分頁：拖得動角色 */
+  await page.getByTestId('sheet-tab').nth(2).click();
+  await expect(page.getByTestId('frame-bar')).toHaveCount(0);
+  const before = (await sheet(page)).chars[0];
+  const a = await nodeCenter(page, before.id);
+  await drag(page, a, { x: a.x + 60, y: a.y + 40 });
+  await expect.poll(async () => (await sheet(page)).chars[0].x).not.toBe(before.x);
+  /* 回到時間軸分頁：不在預覽；複製模式中切走再回來＝模式結束 */
+  await page.getByTestId('sheet-tab').nth(1).click();
+  await expect(hint).toHaveText('');
+  await expect(page.getByTestId('canvas')).not.toHaveClass(/rc-preview/);
+  await page.getByTestId('tl-copy-mode').click();
+  await expect(page.getByTestId('tl-copy-mode')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('sheet-tab').nth(2).click();
+  await page.getByTestId('sheet-tab').nth(1).click();
+  await expect(page.getByTestId('tl-copy-mode')).toHaveAttribute('aria-pressed', 'false');
+  expect(errors).toEqual([]);
+});
+
 test('390 寬：時間軸分頁的影格列、匯出對話框（格式多了 GIF／影片時換行、不截字）、分頁庫與快照頁籤沒有橫向捲動', async ({
   page,
 }) => {
@@ -4317,13 +4346,20 @@ test('390 寬：時間軸分頁的影格列、匯出對話框（格式多了 GIF
   await page.getByTestId('open-export').click();
   const dlg = page.getByRole('dialog', { name: '匯出' });
   const fmts = dlg.getByRole('radiogroup', { name: '格式' }).first().getByRole('radio');
-  await expect(fmts).toHaveText(['PNG（圖片）', '分層 SVG', '分層 PSD', '互動網頁（唯讀）', 'GIF／影片']);
+  await expect(fmts).toHaveText([
+    'PNG（圖片）',
+    '分層 SVG',
+    '分層 PSD',
+    '互動網頁（唯讀）',
+    'GIF／影片',
+  ]);
   /* 每個格式的字都完整顯示（放不下就換行，不截成「分…」） */
-  const cut = await fmts.evaluateAll((els) =>
-    els.filter((el) => {
-      const t = el.querySelector('span') ?? el;
-      return t.scrollWidth > t.clientWidth + 1;
-    }).length,
+  const cut = await fmts.evaluateAll(
+    (els) =>
+      els.filter((el) => {
+        const t = el.querySelector('span') ?? el;
+        return t.scrollWidth > t.clientWidth + 1;
+      }).length,
   );
   expect(cut).toBe(0);
   await fmts.filter({ hasText: 'GIF／影片' }).click();
