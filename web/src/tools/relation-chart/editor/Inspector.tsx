@@ -25,6 +25,8 @@ export function Inspector() {
       ? !!s.data.sheets[s.data.active]?.notes.find((n) => n.id === panel.id)?.chart
       : false,
   );
+  /* 世界觀、備忘錄、統計切分頁時留著（7.10）：換一張分頁＝重新掛上（輸入中的一段先記下、統計的選擇與鎖定聚焦清掉） */
+  const sheetId = useProject((s) => s.data.sheets[s.data.active]?.id ?? 0);
   const noteTitle = isChart ? S.note.chartPanelTitle : S.note.panelTitle;
   const title = panel
     ? panel.kind === 'char'
@@ -85,11 +87,11 @@ export function Inspector() {
         ) : panel?.kind === 'note' ? (
           <NotePanel key={panel.id} id={panel.id} />
         ) : panel?.kind === 'lore' ? (
-          <LorePanel />
+          <LorePanel key={sheetId} />
         ) : panel?.kind === 'memo' ? (
-          <MemoPanel />
+          <MemoPanel key={sheetId} />
         ) : panel?.kind === 'stats' ? (
-          <StatsPanel />
+          <StatsPanel key={sheetId} />
         ) : sel.length >= 2 ? (
           <BatchPanel ids={sel} />
         ) : (

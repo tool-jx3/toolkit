@@ -305,6 +305,18 @@ function toText(html: string): string {
   }
 }
 
+/**
+ * 專案裡的富文本（角色資訊、世界觀）就地重新淨化：開本工具的專案檔、讀回自動儲存時各過一次
+ * （存進資料前與匯出前本來就各過一次；多一層保護，7.10）。
+ */
+export function sanitizeProjectRich(p: {
+  library: { info: string }[];
+  sheets: { lore: string }[];
+}): void {
+  for (const e of p.library) if (e.info) e.info = sanitizeRichHtml(e.info);
+  for (const s of p.sheets) if (s.lore) s.lore = sanitizeRichHtml(s.lore);
+}
+
 /** 唯一入口：回傳可以放進 innerHTML 的字串；看不懂就回傳跳脫過的純文字 */
 export function sanitizeRichHtml(input: unknown): string {
   const raw = typeof input === 'string' ? input : '';

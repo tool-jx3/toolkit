@@ -19,7 +19,7 @@ import {
   parseJsonBytes,
   snapHash,
 } from '../logic/legacy';
-import { sanitizeRichHtml } from '../logic/rich';
+import { sanitizeProjectRich, sanitizeRichHtml } from '../logic/rich';
 import { normalizeProject, projectAssetIds } from '../model/normalize';
 import { NOTE_BIN_MAX } from '../model/notes';
 import type {
@@ -108,8 +108,7 @@ export async function importOwnProject(
 ): Promise<{ project: Project; notSaved: boolean; dropped: number }> {
   const next = normalizeProject(data);
   if (!next) throw new ProjectFileError(S.project.unusable);
-  for (const e of next.library) if (e.info) e.info = sanitizeRichHtml(e.info);
-  for (const sh of next.sheets) if (sh.lore) sh.lore = sanitizeRichHtml(sh.lore);
+  sanitizeProjectRich(next);
   const imported = await importAssetFiles(assets, files.entries());
   const fontIds = new Set(next.fonts.map((f) => f.id));
   const missing = new Set<string>();

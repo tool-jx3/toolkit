@@ -57,6 +57,7 @@ import {
   activeSheet,
   projectNow,
   setUi,
+  type UiState,
   updateProject,
   useProject,
   useUi,
@@ -76,6 +77,16 @@ export function editSheet(recipe: (s: DSheet, p: DProject) => void): void {
 }
 
 const takeId = (p: DProject): number => p.nextId++;
+
+/**
+ * 換了分頁（切換、新增、刪除、加入範例）之後的右側面板：世界觀、備忘錄、統計是跟著分頁的面板，留著並換成新分頁的內容
+ * （原作的浮動面板也是；7.10）；指著某位角色、某條關係、某張便利貼的面板關掉。統計鎖定的聚焦指著上一張分頁的角色＝解除。
+ */
+function sheetChangedUi(): Pick<UiState, 'panel' | 'statsFocus'> {
+  const p = useUi.getState().panel;
+  const keep = p?.kind === 'lore' || p?.kind === 'memo' || p?.kind === 'stats';
+  return { panel: keep ? p : null, statsFocus: null };
+}
 
 /** 全專案未用的角色預設編號 */
 const nextCharDefNo = (p: Project | DProject): number =>
@@ -147,7 +158,7 @@ export function switchSheet(idx: number): void {
     focus: null,
     hover: null,
     link: null,
-    panel: null,
+    ...sheetChangedUi(),
     renaming: null,
     fitTick: u.fitTick + 1,
     /* 交換位置模式留著、挑起的清掉（原作） */
@@ -215,7 +226,14 @@ export function addSheet(copy: boolean | 'same' | 'fork'): void {
     p.active = p.sheets.length - 1;
   });
   const u = useUi.getState();
-  setUi({ sel: [], focus: null, hover: null, link: null, panel: null, fitTick: u.fitTick + 1 });
+  setUi({
+    sel: [],
+    focus: null,
+    hover: null,
+    link: null,
+    ...sheetChangedUi(),
+    fitTick: u.fitTick + 1,
+  });
 }
 
 export function renameSheet(idx: number, name: string): void {
@@ -235,7 +253,14 @@ export function deleteSheet(idx: number): boolean {
     else if (d.active > idx) d.active--;
   });
   const u = useUi.getState();
-  setUi({ sel: [], focus: null, hover: null, link: null, panel: null, fitTick: u.fitTick + 1 });
+  setUi({
+    sel: [],
+    focus: null,
+    hover: null,
+    link: null,
+    ...sheetChangedUi(),
+    fitTick: u.fitTick + 1,
+  });
   return true;
 }
 
@@ -393,7 +418,14 @@ export function addSample(sheet: Sheet): void {
     p.active = insertSheet(p, sheet);
   });
   const u = useUi.getState();
-  setUi({ sel: [], focus: null, hover: null, link: null, panel: null, fitTick: u.fitTick + 1 });
+  setUi({
+    sel: [],
+    focus: null,
+    hover: null,
+    link: null,
+    ...sheetChangedUi(),
+    fitTick: u.fitTick + 1,
+  });
 }
 
 /** 清空目前分頁的角色與關係（角色庫的條目留著；這張分頁的看法、便利貼與圖表節點一起清，原作） */

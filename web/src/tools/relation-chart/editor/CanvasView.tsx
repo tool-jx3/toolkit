@@ -29,6 +29,7 @@ import { NoteEditor } from './NoteEditor';
 import { setReadonly } from './readonly';
 import { toggleSwap } from './swap';
 import { bindView, fitView, lodScale, nextLod, zoomBy } from './view';
+import { ZoomSettle } from './zoomSettle';
 
 const CANVAS_CSS = `
 .rc-host .rc-chart{display:block;width:100%;height:100%}
@@ -472,13 +473,38 @@ export function CanvasView() {
     return () => bindLive(null);
   }, []);
 
-  /* 縮放中先用 transform 縮放（只動合成層、不重新排版），停手 150 ms 再用新的大小排版
-     （SVG 以螢幕解析度重畫；拖曳時仍是排版後的大小，不會以原尺寸點陣化） */
+  /* 縮放中先用 transform 縮放（只動合成層、不重新排版），停手再用新的大小排版
+     （SVG 以螢幕解析度重畫；拖曳時仍是排版後的大小，不會以原尺寸點陣化）。
+     停手的判斷跟著每一格實際花的時間（zoomSettle）：角色多時一格就要 0.1 秒以上，固定的短間隔會在滾動途中重新排版 */
   const [baseZoom, setBaseZoom] = useState(view.zoom);
+  const settle = useRef<ZoomSettle | null>(null);
   useEffect(() => {
     if (baseZoom === view.zoom) return;
-    const t = setTimeout(() => setBaseZoom(view.zoom), 150);
-    return () => clearTimeout(t);
+    settle.current ??= new ZoomSettle();
+    const s = settle.current;
+    s.input(performance.now());
+    let t: ReturnType<typeof setTimeout> | undefined;
+    let r = 0;
+    const check = () => {
+      /* 已經又縮放了一格（還沒畫出來）：交給那一格 */
+      if (useUi.getState().view.zoom !== view.zoom) return;
+      const w = s.wait(performance.now());
+      if (w === 0) {
+        s.done();
+        setBaseZoom(view.zoom);
+      } else if (Number.isFinite(w)) t = setTimeout(check, w);
+    };
+    /* 這一格的畫面畫好（第二個 rAF）才開始計時 */
+    r = requestAnimationFrame(() => {
+      r = requestAnimationFrame(() => {
+        s.framed(performance.now());
+        check();
+      });
+    });
+    return () => {
+      clearTimeout(t);
+      cancelAnimationFrame(r);
+    };
   }, [view.zoom, baseZoom]);
   const zk = view.zoom / baseZoom;
 
@@ -495,13 +521,16 @@ export function CanvasView() {
       <style>{CANVAS_CSS}</style>
       <div
         ref={layer}
-        className="absolute top-0 left-0 will-change-transform"
+        className="absolute top-0 left-0"
         style={{
           /* 用縮放後的大小排版（SVG 撐滿），不用 scale()：大張的圖縮小時才會以螢幕解析度繪製（scale 會以原尺寸點陣化，拖曳很慢） */
           width: out.viewW * baseZoom,
           height: out.viewH * baseZoom,
           transform: `translate(${view.x}px, ${view.y}px)${zk === 1 ? '' : ` scale(${zk})`}`,
           transformOrigin: '0 0',
+          /* 平移只動合成層（放大時每格不用重畫）；縮放途中（還沒重新排版）拿掉：合成層的倍率每格都變，
+             瀏覽器每格換一組圖塊、幾秒後一次丟掉上千塊，那一格會卡 0.3～0.5 秒（7.10，D72） */
+          willChange: zk === 1 ? 'transform' : 'auto',
         }}
         // biome-ignore lint/security/noDangerouslySetInnerHtml: 自己產生的 SVG（文字都經過跳脫）
         dangerouslySetInnerHTML={{ __html: out.svg }}

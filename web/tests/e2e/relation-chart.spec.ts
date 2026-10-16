@@ -3639,8 +3639,10 @@ test('設定集（檔案庫）：存成新的一筆、檢視卡、套用（間�
   await page.getByTestId('gset-add').click();
   await expect(lib(page).getByTestId('lib-entry-name')).toHaveText(['未命名設定集1']);
   await expect(page.getByTestId('gset-view')).toContainText('關係名稱顯示');
+  await expect(toast(page, '已存成「未命名設定集1」。')).toBeVisible();
   /* 恢復出廠預設：關係名稱關掉 */
   await page.getByTestId('gset-factory').click();
+  await expect(toast(page, '目前分頁已恢復出廠預設。')).toBeVisible();
   let p = await data(page);
   expect(p.sheets[0].settings).toMatchObject({
     showRelName: false,
@@ -3649,12 +3651,19 @@ test('設定集（檔案庫）：存成新的一筆、檢視卡、套用（間�
   });
   /* 套用：回到那一筆的值 */
   await page.getByTestId('gset-apply').click();
+  await expect(toast(page, '已套用「未命名設定集1」。')).toBeVisible();
   p = await data(page);
   expect(p.sheets[0].settings.showRelName).toBe(true);
   /* 一步復原 */
   await page.getByTestId('undo').click();
   p = await data(page);
   expect(p.sheets[0].settings.showRelName).toBe(false);
+  /* 覆寫：用目前分頁（關係名稱關）的值蓋掉 */
+  await page.waitForTimeout(450);
+  await page.getByTestId('gset-overwrite').click();
+  await expect(toast(page, '已用目前分頁的設定覆寫「未命名設定集1」。')).toBeVisible();
+  p = await data(page);
+  expect(p.settingsLib[0].values.showRelName).toBe(false);
   /* 第二筆、最愛（置頂）、刪除模式（最愛的刪不掉） */
   await page.waitForTimeout(450);
   await page.getByTestId('gset-add').click();
@@ -3777,5 +3786,77 @@ test('原作的專案檔（第四批）：便利貼（含畫布外、隱藏紙�
   await expect(chart(page).locator('.note-out-hint')).toBeVisible();
   await viewMenu(page, 'menu-lore');
   await expect(page.getByTestId('lore-editor').locator('img')).toHaveAttribute('src', /^blob:/);
+  expect(errors).toEqual([]);
+});
+
+test('第四批修正（7.10）：切分頁時世界觀／備忘錄／統計面板留著並換成新分頁的內容；便利貼字級與本分頁預設字級填 0＝留空', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const a = trio();
+  a.name = '主線';
+  a.memo = '主線的備忘錄';
+  a.lore = '<p>主線的世界觀</p>';
+  a.notes = [
+    {
+      id: 900,
+      text: '便利貼',
+      x: 500,
+      y: 700,
+      w: 150,
+      h: 100,
+      size: 30,
+      locked: false,
+      bare: false,
+      chart: null,
+    },
+  ];
+  const b = sample('story', 1000, '支線');
+  b.memo = '支線的備忘錄';
+  b.lore = '<p>支線的世界觀</p>';
+  await seed(page, project([a, b]));
+  /* 備忘錄 */
+  await viewMenu(page, 'menu-memo');
+  await expect(page.getByTestId('memo-text')).toHaveValue('主線的備忘錄');
+  await page.getByTestId('sheet-tab').nth(1).click();
+  await expect(title(page)).toHaveText('備忘錄');
+  await expect(page.getByTestId('memo-text')).toHaveValue('支線的備忘錄');
+  /* 世界觀 */
+  await viewMenu(page, 'menu-lore');
+  await expect(page.getByTestId('lore-editor')).toContainText('支線的世界觀');
+  await page.getByTestId('sheet-tab').nth(0).click();
+  await expect(title(page)).toHaveText('世界觀');
+  await expect(page.getByTestId('lore-editor')).toContainText('主線的世界觀');
+  /* 統計：換成新分頁的排行 */
+  await viewMenu(page, 'menu-stats');
+  await expect(page.getByTestId('stats-iso')).toContainText('孤立角色（沒有任何關係）（3）');
+  await page.getByTestId('sheet-tab').nth(1).click();
+  await expect(title(page)).toHaveText('統計與尋路（本分頁）');
+  await expect(page.getByTestId('stats-rank').getByTestId('stats-row').first()).toHaveText(
+    '1.主角5',
+  );
+  /* 便利貼字級填 0＝留空（跟隨）；本分頁預設字級填 0＝留空（自動） */
+  await page.getByTestId('sheet-tab').nth(0).click();
+  await clickAt(page, await center(noteBtn(page, 900, 'cfg')));
+  await expect(title(page)).toHaveText('便利貼設定');
+  const fs = page.getByRole('spinbutton', { name: '字級 px（≥1）' });
+  await expect(fs).toHaveValue('30');
+  await fs.fill('0');
+  await fs.press('Enter');
+  await expect(fs).toHaveValue('');
+  await expect(page.getByTestId('note-fs-now')).not.toHaveText('目前實際字級：1 px');
+  let s = await sheet(page);
+  expect(s.notes[0].size).toBeNull();
+  const def = page.getByRole('spinbutton', { name: '本分頁預設字級' });
+  await def.fill('18');
+  await def.press('Enter');
+  await expect(page.getByTestId('note-fs-now')).toHaveText('目前實際字級：18 px');
+  await page.waitForTimeout(450);
+  await def.fill('0');
+  await def.press('Enter');
+  await expect(def).toHaveValue('');
+  await expect(page.getByTestId('note-fs-now')).not.toHaveText('目前實際字級：1 px');
+  s = await sheet(page);
+  expect(s.settings.defStickySize).toBe(0);
   expect(errors).toEqual([]);
 });

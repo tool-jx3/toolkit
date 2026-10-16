@@ -58,7 +58,10 @@ function Bar({ n }: { n: Note }) {
   );
 }
 
-/** 數字欄：離開欄位或 Enter 才寫入，一次記一步 */
+/**
+ * 數字欄：離開欄位或 Enter 才寫入，一次記一步。
+ * 填 0（或小於 1）＝留空（跟隨／自動），不夾成 1 px（原作 openNotePanel 的 `v >= 1 ? v : undefined`；7.10）。
+ */
 function LiveNumber({
   value,
   onChange,
@@ -71,9 +74,10 @@ function LiveNumber({
   return (
     <OptionalNumberInput
       size="sm"
-      value={value && value > 0 ? value : null}
-      min={1}
+      value={value && value >= 1 ? value : null}
+      min={0}
       max={200}
+      fallback={1}
       placeholder={T.fsAuto}
       aria-label={label}
       onFocus={() => gesture.begin()}

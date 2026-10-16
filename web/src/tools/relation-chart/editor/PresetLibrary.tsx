@@ -20,7 +20,7 @@ import {
   savePreset,
   toggleFavPreset,
 } from '../state/presetActions';
-import { setUi, useProject, useUi } from '../state/store';
+import { projectNow, setUi, useProject, useUi } from '../state/store';
 import { S } from '../strings';
 import type { LibAction } from './LabelLibrary';
 import { EntryList, type EntryRow, useThumbSize } from './LibEntries';
@@ -141,6 +141,9 @@ export function GsetSide() {
   const lib = useProject((s) => s.data.settingsLib);
   const sel = pick === null ? undefined : lib.find((g) => g.id === pick);
   const [name, setName] = useState('');
+  const toast = useToast();
+  /* 存、覆寫、套用、恢復出廠預設：通知（F174b） */
+  const done = (title: string) => toast({ title, tone: 'success' });
   /* 修改名稱模式：選到的那一筆的名稱載入輸入框 */
   useEffect(() => {
     setName(mode === 'rename' && sel ? sel.name : '');
@@ -176,23 +179,44 @@ export function GsetSide() {
             <Button
               size="sm"
               variant="primary"
-              onClick={() => applyPreset(sel.id)}
+              onClick={() => {
+                applyPreset(sel.id);
+                done(T.applied(presetName(sel)));
+              }}
               data-testid="gset-apply"
             >
               {T.apply}
             </Button>
-            <Button size="sm" onClick={() => overwritePreset(sel.id)} data-testid="gset-overwrite">
+            <Button
+              size="sm"
+              onClick={() => {
+                overwritePreset(sel.id);
+                done(T.overwritten(presetName(sel)));
+              }}
+              data-testid="gset-overwrite"
+            >
               {T.overwrite}
             </Button>
           </>
         ) : null}
-        <Button size="sm" onClick={() => savePreset()} data-testid="gset-add">
+        <Button
+          size="sm"
+          onClick={() => {
+            const id = savePreset();
+            const g = projectNow().settingsLib.find((x) => x.id === id);
+            if (g) done(T.saved(presetName(g)));
+          }}
+          data-testid="gset-add"
+        >
           {T.addCur}
         </Button>
         <Button
           size="sm"
           title={T.factoryTip}
-          onClick={() => factoryReset()}
+          onClick={() => {
+            factoryReset();
+            done(T.factoryDone);
+          }}
           data-testid="gset-factory"
         >
           {T.factory}

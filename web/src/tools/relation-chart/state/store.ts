@@ -9,6 +9,7 @@ import { create } from 'zustand';
 import type { StateStorage } from 'zustand/middleware';
 import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
+import { sanitizeProjectRich } from '../logic/rich';
 import { syncLibrary } from '../model/library';
 import { initialProject, normalizeProject, projectAssetIds } from '../model/normalize';
 import type { ColorValue, Project, Sheet } from '../model/types';
@@ -83,10 +84,11 @@ export const useProject = createToolStore<Project>(TOOL_ID, initialProject(), {
   migrate: (persisted) => normalizeProject(persisted) ?? initialProject(),
 });
 
-/* 讀進來的存檔整理一次（壞掉時換回空白專案）；這一步不算復原 */
+/* 讀進來的存檔整理一次（壞掉時換回空白專案；角色資訊與世界觀重新淨化，7.10）；這一步不算復原 */
 {
   const data = useProject.getState().data;
   const fixed = normalizeProject(data);
+  if (fixed) sanitizeProjectRich(fixed);
   if (!fixed) useProject.getState().replace(initialProject());
   else if (JSON.stringify(fixed) !== JSON.stringify(data)) useProject.getState().replace(fixed);
   useProject.temporal.getState().clear();
