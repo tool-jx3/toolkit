@@ -761,7 +761,7 @@ export const TOOLS: readonly ToolEntry[] = [
     id: 'relation-chart',
     name: '角色關係圖產生器',
     summary:
-      '在畫布上擺角色、定義關係的顏色與線型、點兩個人拉出關係線，自動排列後匯出 PNG、分層 SVG／PSD 或可以分享的互動網頁。',
+      '在畫布上擺角色、定義關係的顏色與線型、點兩個人拉出關係線，用標籤框出陣營、整理角色庫與關係庫、加便利貼與世界觀，自動排列後匯出 PNG、分層 SVG／PSD、可以分享的互動網頁，或把分頁做成時間軸動畫（GIF／影片）。',
     group: 'G7',
     status: 'live',
     inspiration: {
