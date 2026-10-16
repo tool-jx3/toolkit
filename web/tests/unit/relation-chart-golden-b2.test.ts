@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { bytesToHex, sha256Sync } from '../../src/core/files';
 import { editorSvg, exportSvg, viewerSvg } from '../../src/tools/relation-chart/engine/chart';
 import { sheetLayeredSvg } from '../../src/tools/relation-chart/export/outputs';
-import { viewerHtml, viewerSource } from '../../src/tools/relation-chart/export/viewer';
+import { stripLod, viewerHtml, viewerSource } from '../../src/tools/relation-chart/export/viewer';
 import { convertLegacy } from '../../src/tools/relation-chart/logic/legacy';
 import {
   makeChar,
@@ -217,10 +217,13 @@ function capture(d: Dataset): Record<string, string> {
       }),
     );
   });
+  /* 第四批：60 位以上的分頁多了遠近簡化的標記與樣式（F116），去掉之後和以前相同 */
   out.html = sha(
-    viewerHtml(p.sheets, { font: p.font, labels: p.labels, uris: new Map() }).replace(
-      viewerSource(),
-      '/*rcViewer*/',
+    stripLod(
+      viewerHtml(p.sheets, { font: p.font, labels: p.labels, uris: new Map() }).replace(
+        viewerSource(),
+        '/*rcViewer*/',
+      ),
     ),
   );
   return out;

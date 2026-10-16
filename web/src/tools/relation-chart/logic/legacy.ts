@@ -5,6 +5,7 @@
  * frames/、fonts/）或只有 project.json。轉成本工具的資料；圖片、頭像框、字型、角色資訊裡的圖先留路徑或原作的雜湊，
  * 由呼叫端放進資產庫再換成資產 id（state/project.ts）。
  * 第三批：角色庫（條目、每一件變體）、關係庫、數值範本、看法、角色資訊、角色字型、頭像框的參照都讀進來。
+ * 第四批：便利貼（含圖表節點；舊檔混在 chars 裡的 sticky 角色搬出來）、世界觀與沿用、備忘錄、便利貼庫、設定集。
  */
 import { strFromU8 } from 'fflate';
 import type { FramePlacement } from '@/core/image';
@@ -17,8 +18,16 @@ import {
   normalizeRadarVals,
   normalizeSettings,
   normalizeViews,
+  presetValues,
   safeColor,
 } from '../model/normalize';
+import {
+  LORE_MAX,
+  MEMO_MAX,
+  NOTE_BIN_MAX,
+  normalizeNote,
+  normalizeNoteBinItem,
+} from '../model/notes';
 import type {
   Char,
   CharEntry,
@@ -26,11 +35,14 @@ import type {
   FontKey,
   GroupRel,
   Label,
+  Note,
+  NoteBinItem,
   RadarTpl,
   Rel,
   RelEntry,
   RelType,
   RelVariant,
+  SettingsPreset,
   Shape,
   Sheet,
   Variant,
@@ -62,8 +74,11 @@ export interface LegacyImport {
   defFrames: Map<Sheet, string>;
   /** 標籤（frame 是原作的雜湊） */
   labels: Label[];
-  /** 角色資訊裡的圖：原作的雜湊 → ZIP 裡的路徑 */
+  /** 角色資訊與世界觀裡的圖：原作的雜湊 → ZIP 裡的路徑 */
   richImgs: Map<string, string>;
+  /** 便利貼庫、設定集（第四批；設定集的 defFrame 還是原作的雜湊） */
+  noteBin: NoteBinItem[];
+  settingsLib: SettingsPreset[];
   activeIdx: number;
   /** 淺色主題的檔案 */
   light: boolean;
@@ -418,13 +433,23 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
       }
       types.push(tt);
     }
+    /* 便利貼：分頁的 notes＋舊檔混在 chars（含時間軸每一格）裡的 sticky 角色（同 id 取第一次遇到的；原作 migrateSheetNotes） */
+    const notes: Note[] = [];
+    const pullNote = (n: unknown) => {
+      const nn = normalizeNote(n, 0);
+      if (nn && isObj(n) && fin(n.id) && !notes.some((x) => x.id === nn.id)) notes.push(nn);
+    };
+    for (const n of Array.isArray(sh.notes) ? sh.notes : []) pullNote(n);
+    const stickyFrom = [
+      sh.chars,
+      ...(Array.isArray(shRaw.frames) ? shRaw.frames.map((f) => (isObj(f) ? f.chars : null)) : []),
+    ];
+    for (const arr of stickyFrom)
+      if (Array.isArray(arr)) for (const c of arr) if (isObj(c) && c.sticky) pullNote(c);
     const chars: Char[] = [];
     for (const c of Array.isArray(sh.chars) ? sh.chars : []) {
       if (!isObj(c) || !fin(c.id)) continue;
-      if (c.sticky) {
-        skipped.add('便利貼');
-        continue;
-      }
+      if (c.sticky) continue;
       /* 條目：有 libId 照檔案（變體不在＝第一件）；沒有（舊檔）＝以角色自己的身分欄位建一筆 */
       let e = fin(c.libId) ? lib.get(num(c.libId)) : undefined;
       if (!e) {
@@ -502,10 +527,6 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
         }),
       );
     }
-    if (Array.isArray(sh.notes) && sh.notes.length)
-      skipped.add(
-        sh.notes.some((n) => isObj(n) && isObj(n.chart)) ? '便利貼（含圖表節點）' : '便利貼',
-      );
     /* 群體關係（新名 relTypeId、舊名 tagId；只驗形狀，端點在不在由畫的時候判斷＝原作 sanitizeGrels） */
     const grels: GroupRel[] = [];
     for (const g of Array.isArray(sh.groupRels) ? sh.groupRels : []) {
@@ -516,8 +537,6 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
     const collapsed = Array.isArray(sh.collapsedLbls)
       ? [...new Set(sh.collapsedLbls.map((x) => Math.trunc(num(x))).filter(Number.isFinite))]
       : [];
-    if (typeof sh.lore === 'string' && sh.lore) skipped.add('世界觀');
-    if (typeof sh.memo === 'string' && sh.memo) skipped.add('備忘錄');
     const W = fin(sh.W) && num(sh.W) >= 0 ? Math.round(num(sh.W)) : 1000;
     const sheet: Sheet = {
       id: fin(sh.id) ? Math.trunc(num(sh.id)) : nextLocal--,
@@ -534,6 +553,11 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
       collapsed,
       /* 看法（重新淨化；角色 id 是這張分頁的，加進專案時跟著換） */
       views: normalizeViews(sh.views),
+      notes,
+      /* 世界觀（還沒淨化：呼叫端換圖片參照時一起淨化）、沿用（原作的分頁 id，加進專案時跟著換）、備忘錄 */
+      lore: typeof sh.lore === 'string' ? sh.lore.slice(0, LORE_MAX) : '',
+      loreFrom: fin(sh.loreFrom) ? Math.trunc(num(sh.loreFrom)) : null,
+      memo: typeof sh.memo === 'string' ? sh.memo.slice(0, MEMO_MAX) : '',
     };
     sheets.push(sheet);
     if (typeof sh.bgImage === 'string' && sh.bgImage) backgrounds.set(sheet, sh.bgImage);
@@ -541,8 +565,24 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
     if (typeof df === 'string' && HASH_RE.test(df)) defFrames.set(sheet, df);
   }
   if (Array.isArray(data.sheetLibrary) && data.sheetLibrary.length) skipped.add('分頁庫');
-  if (Array.isArray(data.noteBin) && data.noteBin.length) skipped.add('便利貼庫');
-  if (Array.isArray(data.settingsLib) && data.settingsLib.length) skipped.add('設定集');
+  /* 便利貼庫（原作只有完整匯出才帶）、設定集（原作的格式：設定值攤在條目上；預設頭像框是原作的雜湊） */
+  const noteBin: NoteBinItem[] = [];
+  for (const n of Array.isArray(data.noteBin) ? data.noteBin : []) {
+    const nn = normalizeNoteBinItem(n, 0);
+    if (nn && isObj(n) && fin(n.id) && !noteBin.some((x) => x.id === nn.id)) noteBin.push(nn);
+  }
+  const settingsLib: SettingsPreset[] = [];
+  for (const g of Array.isArray(data.settingsLib) ? data.settingsLib : []) {
+    if (!isObj(g) || !fin(g.id) || settingsLib.some((x) => x.id === num(g.id))) continue;
+    const values = presetValues(g);
+    if (typeof g.defFrame === 'string' && HASH_RE.test(g.defFrame)) values.defFrame = g.defFrame;
+    settingsLib.push({
+      id: Math.trunc(num(g.id)),
+      name: String(g.name ?? '').slice(0, 100),
+      fav: g.fav === true,
+      values,
+    });
+  }
   if (!sheets.length) throw new LegacyFileError('原作的專案檔裡沒有分頁。');
   const docFont = legacyFontRef(data.docFont);
   return {
@@ -555,6 +595,8 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
     defFrames,
     labels,
     richImgs,
+    noteBin: noteBin.slice(0, NOTE_BIN_MAX),
+    settingsLib,
     activeIdx: Math.min(Math.max(0, num(data.activeSheetIdx) || 0), sheets.length - 1),
     light,
     font: docFont.font,

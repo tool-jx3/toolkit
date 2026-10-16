@@ -9,13 +9,14 @@ import { create } from 'zustand';
 import type { StateStorage } from 'zustand/middleware';
 import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
+import { sanitizeProjectRich } from '../logic/rich';
 import { syncLibrary } from '../model/library';
 import { initialProject, normalizeProject, projectAssetIds } from '../model/normalize';
 import type { ColorValue, Project, Sheet } from '../model/types';
 
 export const TOOL_ID = 'relation-chart';
-/** 專案檔與自動儲存的資料版本（3：角色庫、關係庫、數值、頭像框、匯入字型、看法） */
-export const DATA_VERSION = 3;
+/** 專案檔與自動儲存的資料版本（3：角色庫、關係庫、數值、頭像框、匯入字型、看法；4：便利貼、世界觀、備忘錄、便利貼庫、設定集） */
+export const DATA_VERSION = 4;
 
 /** 寫入 localStorage 延後一點（連續變更只寫最後一次）；離開頁面、切到背景時立刻寫 */
 function deferredStorage(delayMs = 400, onError?: (e: unknown) => void): StateStorage {
@@ -83,10 +84,11 @@ export const useProject = createToolStore<Project>(TOOL_ID, initialProject(), {
   migrate: (persisted) => normalizeProject(persisted) ?? initialProject(),
 });
 
-/* 讀進來的存檔整理一次（壞掉時換回空白專案）；這一步不算復原 */
+/* 讀進來的存檔整理一次（壞掉時換回空白專案；角色資訊與世界觀重新淨化，7.10）；這一步不算復原 */
 {
   const data = useProject.getState().data;
   const fixed = normalizeProject(data);
+  if (fixed) sanitizeProjectRich(fixed);
   if (!fixed) useProject.getState().replace(initialProject());
   else if (JSON.stringify(fixed) !== JSON.stringify(data)) useProject.getState().replace(fixed);
   useProject.temporal.getState().clear();
@@ -149,6 +151,17 @@ export const activeSheet = (p: Project = projectNow()): Sheet => p.sheets[active
 export type ExportFormat = 'png' | 'svg' | 'psd' | 'html';
 export type ExportScope = 'cur' | 'all' | 'some';
 
+/**
+ * 上次的匯出（再次匯出用；這台瀏覽器）：格式、範圍、勾選、部分分頁的分頁 id。
+ * 格式多收第五批的 GIF、影片（原作匯出動畫後記憶被蓋掉、讀取時又不認，選單項消失；7.4 第 8 項）。
+ */
+export interface LastExport {
+  fmt: ExportFormat | 'gif' | 'video';
+  scope: ExportScope;
+  checks: { transparent: boolean; slim: boolean; embed: boolean };
+  sheetIds?: number[];
+}
+
 export interface Prefs {
   groupByLabel: boolean;
   /** 標籤清單依分頁分組（F181i） */
@@ -165,6 +178,11 @@ export interface Prefs {
   exportFormat: ExportFormat;
   exportScope: ExportScope;
   transparent: boolean;
+  /** 互動網頁：壓縮頭像、嵌入模式（第四批） */
+  slim: boolean;
+  embed: boolean;
+  /** 再次匯出的記憶（沒有＝選單不出現） */
+  lastExport: LastExport | null;
 }
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
@@ -180,6 +198,9 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   exportFormat: 'png',
   exportScope: 'cur',
   transparent: true,
+  slim: true,
+  embed: false,
+  lastExport: null,
 });
 
 export const setPrefs = (patch: Partial<Prefs>): void =>
@@ -217,6 +238,11 @@ export type Panel =
   | { kind: 'coledge'; key: string }
   /** 角色資訊（第三批；id＝角色） */
   | { kind: 'info'; id: number }
+  /** 第四批：便利貼／圖表節點的設定、世界觀、備忘錄、統計與尋路 */
+  | { kind: 'note'; id: number }
+  | { kind: 'lore' }
+  | { kind: 'memo' }
+  | { kind: 'stats' }
   | null;
 
 export type DialogKind =
@@ -286,11 +312,33 @@ export interface UiState {
   libEdit: number | null;
   /** 標籤庫的調色盤（新增時套用；編輯模式載入標籤的顏色） */
   libColor: ColorValue;
+  /* ---- 第四批 ---- */
+  /** 正在就地編輯的便利貼 */
+  noteEdit: number | null;
+  /** 唯讀瀏覽模式（不存檔） */
+  readonly: boolean;
+  /** 統計與尋路的鎖定聚焦（一組角色＋一組線；關掉面板就解除） */
+  statsFocus: { nodes: number[]; edges: number[] } | null;
+  /** 遠近簡化目前的一檔（只在 60 位以上時生效；編輯畫面算） */
+  lod: LodLevel;
+  /** 設定集：左欄看的那一筆 */
+  libPreset: number | null;
 }
 
-export type LibTab = 'chars' | 'rels' | 'labels' | 'table';
-/** 標籤庫：編輯、隱藏、引力、陣營框、刪除；角色庫與關係庫：匯入、複製、刪除；連線總表：刪除 */
-export type LibMode = 'edit' | 'hide' | 'pull' | 'zone' | 'del' | 'import' | 'copy';
+export type LodLevel = 'near' | 'mid' | 'far';
+
+export type LibTab = 'chars' | 'rels' | 'labels' | 'notes' | 'table' | 'gsets';
+/** 標籤庫：編輯、隱藏、引力、陣營框、刪除；角色庫與關係庫：匯入、複製、刪除；連線總表、便利貼庫：刪除；設定集：改名、最愛、刪除 */
+export type LibMode =
+  | 'edit'
+  | 'hide'
+  | 'pull'
+  | 'zone'
+  | 'del'
+  | 'import'
+  | 'copy'
+  | 'rename'
+  | 'fav';
 
 export const useUi = create<UiState>(() => ({
   sel: [],
@@ -320,6 +368,11 @@ export const useUi = create<UiState>(() => ({
   libSel: null,
   libEdit: null,
   libColor: 'auto',
+  noteEdit: null,
+  readonly: false,
+  statsFocus: null,
+  lod: 'near',
+  libPreset: null,
 }));
 
 export const setUi = (patch: Partial<UiState>): void => useUi.setState(patch);

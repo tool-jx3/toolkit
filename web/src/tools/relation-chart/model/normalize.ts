@@ -7,6 +7,8 @@
 import type { FramePlacement } from '@/core/image';
 import { dropCharLabels } from './charLabels';
 import { syncLibrary } from './library';
+import { LORE_MAX, MEMO_MAX, NOTE_BIN_MAX, normalizeNote, normalizeNoteBinItem } from './notes';
+import { PRESET_KEYS } from './presets';
 import type {
   Avatar,
   CapStyle,
@@ -25,6 +27,8 @@ import type {
   LayoutKind,
   LegendPos,
   LineStyle,
+  Note,
+  NoteBinItem,
   Project,
   RadarTpl,
   RadarVals,
@@ -32,6 +36,7 @@ import type {
   RelEntry,
   RelType,
   RelVariant,
+  SettingsPreset,
   Shape,
   Sheet,
   SheetSettings,
@@ -155,6 +160,7 @@ export const SETTINGS_DEFAULTS: Readonly<SheetSettings> = Object.freeze({
   labelPos: {},
   zoneNameAng: {},
   defFrame: '',
+  defStickySize: 0,
 }) as SheetSettings;
 
 export const newSettings = (base?: SheetSettings): SheetSettings =>
@@ -314,6 +320,7 @@ export function normalizeSettings(raw: unknown): SheetSettings {
   out.defRelNameSize = auto(s.defRelNameSize, 1, 200);
   out.defNoteSize = auto(s.defNoteSize, 1, 200);
   out.defLineW = auto(s.defLineW, 1, 99);
+  out.defStickySize = auto(s.defStickySize, 1, 200);
   for (const k of [
     'colAvatarRing',
     'colAvatarBg',
@@ -630,6 +637,10 @@ export function emptySheet(id: number, defNo: number, base?: Partial<Sheet>): Sh
     grels: [],
     collapsed: [],
     views: {},
+    notes: [],
+    lore: '',
+    loreFrom: null,
+    memo: '',
     ...base,
   };
 }
@@ -715,6 +726,11 @@ export function normalizeSheet(raw: unknown, fallbackId: number): Sheet | null {
   const collapsed = Array.isArray(raw.collapsed)
     ? [...new Set(raw.collapsed.map((x) => Math.trunc(num(x))).filter(Number.isFinite))]
     : [];
+  const notes: Note[] = [];
+  for (const n of Array.isArray(raw.notes) ? raw.notes : []) {
+    const nn = normalizeNote(n, auto--);
+    if (nn && !notes.some((x) => x.id === nn.id)) notes.push(nn);
+  }
   return {
     id,
     defNo: finite(raw.defNo) ? Math.max(1, Math.trunc(num(raw.defNo))) : 0,
@@ -729,13 +745,48 @@ export function normalizeSheet(raw: unknown, fallbackId: number): Sheet | null {
     grels,
     collapsed,
     views: normalizeViews(raw.views),
+    notes,
+    lore: str(raw.lore, LORE_MAX),
+    loreFrom: finite(raw.loreFrom) ? Math.trunc(num(raw.loreFrom)) : null,
+    memo: str(raw.memo, MEMO_MAX),
+  };
+}
+
+/* ---------- 設定集（原作的 sanitizeGsPreset） ---------- */
+
+/** 只取設定集的鍵（值照分頁設定的整理規則；raw 沒有的鍵不放＝套用時不動） */
+export function presetValues(raw: unknown): Partial<SheetSettings> {
+  if (!isObj(raw)) return {};
+  const clean = normalizeSettings(raw);
+  const out: Record<string, unknown> = {};
+  for (const k of PRESET_KEYS) if (raw[k] !== undefined) out[k] = clean[k];
+  return out as Partial<SheetSettings>;
+}
+
+/** 分頁目前的值（存成新的一筆、覆寫） */
+export function readPreset(s: SheetSettings): Partial<SheetSettings> {
+  const out: Record<string, unknown> = {};
+  for (const k of PRESET_KEYS) out[k] = JSON.parse(JSON.stringify(s[k]));
+  return out as Partial<SheetSettings>;
+}
+
+/** 恢復出廠預設＝新分頁的預設（7.4 第 13 項；原作會打開關係名稱、備註、跳線） */
+export const factoryPreset = (): Partial<SheetSettings> => readPreset(SETTINGS_DEFAULTS);
+
+export function normalizePreset(raw: unknown): SettingsPreset | null {
+  if (!isObj(raw) || !finite(raw.id)) return null;
+  return {
+    id: Math.trunc(num(raw.id)),
+    name: str(raw.name, 100),
+    fav: bool(raw.fav),
+    values: presetValues(raw.values),
   };
 }
 
 /** 一個專案用到的最大 id */
 export function maxIdOf(
   p: Pick<Project, 'sheets' | 'labels'> &
-    Partial<Pick<Project, 'library' | 'relLibrary' | 'radarTpls'>>,
+    Partial<Pick<Project, 'library' | 'relLibrary' | 'radarTpls' | 'noteBin' | 'settingsLib'>>,
 ): number {
   let m = 0;
   for (const s of p.sheets) {
@@ -744,8 +795,11 @@ export function maxIdOf(
     for (const r of s.rels) m = Math.max(m, r.id);
     for (const t of s.types) m = Math.max(m, t.id);
     for (const g of s.grels ?? []) m = Math.max(m, g.id);
+    for (const n of s.notes ?? []) m = Math.max(m, n.id);
   }
   for (const l of p.labels) m = Math.max(m, l.id);
+  for (const n of p.noteBin ?? []) m = Math.max(m, n.id);
+  for (const g of p.settingsLib ?? []) m = Math.max(m, g.id);
   for (const e of p.library ?? []) {
     m = Math.max(m, e.id);
     for (const v of e.variants) m = Math.max(m, v.id);
@@ -803,7 +857,16 @@ function fixIds(p: Project): void {
       g.except = g.except.map((x) => charMap.get(x) ?? x);
     }
     if (charMap.size) s.views = remapViews(s.views, charMap);
+    for (const n of s.notes) {
+      if (n.id <= 0) n.id = take();
+      if (n.chart) {
+        n.chart.a = charMap.get(n.chart.a) ?? n.chart.a;
+        n.chart.b = charMap.get(n.chart.b) ?? n.chart.b;
+      }
+    }
   }
+  for (const n of p.noteBin) if (n.id <= 0) n.id = take();
+  for (const g of p.settingsLib) if (g.id <= 0) g.id = take();
   /* 角色庫、關係庫：臨時給的 id 換成新的（實例的綁定跟著換） */
   const entryMap = new Map<number, number>();
   const varMap = new Map<number, number>();
@@ -904,6 +967,8 @@ export function initialProject(): Project {
     radarTpls: [],
     frames: [],
     fonts: [],
+    noteBin: [],
+    settingsLib: [],
   };
 }
 
@@ -960,6 +1025,16 @@ export function normalizeProject(raw: unknown): Project | null {
     const n = normalizeFontItem(f);
     if (n && !fonts.some((x) => x.id === n.id)) fonts.push(n);
   }
+  const noteBin: NoteBinItem[] = [];
+  for (const n of Array.isArray(raw.noteBin) ? raw.noteBin : []) {
+    const nn = normalizeNoteBinItem(n, auto--);
+    if (nn && !noteBin.some((x) => x.id === nn.id)) noteBin.push(nn);
+  }
+  const settingsLib: SettingsPreset[] = [];
+  for (const g of Array.isArray(raw.settingsLib) ? raw.settingsLib : []) {
+    const n = normalizePreset(g);
+    if (n && !settingsLib.some((x) => x.id === n.id)) settingsLib.push(n);
+  }
   const p: Project = {
     sheets,
     active: Math.min(sheets.length - 1, Math.max(0, Math.trunc(num(raw.active)) || 0)),
@@ -971,8 +1046,15 @@ export function normalizeProject(raw: unknown): Project | null {
     radarTpls,
     frames,
     fonts,
+    noteBin: noteBin.slice(0, NOTE_BIN_MAX),
+    settingsLib,
   };
   fixIds(p);
+  /* 世界觀的沿用：指到不存在的分頁或自己＝丟掉（原作 loadProject） */
+  const sheetIds = new Set(p.sheets.map((s) => s.id));
+  for (const s of p.sheets)
+    if (s.loreFrom !== null && (s.loreFrom === s.id || !sheetIds.has(s.loreFrom)))
+      s.loreFrom = null;
   fixDefNos(p);
   /* 角色（實例與變體）的標籤只留專案裡存在的；收合名單只留還是陣營框的標籤（原作 computeColMaps 的自清） */
   const lblIds = new Set(p.labels.map((l) => l.id));
@@ -1001,7 +1083,7 @@ export function richImageIds(html: string): string[] {
   return [...html.matchAll(/rcimg:([0-9a-z]{6,80})/gi)].map((m) => m[1]);
 }
 
-/** 用到的資產 id（背景圖、頭像〔所有變體〕、頭像框、匯入的字型、角色資訊裡的圖片） */
+/** 用到的資產 id（背景圖、頭像〔所有變體〕、頭像框、匯入的字型、角色資訊與世界觀裡的圖片、設定集的預設頭像框） */
 export function projectAssetIds(p: Project): string[] {
   const out = new Set<string>();
   const av = (a: Avatar | null) => {
@@ -1019,5 +1101,8 @@ export function projectAssetIds(p: Project): string[] {
   }
   for (const f of p.frames ?? []) out.add(f.id);
   for (const f of p.fonts ?? []) out.add(f.id);
+  /* 第四批：世界觀裡的圖、設定集的預設頭像框 */
+  for (const s of p.sheets) for (const id of richImageIds(s.lore ?? '')) out.add(id);
+  for (const g of p.settingsLib ?? []) if (g.values.defFrame) out.add(g.values.defFrame);
   return [...out];
 }

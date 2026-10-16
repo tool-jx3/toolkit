@@ -721,6 +721,8 @@ export function fitCanvasToContent(ctx: SheetCtx): boolean {
     c.y += dy;
   }
   shiftLabelPos(ctx.s, dx, dy);
+  /* 便利貼不算進範圍，但跟著平移（原作） */
+  shiftNotes(ctx.sheet.notes, dx, dy);
   ctx.sheet.W = nw;
   ctx.sheet.H = nh;
   return true;
@@ -735,9 +737,24 @@ function shiftLabelPos(s: SheetSettings | undefined, dx: number, dy: number): vo
   }
 }
 
-/** 改畫布尺寸：rect 是新畫布在舊座標裡的範圍（角色跟著新原點平移） */
+/** 便利貼和角色同一個座標系 */
+function shiftNotes(notes: { x: number; y: number }[] | undefined, dx: number, dy: number): void {
+  if (!notes || (!dx && !dy)) return;
+  for (const n of notes) {
+    n.x += dx;
+    n.y += dy;
+  }
+}
+
+/** 改畫布尺寸：rect 是新畫布在舊座標裡的範圍（角色、標籤節點、便利貼跟著新原點平移；原作漏了便利貼，7.4 第 12 項） */
 export function resizeCanvas(
-  sheet: { W: number; H: number; chars: Char[]; settings?: SheetSettings },
+  sheet: {
+    W: number;
+    H: number;
+    chars: Char[];
+    settings?: SheetSettings;
+    notes?: { x: number; y: number }[];
+  },
   rect: { x: number; y: number; w: number; h: number },
 ): void {
   const ox = Math.round(rect.x);
@@ -748,6 +765,7 @@ export function resizeCanvas(
       c.y -= oy;
     }
     shiftLabelPos(sheet.settings, -ox, -oy);
+    shiftNotes(sheet.notes, -ox, -oy);
   }
   sheet.W = Math.max(0, Math.round(rect.w));
   sheet.H = Math.max(0, Math.round(rect.h));

@@ -109,6 +109,8 @@ function Group({
   onClick,
   onReorder,
   onDeleteGroup,
+  sortable: canSort,
+  picked: pickedId,
 }: {
   sec: Sec;
   rows: readonly { id: number; name: string }[];
@@ -117,15 +119,18 @@ function Group({
   onClick: (id: number) => void;
   onReorder: (groupIds: readonly number[], from: number, to: number) => void;
   onDeleteGroup: (() => void) | null;
+  sortable: boolean;
+  picked: number | null | undefined;
 }) {
   const mode = useUi((u) => u.libMode);
-  const pick = useUi((u) => u.libPick);
+  const libPick = useUi((u) => u.libPick);
+  const pick = pickedId === undefined ? libPick : pickedId;
   const level = usePrefs((p) => p.data.libLevel);
   const ids = sec.ids.filter((id) => live.has(id));
   const sortable = useSortable({
     count: ids.length,
     axis: 'xy',
-    disabled: mode !== null || frozen,
+    disabled: mode !== null || frozen || !canSort,
     onMove: (from, to) => onReorder(ids, from, to),
     onMoveStart: () => holdHistory('lib'),
     onMoveEnd: () => releaseHistory('lib'),
@@ -198,7 +203,13 @@ export function EntryList({
   onReorder,
   onDeleteMany,
   groupDelText,
+  sortable = true,
+  picked,
 }: {
+  /** 可以拖曳排序（便利貼庫不行，原作） */
+  sortable?: boolean;
+  /** 左欄正在看的那一項（沒給＝角色庫、關係庫的 libPick） */
+  picked?: number | null;
   rows: readonly EntryRow[];
   sheets: readonly Sheet[];
   grouped: boolean;
@@ -260,6 +271,8 @@ export function EntryList({
             rows={s.rows}
             live={live}
             frozen={mode === 'del'}
+            sortable={sortable}
+            picked={picked}
             onClick={onClick}
             onReorder={onReorder}
             onDeleteGroup={

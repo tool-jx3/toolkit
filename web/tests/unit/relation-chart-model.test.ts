@@ -471,7 +471,9 @@ describe('原作的專案檔（3.9）', () => {
       src: 'images/lib_106_v107_src.png',
       crop: { zoom: 1.5, ox: 10, oy: -5 },
     });
-    expect(r.skipped).toEqual(expect.arrayContaining(['便利貼']));
+    /* 第四批：便利貼讀進來（不再列在略過的內容） */
+    expect(s.notes.map((n) => [n.id, n.text])).toEqual([[5, 'x']]);
+    expect(r.skipped).not.toContain('便利貼');
   });
 
   it('文件字型（docFont）：對應到本站的字型；匯入的字型檔＝留下原作的雜湊（第三批：讀得到字型檔就用它）', () => {

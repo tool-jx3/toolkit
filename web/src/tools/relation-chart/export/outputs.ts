@@ -11,7 +11,7 @@ import { esc, fontStack, sheetName } from '../engine/geom';
 import type { FontItem, FontValue, FrameItem, Label, Sheet } from '../model/types';
 import { fontFaceCss, usedFontIds } from './fonts';
 import { svgToCanvas, svgToPng } from './raster';
-import { type ViewerExtra, viewerHtml } from './viewer';
+import { type ViewerExtra, type ViewerOpts, viewerHtml } from './viewer';
 
 export type ExportFormat = 'png' | 'svg' | 'psd' | 'html';
 
@@ -25,6 +25,8 @@ export interface ExportInput extends ViewerExtra {
   /** 匯入的字型、頭像框庫（第三批；沒給＝沒有） */
   fonts?: readonly FontItem[];
   frames?: readonly FrameItem[];
+  /** 互動網頁的選項（嵌入模式、壓縮頭像；第四批） */
+  viewer?: ViewerOpts;
 }
 
 export { fontFaceCss, usedFontIds };
@@ -34,6 +36,8 @@ const renderLook = (input: ExportInput) => ({
   labels: input.labels,
   fonts: input.fonts,
   frames: input.frames,
+  radarTpls: input.radarTpls,
+  library: input.library,
 });
 
 export interface ExportResult {
@@ -183,7 +187,7 @@ export async function buildExport(
   const ext = exportExt(format, sheets.length);
   const fileName = `${fileBase(base)}.${ext}`;
   if (format === 'html') {
-    const html = viewerHtml(sheets, input);
+    const html = viewerHtml(sheets, input, input.viewer);
     return { blob: new Blob([html], { type: 'text/html;charset=utf-8' }), fileName };
   }
   const one = async (s: Sheet): Promise<{ data: Uint8Array; type: string }> => {

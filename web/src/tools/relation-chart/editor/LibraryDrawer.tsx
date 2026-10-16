@@ -5,7 +5,7 @@
  * 分頁列的「檔案庫」鈕打開／收起。寬畫面放在編輯區下方（頂端把手上下拖＝高度，中間分隔線左右拖＝左欄寬，
  * 都記在這台瀏覽器）；窄畫面蓋滿整個畫面。頂列：頁籤、搜尋、依分頁分組、收起；下方：這個頁籤的模式鈕、
  * 檢視層級（最少／一般／詳細）與項目大小（小／中／大）。
- * 頁籤：角色庫、關係庫、標籤庫｜連線總表（第三批；之後的批次再加分頁庫…）。換頁籤＝模式關掉、搜尋清空。
+ * 頁籤：角色庫、關係庫、標籤庫、便利貼庫｜連線總表、設定集（第四批；第五批再加分頁庫、快照）。換頁籤＝模式關掉、搜尋清空。
  */
 import { Layers, X } from 'lucide-react';
 import { Fragment, type PointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
@@ -20,6 +20,8 @@ import {
   type LibAction,
   runLabelAction,
 } from './LabelLibrary';
+import { NOTE_ACTIONS, NoteLibList, NoteLibSide } from './NoteLibrary';
+import { GSET_ACTIONS, GsetList, GsetSide } from './PresetLibrary';
 import { REL_ACTIONS, RelLibList, RelLibSide } from './RelLibrary';
 import { RelTableList, RelTableSide, TABLE_ACTIONS } from './RelTable';
 
@@ -27,20 +29,27 @@ const MIN_H = 160;
 const MIN_SIDE = 140;
 const MIN_LIST = 220;
 
-/** 頁籤（之後的批次在這裡加：分頁庫…）；sep＝前面放分隔線 */
+/** 頁籤（第五批在這裡加：分頁庫、快照）；sep＝前面放分隔線 */
 const TABS: readonly { key: LibTab; sep?: boolean }[] = [
   { key: 'chars' },
   { key: 'rels' },
   { key: 'labels' },
+  { key: 'notes' },
   { key: 'table', sep: true },
+  { key: 'gsets' },
 ];
 
 const ACTIONS: Record<LibTab, readonly LibAction[]> = {
   chars: CHAR_ACTIONS,
   rels: REL_ACTIONS,
   labels: LABEL_ACTIONS,
+  notes: NOTE_ACTIONS,
   table: TABLE_ACTIONS,
+  gsets: GSET_ACTIONS,
 };
+
+/** 有「依分頁分組」的頁籤 */
+const GROUPABLE: ReadonlySet<LibTab> = new Set(['chars', 'rels', 'labels']);
 
 /** 模式鈕：標籤庫的「新增」是馬上加；其他＝切換模式（互斥，再按＝關閉） */
 function runAction(tab: LibTab, key: LibAction['key']): void {
@@ -105,6 +114,10 @@ export function LibraryDrawer() {
       <RelLibSide />
     ) : tab === 'table' ? (
       <RelTableSide query={query} />
+    ) : tab === 'notes' ? (
+      <NoteLibSide />
+    ) : tab === 'gsets' ? (
+      <GsetSide />
     ) : (
       <LabelSide />
     );
@@ -115,6 +128,10 @@ export function LibraryDrawer() {
       <RelLibList query={query} />
     ) : tab === 'table' ? (
       <RelTableList query={query} />
+    ) : tab === 'notes' ? (
+      <NoteLibList query={query} />
+    ) : tab === 'gsets' ? (
+      <GsetList query={query} />
     ) : (
       <LabelList query={query} />
     );
@@ -212,7 +229,7 @@ export function LibraryDrawer() {
           {query ? (
             <IconButton size="sm" icon={<X />} label={S.lib.clear} onClick={() => setQuery('')} />
           ) : null}
-          {tab === 'table' ? null : (
+          {!GROUPABLE.has(tab) ? null : (
             <IconButton
               size="sm"
               icon={<Layers />}

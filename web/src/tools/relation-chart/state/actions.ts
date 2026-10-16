@@ -45,6 +45,7 @@ import type {
   GroupRel,
   Label,
   LayoutKind,
+  Note,
   Project,
   Rel,
   RelType,
@@ -56,6 +57,7 @@ import {
   activeSheet,
   projectNow,
   setUi,
+  type UiState,
   updateProject,
   useProject,
   useUi,
@@ -76,6 +78,16 @@ export function editSheet(recipe: (s: DSheet, p: DProject) => void): void {
 
 const takeId = (p: DProject): number => p.nextId++;
 
+/**
+ * 換了分頁（切換、新增、刪除、加入範例）之後的右側面板：世界觀、備忘錄、統計是跟著分頁的面板，留著並換成新分頁的內容
+ * （原作的浮動面板也是；7.10）；指著某位角色、某條關係、某張便利貼的面板關掉。統計鎖定的聚焦指著上一張分頁的角色＝解除。
+ */
+function sheetChangedUi(): Pick<UiState, 'panel' | 'statsFocus'> {
+  const p = useUi.getState().panel;
+  const keep = p?.kind === 'lore' || p?.kind === 'memo' || p?.kind === 'stats';
+  return { panel: keep ? p : null, statsFocus: null };
+}
+
 /** 全專案未用的角色預設編號 */
 const nextCharDefNo = (p: Project | DProject): number =>
   smallestFree(p.sheets.flatMap((s) => s.chars.map((c) => c.defNo)));
@@ -93,6 +105,7 @@ function pruneUi(): void {
   const typeIds = new Set(s.types.map((t) => t.id));
   const lblIds = new Set(projectNow().labels.map((l) => l.id));
   const grelIds = new Set(s.grels.map((g) => g.id));
+  const noteIds = new Set(s.notes.map((n) => n.id));
   const u = useUi.getState();
   /* 收合中的成員不能留在選取裡（批次操作會打到看不見的人） */
   const hidden = labelInfo(sheetCtx(s, projectNow().labels)).colHidden;
@@ -108,7 +121,11 @@ function pruneUi(): void {
     (f.kind === 'grel' && grelIds.has(f.id as number)) ||
     /* 角色資訊（7.8：之前漏了，任何一步復原紀錄都會把它關掉，例如資訊編輯區失焦） */
     (f.kind === 'info' && ids.has(f.id as number)) ||
-    f.kind === 'coledge';
+    (f.kind === 'note' && noteIds.has(f.id as number)) ||
+    f.kind === 'coledge' ||
+    f.kind === 'lore' ||
+    f.kind === 'memo' ||
+    f.kind === 'stats';
   const endAlive = (t: string | null) =>
     t !== null && (grelEndIsLbl(t) ? lblIds.has(grelEndId(t)) : ids.has(grelEndId(t)));
   const link =
@@ -141,7 +158,7 @@ export function switchSheet(idx: number): void {
     focus: null,
     hover: null,
     link: null,
-    panel: null,
+    ...sheetChangedUi(),
     renaming: null,
     fitTick: u.fitTick + 1,
     /* 交換位置模式留著、挑起的清掉（原作） */
@@ -152,7 +169,7 @@ export function switchSheet(idx: number): void {
 /**
  * 新增分頁。copy：'same'＝複製目前的分頁、同一批人（共用條目與變體：改名字兩邊一起變；原作的複製分頁，D5）；
  * 'fork'＝複製成獨立的新角色（每位角色複製成角色庫的新條目，只帶目前這件變體）。
- * 角色、關係類型、關係線、群體關係的 id 換新的；看法跟著複製（原作漏了）。
+ * 角色、關係類型、關係線、群體關係、便利貼的 id 換新的；看法跟著複製（原作漏了）。
  */
 export function addSheet(copy: boolean | 'same' | 'fork'): void {
   const mode = copy === true ? 'same' : copy;
@@ -195,6 +212,8 @@ export function addSheet(copy: boolean | 'same' | 'fork'): void {
       }
       remapGrels(p, snap.grels, charMap, typeMap, null);
       snap.views = remapViews(snap.views ?? {}, charMap);
+      /* 便利貼與圖表節點一起複製（新 id；圖表節點的 A、B 換成新角色）；世界觀、沿用、備忘錄照抄（原作） */
+      remapNotes(p, snap.notes ?? [], charMap, null);
       sheet = { ...snap, id, defNo, name: '' };
     } else {
       sheet = emptySheet(id, defNo, {
@@ -207,7 +226,14 @@ export function addSheet(copy: boolean | 'same' | 'fork'): void {
     p.active = p.sheets.length - 1;
   });
   const u = useUi.getState();
-  setUi({ sel: [], focus: null, hover: null, link: null, panel: null, fitTick: u.fitTick + 1 });
+  setUi({
+    sel: [],
+    focus: null,
+    hover: null,
+    link: null,
+    ...sheetChangedUi(),
+    fitTick: u.fitTick + 1,
+  });
 }
 
 export function renameSheet(idx: number, name: string): void {
@@ -227,7 +253,14 @@ export function deleteSheet(idx: number): boolean {
     else if (d.active > idx) d.active--;
   });
   const u = useUi.getState();
-  setUi({ sel: [], focus: null, hover: null, link: null, panel: null, fitTick: u.fitTick + 1 });
+  setUi({
+    sel: [],
+    focus: null,
+    hover: null,
+    link: null,
+    ...sheetChangedUi(),
+    fitTick: u.fitTick + 1,
+  });
   return true;
 }
 
@@ -244,13 +277,32 @@ export function moveSheet(from: number, to: number): void {
   });
 }
 
-/** 加進專案時的 id 對照（標籤、角色庫的條目與變體、關係庫的條目與變體） */
+/** 加進專案時的 id 對照（標籤、角色庫的條目與變體、關係庫的條目與變體、數值範本；分頁＝填入舊 id → 新 id） */
 export interface SheetMaps {
   labelMap?: Map<number, number>;
   entryMap?: Map<number, number>;
   varMap?: Map<number, number>;
   relEntryMap?: Map<number, number>;
   relVarMap?: Map<number, number>;
+  tplMap?: Map<number, number>;
+  sheetMap?: Map<number, number>;
+}
+
+/** 便利貼換成新的 id；圖表節點的 A、B 照 charMap、範本照 tplMap（沒給＝不換） */
+export function remapNotes(
+  p: DProject,
+  notes: Note[],
+  charMap: ReadonlyMap<number, number>,
+  tplMap: ReadonlyMap<number, number> | null,
+): void {
+  for (const n of notes) {
+    n.id = takeId(p);
+    if (!n.chart) continue;
+    /* 不在這張分頁的角色（已刪掉）＝沒有 */
+    n.chart.a = charMap.get(n.chart.a) ?? 0;
+    n.chart.b = charMap.get(n.chart.b) ?? 0;
+    if (tplMap) n.chart.tpl = tplMap.get(n.chart.tpl) ?? n.chart.tpl;
+  }
 }
 
 /**
@@ -320,7 +372,11 @@ export function insertSheet(
     }
   }
   const sheetIds = new Set(p.sheets.map((s) => s.defNo));
+  const oldId = snap.id;
   snap.id = takeId(p);
+  opts.sheetMap?.set(oldId, snap.id);
+  /* 便利貼最後才配 id（沒有便利貼時其他東西的 id 和以前相同） */
+  remapNotes(p, snap.notes ?? [], charMap, opts.tplMap ?? null);
   if (!snap.defNo || sheetIds.has(snap.defNo)) snap.defNo = nextSheetDefNo(p);
   const fixed = normalizeSheet(snap, snap.id) ?? snap;
   /* normalizeSheet 不會改 id；保險起見把座標壞掉的角色放到中央 */
@@ -362,16 +418,24 @@ export function addSample(sheet: Sheet): void {
     p.active = insertSheet(p, sheet);
   });
   const u = useUi.getState();
-  setUi({ sel: [], focus: null, hover: null, link: null, panel: null, fitTick: u.fitTick + 1 });
+  setUi({
+    sel: [],
+    focus: null,
+    hover: null,
+    link: null,
+    ...sheetChangedUi(),
+    fitTick: u.fitTick + 1,
+  });
 }
 
-/** 清空目前分頁的角色與關係（角色庫的條目留著；這張分頁的看法一起清） */
+/** 清空目前分頁的角色與關係（角色庫的條目留著；這張分頁的看法、便利貼與圖表節點一起清，原作） */
 export function clearSheet(): void {
   editSheet((s) => {
     s.chars = [];
     s.rels = [];
     s.grels = [];
     s.views = {};
+    s.notes = [];
   });
   setUi({ sel: [], focus: null, hover: null, panel: null });
 }

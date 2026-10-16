@@ -5,7 +5,8 @@
  * ① 編輯角色的「數值圖表」節（radarValuesSecHtml）＝填數值的唯一地方；
  * ② 數值比較（openRadarPanel）＝只看不填，A、B 疊圖；
  * ③ 範本設定（openRadarTplPanel）。
- * 數值在變體上（換穿變體＝另一組數值）；打字即時重畫、離開欄位才記一步。圖表節點是第四批。
+ * 數值在變體上（換穿變體＝另一組數值）；打字即時重畫、離開欄位才記一步。
+ * 第四批：「放到畫布上」＝新增一個圖表節點（帶範本與 A、B），並打開它的設定。
  */
 import type { Draft } from 'immer';
 import { useState } from 'react';
@@ -37,6 +38,7 @@ import {
   setRadarVal,
   updateRadarTpl,
 } from '../state/libActions';
+import { addChartNote } from '../state/noteActions';
 import { type DialogKind, gesture, setUi, useProject, useUi } from '../state/store';
 import { S } from '../strings';
 import { useSheet } from './hooks';
@@ -292,6 +294,18 @@ export function RadarSection({ c }: { c: Char }) {
               >
                 {T.compareOpen}
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={!tpl || !series.length}
+                onClick={() => {
+                  const id = addChartNote({ tpl: tplId, a: c.id });
+                  setUi({ panel: { kind: 'note', id } });
+                }}
+                data-testid="radar-to-canvas"
+              >
+                {S.note.toCanvas}
+              </Button>
             </div>
           </>
         )}
@@ -391,6 +405,19 @@ function CompareBody() {
           }
         >
           {T.tplSettings}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={!tpl || !series.length}
+          onClick={() => {
+            if (!tpl) return;
+            const id = addChartNote({ tpl: tpl.id, a: A?.id ?? null, b: Bc?.id ?? null });
+            setUi({ dialog: null, panel: { kind: 'note', id } });
+          }}
+          data-testid="radar-compare-to-canvas"
+        >
+          {S.note.toCanvas}
         </Button>
       </div>
     </div>

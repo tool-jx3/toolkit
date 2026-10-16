@@ -2,7 +2,7 @@
  * 畫布的視角（平移、縮放）：zoom＝每個畫布單位幾個螢幕 px，x／y＝SVG 左上角在畫布框裡的位置。
  * 編輯列、鍵盤、小地圖、角色清單都透過這裡改視角。
  */
-import { activeSheet, setUi, useUi, type View } from '../state/store';
+import { activeSheet, type LodLevel, setUi, useUi, type View } from '../state/store';
 
 export const ZOOM_MIN = 0.1;
 export const ZOOM_MAX = 4;
@@ -19,7 +19,17 @@ export function bindView(b: Bound | null): void {
   bound = b;
 }
 
-const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+/**
+ * 縮小的下限：10%，大畫布再低到「符合畫面」的 1/10（原作的下限是相對於符合畫面的 0.1；
+ * 只用絕對的 10% 時，大畫布縮不到遠近簡化的「遠」）。
+ */
+function zoomFloor(): number {
+  const r = hostRect();
+  if (!r || r.width < 10 || r.height < 10) return ZOOM_MIN;
+  return Math.min(ZOOM_MIN, fitZoom(r.width, r.height) * 0.1);
+}
+
+const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(zoomFloor(), z));
 
 export function hostRect(): DOMRect | null {
   return bound?.el.getBoundingClientRect() ?? null;
@@ -42,13 +52,36 @@ export function contentBox(): { viewW: number; viewH: number; pad: number } {
   return bound?.content() ?? { viewW: 1000, viewH: 1000, pad: 0 };
 }
 
+/** 「符合畫面」的倍率：整張（含出血與界外的圖例）放進畫布框，四周留一點邊 */
+function fitZoom(w: number, h: number): number {
+  const { viewW, viewH } = contentBox();
+  const m = w < 500 ? 8 : 24;
+  return Math.min((w - m) / Math.max(1, viewW), (h - m) / Math.max(1, viewH));
+}
+
+/**
+ * 遠近簡化的倍率（原作的 state.scale：1＝按「符合畫面」之後的倍率，原作 resetViewToFit 把它設成 1）。
+ * 本站的 zoom 是「每個畫布單位幾個螢幕 px」，直接拿來比 0.5／1 會在大畫布一開就進「遠」。
+ */
+export function lodScale(zoom: number, hostW: number, hostH: number): number {
+  const fit = fitZoom(hostW, hostH);
+  return fit > 0 ? zoom / fit : 1;
+}
+
+/** 三檔與遲滯（原作的 updateLOD：≥ 1＝近、0.5～1＝中、< 0.5＝遠；換檔要多跨 0.03） */
+export function nextLod(prev: LodLevel, s: number): LodLevel {
+  const H = 0.03;
+  if (prev === 'far') return s >= 0.5 + H ? (s >= 1 ? 'near' : 'mid') : 'far';
+  if (prev === 'mid') return s < 0.5 - H ? 'far' : s >= 1 + H ? 'near' : 'mid';
+  return s < 1 - H ? (s < 0.5 ? 'far' : 'mid') : 'near';
+}
+
 /** 整張（含出血與界外的圖例）放進畫面 */
 export function fitView(): void {
   const r = hostRect();
   if (!r || r.width < 10 || r.height < 10) return;
   const { viewW, viewH } = contentBox();
-  const m = r.width < 500 ? 8 : 24;
-  const zoom = clampZoom(Math.min((r.width - m) / viewW, (r.height - m) / viewH));
+  const zoom = clampZoom(fitZoom(r.width, r.height));
   setUi({
     view: { zoom, x: (r.width - viewW * zoom) / 2, y: (r.height - viewH * zoom) / 2 },
   });

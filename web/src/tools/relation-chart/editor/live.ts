@@ -13,7 +13,7 @@
  *   標籤網的虛線與圓點、收合的聚合線放開才更新（原作也一樣）。磁鐵跑著時標籤網開著或有收合＝每一格整張重畫（照原作）。
  *   標籤節點的位置（分頁設定 labelPos）也在工作副本裡，和角色的位置一起寫回。
  */
-import { edgeLayerSvg } from '../engine/chart';
+import { edgeLayerSvg, lodDense } from '../engine/chart';
 import { buildObstacles, type EdgeCtx, edgePairs, edgeSvg } from '../engine/edges';
 import { bleedPad, type SheetCtx, sheetCtx } from '../engine/geom';
 import { aliveGrels, grelEdgesSvg, labelInfo, zonesActive, zonesSvg } from '../engine/labels';
@@ -401,6 +401,8 @@ export function liveFrame(cap: number): void {
     href: hooks.href,
     idPrefix: '',
     defs: [],
+    /* 遠近簡化的單向線標記（整張重畫時有標的，快速路徑重畫的線也要有） */
+    lod: lodDense(ctx),
   };
   const layer = D.svg.querySelector(':scope > .canvas-content > .layer-edges');
   if (!layer) {

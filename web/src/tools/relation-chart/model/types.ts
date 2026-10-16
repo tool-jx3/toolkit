@@ -8,6 +8,8 @@
  * 尺寸、框、標籤、數值）、條目（這個人：角色資訊、角色字型、統一顏色）。實例上仍留著變體與條目的外觀欄位
  * （副本，畫法引擎照舊讀攤平的角色）；變體才是正本，改動由 state/store 的 updateProject 同步（model/library.ts）。
  * 關係類型同樣綁一件關係庫的變體（名稱與樣式是副本；顯示、圖例、捆綁忽略是各分頁自己的）。
+ *
+ * 第四批：分頁多了便利貼（含圖表節點）、世界觀、備忘錄；專案多了便利貼庫（關閉過的便利貼）與設定集。
  */
 import type { FramePlacement } from '@/core/image';
 
@@ -339,6 +341,9 @@ export interface SheetSettings {
   /* ---- 第三批 ---- */
   /** 預設頭像框（資產 id；''＝不使用框） */
   defFrame: string;
+  /* ---- 第四批 ---- */
+  /** 便利貼的分頁預設字級（0＝自動，1～200；原作的 defStickySize，不是關係備註的 defNoteSize） */
+  defStickySize: number;
 }
 
 /** 群體關係的端點：`C<角色 id>` 或 `L<標籤 id>` */
@@ -377,6 +382,64 @@ export interface Sheet {
   collapsed: number[];
   /** 看法：說話者的角色 id → 對象的角色 id → 一句話（第三批） */
   views: Record<string, Record<string, string>>;
+  /** 便利貼與圖表節點（第四批；畫在所有圖層之上，不是角色） */
+  notes: Note[];
+  /** 世界觀（淨化過的 HTML；圖片寫成 `rcimg:<資產 id>`） */
+  lore: string;
+  /** 世界觀沿用的分頁 id（null＝本分頁自己的；只一層） */
+  loreFrom: number | null;
+  /** 備忘錄（純文字，最多 2 萬字；不進任何匯出） */
+  memo: string;
+}
+
+/** 圖表節點的設定（原作的 note.chart：A、B 是這張分頁的角色 id，0＝沒有；stA／stB＝那位角色在這份範本的第幾個狀態） */
+export interface NoteChart {
+  tpl: number;
+  a: number;
+  b: number;
+  stA: number;
+  stB: number;
+  legend: boolean;
+}
+
+/** 便利貼（原作的 sticky note；x、y 是中心，寬高是 50 的倍數、至少 100） */
+export interface Note {
+  id: number;
+  /** 內文（原作的欄位名是 name）；圖表節點＝標題 */
+  text: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** 字級（null＝跟隨分頁預設字級／自動） */
+  size: number | null;
+  /** 釘選＝不能拖、不能改大小 */
+  locked: boolean;
+  /** 隱藏紙面（只顯示文字） */
+  bare: boolean;
+  /** 圖表節點（null＝一般便利貼） */
+  chart: NoteChart | null;
+}
+
+/** 便利貼庫的一筆關閉紀錄（沒有座標：放回畫布時重新配位置） */
+export interface NoteBinItem {
+  id: number;
+  savedAt: number;
+  text: string;
+  w: number;
+  h: number;
+  size: number | null;
+  bare: boolean;
+  chart: NoteChart | null;
+}
+
+/** 設定集的一筆（原作的整體設定庫：分頁外觀設定的一組值；套用＝複製到目前分頁、不連動） */
+export interface SettingsPreset {
+  id: number;
+  name: string;
+  fav: boolean;
+  /** 設定值（只有設定集涵蓋的鍵；讀原作的設定集時沒有的鍵不放＝套用時不動） */
+  values: Partial<SheetSettings>;
 }
 
 export interface Label {
@@ -413,4 +476,9 @@ export interface Project {
   frames: FrameItem[];
   /** 匯入的字型 */
   fonts: FontItem[];
+  /* ---- 第四批 ---- */
+  /** 便利貼庫：關閉過的便利貼（最新的在前，最多 60 筆） */
+  noteBin: NoteBinItem[];
+  /** 設定集 */
+  settingsLib: SettingsPreset[];
 }

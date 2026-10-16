@@ -3,29 +3,18 @@
  *
  * 匯出（原作「檔案 › 輸出」）：格式（PNG、分層 SVG、分層 PSD、互動網頁）、範圍（目前／全部／部分分頁）、
  * 去背、檔名；互動網頁可以先在對話框裡預覽。
+ * 第四批：互動網頁的「壓縮頭像」「嵌入模式」（勾了嵌入模式時出現嵌入碼與託管說明；F146）；
+ * 每次匯出都記下格式、範圍與勾選（再次匯出，F147）。預覽不吃這兩個選項（原作也是）。
  */
-import { Download, Eye } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { downloadBlob } from '@/core/files';
-import { Button, Checkbox, Dialog, Field, Segmented, TextInput, useToast } from '@/ui';
+import { Copy, Download, Eye } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Button, Checkbox, Dialog, Field, Segmented, TextArea, TextInput, useToast } from '@/ui';
 import { sheetName } from '../../engine/geom';
-import { buildExport, defaultExportBase, type ExportFormat, exportExt } from '../../export/outputs';
+import { defaultExportBase, type ExportFormat, exportExt } from '../../export/outputs';
 import { viewerHtml } from '../../export/viewer';
-import { richImageIds } from '../../model/normalize';
-import { dataUris, drawnImageIds } from '../../state/images';
-import {
-  activeIndex,
-  type ExportScope,
-  projectNow,
-  setPrefs,
-  setUi,
-  syncProject,
-  usePrefs,
-  useProject,
-  useUi,
-} from '../../state/store';
+import { activeIndex, setPrefs, setUi, usePrefs, useProject, useUi } from '../../state/store';
 import { S } from '../../strings';
-import { flushRichEditors } from '../RichEditor';
+import { pickIndexes, prepare, runExport } from '../exportRun';
 
 const E = S.exportDlg;
 
@@ -36,40 +25,68 @@ const HINTS: Record<ExportFormat, string> = {
   html: E.htmlHint,
 };
 
-/** 這次要匯出的分頁索引（沒有角色的不匯出） */
-function pickIndexes(scope: ExportScope, picked: ReadonlySet<number>): number[] {
-  syncProject();
-  const p = projectNow();
-  const all = p.sheets.map((_, i) => i).filter((i) => p.sheets[i].chars.length > 0);
-  if (p.sheets.length <= 1 || scope === 'cur') return all.filter((i) => i === activeIndex(p));
-  if (scope === 'all') return all;
-  return all.filter((i) => picked.has(i));
+/** 嵌入碼＋託管說明（嵌入模式勾著時） */
+const EMBED_CODE = `<iframe src="${E.embedSrc}" style="width:100%;aspect-ratio:4/3;border:0" loading="lazy" allowfullscreen></iframe>`;
+
+/** 剪貼簿 API 不能用時（非 https、權限）退回舊的複製法：選取文字框後 execCommand（原作的做法） */
+function legacyCopy(el: HTMLTextAreaElement | null): boolean {
+  if (!el) return false;
+  try {
+    el.focus();
+    el.select();
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  }
 }
 
-async function prepare(idx: readonly number[], transparent: boolean) {
-  flushRichEditors();
-  syncProject();
-  const p = projectNow();
-  const sheets = idx.map((i) => p.sheets[i]);
-  /* 圖、頭像框、用到的匯入字型、角色資訊裡的圖（第三批） */
-  const ids = new Set(drawnImageIds(p, idx));
-  const fontRefs = new Set<string>([p.font, ...sheets.flatMap((s) => s.chars.map((c) => c.font))]);
-  for (const f of p.fonts) if (fontRefs.has(`f:${f.id}`)) ids.add(f.id);
-  const libIds = new Set(sheets.flatMap((s) => s.chars.map((c) => c.lib)));
-  for (const e of p.library)
-    if (libIds.has(e.id)) for (const id of richImageIds(e.info)) ids.add(id);
-  const uris = await dataUris(ids);
-  return {
-    sheets,
-    font: p.font,
-    labels: p.labels,
-    uris,
-    transparent,
-    fonts: p.fonts,
-    frames: p.frames,
-    library: p.library,
-    radarTpls: p.radarTpls,
-  };
+function EmbedTeach() {
+  const [copied, setCopied] = useState(false);
+  const toast = useToast();
+  const box = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1200);
+    return () => clearTimeout(t);
+  }, [copied]);
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-md border border-border p-2"
+      data-testid="embed-teach"
+    >
+      <Field label={E.embedCode}>
+        <div className="flex items-start gap-1">
+          <TextArea
+            ref={box}
+            readOnly
+            value={EMBED_CODE}
+            rows={3}
+            className="min-w-0 flex-1 font-mono text-xs"
+            onFocus={(e) => e.currentTarget.select()}
+            data-testid="embed-code"
+          />
+          <Button
+            size="sm"
+            icon={<Copy />}
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(EMBED_CODE);
+                setCopied(true);
+              } catch {
+                if (legacyCopy(box.current)) setCopied(true);
+                else toast({ title: E.copyFail, tone: 'warning' });
+              }
+            }}
+            data-testid="embed-copy"
+          >
+            {copied ? E.copied : E.copy}
+          </Button>
+        </div>
+      </Field>
+      <p className="text-xs text-muted">{E.embedSteps}</p>
+      <p className="text-xs text-muted">{E.embedToyhouse}</p>
+    </div>
+  );
 }
 
 function PreviewDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -152,10 +169,14 @@ function Body({ onDone }: { onDone: () => void }) {
     if (!idx.length) return;
     setBusy(true);
     try {
-      const input = await prepare(idx, prefs.transparent);
-      const out = await buildExport(fmt, input, custom?.trim() || base);
-      downloadBlob(out.blob, out.fileName);
-      toast({ title: E.done(out.fileName), tone: 'success' });
+      const name = await runExport(
+        fmt,
+        scope,
+        idx,
+        { transparent: prefs.transparent, slim: prefs.slim, embed: prefs.embed },
+        custom?.trim() || base,
+      );
+      toast({ title: E.done(name), tone: 'success' });
       onDone();
     } catch (e) {
       toast({
@@ -226,6 +247,24 @@ function Body({ onDone }: { onDone: () => void }) {
           label={E.transparent}
           data-testid="export-transparent"
         />
+      ) : null}
+      {fmt === 'html' ? (
+        <div className="flex flex-col gap-2">
+          <Checkbox
+            checked={prefs.slim}
+            onCheckedChange={(v) => setPrefs({ slim: v })}
+            label={E.slim}
+            data-testid="export-slim"
+          />
+          <p className="-mt-1 text-xs text-muted">{E.slimHint}</p>
+          <Checkbox
+            checked={prefs.embed}
+            onCheckedChange={(v) => setPrefs({ embed: v })}
+            label={E.embed}
+            data-testid="export-embed"
+          />
+          {prefs.embed ? <EmbedTeach /> : null}
+        </div>
       ) : null}
       <Field label={E.fileName} hint={E.fileNameHint}>
         <div className="flex items-center gap-1">

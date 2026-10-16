@@ -103,6 +103,8 @@ function project(sheets: Sheet[], extra: Partial<Project> = {}): Project {
     radarTpls: [],
     frames: [],
     fonts: [],
+    noteBin: [],
+    settingsLib: [],
     ...extra,
   };
 }
@@ -1529,7 +1531,7 @@ test('專案檔：存成 ZIP（含圖片）、全部重設、開啟還原；Ctrl
   const zbytes = readFileSync((await dl.path()) as string);
   const files = unzipSync(new Uint8Array(zbytes));
   const pj = JSON.parse(strFromU8(files['project.json']));
-  expect(pj).toMatchObject({ format: 'trpg-toolkit-project', tool: 'relation-chart', version: 3 });
+  expect(pj).toMatchObject({ format: 'trpg-toolkit-project', tool: 'relation-chart', version: 4 });
   const av = pj.data.sheets[0].chars[0].avatar;
   expect(Object.keys(files)).toEqual(
     expect.arrayContaining([`files/${av.img}.png`, `files/${av.src}.png`]),
@@ -1635,7 +1637,8 @@ test('原作的專案檔：ZIP（頭像、原圖與位置、背景圖、標籤�
   await expect(choice).toContainText('檔案裡有 1 張分頁');
   await choice.getByRole('button', { name: '加入為新分頁' }).click();
   await expect(toast(page, '已讀入原作的專案：1 張分頁、2 位角色、1 條關係')).toBeVisible();
-  await expect(toast(page, /便利貼/)).toBeVisible();
+  /* 第四批起便利貼照樣讀進來，不再列在「沒有讀進來」裡 */
+  await expect(toast(page, /便利貼/)).toHaveCount(0);
   await expect(page.getByTestId('sheet-tab')).toHaveText(['分頁1', '原作的分頁']);
   const p = await saved(page);
   await page.waitForTimeout(450);
@@ -1651,6 +1654,7 @@ test('原作的專案檔：ZIP（頭像、原圖與位置、背景圖、標籤�
   expect(s.chars[0].avatar?.place?.zoom).toBeCloseTo(1.5);
   expect(s.chars[1].color).toBe('#00ff00');
   expect(s.bg).toBeTruthy();
+  expect(s.notes.map((n) => n.text)).toEqual(['便利貼']);
   expect(s.settings.showRelName).toBe(true);
   expect(s.rels[0]).toMatchObject({ both: true, note: '青梅竹馬' });
   expect(q?.labels.map((l) => l.text)).toEqual(['學生']);
@@ -3166,5 +3170,870 @@ test('原作的專案檔（第三批）：角色庫的每件變體、關係庫�
   await v.waitForTimeout(300);
   expect(vErrors).toEqual([]);
   await v.close();
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 第四批：畫布、檢視與分享 ---------- */
+
+const noteEl = (page: Page, id: number) => chart(page).locator(`.note-node[data-noteid="${id}"]`);
+/** 便利貼的紙面（直屬的 rect） */
+const notePaper = (page: Page, id: number) => noteEl(page, id).locator(':scope > rect').first();
+const noteBtn = (page: Page, id: number, act: 'pin' | 'del' | 'cfg') =>
+  noteEl(page, id).locator(`.note-btn[data-note-act="${act}"] > circle`).first();
+
+/** 打開「檢視」選單的一項 */
+async function viewMenu(page: Page, testId: string) {
+  await page.getByTestId('view-menu').click();
+  await page.getByTestId(testId).click();
+}
+
+/** 畫布座標 → 螢幕座標 */
+async function canvasPt(page: Page, x: number, y: number) {
+  return page.evaluate(
+    ([x, y]) => {
+      const g = document.querySelector(
+        '[data-testid=chart] svg.rc-chart:not(.rc-live-under) .canvas-content',
+      ) as SVGGraphicsElement;
+      const p = new DOMPoint(x, y).matrixTransform(g.getScreenCTM() as DOMMatrix);
+      return { x: p.x, y: p.y };
+    },
+    [x, y],
+  );
+}
+
+test('便利貼：新增即就地輸入（一段編輯一步復原、Esc 放棄）、拖曳（可以放到畫布外，畫布下方說明）、右下把手改大小、釘選、設定（隱藏紙面、字級）、關閉進便利貼庫、放回、尺寸範本', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, project([trio()]));
+  await more(page, 'menu-add-note');
+  const ed = page.locator('[data-note-editor]');
+  await expect(ed).toBeFocused();
+  await page.keyboard.type('第一行');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('第二行');
+  /* 點畫布別的地方＝收起 */
+  await clickAt(page, await canvasPt(page, 80, 950));
+  await expect(ed).toHaveCount(0);
+  let s = await sheet(page);
+  expect(s.notes).toHaveLength(1);
+  const id = s.notes[0].id;
+  expect(s.notes[0]).toMatchObject({ text: '第一行\n第二行', w: 200, h: 200 });
+  await expect(noteEl(page, id).locator('.note-text text')).toHaveText(['第一行', '第二行']);
+  /* 一段編輯＝一步復原（新增是另一步） */
+  await page.getByTestId('undo').click();
+  s = await sheet(page);
+  expect(s.notes.map((n) => n.text)).toEqual(['']);
+  await page.getByTestId('redo').click();
+  await page.waitForTimeout(450);
+  /* 點一下＝再編輯；Esc＝放棄這次的修改 */
+  await clickAt(page, await center(notePaper(page, id)));
+  await expect(ed).toBeFocused();
+  await page.keyboard.type('不要的字');
+  await page.keyboard.press('Escape');
+  await expect(ed).toHaveCount(0);
+  s = await sheet(page);
+  expect(s.notes[0].text).toBe('第一行\n第二行');
+  /* 拖到畫布外（不夾回）：畫布下方的說明、沒有出血框（先縮小，畫布四周才有空間） */
+  await page.getByTestId('zoom-out').click();
+  await page.getByTestId('zoom-out').click();
+  const before = s.notes[0];
+  const from = await center(notePaper(page, id));
+  await drag(page, from, await canvasPt(page, -80, before.y));
+  s = await sheet(page);
+  /* 放在游標指的位置（外擴撐開時畫布留在原地） */
+  expect(Math.abs(s.notes[0].x + 80)).toBeLessThan(2);
+  expect(Math.abs(s.notes[0].y - before.y)).toBeLessThan(2);
+  await expect(chart(page).locator('.note-out-hint')).toHaveText(
+    '有 1 張便利貼在畫布外：互動網頁看得到，但 .png 只裁畫布、不會包含它們。',
+  );
+  await expect(chart(page).locator('.canvas-bleed-frame')).toHaveCount(0);
+  /* 拖回來，改大小：左上角固定、吸 50 的倍數 */
+  await drag(page, await center(notePaper(page, id)), await canvasPt(page, 500, 700));
+  await page.getByTestId('zoom-fit').click();
+  s = await sheet(page);
+  expect(s.notes[0].x).toBeGreaterThan(400);
+  const n0 = s.notes[0];
+  const left = n0.x - n0.w / 2;
+  const top = n0.y - n0.h / 2;
+  const grip = noteEl(page, id).locator('.note-grip path');
+  /* 抓三角形的直角（右下角）：寬高＝游標到左上角的距離 */
+  const gb = (await grip.boundingBox()) as { x: number; y: number; width: number; height: number };
+  const g = { x: gb.x + gb.width - 1, y: gb.y + gb.height - 1 };
+  const k = (await canvasPt(page, 100, 0)).x - (await canvasPt(page, 0, 0)).x;
+  await drag(page, g, { x: g.x + (80 * k) / 100, y: g.y + (30 * k) / 100 });
+  s = await sheet(page);
+  expect(s.notes[0]).toMatchObject({ w: 300, h: 250 });
+  expect(s.notes[0].x - s.notes[0].w / 2).toBeCloseTo(left, 1);
+  expect(s.notes[0].y - s.notes[0].h / 2).toBeCloseTo(top, 1);
+  /* 釘選：沒有把手、拖不動 */
+  const pc = await center(noteBtn(page, id, 'pin'));
+  await clickAt(page, pc);
+  await expect(noteEl(page, id).locator('.note-grip')).toHaveCount(0);
+  s = await sheet(page);
+  const pinned = s.notes[0];
+  await drag(page, await center(notePaper(page, id)), await canvasPt(page, 200, 200));
+  s = await sheet(page);
+  expect([s.notes[0].x, s.notes[0].y]).toEqual([pinned.x, pinned.y]);
+  /* 設定：隱藏紙面、字級 */
+  await clickAt(page, await center(noteBtn(page, id, 'cfg')));
+  await expect(title(page)).toHaveText('便利貼設定');
+  await page.getByRole('checkbox', { name: '隱藏紙面（只顯示文字）' }).click();
+  await expect(noteEl(page, id)).toHaveClass(/note-bare/);
+  await page.getByRole('spinbutton', { name: '字級 px（≥1）' }).fill('22');
+  await page.getByRole('spinbutton', { name: '字級 px（≥1）' }).blur();
+  await expect(page.getByTestId('note-fs-now')).toHaveText('目前實際字級：22 px');
+  s = await sheet(page);
+  expect(s.notes[0]).toMatchObject({ bare: true, size: 22, locked: true });
+  /* 刪除＝關閉：內容進便利貼庫（不確認） */
+  await page.getByTestId('note-del').click();
+  s = await sheet(page);
+  expect(s.notes).toHaveLength(0);
+  await page.getByTestId('library-open').click();
+  await page.getByTestId('library-tab-notes').click();
+  const row = lib(page).getByTestId('lib-entry');
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId('lib-entry-name')).toHaveText('第一行');
+  await expect(row.getByTestId('lib-entry-meta')).toHaveText('6 × 5');
+  /* 點一筆＝放回並移出紀錄 */
+  await row.click();
+  await expect(
+    lib(page).getByText('還沒有關閉過的便利貼。按便利貼的 ✕，內容就會留在這裡。'),
+  ).toBeVisible();
+  let p = await data(page);
+  expect(p.noteBin).toHaveLength(0);
+  expect(p.sheets[0].notes[0]).toMatchObject({
+    text: '第一行\n第二行',
+    w: 300,
+    h: 250,
+    size: 22,
+    bare: true,
+  });
+  /* 尺寸範本：3 × 3 */
+  await lib(page).locator('[data-testid=notelib-tpl][data-cells="3"]').click();
+  p = await data(page);
+  expect(p.sheets[0].notes.at(-1)).toMatchObject({ w: 150, h: 150, text: '' });
+  /* 刪除模式：點紀錄＝只刪紀錄 */
+  const nid = p.sheets[0].notes.at(-1)?.id as number;
+  await clickAt(page, await center(noteBtn(page, nid, 'del')));
+  await page.getByTestId('library-act-del').click();
+  await lib(page).getByTestId('lib-entry').click();
+  p = await data(page);
+  expect(p.noteBin).toHaveLength(0);
+  expect(p.sheets[0].notes).toHaveLength(1);
+  expect(errors).toEqual([]);
+});
+
+test('圖表節點：數值比較「放到畫布上」、設定（標題、範本、角色 A／B 與狀態、圖例、隱藏卡面）、點一下＝打開設定、分層 SVG 的便利貼圖層', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s = trio();
+  const radarTpls = [
+    {
+      id: 900,
+      name: '能力值',
+      chart: 'radar' as const,
+      shape: 'poly' as const,
+      rings: 4,
+      valMode: 'raw' as const,
+      shared: false,
+      axes: [
+        { id: 901, label: '力', max: 100, unit: '' },
+        { id: 902, label: '速', max: 100, unit: '' },
+        { id: 903, label: '智', max: 100, unit: '' },
+      ],
+    },
+  ];
+  await seed(page, project([s], { radarTpls }));
+  let p = await data(page);
+  /* 甲：兩個狀態；乙：一個 */
+  await page.evaluate(
+    ({ key, a, b }) => {
+      const raw = JSON.parse(localStorage.getItem(key) as string);
+      const lib = raw.state.data.library;
+      lib.find((e: { id: number }) => e.id === a).variants[0].radars = [
+        { tpl: 900, state: '戰前', vals: { 901: 80, 902: 40, 903: 60 } },
+        { tpl: 900, state: '戰後', vals: { 901: 30, 902: 90, 903: 60 } },
+      ];
+      lib.find((e: { id: number }) => e.id === b).variants[0].radars = [
+        { tpl: 900, state: '', vals: { 901: 50, 902: 50, 903: 50 } },
+      ];
+      localStorage.setItem(key, JSON.stringify(raw));
+    },
+    { key: KEY, a: p.sheets[0].chars[0].lib, b: p.sheets[0].chars[1].lib },
+  );
+  await page.reload();
+  await expect(page.getByTestId('chart').locator('svg')).toBeVisible();
+  await more(page, 'menu-compare');
+  const cmp = page.getByTestId('radar-compare-dialog');
+  await pickOption(page, cmp.getByTestId('radar-a'), '甲');
+  await page.getByTestId('radar-compare-to-canvas').click();
+  await expect(title(page)).toHaveText('圖表節點設定');
+  p = await data(page);
+  const n = p.sheets[0].notes[0];
+  expect(n).toMatchObject({
+    w: 400,
+    h: 400,
+    chart: { tpl: 900, a: 1, b: 0, stA: 0, legend: true },
+  });
+  await expect(noteEl(page, n.id).locator('.radar-svg')).toHaveCount(1);
+  /* 標題、B、狀態（換角色＝兩邊的狀態都回到第 1 個，所以先選 B 再選狀態） */
+  await page.getByTestId('note-chart-title').fill('戰前 vs 戰後');
+  await page.getByTestId('note-chart-title').blur();
+  await pickOption(page, page.getByTestId('note-chart-sta'), '戰後');
+  await pickOption(page, page.getByTestId('note-chart-b'), '乙');
+  await expect(page.getByTestId('note-chart-sta')).toContainText('戰前');
+  await pickOption(page, page.getByTestId('note-chart-sta'), '戰後');
+  await expect(noteEl(page, n.id).locator('.chart-body > text').first()).toHaveText('戰前 vs 戰後');
+  await expect(noteEl(page, n.id).locator('.chart-body circle[r="4.5"]')).toHaveCount(2);
+  await expect(noteEl(page, n.id)).toContainText('甲・戰後');
+  /* 圖例關掉、隱藏卡面 */
+  await page.getByRole('checkbox', { name: '顯示圖例' }).click();
+  await expect(noteEl(page, n.id).locator('.chart-body circle[r="4.5"]')).toHaveCount(0);
+  await page.getByRole('checkbox', { name: '隱藏卡面（只顯示圖）' }).click();
+  await expect(noteEl(page, n.id)).toHaveClass(/note-bare/);
+  p = await data(page);
+  expect(p.sheets[0].notes[0]).toMatchObject({
+    text: '戰前 vs 戰後',
+    bare: true,
+    chart: { a: 1, b: 2, stA: 1, legend: false },
+  });
+  /* 點一下＝打開設定（不是文字編輯） */
+  await page.getByTestId('panel-close').click();
+  await clickAt(page, await center(noteEl(page, n.id).locator('.radar-svg')));
+  await expect(title(page)).toHaveText('圖表節點設定');
+  await expect(page.locator('[data-note-editor]')).toHaveCount(0);
+  /* 分層 SVG：最上面多一層「便利貼」（沒有小圓鈕） */
+  const svg = strFromU8((await runExport(page, '分層 SVG')).bytes);
+  expect(svg).toMatch(/inkscape:label="便利貼" id="layer-notes"/);
+  expect(svg).toContain('class="radar-svg"');
+  expect(svg).not.toContain('note-btn');
+  expect(errors).toEqual([]);
+});
+
+test('世界觀與備忘錄：富文本（一段編輯一步復原）、沿用別的分頁（唯讀顯示）、備忘錄（不進匯出）、互動網頁的「世界觀」鈕；世界觀的圖重新整理後還在', async ({
+  page,
+  context,
+}) => {
+  const errors = await open(page);
+  await seed(page, project([trio(), sample('family', 1000, '家族')]));
+  await viewMenu(page, 'menu-lore');
+  await expect(title(page)).toHaveText('世界觀');
+  const ed = page.getByTestId('lore-editor');
+  await ed.click();
+  await page.keyboard.type('北境與南境分裂');
+  /* 插入圖片（存進資產庫） */
+  const [fc] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('button', { name: '插入圖片' }).click(),
+  ]);
+  await fc.setFiles({
+    name: 'map.png',
+    mimeType: 'image/png',
+    buffer: await solidPng([200, 40, 40, 255], 40, 40),
+  });
+  await expect(ed.locator('img')).toHaveCount(1);
+  await clickAt(page, await canvasPt(page, 80, 950));
+  let p = await data(page);
+  expect(p.sheets[0].lore).toContain('北境與南境分裂');
+  expect(p.sheets[0].lore).toMatch(/<img src="rcimg:[0-9a-z]+">/);
+  /* 第二張分頁：沿用第一張 */
+  await page.getByTestId('sheet-tab').nth(1).click();
+  await viewMenu(page, 'menu-lore');
+  await pickOption(page, page.getByTestId('lore-src'), '分頁1');
+  await expect(page.getByTestId('lore-view')).toContainText('北境與南境分裂');
+  await expect(page.getByTestId('lore-editor')).toHaveCount(0);
+  p = await data(page);
+  expect(p.sheets[1].loreFrom).toBe(p.sheets[0].id);
+  /* 備忘錄：打字即寫入，停手後一步 */
+  await viewMenu(page, 'menu-memo');
+  await page.getByTestId('memo-text').fill('色票：#e5b84b');
+  await page.waitForTimeout(800);
+  p = await data(page);
+  expect(p.sheets[1].memo).toBe('色票：#e5b84b');
+  /* 互動網頁：兩張分頁都有世界觀（沿用的指到同一份）、備忘錄不進 */
+  const html = strFromU8((await runExport(page, '互動網頁（唯讀）', { scope: '全部分頁' })).bytes);
+  expect(html).toContain('id="loreBtnV"');
+  expect(html).not.toContain('色票');
+  expect(html.match(/class="loreDoc"/g)).toHaveLength(1);
+  const w = await context.newPage();
+  await w.route('**/*', (r) =>
+    r.request().url() === 'http://viewer.test/'
+      ? r.fulfill({ body: html, contentType: 'text/html' })
+      : r.abort(),
+  );
+  await w.goto('http://viewer.test/');
+  await w.locator('#loreBtnV').click();
+  await expect(w.locator('#loreV')).toHaveClass(/show/);
+  await expect(w.locator('#loreVBody .loreDoc:not([hidden])')).toContainText('北境與南境分裂');
+  await expect(w.locator('#loreVBody .loreDoc:not([hidden]) img')).toHaveAttribute(
+    'src',
+    /^data:image\/png/,
+  );
+  /* 窗格蓋住右上的鈕：用窗格的 ✕ 關 */
+  await w.locator('#loreVClose').click();
+  await expect(w.locator('#loreV')).not.toHaveClass(/show/);
+  await w.close();
+  /* 資產回收：重新整理（開頁 3 秒後整理）兩次之後，世界觀的圖還在 */
+  await page.reload();
+  await page.waitForTimeout(3600);
+  await page.reload();
+  await page.getByTestId('sheet-tab').first().click();
+  await viewMenu(page, 'menu-lore');
+  await expect(page.getByTestId('lore-editor').locator('img')).toHaveAttribute('src', /^blob:/);
+  expect(errors).toEqual([]);
+});
+
+test('統計與尋路：中心度排行、孤立角色（點列＝選取）、最短關係鏈（畫布鎖定聚焦）、N 度聚焦、清除；關掉面板解除', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s = sample('story');
+  s.chars.push(makeChar(350, '孤獨者', 900, 800, { defNo: 350 }));
+  await seed(page, project([s]));
+  await viewMenu(page, 'menu-stats');
+  await expect(title(page)).toHaveText('統計與尋路（本分頁）');
+  const rank = page.getByTestId('stats-rank').getByTestId('stats-row');
+  await expect(rank).toHaveCount(6);
+  await expect(rank.first()).toHaveText('1.主角5');
+  await expect(page.getByTestId('stats-iso')).toContainText('孤立角色（沒有任何關係）（1）');
+  await page.getByTestId('stats-iso').getByTestId('stats-row').click();
+  await expect(node(page, 350).locator('.sel-ring')).toHaveCount(1);
+  /* 最短關係鏈：戀人 → 神秘人 */
+  const ids = Object.fromEntries(s.chars.map((c) => [c.name, c.id]));
+  await pickOption(page, page.getByTestId('stats-from'), '戀人');
+  await pickOption(page, page.getByTestId('stats-to'), '神秘人');
+  await page.getByTestId('stats-find').click();
+  await expect(page.getByTestId('stats-path-msg')).toHaveText('戀人 → 主角 → 神秘人（2 步）');
+  const svg = chart(page).locator('svg.rc-chart').first();
+  await expect(svg).toHaveClass(/focus-active/);
+  for (const nm of ['戀人', '主角', '神秘人'])
+    await expect(node(page, ids[nm])).toHaveClass(/focusedV/);
+  await expect(node(page, ids.摯友)).not.toHaveClass(/focusedV/);
+  /* 找不到 */
+  await pickOption(page, page.getByTestId('stats-to'), '孤獨者');
+  await page.getByTestId('stats-find').click();
+  await expect(page.getByTestId('stats-path-msg')).toHaveText('這兩位角色之間沒有任何關係鏈。');
+  /* N 度聚焦：戀人 2 度以內＝6 人 */
+  await pickOption(page, page.getByTestId('stats-focus-char'), '戀人');
+  await page.getByRole('radio', { name: '2 度以內' }).click();
+  await page.getByTestId('stats-focus-go').click();
+  await expect(chart(page).locator('.node.focusedV')).toHaveCount(6);
+  await page.getByTestId('stats-focus-clear').click();
+  await expect(svg).not.toHaveClass(/focus-active/);
+  await page.getByTestId('stats-focus-go').click();
+  await expect(svg).toHaveClass(/focus-active/);
+  /* 關掉面板＝解除 */
+  await page.getByTestId('panel-close').click();
+  await expect(svg).not.toHaveClass(/focus-active/);
+  expect(errors).toEqual([]);
+});
+
+test('唯讀瀏覽模式：只留畫布與分頁列、拖角色＝平移、點角色＝聚焦、改資料的按鍵沒作用、Esc 或點提示退出', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, project([trio(), sample('family', 1000, '家族')]));
+  await viewMenu(page, 'menu-readonly');
+  await expect(page.getByTestId('readonly-hint')).toHaveText('唯讀瀏覽模式──點此或按 Esc 退出');
+  await expect(page.getByTestId('inspector')).toHaveCount(0);
+  await expect(page.getByTestId('char-count')).toHaveCount(0);
+  await expect(page.getByTestId('library-open')).toHaveCount(0);
+  await expect(page.getByTestId('sheet-close')).toHaveCount(0);
+  await expect(page.getByTestId('add-char')).toHaveCount(0);
+  /* 拖角色＝平移（角色不動） */
+  const before = await sheet(page);
+  const v0 = await page.evaluate(() =>
+    document.querySelector('[data-testid=chart]')?.getAttribute('style'),
+  );
+  const c1 = await nodeCenter(page, 1);
+  await drag(page, c1, { x: c1.x + 120, y: c1.y + 40 });
+  const after = await sheet(page);
+  expect(after.chars.map((c) => [c.x, c.y])).toEqual(before.chars.map((c) => [c.x, c.y]));
+  expect(
+    await page.evaluate(() => document.querySelector('[data-testid=chart]')?.getAttribute('style')),
+  ).not.toBe(v0);
+  /* 點角色＝聚焦（不開面板）；Delete、Ctrl＋A 沒作用 */
+  await clickAt(page, await nodeCenter(page, 1));
+  await expect(node(page, 1)).toHaveClass(/focusedV/);
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('Delete');
+  expect((await sheet(page)).chars).toHaveLength(3);
+  /* 分頁列照樣能切換 */
+  await page.getByTestId('sheet-tab').nth(1).click();
+  await expect(page.getByTestId('sheet-tab').nth(1)).toHaveAttribute('aria-selected', 'true');
+  /* Esc 退出 */
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('readonly-hint')).toHaveCount(0);
+  await expect(page.getByTestId('inspector')).toBeVisible();
+  /* 再進去，點提示退出 */
+  await viewMenu(page, 'menu-readonly');
+  await page.getByTestId('readonly-hint').click();
+  await expect(page.getByTestId('add-char')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('遠近簡化：60 位以上拉遠＝中（線上標籤、次要名字藏起來）→ 遠（圓點、重要角色的大名字、圖例藏起來）；匯出不受影響', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s = emptySheet(1, 1, { W: 2400, H: 1800 });
+  s.types.push(makeType(10, '朋友'));
+  for (let i = 0; i < 80; i++)
+    s.chars.push(
+      makeChar(i + 1, `村民${i + 1}`, 150 + (i % 10) * 230, 150 + Math.floor(i / 10) * 200, {
+        defNo: i + 1,
+        level: i < 5 ? 3 : 0,
+      }),
+    );
+  for (let i = 1; i < 80; i += 2)
+    s.rels.push(makeRel(500 + i, i, i + 1, 10, { both: i % 4 === 1 }));
+  s.settings.showRelName = true;
+  await seed(page, project([s]));
+  const svg = chart(page).locator('svg.rc-chart').first();
+  await page.getByTestId('zoom-fit').click();
+  await expect(svg).not.toHaveClass(/lod-/);
+  /* 60 位以上一律帶著標記（換檔只換 class）；近的時候都藏著 */
+  await expect(chart(page).locator('.lod-dot')).toHaveCount(80);
+  await expect(chart(page).locator('.lod-dot').first()).toBeHidden();
+  /* 縮小到「符合畫面」的 0.8 倍左右：中 */
+  await page.getByTestId('zoom-out').click();
+  await expect(svg).toHaveClass(/lod-mid/);
+  await expect(chart(page).locator('.edge-label').first()).toBeHidden();
+  await expect(chart(page).locator('.node-name.lod-minorname').first()).toBeHidden();
+  /* 再縮小：遠 */
+  await page.getByTestId('zoom-out').click();
+  await page.getByTestId('zoom-out').click();
+  await page.getByTestId('zoom-out').click();
+  await expect(svg).toHaveClass(/lod-far/);
+  await expect(chart(page).locator('.lod-dot').first()).toBeVisible();
+  await expect(chart(page).locator('.lod-farname')).toHaveCount(5);
+  await expect(chart(page).locator('.layer-legend')).toBeHidden();
+  /* 放大回來：近 */
+  await page.getByTestId('zoom-fit').click();
+  await page.getByTestId('zoom-in').click();
+  await expect(svg).not.toHaveClass(/lod-/);
+  /* 匯出（PNG 用的 SVG、分層 SVG）沒有遠近標記 */
+  for (let i = 0; i < 5; i++) await page.getByTestId('zoom-out').click();
+  await expect(svg).toHaveClass(/lod-far/);
+  const layered = strFromU8((await runExport(page, '分層 SVG')).bytes);
+  expect(layered).not.toContain('lod-');
+  expect(errors).toEqual([]);
+});
+
+test('設定集（檔案庫）：存成新的一筆、檢視卡、套用（間距不同就重排）、覆寫、恢復出廠預設＝新分頁的預設、最愛（置頂、不能刪）、改名、刪除', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, project([trio()]));
+  await page.getByTestId('library-open').click();
+  await page.getByTestId('library-tab-gsets').click();
+  await expect(
+    lib(page).getByText('還沒有設定集：按這一頁的「存成新的一筆」即可把目前分頁的設定儲存下來。'),
+  ).toBeVisible();
+  await expect(page.getByTestId('gset-view-title')).toHaveText('N/A');
+  /* 改設定 → 存成新的一筆 */
+  await page.getByTestId('set-rel-name').getByRole('switch', { name: '關係名稱' }).click();
+  await page.waitForTimeout(450);
+  await page.getByTestId('gset-add').click();
+  await expect(lib(page).getByTestId('lib-entry-name')).toHaveText(['未命名設定集1']);
+  await expect(page.getByTestId('gset-view')).toContainText('關係名稱顯示');
+  await expect(toast(page, '已存成「未命名設定集1」。')).toBeVisible();
+  /* 恢復出廠預設：關係名稱關掉 */
+  await page.getByTestId('gset-factory').click();
+  await expect(toast(page, '目前分頁已恢復出廠預設。')).toBeVisible();
+  let p = await data(page);
+  expect(p.sheets[0].settings).toMatchObject({
+    showRelName: false,
+    bridgeMode: false,
+    showRelNote: false,
+  });
+  /* 套用：回到那一筆的值 */
+  await page.getByTestId('gset-apply').click();
+  await expect(toast(page, '已套用「未命名設定集1」。')).toBeVisible();
+  p = await data(page);
+  expect(p.sheets[0].settings.showRelName).toBe(true);
+  /* 一步復原 */
+  await page.getByTestId('undo').click();
+  p = await data(page);
+  expect(p.sheets[0].settings.showRelName).toBe(false);
+  /* 覆寫：用目前分頁（關係名稱關）的值蓋掉 */
+  await page.waitForTimeout(450);
+  await page.getByTestId('gset-overwrite').click();
+  await expect(toast(page, '已用目前分頁的設定覆寫「未命名設定集1」。')).toBeVisible();
+  p = await data(page);
+  expect(p.settingsLib[0].values.showRelName).toBe(false);
+  /* 第二筆、最愛（置頂）、刪除模式（最愛的刪不掉） */
+  await page.waitForTimeout(450);
+  await page.getByTestId('gset-add').click();
+  await page.getByTestId('library-act-fav').click();
+  await lib(page).getByTestId('lib-entry').filter({ hasText: '未命名設定集2' }).click();
+  await expect(lib(page).getByTestId('lib-entry-name')).toHaveText([
+    '未命名設定集2',
+    '未命名設定集1',
+  ]);
+  await page.getByTestId('library-act-del').click();
+  await lib(page).getByTestId('lib-entry').filter({ hasText: '未命名設定集2' }).click();
+  await expect(toast(page, '最愛的設定集不能刪，先取消最愛。')).toBeVisible();
+  await lib(page).getByTestId('lib-entry').filter({ hasText: '未命名設定集1' }).click();
+  p = await data(page);
+  expect(p.settingsLib.map((g) => g.name)).toEqual(['未命名設定集2']);
+  /* 改名：點條目載入、Enter 確認 */
+  await page.getByTestId('library-act-rename').click();
+  await lib(page).getByTestId('lib-entry').first().click();
+  await page.getByTestId('gset-name').fill('名稱＋粗線');
+  await page.getByTestId('gset-name').press('Enter');
+  p = await data(page);
+  expect(p.settingsLib.map((g) => g.name)).toEqual(['名稱＋粗線']);
+  expect(errors).toEqual([]);
+});
+
+test('互動網頁的嵌入模式與壓縮頭像；再次匯出（不開對話框、記住格式與勾選、檔名重算）', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const errors = await open(page);
+  await seed(page, project([sample('story'), sample('family', 1000, '家族')]));
+  await expect(page.getByTestId('export-again')).toHaveCount(0);
+  await page.getByTestId('open-export').click();
+  const dlg = page.getByRole('dialog', { name: '匯出' });
+  await dlg.getByRole('radio', { name: '互動網頁（唯讀）' }).click();
+  await expect(dlg.getByRole('checkbox', { name: '壓縮頭像（大幅縮小檔案）' })).toHaveAttribute(
+    'data-state',
+    'checked',
+  );
+  await dlg
+    .getByRole('checkbox', { name: '嵌入模式（精簡外框，供 iframe 嵌進別人的網頁）' })
+    .click();
+  await expect(dlg.getByTestId('embed-code')).toHaveValue(
+    '<iframe src="把這裡換成你託管後的網址" style="width:100%;aspect-ratio:4/3;border:0" loading="lazy" allowfullscreen></iframe>',
+  );
+  await dlg.getByTestId('embed-copy').click();
+  await expect(dlg.getByTestId('embed-copy')).toHaveText('已複製！');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('<iframe src=');
+  await dlg.getByRole('radio', { name: '全部分頁' }).click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    dlg.getByTestId('export-run').click(),
+  ]);
+  const html = readFileSync((await dl.path()) as string, 'utf8');
+  expect(html).toContain('<body class="embed">');
+  expect(html).toContain('<div id="tabsV">');
+  /* 再次匯出：字＝格式・範圍；點了直接下載同樣的設定 */
+  const again = page.getByTestId('export-again');
+  await expect(again).toHaveAttribute('aria-label', '再次匯出（互動網頁・全部分頁）');
+  const [dl2] = await Promise.all([page.waitForEvent('download'), again.click()]);
+  expect(dl2.suggestedFilename()).toBe('角色關係圖_互動檢視.html');
+  expect(readFileSync((await dl2.path()) as string, 'utf8')).toContain('<body class="embed">');
+  await expect(page.getByRole('dialog', { name: '匯出' })).toHaveCount(0);
+  /* 嵌入模式的網頁：單指觸控不平移（讓給頁面捲動） */
+  const w = await context.newPage();
+  await w.route('**/*', (r) =>
+    r.request().url() === 'http://viewer.test/'
+      ? r.fulfill({ body: html, contentType: 'text/html' })
+      : r.abort(),
+  );
+  await w.goto('http://viewer.test/');
+  await expect(w.locator('header h1')).toBeHidden();
+  await expect(w.locator('.tabV')).toHaveCount(2);
+  await expect(w.locator('#zReset')).toBeVisible();
+  await w.close();
+  /* 換成 PNG（目前分頁）之後，再次匯出跟著換 */
+  await runExport(page, 'PNG（圖片）', { scope: '目前分頁' });
+  await expect(again).toHaveAttribute('aria-label', '再次匯出（PNG・目前分頁）');
+  const [dl3] = await Promise.all([page.waitForEvent('download'), again.click()]);
+  expect(dl3.suggestedFilename()).toMatch(/\.png$/);
+  expect(errors).toEqual([]);
+});
+
+test('原作的專案檔（第四批）：便利貼（含畫布外、隱藏紙面、釘選）、世界觀（圖片對上檔案）與沿用、備忘錄、便利貼庫、設定集', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const data0 = JSON.parse(
+    readFileSync(`${process.cwd()}/tests/unit/fixtures/relation-chart-b4-notes-lore.json`, 'utf8'),
+  );
+  const img = await solidPng([30, 120, 200, 255], 32, 32);
+  const zip = Buffer.from(
+    zipSync({
+      '專案/project.json': strToU8(JSON.stringify(data0)),
+      '專案/images/rich_1cufq98-b8pqm2-271a.png': new Uint8Array(img),
+    }),
+  );
+  const [fc] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    openProjectItem(page, '開啟專案檔…'),
+  ]);
+  await fc.setFiles({ name: 'notes.zip', mimeType: 'application/zip', buffer: zip });
+  await expect(toast(page, /已讀入原作的專案：3 張分頁/)).toBeVisible();
+  await expect(toast(page, /分頁庫/)).toBeVisible();
+  await page.waitForTimeout(600);
+  const p = (await saved(page)) as Project;
+  const main = p.sheets[1];
+  expect(main.notes).toHaveLength(7);
+  expect(main.lore).toMatch(/<img src="rcimg:[0-9a-z]{20,}">/);
+  expect(p.sheets[2].loreFrom).toBe(main.id);
+  expect(p.noteBin.map((n) => n.text)).toEqual(['關掉的隱藏紙面', '關掉的 6×6']);
+  expect(p.settingsLib.map((g) => [g.name, g.fav])).toEqual([
+    ['名稱＋粗線', false],
+    ['跳線＋格線', true],
+  ]);
+  await page.getByTestId('sheet-tab').nth(1).click();
+  await expect(chart(page).locator('.note-node')).toHaveCount(7);
+  await expect(chart(page).locator('.note-node.note-bare')).toHaveCount(1);
+  await expect(chart(page).locator('.note-out-hint')).toBeVisible();
+  await viewMenu(page, 'menu-lore');
+  await expect(page.getByTestId('lore-editor').locator('img')).toHaveAttribute('src', /^blob:/);
+  expect(errors).toEqual([]);
+});
+
+test('第四批修正（7.10）：切分頁時世界觀／備忘錄／統計面板留著並換成新分頁的內容；便利貼字級與本分頁預設字級填 0＝留空', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const a = trio();
+  a.name = '主線';
+  a.memo = '主線的備忘錄';
+  a.lore = '<p>主線的世界觀</p>';
+  a.notes = [
+    {
+      id: 900,
+      text: '便利貼',
+      x: 500,
+      y: 700,
+      w: 150,
+      h: 100,
+      size: 30,
+      locked: false,
+      bare: false,
+      chart: null,
+    },
+  ];
+  const b = sample('story', 1000, '支線');
+  b.memo = '支線的備忘錄';
+  b.lore = '<p>支線的世界觀</p>';
+  await seed(page, project([a, b]));
+  /* 備忘錄 */
+  await viewMenu(page, 'menu-memo');
+  await expect(page.getByTestId('memo-text')).toHaveValue('主線的備忘錄');
+  await page.getByTestId('sheet-tab').nth(1).click();
+  await expect(title(page)).toHaveText('備忘錄');
+  await expect(page.getByTestId('memo-text')).toHaveValue('支線的備忘錄');
+  /* 世界觀 */
+  await viewMenu(page, 'menu-lore');
+  await expect(page.getByTestId('lore-editor')).toContainText('支線的世界觀');
+  await page.getByTestId('sheet-tab').nth(0).click();
+  await expect(title(page)).toHaveText('世界觀');
+  await expect(page.getByTestId('lore-editor')).toContainText('主線的世界觀');
+  /* 統計：換成新分頁的排行 */
+  await viewMenu(page, 'menu-stats');
+  await expect(page.getByTestId('stats-iso')).toContainText('孤立角色（沒有任何關係）（3）');
+  await page.getByTestId('sheet-tab').nth(1).click();
+  await expect(title(page)).toHaveText('統計與尋路（本分頁）');
+  await expect(page.getByTestId('stats-rank').getByTestId('stats-row').first()).toHaveText(
+    '1.主角5',
+  );
+  /* 便利貼字級填 0＝留空（跟隨）；本分頁預設字級填 0＝留空（自動） */
+  await page.getByTestId('sheet-tab').nth(0).click();
+  await clickAt(page, await center(noteBtn(page, 900, 'cfg')));
+  await expect(title(page)).toHaveText('便利貼設定');
+  const fs = page.getByRole('spinbutton', { name: '字級 px（≥1）' });
+  await expect(fs).toHaveValue('30');
+  await fs.fill('0');
+  await fs.press('Enter');
+  await expect(fs).toHaveValue('');
+  await expect(page.getByTestId('note-fs-now')).not.toHaveText('目前實際字級：1 px');
+  let s = await sheet(page);
+  expect(s.notes[0].size).toBeNull();
+  const def = page.getByRole('spinbutton', { name: '本分頁預設字級' });
+  await def.fill('18');
+  await def.press('Enter');
+  await expect(page.getByTestId('note-fs-now')).toHaveText('目前實際字級：18 px');
+  await page.waitForTimeout(450);
+  await def.fill('0');
+  await def.press('Enter');
+  await expect(def).toHaveValue('');
+  await expect(page.getByTestId('note-fs-now')).not.toHaveText('目前實際字級：1 px');
+  s = await sheet(page);
+  expect(s.settings.defStickySize).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 第四批複驗後的修正（7.11） ---------- */
+
+test('滑過聚焦（7.11）：淡化程度與 0.2 秒轉場照舊，但轉場不讓角色、線各自變成合成層（大圖整層重新點陣化的停頓）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s0 = sample('story', 0, '本篇');
+  s0.settings.showRelName = true;
+  s0.settings.showLabelNodes = true;
+  s0.settings.showFreeLbls = true;
+  await seed(page, project([s0], { labels: [makeLabel(77, '游離')] }));
+  /* 滑過關係最少的一位（才有不相干的角色與線） */
+  const deg = (id: number) => s0.rels.filter((r) => r.from === id || r.to === id).length;
+  const hub = [...s0.chars].filter((c) => deg(c.id)).sort((a, b) => deg(a.id) - deg(b.id))[0].id;
+  const r0 = s0.rels.find((r) => r.from === hub || r.to === hub) ?? s0.rels[0];
+  const mate = r0.from === hub ? r0.to : r0.from;
+  const near = new Set([hub]);
+  for (const r of s0.rels)
+    if (r.from === hub || r.to === hub) {
+      near.add(r.from);
+      near.add(r.to);
+    }
+  const far = s0.chars.find((c) => !near.has(c.id));
+  const farRel = s0.rels.find((r) => r.from !== hub && r.to !== hub);
+  if (!far || !farRel) throw new Error('範例要有不相干的角色與線');
+  const svg = chart(page).locator('svg.rc-chart').first();
+  const edge = (id: number) => svg.locator(`.edge[data-relid="${id}"]:not(.edge-lbl)`);
+  const op = (loc: Locator) => loc.evaluate((el) => getComputedStyle(el).opacity);
+  const free = svg.locator('.lbl-node.lbl-free');
+  /* 游離的標籤圓點平常是 0.72（屬性），不被聚焦的樣式蓋掉 */
+  await expect.poll(() => op(free)).toBe('0.72');
+  /* 合成層數（Chromium 的 LayerTree）：平常幾層 → 滑過、移開時最多幾層 */
+  const cdp = await page.context().newCDPSession(page);
+  let layers = 0;
+  let maxLayers = 0;
+  cdp.on('LayerTree.layerTreeDidChange', (e) => {
+    if (!e.layers) return;
+    layers = e.layers.filter((l) => l.drawsContent).length;
+    maxLayers = Math.max(maxLayers, layers);
+  });
+  await cdp.send('LayerTree.enable');
+  await page.mouse.move(0, 0);
+  await page.evaluate(() => {
+    document.body.style.outline = '1px solid transparent';
+  });
+  await page.waitForTimeout(500);
+  const idle = layers;
+  expect(idle).toBeGreaterThan(0);
+  maxLayers = idle;
+  /* 滑過：轉場是 0.2 秒 ease（同之前），但動的是 --rc-op（主執行緒），不是 opacity（每個元素各自一個合成層） */
+  const p = await nodeCenter(page, hub);
+  /* 聚焦一套上就收集正在跑的轉場 */
+  const animsP = page.evaluate(
+    () =>
+      new Promise<string[]>((res) => {
+        const el = document.querySelector('[data-testid=chart] svg.rc-chart');
+        if (!el) return res([]);
+        const mo = new MutationObserver(() => {
+          if (!el.classList.contains('focus-active')) return;
+          mo.disconnect();
+          res(
+            document
+              .getAnimations()
+              .filter(
+                (a) =>
+                  a instanceof CSSTransition &&
+                  (a.effect as KeyframeEffect | null)?.target?.closest('[data-testid=chart]'),
+              )
+              .map((a) => {
+                const t = (a.effect as KeyframeEffect).getTiming();
+                return `${(a as CSSTransition).transitionProperty} ${t.duration} ${t.easing}`;
+              }),
+          );
+        });
+        mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+      }),
+  );
+  await page.mouse.move(p.x, p.y);
+  const anims = await animsP;
+  await expect(svg).toHaveClass(/focus-active/);
+  expect(anims.length).toBeGreaterThan(5);
+  expect([...new Set(anims)]).toEqual(['--rc-op 200 ease']);
+  await page.waitForTimeout(600);
+  /* 淡化程度照舊：一度關係 1、其他角色 0.15、其他線 0.07；游離標籤 0.15 */
+  expect(await op(node(page, hub))).toBe('1');
+  expect(await op(node(page, mate))).toBe('1');
+  expect(await op(node(page, far.id))).toBe('0.15');
+  expect(await op(edge(r0.id))).toBe('1');
+  expect(await op(edge(farRel.id))).toBe('0.07');
+  expect(await op(free)).toBe('0.15');
+  expect(maxLayers - idle).toBeLessThanOrEqual(2);
+  /* 移開：淡回原樣（同樣只走主執行緒） */
+  const before = layers;
+  maxLayers = layers;
+  await page.mouse.move(0, 0);
+  await expect(svg).not.toHaveClass(/focus-active/);
+  await page.waitForTimeout(600);
+  expect(await op(node(page, far.id))).toBe('1');
+  expect(await op(edge(farRel.id))).toBe('1');
+  expect(await op(free)).toBe('0.72');
+  expect(maxLayers - before).toBeLessThanOrEqual(2);
+  expect(errors).toEqual([]);
+});
+
+test('便利貼字級（7.11，F190d）：小於 1＝留空、照原作捨去成整數；本分頁預設字級小於 1＝自動、1～5.x＝6', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const a = trio();
+  a.notes = [
+    {
+      id: 900,
+      text: '便利貼',
+      x: 500,
+      y: 700,
+      w: 150,
+      h: 100,
+      size: 30,
+      locked: false,
+      bare: false,
+      chart: null,
+    },
+  ];
+  await seed(page, project([a]));
+  await clickAt(page, await center(noteBtn(page, 900, 'cfg')));
+  await expect(title(page)).toHaveText('便利貼設定');
+  const fs = page.getByRole('spinbutton', { name: '字級 px（≥1）' });
+  const now = page.getByTestId('note-fs-now');
+  /* 0.5～0.99＝留空（跟隨），不是 1 px */
+  for (const v of ['0.5', '0.99']) {
+    await fs.fill('22');
+    await fs.press('Enter');
+    await expect(fs).toHaveValue('22');
+    await page.waitForTimeout(450);
+    await fs.fill(v);
+    await fs.press('Enter');
+    await expect(fs).toHaveValue('');
+    await expect(now).not.toHaveText('目前實際字級：1 px');
+    expect((await sheet(page)).notes[0].size).toBeNull();
+  }
+  /* 捨去（原作 parseInt）：1.5 → 1、2.7 → 2 */
+  await fs.fill('1.5');
+  await fs.press('Enter');
+  await expect(fs).toHaveValue('1');
+  await expect(now).toHaveText('目前實際字級：1 px');
+  await page.waitForTimeout(450);
+  await fs.fill('2.7');
+  await fs.press('Enter');
+  await expect(fs).toHaveValue('2');
+  expect((await sheet(page)).notes[0].size).toBe(2);
+  /* 留空後看本分頁預設字級 */
+  await page.waitForTimeout(450);
+  await fs.fill('');
+  await fs.press('Enter');
+  const def = page.getByRole('spinbutton', { name: '本分頁預設字級' });
+  await def.fill('3');
+  await def.press('Enter');
+  await expect(def).toHaveValue('6');
+  await expect(now).toHaveText('目前實際字級：6 px');
+  expect((await sheet(page)).settings.defStickySize).toBe(6);
+  await page.waitForTimeout(450);
+  await def.fill('12.5');
+  await def.press('Enter');
+  await expect(def).toHaveValue('12.5');
+  await expect(now).toHaveText('目前實際字級：12.5 px');
+  await page.waitForTimeout(450);
+  await def.fill('0.5');
+  await def.press('Enter');
+  await expect(def).toHaveValue('');
+  await expect(now).not.toHaveText('目前實際字級：1 px');
+  expect((await sheet(page)).settings.defStickySize).toBe(0);
+  /* 一步復原回 12.5 */
+  await page.getByTestId('undo').click();
+  await expect(def).toHaveValue('12.5');
   expect(errors).toEqual([]);
 });

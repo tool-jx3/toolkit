@@ -72,6 +72,26 @@ export function RichDocStyle() {
   return <style>{DOC_CSS}</style>;
 }
 
+/** 唯讀顯示一份文件（世界觀的「沿用」）：圖片換成網址 */
+export function RichView({
+  html,
+  'data-testid': testId,
+}: {
+  html: string;
+  'data-testid'?: string;
+}) {
+  const ids = useMemo(() => richImageIds(html), [html]);
+  const urls = useImageUrls(ids);
+  return (
+    <div
+      className={`${RICH_DOC_CLASS} min-h-[6rem] rounded-md border border-border bg-surface-2 p-2 text-sm`}
+      data-testid={testId}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: 存的是淨化過的 HTML（logic/rich 的白名單）
+      dangerouslySetInnerHTML={{ __html: display(html, (id) => urls.get(id)) }}
+    />
+  );
+}
+
 /* 開著的編輯器：匯出、存檔前要把還在等的內容寫進去 */
 const live = new Set<() => void>();
 export function flushRichEditors(): void {
