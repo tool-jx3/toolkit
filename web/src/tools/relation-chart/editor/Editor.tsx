@@ -3,8 +3,17 @@
  * 打開檔案庫時在最下面（編輯區跟著變矮）；窄畫面依序往下排（畫布在上；打開編輯面板時面板緊接在畫布下面），檔案庫蓋滿畫面。
  */
 import { useEffect } from 'react';
+import { useSaveStatus } from '@/core/storage';
 import { useChoice, useConfirm, useToast, WindowDrop } from '@/ui';
-import { assets, onPersistError, referencedImages, useProject, useUi } from '../state/store';
+import { loadSnaps, maybeAutoSnapshot } from '../state/snapshots';
+import {
+  assets,
+  onPersistError,
+  referencedImages,
+  TOOL_ID,
+  useProject,
+  useUi,
+} from '../state/store';
 import { S } from '../strings';
 import { CanvasView } from './CanvasView';
 import { CharList } from './CharList';
@@ -16,6 +25,7 @@ import { ExportDialog } from './dialogs/ExportDialog';
 import { CopyTableDialog, PasteTableDialog, SamplesDialog } from './dialogs/TableDialogs';
 import { EditorBar } from './EditorBar';
 import { FontsDialog } from './FontUi';
+import { FrameBar } from './FrameBar';
 import { FramesDialog } from './FrameUi';
 import { bindFileUi, OPEN_ACCEPT, openDroppedFile } from './files';
 import { useFontFaces } from './fontFaces';
@@ -55,6 +65,15 @@ export function Editor() {
   }, [toast, confirm, choose]);
 
   useEffect(() => watchReheat(), []);
+
+  /* 版本快照：開頁載入索引；自動儲存寫入成功之後，有改動、距上一份 10 分鐘以上＝自動拍一份（原作的 snapMaybeAuto） */
+  const savedAt = useSaveStatus(TOOL_ID);
+  useEffect(() => {
+    void loadSnaps();
+  }, []);
+  useEffect(() => {
+    if (savedAt) void maybeAutoSnapshot();
+  }, [savedAt]);
 
   /* 開頁的整理：以前留下、沒人用的圖（狀態與復原紀錄都沒用到）刪掉 */
   useEffect(() => {
@@ -101,6 +120,7 @@ export function Editor() {
             className="order-1 flex min-h-0 min-w-0 flex-col gap-2 lg:order-2"
           >
             <CanvasView />
+            <FrameBar />
             <SheetBar />
           </section>
           {readonly ? null : (

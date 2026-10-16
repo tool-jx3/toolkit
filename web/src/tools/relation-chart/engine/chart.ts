@@ -5,6 +5,8 @@
  * 圖層由下而上：背景（底色、背景圖）→ 輔助線 →（陣營框）→ 關係線（一般線 → 聚合線 → 群體關係線 → 線上標籤 → 標籤網的虛線）
  * → 角色（角色 → 收合節點 → 標籤網的圓點）→（名稱）→ 圖例（圖例 → 標籤圖例 → 名冊）→ 便利貼（第四批；沒有便利貼時不出這一層）。
  */
+
+import type { TweenFx } from '../logic/tween';
 import type {
   CharEntry,
   FontItem,
@@ -16,7 +18,16 @@ import type {
 } from '../model/types';
 import { S } from '../strings';
 import { buildObstacles, type EdgeCtx, edgesSvg } from './edges';
-import { bleedPad, charLevel, esc, fontStack, framePad, type SheetCtx, sheetCtx } from './geom';
+import {
+  bleedPad,
+  charLevel,
+  esc,
+  fontStack,
+  framePad,
+  opAttr,
+  type SheetCtx,
+  sheetCtx,
+} from './geom';
 import { colEdgesSvg, colNodesSvg, grelEdgesSvg, labelInfo, labelNetSvg, zonesSvg } from './labels';
 import { type LegendOut, legendOutPad, legendsSvg } from './legend';
 import { f1 } from './lines';
@@ -49,6 +60,8 @@ export interface RenderOpts {
   library?: readonly CharEntry[];
   /** 遠近簡化的標記（F116；60 位以上才真的標）：編輯畫面拉遠時、互動網頁；匯出不標 */
   lod?: boolean;
+  /** 時間軸的補間覆寫表（第五批；sheet 是 logic/tween 算出來的暫時分頁） */
+  tween?: TweenFx | null;
 }
 
 /** 遠近簡化的密度門檻：畫面上看得到的角色（收合藏起來的不算）≥ 60 位 */
@@ -94,17 +107,28 @@ export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
     font: opts.font,
     fonts: opts.fonts,
     frames: opts.frames,
+    tw: opts.tween,
   });
+  const tw = opts.tween ?? null;
   const edit = opts.mode === 'edit';
   const { W, H, pal } = ctx;
   const pre = opts.idPrefix ?? '';
   const ui = opts.mode === 'edit' ? (opts.ui ?? {}) : null;
   const defs: string[] = [];
-  const bgUrl = sheet.bg ? opts.href(sheet.bg) : null;
   const bgRect = `<rect class="layer-bg" x="0" y="0" width="${W}" height="${H}" fill="${pal.bg}"/>`;
-  const bgImage = bgUrl
-    ? `<image class="layer-bg canvas-bgimg" href="${esc(bgUrl)}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" pointer-events="none"/>`
-    : '';
+  const bgImg = (id: string | null, op = 1) => {
+    const url = id ? opts.href(id) : null;
+    return url
+      ? `<image class="layer-bg canvas-bgimg" href="${esc(url)}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" pointer-events="none"${opAttr(op)}/>`
+      : '';
+  };
+  /* 補間中：兩格不同＝前一張留著、後一張淡入；只有一邊＝淡入或淡出（原作） */
+  let bgImage: string;
+  if (tw?.bg) {
+    const { a, b, t } = tw.bg;
+    const bb = a && b && a === b ? null : b;
+    bgImage = bgImg(a, !bb && !b ? 1 - t : 1) + bgImg(bb, t);
+  } else bgImage = bgImg(sheet.bg);
   let guides = '';
   if (ctx.s.bgMode === 'grid') {
     const G = ctx.s.gridStep >= 10 && ctx.s.gridStep <= 200 ? ctx.s.gridStep : 50;
@@ -150,8 +174,21 @@ export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
   for (const c of order) {
     if (hidden.has(c.id)) continue;
     const n = nodeSvg(ctx, c, pre, opts.href, ui, opts.splitNames, lod);
-    nodes += n.svg;
-    names += n.name;
+    if (tw) {
+      /* 補間：不透明度（進退場、交叉淡化）與翻面（以角色中心為軸橫向縮放；原作的 _op、_flip） */
+      const op = opAttr(tw.charOp.get(c.id));
+      const f = tw.charFlip.get(c.id);
+      const tf =
+        f !== undefined
+          ? ` transform="translate(${(c.x * (1 - f)).toFixed(2)} 0) scale(${f} 1)"`
+          : '';
+      const wrap = (s: string) => (s && (op || tf) ? `<g${op}${tf}>${s}</g>` : s);
+      nodes += wrap(n.svg);
+      names += wrap(n.name);
+    } else {
+      nodes += n.svg;
+      names += n.name;
+    }
     if (n.defs) defs.push(n.defs);
   }
   nodes += colNodesSvg(ctx, edit);

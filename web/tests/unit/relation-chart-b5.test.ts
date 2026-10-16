@@ -110,7 +110,14 @@ describe('時間軸分頁：轉換', () => {
     convertToTimeline();
     const s = activeSheet();
     expect(s.tl?.frames).toHaveLength(1);
-    expect(s.tl?.frames[0]).toMatchObject({ no: 1, hold: [], dur: null, chars: [], W: 1000, H: 800 });
+    expect(s.tl?.frames[0]).toMatchObject({
+      no: 1,
+      hold: [],
+      dur: null,
+      chars: [],
+      W: 1000,
+      H: 800,
+    });
     expect(JSON.stringify(s.chars)).toBe(before);
     expect(s.chars.some((c) => c.id === a)).toBe(true);
     expect(steps()).toBe(1);
@@ -131,9 +138,7 @@ describe('時間軸分頁：轉換', () => {
     convertFromTimeline();
     const s = activeSheet();
     expect(s.tl).toBeNull();
-    expect(s.chars.map((c) => c.id).sort()).toEqual(
-      [a, b, s.chars[2].id].sort((x, y) => x - y),
-    );
+    expect(s.chars.map((c) => c.id).sort()).toEqual([a, b, s.chars[2].id].sort((x, y) => x - y));
     expect(s.views[d]).toBeUndefined();
     expect(s.views[a]?.[d]).toBeUndefined();
   });

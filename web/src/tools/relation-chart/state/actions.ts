@@ -30,7 +30,6 @@ import {
   unnamedTypeLabel,
 } from '../model/factory';
 import { entryById, forkEntry, reclaimVirgin, variantFrom, variantOf } from '../model/library';
-import { allChars, shiftOtherFrames } from '../model/timeline';
 import {
   emptySheet,
   GREL_END_RE,
@@ -40,6 +39,7 @@ import {
   remapViews,
   smallestFree,
 } from '../model/normalize';
+import { allChars, shiftOtherFrames } from '../model/timeline';
 import type {
   Avatar,
   Char,
@@ -494,6 +494,107 @@ function remapFrameRest(
     }
     remapNotes(p, f.notes, m.charMap, m.tplMap, m.noteMap);
   });
+}
+
+/**
+ * 把別處的一張分頁（分頁庫、快照）加成新分頁；src＝那張分頁所在的專案（角色庫、關係庫、標籤、數值範本）。
+ * 條目、變體、標籤現在的專案裡有＝照用（同 id；原作也是用角色庫現在的樣子），沒有＝從 src 複製過來（新 id）；
+ * 都沒有＝不綁（同步時依角色身上的外觀重建）。回傳新分頁的索引。
+ */
+export function importSheetFrom(
+  p: DProject,
+  sheet: Sheet,
+  src: Pick<Project, 'library' | 'relLibrary' | 'labels' | 'radarTpls'>,
+): number {
+  const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+  /* 標籤：同 id 同名＝照用；同名＝沿用現有的；沒有＝複製過來 */
+  const labelMap = new Map<number, number>();
+  for (const l of src.labels) {
+    const mine =
+      p.labels.find((x) => x.id === l.id && x.text === l.text) ??
+      p.labels.find((x) => x.text === l.text);
+    if (mine) labelMap.set(l.id, mine.id);
+    else {
+      const id = takeId(p);
+      p.labels.push({ ...clone(l), id });
+      labelMap.set(l.id, id);
+    }
+  }
+  const tplMap = new Map<number, number>();
+  for (const t of src.radarTpls) if (p.radarTpls.some((x) => x.id === t.id)) tplMap.set(t.id, t.id);
+  /* 角色庫：分頁（每一格）用到的條目與變體 */
+  const entryMap = new Map<number, number>();
+  const varMap = new Map<number, number>();
+  for (const c of allChars(sheet)) {
+    if (varMap.has(c.vari) && entryMap.has(c.lib)) continue;
+    const mine = p.library.find((e) => e.id === c.lib);
+    const theirs = src.library.find((e) => e.id === c.lib);
+    const tv = theirs?.variants.find((v) => v.id === c.vari);
+    if (mine?.variants.some((v) => v.id === c.vari)) {
+      entryMap.set(c.lib, c.lib);
+      varMap.set(c.vari, c.vari);
+      continue;
+    }
+    if (!theirs || !tv) continue;
+    const relabel = (v: (typeof theirs.variants)[number]) => {
+      const nv = clone(v);
+      nv.labels = nv.labels.map((l) => labelMap.get(l) ?? -1).filter((l) => l > 0);
+      nv.radars = nv.radars.filter((r) => tplMap.has(r.tpl));
+      return nv;
+    };
+    if (mine) {
+      /* 條目還在、這件變體被刪掉了：把它加回條目 */
+      const nv = { ...relabel(tv), id: takeId(p) };
+      mine.variants.push(nv);
+      entryMap.set(c.lib, mine.id);
+      varMap.set(c.vari, nv.id);
+    } else {
+      const ne = clone(theirs);
+      ne.id = takeId(p);
+      ne.variants = theirs.variants.map((v) => {
+        const nv = { ...relabel(v), id: takeId(p) };
+        varMap.set(v.id, nv.id);
+        return nv;
+      });
+      p.library.push(ne);
+      entryMap.set(c.lib, ne.id);
+    }
+  }
+  /* 關係庫 */
+  const relEntryMap = new Map<number, number>();
+  const relVarMap = new Map<number, number>();
+  for (const t of sheet.types) {
+    if (!t.lib) continue;
+    const mine = p.relLibrary.find((e) => e.id === t.lib);
+    if (mine?.variants.some((v) => v.id === t.vari)) {
+      relEntryMap.set(t.lib, t.lib);
+      relVarMap.set(t.vari, t.vari);
+      continue;
+    }
+    const theirs = src.relLibrary.find((e) => e.id === t.lib);
+    if (!theirs || relEntryMap.has(t.lib)) continue;
+    const ne = clone(theirs);
+    ne.id = takeId(p);
+    for (const v of ne.variants) {
+      const nid = takeId(p);
+      relVarMap.set(v.id, nid);
+      v.id = nid;
+    }
+    p.relLibrary.push(ne);
+    relEntryMap.set(t.lib, ne.id);
+  }
+  const idx = insertSheet(p, sheet, {
+    labelMap,
+    entryMap,
+    varMap,
+    relEntryMap,
+    relVarMap,
+    tplMap,
+  });
+  /* 世界觀沿用的分頁不一定還在：指到不存在的＝自己的內容 */
+  const s = p.sheets[idx];
+  if (s.loreFrom !== null && !p.sheets.some((x) => x.id === s.loreFrom)) s.loreFrom = null;
+  return idx;
 }
 
 /** 群體關係換成新的 id（角色端、例外照 charMap；標籤端照 labelMap，沒給＝不換） */

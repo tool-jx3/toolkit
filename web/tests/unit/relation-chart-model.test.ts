@@ -506,9 +506,9 @@ describe('原作的專案檔（3.9）', () => {
 });
 
 describe('範例（3.7）', () => {
-  it('四個範例都有角色與關係，id 不重複', () => {
-    expect(SAMPLES.map((s) => s.key)).toEqual(['story', 'family', 'types', 'mind']);
-    for (const s of SAMPLES) {
+  it('四個範例都有角色與關係，id 不重複（第五批多了時間軸範例，見 relation-chart-b5）', () => {
+    expect(SAMPLES.map((s) => s.key)).toEqual(['story', 'family', 'types', 'mind', 'timeline']);
+    for (const s of SAMPLES.filter((x) => x.key !== 'timeline')) {
       const sh = buildSample(s.key);
       expect(sh.chars.length).toBeGreaterThan(3);
       expect(sh.rels.length).toBeGreaterThan(3);

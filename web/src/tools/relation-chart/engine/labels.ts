@@ -692,9 +692,14 @@ export function grelEndName(ctx: SheetCtx, e: string): string {
 }
 
 export function grelEndMembers(ctx: SheetCtx, e: string): Char[] {
-  if (grelEndIsLbl(e)) return labelInfo(ctx).byId.get(grelEndId(e))?.members ?? [];
+  /* 補間中淡到 0 的角色＝那一刻已經不在（原作的 memAlive） */
+  const alive = (c: Char) => ctx.tw?.charOp.get(c.id) !== 0;
+  if (grelEndIsLbl(e)) {
+    const m = labelInfo(ctx).byId.get(grelEndId(e))?.members ?? [];
+    return ctx.tw ? m.filter(alive) : m;
+  }
   const c = ctx.byId.get(grelEndId(e));
-  return c ? [c] : [];
+  return c && alive(c) ? [c] : [];
 }
 
 export const grelExcluded = (g: GroupRel, charId: number): boolean => g.except.includes(charId);
@@ -764,6 +769,7 @@ export function grelEdgesSvg(ctx: SheetCtx): string {
   const anchor = (e: string): { x: number; y: number; r: number } | null => {
     if (!grelEndIsLbl(e)) {
       const c = ctx.byId.get(grelEndId(e)) as Char;
+      if (ctx.tw?.charOp.get(c.id) === 0) return null;
       return { x: c.x, y: c.y, r: charRadius(ctx, c) + 8 };
     }
     const id = grelEndId(e);

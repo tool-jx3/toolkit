@@ -187,10 +187,17 @@ function syncChars(p: Project, prev: Project | null, take: Take): void {
   const lib = new Map(p.library.map((e) => [e.id, e]));
   const before = new Map<number, Char>();
   if (prev) for (const s of prev.sheets) for (const c of s.chars) before.set(c.id, c);
-  /* ①② 實例的改動寫回變體；沒有條目的建一筆（時間軸分頁：每一格的角色都算） */
-  for (const s of p.sheets)
+  /* ①② 實例的改動寫回變體；沒有條目的建一筆（時間軸分頁：每一格的角色都算，同一位在各格共用一筆） */
+  const made = new Map<string, { lib: number; vari: number }>();
+  for (const [si, s] of p.sheets.entries())
     for (const c of allChars(s)) {
       let e = lib.get(c.lib);
+      const m = e ? undefined : made.get(`${si}:${c.id}`);
+      if (m) {
+        c.lib = m.lib;
+        c.vari = m.vari;
+        continue;
+      }
       if (!e) {
         const eid = take();
         const vid = take();
@@ -199,6 +206,7 @@ function syncChars(p: Project, prev: Project | null, take: Take): void {
         lib.set(eid, e);
         c.lib = eid;
         c.vari = vid;
+        made.set(`${si}:${c.id}`, { lib: eid, vari: vid });
         continue;
       }
       let v = e.variants.find((x) => x.id === c.vari) ?? e.variants[0];

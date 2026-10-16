@@ -14,8 +14,8 @@ import { sheetCtx } from '../engine/geom';
 import { nonOverlapping } from '../logic/layout';
 import { makeChar, makeRel, makeType } from '../model/factory';
 import { variantFrom, variantOf } from '../model/library';
-import { allChars } from '../model/timeline';
 import { RADAR_AXES_MAX, RADAR_AXES_MIN, viewText } from '../model/normalize';
+import { allChars } from '../model/timeline';
 import type {
   Char,
   CharEntry,

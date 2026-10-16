@@ -267,14 +267,17 @@ function legacyVariant(
     },
     noColor: o.color === undefined,
     noNameColor: o.nameColor === undefined,
-    emoji: !!o.emoji && typeof o.image !== 'string',
+    emoji: !!o.emoji && typeof o.image !== 'string' && typeof o.img !== 'string',
   };
 }
 
+/** 頭像：專案檔＝image／imageSrc（ZIP 裡的路徑）；原作自動存檔的格式（快照備份）＝img／imgSrc（data URI） */
 const avatarOf = (o: RawLooks): LegacyAvatar | null => {
-  const img = typeof o.image === 'string' && o.image ? o.image : null;
+  const pick = (a: unknown, b: unknown) =>
+    typeof a === 'string' && a ? a : typeof b === 'string' && b ? b : null;
+  const img = pick(o.image, o.img);
   if (!img) return null;
-  const src = typeof o.imageSrc === 'string' && o.imageSrc ? o.imageSrc : null;
+  const src = pick(o.imageSrc, o.imgSrc);
   const crop =
     isObj(o.crop) && src
       ? { zoom: num(o.crop.zoom) || 1, ox: num(o.crop.ox) || 0, oy: num(o.crop.oy) || 0 }
@@ -303,7 +306,8 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
   const skipped = new Set<string>();
   const prefs = isObj(data.prefs) ? data.prefs : {};
   const light = !!prefs.light || prefs.theme === 'light';
-  const format = num(data.format);
+  /* 專案檔的 format；原作自動存檔的格式（快照備份）沒有 format，用它的版本 v（7＝新的重要度） */
+  const format = num(data.format ?? data.v);
   let nextLocal = -1;
   /* 角色庫：條目 → 每一件變體（format 3＝單一身分，包成一件） */
   const library: CharEntry[] = [];

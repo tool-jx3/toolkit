@@ -2,14 +2,16 @@
  * 角色關係圖產生器：在畫布上擺角色、定義關係類型、拉關係線，排列後匯出成圖片或互動網頁。
  * 改編自 PaiTei4234 的 Relationship Chart Maker（CC BY-NC-SA 4.0，見同目錄的 UPSTREAM_LICENSE）。
  */
+import { Camera, History } from 'lucide-react';
 import { useSaveStatus } from '@/core/storage';
-import { ProjectMenu, ToolShell, useToast } from '@/ui';
+import { ProjectMenu, ProjectMenuItem, ToolShell, useToast } from '@/ui';
 import { Editor } from './editor/Editor';
 import { OPEN_ACCEPT, openForeign, openOwnProject, resetProject } from './editor/files';
 import { SHORTCUT_HELP } from './editor/keys';
 import { flushRichEditors } from './editor/RichEditor';
+import { takeSnapshotNow } from './editor/SnapLibrary';
 import { collectProjectFiles, projectDataForSave, takeSaveDropped } from './state/project';
-import { DATA_VERSION, TOOL_ID } from './state/store';
+import { DATA_VERSION, setUi, TOOL_ID } from './state/store';
 import { S } from './strings';
 import { Usage } from './Usage';
 
@@ -43,6 +45,29 @@ function Menu() {
         confirmLabel: S.project.resetConfirm,
       }}
       savedAt={savedAt}
+      extraItems={
+        <>
+          {/* 版本快照（F015；原作的「檔案 › 專案 › 建立快照／查看快照…」） */}
+          <ProjectMenuItem
+            icon={<Camera />}
+            onSelect={() =>
+              void takeSnapshotNow('', (title, warn) =>
+                toast({ title, tone: warn ? 'warning' : 'success' }),
+              )
+            }
+          >
+            {S.snap.menuTake}
+          </ProjectMenuItem>
+          <ProjectMenuItem
+            icon={<History />}
+            onSelect={() =>
+              setUi({ libOpen: true, libTab: 'snaps', libMode: null, snapPick: null })
+            }
+          >
+            {S.snap.menuView}
+          </ProjectMenuItem>
+        </>
+      }
     />
   );
 }

@@ -61,6 +61,7 @@ export async function importBackground(notify: (m: string, warn?: boolean) => vo
 
 export function SettingsPanel() {
   const sheet = useSheet();
+  const bgLocked = !!sheet.tl?.locked.includes('bg');
   const s = sheet.settings;
   const font = useProject((p) => p.data.font);
   const fonts = useProject((p) => p.data.fonts);
@@ -158,13 +159,19 @@ export function SettingsPanel() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted">{T.bgImage}</span>
-            <Button size="sm" icon={<ImagePlus />} onClick={() => void importBackground(notify)}>
+            <Button
+              size="sm"
+              icon={<ImagePlus />}
+              disabled={bgLocked}
+              title={bgLocked ? S.tl.lockBg : undefined}
+              onClick={() => void importBackground(notify)}
+            >
               {S.more.bgImport}
             </Button>
             <Button
               size="sm"
               icon={<ImageOff />}
-              disabled={!sheet.bg}
+              disabled={!sheet.bg || bgLocked}
               onClick={() =>
                 editSheet((d) => {
                   d.bg = null;

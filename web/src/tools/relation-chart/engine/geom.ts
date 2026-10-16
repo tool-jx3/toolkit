@@ -4,6 +4,7 @@
  * 節點的幾何與外觀解析（原作的 getCharRadius、charBorderW、charIsSquare、charHasBorder、配色 helpers…）：
  * 解析順序一律「個別設定 → 分頁設定 → 自動值」。純函式，不碰 DOM。
  */
+import type { TweenFx } from '../logic/tween';
 import { ownColor } from '../model/normalize';
 import type {
   Char,
@@ -93,6 +94,8 @@ export interface SheetCtx {
   docFont: FontValue;
   fontIds: ReadonlySet<string>;
   frameIds: ReadonlySet<string>;
+  /** 時間軸的補間覆寫表（第五批；logic/tween） */
+  tw?: TweenFx | null;
 }
 
 const NO_IDS: ReadonlySet<string> = new Set();
@@ -100,7 +103,7 @@ const NO_IDS: ReadonlySet<string> = new Set();
 export function sheetCtx(
   sheet: Sheet,
   labels: readonly Label[] = [],
-  look: ProjectLook = {},
+  look: ProjectLook & { tw?: TweenFx | null } = {},
 ): SheetCtx {
   const W = sheet.W || 1000;
   const H = sheet.H || W;
@@ -117,8 +120,13 @@ export function sheetCtx(
     docFont: look.font ?? 'sans',
     fontIds: look.fonts?.length ? new Set(look.fonts.map((f) => f.id)) : NO_IDS,
     frameIds: look.frames?.length ? new Set(look.frames.map((f) => f.id)) : NO_IDS,
+    tw: look.tw ?? null,
   };
 }
+
+/** 補間中的不透明度屬性（1＝空字串） */
+export const opAttr = (op: number | undefined): string =>
+  op !== undefined && op < 1 ? ` opacity="${Math.max(0, op).toFixed(3)}"` : '';
 
 /* ---------- 字型（第三批：匯入的字型、角色字型；原作的 fontCssOf／charFontSty） ---------- */
 

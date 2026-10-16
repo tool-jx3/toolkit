@@ -48,7 +48,8 @@ function editTl(recipe: (s: Sheet, take: () => number) => void): void {
 /** 切影格、改影格時：結束建立關係、取消選取、關掉角色／關係／便利貼的面板（原作 switchFrame），回到編輯 */
 function leaveFrame(): void {
   const u = useUi.getState();
-  const keep = u.panel && (u.panel.kind === 'lore' || u.panel.kind === 'memo' || u.panel.kind === 'stats');
+  const keep =
+    u.panel && (u.panel.kind === 'lore' || u.panel.kind === 'memo' || u.panel.kind === 'stats');
   setUi({
     sel: [],
     focus: null,

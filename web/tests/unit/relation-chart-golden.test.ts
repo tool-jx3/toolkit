@@ -164,7 +164,8 @@ function datasets(): Dataset[] {
       },
     });
   }
-  for (const { key } of SAMPLES) {
+  /* 第五批的「時間軸」範例不在第一批的對照資料裡（時間軸的畫法見 relation-chart-b5-tween） */
+  for (const { key } of SAMPLES.filter((x) => x.key !== 'timeline')) {
     const s = buildSample(key);
     s.id = 1;
     s.defNo = 1;

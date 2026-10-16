@@ -5,7 +5,8 @@
  * 分頁列的「檔案庫」鈕打開／收起。寬畫面放在編輯區下方（頂端把手上下拖＝高度，中間分隔線左右拖＝左欄寬，
  * 都記在這台瀏覽器）；窄畫面蓋滿整個畫面。頂列：頁籤、搜尋、依分頁分組、收起；下方：這個頁籤的模式鈕、
  * 檢視層級（最少／一般／詳細）與項目大小（小／中／大）。
- * 頁籤：角色庫、關係庫、標籤庫、便利貼庫｜連線總表、設定集（第四批；第五批再加分頁庫、快照）。換頁籤＝模式關掉、搜尋清空。
+ * 頁籤：角色庫、關係庫、標籤庫、分頁庫｜便利貼庫、快照｜連線總表、設定集（原作的三組；第五批補上分頁庫與快照）。
+ * 換頁籤＝模式關掉、搜尋清空。
  */
 import { Layers, X } from 'lucide-react';
 import { Fragment, type PointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
@@ -24,17 +25,21 @@ import { NOTE_ACTIONS, NoteLibList, NoteLibSide } from './NoteLibrary';
 import { GSET_ACTIONS, GsetList, GsetSide } from './PresetLibrary';
 import { REL_ACTIONS, RelLibList, RelLibSide } from './RelLibrary';
 import { RelTableList, RelTableSide, TABLE_ACTIONS } from './RelTable';
+import { SHEETLIB_ACTIONS, SheetLibList, SheetLibSide } from './SheetLibrary';
+import { SnapList, SnapSide } from './SnapLibrary';
 
 const MIN_H = 160;
 const MIN_SIDE = 140;
 const MIN_LIST = 220;
 
-/** 頁籤（第五批在這裡加：分頁庫、快照）；sep＝前面放分隔線 */
+/** 頁籤（原作的三組：角色庫｜關係庫｜標籤庫｜分頁庫 ‖ 便利貼庫｜快照 ‖ 連線總表｜設定集）；sep＝前面放分隔線 */
 const TABS: readonly { key: LibTab; sep?: boolean }[] = [
   { key: 'chars' },
   { key: 'rels' },
   { key: 'labels' },
-  { key: 'notes' },
+  { key: 'sheets' },
+  { key: 'notes', sep: true },
+  { key: 'snaps' },
   { key: 'table', sep: true },
   { key: 'gsets' },
 ];
@@ -43,7 +48,9 @@ const ACTIONS: Record<LibTab, readonly LibAction[]> = {
   chars: CHAR_ACTIONS,
   rels: REL_ACTIONS,
   labels: LABEL_ACTIONS,
+  sheets: SHEETLIB_ACTIONS,
   notes: NOTE_ACTIONS,
+  snaps: [],
   table: TABLE_ACTIONS,
   gsets: GSET_ACTIONS,
 };
@@ -63,7 +70,7 @@ function runAction(tab: LibTab, key: LibAction['key']): void {
 }
 
 export function switchLibTab(tab: LibTab): void {
-  setUi({ libTab: tab, libMode: null, libEdit: null, libPick: null });
+  setUi({ libTab: tab, libMode: null, libEdit: null, libPick: null, snapPick: null });
 }
 
 /** 寬畫面（≥ 1024 px）：抽屜放在編輯區下方；窄畫面蓋滿畫面 */
@@ -118,6 +125,10 @@ export function LibraryDrawer() {
       <NoteLibSide />
     ) : tab === 'gsets' ? (
       <GsetSide />
+    ) : tab === 'sheets' ? (
+      <SheetLibSide />
+    ) : tab === 'snaps' ? (
+      <SnapSide />
     ) : (
       <LabelSide />
     );
@@ -132,6 +143,10 @@ export function LibraryDrawer() {
       <NoteLibList query={query} />
     ) : tab === 'gsets' ? (
       <GsetList query={query} />
+    ) : tab === 'sheets' ? (
+      <SheetLibList query={query} />
+    ) : tab === 'snaps' ? (
+      <SnapList query={query} />
     ) : (
       <LabelList query={query} />
     );

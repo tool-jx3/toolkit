@@ -291,7 +291,10 @@ function materialize(s: Sheet, k: number, lanes: readonly TlLane[]): void {
   const nl = want.filter((l) => l === 'notes' || l === 'charts');
   if (nl.length) {
     const own = new Set(f.notes.map((n) => n.id));
-    f.notes = [...f.notes, ...v.notes.filter((n) => (nl as TlLane[]).includes(laneOfNote(n)) && !own.has(n.id))];
+    f.notes = [
+      ...f.notes,
+      ...v.notes.filter((n) => (nl as TlLane[]).includes(laneOfNote(n)) && !own.has(n.id)),
+    ];
   }
   if (want.includes('bg')) f.bg = v.bg;
   f.hold = f.hold.filter((l) => !want.includes(l));
@@ -320,7 +323,7 @@ export function addFrame(s: Sheet, frameId: number): void {
 /** 複製第 k 格：插在它後面、全部是關鍵影格（看到的畫面整份複製；秒數不帶，原作）；切過去 */
 export function copyFrame(s: Sheet, k: number, frameId: number): void {
   const tl = s.tl;
-  if (!tl || !tl.frames[k]) return;
+  if (!tl?.frames[k]) return;
   storeActive(s);
   const v = clone(storedView(s, k));
   tl.frames.splice(k + 1, 0, { id: frameId, no: nextFrameNo(tl), ...v, hold: [], dur: null });
@@ -436,7 +439,13 @@ export function nextSpeed(v: number): number {
  * 修改畫布尺寸、畫布貼合內容時其他影格一起平移（7.4 第 12 項）：角色、便利貼照同一個位移；
  * 畫布尺寸和目前影格原本相同的影格一起換成新的尺寸（各格尺寸不同時只平移）。
  */
-export function shiftOtherFrames(s: Sheet, dx: number, dy: number, oldW: number, oldH: number): void {
+export function shiftOtherFrames(
+  s: Sheet,
+  dx: number,
+  dy: number,
+  oldW: number,
+  oldH: number,
+): void {
   const tl = s.tl;
   if (!tl) return;
   tl.frames.forEach((f, k) => {

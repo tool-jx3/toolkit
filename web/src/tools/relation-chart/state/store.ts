@@ -369,15 +369,7 @@ export interface UiState {
 
 export type LodLevel = 'near' | 'mid' | 'far';
 
-export type LibTab =
-  | 'chars'
-  | 'rels'
-  | 'labels'
-  | 'sheets'
-  | 'notes'
-  | 'snaps'
-  | 'table'
-  | 'gsets';
+export type LibTab = 'chars' | 'rels' | 'labels' | 'sheets' | 'notes' | 'snaps' | 'table' | 'gsets';
 /** 標籤庫：編輯、隱藏、引力、陣營框、刪除；角色庫與關係庫：匯入、複製、刪除；連線總表、便利貼庫：刪除；設定集：改名、最愛、刪除 */
 export type LibMode =
   | 'edit'

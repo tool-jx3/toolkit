@@ -16,7 +16,9 @@ import {
   grelEndIsLbl,
   labelColor,
 } from '../engine/labels';
+import { tweenAt } from '../logic/tween';
 import { typeLabel } from '../model/factory';
+import { TL_LANES } from '../model/timeline';
 import type { Label, Sheet } from '../model/types';
 import { addChar, endLink } from '../state/actions';
 import { drawnImageIds, useImageUrls } from '../state/images';
@@ -88,6 +90,11 @@ const CANVAS_CSS = `
 .rc-host .rc-chart .note-bare:hover>.note-sep,.rc-host .rc-chart .note-bare.note-editing>.note-sep{stroke-opacity:1}
 .rc-host .rc-chart .note-bare:hover .note-btn,.rc-host .rc-chart .note-bare:hover .note-grip,.rc-host .rc-chart .note-bare.note-editing .note-btn,.rc-host .rc-chart .note-bare.note-editing .note-grip{opacity:1;pointer-events:auto}
 [data-note-editor]::-webkit-scrollbar{display:none}
+.rc-host .rc-chart.lane-hide-chars .layer-nodes,.rc-host .rc-chart.lane-hide-chars .layer-edges,.rc-host .rc-chart.lane-hide-chars .layer-names,.rc-host .rc-chart.lane-hide-chars .layer-zones{display:none}
+.rc-host .rc-chart.lane-hide-notes .note-node:not(.chart-node){display:none}
+.rc-host .rc-chart.lane-hide-charts .chart-node{display:none}
+.rc-host .rc-chart.lane-hide-bg .canvas-bgimg{display:none}
+.rc-host.rc-preview .rc-chart *{cursor:default!important}
 `;
 
 /**
@@ -294,6 +301,12 @@ export function CanvasView() {
   const readonly = useUi((u) => u.readonly);
   const lod = useUi((u) => u.lod);
   const minimap = usePrefs((p) => p.data.minimap);
+  /* 時間軸分頁的預覽（播放、拖過時間軸）：畫補間的暫時分頁，左鍵不能編輯（F028） */
+  const tlPos = useUi((u) => u.tlPos);
+  const tweenOff = usePrefs((p) => p.data.tweenOff);
+  const flipAnim = usePrefs((p) => p.data.flipAnim);
+  const noteFade = usePrefs((p) => p.data.noteFade);
+  const previewing = tlPos !== null && !!sheet.tl && sheet.tl.frames.length >= 2;
   const host = useRef<HTMLElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ rect: BoxRect; ids: number[] } | null>(null);
@@ -301,7 +314,15 @@ export function CanvasView() {
   /* 快速路徑要求整張重畫時加一 */
   const epoch = useSyncExternalStore(subscribeLive, liveEpoch, liveEpoch);
   // biome-ignore lint/correctness/useExhaustiveDependencies: epoch＝工作副本的位置變了（同一個物件）
-  const display = useMemo(() => displaySheet(sheet), [sheet, epoch]);
+  const display0 = useMemo(() => displaySheet(sheet), [sheet, epoch]);
+  const tween = useMemo(
+    () =>
+      previewing
+        ? tweenAt(display0, tlPos ?? 0, { tweenOff, flip: flipAnim, noteFade, library })
+        : null,
+    [previewing, display0, tlPos, tweenOff, flipAnim, noteFade, library],
+  );
+  const display = tween ? tween.sheet : display0;
 
   const imageIds = useMemo(() => drawnImageIds({ sheets: [sheet], frames }), [sheet, frames]);
   const urls = useImageUrls(imageIds);
@@ -338,14 +359,17 @@ export function CanvasView() {
       library,
       /* 遠近簡化的標記：60 位以上的分頁一律帶著（近、中、遠只換 class，換檔不重畫；同原作） */
       lod: true,
-      ui: {
-        selected: sel2,
-        linkFrom: from && !grelEndIsLbl(from) ? grelEndId(from) : null,
-        linkDone,
-        linking,
-        bubbles,
-        noteEdit,
-      },
+      tween: tween?.fx ?? null,
+      ui: tween
+        ? {}
+        : {
+            selected: sel2,
+            linkFrom: from && !grelEndIsLbl(from) ? grelEndId(from) : null,
+            linkDone,
+            linking,
+            bubbles,
+            noteEdit,
+          },
     });
     /* 每次都換掉整份 SVG（快速路徑改過的畫面不留） */
     return {
@@ -370,6 +394,7 @@ export function CanvasView() {
     radarTpls,
     library,
     noteEdit,
+    tween,
   ]);
   const contentRef = useRef(out);
   contentRef.current = out;
@@ -464,6 +489,9 @@ export function CanvasView() {
     const dense = lodDense(out.parts.ctx);
     svg.classList.toggle('lod-far', dense && lod === 'far');
     svg.classList.toggle('lod-mid', dense && lod === 'mid');
+    /* 時間軸的圖層眼睛：只影響編輯畫面（原作的 lane-hide-*） */
+    for (const l of TL_LANES)
+      svg.classList.toggle(`lane-hide-${l}`, !!sheet.tl?.hidden.includes(l));
     for (const el of chartSvgs(layer.current))
       if (statsFocus) applySetFocus(el, statsFocus);
       else applyFocus(el, eff, out.parts.ctx, !!focus);
@@ -523,7 +551,7 @@ export function CanvasView() {
   return (
     <section
       ref={host}
-      className={`rc-host relative h-[min(70dvh,34rem)] min-h-[18rem] w-full touch-none select-none overflow-hidden rounded-lg border border-border lg:h-auto lg:min-h-0 lg:flex-1${link ? ' rc-linking' : ''}${readonly ? ' rc-readonly' : ''}`}
+      className={`rc-host relative h-[min(70dvh,34rem)] min-h-[18rem] w-full touch-none select-none overflow-hidden rounded-lg border border-border lg:h-auto lg:min-h-0 lg:flex-1${link ? ' rc-linking' : ''}${readonly ? ' rc-readonly' : ''}${previewing ? ' rc-preview' : ''}`}
       style={{ background: pal.bg }}
       aria-label={S.view.canvasLabel}
       data-testid="canvas"
@@ -580,10 +608,10 @@ export function CanvasView() {
           />
         </svg>
       ) : null}
-      <NoteEditor notes={display.notes} ctx={out.parts.ctx} pad={out.pad} />
+      {tween ? null : <NoteEditor notes={display.notes} ctx={out.parts.ctx} pad={out.pad} />}
       <LinkBanner sheet={sheet} />
       <SwapBanner sheet={sheet} />
-      {!sheet.chars.length && !link && !readonly ? (
+      {!sheet.chars.length && !link && !readonly && !previewing && !sheet.tl ? (
         <EmptyHint onSamples={() => openDialog('samples')} onPaste={() => openDialog('paste')} />
       ) : null}
       {readonly ? (

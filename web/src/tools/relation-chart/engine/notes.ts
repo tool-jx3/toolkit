@@ -133,7 +133,8 @@ export function chartNoteSeries(
       key,
       name: displayName(c) + (nm ? `・${nm}` : ''),
       own: ownColor(c.color) ?? '',
-      vals: list[i].vals,
+      /* 補間中：兩格之間內插的數值（原作的 _vals） */
+      vals: ctx.tw?.noteVals.get(n.id)?.[key] ?? list[i].vals,
     };
   };
   const out = [one(ch.a, ch.stA, 'a'), ch.b ? one(ch.b, ch.stB, 'b') : null].filter(
@@ -280,7 +281,14 @@ export function noteSvg(ctx: SheetCtx, n: Note, r: NoteRender): string {
 export function notesSvg(ctx: SheetCtx, r: NoteRender): string {
   const notes = ctx.sheet.notes ?? [];
   if (!notes.length) return '';
-  return notes.map((n) => noteSvg(ctx, n, r)).join('');
+  const tw = ctx.tw;
+  return notes
+    .map((n) => {
+      const s = noteSvg(ctx, n, r);
+      const op = tw?.noteOp.get(n.id);
+      return op !== undefined && op < 1 ? `<g opacity="${Math.max(0, op).toFixed(3)}">${s}</g>` : s;
+    })
+    .join('');
 }
 
 /** 便利貼超出畫布時的外擴（溢出量＋96；不畫出血框、不出提醒，原作的 noteBleedPad） */
