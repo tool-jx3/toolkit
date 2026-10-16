@@ -902,6 +902,53 @@ test('長按與按兩下＝編輯；縮放按鈕、滾輪、符合畫面；小�
   expect(errors).toEqual([]);
 });
 
+test('縮放途中（還沒重新排版）：圖層拿掉 will-change，停手重新排版後標回去；文字一律幾何縮放（7.10 D72、7.11 D72b）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, project([trio()]));
+  const layer = page.getByTestId('chart');
+  const look = () =>
+    layer.evaluate((el) => {
+      const svg = el.querySelector(':scope > svg.rc-chart');
+      return {
+        scaled: /scale\(/.test((el as HTMLElement).style.transform),
+        willChange: (el as HTMLElement).style.willChange,
+        text: svg ? getComputedStyle(svg).textRendering : null,
+      };
+    });
+  await expect.poll(look).toEqual({ scaled: false, willChange: 'transform', text: 'geometricprecision' });
+  /* 滾一格、等這一格畫好（兩個 rAF）就看：還在縮放途中 */
+  const mid = await page.evaluate(async () => {
+    const host = document.querySelector('[data-testid=canvas]') as HTMLElement;
+    const el = document.querySelector('[data-testid=chart]') as HTMLElement;
+    const r = host.getBoundingClientRect();
+    host.dispatchEvent(
+      new WheelEvent('wheel', {
+        deltaY: -100,
+        clientX: r.left + r.width / 2,
+        clientY: r.top + r.height / 2,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+    const svg = el.querySelector(':scope > svg.rc-chart') as SVGElement;
+    return {
+      scaled: /scale\(/.test(el.style.transform),
+      willChange: el.style.willChange,
+      text: getComputedStyle(svg).textRendering,
+    };
+  });
+  expect(mid).toEqual({ scaled: true, willChange: 'auto', text: 'geometricprecision' });
+  await expect.poll(look, { timeout: 5000 }).toEqual({
+    scaled: false,
+    willChange: 'transform',
+    text: 'geometricprecision',
+  });
+  expect(errors).toEqual([]);
+});
+
 /** 觸控的指標事件（Playwright 沒有多指觸控；直接發 pointer 事件給點到的元素） */
 async function touch(
   page: Page,

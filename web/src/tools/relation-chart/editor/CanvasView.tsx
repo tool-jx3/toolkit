@@ -546,7 +546,9 @@ export function CanvasView() {
 
   /* 縮放中先用 transform 縮放（只動合成層、不重新排版），停手再用新的大小排版
      （SVG 以螢幕解析度重畫；拖曳時仍是排版後的大小，不會以原尺寸點陣化）。
-     停手的判斷跟著每一格實際花的時間（zoomSettle）：角色多時一格就要 0.1 秒以上，固定的短間隔會在滾動途中重新排版 */
+     停手的判斷跟著每一格實際花的時間（zoomSettle）：角色多時一格就要 0.1 秒以上，固定的短間隔會在滾動途中重新排版。
+     文字一律是 geometricPrecision（CANVAS_CSS，D72b）：縮放途中倍率每格都變，字照比例縮放、不必每格照新的字級重新排字，
+     縮放時不用再另外切換（第五批曾只在縮放途中切換，量到 120 位每格平均 85 → 74 ms；併進 D72b 的一律套用後縮放照樣這麼快） */
   const [baseZoom, setBaseZoom] = useState(view.zoom);
   const settle = useRef<ZoomSettle | null>(null);
   useEffect(() => {
