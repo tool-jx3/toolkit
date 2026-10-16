@@ -58,17 +58,15 @@ function Bar({ n }: { n: Note }) {
   );
 }
 
-/** 數字欄：打字即時預覽、離開才記一步 */
+/** 數字欄：離開欄位或 Enter 才寫入，一次記一步 */
 function LiveNumber({
   value,
   onChange,
   label,
-  testId,
 }: {
   value: number | null;
   onChange: (v: number | null) => void;
   label: string;
-  testId: string;
 }) {
   return (
     <OptionalNumberInput
@@ -82,7 +80,6 @@ function LiveNumber({
       onBlur={() => gesture.commit()}
       onChange={onChange}
       className="w-28"
-      data-testid={testId}
     />
   );
 }
@@ -106,7 +103,6 @@ function TextNotePanel({ n }: { n: Note }) {
         <LiveNumber
           value={n.size}
           label={T.fsLabel}
-          testId="note-fs"
           onChange={(v) =>
             updateNote(n.id, (d) => {
               d.size = v && v >= 1 ? v : null;
@@ -118,7 +114,6 @@ function TextNotePanel({ n }: { n: Note }) {
         <LiveNumber
           value={sheet.settings.defStickySize}
           label={T.fsSheet}
-          testId="note-fs-sheet"
           onChange={(v) =>
             updateSettings((s) => {
               s.defStickySize = v && v >= 1 ? Math.min(200, v) : 0;

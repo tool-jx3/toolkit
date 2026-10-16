@@ -42,13 +42,19 @@ export function contentBox(): { viewW: number; viewH: number; pad: number } {
   return bound?.content() ?? { viewW: 1000, viewH: 1000, pad: 0 };
 }
 
+/** 「符合畫面」的倍率：整張（含出血與界外的圖例）放進畫布框，四周留一點邊 */
+function fitZoom(w: number, h: number): number {
+  const { viewW, viewH } = contentBox();
+  const m = w < 500 ? 8 : 24;
+  return Math.min((w - m) / Math.max(1, viewW), (h - m) / Math.max(1, viewH));
+}
+
 /**
- * 遠近簡化的倍率（原作的 state.scale：1＝整張 SVG 剛好塞進畫布框，不含 fitView 留的邊）。
+ * 遠近簡化的倍率（原作的 state.scale：1＝按「符合畫面」之後的倍率，原作 resetViewToFit 把它設成 1）。
  * 本站的 zoom 是「每個畫布單位幾個螢幕 px」，直接拿來比 0.5／1 會在大畫布一開就進「遠」。
  */
 export function lodScale(zoom: number, hostW: number, hostH: number): number {
-  const { viewW, viewH } = contentBox();
-  const fit = Math.min(hostW / Math.max(1, viewW), hostH / Math.max(1, viewH));
+  const fit = fitZoom(hostW, hostH);
   return fit > 0 ? zoom / fit : 1;
 }
 
@@ -65,8 +71,7 @@ export function fitView(): void {
   const r = hostRect();
   if (!r || r.width < 10 || r.height < 10) return;
   const { viewW, viewH } = contentBox();
-  const m = r.width < 500 ? 8 : 24;
-  const zoom = clampZoom(Math.min((r.width - m) / viewW, (r.height - m) / viewH));
+  const zoom = clampZoom(fitZoom(r.width, r.height));
   setUi({
     view: { zoom, x: (r.width - viewW * zoom) / 2, y: (r.height - viewH * zoom) / 2 },
   });

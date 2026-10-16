@@ -395,6 +395,18 @@ export function CanvasView() {
     if (next !== cur) setUi({ lod: next });
   }, [view.zoom, hostSize, out.viewW, out.viewH]);
 
+  /* 外擴量變了（便利貼拖到畫布外、角色出血）：畫布留在畫面上原地、外擴往四周長，
+     拖曳中的便利貼才會一直跟著游標（原作拖到畫布外也是放在游標指的位置） */
+  const padRef = useRef({ id: display.id, pad: out.pad });
+  useLayoutEffect(() => {
+    const prev = padRef.current;
+    padRef.current = { id: display.id, pad: out.pad };
+    if (prev.id !== display.id || prev.pad === out.pad) return;
+    const v = useUi.getState().view;
+    const d = (out.pad - prev.pad) * v.zoom;
+    setUi({ view: { ...v, x: v.x - d, y: v.y - d } });
+  }, [display.id, out.pad]);
+
   /* 切分頁、開專案檔、第一次顯示：符合畫面 */
   // biome-ignore lint/correctness/useExhaustiveDependencies: fitTick 是觸發用的計數
   useLayoutEffect(() => {

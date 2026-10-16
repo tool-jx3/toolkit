@@ -57,7 +57,10 @@ import {
 } from '@/tools/relation-chart/state/libActions';
 import { useProject, useUi } from '@/tools/relation-chart/state/store';
 
-type Raw = Omit<Project, 'library' | 'relLibrary' | 'radarTpls' | 'frames' | 'fonts' | 'noteBin' | 'settingsLib'> &
+type Raw = Omit<
+  Project,
+  'library' | 'relLibrary' | 'radarTpls' | 'frames' | 'fonts' | 'noteBin' | 'settingsLib'
+> &
   Partial<Project>;
 
 function seed(p: Raw) {

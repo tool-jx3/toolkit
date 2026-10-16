@@ -18,11 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { bytesToHex, sha256Sync } from '../../src/core/files';
 import { editorSvg, exportSvg, viewerSvg } from '../../src/tools/relation-chart/engine/chart';
 import { sheetLayeredSvg } from '../../src/tools/relation-chart/export/outputs';
-import {
-  stripLod,
-  viewerHtml,
-  viewerSource,
-} from '../../src/tools/relation-chart/export/viewer';
+import { stripLod, viewerHtml, viewerSource } from '../../src/tools/relation-chart/export/viewer';
 import { convertLegacy } from '../../src/tools/relation-chart/logic/legacy';
 import { buildSample, SAMPLES } from '../../src/tools/relation-chart/logic/samples';
 import { makeChar, makeRel, makeType } from '../../src/tools/relation-chart/model/factory';

@@ -75,6 +75,9 @@ function openInfo(notify: (m: string, warn?: boolean) => void): void {
   setUi({ panel: { kind: 'info', id } });
 }
 
+/** 剛從「更多」新增的便利貼：選單關掉時打開它的編輯框 */
+let editAfterMenu: number | null = null;
+
 /** 「檢視」選單：唯讀瀏覽、世界觀、備忘錄、統計與尋路 */
 function ViewMenu() {
   const readonly = useUi((u) => u.readonly);
@@ -272,13 +275,23 @@ function EditBar() {
           <span className="ml-1">{S.bar.more}</span>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content align="start" sideOffset={6} className={MENU_CONTENT}>
+          <DropdownMenu.Content
+            align="start"
+            sideOffset={6}
+            className={MENU_CONTENT}
+            onCloseAutoFocus={(e) => {
+              if (editAfterMenu === null) return;
+              e.preventDefault();
+              const id = editAfterMenu;
+              editAfterMenu = null;
+              setUi({ noteEdit: id });
+            }}
+          >
             <DropdownMenu.Item
               className={MENU_ITEM}
               onSelect={() => {
-                const id = addNote();
-                /* 新增即進入輸入（等選單關掉、畫布重畫之後） */
-                requestAnimationFrame(() => setUi({ noteEdit: id }));
+                /* 新增即進入輸入：等選單關掉（不把焦點還給選單鈕）再打開編輯框 */
+                editAfterMenu = addNote();
               }}
               data-testid="menu-add-note"
             >
