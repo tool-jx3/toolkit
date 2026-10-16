@@ -29,8 +29,10 @@ import {
 } from '../engine/labels';
 import { viewBubbleSvg } from '../engine/nodes';
 import { richDocCss, richIsEmpty, sanitizeRichHtml } from '../logic/rich';
+import { grelPairs } from '../logic/stats';
 import { charLabelIds } from '../model/charLabels';
 import { variantOf } from '../model/library';
+import { loreOf } from '../model/lore';
 import { ownColor } from '../model/normalize';
 import type {
   CharEntry,
@@ -52,6 +54,8 @@ export interface ViewerExtra {
   radarTpls?: readonly RadarTpl[];
   fonts?: readonly FontItem[];
   frames?: readonly FrameItem[];
+  /** 專案的全部分頁（世界觀的「沿用」指到沒匯出的分頁時用；沒給＝只看匯出的） */
+  allSheets?: readonly Sheet[];
 }
 
 export interface ViewerInput extends ViewerExtra {
@@ -59,6 +63,12 @@ export interface ViewerInput extends ViewerExtra {
   labels: readonly Label[];
   /** 資產 id → data URI */
   uris: ReadonlyMap<string, string>;
+}
+
+/** 互動網頁的選項（第四批，F146）：嵌入模式、壓縮過的頭像（資產 id → data URI；只在這次匯出替換） */
+export interface ViewerOpts {
+  embed?: boolean;
+  slim?: ReadonlyMap<string, string>;
 }
 
 export const VIEWER_CREDIT = [
@@ -119,44 +129,9 @@ function grelRows(sheet: Sheet, labels: readonly Label[]): ViewerSheetData['grow
   return Object.keys(map).length ? map : undefined;
 }
 
-/**
- * 找關係路徑用的群體關係衍生對（原作 buildViewerHtml 的 gpairs）：只算「算到每位成員」的規則；隱藏的關係類型不算；
- * 同屬兩端的跳過、例外排除、兩人之間已經有同一種個別關係的不重複；上限 2 萬對。沒有＝undefined（資料一個位元組都不多）。
- */
-function grelPairs(sheet: Sheet, labels: readonly Label[]): ViewerSheetData['gpairs'] {
-  const ctx = sheetCtx(sheet, labels);
-  const gs = aliveGrels(ctx).filter((g) => g.inherit);
-  if (!gs.length) return undefined;
-  const out: NonNullable<ViewerSheetData['gpairs']> = [];
-  let budget = 20000;
-  for (const g of gs) {
-    const tg = ctx.typeById.get(g.type);
-    if (!tg || tg.hidden) continue;
-    const mf = grelEndMembers(ctx, g.from);
-    const mt = grelEndMembers(ctx, g.to);
-    const sf = new Set(mf.map((c) => c.id));
-    const st = new Set(mt.map((c) => c.id));
-    const viaOf = (e: string) => (grelEndIsLbl(e) ? grelEndName(ctx, e) : '');
-    const via = viaOf(g.from) || viaOf(g.to);
-    const label = tg.label.replace(/\n+/g, ' ');
-    for (const a of mf) {
-      if (st.has(a.id) || grelExcluded(g, a.id)) continue;
-      for (const b of mt) {
-        if (budget <= 0) return out.length ? out : undefined;
-        if (a.id === b.id || sf.has(b.id) || grelExcluded(g, b.id)) continue;
-        if (
-          sheet.rels.some(
-            (r) =>
-              r.type === g.type &&
-              ((r.from === a.id && r.to === b.id) || (r.from === b.id && r.to === a.id)),
-          )
-        )
-          continue;
-        budget--;
-        out.push({ from: a.id, to: b.id, l: label, v: via ? S.grel.via(via) : '' });
-      }
-    }
-  }
+/** 找關係路徑用的群體關係衍生對（和編輯畫面的統計與尋路同一份：logic/stats）；沒有＝undefined（資料一個位元組都不多） */
+function grelPairsData(sheet: Sheet, labels: readonly Label[]): ViewerSheetData['gpairs'] {
+  const out = grelPairs(sheet, labels).map((g) => ({ from: g.from, to: g.to, l: g.l, v: g.v }));
   return out.length ? out : undefined;
 }
 
@@ -196,7 +171,7 @@ function sheetData(sheet: Sheet, labels: readonly Label[]): ViewerSheetData {
   }
   const grows = grelRows(sheet, labels);
   if (grows) out.grows = grows;
-  const gpairs = grelPairs(sheet, labels);
+  const gpairs = grelPairsData(sheet, labels);
   if (gpairs) out.gpairs = gpairs;
   return out;
 }
@@ -217,6 +192,7 @@ function extData(
   anyInfo: boolean;
   anyRadar: boolean;
   anyViews: boolean;
+  anyLore: boolean;
 } | null {
   const lib = { library: [...(input.library ?? [])] };
   const tpls = new Map((input.radarTpls ?? []).map((t) => [t.id, t]));
@@ -228,6 +204,10 @@ function extData(
   let anyInfo = false;
   let anyRadar = false;
   let anyViews = false;
+  let anyLore = false;
+  /* 世界觀（第四批）：每張分頁顯示的那一份（沿用＝來源的；同一份只放一次） */
+  const all = input.allSheets ?? sheets;
+  const loreIdx = new Map<number, number>();
   /* 文件裡的圖：參照換成去重表的索引（data-rcimg，檢視程式再設 src）；讀不到的圖整個拿掉 */
   const packDoc = (html: string) =>
     sanitizeRichHtml(html).replace(/<img\b[^>]*>/g, (tag) => {
@@ -300,9 +280,21 @@ function extData(
       x.vbub = vbub;
       anyViews = true;
     }
+    const lore = loreOf(all, s);
+    if (!richIsEmpty(lore.html)) {
+      const src = lore.from?.id ?? s.id;
+      let k = loreIdx.get(src);
+      if (k === undefined) {
+        k = docs.length;
+        docs.push(packDoc(lore.html));
+        loreIdx.set(src, k);
+      }
+      x.lore = k;
+      anyLore = true;
+    }
     return x;
   });
-  if (!anyInfo && !anyRadar && !anyViews) return null;
+  if (!anyInfo && !anyRadar && !anyViews && !anyLore) return null;
   const T = S.viewer.ext;
   const ext: ViewerExtData = {
     sheets: out,
@@ -318,6 +310,8 @@ function extData(
       legendTip: T.legendTip,
     },
   };
+  /* 世界觀鈕的字（只有用到時才放：沒有世界觀的檔逐位元組不變） */
+  if (anyLore) ext.txt.lore = S.viewer.lore;
   if (rimgs.length) ext.rimgs = rimgs;
   if (anyRadar)
     ext.radar = {
@@ -329,17 +323,43 @@ function extData(
       ),
       pal: [...charts.PALETTE],
     };
-  return { ext, docs, anyInfo, anyRadar, anyViews };
+  return { ext, docs, anyInfo, anyRadar, anyViews, anyLore };
 }
+
+/** 遠近簡化的樣式（第四批；有 60 位以上的分頁才放；原作的 CSS L42217～42226） */
+export const VIEWER_LOD_CSS = `
+.chart .lod-farname,.chart .lod-dot{display:none}
+.sheetV.lod-far .chart .node-name,.sheetV.lod-far .chart .node-face,.sheetV.lod-far .chart .edge-label,.sheetV.lod-far .chart .layer-legend{display:none}
+.sheetV.lod-far .chart .lod-farname,.sheetV.lod-far .chart .lod-dot{display:block}
+.sheetV.lod-far .chart:not(.focus-active) .edge.lod-minor{opacity:.25}
+.sheetV.lod-mid .chart .edge-label{display:none}
+.sheetV.lod-mid .chart .node-name.lod-minorname{display:none}
+.sheetV.lod-mid .chart:not(.focus-active) .edge.lod-minor{opacity:.45}`;
+
+/**
+ * 去掉遠近簡化的標記（測試用：60 位以上的分頁的互動網頁，去掉這些之後和第四批以前逐位元組相同）。
+ * 匯出（PNG、分層 SVG／PSD）本來就不產生這些標記。
+ */
+export const stripLod = (s: string): string =>
+  s
+    .replace(VIEWER_LOD_CSS, '')
+    .replace(/<g class="lod-dot"><(?:circle|rect)[^>]*\/><\/g>/g, '')
+    .replace(/<g class="lod-farname"><text[^>]*>[^<]*<\/text><\/g>/g, '')
+    .replace(/ lod-minorname"/g, '"')
+    .replace(/ lod-minor"/g, '"');
 
 /** 有沒有畫出第二批的東西（陣營框、標籤網、群體關係、標籤圖例）：有才放對應的樣式 */
 const LABEL_MARKS = ['class="zone-g"', 'class="lbl-node', 'class="grel-edge"', 'lbl-legend-item'];
 
-export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string {
+export function viewerHtml(
+  sheets: readonly Sheet[],
+  input: ViewerInput,
+  opts: ViewerOpts = {},
+): string {
   const imgs: string[] = [];
   const imgIndex = new Map<string, number>();
   const href = (id: string) => {
-    const uri = input.uris.get(id);
+    const uri = opts.slim?.get(id) ?? input.uris.get(id);
     if (!uri) return null;
     let k = imgIndex.get(uri);
     if (k === undefined) {
@@ -358,6 +378,9 @@ export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string
       labels: input.labels,
       fonts: input.fonts,
       frames: input.frames,
+      radarTpls: input.radarTpls,
+      library: input.library,
+      lod: true,
     }).replace(/ href="rcimg:(\d+)"/g, ' data-rcimg="$1"'),
   );
   const usedLabels = new Set(sheets.flatMap((s) => s.chars.flatMap((c) => charLabelIds(c))));
@@ -377,6 +400,7 @@ export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string
     txt: S.viewer.runtime,
   };
   if (Object.keys(lcol).length) data.lcol = lcol;
+  if (opts.embed) data.embed = 1;
   const usesLabels = svgs.some((svg) => LABEL_MARKS.some((m) => svg.includes(m)));
   const pal = PALETTES[sheets[0]?.settings.palette ?? 'dark'];
   const light = sheets[0]?.settings.palette === 'light';
@@ -404,7 +428,32 @@ export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string
   const font = fontStack(input.font, new Set((input.fonts ?? []).map((f) => f.id)));
   const x3 = extData(sheets, input);
   const faces = usedFontIds(sheets, input);
-  const pane = !!x3 && (x3.anyInfo || x3.anyRadar);
+  const pane = !!x3 && (x3.anyInfo || x3.anyRadar || x3.anyLore);
+  /* 第四批：遠近簡化（60 位以上的分頁才有標記）、便利貼、世界觀鈕、嵌入模式（都只有用到時才放） */
+  const anyLod = svgs.some((svg) => svg.includes('class="lod-dot"'));
+  const anyBare = svgs.some((svg) => svg.includes('note-bare'));
+  const lodCss = anyLod ? VIEWER_LOD_CSS : '';
+  const css4 = `${lodCss}${anyBare ? '\n.chart .note-bare>.note-paper{pointer-events:none}' : ''}${
+    x3?.anyLore
+      ? `
+#loreBtnV{position:fixed;top:52px;right:10px;z-index:7;background:${th.panel};border:1px solid ${th.line};border-radius:999px;color:${th.ink};padding:4px 14px;cursor:pointer;font-size:12.5px;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+#loreBtnV:hover{border-color:${th.accent};color:${th.accent}}
+#loreBtnV[hidden]{display:none}`
+      : ''
+  }${
+    opts.embed
+      ? `
+body.embed header{padding:3px 8px;gap:6px}
+body.embed header h1,body.embed #rvSearch,body.embed #zIn,body.embed #zOut{display:none}
+body.embed #tabsV{max-width:none;flex:1;min-width:0}
+body.embed .tabV{padding:2px 10px;font-size:11.5px}
+body.embed #ctl{margin-left:auto}
+body.embed #ctl button{padding:2px 8px;font-size:12px}
+body.embed footer{padding:3px 10px;font-size:10px}
+body.embed .ft-hint{display:none}
+body.embed #stageV{touch-action:pan-x pan-y}${x3?.anyLore ? '\nbody.embed #loreBtnV{top:10px}' : ''}`
+      : ''
+  }`;
   const css3 = `${faces.length ? `\n${fontFaceCss(faces, input.uris)}` : ''}${
     x3?.anyViews
       ? '\n.chart .view-bubble{transform-box:fill-box;transform-origin:50% 100%;transform:scale(var(--vb-k,1))}\n#tipV .tvw{margin-top:3px;opacity:.95}'
@@ -500,7 +549,7 @@ header h1{font-size:15px;color:${th.ink};margin-right:auto;white-space:nowrap;ov
 #tipV .tl{border:1.2px solid currentColor;border-radius:999px;padding:1px 9px;font-size:11.5px;white-space:nowrap;pointer-events:auto;cursor:pointer}
 #tipV .ti-btn{pointer-events:auto;display:inline-block;margin-top:6px;background:none;border:1px solid ${th.line};border-radius:999px;color:${th.accent};padding:2px 10px;cursor:pointer;font-size:11.5px;font-family:inherit}
 #tipV .ti-btn:hover{border-color:${th.accent}}
-footer{flex-shrink:0;padding:5px 14px;background:${th.panel};border-top:1px solid ${th.line};font-size:11px;color:${th.muted};display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}${css3}`;
+footer{flex-shrink:0;padding:5px 14px;background:${th.panel};border-top:1px solid ${th.line};font-size:11px;color:${th.muted};display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}${css3}${css4}`;
   const paneHtml = pane
     ? `\n<div id="loreV"><div id="loreVHead"><span id="loreVTitle"></span><button id="loreVClose" type="button" aria-label="${esc(S.viewer.ext.close)}">✕</button></div><div id="loreVBody">${(
         x3?.docs ?? []
@@ -514,6 +563,10 @@ footer{flex-shrink:0;padding:5px 14px;background:${th.panel};border-top:1px soli
     ? `(function(){var D=${scriptJson(data)};(${viewerSource()})(D,(${viewerExtSource()})(${scriptJson(x3.ext)},${x3.anyRadar ? `function(E,a){return (${rcViewerRadar.toString()})(E,(${rcCharts.toString()})(),a)}` : 'null'},D));})();`
     : `(${viewerSource()})(${scriptJson(data)});`;
   const T = S.viewer;
+  const loreBtn = x3?.anyLore
+    ? `\n<button type="button" id="loreBtnV" hidden>${esc(T.lore)}</button>`
+    : '';
+  const hint = x3?.anyLore ? T.hintLore : T.hint;
   return `<!DOCTYPE html>
 <!--
   ${VIEWER_CREDIT.join('\n  ')}
@@ -522,14 +575,14 @@ footer{flex-shrink:0;padding:5px 14px;background:${th.panel};border-top:1px soli
 <title>${esc(title)}</title>
 <style>
 ${css}
-</style></head><body>
+</style></head><body${opts.embed ? ' class="embed"' : ''}>
 <header><h1>${esc(title)}</h1>${tabsHtml}<div id="ctl"><input id="rvSearch" type="search" placeholder="${esc(T.search)}" aria-label="${esc(T.search)}" autocomplete="off"><button type="button" id="zOut" aria-label="${esc(T.zoomOut)}">−</button><button type="button" id="zIn" aria-label="${esc(T.zoomIn)}">＋</button><button type="button" id="zReset">${esc(T.reset)}</button></div></header>
 <div id="stageV">
 ${sheetsHtml}
 </div>
 <div id="rosterV"><div class="rv-chips" id="rvChips"></div><div class="rv-list" id="rvList"></div></div>
-<div id="tipV"></div>${paneHtml}
-<footer><span>${esc(T.hint)}</span><span>${esc(T.credit)}</span></footer>
+<div id="tipV"></div>${paneHtml}${loreBtn}
+<footer><span${opts.embed ? ' class="ft-hint"' : ''}>${esc(hint)}</span><span>${esc(T.credit)}</span></footer>
 <script>
 ${script}
 </script>

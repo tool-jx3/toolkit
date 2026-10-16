@@ -106,6 +106,8 @@ export interface EdgeCtx {
   idPrefix: string;
   /** 自我關係縮小頭貼的 clipPath */
   defs: string[];
+  /** 遠近簡化的標記（第四批：單向線多一個 lod-minor；只在 60 位以上、編輯畫面拉遠或互動網頁時） */
+  lod?: boolean;
 }
 
 interface PairGroup {
@@ -686,7 +688,7 @@ export function edgeSvg(ectx: EdgeCtx, r: Rel, i: number, k: number, loId: numbe
       `<g class="edge edge-lbl" data-relid="${r.id}" data-from="${r.from}" data-to="${r.to}" data-type="${r.type}"><title>${tip}</title>${labelSvg}</g>`,
     );
   }
-  return `<g class="edge" data-relid="${r.id}" data-from="${r.from}" data-to="${r.to}" data-type="${r.type}"><title>${tip}</title><path class="edge-hit" d="${clickPath}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="${f1(Math.max(16, lw + 12))}"/>${visLine}${endDeco}${startDeco}${joint}</g>`;
+  return `<g class="edge${ectx.lod && !r.both ? ' lod-minor' : ''}" data-relid="${r.id}" data-from="${r.from}" data-to="${r.to}" data-type="${r.type}"><title>${tip}</title><path class="edge-hit" d="${clickPath}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="${f1(Math.max(16, lw + 12))}"/>${visLine}${endDeco}${startDeco}${joint}</g>`;
 }
 
 /** 自我關係：頭像旁的縮小頭貼＋短線（同一角色的多條共用一個頭貼） */
@@ -853,7 +855,7 @@ function selfEdgeSvg(ectx: EdgeCtx, r: Rel, c: Char, tg: RelType, i: number, k: 
     );
   }
   const tip = esc(`${displayName(c)} ⟲ ${tg.label}${r.note ? `\n${r.note}` : ''}`);
-  return `<g class="edge self-edge" data-relid="${r.id}" data-from="${r.from}" data-to="${r.to}" data-type="${r.type}"><title>${tip}</title><path class="edge-hit" d="M ${f1(sx0)} ${f1(sy0)} L ${f1(ex)} ${f1(ey)}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="${f1(Math.max(16, lw + 12))}"/>${visLine}${endDeco}${startDeco}${mini}${labelSvg}</g>`;
+  return `<g class="edge self-edge${ectx.lod && !r.both ? ' lod-minor' : ''}" data-relid="${r.id}" data-from="${r.from}" data-to="${r.to}" data-type="${r.type}"><title>${tip}</title><path class="edge-hit" d="M ${f1(sx0)} ${f1(sy0)} L ${f1(ex)} ${f1(ey)}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="${f1(Math.max(16, lw + 12))}"/>${visLine}${endDeco}${startDeco}${mini}${labelSvg}</g>`;
 }
 
 /** 兩人之間的線一組（key＝「小 id-大 id」）；粗的組排前面（先畫、在下面）。編輯畫面的快速路徑也用（editor/live） */

@@ -24,6 +24,7 @@ import { rcCharts } from '../../src/tools/relation-chart/engine/charts';
 import { fontFaceCss, usedFontIds } from '../../src/tools/relation-chart/export/fonts';
 import { sheetLayeredSvg } from '../../src/tools/relation-chart/export/outputs';
 import {
+  stripLod,
   viewerExtSource,
   viewerHtml,
   viewerSource,
@@ -194,6 +195,8 @@ function generated(): Project {
 /** 讀原作的檔 → 換參照 → 加進一份空專案（取代） */
 function legacy(data: Record<string, unknown>): Project {
   const conv = convertLegacy(data);
+  /* 第四批起讀得進便利貼（b3-assets 的圖表節點）：比對「沒用到第四批的功能」時拿掉 */
+  for (const s of conv.sheets) s.notes = [];
   const refs = remapLegacyRefs(conv, new Map(), new Map(), new Map());
   useProject.getState().replace(initialProject());
   applyLegacy(conv, 'replace', refs.font, [], []);
@@ -265,10 +268,12 @@ function capture(d: Dataset): Record<string, string> {
     out[`${k}:layered`] = sha(sheetLayeredSvg(s, { ...input, sheets: [s], transparent: false }));
   });
   out.html = sha(
-    viewerHtml(p.sheets, input)
-      .replace(viewerSource(), '/*rcViewer*/')
-      .replace(viewerExtSource(), '/*rcViewerExt*/')
-      .replace(rcCharts.toString(), '/*rcCharts*/'),
+    stripLod(
+      viewerHtml(p.sheets, input)
+        .replace(viewerSource(), '/*rcViewer*/')
+        .replace(viewerExtSource(), '/*rcViewerExt*/')
+        .replace(rcCharts.toString(), '/*rcCharts*/'),
+    ),
   );
   return out;
 }

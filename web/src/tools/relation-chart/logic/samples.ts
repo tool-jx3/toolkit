@@ -47,6 +47,10 @@ const sheet = (
   settings: newSettings(),
   grels: [],
   collapsed: [],
+  notes: [],
+  lore: '',
+  loreFrom: null,
+  memo: '',
 });
 
 export function buildSample(key: SampleKey): Sheet {

@@ -3,6 +3,7 @@
  *
  * 角色節點的 SVG（原作 render() 的節點迴圈、charFaceSvg、selfMiniAvatarSvg）。
  */
+import { ownColor } from '../model/normalize';
 import type { Char } from '../model/types';
 import {
   charBgPaint,
@@ -10,6 +11,7 @@ import {
   charFontAttr,
   charHasBorder,
   charIsSquare,
+  charLevel,
   charNameFillColor,
   charNameSize,
   charNameStrokeColor,
@@ -43,6 +45,8 @@ export interface NodeUi {
   linking?: boolean;
   /** 看法氣泡（點擊聚焦時：角色 id → 他說的話；第三批） */
   bubbles?: ReadonlyMap<number, string>;
+  /** 正在就地編輯的便利貼（第四批） */
+  noteEdit?: number | null;
 }
 
 /** 頭像框（疊在頭像上、名字下面；框布＝頭像直徑 × 1.6，中心＝頭像中心） */
@@ -126,6 +130,11 @@ function pinBadge(x: number, y: number, s: number): string {
   return `<g class="pin-badge" transform="translate(${f1(x)},${f1(y)}) scale(${k.toFixed(3)})" pointer-events="none"><circle r="10" fill="#e5484d" stroke="#ffffff" stroke-width="2"/><path d="M-3.5 -4.5 h7 l-1.2 4 h-4.6 z M0 -0.5 v6" fill="#ffffff" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></g>`;
 }
 
+/** 遠近簡化（第四批，F116）：60 位以上才標；farKeep＝留大名字的角色（候選超過 20 位時；null＝全留） */
+export interface NodeLod {
+  farKeep: ReadonlySet<number> | null;
+}
+
 export interface NodeOut {
   svg: string;
   defs: string;
@@ -141,6 +150,7 @@ export function nodeSvg(
   href: ImageHref,
   ui: NodeUi | null,
   splitName = false,
+  lod: NodeLod | null = null,
 ): NodeOut {
   const curR = charRadius(ctx, c);
   const fk = curR / NODE_R;
@@ -208,13 +218,26 @@ export function nodeSvg(
     if (ui && c.locked)
       pin = pinBadge(c.x + curR * 0.74, c.y - curR * 0.62, Math.round(20 * Math.min(fk, 1.5)));
   }
-  const nameG = `<g class="node-name">${nameTag}</g>`;
+  /* 遠近簡化：次要角色（重要度 ≤ 0、有頭像）的名字可以藏；拉遠時的圓點與重要角色的大名字（原作 render 的 lodDot、farName） */
+  const minor = !!lod && charLevel(c) <= 0 && !noAv;
+  const nameG = `<g class="node-name${minor ? ' lod-minorname' : ''}">${nameTag}</g>`;
+  let lodDot = '';
+  let farName = '';
+  if (lod) {
+    lodDot = `<g class="lod-dot">${ringShape(sq, c.x, c.y, curR * 0.55, `fill="${charColor}"`)}</g>`;
+    const lv = charLevel(c);
+    if (lv > 0 && c.name && ctx.s.showNames && (!lod.farKeep || lod.farKeep.has(c.id))) {
+      const farFS = Math.round(64 * Math.max(1, fk * 0.8));
+      const fill = ownColor(c.nameColor) ?? ownColor(ctx.s.colNameText) ?? charColor;
+      farName = `<g class="lod-farname"><text${charFontAttr(ctx, c)} x="${f1(c.x)}" y="${f1(c.y + curR + nameFrameDrop(ctx, c, curR) + farFS * 0.95)}" text-anchor="middle" font-size="${farFS}" font-weight="900" fill="${fill}" paint-order="stroke" stroke="${ctx.pal.bg}" stroke-width="${Math.round(farFS * 0.18)}" stroke-linejoin="round">${esc(displayName(c))}</text></g>`;
+    }
+  }
   /* 頭像框：有框才出這一組（沒有框時和第一批的輸出相同） */
   const fr = noAv ? '' : frameSvg(effectiveFrame(ctx, c), c.x, c.y, curR, href);
   const frameG = fr ? `<g class="node-frame">${fr}</g>` : '';
   const said = ui?.bubbles?.get(c.id);
   const bubble = said ? viewBubbleSvg(ctx, c, said, curR) : '';
-  const svg = `<g class="node" data-id="${c.id}">${extra}${body}<g class="node-face">${fs.face}</g>${frameG}${splitName ? '' : nameG}${pin}${bubble}</g>`;
+  const svg = `<g class="node" data-id="${c.id}">${extra}${body}${lodDot}<g class="node-face">${fs.face}</g>${frameG}${splitName ? '' : nameG}${pin}${farName}${bubble}</g>`;
   return { svg, defs: fs.defs, name: splitName && nameTag ? nameG : '' };
 }
 

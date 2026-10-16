@@ -6,7 +6,7 @@
 import { Maximize, Minus, Plus } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Button, IconButton, withShortcut } from '@/ui';
-import { editorSvg } from '../engine/chart';
+import { editorSvg, lodDense } from '../engine/chart';
 import { displayName, focusDimSet, PALETTES, type SheetCtx, sheetCtx } from '../engine/geom';
 import {
   colEdgeFocusHit,
@@ -25,8 +25,10 @@ import { S } from '../strings';
 import { type BoxRect, CanvasInput } from './canvasInput';
 import { bindLive, displaySheet, liveEpoch, liveRebase, subscribeLive } from './live';
 import { Minimap } from './Minimap';
+import { NoteEditor } from './NoteEditor';
+import { setReadonly } from './readonly';
 import { toggleSwap } from './swap';
-import { bindView, fitView, zoomBy } from './view';
+import { bindView, fitView, lodScale, nextLod, zoomBy } from './view';
 
 const CANVAS_CSS = `
 .rc-host .rc-chart{display:block;width:100%;height:100%}
@@ -52,6 +54,29 @@ const CANVAS_CSS = `
 .rc-host .rc-chart .edge-lbl,.rc-host .rc-chart .self-mini{cursor:move}
 .rc-host.rc-linking .rc-chart .node{cursor:crosshair}
 @keyframes rc-ring{from{stroke-dashoffset:164}to{stroke-dashoffset:0}}
+.rc-host .rc-chart .lod-farname,.rc-host .rc-chart .lod-dot{display:none}
+.rc-host .rc-chart.lod-far .node-name,.rc-host .rc-chart.lod-far .node-face,.rc-host .rc-chart.lod-far .edge-label,.rc-host .rc-chart.lod-far .layer-legend{display:none}
+.rc-host .rc-chart.lod-far .lod-farname,.rc-host .rc-chart.lod-far .lod-dot{display:block}
+.rc-host .rc-chart.lod-far .edge.lod-minor{opacity:.25}
+.rc-host .rc-chart.lod-mid .edge-label{display:none}
+.rc-host .rc-chart.lod-mid .node-name.lod-minorname{display:none}
+.rc-host .rc-chart.lod-mid .edge.lod-minor{opacity:.45}
+.rc-host.rc-readonly .rc-chart .node,.rc-host.rc-readonly .rc-chart .legend-item{cursor:pointer}
+.rc-host.rc-readonly .rc-chart .edge,.rc-host.rc-readonly .rc-chart .edge-lbl,.rc-host.rc-readonly .rc-chart .self-mini,.rc-host.rc-readonly .rc-chart .note-node,.rc-host.rc-readonly .rc-chart .colnode,.rc-host.rc-readonly .rc-chart .zone-colhot,.rc-host.rc-readonly .rc-chart .lbl-node{cursor:grab!important}
+.rc-host.rc-readonly .rc-chart .note-btn,.rc-host.rc-readonly .rc-chart .note-grip{display:none}
+.rc-host .rc-chart .note-btn{cursor:pointer}
+.rc-host .rc-chart .note-btn:hover .nb-ring{stroke-opacity:1}
+.rc-host .rc-chart .note-btn:hover .nb-ico{opacity:1}
+.rc-host .rc-chart .note-grip{cursor:nwse-resize}
+.rc-host .rc-chart .note-node.note-editing .note-text{display:none}
+.rc-host .rc-chart .note-node.note-editing>rect:not(.note-hit){stroke:var(--accent);stroke-width:2.5}
+.rc-host .rc-chart .note-bare>.note-paper{pointer-events:none}
+.rc-host .rc-chart .note-bare .note-btn,.rc-host .rc-chart .note-bare .note-grip{opacity:0;pointer-events:none}
+.rc-host .rc-chart .note-bare>.note-paper,.rc-host .rc-chart .note-bare>.note-sep{transition:fill .12s ease,stroke-opacity .12s ease}
+.rc-host .rc-chart .note-bare:hover>.note-paper,.rc-host .rc-chart .note-bare.note-editing>.note-paper{fill:var(--nb-fill);stroke-opacity:1;pointer-events:auto}
+.rc-host .rc-chart .note-bare:hover>.note-sep,.rc-host .rc-chart .note-bare.note-editing>.note-sep{stroke-opacity:1}
+.rc-host .rc-chart .note-bare:hover .note-btn,.rc-host .rc-chart .note-bare:hover .note-grip,.rc-host .rc-chart .note-bare.note-editing .note-btn,.rc-host .rc-chart .note-bare.note-editing .note-grip{opacity:1;pointer-events:auto}
+[data-note-editor]::-webkit-scrollbar{display:none}
 `;
 
 /**
@@ -88,6 +113,19 @@ function applyFocus(svg: SVGSVGElement, f: FocusRef | null, ctx: SheetCtx, click
           ? `.legend-item[data-legend-lbl="${f.id}"]`
           : null;
   if (legendSel) for (const el of svg.querySelectorAll(legendSel)) el.classList.add('legend-on');
+}
+
+/** 統計與尋路的鎖定聚焦（一組角色＋一組線；原作的 applySetFocus） */
+function applySetFocus(svg: SVGSVGElement, set: { nodes: number[]; edges: number[] }): void {
+  svg.classList.add('focus-active', 'dim-legend');
+  for (const el of svg.querySelectorAll('.focusedV')) el.classList.remove('focusedV');
+  for (const el of svg.querySelectorAll('.legend-on')) el.classList.remove('legend-on');
+  const nodes = new Set(set.nodes);
+  const edges = new Set(set.edges);
+  for (const el of svg.querySelectorAll('.node[data-id]'))
+    if (nodes.has(Number(el.getAttribute('data-id')))) el.classList.add('focusedV');
+  for (const el of svg.querySelectorAll('.edge[data-relid]'))
+    if (edges.has(Number(el.getAttribute('data-relid')))) el.classList.add('focusedV');
 }
 
 /** 橫幅上的端點：角色名、標籤名（標籤色） */
@@ -231,13 +269,19 @@ export function CanvasView() {
   const labels = useProject((s) => s.data.labels);
   const fonts = useProject((s) => s.data.fonts);
   const frames = useProject((s) => s.data.frames);
+  const radarTpls = useProject((s) => s.data.radarTpls);
+  const library = useProject((s) => s.data.library);
+  const noteEdit = useUi((u) => u.noteEdit);
   const sel = useUi((u) => u.sel);
   const link = useUi((u) => u.link);
   const view = useUi((u) => u.view);
   const focus = useUi((u) => u.focus);
   const hover = useUi((u) => u.hover);
+  const statsFocus = useUi((u) => u.statsFocus);
   const fitTick = useUi((u) => u.fitTick);
   const ring = useUi((u) => u.ring);
+  const readonly = useUi((u) => u.readonly);
+  const lod = useUi((u) => u.lod);
   const minimap = usePrefs((p) => p.data.minimap);
   const host = useRef<HTMLElement>(null);
   const layer = useRef<HTMLDivElement>(null);
@@ -279,12 +323,17 @@ export function CanvasView() {
       labels,
       fonts,
       frames,
+      radarTpls,
+      library,
+      /* 遠近簡化：拉遠（中、遠）時才標（近＝和以前的輸出相同）；60 位以上才真的標 */
+      lod: lod !== 'near',
       ui: {
         selected: sel2,
         linkFrom: from && !grelEndIsLbl(from) ? grelEndId(from) : null,
         linkDone,
         linking,
         bubbles,
+        noteEdit,
       },
     });
     /* 每次都換掉整份 SVG（快速路徑改過的畫面不留） */
@@ -307,6 +356,10 @@ export function CanvasView() {
     epoch,
     swapPick,
     bubbleKey,
+    radarTpls,
+    library,
+    noteEdit,
+    lod,
   ]);
   const contentRef = useRef(out);
   contentRef.current = out;
@@ -332,6 +385,15 @@ export function CanvasView() {
       bindView(null);
     };
   }, []);
+
+  /* 遠近簡化的檔位跟著倍率（相對於「整張塞進畫布框」；原作的 updateLOD，遲滯 ±0.03） */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: viewW／viewH 變了＝符合畫面的倍率變了（lodScale 從 contentBox 讀）
+  useEffect(() => {
+    if (!hostSize.w || !hostSize.h) return;
+    const cur = useUi.getState().lod;
+    const next = nextLod(cur, lodScale(view.zoom, hostSize.w, hostSize.h));
+    if (next !== cur) setUi({ lod: next });
+  }, [view.zoom, hostSize, out.viewW, out.viewH]);
 
   /* 切分頁、開專案檔、第一次顯示：符合畫面 */
   // biome-ignore lint/correctness/useExhaustiveDependencies: fitTick 是觸發用的計數
@@ -373,16 +435,24 @@ export function CanvasView() {
     svg.style.setProperty('--fdim-legend', String(d.legend));
     /* 看法氣泡：畫布縮小時不跟著縮（以氣泡底部中央為原點放大回來） */
     svg.style.setProperty('--vb-k', String(1 / Math.min(1, view.zoom)));
-    for (const el of chartSvgs(layer.current)) applyFocus(el, eff, out.parts.ctx, !!focus);
+    /* 遠近簡化（60 位以上）：換 class，不重畫 */
+    const dense = lod !== 'near' && lodDense(out.parts.ctx);
+    svg.classList.toggle('lod-far', dense && lod === 'far');
+    svg.classList.toggle('lod-mid', dense && lod === 'mid');
+    for (const el of chartSvgs(layer.current))
+      if (statsFocus) applySetFocus(el, statsFocus);
+      else applyFocus(el, eff, out.parts.ctx, !!focus);
   });
   useEffect(() => {
     bindLive({
       href: (id) => urlsRef.current.get(id) ?? null,
       refocus: () => {
         const f = effRef.current;
-        const click = !!useUi.getState().focus;
+        const u = useUi.getState();
+        const click = !!u.focus;
         for (const el of chartSvgs(layer.current))
-          applyFocus(el, f, contentRef.current.parts.ctx, click);
+          if (u.statsFocus) applySetFocus(el, u.statsFocus);
+          else applyFocus(el, f, contentRef.current.parts.ctx, click);
       },
     });
     return () => bindLive(null);
@@ -393,7 +463,7 @@ export function CanvasView() {
   return (
     <section
       ref={host}
-      className={`rc-host relative h-[min(70dvh,34rem)] min-h-[18rem] w-full touch-none select-none overflow-hidden rounded-lg border border-border lg:h-auto lg:min-h-0 lg:flex-1${link ? ' rc-linking' : ''}`}
+      className={`rc-host relative h-[min(70dvh,34rem)] min-h-[18rem] w-full touch-none select-none overflow-hidden rounded-lg border border-border lg:h-auto lg:min-h-0 lg:flex-1${link ? ' rc-linking' : ''}${readonly ? ' rc-readonly' : ''}`}
       style={{ background: pal.bg }}
       aria-label={S.view.canvasLabel}
       data-testid="canvas"
@@ -446,10 +516,22 @@ export function CanvasView() {
           />
         </svg>
       ) : null}
+      <NoteEditor notes={display.notes} ctx={out.parts.ctx} pad={out.pad} />
       <LinkBanner sheet={sheet} />
       <SwapBanner sheet={sheet} />
-      {!sheet.chars.length && !link ? (
+      {!sheet.chars.length && !link && !readonly ? (
         <EmptyHint onSamples={() => openDialog('samples')} onPaste={() => openDialog('paste')} />
+      ) : null}
+      {readonly ? (
+        <button
+          type="button"
+          data-rc-overlay
+          className="absolute bottom-2 left-1/2 z-10 max-w-[calc(100%-1rem)] -translate-x-1/2 truncate rounded-full border border-accent bg-surface/95 px-4 py-1.5 text-sm shadow-2 hover:bg-surface-2"
+          onClick={() => setReadonly(false)}
+          data-testid="readonly-hint"
+        >
+          {S.readonly.hint}
+        </button>
       ) : null}
       <div
         data-rc-overlay

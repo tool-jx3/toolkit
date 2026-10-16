@@ -103,6 +103,8 @@ function project(sheets: Sheet[], extra: Partial<Project> = {}): Project {
     radarTpls: [],
     frames: [],
     fonts: [],
+    noteBin: [],
+    settingsLib: [],
     ...extra,
   };
 }
@@ -1529,7 +1531,7 @@ test('專案檔：存成 ZIP（含圖片）、全部重設、開啟還原；Ctrl
   const zbytes = readFileSync((await dl.path()) as string);
   const files = unzipSync(new Uint8Array(zbytes));
   const pj = JSON.parse(strFromU8(files['project.json']));
-  expect(pj).toMatchObject({ format: 'trpg-toolkit-project', tool: 'relation-chart', version: 3 });
+  expect(pj).toMatchObject({ format: 'trpg-toolkit-project', tool: 'relation-chart', version: 4 });
   const av = pj.data.sheets[0].chars[0].avatar;
   expect(Object.keys(files)).toEqual(
     expect.arrayContaining([`files/${av.img}.png`, `files/${av.src}.png`]),

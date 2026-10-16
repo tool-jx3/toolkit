@@ -429,7 +429,7 @@ describe('標籤節點的位置（F182f、F182k、F182l）', () => {
 
 /* ---------- 動作（store） ---------- */
 
-function seed(p: Omit<Project, 'library' | 'relLibrary' | 'radarTpls' | 'frames' | 'fonts'>) {
+function seed(p: Omit<Project, 'library' | 'relLibrary' | 'radarTpls' | 'frames' | 'fonts' | 'noteBin' | 'settingsLib'>) {
   useProject.getState().replace(normalizeProject(p) as Project);
   useProject.temporal.getState().clear();
   useUi.setState({ sel: [], focus: null, hover: null, link: null, panel: null });

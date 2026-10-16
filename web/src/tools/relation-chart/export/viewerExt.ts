@@ -20,6 +20,8 @@ export interface ViewerExtSheet {
   views?: Record<string, Record<string, string>>;
   /** 同上，畫好的氣泡（SVG 片段，文字已跳脫） */
   vbub?: Record<string, Record<string, string>>;
+  /** 世界觀的文件索引（第四批；沿用的分頁指到同一份） */
+  lore?: number;
 }
 
 export interface ViewerExtText {
@@ -32,6 +34,8 @@ export interface ViewerExtText {
   axisSuf: string;
   stateN: string;
   legendTip: string;
+  /** 世界觀鈕（有世界觀時才有） */
+  lore?: string;
 }
 
 export interface ViewerExtData {
@@ -111,6 +115,28 @@ export function rcViewerExt(E: ViewerExtData, RF: RadarFactory | null, D: Viewer
     }
   }
 
+  /* ---- 世界觀（第四批）：右上的鈕＝打開／收起這張分頁的世界觀；沒有世界觀的分頁藏起鈕 ---- */
+  const loreBtn = doc.getElementById('loreBtnV');
+  let loreOpen = false;
+  function loreSync() {
+    if (!loreBtn) return;
+    loreBtn.hidden = E.sheets[cur].lore === undefined;
+  }
+  if (loreBtn) {
+    loreBtn.onclick = () => {
+      const k = E.sheets[cur].lore;
+      if (k === undefined) return;
+      if (loreOpen && pane?.classList.contains('show')) {
+        paneClose();
+        return;
+      }
+      tip.style.display = 'none';
+      paneShow('data-k', k, E.txt.lore || '');
+      loreOpen = true;
+    };
+    loreSync();
+  }
+
   /* ---- 看法氣泡（畫好的片段插進說話者的節點群組＝跟著聚焦的透明度） ---- */
   function addBubble(c: Element, speaker: string, markup: string) {
     const n = c.querySelector(`.node[data-id="${speaker}"]`);
@@ -130,6 +156,7 @@ export function rcViewerExt(E: ViewerExtData, RF: RadarFactory | null, D: Viewer
         show(title: string) {
           tip.style.display = 'none';
           paneShow('data-r', 1, title);
+          loreOpen = false;
         },
       })
     : null;
@@ -144,6 +171,7 @@ export function rcViewerExt(E: ViewerExtData, RF: RadarFactory | null, D: Viewer
     if (k === undefined) return;
     tip.style.display = 'none';
     paneShow('data-k', k, names()[ii] || '');
+    loreOpen = false;
   });
 
   return {
@@ -194,6 +222,7 @@ export function rcViewerExt(E: ViewerExtData, RF: RadarFactory | null, D: Viewer
     tab(cu) {
       cur = cu;
       paneClose();
+      loreSync();
     },
   };
 }

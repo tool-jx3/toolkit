@@ -206,7 +206,7 @@ export function deleteVariant(entryId: number, varId: number): void {
 }
 
 /** 在一組條目（分組、搜尋結果）裡換順序：這組佔的位置不變，只換誰坐哪一格 */
-function reorderIn<T extends { id: number }>(
+export function reorderIn<T extends { id: number }>(
   list: T[],
   groupIds: readonly number[],
   from: number,

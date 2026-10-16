@@ -1,28 +1,35 @@
 /**
- * 編輯列：新增角色、批次建立、貼上關係表、排列、對齊與分佈、磁鐵、更多（畫布尺寸、貼合、背景圖、打亂座位、
- * 範例、複製關係表、清空、小地圖）；右邊復原、重做、匯出。
+ * 編輯列：新增角色、批次建立、貼上關係表、排列、對齊與分佈、磁鐵、更多（新增便利貼與圖表節點、畫布尺寸、貼合、背景圖、
+ * 打亂座位、範例、複製關係表、清空、小地圖）、檢視（唯讀瀏覽、世界觀、備忘錄、統計與尋路）；右邊復原、重做、匯出。
+ * 唯讀瀏覽中只剩「檢視」選單與匯出。
  */
 import {
   AlignCenterHorizontal,
   ArrowLeftRight,
+  BarChart3,
   BookOpen,
+  ChartNoAxesCombined,
   ChartSpline,
   ClipboardPaste,
   Copy,
   Download,
   Ellipsis,
   Eraser,
+  Eye,
+  Globe,
   ImageOff,
   ImagePlus,
   LayoutGrid,
   Magnet,
   Map as MapIcon,
   Maximize2,
+  NotebookPen,
   Plus,
   Redo2,
   Ruler,
   Shuffle,
   Sparkles,
+  StickyNote,
   Undo2,
   Users,
 } from 'lucide-react';
@@ -37,10 +44,13 @@ import {
   shuffle,
   updateSettings,
 } from '../state/actions';
+import { addChartNote, addNote } from '../state/noteActions';
 import { activeSheet, setPrefs, setUi, usePrefs, useProject, useUi } from '../state/store';
 import { S } from '../strings';
+import { ExportAgain } from './ExportAgain';
 import { useSheet } from './hooks';
 import { MENU_CONTENT, MENU_ITEM, MENU_SEP } from './menu';
+import { setReadonly } from './readonly';
 import { importBackground } from './SettingsPanel';
 import { kickSim, stopSim } from './sim';
 import { toggleSwap } from './swap';
@@ -65,7 +75,102 @@ function openInfo(notify: (m: string, warn?: boolean) => void): void {
   setUi({ panel: { kind: 'info', id } });
 }
 
+/** 「檢視」選單：唯讀瀏覽、世界觀、備忘錄、統計與尋路 */
+function ViewMenu() {
+  const readonly = useUi((u) => u.readonly);
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        className={buttonClass(readonly ? 'primary' : 'secondary', 'sm')}
+        aria-label={S.view.menuLabel}
+        data-testid="view-menu"
+      >
+        <Eye aria-hidden className="size-4" />
+        <span className="ml-1">{S.view.menu}</span>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="start" sideOffset={6} className={MENU_CONTENT}>
+          <DropdownMenu.CheckboxItem
+            className={MENU_ITEM}
+            checked={readonly}
+            title={S.readonly.menuTip}
+            onCheckedChange={(v) => setReadonly(v)}
+            data-testid="menu-readonly"
+          >
+            <Eye />
+            {S.readonly.menu}
+            <DropdownMenu.ItemIndicator className="ml-auto text-xs">✓</DropdownMenu.ItemIndicator>
+          </DropdownMenu.CheckboxItem>
+          {readonly ? null : (
+            <>
+              <DropdownMenu.Separator className={MENU_SEP} />
+              <DropdownMenu.Item
+                className={MENU_ITEM}
+                onSelect={() => setUi({ panel: { kind: 'lore' } })}
+                data-testid="menu-lore"
+              >
+                <Globe />
+                {S.lore.menu}
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                className={MENU_ITEM}
+                onSelect={() => setUi({ panel: { kind: 'memo' } })}
+                data-testid="menu-memo"
+              >
+                <NotebookPen />
+                {S.memo.menu}
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                className={MENU_ITEM}
+                onSelect={() => setUi({ panel: { kind: 'stats' } })}
+                data-testid="menu-stats"
+              >
+                <BarChart3 />
+                {S.stats.menu}
+              </DropdownMenu.Item>
+            </>
+          )}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
+/** 唯讀瀏覽中的編輯列 */
+function ReadonlyBar() {
+  return (
+    <div
+      className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1.5"
+      data-testid="editor-bar"
+    >
+      <ViewMenu />
+      <span className="text-sm text-muted" data-testid="readonly-bar">
+        {S.readonly.bar}
+      </span>
+      <Button size="sm" onClick={() => setReadonly(false)} data-testid="readonly-exit">
+        {S.readonly.exit}
+      </Button>
+      <div className="ml-auto flex items-center gap-1">
+        <ExportAgain />
+        <Button
+          size="sm"
+          icon={<Download />}
+          onClick={() => setUi({ dialog: 'export' })}
+          data-testid="open-export"
+        >
+          {S.bar.export}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function EditorBar() {
+  const readonly = useUi((u) => u.readonly);
+  return readonly ? <ReadonlyBar /> : <EditBar />;
+}
+
+function EditBar() {
   const { canUndo, canRedo } = useUndoRedo(useProject);
   const sheet = useSheet();
   const simRunning = useUi((u) => u.simRunning);
@@ -168,6 +273,30 @@ export function EditorBar() {
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content align="start" sideOffset={6} className={MENU_CONTENT}>
+            <DropdownMenu.Item
+              className={MENU_ITEM}
+              onSelect={() => {
+                const id = addNote();
+                /* 新增即進入輸入（等選單關掉、畫布重畫之後） */
+                requestAnimationFrame(() => setUi({ noteEdit: id }));
+              }}
+              data-testid="menu-add-note"
+            >
+              <StickyNote />
+              {S.more.addNote}
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className={MENU_ITEM}
+              onSelect={() => {
+                const id = addChartNote();
+                setUi({ panel: { kind: 'note', id } });
+              }}
+              data-testid="menu-add-chart"
+            >
+              <ChartNoAxesCombined />
+              {S.more.addChartNote}
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className={MENU_SEP} />
             <DropdownMenu.Item
               className={MENU_ITEM}
               onSelect={() => setUi({ dialog: 'canvas' })}
@@ -303,6 +432,7 @@ export function EditorBar() {
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
+      <ViewMenu />
       <div className="ml-auto flex items-center gap-1">
         <IconButton
           size="sm"
@@ -320,6 +450,7 @@ export function EditorBar() {
           onClick={redo}
           data-testid="redo"
         />
+        <ExportAgain />
         <Button
           size="sm"
           icon={<Download />}

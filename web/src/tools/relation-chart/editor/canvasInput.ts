@@ -12,12 +12,16 @@
  * - 第二批：標籤節點拖曳＝移動（存位置）、點一下＝聚焦；陣營名稱拖曳＝改方向、點一下＝收合；
  *   收合節點拖曳＝整組搬移、點一下＝展開；點群體關係線／聚合線＝打開它的面板；
  *   建立關係模式中點標籤節點或陣營框＝群體關係的端點。
+ * - 第四批：便利貼（畫在最上層、先於角色）：右下把手拖曳＝改大小（左上角固定）、橫槓的小圓鈕（釘選、設定、刪除）、
+ *   拖曳本體＝移動（不推人、不夾在畫布內；釘選的不能拖）、點一下＝就地編輯（圖表節點＝打開設定）。
+ *   唯讀瀏覽：任何地方左鍵拖曳＝平移；點角色、圖例＝聚焦（再點取消）；點別的地方＝取消聚焦；其他都不做（7.4 第 10 項）。
  */
 import { clampToCanvas } from '../engine/geom';
 import { labelInfo } from '../engine/labels';
 import { groupDragTo, pushAwayFrom } from '../logic/layout';
 import type { Char, Sheet } from '../model/types';
 import { endLink, linkClick, linkSelf, setCollapsed } from '../state/actions';
+import { closeNote, moveNote, noteNow, resizeNote, updateNote } from '../state/noteActions';
 import {
   activeSheet,
   type FocusRef,
@@ -28,6 +32,7 @@ import {
   useUi,
 } from '../state/store';
 import { beginLive, endLive, liveCtx, liveRefresh, liveSheet, scheduleLiveFrame } from './live';
+import { closeNoteEditor } from './NoteEditor';
 import { kickSim, setSimPinned } from './sim';
 import { swapClick } from './swap';
 import { hostOrigin, setView, toCanvas, zoomBy } from './view';
@@ -70,6 +75,8 @@ type Drag =
       vx: number;
       vy: number;
       mode: 'none' | 'pan' | 'box';
+      /** 唯讀瀏覽中按下的角色（點一下＝聚焦） */
+      roNode?: number | null;
     }
   | { kind: 'label'; relId: number; pid: number; sx: number; sy: number; moved: boolean }
   | {
@@ -97,6 +104,28 @@ type Drag =
       kind: 'self';
       relId: number;
       charId: number;
+      pid: number;
+      sx: number;
+      sy: number;
+      moved: boolean;
+    }
+  /* 便利貼：拖曳本體（ox、oy＝中心減指標）、改大小（左上角固定） */
+  | {
+      kind: 'note';
+      id: number;
+      ox: number;
+      oy: number;
+      locked: boolean;
+      pid: number;
+      sx: number;
+      sy: number;
+      moved: boolean;
+    }
+  | {
+      kind: 'noteSize';
+      id: number;
+      left: number;
+      top: number;
       pid: number;
       sx: number;
       sy: number;
@@ -148,6 +177,9 @@ export class CanvasInput {
   private hoverTimer: ReturnType<typeof setTimeout> | null = null;
   private lastTap = { id: -1, t: 0 };
   private off: (() => void)[] = [];
+  /** 便利貼的拖曳一格只改一次專案（整張重畫） */
+  private noteRaf = 0;
+  private notePending: (() => void) | null = null;
 
   constructor(
     private host: HTMLElement,
@@ -176,6 +208,23 @@ export class CanvasInput {
     this.off = [];
     this.clearTimers();
     this.endHistory();
+    if (this.noteRaf) cancelAnimationFrame(this.noteRaf);
+  }
+
+  /** 便利貼的拖曳、改大小：同一格只套用最後一次 */
+  private noteFrame(fn: () => void): void {
+    this.notePending = fn;
+    if (this.noteRaf) return;
+    this.noteRaf = requestAnimationFrame(() => {
+      this.noteRaf = 0;
+      this.flushNote();
+    });
+  }
+
+  private flushNote(): void {
+    const f = this.notePending;
+    this.notePending = null;
+    f?.();
   }
 
   private clearTimers(): void {
@@ -230,6 +279,38 @@ export class CanvasInput {
     }
     if (e.button !== 0) return;
     const t = e.target;
+    if (useUi.getState().readonly) {
+      e.preventDefault();
+      const legendEl = closestEl(t, '.legend-item');
+      const node = legendEl ? null : closestEl(t, '.node');
+      const tid = legendEl?.getAttribute('data-legend-type') ?? null;
+      const cid = legendEl?.getAttribute('data-legend-char') ?? null;
+      const lid = legendEl?.getAttribute('data-legend-lbl') ?? null;
+      this.drag = {
+        kind: 'empty',
+        ...base,
+        touch,
+        button: 0,
+        shift: false,
+        edgeId: null,
+        legend:
+          tid !== null
+            ? { attr: 'type', id: Number(tid) }
+            : cid !== null
+              ? { attr: 'char', id: Number(cid) }
+              : lid !== null
+                ? { attr: 'label', id: Number(lid) }
+                : null,
+        vx: v.x,
+        vy: v.y,
+        mode: 'none',
+        roNode: node ? Number(node.getAttribute('data-id')) : null,
+      };
+      return;
+    }
+    /* 編輯中的便利貼：點畫布別的地方＝收起（pointerdown 會 preventDefault，焦點不會自己離開） */
+    if (useUi.getState().noteEdit !== null) closeNoteEditor();
+    if (this.noteDown(e, base)) return;
     const legendEl = closestEl(t, '.legend-item');
     if (legendEl) {
       const tid = legendEl.getAttribute('data-legend-type');
@@ -339,6 +420,54 @@ export class CanvasInput {
     };
   }
 
+  /** 便利貼（畫在最上層）：把手 → 小圓鈕 → 本體；處理了回傳 true */
+  private noteDown(
+    e: PointerEvent,
+    base: { pid: number; sx: number; sy: number; moved: boolean },
+  ): boolean {
+    const t = e.target;
+    const grip = closestEl(t, '.note-grip');
+    if (grip) {
+      e.preventDefault();
+      const n = noteNow(Number(grip.getAttribute('data-noteid')));
+      if (n && !n.locked)
+        this.drag = {
+          kind: 'noteSize',
+          id: n.id,
+          left: n.x - n.w / 2,
+          top: n.y - n.h / 2,
+          ...base,
+        };
+      return true;
+    }
+    const btn = closestEl(t, '.note-btn');
+    if (btn) {
+      e.preventDefault();
+      const id = Number(btn.getAttribute('data-noteid'));
+      const act = btn.getAttribute('data-note-act');
+      if (act === 'pin')
+        updateNote(id, (n) => {
+          n.locked = !n.locked;
+        });
+      else if (act === 'cfg') setUi({ panel: { kind: 'note', id } });
+      else if (act === 'del') {
+        closeNote(id);
+        const u = useUi.getState();
+        if (u.panel?.kind === 'note' && u.panel.id === id) setUi({ panel: null });
+      }
+      return true;
+    }
+    const g = closestEl(t, '.note-node');
+    if (!g) return false;
+    e.preventDefault();
+    const n = noteNow(Number(g.getAttribute('data-noteid')));
+    if (!n) return true;
+    const p = toCanvas(e.clientX, e.clientY);
+    this.drag = { kind: 'note', id: n.id, ox: n.x - p.x, oy: n.y - p.y, locked: n.locked, ...base };
+    setUi({ hover: null });
+    return true;
+  }
+
   private startLongPress(id: number, cx: number, cy: number): void {
     this.clearTimers();
     const r = hostOrigin(this.host) ?? { left: 0, top: 0 };
@@ -416,13 +545,26 @@ export class CanvasInput {
     } else if (d.kind === 'colnode') {
       holdHistory('drag');
       beginLive('drag');
+    } else if (d.kind === 'noteSize' || (d.kind === 'note' && !d.locked)) {
+      holdHistory('drag');
     } else if (d.kind === 'empty' && d.mode === 'none') {
-      d.mode = d.touch ? 'pan' : 'box';
+      d.mode = d.touch || useUi.getState().readonly ? 'pan' : 'box';
     }
   }
 
   private dragMove(d: Drag, e: PointerEvent): void {
     const v = useUi.getState().view;
+    if (d.kind === 'note') {
+      if (d.locked) return;
+      const p = toCanvas(e.clientX, e.clientY);
+      this.noteFrame(() => moveNote(d.id, p.x + d.ox, p.y + d.oy));
+      return;
+    }
+    if (d.kind === 'noteSize') {
+      const p = toCanvas(e.clientX, e.clientY);
+      this.noteFrame(() => resizeNote(d.id, d.left, d.top, p.x, p.y));
+      return;
+    }
     if (d.kind === 'node') {
       if (useUi.getState().link || d.longDone || d.swap) return;
       const s = liveSheet();
@@ -563,6 +705,15 @@ export class CanvasInput {
     if (!d || d.pid !== e.pointerId) return;
     this.drag = null;
     this.clearTimers();
+    if (d.kind === 'note' || d.kind === 'noteSize') {
+      if (!d.moved) {
+        this.tap(d, e);
+        return;
+      }
+      this.flushNote();
+      if (d.kind === 'noteSize' || !d.locked) releaseHistory('drag');
+      return;
+    }
     if (d.moved && d.kind === 'node' && d.swap) {
       /* 交換位置模式：拖一段放開＝點一下 */
       this.tap(d, e);
@@ -618,6 +769,15 @@ export class CanvasInput {
 
   private tap(d: Drag, e: PointerEvent): void {
     const u = useUi.getState();
+    if (d.kind === 'noteSize') return;
+    if (d.kind === 'note') {
+      /* 點一下＝就地編輯；圖表節點＝打開設定 */
+      const n = noteNow(d.id);
+      if (!n) return;
+      if (n.chart) setUi({ panel: { kind: 'note', id: n.id } });
+      else setUi({ noteEdit: n.id });
+      return;
+    }
     if (d.kind === 'node') {
       if (d.longDone) return;
       if (u.link) {
@@ -668,6 +828,21 @@ export class CanvasInput {
       return;
     }
     if (d.button !== 0) return;
+    /* 唯讀瀏覽：點角色、圖例＝聚焦（再點取消），其他＝取消聚焦 */
+    if (u.readonly) {
+      const f: FocusRef | null = d.legend
+        ? d.legend.attr === 'type'
+          ? { kind: 'type', id: d.legend.id }
+          : d.legend.attr === 'label'
+            ? { kind: 'label', id: d.legend.id }
+            : { kind: 'node', id: d.legend.id }
+        : d.roNode !== null && d.roNode !== undefined
+          ? { kind: 'node', id: d.roNode }
+          : null;
+      const same = !!f && u.focus?.kind === f.kind && u.focus.id === f.id;
+      setUi({ focus: f && !same ? f : null, hover: null });
+      return;
+    }
     const hit = document.elementFromPoint?.(e.clientX, e.clientY) ?? null;
     const grel = closestEl(hit, '.grel-edge[data-grelid]');
     if (u.link) {
@@ -719,6 +894,11 @@ export class CanvasInput {
     this.drag = null;
     this.clearTimers();
     this.hooks.onBox(null, []);
+    if (d.kind === 'note' || d.kind === 'noteSize') {
+      this.flushNote();
+      if (d.moved && (d.kind === 'noteSize' || !d.locked)) releaseHistory('drag');
+      return;
+    }
     if (d.moved && d.kind !== 'empty') this.endHistory();
   }
 

@@ -51,6 +51,8 @@ export interface ViewerData {
   /** 圖片（SVG 裡寫成 data-rcimg="N"） */
   imgs: string[];
   txt: ViewerText;
+  /** 嵌入模式（第四批：單指觸控讓給外面的頁面捲動） */
+  embed?: 1;
 }
 
 /** 第三批的鉤子（export/viewerExt 的 rcViewerExt；沒有資訊、數值、看法時不傳） */
@@ -107,8 +109,30 @@ export function rcViewer(D: ViewerData, X?: ViewerHooksLike): void {
     return d.innerHTML;
   };
 
+  /*
+   * 遠近簡化（第四批；原作的 updateLodV）：60 位以上的分頁（SVG 裡有遠近標記的）才換檔；
+   * view.s（1＝符合視窗）≥ 1＝近、0.5～1＝中、< 0.5＝遠；遲滯 ±0.03（不在門檻附近抖動）。
+   */
+  let lodLevel = 'near';
+  function updateLod() {
+    const s = view.s;
+    const H = 0.03;
+    let next = lodLevel;
+    if (lodLevel === 'far') {
+      if (s >= 0.5 + H) next = s >= 1 ? 'near' : 'mid';
+    } else if (lodLevel === 'mid') {
+      if (s < 0.5 - H) next = 'far';
+      else if (s >= 1 + H) next = 'near';
+    } else if (s < 1 - H) next = s < 0.5 ? 'far' : 'mid';
+    lodLevel = next;
+    const el = sheetEl();
+    const dense = !!el.querySelector('.lod-dot');
+    el.classList.toggle('lod-far', dense && next === 'far');
+    el.classList.toggle('lod-mid', dense && next === 'mid');
+  }
   function applyView() {
     zoomerEl().style.transform = `translate(${view.x}px,${view.y}px) scale(${view.s})`;
+    updateLod();
     if (X) X.zoom(view.s);
   }
   function resetView() {
@@ -562,9 +586,12 @@ export function rcViewer(D: ViewerData, X?: ViewerHooksLike): void {
   let panStart: { x: number; y: number } | null = null;
   let pinchD = 0;
   let moved = false;
+  /** 嵌入模式：單指觸控讓給外面的頁面捲動（不平移、不攔指標）；雙指照樣縮放；點角色照常 */
+  const yieldTouch = (e: PointerEvent) => !!D.embed && e.pointerType === 'touch' && pts.size === 1;
   stage.addEventListener('pointerdown', (e) => {
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY, t: e.target });
     moved = false;
+    if (yieldTouch(e)) return;
     if (pts.size === 1) {
       panStart = { x: e.clientX - view.x, y: e.clientY - view.y };
       stage.classList.add('panning');
@@ -585,6 +612,7 @@ export function rcViewer(D: ViewerData, X?: ViewerHooksLike): void {
     if (!p) return;
     if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > 4) moved = true;
     if (!moved && pts.size === 1) return;
+    if (yieldTouch(e)) return;
     p.x = e.clientX;
     p.y = e.clientY;
     if (pts.size === 1 && panStart) {

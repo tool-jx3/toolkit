@@ -35,6 +35,8 @@ export const S = {
     copyTable: '複製關係表…',
     clear: '清空這張分頁…',
     minimap: '小地圖',
+    addNote: '新增便利貼',
+    addChartNote: '新增圖表節點',
   },
 
   view: {
@@ -45,6 +47,18 @@ export const S = {
     minimapLabel: '小地圖：點擊或拖曳移動視角，滾輪縮放',
     minimapClose: '關閉小地圖',
     canvasLabel: '關係圖畫布',
+    /** 編輯列的「檢視」選單（第四批） */
+    menu: '檢視',
+    menuLabel: '檢視選單（唯讀瀏覽、世界觀、備忘錄、統計與尋路）',
+  },
+
+  /** 唯讀瀏覽模式（F117） */
+  readonly: {
+    menu: '唯讀瀏覽模式',
+    menuTip: '防誤觸：只能平移、縮放、點角色聚焦與切換分頁；Esc 退出',
+    hint: '唯讀瀏覽模式──點此或按 Esc 退出',
+    exit: '結束唯讀',
+    bar: '唯讀瀏覽中',
   },
 
   empty: {
@@ -380,9 +394,16 @@ export const S = {
   /** 檔案庫（F193 外框；這一批只有標籤庫） */
   lib: {
     open: '檔案庫',
-    openTip: '打開／收起檔案庫（角色庫、關係庫、標籤庫、連線總表）',
+    openTip: '打開／收起檔案庫（角色庫、關係庫、標籤庫、便利貼庫、連線總表、設定集）',
     title: '檔案庫',
-    tabs: { chars: '角色庫', rels: '關係庫', labels: '標籤庫', table: '連線總表' },
+    tabs: {
+      chars: '角色庫',
+      rels: '關係庫',
+      labels: '標籤庫',
+      notes: '便利貼庫',
+      table: '連線總表',
+      gsets: '設定集',
+    },
     tabsLabel: '檔案庫的頁籤',
     search: '搜尋…',
     clear: '清除搜尋',
@@ -754,6 +775,175 @@ export const S = {
     valuePh: (max: number, unit: string) => `0–${max}${unit ? ` ${unit}` : ''}`,
   },
 
+  /** 便利貼（F190）與圖表節點（F192f） */
+  note: {
+    add: '新增便利貼',
+    addChart: '新增圖表節點',
+    edit: '編輯便利貼',
+    empty: '（空白便利貼）',
+    chartDefault: '圖表',
+    pinTip: '釘選（不能拖曳、不能改大小）／解除',
+    closeTip: '刪除這張便利貼（可以復原；內容留在便利貼庫）',
+    cfgTip: '便利貼設定',
+    gripTip: '拖曳改大小',
+    panelTitle: '便利貼設定',
+    chartPanelTitle: '圖表節點設定',
+    pin: '釘選',
+    unpin: '解除釘選',
+    del: '刪除',
+    fsLabel: '字級 px（≥1）',
+    fsAuto: '自動',
+    fsHint:
+      '留空＝跟隨下面的「本分頁預設字級」；那也留空就自動縮放（字少放大、字多縮小，剛好塞滿）。',
+    fsSheet: '本分頁預設字級',
+    fsNow: (n: number) => `目前實際字級：${n} px`,
+    bare: '隱藏紙面（只顯示文字）',
+    bareHint:
+      '畫布上只留文字，紙面與按鈕在滑鼠移上去時才出現（觸控是點進編輯時出現）。匯出的圖與互動網頁也只有文字，等於在圖上寫一段自由文字。',
+    outHint: (n: number) =>
+      `有 ${n} 張便利貼在畫布外：互動網頁看得到，但 .png 只裁畫布、不會包含它們。`,
+    layer: '便利貼',
+    chartTitle: '標題（可以空白）',
+    chartTitlePh: '例：戰前 vs 戰後',
+    chartStateA: 'A 顯示的狀態',
+    chartStateB: 'B 顯示的狀態',
+    chartNoStates: (name: string) => `${name} 在這份範本還沒有數值，到編輯角色的「數值圖表」填。`,
+    chartLegend: '顯示圖例',
+    chartBare: '隱藏卡面（只顯示圖）',
+    chartBareHint:
+      '畫布上只留圖、標題與圖例，卡面與按鈕在滑鼠移上去時才出現（觸控是點進設定時出現）。匯出的圖與互動網頁也只有圖。',
+    chartNoTpl: '範本不存在',
+    chartNoData: '尚無數值',
+    toCanvas: '放到畫布上',
+    added: '已新增便利貼。',
+    restored: '已把便利貼放回畫布。',
+  },
+
+  /** 便利貼庫（F190） */
+  noteLib: {
+    hint: '挑一個尺寸＝在畫布上新增一張便利貼（之後仍可拖角改大小）。關閉過的便利貼會列在這裡，點一筆就放回畫布。',
+    delHint: '刪除模式：點紀錄＝直接刪掉，不放回畫布。',
+    tplTitle: '尺寸範本',
+    tplTip: '新增這個尺寸的便利貼',
+    cells: (w: number, h: number) => `${w} × ${h}`,
+    empty: '還沒有關閉過的便利貼。按便利貼的 ✕，內容就會留在這裡。',
+    noMatch: '沒有符合搜尋的紀錄。',
+    restoreTip: '放回畫布（並從這份紀錄移除）',
+    delTip: '刪除這筆紀錄',
+    act: { del: '刪除模式（點紀錄＝直接刪掉，不放回畫布）' },
+    list: '關閉過的便利貼',
+  },
+
+  /** 設定集（F174） */
+  gsets: {
+    unnamed: '未命名設定集',
+    apply: '套用到目前分頁',
+    overwrite: '用目前分頁的設定覆寫這一筆',
+    addCur: '把目前分頁的設定存成新的一筆',
+    factory: '目前分頁恢復出廠預設',
+    factoryTip: '恢復成新分頁的預設值（關係名稱、關係備註、跳線都是關）',
+    empty: '還沒有設定集：按這一頁的「存成新的一筆」即可把目前分頁的設定儲存下來。',
+    noMatch: '沒有符合搜尋的設定集。',
+    viewHint:
+      '點選條目＝檢視內容（不會自動套用）；要套用請按「套用到目前分頁」。也可以把目前分頁的設定存成新的一筆，或恢復出廠預設。',
+    renameHint: '修改名稱模式：點條目把名稱載入輸入框，改好按 Enter 確認。',
+    renamePh: '輸入新名稱後按 Enter',
+    idlePh: '（開啟「修改名稱」模式後可在這裡改名）',
+    favHint: '最愛模式：點條目切換星號（最愛會排在最前面）。',
+    delHint: '刪除模式：點條目直接刪除；最愛的設定集不能刪（先取消最愛）。',
+    act: {
+      rename: '修改名稱（點條目載入、Enter 確認）',
+      fav: '最愛（點條目切換、排在最前面）',
+      del: '刪除模式',
+    },
+    fav: '最愛',
+    favProtected: '最愛的設定集不能刪，先取消最愛。',
+    applied: (name: string) => `已套用「${name}」。`,
+    saved: (name: string) => `已存成「${name}」。`,
+    overwritten: (name: string) => `已用目前分頁的設定覆寫「${name}」。`,
+    factoryDone: '目前分頁已恢復出廠預設。',
+    nameLabel: '名稱',
+    list: '設定集',
+    na: 'N/A',
+    on: '開',
+    off: '關',
+    show: '顯示',
+    hide: '隱藏',
+    auto: '自動',
+    rows: {
+      legend: '圖例',
+      names: '角色名稱',
+      relName: '關係名稱',
+      relNote: '關係備註',
+      labels: '標籤網',
+      guide: '背景輔助線',
+      shape: '頭像形狀',
+      defFrame: '預設頭像框',
+      collision: '碰撞推擠',
+      gridSnap: '對齊格線',
+      avatarSize: '頭像大小',
+      borderW: '框線粗細',
+      textSizes: '文字大小（名稱／關係／備註／便利貼）',
+      straight: '直線',
+      bridge: '跳線',
+      lineW: '線條粗細',
+      spacing: '間距',
+      color: '顏色',
+      palette: '畫布配色',
+    },
+    guide: { none: '無', grid: '格線', axis: '座標' },
+    shape: { circle: '圓形', square: '方形' },
+    palette: { dark: '深色', light: '淺色' },
+    frameNone: '不使用框',
+  },
+
+  /** 世界觀（F191） */
+  lore: {
+    title: '世界觀',
+    menu: '世界觀',
+    src: '內容來源',
+    self: '本分頁',
+    reuseNote: '沿用別的分頁＝顯示那一頁的世界觀（唯讀）；要修改請到來源分頁。',
+    gone: '來源分頁已刪除，已改回顯示本分頁自己的內容。',
+    placeholder: '寫下這張圖的世界觀、背景故事…',
+  },
+
+  /** 備忘錄（F191） */
+  memo: {
+    title: '備忘錄',
+    menu: '備忘錄',
+    note: '只給自己看的暫存區，跟著這張分頁走，不會出現在任何匯出檔或互動網頁裡。',
+    placeholder: '隨手記：色票色碼、設定、待辦…',
+    count: (n: number, max: number) => `${n} / ${max}`,
+  },
+
+  /** 統計與尋路（F118） */
+  stats: {
+    menu: '統計與尋路',
+    title: '統計與尋路（本分頁）',
+    centrality: '中心度排行（關係數）',
+    isolated: '孤立角色（沒有任何關係）',
+    isolatedN: (n: number) => `孤立角色（沒有任何關係）（${n}）`,
+    noIsolated: '沒有孤立角色，人人都有羈絆！',
+    noRels: '沒有符合條件的關係。',
+    clickHint: '點擊列可在畫布上選取該角色。',
+    path: '最短關係鏈',
+    from: '來源',
+    to: '目標',
+    pick: '選擇角色…',
+    find: '尋找',
+    noPath: '這兩位角色之間沒有任何關係鏈。',
+    samePerson: '請選擇兩位不同的角色。',
+    steps: (n: number) => `${n} 步`,
+    chain: (names: string[], n: number) => `${names.join(' → ')}（${n} 步）`,
+    focusN: 'N 度聚焦',
+    focusChar: '對象',
+    degRow: '範圍',
+    deg: (n: number) => `${n} 度以內`,
+    focusGo: '聚焦',
+    focusClear: '清除聚焦',
+  },
+
   /** 交換位置（F061） */
   swap: {
     menu: '交換位置',
@@ -984,11 +1174,39 @@ export const S = {
     allEmpty: '所有分頁都沒有角色。',
     done: (name: string) => `已匯出 ${name}`,
     failed: '匯出失敗',
-    psdHint: '每個圖層各自是畫布大小的透明圖層：背景、輔助線、關係線、角色、名稱、圖例。',
-    svgHint: '圖層（Inkscape 圖層）：背景、輔助線、關係線、角色、名稱、圖例；圖片內嵌。',
+    psdHint:
+      '每個圖層各自是畫布大小的透明圖層：背景、輔助線、關係線、角色、名稱、圖例（有便利貼時最上面多一層「便利貼」）。',
+    svgHint:
+      '圖層（Inkscape 圖層）：背景、輔助線、關係線、角色、名稱、圖例（有便利貼時最上面多一層「便利貼」）；圖片內嵌。',
     htmlHint:
       '單一 HTML 檔，不需要網路：拖曳平移、縮放、點角色看關係與路徑、點圖例只看某一種關係。',
     pngHint: '畫布大小（1 倍）。多張分頁＝ZIP。',
+    /* 第四批：壓縮頭像、嵌入模式（F146）、再次匯出（F147） */
+    slim: '壓縮頭像（大幅縮小檔案）',
+    slimHint: '頭像縮到畫面上顯示大小的 2 倍並改存 WebP；專案檔永遠存原圖。',
+    embed: '嵌入模式（精簡外框，供 iframe 嵌進別人的網頁）',
+    embedCode: '嵌入碼（把 src 換成你託管後的網址）',
+    embedSrc: '把這裡換成你託管後的網址',
+    embedSteps:
+      '託管三步驟：① 按「匯出」存下這個 HTML 檔　② 上傳到免費靜態空間（Neocities、GitHub Pages）取得公開網址　③ 把網址貼進嵌入碼的 src，整段放進你的網頁就完成',
+    embedToyhouse:
+      'Toyhouse 頁面放不進互動版（自訂 HTML 會移除 script、iframe 只認少數網站）：改在頁內放去背 PNG 當預覽，連結指向你託管的互動網頁',
+    copy: '複製',
+    copied: '已複製！',
+    copyFail: '瀏覽器不讓複製，請自己選取後按 Ctrl／⌘＋C。',
+    again: (what: string) => `再次匯出（${what}）`,
+    againMenu: '再次匯出',
+    againTip: '用上次的格式、範圍與勾選直接匯出（檔名照目前的分頁重算）',
+    short: {
+      png: 'PNG',
+      svg: '分層 SVG',
+      psd: '分層 PSD',
+      html: '互動網頁',
+      gif: 'GIF',
+      video: '影片',
+    },
+    scopeShort: { cur: '目前分頁', some: '部分分頁', all: '全部分頁' },
+    againGone: '上次勾選的分頁都不在了，請重新選擇。',
   },
 
   viewer: {
@@ -998,6 +1216,10 @@ export const S = {
     zoomOut: '縮小',
     reset: '重設視角',
     hint: '拖曳平移・滾輪／雙指縮放・點角色看關係、可以找兩人的關係路徑・點關係線看備註・點圖例只看某一種關係・右上搜尋框篩選名單',
+    /** 有世界觀時的說明列（第四批） */
+    hintLore:
+      '拖曳平移・滾輪／雙指縮放・點角色看關係、可以找兩人的關係路徑・點關係線看備註・點圖例只看某一種關係・右上搜尋框篩選名單・「世界觀」看背景設定',
+    lore: '世界觀',
     credit: '唯讀互動檢視・由「角色關係圖產生器」匯出',
     runtime: {
       self: '（自己）',
@@ -1101,7 +1323,7 @@ export const S = {
     redo: '重做',
     save: '存成專案檔',
     del: '刪除選取的角色',
-    esc: '結束建立關係 → 關閉編輯面板 → 取消聚焦 → 取消選取',
+    esc: '結束建立關係 → 退出唯讀瀏覽 → 關閉編輯面板 → 取消聚焦 → 取消選取',
     selectAll: '選取全部角色',
     nudge: '移動選取的角色 1 px（Shift＝10 px）',
     zoomIn: '放大',

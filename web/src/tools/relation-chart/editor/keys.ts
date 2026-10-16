@@ -15,6 +15,7 @@ import {
 } from '../state/store';
 import { S } from '../strings';
 import { saveProjectFile } from './files';
+import { setReadonly } from './readonly';
 import { redo, undo } from './undo';
 import { fitView, zoomBy } from './view';
 
@@ -69,10 +70,11 @@ function nudge(dx: number, dy: number): void {
   }, 500);
 }
 
-/** Esc：結束建立關係 → 關掉編輯面板 → 取消聚焦 → 結束交換位置、檔案庫的模式 → 取消選取 */
+/** Esc：結束建立關係 → 退出唯讀瀏覽 → 關掉編輯面板 → 取消聚焦 → 結束交換位置、檔案庫的模式 → 取消選取 */
 function escapeChain(): boolean {
   const u = useUi.getState();
   if (u.link) endLink();
+  else if (u.readonly) setReadonly(false);
   else if (u.panel) setUi({ panel: null });
   else if (u.focus || u.hover) setUi({ focus: null, hover: null });
   else if (u.swap) setUi({ swap: null });
@@ -100,8 +102,10 @@ export function handleKeyDown(e: KeyboardEvent): void {
     return;
   }
   if (isEditableTarget(t)) return;
+  /* 唯讀瀏覽：只留存檔（上面）、Esc 與縮放 */
+  const ro = useUi.getState().readonly;
   if (mod) {
-    if (e.altKey) return;
+    if (e.altKey || ro) return;
     if (e.code === 'KeyZ') {
       e.preventDefault();
       if (e.shiftKey) redo();
@@ -116,6 +120,7 @@ export function handleKeyDown(e: KeyboardEvent): void {
     return;
   }
   if (e.altKey || isFormControlTarget(t)) return;
+  if (ro && (e.key === 'Delete' || e.key === 'Backspace' || ARROWS[e.key])) return;
   if (e.key === 'Delete' || e.key === 'Backspace') {
     const sel = useUi.getState().sel;
     if (!sel.length) return;

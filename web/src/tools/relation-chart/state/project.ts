@@ -21,6 +21,7 @@ import {
 } from '../logic/legacy';
 import { sanitizeRichHtml } from '../logic/rich';
 import { normalizeProject, projectAssetIds } from '../model/normalize';
+import { NOTE_BIN_MAX } from '../model/notes';
 import type {
   Avatar,
   CharFont,
@@ -108,6 +109,7 @@ export async function importOwnProject(
   const next = normalizeProject(data);
   if (!next) throw new ProjectFileError(S.project.unusable);
   for (const e of next.library) if (e.info) e.info = sanitizeRichHtml(e.info);
+  for (const sh of next.sheets) if (sh.lore) sh.lore = sanitizeRichHtml(sh.lore);
   const imported = await importAssetFiles(assets, files.entries());
   const fontIds = new Set(next.fonts.map((f) => f.id));
   const missing = new Set<string>();
@@ -141,6 +143,8 @@ export function replaceProject(p: Project): void {
     d.radarTpls = p.radarTpls;
     d.frames = p.frames;
     d.fonts = p.fonts;
+    d.noteBin = p.noteBin;
+    d.settingsLib = p.settingsLib;
   });
   setUi({
     sel: [],
@@ -270,8 +274,8 @@ async function ingestBundle(
 }
 
 /**
- * 原作的參照（頭像框的雜湊、`f:雜湊`、角色資訊的 `rcimg:雜湊`）換成資產 id；對不上的：框＝不使用、字型＝跟隨／黑體。
- * 回傳文件字型與對不上的框、字型各有幾個（不同的雜湊；通知用）。
+ * 原作的參照（頭像框的雜湊、`f:雜湊`、角色資訊與世界觀的 `rcimg:雜湊`）換成資產 id；對不上的：框＝不使用、字型＝跟隨／黑體。
+ * 角色資訊與世界觀在這裡淨化。回傳文件字型與對不上的框、字型各有幾個（不同的雜湊；通知用）。
  */
 export function remapLegacyRefs(
   conv: LegacyImport,
@@ -292,16 +296,20 @@ export function remapLegacyRefs(
     if (!id) lostFonts.add(v.slice(2));
     return id ? `f:${id}` : '';
   };
+  const rich = (html: string) =>
+    sanitizeRichHtml(html).replace(/src="rcimg:([0-9a-z-]{3,40})"/g, (m, h: string) =>
+      richMap.has(h) ? `src="rcimg:${richMap.get(h)}"` : m,
+    );
   for (const e of conv.library) {
     e.font = fontRef(e.font);
-    if (e.info)
-      e.info = sanitizeRichHtml(e.info).replace(/src="rcimg:([0-9a-z-]{3,40})"/g, (m, h: string) =>
-        richMap.has(h) ? `src="rcimg:${richMap.get(h)}"` : m,
-      );
+    if (e.info) e.info = rich(e.info);
     for (const v of e.variants) if (v.frame) v.frame = frameRef(v.frame);
   }
+  for (const g of conv.settingsLib)
+    if (g.values.defFrame) g.values.defFrame = frameRef(g.values.defFrame);
   for (const l of conv.labels) if (l.frame) l.frame = frameRef(l.frame);
   for (const s of conv.sheets) {
+    if (s.lore) s.lore = rich(s.lore);
     const df = conv.defFrames.get(s);
     s.settings.defFrame = df ? frameRef(df) : '';
     for (const c of s.chars) {
@@ -437,6 +445,8 @@ export function applyLegacy(
       p.library = [];
       p.relLibrary = [];
       p.radarTpls = [];
+      p.noteBin = [];
+      p.settingsLib = [];
       p.active = 0;
       /* 文件字型跟著開進來的檔（加入為新分頁時不動；原作也是） */
       p.font = font;
@@ -455,14 +465,16 @@ export function applyLegacy(
         labelMap.set(l.id, id);
       }
     }
+    const tplMap = new Map<number, number>();
     const maps: Required<SheetMaps> = {
       labelMap,
       entryMap: new Map(),
       varMap: new Map(),
       relEntryMap: new Map(),
       relVarMap: new Map(),
+      tplMap,
+      sheetMap: new Map(),
     };
-    const tplMap = new Map<number, number>();
     const axisMap = new Map<number, number>();
     for (const t of conv.radarTpls) {
       const nt = { ...t, id: p.nextId++, axes: t.axes.map((a) => ({ ...a })) };
@@ -510,6 +522,21 @@ export function applyLegacy(
     }
     const first = p.sheets.length;
     for (const s of conv.sheets) insertSheet(p, s, maps);
+    /* 世界觀的沿用：原作的分頁 id 換成新的（指到這個檔以外的＝自己的內容） */
+    for (const s of p.sheets.slice(first))
+      if (s.loreFrom !== null) {
+        const to = maps.sheetMap.get(s.loreFrom);
+        s.loreFrom = to !== undefined && to !== s.id ? to : null;
+      }
+    /* 便利貼庫、設定集：id 換成專案的（加入為新分頁＝接在後面） */
+    for (const n of conv.noteBin) {
+      const nn = JSON.parse(JSON.stringify(n)) as typeof n;
+      nn.id = p.nextId++;
+      if (nn.chart) nn.chart.tpl = tplMap.get(nn.chart.tpl) ?? nn.chart.tpl;
+      if (p.noteBin.length < NOTE_BIN_MAX) p.noteBin.push(nn);
+    }
+    for (const g of conv.settingsLib)
+      p.settingsLib.push({ ...JSON.parse(JSON.stringify(g)), id: p.nextId++ });
     p.active = mode === 'replace' ? Math.min(conv.activeIdx, p.sheets.length - 1) : first;
   });
   setUi({

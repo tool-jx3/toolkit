@@ -3,15 +3,25 @@
  *
  * 一張分頁的 SVG（原作的 render()）：編輯畫面、PNG、分層 SVG／PSD、互動網頁共用同一份畫法（規格 3.4）。
  * 圖層由下而上：背景（底色、背景圖）→ 輔助線 →（陣營框）→ 關係線（一般線 → 聚合線 → 群體關係線 → 線上標籤 → 標籤網的虛線）
- * → 角色（角色 → 收合節點 → 標籤網的圓點）→（名稱）→ 圖例（圖例 → 標籤圖例 → 名冊）。
+ * → 角色（角色 → 收合節點 → 標籤網的圓點）→（名稱）→ 圖例（圖例 → 標籤圖例 → 名冊）→ 便利貼（第四批；沒有便利貼時不出這一層）。
  */
-import type { FontItem, FontValue, FrameItem, Label, Sheet } from '../model/types';
+import type {
+  CharEntry,
+  FontItem,
+  FontValue,
+  FrameItem,
+  Label,
+  RadarTpl,
+  Sheet,
+} from '../model/types';
+import { S } from '../strings';
 import { buildObstacles, type EdgeCtx, edgesSvg } from './edges';
-import { bleedPad, esc, fontStack, framePad, type SheetCtx, sheetCtx } from './geom';
+import { bleedPad, charLevel, esc, fontStack, framePad, type SheetCtx, sheetCtx } from './geom';
 import { colEdgesSvg, colNodesSvg, grelEdgesSvg, labelInfo, labelNetSvg, zonesSvg } from './labels';
 import { type LegendOut, legendOutPad, legendsSvg } from './legend';
 import { f1 } from './lines';
-import { type ImageHref, type NodeUi, nodeSvg } from './nodes';
+import { type ImageHref, type NodeLod, type NodeUi, nodeSvg } from './nodes';
+import { noteBleedPad, noteLook, notesOutside, notesSvg } from './notes';
 
 export type RenderMode = 'edit' | 'export' | 'viewer';
 
@@ -34,7 +44,19 @@ export interface RenderOpts {
   splitNames?: boolean;
   /** 專案的標籤（陣營框、標籤網、標籤圖例、群體關係用；沒給＝沒有標籤） */
   labels?: readonly Label[];
+  /** 數值範本與角色庫（圖表節點用；第四批） */
+  radarTpls?: readonly RadarTpl[];
+  library?: readonly CharEntry[];
+  /** 遠近簡化的標記（F116；60 位以上才真的標）：編輯畫面拉遠時、互動網頁；匯出不標 */
+  lod?: boolean;
 }
+
+/** 遠近簡化的密度門檻：畫面上看得到的角色（收合藏起來的不算）≥ 60 位 */
+export const LOD_DENSE_MIN = 60;
+export const lodDense = (ctx: SheetCtx): boolean =>
+  ctx.sheet.chars.length - labelInfo(ctx).colHidden.size >= LOD_DENSE_MIN;
+/** 拉遠的大名字最多幾位（重要度高的優先、同級編號小的優先；原作的 FARNAME_MAX） */
+const FARNAME_MAX = 20;
 
 export interface ChartParts {
   ctx: SheetCtx;
@@ -51,6 +73,8 @@ export interface ChartParts {
   names: string;
   legend: string;
   legendInfo: LegendOut;
+  /** 便利貼與圖表節點（沒有時空字串＝不出這一層） */
+  notes: string;
   /** 角色超出畫布的出血 */
   bleed: number;
   /** 實際外擴（出血 ∪ 界外的圖例／名冊） */
@@ -102,14 +126,28 @@ export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
     idPrefix: pre,
     defs,
   };
+  const lodOn = !!opts.lod && opts.mode !== 'export' && lodDense(ctx);
+  if (lodOn) ectx.lod = true;
   const edges = edgeLayerSvg(ctx, ectx, edit);
   let nodes = '';
   let names = '';
   const hidden = labelInfo(ctx).colHidden;
+  let lod: NodeLod | null = null;
+  if (lodOn) {
+    let farKeep: Set<number> | null = null;
+    if (ctx.s.showNames) {
+      const cand = sheet.chars.filter((c) => charLevel(c) > 0 && c.name && !hidden.has(c.id));
+      if (cand.length > FARNAME_MAX) {
+        cand.sort((a, b) => charLevel(b) - charLevel(a) || (a.defNo || 0) - (b.defNo || 0));
+        farKeep = new Set(cand.slice(0, FARNAME_MAX).map((c) => c.id));
+      }
+    }
+    lod = { farKeep };
+  }
   const order = ctx.s.noCollision ? [...sheet.chars].reverse() : sheet.chars;
   for (const c of order) {
     if (hidden.has(c.id)) continue;
-    const n = nodeSvg(ctx, c, pre, opts.href, ui, opts.splitNames);
+    const n = nodeSvg(ctx, c, pre, opts.href, ui, opts.splitNames, lod);
     nodes += n.svg;
     names += n.name;
     if (n.defs) defs.push(n.defs);
@@ -124,11 +162,18 @@ export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
   const zones = zonesSvg(ctx, edit, pre);
   const legendInfo = legendsSvg(ctx, pre, opts.href, edit);
   if (legendInfo.defs) defs.push(legendInfo.defs);
+  const notes = notesSvg(ctx, {
+    look: noteLook(ctx.s.palette),
+    radarTpls: opts.radarTpls,
+    library: opts.library,
+    ui: edit ? { editing: ui?.noteEdit ?? null } : null,
+  });
   const bleed = bleedPad(ctx);
   const pad = Math.max(
     bleed,
     legendOutPad([legendInfo.rel, legendInfo.lbl, legendInfo.chars], W, H),
     framePad(ctx),
+    noteBleedPad(ctx),
   );
   return {
     ctx,
@@ -142,6 +187,7 @@ export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
     names,
     legend: legendInfo.svg,
     legendInfo,
+    notes,
     bleed,
     pad,
   };
@@ -160,7 +206,8 @@ function contentLayers(p: ChartParts, opts: { transparent?: boolean; frame?: boo
     ? `<rect class="canvas-frame" x="0.5" y="0.5" width="${Math.max(0, W - 1)}" height="${Math.max(0, H - 1)}" fill="none" stroke="${pal.guide}" stroke-width="2" opacity="0.9" vector-effect="non-scaling-stroke" pointer-events="none"/>`
     : '';
   const zones = p.zones ? `<g class="layer-zones" pointer-events="none">${p.zones}</g>` : '';
-  return `${bg}${frame}<g class="layer-guides">${opts.transparent ? '' : p.guides}</g>${zones}<g class="layer-edges"${relOpacityAttr(p)}>${p.edges}</g><g class="layer-nodes">${p.nodes}</g>${p.names ? `<g class="layer-names">${p.names}</g>` : ''}<g class="layer-legend">${p.legend}</g>`;
+  const notes = p.notes ? `<g class="layer-notes">${p.notes}</g>` : '';
+  return `${bg}${frame}<g class="layer-guides">${opts.transparent ? '' : p.guides}</g>${zones}<g class="layer-edges"${relOpacityAttr(p)}>${p.edges}</g><g class="layer-nodes">${p.nodes}</g>${p.names ? `<g class="layer-names">${p.names}</g>` : ''}<g class="layer-legend">${p.legend}</g>${notes}`;
 }
 
 /** 根元素（字型組；匯出時第一個子元素是內嵌的 @font-face） */
@@ -189,6 +236,10 @@ export function editorSvg(sheet: Sheet, opts: Omit<RenderOpts, 'mode'>): EditorS
     outer += `<rect class="canvas-bleed-frame" x="0.5" y="0.5" width="${viewW - 1}" height="${H + pad * 2 - 1}" fill="none" stroke="${pal.guide}" stroke-width="1.5" opacity="0.65" stroke-dasharray="10 7" vector-effect="non-scaling-stroke" pointer-events="none"/>`;
   const boundaryY = H + Math.round(noteFS * 2.4);
   let notes = `<text x="${W / 2}" y="${boundaryY}" text-anchor="middle" font-size="${noteFS}" font-weight="700" fill="${pal.guide}" opacity="0.9">畫布邊界（不會出現在匯出圖裡）</text>`;
+  /* 界外的便利貼：註記等級的告知（不是出血那種警告） */
+  const out = notesOutside(p.ctx);
+  if (out)
+    notes += `<text class="note-out-hint" x="${W / 2}" y="${boundaryY + Math.round(noteFS * 1.5)}" text-anchor="middle" font-size="${noteFS}" font-weight="700" fill="${pal.guide}" opacity="0.9">${esc(S.note.outHint(out))}</text>`;
   if (p.bleed > 0) {
     const text = '角色超出畫布了：外圈的出血區不會進 PNG，請把角色拉回畫布內，或修改畫布尺寸。';
     const fitFS = (viewW * 0.96) / Math.max(1, text.length * 1.02);
@@ -246,6 +297,7 @@ export function exportLayers(
     { id: 'layer-nodes', label: '角色', body: p.nodes },
     { id: 'layer-names', label: '名稱', body: p.names },
     { id: 'layer-legend', label: '圖例', body: p.legend },
+    { id: 'layer-notes', label: S.note.layer, body: p.notes },
   ];
   return { defs: p.defs, W: p.ctx.W, H: p.ctx.H, layers: all.filter((l) => l.body) };
 }

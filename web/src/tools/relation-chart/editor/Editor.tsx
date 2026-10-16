@@ -32,6 +32,8 @@ export function Editor() {
   const confirm = useConfirm();
   const choose = useChoice();
   const panelOpen = useUi((u) => u.panel !== null || u.sel.length >= 2);
+  /* 唯讀瀏覽：左右兩欄與檔案庫藏起來（只留畫布與分頁列） */
+  const readonly = useUi((u) => u.readonly);
   /* 匯入的字型註冊成 FontFace（畫布、清單、面板都用得到） */
   useFontFaces(useProject((s) => s.data.fonts));
 
@@ -73,18 +75,27 @@ export function Editor() {
       />
       <EditorBar />
       <div className="flex min-w-0 flex-col gap-2 lg:h-[calc(100dvh-9.5rem)] lg:min-h-[36rem]">
-        <div className="grid min-w-0 grid-cols-1 gap-2 lg:min-h-[14rem] lg:flex-1 lg:grid-cols-[15rem_minmax(0,1fr)_19rem] xl:grid-cols-[16rem_minmax(0,1fr)_21rem]">
-          <section
-            aria-label={`${S.chars.title}、${S.types.title}`}
-            className={`flex min-h-0 min-w-0 flex-col gap-2 lg:order-1 ${panelOpen ? 'order-3' : 'order-2'}`}
-          >
-            <div className="flex min-h-0 flex-col rounded-lg border border-border bg-surface p-2 lg:flex-[3]">
-              <CharList />
-            </div>
-            <div className="flex min-h-0 flex-col rounded-lg border border-border bg-surface p-2 lg:flex-[2]">
-              <TypeList />
-            </div>
-          </section>
+        <div
+          className={
+            readonly
+              ? 'grid min-w-0 grid-cols-1 gap-2 lg:min-h-[14rem] lg:flex-1'
+              : 'grid min-w-0 grid-cols-1 gap-2 lg:min-h-[14rem] lg:flex-1 lg:grid-cols-[15rem_minmax(0,1fr)_19rem] xl:grid-cols-[16rem_minmax(0,1fr)_21rem]'
+          }
+          data-readonly={readonly ? '' : undefined}
+        >
+          {readonly ? null : (
+            <section
+              aria-label={`${S.chars.title}、${S.types.title}`}
+              className={`flex min-h-0 min-w-0 flex-col gap-2 lg:order-1 ${panelOpen ? 'order-3' : 'order-2'}`}
+            >
+              <div className="flex min-h-0 flex-col rounded-lg border border-border bg-surface p-2 lg:flex-[3]">
+                <CharList />
+              </div>
+              <div className="flex min-h-0 flex-col rounded-lg border border-border bg-surface p-2 lg:flex-[2]">
+                <TypeList />
+              </div>
+            </section>
+          )}
           <section
             aria-label={S.view.canvasLabel}
             className="order-1 flex min-h-0 min-w-0 flex-col gap-2 lg:order-2"
@@ -92,14 +103,16 @@ export function Editor() {
             <CanvasView />
             <SheetBar />
           </section>
-          <section
-            aria-label={S.panel.title}
-            className={`flex min-h-0 min-w-0 flex-col lg:order-3 ${panelOpen ? 'order-2' : 'order-3'}`}
-          >
-            <Inspector />
-          </section>
+          {readonly ? null : (
+            <section
+              aria-label={S.panel.title}
+              className={`flex min-h-0 min-w-0 flex-col lg:order-3 ${panelOpen ? 'order-2' : 'order-3'}`}
+            >
+              <Inspector />
+            </section>
+          )}
         </div>
-        <LibraryDrawer />
+        {readonly ? null : <LibraryDrawer />}
       </div>
       <BatchCreateDialog />
       <PasteTableDialog />

@@ -2,7 +2,7 @@
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 分頁列：點一下切換、按兩下改名、拖曳換順序、×刪除（可以復原）、＋新增、複製；每個分頁有選單（改名、複製、往左／往右移、刪除）。
- * 最左邊是「檔案庫」鈕（打開／收起，原作也放在這裡）。
+ * 最左邊是「檔案庫」鈕（打開／收起，原作也放在這裡）。唯讀瀏覽中只能切換分頁（7.4 第 10 項）。
  */
 import { ChevronDown, Copy, Library, Plus, X } from 'lucide-react';
 import { DropdownMenu } from 'radix-ui';
@@ -53,6 +53,7 @@ export function SheetBar() {
   const active = useProject((s) => activeIndex(s.data));
   const renaming = useUi((u) => u.renaming);
   const libOpen = useUi((u) => u.libOpen);
+  const readonly = useUi((u) => u.readonly);
   const toast = useToast();
   const drag = useRef<{ idx: number; x: number; moved: boolean; pid: number } | null>(null);
   const [over, setOver] = useState<number | null>(null);
@@ -82,20 +83,22 @@ export function SheetBar() {
 
   return (
     <div className="flex min-w-0 items-center gap-1" data-testid="sheet-bar">
-      <Button
-        size="sm"
-        variant={libOpen ? 'primary' : 'secondary'}
-        icon={<Library />}
-        className="shrink-0"
-        aria-pressed={libOpen}
-        title={S.lib.openTip}
-        onClick={() =>
-          setUi(libOpen ? { libOpen: false, libMode: null, libEdit: null } : { libOpen: true })
-        }
-        data-testid="library-open"
-      >
-        {S.lib.open}
-      </Button>
+      {readonly ? null : (
+        <Button
+          size="sm"
+          variant={libOpen ? 'primary' : 'secondary'}
+          icon={<Library />}
+          className="shrink-0"
+          aria-pressed={libOpen}
+          title={S.lib.openTip}
+          onClick={() =>
+            setUi(libOpen ? { libOpen: false, libMode: null, libEdit: null } : { libOpen: true })
+          }
+          data-testid="library-open"
+        >
+          {S.lib.open}
+        </Button>
+      )}
       <div
         ref={tabs}
         role="tablist"
@@ -126,9 +129,11 @@ export function SheetBar() {
                   if (drag.current?.moved) return;
                   switchSheet(i);
                 }}
-                onDoubleClick={() => setUi({ renaming: s.id })}
+                onDoubleClick={() => {
+                  if (!readonly) setUi({ renaming: s.id });
+                }}
                 onPointerDown={(e) => {
-                  if (e.button !== 0 || e.pointerType === 'touch') return;
+                  if (readonly || e.button !== 0 || e.pointerType === 'touch') return;
                   drag.current = { idx: i, x: e.clientX, moved: false, pid: e.pointerId };
                 }}
                 onPointerMove={(e) => {
@@ -155,97 +160,105 @@ export function SheetBar() {
               >
                 {name}
               </button>
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger
-                  className="grid h-7 w-5 place-items-center text-muted hover:text-fg [&_svg]:size-3.5"
-                  aria-label={S.sheets.menu(name)}
-                  data-testid="sheet-menu"
+              {readonly ? null : (
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger
+                    className="grid h-7 w-5 place-items-center text-muted hover:text-fg [&_svg]:size-3.5"
+                    aria-label={S.sheets.menu(name)}
+                    data-testid="sheet-menu"
+                  >
+                    <ChevronDown />
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content align="start" sideOffset={4} className={MENU_CONTENT}>
+                      <DropdownMenu.Item
+                        className={MENU_ITEM}
+                        onSelect={() => setUi({ renaming: s.id })}
+                      >
+                        {S.sheets.rename}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        className={MENU_ITEM}
+                        onSelect={() => {
+                          switchSheet(i);
+                          addSheet(true);
+                        }}
+                      >
+                        {S.sheets.copy}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        className={MENU_ITEM}
+                        title={S.sheets.copyForkTip}
+                        onSelect={() => {
+                          switchSheet(i);
+                          addSheet('fork');
+                        }}
+                        data-testid="sheet-copy-fork"
+                      >
+                        {S.sheets.copyFork}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        className={MENU_ITEM}
+                        disabled={i === 0}
+                        onSelect={() => moveSheet(i, i - 1)}
+                      >
+                        {S.sheets.moveLeft}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        className={MENU_ITEM}
+                        disabled={i === sheets.length - 1}
+                        onSelect={() => moveSheet(i, i + 1)}
+                      >
+                        {S.sheets.moveRight}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        className={MENU_ITEM}
+                        disabled={sheets.length <= 1}
+                        onSelect={() => remove(i)}
+                      >
+                        {S.sheets.remove}
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+              )}
+              {readonly ? null : (
+                <button
+                  type="button"
+                  className="grid h-7 w-6 place-items-center rounded-r-md text-muted hover:text-danger disabled:opacity-40 disabled:hover:text-muted [&_svg]:size-3.5"
+                  aria-label={
+                    sheets.length <= 1 ? S.sheets.removeOnly : `${S.sheets.remove}「${name}」`
+                  }
+                  title={sheets.length <= 1 ? S.sheets.removeOnly : S.sheets.remove}
+                  disabled={sheets.length <= 1}
+                  onClick={() => remove(i)}
+                  data-testid="sheet-close"
                 >
-                  <ChevronDown />
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content align="start" sideOffset={4} className={MENU_CONTENT}>
-                    <DropdownMenu.Item
-                      className={MENU_ITEM}
-                      onSelect={() => setUi({ renaming: s.id })}
-                    >
-                      {S.sheets.rename}
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      className={MENU_ITEM}
-                      onSelect={() => {
-                        switchSheet(i);
-                        addSheet(true);
-                      }}
-                    >
-                      {S.sheets.copy}
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      className={MENU_ITEM}
-                      title={S.sheets.copyForkTip}
-                      onSelect={() => {
-                        switchSheet(i);
-                        addSheet('fork');
-                      }}
-                      data-testid="sheet-copy-fork"
-                    >
-                      {S.sheets.copyFork}
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      className={MENU_ITEM}
-                      disabled={i === 0}
-                      onSelect={() => moveSheet(i, i - 1)}
-                    >
-                      {S.sheets.moveLeft}
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      className={MENU_ITEM}
-                      disabled={i === sheets.length - 1}
-                      onSelect={() => moveSheet(i, i + 1)}
-                    >
-                      {S.sheets.moveRight}
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      className={MENU_ITEM}
-                      disabled={sheets.length <= 1}
-                      onSelect={() => remove(i)}
-                    >
-                      {S.sheets.remove}
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-              <button
-                type="button"
-                className="grid h-7 w-6 place-items-center rounded-r-md text-muted hover:text-danger disabled:opacity-40 disabled:hover:text-muted [&_svg]:size-3.5"
-                aria-label={
-                  sheets.length <= 1 ? S.sheets.removeOnly : `${S.sheets.remove}「${name}」`
-                }
-                title={sheets.length <= 1 ? S.sheets.removeOnly : S.sheets.remove}
-                disabled={sheets.length <= 1}
-                onClick={() => remove(i)}
-                data-testid="sheet-close"
-              >
-                <X />
-              </button>
+                  <X />
+                </button>
+              )}
             </div>
           );
         })}
       </div>
-      <IconButton
-        size="sm"
-        icon={<Plus />}
-        label={S.sheets.add}
-        onClick={() => addSheet(false)}
-        data-testid="sheet-add"
-      />
-      <IconButton
-        size="sm"
-        icon={<Copy />}
-        label={S.sheets.copy}
-        onClick={() => addSheet(true)}
-        data-testid="sheet-copy"
-      />
+      {readonly ? null : (
+        <>
+          <IconButton
+            size="sm"
+            icon={<Plus />}
+            label={S.sheets.add}
+            onClick={() => addSheet(false)}
+            data-testid="sheet-add"
+          />
+          <IconButton
+            size="sm"
+            icon={<Copy />}
+            label={S.sheets.copy}
+            onClick={() => addSheet(true)}
+            data-testid="sheet-copy"
+          />
+        </>
+      )}
     </div>
   );
 }
