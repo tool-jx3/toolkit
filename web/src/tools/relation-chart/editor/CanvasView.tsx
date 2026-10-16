@@ -161,6 +161,38 @@ function EndName({ tok, sheet, labels }: { tok: string; sheet: Sheet; labels: re
   return c ? <b>{displayName(c)}</b> : null;
 }
 
+const XLINK = 'http://www.w3.org/1999/xlink';
+const imgHref = (im: Element) => im.getAttribute('href') ?? im.getAttributeNS(XLINK, 'href');
+
+/**
+ * 換了一份 SVG：同一張圖沿用舊的 <image> 節點（屬性換成新的）。圖是 blob 網址，每個新節點都要重新載入，
+ * 載入好之前那一格畫成空的——時間軸播放每一格都整張換，頭像與背景圖會一直閃（原作用 data URI，同步載入不會閃）。
+ */
+function keepImages(prev: SVGSVGElement | null, next: SVGSVGElement): void {
+  if (!prev || prev === next) return;
+  const pool = new Map<string, Element[]>();
+  for (const im of prev.querySelectorAll('image')) {
+    const h = imgHref(im);
+    if (!h) continue;
+    const list = pool.get(h);
+    if (list) list.push(im);
+    else pool.set(h, [im]);
+  }
+  if (!pool.size) return;
+  for (const ni of next.querySelectorAll('image')) {
+    const h = imgHref(ni);
+    const oi = h ? pool.get(h)?.pop() : undefined;
+    if (!oi) continue;
+    for (const a of [...oi.attributes])
+      if (!ni.hasAttributeNS(a.namespaceURI, a.localName))
+        oi.removeAttributeNS(a.namespaceURI, a.localName);
+    for (const a of [...ni.attributes])
+      if (oi.getAttributeNS(a.namespaceURI, a.localName) !== a.value)
+        oi.setAttributeNS(a.namespaceURI, a.name, a.value);
+    ni.replaceWith(oi);
+  }
+}
+
 /** 畫面上的那張 SVG（拖曳時底下可能還有一張放動到的線的，見 live） */
 const chartSvg = (el: HTMLElement | null): SVGSVGElement | null =>
   el?.querySelector<SVGSVGElement>(':scope > svg:not(.rc-live-under)') ?? null;
@@ -473,6 +505,7 @@ export function CanvasView() {
     if (!svg) return;
     /* 換了一份 SVG：告訴快速路徑新的基準位置 */
     if (svg !== rendered.current) {
+      keepImages(rendered.current, svg);
       rendered.current = svg;
       liveRebase(svg, display.id, out.pos, out.parts.bleed);
     }
