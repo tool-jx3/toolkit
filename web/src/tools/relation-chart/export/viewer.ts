@@ -9,8 +9,8 @@ import { viewerSvg } from '../engine/chart';
 import {
   displayName,
   esc,
-  FONT_STACKS,
   focusDimSet,
+  fontStack,
   PALETTES,
   sheetCtx,
   sheetName,
@@ -26,12 +26,28 @@ import {
 } from '../engine/labels';
 import { charLabelIds } from '../model/charLabels';
 import { ownColor } from '../model/normalize';
-import type { FontKey, Label, Sheet } from '../model/types';
+import type {
+  CharEntry,
+  FontItem,
+  FontValue,
+  FrameItem,
+  Label,
+  RadarTpl,
+  Sheet,
+} from '../model/types';
 import { S } from '../strings';
 import { rcViewer, type ViewerData, type ViewerSheetData } from './viewerRuntime';
 
-export interface ViewerInput {
-  font: FontKey;
+/** 第三批：角色資訊、數值、看法、字型、頭像框要用的專案資料（沒給＝沒有） */
+export interface ViewerExtra {
+  library?: readonly CharEntry[];
+  radarTpls?: readonly RadarTpl[];
+  fonts?: readonly FontItem[];
+  frames?: readonly FrameItem[];
+}
+
+export interface ViewerInput extends ViewerExtra {
+  font: FontValue;
   labels: readonly Label[];
   /** 資產 id → data URI */
   uris: ReadonlyMap<string, string>;
@@ -195,7 +211,14 @@ export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string
     return `rcimg:${k}`;
   };
   const svgs = sheets.map((s, i) =>
-    viewerSvg(s, { href, font: input.font, idPrefix: `s${i}-`, labels: input.labels }),
+    viewerSvg(s, {
+      href,
+      font: input.font,
+      idPrefix: `s${i}-`,
+      labels: input.labels,
+      fonts: input.fonts,
+      frames: input.frames,
+    }),
   );
   const usedLabels = new Set(sheets.flatMap((s) => s.chars.flatMap((c) => charLabelIds(c))));
   const anyHiddenOk = sheets.some((s) => s.settings.viewerHiddenLbls);
@@ -238,7 +261,7 @@ export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string
     sheets.length > 1
       ? `<div id="tabsV">${sheets.map((s, i) => `<button type="button" class="tabV${i === 0 ? ' active' : ''}" data-i="${i}">${esc(sheetName(s))}</button>`).join('')}</div>`
       : '';
-  const font = FONT_STACKS[input.font] ?? FONT_STACKS.sans;
+  const font = fontStack(input.font, new Set((input.fonts ?? []).map((f) => f.id)));
   const css = `*{box-sizing:border-box;margin:0}
 :root{color-scheme:${light ? 'light' : 'dark'}}
 html,body{height:100%}

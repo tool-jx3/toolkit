@@ -7,21 +7,58 @@
 import { loadAgPsd } from '@/core/decode';
 import { safeFileName, zipFiles } from '@/core/files';
 import { exportLayers, exportSvg } from '../engine/chart';
-import { esc, FONT_STACKS, sheetName } from '../engine/geom';
-import type { FontKey, Label, Sheet } from '../model/types';
+import { esc, fontStack, importedFamily, sheetName } from '../engine/geom';
+import type { FontItem, FontValue, FrameItem, Label, Sheet } from '../model/types';
 import { svgToCanvas, svgToPng } from './raster';
-import { viewerHtml } from './viewer';
+import { type ViewerExtra, viewerHtml } from './viewer';
 
 export type ExportFormat = 'png' | 'svg' | 'psd' | 'html';
 
-export interface ExportInput {
+export interface ExportInput extends ViewerExtra {
   sheets: readonly Sheet[];
-  font: FontKey;
+  font: FontValue;
   labels: readonly Label[];
-  /** 資產 id → data URI */
+  /** 資產 id → data URI（圖片、頭像框、匯入的字型） */
   uris: ReadonlyMap<string, string>;
   transparent: boolean;
+  /** 匯入的字型、頭像框庫（第三批；沒給＝沒有） */
+  fonts?: readonly FontItem[];
+  frames?: readonly FrameItem[];
 }
+
+/**
+ * 這張分頁實際用到的匯入字型（文件字型＋角色的字型；原作的 usedFontHashes），只算庫裡有、而且讀得到檔案的。
+ */
+export function usedFontIds(
+  sheets: readonly Sheet[],
+  input: Pick<ExportInput, 'font' | 'fonts' | 'uris'>,
+): string[] {
+  const have = new Set((input.fonts ?? []).map((f) => f.id));
+  const out = new Set<string>();
+  const add = (v: string) => {
+    if (!v.startsWith('f:')) return;
+    const id = v.slice(2);
+    if (have.has(id) && input.uris.has(id)) out.add(id);
+  };
+  add(input.font);
+  for (const s of sheets) for (const c of s.chars) if (c.font) add(c.font);
+  return [...out];
+}
+
+/** 內嵌的 @font-face（PNG 是 SVG 放進 <img> 點陣化：頁面上註冊的字型帶不進去，一定要 data URI） */
+export const fontFaceCss = (ids: readonly string[], uris: ReadonlyMap<string, string>): string =>
+  ids
+    .map(
+      (id) => `@font-face{font-family:"${importedFamily(id)}";src:url("${uris.get(id) ?? ''}");}`,
+    )
+    .join('\n');
+
+const renderLook = (input: ExportInput) => ({
+  font: input.font,
+  labels: input.labels,
+  fonts: input.fonts,
+  frames: input.frames,
+});
 
 export interface ExportResult {
   blob: Blob;
@@ -74,15 +111,20 @@ function uniqueNames(names: readonly string[], ext: string): string[] {
 
 const hrefOf = (uris: ReadonlyMap<string, string>) => (id: string) => uris.get(id) ?? null;
 
+/** 根元素的字型組（匯入的字型在庫裡才用） */
+const stackOf = (input: ExportInput) =>
+  fontStack(input.font, new Set((input.fonts ?? []).map((f) => f.id)));
+
 /** PNG 一張 */
 export async function sheetPng(sheet: Sheet, input: ExportInput): Promise<Blob> {
+  const faces = usedFontIds([sheet], input);
   const svg = exportSvg(sheet, {
     href: hrefOf(input.uris),
-    font: input.font,
+    ...renderLook(input),
     transparent: input.transparent,
-    labels: input.labels,
+    fontFaceCss: faces.length ? fontFaceCss(faces, input.uris) : undefined,
   });
-  return await svgToPng(svg, sheet.W, sheet.H);
+  return await svgToPng(svg, sheet.W, sheet.H, faces.length > 0);
 }
 
 /** 圖片同時寫 href 與 xlink:href（舊的軟體只認後者） */
@@ -93,9 +135,10 @@ const withXlink = (s: string) =>
 export function sheetLayeredSvg(sheet: Sheet, input: ExportInput): string {
   const L = exportLayers(sheet, {
     href: hrefOf(input.uris),
-    font: input.font,
-    labels: input.labels,
+    ...renderLook(input),
   });
+  const faces = usedFontIds([sheet], input);
+  const faceStyle = faces.length ? `<style>${fontFaceCss(faces, input.uris)}</style>\n` : '';
   const body = L.layers
     .map(
       (l) =>
@@ -104,8 +147,8 @@ export function sheetLayeredSvg(sheet: Sheet, input: ExportInput): string {
     .join('\n');
   const usesIcons = body.includes('class="av-icon"');
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="${L.W}" height="${L.H}" viewBox="0 0 ${L.W} ${L.H}" font-family="${esc(FONT_STACKS[input.font] ?? FONT_STACKS.sans)}">
-${usesIcons ? `<!-- ${ICON_CREDIT} -->\n` : ''}<defs>${withXlink(L.defs)}</defs>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="${L.W}" height="${L.H}" viewBox="0 0 ${L.W} ${L.H}" font-family="${esc(stackOf(input))}">
+${faceStyle}${usesIcons ? `<!-- ${ICON_CREDIT} -->\n` : ''}<defs>${withXlink(L.defs)}</defs>
 ${body}
 </svg>
 `;
@@ -115,21 +158,27 @@ ${body}
 export async function sheetPsd(sheet: Sheet, input: ExportInput): Promise<Uint8Array> {
   const L = exportLayers(sheet, {
     href: hrefOf(input.uris),
-    font: input.font,
-    labels: input.labels,
+    ...renderLook(input),
   });
-  const fontAttr = esc(FONT_STACKS[input.font] ?? FONT_STACKS.sans);
-  const open = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${L.W}" height="${L.H}" viewBox="0 0 ${L.W} ${L.H}" font-family="${fontAttr}"><defs>${L.defs}</defs>`;
+  const fontAttr = esc(stackOf(input));
+  const faces = usedFontIds([sheet], input);
+  const faceStyle = faces.length ? `<style>${fontFaceCss(faces, input.uris)}</style>` : '';
+  const open = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${L.W}" height="${L.H}" viewBox="0 0 ${L.W} ${L.H}" font-family="${fontAttr}">${faceStyle}<defs>${L.defs}</defs>`;
   const children: { name: string; imageData: ImageData }[] = [];
   for (const l of L.layers) {
-    const canvas = await svgToCanvas(`${open}${l.body}</svg>`, L.W, L.H);
+    const canvas = await svgToCanvas(`${open}${l.body}</svg>`, L.W, L.H, faces.length > 0);
     const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
     children.push({
       name: l.label,
       imageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
     });
   }
-  const flat = await svgToCanvas(`${open}${L.layers.map((l) => l.body).join('')}</svg>`, L.W, L.H);
+  const flat = await svgToCanvas(
+    `${open}${L.layers.map((l) => l.body).join('')}</svg>`,
+    L.W,
+    L.H,
+    faces.length > 0,
+  );
   const composite = (flat.getContext('2d') as CanvasRenderingContext2D).getImageData(
     0,
     0,

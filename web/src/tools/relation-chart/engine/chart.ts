@@ -5,9 +5,9 @@
  * 圖層由下而上：背景（底色、背景圖）→ 輔助線 →（陣營框）→ 關係線（一般線 → 聚合線 → 群體關係線 → 線上標籤 → 標籤網的虛線）
  * → 角色（角色 → 收合節點 → 標籤網的圓點）→（名稱）→ 圖例（圖例 → 標籤圖例 → 名冊）。
  */
-import type { FontKey, Label, Sheet } from '../model/types';
+import type { FontItem, FontValue, FrameItem, Label, Sheet } from '../model/types';
 import { buildObstacles, type EdgeCtx, edgesSvg } from './edges';
-import { bleedPad, esc, FONT_STACKS, type SheetCtx, sheetCtx } from './geom';
+import { bleedPad, esc, fontStack, framePad, type SheetCtx, sheetCtx } from './geom';
 import { colEdgesSvg, colNodesSvg, grelEdgesSvg, labelInfo, labelNetSvg, zonesSvg } from './labels';
 import { type LegendOut, legendOutPad, legendsSvg } from './legend';
 import { f1 } from './lines';
@@ -17,8 +17,15 @@ export type RenderMode = 'edit' | 'export' | 'viewer';
 
 export interface RenderOpts {
   mode: RenderMode;
+  /** 圖片資產（頭像、背景圖、頭像框）→ 網址 */
   href: ImageHref;
-  font: FontKey;
+  /** 文件字型 */
+  font: FontValue;
+  /** 匯入的字型、頭像框庫（第三批；沒給＝沒有） */
+  fonts?: readonly FontItem[];
+  frames?: readonly FrameItem[];
+  /** 匯出時內嵌在根元素最前面的 @font-face（PNG／分層 SVG／PSD；編輯畫面由頁面註冊、互動網頁放在頁面樣式） */
+  fontFaceCss?: string;
   /** 同一份文件放好幾張圖時，clipPath 等 id 的前綴 */
   idPrefix?: string;
   /** 編輯畫面的標記 */
@@ -57,7 +64,11 @@ export function edgeLayerSvg(ctx: SheetCtx, ectx: EdgeCtx, edit: boolean): strin
 }
 
 export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
-  const ctx = sheetCtx(sheet, opts.labels ?? []);
+  const ctx = sheetCtx(sheet, opts.labels ?? [], {
+    font: opts.font,
+    fonts: opts.fonts,
+    frames: opts.frames,
+  });
   const edit = opts.mode === 'edit';
   const { W, H, pal } = ctx;
   const pre = opts.idPrefix ?? '';
@@ -117,6 +128,7 @@ export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
   const pad = Math.max(
     bleed,
     legendOutPad([legendInfo.rel, legendInfo.lbl, legendInfo.chars], W, H),
+    framePad(ctx),
   );
   return {
     ctx,
@@ -151,8 +163,9 @@ function contentLayers(p: ChartParts, opts: { transparent?: boolean; frame?: boo
   return `${bg}${frame}<g class="layer-guides">${opts.transparent ? '' : p.guides}</g>${zones}<g class="layer-edges"${relOpacityAttr(p)}>${p.edges}</g><g class="layer-nodes">${p.nodes}</g>${p.names ? `<g class="layer-names">${p.names}</g>` : ''}<g class="layer-legend">${p.legend}</g>`;
 }
 
-const svgOpen = (font: FontKey, attrs: string) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ${attrs} font-family="${esc(FONT_STACKS[font] ?? FONT_STACKS.sans)}">`;
+/** 根元素（字型組；匯出時第一個子元素是內嵌的 @font-face） */
+export const svgOpen = (ctx: SheetCtx, attrs: string, faceCss?: string): string =>
+  `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ${attrs} font-family="${esc(fontStack(ctx.docFont, ctx.fontIds))}">${faceCss ? `<style>${faceCss}</style>` : ''}`;
 
 export interface EditorSvg {
   svg: string;
@@ -182,7 +195,7 @@ export function editorSvg(sheet: Sheet, opts: Omit<RenderOpts, 'mode'>): EditorS
     const fs = Math.max(12, Math.round(Math.min(p.bleed * 0.6, fitFS)));
     notes += `<text x="${W / 2}" y="${f1(H + p.bleed * 0.82)}" text-anchor="middle" font-size="${fs}" font-weight="900" fill="${pal.ink}" opacity="0.92">${text}</text>`;
   }
-  const svg = `${svgOpen(opts.font, `class="rc-chart" viewBox="0 0 ${viewW} ${viewH}" width="${viewW}" height="${viewH}"`)}${outer}<defs>${p.defs}</defs><g class="canvas-content" transform="translate(${pad},${pad})">${contentLayers(p, { frame: true })}</g><g class="canvas-notes" transform="translate(${pad},${pad})" pointer-events="none">${notes}</g></svg>`;
+  const svg = `${svgOpen(p.ctx, `class="rc-chart" viewBox="0 0 ${viewW} ${viewH}" width="${viewW}" height="${viewH}"`)}${outer}<defs>${p.defs}</defs><g class="canvas-content" transform="translate(${pad},${pad})">${contentLayers(p, { frame: true })}</g><g class="canvas-notes" transform="translate(${pad},${pad})" pointer-events="none">${notes}</g></svg>`;
   return { svg, pad, viewW, viewH, parts: p };
 }
 
@@ -193,7 +206,7 @@ export function exportSvg(
 ): string {
   const p = chartParts(sheet, { ...opts, mode: 'export' });
   const { W, H } = p.ctx;
-  return `${svgOpen(opts.font, `viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"`)}<defs>${p.defs}</defs>${contentLayers(p, { transparent: opts.transparent })}</svg>`;
+  return `${svgOpen(p.ctx, `viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"`, opts.fontFaceCss)}<defs>${p.defs}</defs>${contentLayers(p, { transparent: opts.transparent })}</svg>`;
 }
 
 /** 互動網頁用：含界外的圖例／名冊（viewBox 外擴），不含編輯用的標記 */
@@ -201,7 +214,7 @@ export function viewerSvg(sheet: Sheet, opts: Omit<RenderOpts, 'mode'>): string 
   const p = chartParts(sheet, { ...opts, mode: 'viewer' });
   const { W, H } = p.ctx;
   const pad = p.pad;
-  return `${svgOpen(opts.font, `class="chart" viewBox="${-pad} ${-pad} ${W + pad * 2} ${H + pad * 2}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"`)}<defs>${p.defs}</defs>${contentLayers(p, {})}</svg>`;
+  return `${svgOpen(p.ctx, `class="chart" viewBox="${-pad} ${-pad} ${W + pad * 2} ${H + pad * 2}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"`)}<defs>${p.defs}</defs>${contentLayers(p, {})}</svg>`;
 }
 
 export interface LayerPart {

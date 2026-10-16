@@ -364,6 +364,7 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
       settings: legacySettings(sh.settings, light, data),
       grels,
       collapsed,
+      views: {},
     };
     sheets.push(sheet);
     avatars.set(sheet, av);

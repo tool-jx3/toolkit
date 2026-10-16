@@ -6,23 +6,36 @@
  */
 import type { FramePlacement } from '@/core/image';
 import { dropCharLabels } from './charLabels';
+import { syncLibrary } from './library';
 import type {
   Avatar,
   CapStyle,
   Char,
+  CharEntry,
+  CharFont,
+  ChartKind,
   ColorValue,
+  FontFormat,
+  FontItem,
   FontKey,
+  FontValue,
+  FrameItem,
   GroupRel,
   Label,
   LayoutKind,
   LegendPos,
   LineStyle,
   Project,
+  RadarTpl,
+  RadarVals,
   Rel,
+  RelEntry,
   RelType,
+  RelVariant,
   Shape,
   Sheet,
   SheetSettings,
+  Variant,
 } from './types';
 
 export const LINE_STYLES: readonly LineStyle[] = [
@@ -141,6 +154,7 @@ export const SETTINGS_DEFAULTS: Readonly<SheetSettings> = Object.freeze({
   lblLegendPos: 'right',
   labelPos: {},
   zoneNameAng: {},
+  defFrame: '',
 }) as SheetSettings;
 
 export const newSettings = (base?: SheetSettings): SheetSettings =>
@@ -192,6 +206,17 @@ export function safeColor(value: unknown, fallback: ColorValue = 'auto'): ColorV
 /** 有沒有設顏色（不是 auto） */
 export const ownColor = (v: ColorValue | null | undefined): string | null =>
   v && v !== 'auto' ? v : null;
+
+/** 資產 id（圖片、頭像框、字型） */
+export const assetId = (v: unknown): string | null =>
+  typeof v === 'string' && /^[0-9a-z]{6,80}$/i.test(v) ? v : null;
+
+/** 字型的值：內建字型組或 `f:<資產 id>` */
+export function fontValue(v: unknown): FontValue | null {
+  if (FONT_KEYS.includes(v as FontKey)) return v as FontKey;
+  if (typeof v === 'string' && v.startsWith('f:') && assetId(v.slice(2))) return v as FontValue;
+  return null;
+}
 
 /* ---------- 分頁設定 ---------- */
 
@@ -309,6 +334,7 @@ export function normalizeSettings(raw: unknown): SheetSettings {
     }
   }
   out.wrapCaps = wc;
+  out.defFrame = assetId(s.defFrame) ?? '';
   return out;
 }
 
@@ -326,9 +352,6 @@ function normalizePlacement(v: unknown): FramePlacement | null {
   return { zoom, x, y, turns: Number.isFinite(turns) ? ((turns % 4) + 4) % 4 : 0 };
 }
 
-const assetId = (v: unknown): string | null =>
-  typeof v === 'string' && /^[0-9a-z]{6,80}$/i.test(v) ? v : null;
-
 function normalizeAvatar(v: unknown): Avatar | null {
   if (!isObj(v)) return null;
   const img = assetId(v.img);
@@ -341,26 +364,22 @@ const optNum = (v: unknown, min: number): number | null => {
   return Number.isFinite(n) && n >= min ? Math.round(n * 10) / 10 : null;
 };
 
-export function normalizeChar(raw: unknown, fallbackId: number): Char | null {
-  if (!isObj(raw)) return null;
-  const id = finite(raw.id) ? Math.trunc(num(raw.id)) : fallbackId;
-  const x = num(raw.x);
-  const y = num(raw.y);
+/** 頭像框的參照：null＝跟隨標籤、''＝不使用框、資產 id */
+const frameRef = (v: unknown): string | null => (v === '' ? '' : assetId(v));
+const intList = (v: unknown): number[] =>
+  Array.isArray(v) ? [...new Set(v.map((l) => Math.trunc(num(l))).filter(Number.isFinite))] : [];
+const charFont = (v: unknown): CharFont => fontValue(v) ?? '';
+
+/** 外觀欄位（實例與變體共用的整理） */
+function looks(raw: Record<string, unknown>) {
   return {
-    id,
     name: str(raw.name, 500),
-    x: Number.isFinite(x) ? x : Number.NaN,
-    y: Number.isFinite(y) ? y : Number.NaN,
-    defNo: finite(raw.defNo) ? Math.max(1, Math.trunc(num(raw.defNo))) : 0,
-    level: finite(raw.level) ? Math.trunc(num(raw.level)) : 0,
-    locked: bool(raw.locked),
-    relIgnore: bool(raw.relIgnore),
     color: safeColor(raw.color),
     nameColor: safeColor(raw.nameColor),
     avatar: normalizeAvatar(raw.avatar),
     icon: typeof raw.icon === 'string' && /^[a-z]{2,20}$/.test(raw.icon) ? raw.icon : null,
     noAvatar: bool(raw.noAvatar),
-    shape: SHAPES.includes(raw.shape as Shape) ? (raw.shape as Shape) : '',
+    shape: SHAPES.includes(raw.shape as Shape) ? (raw.shape as Shape) : ('' as Shape),
     noBorder: bool(raw.noBorder),
     noBg: bool(raw.noBg),
     borderOn: bool(raw.borderOn),
@@ -368,10 +387,180 @@ export function normalizeChar(raw: unknown, fallbackId: number): Char | null {
     size: optNum(raw.size, 32),
     nameSize: optNum(raw.nameSize, 1),
     borderW: optNum(raw.borderW, 1),
-    labels: Array.isArray(raw.labels)
-      ? [...new Set(raw.labels.map((l) => Math.trunc(num(l))).filter(Number.isFinite))]
-      : [],
+    labels: intList(raw.labels),
+    frame: frameRef(raw.frame),
   };
+}
+
+export function normalizeChar(raw: unknown, fallbackId: number): Char | null {
+  if (!isObj(raw)) return null;
+  const id = finite(raw.id) ? Math.trunc(num(raw.id)) : fallbackId;
+  const x = num(raw.x);
+  const y = num(raw.y);
+  return {
+    id,
+    lib: finite(raw.lib) ? Math.trunc(num(raw.lib)) : 0,
+    vari: finite(raw.vari) ? Math.trunc(num(raw.vari)) : 0,
+    x: Number.isFinite(x) ? x : Number.NaN,
+    y: Number.isFinite(y) ? y : Number.NaN,
+    defNo: finite(raw.defNo) ? Math.max(1, Math.trunc(num(raw.defNo))) : 0,
+    level: finite(raw.level) ? Math.trunc(num(raw.level)) : 0,
+    locked: bool(raw.locked),
+    relIgnore: bool(raw.relIgnore),
+    ...looks(raw),
+    font: charFont(raw.font),
+  };
+}
+
+/* ---------- 數值圖表（原作的 sanitizeRadarTpl／sanitizeRadarVals） ---------- */
+
+export const CHART_KINDS: readonly ChartKind[] = ['radar', 'bar', 'line', 'pie', 'gauge'];
+export const RADAR_AXES_MIN = 3;
+export const RADAR_AXES_MAX = 12;
+
+export function normalizeRadarTpl(raw: unknown): RadarTpl | null {
+  if (!isObj(raw) || !finite(raw.id)) return null;
+  const axes = (Array.isArray(raw.axes) ? raw.axes : [])
+    .filter((a): a is Record<string, unknown> => isObj(a) && finite(a.id))
+    .map((a) => {
+      const max = num(a.max);
+      return {
+        id: Math.trunc(num(a.id)),
+        label: str(a.label, 100),
+        max: Number.isFinite(max) && max > 0 ? max : 100,
+        unit: str(a.unit, 20),
+      };
+    })
+    .slice(0, RADAR_AXES_MAX);
+  if (axes.length < RADAR_AXES_MIN) return null;
+  const rings = Math.trunc(num(raw.rings));
+  return {
+    id: Math.trunc(num(raw.id)),
+    name: str(raw.name, 100),
+    axes,
+    chart: CHART_KINDS.includes(raw.chart as ChartKind) ? (raw.chart as ChartKind) : 'radar',
+    shape: raw.shape === 'circle' ? 'circle' : 'poly',
+    rings: Number.isFinite(rings) && rings >= 1 ? Math.min(8, rings) : 4,
+    valMode: raw.valMode === 'pct' || raw.valMode === 'none' ? raw.valMode : 'raw',
+    shared: bool(raw.shared),
+  };
+}
+
+export function normalizeRadarVals(raw: unknown): RadarVals[] {
+  if (!Array.isArray(raw)) return [];
+  const out: RadarVals[] = [];
+  for (const s of raw) {
+    if (!isObj(s) || !finite(s.tpl)) continue;
+    const vals: Record<string, number> = {};
+    if (isObj(s.vals))
+      for (const [k, v] of Object.entries(s.vals))
+        if (Number.isFinite(num(k)) && finite(v)) vals[String(Math.trunc(num(k)))] = num(v);
+    out.push({ tpl: Math.trunc(num(s.tpl)), state: str(s.state, 100), vals });
+  }
+  return out.slice(0, 200);
+}
+
+/* ---------- 角色庫、關係庫 ---------- */
+
+export function normalizeVariant(raw: unknown, fallbackId: number): Variant | null {
+  if (!isObj(raw)) return null;
+  return {
+    id: finite(raw.id) ? Math.trunc(num(raw.id)) : fallbackId,
+    ...looks(raw),
+    radars: normalizeRadarVals(raw.radars),
+  };
+}
+
+export function normalizeEntry(raw: unknown, next: () => number): CharEntry | null {
+  if (!isObj(raw)) return null;
+  const variants: Variant[] = [];
+  for (const v of Array.isArray(raw.variants) ? raw.variants : []) {
+    const n = normalizeVariant(v, next());
+    if (n && !variants.some((x) => x.id === n.id)) variants.push(n);
+  }
+  if (!variants.length) return null;
+  return {
+    id: finite(raw.id) ? Math.trunc(num(raw.id)) : next(),
+    variants,
+    unified: bool(raw.unified),
+    info: str(raw.info, 400000),
+    font: charFont(raw.font),
+  };
+}
+
+function normalizeRelVariant(raw: unknown, fallbackId: number): RelVariant | null {
+  const t = normalizeType(raw, fallbackId);
+  if (!t) return null;
+  return {
+    id: t.id,
+    label: t.label,
+    color: t.color,
+    outlineColor: t.outlineColor,
+    lineStyle: t.lineStyle,
+    capStyle: t.capStyle,
+    lineW: t.lineW,
+    outlineW: t.outlineW,
+    mag: t.mag,
+  };
+}
+
+export function normalizeRelEntry(raw: unknown, next: () => number): RelEntry | null {
+  if (!isObj(raw)) return null;
+  const variants: RelVariant[] = [];
+  for (const v of Array.isArray(raw.variants) ? raw.variants : []) {
+    const n = normalizeRelVariant(v, next());
+    if (n && !variants.some((x) => x.id === n.id)) variants.push(n);
+  }
+  if (!variants.length) return null;
+  return { id: finite(raw.id) ? Math.trunc(num(raw.id)) : next(), variants };
+}
+
+export const FONT_FORMATS: readonly FontFormat[] = ['ttf', 'otf', 'woff', 'woff2'];
+
+function normalizeFrameItem(raw: unknown): FrameItem | null {
+  if (!isObj(raw)) return null;
+  const id = assetId(raw.id);
+  return id ? { id, name: str(raw.name, 60) } : null;
+}
+
+function normalizeFontItem(raw: unknown): FontItem | null {
+  if (!isObj(raw)) return null;
+  const id = assetId(raw.id);
+  if (!id) return null;
+  return {
+    id,
+    name: str(raw.name, 100),
+    fmt: FONT_FORMATS.includes(raw.fmt as FontFormat) ? (raw.fmt as FontFormat) : 'ttf',
+  };
+}
+
+/** 看法（原作的 setView／sanitizeViews）：換行與 Tab 壓成一個空白、去頭尾空白、最多 120 字 */
+export function viewText(v: unknown): string {
+  return typeof v === 'string'
+    ? v
+        .replace(/[\r\n\t]+/g, ' ')
+        .trim()
+        .slice(0, 120)
+    : '';
+}
+
+/** 看法：不能對自己寫、空的不留 */
+export function normalizeViews(raw: unknown): Record<string, Record<string, string>> {
+  const out: Record<string, Record<string, string>> = {};
+  if (!isObj(raw)) return out;
+  for (const [a, row] of Object.entries(raw)) {
+    if (!Number.isFinite(num(a)) || !isObj(row)) continue;
+    const ka = String(Math.trunc(num(a)));
+    for (const [b, t] of Object.entries(row)) {
+      if (!Number.isFinite(num(b))) continue;
+      const kb = String(Math.trunc(num(b)));
+      const text = viewText(t);
+      if (!text || ka === kb) continue;
+      out[ka] = out[ka] ?? {};
+      out[ka][kb] = text;
+    }
+  }
+  return out;
 }
 
 export function normalizeType(raw: unknown, fallbackId: number): RelType | null {
@@ -381,6 +570,8 @@ export function normalizeType(raw: unknown, fallbackId: number): RelType | null 
   const mag = Math.round(num(raw.mag));
   return {
     id: finite(raw.id) ? Math.trunc(num(raw.id)) : fallbackId,
+    lib: finite(raw.lib) ? Math.trunc(num(raw.lib)) : 0,
+    vari: finite(raw.vari) ? Math.trunc(num(raw.vari)) : 0,
     label: str(raw.label, 200),
     color: safeColor(raw.color),
     outlineColor: safeColor(raw.outlineColor),
@@ -438,6 +629,7 @@ export function emptySheet(id: number, defNo: number, base?: Partial<Sheet>): Sh
     settings: newSettings(),
     grels: [],
     collapsed: [],
+    views: {},
     ...base,
   };
 }
@@ -477,6 +669,7 @@ export function normalizeLabel(raw: unknown): Label | null {
     hidden: bool(raw.hidden),
     noPull: bool(raw.noPull),
     zone: bool(raw.zone),
+    frame: assetId(raw.frame) ?? '',
   };
 }
 
@@ -535,11 +728,15 @@ export function normalizeSheet(raw: unknown, fallbackId: number): Sheet | null {
     settings: normalizeSettings(raw.settings),
     grels,
     collapsed,
+    views: normalizeViews(raw.views),
   };
 }
 
 /** 一個專案用到的最大 id */
-export function maxIdOf(p: Pick<Project, 'sheets' | 'labels'>): number {
+export function maxIdOf(
+  p: Pick<Project, 'sheets' | 'labels'> &
+    Partial<Pick<Project, 'library' | 'relLibrary' | 'radarTpls'>>,
+): number {
   let m = 0;
   for (const s of p.sheets) {
     m = Math.max(m, s.id);
@@ -549,6 +746,18 @@ export function maxIdOf(p: Pick<Project, 'sheets' | 'labels'>): number {
     for (const g of s.grels ?? []) m = Math.max(m, g.id);
   }
   for (const l of p.labels) m = Math.max(m, l.id);
+  for (const e of p.library ?? []) {
+    m = Math.max(m, e.id);
+    for (const v of e.variants) m = Math.max(m, v.id);
+  }
+  for (const e of p.relLibrary ?? []) {
+    m = Math.max(m, e.id);
+    for (const v of e.variants) m = Math.max(m, v.id);
+  }
+  for (const t of p.radarTpls ?? []) {
+    m = Math.max(m, t.id);
+    for (const a of t.axes) m = Math.max(m, a.id);
+  }
   return m;
 }
 
@@ -593,8 +802,66 @@ function fixIds(p: Project): void {
       g.type = typeMap.get(g.type) ?? g.type;
       g.except = g.except.map((x) => charMap.get(x) ?? x);
     }
+    if (charMap.size) s.views = remapViews(s.views, charMap);
+  }
+  /* 角色庫、關係庫：臨時給的 id 換成新的（實例的綁定跟著換） */
+  const entryMap = new Map<number, number>();
+  const varMap = new Map<number, number>();
+  for (const e of p.library) {
+    if (e.id <= 0) {
+      const nid = take();
+      entryMap.set(e.id, nid);
+      e.id = nid;
+    }
+    for (const v of e.variants)
+      if (v.id <= 0) {
+        const nid = take();
+        varMap.set(v.id, nid);
+        v.id = nid;
+      }
+  }
+  const relEntryMap = new Map<number, number>();
+  const relVarMap = new Map<number, number>();
+  for (const e of p.relLibrary) {
+    if (e.id <= 0) {
+      const nid = take();
+      relEntryMap.set(e.id, nid);
+      e.id = nid;
+    }
+    for (const v of e.variants)
+      if (v.id <= 0) {
+        const nid = take();
+        relVarMap.set(v.id, nid);
+        v.id = nid;
+      }
+  }
+  for (const s of p.sheets) {
+    for (const c of s.chars) {
+      c.lib = entryMap.get(c.lib) ?? c.lib;
+      c.vari = varMap.get(c.vari) ?? c.vari;
+    }
+    for (const t of s.types) {
+      t.lib = relEntryMap.get(t.lib) ?? t.lib;
+      t.vari = relVarMap.get(t.vari) ?? t.vari;
+    }
   }
   p.nextId = Math.max(next, maxIdOf(p) + 1);
+}
+
+/** 看法的兩層 key 換成新的角色 id */
+export function remapViews(
+  views: Record<string, Record<string, string>>,
+  charMap: ReadonlyMap<number, number>,
+): Record<string, Record<string, string>> {
+  const out: Record<string, Record<string, string>> = {};
+  for (const [a, row] of Object.entries(views)) {
+    const na = String(charMap.get(Number(a)) ?? a);
+    for (const [b, t] of Object.entries(row)) {
+      out[na] = out[na] ?? {};
+      out[na][String(charMap.get(Number(b)) ?? b)] = t;
+    }
+  }
+  return out;
 }
 
 /** 未用的最小正整數 */
@@ -632,6 +899,11 @@ export function initialProject(): Project {
     labels: [],
     nextId: 2,
     font: 'sans',
+    library: [],
+    relLibrary: [],
+    radarTpls: [],
+    frames: [],
+    fonts: [],
   };
 }
 
@@ -650,22 +922,71 @@ export function normalizeProject(raw: unknown): Project | null {
     const n = normalizeLabel(l);
     if (n && !labels.some((x) => x.id === n.id)) labels.push(n);
   }
+  const library: CharEntry[] = [];
+  for (const e of Array.isArray(raw.library) ? raw.library : []) {
+    const n = normalizeEntry(e, () => auto--);
+    if (n && !library.some((x) => x.id === n.id)) library.push(n);
+  }
+  /* 變體 id 全專案唯一（重複的換一個） */
+  const seenVar = new Set<number>();
+  for (const e of library)
+    for (const v of e.variants) {
+      if (seenVar.has(v.id)) v.id = auto--;
+      seenVar.add(v.id);
+    }
+  const relLibrary: RelEntry[] = [];
+  for (const e of Array.isArray(raw.relLibrary) ? raw.relLibrary : []) {
+    const n = normalizeRelEntry(e, () => auto--);
+    if (n && !relLibrary.some((x) => x.id === n.id)) relLibrary.push(n);
+  }
+  const seenRelVar = new Set<number>();
+  for (const e of relLibrary)
+    for (const v of e.variants) {
+      if (seenRelVar.has(v.id)) v.id = auto--;
+      seenRelVar.add(v.id);
+    }
+  const radarTpls: RadarTpl[] = [];
+  for (const t of Array.isArray(raw.radarTpls) ? raw.radarTpls : []) {
+    const n = normalizeRadarTpl(t);
+    if (n && !radarTpls.some((x) => x.id === n.id)) radarTpls.push(n);
+  }
+  const frames: FrameItem[] = [];
+  for (const f of Array.isArray(raw.frames) ? raw.frames : []) {
+    const n = normalizeFrameItem(f);
+    if (n && !frames.some((x) => x.id === n.id)) frames.push(n);
+  }
+  const fonts: FontItem[] = [];
+  for (const f of Array.isArray(raw.fonts) ? raw.fonts : []) {
+    const n = normalizeFontItem(f);
+    if (n && !fonts.some((x) => x.id === n.id)) fonts.push(n);
+  }
   const p: Project = {
     sheets,
     active: Math.min(sheets.length - 1, Math.max(0, Math.trunc(num(raw.active)) || 0)),
     labels,
     nextId: finite(raw.nextId) ? Math.max(1, Math.trunc(num(raw.nextId))) : 1,
-    font: FONT_KEYS.includes(raw.font as FontKey) ? (raw.font as FontKey) : 'sans',
+    font: fontValue(raw.font) ?? 'sans',
+    library,
+    relLibrary,
+    radarTpls,
+    frames,
+    fonts,
   };
   fixIds(p);
   fixDefNos(p);
-  /* 角色身上的標籤只留專案裡存在的；收合名單只留還是陣營框的標籤（原作 computeColMaps 的自清） */
+  /* 角色（實例與變體）的標籤只留專案裡存在的；收合名單只留還是陣營框的標籤（原作 computeColMaps 的自清） */
   const lblIds = new Set(p.labels.map((l) => l.id));
   const zoneIds = new Set(p.labels.filter((l) => l.zone).map((l) => l.id));
+  for (const e of p.library)
+    for (const v of e.variants)
+      if (v.labels.some((id) => !lblIds.has(id)))
+        v.labels = v.labels.filter((id) => lblIds.has(id));
   for (const s of p.sheets) {
     for (const c of s.chars) dropCharLabels(c, (id) => !lblIds.has(id));
     s.collapsed = s.collapsed.filter((id) => zoneIds.has(id));
   }
+  /* 三層對齊：沒有條目的實例建一筆（舊版的資料）、副本照變體；關係類型收錄進關係庫 */
+  syncLibrary(p, null);
   /* 座標壞掉的角色放到畫布中央（之後的排列會再處理） */
   for (const s of p.sheets)
     for (const c of s.chars) {
@@ -675,17 +996,28 @@ export function normalizeProject(raw: unknown): Project | null {
   return p;
 }
 
-/** 用到的圖片資產 id */
+/** 角色資訊裡的圖片（`rcimg:<資產 id>`） */
+export function richImageIds(html: string): string[] {
+  return [...html.matchAll(/rcimg:([0-9a-z]{6,80})/gi)].map((m) => m[1]);
+}
+
+/** 用到的資產 id（背景圖、頭像〔所有變體〕、頭像框、匯入的字型、角色資訊裡的圖片） */
 export function projectAssetIds(p: Project): string[] {
   const out = new Set<string>();
+  const av = (a: Avatar | null) => {
+    if (!a) return;
+    out.add(a.img);
+    if (a.src) out.add(a.src);
+  };
   for (const s of p.sheets) {
     if (s.bg) out.add(s.bg);
-    for (const c of s.chars) {
-      if (c.avatar) {
-        out.add(c.avatar.img);
-        if (c.avatar.src) out.add(c.avatar.src);
-      }
-    }
+    for (const c of s.chars) av(c.avatar);
   }
+  for (const e of p.library ?? []) {
+    for (const v of e.variants) av(v.avatar);
+    for (const id of richImageIds(e.info)) out.add(id);
+  }
+  for (const f of p.frames ?? []) out.add(f.id);
+  for (const f of p.fonts ?? []) out.add(f.id);
   return [...out];
 }

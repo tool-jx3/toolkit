@@ -7,6 +7,7 @@ import type { Char } from '../model/types';
 import {
   charBgPaint,
   charBorderW,
+  charFontAttr,
   charHasBorder,
   charIsSquare,
   charNameFillColor,
@@ -15,9 +16,12 @@ import {
   charRadius,
   charRingColor,
   displayName,
+  effectiveFrame,
   esc,
+  FRAME_SCALE,
   firstChar,
   NODE_R,
+  nameFrameDrop,
   nameLines,
   type SheetCtx,
   textNodeSize,
@@ -37,6 +41,36 @@ export interface NodeUi {
   linkDone?: ReadonlySet<number>;
   /** 建立關係模式中（標籤網關著時臨時畫出可以點的標籤圓點） */
   linking?: boolean;
+  /** 看法氣泡（點擊聚焦時：角色 id → 他說的話；第三批） */
+  bubbles?: ReadonlyMap<number, string>;
+}
+
+/** 頭像框（疊在頭像上、名字下面；框布＝頭像直徑 × 1.6，中心＝頭像中心） */
+export function frameSvg(
+  frameId: string | null,
+  cx: number,
+  cy: number,
+  r: number,
+  href: ImageHref,
+): string {
+  const url = frameId ? href(frameId) : null;
+  if (!url) return '';
+  const w = r * 2 * FRAME_SCALE;
+  return `<image class="av-frame" href="${esc(url)}" x="${(cx - w / 2).toFixed(1)}" y="${(cy - w / 2).toFixed(1)}" width="${w.toFixed(1)}" height="${w.toFixed(1)}"/>`;
+}
+
+/** 看法氣泡（原作的 viewBubbleSvg：單行、過長截斷、說話者的角色字型；不擋滑鼠、不匯出） */
+export function viewBubbleSvg(ctx: SheetCtx, c: Char, text: string, curR: number): string {
+  const fs = Math.max(12, charNameSize(ctx, c) * 0.9);
+  const MAXC = 26;
+  const disp = text.length > MAXC ? `${text.slice(0, MAXC - 1)}…` : text;
+  const w = disp.length * fs * 1.02 + fs * 1.8;
+  const h = fs * 1.95;
+  const bx = c.x - w / 2;
+  const by = c.y - curR - h - fs * 0.9;
+  const { panel, ink, line } = ctx.pal;
+  const tail = `M ${(c.x - fs * 0.45).toFixed(1)} ${(by + h - 1).toFixed(1)} L ${c.x.toFixed(1)} ${(by + h + fs * 0.65).toFixed(1)} L ${(c.x + fs * 0.45).toFixed(1)} ${(by + h - 1).toFixed(1)} Z`;
+  return `<g class="view-bubble" pointer-events="none"><path d="${tail}" fill="${panel}" stroke="${line}" stroke-width="1.4"/><rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="${(h / 2).toFixed(1)}" fill="${panel}" stroke="${line}" stroke-width="1.4"/><text${charFontAttr(ctx, c)} x="${c.x.toFixed(1)}" y="${(by + h / 2 + fs * 0.36).toFixed(1)}" text-anchor="middle" font-size="${fs.toFixed(1)}" fill="${ink}" font-weight="600">${esc(disp)}</text></g>`;
 }
 
 /** 頭像的「臉」：照片／圖示／首字（三選一） */
@@ -128,11 +162,12 @@ export function nodeSvg(
     const strokeW = Math.min(lvStroke, Math.max(1, ns * 0.4));
     const startY = noAv
       ? c.y - ((lines.length - 1) * lh) / 2 + ns * 0.35
-      : c.y + curR + 6 + ns * 0.9;
+      : c.y + curR + nameFrameDrop(ctx, c, curR) + 6 + ns * 0.9;
+    const fsty = charFontAttr(ctx, c);
     nameTag = lines
       .map(
         (ln, i) =>
-          `<text x="${f1(c.x)}" y="${f1(startY + i * lh)}" text-anchor="middle" font-size="${f1(ns)}" font-weight="700" fill="${nameFill}" stroke="${nameStroke}" stroke-width="${f1(strokeW)}" paint-order="stroke" stroke-linejoin="round">${esc(ln)}</text>`,
+          `<text${fsty} x="${f1(c.x)}" y="${f1(startY + i * lh)}" text-anchor="middle" font-size="${f1(ns)}" font-weight="700" fill="${nameFill}" stroke="${nameStroke}" stroke-width="${f1(strokeW)}" paint-order="stroke" stroke-linejoin="round">${esc(ln)}</text>`,
       )
       .join('');
   }
@@ -174,7 +209,12 @@ export function nodeSvg(
       pin = pinBadge(c.x + curR * 0.74, c.y - curR * 0.62, Math.round(20 * Math.min(fk, 1.5)));
   }
   const nameG = `<g class="node-name">${nameTag}</g>`;
-  const svg = `<g class="node" data-id="${c.id}">${extra}${body}<g class="node-face">${fs.face}</g>${splitName ? '' : nameG}${pin}</g>`;
+  /* 頭像框：有框才出這一組（沒有框時和第一批的輸出相同） */
+  const fr = noAv ? '' : frameSvg(effectiveFrame(ctx, c), c.x, c.y, curR, href);
+  const frameG = fr ? `<g class="node-frame">${fr}</g>` : '';
+  const said = ui?.bubbles?.get(c.id);
+  const bubble = said ? viewBubbleSvg(ctx, c, said, curR) : '';
+  const svg = `<g class="node" data-id="${c.id}">${extra}${body}<g class="node-face">${fs.face}</g>${frameG}${splitName ? '' : nameG}${pin}${bubble}</g>`;
   return { svg, defs: fs.defs, name: splitName && nameTag ? nameG : '' };
 }
 

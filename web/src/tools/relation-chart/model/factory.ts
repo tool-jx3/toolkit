@@ -13,6 +13,8 @@ export const makeChar = (
   o: Partial<Char> = {},
 ): Char => ({
   id,
+  lib: 0,
+  vari: 0,
   name,
   x,
   y,
@@ -34,11 +36,15 @@ export const makeChar = (
   nameSize: null,
   borderW: null,
   labels: [],
+  frame: null,
+  font: '',
   ...o,
 });
 
 export const makeType = (id: number, label: string, o: Partial<RelType> = {}): RelType => ({
   id,
+  lib: 0,
+  vari: 0,
   label,
   color: 'auto',
   outlineColor: 'auto',
@@ -83,6 +89,7 @@ export const makeLabel = (id: number, text: string, o: Partial<Label> = {}): Lab
   hidden: false,
   noPull: false,
   zone: false,
+  frame: '',
   ...o,
 });
 

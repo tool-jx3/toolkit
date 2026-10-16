@@ -8,12 +8,14 @@ import type { Char, LegendPos, RelType } from '../model/types';
 import {
   charBgPaint,
   charBorderW,
+  charFontAttr,
   charHasBorder,
   charIsSquare,
   charNameFillColor,
   charNameStrokeColor,
   charRingColor,
   displayName,
+  effectiveFrame,
   esc,
   type SheetCtx,
   typeLineColor,
@@ -37,7 +39,7 @@ import {
   type Outline,
   styledLineMarkup,
 } from './lines';
-import { charFaceSvg, type ImageHref } from './nodes';
+import { charFaceSvg, frameSvg, type ImageHref } from './nodes';
 
 export interface LegendBox {
   x: number;
@@ -488,7 +490,9 @@ function charLegend(
     const fs = charFaceSvg(ctx, c, cxx, y, R, `${idPrefix}lg${c.id}`, sw, href);
     defs += fs.defs;
     const nmW = Math.min(charBorderW(ctx, c), FS * 0.4);
-    const body = `${ring}${fs.face}<text x="${f1(x + SW + 8 * kk)}" y="${f1(y + 5 * kk)}" font-size="${f1(FS)}" fill="${charNameFillColor(ctx, c)}" font-weight="700" paint-order="stroke" stroke="${charNameStrokeColor(ctx, c)}" stroke-width="${f1(nmW)}" stroke-linejoin="round">${esc(displayName(c))}</text>`;
+    /* 頭像框（第三批）：同節點的比例；名字的角色字型 */
+    const fr = c.noAvatar ? '' : frameSvg(effectiveFrame(ctx, c), cxx, y, R, href);
+    const body = `${ring}${fs.face}${fr}<text${charFontAttr(ctx, c)} x="${f1(x + SW + 8 * kk)}" y="${f1(y + 5 * kk)}" font-size="${f1(FS)}" fill="${charNameFillColor(ctx, c)}" font-weight="700" paint-order="stroke" stroke="${charNameStrokeColor(ctx, c)}" stroke-width="${f1(nmW)}" stroke-linejoin="round">${esc(displayName(c))}</text>`;
     return shell(
       kk,
       ROW,

@@ -429,8 +429,8 @@ describe('標籤節點的位置（F182f、F182k、F182l）', () => {
 
 /* ---------- 動作（store） ---------- */
 
-function seed(p: Project) {
-  useProject.getState().replace(p);
+function seed(p: Omit<Project, 'library' | 'relLibrary' | 'radarTpls' | 'frames' | 'fonts'>) {
+  useProject.getState().replace(normalizeProject(p) as Project);
   useProject.temporal.getState().clear();
   useUi.setState({ sel: [], focus: null, hover: null, link: null, panel: null });
 }
@@ -459,9 +459,11 @@ describe('標籤庫的動作（F181）', () => {
   });
   it('新增：同名沿用；空白＝未命名標籤 N；加在最後', () => {
     expect(createLabel('甲')).toBe(1);
+    /* 新的 id 照專案的 nextId（第三批起整理時角色庫也會用掉幾個 id） */
+    const next = data().nextId;
     const id = createLabel('丙');
     expect(data().labels.map((l) => l.text)).toEqual(['甲', '乙', '丙']);
-    expect(id).toBe(1000);
+    expect(id).toBe(next);
     createLabel();
     expect(data().labels[3].text).toBe('未命名標籤1');
   });

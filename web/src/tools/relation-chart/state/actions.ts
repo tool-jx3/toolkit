@@ -28,12 +28,14 @@ import {
   unnamedLabelText,
   unnamedTypeLabel,
 } from '../model/factory';
+import { forkEntry, reclaimVirgin } from '../model/library';
 import {
   emptySheet,
   GREL_END_RE,
   newSettings,
   normalizeSheet,
   remapGrelEnd,
+  remapViews,
   smallestFree,
 } from '../model/normalize';
 import type {
@@ -143,14 +145,19 @@ export function switchSheet(idx: number): void {
   });
 }
 
-/** 新增分頁（copy＝複製目前的分頁；角色各自獨立，D5） */
-export function addSheet(copy: boolean): void {
+/**
+ * 新增分頁。copy：'same'＝複製目前的分頁、同一批人（共用條目與變體：改名字兩邊一起變；原作的複製分頁，D5）；
+ * 'fork'＝複製成獨立的新角色（每位角色複製成角色庫的新條目，只帶目前這件變體）。
+ * 角色、關係類型、關係線、群體關係的 id 換新的；看法跟著複製（原作漏了）。
+ */
+export function addSheet(copy: boolean | 'same' | 'fork'): void {
+  const mode = copy === true ? 'same' : copy;
   updateProject((p) => {
     const cur = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
     const id = takeId(p);
     const defNo = nextSheetDefNo(p);
     let sheet: Sheet;
-    if (copy) {
+    if (mode) {
       const snap = JSON.parse(JSON.stringify(cur)) as Sheet;
       const charMap = new Map<number, number>();
       const typeMap = new Map<number, number>();
@@ -159,9 +166,16 @@ export function addSheet(copy: boolean): void {
         const nid = takeId(p);
         charMap.set(c.id, nid);
         c.id = nid;
-        if (!c.name) {
-          c.defNo = smallestFree(used);
-          used.add(c.defNo);
+        if (mode === 'fork') {
+          const f = forkEntry(p as Project, c);
+          if (f.lib) {
+            c.lib = f.lib;
+            c.vari = f.vari;
+          }
+          if (!c.name) {
+            c.defNo = smallestFree(used);
+            used.add(c.defNo);
+          }
         }
       }
       for (const t of snap.types) {
@@ -176,6 +190,7 @@ export function addSheet(copy: boolean): void {
         r.type = typeMap.get(r.type) ?? r.type;
       }
       remapGrels(p, snap.grels, charMap, typeMap, null);
+      snap.views = remapViews(snap.views ?? {}, charMap);
       sheet = { ...snap, id, defNo, name: '' };
     } else {
       sheet = emptySheet(id, defNo, {
@@ -328,11 +343,13 @@ export function addSample(sheet: Sheet): void {
   setUi({ sel: [], focus: null, hover: null, link: null, panel: null, fitTick: u.fitTick + 1 });
 }
 
-/** 清空目前分頁的角色與關係 */
+/** 清空目前分頁的角色與關係（角色庫的條目留著；這張分頁的看法一起清） */
 export function clearSheet(): void {
   editSheet((s) => {
     s.chars = [];
     s.rels = [];
+    s.grels = [];
+    s.views = {};
   });
   setUi({ sel: [], focus: null, hover: null, panel: null });
 }
@@ -430,7 +447,10 @@ export function updateChars(
   });
 }
 
-/** 複製角色（外觀與標籤；關係不複製），回傳新的 id */
+/**
+ * 複製角色（新的人：角色庫的新條目，只帶目前這件變體〔外觀、標籤、數值、頭像框〕、角色資訊與角色字型；
+ * 關係不複製；原作的 forkLibEntry），回傳新的 id
+ */
 export function copyChars(ids: readonly number[], rand: () => number = Math.random): number[] {
   const out: number[] = [];
   const set = new Set(ids);
@@ -439,6 +459,9 @@ export function copyChars(ids: readonly number[], rand: () => number = Math.rand
     const src = s.chars.filter((c) => set.has(c.id));
     for (const c of src) {
       const cp = JSON.parse(JSON.stringify(c)) as Char;
+      const f = forkEntry(p as Project, c);
+      cp.lib = f.lib;
+      cp.vari = f.vari;
       cp.id = takeId(p);
       cp.name = copyName(c.name, s.chars);
       cp.defNo = nextCharDefNo(p);
@@ -458,18 +481,36 @@ export function copyChars(ids: readonly number[], rand: () => number = Math.rand
   return out;
 }
 
-/** 刪除角色與他們的關係 */
+/** 從一張分頁拿掉一些角色：他們的關係、是端點的群體關係、例外名單、看法 */
+export function dropCharsFrom(s: DSheet, set: ReadonlySet<number>): void {
+  s.chars = s.chars.filter((c) => !set.has(c.id));
+  s.rels = s.rels.filter((r) => !set.has(r.from) && !set.has(r.to));
+  const gone = (e: string) => !grelEndIsLbl(e) && set.has(grelEndId(e));
+  s.grels = s.grels.filter((g) => !gone(g.from) && !gone(g.to));
+  for (const g of s.grels)
+    if (g.except.some((x) => set.has(x))) g.except = g.except.filter((x) => !set.has(x));
+  if (s.views && Object.keys(s.views).length) {
+    for (const k of Object.keys(s.views)) {
+      if (set.has(Number(k))) {
+        delete s.views[k];
+        continue;
+      }
+      const row = s.views[k];
+      for (const t of Object.keys(row)) if (set.has(Number(t))) delete row[t];
+      if (!Object.keys(row).length) delete s.views[k];
+    }
+  }
+}
+
+/** 刪除角色與他們的關係（條目留在角色庫；沒有內容的空角色連條目一起刪＝原作的空角色回收） */
 export function deleteChars(ids: readonly number[]): void {
   const set = new Set(ids);
   if (!set.size) return;
-  editSheet((s) => {
-    s.chars = s.chars.filter((c) => !set.has(c.id));
-    s.rels = s.rels.filter((r) => !set.has(r.from) && !set.has(r.to));
-    /* 角色是端點的群體關係一起刪；例外名單拿掉他 */
-    const gone = (e: string) => !grelEndIsLbl(e) && set.has(grelEndId(e));
-    s.grels = s.grels.filter((g) => !gone(g.from) && !gone(g.to));
-    for (const g of s.grels)
-      if (g.except.some((x) => set.has(x))) g.except = g.except.filter((x) => !set.has(x));
+  updateProject((p) => {
+    const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
+    const libs = s.chars.filter((c) => set.has(c.id)).map((c) => c.lib);
+    dropCharsFrom(s, set);
+    reclaimVirgin(p as Project, libs);
   });
   pruneUi();
 }
@@ -545,10 +586,10 @@ export function editLabel(id: number, text: string, color: ColorValue): void {
   });
 }
 
-/** 顏色與三個開關（隱藏、沒有引力、陣營框）；不再是陣營框＝收合解除 */
+/** 顏色、三個開關（隱藏、沒有引力、陣營框）、頭像框（第三批）；不再是陣營框＝收合解除 */
 export function updateLabel(
   id: number,
-  patch: Partial<Pick<Label, 'color' | 'hidden' | 'noPull' | 'zone'>>,
+  patch: Partial<Pick<Label, 'color' | 'hidden' | 'noPull' | 'zone' | 'frame'>>,
 ): void {
   updateProject((p) => {
     const l = p.labels.find((x) => x.id === id);
@@ -602,6 +643,10 @@ export function deleteLabels(ids: readonly number[]): void {
   if (!set.size) return;
   updateProject((p) => {
     p.labels = p.labels.filter((l) => !set.has(l.id));
+    /* 角色庫裡沒有人穿的變體也一起拿掉（標籤在變體上） */
+    for (const e of p.library)
+      for (const v of e.variants)
+        if (v.labels.some((l) => set.has(l))) v.labels = v.labels.filter((l) => !set.has(l));
     for (const s of p.sheets) {
       for (const c of s.chars) dropCharLabels(c, (l) => set.has(l));
       for (const id of set) {
@@ -717,9 +762,12 @@ export function copyType(id: number): number {
     const src = s.types.find((t) => t.id === id);
     if (!src) return;
     nid = takeId(p);
+    /* 複製出來的是新的關係概念：不綁來源的關係庫變體（同步時收錄成新的一筆） */
     s.types.push({
       ...JSON.parse(JSON.stringify(src)),
       id: nid,
+      lib: 0,
+      vari: 0,
       label: copyTypeLabel(src.label, s.types as RelType[]),
     });
   });

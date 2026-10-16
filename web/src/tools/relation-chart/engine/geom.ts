@@ -5,7 +5,18 @@
  * 解析順序一律「個別設定 → 分頁設定 → 自動值」。純函式，不碰 DOM。
  */
 import { ownColor } from '../model/normalize';
-import type { Char, FontKey, Label, Palette, RelType, Sheet, SheetSettings } from '../model/types';
+import type {
+  Char,
+  FontItem,
+  FontKey,
+  FontValue,
+  FrameItem,
+  Label,
+  Palette,
+  RelType,
+  Sheet,
+  SheetSettings,
+} from '../model/types';
 
 /** 原作的節點基準半徑 */
 export const NODE_R = 46;
@@ -59,6 +70,13 @@ export const FONT_STACKS: Record<FontKey, string> = {
   mono: 'ui-monospace,SFMono-Regular,Menlo,Consolas,"Noto Sans Mono","Microsoft JhengHei",monospace',
 };
 
+/** 專案層級的外觀（第三批）：文件字型、匯入的字型、頭像框庫 */
+export interface ProjectLook {
+  font?: FontValue;
+  fonts?: readonly FontItem[];
+  frames?: readonly FrameItem[];
+}
+
 /** 畫一張分頁需要的東西 */
 export interface SheetCtx {
   sheet: Sheet;
@@ -71,9 +89,19 @@ export interface SheetCtx {
   /** 專案的標籤（標籤庫的順序）；沒給＝沒有標籤 */
   labels: readonly Label[];
   lblById: Map<number, Label>;
+  /** 文件字型、庫裡有的匯入字型與頭像框（資產 id；第三批） */
+  docFont: FontValue;
+  fontIds: ReadonlySet<string>;
+  frameIds: ReadonlySet<string>;
 }
 
-export function sheetCtx(sheet: Sheet, labels: readonly Label[] = []): SheetCtx {
+const NO_IDS: ReadonlySet<string> = new Set();
+
+export function sheetCtx(
+  sheet: Sheet,
+  labels: readonly Label[] = [],
+  look: ProjectLook = {},
+): SheetCtx {
   const W = sheet.W || 1000;
   const H = sheet.H || W;
   return {
@@ -86,7 +114,95 @@ export function sheetCtx(sheet: Sheet, labels: readonly Label[] = []): SheetCtx 
     typeById: new Map(sheet.types.map((t) => [t.id, t])),
     labels,
     lblById: new Map(labels.map((l) => [l.id, l])),
+    docFont: look.font ?? 'sans',
+    fontIds: look.fonts?.length ? new Set(look.fonts.map((f) => f.id)) : NO_IDS,
+    frameIds: look.frames?.length ? new Set(look.frames.map((f) => f.id)) : NO_IDS,
   };
+}
+
+/* ---------- 字型（第三批：匯入的字型、角色字型；原作的 fontCssOf／charFontSty） ---------- */
+
+/** 匯入字型的 font-family 名稱 */
+export const importedFamily = (assetId: string): string => `crf-${assetId}`;
+
+/** 字型的值 → CSS 字型組（匯入的字型在最前面、後面接黑體；庫裡沒有＝黑體） */
+export function fontStack(v: FontValue, fontIds: ReadonlySet<string>): string {
+  if (v.startsWith('f:')) {
+    const id = v.slice(2);
+    return fontIds.has(id) ? `"${importedFamily(id)}",${FONT_STACKS.sans}` : FONT_STACKS.sans;
+  }
+  return FONT_STACKS[v as FontKey] ?? FONT_STACKS.sans;
+}
+
+/** 角色名字的字型（寫在 style；沒設＝跟隨文件字型＝空字串）：匯入的接文件字型、內建的照字型組 */
+export function charFontCss(ctx: SheetCtx, c: Char): string {
+  const v = c.font;
+  if (!v) return '';
+  if (v.startsWith('f:')) {
+    const id = v.slice(2);
+    return ctx.fontIds.has(id)
+      ? `"${importedFamily(id)}",${fontStack(ctx.docFont, ctx.fontIds)}`
+      : '';
+  }
+  return FONT_STACKS[v as FontKey] ?? '';
+}
+
+/** 名字 <text> 的 style 屬性（前面有空白；沒有＝空字串） */
+export const charFontAttr = (ctx: SheetCtx, c: Char): string => {
+  const css = charFontCss(ctx, c);
+  return css ? ` style="font-family:${esc(css)}"` : '';
+};
+
+/* ---------- 頭像框（第三批；原作的 effectiveFrame、FRAME_SCALE、nameFrameDrop） ---------- */
+
+/** 框布是頭像直徑的 1.6 倍（範本 512 對應頭像 320） */
+export const FRAME_SCALE = 1.6;
+
+/**
+ * 角色實際戴的框與來源：變體自己指定（''＝不要框；指定的框不在庫裡＝沒有框）→ 跟隨標籤（標籤庫的順序第一個有框的）
+ * → 分頁的預設框。純文字角色不戴框。
+ */
+export function frameSource(
+  ctx: SheetCtx,
+  c: Pick<Char, 'frame' | 'labels' | 'noAvatar'>,
+): { id: string; from: 'own' | 'label' | 'sheet'; label?: Label } | null {
+  if (c.noAvatar) return null;
+  return frameRefSource(ctx, c);
+}
+
+/** 同上，不看純文字（清單的縮圖、目前值的說明） */
+export function frameRefSource(
+  ctx: Pick<SheetCtx, 'labels' | 'frameIds' | 's'>,
+  c: Pick<Char, 'frame' | 'labels'>,
+): { id: string; from: 'own' | 'label' | 'sheet'; label?: Label } | null {
+  if (!ctx.frameIds.size) return null;
+  const own = c.frame;
+  if (own === '') return null;
+  if (own) return ctx.frameIds.has(own) ? { id: own, from: 'own' } : null;
+  if (c.labels.length) {
+    const mine = new Set(c.labels);
+    for (const l of ctx.labels)
+      if (mine.has(l.id) && l.frame && ctx.frameIds.has(l.frame))
+        return { id: l.frame, from: 'label', label: l };
+  }
+  const d = ctx.s.defFrame;
+  return d && ctx.frameIds.has(d) ? { id: d, from: 'sheet' } : null;
+}
+
+export const effectiveFrame = (ctx: SheetCtx, c: Char): string | null =>
+  frameSource(ctx, c)?.id ?? null;
+
+/** 戴框時名字往下讓（框往下多出的量） */
+export const nameFrameDrop = (ctx: SheetCtx, c: Char, r: number): number =>
+  effectiveFrame(ctx, c) ? r * (FRAME_SCALE - 1) : 0;
+
+/** 頭像框的外擴（畫面與互動網頁的 viewBox 多撐開，邊緣角色的框不被裁；不改碰撞與出血） */
+export function framePad(ctx: SheetCtx): number {
+  if (!ctx.frameIds.size) return 0;
+  let pad = 0;
+  for (const c of ctx.sheet.chars)
+    if (effectiveFrame(ctx, c)) pad = Math.max(pad, charRadius(ctx, c) * (FRAME_SCALE - 1));
+  return Math.ceil(pad);
 }
 
 const canvasK = (w: number) => Math.sqrt(Math.max(1, (w || 1000) / 1000));
@@ -217,7 +333,7 @@ export function nameBoxExitDist(ctx: SheetCtx, c: Char, dx: number, dy: number):
   const k = ns / 15;
   const lines = c.name.split('\n');
   const w = Math.max(30, ...lines.map((l) => exactTextWidth(l) * k)) + 10;
-  const top = curR + 6;
+  const top = curR + nameFrameDrop(ctx, c, curR) + 6;
   const bottom = top + ns * 0.9 + (lines.length - 1) * lh + ns * 0.35;
   const tBottom = bottom / dy;
   if (Math.abs(tBottom * dx) <= w / 2) return tBottom;

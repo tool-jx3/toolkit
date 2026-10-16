@@ -9,12 +9,13 @@ import { create } from 'zustand';
 import type { StateStorage } from 'zustand/middleware';
 import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
+import { syncLibrary } from '../model/library';
 import { initialProject, normalizeProject, projectAssetIds } from '../model/normalize';
 import type { ColorValue, Project, Sheet } from '../model/types';
 
 export const TOOL_ID = 'relation-chart';
-/** 專案檔與自動儲存的資料版本 */
-export const DATA_VERSION = 2;
+/** 專案檔與自動儲存的資料版本（3：角色庫、關係庫、數值、頭像框、匯入字型、看法） */
+export const DATA_VERSION = 3;
 
 /** 寫入 localStorage 延後一點（連續變更只寫最後一次）；離開頁面、切到背景時立刻寫 */
 function deferredStorage(delayMs = 400, onError?: (e: unknown) => void): StateStorage {
@@ -111,14 +112,13 @@ export function syncProject(): void {
 }
 export function updateProject(recipe: ProjectRecipe): void {
   const pre = beforeUpdate;
-  useProject.getState().update(
-    pre
-      ? (p) => {
-          pre(p);
-          recipe(p);
-        }
-      : recipe,
-  );
+  const prev = useProject.getState().data;
+  useProject.getState().update((p) => {
+    pre?.(p);
+    recipe(p);
+    /* 角色的三層、關係類型與關係庫對齊（model/library） */
+    syncLibrary(p as Project, prev);
+  });
 }
 
 /*

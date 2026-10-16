@@ -152,6 +152,11 @@ function datasets(): Dataset[] {
         labels: conv.labels,
         nextId: 100000,
         font,
+        library: [],
+        relLibrary: [],
+        radarTpls: [],
+        frames: [],
+        fonts: [],
       },
     });
   }
@@ -161,7 +166,18 @@ function datasets(): Dataset[] {
     s.defNo = 1;
     out.push({
       name: `sample:${key}`,
-      project: { sheets: [s], active: 0, labels: [], nextId: 100000, font: 'sans' },
+      project: {
+        sheets: [s],
+        active: 0,
+        labels: [],
+        nextId: 100000,
+        font: 'sans',
+        library: [],
+        relLibrary: [],
+        radarTpls: [],
+        frames: [],
+        fonts: [],
+      },
     });
   }
   const g1 = generated(7, 40, 1400, 1000);
