@@ -188,6 +188,51 @@ export interface SheetSettings {
   colRelLine: ColorValue;
   colRelText: ColorValue;
   colRelOutline: ColorValue;
+  /* ---- 第二批：標籤與陣營框的顯示（原作的同名設定） ---- */
+  /** 標籤網：標籤畫成畫布上的節點 */
+  showLabelNodes: boolean;
+  /** 這張分頁沒有成員的標籤也畫 */
+  showFreeLbls: boolean;
+  /** 標籤節點大小倍率（0.5～2） */
+  lblNodeScale: number;
+  /** 互動網頁的角色卡也列出隱藏的標籤 */
+  viewerHiddenLbls: boolean;
+  /** 陣營框的總開關 */
+  showZones: boolean;
+  zoneOutline: boolean;
+  /** 外框線粗細（0.5～8） */
+  zoneEdgeW: number;
+  /** 填色濃度（0.02～0.6） */
+  zoneFillOp: number;
+  /** 連結鬆緊、厚度、同心層距（0～10 的整數） */
+  zoneLink: number;
+  zoneThick: number;
+  zoneLayerStep: number;
+  /** 重疊處：true＝混色、false＝依標籤順序 */
+  zoneBlend: boolean;
+  showLblLegend: boolean;
+  lblLegendPos: LegendPos;
+  /** 標籤節點的位置（標籤 id → 座標；沒有＝自動） */
+  labelPos: Record<string, { x: number; y: number }>;
+  /** 陣營名稱的方向（標籤 id → 弧度；沒有＝正上方） */
+  zoneNameAng: Record<string, number>;
+}
+
+/** 群體關係的端點：`C<角色 id>` 或 `L<標籤 id>` */
+export type GrelEnd = string;
+
+/** 群體關係（一端或兩端是標籤的關係規則；原作的 grels） */
+export interface GroupRel {
+  id: number;
+  from: GrelEnd;
+  to: GrelEnd;
+  type: number;
+  both: boolean;
+  /** 算到每位成員 */
+  inherit: boolean;
+  note: string;
+  /** 例外（不適用）的角色 id */
+  except: number[];
 }
 
 export interface Sheet {
@@ -203,11 +248,20 @@ export interface Sheet {
   /** 背景圖的資產 id */
   bg: string | null;
   settings: SheetSettings;
+  /** 群體關係（第二批） */
+  grels: GroupRel[];
+  /** 收合中的陣營（標籤 id；第二批） */
+  collapsed: number[];
 }
 
 export interface Label {
   id: number;
   text: string;
+  /** 第二批：顏色（auto＝畫布配色的自動外框色）、隱藏、沒有引力、陣營框 */
+  color: ColorValue;
+  hidden: boolean;
+  noPull: boolean;
+  zone: boolean;
 }
 
 export type FontKey = 'sans' | 'serif' | 'round' | 'kai' | 'mono';

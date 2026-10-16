@@ -7,9 +7,17 @@ import { Maximize, Minus, Plus } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Button, IconButton, withShortcut } from '@/ui';
 import { editorSvg } from '../engine/chart';
-import { displayName, focusDimSet, PALETTES } from '../engine/geom';
+import { displayName, focusDimSet, PALETTES, type SheetCtx, sheetCtx } from '../engine/geom';
+import {
+  colEdgeFocusHit,
+  colFocusHit,
+  focusSets,
+  grelEndId,
+  grelEndIsLbl,
+  labelColor,
+} from '../engine/labels';
 import { typeLabel } from '../model/factory';
-import type { Sheet } from '../model/types';
+import type { Label, Sheet } from '../model/types';
 import { addChar, endLink } from '../state/actions';
 import { drawnImageIds, useImageUrls } from '../state/images';
 import { activeIndex, type FocusRef, setUi, usePrefs, useProject, useUi } from '../state/store';
@@ -21,11 +29,18 @@ import { bindView, fitView, zoomBy } from './view';
 
 const CANVAS_CSS = `
 .rc-host .rc-chart{display:block;width:100%;height:100%}
-.rc-host .rc-chart .node,.rc-host .rc-chart .edge,.rc-host .rc-chart .layer-legend{transition:opacity .2s ease}
-.rc-host .rc-chart.focus-active .node{opacity:var(--fdim-node,.15)}
-.rc-host .rc-chart.focus-active .edge{opacity:var(--fdim-edge,.07)}
+.rc-host .rc-chart .node,.rc-host .rc-chart .edge,.rc-host .rc-chart .layer-legend,.rc-host .rc-chart .lbl-node,.rc-host .rc-chart .lbl-links,.rc-host .rc-chart .zone-g,.rc-host .rc-chart .colnode,.rc-host .rc-chart .col-edge{transition:opacity .2s ease}
+.rc-host .rc-chart.focus-active .node,.rc-host .rc-chart.focus-active .lbl-node,.rc-host .rc-chart.focus-active .colnode{opacity:var(--fdim-node,.15)}
+.rc-host .rc-chart.focus-active .edge,.rc-host .rc-chart.focus-active .lbl-links,.rc-host .rc-chart.focus-active .zone-g,.rc-host .rc-chart.focus-active .col-edge{opacity:var(--fdim-edge,.07)}
 .rc-host .rc-chart.focus-active.dim-legend .layer-legend{opacity:var(--fdim-legend,.3)}
-.rc-host .rc-chart.focus-active .node.focusedV,.rc-host .rc-chart.focus-active .edge.focusedV{opacity:1}
+.rc-host .rc-chart.focus-active .node.focusedV,.rc-host .rc-chart.focus-active .edge.focusedV,.rc-host .rc-chart.focus-active .lbl-node.focusedV,.rc-host .rc-chart.focus-active .lbl-links.focusedV,.rc-host .rc-chart.focus-active .zone-g.focusedV,.rc-host .rc-chart.focus-active .colnode.focusedV,.rc-host .rc-chart.focus-active .col-edge.focusedV{opacity:1}
+.rc-host .rc-chart .grel-fan{opacity:0;pointer-events:none;transition:opacity .15s ease}
+.rc-host .rc-chart .grel-edge:hover .grel-fan{opacity:.4}
+.rc-host .rc-chart .grel-edge,.rc-host .rc-chart .col-edge,.rc-host .rc-chart .colnode,.rc-host .rc-chart .zone-colhot{cursor:pointer}
+.rc-host .rc-chart .lbl-temp .lbl-node circle{stroke-dasharray:5 4}
+.rc-host.rc-linking .rc-chart .lbl-node{cursor:pointer!important}
+.rc-host.rc-linking .rc-chart .layer-zones{pointer-events:auto}
+.rc-host.rc-linking .rc-chart .zone-g{cursor:pointer}
 .rc-host .rc-chart .legend-item{cursor:pointer}
 .rc-host .rc-chart .legend-item .legend-pill{transition:opacity .18s ease;fill:var(--accent);stroke:var(--accent)}
 .rc-host .rc-chart .sel-ring>*{stroke:var(--accent)}
@@ -37,40 +52,55 @@ const CANVAS_CSS = `
 @keyframes rc-ring{from{stroke-dashoffset:164}to{stroke-dashoffset:0}}
 `;
 
-/** 聚焦：角色＋一度關係／一條線＋兩端／一種關係＋兩端（圖例的選中框跟著亮） */
-function applyFocus(svg: SVGSVGElement, f: FocusRef | null, fromLegend: boolean): void {
+/**
+ * 聚焦：角色＋一度關係＋他的陣營框／標籤／一條線＋兩端／一種關係＋兩端／一個標籤＋成員＋成員之間的線
+ * （圖例的選中框跟著亮；收合節點代替收合中的成員亮，聚合線看組成的關係）。
+ */
+function applyFocus(svg: SVGSVGElement, f: FocusRef | null, ctx: SheetCtx): void {
+  const fromLegend = f?.kind === 'type' || f?.kind === 'label';
   svg.classList.toggle('focus-active', !!f);
   svg.classList.toggle('dim-legend', !!f && !fromLegend);
   for (const el of svg.querySelectorAll('.focusedV')) el.classList.remove('focusedV');
   for (const el of svg.querySelectorAll('.legend-on')) el.classList.remove('legend-on');
   if (!f) return;
-  const keep = new Set<string>();
-  const edges = svg.querySelectorAll<SVGGElement>('.edge');
-  for (const eg of edges) {
-    const from = eg.getAttribute('data-from') ?? '';
-    const to = eg.getAttribute('data-to') ?? '';
-    const hit =
-      f.kind === 'node'
-        ? from === String(f.id) || to === String(f.id)
-        : f.kind === 'edge'
-          ? eg.getAttribute('data-relid') === String(f.id)
-          : eg.getAttribute('data-type') === String(f.id);
-    if (!hit) continue;
-    eg.classList.add('focusedV');
-    keep.add(from);
-    keep.add(to);
-  }
-  if (f.kind === 'node') keep.add(String(f.id));
-  for (const n of svg.querySelectorAll('.node')) {
-    if (keep.has(n.getAttribute('data-id') ?? '')) n.classList.add('focusedV');
-  }
+  const fs = focusSets(ctx, f);
+  const num = (el: Element, a: string) => Number(el.getAttribute(a));
+  const mark = (sel: string, hit: (el: Element) => boolean) => {
+    for (const el of svg.querySelectorAll(sel)) if (hit(el)) el.classList.add('focusedV');
+  };
+  mark('.edge[data-relid]', (el) => fs.edges.has(num(el, 'data-relid')));
+  mark('.node[data-id]', (el) => fs.nodes.has(num(el, 'data-id')));
+  mark('.lbl-node[data-lblnode]', (el) => fs.lbls.has(num(el, 'data-lblnode')));
+  mark('.lbl-links[data-lbllink]', (el) => fs.lbls.has(num(el, 'data-lbllink')));
+  mark('.zone-g[data-zone]', (el) => fs.lbls.has(num(el, 'data-zone')));
+  mark('.colnode[data-collbl]', (el) => colFocusHit(ctx, fs, num(el, 'data-collbl')));
+  mark('.col-edge[data-colkey]', (el) =>
+    colEdgeFocusHit(ctx, fs, el.getAttribute('data-colkey') ?? ''),
+  );
   const legendSel =
     f.kind === 'type'
       ? `.legend-item[data-legend-type="${f.id}"]`
       : f.kind === 'node'
         ? `.legend-item[data-legend-char="${f.id}"]`
-        : null;
+        : f.kind === 'label'
+          ? `.legend-item[data-legend-lbl="${f.id}"]`
+          : null;
   if (legendSel) for (const el of svg.querySelectorAll(legendSel)) el.classList.add('legend-on');
+}
+
+/** 橫幅上的端點：角色名、標籤名（標籤色） */
+function EndName({ tok, sheet, labels }: { tok: string; sheet: Sheet; labels: readonly Label[] }) {
+  if (grelEndIsLbl(tok)) {
+    const l = labels.find((x) => x.id === grelEndId(tok));
+    if (!l) return null;
+    return (
+      <b style={{ color: labelColor(sheetCtx(sheet), l) }} data-testid="link-from-label">
+        {l.text}
+      </b>
+    );
+  }
+  const c = sheet.chars.find((x) => x.id === grelEndId(tok));
+  return c ? <b>{displayName(c)}</b> : null;
 }
 
 /** 畫面上的那張 SVG（拖曳時底下可能還有一張放動到的線的，見 live） */
@@ -81,9 +111,9 @@ const chartSvgs = (el: HTMLElement | null): SVGSVGElement[] =>
 
 function LinkBanner({ sheet }: { sheet: Sheet }) {
   const link = useUi((u) => u.link);
+  const labels = useProject((s) => s.data.labels);
   if (!link) return null;
   const type = sheet.types.find((t) => t.id === link.typeId);
-  const from = link.from === null ? null : sheet.chars.find((c) => c.id === link.from);
   const label = type ? typeLabel(type, sheet.types) : '';
   return (
     <div
@@ -93,7 +123,15 @@ function LinkBanner({ sheet }: { sheet: Sheet }) {
       data-testid="link-banner"
     >
       <span className="font-semibold">
-        {from ? S.link.pickSecond(label, displayName(from)) : S.link.pickFirst(label)}
+        {link.from ? (
+          <>
+            {S.link.pickSecondHead(label)}
+            <EndName tok={link.from} sheet={sheet} labels={labels} />
+            {' →'}
+          </>
+        ) : (
+          S.link.pickFirst(label)
+        )}
       </span>
       {link.flash ? (
         <span className={link.flash.ok ? 'text-success' : 'text-danger'}>{link.flash.text}</span>
@@ -134,6 +172,7 @@ function EmptyHint({ onSamples, onPaste }: { onSamples: () => void; onPaste: () 
 export function CanvasView() {
   const sheet = useProject((s) => s.data.sheets[activeIndex(s.data)]);
   const font = useProject((s) => s.data.font);
+  const labels = useProject((s) => s.data.labels);
   const sel = useUi((u) => u.sel);
   const link = useUi((u) => u.link);
   const view = useUi((u) => u.view);
@@ -166,11 +205,20 @@ export function CanvasView() {
     return out;
   }, [link, sheet.rels]);
   const selected = useMemo(() => new Set([...sel, ...(box?.ids ?? [])]), [sel, box]);
+  const linkFromTok = link?.from ?? null;
+  const linking = !!link;
   const out = useMemo(() => {
+    const from = linkFromTok;
     const r = editorSvg(display, {
       href: (id) => urls.get(id) ?? null,
       font,
-      ui: { selected, linkFrom: link?.from ?? null, linkDone },
+      labels,
+      ui: {
+        selected,
+        linkFrom: from && !grelEndIsLbl(from) ? grelEndId(from) : null,
+        linkDone,
+        linking,
+      },
     });
     /* 每次都換掉整份 SVG（快速路徑改過的畫面不留） */
     return {
@@ -178,7 +226,7 @@ export function CanvasView() {
       svg: `${r.svg}<!--${epoch}-->`,
       pos: new Map(display.chars.map((c) => [c.id, { x: c.x, y: c.y }])),
     };
-  }, [display, urls, font, selected, link?.from, linkDone, epoch]);
+  }, [display, urls, font, labels, selected, linkFromTok, linking, linkDone, epoch]);
   const contentRef = useRef(out);
   contentRef.current = out;
   const rendered = useRef<SVGSVGElement | null>(null);
@@ -242,14 +290,14 @@ export function CanvasView() {
     svg.style.setProperty('--fdim-node', String(d.node));
     svg.style.setProperty('--fdim-edge', String(d.edge));
     svg.style.setProperty('--fdim-legend', String(d.legend));
-    for (const el of chartSvgs(layer.current)) applyFocus(el, eff, eff?.kind === 'type');
+    for (const el of chartSvgs(layer.current)) applyFocus(el, eff, out.parts.ctx);
   });
   useEffect(() => {
     bindLive({
       href: (id) => urlsRef.current.get(id) ?? null,
       refocus: () => {
         const f = effRef.current;
-        for (const el of chartSvgs(layer.current)) applyFocus(el, f, f?.kind === 'type');
+        for (const el of chartSvgs(layer.current)) applyFocus(el, f, contentRef.current.parts.ctx);
       },
     });
     return () => bindLive(null);

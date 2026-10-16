@@ -8,7 +8,8 @@
  * - 原作「匯出專案」的 10 組資料（第一批畫法對照用的 12～120 人：圖例與名冊的 8 種位置、跳線、圖片、淺色、明體與楷體…；
  *   `fixtures/relation-chart-legacy-datasets.json.gz`），經過讀原作專案檔的轉換；
  * - 4 個範例；兩組自己產生的資料（標籤、自我關係、捆綁、各種線型與端點、跳線、名冊）。
- * 每張分頁的輸出：編輯畫面（沒有選取、選取兩位）、PNG 用的 SVG（不去背、去背）、互動網頁的 SVG、分層 SVG、互動網頁 HTML。
+ * 每張分頁的輸出：編輯畫面（沒有選取、選取兩位）、PNG 用的 SVG（不去背、去背）、互動網頁的 SVG、分層 SVG、互動網頁 HTML
+ * （HTML 裡的檢視程式本身〔rcViewer 的原始碼〕會隨功能增加，換成固定的字串再比：樣式、SVG、資料都要逐位元組相同）。
  *
  * 重新產生基準（只在加第二批之前的程式上做過一次）：`RC_GOLDEN=write npx vitest run tests/unit/relation-chart-golden.test.ts`
  */
@@ -17,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { bytesToHex, sha256Sync } from '../../src/core/files';
 import { editorSvg, exportSvg, viewerSvg } from '../../src/tools/relation-chart/engine/chart';
 import { sheetLayeredSvg } from '../../src/tools/relation-chart/export/outputs';
-import { viewerHtml } from '../../src/tools/relation-chart/export/viewer';
+import { viewerHtml, viewerSource } from '../../src/tools/relation-chart/export/viewer';
 import { convertLegacy } from '../../src/tools/relation-chart/logic/legacy';
 import { buildSample, SAMPLES } from '../../src/tools/relation-chart/logic/samples';
 import { makeChar, makeRel, makeType } from '../../src/tools/relation-chart/model/factory';
@@ -214,7 +215,12 @@ function capture(d: Dataset): Record<string, string> {
       }),
     );
   });
-  out.html = sha(viewerHtml(p.sheets, { font: p.font, labels: p.labels, uris: new Map() }));
+  out.html = sha(
+    viewerHtml(p.sheets, { font: p.font, labels: p.labels, uris: new Map() }).replace(
+      viewerSource(),
+      '/*rcViewer*/',
+    ),
+  );
   return out;
 }
 

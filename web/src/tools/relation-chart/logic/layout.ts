@@ -3,6 +3,7 @@
  *
  * 排列與碰撞（原作的 layoutCircle／layoutLine／layoutShape／layoutCross／layoutRandom、separateAll、pushAwayFrom、
  * getNonOverlappingPosition、fitLayoutToCanvas、fitCanvasToContent）。直接改傳進來的角色座標（可以是 Immer 的 draft）。
+ * 收合中的成員（第二批）不排列、不推擠也不被推；套用陣型後標籤節點回到自動位置。
  */
 import {
   charLevel,
@@ -12,12 +13,16 @@ import {
   type SheetCtx,
   spacingFactor,
 } from '../engine/geom';
-import type { Char, LayoutKind } from '../model/types';
+import { labelInfo, visibleChars } from '../engine/labels';
+import type { Char, LayoutKind, SheetSettings } from '../model/types';
 
 type Rand = () => number;
 
-/** 排列的對象：未釘選的角色 */
-export const layoutTargets = (ctx: SheetCtx): Char[] => ctx.sheet.chars.filter((c) => !c.locked);
+/** 排列的對象：未釘選、沒有收合的角色 */
+export const layoutTargets = (ctx: SheetCtx): Char[] => {
+  const h = labelInfo(ctx).colHidden;
+  return ctx.sheet.chars.filter((c) => !c.locked && !h.has(c.id));
+};
 
 const TIER_SPLIT_THRESHOLD = 10;
 const circleR = (n: number) => (n <= 1 ? 0 : 150 + n * 22);
@@ -472,6 +477,8 @@ export function applyLayout(ctx: SheetCtx, kind: LayoutKind, rand: Rand = Math.r
     fitLayoutToCanvas(ctx, free);
   }
   separateAll(ctx);
+  /* 重新排列＝標籤節點跟著新版面自動落點 */
+  ctx.s.labelPos = {};
   return true;
 }
 
@@ -526,7 +533,7 @@ export function separateAll(
   rand: Rand = Math.random,
 ): void {
   if (ctx.s.noCollision) return;
-  const live = ctx.sheet.chars;
+  const live = visibleChars(ctx);
   if (live.length < 2) return;
   const fixed = (c: Char) => c.locked || c === anchor;
   const maxRad = Math.max(0, ...live.map((c) => charRadius(ctx, c)));
@@ -567,7 +574,7 @@ export function separateAll(
 
 /** 拖曳時把 anchor 周圍的人推開（連鎖），再把 anchor 推離釘選的人 */
 export function pushAwayFrom(ctx: SheetCtx, anchor: Char, rand: Rand = Math.random): void {
-  const live = ctx.sheet.chars;
+  const live = visibleChars(ctx);
   const active = new Set<Char>([anchor]);
   clampToCanvas(ctx, anchor);
   const maxRad = Math.max(0, ...live.map((c) => charRadius(ctx, c)));
@@ -713,23 +720,35 @@ export function fitCanvasToContent(ctx: SheetCtx): boolean {
     c.x += dx;
     c.y += dy;
   }
+  shiftLabelPos(ctx.s, dx, dy);
   ctx.sheet.W = nw;
   ctx.sheet.H = nh;
   return true;
 }
 
+/** 標籤節點的手動位置和角色同一個座標系：畫布原點動了要一起平移 */
+function shiftLabelPos(s: SheetSettings | undefined, dx: number, dy: number): void {
+  if (!s || (!dx && !dy)) return;
+  for (const p of Object.values(s.labelPos)) {
+    p.x += dx;
+    p.y += dy;
+  }
+}
+
 /** 改畫布尺寸：rect 是新畫布在舊座標裡的範圍（角色跟著新原點平移） */
 export function resizeCanvas(
-  sheet: { W: number; H: number; chars: Char[] },
+  sheet: { W: number; H: number; chars: Char[]; settings?: SheetSettings },
   rect: { x: number; y: number; w: number; h: number },
 ): void {
   const ox = Math.round(rect.x);
   const oy = Math.round(rect.y);
-  if (ox || oy)
+  if (ox || oy) {
     for (const c of sheet.chars) {
       c.x -= ox;
       c.y -= oy;
     }
+    shiftLabelPos(sheet.settings, -ox, -oy);
+  }
   sheet.W = Math.max(0, Math.round(rect.w));
   sheet.H = Math.max(0, Math.round(rect.h));
 }

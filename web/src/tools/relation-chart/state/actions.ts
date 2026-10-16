@@ -1,11 +1,12 @@
 /*
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
- * 專案的修改（原作的新增角色、批次建立、複製、刪除、關係類型、建立關係模式、關係線的編輯、分頁、排列…）。
- * 每個動作是一步復原（拖曳、滑桿、文字欄由呼叫端用手勢包成一步）。
+ * 專案的修改（原作的新增角色、批次建立、複製、刪除、關係類型、建立關係模式、關係線的編輯、分頁、排列、
+ * 標籤庫、收合、群體關係…）。每個動作是一步復原（拖曳、滑桿、文字欄由呼叫端用手勢包成一步）。
  */
 import type { Draft } from 'immer';
 import { charRadius, displayName, sheetCtx } from '../engine/geom';
+import { grelEndId, grelEndIsLbl, labelInfo } from '../engine/labels';
 import { type AlignAction, applyAlign } from '../logic/align';
 import {
   applyLayout,
@@ -16,18 +17,31 @@ import {
   shuffleSeats,
 } from '../logic/layout';
 import { type ParsedTable, planImport } from '../logic/table';
+import { charLabelIds, dropCharLabels, setCharLabel, setCharLabelIds } from '../model/charLabels';
 import {
   copyName,
   copyTypeLabel,
   makeChar,
+  makeLabel,
   makeRel,
   makeType,
+  unnamedLabelText,
   unnamedTypeLabel,
 } from '../model/factory';
-import { emptySheet, newSettings, normalizeSheet, smallestFree } from '../model/normalize';
+import {
+  emptySheet,
+  GREL_END_RE,
+  newSettings,
+  normalizeSheet,
+  remapGrelEnd,
+  smallestFree,
+} from '../model/normalize';
 import type {
   Avatar,
   Char,
+  ColorValue,
+  GroupRel,
+  Label,
   LayoutKind,
   Project,
   Rel,
@@ -66,7 +80,8 @@ const nextCharDefNo = (p: Project | DProject): number =>
 const nextSheetDefNo = (p: Project | DProject): number =>
   smallestFree(p.sheets.map((s) => s.defNo));
 
-const ctxOf = (s: DSheet) => sheetCtx(s as Sheet);
+/** 分頁的 ctx（帶專案的標籤：收合中的成員不排列、不推擠） */
+const ctxOf = (s: DSheet) => sheetCtx(s as Sheet, projectNow().labels);
 
 /** 只在畫面上有的東西（選取、聚焦、面板）跟著刪掉的內容一起清 */
 function pruneUi(): void {
@@ -74,18 +89,27 @@ function pruneUi(): void {
   const ids = new Set(s.chars.map((c) => c.id));
   const relIds = new Set(s.rels.map((r) => r.id));
   const typeIds = new Set(s.types.map((t) => t.id));
+  const lblIds = new Set(projectNow().labels.map((l) => l.id));
+  const grelIds = new Set(s.grels.map((g) => g.id));
   const u = useUi.getState();
-  const sel = u.sel.filter((id) => ids.has(id));
-  const alive = (f: { kind: string; id: number } | null) =>
+  /* 收合中的成員不能留在選取裡（批次操作會打到看不見的人） */
+  const hidden = labelInfo(sheetCtx(s, projectNow().labels)).colHidden;
+  const sel = u.sel.filter((id) => ids.has(id) && !hidden.has(id));
+  const alive = (f: { kind: string; id?: number; key?: string } | null) =>
     !f ||
-    (f.kind === 'node' && ids.has(f.id)) ||
-    (f.kind === 'edge' && relIds.has(f.id)) ||
-    (f.kind === 'type' && typeIds.has(f.id)) ||
-    (f.kind === 'char' && ids.has(f.id)) ||
-    (f.kind === 'rel' && relIds.has(f.id));
+    (f.kind === 'node' && ids.has(f.id as number)) ||
+    (f.kind === 'edge' && relIds.has(f.id as number)) ||
+    (f.kind === 'type' && typeIds.has(f.id as number)) ||
+    (f.kind === 'char' && ids.has(f.id as number)) ||
+    (f.kind === 'rel' && relIds.has(f.id as number)) ||
+    (f.kind === 'label' && lblIds.has(f.id as number)) ||
+    (f.kind === 'grel' && grelIds.has(f.id as number)) ||
+    f.kind === 'coledge';
+  const endAlive = (t: string | null) =>
+    t !== null && (grelEndIsLbl(t) ? lblIds.has(grelEndId(t)) : ids.has(grelEndId(t)));
   const link =
     u.link && typeIds.has(u.link.typeId)
-      ? { ...u.link, from: u.link.from !== null && ids.has(u.link.from) ? u.link.from : null }
+      ? { ...u.link, from: endAlive(u.link.from) ? u.link.from : null }
       : null;
   setUi({
     sel: sel.length === u.sel.length ? u.sel : sel,
@@ -151,6 +175,7 @@ export function addSheet(copy: boolean): void {
         r.to = charMap.get(r.to) ?? r.to;
         r.type = typeMap.get(r.type) ?? r.type;
       }
+      remapGrels(p, snap.grels, charMap, typeMap, null);
       sheet = { ...snap, id, defNo, name: '' };
     } else {
       sheet = emptySheet(id, defNo, {
@@ -220,7 +245,12 @@ export function insertSheet(
     if (!c.defNo || used.has(c.defNo)) c.defNo = smallestFree(used);
     used.add(c.defNo);
     if (opts.labelMap)
-      c.labels = c.labels.map((l) => opts.labelMap?.get(l) ?? -1).filter((l) => l > 0);
+      setCharLabelIds(
+        c,
+        charLabelIds(c)
+          .map((l) => opts.labelMap?.get(l) ?? -1)
+          .filter((l) => l > 0),
+      );
   }
   for (const t of snap.types) {
     const nid = takeId(p);
@@ -233,6 +263,25 @@ export function insertSheet(
     r.to = charMap.get(r.to) ?? r.to;
     r.type = typeMap.get(r.type) ?? r.type;
   }
+  /* 群體關係、收合名單、標籤節點位置、陣營名稱角度：標籤 id 換成專案的 */
+  const lm = opts.labelMap;
+  remapGrels(p, snap.grels ?? [], charMap, typeMap, lm ?? null);
+  if (lm) {
+    snap.collapsed = (snap.collapsed ?? []).map((l) => lm.get(l) ?? -1).filter((l) => l > 0);
+    const st = snap.settings as Partial<SheetSettings> | undefined;
+    if (st) {
+      const rekey = <T>(o: Record<string, T> | undefined) => {
+        const out: Record<string, T> = {};
+        for (const [k, v] of Object.entries(o ?? {})) {
+          const n = lm.get(Number(k));
+          if (n !== undefined) out[n] = v;
+        }
+        return out;
+      };
+      st.labelPos = rekey(st.labelPos);
+      st.zoneNameAng = rekey(st.zoneNameAng);
+    }
+  }
   const sheetIds = new Set(p.sheets.map((s) => s.defNo));
   snap.id = takeId(p);
   if (!snap.defNo || sheetIds.has(snap.defNo)) snap.defNo = nextSheetDefNo(p);
@@ -244,6 +293,30 @@ export function insertSheet(
   }
   p.sheets.push(fixed);
   return p.sheets.length - 1;
+}
+
+/** 群體關係換成新的 id（角色端、例外照 charMap；標籤端照 labelMap，沒給＝不換） */
+function remapGrels(
+  p: DProject,
+  grels: GroupRel[],
+  charMap: ReadonlyMap<number, number>,
+  typeMap: ReadonlyMap<number, number>,
+  labelMap: ReadonlyMap<number, number> | null,
+): void {
+  const end = (e: string) => {
+    if (grelEndIsLbl(e)) {
+      const n = labelMap ? labelMap.get(grelEndId(e)) : grelEndId(e);
+      return n === undefined ? e : `L${n}`;
+    }
+    return remapGrelEnd(e, charMap);
+  };
+  for (const g of grels) {
+    g.id = takeId(p);
+    g.from = end(g.from);
+    g.to = end(g.to);
+    g.type = typeMap.get(g.type) ?? g.type;
+    g.except = g.except.map((x) => charMap.get(x) ?? x);
+  }
 }
 
 /** 加入範例（新分頁，不動現有內容） */
@@ -392,6 +465,11 @@ export function deleteChars(ids: readonly number[]): void {
   editSheet((s) => {
     s.chars = s.chars.filter((c) => !set.has(c.id));
     s.rels = s.rels.filter((r) => !set.has(r.from) && !set.has(r.to));
+    /* 角色是端點的群體關係一起刪；例外名單拿掉他 */
+    const gone = (e: string) => !grelEndIsLbl(e) && set.has(grelEndId(e));
+    s.grels = s.grels.filter((g) => !gone(g.from) && !gone(g.to));
+    for (const g of s.grels)
+      if (g.except.some((x) => set.has(x))) g.except = g.except.filter((x) => !set.has(x));
   });
   pruneUi();
 }
@@ -413,23 +491,193 @@ export function addLabel(charIds: readonly number[], text: string): number | nul
   let lid = 0;
   const set = new Set(charIds);
   updateProject((p) => {
-    let l = p.labels.find((x) => x.text === t);
-    if (!l) {
-      l = { id: takeId(p), text: t };
-      p.labels.push(l);
+    const ex = p.labels.find((x) => x.text === t);
+    if (ex) lid = ex.id;
+    else {
+      lid = takeId(p);
+      p.labels.push(makeLabel(lid, t));
     }
-    lid = l.id;
     const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
-    for (const c of s.chars) if (set.has(c.id) && !c.labels.includes(lid)) c.labels.push(lid);
+    for (const c of s.chars) if (set.has(c.id)) setCharLabel(c, lid, true);
   });
   return lid;
 }
 
 export function toggleLabel(charIds: readonly number[], labelId: number, on: boolean): void {
-  updateChars(charIds, (c) => {
-    if (on && !c.labels.includes(labelId)) c.labels.push(labelId);
-    if (!on) c.labels = c.labels.filter((l) => l !== labelId);
+  updateChars(charIds, (c) => setCharLabel(c, labelId, on));
+}
+
+/* ---------- 標籤庫（第二批，F181） ---------- */
+
+/** 新增標籤（同名沿用、顏色不動；沒給文字＝「未命名標籤 N」）；回傳 id */
+export function createLabel(text?: string, color: ColorValue = 'auto'): number {
+  const t = (text ?? '').trim().slice(0, 100);
+  const ex = t ? projectNow().labels.find((l) => l.text === t) : undefined;
+  if (ex) return ex.id;
+  let id = 0;
+  updateProject((p) => {
+    id = takeId(p);
+    p.labels.push(makeLabel(id, t || unnamedLabelText(p.labels as Label[]), { color }));
   });
+  return id;
+}
+
+/** 改名（清空＝不改） */
+export function renameLabel(id: number, text: string): void {
+  const t = text.trim().slice(0, 100);
+  if (!t) return;
+  updateProject((p) => {
+    const l = p.labels.find((x) => x.id === id);
+    if (l && l.text !== t) l.text = t;
+  });
+}
+
+/** 編輯模式的 Enter：文字（清空＝不改）與顏色一起覆蓋（一步復原） */
+export function editLabel(id: number, text: string, color: ColorValue): void {
+  const t = text.trim().slice(0, 100);
+  const l = projectNow().labels.find((x) => x.id === id);
+  if (!l || ((!t || t === l.text) && color === l.color)) return;
+  updateProject((p) => {
+    const d = p.labels.find((x) => x.id === id);
+    if (!d) return;
+    if (t) d.text = t;
+    d.color = color;
+  });
+}
+
+/** 顏色與三個開關（隱藏、沒有引力、陣營框）；不再是陣營框＝收合解除 */
+export function updateLabel(
+  id: number,
+  patch: Partial<Pick<Label, 'color' | 'hidden' | 'noPull' | 'zone'>>,
+): void {
+  updateProject((p) => {
+    const l = p.labels.find((x) => x.id === id);
+    if (!l) return;
+    Object.assign(l, patch);
+    if (!l.zone)
+      for (const s of p.sheets)
+        if (s.collapsed.includes(id)) s.collapsed = s.collapsed.filter((x) => x !== id);
+  });
+}
+
+/** 換順序（陣營框的內外圈、疊放、圖例、自動落點、收合的歸屬都照這個順序） */
+export function moveLabel(from: number, to: number): void {
+  updateProject((p) => {
+    if (from === to || !p.labels[from] || to < 0 || to >= p.labels.length) return;
+    const [l] = p.labels.splice(from, 1);
+    p.labels.splice(to, 0, l);
+  });
+}
+
+/**
+ * 在看得到的一組標籤（搜尋結果、依分頁分組的一段）裡換順序：這組標籤在整份清單裡佔的那幾格不變，
+ * 只換誰坐哪一格（其他標籤一格都不動）。
+ */
+export function reorderLabels(groupIds: readonly number[], from: number, to: number): void {
+  if (from === to || from < 0 || to < 0 || from >= groupIds.length || to >= groupIds.length) return;
+  const ids = [...groupIds];
+  const [m] = ids.splice(from, 1);
+  ids.splice(to, 0, m);
+  updateProject((p) => {
+    const byId = new Map(p.labels.map((l) => [l.id, l]));
+    const slots = groupIds
+      .map((id) => p.labels.findIndex((l) => l.id === id))
+      .filter((i) => i >= 0)
+      .sort((a, b) => a - b);
+    if (slots.length !== ids.length) return;
+    const next = [...p.labels];
+    slots.forEach((slot, k) => {
+      const l = byId.get(ids[k]);
+      if (l) next[slot] = l;
+    });
+    p.labels = next;
+  });
+}
+
+export const deleteLabel = (id: number): void => deleteLabels([id]);
+
+/** 刪除標籤：所有角色身上、各分頁的標籤節點位置、陣營名稱角度、收合、用到它的群體關係一起清（不確認，可以復原） */
+export function deleteLabels(ids: readonly number[]): void {
+  const set = new Set(ids);
+  if (!set.size) return;
+  updateProject((p) => {
+    p.labels = p.labels.filter((l) => !set.has(l.id));
+    for (const s of p.sheets) {
+      for (const c of s.chars) dropCharLabels(c, (l) => set.has(l));
+      for (const id of set) {
+        delete s.settings.labelPos[id];
+        delete s.settings.zoneNameAng[id];
+      }
+      s.collapsed = s.collapsed.filter((l) => !set.has(l));
+      const gone = (e: string) => grelEndIsLbl(e) && set.has(grelEndId(e));
+      s.grels = s.grels.filter((g) => !gone(g.from) && !gone(g.to));
+    }
+  });
+  pruneUi();
+}
+
+/** 收合／展開（只有陣營框標籤；每張分頁各自記） */
+export function setCollapsed(lblId: number, on: boolean): void {
+  const l = projectNow().labels.find((x) => x.id === lblId);
+  if (on && !l?.zone) return;
+  editSheet((s) => {
+    const has = s.collapsed.includes(lblId);
+    if (on && !has) s.collapsed.push(lblId);
+    if (!on && has) s.collapsed = s.collapsed.filter((x) => x !== lblId);
+  });
+  if (on) {
+    const u = useUi.getState();
+    if (u.focus) setUi({ focus: null, hover: null });
+  }
+  pruneUi();
+}
+
+/** 標籤節點的位置（拖曳；呼叫端包成一步） */
+export function setLabelPos(lblId: number, x: number, y: number): void {
+  editSheet((s) => {
+    s.settings.labelPos[lblId] = { x, y };
+  });
+}
+
+/** 陣營名稱的方向（拖曳；呼叫端包成一步） */
+export function setZoneNameAng(lblId: number, ang: number): void {
+  editSheet((s) => {
+    s.settings.zoneNameAng[lblId] = ang;
+  });
+}
+
+/* ---------- 群體關係（第二批，F093） ---------- */
+
+export function updateGrel(id: number, patch: Partial<Pick<GroupRel, 'inherit' | 'note'>>): void {
+  editSheet((s) => {
+    const g = s.grels.find((x) => x.id === id);
+    if (g) Object.assign(g, patch);
+  });
+}
+
+/** 例外：這個角色不適用（再按＝恢復適用） */
+export function toggleGrelExcept(id: number, charId: number): void {
+  editSheet((s) => {
+    const g = s.grels.find((x) => x.id === id);
+    if (!g) return;
+    g.except = g.except.includes(charId)
+      ? g.except.filter((x) => x !== charId)
+      : [...g.except, charId];
+  });
+}
+
+export function clearGrelExcept(id: number): void {
+  editSheet((s) => {
+    const g = s.grels.find((x) => x.id === id);
+    if (g) g.except = [];
+  });
+}
+
+export function deleteGrel(id: number): void {
+  editSheet((s) => {
+    s.grels = s.grels.filter((g) => g.id !== id);
+  });
+  pruneUi();
 }
 
 /* ---------- 關係類型 ---------- */
@@ -482,6 +730,7 @@ export function deleteType(id: number): void {
   editSheet((s) => {
     s.types = s.types.filter((t) => t.id !== id);
     s.rels = s.rels.filter((r) => r.type !== id);
+    s.grels = s.grels.filter((g) => g.type !== id);
   });
   const u = useUi.getState();
   if (u.link?.typeId === id) setUi({ link: null });
@@ -547,13 +796,25 @@ export function startLink(typeId: number): void {
     setUi({ link: null });
     return;
   }
-  setUi({ link: { typeId, from: null, made: [], flash: null }, sel: [], focus: null });
+  setUi({
+    link: { typeId, from: null, made: [], madeG: [], flash: null },
+    sel: [],
+    focus: null,
+  });
 }
 
 export const endLink = (): void => setUi({ link: null });
 
-/** 建立關係模式中點了一位角色 */
-export function linkClick(charId: number): void {
+/** 端點還在嗎（角色在這張分頁、標籤在專案裡） */
+function tokAlive(tok: string): boolean {
+  if (!GREL_END_RE.test(tok)) return false;
+  return grelEndIsLbl(tok)
+    ? projectNow().labels.some((l) => l.id === grelEndId(tok))
+    : activeSheet().chars.some((c) => c.id === grelEndId(tok));
+}
+
+/** 建立關係模式中點了一位角色（數字或 `C<id>`）或一個標籤（`L<id>`＝群體關係的端點） */
+export function linkClick(target: number | string): void {
   const l = useUi.getState().link;
   if (!l) return;
   const s = activeSheet();
@@ -561,17 +822,26 @@ export function linkClick(charId: number): void {
     endLink();
     return;
   }
-  if (!s.chars.some((c) => c.id === charId)) return;
+  const tok = typeof target === 'number' ? `C${target}` : target;
+  if (!tokAlive(tok)) return;
   if (l.from === null) {
-    setUi({ link: { ...l, from: charId } });
+    setUi({ link: { ...l, from: tok } });
     return;
   }
-  if (l.from === charId) {
+  if (l.from === tok) {
     setUi({ link: { ...l, from: null } });
     return;
   }
-  const from = l.from;
-  const to = charId;
+  if (!tokAlive(l.from)) {
+    setUi({ link: { ...l, from: tok } });
+    return;
+  }
+  if (grelEndIsLbl(l.from) || grelEndIsLbl(tok)) {
+    linkGroup(l.from, tok);
+    return;
+  }
+  const from = grelEndId(l.from);
+  const to = grelEndId(tok);
   const dup = s.rels.find(
     (r) =>
       r.type === l.typeId &&
@@ -610,6 +880,62 @@ export function linkClick(charId: number): void {
   });
   const cur = useUi.getState().link;
   if (cur) setUi({ link: { ...cur, made: [...cur.made, nid] } });
+}
+
+/** 端點之一是標籤＝群體關係（同類同向已有：本輪建的＝取消、其他＝提示；反向的單向＝合併成雙向） */
+function linkGroup(fromTok: string, toTok: string): void {
+  const l = useUi.getState().link;
+  if (!l) return;
+  const s = activeSheet();
+  const dup = s.grels.find(
+    (g) =>
+      g.type === l.typeId &&
+      ((g.from === fromTok && g.to === toTok) || (g.both && g.from === toTok && g.to === fromTok)),
+  );
+  if (dup) {
+    if (l.madeG.includes(dup.id)) {
+      editSheet((d) => {
+        d.grels = d.grels.filter((g) => g.id !== dup.id);
+      });
+      setUi({ link: { ...l, madeG: l.madeG.filter((x) => x !== dup.id) } });
+      return;
+    }
+    linkFlash('這條關係已經存在了', false);
+    return;
+  }
+  const rev = s.grels.find(
+    (g) => g.type === l.typeId && !g.both && g.from === toTok && g.to === fromTok,
+  );
+  if (rev) {
+    editSheet((d) => {
+      const g = d.grels.find((x) => x.id === rev.id);
+      if (g) g.both = true;
+    });
+    const ctx = sheetCtx(s, projectNow().labels);
+    const nm = (t: string) =>
+      grelEndIsLbl(t)
+        ? (ctx.lblById.get(grelEndId(t))?.text ?? '')
+        : displayName(ctx.byId.get(grelEndId(t)) as Char);
+    linkFlash(`${nm(fromTok)} 與 ${nm(toTok)} 原本已有反向的同類關係，已合併成一條雙向線`, true);
+    return;
+  }
+  let nid = 0;
+  updateProject((p) => {
+    const d = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
+    nid = takeId(p);
+    d.grels.push({
+      id: nid,
+      from: fromTok,
+      to: toTok,
+      type: l.typeId,
+      both: false,
+      inherit: false,
+      note: '',
+      except: [],
+    });
+  });
+  const cur = useUi.getState().link;
+  if (cur) setUi({ link: { ...cur, madeG: [...cur.madeG, nid] } });
 }
 
 /** 長按角色＝指向自己 */

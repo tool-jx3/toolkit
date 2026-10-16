@@ -5,12 +5,14 @@
  * 原作的專案檔讀進來時都過這一關（範圍外的值換回預設、顏色只收合法的寫法）。
  */
 import type { FramePlacement } from '@/core/image';
+import { dropCharLabels } from './charLabels';
 import type {
   Avatar,
   CapStyle,
   Char,
   ColorValue,
   FontKey,
+  GroupRel,
   Label,
   LayoutKind,
   LegendPos,
@@ -123,6 +125,22 @@ export const SETTINGS_DEFAULTS: Readonly<SheetSettings> = Object.freeze({
   colRelLine: 'auto',
   colRelText: 'auto',
   colRelOutline: 'auto',
+  showLabelNodes: false,
+  showFreeLbls: false,
+  lblNodeScale: 1,
+  viewerHiddenLbls: true,
+  showZones: true,
+  zoneOutline: true,
+  zoneEdgeW: 1.5,
+  zoneFillOp: 0.13,
+  zoneLink: 5,
+  zoneThick: 5,
+  zoneLayerStep: 5,
+  zoneBlend: true,
+  showLblLegend: false,
+  lblLegendPos: 'right',
+  labelPos: {},
+  zoneNameAng: {},
 }) as SheetSettings;
 
 export const newSettings = (base?: SheetSettings): SheetSettings =>
@@ -198,10 +216,20 @@ export function normalizeSettings(raw: unknown): SheetSettings {
     'fitLayout',
     'layoutNoStagger',
     'edgeStraight',
+    'showLabelNodes',
+    'showFreeLbls',
+    'showLblLegend',
   ] as const) {
     if (s[k] !== undefined) out[k] = !!s[k];
   }
-  for (const k of ['showNames', 'showLegend'] as const) {
+  for (const k of [
+    'showNames',
+    'showLegend',
+    'viewerHiddenLbls',
+    'showZones',
+    'zoneOutline',
+    'zoneBlend',
+  ] as const) {
     if (s[k] !== undefined) out[k] = !!s[k];
   }
   out.legendPos = LEGEND_POSITIONS.includes(s.legendPos as LegendPos)
@@ -210,6 +238,32 @@ export function normalizeSettings(raw: unknown): SheetSettings {
   out.charLegendPos = LEGEND_POSITIONS.includes(s.charLegendPos as LegendPos)
     ? (s.charLegendPos as LegendPos)
     : d.charLegendPos;
+  out.lblLegendPos = LEGEND_POSITIONS.includes(s.lblLegendPos as LegendPos)
+    ? (s.lblLegendPos as LegendPos)
+    : d.lblLegendPos;
+  /* 標籤與陣營框（原作 sanitizeSettings 的範圍與刻度） */
+  const step10 = (v: unknown) => Math.round(inRange(v, 0, 10, 5));
+  out.zoneLink = step10(s.zoneLink);
+  out.zoneThick = step10(s.zoneThick);
+  out.zoneLayerStep = step10(s.zoneLayerStep);
+  out.zoneEdgeW = Math.round(inRange(s.zoneEdgeW, 0.5, 8, 1.5) * 2) / 2;
+  out.zoneFillOp = Math.round(inRange(s.zoneFillOp, 0.02, 0.6, 0.13) * 100) / 100;
+  out.lblNodeScale = Math.round(inRange(s.lblNodeScale, 0.5, 2, 1) * 20) / 20;
+  const lp: Record<string, { x: number; y: number }> = {};
+  if (isObj(s.labelPos))
+    for (const [k, v] of Object.entries(s.labelPos)) {
+      if (!Number.isFinite(num(k)) || !isObj(v) || !finite(v.x) || !finite(v.y)) continue;
+      lp[String(Math.trunc(num(k)))] = {
+        x: Math.round(num(v.x) * 10) / 10,
+        y: Math.round(num(v.y) * 10) / 10,
+      };
+    }
+  out.labelPos = lp;
+  const na: Record<string, number> = {};
+  if (isObj(s.zoneNameAng))
+    for (const [k, v] of Object.entries(s.zoneNameAng))
+      if (Number.isFinite(num(k)) && finite(v)) na[String(Math.trunc(num(k)))] = num(v);
+  out.zoneNameAng = na;
   out.lastLayout = LAYOUT_KINDS.includes(s.lastLayout as LayoutKind)
     ? (s.lastLayout as LayoutKind)
     : 'circle';
@@ -382,7 +436,47 @@ export function emptySheet(id: number, defNo: number, base?: Partial<Sheet>): Sh
     types: [],
     bg: null,
     settings: newSettings(),
+    grels: [],
+    collapsed: [],
     ...base,
+  };
+}
+
+/* ---------- 群體關係（原作的 sanitizeGrels：只驗形狀，端點在不在由讀取端判斷） ---------- */
+
+export const GREL_END_RE = /^[CL]-?\d+$/;
+
+export function normalizeGrel(raw: unknown, fallbackId: number): GroupRel | null {
+  if (!isObj(raw)) return null;
+  const from = String(raw.from ?? '');
+  const to = String(raw.to ?? '');
+  if (!GREL_END_RE.test(from) || !GREL_END_RE.test(to) || from === to) return null;
+  const type = Math.trunc(num(raw.type ?? raw.tagId ?? raw.relTypeId));
+  if (!Number.isFinite(type)) return null;
+  const ex = Array.isArray(raw.except)
+    ? [...new Set(raw.except.map((x) => Math.trunc(num(x))).filter(Number.isFinite))].slice(0, 500)
+    : [];
+  return {
+    id: finite(raw.id) ? Math.trunc(num(raw.id)) : fallbackId,
+    from,
+    to,
+    type,
+    both: bool(raw.both),
+    inherit: bool(raw.inherit),
+    note: str(raw.note, 500),
+    except: ex,
+  };
+}
+
+export function normalizeLabel(raw: unknown): Label | null {
+  if (!isObj(raw) || !finite(raw.id)) return null;
+  return {
+    id: Math.trunc(num(raw.id)),
+    text: str(raw.text, 100),
+    color: safeColor(raw.color),
+    hidden: bool(raw.hidden),
+    noPull: bool(raw.noPull),
+    zone: bool(raw.zone),
   };
 }
 
@@ -420,6 +514,14 @@ export function normalizeSheet(raw: unknown, fallbackId: number): Sheet | null {
       rels.push(n);
   }
   const W = dim(raw.W, DEFAULT_W);
+  const grels: GroupRel[] = [];
+  for (const g of Array.isArray(raw.grels) ? raw.grels : []) {
+    const n = normalizeGrel(g, auto--);
+    if (n && !grels.some((x) => x.id === n.id)) grels.push(n);
+  }
+  const collapsed = Array.isArray(raw.collapsed)
+    ? [...new Set(raw.collapsed.map((x) => Math.trunc(num(x))).filter(Number.isFinite))]
+    : [];
   return {
     id,
     defNo: finite(raw.defNo) ? Math.max(1, Math.trunc(num(raw.defNo))) : 0,
@@ -431,6 +533,8 @@ export function normalizeSheet(raw: unknown, fallbackId: number): Sheet | null {
     types,
     bg: assetId(raw.bg),
     settings: normalizeSettings(raw.settings),
+    grels,
+    collapsed,
   };
 }
 
@@ -442,10 +546,15 @@ export function maxIdOf(p: Pick<Project, 'sheets' | 'labels'>): number {
     for (const c of s.chars) m = Math.max(m, c.id);
     for (const r of s.rels) m = Math.max(m, r.id);
     for (const t of s.types) m = Math.max(m, t.id);
+    for (const g of s.grels ?? []) m = Math.max(m, g.id);
   }
   for (const l of p.labels) m = Math.max(m, l.id);
   return m;
 }
+
+/** 群體關係端點的角色 id 換成新的（`C<id>`）；標籤端照舊 */
+export const remapGrelEnd = (e: string, charMap: ReadonlyMap<number, number>): string =>
+  e[0] === 'C' ? `C${charMap.get(Number(e.slice(1))) ?? Number(e.slice(1))}` : e;
 
 /** 重新編號：負的（整理時臨時給的）id 換成新的正 id */
 function fixIds(p: Project): void {
@@ -476,6 +585,13 @@ function fixIds(p: Project): void {
       r.from = charMap.get(r.from) ?? r.from;
       r.to = charMap.get(r.to) ?? r.to;
       r.type = typeMap.get(r.type) ?? r.type;
+    }
+    for (const g of s.grels) {
+      if (g.id <= 0) g.id = take();
+      g.from = remapGrelEnd(g.from, charMap);
+      g.to = remapGrelEnd(g.to, charMap);
+      g.type = typeMap.get(g.type) ?? g.type;
+      g.except = g.except.map((x) => charMap.get(x) ?? x);
     }
   }
   p.nextId = Math.max(next, maxIdOf(p) + 1);
@@ -531,10 +647,8 @@ export function normalizeProject(raw: unknown): Project | null {
   if (!sheets.length) return null;
   const labels: Label[] = [];
   for (const l of Array.isArray(raw.labels) ? raw.labels : []) {
-    if (!isObj(l) || !finite(l.id)) continue;
-    const id = Math.trunc(num(l.id));
-    if (labels.some((x) => x.id === id)) continue;
-    labels.push({ id, text: str(l.text, 100) });
+    const n = normalizeLabel(l);
+    if (n && !labels.some((x) => x.id === n.id)) labels.push(n);
   }
   const p: Project = {
     sheets,
@@ -545,10 +659,13 @@ export function normalizeProject(raw: unknown): Project | null {
   };
   fixIds(p);
   fixDefNos(p);
-  /* 角色身上的標籤只留專案裡存在的 */
+  /* 角色身上的標籤只留專案裡存在的；收合名單只留還是陣營框的標籤（原作 computeColMaps 的自清） */
   const lblIds = new Set(p.labels.map((l) => l.id));
-  for (const s of p.sheets)
-    for (const c of s.chars) c.labels = c.labels.filter((id) => lblIds.has(id));
+  const zoneIds = new Set(p.labels.filter((l) => l.zone).map((l) => l.id));
+  for (const s of p.sheets) {
+    for (const c of s.chars) dropCharLabels(c, (id) => !lblIds.has(id));
+    s.collapsed = s.collapsed.filter((id) => zoneIds.has(id));
+  }
   /* 座標壞掉的角色放到畫布中央（之後的排列會再處理） */
   for (const s of p.sheets)
     for (const c of s.chars) {

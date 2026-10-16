@@ -15,7 +15,7 @@ import {
 } from '@/tools/relation-chart/export/outputs';
 import { VIEWER_CREDIT, viewerHtml } from '@/tools/relation-chart/export/viewer';
 import { buildSample } from '@/tools/relation-chart/logic/samples';
-import { makeChar, makeRel, makeType } from '@/tools/relation-chart/model/factory';
+import { makeChar, makeLabel, makeRel, makeType } from '@/tools/relation-chart/model/factory';
 import { emptySheet } from '@/tools/relation-chart/model/normalize';
 import type { Sheet } from '@/tools/relation-chart/model/types';
 
@@ -132,8 +132,8 @@ describe('畫法（3.4）', () => {
   });
 
   it('聚焦時的亮度：線、圖例按比例跟著', () => {
-    expect(focusDimSet(0.15)).toEqual({ node: 0.15, edge: 0.07, legend: 0.3 });
-    expect(focusDimSet(0.6)).toEqual({ node: 0.6, edge: 0.28, legend: 1 });
+    expect(focusDimSet(0.15)).toEqual({ node: 0.15, edge: 0.07, lbl: 0.1, zone: 0.12, legend: 0.3 });
+    expect(focusDimSet(0.6)).toEqual({ node: 0.6, edge: 0.28, lbl: 0.4, zone: 0.48, legend: 1 });
     expect(focusDimSet(Number.NaN).node).toBe(0.15);
   });
 });
@@ -209,7 +209,7 @@ describe('互動網頁（3.5）', () => {
   const html = () =>
     viewerHtml([story(), { ...buildSample('mind'), name: '第二張' }], {
       font: 'sans',
-      labels: [{ id: 7, text: '主角群</script>' }],
+      labels: [makeLabel(7, '主角群</script>')],
       uris: new Map([['img1', 'data:image/png;base64,QUJD']]),
     });
 

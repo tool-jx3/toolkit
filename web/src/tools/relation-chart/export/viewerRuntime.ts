@@ -3,8 +3,8 @@
  *
  * 互動網頁的檢視程式（原作 buildViewerHtml 的樣板程式）：整個函式以 toString() 放進匯出的 HTML，
  * 所以**不能引用任何模組、外部變數**，只能用參數 D 與瀏覽器的 API。
- * 拖曳平移、滾輪／雙指縮放、滑過／點選聚焦、角色卡（關係清單、標籤、找關係路徑）、線的資訊、
- * 圖例（只看某一種關係／聚焦角色）、名冊搜尋與標籤篩選、分頁籤。
+ * 拖曳平移、滾輪／雙指縮放、滑過／點選聚焦、角色卡（關係清單、群體關係、標籤、找關係路徑）、線的資訊、
+ * 圖例（只看某一種關係／聚焦標籤的成員／聚焦角色）、標籤網的圓點與陣營框跟著聚焦、名冊搜尋與標籤篩選、分頁籤。
  */
 
 export interface ViewerRel {
@@ -22,6 +22,10 @@ export interface ViewerSheetData {
   rels: ViewerRel[];
   /** 角色 id → 標籤 id */
   clbl: Record<string, number[]>;
+  /** 標籤網畫出來的圓點與成員（標籤網開著時才有） */
+  lbls?: { id: number; members: number[] }[];
+  /** 角色 id → 群體關係列（a＝箭頭、l＝關係名、o＝另一端、v＝來自哪個標籤） */
+  grows?: Record<string, { a: string; l: string; o: string; v: string }[]>;
 }
 
 export interface ViewerText {
@@ -37,6 +41,8 @@ export interface ViewerData {
   sheets: ViewerSheetData[];
   /** 標籤 id → 文字 */
   lnames: Record<string, string>;
+  /** 標籤 id → 顏色（自己有顏色的標籤） */
+  lcol?: Record<string, string>;
   /** 圖片（SVG 裡寫成 rcimg:N） */
   imgs: string[];
   txt: ViewerText;
@@ -56,6 +62,7 @@ export function rcViewer(D: ViewerData): void {
   /** 鎖定的聚焦：角色 id；-1＝鎖定但不是角色（線、圖例、標籤、路徑）；null＝沒有鎖定 */
   let lockedId: number | null = null;
   let lockedType: number | null = null;
+  let lockedLbl: number | null = null;
   let rvLbl: number | null = null;
   let pathFrom: number | null = null;
   let view = { s: 1, x: 0, y: 0 };
@@ -115,6 +122,7 @@ export function rcViewer(D: ViewerData): void {
   function clearFocus() {
     lockedId = null;
     lockedType = null;
+    lockedLbl = null;
     rvLbl = null;
     pathFrom = null;
     const c = chartEl();
@@ -122,8 +130,19 @@ export function rcViewer(D: ViewerData): void {
     each(c, '.focusedV', (el) => el.classList.remove('focusedV'));
     markLegend('data-legend-type', null);
     markLegend('data-legend-char', null);
+    markLegend('data-legend-lbl', null);
     tip.style.display = 'none';
     if (rvList.children.length) renderRoster();
+  }
+  /** 標籤網的圓點、虛線與陣營框跟著亮 */
+  function markLbls(c: Element, ids: Record<number, 1>) {
+    for (const k in ids) {
+      each(
+        c,
+        `.lbl-node[data-lblnode="${k}"],.lbl-links[data-lbllink="${k}"],.zone-g[data-zone="${k}"]`,
+        (el) => el.classList.add('focusedV'),
+      );
+    }
   }
   function lightNodes(c: Element, keep: Record<number, 1>) {
     each(c, '.node', (n) => {
@@ -134,6 +153,7 @@ export function rcViewer(D: ViewerData): void {
     const c = startFocus();
     markLegend('data-legend-type', null);
     markLegend('data-legend-char', id);
+    markLegend('data-legend-lbl', null);
     const keep: Record<number, 1> = {};
     keep[id] = 1;
     each(c, '.edge', (eg) => {
@@ -146,6 +166,14 @@ export function rcViewer(D: ViewerData): void {
       }
     });
     lightNodes(c, keep);
+    /* 他的標籤：標籤網的圓點、所在的陣營框 */
+    const lk: Record<number, 1> = {};
+    for (const L of S().lbls || []) if (L.members.indexOf(id) >= 0) lk[L.id] = 1;
+    markLbls(c, lk);
+    each(c, '.zone-g[data-zone]', (z) => {
+      if ((z.getAttribute('data-members') || '').split(',').indexOf(String(id)) >= 0)
+        z.classList.add('focusedV');
+    });
   }
   function focusType(tid: number) {
     const c = startFocus();
@@ -159,24 +187,40 @@ export function rcViewer(D: ViewerData): void {
     lightNodes(c, keep);
     markLegend('data-legend-type', tid);
     markLegend('data-legend-char', null);
+    markLegend('data-legend-lbl', null);
   }
+  /** 標籤：成員＋成員之間的線＋標籤網的圓點與陣營框（成員：標籤網 → 陣營框 → 角色身上的標籤） */
   function focusLabel(lid: number) {
     const c = startFocus();
     markLegend('data-legend-type', null);
     markLegend('data-legend-char', null);
+    markLegend('data-legend-lbl', lid);
     const keep: Record<number, 1> = {};
-    const cl = S().clbl;
-    for (const k in cl) if (cl[k].indexOf(lid) >= 0) keep[+k] = 1;
+    let mem: number[] | null = null;
+    for (const L of S().lbls || []) if (L.id === lid) mem = L.members;
+    if (!mem) {
+      const z = c.querySelector(`.zone-g[data-zone="${lid}"]`);
+      if (z) mem = (z.getAttribute('data-members') || '').split(',').filter(Boolean).map(Number);
+    }
+    if (mem) for (const m of mem) keep[m] = 1;
+    else {
+      const cl = S().clbl;
+      for (const k in cl) if (cl[k].indexOf(lid) >= 0) keep[+k] = 1;
+    }
     lightNodes(c, keep);
     each(c, '.edge', (eg) => {
       if (keep[+(eg.dataset.from || 'NaN')] && keep[+(eg.dataset.to || 'NaN')])
         eg.classList.add('focusedV');
     });
+    const one: Record<number, 1> = {};
+    one[lid] = 1;
+    markLbls(c, one);
   }
   function focusEdge(relid: number) {
     const c = startFocus();
     markLegend('data-legend-type', null);
     markLegend('data-legend-char', null);
+    markLegend('data-legend-lbl', null);
     const keep: Record<number, 1> = {};
     each(c, '.edge', (eg) => {
       if (+(eg.dataset.relid || 'NaN') !== relid) return;
@@ -220,10 +264,14 @@ export function rcViewer(D: ViewerData): void {
       const arrow = self ? ' ↻ ' : r.both ? ' ⇄ ' : mine ? ' → ' : ' ← ';
       rows += `<div class="tr"><span class="ta">${escT(arrow)}</span><b>${escT(r.label)}</b><span class="to">${escT(other)}</span></div>`;
     }
+    for (const g of sh.grows?.[id] || [])
+      rows += `<div class="tr tg"><span class="ta">${escT(` ${g.a} `)}</span><b>${escT(g.l)}</b><span class="to">${escT(g.o)}</span>${g.v ? `<span class="tv">${escT(g.v)}</span>` : ''}</div>`;
     let chips = '';
     for (const lid of sh.clbl[id] || []) {
       const t = D.lnames[lid];
-      if (t !== undefined) chips += `<span class="tl" data-lbl="${lid}">${escT(t)}</span>`;
+      const col = D.lcol?.[lid];
+      if (t !== undefined)
+        chips += `<span class="tl" data-lbl="${lid}"${col ? ` style="color:${escT(col)}"` : ''}>${escT(t)}</span>`;
     }
     const pb = sh.rels.length
       ? `<button type="button" class="ti-btn" data-path="${id}">${escT(T.pathBtn)}</button>`
@@ -267,10 +315,12 @@ export function rcViewer(D: ViewerData): void {
     const ch = sh.chars;
     lockedId = -1;
     lockedType = null;
+    lockedLbl = null;
     const c = chartEl();
     each(c, '.focusedV', (el) => el.classList.remove('focusedV'));
     markLegend('data-legend-type', null);
     markLegend('data-legend-char', null);
+    markLegend('data-legend-lbl', null);
     const head = `<b>${escT(ch[a] ?? '?')} ⋯ ${escT(ch[b] ?? '?')}</b>`;
     if (!found) {
       c.classList.remove('focus-active');
@@ -317,6 +367,7 @@ export function rcViewer(D: ViewerData): void {
       pathFrom = null;
       lockedId = -1;
       lockedType = null;
+      lockedLbl = lid;
       focusLabel(lid);
     }
   });
@@ -399,6 +450,7 @@ export function rcViewer(D: ViewerData): void {
     pathFrom = null;
     lockedId = id;
     lockedType = null;
+    lockedLbl = null;
     focusNode(id);
     centerOnNode(id);
     renderRoster();
@@ -426,6 +478,7 @@ export function rcViewer(D: ViewerData): void {
     rvLbl = lid;
     lockedId = -1;
     lockedType = null;
+    lockedLbl = lid;
     focusLabel(lid);
     renderRoster();
   });
@@ -530,15 +583,30 @@ export function rcViewer(D: ViewerData): void {
     }
     const lgt = closest(tgt, '.legend-item[data-legend-type]');
     const lgc = closest(tgt, '.legend-item[data-legend-char]');
+    const lgl = closest(tgt, '.legend-item[data-legend-lbl]') || closest(tgt, '.lbl-node');
     const n = closest(tgt, '.node');
     const eg = closest(tgt, '.edge');
     tip.style.display = 'none';
-    if (lgt) {
+    if (lgl) {
+      const lid = +(
+        lgl.getAttribute('data-legend-lbl') ||
+        lgl.getAttribute('data-lblnode') ||
+        'NaN'
+      );
+      if (lockedLbl === lid) clearFocus();
+      else {
+        lockedId = -1;
+        lockedType = null;
+        lockedLbl = lid;
+        focusLabel(lid);
+      }
+    } else if (lgt) {
       const tid = +(lgt.getAttribute('data-legend-type') || 'NaN');
       if (lockedType === tid) clearFocus();
       else {
         lockedType = tid;
         lockedId = -1;
+        lockedLbl = null;
         focusType(tid);
       }
     } else if (lgc) {
@@ -547,6 +615,7 @@ export function rcViewer(D: ViewerData): void {
       else {
         lockedId = cid;
         lockedType = null;
+        lockedLbl = null;
         focusNode(cid);
       }
     } else if (n) {
@@ -555,6 +624,7 @@ export function rcViewer(D: ViewerData): void {
       else {
         lockedId = id;
         lockedType = null;
+        lockedLbl = null;
         focusNode(id);
         showCharTip(id, e.clientX, e.clientY);
       }
@@ -562,6 +632,7 @@ export function rcViewer(D: ViewerData): void {
       const rid = +(eg.dataset.relid || 'NaN');
       lockedId = -1;
       lockedType = null;
+      lockedLbl = null;
       focusEdge(rid);
       showEdgeTip(rid, e.clientX, e.clientY);
     } else clearFocus();

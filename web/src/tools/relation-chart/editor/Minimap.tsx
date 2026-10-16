@@ -5,8 +5,9 @@
 import { X } from 'lucide-react';
 import { useRef, useSyncExternalStore } from 'react';
 import { charRingColor, PALETTES, sheetCtx } from '../engine/geom';
+import { labelColor, labelInfo } from '../engine/labels';
 import type { Sheet } from '../model/types';
-import { setPrefs, useUi } from '../state/store';
+import { setPrefs, useProject, useUi } from '../state/store';
 import { S } from '../strings';
 import { displaySheet, liveTick, subscribeLiveTick } from './live';
 import { centerOn, zoomBy } from './view';
@@ -31,12 +32,19 @@ export function Minimap({
   const view = useUi((u) => u.view);
   const ref = useRef<SVGSVGElement>(null);
   useSyncExternalStore(subscribeLiveTick, liveTick, liveTick);
-  const chars = displaySheet(sheet).chars;
+  const labels = useProject((s) => s.data.labels);
+  const shown = displaySheet(sheet);
+  /* 收合中的成員以收合節點的一顆點代表 */
+  const info = labelInfo(sheetCtx(shown, labels));
+  const chars = info.colHidden.size
+    ? shown.chars.filter((c) => !info.colHidden.has(c.id))
+    : shown.chars;
   const [maxW, maxH] = host.w && host.w < 560 ? MAX.narrow : MAX.wide;
   const k = Math.min(maxW / viewW, maxH / viewH);
   const w = Math.max(40, viewW * k);
   const h = Math.max(30, viewH * k);
-  const ctx = sheetCtx(sheet);
+  const ctx = sheetCtx(sheet, labels);
+  const dot = Math.max(3 / k, 18);
   const pal = PALETTES[sheet.settings.palette];
   /* 看得到的範圍（SVG 座標） */
   const vx = -view.x / view.zoom;
@@ -87,12 +95,16 @@ export function Minimap({
           strokeWidth={2 / k}
         />
         {chars.map((c) => (
+          <circle key={c.id} cx={c.x + pad} cy={c.y + pad} r={dot} fill={charRingColor(ctx, c)} />
+        ))}
+        {[...info.colGroups.values()].map((g) => (
           <circle
-            key={c.id}
-            cx={c.x + pad}
-            cy={c.y + pad}
-            r={Math.max(3 / k, 18)}
-            fill={charRingColor(ctx, c)}
+            key={`g${g.id}`}
+            cx={g.x + pad}
+            cy={g.y + pad}
+            r={dot * 1.7}
+            fill={labelColor(ctx, g.lbl)}
+            data-testid="minimap-group"
           />
         ))}
         <rect

@@ -10,11 +10,11 @@ import type { StateStorage } from 'zustand/middleware';
 import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
 import { initialProject, normalizeProject, projectAssetIds } from '../model/normalize';
-import type { Project, Sheet } from '../model/types';
+import type { ColorValue, Project, Sheet } from '../model/types';
 
 export const TOOL_ID = 'relation-chart';
 /** 專案檔與自動儲存的資料版本 */
-export const DATA_VERSION = 1;
+export const DATA_VERSION = 2;
 
 /** 寫入 localStorage 延後一點（連續變更只寫最後一次）；離開頁面、切到背景時立刻寫 */
 function deferredStorage(delayMs = 400, onError?: (e: unknown) => void): StateStorage {
@@ -151,6 +151,13 @@ export type ExportScope = 'cur' | 'all' | 'some';
 
 export interface Prefs {
   groupByLabel: boolean;
+  /** 標籤清單依分頁分組（F181i） */
+  labelsBySheet: boolean;
+  /** 檔案庫：高度（null＝預設）、左欄寬、檢視層級與項目大小 */
+  libH: number | null;
+  libSideW: number;
+  libLevel: 'min' | 'normal' | 'detail';
+  libSize: 'sm' | 'md' | 'lg';
   nameFromFile: boolean;
   minimap: boolean;
   exportFormat: ExportFormat;
@@ -160,6 +167,11 @@ export interface Prefs {
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   groupByLabel: false,
+  labelsBySheet: true,
+  libH: null,
+  libSideW: 240,
+  libLevel: 'detail',
+  libSize: 'sm',
   nameFromFile: false,
   minimap: true,
   exportFormat: 'png',
@@ -174,7 +186,8 @@ export const setPrefs = (patch: Partial<Prefs>): void =>
 
 /* ---------- 只在這次開頁有效的狀態 ---------- */
 
-export type FocusKind = 'node' | 'edge' | 'type';
+/** 聚焦：角色、線、關係類型、標籤（第二批） */
+export type FocusKind = 'node' | 'edge' | 'type' | 'label';
 export interface FocusRef {
   kind: FocusKind;
   id: number;
@@ -183,9 +196,12 @@ export interface FocusRef {
 /** 建立關係模式 */
 export interface LinkMode {
   typeId: number;
-  from: number | null;
+  /** 起點：`C<角色 id>` 或 `L<標籤 id>`（標籤＝群體關係） */
+  from: string | null;
   /** 這一輪建立的關係（再點同樣的兩人＝取消） */
   made: number[];
+  /** 這一輪建立的群體關係 */
+  madeG: number[];
   /** 橫幅的提示（一段時間後清掉） */
   flash: { text: string; ok: boolean } | null;
 }
@@ -194,6 +210,8 @@ export type Panel =
   | { kind: 'char'; id: number }
   | { kind: 'rel'; id: number }
   | { kind: 'type'; id: number }
+  | { kind: 'grel'; id: number }
+  | { kind: 'coledge'; key: string }
   | null;
 
 export type DialogKind =
@@ -232,7 +250,19 @@ export interface UiState {
   simRunning: boolean;
   /** 分頁改名中 */
   renaming: number | null;
+  /** 檔案庫開著（這一批只有標籤庫） */
+  libOpen: boolean;
+  /** 標籤庫的模式（null＝一般：點標籤＝在左欄設定它） */
+  libMode: LibMode | null;
+  /** 左欄設定中的標籤 */
+  libSel: number | null;
+  /** 編輯模式中載入的標籤 */
+  libEdit: number | null;
+  /** 標籤庫的調色盤（新增時套用；編輯模式載入標籤的顏色） */
+  libColor: ColorValue;
 }
+
+export type LibMode = 'edit' | 'hide' | 'pull' | 'zone' | 'del';
 
 export const useUi = create<UiState>(() => ({
   sel: [],
@@ -247,6 +277,11 @@ export const useUi = create<UiState>(() => ({
   ring: null,
   simRunning: false,
   renaming: null,
+  libOpen: false,
+  libMode: null,
+  libSel: null,
+  libEdit: null,
+  libColor: 'auto',
 }));
 
 export const setUi = (patch: Partial<UiState>): void => useUi.setState(patch);

@@ -35,6 +35,8 @@ export interface NodeUi {
   linkFrom?: number | null;
   /** 這一輪連過的角色（右上小勾） */
   linkDone?: ReadonlySet<number>;
+  /** 建立關係模式中（標籤網關著時臨時畫出可以點的標籤圓點） */
+  linking?: boolean;
 }
 
 /** 頭像的「臉」：照片／圖示／首字（三選一） */

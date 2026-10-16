@@ -44,6 +44,8 @@ const sheet = (
   types,
   bg: null,
   settings: newSettings(),
+  grels: [],
+  collapsed: [],
 });
 
 export function buildSample(key: SampleKey): Sheet {

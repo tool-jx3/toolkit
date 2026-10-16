@@ -3,9 +3,29 @@
  *
  * 互動網頁（規格 3.5；原作的 buildViewerHtml）：單一 HTML，不連外部資源。
  * 每張分頁一份預先畫好的 SVG、一份資料（角色名、關係、標籤）與檢視程式（viewerRuntime.ts）。
+ * 第二批的資料（標籤色、標籤網的成員、群體關係列）與樣式只有用到時才放（沒用到的檔逐位元組不變）。
  */
 import { viewerSvg } from '../engine/chart';
-import { displayName, esc, FONT_STACKS, focusDimSet, PALETTES, sheetName } from '../engine/geom';
+import {
+  displayName,
+  esc,
+  FONT_STACKS,
+  focusDimSet,
+  PALETTES,
+  sheetCtx,
+  sheetName,
+} from '../engine/geom';
+import {
+  aliveGrels,
+  grelEndIsLbl,
+  grelEndMembers,
+  grelEndName,
+  grelExcluded,
+  labelInfo,
+  lblNodeDrawn,
+} from '../engine/labels';
+import { charLabelIds } from '../model/charLabels';
+import { ownColor } from '../model/normalize';
 import type { FontKey, Label, Sheet } from '../model/types';
 import { S } from '../strings';
 import { rcViewer, type ViewerData, type ViewerSheetData } from './viewerRuntime';
@@ -33,14 +53,57 @@ const scriptJson = (v: unknown) =>
 /** 檢視程式的原始碼（測試可以換掉） */
 export const viewerSource = (): string => rcViewer.toString();
 
+/** 角色卡的群體關係列（自己是端點的一定列；成員身分只有「算到每位成員」開著、沒被排除才列；同時屬於兩端的跳過） */
+function grelRows(sheet: Sheet, labels: readonly Label[]): ViewerSheetData['grows'] {
+  const ctx = sheetCtx(sheet, labels);
+  const map: NonNullable<ViewerSheetData['grows']> = {};
+  for (const g of aliveGrels(ctx)) {
+    const tg = ctx.typeById.get(g.type);
+    if (!tg || tg.hidden) continue;
+    const nF = grelEndName(ctx, g.from);
+    const nT = grelEndName(ctx, g.to);
+    const mf = grelEndMembers(ctx, g.from);
+    const mt = grelEndMembers(ctx, g.to);
+    const sf = new Set(mf.map((c) => c.id));
+    const st = new Set(mt.map((c) => c.id));
+    const label = tg.label.replace(/\n+/g, ' ');
+    for (const c of mf) {
+      if (st.has(c.id)) continue;
+      if (grelEndIsLbl(g.from) && (!g.inherit || grelExcluded(g, c.id))) continue;
+      map[c.id] = map[c.id] ?? [];
+      map[c.id].push({
+        a: g.both ? '⇄' : '→',
+        l: label,
+        o: nT,
+        v: grelEndIsLbl(g.from) ? nF : '',
+      });
+    }
+    for (const c of mt) {
+      if (sf.has(c.id)) continue;
+      if (grelEndIsLbl(g.to) && (!g.inherit || grelExcluded(g, c.id))) continue;
+      map[c.id] = map[c.id] ?? [];
+      map[c.id].push({
+        a: g.both ? '⇄' : '←',
+        l: label,
+        o: nF,
+        v: grelEndIsLbl(g.to) ? nT : '',
+      });
+    }
+  }
+  return Object.keys(map).length ? map : undefined;
+}
+
 function sheetData(sheet: Sheet, labels: readonly Label[]): ViewerSheetData {
   const visible = new Map(sheet.types.filter((t) => !t.hidden).map((t) => [t.id, t]));
-  const labelIds = new Set(labels.map((l) => l.id));
+  /* 隱藏的標籤（只管畫布）：分頁設定「互動網頁也列出隱藏的標籤」關著時，角色卡也不列 */
+  const listed = new Set(
+    labels.filter((l) => !l.hidden || sheet.settings.viewerHiddenLbls).map((l) => l.id),
+  );
   const chars: Record<string, string> = {};
   const clbl: Record<string, number[]> = {};
   for (const c of sheet.chars) {
     chars[c.id] = displayName(c);
-    const ls = c.labels.filter((l) => labelIds.has(l));
+    const ls = charLabelIds(c).filter((l) => listed.has(l));
     if (ls.length) clbl[c.id] = ls;
   }
   const ids = new Set(sheet.chars.map((c) => c.id));
@@ -55,8 +118,22 @@ function sheetData(sheet: Sheet, labels: readonly Label[]): ViewerSheetData {
       both: r.both,
       note: r.note,
     }));
-  return { chars, rels, clbl };
+  const out: ViewerSheetData = { chars, rels, clbl };
+  /* 標籤網的圓點（畫出來的那些）與成員：點圓點、聚焦角色時用 */
+  if (sheet.settings.showLabelNodes) {
+    const ctx = sheetCtx(sheet, labels);
+    const lbls = labelInfo(ctx)
+      .entries.filter((e) => lblNodeDrawn(ctx, e))
+      .map((e) => ({ id: e.id, members: e.members.map((c) => c.id) }));
+    if (lbls.length) out.lbls = lbls;
+  }
+  const grows = grelRows(sheet, labels);
+  if (grows) out.grows = grows;
+  return out;
 }
+
+/** 有沒有畫出第二批的東西（陣營框、標籤網、群體關係、標籤圖例）：有才放對應的樣式 */
+const LABEL_MARKS = ['class="zone-g"', 'class="lbl-node', 'class="grel-edge"', 'lbl-legend-item'];
 
 export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string {
   const imgs: string[] = [];
@@ -72,16 +149,27 @@ export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string
     }
     return `rcimg:${k}`;
   };
-  const svgs = sheets.map((s, i) => viewerSvg(s, { href, font: input.font, idPrefix: `s${i}-` }));
-  const usedLabels = new Set(sheets.flatMap((s) => s.chars.flatMap((c) => c.labels)));
+  const svgs = sheets.map((s, i) =>
+    viewerSvg(s, { href, font: input.font, idPrefix: `s${i}-`, labels: input.labels }),
+  );
+  const usedLabels = new Set(sheets.flatMap((s) => s.chars.flatMap((c) => charLabelIds(c))));
+  const anyHiddenOk = sheets.some((s) => s.settings.viewerHiddenLbls);
   const lnames: Record<string, string> = {};
-  for (const l of input.labels) if (usedLabels.has(l.id)) lnames[l.id] = l.text;
+  const lcol: Record<string, string> = {};
+  for (const l of input.labels) {
+    if (!usedLabels.has(l.id) || (l.hidden && !anyHiddenOk)) continue;
+    lnames[l.id] = l.text;
+    const col = ownColor(l.color);
+    if (col) lcol[l.id] = col;
+  }
   const data: ViewerData = {
     sheets: sheets.map((s) => sheetData(s, input.labels)),
     lnames,
     imgs,
     txt: S.viewer.runtime,
   };
+  if (Object.keys(lcol).length) data.lcol = lcol;
+  const usesLabels = svgs.some((svg) => LABEL_MARKS.some((m) => svg.includes(m)));
   const pal = PALETTES[sheets[0]?.settings.palette ?? 'dark'];
   const light = sheets[0]?.settings.palette === 'light';
   const th = {
@@ -97,7 +185,8 @@ export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string
     .map((s, i) => {
       const d = focusDimSet(s.settings.focusDim);
       const bg = PALETTES[s.settings.palette].bg;
-      return `<div class="sheetV${i === 0 ? ' active' : ''}" style="background:${bg};--fdim-node:${d.node};--fdim-edge:${d.edge}"><div class="zoomer">${svgs[i]}</div></div>`;
+      const lv = usesLabels ? `;--fdim-lbl:${d.lbl};--fdim-zone:${d.zone}` : '';
+      return `<div class="sheetV${i === 0 ? ' active' : ''}" style="background:${bg};--fdim-node:${d.node};--fdim-edge:${d.edge}${lv}"><div class="zoomer">${svgs[i]}</div></div>`;
     })
     .join('\n');
   const tabsHtml =
@@ -133,7 +222,20 @@ header h1{font-size:15px;color:${th.ink};margin-right:auto;white-space:nowrap;ov
 .chart.focus-active .node.focusedV,.chart.focus-active .edge.focusedV{opacity:1}
 .chart .legend-item{cursor:pointer}
 .chart .legend-item .legend-pill{transition:opacity .18s ease;fill:${th.accent};stroke:${th.accent}}
-.chart .legend-item.legend-on .legend-pill{opacity:1}
+.chart .legend-item.legend-on .legend-pill{opacity:1}${
+    usesLabels
+      ? `
+.chart .lbl-node{cursor:pointer}
+.chart .lbl-node,.chart .lbl-links,.chart .zone-g{transition:opacity .18s ease}
+.chart.focus-active .lbl-node,.chart.focus-active .lbl-links{opacity:var(--fdim-lbl,.1)}
+.chart.focus-active .zone-g{opacity:var(--fdim-zone,.12)}
+.chart.focus-active .lbl-node.focusedV,.chart.focus-active .lbl-links.focusedV,.chart.focus-active .zone-g.focusedV{opacity:1}
+.chart .grel-fan{opacity:0;pointer-events:none;transition:opacity .15s ease}
+.chart .grel-edge:hover .grel-fan{opacity:.4}
+#tipV .tg{opacity:.75}
+#tipV .tv{opacity:.6;font-size:11px}`
+      : ''
+  }
 #rosterV{position:fixed;left:10px;top:52px;width:min(260px,calc(100vw - 20px));max-height:min(60vh,420px);display:none;flex-direction:column;background:${th.panel};color:${th.ink};border:1px solid ${th.line};border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.45);z-index:8;overflow:hidden}
 #rosterV.show{display:flex}
 #rosterV .rv-list{overflow-y:auto}

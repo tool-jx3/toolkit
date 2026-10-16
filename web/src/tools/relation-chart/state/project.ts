@@ -13,7 +13,7 @@ import {
   parseJsonBytes,
 } from '../logic/legacy';
 import { normalizeProject, projectAssetIds } from '../model/normalize';
-import type { Avatar, FontKey, Project, Sheet } from '../model/types';
+import type { Avatar, FontKey, Label, Project, Sheet } from '../model/types';
 import { S } from '../strings';
 import { insertSheet } from './actions';
 import { avatarFromBlob, backgroundFromBlob, renderAvatar } from './images';
@@ -257,7 +257,7 @@ export async function importLegacy(
 
 function applyLegacySheets(
   sheets: Sheet[],
-  labels: { id: number; text: string }[],
+  labels: Label[],
   activeIdx: number,
   mode: 'append' | 'replace',
   font: FontKey,
@@ -274,12 +274,14 @@ function applyLegacySheets(
     for (const l of labels) {
       const t = l.text.trim();
       if (!t) continue;
-      let mine = p.labels.find((x) => x.text === t);
-      if (!mine) {
-        mine = { id: p.nextId++, text: t };
-        p.labels.push(mine);
+      /* 同名的沿用現有的標籤（顏色與開關不蓋過去；原作也是），沒有的連同顏色、開關一起加 */
+      const mine = p.labels.find((x) => x.text === t);
+      if (mine) labelMap.set(l.id, mine.id);
+      else {
+        const id = p.nextId++;
+        p.labels.push({ ...l, id, text: t });
+        labelMap.set(l.id, id);
       }
-      labelMap.set(l.id, mine.id);
     }
     const first = p.sheets.length;
     for (const s of sheets) insertSheet(p, s, { labelMap });

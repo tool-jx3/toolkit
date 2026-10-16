@@ -19,6 +19,8 @@ import {
   type SheetCtx,
 } from '../engine/geom';
 import { CHAR_ICONS } from '../engine/icons';
+import { labelColor } from '../engine/labels';
+import { charHasLabel } from '../model/charLabels';
 import { typeLabel } from '../model/factory';
 import type { Char, Sheet } from '../model/types';
 import {
@@ -32,6 +34,7 @@ import {
 import { avatarFromBlob, fetchImage } from '../state/images';
 import { setUi, usePrefs, useProject } from '../state/store';
 import { S } from '../strings';
+import { GrelsOf } from './GrelPanels';
 import { useCtx, useHref, useSheet } from './hooks';
 import { CharThumb } from './thumbs';
 import { AutoNumber, Block, ColorPair, LiveText } from './widgets';
@@ -292,12 +295,24 @@ function RelsOf({ c, sheet }: { c: Char; sheet: Sheet }) {
   );
 }
 
+/** 標籤色的小圓點 */
+function LabelDot({ color }: { color: string }) {
+  return (
+    <span
+      className="inline-block size-2.5 shrink-0 rounded-full border border-border"
+      style={{ background: color }}
+      aria-hidden
+    />
+  );
+}
+
 export function LabelChips({ ids }: { ids: readonly number[] }) {
   const sheet = useSheet();
+  const ctx = useCtx(sheet);
   const labels = useProject((s) => s.data.labels);
   const [text, setText] = useState('');
   const chars = sheet.chars.filter((c) => ids.includes(c.id));
-  const union = labels.filter((l) => chars.some((c) => c.labels.includes(l.id)));
+  const union = labels.filter((l) => chars.some((c) => charHasLabel(c, l.id)));
   const rest = labels.filter((l) => !union.includes(l));
   return (
     <div className="flex flex-col gap-2">
@@ -309,6 +324,7 @@ export function LabelChips({ ids }: { ids: readonly number[] }) {
               className="flex items-center gap-1 rounded-full border border-border bg-surface-2 py-0.5 pr-1 pl-2 text-xs"
               data-testid="label-chip"
             >
+              <LabelDot color={labelColor(ctx, l)} />
               {l.text}
               <button
                 type="button"
@@ -342,10 +358,11 @@ export function LabelChips({ ids }: { ids: readonly number[] }) {
             <button
               key={l.id}
               type="button"
-              className="rounded-full border border-dashed border-border px-2 py-0.5 text-xs text-muted hover:text-fg"
+              className="flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-xs text-muted hover:text-fg"
               onClick={() => toggleLabel(ids, l.id, true)}
             >
-              ＋ {l.text}
+              ＋ <LabelDot color={labelColor(ctx, l)} />
+              {l.text}
             </button>
           ))}
         </fieldset>
@@ -584,6 +601,7 @@ export function CharPanel({ id }: { id: number }) {
           <Field label={S.char.rels}>
             <RelsOf c={c} sheet={sheet} />
           </Field>
+          <GrelsOf c={c} />
         </div>
       </Section>
       <div className="flex flex-wrap gap-2">

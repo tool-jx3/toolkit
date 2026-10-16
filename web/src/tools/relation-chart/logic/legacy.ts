@@ -7,8 +7,8 @@
 import { strFromU8 } from 'fflate';
 import type { FramePlacement } from '@/core/image';
 import { makeChar, makeRel, makeType } from '../model/factory';
-import { normalizeSettings, safeColor } from '../model/normalize';
-import type { Char, FontKey, Label, Rel, RelType, Shape, Sheet } from '../model/types';
+import { normalizeGrel, normalizeLabel, normalizeSettings, safeColor } from '../model/normalize';
+import type { Char, FontKey, GroupRel, Label, Rel, RelType, Shape, Sheet } from '../model/types';
 
 export class LegacyFileError extends Error {}
 
@@ -82,8 +82,11 @@ export function parseJsonBytes(bytes: Uint8Array): unknown {
 const LEGACY_POS = ['top', 'bottom', 'left', 'right', 'topOut', 'bottomOut', 'leftOut', 'rightOut'];
 
 /** 原作的分頁設定 → 本工具的（同名的照抄；舊模式 online／hidden 換成對應的開關） */
-function legacySettings(raw: unknown, light: boolean) {
+function legacySettings(raw: unknown, light: boolean, top: Record<string, unknown>) {
   const s = isObj(raw) ? { ...raw } : {};
+  /* 舊檔的標籤圖例位置在頂層：散給沒有自己的值的分頁（原作 loadProject） */
+  if (s.lblLegendPos === undefined && LEGACY_POS.includes(String(top.lblLegendPos)))
+    s.lblLegendPos = top.lblLegendPos;
   if (s.legendPos === 'online') {
     s.legendPos = 'bottom';
     s.showRelName = true;
@@ -183,10 +186,10 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
   }
   const labels: Label[] = [];
   for (const l of Array.isArray(data.labels) ? data.labels : []) {
-    if (!isObj(l) || !fin(l.id)) continue;
-    labels.push({ id: Math.trunc(num(l.id)), text: String(l.text ?? '').slice(0, 100) });
-    if (l.hidden || l.zone || l.noPull || l.frame)
-      skipped.add('標籤的隱藏、引力、陣營框、頭像框設定');
+    const n = normalizeLabel(l);
+    if (!n || labels.some((x) => x.id === n.id)) continue;
+    labels.push(n);
+    if (isObj(l) && l.frame) skipped.add('頭像框');
   }
   const legacyTags = Array.isArray(data.relTypes)
     ? data.relTypes
@@ -334,7 +337,16 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
       );
     }
     if (Array.isArray(sh.notes) && sh.notes.length) skipped.add('便利貼');
-    if (Array.isArray(sh.groupRels) && sh.groupRels.length) skipped.add('群體關係');
+    /* 群體關係（新名 relTypeId、舊名 tagId；只驗形狀，端點在不在由畫的時候判斷＝原作 sanitizeGrels） */
+    const grels: GroupRel[] = [];
+    for (const g of Array.isArray(sh.groupRels) ? sh.groupRels : []) {
+      if (!isObj(g) || !fin(g.id)) continue;
+      const n = normalizeGrel(g, 0);
+      if (n && !grels.some((x) => x.id === n.id)) grels.push(n);
+    }
+    const collapsed = Array.isArray(sh.collapsedLbls)
+      ? [...new Set(sh.collapsedLbls.map((x) => Math.trunc(num(x))).filter(Number.isFinite))]
+      : [];
     if (isObj(sh.views) && Object.keys(sh.views).length) skipped.add('看法');
     if (typeof sh.lore === 'string' && sh.lore) skipped.add('世界觀');
     if (typeof sh.memo === 'string' && sh.memo) skipped.add('備忘錄');
@@ -349,7 +361,9 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
       rels,
       types,
       bg: null,
-      settings: legacySettings(sh.settings, light),
+      settings: legacySettings(sh.settings, light, data),
+      grels,
+      collapsed,
     };
     sheets.push(sheet);
     avatars.set(sheet, av);

@@ -1,7 +1,8 @@
 /*
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
- * 圖例（關係總覽）與名冊（角色總覽）：原作的 buildLegend、buildCharLegend、legendPlaceBox、legendFlow、legendOutPad。
+ * 圖例（關係總覽）、標籤圖例（標籤總覽）與名冊（角色總覽）：原作的 buildLegend、buildLabelLegend、buildCharLegend、
+ * legendPlaceBox、legendFlow、legendOutPad。
  */
 import type { Char, LegendPos, RelType } from '../model/types';
 import {
@@ -20,6 +21,14 @@ import {
   typeOutlineW,
   typeTextColor,
 } from './geom';
+import {
+  aliveGrels,
+  type LabelEntry,
+  labelColor,
+  labelInfo,
+  visibleChars,
+  zoneEdgeOf,
+} from './labels';
 import {
   capDecoSvg,
   FANCY_CAPS,
@@ -104,13 +113,14 @@ function shell(
   x: number,
   y: number,
   body: string,
+  extraCls = '',
 ): string {
   const hx = x - 5 * kk;
   const hh = ROW * 0.88;
   const hy = y - hh * 0.5;
   const box = (cls: string, extra: string) =>
     `<rect${cls ? ` class="${cls}"` : ''} x="${f1(hx)}" y="${f1(hy)}" width="${f1(hw)}" height="${f1(hh)}" ${extra}/>`;
-  return `<g class="legend-item" ${attr}="${id}" pointer-events="all"><title>${esc(tip)}</title>${box('', 'fill="rgba(0,0,0,0)"')}${box('legend-pill', `fill="#7c5cff" fill-opacity="0.17" stroke="#7c5cff" stroke-width="${f1(2.2 * kk)}" opacity="0"`)}${body}</g>`;
+  return `<g class="legend-item${extraCls ? ` ${extraCls}` : ''}" ${attr}="${id}" pointer-events="all"><title>${esc(tip)}</title>${box('', 'fill="rgba(0,0,0,0)"')}${box('legend-pill', `fill="#7c5cff" fill-opacity="0.17" stroke="#7c5cff" stroke-width="${f1(2.2 * kk)}" opacity="0"`)}${body}</g>`;
 }
 
 function pack<T>(items: T[], itemW: (it: T) => number, GAP: number, maxW: number): T[][] {
@@ -157,9 +167,10 @@ function flow<T>(
   return { svg: out, box: bb };
 }
 
-/** 圖例會列的關係類型（用到、沒隱藏、沒設隱藏於圖例；照清單順序） */
+/** 圖例會列的關係類型（用到〔含只有群體關係在用的〕、沒隱藏、沒設隱藏於圖例；照清單順序） */
 export function legendTypes(ctx: SheetCtx): RelType[] {
   const used = new Set(ctx.sheet.rels.map((r) => r.type));
+  for (const g of aliveGrels(ctx)) used.add(g.type);
   return ctx.sheet.types.filter((t) => used.has(t.id) && !t.hidden && !t.hideInLegend);
 }
 
@@ -242,6 +253,8 @@ export interface LegendOut {
   svg: string;
   defs: string;
   rel: LegendBox | null;
+  /** 標籤圖例 */
+  lbl: LegendBox | null;
   chars: LegendBox | null;
   /** 名冊縮到難以閱讀（只在編輯畫面提醒） */
   cramped: boolean;
@@ -254,9 +267,9 @@ export function legendsSvg(
   href: ImageHref,
   ui: boolean,
 ): LegendOut {
-  const out: LegendOut = { svg: '', defs: '', rel: null, chars: null, cramped: false };
+  const out: LegendOut = { svg: '', defs: '', rel: null, lbl: null, chars: null, cramped: false };
   const { W, H } = ctx;
-  if (ctx.s.showLegend && ctx.sheet.rels.length) {
+  if (ctx.s.showLegend && (ctx.sheet.rels.length || ctx.sheet.grels.length)) {
     const items = legendTypes(ctx);
     if (items.length) {
       const pos = ctx.s.legendPos;
@@ -287,14 +300,66 @@ export function legendsSvg(
       out.svg += `<g class="legend" pointer-events="none">${fl.svg}</g>`;
     }
   }
-  if (ctx.s.showCharLegend && ctx.sheet.chars.length) {
-    const r = charLegend(ctx, idPrefix, href, [out.rel], ui);
+  if (ctx.s.showLblLegend) {
+    const r = labelLegend(ctx, [out.rel]);
+    if (r) {
+      out.svg += r.svg;
+      out.lbl = r.box;
+    }
+  }
+  if (ctx.s.showCharLegend && visibleChars(ctx).length) {
+    const r = charLegend(ctx, idPrefix, href, [out.rel, out.lbl], ui);
     out.svg += r.svg;
     out.defs += r.defs;
     out.chars = r.box;
     out.cramped = r.cramped;
   }
   return out;
+}
+
+/** 標籤圖例會列的標籤：畫在畫布上的（沒隱藏、這張分頁有成員；陣營框一定列，一般標籤只在標籤網開著時列） */
+export function legendLabels(ctx: SheetCtx): LabelEntry[] {
+  return labelInfo(ctx).entries.filter(
+    (e) => !e.label.hidden && e.members.length && (e.label.zone || ctx.s.showLabelNodes),
+  );
+}
+
+/** 標籤圖例（樣本：陣營框＝圓角色塊、一般標籤＝圓點；點一項＝聚焦這個標籤的成員） */
+function labelLegend(
+  ctx: SheetCtx,
+  avoid: readonly (LegendBox | null)[],
+): { svg: string; box: LegendBox } | null {
+  const items = legendLabels(ctx);
+  if (!items.length) return null;
+  const { W, H } = ctx;
+  const pos = ctx.s.lblLegendPos;
+  const K = legendKit(W, H);
+  const { kk, PAD, ROW, GAP, FS } = K;
+  const SW = 22 * kk;
+  const bg = ctx.pal.bg;
+  const itemW = (e: LabelEntry) => SW + 8 * kk + e.label.text.length * FS + 6 * kk;
+  const itemSvg = (e: LabelEntry, x: number, y: number) => {
+    const col = labelColor(ctx, e.label);
+    const sw = e.label.zone
+      ? `<rect x="${f1(x)}" y="${f1(y - 7 * kk)}" width="${f1(SW)}" height="${f1(14 * kk)}" rx="${f1(5 * kk)}" fill="${col}" fill-opacity="0.3"${ctx.s.zoneOutline ? ` stroke="${col}" stroke-opacity="0.75" stroke-width="${f1(zoneEdgeOf(ctx) * kk)}"` : ''}/>`
+      : `<circle cx="${f1(x + SW / 2)}" cy="${f1(y)}" r="${f1(6 * kk)}" fill="${col}" stroke="${bg}" stroke-width="${f1(1.6 * kk)}"/>`;
+    const body = `${sw}<text x="${f1(x + SW + 8 * kk)}" y="${f1(y + 5 * kk)}" font-size="${f1(FS)}" fill="${col}" font-weight="700" paint-order="stroke" stroke="${bg}" stroke-width="${f1(FS * 0.18)}" stroke-linejoin="round">${esc(e.label.text)}</text>`;
+    return shell(
+      kk,
+      ROW,
+      'data-legend-lbl',
+      e.id,
+      `聚焦「${e.label.text}」的成員（再點一次取消）`,
+      itemW(e),
+      x,
+      y,
+      body,
+      'lbl-legend-item',
+    );
+  };
+  const rows = horizOf(pos) ? pack(items, itemW, GAP, W - PAD * 4) : items.map((e) => [e]);
+  const fl = flow(ctx, rows, itemW, itemSvg, pos, K, avoid);
+  return { svg: `<g class="lbl-legend" pointer-events="none">${fl.svg}</g>`, box: fl.box };
 }
 
 const CHAR_LEGEND_MAX = 0.4;
@@ -306,7 +371,8 @@ function charLegend(
   avoid: readonly (LegendBox | null)[],
   ui: boolean,
 ): { svg: string; defs: string; box: LegendBox; cramped: boolean } {
-  const all = ctx.sheet.chars;
+  /* 收合中的成員畫布上看不到＝名冊也不列 */
+  const all = visibleChars(ctx);
   const { W, H } = ctx;
   const pos = ctx.s.charLegendPos;
   const horiz = horizOf(pos);
