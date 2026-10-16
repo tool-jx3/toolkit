@@ -161,9 +161,18 @@ export class AnimPainter {
     ctx.restore();
   }
 
-  /** 在 ctx（w × h）上畫位置 p 的畫面 */
-  async paint(ctx: CanvasRenderingContext2D, p: number): Promise<void> {
+  /** 暫存的畫布：每一格先畫好再一次貼上（即時錄影是照時間抓畫布，畫到一半的畫面不能被錄進去） */
+  private buf: HTMLCanvasElement | null = null;
+
+  /** 在 ctx（w × h）上畫位置 p 的畫面：先畫在暫存的畫布，畫完才一次貼到 ctx */
+  async paint(target: CanvasRenderingContext2D, p: number): Promise<void> {
     const { outW, outH, w, h } = this.plan;
+    if (!this.buf) {
+      this.buf = document.createElement('canvas');
+      this.buf.width = w;
+      this.buf.height = h;
+    }
+    const ctx = this.buf.getContext('2d') as CanvasRenderingContext2D;
     const fr = tweenAt(this.sheet, p, { ...this.tween, library: this.input.library });
     const s = fr.sheet;
     ctx.save();
@@ -196,11 +205,13 @@ export class AnimPainter {
     const c = await svgToCanvas(svg, w, h, this.firstFonts);
     this.firstFonts = false;
     ctx.drawImage(c, 0, 0, w, h);
+    target.drawImage(this.buf, 0, 0);
   }
 
   close(): void {
     for (const b of this.bitmaps.values()) b?.close?.();
     this.bitmaps.clear();
+    this.buf = null;
   }
 }
 

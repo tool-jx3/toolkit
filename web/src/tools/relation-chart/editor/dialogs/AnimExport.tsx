@@ -55,6 +55,7 @@ export function AnimExport() {
       onSettingsChange={(s) => setKind(s.format === 'video' ? 'video' : 'gif')}
       fixedFps={ANIM_FPS}
       fixedFpsHint={A.fpsHint}
+      sizeWarningHint={A.sizeHint}
       estimate={{
         width: plan.w,
         height: plan.h,

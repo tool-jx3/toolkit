@@ -369,6 +369,7 @@ function EditBar() {
             <DropdownMenu.Item
               className={MENU_ITEM}
               disabled={!sheet.bg || bgLocked}
+              title={bgLocked ? S.tl.lockBg : undefined}
               onSelect={() =>
                 editSheet((d) => {
                   d.bg = null;

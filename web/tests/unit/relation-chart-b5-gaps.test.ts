@@ -33,10 +33,11 @@ const { exportAssetIds } = await import('@/tools/relation-chart/editor/exportRun
 const { isBlankProject } = await import('@/tools/relation-chart/editor/files');
 const { frameUsage } = await import('@/tools/relation-chart/editor/FrameUi');
 const { labelUsage } = await import('@/tools/relation-chart/editor/LabelLibrary');
-const { animPlanFor, buildVideo } = await import('@/tools/relation-chart/export/anim');
+const { AnimPainter, animPlanFor, buildVideo } = await import('@/tools/relation-chart/export/anim');
 const { usedFontIds } = await import('@/tools/relation-chart/export/fonts');
 const { viewerHtml } = await import('@/tools/relation-chart/export/viewer');
 const { tweenAt } = await import('@/tools/relation-chart/logic/tween');
+const { typeLineCount } = await import('@/tools/relation-chart/model/timeline');
 const { charLibUsage, relLibUsage } = await import('@/tools/relation-chart/model/library');
 const { emptySheet, initialProject } = await import('@/tools/relation-chart/model/normalize');
 const {
@@ -215,6 +216,50 @@ describe('GIF／影片', () => {
   });
 });
 
+describe('GIF／影片的每一格是一次貼上去的', () => {
+  it('先畫在暫存的畫布、最後一次貼到輸出的畫布（即時錄影不會錄到只有背景、還沒畫角色的半成品格，7.13）', async () => {
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    const calls = new Map<HTMLCanvasElement, string[]>();
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement) {
+      const list = calls.get(this) ?? [];
+      calls.set(this, list);
+      const props: Record<string | symbol, unknown> = {};
+      return new Proxy(props, {
+        get: (t, k) => (k in t ? t[k] : (..._a: unknown[]) => list.push(String(k))),
+        set: (t, k, v) => {
+          t[k] = v;
+          return true;
+        },
+      });
+    } as unknown as HTMLCanvasElement['getContext'];
+    try {
+      timelineWithExtra();
+      updateProject((d) => {
+        d.sheets[0].bg = 'bg-a';
+      });
+      const s = activeSheet();
+      raster.svgToCanvas.mockImplementation(async () => document.createElement('canvas'));
+      const plan = animPlanFor(s, 'video', true);
+      const input = {
+        sheets: [s],
+        font: 'sans' as const,
+        labels: [],
+        uris: new Map(),
+        transparent: false,
+      };
+      const painter = new AnimPainter(s, input, plan, {});
+      const target = document.createElement('canvas');
+      const ctx = target.getContext('2d') as CanvasRenderingContext2D;
+      await painter.paint(ctx, 0.5);
+      expect(calls.get(target)).toEqual(['drawImage']);
+      painter.close();
+    } finally {
+      HTMLCanvasElement.prototype.getContext = getContext;
+      raster.svgToCanvas.mockReset();
+    }
+  });
+});
+
 describe('角色庫、標籤庫、頭像框：時間軸的每一格、分頁庫', () => {
   afterEach(() => {
     raster.svgToCanvas.mockReset();
@@ -316,6 +361,22 @@ describe('時間軸的其他影格：刪除關係類型、讀原作的檔', () =
     expect(s.tl?.frames[1].rels).toHaveLength(0);
     undo();
     expect(activeSheet().tl?.frames[1].rels).toHaveLength(1);
+  });
+
+  it('刪除關係類型的確認數字：每一格的線都算（同一條線在兩格＝2 條，7.13）', () => {
+    const [a, b] = start();
+    const t = addType();
+    startLink(t);
+    linkClick(a);
+    linkClick(b);
+    setUi({ link: null });
+    expect(typeLineCount(activeSheet(), t)).toBe(1);
+    convertToTimeline();
+    copyFrameAt(0);
+    addFrameAfter();
+    switchFrame(0);
+    /* 第 1、2 格各一條（第 3 格保持＝不算） */
+    expect(typeLineCount(activeSheet(), t)).toBe(2);
   });
 
   it('空白專案的判斷：有時間軸分頁（目前影格是空的）就不是空白（原作 loadProject 的 pristine）', () => {

@@ -172,6 +172,7 @@ export function SettingsPanel() {
               size="sm"
               icon={<ImageOff />}
               disabled={!sheet.bg || bgLocked}
+              title={bgLocked ? S.tl.lockBg : undefined}
               onClick={() =>
                 editSheet((d) => {
                   d.bg = null;
@@ -181,6 +182,12 @@ export function SettingsPanel() {
               {S.more.bgRemove}
             </Button>
           </div>
+          {/* 停用的按鈕不一定會顯示提示：鎖住時另外寫一行（7.13） */}
+          {bgLocked ? (
+            <p className="text-xs text-muted" data-testid="bg-lock-note">
+              {S.tl.lockBg}
+            </p>
+          ) : null}
         </div>
       </Section>
 

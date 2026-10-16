@@ -176,6 +176,8 @@ export const S = {
     noVideo: '這個瀏覽器不支援影片錄製，請改用 GIF 動畫。',
     rendering: (i: number, n: number) => `正在畫第 ${i} / ${n} 格…`,
     recording: (i: number, n: number) => `即時錄影 ${i} / ${n}…`,
+    /** 超過 5 MB 的提醒：這個匯出區 FPS 固定、沒有尺寸倍率與減色，只寫這裡做得到的（7.13） */
+    sizeHint: '可以縮短動畫（調快播放速度、縮短每格的播放時間、減少影格），或改匯出影片。',
   },
 
   /** 分頁庫（F027） */

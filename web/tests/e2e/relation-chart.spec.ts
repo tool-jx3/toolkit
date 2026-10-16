@@ -4309,6 +4309,119 @@ test('讀原作的時間軸（4 格、保持、秒數、鎖、1.5 倍速）；GI
   expect(errors).toEqual([]);
 });
 
+test('時間軸分頁刪除關係類型：確認的線數算每一格（第一章的「戀愛」在第 1、3 格各一條＝2 條，7.13）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await openLegacyTimeline(page);
+  await page.getByTestId('type-row').first().getByTestId('type-edit').click();
+  await page.getByTestId('type-delete').click();
+  const confirm = page.getByRole('alertdialog');
+  await expect(confirm).toContainText('刪除這種關係及 2 條相關的線？');
+  await confirm.getByRole('button', { name: '取消' }).click();
+  expect(errors).toEqual([]);
+});
+
+test('背景層鎖住時：「匯入背景圖片」「移除背景圖片」都停用並附說明（設定面板與更多選單，7.13）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await openLegacyTimeline(page);
+  const LOCK = '背景層鎖住了（時間軸的圖層鎖）';
+  await expect(page.getByTestId('tl-lock-bg')).toHaveAttribute('aria-pressed', 'true');
+  const panel = page.getByTestId('inspector');
+  for (const name of ['匯入背景圖片…', '移除背景圖片']) {
+    const b = panel.getByRole('button', { name });
+    await expect(b).toBeDisabled();
+    await expect(b).toHaveAttribute('title', LOCK);
+  }
+  await expect(panel.getByTestId('bg-lock-note')).toHaveText(LOCK);
+  await page.getByTestId('more-menu').click();
+  for (const name of ['匯入背景圖片…', '移除背景圖片']) {
+    const it = page.getByRole('menuitem', { name });
+    await expect(it).toHaveAttribute('aria-disabled', 'true');
+    await expect(it).toHaveAttribute('title', LOCK);
+  }
+  await page.keyboard.press('Escape');
+  /* 解鎖：照常可用、沒有說明（這份檔沒有帶背景圖，「移除」照舊停用、但不寫鎖住） */
+  await page.getByTestId('tl-lock-bg').click();
+  await expect(panel.getByRole('button', { name: '匯入背景圖片…' })).toBeEnabled();
+  await expect(panel.getByRole('button', { name: '移除背景圖片' })).not.toHaveAttribute('title');
+  await expect(panel.getByTestId('bg-lock-note')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('影片：檔頭寫著總長（即時錄的 WebM 也補上 Duration，7.13）、時長約 4.2 秒、尺寸 1100 × 900、每一格都是畫好的畫面', async ({
+  page,
+  context,
+}) => {
+  const errors = await open(page);
+  await openLegacyTimeline(page);
+  await page.getByTestId('open-export').click();
+  const dlg = page.getByRole('dialog', { name: '匯出' });
+  await dlg.getByRole('radio', { name: 'GIF／影片' }).click();
+  await dlg.getByRole('radio', { name: '影片（MP4／WebM）' }).click();
+  await dlg.getByRole('button', { name: /^匯出 / }).click();
+  const link = dlg.getByRole('link', { name: '下載' });
+  await expect(link).toBeVisible({ timeout: 60000 });
+  const [dl] = await Promise.all([page.waitForEvent('download'), link.click()]);
+  expect(dl.suggestedFilename()).toMatch(/^第一章（時間軸）\.(webm|mp4)$/);
+  const bytes = readFileSync((await dl.path()) as string);
+  /* 一打開（loadedmetadata）就有總長，不必跳到尾端才知道 */
+  const w = await context.newPage();
+  const html = '<!doctype html><body></body>';
+  await w.route('**/*', (r) => r.fulfill({ body: html, contentType: 'text/html' }));
+  await w.goto('http://viewer.test/');
+  const meta = await w.evaluate(
+    async ([b64, type]) => {
+      const u = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const v = document.createElement('video');
+      v.muted = true;
+      v.src = window.URL.createObjectURL(new Blob([u], { type }));
+      await new Promise((r) => {
+        v.onloadedmetadata = r;
+      });
+      const duration = v.duration;
+      /* 每一格都是畫好的畫面：戀人（300, 300）、摯友（300, 620）的白色圖示一直在（只有背景的半成品格＝閃一下） */
+      const c = document.createElement('canvas');
+      c.width = v.videoWidth;
+      c.height = v.videoHeight;
+      const g = c.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
+      const lum = (x: number, y: number) => {
+        const d = g.getImageData(x, y, 1, 1).data;
+        return (d[0] + d[1] + d[2]) / 3;
+      };
+      let frames = 0;
+      let holes = 0;
+      await new Promise<void>((resolve) => {
+        const cb = () => {
+          g.drawImage(v, 0, 0);
+          frames++;
+          if (lum(300, 300) < 180 && lum(300, 620) < 180) holes++;
+          if (!v.ended) v.requestVideoFrameCallback(cb);
+        };
+        v.requestVideoFrameCallback(cb);
+        v.onended = () => setTimeout(resolve, 100);
+        v.playbackRate = 0.25;
+        void v.play();
+      });
+      return { duration, w: v.videoWidth, h: v.videoHeight, frames, holes };
+    },
+    [
+      bytes.toString('base64'),
+      dl.suggestedFilename().endsWith('.mp4') ? 'video/mp4' : 'video/webm',
+    ],
+  );
+  expect(Number.isFinite(meta.duration)).toBe(true);
+  expect(meta.duration).toBeGreaterThan(4.0);
+  expect(meta.duration).toBeLessThan(4.5);
+  expect([meta.w, meta.h]).toEqual([1100, 900]);
+  expect(meta.frames).toBeGreaterThan(30);
+  expect(meta.holes).toBe(0);
+  await w.close();
+  expect(errors).toEqual([]);
+});
+
 test('時間軸的預覽與模式跟著分頁：預覽中（拖過時間軸）、複製模式中切到別的分頁＝結束（原作 switchSheet），一般分頁照樣能拖角色', async ({
   page,
 }) => {

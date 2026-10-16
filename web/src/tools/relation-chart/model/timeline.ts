@@ -167,6 +167,13 @@ export function relLists(s: Sheet): Rel[][] {
   return out;
 }
 
+/**
+ * 這種關係類型的線有幾條（時間軸分頁：每一格自己的線都算，同一條線在兩格＝2 條；保持中的格不算——
+ * 刪除關係類型時每一格的線一起刪，確認的數字照實寫，7.13）
+ */
+export const typeLineCount = (s: Sheet, typeId: number): number =>
+  relLists(s).reduce((n, list) => n + list.filter((r) => r.type === typeId).length, 0);
+
 /** 同上，便利貼 */
 export function noteLists(s: Sheet): Note[][] {
   const out = [s.notes];
