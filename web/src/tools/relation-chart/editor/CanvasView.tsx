@@ -16,7 +16,9 @@ import {
   grelEndIsLbl,
   labelColor,
 } from '../engine/labels';
+import { tweenAt } from '../logic/tween';
 import { typeLabel } from '../model/factory';
+import { TL_LANES } from '../model/timeline';
 import type { Label, Sheet } from '../model/types';
 import { addChar, endLink } from '../state/actions';
 import { drawnImageIds, useImageUrls } from '../state/images';
@@ -88,6 +90,11 @@ const CANVAS_CSS = `
 .rc-host .rc-chart .note-bare:hover>.note-sep,.rc-host .rc-chart .note-bare.note-editing>.note-sep{stroke-opacity:1}
 .rc-host .rc-chart .note-bare:hover .note-btn,.rc-host .rc-chart .note-bare:hover .note-grip,.rc-host .rc-chart .note-bare.note-editing .note-btn,.rc-host .rc-chart .note-bare.note-editing .note-grip{opacity:1;pointer-events:auto}
 [data-note-editor]::-webkit-scrollbar{display:none}
+.rc-host .rc-chart.lane-hide-chars .layer-nodes,.rc-host .rc-chart.lane-hide-chars .layer-edges,.rc-host .rc-chart.lane-hide-chars .layer-names,.rc-host .rc-chart.lane-hide-chars .layer-zones{display:none}
+.rc-host .rc-chart.lane-hide-notes .note-node:not(.chart-node){display:none}
+.rc-host .rc-chart.lane-hide-charts .chart-node{display:none}
+.rc-host .rc-chart.lane-hide-bg .canvas-bgimg{display:none}
+.rc-host.rc-preview .rc-chart *{cursor:default!important}
 `;
 
 /**
@@ -152,6 +159,38 @@ function EndName({ tok, sheet, labels }: { tok: string; sheet: Sheet; labels: re
   }
   const c = sheet.chars.find((x) => x.id === grelEndId(tok));
   return c ? <b>{displayName(c)}</b> : null;
+}
+
+const XLINK = 'http://www.w3.org/1999/xlink';
+const imgHref = (im: Element) => im.getAttribute('href') ?? im.getAttributeNS(XLINK, 'href');
+
+/**
+ * 換了一份 SVG：同一張圖沿用舊的 <image> 節點（屬性換成新的）。圖是 blob 網址，每個新節點都要重新載入，
+ * 載入好之前那一格畫成空的——時間軸播放每一格都整張換，頭像與背景圖會一直閃（原作用 data URI，同步載入不會閃）。
+ */
+function keepImages(prev: SVGSVGElement | null, next: SVGSVGElement): void {
+  if (!prev || prev === next) return;
+  const pool = new Map<string, Element[]>();
+  for (const im of prev.querySelectorAll('image')) {
+    const h = imgHref(im);
+    if (!h) continue;
+    const list = pool.get(h);
+    if (list) list.push(im);
+    else pool.set(h, [im]);
+  }
+  if (!pool.size) return;
+  for (const ni of next.querySelectorAll('image')) {
+    const h = imgHref(ni);
+    const oi = h ? pool.get(h)?.pop() : undefined;
+    if (!oi) continue;
+    for (const a of [...oi.attributes])
+      if (!ni.hasAttributeNS(a.namespaceURI, a.localName))
+        oi.removeAttributeNS(a.namespaceURI, a.localName);
+    for (const a of [...ni.attributes])
+      if (oi.getAttributeNS(a.namespaceURI, a.localName) !== a.value)
+        oi.setAttributeNS(a.namespaceURI, a.name, a.value);
+    ni.replaceWith(oi);
+  }
 }
 
 /** 畫面上的那張 SVG（拖曳時底下可能還有一張放動到的線的，見 live） */
@@ -294,6 +333,12 @@ export function CanvasView() {
   const readonly = useUi((u) => u.readonly);
   const lod = useUi((u) => u.lod);
   const minimap = usePrefs((p) => p.data.minimap);
+  /* 時間軸分頁的預覽（播放、拖過時間軸）：畫補間的暫時分頁，左鍵不能編輯（F028） */
+  const tlPos = useUi((u) => u.tlPos);
+  const tweenOff = usePrefs((p) => p.data.tweenOff);
+  const flipAnim = usePrefs((p) => p.data.flipAnim);
+  const noteFade = usePrefs((p) => p.data.noteFade);
+  const previewing = tlPos !== null && !!sheet.tl && sheet.tl.frames.length >= 2;
   const host = useRef<HTMLElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ rect: BoxRect; ids: number[] } | null>(null);
@@ -301,7 +346,15 @@ export function CanvasView() {
   /* 快速路徑要求整張重畫時加一 */
   const epoch = useSyncExternalStore(subscribeLive, liveEpoch, liveEpoch);
   // biome-ignore lint/correctness/useExhaustiveDependencies: epoch＝工作副本的位置變了（同一個物件）
-  const display = useMemo(() => displaySheet(sheet), [sheet, epoch]);
+  const display0 = useMemo(() => displaySheet(sheet), [sheet, epoch]);
+  const tween = useMemo(
+    () =>
+      previewing
+        ? tweenAt(display0, tlPos ?? 0, { tweenOff, flip: flipAnim, noteFade, library })
+        : null,
+    [previewing, display0, tlPos, tweenOff, flipAnim, noteFade, library],
+  );
+  const display = tween ? tween.sheet : display0;
 
   const imageIds = useMemo(() => drawnImageIds({ sheets: [sheet], frames }), [sheet, frames]);
   const urls = useImageUrls(imageIds);
@@ -338,14 +391,17 @@ export function CanvasView() {
       library,
       /* 遠近簡化的標記：60 位以上的分頁一律帶著（近、中、遠只換 class，換檔不重畫；同原作） */
       lod: true,
-      ui: {
-        selected: sel2,
-        linkFrom: from && !grelEndIsLbl(from) ? grelEndId(from) : null,
-        linkDone,
-        linking,
-        bubbles,
-        noteEdit,
-      },
+      tween: tween?.fx ?? null,
+      ui: tween
+        ? {}
+        : {
+            selected: sel2,
+            linkFrom: from && !grelEndIsLbl(from) ? grelEndId(from) : null,
+            linkDone,
+            linking,
+            bubbles,
+            noteEdit,
+          },
     });
     /* 每次都換掉整份 SVG（快速路徑改過的畫面不留） */
     return {
@@ -370,6 +426,7 @@ export function CanvasView() {
     radarTpls,
     library,
     noteEdit,
+    tween,
   ]);
   const contentRef = useRef(out);
   contentRef.current = out;
@@ -448,6 +505,7 @@ export function CanvasView() {
     if (!svg) return;
     /* 換了一份 SVG：告訴快速路徑新的基準位置 */
     if (svg !== rendered.current) {
+      keepImages(rendered.current, svg);
       rendered.current = svg;
       liveRebase(svg, display.id, out.pos, out.parts.bleed);
     }
@@ -464,6 +522,9 @@ export function CanvasView() {
     const dense = lodDense(out.parts.ctx);
     svg.classList.toggle('lod-far', dense && lod === 'far');
     svg.classList.toggle('lod-mid', dense && lod === 'mid');
+    /* 時間軸的圖層眼睛：只影響編輯畫面（原作的 lane-hide-*） */
+    for (const l of TL_LANES)
+      svg.classList.toggle(`lane-hide-${l}`, !!sheet.tl?.hidden.includes(l));
     for (const el of chartSvgs(layer.current))
       if (statsFocus) applySetFocus(el, statsFocus);
       else applyFocus(el, eff, out.parts.ctx, !!focus);
@@ -485,7 +546,9 @@ export function CanvasView() {
 
   /* 縮放中先用 transform 縮放（只動合成層、不重新排版），停手再用新的大小排版
      （SVG 以螢幕解析度重畫；拖曳時仍是排版後的大小，不會以原尺寸點陣化）。
-     停手的判斷跟著每一格實際花的時間（zoomSettle）：角色多時一格就要 0.1 秒以上，固定的短間隔會在滾動途中重新排版 */
+     停手的判斷跟著每一格實際花的時間（zoomSettle）：角色多時一格就要 0.1 秒以上，固定的短間隔會在滾動途中重新排版。
+     文字一律是 geometricPrecision（CANVAS_CSS，D72b）：縮放途中倍率每格都變，字照比例縮放、不必每格照新的字級重新排字，
+     縮放時不用再另外切換（第五批曾只在縮放途中切換，量到 120 位每格平均 85 → 74 ms；併進 D72b 的一律套用後縮放照樣這麼快） */
   const [baseZoom, setBaseZoom] = useState(view.zoom);
   const settle = useRef<ZoomSettle | null>(null);
   useEffect(() => {
@@ -523,7 +586,7 @@ export function CanvasView() {
   return (
     <section
       ref={host}
-      className={`rc-host relative h-[min(70dvh,34rem)] min-h-[18rem] w-full touch-none select-none overflow-hidden rounded-lg border border-border lg:h-auto lg:min-h-0 lg:flex-1${link ? ' rc-linking' : ''}${readonly ? ' rc-readonly' : ''}`}
+      className={`rc-host relative h-[min(70dvh,34rem)] min-h-[18rem] w-full touch-none select-none overflow-hidden rounded-lg border border-border lg:h-auto lg:min-h-0 lg:flex-1${link ? ' rc-linking' : ''}${readonly ? ' rc-readonly' : ''}${previewing ? ' rc-preview' : ''}`}
       style={{ background: pal.bg }}
       aria-label={S.view.canvasLabel}
       data-testid="canvas"
@@ -580,10 +643,10 @@ export function CanvasView() {
           />
         </svg>
       ) : null}
-      <NoteEditor notes={display.notes} ctx={out.parts.ctx} pad={out.pad} />
+      {tween ? null : <NoteEditor notes={display.notes} ctx={out.parts.ctx} pad={out.pad} />}
       <LinkBanner sheet={sheet} />
       <SwapBanner sheet={sheet} />
-      {!sheet.chars.length && !link && !readonly ? (
+      {!sheet.chars.length && !link && !readonly && !previewing && !sheet.tl ? (
         <EmptyHint onSamples={() => openDialog('samples')} onPaste={() => openDialog('paste')} />
       ) : null}
       {readonly ? (

@@ -16,6 +16,8 @@ import {
   Ellipsis,
   Eraser,
   Eye,
+  Film,
+  FlipHorizontal2,
   Globe,
   ImageOff,
   ImagePlus,
@@ -30,6 +32,7 @@ import {
   Shuffle,
   Sparkles,
   StickyNote,
+  TextQuote,
   Undo2,
   Users,
 } from 'lucide-react';
@@ -46,6 +49,7 @@ import {
 } from '../state/actions';
 import { addChartNote, addNote } from '../state/noteActions';
 import { activeSheet, setPrefs, setUi, usePrefs, useProject, useUi } from '../state/store';
+import { convertFromTimeline, convertToTimeline } from '../state/tlActions';
 import { S } from '../strings';
 import { ExportAgain } from './ExportAgain';
 import { useSheet } from './hooks';
@@ -178,7 +182,11 @@ function EditBar() {
   const sheet = useSheet();
   const simRunning = useUi((u) => u.simRunning);
   const minimap = usePrefs((p) => p.data.minimap);
+  const tweenOff = usePrefs((p) => p.data.tweenOff);
+  const flipAnim = usePrefs((p) => p.data.flipAnim);
+  const noteFade = usePrefs((p) => p.data.noteFade);
   const swapping = useUi((u) => !!u.swap);
+  const bgLocked = !!sheet.tl?.locked.includes('bg');
   const toast = useToast();
   const confirm = useConfirm();
   const magnet = sheet.settings.snapMode;
@@ -192,6 +200,23 @@ function EditBar() {
       s.snapMode = on;
     });
     if (on) kickSim(1);
+  };
+  /* 編輯 › 時間軸分頁（原作的 toggleTimelineSheet；兩個方向都先確認，可以復原） */
+  const toggleTimeline = async (on: boolean) => {
+    const ok = await confirm(
+      on
+        ? { title: S.tl.convertTitle, description: S.tl.convertText, confirmLabel: S.tl.convertOk }
+        : {
+            title: S.tl.revertTitle,
+            description: S.tl.revertText,
+            confirmLabel: S.tl.revertOk,
+            danger: true,
+          },
+    );
+    if (!ok) return;
+    stopSim();
+    if (on) convertToTimeline();
+    else convertFromTimeline();
   };
   const clear = async () => {
     const ok = await confirm({
@@ -332,13 +357,19 @@ function EditBar() {
               <Maximize2 />
               {S.more.fitCanvas}
             </DropdownMenu.Item>
-            <DropdownMenu.Item className={MENU_ITEM} onSelect={() => void importBackground(notify)}>
+            <DropdownMenu.Item
+              className={MENU_ITEM}
+              disabled={bgLocked}
+              title={bgLocked ? S.tl.lockBg : undefined}
+              onSelect={() => void importBackground(notify)}
+            >
               <ImagePlus />
               {S.more.bgImport}
             </DropdownMenu.Item>
             <DropdownMenu.Item
               className={MENU_ITEM}
-              disabled={!sheet.bg}
+              disabled={!sheet.bg || bgLocked}
+              title={bgLocked ? S.tl.lockBg : undefined}
               onSelect={() =>
                 editSheet((d) => {
                   d.bg = null;
@@ -375,6 +406,44 @@ function EditBar() {
             >
               <ArrowLeftRight />
               {S.swap.menu}
+              <DropdownMenu.ItemIndicator className="ml-auto text-xs">✓</DropdownMenu.ItemIndicator>
+            </DropdownMenu.CheckboxItem>
+            <DropdownMenu.Separator className={MENU_SEP} />
+            <DropdownMenu.CheckboxItem
+              className={MENU_ITEM}
+              checked={!!sheet.tl}
+              title={S.tl.menuTip}
+              onCheckedChange={(v) => void toggleTimeline(v)}
+              data-testid="menu-timeline"
+            >
+              <Film />
+              {S.tl.menu}
+              <DropdownMenu.ItemIndicator className="ml-auto text-xs">✓</DropdownMenu.ItemIndicator>
+            </DropdownMenu.CheckboxItem>
+            <DropdownMenu.CheckboxItem
+              className={MENU_ITEM}
+              checked={flipAnim}
+              disabled={!sheet.tl || tweenOff}
+              title={S.tl.flipTip}
+              onSelect={(e) => e.preventDefault()}
+              onCheckedChange={(v) => setPrefs({ flipAnim: v })}
+              data-testid="menu-flip"
+            >
+              <FlipHorizontal2 />
+              {S.tl.flip}
+              <DropdownMenu.ItemIndicator className="ml-auto text-xs">✓</DropdownMenu.ItemIndicator>
+            </DropdownMenu.CheckboxItem>
+            <DropdownMenu.CheckboxItem
+              className={MENU_ITEM}
+              checked={noteFade}
+              disabled={!sheet.tl || tweenOff}
+              title={S.tl.noteFadeTip}
+              onSelect={(e) => e.preventDefault()}
+              onCheckedChange={(v) => setPrefs({ noteFade: v })}
+              data-testid="menu-note-fade"
+            >
+              <TextQuote />
+              {S.tl.noteFade}
               <DropdownMenu.ItemIndicator className="ml-auto text-xs">✓</DropdownMenu.ItemIndicator>
             </DropdownMenu.CheckboxItem>
             <DropdownMenu.Separator className={MENU_SEP} />

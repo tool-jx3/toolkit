@@ -4,11 +4,14 @@
  * 匯出的執行（匯出對話框與再次匯出共用；原作 askExportOptions 的 silent 分支）：
  * 挑分頁 → 收圖片與字型（含角色資訊與世界觀裡的圖）→ 壓縮頭像（互動網頁、勾了才做）→ 打包 → 下載，並記住這次的設定。
  */
-import { downloadBlob } from '@/core/files';
+import { downloadBlob, safeFileName } from '@/core/files';
+import { buildGif, buildVideo } from '../export/anim';
 import { buildExport, defaultExportBase, type ExportFormat } from '../export/outputs';
 import { slimAvatars } from '../export/slim';
 import { loreOf } from '../model/lore';
 import { richImageIds } from '../model/normalize';
+import { allChars } from '../model/timeline';
+import type { Project } from '../model/types';
 import { dataUris, drawnImageIds } from '../state/images';
 import {
   activeIndex,
@@ -17,6 +20,7 @@ import {
   projectNow,
   setPrefs,
   syncProject,
+  usePrefs,
 } from '../state/store';
 import { flushRichEditors } from './RichEditor';
 
@@ -30,20 +34,31 @@ export function pickIndexes(scope: ExportScope, picked: ReadonlySet<number>): nu
   return all.filter((i) => picked.has(i));
 }
 
-export async function prepare(idx: readonly number[], transparent: boolean) {
-  flushRichEditors();
-  syncProject();
-  const p = projectNow();
+/**
+ * 這次匯出要準備的資產（圖、頭像框、用到的匯入字型、角色資訊與世界觀裡的圖）。
+ * 字型看時間軸分頁的每一格（GIF／影片、互動網頁的動畫會畫到別格的角色；只是多準備，靜態的匯出照舊只內嵌目前影格用到的）。
+ */
+export function exportAssetIds(p: Project, idx: readonly number[]): Set<string> {
   const sheets = idx.map((i) => p.sheets[i]);
-  /* 圖、頭像框、用到的匯入字型、角色資訊與世界觀裡的圖 */
   const ids = new Set(drawnImageIds(p, idx));
-  const fontRefs = new Set<string>([p.font, ...sheets.flatMap((s) => s.chars.map((c) => c.font))]);
+  const fontRefs = new Set<string>([
+    p.font,
+    ...sheets.flatMap((s) => allChars(s).map((c) => c.font)),
+  ]);
   for (const f of p.fonts) if (fontRefs.has(`f:${f.id}`)) ids.add(f.id);
   const libIds = new Set(sheets.flatMap((s) => s.chars.map((c) => c.lib)));
   for (const e of p.library)
     if (libIds.has(e.id)) for (const id of richImageIds(e.info)) ids.add(id);
   for (const s of sheets) for (const id of richImageIds(loreOf(p.sheets, s).html)) ids.add(id);
-  const uris = await dataUris(ids);
+  return ids;
+}
+
+export async function prepare(idx: readonly number[], transparent: boolean) {
+  flushRichEditors();
+  syncProject();
+  const p = projectNow();
+  const sheets = idx.map((i) => p.sheets[i]);
+  const uris = await dataUris(exportAssetIds(p, idx));
   return {
     sheets,
     allSheets: p.sheets,
@@ -64,6 +79,46 @@ export interface ExportChecks {
   embed: boolean;
 }
 
+/** 補間的偏好（這台瀏覽器；GIF／影片、互動網頁的動畫照編輯畫面的設定畫） */
+export const tweenPrefs = () => {
+  const p = usePrefs.getState().data;
+  return { tweenOff: p.tweenOff, flip: p.flipAnim, noteFade: p.noteFade };
+};
+
+/**
+ * GIF／影片（目前分頁；第五批）：補間 → 每一格 → 編碼。download＝直接下載（再次匯出）；
+ * 對話框用共用匯出區的結果卡下載。記住這次的格式（再次匯出）。
+ */
+export async function runAnimExport(
+  kind: 'gif' | 'video',
+  name: string,
+  ctx: { signal?: AbortSignal; onProgress?: (ratio: number, label?: string) => void } = {},
+  download = true,
+) {
+  const p = projectNow();
+  const idx = activeIndex(p);
+  const input = await prepare([idx], false);
+  const sheet = input.sheets[0];
+  const run = {
+    signal: ctx.signal,
+    onProgress: (r: number, l: string) => ctx.onProgress?.(r, l),
+    tween: tweenPrefs(),
+  };
+  const r =
+    kind === 'gif' ? await buildGif(sheet, input, run) : await buildVideo(sheet, input, run);
+  const fileName = `${safeFileName(name, { fallback: '關係圖' })}.${r.ext}`;
+  if (download) downloadBlob(r.blob, fileName);
+  setPrefs({
+    exportFormat: kind,
+    lastExport: {
+      fmt: kind,
+      scope: 'cur',
+      checks: { transparent: false, slim: false, embed: false },
+    },
+  });
+  return { ...r, fileName };
+}
+
 /** 匯出並下載；回傳檔名 */
 export async function runExport(
   fmt: ExportFormat,
@@ -80,7 +135,9 @@ export async function runExport(
     fmt,
     {
       ...input,
-      viewer: html ? { embed: checks.embed, slim: slim ?? undefined } : undefined,
+      viewer: html
+        ? { embed: checks.embed, slim: slim ?? undefined, tween: tweenPrefs() }
+        : undefined,
     },
     name?.trim() || defaultExportBase(fmt, input.sheets, checks.transparent),
   );

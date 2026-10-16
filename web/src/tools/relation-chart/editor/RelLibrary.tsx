@@ -23,7 +23,7 @@ import {
 } from '../state/libActions';
 import { setUi, usePrefs, useProject, useUi } from '../state/store';
 import { S } from '../strings';
-import { RenameDialog } from './CharLibrary';
+import { binSheets, RenameDialog, usageText } from './CharLibrary';
 import { useSheet } from './hooks';
 import type { LibAction } from './LabelLibrary';
 import { EntryList, type EntryRow, useThumbSize } from './LibEntries';
@@ -48,13 +48,18 @@ function variantAsType(v: RelVariant): RelType {
 const relName = (v: RelVariant | undefined) =>
   (v?.label ?? '').replace(/\s*\n+\s*/g, ' ').trim() || S.relLib.unnamed;
 
-function visible(p: Pick<Project, 'relLibrary' | 'sheets'>, q: string, unused: boolean) {
-  const { variant } = relLibUsage(p.sheets);
+/** 目前畫面上的條目（搜尋、只看未使用〔分頁庫也算在用，同角色庫〕） */
+function visible(
+  p: Pick<Project, 'relLibrary' | 'sheets' | 'sheetLib'>,
+  q: string,
+  unused: boolean,
+) {
+  const { variant, variantBin } = relLibUsage(p.sheets, binSheets(p));
   const needle = q.trim().toLowerCase();
   return p.relLibrary.filter(
     (e) =>
       (!needle || e.variants.some((v) => v.label.toLowerCase().includes(needle))) &&
-      (!unused || e.variants.some((v) => !variant.get(v.id))),
+      (!unused || e.variants.some((v) => !variant.get(v.id) && !variantBin.get(v.id))),
   );
 }
 
@@ -65,7 +70,8 @@ export function RelLibList({ query }: { query: string }) {
   const unused = useUi((u) => u.libUnused);
   const size = useThumbSize();
   const ctx = useMemo(() => sheetCtx(sheet, p.labels), [sheet, p.labels]);
-  const usage = useMemo(() => relLibUsage(p.sheets), [p.sheets]);
+  const { sheets, sheetLib } = p;
+  const usage = useMemo(() => relLibUsage(sheets, binSheets({ sheetLib })), [sheets, sheetLib]);
   const bySheet = useMemo(
     () => p.sheets.map((s) => new Set(s.types.map((t) => t.lib))),
     [p.sheets],
@@ -82,12 +88,7 @@ export function RelLibList({ query }: { query: string }) {
         height={size}
       />
     ) : null,
-    meta: [
-      C.usage(usage.entry.get(e.id) ?? 0),
-      e.variants.length > 1 ? C.variants(e.variants.length) : '',
-    ]
-      .filter(Boolean)
-      .join(' · '),
+    meta: usageText(usage.entry.get(e.id) ?? 0, usage.entryBin.get(e.id) ?? 0, e.variants.length),
     onSheet: here.has(e.id),
     sheets: bySheet.flatMap((set, i) => (set.has(e.id) ? [i] : [])),
   }));
@@ -123,7 +124,7 @@ function RelEntryDetail({ e }: { e: RelEntry }) {
   const toast = useToast();
   const [editing, setEditing] = useState<RelVariant | null>(null);
   const ctx = useMemo(() => sheetCtx(sheet, p.labels), [sheet, p.labels]);
-  const usage = relLibUsage(p.sheets);
+  const usage = relLibUsage(p.sheets, binSheets(p));
   const here = new Set(sheet.types.map((t) => t.vari));
   const add = (v: RelVariant) => {
     if (!addRelVariantToSheet(e.id, v.id)) toast({ title: R.already, tone: 'info' });
@@ -158,7 +159,8 @@ function RelEntryDetail({ e }: { e: RelEntry }) {
       <p className="text-xs text-muted">{C.varList}</p>
       <ul className="flex flex-col gap-1">
         {e.variants.map((v) => {
-          const n = usage.variant.get(v.id) ?? 0;
+          const bin = usage.variantBin.get(v.id) ?? 0;
+          const n = (usage.variant.get(v.id) ?? 0) + bin;
           return (
             <li
               key={v.id}
@@ -176,7 +178,10 @@ function RelEntryDetail({ e }: { e: RelEntry }) {
                 {relName(v)}
               </button>
               {here.has(v.id) ? <span className="text-xs text-accent">✓</span> : null}
-              <span className="text-xs text-muted tabular-nums" title={C.varCountTip}>
+              <span
+                className="text-xs text-muted tabular-nums"
+                title={bin ? `${C.varCountTip} · ${C.usageBin(bin)}` : C.varCountTip}
+              >
                 {n}
               </span>
               <IconButton

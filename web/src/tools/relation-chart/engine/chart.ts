@@ -5,6 +5,8 @@
  * 圖層由下而上：背景（底色、背景圖）→ 輔助線 →（陣營框）→ 關係線（一般線 → 聚合線 → 群體關係線 → 線上標籤 → 標籤網的虛線）
  * → 角色（角色 → 收合節點 → 標籤網的圓點）→（名稱）→ 圖例（圖例 → 標籤圖例 → 名冊）→ 便利貼（第四批；沒有便利貼時不出這一層）。
  */
+
+import type { TweenFx } from '../logic/tween';
 import type {
   CharEntry,
   FontItem,
@@ -16,7 +18,16 @@ import type {
 } from '../model/types';
 import { S } from '../strings';
 import { buildObstacles, type EdgeCtx, edgesSvg } from './edges';
-import { bleedPad, charLevel, esc, fontStack, framePad, type SheetCtx, sheetCtx } from './geom';
+import {
+  bleedPad,
+  charLevel,
+  esc,
+  fontStack,
+  framePad,
+  opAttr,
+  type SheetCtx,
+  sheetCtx,
+} from './geom';
 import { colEdgesSvg, colNodesSvg, grelEdgesSvg, labelInfo, labelNetSvg, zonesSvg } from './labels';
 import { type LegendOut, legendOutPad, legendsSvg } from './legend';
 import { f1 } from './lines';
@@ -49,6 +60,10 @@ export interface RenderOpts {
   library?: readonly CharEntry[];
   /** 遠近簡化的標記（F116；60 位以上才真的標）：編輯畫面拉遠時、互動網頁；匯出不標 */
   lod?: boolean;
+  /** 時間軸的補間覆寫表（第五批；sheet 是 logic/tween 算出來的暫時分頁） */
+  tween?: TweenFx | null;
+  /** 互動網頁的動畫：可視範圍併入這些便利貼（所有影格的聯集，鏡頭才不會一格一格跳；原作） */
+  boxNotes?: readonly { x: number; y: number; w: number; h: number }[];
 }
 
 /** 遠近簡化的密度門檻：畫面上看得到的角色（收合藏起來的不算）≥ 60 位 */
@@ -94,17 +109,28 @@ export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
     font: opts.font,
     fonts: opts.fonts,
     frames: opts.frames,
+    tw: opts.tween,
   });
+  const tw = opts.tween ?? null;
   const edit = opts.mode === 'edit';
   const { W, H, pal } = ctx;
   const pre = opts.idPrefix ?? '';
   const ui = opts.mode === 'edit' ? (opts.ui ?? {}) : null;
   const defs: string[] = [];
-  const bgUrl = sheet.bg ? opts.href(sheet.bg) : null;
   const bgRect = `<rect class="layer-bg" x="0" y="0" width="${W}" height="${H}" fill="${pal.bg}"/>`;
-  const bgImage = bgUrl
-    ? `<image class="layer-bg canvas-bgimg" href="${esc(bgUrl)}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" pointer-events="none"/>`
-    : '';
+  const bgImg = (id: string | null, op = 1) => {
+    const url = id ? opts.href(id) : null;
+    return url
+      ? `<image class="layer-bg canvas-bgimg" href="${esc(url)}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" pointer-events="none"${opAttr(op)}/>`
+      : '';
+  };
+  /* 補間中：兩格不同＝前一張留著、後一張淡入；只有一邊＝淡入或淡出（原作） */
+  let bgImage: string;
+  if (tw?.bg) {
+    const { a, b, t } = tw.bg;
+    const bb = a && b && a === b ? null : b;
+    bgImage = bgImg(a, !bb && !b ? 1 - t : 1) + bgImg(bb, t);
+  } else bgImage = bgImg(sheet.bg);
   let guides = '';
   if (ctx.s.bgMode === 'grid') {
     const G = ctx.s.gridStep >= 10 && ctx.s.gridStep <= 200 ? ctx.s.gridStep : 50;
@@ -150,8 +176,21 @@ export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
   for (const c of order) {
     if (hidden.has(c.id)) continue;
     const n = nodeSvg(ctx, c, pre, opts.href, ui, opts.splitNames, lod);
-    nodes += n.svg;
-    names += n.name;
+    if (tw) {
+      /* 補間：不透明度（進退場、交叉淡化）與翻面（以角色中心為軸橫向縮放；原作的 _op、_flip） */
+      const op = opAttr(tw.charOp.get(c.id));
+      const f = tw.charFlip.get(c.id);
+      const tf =
+        f !== undefined
+          ? ` transform="translate(${(c.x * (1 - f)).toFixed(2)} 0) scale(${f} 1)"`
+          : '';
+      const wrap = (s: string) => (s && (op || tf) ? `<g${op}${tf}>${s}</g>` : s);
+      nodes += wrap(n.svg);
+      names += wrap(n.name);
+    } else {
+      nodes += n.svg;
+      names += n.name;
+    }
     if (n.defs) defs.push(n.defs);
   }
   nodes += colNodesSvg(ctx, edit);
@@ -201,10 +240,13 @@ const relOpacityAttr = (p: ChartParts) => {
   return v >= 0.25 && v < 1 ? ` opacity="${Math.round(v * 100) / 100}"` : '';
 };
 
-/** 畫布內容（translate 之前的座標）：背景、輔助線、關係線、角色、名稱、圖例 */
-function contentLayers(p: ChartParts, opts: { transparent?: boolean; frame?: boolean }): string {
+/** 畫布內容（translate 之前的座標）：背景、輔助線、關係線、角色、名稱、圖例；noBg＝不畫背景（輔助線照畫；GIF／影片的背景另外畫） */
+function contentLayers(
+  p: ChartParts,
+  opts: { transparent?: boolean; frame?: boolean; noBg?: boolean },
+): string {
   const { W, H, pal } = p.ctx;
-  const bg = opts.transparent ? '' : p.bgRect + p.bgImage;
+  const bg = opts.transparent || opts.noBg ? '' : p.bgRect + p.bgImage;
   const frame = opts.frame
     ? `<rect class="canvas-frame" x="0.5" y="0.5" width="${Math.max(0, W - 1)}" height="${Math.max(0, H - 1)}" fill="none" stroke="${pal.guide}" stroke-width="2" opacity="0.9" vector-effect="non-scaling-stroke" pointer-events="none"/>`
     : '';
@@ -267,14 +309,14 @@ export function exportSvg(
  * 互動網頁的可視範圍：畫布＋外擴（界外的圖例／名冊、出血、頭像框）；有便利貼在畫布外時再併入
  * 「畫布 ∪ 便利貼」外加 16（原作的 viewerViewBox），夾在實際畫出的範圍內。沒有界外便利貼＝和以前相同。
  */
-function viewerBox(p: ChartParts): string {
+function viewerBox(p: ChartParts, extra?: RenderOpts['boxNotes']): string {
   const { W, H } = p.ctx;
   const b = p.padBase;
   let x0 = 0;
   let y0 = 0;
   let x1 = W;
   let y1 = H;
-  for (const n of p.ctx.sheet.notes ?? []) {
+  for (const n of [...(p.ctx.sheet.notes ?? []), ...(extra ?? [])]) {
     x0 = Math.min(x0, n.x - n.w / 2);
     y0 = Math.min(y0, n.y - n.h / 2);
     x1 = Math.max(x1, n.x + n.w / 2);
@@ -293,7 +335,25 @@ function viewerBox(p: ChartParts): string {
 /** 互動網頁用：含界外的圖例／名冊（viewBox 外擴），不含編輯用的標記 */
 export function viewerSvg(sheet: Sheet, opts: Omit<RenderOpts, 'mode'>): string {
   const p = chartParts(sheet, { ...opts, mode: 'viewer' });
-  return `${svgOpen(p.ctx, `class="chart" viewBox="${viewerBox(p)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"`)}<defs>${p.defs}</defs>${contentLayers(p, {})}</svg>`;
+  return `${svgOpen(p.ctx, `class="chart" viewBox="${viewerBox(p, opts.boxNotes)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"`)}<defs>${p.defs}</defs>${contentLayers(p, {})}</svg>`;
+}
+
+/**
+ * GIF／影片的一格（第五批）：裁到畫框（outW × outH，左上角＝畫布原點；修掉原作出血時整張偏移），
+ * 不畫背景（底色與背景圖由呼叫端先畫在畫布上）。
+ */
+export function animFrameSvg(
+  sheet: Sheet,
+  opts: Omit<RenderOpts, 'mode'> & {
+    outW: number;
+    outH: number;
+    width: number;
+    height: number;
+    fontFaceCss?: string;
+  },
+): string {
+  const p = chartParts(sheet, { ...opts, mode: 'export' });
+  return `${svgOpen(p.ctx, `viewBox="0 0 ${f1(opts.outW)} ${f1(opts.outH)}" width="${opts.width}" height="${opts.height}"`, opts.fontFaceCss)}<defs>${p.defs}</defs>${contentLayers(p, { noBg: true })}</svg>`;
 }
 
 export interface LayerPart {

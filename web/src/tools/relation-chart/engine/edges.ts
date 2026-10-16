@@ -908,9 +908,24 @@ const pairKey = (r: Pick<Rel, 'from' | 'to'>): string =>
 /** 整層關係線：一般線 → mid（聚合線、群體關係線）→ 線上標籤 */
 export function edgesSvg(ectx: EdgeCtx, mid = ''): string {
   let out = '';
+  const tw = ectx.ctx.tw;
   for (const { list, loId } of edgePairs(ectx.ctx)) {
     list.forEach((r, i) => {
-      out += edgeSvg(ectx, r, i, list.length, loId);
+      if (!tw) {
+        out += edgeSvg(ectx, r, i, list.length, loId);
+        return;
+      }
+      /* 補間：進退場的線（和它的線上標籤）淡出／淡入 */
+      const op = tw.relOp.get(r.id);
+      const at = ectx.lblOut.length;
+      const s = edgeSvg(ectx, r, i, list.length, loId);
+      if (op === undefined || op >= 1) {
+        out += s;
+        return;
+      }
+      const g = `<g opacity="${Math.max(0, op).toFixed(3)}">`;
+      out += `${g}${s}</g>`;
+      for (let k = at; k < ectx.lblOut.length; k++) ectx.lblOut[k] = `${g}${ectx.lblOut[k]}</g>`;
     });
   }
   return out + mid + ectx.lblOut.join('');

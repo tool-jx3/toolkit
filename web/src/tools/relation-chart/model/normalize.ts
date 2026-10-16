@@ -9,6 +9,20 @@ import { dropCharLabels } from './charLabels';
 import { syncLibrary } from './library';
 import { LORE_MAX, MEMO_MAX, NOTE_BIN_MAX, normalizeNote, normalizeNoteBinItem } from './notes';
 import { PRESET_KEYS } from './presets';
+import {
+  bgIds,
+  charLists,
+  DUR_MAX,
+  DUR_MIN,
+  holds,
+  laneBg,
+  laneChars,
+  laneNotes,
+  laneOfNote,
+  TL_LANES,
+  TL_SPEED_MAX,
+  TL_SPEED_MIN,
+} from './timeline';
 import type {
   Avatar,
   CapStyle,
@@ -39,7 +53,11 @@ import type {
   SettingsPreset,
   Shape,
   Sheet,
+  SheetLibItem,
   SheetSettings,
+  Timeline,
+  TlFrame,
+  TlLane,
   Variant,
 } from './types';
 
@@ -641,6 +659,7 @@ export function emptySheet(id: number, defNo: number, base?: Partial<Sheet>): Sh
     lore: '',
     loreFrom: null,
     memo: '',
+    tl: null,
     ...base,
   };
 }
@@ -731,7 +750,7 @@ export function normalizeSheet(raw: unknown, fallbackId: number): Sheet | null {
     const nn = normalizeNote(n, auto--);
     if (nn && !notes.some((x) => x.id === nn.id)) notes.push(nn);
   }
-  return {
+  const s: Sheet = {
     id,
     defNo: finite(raw.defNo) ? Math.max(1, Math.trunc(num(raw.defNo))) : 0,
     name: str(raw.name, 200),
@@ -749,6 +768,143 @@ export function normalizeSheet(raw: unknown, fallbackId: number): Sheet | null {
     lore: str(raw.lore, LORE_MAX),
     loreFrom: finite(raw.loreFrom) ? Math.trunc(num(raw.loreFrom)) : null,
     memo: str(raw.memo, MEMO_MAX),
+    tl: null,
+  };
+  s.tl = normalizeTimeline(raw.tl, s);
+  return s;
+}
+
+/* ---------- 時間軸（第五批） ---------- */
+
+const laneList = (v: unknown): TlLane[] =>
+  Array.isArray(v) ? TL_LANES.filter((l) => v.includes(l)) : [];
+
+/** 一格影格的資料（關係的兩端要在這一格、類型要在分頁裡；沒有 id 的丟掉） */
+function normalizeFrame(raw: unknown, s: Sheet, fallbackId: number): TlFrame | null {
+  if (!isObj(raw)) return null;
+  const chars: Char[] = [];
+  for (const c of Array.isArray(raw.chars) ? raw.chars : []) {
+    if (!isObj(c) || !finite(c.id)) continue;
+    const n = normalizeChar(c, 0);
+    if (n && !chars.some((x) => x.id === n.id)) chars.push(n);
+  }
+  const ids = new Set(chars.map((c) => c.id));
+  const typeIds = new Set(s.types.map((t) => t.id));
+  const rels: Rel[] = [];
+  for (const r of Array.isArray(raw.rels) ? raw.rels : []) {
+    if (!isObj(r) || !finite(r.id)) continue;
+    const n = normalizeRel(r, 0);
+    if (
+      n &&
+      ids.has(n.from) &&
+      ids.has(n.to) &&
+      typeIds.has(n.type) &&
+      !rels.some((x) => x.id === n.id)
+    )
+      rels.push(n);
+  }
+  const notes: Note[] = [];
+  for (const n of Array.isArray(raw.notes) ? raw.notes : []) {
+    if (!isObj(n) || !finite(n.id)) continue;
+    const nn = normalizeNote(n, 0);
+    if (nn && !notes.some((x) => x.id === nn.id)) notes.push(nn);
+  }
+  const W = dim(raw.W, s.W);
+  const d = num(raw.dur);
+  return {
+    id: finite(raw.id) ? Math.trunc(num(raw.id)) : fallbackId,
+    no: finite(raw.no) && num(raw.no) > 0 ? Math.trunc(num(raw.no)) : 0,
+    W,
+    H: dim(raw.H, W),
+    chars,
+    rels,
+    notes,
+    bg: assetId(raw.bg),
+    hold: laneList(raw.hold),
+    dur: Number.isFinite(d) && d >= DUR_MIN && d <= DUR_MAX ? Math.round(d * 100) / 100 : null,
+  };
+}
+
+const sameJson = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * 時間軸（原作的 tlNormalize）：至少一格；目前影格的資料在分頁頂層（frames[目前] 只是佔位）；
+ * 第 1 格沒有保持；保持中的軌道不存資料；目前影格保持中的軌道和來源不同＝變成關鍵影格（同自動打關鍵影格）；
+ * 沒有編號的照順序補上。
+ */
+function normalizeTimeline(raw: unknown, s: Sheet): Timeline | null {
+  if (!isObj(raw) || !Array.isArray(raw.frames)) return null;
+  let auto = -1;
+  const frames: TlFrame[] = [];
+  for (const f of raw.frames) {
+    const n = normalizeFrame(f, s, auto--);
+    if (n && !frames.some((x) => x.id === n.id)) frames.push(n);
+  }
+  if (!frames.length) return null;
+  const active = Math.min(frames.length - 1, Math.max(0, Math.trunc(num(raw.active)) || 0));
+  let maxNo = frames.reduce((m, f) => Math.max(m, f.no), 0);
+  for (const f of frames) if (!f.no) f.no = ++maxNo;
+  frames[0].hold = [];
+  const tl: Timeline = {
+    frames,
+    active,
+    hidden: laneList(raw.hidden),
+    locked: laneList(raw.locked),
+    speed: (() => {
+      const v = num(raw.speed);
+      return Number.isFinite(v) && v >= TL_SPEED_MIN && v <= TL_SPEED_MAX ? v : 1;
+    })(),
+  };
+  /* 佔位：目前影格的資料在頂層 */
+  const af = frames[active];
+  af.chars = [];
+  af.rels = [];
+  af.notes = [];
+  af.bg = null;
+  af.W = s.W;
+  af.H = s.H;
+  /* 保持中的軌道不存資料 */
+  frames.forEach((f, k) => {
+    if (k === active) return;
+    if (holds(f, 'chars')) {
+      f.chars = [];
+      f.rels = [];
+    }
+    if (holds(f, 'notes') || holds(f, 'charts'))
+      f.notes = f.notes.filter((n) => !holds(f, laneOfNote(n)));
+    if (holds(f, 'bg')) f.bg = null;
+  });
+  /* 目前影格保持中的軌道：頂層和來源（往前的關鍵影格）不同＝關鍵影格 */
+  const view: Sheet = { ...s, tl };
+  for (const lane of [...af.hold]) {
+    const same =
+      lane === 'chars'
+        ? sameJson(
+            { c: s.chars, r: s.rels },
+            { c: laneChars(view, active).chars, r: laneChars(view, active).rels },
+          )
+        : lane === 'bg'
+          ? s.bg === laneBg(view, active)
+          : sameJson(
+              s.notes.filter((n) => laneOfNote(n) === lane),
+              laneNotes(view, active, lane),
+            );
+    if (!same) af.hold = af.hold.filter((x) => x !== lane);
+  }
+  return tl;
+}
+
+/** 分頁庫的一筆 */
+export function normalizeSheetLibItem(raw: unknown, fallbackId: number): SheetLibItem | null {
+  if (!isObj(raw)) return null;
+  const sheet = normalizeSheet(raw.sheet, -1);
+  if (!sheet) return null;
+  const at = num(raw.savedAt);
+  return {
+    id: finite(raw.id) ? Math.trunc(num(raw.id)) : fallbackId,
+    name: str(raw.name, 200),
+    savedAt: Number.isFinite(at) && at > 0 ? Math.trunc(at) : 0,
+    sheet,
   };
 }
 
@@ -786,7 +942,9 @@ export function normalizePreset(raw: unknown): SettingsPreset | null {
 /** 一個專案用到的最大 id */
 export function maxIdOf(
   p: Pick<Project, 'sheets' | 'labels'> &
-    Partial<Pick<Project, 'library' | 'relLibrary' | 'radarTpls' | 'noteBin' | 'settingsLib'>>,
+    Partial<
+      Pick<Project, 'library' | 'relLibrary' | 'radarTpls' | 'noteBin' | 'settingsLib' | 'sheetLib'>
+    >,
 ): number {
   let m = 0;
   for (const s of p.sheets) {
@@ -796,7 +954,14 @@ export function maxIdOf(
     for (const t of s.types) m = Math.max(m, t.id);
     for (const g of s.grels ?? []) m = Math.max(m, g.id);
     for (const n of s.notes ?? []) m = Math.max(m, n.id);
+    for (const f of s.tl?.frames ?? []) {
+      m = Math.max(m, f.id);
+      for (const c of f.chars) m = Math.max(m, c.id);
+      for (const r of f.rels) m = Math.max(m, r.id);
+      for (const n of f.notes) m = Math.max(m, n.id);
+    }
   }
+  for (const it of p.sheetLib ?? []) m = Math.max(m, it.id);
   for (const l of p.labels) m = Math.max(m, l.id);
   for (const n of p.noteBin ?? []) m = Math.max(m, n.id);
   for (const g of p.settingsLib ?? []) m = Math.max(m, g.id);
@@ -867,6 +1032,8 @@ function fixIds(p: Project): void {
   }
   for (const n of p.noteBin) if (n.id <= 0) n.id = take();
   for (const g of p.settingsLib) if (g.id <= 0) g.id = take();
+  for (const s of p.sheets) for (const f of s.tl?.frames ?? []) if (f.id <= 0) f.id = take();
+  for (const it of p.sheetLib) if (it.id <= 0) it.id = take();
   /* 角色庫、關係庫：臨時給的 id 換成新的（實例的綁定跟著換） */
   const entryMap = new Map<number, number>();
   const varMap = new Map<number, number>();
@@ -969,6 +1136,7 @@ export function initialProject(): Project {
     fonts: [],
     noteBin: [],
     settingsLib: [],
+    sheetLib: [],
   };
 }
 
@@ -1035,6 +1203,11 @@ export function normalizeProject(raw: unknown): Project | null {
     const n = normalizePreset(g);
     if (n && !settingsLib.some((x) => x.id === n.id)) settingsLib.push(n);
   }
+  const sheetLib: SheetLibItem[] = [];
+  for (const it of Array.isArray(raw.sheetLib) ? raw.sheetLib : []) {
+    const n = normalizeSheetLibItem(it, auto--);
+    if (n && !sheetLib.some((x) => x.id === n.id)) sheetLib.push(n);
+  }
   const p: Project = {
     sheets,
     active: Math.min(sheets.length - 1, Math.max(0, Math.trunc(num(raw.active)) || 0)),
@@ -1048,6 +1221,7 @@ export function normalizeProject(raw: unknown): Project | null {
     fonts,
     noteBin: noteBin.slice(0, NOTE_BIN_MAX),
     settingsLib,
+    sheetLib,
   };
   fixIds(p);
   /* 世界觀的沿用：指到不存在的分頁或自己＝丟掉（原作 loadProject） */
@@ -1091,9 +1265,15 @@ export function projectAssetIds(p: Project): string[] {
     out.add(a.img);
     if (a.src) out.add(a.src);
   };
-  for (const s of p.sheets) {
-    if (s.bg) out.add(s.bg);
-    for (const c of s.chars) av(c.avatar);
+  /* 第五批：時間軸每一格、分頁庫裡的分頁 */
+  const sheetIds = (s: Sheet) => {
+    for (const b of bgIds(s)) out.add(b);
+    for (const list of charLists(s)) for (const c of list) av(c.avatar);
+  };
+  for (const s of p.sheets) sheetIds(s);
+  for (const it of p.sheetLib ?? []) {
+    sheetIds(it.sheet);
+    for (const id of richImageIds(it.sheet.lore ?? '')) out.add(id);
   }
   for (const e of p.library ?? []) {
     for (const v of e.variants) av(v.avatar);

@@ -10,6 +10,7 @@ import { downloadBlob, pickFiles } from '@/core/files';
 import { canvasToBlob, makeCanvas } from '@/core/image';
 import { Dialog, IconButton, Select, TextInput, useConfirm } from '@/ui';
 import { FRAME_SCALE, frameRefSource, frameSource, type SheetCtx, sheetCtx } from '../engine/geom';
+import { allChars } from '../model/timeline';
 import type { Char, FrameItem, Project } from '../model/types';
 import { useImageUrls } from '../state/images';
 import { addFrames, deleteFrame, renameFrame } from '../state/libActions';
@@ -204,14 +205,20 @@ export async function downloadFrameTemplate(): Promise<void> {
 
 /* ---------- 管理 ---------- */
 
-/** 每張框實際被幾位角色戴著（所有分頁；含跟著標籤、分頁預設戴上的） */
+/**
+ * 每張框實際被幾位角色戴著（所有分頁；含跟著標籤、分頁預設戴上的）。時間軸分頁的每一格都看（同一位角色算一次），
+ * 分頁庫裡封存的分頁也算（原作 frameUsage：只數現存分頁會讓還在用的框看起來沒人用）。
+ */
 export function frameUsage(p: Project): Map<string, number> {
   const out = new Map<string, number>();
   if (!p.frames.length) return out;
-  for (const s of p.sheets) {
+  for (const s of [...p.sheets, ...p.sheetLib.map((x) => x.sheet)]) {
     const ctx = sheetCtx(s, p.labels, { frames: p.frames });
-    for (const c of s.chars) {
+    const seen = new Map<number, string>();
+    for (const c of allChars(s)) {
+      if (seen.has(c.id)) continue;
       const src = frameSource(ctx, c);
+      seen.set(c.id, src?.id ?? '');
       if (src) out.set(src.id, (out.get(src.id) ?? 0) + 1);
     }
   }

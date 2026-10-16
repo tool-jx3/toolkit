@@ -115,10 +115,10 @@ describe('讀原作的專案檔（第四批）', () => {
     expect(loreSources(p.sheets, side).map((s) => s.name)).toEqual(['主線']);
   });
 
-  it('便利貼庫、設定集（最愛、設定值）；不再列在略過的內容；分頁庫照舊略過', () => {
+  it('便利貼庫、設定集（最愛、設定值）；不再列在略過的內容（第五批起分頁庫也讀進來，見 relation-chart-b5）', () => {
     const data = fixture('relation-chart-b4-notes-lore.json');
     const conv = convertLegacy(data);
-    expect(conv.skipped).toEqual(['分頁庫']);
+    expect(conv.skipped).toEqual([]);
     const p = load(data);
     expect(p.noteBin.map((n) => [n.text, n.w, n.h, n.size, n.bare])).toEqual([
       ['關掉的隱藏紙面', 200, 200, 18, true],

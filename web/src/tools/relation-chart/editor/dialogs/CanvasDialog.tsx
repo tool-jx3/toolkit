@@ -6,9 +6,9 @@
  */
 import { useRef, useState } from 'react';
 import { type Anchor, AnchorGrid, anchorAxes, Button, Dialog, Field, NumberInput } from '@/ui';
-import { resizeCanvas } from '../../logic/layout';
+
 import type { Sheet } from '../../model/types';
-import { editSheet } from '../../state/actions';
+import { resizeCanvasTo } from '../../state/actions';
 import { setUi, useUi } from '../../state/store';
 import { S } from '../../strings';
 import { useSheet } from '../hooks';
@@ -223,7 +223,7 @@ function Body({ onDone }: { onDone: () => void }) {
         <Button
           variant="primary"
           onClick={() => {
-            editSheet((s) => resizeCanvas(s as Sheet, rect));
+            resizeCanvasTo(rect);
             onDone();
             requestAnimationFrame(fitView);
           }}

@@ -24,15 +24,17 @@ import { normalizeProject, projectAssetIds } from '../model/normalize';
 import { NOTE_BIN_MAX } from '../model/notes';
 import type {
   Avatar,
+  Char,
   CharFont,
   FontFormat,
   FontItem,
   FontValue,
   FrameItem,
   Project,
+  Sheet,
 } from '../model/types';
 import { S } from '../strings';
-import { insertSheet, type SheetMaps } from './actions';
+import { insertSheet, type SheetMaps, TL_UI_RESET } from './actions';
 import { avatarFromBlob, backgroundFromBlob, renderAvatar } from './images';
 import { assets, projectNow, setUi, syncProject, updateProject, useUi } from './store';
 
@@ -64,19 +66,33 @@ export function dropMissingImages(
       return avatar === v.avatar ? v : { ...v, avatar };
     }),
   }));
-  const sheets = p.sheets.map((s) => {
-    const bg = s.bg && missing.has(s.bg) ? null : s.bg;
-    if (bg !== s.bg) dropped++;
-    const chars = s.chars.map((c) => {
+  const fixChars = (list: Char[]) =>
+    list.map((c) => {
       const avatar = fixAv(c.avatar, false);
       return avatar === c.avatar ? c : { ...c, avatar };
     });
-    return { ...s, bg, chars };
-  });
+  const fixSheet = (s: Sheet, count: boolean): Sheet => {
+    const bg = s.bg && missing.has(s.bg) ? null : s.bg;
+    if (bg !== s.bg && count) dropped++;
+    /* 時間軸分頁的每一格 */
+    const tl = s.tl
+      ? {
+          ...s.tl,
+          frames: s.tl.frames.map((f) => {
+            const fb = f.bg && missing.has(f.bg) ? null : f.bg;
+            if (fb !== f.bg && count) dropped++;
+            return { ...f, bg: fb, chars: fixChars(f.chars) };
+          }),
+        }
+      : s.tl;
+    return { ...s, bg, chars: fixChars(s.chars), tl };
+  };
+  const sheets = p.sheets.map((s) => fixSheet(s, true));
+  const sheetLib = (p.sheetLib ?? []).map((it) => ({ ...it, sheet: fixSheet(it.sheet, false) }));
   const frames = p.frames.filter((f) => !missing.has(f.id));
   const fonts = p.fonts.filter((f) => !missing.has(f.id));
   dropped += p.frames.length - frames.length + p.fonts.length - fonts.length;
-  return { data: { ...p, library, sheets, frames, fonts }, dropped };
+  return { data: { ...p, library, sheets, frames, fonts, sheetLib }, dropped };
 }
 
 let saving: { data: Project; dropped: number } | null = null;
@@ -129,9 +145,16 @@ export async function importOwnProject(
   return { project: fixed.data, notSaved: imported.notPersisted > 0, dropped: fixed.dropped };
 }
 
-/** 換掉整個專案（開啟專案檔、全部重設；可以復原） */
+/**
+ * 換掉整個專案（開啟專案檔、全部重設、還原快照；可以復原）。
+ * 分頁庫不在復原裡（editor/undo），所以這裡不丟掉現有的分頁庫：新的內容的分頁庫在前、現有的接在後面（同一筆不重複；D 項）。
+ */
 export function replaceProject(p: Project): void {
   updateProject((d) => {
+    const cur = d.sheetLib as Project['sheetLib'];
+    const same = (a: { id: number; savedAt: number }, b: { id: number; savedAt: number }) =>
+      a.id === b.id && a.savedAt === b.savedAt;
+    const lib = [...p.sheetLib, ...cur.filter((x) => !p.sheetLib.some((y) => same(x, y)))];
     d.sheets = p.sheets;
     d.active = Math.min(Math.max(0, p.active), p.sheets.length - 1);
     d.labels = p.labels;
@@ -144,6 +167,14 @@ export function replaceProject(p: Project): void {
     d.fonts = p.fonts;
     d.noteBin = p.noteBin;
     d.settingsLib = p.settingsLib;
+    /* 分頁庫：id 重複的換新的、nextId 墊高 */
+    const used = new Set<number>();
+    d.sheetLib = lib;
+    for (const it of d.sheetLib) {
+      if (used.has(it.id) || it.id <= 0) it.id = d.nextId++;
+      used.add(it.id);
+    }
+    for (const id of used) if (id >= d.nextId) d.nextId = id + 1;
   });
   setUi({
     sel: [],
@@ -153,10 +184,34 @@ export function replaceProject(p: Project): void {
     panel: null,
     renaming: null,
     fitTick: useUi.getState().fitTick + 1,
+    ...TL_UI_RESET,
   });
 }
 
 /* ---------- 原作的專案檔 ---------- */
+
+/** 讀原作的資料時的選項（快照）：只取第幾張分頁 */
+export interface LegacyApplyOpts {
+  only?: number;
+}
+
+/**
+ * 只取一張分頁（原作快照的「只取其中一個分頁」）：角色庫、關係庫只留那張分頁用到的，
+ * 便利貼庫、設定集、分頁庫不帶。
+ */
+function onlySheet(conv: LegacyImport, idx: number): void {
+  const s = conv.sheets[idx];
+  conv.sheets = s ? [s] : [];
+  const chars = s ? [s.chars, ...(s.tl?.frames.map((f) => f.chars) ?? [])].flat() : [];
+  const used = new Set(chars.map((c) => c.lib));
+  conv.library = conv.library.filter((e) => used.has(e.id));
+  const usedRel = new Set(s?.types.map((t) => t.lib) ?? []);
+  conv.relLibrary = conv.relLibrary.filter((e) => usedRel.has(e.id));
+  conv.noteBin = [];
+  conv.settingsLib = [];
+  conv.sheetLib = [];
+  conv.activeIdx = 0;
+}
 
 export interface LegacyRead {
   data: Record<string, unknown>;
@@ -213,7 +268,24 @@ export interface LegacyResult {
   skipped: string[];
 }
 
+/** data URI → 位元組（原作快照備份的圖；不是 base64 的照 URL 編碼解） */
+export function dataUriBytes(uri: string): Uint8Array | null {
+  const m = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(uri);
+  if (!m) return null;
+  try {
+    if (!m[2]) return new TextEncoder().encode(decodeURIComponent(m[3]));
+    const bin = atob(m[3]);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 const blobOf = (data: Uint8Array, name: string) => {
+  const mime = /^data:([^;,]+)/.exec(name)?.[1];
+  if (mime) return new Blob([data as BlobPart], { type: mime });
   const ext = name.split('.').pop()?.toLowerCase();
   const type =
     ext === 'jpg' || ext === 'jpeg'
@@ -307,14 +379,16 @@ export function remapLegacyRefs(
   for (const g of conv.settingsLib)
     if (g.values.defFrame) g.values.defFrame = frameRef(g.values.defFrame);
   for (const l of conv.labels) if (l.frame) l.frame = frameRef(l.frame);
-  for (const s of conv.sheets) {
+  for (const s of [...conv.sheets, ...conv.sheetLib.map((it) => it.sheet)]) {
     if (s.lore) s.lore = rich(s.lore);
     const df = conv.defFrames.get(s);
     s.settings.defFrame = df ? frameRef(df) : '';
-    for (const c of s.chars) {
-      if (c.frame) c.frame = frameRef(c.frame);
-      c.font = fontRef(c.font);
-    }
+    /* 時間軸分頁：每一格的角色 */
+    for (const list of [s.chars, ...(s.tl?.frames.map((f) => f.chars) ?? [])])
+      for (const c of list) {
+        if (c.frame) c.frame = frameRef(c.frame);
+        c.font = fontRef(c.font);
+      }
   }
   const docId = conv.fontRef ? fontMap.get(conv.fontRef) : undefined;
   if (conv.fontRef && !docId) lostFonts.add(conv.fontRef);
@@ -332,12 +406,16 @@ export function remapLegacyRefs(
 export async function importLegacy(
   read: LegacyRead,
   mode: 'append' | 'replace',
+  opts: LegacyApplyOpts = {},
 ): Promise<LegacyResult> {
   const conv = convertLegacy(read.data);
+  if (opts.only !== undefined) onlySheet(conv, opts.only);
   let failed = 0;
   let referenced = 0;
   let notSaved = false;
+  /* 圖：ZIP 裡的路徑，或（原作的快照備份）data URI */
   const fileAt = (path: string) => {
+    if (path.startsWith('data:')) return dataUriBytes(path) ?? undefined;
     const clean = path.replace(/^\.?\//, '');
     return read.files.get(read.base + clean) ?? read.files.get(clean);
   };
@@ -380,21 +458,29 @@ export async function importLegacy(
     if (avatar) v.avatar = avatar;
     else if (read.zip) failed++;
   }
-  for (const sheet of conv.sheets) {
-    const bgPath = conv.backgrounds.get(sheet);
-    if (bgPath) {
-      referenced++;
-      const data = fileAt(bgPath);
-      if (data) {
+  /* 背景圖：分頁、時間軸的每一格（ZIP 裡的檔）、分頁庫（內嵌的 data URI） */
+  const bgCache = new Map<string, string | null>();
+  for (const [owner, ref] of conv.backgrounds) {
+    const inline = ref.startsWith('data:');
+    if (!inline) referenced++;
+    let id = bgCache.get(ref);
+    if (id === undefined) {
+      id = null;
+      const data = fileAt(ref);
+      const blob = data ? blobOf(data, ref) : null;
+      if (blob) {
         try {
-          const r = await backgroundFromBlob(blobOf(data, bgPath));
-          sheet.bg = r.id;
+          const r = await backgroundFromBlob(blob);
+          id = r.id;
           if (!r.persisted) notSaved = true;
         } catch {
-          failed++;
+          id = null;
         }
-      } else if (read.zip) failed++;
+      }
+      bgCache.set(ref, id);
+      if (!id && !inline && (read.zip || blob)) failed++;
     }
+    if (id) owner.bg = id;
   }
   /* 頭像框、匯入的字型、角色資訊裡的圖 */
   const fr = await ingestBundle(read, 'frames/', LEGACY_FRAME_MIME);
@@ -440,6 +526,7 @@ export function applyLegacy(
   updateProject((p) => {
     if (mode === 'replace') {
       p.sheets = [];
+      /* 分頁庫不在復原裡：取代時現有的留著，讀進來的接在前面（同 replaceProject，D80） */
       p.labels = [];
       p.library = [];
       p.relLibrary = [];
@@ -527,6 +614,19 @@ export function applyLegacy(
         const to = maps.sheetMap.get(s.loreFrom);
         s.loreFrom = to !== undefined && to !== s.id ? to : null;
       }
+    /* 分頁庫：照加入分頁的路徑換 id，放進分頁庫（不留在分頁列）；取代＝接在現有的前面、加入＝接在後面 */
+    const added: Project['sheetLib'] = [];
+    for (const it of conv.sheetLib) {
+      const idx = insertSheet(p, it.sheet, { ...maps, sheetMap: new Map() });
+      const [sh] = p.sheets.splice(idx, 1);
+      sh.loreFrom = sh.loreFrom !== null ? (maps.sheetMap.get(sh.loreFrom) ?? null) : null;
+      added.push({ id: p.nextId++, name: it.name, savedAt: it.savedAt, sheet: sh as Sheet });
+    }
+    if (added.length)
+      p.sheetLib =
+        mode === 'replace'
+          ? [...added, ...(p.sheetLib as Project['sheetLib'])]
+          : [...(p.sheetLib as Project['sheetLib']), ...added];
     /* 便利貼庫、設定集：id 換成專案的（加入為新分頁＝接在後面） */
     for (const n of conv.noteBin) {
       const nn = JSON.parse(JSON.stringify(n)) as typeof n;
@@ -546,6 +646,7 @@ export function applyLegacy(
     panel: null,
     renaming: null,
     fitTick: useUi.getState().fitTick + 1,
+    ...TL_UI_RESET,
   });
 }
 

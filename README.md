@@ -59,7 +59,7 @@
 | [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | 盲選排行榜：一次揭曉一位、當場決定名次，名次確定後就不能改，排完存成 PNG 或 WebP |
 | [角色分析圖產生器](https://tool-jx3.github.io/toolkit/tools/char-chart/) | 一份角色清單做成兩張圖：性格四象限（拖曳角色、算契合度）與關係圖（頭像排成一圈、用不同的線連起來），存成 PNG |
 | [拍立得相框產生器](https://tool-jx3.github.io/toolkit/tools/polaroid/) | 把照片放進拍立得相框：縮放與拖曳照片、寫一行字、用筆在上面畫、貼最多 5 張貼紙，存成高解析度的 PNG |
-| [角色關係圖產生器](https://tool-jx3.github.io/toolkit/tools/relation-chart/) | 在畫布上擺角色、定義關係的顏色與線型、點兩個人拉出關係線，自動排列後匯出 PNG、分層 SVG／PSD 或可以分享的互動網頁 |
+| [角色關係圖產生器](https://tool-jx3.github.io/toolkit/tools/relation-chart/) | 在畫布上擺角色、定義關係的顏色與線型、點兩個人拉出關係線，用標籤框出陣營、整理角色庫與關係庫、加便利貼與世界觀，自動排列後匯出 PNG、分層 SVG／PSD、可以分享的互動網頁，或把分頁做成時間軸動畫（GIF／影片） |
 | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | 把台詞、後日談、劇本宣傳文句或心得排成 1200 × 1600 的直式圖片：封面、內文頁或照片＋文字三種版面，文字可以加粗、換色、螢光筆，放不下時自動接到下一頁，存成 PNG 或 ZIP |
 | [驗證題梗圖產生器](https://tool-jx3.github.io/toolkit/tools/captcha-card/) | 做一張「請選出所有包含 ○○ 的圖片」的驗證題梗圖：放代表圖與 3 × 3／4 × 4 的圖片格、勾選答案，匯出 PNG，或游標一格一格點選、按下驗證的 GIF 動畫 |
 | [角色配色條產生器](https://tool-jx3.github.io/toolkit/tools/color-palette/) | 把角色的配色排成一條色塊圖，可直接從立繪取色（手動滴管或自動抓主色），輸出 PNG |

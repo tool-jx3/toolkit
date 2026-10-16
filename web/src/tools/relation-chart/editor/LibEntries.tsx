@@ -22,6 +22,8 @@ export interface EntryRow {
   onSheet: boolean;
   /** 依分頁分組時屬於哪幾張分頁（索引） */
   sheets: readonly number[];
+  /** 滑過的提示（第五批：分頁庫、快照） */
+  tip?: string;
 }
 
 interface Sec {
@@ -53,7 +55,11 @@ function Row({
       {...rowProps}
       role="button"
       tabIndex={0}
-      title={level === 'min' ? `${r.name}（${r.meta}）` : undefined}
+      title={
+        level === 'min'
+          ? `${r.name}（${r.meta}）${r.tip ? `\n${r.tip}` : ''}`
+          : (r.tip ?? undefined)
+      }
       onKeyDown={onKeyDown}
       className={`flex min-w-0 cursor-pointer select-none items-center gap-2 rounded-md border px-1.5 py-1 ${
         picked ? 'border-accent ring-2 ring-accent/40' : 'border-border'

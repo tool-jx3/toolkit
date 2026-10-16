@@ -9,7 +9,7 @@ import { makeChar, makeRel, makeType } from '../model/factory';
 import { newSettings } from '../model/normalize';
 import type { Char, Rel, RelType, Sheet } from '../model/types';
 
-export type SampleKey = 'story' | 'family' | 'types' | 'mind';
+export type SampleKey = 'story' | 'family' | 'types' | 'mind' | 'timeline';
 
 export const SAMPLES: readonly { key: SampleKey; name: string; desc: string }[] = [
   {
@@ -20,6 +20,7 @@ export const SAMPLES: readonly { key: SampleKey; name: string; desc: string }[] 
   { key: 'family', name: '家族樹', desc: '三代家譜：夫妻與親子的階層排列（組織圖同理）。' },
   { key: 'types', name: '屬性克制表', desc: '節點不必是人：五種屬性互相克制的循環。' },
   { key: 'mind', name: '心智圖', desc: '中心主題放射展開，整理靈感用。' },
+  { key: 'timeline', name: '時間軸（動畫）', desc: '三個影格：兩人從陌生到摯友的動畫分頁。' },
 ];
 
 const C = makeChar;
@@ -51,9 +52,58 @@ const sheet = (
   lore: '',
   loreFrom: null,
   memo: '',
+  tl: null,
 });
 
 export function buildSample(key: SampleKey): Sheet {
+  if (key === 'timeline') {
+    /* 三格：小明、小華逐格靠近，關係從「陌生」→「朋友」→「摯友」（原作的 buildSample('timeline')） */
+    const mk = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number) => [
+      C(1, '小明', x1, y1, { icon: 'sun' }),
+      C(2, '小華', x2, y2, { icon: 'moon' }),
+      C(3, '小美', x3, y3, { icon: 'star' }),
+    ];
+    const frame = (id: number, no: number, chars: Char[], rels: Rel[]) => ({
+      id,
+      no,
+      W: 1000,
+      H: 800,
+      chars,
+      rels,
+      notes: [],
+      bg: null,
+      hold: [],
+      dur: null,
+    });
+    const s = sheet(
+      '範例：時間軸',
+      1000,
+      800,
+      [
+        T(101, '陌生', { color: '#8a8a8a', lineStyle: 'dotted' }),
+        T(102, '朋友', { color: '#58b368' }),
+        T(103, '摯友', { color: '#e0607e' }),
+      ],
+      mk(250, 380, 750, 380, 500, 650),
+      [R(11, 1, 2, 101, { both: true })],
+    );
+    s.tl = {
+      frames: [
+        frame(201, 1, [], []),
+        frame(202, 2, mk(350, 380, 650, 380, 500, 630), [R(11, 1, 2, 102, { both: true })]),
+        frame(203, 3, mk(430, 360, 570, 360, 500, 570), [
+          R(11, 1, 2, 103, { both: true }),
+          R(12, 3, 1, 102),
+          R(13, 3, 2, 102),
+        ]),
+      ],
+      active: 0,
+      hidden: [],
+      locked: [],
+      speed: 1,
+    };
+    return s;
+  }
   if (key === 'story')
     return sheet(
       '範例：故事人物',

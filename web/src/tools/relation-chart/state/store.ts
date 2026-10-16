@@ -12,11 +12,15 @@ import { createPreviewStore, createToolStore, historyGesture } from '@/core/stor
 import { sanitizeProjectRich } from '../logic/rich';
 import { syncLibrary } from '../model/library';
 import { initialProject, normalizeProject, projectAssetIds } from '../model/normalize';
+import { autoKey } from '../model/timeline';
 import type { ColorValue, Project, Sheet } from '../model/types';
 
 export const TOOL_ID = 'relation-chart';
-/** 專案檔與自動儲存的資料版本（3：角色庫、關係庫、數值、頭像框、匯入字型、看法；4：便利貼、世界觀、備忘錄、便利貼庫、設定集） */
-export const DATA_VERSION = 4;
+/**
+ * 專案檔與自動儲存的資料版本（3：角色庫、關係庫、數值、頭像框、匯入字型、看法；4：便利貼、世界觀、備忘錄、便利貼庫、設定集；
+ * 5：時間軸分頁、分頁庫）
+ */
+export const DATA_VERSION = 5;
 
 /** 寫入 localStorage 延後一點（連續變更只寫最後一次）；離開頁面、切到背景時立刻寫 */
 function deferredStorage(delayMs = 400, onError?: (e: unknown) => void): StateStorage {
@@ -120,7 +124,25 @@ export function updateProject(recipe: ProjectRecipe): void {
     recipe(p);
     /* 角色的三層、關係類型與關係庫對齊（model/library） */
     syncLibrary(p as Project, prev);
+    /* 時間軸分頁：在保持中的軌道改了東西＝這一格這一條變成關鍵影格（原作的 tlAutoKey） */
+    const s = p.sheets[Math.min(p.sheets.length - 1, Math.max(0, p.active))];
+    if (s?.tl) autoKey(s as Sheet);
   });
+}
+
+/**
+ * 不記復原的改動（切影格＝檢視狀態，7.4 第 3 項；分頁庫的管理動作，7.4 第 14 項）。照樣自動儲存。
+ * 手勢中（磁鐵、拖曳）呼叫時，這次改動會併進手勢那一步——呼叫端先結束手勢。
+ */
+export function untracked(fn: () => void): void {
+  const t = useProject.temporal.getState();
+  const was = t.isTracking;
+  if (was) t.pause();
+  try {
+    fn();
+  } finally {
+    if (was) useProject.temporal.getState().resume();
+  }
 }
 
 /*
@@ -175,7 +197,8 @@ export interface Prefs {
   libGroup: boolean;
   nameFromFile: boolean;
   minimap: boolean;
-  exportFormat: ExportFormat;
+  /** 匯出的格式（第五批多了 GIF、影片：只有目前分頁是時間軸分頁時能選） */
+  exportFormat: ExportFormat | 'gif' | 'video';
   exportScope: ExportScope;
   transparent: boolean;
   /** 互動網頁：壓縮頭像、嵌入模式（第四批） */
@@ -183,6 +206,13 @@ export interface Prefs {
   embed: boolean;
   /** 再次匯出的記憶（沒有＝選單不出現） */
   lastExport: LastExport | null;
+  /* ---- 第五批：時間軸的播放偏好（這台瀏覽器；原作的 crd-tween-off、crd-flip-anim、crd-note-fade） ---- */
+  /** 補間關＝硬切換格 */
+  tweenOff: boolean;
+  /** 換變體時翻一次面（預設關） */
+  flipAnim: boolean;
+  /** 便利貼文字交叉淡化（預設開；關＝過半換字） */
+  noteFade: boolean;
 }
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
@@ -201,6 +231,9 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   slim: true,
   embed: false,
   lastExport: null,
+  tweenOff: false,
+  flipAnim: false,
+  noteFade: true,
 });
 
 export const setPrefs = (patch: Partial<Prefs>): void =>
@@ -323,11 +356,21 @@ export interface UiState {
   lod: LodLevel;
   /** 設定集：左欄看的那一筆 */
   libPreset: number | null;
+  /* ---- 第五批 ---- */
+  /** 時間軸的預覽位置（影格單位；null＝編輯目前影格）：播放或拖過拖桿＝預覽，左鍵不能編輯 */
+  tlPos: number | null;
+  tlPlaying: boolean;
+  /** 影格列的模式：點影格＝複製／刪除 */
+  tlMode: 'copy' | 'del' | null;
+  /** 影格列的縮放（0.4～3） */
+  tlZoom: number;
+  /** 快照頁籤：中間看的那一份 */
+  snapPick: string | null;
 }
 
 export type LodLevel = 'near' | 'mid' | 'far';
 
-export type LibTab = 'chars' | 'rels' | 'labels' | 'notes' | 'table' | 'gsets';
+export type LibTab = 'chars' | 'rels' | 'labels' | 'sheets' | 'notes' | 'snaps' | 'table' | 'gsets';
 /** 標籤庫：編輯、隱藏、引力、陣營框、刪除；角色庫與關係庫：匯入、複製、刪除；連線總表、便利貼庫：刪除；設定集：改名、最愛、刪除 */
 export type LibMode =
   | 'edit'
@@ -373,6 +416,11 @@ export const useUi = create<UiState>(() => ({
   statsFocus: null,
   lod: 'near',
   libPreset: null,
+  tlPos: null,
+  tlPlaying: false,
+  tlMode: null,
+  tlZoom: 1,
+  snapPick: null,
 }));
 
 export const setUi = (patch: Partial<UiState>): void => useUi.setState(patch);

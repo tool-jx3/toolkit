@@ -97,3 +97,9 @@ export {
   recordingFormats,
   startCanvasRecording,
 } from './record';
+export {
+  patchWebmDuration,
+  readWebmDuration,
+  webmLastTimestampMs,
+  withWebmDuration,
+} from './webm';

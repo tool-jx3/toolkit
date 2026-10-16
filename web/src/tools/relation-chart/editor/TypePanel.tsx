@@ -8,6 +8,7 @@ import { Copy, Trash2 } from 'lucide-react';
 import { Button, Checkbox, Field, OptionalNumberInput, Select, Slider, useConfirm } from '@/ui';
 import { typeLineColor, typeOutlineColor } from '../engine/geom';
 import { CAP_STYLES, LINE_STYLES } from '../model/normalize';
+import { typeLineCount } from '../model/timeline';
 import type { CapStyle, LineStyle } from '../model/types';
 import { copyType, deleteType, fillTypeLabel, updateType } from '../state/actions';
 import { gesture, setUi } from '../state/store';
@@ -25,9 +26,11 @@ export function TypePanel({ id }: { id: number }) {
   const used = sheet.rels.filter((r) => r.type === t.id);
   const people = new Set(used.flatMap((r) => [r.from, r.to])).size;
   const remove = async () => {
-    if (used.length) {
+    /* 時間軸分頁：每一格的這種線都會刪，數字算每一格（7.13） */
+    const lines = typeLineCount(sheet, t.id);
+    if (lines) {
       const ok = await confirm({
-        title: S.type.removeTitle(used.length),
+        title: S.type.removeTitle(lines),
         confirmLabel: S.type.removeConfirm,
         danger: true,
       });

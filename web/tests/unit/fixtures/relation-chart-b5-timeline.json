@@ -1,0 +1,1428 @@
+{
+ "_readme": "README.txt",
+ "app": "CharRelDiagram",
+ "format": 7,
+ "savedAt": "2026-10-16T06:28:40.415Z",
+ "activeSheetIdx": 1,
+ "relLibrary": [
+  {
+   "id": 119,
+   "variants": [
+    {
+     "id": 118,
+     "label": "戀愛",
+     "color": "#e0607e",
+     "textColor": "auto",
+     "lineStyle": "solid",
+     "capStyle": "arrow"
+    }
+   ]
+  },
+  {
+   "id": 121,
+   "variants": [
+    {
+     "id": 120,
+     "label": "友情",
+     "color": "#58b368",
+     "textColor": "auto",
+     "lineStyle": "solid",
+     "capStyle": "arrow"
+    }
+   ]
+  },
+  {
+   "id": 123,
+   "variants": [
+    {
+     "id": 122,
+     "label": "敵對",
+     "color": "#c0392b",
+     "textColor": "auto",
+     "lineStyle": "dashed",
+     "capStyle": "arrow"
+    }
+   ]
+  },
+  {
+   "id": 125,
+   "variants": [
+    {
+     "id": 124,
+     "label": "師徒",
+     "color": "#4a90d9",
+     "textColor": "auto",
+     "lineStyle": "solid",
+     "capStyle": "arrow"
+    }
+   ]
+  },
+  {
+   "id": 127,
+   "variants": [
+    {
+     "id": 126,
+     "label": "監視",
+     "color": "#8a8a8a",
+     "textColor": "auto",
+     "lineStyle": "dotted",
+     "capStyle": "arrow"
+    }
+   ]
+  },
+  {
+   "id": 152,
+   "variants": [
+    {
+     "id": 151,
+     "label": "夫妻",
+     "color": "#e0607e",
+     "textColor": "auto",
+     "lineStyle": "solid",
+     "capStyle": "arrow"
+    }
+   ]
+  },
+  {
+   "id": 154,
+   "variants": [
+    {
+     "id": 153,
+     "label": "親子",
+     "color": "#4a90d9",
+     "textColor": "auto",
+     "lineStyle": "solid",
+     "capStyle": "arrow"
+    }
+   ]
+  }
+ ],
+ "labels": [],
+ "sheetLibrary": [],
+ "settingsLib": [],
+ "noteBin": [
+  {
+   "id": 157,
+   "savedAt": 1792132120292,
+   "name": "要關掉的便利貼",
+   "noteW": 100,
+   "noteH": 100
+  }
+ ],
+ "library": [
+  {
+   "id": 106,
+   "variants": [
+    {
+     "id": 107,
+     "name": "主角",
+     "color": "auto",
+     "nameColor": "auto",
+     "image": "images/lib_106_v107.png"
+    }
+   ]
+  },
+  {
+   "id": 108,
+   "variants": [
+    {
+     "id": 109,
+     "name": "戀人",
+     "color": "auto",
+     "nameColor": "auto",
+     "icon": "heart"
+    }
+   ]
+  },
+  {
+   "id": 110,
+   "variants": [
+    {
+     "id": 111,
+     "name": "摯友",
+     "color": "auto",
+     "nameColor": "auto",
+     "icon": "sun"
+    }
+   ]
+  },
+  {
+   "id": 112,
+   "variants": [
+    {
+     "id": 113,
+     "name": "宿敵",
+     "color": "auto",
+     "nameColor": "auto",
+     "icon": "bolt"
+    }
+   ]
+  },
+  {
+   "id": 114,
+   "variants": [
+    {
+     "id": 115,
+     "name": "導師",
+     "color": "auto",
+     "nameColor": "auto",
+     "icon": "book"
+    }
+   ]
+  },
+  {
+   "id": 116,
+   "variants": [
+    {
+     "id": 117,
+     "name": "神秘人",
+     "color": "auto",
+     "nameColor": "auto",
+     "icon": "ghost"
+    }
+   ]
+  },
+  {
+   "id": 134,
+   "variants": [
+    {
+     "id": 135,
+     "name": "新角色",
+     "color": "#e5b84b",
+     "nameColor": "auto",
+     "icon": "flower"
+    }
+   ]
+  },
+  {
+   "id": 137,
+   "variants": [
+    {
+     "id": 138,
+     "name": "祖父",
+     "color": "auto",
+     "nameColor": "auto",
+     "icon": "crown"
+    }
+   ]
+  },
+  {
+   "id": 139,
+   "variants": [
+    {
+     "id": 140,
+     "name": "祖母",
+     "color": "auto",
+     "nameColor": "auto",
+     "icon": "flower"
+    }
+   ]
+  },
+  {
+   "id": 141,
+   "variants": [
+    {
+     "id": 142,
+     "name": "父親",
+     "color": "auto",
+     "nameColor": "auto"
+    }
+   ]
+  },
+  {
+   "id": 143,
+   "variants": [
+    {
+     "id": 144,
+     "name": "母親",
+     "color": "auto",
+     "nameColor": "auto"
+    }
+   ]
+  },
+  {
+   "id": 145,
+   "variants": [
+    {
+     "id": 146,
+     "name": "叔叔",
+     "color": "auto",
+     "nameColor": "auto",
+     "icon": "dice"
+    }
+   ]
+  },
+  {
+   "id": 147,
+   "variants": [
+    {
+     "id": 148,
+     "name": "主角",
+     "color": "auto",
+     "nameColor": "auto",
+     "icon": "star"
+    }
+   ]
+  },
+  {
+   "id": 149,
+   "variants": [
+    {
+     "id": 150,
+     "name": "妹妹",
+     "color": "auto",
+     "nameColor": "auto",
+     "icon": "clover"
+    }
+   ]
+  }
+ ],
+ "prefs": {
+  "light": false,
+  "theme": "dark",
+  "lang": "zh-TW",
+  "rightPinned": true,
+  "centerPinned": false,
+  "leftPinned": true,
+  "minimap": true,
+  "leftW": 252,
+  "centerW": 290,
+  "rightW": 238,
+  "lockPanelW": false,
+  "lockPanelH": false,
+  "lockLayout": false,
+  "float": [
+   {
+    "id": "mmap",
+    "x": null,
+    "y": null,
+    "w": null,
+    "h": null
+   }
+  ],
+  "layout": {
+   "docks": {
+    "left": [
+     [
+      "chars"
+     ],
+     [
+      "center"
+     ]
+    ],
+    "right": [
+     [
+      "rels"
+     ]
+    ]
+   }
+  }
+ },
+ "sheets": [
+  {
+   "id": 1,
+   "name": "說明",
+   "W": 1000,
+   "H": 1000,
+   "relTypes": [],
+   "settings": {
+    "bgMode": "none",
+    "shapeSquare": false,
+    "bridgeMode": false,
+    "showNames": true,
+    "showLegend": true,
+    "showRelName": false,
+    "showRelNote": false,
+    "showLabelNodes": false,
+    "noCollision": false,
+    "zoneOutline": true,
+    "zoneEdgeW": 1.5,
+    "zoneFillOp": 0.13,
+    "showZones": true,
+    "zoneLink": 5,
+    "zoneThick": 5,
+    "zoneBlend": true,
+    "showLblLegend": false,
+    "showCharLegend": false,
+    "lblNodeScale": 1,
+    "gridStep": 50,
+    "focusDim": 0.15,
+    "relOpacity": 1,
+    "tlSpeed": 1,
+    "defNoBorder": false,
+    "defNoBg": false,
+    "defFrame": "",
+    "spacingPct": 100,
+    "edgeGapPx": 18,
+    "magCenter": 0.5,
+    "magRepel": 10,
+    "magLink": 1,
+    "magDist": 265,
+    "snapMode": false,
+    "gridSnap": false,
+    "pinFlip": false,
+    "fitLayout": false,
+    "lastLayout": "circle",
+    "layoutNoStagger": false,
+    "labelPos": {},
+    "legendPos": "bottom",
+    "lblLegendPos": "right",
+    "charLegendPos": "leftOut",
+    "showFreeLbls": false,
+    "viewerHiddenLbls": true,
+    "zoneLayerStep": 5,
+    "zoneNameAng": {},
+    "defCharSize": 0,
+    "defBorderW": 0,
+    "defNameSize": 0,
+    "defRelNameSize": 0,
+    "defNoteSize": 0,
+    "defStickySize": 0,
+    "defLineW": 0,
+    "edgeStraight": false,
+    "colAvatarRing": "auto",
+    "colAvatarBg": "auto",
+    "colNameStroke": "auto",
+    "colNameText": "auto",
+    "colRelLine": "auto",
+    "colRelText": "auto",
+    "colRelOutline": "auto",
+    "wrapCaps": {}
+   },
+   "chars": [],
+   "rels": [],
+   "notes": []
+  },
+  {
+   "id": 2,
+   "name": "第一章（時間軸）",
+   "W": 1100,
+   "H": 900,
+   "relTypes": [
+    {
+     "id": 101,
+     "label": "戀愛",
+     "color": "#e0607e",
+     "textColor": "auto",
+     "lineStyle": "solid",
+     "capStyle": "arrow",
+     "hidden": false,
+     "hideInLegend": false,
+     "relLibId": 119,
+     "relVarId": 118
+    },
+    {
+     "id": 102,
+     "label": "友情",
+     "color": "#58b368",
+     "textColor": "auto",
+     "lineStyle": "solid",
+     "capStyle": "arrow",
+     "hidden": false,
+     "hideInLegend": false,
+     "relLibId": 121,
+     "relVarId": 120
+    },
+    {
+     "id": 103,
+     "label": "敵對",
+     "color": "#c0392b",
+     "textColor": "auto",
+     "lineStyle": "dashed",
+     "capStyle": "arrow",
+     "hidden": false,
+     "hideInLegend": false,
+     "relLibId": 123,
+     "relVarId": 122
+    },
+    {
+     "id": 104,
+     "label": "師徒",
+     "color": "#4a90d9",
+     "textColor": "auto",
+     "lineStyle": "solid",
+     "capStyle": "arrow",
+     "hidden": false,
+     "hideInLegend": false,
+     "relLibId": 125,
+     "relVarId": 124
+    },
+    {
+     "id": 105,
+     "label": "監視",
+     "color": "#8a8a8a",
+     "textColor": "auto",
+     "lineStyle": "dotted",
+     "capStyle": "arrow",
+     "hidden": false,
+     "hideInLegend": false,
+     "relLibId": 127,
+     "relVarId": 126
+    }
+   ],
+   "lanes": {
+    "hidden": [],
+    "locked": [
+     "bg"
+    ]
+   },
+   "settings": {
+    "bgMode": "none",
+    "shapeSquare": false,
+    "bridgeMode": false,
+    "showNames": true,
+    "showLegend": true,
+    "showRelName": false,
+    "showRelNote": false,
+    "showLabelNodes": false,
+    "noCollision": false,
+    "zoneOutline": true,
+    "zoneEdgeW": 1.5,
+    "zoneFillOp": 0.13,
+    "showZones": true,
+    "zoneLink": 5,
+    "zoneThick": 5,
+    "zoneBlend": true,
+    "showLblLegend": false,
+    "showCharLegend": false,
+    "lblNodeScale": 1,
+    "gridStep": 50,
+    "focusDim": 0.15,
+    "relOpacity": 1,
+    "tlSpeed": 1.5,
+    "defNoBorder": false,
+    "defNoBg": false,
+    "defFrame": "",
+    "spacingPct": 100,
+    "edgeGapPx": 18,
+    "magCenter": 0.5,
+    "magRepel": 10,
+    "magLink": 1,
+    "magDist": 265,
+    "snapMode": false,
+    "gridSnap": false,
+    "pinFlip": false,
+    "fitLayout": false,
+    "lastLayout": "circle",
+    "layoutNoStagger": false,
+    "labelPos": {},
+    "legendPos": "bottom",
+    "lblLegendPos": "right",
+    "charLegendPos": "leftOut",
+    "showFreeLbls": false,
+    "viewerHiddenLbls": true,
+    "zoneLayerStep": 5,
+    "zoneNameAng": {},
+    "defCharSize": 0,
+    "defBorderW": 0,
+    "defNameSize": 0,
+    "defRelNameSize": 0,
+    "defNoteSize": 0,
+    "defStickySize": 0,
+    "defLineW": 0,
+    "edgeStraight": false,
+    "colAvatarRing": "auto",
+    "colAvatarBg": "auto",
+    "colNameStroke": "auto",
+    "colNameText": "auto",
+    "colRelLine": "auto",
+    "colRelText": "auto",
+    "colRelOutline": "auto",
+    "wrapCaps": {}
+   },
+   "chars": [
+    {
+     "id": 1,
+     "libId": 106,
+     "varId": 107,
+     "name": "主角",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 550,
+     "y": 430,
+     "level": 2
+    },
+    {
+     "id": 2,
+     "libId": 108,
+     "varId": 109,
+     "name": "戀人",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 300,
+     "y": 300
+    },
+    {
+     "id": 3,
+     "libId": 110,
+     "varId": 111,
+     "name": "摯友",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 300,
+     "y": 620
+    },
+    {
+     "id": 4,
+     "libId": 112,
+     "varId": 113,
+     "name": "宿敵",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 800,
+     "y": 300
+    },
+    {
+     "id": 5,
+     "libId": 114,
+     "varId": 115,
+     "name": "導師",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 810,
+     "y": 620
+    },
+    {
+     "id": 6,
+     "libId": 116,
+     "varId": 117,
+     "name": "神秘人",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 550,
+     "y": 140
+    }
+   ],
+   "rels": [
+    {
+     "id": 11,
+     "from": 1,
+     "to": 2,
+     "relTypeId": 101,
+     "both": true
+    },
+    {
+     "id": 12,
+     "from": 3,
+     "to": 1,
+     "relTypeId": 102,
+     "both": false
+    },
+    {
+     "id": 13,
+     "from": 4,
+     "to": 1,
+     "relTypeId": 103,
+     "both": true
+    },
+    {
+     "id": 14,
+     "from": 5,
+     "to": 1,
+     "relTypeId": 104,
+     "both": false
+    },
+    {
+     "id": 15,
+     "from": 6,
+     "to": 1,
+     "relTypeId": 105,
+     "both": false
+    },
+    {
+     "id": 16,
+     "from": 6,
+     "to": 6,
+     "relTypeId": 105,
+     "both": false,
+     "note": "我是誰？"
+    }
+   ],
+   "notes": [
+    {
+     "id": 129,
+     "name": "第一幕：相遇",
+     "x": 550,
+     "y": 60,
+     "noteW": 400,
+     "noteH": 100
+    },
+    {
+     "id": 130,
+     "name": "故事人物",
+     "x": 120,
+     "y": 800,
+     "noteW": 150,
+     "noteH": 150,
+     "nameSize": 28,
+     "bare": true
+    }
+   ],
+   "isTimeline": true,
+   "activeFrameIdx": 0,
+   "frames": [
+    {
+     "id": 128,
+     "W": 1100,
+     "H": 900,
+     "chars": [
+      {
+       "id": 1,
+       "libId": 106,
+       "varId": 107,
+       "name": "主角",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 550,
+       "y": 430,
+       "level": 2
+      },
+      {
+       "id": 2,
+       "libId": 108,
+       "varId": 109,
+       "name": "戀人",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 300,
+       "y": 300
+      },
+      {
+       "id": 3,
+       "libId": 110,
+       "varId": 111,
+       "name": "摯友",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 300,
+       "y": 620
+      },
+      {
+       "id": 4,
+       "libId": 112,
+       "varId": 113,
+       "name": "宿敵",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 800,
+       "y": 300
+      },
+      {
+       "id": 5,
+       "libId": 114,
+       "varId": 115,
+       "name": "導師",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 810,
+       "y": 620
+      },
+      {
+       "id": 6,
+       "libId": 116,
+       "varId": 117,
+       "name": "神秘人",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 550,
+       "y": 140
+      }
+     ],
+     "rels": [
+      {
+       "id": 11,
+       "from": 1,
+       "to": 2,
+       "relTypeId": 101,
+       "both": true
+      },
+      {
+       "id": 12,
+       "from": 3,
+       "to": 1,
+       "relTypeId": 102,
+       "both": false
+      },
+      {
+       "id": 13,
+       "from": 4,
+       "to": 1,
+       "relTypeId": 103,
+       "both": true
+      },
+      {
+       "id": 14,
+       "from": 5,
+       "to": 1,
+       "relTypeId": 104,
+       "both": false
+      },
+      {
+       "id": 15,
+       "from": 6,
+       "to": 1,
+       "relTypeId": 105,
+       "both": false
+      },
+      {
+       "id": 16,
+       "from": 6,
+       "to": 6,
+       "relTypeId": 105,
+       "both": false,
+       "note": "我是誰？"
+      }
+     ],
+     "notes": [
+      {
+       "id": 129,
+       "name": "第一幕：相遇",
+       "x": 550,
+       "y": 60,
+       "noteW": 400,
+       "noteH": 100
+      },
+      {
+       "id": 130,
+       "name": "故事人物",
+       "x": 120,
+       "y": 800,
+       "noteW": 150,
+       "noteH": 150,
+       "nameSize": 28,
+       "bare": true
+      }
+     ],
+     "bgImage": "images/bg_s2_f128.png",
+     "no": 1
+    },
+    {
+     "id": 131,
+     "W": 1100,
+     "H": 900,
+     "chars": [
+      {
+       "id": 1,
+       "libId": 106,
+       "varId": 107,
+       "name": "主角",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 550,
+       "y": 430,
+       "level": 2
+      },
+      {
+       "id": 2,
+       "libId": 108,
+       "varId": 109,
+       "name": "戀人",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 300,
+       "y": 300
+      },
+      {
+       "id": 3,
+       "libId": 110,
+       "varId": 111,
+       "name": "摯友",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 300,
+       "y": 620
+      },
+      {
+       "id": 4,
+       "libId": 112,
+       "varId": 113,
+       "name": "宿敵",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 800,
+       "y": 300
+      },
+      {
+       "id": 5,
+       "libId": 114,
+       "varId": 115,
+       "name": "導師",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 810,
+       "y": 620
+      },
+      {
+       "id": 6,
+       "libId": 116,
+       "varId": 117,
+       "name": "神秘人",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 550,
+       "y": 140
+      }
+     ],
+     "rels": [
+      {
+       "id": 11,
+       "from": 1,
+       "to": 2,
+       "relTypeId": 101,
+       "both": true
+      },
+      {
+       "id": 12,
+       "from": 3,
+       "to": 1,
+       "relTypeId": 102,
+       "both": false
+      },
+      {
+       "id": 13,
+       "from": 4,
+       "to": 1,
+       "relTypeId": 103,
+       "both": true
+      },
+      {
+       "id": 14,
+       "from": 5,
+       "to": 1,
+       "relTypeId": 104,
+       "both": false
+      },
+      {
+       "id": 15,
+       "from": 6,
+       "to": 1,
+       "relTypeId": 105,
+       "both": false
+      },
+      {
+       "id": 16,
+       "from": 6,
+       "to": 6,
+       "relTypeId": 105,
+       "both": false,
+       "note": "我是誰？"
+      }
+     ],
+     "notes": [
+      {
+       "id": 129,
+       "name": "第二幕：誤會",
+       "x": 550,
+       "y": 60,
+       "noteW": 400,
+       "noteH": 100
+      },
+      {
+       "id": 130,
+       "name": "故事人物",
+       "x": 120,
+       "y": 800,
+       "noteW": 150,
+       "noteH": 150,
+       "nameSize": 28,
+       "bare": true
+      }
+     ],
+     "hold": [
+      "chars",
+      "charts",
+      "bg"
+     ],
+     "bgImage": "images/bg_s2_f131.png",
+     "no": 2
+    },
+    {
+     "id": 132,
+     "W": 1100,
+     "H": 900,
+     "chars": [
+      {
+       "id": 1,
+       "libId": 106,
+       "varId": 107,
+       "name": "主角",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 550,
+       "y": 430,
+       "level": 2
+      },
+      {
+       "id": 2,
+       "libId": 108,
+       "varId": 109,
+       "name": "戀人",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 300,
+       "y": 300
+      },
+      {
+       "id": 3,
+       "libId": 110,
+       "varId": 111,
+       "name": "摯友",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 300,
+       "y": 620
+      },
+      {
+       "id": 4,
+       "libId": 112,
+       "varId": 113,
+       "name": "宿敵",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 700,
+       "y": 300
+      },
+      {
+       "id": 5,
+       "libId": 114,
+       "varId": 115,
+       "name": "導師",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 810,
+       "y": 620
+      },
+      {
+       "id": 133,
+       "libId": 134,
+       "varId": 135,
+       "name": "新角色",
+       "color": "#e5b84b",
+       "nameColor": "auto",
+       "x": 950,
+       "y": 750,
+       "defNo": 7
+      }
+     ],
+     "rels": [
+      {
+       "id": 11,
+       "from": 1,
+       "to": 2,
+       "relTypeId": 101,
+       "both": true
+      },
+      {
+       "id": 12,
+       "from": 3,
+       "to": 1,
+       "relTypeId": 102,
+       "both": false
+      },
+      {
+       "id": 13,
+       "from": 4,
+       "to": 1,
+       "relTypeId": 103,
+       "both": true
+      },
+      {
+       "id": 14,
+       "from": 5,
+       "to": 1,
+       "relTypeId": 104,
+       "both": false
+      }
+     ],
+     "notes": [
+      {
+       "id": 129,
+       "name": "第三幕：決戰",
+       "x": 550,
+       "y": 60,
+       "noteW": 400,
+       "noteH": 100
+      },
+      {
+       "id": 130,
+       "name": "故事人物",
+       "x": 120,
+       "y": 800,
+       "noteW": 150,
+       "noteH": 150,
+       "nameSize": 28,
+       "bare": true
+      }
+     ],
+     "bgImage": "images/bg_s2_f132.png",
+     "no": 3,
+     "dur": 2.5
+    },
+    {
+     "id": 136,
+     "W": 1100,
+     "H": 900,
+     "chars": [
+      {
+       "id": 1,
+       "libId": 106,
+       "varId": 107,
+       "name": "主角",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 550,
+       "y": 430,
+       "level": 2
+      },
+      {
+       "id": 2,
+       "libId": 108,
+       "varId": 109,
+       "name": "戀人",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 300,
+       "y": 300
+      },
+      {
+       "id": 3,
+       "libId": 110,
+       "varId": 111,
+       "name": "摯友",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 300,
+       "y": 620
+      },
+      {
+       "id": 4,
+       "libId": 112,
+       "varId": 113,
+       "name": "宿敵",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 700,
+       "y": 300
+      },
+      {
+       "id": 5,
+       "libId": 114,
+       "varId": 115,
+       "name": "導師",
+       "color": "auto",
+       "nameColor": "auto",
+       "x": 810,
+       "y": 620
+      },
+      {
+       "id": 133,
+       "libId": 134,
+       "varId": 135,
+       "name": "新角色",
+       "color": "#e5b84b",
+       "nameColor": "auto",
+       "x": 950,
+       "y": 750,
+       "defNo": 7
+      }
+     ],
+     "rels": [
+      {
+       "id": 11,
+       "from": 1,
+       "to": 2,
+       "relTypeId": 101,
+       "both": true
+      },
+      {
+       "id": 12,
+       "from": 3,
+       "to": 1,
+       "relTypeId": 102,
+       "both": false
+      },
+      {
+       "id": 13,
+       "from": 4,
+       "to": 1,
+       "relTypeId": 103,
+       "both": true
+      },
+      {
+       "id": 14,
+       "from": 5,
+       "to": 1,
+       "relTypeId": 104,
+       "both": false
+      }
+     ],
+     "notes": [
+      {
+       "id": 129,
+       "name": "第三幕：決戰",
+       "x": 550,
+       "y": 60,
+       "noteW": 400,
+       "noteH": 100
+      },
+      {
+       "id": 130,
+       "name": "故事人物",
+       "x": 120,
+       "y": 800,
+       "noteW": 150,
+       "noteH": 150,
+       "nameSize": 28,
+       "bare": true
+      }
+     ],
+     "hold": [
+      "chars",
+      "notes",
+      "charts",
+      "bg"
+     ],
+     "bgImage": "images/bg_s2_f136.png",
+     "no": 4
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "name": "範例：家族樹",
+   "W": 1100,
+   "H": 900,
+   "relTypes": [
+    {
+     "id": 101,
+     "label": "夫妻",
+     "color": "#e0607e",
+     "textColor": "auto",
+     "lineStyle": "solid",
+     "capStyle": "arrow",
+     "hidden": false,
+     "hideInLegend": false,
+     "relLibId": 152,
+     "relVarId": 151
+    },
+    {
+     "id": 102,
+     "label": "親子",
+     "color": "#4a90d9",
+     "textColor": "auto",
+     "lineStyle": "solid",
+     "capStyle": "arrow",
+     "hidden": false,
+     "hideInLegend": false,
+     "relLibId": 154,
+     "relVarId": 153
+    }
+   ],
+   "settings": {
+    "bgMode": "none",
+    "shapeSquare": false,
+    "bridgeMode": false,
+    "showNames": true,
+    "showLegend": true,
+    "showRelName": false,
+    "showRelNote": false,
+    "showLabelNodes": false,
+    "noCollision": false,
+    "zoneOutline": true,
+    "zoneEdgeW": 1.5,
+    "zoneFillOp": 0.13,
+    "showZones": true,
+    "zoneLink": 5,
+    "zoneThick": 5,
+    "zoneBlend": true,
+    "showLblLegend": false,
+    "showCharLegend": false,
+    "lblNodeScale": 1,
+    "gridStep": 50,
+    "focusDim": 0.15,
+    "relOpacity": 1,
+    "tlSpeed": 1,
+    "defNoBorder": false,
+    "defNoBg": false,
+    "defFrame": "",
+    "spacingPct": 100,
+    "edgeGapPx": 18,
+    "magCenter": 0.5,
+    "magRepel": 10,
+    "magLink": 1,
+    "magDist": 265,
+    "snapMode": false,
+    "gridSnap": false,
+    "pinFlip": false,
+    "fitLayout": false,
+    "lastLayout": "circle",
+    "layoutNoStagger": false,
+    "labelPos": {},
+    "legendPos": "bottom",
+    "lblLegendPos": "right",
+    "charLegendPos": "leftOut",
+    "showFreeLbls": false,
+    "viewerHiddenLbls": true,
+    "zoneLayerStep": 5,
+    "zoneNameAng": {},
+    "defCharSize": 0,
+    "defBorderW": 0,
+    "defNameSize": 0,
+    "defRelNameSize": 0,
+    "defNoteSize": 0,
+    "defStickySize": 0,
+    "defLineW": 0,
+    "edgeStraight": false,
+    "colAvatarRing": "auto",
+    "colAvatarBg": "auto",
+    "colNameStroke": "auto",
+    "colNameText": "auto",
+    "colRelLine": "auto",
+    "colRelText": "auto",
+    "colRelOutline": "auto",
+    "wrapCaps": {}
+   },
+   "chars": [
+    {
+     "id": 1,
+     "libId": 137,
+     "varId": 138,
+     "name": "祖父",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 420,
+     "y": 150
+    },
+    {
+     "id": 2,
+     "libId": 139,
+     "varId": 140,
+     "name": "祖母",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 680,
+     "y": 150
+    },
+    {
+     "id": 3,
+     "libId": 141,
+     "varId": 142,
+     "name": "父親",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 300,
+     "y": 430
+    },
+    {
+     "id": 4,
+     "libId": 143,
+     "varId": 144,
+     "name": "母親",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 550,
+     "y": 430
+    },
+    {
+     "id": 5,
+     "libId": 145,
+     "varId": 146,
+     "name": "叔叔",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 820,
+     "y": 430
+    },
+    {
+     "id": 6,
+     "libId": 147,
+     "varId": 148,
+     "name": "主角",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 420,
+     "y": 700,
+     "level": 1
+    },
+    {
+     "id": 7,
+     "libId": 149,
+     "varId": 150,
+     "name": "妹妹",
+     "color": "auto",
+     "nameColor": "auto",
+     "x": 680,
+     "y": 700
+    }
+   ],
+   "rels": [
+    {
+     "id": 11,
+     "from": 1,
+     "to": 2,
+     "relTypeId": 101,
+     "both": true
+    },
+    {
+     "id": 12,
+     "from": 3,
+     "to": 4,
+     "relTypeId": 101,
+     "both": true
+    },
+    {
+     "id": 13,
+     "from": 1,
+     "to": 3,
+     "relTypeId": 102,
+     "both": false
+    },
+    {
+     "id": 14,
+     "from": 2,
+     "to": 5,
+     "relTypeId": 102,
+     "both": false
+    },
+    {
+     "id": 15,
+     "from": 3,
+     "to": 6,
+     "relTypeId": 102,
+     "both": false
+    },
+    {
+     "id": 16,
+     "from": 3,
+     "to": 7,
+     "relTypeId": 102,
+     "both": false
+    },
+    {
+     "id": 17,
+     "from": 4,
+     "to": 6,
+     "relTypeId": 102,
+     "both": false
+    },
+    {
+     "id": 18,
+     "from": 4,
+     "to": 7,
+     "relTypeId": 102,
+     "both": false
+    }
+   ],
+   "notes": [
+    {
+     "id": 155,
+     "name": "家族樹的備註\n第二行",
+     "x": 900,
+     "y": 150,
+     "noteW": 200,
+     "noteH": 200
+    }
+   ]
+  }
+ ]
+}

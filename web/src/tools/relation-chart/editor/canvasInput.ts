@@ -19,7 +19,8 @@
 import { clampToCanvas } from '../engine/geom';
 import { labelInfo } from '../engine/labels';
 import { groupDragTo, pushAwayFrom } from '../logic/layout';
-import type { Char, Sheet } from '../model/types';
+import { laneOfNote } from '../model/timeline';
+import type { Char, Sheet, TlLane } from '../model/types';
 import { endLink, linkClick, linkSelf, setCollapsed } from '../state/actions';
 import { closeNote, moveNote, noteNow, resizeNote, updateNote } from '../state/noteActions';
 import {
@@ -59,6 +60,8 @@ type Drag =
       longDone: boolean;
       /** 交換位置模式中按下的（拖不動、放開＝點一下） */
       swap?: boolean;
+      /** 時間軸的「角色與關係」圖層鎖住（拖不動、放開＝點一下；原作） */
+      lock?: boolean;
     }
   | {
       kind: 'empty';
@@ -151,6 +154,8 @@ const closestEl = (t: EventTarget | null, sel: string): Element | null =>
 const curSheet = (): Sheet => liveSheet() ?? activeSheet();
 /** 收合中的成員（框選、點選都不撈） */
 const hiddenNow = () => labelInfo(liveCtx(curSheet())).colHidden;
+/** 時間軸分頁的這一層鎖住了（畫布上不能拖、不能改；F028） */
+const laneLocked = (lane: TlLane): boolean => !!activeSheet().tl?.locked.includes(lane);
 
 /** 改目前的分頁（標籤、縮小頭貼的拖曳；外面包 holdHistory） */
 function mutateSheet(fn: (s: Sheet) => void): void {
@@ -279,6 +284,11 @@ export class CanvasInput {
     }
     if (e.button !== 0) return;
     const t = e.target;
+    /* 時間軸的預覽（播放、拖過拖桿）：左鍵不能編輯，右鍵、中鍵照樣平移；點影格標記回到編輯（原作） */
+    if (useUi.getState().tlPos !== null) {
+      e.preventDefault();
+      return;
+    }
     if (useUi.getState().readonly) {
       e.preventDefault();
       const legendEl = closestEl(t, '.legend-item');
@@ -342,7 +352,7 @@ export class CanvasInput {
     const col = closestEl(t, '.colnode');
     if (col) {
       e.preventDefault();
-      if (link) return;
+      if (link || laneLocked('chars')) return;
       const id = Number(col.getAttribute('data-collbl'));
       const g = labelInfo(liveCtx(curSheet())).colGroups.get(id);
       if (!g) return;
@@ -351,7 +361,7 @@ export class CanvasInput {
       return;
     }
     const mini = closestEl(t, '.self-mini');
-    if (mini && !link) {
+    if (mini && !link && !laneLocked('chars')) {
       const relId = Number(mini.getAttribute('data-relid'));
       const r = curSheet().rels.find((x) => x.id === relId);
       if (r) {
@@ -361,7 +371,7 @@ export class CanvasInput {
       }
     }
     const lbl = closestEl(t, '.edge-lbl');
-    if (lbl && !link) {
+    if (lbl && !link && !laneLocked('chars')) {
       e.preventDefault();
       this.drag = { kind: 'label', relId: Number(lbl.getAttribute('data-relid')), ...base };
       return;
@@ -401,7 +411,17 @@ export class CanvasInput {
       for (const c of s.chars) if (group.includes(c.id)) start.set(c.id, { x: c.x, y: c.y });
       /* 交換位置模式（建立關係模式優先）：拖不動、長按不開面板，放開都當成點一下 */
       const swap = !!u0.swap && !u0.link;
-      this.drag = { kind: 'node', id, ...base, shift: e.shiftKey, start, longDone: false, swap };
+      const lock = laneLocked('chars');
+      this.drag = {
+        kind: 'node',
+        id,
+        ...base,
+        shift: e.shiftKey,
+        start,
+        longDone: false,
+        swap,
+        lock,
+      };
       if (!e.shiftKey && !swap) this.startLongPress(id, e.clientX, e.clientY);
       return;
     }
@@ -426,6 +446,15 @@ export class CanvasInput {
     base: { pid: number; sx: number; sy: number; moved: boolean },
   ): boolean {
     const t = e.target;
+    /* 圖層鎖住的便利貼、圖表節點：不能拖、改大小、按小圓鈕（原作） */
+    const any = closestEl(t, '.note-node');
+    if (any) {
+      const n0 = noteNow(Number(any.getAttribute('data-noteid')));
+      if (n0 && laneLocked(laneOfNote(n0))) {
+        e.preventDefault();
+        return true;
+      }
+    }
     const grip = closestEl(t, '.note-grip');
     if (grip) {
       e.preventDefault();
@@ -530,7 +559,7 @@ export class CanvasInput {
 
   private dragStart(d: Drag): void {
     if (d.kind === 'node') {
-      if (useUi.getState().link || d.longDone || d.swap) return;
+      if (useUi.getState().link || d.longDone || d.swap || d.lock) return;
       holdHistory('drag');
       beginLive('drag');
       setSimPinned(new Set(d.start.keys()));
@@ -566,7 +595,7 @@ export class CanvasInput {
       return;
     }
     if (d.kind === 'node') {
-      if (useUi.getState().link || d.longDone || d.swap) return;
+      if (useUi.getState().link || d.longDone || d.swap || d.lock) return;
       const s = liveSheet();
       if (!s) return;
       const dx = (e.clientX - d.sx) / v.zoom;
@@ -714,7 +743,7 @@ export class CanvasInput {
       if (d.kind === 'noteSize' || !d.locked) releaseHistory('drag');
       return;
     }
-    if (d.moved && d.kind === 'node' && d.swap) {
+    if (d.moved && d.kind === 'node' && (d.swap || d.lock)) {
       /* 交換位置模式：拖一段放開＝點一下 */
       this.tap(d, e);
       return;

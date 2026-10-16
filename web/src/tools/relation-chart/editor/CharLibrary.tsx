@@ -24,7 +24,7 @@ import {
   renameVariant,
   reorderEntries,
 } from '../state/libActions';
-import { activeIndex, setUi, usePrefs, useProject, useUi } from '../state/store';
+import { setUi, usePrefs, useProject, useUi } from '../state/store';
 import { S } from '../strings';
 import { useSheet } from './hooks';
 import type { LibAction } from './LabelLibrary';
@@ -61,25 +61,31 @@ function useLibHref() {
   return (id: string) => urls.get(id) ?? null;
 }
 
-/** 目前畫面上的條目（搜尋、只看未使用、標籤篩選） */
+/** 分頁庫裡封存的分頁（也算在用：原作的 binSheets） */
+export const binSheets = (p: Pick<Project, 'sheetLib'>) => p.sheetLib.map((x) => x.sheet);
+
+/** 目前畫面上的條目（搜尋、只看未使用〔分頁庫也算在用〕、標籤篩選） */
 function visibleEntries(
-  p: Pick<Project, 'library' | 'sheets'>,
+  p: Pick<Project, 'library' | 'sheets' | 'sheetLib'>,
   q: string,
   unused: boolean,
   labelId: number | null,
 ): CharEntry[] {
-  const { variant } = charLibUsage(p.sheets);
+  const { variant, variantBin } = charLibUsage(p.sheets, binSheets(p));
   const needle = q.trim().toLowerCase();
   return p.library.filter(
     (e) =>
       (!needle || e.variants.some((v) => v.name.toLowerCase().includes(needle))) &&
-      (!unused || e.variants.some((v) => !variant.get(v.id))) &&
+      (!unused || e.variants.some((v) => !variant.get(v.id) && !variantBin.get(v.id))) &&
       (labelId === null || e.variants.some((v) => charHasLabel(v, labelId))),
   );
 }
 
-const usageText = (sheets: number, variants: number) =>
-  [C.usage(sheets), variants > 1 ? C.variants(variants) : ''].filter(Boolean).join(' · ');
+/** 「N 分頁 · 分頁庫 M · K 變體」（N 含分頁庫，和「只看未使用」同一套判準；原作 libUsage、libUsageBin） */
+export const usageText = (sheets: number, bin: number, variants: number) =>
+  [C.usage(sheets + bin), bin ? C.usageBin(bin) : '', variants > 1 ? C.variants(variants) : '']
+    .filter(Boolean)
+    .join(' · ');
 
 export function CharLibList({ query }: { query: string }) {
   const p = useProject((s) => s.data);
@@ -93,12 +99,10 @@ export function CharLibList({ query }: { query: string }) {
     () => sheetCtx(sheet, p.labels, { font: p.font, fonts: p.fonts, frames: p.frames }),
     [sheet, p.labels, p.font, p.fonts, p.frames],
   );
-  const usage = useMemo(() => charLibUsage(p.sheets), [p.sheets]);
-  const here = usage.onSheet(activeIndex(p));
-  const bySheet = useMemo(
-    () => p.sheets.map((s) => new Set(s.chars.map((c) => c.lib))),
-    [p.sheets],
-  );
+  const { sheets, sheetLib } = p;
+  const usage = useMemo(() => charLibUsage(sheets, binSheets({ sheetLib })), [sheets, sheetLib]);
+  /* ✓＝目前分頁的目前影格有（原作 libOnCurrentSheet 看 state.chars） */
+  const here = new Set(sheet.chars.map((c) => c.lib));
   const list = visibleEntries(p, query, unused, labelId);
   const rows: EntryRow[] = list.map((e) => ({
     id: e.id,
@@ -106,9 +110,9 @@ export function CharLibList({ query }: { query: string }) {
     thumb: e.variants[0] ? (
       <CharThumb ctx={ctx} c={variantAsChar(e, e.variants[0])} href={href} size={size} />
     ) : null,
-    meta: usageText(usage.entry.get(e.id) ?? 0, e.variants.length),
+    meta: usageText(usage.entry.get(e.id) ?? 0, usage.entryBin.get(e.id) ?? 0, e.variants.length),
     onSheet: here.has(e.id),
-    sheets: bySheet.flatMap((set, i) => (set.has(e.id) ? [i] : [])),
+    sheets: usage.sheetsOf(e.id),
   }));
   const click = (id: number) => {
     const u = useUi.getState();
@@ -198,7 +202,7 @@ function EntryDetail({ e }: { e: CharEntry }) {
     () => sheetCtx(sheet, p.labels, { font: p.font, fonts: p.fonts, frames: p.frames }),
     [sheet, p.labels, p.font, p.fonts, p.frames],
   );
-  const usage = charLibUsage(p.sheets);
+  const usage = charLibUsage(p.sheets, binSheets(p));
   const here = new Set(sheet.chars.map((c) => c.vari));
   const clickVariant = (v: Variant) => {
     if (mode === 'import') addEntryToSheet(e.id, v.id);
@@ -232,7 +236,8 @@ function EntryDetail({ e }: { e: CharEntry }) {
       <p className="text-xs text-muted">{C.varList}</p>
       <ul className="flex flex-col gap-1">
         {e.variants.map((v) => {
-          const n = usage.variant.get(v.id) ?? 0;
+          const bin = usage.variantBin.get(v.id) ?? 0;
+          const n = (usage.variant.get(v.id) ?? 0) + bin;
           return (
             <li
               key={v.id}
@@ -250,7 +255,10 @@ function EntryDetail({ e }: { e: CharEntry }) {
                 {variantName(e, v)}
               </button>
               {here.has(v.id) ? <span className="text-xs text-accent">✓</span> : null}
-              <span className="text-xs text-muted tabular-nums" title={C.varCountTip}>
+              <span
+                className="text-xs text-muted tabular-nums"
+                title={bin ? `${C.varCountTip} · ${C.usageBin(bin)}` : C.varCountTip}
+              >
                 {n}
               </span>
               <IconButton

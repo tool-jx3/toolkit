@@ -66,7 +66,13 @@ export interface ViewerHooksLike {
   tab(cur: number): void;
 }
 
-export function rcViewer(D: ViewerData, X?: ViewerHooksLike): void {
+/** 第五批的鉤子（export/viewerAnim 的 rcViewerAnim；有時間軸動畫時才傳）：動畫分頁不做聚焦 */
+export interface ViewerAnimHooksLike {
+  off(cur: number): boolean;
+  tab(cur: number): void;
+}
+
+export function rcViewer(D: ViewerData, X?: ViewerHooksLike, Y?: ViewerAnimHooksLike): void {
   const doc = document;
   const $ = (id: string) => doc.getElementById(id) as HTMLElement;
   const stage = $('stageV');
@@ -572,11 +578,13 @@ export function rcViewer(D: ViewerData, X?: ViewerHooksLike): void {
   /* ---- 滑過＝暫時聚焦（沒有鎖定時）---- */
   stage.addEventListener('pointerover', (e) => {
     if (lockedId !== null || lockedType !== null || pathFrom !== null) return;
+    if (Y?.off(cur)) return;
     const n = closest(e.target, '.node');
     if (n) focusNode(+(n.dataset.id || 'NaN'));
   });
   stage.addEventListener('pointerout', (e) => {
     if (lockedId !== null || lockedType !== null || pathFrom !== null) return;
+    if (Y?.off(cur)) return;
     const n = closest(e.target, '.node');
     if (n && !closest(e.relatedTarget, '.node')) clearFocus();
   });
@@ -636,6 +644,8 @@ export function rcViewer(D: ViewerData, X?: ViewerHooksLike): void {
       stage.classList.remove('panning');
     }
     if (!wasTap) return;
+    /* 時間軸的動畫分頁：不做聚焦（原作） */
+    if (Y?.off(cur)) return;
     if (pathFrom !== null) {
       const pn = closest(tgt, '.node[data-id]');
       const pf = pathFrom;
@@ -740,6 +750,7 @@ export function rcViewer(D: ViewerData, X?: ViewerHooksLike): void {
       rvSearch.value = '';
       rvList.innerHTML = '';
       if (X) X.tab(cur);
+      if (Y) Y.tab(cur);
       resetView();
     };
   });

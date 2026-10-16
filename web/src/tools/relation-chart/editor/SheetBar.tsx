@@ -4,7 +4,7 @@
  * 分頁列：點一下切換、按兩下改名、拖曳換順序、×刪除（可以復原）、＋新增、複製；每個分頁有選單（改名、複製、往左／往右移、刪除）。
  * 最左邊是「檔案庫」鈕（打開／收起，原作也放在這裡）。唯讀瀏覽中只能切換分頁（7.4 第 10 項）。
  */
-import { ChevronDown, Copy, Library, Plus, X } from 'lucide-react';
+import { ChevronDown, Copy, Film, Library, Plus, X } from 'lucide-react';
 import { DropdownMenu } from 'radix-ui';
 import { useRef, useState } from 'react';
 import { Button, IconButton, TextInput, useToast } from '@/ui';
@@ -158,6 +158,10 @@ export function SheetBar() {
                 }}
                 data-testid="sheet-tab"
               >
+                {/* 時間軸分頁：名稱前一個膠卷圖示（原作） */}
+                {s.tl ? (
+                  <Film className="mr-1 inline size-3.5 align-[-2px]" aria-label={S.sheets.tlTag} />
+                ) : null}
                 {name}
               </button>
               {readonly ? null : (

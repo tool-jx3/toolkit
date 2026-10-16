@@ -10,6 +10,10 @@
  * 關係類型同樣綁一件關係庫的變體（名稱與樣式是副本；顯示、圖例、捆綁忽略是各分頁自己的）。
  *
  * 第四批：分頁多了便利貼（含圖表節點）、世界觀、備忘錄；專案多了便利貼庫（關閉過的便利貼）與設定集。
+ *
+ * 第五批：分頁可以是時間軸分頁（tl：影格、保持、每格秒數、圖層的眼睛與鎖、播放速度）；專案多了分頁庫（刪除分頁時的封存）。
+ * 時間軸的資料：目前影格放在分頁頂層（chars、rels、notes、bg、W、H——既有的編輯程式照舊讀寫），其他影格在 tl.frames；
+ * 同一格的資料只有一份（frames[目前影格] 只是佔位）。保持中的軌道不存資料，讀的時候跟前一個關鍵影格（model/timeline.ts）。
  */
 import type { FramePlacement } from '@/core/image';
 
@@ -390,6 +394,50 @@ export interface Sheet {
   loreFrom: number | null;
   /** 備忘錄（純文字，最多 2 萬字；不進任何匯出） */
   memo: string;
+  /* ---- 第五批 ---- */
+  /** 時間軸分頁（null＝一般分頁） */
+  tl: Timeline | null;
+}
+
+/** 時間軸的四條軌道（原作的 TL_LANES）：角色與關係、便利貼、圖表節點、背景圖 */
+export type TlLane = 'chars' | 'notes' | 'charts' | 'bg';
+
+/** 一格影格（目前影格的資料在分頁頂層，這一格只是佔位；保持中的軌道不存資料） */
+export interface TlFrame {
+  id: number;
+  /** 穩定編號（建立時配，換位置不變，刪除後可以有空號） */
+  no: number;
+  W: number;
+  H: number;
+  chars: Char[];
+  rels: Rel[];
+  notes: Note[];
+  /** 背景圖的資產 id */
+  bg: string | null;
+  /** 保持中的軌道（跟前一個關鍵影格；第 1 格永遠沒有） */
+  hold: TlLane[];
+  /** 這一格過場到下一格的秒數（0.05～600；null＝自動，1 ÷ 0.85 秒） */
+  dur: number | null;
+}
+
+export interface Timeline {
+  frames: TlFrame[];
+  /** 目前影格 */
+  active: number;
+  /** 圖層的眼睛（只影響編輯畫面）與鎖 */
+  hidden: TlLane[];
+  locked: TlLane[];
+  /** 播放速度（0.25～4；原作的 tlSpeed） */
+  speed: number;
+}
+
+/** 分頁庫的一筆（刪除分頁時封存；原作的 sheetLibrary） */
+export interface SheetLibItem {
+  id: number;
+  /** 刪除當下的顯示名 */
+  name: string;
+  savedAt: number;
+  sheet: Sheet;
 }
 
 /** 圖表節點的設定（原作的 note.chart：A、B 是這張分頁的角色 id，0＝沒有；stA／stB＝那位角色在這份範本的第幾個狀態） */
@@ -481,4 +529,7 @@ export interface Project {
   noteBin: NoteBinItem[];
   /** 設定集 */
   settingsLib: SettingsPreset[];
+  /* ---- 第五批 ---- */
+  /** 分頁庫（新的在前；管理動作不進復原，state/sheetLibActions） */
+  sheetLib: SheetLibItem[];
 }

@@ -6,6 +6,8 @@
  * 由呼叫端放進資產庫再換成資產 id（state/project.ts）。
  * 第三批：角色庫（條目、每一件變體）、關係庫、數值範本、看法、角色資訊、角色字型、頭像框的參照都讀進來。
  * 第四批：便利貼（含圖表節點；舊檔混在 chars 裡的 sticky 角色搬出來）、世界觀與沿用、備忘錄、便利貼庫、設定集。
+ * 第五批：時間軸分頁（每一格、保持、每格秒數、圖層的眼睛與鎖、播放速度；原作的 loadProject、tlSpreadNotes、tlNormalize）、
+ * 分頁庫（原作自動存檔的內部格式：tags／tagId、背景圖以 data URI 內嵌；原作的 rebuildSheetFromSnapshot）。
  */
 import { strFromU8 } from 'fflate';
 import type { FramePlacement } from '@/core/image';
@@ -45,6 +47,8 @@ import type {
   SettingsPreset,
   Shape,
   Sheet,
+  TlFrame,
+  TlLane,
   Variant,
 } from '../model/types';
 
@@ -68,8 +72,10 @@ export interface LegacyImport {
   radarTpls: RadarTpl[];
   /** 變體 id → 頭像來源 */
   avatars: Map<number, LegacyAvatar>;
-  /** 分頁 → 背景圖路徑 */
-  backgrounds: Map<Sheet, string>;
+  /** 分頁、時間軸的影格 → 背景圖（ZIP 裡的路徑；分頁庫的是 data URI） */
+  backgrounds: Map<Sheet | TlFrame, string>;
+  /** 分頁庫（第五批；分頁還是原作的 id，加進專案時跟著換） */
+  sheetLib: { name: string; savedAt: number; sheet: Sheet }[];
   /** 分頁 → 預設頭像框（原作的雜湊） */
   defFrames: Map<Sheet, string>;
   /** 標籤（frame 是原作的雜湊） */
@@ -261,14 +267,17 @@ function legacyVariant(
     },
     noColor: o.color === undefined,
     noNameColor: o.nameColor === undefined,
-    emoji: !!o.emoji && typeof o.image !== 'string',
+    emoji: !!o.emoji && typeof o.image !== 'string' && typeof o.img !== 'string',
   };
 }
 
+/** 頭像：專案檔＝image／imageSrc（ZIP 裡的路徑）；原作自動存檔的格式（快照備份）＝img／imgSrc（data URI） */
 const avatarOf = (o: RawLooks): LegacyAvatar | null => {
-  const img = typeof o.image === 'string' && o.image ? o.image : null;
+  const pick = (a: unknown, b: unknown) =>
+    typeof a === 'string' && a ? a : typeof b === 'string' && b ? b : null;
+  const img = pick(o.image, o.img);
   if (!img) return null;
-  const src = typeof o.imageSrc === 'string' && o.imageSrc ? o.imageSrc : null;
+  const src = pick(o.imageSrc, o.imgSrc);
   const crop =
     isObj(o.crop) && src
       ? { zoom: num(o.crop.zoom) || 1, ox: num(o.crop.ox) || 0, oy: num(o.crop.oy) || 0 }
@@ -297,7 +306,8 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
   const skipped = new Set<string>();
   const prefs = isObj(data.prefs) ? data.prefs : {};
   const light = !!prefs.light || prefs.theme === 'light';
-  const format = num(data.format);
+  /* 專案檔的 format；原作自動存檔的格式（快照備份）沒有 format，用它的版本 v（7＝新的重要度） */
+  const format = num(data.format ?? data.v);
   let nextLocal = -1;
   /* 角色庫：條目 → 每一件變體（format 3＝單一身分，包成一件） */
   const library: CharEntry[] = [];
@@ -372,26 +382,17 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
       ? data.tags
       : [];
   const sheets: Sheet[] = [];
-  const backgrounds = new Map<Sheet, string>();
+  const backgrounds = new Map<Sheet | TlFrame, string>();
   const defFrames = new Map<Sheet, string>();
-  for (const shRaw of data.sheets as unknown[]) {
-    if (!isObj(shRaw)) continue;
-    let sh = shRaw;
-    if (sh.isTimeline && Array.isArray(sh.frames) && sh.frames.length) {
-      const idx = Math.min(Math.max(0, num(sh.activeFrameIdx) || 0), sh.frames.length - 1);
-      const f = sh.frames[idx];
-      if (isObj(f))
-        sh = {
-          ...sh,
-          chars: f.chars,
-          rels: f.rels,
-          W: f.W ?? sh.W,
-          H: f.H ?? sh.H,
-          bgImage: f.bgImage ?? sh.bgImage,
-          notes: f.notes ?? sh.notes,
-        };
-      skipped.add('時間軸分頁的其他影格（只取目前的影格）');
-    }
+  /** 背景圖的參照：專案檔＝bgImage（ZIP 裡的路徑）、分頁庫（自動存檔的格式）＝bgImg（data URI） */
+  const bgRef = (o: Record<string, unknown>): string | null =>
+    typeof o.bgImage === 'string' && o.bgImage
+      ? o.bgImage
+      : typeof o.bgImg === 'string' && o.bgImg.startsWith('data:image/')
+        ? o.bgImg
+        : null;
+  const convSheet = (shRaw: Record<string, unknown>): Sheet => {
+    const sh = shRaw;
     const typesRaw = Array.isArray(sh.relTypes)
       ? sh.relTypes
       : Array.isArray(sh.tags)
@@ -434,99 +435,160 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
       types.push(tt);
     }
     /* 便利貼：分頁的 notes＋舊檔混在 chars（含時間軸每一格）裡的 sticky 角色（同 id 取第一次遇到的；原作 migrateSheetNotes） */
-    const notes: Note[] = [];
-    const pullNote = (n: unknown) => {
-      const nn = normalizeNote(n, 0);
-      if (nn && isObj(n) && fin(n.id) && !notes.some((x) => x.id === nn.id)) notes.push(nn);
-    };
-    for (const n of Array.isArray(sh.notes) ? sh.notes : []) pullNote(n);
-    const stickyFrom = [
-      sh.chars,
-      ...(Array.isArray(shRaw.frames) ? shRaw.frames.map((f) => (isObj(f) ? f.chars : null)) : []),
-    ];
-    for (const arr of stickyFrom)
-      if (Array.isArray(arr)) for (const c of arr) if (isObj(c) && c.sticky) pullNote(c);
-    const chars: Char[] = [];
-    for (const c of Array.isArray(sh.chars) ? sh.chars : []) {
-      if (!isObj(c) || !fin(c.id)) continue;
-      if (c.sticky) continue;
-      /* 條目：有 libId 照檔案（變體不在＝第一件）；沒有（舊檔）＝以角色自己的身分欄位建一筆 */
-      let e = fin(c.libId) ? lib.get(num(c.libId)) : undefined;
-      if (!e) {
-        e = {
-          id: nextLocal--,
-          variants: [addVariant(c, nextLocal--)],
-          unified: false,
-          info: '',
-          font: '',
-        };
-        library.push(e);
-        lib.set(e.id, e);
+    const rawFrames = (sh.isTimeline && Array.isArray(sh.frames) ? sh.frames : []).filter(
+      isObj,
+    ) as Record<string, unknown>[];
+    const notesOf = (list: unknown[], into: Note[] = []): Note[] => {
+      for (const n of list) {
+        const nn = normalizeNote(n, 0);
+        if (nn && isObj(n) && fin(n.id) && !into.some((x) => x.id === nn.id)) into.push(nn);
       }
-      const v = e.variants.find((x) => x.id === num(c.varId)) ?? e.variants[0];
-      if (needColor.delete(v.id)) v.color = safeColor(c.color);
-      if (needNameColor.delete(v.id)) v.nameColor = safeColor(c.nameColor);
-      const id = Math.trunc(num(c.id));
-      const level =
-        format >= 6
-          ? fin(c.level)
-            ? Math.trunc(num(c.level))
-            : 0
-          : num(c.level) >= 1 && num(c.level) <= 6
-            ? 7 - num(c.level)
-            : 0;
-      const ch = makeChar(id, v.name, num(c.x), num(c.y), {
-        lib: e.id,
-        vari: v.id,
-        defNo: fin(c.defNo) ? Math.max(1, Math.trunc(num(c.defNo))) : 0,
-        level,
-        locked: !!c.locked,
-        relIgnore: !!c.relIgnore,
-        color: v.color,
-        nameColor: v.nameColor,
-        icon: v.icon,
-        noAvatar: v.noAvatar,
-        shape: v.shape,
-        noBorder: v.noBorder,
-        noBg: v.noBg,
-        borderOn: v.borderOn,
-        bgOn: v.bgOn,
-        size: v.size,
-        nameSize: v.nameSize,
-        borderW: v.borderW,
-        labels: [...v.labels],
-        frame: v.frame,
-        font: e.font,
-      });
-      chars.push(ch);
-    }
-    const charIds = new Set(chars.map((c) => c.id));
+      return into;
+    };
+    const notes = notesOf(Array.isArray(sh.notes) ? sh.notes : []);
+    const stickyFrom = [sh.chars, ...rawFrames.map((f) => f.chars)];
+    for (const arr of stickyFrom)
+      if (Array.isArray(arr))
+        notesOf(
+          arr.filter((c) => isObj(c) && c.sticky),
+          notes,
+        );
+    /* 舊檔沒有條目的角色：同一位（時間軸的每一格）共用一筆 */
+    const localEntry = new Map<number, CharEntry>();
+    const convChars = (list: unknown): Char[] => {
+      const chars: Char[] = [];
+      for (const c of Array.isArray(list) ? list : []) {
+        if (!isObj(c) || !fin(c.id)) continue;
+        if (c.sticky) continue;
+        /* 條目：有 libId 照檔案（變體不在＝第一件）；沒有（舊檔）＝以角色自己的身分欄位建一筆 */
+        let e = fin(c.libId) ? lib.get(num(c.libId)) : localEntry.get(Math.trunc(num(c.id)));
+        if (!e) {
+          e = {
+            id: nextLocal--,
+            variants: [addVariant(c, nextLocal--)],
+            unified: false,
+            info: '',
+            font: '',
+          };
+          library.push(e);
+          lib.set(e.id, e);
+          if (!fin(c.libId)) localEntry.set(Math.trunc(num(c.id)), e);
+        }
+        const v = e.variants.find((x) => x.id === num(c.varId)) ?? e.variants[0];
+        if (needColor.delete(v.id)) v.color = safeColor(c.color);
+        if (needNameColor.delete(v.id)) v.nameColor = safeColor(c.nameColor);
+        const id = Math.trunc(num(c.id));
+        const level =
+          format >= 6
+            ? fin(c.level)
+              ? Math.trunc(num(c.level))
+              : 0
+            : num(c.level) >= 1 && num(c.level) <= 6
+              ? 7 - num(c.level)
+              : 0;
+        const ch = makeChar(id, v.name, num(c.x), num(c.y), {
+          lib: e.id,
+          vari: v.id,
+          defNo: fin(c.defNo) ? Math.max(1, Math.trunc(num(c.defNo))) : 0,
+          level,
+          locked: !!c.locked,
+          relIgnore: !!c.relIgnore,
+          color: v.color,
+          nameColor: v.nameColor,
+          icon: v.icon,
+          noAvatar: v.noAvatar,
+          shape: v.shape,
+          noBorder: v.noBorder,
+          noBg: v.noBg,
+          borderOn: v.borderOn,
+          bgOn: v.bgOn,
+          size: v.size,
+          nameSize: v.nameSize,
+          borderW: v.borderW,
+          labels: [...v.labels],
+          frame: v.frame,
+          font: e.font,
+        });
+        chars.push(ch);
+      }
+      return chars;
+    };
     const typeIds = new Set(types.map((t) => t.id));
-    const rels: Rel[] = [];
-    for (const r of Array.isArray(sh.rels) ? sh.rels : []) {
-      if (!isObj(r) || !fin(r.id)) continue;
-      const from = Math.trunc(num(r.from));
-      const to = Math.trunc(num(r.to));
-      const type = Math.trunc(num(r.relTypeId ?? r.tagId));
-      if (!charIds.has(from) || !charIds.has(to) || !typeIds.has(type)) continue;
-      const lt = num(r.labelT);
-      const cd = num(r.curveDir);
-      const mag = Math.round(num(r.magLevel));
-      const sa = num(r.selfAng);
-      rels.push(
-        makeRel(Math.trunc(num(r.id)), from, to, type, {
-          both: !!r.both,
-          note: typeof r.note === 'string' ? r.note.slice(0, 2000) : '',
-          labelT: Number.isFinite(lt) ? Math.min(0.95, Math.max(0.05, lt)) : null,
-          curveDir: cd === 1 ? 1 : cd === -1 ? -1 : 0,
-          flipName: r.labelFlipName === true || r.labelFlip === true,
-          flipNote: r.labelFlipNote === true || r.labelFlip === true,
-          pairSkip: r.pairSkip === true,
-          mag: mag >= 1 && mag <= 5 ? mag : 0,
-          selfAng: Number.isFinite(sa) ? sa : null,
-        }),
-      );
-    }
+    const convRels = (list: unknown, chars: Char[]): Rel[] => {
+      const charIds = new Set(chars.map((c) => c.id));
+      const rels: Rel[] = [];
+      for (const r of Array.isArray(list) ? list : []) {
+        if (!isObj(r) || !fin(r.id)) continue;
+        const from = Math.trunc(num(r.from));
+        const to = Math.trunc(num(r.to));
+        const type = Math.trunc(num(r.relTypeId ?? r.tagId));
+        if (!charIds.has(from) || !charIds.has(to) || !typeIds.has(type)) continue;
+        const lt = num(r.labelT);
+        const cd = num(r.curveDir);
+        const mag = Math.round(num(r.magLevel));
+        const sa = num(r.selfAng);
+        rels.push(
+          makeRel(Math.trunc(num(r.id)), from, to, type, {
+            both: !!r.both,
+            note: typeof r.note === 'string' ? r.note.slice(0, 2000) : '',
+            labelT: Number.isFinite(lt) ? Math.min(0.95, Math.max(0.05, lt)) : null,
+            curveDir: cd === 1 ? 1 : cd === -1 ? -1 : 0,
+            flipName: r.labelFlipName === true || r.labelFlip === true,
+            flipNote: r.labelFlipNote === true || r.labelFlip === true,
+            pairSkip: r.pairSkip === true,
+            mag: mag >= 1 && mag <= 5 ? mag : 0,
+            selfAng: Number.isFinite(sa) ? sa : null,
+          }),
+        );
+      }
+      return rels;
+    };
+    /*
+     * 時間軸分頁：每一格各自的角色、關係、便利貼、背景圖、畫布尺寸；頂層＝目前影格。
+     * 影格沒有 notes 的舊檔＝分頁的便利貼複製進每一格；沒有背景圖鍵的舊檔＝分頁的背景圖複製進每一格（原作 tlSpreadNotes）。
+     */
+    const ai = rawFrames.length
+      ? Math.min(Math.max(0, Math.trunc(num(sh.activeFrameIdx)) || 0), rawFrames.length - 1)
+      : -1;
+    const freshNotes = rawFrames.some((f) => Array.isArray(f.notes));
+    const freshBg = rawFrames.some((f) => 'bgImage' in f || 'bgImg' in f);
+    const top = ai >= 0 ? rawFrames[ai] : sh;
+    const chars = convChars(top.chars);
+    const rels = convRels(top.rels, chars);
+    const topNotes =
+      ai < 0 || !freshNotes ? notes : notesOf(Array.isArray(top.notes) ? top.notes : []);
+    const W0 = fin(sh.W) && num(sh.W) >= 0 ? Math.round(num(sh.W)) : 1000;
+    const H0 = fin(sh.H) && num(sh.H) >= 0 ? Math.round(num(sh.H)) : W0;
+    const dimOf = (f: Record<string, unknown>) => {
+      const w = fin(f.W) && num(f.W) >= 0 ? Math.round(num(f.W)) : W0;
+      return { W: w, H: fin(f.H) && num(f.H) >= 0 ? Math.round(num(f.H)) : fin(f.W) ? w : H0 };
+    };
+    const laneList = (v: unknown): TlLane[] =>
+      Array.isArray(v)
+        ? (['chars', 'notes', 'charts', 'bg'] as const).filter((l) => v.includes(l))
+        : [];
+    const frames: TlFrame[] = rawFrames.map((f, k) => {
+      const d = dimOf(f);
+      const hold = k === 0 ? [] : laneList(f.hold);
+      const dur = num(f.dur);
+      const fc = k === ai ? [] : convChars(f.chars);
+      return {
+        id: fin(f.id) ? Math.trunc(num(f.id)) : nextLocal--,
+        no: fin(f.no) && num(f.no) > 0 ? Math.trunc(num(f.no)) : 0,
+        ...d,
+        chars: fc,
+        rels: k === ai ? [] : convRels(f.rels, fc),
+        notes:
+          k === ai
+            ? []
+            : freshNotes
+              ? notesOf(Array.isArray(f.notes) ? f.notes : [])
+              : (JSON.parse(JSON.stringify(notes)) as Note[]),
+        bg: null,
+        hold,
+        dur: Number.isFinite(dur) && dur >= 0.05 && dur <= 600 ? dur : null,
+      };
+    });
     /* 群體關係（新名 relTypeId、舊名 tagId；只驗形狀，端點在不在由畫的時候判斷＝原作 sanitizeGrels） */
     const grels: GroupRel[] = [];
     for (const g of Array.isArray(sh.groupRels) ? sh.groupRels : []) {
@@ -537,13 +599,13 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
     const collapsed = Array.isArray(sh.collapsedLbls)
       ? [...new Set(sh.collapsedLbls.map((x) => Math.trunc(num(x))).filter(Number.isFinite))]
       : [];
-    const W = fin(sh.W) && num(sh.W) >= 0 ? Math.round(num(sh.W)) : 1000;
+    const dim = ai >= 0 ? dimOf(top) : { W: W0, H: H0 };
     const sheet: Sheet = {
       id: fin(sh.id) ? Math.trunc(num(sh.id)) : nextLocal--,
       defNo: fin(sh.defNo) ? Math.max(1, Math.trunc(num(sh.defNo))) : 0,
       name: String(sh.name ?? '').slice(0, 200),
-      W,
-      H: fin(sh.H) && num(sh.H) >= 0 ? Math.round(num(sh.H)) : W,
+      W: dim.W,
+      H: dim.H,
       chars,
       rels,
       types,
@@ -553,18 +615,50 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
       collapsed,
       /* 看法（重新淨化；角色 id 是這張分頁的，加進專案時跟著換） */
       views: normalizeViews(sh.views),
-      notes,
+      notes: topNotes,
       /* 世界觀（還沒淨化：呼叫端換圖片參照時一起淨化）、沿用（原作的分頁 id，加進專案時跟著換）、備忘錄 */
       lore: typeof sh.lore === 'string' ? sh.lore.slice(0, LORE_MAX) : '',
       loreFrom: fin(sh.loreFrom) ? Math.trunc(num(sh.loreFrom)) : null,
       memo: typeof sh.memo === 'string' ? sh.memo.slice(0, MEMO_MAX) : '',
+      tl: null,
     };
-    sheets.push(sheet);
-    if (typeof sh.bgImage === 'string' && sh.bgImage) backgrounds.set(sheet, sh.bgImage);
+    if (frames.length) {
+      const lanes = isObj(sh.lanes) ? sh.lanes : {};
+      const sp = num(isObj(sh.settings) ? sh.settings.tlSpeed : undefined);
+      sheet.tl = {
+        frames,
+        active: ai,
+        hidden: laneList(lanes.hidden),
+        locked: laneList(lanes.locked),
+        speed: Number.isFinite(sp) && sp >= 0.25 && sp <= 4 ? sp : 1,
+      };
+      /* 背景圖：每一格（保持中的格不用讀；目前影格放在分頁頂層） */
+      rawFrames.forEach((f, k) => {
+        const ref = freshBg ? bgRef(f) : bgRef(sh);
+        if (!ref) return;
+        if (k === ai) backgrounds.set(sheet, ref);
+        else if (!frames[k].hold.includes('bg')) backgrounds.set(frames[k], ref);
+      });
+    } else {
+      const ref = bgRef(sh);
+      if (ref) backgrounds.set(sheet, ref);
+    }
     const df = isObj(sh.settings) ? sh.settings.defFrame : undefined;
     if (typeof df === 'string' && HASH_RE.test(df)) defFrames.set(sheet, df);
+    return sheet;
+  };
+  for (const shRaw of data.sheets as unknown[]) if (isObj(shRaw)) sheets.push(convSheet(shRaw));
+  /* 分頁庫（原作只有完整匯出才帶；新的在前） */
+  const sheetLib: LegacyImport['sheetLib'] = [];
+  for (const it of Array.isArray(data.sheetLibrary) ? data.sheetLibrary : []) {
+    if (!isObj(it) || !isObj(it.sheet)) continue;
+    const at = num(it.savedAt);
+    sheetLib.push({
+      name: String(it.name ?? '').slice(0, 200),
+      savedAt: Number.isFinite(at) && at > 0 ? Math.trunc(at) : 0,
+      sheet: convSheet(it.sheet),
+    });
   }
-  if (Array.isArray(data.sheetLibrary) && data.sheetLibrary.length) skipped.add('分頁庫');
   /* 便利貼庫（原作只有完整匯出才帶）、設定集（原作的格式：設定值攤在條目上；預設頭像框是原作的雜湊） */
   const noteBin: NoteBinItem[] = [];
   for (const n of Array.isArray(data.noteBin) ? data.noteBin : []) {
@@ -593,6 +687,7 @@ export function convertLegacy(data: Record<string, unknown>): LegacyImport {
     avatars,
     backgrounds,
     defFrames,
+    sheetLib,
     labels,
     richImgs,
     noteBin: noteBin.slice(0, NOTE_BIN_MAX),

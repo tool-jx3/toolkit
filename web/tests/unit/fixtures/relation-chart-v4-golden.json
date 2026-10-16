@@ -1,0 +1,44 @@
+{
+ "b4:notes-lore": {
+  "0:edit": "0cf4e573e32b3a82c7664f73",
+  "0:png": "67b1a0aa3aed45e20fb79003",
+  "0:png-t": "2bb0187e9d750f33ebb486ed",
+  "0:viewer-svg": "ce93f82cb80c2ea8738390ea",
+  "0:layered": "1b1a3161b3f8dc283c5b0183",
+  "1:edit": "22d6c38c0fa93c64e097f2d6",
+  "1:png": "a91c22a8e7a4845ca28e4beb",
+  "1:png-t": "b002b14c7c27505efefaae18",
+  "1:viewer-svg": "c0150846a5576ece8ae4341b",
+  "1:layered": "b9b97a668fa5055c8c9332e6",
+  "2:edit": "a1a18d5659087670ebca7bdb",
+  "2:png": "42c6ee31505ba086dcd32f50",
+  "2:png-t": "ad153d767fc3bdca5662cce9",
+  "2:viewer-svg": "be1aeb0f02af06d791fc1612",
+  "2:layered": "a489eccbb8c8d5efa3151e08",
+  "html": "06338854d0a3e4d0d14926c1",
+  "html-embed": "e00d1b4cef9af2cae998d491"
+ },
+ "b4:lod-stats": {
+  "0:edit": "9278e15b9d43029077e7a161",
+  "0:png": "36b9e72996eead87e01bda5f",
+  "0:png-t": "ca8cf2438f9a01ee1ef8a5cb",
+  "0:viewer-svg": "75bb8ccbb16750c7a03961e9",
+  "0:layered": "23c67222e1475b75578ecfc4",
+  "html": "75a2bf18cbc32b93971220ed",
+  "html-embed": "f87ee7dec88892146d45acff"
+ },
+ "generated": {
+  "0:edit": "5fc637921cb8eed295bc9b1d",
+  "0:png": "957c55b5af8c374dfc6c671c",
+  "0:png-t": "eab35282bed16903d6cb8997",
+  "0:viewer-svg": "31d5706b2ba0dfd2102d48cb",
+  "0:layered": "ac8d45f7d66cd261a2bd74d6",
+  "1:edit": "e3926f93ed9ee9fa7d48a722",
+  "1:png": "c1865d5c25d69323c117b5eb",
+  "1:png-t": "c2e634965cd6e7723cabbf1e",
+  "1:viewer-svg": "76d61d8e2285c5c74cc4405d",
+  "1:layered": "3091022a33c595a10fc80055",
+  "html": "20f132cc9d1ec45c679cd1ce",
+  "html-embed": "4ef0e00834978d0ea4672a96"
+ }
+}
