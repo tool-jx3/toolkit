@@ -3,7 +3,7 @@
  * 解碼成功的照舊只解碼一次。Node 沒有 createImageBitmap，換成假的（記下解碼了哪個 Blob）。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createAssetStore, importAssetFiles } from '@/core/assets';
+import { assetFileInfo, createAssetStore, detectFontType, importAssetFiles } from '@/core/assets';
 
 interface FakeBitmap {
   width: number;
@@ -104,5 +104,28 @@ describe('core/assets：add 存讀出來的位元組，不存傳進來的 File',
     expect(src(await assets.bitmap(id))).toBe('png-bytes');
     const files = await assets.exportFiles([id]);
     expect(new TextDecoder().decode(files[0].data)).toBe('png-bytes');
+  });
+});
+
+describe('assetFileInfo：字型檔（relation-chart 的匯入字型）', () => {
+  const head = (...xs: (number | string)[]) =>
+    new Uint8Array(
+      xs.flatMap((x) => (typeof x === 'string' ? [...x].map((ch) => ch.charCodeAt(0)) : [x])),
+    );
+  it('認得 TTF、OTF、WOFF、WOFF2；圖片與音訊的結果不變、認不得時 png', () => {
+    expect(detectFontType(head(0, 1, 0, 0, 0, 12))).toBe('ttf');
+    expect(detectFontType(head('true', 0))).toBe('ttf');
+    expect(detectFontType(head('OTTO', 0))).toBe('otf');
+    expect(detectFontType(head('wOFF', 0))).toBe('woff');
+    expect(detectFontType(head('wOF2', 0))).toBe('woff2');
+    expect(detectFontType(head(0, 0, 1, 0))).toBeNull();
+    expect(assetFileInfo(head(0, 1, 0, 0, 0, 12))).toEqual({ ext: 'ttf', mime: 'font/ttf' });
+    expect(assetFileInfo(head('wOF2', 0))).toEqual({ ext: 'woff2', mime: 'font/woff2' });
+    expect(assetFileInfo(head(0x89, 'PNG', 13, 10, 26, 10))).toEqual({
+      ext: 'png',
+      mime: 'image/png',
+    });
+    expect(assetFileInfo(head('ID3', 4))).toEqual({ ext: 'mp3', mime: 'audio/mpeg' });
+    expect(assetFileInfo(head(1, 2, 3))).toEqual({ ext: 'png', mime: 'image/png' });
   });
 });

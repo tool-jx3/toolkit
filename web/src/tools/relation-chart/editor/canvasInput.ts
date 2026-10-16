@@ -29,6 +29,7 @@ import {
 } from '../state/store';
 import { beginLive, endLive, liveCtx, liveRefresh, liveSheet, scheduleLiveFrame } from './live';
 import { kickSim, setSimPinned } from './sim';
+import { swapClick } from './swap';
 import { hostOrigin, setView, toCanvas, zoomBy } from './view';
 
 const MOVE_TOL = 4;
@@ -51,6 +52,8 @@ type Drag =
       /** 整組拖曳的成員與起點 */
       start: Map<number, Pt>;
       longDone: boolean;
+      /** 交換位置模式中按下的（拖不動、放開＝點一下） */
+      swap?: boolean;
     }
   | {
       kind: 'empty';
@@ -309,13 +312,16 @@ export class CanvasInput {
     if (node) {
       e.preventDefault();
       const id = Number(node.getAttribute('data-id'));
-      const sel = useUi.getState().sel;
+      const u0 = useUi.getState();
+      const sel = u0.sel;
       const s = curSheet();
       const group = sel.includes(id) && sel.length > 1 ? sel : [id];
       const start = new Map<number, Pt>();
       for (const c of s.chars) if (group.includes(c.id)) start.set(c.id, { x: c.x, y: c.y });
-      this.drag = { kind: 'node', id, ...base, shift: e.shiftKey, start, longDone: false };
-      if (!e.shiftKey) this.startLongPress(id, e.clientX, e.clientY);
+      /* 交換位置模式（建立關係模式優先）：拖不動、長按不開面板，放開都當成點一下 */
+      const swap = !!u0.swap && !u0.link;
+      this.drag = { kind: 'node', id, ...base, shift: e.shiftKey, start, longDone: false, swap };
+      if (!e.shiftKey && !swap) this.startLongPress(id, e.clientX, e.clientY);
       return;
     }
     const edge = closestEl(t, '.edge');
@@ -395,7 +401,7 @@ export class CanvasInput {
 
   private dragStart(d: Drag): void {
     if (d.kind === 'node') {
-      if (useUi.getState().link || d.longDone) return;
+      if (useUi.getState().link || d.longDone || d.swap) return;
       holdHistory('drag');
       beginLive('drag');
       setSimPinned(new Set(d.start.keys()));
@@ -418,7 +424,7 @@ export class CanvasInput {
   private dragMove(d: Drag, e: PointerEvent): void {
     const v = useUi.getState().view;
     if (d.kind === 'node') {
-      if (useUi.getState().link || d.longDone) return;
+      if (useUi.getState().link || d.longDone || d.swap) return;
       const s = liveSheet();
       if (!s) return;
       const dx = (e.clientX - d.sx) / v.zoom;
@@ -557,6 +563,11 @@ export class CanvasInput {
     if (!d || d.pid !== e.pointerId) return;
     this.drag = null;
     this.clearTimers();
+    if (d.moved && d.kind === 'node' && d.swap) {
+      /* 交換位置模式：拖一段放開＝點一下 */
+      this.tap(d, e);
+      return;
+    }
     if (d.moved) {
       if (d.kind === 'node') this.dropNode(d);
       else if (d.kind === 'lblnode') {
@@ -611,6 +622,10 @@ export class CanvasInput {
       if (d.longDone) return;
       if (u.link) {
         linkClick(d.id);
+        return;
+      }
+      if (d.swap && !d.shift) {
+        swapClick(d.id);
         return;
       }
       if (d.shift) {

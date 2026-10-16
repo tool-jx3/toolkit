@@ -142,6 +142,8 @@ export function switchSheet(idx: number): void {
     panel: null,
     renaming: null,
     fitTick: u.fitTick + 1,
+    /* 交換位置模式留著、挑起的清掉（原作） */
+    swap: u.swap ? { pick: null } : null,
   });
 }
 

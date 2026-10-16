@@ -23,12 +23,18 @@ import {
 } from '../state/store';
 import { S } from '../strings';
 import { useCtx, useHref, useSheet } from './hooks';
+import { swapClick } from './swap';
 import { CharThumb } from './thumbs';
 import { centerOnChar } from './view';
 import { DragHandle } from './widgets';
 
 function pickChar(id: number): void {
   const u = useUi.getState();
+  /* 交換位置模式：和點畫布一樣（不聚焦、不移畫面） */
+  if (u.swap && !u.link) {
+    swapClick(id);
+    return;
+  }
   const same = u.focus?.kind === 'node' && u.focus.id === id;
   setUi({ focus: same ? null : { kind: 'node', id }, hover: null });
   if (!same) centerOnChar(id);
@@ -142,7 +148,8 @@ export function CharList() {
   const chars = sheet.chars;
   const canGroup = chars.length >= 8 && chars.some((c) => charLabelIds(c).length);
   const showGroups = grouped && canGroup;
-  const selSet = new Set(sel);
+  const swapPick = useUi((u) => u.swap?.pick ?? null);
+  const selSet = new Set(swapPick === null ? sel : [...sel, swapPick]);
   const focusId = focus?.kind === 'node' ? String(focus.id) : null;
 
   const groups = useMemo(() => {

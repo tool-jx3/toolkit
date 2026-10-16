@@ -104,13 +104,17 @@ export async function dataUris(ids: Iterable<string>): Promise<Map<string, strin
   return out;
 }
 
-/** 這些分頁畫圖時用到的圖（頭像成品、背景圖） */
-export function drawnImageIds(p: Pick<Project, 'sheets'>, sheetIdx?: readonly number[]): string[] {
+/** 這些分頁畫圖時用到的圖（頭像成品、背景圖；有給頭像框庫時連框一起） */
+export function drawnImageIds(
+  p: Pick<Project, 'sheets'> & Partial<Pick<Project, 'frames'>>,
+  sheetIdx?: readonly number[],
+): string[] {
   const out = new Set<string>();
   p.sheets.forEach((s, i) => {
     if (sheetIdx && !sheetIdx.includes(i)) return;
     if (s.bg) out.add(s.bg);
     for (const c of s.chars) if (c.avatar) out.add(c.avatar.img);
   });
+  for (const f of p.frames ?? []) out.add(f.id);
   return [...out];
 }

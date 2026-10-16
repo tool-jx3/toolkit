@@ -96,9 +96,36 @@ function generated(): { sheets: Sheet[]; labels: Project['labels'] } {
   };
   const a = make(21, 30, 1600, 1200);
   a.grels.push(
-    { id: 801, from: 'L901', to: 'L902', type: 100, both: true, inherit: false, note: '', except: [] },
-    { id: 802, from: 'C2', to: 'L903', type: 101, both: false, inherit: true, note: '', except: [3] },
-    { id: 803, from: 'L906', to: 'C5', type: 102, both: false, inherit: true, note: '', except: [] },
+    {
+      id: 801,
+      from: 'L901',
+      to: 'L902',
+      type: 100,
+      both: true,
+      inherit: false,
+      note: '',
+      except: [],
+    },
+    {
+      id: 802,
+      from: 'C2',
+      to: 'L903',
+      type: 101,
+      both: false,
+      inherit: true,
+      note: '',
+      except: [3],
+    },
+    {
+      id: 803,
+      from: 'L906',
+      to: 'C5',
+      type: 102,
+      both: false,
+      inherit: true,
+      note: '',
+      except: [],
+    },
   );
   a.settings.zoneNameAng = { 901: 0.7, 902: -2.2 };
   a.settings.showLblLegend = true;
