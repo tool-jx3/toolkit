@@ -4421,6 +4421,12 @@ test('版本快照（F015）：建立（沒名字＝手動快照、命名）、�
   await page.getByTestId('snap-take').click();
   await expect(names.first()).toHaveText('只剩主線');
   await expect(manual).toHaveCount(1);
+  /* 搜尋：比對名稱與拍照時的分頁名；沒有符合的寫「快照」 */
+  await lib(page).getByTestId('library-search').fill('支線');
+  await expect(names).toContainText(['手動快照']);
+  await lib(page).getByTestId('library-search').fill('沒有這個');
+  await expect(lib(page).getByText('沒有符合搜尋的快照。')).toBeVisible();
+  await lib(page).getByTestId('library-search').fill('');
   /* 還原整份：先拍「還原前」，可以復原 */
   await manual.click();
   await expect(page.getByTestId('snap-panel-name')).toHaveText('手動快照');

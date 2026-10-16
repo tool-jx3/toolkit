@@ -310,7 +310,7 @@ export function SnapList({ query }: { query: string }) {
       sheets={[]}
       grouped={false}
       sig={`snaps|${q}`}
-      empty={list?.length ? S.sheetLib.noMatch : T.empty}
+      empty={list?.length ? T.noMatch : T.empty}
       label={T.list}
       sortable={false}
       picked={pickedIdx >= 0 ? pickedIdx + 1 : null}

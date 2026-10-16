@@ -216,6 +216,7 @@ export const S = {
     itemTip: '點擊＝還原或取回分頁',
     summary: (s: number, c: number) => `${s} 個分頁・${c} 位角色`,
     empty: '還沒有快照。工作一陣子會自動存底，也可以用「建立快照」手動存一份。',
+    noMatch: '沒有符合搜尋的快照。',
     noIdb: '此瀏覽器環境無法使用快照（沒有 IndexedDB）。',
     restoreAll: '還原整份專案',
     restoreNote: '還原前會自動先拍一份「還原前」快照，還原本身也可以復原。',
