@@ -29,6 +29,7 @@ import {
   viewerHtml,
   viewerSource,
 } from '../../src/tools/relation-chart/export/viewer';
+import { rcViewerRadar } from '../../src/tools/relation-chart/export/viewerExt';
 import { convertLegacy } from '../../src/tools/relation-chart/logic/legacy';
 import {
   makeChar,
@@ -272,6 +273,7 @@ function capture(d: Dataset): Record<string, string> {
       viewerHtml(p.sheets, input)
         .replace(viewerSource(), '/*rcViewer*/')
         .replace(viewerExtSource(), '/*rcViewerExt*/')
+        .replace(rcViewerRadar.toString(), '/*rcViewerRadar*/')
         .replace(rcCharts.toString(), '/*rcCharts*/'),
     ),
   );
