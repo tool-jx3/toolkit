@@ -197,8 +197,10 @@ function Body({ onDone }: { onDone: () => void }) {
   return (
     <div className="flex flex-col gap-4">
       <Field label={E.format}>
+        {/* 窄畫面放不下五種格式（時間軸分頁多了 GIF／影片）：換行，不把字截成「分…」 */}
         <Segmented
           size="sm"
+          className="flex-wrap"
           value={anim ? 'anim' : fmt}
           onValueChange={(v) =>
             setPrefs({

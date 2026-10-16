@@ -4307,6 +4307,36 @@ test('讀原作的時間軸（4 格、保持、秒數、鎖、1.5 倍速）；GI
   expect(errors).toEqual([]);
 });
 
+test('390 寬：時間軸分頁的影格列、匯出對話框（格式多了 GIF／影片時換行、不截字）、分頁庫與快照頁籤沒有橫向捲動', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = await open(page);
+  await openLegacyTimeline(page);
+  await noHorizontalScroll(page);
+  await page.getByTestId('open-export').click();
+  const dlg = page.getByRole('dialog', { name: '匯出' });
+  const fmts = dlg.getByRole('radiogroup', { name: '格式' }).first().getByRole('radio');
+  await expect(fmts).toHaveText(['PNG（圖片）', '分層 SVG', '分層 PSD', '互動網頁（唯讀）', 'GIF／影片']);
+  /* 每個格式的字都完整顯示（放不下就換行，不截成「分…」） */
+  const cut = await fmts.evaluateAll((els) =>
+    els.filter((el) => {
+      const t = el.querySelector('span') ?? el;
+      return t.scrollWidth > t.clientWidth + 1;
+    }).length,
+  );
+  expect(cut).toBe(0);
+  await fmts.filter({ hasText: 'GIF／影片' }).click();
+  await noHorizontalScroll(page);
+  await page.keyboard.press('Escape');
+  await page.getByTestId('library-open').click();
+  await page.getByTestId('library-tab-sheets').click();
+  await noHorizontalScroll(page);
+  await page.getByTestId('library-tab-snaps').click();
+  await noHorizontalScroll(page);
+  expect(errors).toEqual([]);
+});
+
 test('分頁庫（F027）：刪除分頁＝封存（可以復原）；匯入當前（面板留著，7.10）、複製、刪除（墓碑、不進復原）；全部重設不清分頁庫', async ({
   page,
 }) => {
