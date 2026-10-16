@@ -101,6 +101,7 @@
 | `crossword` | 填字遊戲產生器 | [sotsotssi/text2crossword](https://github.com/sotsotssi/text2crossword)（MIT） | —（新收錄，沒有舊版） |
 | `scratch-card` | 刮刮卡產生器 | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard)（未授權） | —（新收錄，沒有舊版） |
 | `lock-screen` | 鎖定畫面訊息產生器 | [TEXTSCENE](https://textscene.netlify.app/)（未授權） | —（新收錄，沒有舊版） |
+| `relation-chart` | 角色關係圖產生器 | [PaiTei4234／Relationship Chart Maker](https://paitei4234.itch.io/relationshipchartmaker)（CC BY-NC-SA 4.0） | —（新收錄，沒有舊版） |
 | `prose-card` | 短文圖片產生器 | [dan0030/writeediter2](https://github.com/dan0030/writeediter2)（未授權） | —（新收錄，沒有舊版） |
 | `captcha-card` | 驗證題梗圖產生器 | [dearmysn1p3r/DearMySn1p3r_44](https://github.com/dearmysn1p3r/DearMySn1p3r_44)（未授權） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
@@ -134,6 +135,8 @@
 `scratch-card` 照新工具引入流程直接在新框架做：原作沒有授權條款，只照原作的功能、數值與做法（抽籤、塗層、刮開判定和原作相同），程式、介面文字、8 個圖示與彩帶都由本站自做，不載入原作用的 CDN；可以開啟原作的設定檔（JSON）。
 
 `lock-screen` 照新工具引入流程直接在新框架做：原作（使用者 2026-10-09 提供的網站檔案）沒有授權條款，只照原作的功能、版面數值與動畫曲線（通知卡片的位置、大小與彈出的時間點和原作相同），程式、介面文字、範例訊息、預設桌布、手機外框與圖示都由本站自做；不沿用原作的專有字型（改用思源黑體，SIL OFL），外觀不仿特定廠牌的手機與訊息 App。
+
+`relation-chart` 照新工具引入流程直接在新框架做（2026-10-15 使用者選定；分批，第一批＝核心）：原作（使用者提供的網站檔案）是 CC BY-NC-SA 4.0，本工具**繼承同一授權**（使用者 2026-10-15 決定）：排列陣型、磁鐵（力導向）排列、線的繞開與橋接、名字讓位、圖例配置、關係表格式等演算法與數值照原作改寫，角色圖示集沿用原作自繪的向量圖示，介面改成本站的元件與繁中用詞；改編的東西只放在 `web/src/tools/relation-chart/` 與它的測試，授權全文、署名與改了什麼在該資料夾的 `UPSTREAM_LICENSE`（建置時併入通知檔），匯出的互動網頁開頭也有出處與授權註解。共用框架（`core/`、`ui/`）仍是 MIT，沒有改編的程式。原作的桌寵、成就、導覽、多語、佈景主題不移植。
 
 `prose-card` 照新工具引入流程直接在新框架做：原作（commit `0af6488`）沒有授權條款，只照原作的功能與做法（三種版面、自動分頁、文字格式、背景與照片的設定），程式、介面文字、範例文字、常用色與預設配色都由本站自做；格式化文字的編輯與排版用共用的 `core/richtext` 與 `RichTextEditor`（為這個工具擴充，角色介紹圖的輸出不變）。
 

@@ -1,7 +1,7 @@
 /*
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見 web/src/tools/relation-chart/UPSTREAM_LICENSE。
  *
- * 角色關係圖產生器（建置產物 next/relation-chart/）的端對端測試（規格 docs/refactor/specs/relation-chart.md）：
+ * 角色關係圖產生器（建置產物 tools/relation-chart/）的端對端測試（規格 docs/refactor/specs/relation-chart.md）：
  * - 開頁沒有錯誤、起手提示、頁尾只有靈感來源；
  * - 角色：新增、編輯面板（名稱、顏色、進階）、批次建立（Enter、重複、貼上一欄、用頭像圖片建立）、複製、刪除、清單搜尋與聚焦；
  * - 頭像：上傳、調整範圍、圖示、清除、自動儲存；

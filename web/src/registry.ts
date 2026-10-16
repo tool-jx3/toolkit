@@ -763,7 +763,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '在畫布上擺角色、定義關係的顏色與線型、點兩個人拉出關係線，自動排列後匯出 PNG、分層 SVG／PSD 或可以分享的互動網頁。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'PaiTei4234／Relationship Chart Maker',
       url: 'https://paitei4234.itch.io/relationshipchartmaker',
