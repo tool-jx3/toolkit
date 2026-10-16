@@ -2,6 +2,8 @@
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 角色的編輯面板（原作的角色編輯：身分、頭像、外觀、進階）。改動立刻套用（D10），文字欄離開才記一步。
+ * 名字、頭像、顏色、形狀、框、外框、背景、尺寸、標籤、數值寫在目前穿的變體上（第三批；同一件變體的其他角色跟著變），
+ * 角色資訊與字型寫在條目上，座標、重要度、釘選、關係線忽略留在這位角色身上。
  */
 import { Copy, Crop, Link2, Minus, Plus, Smile, Trash2, Upload, X } from 'lucide-react';
 import { Popover } from 'radix-ui';
@@ -34,8 +36,16 @@ import {
 import { avatarFromBlob, fetchImage } from '../state/images';
 import { setUi, usePrefs, useProject } from '../state/store';
 import { S } from '../strings';
+import {
+  CharFontField,
+  FrameField,
+  InfoCardButtons,
+  VariantFields,
+  ViewsSection,
+} from './CharExtras';
 import { GrelsOf } from './GrelPanels';
 import { useCtx, useHref, useSheet } from './hooks';
+import { RadarSection } from './RadarUi';
 import { CharThumb } from './thumbs';
 import { AutoNumber, Block, ColorPair, LiveText } from './widgets';
 
@@ -482,6 +492,7 @@ export function CharPanel({ id }: { id: number }) {
       </Block>
       <Section title={S.char.advanced} defaultOpen={false} persistKey="relation-chart:char-adv">
         <div className="flex flex-col gap-3">
+          <VariantFields c={c} />
           <div data-testid="char-lock">
             <Toggle
               checked={c.locked}
@@ -518,6 +529,7 @@ export function CharPanel({ id }: { id: number }) {
               ]}
             />
           </Field>
+          <FrameField c={c} ctx={ctx} />
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             <Toggle
               checked={charHasBorder(ctx, c)}
@@ -534,7 +546,7 @@ export function CharPanel({ id }: { id: number }) {
               label={S.char.bg}
             />
           </div>
-          <Field label={S.char.size} hint={S.char.sizeHint}>
+          <Field label={S.variant.sizeSec} hint={S.char.sizeHint}>
             <div className="grid grid-cols-3 gap-2">
               <div className="flex flex-col gap-1 text-xs text-muted">
                 {S.char.avatarSize}
@@ -580,6 +592,15 @@ export function CharPanel({ id }: { id: number }) {
               </div>
             </div>
           </Field>
+          <Field label={S.char.labels}>
+            <LabelChips ids={[c.id]} />
+          </Field>
+          <Field label={S.char.rels}>
+            <RelsOf c={c} sheet={sheet} />
+          </Field>
+          <GrelsOf c={c} />
+          <InfoCardButtons c={c} />
+          <RadarSection c={c} />
           <Field label={S.char.level} hint={S.char.levelHint}>
             <LevelField
               value={charLevel(c)}
@@ -595,13 +616,8 @@ export function CharPanel({ id }: { id: number }) {
               }
             />
           </Field>
-          <Field label={S.char.labels}>
-            <LabelChips ids={[c.id]} />
-          </Field>
-          <Field label={S.char.rels}>
-            <RelsOf c={c} sheet={sheet} />
-          </Field>
-          <GrelsOf c={c} />
+          <CharFontField c={c} />
+          <ViewsSection c={c} sheet={sheet} />
         </div>
       </Section>
       <div className="flex flex-wrap gap-2">

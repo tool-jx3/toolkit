@@ -19,6 +19,7 @@ import { copyChars, deleteChars, updateChars } from '../state/actions';
 import { setUi } from '../state/store';
 import { S } from '../strings';
 import { LabelChips, LevelField } from './CharPanel';
+import { FrameSelect } from './FrameUi';
 import { useCtx, useSheet } from './hooks';
 import { AutoNumber, Block, ColorPair } from './widgets';
 
@@ -171,6 +172,18 @@ export function BatchPanel({ ids }: { ids: readonly number[] }) {
               { value: 'circle', label: S.char.shapeCircle },
               { value: 'square', label: S.char.shapeSquare },
             ]}
+          />
+        </Field>
+        <Field label={S.frame.label}>
+          <FrameSelect
+            kind="char"
+            value={list.every((c) => c.frame === list[0].frame) ? list[0].frame : undefined}
+            onChange={(v) =>
+              updateChars(ids, (c) => {
+                c.frame = v;
+              })
+            }
+            testId="batch-frame"
           />
         </Field>
         <MixedToggle

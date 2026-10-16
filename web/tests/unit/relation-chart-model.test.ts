@@ -464,7 +464,9 @@ describe('原作的專案檔（3.9）', () => {
     expect(s.rels).toHaveLength(1);
     expect(s.rels[0]).toMatchObject({ both: true, labelT: 0.3, curveDir: -1 });
     expect(r.backgrounds.get(s)).toBe('images/bg_s2.png');
-    expect(r.avatars.get(s)?.get(1)).toEqual({
+    /* 第三批：頭像跟著變體（不是分頁上的角色） */
+    expect(s.chars[0].vari).toBe(107);
+    expect(r.avatars.get(107)).toEqual({
       img: 'images/lib_106_v107.png',
       src: 'images/lib_106_v107_src.png',
       crop: { zoom: 1.5, ox: 10, oy: -5 },
@@ -472,19 +474,19 @@ describe('原作的專案檔（3.9）', () => {
     expect(r.skipped).toEqual(expect.arrayContaining(['便利貼']));
   });
 
-  it('文件字型（docFont）：對應到本站的字型；匯入的字型檔對應不到 → 黑體並記下', () => {
+  it('文件字型（docFont）：對應到本站的字型；匯入的字型檔＝留下原作的雜湊（第三批：讀得到字型檔就用它）', () => {
     expect(convertLegacy({ ...legacy, docFont: 'kai' })).toMatchObject({
       font: 'kai',
-      fontNote: null,
+      fontRef: null,
     });
-    expect(convertLegacy(legacy)).toMatchObject({ font: 'sans', fontNote: null });
+    expect(convertLegacy(legacy)).toMatchObject({ font: 'sans', fontRef: null });
     expect(convertLegacy({ ...legacy, docFont: 'nope' })).toMatchObject({
       font: 'sans',
-      fontNote: null,
+      fontRef: null,
     });
     const r = convertLegacy({ ...legacy, docFont: 'f:abc123' });
     expect(r.font).toBe('sans');
-    expect(r.fontNote).toContain('匯入的文件字型');
+    expect(r.fontRef).toBe('abc123');
   });
 
   it('原作的裁切換算成圖片在框裡的位置', () => {

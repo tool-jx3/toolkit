@@ -78,6 +78,9 @@ export function notifyLegacy(r: LegacyResult): void {
   const notes = [
     r.failedImages ? S.legacy.failedImages(r.failedImages) : '',
     r.noImages ? S.legacy.noImages : '',
+    r.missingFrames || r.missingFonts
+      ? S.legacy.missingAssets(r.missingFrames, r.missingFonts)
+      : '',
     r.notSaved ? S.project.imageNotSaved : '',
     r.skipped.length ? S.legacy.skipped(r.skipped.join('、')) : '',
   ].filter(Boolean);

@@ -1,0 +1,780 @@
+{
+  "file": "b3-assets.zip",
+  "docFont": "f:1ntptex-n3lzhp-plt",
+  "fonts": {
+    "1ntptex-n3lzhp-plt": "EricaOne-Regular",
+    "1logwqt-e5gbu1-wwd": "Silkscreen-Regular"
+  },
+  "frames": {
+    "12j3a2o-1ez2tte-rlq": "frame-gold",
+    "yoszaz-94894l-7f2": "frame-red",
+    "1ws58kx-guz8x5-q06": "frame-blue"
+  },
+  "sheets": [
+    {
+      "name": "Stats & Frames",
+      "W": 1400,
+      "H": 1000,
+      "defFrame": "frame-blue",
+      "chars": [
+        {
+          "id": 1,
+          "libId": 103,
+          "varId": 104,
+          "display": "Aria",
+          "level": 0,
+          "x": 250,
+          "y": 250,
+          "frame": "frame-gold",
+          "frameSrcLayer": "own",
+          "nameFontStyle": null,
+          "labels": [],
+          "radar": [
+            {
+              "tpl": "能力值",
+              "state": "",
+              "vals": {
+                "124": 70,
+                "125": 60,
+                "126": 85,
+                "127": 90,
+                "128": 7,
+                "129": 320
+              }
+            },
+            {
+              "tpl": "能力值",
+              "state": "覺醒",
+              "vals": {
+                "124": 90,
+                "125": 80,
+                "126": 95,
+                "127": 95,
+                "128": 9,
+                "129": 480
+              }
+            },
+            {
+              "tpl": "屬性比例",
+              "state": "",
+              "vals": {
+                "136": 40,
+                "137": 30,
+                "138": 20,
+                "139": 10
+              }
+            },
+            {
+              "tpl": "技能熟練度",
+              "state": "",
+              "vals": {
+                "146": 60,
+                "147": 90,
+                "148": 20
+              }
+            }
+          ],
+          "card": "# Aria\n\n## 關係\n- ⇄ Ally Bram\n- ← Rival Cleo\n- ← Ally 艾莉\n\n## 看法\n- ← Bram：「Partner for life」\n\n## 數值圖表\n- 能力值（狀態 1）：力量 70／敏捷 60／智力 85／魅力 90／運氣 7／體力 320 HP\n- 能力值（覺醒）：力量 90／敏捷 80／智力 95／魅力 95／運氣 9／體力 480 HP\n- 屬性比例：火 40／水 30／風 20／土 10\n- 技能熟練度：劍術 60／魔法 90／料理 20\n"
+        },
+        {
+          "id": 2,
+          "libId": 105,
+          "varId": 106,
+          "display": "Bram",
+          "level": 0,
+          "x": 250,
+          "y": 650,
+          "frame": "frame-red",
+          "frameSrcLayer": "follow",
+          "nameFontStyle": " style=\"font-family:&quot;crf-1logwqt-e5gbu1-wwd&quot;,&quot;crf-1ntptex-n3lzhp-plt&quot;,&quot;Noto Sans TC&quot;,&quot;PingFang TC&quot;,&quot;Microsoft JhengHei&quot;,sans-serif\"",
+          "labels": [
+            "Guard"
+          ],
+          "radar": [
+            {
+              "tpl": "能力值",
+              "state": "",
+              "vals": {
+                "124": 95,
+                "125": 50,
+                "126": 40,
+                "127": 60,
+                "128": 5,
+                "129": 450
+              }
+            }
+          ],
+          "card": "# Bram\n\n標籤：Guard\n\n## 關係\n- ⇄ Ally Aria\n- ⇄ Rival Dax\n\n## 看法\n- → Aria：「Partner for life」\n- ← Dax：「下次一定贏你」\n\n## 數值圖表\n- 能力值：力量 95／敏捷 50／智力 40／魅力 60／運氣 5／體力 450 HP\n"
+        },
+        {
+          "id": 3,
+          "libId": 107,
+          "varId": 108,
+          "display": "Cleo",
+          "level": 0,
+          "x": 600,
+          "y": 250,
+          "frame": "frame-blue",
+          "frameSrcLayer": "follow",
+          "nameFontStyle": null,
+          "labels": [],
+          "radar": [
+            {
+              "tpl": "能力值",
+              "state": "",
+              "vals": {
+                "124": 40,
+                "125": 85,
+                "126": 70
+              }
+            },
+            {
+              "tpl": "成長曲線",
+              "state": "",
+              "vals": {
+                "155": 10,
+                "156": 35,
+                "157": 60,
+                "158": 90
+              }
+            }
+          ],
+          "card": "# Cleo\n\n## 關係\n- → Rival Aria\n\n## 數值圖表\n- 能力值：力量 40／敏捷 85／智力 70／魅力 0／運氣 0／體力 0 HP\n- 成長曲線：一章 10／二章 35／三章 60／四章 90\n"
+        },
+        {
+          "id": 4,
+          "libId": 109,
+          "varId": 110,
+          "display": "Dax",
+          "level": 0,
+          "x": 600,
+          "y": 650,
+          "frame": null,
+          "frameSrcLayer": "none",
+          "nameFontStyle": null,
+          "labels": [
+            "Guard"
+          ],
+          "radar": [],
+          "card": "# Dax\n\n標籤：Guard\n\n## 關係\n- ⇄ Rival Bram\n\n## 看法\n- → Bram：「下次一定贏你」\n"
+        },
+        {
+          "id": 5,
+          "libId": 111,
+          "varId": 112,
+          "display": "艾莉",
+          "level": 0,
+          "x": 425,
+          "y": 450,
+          "frame": "frame-blue",
+          "frameSrcLayer": "follow",
+          "nameFontStyle": " style=\"font-family:&quot;Noto Serif TC&quot;,&quot;Songti TC&quot;,PMingLiU,&quot;Noto Serif CJK TC&quot;,serif\"",
+          "labels": [],
+          "radar": [
+            {
+              "tpl": "裝備",
+              "state": "",
+              "vals": {
+                "165": 30,
+                "166": 70,
+                "167": 55
+              }
+            }
+          ],
+          "card": "# 艾莉\n\n## 關係\n- → Ally Aria\n\n## 數值圖表\n- 裝備：攻擊 30／防禦 70／速度 55\n"
+        }
+      ],
+      "relTable": [
+        "艾莉 → Ally → Aria",
+        "Aria ⇄ Ally ⇄ Bram",
+        "Cleo → Rival → Aria",
+        "Dax ⇄ Rival ⇄ Bram"
+      ],
+      "types": [
+        {
+          "id": 101,
+          "label": "Ally",
+          "color": "#58b368",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "relLibId": 114,
+          "relVarId": 113
+        },
+        {
+          "id": 102,
+          "label": "Rival",
+          "color": "#c0392b",
+          "lineStyle": "dashed",
+          "capStyle": "arrow",
+          "relLibId": 116,
+          "relVarId": 115
+        }
+      ],
+      "views": {
+        "2": {
+          "1": "Partner for life"
+        },
+        "4": {
+          "2": "下次一定贏你"
+        }
+      },
+      "notes": [
+        {
+          "id": 168,
+          "name": "Aria vs Bram",
+          "chart": {
+            "tpl": 118,
+            "a": 1,
+            "b": 2,
+            "stA": 1,
+            "stB": 0,
+            "legend": true
+          },
+          "bare": false,
+          "noteW": 400,
+          "noteH": 400
+        },
+        {
+          "id": 169,
+          "name": "",
+          "chart": {
+            "tpl": 130,
+            "a": 1,
+            "b": 0,
+            "stA": 0,
+            "stB": 0,
+            "legend": false
+          },
+          "bare": true,
+          "noteW": 300,
+          "noteH": 300
+        },
+        {
+          "id": 170,
+          "name": "Cleo 的成長",
+          "chart": {
+            "tpl": 149,
+            "a": 3,
+            "b": 0,
+            "stA": 0,
+            "stB": 0,
+            "legend": true
+          },
+          "bare": false,
+          "noteW": 300,
+          "noteH": 200
+        }
+      ],
+      "stagePad": 28
+    },
+    {
+      "name": "Variant stats",
+      "W": 1400,
+      "H": 1000,
+      "defFrame": "frame-blue",
+      "chars": [
+        {
+          "id": 1,
+          "libId": 103,
+          "varId": 174,
+          "display": "Aria (dark)",
+          "level": 0,
+          "x": 250,
+          "y": 250,
+          "frame": "frame-red",
+          "frameSrcLayer": "own",
+          "nameFontStyle": null,
+          "labels": [],
+          "radar": [
+            {
+              "tpl": "能力值",
+              "state": "暗黑",
+              "vals": {
+                "124": 99,
+                "125": 99,
+                "126": 30,
+                "127": 20,
+                "128": 2,
+                "129": 500
+              }
+            }
+          ],
+          "card": "# Aria (dark)\n\n## 關係\n- ⇄ Ally Bram\n- ← Rival Cleo\n- ← Ally 艾莉\n\n## 數值圖表\n- 能力值（暗黑）：力量 99／敏捷 99／智力 30／魅力 20／運氣 2／體力 500 HP\n"
+        },
+        {
+          "id": 2,
+          "libId": 105,
+          "varId": 106,
+          "display": "Bram",
+          "level": 0,
+          "x": 250,
+          "y": 650,
+          "frame": "frame-red",
+          "frameSrcLayer": "follow",
+          "nameFontStyle": " style=\"font-family:&quot;crf-1logwqt-e5gbu1-wwd&quot;,&quot;crf-1ntptex-n3lzhp-plt&quot;,&quot;Noto Sans TC&quot;,&quot;PingFang TC&quot;,&quot;Microsoft JhengHei&quot;,sans-serif\"",
+          "labels": [
+            "Guard"
+          ],
+          "radar": [
+            {
+              "tpl": "能力值",
+              "state": "",
+              "vals": {
+                "124": 95,
+                "125": 50,
+                "126": 40,
+                "127": 60,
+                "128": 5,
+                "129": 450
+              }
+            }
+          ],
+          "card": "# Bram\n\n標籤：Guard\n\n## 關係\n- ⇄ Ally Aria (dark)\n- ⇄ Rival Dax\n\n## 數值圖表\n- 能力值：力量 95／敏捷 50／智力 40／魅力 60／運氣 5／體力 450 HP\n"
+        },
+        {
+          "id": 3,
+          "libId": 107,
+          "varId": 108,
+          "display": "Cleo",
+          "level": 0,
+          "x": 600,
+          "y": 250,
+          "frame": "frame-blue",
+          "frameSrcLayer": "follow",
+          "nameFontStyle": null,
+          "labels": [],
+          "radar": [
+            {
+              "tpl": "能力值",
+              "state": "",
+              "vals": {
+                "124": 40,
+                "125": 85,
+                "126": 70
+              }
+            },
+            {
+              "tpl": "成長曲線",
+              "state": "",
+              "vals": {
+                "155": 10,
+                "156": 35,
+                "157": 60,
+                "158": 90
+              }
+            }
+          ],
+          "card": "# Cleo\n\n## 關係\n- → Rival Aria (dark)\n\n## 數值圖表\n- 能力值：力量 40／敏捷 85／智力 70／魅力 0／運氣 0／體力 0 HP\n- 成長曲線：一章 10／二章 35／三章 60／四章 90\n"
+        },
+        {
+          "id": 4,
+          "libId": 109,
+          "varId": 110,
+          "display": "Dax",
+          "level": 0,
+          "x": 600,
+          "y": 650,
+          "frame": null,
+          "frameSrcLayer": "none",
+          "nameFontStyle": null,
+          "labels": [
+            "Guard"
+          ],
+          "radar": [],
+          "card": "# Dax\n\n標籤：Guard\n\n## 關係\n- ⇄ Rival Bram\n"
+        },
+        {
+          "id": 5,
+          "libId": 111,
+          "varId": 112,
+          "display": "艾莉",
+          "level": 0,
+          "x": 425,
+          "y": 450,
+          "frame": "frame-blue",
+          "frameSrcLayer": "follow",
+          "nameFontStyle": " style=\"font-family:&quot;Noto Serif TC&quot;,&quot;Songti TC&quot;,PMingLiU,&quot;Noto Serif CJK TC&quot;,serif\"",
+          "labels": [],
+          "radar": [
+            {
+              "tpl": "裝備",
+              "state": "",
+              "vals": {
+                "165": 30,
+                "166": 70,
+                "167": 55
+              }
+            }
+          ],
+          "card": "# 艾莉\n\n## 關係\n- → Ally Aria (dark)\n\n## 數值圖表\n- 裝備：攻擊 30／防禦 70／速度 55\n"
+        }
+      ],
+      "relTable": [
+        "艾莉 → Ally → Aria (dark)",
+        "Aria (dark) ⇄ Ally ⇄ Bram",
+        "Cleo → Rival → Aria (dark)",
+        "Dax ⇄ Rival ⇄ Bram"
+      ],
+      "types": [
+        {
+          "id": 101,
+          "label": "Ally",
+          "color": "#58b368",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "relLibId": 114,
+          "relVarId": 113
+        },
+        {
+          "id": 102,
+          "label": "Rival",
+          "color": "#c0392b",
+          "lineStyle": "dashed",
+          "capStyle": "arrow",
+          "relLibId": 116,
+          "relVarId": 115
+        }
+      ],
+      "views": null,
+      "notes": [
+        {
+          "id": 171,
+          "name": "Aria vs Bram",
+          "chart": {
+            "tpl": 118,
+            "a": 1,
+            "b": 2,
+            "stA": 1,
+            "stB": 0,
+            "legend": true
+          },
+          "bare": false,
+          "noteW": 400,
+          "noteH": 400
+        }
+      ],
+      "stagePad": 28
+    }
+  ],
+  "library": [
+    {
+      "id": 103,
+      "unifiedColor": false,
+      "font": null,
+      "hasInfo": false,
+      "info": null,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 104,
+          "display": "Aria",
+          "sheets": 1,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "star",
+          "frame": "frame-gold"
+        },
+        {
+          "id": 174,
+          "display": "Aria (dark)",
+          "sheets": 1,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "moon",
+          "frame": "frame-red"
+        }
+      ]
+    },
+    {
+      "id": 105,
+      "unifiedColor": false,
+      "font": "f:1logwqt-e5gbu1-wwd",
+      "hasInfo": false,
+      "info": null,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 106,
+          "display": "Bram",
+          "sheets": 2,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "shield",
+          "frame": "(follow)"
+        }
+      ]
+    },
+    {
+      "id": 107,
+      "unifiedColor": false,
+      "font": null,
+      "hasInfo": false,
+      "info": null,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 108,
+          "display": "Cleo",
+          "sheets": 2,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "leaf",
+          "frame": "(follow)"
+        }
+      ]
+    },
+    {
+      "id": 109,
+      "unifiedColor": false,
+      "font": null,
+      "hasInfo": false,
+      "info": null,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 110,
+          "display": "Dax",
+          "sheets": 2,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "bolt",
+          "frame": "(none)"
+        }
+      ]
+    },
+    {
+      "id": 111,
+      "unifiedColor": false,
+      "font": "serif",
+      "hasInfo": false,
+      "info": null,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 112,
+          "display": "艾莉",
+          "sheets": 2,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "heart",
+          "frame": "(follow)"
+        }
+      ]
+    }
+  ],
+  "relLibrary": [
+    {
+      "id": 114,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 113,
+          "label": "Ally",
+          "color": "#58b368",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "sheets": 2
+        }
+      ]
+    },
+    {
+      "id": 116,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 115,
+          "label": "Rival",
+          "color": "#c0392b",
+          "lineStyle": "dashed",
+          "capStyle": "arrow",
+          "sheets": 2
+        }
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "id": 117,
+      "text": "Guard",
+      "frame": "frame-red"
+    }
+  ],
+  "radarLib": [
+    {
+      "id": 118,
+      "name": "能力值",
+      "axes": [
+        {
+          "id": 124,
+          "label": "力量",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 125,
+          "label": "敏捷",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 126,
+          "label": "智力",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 127,
+          "label": "魅力",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 128,
+          "label": "運氣",
+          "max": 10,
+          "unit": ""
+        },
+        {
+          "id": 129,
+          "label": "體力",
+          "max": 500,
+          "unit": "HP"
+        }
+      ],
+      "chart": "radar",
+      "shape": "poly",
+      "rings": 5,
+      "valMode": "raw",
+      "shared": false
+    },
+    {
+      "id": 130,
+      "name": "屬性比例",
+      "axes": [
+        {
+          "id": 136,
+          "label": "火",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 137,
+          "label": "水",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 138,
+          "label": "風",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 139,
+          "label": "土",
+          "max": 100,
+          "unit": ""
+        }
+      ],
+      "chart": "pie",
+      "shape": "poly",
+      "rings": 4,
+      "valMode": "pct",
+      "shared": false
+    },
+    {
+      "id": 140,
+      "name": "技能熟練度",
+      "axes": [
+        {
+          "id": 146,
+          "label": "劍術",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 147,
+          "label": "魔法",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 148,
+          "label": "料理",
+          "max": 100,
+          "unit": ""
+        }
+      ],
+      "chart": "gauge",
+      "shape": "poly",
+      "rings": 4,
+      "valMode": "pct",
+      "shared": true
+    },
+    {
+      "id": 149,
+      "name": "成長曲線",
+      "axes": [
+        {
+          "id": 155,
+          "label": "一章",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 156,
+          "label": "二章",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 157,
+          "label": "三章",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 158,
+          "label": "四章",
+          "max": 100,
+          "unit": ""
+        }
+      ],
+      "chart": "line",
+      "shape": "poly",
+      "rings": 3,
+      "valMode": "raw",
+      "shared": false
+    },
+    {
+      "id": 159,
+      "name": "裝備",
+      "axes": [
+        {
+          "id": 165,
+          "label": "攻擊",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 166,
+          "label": "防禦",
+          "max": 100,
+          "unit": ""
+        },
+        {
+          "id": 167,
+          "label": "速度",
+          "max": 100,
+          "unit": ""
+        }
+      ],
+      "chart": "bar",
+      "shape": "circle",
+      "rings": 4,
+      "valMode": "none",
+      "shared": false
+    }
+  ],
+  "richImgs": []
+}

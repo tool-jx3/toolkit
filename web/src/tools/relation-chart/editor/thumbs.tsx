@@ -1,5 +1,6 @@
 /**
  * 清單用的小圖：角色的小頭像、關係類型的線型樣本（和畫布同一份畫法，底色用畫布配色）。
+ * 戴頭像框的角色（第三批）：框畫滿整格、頭像縮到 62.5%（範本裡頭像佔 320/512；原作的 miniFrameWrap），整體大小不變。
  */
 import { useId } from 'react';
 import {
@@ -7,6 +8,8 @@ import {
   charHasBorder,
   charIsSquare,
   charRingColor,
+  esc,
+  frameRefSource,
   NODE_R,
   PALETTES,
   type SheetCtx,
@@ -44,7 +47,14 @@ export function CharThumb({
   const shape = sq
     ? `<rect x="4" y="4" width="${r * 2}" height="${r * 2}"`
     : `<circle cx="${r + 4}" cy="${r + 4}" r="${r}"`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${r * 2 + 8} ${r * 2 + 8}" width="${size}" height="${size}"><defs>${face.defs}</defs>${shape} fill="${charBgPaint(ctx, c)}" stroke="${bd ? ring : 'none'}" stroke-width="${bd ? 6 : 0}"/>${face.face}</svg>`;
+  const W = r * 2 + 8;
+  const body = `${shape} fill="${charBgPaint(ctx, c)}" stroke="${bd ? ring : 'none'}" stroke-width="${bd ? 6 : 0}"/>${face.face}`;
+  const fid = frameRefSource(ctx, c)?.id;
+  const furl = fid ? href(fid) : null;
+  const inner = furl
+    ? `<g transform="translate(${W / 2} ${W / 2}) scale(0.625) translate(${-W / 2} ${-W / 2})">${body}</g><image href="${esc(furl)}" x="0" y="0" width="${W}" height="${W}"/>`
+    : body;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${W}" width="${size}" height="${size}"><defs>${face.defs}</defs>${inner}</svg>`;
   return (
     <span
       aria-hidden

@@ -152,6 +152,12 @@ function datasets(): Dataset[] {
         labels: conv.labels,
         nextId: 100000,
         font,
+        /* 第三批：讀原作的檔也讀進角色庫與關係庫（畫出來要和第一批相同） */
+        library: conv.library,
+        relLibrary: conv.relLibrary,
+        radarTpls: conv.radarTpls,
+        frames: [],
+        fonts: [],
       },
     });
   }
@@ -161,7 +167,18 @@ function datasets(): Dataset[] {
     s.defNo = 1;
     out.push({
       name: `sample:${key}`,
-      project: { sheets: [s], active: 0, labels: [], nextId: 100000, font: 'sans' },
+      project: {
+        sheets: [s],
+        active: 0,
+        labels: [],
+        nextId: 100000,
+        font: 'sans',
+        library: [],
+        relLibrary: [],
+        radarTpls: [],
+        frames: [],
+        fonts: [],
+      },
     });
   }
   const g1 = generated(7, 40, 1400, 1000);

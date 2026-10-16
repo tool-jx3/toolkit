@@ -224,9 +224,10 @@ describe('讀原作的專案檔：標籤與群體（3.9）', () => {
   });
   it('標籤的顏色與開關、分頁設定、收合、群體關係', () => {
     const conv = convertLegacy(raw());
+    /* 第三批起標籤的頭像框也讀進來（先留原作的雜湊，讀了 frames/ 才換成資產 id） */
     expect(conv.labels).toEqual([
       makeLabel(50, '王國', { color: '#123456', zone: true }),
-      makeLabel(51, '騎士', { hidden: true, noPull: true }),
+      makeLabel(51, '騎士', { hidden: true, noPull: true, frame: 'abc' }),
     ]);
     const s = conv.sheets[0];
     expect(s.settings.showLabelNodes).toBe(true);
@@ -238,8 +239,7 @@ describe('讀原作的專案檔：標籤與群體（3.9）', () => {
       [60, 'L50', 'C2', 30, false, true, [1]],
       [61, 'L51', 'L50', 30, true, false, []],
     ]);
-    expect(conv.skipped).toContain('頭像框');
-    expect(conv.skipped.join()).not.toMatch(/群體關係|陣營框|引力/);
+    expect(conv.skipped.join()).not.toMatch(/群體關係|陣營框|引力|頭像框/);
   });
   it('加入為新分頁：id 換成專案的，端點、例外、收合、標籤節點位置、名稱角度跟著換', () => {
     const conv = convertLegacy(raw());
@@ -429,8 +429,8 @@ describe('標籤節點的位置（F182f、F182k、F182l）', () => {
 
 /* ---------- 動作（store） ---------- */
 
-function seed(p: Project) {
-  useProject.getState().replace(p);
+function seed(p: Omit<Project, 'library' | 'relLibrary' | 'radarTpls' | 'frames' | 'fonts'>) {
+  useProject.getState().replace(normalizeProject(p) as Project);
   useProject.temporal.getState().clear();
   useUi.setState({ sel: [], focus: null, hover: null, link: null, panel: null });
 }
@@ -459,9 +459,11 @@ describe('標籤庫的動作（F181）', () => {
   });
   it('新增：同名沿用；空白＝未命名標籤 N；加在最後', () => {
     expect(createLabel('甲')).toBe(1);
+    /* 新的 id 照專案的 nextId（第三批起整理時角色庫也會用掉幾個 id） */
+    const next = data().nextId;
     const id = createLabel('丙');
     expect(data().labels.map((l) => l.text)).toEqual(['甲', '乙', '丙']);
-    expect(id).toBe(1000);
+    expect(id).toBe(next);
     createLabel();
     expect(data().labels[3].text).toBe('未命名標籤1');
   });

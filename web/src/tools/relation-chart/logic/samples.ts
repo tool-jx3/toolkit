@@ -43,6 +43,7 @@ const sheet = (
   rels,
   types,
   bg: null,
+  views: {},
   settings: newSettings(),
   grels: [],
   collapsed: [],

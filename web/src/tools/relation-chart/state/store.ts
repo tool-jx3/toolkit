@@ -9,12 +9,13 @@ import { create } from 'zustand';
 import type { StateStorage } from 'zustand/middleware';
 import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
+import { syncLibrary } from '../model/library';
 import { initialProject, normalizeProject, projectAssetIds } from '../model/normalize';
 import type { ColorValue, Project, Sheet } from '../model/types';
 
 export const TOOL_ID = 'relation-chart';
-/** 專案檔與自動儲存的資料版本 */
-export const DATA_VERSION = 2;
+/** 專案檔與自動儲存的資料版本（3：角色庫、關係庫、數值、頭像框、匯入字型、看法） */
+export const DATA_VERSION = 3;
 
 /** 寫入 localStorage 延後一點（連續變更只寫最後一次）；離開頁面、切到背景時立刻寫 */
 function deferredStorage(delayMs = 400, onError?: (e: unknown) => void): StateStorage {
@@ -111,14 +112,13 @@ export function syncProject(): void {
 }
 export function updateProject(recipe: ProjectRecipe): void {
   const pre = beforeUpdate;
-  useProject.getState().update(
-    pre
-      ? (p) => {
-          pre(p);
-          recipe(p);
-        }
-      : recipe,
-  );
+  const prev = useProject.getState().data;
+  useProject.getState().update((p) => {
+    pre?.(p);
+    recipe(p);
+    /* 角色的三層、關係類型與關係庫對齊（model/library） */
+    syncLibrary(p as Project, prev);
+  });
 }
 
 /*
@@ -158,6 +158,8 @@ export interface Prefs {
   libSideW: number;
   libLevel: 'min' | 'normal' | 'detail';
   libSize: 'sm' | 'md' | 'lg';
+  /** 角色庫、關係庫依分頁分組（第三批） */
+  libGroup: boolean;
   nameFromFile: boolean;
   minimap: boolean;
   exportFormat: ExportFormat;
@@ -172,6 +174,7 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   libSideW: 240,
   libLevel: 'detail',
   libSize: 'sm',
+  libGroup: true,
   nameFromFile: false,
   minimap: true,
   exportFormat: 'png',
@@ -212,6 +215,8 @@ export type Panel =
   | { kind: 'type'; id: number }
   | { kind: 'grel'; id: number }
   | { kind: 'coledge'; key: string }
+  /** 角色資訊（第三批；id＝角色） */
+  | { kind: 'info'; id: number }
   | null;
 
 export type DialogKind =
@@ -224,6 +229,11 @@ export type DialogKind =
   | 'export'
   | 'samples'
   | 'crop'
+  /* 第三批 */
+  | 'radarCompare'
+  | 'radarTpl'
+  | 'frames'
+  | 'fonts'
   | null;
 
 export interface View {
@@ -250,10 +260,26 @@ export interface UiState {
   simRunning: boolean;
   /** 分頁改名中 */
   renaming: number | null;
-  /** 檔案庫開著（這一批只有標籤庫） */
+  /** 檔案庫開著、目前的頁籤 */
   libOpen: boolean;
-  /** 標籤庫的模式（null＝一般：點標籤＝在左欄設定它） */
+  libTab: LibTab;
+  /** 目前頁籤的模式（null＝一般：點一項＝在左欄看它） */
   libMode: LibMode | null;
+  /** 角色庫、關係庫左欄的條目 */
+  libPick: number | null;
+  /** 只看未使用的變體 */
+  libUnused: boolean;
+  /** 角色庫用標籤篩選（標籤 id）、挑選標籤中 */
+  libLabelFilter: number | null;
+  libLabelPick: boolean;
+  /** 交換位置模式（pick＝挑起的角色） */
+  swap: { pick: number | null } | null;
+  /** 數值圖表：目前的範本、圖上隱藏的序列、比較的兩位角色 */
+  radarTpl: number | null;
+  radarHide: string[];
+  compare: { a: number | null; b: number | null };
+  /** 範本設定關掉時回到哪個對話框（從數值比較進去的＝回數值比較） */
+  radarBack: DialogKind;
   /** 左欄設定中的標籤 */
   libSel: number | null;
   /** 編輯模式中載入的標籤 */
@@ -262,7 +288,9 @@ export interface UiState {
   libColor: ColorValue;
 }
 
-export type LibMode = 'edit' | 'hide' | 'pull' | 'zone' | 'del';
+export type LibTab = 'chars' | 'rels' | 'labels' | 'table';
+/** 標籤庫：編輯、隱藏、引力、陣營框、刪除；角色庫與關係庫：匯入、複製、刪除；連線總表：刪除 */
+export type LibMode = 'edit' | 'hide' | 'pull' | 'zone' | 'del' | 'import' | 'copy';
 
 export const useUi = create<UiState>(() => ({
   sel: [],
@@ -278,7 +306,17 @@ export const useUi = create<UiState>(() => ({
   simRunning: false,
   renaming: null,
   libOpen: false,
+  libTab: 'chars',
   libMode: null,
+  libPick: null,
+  libUnused: false,
+  libLabelFilter: null,
+  libLabelPick: false,
+  swap: null,
+  radarTpl: null,
+  radarHide: [],
+  compare: { a: null, b: null },
+  radarBack: null,
   libSel: null,
   libEdit: null,
   libColor: 'auto',

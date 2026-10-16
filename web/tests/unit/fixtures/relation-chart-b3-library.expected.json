@@ -1,0 +1,618 @@
+{
+  "file": "b3-library.zip",
+  "docFont": "serif",
+  "fonts": {},
+  "frames": {},
+  "sheets": [
+    {
+      "name": "第一部：學院篇",
+      "W": 1200,
+      "H": 900,
+      "defFrame": null,
+      "chars": [
+        {
+          "id": 1,
+          "libId": 105,
+          "varId": 106,
+          "display": "艾莉絲",
+          "level": 3,
+          "x": 600,
+          "y": 420,
+          "frame": null,
+          "frameSrcLayer": "follow",
+          "nameFontStyle": null,
+          "labels": [
+            "學生"
+          ],
+          "radar": [],
+          "card": "# 艾莉絲\n\n標籤：學生\n角色重要度：H3\n\n## 角色資訊\n背景\n出身邊境小鎮的見習魔法師，十五歲入學。\n擅長治癒魔法\n怕水\n屬性光\n武器法杖\n\n設定集\n\n## 關係\n- ⇄ 友情 雷恩\n- ← 敵對 黑影 Shadow\n- ← 師徒 院長\n\n## 看法\n- → 雷恩：「可靠的夥伴」\n- ← 雷恩：「得保護她」\n- ← 莉莉：「情敵！」\n"
+        },
+        {
+          "id": 2,
+          "libId": 107,
+          "varId": 108,
+          "display": "雷恩",
+          "level": 2,
+          "x": 880,
+          "y": 300,
+          "frame": null,
+          "frameSrcLayer": "follow",
+          "nameFontStyle": null,
+          "labels": [
+            "騎士團"
+          ],
+          "radar": [],
+          "card": "# 雷恩\n\n標籤：騎士團\n角色重要度：H2\n\n## 角色資訊\n騎士團最年輕的團員。\n\n## 關係\n- ⇄ 友情 艾莉絲\n- ← 師徒 院長\n- ← 戀愛（單戀） 莉莉\n\n## 看法\n- → 艾莉絲：「得保護她」\n- ← 艾莉絲：「可靠的夥伴」\n"
+        },
+        {
+          "id": 3,
+          "libId": 109,
+          "varId": 110,
+          "display": "莉莉",
+          "level": 0,
+          "x": 880,
+          "y": 600,
+          "frame": null,
+          "frameSrcLayer": "follow",
+          "nameFontStyle": null,
+          "labels": [
+            "學生"
+          ],
+          "radar": [],
+          "card": "# 莉莉\n\n標籤：學生\n\n## 關係\n- → 戀愛（單戀） 雷恩\n\n## 看法\n- → 艾莉絲：「情敵！」\n"
+        },
+        {
+          "id": 4,
+          "libId": 111,
+          "varId": 112,
+          "display": "黑影 Shadow",
+          "level": 0,
+          "x": 300,
+          "y": 260,
+          "frame": null,
+          "frameSrcLayer": "follow",
+          "nameFontStyle": null,
+          "labels": [],
+          "radar": [],
+          "card": "# 黑影 Shadow\n\n## 關係\n- → 敵對 艾莉絲\n\n## 看法\n- → 院長：「老狐狸」\n- ← 院長：「早就察覺了」\n"
+        },
+        {
+          "id": 5,
+          "libId": 113,
+          "varId": 114,
+          "display": "院長",
+          "level": 1,
+          "x": 320,
+          "y": 620,
+          "frame": null,
+          "frameSrcLayer": "follow",
+          "nameFontStyle": " style=\"font-family:&quot;Kaiti TC&quot;,&quot;BiauKai&quot;,KaiTi,DFKai-SB,&quot;Noto Sans TC&quot;,serif\"",
+          "labels": [],
+          "radar": [],
+          "card": "# 院長\n\n角色重要度：H1\n\n## 關係\n- → 師徒 艾莉絲\n- → 師徒 雷恩\n\n## 看法\n- → 黑影 Shadow：「早就察覺了」\n- ← 黑影 Shadow：「老狐狸」\n"
+        }
+      ],
+      "relTable": [
+        "艾莉絲 ⇄ 友情 ⇄ 雷恩",
+        "院長 → 師徒 → 艾莉絲",
+        "院長 → 師徒 → 雷恩",
+        "莉莉 → 戀愛（單戀） → 雷恩",
+        "黑影 Shadow → 敵對 → 艾莉絲｜覬覦她的力量"
+      ],
+      "types": [
+        {
+          "id": 101,
+          "label": "友情",
+          "color": "#2ecc71",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "relLibId": 116,
+          "relVarId": 115
+        },
+        {
+          "id": 102,
+          "label": "戀愛",
+          "color": "#e0607e",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "relLibId": 118,
+          "relVarId": 117
+        },
+        {
+          "id": 103,
+          "label": "敵對",
+          "color": "#c0392b",
+          "lineStyle": "dashed",
+          "capStyle": "arrow",
+          "relLibId": 120,
+          "relVarId": 119
+        },
+        {
+          "id": 104,
+          "label": "師徒",
+          "color": "#4a90d9",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "relLibId": 122,
+          "relVarId": 121
+        },
+        {
+          "id": 129,
+          "label": "戀愛（單戀）",
+          "color": "#e0607e",
+          "lineStyle": "dashed",
+          "capStyle": "heart",
+          "relLibId": 118,
+          "relVarId": 128
+        }
+      ],
+      "views": {
+        "1": {
+          "2": "可靠的夥伴"
+        },
+        "2": {
+          "1": "得保護她"
+        },
+        "3": {
+          "1": "情敵！"
+        },
+        "4": {
+          "5": "老狐狸"
+        },
+        "5": {
+          "4": "早就察覺了"
+        }
+      },
+      "notes": [],
+      "stagePad": 0
+    },
+    {
+      "name": "第二部：覺醒篇",
+      "W": 1200,
+      "H": 900,
+      "defFrame": null,
+      "chars": [
+        {
+          "id": 1,
+          "libId": 105,
+          "varId": 123,
+          "display": "艾莉絲（魔女化）",
+          "level": 3,
+          "x": 600,
+          "y": 420,
+          "frame": null,
+          "frameSrcLayer": "follow",
+          "nameFontStyle": null,
+          "labels": [],
+          "radar": [],
+          "card": "# 艾莉絲（魔女化）\n\n角色重要度：H3\n\n## 角色資訊\n背景\n出身邊境小鎮的見習魔法師，十五歲入學。\n擅長治癒魔法\n怕水\n屬性光\n武器法杖\n\n設定集\n\n## 關係\n- ⇄ 友情 雷恩隊長\n- ← 敵對 黑影 Shadow\n- ← 師徒 院長\n- ← 戀愛 雷恩隊長\n\n## 看法\n- → 雷恩隊長：「對不起……」\n- ← 黑影 Shadow：「終於覺醒了」\n"
+        },
+        {
+          "id": 2,
+          "libId": 107,
+          "varId": 124,
+          "display": "雷恩隊長",
+          "level": 2,
+          "x": 880,
+          "y": 300,
+          "frame": null,
+          "frameSrcLayer": "follow",
+          "nameFontStyle": null,
+          "labels": [
+            "騎士團",
+            "隊長"
+          ],
+          "radar": [],
+          "card": "# 雷恩隊長\n\n標籤：騎士團、隊長\n角色重要度：H2\n\n## 角色資訊\n騎士團最年輕的團員。\n\n## 關係\n- ⇄ 友情 艾莉絲（魔女化）\n- ← 師徒 院長\n- → 戀愛 艾莉絲（魔女化）\n\n## 看法\n- ← 艾莉絲（魔女化）：「對不起……」\n"
+        },
+        {
+          "id": 4,
+          "libId": 111,
+          "varId": 112,
+          "display": "黑影 Shadow",
+          "level": 0,
+          "x": 300,
+          "y": 260,
+          "frame": null,
+          "frameSrcLayer": "follow",
+          "nameFontStyle": null,
+          "labels": [],
+          "radar": [],
+          "card": "# 黑影 Shadow\n\n## 關係\n- → 敵對 艾莉絲（魔女化）\n\n## 看法\n- → 艾莉絲（魔女化）：「終於覺醒了」\n"
+        },
+        {
+          "id": 5,
+          "libId": 113,
+          "varId": 114,
+          "display": "院長",
+          "level": 1,
+          "x": 320,
+          "y": 620,
+          "frame": null,
+          "frameSrcLayer": "follow",
+          "nameFontStyle": " style=\"font-family:&quot;Kaiti TC&quot;,&quot;BiauKai&quot;,KaiTi,DFKai-SB,&quot;Noto Sans TC&quot;,serif\"",
+          "labels": [],
+          "radar": [],
+          "card": "# 院長\n\n角色重要度：H1\n\n## 關係\n- → 師徒 艾莉絲（魔女化）\n- → 師徒 雷恩隊長\n"
+        }
+      ],
+      "relTable": [
+        "艾莉絲（魔女化） ⇄ 友情 ⇄ 雷恩隊長",
+        "院長 → 師徒 → 艾莉絲（魔女化）",
+        "院長 → 師徒 → 雷恩隊長",
+        "黑影 Shadow → 敵對 → 艾莉絲（魔女化）｜覬覦她的力量",
+        "雷恩隊長 → 戀愛 → 艾莉絲（魔女化）｜說不出口"
+      ],
+      "types": [
+        {
+          "id": 101,
+          "label": "友情",
+          "color": "#2ecc71",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "relLibId": 116,
+          "relVarId": 115
+        },
+        {
+          "id": 102,
+          "label": "戀愛",
+          "color": "#e0607e",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "relLibId": 118,
+          "relVarId": 117
+        },
+        {
+          "id": 103,
+          "label": "敵對",
+          "color": "#c0392b",
+          "lineStyle": "dashed",
+          "capStyle": "arrow",
+          "relLibId": 120,
+          "relVarId": 119
+        },
+        {
+          "id": 104,
+          "label": "師徒",
+          "color": "#4a90d9",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "relLibId": 122,
+          "relVarId": 121
+        },
+        {
+          "id": 129,
+          "label": "戀愛（單戀）",
+          "color": "#e0607e",
+          "lineStyle": "dashed",
+          "capStyle": "heart",
+          "relLibId": 118,
+          "relVarId": 128
+        }
+      ],
+      "views": {
+        "1": {
+          "2": "對不起……"
+        },
+        "4": {
+          "1": "終於覺醒了"
+        }
+      },
+      "notes": [],
+      "stagePad": 0
+    },
+    {
+      "name": "番外：路人日記",
+      "W": 800,
+      "H": 600,
+      "defFrame": null,
+      "chars": [
+        {
+          "id": 138,
+          "libId": 105,
+          "varId": 106,
+          "display": "艾莉絲",
+          "level": 0,
+          "x": 250,
+          "y": 300,
+          "frame": null,
+          "frameSrcLayer": "follow",
+          "nameFontStyle": null,
+          "labels": [
+            "學生"
+          ],
+          "radar": [],
+          "card": "# 艾莉絲\n\n標籤：學生\n\n## 角色資訊\n背景\n出身邊境小鎮的見習魔法師，十五歲入學。\n擅長治癒魔法\n怕水\n屬性光\n武器法杖\n\n設定集\n\n## 關係\n- ← 友情 路人甲（變裝）\n\n## 看法\n- ← 路人甲（變裝）：「好像在哪見過」\n"
+        },
+        {
+          "id": 139,
+          "libId": 134,
+          "varId": 136,
+          "display": "路人甲（變裝）",
+          "level": 0,
+          "x": 550,
+          "y": 300,
+          "frame": null,
+          "frameSrcLayer": "follow",
+          "nameFontStyle": null,
+          "labels": [],
+          "radar": [],
+          "card": "# 路人甲（變裝）\n\n## 關係\n- → 友情 艾莉絲\n\n## 看法\n- → 艾莉絲：「好像在哪見過」\n"
+        }
+      ],
+      "relTable": [
+        "路人甲（變裝） → 友情 → 艾莉絲｜在圖書館遇到"
+      ],
+      "types": [
+        {
+          "id": 140,
+          "label": "友情",
+          "color": "#2ecc71",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "relLibId": 116,
+          "relVarId": 115
+        }
+      ],
+      "views": {
+        "139": {
+          "138": "好像在哪見過"
+        }
+      },
+      "notes": [],
+      "stagePad": 0
+    }
+  ],
+  "library": [
+    {
+      "id": 105,
+      "unifiedColor": false,
+      "font": null,
+      "hasInfo": true,
+      "info": "<h2>背景</h2><p>出身<strong>邊境小鎮</strong>的見習魔法師，<span style=\"color:rgb(192, 57, 43)\">十五歲</span>入學。</p><ul><li>擅長治癒魔法</li><li>怕水</li></ul><table><tbody><tr><th>屬性</th><td>光</td></tr><tr><th>武器</th><td>法杖</td></tr></tbody></table><p><img src=\"rcimg:cqmk04-we7lku-2za\"></p><p><a href=\"https://example.com\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">設定集</a></p>",
+      "usage": 3,
+      "variants": [
+        {
+          "id": 106,
+          "display": "艾莉絲",
+          "sheets": 2,
+          "hasImg": true,
+          "hasSrc": true,
+          "icon": null,
+          "frame": "(follow)"
+        },
+        {
+          "id": 123,
+          "display": "艾莉絲（魔女化）",
+          "sheets": 1,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "moon",
+          "frame": "(follow)"
+        }
+      ]
+    },
+    {
+      "id": 107,
+      "unifiedColor": true,
+      "font": null,
+      "hasInfo": true,
+      "info": "<p>騎士團最年輕的團員。</p>",
+      "usage": 2,
+      "variants": [
+        {
+          "id": 108,
+          "display": "雷恩",
+          "sheets": 1,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "shield",
+          "frame": "(follow)"
+        },
+        {
+          "id": 124,
+          "display": "雷恩隊長",
+          "sheets": 1,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "crown",
+          "frame": "(follow)"
+        }
+      ]
+    },
+    {
+      "id": 109,
+      "unifiedColor": false,
+      "font": null,
+      "hasInfo": false,
+      "info": null,
+      "usage": 1,
+      "variants": [
+        {
+          "id": 110,
+          "display": "莉莉",
+          "sheets": 1,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "flower",
+          "frame": "(follow)"
+        }
+      ]
+    },
+    {
+      "id": 111,
+      "unifiedColor": false,
+      "font": null,
+      "hasInfo": false,
+      "info": null,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 112,
+          "display": "黑影\nShadow",
+          "sheets": 2,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": null,
+          "frame": "(follow)"
+        }
+      ]
+    },
+    {
+      "id": 113,
+      "unifiedColor": false,
+      "font": "kai",
+      "hasInfo": false,
+      "info": null,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 114,
+          "display": "院長",
+          "sheets": 2,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "book",
+          "frame": "(follow)"
+        }
+      ]
+    },
+    {
+      "id": 134,
+      "unifiedColor": false,
+      "font": null,
+      "hasInfo": false,
+      "info": null,
+      "usage": 1,
+      "variants": [
+        {
+          "id": 135,
+          "display": "路人甲",
+          "sheets": 0,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "ghost",
+          "frame": "(follow)"
+        },
+        {
+          "id": 136,
+          "display": "路人甲（變裝）",
+          "sheets": 1,
+          "hasImg": false,
+          "hasSrc": false,
+          "icon": "eye",
+          "frame": "(follow)"
+        }
+      ]
+    }
+  ],
+  "relLibrary": [
+    {
+      "id": 116,
+      "usage": 3,
+      "variants": [
+        {
+          "id": 115,
+          "label": "友情",
+          "color": "#2ecc71",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "sheets": 3
+        },
+        {
+          "id": 131,
+          "label": "友情（表面）",
+          "color": "#58b368",
+          "lineStyle": "dotted",
+          "capStyle": "arrow",
+          "sheets": 0
+        }
+      ]
+    },
+    {
+      "id": 118,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 117,
+          "label": "戀愛",
+          "color": "#e0607e",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "sheets": 2
+        },
+        {
+          "id": 128,
+          "label": "戀愛（單戀）",
+          "color": "#e0607e",
+          "lineStyle": "dashed",
+          "capStyle": "heart",
+          "sheets": 2
+        }
+      ]
+    },
+    {
+      "id": 120,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 119,
+          "label": "敵對",
+          "color": "#c0392b",
+          "lineStyle": "dashed",
+          "capStyle": "arrow",
+          "sheets": 2
+        }
+      ]
+    },
+    {
+      "id": 122,
+      "usage": 2,
+      "variants": [
+        {
+          "id": 121,
+          "label": "師徒",
+          "color": "#4a90d9",
+          "lineStyle": "solid",
+          "capStyle": "arrow",
+          "sheets": 2
+        }
+      ]
+    },
+    {
+      "id": 133,
+      "usage": 0,
+      "variants": [
+        {
+          "id": 132,
+          "label": "背叛",
+          "color": "#333333",
+          "lineStyle": "zigzag",
+          "capStyle": "bar",
+          "sheets": 0
+        }
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "id": 125,
+      "text": "騎士團",
+      "frame": null
+    },
+    {
+      "id": 126,
+      "text": "隊長",
+      "frame": null
+    },
+    {
+      "id": 127,
+      "text": "學生",
+      "frame": null
+    }
+  ],
+  "radarLib": [],
+  "richImgs": [
+    "cqmk04-we7lku-2za"
+  ]
+}

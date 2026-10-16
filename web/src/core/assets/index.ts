@@ -111,15 +111,39 @@ export async function assetIdFor(bytes: Uint8Array): Promise<string> {
   return digest ? `a${bytesToHex(digest.slice(0, 12))}` : `a${fallbackHash(bytes)}`;
 }
 
+export type FontFileType = 'ttf' | 'otf' | 'woff' | 'woff2';
+
+export const FONT_FILE_INFO: Record<FontFileType, { ext: string; mime: string }> = {
+  ttf: { ext: 'ttf', mime: 'font/ttf' },
+  otf: { ext: 'otf', mime: 'font/otf' },
+  woff: { ext: 'woff', mime: 'font/woff' },
+  woff2: { ext: 'woff2', mime: 'font/woff2' },
+};
+
+/** 依檔頭判斷字型檔（TrueType、OpenType、WOFF、WOFF2；認不得時 null） */
+export function detectFontType(bytes: Uint8Array): FontFileType | null {
+  if (bytes.length < 4) return null;
+  const tag = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
+  if (tag === 'wOFF') return 'woff';
+  if (tag === 'wOF2') return 'woff2';
+  if (tag === 'OTTO') return 'otf';
+  if (tag === 'true' || (bytes[0] === 0 && bytes[1] === 1 && bytes[2] === 0 && bytes[3] === 0))
+    return 'ttf';
+  return null;
+}
+
 /**
  * 依檔頭推副檔名與 MIME（認不得時 png）。圖片以外也認得常見的音訊檔（MP3、WAV、OGG、FLAC、M4A、AAC、WebM；
- * music-frame 把音樂放進同一個資產庫時新增，圖片的結果不變）。
+ * music-frame 把音樂放進同一個資產庫時新增）與字型檔（TTF、OTF、WOFF、WOFF2；relation-chart 的匯入字型放進
+ * 資產庫時新增）。圖片與音訊的結果不變。
  */
 export function assetFileInfo(bytes: Uint8Array): { ext: string; mime: string } {
   const kind = detectImageType(bytes);
   if (kind) return { ext: EXT[kind], mime: MIME[kind] };
   const audio = detectAudioType(bytes);
   if (audio) return AUDIO_FILE_INFO[audio];
+  const font = detectFontType(bytes);
+  if (font) return FONT_FILE_INFO[font];
   return { ext: 'png', mime: 'image/png' };
 }
 

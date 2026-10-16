@@ -2,7 +2,12 @@
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 專案資料的型別（規格 3.8）。欄位的意義照原作（角色、關係類型＝原作的 tag、關係線＝rel、分頁層級設定），
- * 結構是本站自己的：沒有角色庫（D5），圖片存資產 id。
+ * 結構是本站自己的：圖片、頭像框、匯入的字型都存資產 id。
+ *
+ * 第三批：角色分成三層（原作的做法）——分頁上的角色（實例：座標、重要度、釘選）、變體（外觀：名字、顏色、頭像、
+ * 尺寸、框、標籤、數值）、條目（這個人：角色資訊、角色字型、統一顏色）。實例上仍留著變體與條目的外觀欄位
+ * （副本，畫法引擎照舊讀攤平的角色）；變體才是正本，改動由 state/store 的 updateProject 同步（model/library.ts）。
+ * 關係類型同樣綁一件關係庫的變體（名稱與樣式是副本；顯示、圖例、捆綁忽略是各分頁自己的）。
  */
 import type { FramePlacement } from '@/core/image';
 
@@ -43,8 +48,15 @@ export interface Avatar {
   place: FramePlacement | null;
 }
 
+/** 角色的字型：''＝跟隨文件字型；內建字型組或 `f:<資產 id>`（匯入的字型） */
+export type CharFont = '' | FontValue;
+
+/** 實例（分頁上的角色）；name～frame、font 是變體與條目的副本 */
 export interface Char {
   id: number;
+  /** 條目 id、變體 id（角色庫） */
+  lib: number;
+  vari: number;
   name: string;
   x: number;
   y: number;
@@ -70,6 +82,50 @@ export interface Char {
   nameSize: number | null;
   borderW: number | null;
   labels: number[];
+  /** 頭像框：null＝跟隨標籤、''＝不使用框、資產 id＝那張框（變體的副本） */
+  frame: string | null;
+  /** 角色字型（條目的副本） */
+  font: CharFont;
+}
+
+/** 一個狀態的數值（範本 id、狀態名、軸 id → 值） */
+export interface RadarVals {
+  tpl: number;
+  state: string;
+  vals: Record<string, number>;
+}
+
+/** 變體：衣櫃裡的一件（外觀） */
+export interface Variant {
+  id: number;
+  name: string;
+  color: ColorValue;
+  nameColor: ColorValue;
+  avatar: Avatar | null;
+  icon: string | null;
+  noAvatar: boolean;
+  shape: Shape;
+  noBorder: boolean;
+  noBg: boolean;
+  borderOn: boolean;
+  bgOn: boolean;
+  size: number | null;
+  nameSize: number | null;
+  borderW: number | null;
+  labels: number[];
+  frame: string | null;
+  radars: RadarVals[];
+}
+
+/** 角色庫的條目（這個人） */
+export interface CharEntry {
+  id: number;
+  variants: Variant[];
+  /** 確保是同一人（所有變體共用顏色） */
+  unified: boolean;
+  /** 角色資訊（淨化過的 HTML；圖片寫成 `rcimg:<資產 id>`） */
+  info: string;
+  font: CharFont;
 }
 
 export interface Rel {
@@ -96,6 +152,9 @@ export interface Rel {
 
 export interface RelType {
   id: number;
+  /** 關係庫的條目與變體（0＝沒有綁定：刪掉變體之後，下次改動或開檔時重新收錄） */
+  lib: number;
+  vari: number;
   label: string;
   color: ColorValue;
   outlineColor: ColorValue;
@@ -110,6 +169,67 @@ export interface RelType {
   hidden: boolean;
   hideInLegend: boolean;
   pairSkip: boolean;
+}
+
+/** 關係庫的變體（同一個關係概念的一種樣式；分頁上的關係類型的正本） */
+export interface RelVariant {
+  id: number;
+  label: string;
+  color: ColorValue;
+  outlineColor: ColorValue;
+  lineStyle: LineStyle;
+  capStyle: CapStyle;
+  lineW: number | null;
+  outlineW: number | null;
+  mag: number;
+}
+
+export interface RelEntry {
+  id: number;
+  variants: RelVariant[];
+}
+
+/* ---- 數值圖表（第三批，F192） ---- */
+
+export type ChartKind = 'radar' | 'bar' | 'line' | 'pie' | 'gauge';
+
+export interface RadarAxis {
+  id: number;
+  label: string;
+  /** 上限（> 0） */
+  max: number;
+  unit: string;
+}
+
+/** 數值圖表的範本（整個專案共用） */
+export interface RadarTpl {
+  id: number;
+  name: string;
+  chart: ChartKind;
+  /** 雷達圖的格線：多邊形／圓形 */
+  shape: 'poly' | 'circle';
+  /** 環數（雷達圖）或格線數（長條、折線）1～8 */
+  rings: number;
+  valMode: 'raw' | 'pct' | 'none';
+  /** 全軸共用刻度 */
+  shared: boolean;
+  /** 3～12 軸 */
+  axes: RadarAxis[];
+}
+
+/** 頭像框（資產 id＋名稱） */
+export interface FrameItem {
+  id: string;
+  name: string;
+}
+
+export type FontFormat = 'ttf' | 'otf' | 'woff' | 'woff2';
+
+/** 匯入的字型（資產 id＋名稱＋格式） */
+export interface FontItem {
+  id: string;
+  name: string;
+  fmt: FontFormat;
 }
 
 export type LegendPos =
@@ -216,6 +336,9 @@ export interface SheetSettings {
   labelPos: Record<string, { x: number; y: number }>;
   /** 陣營名稱的方向（標籤 id → 弧度；沒有＝正上方） */
   zoneNameAng: Record<string, number>;
+  /* ---- 第三批 ---- */
+  /** 預設頭像框（資產 id；''＝不使用框） */
+  defFrame: string;
 }
 
 /** 群體關係的端點：`C<角色 id>` 或 `L<標籤 id>` */
@@ -252,6 +375,8 @@ export interface Sheet {
   grels: GroupRel[];
   /** 收合中的陣營（標籤 id；第二批） */
   collapsed: number[];
+  /** 看法：說話者的角色 id → 對象的角色 id → 一句話（第三批） */
+  views: Record<string, Record<string, string>>;
 }
 
 export interface Label {
@@ -262,14 +387,30 @@ export interface Label {
   hidden: boolean;
   noPull: boolean;
   zone: boolean;
+  /** 第三批：這個標籤的頭像框（資產 id；''＝不使用） */
+  frame: string;
 }
 
 export type FontKey = 'sans' | 'serif' | 'round' | 'kai' | 'mono';
+/** 字型：內建字型組或 `f:<資產 id>`（匯入的字型） */
+export type FontValue = FontKey | `f:${string}`;
 
 export interface Project {
   sheets: Sheet[];
   active: number;
   labels: Label[];
   nextId: number;
-  font: FontKey;
+  /** 文件字型 */
+  font: FontValue;
+  /* ---- 第三批 ---- */
+  /** 角色庫 */
+  library: CharEntry[];
+  /** 關係庫 */
+  relLibrary: RelEntry[];
+  /** 數值圖表的範本 */
+  radarTpls: RadarTpl[];
+  /** 頭像框庫 */
+  frames: FrameItem[];
+  /** 匯入的字型 */
+  fonts: FontItem[];
 }

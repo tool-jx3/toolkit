@@ -45,8 +45,11 @@ interface Live {
 }
 let live: Live | null = null;
 
-/** 工作副本的 ctx（帶專案的標籤） */
-export const liveCtx = (s: Sheet): SheetCtx => sheetCtx(s, projectNow().labels);
+/** 工作副本的 ctx（帶專案的標籤、字型與頭像框：框會改名字讓位的位置） */
+export const liveCtx = (s: Sheet): SheetCtx => {
+  const p = projectNow();
+  return sheetCtx(s, p.labels, { font: p.font, fonts: p.fonts, frames: p.frames });
+};
 
 /** 目前分頁正在用的工作副本（沒有時 null） */
 export function liveSheet(): Sheet | null {

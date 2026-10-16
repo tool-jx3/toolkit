@@ -4,6 +4,9 @@
  */
 import {
   AlignCenterHorizontal,
+  ArrowLeftRight,
+  BookOpen,
+  ChartSpline,
   ClipboardPaste,
   Copy,
   Download,
@@ -40,14 +43,34 @@ import { useSheet } from './hooks';
 import { MENU_CONTENT, MENU_ITEM, MENU_SEP } from './menu';
 import { importBackground } from './SettingsPanel';
 import { kickSim, stopSim } from './sim';
+import { toggleSwap } from './swap';
 import { redo, undo } from './undo';
 import { fitView } from './view';
+
+/** 角色資訊：正在編輯的角色 → 唯一選取的 → 聚焦的（原作的 infoTargetChar）；都沒有時提示 */
+function openInfo(notify: (m: string, warn?: boolean) => void): void {
+  const u = useUi.getState();
+  const id =
+    u.panel?.kind === 'char' || u.panel?.kind === 'info'
+      ? u.panel.id
+      : u.sel.length === 1
+        ? u.sel[0]
+        : u.focus?.kind === 'node'
+          ? u.focus.id
+          : null;
+  if (id === null || !activeSheet().chars.some((c) => c.id === id)) {
+    notify(S.info.pickHint, true);
+    return;
+  }
+  setUi({ panel: { kind: 'info', id } });
+}
 
 export function EditorBar() {
   const { canUndo, canRedo } = useUndoRedo(useProject);
   const sheet = useSheet();
   const simRunning = useUi((u) => u.simRunning);
   const minimap = usePrefs((p) => p.data.minimap);
+  const swapping = useUi((u) => !!u.swap);
   const toast = useToast();
   const confirm = useConfirm();
   const magnet = sheet.settings.snapMode;
@@ -199,6 +222,46 @@ export function EditorBar() {
             >
               <Shuffle />
               {S.more.shuffle}
+            </DropdownMenu.Item>
+            <DropdownMenu.CheckboxItem
+              className={MENU_ITEM}
+              checked={swapping}
+              title={S.swap.tip}
+              onSelect={(e) => e.preventDefault()}
+              onCheckedChange={(v) => toggleSwap(v)}
+              data-testid="menu-swap"
+            >
+              <ArrowLeftRight />
+              {S.swap.menu}
+              <DropdownMenu.ItemIndicator className="ml-auto text-xs">✓</DropdownMenu.ItemIndicator>
+            </DropdownMenu.CheckboxItem>
+            <DropdownMenu.Separator className={MENU_SEP} />
+            <DropdownMenu.Item
+              className={MENU_ITEM}
+              onSelect={() => openInfo(notify)}
+              data-testid="menu-info"
+            >
+              <BookOpen />
+              {S.info.open}
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className={MENU_ITEM}
+              onSelect={() => {
+                const u = useUi.getState();
+                const a =
+                  u.panel?.kind === 'char'
+                    ? u.panel.id
+                    : u.sel.length === 1
+                      ? u.sel[0]
+                      : u.focus?.kind === 'node'
+                        ? u.focus.id
+                        : null;
+                setUi({ dialog: 'radarCompare', compare: { a, b: null } });
+              }}
+              data-testid="menu-compare"
+            >
+              <ChartSpline />
+              {S.radar.compareTitle}…
             </DropdownMenu.Item>
             <DropdownMenu.Separator className={MENU_SEP} />
             <DropdownMenu.Item

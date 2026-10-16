@@ -11,6 +11,7 @@ import { Button, Checkbox, Dialog, Field, Segmented, TextInput, useToast } from 
 import { sheetName } from '../../engine/geom';
 import { buildExport, defaultExportBase, type ExportFormat, exportExt } from '../../export/outputs';
 import { viewerHtml } from '../../export/viewer';
+import { richImageIds } from '../../model/normalize';
 import { dataUris, drawnImageIds } from '../../state/images';
 import {
   activeIndex,
@@ -24,6 +25,7 @@ import {
   useUi,
 } from '../../state/store';
 import { S } from '../../strings';
+import { flushRichEditors } from '../RichEditor';
 
 const E = S.exportDlg;
 
@@ -45,15 +47,28 @@ function pickIndexes(scope: ExportScope, picked: ReadonlySet<number>): number[] 
 }
 
 async function prepare(idx: readonly number[], transparent: boolean) {
+  flushRichEditors();
   syncProject();
   const p = projectNow();
-  const uris = await dataUris(drawnImageIds(p, idx));
+  const sheets = idx.map((i) => p.sheets[i]);
+  /* 圖、頭像框、用到的匯入字型、角色資訊裡的圖（第三批） */
+  const ids = new Set(drawnImageIds(p, idx));
+  const fontRefs = new Set<string>([p.font, ...sheets.flatMap((s) => s.chars.map((c) => c.font))]);
+  for (const f of p.fonts) if (fontRefs.has(`f:${f.id}`)) ids.add(f.id);
+  const libIds = new Set(sheets.flatMap((s) => s.chars.map((c) => c.lib)));
+  for (const e of p.library)
+    if (libIds.has(e.id)) for (const id of richImageIds(e.info)) ids.add(id);
+  const uris = await dataUris(ids);
   return {
-    sheets: idx.map((i) => p.sheets[i]),
+    sheets,
     font: p.font,
     labels: p.labels,
     uris,
     transparent,
+    fonts: p.fonts,
+    frames: p.frames,
+    library: p.library,
+    radarTpls: p.radarTpls,
   };
 }
 

@@ -863,7 +863,14 @@ export interface FocusSets {
 }
 
 /** 聚焦時維持亮的角色、線、標籤（原作的 highlight1stDegree） */
-export function focusSets(ctx: SheetCtx, f: FocusTarget): FocusSets {
+/**
+ * views：點擊聚焦（不是滑過）時，對這個角色寫過看法的人也一起亮（沒有關係線也算；第三批，原作的 highlight1stDegree）
+ */
+export function focusSets(
+  ctx: SheetCtx,
+  f: FocusTarget,
+  opts: { views?: boolean } = {},
+): FocusSets {
   const nodes = new Set<number>();
   const edges = new Set<number>();
   const lbls = new Set<number>();
@@ -879,6 +886,9 @@ export function focusSets(ctx: SheetCtx, f: FocusTarget): FocusSets {
         nodes.add(r.from);
         nodes.add(r.to);
       }
+    if (opts.views)
+      for (const [a, row] of Object.entries(ctx.sheet.views ?? {}))
+        if (row[f.id] && ctx.byId.has(Number(a))) nodes.add(Number(a));
     const c = ctx.byId.get(f.id);
     if (c)
       for (const lid of charLabelIds(c)) {

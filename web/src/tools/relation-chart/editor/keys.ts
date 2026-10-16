@@ -69,13 +69,15 @@ function nudge(dx: number, dy: number): void {
   }, 500);
 }
 
-/** Esc：結束建立關係 → 關掉編輯面板 → 取消聚焦 → 結束檔案庫的模式 → 取消選取 */
+/** Esc：結束建立關係 → 關掉編輯面板 → 取消聚焦 → 結束交換位置、檔案庫的模式 → 取消選取 */
 function escapeChain(): boolean {
   const u = useUi.getState();
   if (u.link) endLink();
   else if (u.panel) setUi({ panel: null });
   else if (u.focus || u.hover) setUi({ focus: null, hover: null });
-  else if (u.libMode) setUi({ libMode: null, libEdit: null });
+  else if (u.swap) setUi({ swap: null });
+  else if (u.libMode || u.libLabelPick)
+    setUi({ libMode: null, libEdit: null, libLabelPick: false });
   else if (u.sel.length) setUi({ sel: [] });
   else return false;
   return true;

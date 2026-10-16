@@ -48,12 +48,23 @@ export interface ViewerData {
   lnames: Record<string, string>;
   /** 標籤 id → 顏色（自己有顏色的標籤） */
   lcol?: Record<string, string>;
-  /** 圖片（SVG 裡寫成 rcimg:N） */
+  /** 圖片（SVG 裡寫成 data-rcimg="N"） */
   imgs: string[];
   txt: ViewerText;
 }
 
-export function rcViewer(D: ViewerData): void {
+/** 第三批的鉤子（export/viewerExt 的 rcViewerExt；沒有資訊、數值、看法時不傳） */
+export interface ViewerHooksLike {
+  node(c: Element, id: number, cur: number): void;
+  edge(c: Element, from: number, to: number, cur: number): void;
+  clear(c: Element): void;
+  charBtns(id: number, cur: number): string;
+  edgeTip(from: number, to: number, cur: number): string;
+  zoom(s: number): void;
+  tab(cur: number): void;
+}
+
+export function rcViewer(D: ViewerData, X?: ViewerHooksLike): void {
   const doc = document;
   const $ = (id: string) => doc.getElementById(id) as HTMLElement;
   const stage = $('stageV');
@@ -72,12 +83,12 @@ export function rcViewer(D: ViewerData): void {
   let pathFrom: number | null = null;
   let view = { s: 1, x: 0, y: 0 };
 
-  /* 圖片：同一張只放一次（SVG 裡寫 rcimg:N，載入時換回） */
-  const imgs = doc.querySelectorAll('image');
+  /* 圖片：同一張只放一次（SVG 裡寫 data-rcimg="N"，載入時才設 href） */
+  const imgs = doc.querySelectorAll('image[data-rcimg]');
   for (let i = 0; i < imgs.length; i++) {
     const el = imgs[i];
-    const h = el.getAttribute('href') || '';
-    if (h.indexOf('rcimg:') === 0) el.setAttribute('href', D.imgs[+h.slice(6)] || '');
+    el.setAttribute('href', D.imgs[+(el.getAttribute('data-rcimg') || 0)] || '');
+    el.removeAttribute('data-rcimg');
   }
 
   const sheetEl = () => doc.querySelectorAll('.sheetV')[cur] as HTMLElement;
@@ -98,6 +109,7 @@ export function rcViewer(D: ViewerData): void {
 
   function applyView() {
     zoomerEl().style.transform = `translate(${view.x}px,${view.y}px) scale(${view.s})`;
+    if (X) X.zoom(view.s);
   }
   function resetView() {
     view = { s: 1, x: 0, y: 0 };
@@ -122,6 +134,7 @@ export function rcViewer(D: ViewerData): void {
     const c = chartEl();
     c.classList.add('focus-active');
     each(c, '.focusedV', (el) => el.classList.remove('focusedV'));
+    if (X) X.clear(c);
     return c;
   }
   function clearFocus() {
@@ -133,6 +146,7 @@ export function rcViewer(D: ViewerData): void {
     const c = chartEl();
     c.classList.remove('focus-active');
     each(c, '.focusedV', (el) => el.classList.remove('focusedV'));
+    if (X) X.clear(c);
     markLegend('data-legend-type', null);
     markLegend('data-legend-char', null);
     markLegend('data-legend-lbl', null);
@@ -179,6 +193,8 @@ export function rcViewer(D: ViewerData): void {
       if ((z.getAttribute('data-members') || '').split(',').indexOf(String(id)) >= 0)
         z.classList.add('focusedV');
     });
+    /* 看法：對他寫過看法的人也亮＋頭上的氣泡 */
+    if (X) X.node(c, id, cur);
   }
   function focusType(tid: number) {
     const c = startFocus();
@@ -234,6 +250,8 @@ export function rcViewer(D: ViewerData): void {
       keep[+(eg.dataset.to || 'NaN')] = 1;
     });
     lightNodes(c, keep);
+    const rel = relById(relid);
+    if (X && rel) X.edge(c, rel.from, rel.to, cur);
   }
 
   function placeTip(cx: number, cy: number) {
@@ -253,7 +271,7 @@ export function rcViewer(D: ViewerData): void {
     if (!rel) return;
     const ch = S().chars;
     const arrow = rel.both ? ' ⇄ ' : ' → ';
-    tip.innerHTML = `${escT(ch[rel.from] ?? '?')}${arrow}<b>${escT(rel.label)}</b>${arrow}${escT(ch[rel.to] ?? '?')}${rel.note ? `<div class="tn">${escT(rel.note)}</div>` : ''}`;
+    tip.innerHTML = `${escT(ch[rel.from] ?? '?')}${arrow}<b>${escT(rel.label)}</b>${arrow}${escT(ch[rel.to] ?? '?')}${rel.note ? `<div class="tn">${escT(rel.note)}</div>` : ''}${X ? X.edgeTip(rel.from, rel.to, cur) : ''}`;
     placeTip(cx, cy);
   }
   function showCharTip(id: number, cx: number, cy: number) {
@@ -282,11 +300,13 @@ export function rcViewer(D: ViewerData): void {
       sh.rels.length || sh.gpairs?.length
         ? `<button type="button" class="ti-btn" data-path="${id}">${escT(T.pathBtn)}</button>`
         : '';
-    if (!rows && !chips && !pb) {
+    /* 第三批：「資訊 ›」「雷達 ›」 */
+    const xb = X ? X.charBtns(id, cur) : '';
+    if (!rows && !chips && !pb && !xb) {
       tip.style.display = 'none';
       return;
     }
-    tip.innerHTML = `<b>${escT(ch[id] ?? '')}</b>${rows ? `<div class="trs">${rows}</div>` : ''}${chips ? `<div class="tls">${chips}</div>` : ''}${pb}`;
+    tip.innerHTML = `<b>${escT(ch[id] ?? '')}</b>${rows ? `<div class="trs">${rows}</div>` : ''}${chips ? `<div class="tls">${chips}</div>` : ''}${pb}${xb}`;
     placeTip(cx, cy);
   }
 
@@ -335,6 +355,7 @@ export function rcViewer(D: ViewerData): void {
     lockedLbl = null;
     const c = chartEl();
     each(c, '.focusedV', (el) => el.classList.remove('focusedV'));
+    if (X) X.clear(c);
     markLegend('data-legend-type', null);
     markLegend('data-legend-char', null);
     markLegend('data-legend-lbl', null);
@@ -690,6 +711,7 @@ export function rcViewer(D: ViewerData): void {
       for (let i = 0; i < all.length; i++) all[i].classList.toggle('active', i === cur);
       rvSearch.value = '';
       rvList.innerHTML = '';
+      if (X) X.tab(cur);
       resetView();
     };
   });

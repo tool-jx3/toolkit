@@ -25,6 +25,7 @@ import { S } from '../strings';
 import { type BoxRect, CanvasInput } from './canvasInput';
 import { bindLive, displaySheet, liveEpoch, liveRebase, subscribeLive } from './live';
 import { Minimap } from './Minimap';
+import { toggleSwap } from './swap';
 import { bindView, fitView, zoomBy } from './view';
 
 const CANVAS_CSS = `
@@ -42,6 +43,7 @@ const CANVAS_CSS = `
 .rc-host.rc-linking .rc-chart .layer-zones{pointer-events:auto}
 .rc-host.rc-linking .rc-chart .zone-g{cursor:pointer}
 .rc-host .rc-chart .legend-item{cursor:pointer}
+.rc-host .rc-chart .view-bubble{transform:scale(var(--vb-k,1));transform-box:fill-box;transform-origin:50% 100%}
 .rc-host .rc-chart .legend-item .legend-pill{transition:opacity .18s ease;fill:var(--accent);stroke:var(--accent)}
 .rc-host .rc-chart .sel-ring>*{stroke:var(--accent)}
 .rc-host .rc-chart .legend-item.legend-on .legend-pill{opacity:1}
@@ -56,14 +58,14 @@ const CANVAS_CSS = `
  * 聚焦：角色＋一度關係＋他的陣營框／標籤／一條線＋兩端／一種關係＋兩端／一個標籤＋成員＋成員之間的線
  * （圖例的選中框跟著亮；收合節點代替收合中的成員亮，聚合線看組成的關係）。
  */
-function applyFocus(svg: SVGSVGElement, f: FocusRef | null, ctx: SheetCtx): void {
+function applyFocus(svg: SVGSVGElement, f: FocusRef | null, ctx: SheetCtx, click: boolean): void {
   const fromLegend = f?.kind === 'type' || f?.kind === 'label';
   svg.classList.toggle('focus-active', !!f);
   svg.classList.toggle('dim-legend', !!f && !fromLegend);
   for (const el of svg.querySelectorAll('.focusedV')) el.classList.remove('focusedV');
   for (const el of svg.querySelectorAll('.legend-on')) el.classList.remove('legend-on');
   if (!f) return;
-  const fs = focusSets(ctx, f);
+  const fs = focusSets(ctx, f, { views: click });
   const num = (el: Element, a: string) => Number(el.getAttribute(a));
   const mark = (sel: string, hit: (el: Element) => boolean) => {
     for (const el of svg.querySelectorAll(sel)) if (hit(el)) el.classList.add('focusedV');
@@ -145,6 +147,34 @@ function LinkBanner({ sheet }: { sheet: Sheet }) {
   );
 }
 
+/** 交換位置模式的指示條（建立關係模式優先：那時不顯示） */
+function SwapBanner({ sheet }: { sheet: Sheet }) {
+  const swap = useUi((u) => u.swap);
+  const link = useUi((u) => u.link);
+  if (!swap || link) return null;
+  const picked = swap.pick !== null ? sheet.chars.find((c) => c.id === swap.pick) : undefined;
+  return (
+    <div
+      data-rc-overlay
+      className="absolute inset-x-2 top-2 z-10 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-accent bg-surface/95 px-3 py-2 text-sm shadow-2"
+      role="status"
+      data-testid="swap-banner"
+    >
+      <span className="font-semibold">
+        {picked ? S.swap.picked(displayName(picked)) : S.swap.banner}
+      </span>
+      <Button
+        size="sm"
+        className="ml-auto"
+        onClick={() => toggleSwap(false)}
+        data-testid="swap-end"
+      >
+        {S.swap.end}
+      </Button>
+    </div>
+  );
+}
+
 function EmptyHint({ onSamples, onPaste }: { onSamples: () => void; onPaste: () => void }) {
   return (
     <div
@@ -169,10 +199,38 @@ function EmptyHint({ onSamples, onPaste }: { onSamples: () => void; onPaste: () 
   );
 }
 
+/**
+ * 看法氣泡（點擊聚焦時）：聚焦角色 X＝對 X 寫過看法的人頭上各浮一個；聚焦一條線＝兩端各浮對彼此的。
+ * 滑過的暫時聚焦不出（原作）。
+ */
+function viewBubbles(sheet: Sheet, focus: FocusRef | null): Map<number, string> | undefined {
+  const views = sheet.views;
+  if (!focus || !views || !Object.keys(views).length) return undefined;
+  const out = new Map<number, string>();
+  if (focus.kind === 'node') {
+    for (const c of sheet.chars) {
+      if (c.id === focus.id) continue;
+      const t = views[c.id]?.[focus.id];
+      if (t) out.set(c.id, t);
+    }
+  } else if (focus.kind === 'edge') {
+    const r = sheet.rels.find((x) => x.id === focus.id);
+    if (r && r.from !== r.to) {
+      const a = views[r.from]?.[r.to];
+      const b = views[r.to]?.[r.from];
+      if (a) out.set(r.from, a);
+      if (b) out.set(r.to, b);
+    }
+  }
+  return out.size ? out : undefined;
+}
+
 export function CanvasView() {
   const sheet = useProject((s) => s.data.sheets[activeIndex(s.data)]);
   const font = useProject((s) => s.data.font);
   const labels = useProject((s) => s.data.labels);
+  const fonts = useProject((s) => s.data.fonts);
+  const frames = useProject((s) => s.data.frames);
   const sel = useUi((u) => u.sel);
   const link = useUi((u) => u.link);
   const view = useUi((u) => u.view);
@@ -190,7 +248,7 @@ export function CanvasView() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: epoch＝工作副本的位置變了（同一個物件）
   const display = useMemo(() => displaySheet(sheet), [sheet, epoch]);
 
-  const imageIds = useMemo(() => drawnImageIds({ sheets: [sheet] }), [sheet]);
+  const imageIds = useMemo(() => drawnImageIds({ sheets: [sheet], frames }), [sheet, frames]);
   const urls = useImageUrls(imageIds);
   const urlsRef = useRef(urls);
   urlsRef.current = urls;
@@ -207,17 +265,26 @@ export function CanvasView() {
   const selected = useMemo(() => new Set([...sel, ...(box?.ids ?? [])]), [sel, box]);
   const linkFromTok = link?.from ?? null;
   const linking = !!link;
+  const swapPick = useUi((u) => u.swap?.pick ?? null);
+  /* 看法氣泡跟著點擊聚焦（換了內容才重畫） */
+  const bubbles = useMemo(() => viewBubbles(sheet, focus), [sheet, focus]);
+  const bubbleKey = bubbles ? JSON.stringify([...bubbles]) : '';
+  // biome-ignore lint/correctness/useExhaustiveDependencies: bubbleKey＝氣泡的內容
   const out = useMemo(() => {
     const from = linkFromTok;
+    const sel2 = swapPick !== null ? new Set([...selected, swapPick]) : selected;
     const r = editorSvg(display, {
       href: (id) => urls.get(id) ?? null,
       font,
       labels,
+      fonts,
+      frames,
       ui: {
-        selected,
+        selected: sel2,
         linkFrom: from && !grelEndIsLbl(from) ? grelEndId(from) : null,
         linkDone,
         linking,
+        bubbles,
       },
     });
     /* 每次都換掉整份 SVG（快速路徑改過的畫面不留） */
@@ -226,7 +293,21 @@ export function CanvasView() {
       svg: `${r.svg}<!--${epoch}-->`,
       pos: new Map(display.chars.map((c) => [c.id, { x: c.x, y: c.y }])),
     };
-  }, [display, urls, font, labels, selected, linkFromTok, linking, linkDone, epoch]);
+  }, [
+    display,
+    urls,
+    font,
+    labels,
+    fonts,
+    frames,
+    selected,
+    linkFromTok,
+    linking,
+    linkDone,
+    epoch,
+    swapPick,
+    bubbleKey,
+  ]);
   const contentRef = useRef(out);
   contentRef.current = out;
   const rendered = useRef<SVGSVGElement | null>(null);
@@ -290,14 +371,18 @@ export function CanvasView() {
     svg.style.setProperty('--fdim-node', String(d.node));
     svg.style.setProperty('--fdim-edge', String(d.edge));
     svg.style.setProperty('--fdim-legend', String(d.legend));
-    for (const el of chartSvgs(layer.current)) applyFocus(el, eff, out.parts.ctx);
+    /* 看法氣泡：畫布縮小時不跟著縮（以氣泡底部中央為原點放大回來） */
+    svg.style.setProperty('--vb-k', String(1 / Math.min(1, view.zoom)));
+    for (const el of chartSvgs(layer.current)) applyFocus(el, eff, out.parts.ctx, !!focus);
   });
   useEffect(() => {
     bindLive({
       href: (id) => urlsRef.current.get(id) ?? null,
       refocus: () => {
         const f = effRef.current;
-        for (const el of chartSvgs(layer.current)) applyFocus(el, f, contentRef.current.parts.ctx);
+        const click = !!useUi.getState().focus;
+        for (const el of chartSvgs(layer.current))
+          applyFocus(el, f, contentRef.current.parts.ctx, click);
       },
     });
     return () => bindLive(null);
@@ -362,6 +447,7 @@ export function CanvasView() {
         </svg>
       ) : null}
       <LinkBanner sheet={sheet} />
+      <SwapBanner sheet={sheet} />
       {!sheet.chars.length && !link ? (
         <EmptyHint onSamples={() => openDialog('samples')} onPaste={() => openDialog('paste')} />
       ) : null}

@@ -3,16 +3,28 @@
  *
  * 分頁設定（原作的整體設定／顯示設定，每張分頁各自記）：畫布、角色、關係線、圖例與名冊、聚焦、間距與磁鐵。
  */
-import { ImageOff, ImagePlus, Ruler } from 'lucide-react';
+import { Download, FileType, ImageOff, ImagePlus, ListChecks, Ruler, Upload } from 'lucide-react';
 import { pickFiles } from '@/core/files';
-import { Button, Field, Section, Segmented, Select, Slider, Toggle, useToast } from '@/ui';
+import {
+  Button,
+  Field,
+  Section,
+  Segmented,
+  Select,
+  Slider,
+  Toggle,
+  useConfirm,
+  useToast,
+} from '@/ui';
 import { PALETTES } from '../engine/geom';
-import { FONT_KEYS, LEGEND_POSITIONS, SETTINGS_DEFAULTS } from '../model/normalize';
-import type { FontKey, LegendPos, SheetSettings } from '../model/types';
+import { LEGEND_POSITIONS, SETTINGS_DEFAULTS } from '../model/normalize';
+import type { FontValue, LegendPos, SheetSettings } from '../model/types';
 import { editSheet, setSpacing, updateSettings } from '../state/actions';
 import { backgroundFromBlob } from '../state/images';
 import { gesture, setPrefs, setUi, updateProject, usePrefs, useProject } from '../state/store';
 import { S } from '../strings';
+import { fontOptions, importFonts } from './FontUi';
+import { downloadFrameTemplate, FrameSelect, uploadFrames } from './FrameUi';
 import { useSheet } from './hooks';
 import { kickSim } from './sim';
 import { AutoNumber, ColorPair } from './widgets';
@@ -51,8 +63,12 @@ export function SettingsPanel() {
   const sheet = useSheet();
   const s = sheet.settings;
   const font = useProject((p) => p.data.font);
+  const fonts = useProject((p) => p.data.fonts);
+  const frameCount = useProject((p) => p.data.frames.length);
   const nameFromFile = usePrefs((p) => p.data.nameFromFile);
   const toast = useToast();
+  const confirm = useConfirm();
+  const ask = (m: string) => confirm({ title: S.msg.bigFile, description: m });
   const pal = PALETTES[s.palette];
   const legendOptions = LEGEND_POSITIONS.map((v) => ({ value: v, label: S.legendPos[v] }));
   const notify = (m: string, warn?: boolean) =>
@@ -78,13 +94,35 @@ export function SettingsPanel() {
               value={font}
               onValueChange={(v) =>
                 updateProject((p) => {
-                  p.font = v as FontKey;
+                  p.font = v as FontValue;
                 })
               }
-              options={FONT_KEYS.map((k) => ({ value: k, label: T.fonts[k] }))}
+              options={fontOptions(fonts)}
               aria-label={T.font}
+              data-testid="doc-font"
             />
           </Field>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              icon={<FileType />}
+              onClick={() => void importFonts(notify, ask)}
+              data-testid="font-import"
+            >
+              {S.font.import}
+            </Button>
+            {fonts.length ? (
+              <Button
+                size="sm"
+                icon={<ListChecks />}
+                onClick={() => setUi({ dialog: 'fonts' })}
+                data-testid="font-manage"
+              >
+                {S.font.manage}
+              </Button>
+            ) : null}
+          </div>
+          <p className="text-xs text-muted">{S.font.license}</p>
           <Field label={T.guides}>
             <Segmented
               size="sm"
@@ -136,6 +174,45 @@ export function SettingsPanel() {
               {S.more.bgRemove}
             </Button>
           </div>
+        </div>
+      </Section>
+
+      <Section title={S.frame.sec} persistKey="relation-chart:set-frames" defaultOpen={false}>
+        <div className="flex flex-col gap-3" data-testid="frame-settings">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              icon={<Upload />}
+              onClick={() => void uploadFrames(notify, ask)}
+              data-testid="frame-upload"
+            >
+              {S.frame.upload}
+            </Button>
+            {frameCount ? (
+              <Button
+                size="sm"
+                icon={<ListChecks />}
+                onClick={() => setUi({ dialog: 'frames' })}
+                data-testid="frame-manage"
+              >
+                {S.frame.manage}
+              </Button>
+            ) : null}
+            <Button size="sm" icon={<Download />} onClick={() => void downloadFrameTemplate()}>
+              {S.frame.template}
+            </Button>
+          </div>
+          <p className="text-xs text-muted">{S.frame.note}</p>
+          {frameCount ? (
+            <Field label={S.frame.defLabel} hint={S.frame.defHint}>
+              <FrameSelect
+                kind="sheet"
+                value={s.defFrame}
+                onChange={(v) => set('defFrame')(v ?? '')}
+                testId="def-frame"
+              />
+            </Field>
+          ) : null}
         </div>
       </Section>
 
