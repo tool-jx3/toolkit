@@ -91,7 +91,19 @@ function sample(key: SampleKey, offset = 0, name?: string): Sheet {
 }
 
 function project(sheets: Sheet[], extra: Partial<Project> = {}): Project {
-  return { sheets, active: 0, labels: [], nextId: 90000, font: 'sans', ...extra };
+  return {
+    sheets,
+    active: 0,
+    labels: [],
+    nextId: 90000,
+    font: 'sans',
+    library: [],
+    relLibrary: [],
+    radarTpls: [],
+    frames: [],
+    fonts: [],
+    ...extra,
+  };
 }
 
 /** 三位角色（甲、乙、丙）的分頁 */
@@ -1851,7 +1863,8 @@ test('標籤庫（檔案庫）：新增、同名沿用、未命名、依分頁�
   /* 刪除模式：點＝刪除（從角色身上拿掉） */
   await page.waitForTimeout(450);
   await lib(page).getByTestId('library-act-del').click();
-  await chip(page, 90000).click();
+  /* 新標籤的 id 不一定是 nextId（第三批起開頁時角色庫的條目也用掉 id）：用名稱找 */
+  await lib(page).getByTestId('label-item').filter({ hasText: '丁' }).click();
   await expect(lib(page).getByTestId('label-item')).toHaveCount(4);
   /* 刪掉的原地留墓碑（版面不位移） */
   await expect(lib(page).getByTestId('label-ghost')).toHaveCount(1);
@@ -2357,8 +2370,525 @@ test('390 寬：檔案庫蓋滿畫面、沒有橫向捲動、可以新增標籤�
   await noHorizontalScroll(page);
   await lib(page).getByTestId('label-new').fill('新標籤');
   await lib(page).getByTestId('label-new').press('Enter');
-  await expect(chip(page, 90000)).toContainText('新標籤');
+  await expect(lib(page).getByTestId('label-item').filter({ hasText: '新標籤' })).toHaveCount(1);
   await lib(page).getByTestId('library-close').click();
   await expect(lib(page)).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 第三批：角色與關係的資料 ---------- */
+
+/** 等自動儲存，取整個專案 */
+async function data(page: Page): Promise<Project> {
+  await page.waitForTimeout(450);
+  const p = await saved(page);
+  if (!p) throw new Error('還沒有自動儲存');
+  return p;
+}
+
+const entryOf = (p: Project, lib: number) => p.library.find((e) => e.id === lib);
+
+/** 打開角色的編輯面板＋進階 */
+async function editChar(page: Page, id: number, advanced = true) {
+  await node(page, id).dblclick();
+  await expect(title(page)).toHaveText('編輯角色');
+  if (advanced) await page.getByRole('button', { name: '進階' }).click();
+}
+
+async function clickAt(page: Page, p: { x: number; y: number }) {
+  await page.mouse.click(p.x, p.y);
+}
+
+async function pickOption(page: Page, trigger: Locator, name: string | RegExp) {
+  await trigger.click();
+  await page
+    .getByRole('option', typeof name === 'string' ? { name, exact: true } : { name })
+    .click();
+}
+
+test('角色庫與變體：衣櫃（新增、換穿、名字跟著變體）、統一顏色、複製分頁＝同一批人、複製成獨立的新角色、跨分頁刪除一步復原', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, project([trio()]));
+  await editChar(page, 1);
+  const vsel = page.getByTestId('char-variant');
+  await expect(vsel).toContainText('甲');
+  /* 新增變體＝複製目前這件、名字加「（變體）」、立刻換穿 */
+  await pickOption(page, vsel, '＋ 新增變體（複製目前外觀）');
+  await expect(vsel).toContainText('甲（變體）');
+  let p = await data(page);
+  const c1 = p.sheets[0].chars[0];
+  expect(c1.name).toBe('甲（變體）');
+  expect(entryOf(p, c1.lib)?.variants.map((v) => v.name)).toEqual(['甲', '甲（變體）']);
+  /* 換回第一件：名字跟著變體 */
+  await pickOption(page, vsel, '甲');
+  await expect(node(page, 1).locator('.node-name text')).toHaveText('甲');
+  /* 統一顏色：打開＝用目前這件的顏色蓋過全部 */
+  await page.waitForTimeout(450);
+  await page.getByTestId('char-unify').getByRole('switch').click();
+  p = await data(page);
+  expect(entryOf(p, c1.lib)?.unified).toBe(true);
+  /* 複製分頁＝同一批人：改名兩邊一起變 */
+  await page.waitForTimeout(450);
+  await page.getByTestId('sheet-copy').click();
+  await expect(page.getByTestId('sheet-tab')).toHaveCount(2);
+  p = await data(page);
+  expect(p.sheets[1].chars.map((c) => c.lib)).toEqual(p.sheets[0].chars.map((c) => c.lib));
+  const twin = p.sheets[1].chars[1];
+  await node(page, twin.id).dblclick();
+  await page.getByTestId('char-name').fill('乙改');
+  await page.getByTestId('char-name').blur();
+  p = await data(page);
+  expect(p.sheets[0].chars[1].name).toBe('乙改');
+  /* 分頁選單「複製成獨立的新角色」：每位都是新條目 */
+  await page.getByTestId('sheet-menu').nth(1).click();
+  await page.getByTestId('sheet-copy-fork').click();
+  await expect(page.getByTestId('sheet-tab')).toHaveCount(3);
+  p = await data(page);
+  const libs0 = new Set(p.sheets[0].chars.map((c) => c.lib));
+  expect(p.sheets[2].chars.every((c) => !libs0.has(c.lib))).toBe(true);
+  expect(p.sheets[2].chars.map((c) => c.name)).toEqual(p.sheets[1].chars.map((c) => c.name));
+  /* 角色庫：刪除模式點「乙改」＝所有分頁的乙改與他的關係一起刪；復原一步回來（原作的復原會遺失其他分頁） */
+  await page.waitForTimeout(450);
+  await page.getByTestId('library-open').click();
+  await expect(lib(page).getByTestId('library-tab-chars')).toHaveAttribute('aria-selected', 'true');
+  await lib(page).getByTestId('library-act-del').click();
+  await lib(page).getByTestId('lib-entry').filter({ hasText: '乙改' }).first().click();
+  await expect(lib(page).getByTestId('lib-ghost').first()).toBeVisible();
+  p = await data(page);
+  expect(p.sheets.map((s) => s.chars.length)).toEqual([2, 2, 3]);
+  await page.getByTestId('undo').click();
+  p = await data(page);
+  expect(p.sheets.map((s) => s.chars.length)).toEqual([3, 3, 3]);
+  expect(errors).toEqual([]);
+});
+
+test('角色庫：匯入當前分頁（主要變體與指定的變體）、複製模式照抄、只看未使用、依分頁分組、改變體名稱、用標籤篩選', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s = trio();
+  s.chars[0].labels = [7];
+  const s2 = emptySheet(2, 2);
+  s2.name = '第二張';
+  s2.chars.push(makeChar(11, '丁', 500, 500, { defNo: 4 }));
+  await seed(page, project([s, s2], { labels: [makeLabel(7, '學生')] }));
+  await page.getByTestId('library-open').click();
+  /* 依分頁分組（預設開）：分頁1、第二張 */
+  await expect(lib(page).getByTestId('lib-group')).toHaveCount(2);
+  await expect(lib(page).getByTestId('lib-group').nth(1)).toContainText('第二張');
+  /* 點一列＝左欄看詳情；新增變體（複製主要外觀）、改名 */
+  await lib(page).getByTestId('lib-entry').filter({ hasText: '丁' }).click();
+  const detail = lib(page).getByTestId('lib-detail');
+  await detail.getByTestId('lib-add-variant').click();
+  await expect(detail.getByTestId('lib-variant')).toHaveCount(2);
+  await detail.getByTestId('lib-variant-name').nth(1).click();
+  await page.getByTestId('var-name').fill('丁（夏裝）');
+  await page.getByTestId('var-name-ok').click();
+  await expect(detail.getByTestId('lib-variant-name').nth(1)).toHaveText('丁（夏裝）');
+  /* 只看未使用：丁的第二件沒人用 */
+  await lib(page).getByRole('switch', { name: '只看未使用的變體' }).click();
+  await expect(lib(page).getByTestId('lib-entry')).toHaveCount(1);
+  await lib(page).getByRole('switch', { name: '只看未使用的變體' }).click();
+  /* 「＋」＝這一件加到目前分頁（分頁1） */
+  await page.waitForTimeout(450);
+  await detail.getByTestId('lib-variant-add').nth(1).click();
+  let p = await data(page);
+  expect(p.sheets[0].chars.map((c) => c.name)).toEqual(['甲', '乙', '丙', '丁（夏裝）']);
+  /* 匯入模式：點條目＝加主要變體（可以連續加） */
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('library-act-import').click();
+  await lib(page).getByTestId('lib-entry').filter({ hasText: '丙' }).first().click();
+  p = await data(page);
+  expect(p.sheets[0].chars.filter((c) => c.name === '丙')).toHaveLength(2);
+  /* 複製模式：條目＝新的人（照抄，插在後面） */
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('library-act-copy').click();
+  const n0 = p.library.length;
+  await lib(page).getByTestId('lib-entry').filter({ hasText: '甲' }).first().click();
+  p = await data(page);
+  expect(p.library).toHaveLength(n0 + 1);
+  expect(p.library.map((e) => e.variants[0].name)).toContain('甲（變體）');
+  await lib(page).getByTestId('library-act-copy').click();
+  /* 用標籤篩選：跳到標籤庫挑「學生」，回來只列有那個標籤的 */
+  await lib(page).getByTestId('lib-label-filter').click();
+  await expect(lib(page).getByTestId('library-tab-labels')).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await lib(page).getByTestId('label-item').filter({ hasText: '學生' }).click();
+  await expect(lib(page).getByTestId('library-tab-chars')).toHaveAttribute('aria-selected', 'true');
+  await expect(lib(page).getByTestId('lib-entry')).toHaveCount(2);
+  await expect(lib(page).getByTestId('lib-label-filter')).toContainText('只列標籤「學生」');
+  expect(errors).toEqual([]);
+});
+
+test('關係庫：改了分頁上的關係類型就同步到其他分頁穿同一件的（一步復原）、加入本分頁不重複、改變體名稱', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s = trio();
+  s.types.push(makeType(10, '友情'));
+  s.rels.push(makeRel(20, 1, 2, 10));
+  await seed(page, project([s]));
+  await page.getByTestId('sheet-copy').click();
+  await page.waitForTimeout(450);
+  let p = await data(page);
+  expect(p.sheets[1].types[0].lib).toBe(p.sheets[0].types[0].lib);
+  /* 第二張分頁改關係類型的名稱 → 第一張跟著變 */
+  await page.getByTestId('type-edit').first().click();
+  await page.getByTestId('type-name').fill('摯友');
+  await page.getByTestId('type-name').blur();
+  p = await data(page);
+  expect(p.sheets.map((x) => x.types[0].label)).toEqual(['摯友', '摯友']);
+  expect(p.relLibrary.find((e) => e.id === p.sheets[0].types[0].lib)?.variants[0].label).toBe(
+    '摯友',
+  );
+  /* 一步復原：兩張分頁與關係庫一起回去（原作只回目前分頁） */
+  await page.getByTestId('undo').click();
+  p = await data(page);
+  expect(p.sheets.map((x) => x.types[0].label)).toEqual(['友情', '友情']);
+  /* 關係庫：同一件已經在這張分頁＝不重複加；新增變體後可以加 */
+  await page.getByTestId('library-open').click();
+  await lib(page).getByTestId('library-tab-rels').click();
+  await lib(page).getByTestId('lib-entry').first().click();
+  const detail = lib(page).getByTestId('lib-detail');
+  await detail.getByTestId('lib-variant-add').first().click();
+  await expect(toast(page, '這件已經在這張分頁了。')).toBeVisible();
+  await page.waitForTimeout(450);
+  await detail.getByTestId('lib-add-variant').click();
+  await page.waitForTimeout(450);
+  await detail.getByTestId('lib-variant-name').nth(1).click();
+  await page.getByTestId('var-name').fill('友情（表面）');
+  await page.getByTestId('var-name-ok').click();
+  await detail.getByTestId('lib-variant-add').nth(1).click();
+  p = await data(page);
+  expect(p.sheets[p.active].types.map((t) => t.label)).toEqual(['友情', '友情（表面）']);
+  expect(errors).toEqual([]);
+});
+
+test('連線總表：排序、只看某一種、點列編輯、直接換關係（重複擋下）、新增（重複擋下、自我關係）、批次改關係（略過重複）、刪除勾選與刪除模式', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s = trio();
+  s.types.push(makeType(10, '友情'), makeType(11, '敵對'));
+  s.rels.push(makeRel(20, 1, 2, 10), makeRel(21, 3, 1, 11), makeRel(22, 2, 3, 10));
+  await seed(page, project([s]));
+  await page.getByTestId('library-open').click();
+  await lib(page).getByTestId('library-tab-table').click();
+  const rows = lib(page).getByTestId('reltable-row');
+  await expect(rows).toHaveCount(3);
+  await expect(lib(page).getByTestId('reltable-count')).toHaveText('共 3 條');
+  /* 排序：來源 ▲（預設）→ 再點＝反向 */
+  const order = async () =>
+    rows.evaluateAll((els) => els.map((e) => e.getAttribute('data-rel-id')));
+  const asc = await order();
+  await lib(page).getByTestId('reltable-sort-from').click();
+  expect(await order()).toEqual([...asc].reverse());
+  /* 只看「敵對」 */
+  await pickOption(page, lib(page).getByTestId('reltable-filter'), '敵對');
+  await expect(rows).toHaveCount(1);
+  await pickOption(page, lib(page).getByTestId('reltable-filter'), '全部關係');
+  /* 點列＝打開那條關係的編輯面板 */
+  await lib(page)
+    .locator('[data-testid="reltable-row"][data-rel-id="20"] .text-sm')
+    .first()
+    .click();
+  await expect(title(page)).toHaveText('編輯關係');
+  /* 新增：重複擋下、自我關係允許（雙向一律關） */
+  await lib(page).getByTestId('reltable-add-toggle').click();
+  await lib(page).getByTestId('reltable-add-go').click();
+  await expect(toast(page, '關係已存在')).toBeVisible();
+  await pickOption(page, lib(page).getByTestId('reltable-add-to'), '甲');
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('reltable-add-go').click();
+  let sh = await sheet(page);
+  expect(sh.rels.find((r) => r.from === 1 && r.to === 1)).toMatchObject({ both: false });
+  /* 批次改關係：全選 → 改成「敵對」：3→1 已經是、1→1 換成敵對、略過會重複的 */
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('reltable-check-all').getByRole('checkbox').click();
+  await pickOption(page, lib(page).getByTestId('reltable-retag-type'), '敵對');
+  await lib(page).getByTestId('reltable-retag').click();
+  sh = await sheet(page);
+  expect(sh.rels.every((r) => r.type === 11)).toBe(true);
+  /* 刪除勾選的 */
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('reltable-del-checked').click();
+  await expect(rows).toHaveCount(0);
+  await page.getByTestId('undo').click();
+  await expect(rows).toHaveCount(4);
+  /* 刪除模式：點列即刪、留墓碑；指示字樣是連線總表的 */
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('library-act-del').click();
+  await expect(lib(page).getByTestId('lib-hint')).toContainText('點關係列即刪除該關係');
+  /* 點列（名字；中間的下拉與勾選框不算） */
+  await lib(page)
+    .locator('[data-testid="reltable-row"][data-rel-id="22"] .text-sm')
+    .first()
+    .click();
+  await expect(lib(page).getByTestId('reltable-ghost')).toHaveCount(1);
+  sh = await sheet(page);
+  expect(sh.rels.map((r) => r.id)).not.toContain(22);
+  expect(errors).toEqual([]);
+});
+
+test('角色資訊、看法、角色卡：富文本（工具列、一段編輯一步復原、同一人跨分頁共用）、看法氣泡（點擊聚焦）、複製角色卡', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const errors = await open(page);
+  const s = trio();
+  s.types.push(makeType(10, '友情'));
+  s.rels.push(makeRel(20, 1, 2, 10));
+  await seed(page, project([s]));
+  await editChar(page, 1);
+  /* 角色資訊 */
+  await page.getByTestId('char-info').click();
+  await expect(title(page)).toHaveText('角色資訊');
+  const ed = page.getByTestId('info-editor');
+  await ed.click();
+  await page.keyboard.type('背景故事');
+  await page.keyboard.press('Control+a');
+  await page.getByTestId('rich-bold').click();
+  await page.getByTestId('info-back').click();
+  let p = await data(page);
+  const info = p.library.find((e) => e.id === p.sheets[0].chars[0].lib)?.info ?? '';
+  expect(info).toMatch(/<(b|strong)>背景故事<\/(b|strong)>|font-weight/);
+  /* 一段編輯＝一步復原 */
+  await page.getByTestId('undo').click();
+  p = await data(page);
+  expect(p.library.find((e) => e.id === p.sheets[0].chars[0].lib)?.info).toBe('');
+  await page.getByTestId('redo').click();
+  /* 看法：選對象 → 一句話（離開才寫入） */
+  await editChar(page, 2, false);
+  await pickOption(page, page.getByTestId('view-add'), '甲');
+  await page.getByTestId('view-input').fill('可靠的夥伴');
+  await page.getByTestId('view-input').press('Enter');
+  const sh = await sheet(page);
+  expect(sh.views['2']).toEqual({ '1': '可靠的夥伴' });
+  /* 點擊聚焦甲：乙頭上浮看法氣泡（滑過不出） */
+  await page.getByTestId('panel-close').click();
+  const c1 = await nodeCenter(page, 1);
+  await page.mouse.click(c1.x, c1.y);
+  await expect(node(page, 2).locator('.view-bubble')).toContainText('可靠的夥伴');
+  await page.keyboard.press('Escape');
+  await expect(chart(page).locator('.view-bubble')).toHaveCount(0);
+  /* 角色卡：複製成純文字 */
+  await editChar(page, 1, false);
+  await page.getByTestId('char-card').click();
+  await expect(page.getByTestId('char-card')).toHaveText('已複製');
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  expect(text).toContain('# 甲');
+  expect(text).toContain('## 角色資訊\n背景故事');
+  expect(text).toContain('- → 友情 乙');
+  expect(text).toContain('- ← 乙：「可靠的夥伴」');
+  expect(errors).toEqual([]);
+});
+
+test('數值圖表：新增範本、填數值（打字即時重畫、離開記一步）、狀態、範本設定（刪軸）、數值比較；互動網頁的雷達與資訊', async ({
+  page,
+  context,
+}) => {
+  const errors = await open(page);
+  await seed(page, project([trio()]));
+  await editChar(page, 1);
+  await page.getByRole('button', { name: '數值圖表' }).click();
+  await page.getByTestId('radar-new-tpl').click();
+  const tplDlg = page.getByTestId('radar-tpl-dialog');
+  await expect(tplDlg).toBeVisible();
+  await tplDlg.getByTestId('radar-tpl-name').fill('能力值');
+  await tplDlg.getByTestId('radar-tpl-name').blur();
+  await expect(tplDlg.getByTestId('radar-axis')).toHaveCount(5);
+  await page.waitForTimeout(450);
+  await tplDlg.getByTestId('radar-axis-del').first().click();
+  await expect(tplDlg.getByTestId('radar-axis')).toHaveCount(4);
+  await page.keyboard.press('Escape');
+  /* 填數值：第一個狀態 */
+  await page.getByTestId('radar-state-add').click();
+  const vals = page.getByTestId('radar-val');
+  await vals.nth(0).fill('80');
+  await vals.nth(0).blur();
+  await expect(page.getByTestId('radar-chart').locator('polygon')).not.toHaveCount(0);
+  let p = await data(page);
+  const v = p.library.find((e) => e.id === p.sheets[0].chars[0].lib)?.variants[0];
+  expect(v?.radars[0].vals[String(p.radarTpls[0].axes[0].id)]).toBe(80);
+  /* 一步復原 */
+  await page.getByTestId('undo').click();
+  p = await data(page);
+  expect(
+    p.library.find((e) => e.id === p.sheets[0].chars[0].lib)?.variants[0].radars[0].vals,
+  ).toEqual({});
+  await page.getByTestId('redo').click();
+  /* 數值比較 */
+  await page.getByTestId('radar-compare').click();
+  const cmp = page.getByTestId('radar-compare-dialog');
+  await expect(cmp.getByTestId('radar-chart')).toBeVisible();
+  await expect(cmp.getByTestId('radar-legend')).toContainText('甲');
+  await page.keyboard.press('Escape');
+  /* 互動網頁：卡片上「雷達 ›」→ 右側窗格 */
+  const html = strFromU8((await runExport(page, '互動網頁（唯讀）')).bytes);
+  expect(html).toContain('id="radarDocV"');
+  const w = await context.newPage();
+  await w.route('**/*', (r) =>
+    r.request().url() === 'http://viewer.test/'
+      ? r.fulfill({ body: html, contentType: 'text/html' })
+      : r.abort(),
+  );
+  await w.goto('http://viewer.test/');
+  const nc = await center(w.locator('.node[data-id="1"] > circle').first());
+  await w.mouse.click(nc.x, nc.y);
+  await w.locator('#tipV .ti-btn[data-radar]').click();
+  await expect(w.locator('#loreV')).toHaveClass(/show/);
+  await expect(w.locator('#radarDocV .rdv-title')).toHaveText(['能力值']);
+  await expect(w.locator('#radarDocV svg polygon')).not.toHaveCount(0);
+  await w.close();
+  expect(errors).toEqual([]);
+});
+
+test('頭像框：上傳（同一張只存一份）、角色指定／跟隨標籤／分頁預設、名字往下讓、管理與刪除（清掉分頁預設）、匯出內嵌', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s = trio();
+  s.chars[1].labels = [7];
+  await seed(page, project([s], { labels: [makeLabel(7, '護衛')] }));
+  /* 分頁設定 › 頭像框 › 上傳 */
+  await page.getByRole('button', { name: '頭像框' }).click();
+  const frame = await solidPng([255, 0, 0, 128], 64, 64);
+  const [fc] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByTestId('frame-upload').click(),
+  ]);
+  await fc.setFiles({ name: 'red-frame.png', mimeType: 'image/png', buffer: frame });
+  await expect(toast(page, '已加入 1 張頭像框')).toBeVisible();
+  const [fc2] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByTestId('frame-upload').click(),
+  ]);
+  await fc2.setFiles({ name: 'again.png', mimeType: 'image/png', buffer: frame });
+  await expect(toast(page, '這些框已經在庫裡了（同樣的圖只會存一份）。')).toBeVisible();
+  let p = await data(page);
+  expect(p.frames.map((f) => f.name)).toEqual(['red-frame']);
+  const fid = p.frames[0].id;
+  /* 分頁預設：沒指定、沒標籤框的人都戴上；名字往下讓 */
+  const y0 = Number(await node(page, 1).locator('.node-name text').getAttribute('y'));
+  await pickOption(page, page.getByTestId('def-frame'), 'red-frame');
+  await expect(node(page, 1).locator('.node-frame image.av-frame')).toHaveCount(1);
+  const y1 = Number(await node(page, 1).locator('.node-name text').getAttribute('y'));
+  expect(y1).toBeGreaterThan(y0);
+  /* 角色指定「不使用框」壓過分頁預設 */
+  await page.waitForTimeout(450);
+  await editChar(page, 3);
+  await pickOption(page, page.getByTestId('char-frame'), '不使用框');
+  await expect(node(page, 3).locator('.node-frame')).toHaveCount(0);
+  /* 跟隨的目前值寫實際的來源 */
+  await editChar(page, 2, false);
+  await expect(page.getByTestId('char-frame')).toContainText('分頁預設（red-frame）');
+  /* 管理：刪除＝指定的退回跟隨、標籤與分頁預設的這張一起拿掉 */
+  await page.getByTestId('panel-close').click();
+  await page.getByTestId('frame-manage').click();
+  await page.getByTestId('frame-del').click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '確定' }).click();
+  await page.keyboard.press('Escape');
+  p = await data(page);
+  expect(p.frames).toEqual([]);
+  expect(p.sheets[0].settings.defFrame).toBe('');
+  await expect(chart(page).locator('.node-frame')).toHaveCount(0);
+  /* 復原 → 框回來；分層 SVG 內嵌框 */
+  await page.getByTestId('undo').click();
+  await expect(node(page, 1).locator('.node-frame image')).toHaveCount(1);
+  const svg = strFromU8((await runExport(page, '分層 SVG')).bytes);
+  expect(svg).toMatch(/class="av-frame" href="data:image\/png;base64,/);
+  void fid;
+  expect(errors).toEqual([]);
+});
+
+test('匯入的字型：匯入、文件字型與角色字型（名字的 style）、PNG／SVG 內嵌、管理與刪除（退回預設）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, project([trio()]));
+  const FONT = '/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf';
+  const [fc] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByTestId('font-import').click(),
+  ]);
+  await fc.setFiles(FONT);
+  await expect(toast(page, '已匯入 1 套字型')).toBeVisible();
+  let p = await data(page);
+  expect(p.fonts.map((f) => [f.name, f.fmt])).toEqual([['LiberationSerif-Regular', 'ttf']]);
+  const fid = p.fonts[0].id;
+  /* 角色字型：只影響名字（style） */
+  await editChar(page, 1);
+  await pickOption(page, page.getByTestId('char-font'), 'LiberationSerif-Regular');
+  await expect(node(page, 1).locator('.node-name text')).toHaveAttribute(
+    'style',
+    new RegExp(`font-family:"crf-${fid}"`),
+  );
+  await expect(node(page, 2).locator('.node-name text')).not.toHaveAttribute('style', /crf-/);
+  /* 匯出 SVG：內嵌用到的字型 */
+  const svg = strFromU8((await runExport(page, '分層 SVG')).bytes);
+  expect(svg).toContain(`@font-face{font-family:"crf-${fid}";src:url("data:font/ttf;base64,`);
+  /* 文件字型改成匯入的；刪除字型＝文件字型回黑體、角色字型回跟隨 */
+  await page.getByTestId('panel-close').click();
+  await pickOption(page, page.getByTestId('doc-font'), 'LiberationSerif-Regular');
+  p = await data(page);
+  expect(p.font).toBe(`f:${fid}`);
+  await page.getByTestId('font-manage').click();
+  await expect(page.getByTestId('font-row')).toContainText('使用中');
+  await page.getByTestId('font-del').click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '確定' }).click();
+  await page.keyboard.press('Escape');
+  p = await data(page);
+  expect(p.font).toBe('sans');
+  expect(p.library.every((e) => e.font === '')).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('交換位置模式：點兩位＝交換座標與清單順序（釘選的也能換、一步復原）、再點同一位＝放下、拖不動、清單點一列也算、Esc 結束', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s = trio();
+  s.chars[2].locked = true;
+  await seed(page, project([s]));
+  await page.getByTestId('more-menu').click();
+  await page.getByTestId('menu-swap').click();
+  /* 選單不關（可以勾選）：點旁邊收起 */
+  await page.mouse.click(5, 5);
+  await expect(page.getByTestId('swap-banner')).toContainText('交換位置');
+  /* 甲 ↔ 丙（釘選） */
+  await clickAt(page, await nodeCenter(page, 1));
+  await expect(page.getByTestId('swap-banner')).toContainText('甲');
+  await clickAt(page, await nodeCenter(page, 3));
+  let sh = await sheet(page);
+  expect(sh.chars.map((c) => [c.id, c.x, c.y])).toEqual([
+    [3, 250, 500],
+    [2, 750, 500],
+    [1, 500, 200],
+  ]);
+  /* 一步復原 */
+  await page.getByTestId('undo').click();
+  sh = await sheet(page);
+  expect(sh.chars.map((c) => c.id)).toEqual([1, 2, 3]);
+  /* 拖不動：拖一段放開＝點一下（挑起），再點同一位＝放下 */
+  const a = await nodeCenter(page, 2);
+  await drag(page, a, { x: a.x + 80, y: a.y + 40 });
+  await expect(page.getByTestId('swap-banner')).toContainText('乙');
+  sh = await sheet(page);
+  expect(sh.chars[1]).toMatchObject({ x: 750, y: 500 });
+  await page.mouse.click(a.x, a.y);
+  await expect(page.getByTestId('swap-banner')).not.toContainText('乙');
+  /* 清單點一列也算 */
+  await page.getByTestId('char-row').nth(0).click();
+  await page.getByTestId('char-row').nth(1).click();
+  sh = await sheet(page);
+  expect(sh.chars.map((c) => c.id)).toEqual([2, 1, 3]);
+  /* Esc 結束 */
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('swap-banner')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

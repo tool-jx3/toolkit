@@ -5,7 +5,7 @@
  * （原作的進階區：charVariant、unifyColors、fAvFrame、fCharFont、cardCopy、peSecViews）。
  */
 import { BookOpen, ClipboardCopy } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { copyText } from '@/core/files';
 import { Button, Field, Select, TextInput, Toggle, useToast } from '@/ui';
 import { displayName, type SheetCtx } from '../engine/geom';
@@ -145,28 +145,33 @@ function ViewInput({
   target,
   value,
   autoFocus,
-  onDone,
 }: {
   speaker: number;
   target: number;
   value: string;
   autoFocus?: boolean;
-  onDone?: () => void;
 }) {
+  const id = useId();
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
+  /* 剛挑了對象：等下拉選單把焦點還回去之後再聚焦到輸入欄 */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只在出現時聚焦一次
+  useEffect(() => {
+    if (!autoFocus) return;
+    const t = setTimeout(() => document.getElementById(id)?.focus(), 30);
+    return () => clearTimeout(t);
+  }, []);
   const commit = () => {
     if (draft !== value) setView(speaker, target, draft);
-    onDone?.();
   };
   return (
     <TextInput
+      id={id}
       value={draft}
       maxLength={120}
       placeholder={S.views.ph}
       aria-label={S.views.ph}
       className="h-7 min-w-0 flex-1 text-sm"
-      autoFocus={autoFocus}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {
@@ -179,6 +184,7 @@ function ViewInput({
 
 /** 看法：這個角色對本分頁其他角色的一句話（不必有關係線） */
 export function ViewsSection({ c, sheet }: { c: Char; sheet: Sheet }) {
+  /* 挑了、還沒寫的對象（還沒打字＝不進資料，面板關掉就散；原作也是） */
   const [pending, setPending] = useState<number[]>([]);
   const mine = sheet.views?.[c.id] ?? {};
   const byId = new Map(sheet.chars.map((x) => [x.id, x]));
@@ -204,13 +210,7 @@ export function ViewsSection({ c, sheet }: { c: Char; sheet: Sheet }) {
               <span className="max-w-24 shrink-0 truncate text-sm" title={displayName(x)}>
                 {displayName(x)}
               </span>
-              <ViewInput
-                speaker={c.id}
-                target={id}
-                value={mine[id] ?? ''}
-                autoFocus={isPending}
-                onDone={isPending ? () => setPending((p) => p.filter((k) => k !== id)) : undefined}
-              />
+              <ViewInput speaker={c.id} target={id} value={mine[id] ?? ''} autoFocus={isPending} />
             </div>
           );
         })}

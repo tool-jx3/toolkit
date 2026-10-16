@@ -218,18 +218,19 @@ export function RelTableSide({ query }: { query: string }) {
       ) : null}
       {checked.length || listed.length ? (
         <div className="flex flex-col gap-2 rounded-md border border-border p-2">
-          <Checkbox
-            checked={allOn}
-            onCheckedChange={(v) =>
-              setTable({
-                checked: v
-                  ? [...new Set([...checked, ...listed])]
-                  : checked.filter((id) => !listed.includes(id)),
-              })
-            }
-            label={T.checked(checked.length)}
-            data-testid="reltable-check-all"
-          />
+          <span data-testid="reltable-check-all">
+            <Checkbox
+              checked={allOn}
+              onCheckedChange={(v) =>
+                setTable({
+                  checked: v
+                    ? [...new Set([...checked, ...listed])]
+                    : checked.filter((id) => !listed.includes(id)),
+                })
+              }
+              label={T.checked(checked.length)}
+            />
+          </span>
           <div className="flex flex-wrap items-center gap-1">
             <span className="text-xs text-muted">{T.retagRow}</span>
             <Select
