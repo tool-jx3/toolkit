@@ -4,9 +4,14 @@
  * 匯出時內嵌的匯入字型（原作的 usedFontHashes、fontEmbedInto）：只放用到的（文件字型＋這些分頁角色的字型）。
  */
 import { importedFamily } from '../engine/geom';
+import { allChars } from '../model/timeline';
 import type { FontItem, FontValue, Sheet } from '../model/types';
 
-/** 實際用到的匯入字型 id：只算庫裡有、而且讀得到檔案的 */
+/**
+ * 實際用到的匯入字型 id：只算庫裡有、而且讀得到檔案的。
+ * frames＝時間軸分頁的每一格都算（GIF／影片、互動網頁的動畫會畫到別格的角色；原作 vFontHashes 掃每一格），
+ * 沒給＝只看目前影格（PNG／SVG／PSD）。
+ */
 export function usedFontIds(
   sheets: readonly Sheet[],
   input: {
@@ -14,6 +19,7 @@ export function usedFontIds(
     fonts?: readonly FontItem[];
     uris: ReadonlyMap<string, string>;
   },
+  frames = false,
 ): string[] {
   const have = new Set((input.fonts ?? []).map((f) => f.id));
   const out = new Set<string>();
@@ -23,7 +29,7 @@ export function usedFontIds(
     if (have.has(id) && input.uris.has(id)) out.add(id);
   };
   add(input.font);
-  for (const s of sheets) for (const c of s.chars) if (c.font) add(c.font);
+  for (const s of sheets) for (const c of frames ? allChars(s) : s.chars) if (c.font) add(c.font);
   return [...out];
 }
 

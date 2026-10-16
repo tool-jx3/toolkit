@@ -34,7 +34,7 @@ export function restoreFromSheetLib(itemId: number): boolean {
   return true;
 }
 
-/** 複製一份（插在它後面；新的 id、時間＝現在） */
+/** 複製一份（插在它後面；新的 id，時間照原本那一筆，原作 sheetLibCopy） */
 export function copySheetLibItem(itemId: number): void {
   untracked(() =>
     updateProject((p) => {
@@ -44,7 +44,7 @@ export function copySheetLibItem(itemId: number): void {
       p.sheetLib.splice(i + 1, 0, {
         id: p.nextId++,
         name: `${src.name}${S.sheetLib.copySuffix}`.slice(0, 200),
-        savedAt: Date.now(),
+        savedAt: src.savedAt,
         sheet: JSON.parse(JSON.stringify(src.sheet)) as Sheet,
       });
     }),

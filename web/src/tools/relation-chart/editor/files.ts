@@ -49,14 +49,17 @@ export async function saveProjectFile(): Promise<void> {
   });
 }
 
-/** 空白專案（沒有角色、關係、背景）：讀原作的檔時直接取代、不用問 */
-const isBlank = (p: Project) =>
-  p.sheets.every((s) => !s.chars.length && !s.rels.length && !s.types.length && !s.bg);
+/**
+ * 空白專案（沒有角色、關係、背景，也不是時間軸分頁）：讀原作的檔時直接取代、不用問
+ * （時間軸分頁的目前影格是空的，別格還可能有內容；原作 loadProject 的 pristine 也排除時間軸分頁）
+ */
+export const isBlankProject = (p: Project) =>
+  p.sheets.every((s) => !s.tl && !s.chars.length && !s.rels.length && !s.types.length && !s.bg);
 
 /** 讀原作的專案：問加入或取代，讀完通知 */
 export async function openLegacy(read: LegacyRead): Promise<boolean> {
   let mode: 'append' | 'replace' = 'replace';
-  if (!isBlank(projectNow())) {
+  if (!isBlankProject(projectNow())) {
     const sheets = Array.isArray(read.data.sheets) ? read.data.sheets.length : 0;
     const v = await ui?.choose({
       title: S.legacy.askTitle,

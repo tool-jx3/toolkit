@@ -642,13 +642,15 @@ export const S = {
     empty: '角色庫是空的。',
     noUnused: '沒有未被使用的變體，一切都物盡其用！',
     unused: '只看未使用的變體',
-    unusedTip: '只列出有變體沒有任何分頁在用的條目',
+    unusedTip: '只列出有變體沒有任何分頁（含分頁庫裡封存的分頁）在用的條目',
     labelFilter: '用標籤篩選',
     labelFilterTip:
       '跳到標籤庫挑一個標籤，回來只列有那個標籤的角色（任何一件變體有就算）；再按一次取消',
     labelFilterOn: (t: string) => `只列標籤「${t}」`,
     labelPickHint: '挑選模式：點一個標籤，回到角色庫只列出有這個標籤的角色。',
     usage: (n: number) => `${n} 分頁`,
+    /** 分頁庫（封存的分頁）也算在用（第五批，原作的 libUsageBin） */
+    usageBin: (n: number) => `分頁庫 ${n}`,
     variants: (n: number) => `${n} 變體`,
     onSheet: '已在目前分頁',
     listLabel: '角色庫清單',

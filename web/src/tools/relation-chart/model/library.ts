@@ -118,50 +118,60 @@ export function entryName(p: Pick<Project, 'sheets'>, e: CharEntry): string {
   return `角色${no || e.id}`;
 }
 
-/** 每個條目、每件變體用在幾張分頁（同一張分頁用兩次算 1） */
-export function charLibUsage(sheets: readonly Sheet[]): {
+/** 一組分頁裡每個 id 用在幾張分頁（同一張分頁用兩次算 1） */
+function countPerSheet(lists: readonly (readonly number[])[]): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const l of lists) for (const id of new Set(l)) out.set(id, (out.get(id) ?? 0) + 1);
+  return out;
+}
+
+/**
+ * 每個條目、每件變體用在幾張分頁（同一張分頁用兩次算 1；時間軸分頁的每一格都算）。
+ * bin＝分頁庫裡封存的分頁：另外算（原作 libBinUsageCount、variantBinCount：分頁庫也算在用，
+ * 用量與「只看未使用」同一套判準，清理時才不會把封存的分頁還在用的條目刪掉）。
+ * sheetsOf＝用到這個條目的分頁（依分頁分組；原作 libSheetUsageMap 掃每一格）。
+ */
+export function charLibUsage(
+  sheets: readonly Sheet[],
+  bin: readonly Sheet[] = [],
+): {
   entry: Map<number, number>;
   variant: Map<number, number>;
-  onSheet: (sheetIdx: number) => Set<number>;
+  entryBin: Map<number, number>;
+  variantBin: Map<number, number>;
+  sheetsOf: (entryId: number) => number[];
 } {
-  const entry = new Map<number, number>();
-  const variant = new Map<number, number>();
-  const per = sheets.map((s) => {
-    const es = new Set<number>();
-    const vs = new Set<number>();
-    for (const c of allChars(s)) {
-      es.add(c.lib);
-      vs.add(c.vari);
-    }
-    for (const id of es) entry.set(id, (entry.get(id) ?? 0) + 1);
-    for (const id of vs) variant.set(id, (variant.get(id) ?? 0) + 1);
-    return { es, vs };
-  });
+  const per = sheets.map((s) => allChars(s));
+  const perBin = bin.map((s) => allChars(s));
+  const libs = per.map((l) => new Set(l.map((c) => c.lib)));
   return {
-    entry,
-    variant,
-    onSheet: (i) => new Set([...(per[i]?.es ?? []), ...(per[i]?.vs ?? [])]),
+    entry: countPerSheet(per.map((l) => l.map((c) => c.lib))),
+    variant: countPerSheet(per.map((l) => l.map((c) => c.vari))),
+    entryBin: countPerSheet(perBin.map((l) => l.map((c) => c.lib))),
+    variantBin: countPerSheet(perBin.map((l) => l.map((c) => c.vari))),
+    sheetsOf: (id) => libs.flatMap((set, i) => (set.has(id) ? [i] : [])),
   };
 }
 
-export function relLibUsage(sheets: readonly Sheet[]): {
+/** 關係庫的用量（同 charLibUsage；bin＝分頁庫） */
+export function relLibUsage(
+  sheets: readonly Sheet[],
+  bin: readonly Sheet[] = [],
+): {
   entry: Map<number, number>;
   variant: Map<number, number>;
+  entryBin: Map<number, number>;
+  variantBin: Map<number, number>;
 } {
-  const entry = new Map<number, number>();
-  const variant = new Map<number, number>();
-  for (const s of sheets) {
-    const es = new Set<number>();
-    const vs = new Set<number>();
-    for (const t of s.types) {
-      if (!t.lib) continue;
-      es.add(t.lib);
-      vs.add(t.vari);
-    }
-    for (const id of es) entry.set(id, (entry.get(id) ?? 0) + 1);
-    for (const id of vs) variant.set(id, (variant.get(id) ?? 0) + 1);
-  }
-  return { entry, variant };
+  const bound = (list: readonly Sheet[]) => list.map((s) => s.types.filter((t) => t.lib));
+  const per = bound(sheets);
+  const perBin = bound(bin);
+  return {
+    entry: countPerSheet(per.map((l) => l.map((t) => t.lib))),
+    variant: countPerSheet(per.map((l) => l.map((t) => t.vari))),
+    entryBin: countPerSheet(perBin.map((l) => l.map((t) => t.lib))),
+    variantBin: countPerSheet(perBin.map((l) => l.map((t) => t.vari))),
+  };
 }
 
 /* ---------- 同步 ---------- */

@@ -1087,6 +1087,8 @@ export function deleteType(id: number): void {
     s.types = s.types.filter((t) => t.id !== id);
     s.rels = s.rels.filter((r) => r.type !== id);
     s.grels = s.grels.filter((g) => g.type !== id);
+    /* 時間軸分頁：關係類型整頁共用，每一格的這種線一起刪（原作只刪目前影格，別格留下沒有類型的線） */
+    for (const f of s.tl?.frames ?? []) f.rels = f.rels.filter((r) => r.type !== id);
   });
   const u = useUi.getState();
   if (u.link?.typeId === id) setUi({ link: null });

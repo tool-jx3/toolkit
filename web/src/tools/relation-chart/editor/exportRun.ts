@@ -10,6 +10,8 @@ import { buildExport, defaultExportBase, type ExportFormat } from '../export/out
 import { slimAvatars } from '../export/slim';
 import { loreOf } from '../model/lore';
 import { richImageIds } from '../model/normalize';
+import { allChars } from '../model/timeline';
+import type { Project } from '../model/types';
 import { dataUris, drawnImageIds } from '../state/images';
 import {
   activeIndex,
@@ -32,20 +34,31 @@ export function pickIndexes(scope: ExportScope, picked: ReadonlySet<number>): nu
   return all.filter((i) => picked.has(i));
 }
 
-export async function prepare(idx: readonly number[], transparent: boolean) {
-  flushRichEditors();
-  syncProject();
-  const p = projectNow();
+/**
+ * 這次匯出要準備的資產（圖、頭像框、用到的匯入字型、角色資訊與世界觀裡的圖）。
+ * 字型看時間軸分頁的每一格（GIF／影片、互動網頁的動畫會畫到別格的角色；只是多準備，靜態的匯出照舊只內嵌目前影格用到的）。
+ */
+export function exportAssetIds(p: Project, idx: readonly number[]): Set<string> {
   const sheets = idx.map((i) => p.sheets[i]);
-  /* 圖、頭像框、用到的匯入字型、角色資訊與世界觀裡的圖 */
   const ids = new Set(drawnImageIds(p, idx));
-  const fontRefs = new Set<string>([p.font, ...sheets.flatMap((s) => s.chars.map((c) => c.font))]);
+  const fontRefs = new Set<string>([
+    p.font,
+    ...sheets.flatMap((s) => allChars(s).map((c) => c.font)),
+  ]);
   for (const f of p.fonts) if (fontRefs.has(`f:${f.id}`)) ids.add(f.id);
   const libIds = new Set(sheets.flatMap((s) => s.chars.map((c) => c.lib)));
   for (const e of p.library)
     if (libIds.has(e.id)) for (const id of richImageIds(e.info)) ids.add(id);
   for (const s of sheets) for (const id of richImageIds(loreOf(p.sheets, s).html)) ids.add(id);
-  const uris = await dataUris(ids);
+  return ids;
+}
+
+export async function prepare(idx: readonly number[], transparent: boolean) {
+  flushRichEditors();
+  syncProject();
+  const p = projectNow();
+  const sheets = idx.map((i) => p.sheets[i]);
+  const uris = await dataUris(exportAssetIds(p, idx));
   return {
     sheets,
     allSheets: p.sheets,

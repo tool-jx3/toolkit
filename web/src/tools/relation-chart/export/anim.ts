@@ -114,7 +114,8 @@ export class AnimPainter {
     private plan: AnimPlan,
     private tween: TweenOpts,
   ) {
-    const ids = usedFontIds([sheet], input);
+    /* 每一格用到的字型（補間會畫到別格的角色） */
+    const ids = usedFontIds([sheet], input, true);
     this.faces = ids.length ? fontFaceCss(ids, input.uris) : undefined;
     this.firstFonts = ids.length > 0;
     this.bg = PALETTES[sheet.settings.palette]?.bg ?? '#1e1e1e';

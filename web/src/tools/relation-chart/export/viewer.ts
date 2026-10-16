@@ -452,7 +452,8 @@ export function viewerHtml(
       : '';
   const font = fontStack(input.font, new Set((input.fonts ?? []).map((f) => f.id)));
   const x3 = extData(sheets, input);
-  const faces = usedFontIds(sheets, input);
+  /* 時間軸的動畫會畫到別格的角色：每一格用到的字型都放 */
+  const faces = usedFontIds(sheets, input, anyAnim);
   const pane = !!x3 && (x3.anyInfo || x3.anyRadar || x3.anyLore);
   /* 第四批：遠近簡化（60 位以上的分頁才有標記）、便利貼、世界觀鈕、嵌入模式（都只有用到時才放） */
   const anyLod = svgs.some((svg) => svg.includes('class="lod-dot"'));

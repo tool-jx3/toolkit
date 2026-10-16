@@ -4326,6 +4326,14 @@ test('分頁庫（F027）：刪除分頁＝封存（可以復原）；匯入當�
   const entries = lib(page).getByTestId('lib-entry');
   await expect(entries.getByTestId('lib-entry-name')).toHaveText(['支線']);
   await expect(entries.getByTestId('lib-entry-meta')).toHaveText([/^6 角色 · \d+ 關係 · /]);
+  /* 角色庫：封存的分頁也算在用（「1 分頁 · 分頁庫 1」；只看未使用不列；原作 libUsageBin） */
+  await page.getByTestId('library-tab-chars').click();
+  const hero = lib(page).getByTestId('lib-entry').filter({ hasText: '主角' });
+  await expect(hero.getByTestId('lib-entry-meta')).toHaveText('1 分頁 · 分頁庫 1');
+  await lib(page).getByRole('switch', { name: '只看未使用的變體' }).click();
+  await expect(hero).toHaveCount(0);
+  await lib(page).getByRole('switch', { name: '只看未使用的變體' }).click();
+  await page.getByTestId('library-tab-sheets').click();
   /* 匯入當前：加成新分頁並切過去；備忘錄面板留著、換成那一張的 */
   await page.getByTestId('library-act-import').click();
   await entries.first().click();
