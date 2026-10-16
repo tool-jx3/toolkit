@@ -62,6 +62,8 @@ export interface RenderOpts {
   lod?: boolean;
   /** 時間軸的補間覆寫表（第五批；sheet 是 logic/tween 算出來的暫時分頁） */
   tween?: TweenFx | null;
+  /** 互動網頁的動畫：可視範圍併入這些便利貼（所有影格的聯集，鏡頭才不會一格一格跳；原作） */
+  boxNotes?: readonly { x: number; y: number; w: number; h: number }[];
 }
 
 /** 遠近簡化的密度門檻：畫面上看得到的角色（收合藏起來的不算）≥ 60 位 */
@@ -238,10 +240,13 @@ const relOpacityAttr = (p: ChartParts) => {
   return v >= 0.25 && v < 1 ? ` opacity="${Math.round(v * 100) / 100}"` : '';
 };
 
-/** 畫布內容（translate 之前的座標）：背景、輔助線、關係線、角色、名稱、圖例 */
-function contentLayers(p: ChartParts, opts: { transparent?: boolean; frame?: boolean }): string {
+/** 畫布內容（translate 之前的座標）：背景、輔助線、關係線、角色、名稱、圖例；noBg＝不畫背景（輔助線照畫；GIF／影片的背景另外畫） */
+function contentLayers(
+  p: ChartParts,
+  opts: { transparent?: boolean; frame?: boolean; noBg?: boolean },
+): string {
   const { W, H, pal } = p.ctx;
-  const bg = opts.transparent ? '' : p.bgRect + p.bgImage;
+  const bg = opts.transparent || opts.noBg ? '' : p.bgRect + p.bgImage;
   const frame = opts.frame
     ? `<rect class="canvas-frame" x="0.5" y="0.5" width="${Math.max(0, W - 1)}" height="${Math.max(0, H - 1)}" fill="none" stroke="${pal.guide}" stroke-width="2" opacity="0.9" vector-effect="non-scaling-stroke" pointer-events="none"/>`
     : '';
@@ -304,14 +309,14 @@ export function exportSvg(
  * 互動網頁的可視範圍：畫布＋外擴（界外的圖例／名冊、出血、頭像框）；有便利貼在畫布外時再併入
  * 「畫布 ∪ 便利貼」外加 16（原作的 viewerViewBox），夾在實際畫出的範圍內。沒有界外便利貼＝和以前相同。
  */
-function viewerBox(p: ChartParts): string {
+function viewerBox(p: ChartParts, extra?: RenderOpts['boxNotes']): string {
   const { W, H } = p.ctx;
   const b = p.padBase;
   let x0 = 0;
   let y0 = 0;
   let x1 = W;
   let y1 = H;
-  for (const n of p.ctx.sheet.notes ?? []) {
+  for (const n of [...(p.ctx.sheet.notes ?? []), ...(extra ?? [])]) {
     x0 = Math.min(x0, n.x - n.w / 2);
     y0 = Math.min(y0, n.y - n.h / 2);
     x1 = Math.max(x1, n.x + n.w / 2);
@@ -330,7 +335,25 @@ function viewerBox(p: ChartParts): string {
 /** 互動網頁用：含界外的圖例／名冊（viewBox 外擴），不含編輯用的標記 */
 export function viewerSvg(sheet: Sheet, opts: Omit<RenderOpts, 'mode'>): string {
   const p = chartParts(sheet, { ...opts, mode: 'viewer' });
-  return `${svgOpen(p.ctx, `class="chart" viewBox="${viewerBox(p)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"`)}<defs>${p.defs}</defs>${contentLayers(p, {})}</svg>`;
+  return `${svgOpen(p.ctx, `class="chart" viewBox="${viewerBox(p, opts.boxNotes)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"`)}<defs>${p.defs}</defs>${contentLayers(p, {})}</svg>`;
+}
+
+/**
+ * GIF／影片的一格（第五批）：裁到畫框（outW × outH，左上角＝畫布原點；修掉原作出血時整張偏移），
+ * 不畫背景（底色與背景圖由呼叫端先畫在畫布上）。
+ */
+export function animFrameSvg(
+  sheet: Sheet,
+  opts: Omit<RenderOpts, 'mode'> & {
+    outW: number;
+    outH: number;
+    width: number;
+    height: number;
+    fontFaceCss?: string;
+  },
+): string {
+  const p = chartParts(sheet, { ...opts, mode: 'export' });
+  return `${svgOpen(p.ctx, `viewBox="0 0 ${f1(opts.outW)} ${f1(opts.outH)}" width="${opts.width}" height="${opts.height}"`, opts.fontFaceCss)}<defs>${p.defs}</defs>${contentLayers(p, { noBg: true })}</svg>`;
 }
 
 export interface LayerPart {

@@ -150,6 +150,7 @@ export const S = {
     durTitle: '影格播放時間',
     durHint:
       '此影格過場到下一影格所花的秒數；留空＝預設（約 1.2 秒）。按兩下影格標記即可開啟本設定。',
+    scrub: '拖曳預覽影格間的動畫',
     durAuto: (s: number) => `自動（${s} 秒）`,
     durValue: (s: number) => `${s} 秒`,
     seconds: '秒',
@@ -166,6 +167,7 @@ export const S = {
     gif: 'GIF 動畫',
     video: '影片（MP4／WebM）',
     needTl: '只適用於「時間軸分頁」，且至少要有兩格影格。',
+    fpsHint: '固定每秒 20 格、最後一格多停 1 秒（同原作）',
     gifHint: (n: number, w: number, h: number, sec: string) =>
       `每秒 20 格、最後一格多停 1 秒：${n} 格、${w} × ${h}、約 ${sec} 秒（長邊最多 960；最多 600 格）。`,
     videoHint: (n: number, w: number, h: number, sec: string) =>
@@ -1363,6 +1365,9 @@ export const S = {
       video: '影片',
     },
     scopeShort: { cur: '目前分頁', some: '部分分頁', all: '全部分頁' },
+    /* 第五批 */
+    anim: 'GIF／影片',
+    close: '關閉',
     againGone: '上次勾選的分頁都不在了，請重新選擇。',
   },
 

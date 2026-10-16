@@ -30,10 +30,12 @@ import {
 import { viewBubbleSvg } from '../engine/nodes';
 import { richDocCss, richIsEmpty, sanitizeRichHtml } from '../logic/rich';
 import { grelPairs } from '../logic/stats';
+import { type TweenOpts, tweenAt } from '../logic/tween';
 import { charLabelIds } from '../model/charLabels';
 import { variantOf } from '../model/library';
 import { loreOf } from '../model/lore';
 import { ownColor } from '../model/normalize';
+import { frameDur, frameView } from '../model/timeline';
 import type {
   CharEntry,
   FontItem,
@@ -45,6 +47,7 @@ import type {
 } from '../model/types';
 import { S } from '../strings';
 import { fontFaceCss, usedFontIds } from './fonts';
+import { animSteps, rcViewerAnim, type ViewerAnimData, type ViewerAnimSheet } from './viewerAnim';
 import { rcViewerExt, rcViewerRadar, type ViewerExtData, type ViewerExtSheet } from './viewerExt';
 import { rcViewer, type ViewerData, type ViewerSheetData } from './viewerRuntime';
 
@@ -69,7 +72,12 @@ export interface ViewerInput extends ViewerExtra {
 export interface ViewerOpts {
   embed?: boolean;
   slim?: ReadonlyMap<string, string>;
+  /** 時間軸動畫的補間偏好（第五批：補間開關、翻轉動畫、便利貼文字交叉淡化；這台瀏覽器的設定） */
+  tween?: TweenOpts;
 }
+
+/** 時間軸動畫的程式（測試可以換掉） */
+export const viewerAnimSource = (): string => rcViewerAnim.toString();
 
 export const VIEWER_CREDIT = [
   '改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0）',
@@ -370,18 +378,35 @@ export function viewerHtml(
     return `rcimg:${k}`;
   };
   /* 圖片寫成 data-rcimg="N"（去重表的索引），檢視程式載入時才設 href：瀏覽器不認得 rcimg:，放在 href 會多一筆載入失敗 */
-  const svgs = sheets.map((s, i) =>
-    viewerSvg(s, {
-      href,
-      font: input.font,
-      idPrefix: `s${i}-`,
-      labels: input.labels,
-      fonts: input.fonts,
-      frames: input.frames,
-      radarTpls: input.radarTpls,
-      library: input.library,
-      lod: true,
-    }).replace(/ href="rcimg:(\d+)"/g, ' data-rcimg="$1"'),
+  const look = (i: number) => ({
+    href,
+    font: input.font,
+    idPrefix: `s${i}-`,
+    labels: input.labels,
+    fonts: input.fonts,
+    frames: input.frames,
+    radarTpls: input.radarTpls,
+    library: input.library,
+  });
+  const rcimg = (svg: string) => svg.replace(/ href="rcimg:(\d+)"/g, ' data-rcimg="$1"');
+  /* 第五批：有 2 格以上的時間軸分頁＝預先算好補間畫面（每一步的可視範圍併入所有影格的便利貼） */
+  const anims: (ViewerAnimSheet | null)[] = sheets.map((s, i) => {
+    const tl = s.tl;
+    if (!tl || tl.frames.length < 2) return null;
+    const n = tl.frames.length;
+    const steps = animSteps(n);
+    const boxNotes = tl.frames.flatMap((_f, k) => frameView(s, k).notes);
+    const frames: string[] = [];
+    for (let k = 0; k <= (n - 1) * steps; k++) {
+      const tw = tweenAt(s, k / steps, { ...opts.tween, library: input.library });
+      frames.push(rcimg(viewerSvg(tw.sheet, { ...look(i), tween: tw.fx, boxNotes })));
+    }
+    const durs = tl.frames.slice(0, -1).map((_f, k) => Math.round(frameDur(tl, k) * 1000) / 1000);
+    return { frames, steps, n, durs };
+  });
+  const anyAnim = anims.some((a) => a);
+  const svgs = sheets.map(
+    (s, i) => anims[i]?.frames[0] ?? rcimg(viewerSvg(s, { ...look(i), lod: true })),
   );
   const usedLabels = new Set(sheets.flatMap((s) => s.chars.flatMap((c) => charLabelIds(c))));
   const anyHiddenOk = sheets.some((s) => s.settings.viewerHiddenLbls);
@@ -418,7 +443,7 @@ export function viewerHtml(
       const d = focusDimSet(s.settings.focusDim);
       const bg = PALETTES[s.settings.palette].bg;
       const lv = usesLabels ? `;--fdim-lbl:${d.lbl};--fdim-zone:${d.zone}` : '';
-      return `<div class="sheetV${i === 0 ? ' active' : ''}" style="background:${bg};--fdim-node:${d.node};--fdim-edge:${d.edge}${lv}"><div class="zoomer">${svgs[i]}</div></div>`;
+      return `<div class="sheetV${i === 0 ? ' active' : ''}"${anims[i] ? ' data-anim="1"' : ''} style="background:${bg};--fdim-node:${d.node};--fdim-edge:${d.edge}${lv}"><div class="zoomer">${svgs[i]}</div></div>`;
     })
     .join('\n');
   const tabsHtml =
@@ -452,6 +477,15 @@ body.embed #ctl button{padding:2px 8px;font-size:12px}
 body.embed footer{padding:3px 10px;font-size:10px}
 body.embed .ft-hint{display:none}
 body.embed #stageV{touch-action:pan-x pan-y}${x3?.anyLore ? '\nbody.embed #loreBtnV{top:10px}' : ''}`
+      : ''
+  }${
+    anyAnim
+      ? `
+#animBar{flex-shrink:0;display:none;align-items:center;gap:12px;padding:7px 16px;background:${th.panel};border-top:1px solid ${th.accent}}
+#animBar.show{display:flex}
+#animBar button{background:none;border:1px solid ${th.accent};border-radius:6px;color:${th.accent};width:34px;height:30px;cursor:pointer;font-size:13px;font-family:inherit;flex-shrink:0}
+#animBar input[type=range]{flex:1;min-width:0;accent-color:${th.accent};cursor:pointer}
+#animBar .animTime{flex-shrink:0;font-size:11px;font-weight:700;color:${th.muted};min-width:46px;text-align:right;font-variant-numeric:tabular-nums}`
       : ''
   }`;
   const css3 = `${faces.length ? `\n${fontFaceCss(faces, input.uris)}` : ''}${
@@ -559,9 +593,15 @@ footer{flex-shrink:0;padding:5px 14px;background:${th.panel};border-top:1px soli
           '',
         )}${x3?.anyRadar ? '<div class="loreDoc" data-r="1" id="radarDocV" hidden></div>' : ''}</div></div>`
     : '';
+  /* 第五批：時間軸動畫的程式與資料（只有用到時才放） */
+  const animArg = anyAnim
+    ? `,(${viewerAnimSource()})(${scriptJson({ sheets: anims, txt: { play: S.tl.play, pause: S.tl.pause } } satisfies ViewerAnimData)},D.imgs)`
+    : '';
   const script = x3
-    ? `(function(){var D=${scriptJson(data)};(${viewerSource()})(D,(${viewerExtSource()})(${scriptJson(x3.ext)},${x3.anyRadar ? `function(E,a){return (${rcViewerRadar.toString()})(E,(${rcCharts.toString()})(),a)}` : 'null'},D));})();`
-    : `(${viewerSource()})(${scriptJson(data)});`;
+    ? `(function(){var D=${scriptJson(data)};(${viewerSource()})(D,(${viewerExtSource()})(${scriptJson(x3.ext)},${x3.anyRadar ? `function(E,a){return (${rcViewerRadar.toString()})(E,(${rcCharts.toString()})(),a)}` : 'null'},D)${animArg});})();`
+    : anyAnim
+      ? `(function(){var D=${scriptJson(data)};(${viewerSource()})(D,undefined${animArg});})();`
+      : `(${viewerSource()})(${scriptJson(data)});`;
   const T = S.viewer;
   const loreBtn = x3?.anyLore
     ? `\n<button type="button" id="loreBtnV" hidden>${esc(T.lore)}</button>`
@@ -579,7 +619,7 @@ ${css}
 <header><h1>${esc(title)}</h1>${tabsHtml}<div id="ctl"><input id="rvSearch" type="search" placeholder="${esc(T.search)}" aria-label="${esc(T.search)}" autocomplete="off"><button type="button" id="zOut" aria-label="${esc(T.zoomOut)}">−</button><button type="button" id="zIn" aria-label="${esc(T.zoomIn)}">＋</button><button type="button" id="zReset">${esc(T.reset)}</button></div></header>
 <div id="stageV">
 ${sheetsHtml}
-</div>
+</div>${anyAnim ? `\n<div id="animBar"><button type="button" id="animPlay" aria-label="${esc(S.tl.play)}" title="${esc(S.tl.play)}">▶</button><input id="animScrub" type="range" min="0" max="1000" value="0" aria-label="${esc(S.tl.scrub)}"><span class="animTime" id="animTime">1 / 1</span></div>` : ''}
 <div id="rosterV"><div class="rv-chips" id="rvChips"></div><div class="rv-list" id="rvList"></div></div>
 <div id="tipV"></div>${paneHtml}${loreBtn}
 <footer><span${opts.embed ? ' class="ft-hint"' : ''}>${esc(hint)}</span><span>${esc(T.credit)}</span></footer>

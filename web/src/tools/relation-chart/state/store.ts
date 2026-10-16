@@ -197,7 +197,8 @@ export interface Prefs {
   libGroup: boolean;
   nameFromFile: boolean;
   minimap: boolean;
-  exportFormat: ExportFormat;
+  /** 匯出的格式（第五批多了 GIF、影片：只有目前分頁是時間軸分頁時能選） */
+  exportFormat: ExportFormat | 'gif' | 'video';
   exportScope: ExportScope;
   transparent: boolean;
   /** 互動網頁：壓縮頭像、嵌入模式（第四批） */

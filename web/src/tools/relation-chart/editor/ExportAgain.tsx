@@ -3,14 +3,15 @@
  *
  * 再次匯出（F147；原作的 syncExportAgain、exportAgain）：有記憶時才出現，字＝格式的短名＋「・」＋範圍；
  * 點了不開對話框，用上次的格式、範圍、勾選直接匯出，檔名每次重算。部分分頁記著分頁 id：那些分頁都不在了＝打開對話框重選。
- * 第五批的 GIF／影片也記（這批還沒有那兩種格式：遇到時打開對話框）。
+ * 第五批的 GIF／影片也記（7.4 第 8 項）：目前分頁是 2 格以上的時間軸分頁＝直接匯出；不是＝打開對話框。
  */
 import { Zap } from 'lucide-react';
 import { useState } from 'react';
 import { Button, useToast } from '@/ui';
-import { projectNow, setPrefs, setUi, usePrefs } from '../state/store';
+import { sheetName } from '../engine/geom';
+import { activeSheet, projectNow, setPrefs, setUi, usePrefs } from '../state/store';
 import { S } from '../strings';
-import { pickIndexes, runExport } from './exportRun';
+import { pickIndexes, runAnimExport, runExport } from './exportRun';
 
 const E = S.exportDlg;
 
@@ -23,7 +24,25 @@ export function ExportAgain() {
   const run = async () => {
     const fmt = last.fmt;
     if (fmt === 'gif' || fmt === 'video') {
-      setUi({ dialog: 'export' });
+      const s = activeSheet();
+      if (!s.tl || s.tl.frames.length < 2) {
+        toast({ title: `${E.short[fmt]}：${S.anim.needTl}`, tone: 'warning' });
+        setUi({ dialog: 'export' });
+        return;
+      }
+      setBusy(true);
+      try {
+        const r = await runAnimExport(fmt, sheetName(s));
+        toast({ title: E.done(r.fileName), tone: 'success' });
+      } catch (e) {
+        toast({
+          title: E.failed,
+          description: e instanceof Error ? e.message : undefined,
+          tone: 'danger',
+        });
+      } finally {
+        setBusy(false);
+      }
       return;
     }
     const p = projectNow();

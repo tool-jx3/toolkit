@@ -5,6 +5,7 @@
  * 去背、檔名；互動網頁可以先在對話框裡預覽。
  * 第四批：互動網頁的「壓縮頭像」「嵌入模式」（勾了嵌入模式時出現嵌入碼與託管說明；F146）；
  * 每次匯出都記下格式、範圍與勾選（再次匯出，F147）。預覽不吃這兩個選項（原作也是）。
+ * 第五批：目前分頁是 2 格以上的時間軸分頁時多一個「GIF／影片」（AnimExport；原作只在時間軸分頁出現，藏而不灰）。
  */
 import { Copy, Download, Eye } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -14,7 +15,8 @@ import { defaultExportBase, type ExportFormat, exportExt } from '../../export/ou
 import { viewerHtml } from '../../export/viewer';
 import { activeIndex, setPrefs, setUi, usePrefs, useProject, useUi } from '../../state/store';
 import { S } from '../../strings';
-import { pickIndexes, prepare, runExport } from '../exportRun';
+import { pickIndexes, prepare, runExport, tweenPrefs } from '../exportRun';
+import { AnimExport } from './AnimExport';
 
 const E = S.exportDlg;
 
@@ -106,7 +108,7 @@ function PreviewDialog({ open, onClose }: { open: boolean; onClose: () => void }
         return;
       }
       const input = await prepare(idx, false);
-      if (alive) setHtml(viewerHtml(input.sheets, input));
+      if (alive) setHtml(viewerHtml(input.sheets, input, { tween: tweenPrefs() }));
     })();
     return () => {
       alive = false;
@@ -155,7 +157,11 @@ function Body({ onDone }: { onDone: () => void }) {
   const [custom, setCustom] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(false);
-  const fmt = prefs.exportFormat;
+  /* GIF／影片：只有目前分頁是 2 格以上的時間軸分頁時能選 */
+  const canAnim = (sheets[active]?.tl?.frames.length ?? 0) >= 2;
+  const anim = canAnim && (prefs.exportFormat === 'gif' || prefs.exportFormat === 'video');
+  const fmt: ExportFormat =
+    prefs.exportFormat === 'gif' || prefs.exportFormat === 'video' ? 'png' : prefs.exportFormat;
   const scope = sheets.length > 1 ? prefs.exportScope : 'cur';
   const idx = pickIndexes(scope, picked);
   const base = defaultExportBase(
@@ -193,115 +199,132 @@ function Body({ onDone }: { onDone: () => void }) {
       <Field label={E.format}>
         <Segmented
           size="sm"
-          value={fmt}
-          onValueChange={(v) => setPrefs({ exportFormat: v })}
+          value={anim ? 'anim' : fmt}
+          onValueChange={(v) =>
+            setPrefs({
+              exportFormat:
+                v === 'anim' ? (prefs.lastExport?.fmt === 'video' ? 'video' : 'gif') : v,
+            })
+          }
           options={[
             { value: 'png', label: E.png },
             { value: 'svg', label: E.svg },
             { value: 'psd', label: E.psd },
             { value: 'html', label: E.html },
+            ...(canAnim ? [{ value: 'anim' as const, label: E.anim }] : []),
           ]}
         />
       </Field>
-      <p className="-mt-2 text-xs text-muted">{HINTS[fmt]}</p>
-      {sheets.length > 1 ? (
-        <Field label={E.scope}>
-          <div className="flex flex-col gap-2">
-            <Segmented
-              size="sm"
-              value={scope}
-              onValueChange={(v) => setPrefs({ exportScope: v })}
-              options={[
-                { value: 'cur', label: E.scopeCur },
-                { value: 'all', label: E.scopeAll },
-                { value: 'some', label: E.scopeSome },
-              ]}
-            />
-            {scope === 'some' ? (
-              <fieldset className="flex flex-col gap-1" aria-label={E.pickSheets}>
-                {sheets.map((s, i) => (
-                  <Checkbox
-                    key={s.id}
-                    checked={picked.has(i)}
-                    disabled={!s.chars.length}
-                    onCheckedChange={(v) =>
-                      setPicked((cur) => {
-                        const next = new Set(cur);
-                        if (v) next.add(i);
-                        else next.delete(i);
-                        return next;
-                      })
-                    }
-                    label={`${sheetName(s)}${s.chars.length ? '' : E.emptyTag}`}
-                  />
-                ))}
-              </fieldset>
-            ) : null}
+      {anim ? (
+        <>
+          <AnimExport />
+          <div className="flex justify-end">
+            <Button onClick={onDone}>{E.close}</Button>
           </div>
-        </Field>
-      ) : null}
-      {fmt === 'png' ? (
-        <Checkbox
-          checked={prefs.transparent}
-          onCheckedChange={(v) => setPrefs({ transparent: v })}
-          label={E.transparent}
-          data-testid="export-transparent"
-        />
-      ) : null}
-      {fmt === 'html' ? (
-        <div className="flex flex-col gap-2">
-          <Checkbox
-            checked={prefs.slim}
-            onCheckedChange={(v) => setPrefs({ slim: v })}
-            label={E.slim}
-            data-testid="export-slim"
-          />
-          <p className="-mt-1 text-xs text-muted">{E.slimHint}</p>
-          <Checkbox
-            checked={prefs.embed}
-            onCheckedChange={(v) => setPrefs({ embed: v })}
-            label={E.embed}
-            data-testid="export-embed"
-          />
-          {prefs.embed ? <EmbedTeach /> : null}
-        </div>
-      ) : null}
-      <Field label={E.fileName} hint={E.fileNameHint}>
-        <div className="flex items-center gap-1">
-          <TextInput
-            value={custom ?? base}
-            onChange={(e) => setCustom(e.target.value)}
-            aria-label={E.fileName}
-            className="min-w-0 flex-1"
-            data-testid="export-name"
-          />
-          <span className="text-sm text-muted">.{ext}</span>
-        </div>
-      </Field>
-      {!idx.length ? <p className="text-sm text-warning">{empty}</p> : null}
-      <div className="flex flex-wrap justify-end gap-2">
-        {fmt === 'html' ? (
-          <Button
-            icon={<Eye />}
-            className="mr-auto"
-            onClick={() => setPreview(true)}
-            data-testid="export-preview"
-          >
-            {E.preview}
-          </Button>
-        ) : null}
-        <Button onClick={onDone}>{E.cancel}</Button>
-        <Button
-          variant="primary"
-          icon={<Download />}
-          loading={busy}
-          disabled={!idx.length}
-          onClick={() => void run()}
-          data-testid="export-run"
-        >
-          {busy ? E.running : E.run}
-        </Button>
-      </div>
+        </>
+      ) : (
+        <>
+          <p className="-mt-2 text-xs text-muted">{HINTS[fmt]}</p>
+          {sheets.length > 1 ? (
+            <Field label={E.scope}>
+              <div className="flex flex-col gap-2">
+                <Segmented
+                  size="sm"
+                  value={scope}
+                  onValueChange={(v) => setPrefs({ exportScope: v })}
+                  options={[
+                    { value: 'cur', label: E.scopeCur },
+                    { value: 'all', label: E.scopeAll },
+                    { value: 'some', label: E.scopeSome },
+                  ]}
+                />
+                {scope === 'some' ? (
+                  <fieldset className="flex flex-col gap-1" aria-label={E.pickSheets}>
+                    {sheets.map((s, i) => (
+                      <Checkbox
+                        key={s.id}
+                        checked={picked.has(i)}
+                        disabled={!s.chars.length}
+                        onCheckedChange={(v) =>
+                          setPicked((cur) => {
+                            const next = new Set(cur);
+                            if (v) next.add(i);
+                            else next.delete(i);
+                            return next;
+                          })
+                        }
+                        label={`${sheetName(s)}${s.chars.length ? '' : E.emptyTag}`}
+                      />
+                    ))}
+                  </fieldset>
+                ) : null}
+              </div>
+            </Field>
+          ) : null}
+          {fmt === 'png' ? (
+            <Checkbox
+              checked={prefs.transparent}
+              onCheckedChange={(v) => setPrefs({ transparent: v })}
+              label={E.transparent}
+              data-testid="export-transparent"
+            />
+          ) : null}
+          {fmt === 'html' ? (
+            <div className="flex flex-col gap-2">
+              <Checkbox
+                checked={prefs.slim}
+                onCheckedChange={(v) => setPrefs({ slim: v })}
+                label={E.slim}
+                data-testid="export-slim"
+              />
+              <p className="-mt-1 text-xs text-muted">{E.slimHint}</p>
+              <Checkbox
+                checked={prefs.embed}
+                onCheckedChange={(v) => setPrefs({ embed: v })}
+                label={E.embed}
+                data-testid="export-embed"
+              />
+              {prefs.embed ? <EmbedTeach /> : null}
+            </div>
+          ) : null}
+          <Field label={E.fileName} hint={E.fileNameHint}>
+            <div className="flex items-center gap-1">
+              <TextInput
+                value={custom ?? base}
+                onChange={(e) => setCustom(e.target.value)}
+                aria-label={E.fileName}
+                className="min-w-0 flex-1"
+                data-testid="export-name"
+              />
+              <span className="text-sm text-muted">.{ext}</span>
+            </div>
+          </Field>
+          {!idx.length ? <p className="text-sm text-warning">{empty}</p> : null}
+          <div className="flex flex-wrap justify-end gap-2">
+            {fmt === 'html' ? (
+              <Button
+                icon={<Eye />}
+                className="mr-auto"
+                onClick={() => setPreview(true)}
+                data-testid="export-preview"
+              >
+                {E.preview}
+              </Button>
+            ) : null}
+            <Button onClick={onDone}>{E.cancel}</Button>
+            <Button
+              variant="primary"
+              icon={<Download />}
+              loading={busy}
+              disabled={!idx.length}
+              onClick={() => void run()}
+              data-testid="export-run"
+            >
+              {busy ? E.running : E.run}
+            </Button>
+          </div>
+        </>
+      )}
       <PreviewDialog open={preview} onClose={() => setPreview(false)} />
     </div>
   );
