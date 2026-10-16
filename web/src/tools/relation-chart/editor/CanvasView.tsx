@@ -31,13 +31,23 @@ import { toggleSwap } from './swap';
 import { bindView, fitView, lodScale, nextLod, zoomBy } from './view';
 import { ZoomSettle } from './zoomSettle';
 
+/*
+ * 聚焦淡化（7.11，D73）：每個角色、線、標籤…的不透明度＝登記過的 --rc-op，轉場掛在 --rc-op 上（0.2 秒 ease，淡化程度同前）。
+ * 不直接轉場 opacity：SVG 子元素的 opacity 轉場會被瀏覽器丟到合成器，120 位時幾百個元素各自變成一個合成層，
+ * 開始與結束時整張大圖重新點陣化（滑過、移開、開始拖曳、放開時卡 0.4～1.7 秒）；--rc-op 的轉場在主執行緒，只重畫一層。
+ * 文字用 geometricPrecision：淡化中的角色（opacity < 1）裡有文字時，瀏覽器為了保留 LCD 文字不把它併進大圖層，
+ * 每位角色各自一層、後面疊到的也跟著變成一層（120 位時七、八十層，每次聚焦都重新點陣化）。
+ * 不支援 @property 的瀏覽器：淡化照樣套上，只是沒有轉場。
+ */
 const CANVAS_CSS = `
-.rc-host .rc-chart{display:block;width:100%;height:100%}
-.rc-host .rc-chart .node,.rc-host .rc-chart .edge,.rc-host .rc-chart .layer-legend,.rc-host .rc-chart .lbl-node,.rc-host .rc-chart .lbl-links,.rc-host .rc-chart .zone-g,.rc-host .rc-chart .colnode,.rc-host .rc-chart .col-edge{transition:opacity .2s ease}
-.rc-host .rc-chart.focus-active .node,.rc-host .rc-chart.focus-active .lbl-node,.rc-host .rc-chart.focus-active .colnode{opacity:var(--fdim-node,.15)}
-.rc-host .rc-chart.focus-active .edge,.rc-host .rc-chart.focus-active .lbl-links,.rc-host .rc-chart.focus-active .zone-g,.rc-host .rc-chart.focus-active .col-edge{opacity:var(--fdim-edge,.07)}
-.rc-host .rc-chart.focus-active.dim-legend .layer-legend{opacity:var(--fdim-legend,.3)}
-.rc-host .rc-chart.focus-active .node.focusedV,.rc-host .rc-chart.focus-active .edge.focusedV,.rc-host .rc-chart.focus-active .lbl-node.focusedV,.rc-host .rc-chart.focus-active .lbl-links.focusedV,.rc-host .rc-chart.focus-active .zone-g.focusedV,.rc-host .rc-chart.focus-active .colnode.focusedV,.rc-host .rc-chart.focus-active .col-edge.focusedV{opacity:1}
+.rc-host .rc-chart{display:block;width:100%;height:100%;text-rendering:geometricPrecision}
+@property --rc-op{syntax:'<number>';inherits:false;initial-value:1}
+.rc-host .rc-chart .node,.rc-host .rc-chart .edge,.rc-host .rc-chart .layer-legend,.rc-host .rc-chart .lbl-node,.rc-host .rc-chart .lbl-links,.rc-host .rc-chart .zone-g,.rc-host .rc-chart .colnode,.rc-host .rc-chart .col-edge{opacity:var(--rc-op);transition:--rc-op .2s ease}
+.rc-host .rc-chart .lbl-node.lbl-free{--rc-op:.72}
+.rc-host .rc-chart.focus-active .node,.rc-host .rc-chart.focus-active .lbl-node,.rc-host .rc-chart.focus-active .colnode{--rc-op:var(--fdim-node,.15)}
+.rc-host .rc-chart.focus-active .edge,.rc-host .rc-chart.focus-active .lbl-links,.rc-host .rc-chart.focus-active .zone-g,.rc-host .rc-chart.focus-active .col-edge{--rc-op:var(--fdim-edge,.07)}
+.rc-host .rc-chart.focus-active.dim-legend .layer-legend{--rc-op:var(--fdim-legend,.3)}
+.rc-host .rc-chart.focus-active .node.focusedV,.rc-host .rc-chart.focus-active .edge.focusedV,.rc-host .rc-chart.focus-active .lbl-node.focusedV,.rc-host .rc-chart.focus-active .lbl-links.focusedV,.rc-host .rc-chart.focus-active .zone-g.focusedV,.rc-host .rc-chart.focus-active .colnode.focusedV,.rc-host .rc-chart.focus-active .col-edge.focusedV{--rc-op:1}
 .rc-host .rc-chart .grel-fan{opacity:0;pointer-events:none;transition:opacity .15s ease}
 .rc-host .rc-chart .grel-edge:hover .grel-fan{opacity:.4}
 .rc-host .rc-chart .grel-edge,.rc-host .rc-chart .col-edge,.rc-host .rc-chart .colnode,.rc-host .rc-chart .zone-colhot{cursor:pointer}
@@ -58,10 +68,10 @@ const CANVAS_CSS = `
 .rc-host .rc-chart .lod-farname,.rc-host .rc-chart .lod-dot{display:none}
 .rc-host .rc-chart.lod-far .node-name,.rc-host .rc-chart.lod-far .node-face,.rc-host .rc-chart.lod-far .edge-label,.rc-host .rc-chart.lod-far .layer-legend{display:none}
 .rc-host .rc-chart.lod-far .lod-farname,.rc-host .rc-chart.lod-far .lod-dot{display:block}
-.rc-host .rc-chart.lod-far .edge.lod-minor{opacity:.25}
+.rc-host .rc-chart.lod-far .edge.lod-minor{--rc-op:.25}
 .rc-host .rc-chart.lod-mid .edge-label{display:none}
 .rc-host .rc-chart.lod-mid .node-name.lod-minorname{display:none}
-.rc-host .rc-chart.lod-mid .edge.lod-minor{opacity:.45}
+.rc-host .rc-chart.lod-mid .edge.lod-minor{--rc-op:.45}
 .rc-host.rc-readonly .rc-chart .node,.rc-host.rc-readonly .rc-chart .legend-item{cursor:pointer}
 .rc-host.rc-readonly .rc-chart .edge,.rc-host.rc-readonly .rc-chart .edge-lbl,.rc-host.rc-readonly .rc-chart .self-mini,.rc-host.rc-readonly .rc-chart .note-node,.rc-host.rc-readonly .rc-chart .colnode,.rc-host.rc-readonly .rc-chart .zone-colhot,.rc-host.rc-readonly .rc-chart .lbl-node{cursor:grab!important}
 .rc-host.rc-readonly .rc-chart .note-btn,.rc-host.rc-readonly .rc-chart .note-grip{display:none}

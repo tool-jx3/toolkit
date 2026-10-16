@@ -3860,3 +3860,180 @@ test('第四批修正（7.10）：切分頁時世界觀／備忘錄／統計面�
   expect(s.settings.defStickySize).toBe(0);
   expect(errors).toEqual([]);
 });
+
+/* ---------- 第四批複驗後的修正（7.11） ---------- */
+
+test('滑過聚焦（7.11）：淡化程度與 0.2 秒轉場照舊，但轉場不讓角色、線各自變成合成層（大圖整層重新點陣化的停頓）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s0 = sample('story', 0, '本篇');
+  s0.settings.showRelName = true;
+  s0.settings.showLabelNodes = true;
+  s0.settings.showFreeLbls = true;
+  await seed(page, project([s0], { labels: [makeLabel(77, '游離')] }));
+  /* 滑過關係最少的一位（才有不相干的角色與線） */
+  const deg = (id: number) => s0.rels.filter((r) => r.from === id || r.to === id).length;
+  const hub = [...s0.chars].filter((c) => deg(c.id)).sort((a, b) => deg(a.id) - deg(b.id))[0].id;
+  const r0 = s0.rels.find((r) => r.from === hub || r.to === hub) ?? s0.rels[0];
+  const mate = r0.from === hub ? r0.to : r0.from;
+  const near = new Set([hub]);
+  for (const r of s0.rels)
+    if (r.from === hub || r.to === hub) {
+      near.add(r.from);
+      near.add(r.to);
+    }
+  const far = s0.chars.find((c) => !near.has(c.id));
+  const farRel = s0.rels.find((r) => r.from !== hub && r.to !== hub);
+  if (!far || !farRel) throw new Error('範例要有不相干的角色與線');
+  const svg = chart(page).locator('svg.rc-chart').first();
+  const edge = (id: number) => svg.locator(`.edge[data-relid="${id}"]:not(.edge-lbl)`);
+  const op = (loc: Locator) => loc.evaluate((el) => getComputedStyle(el).opacity);
+  const free = svg.locator('.lbl-node.lbl-free');
+  /* 游離的標籤圓點平常是 0.72（屬性），不被聚焦的樣式蓋掉 */
+  await expect.poll(() => op(free)).toBe('0.72');
+  /* 合成層數（Chromium 的 LayerTree）：平常幾層 → 滑過、移開時最多幾層 */
+  const cdp = await page.context().newCDPSession(page);
+  let layers = 0;
+  let maxLayers = 0;
+  cdp.on('LayerTree.layerTreeDidChange', (e) => {
+    if (!e.layers) return;
+    layers = e.layers.filter((l) => l.drawsContent).length;
+    maxLayers = Math.max(maxLayers, layers);
+  });
+  await cdp.send('LayerTree.enable');
+  await page.mouse.move(0, 0);
+  await page.evaluate(() => {
+    document.body.style.outline = '1px solid transparent';
+  });
+  await page.waitForTimeout(500);
+  const idle = layers;
+  expect(idle).toBeGreaterThan(0);
+  maxLayers = idle;
+  /* 滑過：轉場是 0.2 秒 ease（同之前），但動的是 --rc-op（主執行緒），不是 opacity（每個元素各自一個合成層） */
+  const p = await nodeCenter(page, hub);
+  /* 聚焦一套上就收集正在跑的轉場 */
+  const animsP = page.evaluate(
+    () =>
+      new Promise<string[]>((res) => {
+        const el = document.querySelector('[data-testid=chart] svg.rc-chart');
+        if (!el) return res([]);
+        const mo = new MutationObserver(() => {
+          if (!el.classList.contains('focus-active')) return;
+          mo.disconnect();
+          res(
+            document
+              .getAnimations()
+              .filter(
+                (a) =>
+                  a instanceof CSSTransition &&
+                  (a.effect as KeyframeEffect | null)?.target?.closest('[data-testid=chart]'),
+              )
+              .map((a) => {
+                const t = (a.effect as KeyframeEffect).getTiming();
+                return `${(a as CSSTransition).transitionProperty} ${t.duration} ${t.easing}`;
+              }),
+          );
+        });
+        mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+      }),
+  );
+  await page.mouse.move(p.x, p.y);
+  const anims = await animsP;
+  await expect(svg).toHaveClass(/focus-active/);
+  expect(anims.length).toBeGreaterThan(5);
+  expect([...new Set(anims)]).toEqual(['--rc-op 200 ease']);
+  await page.waitForTimeout(600);
+  /* 淡化程度照舊：一度關係 1、其他角色 0.15、其他線 0.07；游離標籤 0.15 */
+  expect(await op(node(page, hub))).toBe('1');
+  expect(await op(node(page, mate))).toBe('1');
+  expect(await op(node(page, far.id))).toBe('0.15');
+  expect(await op(edge(r0.id))).toBe('1');
+  expect(await op(edge(farRel.id))).toBe('0.07');
+  expect(await op(free)).toBe('0.15');
+  expect(maxLayers - idle).toBeLessThanOrEqual(2);
+  /* 移開：淡回原樣（同樣只走主執行緒） */
+  const before = layers;
+  maxLayers = layers;
+  await page.mouse.move(0, 0);
+  await expect(svg).not.toHaveClass(/focus-active/);
+  await page.waitForTimeout(600);
+  expect(await op(node(page, far.id))).toBe('1');
+  expect(await op(edge(farRel.id))).toBe('1');
+  expect(await op(free)).toBe('0.72');
+  expect(maxLayers - before).toBeLessThanOrEqual(2);
+  expect(errors).toEqual([]);
+});
+
+test('便利貼字級（7.11，F190d）：小於 1＝留空、照原作捨去成整數；本分頁預設字級小於 1＝自動、1～5.x＝6', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const a = trio();
+  a.notes = [
+    {
+      id: 900,
+      text: '便利貼',
+      x: 500,
+      y: 700,
+      w: 150,
+      h: 100,
+      size: 30,
+      locked: false,
+      bare: false,
+      chart: null,
+    },
+  ];
+  await seed(page, project([a]));
+  await clickAt(page, await center(noteBtn(page, 900, 'cfg')));
+  await expect(title(page)).toHaveText('便利貼設定');
+  const fs = page.getByRole('spinbutton', { name: '字級 px（≥1）' });
+  const now = page.getByTestId('note-fs-now');
+  /* 0.5～0.99＝留空（跟隨），不是 1 px */
+  for (const v of ['0.5', '0.99']) {
+    await fs.fill('22');
+    await fs.press('Enter');
+    await expect(fs).toHaveValue('22');
+    await page.waitForTimeout(450);
+    await fs.fill(v);
+    await fs.press('Enter');
+    await expect(fs).toHaveValue('');
+    await expect(now).not.toHaveText('目前實際字級：1 px');
+    expect((await sheet(page)).notes[0].size).toBeNull();
+  }
+  /* 捨去（原作 parseInt）：1.5 → 1、2.7 → 2 */
+  await fs.fill('1.5');
+  await fs.press('Enter');
+  await expect(fs).toHaveValue('1');
+  await expect(now).toHaveText('目前實際字級：1 px');
+  await page.waitForTimeout(450);
+  await fs.fill('2.7');
+  await fs.press('Enter');
+  await expect(fs).toHaveValue('2');
+  expect((await sheet(page)).notes[0].size).toBe(2);
+  /* 留空後看本分頁預設字級 */
+  await page.waitForTimeout(450);
+  await fs.fill('');
+  await fs.press('Enter');
+  const def = page.getByRole('spinbutton', { name: '本分頁預設字級' });
+  await def.fill('3');
+  await def.press('Enter');
+  await expect(def).toHaveValue('6');
+  await expect(now).toHaveText('目前實際字級：6 px');
+  expect((await sheet(page)).settings.defStickySize).toBe(6);
+  await page.waitForTimeout(450);
+  await def.fill('12.5');
+  await def.press('Enter');
+  await expect(def).toHaveValue('12.5');
+  await expect(now).toHaveText('目前實際字級：12.5 px');
+  await page.waitForTimeout(450);
+  await def.fill('0.5');
+  await def.press('Enter');
+  await expect(def).toHaveValue('');
+  await expect(now).not.toHaveText('目前實際字級：1 px');
+  expect((await sheet(page)).settings.defStickySize).toBe(0);
+  /* 一步復原回 12.5 */
+  await page.getByTestId('undo').click();
+  await expect(def).toHaveValue('12.5');
+  expect(errors).toEqual([]);
+});

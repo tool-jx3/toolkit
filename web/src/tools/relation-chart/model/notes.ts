@@ -42,6 +42,29 @@ export function noteSizeValue(v: unknown): number | null {
   return Number.isFinite(n) && n >= 1 ? Math.min(2000, Math.round(n * 10) / 10) : null;
 }
 
+/** 便利貼設定、兩個字級欄位的上限 */
+export const NOTE_FS_INPUT_MAX = 200;
+/** 本分頁預設字級的下限（原作 GS_NUMS 的 defStickySize：min 6） */
+export const STICKY_DEF_MIN = 6;
+
+/**
+ * 便利貼設定的「字級 px」欄：小於 1（含 0.5～0.99、0、負數）＝留空（跟隨）；
+ * 捨去成整數（原作 openNotePanel 的 parseInt：1.5 → 1）；最多 200（7.11）。
+ */
+export function noteSizeInput(v: number | null): number | null {
+  if (v === null || !Number.isFinite(v) || v < 1) return null;
+  return Math.min(NOTE_FS_INPUT_MAX, Math.floor(v));
+}
+
+/**
+ * 便利貼設定的「本分頁預設字級」：小於 1＝0（自動）；1～5.x＝6（原作的最小值）；取到 0.1（原作讀回時的 numIn）；
+ * 最多 200（7.11）。
+ */
+export function stickyDefaultInput(v: number | null): number {
+  if (v === null || !Number.isFinite(v) || v < 1) return 0;
+  return Math.min(NOTE_FS_INPUT_MAX, Math.max(STICKY_DEF_MIN, Math.round(v * 10) / 10));
+}
+
 /** 圖表節點的設定（原作 sanitizeChartCfg：不檢查範本在不在） */
 export function normalizeNoteChart(raw: unknown): NoteChart | null {
   if (!isObj(raw) || !Number.isFinite(num(raw.tpl))) return null;
