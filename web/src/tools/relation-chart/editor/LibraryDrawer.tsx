@@ -72,8 +72,11 @@ export function LibraryDrawer() {
     if (!d) return;
     if (d.kind === 'h') setH(clampH(d.base + (d.start - e.clientY)));
     else {
+      /* 分隔線本身也佔寬：夾限要扣掉它，右欄才真的留得到 220（原作的 applyLibSideWidth） */
       const total = body.current?.clientWidth ?? 800;
-      setSideW(Math.max(MIN_SIDE, Math.min(total - MIN_LIST, d.base + e.clientX - d.start)));
+      const split = e.currentTarget.getBoundingClientRect().width;
+      const max = Math.max(MIN_SIDE, total - MIN_LIST - split);
+      setSideW(Math.max(MIN_SIDE, Math.min(max, d.base + e.clientX - d.start)));
     }
   };
   const up = () => {

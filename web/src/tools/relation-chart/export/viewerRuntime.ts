@@ -26,6 +26,11 @@ export interface ViewerSheetData {
   lbls?: { id: number; members: number[] }[];
   /** 角色 id → 群體關係列（a＝箭頭、l＝關係名、o＝另一端、v＝來自哪個標籤） */
   grows?: Record<string, { a: string; l: string; o: string; v: string }[]>;
+  /**
+   * 找關係路徑用的群體關係衍生對（只算「算到每位成員」的規則；同類型的個別關係優先、例外排除；
+   * l＝關係名、v＝「來自標籤：…」；原作的 gpairs）
+   */
+  gpairs?: { from: number; to: number; l: string; v: string }[];
 }
 
 export interface ViewerText {
@@ -273,9 +278,10 @@ export function rcViewer(D: ViewerData): void {
       if (t !== undefined)
         chips += `<span class="tl" data-lbl="${lid}"${col ? ` style="color:${escT(col)}"` : ''}>${escT(t)}</span>`;
     }
-    const pb = sh.rels.length
-      ? `<button type="button" class="ti-btn" data-path="${id}">${escT(T.pathBtn)}</button>`
-      : '';
+    const pb =
+      sh.rels.length || sh.gpairs?.length
+        ? `<button type="button" class="ti-btn" data-path="${id}">${escT(T.pathBtn)}</button>`
+        : '';
     if (!rows && !chips && !pb) {
       tip.style.display = 'none';
       return;
@@ -284,18 +290,29 @@ export function rcViewer(D: ViewerData): void {
     placeTip(cx, cy);
   }
 
-  /* 找關係路徑：不分方向的 BFS（自我關係不算） */
+  /* 找關係路徑：不分方向的 BFS（自我關係不算）；群體關係的衍生對也是邊（沒有自己的線可亮，只亮角色） */
+  interface PathEdge {
+    from: number;
+    to: number;
+    rel: number | null;
+    l: string;
+    v: string;
+  }
   function runPath(a: number, b: number, cx: number, cy: number) {
     const sh = S();
-    const adj: Record<number, ViewerRel[]> = {};
-    for (const r of sh.rels) {
-      if (r.from === r.to) continue;
-      if (!adj[r.from]) adj[r.from] = [];
-      if (!adj[r.to]) adj[r.to] = [];
-      adj[r.from].push(r);
-      adj[r.to].push(r);
+    const edges: PathEdge[] = [];
+    for (const r of sh.rels)
+      if (r.from !== r.to) edges.push({ from: r.from, to: r.to, rel: r.id, l: r.label, v: '' });
+    for (const g of sh.gpairs || [])
+      edges.push({ from: g.from, to: g.to, rel: null, l: g.l, v: g.v });
+    const adj: Record<number, PathEdge[]> = {};
+    for (const ed of edges) {
+      if (!adj[ed.from]) adj[ed.from] = [];
+      if (!adj[ed.to]) adj[ed.to] = [];
+      adj[ed.from].push(ed);
+      adj[ed.to].push(ed);
     }
-    const prev: Record<number, { from: number; e: ViewerRel } | null> = {};
+    const prev: Record<number, { from: number; e: PathEdge } | null> = {};
     prev[a] = null;
     const q = [a];
     let found = false;
@@ -328,7 +345,7 @@ export function rcViewer(D: ViewerData): void {
       placeTip(cx, cy);
       return;
     }
-    const steps: { to: number; e: ViewerRel }[] = [];
+    const steps: { to: number; e: PathEdge }[] = [];
     let n = b;
     for (let p = prev[n]; p; p = prev[n]) {
       steps.unshift({ to: n, e: p.e });
@@ -340,7 +357,7 @@ export function rcViewer(D: ViewerData): void {
     const rid: Record<number, 1> = {};
     for (const s of steps) {
       keep[s.to] = 1;
-      rid[s.e.id] = 1;
+      if (s.e.rel !== null) rid[s.e.rel] = 1;
     }
     each(c, '.edge', (eg) => {
       if (rid[+(eg.dataset.relid || 'NaN')]) eg.classList.add('focusedV');
@@ -348,7 +365,7 @@ export function rcViewer(D: ViewerData): void {
     lightNodes(c, keep);
     let rows = '';
     for (const s of steps)
-      rows += `<div class="tr"><span class="ta">—</span><b>${escT(s.e.label)}</b><span class="to">${escT(ch[s.to] ?? '?')}</span></div>`;
+      rows += `<div class="tr${s.e.rel === null ? ' tg' : ''}"><span class="ta">—</span><b>${escT(s.e.l)}</b><span class="to">${escT(ch[s.to] ?? '?')}</span>${s.e.v ? `<span class="tv">${escT(s.e.v)}</span>` : ''}</div>`;
     tip.innerHTML = `${head}<div class="tsub">${steps.length}${escT(T.pathSteps)}</div><div class="trs">${rows}</div>`;
     placeTip(cx, cy);
   }

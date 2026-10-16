@@ -67,6 +67,8 @@ function grelRows(sheet: Sheet, labels: readonly Label[]): ViewerSheetData['grow
     const sf = new Set(mf.map((c) => c.id));
     const st = new Set(mt.map((c) => c.id));
     const label = tg.label.replace(/\n+/g, ' ');
+    /* 繼承來的列寫「來自標籤：…」（和編輯器的角色面板一致；原作的 grelViaLabel） */
+    const via = (end: string, name: string) => (grelEndIsLbl(end) ? S.grel.via(name) : '');
     for (const c of mf) {
       if (st.has(c.id)) continue;
       if (grelEndIsLbl(g.from) && (!g.inherit || grelExcluded(g, c.id))) continue;
@@ -75,7 +77,7 @@ function grelRows(sheet: Sheet, labels: readonly Label[]): ViewerSheetData['grow
         a: g.both ? '⇄' : '→',
         l: label,
         o: nT,
-        v: grelEndIsLbl(g.from) ? nF : '',
+        v: via(g.from, nF),
       });
     }
     for (const c of mt) {
@@ -86,11 +88,52 @@ function grelRows(sheet: Sheet, labels: readonly Label[]): ViewerSheetData['grow
         a: g.both ? '⇄' : '←',
         l: label,
         o: nF,
-        v: grelEndIsLbl(g.to) ? nT : '',
+        v: via(g.to, nT),
       });
     }
   }
   return Object.keys(map).length ? map : undefined;
+}
+
+/**
+ * 找關係路徑用的群體關係衍生對（原作 buildViewerHtml 的 gpairs）：只算「算到每位成員」的規則；隱藏的關係類型不算；
+ * 同屬兩端的跳過、例外排除、兩人之間已經有同一種個別關係的不重複；上限 2 萬對。沒有＝undefined（資料一個位元組都不多）。
+ */
+function grelPairs(sheet: Sheet, labels: readonly Label[]): ViewerSheetData['gpairs'] {
+  const ctx = sheetCtx(sheet, labels);
+  const gs = aliveGrels(ctx).filter((g) => g.inherit);
+  if (!gs.length) return undefined;
+  const out: NonNullable<ViewerSheetData['gpairs']> = [];
+  let budget = 20000;
+  for (const g of gs) {
+    const tg = ctx.typeById.get(g.type);
+    if (!tg || tg.hidden) continue;
+    const mf = grelEndMembers(ctx, g.from);
+    const mt = grelEndMembers(ctx, g.to);
+    const sf = new Set(mf.map((c) => c.id));
+    const st = new Set(mt.map((c) => c.id));
+    const viaOf = (e: string) => (grelEndIsLbl(e) ? grelEndName(ctx, e) : '');
+    const via = viaOf(g.from) || viaOf(g.to);
+    const label = tg.label.replace(/\n+/g, ' ');
+    for (const a of mf) {
+      if (st.has(a.id) || grelExcluded(g, a.id)) continue;
+      for (const b of mt) {
+        if (budget <= 0) return out.length ? out : undefined;
+        if (a.id === b.id || sf.has(b.id) || grelExcluded(g, b.id)) continue;
+        if (
+          sheet.rels.some(
+            (r) =>
+              r.type === g.type &&
+              ((r.from === a.id && r.to === b.id) || (r.from === b.id && r.to === a.id)),
+          )
+        )
+          continue;
+        budget--;
+        out.push({ from: a.id, to: b.id, l: label, v: via ? S.grel.via(via) : '' });
+      }
+    }
+  }
+  return out.length ? out : undefined;
 }
 
 function sheetData(sheet: Sheet, labels: readonly Label[]): ViewerSheetData {
@@ -129,6 +172,8 @@ function sheetData(sheet: Sheet, labels: readonly Label[]): ViewerSheetData {
   }
   const grows = grelRows(sheet, labels);
   if (grows) out.grows = grows;
+  const gpairs = grelPairs(sheet, labels);
+  if (gpairs) out.gpairs = gpairs;
   return out;
 }
 

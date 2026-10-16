@@ -2126,6 +2126,17 @@ test('匯出：分層 SVG 多一層陣營框、互動網頁（標籤網聚焦、
   await expect(tip).toContainText('敵人');
   await expect(tip).toContainText('角色6');
   await expect(tip.locator('.tl')).toHaveText(['甲', '丙']);
+  /* 繼承來的群體關係寫「來自標籤：甲」（F093e，照原作） */
+  await expect(tip).toContainText('來自標籤：甲');
+  await v.keyboard.press('Escape');
+  /* 找關係路徑也走群體關係（算到每位成員的）：角色3 只靠群體關係（經由甲）連到角色6 */
+  const n3 = await center(v.locator('.node[data-id="3"] > circle').first());
+  await v.mouse.click(n3.x, n3.y);
+  await tip.locator('.ti-btn[data-path]').click();
+  const n6 = await center(v.locator('.node[data-id="6"] > circle').first());
+  await v.mouse.click(n6.x, n6.y);
+  await expect(tip).toContainText('1 步');
+  await expect(tip).toContainText('來自標籤：甲');
   await v.close();
   /* 關掉「網頁也顯示隱藏標籤」 */
   await page.getByTestId('library-open').click();
@@ -2135,6 +2146,96 @@ test('匯出：分層 SVG 多一層陣營框、互動網頁（標籤網聚焦、
   await lib(page).getByRole('switch', { name: '匯出的網頁也顯示隱藏標籤' }).click();
   const html2 = strFromU8((await runExport(page, '互動網頁（唯讀）')).bytes);
   expect(html2).not.toContain('"丙"');
+  expect(errors).toEqual([]);
+});
+
+test('互動網頁：只有群體關係（沒有一般的關係線）時也有「找關係路徑」，路徑經由群體關係', async ({
+  page,
+  context,
+}) => {
+  const errors = await open(page);
+  const s = emptySheet(1, 1);
+  s.chars.push(
+    makeChar(1, '阿一', 300, 400, { defNo: 1, labels: [1] }),
+    makeChar(2, '阿二', 300, 600, { defNo: 2, labels: [1] }),
+    makeChar(3, '阿三', 700, 500, { defNo: 3 }),
+  );
+  s.types.push(makeType(10, '同盟'));
+  s.grels.push({
+    id: 20,
+    from: 'L1',
+    to: 'C3',
+    type: 10,
+    both: false,
+    inherit: true,
+    note: '',
+    except: [],
+  });
+  await seed(page, project([s], { labels: [makeLabel(1, '左陣營')] }));
+  const html = strFromU8((await runExport(page, '互動網頁（唯讀）')).bytes);
+  const v = await context.newPage();
+  await v.route('**/*', (r) =>
+    r.request().url() === 'http://viewer.test/'
+      ? r.fulfill({ body: html, contentType: 'text/html' })
+      : r.abort(),
+  );
+  await v.setViewportSize({ width: 1100, height: 800 });
+  await v.goto('http://viewer.test/');
+  const tip = v.locator('#tipV');
+  const n1 = await center(v.locator('.node[data-id="1"] > circle').first());
+  await v.mouse.click(n1.x, n1.y);
+  await expect(tip).toContainText('來自標籤：左陣營');
+  await tip.locator('.ti-btn[data-path]').click();
+  const n3 = await center(v.locator('.node[data-id="3"] > circle').first());
+  await v.mouse.click(n3.x, n3.y);
+  await expect(tip).toContainText('1 步');
+  await expect(tip).toContainText('同盟');
+  await v.close();
+  expect(errors).toEqual([]);
+});
+
+test('檔案庫的左右比例：右欄至少留 220 px（夾限扣掉分隔線）；游標換算成畫布座標沒有偏差（陣營名稱的角度）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, zoned());
+  await page.getByTestId('library-open').click();
+  const div = await page.getByTestId('library-divider').boundingBox();
+  if (!div) throw new Error('看不到分隔線');
+  await page.mouse.move(div.x + div.width / 2, div.y + div.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(1279, div.y + div.height / 2, { steps: 6 });
+  await page.mouse.up();
+  const listW = await page
+    .getByTestId('library-divider')
+    .evaluate((el) => (el.nextElementSibling as HTMLElement).getBoundingClientRect().width);
+  expect(listW).toBeGreaterThanOrEqual(220);
+  await page.getByTestId('library-close').click();
+  /* 名稱拖到畫布上精準的一點：角度＝質心到那一點的 atan2（游標換算差 1 px 時會偏 0.008 rad） */
+  const st = await sheet(page);
+  const mem = st.chars.filter((c) => c.labels.includes(1));
+  const cx = mem.reduce((a, c) => a + c.x, 0) / mem.length;
+  const cy = mem.reduce((a, c) => a + c.y, 0) / mem.length;
+  for (const [tx, ty] of [
+    [cx - 150, cy - 120],
+    [cx + 150, cy + 30],
+  ]) {
+    const h = await center(chart(page).locator('.zone-colhot[data-zonecol="1"]'));
+    const to = await chart(page)
+      .locator('svg.rc-chart:not(.rc-live-under) .canvas-content')
+      .evaluate(
+        (g, [x, y]) => {
+          const p = new DOMPoint(x, y).matrixTransform(
+            (g as SVGGraphicsElement).getScreenCTM() as DOMMatrix,
+          );
+          return { x: p.x, y: p.y };
+        },
+        [tx, ty],
+      );
+    await drag(page, h, to);
+    const a = (await sheet(page)).settings.zoneNameAng['1'];
+    expect(Math.abs(a - Math.atan2(ty - cy, tx - cx))).toBeLessThan(0.002);
+  }
   expect(errors).toEqual([]);
 });
 

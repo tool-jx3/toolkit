@@ -25,6 +25,19 @@ export function hostRect(): DOMRect | null {
   return bound?.el.getBoundingClientRect() ?? null;
 }
 
+/**
+ * 畫布框裡面的原點（client 座標）：getBoundingClientRect 含外框線，絕對定位的圖層（畫布、框選、長按的圈）
+ * 從框線內側開始，換算游標時要扣掉框線（差 1 px＝陣營名稱的角度、框選的邊界會偏）。
+ */
+export function hostOrigin(el: HTMLElement | null | undefined = bound?.el): {
+  left: number;
+  top: number;
+} | null {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { left: r.left + el.clientLeft, top: r.top + el.clientTop };
+}
+
 export function contentBox(): { viewW: number; viewH: number; pad: number } {
   return bound?.content() ?? { viewW: 1000, viewH: 1000, pad: 0 };
 }
@@ -45,11 +58,12 @@ export function fitView(): void {
 export function zoomBy(f: number, clientX?: number, clientY?: number): void {
   const r = hostRect();
   if (!r) return;
+  const o = hostOrigin() ?? r;
   const v = useUi.getState().view;
   const zoom = clampZoom(v.zoom * f);
   const k = zoom / v.zoom;
-  const cx = (clientX ?? r.left + r.width / 2) - r.left;
-  const cy = (clientY ?? r.top + r.height / 2) - r.top;
+  const cx = (clientX ?? r.left + r.width / 2) - o.left;
+  const cy = (clientY ?? r.top + r.height / 2) - o.top;
   setUi({ view: { zoom, x: cx - (cx - v.x) * k, y: cy - (cy - v.y) * k } });
 }
 
@@ -59,13 +73,13 @@ export function setView(v: View): void {
 
 /** client 座標 → 畫布座標 */
 export function toCanvas(clientX: number, clientY: number): { x: number; y: number } {
-  const r = hostRect();
+  const o = hostOrigin();
   const v = useUi.getState().view;
   const { pad } = contentBox();
-  if (!r) return { x: 0, y: 0 };
+  if (!o) return { x: 0, y: 0 };
   return {
-    x: (clientX - r.left - v.x) / v.zoom - pad,
-    y: (clientY - r.top - v.y) / v.zoom - pad,
+    x: (clientX - o.left - v.x) / v.zoom - pad,
+    y: (clientY - o.top - v.y) / v.zoom - pad,
   };
 }
 

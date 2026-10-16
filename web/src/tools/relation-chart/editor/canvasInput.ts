@@ -29,7 +29,7 @@ import {
 } from '../state/store';
 import { beginLive, endLive, liveCtx, liveRefresh, liveSheet, scheduleLiveFrame } from './live';
 import { kickSim, setSimPinned } from './sim';
-import { setView, toCanvas, zoomBy } from './view';
+import { hostOrigin, setView, toCanvas, zoomBy } from './view';
 
 const MOVE_TOL = 4;
 const LONG_PRESS_MS = 500;
@@ -335,7 +335,7 @@ export class CanvasInput {
 
   private startLongPress(id: number, cx: number, cy: number): void {
     this.clearTimers();
-    const r = this.host.getBoundingClientRect();
+    const r = hostOrigin(this.host) ?? { left: 0, top: 0 };
     this.ringTimer = setTimeout(() => {
       setUi({ ring: { x: cx - r.left, y: cy - r.top, r: 26 } });
     }, RING_DELAY_MS);
@@ -526,7 +526,7 @@ export class CanvasInput {
       return;
     }
     if (d.mode === 'box') {
-      const r = this.host.getBoundingClientRect();
+      const r = hostOrigin(this.host) ?? { left: 0, top: 0 };
       const box = {
         x0: Math.min(d.sx, e.clientX) - r.left,
         y0: Math.min(d.sy, e.clientY) - r.top,
