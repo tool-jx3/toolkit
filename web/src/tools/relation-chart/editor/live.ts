@@ -9,12 +9,17 @@
  * - 拖曳（磁鐵關著）時，動到的線搬到底下另一張 SVG（連同背景）：重畫線時只要重新點陣化那一層，
  *   不用連其他的線、角色一起重畫（大張的圖每格省很多）；拖曳中這些線畫在其他線下面，放開整張重畫就恢復。
  * - 結束（放開、磁鐵停下）時位置一次寫回專案；中途有別的修改時，先把位置放回專案再改（store.updateProject）。
+ * - 第二批：陣營框每一格整層重畫（照原作；拖曳時它在底層，只重新點陣化底層）；群體關係線每一格重畫；
+ *   標籤網的虛線與圓點、收合的聚合線放開才更新（原作也一樣）。磁鐵跑著時標籤網開著或有收合＝每一格整張重畫（照原作）。
+ *   標籤節點的位置（分頁設定 labelPos）也在工作副本裡，和角色的位置一起寫回。
  */
-import { buildObstacles, type EdgeCtx, edgePairs, edgeSvg, edgesSvg } from '../engine/edges';
-import { bleedPad, sheetCtx } from '../engine/geom';
+import { edgeLayerSvg } from '../engine/chart';
+import { buildObstacles, type EdgeCtx, edgePairs, edgeSvg } from '../engine/edges';
+import { bleedPad, type SheetCtx, sheetCtx } from '../engine/geom';
+import { aliveGrels, grelEdgesSvg, labelInfo, zonesActive, zonesSvg } from '../engine/labels';
 import type { ImageHref } from '../engine/nodes';
 import type { Project, Sheet } from '../model/types';
-import { activeSheet, setBeforeUpdate, useProject } from '../state/store';
+import { activeSheet, projectNow, setBeforeUpdate, useProject } from '../state/store';
 
 type Pt = { x: number; y: number };
 type PosMap = Map<number, Pt>;
@@ -35,8 +40,13 @@ interface Live {
   holders: Set<string>;
   /** 專案裡的位置（上一次看到的）：專案裡的位置變了＝別的動作移動了角色，以專案的為準 */
   known: PosMap;
+  /** 專案裡的標籤節點位置（上一次看到的，JSON） */
+  knownLbl: string;
 }
 let live: Live | null = null;
+
+/** 工作副本的 ctx（帶專案的標籤） */
+export const liveCtx = (s: Sheet): SheetCtx => sheetCtx(s, projectNow().labels);
 
 /** 目前分頁正在用的工作副本（沒有時 null） */
 export function liveSheet(): Sheet | null {
@@ -48,7 +58,13 @@ export function beginLive(holder: string): Sheet {
   const s = activeSheet();
   if (live && live.sheetId !== s.id) live = null;
   if (!live)
-    live = { sheetId: s.id, sheet: structuredClone(s), holders: new Set(), known: posOf(s) };
+    live = {
+      sheetId: s.id,
+      sheet: structuredClone(s),
+      holders: new Set(),
+      known: posOf(s),
+      knownLbl: JSON.stringify(s.settings.labelPos),
+    };
   live.holders.add(holder);
   return live.sheet;
 }
@@ -62,7 +78,7 @@ export function endLive(holder: string): void {
   requestFull();
 }
 
-function copyPositions(target: { chars: { id: number; x: number; y: number }[] }, from: Sheet) {
+function copyPositions(target: Sheet, from: Sheet) {
   const m = new Map(from.chars.map((c) => [c.id, c]));
   for (const c of target.chars) {
     const w = m.get(c.id);
@@ -71,6 +87,9 @@ function copyPositions(target: { chars: { id: number; x: number; y: number }[] }
       c.y = w.y;
     }
   }
+  /* 標籤節點的位置（磁鐵、拖曳標籤） */
+  if (JSON.stringify(target.settings.labelPos) !== JSON.stringify(from.settings.labelPos))
+    target.settings.labelPos = structuredClone(from.settings.labelPos);
 }
 
 function writeBack(L: Live): void {
@@ -112,8 +131,12 @@ useProject.subscribe((st, prev) => {
       c.y = w.y;
     }
   }
+  /* 標籤節點的位置：專案裡的沒變（不是排列清掉、復原）＝用工作副本的 */
+  const lbl = JSON.stringify(s.settings.labelPos);
+  if (lbl === L.knownLbl) next.settings.labelPos = L.sheet.settings.labelPos;
   L.sheet = next;
   L.known = posOf(s);
+  L.knownLbl = lbl;
 });
 
 /* ---------- 畫面 ---------- */
@@ -154,6 +177,10 @@ export function subscribeLive(fn: () => void): () => void {
   return () => listeners.delete(fn);
 }
 export const liveEpoch = (): number => epoch;
+/** 整張重畫（標籤節點、收合節點的拖曳每一格都要；原作也是） */
+export function liveRefresh(): void {
+  requestFull();
+}
 function requestFull(): void {
   fullPending = true;
   epoch++;
@@ -248,6 +275,28 @@ export function displaySheet(s: Sheet): Sheet {
   return live && live.sheetId === s.id ? live.sheet : s;
 }
 
+/** 陣營框：整層重畫（拖曳時在底層）；本來沒有這一層＝整張重畫（回傳 false） */
+function liveZones(D: Dom, ctx: SheetCtx): boolean {
+  const on = zonesActive(ctx);
+  const host = D.svg.parentElement;
+  const el = host?.querySelector('.layer-zones') ?? null;
+  if (!on) return !el;
+  const html = zonesSvg(ctx, true, '');
+  if (!el) return !html;
+  el.innerHTML = html;
+  return true;
+}
+
+/** 群體關係線：整組重畫（數量少，直接換掉） */
+function liveGrels(D: Dom, ctx: SheetCtx): boolean {
+  const el = D.svg.querySelector('.layer-edges > .grel-layer');
+  if (!aliveGrels(ctx).length) return !el;
+  const html = grelEdgesSvg(ctx);
+  if (!el) return !html;
+  el.outerHTML = html;
+  return true;
+}
+
 /** 新的 defs（自我關係縮小頭貼的 clipPath）蓋掉同 id 的舊的 */
 function upsertDefs(svg: SVGSVGElement, defs: string[]): void {
   if (!defs.length) return;
@@ -289,8 +338,15 @@ export function liveFrame(cap: number): void {
     return;
   }
   const s = L.sheet;
-  const ctx = sheetCtx(s);
-  if (ctx.s.bridgeMode || bleedPad(ctx) !== D.bleed || s.chars.length !== D.base.size) {
+  const ctx = liveCtx(s);
+  const sim = cap === Number.POSITIVE_INFINITY;
+  if (
+    ctx.s.bridgeMode ||
+    bleedPad(ctx) !== D.bleed ||
+    s.chars.length !== D.base.size ||
+    /* 磁鐵：標籤網會動、收合的節點與聚合線不在快速路徑（照原作） */
+    (sim && (ctx.s.showLabelNodes || labelInfo(ctx).colHidden.size > 0))
+  ) {
     requestFull();
     return;
   }
@@ -321,6 +377,10 @@ export function liveFrame(cap: number): void {
     p.y = c.y;
     const b = D.base.get(c.id) as Pt;
     D.nodes.get(c.id)?.setAttribute('transform', `translate(${c.x - b.x},${c.y - b.y})`);
+  }
+  if (!liveZones(D, ctx) || !liveGrels(D, ctx)) {
+    requestFull();
+    return;
   }
   const pairs = edgePairs(ctx).filter(({ list }) =>
     list.some((r) => moved.has(r.from) || moved.has(r.to)),
@@ -353,7 +413,7 @@ export function liveFrame(cap: number): void {
   }
   /* 一格動到很多組線（磁鐵）：整層一次重畫；拖曳時一條條搬到底層 */
   if (pairs.length > LAYER_REBUILD && !under) {
-    layer.innerHTML = edgesSvg(ectx);
+    layer.innerHTML = edgeLayerSvg(ctx, ectx, true);
     D.edges = null;
     D.labels = null;
     upsertDefs(D.svg, ectx.defs);

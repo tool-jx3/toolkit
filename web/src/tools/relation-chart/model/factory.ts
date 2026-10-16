@@ -3,7 +3,7 @@
  *
  * 新的角色、關係類型、關係線的預設值（原作的 addTag、新增角色的預設欄位）。
  */
-import type { Char, Rel, RelType } from './types';
+import type { Char, Label, Rel, RelType } from './types';
 
 export const makeChar = (
   id: number,
@@ -75,6 +75,28 @@ export const makeRel = (
   selfAng: null,
   ...o,
 });
+
+export const makeLabel = (id: number, text: string, o: Partial<Label> = {}): Label => ({
+  id,
+  text,
+  color: 'auto',
+  hidden: false,
+  noPull: false,
+  zone: false,
+  ...o,
+});
+
+/** 「未命名標籤N」（N＝目前最大的編號＋1；原作的 makeUnnamedLabelText） */
+export function unnamedLabelText(labels: readonly Label[]): string {
+  const prefix = '未命名標籤';
+  let max = 0;
+  for (const l of labels) {
+    if (!l.text.startsWith(prefix)) continue;
+    const rest = l.text.slice(prefix.length).trim();
+    if (/^\d+$/.test(rest)) max = Math.max(max, Number.parseInt(rest, 10));
+  }
+  return `${prefix}${max + 1}`;
+}
 
 /** 「未命名關係 N」（N＝目前最大的編號＋1） */
 export function unnamedTypeLabel(types: readonly RelType[]): string {

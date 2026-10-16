@@ -15,7 +15,7 @@ import {
 } from '@/tools/relation-chart/export/outputs';
 import { VIEWER_CREDIT, viewerHtml } from '@/tools/relation-chart/export/viewer';
 import { buildSample } from '@/tools/relation-chart/logic/samples';
-import { makeChar, makeRel, makeType } from '@/tools/relation-chart/model/factory';
+import { makeChar, makeLabel, makeRel, makeType } from '@/tools/relation-chart/model/factory';
 import { emptySheet } from '@/tools/relation-chart/model/normalize';
 import type { Sheet } from '@/tools/relation-chart/model/types';
 
@@ -132,8 +132,14 @@ describe('畫法（3.4）', () => {
   });
 
   it('聚焦時的亮度：線、圖例按比例跟著', () => {
-    expect(focusDimSet(0.15)).toEqual({ node: 0.15, edge: 0.07, legend: 0.3 });
-    expect(focusDimSet(0.6)).toEqual({ node: 0.6, edge: 0.28, legend: 1 });
+    expect(focusDimSet(0.15)).toEqual({
+      node: 0.15,
+      edge: 0.07,
+      lbl: 0.1,
+      zone: 0.12,
+      legend: 0.3,
+    });
+    expect(focusDimSet(0.6)).toEqual({ node: 0.6, edge: 0.28, lbl: 0.4, zone: 0.48, legend: 1 });
     expect(focusDimSet(Number.NaN).node).toBe(0.15);
   });
 });
@@ -209,7 +215,7 @@ describe('互動網頁（3.5）', () => {
   const html = () =>
     viewerHtml([story(), { ...buildSample('mind'), name: '第二張' }], {
       font: 'sans',
-      labels: [{ id: 7, text: '主角群</script>' }],
+      labels: [makeLabel(7, '主角群</script>')],
       uris: new Map([['img1', 'data:image/png;base64,QUJD']]),
     });
 
@@ -242,5 +248,39 @@ describe('互動網頁（3.5）', () => {
     const h = viewerHtml([buildSample('types')], { font: 'sans', labels: [], uris: new Map() });
     expect(h).toContain('<title>範例：屬性克制表</title>');
     expect(h).not.toContain('class="tabV');
+  });
+
+  it('群體關係（F093e）：繼承列寫「來自標籤：」；找關係路徑用的衍生對只算「算到每位成員」的規則', () => {
+    const s = emptySheet(1, 1);
+    s.chars.push(
+      makeChar(1, '阿一', 300, 400, { labels: [5] }),
+      makeChar(2, '阿二', 300, 600, { labels: [5] }),
+      makeChar(3, '阿三', 700, 500),
+    );
+    s.types.push(makeType(10, '同盟'));
+    /* 阿二→阿三已經有同一種個別關係：衍生對不重複 */
+    s.rels.push(makeRel(30, 2, 3, 10));
+    const grel = {
+      id: 20,
+      from: 'L5',
+      to: 'C3',
+      type: 10,
+      both: false,
+      inherit: true,
+      note: '',
+      except: [] as number[],
+    };
+    s.grels.push(grel);
+    const labels = [makeLabel(5, '左陣營')];
+    const h = viewerHtml([s], { font: 'sans', labels, uris: new Map() });
+    expect(h).toContain('"v":"來自標籤：左陣營"');
+    expect(h).toContain('"gpairs":[{"from":1,"to":3,"l":"同盟","v":"來自標籤：左陣營"}]');
+    /* 例外排除 */
+    grel.except = [1];
+    expect(viewerHtml([s], { font: 'sans', labels, uris: new Map() })).not.toContain('"gpairs"');
+    /* 沒有「算到每位成員」＝沒有衍生對（資料一個位元組都不多） */
+    grel.except = [];
+    grel.inherit = false;
+    expect(viewerHtml([s], { font: 'sans', labels, uris: new Map() })).not.toContain('"gpairs"');
   });
 });

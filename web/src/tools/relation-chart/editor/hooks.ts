@@ -8,8 +8,10 @@ import { activeIndex, useProject } from '../state/store';
 
 export const useSheet = (): Sheet => useProject((s) => s.data.sheets[activeIndex(s.data)]);
 
+/** 分頁的 ctx（帶專案的標籤） */
 export function useCtx(sheet: Sheet): SheetCtx {
-  return useMemo(() => sheetCtx(sheet), [sheet]);
+  const labels = useProject((s) => s.data.labels);
+  return useMemo(() => sheetCtx(sheet, labels), [sheet, labels]);
 }
 
 /** 目前分頁用到的圖的網址 */

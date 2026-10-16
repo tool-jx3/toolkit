@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { IconButton, SortableList, TextInput } from '@/ui';
 import { charLevel, displayName, type SheetCtx } from '../engine/geom';
 import type { ImageHref } from '../engine/nodes';
+import { charHasLabel, charLabelIds } from '../model/charLabels';
 import type { Char } from '../model/types';
 import { addChar, reorderChar } from '../state/actions';
 import {
@@ -139,7 +140,7 @@ export function CharList() {
   const sel = useUi((u) => u.sel);
   const grouped = usePrefs((p) => p.data.groupByLabel);
   const chars = sheet.chars;
-  const canGroup = chars.length >= 8 && chars.some((c) => c.labels.length);
+  const canGroup = chars.length >= 8 && chars.some((c) => charLabelIds(c).length);
   const showGroups = grouped && canGroup;
   const selSet = new Set(sel);
   const focusId = focus?.kind === 'node' ? String(focus.id) : null;
@@ -150,10 +151,10 @@ export function CharList() {
       .map((l) => ({
         key: String(l.id),
         name: l.text,
-        items: chars.filter((c) => c.labels.includes(l.id)),
+        items: chars.filter((c) => charHasLabel(c, l.id)),
       }))
       .filter((g) => g.items.length);
-    const none = chars.filter((c) => !c.labels.some((l) => labels.some((x) => x.id === l)));
+    const none = chars.filter((c) => !charLabelIds(c).some((l) => labels.some((x) => x.id === l)));
     if (none.length) out.push({ key: 'none', name: S.chars.ungrouped, items: none });
     return out;
   }, [showGroups, labels, chars]);

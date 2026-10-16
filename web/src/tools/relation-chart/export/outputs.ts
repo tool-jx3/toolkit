@@ -80,6 +80,7 @@ export async function sheetPng(sheet: Sheet, input: ExportInput): Promise<Blob> 
     href: hrefOf(input.uris),
     font: input.font,
     transparent: input.transparent,
+    labels: input.labels,
   });
   return await svgToPng(svg, sheet.W, sheet.H);
 }
@@ -90,7 +91,11 @@ const withXlink = (s: string) =>
 
 /** 分層 SVG 一張 */
 export function sheetLayeredSvg(sheet: Sheet, input: ExportInput): string {
-  const L = exportLayers(sheet, { href: hrefOf(input.uris), font: input.font });
+  const L = exportLayers(sheet, {
+    href: hrefOf(input.uris),
+    font: input.font,
+    labels: input.labels,
+  });
   const body = L.layers
     .map(
       (l) =>
@@ -108,7 +113,11 @@ ${body}
 
 /** 分層 PSD 一張：每層各自點陣化成畫布大小的透明圖層 */
 export async function sheetPsd(sheet: Sheet, input: ExportInput): Promise<Uint8Array> {
-  const L = exportLayers(sheet, { href: hrefOf(input.uris), font: input.font });
+  const L = exportLayers(sheet, {
+    href: hrefOf(input.uris),
+    font: input.font,
+    labels: input.labels,
+  });
   const fontAttr = esc(FONT_STACKS[input.font] ?? FONT_STACKS.sans);
   const open = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${L.W}" height="${L.H}" viewBox="0 0 ${L.W} ${L.H}" font-family="${fontAttr}"><defs>${L.defs}</defs>`;
   const children: { name: string; imageData: ImageData }[] = [];

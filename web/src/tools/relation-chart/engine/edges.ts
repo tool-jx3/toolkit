@@ -20,6 +20,7 @@ import {
   typeOutlineW,
   typeTextColor,
 } from './geom';
+import { relHiddenByCollapse } from './labels';
 import {
   type Bez,
   bridgedPathD,
@@ -863,8 +864,13 @@ export interface EdgePair {
 }
 
 export function edgePairs(ctx: SheetCtx): EdgePair[] {
+  /* 端點被收合的線不畫成一般線（聚合或不畫，見 labels.colAggregate） */
   const vis = ctx.sheet.rels.filter(
-    (r) => visibleType(ctx, r) && ctx.byId.has(r.from) && ctx.byId.has(r.to),
+    (r) =>
+      visibleType(ctx, r) &&
+      ctx.byId.has(r.from) &&
+      ctx.byId.has(r.to) &&
+      !relHiddenByCollapse(ctx, r),
   );
   const pairs = new Map<string, Rel[]>();
   for (const r of vis) {
@@ -897,12 +903,13 @@ const pairKey = (r: Pick<Rel, 'from' | 'to'>): string =>
   `${Math.min(r.from, r.to)}-${Math.max(r.from, r.to)}`;
 
 /** 這張圖全部的關係線（粗的先畫）；回傳線的 markup（標籤在最後）；自我關係頭貼的 defs 放進 ectx.defs */
-export function edgesSvg(ectx: EdgeCtx): string {
+/** 整層關係線：一般線 → mid（聚合線、群體關係線）→ 線上標籤 */
+export function edgesSvg(ectx: EdgeCtx, mid = ''): string {
   let out = '';
   for (const { list, loId } of edgePairs(ectx.ctx)) {
     list.forEach((r, i) => {
       out += edgeSvg(ectx, r, i, list.length, loId);
     });
   }
-  return out + ectx.lblOut.join('');
+  return out + mid + ectx.lblOut.join('');
 }

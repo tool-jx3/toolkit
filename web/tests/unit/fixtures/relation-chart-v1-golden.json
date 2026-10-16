@@ -1,0 +1,143 @@
+{
+ "legacy:d12": {
+  "0:edit": "72bbac3930d5c4e2dd24f978",
+  "0:edit-sel": "c845d9e944b78af17bf2f4a0",
+  "0:png": "f7fb26795a8b450de779dfb5",
+  "0:png-t": "b7555a1e1960c0c980f89c2f",
+  "0:viewer-svg": "d9267d702c19f58370f97661",
+  "0:layered": "15d887ffbfc0146fd74bca90",
+  "html": "b569ac4763adc185ff97e058"
+ },
+ "legacy:d20s": {
+  "0:edit": "58082981aae28437955c603e",
+  "0:edit-sel": "59e883f82065433938c4a2c3",
+  "0:png": "48d71f8425ec46a829619cc0",
+  "0:png-t": "e627bd4cc9bee136d7a0d22d",
+  "0:viewer-svg": "4c8ca183f84bc8126ed333ee",
+  "0:layered": "9d78768d1b75434c4f18beba",
+  "html": "a3ef4a18dd36f8d390ead8e6"
+ },
+ "legacy:d25k": {
+  "0:edit": "40544f92c9f64edcda8d9d93",
+  "0:edit-sel": "290728b4f5748753fe6bcb5f",
+  "0:png": "79174eb71803aad59323b66e",
+  "0:png-t": "079e11e73b1f3bcb10a7b07d",
+  "0:viewer-svg": "d4fec679d53354c3b036523f",
+  "0:layered": "57333396e5b22847cbd48d6e",
+  "html": "ff18b071f369e851c18107c7"
+ },
+ "legacy:d30": {
+  "0:edit": "0fcadb999d75c2f72fa6a46d",
+  "0:edit-sel": "2de441c09c78b9912bf55fc0",
+  "0:png": "b9269685084f50af8b16720b",
+  "0:png-t": "433a1690c021e69a3fc62072",
+  "0:viewer-svg": "dc52ad4423a75037ba369863",
+  "0:layered": "a031efacd6081c75c9e5ab2c",
+  "html": "a3f06c2ca811197fec3a9f32"
+ },
+ "legacy:d40l": {
+  "0:edit": "1b40a470dcfff07b08661a5f",
+  "0:edit-sel": "e161420cd07443ff21742a43",
+  "0:png": "877b9fe924c8052c9884dffd",
+  "0:png-t": "2e88ebfa2062301d358d490c",
+  "0:viewer-svg": "46ff501d63db617d67abdb58",
+  "0:layered": "5cbf100c1b169ef1a9500b70",
+  "html": "600a16cbdc68afcf45233cb7"
+ },
+ "legacy:d60": {
+  "0:edit": "0e759a240eaea0781147cf7a",
+  "0:edit-sel": "b2b111bec7f1f7f0a29d4c52",
+  "0:png": "777b376277c9faaae440f302",
+  "0:png-t": "30561b6ca5ef51a2ad27189f",
+  "0:viewer-svg": "e7ae09c9cee7dc239bae6090",
+  "0:layered": "b4908102404daa14cc4e0f0a",
+  "html": "53cee7babf817e4eeab2acca"
+ },
+ "legacy:d120": {
+  "0:edit": "cced19d2c482f1fe8b3ebcb9",
+  "0:edit-sel": "cb8a2b19de660b8b465c2867",
+  "0:png": "434935481edf2e74990e3c38",
+  "0:png-t": "e161a25b41104dc4a9c8a116",
+  "0:viewer-svg": "c5340b877e791495e7672daa",
+  "0:layered": "884fdaebeba6829e8560489f",
+  "html": "fee09fa385d2640a21c0b211"
+ },
+ "legacy:dLA": {
+  "0:edit": "ac812d53e7609daf779d8721",
+  "0:edit-sel": "d1e802126efcb95a0a99cd4a",
+  "0:png": "19304e752f1dc9b71e081885",
+  "0:png-t": "c7355368fce2e8407cfd8c98",
+  "0:viewer-svg": "eeabb58750427ed7c6de3887",
+  "0:layered": "79c5917605c713d96410025d",
+  "html": "1f90b78723ee9987398f933e"
+ },
+ "legacy:dLB": {
+  "0:edit": "d6a2b2da7f631d8a16a0f1b5",
+  "0:edit-sel": "4fd27f77f9fa6cfa688afa70",
+  "0:png": "a18257307cd8778dc256cc7c",
+  "0:png-t": "02279e54c993f8e7ef449dc6",
+  "0:viewer-svg": "3195b6cdc86fcab65f265afc",
+  "0:layered": "1a52f753e18bed648c17990a",
+  "html": "c10b463285021597bd0b34a8"
+ },
+ "legacy:dLC": {
+  "0:edit": "8d1438ab9e218792ef81c4fa",
+  "0:edit-sel": "9f8c456aabee1b5898e8017f",
+  "0:png": "86d5aa18625f1e75db86b492",
+  "0:png-t": "e00eb70460015e5893e98f8f",
+  "0:viewer-svg": "cc2788d85086b70856116ac2",
+  "0:layered": "a7a07a2c92d00370ccdf8ab6",
+  "html": "114fc6ec1a4d1689731deef5"
+ },
+ "sample:story": {
+  "0:edit": "83144784fbc9aab4d5a96bce",
+  "0:edit-sel": "d74acf8d58b3ec3d2196f7f6",
+  "0:png": "415171e686321bce25188506",
+  "0:png-t": "20208e4261a0f63bee85bf3a",
+  "0:viewer-svg": "92a1f340b3132eb878c248b5",
+  "0:layered": "38aacd54dd974379c01da315",
+  "html": "7d1cf9c8c27c130c05970fb8"
+ },
+ "sample:family": {
+  "0:edit": "84e00e9873223b733d3bd296",
+  "0:edit-sel": "7f9ad1c7154f74be55761420",
+  "0:png": "fd77be80669bf8ffd4dd6783",
+  "0:png-t": "d0108d88ec1819464b9307d9",
+  "0:viewer-svg": "beebb88b8ac580fb42c3d3f9",
+  "0:layered": "ca24dd887cf2064d541f7570",
+  "html": "310223e31dc31413efadb08f"
+ },
+ "sample:types": {
+  "0:edit": "5bb7574476f30c488008c765",
+  "0:edit-sel": "a7856b97fcf23506476a2b2c",
+  "0:png": "887b09d9219b3f7396de4791",
+  "0:png-t": "72fc9a79450d367f544184a2",
+  "0:viewer-svg": "729bc840eddf3c6b7fc5eadb",
+  "0:layered": "7bef22c80dc485b18229d712",
+  "html": "9d6e2fdff7455155a148d67f"
+ },
+ "sample:mind": {
+  "0:edit": "a8014ceed99b265c259f9150",
+  "0:edit-sel": "6981c89113a037d9ac118491",
+  "0:png": "d9eb9416275482f873f90490",
+  "0:png-t": "f34ce0b4f94ba461edb8367a",
+  "0:viewer-svg": "147e05ae4dbb68c12b28bc1f",
+  "0:layered": "9d96b43e7c52c92432b01a49",
+  "html": "fabbac82c5dac7d9b6ec4adc"
+ },
+ "generated": {
+  "0:edit": "9c61ad8124639b7845e5e271",
+  "0:edit-sel": "cdb4f2248b7a04efa3dc2970",
+  "0:png": "abd0fc0625f0f0efb0577768",
+  "0:png-t": "ca4da5615c8553b1f695a5eb",
+  "0:viewer-svg": "65dd459aa532c6fd96a543a7",
+  "0:layered": "eb270fd7bf398807f54e291a",
+  "1:edit": "2eb9f25c5626bf44861a88f3",
+  "1:edit-sel": "22f4f119ef428afda4bde48c",
+  "1:png": "15ba84f214efb2bcb680fd4e",
+  "1:png-t": "76aef63fe0ea24a1b454fd38",
+  "1:viewer-svg": "1ae3c509a5c9470fbc9fb205",
+  "1:layered": "5815c1da51e3114fe354509c",
+  "html": "e41a6dc575e2476a77980cb0"
+ }
+}

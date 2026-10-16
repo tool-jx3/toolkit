@@ -2,11 +2,13 @@
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 一張分頁的 SVG（原作的 render()）：編輯畫面、PNG、分層 SVG／PSD、互動網頁共用同一份畫法（規格 3.4）。
- * 圖層由下而上：背景（底色、背景圖）→ 輔助線 → 關係線（含線上標籤）→ 角色 →（名稱）→ 圖例與名冊。
+ * 圖層由下而上：背景（底色、背景圖）→ 輔助線 →（陣營框）→ 關係線（一般線 → 聚合線 → 群體關係線 → 線上標籤 → 標籤網的虛線）
+ * → 角色（角色 → 收合節點 → 標籤網的圓點）→（名稱）→ 圖例（圖例 → 標籤圖例 → 名冊）。
  */
-import type { FontKey, Sheet } from '../model/types';
+import type { FontKey, Label, Sheet } from '../model/types';
 import { buildObstacles, type EdgeCtx, edgesSvg } from './edges';
 import { bleedPad, esc, FONT_STACKS, type SheetCtx, sheetCtx } from './geom';
+import { colEdgesSvg, colNodesSvg, grelEdgesSvg, labelInfo, labelNetSvg, zonesSvg } from './labels';
 import { type LegendOut, legendOutPad, legendsSvg } from './legend';
 import { f1 } from './lines';
 import { type ImageHref, type NodeUi, nodeSvg } from './nodes';
@@ -23,6 +25,8 @@ export interface RenderOpts {
   ui?: NodeUi;
   /** 名字另外放一層（分層匯出） */
   splitNames?: boolean;
+  /** 專案的標籤（陣營框、標籤網、標籤圖例、群體關係用；沒給＝沒有標籤） */
+  labels?: readonly Label[];
 }
 
 export interface ChartParts {
@@ -33,6 +37,8 @@ export interface ChartParts {
   /** 背景圖 image（沒有時空字串） */
   bgImage: string;
   guides: string;
+  /** 陣營框（沒有時空字串＝不出這一層） */
+  zones: string;
   edges: string;
   nodes: string;
   names: string;
@@ -44,8 +50,15 @@ export interface ChartParts {
   pad: number;
 }
 
+/** 整層關係線：一般線 → 聚合線 → 群體關係線 → 線上標籤 → 標籤網的虛線（拖曳的快速路徑也用） */
+export function edgeLayerSvg(ctx: SheetCtx, ectx: EdgeCtx, edit: boolean): string {
+  const out = edgesSvg(ectx, colEdgesSvg(ctx, edit) + grelEdgesSvg(ctx));
+  return ctx.s.showLabelNodes ? out + labelNetSvg(ctx).lines : out;
+}
+
 export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
-  const ctx = sheetCtx(sheet);
+  const ctx = sheetCtx(sheet, opts.labels ?? []);
+  const edit = opts.mode === 'edit';
   const { W, H, pal } = ctx;
   const pre = opts.idPrefix ?? '';
   const ui = opts.mode === 'edit' ? (opts.ui ?? {}) : null;
@@ -78,26 +91,40 @@ export function chartParts(sheet: Sheet, opts: RenderOpts): ChartParts {
     idPrefix: pre,
     defs,
   };
-  const edges = edgesSvg(ectx);
+  const edges = edgeLayerSvg(ctx, ectx, edit);
   let nodes = '';
   let names = '';
+  const hidden = labelInfo(ctx).colHidden;
   const order = ctx.s.noCollision ? [...sheet.chars].reverse() : sheet.chars;
   for (const c of order) {
+    if (hidden.has(c.id)) continue;
     const n = nodeSvg(ctx, c, pre, opts.href, ui, opts.splitNames);
     nodes += n.svg;
     names += n.name;
     if (n.defs) defs.push(n.defs);
   }
-  const legendInfo = legendsSvg(ctx, pre, opts.href, opts.mode === 'edit');
+  nodes += colNodesSvg(ctx, edit);
+  /* 標籤網：虛線在關係線的最上面（edgeLayerSvg）、圓點在角色之上；建立關係模式中標籤網關著時，臨時畫出可以點的圓點 */
+  if (ctx.s.showLabelNodes) nodes += labelNetSvg(ctx).nodes;
+  else if (ui?.linking) {
+    const net = labelNetSvg(ctx);
+    if (net.nodes) nodes += `<g class="lbl-temp">${net.nodes}</g>`;
+  }
+  const zones = zonesSvg(ctx, edit, pre);
+  const legendInfo = legendsSvg(ctx, pre, opts.href, edit);
   if (legendInfo.defs) defs.push(legendInfo.defs);
   const bleed = bleedPad(ctx);
-  const pad = Math.max(bleed, legendOutPad([legendInfo.rel, legendInfo.chars], W, H));
+  const pad = Math.max(
+    bleed,
+    legendOutPad([legendInfo.rel, legendInfo.lbl, legendInfo.chars], W, H),
+  );
   return {
     ctx,
     defs: defs.join(''),
     bgRect,
     bgImage,
     guides,
+    zones,
     edges,
     nodes,
     names,
@@ -120,7 +147,8 @@ function contentLayers(p: ChartParts, opts: { transparent?: boolean; frame?: boo
   const frame = opts.frame
     ? `<rect class="canvas-frame" x="0.5" y="0.5" width="${Math.max(0, W - 1)}" height="${Math.max(0, H - 1)}" fill="none" stroke="${pal.guide}" stroke-width="2" opacity="0.9" vector-effect="non-scaling-stroke" pointer-events="none"/>`
     : '';
-  return `${bg}${frame}<g class="layer-guides">${opts.transparent ? '' : p.guides}</g><g class="layer-edges"${relOpacityAttr(p)}>${p.edges}</g><g class="layer-nodes">${p.nodes}</g>${p.names ? `<g class="layer-names">${p.names}</g>` : ''}<g class="layer-legend">${p.legend}</g>`;
+  const zones = p.zones ? `<g class="layer-zones" pointer-events="none">${p.zones}</g>` : '';
+  return `${bg}${frame}<g class="layer-guides">${opts.transparent ? '' : p.guides}</g>${zones}<g class="layer-edges"${relOpacityAttr(p)}>${p.edges}</g><g class="layer-nodes">${p.nodes}</g>${p.names ? `<g class="layer-names">${p.names}</g>` : ''}<g class="layer-legend">${p.legend}</g>`;
 }
 
 const svgOpen = (font: FontKey, attrs: string) =>
@@ -196,6 +224,7 @@ export function exportLayers(
   const all: LayerPart[] = [
     { id: 'layer-bg', label: '背景', body: p.bgRect + p.bgImage },
     { id: 'layer-guides', label: '輔助線', body: p.guides },
+    { id: 'layer-zones', label: '陣營框', body: p.zones },
     {
       id: 'layer-edges',
       label: '關係線',

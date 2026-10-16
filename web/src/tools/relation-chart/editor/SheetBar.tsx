@@ -2,11 +2,12 @@
  * 改編自 Relationship Chart Maker（© PaiTei4234，CC BY-NC-SA 4.0），見工具目錄 relation-chart/ 的 UPSTREAM_LICENSE。
  *
  * 分頁列：點一下切換、按兩下改名、拖曳換順序、×刪除（可以復原）、＋新增、複製；每個分頁有選單（改名、複製、往左／往右移、刪除）。
+ * 最左邊是「檔案庫」鈕（打開／收起，原作也放在這裡）。
  */
-import { ChevronDown, Copy, Plus, X } from 'lucide-react';
+import { ChevronDown, Copy, Library, Plus, X } from 'lucide-react';
 import { DropdownMenu } from 'radix-ui';
 import { useRef, useState } from 'react';
-import { IconButton, TextInput, useToast } from '@/ui';
+import { Button, IconButton, TextInput, useToast } from '@/ui';
 import { sheetName } from '../engine/geom';
 import { addSheet, deleteSheet, moveSheet, renameSheet, switchSheet } from '../state/actions';
 import { activeIndex, setUi, useProject, useUi } from '../state/store';
@@ -51,6 +52,7 @@ export function SheetBar() {
   const sheets = useProject((s) => s.data.sheets);
   const active = useProject((s) => activeIndex(s.data));
   const renaming = useUi((u) => u.renaming);
+  const libOpen = useUi((u) => u.libOpen);
   const toast = useToast();
   const drag = useRef<{ idx: number; x: number; moved: boolean; pid: number } | null>(null);
   const [over, setOver] = useState<number | null>(null);
@@ -80,6 +82,20 @@ export function SheetBar() {
 
   return (
     <div className="flex min-w-0 items-center gap-1" data-testid="sheet-bar">
+      <Button
+        size="sm"
+        variant={libOpen ? 'primary' : 'secondary'}
+        icon={<Library />}
+        className="shrink-0"
+        aria-pressed={libOpen}
+        title={S.lib.openTip}
+        onClick={() =>
+          setUi(libOpen ? { libOpen: false, libMode: null, libEdit: null } : { libOpen: true })
+        }
+        data-testid="library-open"
+      >
+        {S.lib.open}
+      </Button>
       <div
         ref={tabs}
         role="tablist"

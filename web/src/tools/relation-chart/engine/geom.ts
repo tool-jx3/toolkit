@@ -5,7 +5,7 @@
  * 解析順序一律「個別設定 → 分頁設定 → 自動值」。純函式，不碰 DOM。
  */
 import { ownColor } from '../model/normalize';
-import type { Char, FontKey, Palette, RelType, Sheet, SheetSettings } from '../model/types';
+import type { Char, FontKey, Label, Palette, RelType, Sheet, SheetSettings } from '../model/types';
 
 /** 原作的節點基準半徑 */
 export const NODE_R = 46;
@@ -68,9 +68,12 @@ export interface SheetCtx {
   pal: PaletteColors;
   byId: Map<number, Char>;
   typeById: Map<number, RelType>;
+  /** 專案的標籤（標籤庫的順序）；沒給＝沒有標籤 */
+  labels: readonly Label[];
+  lblById: Map<number, Label>;
 }
 
-export function sheetCtx(sheet: Sheet): SheetCtx {
+export function sheetCtx(sheet: Sheet, labels: readonly Label[] = []): SheetCtx {
   const W = sheet.W || 1000;
   const H = sheet.H || W;
   return {
@@ -81,6 +84,8 @@ export function sheetCtx(sheet: Sheet): SheetCtx {
     pal: PALETTES[sheet.settings.palette] ?? PALETTES.dark,
     byId: new Map(sheet.chars.map((c) => [c.id, c])),
     typeById: new Map(sheet.types.map((t) => [t.id, t])),
+    labels,
+    lblById: new Map(labels.map((l) => [l.id, l])),
   };
 }
 
@@ -262,11 +267,23 @@ export const esc = (s: string): string =>
 export const sheetName = (s: Pick<Sheet, 'name' | 'defNo'>): string =>
   (s.name || `分頁${s.defNo}`).replace(/\n+/g, ' ');
 
-/** 聚焦時其他元素的亮度（原作的 focusDimSet：線、圖例按固定比例跟著角色的值） */
+/** 聚焦時其他元素的亮度（原作的 focusDimSet：線、標籤、陣營框、圖例按固定比例跟著角色的值） */
 export const FOCUS_DIM = 0.15;
-export function focusDimSet(raw: number): { node: number; edge: number; legend: number } {
+export function focusDimSet(raw: number): {
+  node: number;
+  edge: number;
+  lbl: number;
+  zone: number;
+  legend: number;
+} {
   const d = Number.isFinite(raw) && raw >= 0 && raw <= 0.6 ? raw : FOCUS_DIM;
   const k = d / FOCUS_DIM;
   const cl = (x: number) => Math.max(0, Math.min(1, Math.round(x * 1000) / 1000));
-  return { node: cl(d), edge: cl(0.07 * k), legend: cl(0.3 * k) };
+  return {
+    node: cl(d),
+    edge: cl(0.07 * k),
+    lbl: cl(0.1 * k),
+    zone: cl(0.12 * k),
+    legend: cl(0.3 * k),
+  };
 }

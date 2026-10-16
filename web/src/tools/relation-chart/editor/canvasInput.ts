@@ -6,14 +6,18 @@
  *   拖曳中走快速路徑（live：只移動角色與相連的線，放開才寫回專案）、點一下＝聚焦、Shift＋點＝加入／移出選取、
  *   長按約 0.5 秒＝編輯（建立關係模式中＝指向自己）、按兩下＝編輯。
  * - 線：點一下＝編輯；線上的標籤拖曳＝沿線移動；自我關係的縮小頭貼拖曳＝繞著角色轉。
- * - 圖例：點一項＝只看這種關係／聚焦這個角色（再點取消）。
+ * - 圖例：點一項＝只看這種關係／聚焦這個標籤的成員／聚焦這個角色（再點取消）。
  * - 空白處：滑鼠拖曳＝框選、右鍵或中鍵拖曳＝平移；觸控拖曳＝平移、雙指＝捏合縮放；點一下＝取消聚焦與選取。
- * - 滾輪＝以游標為中心縮放；滑過角色或線＝暫時聚焦。
+ * - 滾輪＝以游標為中心縮放；滑過角色、線、標籤節點＝暫時聚焦。
+ * - 第二批：標籤節點拖曳＝移動（存位置）、點一下＝聚焦；陣營名稱拖曳＝改方向、點一下＝收合；
+ *   收合節點拖曳＝整組搬移、點一下＝展開；點群體關係線／聚合線＝打開它的面板；
+ *   建立關係模式中點標籤節點或陣營框＝群體關係的端點。
  */
-import { clampToCanvas, sheetCtx } from '../engine/geom';
+import { clampToCanvas } from '../engine/geom';
+import { labelInfo } from '../engine/labels';
 import { groupDragTo, pushAwayFrom } from '../logic/layout';
 import type { Char, Sheet } from '../model/types';
-import { endLink, linkClick, linkSelf } from '../state/actions';
+import { endLink, linkClick, linkSelf, setCollapsed } from '../state/actions';
 import {
   activeSheet,
   type FocusRef,
@@ -23,9 +27,9 @@ import {
   updateProject,
   useUi,
 } from '../state/store';
-import { beginLive, endLive, liveSheet, scheduleLiveFrame } from './live';
+import { beginLive, endLive, liveCtx, liveRefresh, liveSheet, scheduleLiveFrame } from './live';
 import { kickSim, setSimPinned } from './sim';
-import { setView, toCanvas, zoomBy } from './view';
+import { hostOrigin, setView, toCanvas, zoomBy } from './view';
 
 const MOVE_TOL = 4;
 const LONG_PRESS_MS = 500;
@@ -58,13 +62,34 @@ type Drag =
       button: number;
       shift: boolean;
       edgeId: number | null;
-      legend: { attr: 'type' | 'char'; id: number } | null;
+      legend: { attr: 'type' | 'char' | 'label'; id: number } | null;
       /** 平移的起點視角 */
       vx: number;
       vy: number;
       mode: 'none' | 'pan' | 'box';
     }
   | { kind: 'label'; relId: number; pid: number; sx: number; sy: number; moved: boolean }
+  | {
+      kind: 'lblnode';
+      id: number;
+      /** 圓心減指標的位移 */
+      ox: number;
+      oy: number;
+      pid: number;
+      sx: number;
+      sy: number;
+      moved: boolean;
+    }
+  | { kind: 'zonename'; id: number; pid: number; sx: number; sy: number; moved: boolean }
+  | {
+      kind: 'colnode';
+      id: number;
+      start: Map<number, Pt>;
+      pid: number;
+      sx: number;
+      sy: number;
+      moved: boolean;
+    }
   | {
       kind: 'self';
       relId: number;
@@ -92,6 +117,8 @@ const closestEl = (t: EventTarget | null, sel: string): Element | null =>
 
 /** 畫面上的位置（拖曳中、磁鐵跑著時是工作副本） */
 const curSheet = (): Sheet => liveSheet() ?? activeSheet();
+/** 收合中的成員（框選、點選都不撈） */
+const hiddenNow = () => labelInfo(liveCtx(curSheet())).colHidden;
 
 /** 改目前的分頁（標籤、縮小頭貼的拖曳；外面包 holdHistory） */
 function mutateSheet(fn: (s: Sheet) => void): void {
@@ -204,6 +231,7 @@ export class CanvasInput {
     if (legendEl) {
       const tid = legendEl.getAttribute('data-legend-type');
       const cid = legendEl.getAttribute('data-legend-char');
+      const lid = legendEl.getAttribute('data-legend-lbl');
       this.drag = {
         kind: 'empty',
         ...base,
@@ -216,7 +244,9 @@ export class CanvasInput {
             ? { attr: 'type', id: Number(tid) }
             : cid !== null
               ? { attr: 'char', id: Number(cid) }
-              : null,
+              : lid !== null
+                ? { attr: 'label', id: Number(lid) }
+                : null,
         vx: v.x,
         vy: v.y,
         mode: 'none',
@@ -224,6 +254,18 @@ export class CanvasInput {
       return;
     }
     const link = useUi.getState().link;
+    /* 收合節點：拖曳＝整組搬移、點一下＝展開（建立關係模式中不能當端點） */
+    const col = closestEl(t, '.colnode');
+    if (col) {
+      e.preventDefault();
+      if (link) return;
+      const id = Number(col.getAttribute('data-collbl'));
+      const g = labelInfo(liveCtx(curSheet())).colGroups.get(id);
+      if (!g) return;
+      const start = new Map<number, Pt>(g.members.map((c) => [c.id, { x: c.x, y: c.y }]));
+      this.drag = { kind: 'colnode', id, start, ...base };
+      return;
+    }
     const mini = closestEl(t, '.self-mini');
     if (mini && !link) {
       const relId = Number(mini.getAttribute('data-relid'));
@@ -238,6 +280,29 @@ export class CanvasInput {
     if (lbl && !link) {
       e.preventDefault();
       this.drag = { kind: 'label', relId: Number(lbl.getAttribute('data-relid')), ...base };
+      return;
+    }
+    /* 標籤節點：拖曳＝移動、點一下＝聚焦（建立關係模式＝端點） */
+    const ln = closestEl(t, '.lbl-node');
+    if (ln) {
+      e.preventDefault();
+      const id = Number(ln.getAttribute('data-lblnode'));
+      const cc = ln.querySelector('circle');
+      const p = toCanvas(e.clientX, e.clientY);
+      this.drag = {
+        kind: 'lblnode',
+        id,
+        ox: Number(cc?.getAttribute('cx') ?? p.x) - p.x,
+        oy: Number(cc?.getAttribute('cy') ?? p.y) - p.y,
+        ...base,
+      };
+      return;
+    }
+    /* 陣營名稱：拖曳＝改方向、點一下＝收合（建立關係模式中＝陣營框的端點，放開時處理） */
+    const zn = closestEl(t, '[data-zonecol]');
+    if (zn && !link) {
+      e.preventDefault();
+      this.drag = { kind: 'zonename', id: Number(zn.getAttribute('data-zonecol')), ...base };
       return;
     }
     const node = closestEl(t, '.node');
@@ -270,7 +335,7 @@ export class CanvasInput {
 
   private startLongPress(id: number, cx: number, cy: number): void {
     this.clearTimers();
-    const r = this.host.getBoundingClientRect();
+    const r = hostOrigin(this.host) ?? { left: 0, top: 0 };
     this.ringTimer = setTimeout(() => {
       setUi({ ring: { x: cx - r.left, y: cy - r.top, r: 26 } });
     }, RING_DELAY_MS);
@@ -335,8 +400,16 @@ export class CanvasInput {
       beginLive('drag');
       setSimPinned(new Set(d.start.keys()));
       kickSim(0.3);
-    } else if (d.kind === 'label' || d.kind === 'self') {
+    } else if (d.kind === 'label' || d.kind === 'self' || d.kind === 'zonename') {
       holdHistory('drag');
+    } else if (d.kind === 'lblnode') {
+      holdHistory('drag');
+      beginLive('drag');
+      setSimPinned(new Set(), d.id);
+      kickSim(0.5);
+    } else if (d.kind === 'colnode') {
+      holdHistory('drag');
+      beginLive('drag');
     } else if (d.kind === 'empty' && d.mode === 'none') {
       d.mode = d.touch ? 'pan' : 'box';
     }
@@ -350,7 +423,7 @@ export class CanvasInput {
       if (!s) return;
       const dx = (e.clientX - d.sx) / v.zoom;
       const dy = (e.clientY - d.sy) / v.zoom;
-      const ctx = sheetCtx(s);
+      const ctx = liveCtx(s);
       const c = s.chars.find((x) => x.id === d.id);
       const st = d.start.get(d.id);
       if (!c || !st) return;
@@ -372,6 +445,46 @@ export class CanvasInput {
       }
       scheduleLiveFrame();
       kickSim(0.3);
+      return;
+    }
+    if (d.kind === 'lblnode') {
+      const s = liveSheet();
+      if (!s) return;
+      const p = toCanvas(e.clientX, e.clientY);
+      const to = { x: p.x + d.ox, y: p.y + d.oy };
+      snapToGrid(s, to);
+      s.settings.labelPos[d.id] = to;
+      liveRefresh();
+      kickSim(0.3);
+      return;
+    }
+    if (d.kind === 'colnode') {
+      const s = liveSheet();
+      if (!s) return;
+      const dx = (e.clientX - d.sx) / v.zoom;
+      const dy = (e.clientY - d.sy) / v.zoom;
+      for (const c of s.chars) {
+        const st = d.start.get(c.id);
+        if (!st) continue;
+        c.x = st.x + dx;
+        c.y = st.y + dy;
+      }
+      liveRefresh();
+      return;
+    }
+    if (d.kind === 'zonename') {
+      const pt = toCanvas(e.clientX, e.clientY);
+      const s = curSheet();
+      const info = labelInfo(liveCtx(s));
+      const mem = (info.byId.get(d.id)?.members ?? []).filter((c) => !info.colHidden.has(c.id));
+      if (!mem.length) return;
+      const cx = mem.reduce((a, c) => a + c.x, 0) / mem.length;
+      const cy = mem.reduce((a, c) => a + c.y, 0) / mem.length;
+      if (Math.hypot(pt.x - cx, pt.y - cy) <= 4) return;
+      const ang = Math.atan2(pt.y - cy, pt.x - cx);
+      mutateSheet((sh) => {
+        sh.settings.zoneNameAng[d.id] = ang;
+      });
       return;
     }
     if (d.kind === 'label') {
@@ -413,7 +526,7 @@ export class CanvasInput {
       return;
     }
     if (d.mode === 'box') {
-      const r = this.host.getBoundingClientRect();
+      const r = hostOrigin(this.host) ?? { left: 0, top: 0 };
       const box = {
         x0: Math.min(d.sx, e.clientX) - r.left,
         y0: Math.min(d.sy, e.clientY) - r.top,
@@ -422,8 +535,11 @@ export class CanvasInput {
       };
       const a = toCanvas(box.x0 + r.left, box.y0 + r.top);
       const b = toCanvas(box.x1 + r.left, box.y1 + r.top);
+      const hidden = hiddenNow();
       const ids = curSheet()
-        .chars.filter((c) => c.x >= a.x && c.x <= b.x && c.y >= a.y && c.y <= b.y)
+        .chars.filter(
+          (c) => !hidden.has(c.id) && c.x >= a.x && c.x <= b.x && c.y >= a.y && c.y <= b.y,
+        )
         .map((c) => c.id);
       this.hooks.onBox(box, ids);
     }
@@ -443,7 +559,16 @@ export class CanvasInput {
     this.clearTimers();
     if (d.moved) {
       if (d.kind === 'node') this.dropNode(d);
-      else if (d.kind === 'label' || d.kind === 'self') this.endHistory();
+      else if (d.kind === 'lblnode') {
+        this.endHistory();
+        kickSim(0.6);
+      } else if (
+        d.kind === 'label' ||
+        d.kind === 'self' ||
+        d.kind === 'zonename' ||
+        d.kind === 'colnode'
+      )
+        this.endHistory();
       else if (d.mode === 'box') {
         const ids = this.boxIds(d, e);
         const u0 = useUi.getState();
@@ -463,7 +588,7 @@ export class CanvasInput {
     const active = !useUi.getState().link && !d.longDone;
     if (s && active && !s.settings.snapMode && d.start.size === 1 && !s.settings.noCollision) {
       const c = s.chars.find((x) => x.id === d.id);
-      if (c) pushAwayFrom(sheetCtx(s), c);
+      if (c) pushAwayFrom(liveCtx(s), c);
     }
     this.endHistory();
     if (active) kickSim(0.6);
@@ -472,8 +597,11 @@ export class CanvasInput {
   private boxIds(d: Extract<Drag, { kind: 'empty' }>, e: PointerEvent): number[] {
     const a = toCanvas(Math.min(d.sx, e.clientX), Math.min(d.sy, e.clientY));
     const b = toCanvas(Math.max(d.sx, e.clientX), Math.max(d.sy, e.clientY));
+    const hidden = hiddenNow();
     return curSheet()
-      .chars.filter((c) => c.x >= a.x && c.x <= b.x && c.y >= a.y && c.y <= b.y)
+      .chars.filter(
+        (c) => !hidden.has(c.id) && c.x >= a.x && c.x <= b.x && c.y >= a.y && c.y <= b.y,
+      )
       .map((c) => c.id);
   }
 
@@ -507,8 +635,37 @@ export class CanvasInput {
       setUi({ panel: { kind: 'rel', id: d.relId }, focus: { kind: 'edge', id: d.relId } });
       return;
     }
+    if (d.kind === 'lblnode') {
+      if (u.link) {
+        linkClick(`L${d.id}`);
+        return;
+      }
+      const same = u.focus?.kind === 'label' && u.focus.id === d.id;
+      setUi({ focus: same ? null : { kind: 'label', id: d.id }, hover: null });
+      return;
+    }
+    if (d.kind === 'zonename') {
+      setCollapsed(d.id, true);
+      return;
+    }
+    if (d.kind === 'colnode') {
+      setCollapsed(d.id, false);
+      return;
+    }
     if (d.button !== 0) return;
+    const hit = document.elementFromPoint?.(e.clientX, e.clientY) ?? null;
+    const grel = closestEl(hit, '.grel-edge[data-grelid]');
     if (u.link) {
+      /* 建立關係模式：點陣營框＝這個標籤當端點；點群體關係線＝打開它的面板（模式不結束） */
+      const zone = closestEl(hit, '.zone-g[data-zone]');
+      if (zone) {
+        linkClick(`L${zone.getAttribute('data-zone')}`);
+        return;
+      }
+      if (grel) {
+        setUi({ panel: { kind: 'grel', id: Number(grel.getAttribute('data-grelid')) } });
+        return;
+      }
       endLink();
       return;
     }
@@ -516,9 +673,20 @@ export class CanvasInput {
       const f: FocusRef =
         d.legend.attr === 'type'
           ? { kind: 'type', id: d.legend.id }
-          : { kind: 'node', id: d.legend.id };
+          : d.legend.attr === 'label'
+            ? { kind: 'label', id: d.legend.id }
+            : { kind: 'node', id: d.legend.id };
       const same = u.focus?.kind === f.kind && u.focus.id === f.id;
       setUi({ focus: same ? null : f, hover: null });
+      return;
+    }
+    if (grel) {
+      setUi({ panel: { kind: 'grel', id: Number(grel.getAttribute('data-grelid')) } });
+      return;
+    }
+    const ce = closestEl(hit, '.col-edge[data-colkey]');
+    if (ce) {
+      setUi({ panel: { kind: 'coledge', key: ce.getAttribute('data-colkey') ?? '' } });
       return;
     }
     if (d.edgeId !== null) {
@@ -556,11 +724,14 @@ export class CanvasInput {
   private over(e: PointerEvent): void {
     if (e.pointerType === 'touch' || this.drag || this.pinch) return;
     const node = closestEl(e.target, '.node');
-    const edge = node ? null : closestEl(e.target, '.edge');
-    if (!node && !edge) return;
+    const ln = node ? null : closestEl(e.target, '.lbl-node');
+    const edge = node || ln ? null : closestEl(e.target, '.edge');
+    if (!node && !edge && !ln) return;
     const f: FocusRef = node
       ? { kind: 'node', id: Number(node.getAttribute('data-id')) }
-      : { kind: 'edge', id: Number(edge?.getAttribute('data-relid')) };
+      : ln
+        ? { kind: 'label', id: Number(ln.getAttribute('data-lblnode')) }
+        : { kind: 'edge', id: Number(edge?.getAttribute('data-relid')) };
     const h = useUi.getState().hover;
     this.cancelHover();
     if (h && h.kind === f.kind && h.id === f.id) return;
@@ -574,9 +745,9 @@ export class CanvasInput {
 
   private out(e: PointerEvent): void {
     if (e.pointerType === 'touch') return;
-    const from = closestEl(e.target, '.node, .edge');
+    const from = closestEl(e.target, '.node, .edge, .lbl-node');
     if (!from) return;
-    const to = closestEl(e.relatedTarget, '.node, .edge');
+    const to = closestEl(e.relatedTarget, '.node, .edge, .lbl-node');
     if (to === from) return;
     this.cancelHover();
     this.hoverTimer = setTimeout(() => {
