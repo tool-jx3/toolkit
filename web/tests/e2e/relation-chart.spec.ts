@@ -2525,6 +2525,63 @@ test('角色庫：匯入當前分頁（主要變體與指定的變體）、複�
   expect(errors).toEqual([]);
 });
 
+test('角色庫、關係庫：匯入／複製／刪除模式中保留選取與左欄詳情，點變體＝對那一件動作（7.8）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const s = trio();
+  s.types.push(makeType(10, '友情'));
+  s.rels.push(makeRel(20, 1, 2, 10));
+  await seed(page, project([s]));
+  await page.getByTestId('library-open').click();
+  await lib(page).getByTestId('lib-entry').filter({ hasText: '甲' }).first().click();
+  const detail = lib(page).getByTestId('lib-detail');
+  await detail.getByTestId('lib-add-variant').click();
+  await expect(detail.getByTestId('lib-variant')).toHaveCount(2);
+  let p = await data(page);
+  const lid = p.sheets[0].chars[0].lib;
+  const vars = () => (p.library.find((e) => e.id === lid)?.variants ?? []).map((v) => v.id);
+  /* 複製模式：詳情還在；點第二件＝複製那一件（插在它後面） */
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('library-act-copy').click();
+  await expect(detail).toBeVisible();
+  await expect(detail.getByTestId('lib-variant')).toHaveCount(2);
+  await detail.getByTestId('lib-variant-name').nth(1).click();
+  await expect(detail.getByTestId('lib-variant')).toHaveCount(3);
+  p = await data(page);
+  const third = vars()[2];
+  /* 匯入模式：點第三件＝把那一件加到目前分頁 */
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('library-act-import').click();
+  await expect(detail).toBeVisible();
+  await detail.getByTestId('lib-variant-name').nth(2).click();
+  p = await data(page);
+  expect(p.sheets[0].chars.map((c) => c.vari)).toContain(third);
+  /* 刪除模式：點第三件＝刪掉那一件（穿著它的角色換回第一件） */
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('library-act-del').click();
+  await expect(detail).toBeVisible();
+  await detail.getByTestId('lib-variant-name').nth(2).click();
+  await expect(detail.getByTestId('lib-variant')).toHaveCount(2);
+  p = await data(page);
+  expect(vars()).not.toContain(third);
+  /* 關係庫：同樣保留詳情，複製、刪除變體 */
+  await lib(page).getByTestId('library-tab-rels').click();
+  await lib(page).getByTestId('lib-entry').first().click();
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('library-act-copy').click();
+  await expect(detail).toBeVisible();
+  await detail.getByTestId('lib-variant-name').first().click();
+  await expect(detail.getByTestId('lib-variant')).toHaveCount(2);
+  p = await data(page);
+  expect(p.relLibrary[0].variants.map((v) => v.label)).toEqual(['友情', '友情（變體）']);
+  await page.waitForTimeout(450);
+  await lib(page).getByTestId('library-act-del').click();
+  await detail.getByTestId('lib-variant-name').nth(1).click();
+  await expect(detail.getByTestId('lib-variant')).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
 test('關係庫：改了分頁上的關係類型就同步到其他分頁穿同一件的（一步復原）、加入本分頁不重複、改變體名稱', async ({
   page,
 }) => {
@@ -2686,6 +2743,65 @@ test('角色資訊、看法、角色卡：富文本（工具列、一段編輯�
   expect(text).toContain('## 角色資訊\n背景故事');
   expect(text).toContain('- → 友情 乙');
   expect(text).toContain('- ← 乙：「可靠的夥伴」');
+  expect(errors).toEqual([]);
+});
+
+test('角色資訊的「連結」：打字後按連結面板不關；選取的字變成連結（存成 請看<a>官網</a>，7.8）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, project([trio()]));
+  await editChar(page, 1);
+  await page.getByTestId('char-info').click();
+  const ed = page.getByTestId('info-editor');
+  await ed.click();
+  await page.keyboard.type('請看官網');
+  /* 打字之後立刻按「連結」：面板還在、浮層出來 */
+  await page.getByTestId('rich-link').click();
+  await expect(title(page)).toHaveText('角色資訊');
+  await expect(page.getByTestId('rich-link-input')).toBeFocused();
+  await page.keyboard.press('Escape');
+  /* 選「官網」兩個字 → 連結 → 網址 → Enter */
+  await page.waitForTimeout(450);
+  await ed.click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.down('Shift');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.up('Shift');
+  await page.getByTestId('rich-link').click();
+  await page.getByTestId('rich-link-input').fill('https://ok.example/x');
+  await page.getByTestId('rich-link-input').press('Enter');
+  await expect(ed.locator('a')).toHaveText('官網');
+  await page.getByTestId('info-back').click();
+  const p = await data(page);
+  const info = p.library.find((e) => e.id === p.sheets[0].chars[0].lib)?.info ?? '';
+  expect(info).toMatch(/^(<p>)?請看<a href="https:\/\/ok\.example\/x"[^>]*>官網<\/a>/);
+  /* 有圖的資訊：重新整理後再打開，主控台沒有載入失敗（rcimg: 不放進 src，7.8） */
+  await page.getByTestId('char-info').click();
+  await ed.click();
+  await page.keyboard.press('Control+End');
+  const [fc] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('button', { name: '插入圖片' }).click(),
+  ]);
+  await fc.setFiles({
+    name: 'pic.png',
+    mimeType: 'image/png',
+    buffer: await solidPng([20, 160, 90, 255], 30, 30),
+  });
+  await expect(ed.locator('img')).toHaveCount(1);
+  await page.getByTestId('info-back').click();
+  await page.waitForTimeout(800);
+  await page.reload();
+  await expect(page.getByTestId('chart').locator('svg').first()).toBeVisible();
+  /* 「進階」的開合記在瀏覽器：關著才打開 */
+  await editChar(page, 1, false);
+  if (!(await page.getByTestId('char-info').isVisible()))
+    await page.getByRole('button', { name: '進階' }).click();
+  await page.getByTestId('char-info').click();
+  await expect(page.getByTestId('info-editor').locator('img')).toHaveAttribute('src', /^blob:/);
+  await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
 
@@ -3030,5 +3146,25 @@ test('原作的專案檔（第三批）：角色庫的每件變體、關係庫�
     'style',
     new RegExp(`crf-${p.fonts[0].id}`),
   );
+  /* 互動網頁：圖（頭像框）用 data-rcimg 帶著，載入後才設 href＝主控台沒有載入失敗（7.8） */
+  const vhtml = strFromU8((await runExport(page, '互動網頁（唯讀）')).bytes);
+  expect(vhtml).not.toMatch(/(href|src)="rcimg:/);
+  const v = await page.context().newPage();
+  const vErrors: string[] = [];
+  v.on('pageerror', (e) => vErrors.push(e.message));
+  v.on('console', (m) => m.type() === 'error' && vErrors.push(m.text()));
+  await v.route('**/*', (r) =>
+    r.request().url() === 'http://viewer.test/'
+      ? r.fulfill({ body: vhtml, contentType: 'text/html' })
+      : r.abort(),
+  );
+  await v.goto('http://viewer.test/');
+  await expect(v.locator('.sheetV.active .node-frame image').first()).toHaveAttribute(
+    'href',
+    /^data:image\//,
+  );
+  await v.waitForTimeout(300);
+  expect(vErrors).toEqual([]);
+  await v.close();
   expect(errors).toEqual([]);
 });

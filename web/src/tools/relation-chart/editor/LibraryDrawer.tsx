@@ -48,9 +48,9 @@ function runAction(tab: LibTab, key: LibAction['key']): void {
     runLabelAction(key);
     return;
   }
+  /* 進出模式都保留選取與左欄的詳情：模式中點詳情裡的變體＝對那一件動作（照原作，7.8） */
   const u = useUi.getState();
-  const on = u.libMode !== key;
-  setUi({ libMode: on ? (key as LibMode) : null, libPick: on ? null : u.libPick });
+  setUi({ libMode: u.libMode !== key ? (key as LibMode) : null });
 }
 
 export function switchLibTab(tab: LibTab): void {

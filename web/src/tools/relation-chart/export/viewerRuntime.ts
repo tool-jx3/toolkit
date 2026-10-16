@@ -48,7 +48,7 @@ export interface ViewerData {
   lnames: Record<string, string>;
   /** 標籤 id → 顏色（自己有顏色的標籤） */
   lcol?: Record<string, string>;
-  /** 圖片（SVG 裡寫成 rcimg:N） */
+  /** 圖片（SVG 裡寫成 data-rcimg="N"） */
   imgs: string[];
   txt: ViewerText;
 }
@@ -83,12 +83,12 @@ export function rcViewer(D: ViewerData, X?: ViewerHooksLike): void {
   let pathFrom: number | null = null;
   let view = { s: 1, x: 0, y: 0 };
 
-  /* 圖片：同一張只放一次（SVG 裡寫 rcimg:N，載入時換回） */
-  const imgs = doc.querySelectorAll('image');
+  /* 圖片：同一張只放一次（SVG 裡寫 data-rcimg="N"，載入時才設 href） */
+  const imgs = doc.querySelectorAll('image[data-rcimg]');
   for (let i = 0; i < imgs.length; i++) {
     const el = imgs[i];
-    const h = el.getAttribute('href') || '';
-    if (h.indexOf('rcimg:') === 0) el.setAttribute('href', D.imgs[+h.slice(6)] || '');
+    el.setAttribute('href', D.imgs[+(el.getAttribute('data-rcimg') || 0)] || '');
+    el.removeAttribute('data-rcimg');
   }
 
   const sheetEl = () => doc.querySelectorAll('.sheetV')[cur] as HTMLElement;

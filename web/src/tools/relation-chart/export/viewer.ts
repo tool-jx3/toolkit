@@ -43,7 +43,7 @@ import type {
 } from '../model/types';
 import { S } from '../strings';
 import { fontFaceCss, usedFontIds } from './fonts';
-import { rcViewerExt, type ViewerExtData, type ViewerExtSheet } from './viewerExt';
+import { rcViewerExt, rcViewerRadar, type ViewerExtData, type ViewerExtSheet } from './viewerExt';
 import { rcViewer, type ViewerData, type ViewerSheetData } from './viewerRuntime';
 
 /** 第三批：角色資訊、數值、看法、字型、頭像框要用的專案資料（沒給＝沒有） */
@@ -228,7 +228,7 @@ function extData(
   let anyInfo = false;
   let anyRadar = false;
   let anyViews = false;
-  /* 文件裡的圖：參照換成去重表的索引；讀不到的圖整個拿掉 */
+  /* 文件裡的圖：參照換成去重表的索引（data-rcimg，檢視程式再設 src）；讀不到的圖整個拿掉 */
   const packDoc = (html: string) =>
     sanitizeRichHtml(html).replace(/<img\b[^>]*>/g, (tag) => {
       const m = /src="rcimg:([0-9a-z-]{3,80})"/.exec(tag);
@@ -241,7 +241,7 @@ function extData(
         rimgs.push(uri);
         rimgIdx.set(uri, k);
       }
-      return tag.replace(m[0], `src="rcimg:${k}"`);
+      return tag.replace(m[0], `data-rcimg="${k}"`);
     });
   const out: ViewerExtSheet[] = sheets.map((s) => {
     const x: ViewerExtSheet = {};
@@ -349,6 +349,7 @@ export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string
     }
     return `rcimg:${k}`;
   };
+  /* 圖片寫成 data-rcimg="N"（去重表的索引），檢視程式載入時才設 href：瀏覽器不認得 rcimg:，放在 href 會多一筆載入失敗 */
   const svgs = sheets.map((s, i) =>
     viewerSvg(s, {
       href,
@@ -357,7 +358,7 @@ export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string
       labels: input.labels,
       fonts: input.fonts,
       frames: input.frames,
-    }),
+    }).replace(/ href="rcimg:(\d+)"/g, ' data-rcimg="$1"'),
   );
   const usedLabels = new Set(sheets.flatMap((s) => s.chars.flatMap((c) => charLabelIds(c))));
   const anyHiddenOk = sheets.some((s) => s.settings.viewerHiddenLbls);
@@ -417,7 +418,9 @@ export function viewerHtml(sheets: readonly Sheet[], input: ViewerInput): string
 #loreVHead button{background:none;border:1px solid ${th.line};border-radius:6px;color:${th.ink};padding:2px 10px;cursor:pointer;font-family:inherit;font-size:13px}
 #loreVHead button:hover{border-color:${th.accent};color:${th.accent}}
 #loreVBody{flex:1;overflow-y:auto;padding:12px 16px;font-size:14px;line-height:1.75;word-break:break-word;--rd-line:${th.line};--rd-muted:${th.muted};--rd-link:${th.accent}}
-${richDocCss('.loreDoc')}
+${richDocCss('.loreDoc')}${
+  x3?.anyRadar
+    ? `
 .rdv-sec{margin-bottom:18px}
 .rdv-title{font-weight:700;margin-bottom:6px}
 .rdv-chart{color:${th.ink};max-width:320px;margin:0 auto}
@@ -428,6 +431,8 @@ ${richDocCss('.loreDoc')}
 .rdv-chip i{display:inline-block;width:9px;height:9px;border-radius:50%}
 .rdv-cmp{display:flex;align-items:center;gap:6px;font-size:12.5px;color:${th.muted}}
 .rdv-cmp select{background:${th.bg};color:${th.ink};border:1px solid ${th.line};border-radius:6px;padding:2px 6px;font-family:inherit}`
+    : ''
+}`
       : ''
   }`;
   const css = `*{box-sizing:border-box;margin:0}
@@ -506,7 +511,7 @@ footer{flex-shrink:0;padding:5px 14px;background:${th.panel};border-top:1px soli
         )}${x3?.anyRadar ? '<div class="loreDoc" data-r="1" id="radarDocV" hidden></div>' : ''}</div></div>`
     : '';
   const script = x3
-    ? `(function(){var D=${scriptJson(data)};(${viewerSource()})(D,(${viewerExtSource()})(${scriptJson(x3.ext)},${x3.anyRadar ? `(${rcCharts.toString()})()` : 'null'},D));})();`
+    ? `(function(){var D=${scriptJson(data)};(${viewerSource()})(D,(${viewerExtSource()})(${scriptJson(x3.ext)},${x3.anyRadar ? `function(E,a){return (${rcViewerRadar.toString()})(E,(${rcCharts.toString()})(),a)}` : 'null'},D));})();`
     : `(${viewerSource()})(${scriptJson(data)});`;
   const T = S.viewer;
   return `<!DOCTYPE html>

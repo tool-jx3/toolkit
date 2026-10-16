@@ -80,11 +80,14 @@ export function flushRichEditors(): void {
 
 type Fly = 'heading' | 'color' | 'bg' | 'size' | 'align' | 'link' | 'table';
 
-/** 顯示用：rcimg 參照換成網址（記住資產 id，存回去時換回參照） */
+/**
+ * 顯示用：rcimg 參照換成網址（記住資產 id，存回去時換回參照）。
+ * 網址還沒到＝先不放 src（瀏覽器不認得 rcimg:，放了會多一筆載入失敗），到了再就地補上。
+ */
 function display(html: string, url: (id: string) => string | undefined): string {
   return html.replace(/src="rcimg:([0-9a-z-]{3,80})"/g, (_m, id: string) => {
     const u = url(id);
-    return `src="${u ?? `rcimg:${id}`}" data-rcimg="${id}"`;
+    return u ? `src="${u}" data-rcimg="${id}"` : `data-rcimg="${id}"`;
   });
 }
 
@@ -104,7 +107,8 @@ function normalizeFonts(root: HTMLElement): void {
 /** 編輯區的內容 → 要存的 HTML（圖片換回參照、淨化） */
 function pack(ed: HTMLElement): string {
   normalizeFonts(ed);
-  const clone = ed.cloneNode(true) as HTMLElement;
+  /* 複製到惰性文件再換 src：在頁面本身的文件裡設 rcimg: 會讓瀏覽器去載入（多一筆載入失敗） */
+  const clone = document.implementation.createHTMLDocument('').importNode(ed, true) as HTMLElement;
   for (const img of clone.querySelectorAll('img')) {
     const id = img.getAttribute('data-rcimg');
     if (id) img.setAttribute('src', `rcimg:${id}`);
@@ -297,16 +301,20 @@ export function RichEditor({
     };
   }, [fly]);
 
-  /** 回到編輯區、還原選取 */
+  /**
+   * 回到編輯區、還原選取。焦點不在編輯區（例如在「連結」浮層的輸入欄）時，focus() 會把游標放到開頭，
+   * 所以一定換回存著的選取（7.8：選好的字要變成連結）。
+   */
   const focusEd = (): HTMLDivElement | null => {
     const el = ed.current;
     if (!el) return null;
-    if (document.activeElement !== el) el.focus();
+    const away = document.activeElement !== el;
+    if (away) el.focus({ preventScroll: true });
     const s = document.getSelection();
     const r = range.current;
     if (s && r && el.contains(r.commonAncestorContainer)) {
       const cur = s.rangeCount ? s.getRangeAt(0) : null;
-      if (!cur || !el.contains(cur.commonAncestorContainer)) {
+      if (away || !cur || !el.contains(cur.commonAncestorContainer)) {
         s.removeAllRanges();
         s.addRange(r);
       }
@@ -391,7 +399,7 @@ export function RichEditor({
     try {
       const r = await addImageFile(assets, blob, { maxSide: IMG_MAX });
       const u = await assets.url(r.ref.id);
-      exec('insertHTML', `<img src="${u ?? `rcimg:${r.ref.id}`}" data-rcimg="${r.ref.id}">`);
+      exec('insertHTML', `<img ${u ? `src="${u}" ` : ''}data-rcimg="${r.ref.id}">`);
       if (!r.persisted) toast({ title: S.msg.imageNotSaved, tone: 'warning' });
     } catch {
       toast({ title: S.rich.imageFail, tone: 'warning' });

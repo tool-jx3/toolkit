@@ -294,7 +294,7 @@ export function CharLibSide() {
   const unused = useUi((u) => u.libUnused);
   const labelId = useUi((u) => u.libLabelFilter);
   const toast = useToast();
-  const entry = mode === null && pick !== null ? library.find((e) => e.id === pick) : undefined;
+  const entry = pick !== null ? library.find((e) => e.id === pick) : undefined;
   const label = labelId !== null ? labels.find((l) => l.id === labelId) : undefined;
   const hint =
     mode === 'import'

@@ -218,7 +218,7 @@ export function RelLibSide() {
   const mode = useUi((u) => u.libMode);
   const pick = useUi((u) => u.libPick);
   const unused = useUi((u) => u.libUnused);
-  const entry = mode === null && pick !== null ? relLibrary.find((e) => e.id === pick) : undefined;
+  const entry = pick !== null ? relLibrary.find((e) => e.id === pick) : undefined;
   const hint =
     mode === 'import'
       ? R.hintImport

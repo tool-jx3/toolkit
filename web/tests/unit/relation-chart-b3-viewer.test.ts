@@ -21,7 +21,13 @@ function project(): Project {
   );
   s.types.push(makeType(10, '友情'));
   s.rels.push(makeRel(20, 1, 2, 10));
-  return normalizeProject({ sheets: [s], active: 0, labels: [], nextId: 100, font: 'sans' });
+  return normalizeProject({
+    sheets: [s],
+    active: 0,
+    labels: [],
+    nextId: 100,
+    font: 'sans',
+  }) as Project;
 }
 
 const input = (p: Project, uris = new Map<string, string>()) => ({
@@ -44,6 +50,18 @@ describe('互動網頁的第三批內容', () => {
     expect(h).not.toContain(viewerExtSource().slice(0, 40));
   });
 
+  it('有角色資訊或看法、沒有任何數值：不帶雷達窗格的樣式與程式（7.8）', () => {
+    const p = project();
+    const e = p.library.find((x) => x.id === p.sheets[0].chars[0].lib);
+    if (!e) throw new Error('no entry');
+    e.info = '<p>背景</p>';
+    p.sheets[0].views = { '2': { '1': '可靠' } };
+    const h = viewerHtml(p.sheets, input(p));
+    expect(h).toContain('id="loreV"');
+    expect(h).toContain('view-bubble');
+    for (const s of ['rdv-', 'radarDocV', 'data-radar', 'chartSvg']) expect(h).not.toContain(s);
+  });
+
   it('角色資訊：匯出前再淨化一次（script、事件屬性進不來）、圖片換成去重表、同一個人跨分頁只放一份', () => {
     const p = project();
     const e = p.library.find((x) => x.id === p.sheets[0].chars[0].lib);
@@ -54,8 +72,9 @@ describe('互動網頁的第三批內容', () => {
     const h = viewerHtml(p.sheets, input(p, new Map([[id, 'data:image/png;base64,AAAA']])));
     expect(h).toContain('id="loreV"');
     expect(h).toContain(
-      '<div class="loreDoc" data-k="0" hidden><p>背景</p><img src="rcimg:0"><img src="rcimg:0"></div>',
+      '<div class="loreDoc" data-k="0" hidden><p>背景</p><img data-rcimg="0"><img data-rcimg="0"></div>',
     );
+    expect(h).not.toMatch(/(href|src)="rcimg:/);
     const pane = h.slice(h.indexOf('<div id="loreV">'), h.indexOf('<footer>'));
     expect(pane).not.toMatch(/alert\(1\)|onclick|<script/);
     expect(h).toContain('"rimgs":["data:image/png;base64,AAAA"]');

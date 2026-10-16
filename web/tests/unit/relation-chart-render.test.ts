@@ -237,7 +237,9 @@ describe('互動網頁（3.5）', () => {
   it('同一張圖只放一次；資料裡的 </script> 被跳脫；兩張分頁有分頁籤', () => {
     const h = html();
     expect(h.match(/QUJD/g)).toHaveLength(1);
-    expect(h).toContain('href="rcimg:0"');
+    /* 去重表的索引放在 data-rcimg（瀏覽器不認得 rcimg:，放在 href 會多一筆載入失敗；7.8） */
+    expect(h).toContain('data-rcimg="0"');
+    expect(h).not.toMatch(/(href|src)="rcimg:/);
     expect(h).not.toContain('主角群</script>');
     expect(h).toContain('主角群\\u003c/script>');
     expect((h.match(/class="tabV/g) ?? []).length).toBe(2);

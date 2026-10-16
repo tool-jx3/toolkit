@@ -106,6 +106,8 @@ function pruneUi(): void {
     (f.kind === 'rel' && relIds.has(f.id as number)) ||
     (f.kind === 'label' && lblIds.has(f.id as number)) ||
     (f.kind === 'grel' && grelIds.has(f.id as number)) ||
+    /* 角色資訊（7.8：之前漏了，任何一步復原紀錄都會把它關掉，例如資訊編輯區失焦） */
+    (f.kind === 'info' && ids.has(f.id as number)) ||
     f.kind === 'coledge';
   const endAlive = (t: string | null) =>
     t !== null && (grelEndIsLbl(t) ? lblIds.has(grelEndId(t)) : ids.has(grelEndId(t)));
