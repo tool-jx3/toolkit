@@ -917,7 +917,9 @@ test('縮放途中（還沒重新排版）：圖層拿掉 will-change，停手�
         text: svg ? getComputedStyle(svg).textRendering : null,
       };
     });
-  await expect.poll(look).toEqual({ scaled: false, willChange: 'transform', text: 'geometricprecision' });
+  await expect
+    .poll(look)
+    .toEqual({ scaled: false, willChange: 'transform', text: 'geometricprecision' });
   /* 滾一格、等這一格畫好（兩個 rAF）就看：還在縮放途中 */
   const mid = await page.evaluate(async () => {
     const host = document.querySelector('[data-testid=canvas]') as HTMLElement;
