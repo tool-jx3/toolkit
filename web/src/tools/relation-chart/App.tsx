@@ -7,6 +7,7 @@ import { ProjectMenu, ToolShell, useToast } from '@/ui';
 import { Editor } from './editor/Editor';
 import { OPEN_ACCEPT, openForeign, openOwnProject, resetProject } from './editor/files';
 import { SHORTCUT_HELP } from './editor/keys';
+import { flushRichEditors } from './editor/RichEditor';
 import { collectProjectFiles, projectDataForSave, takeSaveDropped } from './state/project';
 import { DATA_VERSION, TOOL_ID } from './state/store';
 import { S } from './strings';
@@ -21,7 +22,11 @@ function Menu() {
       version={DATA_VERSION}
       fileName={S.project.fileName}
       getData={projectDataForSave}
-      getFiles={collectProjectFiles}
+      getFiles={() => {
+        /* 角色資訊還在等寫入的內容先落地 */
+        flushRichEditors();
+        return collectProjectFiles();
+      }}
       onSaved={() => {
         const n = takeSaveDropped();
         if (n) toast({ title: S.project.saveDropped(n), tone: 'warning' });
