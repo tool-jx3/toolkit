@@ -22,6 +22,7 @@ import { readPsd } from 'ag-psd';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
+import { snapHash } from '../../src/tools/relation-chart/logic/legacy';
 import { buildSample, type SampleKey } from '../../src/tools/relation-chart/logic/samples';
 import {
   makeChar,
@@ -2890,5 +2891,144 @@ test('交換位置模式：點兩位＝交換座標與清單順序（釘選的�
   /* Esc 結束 */
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('swap-banner')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('原作的專案檔（第三批）：角色庫的每件變體、關係庫、角色資訊（再淨化）、看法、數值、頭像框與匯入字型（用原作的雜湊對上檔案）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await seed(page, project([trio()]));
+  const framePng = await solidPng([255, 200, 0, 160], 64, 64);
+  const fontBytes = readFileSync(
+    '/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf',
+  );
+  const fh = snapHash(`data:image/png;base64,${Buffer.from(framePng).toString('base64')}`);
+  const th = snapHash(`data:font/ttf;base64,${Buffer.from(fontBytes).toString('base64')}`);
+  const data = {
+    app: 'CharRelDiagram',
+    format: 7,
+    activeSheetIdx: 0,
+    docFont: `f:${th}`,
+    labels: [],
+    library: [
+      {
+        id: 120,
+        info: '<p><b>背景</b></p><script>alert(1)</script><img src="x" onerror="alert(1)">',
+        font: `f:${th}`,
+        variants: [
+          {
+            id: 121,
+            name: '艾莉絲',
+            icon: 'star',
+            frame: fh,
+            radars: [{ tpl: 150, state: '', vals: { 151: 50 } }],
+          },
+          { id: 122, name: '魔女艾莉絲', icon: 'moon', frame: '' },
+        ],
+      },
+      { id: 130, unifiedColor: true, variants: [{ id: 131, name: '雷恩', icon: 'shield' }] },
+    ],
+    relLibrary: [
+      {
+        id: 140,
+        variants: [
+          { id: 141, label: '戀愛', color: '#e0607e', lineStyle: 'solid', capStyle: 'arrow' },
+          {
+            id: 142,
+            label: '戀愛（單戀）',
+            color: '#e0607e',
+            lineStyle: 'dashed',
+            capStyle: 'heart',
+          },
+        ],
+      },
+    ],
+    radarLib: [
+      {
+        id: 150,
+        name: '能力值',
+        chart: 'radar',
+        shape: 'poly',
+        rings: 4,
+        valMode: 'raw',
+        shared: false,
+        axes: [
+          { id: 151, label: '力', max: 100, unit: '' },
+          { id: 152, label: '速', max: 100, unit: '' },
+          { id: 153, label: '智', max: 100, unit: '' },
+        ],
+      },
+    ],
+    sheets: [
+      {
+        id: 2,
+        name: '學院',
+        W: 1000,
+        H: 800,
+        relTypes: [
+          {
+            id: 160,
+            label: '戀愛',
+            color: '#e0607e',
+            lineStyle: 'solid',
+            capStyle: 'arrow',
+            relLibId: 140,
+            relVarId: 141,
+          },
+        ],
+        chars: [
+          { id: 1, libId: 120, varId: 121, x: 300, y: 300 },
+          { id: 2, libId: 130, varId: 131, x: 700, y: 300 },
+        ],
+        rels: [{ id: 11, from: 1, to: 2, relTypeId: 160 }],
+        views: { 2: { 1: '可靠的夥伴' } },
+      },
+    ],
+  };
+  const zip = Buffer.from(
+    zipSync({
+      '專案/project.json': strToU8(JSON.stringify(data)),
+      '專案/frames/金框.png': new Uint8Array(framePng),
+      '專案/fonts/LiberationSerif.ttf': new Uint8Array(fontBytes),
+    }),
+  );
+  const [fc] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    openProjectItem(page, '開啟專案檔…'),
+  ]);
+  await fc.setFiles({ name: 'orig.zip', mimeType: 'application/zip', buffer: zip });
+  await page.getByRole('alertdialog').getByRole('button', { name: '取代目前內容' }).click();
+  await expect(toast(page, '已讀入原作的專案：1 張分頁、2 位角色、1 條關係')).toBeVisible();
+  await page.waitForTimeout(600);
+  const p = (await saved(page)) as Project;
+  const s = p.sheets[0];
+  /* 角色庫：每一件變體都讀進來；統一顏色 */
+  expect(p.library.map((e) => e.variants.map((v) => v.name))).toEqual([
+    ['艾莉絲', '魔女艾莉絲'],
+    ['雷恩'],
+  ]);
+  expect(p.library[1].unified).toBe(true);
+  /* 角色資訊再淨化（script、事件屬性都不進來） */
+  expect(p.library[0].info).toContain('<b>背景</b>');
+  expect(p.library[0].info).not.toMatch(/script|onerror/);
+  /* 關係庫與綁定 */
+  expect(p.relLibrary[0].variants.map((v) => v.label)).toEqual(['戀愛', '戀愛（單戀）']);
+  expect(s.types[0].lib).toBe(p.relLibrary[0].id);
+  /* 看法（角色 id 照分頁換）、數值 */
+  expect(Object.values(s.views)[0]).toEqual({ [String(s.chars[0].id)]: '可靠的夥伴' });
+  expect(p.radarTpls.map((t) => t.name)).toEqual(['能力值']);
+  expect(p.library[0].variants[0].radars[0].vals[String(p.radarTpls[0].axes[0].id)]).toBe(50);
+  /* 頭像框與字型：原作的雜湊對上 ZIP 裡的檔案 */
+  expect(p.frames.map((f) => f.name)).toEqual(['金框']);
+  expect(p.fonts.map((f) => [f.name, f.fmt])).toEqual([['LiberationSerif', 'ttf']]);
+  expect(p.library[0].variants[0].frame).toBe(p.frames[0].id);
+  expect(p.library[0].variants[1].frame).toBe('');
+  expect(p.font).toBe(`f:${p.fonts[0].id}`);
+  await expect(node(page, s.chars[0].id).locator('.node-frame image')).toHaveCount(1);
+  await expect(node(page, s.chars[0].id).locator('.node-name text')).toHaveAttribute(
+    'style',
+    new RegExp(`crf-${p.fonts[0].id}`),
+  );
   expect(errors).toEqual([]);
 });
