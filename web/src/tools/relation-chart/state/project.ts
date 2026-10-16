@@ -203,6 +203,9 @@ export interface LegacyResult {
   failedImages: number;
   /** 只有 project.json，原本有圖片 */
   noImages: boolean;
+  /** 參照到、檔案裡卻沒有的頭像框與匯入字型（第三批） */
+  missingFrames: number;
+  missingFonts: number;
   notSaved: boolean;
   skipped: string[];
 }
@@ -266,16 +269,27 @@ async function ingestBundle(
   return { map, items, notSaved };
 }
 
-/** 原作的參照（頭像框的雜湊、`f:雜湊`、角色資訊的 `rcimg:雜湊`）換成資產 id；對不上的：框＝不使用、字型＝跟隨／黑體 */
+/**
+ * 原作的參照（頭像框的雜湊、`f:雜湊`、角色資訊的 `rcimg:雜湊`）換成資產 id；對不上的：框＝不使用、字型＝跟隨／黑體。
+ * 回傳文件字型與對不上的框、字型各有幾個（不同的雜湊；通知用）。
+ */
 export function remapLegacyRefs(
   conv: LegacyImport,
   frameMap: ReadonlyMap<string, string>,
   fontMap: ReadonlyMap<string, string>,
   richMap: ReadonlyMap<string, string>,
-): { font: FontValue } {
+): { font: FontValue; missingFrames: number; missingFonts: number } {
+  const lostFrames = new Set<string>();
+  const lostFonts = new Set<string>();
+  const frameRef = (h: string): string => {
+    const id = frameMap.get(h);
+    if (!id) lostFrames.add(h);
+    return id ?? '';
+  };
   const fontRef = (v: CharFont): CharFont => {
     if (!v.startsWith('f:')) return v;
     const id = fontMap.get(v.slice(2));
+    if (!id) lostFonts.add(v.slice(2));
     return id ? `f:${id}` : '';
   };
   for (const e of conv.library) {
@@ -284,19 +298,24 @@ export function remapLegacyRefs(
       e.info = sanitizeRichHtml(e.info).replace(/src="rcimg:([0-9a-z-]{3,40})"/g, (m, h: string) =>
         richMap.has(h) ? `src="rcimg:${richMap.get(h)}"` : m,
       );
-    for (const v of e.variants) if (v.frame) v.frame = frameMap.get(v.frame) ?? '';
+    for (const v of e.variants) if (v.frame) v.frame = frameRef(v.frame);
   }
-  for (const l of conv.labels) if (l.frame) l.frame = frameMap.get(l.frame) ?? '';
+  for (const l of conv.labels) if (l.frame) l.frame = frameRef(l.frame);
   for (const s of conv.sheets) {
     const df = conv.defFrames.get(s);
-    s.settings.defFrame = (df && frameMap.get(df)) ?? '';
+    s.settings.defFrame = df ? frameRef(df) : '';
     for (const c of s.chars) {
-      if (c.frame) c.frame = frameMap.get(c.frame) ?? '';
+      if (c.frame) c.frame = frameRef(c.frame);
       c.font = fontRef(c.font);
     }
   }
   const docId = conv.fontRef ? fontMap.get(conv.fontRef) : undefined;
-  return { font: docId ? `f:${docId}` : conv.font };
+  if (conv.fontRef && !docId) lostFonts.add(conv.fontRef);
+  return {
+    font: docId ? `f:${docId}` : conv.font,
+    missingFrames: lostFrames.size,
+    missingFonts: lostFonts.size,
+  };
 }
 
 /**
@@ -393,6 +412,8 @@ export async function importLegacy(
     rels: conv.sheets.reduce((n, s) => n + s.rels.length, 0),
     failedImages: failed,
     noImages: !read.zip && referenced > 0,
+    missingFrames: refs.missingFrames,
+    missingFonts: refs.missingFonts,
     notSaved,
     skipped: conv.skipped,
   };

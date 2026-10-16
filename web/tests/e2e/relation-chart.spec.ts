@@ -1516,7 +1516,7 @@ test('專案檔：存成 ZIP（含圖片）、全部重設、開啟還原；Ctrl
   const zbytes = readFileSync((await dl.path()) as string);
   const files = unzipSync(new Uint8Array(zbytes));
   const pj = JSON.parse(strFromU8(files['project.json']));
-  expect(pj).toMatchObject({ format: 'trpg-toolkit-project', tool: 'relation-chart', version: 2 });
+  expect(pj).toMatchObject({ format: 'trpg-toolkit-project', tool: 'relation-chart', version: 3 });
   const av = pj.data.sheets[0].chars[0].avatar;
   expect(Object.keys(files)).toEqual(
     expect.arrayContaining([`files/${av.img}.png`, `files/${av.src}.png`]),
@@ -1663,7 +1663,7 @@ test('原作的專案檔：ZIP（頭像、原圖與位置、背景圖、標籤�
   /* 取代：文件字型跟著原作的檔（明體） */
   await expect.poll(async () => (await saved(page))?.font).toBe('serif');
   await expect(chart(page).locator('svg')).toHaveAttribute('font-family', /Noto Serif TC/);
-  /* 原作匯入的字型檔（f:…）對應不到：改用黑體，列在略過的內容 */
+  /* 原作匯入的字型檔（f:…）不在檔案裡：改用黑體，通知裡寫出來（第三批起讀得進匯入的字型） */
   const [fc3] = await Promise.all([
     page.waitForEvent('filechooser'),
     openProjectItem(page, '開啟專案檔…'),
@@ -1674,7 +1674,7 @@ test('原作的專案檔：ZIP（頭像、原圖與位置、背景圖、標籤�
     buffer: Buffer.from(json.replace('"docFont": "serif"', '"docFont": "f:abc123"')),
   });
   await page.getByRole('alertdialog').getByRole('button', { name: '取代目前內容' }).click();
-  await expect(toast(page, /匯入的文件字型/).first()).toBeVisible();
+  await expect(toast(page, /1 套匯入的字型的檔案不在檔案裡/).first()).toBeVisible();
   await expect.poll(async () => (await saved(page))?.font).toBe('sans');
   expect(errors).toEqual([]);
 });
@@ -1762,6 +1762,12 @@ function zoned(): Project {
 }
 
 const lib = (page: Page) => page.getByTestId('library');
+
+/** 打開檔案庫並切到標籤庫（第三批起，檔案庫預設的頁籤是角色庫） */
+async function openLabelLib(page: Page) {
+  await page.getByTestId('library-open').click();
+  await page.getByTestId('library').getByTestId('library-tab-labels').click();
+}
 const chip = (page: Page, id: number) =>
   lib(page).locator(`[data-testid="label-item"][data-label-id="${id}"]`).first();
 
@@ -1770,7 +1776,7 @@ test('標籤庫（檔案庫）：新增、同名沿用、未命名、依分頁�
 }) => {
   const errors = await open(page);
   await seed(page, zoned());
-  await page.getByTestId('library-open').click();
+  await openLabelLib(page);
   await expect(lib(page)).toBeVisible();
   await expect(lib(page).getByTestId('library-tab-labels')).toHaveText('標籤庫');
   /* 依分頁分組（預設開）：這張分頁用到的、未使用 */
@@ -2027,7 +2033,7 @@ test('標籤與陣營框的顯示（每張分頁）、標籤圖例：開關與�
 }) => {
   const errors = await open(page);
   await seed(page, zoned());
-  await page.getByTestId('library-open').click();
+  await openLabelLib(page);
   await lib(page)
     .getByRole('button', { name: /標籤與陣營框的顯示/ })
     .click();
@@ -2139,7 +2145,7 @@ test('匯出：分層 SVG 多一層陣營框、互動網頁（標籤網聚焦、
   await expect(tip).toContainText('來自標籤：甲');
   await v.close();
   /* 關掉「網頁也顯示隱藏標籤」 */
-  await page.getByTestId('library-open').click();
+  await openLabelLib(page);
   await lib(page)
     .getByRole('button', { name: /標籤與陣營框的顯示/ })
     .click();
@@ -2345,7 +2351,7 @@ test('390 寬：檔案庫蓋滿畫面、沒有橫向捲動、可以新增標籤�
   await page.setViewportSize({ width: 390, height: 844 });
   const errors = await open(page);
   await seed(page, zoned());
-  await page.getByTestId('library-open').click();
+  await openLabelLib(page);
   const box = await lib(page).boundingBox();
   expect(box?.width).toBeGreaterThan(380);
   await noHorizontalScroll(page);

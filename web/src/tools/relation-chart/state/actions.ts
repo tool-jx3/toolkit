@@ -484,6 +484,9 @@ export function copyChars(ids: readonly number[], rand: () => number = Math.rand
       cp.vari = f.vari;
       cp.id = takeId(p);
       cp.name = copyName(c.name, s.chars);
+      /* 名字在變體上：新條目那一件也改成新名字（同步會從變體拉回來） */
+      const nv = p.library.find((e) => e.id === f.lib)?.variants.find((v) => v.id === f.vari);
+      if (nv) nv.name = cp.name;
       cp.defNo = nextCharDefNo(p);
       if (src.length === 1) {
         const pos = nonOverlapping(ctxOf(s), c.x + 60, c.y + 60, null);

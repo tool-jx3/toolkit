@@ -229,6 +229,10 @@ describe('同步：變體是正本', () => {
     const ne = entryOf(nid);
     expect(ne?.id).not.toBe(e?.id);
     expect(ne?.variants).toHaveLength(1);
+    /* 名字數字＋1 寫在新條目的變體上（第一批 F053） */
+    const copy = sheetAt(0).chars.find((c) => c.id === nid);
+    expect(copy?.name).toBe(ne?.variants[0].name);
+    expect(copy?.name).toMatch(/2$/);
     expect(ne).toMatchObject({ info: '<p>背景</p>', font: 'kai' });
     expect(sheetAt(0).chars.find((c) => c.id === nid)?.font).toBe('kai');
   });

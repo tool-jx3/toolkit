@@ -1053,6 +1053,8 @@ export const S = {
       `已讀入原作的專案：${s} 張分頁、${c} 位角色、${r} 條關係`,
     failedImages: (n: number) => `${n} 張圖片找不到或讀不了，那些角色改用首字。`,
     noImages: '只有 project.json：頭像與背景圖不在檔案裡（請改選原作匯出的 ZIP）。',
+    missingAssets: (frames: number, fonts: number) =>
+      `${[frames ? `${frames} 張頭像框` : '', fonts ? `${fonts} 套匯入的字型` : ''].filter(Boolean).join('、')}的檔案不在檔案裡：框改成不使用、字型改用預設。`,
     skipped: (list: string) => `這些內容新版還沒有，已略過：${list}。`,
     badJson: '原作的 project.json 壞掉了，讀不了。',
     notLegacy: '這不是本工具或原作的專案檔。',
