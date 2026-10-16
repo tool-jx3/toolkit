@@ -298,6 +298,12 @@ async function legacyData(rec: SnapRec): Promise<Record<string, unknown>> {
   return data;
 }
 
+/** 原作的快照：圖放回去之後的資料（原作自動存檔的格式；測試用） */
+export async function legacySnapshotData(id: string): Promise<Record<string, unknown> | null> {
+  const rec = await readRec(id);
+  return rec?.legacy ? await legacyData(rec) : null;
+}
+
 export type SnapResult = 'ok' | 'gone' | 'fail';
 
 /** 還原整份專案：先拍「還原前」，還原本身可以復原（7.4 第 15 項） */

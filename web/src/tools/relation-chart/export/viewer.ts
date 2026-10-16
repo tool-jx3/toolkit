@@ -401,7 +401,7 @@ export function viewerHtml(
       const tw = tweenAt(s, k / steps, { ...opts.tween, library: input.library });
       frames.push(rcimg(viewerSvg(tw.sheet, { ...look(i), tween: tw.fx, boxNotes })));
     }
-    const durs = tl.frames.slice(0, -1).map((_f, k) => Math.round(frameDur(tl, k) * 1000) / 1000);
+    const durs = tl.frames.slice(0, -1).map((_f, k) => Math.round(frameDur(tl, k) * 100) / 100);
     return { frames, steps, n, durs };
   });
   const anyAnim = anims.some((a) => a);
