@@ -1007,6 +1007,19 @@ export const S = {
       pathSteps: ' 步',
       rosterNone: '找不到符合的角色',
     },
+    /** 第三批（寫進互動網頁） */
+    ext: {
+      info: '資訊 ›',
+      radar: '雷達 ›',
+      cmp: '比較對象',
+      none: '（不比較）',
+      untitled: '未命名範本',
+      axisPre: '第 ',
+      axisSuf: ' 軸',
+      stateN: '狀態 ',
+      legendTip: '點一下＝在圖上隱藏／顯示這一組',
+      close: '關閉',
+    },
   },
 
   project: {
