@@ -640,6 +640,47 @@ test('大畫布 8000 × 8000：預覽縮小、畫的時候頁面照常反應、�
   expect(errors).toEqual([]);
 });
 
+test('很慢的預覽剛開始就改回來、之後不再改：滿 1 秒時重開 Worker，不等慢的畫完（7.1）', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors = await open(page);
+  const fast: Overrides = {
+    ...HUGE,
+    childMin: 12,
+    childMax: 70,
+    shrink: 75,
+    inBounds: true,
+    lineAvoid: false,
+    avoidOverlap: true,
+  };
+  await apply(page, fast);
+  await expect(stats(page)).toHaveText('圖形 5000／線 5021／點 7');
+  /* 這組在 Worker 裡要畫好幾分鐘（子圖形很大、不縮小、線不穿過、不重疊） */
+  const slow: Overrides = {
+    ...fast,
+    seed: 'heavy-a',
+    childMin: 520,
+    childMax: 800,
+    shrink: 100,
+    inBounds: false,
+    lineAvoid: true,
+  };
+  const set = (o: Overrides) =>
+    page.evaluate((o) => {
+      const st = (window as unknown as { __geoBloom: Hook }).__geoBloom.useSettings.getState();
+      st.replace({ ...st.data, ...o } as Settings);
+    }, o);
+  await set(slow);
+  await page.waitForTimeout(400);
+  await set(fast);
+  const t0 = Date.now();
+  await ready(page, 20_000);
+  test.info().annotations.push({ type: '改回來到畫好', description: `${Date.now() - t0} ms` });
+  await expect(stats(page)).toHaveText('圖形 5000／線 5021／點 7');
+  expect(errors).toEqual([]);
+});
+
 test('Worker 不能用時改在主執行緒畫：預覽與匯出照常，像素和 Worker 畫的相同', async ({
   browser,
   page,
