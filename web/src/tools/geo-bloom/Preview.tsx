@@ -191,6 +191,7 @@ export function Preview({ exportRef }: { exportRef: RefObject<ExportPanelHandle 
         formats={formats}
         defaultSettings={{ format: 'png' }}
         resetKey={settings}
+        sizeWarningHint={S.sizeWarningHint}
         onExport={onExport}
       />
     </div>

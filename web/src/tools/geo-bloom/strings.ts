@@ -113,6 +113,7 @@ export const S = {
   formatSvg: 'SVG',
   formatSvgDesc: '向量檔：放大不會糊，可以再用向量軟體編輯。',
   exportTime: '匯出時間',
+  sizeWarningHint: '可以縮小畫布，或改匯出 SVG。',
   seconds: (ms: number) => `${(ms / 1000).toFixed(1)} 秒`,
   deviceLimit: (w: number, h: number) =>
     `${w} × ${h} 超過這台裝置的瀏覽器能畫的大小（約 1,670 萬像素），匯出的 PNG 可能是空白的，請縮小畫布或換電腦匯出。`,

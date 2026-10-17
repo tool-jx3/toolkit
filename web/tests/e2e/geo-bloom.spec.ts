@@ -630,6 +630,11 @@ test('大畫布 8000 × 8000：預覽縮小、畫的時候頁面照常反應、�
   const f = await exportAs(page, 'PNG');
   test.info().annotations.push({ type: '8000 × 8000 PNG', description: `${Date.now() - t0} ms` });
   expect(f.name).toBe('geometric_huge.png');
+  /* 超過 5 MB 的提醒寫這個工具能做的事（沒有 FPS、減色；7.1） */
+  const card = page.getByTestId('export-result');
+  await expect(card).toContainText('可以縮小畫布，或改匯出 SVG。');
+  await expect(card).not.toContainText('FPS');
+  await expect(card).not.toContainText('減色');
   const ihdr = readIhdr(parseChunks(f.bytes));
   expect([ihdr.width, ihdr.height]).toEqual([8000, 8000]);
   expect(errors).toEqual([]);

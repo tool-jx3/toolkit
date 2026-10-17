@@ -1,6 +1,7 @@
 /**
  * 產生與繪製的執行者：環境支援（Worker＋OffscreenCanvas）就在 Worker 裡做，不支援或 Worker 出錯時改在主執行緒做（結果相同）。
- * - 預覽：只畫最新的一組設定；正在畫的那一組太久（超過 1 秒）又有新的設定時，直接結束那個 Worker 重開，不等它畫完。
+ * - 預覽：只畫最新的一組設定；正在畫的那一組超過 1 秒、又有待畫的設定時，直接結束那個 Worker 重開，不等它畫完
+ *   （新設定在 1 秒前送來時，用計時器等到滿 1 秒；排程在 schedule.ts）。
  * - 匯出：每次開一個新的 Worker，取消時直接結束它（真的停下來，不必等全尺寸畫完）。
  */
 import { canvasToBlob } from '@/core/image';
@@ -8,6 +9,7 @@ import { canUseWorker, type WorkerHandle, wrapWorker } from '@/core/worker';
 import type { BloomWorkerApi } from './bloom.worker';
 import { drawFull, drawPreview, type PreviewOutput, sceneOf, svgText } from './engine';
 import type { BloomScene } from './generate';
+import { createLatestRunner, type LatestRunner } from './schedule';
 import type { Settings } from './settings';
 
 export interface PreviewResult extends PreviewOutput {
@@ -50,41 +52,28 @@ function localPreview(settings: Settings): PreviewResult {
 
 let workersBroken = !workerSupported();
 
-export interface Previewer {
-  /** 要求畫這組設定（之前還沒開始的要求作廢） */
-  request(settings: Settings): void;
-  dispose(): void;
-}
+export type Previewer = LatestRunner<Settings>;
 
 export function createPreviewer(
   onResult: (result: PreviewResult, settings: Settings) => void,
   onError: (error: unknown) => void,
 ): Previewer {
   let handle: WorkerHandle<BloomWorkerApi> | null = null;
-  let running: { started: number } | null = null;
-  let pending: Settings | null = null;
-  /** 結束 Worker 重開時加 1：舊的回覆一律不理 */
-  let generation = 0;
-  let disposed = false;
-
-  const restart = () => {
-    handle?.terminate();
-    handle = null;
-    running = null;
-    generation++;
-  };
 
   const run = async (settings: Settings): Promise<PreviewResult> => {
     if (!workersBroken) {
       handle ??= spawn();
-      if (handle) {
+      const h = handle;
+      if (h) {
         try {
-          const { bitmap, ...out } = await handle.api.preview(settings);
+          const { bitmap, ...out } = await h.api.preview(settings);
           return { ...out, image: bitmap };
-        } catch {
+        } catch (e) {
+          /* 已經放棄的那一次（Worker 被結束了）：結果不用 */
+          if (h !== handle) throw e;
           /* Worker 畫不了（例如沒有 OffscreenCanvas 的 2D）：之後都改在主執行緒畫 */
           workersBroken = true;
-          handle?.terminate();
+          h.terminate();
           handle = null;
         }
       } else workersBroken = true;
@@ -92,36 +81,16 @@ export function createPreviewer(
     return localPreview(settings);
   };
 
-  const pump = async () => {
-    if (disposed || running || !pending) return;
-    const settings = pending;
-    pending = null;
-    const gen = generation;
-    running = { started: performance.now() };
-    try {
-      const r = await run(settings);
-      if (gen === generation && !disposed) onResult(r, settings);
-    } catch (e) {
-      if (gen === generation && !disposed) onError(e);
-    } finally {
-      if (gen === generation) {
-        running = null;
-        void pump();
-      }
-    }
-  };
-
-  return {
-    request(settings) {
-      pending = settings;
-      if (running && handle && performance.now() - running.started > STALE_MS) restart();
-      void pump();
+  return createLatestRunner<Settings, PreviewResult>({
+    run,
+    cancel: () => {
+      handle?.terminate();
+      handle = null;
     },
-    dispose() {
-      disposed = true;
-      restart();
-    },
-  };
+    onResult,
+    onError,
+    staleMs: STALE_MS,
+  });
 }
 
 const abortError = () => new DOMException('已取消', 'AbortError');
