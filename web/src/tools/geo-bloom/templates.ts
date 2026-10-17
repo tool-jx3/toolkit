@@ -30,7 +30,7 @@ export const TEMPLATES: readonly BloomTemplate[] = [
     id: 'default',
     name: '基本',
     description: '預設的設定：六種圖形、深色底、金色點綴。',
-    sampleSeed: 'petal-2',
+    sampleSeed: 's1',
     settings: BASE,
   },
   {
