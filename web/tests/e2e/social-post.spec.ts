@@ -824,9 +824,9 @@ test('匯出 PNG：四種畫面的尺寸（3 倍）、倍率、像素與預覽�
     const [x, y] = t === '限時動態' ? [180, 320] : [195, 300];
     expect(near(png.at(x * 3, y * 3), await pixel(page, x, y), 6)).toBe(true);
   }
-  expect(sizes['留言']).toEqual([1170, 2532]);
-  expect(sizes['限時動態']).toEqual([1080, 1920]);
-  expect(sizes['個人頁']).toEqual([1170, 2532]);
+  expect(sizes.留言).toEqual([1170, 2532]);
+  expect(sizes.限時動態).toEqual([1080, 1920]);
+  expect(sizes.個人頁).toEqual([1170, 2532]);
   /* 限時動態：編輯用的選取框不畫進 PNG（第 1 格的左上角） */
   await tab(page, '限時動態').click();
   const preview = await pixel(page, 1, 300);
