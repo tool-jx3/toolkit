@@ -17,6 +17,7 @@ import {
   FileImage,
   Film,
   FlaskConical,
+  Flower,
   FolderArchive,
   Frame,
   Gauge,
@@ -136,6 +137,7 @@ const ICONS: Record<string, LucideIcon> = {
   'video-anim': Film,
   'gif-combiner': Images,
   'music-frame': Music,
+  'geo-bloom': Flower,
   /* G9 CoC 跑團輔助 */
   'coc-dice': Dices,
   'coc-npc': UserCog,

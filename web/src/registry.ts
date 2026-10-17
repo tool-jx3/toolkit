@@ -566,6 +566,15 @@ export const TOOLS: readonly ToolEntry[] = [
     inspiration: { name: 'zznaptime/1007mv', url: 'https://github.com/zznaptime/1007mv' },
   },
   {
+    id: 'geo-bloom',
+    name: '幾何花紋產生器',
+    summary:
+      '一鍵產生從中央的圓長出線條、圓與方形的幾何花紋，像星座圖、魔法陣或科幻介面：同一個種子畫出同一張，調數量、大小、重疊與配色，匯出 PNG 或 SVG，當封面、角色卡與宣傳圖的裝飾。',
+    group: 'G8',
+    status: 'live',
+    inspiration: { name: 'al1scut/tkmizGeo', url: 'https://al1scut.github.io/tkmizGeo/' },
+  },
+  {
     id: 'magic-circle',
     name: '魔法陣製作器',
     summary:
