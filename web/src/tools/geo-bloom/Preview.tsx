@@ -35,8 +35,6 @@ function usePreview(canvas: RefObject<HTMLCanvasElement | null>) {
   const [shown, setShown] = useState<Shown | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
-  const latest = useRef(settings);
-  latest.current = settings;
   const previewer = useRef<ReturnType<typeof createPreviewer> | null>(null);
 
   useEffect(() => {
@@ -56,13 +54,13 @@ function usePreview(canvas: RefObject<HTMLCanvasElement | null>) {
       (e) => setError(e instanceof Error ? e.message : String(e)),
     );
     previewer.current = p;
-    p.request(latest.current);
     return () => {
       p.dispose();
       previewer.current = null;
     };
   }, [canvas]);
 
+  /* 宣告在建立 previewer 的 effect 後面：開頁時同一輪就送出第一張 */
   useEffect(() => {
     previewer.current?.request(settings);
   }, [settings]);

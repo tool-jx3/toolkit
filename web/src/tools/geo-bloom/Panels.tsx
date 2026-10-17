@@ -301,6 +301,15 @@ function TemplateThumb({ t }: { t: BloomTemplate }) {
   return <canvas ref={ref} className="block max-h-full max-w-full" />;
 }
 
+/** 範本卡片（縮圖只畫一次） */
+const TEMPLATE_ITEMS = TEMPLATES.map((t) => ({
+  id: t.id,
+  name: t.name,
+  description: t.description,
+  thumbnail: <TemplateThumb t={t} />,
+  data: t,
+}));
+
 function TemplatesSection() {
   const active = useSettings((st) => matchTemplate(st.data));
   return (
@@ -311,13 +320,7 @@ function TemplatesSection() {
     >
       <TemplateGallery
         aria-label={S.templatesLabel}
-        templates={TEMPLATES.map((t) => ({
-          id: t.id,
-          name: t.name,
-          description: t.description,
-          thumbnail: <TemplateThumb t={t} />,
-          data: t,
-        }))}
+        templates={TEMPLATE_ITEMS}
         activeId={active}
         confirm={S.templateConfirm}
         onApply={(item) => applyTemplate(item.data)}
