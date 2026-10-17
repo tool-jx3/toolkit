@@ -1,6 +1,6 @@
 /**
  * 產生與繪製的執行者：環境支援（Worker＋OffscreenCanvas）就在 Worker 裡做，不支援或 Worker 出錯時改在主執行緒做（結果相同）。
- * - 預覽：只畫最新的一組設定；正在畫的那一組太久（超過 STALE_MS）又有新的設定時，直接結束那個 Worker 重開，不等它畫完。
+ * - 預覽：只畫最新的一組設定；正在畫的那一組太久（超過 1 秒）又有新的設定時，直接結束那個 Worker 重開，不等它畫完。
  * - 匯出：每次開一個新的 Worker，取消時直接結束它（真的停下來，不必等全尺寸畫完）。
  */
 import { canvasToBlob } from '@/core/image';
@@ -15,8 +15,11 @@ export interface PreviewResult extends PreviewOutput {
   image: CanvasImageSource;
 }
 
-/** 正在畫的預覽超過這麼久、又有新的設定時，結束 Worker 重開 */
-const STALE_MS = 400;
+/**
+ * 正在畫的預覽超過這麼久、又有新的設定時，結束 Worker 重開（不等舊的畫完）。
+ * 一般的設定一下就畫好，拖滑桿時照樣一張一張更新；只有很重的設定（大畫布、幾千個圖形）才會被打斷。
+ */
+const STALE_MS = 1000;
 
 function workerSupported(): boolean {
   return (
