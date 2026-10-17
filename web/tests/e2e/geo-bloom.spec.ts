@@ -549,9 +549,10 @@ test('自動儲存與還原；專案檔存了再開；別的檔案開不了', as
     page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
   ]);
   await chooser.setFiles({ name: 'p.json', mimeType: 'application/json', buffer: bytes });
+  /* 讀檔後確認（共用 ProjectMenu 的預設）：等對話框出現再按「開啟」 */
   const confirm = page.getByRole('alertdialog');
-  if (await confirm.isVisible().catch(() => false))
-    await confirm.getByRole('button', { name: /開啟|取代/ }).click();
+  await expect(confirm).toContainText('開啟專案檔？');
+  await confirm.getByRole('button', { name: '開啟', exact: true }).click();
   await expect(page.getByTestId('seed')).toHaveValue('saved-seed');
   await ready(page);
   expect(await previewSig(page)).toBe(sig);
