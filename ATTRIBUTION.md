@@ -104,6 +104,7 @@
 | `relation-chart` | 角色關係圖產生器 | [PaiTei4234／Relationship Chart Maker](https://paitei4234.itch.io/relationshipchartmaker)（CC BY-NC-SA 4.0） | —（新收錄，沒有舊版） |
 | `prose-card` | 短文圖片產生器 | [dan0030/writeediter2](https://github.com/dan0030/writeediter2)（未授權） | —（新收錄，沒有舊版） |
 | `captcha-card` | 驗證題梗圖產生器 | [dearmysn1p3r/DearMySn1p3r_44](https://github.com/dearmysn1p3r/DearMySn1p3r_44)（未授權） | —（新收錄，沒有舊版） |
+| `social-post` | 社群貼文產生器 | [s2ndrome/4layout](https://github.com/s2ndrome/4layout)（未授權） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -141,6 +142,8 @@
 `prose-card` 照新工具引入流程直接在新框架做：原作（commit `0af6488`）沒有授權條款，只照原作的功能與做法（三種版面、自動分頁、文字格式、背景與照片的設定），程式、介面文字、範例文字、常用色與預設配色都由本站自做；格式化文字的編輯與排版用共用的 `core/richtext` 與 `RichTextEditor`（為這個工具擴充，角色介紹圖的輸出不變）。
 
 `captcha-card` 照新工具引入流程直接在新框架做：原作（commit `a93c2ea`）沒有授權條款，只照原作的功能、版面數值與動畫的影格表（每一格的畫面與時間和原作相同），程式、介面文字、預設文案、範例圖與圖示都由本站自做；原作仿 reCAPTCHA 的名稱與標誌不沿用，做成通用的「圖片驗證題」樣式。
+
+`social-post` 照新工具引入流程直接在新框架做：原作（commit `3297da5`）沒有授權條款，只照原作的功能、版面數值與做法（各畫面的區塊位置、比例、限時動態的分割與貼紙），程式、介面文字、範例帳號與貼文、範例照片（程式畫的）、圖示與配色都由本站自做；原作仿 Instagram 的名稱、標誌與專有圖示不沿用，做成通用的「相片社群 App」樣式。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 

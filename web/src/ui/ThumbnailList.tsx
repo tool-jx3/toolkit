@@ -10,18 +10,21 @@
  *   清單有焦點時 ↑／↓ 選取上一張／下一張（到頭或到尾就停）；選到的列只捲清單所在的捲動區讓它露出來，
  *   不讓整頁跟著捲（見 reveal.ts：捲動區本身有一部分在畫面外、只捲它不夠時，才把頁面捲最少的距離）。
  * - `onReorder(from, to)`：拖曳一列到另一列放開來排序（往下拖落在目標後、往上拖落在目標前；從欄位上開始拖不算）。
+ *   鍵盤（useSortable 的 keyMove）：焦點在某一列的按鈕上（例如移除）時 Alt＋↑／↓ 移動那一列；可以選取時清單本身有焦點，
+ *   Alt＋↑／↓ 移動選取中的那一列。格線版面另外 Alt＋←／→ 也能移動。焦點在輸入欄、選單、開關等欄位上時不處理（留給欄位）。
+ *   （社群貼文產生器對等驗證後接上；原本只寫在註解裡、沒有作用）
  * - `renderFields(item, index)`：每列自訂的欄位（例如差分名、輸出檔名）。
  *
  * G2 加的（選填，不給時行為不變）：
  * - `thumbAspect`（格線版面的縮圖寬高比，預設 1）、`thumbFit="cover"`（裁成填滿，例如 16:9 的轉場順序卡）；
- * - 格線版面的拖曳排序依指標所在的那一張決定目標（左右拖也可以；Alt＋←／→ 也能移動）。
+ * - 格線版面的拖曳排序依指標所在的那一張決定目標（左右拖也可以；鍵盤 Alt＋←／→ 也能移動，見 onReorder）。
  */
 import { CheckCircle2, ImageOff, X, XCircle } from 'lucide-react';
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { IconButton } from './Button';
 import { cn } from './cn';
 import { revealInScroller } from './reveal';
-import { isEditableTarget } from './shortcuts';
+import { isEditableTarget, isFormControlTarget } from './shortcuts';
 import { useSortable } from './useSortable';
 
 export type ThumbnailSource = string | ImageBitmap | HTMLCanvasElement | OffscreenCanvas;
@@ -217,10 +220,33 @@ export function ThumbnailList<I extends ThumbnailItem = ThumbnailItem>({
         items.findIndex((it) => it.id === selectedId),
       )
     : -1;
+  const rowEls = () => [...(list.current?.querySelectorAll<HTMLElement>(':scope > li') ?? [])];
+  /* Alt＋方向鍵：移動焦點所在的那一列（清單本身有焦點時移動選取中的那一列），焦點跟著那一列 */
+  const reorderKey = (e: KeyboardEvent<HTMLUListElement>): boolean => {
+    if (!onReorder || !e.altKey) return false;
+    /* 欄位裡的選單、開關等自己的方向鍵不搶（按鈕可以） */
+    if (e.target !== e.currentTarget && isFormControlTarget(e.target)) return false;
+    const rows = rowEls();
+    const row = rows.find((r) => r.contains(e.target as Node));
+    const index = row ? rows.indexOf(row) : e.target === e.currentTarget ? current : -1;
+    if (index < 0) return false;
+    const focusables = row ? [...row.querySelectorAll<HTMLElement>('button,[tabindex]')] : [];
+    const which = focusables.indexOf(e.target as HTMLElement);
+    if (!sortable.keyMove(index, e)) return false;
+    const to = e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? index - 1 : index + 1;
+    requestAnimationFrame(() => {
+      if (which < 0) return;
+      const moved = rowEls()[to];
+      if (moved && !moved.contains(document.activeElement))
+        moved.querySelectorAll<HTMLElement>('button,[tabindex]')[which]?.focus();
+    });
+    return true;
+  };
   const onKeyDown = (e: KeyboardEvent<HTMLUListElement>) => {
+    if (isEditableTarget(e.target)) return;
+    if (reorderKey(e)) return;
     if (!selectable || e.altKey || e.ctrlKey || e.metaKey) return;
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-    if (isEditableTarget(e.target)) return;
     e.preventDefault();
     const to = Math.min(items.length - 1, Math.max(0, current + (e.key === 'ArrowUp' ? -1 : 1)));
     if (to === current) return;
@@ -236,7 +262,7 @@ export function ThumbnailList<I extends ThumbnailItem = ThumbnailItem>({
       ref={list}
       aria-label={rest['aria-label']}
       tabIndex={selectable ? 0 : undefined}
-      onKeyDown={selectable ? onKeyDown : undefined}
+      onKeyDown={selectable || onReorder ? onKeyDown : undefined}
       className={cn(
         'm-0 list-none p-0',
         isList ? 'flex flex-col gap-1.5' : 'grid gap-2',

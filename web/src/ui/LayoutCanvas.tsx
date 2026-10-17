@@ -5,6 +5,10 @@
  * - **貼紙**：點選、拖曳移動、四角縮放（維持比例）、旋轉控點（Shift 每 15°），放開時拉回範圍內（keepInside）；
  *   選取中的貼紙下方可以放一排工具按鈕（stickerToolbar）；鍵盤：方向鍵移動 1 px（Shift 10 px）、Delete／Backspace 刪除、Esc 取消選取；
  * - **從畫布取色**：picker 啟動時整個畫布變成取色區，游標旁顯示放大鏡（15 × 15 像素放大 8 倍）與色碼，點一下取色、Esc 取消。
+ * - 社群貼文產生器加的（選填，不給時行為不變）：`children`＝疊在點選區與貼紙下面的操作層（例如拖曳格子裡的照片；
+ *   點了不會取消選取貼紙）；`stickerGestures`＝貼紙的滾輪縮放、Shift＋滾輪旋轉（phase 'nudge'）、兩指捏合縮放＋旋轉
+ *   （第二指可以落在畫布的任何地方；放開一指後剩下的那指接著拖曳，全部放開才 'end'）。
+ *   `stickerClamp`＝放開時用工具自己的範圍代替 keepInside（例如貼紙的中心夾在畫面的 −10%～110%；社群貼文產生器對等驗證後新增）。
  *
  * ```tsx
  * const picker = useMemo(() => createCanvasPicker(), []);
@@ -128,6 +132,11 @@ export interface LayoutCanvasProps {
   stickerRange?: { min: number; max: number };
   /** 放開時至少留在範圍裡的距離（預設 16） */
   stickerMargin?: number;
+  /**
+   * 放開時把位置拉回範圍的方式（給了就代替 keepInside，stickerMargin 不用；回傳 'end' 交出去的位置）。
+   * 不給時照舊：至少留 stickerMargin 在 bounds（預設整個畫布）裡。
+   */
+  stickerClamp?: (placement: Placement, sticker: LayoutSticker) => Placement;
   /** 選取中的貼紙下方的工具按鈕 */
   stickerToolbar?: (id: string) => ReactNode;
   /** 取色控制器 */
@@ -136,6 +145,10 @@ export interface LayoutCanvasProps {
   pickSource?: () => HTMLCanvasElement | OffscreenCanvas | null | undefined;
   /** 取色時的說明（預設「在畫布上點一個顏色」） */
   pickHint?: string;
+  /** 疊在點選區與貼紙下面的操作層（內容座標；點了不會取消選取貼紙） */
+  children?: ReactNode;
+  /** 貼紙的滾輪縮放、Shift＋滾輪旋轉、兩指捏合（預設關） */
+  stickerGestures?: boolean;
   'aria-label'?: string;
   className?: string;
 }
@@ -164,6 +177,31 @@ interface Drag {
   /** 開始時的指標（內容座標） */
   from: Point;
   moved: boolean;
+  /** 最後一次交出去的位置（捏合開始、捏合後改成單指拖曳時用） */
+  cur?: Placement;
+}
+
+/** 兩指捏合：兩個指標、開始時的位置、距離、角度、中點 */
+interface Pinch {
+  a: number;
+  b: number;
+  start: Placement;
+  d0: number;
+  a0: number;
+  m0: Point;
+}
+
+const WHEEL_ZOOM = 0.0015;
+const WHEEL_TURN = 0.2;
+
+/** 依比例縮放，寬高都夾在範圍內（維持比例） */
+function scaleWithin(p: Placement, k: number, range: { min: number; max: number }): Placement {
+  let f = k;
+  const big = Math.max(p.width, p.height) * f;
+  if (big > range.max) f = range.max / Math.max(p.width, p.height);
+  const small = Math.min(p.width, p.height) * f;
+  if (small < range.min) f = range.min / Math.min(p.width, p.height);
+  return { ...p, width: p.width * f, height: p.height * f };
 }
 
 /* ---------- 元件 ---------- */
@@ -181,10 +219,13 @@ export function LayoutCanvas({
   onStickerDelete,
   stickerRange,
   stickerMargin = 16,
+  stickerClamp,
   stickerToolbar,
   picker,
   pickSource,
   pickHint = '在畫布上點一個顏色',
+  children,
+  stickerGestures = false,
   className,
   ...rest
 }: LayoutCanvasProps) {
@@ -192,6 +233,9 @@ export function LayoutCanvas({
   const k = 1 / scale;
   const root = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
+  /* 捏合用：按在貼紙或畫布上的指標（內容座標） */
+  const pts = useRef(new Map<number, Point>());
+  const pinch = useRef<Pinch | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const picking = picker?.useActive() ?? false;
   const range = stickerRange ?? { min: 12, max: Math.max(width, height) * 2 };
@@ -209,8 +253,40 @@ export function LayoutCanvas({
     onStickerChange,
     onStickerDelete,
     onSelectSticker,
+    stickerGestures,
+    range,
   });
-  latest.current = { stickers, selectedSticker, onStickerChange, onStickerDelete, onSelectSticker };
+  latest.current = {
+    stickers,
+    selectedSticker,
+    onStickerChange,
+    onStickerDelete,
+    onSelectSticker,
+    stickerGestures,
+    range,
+  };
+
+  /* 滾輪（stickerGestures）：React 的 wheel 是被動的、不能擋住頁面捲動，改用原生的監聽 */
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      const l = latest.current;
+      if (!l.stickerGestures) return;
+      const t = (e.target as Element | null)?.closest?.('[data-sticker]');
+      const id = t?.getAttribute('data-sticker');
+      const s = id ? l.stickers.find((it) => it.id === id && !it.hidden) : undefined;
+      if (!s) return;
+      e.preventDefault();
+      const p = s.placement;
+      const next = e.shiftKey
+        ? { ...p, rotation: p.rotation + (e.deltaY || e.deltaX) * WHEEL_TURN }
+        : scaleWithin(p, Math.exp(-e.deltaY * WHEEL_ZOOM), l.range);
+      l.onStickerChange?.(s.id, next, 'nudge');
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing) return;
@@ -259,6 +335,28 @@ export function LayoutCanvas({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  /** 第二指按下（stickerGestures、正在拖曳某張貼紙）：開始捏合 */
+  const startPinch = (e: PointerEvent<HTMLElement>): boolean => {
+    const d = drag.current;
+    if (!stickerGestures || !d || pinch.current || d.pointer === e.pointerId) return false;
+    const p = toLocal(e.clientX, e.clientY);
+    const a = pts.current.get(d.pointer) ?? d.from;
+    const s = stickers.find((it) => it.id === d.id);
+    const start = d.cur ?? s?.placement ?? d.start;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    pts.current.set(e.pointerId, p);
+    pinch.current = {
+      a: d.pointer,
+      b: e.pointerId,
+      start,
+      d0: Math.hypot(p.x - a.x, p.y - a.y) || 1,
+      a0: Math.atan2(p.y - a.y, p.x - a.x),
+      m0: { x: (a.x + p.x) / 2, y: (a.y + p.y) / 2 },
+    };
+    d.op = 'move';
+    return true;
+  };
+
   const begin = (
     e: PointerEvent<HTMLElement>,
     s: LayoutSticker,
@@ -268,15 +366,21 @@ export function LayoutCanvas({
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
+    if (startPinch(e)) return;
     onSelectSticker?.(s.id);
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    const from = toLocal(e.clientX, e.clientY);
+    if (stickerGestures) {
+      pts.current.clear();
+      pts.current.set(e.pointerId, from);
+    }
     drag.current = {
       id: s.id,
       pointer: e.pointerId,
       op,
       corner,
       start: s.placement,
-      from: toLocal(e.clientX, e.clientY),
+      from,
       moved: false,
     };
     setDragging(s.id);
@@ -285,25 +389,70 @@ export function LayoutCanvas({
 
   const move = (e: PointerEvent<HTMLElement>) => {
     const d = drag.current;
-    if (!d || d.pointer !== e.pointerId) return;
+    if (!d) return;
+    const pc = pinch.current;
+    if (pc && (e.pointerId === pc.a || e.pointerId === pc.b)) {
+      pts.current.set(e.pointerId, toLocal(e.clientX, e.clientY));
+      const a = pts.current.get(pc.a);
+      const b = pts.current.get(pc.b);
+      if (!a || !b) return;
+      const scaled = scaleWithin(pc.start, Math.hypot(b.x - a.x, b.y - a.y) / pc.d0, range);
+      const next: Placement = {
+        ...scaled,
+        cx: pc.start.cx + (a.x + b.x) / 2 - pc.m0.x,
+        cy: pc.start.cy + (a.y + b.y) / 2 - pc.m0.y,
+        rotation: pc.start.rotation + ((Math.atan2(b.y - a.y, b.x - a.x) - pc.a0) * 180) / Math.PI,
+      };
+      d.moved = true;
+      d.cur = next;
+      onStickerChange?.(d.id, next, 'move');
+      return;
+    }
+    if (d.pointer !== e.pointerId) return;
     const p = toLocal(e.clientX, e.clientY);
+    if (stickerGestures) pts.current.set(e.pointerId, p);
     let next: Placement;
     if (d.op === 'move')
       next = { ...d.start, cx: d.start.cx + p.x - d.from.x, cy: d.start.cy + p.y - d.from.y };
     else if (d.op === 'resize' && d.corner) next = resizeFromCorner(d.start, d.corner, p, range);
     else next = rotateTo(d.start, d.from, p, e.shiftKey ? 15 : 0);
     d.moved = true;
+    d.cur = next;
     onStickerChange?.(d.id, next, 'move');
   };
 
   const end = (e: PointerEvent<HTMLElement>) => {
     const d = drag.current;
-    if (!d || d.pointer !== e.pointerId) return;
+    if (!d) return;
+    const pc = pinch.current;
+    if (pc && (e.pointerId === pc.a || e.pointerId === pc.b)) {
+      /* 放開一指：剩下的那指接著拖曳 */
+      pts.current.delete(e.pointerId);
+      pinch.current = null;
+      const rest = e.pointerId === pc.a ? pc.b : pc.a;
+      const rp = pts.current.get(rest);
+      if (rp) {
+        const s = stickers.find((it) => it.id === d.id);
+        drag.current = {
+          ...d,
+          pointer: rest,
+          op: 'move',
+          start: d.cur ?? s?.placement ?? d.start,
+          from: rp,
+        };
+        return;
+      }
+    }
+    if (d.pointer !== e.pointerId) return;
+    pts.current.delete(e.pointerId);
     drag.current = null;
     setDragging(null);
     const s = stickers.find((it) => it.id === d.id);
     const cur = s?.placement ?? d.start;
-    const fixed = keepInside(cur, s?.bounds ?? { x: 0, y: 0, width, height }, stickerMargin);
+    const fixed =
+      stickerClamp && s
+        ? stickerClamp(cur, s)
+        : keepInside(cur, s?.bounds ?? { x: 0, y: 0, width, height }, stickerMargin);
     onStickerChange?.(d.id, fixed, 'end');
   };
 
@@ -319,10 +468,22 @@ export function LayoutCanvas({
       data-testid="layout-canvas"
       data-picking={picking || undefined}
       onPointerDown={(e) => {
+        /* 正在拖曳貼紙時第二指落在畫布上：捏合（stickerGestures） */
+        if (startPinch(e)) return;
         /* 點到沒有點選區的空白處：取消選取貼紙 */
         if (e.target === e.currentTarget) onSelectSticker?.(null);
       }}
+      onPointerMove={(e) => {
+        if (e.target === e.currentTarget && pinch.current) move(e);
+      }}
+      onPointerUp={(e) => {
+        if (e.target === e.currentTarget && pinch.current) end(e);
+      }}
+      onPointerCancel={(e) => {
+        if (e.target === e.currentTarget && pinch.current) end(e);
+      }}
     >
+      {children}
       {regions.map((r, i) => (
         <button
           // biome-ignore lint/suspicious/noArrayIndexKey: 同一個 key 可能有好幾個區塊（例如名字與標語都開同一個分類）

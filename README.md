@@ -22,7 +22,8 @@
 [dearmysn1p3r](https://github.com/dearmysn1p3r) 與
 [aokmri](https://github.com/aokmri) 與
 [PaiTei4234](https://paitei4234.itch.io/) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 63 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[s2ndrome](https://github.com/s2ndrome) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 64 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -62,6 +63,7 @@
 | [角色關係圖產生器](https://tool-jx3.github.io/toolkit/tools/relation-chart/) | 在畫布上擺角色、定義關係的顏色與線型、點兩個人拉出關係線，用標籤框出陣營、整理角色庫與關係庫、加便利貼與世界觀，自動排列後匯出 PNG、分層 SVG／PSD、可以分享的互動網頁，或把分頁做成時間軸動畫（GIF／影片） |
 | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | 把台詞、後日談、劇本宣傳文句或心得排成 1200 × 1600 的直式圖片：封面、內文頁或照片＋文字三種版面，文字可以加粗、換色、螢光筆，放不下時自動接到下一頁，存成 PNG 或 ZIP |
 | [驗證題梗圖產生器](https://tool-jx3.github.io/toolkit/tools/captcha-card/) | 做一張「請選出所有包含 ○○ 的圖片」的驗證題梗圖：放代表圖與 3 × 3／4 × 4 的圖片格、勾選答案，匯出 PNG，或游標一格一格點選、按下驗證的 GIF 動畫 |
+| [社群貼文產生器](https://tool-jx3.github.io/toolkit/tools/social-post/) | 做出相片社群 App 的貼文、留言、限時動態與個人頁畫面：照片輪播、按讚與留言、限時動態的版面與貼紙，存成 PNG，或從個人頁點進貼文與限時動態的 HTML 檔 |
 | [角色配色條產生器](https://tool-jx3.github.io/toolkit/tools/color-palette/) | 把角色的配色排成一條色塊圖，可直接從立繪取色（手動滴管或自動抓主色），輸出 PNG |
 | [壓克力周邊工房](https://tool-jx3.github.io/toolkit/tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光、搖晃，匯出 APNG／GIF／WebP／PNG 或 .glb 模型 |
 | [影片轉動圖工具](https://tool-jx3.github.io/toolkit/tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
@@ -192,6 +194,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `relation-chart` | [角色關係圖產生器](https://tool-jx3.github.io/toolkit/tools/relation-chart/) | [PaiTei4234／Relationship Chart Maker](https://paitei4234.itch.io/relationshipchartmaker)（CC BY-NC-SA 4.0） |
 | `prose-card` | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | [dan0030/writeediter2](https://github.com/dan0030/writeediter2) |
 | `captcha-card` | [驗證題梗圖產生器](https://tool-jx3.github.io/toolkit/tools/captcha-card/) | [dearmysn1p3r/DearMySn1p3r_44](https://github.com/dearmysn1p3r/DearMySn1p3r_44) |
+| `social-post` | [社群貼文產生器](https://tool-jx3.github.io/toolkit/tools/social-post/) | [s2ndrome/4layout](https://github.com/s2ndrome/4layout) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
