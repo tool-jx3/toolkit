@@ -194,4 +194,11 @@ describe('檔名（3.9）', () => {
   it('檔名不能用的字元換成「_」', () => {
     expect(exportFileName('a/b:c*?', 'png')).toBe('geometric_a_b_c__.png');
   });
+
+  it('空白與結尾的「.」照共用的安全檔名規則（7.1 核准）', () => {
+    expect(exportFileName('  a b  c ', 'png')).toBe('geometric_ a b c.png');
+    expect(exportFileName('abc.', 'png')).toBe('geometric_abc.png');
+    expect(exportFileName('a　b', 'png')).toBe('geometric_a b.png');
+    expect(exportFileName('..', 'png')).toBe('geometric_.png');
+  });
 });
