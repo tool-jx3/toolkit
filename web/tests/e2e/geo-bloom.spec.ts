@@ -468,12 +468,10 @@ test('匯出 SVG：結構與數量；瀏覽器畫出來和 PNG 幾乎相同', as
     },
     { svgText: text, pngB64: png.bytes.toString('base64') },
   );
-  test
-    .info()
-    .annotations.push({
-      type: 'SVG 與 PNG 差很多的像素',
-      description: `${(diff * 100).toFixed(3)}%`,
-    });
+  test.info().annotations.push({
+    type: 'SVG 與 PNG 差很多的像素',
+    description: `${(diff * 100).toFixed(3)}%`,
+  });
   expect(diff).toBeLessThan(0.01);
   /* 透明背景時沒有背景的 rect */
   await toggle(page, '背景透明').click();
