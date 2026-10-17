@@ -19,7 +19,7 @@ import {
 import { createPreviewer, exportPng, exportSvg, type PreviewResult } from './client';
 import type { BloomStats } from './generate';
 import { exportFileName, SEED_MAX_LENGTH, type Settings } from './settings';
-import { regenerate, setSetting, settingsNow, useSettings } from './store';
+import { regenerate, setOption, setSetting, settingsNow, useSettings } from './store';
 import { S } from './strings';
 
 interface Shown {
@@ -113,7 +113,7 @@ function SeedRow() {
       </div>
       <p className="m-0 -mt-1 text-xs text-muted">{S.seedHint}</p>
       <Field label={S.lockSeed} hint={S.lockSeedHint} layout="inline">
-        <Toggle checked={lockSeed} onCheckedChange={(on) => setSetting('lockSeed', on)} />
+        <Toggle checked={lockSeed} onCheckedChange={(on) => setOption('lockSeed', on)} />
       </Field>
     </div>
   );

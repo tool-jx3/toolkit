@@ -27,9 +27,9 @@ import {
   SHAPE_KINDS,
   type ShapeKind,
 } from './settings';
-import { setSetting, TOOL_ID, useSettings } from './store';
+import { applyTemplate, setOption, setSetting, setShapeKind, TOOL_ID, useSettings } from './store';
 import { S } from './strings';
-import { type BloomTemplate, matchTemplate, TEMPLATES, withTemplate } from './templates';
+import { type BloomTemplate, matchTemplate, TEMPLATES } from './templates';
 
 const UNIT: Partial<Record<NumericKey, string>> = {
   rootMin: 'px',
@@ -206,11 +206,7 @@ function ShapesSection() {
           <Checkbox
             key={k}
             checked={shapes[k]}
-            onCheckedChange={(on) =>
-              useSettings.getState().update((d) => {
-                d.shapes[k] = on;
-              })
-            }
+            onCheckedChange={(on) => setShapeKind(k, on)}
             label={
               <span className="inline-flex items-center gap-1.5">
                 <span className="text-muted">
@@ -237,23 +233,23 @@ function OverlapSection() {
   return (
     <Section title={S.sections.overlap} persistKey={`${TOOL_ID}:overlap`}>
       <Field label={S.avoidOverlap} hint={S.hints.avoidOverlap} layout="inline">
-        <Toggle checked={avoid} onCheckedChange={(on) => setSetting('avoidOverlap', on)} />
+        <Toggle checked={avoid} onCheckedChange={(on) => setOption('avoidOverlap', on)} />
       </Field>
       <Field label={S.overlapMode} hint={S.hints.overlapMode}>
         <Segmented
           fullWidth
           value={mode}
-          onValueChange={(v) => setSetting('overlapMode', v)}
+          onValueChange={(v) => setOption('overlapMode', v)}
           options={OVERLAP_OPTIONS}
           disabled={!avoid}
         />
       </Field>
       <NumberSlider k="gap" hint={S.hints.gap} disabled={!avoid} />
       <Field label={S.lineAvoid} hint={S.hints.lineAvoid} layout="inline">
-        <Toggle checked={lineAvoid} onCheckedChange={(on) => setSetting('lineAvoid', on)} />
+        <Toggle checked={lineAvoid} onCheckedChange={(on) => setOption('lineAvoid', on)} />
       </Field>
       <Field label={S.inBounds} hint={S.hints.inBounds} layout="inline">
-        <Toggle checked={inBounds} onCheckedChange={(on) => setSetting('inBounds', on)} />
+        <Toggle checked={inBounds} onCheckedChange={(on) => setOption('inBounds', on)} />
       </Field>
     </Section>
   );
@@ -271,7 +267,7 @@ function StyleSection() {
         />
       </Field>
       <Field label={S.transparent} hint={S.hints.transparent} layout="inline">
-        <Toggle checked={s.transparent} onCheckedChange={(on) => setSetting('transparent', on)} />
+        <Toggle checked={s.transparent} onCheckedChange={(on) => setOption('transparent', on)} />
       </Field>
       <Field label={S.lineColor}>
         <ColorField value={s.lineColor} onChange={(v) => setSetting('lineColor', v)} />
@@ -283,7 +279,7 @@ function StyleSection() {
       <NumberSlider k="lineWidth" hint={S.hints.lineWidth} />
       <NumberSlider k="pFill" hint={S.hints.pFill} />
       <Field label={S.fromEdge} hint={S.hints.fromEdge} layout="inline">
-        <Toggle checked={s.fromEdge} onCheckedChange={(on) => setSetting('fromEdge', on)} />
+        <Toggle checked={s.fromEdge} onCheckedChange={(on) => setOption('fromEdge', on)} />
       </Field>
     </Section>
   );
@@ -324,10 +320,7 @@ function TemplatesSection() {
         }))}
         activeId={active}
         confirm={S.templateConfirm}
-        onApply={(item) => {
-          const st = useSettings.getState();
-          st.replace(withTemplate(st.data, item.data));
-        }}
+        onApply={(item) => applyTemplate(item.data)}
       />
     </Section>
   );

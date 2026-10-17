@@ -6,8 +6,10 @@ import { drawPreview, prepare } from '@/tools/geo-bloom/engine';
 import { generateBloom } from '@/tools/geo-bloom/generate';
 import { DEFAULT_SETTINGS, resolveConfig, sanitizeSettings } from '@/tools/geo-bloom/settings';
 import {
+  applyTemplate,
   freshSettings,
   regenerate,
+  setOption,
   setSetting,
   settingsNow,
   useSettings,
@@ -88,6 +90,36 @@ describe('產生與固定種子', () => {
     setSetting('lockSeed', true);
     regenerate();
     expect(settingsNow().seed).toBe('abc');
+  });
+});
+
+describe('一次動作一步復原（不和前後的變更合併）', () => {
+  beforeEach(() => {
+    useSettings.getState().replace(freshSettings());
+    useSettings.temporal.getState().clear();
+  });
+
+  it('連按兩次「產生」、接著套用範本：各算一步', () => {
+    setSetting('seed', 'start');
+    regenerate();
+    const s1 = settingsNow().seed;
+    regenerate();
+    applyTemplate(TEMPLATES[2]);
+    expect(settingsNow().rootMin).toBe(220);
+    const undo = () => useSettings.temporal.getState().undo();
+    undo();
+    expect(settingsNow().rootMin).toBe(DEFAULT_SETTINGS.rootMin);
+    undo();
+    expect(settingsNow().seed).toBe(s1);
+    undo();
+    expect(settingsNow().seed).toBe('start');
+  });
+
+  it('開關、勾選、選項：連續切換也各算一步', () => {
+    setOption('transparent', true);
+    setOption('inBounds', false);
+    useSettings.temporal.getState().undo();
+    expect(settingsNow()).toMatchObject({ transparent: true, inBounds: true });
   });
 });
 

@@ -4,7 +4,8 @@
  */
 import { createToolStore } from '@/core/storage';
 import { randomSeedText } from './random';
-import { DEFAULT_SETTINGS, type Settings, sanitizeSettings } from './settings';
+import { DEFAULT_SETTINGS, type Settings, type ShapeKind, sanitizeSettings } from './settings';
+import { type BloomTemplate, withTemplate } from './templates';
 
 export const TOOL_ID = 'geo-bloom';
 export const DATA_VERSION = 1;
@@ -34,9 +35,47 @@ export function setSetting<K extends keyof Settings>(key: K, value: Settings[K])
   });
 }
 
+/**
+ * 一次動作算一步復原：不和前後 0.4 秒內的變更合併（連按兩次「產生」、切開關、套用範本都各算一步）。
+ * 拖滑桿、打字這類連續的變更照舊合併。
+ */
+export function step(fn: () => void): void {
+  useSettings.beginGesture();
+  try {
+    fn();
+  } finally {
+    useSettings.endGesture();
+  }
+}
+
+/** 開關、選項、勾選：一次切換一步 */
+export function setOption<K extends keyof Settings>(key: K, value: Settings[K]): void {
+  step(() => setSetting(key, value));
+}
+
+export function setShapeKind(kind: ShapeKind, on: boolean): void {
+  step(() =>
+    useSettings.getState().update((d) => {
+      d.shapes[kind] = on;
+    }),
+  );
+}
+
 /** 「產生」：沒有固定種子時換一個新的種子（固定時不變，圖也不變） */
 export function regenerate(): void {
-  const s = settingsNow();
-  if (s.lockSeed) return;
-  setSetting('seed', randomSeedText());
+  if (settingsNow().lockSeed) return;
+  step(() => setSetting('seed', randomSeedText()));
+}
+
+/** 套用範本（種子與固定種子不變） */
+export function applyTemplate(t: BloomTemplate): void {
+  step(() => {
+    const st = useSettings.getState();
+    st.replace(withTemplate(st.data, t));
+  });
+}
+
+/** 全部重設：預設值＋新的種子（可以復原） */
+export function resetSettings(): void {
+  step(() => useSettings.getState().replace(freshSettings()));
 }

@@ -20,8 +20,8 @@ import { Preview } from './Preview';
 import { looksLikeSettings, type Settings, sanitizeSettings } from './settings';
 import {
   DATA_VERSION,
-  freshSettings,
   regenerate,
+  resetSettings,
   settingsNow,
   TOOL_ID,
   useSettings,
@@ -93,7 +93,7 @@ export function App() {
               clear();
               return true;
             }}
-            onReset={() => useSettings.getState().replace(freshSettings())}
+            onReset={resetSettings}
             savedAt={savedAt}
             fileName={S.projectName}
             resetText={{
