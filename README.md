@@ -23,7 +23,8 @@
 [aokmri](https://github.com/aokmri) 與
 [PaiTei4234](https://paitei4234.itch.io/) 與
 [s2ndrome](https://github.com/s2ndrome) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 64 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[al1scut](https://github.com/al1scut) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 65 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -69,6 +70,7 @@
 | [影片轉動圖工具](https://tool-jx3.github.io/toolkit/tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
 | [GIF 接合器](https://tool-jx3.github.io/toolkit/tools/gif-combiner/) | 把多張 GIF 的影格對齊時間軸排進同一張畫面，拖曳排版後合成一張 GIF |
 | [音樂播放畫面產生器](https://tool-jx3.github.io/toolkit/tools/music-frame/) | 放進封面與音樂，做出跑團 BGM、角色主題曲的「正在播放」畫面：三種版面、聲音視覺化、邊框與隨時間出現的歌詞（LRC／SRT），存成 1920 × 1080 的 PNG 或有聲音的影片 |
+| [幾何花紋產生器](https://tool-jx3.github.io/toolkit/tools/geo-bloom/) | 一鍵產生從中央的圓長出線條、圓與方形的幾何花紋，像星座圖、魔法陣或科幻介面：同一個種子畫出同一張，調數量、大小、重疊與配色，匯出 PNG 或 SVG |
 | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | CoC 7 版的技能檢定（獎勵骰、懲罰骰、自動判定成功等級）與自訂算式擲骰，附擲骰紀錄；另有傷害計算：貼上 BCDice 的結果扣護甲後加總成「:HP-」指令 |
 | [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | 在瀏覽器填好 CoC 7 版調查員角色卡：屬性的困難／極限、HP、SAN、DB、移動力與技能點數自動算，可以管理多張角色卡、裁切頭像，印成 A4 兩頁或存成 PDF、PNG，也能複製成 CCFOLIA 角色 |
 | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | 一次管理多個 CoC 7 版／6 版的 NPC：擲屬性、自動算衍生值、加技能與攻擊指令，輸出可以直接貼進 CCFOLIA 的角色 JSON 與聊天面板 |
@@ -195,6 +197,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `prose-card` | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | [dan0030/writeediter2](https://github.com/dan0030/writeediter2) |
 | `captcha-card` | [驗證題梗圖產生器](https://tool-jx3.github.io/toolkit/tools/captcha-card/) | [dearmysn1p3r/DearMySn1p3r_44](https://github.com/dearmysn1p3r/DearMySn1p3r_44) |
 | `social-post` | [社群貼文產生器](https://tool-jx3.github.io/toolkit/tools/social-post/) | [s2ndrome/4layout](https://github.com/s2ndrome/4layout) |
+| `geo-bloom` | [幾何花紋產生器](https://tool-jx3.github.io/toolkit/tools/geo-bloom/) | [al1scut/tkmizGeo](https://github.com/al1scut/tkmizGeo) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
