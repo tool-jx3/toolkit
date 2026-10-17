@@ -345,3 +345,195 @@ describe('限時動態（3.7）', () => {
     expect(l.h).toBeCloseTo(108);
   });
 });
+
+/* ---------- 對等驗證後的修正（規格 7.1） ---------- */
+
+const rects = (ops: Op[]): Extract<Op, { t: 'rect' }>[] =>
+  ops.flatMap((o) => (o.t === 'rect' ? [o] : o.t === 'group' ? rects(o.ops) : [])) as Extract<
+    Op,
+    { t: 'rect' }
+  >[];
+const avatars = (ops: Op[]): Extract<Op, { t: 'avatar' }>[] =>
+  ops.flatMap((o) => (o.t === 'avatar' ? [o] : o.t === 'group' ? avatars(o.ops) : [])) as Extract<
+    Op,
+    { t: 'avatar' }
+  >[];
+const iconOps = (ops: Op[]): Extract<Op, { t: 'icon' }>[] =>
+  ops.flatMap((o) => (o.t === 'icon' ? [o] : o.t === 'group' ? iconOps(o.ops) : [])) as Extract<
+    Op,
+    { t: 'icon' }
+  >[];
+
+describe('沒有寫行高的地方照原作繼承 1.6（3.10(5)；F35、F42、F43、F45、F46、F69）', () => {
+  it('輪播膠囊：12 × 1.6 ＋ 上下 3 ＝ 25.2（字級 140% 時 32.88）', () => {
+    const e = env();
+    const pill = (x: Env) =>
+      rects(postScreen(x, x.state.posts[0]).ops).find((o) => o.fill === 'rgba(18,18,18,0.7)');
+    expect(pill(e)?.h).toBeCloseTo(25.2);
+    const big = env((s) => {
+      s.screen.fontScale = 1.4;
+    });
+    expect(pill(big)?.h).toBeCloseTo(12 * 1.4 * 1.6 + 6);
+  });
+
+  it('留言面板：把手＋標題＝12＋14＋16 × 1.6＋12＝63.6；「回覆」與「查看另外」列 12 × 1.6', () => {
+    const e = env((s) => {
+      s.posts[0].sheet.backdrop = false;
+      for (const c of s.posts[0].sheet.items) c.text = 'a';
+    });
+    const l = commentsScreen(e, e.state.posts[0]);
+    expect(l.parts.head.height).toBeCloseTo(63.6);
+    /* 每則：10 ＋ 第一行 16 ＋ 2 ＋ 內容 18 ＋ 6 ＋ 回覆 19.2 ＋ 10＝81.2；第 3 則另有「查看另外」12 ＋ 19.2 */
+    expect(l.parts.list.height).toBeCloseTo(4 + 81.2 * 3 + 12 + 19.2 + 8);
+    expect(l.height).toBeCloseTo(63.6 + 4 + 81.2 * 3 + 31.2 + 8 + 121);
+  });
+
+  it('留言右邊的讚：數字的行 12 × 1.6；只有讚數沒有內容時一則的高也包含右邊那一欄', () => {
+    const e = env((s) => {
+      s.screen.fontScale = 0.8;
+      s.posts[0].sheet.backdrop = false;
+      s.posts[0].sheet.items = [{ ...s.posts[0].sheet.items[0], text: '', likes: '24', more: 0 }];
+    });
+    const l = commentsScreen(e, e.state.posts[0]);
+    /* 左邊：16 × 0.8 ＋ 6 ＋ 12 × 0.8 × 1.6＝34.16；右邊：6 ＋ 14 ＋ 2 ＋ 12 × 0.8 × 1.6＝37.36 */
+    expect(l.parts.list.height).toBeCloseTo(4 + 10 + 37.36 + 10 + 8);
+  });
+
+  it('字級 80%：「回覆」列只有作者按讚時才至少 16（小頭像）；「查看另外」列 12 × 0.8 × 1.6', () => {
+    const one = (patch: Partial<SocialState['posts'][0]['sheet']['items'][0]>) => {
+      const e = env((s) => {
+        s.screen.fontScale = 0.8;
+        s.posts[0].sheet.backdrop = false;
+        s.posts[0].sheet.items = [
+          { ...s.posts[0].sheet.items[0], text: 'a', likes: '', more: 2, ...patch },
+        ];
+      });
+      return commentsScreen(e, e.state.posts[0]).parts.list.height - 12;
+    };
+    const lh = 12 * 0.8 * 1.6;
+    expect(one({ authorLiked: false })).toBeCloseTo(10 + 12.8 + 2 + 14.4 + 6 + lh + 12 + lh + 10);
+    expect(one({ authorLiked: true })).toBeCloseTo(10 + 12.8 + 2 + 14.4 + 6 + 16 + 12 + lh + 10);
+  });
+
+  it('留言功能已關閉：兩行 16 × 1.6、14 × 1.6；只有面板時 63.6 ＋ 220', () => {
+    const e = env((s) => {
+      s.posts[0].commentsOff = true;
+      s.posts[0].sheet.backdrop = false;
+    });
+    expect(commentsScreen(e, e.state.posts[0]).height).toBeCloseTo(283.6);
+  });
+
+  it('個人頁：名稱的行 15 × 1.6（字級 140% 時大頭貼那一列跟著變高）；精選動態的標題 12 × 1.6', () => {
+    const e = env((s) => {
+      s.screen.fontScale = 1.4;
+    });
+    const l = profileScreen(e);
+    const right = 15 * 1.4 * 1.6 + 6 + (17 + 14) * 1.4 * 1.2;
+    expect(l.parts.row.height).toBeCloseTo(10 + right);
+    const hl = profileScreen(env()).hits.find((h) => h.key.startsWith('story:'));
+    expect(hl?.box.height).toBeCloseTo(64 + 6 + 12 * 1.6);
+  });
+
+  it('限時動態的動態列：圖示下的字 2.9 cqw × 1.6；整列下緣在 3 cqw', () => {
+    const e = env((s) => {
+      s.stories[0].bottom = 'own';
+    });
+    const l = storyScreen(e, e.state.stories[0]);
+    const U = 3.6;
+    const itemH = 6.4 * U + 0.8 * U + 2.9 * U * 1.6;
+    const icon = iconOps(l.ops).find((o) => o.name === 'more' && o.y > 500);
+    expect(icon?.y).toBeCloseTo(640 - 3 * U - itemH);
+  });
+
+  it('提問貼紙的輸入框：3.8 cqw × 1.6 ＋ 上下 3.2 cqw（一行的問題時卡片高 121.4）', () => {
+    const st = blankStory('s1');
+    const id = addSticker(st, 'question') as string;
+    const k = st.stickers.find((x) => x.id === id);
+    if (!k) throw new Error('missing');
+    const U = 3.6;
+    const l = layoutSticker(env(), k);
+    expect(l.h).toBeCloseTo(8 * U + 4.8 * U * 1.3 + 3 * U + (3.8 * U * 1.6 + 6.4 * U) + 4 * U);
+  });
+});
+
+describe('限時動態不跟著深淺色（F12）', () => {
+  it('沒有大頭貼時：帳號列、動態列的小頭像、提問貼紙的預設人像底色在深色時也一樣', () => {
+    const make = (theme: 'light' | 'dark') => {
+      const state = structuredClone(initialState());
+      state.theme = theme;
+      state.profile.avatar = null;
+      state.stories[0].bottom = 'own';
+      addSticker(state.stories[0], 'question');
+      const e: Env = { measure, pal: PALETTES[theme], fs: 1, state, edit: false };
+      return storyScreen(e, state.stories[0]);
+    };
+    const bgs = (l: ReturnType<typeof make>) => [
+      ...avatars(l.ops).map((o) => o.bg),
+      ...[...l.stickers.values()].flatMap((k) => avatars(k.ops).map((o) => o.bg)),
+    ];
+    const light = bgs(make('light'));
+    expect(light.length).toBeGreaterThanOrEqual(5);
+    expect(bgs(make('dark'))).toEqual(light);
+  });
+});
+
+describe('照片貼紙的白色相框（F62）', () => {
+  const framed = (width: number, height: number) => {
+    const st = blankStory('s1');
+    const id = addSticker(st, 'image', {
+      image: { kind: 'asset', id: 'b', name: '', width, height },
+    }) as string;
+    const k = st.stickers.find((x) => x.id === id);
+    if (k?.type !== 'image') throw new Error('type');
+    k.frame = true;
+    return layoutSticker(env(), k);
+  };
+
+  it('白邊算在 60 cqw 裡（原作 box-sizing: border-box）：正方形 216 × 216', () => {
+    const l = framed(1000, 1000);
+    expect(l.w).toBeCloseTo(216);
+    expect(l.h).toBeCloseTo(216);
+  });
+
+  it('橫圖：照片 (216 − 2 × 5.76) 寬、保持比例，加上白邊', () => {
+    const l = framed(1200, 600);
+    const inner = 216 - 2 * 1.6 * 3.6;
+    expect(l.w).toBeCloseTo(216);
+    expect(l.h).toBeCloseTo(inner / 2 + 2 * 1.6 * 3.6);
+  });
+
+  it('比 60 cqw 小的照片照原本的大小（只縮小不放大）', () => {
+    const l = framed(100, 50);
+    expect(l.w).toBeCloseTo(100 + 2 * 1.6 * 3.6);
+    expect(l.h).toBeCloseTo(50 + 2 * 1.6 * 3.6);
+  });
+});
+
+describe('限時動態的狀態列圖示（F67）', () => {
+  it('每個圖示高 3.2 cqw（電池 27 × 13 → 寬 23.9）、間隔 1.4 cqw、右邊 6.5 cqw：整組左緣 270', () => {
+    const e = env();
+    const l = storyScreen(e, e.state.stories[0]);
+    const U = 3.6;
+    const top = rects(l.ops).filter((o) => o.y < 30);
+    const bars = top.filter(
+      (o) => o.fill === '#ffffff' && Math.abs(o.w - 3 * ((3.2 * U) / 12)) < 1e-6,
+    );
+    expect(bars).toHaveLength(4);
+    const kb = (3.2 * U) / 13;
+    const right = 360 - 6.5 * U;
+    const left =
+      right - 27 * kb - 1.4 * U - 16 * ((3.2 * U) / 12) - 1.4 * U - 18 * ((3.2 * U) / 12);
+    expect(Math.min(...bars.map((o) => o.x))).toBeCloseTo(left);
+    expect(left).toBeCloseTo(270, 0);
+    const outline = top.find((o) => o.stroke && Math.abs(o.w - 23 * kb) < 1e-6);
+    expect(outline?.x).toBeCloseTo(right - 27 * kb + 0.5 * kb);
+    expect(outline?.h).toBeCloseTo(12 * kb);
+  });
+
+  it('貼文的狀態列不變：訊號 18、Wi-Fi 16、電池 27、間隔 6（左緣 291）', () => {
+    const e = env();
+    const l = postScreen(e, e.state.posts[0]);
+    const bars = rects(l.ops).filter((o) => o.y < 54 && o.w === 3 && o.fill === PALETTES.light.ink);
+    expect(Math.min(...bars.map((o) => o.x))).toBeCloseTo(291);
+  });
+});

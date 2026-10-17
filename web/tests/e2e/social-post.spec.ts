@@ -43,6 +43,15 @@ async function halfPng(w = 300, h = 200): Promise<Buffer> {
   return Buffer.from(await encodePng(px, w, h));
 }
 
+/** 橫圖（藍底）：右邊 stripe px 是綠色的直條（判斷照片的右邊有沒有貼齊框） */
+async function stripePng(w = 300, h = 200, stripe = 12): Promise<Buffer> {
+  const px = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      px.set(x >= w - stripe ? [40, 200, 60, 255] : [40, 70, 210, 255], (y * w + x) * 4);
+  return Buffer.from(await encodePng(px, w, h));
+}
+
 const file = (name: string, buffer: Buffer, mimeType = 'image/png') => ({ name, mimeType, buffer });
 
 async function open(page: Page, url = URL) {
@@ -388,6 +397,116 @@ test('照片：加入（多張）、選取、拿掉、比例、在預覽上拖�
   expect(errors).toEqual([]);
 });
 
+test('照片的位置：拖到邊之後縮放仍貼齊那一邊、換比例與滑桿縮小後在範圍裡、拖曳沒有死區（F20、F51）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const GREEN = [40, 200, 60];
+  /* 貼文 2（1:1）加入 300 × 200 的橫圖：框裡照片寬 1.5 倍、左右可以移動 ±0.25 */
+  await page
+    .getByRole('group', { name: '貼文清單' })
+    .getByRole('button', { name: '貼文 2' })
+    .click();
+  await page
+    .getByRole('group', { name: '加入照片' })
+    .locator('input[type=file]')
+    .setInputFiles([file('stripe.png', await stripePng())]);
+  await expect(toast(page, '已加入 1 張圖片')).toBeVisible();
+  await settle(page);
+  const zone = page.getByTestId('media-zone');
+  const place = async () => (await state(page)).posts[1].photos[1].place;
+  const rightEdgeGreen = async () => {
+    const m = (await layout(page)).parts.media;
+    return near(await pixel(page, m.x + m.width - 2, m.y + m.height / 2), GREEN);
+  };
+  /* 往左拖到底：照片的右邊貼齊框 */
+  await drag(page, zone, -600, 0);
+  await settle(page);
+  expect((await place()).x).toBeCloseTo(-0.25, 3);
+  expect(await rightEdgeGreen()).toBe(true);
+  /* 滾輪放大：右邊仍貼齊（原作以 object-position 為錨點）→ x ＝ −(1.5 × 縮放 − 1) ÷ 2 */
+  await wheel(page, zone, -100);
+  await settle(page);
+  let p = await place();
+  expect(p.zoom).toBeCloseTo(Math.exp(0.15), 3);
+  expect(p.x).toBeCloseTo(-(1.5 * p.zoom - 1) / 2, 3);
+  expect(await rightEdgeGreen()).toBe(true);
+  /* 縮放滑桿拉到 100%：仍貼齊、在範圍裡 */
+  const slider = page.getByRole('slider', { name: '照片 2：縮放' });
+  await slider.focus();
+  await slider.press('Home');
+  await settle(page);
+  p = await place();
+  expect(p.zoom).toBe(1);
+  expect(p.x).toBeCloseTo(-0.25, 3);
+  expect(await rightEdgeGreen()).toBe(true);
+  /* 換成 4:5：照片寬 1.875 倍，右邊仍貼齊 */
+  const ratio = async (name: string) => {
+    await page.getByRole('combobox', { name: '比例' }).click();
+    await page.getByRole('option', { name }).click();
+    await settle(page);
+  };
+  await ratio('4:5 直式');
+  expect((await place()).x).toBeCloseTo(-0.4375, 3);
+  expect(await rightEdgeGreen()).toBe(true);
+  /* 換回 1:1：夾回 ±0.25；接著往右拖框寬的 10% 立刻動（沒有死區） */
+  await ratio('1:1 正方形');
+  expect((await place()).x).toBeCloseTo(-0.25, 3);
+  const box = await zone.boundingBox();
+  if (!box) throw new Error('no box');
+  await drag(page, zone, box.width * 0.1, 0);
+  await settle(page);
+  expect((await place()).x).toBeCloseTo(-0.15, 2);
+  /* 限時動態的格子（F51）：第 1 格（燈塔的範例 1080 × 1350）拖到最左再放大，右邊仍貼齊 */
+  await tab(page, '限時動態').click();
+  const cell = page.getByTestId('cell-zone-0');
+  await drag(page, cell, -600, 0);
+  await settle(page);
+  const r = (await layout(page)).parts.cell0;
+  const base = Math.max(r.width / 1080, r.height / 1350);
+  const over = (z: number) => (1080 * base * z) / r.width - 1;
+  let c = (await state(page)).stories[0].cells[0].place;
+  expect(c.x).toBeCloseTo(-over(1) / 2, 3);
+  await wheel(page, cell, -100);
+  await settle(page);
+  c = (await state(page)).stories[0].cells[0].place;
+  expect(c.x).toBeCloseTo(-over(c.zoom) / 2, 3);
+  /* 換版面再換回來：位置不變 */
+  await page.getByRole('radio', { name: '1 張' }).click();
+  await settle(page);
+  await page.getByRole('radio', { name: '4 格' }).click();
+  await settle(page);
+  expect((await state(page)).stories[0].cells[0].place.x).toBeCloseTo(c.x, 3);
+  expect(errors).toEqual([]);
+});
+
+test('照片清單、其他照片：Alt＋←／→ 排序（F19、F81）', async ({ page }) => {
+  const errors = await open(page);
+  const list = page.getByRole('list', { name: '照片清單' });
+  /* 貼文 1 的 3 張：點第 1 張（清單取得焦點）→ Alt＋→ 移到第 2 張的位置 */
+  await list.getByText('照片 1', { exact: true }).click();
+  await page.keyboard.press('Alt+ArrowRight');
+  await settle(page);
+  let s = await state(page);
+  expect(s.posts[0].photos.map((p) => p.id)).toEqual(['ph2', 'ph1', 'ph3']);
+  expect(s.posts[0].current).toBe(1);
+  /* 焦點在第 3 張的移除按鈕上：Alt＋← 移動那一張 */
+  await list.getByRole('button', { name: '移除「照片 3」' }).focus();
+  await page.keyboard.press('Alt+ArrowLeft');
+  await settle(page);
+  s = await state(page);
+  expect(s.posts[0].photos.map((p) => p.id)).toEqual(['ph2', 'ph3', 'ph1']);
+  /* 個人頁的其他照片 */
+  await tab(page, '個人頁').click();
+  const grid = page.getByRole('list', { name: '其他照片清單' });
+  await grid.getByRole('button', { name: '移除「照片 1」' }).focus();
+  await page.keyboard.press('Alt+ArrowRight');
+  await settle(page);
+  s = await state(page);
+  expect(s.account.grid.map((g) => g.id)).toEqual(['g2', 'g1', 'g3', 'g4']);
+  expect(errors).toEqual([]);
+});
+
 test('帳號列、反應、內文：地點、共同貼文、追蹤、數字的顯示方式、按讚的人、關閉留言、折疊、時間（F23～F34）', async ({
   page,
 }) => {
@@ -552,6 +671,25 @@ test('貼紙：選取、拖曳、滾輪縮放、Shift＋滾輪旋轉、字型、
   await settle(page);
   s = await state(page);
   expect(s.stories[0].stickers[0]).toMatchObject({ x: 50, y: 50 });
+  /* 往上拖出畫面：中心夾在 −10%（不是 LayoutCanvas 的「至少留 12 px 在畫面裡」） */
+  {
+    const stage = await page.getByTestId('layout-canvas').boundingBox();
+    const b = await first.boundingBox();
+    if (!stage || !b) throw new Error('no box');
+    const x = b.x + b.width / 2;
+    const y = b.y + b.height / 2;
+    expect((1 - stage.y) / stage.height).toBeLessThan(-0.12);
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, (y + 1) / 2, { steps: 4 });
+    await page.mouse.move(x, 1, { steps: 4 });
+    await page.mouse.up();
+    await settle(page);
+    s = await state(page);
+    expect(s.stories[0].stickers[0].y).toBe(-10);
+    await page.getByRole('button', { name: '移到中央' }).click();
+    await settle(page);
+  }
   /* Delete 刪除選取中的貼紙（焦點不在輸入欄） */
   await first.click();
   await page.keyboard.press('Delete');
@@ -630,16 +768,31 @@ test('個人頁：點縮圖到貼文、點精選動態到限時動態、底部�
   const l = await layout(page);
   expect(l.height).toBeLessThan(844);
   expect(l.parts.nav).toBeUndefined();
-  /* 新增精選動態、連到限時動態 1 */
+  /* 沒有連結的精選動態「連到」顯示「無」（F78） */
+  await expect(page.getByRole('combobox', { name: '精選動態 2：日常：連到' })).toHaveText('無');
+  /* 新增精選動態、連到限時動態 1、再改回無 */
   await page.getByRole('button', { name: '新增精選動態' }).click();
   await settle(page);
   let s = await state(page);
   expect(s.account.highlights.at(-1)).toMatchObject({ title: '新的精選', story: null });
-  await page.getByRole('combobox', { name: '精選動態 3：新的精選：連到' }).click();
+  const link = page.getByRole('combobox', { name: '精選動態 3：新的精選：連到' });
+  await expect(link).toHaveText('無');
+  await link.click();
   await page.getByRole('option', { name: '限時動態 1' }).click();
   await settle(page);
   s = await state(page);
   expect(s.account.highlights.at(-1)?.story).toBe('s1');
+  await expect(link).toHaveText('限時動態 1');
+  await link.click();
+  await page.getByRole('option', { name: '無', exact: true }).click();
+  await settle(page);
+  s = await state(page);
+  expect(s.account.highlights.at(-1)?.story).toBeNull();
+  await expect(link).toHaveText('無');
+  await link.click();
+  await page.getByRole('option', { name: '限時動態 1' }).click();
+  await settle(page);
+  expect((await state(page)).account.highlights.at(-1)?.story).toBe('s1');
   /* 其他照片 */
   await page
     .getByRole('group', { name: '其他照片' })
@@ -886,6 +1039,14 @@ test('匯出 HTML：全部（個人頁、貼文、留言、限時動態）與只
   await v.locator('#s-post-0 [data-car="1"]').click();
   await expect(imgs.nth(1)).toBeVisible();
   await expect(imgs.nth(0)).toBeHidden();
+  /* 只有照片可以點：照片下面的圓點列不在點的範圍裡（F91，同原作） */
+  {
+    const car = await v.locator('#s-post-0 .v-car').boundingBox();
+    const btn = await v.locator('#s-post-0 [data-car="1"]').boundingBox();
+    if (!car || !btn) throw new Error('no box');
+    expect(btn.y).toBeCloseTo(car.y, 0);
+    expect(car.y + car.height - (btn.y + btn.height)).toBeGreaterThan(10);
+  }
   /* 留言面板：打開、Esc 關掉 */
   await v.locator('#s-post-0 [data-open="0"]').first().click();
   await expect(v.locator('#ov-c-0')).toBeVisible();

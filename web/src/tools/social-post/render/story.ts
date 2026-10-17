@@ -7,19 +7,32 @@ import {
   cellCount,
   imageSize,
   isBgPreset,
-  LAYOUT_GRID,
+  STORY_H,
+  STORY_W,
   type Sticker,
   type Story,
+  storyCellRects,
 } from '../model';
 import { S } from '../strings';
 import { ellipsize, layoutLines } from '../text';
 import { avatar, type Env, statusIcons, withAlpha } from './common';
 import type { Hit, LinearPaint, Op, Paint, Rect, ScreenLayout } from './ops';
-import { CHIP_COLORS, contrastText, MUSIC_ART, rgba, STORY_FONT_SPECS, ui } from './theme';
+import {
+  CHIP_COLORS,
+  contrastText,
+  INHERIT_LH,
+  MUSIC_ART,
+  PALETTES,
+  rgba,
+  STORY_FONT_SPECS,
+  ui,
+} from './theme';
 
-export const SW = 360;
-export const SH = 640;
+export const SW = STORY_W;
+export const SH = STORY_H;
 export const U = SW / 100;
+/** 限時動態不跟著深淺色（F12、3.2）：預設人像的底色、主色固定用淺色那一組 */
+const STORY_PAL = PALETTES.light;
 
 /** CSS 的 linear-gradient(160deg, …) 在 rect 上的起點與終點 */
 export function gradient160(r: Rect, stops: readonly (readonly [number, string])[]): LinearPaint {
@@ -47,17 +60,7 @@ export function bgPaint(bg: string, r: Rect): Paint {
 }
 
 /** 格子的位置（看得到的格子） */
-export function cellRects(st: Story): Rect[] {
-  const { cols, rows } = LAYOUT_GRID[st.layout];
-  const g = st.gap * U;
-  const cw = (SW - (cols - 1) * g) / cols;
-  const ch = (SH - (rows - 1) * g) / rows;
-  const out: Rect[] = [];
-  for (let r = 0; r < rows; r++)
-    for (let c = 0; c < cols; c++)
-      out.push({ x: c * (cw + g), y: r * (ch + g), width: cw, height: ch });
-  return out;
-}
+export const cellRects = (st: Story): Rect[] => storyCellRects(st.layout, st.gap);
 
 /* ---------- 貼紙 ---------- */
 
@@ -341,7 +344,7 @@ export function layoutSticker(env: Env, k: Sticker): StickerLayout {
       );
       const titleH = lines.length * tlh;
       const hf = ui(3.8 * U);
-      const ih = 3.8 * U * 1.45 + 3.2 * U * 2;
+      const ih = 3.8 * U * INHERIT_LH + 3.2 * U * 2;
       const h = padT + titleH + 3 * U + ih + pad;
       const top = -h / 2;
       ops.push({
@@ -380,7 +383,7 @@ export function layoutSticker(env: Env, k: Sticker): StickerLayout {
         t: 'text',
         x: 0,
         y: iy + 3.2 * U,
-        lh: 3.8 * U * 1.45,
+        lh: 3.8 * U * INHERIT_LH,
         text: ellipsize(k.hint, w - pad * 2 - 6.4 * U, hf, measure),
         font: hf,
         color: 'rgba(0,0,0,0.45)',
@@ -389,15 +392,17 @@ export function layoutSticker(env: Env, k: Sticker): StickerLayout {
       /* 上緣中央的大頭貼（白框） */
       const ar = 5.5 * U;
       ops.push({ t: 'circle', cx: 0, cy: top, r: ar + 0.8 * U, fill: '#ffffff' });
-      ops.push(...avatar(env.state.profile.avatar, 0, top, ar * 2, env.pal));
+      ops.push(...avatar(env.state.profile.avatar, 0, top, ar * 2, STORY_PAL));
       return { w, h, ops };
     }
     default: {
+      /* 最寬、最高 60 cqw（只縮小不放大）；白色相框的白邊算在 60 cqw 裡（原作 box-sizing: border-box） */
       const nat = imageSize(k.image);
-      const s = Math.min(1, (60 * U) / nat.width, (60 * U) / nat.height);
+      const b = k.frame ? 1.6 * U : 0;
+      const max = 60 * U - b * 2;
+      const s = Math.min(1, max / nat.width, max / nat.height);
       const w0 = nat.width * s;
       const h0 = nat.height * s;
-      const b = k.frame ? 1.6 * U : 0;
       const w = w0 + b * 2;
       const h = h0 + b * 2;
       if (k.frame)
@@ -470,7 +475,7 @@ export function storyScreen(
           stroke: { color: 'rgba(255,255,255,0.45)', width: 1, dash: [4, 3] },
         });
         const tf = ui(3.4 * U);
-        const tl = 3.4 * U * 1.45;
+        const tl = 3.4 * U * INHERIT_LH;
         const block = 28 + U + tl;
         const top = r.y + (r.height - block) / 2;
         ops.push({
@@ -504,7 +509,7 @@ export function storyScreen(
       y: r.y + 1,
       w: r.width - 2,
       h: r.height - 2,
-      stroke: { color: env.pal.accent, width: 2 },
+      stroke: { color: STORY_PAL.accent, width: 2 },
     });
   }
 
@@ -559,8 +564,21 @@ export function storyScreen(
       font: ui(size, 600),
       color: '#ffffff',
     });
-    if (state.screen.icons)
-      ops.push(...statusIcons(SW - 6.5 * U, cy, '#ffffff', state.screen.battery, (3.2 * U) / 12));
+    if (state.screen.icons) {
+      /* 每個圖示的高都是 3.2 cqw（原作 .s-sb svg { height: 3.2cqw }）、間隔 1.4 cqw */
+      const ih = 3.2 * U;
+      ops.push(
+        ...statusIcons(
+          SW - 6.5 * U,
+          cy,
+          '#ffffff',
+          state.screen.battery,
+          ih / 12,
+          ih / 13,
+          1.4 * U,
+        ),
+      );
+    }
   }
   if (st.showTop) {
     const top = status ? 13.5 * U : 2.4 * U;
@@ -592,7 +610,7 @@ export function storyScreen(
     const av = 8.8 * U;
     const cy = ht + av / 2;
     const shadow = { color: 'rgba(0,0,0,0.2)', blur: 1.4 * U };
-    ops.push(...avatar(pr.avatar, 3.4 * U + av / 2, cy, av, env.pal));
+    ops.push(...avatar(pr.avatar, 3.4 * U + av / 2, cy, av, STORY_PAL));
     const close = { x: SW - 2.4 * U - 6.6 * U, y: cy - 3.3 * U, size: 6.6 * U };
     const more = { x: close.x - 2.4 * U - 6.6 * U, y: close.y, size: 6.6 * U };
     ops.push({
@@ -641,7 +659,7 @@ export function storyScreen(
     x += measure(name, uf);
     if (pr.verified) {
       x += 1.2 * U;
-      ops.push({ t: 'circle', cx: x + 6.5, cy, r: 6.5, fill: env.pal.accent });
+      ops.push({ t: 'circle', cx: x + 6.5, cy, r: 6.5, fill: STORY_PAL.accent });
       ops.push({ t: 'icon', name: 'check', x, y: cy - 6.5, size: 13, color: '#ffffff', sw: 3 });
       x += 13;
     }
@@ -722,22 +740,22 @@ export function storyScreen(
       const isz = 6.4 * U;
       const lsize = 2.9 * U * fs;
       const lf = ui(lsize);
-      const itemH = isz + 0.8 * U + lsize * 1.3;
+      const itemH = isz + 0.8 * U + lsize * INHERIT_LH;
       const rowH = Math.max(7 * U, itemH);
       const cy = SH - 3 * U - rowH / 2;
       const vr = 3.5 * U;
       for (let i = 0; i < 3; i++) {
         const cx = x0 + vr + i * (7 * U - 2.2 * U);
         ops.push({ t: 'circle', cx, cy, r: vr, fill: '#000000' });
-        ops.push(...avatar(null, cx, cy, 7 * U - U, env.pal));
+        ops.push(...avatar(null, cx, cy, 7 * U - U, STORY_PAL));
       }
       const lx = x0 + 7 * U + 2 * (7 * U - 2.2 * U) + 3.4 * U;
       const af = ui(3.6 * U * fs, 600);
       ops.push({
         t: 'text',
         x: lx,
-        y: cy - 3.6 * U * fs * 0.7,
-        lh: 3.6 * U * fs * 1.4,
+        y: cy - (3.6 * U * fs * INHERIT_LH) / 2,
+        lh: 3.6 * U * fs * INHERIT_LH,
         text: S.screen.activity,
         font: af,
         color: '#ffffff',
@@ -758,7 +776,7 @@ export function storyScreen(
           t: 'text',
           x: ix + iw / 2,
           y: top + isz + 0.8 * U,
-          lh: lsize * 1.3,
+          lh: lsize * INHERIT_LH,
           text: label,
           font: lf,
           color: '#ffffff',

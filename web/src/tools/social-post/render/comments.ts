@@ -7,7 +7,7 @@ import { ellipsize, layoutLines, linkTokens, PIN, type Run } from '../text';
 import { avatar, badgeRun, type Env, linesToOps, PHONE_H, STATUS_H, W, withAlpha } from './common';
 import type { Op, Rect, ScreenLayout } from './ops';
 import { postScreen } from './post';
-import { ui } from './theme';
+import { INHERIT_LH, ui } from './theme';
 
 export interface SheetLayout {
   ops: Op[];
@@ -73,7 +73,9 @@ function layoutComment(env: Env, m: Comment, top: number): { ops: Op[]; height: 
 
   /* 回覆列 */
   const af = ui(12 * fs, 600);
-  const alh = Math.max(16, 12 * fs * 1.45);
+  /* 12 × 1.6 的行；作者按讚時那一列至少是小頭像的 16（原作 .c-a 是 flex，高＝最高的那一個） */
+  const tlh12 = 12 * fs * INHERIT_LH;
+  const alh = m.authorLiked ? Math.max(16, tlh12) : tlh12;
   y += 6;
   ops.push({ t: 'text', x: bodyX, y, lh: alh, text: S.screen.reply, font: af, color: pal.sec });
   if (m.authorLiked) {
@@ -97,7 +99,7 @@ function layoutComment(env: Env, m: Comment, top: number): { ops: Op[]; height: 
     ops.push({
       t: 'rect',
       x: bodyX,
-      y: y + alh / 2 - 0.5,
+      y: y + tlh12 / 2 - 0.5,
       w: 24,
       h: 1,
       fill: withAlpha(pal.sec, 0.7),
@@ -106,12 +108,12 @@ function layoutComment(env: Env, m: Comment, top: number): { ops: Op[]; height: 
       t: 'text',
       x: bodyX + 36,
       y,
-      lh: alh,
+      lh: tlh12,
       text: S.screen.moreReplies(m.more),
       font: af,
       color: pal.sec,
     });
-    y += alh;
+    y += tlh12;
   }
 
   /* 右邊的讚 */
@@ -128,7 +130,7 @@ function layoutComment(env: Env, m: Comment, top: number): { ops: Op[]; height: 
       t: 'text',
       x: lx,
       y: ly + 16,
-      lh: 12 * fs * 1.45,
+      lh: tlh12,
       text: m.likes,
       font: lf,
       color: pal.sec,
@@ -136,11 +138,13 @@ function layoutComment(env: Env, m: Comment, top: number): { ops: Op[]; height: 
     });
   }
   const bodyH = y - (top + 10);
-  return { ops, height: 10 + Math.max(size, bodyH) + 10 };
+  /* 右邊那一欄：上 6 ＋ 愛心 14 ＋ 間隔 2 ＋ 讚數（同原作 .c-l，沒有內容的短留言時可能比較高） */
+  const likeH = 6 + 14 + 2 + (m.likes ? tlh12 : 0);
+  return { ops, height: 10 + Math.max(size, bodyH, likeH) + 10 };
 }
 
 /** 面板上方（把手＋標題）的高 */
-const headHeight = (fs: number) => 12 + 14 + 16 * fs * 1.45 + 12;
+const headHeight = (fs: number) => 12 + 14 + 16 * fs * INHERIT_LH + 12;
 /** 面板下方（線＋表情＋輸入列）的高 */
 const footHeight = (fs: number) => 1 + 10 + (24 * fs + 12) + 44 + 30;
 
@@ -167,8 +171,8 @@ export function layoutSheet(
   if (off) {
     const b = ui(16 * fs, 700);
     const s = ui(14 * fs);
-    const bl = 16 * fs * 1.45;
-    const sl = 14 * fs * 1.45;
+    const bl = 16 * fs * INHERIT_LH;
+    const sl = 14 * fs * INHERIT_LH;
     const content = bl + 6 + sl;
     const natural = Math.max(220, 40 + content + 80);
     listH = fixedHeight !== undefined ? Math.max(0, fixedHeight - hh) : natural;
@@ -221,7 +225,7 @@ export function layoutSheet(
     r: 2,
     fill: withAlpha(pal.sec, 0.5),
   });
-  const tl = 16 * fs * 1.45;
+  const tl = 16 * fs * INHERIT_LH;
   ops.push({
     t: 'text',
     x: W / 2,

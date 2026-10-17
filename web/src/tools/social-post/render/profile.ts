@@ -7,7 +7,7 @@ import { S } from '../strings';
 import { ellipsize, type FontSpec, layoutLines, linkTokens, type Run } from '../text';
 import { avatar, type Env, linesToOps, PHONE_H, STATUS_H, statusBar, W } from './common';
 import type { Hit, Op, Rect, ScreenLayout } from './ops';
-import { ui } from './theme';
+import { INHERIT_LH, ui } from './theme';
 
 const PAD = 16;
 export const NAV_H = 84;
@@ -101,7 +101,7 @@ export function profileScreen(env: Env, opts: ProfileOptions = {}): ScreenLayout
     const rightW = W - PAD - rightX;
     /* 右邊的高：名稱（＋6）＋數字 */
     const nf = ui(15 * fs, 600);
-    const nameLh = 15 * fs * 1.45;
+    const nameLh = 15 * fs * INHERIT_LH;
     const nameH = pr.name ? nameLh + 6 : 0;
     const statH = 17 * fs * 1.2 + 14 * fs * 1.2;
     const rightH = nameH + statH;
@@ -246,7 +246,7 @@ export function profileScreen(env: Env, opts: ProfileOptions = {}): ScreenLayout
   if (a.showHL) {
     const top = y + 16;
     const tf = ui(12 * fs);
-    const tl = 12 * fs * 1.45;
+    const tl = 12 * fs * INHERIT_LH;
     const items: Op[] = [];
     let x = PAD;
     a.highlights.forEach((h, i) => {

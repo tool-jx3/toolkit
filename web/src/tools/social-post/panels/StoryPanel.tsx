@@ -56,6 +56,7 @@ import {
   cellCount,
   clearCell,
   duplicateStory,
+  imageSize,
   isBgPreset,
   LAYOUT_GRID,
   LIMITS,
@@ -76,12 +77,16 @@ import {
   type StoryBottom,
   type StoryFont,
   type StoryLayout,
+  setStoryGap,
+  setStoryLayout,
   stickerAction,
+  storyCellRects,
   TEXT_BGS,
   TEXT_SWATCHES,
   type TextBg,
   ZOOM_MAX,
 } from '../model';
+import { zoomPlace } from '../place';
 import { loadImageSource } from '../render/screens';
 import { cellRects } from '../render/story';
 import {
@@ -184,7 +189,7 @@ function LayoutSection({ story }: { story: Story }) {
           value={story.layout}
           onValueChange={(v) => {
             editStory(story.id, (s) => {
-              s.layout = v;
+              setStoryLayout(s, v);
             });
             setPrefs({ cell: 0 });
           }}
@@ -232,7 +237,14 @@ function LayoutSection({ story }: { story: Story }) {
               unit="%"
               onChange={gesture.live((v: number) =>
                 editStory(story.id, (s) => {
-                  s.cells[sel].place = { ...s.cells[sel].place, zoom: v / 100 };
+                  const cell = s.cells[sel];
+                  if (cell.image)
+                    cell.place = zoomPlace(
+                      imageSize(cell.image),
+                      storyCellRects(s.layout, s.gap)[sel],
+                      cell.place,
+                      v / 100,
+                    );
                 }),
               )}
               onCommit={gesture.commit}
@@ -275,7 +287,7 @@ function LayoutSection({ story }: { story: Story }) {
             precision={2}
             onChange={gesture.live((v: number) =>
               editStory(story.id, (s) => {
-                s.gap = v;
+                setStoryGap(s, v);
               }),
             )}
             onCommit={gesture.commit}

@@ -139,6 +139,7 @@ async function postLayers(
     }
     layer.car = {
       rect: rel(rect, statusH),
+      hit: rel(full.parts.media, statusH),
       slides,
       index: Math.max(0, Math.min(post.current, post.photos.length - 1)),
       prev: S.viewer.prev,

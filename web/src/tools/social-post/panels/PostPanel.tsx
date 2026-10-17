@@ -32,6 +32,7 @@ import {
   blankPost,
   type CountStyle,
   duplicatePost,
+  imageSize,
   LIMITS,
   MAX,
   movePhoto,
@@ -41,10 +42,13 @@ import {
   RATIO_VALUE,
   RATIOS,
   type Ratio,
+  ratioBox,
   removePhoto,
   removePost,
+  setPostRatio,
   ZOOM_MAX,
 } from '../model';
+import { zoomPlace } from '../place';
 import { loadImageSource, thumbSource } from '../render/screens';
 import {
   assets,
@@ -181,7 +185,8 @@ function PhotosSection({ post }: { post: Post }) {
               onChange={gesture.live((v: number) =>
                 editPost(post.id, (p) => {
                   const ph = p.photos[p.current];
-                  if (ph) ph.place = { ...ph.place, zoom: v / 100 };
+                  if (ph)
+                    ph.place = zoomPlace(imageSize(ph.image), ratioBox(p.ratio), ph.place, v / 100);
                 }),
               )}
               onCommit={gesture.commit}
@@ -245,7 +250,7 @@ function PhotosSection({ post }: { post: Post }) {
           value={post.ratio}
           onValueChange={(v) =>
             editPost(post.id, (p) => {
-              p.ratio = v as Ratio;
+              setPostRatio(p, v as Ratio);
             })
           }
           options={RATIOS.map((r) => ({ value: r, label: S.ratios[r] }))}

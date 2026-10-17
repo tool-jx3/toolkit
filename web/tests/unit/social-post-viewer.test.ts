@@ -134,6 +134,19 @@ describe('HTML 檔', () => {
     expect(car).toContain('data-car="1"');
   });
 
+  it('輪播：只有照片可以點（圓點列、舊式的按鈕列不換照片，同原作）', () => {
+    const d = doc();
+    const layer = d.screens[1].layers[1];
+    if (!layer.car) throw new Error('car');
+    /* 新式：輪播的圖是照片 487.5 ＋ 圓點列 18.5；點的範圍只有照片 */
+    layer.car.hit = { x: 0, y: 56, width: 390, height: 487.5 };
+    const html = viewerHtml(d);
+    const car = html.match(/<div class="v-car"[^>]*>(.*?)<\/div>/)?.[1] ?? '';
+    const btns = car.match(/<button [^>]*data-car="-?1"[^>]*>/g) ?? [];
+    expect(btns).toHaveLength(2);
+    for (const b of btns) expect(b).toContain('top:0.0000%;height:96.3439%');
+  });
+
   it('進度條：寬度從 0 開始、跑滿的寬度記在 data-w', () => {
     const html = viewerHtml(doc());
     expect(html).toMatch(/<div class="v-bar" data-w="31\.1111%" style="[^"]*width:0"><\/div>/);

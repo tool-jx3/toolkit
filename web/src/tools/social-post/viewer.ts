@@ -30,8 +30,18 @@ export interface VLayer {
   img: VImg;
   spots?: VSpot[];
   sticky?: 'top' | 'bottom';
-  /** 輪播：照片框＋膠囊＋圓點那一段，每張照片一張圖 */
-  car?: { rect: VRect; slides: VImg[]; index: number; prev: string; next: string };
+  /**
+   * 輪播：照片框＋膠囊＋圓點那一段，每張照片一張圖；hit＝可以點的照片框（同 rect 的座標；不給時整段）。
+   * 原作只有照片可以點（左半上一張、右半下一張），照片下面的圓點列、舊式的按鈕列不換照片（F91）。
+   */
+  car?: {
+    rect: VRect;
+    hit?: VRect;
+    slides: VImg[];
+    index: number;
+    prev: string;
+    next: string;
+  };
 }
 
 export interface VScreen {
@@ -84,14 +94,22 @@ function spotHtml(s: VSpot, img: VImg): string {
   return `<button type="button" class="v-spot" ${s.attr} style="${box(s.rect, img)}" aria-label="${escapeHtmlAttr(s.label)}"></button>`;
 }
 
+/** 輪播的左右兩半（可以點的照片框，以輪播那一段為 100%） */
+function carSpots(c: NonNullable<VLayer['car']>): string {
+  const hit = c.hit ?? c.rect;
+  const top = pct(hit.y - c.rect.y, c.rect.height);
+  const height = pct(hit.height, c.rect.height);
+  const half = (dir: -1 | 1, label: string) =>
+    `<button type="button" class="v-spot v-half" data-car="${dir}" style="left:${dir < 0 ? '0' : '50%'};width:50%;top:${top};height:${height}" aria-label="${escapeHtmlAttr(label)}"></button>`;
+  return half(-1, c.prev) + half(1, c.next);
+}
+
 function layerHtml(l: VLayer): string {
   const cls = `v-layer${l.sticky ? ` v-sticky-${l.sticky}` : ''}`;
   const car = l.car
     ? `<div class="v-car" style="${box(l.car.rect, l.img)}">${l.car.slides
         .map((s, i) => image(s, i === l.car?.index ? '' : ' hidden'))
-        .join(
-          '',
-        )}<button type="button" class="v-spot v-half" data-car="-1" style="left:0;top:0;width:50%;height:100%" aria-label="${escapeHtmlAttr(l.car.prev)}"></button><button type="button" class="v-spot v-half" data-car="1" style="left:50%;top:0;width:50%;height:100%" aria-label="${escapeHtmlAttr(l.car.next)}"></button></div>`
+        .join('')}${carSpots(l.car)}</div>`
     : '';
   return `<div class="${cls}">${image(l.img)}${car}${(l.spots ?? []).map((s) => spotHtml(s, l.img)).join('')}</div>`;
 }

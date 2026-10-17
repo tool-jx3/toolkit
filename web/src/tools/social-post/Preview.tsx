@@ -171,15 +171,14 @@ function StoryOverlay({
       },
     };
   });
-  const apply = (id: string, p: Placement, clampPos: boolean) =>
+  /* 中心夾在畫面的 −10%～110%（同原作；拖曳中、方向鍵、放開都是） */
+  const apply = (id: string, p: Placement) =>
     editStory(story.id, (s) => {
       const k = s.stickers.find((x) => x.id === id);
       const l = nat.get(id);
       if (!k || !l) return;
-      const x = (p.cx / W) * 100;
-      const y = (p.cy / H) * 100;
-      k.x = clampPos ? clampStickerPos(x) : x;
-      k.y = clampPos ? clampStickerPos(y) : y;
+      k.x = clampStickerPos((p.cx / W) * 100);
+      k.y = clampStickerPos((p.cy / H) * 100);
       k.scale = Math.min(
         STICKER_SCALE_RANGE[1],
         Math.max(STICKER_SCALE_RANGE[0], p.width / (l.w * K)),
@@ -214,13 +213,17 @@ function StoryOverlay({
       onSelectSticker={(id) => setPrefs({ sticker: id })}
       stickerGestures
       stickerRange={{ min: 6, max: Math.max(W, H) * 6 }}
-      stickerMargin={12}
+      stickerClamp={(p) => ({
+        ...p,
+        cx: (clampStickerPos((p.cx / W) * 100) / 100) * W,
+        cy: (clampStickerPos((p.cy / H) * 100) / 100) * H,
+      })}
       onStickerChange={(id, p, phase) => {
         if (phase === 'start') {
           gesture.begin();
           return;
         }
-        apply(id, p, phase === 'end');
+        apply(id, p);
         if (phase === 'end') gesture.commit();
       }}
       onStickerDelete={(id) => act(id, 'delete')}

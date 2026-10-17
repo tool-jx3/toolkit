@@ -3,9 +3,11 @@
  * LayoutCanvas 的選填擴充（社群貼文產生器移植時新增，向下相容）：
  * - children：疊在點選區與貼紙下面的工具自己的操作層（例如拖曳照片），點了不會取消選取貼紙；
  * - stickerGestures：滾輪縮放、Shift＋滾輪旋轉、兩指捏合（縮放＋旋轉）；不給時滾輪與第二指不做事。
+ * - stickerClamp：放開時用工具自己的範圍代替 keepInside（社群貼文產生器的貼紙中心夾在 −10%～110%）；不給時照舊。
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { Placement } from '@/core/scene';
 import { LayoutCanvas } from '@/ui';
 
 const sticker = {
@@ -127,5 +129,48 @@ describe('LayoutCanvas：stickerGestures', () => {
     expect(moved.width).toBeCloseTo(80);
     fireEvent.pointerUp(el, { pointerId: 1, clientX: 55, clientY: 50 });
     expect(onChange.mock.calls.at(-1)?.[2]).toBe('end');
+  });
+});
+
+describe('LayoutCanvas：stickerClamp', () => {
+  const outside = {
+    id: 's1',
+    label: '貼紙：星星',
+    placement: { cx: 50, cy: -40, width: 40, height: 20, rotation: 0 },
+  };
+  const release = (el: HTMLElement) => {
+    fireEvent.pointerDown(el, { button: 0, pointerId: 1, clientX: 50, clientY: 0 });
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: 50, clientY: 0 });
+  };
+
+  it('不給時放開照舊拉回畫布裡（至少留 stickerMargin）', () => {
+    const onChange = vi.fn();
+    render(
+      <LayoutCanvas width={100} height={100} stickers={[outside]} onStickerChange={onChange} />,
+    );
+    layout(screen.getByTestId('layout-canvas'));
+    release(document.querySelector('[data-sticker="s1"]') as HTMLElement);
+    const end = onChange.mock.calls.find((c) => c[2] === 'end');
+    /* 下緣（cy ＋ 10）拉到 16 */
+    expect(end?.[1].cy).toBeCloseTo(6);
+  });
+
+  it('給了就用它代替 keepInside（中心夾在 −10%～110%）', () => {
+    const onChange = vi.fn();
+    const clamp = vi.fn((p: Placement) => ({ ...p, cy: Math.max(-10, Math.min(110, p.cy)) }));
+    render(
+      <LayoutCanvas
+        width={100}
+        height={100}
+        stickers={[outside]}
+        onStickerChange={onChange}
+        stickerClamp={clamp}
+      />,
+    );
+    layout(screen.getByTestId('layout-canvas'));
+    release(document.querySelector('[data-sticker="s1"]') as HTMLElement);
+    const end = onChange.mock.calls.find((c) => c[2] === 'end');
+    expect(end?.[1].cy).toBe(-10);
+    expect(clamp).toHaveBeenCalledWith(outside.placement, expect.objectContaining({ id: 's1' }));
   });
 });

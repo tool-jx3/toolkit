@@ -33,6 +33,14 @@ import { S } from '../strings';
 
 const setAcc = (recipe: (a: Account) => void) => edit((d) => recipe(d.account));
 
+/*
+ * 「連到」選單的值（F78）：Radix Select 把空字串當成沒有選取（顯示空白），所以「無」不用空字串；
+ * 限時動態的 id 加前綴，不會和「無」撞在一起（存檔仍是 story：id 或 null）。
+ */
+const LINK_NONE = 'none';
+const LINK_PREFIX = 'story:';
+const linkValue = (id: string) => `${LINK_PREFIX}${id}`;
+
 function HighlightCard({ h, i }: { h: Highlight; i: number }) {
   const stories = useDoc((s) => s.data.stories);
   const linked = h.story ? stories.find((s) => s.id === h.story) : undefined;
@@ -92,15 +100,15 @@ function HighlightCard({ h, i }: { h: Highlight; i: number }) {
       <Field label={S.highlightStory}>
         <Select
           aria-label={`${title}：${S.highlightStory}`}
-          value={h.story ?? ''}
+          value={h.story ? linkValue(h.story) : LINK_NONE}
           onValueChange={(v) =>
             set((x) => {
-              x.story = v || null;
+              x.story = v.startsWith(LINK_PREFIX) ? v.slice(LINK_PREFIX.length) : null;
             })
           }
           options={[
-            { value: '', label: S.highlightNone },
-            ...stories.map((s, k) => ({ value: s.id, label: S.storyChip(k + 1) })),
+            { value: LINK_NONE, label: S.highlightNone },
+            ...stories.map((s, k) => ({ value: linkValue(s.id), label: S.storyChip(k + 1) })),
           ]}
         />
       </Field>

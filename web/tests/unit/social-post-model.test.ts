@@ -32,8 +32,13 @@ import {
   type SocialState,
   STORY_LAYOUTS,
   setCellImage,
+  setPostRatio,
+  setStoryGap,
+  setStoryLayout,
   stickerAction,
+  storyCellRects,
 } from '../../src/tools/social-post/model';
+import { anchorOf } from '../../src/tools/social-post/place';
 
 const clone = (s: SocialState): SocialState => structuredClone(s);
 const asset = (id: string) => ({
@@ -253,6 +258,90 @@ describe('格子（F49、F50）', () => {
     expect(st.cells[2]).toEqual({ image: asset('c'), place: { zoom: 1, x: 0, y: 0, turns: 0 } });
     clearCell(st, 2);
     expect(st.cells[2].image).toBeNull();
+  });
+});
+
+describe('照片的位置：換比例、換版面、間距、整理存檔（F20、F51、3.9）', () => {
+  /* 1500 × 1200 的橫圖：4:5 時高剛好蓋滿、左右多出來 */
+  const wide = { kind: 'asset' as const, id: 'w', name: 'w.jpg', width: 1500, height: 1200 };
+  const IMG = { width: 1500, height: 1200 };
+  const box = (r: number) => ({ width: 1, height: 1 / r });
+
+  it('換比例：每張照片在可以移動的範圍裡的比例不變（原作的 object-position）', () => {
+    const p = blankPost('p1');
+    addPhotos(p, [wide, wide]);
+    p.photos[0].place = { zoom: 1, x: 0.1, y: 0, turns: 0 };
+    p.photos[1].place = { zoom: 2, x: -0.3, y: 0.2, turns: 0 };
+    const before = p.photos.map((x) => anchorOf(IMG, box(4 / 5), x.place));
+    setPostRatio(p, '1:1');
+    expect(p.ratio).toBe('1:1');
+    p.photos.forEach((x, i) => {
+      const a = anchorOf(IMG, box(1), x.place);
+      expect(a.x).toBeCloseTo(before[i].x);
+      expect(a.y).toBeCloseTo(before[i].y);
+    });
+    /* 1:1 的範圍是 ±0.125：在範圍裡 */
+    expect(Math.abs(p.photos[0].place.x)).toBeLessThanOrEqual(0.125);
+  });
+
+  it('換版面：看得到的格子保持比例；藏起來的格子換回來時回到原來的位置', () => {
+    const st = blankStory('s1');
+    setCellImage(st, 0, wide);
+    setCellImage(st, 3, wide);
+    const r4 = storyCellRects('4', st.gap);
+    st.cells[3].place = { zoom: 2, x: 0.2, y: -0.1, turns: 0 };
+    const a3 = anchorOf(IMG, r4[3], st.cells[3].place);
+    st.cells[0].place = { zoom: 1.5, x: -0.2, y: 0, turns: 0 };
+    const a0 = anchorOf(IMG, r4[0], st.cells[0].place);
+    setStoryLayout(st, '1');
+    expect(st.layout).toBe('1');
+    const r1 = storyCellRects('1', st.gap);
+    expect(anchorOf(IMG, r1[0], st.cells[0].place).x).toBeCloseTo(a0.x);
+    setStoryLayout(st, '4');
+    const back = anchorOf(IMG, r4[3], st.cells[3].place);
+    expect(back.x).toBeCloseTo(a3.x);
+    expect(back.y).toBeCloseTo(a3.y);
+    expect(st.cells[3].place.x).toBeCloseTo(0.2);
+    expect(st.cells[3].place.y).toBeCloseTo(-0.1);
+    expect(st.cells[3].place.ax).toBeUndefined();
+  });
+
+  it('間距：格子變大變小時比例不變', () => {
+    const st = blankStory('s1');
+    setCellImage(st, 1, wide);
+    st.cells[1].place = { zoom: 1.2, x: 0.15, y: 0.03, turns: 0 };
+    const a = anchorOf(IMG, storyCellRects('4', st.gap)[1], st.cells[1].place);
+    setStoryGap(st, 3);
+    expect(st.gap).toBe(3);
+    const b = anchorOf(IMG, storyCellRects('4', 3)[1], st.cells[1].place);
+    expect(b.x).toBeCloseTo(a.x);
+    expect(b.y).toBeCloseTo(a.y);
+  });
+
+  it('開檔、還原：照片、格狀縮圖、看得到的格子的位置夾回蓋滿的範圍；剛好放得下的那一邊的比例留著', () => {
+    const raw = clone(initialState());
+    raw.posts[0].photos = [{ id: 'ph1', image: wide, place: { zoom: 1, x: 9, y: -9, turns: 0 } }];
+    raw.posts[0].ratio = '1:1';
+    raw.posts[0].thumb = { zoom: 2, x: -3, y: 0, turns: 0 };
+    raw.stories[0].layout = '1';
+    raw.stories[0].cells[0] = {
+      image: wide,
+      place: { zoom: 1, x: 0, y: 0, turns: 0, ax: 0.25, ay: 0.8 },
+    };
+    raw.stories[0].cells[4] = { image: wide, place: { zoom: 1, x: 3, y: 0, turns: 0, ax: 0.1 } };
+    const n = normalizeState(raw);
+    expect(n.posts[0].photos[0].place.x).toBeCloseTo(0.125);
+    expect(n.posts[0].photos[0].place.y).toBe(0);
+    /* 格狀縮圖（1:1，第一張照片）：2 倍時左右的範圍是 ±(1.25 × 2 − 1) ÷ 2 */
+    expect(n.posts[0].thumb.x).toBeCloseTo(-0.75);
+    /* 1 張版面（360 × 640）：高蓋滿、左右可以移動 → ax 不留；ay 留著 */
+    expect(n.stories[0].cells[0].place.ax).toBeUndefined();
+    expect(n.stories[0].cells[0].place.ay).toBe(0.8);
+    /* 藏起來的格子不動 */
+    expect(n.stories[0].cells[4].place).toEqual({ zoom: 1, x: 3, y: 0, turns: 0, ax: 0.1 });
+    /* 沒有超出的不變 */
+    const again = normalizeState(n);
+    expect(again).toEqual(n);
   });
 });
 

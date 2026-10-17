@@ -23,19 +23,23 @@ export const STATUS_H = 54;
 
 /* ---------- 狀態列（3.4） ---------- */
 
-/** 電池、訊號、Wi-Fi（右邊對齊在 right、垂直置中在 cy） */
+/**
+ * 電池、訊號、Wi-Fi（右邊對齊在 right、垂直置中在 cy）。原作的圖示是 18 × 12、16 × 12、27 × 13 的 svg，間隔 6。
+ * k＝訊號與 Wi-Fi 的倍率、kb＝電池的倍率、gap＝間隔（限時動態每個圖示的高都設成 3.2 cqw，所以電池的倍率不同、間隔 1.4 cqw）。
+ */
 export function statusIcons(
   right: number,
   cy: number,
   color: string,
   battery: number,
   k = 1,
+  kb = k,
+  gap = 6 * k,
 ): Op[] {
   const ops: Op[] = [];
   const sigW = 18 * k;
   const wifiW = 16 * k;
-  const batW = 27 * k;
-  const gap = 6 * k;
+  const batW = 27 * kb;
   let x = right - (sigW + wifiW + batW + gap * 2);
   /* 訊號：4 格 */
   const bars: [number, number, number][] = [
@@ -69,32 +73,32 @@ export function statusIcons(
   x += wifiW + gap;
   /* 電池 */
   const lv = Math.max(4, Math.min(100, battery));
-  const btop = cy - 6.5 * k;
+  const btop = cy - 6.5 * kb;
   ops.push({
     t: 'rect',
-    x: x + 0.5 * k,
-    y: btop + 0.5 * k,
-    w: 23 * k,
-    h: 12 * k,
-    r: 3.5 * k,
-    stroke: { color: withAlpha(color, 0.4), width: 1 * k },
+    x: x + 0.5 * kb,
+    y: btop + 0.5 * kb,
+    w: 23 * kb,
+    h: 12 * kb,
+    r: 3.5 * kb,
+    stroke: { color: withAlpha(color, 0.4), width: 1 * kb },
   });
   ops.push({
     t: 'rect',
-    x: x + 2 * k,
-    y: btop + 2 * k,
-    w: (lv / 100) * 20 * k,
-    h: 9 * k,
-    r: 2 * k,
+    x: x + 2 * kb,
+    y: btop + 2 * kb,
+    w: (lv / 100) * 20 * kb,
+    h: 9 * kb,
+    r: 2 * kb,
     fill: battery <= 20 ? '#ff3b30' : color,
   });
   ops.push({
     t: 'rect',
-    x: x + 25 * k,
-    y: btop + 4.5 * k,
-    w: 1.4 * k,
-    h: 4 * k,
-    r: 0.7 * k,
+    x: x + 25 * kb,
+    y: btop + 4.5 * kb,
+    w: 1.4 * kb,
+    h: 4 * kb,
+    r: 0.7 * kb,
     fill: withAlpha(color, 0.45),
   });
   return ops;

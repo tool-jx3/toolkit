@@ -5,6 +5,17 @@
  * 清單操作直接改傳進來的物件（給 store 的 Immer draft 用；測試時傳複本）。
  */
 import { DEFAULT_PLACEMENT, type FramePlacement, normalizePlacement } from '@/core/image';
+import {
+  anchorOf,
+  fitPlace,
+  type PhotoPlace,
+  placeAt,
+  refitPlace,
+  type Size,
+  ZOOM_MAX,
+} from './place';
+
+export { ZOOM_MAX } from './place';
 
 /* ---------- 範圍 ---------- */
 
@@ -48,8 +59,6 @@ export const MAX = {
   grid: 60,
 } as const;
 
-/** 照片在框裡的縮放上限（蓋滿＝1；原作 1～5） */
-export const ZOOM_MAX = 5;
 /** 放進資產庫時的長邊上限（F98） */
 export const IMAGE_MAX = { photo: 1800, avatar: 600, sticker: 1200 } as const;
 
@@ -134,7 +143,8 @@ export interface ScreenSettings {
 export interface Photo {
   id: string;
   image: ImageRef;
-  place: FramePlacement;
+  /** 照片在框裡的位置（place.ts：縮放、換比例時照原作保持比例） */
+  place: PhotoPlace;
 }
 
 export interface Comment {
@@ -165,6 +175,9 @@ export const RATIO_VALUE: Record<Ratio, number> = {
   '3:4': 3 / 4,
   '1.91:1': 1.91,
 };
+
+/** 照片框的大小（只看寬高比：寬 1、高 1 ÷ 比例） */
+export const ratioBox = (r: Ratio): Size => ({ width: 1, height: 1 / RATIO_VALUE[r] });
 
 export type CountStyle = 'inline' | 'classic';
 export type SheetHeight = 'half' | 'full';
@@ -214,7 +227,28 @@ export const CELL_SLOTS = 6;
 
 export interface Cell {
   image: ImageRef | null;
-  place: FramePlacement;
+  /** 照片在格子裡的位置（place.ts；藏起來的格子 ax／ay 都記著） */
+  place: PhotoPlace;
+}
+
+/** 限時動態的畫面大小（畫面單位；cqw ＝ 寬的 1%） */
+export const STORY_W = 360;
+export const STORY_H = 640;
+
+/** 格子的位置（看得到的格子；間距以 cqw 計） */
+export function storyCellRects(
+  layout: StoryLayout,
+  gap: number,
+): { x: number; y: number; width: number; height: number }[] {
+  const { cols, rows } = LAYOUT_GRID[layout];
+  const g = (gap * STORY_W) / 100;
+  const cw = (STORY_W - (cols - 1) * g) / cols;
+  const ch = (STORY_H - (rows - 1) * g) / rows;
+  const out: { x: number; y: number; width: number; height: number }[] = [];
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      out.push({ x: c * (cw + g), y: r * (ch + g), width: cw, height: ch });
+  return out;
 }
 
 export const STORY_FONTS = ['classic', 'modern', 'neon', 'type', 'strong', 'serif'] as const;
@@ -810,6 +844,15 @@ export function movePhoto(p: Post, from: number, to: number): void {
   p.current = to;
 }
 
+/** 換比例：每張照片在可以移動的範圍裡的比例不變（原作的 object-position；位置在新的框的範圍裡） */
+export function setPostRatio(p: Post, ratio: Ratio): void {
+  if (p.ratio === ratio) return;
+  const from = ratioBox(p.ratio);
+  const to = ratioBox(ratio);
+  for (const x of p.photos) x.place = refitPlace(imageSize(x.image), from, to, x.place);
+  p.ratio = ratio;
+}
+
 /* ---------- 留言 ---------- */
 
 export function addComment(p: Post, used?: Iterable<string>): string | null {
@@ -880,6 +923,45 @@ export function setCellImage(st: Story, i: number, image: ImageRef): void {
 export function clearCell(st: Story, i: number): void {
   if (i < 0 || i >= CELL_SLOTS) return;
   st.cells[i] = { image: null, place: place0() };
+}
+
+/**
+ * 格子換了大小（換版面、間距）：看得到的格子保持比例（原作）；藏起來的格子兩邊的比例都記著（ax、ay），
+ * 再出現時照比例放回新的格子。
+ */
+function relayoutCells(st: Story, before: readonly Size[]): void {
+  const after = storyCellRects(st.layout, st.gap);
+  st.cells.forEach((c, i) => {
+    if (!c.image) return;
+    const img = imageSize(c.image);
+    const a = before[i];
+    const b = after[i];
+    if (a && b) c.place = refitPlace(img, a, b, c.place);
+    else if (a) {
+      const an = anchorOf(img, a, c.place);
+      c.place = { ...c.place, ax: an.x, ay: an.y };
+    } else if (b) {
+      const p = c.place;
+      const derived = anchorOf(img, b, fitPlace(img, b, p));
+      c.place = placeAt(img, b, { x: p.ax ?? derived.x, y: p.ay ?? derived.y }, p.zoom, p.turns);
+    }
+  });
+}
+
+/** 換版面（選取回到第 1 格由畫面處理） */
+export function setStoryLayout(st: Story, layout: StoryLayout): void {
+  if (st.layout === layout) return;
+  const before = storyCellRects(st.layout, st.gap);
+  st.layout = layout;
+  relayoutCells(st, before);
+}
+
+/** 換間距（格子變大變小） */
+export function setStoryGap(st: Story, gap: number): void {
+  if (st.gap === gap) return;
+  const before = storyCellRects(st.layout, st.gap);
+  st.gap = gap;
+  relayoutCells(st, before);
 }
 
 /** 限時動態的封面：第一個有照片的格子（看得到的格子） */
@@ -1040,6 +1122,18 @@ const color = (v: unknown, fallback: string): string =>
   typeof v === 'string' && HEX.test(v) ? v.toLowerCase() : fallback;
 const placeOf = (v: unknown): FramePlacement =>
   normalizePlacement(v, { minZoom: 1, maxZoom: ZOOM_MAX, limit: 10 });
+/** 照片的位置：共用的位置＋剛好放得下的那一邊記著的比例（0～1） */
+function photoPlaceOf(v: unknown): PhotoPlace {
+  const p: PhotoPlace = placeOf(v);
+  const o = isObj(v) ? v : {};
+  const frac = (x: unknown) =>
+    typeof x === 'number' && Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : undefined;
+  const ax = frac(o.ax);
+  const ay = frac(o.ay);
+  if (ax !== undefined) p.ax = ax;
+  if (ay !== undefined) p.ay = ay;
+  return p;
+}
 
 /** 圖（不認得的回傳 null） */
 export function normalizeImage(v: unknown): ImageRef | null {
@@ -1103,8 +1197,14 @@ function normalizePost(v: unknown, used: IdSets): Post | null {
     if (!isObj(x) || photos.length >= MAX.photos) continue;
     const image = normalizeImage(x.image);
     if (!image) continue;
-    photos.push({ id: idFor(x.id, 'ph', used.photos), image, place: placeOf(x.place) });
+    photos.push({ id: idFor(x.id, 'ph', used.photos), image, place: photoPlaceOf(x.place) });
   }
+  const ratio = oneOf(v.ratio, RATIOS, '4:5');
+  /* 位置夾回蓋滿的範圍（3.9） */
+  for (const x of photos) x.place = fitPlace(imageSize(x.image), ratioBox(ratio), x.place);
+  const thumb = photos[0]
+    ? fitPlace(imageSize(photos[0].image), { width: 1, height: 1 }, placeOf(v.thumb))
+    : placeOf(v.thumb);
   const sheet = isObj(v.sheet) ? v.sheet : {};
   const items: Comment[] = [];
   if (Array.isArray(sheet.items)) {
@@ -1123,7 +1223,7 @@ function normalizePost(v: unknown, used: IdSets): Post | null {
     id,
     photos,
     current: num(v.current, [0, Math.max(0, photos.length - 1)], 0, true),
-    ratio: oneOf(v.ratio, RATIOS, '4:5'),
+    ratio,
     location: str(v.location, LIMITS.location, d.location),
     collab: str(v.collab, LIMITS.collab, d.collab),
     follow: bool(v.follow, d.follow),
@@ -1141,7 +1241,7 @@ function normalizePost(v: unknown, used: IdSets): Post | null {
     caption: str(v.caption, LIMITS.caption, d.caption),
     collapse: bool(v.collapse, d.collapse),
     time: str(v.time, LIMITS.postTime, d.time),
-    thumb: placeOf(v.thumb),
+    thumb,
     sheet: {
       backdrop: bool(sheet.backdrop, true),
       height: oneOf(sheet.height, ['half', 'full'] as const, 'half'),
@@ -1225,9 +1325,16 @@ function normalizeStory(v: unknown, used: IdSets): Story | null {
   if (Array.isArray(v.cells)) {
     v.cells.slice(0, CELL_SLOTS).forEach((c, i) => {
       if (!isObj(c)) return;
-      cells[i] = { image: normalizeImage(c.image), place: placeOf(c.place) };
+      cells[i] = { image: normalizeImage(c.image), place: photoPlaceOf(c.place) };
     });
   }
+  const layout = oneOf(v.layout, STORY_LAYOUTS, d.layout);
+  const gap = Math.round(num(v.gap, GAP_RANGE, d.gap) * 4) / 4;
+  /* 看得到的格子的位置夾回蓋滿的範圍（3.9）；藏起來的格子不動（ax、ay 記著比例） */
+  storyCellRects(layout, gap).forEach((r, i) => {
+    const c = cells[i];
+    if (c.image) c.place = fitPlace(imageSize(c.image), r, c.place);
+  });
   const stickers: Sticker[] = [];
   for (const k of Array.isArray(v.stickers) ? v.stickers : []) {
     if (stickers.length >= MAX.stickers) break;
@@ -1238,9 +1345,9 @@ function normalizeStory(v: unknown, used: IdSets): Story | null {
     typeof v.bg === 'string' && (isBgPreset(v.bg) || HEX.test(v.bg)) ? v.bg.toLowerCase() : d.bg;
   return {
     id,
-    layout: oneOf(v.layout, STORY_LAYOUTS, d.layout),
+    layout,
     cells,
-    gap: Math.round(num(v.gap, GAP_RANGE, d.gap) * 4) / 4,
+    gap,
     gapColor: color(v.gapColor, d.gapColor),
     bg,
     stickers,

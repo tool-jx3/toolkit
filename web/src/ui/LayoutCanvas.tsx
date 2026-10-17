@@ -8,6 +8,7 @@
  * - 社群貼文產生器加的（選填，不給時行為不變）：`children`＝疊在點選區與貼紙下面的操作層（例如拖曳格子裡的照片；
  *   點了不會取消選取貼紙）；`stickerGestures`＝貼紙的滾輪縮放、Shift＋滾輪旋轉（phase 'nudge'）、兩指捏合縮放＋旋轉
  *   （第二指可以落在畫布的任何地方；放開一指後剩下的那指接著拖曳，全部放開才 'end'）。
+ *   `stickerClamp`＝放開時用工具自己的範圍代替 keepInside（例如貼紙的中心夾在畫面的 −10%～110%；社群貼文產生器對等驗證後新增）。
  *
  * ```tsx
  * const picker = useMemo(() => createCanvasPicker(), []);
@@ -131,6 +132,11 @@ export interface LayoutCanvasProps {
   stickerRange?: { min: number; max: number };
   /** 放開時至少留在範圍裡的距離（預設 16） */
   stickerMargin?: number;
+  /**
+   * 放開時把位置拉回範圍的方式（給了就代替 keepInside，stickerMargin 不用；回傳 'end' 交出去的位置）。
+   * 不給時照舊：至少留 stickerMargin 在 bounds（預設整個畫布）裡。
+   */
+  stickerClamp?: (placement: Placement, sticker: LayoutSticker) => Placement;
   /** 選取中的貼紙下方的工具按鈕 */
   stickerToolbar?: (id: string) => ReactNode;
   /** 取色控制器 */
@@ -213,6 +219,7 @@ export function LayoutCanvas({
   onStickerDelete,
   stickerRange,
   stickerMargin = 16,
+  stickerClamp,
   stickerToolbar,
   picker,
   pickSource,
@@ -442,7 +449,10 @@ export function LayoutCanvas({
     setDragging(null);
     const s = stickers.find((it) => it.id === d.id);
     const cur = s?.placement ?? d.start;
-    const fixed = keepInside(cur, s?.bounds ?? { x: 0, y: 0, width, height }, stickerMargin);
+    const fixed =
+      stickerClamp && s
+        ? stickerClamp(cur, s)
+        : keepInside(cur, s?.bounds ?? { x: 0, y: 0, width, height }, stickerMargin);
     onStickerChange?.(d.id, fixed, 'end');
   };
 

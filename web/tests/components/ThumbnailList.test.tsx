@@ -52,6 +52,80 @@ describe('ThumbnailList', () => {
     expect(onRemove).toHaveBeenCalledWith('x');
   });
 
+  it('排序：清單有焦點時 Alt＋←／→（格線）移動選取中的那張；焦點在某張的按鈕上時移動那一張', () => {
+    const onReorder = vi.fn();
+    const onSelect = vi.fn();
+    const items = [
+      { id: 'a', name: 'a.png', image: 'blob:test/a' },
+      { id: 'b', name: 'b.png', image: 'blob:test/b' },
+      { id: 'c', name: 'c.png', image: 'blob:test/c' },
+    ];
+    render(
+      <UiProvider>
+        <ThumbnailList
+          aria-label="照片清單"
+          items={items}
+          selectedId="b"
+          onSelect={onSelect}
+          onRemove={() => {}}
+          onReorder={onReorder}
+        />
+      </UiProvider>,
+    );
+    const list = screen.getByRole('list', { name: '照片清單' });
+    list.focus();
+    fireEvent.keyDown(list, { key: 'ArrowRight', altKey: true });
+    expect(onReorder).toHaveBeenLastCalledWith(1, 2);
+    expect(onSelect).toHaveBeenLastCalledWith('b');
+    fireEvent.keyDown(list, { key: 'ArrowLeft', altKey: true });
+    expect(onReorder).toHaveBeenLastCalledWith(1, 0);
+    /* 焦點在第 3 張的移除按鈕上 */
+    const remove = screen.getByRole('button', { name: '移除「c.png」' });
+    remove.focus();
+    fireEvent.keyDown(remove, { key: 'ArrowLeft', altKey: true });
+    expect(onReorder).toHaveBeenLastCalledWith(2, 1);
+    /* 到頭時不動；沒有 Alt 時 ←／→ 不排序 */
+    onReorder.mockClear();
+    fireEvent.keyDown(remove, { key: 'ArrowRight', altKey: true });
+    fireEvent.keyDown(list, { key: 'ArrowRight' });
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('排序：一張一列的版面用 Alt＋↑／↓；沒有給 onReorder 時不排序', () => {
+    const onReorder = vi.fn();
+    const items = [
+      { id: 'a', name: 'a.png', image: 'blob:test/a' },
+      { id: 'b', name: 'b.png', image: 'blob:test/b' },
+    ];
+    const { rerender } = render(
+      <UiProvider>
+        <ThumbnailList
+          aria-label="清單"
+          layout="list"
+          items={items}
+          onRemove={() => {}}
+          onReorder={onReorder}
+        />
+      </UiProvider>,
+    );
+    const remove = screen.getByRole('button', { name: '移除「a.png」' });
+    fireEvent.keyDown(remove, { key: 'ArrowRight', altKey: true });
+    expect(onReorder).not.toHaveBeenCalled();
+    fireEvent.keyDown(remove, { key: 'ArrowDown', altKey: true });
+    expect(onReorder).toHaveBeenLastCalledWith(0, 1);
+    onReorder.mockClear();
+    rerender(
+      <UiProvider>
+        <ThumbnailList aria-label="清單" layout="list" items={items} onRemove={() => {}} />
+      </UiProvider>,
+    );
+    fireEvent.keyDown(screen.getByRole('button', { name: '移除「a.png」' }), {
+      key: 'ArrowDown',
+      altKey: true,
+    });
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
   it('沒有項目時顯示 empty', () => {
     render(<ThumbnailList aria-label="清單" items={[]} empty="還沒有圖片" />);
     expect(screen.getByText('還沒有圖片')).toBeInTheDocument();

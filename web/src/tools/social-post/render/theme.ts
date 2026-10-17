@@ -64,6 +64,12 @@ export const MUSIC_ART = ['#5b5bd6', '#e0457b'] as const;
 
 export const UI_FAMILY = 'Noto Sans TC';
 
+/**
+ * 原作沒有寫行高的地方（輪播膠囊、留言的「回覆」與「查看另外」列、讚數、面板標題、已關閉的兩行、個人頁的名稱、
+ * 精選動態的標題、限時動態的動態列與提問的輸入框…）繼承編輯頁 body 的 `line-height: 1.6`（預覽與 PNG 都是；3.10(5)）
+ */
+export const INHERIT_LH = 1.6;
+
 export const ui = (size: number, weight = 400): FontSpec => ({ family: UI_FAMILY, weight, size });
 
 /** 限時動態的文字貼紙字型（D3）：字型、字重、字級（cqw）、行高、斜體 */

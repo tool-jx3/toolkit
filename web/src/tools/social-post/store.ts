@@ -17,8 +17,11 @@ import {
 import type { ScreenId, TabId } from './strings';
 
 export const TOOL_ID = 'social-post';
-/** 專案檔與自動儲存的資料版本 */
-export const DATA_VERSION = 1;
+/**
+ * 專案檔與自動儲存的資料版本。2（2026-10）：照片與格子的位置多了選填的 ax、ay（剛好放得下的那一邊記著的比例，place.ts）；
+ * 版本 1 的存檔、專案檔照常讀（normalizeState 整理，位置夾回蓋滿的範圍）。
+ */
+export const DATA_VERSION = 2;
 
 export const useDoc = createToolStore<SocialState>(TOOL_ID, initialState(), {
   version: DATA_VERSION,

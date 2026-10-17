@@ -22,7 +22,7 @@ import {
   withAlpha,
 } from './common';
 import type { Hit, Op, Rect, ScreenLayout } from './ops';
-import { ui } from './theme';
+import { INHERIT_LH, ui } from './theme';
 
 export interface PostOptions {
   /** 換成第幾張照片（HTML 的輪播用；不給＝post.current） */
@@ -171,7 +171,7 @@ export function layoutPost(env: Env, post: Post, y0: number, opts: PostOptions =
     ops.push({ t: 'rect', x: 0, y: mediaTop, w: W, h: mediaH, fill: pal.ph });
     if (!opts.viewer) {
       const tf = ui(13 * fs);
-      const th = 13 * fs * 1.45;
+      const th = 13 * fs * INHERIT_LH;
       const block = 28 + 8 + th;
       const top = mediaTop + (mediaH - block) / 2;
       ops.push({
@@ -198,7 +198,8 @@ export function layoutPost(env: Env, post: Post, y0: number, opts: PostOptions =
   if (n > 1) {
     const f = ui(12 * fs, 600);
     const label = `${idx + 1}/${n}`;
-    const h = 16 * fs + 6;
+    const plh = 12 * fs * INHERIT_LH;
+    const h = plh + 6;
     const w = measure(label, f) + 18;
     const x = W - 14 - w;
     const y = mediaTop + 14;
@@ -207,7 +208,7 @@ export function layoutPost(env: Env, post: Post, y0: number, opts: PostOptions =
       t: 'text',
       x: x + w / 2,
       y: y + 3,
-      lh: 16 * fs,
+      lh: plh,
       text: label,
       font: f,
       color: '#ffffff',
