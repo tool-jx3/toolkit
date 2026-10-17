@@ -461,6 +461,9 @@ export const QUICK_EMOJI = [
 /** 留言面板下方的 8 個快速表情（D15） */
 export const SHEET_EMOJI = ['❤️', '👀', '🔥', '🕯️', '😱', '🙏', '✨', '😂'] as const;
 
+/** 深拷貝（也可以用在 store 的 Immer draft 上；structuredClone 不能拷貝 draft） */
+const cloneJson = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
 /* ---------- id ---------- */
 
 /** prefix＋數字，挑一個沒用過的（最大的數字＋1） */
@@ -733,7 +736,7 @@ export function addPost(s: SocialState): string | null {
 export function duplicatePost(s: SocialState, id: string): string | null {
   const i = s.posts.findIndex((p) => p.id === id);
   if (i < 0 || s.posts.length >= MAX.posts) return null;
-  const copy = structuredClone(s.posts[i]) as Post;
+  const copy = cloneJson(s.posts[i]);
   copy.id = nextId(
     'p',
     s.posts.map((p) => p.id),
@@ -841,7 +844,7 @@ export function addStory(s: SocialState): string | null {
 export function duplicateStory(s: SocialState, id: string): string | null {
   const i = s.stories.findIndex((x) => x.id === id);
   if (i < 0 || s.stories.length >= MAX.stories) return null;
-  const copy = structuredClone(s.stories[i]) as Story;
+  const copy = cloneJson(s.stories[i]);
   copy.id = nextId(
     's',
     s.stories.map((x) => x.id),
@@ -967,7 +970,7 @@ export function stickerAction(
       return null;
     case 'dup': {
       if (st.stickers.length >= MAX.stickers) return null;
-      const copy = structuredClone(k) as Sticker;
+      const copy = cloneJson(k);
       copy.id = nextId('k', [...(used ?? []), ...st.stickers.map((x) => x.id)]);
       copy.x = k.x + 4;
       copy.y = k.y + 4;

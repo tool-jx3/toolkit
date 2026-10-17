@@ -2,6 +2,7 @@
  * 社群貼文產生器的資料與規則（規格 docs/refactor/specs/social-post.md 第 1、3.9 節）：
  * 預設內容、整理存檔、貼文／限時動態／留言／貼紙的清單操作、精選動態的連結、照片與格狀縮圖。
  */
+import { produce } from 'immer';
 import { describe, expect, it } from 'vitest';
 import {
   addComment,
@@ -371,5 +372,18 @@ describe('整理存檔（3.9）', () => {
     s.account.grid.push({ id: 'g1', image: asset('grid') });
     s.posts[0].sheet.items[0].avatar = asset('cm');
     expect(collectAssetIds(s).sort()).toEqual(['av', 'cell', 'cm', 'grid', 'ph']);
+  });
+});
+
+describe('在 store 的 Immer draft 裡操作', () => {
+  it('複製貼文、限時動態、貼紙不會因為 draft 而失敗', () => {
+    const next = produce(initialState(), (d) => {
+      duplicatePost(d, 'p1');
+      duplicateStory(d, 's1');
+      stickerAction(d.stories[0], 'k1', 'dup');
+    });
+    expect(next.posts).toHaveLength(3);
+    expect(next.stories).toHaveLength(2);
+    expect(next.stories[0].stickers).toHaveLength(3);
   });
 });
