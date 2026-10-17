@@ -468,6 +468,12 @@ test('匯出 SVG：結構與數量；瀏覽器畫出來和 PNG 幾乎相同', as
     },
     { svgText: text, pngB64: png.bytes.toString('base64') },
   );
+  test
+    .info()
+    .annotations.push({
+      type: 'SVG 與 PNG 差很多的像素',
+      description: `${(diff * 100).toFixed(3)}%`,
+    });
   expect(diff).toBeLessThan(0.01);
   /* 透明背景時沒有背景的 rect */
   await toggle(page, '背景透明').click();
@@ -616,6 +622,8 @@ test('大畫布 8000 × 8000：預覽縮小、畫的時候頁面照常反應、�
       }),
   );
   expect(frame).toBeLessThan(250);
+  /* 畫超過 0.3 秒：預覽上顯示「繪製中…」 */
+  await expect(page.getByRole('status').filter({ hasText: '繪製中…' })).toBeVisible();
   await ready(page, 60_000);
   await expect(stats(page)).toHaveText('圖形 5000／線 5021／點 7');
   await expect(page.getByTestId('bloom-scaled')).toHaveText('預覽縮小為 26%，匯出為原尺寸。');
