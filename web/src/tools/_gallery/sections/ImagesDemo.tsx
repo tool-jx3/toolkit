@@ -20,6 +20,7 @@ import {
   ThumbnailList,
   useToast,
 } from '@/ui';
+import { LayoutCanvasDemo } from './LayoutCanvasDemo';
 
 function Thumb({ img, crop }: { img: DroppedImage; crop: Rect | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -194,6 +195,7 @@ export function ImagesDemo() {
           onApply={setPlacement}
         />
       </Section>
+      <LayoutCanvasDemo />
       <Section title="影像分析（core/image）">
         {info ? (
           <>
