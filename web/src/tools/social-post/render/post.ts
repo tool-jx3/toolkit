@@ -113,7 +113,9 @@ export function layoutPost(env: Env, post: Post, y0: number, opts: PostOptions =
     const collab = post.collab ? `${S.screen.collabJoin}${post.collab}` : '';
     const badgeW = pr.verified ? 18 : 0;
     const collabW = collab ? measure(collab, userFont) : 0;
-    const userW = Math.max(16, metaW - badgeW - collabW);
+    /* 帳號與共同貼文都放不下時兩邊都省略：帳號至少留一半的寬度（同原作兩段都可以省略） */
+    const nameW = measure(pr.username, userFont);
+    const userW = Math.max(16, metaW - badgeW - collabW, Math.min(nameW, (metaW - badgeW) / 2));
     const name = ellipsize(pr.username, userW, userFont, measure);
     const runs: Run[] = [{ text: name, font: userFont, color: pal.ink }];
     if (pr.verified) runs.push(badgeRun(userFont, 14));

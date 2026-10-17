@@ -129,6 +129,19 @@ describe('貼文（3.4）', () => {
     expect(t).toContain('霧港鎮・燈塔步道');
   });
 
+  it('共同貼文的帳號很長時兩邊都省略，帳號至少留一半的寬度', () => {
+    const e = env((s) => {
+      s.posts[0].collab = 'a'.repeat(60);
+      s.posts[0].follow = true;
+    });
+    /* 帳號列（y 54～110）裡的字 */
+    const t = postScreen(e, e.state.posts[0]).ops.flatMap((o) =>
+      o.t === 'text' && o.y >= 54 && o.y < 110 ? [o.text] : [],
+    );
+    expect(t).toContain('xiaoyu.lin');
+    expect(t.some((x) => x.startsWith(' 和 a') && x.endsWith('…'))).toBe(true);
+  });
+
   it('字級倍率放大內文的行高', () => {
     const a = postScreen(env(), initialState().posts[0]);
     const e = env((s) => {
