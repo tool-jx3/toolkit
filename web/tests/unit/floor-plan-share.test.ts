@@ -2,8 +2,11 @@
  * 室內平面圖產生器：分享連結（規格 F215～F217、3.7、D27～D30）與房間編號圓標（F218、F219、3.8、D31、D32）。
  */
 import { describe, expect, it } from 'vitest';
+import { contrastRatio } from '@/core/color';
 import { encodeShareHash } from '@/core/share';
+import { getTheme } from '@/tools/floor-plan/draw/themes';
 import { isAsset } from '@/tools/floor-plan/model/assets';
+import { THEME_IDS } from '@/tools/floor-plan/model/catalog';
 import { emptyFloor, visibleFloor } from '@/tools/floor-plan/model/geometry';
 import { normalizeProject } from '@/tools/floor-plan/model/normalize';
 import { isRoomNumber, numberRooms } from '@/tools/floor-plan/model/numbering';
@@ -308,6 +311,19 @@ describe('房間編號（F219）', () => {
     expect(isRoomNumber({ text: ' 3 ', badge: true })).toBe(true);
     expect(isRoomNumber({ text: '12' })).toBe(false);
     expect(isRoomNumber({ text: 'B1', badge: true })).toBe(false);
+  });
+});
+
+describe('圓標的顏色（3.8）', () => {
+  it('五種樣式：字和圓的對比 ≥ 4.5；圓或外圍的邊和背景的對比 ≥ 3', () => {
+    for (const id of THEME_IDS) {
+      const t = getTheme(id);
+      expect(contrastRatio(t.badge.text, t.badge.fill), id).toBeGreaterThanOrEqual(4.5);
+      const edge = Math.max(contrastRatio(t.badge.fill, t.bg), contrastRatio(t.badge.ring, t.bg));
+      expect(edge, id).toBeGreaterThanOrEqual(3);
+      /* 邊和圓也分得開 */
+      expect(contrastRatio(t.badge.ring, t.badge.fill), id).toBeGreaterThanOrEqual(3);
+    }
   });
 });
 
