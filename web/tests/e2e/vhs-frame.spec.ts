@@ -120,7 +120,14 @@ async function open(page: Page, url = URL) {
 interface Hook {
   doc: () => Stored;
   prefs: () => Record<string, unknown>;
-  screen: () => { mode: string; t: number; playing: boolean; drawn: number };
+  screen: () => {
+    mode: string;
+    t: number;
+    playing: boolean;
+    drawn: number;
+    composed: number;
+    live: boolean;
+  };
   seek: (t: number, mode?: 'tape' | 'gif') => void;
   frame: (kind: 'png' | 'anim', at: number) => Promise<string>;
 }
@@ -735,6 +742,62 @@ test('預覽：錄影帶的播放／暫停與時間（記住）、PNG 存目前�
   expect(errors).toEqual([]);
 });
 
+test('預覽的解析度：播放中與拖曳中以畫面顯示的大小畫、暫停後全尺寸（＝PNG）；照片層快取，切換預覽模式不重新合成（對等驗證 7.1）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await loadPhoto(page, await photoPng(1600, 1200), 'big.png');
+  const backing = () =>
+    canvas(page).evaluate((el) => [
+      (el as HTMLCanvasElement).width,
+      (el as HTMLCanvasElement).height,
+    ]);
+  const shown = async () => {
+    const b = (await surface(page).boundingBox()) as { width: number };
+    const dpr = await page.evaluate(() => window.devicePixelRatio || 1);
+    return Math.ceil(b.width * dpr);
+  };
+  /* 播放中：不超過畫面顯示的大小（含 devicePixelRatio） */
+  await expect.poll(async () => (await call(page, 'screen')).playing).toBe(true);
+  await expect.poll(async () => (await backing())[0]).toBeLessThan(1280);
+  const [w, h] = await backing();
+  expect(w).toBeLessThanOrEqual(await shown());
+  expect(h).toBe(Math.round((w * 3) / 4));
+  expect((await call(page, 'screen')).live).toBe(true);
+  /* 暫停：全尺寸，和 PNG 逐位元組相同 */
+  await seek(page, 9.5);
+  await expect.poll(backing).toEqual([1280, 960]);
+  const paused = await canvas(page).evaluate((el) =>
+    (el as HTMLCanvasElement).toDataURL('image/png'),
+  );
+  expect(paused === (await call(page, 'frame', 'png', 9.5))).toBe(true);
+  /* 暫停時拖曳：拖曳中以顯示的大小畫，放開一會兒之後回到全尺寸 */
+  const p = await screenPoint(page, 640, 480);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.move(p.x + 40, p.y, { steps: 4 });
+  await expect.poll(async () => (await backing())[0]).toBeLessThan(1280);
+  await page.mouse.up();
+  await expect.poll(backing).toEqual([1280, 960]);
+  const moved = await canvas(page).evaluate((el) =>
+    (el as HTMLCanvasElement).toDataURL('image/png'),
+  );
+  expect(moved === (await call(page, 'frame', 'png', 9.5))).toBe(true);
+  /* 照片層快取：播放中來回切換預覽模式，不重新合成 */
+  await page.getByRole('button', { name: '播放', exact: true }).click();
+  await expect.poll(async () => (await backing())[0]).toBeLessThan(1280);
+  const c0 = (await call(page, 'screen')).composed;
+  await page.getByRole('radio', { name: /^GIF 動畫/ }).click();
+  await expect(canvas(page)).toHaveAttribute('data-mode', 'gif');
+  await page.getByRole('radio', { name: /^錄影帶/ }).click();
+  await expect(canvas(page)).toHaveAttribute('data-mode', 'tape');
+  await page.getByRole('radio', { name: /^GIF 動畫/ }).click();
+  await expect(canvas(page)).toHaveAttribute('data-mode', 'gif');
+  await page.waitForTimeout(300);
+  expect((await call(page, 'screen')).composed).toBe(c0);
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 匯出 ---------- */
 
 test('匯出 PNG：1280 × 960、檔名、四角透明、與暫停的預覽逐像素相同（F44、F50）', async ({
@@ -777,6 +840,13 @@ test('匯出 GIF：360 × 270、24 格、每格 9/100 秒、無限循環、64 �
   await loadPhoto(page, await photoPng(1280, 960), 'cam.png');
   await page.getByRole('textbox', { name: '字幕' }).fill('有人在嗎');
   await page.getByRole('textbox', { name: '字幕' }).blur();
+  await exportPanel(page).getByRole('radio', { name: 'GIF', exact: true }).click();
+  /* 「原作的 GIF 一律無限循環」只在 GIF 顯示（對等驗證 7.1） */
+  await expect(exportPanel(page).getByText('原作的 GIF 一律無限循環。')).toBeVisible();
+  await exportPanel(page).getByRole('radio', { name: 'APNG', exact: true }).click();
+  await expect(exportPanel(page).getByText('原作的 GIF 一律無限循環。')).toHaveCount(0);
+  await exportPanel(page).getByRole('radio', { name: 'WebP', exact: true }).click();
+  await expect(exportPanel(page).getByText('原作的 GIF 一律無限循環。')).toHaveCount(0);
   await exportPanel(page).getByRole('radio', { name: 'GIF', exact: true }).click();
   await expect(exportPanel(page).getByRole('combobox', { name: '動畫大小' })).toContainText(
     '小 360 × 270（原作）',
@@ -907,6 +977,22 @@ test('自動儲存與還原（含照片）、照片讀不到的提醒；復原�
   }, STORAGE_KEY);
   await page.reload();
   await expect(page.getByText('上次的照片讀不到了')).toBeVisible();
+  /* 照片讀不回來：「目前的照片」、位置的按鈕、匯出的檔名一起清掉（對等驗證 7.1） */
+  await expect(page.getByTestId('photo-load')).toHaveAttribute('data-state', 'empty');
+  await expect(page.getByTestId('photo-name')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '重設位置' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '拿掉照片' })).toBeDisabled();
+  await expect.poll(async () => (await state(page)).photo).toBeNull();
+  await page
+    .getByRole('button', { name: '暫停', exact: true })
+    .click()
+    .catch(() => undefined);
+  const png = await exportFile(page, 'PNG');
+  expect(png.name).toBe('screen-vhs.png');
+  /* 提醒留著，直到換上新的照片 */
+  await expect(page.getByText('上次的照片讀不到了')).toBeVisible();
+  await loadPhoto(page, await photoPng(400, 300), 'new.png');
+  await expect(page.getByText('上次的照片讀不到了')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

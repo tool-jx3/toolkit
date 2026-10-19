@@ -311,7 +311,8 @@ describe('磨損度、檔名、存檔', () => {
     expect(s.caption).toHaveLength(80);
     expect(s.osd).toBe('REC ●');
     expect(s.osdFont).toBe('mono');
-    expect(s.timecode).toEqual({ mode: 'clock', tape: 0, clock: DEFAULT_CLOCK_START });
+    /* 起點不合法（負數）→ 預設 0:00:14（規格 3.9；對等驗證 7.1） */
+    expect(s.timecode).toEqual({ mode: 'clock', tape: 14, clock: DEFAULT_CLOCK_START });
     expect(s.wear).toBe(100);
     expect(s.aspect).toBe('4:3');
     expect(s.view.zoom).toBe(8);
@@ -319,6 +320,15 @@ describe('磨損度、檔名、存檔', () => {
     expect(r.x).toBeLessThanOrEqual(1e-9);
     expect(r.x + r.width).toBeGreaterThanOrEqual(1280 - 1e-9);
     expect(stateAssetIds(s)).toEqual(['abc']);
+    /* 起點：超過 99:59:59、不是數字 → 預設；小數捨去；範圍內照舊 */
+    const tape = (v: unknown) => normalizeState({ timecode: { tape: v } }).timecode.tape;
+    expect(tape(-0.5)).toBe(14);
+    expect(tape(360000)).toBe(14);
+    expect(tape(Number.NaN)).toBe(14);
+    expect(tape('20')).toBe(14);
+    expect(tape(14.9)).toBe(14);
+    expect(tape(0)).toBe(0);
+    expect(tape(359999)).toBe(359999);
     /* 照片的資料壞掉：當作沒有照片，位置歸零 */
     const bad = normalizeState({ photo: { id: '', width: 0 }, view: { zoom: 3 } });
     expect(bad.photo).toBeNull();
