@@ -304,10 +304,10 @@ describe('房間編號（F219）', () => {
   });
 
   it('純數字的圓標才算編號（前後空白不算）', () => {
-    expect(isRoomNumber({ id: 'a', x: 0, y: 0, text: '12', badge: true })).toBe(true);
-    expect(isRoomNumber({ id: 'a', x: 0, y: 0, text: ' 3 ', badge: true })).toBe(true);
-    expect(isRoomNumber({ id: 'a', x: 0, y: 0, text: '12' })).toBe(false);
-    expect(isRoomNumber({ id: 'a', x: 0, y: 0, text: 'B1', badge: true })).toBe(false);
+    expect(isRoomNumber({ text: '12', badge: true })).toBe(true);
+    expect(isRoomNumber({ text: ' 3 ', badge: true })).toBe(true);
+    expect(isRoomNumber({ text: '12' })).toBe(false);
+    expect(isRoomNumber({ text: 'B1', badge: true })).toBe(false);
   });
 });
 

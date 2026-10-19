@@ -15,6 +15,7 @@ import {
   visibleFloor,
 } from '../model/geometry';
 import { isLegacyMapFile, type NormalizeReport, normalizeProject } from '../model/normalize';
+import { numberRooms } from '../model/numbering';
 import {
   type AnyObj,
   cloneFloor,
@@ -640,11 +641,24 @@ export type OpenResult = { ok: true; dropped: number } | { ok: false };
 /** 開檔的通知有「詳細」與「復原」兩顆按鈕、要讀數字，顯示久一點（滑過或聚焦時暫停） */
 const IMPORT_NOTICE_MS = 8000;
 
+/** 資料的來源：本站的專案檔、原作的 .trpgmap.json、分享連結（完整／PL 用，F217） */
+export type OpenSource = 'project' | 'legacy' | 'link' | 'link-pl';
+
+const openedTitle = (source: OpenSource, name: string): string =>
+  source === 'legacy'
+    ? S.msg.imported(name)
+    : source === 'link'
+      ? S.share.opened(name)
+      : source === 'link-pl'
+        ? S.share.openedPl(name)
+        : S.msg.opened(name);
+
 /**
- * 讀進一份專案資料（本站的專案檔、原作的 .trpgmap.json）。
+ * 讀進一份專案資料（本站的專案檔、原作的 .trpgmap.json、分享連結）：取代目前的地圖（可以復原）。
  * 原作新版的種類換成相近的、略過本工具沒有的東西時，「已匯入」的通知改成警告色，說明一行摘要＋「詳細」（F213、D25）。
+ * PL 用連結打開後切到 PL 檢視（F216）。
  */
-export function openProjectData(raw: unknown, source: 'project' | 'legacy'): OpenResult {
+export function openProjectData(raw: unknown, source: OpenSource): OpenResult {
   const report: NormalizeReport = { droppedItems: 0 };
   const project = normalizeProject(raw, isAsset, report);
   if (!project) return { ok: false };
@@ -652,9 +666,10 @@ export function openProjectData(raw: unknown, source: 'project' | 'legacy'): Ope
   useProject.getState().replace(project);
   setEditor({ sel: [], importReport: null, importReportOpen: false });
   setTool('select');
+  if (source === 'link-pl') setPlayerView(true);
   viewFns?.fit();
   const name = project.name || S.untitled;
-  const title = source === 'legacy' ? S.msg.imported(name) : S.msg.opened(name);
+  const title = openedTitle(source, name);
   if (hasCompatNotes(report.compat)) {
     setEditor({ importReport: report.compat });
     notify(title, 'warning', {
@@ -667,6 +682,23 @@ export function openProjectData(raw: unknown, source: 'project' | 'legacy'): Ope
 }
 
 export { isLegacyMapFile };
+
+/* ---------- 依序編號房間（F219） ---------- */
+
+/** 替目前這一層的房間放上 1、2、3…的圓標（原本的純數字圓標先拿掉）；一步復原 */
+export function numberRoomsOnFloor(): void {
+  const r = numberRooms(currentFloor());
+  if (!r) {
+    notify(S.msg.noRoomsToNumber, 'warning');
+    return;
+  }
+  update((p) => {
+    cur(p).texts = r.texts;
+  });
+  const keep = new Set(r.texts.map((t) => t.id));
+  setEditor({ sel: useEditor.getState().sel.filter((s) => s.type !== 'text' || keep.has(s.id)) });
+  notify(S.msg.numbered(r.count, r.gm), 'success', { action: undoAction() });
+}
 
 /* ---------- 從素材面板拖放 ---------- */
 

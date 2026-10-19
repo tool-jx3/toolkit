@@ -13,12 +13,16 @@ import type { RoomPresetId } from '../model/catalog';
 import type { CompatReport } from '../model/compat';
 import type { ExportSettings } from '../model/exportPlan';
 import { normalizeProject } from '../model/normalize';
+import type { ShareMode } from '../model/share';
 import type { OpeningKind, Project, SelRef, WallKind } from '../model/types';
 import { getTemplate, instantiateTemplate } from '../templates';
 
 export const TOOL_ID = 'floor-plan';
-/** 存檔格式版本 */
-export const DATA_VERSION = 1;
+/**
+ * 存檔格式版本。2：文字多了圓標（`badge`，2026-10）。版本 1 的存檔與專案檔不必轉換（少了 badge 就是一般文字），
+ * 讀進來一律經過 normalizeProject。
+ */
+export const DATA_VERSION = 2;
 
 /** 開頁第一次（沒有存檔）時的地圖：第一個範本 */
 export function starterProject(): Project {
@@ -100,6 +104,7 @@ export const useProject = createToolStore<Project>(TOOL_ID, starterProject(), {
   historyLimit: 120,
   coalesceMs: 0,
   storage: projectStorage,
+  /* 版本 1 → 2：欄位只多不少，整理一次就好 */
   migrate: (persisted) => normalizeProject(persisted, isAsset) ?? starterProject(),
 });
 
@@ -120,6 +125,8 @@ export interface Prefs {
   showClues: boolean;
   libTab: LibTab;
   exp: ExportSettings;
+  /** 分享連結的內容（F215；預設 PL 用） */
+  share: ShareMode;
 }
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
@@ -128,6 +135,7 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   showClues: true,
   libTab: 'rooms',
   exp: { range: 'current', view: 'pl', clues: 'show', px: 48, grid: false, transparent: false },
+  share: 'pl',
 });
 
 export type ToolId =
@@ -168,6 +176,8 @@ export interface EditorState {
   /** 上一次開檔時換掉與略過的東西（「詳細」對話框，F213） */
   importReport: CompatReport | null;
   importReportOpen: boolean;
+  /** 分享連結的對話框（F215） */
+  shareOpen: boolean;
   clipboard: Clipboard | null;
   /** 家具的搜尋與分類 */
   libQuery: string;
@@ -185,6 +195,7 @@ export const useEditor = create<EditorState>(() => ({
   exportOpen: false,
   importReport: null,
   importReportOpen: false,
+  shareOpen: false,
   clipboard: null,
   libQuery: '',
   libGroup: 'all',

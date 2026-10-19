@@ -15,7 +15,7 @@ export const NUMBER_SIZE = 0.6;
 export const BADGE_DIAMETER = 1.5;
 /** 估計數字的寬度（字級的倍數，一個數字）與左右的留白（字級的倍數），用來讓兩位數的圓標也在房間裡 */
 const DIGIT_W = 0.6;
-const BADGE_PAD = 0.7;
+export const BADGE_PAD = 0.7;
 const INSET = 0.25;
 
 /** 純數字的圓標（自動編號的）：前後的空白不算 */

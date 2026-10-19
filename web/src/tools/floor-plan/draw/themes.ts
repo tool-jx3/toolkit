@@ -54,6 +54,8 @@ export interface FloorTheme {
   gm: string;
   /** 隱藏線索的標示色 */
   clue: string;
+  /** 圓標（文字的樣式，2026-10）：圓、字、外圍的邊 */
+  badge: { fill: string; text: string; ring: string };
   font: string;
 }
 
@@ -122,6 +124,7 @@ const clean: FloorTheme = {
   glass: '#9ecdf1',
   gm: '#8a3fd2',
   clue: '#d97806',
+  badge: { fill: '#252930', text: '#ffffff', ring: 'rgba(255, 255, 255, 0.9)' },
   font: SANS,
 };
 
@@ -165,6 +168,7 @@ const mono: FloorTheme = {
   glass: '#ffffff',
   gm: '#7a3bb8',
   clue: '#b45309',
+  badge: { fill: '#141414', text: '#ffffff', ring: 'rgba(255, 255, 255, 0.9)' },
   font: SANS,
 };
 
@@ -208,6 +212,7 @@ const blueprint: FloorTheme = {
   glass: 'rgba(255, 255, 255, 0.35)',
   gm: '#ffd36a',
   clue: '#7defc7',
+  badge: { fill: '#0b2447', text: '#ffffff', ring: '#f1f6ff' },
   font: SANS,
 };
 
@@ -272,6 +277,7 @@ const paper: FloorTheme = {
   glass: '#d8d5bf',
   gm: '#8d3a89',
   clue: '#b4641c',
+  badge: { fill: '#3e2e1e', text: '#fbf3df', ring: '#efe2c4' },
   font: SERIF,
 };
 
@@ -336,6 +342,7 @@ const horror: FloorTheme = {
   glass: '#3a4856',
   gm: '#e25d9c',
   clue: '#ffb020',
+  badge: { fill: '#7a1717', text: '#ffffff', ring: '#eae2d4' },
   font: SERIF,
 };
 

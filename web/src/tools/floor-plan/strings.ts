@@ -208,6 +208,10 @@ export const S = {
     stats: (rooms: number, items: number, openings: number) =>
       `${rooms} 個房間・${items} 件家具・${openings} 個門窗`,
     mapTip: '點一下房間或家具，這裡就可以改名字、大小與顏色。',
+    /** 依序編號房間（F219） */
+    numberRooms: '替這一層的房間編號',
+    numberRoomsHint:
+      '依位置（由上到下、由左到右）放上 1、2、3…的圓標；GM 專用的房間排在最後。再按一次會重新編號。',
     room: '房間',
     item: '家具・小物',
     opening: '門窗',
@@ -247,6 +251,9 @@ export const S = {
     textBody: '文字',
     textSize: '字級',
     bold: '粗體',
+    /** 文字的樣式（F218） */
+    textStyle: '樣式',
+    textStyles: { plain: '一般文字', badge: '圓標' },
     front: '移到最上層',
     back: '移到最下層',
     duplicate: '複製',
@@ -338,6 +345,7 @@ export const S = {
 
   project: {
     import: '匯入「TRPG 室內圖メーカー」的地圖檔…',
+    share: '分享連結…',
     resetLabel: '新的空白地圖',
     resetTitle: '開一張新的空白地圖？',
     resetText: '目前的地圖會被清空（可以用「復原」回來）。顯示樣式等設定會保留。',
@@ -349,11 +357,54 @@ export const S = {
     dropHint: '放開即可開啟地圖檔',
   },
 
+  /** 分享連結（F215～F217） */
+  share: {
+    title: '分享連結',
+    lead: '把目前的地圖放進連結（不經過伺服器）。開連結的人會看到同樣的地圖，也可以接著編輯；你這邊的地圖不受影響。',
+    mode: '連結的內容',
+    modes: { pl: 'PL 用', full: '完整（GM 用）' },
+    plNote:
+      'GM 專用的東西、隱藏線索與 GM 筆記都不在連結裡（不是藏起來，是拿掉），可以放心給 PL。打開時會切到 PL 檢視。',
+    fullNote: '連結裡有整張地圖，包含 GM 專用的房間、暗門、隱藏線索與 GM 筆記。只給自己或共同 GM。',
+    removed: (r: {
+      gmRooms: number;
+      gmThings: number;
+      secretDoors: number;
+      clues: number;
+      notes: number;
+    }) =>
+      `拿掉：${[
+        r.gmRooms ? `GM 專用的房間 ${r.gmRooms} 間（只留牆框）` : '',
+        r.gmThings ? `其他 GM 專用的東西 ${r.gmThings} 個` : '',
+        r.secretDoors ? `暗門 ${r.secretDoors} 個（當成牆）` : '',
+        r.clues ? `隱藏線索 ${r.clues} 個` : '',
+        r.notes ? `GM 筆記 ${r.notes} 則` : '',
+      ]
+        .filter(Boolean)
+        .join('、')}。`,
+    nothingRemoved: '這張地圖沒有 GM 專用的東西，兩種連結的內容相同。',
+    link: '連結',
+    count: (n: number, max: number) =>
+      `內容 ${n.toLocaleString('en-US')} 字（上限 ${max.toLocaleString('en-US')} 字）`,
+    copy: '複製連結',
+    copied: '已複製分享連結',
+    refresh: '地圖改了之後，請重新複製連結。',
+    tooLong: (n: number, max: number) =>
+      `地圖太大，放不進連結（${n.toLocaleString('en-US')} 字，上限 ${max.toLocaleString('en-US')} 字）。請改用「專案 → 存成專案檔」。`,
+    opened: (name: string) => `已開啟分享的地圖「${name}」`,
+    openedPl: (name: string) => `已開啟分享的地圖「${name}」（PL 用）`,
+    broken: '分享連結讀不出來。',
+    brokenHint: '連結可能不完整（複製時少了一段）。地圖沒有改變。',
+  },
+
   msg: {
     opened: (name: string) => `已開啟「${name}」`,
     saved: (file: string) => `已存成專案檔：${file}`,
     imported: (name: string) => `已匯入「${name}」`,
     templateLoaded: (name: string) => `已載入「${name}」`,
+    numbered: (n: number, gm: number) =>
+      gm ? `已替 ${n} 間房間編號（其中 ${gm} 間只有 GM 看得到）` : `已替 ${n} 間房間編號`,
+    noRoomsToNumber: '這一層沒有可以編號的房間。',
     newMap: '已開新的空白地圖',
     cluesShown: (n: number) => `顯示隱藏線索（${n} 個）`,
     cluesHidden: (n: number) => `隱藏線索已藏起來（${n} 個）`,
