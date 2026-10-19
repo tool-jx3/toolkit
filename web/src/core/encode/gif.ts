@@ -18,6 +18,9 @@
  *   每格各自減色時沒變的像素也可能換成別的顏色，這兩種情況每格照舊寫整格（輸出和以前逐位元組相同）。
  *   解碼出來的每一格完全相同、影格數與延遲不變，只有檔案變小（例：手機畫面 540 × 1170 的 25 格只有通知卡片在動，約小一半；
  *   各工具的量測見 DESIGN.md 4.2 core/encode）。`cropFrames: false`＝以前的預設（每格寫整格，逐位元組相同）。
+ * - `solidColors`（id-ticket 對等驗證後新增）：大片單色（墊紙、底色）的顏色。減色有損時先少留這麼多名額，
+ *   再把這些顏色原樣接在調色盤後面（已經有的沿用）；剛好是這些顏色的像素直接用那一色——抖色不作用、
+ *   也不把周圍的誤差帶進來，所以大片單色上不會冒出別的顏色的點。無損時、沒給時（預設）輸出與以前逐位元組相同。
  */
 import { GIFEncoder, type GifPalette } from 'gifenc';
 import {
@@ -32,7 +35,14 @@ import {
   toU32,
   yieldToEventLoop,
 } from './frames';
-import { buildPalette, ColorStats, type Palette, type PaletteMethod } from './palette';
+import {
+  buildPalette,
+  ColorStats,
+  opaqueU32,
+  type Palette,
+  type PaletteMethod,
+  withSolidColors,
+} from './palette';
 
 export const GIF_MAX_FPS = 50;
 
@@ -73,6 +83,11 @@ export interface GifEncoderOptions {
    * 不動的小區塊（例：桌布上的月亮）可能分不到顏色。給代表畫面（例：最後的靜態畫面）與份量就補回來。
    */
   stillWeight?: number;
+  /**
+   * 大片單色（RGB 0～255）：一定放進調色盤，剛好是這些顏色的像素不抖色（見檔頭）。預設沒有。
+   * 最多用掉調色盤的四分之一（多的忽略）。
+   */
+  solidColors?: readonly (readonly [number, number, number])[];
 }
 
 /**
@@ -122,6 +137,7 @@ export class GifEncoder implements FrameEncoder {
       dither: 'none',
       cropFrames: true,
       stillWeight: 0,
+      solidColors: [],
       ...options,
     };
     this.opt.maxColors = Math.max(2, Math.min(256, Math.round(this.opt.maxColors) || 256));
@@ -195,7 +211,21 @@ export class GifEncoder implements FrameEncoder {
       maxColors,
       dither,
       cropFrames,
+      solidColors,
     } = this.opt;
+    /* 大片單色：不重複、最多四分之一的名額 */
+    const solid = [...new Set((solidColors ?? []).map(([r, g, b]) => opaqueU32(r, g, b)))].slice(
+      0,
+      Math.floor(maxColors / 4),
+    );
+    const makePalette = (): Palette => {
+      const p = buildPalette(this.stats, maxColors, paletteMethod);
+      if (p.lossless || !solid.length) return p;
+      return withSolidColors(
+        buildPalette(this.stats, maxColors - solid.length, paletteMethod),
+        solid,
+      );
+    };
     const toGifPalette = (p: Palette): GifPalette => {
       const out: GifPalette = [];
       for (let i = 0; i < p.count; i++)
@@ -207,7 +237,7 @@ export class GifEncoder implements FrameEncoder {
       this.stats.add(this.still, 0, this.still.length, this.opt.stillWeight);
       this.still = null;
     }
-    const shared = localPalettes ? null : buildPalette(this.stats, maxColors, paletteMethod);
+    const shared = localPalettes ? null : makePalette();
     let pal: Palette | null = shared;
     /* 'luma' 抖色的色調表（調色盤換了才重建） */
     let luma: LumaTable | null = null;
@@ -233,7 +263,7 @@ export class GifEncoder implements FrameEncoder {
       if (localPalettes) {
         this.stats.clear();
         this.stats.add(canvas, 0, canvas.length);
-        pal = buildPalette(this.stats, maxColors, paletteMethod);
+        pal = makePalette();
         /* 這格有透明像素時 0 號才是透明（無損的調色盤只有用到透明時才有 0 號） */
         transparent = canvas.includes(0);
         lastV = -1;
@@ -332,6 +362,12 @@ export function ditherRect(
       const v = canvas[k];
       if (v >>> 24 === 0) {
         index[k] = p.indexOf(0);
+        continue;
+      }
+      /* 大片單色：直接用那一色，不抖色、不擴散誤差 */
+      const si = p.solid?.get(v);
+      if (si !== undefined) {
+        index[k] = si;
         continue;
       }
       const e = (x - r.x + 1) * 3;
@@ -472,6 +508,11 @@ export function ditherRectLuma(
       const v = canvas[k];
       if (v >>> 24 === 0) {
         index[k] = L.clear;
+        continue;
+      }
+      const si = L.palette.solid?.get(v);
+      if (si !== undefined) {
+        index[k] = si;
         continue;
       }
       const R = v & 255;

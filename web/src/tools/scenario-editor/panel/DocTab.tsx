@@ -1,5 +1,5 @@
 /**
- * 設定欄的「文件」分頁（F220～F228、F016）：劇本名稱、紙面間距、頁尾、內文字級、字型、存檔說明、全部清除。
+ * 設定欄的「文件」分頁（F220～F228、F016、F255、F256）：劇本名稱、紙面間距、內文字級、變數、頁尾、字型、存檔說明、全部清除。
  */
 import { useState } from 'react';
 import { pickFiles, readAsArrayBuffer } from '@/core/files';
@@ -29,6 +29,7 @@ import { SERIF_STACK, safeFontName } from '../render/paperCss';
 import { resetDoc } from '../session';
 import { doc, edit, say, useDoc } from '../store';
 import { S } from '../strings';
+import { VarsSection } from './VarsSection';
 
 /** 數字欄：空白或非數字時回到預設，夾在範圍內 */
 export function clampNum(v: string, min: number, max: number, fb: number): number {
@@ -204,6 +205,7 @@ export function DocTab() {
           />
         </Field>
       </Section>
+      <VarsSection />
       <Section title="頁尾" fixed>
         <Field label="顯示頁碼" layout="inline">
           <Toggle

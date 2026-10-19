@@ -109,6 +109,57 @@ export interface Palette {
   count: number;
   /** 像素（Uint32，0xAABBGGRR）→ 調色盤索引 */
   indexOf: (v: number) => number;
+  /**
+   * 大片單色（withSolidColors 加的）：像素值 → 索引。這些顏色一定在調色盤裡，
+   * 抖色時剛好是這些顏色的像素直接用它，不抖色、也不擴散誤差。
+   */
+  solid?: ReadonlyMap<number, number>;
+}
+
+/** 不透明的 RGB → 像素值（Uint32，0xAABBGGRR） */
+export const opaqueU32 = (r: number, g: number, b: number): number =>
+  (0xff000000 | ((b & 255) << 16) | ((g & 255) << 8) | (r & 255)) >>> 0;
+
+/**
+ * 有損的調色盤加上「大片單色」：已經在調色盤裡的顏色沿用，其他的接在最後面（呼叫端先少留這麼多名額）。
+ * 對應：剛好是這些顏色的像素 → 那一色；其他照原本的調色盤找最近色。無損的調色盤原樣傳回。
+ */
+export function withSolidColors(p: Palette, solid: readonly number[]): Palette {
+  if (p.lossless || !solid.length) return p;
+  const map = new Map<number, number>();
+  const extra: number[] = [];
+  for (const v of solid) {
+    if (map.has(v)) continue;
+    let at = -1;
+    for (let i = 0; i < p.count && at < 0; i++) {
+      const o = i * 4;
+      const u = opaqueU32(p.colors[o], p.colors[o + 1], p.colors[o + 2]);
+      if (p.colors[o + 3] === 255 && u === v) at = i;
+    }
+    if (at < 0) {
+      at = p.count + extra.length;
+      extra.push(v);
+    }
+    map.set(v, at);
+  }
+  const count = p.count + extra.length;
+  const colors = new Uint8Array(count * 4);
+  colors.set(p.colors.subarray(0, p.count * 4));
+  extra.forEach((v, j) => {
+    const o = (p.count + j) * 4;
+    colors[o] = v & 255;
+    colors[o + 1] = (v >>> 8) & 255;
+    colors[o + 2] = (v >>> 16) & 255;
+    colors[o + 3] = 255;
+  });
+  const base = p.indexOf;
+  return {
+    colors,
+    lossless: false,
+    count,
+    indexOf: (v) => map.get(v) ?? base(v),
+    solid: map,
+  };
 }
 
 type Searcher = (x: number, y: number, z: number, a: number) => number;

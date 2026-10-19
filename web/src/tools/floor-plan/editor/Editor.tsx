@@ -11,6 +11,7 @@ import { EditorBar } from './EditorBar';
 import { ExportDialog } from './ExportDialog';
 import { FloorBar } from './FloorBar';
 import { OPEN_ACCEPT, openFile } from './files';
+import { ImportReportDialog } from './ImportReport';
 import { handleEscapeCapture, handleKeyDown, handleKeyUp } from './keys';
 import { Library } from './Library';
 import { PropsPanel } from './PropsPanel';
@@ -78,6 +79,7 @@ export function Editor() {
       </div>
       <TemplateDialog />
       <ExportDialog />
+      <ImportReportDialog />
     </div>
   );
 }

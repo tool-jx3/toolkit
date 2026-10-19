@@ -49,6 +49,8 @@ type Hook = {
   view: () => { zoom: number; ox: number; oy: number };
 };
 
+type WallRunLike = { o: 'h' | 'v'; c: number; a: number; b: number };
+
 const project = (page: Page) =>
   page.evaluate(
     () => (window as unknown as { __floorPlan: Hook }).__floorPlan.useProject.getState().data,
@@ -968,16 +970,15 @@ test.describe('匯出', () => {
     expect(gray[0]).toBeLessThan(230);
     expect(Math.abs(gray[0] - gray[2])).toBeLessThan(12);
     await dialog.getByRole('radio', { name: 'GM 用（全部顯示）' }).click();
-    await expect(page.getByTestId('export-info')).toHaveText(
-      `960 × ${Math.round((12 + 1.76) * 48)} px`,
-    );
+    /* 字帶 1.76 格 → 取到整格 2 格（2026-10，F214） */
+    await expect(page.getByTestId('export-info')).toHaveText(`960 × ${(12 + 2) * 48} px`);
     [dl] = await Promise.all([
       page.waitForEvent('download'),
       page.getByTestId('export-download').click(),
     ]);
     expect(dl.suggestedFilename()).toBe('測試_地圖_GM.png');
     img = pngPixels(readFileSync((await dl.path()) as string));
-    expect(img.height).toBe(Math.round((12 + 1.76) * 48));
+    expect(img.height).toBe((12 + 2) * 48);
     await dialog.getByRole('radio', { name: '24px' }).click();
     await dialog.getByRole('switch', { name: '透明背景' }).click();
     [dl] = await Promise.all([
@@ -987,6 +988,26 @@ test.describe('匯出', () => {
     img = pngPixels(readFileSync((await dl.path()) as string));
     expect(img.width).toBe(480);
     expect(px(img, 2, img.height - 2)[3]).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('範圍對齊整格：寬高是每格 px 的整數倍，開了格線時是 2 格的整數倍（F214、D26）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* 開頁的套房：範圍左上在 (−1.5, −0.5)，以前是 24 × 20.5 格（1152 × 984 px） */
+    await page.getByTestId('export-open').click();
+    const dialog = page.getByTestId('export-dialog');
+    await expect(page.getByTestId('export-info')).toHaveText('1200 × 1008 px');
+    await dialog.getByRole('switch', { name: '畫格線' }).click();
+    await expect(page.getByTestId('export-info')).toHaveText('1248 × 1056 px');
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('export-download').click(),
+    ]);
+    const img = pngPixels(readFileSync((await dl.path()) as string));
+    expect([img.width, img.height]).toEqual([1248, 1056]);
+    expect([img.width % 96, img.height % 96]).toEqual([0, 0]);
     expect(errors).toEqual([]);
   });
 
@@ -1082,9 +1103,8 @@ test.describe('存檔', () => {
       buffer: Buffer.from(JSON.stringify(legacy)),
     });
     await expect(page.getByText('已匯入「古い家」', { exact: true })).toBeVisible();
-    await expect(
-      page.getByText('有 1 件家具的種類本工具沒有，已略過。', { exact: true }),
-    ).toBeVisible();
+    /* 家具被略過時寫在同一則通知的說明裡（2026-10 改，F213） */
+    await expect(page.getByText('1 件家具略過。詳細', { exact: true })).toBeVisible();
     const p = await project(page);
     expect([p.name, p.theme, p.showSize, p.floors[0].items.map((i) => i.t)]).toEqual([
       '古い家',
@@ -1199,6 +1219,161 @@ test.describe('存檔', () => {
       await expectToast(count + 3, FAILED, NEWER);
       expect((await project(page)).name, way).toBe('古い家');
     }
+    expect(errors).toEqual([]);
+  });
+
+  test('原作 v1.13 格式的地圖檔：新的門窗、房間、牆換成最接近的種類，一則通知＋「詳細」（F213、D22～D25）', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __toasts: string[] };
+      w.__toasts = [];
+      new MutationObserver((muts) => {
+        for (const m of muts)
+          for (const n of m.addedNodes)
+            if (n instanceof HTMLElement && n.matches('li[data-radix-collection-item]'))
+              w.__toasts.push(n.innerText);
+      }).observe(document, { childList: true, subtree: true });
+    });
+    const errors = await open(page);
+    const toasts = () =>
+      page.evaluate(() => (window as unknown as { __toasts: string[] }).__toasts.slice());
+    /* 自己寫的 v1.13 格式範例（只用原作存檔的欄位與種類代號） */
+    const v113 = {
+      app: 'indoor-map-maker',
+      v: 1,
+      tool: 'v1.13',
+      name: '新版的地圖',
+      theme: 'clean',
+      showSize: 'none',
+      showNames: true,
+      tokenGrid: 2,
+      floors: [
+        {
+          id: 'site',
+          name: '外觀',
+          showInside: true,
+          inside: 'f1',
+          rooms: [{ id: 'b', x: 0, y: 0, w: 20, h: 12, name: '主屋', cat: 'roof' }],
+          walls: [],
+          openings: [],
+          items: [],
+          texts: [],
+        },
+        {
+          id: 'f1',
+          name: '1F',
+          rooms: [
+            { id: 'a', x: 0, y: 0, w: 10, h: 12, name: '大廳', cat: 'stone', wall: 'stone' },
+            { id: 'm', x: 10, y: 0, w: 10, h: 12, name: '練團室', cat: 'studio', wall: 'sound' },
+            { id: 'y', x: 0, y: 12, w: 20, h: 4, name: '前院', cat: 'dirt' },
+          ],
+          walls: [
+            { id: 'w1', x1: 2, y1: 4, x2: 8, y2: 4, kind: 'stone' },
+            { id: 'w2', x1: 2, y1: 8, x2: 8, y2: 8, kind: 'sound' },
+            { id: 'w3', x1: 12, y1: 4, x2: 12, y2: 10, kind: 'cracked' },
+          ],
+          openings: [
+            { id: 'o1', kind: 'steel', o: 'h', x: 1, y: 0, len: 1.5, side: 1, hinge: 0 },
+            { id: 'o2', kind: 'firedoor', o: 'h', x: 4, y: 0, len: 2, side: 1, hinge: 0 },
+            { id: 'o3', kind: 'gate', o: 'h', x: 11, y: 0, len: 2, side: 1, hinge: 0 },
+            { id: 'o4', kind: 'big2', o: 'h', x: 14, y: 0, len: 5, side: 1, hinge: 0 },
+            { id: 'o5', kind: 'revolve', o: 'v', x: 10, y: 1, len: 3, side: 1, hinge: 0 },
+            { id: 'o6', kind: 'sealed', o: 'v', x: 10, y: 8, len: 2, side: 1, hinge: 0 },
+            { id: 'o7', kind: 'platewin', o: 'v', x: 20, y: 2, len: 2, side: 1, hinge: 0 },
+            { id: 'o8', kind: 'open', o: 'h', x: 0.5, y: 12, len: 7.25, side: 1, hinge: 0 },
+          ],
+          items: [
+            { id: 'i1', t: 'sofa2', x: 1, y: 1, w: 3.2, h: 1.8, rot: 0 },
+            { id: 'i2', t: 'throne', x: 4, y: 1, w: 2, h: 2, rot: 0 },
+            { id: 'i3', t: 'npc_guard', x: 6, y: 1, w: 1, h: 1, rot: 0 },
+            { id: 'i4', t: 'wall_hole', x: 12, y: 11.5, w: 2, h: 1, rot: 0 },
+          ],
+          texts: [],
+        },
+      ],
+      active: 1,
+    };
+    await blank(page);
+    /* 「已開新的空白地圖」先出來 */
+    await expect.poll(async () => (await toasts()).length).toBeGreaterThan(0);
+    const before = (await toasts()).length;
+    await page.getByRole('button', { name: '專案' }).click();
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('menuitem', { name: '匯入「TRPG 室內圖メーカー」的地圖檔…' }).click();
+    await (await chooser).setFiles({
+      name: '新版的地圖.trpgmap.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(v113)),
+    });
+    /* 只有一則通知：標題、摘要、「詳細」與「復原」 */
+    await expect.poll(async () => (await toasts()).length).toBe(before + 1);
+    await page.waitForTimeout(500);
+    expect((await toasts()).length).toBe(before + 1);
+    const text = (await toasts()).at(-1) ?? '';
+    expect(text).toContain('已匯入「新版的地圖」');
+    expect(text).toContain('15 個換成相近的種類、2 件家具略過、4 項設定略過。');
+    expect(text).toContain('詳細');
+    expect(text).toContain('復原');
+    /* 門窗都在（換成最接近的種類），每一個都把牆切開 */
+    const f = await floor(page);
+    expect(f.openings.map((o) => o.kind)).toEqual([
+      'door',
+      'door',
+      'door',
+      'door2',
+      'auto',
+      'locked',
+      'boarded',
+      'open',
+      'hole',
+    ]);
+    const uncut = await page.evaluate(() => {
+      const h = (
+        window as unknown as {
+          __floorPlan: Hook & { computeWalls: (f: Floor) => { runs: WallRunLike[] } };
+        }
+      ).__floorPlan;
+      const p = h.useProject.getState().data;
+      const fl = p.floors[p.active];
+      const runs = h.computeWalls(fl).runs;
+      return fl.openings
+        .filter((o) => {
+          const line = o.o === 'h' ? o.y : o.x;
+          const mid = (o.o === 'h' ? o.x : o.y) + o.len / 2;
+          return runs.some((r) => r.o === o.o && r.c === line && r.a < mid && mid < r.b);
+        })
+        .map((o) => o.id);
+    });
+    expect(uncut).toEqual([]);
+    expect([f.rooms.map((r) => r.cat), f.walls.map((w) => w.kind)]).toEqual([
+      ['doma', 'office', 'garden'],
+      ['ext', 'ext', 'int'],
+    ]);
+    expect(f.items.map((i) => i.t)).toEqual(['sofa2']);
+    /* 「詳細」：逐項列出 */
+    await page.getByTestId('import-report-open').click();
+    const dialog = page.getByRole('dialog', { name: '匯入時的調整' });
+    await expect(dialog).toBeVisible();
+    const converted = dialog.getByTestId('import-report-converted').getByRole('listitem');
+    await expect(converted).toHaveCount(15);
+    await expect(converted.filter({ hasText: '鐵門（steel） → 單開門' })).toContainText('1 個');
+    await expect(converted.filter({ hasText: '石造（城堡・地城）（stone） → 土間' })).toContainText(
+      '1 間',
+    );
+    await expect(
+      converted.filter({ hasText: '疊在牆上的牆洞（wall_hole） → 牆上的破洞' }),
+    ).toHaveCount(1);
+    const dropped = dialog.getByTestId('import-report-dropped').getByRole('listitem');
+    await expect(dropped).toHaveCount(4);
+    await expect(dropped.first()).toContainText('2 件');
+    await expect(dropped.first()).toContainText('throne ×1、npc_guard ×1');
+    await expect(dropped.filter({ hasText: '棋子方格（每格 1 m）' })).toHaveCount(1);
+    await dialog.getByRole('button', { name: '關閉', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    /* 復原回到匯入前（空白地圖） */
+    await page.getByTestId('toast-action').last().click();
+    await expect.poll(async () => (await project(page)).name).toBe('新的地圖');
     expect(errors).toEqual([]);
   });
 

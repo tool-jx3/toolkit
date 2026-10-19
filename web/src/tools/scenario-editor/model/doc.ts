@@ -10,8 +10,14 @@ import { ensureTable, tblFit } from './table';
 import { setBlockText, tidyMarks, uid } from './text';
 import { ensureToc } from './toc';
 import type { Block, BlockType, Doc, PageSetting, Popup } from './types';
+import { cleanVars, ensureHo, numberHandouts } from './vars';
 
 export const UNTITLED = '未命名的劇本';
+/**
+ * 專案檔的版本（3.1.2）：1＝2026-10 以前；2＝加了變數、情報區塊、手冊（3.16）。
+ * 讀的時候不看版本：data 一律經過 normalizeDoc（舊的檔案沒有變數）。
+ */
+export const DOC_FILE_VERSION = 2;
 export const POPUP_DEFAULT_LABEL = '詳細';
 
 /** 範例原稿的段落（原作 CC0，文字沿用舊版繁中版） */
@@ -44,6 +50,7 @@ export function blankDoc(): Doc {
     fontBody: '',
     fontHead: '',
     bxTpl: [],
+    vars: [],
     pages: [{ id: uid(), bg: newPageBg('bg-paper'), cols: 1 }],
     blocks: sampleBlocks(),
   };
@@ -153,6 +160,7 @@ export function fixTyped(list: Block[]): Block[] {
       b.cols = 1;
       ensureFlow(b);
     }
+    if (b.type === 'handout') ensureHo(b);
     if (b.type === 'popup') {
       const p = ensurePopup(b);
       if (Array.isArray(p.blocks))
@@ -209,6 +217,7 @@ export function normalizeDoc(raw: unknown): Doc {
     fontBody: d.fontBody || '',
     fontHead: d.fontHead || '',
     bxTpl: (Array.isArray(d.bxTpl) ? d.bxTpl : []).map(bxTplClean).filter((x) => !!x),
+    vars: cleanVars(d.vars),
     pages: [],
     blocks: [],
   };
@@ -235,6 +244,7 @@ export function normalizeDoc(raw: unknown): Doc {
   if (!out.pages.length) out.pages.push(newPage(out.defCols));
   if (!out.blocks.length) out.blocks = sampleBlocks();
   fixTyped(out.blocks);
+  numberHandouts(out);
   if ((+(d.mdv ?? 0) || 0) < MD_VER) mdMigrate(out.blocks);
   return out;
 }
@@ -260,6 +270,7 @@ export function prepareType(b: Block, k: BlockType, userTpls: Doc['bxTpl'] = [])
     ensureFlow(b);
   }
   if (k === 'popup') ensurePopup(b);
+  if (k === 'handout') ensureHo(b);
   if (k === 'table') ensureTable(b);
   if (k === 'toc') ensureToc(b);
   if (k === 'image') fixBlock(b);
@@ -296,9 +307,17 @@ export function renewIds(b: Block): Block {
   return b;
 }
 
-/** 避免本文變成空的；每一格都至少留一個段落（隨時都有地方可以寫） */
+/**
+ * 每次修改之後：避免本文變成空的；每一格都至少留一個段落（隨時都有地方可以寫）；
+ * 新的手冊（或編號不合規則的）自動編號（F252）。
+ */
 export function keepNotEmpty(doc: Doc): void {
   if (!doc.blocks.length) doc.blocks.push(newBlock('desc', ''));
+  let ho = false;
   for (const list of blockLists(doc))
-    for (const b of list) if (b.type === 'table' && b.tbl) tblFit(b.tbl);
+    for (const b of list) {
+      if (b.type === 'table' && b.tbl) tblFit(b.tbl);
+      if (b.type === 'handout') ho = true;
+    }
+  if (ho) numberHandouts(doc);
 }

@@ -1,10 +1,11 @@
 /**
  * 匯出圖片：把一層或好幾層畫成一張 PNG。
  *
- * - 每層的範圍＝看得到的東西的外接範圍＋四周 margin 格；好幾層時用所有樓層的共同範圍（疊起來位置一樣），
- *   上方留 2 格寫樓層名稱，樓層之間空 1 格。
+ * - 每層的範圍＝看得到的東西的外接範圍＋四周 margin 格，再往外取到整格（畫格線時 2 格＝1 m）；
+ *   好幾層時用所有樓層的共同範圍（疊起來位置一樣），上方留 2 格寫樓層名稱，樓層之間空 1 格（畫格線時 2 格）。
  * - 一排太長（寬高比 > 5）時改成多排：選最接近 4:3 的欄數。
- * - GM 用的圖上方加一條「GM 用」的字帶（不會和 PL 用的搞混）。
+ * - GM 用的圖上方加一條「GM 用」的字帶（不會和 PL 用的搞混），高度也取到整格（畫格線時 2 格）。
+ * - 所以圖的寬高是每格 px 的整數倍、格線從圖的左上角開始，在線上桌面設格子大小時對得齊（2026-10，規格 F214、D26）。
  * - 實際的倍率：每格 px，但超過瀏覽器能畫的大小時自動縮小（core/image 的 limitResolution、deviceResolutionLimits）。
  */
 import { deviceResolutionLimits, limitResolution, type ResolutionLimits } from '@/core/image';
@@ -55,9 +56,15 @@ export interface ExportLayout {
 
 const EMPTY: Rect = { x: 0, y: 0, w: 10, h: 8 };
 
+/** 範圍對齊的單位（格）：整格；畫格線時 2 格（每 1 m 的粗線落在圖的邊上） */
+export const exportUnit = (grid: boolean): number => (grid ? 2 : 1);
+
 /** 匯出的版面（不畫，只算尺寸；預覽與實際匯出共用） */
 export function exportLayout(floors: readonly Floor[], opts: ExportImageOptions): ExportLayout {
   const margin = opts.margin ?? 2;
+  const unit = exportUnit(opts.grid);
+  const down = (v: number) => Math.floor(v / unit + 1e-9) * unit;
+  const up = (v: number) => Math.ceil(v / unit - 1e-9) * unit;
   const shown = floors.map((f) => visibleFloor(f, opts.playerView, opts.hideClues));
   const multi = floors.length > 1;
   let common: Rect | null = null;
@@ -66,17 +73,19 @@ export function exportLayout(floors: readonly Floor[], opts: ExportImageOptions)
       const b = floorBounds(f as Floor);
       if (b) common = unionRect(common, b);
     }
-  const titleH = multi || opts.titles ? 2 : 0;
+  const titleH = multi || opts.titles ? up(2) : 0;
   const frames = shown.map((f) => {
     const b = common ?? floorBounds(f as Floor) ?? EMPTY;
+    const x = down(b.x - margin);
+    const y = down(b.y - margin);
     return {
-      x: b.x - margin,
-      y: b.y - margin - titleH,
-      w: b.w + margin * 2,
-      h: b.h + margin * 2 + titleH,
+      x,
+      y: y - titleH,
+      w: up(b.x + b.w + margin) - x,
+      h: up(b.y + b.h + margin) - y + titleH,
     };
   });
-  const gap = multi ? 1 : 0;
+  const gap = multi ? unit : 0;
   const fh = Math.max(...frames.map((f) => f.h));
   const sizeFor = (cols: number) => {
     const rows = Math.ceil(frames.length / cols);
@@ -91,7 +100,7 @@ export function exportLayout(floors: readonly Floor[], opts: ExportImageOptions)
       if (offAspect(cand) < offAspect(layout)) layout = cand;
     }
   const badgeFont = Math.min(4, Math.max(1.1, layout.w * 0.025));
-  const badgeH = opts.gmBadge ? badgeFont * 1.6 : 0;
+  const badgeH = opts.gmBadge ? up(badgeFont * 1.6) : 0;
   const width = layout.w;
   const height = layout.h + badgeH;
   const scale = limitResolution(opts.px, { width, height }, opts.limit ?? deviceResolutionLimits());

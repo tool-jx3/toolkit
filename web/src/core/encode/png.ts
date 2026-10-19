@@ -439,3 +439,64 @@ export function assembleApng({
   parts.push(chunk('IEND', new Uint8Array(0)));
   return concat(parts);
 }
+
+/* ---------- 解析度（pHYs）：印刷用的 PNG 寫入 dpi（id-ticket 移植時新增） ---------- */
+
+/** 1 吋＝0.0254 公尺：dpi → PNG pHYs 的每公尺像素數（四捨五入；600 dpi＝23622） */
+export const dpiToPixelsPerMeter = (dpi: number): number => Math.round(dpi / 0.0254);
+
+const isPng = (png: Uint8Array): boolean =>
+  png.length >= 33 && PNG_SIGNATURE.every((b, i) => png[i] === b);
+
+const typeAt = (png: Uint8Array, at: number): string =>
+  String.fromCharCode(png[at + 4], png[at + 5], png[at + 6], png[at + 7]);
+
+/**
+ * 寫入 PNG 的解析度（pHYs，單位公尺）：放在 IHDR 後面，原本的 pHYs 拿掉；其他 chunk 與影像資料原樣保留。
+ * 印刷軟體依它換算實際尺寸（例：1276 × 2031 px＋600 dpi＝54 × 86 mm）。不是 PNG 時原樣回傳（複本）。
+ */
+export function setPngDpi(png: Uint8Array, dpi: number, dpiY = dpi): Bytes {
+  if (!isPng(png) || !(dpi > 0) || !(dpiY > 0)) return png.slice() as Bytes;
+  const data = new Uint8Array(9);
+  const dv = new DataView(data.buffer);
+  dv.setUint32(0, dpiToPixelsPerMeter(dpi));
+  dv.setUint32(4, dpiToPixelsPerMeter(dpiY));
+  data[8] = 1;
+  const parts: Uint8Array[] = [png.subarray(0, 8)];
+  let at = 8;
+  let inserted = false;
+  while (at + 12 <= png.length) {
+    const len = new DataView(png.buffer, png.byteOffset + at, 4).getUint32(0);
+    const end = Math.min(png.length, at + 12 + len);
+    const type = typeAt(png, at);
+    if (type !== 'pHYs') parts.push(png.subarray(at, end));
+    if (type === 'IHDR' && !inserted) {
+      parts.push(chunk('pHYs', data));
+      inserted = true;
+    }
+    at = end;
+    if (type === 'IEND') break;
+  }
+  return concat(parts);
+}
+
+/** 讀 PNG 的解析度（pHYs 的單位是公尺時換成 dpi，四捨五入到整數）；沒有 pHYs 或單位不明時 null */
+export function readPngDpi(png: Uint8Array): { x: number; y: number } | null {
+  if (!isPng(png)) return null;
+  let at = 8;
+  while (at + 12 <= png.length) {
+    const dv = new DataView(png.buffer, png.byteOffset + at);
+    const len = dv.getUint32(0);
+    const type = typeAt(png, at);
+    if (type === 'pHYs' && len === 9) {
+      if (png[at + 16] !== 1) return null;
+      return {
+        x: Math.round(dv.getUint32(8) * 0.0254),
+        y: Math.round(dv.getUint32(12) * 0.0254),
+      };
+    }
+    if (type === 'IDAT' || type === 'IEND') return null;
+    at += 12 + len;
+  }
+  return null;
+}

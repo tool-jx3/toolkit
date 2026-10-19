@@ -34,6 +34,7 @@ import {
 } from '@/tools/floor-plan/model/snap';
 import type { Floor, Item, Opening, Project, Room } from '@/tools/floor-plan/model/types';
 import { computeWalls, edgeKind, wallLines } from '@/tools/floor-plan/model/walls';
+import { instantiateTemplate, TEMPLATES } from '@/tools/floor-plan/templates';
 
 const room = (
   id: string,
@@ -454,12 +455,75 @@ describe('匯出的版面與檔名', () => {
   };
   const one = floorOf({ name: '1F', rooms: [room('a', 0, 0, 10, 8)] });
 
-  it('一層：範圍＋四周 2 格；GM 用的圖上方多一條字帶', () => {
+  it('一層：範圍＋四周 2 格；GM 用的圖上方多一條字帶（2026-10：字帶的高度取到整格，F214）', () => {
     const L = exportLayout([one], opts);
     expect([L.width, L.height, L.pxWidth, L.pxHeight, L.titleH]).toEqual([14, 12, 672, 576, 0]);
     const gm = exportLayout([one], { ...opts, gmBadge: 'GM 用' });
-    expect(gm.badgeH).toBeCloseTo(1.1 * 1.6);
-    expect(gm.pxHeight).toBe(Math.round((12 + 1.1 * 1.6) * 48));
+    /* 字級 1.1 格 × 1.6 ＝ 1.76 格 → 2 格 */
+    expect(gm.badgeFont).toBeCloseTo(1.1);
+    expect(gm.badgeH).toBe(2);
+    expect(gm.pxHeight).toBe((12 + 2) * 48);
+  });
+
+  it('範圍往外取到整格；開了格線時對齊 2 格（1 m 的粗線落在圖的邊上）（F214、D26）', () => {
+    /* 門往外開：範圍的左邊在 −1.5 格（半格） */
+    const f = floorOf({
+      rooms: [room('a', 0, 0, 7, 5)],
+      openings: [{ id: 'd', kind: 'door', o: 'v', x: 0, y: 1, len: 1.5, side: -1, hinge: 0 }],
+    });
+    expect(floorBounds(f)).toEqual({ x: -1.5, y: 0, w: 8.5, h: 5 });
+    const L = exportLayout([f], opts);
+    /* −1.5 − 2 ＝ −3.5 → −4；7 ＋ 2 ＝ 9 */
+    expect(L.frames[0]).toEqual({ x: -4, y: -2, w: 13, h: 9 });
+    expect([L.width, L.height, L.pxWidth, L.pxHeight]).toEqual([13, 9, 624, 432]);
+    const G = exportLayout([f], { ...opts, grid: true });
+    /* 2 格：x −4～10、y −2～8 */
+    expect(G.frames[0]).toEqual({ x: -4, y: -2, w: 14, h: 10 });
+    expect([G.width, G.height, G.pxWidth, G.pxHeight]).toEqual([14, 10, 672, 480]);
+    /* 好幾層、開格線：樓層名稱 2 格、間隔 2 格、字帶 2 格 */
+    const two = exportLayout([f, one], { ...opts, grid: true, gmBadge: 'GM 用' });
+    expect([two.gap, two.titleH, two.badgeH]).toEqual([2, 2, 2]);
+    /* 共同範圍 x −1.5～10、y 0～8 → x −4～12、y −2～10，上面再加 2 格的樓層名稱 */
+    expect(two.frames).toEqual([
+      { x: -4, y: -4, w: 16, h: 14 },
+      { x: -4, y: -4, w: 16, h: 14 },
+    ]);
+    expect(two.width % 2).toBe(0);
+    expect(two.height % 2).toBe(0);
+    /* 格線關掉時間隔仍是 1 格 */
+    expect(exportLayout([f, one], opts).gap).toBe(1);
+  });
+
+  it('所有範本的每一層：匯出範圍的原點與寬高都是整格（開格線時 2 格）的整數倍', () => {
+    const bad: string[] = [];
+    const check = (label: string, L: ReturnType<typeof exportLayout>, unit: number) => {
+      const ok = (v: number) => Math.abs(v / unit - Math.round(v / unit)) < 1e-9;
+      for (const r of L.frames)
+        if (![r.x, r.y, r.w, r.h].every(ok)) bad.push(`${label} ${JSON.stringify(r)}`);
+      if (![L.width, L.height, L.badgeH, L.gap, L.titleH].every(ok))
+        bad.push(`${label} ${L.width}×${L.height}`);
+      if (L.pxWidth !== L.width * opts.px || L.pxHeight !== L.height * opts.px)
+        bad.push(`${label} px ${L.pxWidth}×${L.pxHeight}`);
+    };
+    let n = 0;
+    for (const t of TEMPLATES) {
+      const floors = instantiateTemplate(t.id) as Floor[];
+      for (const grid of [false, true])
+        for (const playerView of [true, false]) {
+          const o = { ...opts, grid, playerView, gmBadge: playerView ? null : 'GM 用' };
+          for (const f of floors) {
+            check(
+              `${t.id} ${f.name} grid=${grid} pl=${playerView}`,
+              exportLayout([f], o),
+              grid ? 2 : 1,
+            );
+            n++;
+          }
+          check(`${t.id} all grid=${grid} pl=${playerView}`, exportLayout(floors, o), grid ? 2 : 1);
+        }
+    }
+    expect(n).toBeGreaterThan(100);
+    expect(bad).toEqual([]);
   });
 
   it('好幾層：共同範圍、上方 2 格寫樓層名稱、間隔 1 格；太長時折成接近 4:3', () => {

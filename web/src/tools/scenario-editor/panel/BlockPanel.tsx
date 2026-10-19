@@ -2,7 +2,7 @@
  * 設定欄的「段落」分頁：選取資訊（F081）、各書式的設定（1.6）、共通設定（1.5）、所在儲存格（F080）。
  */
 import { Eye } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
   Button,
   Checkbox,
@@ -19,7 +19,7 @@ import {
   Toggle,
 } from '@/ui';
 import { bridge } from '../bridge';
-import { cellOwnerOf, findBlock, typeName } from '../model/blocks';
+import { allBlocks, cellOwnerOf, findBlock, typeName } from '../model/blocks';
 import { popupLabel } from '../model/doc';
 import { FLOW_MAX_H, FLOW_MAX_W } from '../model/flow';
 import {
@@ -29,6 +29,7 @@ import {
   blockLabel,
   bxTplClean,
   ensureProc,
+  LABEL_INFO,
   LABEL_PICKS,
   procStyleOf,
   sameStyle,
@@ -38,9 +39,20 @@ import { tblCols, tblDelCol, tblDelRow, tblRows } from '../model/table';
 import { setBlockText } from '../model/text';
 import { ensureToc, TOC_PICKS, tocOf } from '../model/toc';
 import type { Block, BoxStyle, BoxTemplate } from '../model/types';
+import { ensureHo, hoOf, isVarName } from '../model/vars';
 import { deleteComments, indentSel, renamePopup, setGap, setSpan, toggleClear } from '../ops';
 import { rememberTemplates } from '../session';
-import { edit, editBlock, say, setUi, useDoc, useUi } from '../store';
+import {
+  doc,
+  edit,
+  editBlock,
+  holdStatus,
+  releaseStatus,
+  say,
+  setUi,
+  useDoc,
+  useUi,
+} from '../store';
 import { S } from '../strings';
 import {
   addCommentToSelection,
@@ -99,6 +111,10 @@ function TypeProps({ b }: { b: Block }) {
       return <DialogProps b={b} />;
     case 'proc':
       return <ProcProps b={b} />;
+    case 'info':
+      return <InfoProps b={b} />;
+    case 'handout':
+      return <HandoutProps key={b.id} b={b} />;
     case 'popup':
       return <PopupProps b={b} />;
     case 'flow':
@@ -382,6 +398,89 @@ function appendLine(text: unknown, line: string): string {
   return t ? `${t}\n${line}` : line;
 }
 
+/* ---------- 情報區塊（F251） ---------- */
+
+function InfoProps({ b }: { b: Block }) {
+  return (
+    <Section title={S.info.title} fixed>
+      <Field label={S.info.label} hint={S.info.labelHint}>
+        <TextInput
+          value={b.lb == null ? LABEL_INFO : String(b.lb)}
+          onChange={(e) => editBlock(b.id, (x) => (x.lb = e.target.value))}
+        />
+      </Field>
+      <PanelNote>{S.info.copyHint}</PanelNote>
+      <div>
+        <PreviewButton id={b.id} />
+      </div>
+    </Section>
+  );
+}
+
+/* ---------- 手冊（F253） ---------- */
+
+function HandoutProps({ b }: { b: Block }) {
+  const h = hoOf(b);
+  /* 打字中的編號（不符合規則、重複時不寫進原稿；離開欄位時回到原稿的編號） */
+  const [draft, setDraft] = useState<string | null>(null);
+  const [err, setErr] = useState('');
+  /* 欄位還錯著時，錯誤訊息不被自動儲存的訊息蓋掉（7.3） */
+  const holdKey = `ho-no:${b.id}`;
+  useEffect(() => () => releaseStatus(holdKey), [holdKey]);
+  const onNo = (v: string) => {
+    setDraft(v);
+    const nv = v.trim();
+    let why = '';
+    if (!isVarName(nv)) why = S.vars.badName;
+    else if (
+      allBlocks(doc()).some((x) => x.id !== b.id && x.type === 'handout' && hoOf(x).no === nv)
+    )
+      why = S.handout.noDup;
+    setErr(why);
+    if (why) {
+      holdStatus(holdKey, why);
+      return;
+    }
+    releaseStatus(holdKey);
+    if (nv !== h.no)
+      editBlock(b.id, (x) => {
+        ensureHo(x).no = nv;
+      });
+  };
+  return (
+    <Section title={S.handout.title} fixed>
+      <Field label={S.handout.no} hint={S.handout.noHint(h.no)} error={err || undefined}>
+        <TextInput
+          value={draft ?? h.no}
+          invalid={!!err}
+          data-testid="se-ho-no"
+          onChange={(e) => onNo(e.target.value)}
+          onBlur={() => {
+            setDraft(null);
+            setErr('');
+            releaseStatus(holdKey);
+          }}
+        />
+      </Field>
+      <Field label={S.handout.ttl}>
+        <TextInput
+          value={h.ttl}
+          placeholder={S.handout.ttlPlaceholder}
+          onChange={(e) =>
+            editBlock(b.id, (x) => {
+              ensureHo(x).ttl = e.target.value;
+            })
+          }
+        />
+      </Field>
+      <PanelNote>{S.handout.copyHint}</PanelNote>
+      <div>
+        <PreviewButton id={b.id} />
+      </div>
+    </Section>
+  );
+}
+
 /* ---------- 彈出視窗（F110～F112、F120） ---------- */
 
 function PopupProps({ b }: { b: Block }) {
@@ -574,7 +673,7 @@ function CommonProps({ blocks }: { blocks: Block[] }) {
   const spanFixed = blocks.every((x) => x.type === 'npc' || x.type === 'flow');
   const allSpan = blocks.every((x) => x.cols === 1);
   const allFlow = blocks.every((x) => x.cols === 2);
-  const rich = single && ['desc', 'note', 'proc', 'table'].includes(b.type);
+  const rich = single && ['desc', 'note', 'proc', 'info', 'handout', 'table'].includes(b.type);
   const gapVal = (k: 'mt' | 'mb') => {
     const vals = new Set(blocks.map((x) => (x[k] == null ? '' : String(x[k]))));
     return vals.size === 1 ? [...vals][0] : '';

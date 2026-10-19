@@ -320,3 +320,25 @@ test('模組：自動牆壁（squareEdgeRuns、subtractSpans）；對話框：�
   await expect(page.getByText('已復原', { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('模組：印刷尺寸與解析度（printPixels、setPngDpi）', async ({ page }) => {
+  const errors = await openGallery(page);
+  await page.getByRole('tab', { name: '模組' }).click();
+  const size = page.getByTestId('print-demo-size');
+  await expect(size).toHaveText('58 × 90 mm → 1370 × 2126 px');
+  await page.getByRole('radio', { name: '300 dpi', exact: true }).click();
+  await expect(size).toHaveText('58 × 90 mm → 685 × 1063 px');
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: '下載測試 PNG' }).click(),
+  ]);
+  expect(dl.suggestedFilename()).toBe('print-54x86mm-300dpi.png');
+  const bytes = new Uint8Array(readFileSync((await dl.path()) as string));
+  /* IHDR 之後是 pHYs：每公尺 11811 像素（300 dpi）、單位公尺 */
+  const dv = new DataView(bytes.buffer, bytes.byteOffset);
+  expect([dv.getUint32(16), dv.getUint32(20)]).toEqual([685, 1063]);
+  expect(String.fromCharCode(...bytes.slice(37, 41))).toBe('pHYs');
+  expect([dv.getUint32(41), dv.getUint32(45), bytes[49]]).toEqual([11811, 11811, 1]);
+  await expect(page.getByText(/已寫入 300 dpi/)).toBeVisible();
+  expect(errors).toEqual([]);
+});

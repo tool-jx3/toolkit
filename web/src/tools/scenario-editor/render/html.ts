@@ -20,6 +20,7 @@ import {
 } from '../model/text';
 import { tocEntries, tocOf } from '../model/toc';
 import type { Block, Doc, Flow, FlowNode, PageSetting, Popup, Table } from '../model/types';
+import { hoOf, varView, wrapVarsHtml } from '../model/vars';
 import { npcHtml } from './npc';
 import { richBlockHtml, richTextHtml } from './rich';
 
@@ -33,9 +34,13 @@ export interface RenderCtx {
   total: number;
   /** 匯出：標題段落加錨點 id="b<段落 id>" */
   anchors?: boolean;
-  /** 匯出：表格與 NPC 卡右上的複製按鈕 */
+  /** 匯出：表格與 NPC 卡右上的複製按鈕、情報區塊與手冊按一下複製（F259） */
   copyButtons?: boolean;
 }
+
+/** 變數的位置包成顯示預設值的標記（F257；原稿沒有變數時原樣） */
+const withVars = (html: string, doc: Pick<Doc, 'blocks' | 'vars'>): string =>
+  wrapVarsHtml(html, varView(doc));
 
 export interface Place {
   /** 所在頁的欄數 */
@@ -74,7 +79,7 @@ export function popupContentHtml(pop: Popup | undefined, ctx: RenderCtx): string
     heads: true,
     popRef: (n) => popRefHtml(n, ctx),
   });
-  return out || '<p class="pop-empty">（還沒有寫任何內容）</p>';
+  return out ? withVars(out, ctx.doc) : '<p class="pop-empty">（還沒有寫任何內容）</p>';
 }
 
 /* ---------- 一串段落（彈出視窗的內容、儲存格；不分頁） ---------- */
@@ -189,14 +194,15 @@ export function tocHtml(b: Block | null, ctx: RenderCtx): string {
   const t = b ? tocOf(b) : { lb: '目　錄', pick: ['h1', 'h2', 'h3'], pn: true, dots: true };
   const e = tocEntries(ctx.doc.blocks, ctx.pageOf, t.pick);
   const head = String(t.lb ?? '').trim();
-  return (
+  return withVars(
     (head ? `<div class="toc-h">${esc(head)}</div>` : '') +
-    `<div class="toc-list${t.dots ? '' : ' nodots'}">${e
-      .map(
-        (x) =>
-          `<a class="toc-line toc-l${x.lv}" href="#b${esc(x.id)}"><span class="lb">${esc(rubyPlain(x.text))}</span><span class="dots${t.dots ? '' : ' plain'}"></span>${t.pn ? `<span class="pn">${x.page}</span>` : ''}</a>`,
-      )
-      .join('')}</div>`
+      `<div class="toc-list${t.dots ? '' : ' nodots'}">${e
+        .map(
+          (x) =>
+            `<a class="toc-line toc-l${x.lv}" href="#b${esc(x.id)}"><span class="lb">${esc(rubyPlain(x.text))}</span><span class="dots${t.dots ? '' : ' plain'}"></span>${t.pn ? `<span class="pn">${x.page}</span>` : ''}</a>`,
+        )
+        .join('')}</div>`,
+    ctx.doc,
   );
 }
 
@@ -317,9 +323,14 @@ export function blockInnerHtml(b: Block, ctx: RenderCtx): string {
       return popupButtonHtml(b);
     case 'flow':
       return flowHtml(b.flow);
-    case 'proc': {
+    case 'proc':
+    case 'info': {
       const lb = blockLabel(b).trim();
       return (lb ? `<div class="blb">${esc(lb)}</div>` : '') + richBlockHtml(b, popRef);
+    }
+    case 'handout': {
+      const h = hoOf(b);
+      return `<div class="ho-h"><span class="ho-n">${esc(h.no)}</span>${h.ttl.trim() ? `<span class="ho-t">${esc(h.ttl)}</span>` : ''}</div>${richBlockHtml(b, popRef)}`;
     }
     case 'break':
     case 'colbr':
@@ -393,8 +404,19 @@ export function blockHtml(b: Block, ctx: RenderCtx, place: Place): string {
     extra = `<button type="button" class="copybtn" data-for="out${esc(b.id)}">複製輸出</button>`;
   if (ctx.copyButtons && b.type === 'npc')
     extra = `<button type="button" class="copybtn" data-for="ccf${esc(b.id)}">複製 CCFOLIA 棋子</button>`;
-  return `<div class="${cls}" data-id="${esc(b.id)}"${ost ? ` style="${ost}"` : ''}><div${anchor} class="${icls}"${ist ? ` style="${ist}"` : ''}>${extra}${inner}</div></div>`;
+  /* 匯出：情報區塊、手冊按一下（或 Enter／空白鍵）複製內文（F259） */
+  const copyAttr =
+    ctx.copyButtons && (b.type === 'info' || b.type === 'handout')
+      ? ` tabindex="0" title="${COPY_BLOCK_TIP}"`
+      : '';
+  return withVars(
+    `<div class="${cls}" data-id="${esc(b.id)}"${ost ? ` style="${ost}"` : ''}><div${anchor} class="${icls}"${ist ? ` style="${ist}"` : ''}${copyAttr}>${extra}${inner}</div></div>`,
+    ctx.doc,
+  );
 }
+
+/** 匯出 HTML：情報區塊、手冊的提示 */
+export const COPY_BLOCK_TIP = '按一下複製內文';
 
 /* ---------- 頁面 ---------- */
 
@@ -408,7 +430,7 @@ export function bgImageHtml(p: PageSetting | undefined): string {
   return `<div class="pg-img" style="background-image:url(&quot;${esc(p.bg.img)}&quot;);opacity:${(+p.bg.opa || 35) / 100};background-size:${fit};background-repeat:${p.bg.fit === 'repeat' ? 'repeat' : 'no-repeat'}"></div>`;
 }
 
-/** 頁尾（3.2.8） */
+/** 頁尾（3.2.8；固定文字裡的變數顯示預設值，F257） */
 export function footHtml(i: number, total: number, doc: Doc): string {
   const f = doc.foot ?? { num: true, text: '', from: 1 };
   const from = Number.isFinite(+f.from) ? +f.from : 1;
@@ -419,7 +441,10 @@ export function footHtml(i: number, total: number, doc: Doc): string {
     .replace(/\{total\}/g, String(total || 1));
   const num = f.num !== false ? n : '';
   if (!t && !num) return '';
-  return `<div class="pg-foot">${t ? `<span class="ft">${esc(t)}</span>` : ''}${num ? `<span class="pn">${esc(num)}</span>` : ''}</div>`;
+  return withVars(
+    `<div class="pg-foot">${t ? `<span class="ft">${esc(t)}</span>` : ''}${num ? `<span class="pn">${esc(num)}</span>` : ''}</div>`,
+    doc,
+  );
 }
 
 export function pageSettingAt(doc: Doc, i: number): PageSetting {
@@ -518,7 +543,7 @@ export function appendixItems(ctx: RenderCtx, all: readonly Block[]): FlowItem[]
     },
   ];
   for (const b of list) {
-    const label = esc(b.pop?.label || POPUP_DEFAULT_LABEL);
+    const label = withVars(esc(b.pop?.label || POPUP_DEFAULT_LABEL), ctx.doc);
     out.push({
       type: 'h2',
       html: (p) =>

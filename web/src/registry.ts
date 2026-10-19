@@ -533,6 +533,18 @@ export const TOOLS: readonly ToolEntry[] = [
     inspiration: { name: 'TEXTSCENE', url: 'https://textscene.netlify.app/' },
   },
   {
+    id: 'id-ticket',
+    name: '證件與票券產生器',
+    summary:
+      '做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、1920 年代的偵探執照，以及電影票、登機證、車票、收據；放上照片、自動產生編號、條碼與 QR code，證件可以匯出 600 dpi 的印刷用 PNG，票券還能存成浮起加閃光的 GIF。',
+    group: 'G6',
+    status: 'live',
+    inspiration: {
+      name: 'dearmysn1p3r/DearMySn1p3r_20',
+      url: 'https://dearmysn1p3r.github.io/DearMySn1p3r_20/',
+    },
+  },
+  {
     id: 'video-anim',
     name: '影片轉動圖工具',
     summary:
@@ -573,6 +585,18 @@ export const TOOLS: readonly ToolEntry[] = [
     group: 'G8',
     status: 'live',
     inspiration: { name: 'al1scut/tkmizGeo', url: 'https://al1scut.github.io/tkmizGeo/' },
+  },
+  {
+    id: 'vhs-frame',
+    name: '錄影帶畫面產生器',
+    summary:
+      '把照片做成老錄影帶在映像管電視上播放的畫面：色差、撕裂、雜訊、掃描線與弧面，「磨損度」決定壞得多嚴重，加上字幕與時間碼，匯出 PNG 或字幕逐字打出的 GIF，當作錄影帶或監視器截圖的 handout。',
+    group: 'G8',
+    status: 'live',
+    inspiration: {
+      name: 'dearmysn1p3r/VHS_Maker',
+      url: 'https://dearmysn1p3r.github.io/VHS_Maker/',
+    },
   },
   {
     id: 'magic-circle',

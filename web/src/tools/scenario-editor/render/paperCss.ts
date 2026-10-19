@@ -57,6 +57,25 @@ const BASE_CSS = `
 .blb{display:block;font-size:.75em;letter-spacing:.28em;font-weight:700;margin-bottom:1mm;white-space:pre-wrap}
 .t-proc .blb{color:var(--bxc)}
 
+/* 情報區塊、手冊（2026-10，上游 v3.8.0～v3.9.0；3.2.2） */
+.t-info{line-height:1.8;padding:2.5mm 3.5mm;border-left:3px solid #2f5d73;background:rgba(47,93,115,.07)}
+.t-info .blb{color:#2f5d73}
+.t-handout{line-height:1.8;padding:3.5mm 4.5mm;border:1.4px solid #23201c;border-radius:1px}
+.ho-h{display:flex;align-items:baseline;gap:3mm;flex-wrap:wrap;border-bottom:1px solid rgba(35,32,28,.55);padding-bottom:1.5mm;margin-bottom:2mm;white-space:normal}
+.ho-n{font-weight:700;font-size:1.2em;letter-spacing:.06em;color:#a8331f}
+.ho-t{font-weight:700;font-size:1.05em;white-space:pre-wrap}
+
+/* 變數（F257）：還沒填值時淡色；列印與 PDF 用一般的文字顏色 */
+.tvar{color:#a8331f;border-bottom:1px dotted #a8331f}
+.tvar.unset{color:#9a8e74;border-bottom-color:#b9ab8c}
+/* 墨色底（標題 1、彈出視窗按鈕、舊式彈出視窗的 # 標題）上：填了值的跟著底色的文字色＋虛線底線，
+   還沒填的淡色維持（墨底 5.0:1）；按鈕滑鼠移上去（朱底）時淡色換成亮一點的（5.2:1）。7.3 */
+.t-h1 .tvar,.rh1 .tvar,.pop-btn .tvar{color:inherit;border-bottom:1px dashed currentColor}
+.t-h1 .tvar.unset,.rh1 .tvar.unset,.pop-btn .tvar.unset{color:#9a8e74;border-bottom:1px dotted #b9ab8c}
+.pop-btn:hover .tvar.unset{color:#ebe3d2;border-bottom-color:#ebe3d2}
+.pv-print .tvar,.pv-print .tvar.unset,.pv-print .t-h1 .tvar.unset,.pv-print .rh1 .tvar.unset,.pv-print .pop-btn .tvar.unset{color:inherit;border-bottom:0}
+@media print{.tvar,.tvar.unset,.t-h1 .tvar,.rh1 .tvar,.pop-btn .tvar,.t-h1 .tvar.unset,.rh1 .tvar.unset,.pop-btn .tvar.unset{color:inherit;border-bottom:0}}
+
 /* 巢狀書式 */
 .b.hasrich{white-space:normal}
 .rp,.pop-p{white-space:pre-wrap;margin:0 0 1.2mm}

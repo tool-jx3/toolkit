@@ -5,6 +5,7 @@
 import { paginate } from '@/core/paged';
 import { allBlocks, gapPull, isFreeImg, subLists } from './model/blocks';
 import type { Block, Doc } from './model/types';
+import { varPlain, varView } from './model/vars';
 import {
   appendixItems,
   blockHtml,
@@ -197,8 +198,12 @@ function countPagesOfSection(
   return 1;
 }
 
-/** 頁面一覽、標題清單用：每頁的標題（F201） */
+/** 頁面一覽、標題清單用：每頁的標題（F201；變數顯示預設值，F257） */
 export function pageTitleOf(doc: Doc, ids: readonly string[]): string {
+  return varPlain(pageTitleRaw(doc, ids), varView(doc));
+}
+
+function pageTitleRaw(doc: Doc, ids: readonly string[]): string {
   const byId = new Map(allBlocks(doc).map((b) => [b.id, b]));
   const list = ids.map((id) => byId.get(id)).filter((b): b is Block => !!b);
   const head = list.find(

@@ -41,9 +41,11 @@ export { createLocalEncoder, type Encoder, type EncoderSpec } from './local';
 export {
   buildPalette,
   ColorStats,
+  opaqueU32,
   type Palette,
   type PaletteMethod,
   principalAxis,
+  withSolidColors,
 } from './palette';
 export {
   type ApngFrame,
@@ -52,8 +54,11 @@ export {
   concat,
   crc32,
   type DeflateMode,
+  dpiToPixelsPerMeter,
   encodePng,
   PNG_SIGNATURE,
+  readPngDpi,
+  setPngDpi,
   zlib,
 } from './png';
 export { PngSequenceEncoder, type PngSequenceOptions } from './sequence';

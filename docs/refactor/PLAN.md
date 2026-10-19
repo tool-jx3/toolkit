@@ -215,6 +215,10 @@ P10 進度：✅ 首頁移入新框架（`web/src/index.html`＋`web/src/home/`�
 zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連到原站。新工具照 [PROCESS.md](PROCESS.md) 第 6 節引入；
 未授權的原作只參考功能與做法，程式、文字、素材自己做。
 
+上游檢查（2026-10-18）：60 多個上游裡有 9 個有新 commit（くま。的室内図メーカー v1.05～v1.13、trpg-scenario-editor v3.4～v3.9、character-height-board、4layout、tkmizGeo、dp-cardmaker 等），
+另外找了各作者 10/09 之後的新工具與 10/15 之後才收錄的作者的全部 repo。使用者 2026-10-19 選了第一批：室內平面圖讀原作新版檔的相容、劇本排版台的情報／手冊／變數、
+證件與票券產生器、錄影帶畫面產生器；另外評估 Maptsukuri（maptsukuri.pages.dev）有沒有值得併進室內平面圖的功能。
+
 | 工具 id | 名稱 | 靈感來源 | 原授權 | 群組 | 規格 | 實作 | 對等驗證 | 上線 |
 |---|---|---|---|---|---|---|---|---|
 | ai-fail | AI 誤判梗圖產生器 | swoonqx/ai-fails-meme-maker | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
@@ -235,6 +239,8 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | captcha-card | 驗證題梗圖產生器（2026-10-15 另外加入） | dearmysn1p3r/DearMySn1p3r_44（reCAPTCHA Maker） | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
 | social-post | 社群貼文產生器（2026-10-16 另外加入；通用的相片社群 App 樣式，不用 Instagram 的名稱與標誌） | s2ndrome/4layout（인스타 메이커） | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
 | geo-bloom | 幾何花紋產生器（2026-10-17 另外加入） | al1scut/tkmizGeo（Geometric Bloom） | 未授權 | G8 | ✅ | ✅ | ✅ | ✅ |
+| id-ticket | 證件與票券產生器（2026-10-19 第一批） | dearmysn1p3r/DearMySn1p3r_20（ID Studio）＋DearMySn1p3r_36（Ticket Studio） | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
+| vhs-frame | 錄影帶畫面產生器（2026-10-19 第一批） | dearmysn1p3r/VHS_Maker | 未授權 | G8 | ✅ | ✅ | ✅ | ✅ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 
@@ -255,6 +261,8 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | relation-chart | 第五批「版本與動畫」：版本快照、分頁庫、檔案庫、時間軸分頁、GIF／影片匯出（F015、F027、F193、F028、F148） | 同上 | ✅ |
 | 全站 GIF | 全不透明的 GIF 打開共用編碼器的 `cropFrames`（第 2 格起只寫變化的矩形，檔案小很多；lock-screen 引入時加的選項，見其規格 D7）→ 2026-10 改成預設開（DESIGN.md 4.2「GIF 只寫變化的範圍」） | 本站 | ✅ |
 | 全站 | 介面文字的「保存」改成「儲存」（28 個工具 60 處；「方便保存、分享」這類「留著」的意思不改；DESIGN.md 第 5 節，scenario-text 對等驗證時發現） | 本站 | ✅ |
+| floor-plan | 讀原作 v1.05 以後的地圖檔：新的門窗、房間、牆種類對應到最接近的既有種類並通知（目前不認得的門窗會被直接丟掉） | くま。／TRPG室内図メーカー v1.05～v1.13（使用者 2026-10-19） | ✅ |
+| scenario-editor | 情報區塊、手冊（HO）、變數（`{HO1}` 等，匯出的 HTML 填 PC 名後全文替換、點一下複製）；讀原作 v3.8 以後的原稿 | sedn14636361/trpg-scenario-editor v3.8.0～v3.9.0（CC0，使用者 2026-10-19） | ✅ |
 
 ## 7. 往後新增工具
 

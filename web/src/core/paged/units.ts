@@ -13,6 +13,31 @@ export const mmToPx = (mm: number): number => mm * MM_PX;
 export const pxToMm = (px: number): number => px / MM_PX;
 export const mmToPt = (mm: number): number => (mm * 72) / 25.4;
 
+/* ---------- 印刷：指定 dpi 的像素、出血（id-ticket 移植時新增） ---------- */
+
+export const MM_PER_INCH = 25.4;
+
+/** mm → 指定 dpi 的像素（不取整；600 dpi 時 1 mm ≈ 23.62 px） */
+export const mmToDots = (mm: number, dpi: number): number => (mm * dpi) / MM_PER_INCH;
+
+/** 指定 dpi 的像素 → mm */
+export const dotsToMm = (dots: number, dpi: number): number => (dots * MM_PER_INCH) / dpi;
+
+/**
+ * 印刷品的整數像素尺寸：成品尺寸（mm）＋四邊各 bleed mm 的出血，以 dpi 換算後四捨五入。
+ * 例：54 × 86 mm、600 dpi → 1276 × 2031；加 2 mm 出血（58 × 90 mm）→ 1370 × 2126。
+ */
+export function printPixels(
+  size: PaperSize,
+  dpi: number,
+  bleedMm = 0,
+): { width: number; height: number } {
+  return {
+    width: Math.round(mmToDots(size.w + 2 * bleedMm, dpi)),
+    height: Math.round(mmToDots(size.h + 2 * bleedMm, dpi)),
+  };
+}
+
 export interface PaperSize {
   /** mm */
   w: number;

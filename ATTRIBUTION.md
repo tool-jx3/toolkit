@@ -101,11 +101,13 @@
 | `crossword` | 填字遊戲產生器 | [sotsotssi/text2crossword](https://github.com/sotsotssi/text2crossword)（MIT） | —（新收錄，沒有舊版） |
 | `scratch-card` | 刮刮卡產生器 | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard)（未授權） | —（新收錄，沒有舊版） |
 | `lock-screen` | 鎖定畫面訊息產生器 | [TEXTSCENE](https://textscene.netlify.app/)（未授權） | —（新收錄，沒有舊版） |
+| `id-ticket` | 證件與票券產生器 | [dearmysn1p3r/DearMySn1p3r_20](https://github.com/dearmysn1p3r/DearMySn1p3r_20)（ID Studio，未授權）、[dearmysn1p3r/DearMySn1p3r_36](https://github.com/dearmysn1p3r/DearMySn1p3r_36)（Ticket Studio，未授權） | —（新收錄，沒有舊版） |
 | `relation-chart` | 角色關係圖產生器 | [PaiTei4234／Relationship Chart Maker](https://paitei4234.itch.io/relationshipchartmaker)（CC BY-NC-SA 4.0） | —（新收錄，沒有舊版） |
 | `prose-card` | 短文圖片產生器 | [dan0030/writeediter2](https://github.com/dan0030/writeediter2)（未授權） | —（新收錄，沒有舊版） |
 | `captcha-card` | 驗證題梗圖產生器 | [dearmysn1p3r/DearMySn1p3r_44](https://github.com/dearmysn1p3r/DearMySn1p3r_44)（未授權） | —（新收錄，沒有舊版） |
 | `social-post` | 社群貼文產生器 | [s2ndrome/4layout](https://github.com/s2ndrome/4layout)（未授權） | —（新收錄，沒有舊版） |
 | `geo-bloom` | 幾何花紋產生器 | [al1scut/tkmizGeo](https://github.com/al1scut/tkmizGeo)（未授權） | —（新收錄，沒有舊版） |
+| `vhs-frame` | 錄影帶畫面產生器 | [dearmysn1p3r/VHS_Maker](https://github.com/dearmysn1p3r/VHS_Maker)（未授權） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -144,9 +146,13 @@
 
 `captcha-card` 照新工具引入流程直接在新框架做：原作（commit `a93c2ea`）沒有授權條款，只照原作的功能、版面數值與動畫的影格表（每一格的畫面與時間和原作相同），程式、介面文字、預設文案、範例圖與圖示都由本站自做；原作仿 reCAPTCHA 的名稱與標誌不沿用，做成通用的「圖片驗證題」樣式。
 
+`id-ticket` 照新工具引入流程直接在新框架做：兩個原作（ID Studio commit `c08d489`、Ticket Studio commit `5636d9d`）都沒有授權條款，只照原作的功能、版面數值與做法（卡片 54 × 86 mm、600 dpi、2 mm 出血、票券的墊紙與閃光 GIF），程式、介面文字、範本、範例資料與圖示都由本站自做；機構名稱都是虛構的，不用真實公司、航空公司、鐵路公司、警察的名稱與標誌。QR code 用 npm 的 qrcode-generator（MIT，列在通知檔），條碼是本站自己寫的 Code 128。
+
 `social-post` 照新工具引入流程直接在新框架做：原作（commit `3297da5`）沒有授權條款，只照原作的功能、版面數值與做法（各畫面的區塊位置、比例、限時動態的分割與貼紙），程式、介面文字、範例帳號與貼文、範例照片（程式畫的）、圖示與配色都由本站自做；原作仿 Instagram 的名稱、標誌與專有圖示不沿用，做成通用的「相片社群 App」樣式。
 
 `geo-bloom` 照新工具引入流程直接在新框架做：原作（commit `3097b39`，「Geometric Bloom」）沒有授權條款，只照原作的功能、數值與做法（廣度優先長出圖形與線、亂數的順序、各種圖形的畫法，同樣的種子與設定畫出同樣的圖），程式、介面文字（原作是日文）與 6 組範本都由本站自做。
+
+`vhs-frame` 照新工具引入流程直接在新框架做：原作（commit `cd24d0e`）沒有授權條款，只照原作的功能、效果的演算法與數值（同樣的照片、時間點與磨損度畫出和原作逐像素相同的畫面），程式、介面文字（原作是韓文）與範例文字都由本站自做。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 

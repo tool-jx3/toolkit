@@ -4,6 +4,7 @@
 import type { ConfirmOptions, ToastOptions } from '@/ui';
 import { ASSET, isAsset } from '../model/assets';
 import { ROOM_PRESETS, type RoomPresetId, wallThickness } from '../model/catalog';
+import { compatCounts, hasCompatNotes } from '../model/compat';
 import {
   clamp,
   clueCount,
@@ -44,6 +45,7 @@ import {
 import type { WallRun } from '../model/walls';
 import { S } from '../strings';
 import { getTemplate, instantiateTemplate } from '../templates';
+import { importNotice } from './ImportReport';
 import {
   type Armed,
   currentFloor,
@@ -635,21 +637,32 @@ export function loadTemplate(id: string, opts: { structureOnly: boolean; clues: 
 
 export type OpenResult = { ok: true; dropped: number } | { ok: false };
 
-/** 讀進一份專案資料（本站的專案檔、原作的 .trpgmap.json） */
+/** 開檔的通知有「詳細」與「復原」兩顆按鈕、要讀數字，顯示久一點（滑過或聚焦時暫停） */
+const IMPORT_NOTICE_MS = 8000;
+
+/**
+ * 讀進一份專案資料（本站的專案檔、原作的 .trpgmap.json）。
+ * 原作新版的種類換成相近的、略過本工具沒有的東西時，「已匯入」的通知改成警告色，說明一行摘要＋「詳細」（F213、D25）。
+ */
 export function openProjectData(raw: unknown, source: 'project' | 'legacy'): OpenResult {
   const report: NormalizeReport = { droppedItems: 0 };
   const project = normalizeProject(raw, isAsset, report);
   if (!project) return { ok: false };
   flushNudge();
   useProject.getState().replace(project);
-  setEditor({ sel: [] });
+  setEditor({ sel: [], importReport: null, importReportOpen: false });
   setTool('select');
   viewFns?.fit();
   const name = project.name || S.untitled;
-  notify(source === 'legacy' ? S.msg.imported(name) : S.msg.opened(name), 'success', {
-    action: undoAction(),
-  });
-  if (report.droppedItems) notify(S.msg.droppedItems(report.droppedItems), 'warning');
+  const title = source === 'legacy' ? S.msg.imported(name) : S.msg.opened(name);
+  if (hasCompatNotes(report.compat)) {
+    setEditor({ importReport: report.compat });
+    notify(title, 'warning', {
+      description: importNotice(S.compat.summary(compatCounts(report.compat))),
+      action: undoAction(),
+      duration: IMPORT_NOTICE_MS,
+    });
+  } else notify(title, 'success', { action: undoAction() });
   return { ok: true, dropped: report.droppedItems };
 }
 

@@ -1,11 +1,36 @@
 /**
  * 讀進來的資料整理成可以用的專案（自動存檔、專案檔、原作的 .trpgmap.json 共用）：
  * 只留認得的欄位、數值不是數字的丟掉、範圍外的夾回來、不認得的種類換成預設值。
+ * 原作新版（v1.05～v1.13）的種類換成最接近的種類、本工具沒有的家具與設定略過，都記在 report.compat（compat.ts）。
  */
 import { formatHex, parseColor } from '@/core/color';
-import { isCategory, isOpeningKind, isSizeMode, isThemeId, isWallKind } from './catalog';
+import { CAT, isCategory, isOpeningKind, isSizeMode, isThemeId, isWallKind } from './catalog';
+import {
+  type CompatReport,
+  emptyCompatReport,
+  isLegacyWallHole,
+  legacyOpening,
+  legacyRoomCat,
+  legacyWall,
+  noteConverted,
+  noteDroppedItem,
+  noteDroppedOpening,
+  overlayToHole,
+} from './compat';
 import { clamp, emptyFloor, uid } from './geometry';
-import type { Floor, Item, Opening, Project, Room, TextLabel, Wall } from './types';
+import type {
+  Floor,
+  Item,
+  Opening,
+  OpeningKind,
+  Project,
+  Room,
+  RoomCategory,
+  TextLabel,
+  Wall,
+  WallKind,
+} from './types';
+import { wallLines } from './walls';
 
 const num = (v: unknown, fallback = 0): number => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : Number.NaN;
@@ -34,6 +59,34 @@ function compact<T extends object>(o: T): T {
 export interface NormalizeReport {
   /** 家具種類不認得而丟掉的個數 */
   droppedItems: number;
+  /** 換成最接近的種類、略過的東西（2026-10；normalizeProject 填入） */
+  compat?: CompatReport;
+}
+
+/** 不認得的種類：原作新版的換成最接近的，其他的換成預設值；有寫種類代號時記下來 */
+function roomCat(v: unknown, report: CompatReport): RoomCategory {
+  if (isCategory(v)) return v;
+  if (typeof v !== 'string' || !v) return 'living';
+  const to = legacyRoomCat(v) ?? 'living';
+  noteConverted(report, 'room', v, to);
+  return to;
+}
+
+function wallKind(v: unknown, report: CompatReport): WallKind {
+  if (isWallKind(v)) return v;
+  if (typeof v !== 'string' || !v) return 'int';
+  const to = legacyWall(v) ?? 'int';
+  noteConverted(report, 'wall', v, to);
+  return to;
+}
+
+function openingKind(v: unknown, report: CompatReport): OpeningKind | null {
+  if (isOpeningKind(v)) return v;
+  if (typeof v !== 'string' || !v) return null;
+  const to = legacyOpening(v);
+  if (to) noteConverted(report, 'opening', v, to);
+  else noteDroppedOpening(report, v);
+  return to ?? null;
 }
 
 /** 每一類的 id 不重複（重複或沒有的給新的） */
@@ -46,10 +99,13 @@ function ids<T extends { id: string }>(arr: T[], prefix: string): T[] {
   return arr;
 }
 
-function room(r: Record<string, unknown>): Room | null {
+function room(r: Record<string, unknown>, report: CompatReport): Room | null {
   const w = Math.round(num(r.w, 0));
   const h = Math.round(num(r.h, 0));
   if (w < 1 || h < 1 || !isNum(r.x) || !isNum(r.y)) return null;
+  const cat = roomCat(r.cat, report);
+  /* 原作 v1.05 的「這間房的牆種類」：本工具沒有，略過（戶外房間原作也沒有作用，不算） */
+  if (typeof r.wall === 'string' && r.wall && !CAT[cat].outdoor) report.roomWalls++;
   return compact<Room>({
     id: str(r.id),
     x: Math.round(num(r.x)),
@@ -57,7 +113,7 @@ function room(r: Record<string, unknown>): Room | null {
     w,
     h,
     name: str(r.name).slice(0, 200),
-    cat: isCategory(r.cat) ? r.cat : 'living',
+    cat,
     plName: optStr(r.plName, 200),
     note: optStr(r.note),
     color: color(r.color),
@@ -70,7 +126,7 @@ function room(r: Record<string, unknown>): Room | null {
   });
 }
 
-function wall(w: Record<string, unknown>): Wall | null {
+function wall(w: Record<string, unknown>, report: CompatReport): Wall | null {
   if (!['x1', 'y1', 'x2', 'y2'].every((k) => isNum(w[k]))) return null;
   return compact<Wall>({
     id: str(w.id),
@@ -78,17 +134,19 @@ function wall(w: Record<string, unknown>): Wall | null {
     y1: num(w.y1),
     x2: num(w.x2),
     y2: num(w.y2),
-    kind: isWallKind(w.kind) ? w.kind : 'int',
+    kind: wallKind(w.kind, report),
     gm: flag(w.gm),
   });
 }
 
-function opening(o: Record<string, unknown>): Opening | null {
-  if (!isOpeningKind(o.kind) || (o.o !== 'h' && o.o !== 'v') || !(num(o.len) > 0)) return null;
+function opening(o: Record<string, unknown>, report: CompatReport): Opening | null {
+  if ((o.o !== 'h' && o.o !== 'v') || !(num(o.len) > 0)) return null;
   if (!isNum(o.x) || !isNum(o.y)) return null;
+  const kind = openingKind(o.kind, report);
+  if (!kind) return null;
   return compact<Opening>({
     id: str(o.id),
-    kind: o.kind,
+    kind,
     o: o.o,
     x: num(o.x),
     y: num(o.y),
@@ -146,35 +204,41 @@ export function normalizeProject(
   if (!raw || typeof raw !== 'object') return null;
   const p = raw as Record<string, unknown>;
   if (!Array.isArray(p.floors)) return null;
+  const compat = emptyCompatReport();
   let dropped = 0;
   const floors: Floor[] = list(p.floors).map((f) => {
     const items: Item[] = [];
+    /* 原作「疊在牆上的」牆洞、崩塌：牆算出來之後再換成牆上的破洞 */
+    const overlays: Record<string, unknown>[] = [];
     for (const i of list(f.items)) {
       const it = item(i, isAsset);
       if (it) items.push(it);
-      else if (typeof i.t === 'string' && !isAsset(i.t)) dropped++;
+      else if (typeof i.t === 'string' && !isAsset(i.t)) {
+        if (isLegacyWallHole(i.t)) overlays.push(i);
+        else {
+          dropped++;
+          noteDroppedItem(compat, i.t);
+        }
+      }
     }
-    return {
+    const floor: Floor = {
       id: str(f.id) || uid('f'),
       name: str(f.name).slice(0, 60),
       rooms: ids(
         list(f.rooms)
-          .map(room)
+          .map((r) => room(r, compat))
           .filter((x): x is Room => !!x),
         'r',
       ),
       walls: ids(
         list(f.walls)
-          .map(wall)
+          .map((w) => wall(w, compat))
           .filter((x): x is Wall => !!x),
         'w',
       ),
-      openings: ids(
-        list(f.openings)
-          .map(opening)
-          .filter((x): x is Opening => !!x),
-        'o',
-      ),
+      openings: list(f.openings)
+        .map((o) => opening(o, compat))
+        .filter((x): x is Opening => !!x),
       items: ids(items, 'i'),
       texts: ids(
         list(f.texts)
@@ -183,9 +247,36 @@ export function normalizeProject(
         't',
       ),
     };
+    if (overlays.length) {
+      const lines = wallLines(floor);
+      for (const i of overlays) {
+        const t = i.t as string;
+        const hole = overlayToHole(
+          { t, x: num(i.x), y: num(i.y), w: num(i.w), h: num(i.h), gm: i.gm === true },
+          lines,
+          floor.openings,
+        );
+        if (hole) {
+          floor.openings.push(hole);
+          noteConverted(compat, 'overlay', t, hole.kind);
+        } else {
+          dropped++;
+          noteDroppedItem(compat, t);
+        }
+      }
+    }
+    ids(floor.openings, 'o');
+    /* 原作 v1.12 外觀樓層的「顯示內部」：本工具沒有，略過 */
+    if (f.showInside === true) compat.insideFloors++;
+    return floor;
   });
   ids(floors, 'f');
-  if (report) report.droppedItems = dropped;
+  /* 原作 v1.07 的棋子方格：本工具沒有，略過 */
+  if (num(p.tokenGrid) > 0) compat.tokenGrid = num(p.tokenGrid);
+  if (report) {
+    report.droppedItems = dropped;
+    report.compat = compat;
+  }
   const showSize = p.showSize === 'jo' ? 'ping' : p.showSize;
   const out: Project = {
     name: str(p.name).slice(0, 120),
