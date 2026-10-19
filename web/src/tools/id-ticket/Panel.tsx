@@ -14,7 +14,7 @@ import {
   Trash2,
   Undo2,
 } from 'lucide-react';
-import { useCallback, useDeferredValue, useMemo } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useAssetImage } from '@/core/assets';
 import { pickFiles } from '@/core/files';
 import {
@@ -37,7 +37,7 @@ import {
 } from '@/ui';
 import { cn } from '@/ui/cn';
 import { alpha } from './colors';
-import { useEnsureFonts, useFontTick } from './fonts';
+import { useFontTick } from './fonts';
 import { type BatchNotice, loadPhotoFiles, openFrame } from './media';
 import {
   CAPTION_MAX,
@@ -53,7 +53,8 @@ import {
   receiptTotals,
   TICKET_ZOOM_MAX,
 } from './model';
-import { autoGradient, qrDensity, thumbFontUses } from './render';
+import { autoGradient, qrDensity } from './render';
+import { useIdleValue } from './schedule';
 import {
   addItem,
   assets,
@@ -102,7 +103,7 @@ import {
   type TicketTemplateId,
   ticketTemplate,
 } from './templates';
-import { drawThumb, THUMB } from './thumbs';
+import { THUMB, THUMB_IDLE_MS, ThumbPainter, thumbRender } from './thumbs';
 
 /** 一批檔案的結果：一則通知 */
 export function useNotify() {
@@ -144,20 +145,27 @@ export function TemplateSection() {
   const kind = useDoc((s) => s.data.kind);
   const idT = useDoc((s) => s.data.idTemplate);
   const tkT = useDoc((s) => s.data.ticketTemplate);
-  /* 縮圖晚一點重畫（打字時不卡） */
-  const doc = useDeferredValue(useDoc((s) => s.data));
+  /* 縮圖：內容停下之後才重畫、只畫看得到的、一個工作一張（打字時不卡，規格 F02） */
+  const doc = useIdleValue(
+    useDoc((s) => s.data),
+    THUMB_IDLE_MS,
+  );
   const photoId = kind === 'id' ? doc.idPhoto?.image.id : undefined;
   /* 縮圖用的照片（證件共用一張；讀好了才畫進縮圖） */
   const photo = useAssetImage(assets, photoId);
-  /* 每一款縮圖用到的字型也先載好，載好後重畫 */
-  const fonts = useMemo(() => thumbFontUses(doc, kind), [doc, kind]);
-  useEnsureFonts(fonts);
+  /* 字型載好後重畫（縮圖用到的字型在畫的時候要求） */
   const tick = useFontTick();
+  const painter = useMemo(() => new ThumbPainter(), []);
+  useEffect(() => () => painter.dispose(), [painter]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫
+  const version = useMemo(() => ({}), [doc, kind, photo.bitmap, tick]);
+  useLayoutEffect(() => {
+    painter.update(version, thumbRender(doc, kind, photo.bitmap));
+  }, [painter, version, doc, kind, photo.bitmap]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version 換了就要重畫
   const draw = useCallback(
-    (ctx: CanvasRenderingContext2D, value: string) =>
-      drawThumb(ctx, doc, kind, value, photo.bitmap),
-    [doc, kind, photo.bitmap, tick],
+    (ctx: CanvasRenderingContext2D, value: string) => painter.paint(ctx, value),
+    [painter, version],
   );
   return (
     <Section title={S.sectionTemplate} fixed>
@@ -184,6 +192,8 @@ export function TemplateSection() {
             thumbWidth={THUMB.w}
             thumbHeight={THUMB.h}
             minItemWidth={92}
+            frames={1}
+            fps={1}
           />
         ) : (
           <ThumbChoice<string>
@@ -199,6 +209,8 @@ export function TemplateSection() {
             thumbWidth={THUMB.w}
             thumbHeight={THUMB.h}
             minItemWidth={92}
+            frames={1}
+            fps={1}
           />
         )}
       </div>
@@ -307,7 +319,8 @@ function qrDenseText(f: FieldDef, data: Parameters<typeof qrDensity>[0]): string
   return d?.dense ? S.qrDense(d.module, d.unit) : '';
 }
 
-function FieldControl({ f }: { f: FieldDef }) {
+/** 一個欄位（只在自己的值改變時重畫：打字時其他欄位不跟著重畫） */
+const FieldControl = memo(function FieldControl({ f }: { f: FieldDef }) {
   const value = useDoc((s) => fieldValue(f.key, s.data));
   const dense = useDoc((s) => qrDenseText(f, s.data));
   const suffix = f.gen ? (
@@ -361,7 +374,7 @@ function FieldControl({ f }: { f: FieldDef }) {
       )}
     </Field>
   );
-}
+});
 
 export function FieldsSection() {
   const doc = useDoc((s) => s.data);

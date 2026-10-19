@@ -57,6 +57,19 @@ export const TICKET_PREVIEW_SCALE = 2;
 export const MAT_PAD = 46;
 export const MAT_RADIUS = 34;
 
+/** 重用一張畫布：大小不同時改大小；相同時清空並把狀態（變換、裁切、樣式）歸零 */
+function reuseCanvas(c: AnyCanvas, width: number, height: number): AnyCanvas {
+  if (c.width !== width || c.height !== height) {
+    c.width = width;
+    c.height = height;
+    return c;
+  }
+  const ctx = ctx2d(c) as Ctx & { reset?: () => void };
+  if (typeof ctx.reset === 'function') ctx.reset();
+  else c.width = width;
+  return c;
+}
+
 const ctx2d = (c: AnyCanvas): Ctx => {
   const ctx = c.getContext('2d') as Ctx | null;
   if (!ctx) throw new Error('無法建立畫布');
@@ -149,15 +162,16 @@ export function renderIdFace(
   side: Side,
   scale: number,
   mode: IdExportMode,
-  o: Omit<FaceDrawOptions, 'fonts'>,
+  o: FaceDrawOptions,
   size?: { width: number; height: number },
+  into?: AnyCanvas,
 ): { canvas: AnyCanvas; regions: Region[] } {
   const tpl = idTemplate(s.idTemplate);
   const { w, h } = cardUnits(tpl.orientation);
   const bleed = mode === 'print' ? BLEED_U : 0;
   const width = size?.width ?? Math.round((w + bleed * 2) * scale);
   const height = size?.height ?? Math.round((h + bleed * 2) * scale);
-  const canvas = makeCanvas(width, height);
+  const canvas = into ? reuseCanvas(into, width, height) : makeCanvas(width, height);
   const ctx = ctx2d(canvas);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
@@ -285,10 +299,13 @@ export function drawTicket(ctx: Ctx, s: IdTicketState, o: FaceDrawOptions): Regi
 export function renderTicketLayer(
   s: IdTicketState,
   scale: number,
-  o: Omit<FaceDrawOptions, 'fonts'>,
+  o: FaceDrawOptions,
+  into?: AnyCanvas,
 ): { canvas: AnyCanvas; regions: Region[] } {
   const { width, height } = ticketSize(s);
-  const canvas = makeCanvas(Math.round(width * scale), Math.round(height * scale));
+  const cw = Math.round(width * scale);
+  const ch = Math.round(height * scale);
+  const canvas = into ? reuseCanvas(into, cw, ch) : makeCanvas(cw, ch);
   const ctx = ctx2d(canvas);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
@@ -306,11 +323,18 @@ export function composeTicket(
   layer: AnyCanvas,
   scale: number,
   mat: boolean,
+  into?: AnyCanvas,
 ): AnyCanvas {
-  if (!mat) return layer;
-  const pad = Math.round(MAT_PAD * scale);
-  const out = makeCanvas(layer.width + pad * 2, layer.height + pad * 2);
+  if (!mat && !into) return layer;
+  const pad = mat ? Math.round(MAT_PAD * scale) : 0;
+  const ow = layer.width + pad * 2;
+  const oh = layer.height + pad * 2;
+  const out = into ? reuseCanvas(into, ow, oh) : makeCanvas(ow, oh);
   const ctx = ctx2d(out);
+  if (!mat) {
+    ctx.drawImage(layer, 0, 0);
+    return out;
+  }
   ctx.beginPath();
   rrect(ctx, 0, 0, out.width, out.height, MAT_RADIUS * scale);
   ctx.fillStyle = matColor(s);

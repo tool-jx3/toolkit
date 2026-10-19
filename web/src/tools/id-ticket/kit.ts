@@ -167,13 +167,37 @@ export function fontUses(fonts: Map<string, Set<string>>): FontUse[] {
 
 const chars = (s: string) => [...s];
 
+/*
+ * 量過的字寬：「字型＋字」→ 寬。measureText 很慢（尤其字型還沒載好、要找備用字型時），
+ * 同一個字型的同一段字每次重畫都一樣，記起來；字型載好後（fonts.ts）清掉重量。
+ */
+const widths = new Map<string, number>();
+const WIDTHS_MAX = 20000;
+
+/** 清掉量過的字寬（字型載好、字寬會變時） */
+export function clearTextWidths(): void {
+  widths.clear();
+}
+
+/** 一段字在目前字型下的寬（不含字距） */
+export function textWidth(ctx: Ctx, text: string): number {
+  const key = `${ctx.font}\u0000${text}`;
+  let w = widths.get(key);
+  if (w === undefined) {
+    w = ctx.measureText(text).width;
+    if (widths.size >= WIDTHS_MAX) widths.clear();
+    widths.set(key, w);
+  }
+  return w;
+}
+
 /** 量字寬（含字距） */
 export function measure(ctx: Ctx, text: string, spacing = 0): number {
   if (!text) return 0;
-  if (!spacing) return ctx.measureText(text).width;
+  if (!spacing) return textWidth(ctx, text);
   let w = 0;
   const cs = chars(text);
-  for (const c of cs) w += ctx.measureText(c).width;
+  for (const c of cs) w += textWidth(ctx, c);
   return w + spacing * (cs.length - 1);
 }
 
@@ -188,7 +212,7 @@ function drawRaw(ctx: Ctx, text: string, x: number, y: number, spacing: number, 
   ctx.textAlign = 'left';
   for (const c of chars(text)) {
     ctx.fillText(c, cx, y);
-    cx += ctx.measureText(c).width + spacing;
+    cx += textWidth(ctx, c) + spacing;
   }
 }
 
@@ -292,15 +316,15 @@ export function wrapLines(ctx: Ctx, raw: string, maxWidth: number, maxLines = 99
     let line = '';
     for (const tok of tokens) {
       const next = line + tok;
-      if (line && ctx.measureText(next.trimEnd()).width > maxWidth) {
+      if (line && textWidth(ctx, next.trimEnd()) > maxWidth) {
         out.push(line.trimEnd());
         line = tok.trimStart();
       } else line = next;
       /* 單一個 token 就超過寬度（很長的英文字）：逐字切開 */
-      while (ctx.measureText(line).width > maxWidth && [...line].length > 1) {
+      while (textWidth(ctx, line) > maxWidth && [...line].length > 1) {
         const cs = [...line];
         let k = cs.length - 1;
-        while (k > 1 && ctx.measureText(cs.slice(0, k).join('')).width > maxWidth) k--;
+        while (k > 1 && textWidth(ctx, cs.slice(0, k).join('')) > maxWidth) k--;
         out.push(cs.slice(0, k).join(''));
         line = cs.slice(k).join('');
       }

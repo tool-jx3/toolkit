@@ -300,6 +300,43 @@ test('證件欄位：打字更新預覽、姓名在各款共用；下拉選單�
   expect(errors).toEqual([]);
 });
 
+test('快速打字：看得到的那一面跟著變；背面、範本縮圖等停下來才重畫（F02）', async ({ page }) => {
+  const errors = await open(page);
+  await page.waitForTimeout(800);
+  /* 正面、背面、第一張縮圖的指紋（一次讀完） */
+  const prints = () =>
+    page.evaluate(() => {
+      const fp = (c: HTMLCanvasElement | null) => {
+        if (!c) return '';
+        const d = c.getContext('2d')?.getImageData(0, 0, c.width, c.height).data ?? [];
+        let h = 0;
+        for (let i = 0; i < d.length; i += 97) h = (h * 31 + d[i]) | 0;
+        return `${c.width}x${c.height}:${h}`;
+      };
+      const q = (sel: string) => document.querySelector<HTMLCanvasElement>(sel);
+      return [
+        fp(q('[data-testid="card-front"]')),
+        fp(q('[data-testid="card-back"]')),
+        fp(q('[data-testid="template-list"] canvas')),
+      ];
+    });
+  const before = await prints();
+  await fieldInput(page, 'name').click();
+  await fieldInput(page, 'name').press('End');
+  await page.keyboard.type('陳以安', { delay: 50 });
+  /* 剛打完：背面（300 ms）與縮圖（350 ms）還沒重畫 */
+  const during = await prints();
+  expect(during[1]).toBe(before[1]);
+  expect(during[2]).toBe(before[2]);
+  await expect.poll(async () => (await prints())[0]).not.toBe(before[0]);
+  await expect.poll(async () => (await prints())[1]).not.toBe(before[1]);
+  /* 縮圖只畫看得到的：捲回來之後才跟上 */
+  await page.getByTestId('template-list').scrollIntoViewIfNeeded();
+  await expect.poll(async () => (await prints())[2]).not.toBe(before[2]);
+  await expect(fieldInput(page, 'name')).toHaveValue('林若晴陳以安');
+  expect(errors).toEqual([]);
+});
+
 test('點預覽上的字跳到欄位（聚焦）；點條碼重新產生；點 QR code 跳到 QR 欄；換範本回到正面；翻面（F04、F15、F18、F28）', async ({
   page,
 }) => {

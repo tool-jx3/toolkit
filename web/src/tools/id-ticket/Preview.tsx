@@ -4,14 +4,24 @@
  * - 票券：墊紙＋票、可以點的字與照片與條碼；匯出 PNG／GIF。
  * 預覽與匯出同一套畫法（render.ts）；欄位空白時預覽上以淡色顯示欄位名稱（不會匯出）。
  */
-import { type ReactNode, type RefObject, useEffect, useMemo, useRef } from 'react';
+import {
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useAssetImage } from '@/core/assets';
+import { makeCanvas } from '@/core/image';
 import { ExportPanel, type ExportSettings, Field, Notice, Segmented, Stage, Toggle } from '@/ui';
 import { shade } from './colors';
 import { exportId, exportTicket, idOutputSize, ticketOutputSize } from './exporter';
 import { type FocusTarget, focusTarget } from './focus';
-import { useEnsureFonts, useFontTick } from './fonts';
-import type { Region } from './kit';
+import { requestFonts, useFontTick } from './fonts';
+import { fontUses, type Region } from './kit';
 import {
   CARD_RADIUS_U,
   cardMm,
@@ -26,15 +36,14 @@ import { useOpenFrame, usePhotoLoader } from './Panel';
 import {
   type AnyCanvas,
   composeTicket,
-  idFontUses,
   MAT_PAD,
   PREVIEW_SCALE,
   renderIdFace,
   renderTicketLayer,
   TICKET_PREVIEW_SCALE,
-  ticketFontUses,
   ticketStageSize,
 } from './render';
+import { afterPaint } from './schedule';
 import {
   assets,
   docNow,
@@ -53,15 +62,29 @@ import { idTemplate, ticketTemplate } from './templates';
 /** 掛繩的高度（預覽單位） */
 export const STRAP_H = 110;
 
-/** 把畫好的圖貼到頁面上的畫布 */
-function blit(target: HTMLCanvasElement | null, src: AnyCanvas): void {
-  if (!target) return;
-  if (target.width !== src.width) target.width = src.width;
-  if (target.height !== src.height) target.height = src.height;
-  const ctx = target.getContext('2d');
-  if (!ctx) return;
-  ctx.clearRect(0, 0, target.width, target.height);
-  ctx.drawImage(src, 0, 0);
+/** 看不到的那一面（證件的背面等）：內容停下多久之後再畫 */
+export const HIDDEN_FACE_MS = 300;
+
+/** 範圍的指紋（位置取整數）：沒變時不更新 React 的狀態 */
+const regionsKey = (rs: readonly Region[]): string =>
+  rs
+    .map(
+      (r) =>
+        `${r.kind}:${r.key}:${Math.round(r.x)}:${Math.round(r.y)}:${Math.round(r.w)}:${Math.round(r.h)}`,
+    )
+    .join('|');
+
+/** 畫好的範圍（內容沒變時不觸發重畫） */
+function useRegions<K extends string>(init: Record<K, Region[]>) {
+  const [regions, setRegions] = useState(init);
+  const keys = useRef<Partial<Record<K, string>>>({});
+  const set = useCallback((which: K, rs: Region[]) => {
+    const k = regionsKey(rs);
+    if (keys.current[which] === k) return;
+    keys.current[which] = k;
+    setRegions((prev) => ({ ...prev, [which]: rs }));
+  }, []);
+  return [regions, set] as const;
 }
 
 /* ---------- 可以點的範圍 ---------- */
@@ -191,27 +214,50 @@ function IdPreview() {
   const tpl = idTemplate(s.idTemplate);
   const { w, h } = cardUnits(tpl.orientation);
   const photo = useAssetImage(assets, s.idPhoto?.image.id);
-  const fonts = useMemo(() => idFontUses(s), [s]);
-  useEnsureFonts(fonts);
   const tick = useFontTick();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫
-  const faces = useMemo(
-    () => ({
-      front: renderIdFace(s, 'front', PREVIEW_SCALE, 'card', {
-        preview: true,
-        photo: photo.bitmap,
-      }),
-      back: renderIdFace(s, 'back', PREVIEW_SCALE, 'card', { preview: true, photo: photo.bitmap }),
-    }),
-    [s, photo.bitmap, tick],
-  );
+  const side = prefs.side;
   const front = useRef<HTMLCanvasElement>(null);
   const back = useRef<HTMLCanvasElement>(null);
+  const [regions, setRegions] = useRegions<Side>({ front: [], back: [] });
+  /*
+   * 重畫（規格 F02）：直接畫在頁面上的畫布。看得到的那一面在畫面更新之後畫（打字時輸入框先出字）、
+   * 看不到的那一面停下 HIDDEN_FACE_MS 之後畫；開頁、翻面、換範本時要顯示的那一面還沒畫好就馬上畫。
+   * 用到的字型在畫的時候順便要求（fonts.ts）。
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫
+  const version = useMemo(() => ({ s, bitmap: photo.bitmap }), [s, photo.bitmap, tick]);
+  const drawn = useRef<Record<Side, object | null>>({ front: null, back: null });
+  const paint = useCallback(
+    (which: Side) => {
+      const canvas = (which === 'front' ? front : back).current;
+      if (!canvas || drawn.current[which] === version) return;
+      drawn.current[which] = version;
+      const fonts = new Map<string, Set<string>>();
+      const r = renderIdFace(
+        version.s,
+        which,
+        PREVIEW_SCALE,
+        'card',
+        { preview: true, photo: version.bitmap, fonts },
+        undefined,
+        canvas,
+      );
+      requestFonts(fontUses(fonts));
+      setRegions(which, r.regions);
+    },
+    [version, setRegions],
+  );
+  const latest = useRef(paint);
+  latest.current = paint;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 翻面、換範本時馬上畫要顯示的那一面（畫法在 latest 裡）
+  useLayoutEffect(() => {
+    latest.current(side);
+  }, [side, tpl.id]);
+  useEffect(() => afterPaint(() => paint(side)), [paint, side]);
   useEffect(() => {
-    blit(front.current, faces.front.canvas);
-    blit(back.current, faces.back.canvas);
-  }, [faces]);
-  const side = prefs.side;
+    const t = setTimeout(() => paint(side === 'front' ? 'back' : 'front'), HIDDEN_FACE_MS);
+    return () => clearTimeout(t);
+  }, [paint, side]);
   const strapH = prefs.strap ? STRAP_H : 0;
   const strapColor = shade(s.idStyles[tpl.id].color, 0.1);
   const face = (which: Side, ref: RefObject<HTMLCanvasElement | null>) => (
@@ -234,7 +280,7 @@ function IdPreview() {
         data-template={tpl.id}
       />
       {side === which ? (
-        <RegionLayer regions={faces[which].regions} ox={0} oy={0} hasPhoto={!!s.idPhoto} />
+        <RegionLayer regions={regions[which]} ox={0} oy={0} hasPhoto={!!s.idPhoto} />
       ) : null}
     </div>
   );
@@ -355,22 +401,40 @@ function TicketPreview() {
   const tpl = ticketTemplate(s.ticketTemplate);
   const photoRef = tpl.photo ? s.ticketPhotos[tpl.id] : undefined;
   const photo = useAssetImage(assets, photoRef?.image.id);
-  const fonts = useMemo(() => ticketFontUses(s), [s]);
-  useEnsureFonts(fonts);
   const tick = useFontTick();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫
-  const view = useMemo(() => {
-    const layer = renderTicketLayer(s, TICKET_PREVIEW_SCALE, {
-      preview: true,
-      photo: photo.bitmap,
-    });
-    return {
-      canvas: composeTicket(s, layer.canvas, TICKET_PREVIEW_SCALE, prefs.mat),
-      regions: layer.regions,
-    };
-  }, [s, photo.bitmap, prefs.mat, tick]);
   const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => blit(ref.current, view.canvas), [view]);
+  const layerRef = useRef<AnyCanvas | null>(null);
+  const [regions, setRegions] = useRegions<'ticket'>({ ticket: [] });
+  /* 重畫：同證件（畫面更新之後畫；換範本、墊紙時馬上畫） */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫
+  const version = useMemo(
+    () => ({ s, bitmap: photo.bitmap, mat: prefs.mat }),
+    [s, photo.bitmap, prefs.mat, tick],
+  );
+  const drawn = useRef<object | null>(null);
+  const paint = useCallback(() => {
+    const canvas = ref.current;
+    if (!canvas || drawn.current === version) return;
+    drawn.current = version;
+    layerRef.current ??= makeCanvas(1, 1);
+    const fonts = new Map<string, Set<string>>();
+    const layer = renderTicketLayer(
+      version.s,
+      TICKET_PREVIEW_SCALE,
+      { preview: true, photo: version.bitmap, fonts },
+      layerRef.current,
+    );
+    composeTicket(version.s, layer.canvas, TICKET_PREVIEW_SCALE, version.mat, canvas);
+    requestFonts(fontUses(fonts));
+    setRegions('ticket', layer.regions);
+  }, [version, setRegions]);
+  const latest = useRef(paint);
+  latest.current = paint;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 換範本、墊紙時馬上畫（畫法在 latest 裡）
+  useLayoutEffect(() => {
+    latest.current();
+  }, [tpl.id, prefs.mat]);
+  useEffect(() => afterPaint(paint), [paint]);
   const size = ticketStageSize(s, prefs.mat);
   const off = prefs.mat ? MAT_PAD : 0;
   return (
@@ -387,7 +451,7 @@ function TicketPreview() {
           data-testid="ticket-canvas"
           data-template={tpl.id}
         />
-        <RegionLayer regions={view.regions} ox={off} oy={off} hasPhoto={!!photoRef} />
+        <RegionLayer regions={regions.ticket} ox={off} oy={off} hasPhoto={!!photoRef} />
       </Stage>
       <p className="m-0 px-1 text-xs text-muted">{S.previewHint}</p>
       {photo.status === 'missing' ? <Notice tone="warning">{S.photoMissing}</Notice> : null}
