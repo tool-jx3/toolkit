@@ -3,7 +3,7 @@
  * 逐項列出換成相近種類的東西（原作的名稱與代號 → 本工具的種類、個數）與略過的家具、門窗、設定。
  */
 import type { ReactNode } from 'react';
-import { Dialog, DialogClose } from '@/ui';
+import { Dialog } from '@/ui';
 import type { CompatEntry, CompatReport } from '../model/compat';
 import type { OpeningKind, RoomCategory, WallKind } from '../model/types';
 import { S } from '../strings';
@@ -31,6 +31,14 @@ export function importNotice(summary: string): ReactNode {
 }
 
 const C = S.compat;
+
+/** 對話框裡的順序：房間、門窗、牆、疊在牆上的素材（同一類照檔案裡出現的順序） */
+const TYPE_ORDER: Record<CompatEntry['type'], number> = {
+  room: 0,
+  opening: 1,
+  wall: 2,
+  overlay: 3,
+};
 
 function fromName(e: CompatEntry): string {
   const names = C.names[e.type] as Record<string, string>;
@@ -103,13 +111,15 @@ function Rows({ report }: { report: CompatReport }) {
         <section aria-label={C.convertedHead}>
           <h3 className="mb-1 font-medium text-fg">{C.convertedHead}</h3>
           <ul data-testid="import-report-converted">
-            {report.converted.map((e) => (
-              <Row
-                key={`${e.type}:${e.from}`}
-                label={`${fromName(e)} → ${toName(e)}`}
-                count={C.count(e.n, C.units[e.type])}
-              />
-            ))}
+            {[...report.converted]
+              .sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type])
+              .map((e) => (
+                <Row
+                  key={`${e.type}:${e.from}`}
+                  label={`${fromName(e)} → ${toName(e)}`}
+                  count={C.count(e.n, C.units[e.type])}
+                />
+              ))}
           </ul>
         </section>
       ) : null}
@@ -133,7 +143,6 @@ export function ImportReportDialog() {
       title={C.title}
       description={C.intro}
       size="md"
-      footer={<DialogClose />}
     >
       <div data-testid="import-report">{report ? <Rows report={report} /> : null}</div>
     </Dialog>
