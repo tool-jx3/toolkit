@@ -142,6 +142,7 @@ function Strap({ color, width }: { color: string; width: number }) {
   return (
     <div
       aria-hidden
+      data-testid="strap"
       className="pointer-events-none absolute top-0"
       style={{ left: width / 2 - 10, width: 20, height: STRAP_H - 14 }}
     >
@@ -313,7 +314,7 @@ function IdExport({ photo }: { photo: ImageBitmap | null }) {
           <Field
             label={S.idFacesLabel}
             hint={
-              <span data-testid="export-size">
+              <span data-testid="export-dims">
                 {S.outputSize(out.width, out.height)}
                 {prefs.idFaces !== 'sheet' ? S.outputMm(mmW, mmH) : ''}
               </span>
@@ -440,7 +441,7 @@ function TicketExport({ photo }: { photo: ImageBitmap | null }) {
       <div className="flex min-w-0 flex-col gap-3">
         <Field
           label={S.pngScale}
-          hint={<span data-testid="export-size">{S.outputSize(out.width, out.height)}</span>}
+          hint={<span data-testid="export-dims">{S.outputSize(out.width, out.height)}</span>}
         >
           <Segmented<string>
             value={String(prefs.pngScale)}
@@ -459,7 +460,7 @@ function TicketExport({ photo }: { photo: ImageBitmap | null }) {
       <Field
         label={S.gifLong}
         hint={
-          <span data-testid="export-size">{`${S.gifHint}${S.outputSize(out.width, out.height)}`}</span>
+          <span data-testid="export-dims">{`${S.gifHint}${S.outputSize(out.width, out.height)}`}</span>
         }
       >
         <Segmented<string>

@@ -147,11 +147,11 @@ export const initialState = (): IdTicketState => ({
   kind: 'id',
   idTemplate: 'employee',
   ticketTemplate: 'movie',
-  idValues: { ...ID_DEFAULTS },
+  idValues: normalizeIdValues(undefined),
   idStyles: defaultIdStyles(),
   idPhoto: null,
   ticketValues: Object.fromEntries(
-    TICKET_TEMPLATES.map((t) => [t.id, { ...t.defaults }]),
+    TICKET_TEMPLATES.map((t) => [t.id, normalizeTicketValues(t, undefined)]),
   ) as Record<TicketTemplateId, Record<string, string>>,
   ticketCaptions: Object.fromEntries(TICKET_TEMPLATES.map((t) => [t.id, {}])) as Record<
     TicketTemplateId,

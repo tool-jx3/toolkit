@@ -252,12 +252,12 @@ function memberTones(e: IdEnv) {
 
 export const member: IdFaces = {
   front(e) {
-    const { ctx, W, H, S, c, dk } = e;
+    const { ctx, W, S, c, dk } = e;
     const m = memberTones(e);
     memberBg(e);
     sparkle(e, W - 150, 34, 9, alpha('#ffffff', 0.9));
     sparkle(e, W - 128, 52, 5, alpha(c, 0.6));
-    sparkle(e, S + 6, H - 70, 6, alpha('#ffffff', 0.8));
+    sparkle(e, W * 0.52, 100, 6, alpha('#ffffff', 0.8));
     field(e, 'mem_store', S, 52, {
       font: 'serif',
       size: 27,
