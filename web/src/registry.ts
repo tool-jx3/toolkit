@@ -592,7 +592,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把照片做成老錄影帶在映像管電視上播放的畫面：色差、撕裂、雜訊、掃描線與弧面，「磨損度」決定壞得多嚴重，加上字幕與時間碼，匯出 PNG 或字幕逐字打出的 GIF，當作錄影帶或監視器截圖的 handout。',
     group: 'G8',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'dearmysn1p3r/VHS_Maker',
       url: 'https://dearmysn1p3r.github.io/VHS_Maker/',

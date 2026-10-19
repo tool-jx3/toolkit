@@ -240,7 +240,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | social-post | 社群貼文產生器（2026-10-16 另外加入；通用的相片社群 App 樣式，不用 Instagram 的名稱與標誌） | s2ndrome/4layout（인스타 메이커） | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
 | geo-bloom | 幾何花紋產生器（2026-10-17 另外加入） | al1scut/tkmizGeo（Geometric Bloom） | 未授權 | G8 | ✅ | ✅ | ✅ | ✅ |
 | id-ticket | 證件與票券產生器（2026-10-19 第一批） | dearmysn1p3r/DearMySn1p3r_20（ID Studio）＋DearMySn1p3r_36（Ticket Studio） | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
-| vhs-frame | 錄影帶畫面產生器（2026-10-19 第一批） | dearmysn1p3r/VHS_Maker | 未授權 | G8 | ⬜ | ⬜ | ⬜ | ⬜ |
+| vhs-frame | 錄影帶畫面產生器（2026-10-19 第一批） | dearmysn1p3r/VHS_Maker | 未授權 | G8 | ✅ | ✅ | ✅ | ✅ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 
