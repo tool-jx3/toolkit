@@ -970,16 +970,15 @@ test.describe('匯出', () => {
     expect(gray[0]).toBeLessThan(230);
     expect(Math.abs(gray[0] - gray[2])).toBeLessThan(12);
     await dialog.getByRole('radio', { name: 'GM 用（全部顯示）' }).click();
-    await expect(page.getByTestId('export-info')).toHaveText(
-      `960 × ${Math.round((12 + 1.76) * 48)} px`,
-    );
+    /* 字帶 1.76 格 → 取到整格 2 格（2026-10，F214） */
+    await expect(page.getByTestId('export-info')).toHaveText(`960 × ${(12 + 2) * 48} px`);
     [dl] = await Promise.all([
       page.waitForEvent('download'),
       page.getByTestId('export-download').click(),
     ]);
     expect(dl.suggestedFilename()).toBe('測試_地圖_GM.png');
     img = pngPixels(readFileSync((await dl.path()) as string));
-    expect(img.height).toBe(Math.round((12 + 1.76) * 48));
+    expect(img.height).toBe((12 + 2) * 48);
     await dialog.getByRole('radio', { name: '24px' }).click();
     await dialog.getByRole('switch', { name: '透明背景' }).click();
     [dl] = await Promise.all([
@@ -989,6 +988,26 @@ test.describe('匯出', () => {
     img = pngPixels(readFileSync((await dl.path()) as string));
     expect(img.width).toBe(480);
     expect(px(img, 2, img.height - 2)[3]).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('範圍對齊整格：寬高是每格 px 的整數倍，開了格線時是 2 格的整數倍（F214、D26）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* 開頁的套房：範圍左上在 (−1.5, −0.5)，以前是 24 × 20.5 格（1152 × 984 px） */
+    await page.getByTestId('export-open').click();
+    const dialog = page.getByTestId('export-dialog');
+    await expect(page.getByTestId('export-info')).toHaveText('1200 × 1008 px');
+    await dialog.getByRole('switch', { name: '畫格線' }).click();
+    await expect(page.getByTestId('export-info')).toHaveText('1248 × 1056 px');
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('export-download').click(),
+    ]);
+    const img = pngPixels(readFileSync((await dl.path()) as string));
+    expect([img.width, img.height]).toEqual([1248, 1056]);
+    expect([img.width % 96, img.height % 96]).toEqual([0, 0]);
     expect(errors).toEqual([]);
   });
 
