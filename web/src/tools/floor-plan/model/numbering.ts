@@ -6,21 +6,19 @@
  * - 位置：房間左上角往內 0.25 格；房間的寬或深不到 2 格時放在中央。
  * - 這一層原本純數字的圓標先全部拿掉再重編；其他文字不動。
  */
+import { BADGE_DIAMETER, BADGE_PAD } from './catalog';
 import { rectContains, round2, uid } from './geometry';
 import type { Floor, Room, TextLabel } from './types';
 
 /** 編號圓標的字級（格） */
 export const NUMBER_SIZE = 0.6;
-/** 圓的直徑＝字級 × 1.5（3.8） */
-export const BADGE_DIAMETER = 1.5;
 /** 估計數字的寬度（字級的倍數，一個數字）與左右的留白（字級的倍數），用來讓兩位數的圓標也在房間裡 */
 const DIGIT_W = 0.6;
-export const BADGE_PAD = 0.7;
 const INSET = 0.25;
 
-/** 純數字的圓標（自動編號的）：前後的空白不算 */
+/** 純數字的圓標（自動編號的）：前後的空白不算；全形數字也算（7.7） */
 export const isRoomNumber = (t: Pick<TextLabel, 'text' | 'badge'>): boolean =>
-  !!t.badge && /^\d+$/.test(t.text.trim());
+  !!t.badge && /^[0-9０-９]+$/.test(t.text.trim());
 
 const byPosition = (a: Room, b: Room) => a.y - b.y || a.x - b.x;
 

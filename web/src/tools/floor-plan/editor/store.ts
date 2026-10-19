@@ -175,6 +175,8 @@ export interface EditorState {
   exportOpen: boolean;
   /** 上一次開檔時換掉與略過的東西（「詳細」對話框，F213） */
   importReport: CompatReport | null;
+  /** 上一次開檔的來源（「詳細」對話框的說明用） */
+  importSource: 'file' | 'link';
   importReportOpen: boolean;
   /** 分享連結的對話框（F215） */
   shareOpen: boolean;
@@ -194,6 +196,7 @@ export const useEditor = create<EditorState>(() => ({
   templatesOpen: false,
   exportOpen: false,
   importReport: null,
+  importSource: 'file',
   importReportOpen: false,
   shareOpen: false,
   clipboard: null,

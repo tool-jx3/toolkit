@@ -7,7 +7,7 @@
  */
 import { encodeShareHash, readShareHash } from '@/core/share';
 import { ASSET, assetDims } from './assets';
-import { visibleFloor } from './geometry';
+import { clueCount, visibleFloor } from './geometry';
 import type { Floor, Item, Opening, Project, Room } from './types';
 
 /** # 後面的鍵名：`#m=…` */
@@ -45,7 +45,6 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
     const secrets = f.openings.filter((o) => o.kind === 'secret').length;
     removed.gmRooms += f.rooms.filter((r) => r.gm).length;
     removed.notes += f.rooms.filter((r) => r.note).length;
-    removed.clues += clueItems + clueTexts;
     removed.secretDoors += secrets;
     removed.gmThings +=
       f.rooms.length -
@@ -74,6 +73,8 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
       texts: v.texts.map(({ gm: _g, clue: _c, ...t }) => t),
     };
   });
+  /* 隱藏線索的個數＝線索開關的通知的算法（一件小物＋說明算一個；7.7） */
+  removed.clues = clueCount(p.floors);
   return { project: { ...p, floors }, removed };
 }
 

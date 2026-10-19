@@ -15,7 +15,8 @@ import {
   openProject,
 } from './editor/files';
 import { SHORTCUT_HELP } from './editor/keys';
-import { DATA_VERSION, setEditor, TOOL_ID, useProject } from './editor/store';
+import { openShareDialog } from './editor/ShareDialog';
+import { DATA_VERSION, TOOL_ID, useProject } from './editor/store';
 import { S } from './strings';
 import { Usage } from './Usage';
 
@@ -53,7 +54,7 @@ export function App() {
               <ProjectMenuItem icon={<FileInput />} onSelect={() => void importLegacyFile()}>
                 {S.project.import}
               </ProjectMenuItem>
-              <ProjectMenuItem icon={<Share2 />} onSelect={() => setEditor({ shareOpen: true })}>
+              <ProjectMenuItem icon={<Share2 />} onSelect={openShareDialog}>
                 {S.project.share}
               </ProjectMenuItem>
             </>

@@ -4,7 +4,7 @@
  */
 import { readableTextColor } from '@/core/color';
 import { ASSET, VERTICAL_LINKS } from '../model/assets';
-import { CAT, CELL_M, OPEN, wallThickness } from '../model/catalog';
+import { BADGE_RING, CAT, CELL_M, OPEN, wallThickness } from '../model/catalog';
 import { itemLocalSize, type ShownFloor, type ShownRoom, visibleFloor } from '../model/geometry';
 import type { Floor, Item, Opening, Rect, SizeMode, TextLabel, Wall } from '../model/types';
 import { computeWalls, type WallRun } from '../model/walls';
@@ -857,7 +857,7 @@ function drawBadge(c: Ctx, t: TextLabel, theme: FloorTheme, opts: { editor: bool
   c.arc(t.x - w / 2 + r, t.y, r, Math.PI / 2, Math.PI * 1.5);
   c.arc(t.x + w / 2 - r, t.y, r, -Math.PI / 2, Math.PI / 2);
   c.closePath();
-  c.lineWidth = size * 0.16;
+  c.lineWidth = size * BADGE_RING;
   c.lineJoin = 'round';
   c.strokeStyle = theme.badge.ring;
   c.stroke();

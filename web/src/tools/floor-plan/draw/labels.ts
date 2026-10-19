@@ -5,8 +5,8 @@
  * 房間是直長的（深 > 寬 × 1.3）而且是中日韓文字、直排放得下 → 直排；直長的英數名字轉 90° 比縮小大 → 轉向；
  * 其他一律縮小到放得下（至少 0.34 格）。面積文字在名字下方，字級 × 0.72。名字可以用 lx、ly 拖到別的位置。
  */
-import { sizeText } from '../model/geometry';
-import { BADGE_DIAMETER, BADGE_PAD } from '../model/numbering';
+import { BADGE_DIAMETER, BADGE_PAD } from '../model/catalog';
+import { badgeLabel, sizeText } from '../model/geometry';
 import type { Rect, Room, SizeMode, TextLabel } from '../model/types';
 import type { FloorTheme } from './themes';
 
@@ -175,13 +175,7 @@ export const textFont = (t: Pick<TextLabel, 'size' | 'bold'>, family: string): F
   family,
 });
 
-/** 圓標上的字：多行用空白接成一行（規格 3.8） */
-export const badgeLabel = (t: Pick<TextLabel, 'text'>): string =>
-  String(t.text || '')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .join(' ');
+export { badgeLabel };
 
 /** 圓標的大小（格）：直徑＝字級 × 1.5；字寬＋0.7 × 字級比直徑寬時變成兩端圓的長條 */
 export function badgeSize(

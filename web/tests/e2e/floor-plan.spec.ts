@@ -1820,6 +1820,7 @@ test.describe('分享連結與圓標的修正（7.7）', () => {
     await expect(lastToast(page)).toContainText('已開啟分享的地圖');
     await expect(page.getByTestId('template-dialog')).toHaveCount(0);
     /* 匯出對話框開著時也一樣（有內容 → 確認 → 取代） */
+    await run(page, 'loadTemplate', 'mansion', { structureOnly: false, clues: false });
     await page.evaluate(
       (patch) =>
         (

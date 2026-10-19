@@ -3,7 +3,7 @@
  * 選「PL 用」（預設）或「完整（GM 用）」，下面是連結（共用的文字輸出欄：字數、複製）；太長時改成錯誤訊息。
  * 打開網址裡的分享連結：openSharedFromHash（Editor 開頁與 hashchange 時呼叫）。
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { clearShareHash } from '@/core/share';
 import { Dialog, Field, Notice, Segmented, TextOutputPanel } from '@/ui';
 import { isAsset } from '../model/assets';
@@ -43,10 +43,25 @@ export async function openSharedFromHash(hash: string = location.hash): Promise<
     }))
   )
     return false;
+  /* 範本、匯出等其他對話框關掉（不然會蓋在新的地圖上；7.7） */
+  setEditor({ templatesOpen: false, exportOpen: false, shareOpen: false, importReportOpen: false });
   return openProjectData(r.raw, r.pl ? 'link-pl' : 'link').ok;
 }
 
 const isMode = (v: unknown): v is ShareMode => v === 'pl' || v === 'full';
+
+/** 關掉對話框時焦點要回去的地方（打開它的選單的按鈕「專案」） */
+let returnFocusTo: HTMLElement | null = null;
+
+/** 選單項目「分享連結…」：記下選單的按鈕（選單項目關掉就不在了），再打開對話框（7.7） */
+export function openShareDialog(): void {
+  const menu = (document.activeElement as HTMLElement | null)?.closest('[role="menu"]');
+  const id = menu?.getAttribute('aria-labelledby');
+  returnFocusTo =
+    (id ? document.getElementById(id) : null) ??
+    document.querySelector<HTMLElement>('button[aria-haspopup="menu"][aria-expanded="true"]');
+  setEditor({ shareOpen: true });
+}
 
 export function ShareDialog() {
   const open = useEditor((s) => s.shareOpen);
@@ -56,6 +71,19 @@ export function ShareDialog() {
   const share = useMemo(() => (open ? encodeMapHash(project, mode) : null), [open, project, mode]);
   const url = share && !share.tooLong ? mapShareUrl(share.hash, location.href) : '';
   const r = share?.removed;
+  /* 關掉之後焦點回到「專案」（對話框沒有自己的觸發按鈕，不處理的話焦點會掉到頁面最上層） */
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open) wasOpen.current = true;
+    else if (wasOpen.current) {
+      wasOpen.current = false;
+      const el = returnFocusTo;
+      returnFocusTo = null;
+      requestAnimationFrame(() => {
+        if (el?.isConnected) el.focus();
+      });
+    }
+  }, [open]);
   const removedAny = !!r && Object.values(r).some((n) => n > 0);
   return (
     <Dialog
@@ -95,7 +123,8 @@ export function ShareDialog() {
           <TextOutputPanel
             text={url}
             title={S.share.link}
-            count={() => S.share.count(share.length, SHARE_MAX_LENGTH)}
+            count={null}
+            hint={S.share.count(share.length, SHARE_MAX_LENGTH)}
             copyLabel={S.share.copy}
             messages={{ copied: S.share.copied }}
             className="max-h-[30dvh] overflow-auto"

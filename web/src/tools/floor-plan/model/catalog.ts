@@ -270,6 +270,11 @@ export const SIZE_MODES: readonly SizeMode[] = ['none', 'ping', 'm2', 'm'];
 export const isSizeMode = (v: unknown): v is SizeMode =>
   typeof v === 'string' && (SIZE_MODES as readonly string[]).includes(v);
 
+/** 圓標（3.8）：圓的直徑＝字級 × 1.5；字寬＋0.7 × 字級比直徑寬時變成長條；外圍的邊寬＝字級 × 0.16（一半在圓外） */
+export const BADGE_DIAMETER = 1.5;
+export const BADGE_PAD = 0.7;
+export const BADGE_RING = 0.16;
+
 /** 匯出時 1 格的像素數 */
 export const EXPORT_PX = [24, 32, 48, 64, 96] as const;
 export type ExportPx = (typeof EXPORT_PX)[number];

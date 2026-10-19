@@ -677,7 +677,10 @@ export function openProjectData(raw: unknown, source: OpenSource): OpenResult {
   const name = project.name || S.untitled;
   const title = openedTitle(source, name);
   if (hasCompatNotes(report.compat)) {
-    setEditor({ importReport: report.compat });
+    setEditor({
+      importReport: report.compat,
+      importSource: source === 'link' || source === 'link-pl' ? 'link' : 'file',
+    });
     notify(title, 'warning', {
       description: importNotice(S.compat.summary(compatCounts(report.compat))),
       action: undoAction(),
