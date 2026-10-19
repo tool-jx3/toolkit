@@ -612,6 +612,20 @@ test('收據：品項的新增、修改、刪除與合計；折扣；照片格�
   await page.getByRole('button', { name: '刪除「檸檬塔」' }).click();
   await settle(page);
   await expect(totals).toHaveText('小計 NT$375 − 折扣 95 ＝ 合計 NT$280');
+  /* 單價可以有 2 位小數（第 3 位四捨五入），欄位照樣顯示 */
+  const price2 = page.getByRole('spinbutton', { name: '單價 2' });
+  await price2.fill('4.5');
+  await price2.press('Enter');
+  await settle(page);
+  await expect(price2).toHaveValue('4.5');
+  await expect(totals).toHaveText('小計 NT$193.5 − 折扣 95 ＝ 合計 NT$98.5');
+  const price1 = page.getByRole('spinbutton', { name: '單價 1' });
+  await price1.fill('112.346');
+  await price1.press('Enter');
+  await settle(page);
+  await expect(price1).toHaveValue('112.35');
+  expect((await state(page)).receiptItems.map((i) => i.price)).toEqual([112.35, 4.5]);
+  await expect(totals).toHaveText('小計 NT$238.2 − 折扣 95 ＝ 合計 NT$143.2');
   /* 照片格開關 */
   await page.getByRole('switch', { name: '照片格' }).click();
   await settle(page);

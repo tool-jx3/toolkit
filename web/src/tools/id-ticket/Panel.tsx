@@ -47,6 +47,7 @@ import {
   ITEM_NAME_MAX,
   KINDS,
   type Kind,
+  PRICE_DECIMALS,
   PRICE_RANGE,
   QTY_RANGE,
   receiptTotals,
@@ -507,6 +508,7 @@ export function ItemsSection() {
               min={PRICE_RANGE.min}
               max={PRICE_RANGE.max}
               step={1}
+              precision={PRICE_DECIMALS}
               onChange={(v) => patchItem(it.id, { price: v })}
             />
             <IconButton

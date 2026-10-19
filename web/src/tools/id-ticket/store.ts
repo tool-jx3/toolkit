@@ -27,9 +27,9 @@ import {
   normalizeState,
   oneLine,
   type Photo,
-  PRICE_RANGE,
   QTY_RANGE,
   type ReceiptItem,
+  roundPrice,
   type Side,
   stateAssetIds,
   TICKET_ZOOM_MAX,
@@ -398,8 +398,6 @@ export function patchItem(id: string, patch: Partial<Omit<ReceiptItem, 'id'>>): 
     if (patch.name !== undefined) it.name = oneLine(patch.name, ITEM_NAME_MAX);
     if (patch.qty !== undefined)
       it.qty = Math.round(Math.min(QTY_RANGE.max, Math.max(QTY_RANGE.min, patch.qty)));
-    if (patch.price !== undefined)
-      it.price =
-        Math.round(Math.min(PRICE_RANGE.max, Math.max(PRICE_RANGE.min, patch.price)) * 100) / 100;
+    if (patch.price !== undefined) it.price = roundPrice(patch.price);
   });
 }

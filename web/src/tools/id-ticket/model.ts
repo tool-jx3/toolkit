@@ -222,6 +222,10 @@ export function receiptTotals(
 
 export const QTY_RANGE = { min: 0, max: 999 } as const;
 export const PRICE_RANGE = { min: 0, max: 9_999_999 } as const;
+/** 單價的小數位數（第 3 位四捨五入） */
+export const PRICE_DECIMALS = 2;
+export const roundPrice = (n: number): number =>
+  Number(Math.min(PRICE_RANGE.max, Math.max(PRICE_RANGE.min, n)).toFixed(PRICE_DECIMALS));
 export const ITEM_NAME_MAX = 16;
 
 /* ---------- 讀檔整理 ---------- */
@@ -300,7 +304,7 @@ function normalizeItems(raw: unknown): ReceiptItem[] {
       id,
       name: oneLine(typeof it.name === 'string' ? it.name : '', ITEM_NAME_MAX),
       qty: Math.round(num(it.qty, 1, QTY_RANGE.min, QTY_RANGE.max)),
-      price: Math.round(num(it.price, 0, PRICE_RANGE.min, PRICE_RANGE.max) * 100) / 100,
+      price: roundPrice(num(it.price, 0, PRICE_RANGE.min, PRICE_RANGE.max)),
     });
   }
   return out;
