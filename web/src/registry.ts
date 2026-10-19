@@ -538,7 +538,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、1920 年代的偵探執照，以及電影票、登機證、車票、收據；放上照片、自動產生編號、條碼與 QR code，證件可以匯出 600 dpi 的印刷用 PNG，票券還能存成浮起加閃光的 GIF。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'dearmysn1p3r/DearMySn1p3r_20',
       url: 'https://dearmysn1p3r.github.io/DearMySn1p3r_20/',
