@@ -225,10 +225,12 @@ test.describe('地圖一覽', () => {
     await expect(page.getByText('還沒有儲存的地圖')).toBeVisible();
     const dlg = page.getByTestId('new-map-dialog');
     await expect(dlg).toBeVisible();
-    const d = new Date();
-    await expect(dlg.getByRole('textbox')).toHaveValue(
-      `地圖 ${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`,
-    );
+    /* 日期用頁面的時區算（設定是 Asia/Taipei；跑測試的機器可能是 UTC，晚上 8 點後兩邊差一天） */
+    const today = await page.evaluate(() => {
+      const d = new Date();
+      return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+    });
+    await expect(dlg.getByRole('textbox')).toHaveValue(`地圖 ${today}`);
     /* 六角格才有方向與對齊網格 */
     await expect(dlg.getByRole('radio', { name: '平頂' })).toHaveCount(0);
     await dlg.getByRole('radio', { name: '六角格' }).click();
