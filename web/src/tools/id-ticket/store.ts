@@ -34,6 +34,7 @@ import {
   stateAssetIds,
   TICKET_ZOOM_MAX,
 } from './model';
+import { GIF_LONG_OPTIONS } from './render';
 import type { TabId } from './strings';
 import {
   type FieldDef,
@@ -93,7 +94,7 @@ export function resetAll(next: IdTicketState = initialState()): void {
 
 export type TicketFormat = 'png' | 'gif';
 export const PNG_SCALES = [1, 2, 3] as const;
-export const GIF_LONGS = [1400, 1000, 700] as const;
+export const GIF_LONGS = GIF_LONG_OPTIONS;
 
 export interface Prefs {
   tab: TabId;

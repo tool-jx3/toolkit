@@ -41,9 +41,11 @@ export { createLocalEncoder, type Encoder, type EncoderSpec } from './local';
 export {
   buildPalette,
   ColorStats,
+  opaqueU32,
   type Palette,
   type PaletteMethod,
   principalAxis,
+  withSolidColors,
 } from './palette';
 export {
   type ApngFrame,

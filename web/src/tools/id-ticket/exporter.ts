@@ -26,7 +26,8 @@ import {
   drawGifFrame,
   GIF_DELAY_MS,
   GIF_FRAMES,
-  gifScale,
+  gifLayout,
+  gifSolidColors,
   idFontUses,
   MAT_PAD,
   renderIdFace,
@@ -166,10 +167,8 @@ export function ticketOutputSize(
       stage: st,
     };
   }
-  const scale = gifScale(s, job.gifLong);
-  const t = ticketStageSize(s, false);
-  const pad = Math.round(MAT_PAD * scale) * 2;
-  return { width: Math.round(t.width * scale) + pad, height: Math.round(t.height * scale) + pad };
+  const L = gifLayout(s, job.gifLong);
+  return { width: L.width, height: L.height };
 }
 
 export async function exportTicket(
@@ -191,11 +190,8 @@ export async function exportTicket(
       height: out.height,
     };
   }
-  const scale = gifScale(s, job.gifLong);
+  const { scale, width, height } = gifLayout(s, job.gifLong);
   const layer = renderTicketLayer(s, scale, { preview: false, photo }).canvas;
-  const pad = Math.round(MAT_PAD * scale);
-  const width = layer.width + pad * 2;
-  const height = layer.height + pad * 2;
   const frame = makeCanvas(width, height);
   const fctx = frame.getContext('2d', {
     willReadFrequently: true,
@@ -212,6 +208,7 @@ export async function exportTicket(
       plays: job.plays,
       dither: GIF_DITHER,
       cropFrames: true,
+      solidColors: gifSolidColors(s),
     },
   });
   const stop = () => enc.abort();

@@ -5,7 +5,7 @@
  * - 畫的時候順便記下可以點的範圍（Region）與用到的字型。
  */
 import { makeCanvas } from '@/core/image';
-import { mix, tint } from './colors';
+import { mix, rgbOf, tint } from './colors';
 import { employee, highschool, press, university } from './faces/cards1';
 import { detective, member, police } from './faces/cards2';
 import type { IdEnv, IdFaces } from './faces/common';
@@ -366,10 +366,47 @@ export function gifFrameState(i: number, scale: number) {
   };
 }
 
-/** GIF 的倍率：墊紙＋票的長邊縮到 long 以內、最多 2 倍 */
-export function gifScale(s: IdTicketState, long: number): number {
-  const st = ticketStageSize(s, true);
-  return Math.min(2, long / Math.max(st.width, st.height));
+/** GIF 長邊的選項（px） */
+export const GIF_LONG_OPTIONS = [1400, 1000, 700] as const;
+
+export interface GifLayout {
+  /** 票的倍率 */
+  scale: number;
+  /** 票的圖層（倍率後四捨五入） */
+  layer: { width: number; height: number };
+  /** 墊紙的白邊（四周各 round(46 × 倍率)） */
+  pad: number;
+  /** 整張 GIF */
+  width: number;
+  height: number;
+}
+
+/**
+ * GIF 的大小：倍率＝min(2, 長邊 ÷ 含墊紙的長邊)；票與白邊各自四捨五入後長邊超過時，
+ * 倍率每次減 0.5 ÷ 票的長邊（約半個 px）直到不超過（長邊一律 ≤ 選的長邊）。
+ */
+export function gifLayout(s: IdTicketState, long: number): GifLayout {
+  const t = ticketSize(s);
+  const tLong = Math.max(t.width, t.height);
+  const at = (scale: number): GifLayout => {
+    const layer = { width: Math.round(t.width * scale), height: Math.round(t.height * scale) };
+    const pad = Math.round(MAT_PAD * scale);
+    return { scale, layer, pad, width: layer.width + pad * 2, height: layer.height + pad * 2 };
+  };
+  let L = at(Math.min(2, long / (tLong + MAT_PAD * 2)));
+  for (let i = 0; i < 16 && Math.max(L.width, L.height) > long; i++) L = at(L.scale - 0.5 / tLong);
+  return L;
+}
+
+/** GIF 裡的大片單色（墊紙、票面的紙色、線、字、淡色底）：一定放進調色盤、不抖色 */
+export function gifSolidColors(s: IdTicketState): [number, number, number][] {
+  const p = ticketPalette(s.theme.c1, s.theme.c2);
+  const out: [number, number, number][] = [];
+  for (const c of [p.mat, p.paper, p.line, p.ink, p.soft1, p.soft2]) {
+    const [r, g, b] = rgbOf(c);
+    if (!out.some((o) => o[0] === r && o[1] === g && o[2] === b)) out.push([r, g, b]);
+  }
+  return out;
 }
 
 /**

@@ -14,7 +14,7 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
 import { strFromU8, unzipSync, zipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
-import { parseGif } from '../helpers/gif';
+import { gifFrameRgba, parseGif } from '../helpers/gif';
 import { decodePixels, parseChunks, readIhdr } from '../helpers/png';
 
 const URL = `/${outputDir(getTool('id-ticket') ?? { id: 'id-ticket', status: 'next' })}/`;
@@ -700,16 +700,16 @@ test('票券匯出：PNG 2 倍含墊紙、沒有墊紙（四周透明）、3 倍
   await expect(page.getByTestId('export-dims')).toHaveText('輸出 1038 × 2220 px');
   await settle(page);
   expect(await prefs(page)).toMatchObject({ mat: false, pngScale: 3 });
-  /* GIF：長邊 700 */
+  /* GIF：長邊 700（一律不超過選的長邊） */
   await radio(panel, 'GIF').click();
   await radio(panel, '700 px').click();
-  await expect(page.getByTestId('export-dims')).toContainText('輸出 369 × 701 px');
+  await expect(page.getByTestId('export-dims')).toContainText('輸出 369 × 700 px');
   await panel.getByRole('button', { name: '匯出 GIF' }).click();
   await expect(result).toBeVisible({ timeout: 120_000 });
   const gif = await download(page, result.getByRole('link', { name: '下載' }));
   expect(gif.name).toBe('ticket-movie.gif');
   const info = parseGif(gif.bytes);
-  expect([info.width, info.height]).toEqual([369, 701]);
+  expect([info.width, info.height]).toEqual([369, 700]);
   /* 48 格 × 7／100 秒＝3.36 秒；畫面完全相同的連續兩格合成一格（總長不變） */
   expect(info.frames.reduce((a, f) => a + f.delayCs, 0)).toBe(48 * 7);
   expect(info.frames.length).toBeLessThanOrEqual(48);
@@ -717,6 +717,19 @@ test('票券匯出：PNG 2 倍含墊紙、沒有墊紙（四周透明）、3 倍
   expect(info.frames.every((f) => f.delayCs % 7 === 0)).toBe(true);
   await expect(result).toContainText('48');
   expect(info.loopCount).toBe(0);
+  /* 登機證、長邊 1000：墊紙是單色（大片單色不抖色；以前約 10% 是紙色的點） */
+  await radio(page, '登機證').click();
+  await radio(panel, '1000 px').click();
+  await expect(page.getByTestId('export-dims')).toContainText('輸出 1000 × 519 px');
+  await panel.getByRole('button', { name: '匯出 GIF' }).click();
+  await expect(result).toBeVisible({ timeout: 120_000 });
+  const bp = parseGif((await download(page, result.getByRole('link', { name: '下載' }))).bytes);
+  expect([bp.width, bp.height]).toEqual([1000, 519]);
+  const f0 = gifFrameRgba(bp, bp.frames[0]);
+  const matTop = new Set<number>();
+  for (let i = 0; i < 1000 * 24; i++)
+    matTop.add((f0[i * 4] << 16) | (f0[i * 4 + 1] << 8) | f0[i * 4 + 2]);
+  expect(matTop.size).toBe(1);
   expect(errors).toEqual([]);
 });
 

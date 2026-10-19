@@ -11,6 +11,7 @@ import {
   code128Text,
   code128Widths,
 } from '@/tools/id-ticket/code128';
+import { rgbOf } from '@/tools/id-ticket/colors';
 import { firstChar } from '@/tools/id-ticket/kit';
 import {
   BLEED_U,
@@ -33,7 +34,16 @@ import {
   ticketFileName,
 } from '@/tools/id-ticket/model';
 import { qrMatrix } from '@/tools/id-ticket/qr';
-import { QR_MIN_MODULE_MM, QR_MIN_MODULE_PX, qrDensity } from '@/tools/id-ticket/render';
+import {
+  GIF_LONG_OPTIONS,
+  gifLayout,
+  gifSolidColors,
+  matColor,
+  QR_MIN_MODULE_MM,
+  QR_MIN_MODULE_PX,
+  qrDensity,
+  ticketSize,
+} from '@/tools/id-ticket/render';
 import {
   ID_DEFAULTS,
   ID_TEMPLATES,
@@ -417,5 +427,57 @@ describe('QR code 太密的提醒', () => {
     });
     expect(qrDensity(v(URL))?.dense).toBe(false);
     expect(qrDensity(v(LONG))?.dense).toBe(true);
+  });
+});
+
+describe('票券 GIF 的大小', () => {
+  it('長邊一律不超過選的長邊；票與白邊照倍率四捨五入；最多 2 倍（F53）', () => {
+    expect(GIF_LONG_OPTIONS).toEqual([1400, 1000, 700]);
+    for (const t of TICKET_TEMPLATES)
+      for (const long of GIF_LONG_OPTIONS) {
+        const s = { ...initialState(), kind: 'ticket' as const, ticketTemplate: t.id };
+        const L = gifLayout(s, long);
+        const tk = ticketSize(s);
+        expect(Math.max(L.width, L.height)).toBeLessThanOrEqual(long);
+        expect(L.scale).toBeLessThanOrEqual(2);
+        expect(L.pad).toBe(Math.round(46 * L.scale));
+        expect(L.layer).toEqual({
+          width: Math.round(tk.width * L.scale),
+          height: Math.round(tk.height * L.scale),
+        });
+        expect([L.width, L.height]).toEqual([
+          L.layer.width + L.pad * 2,
+          L.layer.height + L.pad * 2,
+        ]);
+        /* 沒有被 2 倍擋住時，長邊只差 2 px 以內（白邊兩側一起少 1 px） */
+        const stageLong = Math.max(tk.width, tk.height) + 92;
+        if (long < stageLong * 2)
+          expect(Math.max(L.width, L.height)).toBeGreaterThanOrEqual(long - 2);
+      }
+  });
+
+  it('電影票：1400 → 736 × 1399、700 → 369 × 700（原本 701）；登機證 1000 → 1000 寬', () => {
+    const s = { ...initialState(), kind: 'ticket' as const };
+    const size = (long: number, tpl: (typeof TICKET_TEMPLATES)[number]['id'] = 'movie') => {
+      const L = gifLayout({ ...s, ticketTemplate: tpl }, long);
+      return [L.width, L.height];
+    };
+    expect(size(1400)).toEqual([736, 1399]);
+    expect(size(700)).toEqual([369, 700]);
+    expect(size(1400, 'boarding')).toEqual([1400, 725]);
+    expect(size(1000, 'boarding')[0]).toBe(1000);
+    expect(size(1400, 'rail')).toEqual([1384, 804]);
+  });
+
+  it('大片單色：墊紙、票面的紙色等（GIF 編碼器的 solidColors）', () => {
+    const s = initialState();
+    const solid = gifSolidColors(s);
+    const has = (hex: string) => {
+      const [r, g, b] = rgbOf(hex);
+      return solid.some((c) => c[0] === r && c[1] === g && c[2] === b);
+    };
+    expect(has(matColor(s))).toBe(true);
+    expect(has('#fffdf8')).toBe(true);
+    expect(solid.length).toBeLessThanOrEqual(8);
   });
 });
