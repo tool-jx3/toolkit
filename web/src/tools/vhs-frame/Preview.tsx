@@ -186,8 +186,9 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     tapeT: () => tapeFrameTime(pb.current.tape.time),
     seek: (t: number, m: PreviewMode = mode) => {
       if (m === 'tape') {
-        tapePlaying(false);
-        tapeSeek(t);
+        pb.current.tape.pause();
+        pb.current.tape.onTimeChange(t);
+        setPrefs({ tapePaused: true, tapeTime: tapeFrameTime(t) });
       } else {
         pb.current.gif.pause();
         pb.current.gif.onTimeChange(t);
@@ -380,7 +381,8 @@ const GIF_TABLE = uniformFrames(GIF_FRAMES, 1 / GIF_STEP);
 
 /** PNG 存哪一格的說明（播放中／暫停在幾秒） */
 function PngFrameNote() {
-  const { t, playing } = useTapeClock();
+  const t = useTapeClock((c) => c.t);
+  const playing = useTapeClock((c) => c.playing);
   return (
     <p className="m-0 text-xs text-muted tabular-nums" data-testid="png-frame">
       {playing ? S.pngFramePlaying : S.pngFrame(S.seconds(t))}
@@ -434,6 +436,12 @@ export function Preview({
     quantize: prefs.quantize,
   };
   const out = outputSize({ aspect }, { format: prefs.format, animSize: prefs.animSize });
+  /* 影響輸出的設定改了：已完成的結果卡作廢（錄影帶的時間不算，播放中一直在變） */
+  const doc = useDoc((st) => st.data);
+  const resetKey = useMemo(
+    () => ({ doc, f: prefs.format, a: prefs.animSize, p: prefs.plays, q: prefs.quantize }),
+    [doc, prefs.format, prefs.animSize, prefs.plays, prefs.quantize],
+  );
 
   return (
     <>
@@ -471,6 +479,7 @@ export function Preview({
         fixedFps={Math.round(1 / GIF_STEP)}
         fixedFpsHint={S.animFrames}
         loopHint={S.loopHint}
+        resetKey={resetKey}
         extra={
           prefs.format === 'png' ? (
             <div className="flex min-w-0 flex-col gap-1">

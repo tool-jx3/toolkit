@@ -316,6 +316,12 @@ export class VhsRenderer {
     const H = dst.height;
     const ctx = ctx2d(dst);
     const sig = this.canvas('sig', W, H);
+    /*
+     * 每一格先重設訊號層（設定寬度＝清空畫布與狀態）：Chromium 的畫布被整張畫到另一張之後（撕裂、追蹤條的複本），
+     * 之後畫在它上面的結果會差 1～3 階（原作也是這樣，同一個 t 先畫過別的格就略有不同）。重設之後每一格只由自己的設定決定，
+     * 暫停的預覽與匯出的 PNG 逐像素相同（對等驗證 .impl-tmp/statecheck2.ts）。
+     */
+    sig.width = W;
     const x = ctx2d(sig);
     const { wear, t } = p;
     const k = W / SCREEN_W;
@@ -538,10 +544,16 @@ function drawNoSignal(x: Ctx, W: number, H: number, font: OsdFont): void {
 export function captionSize(x: Ctx, W: number, H: number, full: readonly string[]): number {
   const base = Math.round(H * FX.caption.size);
   if (!full.length) return base;
-  x.font = captionFont(base);
-  const widest = Math.max(...full.map((s) => x.measureText(s).width));
   const max = W * FX.caption.maxWidth;
-  return widest > max ? (base * max) / widest : base;
+  let size = base;
+  /* 字寬不一定和字級成正比（字型的微調）：縮了再量，最多 4 次 */
+  for (let i = 0; i < 4; i++) {
+    x.font = captionFont(size);
+    const widest = Math.max(...full.map((s) => x.measureText(s).width));
+    if (widest <= max) break;
+    size = (size * max) / widest;
+  }
+  return size;
 }
 
 /** 字幕（規格 3.4）：最後一行的基線在 H − round(0.10H)，描黑邊再填色 */
