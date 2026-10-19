@@ -1532,6 +1532,59 @@ test.describe('分享連結與房間編號（2026-10，參考 Maptsukuri）', ()
     expect([...errors, ...errors2]).toEqual([]);
   });
 
+  test('目前的地圖有內容時先確認：取消＝地圖不變、# 拿掉；取代＝可以復原；空白地圖不確認（F217、D29、7.6）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* 要分享的地圖：洞窟 */
+    await run(page, 'loadTemplate', 'cave', { structureOnly: false, clues: false });
+    const cave = noIds(await project(page));
+    const hash = await page.evaluate(() =>
+      (
+        window as unknown as { __floorPlan: { shareHash: (m: string) => string } }
+      ).__floorPlan.shareHash('full'),
+    );
+    /* 目前的地圖：洋館（有內容），自動儲存 */
+    await run(page, 'loadTemplate', 'mansion', { structureOnly: false, clues: false });
+    await page.waitForTimeout(600);
+    const mansion = noIds(await project(page));
+    const confirm = page.getByRole('alertdialog');
+
+    /* 打開連結（重新載入）→ 確認 → 取消：地圖不變、# 拿掉 */
+    await page.goto('about:blank');
+    await page.goto(`${URL}${hash}`);
+    await expect(confirm).toBeVisible();
+    await expect(confirm).toContainText('要用分享的地圖取代目前的地圖嗎？');
+    await expect(confirm).toContainText('存成專案檔');
+    await confirm.getByRole('button', { name: '取消' }).click();
+    await expect(confirm).toHaveCount(0);
+    expect(noIds(await project(page))).toEqual(mansion);
+    expect(new globalThis.URL(page.url()).hash).toBe('');
+    await expect(page.getByText('已開啟分享的地圖', { exact: false })).toHaveCount(0);
+
+    /* 開著的頁面換 # → 確認 → 取代：換成洞窟，通知的「復原」回到洋館 */
+    await page.evaluate((h) => {
+      location.hash = h;
+    }, hash);
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole('button', { name: '取代' }).click();
+    await expect(lastToast(page)).toContainText('已開啟分享的地圖「洞窟」');
+    expect(noIds(await project(page))).toEqual(cave);
+    await expect.poll(() => new globalThis.URL(page.url()).hash).toBe('');
+    await lastToast(page).getByTestId('toast-action').click();
+    await expect.poll(async () => noIds(await project(page))).toEqual(mansion);
+
+    /* 空白地圖：不確認，直接打開 */
+    await run(page, 'newMap');
+    await page.waitForTimeout(600);
+    await page.goto('about:blank');
+    await page.goto(`${URL}${hash}`);
+    await expect(lastToast(page)).toContainText('已開啟分享的地圖「洞窟」');
+    await expect(confirm).toHaveCount(0);
+    expect(noIds(await project(page))).toEqual(cave);
+    expect(errors).toEqual([]);
+  });
+
   test('壞掉的連結：錯誤通知、地圖不變、# 拿掉；開著的頁面換 # 也讀得到（F217）', async ({
     page,
   }) => {
