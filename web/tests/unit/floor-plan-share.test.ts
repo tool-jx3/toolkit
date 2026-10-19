@@ -7,7 +7,12 @@ import { encodeShareHash } from '@/core/share';
 import { getTheme } from '@/tools/floor-plan/draw/themes';
 import { isAsset } from '@/tools/floor-plan/model/assets';
 import { THEME_IDS } from '@/tools/floor-plan/model/catalog';
-import { emptyFloor, visibleFloor } from '@/tools/floor-plan/model/geometry';
+import {
+  clueCount,
+  emptyFloor,
+  floorBounds,
+  visibleFloor,
+} from '@/tools/floor-plan/model/geometry';
 import { normalizeProject } from '@/tools/floor-plan/model/normalize';
 import { isRoomNumber, numberRooms } from '@/tools/floor-plan/model/numbering';
 import {
@@ -18,7 +23,7 @@ import {
   SHARE_MAX_LENGTH,
   unpackProject,
 } from '@/tools/floor-plan/model/share';
-import type { Floor, Project, Room, TextLabel } from '@/tools/floor-plan/model/types';
+import type { Floor, Project, Rect, Room, TextLabel } from '@/tools/floor-plan/model/types';
 import { instantiateTemplate, TEMPLATES } from '@/tools/floor-plan/templates';
 
 const project = (id: string, clues = false): Project => ({
@@ -237,7 +242,9 @@ describe('PL 用連結（F216）', () => {
       { id: '客廳', x: 0, y: 0, w: 4, h: 4, name: '？？？', cat: 'living' },
       { id: '密室', x: 4, y: 0, w: 4, h: 4, name: '', cat: 'living', gm: true },
     ]);
-    expect(removed).toEqual({ gmRooms: 1, gmThings: 3, secretDoors: 1, clues: 2, notes: 2 });
+    /* 隱藏線索的個數和線索開關的通知同一個算法：一件小物＋說明算一個（7.7） */
+    expect(removed).toEqual({ gmRooms: 1, gmThings: 3, secretDoors: 1, clues: 1, notes: 2 });
+    expect(removed.clues).toBe(clueCount(p.floors));
     /* 原本的地圖不變 */
     expect(p.floors[0].rooms[0].plName).toBe('？？？');
   });
@@ -311,6 +318,15 @@ describe('房間編號（F219）', () => {
     expect(isRoomNumber({ text: ' 3 ', badge: true })).toBe(true);
     expect(isRoomNumber({ text: '12' })).toBe(false);
     expect(isRoomNumber({ text: 'B1', badge: true })).toBe(false);
+    /* 全形數字也算（7.7） */
+    expect(isRoomNumber({ text: '１２', badge: true })).toBe(true);
+    expect(isRoomNumber({ text: '1２', badge: true })).toBe(true);
+    const r = numberRooms({
+      ...emptyFloor('1F'),
+      rooms: [room('A', 0, 0, 4, 4)],
+      texts: [{ id: 'z', x: 1, y: 1, text: '１', badge: true }],
+    });
+    expect(r?.texts.map((t) => t.text)).toEqual(['1']);
   });
 });
 
@@ -324,6 +340,34 @@ describe('圓標的顏色（3.8）', () => {
       /* 邊和圓也分得開 */
       expect(contrastRatio(t.badge.ring, t.badge.fill), id).toBeGreaterThanOrEqual(3);
     }
+  });
+});
+
+describe('匯出範圍含圓標的外框（3.8、7.7）', () => {
+  const withTexts = (texts: TextLabel[]): Floor => ({
+    ...emptyFloor('1F'),
+    rooms: [{ id: 'r', x: 0, y: 0, w: 6, h: 6, name: 'r', cat: 'living' }],
+    texts,
+  });
+
+  it('大的圓標：上緣（含外圍的邊）在範圍裡', () => {
+    const b = floorBounds(
+      withTexts([{ id: 'a', x: 3, y: -1.45, text: 'A', size: 4, badge: true }]),
+    ) as Rect;
+    /* 直徑 6、邊 0.16 × 4 的一半 0.32 */
+    expect(b.y).toBeLessThanOrEqual(-1.45 - 3 - 0.32 + 1e-9);
+  });
+
+  it('長條的圓標：右端在範圍裡（中日文一個字算 1 個字級寬）', () => {
+    const b = floorBounds(
+      withTexts([{ id: 'a', x: 8, y: 3, text: '入口在這裡往右走', size: 1, badge: true }]),
+    ) as Rect;
+    expect(b.x + b.w).toBeGreaterThanOrEqual(8 + (8 + 0.7) / 2 + 0.08 - 1e-9);
+  });
+
+  it('一般文字照舊用大略的 4 × 1 格', () => {
+    const b = floorBounds(withTexts([{ id: 'a', x: 3, y: -1.45, text: 'A', size: 4 }])) as Rect;
+    expect(b.y).toBeCloseTo(-1.95);
   });
 });
 

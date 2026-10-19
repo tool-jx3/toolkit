@@ -1739,6 +1739,146 @@ test.describe('分享連結與房間編號（2026-10，參考 Maptsukuri）', ()
   });
 });
 
+test.describe('分享連結與圓標的修正（7.7）', () => {
+  const lastToast = (page: Page) => page.locator('li[data-radix-collection-item]').last();
+  const shareHash = (page: Page, mode: 'full' | 'pl') =>
+    page.evaluate(
+      (m) =>
+        (
+          window as unknown as { __floorPlan: { shareHash: (m: string) => string } }
+        ).__floorPlan.shareHash(m),
+      mode,
+    );
+  const addTexts = (page: Page, texts: TextLabel[]) =>
+    page.evaluate((ts) => {
+      const h = (window as unknown as { __floorPlan: Hook }).__floorPlan;
+      const p = h.useProject.getState().data;
+      h.useProject.getState().replace({
+        ...p,
+        floors: p.floors.map((f, i) => (i === p.active ? { ...f, texts: [...f.texts, ...ts] } : f)),
+      });
+    }, texts);
+
+  test('匯出範圍含圓標的外框：靠近邊緣的大圓標、長條圓標不會被切掉（3.8）', async ({ page }) => {
+    const errors = await open(page);
+    await blank(page);
+    await page.keyboard.press('b');
+    await drag(page, [0, 0], [6, 6]);
+    await page.keyboard.press('v');
+    await addTexts(page, [
+      { id: 'big', x: 3, y: -1.45, text: 'A', size: 4, badge: true },
+      { id: 'long', x: 8, y: 3, text: '入口在這裡往右走', size: 1, badge: true },
+    ]);
+    await page.getByTestId('export-open').click();
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('export-download').click(),
+    ]);
+    const img = pngPixels(readFileSync((await dl.path()) as string));
+    const white = [255, 255, 255, 255];
+    const top = Array.from({ length: img.width }, (_, x) => px(img, x, 0));
+    const right = Array.from({ length: img.height }, (_, y) => px(img, img.width - 1, y));
+    expect(top.filter((c) => c.join() !== white.join())).toEqual([]);
+    expect(right.filter((c) => c.join() !== white.join())).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  test('打開連結並取代時關掉其他對話框；分享對話框關掉後焦點回到「專案」；390 寬時「連結」不折行', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const hash = await shareHash(page, 'full');
+    /* 分享對話框：Esc 關掉 → 焦點在「專案」 */
+    await page.getByRole('button', { name: '專案' }).click();
+    await page.getByRole('menuitem', { name: '分享連結…' }).click();
+    const dialog = page.getByTestId('share-dialog');
+    await expect(dialog).toBeVisible();
+    const title = dialog.getByRole('heading', { name: '連結', exact: true });
+    const box = await title.boundingBox();
+    expect(box?.height ?? 99).toBeLessThan(26);
+    await expect(dialog).toContainText('內容');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.textContent?.trim()))
+      .toBe('專案');
+
+    /* 範本對話框開著時打開連結（空白地圖，不確認）→ 範本對話框關掉 */
+    await run(page, 'newMap');
+    await page.evaluate(
+      (patch) =>
+        (
+          window as unknown as { __floorPlan: { useEditor: { setState: (p: unknown) => void } } }
+        ).__floorPlan.useEditor.setState(patch),
+      { templatesOpen: true },
+    );
+    await expect(page.getByTestId('template-dialog')).toBeVisible();
+    await page.evaluate((h) => {
+      location.hash = h;
+    }, hash);
+    await expect(lastToast(page)).toContainText('已開啟分享的地圖');
+    await expect(page.getByTestId('template-dialog')).toHaveCount(0);
+    /* 匯出對話框開著時也一樣（有內容 → 確認 → 取代） */
+    await page.evaluate(
+      (patch) =>
+        (
+          window as unknown as { __floorPlan: { useEditor: { setState: (p: unknown) => void } } }
+        ).__floorPlan.useEditor.setState(patch),
+      { exportOpen: true },
+    );
+    await expect(page.getByTestId('export-dialog')).toBeVisible();
+    await page.evaluate((h) => {
+      location.hash = h;
+    }, hash);
+    await page.getByRole('alertdialog').getByRole('button', { name: '取代' }).click();
+    await expect(page.getByTestId('export-dialog')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('從連結打開時「詳細」對話框寫的是分享連結（不是原作的地圖檔）', async ({ page }) => {
+    const errors = await open(page);
+    await run(page, 'newMap');
+    const hash = await page.evaluate(() => {
+      const json = JSON.stringify({
+        v: 1,
+        d: {
+          name: '奇怪的連結',
+          floors: [
+            {
+              name: '1F',
+              rooms: [{ x: 0, y: 0, w: 4, h: 4, name: 'A', cat: 'stone' }],
+              items: [{ t: 'ufo', x: 1, y: 1, w: 1, h: 1 }],
+            },
+          ],
+        },
+      });
+      return json;
+    });
+    /* 用工具自己的編碼做出連結 */
+    const link = await page.evaluate(async (json) => {
+      const bytes = new TextEncoder().encode(json);
+      const cs = new CompressionStream('deflate-raw');
+      const out = new Uint8Array(
+        await new Response(new Blob([bytes]).stream().pipeThrough(cs)).arrayBuffer(),
+      );
+      let bin = '';
+      for (const b of out) bin += String.fromCharCode(b);
+      return `#m=${btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+    }, hash);
+    await page.evaluate((h) => {
+      location.hash = h;
+    }, link);
+    await expect(lastToast(page)).toContainText('1 個換成相近的種類、1 件家具略過。');
+    await page.getByTestId('import-report-open').click();
+    const report = page.getByRole('dialog', { name: '打開連結時的調整' });
+    await expect(report).toBeVisible();
+    await expect(report).toContainText('分享連結');
+    await expect(report).not.toContainText('原作');
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('版面', () => {
   const masks = (page: Page) => [page.getByRole('status').filter({ hasText: '自動儲存' })];
 
