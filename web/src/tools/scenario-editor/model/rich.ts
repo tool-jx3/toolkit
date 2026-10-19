@@ -4,7 +4,7 @@
 import type { BlockType } from './types';
 
 /** 可以用巢狀書式的書式 */
-export const RICH_TYPES: readonly BlockType[] = ['desc', 'note', 'proc'];
+export const RICH_TYPES: readonly BlockType[] = ['desc', 'note', 'proc', 'info', 'handout'];
 
 /** 「這段文字有沒有用到巢狀書式」用的行首記號 */
 const RICH_MARK = /^[ 　\t]*(?:[■◆]|[◇]|[※＊]|[＞>]|[・･]|[-*+][ \t]|\d+[.．)）]|[□☐]|[＠@]|[|｜])/;

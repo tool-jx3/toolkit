@@ -1,0 +1,172 @@
+{
+  "mdv": 1,
+  "title": "霧之館（變數）",
+  "padV": 18,
+  "padH": 16,
+  "base": 10,
+  "defCols": 1,
+  "foot": {
+    "num": true,
+    "text": "",
+    "from": 1
+  },
+  "fonts": [],
+  "bxTpl": [],
+  "fontBody": "",
+  "fontHead": "",
+  "vars": [
+    {
+      "n": "KP",
+      "def": "守秘人",
+      "note": "KP 的名字"
+    },
+    {
+      "n": "title",
+      "def": "x",
+      "note": "保留字（不算）"
+    }
+  ],
+  "pages": [
+    {
+      "id": "kfnqw6z",
+      "bg": {
+        "preset": "bg-paper",
+        "img": null,
+        "fit": "cover",
+        "opa": 35
+      },
+      "cols": 1
+    }
+  ],
+  "blocks": [
+    {
+      "id": "fl0cw95",
+      "type": "h1",
+      "cols": 2,
+      "text": "第一章 {HO1}的夢",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "u9b9udj",
+      "type": "desc",
+      "cols": 2,
+      "text": "{HO1}與{HO2}走進大廳。{HO3}還沒到。{KP}點了點頭，{SAN}與{場所}照原樣。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "sppnwdr",
+      "type": "info",
+      "cols": 2,
+      "text": "｜古書《こしょ》的扉頁寫著「給{HO1}」。\n- {KP}正看著你\n> 技能：〈圖書館〉\n\n",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "yqvt8im",
+      "type": "info",
+      "cols": 2,
+      "text": "寄件人：{HO2}",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "lb": "情報：信",
+      "ind": 0
+    },
+    {
+      "id": "7minvql",
+      "type": "info",
+      "cols": 2,
+      "text": "沒有標題語的情報",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "lb": "",
+      "ind": 0
+    },
+    {
+      "id": "malg1uz",
+      "type": "handout",
+      "cols": 2,
+      "text": "你是{HO1}，古書店的常客。\n｜推薦《すいせん》技能：〈圖書館〉\n",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ho": {
+        "no": "HO1",
+        "ttl": "古書店的常客",
+        "rec": "",
+        "def": ""
+      },
+      "ind": 0
+    },
+    {
+      "id": "e7r4t01",
+      "type": "handout",
+      "cols": 2,
+      "text": "{HO2}的秘密：你認識{HO1}。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ho": {
+        "no": "HO2",
+        "ttl": "",
+        "rec": "",
+        "def": ""
+      },
+      "ind": 0
+    },
+    {
+      "id": "haecvnd",
+      "type": "popup",
+      "cols": 2,
+      "text": "",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "pop": {
+        "label": "{HO1}的手記",
+        "body": "",
+        "only": false,
+        "blocks": [
+          {
+            "id": "t0f3lda",
+            "type": "info",
+            "cols": 2,
+            "text": "彈出視窗裡的情報：{HO1}",
+            "mt": null,
+            "mb": null,
+            "img": null,
+            "w": 70,
+            "cap": "",
+            "ind": 0
+          }
+        ]
+      },
+      "ind": 0
+    }
+  ]
+}

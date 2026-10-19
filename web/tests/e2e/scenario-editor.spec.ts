@@ -6,6 +6,7 @@
  * - 輸出：存成檔案（解析 JSON）、匯出閱覽 HTML（解析並執行腳本）、下載 PDF（pdf-lib 解析）、列印用文件（F013、F230～F233）；
  * - 作品清單：新建、複製、刪除到垃圾桶、還原、兩個分頁的鎖（F001～F009）；
  * - 彈出視窗、流程圖、表格、NPC 卡（自動計算、CCFOLIA 棋子）（1.6）；
+ * - 情報區塊、手冊、變數：快捷鍵、紙面的預設值、存檔、列印、匯出 HTML 的點一下複製與登場人物欄、讀入原作 v3.9.0 的原稿（1.13）；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
  */
 import { readFileSync } from 'node:fs';
@@ -18,6 +19,11 @@ import { pdfPageTexts } from '../helpers/pdf';
 
 const URL = `/${outputDir(getTool('scenario-editor') ?? { id: 'scenario-editor', status: 'next' })}/`;
 const SAMPLE = new globalThis.URL('./fixtures/scenario-editor-sample.json', import.meta.url);
+/** 原作 v3.9.0 的程式產生的原稿（情報區塊、手冊、變數） */
+const UPSTREAM = new globalThis.URL(
+  './fixtures/scenario-editor-upstream-v390.json',
+  import.meta.url,
+);
 const TTC = '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc';
 const IPAG = '/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf';
 const DEJAVU = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
@@ -910,6 +916,254 @@ test.describe('劇本排版台', () => {
     );
     await pop.getByRole('button', { name: '小標', exact: true }).click();
     await expect(ta).toHaveValue('# 標題\n\n內文\n### 新行\n■其他');
+    expect(errors).toEqual([]);
+  });
+
+  test('情報區塊、手冊與變數：書寫 → 紙面 → 存檔、列印 → 匯出 HTML（點一下複製、登場人物、重新開頁）（F250～F259）', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    const errors = await open(page);
+    const label = (name: string) =>
+      source(page).locator('[data-label]').filter({ hasText: name }).first();
+    const panel = page.getByTestId('se-block-panel');
+    const deselect = async () => {
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Escape');
+      await expect(panel).toHaveCount(0);
+    };
+    /* 標題裡也放一個變數（目錄的替換） */
+    await rowText(page, '標題 1').fill('導入：{HO1}');
+    await deselect();
+    /* D1：Ctrl＋Shift＋L／Ctrl＋Alt＋Y／Ctrl＋Shift＋Y／Ctrl＋Alt＋L 各新增一個段落（實體按鍵位置） */
+    await page.keyboard.press('Control+Shift+KeyL');
+    await expect(rowText(page, '情報區塊')).toHaveCount(1);
+    await expect(rowText(page, '情報區塊')).toBeFocused();
+    await page.keyboard.type('｜古書《こしょ》的扉頁寫著「給{HO1}」。');
+    await page.keyboard.press('Shift+Enter');
+    await page.keyboard.type('- {KP}正看著你');
+    await deselect();
+    await page.keyboard.press('Control+Alt+KeyY');
+    await expect(rowText(page, '手冊 HO1')).toBeFocused();
+    await page.keyboard.type('你是{HO1}，古書店的常客。');
+    await deselect();
+    await page.keyboard.press('Control+Shift+KeyY');
+    await expect(rowText(page, '手冊 HO2')).toBeFocused();
+    await page.keyboard.type('{HO2}的秘密');
+    await deselect();
+    await page.keyboard.press('Control+Alt+KeyL');
+    await expect(rowText(page, '情報區塊')).toHaveCount(2);
+    await page.keyboard.type('寫給{HO3}的信');
+    await deselect();
+    /* 文字欄的書式名稱處顯示編號 */
+    expect(await source(page).locator('[data-label] span:first-child').allTextContents()).toEqual([
+      '主標題',
+      '副標題',
+      '標題 1',
+      '描述文',
+      '對話文',
+      '規則框',
+      '情報區塊',
+      'HO1',
+      'HO2',
+      '情報區塊',
+    ]);
+    /* 紙面：看得出是情報區塊與手冊；變數顯示預設值（名稱），文字欄照樣是 {HO1} */
+    await expect(stage(page).locator('.t-info')).toHaveCount(2);
+    await expect(stage(page).locator('.t-handout')).toHaveCount(2);
+    await expect(stage(page).locator('.t-info > .blb').first()).toHaveText('情報');
+    const info = stage(page).locator('.t-info').first();
+    await expect(info.locator('ruby')).toHaveCount(1);
+    await expect(info.locator('.tvar.unset[data-v="HO1"]')).toHaveText('HO1');
+    await expect(stage(page).locator('.t-h1 .tvar')).toHaveText('HO1');
+    expect(
+      await info.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return [s.borderLeftWidth, s.borderLeftColor];
+      }),
+    ).toEqual(['3px', 'rgb(47, 93, 115)']);
+    await expect(rowText(page, '手冊 HO1')).toHaveValue('你是{HO1}，古書店的常客。');
+    /* 手冊的設定：題名；編號不合規則、重複時不寫進原稿 */
+    await label('HO1').click();
+    await expect(panel).toContainText('目前：手冊／欄內');
+    await panel.getByLabel('題名').fill('古書店的常客');
+    await expect(stage(page).locator('.t-handout .ho-t').first()).toHaveText('古書店的常客');
+    const no = panel.getByTestId('se-ho-no');
+    await no.fill('page');
+    await expect(status(page)).toContainText('名稱只能用英數字');
+    await expect(no).toHaveAttribute('aria-invalid', 'true');
+    await no.fill('HO2');
+    await expect(status(page)).toContainText('這個編號別的手冊用過了');
+    await no.blur();
+    await expect(no).toHaveValue('HO1');
+    await expect(stage(page).locator('.t-handout .ho-n').first()).toHaveText('HO1');
+    /* 文件分頁：手冊與 HO＋數字、還沒登錄的名稱 → 登錄 KP */
+    await page.getByRole('tab', { name: '文件' }).click();
+    const vars = page.getByTestId('se-vars');
+    await expect(vars).toContainText('{HO1}手冊「古書店的常客」的 PC');
+    await expect(vars).toContainText('{HO3}本文寫到的 HO＋數字（自動）');
+    await page.getByTestId('se-var-found').getByRole('button', { name: '＋ {KP}' }).click();
+    await expect(status(page)).toContainText('已登錄變數 {KP}');
+    await expect(page.getByLabel('變數 1 的名稱')).toHaveValue('KP');
+    await page.getByLabel('變數 1 的預設值').fill('守秘人');
+    await page.getByLabel('變數 1 的說明').fill('KP 的名字');
+    await expect(page.getByTestId('se-var-found')).toHaveCount(0);
+    await expect(stage(page).locator('.tvar[data-v="KP"]')).toHaveText('守秘人');
+    /* 不合規則的名稱：標紅＋狀態列 */
+    await page.getByRole('button', { name: '新增變數' }).click();
+    await expect(page.getByLabel('變數 2 的名稱')).toBeFocused();
+    await page.keyboard.type('title');
+    await page.keyboard.press('Tab');
+    await expect(status(page)).toContainText('名稱只能用英數字');
+    await expect(page.getByLabel('變數 2 的名稱')).toHaveAttribute('aria-invalid', 'true');
+    await page.waitForTimeout(800);
+    await page.getByRole('button', { name: '刪除變數「title」' }).click();
+    await expect(page.getByLabel('變數 2 的名稱')).toHaveCount(0);
+    /* Ctrl＋Y 仍是重做（D1） */
+    await page.keyboard.press('Control+z');
+    await expect(page.getByLabel('變數 2 的名稱')).toHaveValue('title');
+    await page.waitForTimeout(100);
+    await page.keyboard.press('Control+y');
+    await expect(page.getByLabel('變數 2 的名稱')).toHaveCount(0);
+    /* 存檔：專案檔版本 2、變數與兩種書式 */
+    const { bytes } = await download(page, () =>
+      page.getByRole('button', { name: '儲存', exact: true }).click(),
+    );
+    const saved = JSON.parse(bytes.toString('utf8'));
+    expect(saved.version).toBe(2);
+    expect(saved.data.vars).toEqual([{ n: 'KP', def: '守秘人', note: 'KP 的名字' }]);
+    const hos = saved.data.blocks.filter((b: TestBlock) => b.type === 'handout');
+    expect(hos.map((b: { ho: unknown }) => b.ho)).toEqual([
+      { no: 'HO1', ttl: '古書店的常客' },
+      { no: 'HO2', ttl: '' },
+    ]);
+    /* 列印：預設值、一般的文字顏色（D7） */
+    await page.getByRole('button', { name: '列印 / PDF' }).click();
+    await page
+      .getByRole('dialog', { name: '列印 / PDF' })
+      .getByRole('button', { name: '列印', exact: true })
+      .click();
+    const pf = page.frameLocator('iframe[data-paged-print]');
+    await expect(pf.locator('.t-handout').first()).toContainText('你是HO1，古書店的常客。');
+    expect(await pf.locator('body').textContent()).not.toContain('{HO1}');
+    expect(
+      await pf
+        .locator('.t-handout .tvar')
+        .first()
+        .evaluate((el) => [
+          getComputedStyle(el).color === getComputedStyle(el.parentElement as Element).color,
+          getComputedStyle(el).borderBottomStyle,
+        ]),
+    ).toEqual([true, 'none']);
+    /* 匯出 HTML */
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: '匯出', exact: true }).click();
+    const dlg = page.getByRole('dialog', { name: '匯出閱覽用 HTML' });
+    const { bytes: hb } = await download(page, () =>
+      dlg.getByRole('button', { name: '匯出', exact: true }).click(),
+    );
+    const html = hb.toString('utf8');
+    const url = `${baseURL}/__se-export/view.html`;
+    await context.route(url, (r) =>
+      r.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html }),
+    );
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseURL });
+    const view = await context.newPage();
+    const verr: string[] = [];
+    view.on('pageerror', (e) => verr.push(e.message));
+    await routeExternal(view);
+    await view.goto(url);
+    const clip = () => view.evaluate(() => navigator.clipboard.readText());
+    /* 登場人物欄 */
+    const vx = view.locator('#vx');
+    await expect(vx.locator('h2')).toHaveText('登場人物（變數）');
+    await expect(vx.locator('input')).toHaveCount(4);
+    expect(
+      await vx
+        .locator('input')
+        .evaluateAll((l) => l.map((x) => (x as HTMLInputElement).placeholder)),
+    ).toEqual(['HO1', 'HO2', 'HO3', '守秘人']);
+    /* 點一下情報區塊：內文（注音只留本文字、變數是預設值）；提示 1.4 秒 */
+    const vinfo = view.locator('#doc .t-info').first();
+    await vinfo.click();
+    await expect.poll(clip).toBe('古書的扉頁寫著「給HO1」。\n- 守秘人正看著你');
+    await expect(view.locator('#cpToast')).toHaveText('已複製內文');
+    await expect(view.locator('#cpToast')).toHaveClass(/on/);
+    await expect(view.locator('#cpToast')).not.toHaveClass(/on/, { timeout: 3000 });
+    /* 填 PC 名：全文替換、目錄也一樣、複製的文字也換 */
+    await vx.locator('input[data-v="HO1"]').fill('佐藤千景');
+    await expect(view.locator('#doc .tvar[data-v="HO1"]').first()).toHaveText('佐藤千景');
+    expect(
+      await view
+        .locator('#doc .tvar[data-v="HO1"]')
+        .evaluateAll((l) => l.map((x) => x.textContent)),
+    ).toEqual(['佐藤千景', '佐藤千景', '佐藤千景']);
+    await expect(view.locator('#doc .tvar.unset[data-v="HO1"]')).toHaveCount(0);
+    await expect(view.locator('#doc .tvar.unset[data-v="KP"]')).toHaveText('守秘人');
+    await view.locator('#doc .t-handout').first().click();
+    await expect.poll(clip).toBe('你是佐藤千景，古書店的常客。');
+    await view.locator('#tocMask').click();
+    await expect(view.locator('#nav .nvt').nth(1)).toHaveText('導入：佐藤千景');
+    /* 鍵盤：Tab 到框上按 Enter（D5） */
+    await view.locator('#doc .t-info').nth(1).focus();
+    await view.keyboard.press('Enter');
+    await expect.poll(clip).toBe('寫給HO3的信');
+    /* 記在瀏覽器（D4）；重新開頁照樣替換 */
+    expect(
+      await view.evaluate(() =>
+        localStorage.getItem('trpg-toolkit:scenario-editor:vars:未命名的劇本'),
+      ),
+    ).toBe('{"HO1":"佐藤千景"}');
+    await view.reload();
+    await expect(view.locator('#vx input[data-v="HO1"]')).toHaveValue('佐藤千景');
+    await expect(view.locator('#doc .t-h1 .tvar')).toHaveText('佐藤千景');
+    await view.locator('#doc .t-info').first().click();
+    await expect.poll(clip).toBe('古書的扉頁寫著「給佐藤千景」。\n- 守秘人正看著你');
+    expect(verr).toEqual([]);
+    await view.close();
+    expect(errors).toEqual([]);
+  });
+
+  test('讀入原作 v3.9.0 的原稿：情報區塊、手冊、變數（F260）；複製手冊時換新的編號（D3）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const up = JSON.parse(readFileSync(UPSTREAM.pathname, 'utf8'));
+    await loadDoc(page, up);
+    await expect(stage(page).locator('.t-info')).toHaveCount(3);
+    await expect(stage(page).locator('.t-handout')).toHaveCount(2);
+    expect(await stage(page).locator('.t-info > .blb').allTextContents()).toEqual([
+      '情報',
+      '情報：信',
+    ]);
+    await expect(stage(page).locator('.t-handout .ho-n')).toHaveText(['HO1', 'HO2']);
+    await expect(stage(page).locator('.t-handout .ho-t')).toHaveText('古書店的常客');
+    await expect(stage(page).locator('.t-desc')).toContainText(
+      'HO1與HO2走進大廳。HO3還沒到。守秘人點了點頭，{SAN}與{場所}照原樣。',
+    );
+    await page.getByRole('tab', { name: '文件' }).click();
+    await expect(page.getByLabel('變數 1 的名稱')).toHaveValue('KP');
+    await expect(page.getByLabel('變數 2 的名稱')).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.getByTestId('se-var-found').getByRole('button')).toHaveText([
+      '＋ {SAN}',
+      '＋ {場所}',
+    ]);
+    /* 複製手冊：HO1 的副本是 HO3 */
+    await page.getByRole('tab', { name: '書寫' }).click();
+    await source(page).locator('[data-label]').filter({ hasText: 'HO1' }).first().click();
+    await page.getByRole('button', { name: '複製段落（放在下方）' }).click();
+    await expect(stage(page).locator('.t-handout .ho-n')).toHaveText(['HO1', 'HO3', 'HO2']);
+    await page.waitForTimeout(800);
+    await page.keyboard.press('Control+z');
+    await expect(stage(page).locator('.t-handout .ho-n')).toHaveText(['HO1', 'HO2']);
+    /* 存檔：內容與原作的原稿相同（變數、標題語、編號、題名、內文） */
+    const d = await savedDoc(page);
+    const saved = d as unknown as { vars: unknown; blocks: TestBlock[] };
+    expect(saved.vars).toEqual(up.vars);
+    expect(saved.blocks.map((b) => [b.type, b.text, b.lb ?? null, b.ho ?? null])).toEqual(
+      up.blocks.map((b: TestBlock) => [b.type, b.text, b.lb ?? null, b.ho ?? null]),
+    );
     expect(errors).toEqual([]);
   });
 

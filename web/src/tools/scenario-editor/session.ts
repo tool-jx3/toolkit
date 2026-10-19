@@ -41,7 +41,7 @@ import {
   writeBrowserTemplates,
   writeWork,
 } from './library';
-import { blankDoc, looksLikeDoc, normalizeDoc, UNTITLED } from './model/doc';
+import { blankDoc, DOC_FILE_VERSION, looksLikeDoc, normalizeDoc, UNTITLED } from './model/doc';
 import { bxTplClean, mergeTemplates } from './model/proc';
 import type { BoxTemplate, Doc } from './model/types';
 import { doc, edit, say, setUi, TOOL_ID, ui, useDoc } from './store';
@@ -473,7 +473,7 @@ export async function resetDoc(): Promise<void> {
 export function saveFile(): void {
   const d = doc();
   const name = paperFileName(d.title, 'json');
-  downloadText(serializeProject(TOOL_ID, 1, d), name, 'application/json');
+  downloadText(serializeProject(TOOL_ID, DOC_FILE_VERSION, d), name, 'application/json');
   useSession.setState({ unsaved: false });
   const id = ses().id;
   if (id && ses().idb) void patchMeta(id, { fileAt: Date.now() }).catch(() => undefined);

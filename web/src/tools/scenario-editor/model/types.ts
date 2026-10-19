@@ -25,7 +25,11 @@ export type BlockType =
   | 'popup'
   | 'toc'
   | 'cover'
-  | 'colophon';
+  | 'colophon'
+  /** 情報區塊（2026-10，上游 v3.8.0） */
+  | 'info'
+  /** 手冊（HO；2026-10，上游 v3.8.0） */
+  | 'handout';
 
 /** 註解：第 a 字到第 b 字（不含 b） */
 export interface Comment {
@@ -133,6 +137,25 @@ export interface TocSettings {
 
 export type ImagePos = 'inline' | 'left' | 'right' | 'free';
 
+/** 手冊（3.16）：no＝編號（同時是變數 {HO1} 的名稱）、ttl＝題名 */
+export interface Handout {
+  no: string;
+  ttl: string;
+  /** 原作 v3.8.0 的推薦技能（保留不顯示） */
+  rec?: string;
+  /** 原作 v3.8.0 的「還沒填 PC 名稱時的顯示」：當成這個手冊變數的預設值 */
+  def?: string;
+  /** 原作 v3.8.0 的框裡的 PC 名稱欄（保留不顯示） */
+  pc?: boolean;
+}
+
+/** 登錄的變數（3.16）：n＝名稱、def＝預設值、note＝說明 */
+export interface DocVar {
+  n: string;
+  def: string;
+  note: string;
+}
+
 export interface Block {
   id: string;
   type: BlockType;
@@ -158,7 +181,7 @@ export interface Block {
   tocOff?: boolean;
   /** 對話文的說話者 */
   sp?: string;
-  /** 規則框的標題語（null＝預設） */
+  /** 規則框、情報區塊的標題語（null／沒有＝預設） */
   lb?: string | null;
   bx?: BoxStyle;
   /* 圖片 */
@@ -180,6 +203,7 @@ export interface Block {
   flow?: Flow;
   npc?: Npc;
   toc?: TocSettings;
+  ho?: Handout;
   /** 舊的「條列」書式 */
   mark?: string;
 }
@@ -216,6 +240,8 @@ export interface Doc {
   fontBody: string;
   fontHead: string;
   bxTpl: BoxTemplate[];
+  /** 登錄的變數（2026-10） */
+  vars: DocVar[];
   pages: PageSetting[];
   blocks: Block[];
 }

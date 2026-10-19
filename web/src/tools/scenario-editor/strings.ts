@@ -125,6 +125,45 @@ export const S = {
     ok: '確定',
     del: '刪除',
   },
+  /** 情報區塊、手冊、變數（2026-10，規格 1.13） */
+  info: {
+    title: '情報區塊',
+    label: '標題語',
+    labelHint: '框左上的小標；空白時不顯示。',
+    copyHint:
+      '匯出的 HTML 裡按一下這個框，就把內文（不含標題語）複製到剪貼簿，跑團時可以直接貼到聊天室。',
+  },
+  handout: {
+    title: '手冊',
+    no: '編號',
+    noHint: (no: string) =>
+      `編號就是變數 {${no}}（這個手冊的 PC 名稱）：本文任何地方寫 {${no}}，匯出的 HTML 裡就換成閱讀者填的名字。`,
+    ttl: '題名',
+    ttlPlaceholder: '例：古書店的常客',
+    copyHint: '匯出的 HTML 裡按一下這個框，就把內文（不含編號與題名）複製到剪貼簿。',
+    noDup: '這個編號別的手冊用過了。',
+  },
+  vars: {
+    title: '變數',
+    description:
+      '本文、標題、表格、彈出視窗…任何地方寫 {名稱}，匯出的 HTML 左側會有「登場人物」欄，閱讀者填的值會換進全文。',
+    fromHo: (ttl: string) => (ttl.trim() ? `手冊「${ttl.trim()}」的 PC` : '手冊的 PC'),
+    fromText: '本文寫到的 HO＋數字（自動）',
+    none: '還沒有變數。',
+    name: '名稱',
+    namePlaceholder: '例：KP',
+    def: '預設值',
+    defPlaceholder: '還沒填時顯示',
+    note: '說明',
+    notePlaceholder: '顯示在輸入欄下方',
+    remove: (n: string) => `刪除變數${n ? `「${n}」` : ''}`,
+    add: '新增變數',
+    found: '原稿裡寫到、還沒登錄的名稱（按一下登錄）：',
+    rule: '只有這裡登錄的名稱、手冊的編號、「HO＋數字」（例 {HO2}，不必有手冊）會被替換；CCFOLIA 的 {SAN} 這類寫法不登錄就照原樣留著。',
+    badName: '名稱只能用英數字、底線、假名、漢字，最多 16 字（title、page、total 不能用）。',
+    dupName: '已經有同名的變數了（只算第一個）。',
+    registered: (n: string) => `已登錄變數 {${n}}`,
+  },
   hints: {
     emptyText: '（在這裡輸入）',
     emptyCell: '（空白）',

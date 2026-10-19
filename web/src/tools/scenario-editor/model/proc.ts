@@ -29,6 +29,8 @@ export const boxColor = (k: string | undefined): BoxColor =>
 
 export const LABEL_SKILL = '技能檢定';
 export const LABEL_RULE = '特殊規則';
+/** 情報區塊的標題語的預設（2026-10，F251） */
+export const LABEL_INFO = '情報';
 
 /** 標題語的候選（F093） */
 export const LABEL_PICKS: readonly string[] = [
@@ -82,9 +84,9 @@ export function procStyleOf(b: Block): BoxStyle {
   };
 }
 
-/** 框的標題語（null＝預設「技能檢定」） */
+/** 框的標題語（null＝預設：規則框「技能檢定」、情報區塊「情報」） */
 export function blockLabel(b: Block): string {
-  return b.lb != null ? String(b.lb) : LABEL_SKILL;
+  return b.lb != null ? String(b.lb) : b.type === 'info' ? LABEL_INFO : LABEL_SKILL;
 }
 
 export function bxTplClean(t: unknown): BoxTemplate | null {

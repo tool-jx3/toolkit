@@ -27,6 +27,7 @@ import { applySlash } from './model/rich';
 import { tblCols, tblRows } from './model/table';
 import { setBlockText } from './model/text';
 import type { Block, Doc } from './model/types';
+import { hoOf } from './model/vars';
 import {
   clickSelect,
   ensurePopRefs,
@@ -193,7 +194,9 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
     ensurePopRefs(b.id);
   };
 
-  const label = typeName(b.type);
+  /* 手冊的書式名稱處顯示編號（F252） */
+  const ho = b.type === 'handout' ? hoOf(b).no : '';
+  const label = ho ? `${typeName(b.type)} ${ho}` : typeName(b.type);
   return (
     <div
       className={cn(
@@ -219,7 +222,7 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
         data-label={b.id}
         title="按一下選取；Shift＋按是範圍、Ctrl＋按是加入；往下拖可以一次選取多段"
       >
-        <span className={cn('font-semibold', selected && 'text-accent')}>{label}</span>
+        <span className={cn('font-semibold', selected && 'text-accent')}>{ho || label}</span>
         {span ? <span className="text-[10px] text-muted">全寬</span> : null}
       </button>
       <div className="min-w-0 flex-1">

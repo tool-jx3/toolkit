@@ -8,6 +8,7 @@ import { pageTitleOf } from './layout';
 import { allBlocks } from './model/blocks';
 import { rubyPlain } from './model/text';
 import type { Block } from './model/types';
+import { varPlain, varView } from './model/vars';
 import { clickSelect, makeTocHere } from './ops';
 import { paperApi } from './Paper';
 import { pageSettingAt, type RenderCtx, staticPageHtml } from './render/html';
@@ -154,7 +155,7 @@ export function Overview() {
                   style={{ paddingLeft: 4 + (LEVEL[b.type] ?? 1) * 10 }}
                 >
                   <span className="min-w-0 flex-1 truncate">
-                    {rubyPlain(String(b.text).split('\n')[0])}
+                    {varPlain(rubyPlain(String(b.text).split('\n')[0]), varView(d))}
                   </span>
                   <span className="text-xs text-muted">P.{(layout.pageOf[b.id] ?? 0) + 1}</span>
                 </button>

@@ -34,6 +34,7 @@ import { guessType, popRefNames, RICH_TYPES, renamePopRefsIn } from './model/ric
 import { cellBlocks, cellKey, tblCols, tblRows } from './model/table';
 import { blockComments, blockMarks, setBlockText, tidyMarks } from './model/text';
 import type { Block, BlockType, Comment, Doc, Mark, PageSetting } from './model/types';
+import { freshHandoutNumbers } from './model/vars';
 import {
   type CellTarget,
   clearSelection,
@@ -419,14 +420,18 @@ export function dupSel(): void {
   }
   const copies: string[] = [];
   edit((d) => {
+    const made: Block[] = [];
     for (const g of selGroups(d, ids)) {
       for (let k = g.length - 1; k >= 0; k--) {
         const f = g[k];
         const c = renewIds(clone(f.b));
         copies.unshift(c.id);
+        made.push(c);
         f.list.splice(f.list.indexOf(f.b) + 1, 0, c);
       }
     }
+    /* 手冊的編號重複時換新的（D3） */
+    freshHandoutNumbers(d, made);
   });
   select(copies);
   say(S.status.duplicated(copies.length));
@@ -543,6 +548,12 @@ export function pasteBlocks(src: readonly Block[] | null = ui().clip): void {
     const at = lastFound ? list.findIndex((b) => b.id === lastFound.b.id) : -1;
     if (at >= 0) list.splice(at + 1, 0, ...ok);
     else list.push(...ok);
+    /* 手冊的編號重複時換新的（D3） */
+    const ids = new Set(ok.map((b) => b.id));
+    freshHandoutNumbers(
+      d,
+      list.filter((b) => ids.has(b.id)),
+    );
   });
   select(ok.map((b) => b.id));
   say(S.status.pasted(ok.length));

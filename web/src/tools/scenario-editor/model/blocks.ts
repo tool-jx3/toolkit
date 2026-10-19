@@ -38,6 +38,9 @@ export const TYPES: readonly TypeDef[] = [
   { k: 'toc', name: '目錄', key: 'M', group: 'insert' },
   { k: 'cover', name: '封面', key: 'C', group: 'insert' },
   { k: 'colophon', name: '版權頁', key: 'K', group: 'insert' },
+  /* 2026-10（上游 v3.8.0）：原作 Ctrl＋Alt＋L／Y，照本站的慣例 Ctrl＋Shift＋鍵也可以（規格 D1） */
+  { k: 'info', name: '情報區塊', key: 'L', group: 'insert' },
+  { k: 'handout', name: '手冊', key: 'Y', group: 'insert' },
 ];
 
 export const TYPE_GROUPS: readonly { k: TypeGroup; name: string }[] = [
@@ -83,6 +86,8 @@ export const TEXT_TYPES: readonly BlockType[] = [
   'vr',
   'cover',
   'colophon',
+  'info',
+  'handout',
 ];
 
 /** 儲存格當成一個字串讀時，略過這些書式 */
@@ -133,6 +138,8 @@ export const SPACE: Readonly<Record<string, { t: number; b: number }>> = {
   table: { t: 3, b: 3 },
   popup: { t: 2.5, b: 2.5 },
   flow: { t: 4, b: 4 },
+  info: { t: 3, b: 3 },
+  handout: { t: 4, b: 4 },
   toc: { t: 0, b: 2 },
   colophon: { t: 8, b: 0 },
   break: { t: 0, b: 0 },

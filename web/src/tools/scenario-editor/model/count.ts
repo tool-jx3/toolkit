@@ -3,6 +3,7 @@
  */
 import { allBlocks } from './blocks';
 import { plainCount } from './rich';
+import { rubyPlain } from './text';
 import type { Block, Doc } from './types';
 
 /** 本文、彈出視窗與儲存格裡所有段落的字數（記號、表格的直線、注音的讀音、空白不算） */
@@ -41,6 +42,14 @@ export function blockPlainText(b: Block): string {
       .join('\n');
   }
   return String(b.text ?? '');
+}
+
+/**
+ * 情報區塊、手冊在匯出 HTML 裡按一下複製的內文（F259）：注音只留本文字、結尾的換行去掉；
+ * 不含標題語、編號、題名；變數維持 {名稱}（匯出檔的腳本複製時才換成填的值）。
+ */
+export function copyBodyText(b: Pick<Block, 'text'>): string {
+  return rubyPlain(String(b.text ?? '')).replace(/\n+$/, '');
 }
 
 /** 幾個段落的純文字以空行接起來（空白的略過） */
