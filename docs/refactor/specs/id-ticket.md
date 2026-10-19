@@ -521,3 +521,16 @@ Receipt 322 × 793.89（416 × 887.89）；照片格 278 × 347.5、132 × 176�
 
 | 編號 | 結果 | 方法與證據（截圖／腳本路徑） | 備註 |
 |---|---|---|---|
+
+## 7. 主控裁定（2026-10-19）
+
+- **評估**：收錄（使用者 2026-10-19 選定，上游檢查後的第一批）。兩個原作 dearmysn1p3r/DearMySn1p3r_20（ID Studio，commit `c08d489`）與 DearMySn1p3r_36（Ticket Studio，commit `5636d9d`）都沒有授權條款：只參考功能、版面數值與做法，程式、介面文字（原作是韓文）、範本、範例資料都自己做，不放 `UPSTREAM_LICENSE`。
+  G6「劇本與紀錄」（handout 道具）。頁尾的靈感來源是 ID Studio；Ticket Studio 寫在 README 與 ATTRIBUTION。
+- **D1～D22 全部照「建議做法」核准**，補充：
+  - D2：範本主控看過 7 款證件的正反面與 5 款票券的截圖——虛構機構（霧港市警察局、霧島鐵道等）、通用徽章、沒有真實公司或政府的名稱與標誌，照現在的組成與欄位。
+  - D9、D22：條碼是真的 Code 128、深色卡面墊白底——核准（handout 拿手機掃得到更好玩）；驗證者用解碼器確認條碼與 QR code 內容。
+  - D15：印刷尺寸四捨五入（1370 × 2126，原作捨去成 2125）——核准。
+  - D21：npm 套件 `qrcode-generator`（MIT）——核准，建置時列進 THIRD_PARTY_NOTICES（已確認）。
+- **共用層**：`@/core/encode/png.ts`（PNG 的 dpi：setPngDpi／readPngDpi）、`@/core/paged/units.ts`（mm ↔ 點、印刷尺寸含出血）、元件展示頁的印刷示範——核准。
+- **對等的基準**：證件的卡片與印刷 PNG 尺寸、dpi、出血、圓角、排在一張的版面和原作相同（D15 除外）；票券的尺寸因範本自做而不同，墊紙、倍率、GIF 的影格數與時間和原作相同。
+- **上線**：對等驗證通過後 `status: 'live'`，README、ATTRIBUTION、PLAN 6.1 跟著改。
