@@ -2,6 +2,7 @@
  * 室內平面圖產生器的介面文字（台灣繁體中文）。
  */
 import type { RoomPresetGroupId, RoomPresetId } from './model/catalog';
+import type { CompatCounts, CompatType } from './model/compat';
 import type { OpeningKind, RoomCategory, SizeMode, ThemeId, WallKind } from './model/types';
 
 export const S = {
@@ -352,7 +353,6 @@ export const S = {
     opened: (name: string) => `已開啟「${name}」`,
     saved: (file: string) => `已存成專案檔：${file}`,
     imported: (name: string) => `已匯入「${name}」`,
-    droppedItems: (n: number) => `有 ${n} 件家具的種類本工具沒有，已略過。`,
     templateLoaded: (name: string) => `已載入「${name}」`,
     newMap: '已開新的空白地圖',
     cluesShown: (n: number) => `顯示隱藏線索（${n} 個）`,
@@ -363,6 +363,79 @@ export const S = {
     locked: '這個房間鎖定中，要移動請先解除鎖定。',
     lockedSkip: '鎖定的房間沒有改動。',
     storageFull: '自動儲存失敗（瀏覽器的儲存空間可能滿了）。請用「專案 → 存成專案檔」另外存一份。',
+  },
+
+  /** 讀原作新版（v1.05～v1.13）的地圖檔：換成相近的種類、略過的東西（規格 F213、D25） */
+  compat: {
+    /** 通知的說明（只列有的項目） */
+    summary: (c: CompatCounts) =>
+      `${[
+        c.converted ? `${c.converted} 個換成相近的種類` : '',
+        c.items ? `${c.items} 件家具略過` : '',
+        c.openings ? `${c.openings} 個門窗略過` : '',
+        c.settings ? `${c.settings} 項設定略過` : '',
+      ]
+        .filter(Boolean)
+        .join('、')}。`,
+    details: '詳細',
+    detailsAlt: '列出換成相近種類與略過的東西',
+    title: '匯入時的調整',
+    intro:
+      '這個地圖檔是原作較新的版本存的。本工具沒有的房間、門窗、牆種類換成了最接近的種類（之後可以在屬性面板改）；本工具沒有的家具與設定略過了。',
+    convertedHead: '換成相近的種類',
+    droppedHead: '略過',
+    /** 原作的種類（名稱是本站的說法；不認得的代號寫「不認得的種類」） */
+    names: {
+      room: {
+        engawa: '緣側・廣緣',
+        studio: '隔音室・錄音室',
+        stone: '石造（城堡・地城）',
+        roof: '建築物（屋頂）',
+        industrial: '工廠・水泥地',
+        grate: '鐵板・格柵地板',
+        platform: '車站月台',
+        track: '鐵軌・軌道',
+        road: '道路・車道',
+        slab: '施工中的樓板',
+        dirt: '泥土・碎石（戶外）',
+        gravel: '白砂・枯山水',
+        rooftop: '屋頂平台',
+        shipdeck: '甲板（戶外）',
+      },
+      opening: {
+        steel: '鐵門',
+        firedoor: '防火門',
+        gate: '格柵門',
+        big2: '大型雙開門',
+        revolve: '旋轉門',
+        sealed: '封印的門',
+        platewin: '鐵板封住的窗',
+      },
+      wall: {
+        stone: '石牆（城堡・地城）',
+        sound: '隔音牆',
+        cracked: '有裂痕的牆',
+      },
+      overlay: {
+        wall_hole: '疊在牆上的牆洞',
+        collapse_wall: '疊在牆上的崩塌',
+      },
+    } satisfies Record<CompatType, Record<string, string>>,
+    unknown: '不認得的種類',
+    /** 種類的單位 */
+    units: { room: '間', opening: '個', wall: '道', overlay: '個' } satisfies Record<
+      CompatType,
+      string
+    >,
+    items: '家具（本工具沒有的種類）',
+    openings: '門窗（不認得的種類）',
+    /** 略過的代號（太多時只列前面的） */
+    codes: (list: string, total: number, shown: number) =>
+      total > shown ? `${list}…等 ${total} 種` : list,
+    roomWalls: '每間房的牆種類（牆照本工具的規則產生）',
+    insideFloors: '外觀樓層的「顯示內部」',
+    tokenGrid: (m: number) => `棋子方格（每格 ${m} m）`,
+    count: (n: number, unit: string) => `${n} ${unit}`,
   },
 
   keys: {

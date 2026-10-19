@@ -10,6 +10,7 @@ import type { StateStorage } from 'zustand/middleware';
 import { createPreviewStore, createToolStore } from '@/core/storage';
 import { isAsset } from '../model/assets';
 import type { RoomPresetId } from '../model/catalog';
+import type { CompatReport } from '../model/compat';
 import type { ExportSettings } from '../model/exportPlan';
 import { normalizeProject } from '../model/normalize';
 import type { OpeningKind, Project, SelRef, WallKind } from '../model/types';
@@ -164,6 +165,9 @@ export interface EditorState {
   hint: { text: string; warn: boolean };
   templatesOpen: boolean;
   exportOpen: boolean;
+  /** 上一次開檔時換掉與略過的東西（「詳細」對話框，F213） */
+  importReport: CompatReport | null;
+  importReportOpen: boolean;
   clipboard: Clipboard | null;
   /** 家具的搜尋與分類 */
   libQuery: string;
@@ -179,6 +183,8 @@ export const useEditor = create<EditorState>(() => ({
   hint: { text: '', warn: false },
   templatesOpen: false,
   exportOpen: false,
+  importReport: null,
+  importReportOpen: false,
   clipboard: null,
   libQuery: '',
   libGroup: 'all',
