@@ -52,8 +52,11 @@ export {
   concat,
   crc32,
   type DeflateMode,
+  dpiToPixelsPerMeter,
   encodePng,
   PNG_SIGNATURE,
+  readPngDpi,
+  setPngDpi,
   zlib,
 } from './png';
 export { PngSequenceEncoder, type PngSequenceOptions } from './sequence';
