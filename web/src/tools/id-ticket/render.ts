@@ -30,6 +30,7 @@ import {
   type IdTemplateId,
   idTemplate,
   QR_KEY,
+  TICKET_TEMPLATES,
   type TicketTemplate,
   ticketTemplate,
 } from './templates';
@@ -285,6 +286,19 @@ export function ticketFontUses(s: IdTicketState): FontUse[] {
   const fonts = new Map<string, Set<string>>();
   const ctx = ctx2d(makeCanvas(1, 1));
   drawTicket(ctx, s, { preview: true, photo: null, fonts });
+  return fontUses(fonts);
+}
+
+/** 範本縮圖用到的字型（每一款證件的正面、每一款票券） */
+export function thumbFontUses(s: IdTicketState, kind: IdTicketState['kind']): FontUse[] {
+  const fonts = new Map<string, Set<string>>();
+  const ctx = ctx2d(makeCanvas(1, 1));
+  if (kind === 'id')
+    for (const t of ID_TEMPLATES)
+      drawIdFace(ctx, { ...s, idTemplate: t.id }, 'front', { preview: false, photo: null, fonts });
+  else
+    for (const t of TICKET_TEMPLATES)
+      drawTicket(ctx, { ...s, ticketTemplate: t.id }, { preview: false, photo: null, fonts });
   return fontUses(fonts);
 }
 

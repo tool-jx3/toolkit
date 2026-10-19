@@ -2,7 +2,7 @@
  * 範本清單的縮圖：用目前的欄位、樣式、照片畫每一款的正面（證件）或整張票（票券），縮到方格裡。
  */
 import { rrect } from './kit';
-import { CARD_RADIUS_U, cardUnits, type IdTicketState } from './model';
+import { CARD_RADIUS_U, cardUnits, type IdTicketState, type Kind } from './model';
 import { drawIdFace, drawTicket, ticketSize } from './render';
 import { assets } from './store';
 import { type IdTemplateId, idTemplate, type TicketTemplateId } from './templates';
@@ -14,12 +14,13 @@ const MARGIN = 10;
 export function drawThumb(
   ctx: CanvasRenderingContext2D,
   doc: IdTicketState,
+  kind: Kind,
   value: string,
   idPhoto: CanvasImageSource | null,
 ): void {
   ctx.clearRect(0, 0, THUMB.w, THUMB.h);
   ctx.save();
-  if (doc.kind === 'id') {
+  if (kind === 'id') {
     const s: IdTicketState = { ...doc, idTemplate: value as IdTemplateId };
     const { w, h } = cardUnits(idTemplate(s.idTemplate).orientation);
     const k = Math.min((THUMB.w - MARGIN * 2) / w, (THUMB.h - MARGIN * 2) / h);

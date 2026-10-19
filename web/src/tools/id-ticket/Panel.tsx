@@ -14,7 +14,7 @@ import {
   Trash2,
   Undo2,
 } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useDeferredValue, useMemo } from 'react';
 import { useAssetImage } from '@/core/assets';
 import { pickFiles } from '@/core/files';
 import {
@@ -37,6 +37,7 @@ import {
 } from '@/ui';
 import { cn } from '@/ui/cn';
 import { alpha } from './colors';
+import { useEnsureFonts, useFontTick } from './fonts';
 import { type BatchNotice, loadPhotoFiles, openFrame } from './media';
 import {
   CAPTION_MAX,
@@ -51,7 +52,7 @@ import {
   receiptTotals,
   TICKET_ZOOM_MAX,
 } from './model';
-import { autoGradient } from './render';
+import { autoGradient, thumbFontUses } from './render';
 import {
   addItem,
   assets,
@@ -141,13 +142,20 @@ export function TemplateSection() {
   const kind = useDoc((s) => s.data.kind);
   const idT = useDoc((s) => s.data.idTemplate);
   const tkT = useDoc((s) => s.data.ticketTemplate);
-  const doc = useDoc((s) => s.data);
+  /* 縮圖晚一點重畫（打字時不卡） */
+  const doc = useDeferredValue(useDoc((s) => s.data));
   const photoId = kind === 'id' ? doc.idPhoto?.image.id : undefined;
   /* 縮圖用的照片（證件共用一張；讀好了才畫進縮圖） */
   const photo = useAssetImage(assets, photoId);
+  /* 每一款縮圖用到的字型也先載好，載好後重畫 */
+  const fonts = useMemo(() => thumbFontUses(doc, kind), [doc, kind]);
+  useEnsureFonts(fonts);
+  const tick = useFontTick();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫
   const draw = useCallback(
-    (ctx: CanvasRenderingContext2D, value: string) => drawThumb(ctx, doc, value, photo.bitmap),
-    [doc, photo.bitmap],
+    (ctx: CanvasRenderingContext2D, value: string) =>
+      drawThumb(ctx, doc, kind, value, photo.bitmap),
+    [doc, kind, photo.bitmap, tick],
   );
   return (
     <Section title={S.sectionTemplate} fixed>
