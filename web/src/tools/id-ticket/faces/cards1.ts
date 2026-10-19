@@ -4,7 +4,6 @@
  */
 import { alpha, mix, shade, tint } from '../colors';
 import {
-  barcode,
   circle,
   field,
   fillRRect,
@@ -21,7 +20,17 @@ import {
   strokeRRect,
   text,
 } from '../kit';
-import { band, cap, fillBleed, type IdEnv, type IdFaces, labeled, rows, tones } from './common';
+import {
+  band,
+  cap,
+  cardBarcode,
+  fillBleed,
+  type IdEnv,
+  type IdFaces,
+  labeled,
+  rows,
+  tones,
+} from './common';
 
 /* ======================================================================
  * 員工證
@@ -44,11 +53,26 @@ export const employee: IdFaces = {
     ctx.fillStyle = alpha('#ffffff', 0.08);
     ctx.fill();
     ctx.restore();
-    monogram(e, S + 14, 37, 14, alpha('#ffffff', 0.95), dk ? shade(c, 0.25) : c, firstChar(e.value('emp_org')), {
-      square: true,
-    });
+    monogram(
+      e,
+      S + 14,
+      37,
+      14,
+      alpha('#ffffff', 0.95),
+      dk ? shade(c, 0.25) : c,
+      firstChar(e.value('emp_org')),
+      {
+        square: true,
+      },
+    );
     const tx = S + 36;
-    field(e, 'emp_org', tx, 36, { size: 12, weight: 700, color: t.oc, maxWidth: W - S - tx - 54, shrink: 0.75 });
+    field(e, 'emp_org', tx, 36, {
+      size: 12,
+      weight: 700,
+      color: t.oc,
+      maxWidth: W - S - tx - 54,
+      shrink: 0.75,
+    });
     field(e, 'emp_orgEn', tx, 49, {
       size: 6,
       weight: 600,
@@ -57,7 +81,13 @@ export const employee: IdFaces = {
       upper: true,
       maxWidth: W - S - tx - 54,
     });
-    text(e, '員工證', W - S, 34, { size: 10, weight: 900, color: t.oc, align: 'right', spacing: 1.5 });
+    text(e, '員工證', W - S, 34, {
+      size: 10,
+      weight: 900,
+      color: t.oc,
+      align: 'right',
+      spacing: 1.5,
+    });
     text(e, 'EMPLOYEE ID', W - S, 46, {
       size: 5.5,
       weight: 700,
@@ -127,7 +157,7 @@ export const employee: IdFaces = {
       color: t.fg,
       size: 10,
     });
-    barcode(e, e.code, S - 6, 362, W - S * 2 + 12, 34, t.fg, { key: e.tpl.codeKey });
+    cardBarcode(e, S - 6, 362, W - S * 2 + 12, 34, t.fg);
     /* 下方色帶：門禁權限 */
     band(e, 414, H, dk ? shade(c, 0.6) : shade(c, 0.62));
     band(e, 414, 417, c);
@@ -180,8 +210,14 @@ export const employee: IdFaces = {
     qr(e, e.qrContent, S, 300, 68, { radius: 6, pad: 5 });
     const rx = S + 82;
     cap(e, '拾獲請送交', rx, 318, t.mu);
-    field(e, 'emp_org', rx, 334, { size: 10.5, weight: 700, color: t.fg, maxWidth: W - S - rx, shrink: 0.75 });
-    barcode(e, e.code, rx - 4, 346, W - S - rx + 4, 20, t.fg, { key: e.tpl.codeKey });
+    field(e, 'emp_org', rx, 334, {
+      size: 10.5,
+      weight: 700,
+      color: t.fg,
+      maxWidth: W - S - rx,
+      shrink: 0.75,
+    });
+    cardBarcode(e, rx - 4, 346, W - S - rx + 4, 20, t.fg);
     band(e, 414, H, dk ? shade(c, 0.6) : shade(c, 0.62));
     band(e, 414, 417, c);
     field(e, 'emp_orgEn', S, 448, {
@@ -247,7 +283,11 @@ export const highschool: IdFaces = {
     const px = S + 2;
     const py = 160;
     strokeRRect(ctx, px - 3, py - 3, 110, 142, 5, alpha(c, 0.5), 1);
-    photo(e, px, py, 104, 136, { radius: 3, bg: dk ? '#1d2826' : '#e9f1ef', silhouette: dk ? '#33413e' : '#c9d9d5' });
+    photo(e, px, py, 104, 136, {
+      radius: 3,
+      bg: dk ? '#1d2826' : '#e9f1ef',
+      silhouette: dk ? '#33413e' : '#c9d9d5',
+    });
     const rx = px + 122;
     const rw = W - S - rx;
     const kl = (label: string, y: number) =>
@@ -262,12 +302,12 @@ export const highschool: IdFaces = {
     field(e, 'hi_birth', rx, 306, { size: 10, weight: 500, color: t.fg, maxWidth: rw });
     /* 證明文字＋校印 */
     line(ctx, S, 322, W - S, 322, alpha(c, 0.35), 1.2);
-    text(e, '茲證明右列學生為本校在學學生。', S, 344, { font: 'serif', size: 9.5, color: t.fg });
+    text(e, '茲證明本證持有人為本校在學學生。', S, 344, { font: 'serif', size: 9.5, color: t.fg });
     cap(e, '發證日期', S, 366, t.mu);
     field(e, 'hi_issued', S + 46, 366.5, { size: 9.5, weight: 600, color: t.fg, maxWidth: 110 });
     stamp(e, W - S - 30, 360, 25, '#c8372d', '教務處', { rotate: -12, small: '驗印' });
     /* 條碼 */
-    barcode(e, e.code, S - 6, 392, 172, 26, t.fg, { key: e.tpl.codeKey });
+    cardBarcode(e, S - 6, 392, 172, 26, t.fg);
     field(e, 'hi_no', S, 430, { font: 'mono', size: 7, color: t.mu, spacing: 1.2, maxWidth: 160 });
     band(e, H - 10, H, c);
   },
@@ -276,7 +316,12 @@ export const highschool: IdFaces = {
     const t = tones(e);
     fillBleed(e, dk ? '#101817' : '#fbfdfc');
     band(e, 0, 8, c);
-    text(e, '註冊章', S, 44, { font: 'serif', size: 15, weight: 900, color: dk ? tint(c, 0.4) : shade(c, 0.1) });
+    text(e, '註冊章', S, 44, {
+      font: 'serif',
+      size: 15,
+      weight: 900,
+      color: dk ? tint(c, 0.4) : shade(c, 0.1),
+    });
     cap(e, 'REGISTRATION', S + 54, 43, t.mu);
     /* 註冊章欄：3 × 2 格 */
     const reg = SEMESTERS.indexOf(e.value('hi_reg') as (typeof SEMESTERS)[number]);
@@ -344,7 +389,7 @@ export const highschool: IdFaces = {
       W - S * 2,
       { mu: t.mu, fg: t.fg, ln: t.ln, rowH: 20 },
     );
-    barcode(e, e.code, S - 6, 400, 178, 30, t.fg, { key: e.tpl.codeKey });
+    cardBarcode(e, S - 6, 400, 178, 30, t.fg);
     strokeRRect(ctx, W - S - 64.5, 381.5, 65, 65, 6, t.ln, 1);
     qr(e, e.qrContent, W - S - 64, 382, 64, { radius: 6, pad: 5 });
     band(e, H - 10, H, c);
@@ -413,7 +458,14 @@ export const university: IdFaces = {
     ctx.restore();
     crest(e, S + 16, 38, 16, u.hc);
     const tx = S + 40;
-    field(e, 'uni_name', tx, 37, { font: 'serif', size: 15, weight: 900, color: u.fg, maxWidth: W - S - tx, shrink: 0.7 });
+    field(e, 'uni_name', tx, 37, {
+      font: 'serif',
+      size: 15,
+      weight: 900,
+      color: u.fg,
+      maxWidth: W - S - tx,
+      shrink: 0.7,
+    });
     field(e, 'uni_nameEn', tx, 50, {
       size: 5.8,
       weight: 600,
@@ -434,11 +486,20 @@ export const university: IdFaces = {
     const px = W - S - pw;
     const py = 82;
     strokeRRect(ctx, px - 4, py - 4, pw + 8, ph + 8, 2, u.ln, 1);
-    photo(e, px, py, pw, ph, { bg: dk ? '#1c2436' : '#eee8db', silhouette: dk ? '#2c3650' : '#d8cfbd' });
+    photo(e, px, py, pw, ph, {
+      bg: dk ? '#1c2436' : '#eee8db',
+      silhouette: dk ? '#2c3650' : '#d8cfbd',
+    });
     /* 左欄：學生、系所、身分 */
     const lw = px - S - 16;
     strokeRRect(ctx, S, 82, 54, 15, 1, u.ln, 1);
-    text(e, 'STUDENT', S + 27, 92.6, { size: 6, weight: 700, color: u.hc, align: 'center', spacing: 1.4 });
+    text(e, 'STUDENT', S + 27, 92.6, {
+      size: 6,
+      weight: 700,
+      color: u.hc,
+      align: 'center',
+      spacing: 1.4,
+    });
     cap(e, '系所', S, 120, u.mu);
     field(e, 'uni_dept', S, 136, { size: 11, weight: 700, color: u.hc, maxWidth: lw, shrink: 0.7 });
     cap(e, '身分', S, 158, u.mu);
@@ -446,7 +507,14 @@ export const university: IdFaces = {
     cap(e, '入學年度', S, 195, u.mu);
     field(e, 'uni_year', S, 210, { size: 10.5, weight: 600, color: u.fg, maxWidth: lw });
     /* 姓名 */
-    field(e, 'name', S, 254, { font: 'serif', size: 24, weight: 900, color: u.fg, maxWidth: W - S * 2, shrink: 0.62 });
+    field(e, 'name', S, 254, {
+      font: 'serif',
+      size: 24,
+      weight: 900,
+      color: u.fg,
+      maxWidth: W - S * 2,
+      shrink: 0.62,
+    });
     field(e, 'nameEn', S, 270, {
       size: 7.5,
       weight: 600,
@@ -468,17 +536,29 @@ export const university: IdFaces = {
       const w = i === 0 ? W - S * 2 : cw;
       strokeRRect(ctx, x, y, w, 36, 1, u.ln, 0.9);
       cap(e, label, x + 8, y + 13, u.mu, { size: 5.8 });
-      field(e, key, x + 8, y + 28, { font: mono ? 'mono' : 'sans', size: 10, weight: 600, color: u.fg, maxWidth: w - 16 });
+      field(e, key, x + 8, y + 28, {
+        font: mono ? 'mono' : 'sans',
+        size: 10,
+        weight: 600,
+        color: u.fg,
+        maxWidth: w - 16,
+      });
     });
     cap(e, '在學期間有效 VALID WITH ENROLLMENT', S, 392, u.mu, { size: 5.8 });
-    barcode(e, e.code, S - 6, 400, W - S * 2 + 12, 30, u.fg, { key: e.tpl.codeKey });
+    cardBarcode(e, S - 6, 400, W - S * 2 + 12, 30, u.fg);
     band(e, H - 9, H, c);
   },
   back(e) {
     const { ctx, W, H, S, c, dk } = e;
     const u = uniBase(e);
     crest(e, S + 13, 36, 13, u.hc);
-    field(e, 'uni_name', S + 34, 34, { font: 'serif', size: 13, weight: 900, color: u.fg, maxWidth: W - S * 2 - 34 });
+    field(e, 'uni_name', S + 34, 34, {
+      font: 'serif',
+      size: 13,
+      weight: 900,
+      color: u.fg,
+      maxWidth: W - S * 2 - 34,
+    });
     cap(e, '校園服務 CAMPUS SERVICES', S + 34, 47, u.hc, { size: 5.8 });
     rows(
       e,
@@ -507,8 +587,14 @@ export const university: IdFaces = {
     fillRRect(ctx, S, 306, W - S * 2, 26, 2, dk ? alpha('#ffffff', 0.06) : alpha(c, 0.1));
     qr(e, e.qrContent, S, 352, 64, { pad: 5 });
     const rx = S + 76;
-    barcode(e, e.code, rx - 4, 372, W - S - rx + 4, 26, u.fg, { key: e.tpl.codeKey });
-    field(e, 'uni_no', rx, 410, { font: 'mono', size: 7.5, color: u.mu, spacing: 1, maxWidth: W - S - rx });
+    cardBarcode(e, rx - 4, 372, W - S - rx + 4, 26, u.fg);
+    field(e, 'uni_no', rx, 410, {
+      font: 'mono',
+      size: 7.5,
+      color: u.mu,
+      spacing: 1,
+      maxWidth: W - S - rx,
+    });
     band(e, H - 9, H, c);
   },
 };
@@ -537,7 +623,13 @@ export const press: IdFaces = {
       ctx.stroke();
     }
     ctx.restore();
-    field(e, 'press_org', S, 36, { size: 13, weight: 900, color: t.oc, maxWidth: W - S * 2 - 70, shrink: 0.7 });
+    field(e, 'press_org', S, 36, {
+      size: 13,
+      weight: 900,
+      color: t.oc,
+      maxWidth: W - S * 2 - 70,
+      shrink: 0.7,
+    });
     field(e, 'press_orgEn', S, 49, {
       size: 6,
       weight: 600,
@@ -559,7 +651,11 @@ export const press: IdFaces = {
     /* 照片 */
     const px = S;
     const py = 166;
-    photo(e, px, py, 110, 142, { radius: 6, bg: dk ? '#262a32' : '#f1efee', silhouette: dk ? '#3a404b' : '#d9d4d2' });
+    photo(e, px, py, 110, 142, {
+      radius: 6,
+      bg: dk ? '#262a32' : '#f1efee',
+      silhouette: dk ? '#3a404b' : '#d9d4d2',
+    });
     const rx = px + 126;
     const rw = W - S - rx;
     field(e, 'name', rx, 190, { size: 21, weight: 900, color: t.fg, maxWidth: rw, shrink: 0.62 });
@@ -583,8 +679,18 @@ export const press: IdFaces = {
       align: 'center',
       maxWidth: roleW - 10,
     });
-    labeled(e, '採訪路線 BEAT', 'press_beat', rx, 256, { width: rw, capColor: t.mu, color: t.fg, size: 10 });
-    labeled(e, '有效期限 EXPIRES', 'press_expires', rx, 292, { width: rw, capColor: t.mu, color: t.fg, size: 10 });
+    labeled(e, '採訪路線 BEAT', 'press_beat', rx, 256, {
+      width: rw,
+      capColor: t.mu,
+      color: t.fg,
+      size: 10,
+    });
+    labeled(e, '有效期限 EXPIRES', 'press_expires', rx, 292, {
+      width: rw,
+      capColor: t.mu,
+      color: t.fg,
+      size: 10,
+    });
     line(ctx, S, 324, W - S, 324, t.ln);
     labeled(e, '證號 PRESS NO.', 'press_no', S, 342, {
       width: W - S * 2,
@@ -593,7 +699,7 @@ export const press: IdFaces = {
       size: 12,
       mono: true,
     });
-    barcode(e, e.code, S - 6, 376, W - S * 2 + 12, 34, t.fg, { key: e.tpl.codeKey });
+    cardBarcode(e, S - 6, 376, W - S * 2 + 12, 34, t.fg);
     band(e, 430, H, dk ? shade(c, 0.45) : shade(c, 0.35));
     text(e, '請配合現場人員查驗', W / 2, 452, {
       size: 8.5,
@@ -640,7 +746,7 @@ export const press: IdFaces = {
     const rx = S + 86;
     cap(e, '如拾獲請寄回', rx, 334, t.mu);
     field(e, 'press_org', rx, 350, { size: 11, weight: 900, color: t.fg, maxWidth: W - S - rx });
-    barcode(e, e.code, rx - 4, 360, W - S - rx + 4, 24, t.fg, { key: e.tpl.codeKey });
+    cardBarcode(e, rx - 4, 360, W - S - rx + 4, 24, t.fg);
     band(e, 430, H, mix(c, '#000000', 0.35));
     field(e, 'press_orgEn', W / 2, 452, {
       size: 7,

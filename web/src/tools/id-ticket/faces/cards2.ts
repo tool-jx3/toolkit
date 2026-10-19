@@ -17,7 +17,17 @@ import {
   strokeRRect,
   text,
 } from '../kit';
-import { band, cap, fillBleed, guilloche, type IdEnv, type IdFaces, labeled, rows } from './common';
+import {
+  band,
+  cap,
+  cardBarcode,
+  fillBleed,
+  guilloche,
+  type IdEnv,
+  type IdFaces,
+  labeled,
+  rows,
+} from './common';
 
 /* ======================================================================
  * 刑警證（橫式 473 × 297）
@@ -73,18 +83,40 @@ export const police: IdFaces = {
     badge(e, S + 15, 31, 15, t.gold);
     const tx = S + 38;
     field(e, 'pol_unit', tx, 29, { size: 13, weight: 900, color: oc, maxWidth: 230, shrink: 0.7 });
-    field(e, 'pol_division', tx, 45, { size: 8.5, weight: 500, color: alpha(oc, 0.85), maxWidth: 240 });
-    text(e, '刑警證', W - S, 40, { font: 'serif', size: 19, weight: 900, color: oc, align: 'right', spacing: 3 });
+    field(e, 'pol_division', tx, 45, {
+      size: 8.5,
+      weight: 500,
+      color: alpha(oc, 0.85),
+      maxWidth: 240,
+    });
+    text(e, '刑警證', W - S, 40, {
+      font: 'serif',
+      size: 19,
+      weight: 900,
+      color: oc,
+      align: 'right',
+      spacing: 3,
+    });
     /* 照片 */
     const px = S;
     const py = 80;
     strokeRRect(ctx, px - 3, py - 3, 108, 140, 3, alpha(t.gold, 0.8), 1.2);
-    photo(e, px, py, 102, 134, { radius: 2, bg: dk ? '#1a2440' : '#e4e8f1', silhouette: dk ? '#2b3756' : '#c7cfdf' });
+    photo(e, px, py, 102, 134, {
+      radius: 2,
+      bg: dk ? '#1a2440' : '#e4e8f1',
+      silhouette: dk ? '#2b3756' : '#c7cfdf',
+    });
     /* 右邊的資料 */
     const rx = px + 122;
     const rw = W - S - rx;
     cap(e, '姓名 NAME', rx, 92, t.mu);
-    field(e, 'name', rx, 120, { size: 24, weight: 900, color: t.fg, maxWidth: rw * 0.62, shrink: 0.62 });
+    field(e, 'name', rx, 120, {
+      size: 24,
+      weight: 900,
+      color: t.fg,
+      maxWidth: rw * 0.62,
+      shrink: 0.62,
+    });
     const role = e.value('pol_rank');
     if (role || e.preview) {
       fillRRect(ctx, rx + rw * 0.66, 102, rw * 0.34, 20, 3, alpha(c, dk ? 0.45 : 0.14));
@@ -97,10 +129,26 @@ export const police: IdFaces = {
       });
     }
     line(ctx, rx, 134, W - S, 134, t.ln);
-    labeled(e, '證號 ID NO.', 'pol_no', rx, 152, { width: rw * 0.55, capColor: t.mu, color: t.fg, size: 11.5, mono: true });
-    labeled(e, '血型', 'pol_blood', rx + rw * 0.6, 152, { width: rw * 0.4, capColor: t.mu, color: t.fg, size: 11.5 });
-    labeled(e, '發證日期 ISSUED', 'pol_issued', rx, 190, { width: rw, capColor: t.mu, color: t.fg, size: 10.5 });
-    barcode(e, e.code, rx - 6, 224, rw + 6, 24, t.fg, { key: e.tpl.codeKey });
+    labeled(e, '證號 ID NO.', 'pol_no', rx, 152, {
+      width: rw * 0.55,
+      capColor: t.mu,
+      color: t.fg,
+      size: 11.5,
+      mono: true,
+    });
+    labeled(e, '血型', 'pol_blood', rx + rw * 0.6, 152, {
+      width: rw * 0.4,
+      capColor: t.mu,
+      color: t.fg,
+      size: 11.5,
+    });
+    labeled(e, '發證日期 ISSUED', 'pol_issued', rx, 190, {
+      width: rw,
+      capColor: t.mu,
+      color: t.fg,
+      size: 10.5,
+    });
+    cardBarcode(e, rx - 6, 224, rw + 6, 24, t.fg);
     band(e, H - 26, H, t.head);
     band(e, H - 28.5, H - 26, t.gold);
     text(e, '本證為執行職務之識別，請勿轉借', W / 2, H - 9, {
@@ -147,7 +195,7 @@ export const police: IdFaces = {
     qr(e, e.qrContent, qx, 28, 92, { radius: 6, pad: 6 });
     cap(e, '持證人簽名 SIGNATURE', qx - 100, 150, t.mu);
     line(ctx, qx - 100, 182, W - S, 182, alpha(t.fg, 0.5), 0.8);
-    barcode(e, e.code, qx - 106, 196, W - S - qx + 106, 26, t.fg, { key: e.tpl.codeKey });
+    cardBarcode(e, qx - 106, 196, W - S - qx + 106, 26, t.fg);
     stamp(e, W - S - 30, 248, 22, alpha('#c8372d', 0.95), '核發', { rotate: -10 });
     band(e, H - 10, H, t.head);
   },
@@ -210,7 +258,14 @@ export const member: IdFaces = {
     sparkle(e, W - 150, 34, 9, alpha('#ffffff', 0.9));
     sparkle(e, W - 128, 52, 5, alpha(c, 0.6));
     sparkle(e, S + 6, H - 70, 6, alpha('#ffffff', 0.8));
-    field(e, 'mem_store', S, 52, { font: 'serif', size: 27, weight: 900, color: m.deep, maxWidth: 260, shrink: 0.62 });
+    field(e, 'mem_store', S, 52, {
+      font: 'serif',
+      size: 27,
+      weight: 900,
+      color: m.deep,
+      maxWidth: 260,
+      shrink: 0.62,
+    });
     field(e, 'mem_storeEn', S + 1, 68, {
       size: 7,
       weight: 700,
@@ -243,7 +298,13 @@ export const member: IdFaces = {
       silhouette: dk ? shade(c, 0.35) : tint(c, 0.55),
     });
     cap(e, '會員姓名 MEMBER', S, 112, m.mu);
-    field(e, 'name', S, 136, { size: 19, weight: 900, color: m.ink, maxWidth: cx - r - S - 20, shrink: 0.62 });
+    field(e, 'name', S, 136, {
+      size: 19,
+      weight: 900,
+      color: m.ink,
+      maxWidth: cx - r - S - 20,
+      shrink: 0.62,
+    });
     field(e, 'mem_no', S, 204, {
       font: 'mono',
       size: 18,
@@ -259,9 +320,14 @@ export const member: IdFaces = {
       ['點數 POINTS', 'mem_points'],
     ];
     const cw = (W - S * 2) / 3;
-    cols.forEach(([label, key], i) =>
-      labeled(e, label, key, S + i * cw, 236, { width: cw - 10, capColor: m.mu, color: m.ink, size: 10.5 }),
-    );
+    cols.forEach(([label, key], i) => {
+      labeled(e, label, key, S + i * cw, 236, {
+        width: cw - 10,
+        capColor: m.mu,
+        color: m.ink,
+        size: 10.5,
+      });
+    });
   },
   back(e) {
     const { ctx, W, S, c, dk } = e;
@@ -286,9 +352,18 @@ export const member: IdFaces = {
       ctx.stroke();
     }
     ctx.restore();
-    field(e, 'mem_no', S + 260, 106, { font: 'mono', size: 8.5, color: m.ink, maxWidth: W - S * 2 - 260 });
+    field(e, 'mem_no', S + 260, 106, {
+      font: 'mono',
+      size: 8.5,
+      color: m.ink,
+      maxWidth: W - S * 2 - 260,
+    });
     text(e, '會員權益', S, 146, { size: 11, weight: 900, color: m.deep, spacing: 1 });
-    const notes = ['消費滿額累積點數，點數可折抵消費。', '生日當月享飲品招待一杯。', '本卡限本人使用，請妥善保管。'];
+    const notes = [
+      '消費滿額累積點數，點數可折抵消費。',
+      '生日當月享飲品招待一杯。',
+      '本卡限本人使用，請妥善保管。',
+    ];
     notes.forEach((n, i) => {
       sparkle(e, S + 4, 162 + i * 17 - 3.5, 3.5, c);
       text(e, n, S + 13, 162 + i * 17, { size: 8.5, color: m.ink, maxWidth: 270 });
@@ -335,7 +410,14 @@ function paper(e: IdEnv) {
     ctx.fill();
   }
   /* 四周變暗 */
-  const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+  const g = ctx.createRadialGradient(
+    W / 2,
+    H / 2,
+    Math.min(W, H) * 0.35,
+    W / 2,
+    H / 2,
+    Math.max(W, H) * 0.75,
+  );
   g.addColorStop(0, alpha('#000000', 0));
   g.addColorStop(1, alpha(dk ? '#000000' : '#5a3a17', dk ? 0.45 : 0.28));
   ctx.fillStyle = g;
@@ -446,14 +528,30 @@ export const detective: IdFaces = {
       shrink: 0.62,
     });
     line(ctx, W / 2 - 70, 80, W / 2 + 70, 80, p.rule, 0.8);
-    text(e, '— LICENSE · CERTIFICATE —', W / 2, 92, { font: 'type', size: 6.5, color: p.mu, align: 'center', spacing: 1.2 });
-    field(e, 'det_no', W / 2, 110, { font: 'type', size: 10, color: p.red, align: 'center', maxWidth: 200 });
+    text(e, '— LICENSE · CERTIFICATE —', W / 2, 92, {
+      font: 'type',
+      size: 6.5,
+      color: p.mu,
+      align: 'center',
+      spacing: 1.2,
+    });
+    field(e, 'det_no', W / 2, 110, {
+      font: 'type',
+      size: 10,
+      color: p.red,
+      align: 'center',
+      maxWidth: 200,
+    });
     /* 照片 */
     const pw = 100;
     const ph = 128;
     const px = (W - pw) / 2;
     const py = 124;
-    photo(e, px, py, pw, ph, { bg: alpha('#6b4a26', 0.12), silhouette: alpha('#6b4a26', 0.28), tone: 'sepia' });
+    photo(e, px, py, pw, ph, {
+      bg: alpha('#6b4a26', 0.12),
+      silhouette: alpha('#6b4a26', 0.28),
+      tone: 'sepia',
+    });
     photoCorners(e, px, py, pw, ph, alpha('#2e2216', 0.75));
     field(e, 'name', W / 2, 286, {
       font: 'serif',
@@ -465,7 +563,13 @@ export const detective: IdFaces = {
       maxWidth: W - S * 2,
       shrink: 0.62,
     });
-    field(e, 'nameEn', W / 2, 302, { font: 'type', size: 9, color: p.mu, align: 'center', maxWidth: W - S * 2 });
+    field(e, 'nameEn', W / 2, 302, {
+      font: 'type',
+      size: 9,
+      color: p.mu,
+      align: 'center',
+      maxWidth: W - S * 2,
+    });
     typedLine(e, '事務所', 'det_address', 330, p.ink, p.rule);
     typedLine(e, '發照日期', 'det_issued', 354, p.ink, p.rule);
     typedLine(e, '有效期限', 'det_expires', 378, p.ink, p.rule);
@@ -478,7 +582,14 @@ export const detective: IdFaces = {
     const { ctx, W, S } = e;
     const p = paper(e);
     frame(e, p.rule);
-    text(e, '注 意 事 項', W / 2, 46, { font: 'serif', size: 15, weight: 900, color: p.ink, align: 'center', spacing: 2 });
+    text(e, '注 意 事 項', W / 2, 46, {
+      font: 'serif',
+      size: 15,
+      weight: 900,
+      color: p.ink,
+      align: 'center',
+      spacing: 2,
+    });
     const notes = [
       '一、本執照須隨身攜帶，經查驗時應即出示。',
       '二、持照人不得冒用公務員之名義從事調查。',
@@ -487,19 +598,40 @@ export const detective: IdFaces = {
     ];
     let y = 74;
     for (const n of notes) {
-      y = paragraph(e, n, S + 6, y, { font: 'type', size: 8.5, color: p.ink, width: W - S * 2 - 12, lineHeight: 14 }) + 22;
+      y =
+        paragraph(e, n, S + 6, y, {
+          font: 'type',
+          size: 8.5,
+          color: p.ink,
+          width: W - S * 2 - 12,
+          lineHeight: 14,
+        }) + 22;
     }
     /* 指紋欄 */
     const fx = S + 6;
     const fy = 232;
     strokeRRect(ctx, fx, fy, 96, 116, 2, p.rule, 1);
-    text(e, '右手拇指指紋', fx + 48, fy + 14, { font: 'serif', size: 7, weight: 700, color: p.mu, align: 'center' });
+    text(e, '右手拇指指紋', fx + 48, fy + 14, {
+      font: 'serif',
+      size: 7,
+      weight: 700,
+      color: p.mu,
+      align: 'center',
+    });
     ctx.save();
     ctx.strokeStyle = alpha(p.ink, 0.28);
     ctx.lineWidth = 1.1;
     for (let k = 1; k <= 8; k++) {
       ctx.beginPath();
-      ctx.ellipse(fx + 48, fy + 68, k * 3.6, k * 4.6, 0.12, Math.PI * 0.08, Math.PI * (k % 2 ? 1.85 : 1.95));
+      ctx.ellipse(
+        fx + 48,
+        fy + 68,
+        k * 3.6,
+        k * 4.6,
+        0.12,
+        Math.PI * 0.08,
+        Math.PI * (k % 2 ? 1.85 : 1.95),
+      );
       ctx.stroke();
     }
     ctx.restore();
@@ -524,12 +656,37 @@ export const detective: IdFaces = {
     }
     ctx.restore();
     strokeRRect(ctx, sx + 7, sy + 7, 72, 90, 1, alpha(p.red, 0.7), 0.8);
-    text(e, '印花稅票', sx + 43, sy + 30, { font: 'serif', size: 9, weight: 900, color: p.red, align: 'center', spacing: 1 });
-    text(e, '貳圓', sx + 43, sy + 62, { font: 'serif', size: 20, weight: 900, color: p.red, align: 'center' });
-    text(e, 'REVENUE', sx + 43, sy + 82, { font: 'type', size: 6.5, color: p.red, align: 'center', spacing: 1 });
+    text(e, '印花稅票', sx + 43, sy + 30, {
+      font: 'serif',
+      size: 9,
+      weight: 900,
+      color: p.red,
+      align: 'center',
+      spacing: 1,
+    });
+    text(e, '貳圓', sx + 43, sy + 62, {
+      font: 'serif',
+      size: 20,
+      weight: 900,
+      color: p.red,
+      align: 'center',
+    });
+    text(e, 'REVENUE', sx + 43, sy + 82, {
+      font: 'type',
+      size: 6.5,
+      color: p.red,
+      align: 'center',
+      spacing: 1,
+    });
     /* 持照人簽名 */
     text(e, '持照人簽名', S + 6, 392, { font: 'serif', size: 8, weight: 700, color: p.mu });
     line(ctx, S + 60, 396, W - S - 6, 396, p.rule, 0.7);
-    field(e, 'det_no', W / 2, 434, { font: 'type', size: 9, color: p.mu, align: 'center', maxWidth: 200 });
+    field(e, 'det_no', W / 2, 434, {
+      font: 'type',
+      size: 9,
+      color: p.mu,
+      align: 'center',
+      maxWidth: 200,
+    });
   },
 };

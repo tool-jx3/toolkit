@@ -6,16 +6,16 @@
  */
 import { makeCanvas } from '@/core/image';
 import { mix, tint } from './colors';
-import { detective, member, police } from './faces/cards2';
 import { employee, highschool, press, university } from './faces/cards1';
+import { detective, member, police } from './faces/cards2';
 import type { IdEnv, IdFaces } from './faces/common';
 import { TICKET_DRAWINGS, type TicketEnv, ticketPalette } from './faces/tickets';
 import { type Ctx, type FontUse, fontUses, type PhotoSource, type Region, rrect } from './kit';
 import {
   BLEED_U,
   CARD_RADIUS_U,
-  cardUnits,
   captionOf,
+  cardUnits,
   formatAmount,
   type IdExportMode,
   type IdTicketState,
@@ -60,7 +60,10 @@ const ctx2d = (c: AnyCanvas): Ctx => {
   return ctx;
 };
 
-function photoSource(photo: Photo | null | undefined, bitmap: CanvasImageSource | null): PhotoSource | null {
+function photoSource(
+  photo: Photo | null | undefined,
+  bitmap: CanvasImageSource | null,
+): PhotoSource | null {
   if (!photo || !bitmap) return null;
   return { bitmap, width: photo.image.width, height: photo.image.height, place: photo.place };
 }
@@ -87,7 +90,9 @@ function idLabel(key: string, tpl: IdTemplate): string {
 }
 
 export function idQrContent(s: IdTicketState, tpl: IdTemplate = idTemplate(s.idTemplate)): string {
-  return (s.idValues[QR_KEY] ?? '').trim() || (s.idValues[tpl.codeKey] ?? '').trim() || tpl.qrFallback;
+  return (
+    (s.idValues[QR_KEY] ?? '').trim() || (s.idValues[tpl.codeKey] ?? '').trim() || tpl.qrFallback
+  );
 }
 
 export interface FaceDrawOptions {
@@ -185,7 +190,10 @@ export function idFontUses(s: IdTicketState): FontUse[] {
  * 票券
  * ==================================================================== */
 
-export function ticketSize(s: IdTicketState, tpl: TicketTemplate = ticketTemplate(s.ticketTemplate)) {
+export function ticketSize(
+  s: IdTicketState,
+  tpl: TicketTemplate = ticketTemplate(s.ticketTemplate),
+) {
   const d = TICKET_DRAWINGS[tpl.id];
   return {
     width: d.width,

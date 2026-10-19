@@ -3,8 +3,8 @@
  * 座標是設計單位（1 mm＝5.5），原點在成品的左上角；背景畫到出血（−11～成品＋11）。
  */
 import { onColor, tint } from '../colors';
+import { barcode, type DrawEnv, field, line, text } from '../kit';
 import type { IdTemplate } from '../templates';
-import { type DrawEnv, field, line, text } from '../kit';
 
 export interface IdEnv extends DrawEnv {
   /** 成品寬高（設計單位） */
@@ -133,9 +133,27 @@ export function rows(
       align: 'right',
       maxWidth: Math.max(30, w - capW - 12),
     });
-    if (i < list.length - 1) line(e.ctx, x, y + (i + 1) * rowH, x + w, y + (i + 1) * rowH, o.ln, 0.8);
+    if (i < list.length - 1)
+      line(e.ctx, x, y + (i + 1) * rowH, x + w, y + (i + 1) * rowH, o.ln, 0.8);
   });
   return y + list.length * rowH;
+}
+
+/**
+ * 證件的條碼（內容＝編號、點一下重新產生編號）：深色的卡面上墊白底、條碼用深色（反白的條碼掃描器讀不到）。
+ */
+export function cardBarcode(
+  e: IdEnv,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  fg: string,
+): void {
+  barcode(e, e.code, x, y, w, h, e.dk ? '#16171b' : fg, {
+    key: e.tpl.codeKey,
+    plate: e.dk ? '#ffffff' : undefined,
+  });
 }
 
 /** 依今天的日期（YYYY.MM.DD） */
@@ -143,7 +161,15 @@ export const todayText = (now = new Date()): string =>
   `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
 
 /** 淡色的對角紋（防偽底紋的感覺） */
-export function hatch(e: IdEnv, x: number, y: number, w: number, h: number, color: string, gap = 7): void {
+export function hatch(
+  e: IdEnv,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: string,
+  gap = 7,
+): void {
   const { ctx } = e;
   ctx.save();
   ctx.beginPath();
@@ -181,7 +207,8 @@ export function guilloche(
     ctx.beginPath();
     const phase = (k / n) * Math.PI * 2;
     for (let px = 0; px <= w; px += 2) {
-      const py = y + h / 2 + Math.sin(px / 18 + phase) * h * 0.32 + Math.sin(px / 47 + phase * 2) * h * 0.12;
+      const py =
+        y + h / 2 + Math.sin(px / 18 + phase) * h * 0.32 + Math.sin(px / 47 + phase * 2) * h * 0.12;
       if (px === 0) ctx.moveTo(x + px, py);
       else ctx.lineTo(x + px, py);
     }

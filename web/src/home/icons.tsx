@@ -27,6 +27,7 @@ import {
   Highlighter,
   House,
   IdCard,
+  IdCardLanyard,
   Images,
   Keyboard,
   Layers,
@@ -120,6 +121,7 @@ const ICONS: Record<string, LucideIcon> = {
   crossword: Puzzle,
   'scratch-card': Ticket,
   'lock-screen': Smartphone,
+  'id-ticket': IdCardLanyard,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,

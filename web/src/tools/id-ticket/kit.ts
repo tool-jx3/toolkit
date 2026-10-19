@@ -6,12 +6,7 @@
  * - 「點預覽上的字」需要的範圍（Region）在畫的時候順便記下來；
  * - 畫一次就知道用到哪些字型與哪些字（`fonts`），先載好字型再畫正式的。
  */
-import {
-  clampPlacement,
-  drawPlacedCrop,
-  type FramePlacement,
-  roundRectPath,
-} from '@/core/image';
+import { clampPlacement, drawPlacedCrop, type FramePlacement, roundRectPath } from '@/core/image';
 import { CODE128_QUIET, code128Modules, code128Widths } from './code128';
 import { alpha } from './colors';
 import { qrMatrix } from './qr';
@@ -23,7 +18,11 @@ export type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 export const FONTS = {
   sans: { family: 'Noto Sans TC', stack: '"Noto Sans TC", "Microsoft JhengHei", sans-serif' },
   serif: { family: 'Noto Serif TC', stack: '"Noto Serif TC", "PMingLiU", serif' },
-  mono: { family: 'Roboto Mono', cjk: 'Noto Sans TC', stack: '"Roboto Mono", "Noto Sans TC", monospace' },
+  mono: {
+    family: 'Roboto Mono',
+    cjk: 'Noto Sans TC',
+    stack: '"Roboto Mono", "Noto Sans TC", monospace',
+  },
   cond: { family: 'Oswald', cjk: 'Noto Sans TC', stack: '"Oswald", "Noto Sans TC", sans-serif' },
   display: {
     family: 'Playfair Display',
@@ -246,7 +245,11 @@ export function text(env: DrawEnv, raw: string, x: number, y: number, o: TextOpt
 }
 
 /** 一行字的上緣與高（點選範圍用；依基準線換算） */
-function lineBox(y: number, size: number, baseline: TextOpts['baseline']): { y: number; h: number } {
+function lineBox(
+  y: number,
+  size: number,
+  baseline: TextOpts['baseline'],
+): { y: number; h: number } {
   const h = size * 1.35;
   if (baseline === 'top') return { y: y - size * 0.1, h };
   if (baseline === 'middle') return { y: y - h / 2, h };
@@ -494,8 +497,18 @@ function tonedSource(src: PhotoSource, w: number, h: number, scale: number): Can
       : Object.assign(document.createElement('canvas'), { width: pw, height: ph });
   const x = c.getContext('2d') as Ctx | null;
   if (!x) return src.bitmap;
-  const place = clampPlacement({ width: src.width, height: src.height }, { width: w, height: h }, src.place);
-  drawPlacedCrop(x, src.bitmap, { width: src.width, height: src.height }, { x: 0, y: 0, width: pw, height: ph }, place);
+  const place = clampPlacement(
+    { width: src.width, height: src.height },
+    { width: w, height: h },
+    src.place,
+  );
+  drawPlacedCrop(
+    x,
+    src.bitmap,
+    { width: src.width, height: src.height },
+    { x: 0, y: 0, width: pw, height: ph },
+    place,
+  );
   const img = x.getImageData(0, 0, pw, ph);
   const d = img.data;
   for (let i = 0; i < d.length; i += 4) {
@@ -514,7 +527,14 @@ export const ctxScale = (ctx: Ctx): number => {
   return Math.hypot(m.a, m.b) || 1;
 };
 
-export function photo(env: DrawEnv, x: number, y: number, w: number, h: number, o: PhotoOpts): void {
+export function photo(
+  env: DrawEnv,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  o: PhotoOpts,
+): void {
   const { ctx } = env;
   ctx.save();
   ctx.beginPath();
@@ -561,9 +581,12 @@ export function photo(env: DrawEnv, x: number, y: number, w: number, h: number, 
 
 /* ---------- 條碼與 QR code ---------- */
 
+/** 條碼的內容：編號拿掉空白（中文等不能編碼的字在 code128 裡略過） */
+export const barcodeText = (value: string): string => String(value ?? '').replace(/\s+/g, '');
+
 /**
  * Code 128 條碼：拉滿 w × h（左右各留 quiet 模組的空白，掃描器要的）；文字不能編碼時預覽上畫淡色的框。
- * key：點一下條碼要重新產生的欄位。
+ * key：點一下條碼要重新產生的欄位。plate：條碼後面墊一塊底色（深色的卡面上用白底，掃描器才讀得到）。
  */
 export function barcode(
   env: DrawEnv,
@@ -573,11 +596,12 @@ export function barcode(
   w: number,
   h: number,
   color: string,
-  o: { key?: string; quiet?: boolean } = {},
+  o: { key?: string; quiet?: boolean; plate?: string } = {},
 ): void {
   const { ctx } = env;
-  const widths = code128Widths(value);
+  const widths = code128Widths(barcodeText(value));
   if (o.key) region(env, { kind: 'code', key: o.key, x, y, w, h });
+  if (o.plate) fillRRect(ctx, x - 4, y - 4, w + 8, h + 8, 3, o.plate);
   if (!widths) {
     if (env.preview) strokeRRect(ctx, x, y, w, h, 2, alpha(color, 0.25), 0.8, [3, 3]);
     return;
@@ -586,11 +610,13 @@ export function barcode(
   const total = code128Modules(widths) + quiet * 2;
   const m = w / total;
   ctx.fillStyle = color;
+  ctx.beginPath();
   let cx = x + quiet * m;
   widths.forEach((bw, i) => {
-    if (i % 2 === 0) ctx.fillRect(cx, y, bw * m, h);
+    if (i % 2 === 0) ctx.rect(cx, y, bw * m, h);
     cx += bw * m;
   });
+  ctx.fill();
 }
 
 /**
@@ -610,11 +636,24 @@ export function qr(
   region(env, { kind: 'qr', key: o.key ?? 'qr', x, y, w: size, h: size });
   const m = qrMatrix(content);
   if (!m) {
-    if (env.preview) strokeRRect(ctx, x + pad, y + pad, size - pad * 2, size - pad * 2, 2, alpha(o.dark ?? '#111111', 0.3), 0.8, [3, 3]);
+    if (env.preview)
+      strokeRRect(
+        ctx,
+        x + pad,
+        y + pad,
+        size - pad * 2,
+        size - pad * 2,
+        2,
+        alpha(o.dark ?? '#111111', 0.3),
+        0.8,
+        [3, 3],
+      );
     return;
   }
   const cell = (size - pad * 2) / m.size;
   ctx.fillStyle = o.dark ?? '#111111';
+  /* 所有的方塊放進同一條路徑一次填滿：相鄰方塊之間不會出現反鋸齒的細縫 */
+  ctx.beginPath();
   for (let r = 0; r < m.size; r++) {
     let c = 0;
     while (c < m.size) {
@@ -624,11 +663,11 @@ export function qr(
       }
       let e = c;
       while (e < m.size && m.dark(r, e)) e++;
-      /* 稍微重疊，避免相鄰的方塊之間出現細縫 */
-      ctx.fillRect(x + pad + c * cell, y + pad + r * cell, (e - c) * cell + 0.02, cell + 0.02);
+      ctx.rect(x + pad + c * cell, y + pad + r * cell, (e - c) * cell, cell);
       c = e;
     }
   }
+  ctx.fill('nonzero');
 }
 
 /** 圓形的標誌：底色圓＋中間一個字（機構名稱的第一個字） */

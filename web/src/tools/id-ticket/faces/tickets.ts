@@ -78,16 +78,44 @@ function grad(e: TicketEnv, x: number, y: number, w: number, h: number, a: strin
 }
 
 /** 小標（等寬、字距寬、次要色） */
-function lbl(e: TicketEnv, key: string, x: number, y: number, o: { align?: 'left' | 'right' | 'center'; size?: number; color?: string } = {}) {
+function lbl(
+  e: TicketEnv,
+  key: string,
+  x: number,
+  y: number,
+  o: { align?: 'left' | 'right' | 'center'; size?: number; color?: string } = {},
+) {
   const t = e.caption(key);
   if (!t) return;
   const size = o.size ?? 7;
-  text(e, t, x, y, { font: 'mono', size, weight: 500, color: o.color ?? e.p.muted, spacing: size * 0.2, upper: true, align: o.align });
-  region(e, { kind: 'field', key: `caption:${key}`, x: o.align === 'right' ? x - 60 : o.align === 'center' ? x - 30 : x, y: y - size - 2, w: 60, h: size + 4 });
+  text(e, t, x, y, {
+    font: 'mono',
+    size,
+    weight: 500,
+    color: o.color ?? e.p.muted,
+    spacing: size * 0.2,
+    upper: true,
+    align: o.align,
+  });
+  region(e, {
+    kind: 'field',
+    key: `caption:${key}`,
+    x: o.align === 'right' ? x - 60 : o.align === 'center' ? x - 30 : x,
+    y: y - size - 2,
+    w: 60,
+    h: size + 4,
+  });
 }
 
 /** 票身：圓角矩形，減掉打孔的半圓缺口；之後畫的東西都裁在票身裡 */
-function body(e: TicketEnv, w: number, h: number, r: number, notches: readonly [number, number][], nr = 11) {
+function body(
+  e: TicketEnv,
+  w: number,
+  h: number,
+  r: number,
+  notches: readonly [number, number][],
+  nr = 11,
+) {
   const { ctx } = e;
   const outline = new Path2D();
   roundRectPath(outline, 0, 0, w, h, r);
@@ -169,8 +197,23 @@ function movie(e: TicketEnv) {
     [0, MV.PERF],
     [W, MV.PERF],
   ]);
-  field(e, 'mv_cinema', 22, 31, { font: 'mono', size: 8.5, weight: 500, color: p.muted, spacing: 2, maxWidth: 160 });
-  field(e, 'mv_no', W - 22, 31, { font: 'mono', size: 8.5, weight: 500, color: p.muted, spacing: 2, align: 'right', maxWidth: 140 });
+  field(e, 'mv_cinema', 22, 31, {
+    font: 'mono',
+    size: 8.5,
+    weight: 500,
+    color: p.muted,
+    spacing: 2,
+    maxWidth: 160,
+  });
+  field(e, 'mv_no', W - 22, 31, {
+    font: 'mono',
+    size: 8.5,
+    weight: 500,
+    color: p.muted,
+    spacing: 2,
+    align: 'right',
+    maxWidth: 140,
+  });
   /* 底片框 */
   const fx = 14;
   const fy = 44;
@@ -197,11 +240,32 @@ function movie(e: TicketEnv) {
     ctx.restore();
   }
   text(e, '▸ 24', 38, 413, { font: 'mono', size: 7, color: p.c1, spacing: 1.5 });
-  field(e, 'mv_film', W / 2, 413, { font: 'mono', size: 7, color: p.c1, spacing: 1.5, align: 'center', maxWidth: 180, upper: true });
+  field(e, 'mv_film', W / 2, 413, {
+    font: 'mono',
+    size: 7,
+    color: p.c1,
+    spacing: 1.5,
+    align: 'center',
+    maxWidth: 180,
+    upper: true,
+  });
   text(e, '24A', 308, 413, { font: 'mono', size: 7, color: p.c1, spacing: 1.5, align: 'right' });
   /* 片名 */
-  field(e, 'mv_kicker', 22, 460, { font: 'display', size: 15, color: p.deep, italic: true, maxWidth: 220 });
-  field(e, 'mv_title', 22, 500, { font: 'display', size: 34, weight: 700, color: p.ink, maxWidth: 222, shrink: 0.55 });
+  field(e, 'mv_kicker', 22, 460, {
+    font: 'display',
+    size: 15,
+    color: p.deep,
+    italic: true,
+    maxWidth: 220,
+  });
+  field(e, 'mv_title', 22, 500, {
+    font: 'display',
+    size: 34,
+    weight: 700,
+    color: p.ink,
+    maxWidth: 222,
+    shrink: 0.55,
+  });
   field(e, 'mv_sub', 22, 524, { size: 11.5, color: p.muted, maxWidth: 222 });
   /* 入場人數的章 */
   ctx.save();
@@ -211,8 +275,20 @@ function movie(e: TicketEnv) {
   ctx.strokeStyle = p.deep;
   ctx.lineWidth = 1;
   ctx.stroke();
-  text(e, 'ADMIT', 0, -15, { font: 'mono', size: 5.5, color: p.deep, align: 'center', spacing: 1.2 });
-  field(e, 'mv_count', 0, 10, { font: 'display', size: 25, color: p.deep, align: 'center', maxWidth: 46 });
+  text(e, 'ADMIT', 0, -15, {
+    font: 'mono',
+    size: 5.5,
+    color: p.deep,
+    align: 'center',
+    spacing: 1.2,
+  });
+  field(e, 'mv_count', 0, 10, {
+    font: 'display',
+    size: 25,
+    color: p.deep,
+    align: 'center',
+    maxWidth: 46,
+  });
   lbl(e, 'mv_count', 0, 23, { align: 'center', size: 6, color: p.deep });
   ctx.restore();
   /* 場次表 */
@@ -242,7 +318,14 @@ function movie(e: TicketEnv) {
   ctx.globalAlpha = 0.85;
   barcode(e, e.code, 214, 680, 110, 28, p.ink, { key: 'mv_code', quiet: false });
   ctx.restore();
-  field(e, 'mv_code', W - 22, 721, { font: 'mono', size: 6.5, color: p.muted, spacing: 1.6, align: 'right', maxWidth: 130 });
+  field(e, 'mv_code', W - 22, 721, {
+    font: 'mono',
+    size: 6.5,
+    color: p.muted,
+    spacing: 1.6,
+    align: 'right',
+    maxWidth: 130,
+  });
   hairline(e, W, H, 20);
 }
 
@@ -267,21 +350,69 @@ function boarding(e: TicketEnv) {
   ctx.fillStyle = grad(e, 29, 31, 26, 26, p.c1, p.c2);
   ctx.fill();
   plane(e, 42, 44, 15, '#ffffff', -Math.PI / 4);
-  field(e, 'bp_airline', 64, 49, { size: 12.5, weight: 700, color: p.ink, spacing: 3, maxWidth: 300, upper: true });
+  field(e, 'bp_airline', 64, 49, {
+    size: 12.5,
+    weight: 700,
+    color: p.ink,
+    spacing: 3,
+    maxWidth: 300,
+    upper: true,
+  });
   const cls = e.value('bp_class') || (e.preview ? e.label('bp_class') : '');
   ctx.font = fontString('mono', 9, 500);
   const cw = Math.min(160, measure(ctx, cls, 2) + 30);
   fillRRect(ctx, 560 - cw, 30, cw, 26, 13, grad(e, 560 - cw, 30, cw, 26, p.soft1, p.soft2));
   strokeRRect(ctx, 560 - cw, 30, cw, 26, 13, 'rgba(0,0,0,0.05)', 1);
-  field(e, 'bp_class', 560 - cw / 2, 46.5, { font: 'mono', size: 9, weight: 500, color: p.ink, spacing: 2, align: 'center', maxWidth: cw - 16, upper: true });
+  field(e, 'bp_class', 560 - cw / 2, 46.5, {
+    font: 'mono',
+    size: 9,
+    weight: 500,
+    color: p.ink,
+    spacing: 2,
+    align: 'center',
+    maxWidth: cw - 16,
+    upper: true,
+  });
   line(ctx, 28, 74, 560, 74, p.line, 1);
   /* 照片 */
   photoSlot(e, 28, 94, 124, 166, 12);
   /* 航線 */
-  field(e, 'bp_from', 172, 150, { size: 46, weight: 300, color: p.ink, spacing: -1, maxWidth: 130, upper: true });
-  field(e, 'bp_fromCity', 174, 172, { font: 'mono', size: 8.5, weight: 500, color: p.muted, spacing: 2, maxWidth: 120, upper: true });
-  field(e, 'bp_to', 560, 150, { size: 46, weight: 300, color: p.ink, spacing: -1, align: 'right', maxWidth: 130, upper: true });
-  field(e, 'bp_toCity', 558, 172, { font: 'mono', size: 8.5, weight: 500, color: p.muted, spacing: 2, align: 'right', maxWidth: 120, upper: true });
+  field(e, 'bp_from', 172, 150, {
+    size: 46,
+    weight: 300,
+    color: p.ink,
+    spacing: -1,
+    maxWidth: 130,
+    upper: true,
+  });
+  field(e, 'bp_fromCity', 174, 172, {
+    font: 'mono',
+    size: 8.5,
+    weight: 500,
+    color: p.muted,
+    spacing: 2,
+    maxWidth: 120,
+    upper: true,
+  });
+  field(e, 'bp_to', 560, 150, {
+    size: 46,
+    weight: 300,
+    color: p.ink,
+    spacing: -1,
+    align: 'right',
+    maxWidth: 130,
+    upper: true,
+  });
+  field(e, 'bp_toCity', 558, 172, {
+    font: 'mono',
+    size: 8.5,
+    weight: 500,
+    color: p.muted,
+    spacing: 2,
+    align: 'right',
+    maxWidth: 120,
+    upper: true,
+  });
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(318, 140);
@@ -301,11 +432,26 @@ function boarding(e: TicketEnv) {
   ctx.fillStyle = p.ink;
   ctx.fill();
   plane(e, 366, 117, 16, p.ink);
-  field(e, 'bp_duration', 366, 162, { font: 'mono', size: 7.5, weight: 500, color: p.muted, spacing: 1.5, align: 'center', maxWidth: 170, upper: true });
+  field(e, 'bp_duration', 366, 162, {
+    font: 'mono',
+    size: 7.5,
+    weight: 500,
+    color: p.muted,
+    spacing: 1.5,
+    align: 'center',
+    maxWidth: 170,
+    upper: true,
+  });
   line(ctx, 172, 192, 560, 192, p.line, 1);
   /* 旅客與航班 */
   lbl(e, 'bp_pax', 172, 214, { size: 7.5 });
-  field(e, 'bp_pax', 172, 244, { font: 'display', size: 25, color: p.ink, maxWidth: 388, shrink: 0.6 });
+  field(e, 'bp_pax', 172, 244, {
+    font: 'display',
+    size: 25,
+    color: p.ink,
+    maxWidth: 388,
+    shrink: 0.6,
+  });
   const grid = ['bp_flight', 'bp_date', 'bp_boards', 'bp_gate', 'bp_seat', 'bp_group'];
   grid.forEach((k, i) => {
     const x = 172 + (i % 3) * 132;
@@ -314,18 +460,49 @@ function boarding(e: TicketEnv) {
     field(e, k, x, y + 19, { size: 13, weight: 500, color: p.ink, maxWidth: 124 });
   });
   line(ctx, 28, 342, 560, 342, p.line, 1, [3, 3]);
-  field(e, 'bp_seq', 28, 359, { font: 'mono', size: 7, color: '#b5aea5', spacing: 1.8, maxWidth: 250, upper: true });
-  field(e, 'bp_note', 560, 359, { size: 7.5, color: '#b5aea5', spacing: 1.2, align: 'right', maxWidth: 260 });
+  field(e, 'bp_seq', 28, 359, {
+    font: 'mono',
+    size: 7,
+    color: '#b5aea5',
+    spacing: 1.8,
+    maxWidth: 250,
+    upper: true,
+  });
+  field(e, 'bp_note', 560, 359, {
+    size: 7.5,
+    color: '#b5aea5',
+    spacing: 1.2,
+    align: 'right',
+    maxWidth: 260,
+  });
   /* 票根 */
   perf(e, STUB, 0, STUB, H);
-  text(e, '登機證 BOARDING PASS', STUB + 24, 42, { font: 'mono', size: 7.5, weight: 500, color: 'rgba(0,0,0,0.5)', spacing: 1.8 });
+  text(e, '登機證 BOARDING PASS', STUB + 24, 42, {
+    font: 'mono',
+    size: 7.5,
+    weight: 500,
+    color: 'rgba(0,0,0,0.5)',
+    spacing: 1.8,
+  });
   const from = e.value('bp_from');
   const to = e.value('bp_to');
   const route = `${from || (e.preview ? '—' : '')} → ${to || (e.preview ? '—' : '')}`;
-  text(e, route.toUpperCase(), STUB + 24, 74, { size: 18, weight: 500, color: p.ink, spacing: 1, maxWidth: 170 });
+  text(e, route.toUpperCase(), STUB + 24, 74, {
+    size: 18,
+    weight: 500,
+    color: p.ink,
+    spacing: 1,
+    maxWidth: 170,
+  });
   region(e, { kind: 'field', key: 'bp_from', x: STUB + 24, y: 56, w: 170, h: 24 });
   lbl(e, 'bp_seat', STUB + 24, 148, { size: 7.5 });
-  field(e, 'bp_seat', STUB + 22, 200, { size: 54, weight: 300, color: p.ink, spacing: -2, maxWidth: 170 });
+  field(e, 'bp_seat', STUB + 22, 200, {
+    size: 54,
+    weight: 300,
+    color: p.ink,
+    spacing: -2,
+    maxWidth: 170,
+  });
   line(ctx, STUB + 24, 222, W - 24, 222, p.line, 1);
   lbl(e, 'bp_gate', STUB + 24, 244, { size: 7.5 });
   field(e, 'bp_gate', STUB + 24, 265, { size: 13, weight: 500, color: p.ink, maxWidth: 80 });
@@ -368,24 +545,78 @@ function rail(e: TicketEnv) {
   ctx.fillRect(0, 0, W, 7);
   ctx.fillRect(0, H - 7, W, 7);
   /* 抬頭 */
-  ctx.save();
-  ctx.strokeStyle = p.ink;
-  ctx.lineWidth = 1.4;
-  strokeRRect(ctx, 26, 22, 18, 18, 4, p.ink, 1.4);
-  line(ctx, 26, 33, 44, 33, p.ink, 1.2);
-  line(ctx, 30, 44, 28, 47, p.ink, 1.2);
-  line(ctx, 40, 44, 42, 47, p.ink, 1.2);
-  ctx.restore();
-  field(e, 'rl_company', 54, 37, { size: 13.5, weight: 900, color: p.ink, spacing: 3, maxWidth: 220 });
-  text(e, '車票 TICKET', 512, 36, { size: 9, weight: 700, color: p.deep, spacing: 1.5, align: 'right' });
+  /* 車頭的小圖示：車身、車窗、兩盞燈、鐵軌 */
+  fillRRect(ctx, 26, 20, 20, 22, 6, p.ink);
+  fillRRect(ctx, 29.5, 24, 13, 8, 2, mix(p.c2, '#fffdf8', 0.45));
+  circle(ctx, 31, 37, 1.5);
+  ctx.fillStyle = mix(p.c2, '#fffdf8', 0.45);
+  ctx.fill();
+  circle(ctx, 41, 37, 1.5);
+  ctx.fill();
+  line(ctx, 30, 43, 27, 48, p.ink, 1.4);
+  line(ctx, 42, 43, 45, 48, p.ink, 1.4);
+  field(e, 'rl_company', 54, 37, {
+    size: 13.5,
+    weight: 900,
+    color: p.ink,
+    spacing: 3,
+    maxWidth: 220,
+  });
+  text(e, '車票 TICKET', 512, 36, {
+    size: 9,
+    weight: 700,
+    color: p.deep,
+    spacing: 1.5,
+    align: 'right',
+  });
   strokeRRect(ctx, 520, 21, 54, 22, 3, p.ink, 1.2);
-  field(e, 'rl_kind', 547, 36.5, { size: 10.5, weight: 900, color: p.ink, align: 'center', maxWidth: 46 });
+  field(e, 'rl_kind', 547, 36.5, {
+    size: 10.5,
+    weight: 900,
+    color: p.ink,
+    align: 'center',
+    maxWidth: 46,
+  });
   line(ctx, 26, 54, W - 26, 54, alpha(p.ink, 0.45), 0.8);
   /* 起訖站 */
-  field(e, 'rl_from', 36, 118, { font: 'serif', size: 44, weight: 900, color: p.ink, spacing: 6, maxWidth: 220, shrink: 0.6 });
-  field(e, 'rl_fromEn', 38, 138, { font: 'mono', size: 9, weight: 500, color: p.muted, spacing: 1.5, maxWidth: 200, upper: true });
-  field(e, 'rl_to', W - 36, 118, { font: 'serif', size: 44, weight: 900, color: p.ink, spacing: 6, align: 'right', maxWidth: 220, shrink: 0.6 });
-  field(e, 'rl_toEn', W - 38, 138, { font: 'mono', size: 9, weight: 500, color: p.muted, spacing: 1.5, align: 'right', maxWidth: 200, upper: true });
+  field(e, 'rl_from', 36, 118, {
+    font: 'serif',
+    size: 44,
+    weight: 900,
+    color: p.ink,
+    spacing: 6,
+    maxWidth: 220,
+    shrink: 0.6,
+  });
+  field(e, 'rl_fromEn', 38, 138, {
+    font: 'mono',
+    size: 9,
+    weight: 500,
+    color: p.muted,
+    spacing: 1.5,
+    maxWidth: 200,
+    upper: true,
+  });
+  field(e, 'rl_to', W - 36, 118, {
+    font: 'serif',
+    size: 44,
+    weight: 900,
+    color: p.ink,
+    spacing: 6,
+    align: 'right',
+    maxWidth: 220,
+    shrink: 0.6,
+  });
+  field(e, 'rl_toEn', W - 38, 138, {
+    font: 'mono',
+    size: 9,
+    weight: 500,
+    color: p.muted,
+    spacing: 1.5,
+    align: 'right',
+    maxWidth: 200,
+    upper: true,
+  });
   const ax = W / 2;
   line(ctx, ax - 34, 101, ax + 30, 101, p.ink, 2);
   ctx.beginPath();
@@ -417,12 +648,25 @@ function rail(e: TicketEnv) {
   lbl(e, 'rl_car', 30, 236, { color: p.deep });
   field(e, 'rl_car', 30, 266, { size: 24, weight: 900, color: p.ink, maxWidth: 60, suffix: ' 車' });
   lbl(e, 'rl_seat', 104, 236, { color: p.deep });
-  field(e, 'rl_seat', 104, 266, { size: 24, weight: 900, color: p.ink, maxWidth: 80, suffix: ' 號' });
+  field(e, 'rl_seat', 104, 266, {
+    size: 24,
+    weight: 900,
+    color: p.ink,
+    maxWidth: 80,
+    suffix: ' 號',
+  });
   lbl(e, 'rl_fare', 210, 236, { color: p.deep });
   field(e, 'rl_fare', 210, 264, { size: 18, weight: 900, color: p.ink, maxWidth: 140 });
   field(e, 'rl_note', 30, 290, { size: 8, weight: 500, color: p.muted, spacing: 1, maxWidth: 300 });
   barcode(e, e.code, 382, 228, 192, 38, p.ink, { key: 'rl_no', quiet: false });
-  field(e, 'rl_no', W - 26, 284, { font: 'mono', size: 8, color: p.ink, spacing: 1.5, align: 'right', maxWidth: 192 });
+  field(e, 'rl_no', W - 26, 284, {
+    font: 'mono',
+    size: 8,
+    color: p.ink,
+    spacing: 1.5,
+    align: 'right',
+    maxWidth: 192,
+  });
   hairline(e, W, H, 10);
 }
 
@@ -445,8 +689,21 @@ function hsr(e: TicketEnv) {
   ctx.font = fontString('sans', 10, 900);
   const kw = Math.max(48, measure(ctx, kind, 1) + 24);
   fillRRect(ctx, W - 26 - kw, 18, kw, 24, 12, '#ffffff');
-  field(e, 'hsr_kind', W - 26 - kw / 2, 34.5, { size: 10, weight: 900, color: p.deep, align: 'center', spacing: 1, maxWidth: kw - 12 });
-  text(e, '車票 TICKET', W - 36 - kw, 35, { size: 9, weight: 700, color: alpha(oc, 0.85), spacing: 1.5, align: 'right' });
+  field(e, 'hsr_kind', W - 26 - kw / 2, 34.5, {
+    size: 10,
+    weight: 900,
+    color: p.deep,
+    align: 'center',
+    spacing: 1,
+    maxWidth: kw - 12,
+  });
+  text(e, '車票 TICKET', W - 36 - kw, 35, {
+    size: 9,
+    weight: 700,
+    color: alpha(oc, 0.85),
+    spacing: 1.5,
+    align: 'right',
+  });
   /* 時刻 */
   const blocks: [string, string, string, number][] = [
     ['hsr_dep', 'hsr_from', 'hsr_fromEn', 26],
@@ -455,7 +712,15 @@ function hsr(e: TicketEnv) {
   for (const [tk, sk, ek, x] of blocks) {
     field(e, tk, x, 126, { font: 'cond', size: 48, weight: 600, color: p.ink, maxWidth: 170 });
     field(e, sk, x + 2, 152, { size: 15, weight: 900, color: p.ink, spacing: 2, maxWidth: 170 });
-    field(e, ek, x + 2, 168, { font: 'mono', size: 8, weight: 500, color: p.muted, spacing: 1.4, maxWidth: 170, upper: true });
+    field(e, ek, x + 2, 168, {
+      font: 'mono',
+      size: 8,
+      weight: 500,
+      color: p.muted,
+      spacing: 1.4,
+      maxWidth: 170,
+      upper: true,
+    });
   }
   /* 箭頭 */
   for (let k = 0; k < 3; k++) {
@@ -473,7 +738,14 @@ function hsr(e: TicketEnv) {
   /* QR code */
   strokeRRect(ctx, 471.5, 75.5, 103, 103, 6, p.line, 1);
   qr(e, e.qrContent, 472, 76, 102, { radius: 6, pad: 6, dark: p.ink });
-  field(e, 'hsr_no', 523, 194, { font: 'mono', size: 7, color: p.muted, align: 'center', spacing: 0.6, maxWidth: 120 });
+  field(e, 'hsr_no', 523, 194, {
+    font: 'mono',
+    size: 7,
+    color: p.muted,
+    align: 'center',
+    spacing: 0.6,
+    maxWidth: 120,
+  });
   /* 資訊列 */
   const cells: [string, number][] = [
     ['hsr_date', 104],
@@ -543,8 +815,21 @@ function receipt(e: TicketEnv) {
   ctx.strokeStyle = p.deep;
   ctx.lineWidth = 1;
   ctx.stroke();
-  field(e, 'rc_stamp', 0, 1, { size: 11, weight: 900, color: p.deep, align: 'center', spacing: 1.5, maxWidth: 46 });
-  text(e, 'THANK YOU', 0, 12, { font: 'mono', size: 5, color: p.deep, align: 'center', spacing: 1 });
+  field(e, 'rc_stamp', 0, 1, {
+    size: 11,
+    weight: 900,
+    color: p.deep,
+    align: 'center',
+    spacing: 1.5,
+    maxWidth: 46,
+  });
+  text(e, 'THANK YOU', 0, 12, {
+    font: 'mono',
+    size: 5,
+    color: p.deep,
+    align: 'center',
+    spacing: 1,
+  });
   ctx.restore();
   /* 店名 */
   circle(ctx, W / 2, 46, 20);
@@ -554,9 +839,32 @@ function receipt(e: TicketEnv) {
   ctx.strokeStyle = p.accentLine;
   ctx.lineWidth = 1;
   ctx.stroke();
-  text(e, firstChar(e.value('rc_store')), W / 2, 47, { font: 'display', size: 19, italic: true, color: p.ink, align: 'center', baseline: 'middle' });
-  field(e, 'rc_store', W / 2, 100, { font: 'display', size: 26, weight: 700, color: p.ink, align: 'center', maxWidth: 230, shrink: 0.6 });
-  field(e, 'rc_sub', W / 2, 118, { font: 'mono', size: 7.5, color: p.muted, align: 'center', spacing: 2.2, maxWidth: 260, upper: true });
+  text(e, firstChar(e.value('rc_store')), W / 2, 47, {
+    font: 'display',
+    size: 19,
+    italic: true,
+    color: p.ink,
+    align: 'center',
+    baseline: 'middle',
+  });
+  field(e, 'rc_store', W / 2, 100, {
+    font: 'display',
+    size: 26,
+    weight: 700,
+    color: p.ink,
+    align: 'center',
+    maxWidth: 230,
+    shrink: 0.6,
+  });
+  field(e, 'rc_sub', W / 2, 118, {
+    font: 'mono',
+    size: 7.5,
+    color: p.muted,
+    align: 'center',
+    spacing: 2.2,
+    maxWidth: 260,
+    upper: true,
+  });
   const rule = (y: number) => line(ctx, L, y, R, y, '#ddd6cc', 1, [3, 3]);
   rule(134);
   const meta: [string, string][] = [
@@ -568,7 +876,14 @@ function receipt(e: TicketEnv) {
   meta.forEach(([k, prefix], i) => {
     const y = 156 + i * 18;
     lbl(e, k, L, y, { size: 9 });
-    field(e, k, R, y, { font: 'mono', size: 10.5, color: p.ink, align: 'right', maxWidth: 170, prefix });
+    field(e, k, R, y, {
+      font: 'mono',
+      size: 10.5,
+      color: p.ink,
+      align: 'right',
+      maxWidth: 170,
+      prefix,
+    });
   });
   rule(226);
   let y = 248;
@@ -582,8 +897,18 @@ function receipt(e: TicketEnv) {
   e.items.forEach((it, i) => {
     const by = y + i * RC.ROW + 14;
     const name = it.name || (e.preview ? '品名' : '');
-    const nw = text(e, name, L, by, { font: 'mono', size: 10.5, weight: 500, color: it.name ? p.ink : alpha(p.ink, 0.3), maxWidth: 140 }).width;
-    const qw = text(e, `×${it.qty}`, L + nw + 6, by, { font: 'mono', size: 10.5, color: p.muted }).width;
+    const nw = text(e, name, L, by, {
+      font: 'mono',
+      size: 10.5,
+      weight: 500,
+      color: it.name ? p.ink : alpha(p.ink, 0.3),
+      maxWidth: 140,
+    }).width;
+    const qw = text(e, `×${it.qty}`, L + nw + 6, by, {
+      font: 'mono',
+      size: 10.5,
+      color: p.muted,
+    }).width;
     const amount = e.fmt(it.qty * it.price);
     ctx.font = fontString('mono', 10.5, 400);
     const aw = measure(ctx, amount);
@@ -596,24 +921,59 @@ function receipt(e: TicketEnv) {
   line(ctx, L, y + 3, R, y + 3, '#d1c9be', 1);
   y += 22;
   lbl(e, 'subtotal', L, y, { size: 9 });
-  text(e, e.fmt(e.totals.subtotal), R, y, { font: 'mono', size: 10.5, color: p.ink, align: 'right' });
+  text(e, e.fmt(e.totals.subtotal), R, y, {
+    font: 'mono',
+    size: 10.5,
+    color: p.ink,
+    align: 'right',
+  });
   y += 18;
   lbl(e, 'rc_discount', L, y, { size: 9 });
   const disc = e.totals.discount;
-  text(e, disc ? `−${e.fmt(disc)}` : '0', R, y, { font: 'mono', size: 10.5, color: p.ink, align: 'right' });
+  text(e, disc ? `−${e.fmt(disc)}` : '0', R, y, {
+    font: 'mono',
+    size: 10.5,
+    color: p.ink,
+    align: 'right',
+  });
   region(e, { kind: 'field', key: 'rc_discount', x: R - 100, y: y - 12, w: 100, h: 16 });
   y += 12;
   fillRRect(ctx, L, y, R - L, 48, 10, grad(e, L, y, R - L, 48, p.soft1, p.soft2));
   lbl(e, 'total', L + 14, y + 28, { size: 9.5, color: p.ink });
-  const tw = text(e, e.fmt(e.totals.total), R - 14, y + 34, { font: 'display', size: 26, color: p.ink, align: 'right' }).width;
-  field(e, 'rc_currency', R - 18 - tw, y + 33, { font: 'display', size: 14, color: p.deep, align: 'right', maxWidth: 40 });
+  const tw = text(e, e.fmt(e.totals.total), R - 14, y + 34, {
+    font: 'display',
+    size: 26,
+    color: p.ink,
+    align: 'right',
+  }).width;
+  field(e, 'rc_currency', R - 18 - tw, y + 33, {
+    font: 'display',
+    size: 14,
+    color: p.deep,
+    align: 'right',
+    maxWidth: 40,
+  });
   y += 48 + 24;
   ctx.save();
   ctx.globalAlpha = 0.78;
   barcode(e, e.code, W / 2 - 100, y, 200, 34, p.ink, { key: 'rc_code', quiet: false });
   ctx.restore();
-  field(e, 'rc_code', W / 2, y + 48, { font: 'mono', size: 7.5, color: p.muted, align: 'center', spacing: 3, maxWidth: 260 });
-  field(e, 'rc_msg', W / 2, y + 74, { font: 'display', size: 15, italic: true, color: p.deep, align: 'center', maxWidth: 260 });
+  field(e, 'rc_code', W / 2, y + 48, {
+    font: 'mono',
+    size: 7.5,
+    color: p.muted,
+    align: 'center',
+    spacing: 3,
+    maxWidth: 260,
+  });
+  field(e, 'rc_msg', W / 2, y + 74, {
+    font: 'display',
+    size: 15,
+    italic: true,
+    color: p.deep,
+    align: 'center',
+    maxWidth: 260,
+  });
   ctx.restore();
   ctx.save();
   ctx.strokeStyle = 'rgba(60,40,30,0.08)';

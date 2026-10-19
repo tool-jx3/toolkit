@@ -3,7 +3,12 @@
  * 證件的印刷尺寸（mm、600 dpi、出血）、匯出檔名。規格：docs/refactor/specs/id-ticket.md。
  */
 import type { AssetImageRef } from '@/core/assets';
-import { clampPlacement, DEFAULT_PLACEMENT, type FramePlacement, normalizePlacement } from '@/core/image';
+import {
+  clampPlacement,
+  DEFAULT_PLACEMENT,
+  type FramePlacement,
+  normalizePlacement,
+} from '@/core/image';
 import { printPixels } from '@/core/paged/units';
 import {
   type FieldDef,
@@ -145,10 +150,9 @@ export const initialState = (): IdTicketState => ({
   idValues: { ...ID_DEFAULTS },
   idStyles: defaultIdStyles(),
   idPhoto: null,
-  ticketValues: Object.fromEntries(TICKET_TEMPLATES.map((t) => [t.id, { ...t.defaults }])) as Record<
-    TicketTemplateId,
-    Record<string, string>
-  >,
+  ticketValues: Object.fromEntries(
+    TICKET_TEMPLATES.map((t) => [t.id, { ...t.defaults }]),
+  ) as Record<TicketTemplateId, Record<string, string>>,
   ticketCaptions: Object.fromEntries(TICKET_TEMPLATES.map((t) => [t.id, {}])) as Record<
     TicketTemplateId,
     Record<string, string>
@@ -398,11 +402,7 @@ export const clampPhotoPlace = (
 /* ---------- 檔名 ---------- */
 
 /** 證件：`id-<範本>-<front|back|sheet>-<card|print>.png`（規格 3.4） */
-export function idFileName(
-  tpl: IdTemplateId,
-  face: Side | 'sheet',
-  mode: IdExportMode,
-): string {
+export function idFileName(tpl: IdTemplateId, face: Side | 'sheet', mode: IdExportMode): string {
   return `id-${tpl}-${face}-${mode}.png`;
 }
 
