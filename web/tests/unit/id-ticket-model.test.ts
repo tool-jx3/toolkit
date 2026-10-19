@@ -12,7 +12,7 @@ import {
   code128Widths,
 } from '@/tools/id-ticket/code128';
 import { rgbOf } from '@/tools/id-ticket/colors';
-import { firstChar } from '@/tools/id-ticket/kit';
+import { BARCODE_UNIT, barcodeLayout, barcodeText, firstChar } from '@/tools/id-ticket/kit';
 import {
   BLEED_U,
   CARD_U,
@@ -479,5 +479,52 @@ describe('票券 GIF 的大小', () => {
     expect(has(matColor(s))).toBe(true);
     expect(has('#fffdf8')).toBe(true);
     expect(solid.length).toBeLessThanOrEqual(8);
+  });
+});
+
+describe('票券的條碼（F44）', () => {
+  it('最細的條是整數 px、1／2／3 倍都至少 2 px，而且放得進條碼區（號碼產生 40 次）', () => {
+    let checked = 0;
+    for (const t of TICKET_TEMPLATES) {
+      const box = t.barcode;
+      if (!box) continue;
+      const f = t.fields.find((x) => x.key === t.codeKey);
+      const values = [
+        t.defaults[t.codeKey],
+        ...Array.from({ length: 40 }, () => generateCode(f?.gen ?? '')),
+      ];
+      for (const v of values) {
+        const widths = code128Widths(barcodeText(v));
+        expect(widths, `${t.id} ${v}`).not.toBeNull();
+        const M = code128Modules(widths as number[]);
+        for (const k of [1, 2, 3]) {
+          const L = barcodeLayout(M, box.x * k, (box.x + box.w) * k, k, box.align);
+          expect(L, `${t.id} ${v} ${k}x`).not.toBeNull();
+          if (!L) continue;
+          expect(Number.isInteger(L.module)).toBe(true);
+          expect(Number.isInteger(L.x)).toBe(true);
+          expect(L.module, `${t.id} ${v} ${k}x`).toBeGreaterThanOrEqual(2);
+          expect(L.width).toBe(L.module * M);
+          expect(L.x).toBeGreaterThanOrEqual(Math.floor(box.x * k));
+          expect(L.x + L.width).toBeLessThanOrEqual(Math.ceil((box.x + box.w) * k));
+          checked++;
+        }
+      }
+    }
+    /* 電影票、登機證、台鐵風格、收據 */
+    expect(checked).toBe(4 * 41 * 3);
+  });
+
+  it('每格的寬度：設計上 2 個單位（1 倍 2 px、2 倍 4 px、3 倍 6 px），放不下時縮成放得下的整數 px', () => {
+    expect(BARCODE_UNIT).toBe(2);
+    expect(barcodeLayout(101, 0, 400, 1, 'left')).toEqual({ module: 2, x: 0, width: 202 });
+    expect(barcodeLayout(101, 0, 800, 2, 'right')).toEqual({ module: 4, x: 396, width: 404 });
+    expect(barcodeLayout(101, 10, 610, 3, 'center')).toEqual({ module: 5, x: 58, width: 505 });
+    /* 縮圖這種很小的倍率：連 1 px 都放不下 → null（照比例畫，不對齊像素） */
+    expect(barcodeLayout(101, 0, 40, 0.2, 'left')).toBeNull();
+  });
+
+  it('高鐵風格是 QR code、沒有條碼', () => {
+    expect(TICKET_TEMPLATES.filter((t) => !t.barcode).map((t) => t.id)).toEqual(['hsr']);
   });
 });

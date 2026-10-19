@@ -406,6 +406,8 @@ export interface TicketTemplate {
   codeKey: string;
   /** QR code 的框（只有高鐵風格車票有） */
   qr: QrBox | null;
+  /** 條碼區的左右（票券單位）與對齊（高鐵風格是 QR code，沒有條碼）；上下由版面決定 */
+  barcode: { x: number; w: number; align: 'left' | 'center' | 'right' } | null;
   defaults: Readonly<Record<string, string>>;
 }
 
@@ -419,6 +421,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
     photoAspect: 4 / 5,
     codeKey: 'mv_code',
     qr: null,
+    barcode: { x: 22, w: 302, align: 'right' },
     fields: [
       { key: 'mv_cinema', label: '戲院', half: true, max: 16 },
       { key: 'mv_no', label: '票號', half: true, gen: 'NO. ####', max: 16 },
@@ -463,6 +466,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
     photoAspect: 3 / 4,
     codeKey: 'bp_seq',
     qr: null,
+    barcode: { x: 28, w: 532, align: 'left' },
     fields: [
       { key: 'bp_airline', label: '航空公司', half: true, max: 16 },
       { key: 'bp_class', label: '艙等', half: true, max: 10 },
@@ -509,6 +513,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
     photoAspect: 1,
     codeKey: 'rl_no',
     qr: null,
+    barcode: { x: 352, w: 222, align: 'right' },
     fields: [
       { key: 'rl_company', label: '鐵路公司', half: true, max: 12 },
       { key: 'rl_kind', label: '票種', half: true, max: 8 },
@@ -524,7 +529,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
       { key: 'rl_car', label: '車廂', half: true, max: 4, caption: '車廂' },
       { key: 'rl_seat', label: '座位', half: true, max: 6, caption: '座位' },
       { key: 'rl_fare', label: '票價', half: true, max: 10, caption: '票價' },
-      { key: 'rl_no', label: '票號', gen: '######-####-##', max: 20 },
+      { key: 'rl_no', label: '票號', gen: '###### #### ##', max: 20 },
       { key: 'rl_note', label: '備註', max: 24 },
     ],
     defaults: {
@@ -542,7 +547,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
       rl_car: '6',
       rl_seat: '32',
       rl_fare: 'NT$440',
-      rl_no: '261031-0408-06',
+      rl_no: '261031 0408 06',
       rl_note: '限當日當次車有效',
     },
   },
@@ -555,6 +560,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
     photoAspect: 1,
     codeKey: 'hsr_no',
     qr: { size: 102, pad: 6 },
+    barcode: null,
     fields: [
       { key: 'hsr_company', label: '營運公司', half: true, max: 12 },
       { key: 'hsr_kind', label: '票種', half: true, max: 8 },
@@ -601,6 +607,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
     photoAspect: 3 / 2,
     codeKey: 'rc_code',
     qr: null,
+    barcode: { x: 24, w: 272, align: 'center' },
     fields: [
       { key: 'rc_store', label: '店名', half: true, max: 12 },
       { key: 'rc_sub', label: '副標', half: true, max: 20 },

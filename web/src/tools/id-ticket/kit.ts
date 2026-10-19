@@ -584,9 +584,39 @@ export function photo(
 /** 條碼的內容：編號拿掉空白（中文等不能編碼的字在 code128 裡略過） */
 export const barcodeText = (value: string): string => String(value ?? '').replace(/\s+/g, '');
 
+/** 票券條碼每一格（最細的條）的設計寬度：2 個單位（1 倍 2 px、2 倍 4 px、3 倍 6 px） */
+export const BARCODE_UNIT = 2;
+export type BarcodeAlign = 'left' | 'center' | 'right';
+
+/**
+ * 條碼對齊像素（票券用）：left～right 是條碼區的左右（裝置 px），k 是一個單位幾 px。
+ * 每格＝min(round(2k), floor(區寬 ÷ 格數)) 個整數 px（區夠寬時就是設計寬度；不夠時縮成放得下的整數 px）；
+ * 連 1 px 都放不下（例如縮圖）時 null，照比例畫、不對齊像素。x 是條碼左邊（整數 px）。
+ */
+export function barcodeLayout(
+  modules: number,
+  left: number,
+  right: number,
+  k: number,
+  align: BarcodeAlign,
+): { module: number; x: number; width: number } | null {
+  const module = Math.min(Math.round(BARCODE_UNIT * k), Math.floor((right - left) / modules));
+  if (!(module >= 1)) return null;
+  const width = module * modules;
+  const x =
+    align === 'left'
+      ? Math.round(left)
+      : align === 'right'
+        ? Math.round(right) - width
+        : Math.round((left + right - width) / 2);
+  return { module, x, width };
+}
+
 /**
  * Code 128 條碼：拉滿 w × h（左右各留 quiet 模組的空白，掃描器要的）；文字不能編碼時預覽上畫淡色的框。
  * key：點一下條碼要重新產生的欄位。plate：條碼後面墊一塊底色（深色的卡面上用白底，掃描器才讀得到）。
+ * fit（票券）：w 是條碼區，條碼照 barcodeLayout 對齊像素、靠左／置中／靠右放在區裡（最細的條是整數 px、
+ * 1 倍時至少 2 px），點的範圍與 plate 只包住條碼。
  */
 export function barcode(
   env: DrawEnv,
@@ -596,17 +626,18 @@ export function barcode(
   w: number,
   h: number,
   color: string,
-  o: { key?: string; quiet?: boolean; plate?: string } = {},
+  o: { key?: string; quiet?: boolean; plate?: string; fit?: BarcodeAlign } = {},
 ): void {
   const { ctx } = env;
   const widths = code128Widths(barcodeText(value));
+  const quiet = o.quiet === false ? 0 : CODE128_QUIET;
+  if (widths && o.fit && fitBarcode(env, widths, quiet, x, y, w, h, color, o)) return;
   if (o.key) region(env, { kind: 'code', key: o.key, x, y, w, h });
   if (o.plate) fillRRect(ctx, x - 4, y - 4, w + 8, h + 8, 3, o.plate);
   if (!widths) {
     if (env.preview) strokeRRect(ctx, x, y, w, h, 2, alpha(color, 0.25), 0.8, [3, 3]);
     return;
   }
-  const quiet = o.quiet === false ? 0 : CODE128_QUIET;
   const total = code128Modules(widths) + quiet * 2;
   const m = w / total;
   ctx.fillStyle = color;
@@ -617,6 +648,50 @@ export function barcode(
     cx += bw * m;
   });
   ctx.fill();
+}
+
+/** barcode 的 fit：在裝置 px 上畫（整數座標）；變換有旋轉、太小放不下時回傳 false（照比例畫） */
+function fitBarcode(
+  env: DrawEnv,
+  widths: readonly number[],
+  quiet: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: string,
+  o: { key?: string; plate?: string; fit?: BarcodeAlign },
+): boolean {
+  const { ctx } = env;
+  const t = ctx.getTransform();
+  if (t.b !== 0 || t.c !== 0 || !(t.a > 0) || !(t.d > 0)) return false;
+  const L = barcodeLayout(
+    code128Modules(widths) + quiet * 2,
+    t.a * x + t.e,
+    t.a * (x + w) + t.e,
+    t.a,
+    o.fit ?? 'left',
+  );
+  if (!L) return false;
+  /* 條碼的範圍（單位） */
+  const ux = (L.x - t.e) / t.a;
+  const uw = L.width / t.a;
+  if (o.key) region(env, { kind: 'code', key: o.key, x: ux, y, w: uw, h });
+  if (o.plate) fillRRect(ctx, ux - 6, y - 5, uw + 12, h + 10, 3, o.plate);
+  const y0 = Math.round(t.d * y + t.f);
+  const y1 = Math.round(t.d * (y + h) + t.f);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  let cx = L.x + quiet * L.module;
+  widths.forEach((bw, i) => {
+    if (i % 2 === 0) ctx.rect(cx, y0, bw * L.module, y1 - y0);
+    cx += bw * L.module;
+  });
+  ctx.fill();
+  ctx.restore();
+  return true;
 }
 
 /**

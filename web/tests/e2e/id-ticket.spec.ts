@@ -14,6 +14,7 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
 import { strFromU8, unzipSync, zipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
+import { code128Widths } from '../../src/tools/id-ticket/code128';
 import { gifFrameRgba, parseGif } from '../helpers/gif';
 import { decodePixels, parseChunks, readIhdr } from '../helpers/png';
 
@@ -730,6 +731,59 @@ test('票券匯出：PNG 2 倍含墊紙、沒有墊紙（四周透明）、3 倍
   for (let i = 0; i < 1000 * 24; i++)
     matTop.add((f0[i * 4] << 16) | (f0[i * 4 + 1] << 8) | f0[i * 4 + 2]);
   expect(matTop.size).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test('票券的條碼：1／3 倍 PNG 的最細的條是整數 px（2、6 px），條寬換回模組＝號碼的 Code 128（F44）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await radio(page, '票券').click();
+  const panel = exportPanel(page);
+  /* 沒有墊紙：PNG 的座標＝票的座標 × 倍率 */
+  await page.getByRole('switch', { name: '墊紙' }).click();
+  const tickets: [string, string, string][] = [
+    ['電影票', 'mv_code', 'movie'],
+    ['登機證', 'bp_seq', 'boarding'],
+    ['台鐵風格車票', 'rl_no', 'rail'],
+    ['收據', 'rc_code', 'receipt'],
+  ];
+  for (const k of [1, 3]) {
+    await radio(panel, `${k} 倍`).click();
+    for (const [name, key] of tickets) {
+      await radio(page, name).click();
+      await settle(page);
+      const r = await page
+        .locator(`[data-region="code:${key}"]`)
+        .evaluate((b) =>
+          [b.style.left, b.style.top, b.style.width, b.style.height].map(parseFloat),
+        );
+      const value = await fieldInput(page, key).inputValue();
+      const png = readPng((await exportOne(page, 'PNG')).bytes);
+      /* 條碼中間那一列：由左到右的黑白段 */
+      const y = Math.round((r[1] + r[3] / 2) * k);
+      const runs: number[] = [];
+      let dark: boolean | null = null;
+      for (let x = Math.floor(r[0] * k) - 8; x <= Math.ceil((r[0] + r[2]) * k) + 8; x++) {
+        const [R, G, B] = png.at(x, y);
+        const d = 0.2126 * R + 0.7152 * G + 0.0722 * B < 128;
+        if (d === dark) runs[runs.length - 1]++;
+        else if (d || dark !== null) {
+          runs.push(1);
+          dark = d;
+        }
+      }
+      /* 最後一段是右邊的空白 */
+      if (!dark) runs.pop();
+      const want = code128Widths(value.replace(/\s+/g, '')) as number[];
+      const module = runs[0] / want[0];
+      expect(module, `${name} ${k} 倍`).toBe(2 * k);
+      expect(
+        runs.map((n) => n / module),
+        `${name} ${k} 倍`,
+      ).toEqual(want);
+    }
+  }
   expect(errors).toEqual([]);
 });
 

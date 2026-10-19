@@ -175,6 +175,21 @@ function plane(e: TicketEnv, cx: number, cy: number, size: number, color: string
   ctx.restore();
 }
 
+/**
+ * 票券的條碼：左右照範本的條碼區（`tpl.barcode`），上下 y～y＋h；條碼對齊像素（最細的條是整數 px，1 倍時 2 px）。
+ * 內容＝編號拿掉空白；plate：條碼後面墊的底色（台鐵風格的細紋底）。
+ */
+function ticketBarcode(e: TicketEnv, y: number, h: number, plate?: string) {
+  const box = e.tpl.barcode;
+  if (!box) return;
+  barcode(e, e.code, box.x, y, box.w, h, e.p.ink, {
+    key: e.tpl.codeKey,
+    quiet: false,
+    fit: box.align,
+    plate,
+  });
+}
+
 /** 空的照片格（漸層＋預覽上的「＋照片」） */
 function photoSlot(e: TicketEnv, x: number, y: number, w: number, h: number, radius: number) {
   photo(e, x, y, w, h, {
@@ -309,23 +324,21 @@ function movie(e: TicketEnv) {
   });
   /* 票根 */
   perf(e, 0, MV.PERF, W, MV.PERF);
-  lbl(e, 'mv_guest', 22, 692);
-  circle(ctx, 26, 709, 3.8);
-  ctx.fillStyle = grad(e, 22, 705, 8, 8, p.c1, p.c2);
+  lbl(e, 'mv_guest', 22, 678);
+  circle(ctx, 26, 691, 3.8);
+  ctx.fillStyle = grad(e, 22, 687, 8, 8, p.c1, p.c2);
   ctx.fill();
-  field(e, 'mv_guest', 36, 713.5, { size: 13, weight: 500, color: p.ink, maxWidth: 170 });
-  ctx.save();
-  ctx.globalAlpha = 0.85;
-  barcode(e, e.code, 214, 680, 110, 28, p.ink, { key: 'mv_code', quiet: false });
-  ctx.restore();
-  field(e, 'mv_code', W - 22, 721, {
+  field(e, 'mv_guest', 36, 695.5, { size: 13, weight: 500, color: p.ink, maxWidth: 170 });
+  field(e, 'mv_code', W - 22, 695, {
     font: 'mono',
     size: 6.5,
     color: p.muted,
     spacing: 1.6,
     align: 'right',
-    maxWidth: 130,
+    maxWidth: 110,
   });
+  /* 條碼：票根整個寬、靠右（對齊像素，1 倍時每格 2 px） */
+  ticketBarcode(e, 703, 24);
   hairline(e, W, H, 20);
 }
 
@@ -455,26 +468,12 @@ function boarding(e: TicketEnv) {
   const grid = ['bp_flight', 'bp_date', 'bp_boards', 'bp_gate', 'bp_seat', 'bp_group'];
   grid.forEach((k, i) => {
     const x = 172 + (i % 3) * 132;
-    const y = 270 + Math.floor(i / 3) * 40;
+    const y = 264 + Math.floor(i / 3) * 36;
     lbl(e, k, x, y, { size: 7.5 });
-    field(e, k, x, y + 19, { size: 13, weight: 500, color: p.ink, maxWidth: 124 });
+    field(e, k, x, y + 18, { size: 13, weight: 500, color: p.ink, maxWidth: 124 });
   });
-  line(ctx, 28, 342, 560, 342, p.line, 1, [3, 3]);
-  field(e, 'bp_seq', 28, 359, {
-    font: 'mono',
-    size: 7,
-    color: '#b5aea5',
-    spacing: 1.8,
-    maxWidth: 250,
-    upper: true,
-  });
-  field(e, 'bp_note', 560, 359, {
-    size: 7.5,
-    color: '#b5aea5',
-    spacing: 1.2,
-    align: 'right',
-    maxWidth: 260,
-  });
+  /* 條碼：主票下方整列（對齊像素，1 倍時每格 2 px） */
+  ticketBarcode(e, 330, 24);
   /* 票根 */
   perf(e, STUB, 0, STUB, H);
   text(e, '登機證 BOARDING PASS', STUB + 24, 42, {
@@ -508,10 +507,21 @@ function boarding(e: TicketEnv) {
   field(e, 'bp_gate', STUB + 24, 265, { size: 13, weight: 500, color: p.ink, maxWidth: 80 });
   lbl(e, 'bp_boards', STUB + 112, 244, { size: 7.5 });
   field(e, 'bp_boards', STUB + 112, 265, { size: 13, weight: 500, color: p.ink, maxWidth: 76 });
-  ctx.save();
-  ctx.globalAlpha = 0.8;
-  barcode(e, e.code, STUB + 24, 300, W - STUB - 48, 40, p.ink, { key: 'bp_seq', quiet: false });
-  ctx.restore();
+  line(ctx, STUB + 24, 290, W - 24, 290, p.line, 1, [3, 3]);
+  field(e, 'bp_seq', STUB + 24, 312, {
+    font: 'mono',
+    size: 7,
+    color: p.muted,
+    spacing: 1.2,
+    maxWidth: W - STUB - 48,
+    upper: true,
+  });
+  field(e, 'bp_note', STUB + 24, 334, {
+    size: 7.5,
+    color: p.muted,
+    spacing: 1.2,
+    maxWidth: W - STUB - 48,
+  });
   hairline(e, W, H, 20);
 }
 
@@ -658,7 +668,7 @@ function rail(e: TicketEnv) {
   lbl(e, 'rl_fare', 210, 236, { color: p.deep });
   field(e, 'rl_fare', 210, 264, { size: 18, weight: 900, color: p.ink, maxWidth: 140 });
   field(e, 'rl_note', 30, 290, { size: 8, weight: 500, color: p.muted, spacing: 1, maxWidth: 300 });
-  barcode(e, e.code, 382, 228, 192, 38, p.ink, { key: 'rl_no', quiet: false });
+  ticketBarcode(e, 228, 38, p.paper);
   field(e, 'rl_no', W - 26, 284, {
     font: 'mono',
     size: 8,
@@ -955,10 +965,7 @@ function receipt(e: TicketEnv) {
     maxWidth: 40,
   });
   y += 48 + 24;
-  ctx.save();
-  ctx.globalAlpha = 0.78;
-  barcode(e, e.code, W / 2 - 100, y, 200, 34, p.ink, { key: 'rc_code', quiet: false });
-  ctx.restore();
+  ticketBarcode(e, y, 34);
   field(e, 'rc_code', W / 2, y + 48, {
     font: 'mono',
     size: 7.5,
