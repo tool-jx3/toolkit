@@ -5,6 +5,7 @@
  * - usePrefs：預覽模式、匯出的設定、「錄影帶」的時間與暫停（自動儲存，不列入復原）；
  * - 照片原檔存在 IndexedDB 的資產庫（core/assets），狀態只記 id。
  */
+import { create } from 'zustand';
 import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
 import {
@@ -123,8 +124,32 @@ export function referencedImages(): Set<string> {
 
 /* ---------- 照片 ---------- */
 
+/** 讀不回來的照片（提醒用；換上新的照片時清掉） */
+export const useMissingPhoto = create<{ name: string | null }>(() => ({ name: null }));
+
+/**
+ * 照片讀不回來（已從這個瀏覽器清除）：把它從內容裡拿掉（回到無訊號；「目前的照片」、位置的按鈕、匯出的檔名一起清掉），
+ * 不記成一步復原（復原回去也只是一張讀不到的照片）；預覽下方留著提醒，直到換上新的照片。
+ */
+export function dropMissingPhoto(id: string): void {
+  const s = docNow();
+  if (s.photo?.id !== id) return;
+  useMissingPhoto.setState({ name: s.photo.name });
+  const t = useDoc.temporal.getState();
+  t.pause();
+  try {
+    useDoc.getState().update((d) => {
+      d.photo = null;
+      d.view = { ...DEFAULT_VIEW };
+    });
+  } finally {
+    t.resume();
+  }
+}
+
 /** 換上照片：位置回到初始（蓋滿、置中；一步復原） */
 export function setPhoto(image: ImageRef): void {
+  useMissingPhoto.setState({ name: null });
   edit((d) => {
     d.photo = { ...image };
     d.view = { ...DEFAULT_VIEW };

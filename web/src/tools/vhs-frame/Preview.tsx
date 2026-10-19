@@ -1,17 +1,22 @@
 /**
  * 預覽區（規格 1.6、1.7）：預覽模式（錄影帶／GIF 動畫）、舞台（直接拖曳、縮放照片）、播放列、共用的匯出區。
- * - 錄影帶：以 PNG 的大小畫，一直在播（0～58 秒一輪、每 1/24 秒一格）；PNG 存目前這一格。
+ * - 錄影帶：一直在播（0～58 秒一輪、每 1/24 秒一格）；PNG 存目前這一格。播放中、拖曳與縮放照片時以畫面顯示的大小
+ *   （含 devicePixelRatio，最多 1280 寬）畫，暫停而且沒在操作時以 PNG 的大小畫（暫停時的預覽＝下載的 PNG）。
  * - GIF 動畫：以動畫的大小畫出跟匯出一樣的 24 格（字幕逐字打出）。
- * 畫一格太慢時少畫幾格（播放的時間照走），主執行緒不被佔滿；暫停時一定畫到最新的狀態。
+ * 合成好的照片層依「照片、位置、比例、寬度」快取（最近 4 份），切換預覽模式、播放與暫停不重新縮照片。
+ * 畫一格比一格的時間還久時少畫幾格（播放的時間照走），主執行緒不被佔滿；停下來時一定畫到最新的狀態。
  */
 import {
   type KeyboardEvent,
   type PointerEvent,
   type Ref,
+  useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import { create } from 'zustand';
 import { useAssetImage } from '@/core/assets';
@@ -28,6 +33,7 @@ import {
   Stage,
   Transport,
   usePlayback,
+  useStageView,
   useWebpSupport,
 } from '@/ui';
 import { type ExportJob, outputSize, renderInto, runExport } from './exporter';
@@ -42,6 +48,7 @@ import {
   GIF_STEP,
   gifFrameAt,
   gifFrameTime,
+  heightFor,
   KEY_STEP,
   KEY_STEP_BIG,
   KEY_ZOOM,
@@ -57,21 +64,40 @@ import {
   wheelPixels,
   zoomViewAt,
 } from './model';
-import { VhsRenderer } from './render';
+import { type Master, VhsRenderer } from './render';
 import {
   assets,
   docNow,
+  dropMissingPhoto,
   gesture,
   type PreviewMode,
   prefsNow,
   setPrefs,
   setView,
   useDoc,
+  useMissingPhoto,
   usePrefs,
 } from './store';
 import { S } from './strings';
 
 const PREVIEW_MODES: readonly PreviewMode[] = ['tape', 'gif'];
+
+/** 照片層的快取份數 */
+const MASTER_CACHE = 4;
+/** 拖曳、滾輪、方向鍵停下來多久之後改回全尺寸（毫秒） */
+const SETTLE_MS = 250;
+/** 一格的時間（毫秒）：畫一格比這個久時少畫幾格 */
+const FRAME_MS = 1000 / TAPE_FPS;
+
+/** 回報畫面在螢幕上的寬（CSS px＝內容寬 × 顯示倍率；錄影帶與 GIF 動畫都是填滿同一個舞台，換模式時差不多） */
+function ScaleProbe({ onWidth }: { onWidth: (cssWidth: number) => void }) {
+  const view = useStageView();
+  const css = view ? view.width * view.scale : 0;
+  useEffect(() => {
+    if (css > 0) onWidth(css);
+  }, [css, onWidth]);
+  return null;
+}
 
 /** 「錄影帶」目前的那一格與是否在播（PNG 的說明用；每 1/24 秒更新一次） */
 const useTapeClock = create<{ t: number; playing: boolean }>(() => ({ t: 0, playing: false }));
@@ -90,7 +116,16 @@ export interface ScreenHandle {
   tapeT: () => number;
   /** 停在某個時間（測試、對等驗證用）；mode 不給時是目前的預覽 */
   seek: (t: number, mode?: PreviewMode) => void;
-  state: () => { mode: PreviewMode; t: number; playing: boolean; drawn: number };
+  state: () => {
+    mode: PreviewMode;
+    t: number;
+    playing: boolean;
+    drawn: number;
+    /** 合成了幾次照片層（快取沒中的次數） */
+    composed: number;
+    /** 目前是不是以顯示的大小畫（播放中或操作中） */
+    live: boolean;
+  };
 }
 
 /* ---------- 畫面（舞台＋播放列） ---------- */
@@ -98,20 +133,33 @@ export interface ScreenHandle {
 function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
   const s = useDoc((st) => st.data);
   const animIndex = usePrefs((p) => p.data.animSize);
+  const tapePaused = usePrefs((p) => p.data.tapePaused);
   const photo = useAssetImage(assets, s.photo?.id);
   const loads = useMemo(() => fontLoads(s), [s]);
   useEnsureFonts(loads);
   const tick = useFontTick();
   const renderer = useMemo(() => new VhsRenderer(), []);
 
+  /* 舞台上的大小（內容座標）：錄影帶＝PNG 的大小、GIF 動畫＝動畫的大小 */
   const size = mode === 'tape' ? screenSize(s.aspect) : animSize(s.aspect, animIndex);
-  const masterRes = mode === 'tape' ? SCREEN_W : masterWidthFor(size.width);
   const bitmap = photo.bitmap && s.photo ? photo.bitmap : null;
-  const master = useMemo(
-    () =>
-      bitmap && s.photo ? renderer.compose(bitmap, s.photo, s.view, s.aspect, masterRes) : null,
-    [renderer, bitmap, s.photo, s.view, s.aspect, masterRes],
+
+  /* 操作中（拖曳、捏合、滾輪、方向鍵）：停下來 SETTLE_MS 之後才算結束 */
+  const [interacting, setInteracting] = useState(false);
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const poke = (hold = false) => {
+    setInteracting(true);
+    if (settle.current) clearTimeout(settle.current);
+    settle.current = hold ? null : setTimeout(() => setInteracting(false), SETTLE_MS);
+  };
+  useEffect(
+    () => () => {
+      if (settle.current) clearTimeout(settle.current);
+    },
+    [],
   );
+  const [shownWidth, setShownWidth] = useState(640);
+  const onWidth = useCallback((v: number) => setShownWidth(v), []);
 
   /* 播放：錄影帶與 GIF 動畫各一條時間軸；只有目前的模式在播 */
   const tapePrefs = useRef(prefsNow());
@@ -124,6 +172,38 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
   const pb = useRef({ tape, gif });
   pb.current = { tape, gif };
   const active = mode === 'tape' ? tape : gif;
+  /*
+   * 錄影帶播放中（或照上次的設定馬上要接著播：切回錄影帶、開頁自動播放的第一格）、操作中：
+   * 以顯示的大小畫（含 devicePixelRatio，最多 PNG 的大小）。暫停（記在 prefs）而且沒在操作時才畫全尺寸。
+   */
+  const live =
+    mode === 'tape' && (tape.playing || interacting || (!tapePaused && !reducedMotion()));
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const liveW = Math.min(SCREEN_W, Math.max(64, Math.ceil(shownWidth * dpr)));
+  const target =
+    mode === 'tape' && live ? { width: liveW, height: heightFor(liveW, s.aspect) } : size;
+  const masterRes = mode === 'tape' && !live ? SCREEN_W : masterWidthFor(target.width);
+
+  /* 照片層的快取（照片、位置、比例、寬度；最近 MASTER_CACHE 份） */
+  const masters = useRef(new Map<string, Master>());
+  const composed = useRef(0);
+  const masterFor = (res: number): Master | null => {
+    if (!bitmap || !s.photo) return null;
+    const v = s.view;
+    const key = `${s.photo.id}|${s.aspect}|${v.zoom}|${v.x}|${v.y}|${res}`;
+    const cache = masters.current;
+    const hit = cache.get(key);
+    if (hit) {
+      cache.delete(key);
+      cache.set(key, hit);
+      return hit;
+    }
+    const m = renderer.compose(bitmap, s.photo, v, s.aspect, res);
+    composed.current++;
+    cache.set(key, m);
+    while (cache.size > MASTER_CACHE) cache.delete(cache.keys().next().value as string);
+    return m;
+  };
 
   /* 開頁：回到上次的時間 */
   useEffect(() => {
@@ -148,35 +228,53 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     else pb.current.tape.pause();
     setPrefs({ tapePaused: !playing, tapeTime: tapeFrameTime(pb.current.tape.time) });
   };
+  /* 播放列的拖曳、←／→：算操作中（以顯示的大小畫，停下來之後才畫全尺寸） */
   const tapeSeek = (t: number) => {
+    poke();
     pb.current.tape.onTimeChange(t);
     if (!pb.current.tape.playing) setPrefs({ tapeTime: tapeFrameTime(t) });
   };
+  /* 關掉循環、播到最後停下來：記成暫停（之後畫全尺寸） */
+  useEffect(() => {
+    if (
+      mode === 'tape' &&
+      !tape.playing &&
+      !tape.loop &&
+      tape.time >= TAPE_LOOP - 1e-6 &&
+      !prefsNow().tapePaused
+    )
+      setPrefs({ tapePaused: true, tapeTime: tapeFrameTime(tape.time) });
+  }, [mode, tape.playing, tape.loop, tape.time]);
 
   const frameKey = mode === 'tape' ? tapeFrameTime(tape.time) : gifFrameAt(gif.time);
   useEffect(() => {
     useTapeClock.setState({ t: tapeFrameTime(tape.time), playing: tape.playing });
   }, [tape.time, tape.playing]);
 
-  /* 畫：太慢時少畫幾格（每畫完一格，至少休息同樣長的時間才畫下一格） */
+  /*
+   * 畫：播放中、操作中畫一格比一格的時間（1/24 秒）還久時，休息同樣長的時間才畫下一格（主執行緒不被佔滿）；
+   * 停下來時一定畫到最新的狀態。在畫面更新之前畫（layout effect）：換大小時畫布會被清空，不會閃一下空白。
+   */
   const canvas = useRef<HTMLCanvasElement>(null);
   const surface = useRef<HTMLDivElement>(null);
   const nextAllowed = useRef(0);
   const drawn = useRef(0);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫
-  useEffect(() => {
+  const moving = active.playing || interacting;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫；masterFor 依 s、bitmap
+  useLayoutEffect(() => {
     const c = canvas.current;
     if (!c) return;
-    if (active.playing && performance.now() < nextAllowed.current) return;
+    if (moving && performance.now() < nextAllowed.current) return;
     const start = performance.now();
+    const master = masterFor(masterRes);
     if (mode === 'tape') renderInto(renderer, c, s, master, frameKey);
     else renderInto(renderer, c, s, master, gifFrameTime(frameKey), frameKey);
     const end = performance.now();
     const cost = end - start;
-    nextAllowed.current = cost > 20 ? end + cost : 0;
+    nextAllowed.current = cost > FRAME_MS ? end + cost : 0;
     drawn.current++;
     c.dataset.frame = String(frameKey);
-  }, [mode, frameKey, s, master, tick, size.width, size.height, active.playing, renderer]);
+  }, [mode, frameKey, s, bitmap, tick, target.width, target.height, masterRes, moving, renderer]);
 
   useImperativeHandle(ref, () => ({
     toggle: () => {
@@ -197,7 +295,14 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     },
     state: () => {
       const p = mode === 'tape' ? pb.current.tape : pb.current.gif;
-      return { mode, t: p.time, playing: p.playing, drawn: drawn.current };
+      return {
+        mode,
+        t: p.time,
+        playing: p.playing,
+        drawn: drawn.current,
+        composed: composed.current,
+        live,
+      };
     },
   }));
 
@@ -227,6 +332,7 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     if (!d.photo || (e.pointerType === 'mouse' && e.button !== 0)) return;
     e.currentTarget.setPointerCapture?.(e.pointerId);
     if (!pointers.current.size) gesture.begin();
+    poke(true);
     pointers.current.set(e.pointerId, toScreen(e.clientX, e.clientY));
     const pts = [...pointers.current.values()];
     if (pts.length === 1) drag.current = { p: pts[0], view: d.view };
@@ -235,6 +341,31 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
       pinch.current = mid(pts).d;
     }
   };
+  /*
+   * 拖曳、捏合、滾輪：同一個畫面更新裡的多次變更合成一次（每次位置變了都要重新合成照片層、重畫）。
+   * 還沒套用的位置記在 pendingView，接著的變更以它為準；放開、按鍵之前先套用。
+   */
+  const pendingView = useRef<PhotoView | null>(null);
+  const viewRaf = useRef(0);
+  const currentView = (): PhotoView => pendingView.current ?? docNow().view;
+  const flushView = () => {
+    if (viewRaf.current) cancelAnimationFrame(viewRaf.current);
+    viewRaf.current = 0;
+    const v = pendingView.current;
+    pendingView.current = null;
+    if (v) setView(v);
+  };
+  const queueView = (v: PhotoView) => {
+    pendingView.current = v;
+    if (!viewRaf.current) viewRaf.current = requestAnimationFrame(flushView);
+  };
+  useEffect(
+    () => () => {
+      if (viewRaf.current) cancelAnimationFrame(viewRaf.current);
+    },
+    [],
+  );
+
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!pointers.current.has(e.pointerId)) return;
     const d = docNow();
@@ -243,26 +374,33 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     const pts = [...pointers.current.values()];
     if (pts.length === 1 && drag.current) {
       const from = drag.current;
-      setView(panView(d.photo, box, from.view, pts[0].x - from.p.x, pts[0].y - from.p.y));
+      queueView(panView(d.photo, box, from.view, pts[0].x - from.p.x, pts[0].y - from.p.y));
     } else if (pts.length >= 2) {
       const m = mid(pts);
       if (pinch.current > 0)
-        setView(zoomViewAt(d.photo, box, d.view, m.x, m.y, m.d / pinch.current));
+        queueView(zoomViewAt(d.photo, box, currentView(), m.x, m.y, m.d / pinch.current));
       pinch.current = m.d;
     }
   };
   const onPointerEnd = (e: PointerEvent<HTMLDivElement>) => {
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.delete(e.pointerId);
+    flushView();
     const pts = [...pointers.current.values()];
     drag.current = pts.length === 1 ? { p: pts[0], view: docNow().view } : null;
     pinch.current = 0;
-    if (!pts.length) gesture.commit();
+    if (!pts.length) {
+      gesture.commit();
+      poke();
+    }
   };
 
   /* 滾輪：原生的監聽（React 的 wheel 是被動的，擋不住頁面捲動） */
   const boxRef = useRef(box);
   boxRef.current = box;
+  /* 滾輪的監聽只掛一次：用到的函式從這裡拿最新的 */
+  const wheelOps = useRef({ poke, queueView, currentView });
+  wheelOps.current = { poke, queueView, currentView };
   useEffect(() => {
     const el = surface.current;
     if (!el) return;
@@ -275,13 +413,16 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
       const px = ((e.clientX - r.left) / r.width) * b.width;
       const py = ((e.clientY - r.top) / r.height) * b.height;
       const dy = wheelPixels(e.deltaY, e.deltaMode, window.innerHeight);
-      setView(zoomViewAt(d.photo, b, d.view, px, py, Math.exp(-dy * WHEEL_ZOOM)));
+      const ops = wheelOps.current;
+      ops.poke();
+      ops.queueView(zoomViewAt(d.photo, b, ops.currentView(), px, py, Math.exp(-dy * WHEEL_ZOOM)));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    flushView();
     const d = docNow();
     if (!d.photo || e.ctrlKey || e.metaKey || e.altKey) return;
     const step = e.shiftKey ? KEY_STEP_BIG : KEY_STEP;
@@ -300,6 +441,7 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
       next = zoomViewAt(d.photo, box, d.view, box.width / 2, box.height / 2, 1 / KEY_ZOOM);
     if (!next) return;
     e.preventDefault();
+    poke();
     setView(next);
   };
 
@@ -314,6 +456,7 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
         aria-label={S.previewModeAria[mode]}
         className="shrink-0"
       >
+        <ScaleProbe onWidth={onWidth} />
         <div
           ref={surface}
           role="application"
@@ -336,12 +479,13 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
         >
           <canvas
             ref={canvas}
-            width={size.width}
-            height={size.height}
+            width={target.width}
+            height={target.height}
             className="block size-full"
             data-testid="vhs-canvas"
             data-mode={mode}
             data-size={`${size.width}x${size.height}`}
+            data-live={live ? 'true' : 'false'}
           />
         </div>
       </Stage>
@@ -376,7 +520,6 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
           legend={false}
         />
       )}
-      {photo.status === 'missing' ? <Notice tone="warning">{S.photoMissing}</Notice> : null}
     </>
   );
 }
@@ -409,6 +552,11 @@ export function Preview({
   const photoId = useDoc((st) => st.data.photo?.id);
   const photo = useAssetImage(assets, photoId);
   const hasPhoto = !!photoId;
+  const missing = useMissingPhoto((m) => m.name);
+  /* 照片讀不回來：從內容裡拿掉（回到無訊號，檔名、按鈕一起清掉），提醒留著 */
+  useEffect(() => {
+    if (photo.status === 'missing' && photoId) dropMissingPhoto(photoId);
+  }, [photo.status, photoId]);
   const webpOk = useWebpSupport();
   const handle = useRef<ScreenHandle | null>(null);
   useImperativeHandle(screenRef, () => ({
@@ -416,7 +564,15 @@ export function Preview({
     focus: () => handle.current?.focus(),
     tapeT: () => handle.current?.tapeT() ?? 0,
     seek: (t: number, m?: PreviewMode) => handle.current?.seek(t, m),
-    state: () => handle.current?.state() ?? { mode: prefs.preview, t: 0, playing: false, drawn: 0 },
+    state: () =>
+      handle.current?.state() ?? {
+        mode: prefs.preview,
+        t: 0,
+        playing: false,
+        drawn: 0,
+        composed: 0,
+        live: false,
+      },
   }));
 
   const formats = useMemo(
@@ -469,6 +625,7 @@ export function Preview({
       <p className="m-0 px-1 text-xs text-muted" data-testid="preview-hint">
         {hasPhoto ? S.hintPhoto : S.hintNoPhoto} {prefs.preview === 'tape' ? S.hintTape : S.hintGif}
       </p>
+      {missing !== null ? <Notice tone="warning">{S.photoMissing}</Notice> : null}
       <ExportPanel
         ref={exportRef}
         title={S.exportTitle}
@@ -483,7 +640,7 @@ export function Preview({
         }
         fixedFps={Math.round(1 / GIF_STEP)}
         fixedFpsHint={S.animFrames}
-        loopHint={S.loopHint}
+        loopHint={prefs.format === 'gif' ? S.loopHint : undefined}
         resetKey={resetKey}
         extra={
           prefs.format === 'png' ? (

@@ -482,9 +482,13 @@ export function normalizeState(raw: unknown): VhsState {
     y: num(vo.y, 0, -10, 10),
   };
   const tc = obj(o.timecode);
+  /* 起點：0～99:59:59 的數字（小數捨去）；其他（負數、太大、不是數字）用預設 0:00:14 */
   const tapeStart =
-    typeof tc.tape === 'number' && Number.isFinite(tc.tape)
-      ? Math.max(0, Math.min(TAPE_START_MAX, Math.floor(tc.tape)))
+    typeof tc.tape === 'number' &&
+    Number.isFinite(tc.tape) &&
+    tc.tape >= 0 &&
+    tc.tape < TAPE_START_MAX + 1
+      ? Math.floor(tc.tape)
       : d.timecode.tape;
   return {
     photo,

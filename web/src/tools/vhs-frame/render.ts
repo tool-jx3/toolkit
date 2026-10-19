@@ -295,8 +295,9 @@ export class VhsRenderer {
     b.globalCompositeOperation = 'source-over';
     const tint = { r: '#ff0000', g: '#00ff00', b: '#0000ff' } as const;
     const out = {} as Record<'r' | 'g' | 'b', AnyCanvas>;
+    /* 色版每次新開（預覽把合成好的照片層快取起來，不同位置、寬度各留一份） */
     for (const k of ['r', 'g', 'b'] as const) {
-      const c = this.canvas(`ch${k}${res}`, W, H);
+      const c = makeCanvas(W, H);
       const x = ctx2d(c);
       x.globalCompositeOperation = 'source-over';
       x.clearRect(0, 0, W, H);

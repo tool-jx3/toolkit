@@ -983,10 +983,6 @@ test('自動儲存與還原（含照片）、照片讀不到的提醒；復原�
   await expect(page.getByRole('button', { name: '重設位置' })).toBeDisabled();
   await expect(page.getByRole('button', { name: '拿掉照片' })).toBeDisabled();
   await expect.poll(async () => (await state(page)).photo).toBeNull();
-  await page
-    .getByRole('button', { name: '暫停', exact: true })
-    .click()
-    .catch(() => undefined);
   const png = await exportFile(page, 'PNG');
   expect(png.name).toBe('screen-vhs.png');
   /* 提醒留著，直到換上新的照片 */
