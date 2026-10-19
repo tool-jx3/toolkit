@@ -3,11 +3,17 @@
  * 原稿裡寫到、還沒登錄的名稱。
  */
 import { X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, IconButton, Section, TextInput } from '@/ui';
 import { isVarName, varCandidates, varList } from '../model/vars';
-import { edit, say, useDoc } from '../store';
+import { edit, holdStatus, releaseStatus, say, ui, useDoc } from '../store';
 import { S } from '../strings';
+
+/** 放開變數名稱的錯誤訊息（7.3：名稱還錯著時自動儲存不蓋掉它） */
+function releaseVarHold(): void {
+  const h = ui().status?.hold;
+  if (h?.startsWith('var:')) releaseStatus(h);
+}
 
 /** 新增的一列的名稱欄（畫好之後聚焦） */
 function focusName(i: number): void {
@@ -24,15 +30,18 @@ export function VarsSection() {
   const derived = list.filter((v) => v.src !== 'reg');
   /* 離開過的名稱欄（空白的名稱離開之後才標紅） */
   const [touched, setTouched] = useState<ReadonlySet<number>>(new Set());
-  const setVar = (i: number, k: 'n' | 'def' | 'note', v: string) =>
+  useEffect(() => releaseVarHold, []);
+  const setVar = (i: number, k: 'n' | 'def' | 'note', v: string) => {
+    if (k === 'n' && isVarName(v.trim())) releaseStatus(`var:${i}`);
     edit((x) => {
       const r = x.vars?.[i];
       if (r) r[k] = v;
     });
+  };
   const checkName = (i: number) => {
     setTouched((t) => new Set(t).add(i));
     const n = String(regs[i]?.n ?? '').trim();
-    if (!isVarName(n)) say(S.vars.badName, 'err');
+    if (!isVarName(n)) holdStatus(`var:${i}`, S.vars.badName);
     else if (
       regs.some((v, j) => j !== i && String(v.n).trim() === n) ||
       derived.some((v) => v.n === n)
@@ -49,6 +58,7 @@ export function VarsSection() {
     else focusName(i);
   };
   const remove = (i: number) => {
+    releaseVarHold();
     edit((x) => {
       x.vars?.splice(i, 1);
     });

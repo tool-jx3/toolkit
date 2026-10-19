@@ -15,6 +15,7 @@ import {
   newBlock,
   ownsList,
   POP_SKIP,
+  popIsBlocks,
   popOwnerOf,
   TEXT_TYPES,
   typeName,
@@ -160,6 +161,23 @@ export async function addToCell(
 /* ---------- 書式按鈕（F050～F053） ---------- */
 
 export async function typeButton(k: BlockType): Promise<void> {
+  /*
+   * 彈出視窗的編輯開著、選取的是彈出視窗本身：在彈出視窗內容的最後新增，不把彈出視窗改成別的書式（D9）。
+   * 舊式（文字型）的彈出視窗沒有段落可以放：不改，提示用文字欄。
+   */
+  const pe = ui().popEdit;
+  const sel = ui().sel;
+  if (pe && sel.length && sel.every((id) => id === pe)) {
+    const p = findBlock(doc(), pe)?.b;
+    if (p && popIsBlocks(p)) {
+      await addNew(k, { k: 'pop', id: pe });
+      return;
+    }
+    if (p?.type === 'popup') {
+      say(S.status.popLegacyType, 'warn');
+      return;
+    }
+  }
   const cell = k === 'table' ? null : cellForTypeButton();
   if (cell) {
     await addToCell(k, cell);

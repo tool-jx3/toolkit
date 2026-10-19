@@ -43,6 +43,13 @@ import {
 } from '../../src/tools/scenario-editor/render/html';
 import { PAPER_CSS } from '../../src/tools/scenario-editor/render/paperCss';
 import { docFromFileText } from '../../src/tools/scenario-editor/session';
+import {
+  holdStatus,
+  releaseStatus,
+  say,
+  statusHeld,
+  ui,
+} from '../../src/tools/scenario-editor/store';
 import UPSTREAM_JSON from '../e2e/fixtures/scenario-editor-upstream-v390.json';
 
 /** 每次都是新的複本（normalizeDoc 會整理巢狀的物件） */
@@ -369,11 +376,44 @@ describe('顯示預設值（F257）', () => {
       blockHtml(plain.blocks[0], ctxOf(plain), { cols: 1, pull: 0, top: false }),
     ).not.toContain('tvar');
   });
-  it('列印與 PDF 用一般的文字顏色（pv-print、@media print）', () => {
+  it('列印與 PDF 用一般的文字顏色（pv-print、@media print；深色底的規則也蓋過）', () => {
     expect(PAPER_CSS).toContain(
-      '.pv-print .tvar,.pv-print .tvar.unset{color:inherit;border-bottom:0}',
+      '.pv-print .tvar,.pv-print .tvar.unset,.pv-print .t-h1 .tvar.unset,.pv-print .rh1 .tvar.unset,.pv-print .pop-btn .tvar.unset{color:inherit;border-bottom:0}',
     );
-    expect(PAPER_CSS).toContain('@media print{.tvar,.tvar.unset{color:inherit;border-bottom:0}}');
+    expect(PAPER_CSS).toContain(
+      '@media print{.tvar,.tvar.unset,.t-h1 .tvar,.rh1 .tvar,.pop-btn .tvar,.t-h1 .tvar.unset,.rh1 .tvar.unset,.pop-btn .tvar.unset{color:inherit;border-bottom:0}}',
+    );
+    /* 列印的規則在深色底的規則之後（同樣的權重時後面的優先） */
+    expect(PAPER_CSS.indexOf('.pv-print .tvar,')).toBeGreaterThan(
+      PAPER_CSS.indexOf('.t-h1 .tvar,.rh1 .tvar,.pop-btn .tvar{'),
+    );
+  });
+  it('墨色底上的變數（7.3）：填了值跟著底色的文字色＋虛線底線；還沒填的淡色；按鈕滑鼠移上去時亮一點', () => {
+    expect(PAPER_CSS).toContain(
+      '.t-h1 .tvar,.rh1 .tvar,.pop-btn .tvar{color:inherit;border-bottom:1px dashed currentColor}',
+    );
+    expect(PAPER_CSS).toContain(
+      '.t-h1 .tvar.unset,.rh1 .tvar.unset,.pop-btn .tvar.unset{color:#9a8e74;border-bottom:1px dotted #b9ab8c}',
+    );
+    expect(PAPER_CSS).toContain(
+      '.pop-btn:hover .tvar.unset{color:#ebe3d2;border-bottom-color:#ebe3d2}',
+    );
+    /* 對比：淡褐在墨底、亮淡色在朱底都 ≥ 4.5:1 */
+    const lum = (h: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => {
+        const v = Number.parseInt(h.slice(i, i + 2), 16) / 255;
+        return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a: string, b: string) => {
+      const [x, y] = [lum(a), lum(b)];
+      return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+    };
+    expect(ratio('#9a8e74', '#23201c')).toBeGreaterThanOrEqual(4.5);
+    expect(ratio('#ebe3d2', '#a8331f')).toBeGreaterThanOrEqual(4.5);
+    expect(ratio('#f7f3ea', '#23201c')).toBeGreaterThanOrEqual(4.5);
+    expect(ratio('#f7f3ea', '#a8331f')).toBeGreaterThanOrEqual(4.5);
   });
 });
 
@@ -459,5 +499,21 @@ describe('字數與其他', () => {
       blk('o', 'handout', '丙', { ho: { no: 'HO1', ttl: '題名' } }),
     ]);
     expect(docCharCount(d)).toBe(3);
+  });
+});
+
+describe('狀態列：欄位還錯著時的錯誤（7.3）', () => {
+  it('holdStatus 的訊息標記成 hold；releaseStatus 只放開同一個欄位的；之後的一般訊息照常取代', () => {
+    holdStatus('ho-no:a', '名稱不合規則');
+    expect(statusHeld()).toBe(true);
+    expect(ui().status).toMatchObject({ text: '名稱不合規則', tone: 'err', hold: 'ho-no:a' });
+    releaseStatus('ho-no:b');
+    expect(statusHeld()).toBe(true);
+    releaseStatus('ho-no:a');
+    expect(statusHeld()).toBe(false);
+    expect(ui().status?.text).toBe('名稱不合規則');
+    holdStatus('var:0', 'x');
+    say('已新增「手冊」');
+    expect(statusHeld()).toBe(false);
   });
 });

@@ -125,6 +125,8 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
     const at = focusReq.at < 0 ? el.value.length : Math.min(focusReq.at, el.value.length);
     el.setSelectionRange(at, at);
     el.scrollIntoView({ block: 'nearest' });
+    /* 用過就清掉：之後重新畫出這一列（例如再打開彈出視窗的編輯）時不會又把焦點搶過去、改掉選取 */
+    if (ui().focusReq === focusReq) setUi({ focusReq: null });
   }, [focusReq]);
 
   const onChange = (el: HTMLTextAreaElement) => {

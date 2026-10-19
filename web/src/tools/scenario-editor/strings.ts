@@ -45,6 +45,7 @@ export const S = {
     addedToCell: (r: number, c: number, name: string) => `已在第 ${r} 列第 ${c} 欄加入「${name}」`,
     noCellType: '換頁、換欄、目錄、封面、版權頁不能放進表格的儲存格。',
     noPopType: '換頁、換欄、目錄、封面、版權頁不能放進彈出視窗。',
+    popLegacyType: '這個彈出視窗的內容是一段文字：請在文字欄裡用「#」標題與巢狀書式按鈕。',
     pickCellFirst: '請先點一下要放進去的儲存格。',
     moved: (n: number) => `已移動 ${n} 個段落`,
     mergeNeed: '請在同一個串列裡選取兩個以上的段落。',

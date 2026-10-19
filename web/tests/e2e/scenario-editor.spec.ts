@@ -1167,6 +1167,189 @@ test.describe('劇本排版台', () => {
     expect(errors).toEqual([]);
   });
 
+  test('深色底上的變數看得清楚：標題 1、彈出視窗按鈕（含滑鼠移上去）、舊式彈出視窗的標題（7.3、F258）', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    const errors = await open(page);
+    await loadDoc(
+      page,
+      mkDoc('對比', [
+        blk('h', 'h1', '第一章 {HO1}的委託'),
+        blk('p', 'popup', '', {
+          pop: { label: '{HO2}的手記', body: '', only: false, blocks: [blk('pd', 'desc', '內容')] },
+        }),
+        blk('q', 'popup', '', {
+          pop: { label: '舊式', body: '# {HO1}的標題\n內文', only: false },
+        }),
+      ]),
+    );
+    /** 變數的字色對它所在的底色（往上找第一個不透明的底色） */
+    const measure = (loc: ReturnType<Page['locator']>) =>
+      loc.evaluate((v) => {
+        const lum = (c: string) => {
+          const [r, g, b] = (c.match(/[\d.]+/g) ?? []).slice(0, 3).map((x) => {
+            const s = Number(x) / 255;
+            return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+          });
+          return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        };
+        let el: Element | null = v;
+        let bg = 'rgb(255, 255, 255)';
+        while (el) {
+          const c = getComputedStyle(el).backgroundColor;
+          if (c && c !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(c)) {
+            bg = c;
+            break;
+          }
+          el = el.parentElement;
+        }
+        const fg = getComputedStyle(v).color;
+        const a = lum(fg);
+        const b = lum(bg);
+        return {
+          ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
+          line: getComputedStyle(v).borderBottomStyle,
+        };
+      });
+    /* 編輯畫面（還沒填值的淡色）：標題 1、彈出視窗按鈕、滑鼠移到按鈕上 */
+    expect((await measure(stage(page).locator('.t-h1 .tvar'))).ratio).toBeGreaterThanOrEqual(4.5);
+    const ebtn = stage(page).locator('button.pop-btn').first();
+    expect((await measure(ebtn.locator('.tvar'))).ratio).toBeGreaterThanOrEqual(4.5);
+    await ebtn.hover();
+    expect((await measure(ebtn.locator('.tvar'))).ratio).toBeGreaterThanOrEqual(4.5);
+    await page.mouse.move(0, 0);
+    /* 列印：一般的文字顏色 */
+    await page.getByRole('button', { name: '列印 / PDF' }).click();
+    await page
+      .getByRole('dialog', { name: '列印 / PDF' })
+      .getByRole('button', { name: '列印', exact: true })
+      .click();
+    const pf = page.frameLocator('iframe[data-paged-print]');
+    expect(
+      await pf
+        .locator('.t-h1 .tvar')
+        .first()
+        .evaluate((el) => [
+          getComputedStyle(el).color === getComputedStyle(el.parentElement as Element).color,
+          getComputedStyle(el).borderBottomStyle,
+        ]),
+    ).toEqual([true, 'none']);
+    await page.keyboard.press('Escape');
+    /* 匯出 HTML：填了值、還沒填、滑鼠移到按鈕上、舊式彈出視窗的標題 */
+    await page.getByRole('button', { name: '匯出', exact: true }).click();
+    const dlg = page.getByRole('dialog', { name: '匯出閱覽用 HTML' });
+    const { bytes } = await download(page, () =>
+      dlg.getByRole('button', { name: '匯出', exact: true }).click(),
+    );
+    const url = `${baseURL}/__se-export/contrast.html`;
+    await context.route(url, (r) =>
+      r.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: bytes.toString('utf8'),
+      }),
+    );
+    const view = await context.newPage();
+    await routeExternal(view);
+    await view.goto(url);
+    await view.locator('#vx input[data-v="HO1"]').fill('佐藤千景');
+    await view.locator('#vx input[data-v="HO2"]').fill('林');
+    const h1 = await measure(view.locator('#doc .t-h1 .tvar'));
+    expect(h1.ratio).toBeGreaterThanOrEqual(4.5);
+    expect(h1.line).not.toBe('none');
+    const btn = view.locator('#doc button.pop-btn').first();
+    const filled = await measure(btn.locator('.tvar'));
+    expect(filled.ratio).toBeGreaterThanOrEqual(4.5);
+    expect(filled.line).not.toBe('none');
+    await btn.hover();
+    expect((await measure(btn.locator('.tvar'))).ratio).toBeGreaterThanOrEqual(4.5);
+    await view.locator('#vx input[data-v="HO2"]').fill('');
+    await btn.hover();
+    await expect(btn.locator('.tvar')).toHaveClass(/unset/);
+    expect((await measure(btn.locator('.tvar'))).ratio).toBeGreaterThanOrEqual(4.5);
+    await view.mouse.move(0, 0);
+    expect((await measure(btn.locator('.tvar'))).ratio).toBeGreaterThanOrEqual(4.5);
+    /* 淡色維持：還沒填的仍是淡褐色 */
+    expect(await btn.locator('.tvar').evaluate((el) => getComputedStyle(el).color)).toBe(
+      'rgb(154, 142, 116)',
+    );
+    await view.locator('#doc button.pop-btn').nth(1).click();
+    const rh1 = await measure(view.locator('#popIn .rh1 .tvar'));
+    expect(rh1.ratio).toBeGreaterThanOrEqual(4.5);
+    expect(rh1.line).not.toBe('none');
+    await view.close();
+    expect(errors).toEqual([]);
+  });
+
+  test('彈出視窗的編輯：選取的是彈出視窗本身時，書式按鈕加在內容的最後，不改彈出視窗（D9）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await page.locator('button[data-type="popup"]').first().click();
+    await expect(page.getByTestId('se-block-panel')).toContainText('目前：彈出視窗');
+    await page.getByTestId('se-block-panel').getByRole('button', { name: '開啟編輯' }).click();
+    const dlg = page.getByTestId('se-popup-dialog');
+    await expect(dlg).toBeVisible();
+    const inner = () => dlg.locator('[data-label] span:first-child').allTextContents();
+    expect(await inner()).toEqual(['描述文']);
+    await dlg.locator('button[data-type="info"]').click();
+    await expect(status(page)).toContainText('已新增「情報區塊」');
+    expect(await inner()).toEqual(['描述文', '情報區塊']);
+    await expect(dlg).toBeVisible();
+    /* 再選彈出視窗本身：快捷鍵也一樣（手冊） */
+    await page.getByRole('button', { name: '完成' }).click();
+    await expect(dlg).toHaveCount(0);
+    await source(page).locator('[data-label]').filter({ hasText: '彈出視窗' }).first().click();
+    await page.getByTestId('se-block-panel').getByRole('button', { name: '開啟編輯' }).click();
+    await expect(dlg).toBeVisible();
+    await page.keyboard.press('Control+Shift+KeyY');
+    await expect(status(page)).toContainText('已新增「手冊」');
+    expect(await inner()).toEqual(['描述文', '情報區塊', 'HO1']);
+    await page.getByRole('button', { name: '完成' }).click();
+    /* 彈出視窗本身沒有被改掉 */
+    await expect(stage(page).locator('button.pop-btn')).toHaveCount(1);
+    await expect(stage(page).locator('.t-info, .t-handout, .t-proc')).toHaveCount(1);
+    expect(errors).toEqual([]);
+  });
+
+  test('欄位還是錯的時候，狀態列的錯誤不被「已自動儲存」蓋掉（7.3、F253、F255）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const panel = page.getByTestId('se-block-panel');
+    await page.keyboard.press('Control+Shift+KeyY');
+    await expect(rowText(page, '手冊 HO1')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(panel).toContainText('目前：手冊');
+    /* 改了題名之後 0.7 秒內打錯編號 */
+    await panel.getByLabel('題名').fill('常客');
+    const no = panel.getByTestId('se-ho-no');
+    await no.fill('page');
+    await expect(status(page)).toContainText('名稱只能用英數字');
+    await page.waitForTimeout(1500);
+    await expect(status(page)).toContainText('名稱只能用英數字');
+    await expect(stage(page).locator('.t-handout .ho-t')).toHaveText('常客');
+    /* 改對之後照常 */
+    await no.fill('PC1');
+    await expect(stage(page).locator('.t-handout .ho-n')).toHaveText('PC1');
+    await expect(status(page)).toContainText('已自動儲存', { timeout: 3000 });
+    /* 變數的名稱：不合規則的名稱離開欄位後，錯誤一直在 */
+    await page.getByRole('tab', { name: '文件' }).click();
+    await page.getByRole('button', { name: '新增變數' }).click();
+    await expect(page.getByLabel('變數 1 的名稱')).toBeFocused();
+    await page.keyboard.type('total');
+    await page.keyboard.press('Tab');
+    await expect(status(page)).toContainText('名稱只能用英數字');
+    await page.waitForTimeout(1500);
+    await expect(status(page)).toContainText('名稱只能用英數字');
+    /* 改對之後照常 */
+    await page.getByLabel('變數 1 的名稱').fill('KP');
+    await expect(status(page)).toContainText('已自動儲存', { timeout: 3000 });
+    expect(errors).toEqual([]);
+  });
+
   test('390 寬沒有橫向捲動', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await open(page);

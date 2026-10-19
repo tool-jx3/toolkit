@@ -2,7 +2,7 @@
  * 設定欄的「段落」分頁：選取資訊（F081）、各書式的設定（1.6）、共通設定（1.5）、所在儲存格（F080）。
  */
 import { Eye } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
   Button,
   Checkbox,
@@ -42,7 +42,17 @@ import type { Block, BoxStyle, BoxTemplate } from '../model/types';
 import { ensureHo, hoOf, isVarName } from '../model/vars';
 import { deleteComments, indentSel, renamePopup, setGap, setSpan, toggleClear } from '../ops';
 import { rememberTemplates } from '../session';
-import { doc, edit, editBlock, say, setUi, useDoc, useUi } from '../store';
+import {
+  doc,
+  edit,
+  editBlock,
+  holdStatus,
+  releaseStatus,
+  say,
+  setUi,
+  useDoc,
+  useUi,
+} from '../store';
 import { S } from '../strings';
 import {
   addCommentToSelection,
@@ -414,6 +424,9 @@ function HandoutProps({ b }: { b: Block }) {
   /* 打字中的編號（不符合規則、重複時不寫進原稿；離開欄位時回到原稿的編號） */
   const [draft, setDraft] = useState<string | null>(null);
   const [err, setErr] = useState('');
+  /* 欄位還錯著時，錯誤訊息不被自動儲存的訊息蓋掉（7.3） */
+  const holdKey = `ho-no:${b.id}`;
+  useEffect(() => () => releaseStatus(holdKey), [holdKey]);
   const onNo = (v: string) => {
     setDraft(v);
     const nv = v.trim();
@@ -425,9 +438,10 @@ function HandoutProps({ b }: { b: Block }) {
       why = S.handout.noDup;
     setErr(why);
     if (why) {
-      say(why, 'err');
+      holdStatus(holdKey, why);
       return;
     }
+    releaseStatus(holdKey);
     if (nv !== h.no)
       editBlock(b.id, (x) => {
         ensureHo(x).no = nv;
@@ -444,6 +458,7 @@ function HandoutProps({ b }: { b: Block }) {
           onBlur={() => {
             setDraft(null);
             setErr('');
+            releaseStatus(holdKey);
           }}
         />
       </Field>

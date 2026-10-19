@@ -44,7 +44,7 @@ import {
 import { blankDoc, DOC_FILE_VERSION, looksLikeDoc, normalizeDoc, UNTITLED } from './model/doc';
 import { bxTplClean, mergeTemplates } from './model/proc';
 import type { BoxTemplate, Doc } from './model/types';
-import { doc, edit, say, setUi, TOOL_ID, ui, useDoc } from './store';
+import { doc, edit, say, setUi, statusHeld, TOOL_ID, ui, useDoc } from './store';
 import { S } from './strings';
 
 export interface SessionState {
@@ -135,6 +135,8 @@ function schedule(): void {
 }
 
 function savedMessage(): void {
+  /* 欄位還錯著時的錯誤訊息不蓋掉（7.3） */
+  if (statusHeld()) return;
   const u = ses().unsaved;
   say(u ? S.status.savedUnsaved : S.status.saved, u ? 'warn' : 'ok');
 }

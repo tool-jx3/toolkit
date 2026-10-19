@@ -83,7 +83,8 @@ export interface UiState {
   preview: string | null;
   output: OutputKind | null;
   libraryOpen: boolean;
-  status: { text: string; tone: StatusTone; at: number } | null;
+  /** hold：欄位還錯著時的錯誤（自動儲存的訊息不蓋掉它；7.3） */
+  status: { text: string; tone: StatusTone; at: number; hold?: string } | null;
   view: 'all' | 'pages';
   zoom: number;
   /** 頁面分頁勾選的頁（0 起算） */
@@ -142,6 +143,23 @@ const next = () => ++seq;
 export function say(text: string, tone: StatusTone = 'ok'): void {
   useUi.setState({ status: { text, tone, at: Date.now() } });
 }
+
+/**
+ * 欄位還是錯的時候的錯誤訊息（例如手冊的編號、變數的名稱）：自動儲存的「已自動儲存」不蓋掉它，
+ * 其他操作的訊息照常取代。key 是哪一個欄位；欄位改對、離開或不見時呼叫 releaseStatus（7.3）。
+ */
+export function holdStatus(key: string, text: string): void {
+  useUi.setState({ status: { text, tone: 'err', at: Date.now(), hold: key } });
+}
+
+/** 放開 holdStatus（訊息留著，之後的自動儲存可以蓋掉它） */
+export function releaseStatus(key: string): void {
+  const s = ui().status;
+  if (s?.hold === key) useUi.setState({ status: { text: s.text, tone: s.tone, at: s.at } });
+}
+
+/** 狀態列正顯示著欄位的錯誤（自動儲存的訊息不要蓋掉） */
+export const statusHeld = (): boolean => !!ui().status?.hold;
 
 /** 選取段落（紙面捲過去並閃一下） */
 export function select(

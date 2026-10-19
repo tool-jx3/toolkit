@@ -16,7 +16,7 @@ import { findBlock } from '../model/blocks';
 import { imagePos, setImagePos, snapImage } from '../model/image';
 import type { Block, ImagePos } from '../model/types';
 import { reselectImages } from '../ops';
-import { edit, editBlock, say, useUi } from '../store';
+import { edit, editBlock, say, setUi, ui, useUi } from '../store';
 import { PreviewButton } from './BlockPanel';
 
 export function ImageProps({ b }: { b: Block }) {
@@ -29,7 +29,10 @@ export function ImageProps({ b }: { b: Block }) {
     s.focusReq?.id === b.id && s.focusReq.field === 'cap' ? s.focusReq : null,
   );
   useEffect(() => {
-    if (focusReq) cap.current?.focus();
+    if (!focusReq || !cap.current) return;
+    cap.current.focus();
+    /* 用過就清掉（設定欄重新畫出時不再搶焦點） */
+    if (ui().focusReq === focusReq) setUi({ focusReq: null });
   }, [focusReq]);
   const w = Math.max(1, Math.min(100, +(b.w ?? 0) || (free ? 40 : 70)));
   const setPos = (v: ImagePos) => {
