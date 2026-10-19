@@ -17,6 +17,7 @@ import { create } from 'zustand';
 import { useAssetImage } from '@/core/assets';
 import { uniformFrames } from '@/core/timeline';
 import {
+  cn,
   ExportPanel,
   type ExportPanelHandle,
   type ExportSettings,
@@ -319,7 +320,11 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
           aria-label={S.screenLabel}
           // biome-ignore lint/a11y/noNoninteractiveTabindex: 畫面可以用方向鍵移動照片、＋／－ 縮放
           tabIndex={0}
-          className="size-full touch-none outline-none focus-visible:[outline:calc(2px/var(--stage-scale,1))_solid_var(--focus)]"
+          className={cn(
+            'size-full outline-none focus-visible:[outline:calc(2px/var(--stage-scale,1))_solid_var(--focus)]',
+            /* 有照片時觸控留給拖曳與捏合；沒有照片時照常捲動頁面 */
+            s.photo && 'touch-none',
+          )}
           style={{ cursor: s.photo ? 'grab' : 'default' }}
           data-testid="vhs-screen"
           data-view={`${v.zoom.toFixed(4)},${v.x.toFixed(4)},${v.y.toFixed(4)}`}
