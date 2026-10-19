@@ -698,5 +698,8 @@ export function monogram(
   });
 }
 
-/** 字串的第一個字（機構名稱的標誌用；空白時「•」） */
-export const firstChar = (s: string): string => [...String(s ?? '').trim()][0] ?? '•';
+/** 字串的第一個字（機構名稱的標誌用；英文轉大寫，空白時「•」） */
+export const firstChar = (s: string): string => {
+  const ch = [...String(s ?? '').trim()][0];
+  return ch ? ([...ch.toUpperCase()][0] ?? ch) : '•';
+};

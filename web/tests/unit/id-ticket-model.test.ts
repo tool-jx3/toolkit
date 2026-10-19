@@ -11,6 +11,7 @@ import {
   code128Text,
   code128Widths,
 } from '@/tools/id-ticket/code128';
+import { firstChar } from '@/tools/id-ticket/kit';
 import {
   BLEED_U,
   CARD_U,
@@ -118,6 +119,13 @@ describe('文字', () => {
     expect(name && cleanValue(name, 'x'.repeat(50))).toHaveLength(20);
     expect(name && cleanValue(name, 12)).toBe('12');
     expect(name && cleanValue(name, null)).toBe('');
+  });
+
+  it('標誌字：機構名稱的第一個字、英文轉大寫；空白時「•」（F23）', () => {
+    expect(firstChar('acme biotech')).toBe('A');
+    expect(firstChar('  émile & co')).toBe('É');
+    expect(firstChar('辰星生技')).toBe('辰');
+    expect(firstChar('   ')).toBe('•');
   });
 });
 
