@@ -1476,6 +1476,8 @@ test.describe('分享連結與房間編號（2026-10，參考 Maptsukuri）', ()
     const errors2 = await openAt(other, url);
     await expect(lastToast(other)).toContainText('已開啟分享的地圖「洋館（地下室～2F）」');
     await expect(lastToast(other)).toContainText('復原');
+    /* 第一次打開這個工具（開頁的範本沒改過）：不確認 */
+    await expect(other.getByRole('alertdialog')).toHaveCount(0);
     expect(new globalThis.URL(other.url()).hash).toBe('');
     expect(noIds(await project(other))).toEqual(noIds(original));
     expect((await editorState(other)).playerView).toBe(false);

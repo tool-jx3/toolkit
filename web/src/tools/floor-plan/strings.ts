@@ -393,6 +393,12 @@ export const S = {
       `地圖太大，放不進連結（${n.toLocaleString('en-US')} 字，上限 ${max.toLocaleString('en-US')} 字）。請改用「專案 → 存成專案檔」。`,
     opened: (name: string) => `已開啟分享的地圖「${name}」`,
     openedPl: (name: string) => `已開啟分享的地圖「${name}」（PL 用）`,
+    /** 目前的地圖有內容時，打開連結前的確認（7.6） */
+    replaceTitle: '要用分享的地圖取代目前的地圖嗎？',
+    replaceText:
+      '目前的地圖會被換掉。取代之後可以用「復原」拿回來，但關掉頁面就拿不回來；要留著的話先按「取消」，用「專案 → 存成專案檔」存一份，再重新打開連結。',
+    replace: '取代',
+    keep: '取消',
     broken: '分享連結讀不出來。',
     brokenHint: '連結可能不完整（複製時少了一段）。地圖沒有改變。',
   },

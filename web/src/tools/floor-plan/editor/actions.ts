@@ -51,6 +51,7 @@ import {
   type Armed,
   currentFloor,
   setEditor,
+  starterProject,
   type ToolId,
   useEditor,
   usePrefs,
@@ -68,6 +69,11 @@ let viewFns: { fit: () => void; reset: () => void } | null = null;
 export function bindUi(t: Notify | null, c: Confirm | null): void {
   toastFn = t;
   confirmFn = c;
+}
+
+/** 共用的確認對話框（App 還沒設定時當成同意） */
+export function confirmUi(o: ConfirmOptions): Promise<boolean> {
+  return confirmFn ? confirmFn(o) : Promise.resolve(true);
 }
 
 export function bindView(v: { fit: () => void; reset: () => void } | null): void {
@@ -682,6 +688,26 @@ export function openProjectData(raw: unknown, source: OpenSource): OpenResult {
 }
 
 export { isLegacyMapFile };
+
+const withoutIds = (p: Project) => JSON.stringify(p, (k, v) => (k === 'id' ? undefined : v));
+
+/**
+ * 目前的地圖換掉也不會丟掉東西：每一層都是空的（新的空白地圖），或還是開頁時的範本、沒有改過（第一次打開這個工具）。
+ * 打開分享連結時這兩種不必確認（F217、D29）。
+ */
+export function isDisposableMap(p: Project = useProject.getState().data): boolean {
+  const empty = p.floors.every(
+    (f) =>
+      !f.rooms.length &&
+      !f.walls.length &&
+      !f.openings.length &&
+      !f.items.length &&
+      !f.texts.length,
+  );
+  if (empty) return true;
+  const starter = normalizeProject(starterProject(), isAsset);
+  return !!starter && withoutIds(normalizeProject(p, isAsset) ?? p) === withoutIds(starter);
+}
 
 /* ---------- 依序編號房間（F219） ---------- */
 

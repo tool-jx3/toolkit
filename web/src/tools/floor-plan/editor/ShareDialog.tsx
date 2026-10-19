@@ -6,6 +6,8 @@
 import { useMemo } from 'react';
 import { clearShareHash } from '@/core/share';
 import { Dialog, Field, Notice, Segmented, TextOutputPanel } from '@/ui';
+import { isAsset } from '../model/assets';
+import { normalizeProject } from '../model/normalize';
 import {
   encodeMapHash,
   mapShareUrl,
@@ -14,20 +16,34 @@ import {
   type ShareMode,
 } from '../model/share';
 import { S } from '../strings';
-import { notify, openProjectData } from './actions';
+import { confirmUi, isDisposableMap, notify, openProjectData } from './actions';
 import { setEditor, useEditor, usePrefs, useProject } from './store';
 
 /**
  * 網址 # 後面有分享的地圖時打開它（取代目前的地圖，可以復原）；讀不出來時通知錯誤、地圖不變。
- * 兩種情況都先把 # 從網址拿掉（重新整理不會再開一次）。沒有分享的地圖時 false。
+ * 目前的地圖有內容時先確認（取代／取消；7.6 的裁定）；空白地圖或沒改過的開頁範本直接打開。
+ * 不論結果都先把 # 從網址拿掉（重新整理不會再開一次）。打開了才 true。
  */
-export function openSharedFromHash(hash: string = location.hash): boolean {
+export async function openSharedFromHash(hash: string = location.hash): Promise<boolean> {
   const r = readMapHash(hash);
   if (r.kind === 'none') return false;
   clearShareHash();
-  if (r.kind === 'ok' && openProjectData(r.raw, r.pl ? 'link-pl' : 'link').ok) return true;
-  notify(S.share.broken, 'danger', { description: S.share.brokenHint });
-  return false;
+  if (r.kind !== 'ok' || !normalizeProject(r.raw, isAsset)) {
+    notify(S.share.broken, 'danger', { description: S.share.brokenHint });
+    return false;
+  }
+  if (
+    !isDisposableMap() &&
+    !(await confirmUi({
+      title: S.share.replaceTitle,
+      description: S.share.replaceText,
+      confirmLabel: S.share.replace,
+      cancelLabel: S.share.keep,
+      danger: true,
+    }))
+  )
+    return false;
+  return openProjectData(r.raw, r.pl ? 'link-pl' : 'link').ok;
 }
 
 const isMode = (v: unknown): v is ShareMode => v === 'pl' || v === 'full';
