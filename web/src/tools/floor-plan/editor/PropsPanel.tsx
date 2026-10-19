@@ -602,7 +602,6 @@ function TextProps({ t }: { t: TextLabel }) {
             { value: 'plain', label: S.props.textStyles.plain },
             { value: 'badge', label: S.props.textStyles.badge },
           ]}
-          data-testid="text-style"
         />
       </Field>
       <ColorRow

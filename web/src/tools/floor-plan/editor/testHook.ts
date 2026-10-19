@@ -6,6 +6,7 @@ import { isAsset } from '../model/assets';
 import { exportJobs, exportOptions } from '../model/exportPlan';
 import { floorBounds, sizeText, visibleFloor } from '../model/geometry';
 import { normalizeProject } from '../model/normalize';
+import { encodeMapHash, type ShareMode } from '../model/share';
 import { computeWalls } from '../model/walls';
 import { instantiateTemplate } from '../templates';
 import * as act from './actions';
@@ -35,6 +36,8 @@ export function installTestHook(): void {
       sizeText,
       exportLayout,
     },
+    /** 目前地圖的分享連結的 # 部分（F215） */
+    shareHash: (mode: ShareMode) => encodeMapHash(useProject.getState().data, mode).hash,
     /** 世界座標 → 頁面座標（點畫布用） */
     toClient: (x: number, y: number) => {
       const r = editor.canvas?.getBoundingClientRect();
