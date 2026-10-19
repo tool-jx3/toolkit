@@ -153,9 +153,15 @@ export const hasCompatNotes = (r: CompatReport | undefined): r is CompatReport =
   !!r && Object.values(compatCounts(r)).some((n) => n > 0);
 
 /**
+ * 疊在牆上的素材離牆線多遠還算在那條牆上（格）。原作放的時候會吸到牆線，但範本裡有偏 0.05 格的
+ * （v1.10／v1.13 的廢工廠）；牆線之間至少隔 0.5 格，取一半以內就不會選錯牆（對等驗證後放寬，規格 7.4）。
+ */
+export const OVERLAY_REACH = 0.25;
+
+/**
  * 疊在牆上的牆洞、崩塌 → 那條牆上的「牆上的破洞」。
- * 長邊的中心線要剛好在一條牆線上（原作放的時候會吸到牆線）；取中間一段、對齊 0.25 格，超出牆段的部分切掉。
- * 不在牆線上、切完不到 0.5 格、和既有的門窗重疊時 null（當作本工具沒有的家具略過）。
+ * 長邊的中心線離牆線 OVERLAY_REACH 格以內時算在那條牆上（有好幾條時取最近的）；取中間一段、對齊 0.25 格，
+ * 超出牆段的部分切掉。附近沒有牆、切完不到 0.5 格、和既有的門窗重疊時 null（當作本工具沒有的家具略過）。
  */
 export function overlayToHole(
   item: { t: string; x: number; y: number; w: number; h: number; gm?: boolean },
@@ -171,12 +177,16 @@ export function overlayToHole(
   const size = Math.max(0.5, keep(len));
   const a = snap(start + (len - size) / 2, 0.25);
   const b = snap(start + (len + size) / 2, 0.25);
-  let best: { c: number; s: number; e: number } | null = null;
+  /* 最近的牆線；同一條線上有好幾段（種類不同、被隔開）時取重疊最長的 */
+  let best: { d: number; c: number; s: number; e: number } | null = null;
   for (const r of lines) {
-    if (r.o !== o || Math.abs(r.c - line) > 0.01) continue;
+    const d = Math.abs(r.c - line);
+    if (r.o !== o || d > OVERLAY_REACH + 1e-6) continue;
     const s = Math.max(a, r.a);
     const e = Math.min(b, r.b);
-    if (e - s > (best ? best.e - best.s : 0)) best = { c: r.c, s, e };
+    if (e - s <= 1e-6) continue;
+    if (!best || d < best.d - 1e-6 || (d < best.d + 1e-6 && e - s > best.e - best.s))
+      best = { d, c: r.c, s, e };
   }
   if (!best || best.e - best.s < 0.5 - 1e-6) return null;
   const { c, s, e } = best;

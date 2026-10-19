@@ -341,6 +341,74 @@ describe('開口、牆洞（D23）', () => {
   });
 });
 
+describe('疊在牆上的素材離牆線多遠還算在牆上（D23，對等驗證 7.4 後改）', () => {
+  /* 一間 10×6 的房間（外牆）＋房間裡 y＝2.5 的手畫內牆；疊在牆上的牆洞（2×1）長邊的中心線離牆線 d 格 */
+  const file = (items: Record<string, unknown>[]) => ({
+    app: 'indoor-map-maker',
+    v: 1,
+    tool: 'v1.13',
+    name: '離牆線',
+    floors: [
+      {
+        id: 'f',
+        name: '1F',
+        rooms: [{ id: 'r', x: 0, y: 0, w: 10, h: 6, name: '房', cat: 'living' }],
+        walls: [{ id: 'w', x1: 0, y1: 2.5, x2: 10, y2: 2.5, kind: 'int' }],
+        openings: [],
+        items,
+        texts: [],
+      },
+    ],
+  });
+  const hole = (id: string, x: number, center: number) => ({
+    id,
+    t: 'wall_hole',
+    x,
+    y: center - 0.5,
+    w: 2,
+    h: 1,
+    rot: 0,
+  });
+
+  it('離牆線 0.05 格、0.2 格：換成那條牆上的破洞；0.3 格：略過', () => {
+    const { p, compat } = load(file([hole('a', 1, 0.05), hole('b', 4, -0.2), hole('c', 7, 0.3)]));
+    expect(p.floors[0].openings.map(({ id: _id, ...o }) => o)).toEqual([
+      { kind: 'hole', o: 'h', x: 1.5, y: 0, len: 1, side: 1, hinge: 0 },
+      { kind: 'hole', o: 'h', x: 4.5, y: 0, len: 1, side: 1, hinge: 0 },
+    ]);
+    expect(conv(compat, 'overlay')).toEqual({ wall_hole: ['hole', 2] });
+    expect(compat.droppedItems).toEqual([{ t: 'wall_hole', n: 1 }]);
+  });
+
+  it('兩條牆線都在 0.25 格以內時取最近的那條', () => {
+    /* 另一道手畫牆在 y＝2.75：中心 2.6 離 2.5 比較近、2.7 離 2.75 比較近 */
+    const raw = file([hole('a', 1, 2.6), hole('b', 6, 2.7)]);
+    (raw.floors[0].walls as unknown[]).push({ id: 'w2', x1: 0, y1: 2.75, x2: 10, y2: 2.75 });
+    const { p } = load(raw);
+    expect(p.floors[0].openings.map((o) => [o.x, o.y])).toEqual([
+      [1.5, 2.5],
+      [6.5, 2.75],
+    ]);
+  });
+
+  it('放寬之後，和既有的門窗重疊時照樣略過', () => {
+    const raw = file([hole('a', 1, 0.05)]);
+    (raw.floors[0].openings as unknown[]).push({
+      id: 'd',
+      kind: 'door',
+      o: 'h',
+      x: 2,
+      y: 0,
+      len: 1.5,
+      side: 1,
+      hinge: 0,
+    });
+    const { p, compat } = load(raw);
+    expect(p.floors[0].openings.map((o) => o.id)).toEqual(['d']);
+    expect(compat.droppedItems).toEqual([{ t: 'wall_hole', n: 1 }]);
+  });
+});
+
 describe('略過的設定與家具（D24）', () => {
   it('每間房的牆種類（室內）、顯示內部、棋子方格各自計數；家具依代號計數', () => {
     const { p, report, compat } = load(v113());
