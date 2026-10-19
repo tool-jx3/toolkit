@@ -3,7 +3,7 @@
  * 座標是設計單位（1 mm＝5.5），原點在成品的左上角；背景畫到出血（−11～成品＋11）。
  */
 import { onColor, tint } from '../colors';
-import { barcode, type DrawEnv, field, line, text } from '../kit';
+import { barcode, type DrawEnv, field, line, qr, text } from '../kit';
 import type { IdTemplate } from '../templates';
 
 export interface IdEnv extends DrawEnv {
@@ -215,4 +215,10 @@ export function guilloche(
     ctx.stroke();
   }
   ctx.restore();
+}
+
+/** 範本的 QR code：框的邊長與白邊照範本的設定（`tpl.qr`；沒有 QR code 的範本不畫） */
+export function cardQr(e: IdEnv, x: number, y: number, radius?: number): void {
+  const box = e.tpl.qr;
+  if (box) qr(e, e.qrContent, x, y, box.size, { radius, pad: box.pad });
 }

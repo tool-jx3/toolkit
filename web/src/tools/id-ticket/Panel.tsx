@@ -53,7 +53,7 @@ import {
   receiptTotals,
   TICKET_ZOOM_MAX,
 } from './model';
-import { autoGradient, thumbFontUses } from './render';
+import { autoGradient, qrDensity, thumbFontUses } from './render';
 import {
   addItem,
   assets,
@@ -94,6 +94,7 @@ import {
   ID_TEMPLATES,
   type IdTemplateId,
   idTemplate,
+  QR_KEY,
   RECEIPT_CAPTIONS,
   RECEIPT_ITEM_MAX,
   TICKET_TEMPLATES,
@@ -299,8 +300,16 @@ export function PhotoSection() {
 
 const NONE = '__none__';
 
+/** QR code 內容太長、太密時的提醒（門檻見 render 的 QR_MIN_MODULE_*） */
+function qrDenseText(f: FieldDef, data: Parameters<typeof qrDensity>[0]): string {
+  if (f.key !== QR_KEY) return '';
+  const d = qrDensity(data);
+  return d?.dense ? S.qrDense(d.module, d.unit) : '';
+}
+
 function FieldControl({ f }: { f: FieldDef }) {
   const value = useDoc((s) => fieldValue(f.key, s.data));
+  const dense = useDoc((s) => qrDenseText(f, s.data));
   const suffix = f.gen ? (
     <IconButton
       size="sm"
@@ -314,7 +323,18 @@ function FieldControl({ f }: { f: FieldDef }) {
   return (
     <Field
       label={f.label}
-      hint={f.hint}
+      hint={
+        dense ? (
+          <>
+            {f.hint}
+            <span className="mt-1 block text-warning" data-testid="qr-dense">
+              {dense}
+            </span>
+          </>
+        ) : (
+          f.hint
+        )
+      }
       labelSuffix={suffix}
       className={f.half ? '' : 'col-span-2'}
     >

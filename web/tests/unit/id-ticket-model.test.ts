@@ -33,6 +33,7 @@ import {
   ticketFileName,
 } from '@/tools/id-ticket/model';
 import { qrMatrix } from '@/tools/id-ticket/qr';
+import { QR_MIN_MODULE_MM, QR_MIN_MODULE_PX, qrDensity } from '@/tools/id-ticket/render';
 import {
   ID_DEFAULTS,
   ID_TEMPLATES,
@@ -78,7 +79,7 @@ describe('範本', () => {
         if (f.options && ID_DEFAULTS[f.key]) expect(f.options).toContain(ID_DEFAULTS[f.key]);
       }
       expect(t.fields.find((f) => f.key === t.codeKey)?.gen, t.id).toBeTruthy();
-      expect(t.fields.some((f) => f.key === 'qr')).toBe(t.hasQr);
+      expect(t.fields.some((f) => f.key === 'qr')).toBe(!!t.qr);
     }
   });
 
@@ -377,5 +378,44 @@ describe('QR code', () => {
     expect(m?.size).toBe(q.getModuleCount());
     expect(qrMatrix('x'.repeat(5000))).toBeNull();
     expect(qrMatrix('')).toBeNull();
+  });
+});
+
+describe('QR code 太密的提醒', () => {
+  const URL = 'https://example.com/clue/03';
+  const LONG = '霧港市碼頭街十三號的燈塔'.repeat(25);
+
+  it('證件：以印出來每格幾 mm 判斷（< 0.3 mm 提醒）；偵探執照沒有 QR code', () => {
+    expect(QR_MIN_MODULE_MM).toBe(0.3);
+    for (const t of ID_TEMPLATES) {
+      const s = { ...initialState(), idTemplate: t.id };
+      const d = qrDensity(s);
+      if (!t.qr) {
+        expect(d).toBeNull();
+        continue;
+      }
+      expect(d).toMatchObject({ unit: 'mm', dense: false });
+      /* 預設（編號）：21 格；每格＝(框 − 留白 × 2) ÷ 5.5 ÷ 格數 */
+      expect(d?.modules).toBe(21);
+      expect(d?.module).toBeCloseTo((t.qr.size - t.qr.pad * 2) / 5.5 / 21, 6);
+      expect(qrDensity({ ...s, idValues: { ...s.idValues, qr: URL } })?.dense).toBe(false);
+      const long = qrDensity({ ...s, idValues: { ...s.idValues, qr: LONG } });
+      expect(long?.dense).toBe(true);
+      expect(long?.module).toBeLessThan(0.15);
+    }
+  });
+
+  it('票券：只有高鐵風格有 QR code，以 1 倍時每格幾 px 判斷（< 2 px 提醒）', () => {
+    expect(QR_MIN_MODULE_PX).toBe(2);
+    const s = { ...initialState(), kind: 'ticket' as const };
+    expect(qrDensity({ ...s, ticketTemplate: 'movie' })).toBeNull();
+    const hsr = { ...s, ticketTemplate: 'hsr' as const };
+    expect(qrDensity(hsr)).toMatchObject({ unit: 'px', dense: false });
+    const v = (qr: string) => ({
+      ...hsr,
+      ticketValues: { ...hsr.ticketValues, hsr: { ...hsr.ticketValues.hsr, qr } },
+    });
+    expect(qrDensity(v(URL))?.dense).toBe(false);
+    expect(qrDensity(v(LONG))?.dense).toBe(true);
   });
 });

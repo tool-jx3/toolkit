@@ -286,6 +286,16 @@ test('證件欄位：打字更新預覽、姓名在各款共用；下拉選單�
   await fieldInput(page, 'name').blur();
   await settle(page);
   expect((await state(page)).idValues.name).toHaveLength(20);
+  /* QR code 內容太長（印出來每格不到 0.3 mm）時提醒；網址不提醒 */
+  const dense = page.getByTestId('qr-dense');
+  await expect(dense).toHaveCount(0);
+  await fieldInput(page, 'qr').fill('霧港市碼頭街十三號的燈塔'.repeat(25));
+  await expect(dense).toContainText('內容太長');
+  await expect(dense).toContainText('mm');
+  await expect(fieldInput(page, 'qr')).toHaveAttribute('aria-describedby', /.+/);
+  await fieldInput(page, 'qr').fill('https://example.com/clue/03');
+  await expect(dense).toHaveCount(0);
+  await fieldInput(page, 'qr').blur();
   expect(errors).toEqual([]);
 });
 

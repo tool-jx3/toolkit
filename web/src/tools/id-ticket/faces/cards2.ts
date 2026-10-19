@@ -11,7 +11,6 @@ import {
   line,
   paragraph,
   photo,
-  qr,
   stamp,
   starPath,
   strokeRRect,
@@ -21,6 +20,7 @@ import {
   band,
   cap,
   cardBarcode,
+  cardQr,
   fillBleed,
   guilloche,
   type IdEnv,
@@ -192,7 +192,7 @@ export const police: IdFaces = {
     );
     const qx = W - S - 92;
     strokeRRect(ctx, qx - 0.5, 27.5, 93, 93, 6, t.ln, 1);
-    qr(e, e.qrContent, qx, 28, 92, { radius: 6, pad: 6 });
+    cardQr(e, qx, 28, 6);
     cap(e, '持證人簽名 SIGNATURE', qx - 100, 150, t.mu);
     line(ctx, qx - 100, 182, W - S, 182, alpha(t.fg, 0.5), 0.8);
     cardBarcode(e, qx - 106, 196, W - S - qx + 106, 26, t.fg);
@@ -378,7 +378,7 @@ export const member: IdFaces = {
       spacing: 1.2,
       maxWidth: 250,
     });
-    qr(e, e.qrContent, W - S - 96, 152, 96, { radius: 8, pad: 7 });
+    cardQr(e, W - S - 96, 152, 8);
     field(e, 'mem_store', W - S - 48, 268, {
       font: 'serif',
       size: 9,

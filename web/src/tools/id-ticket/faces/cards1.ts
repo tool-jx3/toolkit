@@ -14,7 +14,6 @@ import {
   monogram,
   paragraph,
   photo,
-  qr,
   region,
   stamp,
   strokeRRect,
@@ -24,6 +23,7 @@ import {
   band,
   cap,
   cardBarcode,
+  cardQr,
   fillBleed,
   type IdEnv,
   type IdFaces,
@@ -207,7 +207,7 @@ export const employee: IdFaces = {
       { mu: t.mu, fg: t.fg, ln: t.ln },
     );
     strokeRRect(ctx, S - 0.5, 299.5, 69, 69, 7, t.ln, 1);
-    qr(e, e.qrContent, S, 300, 68, { radius: 6, pad: 5 });
+    cardQr(e, S, 300, 6);
     const rx = S + 82;
     cap(e, '拾獲請送交', rx, 318, t.mu);
     field(e, 'emp_org', rx, 334, {
@@ -391,7 +391,7 @@ export const highschool: IdFaces = {
     );
     cardBarcode(e, S - 6, 400, 178, 30, t.fg);
     strokeRRect(ctx, W - S - 64.5, 381.5, 65, 65, 6, t.ln, 1);
-    qr(e, e.qrContent, W - S - 64, 382, 64, { radius: 6, pad: 5 });
+    cardQr(e, W - S - 64, 382, 6);
     band(e, H - 10, H, c);
   },
 };
@@ -585,7 +585,7 @@ export const university: IdFaces = {
     /* 簽名欄 */
     cap(e, '持證人簽名 SIGNATURE', S, 300, u.mu, { size: 5.8 });
     fillRRect(ctx, S, 306, W - S * 2, 26, 2, dk ? alpha('#ffffff', 0.06) : alpha(c, 0.1));
-    qr(e, e.qrContent, S, 352, 64, { pad: 5 });
+    cardQr(e, S, 352);
     const rx = S + 76;
     cardBarcode(e, rx - 4, 372, W - S - rx + 4, 26, u.fg);
     field(e, 'uni_no', rx, 410, {
@@ -742,7 +742,7 @@ export const press: IdFaces = {
       { mu: t.mu, fg: t.fg, ln: t.ln },
     );
     strokeRRect(ctx, S - 0.5, 315.5, 73, 73, 7, t.ln, 1);
-    qr(e, e.qrContent, S, 316, 72, { radius: 6, pad: 5 });
+    cardQr(e, S, 316, 6);
     const rx = S + 86;
     cap(e, '如拾獲請寄回', rx, 334, t.mu);
     field(e, 'press_org', rx, 350, { size: 11, weight: 900, color: t.fg, maxWidth: W - S - rx });

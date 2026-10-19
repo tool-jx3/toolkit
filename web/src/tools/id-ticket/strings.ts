@@ -55,6 +55,11 @@ export const S = {
   regenerateAll: '重新產生所有編號',
   regenerateAllHint: '票號、條碼號碼等有「重新產生」的欄位一次換掉。',
   selectEmpty: '（不填）',
+  /** QR code 太密（證件：印出來每格的 mm；票券：1 倍時每格的 px） */
+  qrDense: (module: number, unit: 'mm' | 'px') =>
+    unit === 'mm'
+      ? `內容太長：QR code 每格只有約 ${module.toFixed(2)} mm，印出來可能掃不到，建議放網址或短句。`
+      : `內容太長：QR code 在 1 倍時每格只有約 ${module.toFixed(1)} px，可能掃不到，建議放網址或短句。`,
   captionsToggle: '改票上的欄位名稱',
   captionLabel: (label: string) => `「${label}」的名稱`,
   captionReset: '還原名稱',

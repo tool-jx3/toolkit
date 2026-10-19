@@ -23,7 +23,9 @@ import {
   receiptTotals,
   SAFE_U,
   type Side,
+  UNITS_PER_MM,
 } from './model';
+import { qrMatrix } from './qr';
 import {
   ID_TEMPLATES,
   type IdTemplate,
@@ -212,6 +214,41 @@ export function ticketStageSize(s: IdTicketState, mat: boolean) {
 export function ticketQrContent(s: IdTicketState, tpl: TicketTemplate): string {
   const v = s.ticketValues[tpl.id] ?? {};
   return (v[QR_KEY] ?? '').trim() || (v[tpl.codeKey] ?? '').trim() || 'TICKET';
+}
+
+/** 證件印出來 QR code 每格至少幾 mm（再小手機多半掃不到） */
+export const QR_MIN_MODULE_MM = 0.3;
+/** 票券 1 倍時 QR code 每格至少幾 px */
+export const QR_MIN_MODULE_PX = 2;
+
+export interface QrDensity {
+  /** 一邊幾格 */
+  modules: number;
+  /** 每格多大：證件是印出來的 mm，票券是 1 倍時的 px */
+  module: number;
+  unit: 'mm' | 'px';
+  /** 太密（可能掃不到） */
+  dense: boolean;
+}
+
+/** 目前這一款的 QR code 有多密；沒有 QR code 的範本 null */
+export function qrDensity(s: IdTicketState): QrDensity | null {
+  const id = s.kind === 'id';
+  const tpl = id ? idTemplate(s.idTemplate) : ticketTemplate(s.ticketTemplate);
+  if (!tpl.qr) return null;
+  const content = id
+    ? idQrContent(s, tpl as IdTemplate)
+    : ticketQrContent(s, tpl as TicketTemplate);
+  const m = qrMatrix(content);
+  if (!m) return null;
+  const inner = (tpl.qr.size - tpl.qr.pad * 2) / m.size;
+  const module = id ? inner / UNITS_PER_MM : inner;
+  return {
+    modules: m.size,
+    module,
+    unit: id ? 'mm' : 'px',
+    dense: module < (id ? QR_MIN_MODULE_MM : QR_MIN_MODULE_PX),
+  };
 }
 
 /** 在 ctx 目前的變換下（原點＝票的左上角、單位＝票券單位）畫票；回傳可以點的範圍 */

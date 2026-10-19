@@ -38,6 +38,12 @@ export const FIELD_MAX = 40;
 export const QR_KEY = 'qr';
 export const QR_MAX = 300;
 
+/** QR code 的框：邊長、四周的白邊（設計單位／票券單位）；QR code 畫在框裡、白邊以內 */
+export interface QrBox {
+  size: number;
+  pad: number;
+}
+
 const qrField = (hint: string): FieldDef => ({
   key: QR_KEY,
   label: 'QR code 內容',
@@ -79,8 +85,8 @@ export interface IdTemplate {
   codeKey: string;
   /** 編號空白時 QR code 用的文字 */
   qrFallback: string;
-  /** 有沒有 QR code、條碼（1920 年代的偵探執照都沒有） */
-  hasQr: boolean;
+  /** QR code 的框（1920 年代的偵探執照沒有）；有沒有條碼（偵探執照沒有） */
+  qr: QrBox | null;
   hasBarcode: boolean;
   /** 照片格的大小（設計單位；調整範圍的對話框用它的比例）；circle＝圓形照片 */
   photo: { w: number; h: number; circle?: boolean };
@@ -100,7 +106,7 @@ export const ID_TEMPLATES: readonly IdTemplate[] = [
     codeKey: 'emp_no',
     photo: { w: 116, h: 150 },
     qrFallback: 'EMPLOYEE',
-    hasQr: true,
+    qr: { size: 68, pad: 5 },
     hasBarcode: true,
     fields: [
       { key: 'emp_org', label: '公司名稱', max: 24 },
@@ -130,7 +136,7 @@ export const ID_TEMPLATES: readonly IdTemplate[] = [
     codeKey: 'hi_no',
     photo: { w: 104, h: 136 },
     qrFallback: 'STUDENT',
-    hasQr: true,
+    qr: { size: 64, pad: 5 },
     hasBarcode: true,
     fields: [
       { key: 'hi_school', label: '學校名稱', max: 24 },
@@ -159,7 +165,7 @@ export const ID_TEMPLATES: readonly IdTemplate[] = [
     codeKey: 'uni_no',
     photo: { w: 96, h: 126 },
     qrFallback: 'STUDENT',
-    hasQr: true,
+    qr: { size: 64, pad: 5 },
     hasBarcode: true,
     fields: [
       { key: 'uni_name', label: '學校名稱', max: 20 },
@@ -195,7 +201,7 @@ export const ID_TEMPLATES: readonly IdTemplate[] = [
     codeKey: 'press_no',
     photo: { w: 110, h: 142 },
     qrFallback: 'PRESS',
-    hasQr: true,
+    qr: { size: 72, pad: 5 },
     hasBarcode: true,
     fields: [
       { key: 'press_org', label: '媒體名稱', max: 20 },
@@ -224,7 +230,7 @@ export const ID_TEMPLATES: readonly IdTemplate[] = [
     codeKey: 'pol_no',
     photo: { w: 102, h: 134 },
     qrFallback: 'DETECTIVE',
-    hasQr: true,
+    qr: { size: 92, pad: 6 },
     hasBarcode: true,
     fields: [
       { key: 'pol_unit', label: '單位', max: 20 },
@@ -253,7 +259,7 @@ export const ID_TEMPLATES: readonly IdTemplate[] = [
     codeKey: 'mem_no',
     photo: { w: 76, h: 76, circle: true },
     qrFallback: 'MEMBER',
-    hasQr: true,
+    qr: { size: 96, pad: 7 },
     hasBarcode: true,
     fields: [
       { key: 'mem_store', label: '店名', half: true, max: 16 },
@@ -282,7 +288,7 @@ export const ID_TEMPLATES: readonly IdTemplate[] = [
     codeKey: 'det_no',
     photo: { w: 100, h: 128 },
     qrFallback: '',
-    hasQr: false,
+    qr: null,
     hasBarcode: false,
     fields: [
       { key: 'det_agency', label: '發照機關', max: 20 },
@@ -398,8 +404,8 @@ export interface TicketTemplate {
   fields: readonly FieldDef[];
   /** 條碼（或 QR code）用的編號欄位 */
   codeKey: string;
-  /** 有 QR code（高鐵風格車票） */
-  hasQr: boolean;
+  /** QR code 的框（只有高鐵風格車票有） */
+  qr: QrBox | null;
   defaults: Readonly<Record<string, string>>;
 }
 
@@ -412,7 +418,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
     photo: true,
     photoAspect: 4 / 5,
     codeKey: 'mv_code',
-    hasQr: false,
+    qr: null,
     fields: [
       { key: 'mv_cinema', label: '戲院', half: true, max: 16 },
       { key: 'mv_no', label: '票號', half: true, gen: 'NO. ####', max: 16 },
@@ -456,7 +462,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
     photo: true,
     photoAspect: 3 / 4,
     codeKey: 'bp_seq',
-    hasQr: false,
+    qr: null,
     fields: [
       { key: 'bp_airline', label: '航空公司', half: true, max: 16 },
       { key: 'bp_class', label: '艙等', half: true, max: 10 },
@@ -502,7 +508,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
     photo: false,
     photoAspect: 1,
     codeKey: 'rl_no',
-    hasQr: false,
+    qr: null,
     fields: [
       { key: 'rl_company', label: '鐵路公司', half: true, max: 12 },
       { key: 'rl_kind', label: '票種', half: true, max: 8 },
@@ -548,7 +554,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
     photo: false,
     photoAspect: 1,
     codeKey: 'hsr_no',
-    hasQr: true,
+    qr: { size: 102, pad: 6 },
     fields: [
       { key: 'hsr_company', label: '營運公司', half: true, max: 12 },
       { key: 'hsr_kind', label: '票種', half: true, max: 8 },
@@ -594,7 +600,7 @@ export const TICKET_TEMPLATES: readonly TicketTemplate[] = [
     photo: true,
     photoAspect: 3 / 2,
     codeKey: 'rc_code',
-    hasQr: false,
+    qr: null,
     fields: [
       { key: 'rc_store', label: '店名', half: true, max: 12 },
       { key: 'rc_sub', label: '副標', half: true, max: 20 },

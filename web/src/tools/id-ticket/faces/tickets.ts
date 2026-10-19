@@ -737,7 +737,8 @@ function hsr(e: TicketEnv) {
   }
   /* QR code */
   strokeRRect(ctx, 471.5, 75.5, 103, 103, 6, p.line, 1);
-  qr(e, e.qrContent, 472, 76, 102, { radius: 6, pad: 6, dark: p.ink });
+  if (e.tpl.qr)
+    qr(e, e.qrContent, 472, 76, e.tpl.qr.size, { radius: 6, pad: e.tpl.qr.pad, dark: p.ink });
   field(e, 'hsr_no', 523, 194, {
     font: 'mono',
     size: 7,
