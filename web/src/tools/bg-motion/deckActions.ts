@@ -6,7 +6,7 @@ import { addImageFiles, splitImageFiles } from '@/core/assets';
 import { canvasToBlob } from '@/core/image';
 import { notify } from './actions';
 import { DECK_IMAGE_MAX_SIDE, fitFirstSize, LIMITS, newUid } from './deck';
-import { assets, deckNow, duplicateSlide, edit } from './deckStore';
+import { appendSlides, assets, deckNow, duplicateSlide, edit } from './deckStore';
 import { drawMiniScene, type MiniScene } from './sample';
 import { DECK } from './strings';
 
@@ -20,25 +20,7 @@ export async function addDeckImages(files: readonly File[]): Promise<number> {
   if (failed.length) notes.push(DECK.addFailed(failed.join('、')));
   const unsaved = loaded.some((l) => !l.persisted);
   if (unsaved) notes.push(DECK.imageNotSaved);
-  if (loaded.length) {
-    edit((d) => {
-      const wasEmpty = d.slides.length === 0;
-      for (const l of loaded) {
-        d.slides.push({
-          uid: newUid(),
-          image: l.ref,
-          hold: d.bulk.hold,
-          trans: d.bulk.trans,
-          dur: d.bulk.dur,
-        });
-      }
-      if (wasEmpty) {
-        const r = fitFirstSize(loaded[0].ref.width, loaded[0].ref.height);
-        d.width = r.width;
-        d.height = r.height;
-      }
-    });
-  }
+  appendSlides(loaded.map((l) => l.ref));
   if (loaded.length || notes.length) {
     notify({
       title: loaded.length ? DECK.added(loaded.length) : notes[0],

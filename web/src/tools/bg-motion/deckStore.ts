@@ -4,14 +4,16 @@
  *   拖曳排序放開才記一步）；
  * - 圖片原檔存在 IndexedDB 的圖片庫（core/assets），狀態只記圖片 id。
  */
-import { createAssetStore, referencedAssetIds } from '@/core/assets';
+import { type AssetImageRef, createAssetStore, referencedAssetIds } from '@/core/assets';
 import { createToolStore, historyGesture } from '@/core/storage';
 import {
   type DeckEdge,
   type DeckSlide,
   type DeckState,
   deckAssetIds,
+  fitFirstSize,
   initialDeck,
+  newUid,
   normalizeDeck,
 } from './deck';
 
@@ -48,6 +50,21 @@ export function edit(recipe: (d: DeckState) => void): void {
   });
 }
 
+/**
+ * 一個獨立的動作＝一步復原（加入、複製、移除、上移下移、全部套用、隨機分配、重新抽籤）：用手勢包起來，
+ * 不會和 0.4 秒內的前一個變更合併。已經在手勢裡（拖曳排序一整次、鍵盤 Alt＋↑／↓）時照原樣，
+ * 不提早結束外面的手勢。
+ */
+export function editStep(recipe: (d: DeckState) => void): void {
+  if (useDeck.inGesture()) {
+    edit(recipe);
+    return;
+  }
+  useDeck.beginGesture();
+  edit(recipe);
+  useDeck.endGesture();
+}
+
 /** 復原／重做（手勢中不做事） */
 export function historyStep(kind: 'undo' | 'redo'): void {
   if (useDeck.inGesture()) return;
@@ -81,25 +98,50 @@ export const patchSlide = (uid: string, patch: Partial<Omit<DeckSlide, 'uid' | '
 export function moveSlide(from: number, to: number): void {
   const n = deckNow().slides.length;
   if (from === to || from < 0 || to < 0 || from >= n || to >= n) return;
-  edit((d) => {
+  editStep((d) => {
     const [x] = d.slides.splice(from, 1);
     d.slides.splice(to, 0, x);
   });
 }
 
 export const removeSlide = (uid: string): void =>
-  edit((d) => {
+  editStep((d) => {
     const i = d.slides.findIndex((x) => x.uid === uid);
     if (i >= 0) d.slides.splice(i, 1);
   });
 
-export const duplicateSlide = (uid: string, newUid: string): void =>
-  edit((d) => {
+export const duplicateSlide = (uid: string, copyUid: string): void =>
+  editStep((d) => {
     const i = d.slides.findIndex((x) => x.uid === uid);
     if (i < 0) return;
     const s = d.slides[i];
-    d.slides.splice(i + 1, 0, { ...s, uid: newUid, image: { ...s.image } });
+    d.slides.splice(i + 1, 0, { ...s, uid: copyUid, image: { ...s.image } });
   });
+
+/**
+ * 把圖片接在清單最後面：帶入一次設定的秒數與效果；清單原本是空的時，輸出尺寸照第一張（F112、F123）。
+ * 一次加入多張算一步復原。
+ */
+export const appendSlides = (refs: readonly AssetImageRef[]): void => {
+  if (!refs.length) return;
+  editStep((d) => {
+    const wasEmpty = d.slides.length === 0;
+    for (const ref of refs) {
+      d.slides.push({
+        uid: newUid(),
+        image: { ...ref },
+        hold: d.bulk.hold,
+        trans: d.bulk.trans,
+        dur: d.bulk.dur,
+      });
+    }
+    if (wasEmpty) {
+      const r = fitFirstSize(refs[0].width, refs[0].height);
+      d.width = r.width;
+      d.height = r.height;
+    }
+  });
+};
 
 export const patchEdge = (which: 'intro' | 'outro', patch: Partial<DeckEdge>): void =>
   edit((d) => {
@@ -113,7 +155,7 @@ export const patchBulk = (patch: Partial<DeckState['bulk']>): void =>
 
 /** 全部套用：一次設定的三個值寫進每一張 */
 export const applyBulk = (): void =>
-  edit((d) => {
+  editStep((d) => {
     for (const s of d.slides) {
       s.hold = d.bulk.hold;
       s.trans = d.bulk.trans;
@@ -129,13 +171,13 @@ export const newSeed = (cur: number): number => {
 };
 
 export const rerollSeed = (): void =>
-  edit((d) => {
+  editStep((d) => {
     d.seed = newSeed(d.seed);
   });
 
 /** 隨機分配：每張的切換效果都設成「隨機」，並重新抽籤 */
 export const randomAssign = (): void =>
-  edit((d) => {
+  editStep((d) => {
     for (const s of d.slides) s.trans = 'random';
     d.seed = newSeed(d.seed);
   });

@@ -30,6 +30,9 @@ const ctxOf = (c: Canvas): Ctx2D => {
 };
 
 export class DeckPainter {
+  /** @param create 建立畫布的函式（預設 makeCanvas；單元測試換成假的） */
+  constructor(private readonly create: (w: number, h: number) => Canvas = makeCanvas) {}
+
   /** 每張圖放進畫面的結果（同一張圖、同一組尺寸與設定只畫一次） */
   private fits = new WeakMap<ImageBitmap, Map<string, Canvas>>();
   private blanks = new Map<string, Canvas>();
@@ -45,7 +48,7 @@ export class DeckPainter {
     let c = this.blanks.get(key);
     if (!c) {
       if (this.blanks.size > 8) this.blanks.clear();
-      c = makeCanvas(cw, ch);
+      c = this.create(cw, ch);
       if (!s.transparent) {
         const x = ctxOf(c);
         x.fillStyle = s.bg;
@@ -68,7 +71,7 @@ export class DeckPainter {
     let c = perImage.get(key);
     if (!c) {
       if (perImage.size > 6) perImage.clear();
-      c = makeCanvas(cw, ch);
+      c = this.create(cw, ch);
       const x = ctxOf(c);
       if (!s.transparent) {
         x.fillStyle = s.bg;
@@ -119,16 +122,18 @@ export class DeckPainter {
       return;
     }
     if (!this.scratch || this.scratch.width !== cw || this.scratch.height !== ch) {
-      this.scratch = makeCanvas(cw, ch);
+      this.scratch = this.create(cw, ch);
     }
     const sx = ctxOf(this.scratch);
+    /* 先判斷有沒有畫布濾鏡再寫 filter：在沒有 filter 屬性的環境上寫 `filter = 'none'` 會替物件加上同名自有屬性，判斷就永遠為真 */
+    const canFilter = supportsCanvasFilter(sx);
     sx.setTransform(1, 0, 0, 1, 0, 0);
     sx.globalAlpha = 1;
     sx.globalCompositeOperation = 'source-over';
-    sx.filter = 'none';
+    if (canFilter) sx.filter = 'none';
     sx.clearRect(0, 0, cw, ch);
     const p = easeAt(scene.easing, (t - seg.start) / seg.dur);
-    const ops = transitionOps(seg.kind ?? 'fade', p, W, H, supportsCanvasFilter(sx));
+    const ops = transitionOps(seg.kind ?? 'fade', p, W, H, canFilter);
     drawFx(sx, ops, pic(seg.i), pic(seg.j ?? -1), W, H);
     ctx.drawImage(this.scratch, 0, 0);
     ctx.restore();

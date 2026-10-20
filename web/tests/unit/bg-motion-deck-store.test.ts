@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { type DeckSlide, initialDeck, normalizeDeck } from '@/tools/bg-motion/deck';
 import {
+  appendSlides,
   applyBulk,
   deckNow,
   duplicateSlide,
@@ -150,21 +151,31 @@ describe('復原／重做（F136）', () => {
 describe('清單的動作各算一步復原（F136）：0.4 秒內連續做也不合併', () => {
   const steps = () => useDeck.temporal.getState().pastStates.length;
 
-  it('加入、複製、移除、上移下移、全部套用、隨機分配、重新抽籤：連續做各自一步', () => {
+  it('加入、複製、移除、上移下移、隨機分配、重新抽籤：連續做各自一步', () => {
     appendSlides([{ id: 'imgA', name: 'a.png', width: 100, height: 50 }]);
     appendSlides([{ id: 'imgB', name: 'b.png', width: 100, height: 50 }]);
     duplicateSlide('u1', 'copy1');
     removeSlide('u2');
     moveSlide(0, 1);
     moveSlide(1, 0);
-    applyBulk();
     randomAssign();
     rerollSeed();
-    expect(steps()).toBe(9);
+    expect(steps()).toBe(8);
     /* 一步一步復原回去 */
-    for (let i = 0; i < 9; i++) historyStep('undo');
+    for (let i = 0; i < 8; i++) historyStep('undo');
     expect(deckNow().slides.map((s) => s.uid)).toEqual(['u1', 'u2', 'u3']);
     expect(deckNow().seed).toBe(0);
+  });
+
+  it('全部套用：改一次設定之後馬上按，各自一步；沒有變化時不記', () => {
+    applyBulk();
+    expect(steps()).toBe(0);
+    patchBulk({ hold: 3 });
+    applyBulk();
+    expect(steps()).toBe(2);
+    historyStep('undo');
+    expect(deckNow().slides.map((s) => s.hold)).toEqual([1.5, 1.5, 1.5]);
+    expect(deckNow().bulk.hold).toBe(3);
   });
 
   it('加入：帶入一次設定；清單原本是空的時尺寸照第一張', () => {
