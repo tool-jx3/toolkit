@@ -179,6 +179,8 @@ async function seek(page: Page, t: number, mode: 'tape' | 'gif' = 'tape') {
     'data-frame',
     String(mode === 'tape' ? Math.floor(t * 24 + 1e-6) / 24 : Math.floor(t / 0.09 + 1e-6)),
   );
+  /* 剛操作過（拖曳、縮放）的 0.25 秒內預覽以顯示大小畫（7.1）；讀像素前等它畫回全尺寸 */
+  await expect(canvas(page)).toHaveAttribute('data-live', 'false');
 }
 
 async function loadPhoto(page: Page, buffer?: Buffer, name = 'photo.png') {
