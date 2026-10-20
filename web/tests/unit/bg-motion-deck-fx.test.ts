@@ -127,8 +127,18 @@ describe('放大、縮小（F147、F148）', () => {
       expect(b.add).toBe(true);
       const sa = 1 + 0.4 * p;
       const sb = 0.75 + 0.25 * p;
-      expect(rect(a)).toEqual({ x: W / 2 - (W * sa) / 2, y: H / 2 - (H * sa) / 2, w: W * sa, h: H * sa });
-      expect(rect(b)).toEqual({ x: W / 2 - (W * sb) / 2, y: H / 2 - (H * sb) / 2, w: W * sb, h: H * sb });
+      expect(rect(a)).toEqual({
+        x: W / 2 - (W * sa) / 2,
+        y: H / 2 - (H * sa) / 2,
+        w: W * sa,
+        h: H * sa,
+      });
+      expect(rect(b)).toEqual({
+        x: W / 2 - (W * sb) / 2,
+        y: H / 2 - (H * sb) / 2,
+        w: W * sb,
+        h: H * sb,
+      });
     }
   });
   it('縮小：A 倍率 1 − 0.3p；B 倍率 1.3 − 0.3p', () => {
@@ -255,9 +265,15 @@ describe('所有效果', () => {
     for (const kind of RANDOM_POOL) {
       const first = images(ops(kind, 0));
       expect(first.length, kind).toBeGreaterThan(0);
-      expect(first.some((o) => o.src === 'A' && o.alpha === 1), kind).toBe(true);
+      expect(
+        first.some((o) => o.src === 'A' && o.alpha === 1),
+        kind,
+      ).toBe(true);
       const last = images(ops(kind, 1));
-      expect(last.some((o) => o.src === 'B' && o.alpha === 1), `${kind} 結尾`).toBe(true);
+      expect(
+        last.some((o) => o.src === 'B' && o.alpha === 1),
+        `${kind} 結尾`,
+      ).toBe(true);
     }
   });
 

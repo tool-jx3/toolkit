@@ -220,7 +220,7 @@ export function createSampleCanvas(): HTMLCanvasElement {
 
 /* ---------- 效果卡片用的小風景 ---------- */
 
-export type MiniScene = 'day' | 'dusk' | 'night';
+export type MiniScene = 'day' | 'dusk' | 'night' | 'dawn';
 
 const MINI_COLORS: Record<
   MiniScene,
@@ -247,6 +247,13 @@ const MINI_COLORS: Record<
     near: '#171a3c',
     ground: '#0c0e24',
   },
+  dawn: {
+    sky: ['#e58aa6', '#ffe6bd'],
+    sun: '#fff7d6',
+    far: '#a9b58f',
+    near: '#74956b',
+    ground: '#55744f',
+  },
 };
 
 /** 小風景（任意尺寸）：天空、太陽或月亮、兩層山丘、一棟小屋 */
@@ -259,25 +266,40 @@ export function drawMiniScene(ctx: Ctx, w: number, h: number, kind: MiniScene): 
   ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = c.sun;
   ctx.beginPath();
-  ctx.arc(w * (kind === 'night' ? 0.25 : 0.72), h * 0.28, h * 0.11, 0, Math.PI * 2);
+  ctx.arc(
+    w * (kind === 'night' || kind === 'dawn' ? 0.25 : 0.72),
+    h * 0.28,
+    h * 0.11,
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
-  ridge(ctx, w, h * 0.66, h * 0.08, kind === 'day' ? 3 : kind === 'dusk' ? 5 : 7, c.far, h);
+  ridge(
+    ctx,
+    w,
+    h * 0.66,
+    h * 0.08,
+    kind === 'day' ? 3 : kind === 'dusk' ? 5 : kind === 'dawn' ? 4 : 7,
+    c.far,
+    h,
+  );
   ridge(ctx, w, h * 0.8, h * 0.06, 13, c.near, h);
   ctx.fillStyle = c.ground;
   ctx.fillRect(0, h * 0.9, w, h * 0.1);
   /* 小屋：屋身、屋頂、窗 */
   const hx = w * 0.42;
   const hy = h * 0.66;
-  ctx.fillStyle = kind === 'day' ? '#f2e6d0' : '#2a2238';
+  const bright = kind === 'day' || kind === 'dawn';
+  ctx.fillStyle = bright ? '#f2e6d0' : '#2a2238';
   ctx.fillRect(hx, hy, w * 0.12, h * 0.14);
-  ctx.fillStyle = kind === 'day' ? '#c0503c' : '#1a1428';
+  ctx.fillStyle = bright ? '#c0503c' : '#1a1428';
   ctx.beginPath();
   ctx.moveTo(hx - w * 0.015, hy);
   ctx.lineTo(hx + w * 0.06, hy - h * 0.09);
   ctx.lineTo(hx + w * 0.135, hy);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = kind === 'day' ? '#6b8fb5' : '#ffd27a';
+  ctx.fillStyle = bright ? '#6b8fb5' : '#ffd27a';
   ctx.fillRect(hx + w * 0.045, hy + h * 0.04, w * 0.03, h * 0.05);
 }
 

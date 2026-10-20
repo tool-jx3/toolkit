@@ -66,7 +66,8 @@ type TimelineInput = Pick<DeckState, 'intro' | 'outro' | 'loopBack' | 'seed'> & 
 };
 
 /** 有切換：效果不是「不切換」而且秒數 > 0 */
-export const edgeOn = (e: Pick<DeckEdge, 'trans' | 'dur'>): boolean => e.trans !== 'cut' && e.dur > 0;
+export const edgeOn = (e: Pick<DeckEdge, 'trans' | 'dur'>): boolean =>
+  e.trans !== 'cut' && e.dur > 0;
 
 /** 排出整段動畫的段（起點用逐段累加，和 findSeg 比的是同一個數字） */
 export function buildTimeline(d: TimelineInput): DeckTimeline {

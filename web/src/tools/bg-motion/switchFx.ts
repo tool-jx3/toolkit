@@ -5,8 +5,9 @@
  *
  * A＝切換前的畫面（舊圖）、B＝切換後的畫面（新圖），兩者都是整張輸出畫面（已含背景）；「相加」＝把這一層以相加的方式疊上去。
  */
-import type { Ctx2D } from '@/core/motion';
+
 import { makeCanvas } from '@/core/image';
+import type { Ctx2D } from '@/core/motion';
 import type { TransKind } from './deck';
 
 export interface Rect {
@@ -235,7 +236,16 @@ export function drawFx(
       } else {
         const c = op.clip.circle;
         if (kx === ky) ctx.arc(c.x * kx, c.y * ky, Math.max(0, c.r) * kx, 0, Math.PI * 2);
-        else ctx.ellipse(c.x * kx, c.y * ky, Math.max(0, c.r) * kx, Math.max(0, c.r) * ky, 0, 0, Math.PI * 2);
+        else
+          ctx.ellipse(
+            c.x * kx,
+            c.y * ky,
+            Math.max(0, c.r) * kx,
+            Math.max(0, c.r) * ky,
+            0,
+            0,
+            Math.PI * 2,
+          );
       }
       ctx.clip();
     }

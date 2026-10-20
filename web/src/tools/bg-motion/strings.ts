@@ -1,5 +1,6 @@
 /** 動態背景產生器的介面文字（名稱、說明、狀態訊息都是本站自己寫的） */
 import type { AspectId, FilterPresetId, QualityLevel } from '@/core/image';
+import type { TransKind } from './deck';
 import type { EffectId } from './effects';
 
 export type FilterChoice = FilterPresetId | 'none';
@@ -249,3 +250,203 @@ export const FILTER_TEXT: Record<FilterChoice, ChoiceText> = {
   dream: { label: '夢境', description: '粉紫光暈的朦朧感', group: F_MOOD },
   faded: { label: '褪色照片', description: '泛黃褪色加上顆粒', group: F_MOOD },
 };
+
+/* ---------- 圖片切換模式（2026-10，規格 F110～F156） ---------- */
+
+const T_BASIC = '基本';
+const T_SLIDE = '滑入';
+const T_COVER = '蓋過';
+const T_WIPE = '擦除';
+const T_OTHER = '其他';
+
+/** 切換效果的名稱與說明；順序＝對話框與「隨機」的順序（規格 3.11.6） */
+export const TRANS_TEXT: Record<TransKind, ChoiceText> = {
+  cut: { label: '不切換', description: '直接換成下一張', group: T_BASIC },
+  fade: { label: '交叉溶接', description: '兩張直接混色，淡入淡出', group: T_BASIC },
+  dipblack: { label: '經過黑色', description: '先暗下去，再從黑色亮起來', group: T_BASIC },
+  dipwhite: { label: '經過白色', description: '先閃成白色，再慢慢顯現', group: T_BASIC },
+  slideR: { label: '滑入（從右）', description: '兩張一起往左移', group: T_SLIDE },
+  slideL: { label: '滑入（從左）', description: '兩張一起往右移', group: T_SLIDE },
+  slideB: { label: '滑入（從下）', description: '兩張一起往上移', group: T_SLIDE },
+  slideT: { label: '滑入（從上）', description: '兩張一起往下移', group: T_SLIDE },
+  coverR: { label: '蓋過（從右）', description: '新圖從右邊蓋上來', group: T_COVER },
+  coverL: { label: '蓋過（從左）', description: '新圖從左邊蓋上來', group: T_COVER },
+  coverB: { label: '蓋過（從下）', description: '新圖從下面蓋上來', group: T_COVER },
+  coverT: { label: '蓋過（從上）', description: '新圖從上面蓋下來', group: T_COVER },
+  wipeR: { label: '擦除（從右）', description: '從右邊擦開，露出新圖', group: T_WIPE },
+  wipeL: { label: '擦除（從左）', description: '從左邊擦開，露出新圖', group: T_WIPE },
+  wipeB: { label: '擦除（從下）', description: '從下面擦開，露出新圖', group: T_WIPE },
+  wipeT: { label: '擦除（從上）', description: '從上面擦開，露出新圖', group: T_WIPE },
+  zoomIn: { label: '放大', description: '舊圖放大淡出，新圖由小放大', group: T_OTHER },
+  zoomOut: { label: '縮小', description: '舊圖縮小淡出，新圖由大縮回', group: T_OTHER },
+  circle: { label: '圓形展開', description: '新圖從中心長成一個圓', group: T_OTHER },
+  circleClose: { label: '圓形收合', description: '舊圖縮成中心的圓後消失', group: T_OTHER },
+  blindsV: { label: '百葉窗（直）', description: '8 條直條依序拉開', group: T_OTHER },
+  blindsH: { label: '百葉窗（橫）', description: '8 條橫條依序拉開', group: T_OTHER },
+  blur: { label: '模糊', description: '舊圖模糊淡出，新圖由模糊變清楚', group: T_OTHER },
+  pixelate: { label: '馬賽克', description: '打成方塊，再還原成新圖', group: T_OTHER },
+  flip: { label: '翻牌', description: '像翻卡片一樣翻到下一張', group: T_OTHER },
+  random: { label: '隨機', description: '每次切換從其他效果裡抽一個', group: T_OTHER },
+};
+
+export const DECK = {
+  /* 模式 */
+  modeLabel: '模式',
+  modeMotion: '動態效果',
+  modeDeck: '圖片切換',
+  modeHint: '「圖片切換」把好幾張圖接成一個動畫，每張可以個別設定秒數與切換效果。',
+
+  usage: [
+    '切到「圖片切換」模式，加入圖片（拖放、貼上，或按「加入圖片」）；也可以先用「範例圖」試試。',
+    '每一列設定這張圖顯示幾秒，以及「切到下一張」的效果和秒數；「一次設定」可以把同一組設定套用到所有圖片。',
+    '需要時加上「第一張出現」「最後一張消失」，只有一張圖也能用；勾選「最後一張切回第一張」讓動畫接成一圈。',
+    '在預覽確認節奏，選格式後匯出；停住的時間只存一格，超過容量上限時會自動降低畫質、FPS、尺寸重新匯出。',
+  ],
+
+  /* 圖片清單 */
+  sectionImages: '圖片清單',
+  dropLabel: '把圖片拖到這裡，或點一下選擇檔案',
+  dropButton: '加入圖片',
+  dropHint: '可一次選多張，會接在清單最後面；也可以直接貼上。',
+  dropOverlay: '放開即可加入圖片',
+  dropOverlayHint: '圖片會接在清單最後面。',
+  sample: '範例圖',
+  sampleHint: '加入 4 張本站畫的範例圖。',
+  sampleNames: ['sample_day.png', 'sample_dusk.png', 'sample_night.png', 'sample_dawn.png'],
+  count: (n: number) => `共 ${n} 張`,
+  listLabel: '圖片清單',
+  empty: '還沒有圖片。拖放、貼上，或按上面的「加入圖片」。',
+  previewEmpty: '加入圖片後在這裡預覽',
+  holdLabel: '顯示',
+  holdAria: (i: number) => `第 ${i} 張：顯示秒數`,
+  durAria: (i: number) => `第 ${i} 張：切換秒數`,
+  secondsUnit: '秒',
+  moveUp: '上移',
+  moveDown: '下移',
+  duplicate: '複製',
+  remove: '移除',
+  rowAction: (act: string, i: number, name: string) => `${act}第 ${i} 張：${name}`,
+  toNext: '▼ 切到下一張',
+  toFirst: '▼ 切回第一張',
+  connInactive: {
+    noLoop: '沒有勾選「最後一張切回第一張」，這一段不會用到。',
+    outro: '有設定「最後一張消失」，這一段不會用到。',
+    single: '只有一張圖，沒有下一張可以切。',
+  },
+  imageMissing: '這張圖片讀不到（已從這個瀏覽器清除），請移除後重新加入。',
+  missingNotice: (n: number) =>
+    `有 ${n} 張圖片讀不到：預覽以空白畫面代替，匯出前請移除並重新加入。`,
+  loadingImages: (n: number) => `正在讀取 ${n} 張圖片…`,
+
+  /* 一次設定、頭尾 */
+  bulkTitle: '一次設定',
+  bulkHint: '這裡的值也是之後加入的新圖片的預設。',
+  bulkHold: '顯示',
+  bulkEffect: '切換效果',
+  bulkDur: '切換',
+  bulkApply: '全部套用',
+  bulkApplied: '已套用到所有圖片',
+  randomAssign: '隨機分配',
+  randomAssigned: '每張都設成「隨機」，並重新抽籤',
+  reroll: '重新抽籤',
+  rerolled: '已重新抽籤',
+  introTitle: '第一張出現',
+  introHint: '最前面加一段：從空白畫面切到第一張。',
+  outroTitle: '最後一張消失',
+  outroHint: '最後面加一段：從最後一張切到空白畫面。',
+  edgeNone: '無',
+  edgeAria: (title: string) => `${title}：切換秒數`,
+  randomPicked: (name: string) => `抽到：${name}`,
+
+  /* 效果對話框 */
+  pickTitle: '選擇切換效果',
+  pickDescription: '滑過或用鍵盤聚焦就會動起來；點一下選用。',
+  pickAria: '切換效果',
+  pickButton: (target: string, name: string) => `${target}的切換效果：${name}`,
+  pickTargets: {
+    bulk: '一次設定',
+    intro: '第一張出現',
+    outro: '最後一張消失',
+  },
+  pickSlide: (i: number) => `第 ${i} 張`,
+
+  /* 整體設定 */
+  sectionGlobal: '整體設定',
+  size: '輸出尺寸',
+  sizeHint: '寬 × 高（px，16～4096）。',
+  width: '寬',
+  height: '高',
+  preset: '預設尺寸',
+  presetPlaceholder: '選一個尺寸…',
+  fitFirst: '照第一張',
+  fitFirstHint: '設成第一張圖的尺寸，長邊超過 800 px 時等比縮小。',
+  fit: '放法',
+  fits: { contain: '完整放入', cover: '填滿', stretch: '拉伸' },
+  fitHint: '完整放入會留邊（背景色）；填滿會裁掉超出的部分；拉伸不保持比例。',
+  background: '背景',
+  transparent: '透明',
+  transparentHint: '開啟後背景全透明，匯出的動畫帶透明度（GIF 只有全透明或不透明）。',
+  loopBack: '最後一張切回第一張',
+  loopBackHint: '勾選時最後一張也用自己的效果切到第一張；有設「最後一張消失」時不會用到。',
+  loopBackIgnored: '目前有設「最後一張消失」，這個選項不會用到。',
+  easing: '緩急曲線',
+  easings: { inout: '慢進慢出', out: '快進慢出', linear: '等速' },
+  easingHint: '決定每一段切換裡進度隨時間的變化；停住的時間不受影響。',
+
+  /* 預覽 */
+  previewLabel: '圖片切換預覽',
+  stats: (seconds: number, frames: number, w: number, h: number) =>
+    `全體 ${seconds.toFixed(1)} 秒・匯出 ${frames} 格・${w} × ${h} px`,
+  manyFrames: '影格很多，檔案會變大',
+
+  /* 匯出 */
+  exportTitle: '匯出',
+  qualityLabel: '畫質',
+  qualityHint: '只影響 WebP（100 為無損）。',
+  capLabel: '容量上限',
+  capToggle: '超過就自動調整',
+  capUnit: 'MB',
+  capHint: '超過上限時依序降低畫質（WebP）、FPS、尺寸，自動重新匯出（最多 8 次）。',
+  holdNote: '停住的時間只存一格，所以停得再久也不會讓檔案變大；FPS 只影響切換的影格數。',
+  needImages: '請先加入圖片。',
+  missingExport: (n: number) => `有 ${n} 張圖片讀不到，請先移除並重新加入。`,
+  attemptLabel: (n: number) => `第 ${n} 次匯出（已調整）`,
+  adjustQuality: (a: number, b: number) => `畫質 ${a} → ${b}`,
+  adjustFps: (a: number, b: number) => `${a} → ${b} fps`,
+  adjustSize: (a: string, b: string) => `尺寸 ${a} → ${b}`,
+  detailPlays: '播放',
+  playsInfinite: '無限循環',
+  playsTimes: (n: number) => `${n} 次`,
+  detailQuality: '畫質',
+  detailFps: 'FPS',
+  detailAdjust: '容量調整',
+  adjusted: (n: number, list: string) => `匯出 ${n} 次：${list}`,
+  notAdjusted: '不需要調整',
+  stillOver: '調到最後仍超過上限，請減少圖片張數或縮短秒數。',
+  detailNote: '提醒',
+
+  /* 專案檔、儲存 */
+  saveFailed: '自動儲存失敗（瀏覽器容量不足或被封鎖），這次的內容重新整理後可能會消失。',
+  imageNotSaved: '圖片存不進這個瀏覽器（容量不足或無痕模式），可以繼續使用，但重新整理後會消失。',
+  openConfirmTitle: '開啟專案檔？',
+  openConfirmDesc: '目前的圖片切換內容會被取代（開啟後可以復原）。',
+  openConfirmLabel: '開啟',
+  projectOpened: '已開啟專案檔',
+  projectSaved: '已儲存專案檔',
+  projectReset: '已重設',
+  projectOpenFailed: '無法開啟專案檔',
+  projectBad: '專案檔的內容無法使用。',
+  projectMissingImage: '專案檔裡有圖片讀不到，無法開啟。',
+  projectNotSaved: '專案檔的圖片存不進這個瀏覽器，重新整理後會消失。',
+  resetTitle: '重設圖片切換？',
+  resetDesc: '會清空圖片清單並回到預設值（可以復原）。',
+
+  /* 通知 */
+  added: (n: number) => `已加入 ${n} 張圖片`,
+  addFailed: (names: string) => `無法讀取：${names}`,
+  notImages: (names: string) => `不是圖片，已略過：${names}`,
+  firstHint: '輸出尺寸已設成第一張圖的大小。',
+  undo: '復原',
+  redo: '重做',
+  groupEdit: '編輯',
+} as const;

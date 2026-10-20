@@ -1,8 +1,10 @@
 /**
  * 狀態：
- * - useSettings：設定。效果、秒數、畫質、尺寸、循環、匯出格式與 FPS 自動存檔（主控裁定：時長、品質等設定記住）；
- *   濾鏡、淡化順序、自訂檔名只在這次開頁有效（重新整理回到預設）。
+ * - useSettings：設定。模式（動態效果／圖片切換，2026-10）、效果、秒數、畫質、尺寸、循環、匯出格式與 FPS 自動存檔
+ *   （主控裁定：時長、品質等設定記住）；濾鏡、淡化順序、自訂檔名只在這次開頁有效（重新整理回到預設）。
+ *   資料版本 2（版本 1 沒有 mode；舊存檔缺的欄位補預設值）。
  * - useSession：這次開頁的圖片、狀態列、匯出狀態與第一格 PNG（不存檔，圖片不保留）。
+ * 圖片切換模式的內容（圖片清單、每張的設定）另外放在 deckStore.ts。
  */
 import { create } from 'zustand';
 import type { QualityLevel } from '@/core/image';
@@ -16,7 +18,14 @@ export const TOOL_ID = 'bg-motion';
 export type ExportFormatId = 'webp' | 'apng' | 'gif' | 'zip';
 export const FPS_CHOICES = [24, 30, 60] as const;
 
+/** 資料版本：2＝加了 mode（版本 1 的存檔照常讀得到，缺的欄位補預設值） */
+export const SETTINGS_VERSION = 2;
+
+export type Mode = 'motion' | 'deck';
+
 export interface Settings {
+  /** 模式：動態效果（F01～F109）或圖片切換（F110 起） */
+  mode: Mode;
   /** null＝無動態 */
   effect: EffectId | null;
   /** 秒數欄的文字（實際秒數見 parseSeconds） */
@@ -40,6 +49,7 @@ export interface Settings {
 export const DEFAULT_EFFECT: EffectId = 'shakeY';
 
 export const DEFAULT_SETTINGS: Settings = {
+  mode: 'motion',
   effect: DEFAULT_EFFECT,
   /* 主控裁定：開頁時直接套用預選效果的預設秒數（2.5 秒） */
   secondsText: String(EFFECTS[DEFAULT_EFFECT].seconds),
@@ -56,7 +66,11 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export const useSettings = createToolStore<Settings>(TOOL_ID, DEFAULT_SETTINGS, {
+  version: SETTINGS_VERSION,
+  /* 1 → 2：只多了 mode；其餘原樣，缺的欄位由 createToolStore 補預設值 */
+  migrate: (persisted) => (persisted && typeof persisted === 'object' ? persisted : {}) as Settings,
   partialize: (d) => ({
+    mode: d.mode,
     effect: d.effect,
     secondsText: d.secondsText,
     quality: d.quality,
@@ -72,6 +86,7 @@ export const useSettings = createToolStore<Settings>(TOOL_ID, DEFAULT_SETTINGS, 
 {
   const d = useSettings.getState().data;
   const fixed: Partial<Settings> = {};
+  if (d.mode !== 'motion' && d.mode !== 'deck') fixed.mode = 'motion';
   if (d.effect !== null && !(d.effect in EFFECTS)) fixed.effect = DEFAULT_EFFECT;
   if (!['minimum', 'light', 'standard', 'high'].includes(d.quality)) fixed.quality = 'standard';
   if (!['original', '16:9', '8:5', '4:3', '3:2', '1:1'].includes(d.size)) fixed.size = 'original';

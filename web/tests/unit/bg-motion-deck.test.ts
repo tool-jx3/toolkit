@@ -100,8 +100,20 @@ describe('資料整理（F112、F135、第 2 節）', () => {
     expect(normalizeDeck([])).toEqual(initialDeck());
     const d = normalizeDeck({
       slides: [
-        { uid: 'a', image: { id: 'i1', name: 'a.png', width: 10, height: 20 }, hold: 999, trans: 'nope', dur: 0 },
-        { uid: 'a', image: { id: 'i2', name: 'b.png', width: 10, height: 20 }, hold: 2, trans: 'wipeL', dur: 3 },
+        {
+          uid: 'a',
+          image: { id: 'i1', name: 'a.png', width: 10, height: 20 },
+          hold: 999,
+          trans: 'nope',
+          dur: 0,
+        },
+        {
+          uid: 'a',
+          image: { id: 'i2', name: 'b.png', width: 10, height: 20 },
+          hold: 2,
+          trans: 'wipeL',
+          dur: 3,
+        },
         { uid: 'c', image: { name: '沒有 id' } },
         'junk',
         { image: { id: 'i3', name: 'c.png', width: 0, height: -5 } },
@@ -163,7 +175,11 @@ describe('資料整理（F112、F135、第 2 節）', () => {
 
   it('deckAssetIds：每個圖片 id 一次（複製的列共用同一張）', () => {
     const d = timelineInput({
-      slides: [slide(1), slide(2, { image: { id: 'img1', name: 'x', width: 1, height: 1 } }), slide(3)],
+      slides: [
+        slide(1),
+        slide(2, { image: { id: 'img1', name: 'x', width: 1, height: 1 } }),
+        slide(3),
+      ],
     });
     expect(deckAssetIds(d).sort()).toEqual(['img1', 'img3']);
   });
@@ -401,7 +417,7 @@ describe('影格表（3.11.3、F132）', () => {
     expect(plan.map((f) => f.d)).toEqual([67, 66, 67, 67, 66, 67, 67, 66, 67, 67, 66, 67]);
     expect(plan.reduce((a, f) => a + f.d, 0)).toBe(800);
     /* 第 k 格畫段內位置 (k+1)/(n+1)，起點 1 秒 */
-    plan.forEach((f, k) => expect(f.t).toBeCloseTo(1 + (0.8 * (k + 1)) / 13, 9));
+    for (const [k, f] of plan.entries()) expect(f.t).toBeCloseTo(1 + (0.8 * (k + 1)) / 13, 9);
   });
 
   it('不同 FPS 的格數：10 → 8、24 → 19、30 → 24', () => {
@@ -417,17 +433,18 @@ describe('影格表（3.11.3、F132）', () => {
     const plan = framePlan(one(1, 0.1), 10).slice(1, -1);
     expect(plan).toHaveLength(1);
     expect(plan[0].d).toBe(100);
-    const tiny = framePlan(
-      [{ type: 'trans', i: 0, j: 1, kind: 'fade', start: 0, dur: 0.01 }],
-      30,
-    );
+    const tiny = framePlan([{ type: 'trans', i: 0, j: 1, kind: 'fade', start: 0, dur: 0.01 }], 30);
     expect(tiny).toEqual([{ t: 0.005, d: 20 }]);
   });
 
   it('總長（不含每格至少 20 ms 的補償）＝各段長度的和', () => {
     const tl = buildTimeline(
       timelineInput({
-        slides: [slide(1, { hold: 1.3 }), slide(2, { hold: 0.7, trans: 'wipeR', dur: 1.1 }), slide(3)],
+        slides: [
+          slide(1, { hold: 1.3 }),
+          slide(2, { hold: 0.7, trans: 'wipeR', dur: 1.1 }),
+          slide(3),
+        ],
         intro: { trans: 'blur', dur: 0.6 },
         outro: { trans: 'flip', dur: 0.9 },
       }),
@@ -499,13 +516,17 @@ describe('容量上限的調整步驟（3.11.8、F131）', () => {
     for (let n = 0; n < 7 && st; n++) {
       const next = capStep(st, 0.3, 'webp', 15);
       if (!next) break;
-      log.push(
-        `${next.q.toFixed(3)}/${next.fps}/${next.width}x${next.height}`,
-      );
+      log.push(`${next.q.toFixed(3)}/${next.fps}/${next.width}x${next.height}`);
       st = next;
     }
-    expect(log.slice(0, 3)).toEqual(['0.540/15/1280x720', '0.400/15/1280x720', '0.400/10/1280x720']);
-    expect(log[3]).toBe(`0.400/10/${Math.round(1280 * Math.sqrt(0.3) * 0.93)}x${Math.round(720 * Math.sqrt(0.3) * 0.93)}`);
+    expect(log.slice(0, 3)).toEqual([
+      '0.540/15/1280x720',
+      '0.400/15/1280x720',
+      '0.400/10/1280x720',
+    ]);
+    expect(log[3]).toBe(
+      `0.400/10/${Math.round(1280 * Math.sqrt(0.3) * 0.93)}x${Math.round(720 * Math.sqrt(0.3) * 0.93)}`,
+    );
   });
 });
 
