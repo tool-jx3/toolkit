@@ -146,6 +146,18 @@ describe('復原／重做（F136）', () => {
   });
 });
 
+describe('重設與開啟專案檔（resetDeck）', () => {
+  it('連續兩次整份換掉（重設、開啟）也各自是一步復原，不會合併', () => {
+    resetDeck(initialDeck());
+    resetDeck({ ...initialDeck(), slides: [slide(7)] });
+    expect(useDeck.temporal.getState().pastStates).toHaveLength(2);
+    historyStep('undo');
+    expect(deckNow().slides).toEqual([]);
+    historyStep('undo');
+    expect(deckNow().slides.map((s) => s.uid)).toEqual(['u1', 'u2', 'u3']);
+  });
+});
+
 describe('讀進來的內容先整理', () => {
   it('normalizeDeck 之後的狀態可以直接放進 store', () => {
     const d = normalizeDeck({ slides: [{ image: { id: 'x', name: 'x.png', width: 5, height: 5 } }] });

@@ -3,7 +3,7 @@
  * （停一下、切過去、停一下、再切回來）；選一個就套用並關閉。縮圖畫的是兩張示意圖 A、B 套上該效果。
  */
 import { ChevronDown } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Button, Dialog, EffectGrid, type EffectGridItem } from '@/ui';
 import { TRANS_KINDS, type TransKind } from './deck';
 import { easeAt } from './deckPlan';
@@ -101,6 +101,9 @@ export function TransitionPicker({
   ...rest
 }: TransitionPickerProps) {
   const [open, setOpen] = useState(false);
+  /* 對話框裡的選取只是草稿：方向鍵移動不套用，點一下或 Enter／空白鍵才套用並關閉，Esc 放棄 */
+  const [draft, setDraft] = useState(value);
+  const draftRef = useRef(value);
   const items = useMemo(() => itemsFor(edge), [edge]);
   const name = edge && value === 'cut' ? DECK.edgeNone : TRANS_TEXT[value].label;
   const draw = useCallback(
@@ -117,7 +120,11 @@ export function TransitionPicker({
         aria-haspopup="dialog"
         data-testid={rest['data-testid']}
         data-kind={value}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          draftRef.current = value;
+          setDraft(value);
+          setOpen(true);
+        }}
         className="min-w-0 max-w-full justify-between"
       >
         <span className="truncate">{name}</span>
@@ -135,22 +142,39 @@ export function TransitionPicker({
         description={DECK.pickDescription}
         size="xl"
       >
-        <EffectGrid<TransKind>
-          aria-label={DECK.pickAria}
-          items={items}
-          value={value}
-          onValueChange={(k) => {
-            if (!k) return;
-            onChange(k);
+        {/* 滑鼠點一下（click）、Enter、空白鍵（keydown）：在這裡套用草稿並關閉 */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: 只接住格子裡按鈕冒上來的 click */}
+        <div
+          onClick={(e) => {
+            if (!(e.target as HTMLElement).closest('[role="radio"]')) return;
+            onChange(draftRef.current);
             setOpen(false);
           }}
-          draw={draw}
-          thumbWidth={TW}
-          thumbHeight={TH}
-          period={PICK_PERIOD}
-          stillTime={0.25}
-          minItemWidth={150}
-        />
+          onKeyDown={(e) => {
+            /* 格子自己處理 Enter、空白鍵（不送 click），這裡補上：套用草稿並關閉 */
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            if (!(e.target as HTMLElement).closest('[role="radio"]')) return;
+            onChange(draftRef.current);
+            setOpen(false);
+          }}
+        >
+          <EffectGrid<TransKind>
+            aria-label={DECK.pickAria}
+            items={items}
+            value={draft}
+            onValueChange={(k) => {
+              if (!k) return;
+              draftRef.current = k;
+              setDraft(k);
+            }}
+            draw={draw}
+            thumbWidth={TW}
+            thumbHeight={TH}
+            period={PICK_PERIOD}
+            stillTime={0.25}
+            minItemWidth={150}
+          />
+        </div>
       </Dialog>
     </>
   );

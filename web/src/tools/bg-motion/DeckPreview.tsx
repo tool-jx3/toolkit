@@ -76,7 +76,13 @@ export function DeckPreview({
   /* 加入第一張圖：從頭播放 */
   const lastCount = useRef(count);
   useEffect(() => {
-    if (lastCount.current === 0 && count > 0) pb.current.onRestart();
+    if (lastCount.current === 0 && count > 0) {
+      /* 使用者設定「減少動態效果」時停在第一格，不自動播放 */
+      if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+        pb.current.pause();
+        pb.current.onTimeChange(0);
+      } else pb.current.onRestart();
+    }
     lastCount.current = count;
   }, [count]);
 

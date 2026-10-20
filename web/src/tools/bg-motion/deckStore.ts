@@ -60,9 +60,14 @@ export function historyStep(kind: 'undo' | 'redo'): void {
 export const referencedImages = (): Set<string> =>
   referencedAssetIds(useDeck, (d: DeckState) => deckAssetIds(d));
 
-/** 換掉整份內容（重設、開啟專案檔；可以復原） */
+/**
+ * 換掉整份內容（重設、開啟專案檔；可以復原）。獨立成一步復原：用手勢包起來，
+ * 不會和 0.4 秒內的前一個變更合併（重設之後馬上開啟專案檔，復原會回到重設後的樣子）。
+ */
 export const resetDeck = (next: DeckState = initialDeck()): void => {
+  useDeck.beginGesture();
   useDeck.getState().replace(next);
+  useDeck.endGesture();
 };
 
 /* ---------- 清單的編輯 ---------- */
