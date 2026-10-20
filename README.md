@@ -87,7 +87,7 @@
 | [輕量轉場 APNG 產生器](https://tool-jx3.github.io/toolkit/tools/apng-wipe/) | 做出 15×15 px 起跳、只有幾 KB 的透明轉場動畫：淡入淡出或 8 個方向的抹除，可選顏色、秒數、播一次或循環 |
 | [劇本排版台](https://tool-jx3.github.io/toolkit/tools/scenario-editor/) | 左邊寫稿、右邊即時排成 A4 書頁的 TRPG 劇本排版工具：標題、對話、檢定框、表格、流程圖、NPC 卡、目錄，可以印成 PDF 或匯出閱覽用 HTML；原稿存在瀏覽器裡，也能存成 JSON 檔 |
 | [Discord 通話立繪產生器](https://tool-jx3.github.io/toolkit/tools/obs-tachie/) | 產生 OBS 瀏覽器來源用的 Discord Streamkit 自訂 CSS，把通話成員換成常駐顯示的立繪，說話時彈跳、發光，還能加上名字字幕條 |
-| [動態背景產生器](https://tool-jx3.github.io/toolkit/tools/bg-motion/) | 讓背景圖搖晃、拉近拉遠、平移、淡入淡出或轉場，也能套上圖片處理，輸出成 CCFOLIA 可用的 WebP 動態背景 |
+| [動態背景產生器](https://tool-jx3.github.io/toolkit/tools/bg-motion/) | 讓背景圖搖晃、拉近拉遠、平移、淡入淡出或轉場，也能套上圖片處理，輸出成 CCFOLIA 可用的 WebP 動態背景；「圖片切換」模式把幾張圖接起來，每張各自設定顯示秒數與切到下一張的效果（約 25 種），匯出 WebP、APNG、GIF |
 | [簡易頭像產生器](https://tool-jx3.github.io/toolkit/tools/icon-maker/) | 從 PNG 立繪做出 1:1 的 TRPG 角色頭像，可加外框、背景、名字（直書或橫書）與 HO 標籤 |
 | [跑團紀錄簿](https://tool-jx3.github.io/toolkit/tools/session-log/) | 記錄玩過的團，整理感想、團報與已通關劇本清單；可匯入試算表或團報文字，每一團都能直接送到團報產生器 |
 | [團報產生器](https://tool-jx3.github.io/toolkit/tools/session-report/) | 填入劇本、KP／PL／PC 與結果，從 17 種範本產生可直接貼到 X 的團報文，能即時預覽、編輯 |
@@ -156,7 +156,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `cutin` | [切入素材產生器](https://tool-jx3.github.io/toolkit/tools/cutin/) | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) |
 | `scene-transition` | [場景轉換素材產生器](https://tool-jx3.github.io/toolkit/tools/scene-transition/) | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) |
 | `loading-maker` | [讀取動畫產生器](https://tool-jx3.github.io/toolkit/tools/loading-maker/) | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) |
-| `bg-motion` | [動態背景產生器](https://tool-jx3.github.io/toolkit/tools/bg-motion/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `bg-motion` | [動態背景產生器](https://tool-jx3.github.io/toolkit/tools/bg-motion/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)、[utiyoso/kirikae-maker](https://github.com/utiyoso/kirikae-maker)（圖片切換） |
 | `character-editor` | [角色資料編輯器](https://tool-jx3.github.io/toolkit/tools/character-editor/) | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) |
 | `foreground-frame` | [前景框產生器](https://tool-jx3.github.io/toolkit/tools/foreground-frame/) | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) |
 | `room-zip` | [房間 ZIP 產生器](https://tool-jx3.github.io/toolkit/tools/room-zip/) | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) |

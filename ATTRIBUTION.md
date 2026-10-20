@@ -63,7 +63,7 @@
 | `cutin` | 切入素材產生器 | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `b8a22a1` |
 | `scene-transition` | 場景轉換素材產生器 | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `83fd605` |
 | `loading-maker` | 讀取動畫產生器 | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `83fd605` |
-| `bg-motion` | 動態背景產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`haikei-motion-maker`） | `83fd605` |
+| `bg-motion` | 動態背景產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`haikei-motion-maker`）、[utiyoso/kirikae-maker](https://github.com/utiyoso/kirikae-maker)（きりかえメーカー，圖片切換模式的功能參考，未授權） | `83fd605` |
 | `character-editor` | 角色資料編輯器 | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `83fd605` |
 | `foreground-frame` | 前景框產生器 | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `83fd605` |
 | `room-zip` | 房間 ZIP 產生器 | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `83fd605` |
@@ -153,6 +153,8 @@
 `geo-bloom` 照新工具引入流程直接在新框架做：原作（commit `3097b39`，「Geometric Bloom」）沒有授權條款，只照原作的功能、數值與做法（廣度優先長出圖形與線、亂數的順序、各種圖形的畫法，同樣的種子與設定畫出同樣的圖），程式、介面文字（原作是日文）與 6 組範本都由本站自做。
 
 `vhs-frame` 照新工具引入流程直接在新框架做：原作（commit `cd24d0e`）沒有授權條款，只照原作的功能、效果的演算法與數值（同樣的照片、時間點與磨損度畫出和原作逐像素相同的畫面），程式、介面文字（原作是韓文）與範例文字都由本站自做。
+
+`bg-motion` 的「圖片切換」模式（2026-10）參考 utiyoso 的きりかえメーカー（commit `0e166ef`，沒有授權條款）的功能、效果的畫法與數值（同樣的圖片與設定，時間軸、每一格的時間與畫面和原作相同），程式、介面文字與範例圖由本站自做。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 
