@@ -104,6 +104,8 @@ export function TransitionPicker({
   /* 對話框裡的選取只是草稿：方向鍵移動不套用，點一下或 Enter／空白鍵才套用並關閉，Esc 放棄 */
   const [draft, setDraft] = useState(value);
   const draftRef = useRef(value);
+  /* 開啟時焦點在目前的效果上（Radix 不給 initialFocus 時落在「關閉」鈕） */
+  const focusRef = useRef<HTMLElement | null>(null);
   const items = useMemo(() => itemsFor(edge), [edge]);
   const name = edge && value === 'cut' ? DECK.edgeNone : TRANS_TEXT[value].label;
   const draw = useCallback(
@@ -111,71 +113,75 @@ export function TransitionPicker({
     [],
   );
   return (
-    <>
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={disabled}
-        aria-label={DECK.pickButton(target, name)}
-        aria-haspopup="dialog"
-        data-testid={rest['data-testid']}
-        data-kind={value}
-        onClick={() => {
-          draftRef.current = value;
-          setDraft(value);
-          setOpen(true);
-        }}
-        className="min-w-0 max-w-full justify-between"
-      >
-        <span className="truncate">{name}</span>
-        {value === 'random' && resolved ? (
-          <span className="truncate text-xs text-muted" data-testid="picked-kind">
-            （{DECK.randomPicked(TRANS_TEXT[resolved].label)}）
-          </span>
-        ) : null}
-        <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-70" />
-      </Button>
-      <Dialog
-        open={open}
-        onOpenChange={setOpen}
-        title={`${DECK.pickTitle}：${target}`}
-        description={DECK.pickDescription}
-        size="xl"
-      >
-        {/* 滑鼠點一下（click）、Enter、空白鍵（keydown）：在這裡套用草稿並關閉 */}
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: 只接住格子裡按鈕冒上來的 click */}
-        <div
-          onClick={(e) => {
-            if (!(e.target as HTMLElement).closest('[role="radio"]')) return;
-            onChange(draftRef.current);
-            setOpen(false);
+    <Dialog
+      open={open}
+      onOpenChange={setOpen}
+      title={`${DECK.pickTitle}：${target}`}
+      description={DECK.pickDescription}
+      size="xl"
+      initialFocus={focusRef}
+      /* 按鈕當成對話框的 trigger：關閉後 Radix 把焦點還給它 */
+      trigger={
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={disabled}
+          aria-label={DECK.pickButton(target, name)}
+          data-testid={rest['data-testid']}
+          data-kind={value}
+          onClick={() => {
+            draftRef.current = value;
+            setDraft(value);
           }}
-          onKeyDown={(e) => {
-            /* 格子自己處理 Enter、空白鍵（不送 click），這裡補上：套用草稿並關閉 */
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            if (!(e.target as HTMLElement).closest('[role="radio"]')) return;
-            onChange(draftRef.current);
-            setOpen(false);
-          }}
+          className="min-w-0 max-w-full justify-between"
         >
-          <EffectGrid<TransKind>
-            aria-label={DECK.pickAria}
-            items={items}
-            value={draft}
-            onValueChange={(k) => {
-              if (!k) return;
-              draftRef.current = k;
-              setDraft(k);
-            }}
-            draw={draw}
-            thumbWidth={TW}
-            thumbHeight={TH}
-            period={PICK_PERIOD}
-            stillTime={0.25}
-            minItemWidth={150}
-          />
-        </div>
-      </Dialog>
-    </>
+          <span className="truncate">{name}</span>
+          {value === 'random' && resolved ? (
+            <span className="truncate text-xs text-muted" data-testid="picked-kind">
+              （{DECK.randomPicked(TRANS_TEXT[resolved].label)}）
+            </span>
+          ) : null}
+          <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-70" />
+        </Button>
+      }
+    >
+      {/* 滑鼠點一下（click）、Enter、空白鍵（keydown）：在這裡套用草稿並關閉 */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: 只接住格子裡按鈕冒上來的 click */}
+      <div
+        ref={(el) => {
+          focusRef.current =
+            el?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? null;
+        }}
+        onClick={(e) => {
+          if (!(e.target as HTMLElement).closest('[role="radio"]')) return;
+          onChange(draftRef.current);
+          setOpen(false);
+        }}
+        onKeyDown={(e) => {
+          /* 格子自己處理 Enter、空白鍵（不送 click），這裡補上：套用草稿並關閉 */
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          if (!(e.target as HTMLElement).closest('[role="radio"]')) return;
+          onChange(draftRef.current);
+          setOpen(false);
+        }}
+      >
+        <EffectGrid<TransKind>
+          aria-label={DECK.pickAria}
+          items={items}
+          value={draft}
+          onValueChange={(k) => {
+            if (!k) return;
+            draftRef.current = k;
+            setDraft(k);
+          }}
+          draw={draw}
+          thumbWidth={TW}
+          thumbHeight={TH}
+          period={PICK_PERIOD}
+          stillTime={0.25}
+          minItemWidth={150}
+        />
+      </div>
+    </Dialog>
   );
 }

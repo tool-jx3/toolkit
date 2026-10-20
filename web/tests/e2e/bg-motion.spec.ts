@@ -739,6 +739,7 @@ interface DeckData {
 }
 interface DeckHook {
   deck: () => DeckData;
+  deckFrame: (t: number) => Promise<{ w: number; h: number; b64: string }>;
   deckLastExport: () => {
     q: number;
     fps: number;
@@ -1540,8 +1541,9 @@ test.describe('圖片切換模式', () => {
     /* 第 2 張停住的時間（預設每張 1.5 秒、溶接 0.8 秒：2.3～3.8 秒） */
     await seekTo(page, 3);
     await expectDeckColor(page, 320, 180, WHITE);
-    await page.getByRole('button', { name: /^匯出 WebP/ }).click();
-    await expect(page.getByText(/匯出失敗：有 1 張圖片讀不到/)).toBeVisible();
+    /* 匯出停用並說明原因（共用匯出區的處理量上限那一欄的做法） */
+    await expect(page.getByRole('button', { name: /^匯出 WebP/ })).toBeDisabled();
+    await expect(page.getByTestId('export-over-budget')).toContainText('有 1 張圖片讀不到');
     expect(errors.filter((e) => !/Failed to load resource|ERR_/.test(e))).toEqual([]);
   });
 
@@ -1646,6 +1648,238 @@ test.describe('圖片切換模式', () => {
     await expect(page.getByTestId('deck-count')).toHaveText('共 0 張');
     expect(errors.filter((e) => !/Failed to load resource|ERR_/.test(e))).toEqual([]);
   });
+
+  /* ---------- 對等驗證後的修正（規格 7.3） ---------- */
+
+  test('拖曳排序在清單範圍外放開也會結束：之後滑鼠移過列不再排序，復原可以用（F115、F136）', async ({
+    page,
+  }) => {
+    const errors = await openDeck(page);
+    await addThree(page);
+    await page.getByRole('button', { name: '範例圖' }).click();
+    await expect(rows(page)).toHaveCount(7);
+    await page.waitForTimeout(450);
+    const names = async () => (await deckData(page)).slides.map((s) => s.image.name);
+    const before = await names();
+    const handle = rows(page).nth(0).locator('[data-drag-handle]');
+    const hb = (await handle.boundingBox())!;
+    const outro = (await page.getByTestId('deck-outro').boundingBox())!;
+    await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(hb.x + 6, hb.y + 30, { steps: 4 });
+    /* 往下拖過其他列（列被重排），再拖到清單下面的「最後一張消失」放開 */
+    const last = (await rows(page).nth(6).boundingBox())!;
+    await page.mouse.move(hb.x + 6, last.y + last.height - 6, { steps: 20 });
+    await page.mouse.move(outro.x + outro.width / 2, outro.y + outro.height / 2, { steps: 8 });
+    await page.mouse.up();
+    const moved = await names();
+    expect(moved).not.toEqual(before);
+    expect(moved.at(-1)).toBe(before[0]);
+    /* 放開之後，不按著滑鼠移過列，順序不會再變 */
+    for (const i of [2, 1, 0, 3, 5]) {
+      const b = (await rows(page).nth(i).boundingBox())!;
+      await page.mouse.move(b.x + 40, b.y + b.height / 2, { steps: 3 });
+    }
+    expect(await names()).toEqual(moved);
+    /* 這一整次拖曳是一步復原：Ctrl＋Z 回到原來的順序 */
+    await page.locator('body').click({ position: { x: 5, y: 400 } });
+    await page.keyboard.press('Control+z');
+    await expect.poll(names).toEqual(before);
+    expect(errors).toEqual([]);
+  });
+
+  test('清單超過約 8 張時清單區自己捲動，不把設定欄撐很長（F114）', async ({ page }) => {
+    const errors = await openDeck(page);
+    for (let i = 0; i < 4; i++) {
+      await page.getByRole('button', { name: '範例圖' }).click();
+      await expect(rows(page)).toHaveCount(4 * (i + 1));
+    }
+    const list = page.getByRole('list', { name: '圖片清單' });
+    const m = await list.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        overflowY: cs.overflowY,
+        client: el.clientHeight,
+        scroll: el.scrollHeight,
+        rem: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+      };
+    });
+    expect(m.overflowY).toBe('auto');
+    expect(m.scroll).toBeGreaterThan(m.client);
+    expect(m.client).toBeLessThanOrEqual(63 * m.rem);
+    /* 捲動清單：最後一列進入視野 */
+    await list.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    const last = rows(page).nth(15);
+    await expect
+      .poll(async () => {
+        const [a, b] = await Promise.all([list.boundingBox(), last.boundingBox()]);
+        return !!a && !!b && b.y >= a.y - 1 && b.y + b.height <= a.y + a.height + 1;
+      })
+      .toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  test('沒有圖片、或有圖片讀不到時匯出停用並說明原因（F130、F134）', async ({ page }) => {
+    const errors = await openDeck(page);
+    const exportButton = page.getByRole('button', { name: /^匯出 WebP/ });
+    await expect(exportButton).toBeDisabled();
+    await expect(page.getByTestId('export-over-budget')).toContainText('請先加入圖片');
+    await addThree(page);
+    await expect(exportButton).toBeEnabled();
+    await expect(page.getByTestId('export-over-budget')).toHaveCount(0);
+    for (let i = 0; i < 3; i++)
+      await page
+        .getByRole('button', { name: /^移除第 \d 張/ })
+        .first()
+        .click();
+    await expect(rows(page)).toHaveCount(0);
+    await expect(exportButton).toBeDisabled();
+    /* 快捷鍵在停用時也不會匯出 */
+    await page.locator('body').click({ position: { x: 5, y: 400 } });
+    await page.keyboard.press('Alt+Shift+W');
+    await page.waitForTimeout(400);
+    await expect(page.getByTestId('export-result')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('效果對話框：開啟時焦點在目前的效果，關閉後回到打開它的按鈕（F118）', async ({ page }) => {
+    const errors = await openDeck(page);
+    await addThree(page);
+    const dlg = page.getByRole('dialog', { name: /選擇切換效果/ });
+    await transButton(page, '第 2 張').click();
+    await expect(dlg.getByRole('radio', { name: /^交叉溶接：/ })).toBeFocused();
+    /* 點一個效果：套用、關閉、焦點回到按鈕 */
+    await dlg.getByRole('radio', { name: /^翻牌：/ }).click();
+    await expect(dlg).toHaveCount(0);
+    await expect(transButton(page, '第 2 張')).toBeFocused();
+    await expect(transButton(page, '第 2 張')).toContainText('翻牌');
+    /* 再開：焦點在目前的效果（翻牌）；Esc 放棄，焦點也回到按鈕 */
+    await page.keyboard.press('Enter');
+    await expect(dlg.getByRole('radio', { name: /^翻牌：/ })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dlg).toHaveCount(0);
+    await expect(transButton(page, '第 2 張')).toBeFocused();
+    /* 一次設定、第一張出現也一樣 */
+    await transButton(page, '第一張出現').click();
+    await expect(dlg.getByRole('radio', { name: /^無：/ })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(transButton(page, '第一張出現')).toBeFocused();
+    expect(errors).toEqual([]);
+  });
+
+  test('改 FPS、格式、播放次數也讓結果卡作廢（F133）', async ({ page }) => {
+    const errors = await openDeck(page);
+    await addThree(page);
+    const card = page.getByTestId('export-result');
+    const exportNow = async (name: RegExp) => {
+      await page.getByRole('button', { name }).click();
+      await expect(card.first()).toBeVisible({ timeout: 60_000 });
+    };
+    await exportNow(/^匯出 WebP/);
+    await page.getByRole('combobox').filter({ hasText: 'fps' }).click();
+    await page.getByRole('option', { name: '24 fps', exact: true }).click();
+    await expect(card).toHaveCount(0);
+    await exportNow(/^匯出 WebP/);
+    await page.getByRole('radio', { name: 'APNG', exact: true }).click();
+    await expect(card).toHaveCount(0);
+    await exportNow(/^匯出 APNG/);
+    await page.getByRole('switch', { name: '無限循環' }).click();
+    await expect(card).toHaveCount(0);
+    await exportNow(/^匯出 APNG/);
+    await page.getByRole('switch', { name: '減色（256 色）' }).click();
+    await expect(card).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('快捷鍵一覽在圖片切換模式寫實際的 FPS（最高 30）；動態效果模式照舊（F138）', async ({
+    page,
+  }) => {
+    const errors = await openDeck(page);
+    /* 單鍵快捷鍵不在表單控制項（模式的單選鈕）上觸發，先離開它 */
+    const blur = () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await blur();
+    await page.keyboard.press('?');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('以 24 FPS 匯出');
+    await expect(dialog).toContainText('以 30 FPS 匯出');
+    await expect(dialog).not.toContainText('以 60 FPS 匯出');
+    await page.keyboard.press('Escape');
+    await page.getByRole('radio', { name: '動態效果', exact: true }).click();
+    await blur();
+    await page.keyboard.press('?');
+    await expect(page.getByRole('dialog')).toContainText('以 60 FPS 匯出');
+    expect(errors).toEqual([]);
+  });
+
+  test('清單的加入、移除、複製、排序在 0.4 秒內連續做，也各算一步復原（F136）', async ({
+    page,
+  }) => {
+    const errors = await openDeck(page);
+    await addThree(page);
+    await page.waitForTimeout(450);
+    /* 連續移除兩列（不等 0.4 秒） */
+    await page.getByRole('button', { name: '移除第 3 張：blue.png' }).click();
+    await page.getByRole('button', { name: '移除第 2 張：green.png' }).click();
+    await expect(rows(page)).toHaveCount(1);
+    await page.getByRole('button', { name: /^復原/ }).click();
+    await expect(rows(page)).toHaveCount(2);
+    await page.getByRole('button', { name: /^復原/ }).click();
+    await expect(rows(page)).toHaveCount(3);
+    /* 連續複製、上移 */
+    await page.waitForTimeout(450);
+    await page.getByRole('button', { name: '複製第 1 張：red.png' }).click();
+    await page.getByRole('button', { name: '上移第 3 張：green.png' }).click();
+    const names = async () => (await deckData(page)).slides.map((s) => s.image.name);
+    expect(await names()).toEqual(['red.png', 'green.png', 'red.png', 'blue.png']);
+    await page.getByRole('button', { name: /^復原/ }).click();
+    expect(await names()).toEqual(['red.png', 'red.png', 'green.png', 'blue.png']);
+    await page.getByRole('button', { name: /^復原/ }).click();
+    expect(await names()).toEqual(['red.png', 'green.png', 'blue.png']);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('圖片切換模式：沒有畫布濾鏡的瀏覽器', () => {
+  test.use({ viewport: { width: 1280, height: 900 }, contextOptions: { reducedMotion: 'reduce' } });
+
+  test('模糊改用交叉溶接（F152）：同一時間的畫面和「交叉溶接」逐像素相同', async ({ page }) => {
+    /* 模擬舊版 Safari：2D 環境沒有 filter 屬性 */
+    await page.addInitScript(() => {
+      Reflect.deleteProperty(CanvasRenderingContext2D.prototype, 'filter');
+      Reflect.deleteProperty(OffscreenCanvasRenderingContext2D.prototype, 'filter');
+    });
+    const errors = await openDeck(page);
+    /* 左白右黑與左黑右白的兩張圖（單色圖看不出略為放大的差別） */
+    const halves = async (left: number, right: number) => {
+      const w = 320;
+      const h = 180;
+      const px = new Uint8ClampedArray(w * h * 4);
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+          const v = x < w / 2 ? left : right;
+          px.set([v, v, v, 255], (y * w + x) * 4);
+        }
+      return Buffer.from(await encodePng(px, w, h));
+    };
+    await deckInput(page).setInputFiles([
+      file('a.png', await halves(255, 0)),
+      file('b.png', await halves(0, 255)),
+    ]);
+    await expect(rows(page)).toHaveCount(2);
+    await setNum(holdInput(page, 1), 1);
+    const frame = () =>
+      page.evaluate(() => (window as unknown as DW).__bgMotion.deckFrame(1.4).then((f) => f.b64));
+    await pickTrans(page, '第 1 張', '模糊');
+    const blur = await frame();
+    await pickTrans(page, '第 1 張', '交叉溶接');
+    const fade = await frame();
+    expect(blur).toBe(fade);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('圖片切換模式（接續）', () => {
+  test.use({ viewport: { width: 1280, height: 900 }, contextOptions: { reducedMotion: 'reduce' } });
 
   test('快捷鍵：Ctrl＋Shift＋O 加入圖片、Ctrl＋Shift＋P 播放／暫停、Alt＋Shift＋F 以 30 FPS 匯出', async ({
     page,

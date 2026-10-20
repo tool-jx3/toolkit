@@ -412,7 +412,7 @@ export function DeckImagesSection() {
           onMoveStart={gesture.begin}
           onMoveEnd={gesture.commit}
           empty={DECK.empty}
-          className="gap-2"
+          className="-m-0.5! max-h-[60rem] gap-2 overflow-y-auto p-0.5!"
           renderItem={(slide, { index }) => (
             <SlideRow
               slide={slide}

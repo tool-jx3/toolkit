@@ -13,6 +13,7 @@ import { loadFiles, setToaster } from './actions';
 import { DeckHeaderActions, DeckSaveErrorNotice } from './DeckHeader';
 import { DeckGlobalSection, DeckImagesSection, ModeSwitch } from './DeckPanels';
 import { DeckPreview } from './DeckPreview';
+import { DECK_FPS } from './deck';
 import { addDeckImages } from './deckActions';
 import { deckDebug } from './deckDebug';
 import { assets, historyStep, referencedImages } from './deckStore';
@@ -130,7 +131,7 @@ export function App() {
       },
       {
         keys: ['mod+shift+a', 'alt+shift+a'],
-        label: S.keys.export60,
+        label: mode === 'deck' ? DECK.keyExportMax(DECK_FPS[DECK_FPS.length - 1]) : S.keys.export60,
         group: S.keys.group,
         handler: () => previewRef.current?.exportWith(60),
       },
@@ -158,7 +159,7 @@ export function App() {
         },
       },
     ],
-    [],
+    [mode],
   );
 
   return (

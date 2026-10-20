@@ -449,4 +449,6 @@ export const DECK = {
   undo: '復原',
   redo: '重做',
   groupEdit: '編輯',
+  /** 快捷鍵一覽：圖片切換模式最高 30 FPS，Ctrl＋Shift＋A 實際匯出的是 30 FPS（F138） */
+  keyExportMax: (fps: number) => `以 ${fps} FPS 匯出（圖片切換最高 ${fps} FPS）`,
 } as const;

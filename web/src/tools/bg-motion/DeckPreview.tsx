@@ -146,7 +146,10 @@ export function DeckPreview({
     quantize: d.quantize,
   };
   const frames = deckFrameCount(tl.segs, d.fps);
-  /* 下載作廢：內容或輸出設定改了就清掉上次的結果 */
+  /* 沒有圖片、或有圖片讀不到：匯出停用並說明原因（共用匯出區的 pixelBudget：估算量超過上限時停用並顯示原因，上限 −1＝一律停用） */
+  const missingRows = d.slides.filter((s) => missing.includes(s.image.id)).length;
+  const blocked = !count ? DECK.needImages : missingRows ? DECK.missingExport(missingRows) : null;
+  /* 下載作廢：內容或輸出設定（含格式、FPS、播放次數、減色）改了就清掉上次的結果 */
   const signature = JSON.stringify([
     d.slides.map((s) => [s.image.id, s.hold, s.trans, s.dur]),
     d.intro,
@@ -162,6 +165,10 @@ export function DeckPreview({
     d.quality,
     d.capOn,
     d.capMb,
+    d.format,
+    d.fps,
+    d.plays,
+    d.quantize,
   ]);
 
   const runExport = async (
@@ -270,9 +277,7 @@ export function DeckPreview({
       />
       {missing.length ? (
         <Notice tone="warning">
-          <span data-testid="deck-missing">
-            {DECK.missingNotice(d.slides.filter((s) => missing.includes(s.image.id)).length)}
-          </span>
+          <span data-testid="deck-missing">{DECK.missingNotice(missingRows)}</span>
         </Notice>
       ) : null}
 
@@ -293,6 +298,7 @@ export function DeckPreview({
         maxPlays={LIMITS.plays.max}
         limit={d.capOn ? { bytes: capLimitBytes(d.capMb), label: DECK.capLabel } : null}
         estimate={{ width: d.width, height: d.height, frames, duration: tl.total }}
+        pixelBudget={blocked ? { max: -1, message: blocked } : null}
         resetKey={signature}
         extra={
           <div className="flex flex-col gap-3">
