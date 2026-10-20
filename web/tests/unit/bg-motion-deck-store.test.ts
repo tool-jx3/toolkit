@@ -147,6 +147,68 @@ describe('復原／重做（F136）', () => {
   });
 });
 
+describe('清單的動作各算一步復原（F136）：0.4 秒內連續做也不合併', () => {
+  const steps = () => useDeck.temporal.getState().pastStates.length;
+
+  it('加入、複製、移除、上移下移、全部套用、隨機分配、重新抽籤：連續做各自一步', () => {
+    appendSlides([{ id: 'imgA', name: 'a.png', width: 100, height: 50 }]);
+    appendSlides([{ id: 'imgB', name: 'b.png', width: 100, height: 50 }]);
+    duplicateSlide('u1', 'copy1');
+    removeSlide('u2');
+    moveSlide(0, 1);
+    moveSlide(1, 0);
+    applyBulk();
+    randomAssign();
+    rerollSeed();
+    expect(steps()).toBe(9);
+    /* 一步一步復原回去 */
+    for (let i = 0; i < 9; i++) historyStep('undo');
+    expect(deckNow().slides.map((s) => s.uid)).toEqual(['u1', 'u2', 'u3']);
+    expect(deckNow().seed).toBe(0);
+  });
+
+  it('加入：帶入一次設定；清單原本是空的時尺寸照第一張', () => {
+    resetDeck({ ...initialDeck(), bulk: { hold: 2.5, trans: 'zoomOut', dur: 0.3 } });
+    useDeck.temporal.getState().clear();
+    appendSlides([
+      { id: 'big', name: 'big.png', width: 1600, height: 900 },
+      { id: 'small', name: 'small.png', width: 100, height: 100 },
+    ]);
+    const d = deckNow();
+    expect(d.slides.map((s) => [s.image.name, s.hold, s.trans, s.dur])).toEqual([
+      ['big.png', 2.5, 'zoomOut', 0.3],
+      ['small.png', 2.5, 'zoomOut', 0.3],
+    ]);
+    expect(new Set(d.slides.map((s) => s.uid)).size).toBe(2);
+    expect([d.width, d.height]).toEqual([800, 450]);
+    /* 已經有圖時不再改尺寸 */
+    patchDeck({ width: 123, height: 77 });
+    appendSlides([{ id: 'x', name: 'x.png', width: 2000, height: 1000 }]);
+    expect([deckNow().width, deckNow().height]).toEqual([123, 77]);
+  });
+
+  it('拖曳排序的手勢中（live 模式一次拖曳呼叫很多次 moveSlide）整次只算一步', () => {
+    useDeck.beginGesture();
+    moveSlide(0, 1);
+    moveSlide(1, 2);
+    moveSlide(2, 1);
+    expect(useDeck.inGesture()).toBe(true);
+    useDeck.endGesture();
+    expect(steps()).toBe(1);
+    expect(names()).toEqual(['p2.png', 'p1.png', 'p3.png']);
+    historyStep('undo');
+    expect(names()).toEqual(['p1.png', 'p2.png', 'p3.png']);
+  });
+
+  it('同一個動作在手勢裡呼叫不會提早結束外面的手勢', () => {
+    useDeck.beginGesture();
+    removeSlide('u3');
+    expect(useDeck.inGesture()).toBe(true);
+    useDeck.endGesture();
+    expect(steps()).toBe(1);
+  });
+});
+
 describe('重設與開啟專案檔（resetDeck）', () => {
   it('連續兩次整份換掉（重設、開啟）也各自是一步復原，不會合併', () => {
     resetDeck(initialDeck());
