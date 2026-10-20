@@ -80,7 +80,8 @@ describe('清單的編輯', () => {
     /* 只改一次設定不動到已有的圖片 */
     expect(deckNow().slides[0]).toMatchObject({ hold: 1.5, trans: 'fade', dur: 0.8 });
     applyBulk();
-    for (const s of deckNow().slides) expect(s).toMatchObject({ hold: 2.5, trans: 'zoomOut', dur: 0.4 });
+    for (const s of deckNow().slides)
+      expect(s).toMatchObject({ hold: 2.5, trans: 'zoomOut', dur: 0.4 });
   });
 
   it('隨機分配：每張都是「隨機」並換種子；重新抽籤只換種子', () => {
@@ -160,7 +161,9 @@ describe('重設與開啟專案檔（resetDeck）', () => {
 
 describe('讀進來的內容先整理', () => {
   it('normalizeDeck 之後的狀態可以直接放進 store', () => {
-    const d = normalizeDeck({ slides: [{ image: { id: 'x', name: 'x.png', width: 5, height: 5 } }] });
+    const d = normalizeDeck({
+      slides: [{ image: { id: 'x', name: 'x.png', width: 5, height: 5 } }],
+    });
     resetDeck(d);
     expect(deckNow().slides).toHaveLength(1);
     expect(deckNow().slides[0]).toMatchObject({ hold: 1.5, trans: 'fade', dur: 0.8 });

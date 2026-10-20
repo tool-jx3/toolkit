@@ -1389,7 +1389,41 @@ test.describe('圖片切換模式', () => {
       'sample_night.png',
       'sample_dawn.png',
     ]);
+    /* 整個視窗都能拖放：拖著檔案進入視窗，整個畫面出現「放開即可加入圖片」 */
+    const dt2 = await page.evaluateHandle(async () => {
+      const c = document.createElement('canvas');
+      c.width = 30;
+      c.height = 30;
+      const blob = await new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/png'));
+      const d = new DataTransfer();
+      d.items.add(new File([blob], 'win.png', { type: 'image/png' }));
+      return d;
+    });
+    await page.dispatchEvent('body', 'dragenter', { dataTransfer: dt2 });
+    await expect(page.getByText('放開即可加入圖片')).toBeVisible();
+    await page.dispatchEvent('body', 'drop', { dataTransfer: dt2 });
+    await expect(page.getByText('放開即可加入圖片')).toHaveCount(0);
+    await expect(rows(page)).toHaveCount(9);
+    expect((await deckData(page)).slides.at(-1)?.image.name).toBe('win.png');
     expect(errors.filter((e) => !/Failed to load resource|ERR_/.test(e))).toEqual([]);
+  });
+
+  test('資訊列（F129）：全體秒數、匯出格數、輸出尺寸；影格超過 400 格時警告', async ({ page }) => {
+    const errors = await openDeck(page);
+    await addThree(page);
+    /* 預設：每張 1.5 秒、溶接 0.8 秒；15 fps → 3 個停住 + 2 × 12 格 ＝ 27 格，全體 6.1 秒 */
+    await expect(deckStats(page)).toHaveText('全體 6.1 秒・匯出 27 格・640 × 360 px');
+    await expect(page.getByTestId('deck-many-frames')).toHaveCount(0);
+    await setNum(durInput(page, 1), 10);
+    await setNum(durInput(page, 2), 10);
+    await expect(deckStats(page)).toContainText('全體 24.5 秒・匯出 303 格');
+    await expect(page.getByTestId('deck-many-frames')).toHaveCount(0);
+    /* 30 fps：2 × 300 + 3 ＝ 603 格 */
+    await page.getByRole('combobox').filter({ hasText: 'fps' }).click();
+    await page.getByRole('option', { name: '30 fps', exact: true }).click();
+    await expect(deckStats(page)).toContainText('匯出 603 格');
+    await expect(page.getByTestId('deck-many-frames')).toHaveText('影格很多，檔案會變大');
+    expect(errors).toEqual([]);
   });
 
   test('容量上限：超過就依序降畫質 → FPS → 尺寸重新匯出（最多 8 次）；關掉就不調整', async ({
@@ -1692,7 +1726,10 @@ test.describe('版面', () => {
     await pickTrans(page, '第 1 張', '滑入（從右）');
     await pickTrans(page, '第 2 張', '擦除（從左）');
     await expect(deckStats(page)).toContainText('匯出');
+    /* 「已加入 3 張圖片」的通知消失之後再截圖 */
+    await expect(page.getByText('已加入 3 張圖片')).toHaveCount(0, { timeout: 15_000 });
     await seekTo(page, 0);
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.mouse.move(0, 0);
     return errors;
   };

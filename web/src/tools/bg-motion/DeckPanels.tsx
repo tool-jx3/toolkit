@@ -28,6 +28,7 @@ import {
   SortableList,
   ThumbnailImage,
   Toggle,
+  WindowDrop,
 } from '@/ui';
 import { notify } from './actions';
 import {
@@ -425,6 +426,13 @@ export function DeckImagesSection() {
           )}
         />
         <EdgeRow which="outro" />
+        {/* 整個視窗都可以拖放圖片（放在載入區上的由載入區處理，不會重複） */}
+        <WindowDrop
+          label={DECK.dropOverlay}
+          hint={DECK.dropOverlayHint}
+          disabled={exporting}
+          onDrop={(files) => void addDeckImages(files)}
+        />
       </div>
     </Section>
   );
