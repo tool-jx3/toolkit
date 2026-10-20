@@ -14,7 +14,8 @@ import { DeckHeaderActions, DeckSaveErrorNotice } from './DeckHeader';
 import { DeckGlobalSection, DeckImagesSection, ModeSwitch } from './DeckPanels';
 import { DeckPreview } from './DeckPreview';
 import { addDeckImages } from './deckActions';
-import { assets, deckNow, historyStep, referencedImages, useDeck } from './deckStore';
+import { deckDebug } from './deckDebug';
+import { assets, historyStep, referencedImages } from './deckStore';
 import { Preview, type PreviewHandle } from './Preview';
 import { ACCEPT, EffectTabs, ImagePanel, OutputPanel } from './panels';
 import { TOOL_ID, useSession, useSettings } from './store';
@@ -81,8 +82,7 @@ export function App() {
       images: () =>
         useSession.getState().images.map((i) => ({ name: i.name, w: i.width, h: i.height })),
       /* 圖片切換模式的內容 */
-      deck: () => deckNow(),
-      deckCanUndo: () => useDeck.temporal.getState().pastStates.length,
+      ...deckDebug(),
       seek: (t: number) => previewRef.current?.seek(t),
       get time() {
         return previewRef.current?.time ?? 0;

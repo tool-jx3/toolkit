@@ -49,6 +49,9 @@ export interface DeckExportResult {
   adjustments: string[];
 }
 
+/** 最近一次匯出的每次嘗試（測試與對等驗證用） */
+export const lastDeckExport: { attempts: DeckAttempt[] } = { attempts: [] };
+
 const pct = (q: number) => Math.round(q * 100);
 
 export async function exportDeck(o: DeckExportOptions): Promise<DeckExportResult> {
@@ -117,6 +120,7 @@ export async function exportDeck(o: DeckExportOptions): Promise<DeckExportResult
     adjustments.push(
       DECK.adjustSize(`${start.width} × ${start.height}`, `${cur.width} × ${cur.height}`),
     );
+  lastDeckExport.attempts = attempts;
   const last = attempts[attempts.length - 1];
   return { result, attempts, over: last.bytes > limit, adjustments };
 }
