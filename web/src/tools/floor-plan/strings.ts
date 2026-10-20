@@ -208,6 +208,10 @@ export const S = {
     stats: (rooms: number, items: number, openings: number) =>
       `${rooms} 個房間・${items} 件家具・${openings} 個門窗`,
     mapTip: '點一下房間或家具，這裡就可以改名字、大小與顏色。',
+    /** 依序編號房間（F219） */
+    numberRooms: '替這一層的房間編號',
+    numberRoomsHint:
+      '依位置（由上到下、由左到右）放上 1、2、3…的圓標；GM 專用的房間排在最後。再按一次會重新編號。',
     room: '房間',
     item: '家具・小物',
     opening: '門窗',
@@ -247,6 +251,9 @@ export const S = {
     textBody: '文字',
     textSize: '字級',
     bold: '粗體',
+    /** 文字的樣式（F218） */
+    textStyle: '樣式',
+    textStyles: { plain: '一般文字', badge: '圓標' },
     front: '移到最上層',
     back: '移到最下層',
     duplicate: '複製',
@@ -338,6 +345,7 @@ export const S = {
 
   project: {
     import: '匯入「TRPG 室內圖メーカー」的地圖檔…',
+    share: '分享連結…',
     resetLabel: '新的空白地圖',
     resetTitle: '開一張新的空白地圖？',
     resetText: '目前的地圖會被清空（可以用「復原」回來）。顯示樣式等設定會保留。',
@@ -349,11 +357,60 @@ export const S = {
     dropHint: '放開即可開啟地圖檔',
   },
 
+  /** 分享連結（F215～F217） */
+  share: {
+    title: '分享連結',
+    lead: '把目前的地圖放進連結（不經過伺服器）。開連結的人會看到同樣的地圖，也可以接著編輯；你這邊的地圖不受影響。',
+    mode: '連結的內容',
+    modes: { pl: 'PL 用', full: '完整（GM 用）' },
+    plNote:
+      'GM 專用的東西、隱藏線索與 GM 筆記都不在連結裡（不是藏起來，是拿掉），可以放心給 PL。打開時會切到 PL 檢視。',
+    fullNote: '連結裡有整張地圖，包含 GM 專用的房間、暗門、隱藏線索與 GM 筆記。只給自己或共同 GM。',
+    removed: (r: {
+      gmRooms: number;
+      gmThings: number;
+      secretDoors: number;
+      clues: number;
+      notes: number;
+    }) =>
+      `拿掉：${[
+        r.gmRooms ? `GM 專用的房間 ${r.gmRooms} 間（只留牆框）` : '',
+        r.gmThings ? `其他 GM 專用的東西 ${r.gmThings} 個` : '',
+        r.secretDoors ? `暗門 ${r.secretDoors} 個（當成牆）` : '',
+        r.clues ? `隱藏線索 ${r.clues} 個` : '',
+        r.notes ? `GM 筆記 ${r.notes} 則` : '',
+      ]
+        .filter(Boolean)
+        .join('、')}。`,
+    nothingRemoved: '這張地圖沒有 GM 專用的東西，兩種連結的內容相同。',
+    link: '連結',
+    count: (n: number, max: number) =>
+      `內容 ${n.toLocaleString('en-US')} 字（上限 ${max.toLocaleString('en-US')} 字）`,
+    copy: '複製連結',
+    copied: '已複製分享連結',
+    refresh: '地圖改了之後，請重新複製連結。',
+    tooLong: (n: number, max: number) =>
+      `地圖太大，放不進連結（${n.toLocaleString('en-US')} 字，上限 ${max.toLocaleString('en-US')} 字）。請改用「專案 → 存成專案檔」。`,
+    opened: (name: string) => `已開啟分享的地圖「${name}」`,
+    openedPl: (name: string) => `已開啟分享的地圖「${name}」（PL 用）`,
+    /** 目前的地圖有內容時，打開連結前的確認（7.6） */
+    replaceTitle: '要用分享的地圖取代目前的地圖嗎？',
+    replaceText:
+      '目前的地圖會被換掉。取代之後可以用「復原」拿回來，但關掉頁面就拿不回來；要留著的話先按「取消」，用「專案 → 存成專案檔」存一份，再重新打開連結。',
+    replace: '取代',
+    keep: '取消',
+    broken: '分享連結讀不出來。',
+    brokenHint: '連結可能不完整（複製時少了一段）。地圖沒有改變。',
+  },
+
   msg: {
     opened: (name: string) => `已開啟「${name}」`,
     saved: (file: string) => `已存成專案檔：${file}`,
     imported: (name: string) => `已匯入「${name}」`,
     templateLoaded: (name: string) => `已載入「${name}」`,
+    numbered: (n: number, gm: number) =>
+      gm ? `已替 ${n} 間房間編號（其中 ${gm} 間只有 GM 看得到）` : `已替 ${n} 間房間編號`,
+    noRoomsToNumber: '這一層沒有可以編號的房間。',
     newMap: '已開新的空白地圖',
     cluesShown: (n: number) => `顯示隱藏線索（${n} 個）`,
     cluesHidden: (n: number) => `隱藏線索已藏起來（${n} 個）`,
@@ -380,6 +437,10 @@ export const S = {
     details: '詳細',
     detailsAlt: '列出換成相近種類與略過的東西',
     title: '匯入時的調整',
+    /** 從分享連結打開時（7.7） */
+    titleLink: '打開連結時的調整',
+    introLink:
+      '分享連結裡有本工具沒有的房間、門窗、牆種類，換成了最接近的種類（之後可以在屬性面板改）；本工具沒有的家具與設定略過了。連結被改過，或是用較新版本的工具做的，都可能有這些東西。',
     intro:
       '本工具沒有的房間、門窗、牆種類換成了最接近的種類（之後可以在屬性面板改）；本工具沒有的家具與設定略過了。原作（TRPG 室內圖メーカー）較新的版本存的地圖檔會有這些東西。',
     convertedHead: '換成相近的種類',
@@ -488,6 +549,7 @@ export const S = {
       '設成「隱藏線索」的家具與文字（右上角有放大鏡）可以用畫布右上的開關（C）一起藏起來——和 GM／PL 檢視分開，可以讓 PL 看到房間裡面、但還沒找到的線索先不顯示。範本可以勾「放入隱藏線索」一起載入。',
       '下方的樓層列可以新增、複製、改名、排序樓層；按［與］切換。下一層會淡淡地顯示，方便對齊樓梯。',
       '「匯出圖片」存成 PNG（1 格＝0.5 m，可以選每格幾 px）：這一層、所有樓層排成一張、或每層各一張；PL 用的圖不含 GM 專用的東西。太大的圖會自動縮小到瀏覽器畫得出來的大小。',
+      '地圖設定的「替這一層的房間編號」依位置放上 1、2、3…的圓標（GM 專用的房間排在最後）；文字也可以在右邊改成「圓標」樣式。「專案 → 分享連結…」把地圖放進連結傳給別人：PL 用的連結不含 GM 專用的東西、隱藏線索與 GM 筆記。',
     ],
     note: '地圖自動存在這個瀏覽器裡；要換電腦接著做，用「專案 → 存成專案檔」存下來，再在另一台開啟。原作（TRPG 室內圖メーカー）存的 .trpgmap.json 也可以從「專案」選單匯入（原作較新的版本才有的種類換成最接近的，本工具沒有的家具與設定略過）。做好的平面圖可以自由用在團務、直播與劇本。',
   },

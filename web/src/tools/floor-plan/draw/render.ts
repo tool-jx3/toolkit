@@ -2,14 +2,15 @@
  * 畫一層樓：地板（底色、花紋）、下一層的影子、家具、牆、門窗、GM 房間的斜線、房間名字、文字、格線。
  * ctx 要先換算成「1 單位＝1 格」。編輯畫面與匯出共用。
  */
+import { readableTextColor } from '@/core/color';
 import { ASSET, VERTICAL_LINKS } from '../model/assets';
-import { CAT, CELL_M, OPEN, wallThickness } from '../model/catalog';
+import { BADGE_RING, CAT, CELL_M, OPEN, wallThickness } from '../model/catalog';
 import { itemLocalSize, type ShownFloor, type ShownRoom, visibleFloor } from '../model/geometry';
 import type { Floor, Item, Opening, Rect, SizeMode, TextLabel, Wall } from '../model/types';
 import { computeWalls, type WallRun } from '../model/walls';
 import { FURNITURE_DRAW, type FurnStyle } from './furniture';
 import { seeded } from './furniture/kit';
-import { haloText, labelLayout, textFont, verticalText } from './labels';
+import { badgeLabel, badgeSize, haloText, labelLayout, textFont, verticalText } from './labels';
 import { type FloorTheme, roomFill } from './themes';
 
 const TAU = Math.PI * 2;
@@ -842,6 +843,29 @@ export function drawRoomLabel(
   c.restore();
 }
 
+/**
+ * 圓標（規格 3.8）：先描一圈淺色的邊、再填深色的圓（長條），正中央寫字。
+ * 圓的顏色：自訂顏色 → GM 色（GM 專用）→ 線索色（編輯畫面的隱藏線索）→ 樣式的圓標色；字色配合圓的顏色。
+ */
+function drawBadge(c: Ctx, t: TextLabel, theme: FloorTheme, opts: { editor: boolean }): void {
+  const size = t.size || 0.7;
+  const { w, h } = badgeSize(c, t, theme.font);
+  const fill = t.color || (t.gm ? theme.gm : t.clue && opts.editor ? theme.clue : theme.badge.fill);
+  const ink = fill === theme.badge.fill ? theme.badge.text : readableTextColor(fill);
+  const r = h / 2;
+  c.beginPath();
+  c.arc(t.x - w / 2 + r, t.y, r, Math.PI / 2, Math.PI * 1.5);
+  c.arc(t.x + w / 2 - r, t.y, r, -Math.PI / 2, Math.PI / 2);
+  c.closePath();
+  c.lineWidth = size * BADGE_RING;
+  c.lineJoin = 'round';
+  c.strokeStyle = theme.badge.ring;
+  c.stroke();
+  c.fillStyle = fill;
+  c.fill();
+  haloText(c, badgeLabel(t), t.x, t.y + size * 0.04, textFont(t, theme.font), ink, null, 0);
+}
+
 export function drawText(c: Ctx, t: TextLabel, theme: FloorTheme, opts: { editor: boolean }): void {
   const size = t.size || 0.7;
   const font = textFont(t, theme.font);
@@ -849,6 +873,11 @@ export function drawText(c: Ctx, t: TextLabel, theme: FloorTheme, opts: { editor
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   if (t.gm && opts.editor) c.globalAlpha = 0.75;
+  if (t.badge) {
+    drawBadge(c, t, theme, opts);
+    c.restore();
+    return;
+  }
   const color = t.color || (t.gm ? theme.gm : t.clue && opts.editor ? theme.clue : theme.label);
   const lines = String(t.text || '').split('\n');
   lines.forEach((ln, i) => {

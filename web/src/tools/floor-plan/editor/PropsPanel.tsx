@@ -2,7 +2,7 @@
  * 屬性面板：沒有選取時是地圖設定；選了一個東西時是它的屬性；選了好幾個時是共同的開關與動作。
  * 文字欄、數字欄從聚焦到離開算一步復原；調色盤按下到放開算一步。
  */
-import { Lock, LockOpen, RotateCw } from 'lucide-react';
+import { ListOrdered, Lock, LockOpen, RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { historyGesture } from '@/core/storage';
 import {
@@ -230,6 +230,18 @@ function MapProps() {
         {f.name}：{S.props.stats(f.rooms.length, f.items.length, f.openings.length)}
       </p>
       <p className="m-0 text-xs text-muted">{S.props.mapTip}</p>
+      <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+        <Button
+          size="sm"
+          icon={<ListOrdered />}
+          onClick={act.numberRoomsOnFloor}
+          data-testid="number-rooms"
+          className="self-start"
+        >
+          {S.props.numberRooms}
+        </Button>
+        <p className="m-0 text-xs text-muted">{S.props.numberRoomsHint}</p>
+      </div>
     </>
   );
 }
@@ -573,6 +585,23 @@ function TextProps({ t }: { t: TextLabel }) {
               else x.bold = false;
             })
           }
+        />
+      </Field>
+      <Field label={S.props.textStyle}>
+        <Segmented
+          size="sm"
+          aria-label={S.props.textStyle}
+          value={t.badge ? 'badge' : 'plain'}
+          onValueChange={(v) =>
+            edit((x) => {
+              if (v === 'badge') x.badge = true;
+              else delete x.badge;
+            })
+          }
+          options={[
+            { value: 'plain', label: S.props.textStyles.plain },
+            { value: 'badge', label: S.props.textStyles.badge },
+          ]}
         />
       </Field>
       <ColorRow

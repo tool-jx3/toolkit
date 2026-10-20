@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import type { PixelBuffer } from '../../src/core/image';
 import { getTool, outputDir } from '../../src/registry';
-import type { Floor, Project } from '../../src/tools/floor-plan/model/types';
+import type { Floor, Project, Rect, TextLabel } from '../../src/tools/floor-plan/model/types';
 import { decodePixels, parseChunks, readIhdr } from '../helpers/png';
 
 const URL = `/${outputDir(getTool('floor-plan') ?? { id: 'floor-plan', status: 'next' })}/`;
@@ -1057,7 +1057,8 @@ test.describe('存檔', () => {
     ]);
     expect(dl.suggestedFilename()).toBe('套房（一房一廳）.floor-plan.json');
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'floor-plan', version: 1 });
+    /* 2026-10：圓標加了 texts[].badge，版本 1 → 2（D33） */
+    expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'floor-plan', version: 2 });
     expect(saved.data.floors[0].rooms).toHaveLength(6);
     await blank(page);
     /* 開啟（專案選單） */
@@ -1418,6 +1419,465 @@ test('快捷鍵說明與使用方式', async ({ page }) => {
   await expect(help).toContainText('切換 GM／PL 檢視');
   await page.keyboard.press('Escape');
   expect(errors).toEqual([]);
+});
+
+test.describe('分享連結與房間編號（2026-10，參考 Maptsukuri）', () => {
+  /** 範本對話框「專案 → 分享連結…」裡的連結 */
+  async function shareLink(page: Page, mode: 'PL 用' | '完整（GM 用）') {
+    await page.getByRole('button', { name: '專案' }).click();
+    await page.getByRole('menuitem', { name: '分享連結…' }).click();
+    const dialog = page.getByTestId('share-dialog');
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('radio', { name: mode }).click();
+    const url = await dialog.locator('textarea').inputValue();
+    return { dialog, url };
+  }
+  /** id 不比（連結裡不放 id） */
+  const noIds = (p: Project) =>
+    JSON.parse(JSON.stringify(p, (k, v) => (k === 'id' ? undefined : v))) as Project;
+  const lastToast = (page: Page) => page.locator('li[data-radix-collection-item]').last();
+  /** 直接打開某個網址（分享連結）；回傳主控台錯誤 */
+  async function openAt(page: Page, url: string) {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+    page.on('console', (m) => {
+      if (m.type() === 'error') errors.push(`console: ${m.text()}`);
+    });
+    await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) =>
+      r.fulfill({ status: 200, contentType: 'text/css', body: '' }),
+    );
+    await page.goto(url);
+    await page.waitForFunction(
+      () => !!(window as unknown as { __floorPlan?: unknown }).__floorPlan,
+    );
+    return errors;
+  }
+
+  test('完整連結：新的瀏覽器環境打開 → 地圖相同、通知可以復原、網址的 # 拿掉（F215、F217）', async ({
+    page,
+    browser,
+  }) => {
+    const errors = await open(page);
+    await run(page, 'loadTemplate', 'mansion', { structureOnly: false, clues: true });
+    await page.waitForTimeout(500);
+    const original = await project(page);
+    const { dialog, url } = await shareLink(page, '完整（GM 用）');
+    expect(new globalThis.URL(url).hash.startsWith('#m=')).toBe(true);
+    await expect(dialog).toContainText('連結裡有整張地圖');
+    await expect(dialog.getByTestId('share-removed')).toHaveCount(0);
+    /* 複製 */
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await dialog.getByRole('button', { name: '複製連結' }).click();
+    await expect(page.getByText('已複製分享連結')).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(url);
+
+    const ctx = await browser.newContext();
+    const other = await ctx.newPage();
+    const errors2 = await openAt(other, url);
+    await expect(lastToast(other)).toContainText('已開啟分享的地圖「洋館（地下室～2F）」');
+    await expect(lastToast(other)).toContainText('復原');
+    /* 第一次打開這個工具（開頁的範本沒改過）：不確認 */
+    await expect(other.getByRole('alertdialog')).toHaveCount(0);
+    expect(new globalThis.URL(other.url()).hash).toBe('');
+    expect(noIds(await project(other))).toEqual(noIds(original));
+    expect((await editorState(other)).playerView).toBe(false);
+    /* 本機原本的地圖（開頁的套房）可以復原回來 */
+    await lastToast(other).getByTestId('toast-action').click();
+    await expect.poll(async () => (await project(other)).name).toBe('套房（一房一廳）');
+    /* 重新整理不會再開一次 */
+    await other.reload();
+    await other.waitForFunction(
+      () => !!(window as unknown as { __floorPlan?: unknown }).__floorPlan,
+    );
+    expect((await project(other)).name).toBe('套房（一房一廳）');
+    await ctx.close();
+    expect([...errors, ...errors2]).toEqual([]);
+  });
+
+  test('PL 用連結：GM 專用的房間只剩牆框，GM 的東西、暗門、線索、GM 筆記都不在 store 裡（F216）', async ({
+    page,
+    browser,
+  }) => {
+    const errors = await open(page);
+    await run(page, 'loadTemplate', 'mansion', { structureOnly: false, clues: true });
+    await page.waitForTimeout(500);
+    const original = await project(page);
+    const { dialog, url } = await shareLink(page, 'PL 用');
+    await expect(dialog.getByTestId('share-removed')).toContainText('GM 專用的房間');
+    await expect(dialog.getByTestId('share-removed')).toContainText('隱藏線索');
+    const gmNames = original.floors.flatMap((f) =>
+      f.rooms.filter((r) => r.gm && r.name).map((r) => r.name),
+    );
+    expect(gmNames.length).toBeGreaterThan(0);
+
+    const ctx = await browser.newContext();
+    const other = await ctx.newPage();
+    const errors2 = await openAt(other, url);
+    await expect(lastToast(other)).toContainText('（PL 用）');
+    expect(new globalThis.URL(other.url()).hash).toBe('');
+    expect((await editorState(other)).playerView).toBe(true);
+    const got = await project(other);
+    const all = JSON.stringify(got);
+    for (const f of got.floors) {
+      expect(f.rooms.filter((r) => r.gm).every((r) => r.name === '' && !r.note)).toBe(true);
+      expect([...f.items, ...f.texts, ...f.walls, ...f.openings].some((x) => x.gm)).toBe(false);
+      expect(f.openings.some((o) => o.kind === 'secret')).toBe(false);
+      expect([...f.items, ...f.texts].some((x) => x.clue)).toBe(false);
+    }
+    for (const n of gmNames) expect(all).not.toContain(`"${n}"`);
+    expect(all).not.toContain('"note"');
+    expect(all).not.toContain('"plName"');
+    /* 換到 GM 檢視也拿不到 */
+    await other.getByRole('radio', { name: 'GM 檢視' }).click();
+    expect(JSON.stringify(await project(other))).toBe(all);
+    await ctx.close();
+    expect([...errors, ...errors2]).toEqual([]);
+  });
+
+  test('目前的地圖有內容時先確認：取消＝地圖不變、# 拿掉；取代＝可以復原；空白地圖不確認（F217、D29、7.6）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* 要分享的地圖：洞窟 */
+    await run(page, 'loadTemplate', 'cave', { structureOnly: false, clues: false });
+    const cave = noIds(await project(page));
+    const hash = await page.evaluate(() =>
+      (
+        window as unknown as { __floorPlan: { shareHash: (m: string) => string } }
+      ).__floorPlan.shareHash('full'),
+    );
+    /* 目前的地圖：洋館（有內容），自動儲存 */
+    await run(page, 'loadTemplate', 'mansion', { structureOnly: false, clues: false });
+    await page.waitForTimeout(600);
+    const mansion = noIds(await project(page));
+    const confirm = page.getByRole('alertdialog');
+
+    /* 打開連結（重新載入）→ 確認 → 取消：地圖不變、# 拿掉 */
+    await page.goto('about:blank');
+    await page.goto(`${URL}${hash}`);
+    await expect(confirm).toBeVisible();
+    await expect(confirm).toContainText('要用分享的地圖取代目前的地圖嗎？');
+    await expect(confirm).toContainText('存成專案檔');
+    await confirm.getByRole('button', { name: '取消' }).click();
+    await expect(confirm).toHaveCount(0);
+    expect(noIds(await project(page))).toEqual(mansion);
+    expect(new globalThis.URL(page.url()).hash).toBe('');
+    await expect(page.getByText('已開啟分享的地圖', { exact: false })).toHaveCount(0);
+
+    /* 開著的頁面換 # → 確認 → 取代：換成洞窟，通知的「復原」回到洋館 */
+    await page.evaluate((h) => {
+      location.hash = h;
+    }, hash);
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole('button', { name: '取代' }).click();
+    await expect(lastToast(page)).toContainText('已開啟分享的地圖「洞窟」');
+    expect(noIds(await project(page))).toEqual(cave);
+    await expect.poll(() => new globalThis.URL(page.url()).hash).toBe('');
+    await lastToast(page).getByTestId('toast-action').click();
+    await expect.poll(async () => noIds(await project(page))).toEqual(mansion);
+
+    /* 空白地圖：不確認，直接打開 */
+    await run(page, 'newMap');
+    await page.waitForTimeout(600);
+    await page.goto('about:blank');
+    await page.goto(`${URL}${hash}`);
+    await expect(lastToast(page)).toContainText('已開啟分享的地圖「洞窟」');
+    await expect(confirm).toHaveCount(0);
+    expect(noIds(await project(page))).toEqual(cave);
+    expect(errors).toEqual([]);
+  });
+
+  test('壞掉的連結：錯誤通知、地圖不變、# 拿掉；開著的頁面換 # 也讀得到（F217）', async ({
+    page,
+  }) => {
+    const errors = await openAt(page, `${URL}#m=abcdefg`);
+    await expect(lastToast(page)).toContainText('分享連結讀不出來。');
+    await expect(lastToast(page)).toContainText('地圖沒有改變。');
+    expect(new globalThis.URL(page.url()).hash).toBe('');
+    expect((await project(page)).name).toBe('套房（一房一廳）');
+    /* 開著的頁面換 #：也讀得到 */
+    const p = await project(page);
+    const hash = await page.evaluate(() => {
+      const h = (window as unknown as { __floorPlan: { shareHash: (m: string) => string } })
+        .__floorPlan;
+      return h.shareHash('full');
+    });
+    await run(page, 'newMap');
+    await page.evaluate((h) => {
+      location.hash = h;
+    }, hash);
+    await expect(lastToast(page)).toContainText('已開啟分享的地圖');
+    expect(noIds(await project(page))).toEqual(noIds(p));
+    await expect.poll(() => new globalThis.URL(page.url()).hash).toBe('');
+    expect(errors).toEqual([]);
+  });
+
+  test('圓標樣式、依序編號、匯出 PNG（PL 用的圖沒有 GM 專用的編號）、專案檔（F218、F219）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await blank(page);
+    /* A (0,0,8,6)、B (8,0,6,6)、GM 專用的 C (0,6,14,6) */
+    await page.keyboard.press('b');
+    await drag(page, [0, 0], [8, 6]);
+    await drag(page, [8, 0], [14, 6]);
+    await drag(page, [0, 6], [14, 12]);
+    await page.keyboard.press('v');
+    await click(page, 7, 9);
+    await page.getByTestId('mini-bar').locator('[data-mini="gm"]').click();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await page.getByTestId('number-rooms').click();
+    await expect(lastToast(page)).toContainText('已替 3 間房間編號（其中 1 間只有 GM 看得到）');
+    let f = await floor(page);
+    expect(f.texts.map((t) => [t.text, t.x, t.y, !!t.badge, !!t.gm])).toEqual([
+      ['1', 0.7, 0.7, true, false],
+      ['2', 8.7, 0.7, true, false],
+      ['3', 0.7, 6.7, true, true],
+    ]);
+    /* 再按一次：重新編號（不會多出一份） */
+    await page.waitForTimeout(450);
+    await page.getByTestId('number-rooms').click();
+    f = await floor(page);
+    expect(f.texts).toHaveLength(3);
+    /* 一步復原：回到第一次編號後 */
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    expect((await floor(page)).texts).toHaveLength(3);
+    await page.keyboard.press('Control+z');
+    expect((await floor(page)).texts).toHaveLength(0);
+    await page.keyboard.press('Control+Shift+z');
+    f = await floor(page);
+
+    /* 文字的樣式：一般文字 ↔ 圓標 */
+    const t1 = f.texts[0];
+    await page.keyboard.press('t');
+    await click(page, 4, 3);
+    await page.keyboard.press('Escape');
+    const plain = (await floor(page)).texts.at(-1) as TextLabel;
+    expect(plain.badge).toBeUndefined();
+    const style = page.getByRole('radiogroup', { name: '樣式', exact: true });
+    await style.getByRole('radio', { name: '圓標' }).click();
+    expect((await floor(page)).texts.at(-1)?.badge).toBe(true);
+    await page.waitForTimeout(450);
+    await style.getByRole('radio', { name: '一般文字' }).click();
+    expect((await floor(page)).texts.at(-1)?.badge).toBeUndefined();
+    await run(page, 'deleteSelection');
+
+    /* 匯出（每格 48 px）：PL 用的圖 1 號是圓標的深色、3 號（GM 專用）沒有；GM 用的圖 3 號是 GM 色 */
+    const frame = await page.evaluate(() => {
+      const h = (
+        window as unknown as {
+          __floorPlan: Hook & {
+            parity: {
+              exportLayout: (f: Floor[], o: unknown) => { frames: Rect[]; badgeH: number };
+            };
+          };
+        }
+      ).__floorPlan;
+      const p = h.useProject.getState().data;
+      const o = {
+        theme: 'clean',
+        px: 48,
+        showSize: 'none',
+        hideNames: false,
+        playerView: true,
+        hideClues: false,
+        grid: false,
+        transparent: false,
+        gmBadge: null,
+      };
+      return [
+        h.parity.exportLayout([p.floors[0]], o),
+        h.parity.exportLayout([p.floors[0]], { ...o, playerView: false, gmBadge: 'GM 用' }),
+      ];
+    });
+    /** 圓標上緣附近（字的上面）：圓的顏色 */
+    const ring = (b: PixelBuffer, L: { frames: Rect[]; badgeH: number }, t: TextLabel) =>
+      px(
+        b,
+        Math.round((t.x - L.frames[0].x) * 48),
+        Math.round((t.y - 0.6 * 1.5 * 0.4 - L.frames[0].y + L.badgeH) * 48),
+      );
+    await page.getByTestId('export-open').click();
+    const dialog = page.getByTestId('export-dialog');
+    let [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('export-download').click(),
+    ]);
+    let img = pngPixels(readFileSync((await dl.path()) as string));
+    const [b1, , b3] = (await floor(page)).texts;
+    expect(ring(img, frame[0], b1)).toEqual([37, 41, 48, 255]);
+    expect(ring(img, frame[0], b3)).not.toEqual([37, 41, 48, 255]);
+    await dialog.getByRole('radio', { name: 'GM 用（全部顯示）' }).click();
+    [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('export-download').click(),
+    ]);
+    img = pngPixels(readFileSync((await dl.path()) as string));
+    expect(ring(img, frame[1], b1)).toEqual([37, 41, 48, 255]);
+    expect(ring(img, frame[1], b3)).toEqual([138, 63, 210, 255]);
+    await page.keyboard.press('Escape');
+
+    /* 專案檔：版本 2、圓標帶著 */
+    await page.getByTestId('map-canvas').focus();
+    const [save] = await Promise.all([
+      page.waitForEvent('download'),
+      page.keyboard.press('Control+s'),
+    ]);
+    const saved = JSON.parse(readFileSync((await save.path()) as string, 'utf8'));
+    expect(saved.version).toBe(2);
+    expect(
+      saved.data.floors[0].texts.map((t: TextLabel) => [t.text, t.badge, t.gm ?? false]),
+    ).toEqual([
+      ['1', true, false],
+      ['2', true, false],
+      ['3', true, true],
+    ]);
+    expect(t1.text).toBe('1');
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('分享連結與圓標的修正（7.7）', () => {
+  const lastToast = (page: Page) => page.locator('li[data-radix-collection-item]').last();
+  const shareHash = (page: Page, mode: 'full' | 'pl') =>
+    page.evaluate(
+      (m) =>
+        (
+          window as unknown as { __floorPlan: { shareHash: (m: string) => string } }
+        ).__floorPlan.shareHash(m),
+      mode,
+    );
+  const addTexts = (page: Page, texts: TextLabel[]) =>
+    page.evaluate((ts) => {
+      const h = (window as unknown as { __floorPlan: Hook }).__floorPlan;
+      const p = h.useProject.getState().data;
+      h.useProject.getState().replace({
+        ...p,
+        floors: p.floors.map((f, i) => (i === p.active ? { ...f, texts: [...f.texts, ...ts] } : f)),
+      });
+    }, texts);
+
+  test('匯出範圍含圓標的外框：靠近邊緣的大圓標、長條圓標不會被切掉（3.8）', async ({ page }) => {
+    const errors = await open(page);
+    await blank(page);
+    await page.keyboard.press('b');
+    await drag(page, [0, 0], [6, 6]);
+    await page.keyboard.press('v');
+    await addTexts(page, [
+      { id: 'big', x: 3, y: -1.45, text: 'A', size: 4, badge: true },
+      { id: 'long', x: 8, y: 3, text: '入口在這裡往右走', size: 1, badge: true },
+    ]);
+    await page.getByTestId('export-open').click();
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('export-download').click(),
+    ]);
+    const img = pngPixels(readFileSync((await dl.path()) as string));
+    const white = [255, 255, 255, 255];
+    const top = Array.from({ length: img.width }, (_, x) => px(img, x, 0));
+    const right = Array.from({ length: img.height }, (_, y) => px(img, img.width - 1, y));
+    expect(top.filter((c) => c.join() !== white.join())).toEqual([]);
+    expect(right.filter((c) => c.join() !== white.join())).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  test('打開連結並取代時關掉其他對話框；分享對話框關掉後焦點回到「專案」；390 寬時「連結」不折行', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const hash = await shareHash(page, 'full');
+    /* 分享對話框：Esc 關掉 → 焦點在「專案」 */
+    await page.getByRole('button', { name: '專案' }).click();
+    await page.getByRole('menuitem', { name: '分享連結…' }).click();
+    const dialog = page.getByTestId('share-dialog');
+    await expect(dialog).toBeVisible();
+    const title = dialog.getByRole('heading', { name: '連結', exact: true });
+    const box = await title.boundingBox();
+    expect(box?.height ?? 99).toBeLessThan(26);
+    await expect(dialog).toContainText('內容');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.textContent?.trim()))
+      .toBe('專案');
+
+    /* 範本對話框開著時打開連結（空白地圖，不確認）→ 範本對話框關掉 */
+    await run(page, 'newMap');
+    await page.evaluate(
+      (patch) =>
+        (
+          window as unknown as { __floorPlan: { useEditor: { setState: (p: unknown) => void } } }
+        ).__floorPlan.useEditor.setState(patch),
+      { templatesOpen: true },
+    );
+    await expect(page.getByTestId('template-dialog')).toBeVisible();
+    await page.evaluate((h) => {
+      location.hash = h;
+    }, hash);
+    await expect(lastToast(page)).toContainText('已開啟分享的地圖');
+    await expect(page.getByTestId('template-dialog')).toHaveCount(0);
+    /* 匯出對話框開著時也一樣（有內容 → 確認 → 取代） */
+    await run(page, 'loadTemplate', 'mansion', { structureOnly: false, clues: false });
+    await page.evaluate(
+      (patch) =>
+        (
+          window as unknown as { __floorPlan: { useEditor: { setState: (p: unknown) => void } } }
+        ).__floorPlan.useEditor.setState(patch),
+      { exportOpen: true },
+    );
+    await expect(page.getByTestId('export-dialog')).toBeVisible();
+    await page.evaluate((h) => {
+      location.hash = h;
+    }, hash);
+    await page.getByRole('alertdialog').getByRole('button', { name: '取代' }).click();
+    await expect(page.getByTestId('export-dialog')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('從連結打開時「詳細」對話框寫的是分享連結（不是原作的地圖檔）', async ({ page }) => {
+    const errors = await open(page);
+    await run(page, 'newMap');
+    const hash = await page.evaluate(() => {
+      const json = JSON.stringify({
+        v: 1,
+        d: {
+          name: '奇怪的連結',
+          floors: [
+            {
+              name: '1F',
+              rooms: [{ x: 0, y: 0, w: 4, h: 4, name: 'A', cat: 'stone' }],
+              items: [{ t: 'ufo', x: 1, y: 1, w: 1, h: 1 }],
+            },
+          ],
+        },
+      });
+      return json;
+    });
+    /* 用工具自己的編碼做出連結 */
+    const link = await page.evaluate(async (json) => {
+      const bytes = new TextEncoder().encode(json);
+      const cs = new CompressionStream('deflate-raw');
+      const out = new Uint8Array(
+        await new Response(new Blob([bytes]).stream().pipeThrough(cs)).arrayBuffer(),
+      );
+      let bin = '';
+      for (const b of out) bin += String.fromCharCode(b);
+      return `#m=${btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+    }, hash);
+    await page.evaluate((h) => {
+      location.hash = h;
+    }, link);
+    await expect(lastToast(page)).toContainText('1 個換成相近的種類、1 件家具略過。');
+    await page.getByTestId('import-report-open').click();
+    const report = page.getByRole('dialog', { name: '打開連結時的調整' });
+    await expect(report).toBeVisible();
+    await expect(report).toContainText('分享連結');
+    await expect(report).not.toContainText('原作');
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe('版面', () => {

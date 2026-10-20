@@ -151,6 +151,8 @@ export interface TextLabel {
   color?: string;
   gm?: boolean;
   clue?: boolean;
+  /** 圓標（深色的圓裡寫白字，例如房間編號；2026-10） */
+  badge?: boolean;
 }
 
 export interface Floor {

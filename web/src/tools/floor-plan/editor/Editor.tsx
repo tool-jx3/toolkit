@@ -15,6 +15,7 @@ import { ImportReportDialog } from './ImportReport';
 import { handleEscapeCapture, handleKeyDown, handleKeyUp } from './keys';
 import { Library } from './Library';
 import { PropsPanel } from './PropsPanel';
+import { openSharedFromHash, ShareDialog } from './ShareDialog';
 import { onPersistError } from './store';
 import { TemplateDialog } from './TemplateDialog';
 import { installTestHook } from './testHook';
@@ -36,7 +37,12 @@ export function Editor() {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     installTestHook();
+    /* 網址 # 後面有分享的地圖時打開（F217）；開著的頁面換了 # 也一樣 */
+    const onHash = () => void openSharedFromHash();
+    onHash();
+    window.addEventListener('hashchange', onHash);
     return () => {
+      window.removeEventListener('hashchange', onHash);
       bindUi(null, null);
       bindView(null);
       onPersistError(null);
@@ -80,6 +86,7 @@ export function Editor() {
       <TemplateDialog />
       <ExportDialog />
       <ImportReportDialog />
+      <ShareDialog />
     </div>
   );
 }

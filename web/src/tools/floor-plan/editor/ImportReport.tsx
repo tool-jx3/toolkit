@@ -136,12 +136,13 @@ function Rows({ report }: { report: CompatReport }) {
 export function ImportReportDialog() {
   const open = useEditor((s) => s.importReportOpen);
   const report = useEditor((s) => s.importReport);
+  const link = useEditor((s) => s.importSource === 'link');
   return (
     <Dialog
       open={open && !!report}
       onOpenChange={(o) => setEditor({ importReportOpen: o })}
-      title={C.title}
-      description={C.intro}
+      title={link ? C.titleLink : C.title}
+      description={link ? C.introLink : C.intro}
       size="md"
     >
       <div data-testid="import-report">{report ? <Rows report={report} /> : null}</div>

@@ -2,7 +2,7 @@
  * 室內平面圖產生器：探索場景用的室內平面圖（房間、門窗、家具，自動產生牆壁），
  * GM 專用與隱藏線索、多樓層、匯出 PNG。
  */
-import { FileInput } from 'lucide-react';
+import { FileInput, Share2 } from 'lucide-react';
 import { useSaveStatus } from '@/core/storage';
 import { ProjectMenu, ProjectMenuItem, ToolShell } from '@/ui';
 import { fileBase, newMap, notify } from './editor/actions';
@@ -15,6 +15,7 @@ import {
   openProject,
 } from './editor/files';
 import { SHORTCUT_HELP } from './editor/keys';
+import { openShareDialog } from './editor/ShareDialog';
 import { DATA_VERSION, TOOL_ID, useProject } from './editor/store';
 import { S } from './strings';
 import { Usage } from './Usage';
@@ -49,9 +50,14 @@ export function App() {
             confirmLabel: S.project.resetConfirm,
           }}
           extraItems={
-            <ProjectMenuItem icon={<FileInput />} onSelect={() => void importLegacyFile()}>
-              {S.project.import}
-            </ProjectMenuItem>
+            <>
+              <ProjectMenuItem icon={<FileInput />} onSelect={() => void importLegacyFile()}>
+                {S.project.import}
+              </ProjectMenuItem>
+              <ProjectMenuItem icon={<Share2 />} onSelect={openShareDialog}>
+                {S.project.share}
+              </ProjectMenuItem>
+            </>
           }
         />
       }

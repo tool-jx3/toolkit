@@ -5,7 +5,8 @@
  * 房間是直長的（深 > 寬 × 1.3）而且是中日韓文字、直排放得下 → 直排；直長的英數名字轉 90° 比縮小大 → 轉向；
  * 其他一律縮小到放得下（至少 0.34 格）。面積文字在名字下方，字級 × 0.72。名字可以用 lx、ly 拖到別的位置。
  */
-import { sizeText } from '../model/geometry';
+import { BADGE_DIAMETER, BADGE_PAD } from '../model/catalog';
+import { badgeLabel, sizeText } from '../model/geometry';
 import type { Rect, Room, SizeMode, TextLabel } from '../model/types';
 import type { FloorTheme } from './themes';
 
@@ -174,13 +175,31 @@ export const textFont = (t: Pick<TextLabel, 'size' | 'bold'>, family: string): F
   family,
 });
 
-/** 地圖文字佔的範圍（點選、範圍選取用）：每行寬取最大（至少 0.8 格），行高 1.25 倍 */
+export { badgeLabel };
+
+/** 圓標的大小（格）：直徑＝字級 × 1.5；字寬＋0.7 × 字級比直徑寬時變成兩端圓的長條 */
+export function badgeSize(
+  c: CanvasRenderingContext2D,
+  t: Pick<TextLabel, 'text' | 'size' | 'bold'>,
+  font: string,
+): { w: number; h: number } {
+  const size = t.size || 0.7;
+  const d = size * BADGE_DIAMETER;
+  const width = measureText(c, badgeLabel(t), textFont(t, font));
+  return { w: Math.max(d, width + size * BADGE_PAD), h: d };
+}
+
+/** 地圖文字佔的範圍（點選、範圍選取用）：每行寬取最大（至少 0.8 格），行高 1.25 倍；圓標是圓（長條）的外框 */
 export function textBox(
   c: CanvasRenderingContext2D,
-  t: Pick<TextLabel, 'x' | 'y' | 'text' | 'size' | 'bold'>,
+  t: Pick<TextLabel, 'x' | 'y' | 'text' | 'size' | 'bold' | 'badge'>,
   font: string,
 ): Rect {
   const size = t.size || 0.7;
+  if (t.badge) {
+    const b = badgeSize(c, t, font);
+    return { x: t.x - b.w / 2, y: t.y - b.h / 2, w: b.w, h: b.h };
+  }
   const f = textFont(t, font);
   const lines = String(t.text || '').split('\n');
   const width = Math.max(0.8, ...lines.map((l) => measureText(c, l, f)));

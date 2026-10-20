@@ -189,6 +189,7 @@ function text(t: Record<string, unknown>): TextLabel | null {
     color: color(t.color),
     gm: flag(t.gm),
     clue: flag(t.clue),
+    badge: flag(t.badge),
   });
 }
 

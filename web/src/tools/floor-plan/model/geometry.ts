@@ -1,7 +1,7 @@
 /**
  * 幾何與資料的小工具（純函式）：id、對齊、範圍、門窗的佔位、樓層的外接範圍、面積文字、PL 檢視的樓層。
  */
-import { CAT, CELL_M, OPEN, PING_M2 } from './catalog';
+import { BADGE_DIAMETER, BADGE_PAD, BADGE_RING, CAT, CELL_M, OPEN, PING_M2 } from './catalog';
 import type { Floor, Item, Opening, Project, Rect, Room, SizeMode, TextLabel } from './types';
 
 let seq = 0;
@@ -96,6 +96,31 @@ export function roughTextRect(t: Pick<TextLabel, 'x' | 'y'>): Rect {
   return { x: t.x - 2, y: t.y - 0.5, w: 4, h: 1 };
 }
 
+/** 圓標上的字：多行用空白接成一行（規格 3.8） */
+export const badgeLabel = (t: Pick<TextLabel, 'text'>): string =>
+  String(t.text || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join(' ');
+
+/** 中日韓文字、全形符號（估計字寬時算 1 個字級寬） */
+const WIDE_CHAR =
+  /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60\uffe0-\uffe6]/;
+
+/**
+ * 圓標的大略外框（含外圍的邊；匯出範圍用，3.8）。不量字：寬字算 1 個字級、其他 0.7 個字級，比實際的字寬一點，
+ * 所以範圍只會多、不會切到圓標。
+ */
+export function roughBadgeRect(t: Pick<TextLabel, 'x' | 'y' | 'text' | 'size'>): Rect {
+  const s = t.size || 0.7;
+  const est = Array.from(badgeLabel(t)).reduce((w, ch) => w + (WIDE_CHAR.test(ch) ? 1 : 0.7), 0);
+  const d = s * BADGE_DIAMETER;
+  const w = Math.max(d, (est + BADGE_PAD) * s);
+  const ring = (s * BADGE_RING) / 2;
+  return { x: t.x - w / 2 - ring, y: t.y - d / 2 - ring, w: w + ring * 2, h: d + ring * 2 };
+}
+
 /** 樓層所有東西的外接範圍（沒有東西時 null） */
 export function floorBounds(floor: Floor): Rect | null {
   let box: Rect | null = null;
@@ -110,7 +135,7 @@ export function floorBounds(floor: Floor): Rect | null {
     });
   }
   for (const o of floor.openings) box = unionRect(box, openingRect(o, openingReach(o)));
-  for (const t of floor.texts) box = unionRect(box, roughTextRect(t));
+  for (const t of floor.texts) box = unionRect(box, t.badge ? roughBadgeRect(t) : roughTextRect(t));
   return box;
 }
 
