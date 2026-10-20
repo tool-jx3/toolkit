@@ -347,7 +347,7 @@ export const TOOLS: readonly ToolEntry[] = [
     id: 'bg-motion',
     name: '動態背景產生器',
     summary:
-      '讓背景圖震動、搖晃、推近拉遠、水波扭曲、淡化，或在幾張圖之間溶接與擦除，再加上夜晚、起霧等濾鏡，匯出動態 WebP、APNG、GIF。',
+      '讓背景圖震動、搖晃、推近拉遠、水波扭曲、淡化，再加上夜晚、起霧等濾鏡；或用「圖片切換」把幾張圖接起來，每張各自設定秒數與切換效果。匯出動態 WebP、APNG、GIF。',
     group: 'G2',
     status: 'live',
     inspiration: {

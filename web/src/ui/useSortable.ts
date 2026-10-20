@@ -12,6 +12,10 @@
  *   預設 'y'（直向清單，行為不變）。鍵盤 Alt＋←／→ 也能移動。
  * - windowEdge（選填）：清單沒有可捲動的上層容器時，拖到視窗上下緣 windowEdge px 內慢慢捲動整頁
  *   （character-editor 移植時新增，不給時行為不變）。
+ * - 拖曳開始後在 window 聽 pointerup／pointercancel（bg-motion 對等驗證後新增）：live 模式拖過別列時 React 會在 DOM 裡
+ *   移動被拖的列，瀏覽器因此放掉指標捕捉，pointerup 落在別的元素、列上收不到；沒有這個監聽，在清單範圍外放開時
+ *   拖曳（與 onMoveStart／onMoveEnd 的手勢）一直不結束，放開後列還跟著滑鼠重排、沒有復原步驟。
+ *   在列上放開時列自己的 pointerup 先結束，window 的不會重複（結束是冪等的）。
  * - 只想從把手開始拖（例如每列都是輸入欄的表單）：把 rowProps 的 ref 給整列、其餘的指標事件給把手。
  *   把手本身（標 `data-drag-handle`）可以是 `<button>`（有名稱、可聚焦）：按鈕、輸入欄等不能開始拖的元素
  *   只有在把手裡面時例外（character-editor 移植時新增；原本的把手都是 span，行為不變）。
@@ -100,9 +104,17 @@ export function useSortable(options: SortableOptions) {
     active: boolean;
     scroller: HTMLElement | null;
     raf: number;
+    /** 拖曳開始後掛在 window 上的 pointerup／pointercancel 監聽的拆除函式 */
+    detach: (() => void) | null;
   } | null>(null);
 
-  useEffect(() => () => cancelAnimationFrame(g.current?.raf ?? 0), []);
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(g.current?.raf ?? 0);
+      g.current?.detach?.();
+    },
+    [],
+  );
 
   const mid = (i: number) => {
     const r = rows.current.get(i)?.getBoundingClientRect();
@@ -222,6 +234,8 @@ export function useSortable(options: SortableOptions) {
     g.current = null;
     if (!s) return;
     cancelAnimationFrame(s.raf);
+    s.detach?.();
+    s.detach = null;
     setState(null);
     if (!s.active) return;
     if (opts.current.mode === 'drop') {
@@ -279,6 +293,7 @@ export function useSortable(options: SortableOptions) {
         active: false,
         scroller: null,
         raf: 0,
+        detach: null,
       };
     },
     onPointerMove: (e: PointerEvent<HTMLElement>) => {
@@ -291,6 +306,23 @@ export function useSortable(options: SortableOptions) {
         if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < (opts.current.threshold ?? 4)) return;
         s.active = true;
         e.currentTarget.setPointerCapture?.(e.pointerId);
+        /* 指標捕捉可能在拖曳中被瀏覽器放掉（列被移動位置）：在 window 上收放開與取消 */
+        const id = e.pointerId;
+        const onUp = (ev: globalThis.PointerEvent) => {
+          if (ev.pointerId !== id || g.current?.id !== id) return;
+          /* 捕捉掉了之後列收不到移動：以放開的位置算最後的目標（cancelOutside 時在範圍外就不移動） */
+          track(ev.clientX, ev.clientY);
+          finish(true);
+        };
+        const onCancel = (ev: globalThis.PointerEvent) => {
+          if (ev.pointerId === id && g.current?.id === id) finish(false);
+        };
+        window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointercancel', onCancel);
+        s.detach = () => {
+          window.removeEventListener('pointerup', onUp);
+          window.removeEventListener('pointercancel', onCancel);
+        };
         s.scroller = scrollParent(e.currentTarget);
         setState({ drag: s.index, over: s.index });
         if (opts.current.mode !== 'drop') opts.current.onMoveStart?.(s.index);
