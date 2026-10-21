@@ -59,7 +59,8 @@ export const S = {
     creditWords: '資訊行的關鍵字',
     inst: '略過伴奏標示',
     instWords: '伴奏的關鍵字',
-    wordsHint: '一行一個；句子含任何一個就略過（不分全形半形、大小寫與空白）。',
+    wordsHint:
+      '一行一個；句子含任何一個就略過（不分全形半形、大小寫與空白）。以「=」開頭的要整句相同才略過（例：「=inst」只略過單獨一行的 Inst）。',
     resetWords: '還原預設的關鍵字',
   },
 

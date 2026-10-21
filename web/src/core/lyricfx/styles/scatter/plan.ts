@@ -334,26 +334,30 @@ interface Placed {
  */
 function placeLine(ctx: SearchContext, d: Draft, zone: Zone | null, role: Role): Placed {
   const first = rowsOf(d.wrapping);
-  const candidates = [first, ...rewraps(d.segments, d.wrapping, ctx.m.rowMax, d.ruler).map(rowsOf)];
+  let lastRows = first;
   if (!zone) {
     let last: Spot | null = null;
-    for (const rows of candidates) {
+    for (const rows of rowChoices(d, ctx.m.rowMax)) {
       const r = scatterSearch(ctx, rows);
       if (r.found) return { spot: r.found, overlapped: false, locked: false };
       last = r.fallback;
     }
     return { spot: last as Spot, overlapped: true, locked: false };
   }
-  for (const rows of candidates) {
+  for (const rows of rowChoices(d, ctx.m.rowMax)) {
+    lastRows = rows;
     const r = bandSearch(ctx, rows, zone);
     if (r.found) return { spot: r.found, overlapped: false, locked: false };
     if (r.backup) return { spot: r.backup, overlapped: true, locked: false };
   }
-  const spot =
-    role === 'current'
-      ? escapeRegion(ctx, first, zone)
-      : anywhere(ctx, candidates[candidates.length - 1]);
+  const spot = role === 'current' ? escapeRegion(ctx, first, zone) : anywhere(ctx, lastRows);
   return { spot, overlapped: true, locked: false };
+}
+
+/** 依序要試的折行：原本的，接著改折行的候選（用到才算） */
+function* rowChoices(d: Draft, rowMax: number): Generator<string[]> {
+  yield rowsOf(d.wrapping);
+  for (const w of rewraps(d.segments, d.wrapping, rowMax, d.ruler)) yield rowsOf(w);
 }
 
 /* ---------- plan ---------- */

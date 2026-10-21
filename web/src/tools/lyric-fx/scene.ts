@@ -36,6 +36,10 @@ export function builtLines(s: Settings): BuiltLines {
 
 export const styleOf = (s: Settings): AnyLyricStyle => getLyricStyle(s.styleId);
 
+/** 風格會避開避開區域（controls 裡有 region 控制項；規格 3.8）：沒有時預覽上不畫區域的框 */
+export const usesRegion = (style: AnyLyricStyle): boolean =>
+  style.controls.some((sec) => sec.controls.some((c) => c.kind === 'region'));
+
 let styleKey: unknown = null;
 let styleValue: Record<string, unknown> | null = null;
 

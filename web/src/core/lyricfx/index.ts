@@ -13,6 +13,7 @@
  * - `draw` 可以畫進任何矩形（基準畫面＝短邊 1080，等比例縮放、置中）：music-frame 之後可以在它的版面裡留一塊畫歌詞。
  * - 亂數由種子決定（random.ts），抖動是時間的函式（jitter.ts）：同樣的設定，預覽、逐格匯出每次都一樣。
  * - 設定面板由風格的 `controls`（純資料）描述，共用元件 `@/ui` 的 `LyricStyleControls` 照著產生。
+ * - 避開區域是工具層的共用設定（region.ts）：不在風格的設定裡，plan 從 `options.region`、控制項從 `context.region` 拿到。
  */
 export * from './jitter';
 export * from './lines';

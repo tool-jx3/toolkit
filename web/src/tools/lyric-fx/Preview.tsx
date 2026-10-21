@@ -16,7 +16,7 @@ import { currentRegion, notify, removeAudio } from './actions';
 import { savePng } from './exporter';
 import { formatClock, sizeOf } from './model';
 import { RegionOverlay, RegionToolbar } from './RegionOverlay';
-import { builtLines, drawFrame, loopLength, planOf } from './scene';
+import { builtLines, drawFrame, loopLength, planOf, styleOf, usesRegion } from './scene';
 import { player, usePreview, useSession, useSettings } from './store';
 import { S } from './strings';
 
@@ -51,7 +51,8 @@ export function Preview() {
   const audio = useAudioPlayback(player);
   const loopRef = useRef(loop);
   loopRef.current = loop;
-  const region = s.region;
+  /* 避開區域是工具層的共用設定；目前的風格不避開它時不畫框 */
+  const region = usesRegion(styleOf(s)) ? s.region : null;
 
   useEffect(() => {
     if (hasAudio) loopRef.current.pause();
