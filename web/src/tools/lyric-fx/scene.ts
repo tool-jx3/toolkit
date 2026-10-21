@@ -67,19 +67,23 @@ export function planOf(s: Settings, fontTick: number): unknown {
   const lines = builtLines(s).lines;
   const style = styleOf(s);
   const settings = styleSettings(s);
-  const key = [lines, style, settings, s.seed, s.canvas.size];
+  const key = [lines, style, settings, s.seed, s.canvas.size, s.region];
   if (!planValue || key.some((v, i) => !Object.is(v, planKey[i]))) {
-    planValue = style.plan(lines, settings, s.seed, sizeOf(s.canvas.size), measure);
+    planValue = style.plan(lines, settings, s.seed, sizeOf(s.canvas.size), measure, {
+      region: s.region,
+    });
     planKey = key;
   }
   return planValue;
 }
 
-/** 沒有音樂時的長度（秒） */
+/** 沒有音樂時的長度（秒）：風格沒有 settledAt 時用最後一句的開始時間（規格 3.8） */
 export function loopLength(s: Settings, fontTick: number): number {
   const style = styleOf(s);
   const plan = planOf(s, fontTick);
-  return loopLengthFor(style.settledAt ? style.settledAt(plan) : 0);
+  const lines = builtLines(s).lines;
+  const lastStart = lines.length ? Math.max(0, lines[lines.length - 1].t) : 0;
+  return loopLengthFor(style.settledAt ? style.settledAt(plan) : lastStart);
 }
 
 /* ---------- 畫一格 ---------- */

@@ -9,15 +9,17 @@
  *   onChange={(patch, kind) => kind === 'live' ? gesture.live(apply)(patch) : kind === 'edit' ? edit(patch) : step(patch)}
  *   onCommit={gesture.commit}
  *   renderRegion={(c) => <MyRegionPicker />}
+ *   context={{ region }}
  *   userPresets={presets} onUserPresetsChange={setPresets}
  *   persistKey="lyric-fx:scatter"
  * />
  * ```
  *
  * - onChange 的 kind：'live'（滑桿、數字欄拖曳中；放開時 onCommit）、'edit'（顏色：連續的變更合成一步）、'step'（開關、選項、字型、預設：一次一步）。
- * - `when` 不成立的控制項不顯示（值保留）；`disabled` 回傳字串時停用並把字串當成說明。
+ * - `when` 不成立的控制項不顯示（值保留）；`disabled` 回傳字串時停用並把字串當成說明；兩者的第二個參數是 `context`。
  * - 配色預設：內建的按鈕＋使用者存的（由呼叫端保存；「存成預設」取名字、每個有刪除鈕）。
- * - 避開區域（kind 'region'）由呼叫端畫（renderRegion），通常要在預覽上框選。
+ * - 避開區域（kind 'region'）由呼叫端畫（renderRegion），通常要在預覽上框選；它的值是呼叫端的共用設定（不在 settings 裡），
+ *   以 `context.region` 交給控制項的 when／disabled。
  */
 import { Plus, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
@@ -26,6 +28,7 @@ import type {
   ChoiceControl,
   FontControl,
   LyricControl,
+  LyricControlContext,
   LyricControlSection,
   PresetsControl,
   RangeControl,
@@ -59,7 +62,10 @@ export interface LyricStyleControlsProps {
   onChange: (patch: Record<string, unknown>, kind: LyricControlChange) => void;
   /** 滑桿放開、數字欄確定 */
   onCommit?: () => void;
+  /** 避開區域（kind 'region'）的控制項：值是呼叫端的共用設定，不在 settings 裡；沒有給時不顯示 */
   renderRegion?: (control: RegionControl) => ReactNode;
+  /** 控制項的 when／disabled 拿到的共用設定（例：有避開區域時停用出現範圍；預設沒有避開區域） */
+  context?: LyricControlContext;
   userPresets?: readonly LyricUserPreset[];
   onUserPresetsChange?: (list: LyricUserPreset[]) => void;
   /** 區塊展開狀態的鍵名前綴 */
@@ -71,8 +77,14 @@ export interface LyricStyleControlsProps {
 
 const USER_PRESETS_MAX = 24;
 
-function disabledOf(c: LyricControl, s: Record<string, unknown>): string | boolean {
-  const d = c.disabled?.(s);
+const NO_CONTEXT: LyricControlContext = { region: null };
+
+function disabledOf(
+  c: LyricControl,
+  s: Record<string, unknown>,
+  ctx: LyricControlContext,
+): string | boolean {
+  const d = c.disabled?.(s, ctx);
   return d ?? false;
 }
 
@@ -366,11 +378,12 @@ export function LyricStyleControls({
   persistKey,
   openSections = 2,
   disabled = false,
+  context = NO_CONTEXT,
 }: LyricStyleControlsProps) {
   const s = settings;
   const row = (c: LyricControl) => {
-    if (c.when && !c.when(s)) return null;
-    const d = disabledOf(c, s);
+    if (c.when && !c.when(s, context)) return null;
+    const d = disabledOf(c, s, context);
     const off = disabled || !!d;
     const hint = typeof d === 'string' ? d : c.hint;
     const key = `${c.kind}:${c.key}`;

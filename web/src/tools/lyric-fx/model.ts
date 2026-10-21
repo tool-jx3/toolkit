@@ -9,11 +9,17 @@ import {
   type LineOverride,
   LYRIC_STYLES,
   type LyricLanguage,
+  type LyricRegion,
+  normalizeRegion,
 } from '@/core/lyricfx';
 import { SAMPLE_LYRICS } from './sample';
 
 export const TOOL_ID = 'lyric-fx';
-export const PROJECT_VERSION = 1;
+/**
+ * 存檔與專案檔的版本（規格 3.10）。
+ * 2：避開區域從「散落」的設定（styles.scatter.region）搬到工具層（region）；預設的關鍵字改版（資訊行要冒號、單獨一行的 Inst）。
+ */
+export const PROJECT_VERSION = 2;
 /** 預設的種子 */
 export const DEFAULT_SEED = 20261021;
 
@@ -56,6 +62,8 @@ export interface Settings {
   styleId: string;
   /** 每個風格的設定（換風格時保留） */
   styles: Record<string, unknown>;
+  /** 避開區域（畫面的 0～1；null＝沒有）：工具層的共用設定，plan 的 options.region 交給風格 */
+  region: LyricRegion | null;
   seed: number;
   canvas: { size: SizeId };
   background: { kind: BackgroundKind; color: string; image: MediaRef; fit: BackgroundFit };
@@ -82,6 +90,7 @@ export function defaultSettings(): Settings {
     overrides: {},
     styleId: DEFAULT_LYRIC_STYLE,
     styles: Object.fromEntries(LYRIC_STYLES.map((s) => [s.id, s.defaults()])),
+    region: null,
     seed: DEFAULT_SEED,
     canvas: { size: '1920x1080' },
     background: {
@@ -124,6 +133,34 @@ function normalizeOverride(v: unknown): LineOverride | null {
   return Object.keys(out).length ? out : null;
 }
 
+/** 版本 1 的預設關鍵字（存檔裡還是這一份、沒有改過時換成新的預設） */
+const V1_CREDIT_WORDS = [
+  '作詞', '作词', '作曲', '編曲', '编曲', '製作人', '制作人', '監製', '监制', '原唱', '翻唱', '混音', '錄音', '录音',
+  '和聲', '和声', '統籌', '统筹', '企劃', '企划', '出品', '封面', '詞:', '词:', '曲:', '吉他:', '貝斯:', '贝斯:', '鼓:',
+  '鍵盤:', '键盘:', '弦樂:', '弦乐:', 'op:', 'sp:', 'program', 'produced by', 'written by', 'composed by',
+  'arranged by', 'mixed by', 'mastered by', 'lyrics by', 'music by',
+].join('\n');
+const V1_INST_WORDS = [
+  '(inst', '[inst', '【inst', 'instrumental', '純音樂', '纯音乐', '伴奏', 'off vocal', 'カラオケ', 'karaoke',
+].join('\n');
+
+const words = (v: unknown, legacy: string, fallback: string) => {
+  const text = str(v, fallback, 20_000);
+  return text === legacy ? fallback : text;
+};
+
+/** 避開區域：版本 2 在 region；版本 1 在風格的設定裡（styles.<id>.region，目前的風格優先） */
+function regionOf(o: Record<string, unknown>, styleId: string): LyricRegion | null {
+  if ('region' in o) return normalizeRegion(o.region);
+  const styles = obj(o.styles);
+  const ids = [styleId, ...Object.keys(styles).filter((k) => k !== styleId)];
+  for (const id of ids) {
+    const r = normalizeRegion(obj(styles[id]).region);
+    if (r) return r;
+  }
+  return null;
+}
+
 export function normalizeSettings(raw: unknown): Settings {
   const d = defaultSettings();
   const o = obj(raw);
@@ -149,13 +186,14 @@ export function normalizeSettings(raw: unknown): Settings {
     language: oneOf(o.language, ['original', 'translation', 'both'] as const, d.language),
     filters: {
       credits: typeof fl.credits === 'boolean' ? fl.credits : d.filters.credits,
-      creditWords: str(fl.creditWords, d.filters.creditWords, 20_000),
+      creditWords: words(fl.creditWords, V1_CREDIT_WORDS, d.filters.creditWords),
       inst: typeof fl.inst === 'boolean' ? fl.inst : d.filters.inst,
-      instWords: str(fl.instWords, d.filters.instWords, 20_000),
+      instWords: words(fl.instWords, V1_INST_WORDS, d.filters.instWords),
     },
     overrides,
     styleId,
     styles,
+    region: regionOf(o, styleId),
     seed: Math.floor(num(o.seed, d.seed, 0, 4294967295)) >>> 0,
     canvas: { size: oneOf(obj(o.canvas).size, SIZES, d.canvas.size) },
     background: {

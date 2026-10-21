@@ -1,7 +1,7 @@
 /**
  * 「散落」的設定：型別、預設值（原作的預設：lyric-fx 規格 1.4～1.7）、範圍、正規化、設定面板的描述。
  */
-import type { LyricControlSection, LyricFont, LyricRegion } from '../../types';
+import type { LyricControlSection, LyricFont } from '../../types';
 import { SCATTER_TEXT as T } from './strings';
 
 export type ScatterMode = 'auto' | 'cjk' | 'latin';
@@ -53,8 +53,7 @@ export interface ScatterSettings {
   posXMax: number;
   posYMin: number;
   posYMax: number;
-  /** 避開區域（畫面的 0～1；null＝沒有） */
-  region: LyricRegion | null;
+  /* 避開區域不在這裡：它是工具層的共用設定，由 plan 的 options.region 拿到（規格 3.8） */
 }
 
 export const SCATTER_RANGES = {
@@ -119,10 +118,9 @@ export const scatterDefaults = (): ScatterSettings => ({
   posXMax: 85,
   posYMin: 5,
   posYMax: 75,
-  region: null,
 });
 
-/** 內建的配色預設（文字／陰影／光暈；數值同原作的三組：config/settings.py 3-7，名稱自己取） */
+/** 內建的配色預設（文字／陰影／光暈；數值見規格 F33，名稱自己取） */
 export const SCATTER_PRESETS = [
   {
     name: T.presetNames.gold,
@@ -164,23 +162,6 @@ function font(v: unknown, fallback: LyricFont): LyricFont {
   return { source, family, weight };
 }
 
-export function normalizeRegion(v: unknown): LyricRegion | null {
-  if (!v || typeof v !== 'object') return null;
-  const o = v as Record<string, unknown>;
-  const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : Number.NaN);
-  let x = n(o.x);
-  let y = n(o.y);
-  let w = n(o.width);
-  let h = n(o.height);
-  if (![x, y, w, h].every(Number.isFinite)) return null;
-  x = Math.min(1, Math.max(0, x));
-  y = Math.min(1, Math.max(0, y));
-  w = Math.min(1 - x, Math.max(0, w));
-  h = Math.min(1 - y, Math.max(0, h));
-  if (w < 0.003 || h < 0.003) return null;
-  return { x, y, width: w, height: h };
-}
-
 export function normalizeScatter(raw: unknown): ScatterSettings {
   const d = scatterDefaults();
   if (!raw || typeof raw !== 'object') return d;
@@ -220,7 +201,6 @@ export function normalizeScatter(raw: unknown): ScatterSettings {
     posXMax: num(o.posXMax, R.posMax, d.posXMax, true),
     posYMin: num(o.posYMin, R.posMin, d.posYMin, true),
     posYMax: num(o.posYMax, R.posMax, d.posYMax, true),
-    region: normalizeRegion(o.region),
   };
 }
 
@@ -461,7 +441,7 @@ export const SCATTER_CONTROLS: readonly LyricControlSection[] = [
         key: 'posXMin',
         label: `${T.posX}：${T.posMin}`,
         unit: '%',
-        disabled: (s) => (s.region ? T.noteRegion : false),
+        disabled: (_s, ctx) => (ctx.region ? T.noteRegion : false),
         ...R.posMin,
       },
       {
@@ -469,7 +449,7 @@ export const SCATTER_CONTROLS: readonly LyricControlSection[] = [
         key: 'posXMax',
         label: `${T.posX}：${T.posMax}`,
         unit: '%',
-        disabled: (s) => !!s.region,
+        disabled: (_s, ctx) => !!ctx.region,
         ...R.posMax,
       },
       {
@@ -477,7 +457,7 @@ export const SCATTER_CONTROLS: readonly LyricControlSection[] = [
         key: 'posYMin',
         label: `${T.posY}：${T.posMin}`,
         unit: '%',
-        disabled: (s) => !!s.region,
+        disabled: (_s, ctx) => !!ctx.region,
         ...R.posMin,
       },
       {
@@ -486,7 +466,7 @@ export const SCATTER_CONTROLS: readonly LyricControlSection[] = [
         label: `${T.posY}：${T.posMax}`,
         hint: T.posHint,
         unit: '%',
-        disabled: (s) => !!s.region,
+        disabled: (_s, ctx) => !!ctx.region,
         ...R.posMax,
       },
     ],

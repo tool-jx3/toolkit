@@ -1,6 +1,7 @@
 /**
  * 從歌詞文字組出要排的句（lyric-fx 規格 3.2；和風格無關，music-frame 之後也用這個）：
- * parseLyrics → 同一時間的翻譯 → 鍵 → 逐句覆寫 → 過濾（作詞作曲、伴奏） → 語言 → 演出延遲、排序 → 結束時間 → 拿掉空白的句。
+ * parseLyrics → 同一時間的翻譯（三行以上時第一行＋最後一行） → 鍵 → 逐句覆寫 → 過濾（作詞作曲、伴奏） → 語言 →
+ * 演出延遲、排序 → 結束時間 → 拿掉空白的句。
  */
 import { type LyricKind, type LyricLine, pairSameTimeLines, parseLyrics } from '../lyrics';
 import type { LyricFxLine } from './types';
@@ -31,30 +32,33 @@ export interface LineFilters {
   instWords: string;
 }
 
-/** 作詞作曲等資訊行的預設關鍵字（規格 3.2；新版自己整理） */
+/**
+ * 作詞作曲等資訊行的預設關鍵字（規格 3.2；新版自己整理）。資訊行的寫法是「名稱：人名」，所以每個都帶冒號
+ * （「Program the world」這種歌詞不會被略過）；比對前全形轉半形、拿掉空白，「作詞 ： 某人」「Produced  by: 某人」都算。
+ */
 export const DEFAULT_CREDIT_WORDS: readonly string[] = [
-  '作詞',
-  '作词',
-  '作曲',
-  '編曲',
-  '编曲',
-  '製作人',
-  '制作人',
-  '監製',
-  '监制',
-  '原唱',
-  '翻唱',
-  '混音',
-  '錄音',
-  '录音',
-  '和聲',
-  '和声',
-  '統籌',
-  '统筹',
-  '企劃',
-  '企划',
-  '出品',
-  '封面',
+  '作詞:',
+  '作词:',
+  '作曲:',
+  '編曲:',
+  '编曲:',
+  '製作人:',
+  '制作人:',
+  '監製:',
+  '监制:',
+  '原唱:',
+  '翻唱:',
+  '混音:',
+  '錄音:',
+  '录音:',
+  '和聲:',
+  '和声:',
+  '統籌:',
+  '统筹:',
+  '企劃:',
+  '企划:',
+  '出品:',
+  '封面:',
   '詞:',
   '词:',
   '曲:',
@@ -68,22 +72,24 @@ export const DEFAULT_CREDIT_WORDS: readonly string[] = [
   '弦乐:',
   'op:',
   'sp:',
-  'program',
-  'produced by',
-  'written by',
-  'composed by',
-  'arranged by',
-  'mixed by',
-  'mastered by',
-  'lyrics by',
-  'music by',
+  'program:',
+  'produced by:',
+  'written by:',
+  'composed by:',
+  'arranged by:',
+  'mixed by:',
+  'mastered by:',
+  'lyrics by:',
+  'music by:',
 ];
 
-/** 伴奏標示的預設關鍵字（規格 F09） */
+/** 伴奏標示的預設關鍵字（規格 F09）；「=」開頭的要整句相同（單獨一行的「Inst」「Inst.」） */
 export const DEFAULT_INST_WORDS: readonly string[] = [
   '(inst',
   '[inst',
   '【inst',
+  '=inst',
+  '=inst.',
   'instrumental',
   '純音樂',
   '纯音乐',
@@ -111,11 +117,18 @@ export const keywordList = (text: string): string[] =>
     .map(normalizeForMatch)
     .filter(Boolean);
 
-/** 文字含任何一個關鍵字（words 是 keywordList 的結果） */
+/** 整句比對的關鍵字以「=」開頭（全形「＝」也可以） */
+const WHOLE = '=';
+
+/**
+ * 文字符合任何一個關鍵字（words 是 keywordList 的結果）：一般的關鍵字＝含有它；「=」開頭的＝整句（正規化後）和它相同。
+ */
 export const matchesKeyword = (text: string, words: readonly string[]): boolean => {
   if (!words.length) return false;
   const s = normalizeForMatch(text);
-  return words.some((w) => s.includes(w));
+  return words.some((w) =>
+    w.startsWith(WHOLE) ? w.length > 1 && s === w.slice(1) : s.includes(w),
+  );
 };
 
 /** 歌詞清單上的一句（逐句調整的介面用：含略過的句） */
@@ -172,6 +185,30 @@ export function lineKeys(lines: readonly Pick<LyricLine, 't' | 'text'>[]): strin
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
+/**
+ * 同一時間有三行以上（規格 F07、D19）：第一行是原文、最後一行是翻譯，中間的行（例如羅馬拼音）略過；
+ * 之後 pairSameTimeLines 把剩下的兩行合成原文＋翻譯。只處理它會合併的情形：第一行有字、還沒有翻譯，
+ * 接著連續幾行同一時間、都有字（空白的時間標籤中斷）。結束取這幾行裡最晚的。
+ */
+export function dropMiddleSameTime(lines: readonly LyricLine[]): LyricLine[] {
+  const out: LyricLine[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const first = lines[i];
+    let j = i + 1;
+    if (first.text && !first.tr)
+      while (j < lines.length && lines[j].t === first.t && lines[j].text) j++;
+    if (j - i < 3) {
+      out.push(first);
+      continue;
+    }
+    let end = lines[j - 1].end;
+    for (let k = i + 1; k < j - 1; k++) end = Math.max(end, lines[k].end);
+    out.push(first, { ...lines[j - 1], end });
+    i = j - 1;
+  }
+  return out;
+}
+
 /** 從歌詞文字組出要排的句（規格 3.2） */
 export function buildLyricLines(text: string, options: BuildLinesOptions = {}): BuiltLines {
   const language = options.language ?? 'original';
@@ -221,7 +258,7 @@ export function buildLyricLines(text: string, options: BuildLinesOptions = {}): 
     };
   }
 
-  const paired = pairSameTimeLines(parsed.lines);
+  const paired = pairSameTimeLines(dropMiddleSameTime(parsed.lines));
   const keys = lineKeys(paired);
   const credit = filters.credits ? keywordList(filters.creditWords) : [];
   const inst = filters.inst ? keywordList(filters.instWords) : [];

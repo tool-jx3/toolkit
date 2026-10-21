@@ -14,7 +14,7 @@ import {
   toggleLock,
 } from './actions';
 import { seekPreview } from './Preview';
-import { builtLines } from './scene';
+import { builtLines, styleOf } from './scene';
 import { useSession, useSettings } from './store';
 import { S } from './strings';
 import { CommitInput, TimeInput } from './widgets';
@@ -24,12 +24,15 @@ const Row = memo(function Row({
   n,
   offset,
   locked,
+  lockable,
   disabled,
 }: {
   row: LyricRow;
   n: number;
   offset: number;
   locked: boolean;
+  /** 風格能鎖定（有 lock）：沒有時不顯示「鎖定」 */
+  lockable: boolean;
   disabled: boolean;
 }) {
   const skipped = row.skipped;
@@ -85,16 +88,18 @@ const Row = memo(function Row({
                 onClick={() => rerollLine(row.key)}
                 data-testid="line-reroll"
               />
-              <IconButton
-                size="sm"
-                variant="ghost"
-                label={locked ? S.lines.unlock(n) : S.lines.lock(n)}
-                icon={locked ? <Lock /> : <LockOpen />}
-                pressed={locked}
-                disabled={disabled}
-                onClick={() => toggleLock(row.key)}
-                data-testid="line-lock"
-              />
+              {lockable || locked ? (
+                <IconButton
+                  size="sm"
+                  variant="ghost"
+                  label={locked ? S.lines.unlock(n) : S.lines.lock(n)}
+                  icon={locked ? <Lock /> : <LockOpen />}
+                  pressed={locked}
+                  disabled={disabled}
+                  onClick={() => toggleLock(row.key)}
+                  data-testid="line-lock"
+                />
+              ) : null}
             </>
           ) : null}
           {row.edited ? (
@@ -141,6 +146,7 @@ export function LineList() {
   const editedCount = rows.filter((r) => r.edited).length;
   const lockedCount = rows.filter((r) => overrides[r.key]?.lock).length;
   const anyOverride = Object.keys(overrides).length > 0;
+  const lockable = !!styleOf(s).lock;
   return (
     <Section title={S.lines.section} description={S.lines.description} persistKey="lyric-fx:lines">
       <div className="flex min-w-0 flex-col gap-2">
@@ -193,6 +199,7 @@ export function LineList() {
                 n={i + 1}
                 offset={s.lyrics.offset}
                 locked={!!overrides[r.key]?.lock}
+                lockable={lockable}
                 disabled={exporting}
               />
             ))}

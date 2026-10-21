@@ -4,7 +4,7 @@
  * 純函式：只用參數（plan、settings、t、rect），不碰 DOM。
  */
 import { jitterAt } from '../../jitter';
-import { localAffine } from '../../perspective';
+import { glyphAffine } from '../../perspective';
 import type { LyricCtx, LyricRect } from '../../types';
 import {
   DEFAULT_CHAR_MS,
@@ -16,8 +16,12 @@ import {
   SLOT_DIM,
   SLOT_FADE_IN,
   SLOT_REVEAL_MS,
+  TEXT_HEIGHT_RATIO,
 } from './plan';
 import type { ScatterSettings } from './settings';
+
+/** 字的中心在基線上方幾個字級（中日韓字的字身約在基線上 0.88、下 0.12 字級） */
+export const GLYPH_CENTER_UP = 0.38;
 
 /** #rrggbb＋不透明度（0～255） → rgba() */
 function rgba(hex: string, alpha255: number): string {
@@ -95,6 +99,8 @@ function drawLine(
   s: ScatterSettings,
 ): void {
   const third = plan.th / 3;
+  /* 透視的局部近似以字的中心為準：基線起點往右半個字寬、往上 GLYPH_CENTER_UP 個字級（規格 3.6、D14） */
+  const up = -(plan.th / TEXT_HEIGHT_RATIO) * GLYPH_CENTER_UP;
   const jit = { x: 0, y: 0 };
   ctx.font = p.font;
   const a = st.alpha;
@@ -113,7 +119,9 @@ function drawLine(
     }
     const X = p.x + g.ox + jit.x;
     const Y = p.y - st.rise + g.oy + jit.y + third;
-    const local: M6 = s.perspective ? localAffine(p.persp, X, Y) : [1, 0, 0, 1, X, Y];
+    const local: M6 = s.perspective
+      ? glyphAffine(p.persp, X, Y, (g.adv ?? 0) / 2, up)
+      : [1, 0, 0, 1, X, Y];
     const M = mul(base, local);
     ctx.setTransform(M[0], M[1], M[2], M[3], M[4], M[5]);
     if (glowOn) {

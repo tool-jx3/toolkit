@@ -5,7 +5,7 @@
  * const built = buildLyricLines(lrcText, { language: 'both', offset: 0, filters, overrides });   // 要排的句（3.2）
  * const style = getLyricStyle('scatter');
  * const settings = style.normalize(saved);
- * const plan = style.plan(built.lines, settings, seed, { width: 1920, height: 1080 }, createCanvasMeasure());
+ * const plan = style.plan(built.lines, settings, seed, { width: 1920, height: 1080 }, createCanvasMeasure(), { region });
  * style.draw(ctx, t, plan, settings, { x: 0, y: 0, width: 1920, height: 1080 });   // 時間 t 的那一格（不畫背景）
  * ```
  *
@@ -19,5 +19,6 @@ export * from './lines';
 export * from './measure';
 export * from './perspective';
 export * from './random';
+export * from './region';
 export * from './styles';
 export * from './types';

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildLyricLines,
   type LyricFxLine,
+  type LyricPlanOptions,
   projectBox,
   roughMeasure,
   scatterStyle,
@@ -33,7 +34,8 @@ const plan = (
   s: Partial<ScatterSettings> = {},
   seed = 7,
   size = SIZE,
-) => planScatter(ls, { ...scatterDefaults(), ...s }, seed, size, env);
+  options: LyricPlanOptions = {},
+) => planScatter(ls, { ...scatterDefaults(), ...s }, seed, size, env, options);
 
 const overlap = (a: ScatterPlan['lines'][0]['box'], b: ScatterPlan['lines'][0]['box']) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
@@ -175,7 +177,8 @@ describe('範圍與避開', () => {
     const region = { x: 0.3, y: 0.2, width: 0.4, height: 0.5 };
     const R = { x: 576, y: 216, width: 768, height: 540 };
     for (const seed of [11, 12, 13]) {
-      const p = plan(ls, { region }, seed);
+      /* 避開區域是工具層的共用設定：由 plan 的 options 交給風格（規格 3.8） */
+      const p = plan(ls, {}, seed, SIZE, { region });
       for (const l of p.lines) {
         if (l.overlapped) continue;
         expect(overlap(l.box, R)).toBe(false);

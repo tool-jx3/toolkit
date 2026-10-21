@@ -42,7 +42,63 @@ describe('pairSameTimeLines', () => {
   });
 });
 
+describe('同一時間三行以上（F07、D19）', () => {
+  it('第一行是原文、最後一行是翻譯，中間的行略過', () => {
+    const lrc = '[00:01]夜に駆ける\n[00:01]yoru ni kakeru\n[00:01]向夜晚奔去\n[00:04]次の句';
+    const b = buildLyricLines(lrc, { language: 'both' });
+    expect(b.lines.map((l) => [l.t, l.end, l.text, l.tr])).toEqual([
+      [1, 4, '夜に駆ける', '向夜晚奔去'],
+      [4, Number.POSITIVE_INFINITY, '次の句', ''],
+    ]);
+    expect(b.rows.map((r) => [r.text, r.tr])).toEqual([
+      ['夜に駆ける', '向夜晚奔去'],
+      ['次の句', ''],
+    ]);
+    expect(buildLyricLines(lrc, { language: 'translation' }).lines[0].text).toBe('向夜晚奔去');
+  });
+  it('四行也一樣；空白的時間標籤中斷；已有翻譯的照 pairSameTimeLines', () => {
+    const four = buildLyricLines('[00:01]a\n[00:01]b\n[00:01]c\n[00:01]d\n[00:02]e', {
+      language: 'both',
+    });
+    expect(four.lines.map((l) => [l.text, l.tr])).toEqual([
+      ['a', 'd'],
+      ['e', ''],
+    ]);
+    const blank = buildLyricLines('[00:01]a\n[00:01]b\n[00:01]\n[00:01]c\n[00:03]x', {
+      language: 'both',
+    });
+    expect(blank.lines.map((l) => [l.text, l.tr])).toEqual([
+      ['a', 'b'],
+      ['c', ''],
+      ['x', ''],
+    ]);
+  });
+});
+
 describe('關鍵字比對', () => {
+  it('預設的資訊行關鍵字要冒號：「Program the world」不略過、「Program: 某人」略過', () => {
+    const credit = keywordList(DEFAULT_FILTERS.creditWords);
+    expect(matchesKeyword('Program the world', credit)).toBe(false);
+    expect(matchesKeyword('Music by the sea', credit)).toBe(false);
+    expect(matchesKeyword('和聲的溫柔', credit)).toBe(false);
+    expect(matchesKeyword('Program: 某人', credit)).toBe(true);
+    expect(matchesKeyword('Produced  By ： 某人', credit)).toBe(true);
+    expect(matchesKeyword('作詞 : 某人', credit)).toBe(true);
+    expect(matchesKeyword('和聲：某人', credit)).toBe(true);
+  });
+  it('「=」開頭的關鍵字要整句相同：單獨一行的 Inst、Inst. 略過', () => {
+    const inst = keywordList(DEFAULT_FILTERS.instWords);
+    expect(matchesKeyword('Inst.', inst)).toBe(true);
+    expect(matchesKeyword(' inst ', inst)).toBe(true);
+    expect(matchesKeyword('ＩＮＳＴ', inst)).toBe(true);
+    expect(matchesKeyword('Inst. version two', inst)).toBe(false);
+    expect(matchesKeyword('install', inst)).toBe(false);
+    expect(matchesKeyword('instead of', inst)).toBe(false);
+    /* 全形「＝」也可以；只有「=」的不算 */
+    expect(matchesKeyword('間奏', keywordList('＝間奏'))).toBe(true);
+    expect(matchesKeyword('間奏中', keywordList('＝間奏'))).toBe(false);
+    expect(matchesKeyword('=', keywordList('='))).toBe(false);
+  });
   it('NFKC、轉小寫、拿掉空白', () => {
     expect(normalizeForMatch('Produced  BY：某人')).toBe('producedby:某人');
     expect(keywordList('作詞\n\n  曲： \nOff Vocal')).toEqual(['作詞', '曲:', 'offvocal']);

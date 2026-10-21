@@ -1,7 +1,7 @@
 /**
- * 透視（lyric-fx 規格 3.5、3.6）：原作依句子的錨點算一組參數，套在整個畫面的座標上：
- * (X, Y) → (sx × X ÷ w, Y ÷ w)，w＝1＋qx × X＋qy × Y。畫布只有仿射變換，所以每個字用這個投影在
- * 字的基線起點的局部線性近似（雅可比矩陣）畫。
+ * 透視（lyric-fx 規格 3.5、3.6）：依句子的錨點算一組參數，套在整個畫面的座標上：
+ * (X, Y) → (sx × X ÷ w, Y ÷ w)，w＝1＋qx × X＋qy × Y。畫布只有仿射變換，所以每個字的中心用精確的投影、
+ * 字形用投影在那一點的局部線性近似（雅可比矩陣）畫（glyphAffine；誤差見規格 D14）。
  */
 
 export interface Perspective {
@@ -54,6 +54,21 @@ export function localAffine(
   const b = (-Y * p.qx) / w2;
   const d = (1 + p.qx * X) / w2;
   return [a, b, c, d, (p.sx * X) / w, Y / w];
+}
+
+/**
+ * 畫一個字用的變換（規格 3.6、D14）：以 (X, Y)（字的基線起點）為原點畫字，投影在字的中心 (X ＋ cx, Y ＋ cy)
+ * 做局部線性近似——中心的位置是精確的投影，字形是那一點的近似（比在基線起點近似的誤差小約四分之三）。
+ */
+export function glyphAffine(
+  p: Perspective,
+  X: number,
+  Y: number,
+  cx: number,
+  cy: number,
+): [number, number, number, number, number, number] {
+  const [a, b, c, d, e, f] = localAffine(p, X + cx, Y + cy);
+  return [a, b, c, d, e - (a * cx + c * cy), f - (b * cx + d * cy)];
 }
 
 /** 投影後的外接矩形（四個角投影後取範圍） */

@@ -4,7 +4,6 @@
  */
 import { ImageDown, Music2 } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
-import type { LyricRegion } from '@/core/lyricfx';
 import {
   Button,
   Stage,
@@ -17,7 +16,7 @@ import { currentRegion, notify, removeAudio } from './actions';
 import { savePng } from './exporter';
 import { formatClock, sizeOf } from './model';
 import { RegionOverlay, RegionToolbar } from './RegionOverlay';
-import { builtLines, drawFrame, loopLength, planOf, styleSettings } from './scene';
+import { builtLines, drawFrame, loopLength, planOf } from './scene';
 import { player, usePreview, useSession, useSettings } from './store';
 import { S } from './strings';
 
@@ -52,7 +51,7 @@ export function Preview() {
   const audio = useAudioPlayback(player);
   const loopRef = useRef(loop);
   loopRef.current = loop;
-  const region = (styleSettings(s).region as LyricRegion | null | undefined) ?? null;
+  const region = s.region;
 
   useEffect(() => {
     if (hasAudio) loopRef.current.pause();

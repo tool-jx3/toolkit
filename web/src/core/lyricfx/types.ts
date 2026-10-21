@@ -52,15 +52,21 @@ export interface LyricFont {
 
 /* ---------- 設定面板的描述（共用元件 LyricStyleControls 照這個產生控制項） ---------- */
 
+/** 控制項的 when／disabled 拿到的工具層共用設定（和風格無關；規格 3.8） */
+export interface LyricControlContext {
+  /** 避開區域（null＝沒有） */
+  region: LyricRegion | null;
+}
+
 interface ControlBase {
   /** 設定物件的欄位名稱 */
   key: string;
   label: string;
   hint?: string;
   /** 依目前的設定決定要不要顯示（不顯示時值保留） */
-  when?: (settings: Record<string, unknown>) => boolean;
+  when?: (settings: Record<string, unknown>, ctx: LyricControlContext) => boolean;
   /** 依目前的設定決定要不要停用；回傳字串時當成停用的說明 */
-  disabled?: (settings: Record<string, unknown>) => boolean | string;
+  disabled?: (settings: Record<string, unknown>, ctx: LyricControlContext) => boolean | string;
 }
 
 export interface SliderControl extends ControlBase {
@@ -123,7 +129,11 @@ export interface PresetsControl extends ControlBase {
   builtins: readonly { name: string; values: Record<string, unknown> }[];
 }
 
-/** 避開區域（{ x, y, width, height }，畫面的 0～1；null＝沒有）：工具在預覽上框選 */
+/**
+ * 避開區域的位置：風格用這個控制項表示「會避開避開區域，框選的控制項放在面板的這裡」。
+ * 值不在風格的設定裡：避開區域是工具層的共用設定（LyricControlContext.region），由工具畫控制項（在預覽上框選）、
+ * 透過 plan 的 options.region 交給風格；key 不使用（寫 'region'）。
+ */
 export interface RegionControl extends ControlBase {
   kind: 'region';
 }
@@ -156,10 +166,17 @@ export interface LyricRegion {
 
 /* ---------- 演出風格 ---------- */
 
+/** plan 的工具層共用輸入（和風格無關的設定；規格 3.8）。風格用不到的欄位不理它 */
+export interface LyricPlanOptions {
+  /** 避開區域（畫面的比例，0～1；null／沒有＝沒有避開區域） */
+  region?: LyricRegion | null;
+}
+
 /**
  * 一種歌詞演出風格（規格 3.8）。工具本體只透過這個介面用風格。
  * - plan：事先排好每一句（位置、角度、時間…），純函式：同樣的參數一定得到同樣的結果。
  * - draw：畫時間 t 的那一格到 rect（基準畫面等比例縮放、置中），純函式、不碰 DOM、不畫背景。
+ * - 選填的 lock、settledAt 沒有提供時工具怎麼做，寫在各欄位的說明。
  */
 export interface LyricStyle<S = Record<string, unknown>, P = unknown> {
   id: string;
@@ -176,15 +193,22 @@ export interface LyricStyle<S = Record<string, unknown>, P = unknown> {
     seed: number,
     size: LyricSize,
     env: LyricMeasureEnv,
+    options?: LyricPlanOptions,
   ): P;
   draw(ctx: LyricCtx, t: number, plan: P, settings: S, rect: LyricRect): void;
-  /** 鎖定一句時記下的資料（之後放在 LyricFxLine.lock 傳回 plan）；這一句沒有排到時 null */
+  /**
+   * 鎖定一句時記下的資料（之後放在 LyricFxLine.lock 傳回 plan）；這一句沒有排到時 null。
+   * 沒有提供＝這個風格不能鎖定：工具的逐句清單不顯示「鎖定」。
+   */
   lock?(plan: P, key: string): unknown;
   /** 面板上的提醒（例：有翻譯時預點亮停用） */
   notes?(lines: readonly LyricFxLine[], settings: S): string[];
   /** 這一句在時間 t 有沒有畫在畫面上（逐句清單標示用） */
   visibleAt?(plan: P, key: string, t: number): boolean;
-  /** 最後一句完整出現的時間（秒；沒有音樂時預覽與匯出的長度用；沒有句時 0） */
+  /**
+   * 最後一句完整出現的時間（秒；沒有音樂時預覽與匯出的長度用；沒有句時 0）。
+   * 沒有提供時工具用最後一句的開始時間（沒有句時 0）；長度＝它再加 3 秒、至少 5 秒。
+   */
   settledAt?(plan: P): number;
 }
 

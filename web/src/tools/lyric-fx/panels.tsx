@@ -255,7 +255,7 @@ function RegionControls() {
   const s = useSettings((st) => st.data);
   const editing = useSession((st) => st.regionEditing);
   const show = usePreview((st) => st.data.showRegion);
-  const region = (styleSettings(s).region as LyricRegion | null | undefined) ?? null;
+  const region = s.region;
   const set = (patch: Partial<LyricRegion>) => {
     const base = region ?? { x: 0.35, y: 0.3, width: 0.3, height: 0.4 };
     const next = { ...base, ...patch };
@@ -381,6 +381,7 @@ export function StyleTab() {
         }}
         onCommit={gesture.commit}
         renderRegion={() => <RegionControls />}
+        context={{ region: s.region }}
         userPresets={presets}
         onUserPresetsChange={(list) =>
           usePreview.getState().update((d) => {

@@ -5,7 +5,13 @@
 import { addImageFile, importAssetFiles, referencedAssetIds } from '@/core/assets';
 import { decodeText, readAsBytes } from '@/core/files';
 import { ensureFont } from '@/core/fonts';
-import { DEFAULT_FILTERS, freshSeed, type LineOverride, type LyricRegion } from '@/core/lyricfx';
+import {
+  DEFAULT_FILTERS,
+  freshSeed,
+  type LineOverride,
+  type LyricRegion,
+  normalizeRegion,
+} from '@/core/lyricfx';
 import { isLyricFileName, parseLyrics, stampLyrics } from '@/core/lyrics';
 import { ProjectFileError, resetToolStore } from '@/core/storage';
 import type { ToastOptions } from '@/ui';
@@ -313,12 +319,14 @@ export function commitRegionEdit(): void {
   if (pending) setRegion(pending);
 }
 
+/** 避開區域是工具層的共用設定（不在風格的設定裡；規格 3.8） */
 export function setRegion(region: LyricRegion | null): void {
-  patchStyle({ region }, 'step');
+  step((d) => {
+    d.region = normalizeRegion(region);
+  });
 }
 
-export const currentRegion = (): LyricRegion | null =>
-  (styleSettings(settingsNow()).region as LyricRegion | null | undefined) ?? null;
+export const currentRegion = (): LyricRegion | null => settingsNow().region;
 
 /* ---------- 拖放 ---------- */
 
