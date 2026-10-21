@@ -93,9 +93,7 @@ function useFontSync() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: 只在字型或用到的字改變時載入
   useEffect(() => {
     const t = setTimeout(() => {
-      void syncFonts(settingsNow()).then((ok) => {
-        if (!ok) notify({ title: S.toast.fontFailed, tone: 'warning', replace: true });
-      });
+      void syncFonts(settingsNow());
     }, 250);
     return () => clearTimeout(t);
   }, [key]);

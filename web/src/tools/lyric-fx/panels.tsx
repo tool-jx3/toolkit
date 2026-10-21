@@ -334,14 +334,21 @@ function RegionControls() {
   );
 }
 
+const NO_PRESETS: never[] = [];
+
 export function StyleTab() {
   const s = useSettings((st) => st.data);
   const exporting = useSession((st) => st.exporting);
   const style = styleOf(s);
   const settings = styleSettings(s);
-  const presets = usePreview((st) => st.data.presets[style.id] ?? []);
+  const allPresets = usePreview((st) => st.data.presets);
+  const presets = allPresets[style.id] ?? NO_PRESETS;
   const lines = builtLines(s).lines;
-  const notes = style.notes?.(lines, settings) ?? [];
+  const fontFailed = useSession((st) => st.fontFailed);
+  const notes = [
+    ...(style.notes?.(lines, settings) ?? []),
+    ...(fontFailed ? [S.toast.fontFailed] : []),
+  ];
   return (
     <div className="flex flex-col gap-3">
       <Section title={S.style.section} fixed>
