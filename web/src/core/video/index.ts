@@ -18,6 +18,15 @@
  * - 縮放預設用高畫質（imageSmoothingQuality 'high'）。
  */
 export {
+  type AlphaWebmOptions,
+  type AlphaWebmPlan,
+  type AlphaWebmPlanRequest,
+  alphaWebmBitrate,
+  encodeAlphaWebm,
+  findAlphaWebmPlan,
+  rgbaToI420Alpha,
+} from './alpha';
+export {
   createVideoGrabber,
   type DrawVideoFrameOptions,
   drawVideoFrame,
@@ -103,3 +112,12 @@ export {
   webmLastTimestampMs,
   withWebmDuration,
 } from './webm';
+export {
+  muxWebm,
+  opusHead,
+  vintSize,
+  type WebmAudioFrame,
+  type WebmData,
+  type WebmMuxInput,
+  type WebmVideoFrame,
+} from './webmMux';

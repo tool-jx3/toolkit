@@ -85,7 +85,8 @@ const supported = async (fn: () => Promise<{ supported?: boolean }>) => {
   }
 };
 
-async function findAudio(
+/** （core/video 內部共用：透明 WebM 也用）找得到的聲音編碼設定 */
+export async function findAudio(
   codec: 'aac' | 'opus',
   sourceRate: number,
 ): Promise<MovieAudioPlan | null> {
@@ -174,7 +175,7 @@ export interface MovieEncodeOptions extends VideoEncodeOptions {
   onPhase?: (phase: 'audio' | 'video') => void;
 }
 
-interface EncodedAudio {
+export interface EncodedAudio {
   track: MuxAudioTrack;
   parts: Blob[];
 }
@@ -198,8 +199,9 @@ async function prepareAudio(
   return [out.channels[0], out.channels[1] ?? out.channels[0]];
 }
 
-async function encodeAudio(
-  o: MovieEncodeOptions,
+/** （core/video 內部共用：透明 WebM 也用）編碼範圍內的聲音 */
+export async function encodeAudio(
+  o: Pick<MovieEncodeOptions, 'signal'>,
   plan: MovieAudioPlan,
   input: NonNullable<MovieEncodeOptions['audio']>,
   budget: () => void,
