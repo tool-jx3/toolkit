@@ -132,6 +132,15 @@ describe('normalizeSettings', () => {
     });
     expect(n.filters.creditWords).toBe(d.filters.creditWords);
     expect(n.filters.instWords).toBe(d.filters.instWords);
+    /* 版本 2 第一版的預設（還沒有 programming:）也換成新的 */
+    const v2a = d.filters.creditWords
+      .split('\n')
+      .filter((w) => w !== 'programming:')
+      .join('\n');
+    expect(v2a).not.toBe(d.filters.creditWords);
+    expect(normalizeSettings({ filters: { creditWords: v2a } }).filters.creditWords).toBe(
+      d.filters.creditWords,
+    );
     const custom = normalizeSettings({
       filters: { creditWords: `${v1Credit}\n自己加的`, instWords: 'x' },
     });

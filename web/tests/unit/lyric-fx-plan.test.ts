@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildLyricLines,
   createRng,
+  IDENTITY_PERSPECTIVE,
   type LyricFxLine,
   type LyricPlanOptions,
   perspectiveAt,
@@ -20,6 +21,7 @@ import {
   scatterLock,
 } from '@/core/lyricfx/styles/scatter';
 import {
+  anchorSpan,
   boxAt,
   metricsFor,
   rewraps,
@@ -30,7 +32,7 @@ import {
   shapeOf,
   wrapAll,
 } from '@/core/lyricfx/styles/scatter/layout';
-import { bandSearch, overlapArea } from '@/core/lyricfx/styles/scatter/search';
+import { bandSearch, escapeRegion, overlapArea } from '@/core/lyricfx/styles/scatter/search';
 
 const SIZE = { width: 1920, height: 1080 };
 const env = roughMeasure();
@@ -79,6 +81,14 @@ describe('基準畫面', () => {
 });
 
 describe('中英文樣式的判斷', () => {
+  it('空白字元（含全形空白）不算中日韓字（F28）', () => {
+    expect(detectLatin('hello　')).toBe(true);
+    expect(detectLatin('I love you　so much')).toBe(true);
+    expect(detectLatin('　　')).toBeNull();
+    expect(detectLatin('你好　world')).toBe(false);
+    const ls = lines('[00:01]I love you　so much\n[00:03]你好');
+    expect(plan(ls).lines.map((l) => l.latin)).toEqual([true, false]);
+  });
   it('有中日韓字＝中文；只有英文字母＝英文；都沒有＝null', () => {
     expect(detectLatin('Hello 世界')).toBe(false);
     expect(detectLatin('こんにちは')).toBe(false);
@@ -329,6 +339,31 @@ describe('整塊的範圍與放不下的時候', () => {
     for (const l of p.lines.slice(1)) expect(l.angle).toBe(-10);
   });
 
+  it('推出區域：四個方向和中央的重疊面積一樣大時留在原位（中央）', () => {
+    /* 透視關掉：透視後的整塊＝整塊，重疊面積只看位置 */
+    const s = { ...scatterDefaults(), angleMin: 0, angleMax: 0, perspective: false };
+    const m = metricsFor(s, 1920, 1080);
+    const ruler = rulerFor(env, '700 37px test', s.spacing);
+    const ctx = {
+      m,
+      rng: createRng(9),
+      avoid: [],
+      side: null,
+      shape: (rows: readonly string[], angle: number) => shapeOf(rows, angle, ruler, m),
+      perspAt: () => IDENTITY_PERSPECTIVE,
+    };
+    /* 區域蓋滿整個畫面：推到哪一邊（夾回範圍後）整塊都還整個在區域裡，重疊一樣大 */
+    const spot = escapeRegion(ctx, ['推不出去的一句'], {
+      left: 0,
+      top: 0,
+      right: 1920,
+      bottom: 1080,
+    });
+    const span = anchorSpan(spot.shape.ext, m, false, null);
+    expect(spot.x).toBe(Math.floor((span.x.lo + span.x.hi) / 2));
+    expect(spot.y).toBe(Math.floor((span.y.lo + span.y.hi) / 2));
+  });
+
   it('避開區域放不下時，備用位置是試過的點裡（透視後）和區域重疊最少的（F54）', () => {
     const s = { ...scatterDefaults(), perspX: 100, perspY: 100 };
     const m = metricsFor(s, 1920, 1080);
@@ -384,6 +419,26 @@ describe('折行', () => {
     const l = p.lines[0];
     expect(l.rows.length).toBeGreaterThan(1);
     expect(l.rows.join('')).toBe(long);
+  });
+  it('只用半形空白分詞：全形空白當一般字元保留，折與不折的字距相同（F61）', () => {
+    const text = '今夜は　星が綺麗ですね　あなたと見たいな　この景色を';
+    const ruler = rulerFor(env, '700 37px test', 5);
+    /* 不折：一行；折：逐字折（沒有半形空白），全形空白留在行裡 */
+    expect(rowsOf(wrapAll(segmentsOf(text, ''), 5000, ruler))).toEqual([text]);
+    const rows = rowsOf(wrapAll(segmentsOf(text, ''), 300, ruler));
+    expect(rows.length).toBeGreaterThan(1);
+    expect(rows.join('')).toBe(text);
+    /* 每一行的寬度＝逐字相加（全形空白也是一個字） */
+    for (const r of rows) expect(ruler.width(r)).toBeLessThanOrEqual(300);
+    /* 排出來的字：全形空白也在字的清單裡、字距照常 */
+    const p = plan(lines(`[00:01]${text}`), { fontSize: 60, angleMin: 0, angleMax: 0 });
+    const l = p.lines[0];
+    expect(l.rows.join('')).toBe(text);
+    expect(l.glyphs.map((g) => g.ch).join('')).toBe(text);
+    /* 半形空白照樣分詞、全形空白不分 */
+    const mixed = 'alpha　beta gamma';
+    const mw = rowsOf(wrapAll(segmentsOf(mixed, ''), 300, ruler));
+    expect(mw).toEqual(['alpha　beta', 'gamma']);
   });
   it('有空白的句以空白為界', () => {
     const text =

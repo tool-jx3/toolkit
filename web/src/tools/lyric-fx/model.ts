@@ -2,6 +2,7 @@
  * 設定的型別、預設值、選項與正規化（規格 1、3.10）。不依賴 React 與瀏覽器。
  */
 import {
+  DEFAULT_CREDIT_WORDS,
   DEFAULT_FILTERS,
   DEFAULT_LYRIC_STYLE,
   getLyricStyle,
@@ -133,7 +134,7 @@ function normalizeOverride(v: unknown): LineOverride | null {
   return Object.keys(out).length ? out : null;
 }
 
-/** 版本 1 的預設關鍵字（存檔裡還是這一份、沒有改過時換成新的預設） */
+/** 以前的預設關鍵字（存檔裡還是其中一份、沒有改過時換成新的預設） */
 const V1_CREDIT_WORDS = [
   '作詞',
   '作词',
@@ -193,9 +194,12 @@ const V1_INST_WORDS = [
   'karaoke',
 ].join('\n');
 
-const words = (v: unknown, legacy: string, fallback: string) => {
+/** 版本 2 第一版的預設（還沒有 programming:） */
+const V2A_CREDIT_WORDS = DEFAULT_CREDIT_WORDS.filter((w) => w !== 'programming:').join('\n');
+
+const words = (v: unknown, legacy: readonly string[], fallback: string) => {
   const text = str(v, fallback, 20_000);
-  return text === legacy ? fallback : text;
+  return legacy.includes(text) ? fallback : text;
 };
 
 /** 避開區域：版本 2 在 region；版本 1 在風格的設定裡（styles.<id>.region，目前的風格優先） */
@@ -235,9 +239,13 @@ export function normalizeSettings(raw: unknown): Settings {
     language: oneOf(o.language, ['original', 'translation', 'both'] as const, d.language),
     filters: {
       credits: typeof fl.credits === 'boolean' ? fl.credits : d.filters.credits,
-      creditWords: words(fl.creditWords, V1_CREDIT_WORDS, d.filters.creditWords),
+      creditWords: words(
+        fl.creditWords,
+        [V1_CREDIT_WORDS, V2A_CREDIT_WORDS],
+        d.filters.creditWords,
+      ),
       inst: typeof fl.inst === 'boolean' ? fl.inst : d.filters.inst,
-      instWords: words(fl.instWords, V1_INST_WORDS, d.filters.instWords),
+      instWords: words(fl.instWords, [V1_INST_WORDS], d.filters.instWords),
     },
     overrides,
     styleId,

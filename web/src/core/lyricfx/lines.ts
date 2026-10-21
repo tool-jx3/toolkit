@@ -73,6 +73,7 @@ export const DEFAULT_CREDIT_WORDS: readonly string[] = [
   'op:',
   'sp:',
   'program:',
+  'programming:',
   'produced by:',
   'written by:',
   'composed by:',

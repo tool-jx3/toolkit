@@ -17,16 +17,15 @@ export interface Rect {
   height: number;
 }
 
-/** 兩個矩形重疊：四邊都嚴格相交（規格 3.5） */
-export const rectsHit = (a: Rect, b: Rect): boolean =>
-  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-
-/** 重疊的面積（沒有重疊＝0） */
+/** 重疊的面積（沒有重疊、只碰到邊＝0） */
 export function overlapArea(a: Rect, b: Rect): number {
   const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
   return w > 0 && h > 0 ? w * h : 0;
 }
+
+/** 兩個矩形重疊（規格 3.5：四邊都嚴格相交）＝重疊的面積大於 0（整塊的寬高一定大於 0） */
+export const rectsHit = (a: Rect, b: Rect): boolean => overlapArea(a, b) > 0;
 
 /** 避開區域（基準畫面的整數座標：由畫面的比例換算後四捨五入） */
 export interface Zone {

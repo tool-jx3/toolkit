@@ -76,6 +76,12 @@ describe('同一時間三行以上（F07、D19）', () => {
 });
 
 describe('關鍵字比對', () => {
+  it('預設的資訊行關鍵字含 programming:（「Programming: Z」略過、「Programming the stars」不略過）', () => {
+    const credit = keywordList(DEFAULT_FILTERS.creditWords);
+    expect(matchesKeyword('Programming: Z', credit)).toBe(true);
+    expect(matchesKeyword('Programming : 某人', credit)).toBe(true);
+    expect(matchesKeyword('Programming the stars', credit)).toBe(false);
+  });
   it('預設的資訊行關鍵字要冒號：「Program the world」不略過、「Program: 某人」略過', () => {
     const credit = keywordList(DEFAULT_FILTERS.creditWords);
     expect(matchesKeyword('Program the world', credit)).toBe(false);

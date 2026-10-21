@@ -178,14 +178,17 @@ function fillChars(
   return { tail, tailWidth };
 }
 
-/** 折一段（規格 3.5「折行」）：放得下就一行；有空白就以空白分詞，否則逐字 */
+/**
+ * 折一段（規格 3.5「折行」）：放得下就一行；有半形空白就以半形空白分詞，否則逐字。
+ * 全形空白（U+3000）是一般的字：不分詞、照樣量寬度、留在行裡（折與不折的字距相同）。
+ */
 export function wrapSegment(seg: string, limit: number, ruler: Ruler): Paragraph {
   const out: Paragraph = { rows: [], joins: [] };
   if (ruler.width(seg) <= limit) {
     out.rows.push(seg);
     return out;
   }
-  const words = seg.split(/\s+/u).filter(Boolean);
+  const words = seg.split(/ +/u).filter(Boolean);
   if (words.length < 2) {
     const { tail } = fillChars(seg, limit, ruler, out);
     if (tail) out.rows.push(tail);

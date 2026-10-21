@@ -158,8 +158,10 @@ const ASCII_LETTER = /[A-Za-z]/;
 
 /** 中英文樣式（F28）：有中日韓字＝false（中文）；沒有中日韓字、有 ASCII 英文字母＝true（英文）；都沒有＝null */
 export function detectLatin(text: string): boolean | null {
-  if (CJK.test(text)) return false;
-  return ASCII_LETTER.test(text) ? true : null;
+  /* 空白字元（含全形空白 U+3000，它在中日韓的範圍裡）先拿掉，不算中日韓字 */
+  const s = text.replace(/\s+/gu, '');
+  if (CJK.test(s)) return false;
+  return ASCII_LETTER.test(s) ? true : null;
 }
 
 /** 字數（以碼點計） */
