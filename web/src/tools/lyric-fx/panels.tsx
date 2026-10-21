@@ -607,9 +607,11 @@ export function ExportTab() {
         label: S.exp.formats.png,
         description: S.exp.formatNote.png,
         animated: true,
+        disabled: pngOver,
+        disabledReason: pngOver ? S.exp.pngTooMany(frames, PNG_MAX_FRAMES) : undefined,
       },
     ],
-    [video, webm, audio],
+    [video, webm, audio, pngOver, frames],
   );
   const duration = audio?.duration ?? 0;
   const tooShort =
@@ -707,11 +709,6 @@ export function ExportTab() {
                   }
                 />
               </Field>
-            ) : null}
-            {format === 'png' && pngOver ? (
-              <p role="alert" className="m-0 text-sm text-danger" data-testid="png-over">
-                {S.exp.pngTooMany(frames, PNG_MAX_FRAMES)}
-              </p>
             ) : null}
             {noLyrics ? (
               <p role="alert" className="m-0 text-sm text-warning">

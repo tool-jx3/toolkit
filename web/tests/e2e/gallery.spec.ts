@@ -267,6 +267,39 @@ test('模組：音樂與歌詞的示範（播放、目前這一句、打點、�
   expect(errors).toEqual([]);
 });
 
+test('模組：歌詞演出的示範（散落風格、設定面板、透明 WebM）', async ({ page }) => {
+  /* 減少動態效果：示範的時間停在 0 秒 */
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const errors = await openGallery(page);
+  await page.getByRole('tab', { name: '模組' }).click();
+  const section = page.getByTestId('lyricfx-demo');
+  await section.scrollIntoViewIfNeeded();
+  const ink = () =>
+    section.getByTestId('lyricfx-demo-canvas').evaluate((c: HTMLCanvasElement) => {
+      const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i] > 120 && d[i + 1] > 100) n++;
+      return n;
+    });
+  /* 時間 0：還沒有字；往後一秒：第一句出現 */
+  expect(await ink()).toBe(0);
+  await section.getByRole('slider', { name: '時間軸' }).focus();
+  await page.keyboard.press('PageUp');
+  await expect.poll(ink).toBeGreaterThan(20);
+  const before = await ink();
+  /* 設定面板：字級變大，字的像素變多 */
+  const size = section.getByRole('spinbutton', { name: '字級' });
+  await size.fill('80');
+  await size.press('Enter');
+  await expect.poll(ink).toBeGreaterThan(before * 1.5);
+  /* 透明 WebM */
+  await section.getByRole('button', { name: /編成透明 WebM/ }).click();
+  await expect(section.getByTestId('lyricfx-demo-movie')).toContainText('示範-透明.webm', {
+    timeout: 30_000,
+  });
+  expect(errors).toEqual([]);
+});
+
 test('模組：模型下載卡（假的下載）：告知、進度、取消、驗證失敗、下載完成、刪除', async ({
   page,
 }) => {
