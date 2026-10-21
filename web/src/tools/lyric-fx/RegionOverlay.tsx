@@ -21,7 +21,7 @@ function Box({ r, pending, scale }: { r: LyricRegion; pending?: boolean; scale: 
     <div
       className={cn(
         'pointer-events-none absolute border-dashed',
-        pending ? 'border-accent bg-accent-soft/40' : 'border-warning bg-warning-soft/30',
+        pending ? 'border-accent bg-accent/20' : 'border-warning bg-warning/10',
       )}
       style={{
         left: pct(r.x),

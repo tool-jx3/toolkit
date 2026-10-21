@@ -469,7 +469,7 @@ export const SCATTER_CONTROLS: readonly LyricControlSection[] = [
         key: 'posXMax',
         label: `${T.posX}：${T.posMax}`,
         unit: '%',
-        disabled: (s) => (s.region ? T.noteRegion : false),
+        disabled: (s) => !!s.region,
         ...R.posMax,
       },
       {
@@ -477,7 +477,7 @@ export const SCATTER_CONTROLS: readonly LyricControlSection[] = [
         key: 'posYMin',
         label: `${T.posY}：${T.posMin}`,
         unit: '%',
-        disabled: (s) => (s.region ? T.noteRegion : false),
+        disabled: (s) => !!s.region,
         ...R.posMin,
       },
       {
@@ -486,7 +486,7 @@ export const SCATTER_CONTROLS: readonly LyricControlSection[] = [
         label: `${T.posY}：${T.posMax}`,
         hint: T.posHint,
         unit: '%',
-        disabled: (s) => (s.region ? T.noteRegion : false),
+        disabled: (s) => !!s.region,
         ...R.posMax,
       },
     ],
