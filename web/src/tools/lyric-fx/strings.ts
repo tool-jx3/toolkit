@@ -127,6 +127,7 @@ export const S = {
     imageCurrent: (name: string) => `目前的背景圖：${name}`,
     imageNone: '還沒有背景圖。',
     imageRemove: '拿掉背景圖',
+    imageMissing: '背景圖讀不回來（可能已從這個瀏覽器清除），請重新選擇。',
     fit: '放法',
     fits: { cover: '蓋滿', contain: '完整放入' },
     fitHint: '完整放入時，其他地方用背景色。',

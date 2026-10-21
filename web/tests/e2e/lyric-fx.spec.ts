@@ -17,7 +17,7 @@ import { encodeWav } from '../../src/core/audio/pcm';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
 
-const URL = `/${outputDir(getTool('lyric-fx') ?? { id: 'lyric-fx', status: 'next' })}/`;
+const PAGE_URL = `/${outputDir(getTool('lyric-fx') ?? { id: 'lyric-fx', status: 'next' })}/`;
 
 interface PlanLine {
   key: string;
@@ -115,7 +115,7 @@ async function open(page: Page) {
     r.fulfill({ status: 200, contentType: 'text/css', body: '' }),
   );
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto(URL);
+  await page.goto(PAGE_URL);
   await expect(page.getByRole('heading', { level: 1, name: '歌詞演出產生器' })).toBeVisible();
   await page.waitForFunction(() => !!(window as unknown as Partial<W>).__lyricFx);
   await expect.poll(() => rendered(page)).toBeGreaterThan(0);
@@ -711,6 +711,29 @@ test.describe('歌詞演出產生器', () => {
     expect(v.duration).toBeLessThan(3.1);
     /* MP4 沒有透明：背景透明時是黑色 */
     expect(v.transparent).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('匯出：不能逐格時即時錄影（透明 WebM 照樣有透明度）', async ({ page }) => {
+    const errors = await open(page);
+    const area = page.getByTestId('lyrics-text');
+    await area.fill('[00:00.10]即時錄影');
+    await area.blur();
+    await set(page, 'canvas.size', '1280x720');
+    await page.evaluate(() =>
+      (
+        window as unknown as { __lyricFx: { forceRealtime: (v: boolean) => void } }
+      ).__lyricFx.forceRealtime(true),
+    );
+    await tab(page, '匯出').click();
+    await page.getByRole('radio', { name: /透明 WebM/ }).click();
+    await expect(page.getByText(/播放一遍即時錄下來的 WebM/)).toBeVisible();
+    const webm = await exportFile(page, /透明 WebM/);
+    expect(webm.name).toBe('lyric-fx-lyrics.webm');
+    const v = await probeVideo(page, webm.bytes, 'video/webm', 2);
+    expect(v.w).toBe(1280);
+    expect(v.transparent).toBeGreaterThan(1280 * 720 * 0.9);
+    expect(v.opaque + v.bright).toBeGreaterThan(20);
     expect(errors).toEqual([]);
   });
 

@@ -119,6 +119,7 @@ export async function syncBackground(id: string | null): Promise<void> {
   if (job !== bgJob) return;
   if (!bmp) {
     useSession.setState({ bg: null, bgId: null, bgState: 'missing' });
+    notify({ title: S.canvas.imageMissing, tone: 'warning' });
     return;
   }
   useSession.setState({ bg: bmp, bgId: id, bgState: 'ready' });

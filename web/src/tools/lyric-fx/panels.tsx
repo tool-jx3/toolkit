@@ -495,7 +495,7 @@ export function CanvasTab() {
           <p className="m-0 min-w-0 truncate text-xs text-muted" title={s.background.image.name}>
             {s.background.image.id
               ? bgState === 'missing'
-                ? S.canvas.musicMissing.replace('音樂檔', '背景圖')
+                ? S.canvas.imageMissing
                 : S.canvas.imageCurrent(s.background.image.name)
               : S.canvas.imageNone}
           </p>

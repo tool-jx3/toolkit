@@ -202,6 +202,11 @@ function useTestHook() {
 
 const TABS: TabId[] = ['lyrics', 'style', 'canvas', 'export'];
 
+/** 框選避開區域時其他快捷鍵不作用 */
+const free = (fn: () => void) => () => {
+  if (!useSession.getState().regionEditing) fn();
+};
+
 export function App() {
   const savedAt = useSaveStatus(TOOL_ID);
   const { undo, redo, canUndo, canRedo } = useUndoRedo(useSettings);
@@ -216,16 +221,16 @@ export function App() {
 
   const shortcuts = useMemo<Shortcut[]>(
     () => [
-      { keys: 'space', label: S.keys.play, group: S.keys.group, handler: () => togglePreview() },
+      { keys: 'space', label: S.keys.play, group: S.keys.group, handler: free(togglePreview) },
       {
         keys: 'alt+shift+p',
         label: S.keys.playAnywhere,
         group: S.keys.group,
-        handler: () => togglePreview(),
+        handler: free(togglePreview),
         allowInInput: true,
       },
-      { keys: 'r', label: S.keys.restart, group: S.keys.group, handler: () => restartPreview() },
-      { keys: 'g', label: S.keys.reroll, group: S.keys.group, handler: () => rerollAll() },
+      { keys: 'r', label: S.keys.restart, group: S.keys.group, handler: free(restartPreview) },
+      { keys: 'g', label: S.keys.reroll, group: S.keys.group, handler: free(rerollAll) },
       {
         keys: 'mod+enter',
         label: S.keys.stamp,
