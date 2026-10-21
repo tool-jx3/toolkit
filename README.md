@@ -24,7 +24,8 @@
 [PaiTei4234](https://paitei4234.itch.io/) 與
 [s2ndrome](https://github.com/s2ndrome) 與
 [al1scut](https://github.com/al1scut) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 67 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[YouRanCoder](https://github.com/YouRanCoder) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 68 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -98,6 +99,7 @@
 | [文字方框產生器](https://tool-jx3.github.io/toolkit/tools/textbox/) | 用框線字元和全形空白排出可以直接貼進聊天欄的文字方框與表格，自動補正全形字寬 |
 | [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | 一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈 |
 | [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | 把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，支援直書，可輸出 APNG（含 256 色減色）、GIF、WebP、PNG 或連番 ZIP |
+| [歌詞演出產生器](https://tool-jx3.github.io/toolkit/tools/lyric-fx/) | 放進音樂與有時間標記的歌詞（LRC／SRT，也能邊聽邊打點），讓歌詞散落在畫面上逐字出現、抖動、發光，唱完往上飄著淡出；可以框出要避開的區域、預先暗顯下一句，匯出有聲影片或透明背景的 WebM，疊在直播或遊戲畫面上 |
 
 所有工具都在瀏覽器本機執行，不會上傳你建立的任何內容。字型從 Google Fonts 載入；用到 AI 模型的工具（立繪去背、2.5D 動態立繪的臉部追蹤）第一次使用時才下載模型，存在瀏覽器裡。
 
@@ -138,6 +140,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `battlemap` | [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) |
 | `apng-wipe` | [輕量轉場 APNG 產生器](https://tool-jx3.github.io/toolkit/tools/apng-wipe/) | 出處不明的轉場 APNG 小工具 |
 | `text-fx` | [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發） |
+| `lyric-fx` | [歌詞演出產生器](https://tool-jx3.github.io/toolkit/tools/lyric-fx/) | [YouRanCoder/LimbusLyricSimulator](https://github.com/YouRanCoder/LimbusLyricSimulator) |
 | `textbox` | [文字方框產生器](https://tool-jx3.github.io/toolkit/tools/textbox/) | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) |
 | `portrait-size` | [立繪尺寸統一器](https://tool-jx3.github.io/toolkit/tools/portrait-size/) | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) |
 | `text-path` | [文字軌跡產生器](https://tool-jx3.github.io/toolkit/tools/text-path/) | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) |

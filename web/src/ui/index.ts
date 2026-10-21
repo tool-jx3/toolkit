@@ -204,6 +204,12 @@ export {
   supportsLocalFontList,
 } from './LocalFontDialog';
 export {
+  type LyricControlChange,
+  LyricStyleControls,
+  type LyricStyleControlsProps,
+  type LyricUserPreset,
+} from './LyricStyleControls';
+export {
   type ComposedMessage,
   type ComposerKind,
   type ComposerOption,

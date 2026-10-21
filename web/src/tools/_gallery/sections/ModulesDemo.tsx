@@ -4,6 +4,7 @@ import { Section } from '@/ui';
 import { CocDemo } from './CocDemo';
 import { FlowDemo } from './FlowDemo';
 import { EdgeRunsDemo, GridDemo, MapGridDemo } from './GridDemo';
+import { LyricFxDemo } from './LyricFxDemo';
 import { ModelDemo } from './ModelDemo';
 import { MusicDemo } from './MusicDemo';
 import { PagedDemo } from './PagedDemo';
@@ -84,6 +85,7 @@ export function ModulesDemo() {
       <FlowDemo />
       <VideoDemo />
       <MusicDemo />
+      <LyricFxDemo />
       <ModelDemo />
       <ThreeDemo />
       <CocDemo />
