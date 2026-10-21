@@ -148,12 +148,13 @@ export function webmNote(mode: WebmMode): string {
 
 /* ---------- 共用 ---------- */
 
-function newCanvas(s: Settings) {
+/** 輸出尺寸的畫布；readback＝每格都要讀回像素（透明 WebM） */
+function newCanvas(s: Settings, readback = false) {
   const { width, height } = sizeOf(s.canvas.size);
   const c = document.createElement('canvas');
   c.width = width;
   c.height = height;
-  const ctx = c.getContext('2d', { willReadFrequently: false });
+  const ctx = c.getContext('2d', { willReadFrequently: readback });
   if (!ctx) throw new Error('無法建立畫布');
   return { canvas: c, ctx, width, height };
 }
@@ -364,8 +365,7 @@ async function exportAlphaWebm(
   if (signal.aborted) throw abort();
   player.pause();
   const audio = useSession.getState().audio;
-  const { canvas, ctx, width, height } = newCanvas(s);
-  const g = canvas.getContext('2d', { willReadFrequently: true }) ?? ctx;
+  const { canvas, ctx: g, width, height } = newCanvas(s, true);
   const bg: FrameBackground = { paint: false, image: null };
   const frameCount = Math.max(1, Math.round((range.end - range.start) * fps));
   let phase: 'audio' | 'video' = 'video';
