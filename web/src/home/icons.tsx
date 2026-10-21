@@ -63,6 +63,7 @@ import {
   Sparkles,
   Spline,
   SquareUser,
+  Subtitles,
   Table,
   TextQuote,
   Ticket,
@@ -85,6 +86,7 @@ const ICONS: Record<string, LucideIcon> = {
   textbox: Table,
   'discord-color': Highlighter,
   'speech-bubble': MessageCircleMore,
+  'lyric-fx': Subtitles,
   /* G2 轉場與動態 */
   'scene-transition': Clapperboard,
   'apng-wipe': Blend,

@@ -22,7 +22,9 @@ describe('pairSameTimeLines', () => {
     expect(p[0].end).toBe(3);
   });
   it('三行同時間：前兩行合併、第三行照舊；空白的不合併；已有翻譯的不合併', () => {
-    const { lines } = parseLyrics('[00:01]a\n[00:01]b\n[00:01]c\n[00:02]x\n[00:02]\n[00:03]y\n[-]Y\n[00:03]z');
+    const { lines } = parseLyrics(
+      '[00:01]a\n[00:01]b\n[00:01]c\n[00:02]x\n[00:02]\n[00:03]y\n[-]Y\n[00:03]z',
+    );
     const p = pairSameTimeLines(lines);
     expect(p.map((l) => [l.text, l.tr])).toEqual([
       ['a', 'b'],
@@ -82,7 +84,9 @@ describe('buildLyricLines', () => {
   });
 
   it('語言：翻譯、原文＋翻譯', () => {
-    expect(buildLyricLines(LRC, { language: 'translation' }).lines.map((l) => [l.text, l.tr])).toEqual([
+    expect(
+      buildLyricLines(LRC, { language: 'translation' }).lines.map((l) => [l.text, l.tr]),
+    ).toEqual([
       ['First line', ''],
       ['第二句', ''],
       ['第三句', ''],
@@ -116,17 +120,24 @@ describe('buildLyricLines', () => {
       },
     });
     expect(b.lines.map((l) => l.text)).toEqual(['第二句', '第三句', '改過的第一句']);
-    expect(b.lines[2]).toMatchObject({ t: 9, reroll: 2, lock: { x: 1 }, end: Number.POSITIVE_INFINITY });
+    expect(b.lines[2]).toMatchObject({
+      t: 9,
+      reroll: 2,
+      lock: { x: 1 },
+      end: Number.POSITIVE_INFINITY,
+    });
     expect(b.lines[1].end).toBe(9);
     expect(b.rows.find((r) => r.key === '1000:第一句')?.edited).toBe(true);
   });
 
   it('同樣的時間與文字第二次起加 #2', () => {
-    expect(lineKeys([
-      { t: 1, text: 'a' },
-      { t: 1, text: 'a' },
-      { t: 2, text: 'a' },
-    ])).toEqual(['1000:a', '1000:a#2', '2000:a']);
+    expect(
+      lineKeys([
+        { t: 1, text: 'a' },
+        { t: 1, text: 'a' },
+        { t: 2, text: 'a' },
+      ]),
+    ).toEqual(['1000:a', '1000:a#2', '2000:a']);
   });
 
   it('SRT 的結束時間', () => {
@@ -141,12 +152,20 @@ describe('buildLyricLines', () => {
     const b = buildLyricLines('  第一行 \n\n第二行\n');
     expect(b.untimed).toBe(true);
     expect(b.lines).toHaveLength(1);
-    expect(b.lines[0]).toMatchObject({ t: 0, text: '第一行\n第二行', untimed: true, key: 'untimed' });
+    expect(b.lines[0]).toMatchObject({
+      t: 0,
+      text: '第一行\n第二行',
+      untimed: true,
+      key: 'untimed',
+    });
     expect(buildLyricLines('   ').lines).toEqual([]);
   });
 
   it('句數上限', () => {
-    const many = Array.from({ length: 30 }, (_, i) => `[00:${String(i).padStart(2, '0')}.00]第${i}句`).join('\n');
+    const many = Array.from(
+      { length: 30 },
+      (_, i) => `[00:${String(i).padStart(2, '0')}.00]第${i}句`,
+    ).join('\n');
     const b = buildLyricLines(many, { maxLines: 10 });
     expect(b.lines).toHaveLength(10);
     expect(b.truncated).toBe(true);

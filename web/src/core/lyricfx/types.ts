@@ -184,6 +184,8 @@ export interface LyricStyle<S = Record<string, unknown>, P = unknown> {
   notes?(lines: readonly LyricFxLine[], settings: S): string[];
   /** 這一句在時間 t 有沒有畫在畫面上（逐句清單標示用） */
   visibleAt?(plan: P, key: string, t: number): boolean;
+  /** 最後一句完整出現的時間（秒；沒有音樂時預覽與匯出的長度用；沒有句時 0） */
+  settledAt?(plan: P): number;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: 風格的登錄表收各種設定型別

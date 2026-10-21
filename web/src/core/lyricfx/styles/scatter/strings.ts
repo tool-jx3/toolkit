@@ -61,7 +61,8 @@ export const SCATTER_TEXT = {
   previewHint: '下一、兩句先放在畫面上，唱到時原地點亮。',
   previewDisabledBoth: '顯示「原文＋翻譯」而且有翻譯時不使用預點亮。',
   keepDim: '未唱到的保持暗態',
-  keepDimHint: '開：先放上去的句是暗的，唱到時重新打字。關：以正常亮度先打出來、一直留著，唱到時直接整句亮起。',
+  keepDimHint:
+    '開：先放上去的句是暗的，唱到時重新打字。關：以正常亮度先打出來、一直留著，唱到時直接整句亮起。',
   keepDimOff: '預點亮關閉時不使用。',
   partition: '左右分區',
   partitionHint: '第 1、3、5…句放在出現範圍的左半，第 2、4、6…句放在右半。',

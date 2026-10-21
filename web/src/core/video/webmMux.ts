@@ -282,7 +282,10 @@ export function muxWebm(input: WebmMuxInput): WebmData[] {
             el(ID.CodecPrivate, [audio.codecPrivate]),
             uel(ID.CodecDelay, Math.round((audio.preSkip / 48000) * 1e9)),
             uel(ID.SeekPreRoll, 80_000_000),
-            el(ID.Audio, [fel(ID.SamplingFrequency, audio.sampleRate), uel(ID.Channels, audio.channels)]),
+            el(ID.Audio, [
+              fel(ID.SamplingFrequency, audio.sampleRate),
+              uel(ID.Channels, audio.channels),
+            ]),
           ]),
         ]
       : []),
@@ -290,10 +293,16 @@ export function muxWebm(input: WebmMuxInput): WebmData[] {
 
   /* 所有區塊依時間排（同時間：影像在前） */
   const blocks: Block[] = [];
-  input.video.forEach((f, i) =>
-    blocks.push({ track: 1, ms: Math.round(f.timestampMs), video: f, prevMs: i ? Math.round(input.video[i - 1].timestampMs) : undefined }),
-  );
-  for (const a of audio?.frames ?? []) blocks.push({ track: 2, ms: Math.max(0, Math.round(a.timestampMs)), audio: a });
+  input.video.forEach((f, i) => {
+    blocks.push({
+      track: 1,
+      ms: Math.round(f.timestampMs),
+      video: f,
+      prevMs: i ? Math.round(input.video[i - 1].timestampMs) : undefined,
+    });
+  });
+  for (const a of audio?.frames ?? [])
+    blocks.push({ track: 2, ms: Math.max(0, Math.round(a.timestampMs)), audio: a });
   blocks.sort((a, b) => a.ms - b.ms || a.track - b.track);
 
   /* 分成 Cluster */
@@ -322,7 +331,9 @@ export function muxWebm(input: WebmMuxInput): WebmData[] {
         const parts: Node[] = [el(ID.Block, [blockHeader(1, rel, 0), f.data])];
         if (f.alpha)
           parts.push(
-            el(ID.BlockAdditions, [el(ID.BlockMore, [uel(ID.BlockAddID, 1), el(ID.BlockAdditional, [f.alpha])])]),
+            el(ID.BlockAdditions, [
+              el(ID.BlockMore, [uel(ID.BlockAddID, 1), el(ID.BlockAdditional, [f.alpha])]),
+            ]),
           );
         if (!f.key && b.prevMs !== undefined)
           parts.push(el(ID.ReferenceBlock, [intBytes(Math.min(-1, b.prevMs - b.ms))]));
@@ -334,7 +345,11 @@ export function muxWebm(input: WebmMuxInput): WebmData[] {
   /* 位置（相對 Segment 的資料開頭）：SeekHead 的位置欄固定 8 位元組，長度與內容無關 */
   const seekEntry = (id: number, pos: number) =>
     el(ID.Seek, [el(ID.SeekID, [idBytes(id)]), uel(ID.SeekPosition, pos, 8)]);
-  const seekSize = el(ID.SeekHead, [seekEntry(ID.Info, 0), seekEntry(ID.Tracks, 0), seekEntry(ID.Cues, 0)]).size;
+  const seekSize = el(ID.SeekHead, [
+    seekEntry(ID.Info, 0),
+    seekEntry(ID.Tracks, 0),
+    seekEntry(ID.Cues, 0),
+  ]).size;
   const infoPos = seekSize;
   const tracksPos = infoPos + info.size;
   let pos = tracksPos + tracks.size;

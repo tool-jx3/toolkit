@@ -6,10 +6,14 @@
  * 取用的順序同原作（先抽角度、再一次一次抽 x、y；安全帶的打亂鍵…）。
  */
 import { fontCss } from '../../../fonts';
-import { hash32 } from '../../random';
 import type { JitterSpec } from '../../jitter';
-import { createRng, type Rng } from '../../random';
-import { IDENTITY_PERSPECTIVE, type Perspective, perspectiveAt, projectBox } from '../../perspective';
+import {
+  IDENTITY_PERSPECTIVE,
+  type Perspective,
+  perspectiveAt,
+  projectBox,
+} from '../../perspective';
+import { createRng, hash32, type Rng } from '../../random';
 import type { LyricFxLine, LyricMeasureEnv, LyricSize } from '../../types';
 import type { ScatterSettings } from './settings';
 
@@ -126,7 +130,11 @@ export function detectLatin(text: string): boolean | null {
   for (const ch of text) {
     if (/\s/u.test(ch)) continue;
     const o = ch.codePointAt(0) ?? 0;
-    if ((o >= 0x2e80 && o <= 0x9fff) || (o >= 0xac00 && o <= 0xd7af) || (o >= 0xf900 && o <= 0xfaff))
+    if (
+      (o >= 0x2e80 && o <= 0x9fff) ||
+      (o >= 0xac00 && o <= 0xd7af) ||
+      (o >= 0xf900 && o <= 0xfaff)
+    )
       return false;
     if (o < 128 && /[A-Za-z]/.test(ch)) latin = true;
   }
@@ -155,7 +163,8 @@ export const fadeAlpha = (fadeSpeed: number, dt: number): number =>
 /** 殘影在 Δ 秒後往上飄了多少 px */
 export const riseOffset = (riseSpeed: number, dt: number): number => (riseSpeed * dt) / FADE_TICK;
 /** 殘影多久淡完（秒） */
-export const fadeDuration = (fadeSpeed: number): number => (255 * FADE_TICK) / Math.max(1e-9, fadeSpeed);
+export const fadeDuration = (fadeSpeed: number): number =>
+  (255 * FADE_TICK) / Math.max(1e-9, fadeSpeed);
 
 /* ---------- 量字與折行 ---------- */
 
@@ -448,7 +457,8 @@ function placeFree(info: RowsInfo, index: number, rng: Rng, e: Env, collides: Co
     for (let i = 0; i < FREE_TRIES; i++) {
       const x = rng.randint(x0, x1);
       const y = rng.randint(y0, y1);
-      if (!collides(boxAt(x, y, ex), x, y, angle)) return { placed: true, fallback: false, x, y, angle };
+      if (!collides(boxAt(x, y, ex), x, y, angle))
+        return { placed: true, fallback: false, x, y, angle };
     }
   }
   const ex = extent(info, angles[0], e);
@@ -463,7 +473,13 @@ function placeFree(info: RowsInfo, index: number, rng: Rng, e: Env, collides: Co
 }
 
 /** 有避開區域：安全帶（原作 lyric_window.py 702-746） */
-function placeInBands(info: RowsInfo, index: number, rng: Rng, e: Env, collides: Collides): Attempt {
+function placeInBands(
+  info: RowsInfo,
+  index: number,
+  rng: Rng,
+  e: Env,
+  collides: Collides,
+): Attempt {
   const angles = angleList(rng, e, BAND_ANGLES);
   let fb: { x: number; y: number; angle: number } | null = null;
   for (const angle of angles) {
@@ -482,7 +498,8 @@ function placeInBands(info: RowsInfo, index: number, rng: Rng, e: Env, collides:
         const x = rng.randint(bx0, bx1);
         const y = rng.randint(by0, by1);
         fb ??= { x, y, angle };
-        if (!collides(boxAt(x, y, ex), x, y, angle)) return { placed: true, fallback: false, x, y, angle };
+        if (!collides(boxAt(x, y, ex), x, y, angle))
+          return { placed: true, fallback: false, x, y, angle };
       }
     }
   }
@@ -608,7 +625,9 @@ export function planScatter(
     comp,
     partition: s.partition,
   };
-  const regionRect = reg ? { x: reg.x0, y: reg.y0, width: reg.x1 - reg.x0, height: reg.y1 - reg.y0 } : null;
+  const regionRect = reg
+    ? { x: reg.x0, y: reg.y0, width: reg.x1 - reg.x0, height: reg.y1 - reg.y0 }
+    : null;
   const perspFor = (x: number, y: number): Perspective =>
     s.perspective ? perspectiveAt(x, y, W, H, strengthX, strengthY, comp) : IDENTITY_PERSPECTIVE;
   /** 透視後的整塊不壓到避開區域（D2） */
@@ -683,19 +702,20 @@ export function planScatter(
       slotBright: false,
       fadeStart: Number.POSITIVE_INFINITY,
       fadeEnd: Number.POSITIVE_INFINITY,
-      jitter: { start: line.t, period: s.shakeSpeed / 1000, firstTick: 1, intensity: s.shakeIntensity, lineHash: 0 },
+      jitter: {
+        start: line.t,
+        period: s.shakeSpeed / 1000,
+        firstTick: 1,
+        intensity: s.shakeIntensity,
+        lineHash: 0,
+      },
       overlapped: pl.overlapped,
       locked: pl.locked,
     };
   };
 
   /** 放一句（目前這一句或槽位）：鎖定的直接用 */
-  const place = (
-    line: LyricFxLine,
-    index: number,
-    asSlot: boolean,
-    t: number,
-  ): ScatterLinePlan => {
+  const place = (line: LyricFxLine, index: number, asSlot: boolean, t: number): ScatterLinePlan => {
     const display = line.tr ? `${line.text}\n${line.tr}` : line.text;
     const mode = s.mode === 'auto' ? (detectLatin(display) ?? false) : s.mode === 'latin';
     const { css, m } = mode ? mLatin : mCjk;
@@ -756,7 +776,13 @@ export function planScatter(
         if (asSlot) {
           const ex = extent(rowsInfo(rows, m), amin, e);
           const [x0, x1, y0, y1] = anchorRange(ex, index, e);
-          r = { placed: false, fallback: true, x: rng.randint(x0, x1), y: rng.randint(y0, y1), angle: amin };
+          r = {
+            placed: false,
+            fallback: true,
+            x: rng.randint(x0, x1),
+            y: rng.randint(y0, y1),
+            angle: amin,
+          };
         } else {
           rows = rows0;
           r = pushOut(info0, index, rng, e);
@@ -775,8 +801,7 @@ export function planScatter(
 
   /** 目前這一句在 fs 變成殘影（至少出現過一個字才有殘影） */
   const retire = (prev: ScatterLinePlan, fs: number) => {
-    const shown =
-      prev.bright || Math.floor(((fs - prev.start) * 1000) / prev.interval + 1e-9) >= 1;
+    const shown = prev.bright || Math.floor(((fs - prev.start) * 1000) / prev.interval + 1e-9) >= 1;
     prev.fadeStart = fs;
     prev.fadeEnd = shown ? fs + fadeLen : fs;
     if (shown) fading.push(prev);

@@ -239,6 +239,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'lyric-fx',
+    name: '歌詞演出產生器',
+    summary:
+      '放進音樂與有時間的歌詞，讓每一句帶著傾斜與透視落在畫面上逐字打出、抖動，唱完往上飄著淡出；匯出有聲影片、透明 WebM 或 PNG 連番，給直播疊加或 MV 用。',
+    group: 'G1',
+    status: 'next',
+    inspiration: {
+      name: 'YouRanCoder/LimbusLyricSimulator',
+      url: 'https://github.com/YouRanCoder/LimbusLyricSimulator',
+    },
+  },
+  {
     id: 'ccfolia-cropper',
     name: '立繪裁切器',
     summary:

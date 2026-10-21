@@ -27,7 +27,7 @@ import {
   validate,
   videoEncodeError,
 } from './encode';
-import { type MovieAudioPlan, encodeAudio, findAudio } from './movie';
+import { encodeAudio, findAudio, type MovieAudioPlan } from './movie';
 import { parseOpusHead, vp9Level } from './mp4';
 import { muxWebm, opusHead, type WebmAudioFrame, type WebmVideoFrame } from './webmMux';
 
@@ -81,7 +81,8 @@ export async function findAlphaWebmPlan(req: AlphaWebmPlanRequest): Promise<Alph
       latencyMode: 'quality',
     };
     const alpha = { ...base, bitrate: Math.max(500_000, Math.round(bitrate / 2)) };
-    if ((await supported(base)) && (await supported(alpha))) return { codec, video: base, alpha, audio };
+    if ((await supported(base)) && (await supported(alpha)))
+      return { codec, video: base, alpha, audio };
   }
   return null;
 }
@@ -132,8 +133,14 @@ export function rgbaToI420Alpha(
         }
       const yp = lum(ar, ag, ab);
       const c = (by >> 1) * cw + (bx >> 1);
-      color[uOff + c] = Math.max(0, Math.min(255, Math.round(128 + (((ab - yp) / 1.8556) * 224) / 255)));
-      color[vOff + c] = Math.max(0, Math.min(255, Math.round(128 + (((ar - yp) / 1.5748) * 224) / 255)));
+      color[uOff + c] = Math.max(
+        0,
+        Math.min(255, Math.round(128 + (((ab - yp) / 1.8556) * 224) / 255)),
+      );
+      color[vOff + c] = Math.max(
+        0,
+        Math.min(255, Math.round(128 + (((ar - yp) / 1.5748) * 224) / 255)),
+      );
     }
   }
 }
@@ -203,7 +210,8 @@ export async function encodeAlphaWebm(o: AlphaWebmOptions): Promise<Blob> {
     if (failure) return;
     try {
       if (!chunk.byteLength) throw videoEncodeError('encoder', '空的影格');
-      if (!list.length && chunk.type !== 'key') throw videoEncodeError('encoder', '第一格不是關鍵影格');
+      if (!list.length && chunk.type !== 'key')
+        throw videoEncodeError('encoder', '第一格不是關鍵影格');
       const bytes = new Uint8Array(chunk.byteLength);
       chunk.copyTo(bytes);
       list.push({ data: bytes, key: chunk.type === 'key', ts: chunk.timestamp });

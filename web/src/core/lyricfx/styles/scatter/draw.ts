@@ -10,12 +10,12 @@ import {
   DEFAULT_CHAR_MS,
   fadeAlpha,
   riseOffset,
+  type ScatterLinePlan,
+  type ScatterPlan,
   SHADOW_OFFSET,
   SLOT_DIM,
   SLOT_FADE_IN,
   SLOT_REVEAL_MS,
-  type ScatterLinePlan,
-  type ScatterPlan,
 } from './plan';
 import type { ScatterSettings } from './settings';
 
@@ -55,7 +55,10 @@ export function lineStateAt(
   if (t >= p.start) {
     const count = p.bright
       ? total
-      : Math.min(total, Math.floor(((t - p.start) * 1000) / (p.interval || DEFAULT_CHAR_MS) + 1e-9));
+      : Math.min(
+          total,
+          Math.floor(((t - p.start) * 1000) / (p.interval || DEFAULT_CHAR_MS) + 1e-9),
+        );
     return count > 0 ? { role: 'current', count, alpha: 255, rise: 0 } : null;
   }
   if (p.slotBorn != null && t >= p.slotBorn) {

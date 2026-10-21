@@ -7,7 +7,7 @@
  * - 槽位：暗態 0.4 秒淡入到 35%（1418-1421）、亮態每 50 ms 一個字（1424-1428）。
  */
 import { describe, expect, it } from 'vitest';
-import { jitterAt, jitterTarget, type JitterSpec } from '@/core/lyricfx';
+import { type JitterSpec, jitterAt, jitterTarget } from '@/core/lyricfx';
 import {
   charInterval,
   fadeAlpha,
@@ -155,7 +155,10 @@ describe('打字與槽位的狀態（時間函式）', () => {
   });
   it('暗態槽位：0.4 秒淡入到 35%（取整數）', () => {
     expect(lineStateAt(base, 7.9, st)).toBeNull();
-    expect(lineStateAt(base, 8.2, st)).toMatchObject({ role: 'slot', alpha: Math.floor(255 * 0.35 * 0.5) });
+    expect(lineStateAt(base, 8.2, st)).toMatchObject({
+      role: 'slot',
+      alpha: Math.floor(255 * 0.35 * 0.5),
+    });
     expect(lineStateAt(base, 9, st)).toMatchObject({ role: 'slot', alpha: Math.floor(255 * 0.35) });
   });
   it('亮態槽位：每 50 ms 一個字；點亮時整句', () => {

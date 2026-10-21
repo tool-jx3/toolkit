@@ -1,6 +1,12 @@
 /** 「散落」的排位置（lyric-fx 規格 3.4、3.5、3.7） */
 import { describe, expect, it } from 'vitest';
-import { buildLyricLines, type LyricFxLine, projectBox, roughMeasure, scatterStyle } from '@/core/lyricfx';
+import {
+  buildLyricLines,
+  type LyricFxLine,
+  projectBox,
+  roughMeasure,
+  scatterStyle,
+} from '@/core/lyricfx';
 import {
   baseFrame,
   detectLatin,
@@ -22,23 +28,37 @@ const lrc = (n: number, gap = 3, text = (i: number) => `第${i + 1}句歌詞在�
   }).join('\n');
 
 const lines = (text: string, opts = {}) => buildLyricLines(text, opts).lines;
-const plan = (ls: readonly LyricFxLine[], s: Partial<ScatterSettings> = {}, seed = 7, size = SIZE) =>
-  planScatter(ls, { ...scatterDefaults(), ...s }, seed, size, env);
+const plan = (
+  ls: readonly LyricFxLine[],
+  s: Partial<ScatterSettings> = {},
+  seed = 7,
+  size = SIZE,
+) => planScatter(ls, { ...scatterDefaults(), ...s }, seed, size, env);
 
 const overlap = (a: ScatterPlan['lines'][0]['box'], b: ScatterPlan['lines'][0]['box']) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
 describe('基準畫面', () => {
   it('短邊 1080', () => {
-    expect(baseFrame({ width: 1920, height: 1080 })).toMatchObject({ width: 1920, height: 1080, k: 1 });
+    expect(baseFrame({ width: 1920, height: 1080 })).toMatchObject({
+      width: 1920,
+      height: 1080,
+      k: 1,
+    });
     expect(baseFrame({ width: 1280, height: 720 })).toMatchObject({ width: 1920, height: 1080 });
-    expect(baseFrame({ width: 1080, height: 1920 })).toMatchObject({ width: 1080, height: 1920, k: 1 });
+    expect(baseFrame({ width: 1080, height: 1920 })).toMatchObject({
+      width: 1080,
+      height: 1920,
+      k: 1,
+    });
   });
   it('1280 × 720 和 1920 × 1080 排出來的位置相同（同一個比例）', () => {
     const ls = lines(lrc(8));
     const a = plan(ls);
     const b = plan(ls, {}, 7, { width: 1280, height: 720 });
-    expect(b.lines.map((l) => [l.x, l.y, l.angle])).toEqual(a.lines.map((l) => [l.x, l.y, l.angle]));
+    expect(b.lines.map((l) => [l.x, l.y, l.angle])).toEqual(
+      a.lines.map((l) => [l.x, l.y, l.angle]),
+    );
   });
 });
 
@@ -75,7 +95,9 @@ describe('可重現', () => {
     const a = plan(ls);
     const ls2 = ls.map((l, i) => (i === 5 ? { ...l, reroll: 1 } : l));
     const b = plan(ls2);
-    expect(b.lines.slice(0, 5).map((l) => [l.x, l.y])).toEqual(a.lines.slice(0, 5).map((l) => [l.x, l.y]));
+    expect(b.lines.slice(0, 5).map((l) => [l.x, l.y])).toEqual(
+      a.lines.slice(0, 5).map((l) => [l.x, l.y]),
+    );
     expect([b.lines[5].x, b.lines[5].y]).not.toEqual([a.lines[5].x, a.lines[5].y]);
   });
   it('鎖定：用記下的位置、角度、折行（換種子也不變）', () => {
@@ -184,14 +206,16 @@ describe('範圍與避開', () => {
 
 describe('折行', () => {
   it('太長的中文句逐字折、每行不超過一行最多多寬', () => {
-    const long = '這是一句非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常長的歌詞';
+    const long =
+      '這是一句非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常長的歌詞';
     const p = plan(lines(`[00:01]${long}`), { fontSize: 60 });
     const l = p.lines[0];
     expect(l.rows.length).toBeGreaterThan(1);
     expect(l.rows.join('')).toBe(long);
   });
   it('有空白的句以空白為界', () => {
-    const text = 'the quick brown fox jumps over the lazy dog again and again and again until the end';
+    const text =
+      'the quick brown fox jumps over the lazy dog again and again and again until the end';
     const p = plan(lines(`[00:01]${text}`), { fontSize: 90 });
     const l = p.lines[0];
     expect(l.rows.length).toBeGreaterThan(1);
@@ -202,7 +226,10 @@ describe('折行', () => {
     expect(p.lines[0].rows).toEqual(['你好', 'Hello']);
   });
   it('字的位置：沿角度斜排、第二行直接往下', () => {
-    const p = plan(lines('[00:01]你好\n[00:01]Hello', { language: 'both' }), { angleMin: 10, angleMax: 10 });
+    const p = plan(lines('[00:01]你好\n[00:01]Hello', { language: 'both' }), {
+      angleMin: 10,
+      angleMax: 10,
+    });
     const l = p.lines[0];
     const g = l.glyphs;
     const rad = (10 * Math.PI) / 180;

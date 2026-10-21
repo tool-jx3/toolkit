@@ -4,8 +4,13 @@
  */
 import type { LyricFxLine, LyricStyle } from '../../types';
 import { drawScatter } from './draw';
-import { type ScatterPlan, planScatter, scatterLock } from './plan';
-import { normalizeScatter, SCATTER_CONTROLS, type ScatterSettings, scatterDefaults } from './settings';
+import { planScatter, type ScatterPlan, scatterLock } from './plan';
+import {
+  normalizeScatter,
+  SCATTER_CONTROLS,
+  type ScatterSettings,
+  scatterDefaults,
+} from './settings';
 import { SCATTER_TEXT } from './strings';
 
 export const scatterStyle: LyricStyle<ScatterSettings, ScatterPlan> = {
@@ -17,7 +22,10 @@ export const scatterStyle: LyricStyle<ScatterSettings, ScatterPlan> = {
   controls: SCATTER_CONTROLS,
   fonts: (s) => {
     const list = [s.font];
-    if (s.latinFont && (s.latinFont.family !== s.font.family || s.latinFont.weight !== s.font.weight))
+    if (
+      s.latinFont &&
+      (s.latinFont.family !== s.font.family || s.latinFont.weight !== s.font.weight)
+    )
       list.push(s.latinFont);
     return list;
   },
@@ -33,6 +41,14 @@ export const scatterStyle: LyricStyle<ScatterSettings, ScatterPlan> = {
     const p = plan.byKey.get(key);
     if (!p) return false;
     return t >= (p.slotBorn ?? p.start) && t < Math.max(p.fadeEnd, p.fadeStart);
+  },
+  settledAt(plan) {
+    let end = 0;
+    for (const p of plan.lines) {
+      const typed = p.bright ? 0 : (p.glyphs.length * p.interval) / 1000;
+      end = Math.max(end, Math.min(p.start + typed, p.fadeEnd));
+    }
+    return end;
   },
 };
 

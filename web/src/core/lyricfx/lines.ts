@@ -281,9 +281,7 @@ export function buildLyricLines(text: string, options: BuildLinesOptions = {}): 
     .sort((a, b) => a.t - b.t);
 
   /* 略過的句當成不存在（不會讓前一句提早結束）；空白的句只當結束的記號 */
-  const kept = items
-    .filter((it) => !it.skipped)
-    .sort((a, b) => a.t - b.t || a.order - b.order);
+  const kept = items.filter((it) => !it.skipped).sort((a, b) => a.t - b.t || a.order - b.order);
   const lines: LyricFxLine[] = [];
   for (let i = 0; i < kept.length; i++) {
     const it = kept[i];

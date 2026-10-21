@@ -51,7 +51,8 @@ const uint = (b: Uint8Array, e: Ebml) => {
   for (let i = 0; i < e.size; i++) v = v * 256 + b[e.data + i];
   return v;
 };
-const str = (b: Uint8Array, e: Ebml) => new TextDecoder().decode(b.subarray(e.data, e.data + e.size));
+const str = (b: Uint8Array, e: Ebml) =>
+  new TextDecoder().decode(b.subarray(e.data, e.data + e.size));
 const find = (list: Ebml[] | undefined, id: number) => list?.find((x) => x.id === id);
 const all = (list: Ebml[] | undefined, id: number) => list?.filter((x) => x.id === id) ?? [];
 
@@ -97,7 +98,13 @@ describe('muxWebm（透明度＋Opus）', () => {
       alpha: true,
       durationMs: (70 * 1000) / fps,
       video,
-      audio: { codecPrivate: head, sampleRate: 48000, channels: 2, preSkip: 312, frames: audioFrames },
+      audio: {
+        codecPrivate: head,
+        sampleRate: 48000,
+        channels: 2,
+        preSkip: 312,
+        frames: audioFrames,
+      },
       app: 'test',
     }),
   );
@@ -166,7 +173,9 @@ describe('muxWebm（透明度＋Opus）', () => {
           const rel = new DataView(bytes.buffer, block.data + 1, 2).getInt16(0);
           const i = videoCount++;
           expect(base + rel).toBe(video[i].timestampMs);
-          expect([...bytes.subarray(block.data + 4, block.data + block.size)]).toEqual([...video[i].data]);
+          expect([...bytes.subarray(block.data + 4, block.data + block.size)]).toEqual([
+            ...video[i].data,
+          ]);
           const add = find(find(find(b.children, 0x75a1)?.children, 0xa6)?.children, 0xa5)!;
           expect([...bytes.subarray(add.data, add.data + add.size)]).toEqual([...video[i].alpha]);
           expect(!!find(b.children, 0xfb)).toBe(!video[i].key);
@@ -203,13 +212,19 @@ describe('muxWebm（透明度＋Opus）', () => {
         fps: 10,
         codec: 'V_VP8',
         durationMs: 300,
-        video: [0, 1, 2].map((i) => ({ data: new Uint8Array([i]), key: i === 0, timestampMs: i * 100 })),
+        video: [0, 1, 2].map((i) => ({
+          data: new Uint8Array([i]),
+          key: i === 0,
+          timestampMs: i * 100,
+        })),
       }),
     );
     const s = parse(b)[1];
     const blocks = all(find(s.children, 0x1f43b675)?.children, 0xa3);
     expect(blocks.map((x) => b[x.data + 3])).toEqual([0x80, 0, 0]);
-    expect(find(find(find(s.children, 0x1654ae6b)?.children, 0xae)?.children, 0x55ee)).toBeUndefined();
+    expect(
+      find(find(find(s.children, 0x1654ae6b)?.children, 0xae)?.children, 0x55ee),
+    ).toBeUndefined();
   });
 });
 

@@ -354,7 +354,7 @@ Chromium 141 實測：WebCodecs 的 VideoEncoder **不支援** `alpha: 'keep'`�
 - 不能逐格（VideoEncoder 不支援 VP9）時即時錄影（`recordingFormats()` 裡支援透明的 WebM）；都不行時停用（說明改用 PNG 連番）。
 
 #### 3.9.3 PNG 連番（F65）
-ZIP（不壓縮）：`<檔名>-frames/<檔名>_00001.png`…（序號 5 位以上，依總格數補零：共用 `sequenceName`）＋`timing.txt`（每行「序號 時間（秒，小數 3 位）」與 FPS、尺寸的說明）。每張是 Wo × Ho 的透明 PNG（背景不畫）。
+ZIP（不壓縮）：`<檔名>-frames/<檔名>_0001.png`…（序號 4 位以上，依總格數補零：共用 `sequenceName`）＋`timing.txt`（每行「序號 時間（秒，小數 3 位）」與 FPS、尺寸的說明）。每張是 Wo × Ho 的透明 PNG（背景不畫）。
 
 #### 3.9.4 PNG（F19）
 Wo × Ho，鋪背景（F21；透明時不鋪）→ 畫預覽目前時間的那一格。
