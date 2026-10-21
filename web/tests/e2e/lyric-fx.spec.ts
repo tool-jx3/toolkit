@@ -1,5 +1,5 @@
 /**
- * 歌詞演出產生器（建置產物 next/lyric-fx/）的端對端測試（規格 docs/refactor/specs/lyric-fx.md）：
+ * 歌詞演出產生器（建置產物 tools/lyric-fx/）的端對端測試（規格 docs/refactor/specs/lyric-fx.md）：
  * - 開頁：外框、頁尾、示範歌詞的狀態、沒有 console error；預覽只由時間決定（同一個時間畫出來逐點相同）；
  * - 歌詞：打字、語言、略過的行、演出延遲、讀歌詞檔、沒有時間標記、打點（按鈕與 Ctrl＋Enter）；
  * - 逐句調整：改時間、改字、還原、重抽、鎖定（重新抽位置也不動）、清除；重新抽位置（G）與復原；

@@ -241,7 +241,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | geo-bloom | 幾何花紋產生器（2026-10-17 另外加入） | al1scut/tkmizGeo（Geometric Bloom） | 未授權 | G8 | ✅ | ✅ | ✅ | ✅ |
 | id-ticket | 證件與票券產生器（2026-10-19 第一批） | dearmysn1p3r/DearMySn1p3r_20（ID Studio）＋DearMySn1p3r_36（Ticket Studio） | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
 | vhs-frame | 錄影帶畫面產生器（2026-10-19 第一批） | dearmysn1p3r/VHS_Maker | 未授權 | G8 | ✅ | ✅ | ✅ | ✅ |
-| lyric-fx | 歌詞演出產生器（2026-10-21 另外加入；第一種風格「散落」，保留之後加其他風格與併入音樂播放畫面產生器的擴充性） | YouRanCoder/LimbusLyricSimulator | GPL-3.0（只參考效果與做法，程式自己寫） | G1 | ⬜ | ⬜ | ⬜ | ⬜ |
+| lyric-fx | 歌詞演出產生器（2026-10-21 另外加入；第一種風格「散落」，保留之後加其他風格與併入音樂播放畫面產生器的擴充性） | YouRanCoder/LimbusLyricSimulator | GPL-3.0（只參考效果與做法，程式自己寫） | G1 | ✅ | ✅ | ✅ | ✅ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 
