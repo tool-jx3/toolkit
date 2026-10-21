@@ -257,13 +257,17 @@ export function rewraps(
     seen.add(k);
     out.push(w);
   };
+  /* 變寬：第 k 次＝寬度 × 1.5^k 折的結果（每個目標行數都一樣，算一次就好） */
+  const widened: Wrapping[] = [];
+  const widen = (k: number) => {
+    if (!widened[k]) widened[k] = wrapAll(segments, rowMax * WIDEN_STEP ** (k + 1), ruler);
+    return widened[k];
+  };
   const count = rowsOf(base).length;
   for (let target = count - 1; target >= 1; target--) {
-    let limit = rowMax;
     let w = base;
     for (let k = 0; k < WIDEN_TIMES; k++) {
-      limit *= WIDEN_STEP;
-      w = wrapAll(segments, limit, ruler);
+      w = widen(k);
       if (rowsOf(w).length <= target) break;
     }
     add(rowsOf(w).length > target ? squeeze(w, target) : w);

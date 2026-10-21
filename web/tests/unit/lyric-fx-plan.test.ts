@@ -22,9 +22,13 @@ import {
 import {
   boxAt,
   metricsFor,
+  rewraps,
+  rowsOf,
   rulerFor,
   type Shape,
+  segmentsOf,
   shapeOf,
+  wrapAll,
 } from '@/core/lyricfx/styles/scatter/layout';
 import { bandSearch, overlapArea } from '@/core/lyricfx/styles/scatter/search';
 
@@ -389,6 +393,28 @@ describe('折行', () => {
     expect(l.rows.length).toBeGreaterThan(1);
     expect(l.rows.join(' ')).toBe(text);
   });
+  it('改折行（規格 3.5、D13）：不重複；併回一行時空白斷開的接回空白、拆字的直接接；原文與翻譯不合併', () => {
+    const ruler = rulerFor(env, '700 37px test', 5);
+    /* 英文一個字 20.35 px：整句約 1,186 px，寬 100 變寬 6 次（1,139）還是兩行 → 最後兩行併成一行 */
+    const text = 'alpha beta gamma delta epsilon zeta eta theta';
+    const segs = segmentsOf(text, '');
+    const base = wrapAll(segs, 100, ruler);
+    const alts = rewraps(segs, base, 100, ruler);
+    const keys = [base, ...alts].map((w) => rowsOf(w).join('|'));
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(alts.some((w) => rowsOf(w).length === 1 && rowsOf(w)[0] === text)).toBe(true);
+    /* 拆字的單字 */
+    const word = segmentsOf('supercalifragilistic', '');
+    const split = wrapAll(word, 120, ruler);
+    expect(rowsOf(split).length).toBeGreaterThan(1);
+    expect(rowsOf(split).join('')).toBe('supercalifragilistic');
+    /* 原文與翻譯：目標 1 行時各自併成一行，還是兩行 */
+    const both = segmentsOf('你好世界你好世界你好世界', 'hello world again');
+    const bw = wrapAll(both, 60, ruler);
+    const one = rewraps(both, bw, 60, ruler).find((w) => rowsOf(w).length === 2);
+    expect(one && rowsOf(one)).toEqual(['你好世界你好世界你好世界', 'hello world again']);
+  });
+
   it('原文與翻譯各自折行、不會接成一行', () => {
     const p = plan(lines('[00:01]你好\n[00:01]Hello', { language: 'both' }));
     expect(p.lines[0].rows).toEqual(['你好', 'Hello']);
