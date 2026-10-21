@@ -7,6 +7,7 @@
  * const { current, next } = lyricAt(lines, playbackTime);      // 這一刻要顯示的行（沒有時 null）與下一行
  * const r = stampLyrics(text, textarea.selectionStart, time);  // 在游標所在（或下一個）沒有時間的行前面加上 [mm:ss.xx]
  * if (r.ok) { textarea.value = r.text; textarea.setSelectionRange(r.caret, r.caret); }
+ * const paired = pairSameTimeLines(lines);                     // 同一時間的兩行＝原文＋翻譯（lyric-fx 用）
  * ```
  *
  * 規則：
@@ -152,6 +153,34 @@ export function parseLyrics(source: string): ParsedLyrics {
 
 /** 有沒有任何一句帶翻譯 */
 export const hasTranslation = (lines: readonly LyricLine[]): boolean => lines.some((l) => !!l.tr);
+
+/**
+ * 同一時間的兩行當成「原文＋翻譯」（從音樂平台合併出來的雙語 LRC 常見這種寫法）：
+ * 連續兩句的開始時間完全相同、第一句還沒有翻譯、兩句都有字時，第二句的文字變成第一句的翻譯（已有的翻譯以空白接在後面），
+ * 合併後的結束時間取兩句中較晚的。三句以上同時間時只合併前兩句，其餘照舊。回傳新的陣列（不改原本的）。
+ * （lyric-fx 移植時新增；parseLyrics 的結果不變，要的工具自己呼叫）
+ */
+export function pairSameTimeLines(lines: readonly LyricLine[]): LyricLine[] {
+  const out: LyricLine[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const a = lines[i];
+    const b = lines[i + 1];
+    if (b && b.t === a.t && !a.tr && a.text && b.text) {
+      out.push({
+        t: a.t,
+        end: Math.max(a.end, b.end),
+        text: a.text,
+        tr: b.tr ? `${b.text} ${b.tr}` : b.text,
+      });
+      i++;
+      /* 同時間的第三句起照舊（不再和下一句合併：避免把第三、四句也合成一對） */
+      while (i + 1 < lines.length && lines[i + 1].t === a.t) out.push({ ...lines[++i] });
+      continue;
+    }
+    out.push({ ...a });
+  }
+  return out;
+}
 
 /** 開始時間 ≤ t 的最後一句（二分搜尋；沒有時 -1） */
 export function lyricIndexAt(lines: readonly LyricLine[], t: number): number {
