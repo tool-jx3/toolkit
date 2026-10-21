@@ -1,10 +1,10 @@
 /**
  * 對等（lyric-fx 規格 3.3）：照原作的更新規則逐步模擬（Qt 計時器每一次改的量），檢查新版的時間函式在各個更新時間點的值相同。
- * - 殘影：每 30 ms 不透明度減淡出速度 f（從 255 開始，≤ 0 時拿掉）、y 減上升速度 r（ui/fading_line.py 38-50、ui/lyric_window.py 110）。
- * - 抖動：每 P ms 每個字的目標換成 −I～I 的整數、位置 s ← s ＋ (目標 − s) × 0.3（ui/lyric_window.py 1266-1273）；
+ * - 殘影：每 30 ms 不透明度減淡出速度 f（從 255 開始，≤ 0 時拿掉）、y 減上升速度 r（規格 3.3）。
+ * - 抖動：每 P ms 每個字的目標換成 −I～I 的整數、位置 s ← s ＋ (目標 − s) × 0.3（規格 3.3、3.7）；
  *   還沒有字時（打字的第一個字之前）不更新。
- * - 打字：每 v ms 多一個字，第一個字在 v ms 後（ui/lyric_window.py 1256-1264）；v 的算法（1166-1179）。
- * - 槽位：暗態 0.4 秒淡入到 35%（1418-1421）、亮態每 50 ms 一個字（1424-1428）。
+ * - 打字：每 v ms 多一個字，第一個字在 v ms 後（規格 3.3）；v 的算法（規格 3.4）。
+ * - 槽位：暗態 0.4 秒淡入到 35%、亮態每 50 ms 一個字（規格 3.3）。
  */
 import { describe, expect, it } from 'vitest';
 import { type JitterSpec, jitterAt, jitterTarget } from '@/core/lyricfx';
@@ -102,7 +102,7 @@ describe('抖動：指數平滑的遞迴換成時間函式', () => {
   });
 });
 
-describe('打字間隔（原作 lyric_window.py 1166-1179）', () => {
+describe('打字間隔（規格 3.4）', () => {
   const s = { marginTime: 4000, maxInterval: 16000, maxDuration: 5000 };
   it('一般的句：(間隔 − 留白) ÷ 字數，最快 30 ms', () => {
     expect(charInterval(6000, 10, s)).toBe(200);

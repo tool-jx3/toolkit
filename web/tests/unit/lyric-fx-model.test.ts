@@ -59,25 +59,82 @@ describe('normalizeSettings', () => {
     const r = { x: 0.2, y: 0.3, width: 0.4, height: 0.5 };
     expect(normalizeSettings({ region: r }).region).toEqual(r);
     /* 版本 2 的 region 是 null 時不再看風格裡的舊欄位 */
-    expect(normalizeSettings({ region: null, styles: { scatter: { region: r } } }).region).toBeNull();
-    expect(normalizeSettings({ region: { x: 0.1, y: 0.1, width: 0.001, height: 0.5 } }).region).toBeNull();
+    expect(
+      normalizeSettings({ region: null, styles: { scatter: { region: r } } }).region,
+    ).toBeNull();
+    expect(
+      normalizeSettings({ region: { x: 0.1, y: 0.1, width: 0.001, height: 0.5 } }).region,
+    ).toBeNull();
   });
 
   it('版本 1 的預設關鍵字（沒有改過）換成新的預設；改過的照舊', () => {
     const v1Credit = [
-      '作詞', '作词', '作曲', '編曲', '编曲', '製作人', '制作人', '監製', '监制', '原唱', '翻唱', '混音', '錄音',
-      '录音', '和聲', '和声', '統籌', '统筹', '企劃', '企划', '出品', '封面', '詞:', '词:', '曲:', '吉他:', '貝斯:',
-      '贝斯:', '鼓:', '鍵盤:', '键盘:', '弦樂:', '弦乐:', 'op:', 'sp:', 'program', 'produced by', 'written by',
-      'composed by', 'arranged by', 'mixed by', 'mastered by', 'lyrics by', 'music by',
+      '作詞',
+      '作词',
+      '作曲',
+      '編曲',
+      '编曲',
+      '製作人',
+      '制作人',
+      '監製',
+      '监制',
+      '原唱',
+      '翻唱',
+      '混音',
+      '錄音',
+      '录音',
+      '和聲',
+      '和声',
+      '統籌',
+      '统筹',
+      '企劃',
+      '企划',
+      '出品',
+      '封面',
+      '詞:',
+      '词:',
+      '曲:',
+      '吉他:',
+      '貝斯:',
+      '贝斯:',
+      '鼓:',
+      '鍵盤:',
+      '键盘:',
+      '弦樂:',
+      '弦乐:',
+      'op:',
+      'sp:',
+      'program',
+      'produced by',
+      'written by',
+      'composed by',
+      'arranged by',
+      'mixed by',
+      'mastered by',
+      'lyrics by',
+      'music by',
     ].join('\n');
     const v1Inst = [
-      '(inst', '[inst', '【inst', 'instrumental', '純音樂', '纯音乐', '伴奏', 'off vocal', 'カラオケ', 'karaoke',
+      '(inst',
+      '[inst',
+      '【inst',
+      'instrumental',
+      '純音樂',
+      '纯音乐',
+      '伴奏',
+      'off vocal',
+      'カラオケ',
+      'karaoke',
     ].join('\n');
     const d = defaultSettings();
-    const n = normalizeSettings({ filters: { credits: true, creditWords: v1Credit, inst: true, instWords: v1Inst } });
+    const n = normalizeSettings({
+      filters: { credits: true, creditWords: v1Credit, inst: true, instWords: v1Inst },
+    });
     expect(n.filters.creditWords).toBe(d.filters.creditWords);
     expect(n.filters.instWords).toBe(d.filters.instWords);
-    const custom = normalizeSettings({ filters: { creditWords: `${v1Credit}\n自己加的`, instWords: 'x' } });
+    const custom = normalizeSettings({
+      filters: { creditWords: `${v1Credit}\n自己加的`, instWords: 'x' },
+    });
     expect(custom.filters.creditWords).toBe(`${v1Credit}\n自己加的`);
     expect(custom.filters.instWords).toBe('x');
   });

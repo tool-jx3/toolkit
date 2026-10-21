@@ -2,8 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildLyricLines,
+  createRng,
   type LyricFxLine,
   type LyricPlanOptions,
+  perspectiveAt,
   projectBox,
   roughMeasure,
   scatterStyle,
@@ -17,6 +19,14 @@ import {
   scatterDefaults,
   scatterLock,
 } from '@/core/lyricfx/styles/scatter';
+import {
+  boxAt,
+  metricsFor,
+  rulerFor,
+  type Shape,
+  shapeOf,
+} from '@/core/lyricfx/styles/scatter/layout';
+import { bandSearch, overlapArea } from '@/core/lyricfx/styles/scatter/search';
 
 const SIZE = { width: 1920, height: 1080 };
 const env = roughMeasure();
@@ -204,6 +214,161 @@ describe('範圍與避開', () => {
       expect(l.angle).toBeGreaterThanOrEqual(5);
       expect(l.angle).toBeLessThanOrEqual(20);
     }
+  });
+});
+
+describe('鎖定換畫面比例（F12）', () => {
+  /* 30 個中日韓字：roughMeasure 一個字 37 px、字間距 5 → 一行 1,255 px（橫式放得下、直式放不下） */
+  const text = '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉';
+  const ls = lines(`[00:01]${text}`);
+  const lock = { fx: 0.85, fy: 0.75, angle: 0, rows: [text] };
+  const locked = ls.map((l) => ({ ...l, lock }));
+  const inside = (p: ScatterPlan, W: number, H: number) => {
+    const b = p.lines[0].box;
+    expect(b.x).toBeGreaterThanOrEqual(66);
+    expect(b.y).toBeGreaterThanOrEqual(66);
+    expect(b.x + b.width).toBeLessThanOrEqual(W - 66);
+    expect(b.y + b.height).toBeLessThanOrEqual(H - 66);
+  };
+  it('照比例換算後夾回畫面內（記下的折行放得下時照用）', () => {
+    const p = plan(locked);
+    expect(p.lines[0].locked).toBe(true);
+    expect(p.lines[0].rows).toEqual([text]);
+    expect(p.lines[0].y).toBe(Math.round(0.75 * 1080));
+    expect(p.lines[0].x).toBeLessThan(Math.round(0.85 * 1920));
+    inside(p, 1920, 1080);
+    /* 字級變大、記下的折行比一行最多多寬還寬：照樣用記下的折行 */
+    const big = plan(locked, { fontSize: 48 });
+    expect(big.lines[0].rows).toEqual([text]);
+    inside(big, 1920, 1080);
+  });
+  it('直式畫面放不進記下的折行：改用新的折行，整塊在畫面內', () => {
+    const p = plan(locked, {}, 7, { width: 1080, height: 1920 });
+    const l = p.lines[0];
+    expect(l.locked).toBe(true);
+    expect(l.angle).toBe(0);
+    expect(l.rows.length).toBeGreaterThan(1);
+    expect(l.rows.join('')).toBe(text);
+    inside(p, 1080, 1920);
+  });
+});
+
+describe('整塊的範圍與放不下的時候', () => {
+  it('整塊＝每個字的格子 [ox, ox＋字寬] × [oy − th, oy＋ls] 的聯集，四邊再加 pad（F59）', () => {
+    const th = 37 * 1.32;
+    const lsp = th * 0.3;
+    const pad = 4 + 4 + 6;
+    for (const a of [-10, 0, 10]) {
+      const p = plan(lines('[00:01]比較長的第一行歌詞\n[00:01]Short', { language: 'both' }), {
+        angleMin: a,
+        angleMax: a,
+      });
+      const l = p.lines[0];
+      expect(l.rows).toEqual(['比較長的第一行歌詞', 'Short']);
+      let x0 = 0;
+      let x1 = 0;
+      let y0 = -th;
+      let y1 = lsp;
+      for (const g of l.glyphs) {
+        x0 = Math.min(x0, g.ox);
+        x1 = Math.max(x1, g.ox + env.advance(g.ch, l.font));
+        y0 = Math.min(y0, g.oy - th);
+        y1 = Math.max(y1, g.oy + lsp);
+      }
+      expect(l.box.x).toBeCloseTo(l.x + x0 - pad, 9);
+      expect(l.box.y).toBeCloseTo(l.y + y0 - pad, 9);
+      expect(l.box.width).toBeCloseTo(x1 - x0 + 2 * pad, 9);
+      expect(l.box.height).toBeCloseTo(y1 - y0 + 2 * pad, 9);
+    }
+  });
+
+  it('錨點的範圍是空的時候固定在最小值（F60）', () => {
+    /* 133 px、60 個字：一行 10 個字、6 行，整塊比畫面高 */
+    const long = '這是很長很長的一句歌詞'.repeat(6);
+    const p = plan(lines(`[00:01]${long}`), { fontSize: 133, angleMin: 0, angleMax: 0 });
+    const l = p.lines[0];
+    expect(l.rows.length).toBeGreaterThanOrEqual(6);
+    expect(l.box.height).toBeGreaterThan(1080 - 2 * 66);
+    const top = l.box.y - l.y;
+    /* py＝⌊1080 × 0.001 × 2⌋＝2 */
+    expect(l.y).toBe(Math.ceil(66 + 2 - top));
+    expect(l.box.y).toBeGreaterThanOrEqual(66);
+  });
+
+  it('很大的避開區域（中央 40% × 40%）：擠的時候整塊（透視前）也不進入區域', () => {
+    const ls = lines(lrc(40, 0.8, (i) => `第${i + 1}句比較長一點的歌詞`));
+    const region = { x: 0.3, y: 0.3, width: 0.4, height: 0.4 };
+    const R = { x: 576, y: 324, width: 768, height: 432 };
+    for (const seed of [1, 2, 3]) {
+      /* 殘影 7.65 秒才淡完、不上飄：畫面上同時有十幾句 */
+      const p = plan(ls, { preview: 2, fontSize: 60, fadeSpeed: 1, riseSpeed: 0 }, seed, SIZE, {
+        region,
+      });
+      expect(p.lines.some((l) => l.overlapped)).toBe(true);
+      for (const l of p.lines) expect(overlap(l.box, R)).toBe(false);
+    }
+  });
+
+  it('區域幾乎蓋滿畫面（連帶子都沒有）：目前這一句推出區域、槽位在範圍內隨機，都在畫面內、標成重疊', () => {
+    const ls = lines(lrc(6, 2));
+    const p = plan(ls, { preview: 1 }, 4, SIZE, {
+      region: { x: 0.02, y: 0.02, width: 0.96, height: 0.96 },
+    });
+    for (const l of p.lines) {
+      expect(l.overlapped).toBe(true);
+      expect(Number.isFinite(l.x) && Number.isFinite(l.y)).toBe(true);
+      expect(l.box.x).toBeGreaterThanOrEqual(66);
+      expect(l.box.x + l.box.width).toBeLessThanOrEqual(1920 - 66);
+    }
+    /* 第一句沒有槽位（推出區域）、之後的句都是槽位（最小角） */
+    expect(p.lines[0].slotBorn).toBeNull();
+    for (const l of p.lines.slice(1)) expect(l.angle).toBe(-10);
+  });
+
+  it('避開區域放不下時，備用位置是試過的點裡（透視後）和區域重疊最少的（F54）', () => {
+    const s = { ...scatterDefaults(), perspX: 100, perspY: 100 };
+    const m = metricsFor(s, 1920, 1080);
+    const ruler = rulerFor(env, '700 37px test', s.spacing);
+    const zone = { left: 576, top: 324, right: 1344, bottom: 756 };
+    const R = { x: 576, y: 324, width: 768, height: 432 };
+    const tried: { x: number; y: number; shape: Shape }[] = [];
+    let shapeNow: Shape | null = null;
+    const persp = (x: number, y: number) =>
+      perspectiveAt(x, y, 1920, 1080, 100e-6, 100e-5, s.perspComp * 0.01);
+    const r = bandSearch(
+      {
+        m,
+        rng: createRng(5),
+        /* 整個畫面都被別的句佔住：每個點都失敗 */
+        avoid: [{ x: 0, y: 0, width: 1920, height: 1080 }],
+        side: null,
+        shape: (rows, angle) => {
+          shapeNow = shapeOf(rows, angle, ruler, m);
+          return shapeNow;
+        },
+        perspAt: (x, y) => {
+          if (shapeNow) tried.push({ x, y, shape: shapeNow });
+          return persp(x, y);
+        },
+      },
+      ['擠不進去的一句歌詞'],
+      zone,
+    );
+    expect(r.found).toBeNull();
+    expect(r.backup).not.toBeNull();
+    const cost = (t: { x: number; y: number; shape: Shape }) => {
+      const box = boxAt(t.shape.ext, t.x, t.y);
+      return overlapArea(box, R) + overlapArea(projectBox(persp(t.x, t.y), box), R);
+    };
+    const costs = tried.map(cost);
+    const best = Math.min(...costs);
+    expect(Math.max(...costs)).toBeGreaterThan(best);
+    const first = tried[costs.indexOf(best)];
+    expect([r.backup?.x, r.backup?.y, r.backup?.shape.angle]).toEqual([
+      first.x,
+      first.y,
+      first.shape.angle,
+    ]);
   });
 });
 

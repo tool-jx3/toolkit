@@ -254,7 +254,11 @@ interface Draft {
 
 function draftOf(line: LyricFxLine, s: ScatterSettings, m: Metrics, env: LyricMeasureEnv): Draft {
   const latin =
-    s.mode === 'latin' ? true : s.mode === 'cjk' ? false : detectLatin(line.text + line.tr) === true;
+    s.mode === 'latin'
+      ? true
+      : s.mode === 'cjk'
+        ? false
+        : detectLatin(line.text + line.tr) === true;
   const face = latin && s.latinFont ? s.latinFont : s.font;
   const font = fontCss(face, s.fontSize);
   const ruler = rulerFor(env, font, s.spacing);

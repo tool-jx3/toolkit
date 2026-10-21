@@ -26,7 +26,6 @@ const WIDEN_TIMES = 6;
 const NARROW_STEP = 1.5;
 const NARROW_MIN = 160;
 
-
 /** 整數範圍（含兩端） */
 export interface Span {
   lo: number;

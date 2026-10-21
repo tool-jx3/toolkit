@@ -527,17 +527,21 @@ test.describe('歌詞演出產生器', () => {
     await expect(page.getByTestId('region-pending')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect.poll(async () => (await session(page)).regionEditing).toBe(false);
-    expect((await settings(page)).styles.scatter.region).toBeNull();
+    expect((await settings(page)).region).toBeNull();
     /* 再框一次、按完成 */
     await page.getByTestId('region-pick').click();
     await drag(0.3, 0.2, 0.7, 0.8);
     await page.getByTestId('region-toolbar').getByRole('button', { name: '完成' }).click();
-    await expect.poll(async () => (await settings(page)).styles.scatter.region).not.toBeNull();
-    const r = (await settings(page)).styles.scatter.region;
+    await expect.poll(async () => (await settings(page)).region).not.toBeNull();
+    const r = (await settings(page)).region;
     expect(r.x).toBeCloseTo(0.3, 1);
     expect(r.width).toBeCloseTo(0.4, 1);
     await expect(page.getByTestId('region-box')).toBeVisible();
     await expect(page.getByTestId('region-status')).toHaveText('已設定（40% × 60%）');
+    /* 避開區域是工具層的共用設定：風格的「出現範圍」從 context 知道有區域、停用 */
+    const posX = page.getByRole('spinbutton', { name: '出現範圍 X：最小' });
+    await expect(posX).toBeDisabled();
+    expect((await settings(page)).styles.scatter.region).toBeUndefined();
     /* 排出來的句避開它（透視前） */
     const p = await plan(page);
     const R = { x: r.x * 1920, y: r.y * 1080, width: r.width * 1920, height: r.height * 1080 };
@@ -551,15 +555,14 @@ test.describe('歌詞演出產生器', () => {
     const w = page.getByRole('spinbutton', { name: '寬', exact: true });
     await w.fill('10');
     await w.press('Enter');
-    await expect
-      .poll(async () => (await settings(page)).styles.scatter.region.width)
-      .toBeCloseTo(0.1, 3);
+    await expect.poll(async () => (await settings(page)).region.width).toBeCloseTo(0.1, 3);
     /* 隱藏預覽上的框 */
     await page.getByRole('switch', { name: '在預覽上顯示避開區域' }).click();
     await expect(page.getByTestId('region-box')).toHaveCount(0);
     /* 清除 */
     await page.getByTestId('region-clear').click();
-    await expect.poll(async () => (await settings(page)).styles.scatter.region).toBeNull();
+    await expect.poll(async () => (await settings(page)).region).toBeNull();
+    await expect(posX).toBeEnabled();
     expect(errors).toEqual([]);
   });
 

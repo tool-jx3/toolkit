@@ -98,7 +98,8 @@ export function scatterSearch(
     const span = anchorSpan(shape.ext, ctx.m, true, ctx.side);
     for (let i = 0; i < FREE_TRIES; i++) {
       const [x, y] = pick(ctx.rng, span.x, span.y);
-      if (clear(boxAt(shape.ext, x, y), ctx.avoid)) return { found: { shape, x, y }, fallback: { shape, x, y } };
+      if (clear(boxAt(shape.ext, x, y), ctx.avoid))
+        return { found: { shape, x, y }, fallback: { shape, x, y } };
     }
   }
   const shape = ctx.shape(rows, angles[0]);
@@ -117,9 +118,15 @@ interface Band {
 function bandsAround(shape: Shape, z: Zone, span: { x: Span; y: Span }): Band[] {
   const { ext } = shape;
   const raw: { x: Span; y: Span }[] = [
-    { x: span.x, y: { lo: span.y.lo, hi: Math.min(span.y.hi, Math.floor(z.top - 1 - ext.bottom)) } },
+    {
+      x: span.x,
+      y: { lo: span.y.lo, hi: Math.min(span.y.hi, Math.floor(z.top - 1 - ext.bottom)) },
+    },
     { x: span.x, y: { lo: Math.max(span.y.lo, Math.ceil(z.bottom + 1 - ext.top)), hi: span.y.hi } },
-    { x: { lo: span.x.lo, hi: Math.min(span.x.hi, Math.floor(z.left - 1 - ext.right)) }, y: span.y },
+    {
+      x: { lo: span.x.lo, hi: Math.min(span.x.hi, Math.floor(z.left - 1 - ext.right)) },
+      y: span.y,
+    },
     { x: { lo: Math.max(span.x.lo, Math.ceil(z.right + 1 - ext.left)), hi: span.x.hi }, y: span.y },
   ];
   const out: Band[] = [];
