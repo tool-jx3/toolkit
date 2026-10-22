@@ -217,7 +217,7 @@ export const ASSETS: readonly AssetInfo[] = [
   A('wall_graffiti', 'wall', 3, 0.6, '牆上的塗鴉', W(['ruins'], '噴漆 塗寫')),
   A('wall_claws', 'wall', 1.6, 0.8, '爪痕', W(['horror', 'danger'], '抓痕 怪物')),
   A('wall_blood', 'wall', 1.6, 0.8, '血手印', W(['horror', 'evidence'], '血跡 手印')),
-  A('wall_mold', 'wall', 2.4, 1, '霉斑・水漬', W(['ruins', 'damaged'], '發霉 漏水 污漬')),
+  A('wall_mold', 'wall', 2.4, 1, '霉斑・水漬', W(['ruins', 'damaged'], '發霉 漏水 汙漬 污漬')),
 
   /* ---------- 客廳 ---------- */
   A('sofa2', 'living', 3.2, 1.8, '雙人沙發', O),
@@ -348,8 +348,8 @@ export const ASSETS: readonly AssetInfo[] = [
     keys: '冰箱 樣本',
     tags: ['research'],
   }),
-  A('decon_shower', 'medical', 2, 2, '除污淋浴間', {
-    keys: '消毒 淋浴',
+  A('decon_shower', 'medical', 2, 2, '除汙淋浴間', {
+    keys: '消毒 淋浴 除污',
     tags: ['research', 'danger'],
   }),
 
@@ -761,7 +761,7 @@ export const ASSETS: readonly AssetInfo[] = [
   A('offering', 'occult', 1.4, 1, '供品', { orient: true, keys: '祭品', tags: ['religious'] }),
   A('cursed_item', 'occult', 0.8, 0.8, '詛咒之物', { keys: '人偶 符咒', tags: ['danger'] }),
   A('flesh', 'occult', 2.4, 2, '肉塊（異形）', { keys: '怪物 血肉', tags: ['danger'] }),
-  A('black_stain', 'occult', 3, 2.4, '黑色的污漬', { under: true, keys: '黑水 黏液' }),
+  A('black_stain', 'occult', 3, 2.4, '黑色的汙漬', { under: true, keys: '黑水 黏液 污漬' }),
   A('abyss', 'occult', 3, 3, '深不見底的洞', { keys: '洞 異界', tags: ['danger'] }),
   A('grave', 'occult', 1.6, 2.6, '墓碑', { keys: '墳墓 墓地', tags: ['religious', 'outdoor'] }),
 
