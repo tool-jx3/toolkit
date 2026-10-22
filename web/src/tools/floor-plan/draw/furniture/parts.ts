@@ -288,7 +288,7 @@ export function wheel(c: Ctx, S: FurnStyle, x: number, y: number, w: number, h: 
 }
 
 /**
- * 由上往下看的車身：輪胎、車身、前擋風玻璃、車頂、後窗。車頭朝下（y＝h）。
+ * 由上往下看的車身：輪胎、車身、前擋風玻璃、車頂、後窗。照「車頭朝下（y＝h）」畫（登記時用 mirrorY 翻成車頭朝上）。
  * `cab`：只有車頭有駕駛艙（貨車類，車頂只畫在前段）。回傳車頂的範圍（畫警示燈、標記用）。
  */
 export function carBody(

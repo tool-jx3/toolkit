@@ -1,6 +1,7 @@
 /**
  * 家具畫法（2026-10 第三批）：鐵道・車站、車輛・船・飛機。全部是本站自己畫的。
- * 車輛的車頭朝下（y＝h，0° 時「背面在上」的規則下車尾靠牆）。
+ * 車輛類的畫法是照「車頭朝下（y＝h）」寫的，登記時用 mirrorY 翻成 rot 0 時車頭朝上
+ * （和原作、既有的 boat 一致；規格 7.16、3.11.7），所以畫法裡不能有字。
  */
 import {
   block,
@@ -10,6 +11,7 @@ import {
   type FurnStyle,
   hatchRows,
   lw,
+  mirrorY,
   paint,
   poly,
   rrect,
@@ -149,10 +151,11 @@ const ticketGate: FurnDraw = (c, S, w, h) => {
       c.fill();
       c.restore();
       inked(c, S.leaf, () => {
+        /* 通行的方向：往上（和原作一致） */
         poly(c, [
-          [x + cw + gap / 2, h * 0.92],
-          [x + cw + gap / 2 - 0.15, h * 0.78],
-          [x + cw + gap / 2 + 0.15, h * 0.78],
+          [x + cw + gap / 2, h * 0.78],
+          [x + cw + gap / 2 - 0.15, h * 0.92],
+          [x + cw + gap / 2 + 0.15, h * 0.92],
         ]);
         c.fill();
       });
@@ -263,7 +266,7 @@ const locomotive: FurnDraw = (c, S, w, h) => {
   thin(c, S, 0.6, () => hatchRows(c, 0.7, w - 0.7, h - 9, h - 8.2, 0.2));
 };
 
-/* ---------- 車輛（車頭朝下） ---------- */
+/* ---------- 車輛（畫的時候車頭朝下，登記時 mirrorY 翻成朝上） ---------- */
 
 const suv: FurnDraw = (c, S, w, h) => {
   const roof = carBody(c, S, w, h, { fill: S.shade, roof: S.tint });
@@ -704,19 +707,20 @@ export const TRANSIT: Record<string, FurnDraw> = {
   station_sign: stationSign,
   kiosk,
   train_car: trainCar,
-  locomotive,
-  suv,
-  van,
-  truck,
-  police_car: policeCar,
-  ambulance,
-  fire_truck: fireTruck,
-  excavator,
-  bulldozer,
-  crane_truck: craneTruck,
-  forklift,
-  airplane,
-  helicopter,
+  /* 前端朝上（rot 0）：下面這些翻過來登記；lifeboat、train_car 兩頭一樣，沒有前後之分 */
+  locomotive: mirrorY(locomotive),
+  suv: mirrorY(suv),
+  van: mirrorY(van),
+  truck: mirrorY(truck),
+  police_car: mirrorY(policeCar),
+  ambulance: mirrorY(ambulance),
+  fire_truck: mirrorY(fireTruck),
+  excavator: mirrorY(excavator),
+  bulldozer: mirrorY(bulldozer),
+  crane_truck: mirrorY(craneTruck),
+  forklift: mirrorY(forklift),
+  airplane: mirrorY(airplane),
+  helicopter: mirrorY(helicopter),
   lifeboat,
   liferaft,
   anchor,

@@ -7,6 +7,8 @@ import {
   type FurnDraw,
   hatchRows,
   lw,
+  mirrorX,
+  mirrorY,
   oval,
   paint,
   poly,
@@ -21,6 +23,7 @@ import { blob } from './story';
 
 /* ---------- 調查・證物 ---------- */
 
+/** 手電筒：照「光往左」畫，登記時 mirrorX 翻成光往右（原作一致） */
 const flashlight: FurnDraw = (c, S, w, h) => {
   c.save();
   c.globalAlpha = 0.5;
@@ -168,6 +171,7 @@ const burn: FurnDraw = (c, S, w, h) => {
   });
 };
 
+/** 拖行的痕跡：照「粗的一頭在上」畫，登記時 mirrorY 翻成起點細（上）、終點粗（下） */
 const dragMarks: FurnDraw = (c, S, w, h) => {
   c.save();
   c.fillStyle = S.blood;
@@ -523,7 +527,7 @@ const grave: FurnDraw = (c, S, w, h) => {
 };
 
 export const MYSTERY: Record<string, FurnDraw> = {
-  flashlight,
+  flashlight: mirrorX(flashlight),
   tools,
   bag,
   wallet,
@@ -534,7 +538,7 @@ export const MYSTERY: Record<string, FurnDraw> = {
   camera,
   casings,
   burn,
-  drag_marks: dragMarks,
+  drag_marks: mirrorY(dragMarks),
   fingerprint,
   broken_furniture: brokenFurniture,
   pod,

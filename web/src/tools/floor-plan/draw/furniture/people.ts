@@ -9,6 +9,7 @@ import {
   type FurnDraw,
   type FurnStyle,
   hatchRows,
+  mirrorX,
   oval,
   paint,
   poly,
@@ -541,6 +542,7 @@ const banner: FurnDraw = (c, S, w, h) => {
   disc(c, S, w / 2, h * 0.58, h * 0.16, S.gold);
 };
 
+/** 鐵砧：照「尖角在左」畫，登記時 mirrorX 翻成尖角在右（原作一致） */
 const anvil: FurnDraw = (c, S, w, h) => {
   block(c, S, w * 0.25, h * 0.05, w * 0.5, h * 0.9, 0.05, S.wood);
   c.beginPath();
@@ -707,7 +709,7 @@ export const PEOPLE: Record<string, FurnDraw> = {
   cauldron,
   crystal_ball: crystalBall,
   banner,
-  anvil,
+  anvil: mirrorX(anvil),
   forge,
   quest_board: questBoard,
   spike_trap: spikeTrap,

@@ -30,6 +30,31 @@ export type FurnDraw = (c: Ctx, S: FurnStyle, w: number, h: number, item: DrawOp
 
 export const TAU = Math.PI * 2;
 
+/**
+ * 上下翻轉（y → h − y）：原本照「前端朝下」寫的畫法，翻過來就是 rot 0 時前端朝上（和原作一致，規格 7.16）。
+ * 被包的畫法裡不能有字（字會變成鏡像）。
+ */
+export const mirrorY =
+  (draw: FurnDraw): FurnDraw =>
+  (c, S, w, h, item) => {
+    c.save();
+    c.translate(0, h);
+    c.scale(1, -1);
+    draw(c, S, w, h, item);
+    c.restore();
+  };
+
+/** 左右翻轉（x → w − x）：同 {@link mirrorY}，用在左右方向和原作相反的畫法（手電筒、鐵砧） */
+export const mirrorX =
+  (draw: FurnDraw): FurnDraw =>
+  (c, S, w, h, item) => {
+    c.save();
+    c.translate(w, 0);
+    c.scale(-1, 1);
+    draw(c, S, w, h, item);
+    c.restore();
+  };
+
 /** 圓角矩形的路徑 */
 export function rrect(c: Ctx, x: number, y: number, w: number, h: number, r = 0): void {
   const k = Math.max(0, Math.min(r, w / 2, h / 2));
