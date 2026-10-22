@@ -395,7 +395,7 @@ export function sanheyuan(): TplFloor[] {
     .item('bed_single', 4.3, 4.2)
     .item('desk', 9.4, 4.2)
     .item('bed_single', 49.8, 4.2)
-    .item('wardrobe', 51, 7, 90, { size: [3, 1] })
+    .item('wardrobe', 48.4, 12.8, 180)
     .item('desk', 12.2, 4.2)
     .item('bookshelf', 14.8, 4.1)
     .item('chair', 13, 5.5, 180);

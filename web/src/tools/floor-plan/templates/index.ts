@@ -138,7 +138,7 @@ function ruinedHouse(): TplFloor[] {
       yard.cat = 'garden';
     }
     g.items.push(
-      { t: 'bush', x: 0.6, y: 1, w: 1.6, h: 1.6, rot: 0 },
+      { t: 'bush', x: 1.6, y: 1.6, w: 1.6, h: 1.6, rot: 0 },
       { t: 'bush', x: 9.4, y: 0.6, w: 1.6, h: 1.6, rot: 0 },
       { t: 'tree', x: 6.4, y: 0, w: 3, h: 3, rot: 0 },
     );
@@ -157,7 +157,7 @@ function crimeScene(): TplFloor[] {
   b.item('body', 4.2, 10.4, 90)
     .item('blood', 5.4, 9.6)
     .item('evidence', 3.9, 9.3, 0, { label: '1' })
-    .item('evidence', 8.4, 9.4, 0, { label: '2' })
+    .item('evidence', 8.1, 9.4, 0, { label: '2' })
     .item('evidence', 6.4, 6.2, 0, { label: '3' })
     .item('evidence', 11, 8.6, 0, { label: '4' })
     .item('evidence', 1.5, 3, 0, { label: '5' })

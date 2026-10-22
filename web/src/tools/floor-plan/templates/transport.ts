@@ -212,7 +212,7 @@ function parkingLevel(b: FloorBuilder, name: string, north = 5, southFrom = 2): 
   parkingCore(b);
   b.dh(2, 8, 4, 1, 0, 'open');
   b.row('parking_stall', 9, 0.2, north, 5.4, 0, 0, { size: [5, 7] })
-    .row('parking_stall', southFrom, 12.8, Math.floor((34 - southFrom) / 5.4), 5.4, 0, 0, {
+    .row('parking_stall', southFrom, 12.8, Math.floor((34 - southFrom) / 5.4), 5.4, 0, 180, {
       size: [5, 7],
     })
     .row('pillar', 8.4, 9.5, 4, 8, 0)
@@ -256,7 +256,7 @@ export function parking(): TplFloor[] {
     .item('van', 20, 0.6, 0, { size: [4, 6.4] })
     .item('suv', 13.2, 13.2, 180, { size: [4.2, 6.4] })
     .item('car', 29.4, 13.2, 180, { size: [4, 6.4] })
-    .item('cone', 32, 10)
+    .item('cone', 33.6, 9.6)
     .item('extinguisher', 8.4, 0.4);
 
   const b2 = new FloorBuilder('B2');
@@ -267,7 +267,7 @@ export function parking(): TplFloor[] {
   });
   b2.dh(30, 7, 1.5, 1, 0, 'steel').dh(9, 13, 2, -1, 0, 'gate');
   b2.item('em_generator', 28.4, 0.4, 0, { size: [4, 2] })
-    .item('pump', 33.6, 0.4)
+    .item('pump', 32.6, 0.4)
     .item('dist_board', 35.3, 3.4, 90)
     .item('car', 20, 0.6, 0, { size: [4, 6.4] })
     .item('barricade', 13, 11, 90, { size: [3, 0.7] })
@@ -360,14 +360,14 @@ export function ferry(): TplFloor[] {
   bm.dv(36, 7, 3, 1, 0, 'door2').dv(48, 7, 1.5, 1, 0, 'secret');
   bm.item('ship_engine', 16, 3)
     .item('ship_engine', 24, 3)
-    .item('pipe_big', 9, 12.4, 0, { size: [8, 1.2] })
+    .item('pipe_big', 9, 12.4, 0, { size: [7, 1.2] })
     .item('control_panel', 31, 2.1)
     .item('boiler', 31, 9.4)
     .item('container', 38, 2.4, 90, { size: [4, 9] })
     .item('crate', 38.4, 8.6)
-    .item('crate', 40.2, 8.6)
+    .item('crate', 40, 8.6)
     .item('car', 41.6, 9.8, 90, { size: [3.6, 6] })
-    .item('ship_hatch', 45.2, 2.4)
+    .item('ship_hatch', 44.4, 6.8)
     .item('cage', 50.6, 4.4, 0, { gm: true, size: [3, 3] })
     .item('flesh', 50, 8.6, 0, { gm: true, size: [2, 2] })
     .item('chains', 48.4, 11.2, 180, { gm: true, size: [2.4, 0.6] });

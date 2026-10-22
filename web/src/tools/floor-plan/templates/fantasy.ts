@@ -183,11 +183,11 @@ export function tavern(): TplFloor[] {
     .item('table_round', 7.4, 12.4)
     .item('table_round', 4.4, 18.4)
     .item('table_round', 9.4, 17.4)
-    .item('chair', 2.2, 12.8, 90)
+    .item('chair', 2, 12.8, 90)
     .item('chair', 5, 12.8, 270)
-    .item('chair', 6.6, 12.8, 90)
+    .item('chair', 6.4, 12.8, 90)
     .item('chair', 9.4, 12.8, 270)
-    .item('chair', 3.6, 18.8, 90)
+    .item('chair', 3.4, 18.8, 90)
     .item('chair', 6.4, 18.8, 270)
     .item('barrel', 19.6, 21.4);
   /* 廚房、倉庫、馬廄、後院 */

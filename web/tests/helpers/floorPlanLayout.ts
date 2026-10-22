@@ -4,6 +4,7 @@
  * 每一層：門窗都在牆上、房間不會半重疊、門的開門範圍與門前一格不放家具、家具不穿過牆、手畫的牆不疊在別的牆上、
  * 門窗不卡在牆裡、地面層以外的門兩側都是房間、線索小物不疊在家具上；整個範本：每間房都走得到。
  * 2026-10 第三批後半：雙開門類（雙開門、大型雙開門）兩端各一片，旋轉門的圓往牆的兩側各凸出半個寬度。
+ * 2026-10-22（7.18）：家具不重疊（畫在底下的、桌上的小物除外）。
  */
 import { ASSET, VERTICAL_LINKS } from '@/tools/floor-plan/model/assets';
 import { DOUBLE_DOORS, OPEN, SWING_DOORS } from '@/tools/floor-plan/model/catalog';
@@ -214,6 +215,88 @@ export function stuckOpenings(f: Floor): string[] {
   return out;
 }
 
+/**
+ * 有桌面的家具（2026-10-22 依 7.18）：桌子、書桌、祭壇、工作台、櫃台…，上面可以放 `TABLETOP` 的小物。
+ */
+export const SURFACES: ReadonlySet<string> = new Set([
+  'table',
+  'table_round',
+  'lowtable',
+  'desk',
+  'desk_set',
+  'office_desk',
+  'nightstand',
+  'dresser',
+  'altar',
+  'ritual_table',
+  'counter',
+  'workbench',
+  'lab_bench',
+  'island',
+  'reception',
+  'register',
+  'zataku',
+  'chart_table',
+  'ops_table',
+  'holo_table',
+  'display_case',
+  'pedestal',
+  'picnic',
+]);
+
+/** 放在桌面上的小物（線索、文件、蠟燭、神像、水晶球、筆電、顯微鏡…） */
+export const TABLETOP: ReadonlySet<string> = new Set([
+  'memo',
+  'diary',
+  'key',
+  'knife',
+  'photo',
+  'phone',
+  'pills',
+  'papers',
+  'file_folder',
+  'laptop',
+  'recorder',
+  'camera',
+  'wallet',
+  'flashlight',
+  'tools',
+  'bag',
+  'candle',
+  'idol',
+  'crystal_ball',
+  'cursed_item',
+  'microscope',
+]);
+
+/** 有意疊放：小物整個落在有桌面的家具上 */
+const onSurface = (small: Item, big: Item) =>
+  TABLETOP.has(small.t) &&
+  SURFACES.has(big.t) &&
+  small.x >= big.x - EPS &&
+  small.y >= big.y - EPS &&
+  small.x + small.w <= big.x + big.w + EPS &&
+  small.y + small.h <= big.y + big.h + EPS;
+
+/**
+ * 疊在一起的家具（2026-10-22 依 7.18：三合院的床壓在衣櫃上）：兩件家具的外框重疊（只碰到邊不算）。
+ * 有意疊放的不算：①畫在其他家具底下的（地毯、血跡、舞台、水池、斑馬線…，`under`）；
+ * ②桌上的小物（`TABLETOP` 整個落在 `SURFACES` 上，例如祭壇上的蠟燭與神像、桌上的筆電與照片）。
+ * 貼牆素材也算（不要蓋在靠牆的家具上）。
+ */
+export function overlappingItems(f: Floor): string[] {
+  const out: string[] = [];
+  const list = f.items.filter(blocking);
+  for (let i = 0; i < list.length; i++)
+    for (let j = i + 1; j < list.length; j++) {
+      const p = list[i];
+      const q = list[j];
+      if (!rectHits(p, q) || onSurface(p, q) || onSurface(q, p)) continue;
+      out.push(`${f.name}：${box(p)} × ${box(q)}`);
+    }
+  return out;
+}
+
 /** 和別的家具疊在一起的線索小物（放入隱藏線索時找不到空位的話會疊上去） */
 export function cluesOnFurniture(f: Floor): string[] {
   return f.items
@@ -329,6 +412,7 @@ export function floorProblems(f: Floor, ground: boolean): string[] {
     ...overlappingWalls(f).map((x) => `牆重疊 ${x}`),
     ...stuckOpenings(f).map((x) => `門窗卡在牆裡 ${x}`),
     ...itemsAcrossWalls(f).map((x) => `家具穿牆 ${x}`),
+    ...overlappingItems(f).map((x) => `家具重疊 ${x}`),
     ...(ground ? [] : doorsToNowhere(f).map((x) => `門開到半空中 ${x}`)),
     ...cluesOnFurniture(f).map((x) => `線索疊在家具上 ${x}`),
   ];

@@ -159,11 +159,11 @@ export function mine(): TplFloor[] {
     .item('tool_shelf', 8.1, 11.6, 270, { size: [2, 0.8] })
     .item('lamp', 13.4, 9)
     .item('debris', 17, 20)
-    .item('landslide', 19, 22)
+    .item('landslide', 19, 22.4)
     .item('rock', 16, 24, 0, { size: [1.6, 1.4] })
     .item('altar', 34.6, 25.4, 180, { gm: true, size: [2.6, 1.4] })
     .item('stele', 34.6, 22.4, 0, { gm: true })
     .item('bones', 33, 24.2, 0, { gm: true })
-    .item('abyss', 37, 23.6, 0, { gm: true, size: [2.4, 2.4] });
+    .item('abyss', 37.4, 23.6, 0, { gm: true, size: [2.4, 2.4] });
   return [bm.f, g.f];
 }

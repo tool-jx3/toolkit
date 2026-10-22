@@ -118,7 +118,7 @@ export function hospitalAnnex(): TplFloor[] {
     .item('desk', 28.4, 18.7, 180)
     .item('hospital_bed', 24.6, 15.4, 0, { gm: true })
     .item('chains', 20.6, 19.2, 180, { gm: true })
-    .item('wall_claws', 23, 19.6, 0, { gm: true })
+    .item('wall_claws', 23.8, 19.6, 0, { gm: true })
     .item('black_stain', 21, 14.4, 0, { gm: true, size: [2.4, 2] });
   return [g.f, u.f];
 }

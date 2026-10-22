@@ -184,7 +184,7 @@ export function cult(): TplFloor[] {
     .item('chair', 29.3, 1.5, 180)
     .item('altar', 31.5, 8.3, 180, { size: [3, 1.4] })
     .item('bookshelf', 35.1, 4, 90)
-    .item('safe', 33.8, 8.6, 0, { size: [1.2, 1.2] });
+    .item('safe', 34.6, 8.6, 0, { size: [1.2, 1.2] });
   /* 集會廳：長椅朝南邊的祭壇，地上有魔法陣 */
   for (const y of [14.8, 17]) bm.item('pew', 1.4, y).item('pew', 14.6, y);
   bm.item('altar', 8, 26, 180, { size: [6, 1.8] })
