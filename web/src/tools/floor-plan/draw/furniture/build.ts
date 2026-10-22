@@ -21,6 +21,7 @@ import {
 } from './kit';
 import {
   bolts,
+  crossHatch,
   curve,
   fan,
   grille,
@@ -209,16 +210,7 @@ const manhole: FurnDraw = (c, S, w, h) => {
   c.beginPath();
   c.arc(w / 2, h / 2, R * 0.8, 0, TAU);
   c.clip();
-  thin(c, S, 0.45, () => {
-    c.beginPath();
-    for (let d = -R; d <= R; d += 0.16) {
-      c.moveTo(w / 2 + d, h / 2 - R);
-      c.lineTo(w / 2 + d + R, h / 2 + R);
-      c.moveTo(w / 2 + d, h / 2 - R);
-      c.lineTo(w / 2 + d - R, h / 2 + R);
-    }
-    c.stroke();
-  });
+  thin(c, S, 0.45, () => crossHatch(c, w / 2 - R * 0.8, h / 2 - R * 0.8, R * 1.6, 0.16));
   c.restore();
   for (const dx of [-0.32, 0.32]) disc(c, S, w / 2 + dx * R, h / 2, R * 0.08, S.ink);
 };

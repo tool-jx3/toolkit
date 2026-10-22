@@ -484,7 +484,8 @@ const airplane: FurnDraw = (c, S, w, h) => {
 
 const helicopter: FurnDraw = (c, S, w, h) => {
   const cx = w / 2;
-  const cy = h * 0.6;
+  /* 機身的中心（主旋翼的軸在外框的正中央） */
+  const cy = h * 0.56;
   /* 起落架、尾桁、尾旋翼 */
   thin(c, S, 1.4, () => {
     seg(c, cx - 2.2, cy - 2.5, cx - 2.2, cy + 3);
@@ -501,15 +502,16 @@ const helicopter: FurnDraw = (c, S, w, h) => {
   c.ellipse(cx, cy + 1.9, 1.5, 1.4, 0, 0, Math.PI);
   paint(c, S.water);
   /* 主旋翼 */
+  const hub = h / 2;
   thin(c, S, 0.5, () => {
     c.setLineDash([S.lw * 3, S.lw * 3]);
-    ring(c, cx, cy, Math.min(w, h) / 2 - 0.2);
+    ring(c, cx, hub, Math.min(w, h) / 2 - 0.2);
   });
   c.save();
   c.fillStyle = S.shade;
   for (let i = 0; i < 4; i++) {
     c.save();
-    c.translate(cx, cy);
+    c.translate(cx, hub);
     c.rotate((i / 4) * TAU + 0.4);
     rrect(c, 0, -0.22, Math.min(w, h) / 2 - 0.3, 0.44, 0.15);
     c.fill();
@@ -517,7 +519,7 @@ const helicopter: FurnDraw = (c, S, w, h) => {
     c.restore();
   }
   c.restore();
-  disc(c, S, cx, cy, 0.5, S.ink);
+  disc(c, S, cx, hub, 0.5, S.ink);
 };
 
 /** 船殼（兩頭尖）的路徑 */

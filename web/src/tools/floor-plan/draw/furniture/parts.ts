@@ -61,6 +61,37 @@ export function hatchCols(
   c.stroke();
 }
 
+/** 多邊形裁到矩形裡（Sutherland–Hodgman；畫斜紋時不必靠 clip，點也不會跑出家具的外框） */
+export function clipToRect(
+  pts: readonly Pt[],
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+): Pt[] {
+  const edges: [(p: Pt) => boolean, (a: Pt, b: Pt) => Pt][] = [
+    [(p) => p[0] >= x0, (a, b) => [x0, a[1] + ((b[1] - a[1]) * (x0 - a[0])) / (b[0] - a[0])]],
+    [(p) => p[0] <= x1, (a, b) => [x1, a[1] + ((b[1] - a[1]) * (x1 - a[0])) / (b[0] - a[0])]],
+    [(p) => p[1] >= y0, (a, b) => [a[0] + ((b[0] - a[0]) * (y0 - a[1])) / (b[1] - a[1]), y0]],
+    [(p) => p[1] <= y1, (a, b) => [a[0] + ((b[0] - a[0]) * (y1 - a[1])) / (b[1] - a[1]), y1]],
+  ];
+  let out: Pt[] = [...pts];
+  for (const [inside, cut] of edges) {
+    const src = out;
+    out = [];
+    for (let i = 0; i < src.length; i++) {
+      const a = src[i];
+      const b = src[(i + 1) % src.length];
+      if (inside(b)) {
+        if (!inside(a)) out.push(cut(a, b));
+        out.push(b);
+      } else if (inside(a)) out.push(cut(a, b));
+    }
+    if (!out.length) break;
+  }
+  return out;
+}
+
 /** 矩形裡的斜紋（警示條紋：底色＋另一色的斜帶） */
 export function hazard(
   c: Ctx,
@@ -73,22 +104,55 @@ export function hazard(
   step = 0.3,
 ): void {
   c.save();
-  c.beginPath();
-  c.rect(x, y, w, h);
-  c.clip();
   c.fillStyle = a;
   c.fillRect(x, y, w, h);
   c.fillStyle = b;
   for (let d = -h; d < w + h; d += step * 2) {
-    poly(c, [
-      [x + d, y + h],
-      [x + d + step, y + h],
-      [x + d + step + h, y],
-      [x + d + h, y],
-    ]);
+    const band = clipToRect(
+      [
+        [x + d, y + h],
+        [x + d + step, y + h],
+        [x + d + step + h, y],
+        [x + d + h, y],
+      ],
+      x,
+      y,
+      x + w,
+      y + h,
+    );
+    if (band.length < 3) continue;
+    poly(c, band);
     c.fill();
   }
   c.restore();
+}
+
+/** 正方形裡的兩組斜線（網格紋），線段裁在正方形裡 */
+export function crossHatch(c: Ctx, x: number, y: number, size: number, step: number): void {
+  c.beginPath();
+  for (let d = step; d < size * 2; d += step) {
+    for (const dir of [1, -1]) {
+      const seg = clipToRect(
+        dir > 0
+          ? [
+              [x + d - size, y],
+              [x + d, y + size],
+            ]
+          : [
+              [x + d, y],
+              [x + d - size, y + size],
+            ],
+        x,
+        y,
+        x + size,
+        y + size,
+      );
+      if (seg.length < 2) continue;
+      c.moveTo(seg[0][0], seg[0][1]);
+      c.lineTo(seg[1][0], seg[1][1]);
+    }
+  }
+  c.stroke();
 }
 
 /** 粗細漸變的線（觸手、藤蔓、尾巴）：沿著折線，寬度從 w0 變到 w1 */

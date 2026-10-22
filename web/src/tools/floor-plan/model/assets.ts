@@ -145,13 +145,17 @@ export const ASSETS: readonly AssetInfo[] = [
   /* ---------- 樓梯・結構 ---------- */
   A('stairs', 'structure', 2, 5, '樓梯', { vertical: true, keys: '階梯', tags: ['indoor'] }),
   A('stairs_u', 'structure', 5, 5, '折返樓梯', { vertical: true, keys: '階梯', tags: ['indoor'] }),
-  A('spiral', 'structure', 4, 4, '螺旋梯', { vertical: true, keys: '樓梯 階梯' }),
+  A('spiral', 'structure', 4, 4, '螺旋梯', {
+    vertical: true,
+    keys: '樓梯 階梯',
+    tags: ['indoor', 'historic'],
+  }),
   A('elevator', 'structure', 4, 4, '電梯', {
     vertical: true,
     keys: '升降梯',
     tags: ['indoor', 'modern'],
   }),
-  A('pillar', 'structure', 1, 1, '柱子'),
+  A('pillar', 'structure', 1, 1, '柱子', { tags: ['indoor'] }),
   A('fireplace', 'structure', 3, 1.2, '壁爐', {
     orient: true,
     tags: ['indoor', 'home', 'historic'],
@@ -167,7 +171,11 @@ export const ASSETS: readonly AssetInfo[] = [
     keys: '活板門 地窖 地下室',
     tags: ['underground', 'hidden'],
   }),
-  A('ladder', 'structure', 1.2, 3, '梯子', { vertical: true, keys: '爬梯 樓梯' }),
+  A('ladder', 'structure', 1.2, 3, '梯子', {
+    vertical: true,
+    keys: '爬梯 樓梯',
+    tags: ['industrial', 'underground'],
+  }),
   A('fire_escape', 'structure', 5, 6, '戶外逃生梯', {
     vertical: true,
     orient: true,
@@ -185,7 +193,7 @@ export const ASSETS: readonly AssetInfo[] = [
     keys: '樓梯 工地',
     tags: ['industrial'],
   }),
-  A('handrail', 'structure', 4, 0.3, '扶手', { keys: '欄杆' }),
+  A('handrail', 'structure', 4, 0.3, '扶手', { keys: '欄杆', tags: ['public'] }),
   A('vent', 'structure', 1, 1, '通風口', { keys: '排氣口 通氣孔', tags: ['hidden'] }),
   A('duct', 'structure', 6, 1, '通風管', { keys: '風管 管道', tags: ['industrial'] }),
   A('manhole', 'structure', 1.4, 1.4, '人孔蓋', {
@@ -691,8 +699,11 @@ export const ASSETS: readonly AssetInfo[] = [
   A('glass', 'investigation', 1.6, 1.6, '碎玻璃', { under: true, tags: ['damaged', 'ruins'] }),
   A('tape', 'investigation', 6, 0.35, '封鎖線', { keys: '膠帶', tags: ['public', 'military'] }),
   A('safe', 'investigation', 1.2, 1.2, '保險箱', { keys: '金庫', tags: ['hidden'] }),
-  A('flashlight', 'investigation', 0.8, 0.4, '手電筒', { keys: '燈 照明' }),
-  A('tools', 'investigation', 1.2, 0.6, '工具組', { keys: '扳手 螺絲起子 工具箱' }),
+  A('flashlight', 'investigation', 0.8, 0.4, '手電筒', { keys: '燈 照明', tags: ['modern'] }),
+  A('tools', 'investigation', 1.2, 0.6, '工具組', {
+    keys: '扳手 螺絲起子 工具箱',
+    tags: ['industrial'],
+  }),
   A('bag', 'investigation', 1.2, 0.8, '包包', { keys: '背包 手提包 行李', tags: ['evidence'] }),
   A('wallet', 'investigation', 0.6, 0.4, '錢包', { keys: '皮夾 證件', tags: ['evidence'] }),
   A('papers', 'investigation', 0.9, 0.7, '一疊文件', { keys: '紙 資料', tags: ['evidence'] }),
