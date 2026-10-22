@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { emptyFloor } from '@/tools/floor-plan/model/geometry';
-import { countRefs, deletionExtras } from '@/tools/floor-plan/model/ops';
+import { countRefs, deletionExtras, existingRefs } from '@/tools/floor-plan/model/ops';
 import type { Floor, Room, SelRef } from '@/tools/floor-plan/model/types';
 
 const room = (id: string, x: number, y: number, w: number, h: number, extra: Partial<Room> = {}) =>
@@ -110,5 +110,19 @@ describe('countRefs：各種類的個數（對話框的說明用）', () => {
     const extras = deletionExtras(f, [{ type: 'room', id: 'big' }]);
     expect(countRefs(extras)).toEqual({ item: 2, text: 1, opening: 2, wall: 1, room: 1 });
     expect(countRefs([])).toEqual({ item: 0, text: 0, opening: 0, wall: 0, room: 0 });
+  });
+});
+
+describe('existingRefs：詢問期間地圖變了，只算現在還在的', () => {
+  it('不在這一層的東西濾掉', () => {
+    const f = sample();
+    const refs: SelRef[] = [
+      { type: 'room', id: 'big' },
+      { type: 'room', id: 'gone' },
+      { type: 'item', id: 'in1' },
+      { type: 'item', id: 'in1x' },
+    ];
+    expect(keys(existingRefs(f, refs))).toEqual(['item:in1', 'room:big']);
+    expect(existingRefs(f, [])).toEqual([]);
   });
 });

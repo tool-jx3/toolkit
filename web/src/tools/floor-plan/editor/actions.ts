@@ -24,6 +24,7 @@ import {
   countRefs,
   deepClone,
   deletionExtras,
+  existingRefs,
   getObj,
   groundFloorIndex,
   movable,
@@ -288,6 +289,9 @@ async function deleteSelected(withAll: boolean): Promise<void> {
       }
     }
   }
+  /* 詢問期間地圖可能變了（房間被刪掉…）：只算現在還在的；什麼都沒刪就不通知、不記復原（7.10） */
+  targets = existingRefs(currentFloor(), targets);
+  if (!targets.length) return;
   removeObjects(targets);
   setEditor({ sel: [] });
   if (hadRoom || targets.length > 2)
@@ -520,6 +524,8 @@ export function flushNudge(): void {
 
 export function undo(): void {
   flushNudge();
+  /* 滑桿、欄位聚焦中（手勢還開著）：裡面的變更先記成一步，再退那一步（7.10） */
+  useProject.endGesture();
   const t = useProject.temporal.getState();
   if (!t.pastStates.length) {
     notify(S.msg.noUndo);
@@ -530,6 +536,7 @@ export function undo(): void {
 
 export function redo(): void {
   flushNudge();
+  useProject.endGesture();
   useProject.temporal.getState().redo();
 }
 

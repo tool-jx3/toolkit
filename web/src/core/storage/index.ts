@@ -502,5 +502,22 @@ export function useUndoRedo<T>(store: ToolStore<T>): UndoRedo {
   const canUndo = useStore(store.temporal, (s) => s.pastStates.length > 0);
   const canRedo = useStore(store.temporal, (s) => s.futureStates.length > 0);
   const t = store.temporal.getState();
-  return { undo: () => t.undo(), redo: () => t.redo(), canUndo, canRedo, clear: () => t.clear() };
+  /*
+   * 復原／重做之前先結束還開著的手勢（滑桿、欄位聚焦中）：手勢裡的變更先記成一步，再退那一步；
+   * 不然退掉的是手勢之前的一步，手勢裡的變更沒有記下來。沒有手勢時 endGesture 什麼都不做。
+   * 之後 blur 的 commit（微任務）也是 no-op。
+   */
+  return {
+    undo: () => {
+      store.endGesture();
+      t.undo();
+    },
+    redo: () => {
+      store.endGesture();
+      t.redo();
+    },
+    canUndo,
+    canRedo,
+    clear: () => t.clear(),
+  };
 }

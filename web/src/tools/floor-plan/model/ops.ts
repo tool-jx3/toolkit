@@ -101,6 +101,11 @@ export function deletionExtras(floor: Floor, sel: readonly SelRef[]): SelRef[] {
   return out;
 }
 
+/** refs 裡現在還在這一層的東西（詢問期間地圖變了時重新算用） */
+export function existingRefs(floor: Floor, refs: readonly SelRef[]): SelRef[] {
+  return refs.filter((r) => getObj(floor, r.type, r.id));
+}
+
 /** 各種類的個數 */
 export function countRefs(refs: readonly SelRef[]): Record<ObjType, number> {
   const n: Record<ObjType, number> = { room: 0, item: 0, opening: 0, wall: 0, text: 0 };

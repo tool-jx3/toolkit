@@ -2097,6 +2097,47 @@ test.describe('第一批跟進（2026-10，原作 v1.05～v1.14）', () => {
     expect([...errors, ...errors2]).toEqual([]);
   });
 
+  test('不透明度滑桿有焦點時直接 Ctrl＋Z：只退回滑桿的值；再 Ctrl＋Z 回到不顯示；重做依序回來（F220、7.10）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await blank(page);
+    await page.waitForTimeout(500);
+    await chooseTokenGrid(page, 'token-grid-size', '1 m');
+    expect((await project(page)).tokenGrid).toBe(2);
+    await page.waitForTimeout(500);
+    /* 滑桿聚焦（開始一個手勢）、用鍵盤調 3 次（40% → 55%），焦點不離開 */
+    const slider = page.getByRole('slider', { name: '方格的不透明度' });
+    await slider.focus();
+    for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+    expect((await project(page)).tokenGridOpacity).toBe(0.55);
+    await expect(slider).toBeFocused();
+    /* 直接 Ctrl＋Z：只退回滑桿的值（方格大小還在） */
+    await page.keyboard.press('Control+z');
+    let p = await project(page);
+    expect([p.tokenGrid, p.tokenGridOpacity]).toEqual([2, undefined]);
+    await expect(page.getByText('沒有可以復原的步驟')).toHaveCount(0);
+    /* 再 Ctrl＋Z：回到不顯示 */
+    await page.keyboard.press('Control+z');
+    p = await project(page);
+    expect([p.tokenGrid, p.tokenGridOpacity]).toEqual([undefined, undefined]);
+    /* 重做依序回來 */
+    await page.keyboard.press('Control+Shift+z');
+    p = await project(page);
+    expect([p.tokenGrid, p.tokenGridOpacity]).toEqual([2, undefined]);
+    await page.keyboard.press('Control+Shift+z');
+    p = await project(page);
+    expect([p.tokenGrid, p.tokenGridOpacity]).toEqual([2, 0.55]);
+    /* 離開滑桿（blur）之後沒有多記一步：復原兩次剛好回到不顯示 */
+    await page.getByTestId('map-canvas').focus();
+    await page.waitForTimeout(100);
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('Control+z');
+    p = await project(page);
+    expect([p.tokenGrid, p.tokenGridOpacity]).toEqual([undefined, undefined]);
+    expect(errors).toEqual([]);
+  });
+
   test('沿著牆拖曳放門窗：長度跟著拖曳（對齊 0.25 格）、停在別的門窗旁、沒拖就照預設寬度；一步復原（F223）', async ({
     page,
   }) => {
