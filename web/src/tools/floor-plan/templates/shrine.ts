@@ -82,12 +82,14 @@ export function shrine(): TplFloor[] {
     .row('zabuton', 11, 12.2, 3, 1.8, 0)
     .row('zabuton', 11, 14.6, 3, 1.8, 0)
     .item('byobu', 12.5, 10.05);
-  /* 磐座：岩石、竹籬、石碑、小祠 */
+  /* 磐座：岩石、竹籬、石碑、小祠；石垣的裂痕、岩戶旁的爪痕（GM 專用） */
   b.item('rock', 46.8, 14.8)
     .item('garden_rock', 50, 17)
     .item('garden_rock', 43.4, 17.6)
     .item('bamboo_fence', 45.2, 13.6, 0, { size: [5, 0.5] })
     .item('stele', 42.4, 11)
+    .item('crack_wall', 28, 21.6)
+    .item('wall_claws', 51, 9.6, 0, { gm: true })
     .item('hokora', 53, 18.4);
   /* 岩屋（GM 專用）：祭壇、神像、蠟燭、深不見底的洞、骨頭 */
   b.item('altar', 48, 0.6, 0, { gm: true })

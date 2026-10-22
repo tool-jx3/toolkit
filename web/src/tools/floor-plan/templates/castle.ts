@@ -96,6 +96,7 @@ export function castle(): TplFloor[] {
     .item('chest', 37.4, 6.2);
   /* 外庭：井、樹、乾草、推車；內庭：石像、樹；北塔、箭塔、門樓 */
   m.item('well', 22, 26)
+    .item('crack_wall', 9.6, 20, 90)
     .item('tree', 12.4, 17)
     .item('hay', 36.5, 15)
     .item('hand_cart', 16, 33.5)
@@ -211,6 +212,7 @@ export function castle(): TplFloor[] {
     .item('crate', 56.3, 20.2)
     .item('crate', 58.2, 20.2)
     .item('chains', 56.05, 24, 270)
+    .item('wall_mold', 55.5, 27.4, 90)
     .item('puddle', 57, 26.2)
     .item('bones', 57.2, 28.4)
     .item('torch', 60.05, 19, 270)

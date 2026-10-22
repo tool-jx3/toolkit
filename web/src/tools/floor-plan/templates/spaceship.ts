@@ -25,6 +25,7 @@ export function spaceship(): TplFloor[] {
     .room('太空衣室', 'storage', 46, 24, 8, 6, { ly: 0.6 })
     .room('氣閘室', 'tech', 46, 30, 6, 6, { ly: 1 })
     .room('第 7 實驗艙', 'danger', 46, 36, 12, 8, {
+      wall: 'cracked',
       lx: -2.5,
       gm: true,
       note: '門從外面焊死，門上貼著「隔離中」。採樣回來的「東西」還在裡面——培養槽是從裡面打破的。',
