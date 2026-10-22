@@ -222,7 +222,8 @@ describe('有前後之分的新家具：rot 0 時前端朝上（7.16、3.11.7）
       ],
     };
     const p = normalizeProject(raw, isAsset);
-    const items = p.floors[0].items;
+    expect(p).not.toBeNull();
+    const items = p?.floors[0].items ?? [];
     expect(items.map((i) => [i.t, i.rot])).toEqual([
       ['truck', 0],
       ['truck', 90],

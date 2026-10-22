@@ -3062,6 +3062,113 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     expect(errors).toEqual([]);
   });
 
+  test('素材面板：搜尋欄貼齊面板頂端、只選分類時不說「其他分類還有…」；圖示捲到才畫、捲動時不空白、清空搜尋不重畫全部（F234、D50、7.16）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await blank(page);
+    await page.getByRole('tab', { name: '家具・小物' }).click();
+    await expect(cards(page)).toHaveCount(381);
+    const panel = library(page).getByRole('tabpanel');
+    const bar = page.getByTestId('library-search');
+    /* 搜尋欄貼齊面板頂端（上面沒有縫隙，卡片不會從它上面露出來）：沒捲動與捲動之後都一樣 */
+    const barGap = () =>
+      page.evaluate(() => {
+        const b = document.querySelector('[data-testid=library-search]');
+        const p = b?.closest('[role=tabpanel]');
+        if (!b || !p) throw new Error('no panel');
+        return b.getBoundingClientRect().top - p.getBoundingClientRect().top;
+      });
+    expect(await barGap()).toBeCloseTo(0, 0);
+    for (const y of [700, 2500]) {
+      await panel.evaluate((el, top) => {
+        el.scrollTop = top;
+      }, y);
+      expect(await barGap()).toBeCloseTo(0, 0);
+    }
+    await expect(bar).toBeInViewport();
+    await panel.evaluate((el) => {
+      el.scrollTop = 0;
+    });
+
+    /* 只選分類、沒有搜尋字：不說「其他分類還有 N 件符合」；打了字才說 */
+    const elsewhere = library(page).getByText(/其他分類還有 \d+ 件符合/);
+    await page.getByRole('combobox', { name: '家具分類' }).click();
+    await page.getByRole('option', { name: '貼牆素材（9）' }).click();
+    await expect(cards(page)).toHaveCount(9);
+    await expect(elsewhere).toHaveCount(0);
+    await search(page).fill('消防');
+    await expect(elsewhere).toHaveCount(1);
+    await search(page).fill('');
+    await expect(elsewhere).toHaveCount(0);
+    await page.getByRole('combobox', { name: '家具分類' }).click();
+    await page.getByRole('option', { name: /^全部（/ }).click();
+    await expect(cards(page)).toHaveCount(381);
+
+    /* 圖示：一打開只畫看得到的與上下 300 px 內的，不是 381 張 */
+    const drawn = () => page.locator('[data-asset] canvas[data-drawn="1"]').count();
+    await expect.poll(drawn).toBeGreaterThan(10);
+    await page.waitForTimeout(300);
+    expect(await drawn()).toBeLessThan(120);
+    /* 一格滾輪（120 px）捲 30 次：每次兩個 frame 之後，看得到的圖示都畫好了（預先畫的範圍有作用） */
+    const blankAfterScroll = await page.evaluate(async () => {
+      const b = document.querySelector('[data-testid=library-search]');
+      const p = b?.closest('[role=tabpanel]');
+      if (!b || !p) throw new Error('no panel');
+      const raf = () => new Promise((r) => requestAnimationFrame(r));
+      const visible = () => {
+        const pr = p.getBoundingClientRect();
+        const top = b.getBoundingClientRect().bottom;
+        return [...document.querySelectorAll<HTMLCanvasElement>('[data-asset] canvas')].filter(
+          (c) => {
+            const r = c.getBoundingClientRect();
+            return r.height > 0 && r.bottom > top && r.top < pr.bottom;
+          },
+        );
+      };
+      const out: number[] = [];
+      for (let i = 0; i < 30; i++) {
+        p.scrollTop += 120;
+        await raf();
+        await raf();
+        out.push(visible().filter((c) => c.dataset.drawn !== '1').length);
+      }
+      return out;
+    });
+    expect(blankAfterScroll.reduce((a, c) => a + c, 0)).toBe(0);
+    expect(await drawn()).toBeLessThan(381);
+
+    /* 搜尋再清空：清空時不把 381 張的圖示都重畫（只畫看得到的與預先畫的），而且很快畫好 */
+    await search(page).fill('椅');
+    await expect(cards(page)).not.toHaveCount(381);
+    await search(page).fill('');
+    await expect(cards(page)).toHaveCount(381);
+    const t = await page.evaluate(async () => {
+      const t0 = performance.now();
+      const b = document.querySelector('[data-testid=library-search]');
+      const p = b?.closest('[role=tabpanel]');
+      if (!b || !p) throw new Error('no panel');
+      const pr = p.getBoundingClientRect();
+      const top = b.getBoundingClientRect().bottom;
+      for (;;) {
+        const vis = [...document.querySelectorAll<HTMLCanvasElement>('[data-asset] canvas')].filter(
+          (c) => {
+            const r = c.getBoundingClientRect();
+            return r.height > 0 && r.bottom > top && r.top < pr.bottom;
+          },
+        );
+        if (vis.length && vis.every((c) => c.dataset.drawn === '1')) break;
+        if (performance.now() - t0 > 3000) break;
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+      return performance.now() - t0;
+    });
+    expect(t).toBeLessThan(1500);
+    await page.waitForTimeout(300);
+    expect(await drawn()).toBeLessThan(120);
+    expect(errors).toEqual([]);
+  });
+
   test('貼牆素材：吸到牆線、跟著牆的方向、沿著牆移動；畫在牆的上面；PL／GM 檢視與匯出（F233）', async ({
     page,
   }) => {
