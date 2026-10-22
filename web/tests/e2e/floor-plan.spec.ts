@@ -3376,7 +3376,8 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     const pxAt = (x: number, y: number) =>
       px(r.img, Math.round((x + 2) * 48), Math.round((y + 2) * 48));
     expect(near(pxAt(0.6, 3), '#d5463f')).toBe(true);
-    expect(near(pxAt(11.5, 3), '#b6d8a3')).toBe(true);
+    /* 戰車的砲管朝上（7.16），在中線上：抽查砲管旁邊的車身 */
+    expect(near(pxAt(10, 3), '#b6d8a3')).toBe(true);
     expect(near(pxAt(1.5, 18.39), '#3b7ad6')).toBe(true);
     expect(errors).toEqual([]);
   });
