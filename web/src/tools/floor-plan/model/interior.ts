@@ -9,7 +9,8 @@
  * - 外觀層和內部樓層在同一個位置、同一個方向的門窗只留內部樓層的那一個（不會畫兩次）；
  * - 留下來的外觀房間（大庭院）的名字落在內部樓層的房間裡時不畫（不然「庭院」寫在室內的房間上）。
  *
- * 畫面與匯出畫的是疊好的樓層（composedFloor）；點選、框選、全選、編輯只對外觀層自己留下來的東西（ownFloor）。
+ * 畫面與匯出畫的是疊好的樓層（composedFloor）；點選、框選、全選、編輯、替這一層的房間編號只對外觀層自己留下來的東西（ownFloor）。
+ * 「實際疊上來的那一層」＝interiorFloor（`inside` 沒寫或找不到時是第一個別的樓層）；刪除樓層時比的就是它。
  */
 import { ROOF_CATEGORY } from './catalog';
 import { rectContains } from './geometry';

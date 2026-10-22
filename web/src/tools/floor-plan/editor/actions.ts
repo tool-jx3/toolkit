@@ -14,8 +14,9 @@ import {
   uid,
   visibleFloor,
 } from '../model/geometry';
+import { interiorFloor } from '../model/interior';
 import { isLegacyMapFile, type NormalizeReport, normalizeProject } from '../model/normalize';
-import { numberRooms } from '../model/numbering';
+import { isRoomNumber, numberRooms } from '../model/numbering';
 import {
   type AnyObj,
   cloneFloor,
@@ -618,11 +619,14 @@ export async function removeFloor(): Promise<void> {
     : true;
   if (!ok) return;
   update((d) => {
-    const [gone] = d.floors.splice(d.active, 1);
+    const gone = d.floors[d.active];
+    /* 「顯示內部」實際疊的那一層是刪掉的這一層（`inside` 沒寫或找不到時疊的是第一個別的樓層）：先算好再刪 */
+    const coversGone = d.floors.filter((f) => interiorFloor(f, d.floors)?.id === gone.id);
+    d.floors.splice(d.active, 1);
     d.active = clamp(d.active - 1, 0, d.floors.length - 1);
-    /* 「顯示內部」疊的是刪掉的那一層，或只剩一層時：關掉（不要突然換成疊別的樓層；F230） */
+    /* 疊的是刪掉的那一層，或只剩一層時：關掉（不要突然換成疊別的樓層；F230、D41） */
     for (const f of d.floors)
-      if (f.inside === gone.id || d.floors.length < 2) {
+      if (f.inside === gone.id || coversGone.includes(f) || d.floors.length < 2) {
         delete f.showInside;
         delete f.inside;
       }
@@ -797,17 +801,23 @@ export function isDisposableMap(p: Project = useProject.getState().data): boolea
 
 /* ---------- 依序編號房間（F219） ---------- */
 
-/** 替目前這一層的房間放上 1、2、3…的圓標（原本的純數字圓標先拿掉）；一步復原 */
+/**
+ * 替目前這一層的房間放上 1、2、3…的圓標（原本的純數字圓標先拿掉）；一步復原。
+ * 外觀層打開「顯示內部」時只編外觀層自己留下來、看得到的房間（和點選、框選一樣用 editableFloor；
+ * 疊上來的室內房間、拿掉的屋頂不編，F230、7.13）。這一層的資料照原樣留著：看不到的一般文字不動，
+ * 純數字的舊編號（包括拿掉的屋頂上看不到的）整批換成新的，不然關掉「顯示內部」時會冒出重複的舊號碼。
+ */
 export function numberRoomsOnFloor(): void {
-  const r = numberRooms(currentFloor());
+  const r = numberRooms(editableFloor());
   if (!r) {
     notify(S.msg.noRoomsToNumber, 'warning');
     return;
   }
+  const texts = [...currentFloor().texts.filter((t) => !isRoomNumber(t)), ...r.badges];
   update((p) => {
-    cur(p).texts = r.texts;
+    cur(p).texts = texts;
   });
-  const keep = new Set(r.texts.map((t) => t.id));
+  const keep = new Set(texts.map((t) => t.id));
   setEditor({ sel: useEditor.getState().sel.filter((s) => s.type !== 'text' || keep.has(s.id)) });
   notify(S.msg.numbered(r.count, r.gm), 'success', { action: undoAction() });
 }

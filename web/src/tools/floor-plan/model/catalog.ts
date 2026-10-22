@@ -158,7 +158,7 @@ export const SWING_DOORS: ReadonlySet<OpeningKind> = new Set([
   'big2',
 ]);
 
-/** 兩片門板的門（各開一半；開門的範圍＝寬度的一半） */
+/** 兩片門板的門（各開一半；開門的範圍＝寬度的一半，`openingReach` 用） */
 export const DOUBLE_DOORS: ReadonlySet<OpeningKind> = new Set(['door2', 'big2']);
 
 export interface WallInfo {

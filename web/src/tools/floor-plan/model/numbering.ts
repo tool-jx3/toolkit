@@ -5,6 +5,7 @@
  *   圓標也設成 GM 專用（PL 檢視、PL 用的圖與連結裡的編號是連續的）。「不顯示名字」的房間不編。
  * - 位置：房間左上角往內 0.25 格；房間的寬或深不到 2 格時放在中央。
  * - 這一層原本純數字的圓標先全部拿掉再重編；其他文字不動。
+ * - 外觀層打開「顯示內部」時（F230）呼叫端傳外觀層自己留下來的那一份（ownFloor）：疊上來的房間與拿掉的屋頂不編。
  */
 import { BADGE_DIAMETER, BADGE_PAD } from './catalog';
 import { rectContains, round2, uid } from './geometry';
@@ -31,7 +32,9 @@ function badgeAt(r: Room, label: string): { x: number; y: number } {
 }
 
 export interface Numbered {
-  /** 新的文字清單（原本的純數字圓標拿掉、新的接在後面） */
+  /** 新的圓標（編號順序） */
+  badges: TextLabel[];
+  /** 新的文字清單（這一層原本的純數字圓標拿掉、新的接在後面） */
   texts: TextLabel[];
   /** 編了幾間 */
   count: number;
@@ -39,7 +42,10 @@ export interface Numbered {
   gm: number;
 }
 
-/** 替這一層的房間編號；沒有可以編的房間時 null */
+/**
+ * 替這一層的房間編號；沒有可以編的房間時 null。
+ * 外觀層打開「顯示內部」時傳進來的是外觀層自己留下來的那一份（ownFloor），疊上來的房間與拿掉的屋頂不算（F230）。
+ */
 export function numberRooms(floor: Floor): Numbered | null {
   const hidden = floor.rooms.filter((r) => r.gm);
   const isGm = (r: Room) => !!r.gm || hidden.some((g) => g !== r && rectContains(g, r));
@@ -60,6 +66,7 @@ export function numberRooms(floor: Floor): Numbered | null {
     return t;
   });
   return {
+    badges,
     texts: [...floor.texts.filter((t) => !isRoomNumber(t)), ...badges],
     count: badges.length,
     gm: gmOnly.length,

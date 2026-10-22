@@ -2820,6 +2820,154 @@ test.describe('第二批跟進（2026-10，原作 v1.05～v1.14）：新的門�
     expect(await shown(page)).toEqual({ rooms: ['庭院', '建物（外觀）'], openings: 1, items: 1 });
     expect(errors).toEqual([]);
   });
+
+  /** 室內層 1F 與外觀層（庭院、池、兩棟屋頂，舊的編號 9／8 與屋頂上的字）的地圖 */
+  const siteMap = (): Project => {
+    const room = (
+      id: string,
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      name: string,
+      cat: string,
+    ) => ({ id, x, y, w, h, name, cat }) as unknown as Project['floors'][number]['rooms'][number];
+    return {
+      name: '外觀測試',
+      theme: 'clean',
+      showSize: 'none',
+      showNames: true,
+      active: 1,
+      floors: [
+        {
+          id: 'f1',
+          name: '1F',
+          rooms: [
+            room('hall', 4, 4, 6, 8, '大廳', 'living'),
+            room('guest', 10, 4, 6, 8, '客房', 'living'),
+            room('kitchen', 16, 4, 4, 8, '廚房', 'kitchen'),
+          ],
+          walls: [],
+          openings: [],
+          items: [],
+          texts: [],
+        },
+        {
+          id: 'site',
+          name: '外觀',
+          rooms: [
+            room('yard', 0, 0, 30, 20, '庭院', 'garden'),
+            room('bldg', 4, 4, 16, 8, '主屋', 'roof'),
+            room('shed', 24, 14, 4, 4, '倉庫', 'roof'),
+            room('pond', 22, 2, 6, 6, '池', 'garden'),
+          ],
+          walls: [],
+          openings: [],
+          items: [],
+          texts: [
+            { id: 'oldYard', x: 0.7, y: 0.7, text: '9', size: 0.6, badge: true },
+            { id: 'oldRoof', x: 4.7, y: 4.7, text: '8', size: 0.6, badge: true },
+            { id: 'roofNote', x: 12, y: 8, text: '瓦屋頂' },
+          ],
+        },
+      ],
+    } as Project;
+  };
+  const load = (page: Page, p: Project) =>
+    page.evaluate(
+      (pr) =>
+        (window as unknown as { __floorPlan: Hook }).__floorPlan.useProject.getState().replace(pr),
+      p,
+    );
+  const lastToast = (page: Page) => page.locator('li[data-radix-collection-item]').last();
+
+  test('外觀層打開「顯示內部」時「替這一層的房間編號」只編留下來、看得到的房間；一步復原（F219、F230、7.13）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await load(page, siteMap());
+    await page.getByTestId('map-canvas').focus();
+    const toggle = page.getByRole('switch', { name: '顯示內部（拿掉屋頂）' });
+    /* 沒打開時：這一層 4 間房（含兩個屋頂）都編 */
+    await expect(toggle).not.toBeChecked();
+    await page.getByTestId('number-rooms').click();
+    await expect(lastToast(page)).toContainText('已替 4 間房間編號');
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    expect((await floor(page)).texts.map((t) => t.id)).toEqual(['oldYard', 'oldRoof', 'roofNote']);
+    /* 打開「顯示內部」：畫面只看到庭院和池（屋頂拿掉、1F 的房間疊上來但不是這一層的） */
+    await page.waitForTimeout(450);
+    await toggle.click();
+    await expect(toggle).toBeChecked();
+    expect(await shown(page)).toEqual({ rooms: ['庭院', '池'], openings: 0, items: 0 });
+    await page.waitForTimeout(450);
+    await page.getByTestId('number-rooms').click();
+    await expect(lastToast(page)).toContainText('已替 2 間房間編號');
+    await expect(lastToast(page)).not.toContainText('5 間');
+    let f = await floor(page);
+    const nums = f.texts.filter((t) => t.badge && /^\d+$/.test(t.text));
+    expect(nums.map((t) => [t.text, t.x, t.y])).toEqual([
+      ['1', 0.7, 0.7],
+      ['2', 22.7, 2.7],
+    ]);
+    /* 看不到的一般文字留著；疊上來的 1F 沒有被動到 */
+    expect(f.texts.find((t) => t.id === 'roofNote')?.text).toBe('瓦屋頂');
+    expect((await project(page)).floors[0].texts).toEqual([]);
+    /* 一步復原：回到編號前（舊的編號 9、8 也回來） */
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    f = await floor(page);
+    expect(f.texts.map((t) => t.id)).toEqual(['oldYard', 'oldRoof', 'roofNote']);
+    expect(errors).toEqual([]);
+  });
+
+  test('刪除樓層：外觀層的「顯示內部」沒有 inside 時疊的是第一個別的樓層，刪掉它就關掉，不換成疊 2F（F230、D41、7.13）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const flat = (id: string, name: string) => ({
+      id,
+      name,
+      rooms: [{ id: `${id}r`, x: 0, y: 0, w: 6, h: 6, name: `${name}的房間`, cat: 'living' }],
+      walls: [],
+      openings: [],
+      items: [],
+      texts: [],
+    });
+    await load(page, {
+      name: '三層',
+      theme: 'clean',
+      showSize: 'none',
+      showNames: true,
+      active: 0,
+      floors: [flat('a', '1F'), { ...flat('s', '敷地'), showInside: true }, flat('c', '2F')],
+    } as unknown as Project);
+    const toggle = page.getByRole('switch', { name: '顯示內部（拿掉屋頂）' });
+    /* 敷地：開著，疊的是 1F（選單顯示 1F） */
+    await page.locator('[data-floor="1"]').click();
+    await expect(toggle).toBeChecked();
+    await expect(page.getByRole('combobox', { name: '疊上來的樓層' })).toContainText('1F');
+    /* 刪掉 1F */
+    await page.locator('[data-floor="0"]').click();
+    await page.getByTestId('floor-remove').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: '刪除這一層' }).click();
+    let p = await project(page);
+    expect(p.floors.map((x) => x.name)).toEqual(['敷地', '2F']);
+    expect([p.floors[0].showInside, p.floors[0].inside]).toEqual([undefined, undefined]);
+    /* 敷地的開關是關的，不是改疊 2F；畫面上只有敷地自己的房間 */
+    await page.locator('[data-floor="0"]').click();
+    await expect(toggle).not.toBeChecked();
+    await expect(page.getByRole('combobox', { name: '疊上來的樓層' })).toHaveCount(0);
+    expect(await shown(page)).toEqual({ rooms: ['敷地的房間'], openings: 0, items: 0 });
+    /* 復原：1F 與開關一起回來 */
+    await page.waitForTimeout(450);
+    await page.getByTestId('map-canvas').focus();
+    await page.keyboard.press('Control+z');
+    p = await project(page);
+    expect(p.floors.map((x) => x.name)).toEqual(['1F', '敷地', '2F']);
+    expect(p.floors[1].showInside).toBe(true);
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe('版面', () => {

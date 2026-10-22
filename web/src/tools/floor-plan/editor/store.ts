@@ -216,7 +216,7 @@ export const currentFloor = () => {
 };
 
 /**
- * 外觀層打開「顯示內部」時（F230）：畫的是疊好的樓層（drawnFloor），點得到、選得到的只有外觀層自己留下來的東西（editableFloor）。
+ * 外觀層打開「顯示內部」時（F230）：畫的是疊好的樓層（drawnFloor），點得到、選得到、能編號的只有外觀層自己留下來的東西（editableFloor）。
  * 沒有打開時兩個都是 currentFloor()。
  */
 export const drawnFloor = () => composedFloor(currentFloor(), useProject.getState().data.floors);

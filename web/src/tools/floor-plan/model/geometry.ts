@@ -1,7 +1,16 @@
 /**
  * 幾何與資料的小工具（純函式）：id、對齊、範圍、門窗的佔位、樓層的外接範圍、面積文字、PL 檢視的樓層。
  */
-import { BADGE_DIAMETER, BADGE_PAD, BADGE_RING, CAT, CELL_M, OPEN, PING_M2 } from './catalog';
+import {
+  BADGE_DIAMETER,
+  BADGE_PAD,
+  BADGE_RING,
+  CAT,
+  CELL_M,
+  DOUBLE_DOORS,
+  OPEN,
+  PING_M2,
+} from './catalog';
 import type { Floor, Item, Opening, Project, Rect, Room, SizeMode, TextLabel } from './types';
 
 let seq = 0;
@@ -72,6 +81,8 @@ export function openingMid(o: Pick<Opening, 'o' | 'x' | 'y' | 'len'>): { x: numb
 
 /** 門窗畫出牆外的距離（開門的弧線…）；長的門、拉門不讓外接範圍變得太寬 */
 export function openingReach(o: Pick<Opening, 'kind' | 'len'>): number {
+  /* 兩片門板的門各開一半：開門的範圍＝寬度的一半（2026-10 第二批，D42） */
+  if (DOUBLE_DOORS.has(o.kind)) return o.len / 2;
   switch (o.kind) {
     case 'door':
     case 'locked':
@@ -81,8 +92,6 @@ export function openingReach(o: Pick<Opening, 'kind' | 'len'>): number {
     case 'firedoor':
     case 'gate':
       return o.len;
-    case 'door2':
-    case 'big2':
     /* 旋轉門：直徑＝寬度的圓（2026-10 第二批） */
     case 'revolve':
       return o.len / 2;

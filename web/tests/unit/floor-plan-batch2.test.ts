@@ -269,6 +269,12 @@ describe('新的種類的資料（F226、F227、F229）', () => {
       'big2',
     ]);
     expect(NEW_OPENINGS.filter((k) => DOUBLE_DOORS.has(k))).toEqual(['big2']);
+    /* 兩片門板的門都是會開的門，開門的範圍＝寬度的一半（匯出的外接範圍用 openingReach，7.13） */
+    expect([...DOUBLE_DOORS].sort()).toEqual(['big2', 'door2']);
+    for (const kind of DOUBLE_DOORS) {
+      expect(SWING_DOORS.has(kind), kind).toBe(true);
+      expect(openingReach({ kind, len: 3 }), kind).toBe(1.5);
+    }
     expect(NEW_OPENINGS.map((kind) => openingReach({ kind, len: 4 }))).toEqual([
       4, 4, 4, 2, 2, 0.5, 0.5,
     ]);
