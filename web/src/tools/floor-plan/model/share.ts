@@ -160,7 +160,9 @@ export function unpackProject(d: unknown): unknown {
       let f: Record<string, unknown> = f0;
       if (targets.has(index) && f.id === undefined) f = { ...f, id: shareFloorId(index) };
       if (typeof f.inside === 'number')
-        f = targets.has(f.inside) ? { ...f, inside: shareFloorId(f.inside) } : { ...f, inside: undefined };
+        f = targets.has(f.inside)
+          ? { ...f, inside: shareFloorId(f.inside) }
+          : { ...f, inside: undefined };
       if (!Array.isArray(f.items)) return f;
       return {
         ...f,

@@ -31,9 +31,7 @@ export function fileBase(name: string): string {
 
 /** 要畫的樓層（外觀層打開「顯示內部」時是疊好的樓層，2026-10 第二批） */
 export function exportFloors(p: Project, range: ExportRange): Floor[] {
-  return (range === 'all' ? p.floors : [p.floors[p.active]]).map((f) =>
-    composedFloor(f, p.floors),
-  );
+  return (range === 'all' ? p.floors : [p.floors[p.active]]).map((f) => composedFloor(f, p.floors));
 }
 
 export function exportOptions(

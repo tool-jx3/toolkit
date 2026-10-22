@@ -12,6 +12,7 @@ import { isAsset } from '../model/assets';
 import type { RoomPresetId } from '../model/catalog';
 import type { CompatReport } from '../model/compat';
 import type { ExportSettings } from '../model/exportPlan';
+import { composedFloor, ownFloor } from '../model/interior';
 import { normalizeProject } from '../model/normalize';
 import type { ShareMode } from '../model/share';
 import type { OpeningKind, Project, SelRef, WallKind } from '../model/types';
@@ -213,3 +214,10 @@ export const currentFloor = () => {
   const p = useProject.getState().data;
   return p.floors[p.active] ?? p.floors[0];
 };
+
+/**
+ * 外觀層打開「顯示內部」時（F230）：畫的是疊好的樓層（drawnFloor），點得到、選得到的只有外觀層自己留下來的東西（editableFloor）。
+ * 沒有打開時兩個都是 currentFloor()。
+ */
+export const drawnFloor = () => composedFloor(currentFloor(), useProject.getState().data.floors);
+export const editableFloor = () => ownFloor(currentFloor(), useProject.getState().data.floors);

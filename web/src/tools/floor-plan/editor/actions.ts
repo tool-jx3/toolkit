@@ -52,6 +52,7 @@ import { importNotice } from './ImportReport';
 import {
   type Armed,
   currentFloor,
+  editableFloor,
   setEditor,
   starterProject,
   type ToolId,
@@ -149,7 +150,7 @@ export const wallKindThickness = (armed: Armed | null): number =>
 export function dropMissingSelection(): void {
   const { sel, playerView } = useEditor.getState();
   if (!sel.length) return;
-  const f = visibleFloor(currentFloor(), playerView, !usePrefs.getState().data.showClues);
+  const f = visibleFloor(editableFloor(), playerView, !usePrefs.getState().data.showClues);
   const next = sel.filter((s) => (f[TYPE_KEY[s.type]] as AnyObj[]).some((o) => o.id === s.id));
   if (next.length !== sel.length) setEditor({ sel: next });
 }
@@ -244,7 +245,7 @@ function selected(): { type: ObjType; id: string; obj: AnyObj }[] {
 
 export function selectAll(): void {
   const { playerView } = useEditor.getState();
-  const f = visibleFloor(currentFloor(), playerView, !usePrefs.getState().data.showClues);
+  const f = visibleFloor(editableFloor(), playerView, !usePrefs.getState().data.showClues);
   const sel: SelRef[] = [];
   for (const type of ['room', 'item', 'opening', 'wall', 'text'] as const)
     for (const o of f[TYPE_KEY[type]] as AnyObj[]) sel.push({ type, id: o.id });
@@ -610,10 +611,39 @@ export async function removeFloor(): Promise<void> {
     : true;
   if (!ok) return;
   update((d) => {
-    d.floors.splice(d.active, 1);
+    const [gone] = d.floors.splice(d.active, 1);
     d.active = clamp(d.active - 1, 0, d.floors.length - 1);
+    /* 「顯示內部」疊的是刪掉的那一層，或只剩一層時：關掉（不要突然換成疊別的樓層；F230） */
+    for (const f of d.floors)
+      if (f.inside === gone.id || d.floors.length < 2) {
+        delete f.showInside;
+        delete f.inside;
+      }
   });
   setEditor({ sel: [] });
+}
+
+/** 外觀層的「顯示內部」（F230）：打開時疊上來的樓層沒設好就用第一個別的樓層；一步復原 */
+export function setShowInside(on: boolean): void {
+  update((p) => {
+    const f = p.floors[p.active];
+    const others = p.floors.filter((o) => o !== f);
+    if (!on || !others.length) {
+      delete f.showInside;
+      return;
+    }
+    f.showInside = true;
+    if (!others.some((o) => o.id === f.inside)) f.inside = others[0].id;
+  });
+  dropMissingSelection();
+}
+
+export function setInsideFloor(id: string): void {
+  update((p) => {
+    const f = p.floors[p.active];
+    if (p.floors.some((o) => o !== f && o.id === id)) f.inside = id;
+  });
+  dropMissingSelection();
 }
 
 export function moveFloor(delta: number): void {

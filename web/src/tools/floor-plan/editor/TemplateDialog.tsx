@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, Field, TemplateGallery, type TemplateItem, Toggle } from '@/ui';
 import { renderImage } from '../draw/export';
+import { composeFloors } from '../model/interior';
 import { S } from '../strings';
 import { instantiateTemplate, TEMPLATE_GROUPS, TEMPLATES } from '../templates';
 import { loadTemplate, newMap } from './actions';
@@ -18,7 +19,7 @@ function thumbnail(id: string): string | null {
   const floors = instantiateTemplate(id);
   if (!floors) return null;
   try {
-    const canvas = renderImage(floors, {
+    const canvas = renderImage(composeFloors(floors), {
       theme: 'clean',
       px: 10,
       showSize: 'none',

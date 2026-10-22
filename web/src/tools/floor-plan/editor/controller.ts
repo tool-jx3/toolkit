@@ -50,7 +50,15 @@ import {
 import { type WallRun, wallLines } from '../model/walls';
 import { S } from '../strings';
 import * as act from './actions';
-import { currentFloor, setEditor, useEditor, usePrefs, useProject } from './store';
+import {
+  currentFloor,
+  drawnFloor,
+  editableFloor,
+  setEditor,
+  useEditor,
+  usePrefs,
+  useProject,
+} from './store';
 
 export const ZOOM_MIN = 3;
 export const ZOOM_MAX = 140;
@@ -318,7 +326,7 @@ export class EditorController {
 
   private shownFloor(): ShownFloor {
     const pv = useEditor.getState().playerView;
-    return visibleFloor(currentFloor(), pv, !usePrefs.getState().data.showClues);
+    return visibleFloor(editableFloor(), pv, !usePrefs.getState().data.showClues);
   }
 
   private wallLines(): WallRun[] {
@@ -537,7 +545,7 @@ export class EditorController {
     c.setTransform(dpr * z, 0, 0, dpr * z, dpr * ox, dpr * oy);
     const viewRect = { x: -ox / z, y: -oy / z, w: this.view.w / z, h: this.view.h / z };
     const ghost = prefs.ghost && p.active > 0 ? p.floors[p.active - 1] : null;
-    drawFloor(c, currentFloor(), {
+    drawFloor(c, drawnFloor(), {
       theme,
       zoom: z,
       showSize: p.showSize,
