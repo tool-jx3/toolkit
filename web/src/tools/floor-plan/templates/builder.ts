@@ -31,7 +31,7 @@ export interface TplFloor {
 }
 
 export type RoomExtra = Partial<
-  Pick<Room, 'plName' | 'note' | 'gm' | 'hideLabel' | 'noWall' | 'lx' | 'ly' | 'color'>
+  Pick<Room, 'plName' | 'note' | 'gm' | 'hideLabel' | 'noWall' | 'lx' | 'ly' | 'color' | 'wall'>
 >;
 export type ItemExtra = Partial<Pick<Item, 'label' | 'gm' | 'clue' | 'flip' | 'color'>> & {
   size?: [number, number];
@@ -122,6 +122,23 @@ export class FloorBuilder {
     extra?: { gm?: boolean },
   ): this {
     this.f.walls.push({ x1, y1, x2, y2, kind, ...extra });
+    return this;
+  }
+
+  /**
+   * 一排同樣的家具（2026-10 第三批後半）：從 (x, y) 開始每次往 (dx, dy) 移動，放 n 件。
+   */
+  row(
+    t: string,
+    x: number,
+    y: number,
+    n: number,
+    dx: number,
+    dy: number,
+    rot = 0,
+    extra?: ItemExtra,
+  ): this {
+    for (let i = 0; i < n; i++) this.item(t, x + dx * i, y + dy * i, rot, extra);
     return this;
   }
 
@@ -325,6 +342,136 @@ export class Unit {
   ): this {
     const r = this.south && (rot === 0 || rot === 180) ? (rot + 180) % 360 : rot;
     this.b.item(t, this.x + lx, this.ry(ly, h), r, extra);
+    return this;
+  }
+}
+
+/**
+ * 局部座標的框（2026-10 第三批後半）：用「左上角在 (0, 0)、寬 w、深 h」的座標寫一塊格局，
+ * 可以左右（flipX）或上下（flipY）翻過來放（左右對稱的兩戶、走廊兩側的房間）。
+ * 門的開向與鉸鍊、家具的方向（背面朝牆）都跟著翻；家具的大小照目錄（或 size）算轉向後的外框。
+ */
+export class Frame {
+  constructor(
+    readonly b: FloorBuilder,
+    readonly x0: number,
+    readonly y0: number,
+    readonly w: number,
+    readonly h: number,
+    readonly flipX = false,
+    readonly flipY = false,
+  ) {}
+
+  /** 局部的 x（長度 len 的東西的起點） */
+  x(lx: number, len = 0): number {
+    return this.flipX ? this.x0 + this.w - lx - len : this.x0 + lx;
+  }
+
+  y(ly: number, len = 0): number {
+    return this.flipY ? this.y0 + this.h - ly - len : this.y0 + ly;
+  }
+
+  room(
+    name: string,
+    cat: RoomCategory,
+    lx: number,
+    ly: number,
+    w: number,
+    h: number,
+    extra?: RoomExtra,
+  ): this {
+    const e = { ...extra };
+    if (e.lx && this.flipX) e.lx = -e.lx;
+    if (e.ly && this.flipY) e.ly = -e.ly;
+    this.b.room(name, cat, this.x(lx, w), this.y(ly, h), w, h, e);
+    return this;
+  }
+
+  dh(
+    lx: number,
+    ly: number,
+    len: number,
+    side: 1 | -1,
+    hinge: 0 | 1 = 0,
+    kind: OpeningKind = 'door',
+    extra?: DoorExtra,
+  ): this {
+    this.b.dh(
+      this.x(lx, len),
+      this.y(ly),
+      len,
+      (this.flipY ? -side : side) as 1 | -1,
+      (this.flipX ? 1 - hinge : hinge) as 0 | 1,
+      kind,
+      extra,
+    );
+    return this;
+  }
+
+  dv(
+    lx: number,
+    ly: number,
+    len: number,
+    side: 1 | -1,
+    hinge: 0 | 1 = 0,
+    kind: OpeningKind = 'door',
+    extra?: DoorExtra,
+  ): this {
+    this.b.dv(
+      this.x(lx),
+      this.y(ly, len),
+      len,
+      (this.flipX ? -side : side) as 1 | -1,
+      (this.flipY ? 1 - hinge : hinge) as 0 | 1,
+      kind,
+      extra,
+    );
+    return this;
+  }
+
+  wh(lx: number, ly: number, len: number, kind: OpeningKind = 'window'): this {
+    this.b.wh(this.x(lx, len), this.y(ly), len, kind);
+    return this;
+  }
+
+  wv(lx: number, ly: number, len: number, kind: OpeningKind = 'window'): this {
+    this.b.wv(this.x(lx), this.y(ly, len), len, kind);
+    return this;
+  }
+
+  /** 家具：lx、ly 是轉向後外框的左上角（局部座標） */
+  item(t: string, lx: number, ly: number, rot = 0, extra?: ItemExtra): this {
+    const a = ASSET[t];
+    if (!a) throw new Error(`unknown asset ${t}`);
+    const d = assetDims(extra?.size ? { w: extra.size[0], h: extra.size[1] } : a, rot);
+    let r = rot;
+    if (this.flipX && (r === 90 || r === 270)) r = (r + 180) % 360;
+    if (this.flipY && (r === 0 || r === 180)) r = (r + 180) % 360;
+    this.b.item(t, this.x(lx, d.w), this.y(ly, d.h), r, extra);
+    return this;
+  }
+
+  row(
+    t: string,
+    lx: number,
+    ly: number,
+    n: number,
+    dx: number,
+    dy: number,
+    rot = 0,
+    extra?: ItemExtra,
+  ): this {
+    for (let i = 0; i < n; i++) this.item(t, lx + dx * i, ly + dy * i, rot, extra);
+    return this;
+  }
+
+  text(text: string, lx: number, ly: number, extra?: TextExtra): this {
+    this.b.text(text, this.x(lx), this.y(ly), extra);
+    return this;
+  }
+
+  wall(lx1: number, ly1: number, lx2: number, ly2: number, kind: WallKind = 'int'): this {
+    this.b.wall(this.x(lx1), this.y(ly1), this.x(lx2), this.y(ly2), kind);
     return this;
   }
 }

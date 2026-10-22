@@ -6,322 +6,40 @@
  * 上下相鄰的樓層至少一座樓梯或電梯位置相同、門的開門範圍（弧線掃過的扇形）與門前一格不放家具、每間房都走得到。
  */
 import { describe, expect, it } from 'vitest';
-import { ASSET, VERTICAL_LINKS } from '@/tools/floor-plan/model/assets';
-import { OPEN, SWING_DOORS } from '@/tools/floor-plan/model/catalog';
+import { ASSET } from '@/tools/floor-plan/model/assets';
+import {
+  UPSTREAM_ITEMS_V105,
+  UPSTREAM_ITEMS_V106,
+  UPSTREAM_ITEMS_V110,
+} from '@/tools/floor-plan/model/compat';
 import { emptyFloor, rectContains, rectsOverlap } from '@/tools/floor-plan/model/geometry';
 import { groundFloorIndex } from '@/tools/floor-plan/model/ops';
-import type { Floor, Item, Opening, Rect } from '@/tools/floor-plan/model/types';
-import { computeWalls, wallLines } from '@/tools/floor-plan/model/walls';
+import type { Floor, Item } from '@/tools/floor-plan/model/types';
+import { computeWalls } from '@/tools/floor-plan/model/walls';
 import {
   getTemplate,
   instantiateTemplate,
   TEMPLATE_GROUPS,
   TEMPLATES,
+  templateGroups,
 } from '@/tools/floor-plan/templates';
 import { findSpot, wrapClueText } from '@/tools/floor-plan/templates/clues';
+import {
+  blockedDoors,
+  cluesOnFurniture,
+  doorsToNowhere,
+  FRONT,
+  halfOverlaps,
+  itemsAcrossWalls,
+  linkKey,
+  links,
+  openingsOffWall,
+  overlappingWalls,
+  stuckOpenings,
+  unreachableRooms,
+} from '../helpers/floorPlanLayout';
 
 const build = (id: string, opts = {}) => instantiateTemplate(id, opts) as Floor[];
-
-const EPS = 1e-6;
-
-/* ---------- 格局規則用的幾何 ---------- */
-
-/** 門前（牆的兩側各一條）要空出來的深度：一格 */
-const FRONT = 1;
-
-/** 四分之一圓：圓心（鉸鍊）、半徑（門板長），往 (dx, dy) 那一象限 */
-interface Sector {
-  cx: number;
-  cy: number;
-  r: number;
-  dx: 1 | -1;
-  dy: 1 | -1;
-}
-
-/**
- * 門要空出來的範圍：門前一格（牆的兩側，寬度＝門寬）；會開的門另加門板掃過的扇形
- * （單開門類：鉸鍊為圓心、門寬為半徑；雙開門：兩端各一片、半徑是門寬的一半），折門加門板折出來的深度。
- */
-function doorClearance(o: Opening): { rects: Rect[]; sectors: Sector[] } {
-  const h = o.o === 'h';
-  const a = h ? o.x : o.y;
-  const c = h ? o.y : o.x;
-  const s = o.side < 0 ? -1 : 1;
-  /** 沿著牆 [a0, a0＋len]、往牆的 side 那一側 depth 格的長方形 */
-  const band = (a0: number, len: number, side: 1 | -1, depth: number): Rect => {
-    const c0 = side > 0 ? c : c - depth;
-    return h ? { x: a0, y: c0, w: len, h: depth } : { x: c0, y: a0, w: depth, h: len };
-  };
-  const rects = [band(a, o.len, 1, FRONT), band(a, o.len, -1, FRONT)];
-  const sectors: Sector[] = [];
-  const leaf = (at: number, dir: 1 | -1, r: number) =>
-    sectors.push(h ? { cx: at, cy: c, r, dx: dir, dy: s } : { cx: c, cy: at, r, dx: s, dy: dir });
-  if (o.kind === 'door2') {
-    leaf(a, 1, o.len / 2);
-    leaf(a + o.len, -1, o.len / 2);
-  } else if (SWING_DOORS.has(o.kind)) {
-    if (o.hinge) leaf(a + o.len, -1, o.len);
-    else leaf(a, 1, o.len);
-  } else if (o.kind === 'folding') {
-    const panel = o.len >= 2.4 ? o.len / 2 : o.len;
-    rects.push(band(a, o.len, s, panel / 2));
-  }
-  return { rects, sectors };
-}
-
-const overlapLen = (a0: number, a1: number, b0: number, b1: number) =>
-  Math.min(a1, b1) - Math.max(a0, b0);
-
-const rectHits = (a: Rect, b: Rect) =>
-  overlapLen(a.x, a.x + a.w, b.x, b.x + b.w) > EPS &&
-  overlapLen(a.y, a.y + a.h, b.y, b.y + b.h) > EPS;
-
-/** 長方形碰到四分之一圓（不算剛好貼著） */
-function sectorHits(s: Sector, r: Rect): boolean {
-  const qx0 = Math.min(s.cx, s.cx + s.dx * s.r);
-  const qy0 = Math.min(s.cy, s.cy + s.dy * s.r);
-  const x0 = Math.max(r.x, qx0);
-  const x1 = Math.min(r.x + r.w, qx0 + s.r);
-  const y0 = Math.max(r.y, qy0);
-  const y1 = Math.min(r.y + r.h, qy0 + s.r);
-  if (x1 - x0 <= EPS || y1 - y0 <= EPS) return false;
-  const px = Math.min(Math.max(s.cx, x0), x1);
-  const py = Math.min(Math.max(s.cy, y0), y1);
-  return Math.hypot(px - s.cx, py - s.cy) < s.r - 1e-3;
-}
-
-/** 擋路的家具：畫在其他家具底下的（地毯、血跡、舞台…）不算 */
-const blocking = (it: Item) => !ASSET[it.t]?.under;
-
-const doorKinds = (o: Opening) => OPEN[o.kind].group === 'door';
-const at = (o: Opening) => `${o.kind}@${o.o}${o.x},${o.y}`;
-const box = (it: Item) => `${it.t}(${it.x},${it.y},${it.w}×${it.h})`;
-
-/** 擋在門的開門範圍或門前的家具 */
-function blockedDoors(f: Floor): string[] {
-  const out: string[] = [];
-  for (const o of f.openings.filter(doorKinds)) {
-    const zone = doorClearance(o);
-    for (const it of f.items.filter(blocking))
-      if (zone.rects.some((r) => rectHits(r, it)) || zone.sectors.some((s) => sectorHits(s, it)))
-        out.push(`${f.name}：${at(o)} × ${box(it)}`);
-  }
-  return out;
-}
-
-/** 門窗不在牆上的（要整個落在一段自動牆或手畫的牆上） */
-function openingsOffWall(f: Floor): string[] {
-  const lines = wallLines(f);
-  return f.openings
-    .filter((o) => {
-      const line = o.o === 'h' ? o.y : o.x;
-      const a = o.o === 'h' ? o.x : o.y;
-      return !lines.some(
-        (r) =>
-          r.o === o.o && Math.abs(r.c - line) < EPS && a >= r.a - EPS && a + o.len <= r.b + EPS,
-      );
-    })
-    .map((o) => `${f.name}：${at(o)}`);
-}
-
-/** 穿過牆的家具（牆線從家具中間穿過；複驗發現洋館 2F 的馬桶突出到走道） */
-function itemsAcrossWalls(f: Floor): string[] {
-  const lines = wallLines(f);
-  return f.items
-    .filter((it) =>
-      lines.some((r) => {
-        const [c0, c1, a0, a1] =
-          r.o === 'h'
-            ? [it.y, it.y + it.h, it.x, it.x + it.w]
-            : [it.x, it.x + it.w, it.y, it.y + it.h];
-        return c0 < r.c - EPS && c1 > r.c + EPS && overlapLen(a0, a1, r.a, r.b) > EPS;
-      }),
-    )
-    .map((it) => `${f.name}：${box(it)}`);
-}
-
-/** 地面層以外的門：兩側都要是房間（陽台、走廊也算），不能開到建築外面的半空中 */
-function doorsToNowhere(f: Floor): string[] {
-  const inRoom = (x: number, y: number) =>
-    f.rooms.some(
-      (r) => x > r.x + EPS && x < r.x + r.w - EPS && y > r.y + EPS && y < r.y + r.h - EPS,
-    );
-  return f.openings
-    .filter(doorKinds)
-    .filter((o) => {
-      const mid = o.o === 'h' ? { x: o.x + o.len / 2, y: o.y } : { x: o.x, y: o.y + o.len / 2 };
-      const d = 0.25;
-      const sides =
-        o.o === 'h'
-          ? [inRoom(mid.x, mid.y - d), inRoom(mid.x, mid.y + d)]
-          : [inRoom(mid.x - d, mid.y), inRoom(mid.x + d, mid.y)];
-      return !sides.every(Boolean);
-    })
-    .map((o) => `${f.name}：${at(o)}`);
-}
-
-/** 半重疊的房間（不是分開也不是完全包在裡面） */
-function halfOverlaps(f: Floor): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < f.rooms.length; i++)
-    for (let j = i + 1; j < f.rooms.length; j++) {
-      const a = f.rooms[i];
-      const b = f.rooms[j];
-      if (rectsOverlap(a, b) && !rectContains(a, b) && !rectContains(b, a))
-        out.push(`${f.name}：${a.name} / ${b.name}`);
-    }
-  return out;
-}
-
-const runAt = (r: { o: string; c: number; a: number; b: number }) => `${r.o}${r.c}:${r.a}-${r.b}`;
-
-/**
- * 重疊的牆（2026-10）：手畫的牆和自動牆（分區線不算）或別的手畫牆在同一條線上疊在一起。
- * 手畫的玻璃牆、鐵欄杆要畫在「不產生牆」的分區線上，不能疊在自動牆上（兩道牆疊著畫會變成一團）。
- */
-function overlappingWalls(f: Floor): string[] {
-  const lines = wallLines(f);
-  const out: string[] = [];
-  for (let i = 0; i < lines.length; i++)
-    for (let j = i + 1; j < lines.length; j++) {
-      const p = lines[i];
-      const q = lines[j];
-      if (!p.free && !q.free) continue;
-      if (p.o === q.o && Math.abs(p.c - q.c) < EPS && overlapLen(p.a, p.b, q.a, q.b) > EPS)
-        out.push(`${f.name}：${runAt(p)} / ${runAt(q)}`);
-    }
-  return out;
-}
-
-/**
- * 卡在牆裡的門窗（2026-10）：和同一條線上別的門窗重疊，或有垂直的牆從門窗的寬度中間接上來（T 字、十字），
- * 門板或窗框會卡進那道牆。門窗的兩端剛好在轉角、接點上不算。
- */
-function stuckOpenings(f: Floor): string[] {
-  const lines = wallLines(f);
-  const out: string[] = [];
-  f.openings.forEach((o, i) => {
-    const c = o.o === 'h' ? o.y : o.x;
-    const a0 = o.o === 'h' ? o.x : o.y;
-    const a1 = a0 + o.len;
-    for (const q of f.openings.slice(i + 1)) {
-      const qc = q.o === 'h' ? q.y : q.x;
-      const qa = q.o === 'h' ? q.x : q.y;
-      if (q.o === o.o && Math.abs(qc - c) < EPS && overlapLen(a0, a1, qa, qa + q.len) > EPS)
-        out.push(`${f.name}：${at(o)} × ${at(q)}`);
-    }
-    for (const r of lines)
-      if (r.o !== o.o && r.c > a0 + EPS && r.c < a1 - EPS && r.a <= c + EPS && r.b >= c - EPS)
-        out.push(`${f.name}：${at(o)} × 牆 ${runAt(r)}`);
-  });
-  return out;
-}
-
-/** 和別的家具疊在一起的線索小物（放入隱藏線索時找不到空位的話會疊上去） */
-function cluesOnFurniture(f: Floor): string[] {
-  return f.items
-    .filter((it) => it.clue)
-    .flatMap((c) =>
-      f.items
-        .filter((it) => it !== c && blocking(it) && rectHits(c, it))
-        .map((it) => `${f.name}：${box(c)} × ${box(it)}`),
-    );
-}
-
-const linkKey = (it: Item) => `${it.x},${it.y},${it.w},${it.h}`;
-const links = (f: Floor) => f.items.filter((it) => VERTICAL_LINKS.has(it.t));
-
-/**
- * 走不到的房間：格子的主人＝最後蓋上去的房間，相鄰兩格之間的邊上牆（含手畫的牆、欄杆、岩壁）與窗戶
- * 擋住之後還留下 0.5 格以上的空隙就走得過去（分區線不擋）；地面層（1F）房間外面是起點，
- * 上下層之間由重疊的樓梯、電梯接起來。
- */
-function unreachableRooms(floors: readonly Floor[]): string[] {
-  const parent = new Map<string, string>();
-  const find = (k: string): string => {
-    if (!parent.has(k)) parent.set(k, k);
-    let x = k;
-    while (parent.get(x) !== x) x = parent.get(x) as string;
-    parent.set(k, x);
-    return x;
-  };
-  const union = (a: string, b: string) => {
-    const x = find(a);
-    const y = find(b);
-    if (x !== y) parent.set(x, y);
-  };
-  const ground = groundFloorIndex(floors as Floor[]);
-  const owners = floors.map((f) => {
-    const owner = new Map<string, number>();
-    f.rooms.forEach((r, i) => {
-      for (let x = r.x; x < r.x + r.w; x++)
-        for (let y = r.y; y < r.y + r.h; y++) owner.set(`${x},${y}`, i);
-    });
-    return owner;
-  });
-  floors.forEach((f, fi) => {
-    if (!f.rooms.length) return;
-    const owner = owners[fi];
-    const node = (x: number, y: number) => {
-      const i = owner.get(`${x},${y}`);
-      return i === undefined ? (fi === ground ? 'out' : `out:${fi}`) : `${fi}:${i}`;
-    };
-    /* 擋路的範圍：牆（扣掉門窗之後、分區線除外）＋窗戶 */
-    const spans = new Map<string, [number, number][]>();
-    const add = (o: 'h' | 'v', c: number, a: number, b: number) => {
-      const k = `${o}:${c}`;
-      const list = spans.get(k) ?? [];
-      list.push([a, b]);
-      spans.set(k, list);
-    };
-    for (const r of computeWalls(f).runs) if (r.kind !== 'zone') add(r.o, r.c, r.a, r.b);
-    for (const o of f.openings)
-      if (!doorKinds(o)) {
-        const a = o.o === 'h' ? o.x : o.y;
-        add(o.o, o.o === 'h' ? o.y : o.x, a, a + o.len);
-      }
-    /** 邊 [a, a＋1] 上最長的空隙 ≥ 0.5 格 */
-    const passable = (o: 'h' | 'v', c: number, a: number) => {
-      const cover = (spans.get(`${o}:${c}`) ?? [])
-        .map(([s, e]) => [Math.max(s, a), Math.min(e, a + 1)] as const)
-        .filter(([s, e]) => e - s > EPS)
-        .sort((p, q) => p[0] - q[0]);
-      let pos = a;
-      let gap = 0;
-      for (const [s, e] of cover) {
-        gap = Math.max(gap, s - pos);
-        pos = Math.max(pos, e);
-      }
-      gap = Math.max(gap, a + 1 - pos);
-      return gap >= 0.5 - EPS;
-    };
-    const xs = f.rooms.flatMap((r) => [r.x, r.x + r.w]);
-    const ys = f.rooms.flatMap((r) => [r.y, r.y + r.h]);
-    for (let x = Math.min(...xs) - 1; x <= Math.max(...xs); x++)
-      for (let y = Math.min(...ys) - 1; y <= Math.max(...ys); y++) {
-        const here = node(x, y);
-        find(here);
-        const right = node(x + 1, y);
-        const down = node(x, y + 1);
-        if (here !== right && passable('v', x + 1, y)) union(here, right);
-        if (here !== down && passable('h', y + 1, x)) union(here, down);
-      }
-  });
-  for (let i = 0; i + 1 < floors.length; i++)
-    for (const p of links(floors[i]))
-      for (const q of links(floors[i + 1])) {
-        if (!rectHits(p, q)) continue;
-        const key = `${Math.floor(p.x + p.w / 2)},${Math.floor(p.y + p.h / 2)}`;
-        const a = owners[i].get(key);
-        const b = owners[i + 1].get(key);
-        if (a !== undefined && b !== undefined) union(`${i}:${a}`, `${i + 1}:${b}`);
-      }
-  return floors.flatMap((f, fi) =>
-    f.rooms
-      .filter((_r, i) => find(`${fi}:${i}`) !== find('out'))
-      .map((r) => `${f.name}：${r.name}`),
-  );
-}
 
 describe.each(TEMPLATES.map((t) => [t.id, t] as const))('範本 %s', (id, tpl) => {
   const floors = build(id);
@@ -557,33 +275,115 @@ describe('範本目錄', () => {
     );
   });
 
-  it('2026-10 增補：學校、警察局、寺廟、洞窟、山中小屋、圖書館、地下教團據點；分類（F190、D17）', () => {
-    const group = (id: string) => getTemplate(id)?.group;
+  it('分類（F190、D17；2026-10 第三批後半 F237、D53）：13 類，一個範本可以放在好幾類，「全部」依主要分類的順序', () => {
     expect(TEMPLATE_GROUPS.map((g) => g.name)).toEqual([
       '住宅',
+      '住宿・餐飲',
+      '醫療・研究',
       '公共場所',
+      '商店・辦公',
+      '娛樂・表演',
+      '交通・運輸',
+      '工業・設施',
+      '軍警・保全',
+      '宗教・古蹟',
       '野外・地下',
       '廢墟・事件',
+      '奇幻・科幻',
     ]);
-    expect(['studio', 'townhouse', 'mansion', 'lodge'].map(group)).toEqual(Array(4).fill('home'));
-    expect(['hotel', 'hospital', 'school', 'police', 'library', 'temple'].map(group)).toEqual(
-      Array(6).fill('public'),
-    );
-    expect(['cave', 'cult'].map(group)).toEqual(['wild', 'wild']);
-    expect(['abandoned-hospital', 'ruined-house', 'crime'].map(group)).toEqual(
-      Array(3).fill('ruins'),
-    );
-    /* 開頁載入第一個範本（F01），範本依分類的順序排 */
+    const inGroup = (g: string) =>
+      TEMPLATES.filter((t) => templateGroups(t).includes(g as never)).map((t) => t.id);
+    expect(Object.fromEntries(TEMPLATE_GROUPS.map((g) => [g.id, inGroup(g.id)]))).toEqual({
+      home: [
+        'studio',
+        'townhouse',
+        'mansion',
+        'lodge',
+        'apartment',
+        'house',
+        'sanheyuan',
+        'japanese-house',
+        'ruined-house',
+        'crime',
+      ],
+      lodging: ['lodge', 'hotel', 'ryokan', 'speakeasy', 'diner', 'tavern'],
+      medical: ['hospital', 'hospital-annex', 'lab', 'asylum', 'abandoned-hospital'],
+      public: [
+        'school',
+        'library',
+        'club-building',
+        'museum',
+        'funeral-home',
+        'police',
+        'temple',
+        'abandoned-school',
+      ],
+      commerce: [
+        'diner',
+        'office',
+        'konbini',
+        'detective',
+        'shopping-street',
+        'night-market',
+        'parking',
+      ],
+      leisure: [
+        'speakeasy',
+        'club-building',
+        'museum',
+        'night-market',
+        'theatre',
+        'karaoke',
+        'campsite',
+      ],
+      transport: ['station', 'subway', 'parking', 'ferry', 'warehouse'],
+      industry: ['factory', 'warehouse', 'construction', 'sewer', 'mine', 'abandoned-factory'],
+      military: ['lab', 'police', 'military-base', 'prison'],
+      sacred: [
+        'sanheyuan',
+        'japanese-house',
+        'funeral-home',
+        'temple',
+        'shrine',
+        'church',
+        'castle',
+      ],
+      wild: ['lodge', 'sewer', 'cave', 'cult', 'campsite', 'mine', 'dungeon'],
+      ruins: [
+        'asylum',
+        'detective',
+        'construction',
+        'cult',
+        'mine',
+        'abandoned-hospital',
+        'ruined-house',
+        'abandoned-factory',
+        'abandoned-school',
+        'crime',
+      ],
+      fantasy: ['castle', 'dungeon', 'spaceship', 'tavern', 'wizard-tower'],
+    });
+    /* 其他分類不重複、不等於主要分類；每一類至少 4 個 */
+    for (const t of TEMPLATES) {
+      expect(new Set(templateGroups(t)).size, t.id).toBe(templateGroups(t).length);
+      expect(t.also ?? [], t.id).not.toContain(t.group);
+    }
+    for (const g of TEMPLATE_GROUPS) expect(inGroup(g.id).length, g.id).toBeGreaterThanOrEqual(4);
+    /* 開頁載入第一個範本（F01），範本依主要分類的順序排 */
     expect(TEMPLATES[0].id).toBe('studio');
     const order = TEMPLATE_GROUPS.map((g) => g.id);
     const groups = TEMPLATES.map((t) => order.indexOf(t.group));
     expect(groups).toEqual([...groups].sort((a, b) => a - b));
-    expect(TEMPLATES).toHaveLength(15);
-    /* 恐怖調查樣式：廢墟（命案現場除外）與地下教團據點 */
+    expect(TEMPLATES).toHaveLength(56);
+    expect(new Set(TEMPLATES.map((t) => t.id)).size).toBe(56);
+    expect(new Set(TEMPLATES.map((t) => t.name)).size).toBe(56);
+    /* 恐怖調查樣式：主要分類是廢墟的（命案現場除外）與地下教團據點 */
     expect(TEMPLATES.filter((t) => t.theme === 'horror').map((t) => t.id)).toEqual([
       'cult',
       'abandoned-hospital',
       'ruined-house',
+      'abandoned-factory',
+      'abandoned-school',
     ]);
   });
 
@@ -684,5 +484,186 @@ describe('範本目錄', () => {
     expect(wrapClueText('短短的')).toBe('短短的');
     expect(wrapClueText('被撕下的、住宿登記表')).toBe('被撕下的、\n住宿登記表');
     expect(wrapClueText('一二三四五六七八')).toBe('一二三四\n五六七八');
+  });
+});
+
+/* ---------- 2026-10 第三批後半：新增的 41 個範本（F237～F239） ---------- */
+
+/** 新範本（目錄裡的順序）與每一層的名稱 */
+const NEW_FLOORS: Record<string, string[]> = {
+  apartment: ['1F', '4F', '頂樓'],
+  house: ['B1', '1F', '2F'],
+  sanheyuan: ['1F'],
+  'japanese-house': ['B1', '1F'],
+  ryokan: ['1F', '2F'],
+  speakeasy: ['B1', '1F'],
+  diner: ['1F'],
+  'hospital-annex': ['1F', '2F'],
+  lab: ['B2', 'B1', '1F'],
+  asylum: ['B1', '1F'],
+  'club-building': ['1F', '2F'],
+  museum: ['B1', '1F'],
+  'funeral-home': ['1F'],
+  office: ['1F', '8F', '屋頂'],
+  konbini: ['1F'],
+  detective: ['1F', '2F'],
+  'shopping-street': ['1F'],
+  'night-market': ['1F'],
+  theatre: ['B1', '1F'],
+  karaoke: ['1F'],
+  station: ['B1', '1F'],
+  subway: ['B2', 'B1', '1F'],
+  parking: ['B2', 'B1', '1F'],
+  ferry: ['B1', '1F', '2F'],
+  factory: ['1F', '2F'],
+  warehouse: ['1F'],
+  construction: ['1F', '2F'],
+  sewer: ['B1', '1F'],
+  'military-base': ['B1', '1F'],
+  prison: ['1F'],
+  shrine: ['1F'],
+  church: ['B1', '1F'],
+  castle: ['B1', '1F'],
+  campsite: ['1F'],
+  mine: ['B1', '1F'],
+  'abandoned-factory': ['1F', '2F'],
+  'abandoned-school': ['1F', '2F', '屋頂'],
+  dungeon: ['B1'],
+  spaceship: ['1F'],
+  tavern: ['1F', '2F'],
+  'wizard-tower': ['1F', '2F', '3F'],
+};
+const NEW_IDS = Object.keys(NEW_FLOORS);
+
+describe('2026-10 第三批後半的範本（F237～F239）', () => {
+  it('41 個新範本：樓層的名稱與順序（下一層在左邊）、載入後在地面層', () => {
+    expect(NEW_IDS).toHaveLength(41);
+    expect(TEMPLATES.map((t) => t.id).filter((id) => NEW_IDS.includes(id))).toEqual(NEW_IDS);
+    for (const id of NEW_IDS) {
+      const fs = build(id);
+      expect(
+        fs.map((f) => f.name),
+        id,
+      ).toEqual(NEW_FLOORS[id]);
+      const g = groundFloorIndex(fs);
+      expect(fs[g].name, id).toBe(NEW_FLOORS[id].includes('1F') ? '1F' : NEW_FLOORS[id][0]);
+    }
+  });
+
+  it('每個新範本都有 GM 專用的房間（寫死的密室或預設的後台）、3～5 條線索、至少 6 間有名字的房間', () => {
+    for (const id of NEW_IDS) {
+      const fs = build(id);
+      expect(
+        fs.some((f) => f.rooms.some((r) => r.gm)),
+        id,
+      ).toBe(true);
+      const tpl = getTemplate(id);
+      expect(tpl?.clues.length, id).toBeGreaterThanOrEqual(3);
+      expect(tpl?.clues.length, id).toBeLessThanOrEqual(5);
+      const named = fs.flatMap((f) => f.rooms.filter((r) => !r.hideLabel));
+      expect(named.length, id).toBeGreaterThanOrEqual(6);
+      /* GM 專用的房間有 GM 筆記或是預設的後台（筆記寫在寫死的密室） */
+      expect(fs.some((f) => f.rooms.some((r) => r.gm && r.note)) || id === 'konbini', id).toBe(
+        true,
+      );
+    }
+  });
+
+  it('用到第二批的門窗、牆、房間種類與第三批前半的家具、貼牆素材', () => {
+    const fs = NEW_IDS.flatMap((id) => build(id));
+    const kinds = new Set(fs.flatMap((f) => f.openings.map((o) => o.kind)));
+    for (const k of ['steel', 'firedoor', 'gate', 'big2', 'revolve', 'sealed', 'platewin'])
+      expect(kinds.has(k as never), k).toBe(true);
+    const walls = new Set([
+      ...fs.flatMap((f) => f.walls.map((w) => w.kind)),
+      ...fs.flatMap((f) => f.rooms.flatMap((r) => (r.wall ? [r.wall] : []))),
+    ]);
+    for (const k of ['stone', 'sound', 'cracked']) expect(walls.has(k as never), k).toBe(true);
+    const cats = new Set(fs.flatMap((f) => f.rooms.map((r) => r.cat)));
+    for (const c of [
+      'engawa',
+      'studio',
+      'stone',
+      'industrial',
+      'grate',
+      'platform',
+      'track',
+      'road',
+      'rooftop',
+      'slab',
+      'dirt',
+      'gravel',
+      'shipdeck',
+    ])
+      expect(cats.has(c as never), c).toBe(true);
+    const items = new Set(fs.flatMap((f) => f.items.map((i) => i.t)));
+    const newFurniture = new Set([
+      ...UPSTREAM_ITEMS_V105,
+      ...UPSTREAM_ITEMS_V106,
+      ...UPSTREAM_ITEMS_V110,
+      'wall_graffiti',
+      'wall_claws',
+      'wall_blood',
+      'wall_mold',
+    ]);
+    expect([...items].filter((t) => newFurniture.has(t)).length).toBeGreaterThanOrEqual(150);
+    expect([...items].filter((t) => ASSET[t]?.wall).length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('台灣的場景：三合院（公媽廳、護龍、禾埕）、夜市（攤位）、老街（騎樓）、日式宿舍（緣側、防空壕）', () => {
+    const names = (id: string) => build(id).flatMap((f) => f.rooms.map((r) => r.name));
+    expect(names('sanheyuan')).toEqual(expect.arrayContaining(['公媽廳', '灶腳', '禾埕', '暗間']));
+    expect(names('night-market').filter((n) => n.endsWith('攤')).length).toBeGreaterThanOrEqual(8);
+    expect(names('shopping-street')).toEqual(expect.arrayContaining(['騎樓', '老街', '神壇']));
+    const jp = build('japanese-house');
+    expect(jp[1].rooms.some((r) => r.cat === 'engawa')).toBe(true);
+    expect(jp[0].rooms.find((r) => r.name === '防空壕')?.gm).toBe(true);
+  });
+
+  it('幾個範本的特徵：月台門、鐵軌、甲板、石牆、鐵欄杆、隔音牆', () => {
+    /* 地下鐵：B2 月台的玻璃牆上有自動門（月台門），隧道口開著 */
+    const [b2] = build('subway');
+    expect(b2.walls.filter((w) => w.kind === 'glass')).toHaveLength(2);
+    expect(b2.openings.filter((o) => o.kind === 'auto')).toHaveLength(8);
+    /* 車站：兩條鐵軌、島式月台、停在第二線的電車 */
+    const station = build('station')[1];
+    expect(station.rooms.filter((r) => r.cat === 'track')).toHaveLength(2);
+    expect(station.items.some((i) => i.t === 'train_car')).toBe(true);
+    /* 渡輪：三層、甲板的外圍是欄杆 */
+    const ferry = build('ferry');
+    expect(ferry[2].rooms.some((r) => r.cat === 'shipdeck')).toBe(true);
+    expect(computeWalls(ferry[2]).runs.some((r) => r.kind === 'rail')).toBe(true);
+    /* 古城：房間的牆是石牆；地牢的牢房前面是鐵欄杆與格柵門 */
+    const [castleB1, castle1F] = build('castle');
+    expect(computeWalls(castle1F).runs.filter((r) => r.kind === 'stone').length).toBeGreaterThan(
+      10,
+    );
+    expect(castleB1.walls.some((w) => w.kind === 'bars')).toBe(true);
+    expect(castleB1.openings.filter((o) => o.kind === 'gate')).toHaveLength(3);
+    /* 監獄：9 間舍房「不產生牆」，前面是鐵欄杆＋格柵門 */
+    const [prison] = build('prison');
+    expect(prison.rooms.filter((r) => r.name.startsWith('舍房') && r.noWall)).toHaveLength(9);
+    expect(prison.openings.filter((o) => o.kind === 'gate').length).toBeGreaterThanOrEqual(10);
+    /* KTV：包廂的牆是隔音牆 */
+    const [ktv] = build('karaoke');
+    expect(ktv.rooms.filter((r) => r.wall === 'sound')).toHaveLength(8);
+    /* 辦公大樓：大廳的旋轉門 */
+    expect(build('office')[0].openings.some((o) => o.kind === 'revolve')).toBe(true);
+  });
+
+  it('廢墟（廢棄工廠、廢校）：弄舊的結果每次相同，牆上有貼牆素材', () => {
+    for (const id of ['abandoned-factory', 'abandoned-school']) {
+      const strip = (fs: Floor[]) =>
+        fs.map((f) => [f.openings.map((o) => o.kind), f.items.map((i) => [i.t, i.x, i.y])]);
+      expect(strip(build(id)), id).toEqual(strip(build(id)));
+      const fs = build(id);
+      expect(
+        fs.flatMap((f) => f.openings).some((o) => o.kind === 'brokenwin' || o.kind === 'boarded'),
+        id,
+      ).toBe(true);
+      expect(fs.flatMap((f) => f.items).filter((i) => ASSET[i.t]?.wall).length, id).toBeGreaterThan(
+        3,
+      );
+    }
   });
 });

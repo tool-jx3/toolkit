@@ -4,6 +4,8 @@
  * 縮圖可以是函式 `({ playing }) => 元素`：滑鼠停留或鍵盤聚焦的那張卡 playing＝true（例如 LoopThumb 循環播放），其他靜止。
  * 搜尋欄（`search`，選填；floor-plan 2026-10 第三批加）：比對的規則由呼叫端給，分類的按鈕照全部範本算（搜尋時一直看得到），
  * 搜尋與分類同時套用。
+ * 分類很多時（floor-plan 2026-10 第三批後半，13 類）可以用 `wrapFilter` 讓分類按鈕換行（`size="sm"` 本來就換行），
+ * `tagOrder` 指定分類按鈕的順序（一個範本放在好幾類時，照第一次出現的順序會亂）。
  */
 import { Check } from 'lucide-react';
 import { type ReactNode, useRef, useState } from 'react';
@@ -55,6 +57,10 @@ export interface TemplateGalleryProps<T> {
   size?: 'md' | 'sm';
   /** 搜尋欄（選填；不給時沒有，行為不變） */
   search?: TemplateSearch<T>;
+  /** 分類按鈕換行（分類很多時；預設只有 `size="sm"` 時換行） */
+  wrapFilter?: boolean;
+  /** 分類按鈕的順序（不給時照標籤在範本裡第一次出現的順序；沒有列到的標籤接在後面） */
+  tagOrder?: readonly string[];
   'aria-label'?: string;
   className?: string;
 }
@@ -68,11 +74,16 @@ export function TemplateGallery<T>({
   defaultTag,
   size = 'md',
   search,
+  wrapFilter,
+  tagOrder,
   className,
   ...rest
 }: TemplateGalleryProps<T>) {
   const ask = useConfirm();
-  const tags = [...new Set(templates.flatMap((t) => t.tags ?? []))];
+  const used = new Set(templates.flatMap((t) => t.tags ?? []));
+  const tags = tagOrder
+    ? [...new Set([...tagOrder.filter((t) => used.has(t)), ...used])]
+    : [...used];
   const [tagState, setTag] = useState(defaultTag ?? '__all');
   const [query, setQuery] = useState('');
   const searchInput = useRef<HTMLInputElement>(null);
@@ -139,7 +150,7 @@ export function TemplateGallery<T>({
         <Segmented
           aria-label="範本分類"
           size="sm"
-          className={sm ? 'flex-wrap' : undefined}
+          className={sm || wrapFilter ? 'flex-wrap' : undefined}
           value={tag}
           onValueChange={setTag}
           options={[
