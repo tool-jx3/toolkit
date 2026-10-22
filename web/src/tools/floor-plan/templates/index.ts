@@ -19,6 +19,7 @@ import { detective, konbini, nightMarket, office, shoppingStreet } from './comme
 import { karaoke, theatre } from './leisure';
 import { ferry, parking, station, subway } from './transport';
 import { construction, factory, sewer, warehouse } from './industry';
+import { militaryBase, prison } from './military';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
@@ -697,6 +698,34 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '留置室 2', 'clue', '牆上刻的記號'),
       C('1F', '辦公室', 'diary', '刑警的辦案筆記'),
       C('1F', '所長室', 'key', '證物室的備用鑰匙'),
+    ],
+  },
+  {
+    id: 'military-base',
+    group: 'military',
+    name: '軍事基地',
+    description:
+      '圍籬裡的營區：營舍、餐廳、司令室、作戰室、停著戰車的車庫、彈藥庫、操場與直升機坪；B1 地下指揮所的南邊是 GM 專用的封鎖實驗區。',
+    build: militaryBase,
+    clues: [
+      C('1F', '營舍', 'diary', '寫到一半的家書'),
+      C('1F', '作戰室', 'papers', '畫著紅圈的地圖'),
+      C('1F', '衛哨', 'memo', '進出登記簿的最後一行'),
+      C('B1', '機密檔案室', 'recorder', '最後一段無線電錄音'),
+    ],
+  },
+  {
+    id: 'prison',
+    group: 'military',
+    name: '監獄（舍房區）',
+    description:
+      '鐵欄杆的舍房沿著走廊排開，旁邊是監控室、淋浴間、醫務室與會客室，西邊是圍起來的運動場；只有送餐口的獨居房是 GM 專用。',
+    build: prison,
+    clues: [
+      C('1F', '舍房 3', 'memo', '刻在床板下的日期'),
+      C('1F', '會客室', 'photo', '會客時遞進來的照片'),
+      C('1F', '醫務室', 'pills', '沒有處方的藥'),
+      C('1F', '運動場', 'key', '埋在沙坑裡的鑰匙'),
     ],
   },
   {
