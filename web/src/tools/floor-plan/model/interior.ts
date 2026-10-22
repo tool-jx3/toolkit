@@ -2,14 +2,16 @@
  * 外觀層的「顯示內部」（2026-10 第二批，原作 v1.12；規格 F230、3.10）。
  *
  * 外觀層＝用「建物（屋頂）」房間畫建築物外觀的樓層（敷地圖），門窗和室內層的座標相同。打開「顯示內部」時：
- * - 拿掉這一層的屋頂房間，以及中心落在內部樓層的房間裡的其他房間（原本蓋在建物上的東西）；
- *   放在這些房間上面的家具、文字、手畫的牆（中心點在房間裡面）一起拿掉；
+ * - 拿掉這一層的屋頂房間，以及整個落在屋頂或內部樓層的某一間房間裡的其他房間（屋頂上的露台、蓋在建物上的東西）；
+ *   放在這些房間上面的家具、文字、手畫的牆（中心點在房間裡面）一起拿掉。包住整棟建物的大庭院留著
+ *   （內部的房間疊在它上面，牆照一般的規則；原作用「中心點在內部的房間裡」判斷，大庭院也會被拿掉，D41）；
  * - 把內部樓層的房間（屋頂除外）、手畫的牆、門窗、家具、文字疊在同樣的位置；
  * - 外觀層和內部樓層在同一個位置、同一個方向的門窗只留內部樓層的那一個（不會畫兩次）。
  *
  * 畫面與匯出畫的是疊好的樓層（composedFloor）；點選、框選、全選、編輯只對外觀層自己留下來的東西（ownFloor）。
  */
 import { ROOF_CATEGORY } from './catalog';
+import { rectContains } from './geometry';
 import type { Floor, Opening, Room } from './types';
 
 /** 疊上來的樓層：`inside` 指的那一層，找不到時第一個別的樓層；沒有打開或只有一層時 null */
@@ -35,8 +37,12 @@ interface Split {
 function split(floor: Floor, floors: readonly Floor[]): Split | null {
   const inner = interiorFloor(floor, floors);
   if (!inner) return null;
+  const roofs = floor.rooms.filter((r) => r.cat === ROOF_CATEGORY);
   const drop = floor.rooms.filter(
-    (r) => r.cat === ROOF_CATEGORY || strictlyIn(inner.rooms, r.x + r.w / 2, r.y + r.h / 2),
+    (r) =>
+      r.cat === ROOF_CATEGORY ||
+      roofs.some((g) => rectContains(g, r)) ||
+      inner.rooms.some((g) => rectContains(g, r)),
   );
   const seen = new Set(inner.openings.map(openingKey));
   const own: Floor = {

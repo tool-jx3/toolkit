@@ -215,6 +215,7 @@ function drawNewPattern(c: Ctx, p: FloorPattern, room: Rect, lw: number, rnd: ()
           if (rnd() > 0.28) continue;
           const u0 = u + 0.4 + rnd() * 1.2;
           const v0 = v + 0.3 + rnd() * 0.4;
+          if (u0 < 0.3 || u0 > L - 0.3 || v0 + 0.9 > W) continue;
           mv(u0, v0);
           ln(u0 + 0.25 - rnd() * 0.5, v0 + 0.45);
           ln(u0 + 0.1 - rnd() * 0.2, v0 + 0.9);
@@ -998,19 +999,20 @@ function platedWindow(c: Ctx, len: number, t: number, theme: FloorTheme, lw: num
   c.lineWidth = lw * 0.8;
   c.fillRect(-0.06, -ph / 2, len + 0.12, ph);
   c.strokeRect(-0.06, -ph / 2, len + 0.12, ph);
-  c.save();
-  c.beginPath();
-  c.rect(-0.06, -ph / 2, len + 0.12, ph);
-  c.clip();
+  /* 斜的紋路：每條線切在鐵板的範圍裡 */
   c.strokeStyle = theme.furn.faint;
   c.lineWidth = lw * 0.5;
   c.beginPath();
-  for (let u = -ph; u < len + ph; u += 0.25) {
-    c.moveTo(u, -ph / 2);
-    c.lineTo(u + ph, ph / 2);
+  const x0 = -0.06;
+  const x1 = len + 0.06;
+  for (let u = x0 - ph; u < x1; u += 0.25) {
+    const t0 = Math.max(0, (x0 - u) / ph);
+    const t1 = Math.min(1, (x1 - u) / ph);
+    if (t1 <= t0) continue;
+    c.moveTo(u + t0 * ph, -ph / 2 + t0 * ph);
+    c.lineTo(u + t1 * ph, -ph / 2 + t1 * ph);
   }
   c.stroke();
-  c.restore();
   c.fillStyle = theme.door;
   c.beginPath();
   const r = Math.max(lw * 0.8, t * 0.07);

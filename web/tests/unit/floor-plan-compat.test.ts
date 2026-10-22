@@ -1,24 +1,32 @@
 /**
- * 室內平面圖產生器：讀原作新版（v1.05～v1.13）存的 .trpgmap.json（規格 2.2.1～2.2.3、F213、D22～D25）。
+ * 室內平面圖產生器：讀原作新版（v1.05～v1.14）存的 .trpgmap.json（規格 2.2.1～2.2.3、F213、F231、D22～D25、D39）。
+ * 2026-10 第二批起原作新增的房間、門窗、牆種類、每間房的牆種類、外觀層的「顯示內部」都原樣照讀。
  *
  * 範例資料是本站自己寫的（只用原作存檔的欄位名稱與種類代號，房間名稱、格局都是自己編的）。
  */
 import { describe, expect, it } from 'vitest';
 import { isAsset } from '@/tools/floor-plan/model/assets';
-import { CAT } from '@/tools/floor-plan/model/catalog';
+import {
+  CAT,
+  DOUBLE_DOORS,
+  isCategory,
+  isOpeningKind,
+  isWallKind,
+  SWING_DOORS,
+} from '@/tools/floor-plan/model/catalog';
 import {
   type CompatReport,
   compatCounts,
-  LEGACY_OPENINGS,
-  LEGACY_ROOM_CATS,
-  LEGACY_WALLS,
+  UPSTREAM_OPENINGS,
+  UPSTREAM_ROOM_CATS,
+  UPSTREAM_WALLS,
 } from '@/tools/floor-plan/model/compat';
 import { type NormalizeReport, normalizeProject } from '@/tools/floor-plan/model/normalize';
 import type { Floor, Project } from '@/tools/floor-plan/model/types';
 import { computeWalls, wallLines } from '@/tools/floor-plan/model/walls';
 import { S } from '@/tools/floor-plan/strings';
 
-/** 原作 v1.13 新增的房間種類：室內／戶外與戶外房間的外圍（原作的定義；換成的種類要相同，自動牆才不會變） */
+/** 原作 v1.05～v1.14 新增的房間種類：室內／戶外與戶外房間的外圍（原作的定義；本工具的種類要相同，自動牆才一樣） */
 const UPSTREAM_ROOM_EDGES: Record<string, { outdoor: boolean; edge?: 'rail' | 'rock' | 'none' }> = {
   engawa: { outdoor: false },
   studio: { outdoor: false },
@@ -35,7 +43,7 @@ const UPSTREAM_ROOM_EDGES: Record<string, { outdoor: boolean; edge?: 'rail' | 'r
   gravel: { outdoor: true, edge: 'none' },
   shipdeck: { outdoor: true, edge: 'rail' },
 };
-/** 原作 v1.13 新增的門窗：會開的門是單開（1）或雙開（2） */
+/** 原作 v1.05～v1.14 新增的門窗：會開的門是單開（1）或雙開（2） */
 const UPSTREAM_SWING: Record<string, 0 | 1 | 2> = {
   steel: 1,
   firedoor: 1,
@@ -149,50 +157,54 @@ function load(raw: unknown): { p: Project; report: NormalizeReport; compat: Comp
 const conv = (c: CompatReport, type: string) =>
   Object.fromEntries(c.converted.filter((e) => e.type === type).map((e) => [e.from, [e.to, e.n]]));
 
-describe('原作新版的種類換成最接近的種類（2.2.2、D22）', () => {
-  it('對應表涵蓋原作 v1.05～v1.13 新增的每一種房間、門窗、牆', () => {
-    expect(Object.keys(LEGACY_ROOM_CATS).sort()).toEqual([...NEW_ROOMS].sort());
-    expect(Object.keys(LEGACY_OPENINGS).sort()).toEqual([...NEW_OPENINGS].sort());
-    expect(Object.keys(LEGACY_WALLS).sort()).toEqual([...NEW_WALLS].sort());
+describe('原作新版的種類原樣保留（2026-10 第二批：2.2.2、F231、D39）', () => {
+  it('對照表涵蓋原作 v1.05～v1.14 新增的每一種房間、門窗、牆，代號相同、本工具都認得', () => {
+    expect(Object.keys(UPSTREAM_ROOM_CATS).sort()).toEqual([...NEW_ROOMS].sort());
+    expect(Object.keys(UPSTREAM_OPENINGS).sort()).toEqual([...NEW_OPENINGS].sort());
+    expect(Object.keys(UPSTREAM_WALLS).sort()).toEqual([...NEW_WALLS].sort());
+    for (const [from, to] of [
+      ...Object.entries(UPSTREAM_ROOM_CATS),
+      ...Object.entries(UPSTREAM_OPENINGS),
+      ...Object.entries(UPSTREAM_WALLS),
+    ])
+      expect(to, from).toBe(from);
+    for (const k of NEW_ROOMS) expect(isCategory(k), k).toBe(true);
+    for (const k of NEW_OPENINGS) expect(isOpeningKind(k), k).toBe(true);
+    for (const k of NEW_WALLS) expect(isWallKind(k), k).toBe(true);
   });
 
-  it('換過的房間：室內／戶外與戶外的外圍和原作相同（自動牆的位置與種類不變）', () => {
-    for (const [from, up] of Object.entries(UPSTREAM_ROOM_EDGES)) {
-      const to = CAT[LEGACY_ROOM_CATS[from]];
-      expect(Boolean(to.outdoor), from).toBe(up.outdoor);
-      if (up.outdoor) expect(to.edge, from).toBe(up.edge);
+  it('新的房間種類：室內／戶外與戶外的外圍和原作相同（自動牆的位置與種類相同）', () => {
+    for (const [cat, up] of Object.entries(UPSTREAM_ROOM_EDGES)) {
+      const info = CAT[cat as keyof typeof CAT];
+      expect(Boolean(info.outdoor), cat).toBe(up.outdoor);
+      if (up.outdoor) expect(info.edge, cat).toBe(up.edge);
     }
   });
 
-  it('換過的門窗：會開的門換成會開的門，單開、雙開相同', () => {
-    const swing = (k: string) => (k === 'door' || k === 'locked' ? 1 : k === 'door2' ? 2 : 0);
-    for (const [from, s] of Object.entries(UPSTREAM_SWING))
-      if (s) expect(swing(LEGACY_OPENINGS[from]), from).toBe(s);
+  it('新的門窗：會開的門、單開／雙開和原作相同（開門的範圍相同）', () => {
+    for (const [kind, sw] of Object.entries(UPSTREAM_SWING)) {
+      const k = kind as Parameters<typeof SWING_DOORS.has>[0];
+      expect(SWING_DOORS.has(k), kind).toBe(sw > 0);
+      expect(DOUBLE_DOORS.has(k), kind).toBe(sw === 2);
+    }
   });
 
-  it('房間 14 種、門窗 7 種、牆 3 種全部換掉，沒有丟掉；其他欄位照搬', () => {
+  it('房間 14 種、門窗 7 種、牆 3 種原樣保留；每間房的牆種類照讀（戶外房間的也留著）；只換掉疊在牆上的素材', () => {
     const { p, compat } = load(v113());
     const f1 = p.floors[1];
     const byId = Object.fromEntries(f1.rooms.map((r) => [r.id, r]));
-    for (const cat of NEW_ROOMS) expect(byId[`r-${cat}`]?.cat, cat).toBe(LEGACY_ROOM_CATS[cat]);
-    expect([byId.hall.cat, byId.music.cat, byId.yard.cat]).toEqual(['doma', 'office', 'garden']);
-    expect(p.floors[0].rooms[0].cat).toBe('garage');
-    /* 原作的 wall 欄位不留 */
-    expect('wall' in byId.hall).toBe(false);
+    for (const cat of NEW_ROOMS) expect(byId[`r-${cat}`]?.cat, cat).toBe(cat);
+    expect([byId.hall.cat, byId.music.cat, byId.yard.cat]).toEqual(['stone', 'studio', 'dirt']);
+    expect(p.floors[0].rooms[0].cat).toBe('roof');
+    expect([byId.hall.wall, byId.music.wall, byId.yard.wall]).toEqual(['stone', 'sound', 'glass']);
 
     const op = Object.fromEntries(f1.openings.map((o) => [o.id, o]));
-    expect(['o1', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7'].map((id) => op[id]?.kind)).toEqual([
-      'door',
-      'door',
-      'door',
-      'door2',
-      'auto',
-      'locked',
-      'boarded',
-    ]);
+    expect(['o1', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7'].map((id) => op[id]?.kind)).toEqual(
+      NEW_OPENINGS,
+    );
     expect(op.o2).toEqual({
       id: 'o2',
-      kind: 'door',
+      kind: 'firedoor',
       o: 'h',
       x: 4,
       y: 0,
@@ -201,47 +213,19 @@ describe('原作新版的種類換成最接近的種類（2.2.2、D22）', () =>
       hinge: 1,
     });
     expect(op.o3.gm).toBe(true);
-    expect(op.o5).toMatchObject({ o: 'v', x: 10, y: 1, len: 3 });
+    expect(op.o5).toMatchObject({ kind: 'revolve', o: 'v', x: 10, y: 1, len: 3 });
 
     expect(f1.walls.map((w) => [w.id, w.kind, w.gm ?? false])).toEqual([
-      ['w1', 'ext', false],
-      ['w2', 'ext', false],
-      ['w3', 'int', true],
+      ['w1', 'stone', false],
+      ['w2', 'sound', false],
+      ['w3', 'cracked', true],
     ]);
-
-    expect(conv(compat, 'room')).toEqual({
-      engawa: ['hall', 1],
-      studio: ['office', 2],
-      stone: ['doma', 2],
-      roof: ['garage', 2],
-      industrial: ['garage', 1],
-      grate: ['tech', 1],
-      platform: ['porch', 1],
-      track: ['porch', 1],
-      road: ['porch', 1],
-      rooftop: ['balcony', 1],
-      slab: ['porch', 1],
-      dirt: ['garden', 2],
-      gravel: ['garden', 1],
-      shipdeck: ['balcony', 1],
-    });
-    expect(conv(compat, 'opening')).toEqual({
-      steel: ['door', 1],
-      firedoor: ['door', 1],
-      gate: ['door', 1],
-      big2: ['door2', 1],
-      revolve: ['auto', 1],
-      sealed: ['locked', 1],
-      platewin: ['boarded', 1],
-    });
-    expect(conv(compat, 'wall')).toEqual({
-      stone: ['ext', 1],
-      sound: ['ext', 1],
-      cracked: ['int', 1],
-    });
+    /* 房間、門窗、牆都沒有換掉；換掉的只有疊在牆上的牆洞與崩塌 */
+    expect(compat.converted.map((e) => e.type)).toEqual(['overlay', 'overlay']);
+    expect(compat.droppedOpenings).toEqual([]);
   });
 
-  it('換過的門窗都在牆上（切開牆），厚度跟著所在的牆', () => {
+  it('門窗都在牆上（切開牆），厚度跟著所在的牆（房間的牆種類，兩側都有設時取厚的）', () => {
     const { p } = load(v113());
     const f1 = p.floors[1];
     const lines = wallLines(f1);
@@ -254,29 +238,36 @@ describe('原作新版的種類換成最接近的種類（2.2.2、D22）', () =>
       expect(on, o.id).toBe(true);
     }
     const w = computeWalls(f1);
-    expect(['o1', 'o3', 'o5', 'o6', 'o7'].map((id) => w.openingKind.get(id))).toEqual([
-      'ext',
-      'ext',
-      'int',
-      'int',
-      'ext',
+    /* o1：石造大廳的外牆（石牆）；o3：練團室的外牆（隔音牆）；o5、o6：兩間之間（石牆 0.6 > 隔音牆 0.48）；
+       o7：練團室的外牆；o8：大廳與前院之間（前院是戶外，設定沒有作用 → 大廳的石牆） */
+    expect(['o1', 'o3', 'o5', 'o6', 'o7', 'o8'].map((id) => w.openingKind.get(id))).toEqual([
+      'stone',
+      'sound',
+      'stone',
+      'stone',
+      'sound',
+      'stone',
     ]);
   });
 
-  it('將來的版本才有的種類：房間 → 客廳類、牆 → 內牆（記下來）；門窗丟掉（記下來）', () => {
+  it('將來的版本才有的種類：房間 → 客廳類、牆 → 內牆、門窗丟掉、房間的牆種類改回自動（都記下來）', () => {
     const raw = v113();
     const f = (raw.floors as Record<string, unknown[]>[])[1];
-    f.rooms.push({ id: 'z', x: 0, y: 30, w: 2, h: 2, name: '?', cat: 'moonbase' });
+    f.rooms.push({ id: 'z', x: 0, y: 30, w: 2, h: 2, name: '?', cat: 'moonbase', wall: 'force' });
     f.walls.push({ id: 'zw', x1: 0, y1: 40, x2: 2, y2: 40, kind: 'forcefield' });
     f.openings.push({ id: 'zo', kind: 'portal', o: 'h', x: 0, y: 30, len: 1, side: 1, hinge: 0 });
     const { p, compat } = load(raw);
     const f1 = p.floors[1];
-    expect(f1.rooms.find((r) => r.id === 'z')?.cat).toBe('living');
+    const z = f1.rooms.find((r) => r.id === 'z');
+    expect(z?.cat).toBe('living');
+    expect(z && 'wall' in z).toBe(false);
     expect(f1.walls.find((w) => w.id === 'zw')?.kind).toBe('int');
     expect(f1.openings.find((o) => o.id === 'zo')).toBeUndefined();
     expect(conv(compat, 'room').moonbase).toEqual(['living', 1]);
     expect(conv(compat, 'wall').forcefield).toEqual(['int', 1]);
     expect(compat.droppedOpenings).toEqual([{ kind: 'portal', n: 1 }]);
+    expect(compat.roomWalls).toBe(1);
+    expect(compatCounts(compat).settings).toBe(1);
   });
 });
 
@@ -409,27 +400,39 @@ describe('疊在牆上的素材離牆線多遠還算在牆上（D23，對等驗�
   });
 });
 
-describe('略過的設定與家具（D24）', () => {
-  it('每間房的牆種類（室內）、顯示內部各自計數；家具依代號計數（棋子方格照讀，不算略過）', () => {
+describe('設定照讀、家具略過（D24、2026-10 第二批改）', () => {
+  it('每間房的牆種類、外觀層的「顯示內部」照讀，不算略過；家具依代號計數', () => {
     const { p, report, compat } = load(v113());
-    expect([compat.roomWalls, compat.insideFloors]).toEqual([2, 1]);
-    /* 樓層與專案上的這些欄位不留 */
-    expect(Object.keys(p.floors[0]).sort()).toEqual(
-      ['id', 'items', 'name', 'openings', 'rooms', 'texts', 'walls'].sort(),
-    );
-    /* 棋子方格（v1.07）：2026-10 起照讀 */
+    expect(compat.roomWalls).toBe(0);
+    /* 外觀層的「顯示內部」與疊上來的樓層 */
+    expect(p.floors[0]).toMatchObject({ id: 'site', showInside: true, inside: 'f1' });
+    expect(p.floors[1].showInside).toBeUndefined();
+    /* 棋子方格（v1.07）：2026-10 第一批起照讀 */
     expect(p.tokenGrid).toBe(2);
     expect([p.showSize, p.theme, p.active, p.name]).toEqual(['ping', 'paper', 1, '新版格式的範例']);
     /* 舊的計數（家具丟掉幾件）照舊 */
     expect(report.droppedItems).toBe(7);
   });
 
+  it('疊上來的樓層不存在、指到自己時拿掉（用第一個別的樓層）；只有一層時「顯示內部」拿掉', () => {
+    const raw = v113();
+    const floors = raw.floors as Record<string, unknown>[];
+    floors[0].inside = 'nowhere';
+    floors[1].showInside = true;
+    floors[1].inside = 'f1';
+    const { p } = load(raw);
+    expect(p.floors[0].showInside).toBe(true);
+    expect(p.floors[0].inside).toBeUndefined();
+    expect(p.floors[1]).toMatchObject({ showInside: true });
+    expect(p.floors[1].inside).toBeUndefined();
+    const one = load({ ...v113(), floors: [floors[0]] }).p;
+    expect(one.floors[0].showInside).toBeUndefined();
+  });
+
   it('通知的計數與說明（D25）', () => {
     const { compat } = load(v113());
-    expect(compatCounts(compat)).toEqual({ converted: 30, items: 7, openings: 0, settings: 3 });
-    expect(S.compat.summary(compatCounts(compat))).toBe(
-      '30 個換成相近的種類、7 件家具略過、3 項設定略過。',
-    );
+    expect(compatCounts(compat)).toEqual({ converted: 2, items: 7, openings: 0, settings: 0 });
+    expect(S.compat.summary(compatCounts(compat))).toBe('2 個換成相近的種類、7 件家具略過。');
     expect(S.compat.summary({ converted: 0, items: 1, openings: 2, settings: 0 })).toBe(
       '1 件家具略過、2 個門窗略過。',
     );
