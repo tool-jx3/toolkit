@@ -11,21 +11,51 @@ import { addClues, type ClueSpec } from './clues';
 import { decay } from './decay';
 import { applyGmDefaults } from './gmDefaults';
 import { lodge, mansion, studio, townhouse } from './homes';
+import { apartment, house, japaneseHouse, sanheyuan } from './living';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
-export type TemplateGroupId = 'home' | 'public' | 'wild' | 'ruins';
+/**
+ * 範本的分類（2026-10 第三批後半：4 類 → 13 類，數量和原作相當，名稱與分法本站自己定）。
+ * 一個範本有一個主要的分類（「全部」依主要分類的順序排），`also` 是同時放進去的其他分類。
+ */
+export type TemplateGroupId =
+  | 'home'
+  | 'lodging'
+  | 'medical'
+  | 'public'
+  | 'commerce'
+  | 'leisure'
+  | 'transport'
+  | 'industry'
+  | 'military'
+  | 'sacred'
+  | 'wild'
+  | 'ruins'
+  | 'fantasy';
 
 export const TEMPLATE_GROUPS: readonly { id: TemplateGroupId; name: string }[] = [
   { id: 'home', name: '住宅' },
+  { id: 'lodging', name: '住宿・餐飲' },
+  { id: 'medical', name: '醫療・研究' },
   { id: 'public', name: '公共場所' },
+  { id: 'commerce', name: '商店・辦公' },
+  { id: 'leisure', name: '娛樂・表演' },
+  { id: 'transport', name: '交通・運輸' },
+  { id: 'industry', name: '工業・設施' },
+  { id: 'military', name: '軍警・保全' },
+  { id: 'sacred', name: '宗教・古蹟' },
   { id: 'wild', name: '野外・地下' },
   { id: 'ruins', name: '廢墟・事件' },
+  { id: 'fantasy', name: '奇幻・科幻' },
 ];
 
 export interface FloorTemplate {
   id: string;
+  /** 主要的分類 */
   group: TemplateGroupId;
+  /** 同時放進去的其他分類（範本對話框的分類按鈕；2026-10 第三批後半） */
+  also?: readonly TemplateGroupId[];
   name: string;
   description: string;
   build: () => TplFloor[];
@@ -173,6 +203,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
   {
     id: 'lodge',
     group: 'home',
+    also: ['lodging', 'wild'],
     name: '山中小屋（兩層）',
     description:
       '大雪封山的山莊：1F 有壁爐的客廳、餐廳與廚房、管理員室、柴房，前面是木造露台；2F 四間客房、主人房與浴室。',
@@ -185,8 +216,67 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     ],
   },
   {
+    id: 'apartment',
+    group: 'home',
+    name: '老公寓（四樓）',
+    description:
+      '一層兩戶的四樓公寓：1F 自助洗衣店與房東家，4F 兩戶（B 戶鎖著、GM 專用），頂樓有水塔與加蓋的房間；樓梯間上下對齊。',
+    build: apartment,
+    clues: [
+      C('1F', '自助洗衣店', 'memo', '貼在洗衣機上的尋人啟事'),
+      C('1F', '餐廳', 'photo', '前任房客的合照'),
+      C('4F', 'A 臥室', 'diary', '記錄半夜敲牆聲的筆記'),
+      C('頂樓', '頂樓加蓋', 'key', '掛著「4B」名牌的鑰匙'),
+    ],
+  },
+  {
+    id: 'house',
+    group: 'home',
+    name: '獨棟住宅（附地下室）',
+    description:
+      '庭院環繞的兩層獨棟：1F 和室、客廳、餐廳與車庫，2F 臥室、書房與兒童房，地下室有機房與 GM 專用的密室。',
+    build: house,
+    clues: [
+      C('1F', '客廳', 'photo', '被換過臉的全家福'),
+      C('1F', '和室', 'memo', '貼在壁龕裡的符紙'),
+      C('2F', '兒童房', 'diary', '畫滿「地下的朋友」的圖畫日記'),
+      C('B1', '地下儲藏室', 'key', '沒有對應的門的鑰匙'),
+    ],
+  },
+  {
+    id: 'sanheyuan',
+    group: 'home',
+    also: ['sacred'],
+    name: '三合院',
+    description:
+      '台灣的農家：正身（公媽廳、大房、二房）、左右護龍（灶腳、柴房、浴間、農具間）圍著禾埕，後面是竹林；公媽廳後面有 GM 專用的暗間。',
+    build: sanheyuan,
+    clues: [
+      C('1F', '公媽廳', 'memo', '多出一個名字的族譜'),
+      C('1F', '灶腳', 'knife', '刀柄刻著符號的菜刀'),
+      C('1F', '大房', 'diary', '阿嬤用日文寫的日記'),
+      C('1F', '禾埕', 'photo', '曬穀場上的老照片'),
+      C('1F', '四房', 'key', '古早的銅鎖鑰匙'),
+    ],
+  },
+  {
+    id: 'japanese-house',
+    group: 'home',
+    also: ['sacred'],
+    name: '日式宿舍',
+    description:
+      '日本時代留下來的木造宿舍：座敷、次間、緣側面向庭院，北邊是廚房、浴室與書房；庭院角落的木板下是 GM 專用的防空壕。',
+    build: japaneseHouse,
+    clues: [
+      C('1F', '書房', 'diary', '昭和年間的值勤日誌'),
+      C('1F', '座敷', 'photo', '穿軍服的男人的照片'),
+      C('1F', '廚房', 'key', '刻著片假名的鑰匙'),
+      C('1F', '洋式客廳', 'memo', '夾在唱片封套裡的信'),
+    ],
+  },
+  {
     id: 'hotel',
-    group: 'public',
+    group: 'lodging',
     name: '商務飯店',
     description:
       '1F 大廳、櫃台、餐廳與會議室；2F 中走廊兩側排滿客房（每間有浴室）。電梯與樓梯上下對齊。',
@@ -200,7 +290,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
   },
   {
     id: 'hospital',
-    group: 'public',
+    group: 'medical',
     name: '綜合醫院',
     description: '1F 掛號、藥局、候診區、診間、檢驗與急診；2F 三人病房、單人房、護理站與手術室。',
     build: hospital,
@@ -227,21 +317,6 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     ],
   },
   {
-    id: 'police',
-    group: 'public',
-    name: '警察局（派出所）',
-    description:
-      '一層的派出所：大廳的值班台、辦公室、偵訊室（隔著單向玻璃的觀察室）、兩間留置室、上鎖的證物室與槍械室、備勤室與車庫。',
-    build: police,
-    clues: [
-      C('1F', '證物室', 'memo', '登記簿被撕掉的一頁'),
-      C('1F', '偵訊室', 'photo', '嫌犯的不在場證明照片'),
-      C('1F', '留置室 2', 'clue', '牆上刻的記號'),
-      C('1F', '辦公室', 'diary', '刑警的辦案筆記'),
-      C('1F', '所長室', 'key', '證物室的備用鑰匙'),
-    ],
-  },
-  {
     id: 'library',
     group: 'public',
     name: '圖書館（地下書庫）',
@@ -256,8 +331,25 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     ],
   },
   {
+    id: 'police',
+    group: 'military',
+    also: ['public'],
+    name: '警察局（派出所）',
+    description:
+      '一層的派出所：大廳的值班台、辦公室、偵訊室（隔著單向玻璃的觀察室）、兩間留置室、上鎖的證物室與槍械室、備勤室與車庫。',
+    build: police,
+    clues: [
+      C('1F', '證物室', 'memo', '登記簿被撕掉的一頁'),
+      C('1F', '偵訊室', 'photo', '嫌犯的不在場證明照片'),
+      C('1F', '留置室 2', 'clue', '牆上刻的記號'),
+      C('1F', '辦公室', 'diary', '刑警的辦案筆記'),
+      C('1F', '所長室', 'key', '證物室的備用鑰匙'),
+    ],
+  },
+  {
     id: 'temple',
-    group: 'public',
+    group: 'sacred',
+    also: ['public'],
     name: '寺廟（台灣的廟）',
     description:
       '廟埕（金爐、石獅、戲台）→ 前殿（三川門）→ 天井（天公爐）→ 正殿；兩側廂房是廟務辦公室、香客休息與廟公房，前殿兩旁是鐘樓、鼓樓。',
@@ -287,6 +379,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
   {
     id: 'cult',
     group: 'wild',
+    also: ['ruins'],
     name: '地下教團據點',
     description:
       '1F 是不起眼的舊書店，上鎖的樓梯通往 B1：宿舍、資料室、教主室、有魔法陣的集會廳與兩間牢房；走廊盡頭的暗門後是 GM 專用的獻祭室。',
@@ -302,6 +395,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
   {
     id: 'abandoned-hospital',
     group: 'ruins',
+    also: ['medical'],
     name: '廢棄醫院',
     description:
       '荒廢的綜合醫院：門窗破損、散落瓦礫與血跡；地下室有太平間，還有 GM 專用的祕密實驗室。',
@@ -317,6 +411,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
   {
     id: 'ruined-house',
     group: 'ruins',
+    also: ['home'],
     name: '廢屋（透天厝）',
     description:
       '沒人住的透天厝：前院長滿草、窗戶釘上木板、家具少了一些；浴室與主臥室藏著 GM 用的線索。',
@@ -331,6 +426,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
   {
     id: 'crime',
     group: 'ruins',
+    also: ['home'],
     name: '命案現場（套房）',
     description:
       '套房裡的命案：人形輪廓、血跡、刀子與證物標示牌 1～5；臥室有 GM 專用的保險箱與筆記。',
@@ -345,6 +441,12 @@ export const TEMPLATES: readonly FloorTemplate[] = [
 
 export const getTemplate = (id: string): FloorTemplate | undefined =>
   TEMPLATES.find((t) => t.id === id);
+
+/** 範本放在哪些分類（主要的分類在前） */
+export const templateGroups = (t: FloorTemplate): readonly TemplateGroupId[] => [
+  t.group,
+  ...(t.also ?? []).filter((g) => g !== t.group),
+];
 
 export interface InstantiateOptions {
   /** 只載入格局：不含家具與文字 */
