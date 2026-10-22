@@ -215,8 +215,7 @@ export const S = {
       number,
       string
     >,
-    tokenGridHint:
-      '畫在家具的上面（房間名字與文字在更上面），匯出的圖也有。方格線從匯出圖的左上角開始，在 CCFOLIA 等線上桌面把格子大小設成匯出資訊寫的 px，棋子就對得上格子。',
+    tokenGridHint: '畫在家具上面；匯出的圖從左上角的方格線開始（對齊 CCFOLIA 的格子）。',
     tokenGridColor: '方格的顏色',
     tokenGridOpacity: '方格的不透明度',
     /** 依序編號房間（F219） */

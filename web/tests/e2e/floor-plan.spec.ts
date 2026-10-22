@@ -1057,8 +1057,8 @@ test.describe('存檔', () => {
     ]);
     expect(dl.suggestedFilename()).toBe('套房（一房一廳）.floor-plan.json');
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    /* 2026-10：圓標加了 texts[].badge，版本 1 → 2（D33） */
-    expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'floor-plan', version: 2 });
+    /* 2026-10：圓標加了 texts[].badge（版本 2，D33）；棋子方格加了 tokenGrid（版本 3，D38） */
+    expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'floor-plan', version: 3 });
     expect(saved.data.floors[0].rooms).toHaveLength(6);
     await blank(page);
     /* 開啟（專案選單） */
@@ -1313,7 +1313,7 @@ test.describe('存檔', () => {
     expect((await toasts()).length).toBe(before + 1);
     const text = (await toasts()).at(-1) ?? '';
     expect(text).toContain('已匯入「新版的地圖」');
-    expect(text).toContain('15 個換成相近的種類、2 件家具略過、4 項設定略過。');
+    expect(text).toContain('15 個換成相近的種類、2 件家具略過、3 項設定略過。');
     expect(text).toContain('詳細');
     expect(text).toContain('復原');
     /* 門窗都在（換成最接近的種類），每一個都把牆切開 */
@@ -1366,15 +1366,19 @@ test.describe('存檔', () => {
       converted.filter({ hasText: '疊在牆上的牆洞（wall_hole） → 牆上的破洞' }),
     ).toHaveCount(1);
     const dropped = dialog.getByTestId('import-report-dropped').getByRole('listitem');
-    await expect(dropped).toHaveCount(4);
+    await expect(dropped).toHaveCount(3);
     await expect(dropped.first()).toContainText('2 件');
     await expect(dropped.first()).toContainText('throne ×1、npc_guard ×1');
-    await expect(dropped.filter({ hasText: '棋子方格（每格 1 m）' })).toHaveCount(1);
+    /* 棋子方格（v1.07 的 tokenGrid）照讀，不再算略過 */
+    await expect(dropped.filter({ hasText: '棋子方格' })).toHaveCount(0);
     await dialog.getByRole('button', { name: '關閉', exact: true }).click();
     await expect(dialog).toBeHidden();
+    /* 棋子方格讀進來了（tokenGrid: 2＝1 m） */
+    expect((await project(page)).tokenGrid).toBe(2);
     /* 復原回到匯入前（空白地圖） */
     await page.getByTestId('toast-action').last().click();
     await expect.poll(async () => (await project(page)).name).toBe('新的地圖');
+    expect((await project(page)).tokenGrid).toBeUndefined();
     expect(errors).toEqual([]);
   });
 
@@ -1719,14 +1723,14 @@ test.describe('分享連結與房間編號（2026-10，參考 Maptsukuri）', ()
     expect(ring(img, frame[1], b3)).toEqual([138, 63, 210, 255]);
     await page.keyboard.press('Escape');
 
-    /* 專案檔：版本 2、圓標帶著 */
+    /* 專案檔：版本 3（2026-10 圓標起 2、棋子方格起 3）、圓標帶著 */
     await page.getByTestId('map-canvas').focus();
     const [save] = await Promise.all([
       page.waitForEvent('download'),
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await save.path()) as string, 'utf8'));
-    expect(saved.version).toBe(2);
+    expect(saved.version).toBe(3);
     expect(
       saved.data.floors[0].texts.map((t: TextLabel) => [t.text, t.badge, t.gm ?? false]),
     ).toEqual([
@@ -1876,6 +1880,483 @@ test.describe('分享連結與圓標的修正（7.7）', () => {
     await expect(report).toBeVisible();
     await expect(report).toContainText('分享連結');
     await expect(report).not.toContainText('原作');
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('第一批跟進（2026-10，原作 v1.05～v1.14）', () => {
+  /** 照匯出對話框目前的設定畫出第一張圖，解成像素 */
+  async function exportedImage(page: Page) {
+    const r = await page.evaluate(() =>
+      (
+        window as unknown as {
+          __floorPlan: {
+            exportPng: () => { name: string; width: number; height: number; url: string };
+          };
+        }
+      ).__floorPlan.exportPng(),
+    );
+    return { ...r, img: pngPixels(Buffer.from(r.url.split(',')[1], 'base64')) };
+  }
+  const shareHash = (page: Page, mode: 'full' | 'pl') =>
+    page.evaluate(
+      (m) =>
+        (
+          window as unknown as { __floorPlan: { shareHash: (m: string) => string } }
+        ).__floorPlan.shareHash(m),
+      mode,
+    );
+  /** 地圖設定（沒有選取）或匯出對話框的「棋子方格」選單 */
+  async function chooseTokenGrid(page: Page, testId: string, label: string) {
+    await page.getByTestId(testId).click();
+    await page.getByRole('option', { name: label, exact: true }).click();
+  }
+  const dark = (c: number[]) => c[0] < 100;
+  const white = [255, 255, 255, 255];
+
+  test('棋子方格：地圖設定、不透明度、畫在家具上面；匯出的圖從左上角的方格線開始（F220、F221）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await twoRooms(page);
+    /* 一件家具跨過 x＝4 的方格線 */
+    await run(page, 'addObject', 'item', {
+      id: 'sofa',
+      t: 'sofa2',
+      x: 3,
+      y: 2,
+      w: 3.2,
+      h: 1.8,
+      rot: 0,
+    });
+    /* 沒有選取的東西時，屬性面板是地圖設定 */
+    await page.keyboard.press('Escape');
+    expect((await editorState(page)).sel).toEqual([]);
+    const panel = page.getByTestId('props-panel');
+    await expect(page.getByTestId('token-grid-size')).toContainText('不顯示');
+    await expect(panel.getByText('方格的顏色')).toHaveCount(0);
+    expect((await project(page)).tokenGrid).toBeUndefined();
+    await chooseTokenGrid(page, 'token-grid-size', '1 m');
+    expect((await project(page)).tokenGrid).toBe(2);
+    await expect(panel.getByText('方格的顏色')).toBeVisible();
+    await expect(panel.getByText('方格的不透明度').first()).toBeVisible();
+    /* 不透明度：滑桿 End＝100% */
+    const slider = page.getByRole('slider', { name: '方格的不透明度' });
+    await slider.focus();
+    await page.keyboard.press('End');
+    expect((await project(page)).tokenGridOpacity).toBe(1);
+    await page.getByTestId('map-canvas').focus();
+
+    /* 匯出（PL 用、每格 48 px）：960 × 576，每格 1 m＝96 px */
+    await page.getByTestId('export-open').click();
+    await expect(page.getByTestId('export-info')).toHaveText('960 × 576 px');
+    await expect(page.getByTestId('export-token-info')).toHaveText('棋子方格：每格 1 m ＝ 96 px');
+    let r = await exportedImage(page);
+    expect([r.width, r.height, r.img.width, r.img.height]).toEqual([960, 576, 960, 576]);
+    /* 圖的最左邊與最上面是方格線，每 96 px 一條；格線之間是留白（白） */
+    expect(dark(px(r.img, 0, 10))).toBe(true);
+    expect(dark(px(r.img, 10, 0))).toBe(true);
+    expect(px(r.img, 48, 10)).toEqual(white);
+    for (const x of [96, 192, 288])
+      expect(dark(px(r.img, x, 10)) || dark(px(r.img, x - 1, 10))).toBe(true);
+    expect(px(r.img, 60, 10)).toEqual(white);
+    /* 畫在家具的上面：沙發（世界座標 3～6.2 × 2～3.8）裡 x＝4 的方格線還看得到 */
+    const sy = Math.round((2.9 + 2) * 48);
+    expect(dark(px(r.img, 288, sy)) || dark(px(r.img, 287, sy))).toBe(true);
+    expect(px(r.img, Math.round((4.5 + 2) * 48), sy)[0]).toBeGreaterThan(100);
+
+    /* 1.5 m（3 格）：範圍對齊 3 格，左上角仍在方格線上 */
+    await chooseTokenGrid(page, 'export-token-grid', '1.5 m');
+    expect((await project(page)).tokenGrid).toBe(3);
+    await expect(page.getByTestId('export-info')).toHaveText('1008 × 720 px');
+    await expect(page.getByTestId('export-token-info')).toHaveText(
+      '棋子方格：每格 1.5 m ＝ 144 px',
+    );
+    r = await exportedImage(page);
+    expect([r.img.width % 144, r.img.height % 144]).toEqual([0, 0]);
+    expect(dark(px(r.img, 0, 10))).toBe(true);
+    expect(dark(px(r.img, 10, 0))).toBe(true);
+    expect(px(r.img, 72, 10)).toEqual(white);
+    expect(dark(px(r.img, 144, 10)) || dark(px(r.img, 143, 10))).toBe(true);
+    /* 每格大小 24 px：每格 72 px */
+    const exportDialog = page.getByTestId('export-dialog');
+    await exportDialog.getByRole('radio', { name: '24px' }).click();
+    await expect(page.getByTestId('export-token-info')).toHaveText('棋子方格：每格 1.5 m ＝ 72 px');
+    await expect(page.getByTestId('export-info')).toHaveText('504 × 360 px');
+    await exportDialog.getByRole('radio', { name: '48px' }).click();
+    /* GM 用：字帶的高度也對齊（取到 3 格） */
+    await exportDialog.getByRole('radio', { name: 'GM 用（全部顯示）' }).click();
+    await expect(page.getByTestId('export-info')).toHaveText('1008 × 864 px');
+    r = await exportedImage(page);
+    expect([r.img.width % 144, r.img.height % 144]).toEqual([0, 0]);
+    expect(dark(px(r.img, 0, 10 + 144))).toBe(true);
+    /* 開了「畫格線」：2 格與 3 格的最小公倍數＝6 格（288 px） */
+    await exportDialog.getByRole('switch', { name: '畫格線' }).click();
+    const info = await page.getByTestId('export-info').innerText();
+    const [w, h] = info.split(' px')[0].split(' × ').map(Number);
+    expect([w % 288, h % 288]).toEqual([0, 0]);
+    await page.keyboard.press('Escape');
+
+    /* 專案檔帶著（版本 3） */
+    await page.getByTestId('map-canvas').focus();
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.keyboard.press('Control+s'),
+    ]);
+    const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
+    expect(saved).toMatchObject({ version: 3 });
+    expect([saved.data.tokenGrid, saved.data.tokenGridOpacity]).toEqual([3, 1]);
+    expect(errors).toEqual([]);
+  });
+
+  test('棋子方格：復原、重新整理後還原、新的空白地圖保留、PL 用連結帶著、原作的 tokenGrid 讀得到（F220）', async ({
+    page,
+    browser,
+  }) => {
+    const errors = await open(page);
+    await blank(page);
+    await page.waitForTimeout(500);
+    await chooseTokenGrid(page, 'token-grid-size', '2 m');
+    expect((await project(page)).tokenGrid).toBe(4);
+    /* 復原一步就沒有了 */
+    await run(page, 'undo');
+    expect((await project(page)).tokenGrid).toBeUndefined();
+    await run(page, 'redo');
+    expect((await project(page)).tokenGrid).toBe(4);
+    await page.waitForTimeout(600);
+    /* 自動保存 */
+    await page.reload();
+    await page.waitForFunction(
+      () => !!(window as unknown as { __floorPlan?: unknown }).__floorPlan,
+    );
+    expect((await project(page)).tokenGrid).toBe(4);
+    await expect(page.getByTestId('token-grid-size')).toContainText('2 m');
+    /* 新的空白地圖保留方格設定 */
+    await run(page, 'newMap');
+    expect((await project(page)).tokenGrid).toBe(4);
+    /* 分享連結（PL 用）帶著方格；另一個瀏覽器環境打開 */
+    await run(page, 'loadTemplate', 'studio', { structureOnly: false, clues: false });
+    const hash = await shareHash(page, 'pl');
+    const ctx = await browser.newContext();
+    const other = await ctx.newPage();
+    const errors2: string[] = [];
+    other.on('pageerror', (e) => errors2.push(e.message));
+    await other.route(/fonts\.(googleapis|gstatic)\.com/, (r) =>
+      r.fulfill({ status: 200, contentType: 'text/css', body: '' }),
+    );
+    await other.goto(`${URL}${hash}`);
+    await other.waitForFunction(
+      () => !!(window as unknown as { __floorPlan?: unknown }).__floorPlan,
+    );
+    await expect.poll(async () => (await project(other)).tokenGrid).toBe(4);
+    await ctx.close();
+    /* 原作 v1.07 的地圖檔：tokenGrid＝3（1.5 m）照讀，通知裡不算略過 */
+    const legacy = {
+      app: 'indoor-map-maker',
+      v: 1,
+      tool: 'v1.07',
+      name: '方格的地圖',
+      theme: 'clean',
+      showSize: 'none',
+      showNames: true,
+      tokenGrid: 3,
+      floors: [
+        {
+          id: 'f',
+          name: '1F',
+          rooms: [{ id: 'r', x: 0, y: 0, w: 6, h: 4, name: '居間', cat: 'living' }],
+          walls: [],
+          openings: [],
+          items: [],
+          texts: [],
+        },
+      ],
+      active: 0,
+    };
+    await page.getByRole('button', { name: '專案' }).click();
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('menuitem', { name: '匯入「TRPG 室內圖メーカー」的地圖檔…' }).click();
+    await (await chooser).setFiles({
+      name: '方格.trpgmap.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(legacy)),
+    });
+    await expect(page.getByText('已匯入「方格的地圖」', { exact: true })).toBeVisible();
+    expect((await project(page)).tokenGrid).toBe(3);
+    await expect(page.getByText('項設定略過')).toHaveCount(0);
+    expect([...errors, ...errors2]).toEqual([]);
+  });
+
+  test('沿著牆拖曳放門窗：長度跟著拖曳（對齊 0.25 格）、停在別的門窗旁、沒拖就照預設寬度；一步復原（F223）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await blank(page);
+    await page.keyboard.press('b');
+    await drag(page, [0, 0], [10, 8]);
+    await page.keyboard.press('v');
+    /* 窗（N）：在上面的外牆 x＝2 按下、拖到 5.1（對齊 → 5） */
+    await page.keyboard.press('n');
+    await drag(page, [2, 0], [5.1, 0]);
+    let f = await floor(page);
+    expect(f.openings).toHaveLength(1);
+    expect(f.openings[0]).toMatchObject({ kind: 'window', o: 'h', x: 2, y: 0, len: 3 });
+    expect((await editorState(page)).tool).toBe('window');
+    expect(await walls(page)).toEqual(expect.arrayContaining(['h0:0-2:ext', 'h0:5-10:ext']));
+    /* 一次放下＝一步復原 */
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Control+z');
+    expect((await floor(page)).openings).toHaveLength(0);
+    await page.keyboard.press('Control+Shift+z');
+    expect((await floor(page)).openings).toHaveLength(1);
+    /* 門（D）：x＝7 按下往左拖過頭（到 0）→ 停在窗的右邊（5） */
+    await page.keyboard.press('d');
+    await drag(page, [7, 0], [0, 0]);
+    f = await floor(page);
+    expect(f.openings).toHaveLength(2);
+    expect(f.openings[1]).toMatchObject({ kind: 'door', o: 'h', x: 5, y: 0, len: 2 });
+    /* 往右拖到牆段的盡頭以外：不超出牆段（10） */
+    await drag(page, [8, 0], [14, 0]);
+    expect((await floor(page)).openings[2]).toMatchObject({ kind: 'door', x: 8, len: 2 });
+    /* 沒拖（點一下）：照預設寬度（門 1.5 格）；垂直的牆上也可以拖 */
+    await click(page, 10, 3);
+    expect((await floor(page)).openings[3]).toMatchObject({
+      kind: 'door',
+      o: 'v',
+      x: 10,
+      y: 2.25,
+      len: 1.5,
+    });
+    await drag(page, [10, 5], [10, 7.6]);
+    expect((await floor(page)).openings[4]).toMatchObject({ o: 'v', y: 5, len: 2.5 });
+    expect(await walls(page)).toEqual(
+      expect.arrayContaining(['v10:0-2.25:ext', 'v10:3.75-5:ext', 'v10:7.5-8:ext']),
+    );
+    expect(errors).toEqual([]);
+  });
+
+  test('沿牆拖曳：「開口」「牆上的破洞」挖掉任意長度的一段牆；Esc 取消；放好後仍可用控制點改寬度（F223、F111）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await blank(page);
+    await page.keyboard.press('b');
+    await drag(page, [0, 0], [10, 8]);
+    await page.keyboard.press('v');
+    await page.getByRole('tab', { name: '門窗' }).click();
+    await page.getByTestId('library').locator('[data-opening="open"]').click();
+    await drag(page, [1, 8], [9.5, 8]);
+    expect((await floor(page)).openings[0]).toMatchObject({
+      kind: 'open',
+      o: 'h',
+      y: 8,
+      x: 1,
+      len: 8.5,
+    });
+    const w1 = await walls(page);
+    expect(w1).toEqual(expect.arrayContaining(['h8:0-1:ext', 'h8:9.5-10:ext']));
+    expect(w1.filter((w) => w.startsWith('h8:'))).toHaveLength(2);
+    await page.getByTestId('library').locator('[data-opening="hole"]').click();
+    await drag(page, [0, 2], [0, 6.1]);
+    expect((await floor(page)).openings[1]).toMatchObject({
+      kind: 'hole',
+      o: 'v',
+      x: 0,
+      y: 2,
+      len: 4,
+    });
+    /* Esc：拖曳到一半取消，什麼都沒放 */
+    const a = await at(page, 4, 0);
+    const b = await at(page, 7, 0);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 4 });
+    expect((await floor(page)).openings).toHaveLength(3);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    expect((await floor(page)).openings).toHaveLength(2);
+    /* 放好之後選取工具的控制點照舊可以改寬度 */
+    await page.keyboard.press('v');
+    await click(page, 5, 8);
+    const o = (await floor(page)).openings[0];
+    expect((await editorState(page)).sel).toEqual([{ type: 'opening', id: o.id }]);
+    await drag(page, [9.5, 8], [8, 8]);
+    expect((await floor(page)).openings[0]).toMatchObject({ x: 1, len: 7 });
+    expect(errors).toEqual([]);
+  });
+
+  /** 房間 (0,0,10,8)：裡面有家具、文字、一道隔間牆、邊上有一扇門；旁邊一間空房 (10,0,6,8) */
+  async function roomWithThings(page: Page) {
+    await twoRooms(page);
+    await run(page, 'addObject', 'item', {
+      id: 'sofa',
+      t: 'sofa2',
+      x: 2,
+      y: 4,
+      w: 3.2,
+      h: 1.8,
+      rot: 0,
+    });
+    await run(page, 'addObject', 'text', { id: 'note', x: 6, y: 2, text: '說明' });
+    await run(page, 'addObject', 'wall', { id: 'wl', x1: 5, y1: 6, x2: 8, y2: 6, kind: 'int' });
+    await run(page, 'addObject', 'opening', {
+      id: 'dr',
+      kind: 'door',
+      o: 'h',
+      x: 4,
+      y: 0,
+      len: 1.5,
+      side: 1,
+      hinge: 0,
+    });
+    await page.keyboard.press('v');
+  }
+  const counts = async (page: Page) => {
+    const f = await floor(page);
+    return [f.rooms.length, f.items.length, f.texts.length, f.walls.length, f.openings.length];
+  };
+
+  test('刪除有東西的房間：只刪房間／連裡面的東西一起刪／取消；一步復原（F224）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await roomWithThings(page);
+    expect(await counts(page)).toEqual([2, 1, 1, 1, 1]);
+    const dialog = page.getByRole('alertdialog');
+    /* 取消：什麼都不刪 */
+    await click(page, 8, 1);
+    await page.keyboard.press('Delete');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('刪除「房間」？');
+    await expect(dialog).toContainText('房間裡還有 1 件家具、1 則文字、1 個門窗、1 道牆');
+    await dialog.getByRole('button', { name: '取消' }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(await counts(page)).toEqual([2, 1, 1, 1, 1]);
+    /* 只刪房間：東西留著；一步復原 */
+    await page.keyboard.press('Delete');
+    await dialog.getByRole('button', { name: '只刪房間' }).click();
+    expect(await counts(page)).toEqual([1, 1, 1, 1, 1]);
+    await expect(page.getByText('已刪除 1 個', { exact: true })).toBeVisible();
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Control+z');
+    expect(await counts(page)).toEqual([2, 1, 1, 1, 1]);
+    /* Esc 關掉對話框＝取消；連裡面的東西一起刪，一步復原 */
+    await click(page, 8, 1);
+    await page.keyboard.press('Delete');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    expect(await counts(page)).toEqual([2, 1, 1, 1, 1]);
+    await page.keyboard.press('Delete');
+    await dialog.getByRole('button', { name: '連裡面的東西一起刪' }).click();
+    expect(await counts(page)).toEqual([1, 0, 0, 0, 0]);
+    await expect(page.getByText('已刪除 5 個', { exact: true })).toBeVisible();
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Control+z');
+    expect(await counts(page)).toEqual([2, 1, 1, 1, 1]);
+    await page.keyboard.press('Control+Shift+z');
+    expect(await counts(page)).toEqual([1, 0, 0, 0, 0]);
+    expect(errors).toEqual([]);
+  });
+
+  test('刪除房間：空的房間不問；屬性面板與迷你工具列的刪除會問；剪下、橡皮擦不問；鎖定的房間略過（F224）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await roomWithThings(page);
+    const dialog = page.getByRole('alertdialog');
+    /* 旁邊的空房間：直接刪 */
+    await click(page, 14, 4);
+    await page.keyboard.press('Delete');
+    await expect(dialog).toHaveCount(0);
+    expect(await counts(page)).toEqual([1, 1, 1, 1, 1]);
+    /* 屬性面板的刪除鈕也會問 */
+    await click(page, 8, 1);
+    await page.getByTestId('props-panel').getByRole('button', { name: '刪除' }).click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: '取消' }).click();
+    /* 迷你工具列的刪除也會問 */
+    await page.getByTestId('mini-bar').locator('[data-mini="delete"]').click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: '只刪房間' }).click();
+    expect(await counts(page)).toEqual([0, 1, 1, 1, 1]);
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Control+z');
+    expect(await counts(page)).toEqual([1, 1, 1, 1, 1]);
+    /* 剪下：連同裡面的東西帶走，不問；貼上帶回來 */
+    await click(page, 8, 1);
+    await page.keyboard.press('Control+x');
+    await expect(dialog).toHaveCount(0);
+    expect(await counts(page)).toEqual([0, 0, 0, 0, 0]);
+    await page.keyboard.press('Control+v');
+    expect(await counts(page)).toEqual([1, 1, 1, 1, 1]);
+    /* 鎖定的房間：略過、不問 */
+    await run(page, 'toggleLock');
+    await page.keyboard.press('Delete');
+    await expect(dialog).toHaveCount(0);
+    expect(await counts(page)).toEqual([1, 1, 1, 1, 1]);
+    await run(page, 'toggleLock');
+    /* 橡皮擦：點房間照舊只刪房間（不問，可以復原） */
+    await page.keyboard.press('e');
+    await click(page, 8, 1);
+    await expect(dialog).toHaveCount(0);
+    expect((await counts(page))[0]).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('範本的後台類房間預設只有 GM 看得到：圖書館的機房、倉庫、館員辦公室；PL 檢視只剩牆框；可以關掉（F225）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await page.getByRole('button', { name: '範本' }).click();
+    const dialog = page.getByTestId('template-dialog');
+    await dialog.getByRole('radio', { name: '公共場所' }).click();
+    await dialog.getByRole('button', { name: /^圖書館/ }).click();
+    const p = await project(page);
+    const gm = p.floors.flatMap((f) =>
+      f.rooms.filter((r) => r.gm).map((r) => `${f.name}/${r.name}`),
+    );
+    expect(gm.sort()).toEqual(['1F/館員辦公室', 'B1/倉庫', 'B1/禁書庫', 'B1/機房'].sort());
+    /* 有線索的房間與一進門就看得到的房間不是 GM 專用 */
+    const open1 = p.floors.flatMap((f) => f.rooms.filter((r) => !r.gm).map((r) => r.name));
+    for (const n of ['修復室', '古籍室', '大廳・服務台', '開架閱覽區']) expect(open1).toContain(n);
+    /* PL 檢視（地面層 1F）：館員辦公室只剩牆框，沒有名字 */
+    await page.getByRole('radio', { name: 'PL 檢視' }).click();
+    const masked = () =>
+      page.evaluate(() => {
+        const h = (
+          window as unknown as {
+            __floorPlan: {
+              editor: { debugShown: () => { rooms: { name: string; masked?: boolean }[] } };
+            };
+          }
+        ).__floorPlan;
+        return h.editor
+          .debugShown()
+          .rooms.filter((r) => r.masked)
+          .map((r) => r.name);
+      });
+    expect(await masked()).toEqual(['']);
+    await page.getByRole('radio', { name: 'GM 檢視' }).click();
+    /* 在屬性面板關掉「只有 GM 看得到」：選取館員辦公室 → 關閉 → 復原回來 */
+    const office = (await floor(page)).rooms.find((r) => r.name === '館員辦公室');
+    expect(office?.gm).toBe(true);
+    await page.evaluate((id) => {
+      (
+        window as unknown as {
+          __floorPlan: {
+            useEditor: { setState: (s: { sel: { type: string; id: string }[] }) => void };
+          };
+        }
+      ).__floorPlan.useEditor.setState({ sel: [{ type: 'room', id: id as string }] });
+    }, office?.id);
+    await page
+      .getByTestId('props-panel')
+      .getByRole('switch', { name: /只有 GM 看得到/ })
+      .click();
+    expect((await floor(page)).rooms.find((r) => r.name === '館員辦公室')?.gm).toBeUndefined();
+    await page.waitForTimeout(500);
+    await run(page, 'undo');
+    expect((await floor(page)).rooms.find((r) => r.name === '館員辦公室')?.gm).toBe(true);
     expect(errors).toEqual([]);
   });
 });

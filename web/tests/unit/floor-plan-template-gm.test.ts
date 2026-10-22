@@ -1,5 +1,5 @@
 /**
- * 室內平面圖：範本的後台類房間預設「只有 GM 看得到」（2026-10，原作 v1.12；規格 F225、D34）。
+ * 室內平面圖：範本的後台類房間預設「只有 GM 看得到」（2026-10，原作 v1.12；規格 F225、D37）。
  *
  * 規則：照範本裡的標記（GM_DEFAULT_ROOMS：範本 id → 樓層 → 房間名稱），不照房間種類——同樣是「辦公」，
  * 警察局的所長室有線索、要讓 PL 逛，圖書館的館員辦公室才是員工區。
@@ -37,7 +37,7 @@ const DEFAULTS: Record<string, string[]> = {
   'abandoned-hospital': ['2F/器材室', 'B1/廢棄物間', 'B1/鍋爐室'],
 };
 
-describe('範本的預設 GM 專用房間（F225、D34）', () => {
+describe('範本的預設 GM 專用房間（F225、D37）', () => {
   it('標記表裡的每個範本、樓層、房間都存在，而且同一層的房間名稱只有一間（不會標錯）', () => {
     for (const [id, byFloor] of Object.entries(GM_DEFAULT_ROOMS)) {
       expect(getTemplate(id), id).toBeTruthy();
