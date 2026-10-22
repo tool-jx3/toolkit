@@ -21,7 +21,10 @@ export function shrine(): TplFloor[] {
   fillYard(b, 0, 0, 44, 48, '鎮守之森');
   b.find('鎮守之森').hideLabel = false;
   /* 禁足地的圍籬（注連繩） */
-  b.wall(0, 0, 12, 0, 'fence').wall(0, 0, 0, 12, 'fence').wall(12, 0, 12, 12, 'fence').wall(0, 12, 12, 12, 'fence');
+  b.wall(0, 0, 12, 0, 'fence')
+    .wall(0, 0, 0, 12, 'fence')
+    .wall(12, 0, 12, 12, 'fence')
+    .wall(0, 12, 12, 12, 'fence');
   b.dh(19, 16, 6, -1, 0, 'open') // 拜殿的正面
     .dh(21, 8, 2, -1, 0, 'sliding')
     .dh(4, 12, 2, 1, 0, 'sealed')
@@ -149,11 +152,19 @@ export function church(): TplFloor[] {
   g.item('tree', 0.6, 46).item('tree', 39, 2).item('lantern', 23.6, 39);
 
   const bm = new FloorBuilder('B1');
-  bm.room('地下墓室', 'stone', 8, 0, 20, 14, { wall: 'stone' }).room('封印的納骨堂', 'danger', 8, 14, 20, 8, {
-    gm: true,
-    wall: 'stone',
-    note: '地下墓室南牆的鐵門被焊死，門上刻著拉丁文的警告。裡面的骨頭排成了一個圖形。',
-  });
+  bm.room('地下墓室', 'stone', 8, 0, 20, 14, { wall: 'stone' }).room(
+    '封印的納骨堂',
+    'danger',
+    8,
+    14,
+    20,
+    8,
+    {
+      gm: true,
+      wall: 'stone',
+      note: '地下墓室南牆的鐵門被焊死，門上刻著拉丁文的警告。裡面的骨頭排成了一個圖形。',
+    },
+  );
   churchStairs(bm);
   bm.dh(16.5, 14, 2, 1, 0, 'sealed');
   bm.item('sarcophagus', 18, 1, 90)

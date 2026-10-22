@@ -89,8 +89,7 @@ function aptStairs(b: FloorBuilder, h: number): void {
 export function apartment(): TplFloor[] {
   const g = new FloorBuilder('1F');
   /* 西：自助洗衣店（北邊是後場）；東：房東家（和室） */
-  g.room('洗衣店後場', 'storage', 0, 0, 17, 6)
-    .room('自助洗衣店', 'public', 0, 6, 17, 18);
+  g.room('洗衣店後場', 'storage', 0, 0, 17, 6).room('自助洗衣店', 'public', 0, 6, 17, 18);
   aptStairs(g, 24);
   aptUnit(
     g,
@@ -155,7 +154,8 @@ export function apartment(): TplFloor[] {
     },
     { gm: true, locked: true },
   );
-  u.find('B 客廳').note = '房東說這一戶「暫時不租」。門縫底下塞滿了沒拆的信，屋裡的鐘全停在同一個時刻。';
+  u.find('B 客廳').note =
+    '房東說這一戶「暫時不租」。門縫底下塞滿了沒拆的信，屋裡的鐘全停在同一個時刻。';
   u.item('plant', 17.4, 21.6).item('plant', 21.4, 21.6);
 
   const r = new FloorBuilder('頂樓');
@@ -306,9 +306,7 @@ export function house(): TplFloor[] {
       note: '樓梯下的牆是暗門。前屋主在這裡「養」著什麼，牆上全是指甲刮過的痕跡。',
     });
   houseStairs(bm);
-  bm.dv(14, 5, 1.5, -1, 0)
-    .dv(18, 5, 1.5, 1, 0)
-    .dv(18, 15.5, 1.5, 1, 0, 'secret');
+  bm.dv(14, 5, 1.5, -1, 0).dv(18, 5, 1.5, 1, 0).dv(18, 15.5, 1.5, 1, 0, 'secret');
   bm.item('tool_shelf', 4.1, 6.6, 270)
     .item('tool_shelf', 4.1, 10, 270)
     .item('cardboard', 7, 4.4)

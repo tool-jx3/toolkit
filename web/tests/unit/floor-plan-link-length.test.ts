@@ -80,24 +80,26 @@ const range = (pick: (r: Row) => number): [number, number] => {
 };
 
 describe('分享連結的長度（3.7、D41）', () => {
-  it('15 個範本都量到了；最短是套房、最長是洋館', () => {
+  it('56 個範本都量到了（2026-10 第三批後半 15 → 56）；最短是套房、最長是洋館', () => {
     expect(rows.map((r) => r.id)).toEqual(TEMPLATES.map((t) => t.id));
-    expect(rows).toHaveLength(15);
+    expect(rows).toHaveLength(56);
     const by = (pick: (r: Row) => number, f: (...n: number[]) => number) =>
       rows.find((r) => pick(r) === f(...rows.map(pick)))?.id;
     expect(by((r) => r.full, Math.min)).toBe('studio');
     expect(by((r) => r.full, Math.max)).toBe('mansion');
+    /* PL 用連結最短的是便利商店（後場三間預設 GM 專用，只剩牆框） */
+    expect(by((r) => r.pl, Math.min)).toBe('konbini');
   });
 
-  it('完整連結 944～3,038 字（放入隱藏線索 1,184～3,340）；PL 用連結 948～2,653 字', () => {
+  it('完整連結 944～3,038 字（放入隱藏線索 1,184～3,340）；PL 用連結 942～2,653 字', () => {
     expect(range((r) => r.full)).toEqual([944, 3038]);
     expect(range((r) => r.fullClues)).toEqual([1184, 3340]);
-    expect(range((r) => r.pl)).toEqual([948, 2653]);
+    expect(range((r) => r.pl)).toEqual([942, 2653]);
   });
 
-  it('放入隱藏線索後每一層都「依序編號」：完整 1,258～3,616、PL 用 1,034～2,896 字；上限 8,000 字約是最長的 2.2 倍', () => {
+  it('放入隱藏線索後每一層都「依序編號」：完整 1,258～3,616、PL 用 1,012～2,896 字；上限 8,000 字約是最長的 2.2 倍', () => {
     expect(range((r) => r.fullNumbered)).toEqual([1258, 3616]);
-    expect(range((r) => r.plNumbered)).toEqual([1034, 2896]);
+    expect(range((r) => r.plNumbered)).toEqual([1012, 2896]);
     for (const r of rows)
       for (const n of [r.full, r.fullClues, r.pl, r.fullNumbered, r.plNumbered])
         expect(n, r.id).toBeLessThan(SHARE_MAX_LENGTH);

@@ -7,24 +7,24 @@
 import type { Floor, ThemeId } from '../model/types';
 import { FloorBuilder, type TplFloor, toFloor } from './builder';
 import { hospital, hotel } from './buildings';
+import { clubBuilding, funeralHome, museum } from './civic';
 import { addClues, type ClueSpec } from './clues';
+import { detective, konbini, nightMarket, office, shoppingStreet } from './commerce';
 import { decay } from './decay';
+import { dungeon, spaceship, tavern, wizardTower } from './fantasy';
 import { applyGmDefaults } from './gmDefaults';
 import { lodge, mansion, studio, townhouse } from './homes';
+import { construction, factory, sewer, warehouse } from './industry';
+import { karaoke, theatre } from './leisure';
 import { apartment, house, japaneseHouse, sanheyuan } from './living';
 import { diner, ryokan, speakeasy } from './lodging';
-import { asylum, hospitalAnnex, lab } from './research';
-import { clubBuilding, funeralHome, museum } from './civic';
-import { detective, konbini, nightMarket, office, shoppingStreet } from './commerce';
-import { karaoke, theatre } from './leisure';
-import { ferry, parking, station, subway } from './transport';
-import { construction, factory, sewer, warehouse } from './industry';
 import { militaryBase, prison } from './military';
-import { castle, church, shrine } from './sacred';
 import { campsite, mine } from './outdoor';
-import { abandonedFactory, abandonedSchool } from './ruins';
-import { dungeon, spaceship, tavern, wizardTower } from './fantasy';
 import { library, police, school, temple } from './public';
+import { asylum, hospitalAnnex, lab } from './research';
+import { abandonedFactory, abandonedSchool } from './ruins';
+import { castle, church, shrine } from './sacred';
+import { ferry, parking, station, subway } from './transport';
 import { cave, cult } from './wild';
 
 /**
@@ -565,8 +565,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     id: 'karaoke',
     group: 'leisure',
     name: 'KTV',
-    description:
-      '櫃台大廳、廚房與員工室，走廊兩側是隔音的包廂；最裡面上鎖的 VIP 包廂是 GM 專用。',
+    description: '櫃台大廳、廚房與員工室，走廊兩側是隔音的包廂；最裡面上鎖的 VIP 包廂是 GM 專用。',
     build: karaoke,
     clues: [
       C('1F', '櫃台大廳', 'papers', '包廂的登記表'),

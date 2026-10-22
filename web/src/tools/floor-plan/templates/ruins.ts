@@ -20,7 +20,9 @@ function dropCrossing(floors: TplFloor[]): TplFloor[] {
         !(it.t === 'debris' || it.t === 'glass') ||
         !lines.some((r) => {
           const [c0, c1, a0, a1] =
-            r.o === 'h' ? [it.y, it.y + it.h, it.x, it.x + it.w] : [it.x, it.x + it.w, it.y, it.y + it.h];
+            r.o === 'h'
+              ? [it.y, it.y + it.h, it.x, it.x + it.w]
+              : [it.x, it.x + it.w, it.y, it.y + it.h];
           return c0 < r.c && c1 > r.c && Math.min(a1, r.b) - Math.max(a0, r.a) > 0;
         }),
     );
@@ -28,8 +30,16 @@ function dropCrossing(floors: TplFloor[]): TplFloor[] {
   return floors;
 }
 
-const wallItem = (f: Floor, t: string, x: number, y: number, w: number, h: number, rot = 0, gm = false) =>
-  f.items.push({ t, x, y, w, h, rot, ...(gm ? { gm: true } : {}) });
+const wallItem = (
+  f: Floor,
+  t: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  rot = 0,
+  gm = false,
+) => f.items.push({ t, x, y, w, h, rot, ...(gm ? { gm: true } : {}) });
 
 /* ---------- 廢棄工廠 ---------- */
 
@@ -62,7 +72,8 @@ export function abandonedSchool(): TplFloor[] {
   const prep = g.rooms.find((r) => r.name === '準備室');
   if (prep) {
     prep.gm = true;
-    prep.note = '標本櫃最裡面有一個不在清冊上的標本罐。廢校那年失蹤的老師，最後一次被看到就是在這裡。';
+    prep.note =
+      '標本櫃最裡面有一個不在清冊上的標本罐。廢校那年失蹤的老師，最後一次被看到就是在這裡。';
   }
   wallItem(g, 'wall_graffiti', 5.7, 6, 0.6, 3, 90);
   wallItem(g, 'crack_wall', 57, -0.4, 3, 0.8);

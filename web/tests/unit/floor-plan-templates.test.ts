@@ -7,6 +7,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ASSET } from '@/tools/floor-plan/model/assets';
+import {
+  UPSTREAM_ITEMS_V105,
+  UPSTREAM_ITEMS_V106,
+  UPSTREAM_ITEMS_V110,
+} from '@/tools/floor-plan/model/compat';
 import { emptyFloor, rectContains, rectsOverlap } from '@/tools/floor-plan/model/geometry';
 import { groundFloorIndex } from '@/tools/floor-plan/model/ops';
 import type { Floor, Item } from '@/tools/floor-plan/model/types';
@@ -16,6 +21,7 @@ import {
   instantiateTemplate,
   TEMPLATE_GROUPS,
   TEMPLATES,
+  templateGroups,
 } from '@/tools/floor-plan/templates';
 import { findSpot, wrapClueText } from '@/tools/floor-plan/templates/clues';
 import {
@@ -269,33 +275,115 @@ describe('範本目錄', () => {
     );
   });
 
-  it('2026-10 增補：學校、警察局、寺廟、洞窟、山中小屋、圖書館、地下教團據點；分類（F190、D17）', () => {
-    const group = (id: string) => getTemplate(id)?.group;
+  it('分類（F190、D17；2026-10 第三批後半 F237、D53）：13 類，一個範本可以放在好幾類，「全部」依主要分類的順序', () => {
     expect(TEMPLATE_GROUPS.map((g) => g.name)).toEqual([
       '住宅',
+      '住宿・餐飲',
+      '醫療・研究',
       '公共場所',
+      '商店・辦公',
+      '娛樂・表演',
+      '交通・運輸',
+      '工業・設施',
+      '軍警・保全',
+      '宗教・古蹟',
       '野外・地下',
       '廢墟・事件',
+      '奇幻・科幻',
     ]);
-    expect(['studio', 'townhouse', 'mansion', 'lodge'].map(group)).toEqual(Array(4).fill('home'));
-    expect(['hotel', 'hospital', 'school', 'police', 'library', 'temple'].map(group)).toEqual(
-      Array(6).fill('public'),
-    );
-    expect(['cave', 'cult'].map(group)).toEqual(['wild', 'wild']);
-    expect(['abandoned-hospital', 'ruined-house', 'crime'].map(group)).toEqual(
-      Array(3).fill('ruins'),
-    );
-    /* 開頁載入第一個範本（F01），範本依分類的順序排 */
+    const inGroup = (g: string) =>
+      TEMPLATES.filter((t) => templateGroups(t).includes(g as never)).map((t) => t.id);
+    expect(Object.fromEntries(TEMPLATE_GROUPS.map((g) => [g.id, inGroup(g.id)]))).toEqual({
+      home: [
+        'studio',
+        'townhouse',
+        'mansion',
+        'lodge',
+        'apartment',
+        'house',
+        'sanheyuan',
+        'japanese-house',
+        'ruined-house',
+        'crime',
+      ],
+      lodging: ['lodge', 'hotel', 'ryokan', 'speakeasy', 'diner', 'tavern'],
+      medical: ['hospital', 'hospital-annex', 'lab', 'asylum', 'abandoned-hospital'],
+      public: [
+        'school',
+        'library',
+        'club-building',
+        'museum',
+        'funeral-home',
+        'police',
+        'temple',
+        'abandoned-school',
+      ],
+      commerce: [
+        'diner',
+        'office',
+        'konbini',
+        'detective',
+        'shopping-street',
+        'night-market',
+        'parking',
+      ],
+      leisure: [
+        'speakeasy',
+        'club-building',
+        'museum',
+        'night-market',
+        'theatre',
+        'karaoke',
+        'campsite',
+      ],
+      transport: ['station', 'subway', 'parking', 'ferry', 'warehouse'],
+      industry: ['factory', 'warehouse', 'construction', 'sewer', 'mine', 'abandoned-factory'],
+      military: ['lab', 'police', 'military-base', 'prison'],
+      sacred: [
+        'sanheyuan',
+        'japanese-house',
+        'funeral-home',
+        'temple',
+        'shrine',
+        'church',
+        'castle',
+      ],
+      wild: ['lodge', 'sewer', 'cave', 'cult', 'campsite', 'mine', 'dungeon'],
+      ruins: [
+        'asylum',
+        'detective',
+        'construction',
+        'cult',
+        'mine',
+        'abandoned-hospital',
+        'ruined-house',
+        'abandoned-factory',
+        'abandoned-school',
+        'crime',
+      ],
+      fantasy: ['castle', 'dungeon', 'spaceship', 'tavern', 'wizard-tower'],
+    });
+    /* 其他分類不重複、不等於主要分類；每一類至少 4 個 */
+    for (const t of TEMPLATES) {
+      expect(new Set(templateGroups(t)).size, t.id).toBe(templateGroups(t).length);
+      expect(t.also ?? [], t.id).not.toContain(t.group);
+    }
+    for (const g of TEMPLATE_GROUPS) expect(inGroup(g.id).length, g.id).toBeGreaterThanOrEqual(4);
+    /* 開頁載入第一個範本（F01），範本依主要分類的順序排 */
     expect(TEMPLATES[0].id).toBe('studio');
     const order = TEMPLATE_GROUPS.map((g) => g.id);
     const groups = TEMPLATES.map((t) => order.indexOf(t.group));
     expect(groups).toEqual([...groups].sort((a, b) => a - b));
-    expect(TEMPLATES).toHaveLength(15);
-    /* 恐怖調查樣式：廢墟（命案現場除外）與地下教團據點 */
+    expect(TEMPLATES).toHaveLength(56);
+    expect(new Set(TEMPLATES.map((t) => t.id)).size).toBe(56);
+    expect(new Set(TEMPLATES.map((t) => t.name)).size).toBe(56);
+    /* 恐怖調查樣式：主要分類是廢墟的（命案現場除外）與地下教團據點 */
     expect(TEMPLATES.filter((t) => t.theme === 'horror').map((t) => t.id)).toEqual([
       'cult',
       'abandoned-hospital',
       'ruined-house',
+      'abandoned-factory',
+      'abandoned-school',
     ]);
   });
 
@@ -396,5 +484,186 @@ describe('範本目錄', () => {
     expect(wrapClueText('短短的')).toBe('短短的');
     expect(wrapClueText('被撕下的、住宿登記表')).toBe('被撕下的、\n住宿登記表');
     expect(wrapClueText('一二三四五六七八')).toBe('一二三四\n五六七八');
+  });
+});
+
+/* ---------- 2026-10 第三批後半：新增的 41 個範本（F237～F239） ---------- */
+
+/** 新範本（目錄裡的順序）與每一層的名稱 */
+const NEW_FLOORS: Record<string, string[]> = {
+  apartment: ['1F', '4F', '頂樓'],
+  house: ['B1', '1F', '2F'],
+  sanheyuan: ['1F'],
+  'japanese-house': ['B1', '1F'],
+  ryokan: ['1F', '2F'],
+  speakeasy: ['B1', '1F'],
+  diner: ['1F'],
+  'hospital-annex': ['1F', '2F'],
+  lab: ['B2', 'B1', '1F'],
+  asylum: ['B1', '1F'],
+  'club-building': ['1F', '2F'],
+  museum: ['B1', '1F'],
+  'funeral-home': ['1F'],
+  office: ['1F', '8F', '屋頂'],
+  konbini: ['1F'],
+  detective: ['1F', '2F'],
+  'shopping-street': ['1F'],
+  'night-market': ['1F'],
+  theatre: ['B1', '1F'],
+  karaoke: ['1F'],
+  station: ['B1', '1F'],
+  subway: ['B2', 'B1', '1F'],
+  parking: ['B2', 'B1', '1F'],
+  ferry: ['B1', '1F', '2F'],
+  factory: ['1F', '2F'],
+  warehouse: ['1F'],
+  construction: ['1F', '2F'],
+  sewer: ['B1', '1F'],
+  'military-base': ['B1', '1F'],
+  prison: ['1F'],
+  shrine: ['1F'],
+  church: ['B1', '1F'],
+  castle: ['B1', '1F'],
+  campsite: ['1F'],
+  mine: ['B1', '1F'],
+  'abandoned-factory': ['1F', '2F'],
+  'abandoned-school': ['1F', '2F', '屋頂'],
+  dungeon: ['B1'],
+  spaceship: ['1F'],
+  tavern: ['1F', '2F'],
+  'wizard-tower': ['1F', '2F', '3F'],
+};
+const NEW_IDS = Object.keys(NEW_FLOORS);
+
+describe('2026-10 第三批後半的範本（F237～F239）', () => {
+  it('41 個新範本：樓層的名稱與順序（下一層在左邊）、載入後在地面層', () => {
+    expect(NEW_IDS).toHaveLength(41);
+    expect(TEMPLATES.map((t) => t.id).filter((id) => NEW_IDS.includes(id))).toEqual(NEW_IDS);
+    for (const id of NEW_IDS) {
+      const fs = build(id);
+      expect(
+        fs.map((f) => f.name),
+        id,
+      ).toEqual(NEW_FLOORS[id]);
+      const g = groundFloorIndex(fs);
+      expect(fs[g].name, id).toBe(NEW_FLOORS[id].includes('1F') ? '1F' : NEW_FLOORS[id][0]);
+    }
+  });
+
+  it('每個新範本都有 GM 專用的房間（寫死的密室或預設的後台）、3～5 條線索、至少 6 間有名字的房間', () => {
+    for (const id of NEW_IDS) {
+      const fs = build(id);
+      expect(
+        fs.some((f) => f.rooms.some((r) => r.gm)),
+        id,
+      ).toBe(true);
+      const tpl = getTemplate(id);
+      expect(tpl?.clues.length, id).toBeGreaterThanOrEqual(3);
+      expect(tpl?.clues.length, id).toBeLessThanOrEqual(5);
+      const named = fs.flatMap((f) => f.rooms.filter((r) => !r.hideLabel));
+      expect(named.length, id).toBeGreaterThanOrEqual(6);
+      /* GM 專用的房間有 GM 筆記或是預設的後台（筆記寫在寫死的密室） */
+      expect(fs.some((f) => f.rooms.some((r) => r.gm && r.note)) || id === 'konbini', id).toBe(
+        true,
+      );
+    }
+  });
+
+  it('用到第二批的門窗、牆、房間種類與第三批前半的家具、貼牆素材', () => {
+    const fs = NEW_IDS.flatMap((id) => build(id));
+    const kinds = new Set(fs.flatMap((f) => f.openings.map((o) => o.kind)));
+    for (const k of ['steel', 'firedoor', 'gate', 'big2', 'revolve', 'sealed', 'platewin'])
+      expect(kinds.has(k as never), k).toBe(true);
+    const walls = new Set([
+      ...fs.flatMap((f) => f.walls.map((w) => w.kind)),
+      ...fs.flatMap((f) => f.rooms.flatMap((r) => (r.wall ? [r.wall] : []))),
+    ]);
+    for (const k of ['stone', 'sound', 'cracked']) expect(walls.has(k as never), k).toBe(true);
+    const cats = new Set(fs.flatMap((f) => f.rooms.map((r) => r.cat)));
+    for (const c of [
+      'engawa',
+      'studio',
+      'stone',
+      'industrial',
+      'grate',
+      'platform',
+      'track',
+      'road',
+      'rooftop',
+      'slab',
+      'dirt',
+      'gravel',
+      'shipdeck',
+    ])
+      expect(cats.has(c as never), c).toBe(true);
+    const items = new Set(fs.flatMap((f) => f.items.map((i) => i.t)));
+    const newFurniture = new Set([
+      ...UPSTREAM_ITEMS_V105,
+      ...UPSTREAM_ITEMS_V106,
+      ...UPSTREAM_ITEMS_V110,
+      'wall_graffiti',
+      'wall_claws',
+      'wall_blood',
+      'wall_mold',
+    ]);
+    expect([...items].filter((t) => newFurniture.has(t)).length).toBeGreaterThanOrEqual(150);
+    expect([...items].filter((t) => ASSET[t]?.wall).length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('台灣的場景：三合院（公媽廳、護龍、禾埕）、夜市（攤位）、老街（騎樓）、日式宿舍（緣側、防空壕）', () => {
+    const names = (id: string) => build(id).flatMap((f) => f.rooms.map((r) => r.name));
+    expect(names('sanheyuan')).toEqual(expect.arrayContaining(['公媽廳', '灶腳', '禾埕', '暗間']));
+    expect(names('night-market').filter((n) => n.endsWith('攤')).length).toBeGreaterThanOrEqual(8);
+    expect(names('shopping-street')).toEqual(expect.arrayContaining(['騎樓', '老街', '神壇']));
+    const jp = build('japanese-house');
+    expect(jp[1].rooms.some((r) => r.cat === 'engawa')).toBe(true);
+    expect(jp[0].rooms.find((r) => r.name === '防空壕')?.gm).toBe(true);
+  });
+
+  it('幾個範本的特徵：月台門、鐵軌、甲板、石牆、鐵欄杆、隔音牆', () => {
+    /* 地下鐵：B2 月台的玻璃牆上有自動門（月台門），隧道口開著 */
+    const [b2] = build('subway');
+    expect(b2.walls.filter((w) => w.kind === 'glass')).toHaveLength(2);
+    expect(b2.openings.filter((o) => o.kind === 'auto')).toHaveLength(8);
+    /* 車站：兩條鐵軌、島式月台、停在第二線的電車 */
+    const station = build('station')[1];
+    expect(station.rooms.filter((r) => r.cat === 'track')).toHaveLength(2);
+    expect(station.items.some((i) => i.t === 'train_car')).toBe(true);
+    /* 渡輪：三層、甲板的外圍是欄杆 */
+    const ferry = build('ferry');
+    expect(ferry[2].rooms.some((r) => r.cat === 'shipdeck')).toBe(true);
+    expect(computeWalls(ferry[2]).runs.some((r) => r.kind === 'rail')).toBe(true);
+    /* 古城：房間的牆是石牆；地牢的牢房前面是鐵欄杆與格柵門 */
+    const [castleB1, castle1F] = build('castle');
+    expect(computeWalls(castle1F).runs.filter((r) => r.kind === 'stone').length).toBeGreaterThan(
+      10,
+    );
+    expect(castleB1.walls.some((w) => w.kind === 'bars')).toBe(true);
+    expect(castleB1.openings.filter((o) => o.kind === 'gate')).toHaveLength(3);
+    /* 監獄：9 間舍房「不產生牆」，前面是鐵欄杆＋格柵門 */
+    const [prison] = build('prison');
+    expect(prison.rooms.filter((r) => r.name.startsWith('舍房') && r.noWall)).toHaveLength(9);
+    expect(prison.openings.filter((o) => o.kind === 'gate').length).toBeGreaterThanOrEqual(10);
+    /* KTV：包廂的牆是隔音牆 */
+    const [ktv] = build('karaoke');
+    expect(ktv.rooms.filter((r) => r.wall === 'sound')).toHaveLength(8);
+    /* 辦公大樓：大廳的旋轉門 */
+    expect(build('office')[0].openings.some((o) => o.kind === 'revolve')).toBe(true);
+  });
+
+  it('廢墟（廢棄工廠、廢校）：弄舊的結果每次相同，牆上有貼牆素材', () => {
+    for (const id of ['abandoned-factory', 'abandoned-school']) {
+      const strip = (fs: Floor[]) =>
+        fs.map((f) => [f.openings.map((o) => o.kind), f.items.map((i) => [i.t, i.x, i.y])]);
+      expect(strip(build(id)), id).toEqual(strip(build(id)));
+      const fs = build(id);
+      expect(
+        fs.flatMap((f) => f.openings).some((o) => o.kind === 'brokenwin' || o.kind === 'boarded'),
+        id,
+      ).toBe(true);
+      expect(fs.flatMap((f) => f.items).filter((i) => ASSET[i.t]?.wall).length, id).toBeGreaterThan(
+        3,
+      );
+    }
   });
 });

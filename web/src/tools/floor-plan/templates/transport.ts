@@ -84,11 +84,10 @@ export function station(): TplFloor[] {
     .item('road_sign', 34, 37);
 
   const bm = new FloorBuilder('B1');
-  bm.room('地下道', 'hall', 4, 8, 10, 16, { ly: 3 })
-    .room('封閉的舊通道', 'danger', 14, 12, 12, 6, {
-      gm: true,
-      note: '地下道東側的牆是後來砌的。舊通道通往戰前的月台，牆上的站名沒有人認得。',
-    });
+  bm.room('地下道', 'hall', 4, 8, 10, 16, { ly: 3 }).room('封閉的舊通道', 'danger', 14, 12, 12, 6, {
+    gm: true,
+    note: '地下道東側的牆是後來砌的。舊通道通往戰前的月台，牆上的站名沒有人認得。',
+  });
   stationStairs(bm);
   bm.dv(14, 14, 1.5, 1, 0, 'secret');
   bm.item('quest_board', 4.1, 15, 270, { size: [3, 0.5], label: '尋人海報' })

@@ -7,7 +7,14 @@ import { FloorBuilder, fillYard, type TplFloor } from './builder';
 /* ---------- 溫泉旅館（1F 大廳、宴會廳、大浴場與露天風呂；2F 和室客房） ---------- */
 
 /** 和室客房（寬 w × 深 10）：壁龕在西牆、矮桌與坐墊在中間、窗邊兩張椅子；south＝房間在走廊南邊 */
-function ryokanRoom(b: FloorBuilder, name: string, x: number, y: number, w: number, south: boolean) {
+function ryokanRoom(
+  b: FloorBuilder,
+  name: string,
+  x: number,
+  y: number,
+  w: number,
+  south: boolean,
+) {
   const door = x + w - 2.5;
   b.room(name, 'washitsu', x, y, w, 10);
   if (south) {

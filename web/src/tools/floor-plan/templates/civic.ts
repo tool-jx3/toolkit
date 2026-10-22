@@ -2,8 +2,9 @@
  * 公共場所的範本（2026-10 第三批後半，本站自己畫的平面圖）：大學社團大樓、博物館、殯儀館。
  * 北邊在上；1 格 = 0.5 m。
  */
-import { FloorBuilder, Frame, type RoomExtra, type TplFloor } from './builder';
+
 import type { RoomCategory } from '../model/types';
+import { FloorBuilder, Frame, type RoomExtra, type TplFloor } from './builder';
 
 /* ---------- 大學社團大樓（中走廊兩側的社辦，1F、2F） ---------- */
 
@@ -57,23 +58,37 @@ export function clubBuilding(): TplFloor[] {
   });
   g.room('暗房', 'storage', 12, 0, 4, 7).dv(12, 1, 1.5, 1, 0);
   g.item('sink', 13.2, 4.3, 90, { size: [1.6, 1.2] }).item('lamp', 15, 0.3);
-  clubRoom(g, '吉他社', 'studio', 16, 8, false, (f) => {
-    f.item('drums', 0.3, 0.3)
-      .item('speaker', 3.8, 0.2)
-      .item('speaker', 5.2, 0.2)
-      .item('mixer', 4, 2.4)
-      .item('chair', 1, 4.5)
-      .item('chair', 2.4, 4.5);
-  }, { wall: 'sound' });
+  clubRoom(
+    g,
+    '吉他社',
+    'studio',
+    16,
+    8,
+    false,
+    (f) => {
+      f.item('drums', 0.3, 0.3)
+        .item('speaker', 3.8, 0.2)
+        .item('speaker', 5.2, 0.2)
+        .item('mixer', 4, 2.4)
+        .item('chair', 1, 4.5)
+        .item('chair', 2.4, 4.5);
+    },
+    { wall: 'sound' },
+  );
   clubRoom(g, '登山社', 'office', 24, 7, false, (f, w) => {
     meetingTable(f, w);
     f.item('tent', 4.9, 0.1, 0, { size: [2, 2] }).item('bag', 3.4, 0.3);
   });
   clubRoom(g, '廁所', 'wet', 31, 4, false, (f) => {
-    f.item('toilet', 0.3, 0.1).item('toilet', 1.8, 0.1).item('washbasin', 0.1, 3.4, 270, { size: [1.2, 1] });
+    f.item('toilet', 0.3, 0.1)
+      .item('toilet', 1.8, 0.1)
+      .item('washbasin', 0.1, 3.4, 270, { size: [1.2, 1] });
   });
   clubRoom(g, '管理員室', 'office', 35, 5, false, (f) => {
-    f.item('desk', 0.2, 0.2).item('chair', 0.9, 1.5, 180).item('key', 3.6, 0.4).item('filing', 0.1, 3.2, 270);
+    f.item('desk', 0.2, 0.2)
+      .item('chair', 0.9, 1.5, 180)
+      .item('key', 3.6, 0.4)
+      .item('filing', 0.1, 3.2, 270);
   });
   clubRoom(g, '交誼廳', 'living', 0, 12, true, (f) => {
     f.item('sofa3', 0.2, 0.1)
@@ -111,7 +126,8 @@ export function clubBuilding(): TplFloor[] {
     .wh(26, 18, 2.5)
     .wh(34, 18, 3)
     .wv(0, 12, 3);
-  g.find('暗房').note = '底片櫃最下層的盒子裡，是十年前某屆社員拍的照片，每一張的角落都站著同一個人。';
+  g.find('暗房').note =
+    '底片櫃最下層的盒子裡，是十年前某屆社員拍的照片，每一張的角落都站著同一個人。';
   g.item('bench', 1, 21.6, 180, { size: [3, 0.9] })
     .item('tree', 30, 19)
     .item('bush', 20, 20);
@@ -135,17 +151,28 @@ export function clubBuilding(): TplFloor[] {
     meetingTable(f, w);
     f.item('copier', 5.4, 0.1).item('filing', 4.2, 0.1);
   });
-  clubRoom(u, '電影社', 'studio', 20, 8, false, (f) => {
-    f.item('whiteboard', 1, 0.1, 0, { size: [5, 0.4] })
-      .item('seats', 1, 2, 0, { size: [5, 1.2] })
-      .item('seats', 1, 3.8, 0, { size: [4, 1.2] })
-      .item('speaker', 6.6, 0.2);
-  }, { wall: 'sound' });
+  clubRoom(
+    u,
+    '電影社',
+    'studio',
+    20,
+    8,
+    false,
+    (f) => {
+      f.item('whiteboard', 1, 0.1, 0, { size: [5, 0.4] })
+        .item('seats', 1, 2, 0, { size: [5, 1.2] })
+        .item('seats', 1, 3.8, 0, { size: [4, 1.2] })
+        .item('speaker', 6.6, 0.2);
+    },
+    { wall: 'sound' },
+  );
   clubRoom(u, '文藝社', 'office', 28, 6, false, (f, w) => {
     meetingTable(f, w);
   });
   clubRoom(u, '廁所', 'wet', 34, 6, false, (f) => {
-    f.item('toilet', 0.4, 0.1).item('toilet', 2, 0.1).item('washbasin', 0.1, 3.4, 270, { size: [1.2, 1] });
+    f.item('toilet', 0.4, 0.1)
+      .item('toilet', 2, 0.1)
+      .item('washbasin', 0.1, 3.4, 270, { size: [1.2, 1] });
   });
   clubRoom(u, '會議室', 'office', 0, 10, true, (f) => {
     f.item('meeting6', 2.4, 1.2).item('whiteboard', 0.1, 1.4, 270);
@@ -176,12 +203,21 @@ export function clubBuilding(): TplFloor[] {
       .item('chair', 6.6, 1.4, 270)
       .item('bookshelf', 0.2, 4.6, 0, { size: [3, 0.8] });
   });
-  clubRoom(u, '劇團排練室', 'studio', 24, 10, true, (f) => {
-    f.item('stage', 0.3, 0.3, 0, { size: [6, 3] })
-      .item('armor_stand', 8.2, 0.3)
-      .item('chair', 2, 4.5)
-      .item('chair', 3.4, 4.5);
-  }, { wall: 'sound' });
+  clubRoom(
+    u,
+    '劇團排練室',
+    'studio',
+    24,
+    10,
+    true,
+    (f) => {
+      f.item('stage', 0.3, 0.3, 0, { size: [6, 3] })
+        .item('armor_stand', 8.2, 0.3)
+        .item('chair', 2, 4.5)
+        .item('chair', 3.4, 4.5);
+    },
+    { wall: 'sound' },
+  );
   clubRoom(u, '器材室', 'storage', 34, 6, true, (f) => {
     f.item('supply_shelf', 0.1, 0.6, 270).item('cardboard', 2, 0.3).item('speaker', 3.6, 0.3);
   });

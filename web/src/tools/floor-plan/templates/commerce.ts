@@ -302,7 +302,10 @@ export function shoppingStreet(): TplFloor[] {
     f.row('barrel', 0.4, 0.4, 5, 1.4, 0).item('table', 2.6, 5, 0, { size: [2.8, 1.4] }),
   );
   oldShop(b, '理髮廳', 34, 8, false, (f) =>
-    f.item('barber_chair', 0.6, 0.6).item('barber_chair', 4, 0.6).item('bench', 3.8, 7.2, 90, { size: [3, 0.9] }),
+    f
+      .item('barber_chair', 0.6, 0.6)
+      .item('barber_chair', 4, 0.6)
+      .item('bench', 3.8, 7.2, 90, { size: [3, 0.9] }),
   );
   oldShop(
     b,
@@ -313,15 +316,23 @@ export function shoppingStreet(): TplFloor[] {
     (f) => f.item('debris', 3, 3).item('cardboard', 7.6, 0.6).item('wall_graffiti', 4, 11.7),
     'storage',
   );
-  oldShop(b, '麵店', 0, 10, true, (f) =>
-    f
-      .item('kitchen', 0.1, 0.1, 0, { size: [5, 1.3] })
-      .item('dining4', 1.2, 4.4)
-      .item('dining4', 5.6, 4.4),
+  oldShop(
+    b,
+    '麵店',
+    0,
+    10,
+    true,
+    (f) =>
+      f
+        .item('kitchen', 0.1, 0.1, 0, { size: [5, 1.3] })
+        .item('dining4', 1.2, 4.4)
+        .item('dining4', 5.6, 4.4),
     'kitchen',
   );
   oldShop(b, '金紙店', 10, 8, true, (f) =>
-    f.item('cabinet', 0.1, 0.1, 0, { size: [7.8, 1] }).item('counter', 1, 6.4, 0, { size: [6, 1.2] }),
+    f
+      .item('cabinet', 0.1, 0.1, 0, { size: [7.8, 1] })
+      .item('counter', 1, 6.4, 0, { size: [6, 1.2] }),
   );
   oldShop(b, '鐘錶行', 18, 8, true, (f) =>
     f

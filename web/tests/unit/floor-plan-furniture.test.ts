@@ -334,7 +334,7 @@ describe('標籤（F234、D48）', () => {
     for (const t of TAGS) expect(used.has(t.id), t.id).toBe(true);
   });
 
-  it('範本：15 個都有標籤（至少兩個軸）', () => {
+  it('範本：56 個都有標籤（至少兩個軸）', () => {
     for (const t of TEMPLATES) {
       const tags = templateTags(t.id);
       expect(tags.length, t.id).toBeGreaterThan(1);
@@ -403,10 +403,44 @@ describe('搜尋（F46、F234、F235）', () => {
           queryWords(q),
         ),
       ).map((t) => t.id);
-    expect(tpl('#地下')).toEqual(['mansion', 'library', 'cave', 'cult', 'abandoned-hospital']);
-    expect(tpl('#GM專用 #多樓層')).toEqual(['mansion', 'library', 'cult', 'abandoned-hospital']);
-    expect(tpl('醫院')).toEqual(['hospital', 'abandoned-hospital']);
+    /* 2026-10 第三批後半：範本 15 → 56 個 */
+    expect(tpl('#地下')).toEqual([
+      'mansion',
+      'house',
+      'japanese-house',
+      'speakeasy',
+      'lab',
+      'asylum',
+      'library',
+      'museum',
+      'theatre',
+      'station',
+      'subway',
+      'parking',
+      'sewer',
+      'military-base',
+      'church',
+      'castle',
+      'cave',
+      'cult',
+      'mine',
+      'abandoned-hospital',
+      'dungeon',
+    ]);
+    expect(tpl('#GM專用 #多樓層')).toHaveLength(32);
+    expect(tpl('醫院')).toEqual(['hospital', 'hospital-annex', 'abandoned-hospital']);
     expect(tpl('#廢墟 #住家')).toEqual(['ruined-house']);
+    expect(tpl('#鐵道')).toEqual(['station', 'subway']);
+    expect(tpl('#地下 #交通')).toEqual(['station', 'subway', 'parking']);
+    expect(tpl('#和風')).toEqual(['japanese-house', 'ryokan', 'shrine']);
+    expect(tpl('#奇幻')).toEqual(['castle', 'dungeon', 'tavern', 'wizard-tower']);
+    expect(tpl('#宗教 #戶外')).toEqual([
+      'sanheyuan',
+      'shopping-street',
+      'night-market',
+      'temple',
+      'shrine',
+    ]);
   });
 });
 

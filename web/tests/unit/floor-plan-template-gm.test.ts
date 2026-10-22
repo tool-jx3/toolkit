@@ -15,7 +15,10 @@ const build = (id: string, opts = {}) => instantiateTemplate(id, opts) as Floor[
 const gmNames = (floors: Floor[]) =>
   floors.flatMap((f) => f.rooms.filter((r) => r.gm).map((r) => `${f.name}/${r.name}`)).sort();
 
-/** 範本本來就寫死的 GM 專用房間（隱藏的密室…） */
+/**
+ * 範本本來就寫死的 GM 專用房間（隱藏的密室…）。2026-10 第三批後半：新範本每個都有一間以上
+ * （公寓鎖著的 B 戶整戶、研究所的 B2 整層、拼起來的洞室與地道是好幾塊）。
+ */
 const BUILT_IN: Record<string, string[]> = {
   mansion: ['B1/密室'],
   library: ['B1/禁書庫'],
@@ -23,9 +26,65 @@ const BUILT_IN: Record<string, string[]> = {
   cave: ['洞窟/封印之間', '洞窟/封印之間', '洞窟/封印之間'],
   cult: ['B1/獻祭室'],
   'abandoned-hospital': ['B1/祕密實驗室'],
+  apartment: [
+    '4F/B 主臥室',
+    '4F/B 客廳',
+    '4F/B 浴室',
+    '4F/B 臥室',
+    '4F/B 走道',
+    '4F/B 陽台',
+    '4F/B 餐廳',
+  ],
+  house: ['B1/密室'],
+  sanheyuan: ['1F/暗間'],
+  'japanese-house': ['B1/防空壕'],
+  ryokan: ['2F/櫻之間'],
+  speakeasy: ['B1/逃生地道', 'B1/逃生地道'],
+  diner: ['1F/冷凍庫'],
+  'hospital-annex': ['2F/特別病房'],
+  lab: [
+    'B2/收容室 A',
+    'B2/收容室 B',
+    'B2/收容室 C',
+    'B2/樓梯・電梯',
+    'B2/焚化室',
+    'B2/紀錄室',
+    'B2/觀察走廊',
+  ],
+  asylum: ['B1/特別治療室'],
+  'club-building': ['2F/廢社的社辦'],
+  museum: ['B1/未登錄品庫'],
+  'funeral-home': ['1F/舊停柩室'],
+  office: ['8F/社長的密室'],
+  detective: ['2F/密室'],
+  'shopping-street': ['1F/神壇後室'],
+  'night-market': ['1F/鐵皮倉庫'],
+  theatre: ['B1/奈落深處'],
+  karaoke: ['1F/VIP 包廂'],
+  station: ['B1/封閉的舊通道'],
+  subway: ['B1/工作通道', 'B2/廢棄月台'],
+  parking: ['B2/封鎖區'],
+  ferry: ['B1/船底密艙'],
+  factory: ['2F/密封儲藏室'],
+  warehouse: ['1F/改裝貨櫃'],
+  construction: ['1F/開挖區'],
+  sewer: ['B1/祭壇空洞'],
+  'military-base': ['B1/封鎖的實驗區'],
+  prison: ['1F/獨居房'],
+  shrine: ['1F/禁足地'],
+  church: ['B1/封印的納骨堂'],
+  castle: ['B1/拷問室'],
+  campsite: ['1F/廢屋'],
+  mine: ['B1/最深處', 'B1/最深處', 'B1/最深處'],
+  'abandoned-factory': ['2F/密封儲藏室'],
+  'abandoned-school': ['1F/準備室'],
+  dungeon: ['B1/魔王之間'],
+  spaceship: ['1F/封鎖區'],
+  tavern: ['2F/密室'],
+  'wizard-tower': ['3F/召喚室'],
 };
 
-/** 預設 GM 專用的房間（這一批新加的） */
+/** 預設 GM 專用的房間（第一批的 8 個範本 14 間＋第三批後半的新範本 54 間） */
 const DEFAULTS: Record<string, string[]> = {
   mansion: ['1F/傭人房', 'B1/鍋爐室'],
   hotel: ['1F/廚房'],
@@ -35,6 +94,38 @@ const DEFAULTS: Record<string, string[]> = {
   temple: ['1F/廟公房'],
   cult: ['1F/後倉'],
   'abandoned-hospital': ['2F/器材室', 'B1/廢棄物間', 'B1/鍋爐室'],
+  apartment: ['1F/洗衣店後場'],
+  house: ['B1/機房'],
+  'japanese-house': ['1F/女傭房'],
+  ryokan: ['1F/員工室', '1F/廚房', '2F/備品室'],
+  speakeasy: ['B1/撲克室'],
+  diner: ['1F/員工休息室', '1F/廚房'],
+  'hospital-annex': ['1F/機房', '1F/汙物室', '1F/遺體安置室', '2F/值班室'],
+  lab: ['1F/警衛室', 'B1/監控室'],
+  asylum: ['1F/廚房', '1F/藥局'],
+  'club-building': ['1F/管理員室'],
+  museum: ['1F/學藝員室', 'B1/機房', 'B1/燻蒸室'],
+  'funeral-home': ['1F/冷藏室', '1F/遺體化妝室'],
+  office: ['1F/機房', '1F/警衛室', '8F/伺服器室'],
+  konbini: ['1F/倉庫', '1F/冷藏庫', '1F/員工休息室'],
+  detective: ['1F/當舖倉庫', '2F/臥室'],
+  theatre: ['1F/售票處', '1F/舞台監督室'],
+  karaoke: ['1F/員工室', '1F/廚房'],
+  station: ['1F/售票處'],
+  subway: ['B1/站務室'],
+  parking: ['B2/機房'],
+  ferry: ['1F/船員室', '2F/船長室', 'B1/機艙'],
+  factory: ['1F/鍋爐室'],
+  warehouse: ['1F/守衛亭'],
+  'military-base': ['1F/彈藥庫'],
+  prison: ['1F/監控室'],
+  shrine: ['1F/本殿'],
+  church: ['1F/臥室'],
+  castle: ['1F/領主的居室'],
+  'abandoned-factory': ['1F/鍋爐室'],
+  spaceship: ['1F/動力爐室', '1F/艦長室'],
+  tavern: ['1F/廚房', '2F/老闆的房間'],
+  'wizard-tower': ['2F/寢室'],
 };
 
 describe('範本的預設 GM 專用房間（F225、D37）', () => {
@@ -139,15 +230,34 @@ describe('範本的預設 GM 專用房間（F225、D37）', () => {
     }
   });
 
-  it('共 14 間、8 個範本', () => {
+  it('共 68 間、40 個範本（第一批 14 間、8 個範本＋第三批後半 54 間、32 個範本）', () => {
     const n = Object.values(DEFAULTS).reduce((s, a) => s + a.length, 0);
-    expect(n).toBe(14);
+    expect(n).toBe(68);
     expect(Object.keys(GM_DEFAULT_ROOMS).sort()).toEqual(Object.keys(DEFAULTS).sort());
     expect(
       Object.values(GM_DEFAULT_ROOMS).reduce(
         (s, byFloor) => s + Object.values(byFloor).reduce((t, a) => t + a.length, 0),
         0,
       ),
-    ).toBe(14);
+    ).toBe(68);
+    /* 第三批後半：新範本每個都有 GM 專用的房間（寫死的密室或預設的後台） */
+    for (const t of TEMPLATES) {
+      if (
+        [
+          'studio',
+          'townhouse',
+          'lodge',
+          'hotel',
+          'hospital',
+          'school',
+          'police',
+          'temple',
+          'ruined-house',
+          'crime',
+        ].includes(t.id)
+      )
+        continue;
+      expect(gmNames(build(t.id)).length, t.id).toBeGreaterThan(0);
+    }
   });
 });
