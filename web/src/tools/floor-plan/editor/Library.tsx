@@ -22,11 +22,12 @@ import type { OpeningKind, WallKind } from '../model/types';
 import { S } from '../strings';
 import { toggleArmed } from './actions';
 import { editor } from './controller';
+import { lazyDraw } from './lazyIcons';
 import { type LibTab, setEditor, useEditor, usePrefs } from './store';
 
 /**
- * 卡片的小圖示。`lazy`：捲到看得到（含上下 300 px）時才畫（家具 381 種，一打開分頁就全部畫會卡一下，D50）；
- * 沒有 IntersectionObserver 的環境直接畫。
+ * 卡片的小圖示。`lazy`：捲到看得到（含素材面板上下各 300 px）時才畫（家具 381 種，一打開分頁就全部畫會卡一下，D50；
+ * 觀察範圍要指定成捲動容器、在畫面內的先畫、預先畫的分批，見 lazyIcons.ts）。
  */
 const Icon = memo(function Icon({
   draw,
@@ -39,21 +40,15 @@ const Icon = memo(function Icon({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (!lazy || typeof IntersectionObserver === 'undefined') {
+    const paint = () => {
       draw(el);
+      el.dataset.drawn = '1';
+    };
+    if (!lazy) {
+      paint();
       return;
     }
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((e) => e.isIntersecting)) return;
-        io.disconnect();
-        draw(el);
-        el.dataset.drawn = '1';
-      },
-      { rootMargin: '300px 0px' },
-    );
-    io.observe(el);
-    return () => io.disconnect();
+    return lazyDraw(el, paint);
   }, [draw, lazy]);
   return <canvas ref={ref} aria-hidden className="size-11 shrink-0 rounded-sm bg-white" />;
 });
@@ -111,7 +106,7 @@ function RoomCard({ p }: { p: RoomPreset }) {
 
 function RoomsTab() {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 pt-3">
       <p className="m-0 text-xs text-muted">{S.lib.roomsNote}</p>
       {ROOM_PRESET_GROUPS.map((g) => (
         <div key={g.id} className="flex flex-col gap-1.5">
@@ -183,7 +178,7 @@ function WallCard({ kind }: { kind: WallKind }) {
 
 function OpeningsTab() {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 pt-3">
       <h3 className="m-0 text-xs font-semibold text-muted">{S.lib.doors}</h3>
       <div className="grid grid-cols-2 gap-1.5">
         {OPENINGS.filter((o) => o.group === 'door').map((o) => (
@@ -251,7 +246,9 @@ function FurnitureTab() {
     .map((g) => ({ ...g, assets: matched.filter((a) => a.group === g.id) }))
     .filter((g) => g.assets.length);
   const shown = groups.reduce((n, g) => n + g.assets.length, 0);
-  const elsewhere = matched.length - shown;
+  /* 「其他分類還有 N 件符合」只在有搜尋字時說（只選分類時全部都「符合」，每選一類都出現是雜訊，7.16） */
+  const searching = queryWords(query).length > 0;
+  const elsewhere = searching ? matched.length - shown : 0;
   const suggest = tagSuggestions(query, USED_TAGS);
   const pickTag = (name: string) => {
     if (!suggest) return;
@@ -260,9 +257,10 @@ function FurnitureTab() {
   };
   return (
     <div className="flex flex-col gap-3">
-      {/* 搜尋欄與分類固定在上面（捲動時一直看得到，F234） */}
+      {/* 搜尋欄與分類固定在上面（捲動時一直看得到，F234）；面板自己沒有上方的留白（Library 的 tabpanel pt-0），
+          留白放在這一條裡，所以貼齊面板頂端、卡片不會從它上面露出來（7.16） */}
       <div
-        className="sticky top-0 z-10 -mt-1 flex flex-col gap-1.5 bg-surface pt-1 pb-1.5"
+        className="sticky top-0 z-10 flex flex-col gap-1.5 bg-surface pt-3 pb-1.5"
         data-testid="library-search"
       >
         <TextInput
@@ -344,7 +342,7 @@ export function Library() {
             d.libTab = v as LibTab;
           })
         }
-        className="min-h-0 flex-1 [&_[role=tabpanel]]:min-h-0 [&_[role=tabpanel]]:overflow-y-auto"
+        className="min-h-0 flex-1 [&_[role=tabpanel]]:min-h-0 [&_[role=tabpanel]]:overflow-y-auto [&_[role=tabpanel]]:pt-0"
         items={[
           { value: 'rooms', label: S.lib.rooms, content: <RoomsTab /> },
           { value: 'openings', label: S.lib.openings, content: <OpeningsTab /> },

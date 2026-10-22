@@ -3132,6 +3132,113 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     expect(errors).toEqual([]);
   });
 
+  test('素材面板：搜尋欄貼齊面板頂端、只選分類時不說「其他分類還有…」；圖示捲到才畫、捲動時不空白、清空搜尋不重畫全部（F234、D50、7.16）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await blank(page);
+    await page.getByRole('tab', { name: '家具・小物' }).click();
+    await expect(cards(page)).toHaveCount(381);
+    const panel = library(page).getByRole('tabpanel');
+    const bar = page.getByTestId('library-search');
+    /* 搜尋欄貼齊面板頂端（上面沒有縫隙，卡片不會從它上面露出來）：沒捲動與捲動之後都一樣 */
+    const barGap = () =>
+      page.evaluate(() => {
+        const b = document.querySelector('[data-testid=library-search]');
+        const p = b?.closest('[role=tabpanel]');
+        if (!b || !p) throw new Error('no panel');
+        return b.getBoundingClientRect().top - p.getBoundingClientRect().top;
+      });
+    expect(await barGap()).toBeCloseTo(0, 0);
+    for (const y of [700, 2500]) {
+      await panel.evaluate((el, top) => {
+        el.scrollTop = top;
+      }, y);
+      expect(await barGap()).toBeCloseTo(0, 0);
+    }
+    await expect(bar).toBeInViewport();
+    await panel.evaluate((el) => {
+      el.scrollTop = 0;
+    });
+
+    /* 只選分類、沒有搜尋字：不說「其他分類還有 N 件符合」；打了字才說 */
+    const elsewhere = library(page).getByText(/其他分類還有 \d+ 件符合/);
+    await page.getByRole('combobox', { name: '家具分類' }).click();
+    await page.getByRole('option', { name: '貼牆素材（9）' }).click();
+    await expect(cards(page)).toHaveCount(9);
+    await expect(elsewhere).toHaveCount(0);
+    await search(page).fill('消防');
+    await expect(elsewhere).toHaveCount(1);
+    await search(page).fill('');
+    await expect(elsewhere).toHaveCount(0);
+    await page.getByRole('combobox', { name: '家具分類' }).click();
+    await page.getByRole('option', { name: /^全部（/ }).click();
+    await expect(cards(page)).toHaveCount(381);
+
+    /* 圖示：一打開只畫看得到的與上下 300 px 內的，不是 381 張 */
+    const drawn = () => page.locator('[data-asset] canvas[data-drawn="1"]').count();
+    await expect.poll(drawn).toBeGreaterThan(10);
+    await page.waitForTimeout(300);
+    expect(await drawn()).toBeLessThan(120);
+    /* 一格滾輪（120 px）捲 30 次：每次兩個 frame 之後，看得到的圖示都畫好了（預先畫的範圍有作用） */
+    const blankAfterScroll = await page.evaluate(async () => {
+      const b = document.querySelector('[data-testid=library-search]');
+      const p = b?.closest('[role=tabpanel]');
+      if (!b || !p) throw new Error('no panel');
+      const raf = () => new Promise((r) => requestAnimationFrame(r));
+      const visible = () => {
+        const pr = p.getBoundingClientRect();
+        const top = b.getBoundingClientRect().bottom;
+        return [...document.querySelectorAll<HTMLCanvasElement>('[data-asset] canvas')].filter(
+          (c) => {
+            const r = c.getBoundingClientRect();
+            return r.height > 0 && r.bottom > top && r.top < pr.bottom;
+          },
+        );
+      };
+      const out: number[] = [];
+      for (let i = 0; i < 30; i++) {
+        p.scrollTop += 120;
+        await raf();
+        await raf();
+        out.push(visible().filter((c) => c.dataset.drawn !== '1').length);
+      }
+      return out;
+    });
+    expect(blankAfterScroll.reduce((a, c) => a + c, 0)).toBe(0);
+    expect(await drawn()).toBeLessThan(381);
+
+    /* 搜尋再清空：清空時不把 381 張的圖示都重畫（只畫看得到的與預先畫的），而且很快畫好 */
+    await search(page).fill('椅');
+    await expect(cards(page)).not.toHaveCount(381);
+    await search(page).fill('');
+    await expect(cards(page)).toHaveCount(381);
+    const t = await page.evaluate(async () => {
+      const t0 = performance.now();
+      const b = document.querySelector('[data-testid=library-search]');
+      const p = b?.closest('[role=tabpanel]');
+      if (!b || !p) throw new Error('no panel');
+      const pr = p.getBoundingClientRect();
+      const top = b.getBoundingClientRect().bottom;
+      for (;;) {
+        const vis = [...document.querySelectorAll<HTMLCanvasElement>('[data-asset] canvas')].filter(
+          (c) => {
+            const r = c.getBoundingClientRect();
+            return r.height > 0 && r.bottom > top && r.top < pr.bottom;
+          },
+        );
+        if (vis.length && vis.every((c) => c.dataset.drawn === '1')) break;
+        if (performance.now() - t0 > 3000) break;
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+      return performance.now() - t0;
+    });
+    expect(t).toBeLessThan(1500);
+    await page.waitForTimeout(300);
+    expect(await drawn()).toBeLessThan(120);
+    expect(errors).toEqual([]);
+  });
+
   test('貼牆素材：吸到牆線、跟著牆的方向、沿著牆移動；畫在牆的上面；PL／GM 檢視與匯出（F233）', async ({
     page,
   }) => {
@@ -3198,6 +3305,111 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     expect(errors).toEqual([]);
   });
 
+  test('貼牆素材跟著房間走：移動、旋轉、複製、刪除房間（含詢問的件數）都帶著；房間外面的不動（F233、F224、7.16）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* 房間 A (0,0,10,8)、B (10,0,6,8)：A 的上緣有裂痕、A 與 B 共用的牆上有血手印、B 的右緣有觸手（A 的外面） */
+    const setup = async () => {
+      await twoRooms(page);
+      await run(page, 'addObject', 'item', {
+        id: 'top',
+        t: 'crack_wall',
+        x: 2.5,
+        y: -0.4,
+        w: 3,
+        h: 0.8,
+        rot: 0,
+      });
+      await run(page, 'addObject', 'item', {
+        id: 'mid',
+        t: 'wall_blood',
+        x: 9.6,
+        y: 2.2,
+        w: 0.8,
+        h: 1.6,
+        rot: 90,
+      });
+      await run(page, 'addObject', 'item', {
+        id: 'far',
+        t: 'tendrils',
+        x: 14.5,
+        y: 3,
+        w: 3,
+        h: 4,
+        rot: 90,
+      });
+      await page.keyboard.press('v');
+    };
+    const itemOf = async (id: string) => (await floor(page)).items.find((i) => i.id === id);
+    await setup();
+
+    /* 移動：房間 A 往右 2 格，裂痕與血手印跟著動，B 右緣的觸手不動；一步復原 */
+    await click(page, 5, 5);
+    await drag(page, [5, 5], [7, 5]);
+    expect((await floor(page)).rooms[0].x).toBe(2);
+    expect(await itemOf('top')).toMatchObject({ x: 4.5, y: -0.4 });
+    expect(await itemOf('mid')).toMatchObject({ x: 11.6, y: 2.2 });
+    expect(await itemOf('far')).toMatchObject({ x: 14.5, y: 3 });
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    expect((await floor(page)).rooms[0].x).toBe(0);
+    expect(await itemOf('top')).toMatchObject({ x: 2.5 });
+    expect(await itemOf('mid')).toMatchObject({ x: 9.6 });
+    /* Alt：只動房間，貼牆素材留在原地 */
+    await page.waitForTimeout(450);
+    await drag(page, [5, 5], [7, 5], ['Alt']);
+    expect((await floor(page)).rooms[0].x).toBe(2);
+    expect(await itemOf('top')).toMatchObject({ x: 2.5 });
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(450);
+
+    /* 旋轉（R）：A (0,0,10,8) 順時針轉成 (1,-1,8,10)；上緣的裂痕轉到右緣（x＝9）、方向 90° */
+    await page.keyboard.press('r');
+    const a = (await floor(page)).rooms[0];
+    expect([a.x, a.y, a.w, a.h]).toEqual([1, -1, 8, 10]);
+    const top = await itemOf('top');
+    expect(top?.rot).toBe(90);
+    expect((top?.x ?? 0) + (top?.w ?? 0) / 2).toBeCloseTo(a.x + a.w, 6);
+    expect(await itemOf('far')).toMatchObject({ x: 14.5, y: 3, rot: 90 });
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(450);
+    expect(await itemOf('top')).toMatchObject({ x: 2.5, rot: 0 });
+
+    /* 複製（Ctrl＋D）：房間連同裂痕、血手印一起複製（往右移 10 格），觸手不複製 */
+    await page.keyboard.press('Control+d');
+    const f = await floor(page);
+    expect(f.rooms.map((r) => r.x)).toEqual([0, 10, 10]);
+    expect(f.items.map((i) => i.t).sort()).toEqual(
+      ['crack_wall', 'crack_wall', 'tendrils', 'wall_blood', 'wall_blood'].sort(),
+    );
+    const copy = f.items.filter((i) => i.t === 'crack_wall' && i.id !== 'top')[0];
+    expect(copy).toMatchObject({ x: 12.5, y: -0.4 });
+
+    /* 刪除房間：詢問的件數寫「N 個貼牆素材」；連裡面的東西一起刪＝貼牆素材也刪；一步復原 */
+    await setup();
+    const dialog = page.getByRole('alertdialog');
+    await click(page, 5, 5);
+    await page.keyboard.press('Delete');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('房間裡還有 2 個貼牆素材。');
+    await dialog.getByRole('button', { name: '只刪房間' }).click();
+    expect((await floor(page)).items.length).toBe(3);
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    await click(page, 5, 5);
+    await page.keyboard.press('Delete');
+    await dialog.getByRole('button', { name: '連裡面的東西一起刪' }).click();
+    expect((await floor(page)).items.map((i) => i.id)).toEqual(['far']);
+    await expect(page.getByText('已刪除 3 個', { exact: true })).toBeVisible();
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    expect((await floor(page)).items.length).toBe(3);
+    expect(errors).toEqual([]);
+  });
+
   test('匯出抽查：新的家具照樣式的顏色畫（消防車的紅、戰車的綠、站名牌的藍）', async ({ page }) => {
     const errors = await open(page);
     await blank(page);
@@ -3234,7 +3446,8 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     const pxAt = (x: number, y: number) =>
       px(r.img, Math.round((x + 2) * 48), Math.round((y + 2) * 48));
     expect(near(pxAt(0.6, 3), '#d5463f')).toBe(true);
-    expect(near(pxAt(11.5, 3), '#b6d8a3')).toBe(true);
+    /* 戰車的砲管朝上（7.16），在中線上：抽查砲管旁邊的車身 */
+    expect(near(pxAt(10, 3), '#b6d8a3')).toBe(true);
     expect(near(pxAt(1.5, 18.39), '#3b7ad6')).toBe(true);
     expect(errors).toEqual([]);
   });

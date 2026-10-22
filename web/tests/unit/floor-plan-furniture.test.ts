@@ -444,6 +444,33 @@ describe('搜尋（F46、F234、F235）', () => {
   });
 });
 
+/* ---------- 靠牆自動轉向的名單（7.16） ---------- */
+
+describe('靠牆自動轉向（F90、D47、7.16）', () => {
+  it('原作會靠牆轉向的 `pod`（人形培養槽）也會；本站另外加的 `bed_canopy`、`register` 保留', () => {
+    for (const id of ['pod', 'bed_canopy', 'register']) expect(ASSET[id].orient, id).toBe(true);
+  });
+
+  it('拿著 `pod` 靠近牆：背面朝牆並貼齊（上牆 0°、下牆 180°、左牆 270°，同其他靠牆的家具）', () => {
+    const floor: Floor = {
+      id: 'f',
+      name: '1F',
+      rooms: [{ id: 'r', x: 0, y: 0, w: 10, h: 8, name: '房', cat: 'living' }],
+      walls: [],
+      openings: [],
+      items: [],
+      texts: [],
+    };
+    const lines = wallLines(floor);
+    expect(itemGhost(lines, 5, 1.2, { t: 'pod', rot: 0 })).toMatchObject({ rot: 0, y: 0 });
+    expect(itemGhost(lines, 5, 6.8, { t: 'pod', rot: 0 })).toMatchObject({ rot: 180, y: 6.2 });
+    expect(itemGhost(lines, 1.2, 4, { t: 'pod', rot: 0 })).toMatchObject({ rot: 270, x: 0 });
+    /* 離牆遠時不轉；按 R 之後（manual）不再自動轉 */
+    expect(itemGhost(lines, 5, 4, { t: 'pod', rot: 0 }).rot).toBe(0);
+    expect(itemGhost(lines, 5, 6.8, { t: 'pod', rot: 0, manual: true }).rot).toBe(0);
+  });
+});
+
 /* ---------- 貼牆素材 ---------- */
 
 describe('貼牆素材（F233、D49）', () => {

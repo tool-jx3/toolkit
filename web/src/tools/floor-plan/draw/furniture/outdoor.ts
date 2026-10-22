@@ -10,6 +10,7 @@ import {
   type FurnStyle,
   hatchRows,
   lw,
+  mirrorY,
   oval,
   paint,
   poly,
@@ -343,13 +344,19 @@ const road: FurnDraw = (c, S, w, h) => {
   );
 };
 
+/** 斑馬線：條紋沿著 x（和原作一樣：車流沿著 x 時，條紋和車流同向）；條紋在深度方向均分、置中 */
 const crosswalk: FurnDraw = (c, S, w, h) => {
   block(c, S, 0, 0, w, h, 0, S.tint);
+  const bar = 0.6;
+  const gap = 0.5;
+  const n = Math.max(2, Math.floor((h - 0.6 + gap) / (bar + gap)));
+  const y0 = (h - (n * bar + (n - 1) * gap)) / 2;
   c.save();
   c.fillStyle = S.paper;
-  for (let x = 0.3; x < w - 0.3; x += 1.2) {
-    c.fillRect(x, 0.3, 0.7, h - 0.6);
-    c.strokeRect(x, 0.3, 0.7, h - 0.6);
+  for (let i = 0; i < n; i++) {
+    const y = y0 + i * (bar + gap);
+    c.fillRect(0.3, y, w - 0.6, bar);
+    c.strokeRect(0.3, y, w - 0.6, bar);
   }
   c.restore();
 };
@@ -455,6 +462,7 @@ const utilityPole: FurnDraw = (c, S, w, h) => {
   for (const x of [0.16, 0.84]) disc(c, S, w * x, h / 2, 0.06, S.paper);
 };
 
+/** 護欄：照「欄板在上、立柱在下」畫，登記時 mirrorY 翻成立柱在背面（上）、欄板朝向道路（下），和原作一致 */
 const guardrail: FurnDraw = (c, S, w, h) => {
   const pts: Pt[] = [];
   for (let x = 0.3; x < w; x += 2) {
@@ -718,7 +726,7 @@ export const OUTDOOR: Record<string, FurnDraw> = {
   bollard_post: bollardPost,
   streetlight,
   utility_pole: utilityPole,
-  guardrail,
+  guardrail: mirrorY(guardrail),
   fence_item: fenceItem,
   hedge,
   fountain,

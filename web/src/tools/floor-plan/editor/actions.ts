@@ -22,7 +22,7 @@ import {
   cloneFloor,
   cloneObj,
   copyOffset,
-  countRefs,
+  countContents,
   deepClone,
   deletionExtras,
   existingRefs,
@@ -279,7 +279,7 @@ async function deleteSelected(withAll: boolean): Promise<void> {
         const rooms = entries.filter((e) => e.type === 'room');
         const how = await chooseFn({
           title: S.del.title(rooms.length, (rooms[0].obj as Room).name),
-          description: S.del.text(countRefs(extras)),
+          description: S.del.text(countContents(currentFloor(), extras)),
           choices: [
             { value: 'room', label: S.del.roomOnly, variant: 'secondary' },
             { value: 'all', label: S.del.withContents, variant: 'danger' },

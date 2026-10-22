@@ -10,6 +10,7 @@ import {
   type FurnStyle,
   hatchRows,
   lw,
+  mirrorY,
   oval,
   paint,
   poly,
@@ -55,21 +56,21 @@ function walkArrow(c: Ctx, S: FurnStyle, x: number, y1: number, y2: number): voi
 
 const stairsDown: FurnDraw = (c, S, w, h) => {
   block(c, S, 0, 0, w, h);
-  /* 往下走的那一頭越來越暗 */
+  /* 往下走的那一頭（rot 0 時是下面，和原作一致）越來越暗 */
   const n = Math.max(3, Math.round(h / 0.55));
   const step = h / n;
   c.save();
   c.fillStyle = S.shade;
   for (let i = 0; i < n; i++) {
     c.globalAlpha = (i / n) * 0.55;
-    c.fillRect(0, h - step * (i + 1), w, step);
+    c.fillRect(0, step * i, w, step);
   }
   c.restore();
   thin(c, S, 0.6, () => hatchRows(c, 0, w, 0, h, step));
   rrect(c, 0, 0, w, h);
   c.stroke();
-  walkArrow(c, S, w / 2, h - 0.35, 0.35);
-  word(c, S, 'B', w * 0.8, h - 0.4, Math.min(0.42, w * 0.3), S.chalk);
+  walkArrow(c, S, w / 2, 0.35, h - 0.35);
+  word(c, S, 'B', w * 0.8, 0.4, Math.min(0.42, w * 0.3), S.chalk);
 };
 
 const trapdoor: FurnDraw = (c, S, w, h) => {
@@ -119,8 +120,9 @@ const fireEscape: FurnDraw = (c, S, w, h) => {
     block(c, S, x + 0.1, y0, w / 2 - 0.2, y1 - y0, 0, S.paper);
     thin(c, S, 0.55, () => hatchRows(c, x + 0.1, x + w / 2 - 0.1, y0, y1, 0.4));
   }
-  walkArrow(c, S, w * 0.25, y1 - 0.2, y0 + 0.2);
-  walkArrow(c, S, w * 0.75, y0 + 0.2, y1 - 0.2);
+  /* 左邊的一跑往下、右邊的一跑往上（和原作一致） */
+  walkArrow(c, S, w * 0.25, y0 + 0.2, y1 - 0.2);
+  walkArrow(c, S, w * 0.75, y1 - 0.2, y0 + 0.2);
   /* 外圍的扶手 */
   lw(c, S, 1.8);
   poly(
@@ -896,7 +898,7 @@ const tankMil: FurnDraw = (c, S, w, h) => {
     seg(c, track, h * 0.2, w - track, h * 0.2);
     seg(c, track, h * 0.86, w - track, h * 0.86);
   });
-  /* 砲塔與砲管（車頭朝下） */
+  /* 砲塔與砲管（照車頭朝下畫，登記時 mirrorY 翻成朝上） */
   block(c, S, w / 2 - 0.18, h * 0.5, 0.36, h * 0.52, 0.1, S.leafInk);
   disc(c, S, w / 2, h * 0.45, w * 0.28, S.leaf);
   disc(c, S, w / 2 - w * 0.1, h * 0.4, w * 0.07, S.tint);
@@ -983,7 +985,7 @@ export const BUILD: Record<string, FurnDraw> = {
   ops_table: opsTable,
   radio,
   gun_rack: gunRack,
-  tank_mil: tankMil,
+  tank_mil: mirrorY(tankMil),
   sandbags,
   cctv,
   card_reader: cardReader,

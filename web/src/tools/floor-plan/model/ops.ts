@@ -2,6 +2,7 @@
  * 編輯操作的規則（純函式；要改資料的函式直接改傳進來的物件，給 Immer 的 recipe 用）：
  * 房間裡有什麼、一起移動的東西、旋轉、複製的位移、上下層。
  */
+import { isWallMounted } from './assets';
 import { SWING_DOORS } from './catalog';
 import { openingMid, rectContains, round2, uid } from './geometry';
 import {
@@ -29,7 +30,10 @@ export function getObj(floor: Floor, type: ObjType, id: string): AnyObj | null {
 
 export const refKey = (s: SelRef): string => `${s.type}:${s.id}`;
 
-/** 房間裡的東西：家具（中心在房間內）、文字、門窗（中點在房間邊上或裡面）、巢狀的房間、兩端都在房間裡的手畫牆 */
+/**
+ * 房間裡的東西：家具（中心在房間內）、貼牆素材（中心在房間邊上或裡面，同門窗；2026-10-22 依 7.16）、文字、
+ * 門窗（中點在房間邊上或裡面）、巢狀的房間、兩端都在房間裡的手畫牆
+ */
 export function roomContents(floor: Floor, room: Room): SelRef[] {
   const out: SelRef[] = [];
   const closed = (x: number, y: number) =>
@@ -39,8 +43,12 @@ export function roomContents(floor: Floor, room: Room): SelRef[] {
     y <= room.y + room.h + 1e-6;
   const open = (x: number, y: number) =>
     x > room.x && x < room.x + room.w && y > room.y && y < room.y + room.h;
-  for (const i of floor.items)
-    if (open(i.x + i.w / 2, i.y + i.h / 2)) out.push({ type: 'item', id: i.id });
+  for (const i of floor.items) {
+    const cx = i.x + i.w / 2;
+    const cy = i.y + i.h / 2;
+    /* 貼牆素材的中心線在牆線上，而牆線就是房間的邊：邊界上也算（一般的家具中心在邊上不算） */
+    if (isWallMounted(i.t) ? closed(cx, cy) : open(cx, cy)) out.push({ type: 'item', id: i.id });
+  }
   for (const t of floor.texts) if (open(t.x, t.y)) out.push({ type: 'text', id: t.id });
   for (const o of floor.openings) {
     const m = openingMid(o);
@@ -110,6 +118,26 @@ export function existingRefs(floor: Floor, refs: readonly SelRef[]): SelRef[] {
 export function countRefs(refs: readonly SelRef[]): Record<ObjType, number> {
   const n: Record<ObjType, number> = { room: 0, item: 0, opening: 0, wall: 0, text: 0 };
   for (const r of refs) n[r.type]++;
+  return n;
+}
+
+/**
+ * 刪除房間的詢問用的個數：家具（一般的）、貼牆素材、文字、門窗、牆、房間。
+ * 貼牆素材另外算（「N 個貼牆素材」），不併進家具；countRefs 不拆（兩種都是 item）。
+ */
+export function countContents(
+  floor: Floor,
+  refs: readonly SelRef[],
+): Record<ObjType | 'mounted', number> {
+  const n = { ...countRefs(refs), mounted: 0 };
+  for (const r of refs) {
+    if (r.type !== 'item') continue;
+    const it = getObj(floor, 'item', r.id) as Item | null;
+    if (it && isWallMounted(it.t)) {
+      n.item--;
+      n.mounted++;
+    }
+  }
   return n;
 }
 

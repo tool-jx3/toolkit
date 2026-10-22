@@ -3,7 +3,7 @@
  * 尺寸以格（0.5 m）為單位，是「背面朝上（y＝0 那邊靠牆）」時的寬 × 深。
  * id 與原作的存檔相同（讀得到原作的 .trpgmap.json）；名稱、分類、標籤、畫法是本站自己的。
  *
- * 2026-10 第三批（原作 v1.05～v1.10 的家具擴充）：143 種 → 381 種、14 類 → 23 類（規格 F232、3.11）。
+ * 2026-10 第三批（原作 v1.05～v1.10 的家具擴充）：143 種 → 381 種、14 類 → 24 類（規格 F232、3.11）。
  * 原作新增的 234 種用同樣的代號（讀原作的檔照讀），另外加了 4 種本站自己的貼牆素材；
  * 「貼牆」的素材（裂痕、崩塌、彈孔…）放在牆上、跟著牆的方向，畫在牆的上面（F233）。
  */
@@ -745,7 +745,11 @@ export const ASSETS: readonly AssetInfo[] = [
   A('candle', 'occult', 0.8, 0.8, '燭台', { keys: '蠟燭', tags: ['religious'] }),
   A('cage', 'occult', 3, 3, '籠子・鐵籠', { tags: ['danger'] }),
   A('coffin', 'occult', 1.8, 4, '棺材', { tags: ['religious'] }),
-  A('pod', 'occult', 1.8, 1.8, '人形培養槽', { keys: '實驗 培養', tags: ['research', 'scifi'] }),
+  A('pod', 'occult', 1.8, 1.8, '人形培養槽', {
+    orient: true,
+    keys: '實驗 培養',
+    tags: ['research', 'scifi'],
+  }),
   A('sarcophagus', 'occult', 2.4, 4.4, '石棺', {
     keys: '棺材 墓室',
     tags: ['historic', 'religious'],
