@@ -23,6 +23,7 @@ import { militaryBase, prison } from './military';
 import { castle, church, shrine } from './sacred';
 import { campsite, mine } from './outdoor';
 import { abandonedFactory, abandonedSchool } from './ruins';
+import { dungeon, spaceship, tavern, wizardTower } from './fantasy';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
@@ -925,6 +926,64 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '臥室', 'phone', '螢幕碎掉的手機'),
       C('1F', '客廳', 'memo', '從門縫塞進來的紙條'),
       C('1F', '廚房', 'pills', '兩人份的安眠藥'),
+    ],
+  },
+  {
+    id: 'dungeon',
+    group: 'fantasy',
+    also: ['wild'],
+    name: '地下迷宮',
+    description:
+      '石造的地下迷宮：入口大廳、十字路口、寶物庫、陷阱房、牢房、守衛室與祭壇之間；封印的門後的魔王之間是 GM 專用。',
+    build: dungeon,
+    clues: [
+      C('B1', '入口大廳', 'memo', '前一隊冒險者畫的地圖'),
+      C('B1', '守衛室', 'key', '刻著骷髏的鑰匙'),
+      C('B1', '牢房', 'diary', '囚犯刻在牆上的日記'),
+      C('B1', '祭壇之間', 'idol', '祭壇上的小神像'),
+    ],
+  },
+  {
+    id: 'spaceship',
+    group: 'fantasy',
+    name: '太空船',
+    description:
+      '中型的太空船：艦橋、船員艙、食堂、醫務室、艦長室、冷凍睡眠艙室、貨艙、氣閘與動力爐室；被手動封鎖的艙段是 GM 專用。',
+    build: spaceship,
+    clues: [
+      C('1F', '艦橋', 'recorder', '最後一段航行日誌'),
+      C('1F', '冷凍睡眠艙室', 'photo', '空艙位的名牌照片'),
+      C('1F', '醫務室', 'pills', '沒有標籤的注射劑'),
+      C('1F', '食堂', 'memo', '刻在餐桌上的倒數'),
+    ],
+  },
+  {
+    id: 'tavern',
+    group: 'fantasy',
+    also: ['lodging'],
+    name: '冒險者酒館',
+    description:
+      '1F 有告示板與壁爐的酒場、廚房、倉庫、馬廄與後院，2F 客房與老闆的房間；走廊盡頭暗門後的密室是 GM 專用。樓梯上下對齊。',
+    build: tavern,
+    clues: [
+      C('1F', '酒場', 'memo', '從告示板撕下的委託'),
+      C('1F', '倉庫', 'papers', '藏寶圖的一角'),
+      C('1F', '馬廄', 'key', '鞍袋裡的鑰匙'),
+      C('2F', '客房 2', 'diary', '旅人的日記'),
+    ],
+  },
+  {
+    id: 'wizard-tower',
+    group: 'fantasy',
+    name: '魔法師之塔',
+    description:
+      '石造的三層塔：1F 門廳與書庫、2F 研究室與寢室、3F 觀星台；從裡面封上的召喚室是 GM 專用。螺旋梯三層對齊。',
+    build: wizardTower,
+    clues: [
+      C('1F', '書庫', 'diary', '魔法師的研究筆記'),
+      C('1F', '門廳', 'key', '刻著符文的鑰匙'),
+      C('2F', '研究室', 'pills', '標著星座符號的藥瓶'),
+      C('3F', '觀星台', 'memo', '畫滿星圖的紙'),
     ],
   },
 ];
