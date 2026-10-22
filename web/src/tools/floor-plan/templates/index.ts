@@ -13,6 +13,7 @@ import { applyGmDefaults } from './gmDefaults';
 import { lodge, mansion, studio, townhouse } from './homes';
 import { apartment, house, japaneseHouse, sanheyuan } from './living';
 import { diner, ryokan, speakeasy } from './lodging';
+import { asylum, hospitalAnnex, lab } from './research';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
@@ -344,6 +345,51 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '檢驗室', 'photo', 'X 光片上的異物'),
       C('2F', '手術室', 'pills', '沒有登記的藥劑'),
       C('2F', '值班室', 'diary', '值班日誌的最後一頁'),
+    ],
+  },
+  {
+    id: 'hospital-annex',
+    group: 'medical',
+    name: '醫院別館（隔離病棟）',
+    description:
+      '本館後面的兩層別館：1F 護理站、診察室、病歷室、舊手術室與遺體安置室，2F 隔離病房與觀察室；焊死的特別病房是 GM 專用。',
+    build: hospitalAnnex,
+    clues: [
+      C('1F', '護理站', 'diary', '交班簿的最後一頁'),
+      C('1F', '病歷室', 'file_folder', '被抽走一半的病歷'),
+      C('2F', '隔離病房 3', 'recorder', '病人錄下的自言自語'),
+      C('2F', '觀察室', 'photo', '監視器畫面的列印'),
+    ],
+  },
+  {
+    id: 'lab',
+    group: 'medical',
+    also: ['military'],
+    name: '地下研究所',
+    description:
+      '表面是製藥公司：1F 大廳、辦公室與警衛室；B1 實驗室、無菌室、動物實驗室、低溫保存室；B2 的收容區整層是 GM 專用。樓梯與電梯三層對齊。',
+    build: lab,
+    clues: [
+      C('1F', '辦公室', 'file_folder', '「第二研究棟」的預算書'),
+      C('B1', '主任室', 'diary', '主任的研究日誌'),
+      C('B1', '實驗室', 'pills', '只標著代號的試劑'),
+      C('B1', '低溫保存室', 'key', '寫著「B2」的鑰匙卡'),
+    ],
+  },
+  {
+    id: 'asylum',
+    group: 'medical',
+    also: ['ruins'],
+    name: '療養院',
+    description:
+      '郊外的療養院：1F 院長室、診療室、護理站、交誼廳、病房與包著軟墊的隔離室，B1 水療室、電療室與舊病歷庫；病歷庫後面是 GM 專用的特別治療室。',
+    build: asylum,
+    clues: [
+      C('1F', '院長室', 'diary', '院長的治療紀錄'),
+      C('1F', '交誼廳', 'memo', '病人們畫的同一張臉'),
+      C('1F', '病房 2', 'memo', '刻在床板下的字'),
+      C('B1', '舊病歷庫', 'file_folder', '沒有出院紀錄的病歷'),
+      C('B1', '水療室', 'key', '生鏽的束縛帶鑰匙'),
     ],
   },
   {
