@@ -183,7 +183,7 @@ export function lab(): TplFloor[] {
     .room('低溫保存室', 'storage', 22, 0, 8, 8)
     .room('走廊', 'hall', 0, 8, 30, 3, { hideLabel: true })
     .room('實驗室', 'medical', 0, 11, 12, 9)
-    .room('除污室', 'wet', 12, 11, 8, 3, { hideLabel: true })
+    .room('除汙室', 'wet', 12, 11, 8, 3, { hideLabel: true })
     .room('無菌室', 'medical', 12, 14, 8, 6)
     .room('動物實驗室', 'danger', 20, 11, 10, 9);
   labCore(b1);

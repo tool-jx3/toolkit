@@ -77,7 +77,7 @@ export function office(): TplFloor[] {
     })
     .room('社長室', 'office', 28, 0, 8, 10)
     .room('走廊', 'hall', 14, 10, 22, 4, { hideLabel: true })
-    .room('秘書室', 'office', 14, 14, 6, 10)
+    .room('祕書室', 'office', 14, 14, 6, 10)
     .room('會議室', 'office', 20, 14, 8, 10)
     .room('廁所', 'wet', 28, 14, 8, 10);
   officeCore(u);

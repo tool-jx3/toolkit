@@ -263,7 +263,7 @@ export function parking(): TplFloor[] {
   parkingLevel(b2, '停車區 B2', 3, 13);
   b2.room('機房', 'garage', 28, 0, 8, 7).room('封鎖區', 'danger', 0, 13, 12, 7, {
     gm: true,
-    note: '用工地圍籬封起來的一角。牆上的污漬每天都長大一點，保全拒絕巡到這裡。',
+    note: '用工地圍籬封起來的一角。牆上的汙漬每天都長大一點，保全拒絕巡到這裡。',
   });
   b2.dh(30, 7, 1.5, 1, 0, 'steel').dh(9, 13, 2, -1, 0, 'gate');
   b2.item('em_generator', 28.4, 0.4, 0, { size: [4, 2] })
