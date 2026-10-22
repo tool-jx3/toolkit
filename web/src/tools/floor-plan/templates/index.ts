@@ -16,6 +16,7 @@ import { diner, ryokan, speakeasy } from './lodging';
 import { asylum, hospitalAnnex, lab } from './research';
 import { clubBuilding, funeralHome, museum } from './civic';
 import { detective, konbini, nightMarket, office, shoppingStreet } from './commerce';
+import { karaoke, theatre } from './leisure';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
@@ -537,6 +538,33 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '射氣球攤', 'idol', '獎品架上的舊娃娃'),
       C('1F', '蚵仔煎攤', 'phone', '一直響的失物手機'),
       C('1F', '土地公廟', 'key', '供桌下的鐵皮鑰匙'),
+    ],
+  },
+  {
+    id: 'theatre',
+    group: 'leisure',
+    name: '劇場',
+    description:
+      '1F 舞台、側台、觀眾席與大廳，後台有化妝室、道具間與舞台監督室；B1 是舞台下的奈落（升降口與樓梯上下對齊），封起來的奈落深處是 GM 專用。',
+    build: theatre,
+    clues: [
+      C('1F', '化妝室 2', 'photo', '鏡子上貼的舊公演照片'),
+      C('1F', '道具間', 'knife', '刀刃是真的的道具刀'),
+      C('1F', '觀眾席', 'memo', '固定座位上的留言'),
+      C('B1', '奈落', 'diary', '舞台監督的日誌'),
+    ],
+  },
+  {
+    id: 'karaoke',
+    group: 'leisure',
+    name: 'KTV',
+    description:
+      '櫃台大廳、廚房與員工室，走廊兩側是隔音的包廂；最裡面上鎖的 VIP 包廂是 GM 專用。',
+    build: karaoke,
+    clues: [
+      C('1F', '櫃台大廳', 'papers', '包廂的登記表'),
+      C('1F', '包廂 3', 'phone', '卡在沙發縫裡的手機'),
+      C('1F', '包廂 6', 'memo', '點歌單上沒聽過的歌名'),
     ],
   },
   {
