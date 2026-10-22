@@ -153,6 +153,23 @@ describe('圖示延遲載入（D50、7.16）', () => {
     expect(LAZY_MARGIN_PX).toBe(300);
   });
 
+  it('每張卡片的父層不同（範本縮圖）：往上走過的祖先記下來，不是每張都從頭問一次', () => {
+    const panel = document.createElement('div');
+    panel.style.overflowY = 'auto';
+    document.body.append(panel);
+    const spy = vi.spyOn(window, 'getComputedStyle');
+    const cards = Array.from({ length: 10 }, () => {
+      const wrap = document.createElement('div');
+      const card = document.createElement('span');
+      wrap.append(card);
+      panel.append(wrap);
+      return card;
+    });
+    for (const c of cards) expect(scrollParent(c)).toBe(panel);
+    /* 每張只問自己的父層一次（10 次），面板的答案共用（1 次） */
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(11);
+  });
+
   it('沒有捲動的祖先時 root 是 null（整個畫面）', () => {
     const c = document.createElement('canvas');
     document.body.append(c);
@@ -250,6 +267,140 @@ describe('圖示延遲載入（D50、7.16）', () => {
     const c = document.createElement('canvas');
     const drawn: number[] = [];
     lazy(c, () => drawn.push(1));
+    expect(drawn).toEqual([1]);
+  });
+});
+
+/* ---------- 畫很久的卡片（範本縮圖）---------- */
+
+describe('畫很久的卡片（paced；範本縮圖，D55、7.18）', () => {
+  const pacedLazy = (el: HTMLElement, draw: () => void) => {
+    const off = lazyDraw(el, draw, { paced: true });
+    cancels.push(off);
+    return off;
+  };
+
+  it('同一個容器的 paced 與一般卡片共用一個觀察器，範圍一樣（容器＋上下 300 px）', () => {
+    const { panel, cards } = setup([0, 50]);
+    lazy(cards[0], () => {});
+    pacedLazy(cards[1], () => {});
+    expect(ios.length).toBe(1);
+    expect(ios[0].root).toBe(panel);
+    expect(ios[0].rootMargin).toBe(`${LAZY_MARGIN_PX}px 0px`);
+  });
+
+  it('在畫面內的也不在通知裡畫：排隊，下一個 frame 才畫；一個 frame 一張（每張都超過預算）', () => {
+    const { cards } = setup([0, 80, 160, 240]);
+    const order: number[] = [];
+    for (const [i, c] of cards.entries())
+      pacedLazy(c, () => {
+        order.push(i);
+        now += 50; /* 一張要畫 50 ms，遠超過 6 ms 的預算 */
+      });
+    fire(ios[0], cards);
+    expect(order).toEqual([]);
+    expect(lazyStats().queued).toBe(4);
+    runFrame();
+    expect(order).toEqual([0]);
+    runFrame();
+    expect(order).toEqual([0, 1]);
+    runFrame();
+    runFrame();
+    expect(order).toEqual([0, 1, 2, 3]);
+    expect(lazyStats().queued).toBe(0);
+    expect(rafs.length).toBe(0);
+  });
+
+  it('很快畫完的 paced 卡片一個 frame 可以畫好幾張，但不超過預算', () => {
+    const { cards } = setup([0, 40, 80, 120, 160]);
+    const order: number[] = [];
+    for (const [i, c] of cards.entries())
+      pacedLazy(c, () => {
+        order.push(i);
+        now += 2; /* 2 ms 一張，預算 6 ms：一個 frame 4 張（第 4 張畫完時 8 ms > 6 ms） */
+      });
+    fire(ios[0], cards);
+    runFrame();
+    expect(order).toEqual([0, 1, 2, 3]);
+    runFrame();
+    expect(order).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('看得到的先畫、預先畫的（畫面外 300 px 內）接著畫，離畫面近的先', () => {
+    /* 面板 0～300：card 3 在畫面內；其餘在下面（600、350、450） */
+    const { cards } = setup([600, 350, 450, 100]);
+    const order: number[] = [];
+    for (const [i, c] of cards.entries())
+      pacedLazy(c, () => {
+        order.push(i);
+        now += 50;
+      });
+    fire(ios[0], cards);
+    for (let k = 0; k < 4; k++) runFrame();
+    expect(order).toEqual([3, 1, 2, 0]);
+  });
+
+  it('一樣近的（都在畫面內）由上而下畫，不管通知的順序', () => {
+    const { cards } = setup([100, 0, 200]);
+    const order: number[] = [];
+    for (const [i, c] of cards.entries())
+      pacedLazy(c, () => {
+        order.push(i);
+        now += 50;
+      });
+    fire(ios[0], [cards[2], cards[0], cards[1]]);
+    for (let k = 0; k < 3; k++) runFrame();
+    expect(order).toEqual([1, 0, 2]);
+  });
+
+  it('預先畫的排著時，新捲進畫面的先畫', () => {
+    const { cards } = setup([350, 400, 450, 900]);
+    const order: number[] = [];
+    for (const [i, c] of cards.entries())
+      pacedLazy(c, () => {
+        order.push(i);
+        now += 50;
+      });
+    fire(ios[0], cards);
+    runFrame();
+    expect(order).toEqual([0]);
+    /* 跳著捲：最遠的那張（900）現在在畫面內（100） */
+    vi.spyOn(cards[3], 'getBoundingClientRect').mockReturnValue({
+      top: 100,
+      bottom: 140,
+      left: 0,
+      right: 100,
+      width: 100,
+      height: 40,
+      x: 0,
+      y: 100,
+      toJSON: () => ({}),
+    });
+    runFrame();
+    expect(order).toEqual([0, 3]);
+    runFrame();
+    runFrame();
+    expect(order).toEqual([0, 3, 1, 2]);
+  });
+
+  it('排隊中的取消：不畫、從佇列拿掉', () => {
+    const { cards } = setup([0, 40]);
+    const drawn: number[] = [];
+    const offs = cards.map((c, i) => pacedLazy(c, () => drawn.push(i)));
+    fire(ios[0], cards);
+    expect(lazyStats().queued).toBe(2);
+    offs[0]();
+    expect(lazyStats().queued).toBe(1);
+    runFrame();
+    expect(drawn).toEqual([1]);
+  });
+
+  it('沒有 IntersectionObserver 的環境：paced 也馬上畫', () => {
+    // @ts-expect-error 測試：模擬舊瀏覽器
+    delete globalThis.IntersectionObserver;
+    const c = document.createElement('canvas');
+    const drawn: number[] = [];
+    pacedLazy(c, () => drawn.push(1));
     expect(drawn).toEqual([1]);
   });
 });
