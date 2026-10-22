@@ -275,7 +275,11 @@ describe('格局規則的檢查本身（抓得到違規）', () => {
     f.items = [mk('b', 'bed_single', 0, 0, 2, 4), mk('w', 'wardrobe', 2, 3, 3, 1.2)];
     expect(overlappingItems(f)).toEqual([]);
     /* 地毯、血跡（畫在底下）上面放家具 */
-    f.items = [mk('r', 'rug', 0, 0, 4, 3), mk('c', 'chair', 1, 1, 1, 1), mk('x', 'blood', 0.5, 0.5, 2, 2)];
+    f.items = [
+      mk('r', 'rug', 0, 0, 4, 3),
+      mk('c', 'chair', 1, 1, 1, 1),
+      mk('x', 'blood', 0.5, 0.5, 2, 2),
+    ];
     expect(overlappingItems(f)).toEqual([]);
     /* 祭壇上的蠟燭、桌上的筆電：整個在桌面上才算放在上面；超出桌面、或底下不是桌面類的家具都算重疊 */
     f.items = [mk('a', 'altar', 0, 0, 3, 1.6), mk('c', 'candle', 0.2, 0.4, 0.8, 0.8)];
@@ -780,10 +784,9 @@ describe('2026-10 第三批後半的範本（F237～F239）', () => {
       const parked = cars.filter((c) => stalls.some((x) => rectContains(x, c)));
       expect(parked.length, f.name).toBeGreaterThan(0);
       for (const c of parked)
-        expect(
-          stalls.find((x) => rectContains(x, c))?.rot,
-          `${f.name} ${c.t}(${c.x},${c.y})`,
-        ).toBe(c.rot);
+        expect(stalls.find((x) => rectContains(x, c))?.rot, `${f.name} ${c.t}(${c.x},${c.y})`).toBe(
+          c.rot,
+        );
       expect(stalls.filter((s) => s.y < 10).every((s) => s.rot === 0)).toBe(true);
       expect(stalls.filter((s) => s.y > 10).every((s) => s.rot === 180)).toBe(true);
     }
@@ -901,9 +904,9 @@ describe('重新設計的範本（7.18）：洋館、太空船、古城、神社
     expect(fs.map((f) => f.name)).toEqual(['B1']);
     const [f] = fs;
     const hall = f.rooms.find((r) => r.name === '迴廊') as Floor['rooms'][number];
-    expect(f.rooms.filter((r) => r !== hall && rectContains(hall, r)).length).toBeGreaterThanOrEqual(
-      13,
-    );
+    expect(
+      f.rooms.filter((r) => r !== hall && rectContains(hall, r)).length,
+    ).toBeGreaterThanOrEqual(13);
     expect(f.rooms.find((r) => r.name === '地底河')?.cat).toBe('water');
     expect(f.items.some((i) => i.t === 'stone_bridge')).toBe(true);
     expect(f.openings.filter((o) => o.kind === 'secret')).toHaveLength(1);

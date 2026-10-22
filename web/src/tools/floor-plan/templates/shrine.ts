@@ -36,7 +36,7 @@ export function shrine(): TplFloor[] {
   const forest = b.f.rooms
     .filter((r) => r.name === '山林')
     .reduce((a, r) => (r.w * r.h > a.w * a.h ? r : a));
-  forest.hideLabel = false;
+  delete forest.hideLabel;
   /* 石垣（各段之間，石階的地方留開口）、玉垣（沿山道）、岩屋前的岩壁 */
   b.wall(16, 34, 20.5, 34, 'stone')
     .wall(24, 34, 26, 34, 'stone')

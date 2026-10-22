@@ -20,7 +20,7 @@ function labelBiggest(b: FloorBuilder, name: string): void {
   const big = b.f.rooms
     .filter((r) => r.name === name)
     .reduce((a, r) => (r.w * r.h > a.w * a.h ? r : a));
-  big.hideLabel = false;
+  delete big.hideLabel;
 }
 
 export function castle(): TplFloor[] {

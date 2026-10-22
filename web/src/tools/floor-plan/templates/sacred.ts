@@ -18,7 +18,7 @@ export function church(): TplFloor[] {
     .room('書房', 'office', 28, 8, 10, 8)
     .room('臥室', 'bedroom', 28, 16, 10, 8);
   fillYard(g, 0, 0, 44, 52, '墓園');
-  g.find('墓園').hideLabel = false;
+  delete g.find('墓園').hideLabel;
   churchStairs(g);
   g.dh(14.5, 38, 3, -1, 0, 'door2')
     .dh(16, 8, 2, 1, 0)
@@ -102,4 +102,3 @@ export function church(): TplFloor[] {
     .item('magic_circle', 15, 15.6, 0, { gm: true, size: [5, 5] });
   return [bm.f, g.f];
 }
-

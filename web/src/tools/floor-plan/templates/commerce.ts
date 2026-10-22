@@ -8,7 +8,7 @@ import { FloorBuilder, Frame, type TplFloor } from './builder';
 
 /** 每層同一個位置的核心：折返樓梯與電梯 */
 function officeCore(b: FloorBuilder, name = '樓梯・電梯'): void {
-  b.room(name, 'hall', 14, 0, 10, 10, { hideLabel: name === '樓梯・電梯' });
+  b.room(name, 'hall', 14, 0, 10, 10, name === '樓梯・電梯' ? { hideLabel: true } : undefined);
   b.item('stairs_u', 14.5, 0.5);
 }
 

@@ -140,7 +140,7 @@ export function mansion(): TplFloor[] {
   const yard = g.f.rooms
     .filter((r) => r.name === '庭園')
     .reduce((a, r) => (r.w * r.h > a.w * a.h ? r : a));
-  yard.hideLabel = false;
+  delete yard.hideLabel;
   m.item('streetlight', 17, -3)
     .item('streetlight', 28, -3)
     .item('bush', 15.6, 1.2)

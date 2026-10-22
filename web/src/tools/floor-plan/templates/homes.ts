@@ -311,4 +311,3 @@ export function lodge(): TplFloor[] {
     .item('bookshelf', 27.1, 14.5, 90);
   return [g.f, u.f];
 }
-
