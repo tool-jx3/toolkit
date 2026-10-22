@@ -30,6 +30,7 @@ import {
   magnet,
   type OpeningGhost,
   snapOpening,
+  snapToWall,
   snapWallPoint,
   spansOnLine,
 } from '../model/snap';
@@ -420,6 +421,17 @@ export class EditorController {
       const box = c ? textBox(c, t, this.font()) : { x: t.x - 2, y: t.y - 0.5, w: 4, h: 1 };
       if (inRect(box, tol)) return { type: 'text', id: t.id };
     }
+    /* 貼牆素材畫在牆與門窗的上面，先點到（2026-10 第三批，F233） */
+    const hitItem = (list: Item[]) => {
+      for (let i = list.length - 1; i >= 0; i--) {
+        const it = list[i];
+        const pad = Math.min(it.w, it.h) * this.view.zoom < 12 ? tol : 0;
+        if (inRect(it, pad)) return it;
+      }
+      return null;
+    };
+    const onWall = hitItem(f.items.filter((i) => ASSET[i.t]?.wall));
+    if (onWall) return { type: 'item', id: onWall.id };
     for (let i = f.openings.length - 1; i >= 0; i--) {
       const o = f.openings[i];
       const along = (o.o === 'h' ? wx : wy) - (o.o === 'h' ? o.x : o.y);
@@ -428,12 +440,13 @@ export class EditorController {
         return { type: 'opening', id: o.id };
     }
     const under = (it: Item) => Boolean(ASSET[it.t]?.under);
-    for (const group of [f.items.filter((i) => !under(i)), f.items.filter(under)])
-      for (let i = group.length - 1; i >= 0; i--) {
-        const it = group[i];
-        const pad = Math.min(it.w, it.h) * this.view.zoom < 12 ? tol : 0;
-        if (inRect(it, pad)) return { type: 'item', id: it.id };
-      }
+    for (const group of [
+      f.items.filter((i) => !under(i) && !ASSET[i.t]?.wall),
+      f.items.filter(under),
+    ]) {
+      const it = hitItem(group);
+      if (it) return { type: 'item', id: it.id };
+    }
     for (let i = f.walls.length - 1; i >= 0; i--) {
       const w = f.walls[i];
       if (segDist(wx, wy, w) <= Math.max(0.25, tol)) return { type: 'wall', id: w.id };
@@ -1332,12 +1345,13 @@ export class EditorController {
         return;
       }
       if (d.entries.length === 1 && d.entries[0].type === 'item' && !alt) {
-        /* 只拖一件家具：貼牆 */
+        /* 只拖一件家具：貼牆（貼牆素材吸到同方向的牆線上，F233） */
         const e = d.entries[0];
         const orig = e.orig as Item;
         const it = getObj(f, 'item', e.id) as Item | null;
         if (!it) return;
-        const r = magnet(lines, { x: orig.x + dx, y: orig.y + dy, w: it.w, h: it.h });
+        const moved = { x: orig.x + dx, y: orig.y + dy, w: it.w, h: it.h };
+        const r = (ASSET[it.t]?.wall && snapToWall(lines, moved, false)) || magnet(lines, moved);
         it.x = round2(r.x);
         it.y = round2(r.y);
         return;

@@ -1263,6 +1263,7 @@ export function furnStyle(theme: FloorTheme, lw: number, color?: string): FurnSt
     ...(color ? { paper: color } : null),
     lw,
     wall: theme.wall,
+    gap: gapColor(theme),
     font: theme.font,
   };
 }
@@ -1627,15 +1628,17 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
     c.restore();
   }
 
-  const isUnder = (i: Item) => Boolean(ASSET[i.t]?.under);
-  for (const item of floor.items) if (isUnder(item)) drawItem(c, item, theme, lw, opts);
-  for (const item of floor.items) if (!isUnder(item)) drawItem(c, item, theme, lw, opts);
+  /* 地毯、血跡等在最下面 → 一般的家具 → 牆、門窗 → 貼牆素材（裂痕、崩塌…，2026-10 第三批，F233） */
+  const layer = (i: Item) => (ASSET[i.t]?.under ? 0 : ASSET[i.t]?.wall ? 2 : 1);
+  for (const item of floor.items) if (layer(item) === 0) drawItem(c, item, theme, lw, opts);
+  for (const item of floor.items) if (layer(item) === 1) drawItem(c, item, theme, lw, opts);
 
   const walls = computeWalls(floor, { playerView: opts.playerView });
   for (const run of walls.runs) drawRun(c, run, theme, lw, opts.editor);
   for (const w of walls.diagonal) drawDiagonalWall(c, w, theme, lw);
   for (const o of floor.openings)
     drawOpening(c, o, wallThickness(walls.openingKind.get(o.id)), theme, lw, opts);
+  for (const item of floor.items) if (layer(item) === 2) drawItem(c, item, theme, lw, opts);
 
   if (!opts.playerView) {
     for (const room of floor.rooms) {

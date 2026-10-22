@@ -1,6 +1,7 @@
 /**
  * 室內平面圖產生器：讀原作新版（v1.05～v1.14）存的 .trpgmap.json（規格 2.2.1～2.2.3、F213、F231、D22～D25、D39）。
- * 2026-10 第二批起原作新增的房間、門窗、牆種類、每間房的牆種類、外觀層的「顯示內部」都原樣照讀。
+ * 2026-10 第二批起原作新增的房間、門窗、牆種類、每間房的牆種類、外觀層的「顯示內部」都原樣照讀；
+ * 第三批起原作新增的家具 234 種（含疊在牆上的牆洞、崩塌、裂痕、彈孔、觸手）也原樣照讀（F236、D46）。
  *
  * 範例資料是本站自己寫的（只用原作存檔的欄位名稱與種類代號，房間名稱、格局都是自己編的）。
  */
@@ -17,12 +18,16 @@ import {
 import {
   type CompatReport,
   compatCounts,
+  UPSTREAM_ITEMS_V105,
+  UPSTREAM_ITEMS_V106,
+  UPSTREAM_ITEMS_V110,
   UPSTREAM_OPENINGS,
   UPSTREAM_ROOM_CATS,
+  UPSTREAM_WALL_ITEMS,
   UPSTREAM_WALLS,
 } from '@/tools/floor-plan/model/compat';
 import { type NormalizeReport, normalizeProject } from '@/tools/floor-plan/model/normalize';
-import type { Floor, Project } from '@/tools/floor-plan/model/types';
+import type { Project } from '@/tools/floor-plan/model/types';
 import { computeWalls, wallLines } from '@/tools/floor-plan/model/walls';
 import { S } from '@/tools/floor-plan/strings';
 
@@ -189,7 +194,7 @@ describe('原作新版的種類原樣保留（2026-10 第二批：2.2.2、F231�
     }
   });
 
-  it('房間 14 種、門窗 7 種、牆 3 種原樣保留；每間房的牆種類照讀（戶外房間的也留著）；只換掉疊在牆上的素材', () => {
+  it('房間 14 種、門窗 7 種、牆 3 種原樣保留；每間房的牆種類照讀（戶外房間的也留著）；沒有換掉的東西', () => {
     const { p, compat } = load(v113());
     const f1 = p.floors[1];
     const byId = Object.fromEntries(f1.rooms.map((r) => [r.id, r]));
@@ -220,8 +225,8 @@ describe('原作新版的種類原樣保留（2026-10 第二批：2.2.2、F231�
       ['w2', 'sound', false],
       ['w3', 'cracked', true],
     ]);
-    /* 房間、門窗、牆都沒有換掉；換掉的只有疊在牆上的牆洞與崩塌 */
-    expect(compat.converted.map((e) => e.type)).toEqual(['overlay', 'overlay']);
+    /* 房間、門窗、牆都沒有換掉；疊在牆上的牆洞與崩塌 2026-10 第三批起也照讀（D46） */
+    expect(compat.converted).toEqual([]);
     expect(compat.droppedOpenings).toEqual([]);
   });
 
@@ -297,111 +302,133 @@ describe('開口、牆洞（D23）', () => {
     });
   });
 
-  it('疊在牆上的牆洞、崩塌 → 牆上的破洞（中間一段；GM 照搬）；不在牆上、重疊、裝飾的略過', () => {
+  it('疊在牆上的牆洞、崩塌、裂痕：2026-10 第三批起是本工具的貼牆素材，原樣保留（不再換成破洞，D46）', () => {
     const { p, compat } = load(v113());
-    const holes = p.floors[1].openings.filter((o) => o.kind === 'hole' && o.id !== 'o9');
-    expect(holes.map(({ id: _id, ...o }) => o)).toEqual([
-      /* 牆洞 (12～14) 在 y＝12 的外牆 → 中間一半 (12.5～13.5) */
-      { kind: 'hole', o: 'h', x: 12.5, y: 12, len: 1, side: 1, hinge: 0, gm: true },
-      /* 崩塌 (6～9) 在 x＝20 的外牆 → 兩端各去掉 0.5 (6.5～8.5) */
-      { kind: 'hole', o: 'v', x: 20, y: 6.5, len: 2, side: 1, hinge: 0 },
-    ]);
-    expect(new Set(p.floors[1].openings.map((o) => o.id)).size).toBe(p.floors[1].openings.length);
-    expect(conv(compat, 'overlay')).toEqual({ wall_hole: ['hole', 1], collapse_wall: ['hole', 1] });
-    /* 家具：throne、npc_guard ×2、swing、不在牆上的牆洞、和門重疊的崩塌、裂痕 */
-    expect(Object.fromEntries(compat.droppedItems.map((d) => [d.t, d.n]))).toEqual({
-      throne: 1,
-      npc_guard: 2,
-      swing: 1,
-      wall_hole: 1,
-      collapse_wall: 1,
-      crack_wall: 1,
+    const items = p.floors[1].items;
+    const byId = Object.fromEntries(items.map((i) => [i.id, i]));
+    expect(byId.i6).toEqual({
+      id: 'i6',
+      t: 'wall_hole',
+      x: 12,
+      y: 11.5,
+      w: 2,
+      h: 1,
+      rot: 0,
+      gm: true,
+      label: '洞',
     });
-    expect(p.floors[1].items.map((i) => i.t)).toEqual(['sofa2']);
+    expect(byId.i7).toMatchObject({ t: 'collapse_wall', x: 19.2, y: 6, w: 1.6, h: 3, rot: 90 });
+    expect(byId.i10).toMatchObject({ t: 'crack_wall', x: 15, y: 11.6, w: 3, h: 0.8 });
+    /* 不在牆線上的、和門重疊的也照樣留著（原作也是這樣放的） */
+    expect([byId.i8?.t, byId.i9?.t]).toEqual(['wall_hole', 'collapse_wall']);
+    /* 門窗沒有多出破洞（只有檔案裡原有的 9 個） */
+    expect(p.floors[1].openings.map((o) => o.id)).toEqual([
+      'o1',
+      'o2',
+      'o3',
+      'o4',
+      'o5',
+      'o6',
+      'o7',
+      'o8',
+      'o9',
+    ]);
+    expect(compat.converted).toEqual([]);
+    expect(compat.droppedItems).toEqual([]);
   });
 
-  it('破洞切開牆；PL 檢視也一樣（和暗門不同）', () => {
+  it('貼牆素材不切開牆（畫在牆的上面，同原作）', () => {
     const { p } = load(v113());
-    const f1 = p.floors[1];
-    const cut = (f: Floor, pv: boolean) =>
-      computeWalls(f, { playerView: pv }).runs.filter(
-        (r) => r.o === 'h' && r.c === 12 && r.a < 13.5 && r.b > 12.5,
-      );
-    expect(cut(f1, false)).toEqual([]);
-    expect(cut(f1, true)).toEqual([]);
+    const runs = computeWalls(p.floors[1]).runs.filter(
+      (r) => r.o === 'h' && r.c === 12 && r.a < 13.5 && r.b > 12.5,
+    );
+    expect(runs.length).toBe(1);
   });
 });
 
-describe('疊在牆上的素材離牆線多遠還算在牆上（D23，對等驗證 7.4 後改）', () => {
-  /* 一間 10×6 的房間（外牆）＋房間裡 y＝2.5 的手畫內牆；疊在牆上的牆洞（2×1）長邊的中心線離牆線 d 格 */
-  const file = (items: Record<string, unknown>[]) => ({
-    app: 'indoor-map-maker',
-    v: 1,
-    tool: 'v1.13',
-    name: '離牆線',
-    floors: [
-      {
-        id: 'f',
-        name: '1F',
-        rooms: [{ id: 'r', x: 0, y: 0, w: 10, h: 6, name: '房', cat: 'living' }],
-        walls: [{ id: 'w', x1: 0, y1: 2.5, x2: 10, y2: 2.5, kind: 'int' }],
-        openings: [],
-        items,
-        texts: [],
-      },
-    ],
-  });
-  const hole = (id: string, x: number, center: number) => ({
-    id,
-    t: 'wall_hole',
-    x,
-    y: center - 0.5,
-    w: 2,
-    h: 1,
-    rot: 0,
+describe('原作新增的家具都照讀（2026-10 第三批，F236、2.2.1）', () => {
+  it('v1.05 的 23 種、v1.06 的 206 種、v1.10 的 5 種，本工具都有（代號相同）', () => {
+    const all = [...UPSTREAM_ITEMS_V105, ...UPSTREAM_ITEMS_V106, ...UPSTREAM_ITEMS_V110];
+    expect([
+      UPSTREAM_ITEMS_V105.length,
+      UPSTREAM_ITEMS_V106.length,
+      UPSTREAM_ITEMS_V110.length,
+    ]).toEqual([23, 206, 5]);
+    expect(new Set(all).size).toBe(234);
+    for (const t of all) expect(isAsset(t), t).toBe(true);
+    for (const t of UPSTREAM_WALL_ITEMS) expect(all.includes(t), t).toBe(true);
   });
 
-  it('離牆線 0.05 格、0.2 格：換成那條牆上的破洞；0.3 格：略過', () => {
-    const { p, compat } = load(file([hole('a', 1, 0.05), hole('b', 4, -0.2), hole('c', 7, 0.3)]));
-    expect(p.floors[0].openings.map(({ id: _id, ...o }) => o)).toEqual([
-      { kind: 'hole', o: 'h', x: 1.5, y: 0, len: 1, side: 1, hinge: 0 },
-      { kind: 'hole', o: 'h', x: 4.5, y: 0, len: 1, side: 1, hinge: 0 },
-    ]);
-    expect(conv(compat, 'overlay')).toEqual({ wall_hole: ['hole', 2] });
-    expect(compat.droppedItems).toEqual([{ t: 'wall_hole', n: 1 }]);
-  });
-
-  it('兩條牆線都在 0.25 格以內時取最近的那條', () => {
-    /* 另一道手畫牆在 y＝2.75：中心 2.6 離 2.5 比較近、2.7 離 2.75 比較近 */
-    const raw = file([hole('a', 1, 2.6), hole('b', 6, 2.7)]);
-    (raw.floors[0].walls as unknown[]).push({ id: 'w2', x1: 0, y1: 2.75, x2: 10, y2: 2.75 });
-    const { p } = load(raw);
-    expect(p.floors[0].openings.map((o) => [o.x, o.y])).toEqual([
-      [1.5, 2.5],
-      [6.5, 2.75],
-    ]);
-  });
-
-  it('放寬之後，和既有的門窗重疊時照樣略過', () => {
-    const raw = file([hole('a', 1, 0.05)]);
-    (raw.floors[0].openings as unknown[]).push({
-      id: 'd',
-      kind: 'door',
-      o: 'h',
-      x: 2,
-      y: 0,
-      len: 1.5,
-      side: 1,
-      hinge: 0,
+  it('每一種新家具各放一件的原作檔：全部照讀，沒有略過（位置、大小、方向、GM、線索、標籤、顏色不變）', () => {
+    const all = [...UPSTREAM_ITEMS_V105, ...UPSTREAM_ITEMS_V106, ...UPSTREAM_ITEMS_V110];
+    const items = all.map((t, i) => ({
+      id: `n${i}`,
+      t,
+      x: (i % 20) * 3,
+      y: Math.floor(i / 20) * 3,
+      w: 1.5,
+      h: 1,
+      rot: (i % 4) * 90,
+      ...(i % 7 === 0 ? { gm: true } : {}),
+      ...(i % 11 === 0 ? { clue: true, label: '線索' } : {}),
+      ...(i % 13 === 0 ? { color: '#AA3311' } : {}),
+    }));
+    const { p, report, compat } = load({
+      app: 'indoor-map-maker',
+      v: 1,
+      tool: 'v1.14',
+      name: '家具全部',
+      floors: [
+        {
+          id: 'f',
+          name: '1F',
+          rooms: [{ id: 'r', x: 0, y: 0, w: 60, h: 40, name: '倉庫', cat: 'storage' }],
+          walls: [],
+          openings: [],
+          items,
+          texts: [],
+        },
+      ],
     });
-    const { p, compat } = load(raw);
-    expect(p.floors[0].openings.map((o) => o.id)).toEqual(['d']);
-    expect(compat.droppedItems).toEqual([{ t: 'wall_hole', n: 1 }]);
+    expect(report.droppedItems).toBe(0);
+    expect(compatCounts(compat)).toEqual({ converted: 0, items: 0, openings: 0, settings: 0 });
+    const got = p.floors[0].items;
+    expect(got.map((i) => i.t)).toEqual(all);
+    expect(got[0]).toEqual({
+      id: 'n0',
+      t: all[0],
+      x: 0,
+      y: 0,
+      w: 1.5,
+      h: 1,
+      rot: 0,
+      gm: true,
+      clue: true,
+      label: '線索',
+      color: '#aa3311',
+    });
+    expect(got[5]).toEqual({ id: 'n5', t: all[5], x: 15, y: 0, w: 1.5, h: 1, rot: 90 });
+  });
+
+  it('將來的版本才有的家具照舊略過並計數', () => {
+    const raw = v113();
+    (raw.floors as Record<string, unknown[]>[])[1].items.push({
+      id: 'u',
+      t: 'warp_gate',
+      x: 1,
+      y: 1,
+      w: 1,
+      h: 1,
+      rot: 0,
+    });
+    const { compat, report } = load(raw);
+    expect(compat.droppedItems).toEqual([{ t: 'warp_gate', n: 1 }]);
+    expect(report.droppedItems).toBe(1);
   });
 });
 
 describe('設定照讀、家具略過（D24、2026-10 第二批改）', () => {
-  it('每間房的牆種類、外觀層的「顯示內部」照讀，不算略過；家具依代號計數', () => {
+  it('每間房的牆種類、外觀層的「顯示內部」照讀，不算略過；家具也照讀（第三批）', () => {
     const { p, report, compat } = load(v113());
     expect(compat.roomWalls).toBe(0);
     /* 外觀層的「顯示內部」與疊上來的樓層 */
@@ -410,8 +437,8 @@ describe('設定照讀、家具略過（D24、2026-10 第二批改）', () => {
     /* 棋子方格（v1.07）：2026-10 第一批起照讀 */
     expect(p.tokenGrid).toBe(2);
     expect([p.showSize, p.theme, p.active, p.name]).toEqual(['ping', 'paper', 1, '新版格式的範例']);
-    /* 舊的計數（家具丟掉幾件）照舊 */
-    expect(report.droppedItems).toBe(7);
+    /* 2026-10 第三批起原作的家具都認得：沒有丟掉的（第二批以前 7 件） */
+    expect(report.droppedItems).toBe(0);
   });
 
   it('疊上來的樓層不存在、指到自己時拿掉（用第一個別的樓層）；只有一層時「顯示內部」拿掉', () => {
@@ -431,8 +458,11 @@ describe('設定照讀、家具略過（D24、2026-10 第二批改）', () => {
 
   it('通知的計數與說明（D25）', () => {
     const { compat } = load(v113());
-    expect(compatCounts(compat)).toEqual({ converted: 2, items: 7, openings: 0, settings: 0 });
-    expect(S.compat.summary(compatCounts(compat))).toBe('2 個換成相近的種類、7 件家具略過。');
+    /* 2026-10 第三批起原作 v1.05～v1.14 的檔沒有要通知的東西（第二批「2 個換成相近的種類、7 件家具略過。」） */
+    expect(compatCounts(compat)).toEqual({ converted: 0, items: 0, openings: 0, settings: 0 });
+    expect(S.compat.summary({ converted: 2, items: 7, openings: 0, settings: 0 })).toBe(
+      '2 個換成相近的種類、7 件家具略過。',
+    );
     expect(S.compat.summary({ converted: 0, items: 1, openings: 2, settings: 0 })).toBe(
       '1 件家具略過、2 個門窗略過。',
     );

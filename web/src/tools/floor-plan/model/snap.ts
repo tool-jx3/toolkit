@@ -161,6 +161,41 @@ export function magnet(lines: readonly WallRun[], rect: Rect, reach = 0.3): Rect
   return { ...rect, x: bestX ? bestX.x : rect.x, y: bestY ? bestY.y : rect.y };
 }
 
+/**
+ * 貼牆素材（2026-10 第三批，F233）：外框長邊的中心線吸到附近的牆線上，長邊沿著牆。
+ * 找「離線不超過 深度 ÷ 2 ＋ 1 格、沿著線在牆段兩端外半個長度以內」的最近一條牆線（手畫的水平、垂直牆也算）；
+ * 起點對齊 0.25 格、盡量整個放在牆段裡（比牆段長時置中在牆段上）。
+ * `anyDir`：可以換方向（拿著放的時候跟著牆轉）；false 時只找和外框同方向的牆（移動已經放好的）。
+ */
+export function snapToWall(
+  lines: readonly WallRun[],
+  rect: Rect,
+  anyDir: boolean,
+): (Rect & { o: 'h' | 'v' }) | null {
+  const len = Math.max(rect.w, rect.h);
+  const depth = Math.min(rect.w, rect.h);
+  const horiz = rect.w >= rect.h;
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+  let best: { r: WallRun; d: number; along: number } | null = null;
+  for (const r of lines) {
+    if (!anyDir && (r.o === 'h') !== horiz) continue;
+    const along = r.o === 'h' ? cx : cy;
+    const d = Math.abs((r.o === 'h' ? cy : cx) - r.c);
+    if (d > depth / 2 + 1 || along < r.a - len / 2 || along > r.b + len / 2) continue;
+    if (!best || d < best.d - 1e-9) best = { r, d, along };
+  }
+  if (!best) return null;
+  const { r, along } = best;
+  const lo = Math.min(r.a, r.b - len);
+  const hi = Math.max(r.a, r.b - len);
+  const start =
+    r.b - r.a >= len ? clamp(snap(along - len / 2, 0.25), lo, hi) : (r.a + r.b - len) / 2;
+  return r.o === 'h'
+    ? { o: 'h', x: start, y: r.c - depth / 2, w: len, h: depth }
+    : { o: 'v', x: r.c - depth / 2, y: start, w: depth, h: len };
+}
+
 export interface ArmedItem {
   t: string;
   rot: number;
@@ -190,6 +225,13 @@ export function itemGhost(
   let d = assetDims(asset, rot);
   let rect: Rect = { x: snap(wx - d.w / 2, 0.25), y: snap(wy - d.h / 2, 0.25), w: d.w, h: d.h };
   if (free) return { t: armed.t, rot, ...rect };
+  if (asset.wall) {
+    /* 貼牆素材：跟著牆的方向（橫的牆 0°、直的牆 90°；按 R 轉過之後只找同方向的牆） */
+    const g = snapToWall(lines, rect, !armed.manual);
+    if (!g) return { t: armed.t, rot, ...rect };
+    if (!armed.manual) rot = g.o === 'h' ? 0 : 90;
+    return { t: armed.t, rot, x: g.x, y: g.y, w: g.w, h: g.h };
+  }
   if (asset.orient) {
     const depth = asset.h;
     let best: { d: number; r: WallRun; dir: 'up' | 'down' | 'left' | 'right' } | null = null;

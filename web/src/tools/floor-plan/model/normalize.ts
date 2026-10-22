@@ -1,8 +1,9 @@
 /**
  * 讀進來的資料整理成可以用的專案（自動存檔、專案檔、原作的 .trpgmap.json 共用）：
  * 只留認得的欄位、數值不是數字的丟掉、範圍外的夾回來、不認得的種類換成預設值。
- * 原作新版（v1.05～v1.14）的房間、門窗、牆種類、每間房的牆種類、外觀層的「顯示內部」照讀（2026-10 第二批）；
- * 本工具沒有的家具略過、不認得的種類換成預設值，都記在 report.compat（compat.ts）。
+ * 原作新版（v1.05～v1.14）的房間、門窗、牆種類、每間房的牆種類、外觀層的「顯示內部」照讀（2026-10 第二批），
+ * 家具（含疊在牆上的素材）也照讀（2026-10 第三批）；不認得的種類（將來的版本才有的）換成預設值或略過，
+ * 都記在 report.compat（compat.ts）。
  */
 import { formatHex, parseColor } from '@/core/color';
 import {
@@ -18,11 +19,9 @@ import {
 import {
   type CompatReport,
   emptyCompatReport,
-  isLegacyWallHole,
   noteConverted,
   noteDroppedItem,
   noteDroppedOpening,
-  overlayToHole,
 } from './compat';
 import { clamp, emptyFloor, uid } from './geometry';
 import type {
@@ -37,7 +36,6 @@ import type {
   Wall,
   WallKind,
 } from './types';
-import { wallLines } from './walls';
 
 const num = (v: unknown, fallback = 0): number => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : Number.NaN;
@@ -221,17 +219,12 @@ export function normalizeProject(
   let dropped = 0;
   const floors: Floor[] = list(p.floors).map((f) => {
     const items: Item[] = [];
-    /* 原作「疊在牆上的」牆洞、崩塌：牆算出來之後再換成牆上的破洞 */
-    const overlays: Record<string, unknown>[] = [];
     for (const i of list(f.items)) {
       const it = item(i, isAsset);
       if (it) items.push(it);
       else if (typeof i.t === 'string' && !isAsset(i.t)) {
-        if (isLegacyWallHole(i.t)) overlays.push(i);
-        else {
-          dropped++;
-          noteDroppedItem(compat, i.t);
-        }
+        dropped++;
+        noteDroppedItem(compat, i.t);
       }
     }
     const floor: Floor = {
@@ -260,24 +253,6 @@ export function normalizeProject(
         't',
       ),
     };
-    if (overlays.length) {
-      const lines = wallLines(floor);
-      for (const i of overlays) {
-        const t = i.t as string;
-        const hole = overlayToHole(
-          { t, x: num(i.x), y: num(i.y), w: num(i.w), h: num(i.h), gm: i.gm === true },
-          lines,
-          floor.openings,
-        );
-        if (hole) {
-          floor.openings.push(hole);
-          noteConverted(compat, 'overlay', t, hole.kind);
-        } else {
-          dropped++;
-          noteDroppedItem(compat, t);
-        }
-      }
-    }
     ids(floor.openings, 'o');
     /* 外觀層的「顯示內部」（原作 v1.12；2026-10 第二批起照讀）：疊上來的樓層的 id 在下面樓層的 id 確定之後檢查 */
     if (f.showInside === true) floor.showInside = true;
