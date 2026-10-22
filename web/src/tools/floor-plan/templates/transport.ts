@@ -228,7 +228,7 @@ export function parking(): TplFloor[] {
     .room('管理亭', 'office', 30, 14, 6, 6)
     .room('道路', 'road', 0, 20, 48, 6, { hideLabel: true })
     .room('人行道', 'porch', 0, 14, 30, 6, { hideLabel: true })
-    .room('空地', 'gravel', 30, 0, 6, 14, { hideLabel: true });
+    .room('空地', 'dirt', 30, 0, 6, 14, { hideLabel: true });
   g.item('stairs', 0.4, 0.5).item('elevator', 3.4, 0.5);
   g.dv(8, 5, 3, 1, 0, 'auto')
     .dh(2, 8, 4, 1, 0, 'auto')

@@ -399,8 +399,8 @@ export function nightMarket(): TplFloor[] {
   const b = new FloorBuilder('1F');
   b.room('後巷', 'dirt', 8, 0, 40, 4, { hideLabel: true })
     .room('土地公廟', 'special', 0, 6, 8, 10)
-    .room('廟埕', 'gravel', 0, 16, 14, 8)
-    .room('廟旁空地', 'gravel', 8, 4, 6, 12, { hideLabel: true })
+    .room('廟埕', 'porch', 0, 16, 14, 8)
+    .room('廟旁空地', 'porch', 8, 4, 6, 12, { hideLabel: true })
     .room('夜市街', 'road', 14, 10, 34, 8)
     .room('公廁', 'wet', 40, 18, 4, 6)
     .room('鐵皮倉庫', 'storage', 44, 18, 4, 6, {
