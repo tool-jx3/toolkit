@@ -15,6 +15,7 @@ import { apartment, house, japaneseHouse, sanheyuan } from './living';
 import { diner, ryokan, speakeasy } from './lodging';
 import { asylum, hospitalAnnex, lab } from './research';
 import { clubBuilding, funeralHome, museum } from './civic';
+import { detective, konbini, nightMarket, office, shoppingStreet } from './commerce';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
@@ -465,6 +466,77 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '家屬休息室', 'memo', '寫給死者的信'),
       C('1F', '辦公室', 'diary', '排班表上不存在的同事'),
       C('1F', '大廳・接待', 'papers', '簽到簿上陌生的簽名'),
+    ],
+  },
+  {
+    id: 'office',
+    group: 'commerce',
+    name: '辦公大樓',
+    description:
+      '1F 有旋轉門的大廳、警衛室與咖啡店，8F 開放辦公區、會議室、社長室與伺服器室，屋頂有水塔；社長室書櫃後面是 GM 專用的密室。核心的樓梯三層對齊。',
+    build: office,
+    clues: [
+      C('1F', '大廳', 'papers', '訪客登記表上的假名'),
+      C('8F', '開放辦公區', 'laptop', '還沒登出的同事的電腦'),
+      C('8F', '社長室', 'diary', '社長的行事曆'),
+      C('8F', '會議室', 'memo', '白板上沒擦乾淨的字'),
+    ],
+  },
+  {
+    id: 'konbini',
+    group: 'commerce',
+    name: '便利商店',
+    description:
+      '深夜的便利商店：貨架、冷藏櫃、收銀台與 ATM，後面是倉庫、冷藏庫與員工休息室，前面是停車場。',
+    build: konbini,
+    clues: [
+      C('1F', '賣場', 'memo', '收銀台旁的交班筆記'),
+      C('1F', '廁所', 'phone', '鏡子後面的手機'),
+      C('1F', '停車場', 'key', '掉在車輪旁的機車鑰匙'),
+    ],
+  },
+  {
+    id: 'detective',
+    group: 'commerce',
+    also: ['ruins'],
+    name: '偵探事務所',
+    description:
+      '舊大樓的兩層：1F 是當舖，獨立的樓梯通到 2F 的偵探事務所（接待室、所長室、資料室）與住處；所長室的掛畫後面是 GM 專用的密室。',
+    build: detective,
+    clues: [
+      C('2F', '接待室', 'memo', '委託人留下的地址'),
+      C('2F', '所長室', 'diary', '所長沒寫完的調查筆記'),
+      C('2F', '資料室', 'file_folder', '標著「未結」的檔案'),
+      C('1F', '當舖', 'photo', '夾在當票裡的照片'),
+    ],
+  },
+  {
+    id: 'shopping-street',
+    group: 'commerce',
+    name: '老街',
+    description:
+      '騎樓兩側的老店：中藥行、照相館、雜貨店、茶行、理髮廳、麵店、金紙店、鐘錶行、舊書店與神壇；神壇供桌後面是 GM 專用的後室。',
+    build: shoppingStreet,
+    clues: [
+      C('1F', '中藥行', 'pills', '寫著奇怪藥名的藥包'),
+      C('1F', '照相館', 'photo', '一直沒人來領的照片'),
+      C('1F', '舊書店', 'diary', '夾在舊書裡的日記'),
+      C('1F', '鐘錶行', 'key', '藏在鐘裡的鑰匙'),
+    ],
+  },
+  {
+    id: 'night-market',
+    group: 'commerce',
+    also: ['leisure'],
+    name: '夜市',
+    description:
+      '廟口的夜市街：土地公廟、兩側的攤位（射氣球、撈金魚、蚵仔煎、算命…）、公廁與停車場；鎖著的鐵皮倉庫是 GM 專用。',
+    build: nightMarket,
+    clues: [
+      C('1F', '算命攤', 'memo', '算命師塞給你的紙條'),
+      C('1F', '射氣球攤', 'idol', '獎品架上的舊娃娃'),
+      C('1F', '蚵仔煎攤', 'phone', '一直響的失物手機'),
+      C('1F', '土地公廟', 'key', '供桌下的鐵皮鑰匙'),
     ],
   },
   {
