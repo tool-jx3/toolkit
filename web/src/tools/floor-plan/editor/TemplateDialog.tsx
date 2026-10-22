@@ -2,7 +2,8 @@
  * 範本對話框：分類篩選、縮圖卡片（樓層數與說明）、空白地圖；載入選項「只載入格局」「放入隱藏線索」。
  * 2026-10 第三批：搜尋欄（名稱或 `#標籤`，F235；共用 TemplateGallery 的 `search`）。
  * 2026-10 第三批後半：13 類（一個範本可以在好幾類，分類按鈕換行）；範本變多，縮圖捲到看得到的地方才畫
- * （一次畫一張，畫好的留著），樓層數也只算一次（D55）。
+ * （畫好的留著），樓層數也只算一次（D55）。2026-10-22（7.18）：縮圖的觀察範圍指定成對話框的捲動區、
+ * 和素材面板的圖示共用同一套延遲載入（上下多 300 px 才真的有預先畫）。
  */
 import { Plus } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -27,6 +28,7 @@ import {
 } from '../templates';
 import { templateTags } from '../templates/tags';
 import { loadTemplate, newMap } from './actions';
+import { lazyDraw } from './lazyIcons';
 import { setEditor, useEditor } from './store';
 
 const thumbs = new Map<string, string>();
@@ -66,67 +68,21 @@ function thumbnail(id: string): string | null {
   }
 }
 
-/**
- * 縮圖的佇列：卡片捲到看得到的地方（上下多 300 px）才排進來，一次畫一張（每張之間讓出主執行緒），
- * 對話框打開、捲動、換分類都不會卡住。
- */
-const waiting = new Map<string, (url: string | null) => void>();
-let pumping = false;
-
-function pump(): void {
-  const next = waiting.entries().next();
-  if (next.done) {
-    pumping = false;
-    return;
-  }
-  const [id, done] = next.value;
-  waiting.delete(id);
-  done(thumbnail(id));
-  setTimeout(pump, 0);
-}
-
-function requestThumbnail(id: string, done: (url: string | null) => void): () => void {
-  waiting.set(id, done);
-  if (!pumping) {
-    pumping = true;
-    setTimeout(pump, 0);
-  }
-  return () => {
-    if (waiting.get(id) === done) waiting.delete(id);
-  };
-}
-
 const IMG_CLASS = 'max-h-full max-w-full object-contain';
 
-/** 範本的縮圖：看得到時才畫（畫過的直接用） */
+/**
+ * 範本的縮圖：看得到的地方（對話框捲動區上下多 300 px）才畫，畫過的直接用。
+ * 和素材面板的圖示共用 `lazyDraw`（lazyIcons.ts）：觀察範圍＝最近的捲動祖先（對話框的捲動區）、56 張共用一個觀察器、
+ * 看得到的先畫、預先畫的排隊接著畫；一張要畫幾十 ms，所以用 `paced`（一個 frame 只畫到時間上限）（D55、7.18）。
+ */
 function TemplateThumb({ id }: { id: string }) {
   const [url, setUrl] = useState(() => thumbs.get(id) ?? null);
   const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    if (url) return;
-    let cancel: (() => void) | null = null;
-    const start = () => {
-      cancel ??= requestThumbnail(id, setUrl);
-    };
-    const el = ref.current;
-    if (!el || typeof IntersectionObserver === 'undefined') {
-      start();
-      return () => cancel?.();
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          io.disconnect();
-          start();
-        }
-      },
-      { rootMargin: '300px 0px' },
-    );
-    io.observe(el);
-    return () => {
-      io.disconnect();
-      cancel?.();
-    };
+    /* 以整張卡片（`li`）的位置算「上下 300 px」：縮圖只是卡片上半，卡片在畫面上方時縮圖離得更遠 */
+    const el = ref.current?.closest('li') ?? ref.current;
+    if (url || !el) return;
+    return lazyDraw(el, () => setUrl(thumbnail(id)), { paced: true });
   }, [id, url]);
   return url ? (
     <img src={url} alt="" className={IMG_CLASS} />

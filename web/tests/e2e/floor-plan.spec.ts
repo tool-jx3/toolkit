@@ -890,6 +890,95 @@ test('範本對話框的縮圖：捲到看得到的卡片才畫，畫過的留�
   expect(errors).toEqual([]);
 });
 
+/**
+ * 範本對話框每張卡片離「捲動區的可見範圍」多遠（gap，0＝看得到）、縮圖畫好沒有（空白地圖算畫好）、捲動區的捲動位置。
+ * 捲動區＝對話框裡第一個真的會捲動的祖先。
+ */
+async function thumbGaps(page: Page) {
+  return page.evaluate(() => {
+    const dialog = document.querySelector('[data-testid=template-dialog]') as HTMLElement;
+    let sc: HTMLElement | null = dialog;
+    while (
+      sc &&
+      !(sc.scrollHeight > sc.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(sc).overflowY))
+    )
+      sc = sc.parentElement;
+    if (!sc) throw new Error('找不到對話框的捲動區');
+    const r = sc.getBoundingClientRect();
+    const cards = [...dialog.querySelectorAll('ul > li')].map((li) => {
+      const b = li.getBoundingClientRect();
+      return {
+        name: li.textContent?.slice(0, 6) ?? '',
+        gap: Math.max(0, r.top - b.bottom, b.top - r.bottom),
+        /* 空白地圖沒有縮圖（只有加號），一開始就算畫好 */
+        blank: !!li.textContent?.includes('空白地圖'),
+        drawn: !!li.querySelector('img') || !!li.textContent?.includes('空白地圖'),
+      };
+    });
+    return { cards, scrollTop: sc.scrollTop, max: sc.scrollHeight - sc.clientHeight };
+  });
+}
+
+for (const [width, height] of [
+  [1280, 900],
+  [390, 844],
+] as const) {
+  test(`${width} 寬：範本縮圖看得到的與上下 300 px 內的都會畫，遠的先不畫；慢慢捲動時看得到的不是「…」（D55、7.18）`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    const errors = await open(page);
+    await page.getByRole('button', { name: '範本' }).click();
+    await expect(
+      page.getByTestId('template-dialog').getByRole('list').getByRole('button'),
+    ).toHaveCount(57);
+    /* 上下 300 px 內（少算 5 px，避開剛好壓在邊界上的小數位） */
+    const undrawnNear = async () =>
+      (await thumbGaps(page)).cards.filter((c) => c.gap <= 295 && !c.drawn).length;
+    /* 打開之後不用捲：看得到的與上下 300 px 內的縮圖都會畫 */
+    await expect.poll(undrawnNear, { timeout: 20_000 }).toBe(0);
+    const first = await thumbGaps(page);
+    expect(first.cards.filter((c) => c.gap === 0).length).toBeGreaterThanOrEqual(6);
+    expect(first.cards.filter((c) => c.gap > 0 && c.gap <= 295).length).toBeGreaterThan(0);
+    /* 離畫面很遠的先不畫（不是一股腦全畫） */
+    const far = first.cards.filter((c) => c.gap > 340 && !c.blank);
+    expect(far.length).toBeGreaterThan(10);
+    expect(far.every((c) => !c.drawn)).toBe(true);
+    /* 慢慢捲（每次 120 px）：上下 300 px 內都畫好了，捲動時看得到的不會是「…」（等一幀） */
+    let steps = 0;
+    for (;;) {
+      const s = await thumbGaps(page);
+      if (s.scrollTop >= s.max - 1 || steps >= 60) break;
+      await page.evaluate(() => {
+        const dialog = document.querySelector('[data-testid=template-dialog]') as HTMLElement;
+        let sc: HTMLElement | null = dialog;
+        while (
+          sc &&
+          !(
+            sc.scrollHeight > sc.clientHeight + 4 &&
+            /auto|scroll/.test(getComputedStyle(sc).overflowY)
+          )
+        )
+          sc = sc.parentElement;
+        (sc as HTMLElement).scrollTop += 120;
+        return new Promise<void>((r) => requestAnimationFrame(() => r()));
+      });
+      steps++;
+      const blank = (await thumbGaps(page)).cards.filter((c) => c.gap === 0 && !c.drawn);
+      expect(blank, `第 ${steps} 步：看得到的縮圖還是「…」`).toEqual([]);
+      await expect.poll(undrawnNear, { timeout: 20_000 }).toBe(0);
+    }
+    expect(steps).toBeGreaterThan(5);
+    /* 捲到底：全部 56 張都畫好 */
+    await expect
+      .poll(async () => (await thumbGaps(page)).cards.filter((c) => !c.drawn).length, {
+        timeout: 20_000,
+      })
+      .toBe(0);
+    expect(errors).toEqual([]);
+  });
+}
+
 test('390 寬：範本對話框沒有橫向捲動，13 類的分類按鈕換行、字都看得到', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const errors = await open(page);
