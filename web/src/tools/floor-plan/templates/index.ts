@@ -2,12 +2,14 @@
  * 範本目錄（全部是本站自己畫的）：住宅、公共場所、野外・地下、廢墟・事件（2026-10 增補學校、警察局、
  * 圖書館、寺廟、洞窟、山中小屋、地下教團據點，分類由三類改成四類）。
  * 每個範本可以「只載入格局（不含家具）」或「放入隱藏線索」。
+ * 員工區、機房、後台、私室這類房間載入時預設「只有 GM 看得到」（gmDefaults.ts，2026-10 第一批）。
  */
 import type { Floor, ThemeId } from '../model/types';
 import { FloorBuilder, type TplFloor, toFloor } from './builder';
 import { hospital, hotel } from './buildings';
 import { addClues, type ClueSpec } from './clues';
 import { decay } from './decay';
+import { applyGmDefaults } from './gmDefaults';
 import { lodge, mansion, studio, townhouse } from './homes';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
@@ -356,6 +358,8 @@ export function instantiateTemplate(id: string, options: InstantiateOptions = {}
   const tpl = getTemplate(id);
   if (!tpl) return null;
   const floors = tpl.build();
+  /* 員工區、機房、後台、私室這類房間預設只有 GM 看得到（F225） */
+  applyGmDefaults(id, floors);
   if (options.structureOnly)
     for (const f of floors) {
       f.items = [];
