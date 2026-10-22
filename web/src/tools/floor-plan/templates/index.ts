@@ -18,6 +18,7 @@ import { clubBuilding, funeralHome, museum } from './civic';
 import { detective, konbini, nightMarket, office, shoppingStreet } from './commerce';
 import { karaoke, theatre } from './leisure';
 import { ferry, parking, station, subway } from './transport';
+import { construction, factory, sewer, warehouse } from './industry';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
@@ -622,6 +623,64 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '小賣部', 'photo', '收銀機旁的舊照片'),
       C('2F', '駕駛艙', 'diary', '航海日誌的最後一頁'),
       C('B1', '貨艙', 'key', '沒登記的貨櫃鑰匙'),
+    ],
+  },
+  {
+    id: 'factory',
+    group: 'industry',
+    name: '工廠',
+    description:
+      '1F 有輸送帶與車床的廠房、倉庫、卸貨區、更衣室、鍋爐室與品管室，2F 監看走道、辦公室與廠長室；廠長室的暗門後是 GM 專用的密封儲藏室。',
+    build: factory,
+    clues: [
+      C('1F', '廠房', 'memo', '夾在輸送帶上的紙條'),
+      C('1F', '品管室', 'file_folder', '數字被改過的檢驗報告'),
+      C('1F', '更衣室', 'key', '沒有名牌的置物櫃鑰匙'),
+      C('2F', '廠長室', 'diary', '廠長的工作日誌'),
+    ],
+  },
+  {
+    id: 'warehouse',
+    group: 'industry',
+    also: ['transport'],
+    name: '港口倉庫',
+    description:
+      '碼頭邊的兩棟倉庫：貨櫃堆場、守衛亭、倉庫辦公室、重型貨架與堆高機，前面是碼頭與港灣；倉庫 B 裡的改裝貨櫃是 GM 專用。',
+    build: warehouse,
+    clues: [
+      C('1F', '倉庫辦公室', 'papers', '對不上數字的出貨單'),
+      C('1F', '倉庫 A', 'photo', '貼在木箱上的照片'),
+      C('1F', '倉庫 B', 'memo', '用外文寫的收件人'),
+      C('1F', '碼頭', 'key', '掉在繫船柱旁的鑰匙'),
+    ],
+  },
+  {
+    id: 'construction',
+    group: 'industry',
+    also: ['ruins'],
+    name: '工地',
+    description:
+      '圍籬裡施工中的兩層樓：樓板、柱子、施工便梯、工務所、材料堆置場與怪手；打地基挖到古井的開挖區是 GM 專用。',
+    build: construction,
+    clues: [
+      C('1F', '工務所', 'diary', '工地主任的施工日誌'),
+      C('1F', '一樓樓板', 'photo', '挖出來的東西的照片'),
+      C('2F', '二樓樓板', 'memo', '寫在鋼筋上的記號'),
+    ],
+  },
+  {
+    id: 'sewer',
+    group: 'industry',
+    also: ['wild'],
+    name: '下水道',
+    description:
+      '街道的人孔往下是磚造的下水道：主渠道、兩側的檢修步道、南支渠與泵站；步道磚牆後面的祭壇空洞是 GM 專用。梯子上下對齊。',
+    build: sewer,
+    clues: [
+      C('1F', '街道', 'memo', '人孔蓋旁的粉筆記號'),
+      C('B1', '泵站', 'diary', '維修員的巡查表'),
+      C('B1', '北側步道', 'photo', '泡過水的照片'),
+      C('B1', '南側步道', 'bag', '卡在格柵上的背包'),
     ],
   },
   {
