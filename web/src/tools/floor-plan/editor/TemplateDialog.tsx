@@ -1,13 +1,23 @@
 /**
  * 範本對話框：分類篩選、縮圖卡片（樓層數與說明）、空白地圖；載入選項「只載入格局」「放入隱藏線索」。
+ * 2026-10 第三批：搜尋欄（名稱或 `#標籤`，F235；共用 TemplateGallery 的 `search`）。
  */
 import { Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Dialog, Field, TemplateGallery, type TemplateItem, Toggle } from '@/ui';
+import {
+  Dialog,
+  Field,
+  TemplateGallery,
+  type TemplateItem,
+  type TemplateSearch,
+  Toggle,
+} from '@/ui';
 import { renderImage } from '../draw/export';
 import { composeFloors } from '../model/interior';
+import { matchesQuery, queryWords, type TagId, tagSuggestions } from '../model/tags';
 import { S } from '../strings';
 import { instantiateTemplate, TEMPLATE_GROUPS, TEMPLATES } from '../templates';
+import { templateTags } from '../templates/tags';
 import { loadTemplate, newMap } from './actions';
 import { setEditor, useEditor } from './store';
 
@@ -39,6 +49,29 @@ function thumbnail(id: string): string | null {
 }
 
 const groupName = (id: string) => TEMPLATE_GROUPS.find((g) => g.id === id)?.name ?? '';
+
+/** 搜尋：名稱、說明、分類名稱或 `#標籤`（空白地圖只有名稱） */
+const searchText = (id: string): { text: string[]; tags: readonly TagId[] } => {
+  if (id === 'blank') return { text: [S.tpl.blank], tags: [] };
+  const t = TEMPLATES.find((x) => x.id === id);
+  return t
+    ? { text: [t.name, t.description, groupName(t.group), t.id], tags: templateTags(t.id) }
+    : { text: [], tags: [] };
+};
+
+const USED_TAGS: ReadonlySet<TagId> = new Set(TEMPLATES.flatMap((t) => templateTags(t.id)));
+
+const SEARCH: TemplateSearch<string> = {
+  label: S.tpl.search,
+  placeholder: S.tpl.searchHint,
+  empty: S.tpl.noResult,
+  suggestLabel: S.lib.tagSuggest,
+  match: (t, q) => matchesQuery(searchText(t.data), queryWords(q)),
+  suggest: (q) => {
+    const s = tagSuggestions(q, USED_TAGS);
+    return s ? s.tags.map((t) => ({ label: `#${t.name}`, value: `${s.prefix}#${t.name} ` })) : [];
+  },
+};
 
 export function TemplateDialog() {
   const open = useEditor((s) => s.templatesOpen);
@@ -114,6 +147,7 @@ export function TemplateDialog() {
         <TemplateGallery
           aria-label={S.tpl.gallery}
           templates={items}
+          search={SEARCH}
           confirm={false}
           onApply={(t) => {
             if (t.data === 'blank') newMap();

@@ -22,10 +22,11 @@ export const TOOL_ID = 'floor-plan';
 /**
  * 存檔格式版本。2：文字多了圓標（`badge`，2026-10）。3：地圖多了棋子方格（`tokenGrid`、`tokenGridColor`、
  * `tokenGridOpacity`，2026-10 第一批）。4：新的房間、門窗、牆種類，房間的牆種類（`rooms[].wall`），
- * 外觀層的「顯示內部」（`floors[].showInside`、`inside`）（2026-10 第二批）。
+ * 外觀層的「顯示內部」（`floors[].showInside`、`inside`）（2026-10 第二批）。5：新的家具 238 種
+ * （`items[].t` 的代號，2026-10 第三批；欄位不變）。
  * 舊版本的存檔與專案檔不必轉換（少了欄位就是沒有圓標、沒有方格、牆照規則、不顯示內部），讀進來一律經過 normalizeProject。
  */
-export const DATA_VERSION = 4;
+export const DATA_VERSION = 5;
 
 /** 開頁第一次（沒有存檔）時的地圖：第一個範本 */
 export function starterProject(): Project {
@@ -107,7 +108,7 @@ export const useProject = createToolStore<Project>(TOOL_ID, starterProject(), {
   historyLimit: 120,
   coalesceMs: 0,
   storage: projectStorage,
-  /* 版本 1 → 2 → 3 → 4：欄位只多不少，整理一次就好 */
+  /* 版本 1 → 2 → 3 → 4 → 5：欄位只多不少，整理一次就好 */
   migrate: (persisted) => normalizeProject(persisted, isAsset) ?? starterProject(),
 });
 

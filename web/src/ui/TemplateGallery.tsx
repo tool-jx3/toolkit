@@ -2,12 +2,15 @@
  * 範本庫：卡片格線（縮圖、名稱、說明、標籤），可依標籤篩選；套用前可要求確認（會取代目前設定）。
  * 範本內容一律自己做，不沿用原作的範本。
  * 縮圖可以是函式 `({ playing }) => 元素`：滑鼠停留或鍵盤聚焦的那張卡 playing＝true（例如 LoopThumb 循環播放），其他靜止。
+ * 搜尋欄（`search`，選填；floor-plan 2026-10 第三批加）：比對的規則由呼叫端給，分類的按鈕照全部範本算（搜尋時一直看得到），
+ * 搜尋與分類同時套用。
  */
 import { Check } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import { cn } from './cn';
 import { useConfirm } from './Dialog';
 import { Segmented } from './Segmented';
+import { TextInput } from './TextInput';
 
 export interface TemplateItem<T = unknown> {
   id: string;
@@ -20,6 +23,21 @@ export interface TemplateItem<T = unknown> {
   thumbnail?: string | ReactNode | ((state: { playing: boolean }) => ReactNode);
   tags?: readonly string[];
   data: T;
+}
+
+/** 範本庫的搜尋欄（選填） */
+export interface TemplateSearch<T> {
+  /** 搜尋欄的名稱（aria-label） */
+  label: string;
+  placeholder?: string;
+  /** 這個範本符不符合（query 是使用者打的原文，已去掉前後空白、不是空的） */
+  match: (template: TemplateItem<T>, query: string) => boolean;
+  /** 沒有符合的範本時的文字（預設「找不到符合的範本。」） */
+  empty?: string;
+  /** 打字時的建議（例如 `#標籤`）：按一下把搜尋字串換成 value */
+  suggest?: (query: string) => readonly { label: string; value: string }[];
+  /** 建議那一排的名稱（aria-label，預設「建議」） */
+  suggestLabel?: string;
 }
 
 export interface TemplateGalleryProps<T> {
@@ -35,6 +53,8 @@ export interface TemplateGalleryProps<T> {
   defaultTag?: string;
   /** sm：小卡（縮圖 16:9、不顯示說明，說明改放在滑鼠提示），範本很多時用 */
   size?: 'md' | 'sm';
+  /** 搜尋欄（選填；不給時沒有，行為不變） */
+  search?: TemplateSearch<T>;
   'aria-label'?: string;
   className?: string;
 }
@@ -47,15 +67,22 @@ export function TemplateGallery<T>({
   filter = true,
   defaultTag,
   size = 'md',
+  search,
   className,
   ...rest
 }: TemplateGalleryProps<T>) {
   const ask = useConfirm();
   const tags = [...new Set(templates.flatMap((t) => t.tags ?? []))];
   const [tagState, setTag] = useState(defaultTag ?? '__all');
+  const [query, setQuery] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
   /* 範本清單換了（例如換模式）而標籤不存在時回到「全部」 */
   const tag = tagState === '__all' || tags.includes(tagState) ? tagState : '__all';
-  const list = tag === '__all' ? templates : templates.filter((t) => t.tags?.includes(tag));
+  const q = query.trim();
+  const list = (
+    tag === '__all' ? templates : templates.filter((t) => t.tags?.includes(tag))
+  ).filter((t) => !search || !q || search.match(t, q));
+  const suggestions = search?.suggest && query ? search.suggest(query) : [];
   const sm = size === 'sm';
   /* 停留或聚焦中的卡片（會動的縮圖只有這張在播放） */
   const [hover, setHover] = useState<string | null>(null);
@@ -76,6 +103,38 @@ export function TemplateGallery<T>({
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
+      {search ? (
+        <div className="flex flex-col gap-1.5">
+          <TextInput
+            ref={searchInput}
+            type="search"
+            value={query}
+            placeholder={search.placeholder}
+            aria-label={search.label}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {suggestions.length ? (
+            <fieldset
+              className="m-0 flex flex-wrap gap-1 border-0 p-0"
+              aria-label={search.suggestLabel ?? '建議'}
+            >
+              {suggestions.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs text-fg hover:border-accent focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none"
+                  onClick={() => {
+                    setQuery(s.value);
+                    searchInput.current?.focus();
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </fieldset>
+          ) : null}
+        </div>
+      ) : null}
       {filter && tags.length > 1 ? (
         <Segmented
           aria-label="範本分類"
@@ -152,6 +211,9 @@ export function TemplateGallery<T>({
           );
         })}
       </ul>
+      {search && q && !list.length ? (
+        <p className="m-0 text-sm text-muted">{search.empty ?? '找不到符合的範本。'}</p>
+      ) : null}
     </div>
   );
 }

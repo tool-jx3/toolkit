@@ -1059,7 +1059,7 @@ test.describe('存檔', () => {
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
     /* 2026-10：圓標加了 texts[].badge（版本 2，D33）；棋子方格加了 tokenGrid（版本 3，D38）；
        第二批的新種類、房間的牆種類、顯示內部（版本 4，D45） */
-    expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'floor-plan', version: 4 });
+    expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'floor-plan', version: 5 });
     expect(saved.data.floors[0].rooms).toHaveLength(6);
     await blank(page);
     /* 開啟（專案選單） */
@@ -1739,7 +1739,7 @@ test.describe('分享連結與房間編號（2026-10，參考 Maptsukuri）', ()
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await save.path()) as string, 'utf8'));
-    expect(saved.version).toBe(4);
+    expect(saved.version).toBe(5);
     expect(
       saved.data.floors[0].texts.map((t: TextLabel) => [t.text, t.badge, t.gm ?? false]),
     ).toEqual([
@@ -2014,7 +2014,7 @@ test.describe('第一批跟進（2026-10，原作 v1.05～v1.14）', () => {
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved).toMatchObject({ version: 4 });
+    expect(saved).toMatchObject({ version: 5 });
     expect([saved.data.tokenGrid, saved.data.tokenGridOpacity]).toEqual([3, 1]);
     expect(errors).toEqual([]);
   });
@@ -2736,7 +2736,7 @@ test.describe('第二批跟進（2026-10，原作 v1.05～v1.14）：新的門�
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved.version).toBe(4);
+    expect(saved.version).toBe(5);
     expect([saved.data.floors[1].showInside, saved.data.floors[1].inside]).toEqual([
       true,
       saved.data.floors[0].id,
