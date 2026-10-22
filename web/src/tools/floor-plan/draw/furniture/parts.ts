@@ -127,29 +127,58 @@ export function hazard(
   c.restore();
 }
 
+/** 線段裁到矩形裡（Liang–Barsky）；整段在外面時 null */
+export function clipSegment(
+  a: Pt,
+  b: Pt,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+): [Pt, Pt] | null {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  let t0 = 0;
+  let t1 = 1;
+  for (const [p, q] of [
+    [-dx, a[0] - x0],
+    [dx, x1 - a[0]],
+    [-dy, a[1] - y0],
+    [dy, y1 - a[1]],
+  ] as const) {
+    if (p === 0) {
+      if (q < 0) return null;
+      continue;
+    }
+    const r = q / p;
+    if (p < 0) t0 = Math.max(t0, r);
+    else t1 = Math.min(t1, r);
+    if (t0 > t1) return null;
+  }
+  return [
+    [a[0] + dx * t0, a[1] + dy * t0],
+    [a[0] + dx * t1, a[1] + dy * t1],
+  ];
+}
+
 /** 正方形裡的兩組斜線（網格紋），線段裁在正方形裡 */
 export function crossHatch(c: Ctx, x: number, y: number, size: number, step: number): void {
   c.beginPath();
   for (let d = step; d < size * 2; d += step) {
-    for (const dir of [1, -1]) {
-      const seg = clipToRect(
-        dir > 0
-          ? [
-              [x + d - size, y],
-              [x + d, y + size],
-            ]
-          : [
-              [x + d, y],
-              [x + d - size, y + size],
-            ],
-        x,
-        y,
-        x + size,
-        y + size,
-      );
-      if (seg.length < 2) continue;
-      c.moveTo(seg[0][0], seg[0][1]);
-      c.lineTo(seg[1][0], seg[1][1]);
+    for (const [a, b] of [
+      [
+        [x + d - size, y],
+        [x + d, y + size],
+      ],
+      [
+        [x + d, y],
+        [x + d - size, y + size],
+      ],
+    ] as [Pt, Pt][]) {
+      const s = clipSegment(a, b, x, y, x + size, y + size);
+      if (!s) continue;
+      c.moveTo(s[0][0], s[0][1]);
+      c.lineTo(s[1][0], s[1][1]);
     }
   }
   c.stroke();
