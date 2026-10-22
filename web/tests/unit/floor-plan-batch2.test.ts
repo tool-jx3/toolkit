@@ -494,6 +494,10 @@ describe('外觀層的「顯示內部」（F230、D41）', () => {
     );
     const c = composedFloor(p.floors[0], p.floors);
     expect(c.rooms.map((r) => r.id)).toEqual(['yard', 'porch', 'hall', 'room']);
+    /* 大庭院的名字（中心 12, 8）落在客房裡：疊好的樓層裡不畫；門廊的名字在外面，照畫；原本的資料不變 */
+    expect(c.rooms.map((r) => !!r.hideLabel)).toEqual([true, false, false, false]);
+    expect(p.floors[0].rooms[0].hideLabel).toBeUndefined();
+    expect(ownFloor(p.floors[0], p.floors).rooms[0].hideLabel).toBeUndefined();
     /* 內部的房間在後面（格子的主人），門廊與客房重疊的地方是客房 */
     expect(runs(c)).toContain('v16:4-12:ext');
   });
