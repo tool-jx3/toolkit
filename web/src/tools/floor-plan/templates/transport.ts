@@ -254,8 +254,8 @@ export function parking(): TplFloor[] {
   parkingLevel(b1, '停車區 B1');
   b1.item('car', 9.2, 0.6, 0, { size: [4, 6.4] })
     .item('van', 20, 0.6, 0, { size: [4, 6.4] })
-    .item('suv', 13.2, 13.2, 0, { size: [4.2, 6.4] })
-    .item('car', 29.4, 13.2, 0, { size: [4, 6.4] })
+    .item('suv', 13.2, 13.2, 180, { size: [4.2, 6.4] })
+    .item('car', 29.4, 13.2, 180, { size: [4, 6.4] })
     .item('cone', 32, 10)
     .item('extinguisher', 8.4, 0.4);
 
