@@ -11,8 +11,8 @@ import type { TplFloor } from './builder';
 export const GM_DEFAULT_ROOMS: Readonly<
   Record<string, Readonly<Record<string, readonly string[]>>>
 > = {
-  /* 地下室的鍋爐室（機房）、傭人房（員工區） */
-  mansion: { B1: ['鍋爐室'], '1F': ['傭人房'] },
+  /* 地下室的機房、1F 的管家室、2F 的女僕房（員工區、私室；2026-10-22 依 7.18 重新設計） */
+  mansion: { B1: ['機房'], '1F': ['管家室'], '2F': ['女僕房'] },
   /* 餐廳後面的廚房（後台） */
   hotel: { '1F': ['廚房'] },
   /* 病房樓層的器材室（後台） */

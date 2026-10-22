@@ -11,9 +11,12 @@ import { clubBuilding, funeralHome, museum } from './civic';
 import { addClues, type ClueSpec } from './clues';
 import { detective, konbini, nightMarket, office, shoppingStreet } from './commerce';
 import { decay } from './decay';
-import { dungeon, spaceship, tavern, wizardTower } from './fantasy';
+import { tavern, wizardTower } from './fantasy';
+import { dungeon } from './dungeon';
+import { spaceship } from './spaceship';
 import { applyGmDefaults } from './gmDefaults';
-import { lodge, mansion, studio, townhouse } from './homes';
+import { lodge, studio, townhouse } from './homes';
+import { mansion } from './mansion';
 import { construction, factory, sewer, warehouse } from './industry';
 import { karaoke, theatre } from './leisure';
 import { apartment, house, japaneseHouse, sanheyuan } from './living';
@@ -23,7 +26,9 @@ import { campsite, mine } from './outdoor';
 import { library, police, school, temple } from './public';
 import { asylum, hospitalAnnex, lab } from './research';
 import { abandonedFactory, abandonedSchool } from './ruins';
-import { castle, church, shrine } from './sacred';
+import { church } from './sacred';
+import { castle } from './castle';
+import { shrine } from './shrine';
 import { ferry, parking, station, subway } from './transport';
 import { cave, cult } from './wild';
 
@@ -202,14 +207,14 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     group: 'home',
     name: '洋館（地下室～2F）',
     description:
-      '左右對稱的大宅：大廳與雙樓梯、宴會廳、書房與圖書室，二樓客房與音樂室；地下酒窖後面有 GM 專用的密室。',
+      'L 形的貿易商宅邸（1920 年代）：玄關大廳的大樓梯、會客室、吸菸室、私人禮拜堂與玻璃溫室，西翼是廚房與傭人用的後樓梯；地下室食品庫的暗門通往禮拜堂下面 GM 專用的地下祭室。',
     build: mansion,
     clues: [
-      C('1F', '書房', 'diary', '主人的日記'),
-      C('1F', '廚房', 'memo', '圈起日期的菜單'),
-      C('2F', '兒童房', 'photo', '孩子畫的家族圖'),
-      C('2F', '音樂室', 'memo', '夾在樂譜裡的信'),
-      C('B1', '酒窖', 'key', '酒桶旁的黃銅鑰匙'),
+      C('1F', '吸菸室', 'papers', '從南洋寄來的貨運單'),
+      C('1F', '溫室', 'memo', '沒有學名的植物標籤'),
+      C('2F', '書齋', 'diary', '主人用暗號寫的日記'),
+      C('2F', '長女的房間', 'photo', '剪掉一半的訂婚照'),
+      C('B1', '食品庫', 'memo', '貼在層架後面的平面圖'),
     ],
   },
   {
