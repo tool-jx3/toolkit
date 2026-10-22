@@ -21,6 +21,8 @@ import { ferry, parking, station, subway } from './transport';
 import { construction, factory, sewer, warehouse } from './industry';
 import { militaryBase, prison } from './military';
 import { castle, church, shrine } from './sacred';
+import { campsite, mine } from './outdoor';
+import { abandonedFactory, abandonedSchool } from './ruins';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
@@ -819,6 +821,36 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     ],
   },
   {
+    id: 'campsite',
+    group: 'wild',
+    also: ['leisure'],
+    name: '露營區',
+    description:
+      '溪邊的露營區：A、B 兩區營位（帳篷、營火）、炊事場、管理中心、公廁與停車場；溪對岸林子裡亮著燈的廢屋是 GM 專用。',
+    build: campsite,
+    clues: [
+      C('1F', '管理中心', 'papers', '登記表上空白的那一欄'),
+      C('1F', 'A 區營位', 'phone', '帳篷裡沒電的手機'),
+      C('1F', '炊事場', 'knife', '沾著奇怪液體的刀'),
+      C('1F', '溪邊', 'photo', '溪邊撿到的拍立得'),
+    ],
+  },
+  {
+    id: 'mine',
+    group: 'wild',
+    also: ['industry', 'ruins'],
+    name: '廢礦坑',
+    description:
+      '1F 坑口廣場的事務所、工具間與升降口，B1 不規則的坑道：主坑道（鐵軌）、木造的休息所、崩落區；通道盡頭岩壁後的最深處是 GM 專用。升降機上下對齊。',
+    build: mine,
+    clues: [
+      C('1F', '事務所', 'diary', '最後一天的出坑紀錄'),
+      C('1F', '工具間', 'flashlight', '還有電的手電筒'),
+      C('B1', '休息所', 'photo', '礦工們的合照'),
+      C('B1', '主坑道', 'memo', '用炭寫在支柱上的字'),
+    ],
+  },
+  {
     id: 'abandoned-hospital',
     group: 'ruins',
     also: ['medical'],
@@ -847,6 +879,38 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '客廳', 'photo', '泛黃的全家福'),
       C('2F', '主臥室', 'diary', '受潮的日記'),
       C('3F', '神明廳', 'idol', '不認得的神像'),
+    ],
+  },
+  {
+    id: 'abandoned-factory',
+    group: 'ruins',
+    also: ['industry'],
+    name: '廢棄工廠',
+    description:
+      '關了十年的工廠：窗戶破了、門壞了、牆上滿是裂痕與塗鴉，輸送帶旁長出黑色的東西；廠長室暗門後的密封儲藏室是 GM 專用。',
+    build: abandonedFactory,
+    theme: 'horror',
+    clues: [
+      C('1F', '廠房', 'photo', '最後一天的員工合照'),
+      C('1F', '更衣室', 'key', '寫著名字的置物櫃鑰匙'),
+      C('1F', '品管室', 'file_folder', '沒寄出去的事故報告'),
+      C('2F', '辦公室', 'memo', '釘在佈告欄上的警告'),
+    ],
+  },
+  {
+    id: 'abandoned-school',
+    group: 'ruins',
+    also: ['public'],
+    name: '廢校（教室大樓）',
+    description:
+      '廢校多年的教室大樓：門窗破損、課桌少了一些、牆上有塗鴉與霉斑；1F 的準備室是 GM 專用。東西兩座樓梯上下對齊。',
+    build: abandonedSchool,
+    theme: 'horror',
+    clues: [
+      C('1F', '保健室', 'diary', '保健室的借用紀錄'),
+      C('1F', '教師辦公室', 'file_folder', '學生的輔導紀錄'),
+      C('2F', '二年三班', 'photo', '被剪掉一角的班級合照'),
+      C('屋頂', '屋頂', 'memo', '綁在欄杆上的紙條'),
     ],
   },
   {
