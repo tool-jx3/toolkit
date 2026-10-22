@@ -14,7 +14,7 @@ import {
   type TemplateSearch,
   Toggle,
 } from '@/ui';
-import { renderImage } from '../draw/export';
+import { exportLayout, renderImage } from '../draw/export';
 import { composeFloors } from '../model/interior';
 import { matchesQuery, queryWords, type TagId, tagSuggestions } from '../model/tags';
 import { S } from '../strings';
@@ -31,15 +31,22 @@ import { setEditor, useEditor } from './store';
 
 const thumbs = new Map<string, string>();
 
+/**
+ * 縮圖的長邊約 480 px（卡片約 140～170 px 寬，高解析度螢幕的兩倍再多一點）：每格 3～10 px。
+ * 原本固定每格 10 px，三層的範本會畫成 2000 px 寬的圖再縮小顯示，畫與轉 PNG 都慢（D55）。
+ */
+const THUMB_LONG_SIDE = 480;
+
 function thumbnail(id: string): string | null {
   const hit = thumbs.get(id);
   if (hit) return hit;
   const floors = instantiateTemplate(id);
   if (!floors) return null;
   try {
-    const canvas = renderImage(composeFloors(floors), {
+    const composed = composeFloors(floors);
+    const opts = {
       theme: 'clean',
-      px: 10,
+      px: 1,
       showSize: 'none',
       hideNames: false,
       playerView: false,
@@ -47,7 +54,10 @@ function thumbnail(id: string): string | null {
       grid: false,
       transparent: false,
       margin: 1,
-    });
+    } as const;
+    const L = exportLayout(composed, opts);
+    const px = Math.min(10, Math.max(3, THUMB_LONG_SIDE / Math.max(L.width, (L.height * 4) / 3)));
+    const canvas = renderImage(composed, { ...opts, px });
     const url = canvas.toDataURL('image/png');
     thumbs.set(id, url);
     return url;
@@ -123,6 +133,7 @@ function TemplateThumb({ id }: { id: string }) {
   ) : (
     <span
       ref={ref}
+      aria-hidden
       className="flex size-full items-center justify-center bg-surface-2 text-xs text-muted"
     >
       …

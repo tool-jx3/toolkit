@@ -817,25 +817,94 @@ test('範本對話框：預設「全部」；空白地圖在每個分類（含�
   const dialog = page.getByTestId('template-dialog');
   await expect(dialog.getByRole('radio', { name: '全部' })).toBeChecked();
   const cards = dialog.getByRole('list').getByRole('button');
-  /* 2026-10：分類改成住宅／公共場所／野外・地下／廢墟・事件，範本 15 個（D17） */
+  /* 2026-10 第三批後半：13 類、範本 56 個，一個範本可以在好幾類（D53；原本 4 類 15 個，D17） */
   await expect(dialog.getByRole('radio')).toHaveText([
     '全部',
     '住宅',
+    '住宿・餐飲',
+    '醫療・研究',
     '公共場所',
+    '商店・辦公',
+    '娛樂・表演',
+    '交通・運輸',
+    '工業・設施',
+    '軍警・保全',
+    '宗教・古蹟',
     '野外・地下',
     '廢墟・事件',
+    '奇幻・科幻',
   ]);
+  /* 分類按鈕換行：14 顆都在對話框裡（不擠成看不到的字） */
+  const box = await dialog.boundingBox();
+  for (const r of await dialog.getByRole('radio').all()) {
+    const b = await r.boundingBox();
+    expect(
+      b && box && b.x >= box.x && b.x + b.width <= box.x + box.width,
+      await r.innerText(),
+    ).toBe(true);
+    expect(await r.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  }
   for (const [tag, n] of [
-    ['全部', 16],
-    ['住宅', 5],
-    ['公共場所', 7],
-    ['野外・地下', 3],
-    ['廢墟・事件', 4],
+    ['全部', 57],
+    ['住宅', 11],
+    ['住宿・餐飲', 7],
+    ['醫療・研究', 6],
+    ['公共場所', 9],
+    ['商店・辦公', 8],
+    ['娛樂・表演', 8],
+    ['交通・運輸', 6],
+    ['工業・設施', 7],
+    ['軍警・保全', 5],
+    ['宗教・古蹟', 8],
+    ['野外・地下', 8],
+    ['廢墟・事件', 11],
+    ['奇幻・科幻', 6],
   ] as const) {
     await dialog.getByRole('radio', { name: tag }).click();
     await expect(cards, tag).toHaveCount(n);
     await expect(cards.last(), tag).toContainText('空白地圖');
   }
+  expect(errors).toEqual([]);
+});
+
+test('範本對話框的縮圖：捲到看得到的卡片才畫，畫過的留著（D55）', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const errors = await open(page);
+  await page.getByRole('button', { name: '範本' }).click();
+  const dialog = page.getByTestId('template-dialog');
+  const cards = dialog.getByRole('list').getByRole('button');
+  await expect(cards).toHaveCount(57);
+  /* 上面幾排先畫好；最後一個範本（魔法師之塔）捲到之前還沒畫 */
+  await expect(cards.first().locator('img')).toHaveCount(1);
+  const last = dialog.getByRole('button', { name: /^魔法師之塔/ });
+  await expect(last.locator('img')).toHaveCount(0);
+  const drawn = await cards.locator('img').count();
+  expect(drawn).toBeGreaterThan(4);
+  expect(drawn).toBeLessThan(56);
+  await last.scrollIntoViewIfNeeded();
+  await expect(last.locator('img')).toHaveCount(1);
+  /* 關掉再打開：畫過的直接用 */
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '範本' }).click();
+  await expect(cards.first().locator('img')).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test('390 寬：範本對話框沒有橫向捲動，13 類的分類按鈕換行、字都看得到', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = await open(page);
+  await page.getByRole('button', { name: '範本' }).click();
+  const dialog = page.getByTestId('template-dialog');
+  await expect(dialog.getByRole('radio')).toHaveCount(14);
+  await noHorizontalScroll(page);
+  expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  for (const r of await dialog.getByRole('radio').all())
+    expect(
+      await r.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+      await r.innerText(),
+    ).toBe(true);
+  await dialog.getByRole('radio', { name: '奇幻・科幻' }).click();
+  await expect(dialog.getByRole('list').getByRole('button')).toHaveCount(6);
   expect(errors).toEqual([]);
 });
 
@@ -927,12 +996,13 @@ test.describe('2026-10 增補的範本', () => {
     const dialog = page.getByTestId('template-dialog');
     await dialog.getByRole('radio', { name: '野外・地下' }).click();
     const cards = dialog.getByRole('list').getByRole('button');
-    await expect(cards).toHaveCount(3);
-    /* 縮圖在打開之後才一張一張畫 */
-    await expect(cards.locator('img')).toHaveCount(2);
+    /* 2026-10 第三批後半：山中小屋、下水道、洞窟、地下教團據點、露營區、廢礦坑、地下迷宮＋空白地圖（D53） */
+    await expect(cards).toHaveCount(8);
+    /* 縮圖在打開之後才一張一張畫（看得到的才畫，D55） */
+    await expect(cards.locator('img')).toHaveCount(7);
     await page.mouse.move(0, 0);
     await expect(dialog.getByRole('list')).toHaveScreenshot('floor-plan-tpl-wild.png');
-    await cards.first().click();
+    await dialog.getByRole('button', { name: /^洞窟/ }).click();
     await expect(page.getByTestId('template-dialog')).toHaveCount(0);
     await page.mouse.move(0, 0);
     await page.waitForTimeout(300);
@@ -3177,35 +3247,138 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     const dialog = page.getByTestId('template-dialog');
     const tplCards = dialog.getByRole('list').getByRole('button');
     const box = dialog.getByRole('searchbox', { name: '搜尋範本' });
+    /* 2026-10 第三批後半：範本 56 個（#地下 21 個） */
     await box.fill('#地下');
-    await expect(tplCards).toHaveCount(5);
-    await expect(tplCards).toContainText([
-      '洋館（地下室～2F）',
-      '圖書館（地下書庫）',
-      '洞窟',
-      '地下教團據點',
-      '廢棄醫院',
-    ]);
-    await dialog.getByRole('radio', { name: '野外・地下' }).click();
-    await expect(tplCards).toHaveCount(2);
+    await expect(tplCards).toHaveCount(21);
+    await expect(dialog.getByRole('button', { name: /^地下鐵車站/ })).toBeVisible();
+    await dialog.getByRole('radio', { name: '交通・運輸' }).click();
+    await expect(tplCards).toHaveCount(3);
+    await expect(tplCards).toContainText(['地方車站', '地下鐵車站', '地下停車場']);
     /* 打 # 時列出標籤 */
-    await box.fill('#多');
+    await box.fill('#鐵');
     await dialog
       .getByRole('group', { name: '標籤' })
-      .getByRole('button', { name: '#多樓層' })
+      .getByRole('button', { name: '#鐵道' })
       .click();
-    await expect(box).toHaveValue('#多樓層 ');
-    await expect(tplCards).toHaveCount(1);
-    await expect(tplCards).toContainText(['地下教團據點']);
+    await expect(box).toHaveValue('#鐵道 ');
+    await expect(tplCards).toHaveCount(2);
+    await expect(tplCards).toContainText(['地方車站', '地下鐵車站']);
     await dialog.getByRole('radio', { name: '全部' }).click();
     await box.fill('zzz');
     await expect(tplCards).toHaveCount(0);
     await expect(dialog).toContainText('找不到符合的範本。');
-    await box.fill('教室');
+    /* 分類名稱也找得到（宗教・古蹟 7 個） */
+    await box.fill('古蹟');
+    await expect(tplCards).toHaveCount(7);
+    await box.fill('三合院');
     await expect(tplCards).toHaveCount(1);
     await tplCards.first().click();
     await expect(dialog).toHaveCount(0);
-    expect((await project(page)).name).toBe('學校（教室大樓）');
+    expect((await project(page)).name).toBe('三合院');
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('2026-10 第三批後半的範本（F237～F239）', () => {
+  /** 從範本對話框載入（分類 → 卡片），回傳載入後的專案 */
+  async function loadFromDialog(page: Page, tag: string, name: RegExp) {
+    await page.getByRole('button', { name: '範本' }).click();
+    const dialog = page.getByTestId('template-dialog');
+    await dialog.getByRole('radio', { name: tag }).click();
+    await dialog.getByRole('button', { name }).click();
+    await expect(page.getByTestId('template-dialog')).toHaveCount(0);
+    return project(page);
+  }
+
+  test('新的範本載入得了：樓層、地面層、樣式；預設 GM 專用的後台；放入隱藏線索', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    for (const [tag, name, title, floors, active, theme] of [
+      ['交通・運輸', /^地下鐵車站/, '地下鐵車站', ['B2', 'B1', '1F'], 2, 'clean'],
+      ['交通・運輸', /^渡輪/, '渡輪', ['B1', '1F', '2F'], 1, 'clean'],
+      ['住宅', /^老公寓/, '老公寓（四樓）', ['1F', '4F', '頂樓'], 0, 'clean'],
+      ['宗教・古蹟', /^古城/, '古城', ['B1', '1F'], 1, 'clean'],
+      ['廢墟・事件', /^廢棄工廠/, '廢棄工廠', ['1F', '2F'], 0, 'horror'],
+      ['奇幻・科幻', /^魔法師之塔/, '魔法師之塔', ['1F', '2F', '3F'], 0, 'clean'],
+      ['商店・辦公', /^夜市/, '夜市', ['1F'], 0, 'clean'],
+    ] as const) {
+      const p = await loadFromDialog(page, tag, name);
+      expect([p.name, p.floors.map((f) => f.name), p.active, p.theme], title).toEqual([
+        title,
+        floors,
+        active,
+        theme,
+      ]);
+      expect(p.floors.every((f) => f.rooms.length > 0)).toBe(true);
+      await expect(page.getByText(`已載入「${title}」`, { exact: true })).toBeVisible();
+    }
+    /* 便利商店：倉庫、冷藏庫、員工休息室預設只有 GM 看得到（F225、D37） */
+    let p = await loadFromDialog(page, '商店・辦公', /^便利商店/);
+    expect(
+      p.floors[0].rooms
+        .filter((r) => r.gm)
+        .map((r) => r.name)
+        .sort(),
+    ).toEqual(['倉庫', '冷藏庫', '員工休息室'].sort());
+    /* 放入隱藏線索：渡輪 4 條（三層裡的小物＋說明） */
+    await page.getByRole('button', { name: '範本' }).click();
+    await page.getByTestId('template-dialog').getByRole('switch', { name: '放入隱藏線索' }).click();
+    await page.keyboard.press('Escape');
+    p = await loadFromDialog(page, '交通・運輸', /^渡輪/);
+    expect(p.floors.flatMap((f) => f.items).filter((i) => i.clue)).toHaveLength(4);
+    expect(p.floors.flatMap((f) => f.texts).filter((t) => t.clue)).toHaveLength(4);
+    expect(errors).toEqual([]);
+  });
+
+  test('匯出抽查：古城的所有樓層（PL 用、GM 用）、地下鐵車站每層各一張；寬高是每格 px 的整數倍', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await loadFromDialog(page, '宗教・古蹟', /^古城/);
+    await page.getByTestId('map-canvas').focus();
+    await page.keyboard.press('Control+e');
+    const dialog = page.getByTestId('export-dialog');
+    await dialog.getByRole('radio', { name: '所有樓層排成一張' }).click();
+    const info = page.getByTestId('export-info');
+    const size = async () => {
+      const m = (await info.innerText()).match(/(\d+) × (\d+) px/);
+      return m ? [Number(m[1]), Number(m[2])] : [0, 0];
+    };
+    const [w, h] = await size();
+    expect(w % 48).toBe(0);
+    expect(h % 48).toBe(0);
+    let [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('export-download').click(),
+    ]);
+    expect(dl.suggestedFilename()).toBe('古城_PL.png');
+    let img = pngPixels(readFileSync((await dl.path()) as string));
+    expect([img.width, img.height]).toEqual([w, h]);
+    await dialog.getByRole('radio', { name: 'GM 用（全部顯示）' }).click();
+    const [gw, gh] = await size();
+    expect(gw).toBe(w);
+    expect(gh).toBeGreaterThan(h);
+    [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('export-download').click(),
+    ]);
+    expect(dl.suggestedFilename()).toBe('古城_GM.png');
+    img = pngPixels(readFileSync((await dl.path()) as string));
+    expect([img.width, img.height]).toEqual([gw, gh]);
+    await page.keyboard.press('Escape');
+    /* 地下鐵車站：每層各一張（3 張） */
+    await loadFromDialog(page, '交通・運輸', /^地下鐵車站/);
+    await page.getByTestId('map-canvas').focus();
+    await page.keyboard.press('Control+e');
+    await dialog.getByRole('radio', { name: '每層各一張' }).click();
+    const names: string[] = [];
+    page.on('download', (d) => names.push(d.suggestedFilename()));
+    await page.getByTestId('export-download').click();
+    await expect.poll(() => names.length, { timeout: 10000 }).toBe(3);
+    expect(names.sort()).toEqual(
+      ['地下鐵車站_B2_GM.png', '地下鐵車站_B1_GM.png', '地下鐵車站_1F_GM.png'].sort(),
+    );
     expect(errors).toEqual([]);
   });
 });
