@@ -12,6 +12,7 @@ import { decay } from './decay';
 import { applyGmDefaults } from './gmDefaults';
 import { lodge, mansion, studio, townhouse } from './homes';
 import { apartment, house, japaneseHouse, sanheyuan } from './living';
+import { diner, ryokan, speakeasy } from './lodging';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
@@ -286,6 +287,50 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '會議室', 'photo', '有一張臉被劃掉的合照'),
       C('2F', '205 號房', 'phone', '沒電的手機'),
       C('2F', '208 號房', 'key', '別間房的房卡'),
+    ],
+  },
+  {
+    id: 'ryokan',
+    group: 'lodging',
+    name: '溫泉旅館',
+    description:
+      '1F 大廳・櫃台、宴會廳、男女大浴場與露天風呂，2F 和室客房；走廊盡頭的「櫻之間」不開放（GM 專用）。樓梯上下對齊。',
+    build: ryokan,
+    clues: [
+      C('1F', '大廳・櫃台', 'diary', '住宿名簿上被塗掉的名字'),
+      C('1F', '宴會廳', 'photo', '少了一個人的宴會合照'),
+      C('1F', '女湯', 'key', '浴池底撿到的舊鑰匙'),
+      C('2F', '松之間', 'memo', '塞在掛軸後面的紙條'),
+    ],
+  },
+  {
+    id: 'speakeasy',
+    group: 'lodging',
+    also: ['leisure'],
+    name: '地下酒館（1920 年代）',
+    description:
+      '禁酒令時期的地下酒館：1F 是理髮店與花店，上鎖的門後的樓梯通到 B1 的酒館、酒窖、撲克室與老闆辦公室；暗門後是 GM 專用的逃生地道。',
+    build: speakeasy,
+    clues: [
+      C('1F', '理髮店', 'memo', '寫著敲門暗號的紙條'),
+      C('B1', '酒館', 'photo', '鋼琴上的團體照'),
+      C('B1', '老闆辦公室', 'diary', '記著「到貨」日期的帳本'),
+      C('B1', '酒窖', 'key', '酒桶上的保險箱鑰匙'),
+    ],
+  },
+  {
+    id: 'diner',
+    group: 'lodging',
+    also: ['commerce'],
+    name: '公路旁的餐廳',
+    description:
+      '深夜的公路餐廳：靠窗的卡座、廚房、店長室、員工休息室，前面是停車場、後面是後巷；冷凍庫是 GM 專用。',
+    build: diner,
+    clues: [
+      C('1F', '用餐區', 'memo', '寫在餐巾紙上的求救'),
+      C('1F', '店長室', 'photo', '店長和卡車司機的合照'),
+      C('1F', '廁所', 'phone', '泡在水箱裡的手機'),
+      C('1F', '倉庫', 'key', '冷凍庫的備用鑰匙'),
     ],
   },
   {
