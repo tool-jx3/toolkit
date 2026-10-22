@@ -20,6 +20,7 @@ import { karaoke, theatre } from './leisure';
 import { ferry, parking, station, subway } from './transport';
 import { construction, factory, sewer, warehouse } from './industry';
 import { militaryBase, prison } from './military';
+import { castle, church, shrine } from './sacred';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
@@ -741,6 +742,49 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '廟務辦公室', 'diary', '少了一頁的香油錢帳本'),
       C('1F', '東廂房', 'idol', '用紅布包著的神像'),
       C('1F', '廟埕', 'photo', '金爐旁掉落的照片'),
+    ],
+  },
+  {
+    id: 'shrine',
+    group: 'sacred',
+    name: '神社',
+    description:
+      '鎮守之森裡的神社：兩座鳥居、參道、手水舍、拜殿與本殿、神樂殿、社務所與神輿庫；注連繩圍起來的禁足地是 GM 專用。',
+    build: shrine,
+    clues: [
+      C('1F', '拜殿', 'memo', '寫著同一個願望的繪馬'),
+      C('1F', '社務所', 'diary', '神主的日記'),
+      C('1F', '神樂殿', 'photo', '祭典的老照片'),
+      C('1F', '參道', 'key', '綁著鈴鐺的舊鑰匙'),
+    ],
+  },
+  {
+    id: 'church',
+    group: 'sacred',
+    name: '教會',
+    description:
+      '墓園圍繞的石造教會：1F 禮拜堂（長椅、管風琴、告解室）、聖器室、後殿與牧師館，B1 地下墓室；焊死的納骨堂是 GM 專用。樓梯上下對齊。',
+    build: church,
+    clues: [
+      C('1F', '禮拜堂', 'memo', '夾在聖經裡的紙條'),
+      C('1F', '書房', 'diary', '牧師的日記'),
+      C('1F', '聖器室', 'key', '地下墓室的鑰匙'),
+      C('B1', '地下墓室', 'photo', '放在棺木上的舊照片'),
+    ],
+  },
+  {
+    id: 'castle',
+    group: 'sacred',
+    also: ['fantasy'],
+    name: '古城',
+    description:
+      '護城河圍繞的石造古城：1F 大廳（王座）、兵舍、廚房、禮拜堂、領主的居室、書庫、中庭與城門，B1 地牢與牢房；地牢東邊暗門後的拷問室是 GM 專用。螺旋梯上下對齊。',
+    build: castle,
+    clues: [
+      C('1F', '大廳', 'memo', '王座扶手上刻的字'),
+      C('1F', '書庫', 'diary', '歷代城主的家譜'),
+      C('1F', '禮拜堂', 'idol', '祭壇底下的小神像'),
+      C('B1', '牢房 2', 'key', '生鏽的牢房鑰匙'),
     ],
   },
   {
