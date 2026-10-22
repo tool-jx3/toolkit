@@ -1,7 +1,14 @@
 /**
  * 房間種類、門窗種類、牆的種類、房間的預設尺寸（名稱在 strings.ts）。
  */
-import type { OpeningKind, RoomCategory, SizeMode, ThemeId, WallKind } from './types';
+import type {
+  OpeningKind,
+  RoomCategory,
+  SizeMode,
+  ThemeId,
+  TokenGridSize,
+  WallKind,
+} from './types';
 
 /** 1 格的邊長（m） */
 export const CELL_M = 0.5;
@@ -274,6 +281,19 @@ export const isSizeMode = (v: unknown): v is SizeMode =>
 export const BADGE_DIAMETER = 1.5;
 export const BADGE_PAD = 0.7;
 export const BADGE_RING = 0.16;
+
+/**
+ * 棋子方格（2026-10，原作 v1.07，規格 F220、3.9）：方格的邊長（格；1 格＝0.5 m）＝ 0.5／1／1.5／2／3 m。
+ * 畫在家具與牆的上面、房間名字的下面；方格線從世界座標的原點算起，匯出的範圍對齊方格，所以圖的左上角在方格線上。
+ */
+export const TOKEN_GRID_SIZES: readonly TokenGridSize[] = [1, 2, 3, 4, 6];
+export const isTokenGridSize = (v: unknown): v is TokenGridSize =>
+  typeof v === 'number' && (TOKEN_GRID_SIZES as readonly number[]).includes(v);
+/** 開啟方格時預設的大小（1 m，CCFOLIA 常用的格子） */
+export const TOKEN_GRID_DEFAULT: TokenGridSize = 2;
+/** 方格線的預設不透明度（顏色沒有設定時用樣式的牆色）；可設 10%～100% */
+export const TOKEN_GRID_OPACITY = 0.4;
+export const TOKEN_GRID_OPACITY_MIN = 0.1;
 
 /** 匯出時 1 格的像素數 */
 export const EXPORT_PX = [24, 32, 48, 64, 96] as const;

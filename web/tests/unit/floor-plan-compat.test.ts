@@ -410,14 +410,15 @@ describe('疊在牆上的素材離牆線多遠還算在牆上（D23，對等驗�
 });
 
 describe('略過的設定與家具（D24）', () => {
-  it('每間房的牆種類（室內）、顯示內部、棋子方格各自計數；家具依代號計數', () => {
+  it('每間房的牆種類（室內）、顯示內部各自計數；家具依代號計數（棋子方格照讀，不算略過）', () => {
     const { p, report, compat } = load(v113());
-    expect([compat.roomWalls, compat.insideFloors, compat.tokenGrid]).toEqual([2, 1, 2]);
+    expect([compat.roomWalls, compat.insideFloors]).toEqual([2, 1]);
     /* 樓層與專案上的這些欄位不留 */
     expect(Object.keys(p.floors[0]).sort()).toEqual(
       ['id', 'items', 'name', 'openings', 'rooms', 'texts', 'walls'].sort(),
     );
-    expect('tokenGrid' in p).toBe(false);
+    /* 棋子方格（v1.07）：2026-10 起照讀 */
+    expect(p.tokenGrid).toBe(2);
     expect([p.showSize, p.theme, p.active, p.name]).toEqual(['ping', 'paper', 1, '新版格式的範例']);
     /* 舊的計數（家具丟掉幾件）照舊 */
     expect(report.droppedItems).toBe(7);
@@ -425,9 +426,9 @@ describe('略過的設定與家具（D24）', () => {
 
   it('通知的計數與說明（D25）', () => {
     const { compat } = load(v113());
-    expect(compatCounts(compat)).toEqual({ converted: 30, items: 7, openings: 0, settings: 4 });
+    expect(compatCounts(compat)).toEqual({ converted: 30, items: 7, openings: 0, settings: 3 });
     expect(S.compat.summary(compatCounts(compat))).toBe(
-      '30 個換成相近的種類、7 件家具略過、4 項設定略過。',
+      '30 個換成相近的種類、7 件家具略過、3 項設定略過。',
     );
     expect(S.compat.summary({ converted: 0, items: 1, openings: 2, settings: 0 })).toBe(
       '1 件家具略過、2 個門窗略過。',

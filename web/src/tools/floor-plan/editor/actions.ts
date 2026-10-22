@@ -3,7 +3,7 @@
  */
 import type { ConfirmOptions, ToastOptions } from '@/ui';
 import { ASSET, isAsset } from '../model/assets';
-import { ROOM_PRESETS, type RoomPresetId, wallThickness } from '../model/catalog';
+import { isTokenGridSize, ROOM_PRESETS, type RoomPresetId, wallThickness } from '../model/catalog';
 import { compatCounts, hasCompatNotes } from '../model/compat';
 import {
   clamp,
@@ -603,7 +603,15 @@ export function renameFloor(index: number, name: string): void {
 
 /* ---------- 整張地圖 ---------- */
 
-/** 新的空白地圖：保留顯示樣式（恐怖調查換回彩色）、面積顯示、名字顯示；切到房間工具 */
+/** 棋子方格的大小（格；0＝不顯示）。一步復原；地圖設定與匯出對話框共用 */
+export function setTokenGrid(size: number): void {
+  update((p) => {
+    if (isTokenGridSize(size)) p.tokenGrid = size;
+    else delete p.tokenGrid;
+  });
+}
+
+/** 新的空白地圖：保留顯示樣式（恐怖調查換回彩色）、面積顯示、名字顯示、棋子方格；切到房間工具 */
 export function newMap(): void {
   const p = useProject.getState().data;
   const next: Project = {
@@ -611,6 +619,9 @@ export function newMap(): void {
     theme: p.theme === 'horror' ? 'clean' : p.theme,
     showSize: p.showSize,
     showNames: p.showNames !== false,
+    ...(p.tokenGrid ? { tokenGrid: p.tokenGrid } : {}),
+    ...(p.tokenGridColor ? { tokenGridColor: p.tokenGridColor } : {}),
+    ...(p.tokenGridOpacity ? { tokenGridOpacity: p.tokenGridOpacity } : {}),
   };
   flushNudge();
   useProject.getState().replace(next);

@@ -1,10 +1,10 @@
 /**
- * 畫一層樓：地板（底色、花紋）、下一層的影子、家具、牆、門窗、GM 房間的斜線、房間名字、文字、格線。
+ * 畫一層樓：地板（底色、花紋）、下一層的影子、家具、牆、門窗、GM 房間的斜線、棋子方格、房間名字、文字、格線。
  * ctx 要先換算成「1 單位＝1 格」。編輯畫面與匯出共用。
  */
 import { readableTextColor } from '@/core/color';
 import { ASSET, VERTICAL_LINKS } from '../model/assets';
-import { BADGE_RING, CAT, CELL_M, OPEN, wallThickness } from '../model/catalog';
+import { BADGE_RING, CAT, CELL_M, OPEN, TOKEN_GRID_OPACITY, wallThickness } from '../model/catalog';
 import { itemLocalSize, type ShownFloor, type ShownRoom, visibleFloor } from '../model/geometry';
 import type { Floor, Item, Opening, Rect, SizeMode, TextLabel, Wall } from '../model/types';
 import { computeWalls, type WallRun } from '../model/walls';
@@ -934,6 +934,51 @@ export function drawGrid(c: Ctx, rect: Rect, theme: FloorTheme, zoom: number): v
   c.restore();
 }
 
+/* ---------- 棋子方格 ---------- */
+
+/** 棋子方格的畫法選項（規格 3.9） */
+export interface TokenGridDraw {
+  /** 方格的邊長（格；1 格＝0.5 m） */
+  size: number;
+  /** 線色（#rrggbb；沒有＝樣式的牆色） */
+  color?: string;
+  /** 不透明度（沒有＝TOKEN_GRID_OPACITY） */
+  opacity?: number;
+  /** 畫在哪個範圍裡（世界座標） */
+  rect: Rect;
+}
+
+/**
+ * 棋子方格：每 size 格一條線（細線），從世界座標的原點算起；畫在家具與牆的上面、房間名字與文字的下面。
+ * 匯出的範圍對齊方格（draw/export.ts），所以圖的左上角在方格線上。
+ */
+export function drawTokenGrid(c: Ctx, theme: FloorTheme, zoom: number, g: TokenGridDraw): void {
+  const { size, rect } = g;
+  if (!(size > 0)) return;
+  const x0 = Math.floor(rect.x / size + 1e-9) * size;
+  const y0 = Math.floor(rect.y / size + 1e-9) * size;
+  const x1 = rect.x + rect.w;
+  const y1 = rect.y + rect.h;
+  c.save();
+  c.beginPath();
+  c.rect(rect.x, rect.y, rect.w, rect.h);
+  c.clip();
+  c.strokeStyle = g.color || theme.wall;
+  c.globalAlpha = g.opacity ?? TOKEN_GRID_OPACITY;
+  c.lineWidth = Math.max(1.25 / zoom, 0.04);
+  c.beginPath();
+  for (let x = x0; x <= x1 + 1e-6; x += size) {
+    c.moveTo(x, rect.y);
+    c.lineTo(x, y1);
+  }
+  for (let y = y0; y <= y1 + 1e-6; y += size) {
+    c.moveTo(rect.x, y);
+    c.lineTo(x1, y);
+  }
+  c.stroke();
+  c.restore();
+}
+
 /* ---------- 一層樓 ---------- */
 
 export interface DrawFloorOptions {
@@ -953,6 +998,8 @@ export interface DrawFloorOptions {
   background?: boolean;
   /** 下一層（淡淡地畫牆與樓梯） */
   ghost?: Floor | null;
+  /** 棋子方格（2026-10；沒有＝不畫） */
+  tokenGrid?: TokenGridDraw;
 }
 
 export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): ShownFloor {
@@ -1022,6 +1069,11 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
       c.restore();
     }
   }
+
+  /* 棋子方格：在家具、牆、門窗的上面；房間名字與文字畫在它上面才讀得到。
+     編輯畫面縮得很小（方格不到 4 px）時不畫，免得整個畫面都是線 */
+  if (opts.tokenGrid && (!opts.editor || opts.tokenGrid.size * opts.zoom >= 4))
+    drawTokenGrid(c, theme, opts.zoom, opts.tokenGrid);
 
   for (const room of floor.rooms) if (!room.masked) drawRoomLabel(c, room, theme, opts);
   for (const t of floor.texts) drawText(c, t, theme, opts);

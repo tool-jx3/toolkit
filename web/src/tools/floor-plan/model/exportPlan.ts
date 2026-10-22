@@ -48,8 +48,15 @@ export function exportOptions(
     grid: exp.grid,
     transparent: exp.transparent,
     gmBadge: exp.view === 'pl' ? null : S.badgeGm,
+    tokenGrid: p.tokenGrid ?? 0,
+    tokenGridColor: p.tokenGridColor,
+    tokenGridOpacity: p.tokenGridOpacity,
   };
 }
+
+/** 棋子方格每格的像素數（匯出資訊用；小數 2 位，沒有方格時 0） */
+export const tokenGridPx = (tokenGrid: number, scale: number): number =>
+  tokenGrid > 0 ? Math.round(tokenGrid * scale * 100) / 100 : 0;
 
 /** 匯出的檔名：地圖名稱[_樓層]_PL／GM[_無線索].png */
 export function exportFileName(p: Project, exp: ExportSettings, floor: Floor | null): string {

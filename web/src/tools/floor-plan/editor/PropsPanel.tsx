@@ -15,6 +15,7 @@ import {
   NumberInput,
   Segmented,
   Select,
+  Slider,
   TextArea,
   TextInput,
   Toggle,
@@ -27,6 +28,7 @@ import {
   SIZE_MODES,
   SWING_DOORS,
   THEME_IDS,
+  TOKEN_GRID_OPACITY,
   WALL_KINDS,
 } from '../model/catalog';
 import { clamp, metersText, meterText, pingText, roomArea, round2 } from '../model/geometry';
@@ -35,6 +37,7 @@ import type { Item, Opening, Room, SelRef, TextLabel, Wall } from '../model/type
 import { S } from '../strings';
 import * as act from './actions';
 import { currentFloor, useEditor, usePrefs, useProject } from './store';
+import { TokenGridSelect } from './TokenGridSelect';
 
 const g = historyGesture(useProject);
 
@@ -109,13 +112,15 @@ function ColorRow({
   value,
   auto,
   onChange,
+  label = S.props.color,
 }: {
   value?: string;
   auto: string;
   onChange: (v: string | undefined) => void;
+  label?: string;
 }) {
   return (
-    <Field label={S.props.color} hint={value ? undefined : S.props.colorAuto}>
+    <Field label={label} hint={value ? undefined : S.props.colorAuto}>
       <div className="flex min-w-0 items-center gap-2">
         <GestureScope gesture={g}>
           <ColorField
@@ -158,6 +163,55 @@ const setOpt = <T,>(o: T, key: keyof T, v: T[keyof T] | undefined) => {
   if (v === undefined || v === '' || v === false) delete o[key];
   else o[key] = v;
 };
+
+/** 棋子方格（F220）：大小、顏色、不透明度 */
+function TokenGridFields() {
+  const p = useProject((s) => s.data);
+  const theme = getTheme(p.theme);
+  const update = act.updateProject;
+  const opacity = Math.round((p.tokenGridOpacity ?? TOKEN_GRID_OPACITY) * 100);
+  return (
+    <>
+      <Field label={S.props.tokenGrid} hint={S.props.tokenGridHint}>
+        <TokenGridSelect testId="token-grid-size" />
+      </Field>
+      {p.tokenGrid ? (
+        <>
+          <ColorRow
+            label={S.props.tokenGridColor}
+            value={p.tokenGridColor}
+            auto={theme.wall.startsWith('#') ? theme.wall.slice(0, 7) : '#2b2f37'}
+            onChange={(v) =>
+              update((d) => {
+                if (v) d.tokenGridColor = v.slice(0, 7);
+                else delete d.tokenGridColor;
+              })
+            }
+          />
+          <Typing>
+            <Field label={S.props.tokenGridOpacity}>
+              <Slider
+                value={opacity}
+                min={10}
+                max={100}
+                step={5}
+                unit="%"
+                aria-label={S.props.tokenGridOpacity}
+                onChange={(v) =>
+                  update((d) => {
+                    const o = Math.round(clamp(v, 10, 100)) / 100;
+                    if (o === TOKEN_GRID_OPACITY) delete d.tokenGridOpacity;
+                    else d.tokenGridOpacity = o;
+                  })
+                }
+              />
+            </Field>
+          </Typing>
+        </>
+      ) : null}
+    </>
+  );
+}
 
 function MapProps() {
   const p = useProject((s) => s.data);
@@ -226,6 +280,7 @@ function MapProps() {
           }
         />
       </Field>
+      <TokenGridFields />
       <p className="m-0 border-t border-border pt-3 text-xs text-muted" data-testid="map-stats">
         {f.name}：{S.props.stats(f.rooms.length, f.items.length, f.openings.length)}
       </p>

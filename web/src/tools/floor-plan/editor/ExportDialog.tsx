@@ -7,13 +7,14 @@ import { copyImage, downloadBlob, downloadSequentially } from '@/core/files';
 import { canvasToBlob } from '@/core/image';
 import { Button, Dialog, Field, Notice, Segmented, Select, Toggle } from '@/ui';
 import { exportLayout, hasExportContent, renderImage } from '../draw/export';
-import { EXPORT_PX, type ExportPx, THEME_IDS } from '../model/catalog';
-import { exportFloors, exportJobs, exportOptions } from '../model/exportPlan';
+import { CELL_M, EXPORT_PX, type ExportPx, THEME_IDS } from '../model/catalog';
+import { exportFloors, exportJobs, exportOptions, tokenGridPx } from '../model/exportPlan';
 import { floorHasClues } from '../model/geometry';
 import type { ThemeId } from '../model/types';
 import { S } from '../strings';
 import { notify } from './actions';
 import { type Prefs, setEditor, useEditor, usePrefs, useProject } from './store';
+import { TokenGridSelect } from './TokenGridSelect';
 
 const setExp = (patch: Partial<Prefs['exp']>) =>
   usePrefs.getState().update((d) => {
@@ -197,6 +198,9 @@ export function ExportDialog() {
               options={EXPORT_PX.map((v) => ({ value: String(v), label: `${v}px` }))}
             />
           </Field>
+          <Field label={S.exp.tokenGrid} hint={S.exp.tokenGridHint}>
+            <TokenGridSelect testId="export-token-grid" />
+          </Field>
           <Field label={S.exp.grid} layout="inline">
             <Toggle checked={exp.grid} onCheckedChange={(v) => setExp({ grid: v })} />
           </Field>
@@ -208,6 +212,17 @@ export function ExportDialog() {
               ? `${S.exp.info(layout.pxWidth, layout.pxHeight)}${range === 'each' && multi ? ` × ${project.floors.length}` : ''}`
               : ''}
           </p>
+          {layout?.tokenGrid ? (
+            <div className="flex flex-col gap-0.5">
+              <p className="m-0 text-sm tabular-nums" data-testid="export-token-info">
+                {S.exp.tokenGridInfo(
+                  String(layout.tokenGrid * CELL_M),
+                  tokenGridPx(layout.tokenGrid, layout.scale),
+                )}
+              </p>
+              <p className="m-0 text-xs text-muted">{S.exp.tokenGridNote}</p>
+            </div>
+          ) : null}
           {shrunk ? <Notice tone="warning">{S.exp.tooLarge}</Notice> : null}
         </div>
         <div className="flex min-h-48 min-w-0 items-center justify-center rounded-md border border-border bg-surface-2 p-2">

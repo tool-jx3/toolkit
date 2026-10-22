@@ -165,6 +165,9 @@ export interface Floor {
   texts: TextLabel[];
 }
 
+/** 棋子方格的大小（格；1 格＝0.5 m）：0.5／1／1.5／2／3 m */
+export type TokenGridSize = 1 | 2 | 3 | 4 | 6;
+
 export interface Project {
   name: string;
   theme: ThemeId;
@@ -173,6 +176,12 @@ export interface Project {
   floors: Floor[];
   /** 目前編輯的樓層 */
   active: number;
+  /** 棋子方格的大小（格；1／2／3／4／6＝0.5／1／1.5／2／3 m）；沒有或 0＝不顯示（2026-10，原作 v1.07） */
+  tokenGrid?: TokenGridSize;
+  /** 棋子方格的線色（#rrggbb；沒有＝依樣式） */
+  tokenGridColor?: string;
+  /** 棋子方格的不透明度（0.1～1；沒有＝0.4） */
+  tokenGridOpacity?: number;
 }
 
 /** 可以選取的東西 */

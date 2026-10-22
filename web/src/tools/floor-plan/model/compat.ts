@@ -2,7 +2,8 @@
  * 原作（TRPG 室內圖メーカー）v1.05～v1.13 存的地圖檔：新的種類換成本工具最接近的種類，本工具沒有的家具與設定略過，
  * 換掉與略過的東西記下來（開檔時通知）。規格 2.2.1～2.2.3、D22～D25。
  *
- * 原作新版的功能本身（新種類的圖形、每間房的牆種類、外觀樓層疊上內部、棋子方格、新的家具）沒有移植。
+ * 原作新版的功能本身（新種類的圖形、每間房的牆種類、外觀樓層疊上內部、新的家具）沒有移植。
+ * 棋子方格（v1.07 的 tokenGrid）2026-10 起照讀（TOKEN_GRID_SIZES），不再算略過的設定。
  */
 import { snap } from './geometry';
 import type { Opening, OpeningKind, RoomCategory, WallKind } from './types';
@@ -87,8 +88,6 @@ export interface CompatReport {
   roomWalls: number;
   /** 打開「顯示內部」的樓層數 */
   insideFloors: number;
-  /** 棋子方格的大小（格；0＝沒有） */
-  tokenGrid: number;
 }
 
 export function emptyCompatReport(): CompatReport {
@@ -98,7 +97,6 @@ export function emptyCompatReport(): CompatReport {
     droppedOpenings: [],
     roomWalls: 0,
     insideFloors: 0,
-    tokenGrid: 0,
   };
 }
 
@@ -145,7 +143,7 @@ export function compatCounts(r: CompatReport): CompatCounts {
     converted: sum(r.converted),
     items: sum(r.droppedItems),
     openings: sum(r.droppedOpenings),
-    settings: r.roomWalls + r.insideFloors + (r.tokenGrid > 0 ? 1 : 0),
+    settings: r.roomWalls + r.insideFloors,
   };
 }
 

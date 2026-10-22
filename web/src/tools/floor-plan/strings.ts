@@ -208,6 +208,17 @@ export const S = {
     stats: (rooms: number, items: number, openings: number) =>
       `${rooms} 個房間・${items} 件家具・${openings} 個門窗`,
     mapTip: '點一下房間或家具，這裡就可以改名字、大小與顏色。',
+    /** 棋子方格（F220） */
+    tokenGrid: '棋子方格',
+    tokenGridOff: '不顯示',
+    tokenGridSizes: { 1: '0.5 m', 2: '1 m', 3: '1.5 m', 4: '2 m', 6: '3 m' } as Record<
+      number,
+      string
+    >,
+    tokenGridHint:
+      '畫在家具的上面（房間名字與文字在更上面），匯出的圖也有。方格線從匯出圖的左上角開始，在 CCFOLIA 等線上桌面把格子大小設成匯出資訊寫的 px，棋子就對得上格子。',
+    tokenGridColor: '方格的顏色',
+    tokenGridOpacity: '方格的不透明度',
     /** 依序編號房間（F219） */
     numberRooms: '替這一層的房間編號',
     numberRoomsHint:
@@ -336,6 +347,12 @@ export const S = {
     copied: '圖片已複製到剪貼簿',
     copyFailed: '這個瀏覽器不能複製圖片，請改用下載。',
     info: (w: number, h: number) => `${w} × ${h} px`,
+    /** 棋子方格（F220）：選單與「每格幾 px」 */
+    tokenGrid: '棋子方格',
+    tokenGridHint: '畫在家具的上面。圖的邊對齊方格，方格線從左上角開始。',
+    tokenGridInfo: (m: string, px: number) => `棋子方格：每格 ${m} m ＝ ${px} px`,
+    tokenGridNote:
+      '在 CCFOLIA 等線上桌面把地圖的格子大小設成這個 px，方格線從圖片的左上角開始，棋子就對得上。',
     tooLarge: '圖片太大，已自動縮小',
     saved: (n: number) => (n > 1 ? `已下載 ${n} 張 PNG` : '已下載 PNG'),
     empty: '這一層沒有東西可以匯出。',
@@ -495,7 +512,6 @@ export const S = {
       total > shown ? `${list}…等 ${total} 種` : list,
     roomWalls: '每間房的牆種類（牆照本工具的規則產生）',
     insideFloors: '外觀樓層的「顯示內部」',
-    tokenGrid: (m: number) => `棋子方格（每格 ${m} m）`,
     count: (n: number, unit: string) => `${n} ${unit}`,
   },
 

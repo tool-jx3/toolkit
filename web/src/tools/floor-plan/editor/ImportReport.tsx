@@ -101,10 +101,6 @@ function Rows({ report }: { report: CompatReport }) {
     dropped.push(
       <Row key="inside" label={C.insideFloors} count={C.count(report.insideFloors, '層')} />,
     );
-  if (report.tokenGrid > 0)
-    dropped.push(
-      <Row key="token" label={C.tokenGrid(report.tokenGrid / 2)} count={C.count(1, '項')} />,
-    );
   return (
     <div className="flex flex-col gap-4 text-sm">
       {report.converted.length ? (

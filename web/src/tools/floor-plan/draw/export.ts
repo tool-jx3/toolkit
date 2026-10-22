@@ -6,6 +6,8 @@
  * - 一排太長（寬高比 > 5）時改成多排：選最接近 4:3 的欄數。
  * - GM 用的圖上方加一條「GM 用」的字帶（不會和 PL 用的搞混），高度也取到整格（畫格線時 2 格）。
  * - 所以圖的寬高是每格 px 的整數倍、格線從圖的左上角開始，在線上桌面設格子大小時對得齊（2026-10，規格 F214、D26）。
+ * - 開了棋子方格（2026-10，原作 v1.07；規格 F220、3.9）時，範圍、樓層名稱、間隔、字帶都對齊「格線的單位」與方格大小的
+ *   最小公倍數，方格線從圖的左上角開始，寬高是方格的整數倍；方格畫在家具與牆的上面（房間名字、文字的下面）。
  * - 實際的倍率：每格 px，但超過瀏覽器能畫的大小時自動縮小（core/image 的 limitResolution、deviceResolutionLimits）。
  */
 import { deviceResolutionLimits, limitResolution, type ResolutionLimits } from '@/core/image';
@@ -31,6 +33,11 @@ export interface ExportImageOptions {
   titles?: boolean;
   /** GM 用的字帶文字（null＝不加） */
   gmBadge?: string | null;
+  /** 棋子方格的大小（格；0 或沒有＝不畫） */
+  tokenGrid?: number;
+  /** 棋子方格的線色（沒有＝依樣式）與不透明度（沒有＝預設） */
+  tokenGridColor?: string;
+  tokenGridOpacity?: number;
   /** 畫布上限（測試用；預設依裝置） */
   limit?: ResolutionLimits;
 }
@@ -52,17 +59,29 @@ export interface ExportLayout {
   /** 輸出的像素尺寸 */
   pxWidth: number;
   pxHeight: number;
+  /** 棋子方格的大小（格；0＝沒有）與每格的像素數（含自動縮小） */
+  tokenGrid: number;
+  tokenPx: number;
 }
 
 const EMPTY: Rect = { x: 0, y: 0, w: 10, h: 8 };
 
-/** 範圍對齊的單位（格）：整格；畫格線時 2 格（每 1 m 的粗線落在圖的邊上） */
-export const exportUnit = (grid: boolean): number => (grid ? 2 : 1);
+const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
 
+/**
+ * 範圍對齊的單位（格）：整格；畫格線時 2 格（每 1 m 的粗線落在圖的邊上）；
+ * 有棋子方格時再取和方格大小的最小公倍數（圖的邊落在方格線上，格線與方格線同時對齊）。
+ */
+export const exportUnit = (grid: boolean, tokenGrid = 0): number => {
+  const a = grid ? 2 : 1;
+  const t = tokenGrid > 0 ? Math.round(tokenGrid) : 1;
+  return (a * t) / gcd(a, t);
+};
 /** 匯出的版面（不畫，只算尺寸；預覽與實際匯出共用） */
 export function exportLayout(floors: readonly Floor[], opts: ExportImageOptions): ExportLayout {
   const margin = opts.margin ?? 2;
-  const unit = exportUnit(opts.grid);
+  const tokenGrid = opts.tokenGrid && opts.tokenGrid > 0 ? opts.tokenGrid : 0;
+  const unit = exportUnit(opts.grid, tokenGrid);
   const down = (v: number) => Math.floor(v / unit + 1e-9) * unit;
   const up = (v: number) => Math.ceil(v / unit - 1e-9) * unit;
   const shown = floors.map((f) => visibleFloor(f, opts.playerView, opts.hideClues));
@@ -118,6 +137,8 @@ export function exportLayout(floors: readonly Floor[], opts: ExportImageOptions)
     scale,
     pxWidth: Math.max(1, Math.round(width * scale)),
     pxHeight: Math.max(1, Math.round(height * scale)),
+    tokenGrid,
+    tokenPx: tokenGrid * scale,
   };
 }
 
@@ -154,6 +175,15 @@ export function renderImage(floors: readonly Floor[], opts: ExportImageOptions):
       grid: opts.grid,
       viewRect: f,
       background: false,
+      tokenGrid: L.tokenGrid
+        ? {
+            size: L.tokenGrid,
+            color: opts.tokenGridColor,
+            opacity: opts.tokenGridOpacity,
+            /* 樓層名稱列的下面（名稱列與方格都對齊同一個單位，方格線和圖的左上角對得上） */
+            rect: { ...f, y: f.y + L.titleH, h: f.h - L.titleH },
+          }
+        : undefined,
     });
     if (L.titleH) {
       c.textAlign = 'left';

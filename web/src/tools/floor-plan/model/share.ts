@@ -109,6 +109,10 @@ export function packProject(p: Project): Record<string, unknown> {
     showSize: p.showSize,
     showNames: p.showNames,
     active: p.active,
+    /* 棋子方格（不是秘密，PL 用連結也帶著；沒設定時不寫） */
+    ...(p.tokenGrid ? { tokenGrid: p.tokenGrid } : {}),
+    ...(p.tokenGridColor ? { tokenGridColor: p.tokenGridColor } : {}),
+    ...(p.tokenGridOpacity ? { tokenGridOpacity: p.tokenGridOpacity } : {}),
     floors: p.floors.map((f) => ({
       name: f.name,
       rooms: f.rooms.map(dropId),

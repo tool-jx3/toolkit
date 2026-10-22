@@ -19,10 +19,11 @@ import { getTemplate, instantiateTemplate } from '../templates';
 
 export const TOOL_ID = 'floor-plan';
 /**
- * 存檔格式版本。2：文字多了圓標（`badge`，2026-10）。版本 1 的存檔與專案檔不必轉換（少了 badge 就是一般文字），
+ * 存檔格式版本。2：文字多了圓標（`badge`，2026-10）。3：地圖多了棋子方格（`tokenGrid`、`tokenGridColor`、
+ * `tokenGridOpacity`，2026-10 第一批）。舊版本的存檔與專案檔不必轉換（少了欄位就是沒有圓標、沒有方格），
  * 讀進來一律經過 normalizeProject。
  */
-export const DATA_VERSION = 2;
+export const DATA_VERSION = 3;
 
 /** 開頁第一次（沒有存檔）時的地圖：第一個範本 */
 export function starterProject(): Project {
@@ -104,7 +105,7 @@ export const useProject = createToolStore<Project>(TOOL_ID, starterProject(), {
   historyLimit: 120,
   coalesceMs: 0,
   storage: projectStorage,
-  /* 版本 1 → 2：欄位只多不少，整理一次就好 */
+  /* 版本 1 → 2 → 3：欄位只多不少，整理一次就好 */
   migrate: (persisted) => normalizeProject(persisted, isAsset) ?? starterProject(),
 });
 

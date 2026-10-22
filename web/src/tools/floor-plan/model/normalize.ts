@@ -4,7 +4,17 @@
  * 原作新版（v1.05～v1.13）的種類換成最接近的種類、本工具沒有的家具與設定略過，都記在 report.compat（compat.ts）。
  */
 import { formatHex, parseColor } from '@/core/color';
-import { CAT, isCategory, isOpeningKind, isSizeMode, isThemeId, isWallKind } from './catalog';
+import {
+  CAT,
+  isCategory,
+  isOpeningKind,
+  isSizeMode,
+  isThemeId,
+  isTokenGridSize,
+  isWallKind,
+  TOKEN_GRID_OPACITY,
+  TOKEN_GRID_OPACITY_MIN,
+} from './catalog';
 import {
   type CompatReport,
   emptyCompatReport,
@@ -272,8 +282,6 @@ export function normalizeProject(
     return floor;
   });
   ids(floors, 'f');
-  /* 原作 v1.07 的棋子方格：本工具沒有，略過 */
-  if (num(p.tokenGrid) > 0) compat.tokenGrid = num(p.tokenGrid);
   if (report) {
     report.droppedItems = dropped;
     report.compat = compat;
@@ -288,6 +296,15 @@ export function normalizeProject(
     active: 0,
   };
   out.active = clamp(Math.round(num(p.active)), 0, out.floors.length - 1);
+  /* 棋子方格（2026-10；原作 v1.07 的 tokenGrid 也是這個欄位，0＝不顯示）：大小只認 1／2／3／4／6 格 */
+  const tokenGrid = num(p.tokenGrid, 0);
+  if (isTokenGridSize(tokenGrid)) out.tokenGrid = tokenGrid;
+  const tokenColor = color(p.tokenGridColor)?.slice(0, 7);
+  if (tokenColor) out.tokenGridColor = tokenColor;
+  if (isNum(p.tokenGridOpacity)) {
+    const o = Math.round(clamp(num(p.tokenGridOpacity), TOKEN_GRID_OPACITY_MIN, 1) * 100) / 100;
+    if (o !== TOKEN_GRID_OPACITY) out.tokenGridOpacity = o;
+  }
   return out;
 }
 

@@ -532,6 +532,14 @@ export class EditorController {
       grid: prefs.grid,
       viewRect,
       ghost,
+      tokenGrid: p.tokenGrid
+        ? {
+            size: p.tokenGrid,
+            color: p.tokenGridColor,
+            opacity: p.tokenGridOpacity,
+            rect: viewRect,
+          }
+        : undefined,
     });
     this.drawOverlays(c);
     if (!ed.playerView) {
