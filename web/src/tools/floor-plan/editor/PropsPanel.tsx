@@ -100,7 +100,7 @@ function CommonButtons({ order = false }: { order?: boolean }) {
       <Button size="sm" onClick={act.duplicateSelection}>
         {S.props.duplicate}
       </Button>
-      <Button size="sm" variant="danger" onClick={act.deleteSelection}>
+      <Button size="sm" variant="danger" onClick={() => void act.deleteSelection()}>
         {S.props.delete}
       </Button>
     </>

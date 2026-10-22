@@ -24,12 +24,14 @@ import {
 import { type AnyObj, getObj, movable } from '../model/ops';
 import {
   axisLock,
+  dragOpeningSpan,
   type ItemGhost,
   itemGhost,
   magnet,
   type OpeningGhost,
   snapOpening,
   snapWallPoint,
+  spansOnLine,
 } from '../model/snap';
 import {
   type Floor,
@@ -55,6 +57,8 @@ export const ZOOM_MAX = 140;
 /** 100% 的倍率（每格 px） */
 export const ZOOM_BASE = 24;
 const HANDLE = 7;
+/** 沿牆拖曳放門窗：滑鼠移動超過幾 px 才算拖曳（沒到＝照預設寬度放） */
+const OPENLEN_DRAG_PX = 6;
 const SEL = '#2f7cf6';
 
 type P = { x: number; y: number };
@@ -95,6 +99,18 @@ type Drag =
   | { mode: 'marquee'; start: P; add: boolean; base: SelRef[]; rect: Rect | null; moved: boolean }
   | { mode: 'room'; a: P; sx: number; sy: number; rect: Rect | null; moved: boolean }
   | { mode: 'wall'; a: P; b: P | null; moved: boolean }
+  /* 門窗工具在牆上按下後拖曳：沿著牆決定長度（F223） */
+  | {
+      mode: 'openlen';
+      id: string;
+      /** 所在的牆段沿著線的範圍、按下的位置（沿著線） */
+      run: { a: number; b: number };
+      anchor: number;
+      sx: number;
+      sy: number;
+      moved: boolean;
+      before: Project;
+    }
   | { mode: 'erase'; moved: boolean; before: Project };
 
 const CURSORS: Record<string, string> = {
@@ -783,6 +799,16 @@ export class EditorController {
       c.strokeRect(d.rect.x, d.rect.y, d.rect.w, d.rect.h);
       c.restore();
     }
+    if (d?.mode === 'openlen' && d.moved) {
+      const o = getObj(f, 'opening', d.id) as Opening | null;
+      if (o) {
+        const sp = this.toScreen(
+          o.o === 'h' ? o.x + o.len / 2 : o.x,
+          o.o === 'h' ? o.y : o.y + o.len / 2,
+        );
+        this.screenLabel(c, `${meterText(o.len)}m`, sp.x, sp.y + 14);
+      }
+    }
     if (d?.mode === 'resize') {
       const obj = getObj(f, d.type, d.id);
       if (obj && (d.type === 'room' || d.type === 'item')) {
@@ -1062,9 +1088,23 @@ export class EditorController {
           side: g.side,
           hinge: armed.hinge,
         };
+        /* 放下去之後，不放開、沿著牆拖曳就可以決定長度（放開時才算一步復原；沒拖就是照預設寬度放） */
+        const before = this.beginEdit();
         act.addObject('opening', o);
         setEditor({ sel: [{ type: 'opening', id: o.id }] });
-        this.pointerHover(sx, sy, e);
+        this.drag = {
+          mode: 'openlen',
+          id: o.id,
+          run: g.run,
+          anchor: g.along,
+          sx,
+          sy,
+          moved: false,
+          before,
+        };
+        this.ghostOpening = null;
+        this.updateCursor();
+        this.requestRender();
         return;
       }
       case 'place': {
@@ -1217,12 +1257,37 @@ export class EditorController {
         d.b = e.shiftKey ? b : axisLock(d.a, b);
         break;
       }
+      case 'openlen':
+        if (!d.moved && Math.hypot(sx - d.sx, sy - d.sy) < OPENLEN_DRAG_PX) return;
+        d.moved = true;
+        this.dragOpeningLength(d, w);
+        break;
       case 'erase':
         d.moved = true;
         this.eraseAt(w, false);
         break;
     }
     this.requestRender();
+  }
+
+  /** 沿牆拖曳放門窗：範圍＝按下的位置到現在的位置（對齊 0.25 格、不超出牆段、不壓到別的門窗，至少 0.5 格） */
+  private dragOpeningLength(d: Extract<Drag, { mode: 'openlen' }>, w: P): void {
+    useProject.getState().update((p) => {
+      const f = p.floors[p.active];
+      const o = getObj(f, 'opening', d.id) as Opening | null;
+      if (!o) return;
+      const line = o.o === 'h' ? o.y : o.x;
+      const span = dragOpeningSpan(
+        d.run,
+        d.anchor,
+        o.o === 'h' ? w.x : w.y,
+        spansOnLine(f.openings, o.o, line, o.id),
+      );
+      if (!span) return;
+      if (o.o === 'h') o.x = span.a;
+      else o.y = span.a;
+      o.len = round2(span.b - span.a);
+    });
   }
 
   private dragMove(d: Extract<Drag, { mode: 'move' }>, w: P, alt: boolean): void {
@@ -1388,6 +1453,11 @@ export class EditorController {
         }
         break;
       case 'marquee':
+        break;
+      case 'openlen':
+        this.endEdit();
+        /* 工具還拿著：預覽跟著游標，可以接著放下一個 */
+        this.pointerHover(sx, sy, e);
         break;
       case 'move':
         if (!d.moved) {

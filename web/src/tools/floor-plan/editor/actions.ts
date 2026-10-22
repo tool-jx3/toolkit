@@ -1,7 +1,7 @@
 /**
  * 編輯操作（按鈕、快捷鍵、畫布共用）：改資料的一律經過 useProject（一次操作＝一步復原）。
  */
-import type { ConfirmOptions, ToastOptions } from '@/ui';
+import type { ChoiceOptions, ConfirmOptions, ToastOptions } from '@/ui';
 import { ASSET, isAsset } from '../model/assets';
 import { isTokenGridSize, ROOM_PRESETS, type RoomPresetId, wallThickness } from '../model/catalog';
 import { compatCounts, hasCompatNotes } from '../model/compat';
@@ -21,7 +21,9 @@ import {
   cloneFloor,
   cloneObj,
   copyOffset,
+  countRefs,
   deepClone,
+  deletionExtras,
   getObj,
   groundFloorIndex,
   movable,
@@ -62,13 +64,16 @@ import {
 
 type Notify = (o: ToastOptions) => void;
 type Confirm = (o: ConfirmOptions) => Promise<boolean>;
+type Choose = <V extends string>(o: ChoiceOptions<V>) => Promise<V | null>;
 let toastFn: Notify | null = null;
 let confirmFn: Confirm | null = null;
+let chooseFn: Choose | null = null;
 let viewFns: { fit: () => void; reset: () => void } | null = null;
 
-export function bindUi(t: Notify | null, c: Confirm | null): void {
+export function bindUi(t: Notify | null, c: Confirm | null, ch: Choose | null = null): void {
   toastFn = t;
   confirmFn = c;
+  chooseFn = ch;
 }
 
 /** 共用的確認對話框（App 還沒設定時當成同意） */
@@ -246,16 +251,46 @@ export function selectAll(): void {
   setEditor({ sel });
 }
 
-export function deleteSelection(): void {
+/**
+ * 刪除選取的東西（Delete、屬性面板與迷你工具列的刪除）。鎖定的房間略過。
+ * 選取的房間裡還有東西（家具、文字、門窗、牆、巢狀的房間）時先問：只刪房間／連裡面的東西一起刪／取消（F224）；
+ * 一次刪除算一步復原。
+ */
+export async function deleteSelection(): Promise<void> {
+  await deleteSelected(false);
+}
+
+/** 剪下用：房間連同裡面的東西一起刪（剪貼簿裡已經有它們，不必問） */
+async function deleteSelected(withAll: boolean): Promise<void> {
   const all = selected();
   const entries = all.filter((e) => !(e.type === 'room' && (e.obj as Room).locked));
   if (entries.length < all.length) notify(S.msg.lockedSkip, 'warning');
   if (!entries.length) return;
   const hadRoom = entries.some((e) => e.type === 'room');
-  removeObjects(entries);
+  let targets: SelRef[] = entries.map(({ type, id }) => ({ type, id }));
+  if (hadRoom) {
+    const extras = deletionExtras(currentFloor(), targets);
+    if (extras.length) {
+      if (withAll) targets = targets.concat(extras);
+      else if (chooseFn) {
+        const rooms = entries.filter((e) => e.type === 'room');
+        const how = await chooseFn({
+          title: S.del.title(rooms.length, (rooms[0].obj as Room).name),
+          description: S.del.text(countRefs(extras)),
+          choices: [
+            { value: 'room', label: S.del.roomOnly, variant: 'secondary' },
+            { value: 'all', label: S.del.withContents, variant: 'danger' },
+          ],
+        });
+        if (!how) return;
+        if (how === 'all') targets = targets.concat(deletionExtras(currentFloor(), targets));
+      }
+    }
+  }
+  removeObjects(targets);
   setEditor({ sel: [] });
-  if (hadRoom || entries.length > 2)
-    notify(S.msg.deleted(entries.length), 'info', { action: undoAction() });
+  if (hadRoom || targets.length > 2)
+    notify(S.msg.deleted(targets.length), 'info', { action: undoAction() });
 }
 
 export function duplicateSelection(): void {
@@ -294,7 +329,7 @@ export function copySelection(cut: boolean): void {
       })),
     },
   });
-  if (cut) deleteSelection();
+  if (cut) void deleteSelected(true);
 }
 
 export function paste(): void {

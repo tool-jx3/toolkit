@@ -2,7 +2,7 @@
  * 編輯畫面的版面：上方編輯列；寬畫面左邊素材、中間畫布（下方樓層列）、右邊屬性；窄畫面依序往下排（畫布在上）。
  */
 import { useEffect } from 'react';
-import { useConfirm, useToast, WindowDrop } from '@/ui';
+import { useChoice, useConfirm, useToast, WindowDrop } from '@/ui';
 import { S } from '../strings';
 import { bindUi, bindView, notify } from './actions';
 import { CanvasArea } from './CanvasArea';
@@ -23,9 +23,10 @@ import { installTestHook } from './testHook';
 export function Editor() {
   const toast = useToast();
   const confirm = useConfirm();
+  const choose = useChoice();
 
   useEffect(() => {
-    bindUi(toast, confirm);
+    bindUi(toast, confirm, choose);
     bindView({ fit: () => editor.fitView(), reset: () => editor.resetView() });
     let warned = false;
     onPersistError(() => {
@@ -50,7 +51,7 @@ export function Editor() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [toast, confirm]);
+  }, [toast, confirm, choose]);
 
   return (
     <div className="flex min-w-0 flex-col gap-2" data-testid="floor-plan">

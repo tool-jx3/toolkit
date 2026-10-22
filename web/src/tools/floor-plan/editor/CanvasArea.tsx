@@ -217,7 +217,7 @@ function MiniBar() {
         variant="danger"
         icon={<Trash2 />}
         label={S.mini.delete}
-        onClick={act.deleteSelection}
+        onClick={() => void act.deleteSelection()}
         data-mini="delete"
       />
     </div>

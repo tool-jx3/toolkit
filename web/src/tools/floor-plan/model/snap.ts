@@ -21,6 +21,10 @@ export interface OpeningGhost {
   t: number;
   /** 和既有的門窗重疊（不能放） */
   clash: boolean;
+  /** 所在的牆段沿著線的範圍（沿牆拖曳決定長度時不超出，F223） */
+  run: { a: number; b: number };
+  /** 游標沿著線的位置（對齊 0.25 格、夾在牆段內）：沿牆拖曳的起點 */
+  along: number;
 }
 
 /**
@@ -67,7 +71,67 @@ export function snapOpening(
     side: across >= r.c ? 1 : -1,
     t: wallThickness(r.kind),
     clash,
+    run: { a: r.a, b: r.b },
+    along: clamp(snap(along, 0.25), r.a, r.b),
   };
+}
+
+export interface Span {
+  a: number;
+  b: number;
+}
+
+/** 同一條線（o 方向、線的位置 line）上其他門窗佔的範圍（ignoreId＝自己，不算） */
+export function spansOnLine(
+  openings: readonly Opening[],
+  o: 'h' | 'v',
+  line: number,
+  ignoreId?: string,
+): Span[] {
+  return openings
+    .filter((op) => op.id !== ignoreId && op.o === o && Math.abs(lineOf(op) - line) < 1e-6)
+    .map((op) => ({ a: startOf(op), b: startOf(op) + op.len }));
+}
+
+/**
+ * 沿牆拖曳決定門窗的範圍（F223）：`anchor` 是按下的位置，`at` 是現在的位置（都沿著線），
+ * 範圍＝兩者之間，對齊 0.25 格；不超出牆段 `run`，也不壓到同一條線上的其他門窗（停在它旁邊）；
+ * 至少 `min`（0.5）格——太短時往拖曳的方向補，補不下時往另一邊。起點落在別的門窗裡、或兩邊的空隙不到 `min` 時 null。
+ */
+export function dragOpeningSpan(
+  run: Span,
+  anchor: number,
+  at: number,
+  others: readonly Span[],
+  step = 0.25,
+  min = 0.5,
+): Span | null {
+  const eps = 1e-6;
+  const start = clamp(snap(anchor, step), run.a, run.b);
+  let lo = run.a;
+  let hi = run.b;
+  for (const o of others) {
+    if (o.a < start - eps && start < o.b - eps) return null;
+    if (o.b <= start + eps) lo = Math.max(lo, o.b);
+    if (o.a >= start - eps) hi = Math.min(hi, o.a);
+  }
+  if (hi - lo < min - eps) return null;
+  const end = clamp(snap(at, step), lo, hi);
+  let a = Math.min(start, end);
+  let b = Math.max(start, end);
+  if (b - a < min - eps) {
+    if (at < anchor - eps) a = b - min;
+    else b = a + min;
+    if (b > hi + eps) {
+      b = hi;
+      a = b - min;
+    }
+    if (a < lo - eps) {
+      a = lo;
+      b = a + min;
+    }
+  }
+  return { a, b };
 }
 
 /** 外框貼牆：邊緣離牆線 reach 格以內就對齊到牆線（x、y 各自找最近的） */

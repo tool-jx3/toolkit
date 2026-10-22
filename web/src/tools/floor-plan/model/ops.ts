@@ -73,6 +73,41 @@ export function withContents(floor: Floor, sel: readonly SelRef[], alone = false
   return out;
 }
 
+/**
+ * 刪除選取的房間時，房間裡「還沒被選到」的東西（家具、文字、門窗、手畫的牆、巢狀的房間；規格 F224）。
+ * 判斷同移動房間（roomContents）。鎖定的房間不會被刪，它和它裡面的東西都不算在內。
+ */
+export function deletionExtras(floor: Floor, sel: readonly SelRef[]): SelRef[] {
+  const picked = new Set(sel.map(refKey));
+  const pinned = new Set<string>();
+  for (const r of floor.rooms) {
+    if (!r.locked) continue;
+    pinned.add(`room:${r.id}`);
+    for (const c of roomContents(floor, r)) pinned.add(refKey(c));
+  }
+  const seen = new Set<string>();
+  const out: SelRef[] = [];
+  for (const s of sel) {
+    if (s.type !== 'room') continue;
+    const r = getObj(floor, 'room', s.id) as Room | null;
+    if (!r) continue;
+    for (const c of roomContents(floor, r)) {
+      const k = refKey(c);
+      if (picked.has(k) || pinned.has(k) || seen.has(k)) continue;
+      seen.add(k);
+      out.push(c);
+    }
+  }
+  return out;
+}
+
+/** 各種類的個數 */
+export function countRefs(refs: readonly SelRef[]): Record<ObjType, number> {
+  const n: Record<ObjType, number> = { room: 0, item: 0, opening: 0, wall: 0, text: 0 };
+  for (const r of refs) n[r.type]++;
+  return n;
+}
+
 const isLockedRoom = (floor: Floor, s: SelRef) =>
   s.type === 'room' && Boolean((getObj(floor, 'room', s.id) as Room | null)?.locked);
 
