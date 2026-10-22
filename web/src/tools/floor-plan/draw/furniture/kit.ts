@@ -12,11 +12,18 @@ export interface FurnStyle extends FurnPalette {
   lw: number;
   /** 牆的顏色（嵌在牆裡的東西用） */
   wall: string;
+  /**
+   * 不透明的背景色（貼牆素材把牆「挖掉」的地方用；透明背景匯出時是那個樣式原本的背景色）。
+   * 2026-10 第三批。
+   */
+  gap: string;
   font: string;
 }
 
 export interface DrawOptions {
   label?: string;
+  /** 素材面板的圖示（貼牆素材在底下多畫一段牆當作樣本） */
+  icon?: boolean;
 }
 
 export type FurnDraw = (c: Ctx, S: FurnStyle, w: number, h: number, item: DrawOptions) => void;

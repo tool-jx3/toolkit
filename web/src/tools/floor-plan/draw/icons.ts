@@ -31,11 +31,17 @@ export function drawAssetIcon(canvas: HTMLCanvasElement, id: string, size = 44):
   c.scale(k, k);
   const lw = Math.max(1 / 22, 1 / k);
   const S = furnStyle(THEMES.clean, lw);
+  if (a.wall) {
+    /* 貼牆素材：底下先畫一段外牆當樣本（實際放的時候畫在牆的上面，F233） */
+    c.fillStyle = THEMES.clean.wall;
+    const t = 0.34;
+    c.fillRect(-pad / k, a.h / 2 - t / 2, a.w + (pad * 2) / k, t);
+  }
   c.lineWidth = lw;
   c.strokeStyle = S.ink;
   c.lineJoin = 'round';
   c.lineCap = 'round';
-  draw(c, S, a.w, a.h, { label: '1' });
+  draw(c, S, a.w, a.h, { label: '1', icon: true });
 }
 
 export function drawOpeningIcon(canvas: HTMLCanvasElement, kind: OpeningKind, size = 44): void {
