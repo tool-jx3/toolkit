@@ -121,7 +121,7 @@ function threeBedWard(b: FloorBuilder, x: number, name: string): void {
     .wh(x + 1, 0, 6);
   for (let i = 0; i < 3; i++) {
     b.item('hospital_bed', x + 0.3 + i * 2.6, 0.3, 0, { size: [2.2, 4.2] });
-    if (i) b.item('curtain', x + i * 2.6 + 0.05, 0.6, 90, { size: [3.8, 0.3] });
+    if (i) b.item('curtain', x + i * 2.6 - 0.05, 0.6, 90, { size: [3.8, 0.3] });
   }
   b.item('iv_stand', x + 0.4, 4.8).item('washbasin', x + 0.1, 8.9, 180, { size: [1.4, 1] });
 }
@@ -193,7 +193,7 @@ export function hospital(): TplFloor[] {
     .item('counter', 9.2, 8.6, 0, { size: [3.6, 1.2] })
     .item('lab_bench', 26.5, 0)
     .item('lab_bench', 26.5, 4)
-    .item('tank', 30.4, 3.6, 0, { size: [2, 2] })
+    .item('tank', 30.6, 3.6, 0, { size: [2, 2] })
     .item('exam_bed', 35, 1.4, 90)
     .item('console', 34, 6.8, 0, { size: [3, 1.2] })
     .item('rack', 38.4, 6.6, 0, { size: [1.4, 1.6] })
@@ -253,7 +253,7 @@ export function hospital(): TplFloor[] {
     .item('office_desk', 26.4, 0.4)
     .item('med_cabinet', 28.9, 0)
     .item('filing', 30.8, 4.2)
-    .item('op_table', 21.5, 15.6)
+    .item('op_table', 21, 15.6)
     .item('med_cabinet', 18, 18, 270)
     .item('tank', 25.2, 20.2, 0, { size: [2, 2] })
     .item('lab_bench', 24.2, 13.4, 90, { size: [3, 1.2] })

@@ -20,6 +20,11 @@ export interface ClueSpec {
   room: string;
   t: string;
   text: string;
+  /**
+   * 放不下一行時從第幾個字後面斷成兩行（2026-10-22 依 7.18：斷在詞的邊界，不要斷在詞的中間）。
+   * 範本裡 7 個字以上的說明都要寫（範本目錄用 `C()` 的「/」標記，單元測試檢查）。
+   */
+  br?: number;
 }
 
 let measure: CanvasRenderingContext2D | null | undefined;
@@ -47,10 +52,15 @@ export function textWidth(text: string, size: number, weight = 600): number {
   return w * size;
 }
 
-/** 長的說明斷成兩行：靠近中間的標點或空白，沒有時從正中間斷 */
-export function wrapClueText(text: string): string {
+/**
+ * 長的說明斷成兩行：有指定斷點（`br`，第幾個字後面）時照斷點；沒有時靠近中間的標點或空白，再沒有時從正中間斷。
+ * 範本的說明都指定了斷點（中文沒有空白分詞，從正中間斷常常斷在詞的中間，例如「多出一個名｜字的族譜」）。
+ */
+export function wrapClueText(text: string, br?: number): string {
   const chars = Array.from(text);
   if (chars.length < 7) return text;
+  if (br !== undefined && br > 0 && br < chars.length)
+    return `${chars.slice(0, br).join('')}\n${chars.slice(br).join('')}`;
   const mid = chars.length / 2;
   let cut = -1;
   chars.forEach((ch, i) => {
@@ -157,7 +167,7 @@ export function addClues(floors: TplFloor[], clues: readonly ClueSpec[]): void {
     if (!f || !room || !a) continue;
     const gap = 0.1;
     const one = clue.text;
-    const two = wrapClueText(one);
+    const two = wrapClueText(one, clue.br);
     let placed: {
       x: number;
       y: number;

@@ -5,6 +5,7 @@ import type { ExportImageOptions } from '../draw/export';
 import { S } from '../strings';
 import type { ExportPx } from './catalog';
 import { floorHasClues } from './geometry';
+import { composedFloor } from './interior';
 import type { Floor, Project, ThemeId } from './types';
 
 export type ExportRange = 'current' | 'all' | 'each';
@@ -28,8 +29,9 @@ export function fileBase(name: string): string {
   return base.replace(BAD_FILE_CHARS, '_').slice(0, 60) || 'map';
 }
 
+/** 要畫的樓層（外觀層打開「顯示內部」時是疊好的樓層，2026-10 第二批） */
 export function exportFloors(p: Project, range: ExportRange): Floor[] {
-  return range === 'all' ? p.floors : [p.floors[p.active]];
+  return (range === 'all' ? p.floors : [p.floors[p.active]]).map((f) => composedFloor(f, p.floors));
 }
 
 export function exportOptions(
@@ -48,8 +50,15 @@ export function exportOptions(
     grid: exp.grid,
     transparent: exp.transparent,
     gmBadge: exp.view === 'pl' ? null : S.badgeGm,
+    tokenGrid: p.tokenGrid ?? 0,
+    tokenGridColor: p.tokenGridColor,
+    tokenGridOpacity: p.tokenGridOpacity,
   };
 }
+
+/** 棋子方格每格的像素數（匯出資訊用；小數 2 位，沒有方格時 0） */
+export const tokenGridPx = (tokenGrid: number, scale: number): number =>
+  tokenGrid > 0 ? Math.round(tokenGrid * scale * 100) / 100 : 0;
 
 /** 匯出的檔名：地圖名稱[_樓層]_PL／GM[_無線索].png */
 export function exportFileName(p: Project, exp: ExportSettings, floor: Floor | null): string {
@@ -68,7 +77,10 @@ export interface ExportJob {
 export function exportJobs(p: Project, exp: ExportSettings): ExportJob[] {
   const multi = p.floors.length > 1;
   if (exp.range === 'each' && multi)
-    return p.floors.map((f) => ({ floors: [f], name: exportFileName(p, exp, f) }));
+    return p.floors.map((f) => ({
+      floors: [composedFloor(f, p.floors)],
+      name: exportFileName(p, exp, f),
+    }));
   const floors = exportFloors(p, exp.range);
   return [
     {

@@ -12,16 +12,48 @@ export interface FurnStyle extends FurnPalette {
   lw: number;
   /** 牆的顏色（嵌在牆裡的東西用） */
   wall: string;
+  /**
+   * 不透明的背景色（貼牆素材把牆「挖掉」的地方用；透明背景匯出時是那個樣式原本的背景色）。
+   * 2026-10 第三批。
+   */
+  gap: string;
   font: string;
 }
 
 export interface DrawOptions {
   label?: string;
+  /** 素材面板的圖示（貼牆素材在底下多畫一段牆當作樣本） */
+  icon?: boolean;
 }
 
 export type FurnDraw = (c: Ctx, S: FurnStyle, w: number, h: number, item: DrawOptions) => void;
 
 export const TAU = Math.PI * 2;
+
+/**
+ * 上下翻轉（y → h − y）：原本照「前端朝下」寫的畫法，翻過來就是 rot 0 時前端朝上（和原作一致，規格 7.16）。
+ * 被包的畫法裡不能有字（字會變成鏡像）。
+ */
+export const mirrorY =
+  (draw: FurnDraw): FurnDraw =>
+  (c, S, w, h, item) => {
+    c.save();
+    c.translate(0, h);
+    c.scale(1, -1);
+    draw(c, S, w, h, item);
+    c.restore();
+  };
+
+/** 左右翻轉（x → w − x）：同 {@link mirrorY}，用在左右方向和原作相反的畫法（手電筒、鐵砧） */
+export const mirrorX =
+  (draw: FurnDraw): FurnDraw =>
+  (c, S, w, h, item) => {
+    c.save();
+    c.translate(w, 0);
+    c.scale(-1, 1);
+    draw(c, S, w, h, item);
+    c.restore();
+  };
 
 /** 圓角矩形的路徑 */
 export function rrect(c: Ctx, x: number, y: number, w: number, h: number, r = 0): void {

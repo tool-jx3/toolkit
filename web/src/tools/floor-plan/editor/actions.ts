@@ -1,9 +1,9 @@
 /**
  * 編輯操作（按鈕、快捷鍵、畫布共用）：改資料的一律經過 useProject（一次操作＝一步復原）。
  */
-import type { ConfirmOptions, ToastOptions } from '@/ui';
+import type { ChoiceOptions, ConfirmOptions, ToastOptions } from '@/ui';
 import { ASSET, isAsset } from '../model/assets';
-import { ROOM_PRESETS, type RoomPresetId, wallThickness } from '../model/catalog';
+import { isTokenGridSize, ROOM_PRESETS, type RoomPresetId, wallThickness } from '../model/catalog';
 import { compatCounts, hasCompatNotes } from '../model/compat';
 import {
   clamp,
@@ -14,14 +14,18 @@ import {
   uid,
   visibleFloor,
 } from '../model/geometry';
+import { interiorFloor } from '../model/interior';
 import { isLegacyMapFile, type NormalizeReport, normalizeProject } from '../model/normalize';
-import { numberRooms } from '../model/numbering';
+import { isRoomNumber, numberRooms } from '../model/numbering';
 import {
   type AnyObj,
   cloneFloor,
   cloneObj,
   copyOffset,
+  countContents,
   deepClone,
+  deletionExtras,
+  existingRefs,
   getObj,
   groundFloorIndex,
   movable,
@@ -50,6 +54,7 @@ import { importNotice } from './ImportReport';
 import {
   type Armed,
   currentFloor,
+  editableFloor,
   setEditor,
   starterProject,
   type ToolId,
@@ -62,13 +67,16 @@ import {
 
 type Notify = (o: ToastOptions) => void;
 type Confirm = (o: ConfirmOptions) => Promise<boolean>;
+type Choose = <V extends string>(o: ChoiceOptions<V>) => Promise<V | null>;
 let toastFn: Notify | null = null;
 let confirmFn: Confirm | null = null;
+let chooseFn: Choose | null = null;
 let viewFns: { fit: () => void; reset: () => void } | null = null;
 
-export function bindUi(t: Notify | null, c: Confirm | null): void {
+export function bindUi(t: Notify | null, c: Confirm | null, ch: Choose | null = null): void {
   toastFn = t;
   confirmFn = c;
+  chooseFn = ch;
 }
 
 /** 共用的確認對話框（App 還沒設定時當成同意） */
@@ -144,7 +152,7 @@ export const wallKindThickness = (armed: Armed | null): number =>
 export function dropMissingSelection(): void {
   const { sel, playerView } = useEditor.getState();
   if (!sel.length) return;
-  const f = visibleFloor(currentFloor(), playerView, !usePrefs.getState().data.showClues);
+  const f = visibleFloor(editableFloor(), playerView, !usePrefs.getState().data.showClues);
   const next = sel.filter((s) => (f[TYPE_KEY[s.type]] as AnyObj[]).some((o) => o.id === s.id));
   if (next.length !== sel.length) setEditor({ sel: next });
 }
@@ -239,23 +247,56 @@ function selected(): { type: ObjType; id: string; obj: AnyObj }[] {
 
 export function selectAll(): void {
   const { playerView } = useEditor.getState();
-  const f = visibleFloor(currentFloor(), playerView, !usePrefs.getState().data.showClues);
+  const f = visibleFloor(editableFloor(), playerView, !usePrefs.getState().data.showClues);
   const sel: SelRef[] = [];
   for (const type of ['room', 'item', 'opening', 'wall', 'text'] as const)
     for (const o of f[TYPE_KEY[type]] as AnyObj[]) sel.push({ type, id: o.id });
   setEditor({ sel });
 }
 
-export function deleteSelection(): void {
+/**
+ * 刪除選取的東西（Delete、屬性面板與迷你工具列的刪除）。鎖定的房間略過。
+ * 選取的房間裡還有東西（家具、文字、門窗、牆、巢狀的房間）時先問：只刪房間／連裡面的東西一起刪／取消（F224）；
+ * 一次刪除算一步復原。
+ */
+export async function deleteSelection(): Promise<void> {
+  await deleteSelected(false);
+}
+
+/** 剪下用：房間連同裡面的東西一起刪（剪貼簿裡已經有它們，不必問） */
+async function deleteSelected(withAll: boolean): Promise<void> {
   const all = selected();
   const entries = all.filter((e) => !(e.type === 'room' && (e.obj as Room).locked));
   if (entries.length < all.length) notify(S.msg.lockedSkip, 'warning');
   if (!entries.length) return;
   const hadRoom = entries.some((e) => e.type === 'room');
-  removeObjects(entries);
+  let targets: SelRef[] = entries.map(({ type, id }) => ({ type, id }));
+  if (hadRoom) {
+    const extras = deletionExtras(currentFloor(), targets);
+    if (extras.length) {
+      if (withAll) targets = targets.concat(extras);
+      else if (chooseFn) {
+        const rooms = entries.filter((e) => e.type === 'room');
+        const how = await chooseFn({
+          title: S.del.title(rooms.length, (rooms[0].obj as Room).name),
+          description: S.del.text(countContents(currentFloor(), extras)),
+          choices: [
+            { value: 'room', label: S.del.roomOnly, variant: 'secondary' },
+            { value: 'all', label: S.del.withContents, variant: 'danger' },
+          ],
+        });
+        if (!how) return;
+        if (how === 'all') targets = targets.concat(deletionExtras(currentFloor(), targets));
+      }
+    }
+  }
+  /* 詢問期間地圖可能變了（房間被刪掉…）：只算現在還在的；什麼都沒刪就不通知、不記復原（7.10） */
+  targets = existingRefs(currentFloor(), targets);
+  if (!targets.length) return;
+  removeObjects(targets);
   setEditor({ sel: [] });
-  if (hadRoom || entries.length > 2)
-    notify(S.msg.deleted(entries.length), 'info', { action: undoAction() });
+  if (hadRoom || targets.length > 2)
+    notify(S.msg.deleted(targets.length), 'info', { action: undoAction() });
 }
 
 export function duplicateSelection(): void {
@@ -294,7 +335,7 @@ export function copySelection(cut: boolean): void {
       })),
     },
   });
-  if (cut) deleteSelection();
+  if (cut) void deleteSelected(true);
 }
 
 export function paste(): void {
@@ -484,6 +525,8 @@ export function flushNudge(): void {
 
 export function undo(): void {
   flushNudge();
+  /* 滑桿、欄位聚焦中（手勢還開著）：裡面的變更先記成一步，再退那一步（7.10） */
+  useProject.endGesture();
   const t = useProject.temporal.getState();
   if (!t.pastStates.length) {
     notify(S.msg.noUndo);
@@ -494,6 +537,7 @@ export function undo(): void {
 
 export function redo(): void {
   flushNudge();
+  useProject.endGesture();
   useProject.temporal.getState().redo();
 }
 
@@ -536,6 +580,18 @@ export function switchFloor(index: number): void {
   useProject.temporal.getState().resume();
 }
 
+/**
+ * 「顯示內部」沒寫 `inside`（或找不到）時疊的是「第一個別的樓層」：樓層的順序要變（左右移動、複製的複本插在前面）之前，
+ * 先把實際疊著的那一層寫成 `inside`，順序變了也疊同一層，不突然換成疊別的樓層（F230、D41）。
+ * `inside` 本來就對的、沒打開的外觀層不動。
+ */
+function pinInside(p: Project): void {
+  for (const f of p.floors) {
+    const target = interiorFloor(f, p.floors);
+    if (target && f.inside !== target.id) f.inside = target.id;
+  }
+}
+
 export function addFloor(): void {
   update((p) => {
     p.floors.push({
@@ -554,6 +610,7 @@ export function addFloor(): void {
 
 export function duplicateFloor(): void {
   update((p) => {
+    pinInside(p);
     const copy = cloneFloor(cur(p), nextFloorName(p.floors));
     p.floors.splice(p.active + 1, 0, copy);
     p.active += 1;
@@ -575,10 +632,42 @@ export async function removeFloor(): Promise<void> {
     : true;
   if (!ok) return;
   update((d) => {
+    const gone = d.floors[d.active];
+    /* 「顯示內部」實際疊的那一層是刪掉的這一層（`inside` 沒寫或找不到時疊的是第一個別的樓層）：先算好再刪 */
+    const coversGone = d.floors.filter((f) => interiorFloor(f, d.floors)?.id === gone.id);
     d.floors.splice(d.active, 1);
     d.active = clamp(d.active - 1, 0, d.floors.length - 1);
+    /* 疊的是刪掉的那一層，或只剩一層時：關掉（不要突然換成疊別的樓層；F230、D41） */
+    for (const f of d.floors)
+      if (f.inside === gone.id || coversGone.includes(f) || d.floors.length < 2) {
+        delete f.showInside;
+        delete f.inside;
+      }
   });
   setEditor({ sel: [] });
+}
+
+/** 外觀層的「顯示內部」（F230）：打開時疊上來的樓層沒設好就用第一個別的樓層；一步復原 */
+export function setShowInside(on: boolean): void {
+  update((p) => {
+    const f = p.floors[p.active];
+    const others = p.floors.filter((o) => o !== f);
+    if (!on || !others.length) {
+      delete f.showInside;
+      return;
+    }
+    f.showInside = true;
+    if (!others.some((o) => o.id === f.inside)) f.inside = others[0].id;
+  });
+  dropMissingSelection();
+}
+
+export function setInsideFloor(id: string): void {
+  update((p) => {
+    const f = p.floors[p.active];
+    if (p.floors.some((o) => o !== f && o.id === id)) f.inside = id;
+  });
+  dropMissingSelection();
 }
 
 export function moveFloor(delta: number): void {
@@ -587,6 +676,7 @@ export function moveFloor(delta: number): void {
   const j = i + delta;
   if (j < 0 || j >= p.floors.length) return;
   update((d) => {
+    pinInside(d);
     [d.floors[i], d.floors[j]] = [d.floors[j], d.floors[i]];
     d.active = j;
   });
@@ -603,7 +693,15 @@ export function renameFloor(index: number, name: string): void {
 
 /* ---------- 整張地圖 ---------- */
 
-/** 新的空白地圖：保留顯示樣式（恐怖調查換回彩色）、面積顯示、名字顯示；切到房間工具 */
+/** 棋子方格的大小（格；0＝不顯示）。一步復原；地圖設定與匯出對話框共用 */
+export function setTokenGrid(size: number): void {
+  update((p) => {
+    if (isTokenGridSize(size)) p.tokenGrid = size;
+    else delete p.tokenGrid;
+  });
+}
+
+/** 新的空白地圖：保留顯示樣式（恐怖調查換回彩色）、面積顯示、名字顯示、棋子方格；切到房間工具 */
 export function newMap(): void {
   const p = useProject.getState().data;
   const next: Project = {
@@ -611,6 +709,9 @@ export function newMap(): void {
     theme: p.theme === 'horror' ? 'clean' : p.theme,
     showSize: p.showSize,
     showNames: p.showNames !== false,
+    ...(p.tokenGrid ? { tokenGrid: p.tokenGrid } : {}),
+    ...(p.tokenGridColor ? { tokenGridColor: p.tokenGridColor } : {}),
+    ...(p.tokenGridOpacity ? { tokenGridOpacity: p.tokenGridOpacity } : {}),
   };
   flushNudge();
   useProject.getState().replace(next);
@@ -714,17 +815,23 @@ export function isDisposableMap(p: Project = useProject.getState().data): boolea
 
 /* ---------- 依序編號房間（F219） ---------- */
 
-/** 替目前這一層的房間放上 1、2、3…的圓標（原本的純數字圓標先拿掉）；一步復原 */
+/**
+ * 替目前這一層的房間放上 1、2、3…的圓標（原本的純數字圓標先拿掉）；一步復原。
+ * 外觀層打開「顯示內部」時只編外觀層自己留下來、看得到的房間（和點選、框選一樣用 editableFloor；
+ * 疊上來的室內房間、拿掉的屋頂不編，F230、7.13）。這一層的資料照原樣留著：看不到的一般文字不動，
+ * 純數字的舊編號（包括拿掉的屋頂上看不到的）整批換成新的，不然關掉「顯示內部」時會冒出重複的舊號碼。
+ */
 export function numberRoomsOnFloor(): void {
-  const r = numberRooms(currentFloor());
+  const r = numberRooms(editableFloor());
   if (!r) {
     notify(S.msg.noRoomsToNumber, 'warning');
     return;
   }
+  const texts = [...currentFloor().texts.filter((t) => !isRoomNumber(t)), ...r.badges];
   update((p) => {
-    cur(p).texts = r.texts;
+    cur(p).texts = texts;
   });
-  const keep = new Set(r.texts.map((t) => t.id));
+  const keep = new Set(texts.map((t) => t.id));
   setEditor({ sel: useEditor.getState().sel.filter((s) => s.type !== 'text' || keep.has(s.id)) });
   notify(S.msg.numbered(r.count, r.gm), 'success', { action: undoAction() });
 }

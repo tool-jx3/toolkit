@@ -1,12 +1,14 @@
 /**
  * 素材面板：房間（預設尺寸）、門窗與牆、家具・小物（搜尋、分類）。
  * 點一下卡片＝拿起那個工具（再點一次放下）；房間與家具也可以直接拖到畫布上。
+ * 2026-10 第三批：家具 381 種、24 類；搜尋可以打名稱或 `#標籤`，搜尋欄與分類固定在上面（F234）；
+ * 卡片的圖示捲到看得到的地方才畫（D50）。
  */
-import { type DragEvent, memo, useEffect, useRef } from 'react';
-import { Chips, cn, Tabs, TextInput } from '@/ui';
+import { type DragEvent, memo, useEffect, useMemo, useRef } from 'react';
+import { cn, Select, Tabs, TextInput } from '@/ui';
 import { drawAssetIcon, drawOpeningIcon, drawWallIcon } from '../draw/icons';
 import { THEMES } from '../draw/themes';
-import { ASSET_GROUPS, ASSETS, assetMatches } from '../model/assets';
+import { ASSET_GROUPS, ASSETS, type AssetInfo, assetMatches } from '../model/assets';
 import {
   CELL_M,
   OPENINGS,
@@ -15,17 +17,39 @@ import {
   WALL_KINDS,
 } from '../model/catalog';
 import { round2 } from '../model/geometry';
+import { queryWords, type TagId, tagSuggestions, tagText } from '../model/tags';
 import type { OpeningKind, WallKind } from '../model/types';
 import { S } from '../strings';
 import { toggleArmed } from './actions';
 import { editor } from './controller';
+import { lazyDraw } from './lazyIcons';
 import { type LibTab, setEditor, useEditor, usePrefs } from './store';
 
-const Icon = memo(function Icon({ draw }: { draw: (c: HTMLCanvasElement) => void }) {
+/**
+ * 卡片的小圖示。`lazy`：捲到看得到（含素材面板上下各 300 px）時才畫（家具 381 種，一打開分頁就全部畫會卡一下，D50；
+ * 觀察範圍要指定成捲動容器、在畫面內的先畫、預先畫的分批，見 lazyIcons.ts）。
+ */
+const Icon = memo(function Icon({
+  draw,
+  lazy = false,
+}: {
+  draw: (c: HTMLCanvasElement) => void;
+  lazy?: boolean;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    if (ref.current) draw(ref.current);
-  }, [draw]);
+    const el = ref.current;
+    if (!el) return;
+    const paint = () => {
+      draw(el);
+      el.dataset.drawn = '1';
+    };
+    if (!lazy) {
+      paint();
+      return;
+    }
+    return lazyDraw(el, paint);
+  }, [draw, lazy]);
   return <canvas ref={ref} aria-hidden className="size-11 shrink-0 rounded-sm bg-white" />;
 });
 
@@ -82,7 +106,7 @@ function RoomCard({ p }: { p: RoomPreset }) {
 
 function RoomsTab() {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 pt-3">
       <p className="m-0 text-xs text-muted">{S.lib.roomsNote}</p>
       {ROOM_PRESET_GROUPS.map((g) => (
         <div key={g.id} className="flex flex-col gap-1.5">
@@ -154,7 +178,7 @@ function WallCard({ kind }: { kind: WallKind }) {
 
 function OpeningsTab() {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 pt-3">
       <h3 className="m-0 text-xs font-semibold text-muted">{S.lib.doors}</h3>
       <div className="grid grid-cols-2 gap-1.5">
         {OPENINGS.filter((o) => o.group === 'door').map((o) => (
@@ -178,7 +202,8 @@ function OpeningsTab() {
   );
 }
 
-function AssetCard({ id, name }: { id: string; name: string }) {
+function AssetCard({ a }: { a: AssetInfo }) {
+  const id = a.id;
   const active = useEditor(
     (s) => s.tool === 'place' && s.armed?.kind === 'item' && s.armed.t === id,
   );
@@ -191,55 +216,113 @@ function AssetCard({ id, name }: { id: string; name: string }) {
       onDragStart={(e) => startDrag(e, { kind: 'item', t: id })}
       onDragEnd={endDrag}
       onClick={() => toggleArmed('place', { kind: 'item', t: id, rot: 0, manual: false })}
-      title={name}
+      title={`${a.name}\n${tagText(a.tags)}`}
       data-asset={id}
     >
-      <Icon draw={memoDraw(assetDraw, id, (c) => drawAssetIcon(c, id))} />
-      <span className="min-w-0 text-fg">{name}</span>
+      <Icon lazy draw={memoDraw(assetDraw, id, (c) => drawAssetIcon(c, id))} />
+      <span className="min-w-0 text-fg">{a.name}</span>
     </button>
   );
 }
 
+/** 家具用到的標籤（`#` 的建議只列這些） */
+const USED_TAGS: ReadonlySet<TagId> = new Set(ASSETS.flatMap((a) => a.tags));
+
 function FurnitureTab() {
   const query = useEditor((s) => s.libQuery);
   const group = useEditor((s) => s.libGroup);
-  const q = query.trim();
-  const groups = ASSET_GROUPS.map((g) => ({
-    ...g,
-    assets: ASSETS.filter((a) => a.group === g.id && assetMatches(a, q)),
-  })).filter((g) => g.assets.length && (q || group === 'all' || group === g.id));
+  const input = useRef<HTMLInputElement>(null);
+  const matched = useMemo(() => {
+    const words = queryWords(query);
+    return ASSETS.filter((a) => assetMatches(a, words));
+  }, [query]);
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of matched) m.set(a.group, (m.get(a.group) ?? 0) + 1);
+    return m;
+  }, [matched]);
+  const groupId = group === 'all' || ASSET_GROUPS.some((g) => g.id === group) ? group : 'all';
+  const groups = ASSET_GROUPS.filter((g) => groupId === 'all' || groupId === g.id)
+    .map((g) => ({ ...g, assets: matched.filter((a) => a.group === g.id) }))
+    .filter((g) => g.assets.length);
+  const shown = groups.reduce((n, g) => n + g.assets.length, 0);
+  /* 「其他分類還有 N 件符合」只在有搜尋字時說（只選分類時全部都「符合」，每選一類都出現是雜訊，7.16） */
+  const searching = queryWords(query).length > 0;
+  const elsewhere = searching ? matched.length - shown : 0;
+  const suggest = tagSuggestions(query, USED_TAGS);
+  const pickTag = (name: string) => {
+    if (!suggest) return;
+    setEditor({ libQuery: `${suggest.prefix}#${name} ` });
+    input.current?.focus();
+  };
   return (
     <div className="flex flex-col gap-3">
-      <TextInput
-        type="search"
-        value={query}
-        placeholder={S.lib.search}
-        aria-label={S.lib.search}
-        onChange={(e) => setEditor({ libQuery: e.target.value })}
-      />
-      <Chips
-        aria-label={S.lib.group}
-        value={group}
-        onPick={(v) => setEditor({ libGroup: v })}
-        items={[
-          { value: 'all', label: S.lib.all },
-          ...ASSET_GROUPS.map((g) => ({ value: g.id, label: g.name })),
-        ]}
-      />
-      {groups.length ? (
-        groups.map((g) => (
-          <div key={g.id} className="flex flex-col gap-1.5">
-            <h3 className="m-0 text-xs font-semibold text-muted">{g.name}</h3>
-            <div className="grid grid-cols-2 gap-1.5">
-              {g.assets.map((a) => (
-                <AssetCard key={a.id} id={a.id} name={a.name} />
-              ))}
-            </div>
+      {/* 搜尋欄與分類固定在上面（捲動時一直看得到，F234）；面板自己沒有上方的留白（Library 的 tabpanel pt-0），
+          留白放在這一條裡，所以貼齊面板頂端、卡片不會從它上面露出來（7.16） */}
+      <div
+        className="sticky top-0 z-10 flex flex-col gap-1.5 bg-surface pt-3 pb-1.5"
+        data-testid="library-search"
+      >
+        <TextInput
+          ref={input}
+          type="search"
+          value={query}
+          placeholder={S.lib.searchHint}
+          aria-label={S.lib.search}
+          onChange={(e) => setEditor({ libQuery: e.target.value })}
+        />
+        <Select
+          size="sm"
+          aria-label={S.lib.group}
+          value={groupId}
+          onValueChange={(v) => setEditor({ libGroup: v })}
+          options={[
+            { value: 'all', label: S.lib.groupOption(S.lib.all, matched.length) },
+            ...ASSET_GROUPS.map((g) => ({
+              value: g.id,
+              label: S.lib.groupOption(g.name, counts.get(g.id) ?? 0),
+            })),
+          ]}
+        />
+        {suggest?.tags.length ? (
+          <fieldset className="m-0 flex flex-wrap gap-1 border-0 p-0" aria-label={S.lib.tagSuggest}>
+            {suggest.tags.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs text-fg hover:border-accent focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none"
+                onClick={() => pickTag(t.name)}
+                data-tag={t.id}
+              >
+                #{t.name}
+              </button>
+            ))}
+          </fieldset>
+        ) : null}
+      </div>
+      {groups.map((g) => (
+        <div key={g.id} className="flex flex-col gap-1.5" data-group={g.id}>
+          <h3 className="m-0 text-xs font-semibold text-muted">{g.name}</h3>
+          <div className="grid grid-cols-2 gap-1.5">
+            {g.assets.map((a) => (
+              <AssetCard key={a.id} a={a} />
+            ))}
           </div>
-        ))
-      ) : (
-        <p className="m-0 text-xs text-muted">{S.lib.noResult}</p>
-      )}
+        </div>
+      ))}
+      {!shown ? <p className="m-0 text-xs text-muted">{S.lib.noResult}</p> : null}
+      {elsewhere > 0 ? (
+        <p className="m-0 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+          {S.lib.elsewhere(elsewhere)}
+          <button
+            type="button"
+            className="font-medium text-accent underline underline-offset-2 hover:text-accent-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none"
+            onClick={() => setEditor({ libGroup: 'all' })}
+          >
+            {S.lib.searchAll}
+          </button>
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -259,7 +342,7 @@ export function Library() {
             d.libTab = v as LibTab;
           })
         }
-        className="min-h-0 flex-1 [&_[role=tabpanel]]:min-h-0 [&_[role=tabpanel]]:overflow-y-auto"
+        className="min-h-0 flex-1 [&_[role=tabpanel]]:min-h-0 [&_[role=tabpanel]]:overflow-y-auto [&_[role=tabpanel]]:pt-0"
         items={[
           { value: 'rooms', label: S.lib.rooms, content: <RoomsTab /> },
           { value: 'openings', label: S.lib.openings, content: <OpeningsTab /> },

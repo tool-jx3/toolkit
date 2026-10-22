@@ -341,7 +341,12 @@ export {
 } from './shortcuts';
 export { STAGE_SCENE_SVG, stageSceneUrl } from './stageScene';
 export { type TabItem, Tabs, type TabsProps } from './Tabs';
-export { TemplateGallery, type TemplateGalleryProps, type TemplateItem } from './TemplateGallery';
+export {
+  TemplateGallery,
+  type TemplateGalleryProps,
+  type TemplateItem,
+  type TemplateSearch,
+} from './TemplateGallery';
 export {
   applyTestShortcut,
   TEST_SHORTCUTS,

@@ -1,7 +1,14 @@
 /**
  * 房間種類、門窗種類、牆的種類、房間的預設尺寸（名稱在 strings.ts）。
  */
-import type { OpeningKind, RoomCategory, SizeMode, ThemeId, WallKind } from './types';
+import type {
+  OpeningKind,
+  RoomCategory,
+  SizeMode,
+  ThemeId,
+  TokenGridSize,
+  WallKind,
+} from './types';
 
 /** 1 格的邊長（m） */
 export const CELL_M = 0.5;
@@ -18,7 +25,22 @@ export type FloorPattern =
   | 'water'
   | 'rows'
   | 'panel'
-  | 'stone';
+  | 'stone'
+  /* 2026-10 第二批：新的房間種類的花紋（本站自己設計） */
+  | 'boards'
+  | 'foam'
+  | 'flag'
+  | 'roof'
+  | 'concrete'
+  | 'grating'
+  | 'platform'
+  | 'rails'
+  | 'road'
+  | 'pavers'
+  | 'slab'
+  | 'dirt'
+  | 'raked'
+  | 'planks';
 
 export interface CategoryInfo {
   id: RoomCategory;
@@ -51,7 +73,25 @@ export const CATEGORIES: readonly CategoryInfo[] = [
   { id: 'field', outdoor: true, edge: 'none', pattern: 'rows' },
   { id: 'water', outdoor: true, edge: 'none', pattern: 'water' },
   { id: 'cave', outdoor: true, edge: 'rock', pattern: 'speckle' },
+  /* 2026-10 第二批（原作 v1.05、v1.06）：室內／戶外與戶外的外圍照原作的分類，花紋本站自己設計 */
+  { id: 'engawa', pattern: 'boards' },
+  { id: 'studio', pattern: 'foam' },
+  { id: 'stone', pattern: 'flag' },
+  { id: 'roof', pattern: 'roof' },
+  { id: 'industrial', pattern: 'concrete' },
+  { id: 'grate', pattern: 'grating' },
+  { id: 'platform', outdoor: true, edge: 'none', pattern: 'platform' },
+  { id: 'track', outdoor: true, edge: 'none', pattern: 'rails' },
+  { id: 'road', outdoor: true, edge: 'none', pattern: 'road' },
+  { id: 'rooftop', outdoor: true, edge: 'rail', pattern: 'pavers' },
+  { id: 'slab', outdoor: true, edge: 'none', pattern: 'slab' },
+  { id: 'dirt', outdoor: true, edge: 'none', pattern: 'dirt' },
+  { id: 'gravel', outdoor: true, edge: 'none', pattern: 'raked' },
+  { id: 'shipdeck', outdoor: true, edge: 'rail', pattern: 'planks' },
 ];
+
+/** 外觀層的建物：「顯示內部」時拿掉的房間種類（model/interior.ts） */
+export const ROOF_CATEGORY: RoomCategory = 'roof';
 
 export const CAT: Record<RoomCategory, CategoryInfo> = Object.fromEntries(
   CATEGORIES.map((c) => [c.id, c]),
@@ -82,11 +122,19 @@ export const OPENINGS: readonly OpeningInfo[] = [
   { id: 'secret', group: 'door', len: 1.5, gmOnly: true },
   { id: 'broken', group: 'door', len: 1.5 },
   { id: 'hole', group: 'door', len: 2 },
+  /* 2026-10 第二批（原作 v1.06、v1.10）；預設寬度本站自己定 */
+  { id: 'steel', group: 'door', len: 1.5 },
+  { id: 'firedoor', group: 'door', len: 2 },
+  { id: 'gate', group: 'door', len: 2 },
+  { id: 'big2', group: 'door', len: 5 },
+  { id: 'revolve', group: 'door', len: 4 },
+  { id: 'sealed', group: 'door', len: 2 },
   { id: 'window', group: 'window', len: 2 },
   { id: 'window2', group: 'window', len: 3.5 },
   { id: 'barred', group: 'window', len: 2 },
   { id: 'boarded', group: 'window', len: 2 },
   { id: 'brokenwin', group: 'window', len: 2 },
+  { id: 'platewin', group: 'window', len: 2 },
 ];
 
 export const OPEN: Record<OpeningKind, OpeningInfo> = Object.fromEntries(
@@ -103,7 +151,15 @@ export const SWING_DOORS: ReadonlySet<OpeningKind> = new Set([
   'locked',
   'secret',
   'broken',
+  /* 2026-10 第二批 */
+  'steel',
+  'firedoor',
+  'gate',
+  'big2',
 ]);
+
+/** 兩片門板的門（各開一半；開門的範圍＝寬度的一半，`openingReach` 用） */
+export const DOUBLE_DOORS: ReadonlySet<OpeningKind> = new Set(['door2', 'big2']);
 
 export interface WallInfo {
   id: WallKind;
@@ -121,6 +177,10 @@ export const WALL_KINDS: readonly WallInfo[] = [
   { id: 'bars', t: 0.14 },
   { id: 'broken', t: 0.3 },
   { id: 'rock', t: 0.7 },
+  /* 2026-10 第二批（原作 v1.05、v1.10）；厚度本站自己定 */
+  { id: 'stone', t: 0.6 },
+  { id: 'sound', t: 0.48 },
+  { id: 'cracked', t: 0.24 },
 ];
 
 export const WALL: Record<WallKind, WallInfo> = Object.fromEntries(
@@ -132,6 +192,14 @@ export const isWallKind = (v: unknown): v is WallKind =>
 
 export const wallThickness = (kind: string | null | undefined): number =>
   (kind && isWallKind(kind) ? WALL[kind] : WALL.int).t;
+
+/**
+ * 房間可以設的牆種類（屬性面板的選單；欄杆、圍籬是戶外的東西，不列，同原作）。
+ * 資料上任何牆種類都讀得進來（walls.ts 照樣畫）。
+ */
+export const ROOM_WALL_KINDS: readonly WallKind[] = WALL_KINDS.map((w) => w.id).filter(
+  (k) => k !== 'rail' && k !== 'fence',
+);
 
 /* ---------- 房間的預設尺寸（房間分頁的卡片） ---------- */
 
@@ -172,7 +240,22 @@ export type RoomPresetId =
   | 'deck'
   | 'cave'
   | 'water'
-  | 'field';
+  | 'field'
+  /* 2026-10 第二批：新的房間種類各一張 */
+  | 'engawa'
+  | 'studio'
+  | 'stoneHall'
+  | 'factory'
+  | 'grating'
+  | 'building'
+  | 'platform'
+  | 'track'
+  | 'road'
+  | 'rooftop'
+  | 'slab'
+  | 'yard'
+  | 'karesansui'
+  | 'shipDeck';
 
 export interface RoomPreset {
   id: RoomPresetId;
@@ -181,7 +264,14 @@ export interface RoomPreset {
   h: number;
 }
 
-export type RoomPresetGroupId = 'home' | 'service' | 'facility' | 'special' | 'world';
+export type RoomPresetGroupId =
+  | 'home'
+  | 'service'
+  | 'facility'
+  | 'special'
+  | 'world'
+  | 'build'
+  | 'transit';
 
 const P = (id: RoomPresetId, cat: RoomCategory, w: number, h: number): RoomPreset => ({
   id,
@@ -253,6 +343,31 @@ export const ROOM_PRESET_GROUPS: readonly { id: RoomPresetGroupId; items: RoomPr
       P('field', 'field', 12, 8),
     ],
   },
+  /* 2026-10 第二批：新的房間種類（尺寸本站自己定） */
+  {
+    id: 'build',
+    items: [
+      P('engawa', 'engawa', 12, 3),
+      P('studio', 'studio', 8, 6),
+      P('stoneHall', 'stone', 12, 10),
+      P('factory', 'industrial', 20, 14),
+      P('grating', 'grate', 8, 6),
+      P('building', 'roof', 16, 12),
+    ],
+  },
+  {
+    id: 'transit',
+    items: [
+      P('platform', 'platform', 24, 8),
+      P('track', 'track', 24, 6),
+      P('road', 'road', 24, 14),
+      P('rooftop', 'rooftop', 16, 12),
+      P('slab', 'slab', 16, 12),
+      P('yard', 'dirt', 16, 12),
+      P('karesansui', 'gravel', 10, 6),
+      P('shipDeck', 'shipdeck', 24, 8),
+    ],
+  },
 ];
 
 export const ROOM_PRESETS: Record<RoomPresetId, RoomPreset> = Object.fromEntries(
@@ -274,6 +389,19 @@ export const isSizeMode = (v: unknown): v is SizeMode =>
 export const BADGE_DIAMETER = 1.5;
 export const BADGE_PAD = 0.7;
 export const BADGE_RING = 0.16;
+
+/**
+ * 棋子方格（2026-10，原作 v1.07，規格 F220、3.9）：方格的邊長（格；1 格＝0.5 m）＝ 0.5／1／1.5／2／3 m。
+ * 畫在家具與牆的上面、房間名字的下面；方格線從世界座標的原點算起，匯出的範圍對齊方格，所以圖的左上角在方格線上。
+ */
+export const TOKEN_GRID_SIZES: readonly TokenGridSize[] = [1, 2, 3, 4, 6];
+export const isTokenGridSize = (v: unknown): v is TokenGridSize =>
+  typeof v === 'number' && (TOKEN_GRID_SIZES as readonly number[]).includes(v);
+/** 開啟方格時預設的大小（1 m，CCFOLIA 常用的格子） */
+export const TOKEN_GRID_DEFAULT: TokenGridSize = 2;
+/** 方格線的預設不透明度（顏色沒有設定時用樣式的牆色）；可設 10%～100% */
+export const TOKEN_GRID_OPACITY = 0.4;
+export const TOKEN_GRID_OPACITY_MIN = 0.1;
 
 /** 匯出時 1 格的像素數 */
 export const EXPORT_PX = [24, 32, 48, 64, 96] as const;

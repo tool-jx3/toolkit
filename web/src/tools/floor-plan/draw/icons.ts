@@ -9,8 +9,10 @@ import { FURNITURE_DRAW } from './furniture';
 import { drawOpening, drawRun, furnStyle } from './render';
 import { THEMES } from './themes';
 
+const dprNow = () => (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1);
+
 function prepare(canvas: HTMLCanvasElement, size: number): CanvasRenderingContext2D | null {
-  const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
+  const dpr = dprNow();
   canvas.width = Math.round(size * dpr);
   canvas.height = Math.round(size * dpr);
   const c = canvas.getContext('2d');
@@ -20,22 +22,52 @@ function prepare(canvas: HTMLCanvasElement, size: number): CanvasRenderingContex
   return c;
 }
 
-export function drawAssetIcon(canvas: HTMLCanvasElement, id: string, size = 44): void {
+/** 畫好的家具圖示（每個代號、尺寸、螢幕密度一份）：搜尋、清空時卡片重新掛上，直接貼上去，不重畫（D50、7.16） */
+const assetIcons = new Map<string, HTMLCanvasElement>();
+
+function paintAssetIcon(canvas: HTMLCanvasElement, id: string, size: number): boolean {
   const a = ASSET[id];
   const draw = FURNITURE_DRAW[id];
   const c = prepare(canvas, size);
-  if (!a || !draw || !c) return;
+  if (!a || !draw || !c) return false;
   const pad = 4;
   const k = Math.min((size - pad * 2) / a.w, (size - pad * 2) / a.h);
   c.translate((size - a.w * k) / 2, (size - a.h * k) / 2);
   c.scale(k, k);
   const lw = Math.max(1 / 22, 1 / k);
   const S = furnStyle(THEMES.clean, lw);
+  if (a.wall) {
+    /* 貼牆素材：底下先畫一段外牆當樣本（實際放的時候畫在牆的上面，F233） */
+    c.fillStyle = THEMES.clean.wall;
+    const t = 0.34;
+    c.fillRect(-pad / k, a.h / 2 - t / 2, a.w + (pad * 2) / k, t);
+  }
   c.lineWidth = lw;
   c.strokeStyle = S.ink;
   c.lineJoin = 'round';
   c.lineCap = 'round';
-  draw(c, S, a.w, a.h, { label: '1' });
+  draw(c, S, a.w, a.h, { label: '1', icon: true });
+  return true;
+}
+
+export function drawAssetIcon(canvas: HTMLCanvasElement, id: string, size = 44): void {
+  const key = `${id}|${size}|${dprNow()}`;
+  const hit = assetIcons.get(key);
+  if (hit) {
+    canvas.width = hit.width;
+    canvas.height = hit.height;
+    canvas.getContext('2d')?.drawImage(hit, 0, 0);
+    return;
+  }
+  if (!paintAssetIcon(canvas, id, size)) return;
+  const copy = document.createElement('canvas');
+  copy.width = canvas.width;
+  copy.height = canvas.height;
+  const g = copy.getContext('2d');
+  if (g) {
+    g.drawImage(canvas, 0, 0);
+    assetIcons.set(key, copy);
+  }
 }
 
 export function drawOpeningIcon(canvas: HTMLCanvasElement, kind: OpeningKind, size = 44): void {

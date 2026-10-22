@@ -52,7 +52,7 @@ export const S = {
     wall: (name: string) =>
       `「${name}」：拖曳畫牆（自動對齊水平或垂直，按住 Shift 畫斜線）。房間外圍的牆會自動產生，這裡畫的是隔間、圍籬等額外的牆。`,
     opening: (name: string) =>
-      `「${name}」：靠近牆會自動貼上，點一下放置；門往游標那一側開（按 R 換鉸鍊那一邊）。`,
+      `「${name}」：靠近牆會自動貼上，點一下放置，或在牆上按住拖曳決定長度；門往游標那一側開（按 R 換鉸鍊那一邊）。`,
     place: (name: string) =>
       `「${name}」：點一下放置（按住 Shift 連續放）；靠牆時背面自動朝牆。R 轉向，按住 Alt 不吸附。`,
     text: '點一下放一段文字。',
@@ -71,9 +71,16 @@ export const S = {
     walls: '牆・隔間',
     wallsNote: '房間外圍的牆會自動產生；這些是額外的牆（隔間、圍籬、崩塌的牆…）。',
     search: '搜尋家具',
+    /** 搜尋欄的提示（2026-10 第三批：名稱或 #標籤） */
+    searchHint: '名稱或 #標籤（例：#戶外 #恐怖）',
     all: '全部',
     noResult: '找不到符合的家具。',
     group: '家具分類',
+    /** 分類選單的選項：名稱＋符合的件數 */
+    groupOption: (name: string, n: number) => `${name}（${n}）`,
+    tagSuggest: '標籤',
+    elsewhere: (n: number) => `其他分類還有 ${n} 件符合。`,
+    searchAll: '在全部分類裡找',
   },
 
   presetGroups: {
@@ -82,6 +89,8 @@ export const S = {
     facility: '設施',
     special: '特殊・戶外',
     world: '和風・科幻・自然',
+    build: '石造・工廠・建物',
+    transit: '交通・工地・戶外地面',
   } satisfies Record<RoomPresetGroupId, string>,
 
   presets: {
@@ -122,6 +131,20 @@ export const S = {
     cave: '洞窟',
     water: '池塘・河川',
     field: '田地',
+    engawa: '緣側',
+    studio: '錄音室',
+    stoneHall: '石造大廳',
+    factory: '廠房',
+    grating: '格柵平台',
+    building: '建物（外觀）',
+    platform: '月台',
+    track: '鐵軌',
+    road: '道路',
+    rooftop: '屋頂平台',
+    slab: '施工樓板',
+    yard: '泥土空地',
+    karesansui: '枯山水',
+    shipDeck: '甲板',
   } satisfies Record<RoomPresetId, string>,
 
   categories: {
@@ -146,6 +169,20 @@ export const S = {
     field: '田地（戶外）',
     water: '水邊・池塘・河川（戶外）',
     cave: '洞窟・岩地（戶外）',
+    engawa: '緣側・廣緣（和風走廊）',
+    studio: '隔音室・錄音室',
+    stone: '石造（城堡・地城）',
+    roof: '建物外觀（屋頂）',
+    industrial: '工廠・水泥地',
+    grate: '格柵・鐵板地面',
+    platform: '車站月台（戶外）',
+    track: '鐵軌・軌道（戶外）',
+    road: '道路・車道（戶外）',
+    rooftop: '屋頂平台（戶外）',
+    slab: '施工中的樓板（戶外）',
+    dirt: '泥土・碎石地（戶外）',
+    gravel: '枯山水・白砂（戶外）',
+    shipdeck: '甲板（戶外）',
   } satisfies Record<RoomCategory, string>,
 
   openings: {
@@ -166,6 +203,13 @@ export const S = {
     barred: '鐵窗',
     boarded: '釘上木板的窗',
     brokenwin: '破掉的窗',
+    steel: '鐵門',
+    firedoor: '防火門',
+    gate: '格柵門・鐵柵門',
+    big2: '大型雙開門',
+    revolve: '旋轉門',
+    sealed: '封印的門',
+    platewin: '鐵板封住的窗',
   } satisfies Record<OpeningKind, string>,
 
   walls: {
@@ -178,6 +222,9 @@ export const S = {
     bars: '鐵欄杆',
     broken: '崩塌的牆',
     rock: '岩壁',
+    stone: '石牆（城堡・地城）',
+    sound: '隔音牆',
+    cracked: '有裂痕的牆',
   } satisfies Record<WallKind, string>,
 
   themes: {
@@ -208,6 +255,16 @@ export const S = {
     stats: (rooms: number, items: number, openings: number) =>
       `${rooms} 個房間・${items} 件家具・${openings} 個門窗`,
     mapTip: '點一下房間或家具，這裡就可以改名字、大小與顏色。',
+    /** 棋子方格（F220） */
+    tokenGrid: '棋子方格',
+    tokenGridOff: '不顯示',
+    tokenGridSizes: { 1: '0.5 m', 2: '1 m', 3: '1.5 m', 4: '2 m', 6: '3 m' } as Record<
+      number,
+      string
+    >,
+    tokenGridHint: '畫在家具上面；匯出的圖從左上角的方格線開始（對齊 CCFOLIA 的格子）。',
+    tokenGridColor: '方格的顏色',
+    tokenGridOpacity: '方格的不透明度',
     /** 依序編號房間（F219） */
     numberRooms: '替這一層的房間編號',
     numberRoomsHint:
@@ -238,6 +295,17 @@ export const S = {
     clue: '隱藏線索（可以用「隱藏線索」開關藏起來）',
     hideLabel: '不顯示名字',
     noWall: '不產生牆（例如客餐廳的分區）',
+    /** 房間的牆種類（F228） */
+    roomWall: '這間房的牆',
+    roomWallAuto: '自動（外牆・內牆）',
+    roomWallHint: '外圍的牆改成這個種類；和隔壁的房間都有設時，用比較厚的那一種。',
+    roomWallOutdoor: '戶外的房間沒有自己的牆（外圍照種類：欄杆、岩壁或沒有牆）。',
+    /** 外觀層的「顯示內部」（F230） */
+    floorTitle: (name: string) => `這一層（${name}）`,
+    showInside: '顯示內部（拿掉屋頂）',
+    showInsideHint:
+      '把這一層的「建物外觀（屋頂）」房間拿掉，選的樓層的房間、門窗與家具疊在同樣的位置（匯出的圖也一樣）。疊上來的東西要到那一層編輯。',
+    insideFloor: '疊上來的樓層',
     note: 'GM 筆記',
     notePh: '線索、檢定、事件…（不會畫進圖片）',
     lockedNote: '鎖定中：不能移動、改大小、旋轉或刪除。房間裡的家具與門照常可以編輯。',
@@ -311,6 +379,10 @@ export const S = {
     blank: '空白地圖',
     blankDesc: '沒有房間、也沒有家具，從頭畫起。',
     gallery: '範本',
+    /** 搜尋欄（2026-10 第三批，F235） */
+    search: '搜尋範本',
+    searchHint: '名稱或 #標籤（例：#地下 #多樓層）',
+    noResult: '找不到符合的範本。',
   },
 
   exp: {
@@ -336,6 +408,12 @@ export const S = {
     copied: '圖片已複製到剪貼簿',
     copyFailed: '這個瀏覽器不能複製圖片，請改用下載。',
     info: (w: number, h: number) => `${w} × ${h} px`,
+    /** 棋子方格（F220）：選單與「每格幾 px」 */
+    tokenGrid: '棋子方格',
+    tokenGridHint: '畫在家具的上面。圖的邊對齊方格，方格線從左上角開始。',
+    tokenGridInfo: (m: string, px: number) => `棋子方格：每格 ${m} m ＝ ${px} px`,
+    tokenGridNote:
+      '在 CCFOLIA 等線上桌面把地圖的格子大小設成這個 px，方格線從圖片的左上角開始，棋子就對得上。',
     tooLarge: '圖片太大，已自動縮小',
     saved: (n: number) => (n > 1 ? `已下載 ${n} 張 PNG` : '已下載 PNG'),
     empty: '這一層沒有東西可以匯出。',
@@ -422,7 +500,26 @@ export const S = {
     storageFull: '自動儲存失敗（瀏覽器的儲存空間可能滿了）。請用「專案 → 存成專案檔」另外存一份。',
   },
 
-  /** 讀原作新版（v1.05～v1.13）的地圖檔：換成相近的種類、略過的東西（規格 F213、D25） */
+  /** 刪除有東西的房間（F224） */
+  del: {
+    title: (rooms: number, name: string) =>
+      rooms === 1 ? `刪除「${name || '房間'}」？` : `刪除 ${rooms} 間房間？`,
+    text: (c: Record<'room' | 'item' | 'mounted' | 'opening' | 'wall' | 'text', number>) =>
+      `房間裡還有 ${[
+        c.item ? `${c.item} 件家具` : '',
+        c.mounted ? `${c.mounted} 個貼牆素材` : '',
+        c.text ? `${c.text} 則文字` : '',
+        c.opening ? `${c.opening} 個門窗` : '',
+        c.wall ? `${c.wall} 道牆` : '',
+        c.room ? `${c.room} 間房間` : '',
+      ]
+        .filter(Boolean)
+        .join('、')}。要連裡面的東西一起刪嗎？刪了可以用「復原」拿回來。`,
+    roomOnly: '只刪房間',
+    withContents: '連裡面的東西一起刪',
+  },
+
+  /** 讀原作新版（v1.05～v1.14）的地圖檔：換成相近的種類、略過的東西（規格 F213、D25） */
   compat: {
     /** 通知的說明（只列有的項目） */
     summary: (c: CompatCounts) =>
@@ -440,62 +537,29 @@ export const S = {
     /** 從分享連結打開時（7.7） */
     titleLink: '打開連結時的調整',
     introLink:
-      '分享連結裡有本工具沒有的房間、門窗、牆種類，換成了最接近的種類（之後可以在屬性面板改）；本工具沒有的家具與設定略過了。連結被改過，或是用較新版本的工具做的，都可能有這些東西。',
+      '分享連結裡有本工具不認得的種類：不認得的房間、牆種類換成了預設的種類（之後可以在屬性面板改），不認得的家具、門窗與設定略過了。連結被改過，或是用較新版本的工具做的，都可能有這些東西。',
     intro:
-      '本工具沒有的房間、門窗、牆種類換成了最接近的種類（之後可以在屬性面板改）；本工具沒有的家具與設定略過了。原作（TRPG 室內圖メーカー）較新的版本存的地圖檔會有這些東西。',
+      '這個地圖檔有本工具不認得的種類（原作 TRPG 室內圖メーカー較新的版本才有的）：不認得的房間、牆種類換成了預設的種類（之後可以在屬性面板改），不認得的家具、門窗與設定略過了。',
     convertedHead: '換成相近的種類',
     droppedHead: '略過',
-    /** 原作的種類（名稱是本站的說法；不認得的代號寫「不認得的種類」） */
+    /**
+     * 原作的種類（名稱是本站的說法；不認得的代號寫「不認得的種類」）。房間、門窗、牆 2026-10 第二批起都照讀、
+     * 家具（含疊在牆上的牆洞、崩塌）第三批起都照讀，只剩將來的版本才有的代號
+     */
     names: {
-      room: {
-        engawa: '緣側・廣緣',
-        studio: '隔音室・錄音室',
-        stone: '石造（城堡・地城）',
-        roof: '建築物（屋頂）',
-        industrial: '工廠・水泥地',
-        grate: '鐵板・格柵地板',
-        platform: '車站月台',
-        track: '鐵軌・軌道',
-        road: '道路・車道',
-        slab: '施工中的樓板',
-        dirt: '泥土・碎石（戶外）',
-        gravel: '白砂・枯山水',
-        rooftop: '屋頂平台',
-        shipdeck: '甲板（戶外）',
-      },
-      opening: {
-        steel: '鐵門',
-        firedoor: '防火門',
-        gate: '格柵門',
-        big2: '大型雙開門',
-        revolve: '旋轉門',
-        sealed: '封印的門',
-        platewin: '鐵板封住的窗',
-      },
-      wall: {
-        stone: '石牆（城堡・地城）',
-        sound: '隔音牆',
-        cracked: '有裂痕的牆',
-      },
-      overlay: {
-        wall_hole: '疊在牆上的牆洞',
-        collapse_wall: '疊在牆上的崩塌',
-      },
+      room: {},
+      opening: {},
+      wall: {},
     } satisfies Record<CompatType, Record<string, string>>,
     unknown: '不認得的種類',
     /** 種類的單位 */
-    units: { room: '間', opening: '個', wall: '道', overlay: '個' } satisfies Record<
-      CompatType,
-      string
-    >,
+    units: { room: '間', opening: '個', wall: '道' } satisfies Record<CompatType, string>,
     items: '家具（本工具沒有的種類）',
     openings: '門窗（不認得的種類）',
     /** 略過的代號（太多時只列前面的） */
     codes: (list: string, total: number, shown: number) =>
       total > shown ? `${list}…等 ${total} 種` : list,
-    roomWalls: '每間房的牆種類（牆照本工具的規則產生）',
-    insideFloors: '外觀樓層的「顯示內部」',
-    tokenGrid: (m: number) => `棋子方格（每格 ${m} m）`,
+    roomWalls: '每間房的牆種類（不認得的種類，改回自動）',
     count: (n: number, unit: string) => `${n} ${unit}`,
   },
 
@@ -540,17 +604,17 @@ export const S = {
   },
   usage: {
     steps: [
-      '按「範本」挑一個格局（套房、洋館、山中小屋、學校、警察局、寺廟、洞窟、廢墟…），或在範本裡選「空白地圖」從頭畫。',
+      '按「範本」挑一個格局（套房、洋館、山中小屋、學校、警察局、寺廟、洞窟、廢墟…；可以用名稱或「#標籤」搜尋），或在範本裡選「空白地圖」從頭畫。',
       '左邊「房間」分頁選好種類，在畫布上拖曳就畫出房間（點一下放預設尺寸）。相鄰的房間之間自動產生內牆，外圍是外牆；陽台是欄杆，庭院、水邊、洞窟等戶外房間彼此之間沒有牆。',
-      '「門窗」分頁選好之後，靠近牆就會自動貼上，點一下放置；門往游標那一側開。',
-      '「家具・小物」可以點一下再放，或直接拖到畫布上；靠牆時家具的背面自動朝牆。',
-      '點一下選取，右邊可以改名字、大小、方向、顏色。移動房間時，裡面的家具、門窗、文字一起移動（按住 Alt 只移動房間）；旋轉房間（R）也是整間一起轉。鎖定（L）的房間不會被不小心移動或刪除。',
+      '「門窗」分頁選好之後，靠近牆就會自動貼上，點一下放置；在牆上按住拖曳可以決定長度（「開口」「牆上的破洞」可以挖掉任意長度的一段牆）。門往游標那一側開。',
+      '「家具・小物」可以點一下再放，或直接拖到畫布上；靠牆時家具的背面自動朝牆。搜尋欄可以打名稱或「#標籤」（例：#戶外、#恐怖 #地下），也可以用分類選單縮小範圍。「貼牆素材」（裂痕、崩塌、彈孔、血手印…）會吸到牆上、跟著牆的方向，畫在牆的上面。',
+      '點一下選取，右邊可以改名字、大小、方向、顏色；房間還可以設「這間房的牆」（石牆、玻璃、隔音牆…，和隔壁都有設時用比較厚的）。移動房間時，裡面的家具、門窗、文字一起移動（按住 Alt 只移動房間）；旋轉房間（R）也是整間一起轉。鎖定（L）的房間不會被不小心移動或刪除。',
       '設成「只有 GM 看得到」的房間，在 PL 檢視與 PL 用的圖片裡只剩牆框、裡面蓋灰；家具、文字、暗門也一樣藏起來。房間可以另外取一個給 PL 看的名字（例如「？？？」）。',
       '設成「隱藏線索」的家具與文字（右上角有放大鏡）可以用畫布右上的開關（C）一起藏起來——和 GM／PL 檢視分開，可以讓 PL 看到房間裡面、但還沒找到的線索先不顯示。範本可以勾「放入隱藏線索」一起載入。',
-      '下方的樓層列可以新增、複製、改名、排序樓層；按［與］切換。下一層會淡淡地顯示，方便對齊樓梯。',
-      '「匯出圖片」存成 PNG（1 格＝0.5 m，可以選每格幾 px）：這一層、所有樓層排成一張、或每層各一張；PL 用的圖不含 GM 專用的東西。太大的圖會自動縮小到瀏覽器畫得出來的大小。',
+      '下方的樓層列可以新增、複製、改名、排序樓層；按［與］切換。下一層會淡淡地顯示，方便對齊樓梯。畫建物外觀（敷地）的樓層時，建築物用「建物外觀（屋頂）」的房間畫、門窗和室內那一層放在同樣的位置；地圖設定的「顯示內部（拿掉屋頂）」可以把室內那一層疊上來看（匯出的圖也一樣）。',
+      '「匯出圖片」存成 PNG（1 格＝0.5 m，可以選每格幾 px）：這一層、所有樓層排成一張、或每層各一張；PL 用的圖不含 GM 專用的東西。太大的圖會自動縮小到瀏覽器畫得出來的大小。地圖設定的「棋子方格」會畫在家具上面，匯出的圖從左上角的方格線開始，放進 CCFOLIA 時把格子大小設成匯出資訊寫的 px，棋子就對得上。',
       '地圖設定的「替這一層的房間編號」依位置放上 1、2、3…的圓標（GM 專用的房間排在最後）；文字也可以在右邊改成「圓標」樣式。「專案 → 分享連結…」把地圖放進連結傳給別人：PL 用的連結不含 GM 專用的東西、隱藏線索與 GM 筆記。',
     ],
-    note: '地圖自動存在這個瀏覽器裡；要換電腦接著做，用「專案 → 存成專案檔」存下來，再在另一台開啟。原作（TRPG 室內圖メーカー）存的 .trpgmap.json 也可以從「專案」選單匯入（原作較新的版本才有的種類換成最接近的，本工具沒有的家具與設定略過）。做好的平面圖可以自由用在團務、直播與劇本。',
+    note: '地圖自動存在這個瀏覽器裡；要換電腦接著做，用「專案 → 存成專案檔」存下來，再在另一台開啟。原作（TRPG 室內圖メーカー）存的 .trpgmap.json 也可以從「專案」選單匯入（房間、門窗、牆、家具的種類照讀；本工具不認得的會換成相近的種類或略過，並列出來）。做好的平面圖可以自由用在團務、直播與劇本。',
   },
 } as const;

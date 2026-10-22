@@ -24,12 +24,15 @@ import {
 import { type AnyObj, getObj, movable } from '../model/ops';
 import {
   axisLock,
+  dragOpeningSpan,
   type ItemGhost,
   itemGhost,
   magnet,
   type OpeningGhost,
   snapOpening,
+  snapToWall,
   snapWallPoint,
+  spansOnLine,
 } from '../model/snap';
 import {
   type Floor,
@@ -48,13 +51,23 @@ import {
 import { type WallRun, wallLines } from '../model/walls';
 import { S } from '../strings';
 import * as act from './actions';
-import { currentFloor, setEditor, useEditor, usePrefs, useProject } from './store';
+import {
+  currentFloor,
+  drawnFloor,
+  editableFloor,
+  setEditor,
+  useEditor,
+  usePrefs,
+  useProject,
+} from './store';
 
 export const ZOOM_MIN = 3;
 export const ZOOM_MAX = 140;
 /** 100% 的倍率（每格 px） */
 export const ZOOM_BASE = 24;
 const HANDLE = 7;
+/** 沿牆拖曳放門窗：滑鼠移動超過幾 px 才算拖曳（沒到＝照預設寬度放） */
+const OPENLEN_DRAG_PX = 6;
 const SEL = '#2f7cf6';
 
 type P = { x: number; y: number };
@@ -95,6 +108,18 @@ type Drag =
   | { mode: 'marquee'; start: P; add: boolean; base: SelRef[]; rect: Rect | null; moved: boolean }
   | { mode: 'room'; a: P; sx: number; sy: number; rect: Rect | null; moved: boolean }
   | { mode: 'wall'; a: P; b: P | null; moved: boolean }
+  /* 門窗工具在牆上按下後拖曳：沿著牆決定長度（F223） */
+  | {
+      mode: 'openlen';
+      id: string;
+      /** 所在的牆段沿著線的範圍、按下的位置（沿著線） */
+      run: { a: number; b: number };
+      anchor: number;
+      sx: number;
+      sy: number;
+      moved: boolean;
+      before: Project;
+    }
   | { mode: 'erase'; moved: boolean; before: Project };
 
 const CURSORS: Record<string, string> = {
@@ -302,7 +327,7 @@ export class EditorController {
 
   private shownFloor(): ShownFloor {
     const pv = useEditor.getState().playerView;
-    return visibleFloor(currentFloor(), pv, !usePrefs.getState().data.showClues);
+    return visibleFloor(editableFloor(), pv, !usePrefs.getState().data.showClues);
   }
 
   private wallLines(): WallRun[] {
@@ -396,6 +421,17 @@ export class EditorController {
       const box = c ? textBox(c, t, this.font()) : { x: t.x - 2, y: t.y - 0.5, w: 4, h: 1 };
       if (inRect(box, tol)) return { type: 'text', id: t.id };
     }
+    /* 貼牆素材畫在牆與門窗的上面，先點到（2026-10 第三批，F233） */
+    const hitItem = (list: Item[]) => {
+      for (let i = list.length - 1; i >= 0; i--) {
+        const it = list[i];
+        const pad = Math.min(it.w, it.h) * this.view.zoom < 12 ? tol : 0;
+        if (inRect(it, pad)) return it;
+      }
+      return null;
+    };
+    const onWall = hitItem(f.items.filter((i) => ASSET[i.t]?.wall));
+    if (onWall) return { type: 'item', id: onWall.id };
     for (let i = f.openings.length - 1; i >= 0; i--) {
       const o = f.openings[i];
       const along = (o.o === 'h' ? wx : wy) - (o.o === 'h' ? o.x : o.y);
@@ -404,12 +440,13 @@ export class EditorController {
         return { type: 'opening', id: o.id };
     }
     const under = (it: Item) => Boolean(ASSET[it.t]?.under);
-    for (const group of [f.items.filter((i) => !under(i)), f.items.filter(under)])
-      for (let i = group.length - 1; i >= 0; i--) {
-        const it = group[i];
-        const pad = Math.min(it.w, it.h) * this.view.zoom < 12 ? tol : 0;
-        if (inRect(it, pad)) return { type: 'item', id: it.id };
-      }
+    for (const group of [
+      f.items.filter((i) => !under(i) && !ASSET[i.t]?.wall),
+      f.items.filter(under),
+    ]) {
+      const it = hitItem(group);
+      if (it) return { type: 'item', id: it.id };
+    }
     for (let i = f.walls.length - 1; i >= 0; i--) {
       const w = f.walls[i];
       if (segDist(wx, wy, w) <= Math.max(0.25, tol)) return { type: 'wall', id: w.id };
@@ -521,7 +558,7 @@ export class EditorController {
     c.setTransform(dpr * z, 0, 0, dpr * z, dpr * ox, dpr * oy);
     const viewRect = { x: -ox / z, y: -oy / z, w: this.view.w / z, h: this.view.h / z };
     const ghost = prefs.ghost && p.active > 0 ? p.floors[p.active - 1] : null;
-    drawFloor(c, currentFloor(), {
+    drawFloor(c, drawnFloor(), {
       theme,
       zoom: z,
       showSize: p.showSize,
@@ -532,6 +569,14 @@ export class EditorController {
       grid: prefs.grid,
       viewRect,
       ghost,
+      tokenGrid: p.tokenGrid
+        ? {
+            size: p.tokenGrid,
+            color: p.tokenGridColor,
+            opacity: p.tokenGridOpacity,
+            rect: viewRect,
+          }
+        : undefined,
     });
     this.drawOverlays(c);
     if (!ed.playerView) {
@@ -774,6 +819,16 @@ export class EditorController {
       c.setLineDash([4 * px, 3 * px]);
       c.strokeRect(d.rect.x, d.rect.y, d.rect.w, d.rect.h);
       c.restore();
+    }
+    if (d?.mode === 'openlen' && d.moved) {
+      const o = getObj(f, 'opening', d.id) as Opening | null;
+      if (o) {
+        const sp = this.toScreen(
+          o.o === 'h' ? o.x + o.len / 2 : o.x,
+          o.o === 'h' ? o.y : o.y + o.len / 2,
+        );
+        this.screenLabel(c, `${meterText(o.len)}m`, sp.x, sp.y + 14);
+      }
     }
     if (d?.mode === 'resize') {
       const obj = getObj(f, d.type, d.id);
@@ -1054,9 +1109,23 @@ export class EditorController {
           side: g.side,
           hinge: armed.hinge,
         };
+        /* 放下去之後，不放開、沿著牆拖曳就可以決定長度（放開時才算一步復原；沒拖就是照預設寬度放） */
+        const before = this.beginEdit();
         act.addObject('opening', o);
         setEditor({ sel: [{ type: 'opening', id: o.id }] });
-        this.pointerHover(sx, sy, e);
+        this.drag = {
+          mode: 'openlen',
+          id: o.id,
+          run: g.run,
+          anchor: g.along,
+          sx,
+          sy,
+          moved: false,
+          before,
+        };
+        this.ghostOpening = null;
+        this.updateCursor();
+        this.requestRender();
         return;
       }
       case 'place': {
@@ -1209,12 +1278,37 @@ export class EditorController {
         d.b = e.shiftKey ? b : axisLock(d.a, b);
         break;
       }
+      case 'openlen':
+        if (!d.moved && Math.hypot(sx - d.sx, sy - d.sy) < OPENLEN_DRAG_PX) return;
+        d.moved = true;
+        this.dragOpeningLength(d, w);
+        break;
       case 'erase':
         d.moved = true;
         this.eraseAt(w, false);
         break;
     }
     this.requestRender();
+  }
+
+  /** 沿牆拖曳放門窗：範圍＝按下的位置到現在的位置（對齊 0.25 格、不超出牆段、不壓到別的門窗，至少 0.5 格） */
+  private dragOpeningLength(d: Extract<Drag, { mode: 'openlen' }>, w: P): void {
+    useProject.getState().update((p) => {
+      const f = p.floors[p.active];
+      const o = getObj(f, 'opening', d.id) as Opening | null;
+      if (!o) return;
+      const line = o.o === 'h' ? o.y : o.x;
+      const span = dragOpeningSpan(
+        d.run,
+        d.anchor,
+        o.o === 'h' ? w.x : w.y,
+        spansOnLine(f.openings, o.o, line, o.id),
+      );
+      if (!span) return;
+      if (o.o === 'h') o.x = span.a;
+      else o.y = span.a;
+      o.len = round2(span.b - span.a);
+    });
   }
 
   private dragMove(d: Extract<Drag, { mode: 'move' }>, w: P, alt: boolean): void {
@@ -1251,12 +1345,13 @@ export class EditorController {
         return;
       }
       if (d.entries.length === 1 && d.entries[0].type === 'item' && !alt) {
-        /* 只拖一件家具：貼牆 */
+        /* 只拖一件家具：貼牆（貼牆素材吸到同方向的牆線上，F233） */
         const e = d.entries[0];
         const orig = e.orig as Item;
         const it = getObj(f, 'item', e.id) as Item | null;
         if (!it) return;
-        const r = magnet(lines, { x: orig.x + dx, y: orig.y + dy, w: it.w, h: it.h });
+        const moved = { x: orig.x + dx, y: orig.y + dy, w: it.w, h: it.h };
+        const r = (ASSET[it.t]?.wall && snapToWall(lines, moved, false)) || magnet(lines, moved);
         it.x = round2(r.x);
         it.y = round2(r.y);
         return;
@@ -1380,6 +1475,11 @@ export class EditorController {
         }
         break;
       case 'marquee':
+        break;
+      case 'openlen':
+        this.endEdit();
+        /* 工具還拿著：預覽跟著游標，可以接著放下一個 */
+        this.pointerHover(sx, sy, e);
         break;
       case 'move':
         if (!d.moved) {

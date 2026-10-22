@@ -933,4 +933,4 @@ export const STORY: Record<string, FurnDraw> = {
   boat,
 };
 
-export { blob };
+export { blob, scallop };

@@ -1,21 +1,27 @@
 /**
  * 讀進來的資料整理成可以用的專案（自動存檔、專案檔、原作的 .trpgmap.json 共用）：
  * 只留認得的欄位、數值不是數字的丟掉、範圍外的夾回來、不認得的種類換成預設值。
- * 原作新版（v1.05～v1.13）的種類換成最接近的種類、本工具沒有的家具與設定略過，都記在 report.compat（compat.ts）。
+ * 原作新版（v1.05～v1.14）的房間、門窗、牆種類、每間房的牆種類、外觀層的「顯示內部」照讀（2026-10 第二批），
+ * 家具（含疊在牆上的素材）也照讀（2026-10 第三批）；不認得的種類（將來的版本才有的）換成預設值或略過，
+ * 都記在 report.compat（compat.ts）。
  */
 import { formatHex, parseColor } from '@/core/color';
-import { CAT, isCategory, isOpeningKind, isSizeMode, isThemeId, isWallKind } from './catalog';
+import {
+  isCategory,
+  isOpeningKind,
+  isSizeMode,
+  isThemeId,
+  isTokenGridSize,
+  isWallKind,
+  TOKEN_GRID_OPACITY,
+  TOKEN_GRID_OPACITY_MIN,
+} from './catalog';
 import {
   type CompatReport,
   emptyCompatReport,
-  isLegacyWallHole,
-  legacyOpening,
-  legacyRoomCat,
-  legacyWall,
   noteConverted,
   noteDroppedItem,
   noteDroppedOpening,
-  overlayToHole,
 } from './compat';
 import { clamp, emptyFloor, uid } from './geometry';
 import type {
@@ -30,7 +36,6 @@ import type {
   Wall,
   WallKind,
 } from './types';
-import { wallLines } from './walls';
 
 const num = (v: unknown, fallback = 0): number => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : Number.NaN;
@@ -63,30 +68,36 @@ export interface NormalizeReport {
   compat?: CompatReport;
 }
 
-/** 不認得的種類：原作新版的換成最接近的，其他的換成預設值；有寫種類代號時記下來 */
+/**
+ * 不認得的種類（將來的版本才有的）：房間換成客廳類、牆換成內牆、門窗丟掉；有寫種類代號時記下來。
+ * 原作 v1.05～v1.14 新增的種類本工具都有（2026-10 第二批），照讀。
+ */
 function roomCat(v: unknown, report: CompatReport): RoomCategory {
   if (isCategory(v)) return v;
   if (typeof v !== 'string' || !v) return 'living';
-  const to = legacyRoomCat(v) ?? 'living';
-  noteConverted(report, 'room', v, to);
-  return to;
+  noteConverted(report, 'room', v, 'living');
+  return 'living';
 }
 
 function wallKind(v: unknown, report: CompatReport): WallKind {
   if (isWallKind(v)) return v;
   if (typeof v !== 'string' || !v) return 'int';
-  const to = legacyWall(v) ?? 'int';
-  noteConverted(report, 'wall', v, to);
-  return to;
+  noteConverted(report, 'wall', v, 'int');
+  return 'int';
 }
 
 function openingKind(v: unknown, report: CompatReport): OpeningKind | null {
   if (isOpeningKind(v)) return v;
   if (typeof v !== 'string' || !v) return null;
-  const to = legacyOpening(v);
-  if (to) noteConverted(report, 'opening', v, to);
-  else noteDroppedOpening(report, v);
-  return to ?? null;
+  noteDroppedOpening(report, v);
+  return null;
+}
+
+/** 每間房的牆種類（原作 v1.05 的 `wall`）：認得的照讀（戶外房間也留著，只是沒有作用）；不認得的改回自動並記下來 */
+function roomWall(v: unknown, report: CompatReport): WallKind | undefined {
+  if (isWallKind(v)) return v;
+  if (typeof v === 'string' && v) report.roomWalls++;
+  return undefined;
 }
 
 /** 每一類的 id 不重複（重複或沒有的給新的） */
@@ -104,8 +115,6 @@ function room(r: Record<string, unknown>, report: CompatReport): Room | null {
   const h = Math.round(num(r.h, 0));
   if (w < 1 || h < 1 || !isNum(r.x) || !isNum(r.y)) return null;
   const cat = roomCat(r.cat, report);
-  /* 原作 v1.05 的「這間房的牆種類」：本工具沒有，略過（戶外房間原作也沒有作用，不算） */
-  if (typeof r.wall === 'string' && r.wall && !CAT[cat].outdoor) report.roomWalls++;
   return compact<Room>({
     id: str(r.id),
     x: Math.round(num(r.x)),
@@ -123,6 +132,7 @@ function room(r: Record<string, unknown>, report: CompatReport): Room | null {
     locked: flag(r.locked),
     lx: isNum(r.lx) && num(r.lx) !== 0 ? num(r.lx) : undefined,
     ly: isNum(r.ly) && num(r.ly) !== 0 ? num(r.ly) : undefined,
+    wall: roomWall(r.wall, report),
   });
 }
 
@@ -209,17 +219,12 @@ export function normalizeProject(
   let dropped = 0;
   const floors: Floor[] = list(p.floors).map((f) => {
     const items: Item[] = [];
-    /* 原作「疊在牆上的」牆洞、崩塌：牆算出來之後再換成牆上的破洞 */
-    const overlays: Record<string, unknown>[] = [];
     for (const i of list(f.items)) {
       const it = item(i, isAsset);
       if (it) items.push(it);
       else if (typeof i.t === 'string' && !isAsset(i.t)) {
-        if (isLegacyWallHole(i.t)) overlays.push(i);
-        else {
-          dropped++;
-          noteDroppedItem(compat, i.t);
-        }
+        dropped++;
+        noteDroppedItem(compat, i.t);
       }
     }
     const floor: Floor = {
@@ -248,32 +253,20 @@ export function normalizeProject(
         't',
       ),
     };
-    if (overlays.length) {
-      const lines = wallLines(floor);
-      for (const i of overlays) {
-        const t = i.t as string;
-        const hole = overlayToHole(
-          { t, x: num(i.x), y: num(i.y), w: num(i.w), h: num(i.h), gm: i.gm === true },
-          lines,
-          floor.openings,
-        );
-        if (hole) {
-          floor.openings.push(hole);
-          noteConverted(compat, 'overlay', t, hole.kind);
-        } else {
-          dropped++;
-          noteDroppedItem(compat, t);
-        }
-      }
-    }
     ids(floor.openings, 'o');
-    /* 原作 v1.12 外觀樓層的「顯示內部」：本工具沒有，略過 */
-    if (f.showInside === true) compat.insideFloors++;
+    /* 外觀層的「顯示內部」（原作 v1.12；2026-10 第二批起照讀）：疊上來的樓層的 id 在下面樓層的 id 確定之後檢查 */
+    if (f.showInside === true) floor.showInside = true;
+    const inside = optStr(f.inside, 200);
+    if (inside) floor.inside = inside;
     return floor;
   });
   ids(floors, 'f');
-  /* 原作 v1.07 的棋子方格：本工具沒有，略過 */
-  if (num(p.tokenGrid) > 0) compat.tokenGrid = num(p.tokenGrid);
+  /* 「顯示內部」：只有一層時沒有作用，拿掉；疊上來的樓層不存在（或是自己）時拿掉（用第一個別的樓層） */
+  for (const f of floors) {
+    if (f.showInside && floors.length < 2) delete f.showInside;
+    if (f.inside !== undefined && !floors.some((o) => o !== f && o.id === f.inside))
+      delete f.inside;
+  }
   if (report) {
     report.droppedItems = dropped;
     report.compat = compat;
@@ -288,6 +281,15 @@ export function normalizeProject(
     active: 0,
   };
   out.active = clamp(Math.round(num(p.active)), 0, out.floors.length - 1);
+  /* 棋子方格（2026-10；原作 v1.07 的 tokenGrid 也是這個欄位，0＝不顯示）：大小只認 1／2／3／4／6 格 */
+  const tokenGrid = num(p.tokenGrid, 0);
+  if (isTokenGridSize(tokenGrid)) out.tokenGrid = tokenGrid;
+  const tokenColor = color(p.tokenGridColor)?.slice(0, 7);
+  if (tokenColor) out.tokenGridColor = tokenColor;
+  if (isNum(p.tokenGridOpacity)) {
+    const o = Math.round(clamp(num(p.tokenGridOpacity), TOKEN_GRID_OPACITY_MIN, 1) * 100) / 100;
+    if (o !== TOKEN_GRID_OPACITY) out.tokenGridOpacity = o;
+  }
   return out;
 }
 

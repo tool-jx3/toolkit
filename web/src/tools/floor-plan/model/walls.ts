@@ -4,10 +4,12 @@
  * - 每一格的主人＝蓋在那一格上的最後一個房間（後放的在上面，所以房間裡可以再放房間，例如客房裡的浴室）。
  * - 每條格線依兩側的房間決定種類：兩個不同的室內房間之間是內牆、室內與外面（或戶外房間）之間是外牆；
  *   兩個戶外房間之間沒有牆；戶外房間面對外面時依種類畫欄杆、岩壁或不畫；任一側「不產生牆」時是虛線的分區線（只在編輯畫面）。
+ * - 室內房間設了牆種類（`Room.wall`，2026-10 第二批）時，原本是內牆或外牆的邊改成那個種類；兩側的室內房間都有設時取比較厚的
+ *   （一樣厚時取上面／左邊那一間的；戶外房間的設定沒有作用）——同原作 v1.05 的規則。
  * - 同一條線上相鄰、同種類的段接成一長段（core/grid 的 squareEdgeRuns）；門窗所在的範圍從牆上扣掉，切口不加收邊。
  */
 import { type EdgeRun, squareEdgeRuns, subtractSpans } from '@/core/grid';
-import { CAT } from './catalog';
+import { CAT, WALL } from './catalog';
 import type { Floor, Opening, Room, Wall, WallKind } from './types';
 
 /** 牆的段的種類：zone＝「不產生牆」的分區線 */
@@ -34,6 +36,20 @@ export interface WallResult {
   openingKind: Map<string, WallKind>;
 }
 
+/**
+ * 房間設的牆種類（2026-10 第二批）：兩側的室內房間都有設時取比較厚的，一樣厚時取前面那一間（上面／左邊）的；
+ * 戶外房間、不認得的種類不算；都沒有設時 null（照一般的規則）。
+ */
+export function roomWallKind(...rooms: (Room | null)[]): WallKind | null {
+  let best: WallKind | null = null;
+  for (const r of rooms) {
+    const k = r?.wall;
+    if (!r || !k || !Object.hasOwn(WALL, k) || CAT[r.cat]?.outdoor) continue;
+    if (!best || WALL[k].t > WALL[best].t) best = k;
+  }
+  return best;
+}
+
 /** 兩側的房間 → 這條邊的種類（null＝沒有牆） */
 export function edgeKind(a: Room | null, b: Room | null): RunKind | null {
   if (a === b) return null;
@@ -42,13 +58,13 @@ export function edgeKind(a: Room | null, b: Room | null): RunKind | null {
     const ao = Boolean(CAT[a.cat]?.outdoor);
     const bo = Boolean(CAT[b.cat]?.outdoor);
     if (ao && bo) return null;
-    if (ao || bo) return 'ext';
-    return 'int';
+    if (ao || bo) return roomWallKind(a, b) ?? 'ext';
+    return roomWallKind(a, b) ?? 'int';
   }
   const room = (a ?? b) as Room;
   const cat = CAT[room.cat];
   if (cat?.outdoor) return cat.edge === 'rail' || cat.edge === 'rock' ? cat.edge : null;
-  return 'ext';
+  return roomWallKind(room) ?? 'ext';
 }
 
 const EPS = 1e-6;

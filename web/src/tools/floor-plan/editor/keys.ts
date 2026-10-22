@@ -164,7 +164,7 @@ export function handleKeyDown(e: KeyboardEvent): void {
   if (e.key === 'Delete' || e.key === 'Backspace') {
     if (ed.sel.length) {
       e.preventDefault();
-      act.deleteSelection();
+      void act.deleteSelection();
     }
     return;
   }

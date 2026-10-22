@@ -1,17 +1,25 @@
 /**
- * 畫一層樓：地板（底色、花紋）、下一層的影子、家具、牆、門窗、GM 房間的斜線、房間名字、文字、格線。
+ * 畫一層樓：地板（底色、花紋）、下一層的影子、家具、牆、門窗、GM 房間的斜線、棋子方格、房間名字、文字、格線。
  * ctx 要先換算成「1 單位＝1 格」。編輯畫面與匯出共用。
  */
 import { readableTextColor } from '@/core/color';
 import { ASSET, VERTICAL_LINKS } from '../model/assets';
-import { BADGE_RING, CAT, CELL_M, OPEN, wallThickness } from '../model/catalog';
+import {
+  BADGE_RING,
+  CAT,
+  CELL_M,
+  type FloorPattern,
+  OPEN,
+  TOKEN_GRID_OPACITY,
+  wallThickness,
+} from '../model/catalog';
 import { itemLocalSize, type ShownFloor, type ShownRoom, visibleFloor } from '../model/geometry';
 import type { Floor, Item, Opening, Rect, SizeMode, TextLabel, Wall } from '../model/types';
 import { computeWalls, type WallRun } from '../model/walls';
 import { FURNITURE_DRAW, type FurnStyle } from './furniture';
 import { seeded } from './furniture/kit';
 import { badgeLabel, badgeSize, haloText, labelLayout, textFont, verticalText } from './labels';
-import { type FloorTheme, roomFill } from './themes';
+import { type FloorTheme, getTheme, roomFill } from './themes';
 
 const TAU = Math.PI * 2;
 type Ctx = CanvasRenderingContext2D;
@@ -148,8 +156,252 @@ export function drawPattern(c: Ctx, room: ShownRoom, theme: FloorTheme, lw: numb
       }
       c.stroke();
       break;
+    default:
+      drawNewPattern(c, p, room, lw, rnd);
   }
   c.restore();
+}
+
+/**
+ * 2026-10 第二批的房間種類的花紋（本站自己設計，規格 3.10）。以房間的長邊為 u、短邊為 v 來畫（細長的房間花紋跟著長邊走）。
+ * 呼叫時已經 clip 在房間裡、線色與線寬設好、路徑清空。
+ */
+function drawNewPattern(c: Ctx, p: FloorPattern, room: Rect, lw: number, rnd: () => number): void {
+  const { x, y, w, h } = room;
+  const horiz = w >= h;
+  const L = horiz ? w : h;
+  const W = horiz ? h : w;
+  const px = (u: number, v: number): [number, number] => (horiz ? [x + u, y + v] : [x + v, y + u]);
+  const mv = (u: number, v: number) => c.moveTo(...px(u, v));
+  const ln = (u: number, v: number) => c.lineTo(...px(u, v));
+  const seg = (u1: number, v1: number, u2: number, v2: number) => {
+    mv(u1, v1);
+    ln(u2, v2);
+  };
+  const dot = (u: number, v: number, r: number) => {
+    const [cx, cy] = px(u, v);
+    c.moveTo(cx + r, cy);
+    c.arc(cx, cy, r, 0, TAU);
+  };
+  switch (p) {
+    case 'boards': {
+      /* 緣側：沿長邊的窄木板（0.3 格），板子的接縫一排一排錯開 */
+      for (let v = 0.3; v < W; v += 0.3) seg(0, v, L, v);
+      for (let v = 0, k = 0; v < W; v += 0.3, k++)
+        for (let u = 0.6 + ((k * 1.1) % 2.4); u < L; u += 2.4) seg(u, v, u, Math.min(W, v + 0.3));
+      c.stroke();
+      break;
+    }
+    case 'foam':
+      /* 隔音室：一格一塊的吸音泡棉（方格＋對角線，像金字塔形的泡棉從上面看） */
+      for (let u = 1; u < L; u += 1) seg(u, 0, u, W);
+      for (let v = 1; v < W; v += 1) seg(0, v, L, v);
+      for (let u = 0; u < L; u += 1)
+        for (let v = 0; v < W; v += 1) {
+          seg(u + 0.15, v + 0.15, u + 0.85, v + 0.85);
+          seg(u + 0.85, v + 0.15, u + 0.15, v + 0.85);
+        }
+      c.lineWidth = lw * 0.6;
+      c.stroke();
+      break;
+    case 'flag': {
+      /* 石造：2 格見方的大石板，一排錯開 1 格；有些石板有一道裂縫 */
+      for (let v = 0, row = 0; v < W; v += 2, row++) {
+        seg(0, v, L, v);
+        for (let u = row % 2 ? 1 : 2; u < L; u += 2) seg(u, v, u, Math.min(W, v + 2));
+      }
+      for (let v = 0, row = 0; v < W; v += 2, row++)
+        for (let u = row % 2 ? -1 : 0; u < L; u += 2) {
+          if (rnd() > 0.28) continue;
+          const u0 = u + 0.4 + rnd() * 1.2;
+          const v0 = v + 0.3 + rnd() * 0.4;
+          if (u0 < 0.3 || u0 > L - 0.3 || v0 + 0.9 > W) continue;
+          mv(u0, v0);
+          ln(u0 + 0.25 - rnd() * 0.5, v0 + 0.45);
+          ln(u0 + 0.1 - rnd() * 0.2, v0 + 0.9);
+        }
+      c.lineWidth = lw * 1.1;
+      c.stroke();
+      break;
+    }
+    case 'roof': {
+      /* 建物外觀：沿長邊的屋脊（粗線）＋兩側一排一排的瓦（短邊方向每 0.5 格一排、瓦的接縫錯開） */
+      for (let v = 0.5; v < W; v += 0.5) seg(0, v, L, v);
+      for (let v = 0, k = 0; v < W; v += 0.5, k++)
+        for (let u = (k % 2) * 0.35 + 0.35; u < L; u += 0.7) seg(u, v, u, Math.min(W, v + 0.5));
+      c.lineWidth = lw * 0.7;
+      c.stroke();
+      c.beginPath();
+      seg(0, W / 2, L, W / 2);
+      c.lineWidth = lw * 2.4;
+      c.stroke();
+      break;
+    }
+    case 'concrete': {
+      /* 工廠・水泥地：每 3 m（6 格）一道伸縮縫，稀疏的小斑點 */
+      for (let u = 6; u < L; u += 6) seg(u, 0, u, W);
+      for (let v = 6; v < W; v += 6) seg(0, v, L, v);
+      c.lineWidth = lw * 1.2;
+      c.stroke();
+      c.beginPath();
+      const n = Math.floor(L * W * 0.08);
+      for (let i = 0; i < n; i++) dot(rnd() * L, rnd() * W, 0.03 + rnd() * 0.02);
+      c.fill();
+      break;
+    }
+    case 'grating':
+      /* 格柵：沿長邊每 0.2 格一根扁鐵，每 1 格一根橫桿 */
+      for (let v = 0.2; v < W; v += 0.2) seg(0, v, L, v);
+      for (let u = 1; u < L; u += 1) seg(u, 0, u, W);
+      c.lineWidth = lw * 0.6;
+      c.stroke();
+      break;
+    case 'platform': {
+      /* 月台：1 格見方的地磚；兩側長邊往內 0.7 格各一排導盲磚的圓點 */
+      for (let u = 1; u < L; u += 1) seg(u, 0, u, W);
+      for (let v = 1; v < W; v += 1) seg(0, v, L, v);
+      c.lineWidth = lw * 0.6;
+      c.stroke();
+      c.beginPath();
+      const rows = W >= 2 ? [0.7, W - 0.7] : [W / 2];
+      for (const v of rows) for (let u = 0.15; u < L; u += 0.25) dot(u, v, 0.05);
+      c.fill();
+      break;
+    }
+    case 'rails': {
+      /* 鐵軌：碎石的小點；每 6 格（3 m）一條軌道：兩條鐵軌（軌距約 1 m）＋每 0.6 格一根枕木 */
+      const n = Math.floor(L * W * 0.4);
+      for (let i = 0; i < n; i++) dot(rnd() * L, rnd() * W, 0.025);
+      c.fill();
+      const tracks = Math.max(1, Math.floor(W / 6));
+      const gauge = Math.min(1.05, W * 0.22);
+      c.beginPath();
+      for (let k = 0; k < tracks; k++) {
+        const mid = (W / tracks) * (k + 0.5);
+        for (let u = 0.3; u < L; u += 0.6) seg(u, mid - gauge * 1.5, u, mid + gauge * 1.5);
+      }
+      c.lineWidth = lw * 2.2;
+      c.stroke();
+      c.beginPath();
+      for (let k = 0; k < tracks; k++) {
+        const mid = (W / tracks) * (k + 0.5);
+        seg(0, mid - gauge, L, mid - gauge);
+        seg(0, mid + gauge, L, mid + gauge);
+      }
+      c.lineWidth = lw * 1.8;
+      c.stroke();
+      break;
+    }
+    case 'road': {
+      /* 道路：稀疏的小點；兩側的路邊線；寬 6 格以上時中間一條虛線（每段 1.5 格） */
+      const n = Math.floor(L * W * 0.15);
+      for (let i = 0; i < n; i++) dot(rnd() * L, rnd() * W, 0.025);
+      c.fill();
+      c.beginPath();
+      if (W >= 2) {
+        seg(0, 0.4, L, 0.4);
+        seg(0, W - 0.4, L, W - 0.4);
+      }
+      c.lineWidth = lw * 1.2;
+      c.stroke();
+      if (W >= 6) {
+        c.beginPath();
+        for (let u = 0.75; u < L; u += 3) seg(u, W / 2, Math.min(L, u + 1.5), W / 2);
+        c.lineWidth = lw * 2;
+        c.stroke();
+      }
+      break;
+    }
+    case 'pavers': {
+      /* 屋頂平台：1 m 見方的隔熱磚，每個角有一個小墊塊 */
+      for (let u = 2; u < L; u += 2) seg(u, 0, u, W);
+      for (let v = 2; v < W; v += 2) seg(0, v, L, v);
+      c.stroke();
+      c.beginPath();
+      for (let u = 2; u < L; u += 2)
+        for (let v = 2; v < W; v += 2) {
+          const [cx, cy] = px(u, v);
+          c.rect(cx - 0.08, cy - 0.08, 0.16, 0.16);
+        }
+      c.fill();
+      break;
+    }
+    case 'slab': {
+      /* 施工中的樓板：每 1 m 一個放樣的十字記號，邊緣往內 0.35 格一圈虛線（樓板的邊，小心） */
+      for (let u = 2; u < L; u += 2)
+        for (let v = 2; v < W; v += 2) {
+          seg(u - 0.2, v, u + 0.2, v);
+          seg(u, v - 0.2, u, v + 0.2);
+        }
+      c.lineWidth = lw * 0.9;
+      c.stroke();
+      if (L > 1 && W > 1) {
+        c.beginPath();
+        c.setLineDash([lw * 5, lw * 4]);
+        const [ax, ay] = px(0.35, 0.35);
+        const [bx, by] = px(L - 0.35, W - 0.35);
+        c.rect(Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay));
+        c.lineWidth = lw * 1.1;
+        c.stroke();
+        c.setLineDash([]);
+      }
+      break;
+    }
+    case 'dirt': {
+      /* 泥土・碎石地：大小不一的空心小石頭與短的土塊線 */
+      const n = Math.floor(L * W * 0.3);
+      for (let i = 0; i < n; i++) {
+        const u = rnd() * L;
+        const v = rnd() * W;
+        if (rnd() < 0.55) {
+          const [cx, cy] = px(u, v);
+          const r = 0.04 + rnd() * 0.07;
+          c.moveTo(cx + r, cy);
+          c.ellipse(cx, cy, r, r * 0.75, rnd() * Math.PI, 0, TAU);
+        } else {
+          const d = 0.12 + rnd() * 0.12;
+          mv(u, v);
+          ln(u + d, v + (rnd() - 0.5) * 0.1);
+        }
+      }
+      c.lineWidth = lw * 0.8;
+      c.stroke();
+      break;
+    }
+    case 'raked': {
+      /* 枯山水：沿長邊用耙子耙出來的波紋（每 0.3 格一條，緩緩起伏） */
+      for (let v = 0.3; v < W; v += 0.3) {
+        mv(0, v);
+        for (let u = 0, k = 0; u < L; u += 0.6, k++) {
+          const [qx, qy] = px(u + 0.3, v + (k % 2 ? 0.06 : -0.06));
+          const [ex, ey] = px(Math.min(L, u + 0.6), v);
+          c.quadraticCurveTo(qx, qy, ex, ey);
+        }
+      }
+      c.lineWidth = lw * 0.7;
+      c.stroke();
+      break;
+    }
+    case 'planks': {
+      /* 甲板：沿長邊的寬木板（0.45 格），接縫錯開，接縫兩側有釘子 */
+      for (let v = 0.45; v < W; v += 0.45) seg(0, v, L, v);
+      const joints: [number, number][] = [];
+      for (let v = 0, k = 0; v < W; v += 0.45, k++)
+        for (let u = 1.2 * (k % 4) + 1.2; u < L; u += 4.8) {
+          seg(u, v, u, Math.min(W, v + 0.45));
+          joints.push([u, v + 0.225]);
+        }
+      c.stroke();
+      c.beginPath();
+      for (const [u, v] of joints) {
+        if (v > W) continue;
+        dot(u - 0.12, v, 0.035);
+        dot(u + 0.12, v, 0.035);
+      }
+      c.fill();
+      break;
+    }
+  }
 }
 
 /* ---------- 牆 ---------- */
@@ -242,6 +494,15 @@ export function drawRun(
     case 'broken':
       drawCrumbled(c, run, a, b, t, theme);
       break;
+    case 'stone':
+      drawStoneWall(c, run, a, b, t, theme, lw);
+      break;
+    case 'sound':
+      drawSoundWall(c, run, a, b, t, theme, lw);
+      break;
+    case 'cracked':
+      drawCrackedWall(c, run, a, b, t, theme, lw);
+      break;
     default:
       c.fillStyle = theme.wall;
       if (run.o === 'h') c.fillRect(a, run.c - t / 2, b - a, t);
@@ -328,6 +589,133 @@ function drawCrumbled(
   }
 }
 
+/* ---------- 2026-10 第二批的牆（本站自己設計，規格 3.10） ---------- */
+
+/** 牆上的縫、裂痕用的顏色：背景色（透明背景匯出時用那個樣式原本的背景色） */
+const gapColor = (theme: FloorTheme) =>
+  theme.bg === 'transparent' ? getTheme(theme.id).bg : theme.bg;
+
+/** 沿著牆的長方形（u：a→b，v：中線兩側） */
+function bandRect(c: Ctx, run: WallRun, a: number, b: number, v0: number, v1: number): void {
+  if (run.o === 'h') c.rect(a, run.c + v0, b - a, v1 - v0);
+  else c.rect(run.c + v0, a, v1 - v0, b - a);
+}
+
+/** 牆的座標（u 沿著牆、v 離中線）→ 世界座標 */
+const wallPt = (run: WallRun, u: number, v: number): [number, number] =>
+  run.o === 'h' ? [u, run.c + v] : [run.c + v, u];
+
+/** 石牆：厚的實心牆，裡面兩層錯開的石塊接縫（背景色、半透明） */
+function drawStoneWall(
+  c: Ctx,
+  run: WallRun,
+  a: number,
+  b: number,
+  t: number,
+  theme: FloorTheme,
+  lw: number,
+): void {
+  c.fillStyle = theme.wall;
+  c.beginPath();
+  bandRect(c, run, a, b, -t / 2, t / 2);
+  c.fill();
+  c.strokeStyle = gapColor(theme);
+  c.globalAlpha = 0.55;
+  c.lineWidth = lw * 0.7;
+  c.beginPath();
+  c.moveTo(...wallPt(run, a, 0));
+  c.lineTo(...wallPt(run, b, 0));
+  /* 接縫的位置從世界座標的 0 算起，被門窗切開的兩段也對得上 */
+  const step = 0.6;
+  for (let u = Math.ceil(a / step) * step, k = Math.ceil(a / step); u < b; u += step, k++) {
+    const side = k % 2 ? 1 : -1;
+    c.moveTo(...wallPt(run, u, 0));
+    c.lineTo(...wallPt(run, u, (side * t) / 2));
+  }
+  c.stroke();
+}
+
+/** 隔音牆：兩側薄的實心牆皮，中間淺色的芯，芯裡畫隔音材的鋸齒線 */
+function drawSoundWall(
+  c: Ctx,
+  run: WallRun,
+  a: number,
+  b: number,
+  t: number,
+  theme: FloorTheme,
+  lw: number,
+): void {
+  const skin = t * 0.2;
+  c.fillStyle = theme.wall;
+  c.beginPath();
+  bandRect(c, run, a, b, -t / 2, -t / 2 + skin);
+  bandRect(c, run, a, b, t / 2 - skin, t / 2);
+  c.fill();
+  c.fillStyle = theme.furn.tint;
+  c.beginPath();
+  bandRect(c, run, a, b, -t / 2 + skin, t / 2 - skin);
+  c.fill();
+  const core = t / 2 - skin;
+  c.strokeStyle = theme.wall;
+  c.lineWidth = lw * 0.8;
+  c.lineJoin = 'miter';
+  c.beginPath();
+  const step = 0.16;
+  const u0 = Math.ceil(a / step) * step;
+  c.moveTo(...wallPt(run, a, 0));
+  for (let u = u0, k = Math.round(u0 / step); u <= b; u += step, k++)
+    c.lineTo(...wallPt(run, u, (k % 2 ? 1 : -1) * core * 0.8));
+  c.lineTo(...wallPt(run, b, 0));
+  c.stroke();
+}
+
+/** 有裂痕的牆：實心牆，一道沿著牆蜿蜒的細裂痕（偶爾分岔），邊上幾個缺角（背景色） */
+function drawCrackedWall(
+  c: Ctx,
+  run: WallRun,
+  a: number,
+  b: number,
+  t: number,
+  theme: FloorTheme,
+  lw: number,
+): void {
+  c.fillStyle = theme.wall;
+  c.beginPath();
+  bandRect(c, run, a, b, -t / 2, t / 2);
+  c.fill();
+  const gap = gapColor(theme);
+  c.strokeStyle = gap;
+  c.fillStyle = gap;
+  c.lineWidth = Math.max(lw * 0.9, t * 0.1);
+  c.lineJoin = 'round';
+  c.beginPath();
+  const step = 0.35;
+  let first = true;
+  for (let u = Math.ceil(a / step) * step; u <= b; u += step) {
+    const v = (noise(u, run.c, 5) - 0.5) * t * 0.55;
+    if (first) c.moveTo(...wallPt(run, u, v));
+    else c.lineTo(...wallPt(run, u, v));
+    first = false;
+    if (noise(u, run.c, 6) < 0.18) {
+      const dir = noise(u, run.c, 7) < 0.5 ? -1 : 1;
+      c.lineTo(...wallPt(run, u + 0.15, (dir * t) / 2));
+      c.moveTo(...wallPt(run, u, v));
+    }
+  }
+  c.stroke();
+  c.beginPath();
+  for (let u = Math.ceil(a / 1.4) * 1.4 + 0.5; u < b - 0.2; u += 1.4) {
+    if (noise(u, run.c, 8) < 0.4) continue;
+    const side = noise(u, run.c, 9) < 0.5 ? -1 : 1;
+    const d = 0.08 + noise(u, run.c, 10) * 0.1;
+    c.moveTo(...wallPt(run, u - d, (side * t) / 2));
+    c.lineTo(...wallPt(run, u, side * (t / 2 - d)));
+    c.lineTo(...wallPt(run, u + d, (side * t) / 2));
+    c.closePath();
+  }
+  c.fill();
+}
+
 export function drawDiagonalWall(c: Ctx, w: Wall, theme: FloorTheme, lw: number): void {
   const t = wallThickness(w.kind);
   c.save();
@@ -378,7 +766,18 @@ function local(c: Ctx, o: Pick<Opening, 'o' | 'x' | 'y'>, fn: () => void): void 
   c.restore();
 }
 
-/** 單扇開門：鉸鍊在 start（hingeAtStart）或 start＋len，往 side 開；broken＝門板歪掉、沒有弧線 */
+/** 門板的畫法（2026-10 第二批）：一般的線、厚的鐵板（slab，fill 是板子的顏色）、格柵（grille） */
+interface LeafStyle {
+  kind: 'slab' | 'grille';
+  /** 板子的厚度（格） */
+  width: number;
+  fill?: string;
+}
+
+/**
+ * 單扇開門：鉸鍊在 start（hingeAtStart）或 start＋len，往 side 開；broken＝門板歪掉、沒有弧線。
+ * leaf：門板不是一條線時（鐵門、防火門、格柵門、大型雙開門）。
+ */
 function swing(
   c: Ctx,
   o: Opening,
@@ -389,6 +788,7 @@ function swing(
   arc: string,
   lw: number,
   broken: boolean,
+  leafStyle?: LeafStyle,
 ): void {
   const s = o.side || 1;
   /* 在「橫線」的座標系裡算，直線的情況交給 local() 轉；直線時 side＋ 是右側＝轉過去之後的 −v，所以反過來 */
@@ -413,6 +813,30 @@ function swing(
     }
     c.strokeStyle = door;
     c.lineWidth = lw * 1.7;
+    if (leafStyle && !broken) {
+      /* 開著的門板：從鉸鍊垂直於牆、長 len 的板子（厚度 leafStyle.width） */
+      const d = leafStyle.width;
+      const v0 = Math.min(0, sv * len);
+      if (leafStyle.kind === 'slab') {
+        c.fillStyle = leafStyle.fill ?? door;
+        c.fillRect(hu - d / 2, v0, d, len);
+        c.lineWidth = lw;
+        c.strokeRect(hu - d / 2, v0, d, len);
+      } else {
+        c.lineWidth = lw * 0.9;
+        c.beginPath();
+        c.moveTo(hu - d / 2, 0);
+        c.lineTo(hu - d / 2, sv * len);
+        c.moveTo(hu + d / 2, 0);
+        c.lineTo(hu + d / 2, sv * len);
+        for (let k = 0.18; k < len; k += 0.22) {
+          c.moveTo(hu - d / 2, sv * k);
+          c.lineTo(hu + d / 2, sv * k);
+        }
+        c.stroke();
+      }
+      return;
+    }
     c.beginPath();
     if (broken) {
       const ang = leaf + (closed - leaf) * 0.35;
@@ -480,6 +904,126 @@ function holeInWall(c: Ctx, o: Opening, t: number, theme: FloorTheme, lw: number
   });
 }
 
+/* ---------- 2026-10 第二批的門窗（本站自己設計，規格 3.10） ---------- */
+
+/** 鐵門類的門框：開口的兩端各一小段橫跨牆的粗線 */
+function doorFrame(c: Ctx, o: Opening, t: number, ink: string, lw: number): void {
+  local(c, o, () => {
+    const fw = Math.max(lw * 1.6, 0.07);
+    c.fillStyle = ink;
+    c.fillRect(0, -t * 0.65, fw, t * 1.3);
+    c.fillRect(o.len - fw, -t * 0.65, fw, t * 1.3);
+  });
+}
+
+/**
+ * 旋轉門：直徑＝寬度的圓。虛線是門扇轉的範圍，沿著牆的兩側各一段弧形的外殼，
+ * 中心三片門扇（120° 一片）。
+ */
+function revolvingDoor(c: Ctx, o: Opening, theme: FloorTheme, lw: number): void {
+  local(c, o, () => {
+    const r = o.len / 2;
+    c.strokeStyle = theme.arc;
+    c.lineWidth = lw * 0.7;
+    c.setLineDash([lw * 2.5, lw * 2]);
+    c.beginPath();
+    c.arc(r, 0, r, 0, TAU);
+    c.stroke();
+    c.setLineDash([]);
+    c.strokeStyle = theme.door;
+    c.lineWidth = lw * 1.8;
+    const open = (50 * Math.PI) / 180;
+    c.beginPath();
+    c.arc(r, 0, r, -open, open);
+    c.moveTo(r + Math.cos(Math.PI - open) * r, Math.sin(Math.PI - open) * r);
+    c.arc(r, 0, r, Math.PI - open, Math.PI + open);
+    c.stroke();
+    c.lineWidth = lw * 1.4;
+    c.beginPath();
+    for (let k = 0; k < 3; k++) {
+      const a = Math.PI / 2 + (k * TAU) / 3;
+      c.moveTo(r, 0);
+      c.lineTo(r + Math.cos(a) * r * 0.9, Math.sin(a) * r * 0.9);
+    }
+    c.stroke();
+    c.fillStyle = theme.door;
+    c.beginPath();
+    c.arc(r, 0, Math.max(lw * 1.5, r * 0.07), 0, TAU);
+    c.fill();
+  });
+}
+
+/** 封印的門：關著的門板，上面一條鎖鏈（一節一節），正中央一個封印的圓 */
+function sealedDoor(c: Ctx, o: Opening, t: number, theme: FloorTheme, lw: number): void {
+  local(c, o, () => {
+    const len = o.len;
+    const ph = Math.max(t, 0.28);
+    c.fillStyle = theme.furn.tint;
+    c.strokeStyle = theme.door;
+    c.lineWidth = lw * 1.2;
+    c.fillRect(0, -ph / 2, len, ph);
+    c.strokeRect(0, -ph / 2, len, ph);
+    /* 鎖鏈：橫的橢圓與直的短線交替 */
+    c.lineWidth = lw * 0.8;
+    c.beginPath();
+    const step = 0.2;
+    for (let u = step / 2, k = 0; u < len; u += step, k++) {
+      if (k % 2 === 0) {
+        c.moveTo(u + step * 0.55, 0);
+        c.ellipse(u, 0, step * 0.55, ph * 0.18, 0, 0, TAU);
+      } else {
+        c.moveTo(u - step * 0.3, 0);
+        c.lineTo(u + step * 0.3, 0);
+      }
+    }
+    c.stroke();
+    const sr = Math.min(len * 0.2, Math.max(ph * 0.75, 0.22));
+    c.fillStyle = theme.furn.occultTint;
+    c.strokeStyle = theme.furn.occult;
+    c.lineWidth = lw;
+    c.beginPath();
+    c.arc(len / 2, 0, sr, 0, TAU);
+    c.fill();
+    c.stroke();
+    c.beginPath();
+    c.arc(len / 2, 0, sr * 0.55, 0, TAU);
+    c.stroke();
+  });
+}
+
+/** 鐵板封住的窗：整片鐵板蓋住窗（斜的紋路），兩端與中間沿著兩邊打鉚釘（呼叫時在窗的座標系裡） */
+function platedWindow(c: Ctx, len: number, t: number, theme: FloorTheme, lw: number): void {
+  const ph = t * 1.5;
+  c.fillStyle = theme.furn.shade;
+  c.strokeStyle = theme.door;
+  c.lineWidth = lw * 0.8;
+  c.fillRect(-0.06, -ph / 2, len + 0.12, ph);
+  c.strokeRect(-0.06, -ph / 2, len + 0.12, ph);
+  /* 斜的紋路：每條線切在鐵板的範圍裡 */
+  c.strokeStyle = theme.furn.faint;
+  c.lineWidth = lw * 0.5;
+  c.beginPath();
+  const x0 = -0.06;
+  const x1 = len + 0.06;
+  for (let u = x0 - ph; u < x1; u += 0.25) {
+    const t0 = Math.max(0, (x0 - u) / ph);
+    const t1 = Math.min(1, (x1 - u) / ph);
+    if (t1 <= t0) continue;
+    c.moveTo(u + t0 * ph, -ph / 2 + t0 * ph);
+    c.lineTo(u + t1 * ph, -ph / 2 + t1 * ph);
+  }
+  c.stroke();
+  c.fillStyle = theme.door;
+  c.beginPath();
+  const r = Math.max(lw * 0.8, t * 0.07);
+  for (const u of [0.1, len / 2, len - 0.1])
+    for (const v of [-ph * 0.3, ph * 0.3]) {
+      c.moveTo(u + r, v);
+      c.arc(u, v, r, 0, TAU);
+    }
+  c.fill();
+}
+
 export interface OpeningDrawOptions {
   playerView: boolean;
   editor: boolean;
@@ -529,6 +1073,7 @@ export function drawOpening(
         }
         c.stroke();
       }
+      if (kind === 'platewin') platedWindow(c, len, t, theme, lw);
       if (kind === 'boarded') {
         const bh = t * 1.5;
         c.fillStyle = theme.furn.wood;
@@ -651,6 +1196,48 @@ export function drawOpening(
         c.stroke();
       });
       break;
+    case 'steel':
+    case 'firedoor':
+    case 'gate': {
+      /* 鐵門、防火門：厚的門板（防火門是警示色）＋門框；格柵門：梯子形的門板 */
+      const d = Math.max(t * 0.36, 0.1);
+      const fire = kind === 'firedoor';
+      const ink = fire ? theme.furn.alert : theme.door;
+      swing(
+        c,
+        o,
+        !o.hinge,
+        len,
+        start,
+        ink,
+        theme.arc,
+        lw,
+        false,
+        kind === 'gate'
+          ? { kind: 'grille', width: d * 1.3 }
+          : { kind: 'slab', width: d, fill: fire ? theme.furn.alert : theme.furn.shade },
+      );
+      if (kind !== 'gate') doorFrame(c, o, t, ink, lw);
+      break;
+    }
+    case 'big2': {
+      /* 大型雙開門：兩片厚的門板＋門框 */
+      const leaf: LeafStyle = {
+        kind: 'slab',
+        width: Math.max(t * 0.36, 0.1),
+        fill: theme.furn.shade,
+      };
+      swing(c, o, true, len / 2, start, theme.door, theme.arc, lw, false, leaf);
+      swing(c, o, false, len / 2, start + len / 2, theme.door, theme.arc, lw, false, leaf);
+      doorFrame(c, o, t, theme.door, lw);
+      break;
+    }
+    case 'revolve':
+      revolvingDoor(c, o, theme, lw);
+      break;
+    case 'sealed':
+      sealedDoor(c, o, t, theme, lw);
+      break;
     case 'shutter':
       local(c, o, () => {
         c.strokeStyle = theme.door;
@@ -676,6 +1263,7 @@ export function furnStyle(theme: FloorTheme, lw: number, color?: string): FurnSt
     ...(color ? { paper: color } : null),
     lw,
     wall: theme.wall,
+    gap: gapColor(theme),
     font: theme.font,
   };
 }
@@ -934,6 +1522,51 @@ export function drawGrid(c: Ctx, rect: Rect, theme: FloorTheme, zoom: number): v
   c.restore();
 }
 
+/* ---------- 棋子方格 ---------- */
+
+/** 棋子方格的畫法選項（規格 3.9） */
+export interface TokenGridDraw {
+  /** 方格的邊長（格；1 格＝0.5 m） */
+  size: number;
+  /** 線色（#rrggbb；沒有＝樣式的牆色） */
+  color?: string;
+  /** 不透明度（沒有＝TOKEN_GRID_OPACITY） */
+  opacity?: number;
+  /** 畫在哪個範圍裡（世界座標） */
+  rect: Rect;
+}
+
+/**
+ * 棋子方格：每 size 格一條線（細線），從世界座標的原點算起；畫在家具與牆的上面、房間名字與文字的下面。
+ * 匯出的範圍對齊方格（draw/export.ts），所以圖的左上角在方格線上。
+ */
+export function drawTokenGrid(c: Ctx, theme: FloorTheme, zoom: number, g: TokenGridDraw): void {
+  const { size, rect } = g;
+  if (!(size > 0)) return;
+  const x0 = Math.floor(rect.x / size + 1e-9) * size;
+  const y0 = Math.floor(rect.y / size + 1e-9) * size;
+  const x1 = rect.x + rect.w;
+  const y1 = rect.y + rect.h;
+  c.save();
+  c.beginPath();
+  c.rect(rect.x, rect.y, rect.w, rect.h);
+  c.clip();
+  c.strokeStyle = g.color || theme.wall;
+  c.globalAlpha = g.opacity ?? TOKEN_GRID_OPACITY;
+  c.lineWidth = Math.max(1.25 / zoom, 0.04);
+  c.beginPath();
+  for (let x = x0; x <= x1 + 1e-6; x += size) {
+    c.moveTo(x, rect.y);
+    c.lineTo(x, y1);
+  }
+  for (let y = y0; y <= y1 + 1e-6; y += size) {
+    c.moveTo(rect.x, y);
+    c.lineTo(x1, y);
+  }
+  c.stroke();
+  c.restore();
+}
+
 /* ---------- 一層樓 ---------- */
 
 export interface DrawFloorOptions {
@@ -953,6 +1586,8 @@ export interface DrawFloorOptions {
   background?: boolean;
   /** 下一層（淡淡地畫牆與樓梯） */
   ghost?: Floor | null;
+  /** 棋子方格（2026-10；沒有＝不畫） */
+  tokenGrid?: TokenGridDraw;
 }
 
 export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): ShownFloor {
@@ -993,15 +1628,17 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
     c.restore();
   }
 
-  const isUnder = (i: Item) => Boolean(ASSET[i.t]?.under);
-  for (const item of floor.items) if (isUnder(item)) drawItem(c, item, theme, lw, opts);
-  for (const item of floor.items) if (!isUnder(item)) drawItem(c, item, theme, lw, opts);
+  /* 地毯、血跡等在最下面 → 一般的家具 → 牆、門窗 → 貼牆素材（裂痕、崩塌…，2026-10 第三批，F233） */
+  const layer = (i: Item) => (ASSET[i.t]?.under ? 0 : ASSET[i.t]?.wall ? 2 : 1);
+  for (const item of floor.items) if (layer(item) === 0) drawItem(c, item, theme, lw, opts);
+  for (const item of floor.items) if (layer(item) === 1) drawItem(c, item, theme, lw, opts);
 
   const walls = computeWalls(floor, { playerView: opts.playerView });
   for (const run of walls.runs) drawRun(c, run, theme, lw, opts.editor);
   for (const w of walls.diagonal) drawDiagonalWall(c, w, theme, lw);
   for (const o of floor.openings)
     drawOpening(c, o, wallThickness(walls.openingKind.get(o.id)), theme, lw, opts);
+  for (const item of floor.items) if (layer(item) === 2) drawItem(c, item, theme, lw, opts);
 
   if (!opts.playerView) {
     for (const room of floor.rooms) {
@@ -1022,6 +1659,11 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
       c.restore();
     }
   }
+
+  /* 棋子方格：在家具、牆、門窗的上面；房間名字與文字畫在它上面才讀得到。
+     編輯畫面縮得很小（方格不到 4 px）時不畫，免得整個畫面都是線 */
+  if (opts.tokenGrid && (!opts.editor || opts.tokenGrid.size * opts.zoom >= 4))
+    drawTokenGrid(c, theme, opts.zoom, opts.tokenGrid);
 
   for (const room of floor.rooms) if (!room.masked) drawRoomLabel(c, room, theme, opts);
   for (const t of floor.texts) drawText(c, t, theme, opts);

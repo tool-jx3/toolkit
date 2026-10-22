@@ -59,6 +59,15 @@ describe('分享連結的格式（3.7）', () => {
     }
   });
 
+  it('範本載入後就是整理過的資料：整理（normalize）不再改動，所以分享連結往返後和載入的一模一樣（2026-10-22，7.18）', () => {
+    /* e2e 用載入後的 store 比對（沒有先整理）：範本裡寫 `hideLabel = false` 之類整理會拿掉的值，往返後就對不上 */
+    for (const t of TEMPLATES)
+      for (const clues of [false, true]) {
+        const p = project(t.id, clues);
+        expect(noIds(normalizeProject(p, isAsset) as Project), t.id).toEqual(noIds(p));
+      }
+  });
+
   it('變短：不放 id；門窗的 side＝1、hinge＝0，家具的 rot＝0 與預設大小不寫', () => {
     const p = project('studio');
     const packed = JSON.stringify(packProject(p));

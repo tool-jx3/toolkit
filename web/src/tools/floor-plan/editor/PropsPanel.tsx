@@ -15,6 +15,7 @@ import {
   NumberInput,
   Segmented,
   Select,
+  Slider,
   TextArea,
   TextInput,
   Toggle,
@@ -22,11 +23,15 @@ import {
 import { getTheme, roomFill } from '../draw/themes';
 import { ASSET } from '../model/assets';
 import {
+  CAT,
   CATEGORIES,
+  isWallKind,
   OPENINGS,
+  ROOM_WALL_KINDS,
   SIZE_MODES,
   SWING_DOORS,
   THEME_IDS,
+  TOKEN_GRID_OPACITY,
   WALL_KINDS,
 } from '../model/catalog';
 import { clamp, metersText, meterText, pingText, roomArea, round2 } from '../model/geometry';
@@ -35,6 +40,7 @@ import type { Item, Opening, Room, SelRef, TextLabel, Wall } from '../model/type
 import { S } from '../strings';
 import * as act from './actions';
 import { currentFloor, useEditor, usePrefs, useProject } from './store';
+import { TokenGridSelect } from './TokenGridSelect';
 
 const g = historyGesture(useProject);
 
@@ -97,7 +103,7 @@ function CommonButtons({ order = false }: { order?: boolean }) {
       <Button size="sm" onClick={act.duplicateSelection}>
         {S.props.duplicate}
       </Button>
-      <Button size="sm" variant="danger" onClick={act.deleteSelection}>
+      <Button size="sm" variant="danger" onClick={() => void act.deleteSelection()}>
         {S.props.delete}
       </Button>
     </>
@@ -109,13 +115,15 @@ function ColorRow({
   value,
   auto,
   onChange,
+  label = S.props.color,
 }: {
   value?: string;
   auto: string;
   onChange: (v: string | undefined) => void;
+  label?: string;
 }) {
   return (
-    <Field label={S.props.color} hint={value ? undefined : S.props.colorAuto}>
+    <Field label={label} hint={value ? undefined : S.props.colorAuto}>
       <div className="flex min-w-0 items-center gap-2">
         <GestureScope gesture={g}>
           <ColorField
@@ -158,6 +166,55 @@ const setOpt = <T,>(o: T, key: keyof T, v: T[keyof T] | undefined) => {
   if (v === undefined || v === '' || v === false) delete o[key];
   else o[key] = v;
 };
+
+/** 棋子方格（F220）：大小、顏色、不透明度 */
+function TokenGridFields() {
+  const p = useProject((s) => s.data);
+  const theme = getTheme(p.theme);
+  const update = act.updateProject;
+  const opacity = Math.round((p.tokenGridOpacity ?? TOKEN_GRID_OPACITY) * 100);
+  return (
+    <>
+      <Field label={S.props.tokenGrid} hint={S.props.tokenGridHint}>
+        <TokenGridSelect testId="token-grid-size" />
+      </Field>
+      {p.tokenGrid ? (
+        <>
+          <ColorRow
+            label={S.props.tokenGridColor}
+            value={p.tokenGridColor}
+            auto={theme.wall.startsWith('#') ? theme.wall.slice(0, 7) : '#2b2f37'}
+            onChange={(v) =>
+              update((d) => {
+                if (v) d.tokenGridColor = v.slice(0, 7);
+                else delete d.tokenGridColor;
+              })
+            }
+          />
+          <Typing>
+            <Field label={S.props.tokenGridOpacity}>
+              <Slider
+                value={opacity}
+                min={10}
+                max={100}
+                step={5}
+                unit="%"
+                aria-label={S.props.tokenGridOpacity}
+                onChange={(v) =>
+                  update((d) => {
+                    const o = Math.round(clamp(v, 10, 100)) / 100;
+                    if (o === TOKEN_GRID_OPACITY) delete d.tokenGridOpacity;
+                    else d.tokenGridOpacity = o;
+                  })
+                }
+              />
+            </Field>
+          </Typing>
+        </>
+      ) : null}
+    </>
+  );
+}
 
 function MapProps() {
   const p = useProject((s) => s.data);
@@ -226,6 +283,8 @@ function MapProps() {
           }
         />
       </Field>
+      <TokenGridFields />
+      <FloorFields />
       <p className="m-0 border-t border-border pt-3 text-xs text-muted" data-testid="map-stats">
         {f.name}：{S.props.stats(f.rooms.length, f.items.length, f.openings.length)}
       </p>
@@ -243,6 +302,63 @@ function MapProps() {
         <p className="m-0 text-xs text-muted">{S.props.numberRoomsHint}</p>
       </div>
     </>
+  );
+}
+
+/** 房間的牆種類（F228）：室內房間才有（戶外的房間外圍照種類） */
+function RoomWallField({ r }: { r: Room }) {
+  if (CAT[r.cat]?.outdoor)
+    return <p className="m-0 text-xs text-muted">{S.props.roomWallOutdoor}</p>;
+  return (
+    <Field label={S.props.roomWall} hint={S.props.roomWallHint}>
+      <Select
+        value={r.wall ?? AUTO}
+        onValueChange={(v) =>
+          act.editObj<Room>({ type: 'room', id: r.id }, (o) => {
+            if (v === AUTO || !isWallKind(v)) delete o.wall;
+            else o.wall = v;
+          })
+        }
+        options={[
+          { value: AUTO, label: S.props.roomWallAuto },
+          ...ROOM_WALL_KINDS.map((k) => ({ value: k, label: S.walls[k] })),
+          /* 原作的檔裡可能有選單沒列的種類（欄杆、圍籬）：照樣顯示 */
+          ...(r.wall && !ROOM_WALL_KINDS.includes(r.wall)
+            ? [{ value: r.wall, label: S.walls[r.wall] }]
+            : []),
+        ]}
+        data-testid="room-wall"
+      />
+    </Field>
+  );
+}
+
+const AUTO = 'auto';
+
+/** 這一層的設定：外觀層的「顯示內部」（F230；有兩層以上時才顯示） */
+function FloorFields() {
+  const p = useProject((s) => s.data);
+  const f = p.floors[p.active];
+  const others = p.floors.filter((o) => o !== f);
+  if (!f || !others.length) return null;
+  const inside = others.find((o) => o.id === f.inside) ?? others[0];
+  return (
+    <div className="flex flex-col gap-3 border-t border-border pt-3" data-testid="floor-fields">
+      <p className="m-0 text-xs font-semibold text-muted">{S.props.floorTitle(f.name)}</p>
+      <Field label={S.props.showInside} layout="inline" hint={S.props.showInsideHint}>
+        <Toggle checked={!!f.showInside} onCheckedChange={act.setShowInside} />
+      </Field>
+      {f.showInside ? (
+        <Field label={S.props.insideFloor}>
+          <Select
+            value={inside.id}
+            onValueChange={act.setInsideFloor}
+            options={others.map((o) => ({ value: o.id, label: o.name || '—' }))}
+            data-testid="inside-floor"
+          />
+        </Field>
+      ) : null}
+    </div>
   );
 }
 
@@ -347,6 +463,7 @@ function RoomProps({ r }: { r: Room }) {
       {flagToggle<Room>(ref, 'gm', S.props.gmOnly, !!r.gm)}
       {flagToggle<Room>(ref, 'hideLabel', S.props.hideLabel, !!r.hideLabel)}
       {flagToggle<Room>(ref, 'noWall', S.props.noWall, !!r.noWall)}
+      <RoomWallField r={r} />
       <Typing>
         <Field label={S.props.note}>
           <TextArea

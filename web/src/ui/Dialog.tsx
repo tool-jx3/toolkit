@@ -241,7 +241,7 @@ export interface ConfirmDialogProps extends ConfirmOptions {
   returnFocus?: HTMLElement | null;
 }
 
-/** 確認對話框（受控） */
+/** 確認對話框（受控）。取消鈕、Esc 取消；點對話框外面不會關閉（避免誤點就丟掉選擇） */
 export function ConfirmDialog({
   open,
   onOpenChange,
@@ -388,7 +388,7 @@ export interface ChoiceOptions<V extends string = string> {
   description?: ReactNode;
   /** 選項（由左到右；不含取消） */
   choices: readonly ChoiceOption<V>[];
-  /** 取消按鈕的文字（預設「取消」）；按取消、Esc、點外面都回傳 null */
+  /** 取消按鈕的文字（預設「取消」）；按取消、Esc 回傳 null（點對話框外面不會關閉，和 ConfirmDialog 相同） */
   cancelLabel?: string;
 }
 
@@ -498,7 +498,7 @@ export function ChoiceProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * 多選一確認（三選一以上），以 Promise 回傳選到的值；取消、Esc、點外面回傳 null：
+ * 多選一確認（三選一以上），以 Promise 回傳選到的值；按取消、Esc 回傳 null（點對話框外面不會關閉，和 useConfirm 相同）：
  * ```ts
  * const choose = useChoice();
  * const how = await choose({

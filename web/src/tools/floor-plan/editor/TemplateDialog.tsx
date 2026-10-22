@@ -1,16 +1,43 @@
 /**
  * 範本對話框：分類篩選、縮圖卡片（樓層數與說明）、空白地圖；載入選項「只載入格局」「放入隱藏線索」。
+ * 2026-10 第三批：搜尋欄（名稱或 `#標籤`，F235；共用 TemplateGallery 的 `search`）。
+ * 2026-10 第三批後半：13 類（一個範本可以在好幾類，分類按鈕換行）；範本變多，縮圖捲到看得到的地方才畫
+ * （畫好的留著），樓層數也只算一次（D55）。2026-10-22（7.18）：縮圖的觀察範圍指定成對話框的捲動區、
+ * 和素材面板的圖示共用同一套延遲載入（上下多 300 px 才真的有預先畫）。
  */
 import { Plus } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { Dialog, Field, TemplateGallery, type TemplateItem, Toggle } from '@/ui';
-import { renderImage } from '../draw/export';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Dialog,
+  Field,
+  TemplateGallery,
+  type TemplateItem,
+  type TemplateSearch,
+  Toggle,
+} from '@/ui';
+import { exportLayout, renderImage } from '../draw/export';
+import { composeFloors } from '../model/interior';
+import { matchesQuery, queryWords, type TagId, tagSuggestions } from '../model/tags';
 import { S } from '../strings';
-import { instantiateTemplate, TEMPLATE_GROUPS, TEMPLATES } from '../templates';
+import {
+  instantiateTemplate,
+  TEMPLATE_GROUPS,
+  TEMPLATES,
+  type TemplateGroupId,
+  templateGroups,
+} from '../templates';
+import { templateTags } from '../templates/tags';
 import { loadTemplate, newMap } from './actions';
+import { lazyDraw } from './lazyIcons';
 import { setEditor, useEditor } from './store';
 
 const thumbs = new Map<string, string>();
+
+/**
+ * 縮圖的長邊約 480 px（卡片約 140～170 px 寬，高解析度螢幕的兩倍再多一點）：每格 3～10 px。
+ * 原本固定每格 10 px，三層的範本會畫成 2000 px 寬的圖再縮小顯示，畫與轉 PNG 都慢（D55）。
+ */
+const THUMB_LONG_SIDE = 480;
 
 function thumbnail(id: string): string | null {
   const hit = thumbs.get(id);
@@ -18,9 +45,10 @@ function thumbnail(id: string): string | null {
   const floors = instantiateTemplate(id);
   if (!floors) return null;
   try {
-    const canvas = renderImage(floors, {
+    const composed = composeFloors(floors);
+    const opts = {
       theme: 'clean',
-      px: 10,
+      px: 1,
       showSize: 'none',
       hideNames: false,
       playerView: false,
@@ -28,7 +56,10 @@ function thumbnail(id: string): string | null {
       grid: false,
       transparent: false,
       margin: 1,
-    });
+    } as const;
+    const L = exportLayout(composed, opts);
+    const px = Math.min(10, Math.max(3, THUMB_LONG_SIDE / Math.max(L.width, (L.height * 4) / 3)));
+    const canvas = renderImage(composed, { ...opts, px });
     const url = canvas.toDataURL('image/png');
     thumbs.set(id, url);
     return url;
@@ -37,44 +68,88 @@ function thumbnail(id: string): string | null {
   }
 }
 
-const groupName = (id: string) => TEMPLATE_GROUPS.find((g) => g.id === id)?.name ?? '';
+const IMG_CLASS = 'max-h-full max-w-full object-contain';
+
+/**
+ * 範本的縮圖：看得到的地方（對話框捲動區上下多 300 px）才畫，畫過的直接用。
+ * 和素材面板的圖示共用 `lazyDraw`（lazyIcons.ts）：觀察範圍＝最近的捲動祖先（對話框的捲動區）、56 張共用一個觀察器、
+ * 看得到的先畫、預先畫的排隊接著畫；一張要畫幾十 ms，所以用 `paced`（一個 frame 只畫到時間上限）（D55、7.18）。
+ */
+function TemplateThumb({ id }: { id: string }) {
+  const [url, setUrl] = useState(() => thumbs.get(id) ?? null);
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    /* 以整張卡片（`li`）的位置算「上下 300 px」：縮圖只是卡片上半，卡片在畫面上方時縮圖離得更遠 */
+    const el = ref.current?.closest('li') ?? ref.current;
+    if (url || !el) return;
+    return lazyDraw(el, () => setUrl(thumbnail(id)), { paced: true });
+  }, [id, url]);
+  return url ? (
+    <img src={url} alt="" className={IMG_CLASS} />
+  ) : (
+    <span
+      ref={ref}
+      aria-hidden
+      className="flex size-full items-center justify-center bg-surface-2 text-xs text-muted"
+    >
+      …
+    </span>
+  );
+}
+
+/** 範本的樓層數（第一次用到時算一次） */
+const floorCounts = new Map<string, number>();
+const floorCount = (id: string, build: () => unknown[]): number => {
+  let n = floorCounts.get(id);
+  if (n === undefined) {
+    n = build().length;
+    floorCounts.set(id, n);
+  }
+  return n;
+};
+
+const groupName = (id: TemplateGroupId) => TEMPLATE_GROUPS.find((g) => g.id === id)?.name ?? '';
+
+/** 搜尋：名稱、說明、分類名稱或 `#標籤`（空白地圖只有名稱） */
+const searchText = (id: string): { text: string[]; tags: readonly TagId[] } => {
+  if (id === 'blank') return { text: [S.tpl.blank], tags: [] };
+  const t = TEMPLATES.find((x) => x.id === id);
+  return t
+    ? {
+        text: [t.name, t.description, ...templateGroups(t).map(groupName), t.id],
+        tags: templateTags(t.id),
+      }
+    : { text: [], tags: [] };
+};
+
+const GROUP_NAMES = TEMPLATE_GROUPS.map((g) => g.name);
+
+const USED_TAGS: ReadonlySet<TagId> = new Set(TEMPLATES.flatMap((t) => templateTags(t.id)));
+
+const SEARCH: TemplateSearch<string> = {
+  label: S.tpl.search,
+  placeholder: S.tpl.searchHint,
+  empty: S.tpl.noResult,
+  suggestLabel: S.lib.tagSuggest,
+  match: (t, q) => matchesQuery(searchText(t.data), queryWords(q)),
+  suggest: (q) => {
+    const s = tagSuggestions(q, USED_TAGS);
+    return s ? s.tags.map((t) => ({ label: `#${t.name}`, value: `${s.prefix}#${t.name} ` })) : [];
+  },
+};
 
 export function TemplateDialog() {
   const open = useEditor((s) => s.templatesOpen);
   const [structureOnly, setStructureOnly] = useState(false);
   const [clues, setClues] = useState(false);
-  const [ready, setReady] = useState(0);
-
-  /* 縮圖在打開之後才一張一張畫（不卡住開對話框） */
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    let i = 0;
-    const step = () => {
-      if (cancelled || i >= TEMPLATES.length) return;
-      thumbnail(TEMPLATES[i].id);
-      i++;
-      setReady(i);
-      setTimeout(step, 0);
-    };
-    setTimeout(step, 0);
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
-
   const items = useMemo<TemplateItem<string>[]>(() => {
-    void ready;
+    if (!open) return [];
     const list: TemplateItem<string>[] = TEMPLATES.map((t) => ({
       id: t.id,
       name: t.name,
-      description: `${S.tpl.floors(t.build().length)}・${t.description}`,
-      thumbnail: thumbs.get(t.id) ?? (
-        <span className="flex size-full items-center justify-center bg-surface-2 text-xs text-muted">
-          …
-        </span>
-      ),
-      tags: [groupName(t.group)],
+      description: `${S.tpl.floors(floorCount(t.id, t.build))}・${t.description}`,
+      thumbnail: <TemplateThumb id={t.id} />,
+      tags: templateGroups(t).map(groupName),
       data: t.id,
     }));
     /* 空白地圖在每個分類（含「全部」）都是最後一張 */
@@ -87,11 +162,11 @@ export function TemplateDialog() {
           <Plus aria-hidden className="size-8" />
         </span>
       ),
-      tags: TEMPLATE_GROUPS.map((g) => g.name),
+      tags: GROUP_NAMES,
       data: 'blank',
     });
     return list;
-  }, [ready]);
+  }, [open]);
 
   return (
     <Dialog
@@ -113,6 +188,9 @@ export function TemplateDialog() {
         <TemplateGallery
           aria-label={S.tpl.gallery}
           templates={items}
+          search={SEARCH}
+          wrapFilter
+          tagOrder={GROUP_NAMES}
           confirm={false}
           onApply={(t) => {
             if (t.data === 'blank') newMap();

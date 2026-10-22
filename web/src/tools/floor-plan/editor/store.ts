@@ -12,6 +12,7 @@ import { isAsset } from '../model/assets';
 import type { RoomPresetId } from '../model/catalog';
 import type { CompatReport } from '../model/compat';
 import type { ExportSettings } from '../model/exportPlan';
+import { composedFloor, ownFloor } from '../model/interior';
 import { normalizeProject } from '../model/normalize';
 import type { ShareMode } from '../model/share';
 import type { OpeningKind, Project, SelRef, WallKind } from '../model/types';
@@ -19,10 +20,13 @@ import { getTemplate, instantiateTemplate } from '../templates';
 
 export const TOOL_ID = 'floor-plan';
 /**
- * 存檔格式版本。2：文字多了圓標（`badge`，2026-10）。版本 1 的存檔與專案檔不必轉換（少了 badge 就是一般文字），
- * 讀進來一律經過 normalizeProject。
+ * 存檔格式版本。2：文字多了圓標（`badge`，2026-10）。3：地圖多了棋子方格（`tokenGrid`、`tokenGridColor`、
+ * `tokenGridOpacity`，2026-10 第一批）。4：新的房間、門窗、牆種類，房間的牆種類（`rooms[].wall`），
+ * 外觀層的「顯示內部」（`floors[].showInside`、`inside`）（2026-10 第二批）。5：新的家具 238 種
+ * （`items[].t` 的代號，2026-10 第三批；欄位不變）。
+ * 舊版本的存檔與專案檔不必轉換（少了欄位就是沒有圓標、沒有方格、牆照規則、不顯示內部），讀進來一律經過 normalizeProject。
  */
-export const DATA_VERSION = 2;
+export const DATA_VERSION = 5;
 
 /** 開頁第一次（沒有存檔）時的地圖：第一個範本 */
 export function starterProject(): Project {
@@ -104,7 +108,7 @@ export const useProject = createToolStore<Project>(TOOL_ID, starterProject(), {
   historyLimit: 120,
   coalesceMs: 0,
   storage: projectStorage,
-  /* 版本 1 → 2：欄位只多不少，整理一次就好 */
+  /* 版本 1 → 2 → 3 → 4 → 5：欄位只多不少，整理一次就好 */
   migrate: (persisted) => normalizeProject(persisted, isAsset) ?? starterProject(),
 });
 
@@ -211,3 +215,10 @@ export const currentFloor = () => {
   const p = useProject.getState().data;
   return p.floors[p.active] ?? p.floors[0];
 };
+
+/**
+ * 外觀層打開「顯示內部」時（F230）：畫的是疊好的樓層（drawnFloor），點得到、選得到、能編號的只有外觀層自己留下來的東西（editableFloor）。
+ * 沒有打開時兩個都是 currentFloor()。
+ */
+export const drawnFloor = () => composedFloor(currentFloor(), useProject.getState().data.floors);
+export const editableFloor = () => ownFloor(currentFloor(), useProject.getState().data.floors);

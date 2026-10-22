@@ -1,6 +1,8 @@
 /**
  * 讀原作新版的地圖檔之後：通知上的「詳細」與「匯入時的調整」對話框（規格 F213、D25）。
  * 逐項列出換成相近種類的東西（原作的名稱與代號 → 本工具的種類、個數）與略過的家具、門窗、設定。
+ * 2026-10 第二批起原作的房間、門窗、牆種類都照讀，第三批起家具（含疊在牆上的牆洞、崩塌）也都照讀，
+ * 換掉或略過的只剩將來的版本才有的代號。
  */
 import type { ReactNode } from 'react';
 import { Dialog } from '@/ui';
@@ -32,12 +34,11 @@ export function importNotice(summary: string): ReactNode {
 
 const C = S.compat;
 
-/** 對話框裡的順序：房間、門窗、牆、疊在牆上的素材（同一類照檔案裡出現的順序） */
+/** 對話框裡的順序：房間、門窗、牆（同一類照檔案裡出現的順序） */
 const TYPE_ORDER: Record<CompatEntry['type'], number> = {
   room: 0,
   opening: 1,
   wall: 2,
-  overlay: 3,
 };
 
 function fromName(e: CompatEntry): string {
@@ -97,14 +98,6 @@ function Rows({ report }: { report: CompatReport }) {
     );
   if (report.roomWalls)
     dropped.push(<Row key="walls" label={C.roomWalls} count={C.count(report.roomWalls, '間')} />);
-  if (report.insideFloors)
-    dropped.push(
-      <Row key="inside" label={C.insideFloors} count={C.count(report.insideFloors, '層')} />,
-    );
-  if (report.tokenGrid > 0)
-    dropped.push(
-      <Row key="token" label={C.tokenGrid(report.tokenGrid / 2)} count={C.count(1, '項')} />,
-    );
   return (
     <div className="flex flex-col gap-4 text-sm">
       {report.converted.length ? (
