@@ -311,7 +311,7 @@ export function diner(): TplFloor[] {
     .item('freezer', 13.2, 6.2, 90, { gm: true })
     .item('body', 11, 7.6, 0, { gm: true, size: [1.6, 3.6] });
   /* 停車場、後巷 */
-  b.row('parking_stall', 1, 31, 7, 5.4, 0, { size: [5, 9] })
+  b.row('parking_stall', 1, 30.6, 7, 5.4, 0, 0, { size: [5, 9] })
     .item('car', 2, 31.2)
     .item('suv', 12.8, 30.8)
     .item('streetlight', 38.4, 28)

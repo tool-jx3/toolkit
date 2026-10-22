@@ -17,6 +17,7 @@ import { asylum, hospitalAnnex, lab } from './research';
 import { clubBuilding, funeralHome, museum } from './civic';
 import { detective, konbini, nightMarket, office, shoppingStreet } from './commerce';
 import { karaoke, theatre } from './leisure';
+import { ferry, parking, station, subway } from './transport';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
@@ -565,6 +566,62 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '櫃台大廳', 'papers', '包廂的登記表'),
       C('1F', '包廂 3', 'phone', '卡在沙發縫裡的手機'),
       C('1F', '包廂 6', 'memo', '點歌單上沒聽過的歌名'),
+    ],
+  },
+  {
+    id: 'station',
+    group: 'transport',
+    name: '地方車站',
+    description:
+      '鄉下的小站：站房（售票處、候車室、站長室、遺失物保管室）、側式月台與島式月台、兩條鐵軌；B1 的地下道連到兩座月台，砌起來的舊通道是 GM 專用。',
+    build: station,
+    clues: [
+      C('1F', '候車室', 'memo', '時刻表上手寫的班次'),
+      C('1F', '站長室', 'diary', '站長的值勤日誌'),
+      C('1F', '遺失物保管室', 'bag', '十年前的遺失物'),
+      C('B1', '地下道', 'photo', '貼在牆上的尋人海報'),
+    ],
+  },
+  {
+    id: 'subway',
+    group: 'transport',
+    name: '地下鐵車站',
+    description:
+      '1F 出入口與電梯亭，B1 大廳（售票機、驗票閘門、站務室、置物櫃），B2 有月台門的島式月台；封閉門後的廢棄月台是 GM 專用。樓梯與電梯上下對齊。',
+    build: subway,
+    clues: [
+      C('1F', '1 號出入口', 'papers', '被撕掉一角的路線圖'),
+      C('B1', '大廳', 'memo', '貼在售票機上的警告'),
+      C('B1', '置物櫃區', 'key', '置物櫃的鑰匙'),
+      C('B2', '島式月台', 'photo', '監視器拍到的末班車'),
+    ],
+  },
+  {
+    id: 'parking',
+    group: 'transport',
+    also: ['commerce'],
+    name: '地下停車場',
+    description:
+      '商場底下的兩層停車場：1F 坡道入口與管理亭，B1、B2 停車區與坡道，B2 有機房，圍籬封起來的一角是 GM 專用。樓梯與電梯三層對齊。',
+    build: parking,
+    clues: [
+      C('1F', '管理亭', 'diary', '管理員的巡邏紀錄'),
+      C('B1', '停車區 B1', 'phone', '掉在車底的手機'),
+      C('B2', '停車區 B2', 'key', '找不到車的車鑰匙'),
+    ],
+  },
+  {
+    id: 'ferry',
+    group: 'transport',
+    name: '渡輪',
+    description:
+      '離島航線的小渡輪：1F 客艙、小賣部與船員室，2F 上甲板（救生艇）、船長室與駕駛艙，B1 機艙與貨艙；貨艙隔板後的密艙是 GM 專用。樓梯三層對齊。',
+    build: ferry,
+    clues: [
+      C('1F', '客艙大廳', 'memo', '塞在座位背面的紙條'),
+      C('1F', '小賣部', 'photo', '收銀機旁的舊照片'),
+      C('2F', '駕駛艙', 'diary', '航海日誌的最後一頁'),
+      C('B1', '貨艙', 'key', '沒登記的貨櫃鑰匙'),
     ],
   },
   {

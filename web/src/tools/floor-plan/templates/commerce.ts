@@ -176,7 +176,7 @@ export function konbini(): TplFloor[] {
     .item('toilet', 22.4, 13.8, 90)
     .item('washbasin', 21.4, 8.1, 0, { size: [1.4, 1] });
   /* 停車場、後巷 */
-  b.row('parking_stall', 1, 18, 5, 5.6, 0, { size: [5, 8] })
+  b.row('parking_stall', 1, 18, 5, 5.6, 0, 0, { size: [5, 8] })
     .item('suv', 7, 17.4)
     .item('streetlight', 27.4, 23.8)
     .item('drum', 26, 0.6)
