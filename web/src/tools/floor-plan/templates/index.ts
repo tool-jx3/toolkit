@@ -14,6 +14,7 @@ import { lodge, mansion, studio, townhouse } from './homes';
 import { apartment, house, japaneseHouse, sanheyuan } from './living';
 import { diner, ryokan, speakeasy } from './lodging';
 import { asylum, hospitalAnnex, lab } from './research';
+import { clubBuilding, funeralHome, museum } from './civic';
 import { library, police, school, temple } from './public';
 import { cave, cult } from './wild';
 
@@ -419,6 +420,51 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '大廳・服務台', 'diary', '借閱紀錄上重複出現的名字'),
       C('B1', '古籍室', 'key', '刻著「禁」字的鑰匙'),
       C('B1', '修復室', 'photo', '修復到一半的古地圖'),
+    ],
+  },
+  {
+    id: 'club-building',
+    group: 'public',
+    also: ['leisure'],
+    name: '大學社團大樓',
+    description:
+      '中走廊兩側排滿社辦的兩層樓：攝影社（暗房）、吉他社、推理研究社、神祕學研究會、電影社…；2F 鎖著的廢社社辦是 GM 專用。',
+    build: clubBuilding,
+    clues: [
+      C('1F', '攝影社', 'photo', '多拍到一個人的社員合照'),
+      C('1F', '推理研究社', 'memo', '社團日誌上空白的那一週'),
+      C('2F', '神祕學研究會', 'diary', '社員輪流寫的觀察筆記'),
+      C('2F', '社團聯合辦公室', 'key', '廢社社辦的鑰匙'),
+    ],
+  },
+  {
+    id: 'museum',
+    group: 'public',
+    also: ['leisure'],
+    name: '博物館',
+    description:
+      '1F 有恐龍骨架的常設展示室、特展室、大廳、館長室與修復室；B1 收藏庫、燻蒸室與機房，貨架後面是 GM 專用的未登錄品庫。樓梯與貨梯上下對齊。',
+    build: museum,
+    clues: [
+      C('1F', '常設展示室', 'photo', '說明牌底下的舊照片'),
+      C('1F', '特展室', 'memo', '少了一件展品的清單'),
+      C('1F', '館長室', 'diary', '館長的出差紀錄'),
+      C('B1', '收藏庫', 'key', '沒有編號的收藏櫃鑰匙'),
+    ],
+  },
+  {
+    id: 'funeral-home',
+    group: 'public',
+    also: ['sacred'],
+    name: '殯儀館',
+    description:
+      '告別式場、靈堂、遺體化妝室與冷藏室，前面是大廳與家屬休息室；說是不用了的舊停柩室是 GM 專用。',
+    build: funeralHome,
+    clues: [
+      C('1F', '告別式場', 'photo', '遺照上多出來的人影'),
+      C('1F', '家屬休息室', 'memo', '寫給死者的信'),
+      C('1F', '辦公室', 'diary', '排班表上不存在的同事'),
+      C('1F', '大廳・接待', 'papers', '簽到簿上陌生的簽名'),
     ],
   },
   {
