@@ -20,7 +20,8 @@ const gmNames = (floors: Floor[]) =>
  * （公寓鎖著的 B 戶整戶、研究所的 B2 整層、拼起來的洞室與地道是好幾塊）。
  */
 const BUILT_IN: Record<string, string[]> = {
-  mansion: ['B1/密室'],
+  /* 2026-10-22 依 7.18 重新設計：食品庫的暗門後面的祕密通道與地下祭室 */
+  mansion: ['B1/地下祭室', 'B1/祕密通道'],
   library: ['B1/禁書庫'],
   /* 不規則的洞室由好幾塊長方形拼成：封印之間 3 塊 */
   cave: ['洞窟/封印之間', '洞窟/封印之間', '洞窟/封印之間'],
@@ -71,22 +72,25 @@ const BUILT_IN: Record<string, string[]> = {
   sewer: ['B1/祭壇空洞'],
   'military-base': ['B1/封鎖的實驗區'],
   prison: ['1F/獨居房'],
-  shrine: ['1F/禁足地'],
+  shrine: ['1F/岩屋', '1F/岩屋'],
   church: ['B1/封印的納骨堂'],
-  castle: ['B1/拷問室'],
+  castle: ['B1/地下水道', 'B1/密道', 'B1/祕密碼頭'],
   campsite: ['1F/廢屋'],
   mine: ['B1/最深處', 'B1/最深處', 'B1/最深處'],
   'abandoned-factory': ['2F/密封儲藏室'],
   'abandoned-school': ['1F/準備室'],
-  dungeon: ['B1/魔王之間'],
-  spaceship: ['1F/封鎖區'],
+  dungeon: ['B1/玄室'],
+  spaceship: ['1F/第 7 實驗艙'],
   tavern: ['2F/密室'],
   'wizard-tower': ['3F/召喚室'],
 };
 
-/** 預設 GM 專用的房間（第一批的 8 個範本 14 間＋第三批後半的新範本 54 間） */
+/**
+ * 預設 GM 專用的房間（第一批的 8 個範本 15 間＋第三批後半的新範本 56 間；2026-10-22 依 7.18 重新設計的
+ * 洋館、神社、古城、太空船照新的格局重選）
+ */
 const DEFAULTS: Record<string, string[]> = {
-  mansion: ['1F/傭人房', 'B1/鍋爐室'],
+  mansion: ['1F/管家室', '2F/女僕房', 'B1/機房'],
   hotel: ['1F/廚房'],
   hospital: ['2F/器材室'],
   police: ['1F/備勤室', '1F/槍械室'],
@@ -119,11 +123,11 @@ const DEFAULTS: Record<string, string[]> = {
   warehouse: ['1F/守衛亭'],
   'military-base': ['1F/彈藥庫'],
   prison: ['1F/監控室'],
-  shrine: ['1F/本殿'],
+  shrine: ['1F/內陣', '1F/宮司宅'],
   church: ['1F/臥室'],
-  castle: ['1F/領主的居室'],
+  castle: ['2F/城主寢室', 'B1/衛兵室'],
   'abandoned-factory': ['1F/鍋爐室'],
-  spaceship: ['1F/動力爐室', '1F/艦長室'],
+  spaceship: ['1F/主機艙', '1F/指揮官寢室'],
   tavern: ['1F/廚房', '2F/老闆的房間'],
   'wizard-tower': ['2F/寢室'],
 };
@@ -230,16 +234,16 @@ describe('範本的預設 GM 專用房間（F225、D37）', () => {
     }
   });
 
-  it('共 68 間、40 個範本（第一批 14 間、8 個範本＋第三批後半 54 間、32 個範本）', () => {
+  it('共 71 間、40 個範本（第一批 15 間、8 個範本＋第三批後半 56 間、32 個範本）', () => {
     const n = Object.values(DEFAULTS).reduce((s, a) => s + a.length, 0);
-    expect(n).toBe(68);
+    expect(n).toBe(71);
     expect(Object.keys(GM_DEFAULT_ROOMS).sort()).toEqual(Object.keys(DEFAULTS).sort());
     expect(
       Object.values(GM_DEFAULT_ROOMS).reduce(
         (s, byFloor) => s + Object.values(byFloor).reduce((t, a) => t + a.length, 0),
         0,
       ),
-    ).toBe(68);
+    ).toBe(71);
     /* 第三批後半：新範本每個都有 GM 專用的房間（寫死的密室或預設的後台） */
     for (const t of TEMPLATES) {
       if (
