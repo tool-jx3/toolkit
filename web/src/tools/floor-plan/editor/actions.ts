@@ -580,6 +580,18 @@ export function switchFloor(index: number): void {
   useProject.temporal.getState().resume();
 }
 
+/**
+ * 「顯示內部」沒寫 `inside`（或找不到）時疊的是「第一個別的樓層」：樓層的順序要變（左右移動、複製的複本插在前面）之前，
+ * 先把實際疊著的那一層寫成 `inside`，順序變了也疊同一層，不突然換成疊別的樓層（F230、D41）。
+ * `inside` 本來就對的、沒打開的外觀層不動。
+ */
+function pinInside(p: Project): void {
+  for (const f of p.floors) {
+    const target = interiorFloor(f, p.floors);
+    if (target && f.inside !== target.id) f.inside = target.id;
+  }
+}
+
 export function addFloor(): void {
   update((p) => {
     p.floors.push({
@@ -598,6 +610,7 @@ export function addFloor(): void {
 
 export function duplicateFloor(): void {
   update((p) => {
+    pinInside(p);
     const copy = cloneFloor(cur(p), nextFloorName(p.floors));
     p.floors.splice(p.active + 1, 0, copy);
     p.active += 1;
@@ -663,6 +676,7 @@ export function moveFloor(delta: number): void {
   const j = i + delta;
   if (j < 0 || j >= p.floors.length) return;
   update((d) => {
+    pinInside(d);
     [d.floors[i], d.floors[j]] = [d.floors[j], d.floors[i]];
     d.active = j;
   });

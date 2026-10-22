@@ -282,3 +282,109 @@ describe('刪除樓層：「顯示內部」實際疊的那一層被刪掉就關�
     expect(site().showInside).toBe(true);
   });
 });
+
+describe('左右移動、複製樓層：沒有 inside 的「顯示內部」仍疊同一層（F230、D41、7.13）', () => {
+  beforeEach(() => bind());
+
+  const select = (index: number) => {
+    useProject.getState().update((p) => {
+      p.active = index;
+    });
+    useProject.temporal.getState().clear();
+  };
+  /** 外觀層疊的是哪一層 */
+  const overlaid = () => interiorFloor(site(), data().floors)?.name;
+  /** 敷地、1F、2F（敷地打開、沒有 inside，疊的是第一個別的樓層＝1F） */
+  const siteFirst = () => {
+    const p = threeFloors();
+    p.floors = [p.floors[1], p.floors[0], p.floors[2]];
+    return p;
+  };
+
+  it('移動別的樓層讓第一個別的樓層換人（2F 往左移到 1F 前面）：先寫下 inside，仍然疊 1F', () => {
+    load(siteFirst());
+    expect(overlaid()).toBe('1F');
+    select(2);
+    act.moveFloor(-1);
+    expect(names()).toEqual(['敷地', '2F', '1F']);
+    expect(site().showInside).toBe(true);
+    expect(site().inside).toBe('f0');
+    expect(overlaid()).toBe('1F');
+    expect(steps()).toBe(1);
+  });
+
+  it('一步復原：順序與 inside 一起回來', () => {
+    load(siteFirst());
+    select(2);
+    act.moveFloor(-1);
+    act.undo();
+    expect(names()).toEqual(['敷地', '1F', '2F']);
+    expect(site().inside).toBeUndefined();
+    expect(overlaid()).toBe('1F');
+  });
+
+  it('inside 找不到（壞掉的）時也寫成實際疊著的那一層', () => {
+    const p = siteFirst();
+    p.floors[0].inside = 'gone';
+    load(p);
+    select(2);
+    act.moveFloor(-1);
+    expect(site().inside).toBe('f0');
+    expect(overlaid()).toBe('1F');
+  });
+
+  it('移動外觀層自己、沒打開開關的樓層、inside 本來就對的樓層：不亂改 inside', () => {
+    load(siteFirst());
+    select(0);
+    act.moveFloor(1);
+    expect(names()).toEqual(['1F', '敷地', '2F']);
+    expect(overlaid()).toBe('1F');
+    const p = siteFirst();
+    delete p.floors[0].showInside;
+    load(p);
+    select(2);
+    act.moveFloor(-1);
+    expect(site().inside).toBeUndefined();
+    expect(site().showInside).toBeUndefined();
+    const q = siteFirst();
+    q.floors[0].inside = 'f2';
+    load(q);
+    select(2);
+    act.moveFloor(-1);
+    expect(site().inside).toBe('f2');
+    expect(overlaid()).toBe('2F');
+  });
+
+  it('移到最邊邊再往外移：什麼都不變、不記復原', () => {
+    load(siteFirst());
+    select(0);
+    act.moveFloor(-1);
+    expect(names()).toEqual(['敷地', '1F', '2F']);
+    expect(site().inside).toBeUndefined();
+    expect(steps()).toBe(0);
+  });
+
+  it('複製外觀層自己（複本插在後面）：原本的外觀層仍疊 1F，不改疊自己的複本', () => {
+    load(siteFirst());
+    select(0);
+    act.duplicateFloor();
+    expect(data().floors).toHaveLength(4);
+    expect(data().floors[1].name).not.toBe('1F');
+    expect(overlaid()).toBe('1F');
+    expect(interiorFloor(data().floors[1], data().floors)?.name).toBe('1F');
+  });
+
+  it('複製別的樓層：疊的照舊是 1F（inside 寫成實際疊著的那一層，效果相同）；沒打開開關的外觀層不多寫 inside', () => {
+    load(siteFirst());
+    select(1);
+    act.duplicateFloor();
+    expect(overlaid()).toBe('1F');
+    expect(site().inside).toBe('f0');
+    const p = siteFirst();
+    delete p.floors[0].showInside;
+    load(p);
+    select(0);
+    act.duplicateFloor();
+    expect(data().floors.every((f) => f.inside === undefined)).toBe(true);
+  });
+});
