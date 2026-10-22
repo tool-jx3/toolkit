@@ -77,8 +77,14 @@ export function openingReach(o: Pick<Opening, 'kind' | 'len'>): number {
     case 'locked':
     case 'broken':
     case 'secret':
+    case 'steel':
+    case 'firedoor':
+    case 'gate':
       return o.len;
     case 'door2':
+    case 'big2':
+    /* 旋轉門：直徑＝寬度的圓（2026-10 第二批） */
+    case 'revolve':
       return o.len / 2;
     case 'auto':
       return o.len * 0.35;
@@ -192,7 +198,7 @@ export function withoutClues<F extends ShownFloor>(floor: F): F {
 /**
  * 看得到的樓層：
  * - `hideClues`：拿掉隱藏線索（與 GM／PL 檢視分開切換）。
- * - `playerView`（PL 檢視）：GM 專用的房間只留牆框、名字拿掉（masked，裡面蓋灰）；房間裡的家具、文字、手畫的牆、
+ * - `playerView`（PL 檢視）：GM 專用的房間只留牆框（位置、種類、不產生牆、牆種類）、名字拿掉（masked，裡面蓋灰）；房間裡的家具、文字、手畫的牆、
  *   巢狀的房間、內側的門窗都拿掉（房間邊上的門窗留著）；其他 GM 專用的東西與暗門也拿掉。
  */
 export function visibleFloor(floor: Floor, playerView: boolean, hideClues = false): ShownFloor {
@@ -201,6 +207,7 @@ export function visibleFloor(floor: Floor, playerView: boolean, hideClues = fals
   const hidden = f.rooms.filter((r) => r.gm);
   const inside = (x: number, y: number) =>
     hidden.some((r) => x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h);
+  /* 牆框照 GM 檢視：種類、不產生牆、房間的牆種類（2026-10 第二批）都留著，牆才不會變 */
   const masked = (r: Room): ShownRoom => ({
     id: r.id,
     x: r.x,
@@ -209,6 +216,7 @@ export function visibleFloor(floor: Floor, playerView: boolean, hideClues = fals
     h: r.h,
     cat: r.cat,
     noWall: r.noWall,
+    ...(r.wall ? { wall: r.wall } : {}),
     name: '',
     masked: true,
   });

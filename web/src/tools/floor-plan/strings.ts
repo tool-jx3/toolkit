@@ -82,6 +82,8 @@ export const S = {
     facility: '設施',
     special: '特殊・戶外',
     world: '和風・科幻・自然',
+    build: '石造・工廠・建物',
+    transit: '交通・工地・戶外地面',
   } satisfies Record<RoomPresetGroupId, string>,
 
   presets: {
@@ -122,6 +124,20 @@ export const S = {
     cave: '洞窟',
     water: '池塘・河川',
     field: '田地',
+    engawa: '緣側',
+    studio: '錄音室',
+    stoneHall: '石造大廳',
+    factory: '廠房',
+    grating: '格柵平台',
+    building: '建物（外觀）',
+    platform: '月台',
+    track: '鐵軌',
+    road: '道路',
+    rooftop: '屋頂平台',
+    slab: '施工樓板',
+    yard: '泥土空地',
+    karesansui: '枯山水',
+    shipDeck: '甲板',
   } satisfies Record<RoomPresetId, string>,
 
   categories: {
@@ -146,6 +162,20 @@ export const S = {
     field: '田地（戶外）',
     water: '水邊・池塘・河川（戶外）',
     cave: '洞窟・岩地（戶外）',
+    engawa: '緣側・廣緣（和風走廊）',
+    studio: '隔音室・錄音室',
+    stone: '石造（城堡・地城）',
+    roof: '建物外觀（屋頂）',
+    industrial: '工廠・水泥地',
+    grate: '格柵・鐵板地面',
+    platform: '車站月台（戶外）',
+    track: '鐵軌・軌道（戶外）',
+    road: '道路・車道（戶外）',
+    rooftop: '屋頂平台（戶外）',
+    slab: '施工中的樓板（戶外）',
+    dirt: '泥土・碎石地（戶外）',
+    gravel: '枯山水・白砂（戶外）',
+    shipdeck: '甲板（戶外）',
   } satisfies Record<RoomCategory, string>,
 
   openings: {
@@ -166,6 +196,13 @@ export const S = {
     barred: '鐵窗',
     boarded: '釘上木板的窗',
     brokenwin: '破掉的窗',
+    steel: '鐵門',
+    firedoor: '防火門',
+    gate: '格柵門・鐵柵門',
+    big2: '大型雙開門',
+    revolve: '旋轉門',
+    sealed: '封印的門',
+    platewin: '鐵板封住的窗',
   } satisfies Record<OpeningKind, string>,
 
   walls: {
@@ -178,6 +215,9 @@ export const S = {
     bars: '鐵欄杆',
     broken: '崩塌的牆',
     rock: '岩壁',
+    stone: '石牆（城堡・地城）',
+    sound: '隔音牆',
+    cracked: '有裂痕的牆',
   } satisfies Record<WallKind, string>,
 
   themes: {
@@ -248,6 +288,17 @@ export const S = {
     clue: '隱藏線索（可以用「隱藏線索」開關藏起來）',
     hideLabel: '不顯示名字',
     noWall: '不產生牆（例如客餐廳的分區）',
+    /** 房間的牆種類（F228） */
+    roomWall: '這間房的牆',
+    roomWallAuto: '自動（外牆・內牆）',
+    roomWallHint: '外圍的牆改成這個種類；和隔壁的房間都有設時，用比較厚的那一種。',
+    roomWallOutdoor: '戶外的房間沒有自己的牆（外圍照種類：欄杆、岩壁或沒有牆）。',
+    /** 外觀層的「顯示內部」（F230） */
+    floorTitle: (name: string) => `這一層（${name}）`,
+    showInside: '顯示內部（拿掉屋頂）',
+    showInsideHint:
+      '把這一層的「建物外觀（屋頂）」房間拿掉，選的樓層的房間、門窗與家具疊在同樣的位置（匯出的圖也一樣）。疊上來的東西要到那一層編輯。',
+    insideFloor: '疊上來的樓層',
     note: 'GM 筆記',
     notePh: '線索、檢定、事件…（不會畫進圖片）',
     lockedNote: '鎖定中：不能移動、改大小、旋轉或刪除。房間裡的家具與門照常可以編輯。',
@@ -456,7 +507,7 @@ export const S = {
     withContents: '連裡面的東西一起刪',
   },
 
-  /** 讀原作新版（v1.05～v1.13）的地圖檔：換成相近的種類、略過的東西（規格 F213、D25） */
+  /** 讀原作新版（v1.05～v1.14）的地圖檔：換成相近的種類、略過的東西（規格 F213、D25） */
   compat: {
     /** 通知的說明（只列有的項目） */
     summary: (c: CompatCounts) =>
@@ -474,43 +525,16 @@ export const S = {
     /** 從分享連結打開時（7.7） */
     titleLink: '打開連結時的調整',
     introLink:
-      '分享連結裡有本工具沒有的房間、門窗、牆種類，換成了最接近的種類（之後可以在屬性面板改）；本工具沒有的家具與設定略過了。連結被改過，或是用較新版本的工具做的，都可能有這些東西。',
+      '分享連結裡有本工具沒有的家具或不認得的種類：疊在牆上的牆洞、崩塌換成了牆上的破洞，不認得的房間、牆種類換成了預設的種類（之後可以在屬性面板改），本工具沒有的家具與設定略過了。連結被改過，或是用較新版本的工具做的，都可能有這些東西。',
     intro:
-      '本工具沒有的房間、門窗、牆種類換成了最接近的種類（之後可以在屬性面板改）；本工具沒有的家具與設定略過了。原作（TRPG 室內圖メーカー）較新的版本存的地圖檔會有這些東西。',
+      '原作（TRPG 室內圖メーカー）較新的版本存的地圖檔有本工具沒有的家具：疊在牆上的牆洞、崩塌換成了牆上的破洞，其他的略過了；不認得的房間、牆種類換成了預設的種類（之後可以在屬性面板改）。',
     convertedHead: '換成相近的種類',
     droppedHead: '略過',
-    /** 原作的種類（名稱是本站的說法；不認得的代號寫「不認得的種類」） */
+    /** 原作的種類（名稱是本站的說法；不認得的代號寫「不認得的種類」）。房間、門窗、牆 2026-10 第二批起都照讀，只剩將來的版本才有的代號 */
     names: {
-      room: {
-        engawa: '緣側・廣緣',
-        studio: '隔音室・錄音室',
-        stone: '石造（城堡・地城）',
-        roof: '建築物（屋頂）',
-        industrial: '工廠・水泥地',
-        grate: '鐵板・格柵地板',
-        platform: '車站月台',
-        track: '鐵軌・軌道',
-        road: '道路・車道',
-        slab: '施工中的樓板',
-        dirt: '泥土・碎石（戶外）',
-        gravel: '白砂・枯山水',
-        rooftop: '屋頂平台',
-        shipdeck: '甲板（戶外）',
-      },
-      opening: {
-        steel: '鐵門',
-        firedoor: '防火門',
-        gate: '格柵門',
-        big2: '大型雙開門',
-        revolve: '旋轉門',
-        sealed: '封印的門',
-        platewin: '鐵板封住的窗',
-      },
-      wall: {
-        stone: '石牆（城堡・地城）',
-        sound: '隔音牆',
-        cracked: '有裂痕的牆',
-      },
+      room: {},
+      opening: {},
+      wall: {},
       overlay: {
         wall_hole: '疊在牆上的牆洞',
         collapse_wall: '疊在牆上的崩塌',
@@ -527,8 +551,7 @@ export const S = {
     /** 略過的代號（太多時只列前面的） */
     codes: (list: string, total: number, shown: number) =>
       total > shown ? `${list}…等 ${total} 種` : list,
-    roomWalls: '每間房的牆種類（牆照本工具的規則產生）',
-    insideFloors: '外觀樓層的「顯示內部」',
+    roomWalls: '每間房的牆種類（不認得的種類，改回自動）',
     count: (n: number, unit: string) => `${n} ${unit}`,
   },
 

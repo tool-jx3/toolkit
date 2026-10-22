@@ -27,7 +27,24 @@ export type RoomCategory =
   | 'tech'
   | 'field'
   | 'water'
-  | 'cave';
+  | 'cave'
+  /* 2026-10 第二批（原作 v1.05）：室內 */
+  | 'engawa'
+  | 'studio'
+  | 'stone'
+  | 'roof'
+  /* 2026-10 第二批（原作 v1.06）：室內 */
+  | 'industrial'
+  | 'grate'
+  /* 2026-10 第二批（原作 v1.06）：戶外 */
+  | 'platform'
+  | 'track'
+  | 'road'
+  | 'rooftop'
+  | 'slab'
+  | 'dirt'
+  | 'gravel'
+  | 'shipdeck';
 
 /** 門窗種類 */
 export type OpeningKind =
@@ -47,9 +64,20 @@ export type OpeningKind =
   | 'window2'
   | 'barred'
   | 'boarded'
-  | 'brokenwin';
+  | 'brokenwin'
+  /* 2026-10 第二批（原作 v1.06） */
+  | 'steel'
+  | 'firedoor'
+  | 'gate'
+  | 'big2'
+  | 'sealed'
+  /* 2026-10 第二批（原作 v1.10） */
+  | 'revolve'
+  | 'platewin';
 
-/** 牆的種類（自動牆只會用到 ext、int、rail、rock；其他是手畫的牆） */
+/**
+ * 牆的種類。自動牆依房間產生 ext、int、rail、rock，或房間設的牆種類（`Room.wall`，2026-10 第二批）；其他是手畫的牆。
+ */
 export type WallKind =
   | 'ext'
   | 'int'
@@ -59,7 +87,11 @@ export type WallKind =
   | 'fence'
   | 'bars'
   | 'broken'
-  | 'rock';
+  | 'rock'
+  /* 2026-10 第二批（原作 v1.05、v1.10） */
+  | 'stone'
+  | 'sound'
+  | 'cracked';
 
 export type ThemeId = 'clean' | 'mono' | 'blueprint' | 'paper' | 'horror';
 
@@ -91,6 +123,11 @@ export interface Room {
   /** 名字的位移（格） */
   lx?: number;
   ly?: number;
+  /**
+   * 這間房外圍的自動牆的種類（沒有＝依規則的外牆／內牆；2026-10 第二批，原作 v1.05 的 `wall`）。
+   * 相鄰的兩間都有設時取比較厚的；戶外房間沒有作用（walls.ts）。
+   */
+  wall?: WallKind;
 }
 
 /** 手畫的牆（線段） */
@@ -163,6 +200,13 @@ export interface Floor {
   openings: Opening[];
   items: Item[];
   texts: TextLabel[];
+  /**
+   * 外觀層的「顯示內部」（2026-10 第二批，原作 v1.12）：拿掉這一層的屋頂，把 `inside` 那一層的內容疊在同樣的位置
+   * （畫面與匯出；model/interior.ts）。只在 true 時寫。
+   */
+  showInside?: boolean;
+  /** 疊上來的樓層的 id（沒有或找不到時用第一個別的樓層） */
+  inside?: string;
 }
 
 /** 棋子方格的大小（格；1 格＝0.5 m）：0.5／1／1.5／2／3 m */

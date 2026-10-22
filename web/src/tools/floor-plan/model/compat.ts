@@ -1,51 +1,50 @@
 /**
- * 原作（TRPG 室內圖メーカー）v1.05～v1.13 存的地圖檔：新的種類換成本工具最接近的種類，本工具沒有的家具與設定略過，
+ * 原作（TRPG 室內圖メーカー）v1.05～v1.14 存的地圖檔：本工具沒有的家具略過、疊在牆上的牆洞與崩塌換成牆上的破洞，
  * 換掉與略過的東西記下來（開檔時通知）。規格 2.2.1～2.2.3、D22～D25。
  *
- * 原作新版的功能本身（新種類的圖形、每間房的牆種類、外觀樓層疊上內部、新的家具）沒有移植。
- * 棋子方格（v1.07 的 tokenGrid）2026-10 起照讀（TOKEN_GRID_SIZES），不再算略過的設定。
+ * 2026-10 第二批起，原作新增的房間 14 種、門窗 7 種、牆 3 種本工具都有（代號相同），照讀，不再換成最接近的種類；
+ * 每間房的牆種類（`rooms[].wall`）、外觀層的「顯示內部」（`floors[].showInside`、`inside`）也照讀。
+ * 棋子方格（v1.07 的 tokenGrid）2026-10 第一批起照讀。新的家具（第三批）仍然略過。
  */
 import { snap } from './geometry';
 import type { Opening, OpeningKind, RoomCategory, WallKind } from './types';
 import type { WallRun } from './walls';
 
 /**
- * 原作新增的房間種類 → 本工具最接近的種類。
- * 室內／戶外與戶外房間的外圍（欄杆、沒有牆）和原作相同，所以自動牆的位置與種類不變。
+ * 原作 v1.05～v1.14 新增的種類（2.2.1）→ 本工具的種類。2026-10 第二批起代號相同、原樣保留（第一批以前換成最接近的種類，D22）。
+ * 讀檔不查這張表（本工具本來就認得這些代號）；留著當作對照與測試的依據。
  */
-export const LEGACY_ROOM_CATS: Readonly<Record<string, RoomCategory>> = {
-  engawa: 'hall',
-  studio: 'office',
-  stone: 'doma',
-  roof: 'garage',
-  industrial: 'garage',
-  grate: 'tech',
-  platform: 'porch',
-  track: 'porch',
-  road: 'porch',
-  slab: 'porch',
-  dirt: 'garden',
-  gravel: 'garden',
-  rooftop: 'balcony',
-  shipdeck: 'balcony',
+export const UPSTREAM_ROOM_CATS: Readonly<Record<string, RoomCategory>> = {
+  engawa: 'engawa',
+  studio: 'studio',
+  stone: 'stone',
+  roof: 'roof',
+  industrial: 'industrial',
+  grate: 'grate',
+  platform: 'platform',
+  track: 'track',
+  road: 'road',
+  slab: 'slab',
+  dirt: 'dirt',
+  gravel: 'gravel',
+  rooftop: 'rooftop',
+  shipdeck: 'shipdeck',
 };
 
-/** 原作新增的門窗 → 本工具最接近的種類（會開的門換成單開門或雙開門，開門的範圍相同） */
-export const LEGACY_OPENINGS: Readonly<Record<string, OpeningKind>> = {
-  steel: 'door',
-  firedoor: 'door',
-  gate: 'door',
-  big2: 'door2',
-  revolve: 'auto',
-  sealed: 'locked',
-  platewin: 'boarded',
+export const UPSTREAM_OPENINGS: Readonly<Record<string, OpeningKind>> = {
+  steel: 'steel',
+  firedoor: 'firedoor',
+  gate: 'gate',
+  big2: 'big2',
+  revolve: 'revolve',
+  sealed: 'sealed',
+  platewin: 'platewin',
 };
 
-/** 原作新增的牆 → 本工具粗細與外觀最接近的實心牆 */
-export const LEGACY_WALLS: Readonly<Record<string, WallKind>> = {
-  stone: 'ext',
-  sound: 'ext',
-  cracked: 'int',
+export const UPSTREAM_WALLS: Readonly<Record<string, WallKind>> = {
+  stone: 'stone',
+  sound: 'sound',
+  cracked: 'cracked',
 };
 
 /**
@@ -57,19 +56,13 @@ export const LEGACY_WALL_HOLES: Readonly<Record<string, (len: number) => number>
   collapse_wall: (len) => len - 1,
 };
 
-const own = <T>(map: Readonly<Record<string, T>>, key: unknown): T | undefined =>
-  typeof key === 'string' && Object.hasOwn(map, key) ? map[key] : undefined;
-
-export const legacyRoomCat = (v: unknown) => own(LEGACY_ROOM_CATS, v);
-export const legacyOpening = (v: unknown) => own(LEGACY_OPENINGS, v);
-export const legacyWall = (v: unknown) => own(LEGACY_WALLS, v);
 export const isLegacyWallHole = (t: string): boolean => Object.hasOwn(LEGACY_WALL_HOLES, t);
 
 export type CompatType = 'room' | 'opening' | 'wall' | 'overlay';
 
 export interface CompatEntry {
   type: CompatType;
-  /** 原作的種類代號 */
+  /** 原作的種類代號（房間、門窗、牆：本工具不認得的代號，將來的版本才有的） */
   from: string;
   /** 換成的種類 */
   to: string;
@@ -84,10 +77,8 @@ export interface CompatReport {
   droppedItems: { t: string; n: number }[];
   /** 不認得而略過的門窗 */
   droppedOpenings: { kind: string; n: number }[];
-  /** 設了「這間房的牆種類」的室內房間數 */
+  /** 每間房的牆種類是本工具不認得的種類（改回自動）的房間數 */
   roomWalls: number;
-  /** 打開「顯示內部」的樓層數 */
-  insideFloors: number;
 }
 
 export function emptyCompatReport(): CompatReport {
@@ -96,7 +87,6 @@ export function emptyCompatReport(): CompatReport {
     droppedItems: [],
     droppedOpenings: [],
     roomWalls: 0,
-    insideFloors: 0,
   };
 }
 
@@ -143,7 +133,7 @@ export function compatCounts(r: CompatReport): CompatCounts {
     converted: sum(r.converted),
     items: sum(r.droppedItems),
     openings: sum(r.droppedOpenings),
-    settings: r.roomWalls + r.insideFloors,
+    settings: r.roomWalls,
   };
 }
 

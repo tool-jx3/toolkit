@@ -2,6 +2,7 @@
  * 分享連結（規格 F215～F217、3.7）：地圖放進網址 `#m=`（共用 core/share：deflate 壓縮的 `{ v: 1, d: 地圖 }`、base64url）。
  *
  * - 為了變短：不放 id（讀回時給新的）；門窗 side＝1、hinge＝0，家具 rot＝0、大小＝那種家具的預設大小時不寫。
+ *   外觀層「顯示內部」疊上來的樓層（`inside`）寫成樓層的順序（從 0 起；2026-10 第二批），讀回時換成新的 id。
  * - PL 用連結：照 PL 檢視＋藏起隱藏線索另外做一份地圖（GM 專用的房間只留牆框），GM 的資料根本不在連結裡。
  * - 讀回來的內容是任何人都能編的輸入：補回省略的欄位之後一律交給 normalizeProject 整理（呼叫端做）。
  */
@@ -58,12 +59,14 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
         const out: Room = { id: r.id, x: r.x, y: r.y, w: r.w, h: r.h, name: '', cat: r.cat };
         out.gm = true;
         if (r.noWall) out.noWall = true;
+        /* 房間的牆種類決定牆框的樣子（PL 檢視也看得到），留著（2026-10 第二批） */
+        if (r.wall) out.wall = r.wall;
         return out;
       }
       const { plName, note: _note, masked: _m, ...rest } = r;
       return { ...rest, name: plName || r.name };
     });
-    return {
+    const out: Floor = {
       id: f.id,
       name: f.name,
       rooms,
@@ -72,6 +75,10 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
       items: v.items.map(({ gm: _g, clue: _c, ...i }) => i),
       texts: v.texts.map(({ gm: _g, clue: _c, ...t }) => t),
     };
+    /* 外觀層的「顯示內部」不是秘密（疊上來的樓層本身也照 PL 檢視整理過） */
+    if (f.showInside) out.showInside = true;
+    if (f.inside) out.inside = f.inside;
+    return out;
   });
   /* 隱藏線索的個數＝線索開關的通知的算法（一件小物＋說明算一個；7.7） */
   removed.clues = clueCount(p.floors);
@@ -113,16 +120,26 @@ export function packProject(p: Project): Record<string, unknown> {
     ...(p.tokenGrid ? { tokenGrid: p.tokenGrid } : {}),
     ...(p.tokenGridColor ? { tokenGridColor: p.tokenGridColor } : {}),
     ...(p.tokenGridOpacity ? { tokenGridOpacity: p.tokenGridOpacity } : {}),
-    floors: p.floors.map((f) => ({
-      name: f.name,
-      rooms: f.rooms.map(dropId),
-      walls: f.walls.map(dropId),
-      openings: f.openings.map(packOpening),
-      items: f.items.map(packItem),
-      texts: f.texts.map(dropId),
-    })),
+    floors: p.floors.map((f) => {
+      const out: Record<string, unknown> = {
+        name: f.name,
+        rooms: f.rooms.map(dropId),
+        walls: f.walls.map(dropId),
+        openings: f.openings.map(packOpening),
+        items: f.items.map(packItem),
+        texts: f.texts.map(dropId),
+      };
+      /* 外觀層的「顯示內部」（2026-10 第二批）：疊上來的樓層寫成順序 */
+      if (f.showInside) out.showInside = true;
+      const inside = f.inside ? p.floors.findIndex((o) => o !== f && o.id === f.inside) : -1;
+      if (inside >= 0) out.inside = inside;
+      return out;
+    }),
   };
 }
+
+/** 連結裡疊上來的樓層（順序）讀回時的 id：被指到的樓層用這個 id（normalizeProject 會檢查有沒有重複） */
+const shareFloorId = (i: number) => `s${i}`;
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -130,10 +147,21 @@ const isObj = (v: unknown): v is Record<string, unknown> =>
 /** 讀回來的地圖：補回省略的家具大小（其他省略的欄位 normalizeProject 本來就有預設值） */
 export function unpackProject(d: unknown): unknown {
   if (!isObj(d) || !Array.isArray(d.floors)) return d;
+  const floors: unknown[] = d.floors;
+  /* 疊上來的樓層（順序）→ id（2026-10 第二批）：被指到的樓層給 `s<順序>` 的 id */
+  const targets = new Set<number>();
+  for (const f of floors)
+    if (isObj(f) && Number.isInteger(f.inside) && isObj(floors[f.inside as number]))
+      targets.add(f.inside as number);
   return {
     ...d,
-    floors: d.floors.map((f) => {
-      if (!isObj(f) || !Array.isArray(f.items)) return f;
+    floors: floors.map((f0, index) => {
+      if (!isObj(f0)) return f0;
+      let f: Record<string, unknown> = f0;
+      if (targets.has(index) && f.id === undefined) f = { ...f, id: shareFloorId(index) };
+      if (typeof f.inside === 'number')
+        f = targets.has(f.inside) ? { ...f, inside: shareFloorId(f.inside) } : { ...f, inside: undefined };
+      if (!Array.isArray(f.items)) return f;
       return {
         ...f,
         items: f.items.map((i) => {

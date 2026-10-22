@@ -5,6 +5,7 @@ import type { ExportImageOptions } from '../draw/export';
 import { S } from '../strings';
 import type { ExportPx } from './catalog';
 import { floorHasClues } from './geometry';
+import { composedFloor } from './interior';
 import type { Floor, Project, ThemeId } from './types';
 
 export type ExportRange = 'current' | 'all' | 'each';
@@ -28,8 +29,11 @@ export function fileBase(name: string): string {
   return base.replace(BAD_FILE_CHARS, '_').slice(0, 60) || 'map';
 }
 
+/** 要畫的樓層（外觀層打開「顯示內部」時是疊好的樓層，2026-10 第二批） */
 export function exportFloors(p: Project, range: ExportRange): Floor[] {
-  return range === 'all' ? p.floors : [p.floors[p.active]];
+  return (range === 'all' ? p.floors : [p.floors[p.active]]).map((f) =>
+    composedFloor(f, p.floors),
+  );
 }
 
 export function exportOptions(
@@ -75,7 +79,10 @@ export interface ExportJob {
 export function exportJobs(p: Project, exp: ExportSettings): ExportJob[] {
   const multi = p.floors.length > 1;
   if (exp.range === 'each' && multi)
-    return p.floors.map((f) => ({ floors: [f], name: exportFileName(p, exp, f) }));
+    return p.floors.map((f) => ({
+      floors: [composedFloor(f, p.floors)],
+      name: exportFileName(p, exp, f),
+    }));
   const floors = exportFloors(p, exp.range);
   return [
     {
