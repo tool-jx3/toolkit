@@ -286,27 +286,43 @@ const monsterHuge: FurnDraw = (c, S, w, h) => {
 
 /** 狗（頭朝下） */
 function dogShape(c: Ctx, S: FurnStyle, w: number, h: number, fill: string, collar: boolean): void {
-  taper(c, curve([w / 2, h * 0.25], [w * 0.62, h * 0.12], [w * 0.55, 0.02], 8), w * 0.16, 0.03);
+  /* 短短翹起的尾巴 */
+  taper(
+    c,
+    curve([w / 2, h * 0.22], [w * 0.66, h * 0.16], [w * 0.68, h * 0.04], 8),
+    w * 0.2,
+    w * 0.08,
+  );
   paint(c, fill);
+  /* 四隻腳（往外伸） */
   for (const [x, y] of [
-    [0.24, 0.32],
-    [0.76, 0.32],
-    [0.26, 0.68],
-    [0.74, 0.68],
+    [0.2, 0.3],
+    [0.8, 0.3],
+    [0.22, 0.62],
+    [0.78, 0.62],
   ] as const)
-    oval(c, S, w * x, h * y, w * 0.12, h * 0.06, fill);
-  oval(c, S, w / 2, h * 0.5, w * 0.32, h * 0.3, fill);
+    oval(c, S, w * x, h * y, w * 0.13, h * 0.055, fill);
+  /* 胖胖的身體 */
+  oval(c, S, w / 2, h * 0.45, w * 0.38, h * 0.26, fill);
+  thin(c, S, 0.5, () => seg(c, w / 2, h * 0.26, w / 2, h * 0.6));
   if (collar) {
     c.save();
     c.fillStyle = S.alert;
-    c.fillRect(w * 0.3, h * 0.74, w * 0.4, h * 0.04);
+    c.fillRect(w * 0.28, h * 0.66, w * 0.44, h * 0.045);
     c.restore();
   }
-  disc(c, S, w / 2, h * 0.82, w * 0.24, fill);
-  for (const dir of [-1, 1])
-    oval(c, S, w / 2 + dir * w * 0.24, h * 0.8, w * 0.08, h * 0.07, S.shade);
-  oval(c, S, w / 2, h * 0.94, w * 0.1, h * 0.05, fill);
-  disc(c, S, w / 2, h * 0.97, w * 0.05, S.ink);
+  /* 大頭＋垂下來的耳朵＋鼻子 */
+  disc(c, S, w / 2, h * 0.78, w * 0.3, fill);
+  for (const dir of [-1, 1]) {
+    c.save();
+    c.translate(w / 2 + dir * w * 0.3, h * 0.76);
+    c.rotate(dir * 0.35);
+    oval(c, S, 0, 0, w * 0.1, h * 0.09, S.shade);
+    c.restore();
+  }
+  oval(c, S, w / 2, h * 0.9, w * 0.15, h * 0.065, S.tint);
+  disc(c, S, w / 2, h * 0.94, w * 0.07, S.ink);
+  for (const dir of [-1, 1]) disc(c, S, w / 2 + dir * w * 0.12, h * 0.8, w * 0.04, S.ink);
 }
 
 const dog: FurnDraw = (c, S, w, h) => dogShape(c, S, w, h, S.wood, false);
