@@ -4,7 +4,7 @@
  */
 import { FloorBuilder, fillYard, type TplFloor } from './builder';
 
-/* ---------- 溫泉旅館（1F 大廳、宴會廳、大浴場與露天風呂；2F 和室客房） ---------- */
+/* ---------- 溫泉旅館（1F 大廳、宴會廳、大浴場與露天溫泉；2F 和室客房） ---------- */
 
 /** 和室客房（寬 w × 深 10）：壁龕在西牆、矮桌與坐墊在中間、窗邊兩張椅子；south＝房間在走廊南邊 */
 function ryokanRoom(
@@ -52,7 +52,7 @@ export function ryokan(): TplFloor[] {
     .room('女湯', 'wet', 29, 14, 7, 10)
     .room('玄關', 'doma', 14, 24, 6, 4)
     .room('前庭', 'gravel', 10, 28, 14, 6)
-    .room('露天風呂', 'water', 36, 2, 8, 8);
+    .room('露天溫泉', 'water', 36, 2, 8, 8);
   fillYard(g, 0, -4, 48, 36, '庭園');
   g.dh(15.5, 28, 3, -1, 0, 'sliding2') // 玄關
     .dh(15, 24, 4, -1, 0, 'open')
@@ -110,7 +110,7 @@ export function ryokan(): TplFloor[] {
     .item('tv', 0.1, 20.2, 270)
     .item('vending', 10.6, 20, 90)
     .item('cabinet', 14.1, 25.1, 270, { size: [2.4, 1] });
-  /* 前庭、露天風呂、庭園 */
+  /* 前庭、露天溫泉、庭園 */
   g.item('lantern', 11, 29)
     .item('lantern', 21.8, 29)
     .item('pine', 1, 27)
@@ -129,7 +129,7 @@ export function ryokan(): TplFloor[] {
   ryokanRoom(u, '蘭之間', 12, 14, 12, true);
   u.room('櫻之間', 'washitsu', 24, 14, 12, 10, {
     gm: true,
-    note: '十年前出事之後就不開放。榻榻米換過了，牆上的污漬卻一直洗不掉。',
+    note: '十年前出事之後就不開放。榻榻米換過了，牆上的汙漬卻一直洗不掉。',
   });
   ryokanStairs(u);
   u.dh(26, 10, 2, 1, 0, 'open')

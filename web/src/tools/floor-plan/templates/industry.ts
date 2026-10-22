@@ -162,14 +162,14 @@ export function warehouse(): TplFloor[] {
   /* 碼頭 */
   b.row('bollard', 3, 30.2, 5, 11, 0)
     .item('boat', 20, 33, 90)
-    .item('anchor', 46, 29.4)
+    .item('anchor', 43.6, 29.4)
     .item('streetlight', 26, 28.6);
   return [b.f];
 }
 
 /* ---------- 工地（施工中的兩層樓：1F、2F 樓板；圍起來的開挖區是 GM 專用） ---------- */
 
-const siteStairs = (b: FloorBuilder) => b.item('temp_stairs', 32, 8);
+const siteStairs = (b: FloorBuilder) => b.item('temp_stairs', 31.2, 8);
 
 export function construction(): TplFloor[] {
   const g = new FloorBuilder('1F');
@@ -201,11 +201,11 @@ export function construction(): TplFloor[] {
   /* 樓板上的柱子、建材 */
   for (const x of [10, 18, 26, 34]) for (const y of [8, 16, 24]) g.item('pillar', x - 0.5, y - 0.5);
   g.item('building_materials', 11, 11)
-    .item('scaffold', 8.4, 6.4, 0, { size: [6, 1.6] })
+    .item('scaffold', 10.6, 6.4, 0, { size: [6, 1.6] })
     .item('material_pile', 2, 2)
     .item('excavator', 1.6, 9)
     .item('building_materials', 1, 30)
-    .item('pallet_stack', 6.6, 30.6)
+    .item('pallet_stack', 2, 32.4)
     .item('drum', 6.6, 33.6)
     .item('cone', 27, 33.6)
     .item('cone', 30.4, 33.6)
@@ -223,7 +223,7 @@ export function construction(): TplFloor[] {
   u.room('二樓樓板', 'slab', 8, 6, 28, 20);
   siteStairs(u);
   for (const x of [10, 18, 26, 34]) for (const y of [8, 16, 24]) u.item('pillar', x - 0.5, y - 0.5);
-  u.item('scaffold', 8.4, 24, 0, { size: [6, 1.6] })
+  u.item('scaffold', 10.6, 24, 0, { size: [6, 1.6] })
     .item('building_materials', 12, 12)
     .item('material_pile', 21, 18)
     .item('tools', 28, 12)

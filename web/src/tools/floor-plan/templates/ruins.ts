@@ -49,7 +49,7 @@ export function abandonedFactory(): TplFloor[] {
   /* 牆上的裂痕、塗鴉、崩塌；輸送帶旁的觸手侵蝕（GM 專用） */
   wallItem(g, 'crack_wall', 9, -0.4, 3, 0.8);
   wallItem(g, 'wall_graffiti', 27.5, 19.7, 3, 0.6);
-  wallItem(g, 'collapse_wall', 47.2, 9, 1.6, 3, 90);
+  wallItem(g, 'collapse_wall', 47.2, 10, 1.6, 3, 90);
   wallItem(g, 'wall_mold', 3, 27.5, 2.4, 1);
   wallItem(g, 'tendrils', 4, 18.5, 4, 3, 0, true);
   g.items.push(
@@ -80,7 +80,7 @@ export function abandonedSchool(): TplFloor[] {
   wallItem(g, 'wall_mold', 12.6, 13.5, 2.4, 1);
   const u = floors.find((f) => f.name === '2F') as Floor;
   wallItem(u, 'wall_graffiti', 31.5, -0.3, 3, 0.6);
-  wallItem(u, 'collapse_wall', 59.2, 4, 1.6, 3, 90);
+  wallItem(u, 'collapse_wall', 49.5, -0.8, 3, 1.6);
   wallItem(u, 'wall_blood', 45, 13.6, 1.6, 0.8);
   const r = floors.find((f) => f.name === '屋頂') as Floor;
   r.items.push({ t: 'debris', x: 40, y: 8, w: 3, h: 2.4, rot: 0 });

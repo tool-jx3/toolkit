@@ -80,7 +80,7 @@ const range = (pick: (r: Row) => number): [number, number] => {
 };
 
 describe('分享連結的長度（3.7、D41）', () => {
-  it('56 個範本都量到了（2026-10 第三批後半 15 → 56）；最短是套房、最長是洋館', () => {
+  it('56 個範本都量到了（2026-10 第三批後半 15 → 56）；最短是套房、最長是洋館（2026-10-22 依 7.18 重新設計後仍是洋館）', () => {
     expect(rows.map((r) => r.id)).toEqual(TEMPLATES.map((t) => t.id));
     expect(rows).toHaveLength(56);
     const by = (pick: (r: Row) => number, f: (...n: number[]) => number) =>
@@ -91,19 +91,19 @@ describe('分享連結的長度（3.7、D41）', () => {
     expect(by((r) => r.pl, Math.min)).toBe('konbini');
   });
 
-  it('完整連結 944～3,038 字（放入隱藏線索 1,184～3,340）；PL 用連結 942～2,653 字', () => {
-    expect(range((r) => r.full)).toEqual([944, 3038]);
-    expect(range((r) => r.fullClues)).toEqual([1184, 3340]);
-    expect(range((r) => r.pl)).toEqual([942, 2653]);
+  it('完整連結 944～4,213 字（放入隱藏線索 1,182～4,568）；PL 用連結 942～3,421 字', () => {
+    expect(range((r) => r.full)).toEqual([944, 4213]);
+    expect(range((r) => r.fullClues)).toEqual([1182, 4568]);
+    expect(range((r) => r.pl)).toEqual([942, 3421]);
   });
 
-  it('放入隱藏線索後每一層都「依序編號」：完整 1,258～3,616、PL 用 1,012～2,896 字；上限 8,000 字約是最長的 2.2 倍', () => {
-    expect(range((r) => r.fullNumbered)).toEqual([1258, 3616]);
-    expect(range((r) => r.plNumbered)).toEqual([1012, 2896]);
+  it('放入隱藏線索後每一層都「依序編號」：完整 1,258～4,882、PL 用 1,012～3,684 字；上限 8,000 字約是最長的 1.6 倍', () => {
+    expect(range((r) => r.fullNumbered)).toEqual([1258, 4882]);
+    expect(range((r) => r.plNumbered)).toEqual([1012, 3684]);
     for (const r of rows)
       for (const n of [r.full, r.fullClues, r.pl, r.fullNumbered, r.plNumbered])
         expect(n, r.id).toBeLessThan(SHARE_MAX_LENGTH);
-    expect(SHARE_MAX_LENGTH / 3616).toBeCloseTo(2.2, 1);
+    expect(SHARE_MAX_LENGTH / 4882).toBeCloseTo(1.6, 1);
   });
 
   describe('洋館（完整、沒放隱藏線索）', () => {
@@ -117,15 +117,15 @@ describe('分享連結的長度（3.7、D41）', () => {
         for (const f of p.floors) for (const r of f.rooms) r.wall = 'stone';
       });
 
-    it('3,038 字；B1、1F、2F 共 32 間房；載入後選著的是 1F', () => {
+    it('4,213 字；B1、1F、2F 共 44 間房（2026-10-22 依 7.18 重新設計；庭園的拼接小塊也算）；載入後選著的是 1F', () => {
       loadFresh('mansion', false);
-      expect(length('full')).toBe(3038);
+      expect(length('full')).toBe(4213);
       expect(data().floors.map((f) => f.name)).toEqual(['B1', '1F', '2F']);
-      expect(data().floors.reduce((n, f) => n + f.rooms.length, 0)).toBe(32);
+      expect(data().floors.reduce((n, f) => n + f.rooms.length, 0)).toBe(44);
       expect(data().active).toBe(1);
     });
 
-    it('B1 打開「顯示內部」＋23 字（載入後從 1F 切到 B1 再打開；連結裡有 active，選著的樓層變了本身差 2 字，同樣選著 B1 量是＋25）', () => {
+    it('B1 打開「顯示內部」＋24 字（載入後從 1F 切到 B1 再打開；連結裡有 active，這個範本選著的樓層變了本身不差字數，同樣選著 B1 量也是＋24）', () => {
       loadFresh('mansion', false);
       const base = length('full');
       select(0);
@@ -133,28 +133,28 @@ describe('分享連結的長度（3.7、D41）', () => {
       act.setShowInside(true);
       /* showInside＋疊上來的樓層（1F）的順序 */
       expect(data().floors[0]).toMatchObject({ showInside: true, inside: data().floors[1].id });
-      expect(length('full') - base).toBe(23);
+      expect(length('full') - base).toBe(24);
       loadFresh('mansion', false);
       select(0);
       const baseB1 = length('full');
       expect(baseB1 - base).toBe(onB1);
       act.setShowInside(true);
-      expect(length('full') - baseB1).toBe(25);
+      expect(length('full') - baseB1).toBe(24);
     });
 
-    it('32 間房都設石牆＋34 字；先開再關「顯示內部」（疊上來的樓層的選擇留在資料裡）之後再設是＋43 字', () => {
+    it('44 間房都設石牆＋16 字；先開再關「顯示內部」（疊上來的樓層的選擇留在資料裡）之後再設是＋27 字', () => {
       loadFresh('mansion', false);
       const base = length('full');
       stoneEverywhere();
-      expect(length('full') - base).toBe(34);
-      /* 驗證者的順序：切到 B1 → 開 → 關 →（房間都設石牆）；關掉之後 `inside` 還在，加上選著的樓層變了，一共比單獨設多 9 字 */
+      expect(length('full') - base).toBe(16);
+      /* 驗證者的順序：切到 B1 → 開 → 關 →（房間都設石牆）；關掉之後 `inside` 還在，加上選著的樓層變了，一共比單獨設多 11 字 */
       loadFresh('mansion', false);
       select(0);
       act.setShowInside(true);
       act.setShowInside(false);
       expect(data().floors[0].inside).toBe(data().floors[1].id);
       stoneEverywhere();
-      expect(length('full') - base).toBe(43);
+      expect(length('full') - base).toBe(27);
     });
   });
 });

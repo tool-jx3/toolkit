@@ -77,7 +77,7 @@ export function clubBuilding(): TplFloor[] {
   );
   clubRoom(g, '登山社', 'office', 24, 7, false, (f, w) => {
     meetingTable(f, w);
-    f.item('tent', 4.9, 0.1, 0, { size: [2, 2] }).item('bag', 3.4, 0.3);
+    f.item('tent', 5, 0.1, 0, { size: [2, 2] }).item('bag', 3.4, 0.3);
   });
   clubRoom(g, '廁所', 'wet', 31, 4, false, (f) => {
     f.item('toilet', 0.3, 0.1)
@@ -199,7 +199,7 @@ export function clubBuilding(): TplFloor[] {
   clubRoom(u, '桌遊社', 'office', 16, 8, true, (f) => {
     f.item('table_round', 1, 1)
       .item('table_round', 4.6, 1)
-      .item('chair', 0.2, 1.4, 90)
+      .item('chair', 0, 1.4, 90)
       .item('chair', 6.6, 1.4, 270)
       .item('bookshelf', 0.2, 4.6, 0, { size: [3, 0.8] });
   });
@@ -295,7 +295,7 @@ export function museum(): TplFloor[] {
   /* 大廳、館長室、學藝員室、紀念品店、廁所 */
   g.item('reception', 22.4, 22, 90, { size: [4, 1.4] })
     .item('bench', 16.4, 23.6, 270, { size: [3, 0.9] })
-    .item('plant', 16.4, 26.4)
+    .item('plant', 16.4, 26.6)
     .item('office_desk', 30, 14.4, 0)
     .item('chair', 30.7, 15.9)
     .item('bookshelf', 35.1, 18.4, 90)

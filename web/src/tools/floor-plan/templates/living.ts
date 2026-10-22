@@ -201,7 +201,7 @@ export function house(): TplFloor[] {
     .room('小徑', 'porch', 14, 24, 4, 8, { hideLabel: true })
     .room('車道', 'porch', 28, 24, 8, 8);
   fillYard(g, 0, 0, 40, 32, '庭院');
-  g.find('庭院').hideLabel = false;
+  delete g.find('庭院').hideLabel;
   houseStairs(g);
   g.dh(15.25, 24, 1.5, -1, 0) // 大門
     .dh(14.5, 18, 3, 1, 0, 'open')
@@ -385,7 +385,7 @@ export function sanheyuan(): TplFloor[] {
     .item('table', 26.5, 9.4, 0, { size: [3, 1.2] })
     .item('lantern', 25.2, 11.6)
     .item('lantern', 29.6, 11.6)
-    .item('offering', 27.3, 10.8, 0, { gm: false });
+    .item('offering', 27.3, 10.8);
   /* 大房、二房、三房、四房、書房 */
   b.item('bed_canopy', 18.2, 4.2, 0, { size: [3, 4] })
     .item('wardrobe', 23.9, 7.6, 90, { size: [3, 1] })
@@ -395,7 +395,7 @@ export function sanheyuan(): TplFloor[] {
     .item('bed_single', 4.3, 4.2)
     .item('desk', 9.4, 4.2)
     .item('bed_single', 49.8, 4.2)
-    .item('wardrobe', 51, 7, 90, { size: [3, 1] })
+    .item('wardrobe', 48.4, 12.8, 180)
     .item('desk', 12.2, 4.2)
     .item('bookshelf', 14.8, 4.1)
     .item('chair', 13, 5.5, 180);
@@ -443,7 +443,7 @@ export function japaneseHouse(): TplFloor[] {
     .room('洋式客廳', 'living', 24, 14, 6, 8)
     .room('緣側', 'engawa', 6, 22, 14, 2, { hideLabel: true });
   fillYard(g, 0, 0, 40, 34, '庭院');
-  g.find('庭院').hideLabel = false;
+  delete g.find('庭院').hideLabel;
   g.dh(21.25, 22, 1.5, -1, 0, 'sliding') // 玄關的拉門
     .dh(20.5, 14, 3, -1, 0, 'open')
     .dh(8, 12, 1.5, 1, 0, 'sliding')
