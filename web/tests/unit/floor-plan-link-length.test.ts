@@ -91,14 +91,14 @@ describe('分享連結的長度（3.7、D41）', () => {
     expect(by((r) => r.pl, Math.min)).toBe('konbini');
   });
 
-  it('完整連結 944～4,213 字（放入隱藏線索 1,182～4,568）；PL 用連結 942～3,421 字', () => {
+  it('完整連結 944～4,213 字（放入隱藏線索 1,196～4,568；2026-10-22 依 7.19 換了線索文字，最短的套房 1,182 → 1,196）；PL 用連結 942～3,421 字', () => {
     expect(range((r) => r.full)).toEqual([944, 4213]);
-    expect(range((r) => r.fullClues)).toEqual([1182, 4568]);
+    expect(range((r) => r.fullClues)).toEqual([1196, 4568]);
     expect(range((r) => r.pl)).toEqual([942, 3421]);
   });
 
-  it('放入隱藏線索後每一層都「依序編號」：完整 1,258～4,882、PL 用 1,012～3,684 字；上限 8,000 字約是最長的 1.6 倍', () => {
-    expect(range((r) => r.fullNumbered)).toEqual([1258, 4882]);
+  it('放入隱藏線索後每一層都「依序編號」：完整 1,274～4,882（7.19 之前 1,258）、PL 用 1,012～3,684 字；上限 8,000 字約是最長的 1.6 倍', () => {
+    expect(range((r) => r.fullNumbered)).toEqual([1274, 4882]);
     expect(range((r) => r.plNumbered)).toEqual([1012, 3684]);
     for (const r of rows)
       for (const n of [r.full, r.fullClues, r.pl, r.fullNumbered, r.plNumbered])

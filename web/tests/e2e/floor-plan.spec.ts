@@ -3683,6 +3683,34 @@ test.describe('2026-10 第三批後半的範本（F237～F239）', () => {
     );
     expect(errors).toEqual([]);
   });
+
+  test('線索說明（7.19）：套房換成自己想的三樣、斷點讓 5 則說明回到 0.42 字級（瀏覽器照字型量字寬）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* [範本, 說明（接起來）, 是否斷成兩行] */
+    const want = [
+      ['studio', '對準床鋪的縮時相機', null],
+      ['studio', '電視背面的便利貼', null],
+      ['studio', '冷凍格深處的信封', null],
+      ['lodge', '少一把的鑰匙串', '少一把的\n鑰匙串'],
+      ['lodge', '塞進門縫的警告', '塞進門縫的\n警告'],
+      ['prison', '床板底下刻著日期', '床板底下\n刻著日期'],
+      ['prison', '會客時遞來的照片', '會客時\n遞來的照片'],
+    ] as const;
+    for (const id of new Set(want.map((w) => w[0]))) {
+      await run(page, 'loadTemplate', id, { structureOnly: false, clues: true });
+      const p = await project(page);
+      const clues = p.floors.flatMap((f) => f.texts).filter((t) => t.clue);
+      for (const [tpl, text, two] of want.filter((w) => w[0] === id)) {
+        const t = clues.find((c) => c.text.replace('\n', '') === text);
+        expect(t, `${tpl} ${text}`).toBeTruthy();
+        expect(t?.size, `${tpl} ${text}`).toBe(0.42);
+        if (two) expect(t?.text).toBe(two);
+      }
+    }
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe('版面', () => {

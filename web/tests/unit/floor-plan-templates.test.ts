@@ -556,14 +556,26 @@ describe('線索文字：斷行在詞的邊界、錯字、用字（7.18）', () 
     }
   });
 
-  it('驗證者列的 7 則斷在詞中間的換行，改到詞的邊界', () => {
+  it('驗證者列的 7 則斷在詞中間的換行，改到詞的邊界（監獄的兩則在 7.19 換了說法，斷點照新的）', () => {
     expect(two('sanheyuan', '多出一個名字的族譜')).toBe('多出一個\n名字的族譜');
     expect(two('japanese-house', '穿軍服的男人的照片')).toBe('穿軍服的\n男人的照片');
     expect(two('japanese-house', '夾在唱片封套裡的信')).toBe('夾在唱片\n封套裡的信');
     expect(two('lab', '主任的研究日誌')).toBe('主任的\n研究日誌');
     expect(two('karaoke', '點歌單上沒聽過的歌名')).toBe('點歌單上\n沒聽過的歌名');
-    expect(two('prison', '刻在床板下的日期')).toBe('刻在床板下的\n日期');
-    expect(two('prison', '會客時遞進來的照片')).toBe('會客時\n遞進來的照片');
+    expect(two('prison', '床板底下刻著日期')).toBe('床板底下\n刻著日期');
+    expect(two('prison', '會客時遞來的照片')).toBe('會客時\n遞來的照片');
+  });
+
+  it('第二行不以「的」開頭：「的」跟著前面的修飾語（D60、7.19）', () => {
+    for (const c of all) {
+      if (!c.br) continue;
+      const second = wrapClueText(c.text, c.br).split('\n')[1];
+      expect(second.startsWith('的'), `${c.id} ${c.text}`).toBe(false);
+    }
+    /* 7.18 列的三則：「卡車司機的」「放學後來屋頂」「挖出來的東西」 */
+    expect(two('diner', '店長和卡車司機的合照')).toBe('店長和卡車司機的\n合照');
+    expect(two('school', '紙條上寫著「放學後來屋頂」')).toBe('紙條上寫著\n「放學後來屋頂」');
+    expect(two('construction', '挖出東西的現場照')).toBe('挖出東西的\n現場照');
   });
 
   it('錯字與不通的說明改掉：「真的的」「寫在餐巾紙上的求救」', () => {
@@ -591,6 +603,54 @@ describe('線索文字：斷行在詞的邊界、錯字、用字（7.18）', () 
     expect(texts.filter((s) => /[秘污佈]|風呂/.test(s))).toEqual([]);
     const ryokan = build('ryokan').flatMap((f) => f.rooms.map((r) => r.name));
     expect(ryokan).toContain('露天溫泉');
+  });
+});
+
+/* ---------- 線索文字：不沿用原作的說法、斷點不讓說明縮小（2026-10-22 依 7.19） ---------- */
+
+describe('線索文字：套房、辦公大樓、洞窟換成本站自己的東西與說法；斷點不讓說明縮成 0.34（7.19）', () => {
+  /** 載入（放入隱藏線索）後的說明：[文字, 字級] */
+  const placed = (id: string) =>
+    build(id, { clues: true }).flatMap((f) =>
+      f.texts.filter((t) => t.clue).map((t) => [t.text.replace('\n', ''), t.size] as const),
+    );
+  const clueOf = (id: string) => getTemplate(id)?.clues ?? [];
+
+  it('套房的三則線索是縮時相機、便利貼、信封；辦公大樓的會議室是錄音筆；洞窟的洞口是登山扣環', () => {
+    expect(clueOf('studio').map((c) => [c.room, c.t, c.text])).toEqual([
+      ['臥室', 'camera', '對準床鋪的縮時相機'],
+      ['客廳', 'memo', '電視背面的便利貼'],
+      ['廚房', 'papers', '冷凍格深處的信封'],
+    ]);
+    expect(clueOf('office').find((c) => c.room === '會議室')).toMatchObject({
+      t: 'recorder',
+      text: '桌底黏著的錄音筆',
+    });
+    expect(clueOf('cave').find((c) => c.room === '洞口')).toMatchObject({
+      t: 'tools',
+      text: '岩縫裡卡著的登山扣環',
+    });
+  });
+
+  it('套房（開頁的範本）、山中小屋、監獄：7.18 的斷點縮到 0.34 的 5 則都回到 0.42', () => {
+    expect(placed('studio')).toEqual([
+      ['對準床鋪的縮時相機', 0.42],
+      ['電視背面的便利貼', 0.42],
+      ['冷凍格深處的信封', 0.42],
+    ]);
+    const lodge = new Map(placed('lodge'));
+    expect(lodge.get('少一把的鑰匙串')).toBe(0.42);
+    expect(lodge.get('塞進門縫的警告')).toBe(0.42);
+    const prison = new Map(placed('prison'));
+    expect(prison.get('床板底下刻著日期')).toBe(0.42);
+    expect(prison.get('會客時遞來的照片')).toBe(0.42);
+  });
+
+  it('範本裡沒有兩則一樣的線索說明（同一個範本裡）', () => {
+    for (const t of TEMPLATES) {
+      const texts = t.clues.map((c) => c.text);
+      expect(new Set(texts).size, t.id).toBe(texts.length);
+    }
   });
 });
 

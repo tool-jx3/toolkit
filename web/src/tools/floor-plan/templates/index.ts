@@ -84,6 +84,9 @@ export interface FloorTemplate {
 /**
  * 一條線索：哪一層、哪個房間、什麼小物、一句說明。說明裡的「/」是放不下一行時斷開的地方
  * （詞的邊界；2026-10-22 依 7.18），不會顯示出來；7 個字以上的說明都要標（單元測試檢查）。
+ * 斷點的原則（D60、7.19）：「的」跟著前面的修飾語（第二行不以「的」開頭）；兩行盡量一樣窄——房間小時，
+ * 一行超過 4～5 個字寬就會縮成 0.34 字級，載入看看（套房、山中小屋、監獄的幾則就是這樣調的）。
+ * 說明的東西與說法要自己想，不沿用原作的線索文字（CLAUDE.md 規則 1）。
  */
 const C = (floor: string, room: string, t: string, text: string): ClueSpec => {
   const at = text.indexOf('/');
@@ -187,9 +190,9 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     description: '玄關、浴室、開放式廚房、客廳與臥室，南邊有陽台。約 14 坪，一層。',
     build: studio,
     clues: [
-      C('1F', '臥室', 'diary', '撕掉好幾頁的/日記'),
-      C('1F', '客廳', 'phone', '一直在震動的/手機'),
-      C('1F', '廚房', 'pills', '沒有標籤的/藥瓶'),
+      C('1F', '臥室', 'camera', '對準床鋪的/縮時相機'),
+      C('1F', '客廳', 'memo', '電視背面的/便利貼'),
+      C('1F', '廚房', 'papers', '冷凍格深處的/信封'),
     ],
   },
   {
@@ -231,8 +234,8 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     build: lodge,
     clues: [
       C('1F', '客廳', 'photo', '壁爐上/倒扣的合照'),
-      C('1F', '管理員室', 'key', '少了一把的/鑰匙串'),
-      C('2F', '客房 3', 'memo', '從門縫塞進來的/警告'),
+      C('1F', '管理員室', 'key', '少一把的/鑰匙串'),
+      C('2F', '客房 3', 'memo', '塞進門縫的/警告'),
       C('2F', '主人房', 'diary', '提到「那場雪」的/日記'),
     ],
   },
@@ -244,7 +247,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       '一層兩戶的四樓公寓：1F 自助洗衣店與房東家，4F 兩戶（B 戶鎖著、GM 專用），頂樓有水塔與加蓋的房間；樓梯間上下對齊。',
     build: apartment,
     clues: [
-      C('1F', '自助洗衣店', 'memo', '貼在洗衣機上的/尋人啟事'),
+      C('1F', '自助洗衣店', 'memo', '公告欄底層的/尋人啟事'),
       C('1F', '餐廳', 'photo', '前任房客的/合照'),
       C('4F', 'A 臥室', 'diary', '記錄半夜/敲牆聲的筆記'),
       C('頂樓', '頂樓加蓋', 'key', '掛著「4B」/名牌的鑰匙'),
@@ -258,7 +261,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       '庭院環繞的兩層獨棟：1F 和室、客廳、餐廳與車庫，2F 臥室、書房與兒童房，地下室有機房與 GM 專用的密室。',
     build: house,
     clues: [
-      C('1F', '客廳', 'photo', '被換過臉的/全家福'),
+      C('1F', '客廳', 'photo', '沒人看鏡頭的/全家福'),
       C('1F', '和室', 'memo', '貼在壁龕裡的/符紙'),
       C('2F', '兒童房', 'diary', '畫滿「地下的朋友」的/圖畫日記'),
       C('B1', '地下儲藏室', 'key', '沒有對應的門的/鑰匙'),
@@ -276,7 +279,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '公媽廳', 'memo', '多出一個/名字的族譜'),
       C('1F', '灶腳', 'knife', '刀柄刻著/符號的菜刀'),
       C('1F', '大房', 'diary', '阿嬤用日文/寫的日記'),
-      C('1F', '禾埕', 'photo', '曬穀場上的/老照片'),
+      C('1F', '禾埕', 'photo', '石磨底下的/舊相片'),
       C('1F', '四房', 'key', '古早的/銅鎖鑰匙'),
     ],
   },
@@ -335,7 +338,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '理髮店', 'memo', '寫著敲門暗號的/紙條'),
       C('B1', '酒館', 'photo', '鋼琴上的/團體照'),
       C('B1', '老闆辦公室', 'diary', '記著「到貨」/日期的帳本'),
-      C('B1', '酒窖', 'key', '酒桶上的/保險箱鑰匙'),
+      C('B1', '酒窖', 'key', '塞在桶孔裡的/黃銅鑰匙'),
     ],
   },
   {
@@ -348,9 +351,9 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     build: diner,
     clues: [
       C('1F', '用餐區', 'memo', '寫著「救命」的/餐巾紙'),
-      C('1F', '店長室', 'photo', '店長和卡車司機/的合照'),
+      C('1F', '店長室', 'photo', '店長和卡車司機的/合照'),
       C('1F', '廁所', 'phone', '泡在水箱裡的/手機'),
-      C('1F', '倉庫', 'key', '冷凍庫的/備用鑰匙'),
+      C('1F', '倉庫', 'key', '冷凍庫門外/掛著的鑰匙'),
     ],
   },
   {
@@ -375,9 +378,9 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     build: hospitalAnnex,
     clues: [
       C('1F', '護理站', 'diary', '交班簿的/最後一頁'),
-      C('1F', '病歷室', 'file_folder', '被抽走一半的/病歷'),
+      C('1F', '病歷室', 'file_folder', '只剩封面的/病歷'),
       C('2F', '隔離病房 3', 'recorder', '病人錄下的/自言自語'),
-      C('2F', '觀察室', 'photo', '監視器畫面的/列印'),
+      C('2F', '觀察室', 'photo', '夜班走廊的/錄影截圖'),
     ],
   },
   {
@@ -408,7 +411,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '交誼廳', 'memo', '病人們畫的/同一張臉'),
       C('1F', '病房 2', 'memo', '床板下刻的字'),
       C('B1', '舊病歷庫', 'file_folder', '沒有出院紀錄的/病歷'),
-      C('B1', '水療室', 'key', '生鏽的/束縛帶鑰匙'),
+      C('B1', '水療室', 'key', '掛在浴缸邊的/束縛帶鑰匙'),
     ],
   },
   {
@@ -420,10 +423,10 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     build: school,
     clues: [
       C('1F', '保健室', 'diary', '借用紀錄上/重複的名字'),
-      C('1F', '準備室', 'key', '標本櫃的/備用鑰匙'),
+      C('1F', '準備室', 'key', '標本箱底下/壓著的鑰匙'),
       C('1F', '教師辦公室', 'memo', '被退回的/轉學申請'),
       C('2F', '二年三班', 'photo', '畢業紀念冊/被剪下的一頁'),
-      C('屋頂', '屋頂', 'memo', '寫著「放學後來屋頂」/的紙條'),
+      C('屋頂', '屋頂', 'memo', '紙條上寫著/「放學後來屋頂」'),
     ],
   },
   {
@@ -495,8 +498,8 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     clues: [
       C('1F', '大廳', 'papers', '訪客登記表上的/假名'),
       C('8F', '開放辦公區', 'laptop', '還沒登出的/同事的電腦'),
-      C('8F', '社長室', 'diary', '社長的行事曆'),
-      C('8F', '會議室', 'memo', '白板上/沒擦乾淨的字'),
+      C('8F', '社長室', 'diary', '倒數日期的/行事曆'),
+      C('8F', '會議室', 'recorder', '桌底黏著的/錄音筆'),
     ],
   },
   {
@@ -538,7 +541,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '中藥行', 'pills', '寫著奇怪藥名的/藥包'),
       C('1F', '照相館', 'photo', '一直沒人來領的/照片'),
       C('1F', '舊書店', 'diary', '夾在舊書裡的/日記'),
-      C('1F', '鐘錶行', 'key', '藏在鐘裡的/鑰匙'),
+      C('1F', '鐘錶行', 'key', '鐘擺上掛著的/鑰匙'),
     ],
   },
   {
@@ -593,7 +596,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '候車室', 'memo', '時刻表上/手寫的班次'),
       C('1F', '站長室', 'diary', '站長的/值勤日誌'),
       C('1F', '遺失物保管室', 'bag', '十年前的/遺失物'),
-      C('B1', '地下道', 'photo', '貼在牆上的/尋人海報'),
+      C('B1', '地下道', 'photo', '牆角褪色的/尋人海報'),
     ],
   },
   {
@@ -605,8 +608,8 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     build: subway,
     clues: [
       C('1F', '1 號出入口', 'papers', '被撕掉一角的/路線圖'),
-      C('B1', '大廳', 'memo', '貼在售票機上的/警告'),
-      C('B1', '置物櫃區', 'key', '置物櫃的鑰匙'),
+      C('B1', '大廳', 'memo', '站名不存在的/車票'),
+      C('B1', '置物櫃區', 'key', '編號磨掉的/寄物鑰匙'),
       C('B2', '島式月台', 'photo', '監視器拍到的/末班車'),
     ],
   },
@@ -619,8 +622,8 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       '商場底下的兩層停車場：1F 坡道入口與管理亭，B1、B2 停車區與坡道，B2 有機房，圍籬封起來的一角是 GM 專用。樓梯與電梯三層對齊。',
     build: parking,
     clues: [
-      C('1F', '管理亭', 'diary', '管理員的/巡邏紀錄'),
-      C('B1', '停車區 B1', 'phone', '掉在車底的/手機'),
+      C('1F', '管理亭', 'diary', '凌晨空白的/巡邏表'),
+      C('B1', '停車區 B1', 'phone', '壓在輪胎下的/手機'),
       C('B2', '停車區 B2', 'key', '找不到車的/車鑰匙'),
     ],
   },
@@ -648,7 +651,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     clues: [
       C('1F', '廠房', 'memo', '夾在輸送帶上的/紙條'),
       C('1F', '品管室', 'file_folder', '數字被改過的/檢驗報告'),
-      C('1F', '更衣室', 'key', '沒有名牌的/置物櫃鑰匙'),
+      C('1F', '更衣室', 'key', '貼著紅膠帶的/置物櫃鑰匙'),
       C('2F', '廠長室', 'diary', '廠長的/工作日誌'),
     ],
   },
@@ -662,7 +665,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     build: warehouse,
     clues: [
       C('1F', '倉庫辦公室', 'papers', '對不上數字的/出貨單'),
-      C('1F', '倉庫 A', 'photo', '貼在木箱上的/照片'),
+      C('1F', '倉庫 A', 'photo', '木箱縫裡的/舊相片'),
       C('1F', '倉庫 B', 'memo', '用外文寫的/收件人'),
       C('1F', '碼頭', 'key', '掉在繫船柱旁的/鑰匙'),
     ],
@@ -677,7 +680,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     build: construction,
     clues: [
       C('1F', '工務所', 'diary', '工地主任的/施工日誌'),
-      C('1F', '一樓樓板', 'photo', '挖出來的東西/的照片'),
+      C('1F', '一樓樓板', 'photo', '挖出東西的/現場照'),
       C('2F', '二樓樓板', 'memo', '寫在鋼筋上的/記號'),
     ],
   },
@@ -692,7 +695,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     clues: [
       C('1F', '街道', 'memo', '人孔蓋旁的/粉筆記號'),
       C('B1', '泵站', 'diary', '維修員的/巡查表'),
-      C('B1', '北側步道', 'photo', '泡過水的照片'),
+      C('B1', '北側步道', 'photo', '漂在水面的/證件照'),
       C('B1', '南側步道', 'bag', '卡在格柵上的/背包'),
     ],
   },
@@ -709,7 +712,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '偵訊室', 'photo', '嫌犯的不在場證明/照片'),
       C('1F', '留置室 2', 'clue', '牆上刻的記號'),
       C('1F', '辦公室', 'diary', '刑警的/辦案筆記'),
-      C('1F', '所長室', 'key', '證物室的/備用鑰匙'),
+      C('1F', '所長室', 'key', '黏在抽屜底的/證物室鑰匙'),
     ],
   },
   {
@@ -720,7 +723,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       '圍籬裡的營區：營舍、餐廳、司令室、作戰室、停著戰車的車庫、彈藥庫、操場與直升機坪；B1 地下指揮所的南邊是 GM 專用的封鎖實驗區。',
     build: militaryBase,
     clues: [
-      C('1F', '營舍', 'diary', '寫到一半的/家書'),
+      C('1F', '營舍', 'diary', '只有開頭的/家書'),
       C('1F', '作戰室', 'papers', '畫著紅圈的/地圖'),
       C('1F', '衛哨', 'memo', '進出登記簿的/最後一行'),
       C('B1', '機密檔案室', 'recorder', '最後一段/無線電錄音'),
@@ -734,8 +737,8 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       '鐵欄杆的舍房沿著走廊排開，旁邊是監控室、淋浴間、醫務室與會客室，西邊是圍起來的運動場；只有送餐口的獨居房是 GM 專用。',
     build: prison,
     clues: [
-      C('1F', '舍房 3', 'memo', '刻在床板下的/日期'),
-      C('1F', '會客室', 'photo', '會客時/遞進來的照片'),
+      C('1F', '舍房 3', 'memo', '床板底下/刻著日期'),
+      C('1F', '會客室', 'photo', '會客時/遞來的照片'),
       C('1F', '醫務室', 'pills', '沒有處方的藥'),
       C('1F', '運動場', 'key', '埋在沙坑裡的/鑰匙'),
     ],
@@ -806,11 +809,11 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       '從山徑走進不規則的洞室與通道：探險隊的營地、大洞室、崩落的支洞、地底湖，最深處是祭壇；窄縫後面有 GM 專用的封印之間。',
     build: cave,
     clues: [
-      C('洞窟', '洞口', 'diary', '前一支探險隊的/日誌'),
+      C('洞窟', '洞口', 'tools', '岩縫裡卡著的/登山扣環'),
       C('洞窟', '大洞室', 'phone', '只剩一格電的/手機'),
       C('洞窟', '祭壇', 'memo', '被撕下的禱文'),
-      C('洞窟', '湖畔', 'photo', '泡過水的合照'),
-      C('洞窟', '崩落的支洞', 'key', '生鏽的/鐵籠鑰匙'),
+      C('洞窟', '湖畔', 'photo', '沉在淺灘的/相框'),
+      C('洞窟', '崩落的支洞', 'key', '被落石壓住的/鐵籠鑰匙'),
     ],
   },
   {
@@ -826,7 +829,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '舊書店', 'memo', '只寫著日期與時刻的/訂書單'),
       C('B1', '資料室', 'diary', '信徒名冊'),
       C('B1', '教主室', 'key', '刻著符號的/鑰匙'),
-      C('B1', '牢房 1', 'phone', '失蹤者的手機'),
+      C('B1', '牢房 1', 'phone', '相簿全空的/手機'),
     ],
   },
   {
@@ -854,7 +857,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     build: mine,
     clues: [
       C('1F', '事務所', 'diary', '最後一天的/出坑紀錄'),
-      C('1F', '工具間', 'flashlight', '還有電的/手電筒'),
+      C('1F', '工具間', 'flashlight', '纏著布條的/手電筒'),
       C('B1', '休息所', 'photo', '礦工們的合照'),
       C('B1', '主坑道', 'memo', '用炭寫在/支柱上的字'),
     ],
@@ -887,7 +890,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     clues: [
       C('1F', '客廳', 'photo', '泛黃的全家福'),
       C('2F', '主臥室', 'diary', '受潮的日記'),
-      C('3F', '神明廳', 'idol', '不認得的神像'),
+      C('3F', '神明廳', 'idol', '臉被磨平的/神像'),
     ],
   },
   {
@@ -916,9 +919,9 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     build: abandonedSchool,
     theme: 'horror',
     clues: [
-      C('1F', '保健室', 'diary', '保健室的/借用紀錄'),
+      C('1F', '保健室', 'diary', '全是同一人的/就診簿'),
       C('1F', '教師辦公室', 'file_folder', '學生的/輔導紀錄'),
-      C('2F', '二年三班', 'photo', '被剪掉一角的/班級合照'),
+      C('2F', '二年三班', 'photo', '背面打叉的/班級合照'),
       C('屋頂', '屋頂', 'memo', '綁在欄杆上的/紙條'),
     ],
   },
@@ -971,7 +974,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
     also: ['lodging'],
     name: '冒險者酒館',
     description:
-      '1F 有告示板與壁爐的酒場、廚房、倉庫、馬廄與後院，2F 客房與老闆的房間；走廊盡頭暗門後的密室是 GM 專用。樓梯上下對齊。',
+      '1F 是酒場（壁爐與告示板都在這裡）、廚房、倉庫、馬廄和後院，2F 是客房與老闆的房間；走廊盡頭暗門後的密室是 GM 專用。樓梯上下對齊。',
     build: tavern,
     clues: [
       C('1F', '酒場', 'memo', '從告示板撕下的/委託'),
@@ -988,7 +991,7 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       '石造的三層塔：1F 門廳與書庫、2F 研究室與寢室、3F 觀星台；從裡面封上的召喚室是 GM 專用。螺旋梯三層對齊。',
     build: wizardTower,
     clues: [
-      C('1F', '書庫', 'diary', '魔法師的/研究筆記'),
+      C('1F', '書庫', 'diary', '邊角燒焦的/魔法手稿'),
       C('1F', '門廳', 'key', '刻著符文的/鑰匙'),
       C('2F', '研究室', 'pills', '標著星座符號的/藥瓶'),
       C('3F', '觀星台', 'memo', '畫滿星圖的紙'),
