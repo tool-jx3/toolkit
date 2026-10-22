@@ -504,9 +504,10 @@ export const S = {
   del: {
     title: (rooms: number, name: string) =>
       rooms === 1 ? `刪除「${name || '房間'}」？` : `刪除 ${rooms} 間房間？`,
-    text: (c: Record<'room' | 'item' | 'opening' | 'wall' | 'text', number>) =>
+    text: (c: Record<'room' | 'item' | 'mounted' | 'opening' | 'wall' | 'text', number>) =>
       `房間裡還有 ${[
         c.item ? `${c.item} 件家具` : '',
+        c.mounted ? `${c.mounted} 個貼牆素材` : '',
         c.text ? `${c.text} 則文字` : '',
         c.opening ? `${c.opening} 個門窗` : '',
         c.wall ? `${c.wall} 道牆` : '',

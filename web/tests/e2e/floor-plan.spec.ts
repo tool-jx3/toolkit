@@ -3235,6 +3235,111 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     expect(errors).toEqual([]);
   });
 
+  test('貼牆素材跟著房間走：移動、旋轉、複製、刪除房間（含詢問的件數）都帶著；房間外面的不動（F233、F224、7.16）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* 房間 A (0,0,10,8)、B (10,0,6,8)：A 的上緣有裂痕、A 與 B 共用的牆上有血手印、B 的右緣有觸手（A 的外面） */
+    const setup = async () => {
+      await twoRooms(page);
+      await run(page, 'addObject', 'item', {
+        id: 'top',
+        t: 'crack_wall',
+        x: 2.5,
+        y: -0.4,
+        w: 3,
+        h: 0.8,
+        rot: 0,
+      });
+      await run(page, 'addObject', 'item', {
+        id: 'mid',
+        t: 'wall_blood',
+        x: 9.6,
+        y: 2.2,
+        w: 0.8,
+        h: 1.6,
+        rot: 90,
+      });
+      await run(page, 'addObject', 'item', {
+        id: 'far',
+        t: 'tendrils',
+        x: 14.5,
+        y: 3,
+        w: 3,
+        h: 4,
+        rot: 90,
+      });
+      await page.keyboard.press('v');
+    };
+    const itemOf = async (id: string) => (await floor(page)).items.find((i) => i.id === id);
+    await setup();
+
+    /* 移動：房間 A 往右 2 格，裂痕與血手印跟著動，B 右緣的觸手不動；一步復原 */
+    await click(page, 5, 5);
+    await drag(page, [5, 5], [7, 5]);
+    expect((await floor(page)).rooms[0].x).toBe(2);
+    expect(await itemOf('top')).toMatchObject({ x: 4.5, y: -0.4 });
+    expect(await itemOf('mid')).toMatchObject({ x: 11.6, y: 2.2 });
+    expect(await itemOf('far')).toMatchObject({ x: 14.5, y: 3 });
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    expect((await floor(page)).rooms[0].x).toBe(0);
+    expect(await itemOf('top')).toMatchObject({ x: 2.5 });
+    expect(await itemOf('mid')).toMatchObject({ x: 9.6 });
+    /* Alt：只動房間，貼牆素材留在原地 */
+    await page.waitForTimeout(450);
+    await drag(page, [5, 5], [7, 5], ['Alt']);
+    expect((await floor(page)).rooms[0].x).toBe(2);
+    expect(await itemOf('top')).toMatchObject({ x: 2.5 });
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(450);
+
+    /* 旋轉（R）：A (0,0,10,8) 順時針轉成 (1,-1,8,10)；上緣的裂痕轉到右緣（x＝9）、方向 90° */
+    await page.keyboard.press('r');
+    const a = (await floor(page)).rooms[0];
+    expect([a.x, a.y, a.w, a.h]).toEqual([1, -1, 8, 10]);
+    const top = await itemOf('top');
+    expect(top?.rot).toBe(90);
+    expect((top?.x ?? 0) + (top?.w ?? 0) / 2).toBeCloseTo(a.x + a.w, 6);
+    expect(await itemOf('far')).toMatchObject({ x: 14.5, y: 3, rot: 90 });
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(450);
+    expect(await itemOf('top')).toMatchObject({ x: 2.5, rot: 0 });
+
+    /* 複製（Ctrl＋D）：房間連同裂痕、血手印一起複製（往右移 10 格），觸手不複製 */
+    await page.keyboard.press('Control+d');
+    const f = await floor(page);
+    expect(f.rooms.map((r) => r.x)).toEqual([0, 10, 10]);
+    expect(f.items.map((i) => i.t).sort()).toEqual(
+      ['crack_wall', 'crack_wall', 'tendrils', 'wall_blood', 'wall_blood'].sort(),
+    );
+    const copy = f.items.filter((i) => i.t === 'crack_wall' && i.id !== 'top')[0];
+    expect(copy).toMatchObject({ x: 12.5, y: -0.4 });
+
+    /* 刪除房間：詢問的件數寫「N 個貼牆素材」；連裡面的東西一起刪＝貼牆素材也刪；一步復原 */
+    await setup();
+    const dialog = page.getByRole('alertdialog');
+    await click(page, 5, 5);
+    await page.keyboard.press('Delete');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('房間裡還有 2 個貼牆素材。');
+    await dialog.getByRole('button', { name: '只刪房間' }).click();
+    expect((await floor(page)).items.length).toBe(3);
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    await click(page, 5, 5);
+    await page.keyboard.press('Delete');
+    await dialog.getByRole('button', { name: '連裡面的東西一起刪' }).click();
+    expect((await floor(page)).items.map((i) => i.id)).toEqual(['far']);
+    await expect(page.getByText('已刪除 3 個', { exact: true })).toBeVisible();
+    await page.waitForTimeout(450);
+    await page.keyboard.press('Control+z');
+    expect((await floor(page)).items.length).toBe(3);
+    expect(errors).toEqual([]);
+  });
+
   test('匯出抽查：新的家具照樣式的顏色畫（消防車的紅、戰車的綠、站名牌的藍）', async ({ page }) => {
     const errors = await open(page);
     await blank(page);
