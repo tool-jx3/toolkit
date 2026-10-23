@@ -314,9 +314,11 @@ export function LineOverlay({
   );
 }
 
-/** 選取的句在逐句清單是第幾句（1 起；找不到＝0） */
-const rowNumber = (key: string): number =>
-  builtLines(settingsNow()).rows.findIndex((r) => r.key === key) + 1;
+/** 選取的句在逐句清單是第幾句（1 起；沒有時間標記的歌詞〔整段一句、沒有清單〕＝1） */
+const rowNumber = (key: string): number => {
+  const b = builtLines(settingsNow());
+  return b.untimed ? 1 : b.rows.findIndex((r) => r.key === key) + 1;
+};
 
 /** 這一句還在要排的句裡（換了歌詞、被略過就不在了） */
 const planHas = (key: string): boolean =>
@@ -329,10 +331,13 @@ export function LineToolbar({ time, playing }: { time: number; playing: boolean 
   const selected = useSession((st) => st.selected);
   const exporting = useSession((st) => st.exporting);
   if (!selected) return null;
-  const rows = builtLines(s).rows;
-  const i = rows.findIndex((r) => r.key === selected);
-  if (i < 0) return null;
-  const row = rows[i];
+  const built = builtLines(s);
+  /* 沒有時間標記的歌詞（整段一句）沒有逐句清單，只有預覽上的操作 */
+  const i = built.untimed ? 0 : built.rows.findIndex((r) => r.key === selected);
+  const text = built.untimed
+    ? (built.lines.find((l) => l.key === selected)?.text.split('\n')[0] ?? null)
+    : (built.rows[i]?.text ?? null);
+  if (text == null) return null;
   const pick = canPick(s);
   const shown = pick ? placementOf(s, fontTick, selected, time)?.box : null;
   const note = !pick ? null : playing ? S.pick.playing : shown ? S.pick.hint : S.pick.hidden;
@@ -343,7 +348,7 @@ export function LineToolbar({ time, playing }: { time: number; playing: boolean 
     >
       <div className="flex min-w-0 grow basis-56 flex-col">
         <span className="truncate text-sm font-medium">
-          {S.pick.toolbar(i + 1)}：{row.text}
+          {S.pick.toolbar(i + 1)}：{text}
         </span>
         {note ? <span className="text-xs text-muted">{note}</span> : null}
       </div>
@@ -357,17 +362,19 @@ export function LineToolbar({ time, playing }: { time: number; playing: boolean 
       >
         {S.adjust.reset}
       </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        icon={<ListOrdered />}
-        onClick={() => {
-          setTab('lyrics');
-          selectLine(selected, 'preview');
-        }}
-      >
-        {S.pick.openList}
-      </Button>
+      {built.untimed ? null : (
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={<ListOrdered />}
+          onClick={() => {
+            setTab('lyrics');
+            selectLine(selected, 'preview');
+          }}
+        >
+          {S.pick.openList}
+        </Button>
+      )}
       <Button size="sm" variant="ghost" icon={<X />} onClick={() => selectLine(null)}>
         {S.pick.deselect}
       </Button>

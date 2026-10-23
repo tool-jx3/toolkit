@@ -1,5 +1,5 @@
 /**
- * 「散落」沒有用到逐句手動調整時，排位置與畫面和加入這個功能之前完全相同（lyric-fx 規格 F75～F80、D22）。
+ * 「散落」沒有用到逐句手動調整時，排位置與畫面和加入這個功能之前完全相同（lyric-fx 規格 F82、D29）。
  *
  * 基準（tests/unit/fixtures/lyric-fx-golden.json）是在加入逐句手動調整之前的程式（commit d06ae8e）上用這個檔案產生的：
  * `LYRIC_FX_GOLDEN_WRITE=1 npx vitest run tests/unit/lyric-fx-golden.test.ts`。

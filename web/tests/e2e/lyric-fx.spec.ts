@@ -1117,6 +1117,22 @@ test.describe('歌詞演出產生器', () => {
     expect(back.lines.map((l) => [l.x, l.y, l.angle, l.rows])).toEqual(
       base.lines.map((l) => [l.x, l.y, l.angle, l.rows]),
     );
+    await page.waitForTimeout(450);
+
+    /* 沒有時間標記的歌詞（整段一句、沒有清單）：預覽上照樣能選取、拖曳，工具列有「恢復自動」 */
+    await area.fill('沒有時間的第一行\n第二行');
+    await area.blur();
+    await page.waitForTimeout(450);
+    await showLine(page, 'untimed');
+    const u = await toScreen(page, (await placementOf(page, 'untimed')).pivot);
+    await page.mouse.move(u.x + 6, u.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 5; i++) await page.mouse.move(u.x + 6 + i * 8, u.y + i * 6);
+    await page.mouse.up();
+    await expect(page.getByTestId('line-toolbar')).toContainText('已選取第 1 句：沒有時間的第一行');
+    await expect.poll(async () => (await settings(page)).overrides.untimed?.adjust?.x).toBeTruthy();
+    await page.getByTestId('toolbar-reset').click();
+    await expect.poll(async () => (await settings(page)).overrides.untimed).toBeUndefined();
     expect(errors).toEqual([]);
   });
 
