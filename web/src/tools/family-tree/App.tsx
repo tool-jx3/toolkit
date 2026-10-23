@@ -1,11 +1,20 @@
 /**
- * 家系圖產生器：一代一列的家系圖，卡片雙擊就地編輯、拖曳換順序或換父母，匯出 PNG。
- * 規格：docs/refactor/specs/family-tree.md（第一批＝樹的核心）。
+ * 家系圖產生器：一代一列的家系圖，卡片雙擊就地編輯、拖曳換順序或換父母，匯出 PNG／SVG。
+ * 規格：docs/refactor/specs/family-tree.md（第一批＝樹的核心；第二批＝過繼、外孫、婚姻連結、框選匯出、
+ * 女兒的寫法、狀態、GM 專用與 PL 版、頭像、SVG）。
  */
 import { Redo2, Undo2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { downloadText } from '@/core/files';
-import { serializeProject, useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
+import { importAssetFiles } from '@/core/assets';
+import { downloadBytes, downloadText } from '@/core/files';
+import {
+  type ProjectBinary,
+  serializeProject,
+  serializeProjectZip,
+  useSaveError,
+  useSaveStatus,
+  useUndoRedo,
+} from '@/core/storage';
 import {
   IconButton,
   ProjectMenu,
@@ -22,6 +31,7 @@ import { TreeCanvas } from './editor/Canvas';
 import { CanvasToolbar } from './editor/Toolbar';
 import { exampleBoard } from './model/example';
 import { boardsFromLegacy, isLegacyBackup } from './model/legacy';
+import { avatarIds } from './model/ops';
 import { cleanTreeData } from './model/sanitize';
 import { type Board, LIMITS, newId, type TreeData } from './model/types';
 import { BoardSection } from './panels/BoardSection';
@@ -29,8 +39,11 @@ import { ExportTab } from './panels/ExportTab';
 import { PersonPanel } from './panels/PersonPanel';
 import { ViewPanel } from './panels/ViewPanel';
 import {
+  assets,
   boardNow,
   DATA_VERSION,
+  prefsNow,
+  referencedAvatars,
   resetUi,
   type SettingsTab,
   select,
@@ -52,15 +65,31 @@ declare global {
     /** 測試與對等驗證用：目前的排版與圖板 */
     __familyTree?: {
       layout: () => { id: string; x: number; y: number; gen: number }[];
+      stubs: () => { id: string; x: number; y: number; gen: number; parent: string | null }[];
       board: () => Board;
     };
   }
 }
 
 window.__familyTree = {
-  layout: () => layoutNow().nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, gen: n.gen })),
+  /* 成員的卡片（「出」字小卡另外在 stubs） */
+  layout: () =>
+    layoutNow()
+      .nodes.filter((n) => !n.stub)
+      .map((n) => ({ id: n.id, x: n.x, y: n.y, gen: n.gen })),
+  stubs: () =>
+    layoutNow()
+      .nodes.filter((n) => n.stub)
+      .map((n) => ({ id: n.id, x: n.x, y: n.y, gen: n.gen, parent: n.parent?.id ?? null })),
   board: () => boardNow(),
 };
+
+/** 專案檔帶的頭像（所有圖板或一張圖板；沒有頭像時是 JSON 專案檔，有時是 ZIP） */
+const boardAvatarIds = (boards: readonly Board[]) => [
+  ...new Set(boards.flatMap((b) => avatarIds(b.people))),
+];
+const projectFiles = (boards: readonly Board[]): Promise<ProjectBinary[]> =>
+  assets.exportFiles(boardAvatarIds(boards));
 
 function Usage() {
   return (
@@ -121,6 +150,9 @@ function Project() {
   const toast = useToast();
   const savedAt = useSaveStatus(TOOL_ID);
   const canceled = useRef(false);
+  /* 有頭像時存成 ZIP（project.json＋files/<資產 id>.<副檔名>）；沒有時照舊是 JSON */
+  const data = useTree((s) => s.data);
+  const withFiles = boardAvatarIds(data.boards).length > 0;
 
   /** 讀到的圖板：問「加成新的圖板」或「取代全部」；取消時 false */
   const place = async (boards: Board[]): Promise<boolean> => {
@@ -145,13 +177,16 @@ function Project() {
       fileNameFor={() => `${S.untitledBoard} ${stamp()}`}
       savedAt={savedAt}
       confirmOpen={false}
-      openAccept=".json,application/json"
-      onLoad={async (data) => {
+      getFiles={withFiles ? () => projectFiles(treeNow().boards) : undefined}
+      openAccept=".json,.zip,application/json,application/zip"
+      onLoad={async (data, _file, files) => {
         canceled.current = false;
         const d = cleanTreeData(data);
         if (!d.boards.length) return false;
+        /* 頭像的圖片放回資產庫（保留檔案裡的 id）；存不進瀏覽器時提醒 */
+        const imported = files.size ? await importAssetFiles(assets, files.entries()) : null;
         if (!(await place(d.boards))) canceled.current = true;
-        return true;
+        return { warnings: [imported?.notPersisted ? S.avatarNotSaved : null] };
       }}
       onForeignFile={async (_file, bytes) => {
         let json: unknown;
@@ -186,15 +221,35 @@ function Project() {
       resetText={{ title: S.resetTitle, description: S.resetDesc }}
       extraItems={
         <ProjectMenuItem
-          onSelect={() => {
+          onSelect={async () => {
             const b = boardNow();
-            const name = `${b.title || S.untitledBoard} ${stamp()}.json`;
-            downloadText(
-              serializeProject(TOOL_ID, DATA_VERSION, { boards: [b] }),
-              name,
-              'application/json',
-            );
-            toast({ title: S.savedProject, description: name, tone: 'success' });
+            const base = `${b.title || S.untitledBoard} ${stamp()}`;
+            try {
+              if (boardAvatarIds([b]).length) {
+                const files = await projectFiles([b]);
+                const name = `${base}.zip`;
+                downloadBytes(
+                  serializeProjectZip(TOOL_ID, DATA_VERSION, { boards: [b] }, files),
+                  name,
+                  'application/zip',
+                );
+                toast({ title: S.savedProject, description: name, tone: 'success' });
+                return;
+              }
+              const name = `${base}.json`;
+              downloadText(
+                serializeProject(TOOL_ID, DATA_VERSION, { boards: [b] }),
+                name,
+                'application/json',
+              );
+              toast({ title: S.savedProject, description: name, tone: 'success' });
+            } catch (e) {
+              toast({
+                title: S.saveProjectFailed,
+                description: e instanceof Error ? e.message : String(e),
+                tone: 'danger',
+              });
+            }
           }}
         >
           {S.saveBoardOnly}
@@ -218,6 +273,13 @@ function Glue() {
   useEffect(() => {
     if (selectedId && !board.people[selectedId]) select(null);
   }, [board, selectedId]);
+  /* 開頁約 5 秒後整理頭像的圖片庫：以前留下、所有圖板與復原紀錄都沒用到的才刪（這次開頁放進來的不刪） */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void assets.gcStale(referencedAvatars()).catch(() => undefined);
+    }, 5000);
+    return () => clearTimeout(t);
+  }, []);
   return null;
 }
 
@@ -238,6 +300,12 @@ export function App() {
     { keys: 'f2', label: S.keyF2, group: S.groupCanvas },
     { keys: 'alt', label: S.keyAlt, group: S.groupCanvas },
     { keys: 'shift', label: S.keyShift, group: S.groupCanvas },
+    {
+      keys: 'p',
+      label: S.keyP,
+      group: S.groupCanvas,
+      handler: () => setPrefs({ viewMode: prefsNow().viewMode === 'pl' ? 'gm' : 'pl' }),
+    },
   ];
   return (
     <ToolShell

@@ -201,11 +201,13 @@ export function expand(ids: string[]): void {
 /* ---------- 畫面上的狀態（不保存） ---------- */
 
 export interface DragView {
-  /** 被拖的成員 */
+  /** 被拖的成員（或「出」字小卡的那個人） */
   id: string;
+  /** 拖的是「出」字小卡 */
+  stub: boolean;
   /** 拖曳中的人物資料（同一列重排的結果；換父母時是原本的） */
   people: People;
-  /** 跟著移動的人（加虛線外框） */
+  /** 跟著移動的卡片（加虛線外框；成員 m:id、「出」字小卡 s:id） */
   moving: string[];
   /** 放下的目標（卡片的 data-pid）與能不能放 */
   target: { pid: string; ok: boolean } | null;

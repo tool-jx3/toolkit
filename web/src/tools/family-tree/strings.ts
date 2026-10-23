@@ -226,6 +226,12 @@ export const S = {
   linkHintOn: (name: string) =>
     `名字、讀音、生歿年和 ${name} 的卡片共用；${name} 的卡片也有一張配偶卡片，兩張之間畫紫色虛線。`,
   linkGo: '移到連結的人',
+  husbandSection: '女婿（丈夫）',
+  husbandMore: '丈夫的配偶卡片（連結、刪除）',
+  husbandLinked: (where: string, name: string) => `已連結：和 ${where}的 ${name} 是同一個人。`,
+  husbandFirst: '有好幾位丈夫時，卡片寫第一位。',
+  gmFieldsLinked: (name: string) =>
+    `名字、讀音、生歿年、狀態、頭像和 ${name} 共用，要藏的話到 ${name} 的卡片設定。`,
   linkAdded: (name: string) => `${name} 的卡片也加上了配偶`,
   statusLabel: '狀態',
   gmSection: 'GM 專用',
@@ -377,6 +383,7 @@ export const S = {
   openedLegacy: (n: number) => `已讀進原作的備份檔（${n} 張圖板）`,
   notOurFile: '這不是家系圖的專案檔或原作的備份檔',
   savedProject: '已存成專案檔',
+  saveProjectFailed: '無法存成專案檔',
   resetTitle: '重設家系圖？',
   resetDesc: '所有圖板都會刪掉，回到只有範例圖板（可以用「復原」回來）。要留著的話先存成專案檔。',
   saveFailed: '自動儲存失敗（瀏覽器的空間可能不夠）：請存成專案檔。',

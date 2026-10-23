@@ -1,5 +1,7 @@
 /**
- * 「顯示」分頁（規格 F16、F17、F20、F28、F58、F59）：父親的位置、卡片的樣子、色分類。
+ * 「顯示」分頁（規格 F16、F17、F20、F28、F58、F59；第二批 F80～F84、F87）：父親的位置、卡片的樣子
+ * （備註、配偶、婚姻連線、女兒的寫法、頭像）、家系（母系外孫、生家的「出」字小卡）、色分類。
+ * 都記在瀏覽器（不列入復原；父親的位置與色分類存在圖板裡）。
  */
 import { Plus, Trash2 } from 'lucide-react';
 import { historyGesture } from '@/core/storage';
@@ -61,6 +63,31 @@ export function ViewPanel() {
         </Field>
         <Field label={S.showSpouses} layout="inline">
           <Toggle checked={prefs.spouses} onCheckedChange={(v) => setPrefs({ spouses: v })} />
+        </Field>
+        <Field label={S.showLinks} layout="inline" hint={S.showLinksHint}>
+          <Toggle
+            checked={prefs.links}
+            disabled={!prefs.spouses}
+            onCheckedChange={(v) => setPrefs({ links: v })}
+          />
+        </Field>
+        <Field label={S.showDaughterName} layout="inline" hint={S.showDaughterNameHint}>
+          <Toggle
+            checked={prefs.daughterName}
+            onCheckedChange={(v) => setPrefs({ daughterName: v })}
+          />
+        </Field>
+        <Field label={S.showAvatars} layout="inline" hint={S.showAvatarsHint}>
+          <Toggle checked={prefs.avatars} onCheckedChange={(v) => setPrefs({ avatars: v })} />
+        </Field>
+      </Section>
+
+      <Section title={S.lineSection} persistKey="family-tree:view-line">
+        <Field label={S.showMaternal} layout="inline" hint={S.showMaternalHint}>
+          <Toggle checked={prefs.maternal} onCheckedChange={(v) => setPrefs({ maternal: v })} />
+        </Field>
+        <Field label={S.showStubs} layout="inline" hint={S.showStubsHint}>
+          <Toggle checked={prefs.stubs} onCheckedChange={(v) => setPrefs({ stubs: v })} />
         </Field>
       </Section>
 

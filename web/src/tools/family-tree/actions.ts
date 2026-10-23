@@ -72,6 +72,9 @@ export interface CanvasApi {
 }
 export const canvasApi: { current: CanvasApi | null } = { current: null };
 
+/** 匯出分頁登記：框選範圍之後直接匯出（F83） */
+export const exportApi: { current: (() => void) | null } = { current: null };
+
 /* ---------- 排版 ---------- */
 
 const NO_COLLAPSE: readonly string[] = [];
