@@ -5,6 +5,7 @@
  * - `retroGrade`：純函式（RGBA 像素就地改寫，alpha 不動；Node 可測）。所有運算以小數連續算、**中間不截斷**，
  *   只在最後取階時夾在 0～255（照 RPG Screenshot Maker 的算法，逐像素相同）。
  * - `pixelateImage`：用畫布做「縮小（畫布預設的平滑縮放）→ retroGrade → 最近鄰放大」，回傳 W × H 的畫布。
+ *   要和別人的結果逐像素相同時來源用 `<img>`（Chromium 縮小 `<img>` 與 ImageBitmap 的取樣不同）。
  *
  * ```ts
  * const out = pixelateImage(bitmap, 816, 624, { pixelSize: 6, levels: 8, dither: true, tone: 'warm' });

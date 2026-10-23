@@ -475,6 +475,10 @@ test('台詞：分頁、說話者、顏色、游標所在的頁、超出視窗�
   await page.getByRole('textbox', { name: '地點' }).fill('白鹿亭');
   await page.getByRole('textbox', { name: '地點' }).blur();
   expect((await state(page)).location).toBe('白鹿亭');
+  /* 改了地點：約 0.35 秒後預覽重播地點的開場動畫（F51） */
+  await expect
+    .poll(async () => (await call<{ anim: { loc: number | null } }>(page, 'screen')).anim.loc)
+    .not.toBeNull();
   expect(errors).toEqual([]);
 });
 
