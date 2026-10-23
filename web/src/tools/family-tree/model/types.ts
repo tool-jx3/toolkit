@@ -3,8 +3,10 @@
  *
  * - 一張圖板（Board）＝一份家系圖：人物以 id 為鍵存在 `people`（**保留加入的順序**，排序值相同時以它為準）。
  * - 成員（member）有自己的卡片、在世代列上；配偶（spouse）以小卡片接在成員右邊。
- * - 第二批（出系／入系、婚姻連結、狀態、GM 專用欄位、頭像）先留好欄位：第一批不顯示、不編輯，但讀檔、存檔都保留。
+ * - 第二批：出系／入系（adopt）、婚姻連結（link）、狀態（status）、GM 專用（gm、gmFields、secret）、頭像（avatar、avatarPos）。
+ *   資料版本 2（第一批是 1；新加的欄位都是選填，所以版本 1 的資料照讀）。
  */
+import type { FramePlacement } from '@/core/image';
 
 export type Gender = 'M' | 'F';
 
@@ -13,7 +15,7 @@ export type Align = 'center' | 'manual' | 'eldest';
 
 export const ALIGNS: readonly Align[] = ['center', 'manual', 'eldest'];
 
-/** 第二批：出系／入系（原作的 adoptFatherId、adoptType、stubOrder、sgx） */
+/** 出系／入系（原作的 adoptFatherId、adoptType、stubOrder、sgx；規格 F80） */
 export interface AdoptInfo {
   /** 繼父（養父）的 id */
   fatherId: string | null;
@@ -25,7 +27,7 @@ export interface AdoptInfo {
   gap?: number;
 }
 
-/** 第二批：跨家系的婚姻連結（原作的 linkId、pairId、auto） */
+/** 跨家系的婚姻連結（原作的 linkId、pairId、auto；規格 F82） */
 export interface LinkInfo {
   /** 連到的成員 */
   personId: string;
@@ -35,8 +37,50 @@ export interface LinkInfo {
   auto?: boolean;
 }
 
-/** 第二批：狀態（本站） */
+/** 狀態（本站，規格 F85）：沒有寫＝存活 */
 export type LifeStatus = 'alive' | 'dead' | 'missing';
+
+export const LIFE_STATUSES: readonly LifeStatus[] = ['alive', 'dead', 'missing'];
+
+/**
+ * 只有 GM 看得到的欄位（本站，規格 F86）：PL 檢視與 PL 用的匯出裡拿掉。
+ * adopt＝過繼本身是秘密（PL 看到的是繼父的親生孩子：沒有「入」、生家沒有「出」）。
+ */
+export type GmField =
+  | 'reading'
+  | 'alias'
+  | 'birth'
+  | 'death'
+  | 'note'
+  | 'status'
+  | 'avatar'
+  | 'origin'
+  | 'parents'
+  | 'cat'
+  | 'adopt';
+
+export const MEMBER_GM_FIELDS: readonly GmField[] = [
+  'reading',
+  'alias',
+  'birth',
+  'death',
+  'status',
+  'note',
+  'cat',
+  'avatar',
+  'adopt',
+];
+export const SPOUSE_GM_FIELDS: readonly GmField[] = [
+  'reading',
+  'origin',
+  'birth',
+  'death',
+  'parents',
+  'status',
+  'note',
+  'cat',
+  'avatar',
+];
 
 interface PersonBase {
   id: string;
@@ -50,12 +94,18 @@ interface PersonBase {
   cat?: string;
   /** 排序值（兄弟姊妹、始祖、同一人的配偶各自比較） */
   order: number;
-  /* ---- 第二批預留 ---- */
+  /** 狀態（沒有＝存活） */
   status?: LifeStatus;
-  /** GM 專用的祕密 */
+  /** GM 筆記（只有 GM 看得到；PL 檢視、PL 用的匯出一律拿掉） */
   secret?: string;
-  /** 頭像（資產 id） */
+  /** 這個人只有 GM 看得到（成員：連同子孫） */
+  gm?: boolean;
+  /** 只有 GM 看得到的欄位 */
+  gmFields?: GmField[];
+  /** 頭像（資產 id；圖片存在這個瀏覽器的資產庫，專案檔帶著） */
   avatar?: string;
+  /** 頭像在圓裡的位置（沒有＝置中蓋滿） */
+  avatarPos?: FramePlacement;
 }
 
 export interface Member extends PersonBase {
@@ -71,7 +121,7 @@ export interface Member extends PersonBase {
   gap?: number;
   /** 手動偏移（父親的位置是「手動」時，規格 F47） */
   shift?: number;
-  /* ---- 第二批預留 ---- */
+  /** 出系／入系 */
   adopt?: AdoptInfo;
 }
 
@@ -83,7 +133,7 @@ export interface Spouse extends PersonBase {
   origin?: string;
   /** 父母（原作的父親，一行文字） */
   parents?: string;
-  /* ---- 第二批預留 ---- */
+  /** 連到同一張圖板裡別的家系的成員 */
   link?: LinkInfo;
 }
 
@@ -107,7 +157,7 @@ export interface Board {
   people: People;
 }
 
-/** 自動儲存與專案檔的 data（資料版本 1） */
+/** 自動儲存與專案檔的 data（資料版本 2） */
 export interface TreeData {
   boards: Board[];
 }
@@ -125,6 +175,7 @@ export const LIMITS = {
   parents: 200,
   year: 20,
   note: 2000,
+  secret: 2000,
   title: 60,
   catName: 30,
   gen: 999,

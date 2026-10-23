@@ -6,17 +6,26 @@
  */
 import type { Draft } from 'immer';
 import { create } from 'zustand';
+import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { createPreviewStore, createToolStore } from '@/core/storage';
-import type { ExportCard, ExportOrient, ExportRange } from './export/render';
+import type {
+  ExportAudience,
+  ExportCard,
+  ExportFormat,
+  ExportOrient,
+  ExportRange,
+} from './export/render';
 import { exampleBoard } from './model/example';
+import { plPeople } from './model/gm';
 import type { CardMode } from './model/layout';
-import { isFull } from './model/ops';
+import { avatarIds, isFull } from './model/ops';
 import { cleanTreeData } from './model/sanitize';
 import type { Board, InlineField, People, TreeData } from './model/types';
 import { S } from './strings';
 
 export const TOOL_ID = 'family-tree';
-export const DATA_VERSION = 1;
+/** 資料版本：1＝第一批；2＝第二批（狀態、GM 專用、頭像等選填欄位；版本 1 的資料照讀） */
+export const DATA_VERSION = 2;
 
 function initialData(): TreeData {
   return { boards: [exampleBoard('b-example', '2026-01-01T00:00:00.000Z')] };
@@ -35,7 +44,17 @@ export const useTree = createToolStore<TreeData>(TOOL_ID, initialData(), {
   useTree.temporal.getState().clear();
 }
 
+/** 頭像的圖片（資產庫；資料裡只存 id，規格 F87） */
+export const assets = createAssetStore(TOOL_ID);
+
+/** 整理資產庫時保留的圖：所有圖板與復原紀錄用到的頭像 */
+export function referencedAvatars(): Set<string> {
+  return referencedAssetIds(useTree, (d) => d.boards.flatMap((b) => avatarIds(b.people)));
+}
+
 export type DragMode = 'order' | 'gap';
+/** 畫面：GM 檢視（全部）／PL 檢視（拿掉 GM 專用的人與欄位，規格 F86） */
+export type ViewMode = 'gm' | 'pl';
 export type SettingsTab = 'person' | 'view' | 'export' | 'boards';
 
 export interface Prefs {
@@ -44,11 +63,24 @@ export interface Prefs {
   memo: boolean;
   spouses: boolean;
   colors: boolean;
+  /** 母系外孫（女兒的孩子，規格 F81） */
+  maternal: boolean;
+  /** 生家也顯示出系的人（「出」字小卡，F80） */
+  stubs: boolean;
+  /** 婚姻連線（F82） */
+  links: boolean;
+  /** 女兒寫成「女（適 丈夫）」（F84） */
+  daughterName: boolean;
+  /** 卡片上顯示頭像（F87） */
+  avatars: boolean;
+  viewMode: ViewMode;
   dragMode: DragMode;
   /** 每張圖板折疊的人 */
   collapsed: Record<string, string[]>;
   tab: SettingsTab;
   exportRange: ExportRange;
+  exportAudience: ExportAudience;
+  exportFormat: ExportFormat;
   exportOrient: ExportOrient;
   exportCard: ExportCard;
   exportTitle: boolean;
@@ -63,10 +95,18 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   memo: false,
   spouses: true,
   colors: true,
+  maternal: true,
+  stubs: true,
+  links: true,
+  daughterName: false,
+  avatars: true,
+  viewMode: 'gm',
   dragMode: 'order',
   collapsed: {},
   tab: 'person',
   exportRange: 'all',
+  exportAudience: 'pl',
+  exportFormat: 'png',
   exportOrient: 'v',
   exportCard: 'view',
   exportTitle: true,
@@ -94,6 +134,13 @@ export function useBoard(): Board {
   const current = usePrefs((s) => s.data.current);
   return pickBoard(data, current);
 }
+
+/** 畫面上看到的人物：PL 檢視時拿掉 GM 專用的人與欄位（plPeople 沒有秘密時回傳同一個物件） */
+export function shownPeople(people: People, mode: ViewMode): People {
+  return mode === 'pl' ? plPeople(people) : people;
+}
+
+export const isPlView = () => prefsNow().viewMode === 'pl';
 
 /** 目前的圖板滿了（2,000 人）：所有加人的按鈕停用並提示（規格第 2 節、F07） */
 export function usePeopleFull(): boolean {
@@ -167,11 +214,20 @@ export interface DragView {
   ghost: { x: number; y: number };
 }
 
+/** 框選範圍匯出（F83）：框選中、框到的卡片（成員 m:id、「出」字小卡 s:id） */
+export interface AreaState {
+  picking: boolean;
+  keys: string[] | null;
+}
+
 export interface Ui {
   selectedId: string | null;
   editing: { id: string; field: InlineField } | null;
   drag: DragView | null;
   exportName: string | null;
+  area: AreaState;
+  /** 正在調整頭像範圍的人 */
+  avatarFor: string | null;
 }
 
 export const useUi = create<Ui>(() => ({
@@ -179,10 +235,18 @@ export const useUi = create<Ui>(() => ({
   editing: null,
   drag: null,
   exportName: null,
+  area: { picking: false, keys: null },
+  avatarFor: null,
 }));
 
 export function resetUi(): void {
-  useUi.setState({ selectedId: null, editing: null, drag: null });
+  useUi.setState({
+    selectedId: null,
+    editing: null,
+    drag: null,
+    area: { picking: false, keys: null },
+    avatarFor: null,
+  });
 }
 
 export function select(id: string | null): void {

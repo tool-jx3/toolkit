@@ -18,7 +18,10 @@ import { descendants, hostOf, shownOf } from '../model/tree';
 import type { Board, Category, Member, Person, Spouse } from '../model/types';
 import { S } from '../strings';
 
-export type ExportRange = 'all' | 'sub';
+export type ExportRange = 'all' | 'sub' | 'area';
+/** 對象：PL 用（拿掉 GM 專用，規格 F86）／GM 用 */
+export type ExportAudience = 'pl' | 'gm';
+export type ExportFormat = 'png' | 'svg';
 export type ExportOrient = 'v' | 'h';
 /** 卡片內容：照顯示設定／只有名字／名字＋讀音 */
 export type ExportCard = 'view' | 'name' | 'reading';

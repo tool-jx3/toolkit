@@ -50,9 +50,11 @@ function convertPerson(raw: Obj): Obj {
   out.gen = raw.gen;
   out.gap = raw.gx;
   out.shift = raw.nx;
-  if (typeof raw.adoptFatherId === 'string' && raw.adoptFatherId) {
+  const adoptTo =
+    typeof raw.adoptFatherId === 'string' && raw.adoptFatherId ? raw.adoptFatherId : null;
+  if (adoptTo || raw.adoptType === '출계' || raw.adoptType === '입양') {
     out.adopt = {
-      fatherId: raw.adoptFatherId,
+      fatherId: adoptTo,
       kind: raw.adoptType === '입양' ? 'adopted' : 'heir',
       order: raw.stubOrder,
       gap: raw.sgx,
