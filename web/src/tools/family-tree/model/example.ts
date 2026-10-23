@@ -1,6 +1,6 @@
 /**
  * 範例圖板（規格 D4）：本站自己編的虛構家族「綾瀬家」——昭和年代山腰洋館的舊家，四代 13 人＋配偶 6 人。
- * 原作的範例是真實的歷史家族，不沿用。
+ * 原作的範例是真實的歷史家族，不沿用。第二批加了狀態（冬子、透 死亡，清彦 失蹤）與兩則 GM 筆記（F85、F86）。
  */
 import { type Board, type Member, newId, type People, type Spouse } from './types';
 
@@ -77,6 +77,8 @@ export function exampleBoard(id = newId('b'), createdAt = new Date().toISOString
     death: '1944',
     note: '二十六歲時在別館過世，死因沒有公開。',
     cat: 'ex-dead',
+    status: 'dead',
+    secret: '其實是被後妻志乃毒死的；志乃同一年在別館自縊。',
   });
   m('ex-kiyohiko', {
     name: '綾瀬 清彦',
@@ -87,6 +89,7 @@ export function exampleBoard(id = newId('b'), createdAt = new Date().toISOString
     birth: '1922',
     alias: '次男',
     note: '戰後下落不明，家裡沒有人提起他。',
+    status: 'missing',
   });
   m('ex-chizuru', {
     name: '綾瀬 千鶴',
@@ -150,6 +153,8 @@ export function exampleBoard(id = newId('b'), createdAt = new Date().toISOString
     death: '1968',
     note: '十八歲時在後山的池塘溺死。',
     cat: 'ex-dead',
+    status: 'dead',
+    secret: '池塘底下是舊的祭祀場，透是在那裡被拉下去的。',
   });
   m('ex-kiyoshi', {
     name: '綾瀬 清',

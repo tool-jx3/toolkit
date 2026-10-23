@@ -871,7 +871,8 @@ test('專案檔：存、開啟（加成新的圖板／取代）、只存這張�
   const [dl] = await Promise.all([page.waitForEvent('download'), projectMenu(page, /^存成專案檔/)]);
   expect(dl.suggestedFilename()).toBe('家系圖 2026-10-23.json');
   const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-  expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'family-tree', version: 1 });
+  /* 資料版本 2（第二批；版本 1 的檔照讀） */
+  expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'family-tree', version: 2 });
   expect(saved.data.boards.length).toBe(1);
   expect(Object.keys(saved.data.boards[0].people).length).toBe(19);
   const [one] = await Promise.all([
@@ -949,6 +950,480 @@ test('自動儲存與還原；重設回到範例（F68、F69）', async ({ page 
   await projectMenu(page, /重設/);
   await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
   await expect(card(page, '綾瀬 透')).toBeVisible();
+});
+
+/* ---------- 第二批（F80～F88） ---------- */
+
+/** 頭像用的小圖（自己畫的 96 × 128 PNG：圓臉與兩點眼睛） */
+const FACE_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAGAAAACACAIAAAB7vvvtAAABYElEQVR42u3csW3DQAwFUM6U2gO4zCSuPVIG8QwewRukSZU2lQOfjtKRfsCvBdxrJOj4GffblzxJIAAECBAgQIAAARJAgAABAgQIECABBAgQIECAAAESQKsCXc4fr+YtgAZcjpWKWjT7M0VFmj2Zoi7NPkxRnSabKdroJBlFJ50Mo+hEk8EULXUmGkVXnVlGgPKBltWZYhS9dbYbRXudjUaA0oAK6WwxApQDVE5n2AhQAlBRnTEjQLOBSusMGAFaA+jn+/E3w2eb8pxEoCmnGj7brOe8ZAQIECBA3YFWe4utCFT3UwgQIECAAAECBAgQIED5QH65AgKUDeReDJC7eUDHA5kPAmRGEdDxQOakTdrragDSF6vQF9M41FnVetabt3nB7o5+uztsf7E/yAYqW8oAAQIECBCgtkCnz6s8CSBAgAABAgQIECABBAgQIECAAAESQIAAAQIECBAgAfRffgFTBWrkqE3p/QAAAABJRU5ErkJggg==';
+
+/** 第二批的對等測試資料（原作的備份檔格式；tests/unit/fixtures/family-tree-b2/） */
+const b2Data = (name: string): unknown =>
+  JSON.parse(readFileSync(`tests/unit/fixtures/family-tree-b2/${name}.json`, 'utf8')).data;
+
+async function openLegacy(page: Page, name: string) {
+  await openFile(page, `${name}.json`, b2Data(name));
+  await expect(page.getByText(/已讀進原作的備份檔/).first()).toBeVisible();
+  await settle(page);
+}
+
+const stubs = (page: Page) =>
+  page.evaluate(() =>
+    (
+      window as unknown as {
+        __familyTree: {
+          stubs: () => { id: string; x: number; y: number; parent: string | null }[];
+        };
+      }
+    ).__familyTree.stubs(),
+  );
+const stubCard = (page: Page, id: string) => page.locator(`[data-stub="${id}"]`);
+const lines = (page: Page, kind: 'kin' | 'out' | 'link') =>
+  page.getByTestId('tree-lines').locator(`path[data-edge="${kind}"]`);
+const memberPanel = (page: Page) => page.getByTestId('member-panel');
+const toggle = (page: Page, name: string) => page.getByRole('switch', { name, exact: true });
+
+async function exportFile(page: Page, format: 'PNG 圖片' | 'SVG 向量圖' = 'PNG 圖片') {
+  await tab(page, '匯出');
+  const panel = page.getByRole('region', { name: '匯出圖片' });
+  await panel.getByRole('radio', { name: format }).click();
+  await panel.getByRole('button', { name: /^匯出/ }).click();
+  const result = page.getByTestId('export-result');
+  await expect(result).toBeVisible({ timeout: 60_000 });
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    result.getByRole('link', { name: '下載' }).click(),
+  ]);
+  const bytes = new Uint8Array(readFileSync((await dl.path()) as string));
+  return { name: dl.suggestedFilename(), bytes };
+}
+
+test('出系／入系：「入」、「出」字小卡、生家的開關、面板設定過繼（F80）', async ({ page }) => {
+  const errors = await open(page);
+  await openLegacy(page, 'adopt');
+  /* 白石 二郎（m004）出系到 氷室 進（m00c）：掛在繼父底下，生父 白石 源（m001）底下有「出」字小卡 */
+  const L = await layout(page);
+  const S0 = await stubs(page);
+  expect(S0.map((s) => [s.id, s.parent]).sort()).toEqual(
+    [
+      ['m004', 'm001'],
+      ['m009', 'm001'],
+      ['m00f', 'm00a'],
+      ['m00s', 'm00p'],
+    ].sort(),
+  );
+  expect(L.find((n) => n.id === 'm004')?.gen).toBe(3);
+  await expect(card(page, '白石 二郎')).toContainText('生父 白石 源 · 繼子');
+  await expect(card(page, '白石 二郎').locator('[data-seal="in"]')).toHaveText('入');
+  await expect(card(page, '氷室 朧')).toContainText('生父 氷室 誠 · 養子');
+  await expect(stubCard(page, 'm004')).toContainText('→ 氷室 進 的繼子');
+  await expect(stubCard(page, 'm004').locator('[data-seal="out"]')).toHaveText('出');
+  /* 「出」字小卡的連線是紅色虛線 */
+  await expect(lines(page, 'out')).toHaveCount(4);
+  await expect(lines(page, 'out').first()).toHaveAttribute('stroke-dasharray', '4 3');
+  /* 點「出」字小卡：選取本人 */
+  await stubCard(page, 'm004').click();
+  await expect(page.getByTestId('person-title')).toHaveText('白石 二郎');
+  await expect(page.getByTestId('person-sub')).toHaveText('第 3 代 · 氷室 進 的兒子（繼子）');
+  /* 生家也顯示出系的人：關掉時小卡不見、排版照原作變窄 */
+  await tab(page, '顯示');
+  await toggle(page, '生家也顯示出系的人').click();
+  await expect(stubCard(page, 'm004')).toHaveCount(0);
+  expect(await stubs(page)).toEqual([]);
+  await toggle(page, '生家也顯示出系的人').click();
+  await expect(stubCard(page, 'm004')).toHaveCount(1);
+  /* 面板：把 白石 三郎 出系到 黑川 剛 */
+  await card(page, '白石 三郎').click();
+  const panel = memberPanel(page);
+  await panel.getByRole('combobox', { name: '類別' }).click();
+  await page.getByRole('option', { name: '出系（過繼承嗣）' }).click();
+  await settle(page);
+  await panel.getByRole('combobox', { name: '繼父（過繼到的家）' }).click();
+  /* 選項沒有自己、子孫與生父 */
+  await expect(page.getByRole('option', { name: /^白石 源/ })).toHaveCount(0);
+  await expect(page.getByRole('option', { name: /^白石 三郎/ })).toHaveCount(0);
+  await page.getByRole('option', { name: /^黑川 剛/ }).click();
+  await settle(page);
+  const c = (await board(page)).people.m005;
+  expect(c.adopt).toMatchObject({ fatherId: 'm00p', kind: 'heir' });
+  expect((await stubs(page)).find((s) => s.id === 'm005')?.parent).toBe('m001');
+  await expect(card(page, '白石 三郎')).toContainText('生父 白石 源 · 繼子');
+  /* 復原一步回到原本 */
+  await page.keyboard.press('Control+z');
+  await expect(card(page, '白石 三郎').locator('[data-seal="in"]')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('「出」字小卡：在生父的孩子之間換順序、拖到別人卡片上換生家、不能放到繼父（F80）', async ({
+  page,
+}) => {
+  await open(page);
+  await openLegacy(page, 'adopt');
+  await page.getByRole('button', { name: '全覽（整張圖放進畫面）' }).click();
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: '放大' }).click();
+  await page.getByTestId('search').fill('白石 一郎');
+  await page.getByTestId('search').press('Enter');
+  await settle(page);
+  /* 白石 四郎（m009）的小卡拖到 白石 一郎 的左邊 */
+  const before = (await stubs(page)).find((s) => s.id === 'm009');
+  const a = await card(page, '白石 一郎').boundingBox();
+  const sbox = await stubCard(page, 'm009').boundingBox();
+  if (!a || !sbox) throw new Error('no box');
+  await page.mouse.move(sbox.x + 30, sbox.y + 12);
+  await page.mouse.down();
+  await page.mouse.move(sbox.x + 38, sbox.y + 13, { steps: 2 });
+  await page.mouse.move(a.x - 40, sbox.y + 12, { steps: 10 });
+  await expect(page.getByTestId('drag-label')).toHaveText('換「出」字小卡的順序');
+  await page.mouse.up();
+  await settle(page);
+  const after = (await stubs(page)).find((s) => s.id === 'm009');
+  expect(after && before && after.x < before.x).toBe(true);
+  expect((await board(page)).people.m009.adopt).toMatchObject({ order: 1 });
+  await expect(page.getByText('已換順序').first()).toBeVisible();
+  /* 拖到繼父 氷室 進 的卡片上：不行 */
+  await page.keyboard.press('Control+z');
+  await settle(page);
+  await page.getByTestId('search').fill('氷室 進');
+  await page.getByTestId('search').press('Enter');
+  await settle(page);
+  await page.getByRole('button', { name: '全覽（整張圖放進畫面）' }).click();
+  await settle(page);
+  /* 繼父、黑川 剛 都和小卡同一列：按住 Alt 放到卡片上 */
+  await dragCard(page, stubCard(page, 'm009'), card(page, '氷室 進'), {
+    alt: true,
+    hold: async (p) => {
+      await expect(p.getByTestId('drag-label')).toHaveText('不能把繼父設成生父');
+    },
+  });
+  await expect(page.getByText('不能把繼父設成生父').first()).toBeVisible();
+  /* 拖到 黑川 剛 上：生家改成他，繼父那邊不變 */
+  await dragCard(page, stubCard(page, 'm009'), card(page, '黑川 剛'), { alt: true });
+  const p = (await board(page)).people.m009;
+  expect(p.fatherId).toBe('m00p');
+  expect(p.adopt).toMatchObject({ fatherId: 'm00c' });
+  expect((await stubs(page)).find((s) => s.id === 'm009')?.parent).toBe('m00p');
+  await expect(page.getByText('白石 四郎 的生家改成 黑川 剛').first()).toBeVisible();
+});
+
+test('母系外孫的開關與「外孫 · 母」；替女兒加孩子時自動打開（F81）', async ({ page }) => {
+  await open(page);
+  await expect(card(page, '三輪 葵')).toContainText('外孫 · 母 綾瀬 雪乃');
+  await tab(page, '顯示');
+  await toggle(page, '母系外孫').click();
+  await expect(card(page, '三輪 葵')).toHaveCount(0);
+  await card(page, '綾瀬 雪乃').click();
+  await expect(memberPanel(page)).toContainText(
+    '女兒的孩子（外孫）要到「顯示」打開「母系外孫」才看得到。',
+  );
+  await memberPanel(page).getByRole('button', { name: '加女兒' }).click();
+  await settle(page);
+  await page.keyboard.press('Escape');
+  await expect(card(page, '三輪 葵')).toBeVisible();
+  await tab(page, '顯示');
+  await expect(toggle(page, '母系外孫')).toBeChecked();
+});
+
+test('跨家系的婚姻連結：兩邊的配偶卡片、紫色虛線、移到連結的人、開關、刪除（F82）', async ({
+  page,
+}) => {
+  await open(page);
+  await openLegacy(page, 'links');
+  /* 5 對（同一對有兩張連過去的配偶卡片時只畫一條，原作同） */
+  await expect(lines(page, 'link')).toHaveCount(5);
+  await expect(lines(page, 'link').first()).toHaveAttribute('stroke-dasharray', '5 4');
+  /* 連結的配偶卡片顯示被連結的人、寫「· 連結」 */
+  const linked = page.locator('[data-pid][data-linked="1"]');
+  expect(await linked.count()).toBeGreaterThanOrEqual(6);
+  await expect(card(page, '東條 長男')).toContainText('婚姻 · 南條 女');
+  /* 東條 次男 加配偶、連到 南條 女 */
+  await card(page, '東條 次男').click();
+  await memberPanel(page).getByRole('button', { name: '和別的家系的人結婚' }).click();
+  await settle(page);
+  const sp = page.getByTestId('spouse-panel');
+  await expect(sp.locator('[data-field="link"]')).toBeFocused();
+  await sp.locator('[data-field="link"]').click();
+  await page.getByRole('option', { name: /^南條 女/ }).click();
+  await settle(page);
+  await expect(page.getByText('南條 女 的卡片也加上了配偶').first()).toBeVisible();
+  await expect(lines(page, 'link')).toHaveCount(6);
+  await expect(page.getByTestId('person-sub')).toHaveText('東條 次男 的妻子 · 和別的家系連結');
+  await sp.getByRole('button', { name: '移到連結的人' }).click();
+  await expect(page.getByTestId('person-title')).toHaveText('南條 女');
+  /* 南條 女 那邊的配偶清單：已連結 */
+  await expect(page.getByTestId('spouse-list')).toContainText('已連結 · 東條 家主 家系 第 2 代');
+  /* 婚姻連線的開關 */
+  await tab(page, '顯示');
+  await toggle(page, '婚姻連線').click();
+  await expect(lines(page, 'link')).toHaveCount(0);
+  await toggle(page, '婚姻連線').click();
+  /* 刪除這邊的配偶：對方那邊自動建立的一起刪 */
+  const count = Object.keys((await board(page)).people).length;
+  await chip(page, '南條 女').click();
+  await page.getByTestId('spouse-panel').getByRole('button', { name: '刪除配偶' }).click();
+  await settle(page);
+  expect(Object.keys((await board(page)).people).length).toBe(count - 2);
+  await expect(lines(page, 'link')).toHaveCount(5);
+});
+
+test('框選範圍匯出：拖一個框、碰到的卡片匯出；Esc 取消、框裡沒有卡片時通知（F83）', async ({
+  page,
+}) => {
+  await open(page);
+  await tab(page, '匯出');
+  await page.getByRole('radio', { name: '框選範圍' }).click();
+  await expect(
+    page.getByText('在畫布上拖一個框，碰到的卡片（含配偶卡片的範圍）都匯出。'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('region', { name: '匯出圖片' }).getByRole('button', { name: /^匯出/ }),
+  ).toBeDisabled();
+  /* Esc 取消 */
+  await page.getByTestId('area-start').click();
+  await expect(page.getByTestId('area-overlay')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('area-overlay')).toHaveCount(0);
+  /* 空白處：通知 */
+  await page.getByTestId('area-start').click();
+  const cv = await canvas(page).boundingBox();
+  if (!cv) throw new Error('no canvas');
+  await page.mouse.move(cv.x + 5, cv.y + cv.height - 60);
+  await page.mouse.down();
+  await page.mouse.move(cv.x + 30, cv.y + cv.height - 40, { steps: 4 });
+  await page.mouse.up();
+  await expect(page.getByText('框裡沒有卡片').first()).toBeVisible();
+  /* 框住 綾瀬 和臣 與 綾瀬 遥：碰到的卡片外框變藍，放開就匯出 */
+  await page.getByTestId('area-start').click();
+  const a = await card(page, '綾瀬 和臣').boundingBox();
+  const b = await card(page, '綾瀬 遥').boundingBox();
+  if (!a || !b) throw new Error('no card');
+  await page.mouse.move(a.x + 5, a.y + 5);
+  await page.mouse.down();
+  await page.mouse.move(b.x + 20, b.y + 20, { steps: 6 });
+  await expect(page.getByTestId('area-box')).toBeVisible();
+  await page.mouse.up();
+  const result = page.getByTestId('export-result');
+  await expect(result).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/已框選 \d+ 張卡片。/)).toBeVisible();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    result.getByRole('link', { name: '下載' }).click(),
+  ]);
+  const png = readIhdr(parseChunks(new Uint8Array(readFileSync((await dl.path()) as string))));
+  /* 第 3、4 代的兩張卡片（含配偶）：高＝2 ×（2 × 90 ＋ 78 ＋ 80 ＋ 40） */
+  expect(png.height).toBe(2 * (2 * 90 + 78 + 80 + 40));
+  expect(png.width).toBeLessThan(2000);
+});
+
+test('女兒寫成「女（適 丈夫）」：卡片、配偶卡片不畫、女婿的資料、就地編輯改丈夫（F84）', async ({
+  page,
+}) => {
+  await open(page);
+  await tab(page, '顯示');
+  await toggle(page, '女兒寫成「女（適 丈夫）」').click();
+  await expect(card(page, '綾瀬 千鶴')).toContainText('女（適 鷺沼 文雄）');
+  await expect(chip(page, '鷺沼 文雄')).toHaveCount(0);
+  await expect(card(page, '綾瀬 冬子')).toContainText('女 綾瀬 冬子');
+  await card(page, '綾瀬 千鶴').click();
+  await expect(page.getByTestId('person-title')).toHaveText('女（適 鷺沼 文雄）');
+  await expect(page.getByTestId('person-sub')).toHaveText(
+    '女兒 綾瀬 千鶴 · 第 2 代 · 綾瀬 宗一郎 的女兒',
+  );
+  await expect(memberPanel(page).locator('[data-field="husband-name"]')).toHaveValue('鷺沼 文雄');
+  /* 卡片上雙擊名字：改的是丈夫的名字 */
+  await card(page, '綾瀬 千鶴').locator('[data-f="name"]').dblclick();
+  const input = page.locator('[data-inline="name"]');
+  await expect(input).toHaveValue('鷺沼 文雄');
+  await input.fill('鷺沼 文吾');
+  await input.press('Enter');
+  await settle(page);
+  await expect(card(page, '綾瀬 千鶴')).toContainText('女（適 鷺沼 文吾）');
+  expect((await personByName(page, '鷺沼 文吾'))?.kind).toBe('spouse');
+  expect(await personByName(page, '綾瀬 千鶴')).toBeTruthy();
+});
+
+test('狀態：存活／死亡／失蹤的印記（F85）', async ({ page }) => {
+  await open(page);
+  await card(page, '綾瀬 透').click();
+  await memberPanel(page).getByRole('radio', { name: '死亡' }).click();
+  await settle(page);
+  await expect(card(page, '綾瀬 透').locator('[data-seal="dead"]')).toHaveText('歿');
+  await card(page, '綾瀬 清彦').click();
+  await memberPanel(page).getByRole('radio', { name: '失蹤' }).click();
+  await settle(page);
+  await expect(card(page, '綾瀬 清彦').locator('[data-seal="missing"]')).toHaveText('失蹤');
+  expect((await personByName(page, '綾瀬 清彦'))?.status).toBe('missing');
+  await memberPanel(page).getByRole('radio', { name: '存活' }).click();
+  await settle(page);
+  await expect(card(page, '綾瀬 清彦').locator('[data-seal]')).toHaveCount(0);
+  expect((await personByName(page, '綾瀬 清彦'))?.status).toBeUndefined();
+  /* 配偶也有狀態 */
+  await chip(page, '綾瀬 志乃').click();
+  await page.getByTestId('spouse-panel').getByRole('radio', { name: '死亡' }).click();
+  await settle(page);
+  await expect(chip(page, '綾瀬 志乃')).toHaveAttribute('data-status', 'dead');
+  await expect(chip(page, '綾瀬 志乃').locator('[data-seal="dead"]')).toHaveText('歿');
+});
+
+test('GM 專用與 PL 檢視：只有 GM 看得到的人與欄位、GM 筆記、PL 用與 GM 用的匯出、P 鍵（F86）', async ({
+  page,
+}) => {
+  await open(page);
+  /* 綾瀬 清（連同兒子 綾瀬 律）只有 GM 看得到 */
+  await card(page, '綾瀬 清').click();
+  await memberPanel(page).getByRole('switch', { name: '這個人只有 GM 看得到' }).click();
+  await settle(page);
+  await expect(card(page, '綾瀬 清').locator('xpath=..').locator('[data-gm-only]')).toHaveCount(1);
+  /* 鷺沼 文雄（綾瀬 千鶴 的丈夫，第 2 代最右邊）只有 GM 看得到：PL 用的圖比較窄 */
+  await chip(page, '鷺沼 文雄').click();
+  await page
+    .getByTestId('spouse-panel')
+    .getByRole('switch', { name: '這位配偶只有 GM 看得到' })
+    .click();
+  await settle(page);
+  /* 綾瀬 透：歿年 PL 看不到；GM 筆記 */
+  await card(page, '綾瀬 透').click();
+  await memberPanel(page).getByRole('button', { name: '歿年' }).click();
+  await settle(page);
+  await expect(memberPanel(page).getByRole('button', { name: '歿年' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await memberPanel(page).getByLabel('GM 筆記').fill('其實不是意外。');
+  await memberPanel(page).getByLabel('GM 筆記').blur();
+  await settle(page);
+  await expect(card(page, '綾瀬 透').locator('[data-gm-info]')).toHaveCount(1);
+  /* GM 檢視的匯出（GM 用）比 PL 用大：PL 用沒有 綾瀬 清 那一支 */
+  const gmBefore = await exportPng(page);
+  await page.getByRole('radio', { name: 'GM 用（全部）' }).click();
+  const gmExport = await exportPng(page);
+  expect(gmExport.width).toBeGreaterThan(gmBefore.width);
+  await page.getByRole('radio', { name: 'PL 用（拿掉 GM 專用）' }).click();
+  /* PL 檢視（P 鍵）：看不到 綾瀬 清、綾瀬 律；綾瀬 透 沒有歿年；不能編輯 */
+  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('p');
+  await expect(canvas(page)).toHaveAttribute('data-view', 'pl');
+  await expect(page.getByTestId('pl-badge')).toBeVisible();
+  await expect(card(page, '綾瀬 清')).toHaveCount(0);
+  await expect(card(page, '綾瀬 律')).toHaveCount(0);
+  await expect(card(page, '綾瀬 透')).not.toContainText('1968');
+  await expect(card(page, '綾瀬 透').locator('[data-gm-info]')).toHaveCount(0);
+  await tab(page, '人物');
+  await expect(page.getByTestId('pl-readonly')).toBeVisible();
+  await card(page, '綾瀬 透').dblclick();
+  await expect(page.locator('[data-inline]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '新增始祖' })).toBeDisabled();
+  /* 搜尋找不到 GM 專用的人 */
+  await page.getByTestId('search').fill('綾瀬 律');
+  await page.getByTestId('search').press('Enter');
+  await expect(page.getByText('找不到「綾瀬 律」').first()).toBeVisible();
+  /* 專案檔是完整的（GM 的資料） */
+  const [dl] = await Promise.all([page.waitForEvent('download'), projectMenu(page, /^存成專案檔/)]);
+  const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
+  const people = Object.values(saved.data.boards[0].people) as Record<string, unknown>[];
+  expect(people.find((p) => p.name === '綾瀬 清')?.gm).toBe(true);
+  expect(people.find((p) => p.name === '綾瀬 透')?.secret).toBe('其實不是意外。');
+  /* 切回 GM 檢視 */
+  await page
+    .getByTestId('pl-readonly')
+    .locator('xpath=../..')
+    .getByRole('button', { name: '切回 GM 檢視' })
+    .click();
+  await expect(card(page, '綾瀬 清')).toBeVisible();
+});
+
+test('頭像：放進圖片、卡片多頭像那一欄、專案檔存成 ZIP 再開回來、匯出（F87）', async ({ page }) => {
+  await open(page);
+  await card(page, '綾瀬 宗一郎').click();
+  const before = await card(page, '綾瀬 宗一郎').boundingBox();
+  await memberPanel(page)
+    .locator('input[type="file"]')
+    .setInputFiles({
+      name: 'face.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(FACE_PNG, 'base64'),
+    });
+  await expect(card(page, '綾瀬 宗一郎').locator('[data-avatar="image"]')).toHaveCount(1);
+  await expect(card(page, '綾瀬 正嗣').locator('[data-avatar="initial"]')).toHaveText('正');
+  const after = await card(page, '綾瀬 宗一郎').boundingBox();
+  expect(after && before && Math.round((after.width / before.width) * 140)).toBe(188);
+  /* 「顯示」的頭像關掉：卡片回到原本的寬 */
+  await tab(page, '顯示');
+  await toggle(page, '頭像').click();
+  await expect(card(page, '綾瀬 宗一郎').locator('[data-avatar]')).toHaveCount(0);
+  await toggle(page, '頭像').click();
+  /* 專案檔：ZIP（project.json＋files/） */
+  const [dl] = await Promise.all([page.waitForEvent('download'), projectMenu(page, /^存成專案檔/)]);
+  expect(dl.suggestedFilename()).toMatch(/\.zip$/);
+  const zip = readFileSync((await dl.path()) as string);
+  expect(zip.subarray(0, 2).toString()).toBe('PK');
+  expect(zip.includes(Buffer.from('files/'))).toBe(true);
+  /* 開回來（取代全部）：頭像還在 */
+  const chooser = page.waitForEvent('filechooser');
+  await projectMenu(page, /開啟專案檔/);
+  await (await chooser).setFiles({ name: 'a.zip', mimeType: 'application/zip', buffer: zip });
+  await page.getByRole('alertdialog').getByRole('button', { name: '取代全部的圖板' }).click();
+  await expect(card(page, '綾瀬 宗一郎').locator('[data-avatar="image"]')).toHaveCount(1);
+  /* 匯出：卡片多 48 px（縱向 2 倍） */
+  const png = await exportPng(page);
+  expect(png.width).toBeGreaterThan(2256);
+});
+
+test('SVG 匯出：向量、版面和 PNG 一樣、文字可以選取（F88）', async ({ page }) => {
+  await open(page);
+  const png = await exportPng(page);
+  const svg = await exportFile(page, 'SVG 向量圖');
+  expect(svg.name).toBe('範例：綾瀬家.svg');
+  const text = new TextDecoder().decode(svg.bytes);
+  expect(text.startsWith('<svg')).toBe(true);
+  const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(text);
+  expect(m && [Math.ceil(Number(m[1])) * 2, Math.ceil(Number(m[2])) * 2]).toEqual([
+    png.width,
+    png.height,
+  ]);
+  expect(text).toContain('>綾瀬 宗一郎<');
+  expect(text).toContain('>第 1 代<');
+  await expect(page.getByTestId('export-result')).toContainText('字型');
+});
+
+test('資料版本 1 的自動儲存照讀', async ({ page }) => {
+  await page.addInitScript((key) => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        state: {
+          data: {
+            boards: [
+              {
+                id: 'b-old',
+                title: '舊的圖板',
+                createdAt: '2026-10-01T00:00:00.000Z',
+                align: 'center',
+                cats: [],
+                people: {
+                  p1: { id: 'p1', kind: 'member', name: '舊 一', gender: 'M', order: 1, gen: 1 },
+                  p2: {
+                    id: 'p2',
+                    kind: 'member',
+                    name: '舊 二',
+                    gender: 'M',
+                    order: 1,
+                    fatherId: 'p1',
+                  },
+                },
+              },
+            ],
+          },
+        },
+        version: 1,
+      }),
+    );
+  }, STORAGE_KEY);
+  await open(page);
+  await expect(page.getByRole('combobox', { name: '目前的圖板' })).toContainText('舊的圖板');
+  await expect(card(page, '舊 二')).toBeVisible();
 });
 
 /* ---------- 版面 ---------- */
