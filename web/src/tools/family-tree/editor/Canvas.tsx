@@ -30,11 +30,13 @@ import {
   doSetBirthParent,
   exportApi,
   layoutNow,
+  layoutOptionsOf,
   notify,
   startInline,
   undo,
   viewOptions,
 } from '../actions';
+import { hiddenIds } from '../model/gm';
 import {
   edgePath,
   guides,
@@ -109,6 +111,7 @@ import {
 export const useZoom = create<{ s: number }>(() => ({ s: 1 }));
 
 const EMPTY: readonly string[] = [];
+const NO_IDS: ReadonlySet<string> = new Set();
 const DOUBLE_TAP_MS = 450;
 const DRAG_THRESHOLD = 5;
 const EDGE = 36;
@@ -194,9 +197,28 @@ export function TreeCanvas() {
     [board.people, prefs.viewMode],
   );
   const people = drag?.people ?? shown;
+  /*
+   * 排版只看這幾項設定：匯出設定、分頁、拖曳方式、顏色…改了不用重排（也不用重量每張卡片的字）——
+   * 以 prefs 整個物件當依賴時，特大圖板（約 2,000 人）每改一個設定都要重排、重量一次
+   */
+  const hasAvatar = useMemo(() => avatarIds(shown).length > 0, [shown]);
+  const avatarOn = prefs.avatars && hasAvatar;
+  const { cardMode, memo, spouses, maternal, stubs, daughterName } = prefs;
+  const align = board.align;
   const opts = useMemo<LayoutOptions>(
-    () => viewOptions(prefs, board, shown),
-    [prefs, board, shown],
+    () =>
+      layoutOptionsOf({
+        cardMode,
+        memo,
+        avatar: avatarOn,
+        spouses,
+        maternal,
+        stubs,
+        daughterName,
+        align,
+        collapsed,
+      }),
+    [cardMode, memo, avatarOn, spouses, maternal, stubs, daughterName, align, collapsed],
   );
   const dims = opts.dims;
   const L = useMemo(() => layoutTree(people, opts), [people, opts]);
@@ -221,19 +243,15 @@ export function TreeCanvas() {
     dims.AV && p.avatar
       ? { bitmap: bitmaps.get(p.avatar) ?? null, pos: p.avatarPos, initial: initialOf(p.name) }
       : null;
-  const gmOf = (p: Person): GmMark | null =>
-    pl ? null : p.gm || hasGmInfo(p) ? { only: !!p.gm, info: hasGmInfo(p) } : null;
-  /* 畫面上的 GM 專用：成員連同子孫都畫斜線（PL 版裡整個不見的範圍） */
-  const gmScope = useMemo(() => {
-    const out = new Set<string>();
-    if (pl) return out;
-    for (const p of Object.values(people))
-      if (p.gm && isMember(p)) {
-        out.add(p.id);
-        for (const d of descendants(people, p.id)) out.add(d);
-      }
-    return out;
-  }, [people, pl]);
+  /* 畫面上的 GM 專用：PL 版會拿掉的人都畫斜線（只有 GM 看得到的成員連同子孫、他們的配偶、
+   * 連到他們的婚姻的配偶卡片；GM 檢視才有，PL 檢視時這些人本來就不在畫面上） */
+  const gmHidden = useMemo(() => (pl ? NO_IDS : hiddenIds(people)), [people, pl]);
+  const gmOf = (p: Person): GmMark | null => {
+    if (pl) return null;
+    const only = gmHidden.has(p.id);
+    const info = hasGmInfo(p);
+    return only || info ? { only, info } : null;
+  };
 
   const viewport = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLDivElement>(null);
@@ -327,7 +345,8 @@ export function TreeCanvas() {
     if (!root) return;
     const fitRows = () => {
       const rows = [...root.querySelectorAll<HTMLElement>('.ft-row1, .ft-cl')];
-      for (const r of rows) r.style.removeProperty('--k');
+      /* 上次縮小過的先還原再量；沒縮小過的不用動（特大圖板每動一張都要重算整張的樣式） */
+      for (const r of rows) if (r.style.getPropertyValue('--k')) r.style.removeProperty('--k');
       const fix: [HTMLElement, number][] = [];
       for (const r of rows) {
         if (r.classList.contains('ft-row1')) {
@@ -347,13 +366,10 @@ export function TreeCanvas() {
       for (const [r, k] of fix) r.style.setProperty('--k', k.toFixed(3));
     };
     fitRows();
-    let alive = true;
-    void document.fonts?.ready.then(() => {
-      if (alive) fitRows();
-    });
-    return () => {
-      alive = false;
-    };
+    /* 字型載好（或又載了一批）再量一次；字型都已經在了就不用，特大圖板每量一次都要整張重排 */
+    const fonts = document.fonts;
+    fonts?.addEventListener('loadingdone', fitRows);
+    return () => fonts?.removeEventListener('loadingdone', fitRows);
   }, [L, look]);
 
   /* ---------- 指標 ---------- */
@@ -924,8 +940,6 @@ export function TreeCanvas() {
             );
           }
           const folded = collapsed.includes(p.id);
-          const gmScoped = gmScope.has(p.id);
-          const mark = gmOf(p);
           return (
             <div
               key={key}
@@ -947,14 +961,13 @@ export function TreeCanvas() {
                 moving={!!moving?.has(key)}
                 picked={picked.has(key)}
                 avatar={avatarOf(p)}
-                gm={gmScoped ? { only: true, info: !!mark?.info } : mark}
+                gm={gmOf(p)}
                 readOnly={pl}
                 onKey={onCardKey}
               />
               {p.gm && !pl ? <GmTag left={8} /> : null}
               {n.chips.map((s) => {
                 const c = chipText(people, p, s);
-                const sm = gmOf(s);
                 return (
                   <SpouseCard
                     key={s.id}
@@ -970,14 +983,15 @@ export function TreeCanvas() {
                     inline={editing?.id === s.id ? inline : null}
                     drop={dropFor(s.id)}
                     avatar={chipAvatar(c.src)}
-                    gm={gmScoped ? { only: true, info: !!sm?.info } : sm}
+                    gm={gmOf(s)}
                     readOnly={pl}
                     onKey={onCardKey}
                   />
                 );
               })}
               {n.chips.map((s, i) =>
-                s.gm && !pl ? (
+                /* 「GM」小標：自己只有 GM 看得到，或連到只有 GM 看得到的人（成員本身沒有斜線時） */
+                !pl && (s.gm || (gmHidden.has(s.id) && !gmHidden.has(p.id))) ? (
                   <GmTag
                     key={`gm${s.id}`}
                     left={dims.W + dims.GAP + i * (dims.SPW + dims.GAP) + 8}

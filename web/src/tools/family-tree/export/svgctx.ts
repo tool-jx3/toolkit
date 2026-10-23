@@ -5,7 +5,7 @@
  * 透明度、剪裁（clip）、文字（fillText；measureText 用真的 canvas 量）、貼圖（drawImage 一張畫布）。
  */
 
-type Measure = Pick<CanvasRenderingContext2D, 'measureText' | 'font'>;
+type Measure = Pick<CanvasRenderingContext2D, 'measureText' | 'font' | 'textBaseline'>;
 
 interface State {
   fillStyle: string;
@@ -61,6 +61,8 @@ export class SvgContext {
   private clipN = 0;
   /** 用到的字（依粗細；嵌入字型的子集用） */
   readonly chars = new Map<string, Set<string>>();
+  /** 「字型＋textBaseline」→ alphabetic 基準線相對於 y 的位移（量過的快取；量不到時 null） */
+  private readonly shifts = new Map<string, number | null>();
 
   constructor(private readonly measurer: Measure) {}
 
@@ -262,15 +264,44 @@ export class SvgContext {
         : this.st.textAlign === 'right' || this.st.textAlign === 'end'
           ? 'end'
           : 'start';
+    /*
+     * 垂直對齊：canvas 的 textBaseline middle／top… 會把字畫在「alphabetic 基準線 ＝ y − alphabeticBaseline」的位置
+     * （在同一個 canvas 設好字型與 textBaseline 後量；middle 時是負的）。SVG 的 dominant-baseline central／hanging
+     * 的基準算法不同（差約 1 px），所以一律用 alphabetic 加上量出來的位移，兩邊的字才在同一個高度。
+     * 量不到（沒有 alphabeticBaseline 的環境）時才退回 dominant-baseline。
+     */
+    const shift = this.baselineShift(t);
     const base =
-      this.st.textBaseline === 'middle'
-        ? ' dominant-baseline="central"'
-        : this.st.textBaseline === 'top'
-          ? ' dominant-baseline="hanging"'
-          : '';
+      shift === null
+        ? this.st.textBaseline === 'middle'
+          ? ' dominant-baseline="central"'
+          : this.st.textBaseline === 'top'
+            ? ' dominant-baseline="hanging"'
+            : ''
+        : '';
+    const y0 = this.Y(y) + (shift ?? 0) * this.st.s;
+    /* canvas 連前後的空白一起算寬（置中、靠右時也是）；SVG 預設會把前後的空白吃掉，位置就差半個空白以上（「1976 – 」） */
+    const keepSpace = /^\s|\s$|\s\s/.test(t) ? ' style="white-space:pre"' : '';
     this.out.push(
-      `<text x="${num(this.X(x))}" y="${num(this.Y(y))}" font-family="${escXml(f.family)}" font-size="${num(f.size * this.st.s)}" font-weight="${f.weight}" fill="${escXml(this.st.fillStyle)}"${anchor !== 'start' ? ` text-anchor="${anchor}"` : ''}${base}${this.alphaAttr('fill')}${this.clipAttr()}>${escXml(t)}</text>`,
+      `<text x="${num(this.X(x))}" y="${num(y0)}" font-family="${escXml(f.family)}" font-size="${num(f.size * this.st.s)}" font-weight="${f.weight}" fill="${escXml(this.st.fillStyle)}"${anchor !== 'start' ? ` text-anchor="${anchor}"` : ''}${base}${keepSpace}${this.alphaAttr('fill')}${this.clipAttr()}>${escXml(t)}</text>`,
     );
+  }
+
+  /** canvas 在這個 textBaseline 畫字時，alphabetic 基準線在 y 往下多少 px（alphabetic 本身是 0；量不到 null） */
+  private baselineShift(t: string): number | null {
+    const bl = this.st.textBaseline;
+    if (bl === 'alphabetic') return 0;
+    const key = `${this.st.font}|${bl}`;
+    const hit = this.shifts.get(key);
+    if (hit !== undefined) return hit;
+    const m = this.measurer;
+    m.font = this.st.font;
+    m.textBaseline = bl;
+    const ab = m.measureText(t).alphabeticBaseline;
+    m.textBaseline = 'alphabetic';
+    const v = typeof ab === 'number' && Number.isFinite(ab) ? -ab || 0 : null;
+    this.shifts.set(key, v);
+    return v;
   }
 
   /* ---- 圖 ---- */

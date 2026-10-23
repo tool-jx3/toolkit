@@ -4,20 +4,23 @@
 import { BookOpen, Plus, Trash2 } from 'lucide-react';
 import { historyGesture } from '@/core/storage';
 import { Button, Field, Section, Select, TextInput, useConfirm } from '@/ui';
-import { notify } from '../actions';
+import { notify, plBlocked } from '../actions';
 import { exampleBoard } from '../model/example';
 import { type Board, LIMITS, newId } from '../model/types';
 import {
   boardNow,
+  isPlView,
   setCollapsed,
   switchBoard,
   treeNow,
   uniqueTitle,
   updateBoard,
   useBoard,
+  usePlView,
   useTree,
 } from '../store';
 import { S } from '../strings';
+import { PlLock } from './PlLock';
 
 const gesture = historyGesture(useTree);
 
@@ -45,9 +48,12 @@ export function BoardSection() {
   const confirm = useConfirm();
   const boards = useTree((s) => s.data.boards);
   const board = useBoard();
+  /* PL 檢視不能編輯（D29）：改名、新增、加入範例、刪除都不作用 */
+  const pl = usePlView();
   const full = boards.length >= LIMITS.boards;
 
   const onNew = () => {
+    if (plBlocked()) return;
     const b = emptyBoard(treeNow().boards);
     addBoard(b);
     notify({ title: S.boardAdded(b.title), tone: 'success', replace: true });
@@ -58,12 +64,14 @@ export function BoardSection() {
     }, 30);
   };
   const onExample = () => {
+    if (plBlocked()) return;
     const b = exampleBoard();
     b.title = uniqueTitle(b.title, treeNow().boards);
     addBoard(b);
     notify({ title: S.boardAdded(b.title), tone: 'success', replace: true });
   };
   const onDelete = async () => {
+    if (plBlocked()) return;
     const cur = boardNow();
     const ok = await confirm({
       title: S.deleteBoardTitle(cur.title),
@@ -89,19 +97,23 @@ export function BoardSection() {
 
   return (
     <Section title={S.boardSection} persistKey="family-tree:boards">
+      {pl ? <PlLock /> : null}
       <Field label={S.boardTitle} hint={S.boardTitleHint}>
         <TextInput
           value={board.title}
           maxLength={LIMITS.title}
           data-field="board-title"
+          disabled={pl}
           onFocus={gesture.begin}
           onChange={(e) => {
+            if (plBlocked()) return;
             const v = Array.from(e.target.value).slice(0, LIMITS.title).join('');
             updateBoard((b) => {
               b.title = v;
             });
           }}
           onBlur={() => {
+            if (isPlView()) return;
             if (!boardNow().title.trim())
               updateBoard((b) => {
                 b.title = S.untitledBoard;
@@ -111,13 +123,19 @@ export function BoardSection() {
         />
       </Field>
       <div className="flex flex-wrap gap-1.5">
-        <Button size="sm" icon={<Plus />} disabled={full} onClick={onNew}>
+        <Button size="sm" icon={<Plus />} disabled={full || pl} onClick={onNew}>
           {S.newBoard}
         </Button>
-        <Button size="sm" icon={<BookOpen />} disabled={full} onClick={onExample}>
+        <Button size="sm" icon={<BookOpen />} disabled={full || pl} onClick={onExample}>
           {S.addExample}
         </Button>
-        <Button size="sm" variant="danger" icon={<Trash2 />} onClick={() => void onDelete()}>
+        <Button
+          size="sm"
+          variant="danger"
+          icon={<Trash2 />}
+          disabled={pl}
+          onClick={() => void onDelete()}
+        >
           {S.deleteBoard}
         </Button>
       </div>

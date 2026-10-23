@@ -4,6 +4,7 @@
  */
 import type { ToastOptions } from '@/ui';
 import {
+  type CardMode,
   type Dims,
   type LayoutOptions,
   layoutTree,
@@ -35,6 +36,7 @@ import {
   shownOf,
 } from './model/tree';
 import {
+  type Align,
   type Board,
   type Gender,
   type InlineField,
@@ -48,6 +50,7 @@ import {
   boardNow,
   collapsedOf,
   expand,
+  isPlView,
   type Prefs,
   prefsNow,
   select,
@@ -82,19 +85,45 @@ const NO_COLLAPSE: readonly string[] = [];
 /** 畫面上的人物（PL 檢視時是 PL 版） */
 export const peopleNow = (): People => shownPeople(boardNow().people, prefsNow().viewMode);
 
+/** 排版用到的顯示設定（只有這些改了才要重排；匯出設定、分頁、拖曳方式…不算） */
+export interface ViewParts {
+  cardMode: CardMode;
+  memo: boolean;
+  /** 卡片左邊多頭像那一欄（頭像打開而且畫面上有人有頭像） */
+  avatar: boolean;
+  spouses: boolean;
+  maternal: boolean;
+  stubs: boolean;
+  daughterName: boolean;
+  align: Align;
+  collapsed: readonly string[];
+}
+
+export function layoutOptionsOf(v: ViewParts): LayoutOptions {
+  return {
+    dims: viewDims(v.cardMode, v.memo, v.avatar),
+    spouses: v.spouses,
+    align: v.align,
+    collapsed: v.collapsed.length ? v.collapsed : NO_COLLAPSE,
+    maternal: v.maternal,
+    stubs: v.stubs,
+    daughterName: v.daughterName,
+  };
+}
+
 /** 畫面的排版設定（顯示設定、折疊；頭像打開而且畫面上有人有頭像時卡片多頭像那一欄） */
 export function viewOptions(prefs: Prefs, board: Board, people: People): LayoutOptions {
-  const c = collapsedOf(prefs, board.id);
-  const avatar = prefs.avatars && avatarIds(people).length > 0;
-  return {
-    dims: viewDims(prefs.cardMode, prefs.memo, avatar),
+  return layoutOptionsOf({
+    cardMode: prefs.cardMode,
+    memo: prefs.memo,
+    avatar: prefs.avatars && avatarIds(people).length > 0,
     spouses: prefs.spouses,
-    align: board.align,
-    collapsed: c.length ? c : NO_COLLAPSE,
     maternal: prefs.maternal,
     stubs: prefs.stubs,
     daughterName: prefs.daughterName,
-  };
+    align: board.align,
+    collapsed: collapsedOf(prefs, board.id),
+  });
 }
 
 export function layoutOptions(): LayoutOptions {
@@ -104,9 +133,26 @@ export function layoutOptions(): LayoutOptions {
 export const dimsNow = (): Dims => layoutOptions().dims;
 export const layoutNow = (): TreeLayout => layoutTree(peopleNow(), layoutOptions());
 
+/**
+ * PL 檢視不能改資料（D29）：改資料的入口（復原、重做、圖板的改名與刪除、色分類…）先問這個——
+ * 在 PL 檢視時提示「切回 GM 檢視才能編輯」並回傳 true（呼叫端就不動作）。
+ */
+export function plBlocked(): boolean {
+  if (!isPlView()) return false;
+  notify({ title: S.plNeedGm, tone: 'info', replace: true });
+  return true;
+}
+
 export function undo() {
+  if (plBlocked()) return;
   useTree.endGesture();
   useTree.temporal.getState().undo();
+}
+
+export function redo() {
+  if (plBlocked()) return;
+  useTree.endGesture();
+  useTree.temporal.getState().redo();
 }
 
 const undoAction = { label: S.undo, onClick: undo };

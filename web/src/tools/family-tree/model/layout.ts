@@ -129,7 +129,11 @@ const gapOf = (p: Member) => Math.max(0, p.gap || 0);
 const stubOrderOf = (p: Member) => p.adopt?.order ?? p.order ?? 0;
 const stubGapOf = (p: Member) => Math.max(0, p.adopt?.gap || 0);
 
+/** 排版算了幾次（測試用：確認改匯出設定、分頁之類的設定不會重排整張圖板） */
+export const layoutStats = { calls: 0 };
+
 export function layoutTree(people: People, opts: LayoutOptions): TreeLayout {
+  layoutStats.calls++;
   const { dims, spouses, align } = opts;
   const { W, H, SPW, GAP, HG, VG } = dims;
   const collapsed = opts.collapsed instanceof Set ? opts.collapsed : new Set(opts.collapsed ?? []);

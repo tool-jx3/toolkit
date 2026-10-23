@@ -26,10 +26,11 @@ import {
   useToast,
   withShortcut,
 } from '@/ui';
-import { layoutNow, toaster } from './actions';
+import { layoutNow, redo, toaster, undo } from './actions';
 import { TreeCanvas } from './editor/Canvas';
 import { CanvasToolbar } from './editor/Toolbar';
 import { exampleBoard } from './model/example';
+import { layoutStats } from './model/layout';
 import { boardsFromLegacy, isLegacyBackup } from './model/legacy';
 import { avatarIds } from './model/ops';
 import { cleanTreeData } from './model/sanitize';
@@ -68,6 +69,8 @@ declare global {
       stubs: () => { id: string; x: number; y: number; gen: number; parent: string | null }[];
       board: () => Board;
       area: () => string[] | null;
+      /** 排版算了幾次（確認改設定時不會無謂地重排） */
+      layoutCalls: () => number;
     };
   }
 }
@@ -84,6 +87,7 @@ window.__familyTree = {
       .map((n) => ({ id: n.id, x: n.x, y: n.y, gen: n.gen, parent: n.parent?.id ?? null })),
   board: () => boardNow(),
   area: () => useUi.getState().area.keys,
+  layoutCalls: () => layoutStats.calls,
 };
 
 /** 專案檔帶的頭像（所有圖板或一張圖板；沒有頭像時是 JSON 專案檔，有時是 ZIP） */
@@ -286,7 +290,8 @@ function Glue() {
 }
 
 export function App() {
-  const { undo, redo, canUndo, canRedo } = useUndoRedo(useTree);
+  /* 復原／重做走 actions 的版本：PL 檢視時不作用（提示「切回 GM 檢視才能編輯」） */
+  const { canUndo, canRedo } = useUndoRedo(useTree);
   const shortcuts: Shortcut[] = [
     { keys: 'mod+z', label: S.undo, group: S.groupEdit, handler: undo },
     { keys: ['shift+mod+z', 'mod+y'], label: S.redo, group: S.groupEdit, handler: redo },

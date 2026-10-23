@@ -1426,6 +1426,395 @@ test('資料版本 1 的自動儲存照讀', async ({ page }) => {
   await expect(card(page, '舊 二')).toBeVisible();
 });
 
+/* ---------- 第二批對等驗證後的修正（規格 7.4） ---------- */
+
+const toPl = async (page: Page) => {
+  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('p');
+  await expect(canvas(page)).toHaveAttribute('data-view', 'pl');
+};
+const toGm = async (page: Page) => {
+  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('p');
+  await expect(canvas(page)).toHaveAttribute('data-view', 'gm');
+};
+const personNames = async (page: Page) =>
+  Object.values((await board(page)).people).map((p) => p.name);
+
+test('PL 檢視：「顯示」分頁的色分類只列 PL 看得到的人用到的，而且不能改（F86、D29）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  /* 「調查對象」只有 綾瀬 遥 用；她只有 GM 看得到 */
+  await card(page, '綾瀬 遥').click();
+  await memberPanel(page).getByRole('switch', { name: '這個人只有 GM 看得到' }).click();
+  await settle(page);
+  await tab(page, '顯示');
+  await expect(page.getByTestId('cat-list').locator('li')).toHaveCount(3);
+  await expect(page.getByTestId('cat-list').locator('input[type="text"]').nth(2)).toHaveValue(
+    '調查對象',
+  );
+  await toPl(page);
+  const panel = page.getByTestId('view-panel');
+  /* 只列畫面上的人用到的分類：沒有編輯用的清單、名稱欄、新增 */
+  await expect(page.getByTestId('cat-list')).toHaveCount(0);
+  await expect(page.getByTestId('cat-list-pl').locator('li')).toHaveText(['當家', '死因不明']);
+  await expect(panel.getByRole('textbox', { name: '分類名稱' })).toHaveCount(0);
+  await expect(page.getByTestId('cat-add')).toHaveCount(0);
+  /* 整頁（含隱藏的分頁、輸入欄的值）都找不到只有 GM 專用的人用到的分類名稱 */
+  const leaked = await page.evaluate(() => {
+    const texts = [document.body.innerText, document.body.textContent ?? ''];
+    for (const el of document.querySelectorAll('input,textarea'))
+      texts.push((el as HTMLInputElement).value);
+    return texts.some((t) => t.includes('調查對象'));
+  });
+  expect(leaked).toBe(false);
+  /* 父親的位置也是圖板的資料：不能改，提示在旁邊 */
+  await expect(panel.getByRole('radio', { name: '置中' })).toBeDisabled();
+  await expect(panel.getByRole('radio', { name: '對齊長子' })).toBeDisabled();
+  await expect(panel.getByTestId('pl-lock').first()).toHaveText('切回 GM 檢視才能編輯');
+  /* 切回 GM 檢視：三個分類都在，沒有被動過 */
+  await toGm(page);
+  await expect(page.getByTestId('cat-list').locator('li')).toHaveCount(3);
+  await expect(page.getByTestId('cat-list-pl')).toHaveCount(0);
+  await expect(panel.getByRole('radio', { name: '置中' })).toBeEnabled();
+  expect(errors).toEqual([]);
+});
+
+test('PL 檢視：復原、重做、圖板的改名／新增／刪除都不作用並提示；匯出的「對象」照樣可以選（F86、D29）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  /* GM 檢視改一個名字 */
+  await card(page, '綾瀬 透').locator('[data-f="name"]').dblclick();
+  await page.locator('input[data-inline]').fill('綾瀬 透（改）');
+  await page.keyboard.press('Enter');
+  await settle(page);
+  expect(await personNames(page)).toContain('綾瀬 透（改）');
+  /* 提示（通知）；其他分頁裡藏著的「切回 GM 檢視才能編輯」不算 */
+  const notice = page.getByText('切回 GM 檢視才能編輯').filter({ visible: true });
+  await toPl(page);
+  /* Ctrl＋Z、頁首的復原鈕：不作用、提示 */
+  await page.keyboard.press('Control+z');
+  await expect(notice.first()).toBeVisible();
+  expect(await personNames(page)).toContain('綾瀬 透（改）');
+  await page.getByRole('button', { name: /^復原/ }).click();
+  expect(await personNames(page)).toContain('綾瀬 透（改）');
+  /* 「圖板」分頁：名稱欄、新增、加入範例、刪除都停用，旁邊有提示；強制按也不動資料 */
+  await tab(page, '圖板');
+  const boards = () =>
+    page.evaluate(
+      (k) =>
+        JSON.parse(localStorage.getItem(k) ?? '{}').state.data.boards.map(
+          (b: { title: string }) => b.title,
+        ),
+      STORAGE_KEY,
+    );
+  const before = await boards();
+  await expect(page.getByTestId('pl-lock').last()).toHaveText('切回 GM 檢視才能編輯');
+  await expect(page.locator('[data-field="board-title"]')).toBeDisabled();
+  await expect(page.getByRole('button', { name: '新增圖板' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '加入範例圖板' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '刪除圖板' })).toBeDisabled();
+  await page.getByRole('button', { name: '刪除圖板' }).click({ force: true });
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await page.getByRole('button', { name: '新增圖板' }).click({ force: true });
+  await page.waitForTimeout(200);
+  expect(await boards()).toEqual(before);
+  /* 匯出的「對象」照樣可以選（那是匯出設定） */
+  await tab(page, '匯出');
+  await page.getByRole('radio', { name: 'GM 用（全部）' }).click();
+  await expect(page.getByRole('radio', { name: 'GM 用（全部）' })).toBeChecked();
+  await page.getByRole('radio', { name: 'PL 用（拿掉 GM 專用）' }).click();
+  /* 切回 GM 檢視：圖板可以改名、Ctrl＋Z 復原改名那一步 */
+  await toGm(page);
+  await tab(page, '圖板');
+  await page.locator('[data-field="board-title"]').fill('改過的名稱');
+  await page.locator('[data-field="board-title"]').blur();
+  await settle(page);
+  expect((await board(page)).title).toBe('改過的名稱');
+  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Control+z');
+  await settle(page);
+  expect((await board(page)).title).toBe('範例：綾瀬家');
+  /* 重做：GM 檢視時可以；PL 檢視時不作用 */
+  await toPl(page);
+  await page.keyboard.press('Control+Shift+z');
+  await page.waitForTimeout(200);
+  expect((await board(page)).title).toBe('範例：綾瀬家');
+  await toGm(page);
+  await page.keyboard.press('Control+Shift+z');
+  await settle(page);
+  expect((await board(page)).title).toBe('改過的名稱');
+  expect(errors).toEqual([]);
+});
+
+const hatchOf = (el: Locator) =>
+  el.evaluate((e) => getComputedStyle(e).backgroundImage.includes('repeating-linear-gradient'));
+
+test('GM 檢視：連到 GM 專用的人的配偶卡片（PL 版會拿掉）也畫斜線與「GM」標（F86）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  /* 綾瀬 慎吾 加一位配偶，連到 綾瀬 遥（家系圖裡別的人） */
+  await card(page, '綾瀬 慎吾').click();
+  await memberPanel(page).getByRole('button', { name: '和別的家系的人結婚' }).click();
+  await settle(page);
+  const sp = page.getByTestId('spouse-panel');
+  await sp.locator('[data-field="link"]').click();
+  await page.getByRole('option', { name: /^綾瀬 遥/ }).click();
+  await settle(page);
+  const shingo = await personByName(page, '綾瀬 慎吾');
+  const chipId = Object.values((await board(page)).people).find(
+    (p) => p.kind === 'spouse' && p.spouseOf === shingo?.id,
+  )?.id as string;
+  const chipEl = page.locator(`[data-pid="${chipId}"]`);
+  const host = page.locator(`[data-host="${shingo?.id}"]`);
+  /* 還沒有 GM 專用的人：都沒有斜線、沒有小標 */
+  expect(await hatchOf(chipEl)).toBe(false);
+  await expect(page.locator('[data-gm-only]')).toHaveCount(0);
+  /* 綾瀬 遥 只有 GM 看得到 */
+  await card(page, '綾瀬 遥').click();
+  await memberPanel(page).getByRole('switch', { name: '這個人只有 GM 看得到' }).click();
+  await settle(page);
+  /* 遥 的卡片、慎吾 的配偶卡片（連到她）都有斜線；慎吾 本人沒有 */
+  expect(await hatchOf(card(page, '綾瀬 遥'))).toBe(true);
+  expect(await hatchOf(chipEl)).toBe(true);
+  expect(await hatchOf(card(page, '綾瀬 慎吾'))).toBe(false);
+  /* 「GM」小標：遥（自己）與 慎吾 的配偶卡片各一個（自動建立的那張在她底下，不另外標） */
+  await expect(host.locator('[data-gm-only]')).toHaveCount(1);
+  await expect(page.locator('[data-gm-only]')).toHaveCount(2);
+  /* PL 檢視：那張配偶卡片真的不見了（斜線標出來的就是 PL 看不到的） */
+  await toPl(page);
+  await expect(chipEl).toHaveCount(0);
+  await expect(card(page, '綾瀬 遥')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('改連結、不連結：自動建立的配偶刪掉後孩子的父母不懸空，Ctrl＋Z 一步復原（F82）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await openLegacy(page, 'links');
+  /* 東條 次男 加配偶、連到 南條 家主（沒有配偶）；替 南條 家主 加兒子（母親自動填成他唯一的妻子＝自動建立的配偶） */
+  await card(page, '東條 次男').click();
+  await memberPanel(page).getByRole('button', { name: '和別的家系的人結婚' }).click();
+  await settle(page);
+  const sp = page.getByTestId('spouse-panel');
+  await sp.locator('[data-field="link"]').click();
+  await page.getByRole('option', { name: /^南條 家主/ }).click();
+  await settle(page);
+  const people = async () => (await board(page)).people;
+  const jinan = (await personByName(page, '東條 次男'))?.id;
+  const head = (await personByName(page, '南條 家主'))?.id;
+  const chipId = Object.values(await people()).find(
+    (p) =>
+      p.kind === 'spouse' &&
+      p.spouseOf === jinan &&
+      (p.link as { personId?: string } | undefined)?.personId === head,
+  )?.id as string;
+  const autoId = ((await people())[chipId].link as { pairId: string }).pairId;
+  expect(((await people())[autoId].link as { auto?: boolean }).auto).toBe(true);
+  await card(page, '南條 家主').click();
+  await memberPanel(page).getByRole('button', { name: '加兒子' }).click();
+  await settle(page);
+  await page.keyboard.press('Escape');
+  const kid = Object.values(await people()).find(
+    (p) => p.kind === 'member' && p.fatherId === head && p.name === '',
+  );
+  expect(kid?.motherId).toBe(autoId);
+  /* 資料裡的參照都指到存在的人 */
+  const dangling = () =>
+    page.evaluate(() => {
+      const ppl = (
+        window as unknown as {
+          __familyTree: { board: () => { people: Record<string, Record<string, unknown>> } };
+        }
+      ).__familyTree.board().people;
+      const bad: string[] = [];
+      for (const [id, p] of Object.entries(ppl)) {
+        for (const k of ['fatherId', 'motherId'])
+          if (p[k] && !ppl[p[k] as string]) bad.push(`${id}.${k}`);
+        const link = p.link as { personId?: string; pairId?: string } | undefined;
+        if (link?.personId && !ppl[link.personId]) bad.push(`${id}.link.personId`);
+        if (link?.pairId && !ppl[link.pairId]) bad.push(`${id}.link.pairId`);
+      }
+      return bad;
+    });
+  expect(await dangling()).toEqual([]);
+  /* 連結改成「不連結」：自動建立的配偶一起刪，孩子的母親清掉 */
+  /* 配偶卡片可能在畫面外：聚焦後按 Enter 選取 */
+  await page.locator(`[data-pid="${chipId}"]`).focus();
+  await page.keyboard.press('Enter');
+  await page.getByTestId('spouse-panel').locator('[data-field="link"]').click();
+  await page.getByRole('option', { name: /不連結/ }).click();
+  await settle(page);
+  expect((await people())[autoId]).toBeUndefined();
+  expect((await people())[kid?.id as string].motherId).toBeUndefined();
+  expect((await people())[kid?.id as string].fatherId).toBe(head);
+  expect(await dangling()).toEqual([]);
+  /* 一步復原：連結、自動建立的配偶、孩子的母親都回來 */
+  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Control+z');
+  await settle(page);
+  expect((await people())[autoId]).toBeDefined();
+  expect((await people())[kid?.id as string].motherId).toBe(autoId);
+  expect(((await people())[chipId].link as { personId: string }).personId).toBe(head);
+  expect(await dangling()).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+/**
+ * 把 PNG（1×）與 SVG 在瀏覽器裡畫成點陣，比文字（深色的像素）的重心與逐像素的差
+ * （SVG 以自己的寬高畫，不縮放）。
+ */
+async function compareRaster(page: Page, png: Uint8Array, svg: Uint8Array) {
+  return page.evaluate(
+    async ([pngB64, svgB64]) => {
+      const load = (src: string) =>
+        new Promise<HTMLImageElement>((res, rej) => {
+          const i = new Image();
+          i.onload = () => res(i);
+          i.onerror = () => rej(new Error('load'));
+          i.src = src;
+        });
+      const A = await load(`data:image/png;base64,${pngB64}`);
+      const B = await load(`data:image/svg+xml;base64,${svgB64}`);
+      const head = /width="([\d.]+)" height="([\d.]+)"/.exec(atob(svgB64).slice(0, 300));
+      const sw = Number(head?.[1]);
+      const sh = Number(head?.[2]);
+      const w = A.naturalWidth;
+      const h = A.naturalHeight;
+      const draw = (img: HTMLImageElement, iw: number, ih: number) => {
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        const x = c.getContext('2d') as CanvasRenderingContext2D;
+        x.fillStyle = '#fff';
+        x.fillRect(0, 0, w, h);
+        x.drawImage(img, 0, 0, iw, ih);
+        return x.getImageData(0, 0, w, h).data;
+      };
+      const a = draw(A, w, h);
+      const b = draw(B, sw, sh);
+      const luma = (d: Uint8ClampedArray, i: number) =>
+        0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      const centroid = (d: Uint8ClampedArray) => {
+        let sx = 0;
+        let sy = 0;
+        let sum = 0;
+        for (let y = 0; y < h; y++)
+          for (let x = 0; x < w; x++) {
+            const l = luma(d, (y * w + x) * 4);
+            if (l >= 110) continue;
+            const wt = 255 - l;
+            sx += x * wt;
+            sy += y * wt;
+            sum += wt;
+          }
+        return { x: sx / sum, y: sy / sum, n: sum };
+      };
+      const ca = centroid(a);
+      const cb = centroid(b);
+      let dark = 0;
+      let off = 0;
+      for (let i = 0; i < a.length; i += 4) {
+        const la = luma(a, i);
+        const lb = luma(b, i);
+        if (la < 110 || lb < 110) dark++;
+        if (Math.abs(la - lb) > 100) off++;
+      }
+      return {
+        size: [w, h, sw, sh],
+        dx: cb.x - ca.x,
+        dy: cb.y - ca.y,
+        offRatio: off / Math.max(1, dark),
+      };
+    },
+    [Buffer.from(png).toString('base64'), Buffer.from(svg).toString('base64')] as const,
+  );
+}
+
+test('SVG 的文字位置和 PNG 一樣：垂直置中的文字（只有名字、名字＋讀音、簡易卡片）與詳細卡片的重心差 ≤ 0.1 px（F88）', async ({
+  page,
+}) => {
+  await open(page);
+  /* 尺寸 1×（SVG 的倍率固定 1，兩邊同大小） */
+  await tab(page, '匯出');
+  await page
+    .getByRole('region', { name: '匯出圖片' })
+    .getByRole('combobox', { name: '尺寸' })
+    .click();
+  await page.getByRole('option', { name: /^100%/ }).click();
+  const modes: [string, () => Promise<void>][] = [
+    ['詳細卡片', async () => undefined],
+    ['只有名字', () => page.getByRole('radio', { name: '只有名字' }).click()],
+    ['名字＋讀音', () => page.getByRole('radio', { name: '名字＋讀音' }).click()],
+    [
+      '簡易卡片',
+      async () => {
+        await tab(page, '顯示');
+        await page.getByRole('radio', { name: /^簡易/ }).click();
+        await tab(page, '匯出');
+        await page.getByRole('radio', { name: '照顯示設定' }).click();
+      },
+    ],
+  ];
+  const got: string[] = [];
+  for (const [name, setup] of modes) {
+    await tab(page, '匯出');
+    await setup();
+    await tab(page, '匯出');
+    const png = await exportFile(page, 'PNG 圖片');
+    const svg = await exportFile(page, 'SVG 向量圖');
+    const r = await compareRaster(page, png.bytes, svg.bytes);
+    got.push(
+      `${name}：Δx ${r.dx.toFixed(3)}、Δy ${r.dy.toFixed(3)}、差很多的像素 ${(r.offRatio * 100).toFixed(2)}%`,
+    );
+    expect(Math.abs(r.dx), `${name}的 Δx`).toBeLessThanOrEqual(0.1);
+    expect(Math.abs(r.dy), `${name}的 Δy`).toBeLessThanOrEqual(0.1);
+    expect(r.offRatio, `${name}差很多的像素`).toBeLessThan(0.01);
+  }
+  test.info().annotations.push({ type: '文字重心差', description: got.join('；') });
+});
+
+test('改倍率、格式、拖曳方式、分頁不會重排整張圖板；改匯出的方向只算匯出那一份；改顯示設定才重排畫面（特大圖板的效能，7.4）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const calls = () =>
+    page.evaluate(() =>
+      (
+        window as unknown as { __familyTree: { layoutCalls: () => number } }
+      ).__familyTree.layoutCalls(),
+    );
+  const n0 = await calls();
+  /* 倍率、格式、拖曳方式、分頁：不影響排版 */
+  await tab(page, '匯出');
+  await page
+    .getByRole('region', { name: '匯出圖片' })
+    .getByRole('combobox', { name: '尺寸' })
+    .click();
+  await page.getByRole('option', { name: /^100%/ }).click();
+  await page.getByRole('radio', { name: 'SVG 向量圖' }).click();
+  await tab(page, '顯示');
+  await page.getByRole('radio', { name: /^調間距/ }).click();
+  await tab(page, '圖板');
+  await tab(page, '人物');
+  await page.waitForTimeout(300);
+  expect(await calls()).toBe(n0);
+  /* 匯出的方向：匯出的排版（算畫布大小）一份，畫面不重排 */
+  await tab(page, '匯出');
+  await page.getByRole('radio', { name: '橫向' }).click();
+  await page.waitForTimeout(300);
+  expect(await calls()).toBe(n0 + 1);
+  /* 顯示設定（簡易卡片）：畫面與匯出各重排一次 */
+  await tab(page, '顯示');
+  await page.getByRole('radio', { name: /^簡易/ }).click();
+  await expect.poll(calls).toBe(n0 + 3);
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 版面 ---------- */
 
 test('390 寬沒有橫向捲動；觸控點選與捏合；1280 與 390 的視覺基準（F72）', async ({ page }) => {

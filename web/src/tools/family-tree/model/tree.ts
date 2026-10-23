@@ -203,8 +203,11 @@ export function linkedBy(people: People): Map<string, Member[]> {
  * 「婚姻 · ○○」：別人連到這位成員、而這位成員自己沒有連回去的配偶卡片時，卡片寫對方的名字（規格 F82）。
  */
 export function marriedTo(people: People, p: Member, lb: Map<string, Member[]>): Member[] {
+  /* 沒有人連過來的成員（幾乎所有人）不用找他的配偶：spousesOf 要掃整張圖板，每張卡片都掃會是 O(人數²) */
+  const linkers = lb.get(p.id);
+  if (!linkers?.length) return [];
   const mine = spousesOf(people, p.id);
-  return (lb.get(p.id) ?? []).filter((h) => !mine.some((c) => c.link?.personId === h.id));
+  return linkers.filter((h) => !mine.some((c) => c.link?.personId === h.id));
 }
 
 /** 過繼的說法：入養＝養子，出系＝繼子（規格 F80） */

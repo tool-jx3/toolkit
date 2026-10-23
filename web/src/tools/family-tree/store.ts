@@ -141,14 +141,19 @@ export function shownPeople(people: People, mode: ViewMode): People {
 }
 
 export const isPlView = () => prefsNow().viewMode === 'pl';
+export const usePlView = () => usePrefs((s) => s.data.viewMode === 'pl');
 
 /** 目前的圖板滿了（2,000 人）：所有加人的按鈕停用並提示（規格第 2 節、F07） */
 export function usePeopleFull(): boolean {
   return isFull(useBoard().people);
 }
 
-/** 改目前的圖板（一次 update＝一步復原） */
+/**
+ * 改目前的圖板（一次 update＝一步復原）。PL 檢視不能改資料（D29）：入口都會先停用、提示「切回 GM 檢視才能編輯」，
+ * 這裡再擋一次，萬一有漏的入口也不會改到看不到的資料。
+ */
 export function updateBoard(recipe: (b: Draft<Board>) => void): void {
+  if (isPlView()) return;
   const id = boardNow().id;
   useTree.getState().update((d) => {
     const b = d.boards.find((x) => x.id === id);

@@ -142,12 +142,34 @@ export function pairOf(people: People, s: Spouse): Spouse | null {
   return spousesOf(people, s.link.personId).find((c) => c.link?.personId === host.id) ?? null;
 }
 
-/** 拆開一對：對方那邊是連結時自動建立的（或沒有名字）就刪掉，否則只拿掉它的連結 */
+/**
+ * 配偶 id 不在了或不再連回來之後，指到它的參照要在這一步清乾淨（規格第 5 節；不然孩子的母親（父親）、
+ * 另一位配偶的 pairId 會懸空，原作也有這個毛病）：孩子的 fatherId／motherId、別人的 link.pairId。
+ */
+function forgetSpouse(people: People, id: string) {
+  for (const x of Object.values(people)) {
+    if (isMember(x)) {
+      if (x.fatherId === id) delete x.fatherId;
+      if (x.motherId === id) delete x.motherId;
+    } else if (x.link?.pairId === id) delete x.link.pairId;
+  }
+}
+
+/**
+ * 拆開一對：對方那邊是連結時自動建立的（或沒有名字）就刪掉（連同指到它的父母、成對的參照），
+ * 否則只拿掉它的連結（別人的 pairId 也不再指到它）
+ */
 function unpair(people: People, s: Spouse) {
   const r = pairOf(people, s);
   if (!r) return;
-  if (r.link?.auto || !r.name) delete people[r.id];
-  else delete r.link;
+  if (r.link?.auto || !r.name) {
+    delete people[r.id];
+    forgetSpouse(people, r.id);
+  } else {
+    delete r.link;
+    for (const x of Object.values(people))
+      if (isSpouse(x) && x.link?.pairId === r.id) delete x.link.pairId;
+  }
   if (s.link) delete s.link.pairId;
 }
 

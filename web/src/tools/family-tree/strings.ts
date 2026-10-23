@@ -271,6 +271,8 @@ export const S = {
   avatarOff: '「顯示」的「頭像」關著，卡片上目前看不到。',
   plReadOnly: 'PL 檢視：GM 專用的人與欄位不顯示，也不能編輯。要改資料請切回 GM 檢視。',
   toGmView: '切回 GM 檢視',
+  /** PL 檢視裡改資料的入口（復原、重做、圖板的改名與刪除、色分類…）不作用時的提示 */
+  plNeedGm: '切回 GM 檢視才能編輯',
   placeSection: '位置',
   swapLeft: '和左邊交換',
   swapRight: '和右邊交換',
@@ -319,6 +321,8 @@ export const S = {
   catDelete: (n: string) => `刪除分類「${n}」`,
   catAdd: '新增分類',
   catEmpty: '例：當家、死因不明、調查對象、已經離開家的人。',
+  /** PL 檢視：只列看得到的人用到的分類；一個都沒有時 */
+  catPlEmpty: '畫面上的人沒有用到色分類。',
   catDeleted: (n: string) => `已刪除分類「${n}」`,
 
   /* ---- 匯出 ---- */

@@ -19,9 +19,14 @@ export function hasSecrets(people: People): boolean {
   return false;
 }
 
-/** 只有 GM 看得到的人（成員連同子孫、配偶與連到他們的婚姻） */
+/**
+ * PL 版會拿掉的人（GM 檢視與 GM 用的匯出畫斜線的範圍）：只有 GM 看得到的成員連同子孫、他們的配偶、
+ * 只有 GM 看得到的配偶、連到這些成員的婚姻（兩邊的配偶卡片）
+ */
 export function hiddenIds(people: People): Set<string> {
   const out = new Set<string>();
+  /* 拿掉的人都從「只有 GM 看得到」的成員或配偶開始；沒有的話不用整理整棵樹 */
+  if (!Object.values(people).some((p) => p.gm)) return out;
   const idx = indexTree(people);
   const stack: string[] = [];
   for (const p of idx.members) if (p.gm) stack.push(p.id);

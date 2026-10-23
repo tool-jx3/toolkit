@@ -6,7 +6,7 @@
  */
 import { ensureFont, fetchGoogleFontSubset } from '@/core/fonts';
 import { DEFAULT_PLACEMENT, drawPlacedCrop, roundRectPath } from '@/core/image';
-import { hasSecrets, plPeople } from '../model/gm';
+import { hasSecrets, hiddenIds, plPeople } from '../model/gm';
 import {
   AVATAR,
   type CardMode,
@@ -20,7 +20,7 @@ import { avatarIds, hasGmInfo, usedCategories } from '../model/ops';
 import { EXPORT_COLORS } from '../model/palette';
 import { chipText, initialOf, memberText, stubText } from '../model/present';
 import { descendants, hostOf, linkedBy, linkOf } from '../model/tree';
-import { type Board, type Category, isMember, type People, type Person } from '../model/types';
+import type { Board, Category, People, Person } from '../model/types';
 import { S } from '../strings';
 import { SvgContext } from './svgctx';
 
@@ -114,7 +114,7 @@ export interface ExportPlan {
   audience: ExportAudience;
   /** GM 用而且有 GM 專用的東西：標題列寫「GM 用」、畫 GM 的標記 */
   gmMarks: boolean;
-  /** GM 專用的人（連同子孫；GM 用的圖畫斜線） */
+  /** PL 版會拿掉的人（GM 專用的人連同子孫、他們的配偶、連到他們的婚姻的配偶卡片；GM 用的圖畫斜線） */
   gmScope: ReadonlySet<string>;
   daughterName: boolean;
   links: ExportLink[];
@@ -244,13 +244,8 @@ export function planExport({
     MAX_SIDE / height,
     Math.sqrt(MAX_PIXELS / (width * height)),
   );
-  const gmScope = new Set<string>();
-  if (gmMarks)
-    for (const p of Object.values(people))
-      if (p.gm && isMember(p)) {
-        gmScope.add(p.id);
-        for (const d of descendants(people, p.id)) gmScope.add(d);
-      }
+  /* GM 用：PL 版會拿掉的人都畫斜線（連到只有 GM 看得到的人的配偶卡片也是） */
+  const gmScope: ReadonlySet<string> = gmMarks ? hiddenIds(people) : new Set<string>();
   return {
     mode,
     orient: options.orient,
@@ -889,9 +884,9 @@ function drawAvatar(ctx: Ctx, p: Person, cx: number, cy: number, d: number, avat
   ctx.stroke();
 }
 
-function gmMarkFor(plan: ExportPlan, p: Person, scoped: boolean) {
+function gmMarkFor(plan: ExportPlan, p: Person) {
   if (!plan.gmMarks) return { only: false, info: false };
-  return { only: scoped || !!p.gm, info: hasGmInfo(p) };
+  return { only: plan.gmScope.has(p.id), info: hasGmInfo(p) };
 }
 
 function drawFullCards(ctx: Ctx, plan: ExportPlan, avatars: AvatarImages) {
@@ -922,8 +917,7 @@ function drawFullCards(ctx: Ctx, plan: ExportPlan, avatars: AvatarImages) {
       ctx.fillText(fitText(ctx, t.meta, TW - 20), tx + 10, y + 42);
       continue;
     }
-    const scoped = plan.gmScope.has(p.id);
-    const gm = gmMarkFor(plan, p, scoped);
+    const gm = gmMarkFor(plan, p);
     cardBox(ctx, x, y, W, H, 10, C.bg, catOf(plan, p), false);
     if (gm.only) hatch(ctx, x, y, W, H, 10);
     if (gm.info) secretCorner(ctx, x, y, W, H, 10);
@@ -979,7 +973,7 @@ function drawFullCards(ctx: Ctx, plan: ExportPlan, avatars: AvatarImages) {
     n.node.chips.forEach((s, i) => {
       const c = chipPos(n, i, D, hz);
       const ct = chipText(people, p, s);
-      const sgm = gmMarkFor(plan, s, scoped);
+      const sgm = gmMarkFor(plan, s);
       cardBox(
         ctx,
         c.x,
@@ -1101,8 +1095,7 @@ function drawCompactCards(ctx: Ctx, plan: ExportPlan, avatars: AvatarImages) {
       marks(n.x, n.y, [{ kind: 'out', text: S.sealOut }]);
       continue;
     }
-    const scoped = plan.gmScope.has(p.id);
-    const gm = gmMarkFor(plan, p, scoped);
+    const gm = gmMarkFor(plan, p);
     const t = memberText(people, p, lb, plan.daughterName);
     cardBox(ctx, n.x, n.y, W, H, 7, C.bg, catOf(plan, p), false);
     if (gm.only) hatch(ctx, n.x, n.y, W, H, 7);
@@ -1119,7 +1112,7 @@ function drawCompactCards(ctx: Ctx, plan: ExportPlan, avatars: AvatarImages) {
     n.node.chips.forEach((s, i) => {
       const c = chipPos(n, i, D, hz);
       const ct = chipText(people, p, s);
-      const sgm = gmMarkFor(plan, s, scoped);
+      const sgm = gmMarkFor(plan, s);
       /* 原作以卡片寬畫配偶卡片的框（簡易卡片時比預留的寬，D13）；新版以配偶卡片的寬 */
       cardBox(
         ctx,
