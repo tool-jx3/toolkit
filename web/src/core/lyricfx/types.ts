@@ -32,6 +32,8 @@ export interface LyricFxLine {
  * 逐句的手動調整（工具層的通用格式：工具與 music-frame 都照這個寫，風格讀它；規格 3.8）。沒有的欄位＝照風格自動。
  * - x、y：錨點在畫面的比例（0～1；錨點的定義由風格決定，「散落」＝鎖定〔F12〕用的錨點）。x、y 一起出現。
  * - x、y 或 angle 有值的句＝**固定**：不再被重抽或排位置移動（其他句照樣避開它）。工具一律三個一起寫。
+ * - rows：第一次得到手動位置或角度時記下的折行（當下畫面上的，同鎖定記折行）；之後拖曳、旋轉都用它，
+ *   文字、大小、字型改了才重新折行（工具在改這些時拿掉 rows；文字對不上時風格也不用它）。
  * - color、glowColor、scale、opacity、font 只改這一句的樣子；scale、font 會改字寬，排位置照改過的算。
  */
 export interface LyricLineAdjust {
@@ -39,6 +41,8 @@ export interface LyricLineAdjust {
   y?: number;
   /** 角度（度，−90～90；不受風格的角度範圍限制） */
   angle?: number;
+  /** 記下的折行（每一行的文字；只和手動位置或角度一起出現） */
+  rows?: string[];
   /** 文字顏色（#rrggbb） */
   color?: string;
   /** 發光的顏色（#rrggbb；風格的發光開著時才看得到） */
@@ -89,6 +93,8 @@ export interface LyricLinePlacement {
   shownAt: number;
   /** 位置固定（手動位置／角度或鎖定） */
   fixed: boolean;
+  /** 這一句目前的折行（每一行的文字；第一次得到手動位置或角度時工具把它記進 adjust.rows） */
+  rows?: string[];
   /** 這一句實際用的文字顏色、光暈顏色、字型（逐句清單的欄位顯示用；沒有調整時是風格的設定） */
   color?: string;
   glowColor?: string;

@@ -142,6 +142,7 @@ export function scatterPlacement(
     tip: proj(tipX, tipY),
     shownAt: shownAt(p),
     fixed: !!p.pinned || p.locked,
+    rows: [...p.rows],
     color: p.textColor ?? s.textColor,
     glowColor: p.glowColor ?? s.glowColor,
     font: { ...(p.face ?? (p.latin && s.latinFont ? s.latinFont : s.font)) },

@@ -374,7 +374,8 @@ const finiteNum = (v: unknown): v is number => typeof v === 'number' && Number.i
 
 /**
  * 手動位置的句：錨點＝(round(x × W), round(y × H))，夾在「整塊在畫面內」的範圍；角度＝手動的（沒有時用鎖定的、
- * 再沒有時用這一句的亂數流抽一個）；折行＝鎖定記下的（對得上時），否則照一行最多多寬折的（放不進畫面時也改用它）。
+ * 再沒有時用這一句的亂數流抽一個）；折行＝手動調整記下的（D27）→ 鎖定記下的（都要對得上這一句的字）→
+ * 照一行最多多寬折的；記下的折行放不進畫面時也改用照一行最多多寬折的。
  */
 function pinnedSpot(
   d: Draft,
@@ -387,8 +388,11 @@ function pinnedSpot(
     const span = screenSpan(sh.ext, m);
     return span.x.lo <= span.x.hi && span.y.lo <= span.y.hi;
   };
-  let shape = shapeFor(d, lock ? lock.rows : rowsOf(d.wrapping), angle);
-  if (lock && !fits(shape)) shape = shapeFor(d, rowsOf(d.wrapping), angle);
+  const kept = d.line.adjust?.rows;
+  const saved =
+    kept?.length && rowsMatch(kept, d.line.text, d.line.tr) ? kept : (lock?.rows ?? null);
+  let shape = shapeFor(d, saved ?? rowsOf(d.wrapping), angle);
+  if (saved && !fits(shape)) shape = shapeFor(d, rowsOf(d.wrapping), angle);
   const span = frameSpan(shape.ext, m.W, m.H);
   return {
     shape,

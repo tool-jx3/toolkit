@@ -14,6 +14,8 @@ export const ADJUST_RANGES = {
 } as const;
 
 const HEX = /^#[0-9a-f]{6}$/i;
+/** 記下的折行最多幾行 */
+const MAX_ROWS = 200;
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 /** 比例存到小數 5 位（1920 寬的畫面約 0.02 px）、倍率與角度到小數 2 位 */
@@ -34,7 +36,7 @@ function fontOf(v: unknown): LyricFont | null {
 }
 
 /**
- * 讀存檔、專案檔時修正：超出範圍的夾回、不合法的拿掉（x、y 要兩個都有）；什麼都沒有時 null。
+ * 讀存檔、專案檔時修正：超出範圍的夾回、不合法的拿掉（x、y 要兩個都有；rows 要和位置或角度一起）；什麼都沒有時 null。
  * 倍率 1、不透明度 1 和沒有調整一樣，也拿掉。
  */
 export function normalizeLineAdjust(raw: unknown): LyricLineAdjust | null {
@@ -47,6 +49,15 @@ export function normalizeLineAdjust(raw: unknown): LyricLineAdjust | null {
   }
   if (finite(o.angle))
     out.angle = round(clamp(o.angle, ADJUST_RANGES.angle.min, ADJUST_RANGES.angle.max), 2);
+  /* 記下的折行：只和手動位置或角度一起（D27） */
+  if (
+    (out.x != null || out.angle != null) &&
+    Array.isArray(o.rows) &&
+    o.rows.length > 0 &&
+    o.rows.length <= MAX_ROWS &&
+    o.rows.every((r) => typeof r === 'string' && r.length <= 2000)
+  )
+    out.rows = [...(o.rows as string[])];
   if (typeof o.color === 'string' && HEX.test(o.color)) out.color = o.color.toLowerCase();
   if (typeof o.glowColor === 'string' && HEX.test(o.glowColor))
     out.glowColor = o.glowColor.toLowerCase();

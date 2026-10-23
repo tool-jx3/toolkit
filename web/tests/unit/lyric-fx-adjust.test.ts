@@ -1,5 +1,6 @@
 /** 逐句的手動調整（lyric-fx 規格 F75～F81、3.5、3.6、3.8）：資料、排位置、畫法、預覽上的操作 */
 import { describe, expect, it } from 'vitest';
+import { fontCss } from '@/core/fonts';
 import {
   adjustFonts,
   buildLyricLines,
@@ -24,6 +25,13 @@ import {
   TEXT_HEIGHT_RATIO,
   unproject,
 } from '@/core/lyricfx/styles/scatter';
+import {
+  metricsFor,
+  rowsOf,
+  rulerFor,
+  segmentsOf,
+  wrapAll,
+} from '@/core/lyricfx/styles/scatter/layout';
 import { recordCanvas } from '../helpers/canvasRecorder';
 
 const SIZE = { width: 1920, height: 1080 };
@@ -326,6 +334,81 @@ describe('畫法', () => {
     const log = draw(p, 1.6);
     expect(sets(log, 'font')).toEqual([p.lines[0].font]);
     expect(p.lines[0].font).toContain('74px');
+  });
+});
+
+describe('手動位置的折行（D27：記下當下的折行）', () => {
+  const settings: Partial<ScatterSettings> = { fontSize: 60, preview: 2 };
+  /** 照一行最多多寬折的（沒有改折行時的折行） */
+  const baseRows = (l: LyricFxLine) => {
+    const st = { ...scatterDefaults(), ...settings };
+    const m = metricsFor(st, 1920, 1080);
+    const ruler = rulerFor(env, fontCss(st.font, st.fontSize), st.spacing);
+    return rowsOf(wrapAll(segmentsOf(l.text, l.tr), m.rowMax, ruler));
+  };
+  /** 找一句用了改折行候選的句（每 0.6 秒一句、預點亮 2、字級 60：畫面很擠，原本的折行放不下） */
+  function variant() {
+    const ls = lines(lrc(30, 0.6, (i) => `第${i}句${'長'.repeat(20)}`));
+    for (let seed = 1; seed <= 40; seed++) {
+      const p = plan(ls, settings, seed);
+      /* 整塊放得進畫面（留 B＝66 px 的邊）的才算：放不進去的記下來也不會用（改用照一行最多多寬折的） */
+      const i = p.lines.findIndex(
+        (l, j) =>
+          l.rows.join('|') !== baseRows(ls[j]).join('|') &&
+          l.box.height < 1080 - 2 * 70 &&
+          l.box.width < 1920 - 2 * 70,
+      );
+      if (i >= 0) return { ls, seed, p, i };
+    }
+    throw new Error('找不到用了改折行候選的句');
+  }
+
+  it('記下的折行：拖曳（換位置、角度）後折行不變；沒有記下時用原本的折行', () => {
+    const { ls, seed, p, i } = variant();
+    const l = p.lines[i];
+    expect(l.rows).not.toEqual(baseRows(ls[i]));
+    const pin = { x: 0.3, y: 0.15, angle: 7 };
+    const kept = plan(withAdjust(ls, i, { ...pin, rows: l.rows }), settings, seed);
+    expect(kept.lines[i].rows).toEqual(l.rows);
+    expect(kept.lines[i].angle).toBe(7);
+    const moved = plan(
+      withAdjust(ls, i, { x: 0.6, y: 0.7, angle: -12, rows: l.rows }),
+      settings,
+      seed + 1,
+    );
+    expect(moved.lines[i].rows).toEqual(l.rows);
+    /* 沒有記下折行（舊的資料、或改了大小與字型之後）：照一行最多多寬折 */
+    const plain = plan(withAdjust(ls, i, pin), settings, seed);
+    expect(plain.lines[i].rows).toEqual(baseRows(ls[i]));
+  });
+  it('文字改了（記下的折行對不上）：重新折行', () => {
+    const { ls, seed, p, i } = variant();
+    const changed = ls.map((l, j) =>
+      j === i
+        ? {
+            ...l,
+            text: `${l.text}多了字`,
+            adjust: { x: 0.3, y: 0.2, angle: 0, rows: p.lines[i].rows },
+          }
+        : l,
+    );
+    const q = plan(changed, settings, seed);
+    expect(q.lines[i].rows).toEqual(baseRows(changed[i]));
+  });
+  it('placement 回傳目前的折行；正規化：rows 只和位置或角度一起', () => {
+    const { p, i } = variant();
+    expect(scatterStyle.placement?.(p, scatterDefaults(), p.lines[i].key, 0)?.rows).toEqual(
+      p.lines[i].rows,
+    );
+    expect(normalizeLineAdjust({ x: 0.1, y: 0.2, angle: 3, rows: ['甲', '乙'] })).toEqual({
+      x: 0.1,
+      y: 0.2,
+      angle: 3,
+      rows: ['甲', '乙'],
+    });
+    expect(normalizeLineAdjust({ color: '#ff0000', rows: ['甲'] })).toEqual({ color: '#ff0000' });
+    expect(normalizeLineAdjust({ angle: 3, rows: [1, 2] })).toEqual({ angle: 3 });
+    expect(normalizeLineAdjust({ angle: 3, rows: [] })).toEqual({ angle: 3 });
   });
 });
 

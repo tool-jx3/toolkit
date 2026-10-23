@@ -249,8 +249,12 @@ export function setOverride(key: string, patch: Partial<LineOverride>): void {
       if (v === undefined) delete cur[k];
       else (cur as Record<string, unknown>)[k] = v;
     }
-    /* 改了文字：鎖定的折行對不上，一起解除 */
+    /* 改了文字：鎖定的折行對不上，一起解除；手動調整記下的折行也拿掉（重新折行，D27） */
     if (('text' in patch || 'tr' in patch) && cur.lock) delete cur.lock;
+    if (('text' in patch || 'tr' in patch) && cur.adjust?.rows) {
+      const { rows: _rows, ...rest } = cur.adjust;
+      cur.adjust = rest;
+    }
     if (Object.keys(cur).length) d.overrides[key] = cur;
     else delete d.overrides[key];
   });
@@ -301,6 +305,8 @@ export function setAdjust(key: string, patch: AdjustPatch, how: 'edit' | 'step' 
       if (v === undefined) delete next[k];
       else next[k] = v;
     }
+    /* 大小、字型改了：字寬變了，記下的折行不用了，重新折行（D27） */
+    if (('scale' in patch || 'font' in patch) && !('rows' in patch)) delete next.rows;
     const adjust = normalizeLineAdjust(next);
     if (adjust) cur.adjust = adjust;
     else delete cur.adjust;
@@ -321,6 +327,7 @@ export const placementNow = (key: string) =>
 
 /**
  * 手動位置與角度（F75）：x、y、angle 一律一起寫（沒有給的用這一句目前的值），這一句就固定不動。
+ * 第一次得到手動位置或角度時，把這一句當下畫面上的折行一起記下（D27：之後拖曳、旋轉都用這個折行）。
  * 位置夾在整塊留在畫面內的範圍；角度取整數、夾在 −90～90。
  */
 export function pinLine(
@@ -338,7 +345,17 @@ export function pinLine(
   if (patch.x != null) x = b ? clamp(x, b.x, b.x + b.width) : clamp(x, 0, 1);
   if (patch.y != null) y = b ? clamp(y, b.y, b.y + b.height) : clamp(y, 0, 1);
   const { min, max } = ADJUST_RANGES.angle;
-  setAdjust(key, { x, y, angle: clamp(Math.round(angle), min, max) }, how);
+  const first = cur?.x == null && cur?.angle == null;
+  setAdjust(
+    key,
+    {
+      x,
+      y,
+      angle: clamp(Math.round(angle), min, max),
+      ...(first && pl?.rows?.length ? { rows: pl.rows } : {}),
+    },
+    how,
+  );
 }
 
 /** 恢復自動：拿掉這一句的手動調整（一步復原；鎖定、改字、重抽不動） */
