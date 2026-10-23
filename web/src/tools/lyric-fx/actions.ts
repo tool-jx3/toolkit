@@ -1,23 +1,26 @@
 /**
- * 動作：音樂、背景圖、歌詞檔、打點、拖放的分派、字型、逐句調整（重抽、鎖定、覆寫）、重新抽位置、避開區域、
+ * 動作：音樂、背景圖、歌詞檔、打點、拖放的分派、字型、逐句調整（重抽、鎖定、覆寫、手動調整與選取）、重新抽位置、避開區域、
  * 專案檔、全部重來與資產庫的整理。
  */
 import { addImageFile, importAssetFiles, referencedAssetIds } from '@/core/assets';
 import { decodeText, readAsBytes } from '@/core/files';
 import { ensureFont } from '@/core/fonts';
 import {
+  ADJUST_RANGES,
   DEFAULT_FILTERS,
   freshSeed,
   type LineOverride,
+  type LyricLineAdjust,
   type LyricRegion,
+  normalizeLineAdjust,
   normalizeRegion,
 } from '@/core/lyricfx';
 import { isLyricFileName, parseLyrics, stampLyrics } from '@/core/lyrics';
 import { ProjectFileError, resetToolStore } from '@/core/storage';
 import type { ToastOptions } from '@/ui';
 import { normalizeSettings, PROJECT_VERSION, type Settings } from './model';
-import { frameText, planOf, styleOf, styleSettings } from './scene';
-import { assets, player, settingsNow, step, useSession, useSettings } from './store';
+import { fontsToLoad, placementOf, planOf, styleOf } from './scene';
+import { assets, edit, player, settingsNow, step, useSession, useSettings } from './store';
 import { S } from './strings';
 
 /* ---------- 通知 ---------- */
@@ -246,8 +249,12 @@ export function setOverride(key: string, patch: Partial<LineOverride>): void {
       if (v === undefined) delete cur[k];
       else (cur as Record<string, unknown>)[k] = v;
     }
-    /* 改了文字：鎖定的折行對不上，一起解除 */
+    /* 改了文字：鎖定的折行對不上，一起解除；手動調整記下的折行也拿掉（重新折行，D27） */
     if (('text' in patch || 'tr' in patch) && cur.lock) delete cur.lock;
+    if (('text' in patch || 'tr' in patch) && cur.adjust?.rows) {
+      const { rows: _rows, ...rest } = cur.adjust;
+      cur.adjust = rest;
+    }
     if (Object.keys(cur).length) d.overrides[key] = cur;
     else delete d.overrides[key];
   });
@@ -279,6 +286,95 @@ export function clearOverrides(): void {
   step((d) => {
     d.overrides = {};
   });
+}
+
+/* ---------- 逐句的手動調整（F75～F81） ---------- */
+
+export type AdjustPatch = { [K in keyof LyricLineAdjust]?: LyricLineAdjust[K] | undefined };
+
+/**
+ * 改一句的手動調整（undefined 的欄位拿掉；調整空了就拿掉 adjust）。how：'step'＝一步復原（按鈕、欄位確定）、
+ * 'edit'＝連續的變更（拖曳中、方向鍵、顏色）0.4 秒內併成一步。
+ */
+export function setAdjust(key: string, patch: AdjustPatch, how: 'edit' | 'step' = 'step'): void {
+  if (useSession.getState().exporting) return;
+  (how === 'step' ? step : edit)((d) => {
+    const cur: LineOverride = { ...(d.overrides[key] ?? {}) };
+    const next: Record<string, unknown> = { ...(cur.adjust ?? {}) };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === undefined) delete next[k];
+      else next[k] = v;
+    }
+    /* 大小、字型改了：字寬變了，記下的折行不用了，重新折行（D27） */
+    if (('scale' in patch || 'font' in patch) && !('rows' in patch)) delete next.rows;
+    const adjust = normalizeLineAdjust(next);
+    if (adjust) cur.adjust = adjust;
+    else delete cur.adjust;
+    if (Object.keys(cur).length) d.overrides[key] = cur;
+    else delete d.overrides[key];
+  });
+}
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+/** 預覽目前的時間（沒有音樂時是預覽的時鐘） */
+export const previewTimeNow = (): number =>
+  useSession.getState().audio ? player.time() : useSession.getState().loopTime;
+
+/** 一句目前的位置（風格的 placement；預覽目前的時間） */
+export const placementNow = (key: string) =>
+  placementOf(settingsNow(), useSession.getState().fontTick, key, previewTimeNow());
+
+/**
+ * 手動位置與角度（F75）：x、y、angle 一律一起寫（沒有給的用這一句目前的值），這一句就固定不動。
+ * 第一次得到手動位置或角度時，把這一句當下畫面上的折行一起記下（D27：之後拖曳、旋轉都用這個折行）。
+ * 位置夾在整塊留在畫面內的範圍；角度取整數、夾在 −90～90。
+ */
+export function pinLine(
+  key: string,
+  patch: { x?: number; y?: number; angle?: number },
+  how: 'edit' | 'step' = 'step',
+): void {
+  const cur = settingsNow().overrides[key]?.adjust;
+  const pl = placementNow(key);
+  let x = patch.x ?? cur?.x ?? pl?.x;
+  let y = patch.y ?? cur?.y ?? pl?.y;
+  const angle = patch.angle ?? cur?.angle ?? pl?.angle ?? 0;
+  if (x == null || y == null) return;
+  const b = pl?.bounds;
+  if (patch.x != null) x = b ? clamp(x, b.x, b.x + b.width) : clamp(x, 0, 1);
+  if (patch.y != null) y = b ? clamp(y, b.y, b.y + b.height) : clamp(y, 0, 1);
+  const { min, max } = ADJUST_RANGES.angle;
+  const first = cur?.x == null && cur?.angle == null;
+  setAdjust(
+    key,
+    {
+      x,
+      y,
+      angle: clamp(Math.round(angle), min, max),
+      ...(first && pl?.rows?.length ? { rows: pl.rows } : {}),
+    },
+    how,
+  );
+}
+
+/** 恢復自動：拿掉這一句的手動調整（一步復原；鎖定、改字、重抽不動） */
+export function resetAdjust(key: string): void {
+  if (!settingsNow().overrides[key]?.adjust) return;
+  step((d) => {
+    const cur = d.overrides[key];
+    if (!cur) return;
+    delete cur.adjust;
+    if (!Object.keys(cur).length) delete d.overrides[key];
+  });
+}
+
+/** 選取一句（預覽上點選＝from 'preview'：逐句清單捲到它）；null＝取消選取 */
+export function selectLine(key: string | null, from: 'preview' | 'list' = 'preview'): void {
+  useSession.setState((st) => ({
+    selected: key,
+    revealTick: key && from === 'preview' ? st.revealTick + 1 : st.revealTick,
+  }));
 }
 
 /** 全部重新抽位置：換一個種子（規格 F14） */
@@ -348,11 +444,11 @@ export function dropFiles(files: File[]): void {
 let fontJob = 0;
 export async function syncFonts(s: Settings): Promise<boolean> {
   const job = ++fontJob;
-  const fonts = styleOf(s).fonts(styleSettings(s));
-  const text = frameText(s);
-  const ok = (await Promise.all(fonts.map((f) => ensureFont(f.family, f.weight, text)))).every(
-    Boolean,
-  );
+  /* 風格的字型＋逐句換的字型（F81）：畫之前、匯出之前都先載好 */
+  const fonts = fontsToLoad(s);
+  const ok = (
+    await Promise.all(fonts.map((f) => ensureFont(f.font.family, f.font.weight, f.text)))
+  ).every(Boolean);
   if (job === fontJob)
     useSession.setState((st) => ({ fontTick: st.fontTick + 1, fontFailed: !ok }));
   return ok;
@@ -388,6 +484,7 @@ export async function openProject(
     missing++;
   }
   player.pause();
+  selectLine(null);
   useSettings.endGesture();
   useSettings.getState().replace(s);
   useSettings.temporal.getState().clear();
@@ -414,6 +511,7 @@ export async function cleanupOnOpen(): Promise<void> {
 export function resetAll(): void {
   player.pause();
   cancelRegionEdit();
+  selectLine(null);
   resetToolStore(useSettings);
   void collectGarbage();
 }

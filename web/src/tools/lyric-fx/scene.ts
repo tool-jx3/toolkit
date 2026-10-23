@@ -4,11 +4,15 @@
  */
 import {
   type AnyLyricStyle,
+  adjustFonts,
   type BuiltLines,
   buildLyricLines,
   createCanvasMeasure,
   getLyricStyle,
+  type LyricAdjustSupport,
   type LyricCtx,
+  type LyricFont,
+  type LyricLinePlacement,
   type LyricMeasureEnv,
 } from '@/core/lyricfx';
 import { loopLengthFor, type Settings, sizeOf } from './model';
@@ -159,4 +163,41 @@ export function drawFrame(
 export function frameText(s: Settings): string {
   const b = builtLines(s);
   return `${b.lines.map((l) => l.text + l.tr).join('')}Aa永`;
+}
+
+/** 要先載入的字型與要下載的字：風格的字型（整份歌詞）＋逐句換的字型（那幾句的字；風格支援時；F81） */
+export function fontsToLoad(s: Settings): { font: LyricFont; text: string }[] {
+  const style = styleOf(s);
+  const text = frameText(s);
+  const out = style.fonts(styleSettings(s)).map((font) => ({ font, text }));
+  if (style.adjust?.font)
+    for (const f of adjustFonts(builtLines(s).lines))
+      out.push({ font: f.font, text: `${f.text}Aa永` });
+  return out;
+}
+
+/* ---------- 逐句的手動調整（F75～F81） ---------- */
+
+const NO_SUPPORT: LyricAdjustSupport = {};
+
+/** 目前的風格支援哪些逐句調整（沒有宣告＝都不支援） */
+export const adjustSupport = (s: Settings): LyricAdjustSupport => styleOf(s).adjust ?? NO_SUPPORT;
+
+/** 目前的風格能不能在預覽上點選、拖曳（要有 placement、hitTest，而且支援位置或角度） */
+export function canPick(s: Settings): boolean {
+  const style = styleOf(s);
+  const a = style.adjust ?? NO_SUPPORT;
+  return !!(style.placement && style.hitTest && (a.position || a.angle));
+}
+
+/** 一句目前的位置（風格沒有 placement、這一句沒有排到時 null） */
+export function placementOf(
+  s: Settings,
+  fontTick: number,
+  key: string,
+  t: number,
+): LyricLinePlacement | null {
+  const style = styleOf(s);
+  if (!style.placement) return null;
+  return style.placement(planOf(s, fontTick), styleSettings(s), key, t);
 }

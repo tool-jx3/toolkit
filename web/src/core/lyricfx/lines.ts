@@ -4,7 +4,8 @@
  * 演出延遲、排序 → 結束時間 → 拿掉空白的句。
  */
 import { type LyricKind, type LyricLine, pairSameTimeLines, parseLyrics } from '../lyrics';
-import type { LyricFxLine } from './types';
+import { normalizeLineAdjust } from './adjust';
+import type { LyricFxLine, LyricLineAdjust } from './types';
 
 export type LyricLanguage = 'original' | 'translation' | 'both';
 
@@ -20,6 +21,8 @@ export interface LineOverride {
   reroll?: number;
   /** 鎖定的位置（風格的格式） */
   lock?: unknown;
+  /** 手動調整（位置、角度、顏色、大小、透明度、字型；通用的格式，規格 F75～F81） */
+  adjust?: LyricLineAdjust;
 }
 
 export interface LineFilters {
@@ -186,6 +189,12 @@ export function lineKeys(lines: readonly Pick<LyricLine, 't' | 'text'>[]): strin
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
+/** 有手動調整的句才加上 adjust（沒有調整的句和以前完全相同） */
+function withAdjust(line: LyricFxLine, ov: LineOverride): LyricFxLine {
+  const adjust = normalizeLineAdjust(ov.adjust);
+  return adjust ? { ...line, adjust } : line;
+}
+
 /**
  * 同一時間有三行以上（規格 F07、D19）：第一行是原文、最後一行是翻譯，中間的行（例如羅馬拼音）略過；
  * 之後 pairSameTimeLines 把剩下的兩行合成原文＋翻譯。只處理它會合併的情形：第一行有字、還沒有翻譯，
@@ -240,16 +249,19 @@ export function buildLyricLines(text: string, options: BuildLinesOptions = {}): 
     const ov = overrides[key] ?? {};
     return {
       lines: [
-        {
-          key,
-          t: 0,
-          end: Number.POSITIVE_INFINITY,
-          text: body,
-          tr: '',
-          reroll: Math.max(0, Math.floor(ov.reroll ?? 0)),
-          lock: ov.lock ?? null,
-          untimed: true,
-        },
+        withAdjust(
+          {
+            key,
+            t: 0,
+            end: Number.POSITIVE_INFINITY,
+            text: body,
+            tr: '',
+            reroll: Math.max(0, Math.floor(ov.reroll ?? 0)),
+            lock: ov.lock ?? null,
+            untimed: true,
+          },
+          ov,
+        ),
       ],
       rows: [],
       kind: parsed.kind,
@@ -331,15 +343,20 @@ export function buildLyricLines(text: string, options: BuildLinesOptions = {}): 
     if (language === 'translation' && it.tr) shown = it.tr;
     else if (language === 'both') tr = it.tr;
     if (!shown) continue;
-    lines.push({
-      key: it.key,
-      t: it.t + offset,
-      end: end + offset,
-      text: shown,
-      tr,
-      reroll: Math.max(0, Math.floor(finite(it.ov.reroll) ? it.ov.reroll : 0)),
-      lock: it.ov.lock ?? null,
-    });
+    lines.push(
+      withAdjust(
+        {
+          key: it.key,
+          t: it.t + offset,
+          end: end + offset,
+          text: shown,
+          tr,
+          reroll: Math.max(0, Math.floor(finite(it.ov.reroll) ? it.ov.reroll : 0)),
+          lock: it.ov.lock ?? null,
+        },
+        it.ov,
+      ),
+    );
   }
   const truncated = lines.length > max;
   return {

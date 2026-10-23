@@ -2,6 +2,7 @@
  * 「散落」的畫法（lyric-fx 規格 3.6）：畫時間 t 的那一格。順序：殘影 → 槽位 → 目前這一句；
  * 每個字依序畫光暈、（中文）影子＋實心字或（英文）實心字＋描邊。基準畫面等比例縮放到 rect（置中）。
  * 純函式：只用參數（plan、settings、t、rect），不碰 DOM。
+ * 逐句的手動調整（F78～F81）：這一句的字高（大小）、文字顏色、光暈顏色、不透明度的倍率記在 plan 的那一句（沒有＝風格的設定）。
  */
 import { jitterAt } from '../../jitter';
 import { glyphAffine } from '../../perspective';
@@ -98,17 +99,19 @@ function drawLine(
   plan: ScatterPlan,
   s: ScatterSettings,
 ): void {
-  const third = plan.th / 3;
+  const th = p.th ?? plan.th;
+  const third = th / 3;
   /* 透視的局部近似以字的中心為準：基線起點往右半個字寬、往上 GLYPH_CENTER_UP 個字級（規格 3.6、D14） */
-  const up = -(plan.th / TEXT_HEIGHT_RATIO) * GLYPH_CENTER_UP;
+  const up = -(th / TEXT_HEIGHT_RATIO) * GLYPH_CENTER_UP;
   const jit = { x: 0, y: 0 };
   ctx.font = p.font;
   const a = st.alpha;
-  const textC = rgba(s.textColor, a);
+  const textColor = p.textColor ?? s.textColor;
+  const textC = rgba(textColor, a);
   const shadowC = rgba(s.strokeColor, a);
   const glowOn = s.glow && st.role !== 'slot';
-  const glowC = glowOn ? rgba(s.glowColor, Math.floor((a * s.glowAlpha) / 255)) : '';
-  const latinFill = st.role === 'fade' ? rgba(s.textColor, Math.max(0, a - 100)) : textC;
+  const glowC = glowOn ? rgba(p.glowColor ?? s.glowColor, Math.floor((a * s.glowAlpha) / 255)) : '';
+  const latinFill = st.role === 'fade' ? rgba(textColor, Math.max(0, a - 100)) : textC;
   const strokeW = s.strokeWidth * 2;
   for (let m = 0; m < st.count; m++) {
     const g = p.glyphs[m];
@@ -181,8 +184,40 @@ export function drawScatter(
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
   ctx.miterLimit = 10;
-  for (const [p, st] of fades) drawLine(ctx, base, p, st, t, plan, s);
-  for (const [p, st] of slots) drawLine(ctx, base, p, st, t, plan, s);
-  if (current) drawLine(ctx, base, current[0], current[1], t, plan, s);
+  const one = (p: ScatterLinePlan, st: ScatterLineState) => {
+    if (p.opacity == null) {
+      drawLine(ctx, base, p, st, t, plan, s);
+      return;
+    }
+    /* 逐句的透明度（F80）：乘在整體的透明度與淡入淡出上；0＝不畫（時間與位置照算） */
+    if (p.opacity <= 0) return;
+    const before = ctx.globalAlpha;
+    ctx.globalAlpha = before * p.opacity;
+    drawLine(ctx, base, p, st, t, plan, s);
+    ctx.globalAlpha = before;
+  };
+  for (const [p, st] of fades) one(p, st);
+  for (const [p, st] of slots) one(p, st);
+  if (current) one(current[0], current[1]);
   ctx.restore();
+}
+
+/** 時間 t 畫面上的句，依畫的順序（後面的蓋在前面的上面）：殘影 → 槽位 → 目前這一句 */
+export function linesInDrawOrder(
+  plan: ScatterPlan,
+  t: number,
+  s: Pick<ScatterSettings, 'fadeSpeed' | 'riseSpeed'>,
+): [ScatterLinePlan, ScatterLineState][] {
+  const fades: [ScatterLinePlan, ScatterLineState][] = [];
+  const slots: [ScatterLinePlan, ScatterLineState][] = [];
+  const current: [ScatterLinePlan, ScatterLineState][] = [];
+  for (const p of plan.lines) {
+    const st = lineStateAt(p, t, s);
+    if (!st) continue;
+    if (st.role === 'fade') fades.push([p, st]);
+    else if (st.role === 'slot') slots.push([p, st]);
+    else current.splice(0, 1, [p, st]);
+  }
+  fades.sort((a, b) => a[0].fadeStart - b[0].fadeStart || a[0].index - b[0].index);
+  return [...fades, ...slots, ...current];
 }

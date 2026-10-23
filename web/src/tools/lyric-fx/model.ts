@@ -11,6 +11,7 @@ import {
   LYRIC_STYLES,
   type LyricLanguage,
   type LyricRegion,
+  normalizeLineAdjust,
   normalizeRegion,
 } from '@/core/lyricfx';
 import { SAMPLE_LYRICS } from './sample';
@@ -19,8 +20,9 @@ export const TOOL_ID = 'lyric-fx';
 /**
  * 存檔與專案檔的版本（規格 3.10）。
  * 2：避開區域從「散落」的設定（styles.scatter.region）搬到工具層（region）；預設的關鍵字改版（資訊行要冒號、單獨一行的 Inst）。
+ * 3：逐句的手動調整（overrides.<鍵>.adjust：位置、角度、顏色、大小、透明度、字型；F75～F81）。版本 1、2 照常讀（沒有 adjust）。
  */
-export const PROJECT_VERSION = 2;
+export const PROJECT_VERSION = 3;
 /** 預設的種子 */
 export const DEFAULT_SEED = 20261021;
 
@@ -131,6 +133,8 @@ function normalizeOverride(v: unknown): LineOverride | null {
   if (typeof o.reroll === 'number' && Number.isFinite(o.reroll) && o.reroll > 0)
     out.reroll = Math.min(1_000_000, Math.floor(o.reroll));
   if (o.lock && typeof o.lock === 'object') out.lock = o.lock;
+  const adjust = normalizeLineAdjust(o.adjust);
+  if (adjust) out.adjust = adjust;
   return Object.keys(out).length ? out : null;
 }
 
