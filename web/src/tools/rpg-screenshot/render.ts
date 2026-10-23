@@ -49,15 +49,23 @@ export function lum(hex: string): number {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
-/** 往黑（f < 0）或往白（f > 0）移 |f| 的比例，回傳 rgb()；輸入不是色碼時得到無效的顏色（畫布會忽略，同原作） */
-export function shade(hex: string, f: number): string {
-  let c = (hex || '#000').replace('#', '');
-  if (c.length === 3)
-    c = c
-      .split('')
-      .map((x) => x + x)
-      .join('');
-  const n = [0, 2, 4].map((i) => Number.parseInt(c.substr(i, 2), 16));
+/**
+ * 往黑（f < 0）或往白（f > 0）移 |f| 的比例，回傳 rgb()。輸入可以是色碼或 rgb()（D16：原作只認色碼，
+ * 把加深過一次的名字底色再加深時得到無效的顏色、畫布沿用上一個顏色；本站照原作本來想要的顏色畫）
+ */
+export function shade(color: string, f: number): string {
+  const m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(color || '');
+  let n: number[];
+  if (m) n = [m[1], m[2], m[3]].map(Number);
+  else {
+    let c = (color || '#000').replace('#', '');
+    if (c.length === 3)
+      c = c
+        .split('')
+        .map((x) => x + x)
+        .join('');
+    n = [0, 2, 4].map((i) => Number.parseInt(c.substr(i, 2), 16));
+  }
   const t = f < 0 ? 0 : 255;
   const a = Math.abs(f);
   return `rgb(${n.map((v) => Math.round(v + (t - v) * a)).join(',')})`;

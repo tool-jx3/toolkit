@@ -371,3 +371,13 @@ describe('整理存檔', () => {
     expect(normalizeState(d)).toEqual(d);
   });
 });
+
+describe('名字膠囊的顏色（D16）', () => {
+  it('shade 接受色碼與 rgb()，加深兩次得到原作本來想要的顏色', async () => {
+    const { shade } = await import('@/tools/rpg-screenshot/render');
+    expect(shade('#ff8fb1', -0.1)).toBe('rgb(230,129,159)');
+    expect(shade('rgb(230,129,159)', -0.22)).toBe('rgb(179,101,124)');
+    expect(shade(shade('#ff8fb1', -0.1), -0.42)).toBe('rgb(133,75,92)');
+    expect(shade('#fff', 0.5)).toBe('rgb(255,255,255)');
+  });
+});
