@@ -35,7 +35,7 @@ export const useTree = createToolStore<TreeData>(TOOL_ID, initialData(), {
 }
 
 export type DragMode = 'order' | 'gap';
-export type SettingsTab = 'person' | 'view' | 'export';
+export type SettingsTab = 'person' | 'view' | 'export' | 'boards';
 
 export interface Prefs {
   current: string | null;

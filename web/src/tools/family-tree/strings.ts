@@ -107,6 +107,7 @@ export const S = {
   tabPerson: '人物',
   tabView: '顯示',
   tabExport: '匯出',
+  tabBoards: '圖板',
 
   /* ---- 人物 ---- */
   noSelection: '點一下圖上的卡片，就能在這裡編輯那個人。',

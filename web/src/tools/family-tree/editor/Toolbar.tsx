@@ -5,6 +5,7 @@ import { LayoutGrid, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Segmented, Tooltip } from '@/ui';
 import { doAddRoot, doAutoArrange, doSearch } from '../actions';
+import { BoardSelect } from '../panels/BoardSection';
 import { type DragMode, setPrefs, usePrefs } from '../store';
 import { S } from '../strings';
 
@@ -18,6 +19,7 @@ export function CanvasToolbar() {
       className="flex min-w-0 flex-wrap items-center gap-2"
       data-testid="canvas-toolbar"
     >
+      <BoardSelect />
       <label className="relative flex min-w-0 flex-[1_1_10rem] items-center sm:flex-[0_1_14rem]">
         <Search aria-hidden className="pointer-events-none absolute left-2 size-4 text-muted" />
         <span className="sr-only">{S.search}</span>

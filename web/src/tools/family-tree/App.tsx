@@ -76,7 +76,6 @@ function Settings() {
   const tab = usePrefs((s) => s.data.tab);
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <BoardSection />
       <Tabs<SettingsTab>
         aria-label={S.tabs}
         value={tab}
@@ -86,6 +85,7 @@ function Settings() {
           { value: 'person', label: S.tabPerson, content: <PersonPanel /> },
           { value: 'view', label: S.tabView, content: <ViewPanel /> },
           { value: 'export', label: S.tabExport, content: <ExportTab /> },
+          { value: 'boards', label: S.tabBoards, content: <BoardSection /> },
         ]}
       />
     </div>

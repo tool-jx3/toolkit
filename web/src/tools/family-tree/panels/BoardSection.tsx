@@ -46,7 +46,6 @@ export function BoardSection() {
   const boards = useTree((s) => s.data.boards);
   const board = useBoard();
   const full = boards.length >= LIMITS.boards;
-  const sorted = [...boards].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   const onNew = () => {
     const b = emptyBoard(treeNow().boards);
@@ -90,14 +89,6 @@ export function BoardSection() {
 
   return (
     <Section title={S.boardSection} persistKey="family-tree:boards">
-      <Field label={S.boardSelect}>
-        <Select
-          value={board.id}
-          data-field="board-select"
-          options={sorted.map((b) => ({ value: b.id, label: b.title || S.untitledBoard }))}
-          onValueChange={(id) => switchBoard(id)}
-        />
-      </Field>
       <Field label={S.boardTitle} hint={S.boardTitleHint}>
         <TextInput
           value={board.title}
@@ -136,5 +127,23 @@ export function BoardSection() {
           : S.boardCount(Object.keys(board.people).length, boards.length)}
       </p>
     </Section>
+  );
+}
+
+/** 畫布工具列上的圖板下拉（依建立順序；F01） */
+export function BoardSelect() {
+  const boards = useTree((s) => s.data.boards);
+  const board = useBoard();
+  const sorted = [...boards].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return (
+    <Select
+      aria-label={S.boardSelect}
+      size="sm"
+      value={board.id}
+      data-field="board-select"
+      className="min-w-0 max-w-full sm:max-w-56"
+      options={sorted.map((b) => ({ value: b.id, label: b.title || S.untitledBoard }))}
+      onValueChange={(id) => switchBoard(id)}
+    />
   );
 }
