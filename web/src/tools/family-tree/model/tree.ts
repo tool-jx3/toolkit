@@ -5,18 +5,19 @@
  */
 import { isMember, isSpouse, type Member, type People, type Person, type Spouse } from './types';
 
-/** 母親是成員、父親不是時：顯示母系外孫時掛在母親底下，不顯示時整個隱藏（第二批的開關；第一批一律顯示） */
+/** 母親是成員、父親不是時：顯示母系外孫時掛在母親底下，不顯示時整個隱藏（規格 F81） */
 export const HIDDEN = '#hidden';
 
 export interface LineOptions {
-  /** 顯示母系外孫（女兒的孩子）；第一批一律 true（規格 D5） */
+  /** 顯示母系外孫（女兒的孩子）；沒寫＝顯示 */
   maternal?: boolean;
 }
 
 const byOrder = (a: Person, b: Person) => (a.order ?? 0) - (b.order ?? 0);
 
 /**
- * 血緣上的父母：父親是成員時是父親；否則母親是成員時是母親（不顯示母系外孫時是 HIDDEN）；都不是時 null（始祖）。
+ * 血緣上的父母（掛在誰底下）：過繼到的繼父是成員時是繼父（規格 F80）；否則父親是成員時是父親；
+ * 否則母親是成員時是母親（不顯示母系外孫時是 HIDDEN）；都不是時 null（始祖）。
  * `all`：不管顯示設定（算子孫、代數、排序值時用）。
  */
 export function lineParent(
@@ -24,6 +25,7 @@ export function lineParent(
   p: Member,
   { maternal = true, all = false }: LineOptions & { all?: boolean } = {},
 ): string | null {
+  if (p.adopt?.fatherId && isMember(people[p.adopt.fatherId])) return p.adopt.fatherId;
   if (p.fatherId && isMember(people[p.fatherId])) return p.fatherId;
   if (p.motherId && isMember(people[p.motherId])) return all || maternal ? p.motherId : HIDDEN;
   return null;
@@ -44,6 +46,8 @@ export interface TreeIndex {
   allKids: Map<string, Member[]>;
   /** 每位成員的配偶（依排序值） */
   spouses: Map<string, Spouse[]>;
+  /** 生家那邊的「出」字小卡：生父 id → 過繼出去的人（依加入的順序；規格 F80） */
+  stubs: Map<string, Member[]>;
   /** 始祖（依排序值；不含隱藏的） */
   roots: Member[];
 }
@@ -60,6 +64,7 @@ export function indexTree(people: People, opts: LineOptions = {}): TreeIndex {
   const kids = new Map<string, Member[]>();
   const allKids = new Map<string, Member[]>();
   const spouses = new Map<string, Spouse[]>();
+  const stubs = new Map<string, Member[]>();
   const roots: Member[] = [];
   for (const p of Object.values(people)) {
     if (isSpouse(p)) {
@@ -73,11 +78,14 @@ export function indexTree(people: People, opts: LineOptions = {}): TreeIndex {
     const m = lineParent(people, p, opts);
     if (m === null) roots.push(p);
     else if (m !== HIDDEN) push(kids, m, p);
+    /* 原作：繼父是成員、有生父時，生父底下留一張「出」字小卡（生父是不是成員，排版時才看） */
+    if (p.adopt?.fatherId && p.fatherId && isMember(people[p.adopt.fatherId]))
+      push(stubs, p.fatherId, p);
   }
   for (const map of [kids, allKids, spouses] as Map<string, Person[]>[])
     for (const list of map.values()) list.sort(byOrder);
   roots.sort(byOrder);
-  return { members, kids, allKids, spouses, roots };
+  return { members, kids, allKids, spouses, stubs, roots };
 }
 
 export function kidsOf(people: People, id: string, opts: LineOptions & { all?: boolean } = {}) {
@@ -164,11 +172,60 @@ export function siblingsOf(people: People, p: Member): Member[] {
     .sort(byOrder);
 }
 
+/** 連到的成員（連結的對象不是成員時 null；規格 F82） */
+export function linkOf(people: People, s: Person | undefined): Member | null {
+  if (!isSpouse(s) || !s.link?.personId) return null;
+  const l = people[s.link.personId];
+  return isMember(l) ? l : null;
+}
+
 /**
  * 配偶卡片顯示誰的資料：連到別的家系的成員時用那位成員的名字、讀音、生歿年（原作同；
- * 讀原作的備份檔時，連結自動建立的那一邊名字是空白的；連結的操作在第二批）。
+ * 連結時自動建立的那一邊名字是空白的，要這樣才看得到名字；就地編輯改的也是那位成員）。
  */
 export function shownOf(people: People, s: Spouse): Person {
-  const l = s.link?.personId ? people[s.link.personId] : undefined;
-  return isMember(l) ? l : s;
+  return linkOf(people, s) ?? s;
+}
+
+/** 誰連到這位成員：成員 id → 連過來的配偶所屬的成員（依加入的順序） */
+export function linkedBy(people: People): Map<string, Member[]> {
+  const out = new Map<string, Member[]>();
+  for (const s of Object.values(people)) {
+    const l = linkOf(people, s);
+    if (!l || !isSpouse(s)) continue;
+    const host = people[s.spouseOf];
+    if (isMember(host)) push(out, l.id, host);
+  }
+  return out;
+}
+
+/**
+ * 「婚姻 · ○○」：別人連到這位成員、而這位成員自己沒有連回去的配偶卡片時，卡片寫對方的名字（規格 F82）。
+ */
+export function marriedTo(people: People, p: Member, lb: Map<string, Member[]>): Member[] {
+  /* 沒有人連過來的成員（幾乎所有人）不用找他的配偶：spousesOf 要掃整張圖板，每張卡片都掃會是 O(人數²) */
+  const linkers = lb.get(p.id);
+  if (!linkers?.length) return [];
+  const mine = spousesOf(people, p.id);
+  return linkers.filter((h) => !mine.some((c) => c.link?.personId === h.id));
+}
+
+/** 過繼的說法：入養＝養子，出系＝繼子（規格 F80） */
+export const adoptKindOf = (p: Member): 'heir' | 'adopted' => p.adopt?.kind ?? 'heir';
+
+/** 掛在母親底下的外孫：母親是成員、父親不是（規格 F81；過繼的人不算） */
+export function maternalMother(people: People, p: Member): Member | null {
+  if (p.adopt?.fatherId && isMember(people[p.adopt.fatherId])) return null;
+  if (p.fatherId && isMember(people[p.fatherId])) return null;
+  const mo = p.motherId ? people[p.motherId] : undefined;
+  return isMember(mo) ? mo : null;
+}
+
+/**
+ * 女兒寫成「女（適 丈夫）」時的丈夫（規格 F84）：女性成員的第一位配偶（顯示的資料取自連結的成員）；
+ * 沒有丈夫時 null（卡片寫「女 本人的名字」）。
+ */
+export function daughterHusband(people: People, p: Member): Spouse | null {
+  if (p.gender !== 'F') return null;
+  return spousesOf(people, p.id)[0] ?? null;
 }

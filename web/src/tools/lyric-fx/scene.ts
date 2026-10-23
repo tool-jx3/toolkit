@@ -4,12 +4,17 @@
  */
 import {
   type AnyLyricStyle,
+  adjustFonts,
   type BuiltLines,
   buildLyricLines,
   createCanvasMeasure,
   getLyricStyle,
+  type LyricAdjustSupport,
   type LyricCtx,
+  type LyricFont,
+  type LyricLinePlacement,
   type LyricMeasureEnv,
+  type LyricRow,
 } from '@/core/lyricfx';
 import { loopLengthFor, type Settings, sizeOf } from './model';
 
@@ -18,16 +23,46 @@ import { loopLengthFor, type Settings, sizeOf } from './model';
 let linesKey: unknown[] = [];
 let linesValue: BuiltLines | null = null;
 
+const sameRow = (a: LyricRow, b: LyricRow): boolean =>
+  a.key === b.key &&
+  a.t === b.t &&
+  a.text === b.text &&
+  a.tr === b.tr &&
+  a.edited === b.edited &&
+  a.skipped === b.skipped &&
+  a.original.t === b.original.t &&
+  a.original.text === b.original.text &&
+  a.original.tr === b.original.tr;
+
+/**
+ * 逐句清單的列：內容沒變的沿用上一次的物件（全部沒變時連陣列也沿用）。拖曳、改顏色這類只動手動調整的變更，
+ * 每次都重建整份 BuiltLines，但清單每一列的內容（時間、文字、翻譯、略過）並沒有變，列的元件就不必重畫（規格 D28）。
+ */
+function reuseRows(prev: LyricRow[], next: LyricRow[]): LyricRow[] {
+  const old = new Map(prev.map((r) => [r.key, r]));
+  let same = prev.length === next.length;
+  const rows = next.map((r, i) => {
+    const o = old.get(r.key);
+    const row = o && sameRow(o, r) ? o : r;
+    if (row !== prev[i]) same = false;
+    return row;
+  });
+  return same ? prev : rows;
+}
+
 export function builtLines(s: Settings): BuiltLines {
   const key = [s.lyrics.text, s.lyrics.offset, s.language, s.filters, s.overrides];
   if (!linesValue || key.some((v, i) => !Object.is(v, linesKey[i]))) {
-    linesValue = buildLyricLines(s.lyrics.text, {
+    const next = buildLyricLines(s.lyrics.text, {
       language: s.language,
       offset: s.lyrics.offset,
       filters: s.filters,
       overrides: s.overrides,
     });
+    const built = linesValue ? { ...next, rows: reuseRows(linesValue.rows, next.rows) } : next;
+    linesValue = built;
     linesKey = key;
+    return built;
   }
   return linesValue;
 }
@@ -159,4 +194,41 @@ export function drawFrame(
 export function frameText(s: Settings): string {
   const b = builtLines(s);
   return `${b.lines.map((l) => l.text + l.tr).join('')}Aa永`;
+}
+
+/** 要先載入的字型與要下載的字：風格的字型（整份歌詞）＋逐句換的字型（那幾句的字；風格支援時；F81） */
+export function fontsToLoad(s: Settings): { font: LyricFont; text: string }[] {
+  const style = styleOf(s);
+  const text = frameText(s);
+  const out = style.fonts(styleSettings(s)).map((font) => ({ font, text }));
+  if (style.adjust?.font)
+    for (const f of adjustFonts(builtLines(s).lines))
+      out.push({ font: f.font, text: `${f.text}Aa永` });
+  return out;
+}
+
+/* ---------- 逐句的手動調整（F75～F81） ---------- */
+
+const NO_SUPPORT: LyricAdjustSupport = {};
+
+/** 目前的風格支援哪些逐句調整（沒有宣告＝都不支援） */
+export const adjustSupport = (s: Settings): LyricAdjustSupport => styleOf(s).adjust ?? NO_SUPPORT;
+
+/** 目前的風格能不能在預覽上點選、拖曳（要有 placement、hitTest，而且支援位置或角度） */
+export function canPick(s: Settings): boolean {
+  const style = styleOf(s);
+  const a = style.adjust ?? NO_SUPPORT;
+  return !!(style.placement && style.hitTest && (a.position || a.angle));
+}
+
+/** 一句目前的位置（風格沒有 placement、這一句沒有排到時 null） */
+export function placementOf(
+  s: Settings,
+  fontTick: number,
+  key: string,
+  t: number,
+): LyricLinePlacement | null {
+  const style = styleOf(s);
+  if (!style.placement) return null;
+  return style.placement(planOf(s, fontTick), styleSettings(s), key, t);
 }

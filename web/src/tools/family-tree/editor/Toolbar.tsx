@@ -1,5 +1,6 @@
 /**
- * 畫布的工具列（規格 F07、F30、F50、F55）：搜尋、拖曳方式、＋始祖、自動整列。
+ * 畫布的工具列（規格 F07、F30、F50、F55；第二批 F86）：搜尋、GM／PL 檢視、拖曳方式、＋始祖、自動整列。
+ * PL 檢視時不能改資料：拖曳方式、＋始祖、自動整列停用。
  */
 import { LayoutGrid, Plus, Search } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -7,11 +8,13 @@ import { Button, Segmented, Tooltip } from '@/ui';
 import { doAddRoot, doAutoArrange, doSearch } from '../actions';
 import { LIMITS } from '../model/types';
 import { BoardSelect } from '../panels/BoardSection';
-import { type DragMode, setPrefs, usePeopleFull, usePrefs } from '../store';
+import { type DragMode, setPrefs, usePeopleFull, usePrefs, type ViewMode } from '../store';
 import { S } from '../strings';
 
 export function CanvasToolbar() {
   const dragMode = usePrefs((s) => s.data.dragMode);
+  const viewMode = usePrefs((s) => s.data.viewMode);
+  const pl = viewMode === 'pl';
   const [q, setQ] = useState('');
   const full = usePeopleFull();
   const fullId = useId();
@@ -23,7 +26,7 @@ export function CanvasToolbar() {
       data-testid="canvas-toolbar"
     >
       <BoardSelect />
-      <label className="relative flex min-w-0 flex-[1_1_10rem] items-center sm:flex-[0_1_14rem]">
+      <label className="relative flex min-w-0 flex-[1_1_10rem] items-center sm:flex-[0_1_12rem]">
         <Search aria-hidden className="pointer-events-none absolute left-2 size-4 text-muted" />
         <span className="sr-only">{S.search}</span>
         <input
@@ -41,9 +44,20 @@ export function CanvasToolbar() {
           }}
         />
       </label>
+      <Segmented<ViewMode>
+        aria-label={S.viewMode}
+        size="sm"
+        value={viewMode}
+        onValueChange={(v) => setPrefs({ viewMode: v })}
+        options={[
+          { value: 'gm', label: 'GM', ariaLabel: S.dragModeLabel(S.viewGm, S.viewGmHint) },
+          { value: 'pl', label: 'PL', ariaLabel: S.dragModeLabel(S.viewPl, S.viewPlHint) },
+        ]}
+      />
       <Segmented<DragMode>
         aria-label={S.dragMode}
         size="sm"
+        disabled={pl}
         value={dragMode}
         onValueChange={(v) => setPrefs({ dragMode: v })}
         options={[
@@ -59,14 +73,14 @@ export function CanvasToolbar() {
         size="sm"
         icon={<Plus />}
         onClick={doAddRoot}
-        disabled={full}
+        disabled={full || pl}
         aria-label={S.addRootLabel}
         aria-describedby={full ? fullId : undefined}
       >
         {S.addRoot}
       </Button>
       <Tooltip content={S.autoArrangeHint}>
-        <Button size="sm" icon={<LayoutGrid />} onClick={doAutoArrange}>
+        <Button size="sm" icon={<LayoutGrid />} onClick={doAutoArrange} disabled={pl}>
           {S.autoArrange}
         </Button>
       </Tooltip>

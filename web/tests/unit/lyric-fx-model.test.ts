@@ -8,6 +8,7 @@ import {
   formatLyricTime,
   loopLengthFor,
   normalizeSettings,
+  PROJECT_VERSION,
   parseLyricTime,
   sizeOf,
 } from '@/tools/lyric-fx/model';
@@ -146,6 +147,38 @@ describe('normalizeSettings', () => {
     });
     expect(custom.filters.creditWords).toBe(`${v1Credit}\n自己加的`);
     expect(custom.filters.instWords).toBe('x');
+  });
+});
+
+describe('逐句的手動調整（版本 3）', () => {
+  it('存檔版本 3；overrides 的 adjust 正規化（夾回範圍、不合法的拿掉）', () => {
+    expect(PROJECT_VERSION).toBe(3);
+    const n = normalizeSettings({
+      overrides: {
+        a: { adjust: { x: 2, y: 0.5, angle: -200, color: '#ABCDEF', scale: 9, opacity: 0.25 } },
+        b: { text: '改', adjust: { x: 0.3 } },
+        c: { adjust: { font: { source: 'upload', family: 'MyFont', weight: 500 } } },
+        d: { adjust: 'junk' },
+      },
+    });
+    expect(n.overrides).toEqual({
+      a: { adjust: { x: 1, y: 0.5, angle: -90, color: '#abcdef', scale: 2, opacity: 0.25 } },
+      b: { text: '改' },
+      c: { adjust: { font: { source: 'upload', family: 'MyFont', weight: 500 } } },
+    });
+  });
+  it('版本 2 的存檔（沒有 adjust）照常讀：改字、重抽、鎖定都在', () => {
+    const v2 = {
+      lyrics: { text: '[00:01]甲\n[00:02]乙', fileName: '', offset: 0 },
+      region: null,
+      overrides: {
+        '1000:甲': { text: '改甲', reroll: 2 },
+        '2000:乙': { lock: { fx: 0.1, fy: 0.2, angle: 3, rows: ['乙'] } },
+      },
+    };
+    const n = normalizeSettings(v2);
+    expect(n.overrides).toEqual(v2.overrides);
+    expect(normalizeSettings(JSON.parse(JSON.stringify(n)))).toEqual(n);
   });
 });
 

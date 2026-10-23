@@ -1,8 +1,10 @@
 /**
  * 讀檔時整理資料（規格 3.5）：自動儲存、專案檔、原作的備份檔都經過這裡。
  * 文字截到上限、性別不認得時當男性、排序值不是數字時依出現順序、指到不存在的人的關係清掉、
- * 沒有 spouseOf 的配偶丟掉、父親的位置不認得時置中、色分類的顏色不是色碼時用預設色。
+ * 沒有 spouseOf 的配偶丟掉、父親的位置不認得時置中、色分類的顏色不是色碼時用預設色；
+ * 第二批：過繼、連結指到不存在的人時拿掉，狀態、只有 GM 看得到的欄位不認得的丟掉，頭像的位置夾在範圍內。
  */
+import { normalizePlacement } from '@/core/image';
 import { CAT_PALETTE } from './palette';
 import {
   type AdoptInfo,
@@ -11,13 +13,17 @@ import {
   type Board,
   type Category,
   type Gender,
+  type GmField,
+  LIFE_STATUSES,
   LIMITS,
   type LifeStatus,
   type LinkInfo,
+  MEMBER_GM_FIELDS,
   type Member,
   newId,
   type People,
   type Person,
+  SPOUSE_GM_FIELDS,
   type Spouse,
   type TreeData,
 } from './types';
@@ -42,7 +48,13 @@ const num = (v: unknown): number | undefined =>
   typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 
 const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
-const STATUSES: readonly LifeStatus[] = ['alive', 'dead', 'missing'];
+
+/** 只有 GM 看得到的欄位：認得的、這種人物有的、不重複（依清單的順序） */
+function cleanGmFields(v: unknown, allowed: readonly GmField[]): GmField[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out = allowed.filter((f) => v.includes(f));
+  return out.length ? out : undefined;
+}
 
 function cleanAdopt(v: unknown): AdoptInfo | undefined {
   if (!isObj(v)) return undefined;
@@ -78,7 +90,9 @@ function base(raw: Obj, id: string, order: number) {
     | 'order'
     | 'status'
     | 'secret'
+    | 'gm'
     | 'avatar'
+    | 'avatarPos'
   > = {
     id,
     name: clip(raw.name, LIMITS.name),
@@ -93,10 +107,15 @@ function base(raw: Obj, id: string, order: number) {
   const note = optText(raw.note, LIMITS.note);
   if (note) out.note = note;
   if (typeof raw.cat === 'string' && raw.cat) out.cat = raw.cat;
-  if (STATUSES.includes(raw.status as LifeStatus)) out.status = raw.status as LifeStatus;
-  const secret = optText(raw.secret, LIMITS.note);
+  if (LIFE_STATUSES.includes(raw.status as LifeStatus)) out.status = raw.status as LifeStatus;
+  const secret = optText(raw.secret, LIMITS.secret);
   if (secret) out.secret = secret;
-  if (typeof raw.avatar === 'string' && raw.avatar) out.avatar = raw.avatar;
+  if (raw.gm === true) out.gm = true;
+  if (typeof raw.avatar === 'string' && raw.avatar) {
+    out.avatar = raw.avatar;
+    if (isObj(raw.avatarPos))
+      out.avatarPos = normalizePlacement(raw.avatarPos, { minZoom: 1, maxZoom: 4, limit: 2 });
+  }
   return out;
 }
 
@@ -113,6 +132,8 @@ function cleanPerson(raw: unknown, id: string, fallbackOrder: number): Person | 
     if (parents) s.parents = parents;
     const link = cleanLink(raw.link);
     if (link) s.link = link;
+    const gmFields = cleanGmFields(raw.gmFields, SPOUSE_GM_FIELDS);
+    if (gmFields) s.gmFields = gmFields;
     return s;
   }
   const gender: Gender = raw.gender === 'F' ? 'F' : 'M';
@@ -129,6 +150,8 @@ function cleanPerson(raw: unknown, id: string, fallbackOrder: number): Person | 
   if (shift !== undefined && shift !== 0) m.shift = Math.round(shift);
   const adopt = cleanAdopt(raw.adopt);
   if (adopt) m.adopt = adopt;
+  const gmFields = cleanGmFields(raw.gmFields, MEMBER_GM_FIELDS);
+  if (gmFields) m.gmFields = gmFields;
   return m;
 }
 
@@ -159,7 +182,8 @@ export function fixRefs(people: People): void {
       if (p.motherId && !people[p.motherId]) delete p.motherId;
       if (p.fatherId === p.id) delete p.fatherId;
       if (p.motherId === p.id) delete p.motherId;
-      if (p.adopt?.fatherId && !people[p.adopt.fatherId]) delete p.adopt;
+      if (p.adopt?.fatherId && (!people[p.adopt.fatherId] || p.adopt.fatherId === p.id))
+        delete p.adopt;
     } else {
       if (p.link && people[p.link.personId]?.kind !== 'member') delete p.link;
       else if (p.link?.pairId && !people[p.link.pairId]) delete p.link.pairId;

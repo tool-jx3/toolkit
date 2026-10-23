@@ -123,11 +123,32 @@ describe('讀原作的備份檔', () => {
     });
     /* pair 指到不存在的人：只留連結 */
     expect((b.people.l as Spouse).link).toEqual({ personId: 'a', auto: true });
-    /* 第一批的排版不看過繼：顯示在生父底下 */
-    expect(
-      layoutTree(b.people, { dims: DIMS.full, spouses: true, align: 'center' }).byId.get('c')
-        ?.parent?.id,
-    ).toBe('a');
+    /* 第二批：過繼的人掛在繼父底下，生父底下留「出」字小卡（第一批暫時顯示在生父底下） */
+    const L = layoutTree(b.people, { dims: DIMS.full, spouses: true, align: 'center' });
+    expect(L.byId.get('c')?.parent?.id).toBe('b');
+    expect(L.stubs.get('c')?.parent?.id).toBe('a');
+  });
+
+  it('只有類別、沒有繼父的過繼也留著（原作的面板會顯示類別）', () => {
+    const [b] = boardsFromLegacy(
+      {
+        format: 'family-tree/v1',
+        people: {
+          a: { id: 'a', kind: 'member', name: '甲', gender: 'M', order: 1 },
+          c: {
+            id: 'c',
+            kind: 'member',
+            name: '乙',
+            gender: 'M',
+            order: 1,
+            fatherId: 'a',
+            adoptType: '출계',
+          },
+        },
+      },
+      'x',
+    );
+    expect((b.people.c as Member).adopt).toEqual({ fatherId: null, kind: 'heir' });
   });
 
   it('所有圖板的備份：每張都是新的圖板；沒有名稱時用 meta 或預設', () => {

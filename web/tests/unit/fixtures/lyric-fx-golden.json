@@ -1,0 +1,3216 @@
+[
+ {
+  "name": "sample-default",
+  "plan": "7612c3e29f418d52d20a0c027027a85c7bbbd845531da624cb2ef13629078f35",
+  "summary": [
+   {
+    "key": "1000:燭火在桌邊搖晃",
+    "x": 887,
+    "y": 231,
+    "angle": 4,
+    "rows": [
+     "燭火在桌邊搖晃"
+    ],
+    "box": {
+     "x": 873,
+     "y": 168.16,
+     "width": 316.3861406654757,
+     "height": 109.07063138351958
+    },
+    "start": 1,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 4.2,
+    "fadeEnd": 4.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "4200:地圖上沒有名字的路",
+    "x": 212,
+    "y": 608,
+    "angle": 8,
+    "rows": [
+     "地圖上沒有名字的路"
+    ],
+    "box": {
+     "x": 198,
+     "y": 545.16,
+     "width": 397.73007109716764,
+     "height": 138.254161922582
+    },
+    "start": 4.2,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 7.6,
+    "fadeEnd": 8.237499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "7600:我們把勇氣寫進角色卡",
+    "x": 671,
+    "y": 615,
+    "angle": -2,
+    "rows": [
+     "我們把勇氣寫進角色卡"
+    ],
+    "box": {
+     "x": 657,
+     "y": 538.9679902464546,
+     "width": 442.7697326132182,
+     "height": 104.68400975354537
+    },
+    "start": 7.6,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 11,
+    "fadeEnd": 11.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "11000:擲出去吧　命運的骰子",
+    "x": 709,
+    "y": 768,
+    "angle": 8,
+    "rows": [
+     "擲出去吧　命運的骰子"
+    ],
+    "box": {
+     "x": 695,
+     "y": 705.16,
+     "width": 439.3213299843136,
+     "height": 144.09943216290475
+    },
+    "start": 11,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 14.4,
+    "fadeEnd": 15.0375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "14400:就算大失敗也要笑著前進",
+    "x": 174,
+    "y": 333,
+    "angle": -5,
+    "rows": [
+     "就算大失敗也要笑著前進"
+    ],
+    "box": {
+     "x": 160,
+     "y": 233.55458804598356,
+     "width": 483.40177319853314,
+     "height": 128.09741195401642
+    },
+    "start": 14.4,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 18.2,
+    "fadeEnd": 18.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "18200:Keep walking through the dark",
+    "x": 908,
+    "y": 269,
+    "angle": 8,
+    "rows": [
+     "Keep walking through the dark"
+    ],
+    "box": {
+     "x": 894,
+     "y": 206.16,
+     "width": 751.242275192767,
+     "height": 190.2770670614545
+    },
+    "start": 18.2,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 21.4,
+    "fadeEnd": 22.037499999999998,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "21400:把今晚的故事　留給明天的我們",
+    "x": 571,
+    "y": 657,
+    "angle": 9,
+    "rows": [
+     "把今晚的故事　留給明天的我們"
+    ],
+    "box": {
+     "x": 557,
+     "y": 594.16,
+     "width": 604.2778339649452,
+     "height": 176.90521791196608
+    },
+    "start": 21.4,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 25.6,
+    "fadeEnd": 26.2375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "25600:燭火熄滅之前",
+    "x": 319,
+    "y": 185,
+    "angle": 3,
+    "rows": [
+     "燭火熄滅之前"
+    ],
+    "box": {
+     "x": 305,
+     "y": 122.16,
+     "width": 274.7122022984605,
+     "height": 102.4825508110182
+    },
+    "start": 25.6,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 28.8,
+    "fadeEnd": 29.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "28800:再說一次　出發吧",
+    "x": 819,
+    "y": 465,
+    "angle": -7,
+    "rows": [
+     "再說一次　出發吧"
+    ],
+    "box": {
+     "x": 805,
+     "y": 366.3304130388866,
+     "width": 356.8085685825487,
+     "height": 127.32158696111337
+    },
+    "start": 28.8,
+    "interval": 50,
+    "slotBorn": null,
+    "fadeStart": null,
+    "fadeEnd": null,
+    "overlapped": false,
+    "locked": false
+   }
+  ],
+  "frames": [
+   {
+    "t": 0,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 0.3,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 1.05,
+    "calls": 17,
+    "sha": "6eb65ff52fd321aa80a8d7f9645a0c06003837ca5b00f652e378d196b98098af"
+   },
+   {
+    "t": 1.6,
+    "calls": 77,
+    "sha": "f2b5db8d0c7f912d9a422af08121ccf418b2a0ad3f2caf43886ddc2a1fc20e5f"
+   },
+   {
+    "t": 2.7,
+    "calls": 77,
+    "sha": "d799ffcacf082e9ae1af8e92060cfae23963ebd4f17e101d9553767da28b3c5e"
+   },
+   {
+    "t": 4.25,
+    "calls": 88,
+    "sha": "f3c68acb45fe2f005d10b6c0ffdea0903947e0625ee701f707203eaf34232567"
+   },
+   {
+    "t": 4.8,
+    "calls": 168,
+    "sha": "de7bd4b614ba319b6a4f6eb953198c22cceaec750ae364e36c60f1f3138daa5f"
+   },
+   {
+    "t": 5.9,
+    "calls": 97,
+    "sha": "0c5d07942d8520065c4770f48c7ce905662cd54470d691251fa79a055547b0b3"
+   },
+   {
+    "t": 7.65,
+    "calls": 108,
+    "sha": "ec908c3f0d381a03e1f5d9331002aa7e931611fd1c372f50405620cf8462c509"
+   },
+   {
+    "t": 8.2,
+    "calls": 198,
+    "sha": "315579c57aec0fcf3b42e768fa86ce2b7203152993c9fb7d3eadc2dfaa0d0b7b"
+   },
+   {
+    "t": 9.3,
+    "calls": 107,
+    "sha": "3ca498a4205010d245acf8ae447249a39e10da4fca25d0edeeaad00e9398595d"
+   },
+   {
+    "t": 11.05,
+    "calls": 118,
+    "sha": "6d61d03cb93d542807d50786f521fedc1bd207407556ec96a65fbfc5e86126de"
+   },
+   {
+    "t": 11.6,
+    "calls": 208,
+    "sha": "194be11e663c23edeafa412cf015e2b5fc99d7b1637c1c2505a5113e07263823"
+   },
+   {
+    "t": 12.7,
+    "calls": 107,
+    "sha": "8f407da0d8751b9ccc0f9c6d72c3a63920ac7e2296d730baf744481a1400612a"
+   },
+   {
+    "t": 14.45,
+    "calls": 118,
+    "sha": "7c133aea9c6836b5d9ae923a50e062a8b2c4de0750689e8aeb3cbeaae75536e7"
+   },
+   {
+    "t": 15,
+    "calls": 218,
+    "sha": "267eec4897af37ff7301d86c76f6bc4ef62ad85f6d7e22f529cd51c00e29d38c"
+   },
+   {
+    "t": 16.1,
+    "calls": 117,
+    "sha": "8c0f9a16fd38036786bd18c36b939715b917528c2395d690cd12f09a05dfc408"
+   },
+   {
+    "t": 18.25,
+    "calls": 131,
+    "sha": "0a40b98c1551bb47842adb9bb6829d6666f6d163926d19f2fc7deaf9a01e364d"
+   },
+   {
+    "t": 18.8,
+    "calls": 378,
+    "sha": "83f0d26a46c5132abfc675000010d23a740a1b4e9b648db6009087c459819a4a"
+   },
+   {
+    "t": 19.9,
+    "calls": 384,
+    "sha": "9d3ba031cdfa6d435a83508c7cbda5571d4f8bfd5fbf9c1f8e59e2d56a32c4bd"
+   },
+   {
+    "t": 31.8,
+    "calls": 87,
+    "sha": "2a77e8a5c29cb8f3b1c45019e003336d3743eb73319274894e95603e29e8c278"
+   },
+   {
+    "t": 58.8,
+    "calls": 87,
+    "sha": "39af1488ca60cb5b300f1f8e26fe6c42b9568e9ee20d450f922e17f8d6ba0995"
+   }
+  ]
+ },
+ {
+  "name": "sample-preview2-bright-partition",
+  "plan": "459630d54155dd997b7cc974352c31371c6cc6b03d7b312edc256411d730953a",
+  "summary": [
+   {
+    "key": "1000:燭火在桌邊搖晃",
+    "x": 492,
+    "y": 231,
+    "angle": 4,
+    "rows": [
+     "燭火在桌邊搖晃"
+    ],
+    "box": {
+     "x": 478,
+     "y": 168.16,
+     "width": 316.3861406654757,
+     "height": 109.07063138351958
+    },
+    "start": 1,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 4.2,
+    "fadeEnd": 4.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "4200:地圖上沒有名字的路",
+    "x": 840,
+    "y": 608,
+    "angle": 8,
+    "rows": [
+     "地圖上沒有名字的路"
+    ],
+    "box": {
+     "x": 826,
+     "y": 545.16,
+     "width": 397.73007109716764,
+     "height": 138.254161922582
+    },
+    "start": 4.2,
+    "interval": 30,
+    "slotBorn": 1,
+    "fadeStart": 7.6,
+    "fadeEnd": 8.237499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "7600:我們把勇氣寫進角色卡",
+    "x": 383,
+    "y": 615,
+    "angle": -2,
+    "rows": [
+     "我們把勇氣寫進角色卡"
+    ],
+    "box": {
+     "x": 369,
+     "y": 538.9679902464546,
+     "width": 442.7697326132182,
+     "height": 104.68400975354537
+    },
+    "start": 7.6,
+    "interval": 30,
+    "slotBorn": 1,
+    "fadeStart": 11,
+    "fadeEnd": 11.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "11000:擲出去吧　命運的骰子",
+    "x": 1067,
+    "y": 768,
+    "angle": 8,
+    "rows": [
+     "擲出去吧　命運的骰子"
+    ],
+    "box": {
+     "x": 1053,
+     "y": 705.16,
+     "width": 439.3213299843136,
+     "height": 144.09943216290475
+    },
+    "start": 11,
+    "interval": 30,
+    "slotBorn": 4.2,
+    "fadeStart": 14.4,
+    "fadeEnd": 15.0375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "14400:就算大失敗也要笑著前進",
+    "x": 135,
+    "y": 333,
+    "angle": -5,
+    "rows": [
+     "就算大失敗也要笑著前進"
+    ],
+    "box": {
+     "x": 121,
+     "y": 233.55458804598356,
+     "width": 483.40177319853314,
+     "height": 128.09741195401642
+    },
+    "start": 14.4,
+    "interval": 30,
+    "slotBorn": 7.6,
+    "fadeStart": 18.2,
+    "fadeEnd": 18.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "18200:Keep walking through the dark",
+    "x": 724,
+    "y": 407,
+    "angle": 8,
+    "rows": [
+     "Keep walking through the dark"
+    ],
+    "box": {
+     "x": 710,
+     "y": 344.15999999999997,
+     "width": 751.242275192767,
+     "height": 190.2770670614545
+    },
+    "start": 18.2,
+    "interval": 30,
+    "slotBorn": 11,
+    "fadeStart": 21.4,
+    "fadeEnd": 22.037499999999998,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "21400:把今晚的故事　留給明天的我們",
+    "x": 333,
+    "y": 657,
+    "angle": 9,
+    "rows": [
+     "把今晚的故事　留給明天的我們"
+    ],
+    "box": {
+     "x": 319,
+     "y": 594.16,
+     "width": 604.2778339649452,
+     "height": 176.90521791196608
+    },
+    "start": 21.4,
+    "interval": 30,
+    "slotBorn": 14.4,
+    "fadeStart": 25.6,
+    "fadeEnd": 26.2375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "25600:燭火熄滅之前",
+    "x": 1133,
+    "y": 619,
+    "angle": 3,
+    "rows": [
+     "燭火熄滅之前"
+    ],
+    "box": {
+     "x": 1119,
+     "y": 556.16,
+     "width": 274.7122022984605,
+     "height": 102.4825508110182
+    },
+    "start": 25.6,
+    "interval": 30,
+    "slotBorn": 18.2,
+    "fadeStart": 28.8,
+    "fadeEnd": 29.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "28800:再說一次　出發吧",
+    "x": 281,
+    "y": 548,
+    "angle": -7,
+    "rows": [
+     "再說一次　出發吧"
+    ],
+    "box": {
+     "x": 267,
+     "y": 449.3304130388866,
+     "width": 356.8085685825487,
+     "height": 127.32158696111337
+    },
+    "start": 28.8,
+    "interval": 50,
+    "slotBorn": 21.4,
+    "fadeStart": null,
+    "fadeEnd": null,
+    "overlapped": false,
+    "locked": false
+   }
+  ],
+  "frames": [
+   {
+    "t": 0,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 0.3,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 1.05,
+    "calls": 29,
+    "sha": "236f36e8ca218a0f67400888e3dedb54eb09cc3df6f0c6f7ab4b206620fff486"
+   },
+   {
+    "t": 1.6,
+    "calls": 174,
+    "sha": "04b950a5ef2da218d75bdb21b2f931cb6c1aa8f883f639900bb5f183450aa7b2"
+   },
+   {
+    "t": 2.7,
+    "calls": 174,
+    "sha": "8277074a21148542c800fad1b8d4984b16bbdfea8fddc74bec66f8376ce460b7"
+   },
+   {
+    "t": 4.25,
+    "calls": 225,
+    "sha": "236b675be1bd0b1ecf488799ecbc470c8bade0518a8be6cb976980cb1599c678"
+   },
+   {
+    "t": 4.8,
+    "calls": 270,
+    "sha": "d8e24211ee0100d47958c60169a4deda787332da54e336117996c12d0755ac42"
+   },
+   {
+    "t": 5.9,
+    "calls": 199,
+    "sha": "2f77a79c6a57152620a30528f5df13157b556d1ab9c97bbcd821d919ef66af38"
+   },
+   {
+    "t": 7.65,
+    "calls": 255,
+    "sha": "0ef12c4fe8e87e9da480bf6f4d9ba43a5f8eea8b978ffae4faec1709a800bd3f"
+   },
+   {
+    "t": 8.2,
+    "calls": 305,
+    "sha": "259002f2e9444d40db6b9d038b4c61e290c96084c4091bdefaf370f4a375e049"
+   },
+   {
+    "t": 9.3,
+    "calls": 214,
+    "sha": "102ae44c6b4314c77390a894df39238c3859153f1470d00f278593a83b2322bb"
+   },
+   {
+    "t": 11.05,
+    "calls": 273,
+    "sha": "bd9d4b26d9ce321c479d8e35a130c7db7d5a20b0fc3b5ef53ef7e8aee210eefe"
+   },
+   {
+    "t": 11.6,
+    "calls": 361,
+    "sha": "06fb4805b2cb705f94d2c31482a6247d5b0b75cbabbc44288b30afa504a48a5b"
+   },
+   {
+    "t": 12.7,
+    "calls": 396,
+    "sha": "94aef4727a72e6455a024bacc0d882e26c2a706f18b13808a90118e2d1def44b"
+   },
+   {
+    "t": 14.45,
+    "calls": 457,
+    "sha": "97389348c8ae6581cdaf9ab274ca1e9c52e7b316f27ddc93441d57cec9f264c1"
+   },
+   {
+    "t": 15,
+    "calls": 512,
+    "sha": "bd67de20fa140f314e5a62e875356028dd06c411a80ac950cb551fcc3b7df5cc"
+   },
+   {
+    "t": 16.1,
+    "calls": 421,
+    "sha": "f6c8c215577e1e6a1129ff9683b4348454d785d79eb5445dabf2782b955fb64d"
+   },
+   {
+    "t": 18.25,
+    "calls": 572,
+    "sha": "a209f08c5bc795069cd86d1ea75660b6c2cd866a63b36ddbd37bde8e537b48eb"
+   },
+   {
+    "t": 18.8,
+    "calls": 597,
+    "sha": "4f880b2dc3c9323196f5ae13347c72da814be7692656450c4fa5d657bceaaadf"
+   },
+   {
+    "t": 19.9,
+    "calls": 486,
+    "sha": "b10cfb905449e5ad557a7ca7c204c1615f3122cd54e271dcb815a8038b9ee47d"
+   },
+   {
+    "t": 31.8,
+    "calls": 87,
+    "sha": "baf1886bd0f9422eaf2d44cf0314c062a2af1dd50267bef733ff30a7336ea49f"
+   },
+   {
+    "t": 58.8,
+    "calls": 87,
+    "sha": "d578e0aa91a526bbaa5102bd7f00f75858da2e93044047251ef7104876af9184"
+   }
+  ]
+ },
+ {
+  "name": "sample-region-center-preview2",
+  "plan": "1daeffefd8242d353a5fe37ccd1a56ca21446d95ce93593f319e5a88c4ac4048",
+  "summary": [
+   {
+    "key": "1000:燭火在桌邊搖晃",
+    "x": 180,
+    "y": 836,
+    "angle": 4,
+    "rows": [
+     "燭火在桌邊搖晃"
+    ],
+    "box": {
+     "x": 166,
+     "y": 773.16,
+     "width": 316.3861406654757,
+     "height": 109.07063138351958
+    },
+    "start": 1,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 4.2,
+    "fadeEnd": 4.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "4200:地圖上沒有名字的路",
+    "x": 1465,
+    "y": 500,
+    "angle": 8,
+    "rows": [
+     "地圖上沒有名字的路"
+    ],
+    "box": {
+     "x": 1451,
+     "y": 437.15999999999997,
+     "width": 397.73007109716764,
+     "height": 138.254161922582
+    },
+    "start": 4.2,
+    "interval": 30,
+    "slotBorn": 1,
+    "fadeStart": 7.6,
+    "fadeEnd": 8.237499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "7600:我們把勇氣寫進角色卡",
+    "x": 1128,
+    "y": 230,
+    "angle": -2,
+    "rows": [
+     "我們把勇氣寫進角色卡"
+    ],
+    "box": {
+     "x": 1114,
+     "y": 153.96799024645463,
+     "width": 442.7697326132182,
+     "height": 104.68400975354537
+    },
+    "start": 7.6,
+    "interval": 30,
+    "slotBorn": 1,
+    "fadeStart": 11,
+    "fadeEnd": 11.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "11000:擲出去吧　命運的骰子",
+    "x": 132,
+    "y": 179,
+    "angle": 8,
+    "rows": [
+     "擲出去吧　命運的骰子"
+    ],
+    "box": {
+     "x": 118,
+     "y": 116.16,
+     "width": 439.3213299843136,
+     "height": 144.09943216290475
+    },
+    "start": 11,
+    "interval": 30,
+    "slotBorn": 4.2,
+    "fadeStart": 14.4,
+    "fadeEnd": 15.0375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "14400:就算大失敗也要笑著前進",
+    "x": 622,
+    "y": 239,
+    "angle": -5,
+    "rows": [
+     "就算大失敗也要笑著前進"
+    ],
+    "box": {
+     "x": 608,
+     "y": 139.55458804598356,
+     "width": 483.40177319853314,
+     "height": 128.09741195401642
+    },
+    "start": 14.4,
+    "interval": 30,
+    "slotBorn": 7.6,
+    "fadeStart": 18.2,
+    "fadeEnd": 18.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "18200:Keep walking through the dark",
+    "x": 672,
+    "y": 141,
+    "angle": 8,
+    "rows": [
+     "Keep walking through the dark"
+    ],
+    "box": {
+     "x": 658,
+     "y": 78.16,
+     "width": 751.242275192767,
+     "height": 190.2770670614545
+    },
+    "start": 18.2,
+    "interval": 30,
+    "slotBorn": 11,
+    "fadeStart": 21.4,
+    "fadeEnd": 22.037499999999998,
+    "overlapped": true,
+    "locked": false
+   },
+   {
+    "key": "21400:把今晚的故事　留給明天的我們",
+    "x": 884,
+    "y": 165,
+    "angle": 9,
+    "rows": [
+     "把今晚的故事　留給明天的我們"
+    ],
+    "box": {
+     "x": 870,
+     "y": 102.16,
+     "width": 604.2778339649452,
+     "height": 176.90521791196608
+    },
+    "start": 21.4,
+    "interval": 30,
+    "slotBorn": 14.4,
+    "fadeStart": 25.6,
+    "fadeEnd": 26.2375,
+    "overlapped": true,
+    "locked": false
+   },
+   {
+    "key": "25600:燭火熄滅之前",
+    "x": 136,
+    "y": 861,
+    "angle": 3,
+    "rows": [
+     "燭火熄滅之前"
+    ],
+    "box": {
+     "x": 122,
+     "y": 798.16,
+     "width": 274.7122022984605,
+     "height": 102.4825508110182
+    },
+    "start": 25.6,
+    "interval": 30,
+    "slotBorn": 18.2,
+    "fadeStart": 28.8,
+    "fadeEnd": 29.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "28800:再說一次　出發吧",
+    "x": 197,
+    "y": 259,
+    "angle": -7,
+    "rows": [
+     "再說一次　出發吧"
+    ],
+    "box": {
+     "x": 183,
+     "y": 160.33041303888663,
+     "width": 356.8085685825487,
+     "height": 127.32158696111337
+    },
+    "start": 28.8,
+    "interval": 50,
+    "slotBorn": 21.4,
+    "fadeStart": null,
+    "fadeEnd": null,
+    "overlapped": false,
+    "locked": false
+   }
+  ],
+  "frames": [
+   {
+    "t": 0,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 0.3,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 1.05,
+    "calls": 114,
+    "sha": "e1a67156645281def0c654cbca1209f1ebd9878897706757334e41450b2744dd"
+   },
+   {
+    "t": 1.6,
+    "calls": 174,
+    "sha": "bf4c469cd6d155351ec611d79a42773be5554ca99e5e24310cbd8c47d2e0877a"
+   },
+   {
+    "t": 2.7,
+    "calls": 174,
+    "sha": "928e3ae3ed51beb2971bbab94853943fa5b0b16e0834b5062a74e0d5f2d1194e"
+   },
+   {
+    "t": 4.25,
+    "calls": 190,
+    "sha": "66b351812f4de200f0f2d973012d516368997cb2539fadc4d75a30bcba3d2e17"
+   },
+   {
+    "t": 4.8,
+    "calls": 270,
+    "sha": "21c2f95e264a632e01627fd562be280b97e9d81f1bf87e22842e100f80c9acda"
+   },
+   {
+    "t": 5.9,
+    "calls": 199,
+    "sha": "91e9978a337f005d1bf178a84ed7f8d00e36d365c608515d1f05245e75774387"
+   },
+   {
+    "t": 7.65,
+    "calls": 215,
+    "sha": "6969374c0c2312772bd8142b8ff116ad12a88da09037d3176f6fab88c85659c7"
+   },
+   {
+    "t": 8.2,
+    "calls": 305,
+    "sha": "7cb63601cadf26d92ab5c4a2249bef793b65e8b7ee9d0e479b1e4bf1ff51fb30"
+   },
+   {
+    "t": 9.3,
+    "calls": 214,
+    "sha": "1b94636cd2ab676527c0df1d2b06e1900d58a9dfe06216455a22bc418f6a2cc4"
+   },
+   {
+    "t": 11.05,
+    "calls": 407,
+    "sha": "c1a6dfae335c6027014a983f7c6b087ca7b387599d3f9954234eff9ec410d67f"
+   },
+   {
+    "t": 11.6,
+    "calls": 497,
+    "sha": "c4e99f33c1f4f2dcc0f5c4abe1b44ea6209d62c9e5a81acdeaa6973a9387e9ff"
+   },
+   {
+    "t": 12.7,
+    "calls": 396,
+    "sha": "7de6d15b6cbbdd5630de8a2aac03b9d7e119f49d948d91fda822ef0b196dfda9"
+   },
+   {
+    "t": 14.45,
+    "calls": 422,
+    "sha": "e65452ddeaebb9ef2677889e4b7174dfe2540b05f7d89297784f0b5932b0252e"
+   },
+   {
+    "t": 15,
+    "calls": 522,
+    "sha": "1c4589f5ab749d4f01ce285c5116592186dc7cab5519f21ebabca0350ba91c83"
+   },
+   {
+    "t": 16.1,
+    "calls": 421,
+    "sha": "bb8edd76b5a0a93d09859ebb2356bf18b70cbd699ba1a0ac33a6f353d8adcc09"
+   },
+   {
+    "t": 18.25,
+    "calls": 233,
+    "sha": "40a7e114a49db9a3e6ce31724ec4dfba5280cab6625c389510e99b405d91d00e"
+   },
+   {
+    "t": 18.8,
+    "calls": 480,
+    "sha": "83419a5118bc2e99e5048abdf7b33e50bb2fd6af11ef022bd9763891b012ab05"
+   },
+   {
+    "t": 19.9,
+    "calls": 486,
+    "sha": "c7adb23dc157025237c07b2cf3a2c8eda650a0d623b3e9faaa3926a6c28c3687"
+   },
+   {
+    "t": 31.8,
+    "calls": 87,
+    "sha": "79dbdbba2d307044c1f00fa5c71991c851c740e430b0a3bf7d571937ed1e36fc"
+   },
+   {
+    "t": 58.8,
+    "calls": 87,
+    "sha": "d371e981523044e7062001a0c115ccc6d246c7f9587159e6885e2b9dd78dded0"
+   }
+  ]
+ },
+ {
+  "name": "both-languages",
+  "plan": "bf8e51cedaf83f1f2b0827fef5665be41346f3c56ef45cc51d3ffda6fc08f5db",
+  "summary": [
+   {
+    "key": "1000:燭火在桌邊搖晃",
+    "x": 666,
+    "y": 344,
+    "angle": -4,
+    "rows": [
+     "燭火在桌邊搖晃",
+     "Candles flicker by the table"
+    ],
+    "box": {
+     "x": 652,
+     "y": 223.59497523979113,
+     "width": 1084.5007155665796,
+     "height": 261.12502476020893
+    },
+    "start": 1,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 4.2,
+    "fadeEnd": 4.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "4200:地圖上沒有名字的路",
+    "x": 700,
+    "y": 666,
+    "angle": 8,
+    "rows": [
+     "地圖上沒有名字的路",
+     "A road the map forgot to name"
+    ],
+    "box": {
+     "x": 686,
+     "y": 572.8,
+     "width": 1114.6452251410308,
+     "height": 382.00017942150964
+    },
+    "start": 4.2,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 7.6,
+    "fadeEnd": 8.237499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "7600:我們把勇氣寫進角色卡",
+    "x": 668,
+    "y": 497,
+    "angle": -10,
+    "rows": [
+     "我們把勇氣寫進角色卡"
+    ],
+    "box": {
+     "x": 654,
+     "y": 302.21581606484574,
+     "width": 664.1125355121417,
+     "height": 232.54418393515425
+    },
+    "start": 7.6,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 11,
+    "fadeEnd": 11.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "11000:擲出去吧　命運的骰子",
+    "x": 869,
+    "y": 746,
+    "angle": 3,
+    "rows": [
+     "擲出去吧　命運的骰子",
+     "Roll it, dice of fate"
+    ],
+    "box": {
+     "x": 855,
+     "y": 652.8,
+     "width": 819.9584464134762,
+     "height": 273.6953267446373
+    },
+    "start": 11,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 14.4,
+    "fadeEnd": 15.0375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "14400:就算大失敗也要笑著前進",
+    "x": 235,
+    "y": 484,
+    "angle": -15,
+    "rows": [
+     "就算大失敗也要笑著前進"
+    ],
+    "box": {
+     "x": 221,
+     "y": 222.5676206833615,
+     "width": 715.8517870878944,
+     "height": 299.1923793166385
+    },
+    "start": 14.4,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 18.2,
+    "fadeEnd": 18.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "18200:Keep walking through the dark",
+    "x": 510,
+    "y": 707,
+    "angle": -2,
+    "rows": [
+     "Keep walking through the dark"
+    ],
+    "box": {
+     "x": 496,
+     "y": 576.6669355085389,
+     "width": 1124.351839948318,
+     "height": 168.09306449146106
+    },
+    "start": 18.2,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 21.4,
+    "fadeEnd": 22.037499999999998,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "21400:把今晚的故事　留給明天的我們",
+    "x": 180,
+    "y": 516,
+    "angle": -23,
+    "rows": [
+     "把今晚的故事　留給明天的我們"
+    ],
+    "box": {
+     "x": 166,
+     "y": 92.63219642656372,
+     "width": 865.8266011673121,
+     "height": 461.12780357343627
+    },
+    "start": 21.4,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 25.6,
+    "fadeEnd": 26.2375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "25600:燭火熄滅之前",
+    "x": 650,
+    "y": 763,
+    "angle": 3,
+    "rows": [
+     "燭火熄滅之前"
+    ],
+    "box": {
+     "x": 636,
+     "y": 669.8,
+     "width": 412.5545987952365,
+     "height": 147.96918577895676
+    },
+    "start": 25.6,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 28.8,
+    "fadeEnd": 29.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "28800:再說一次　出發吧",
+    "x": 174,
+    "y": 500,
+    "angle": 7,
+    "rows": [
+     "再說一次　出發吧"
+    ],
+    "box": {
+     "x": 160,
+     "y": 406.8,
+     "width": 539.6084989968015,
+     "height": 186.41055124934212
+    },
+    "start": 28.8,
+    "interval": 50,
+    "slotBorn": null,
+    "fadeStart": null,
+    "fadeEnd": null,
+    "overlapped": false,
+    "locked": false
+   }
+  ],
+  "frames": [
+   {
+    "t": 0,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 0.3,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 1.05,
+    "calls": 17,
+    "sha": "53efcd7163324d67abdf1f7800fcd4f2d2daf546b310ffa2880ffbfa0b246062"
+   },
+   {
+    "t": 1.6,
+    "calls": 207,
+    "sha": "b70444acf993db303e3fe76fd358d3e8f1cb22029899198bb907b7aa8e623b5f"
+   },
+   {
+    "t": 2.7,
+    "calls": 357,
+    "sha": "66dcf5785a478fa7b1955541b95767ab83abfe893f303fdf50f0eb05a9bcdb7e"
+   },
+   {
+    "t": 4.25,
+    "calls": 368,
+    "sha": "f0ee32bb3c2ef7918f4dac862b05ec93b8b2c3c1523736d8d447a5756c0b665e"
+   },
+   {
+    "t": 4.8,
+    "calls": 558,
+    "sha": "e83e2bfc7e5dbeae78dc3ecfae62c7baa338888bac0df379b8e6be7ee55b94a9"
+   },
+   {
+    "t": 5.9,
+    "calls": 387,
+    "sha": "be9117c781cb67a73608cf367bbd178d535026347184022d0e996a77c170683d"
+   },
+   {
+    "t": 7.65,
+    "calls": 398,
+    "sha": "41c259b0ec07608afe72d3f743d1050c62eb5b56133e3926916f92befd1d281b"
+   },
+   {
+    "t": 8.2,
+    "calls": 488,
+    "sha": "86bfe615419c957f87278d7704da60120a65b963ffda890c2c91571dcb048214"
+   },
+   {
+    "t": 9.3,
+    "calls": 107,
+    "sha": "11d68d39f6e7e2cc4081f38f7203d71033c381b8b6a94ab595b83db3ff09d2ec"
+   },
+   {
+    "t": 11.05,
+    "calls": 118,
+    "sha": "d448d13d05081198f7da9249556ab28b95e4d6527399aaccfe1a28b3c1ff4038"
+   },
+   {
+    "t": 11.6,
+    "calls": 308,
+    "sha": "2ccfbba408c1316f2c358fc38d55f02598c1ada6ef2c2693108f4e4ba3ba9c03"
+   },
+   {
+    "t": 12.7,
+    "calls": 317,
+    "sha": "94768fc04e9e9f04a72853a1664fbf550e863b53c7630fd5780c8c51d242e40e"
+   },
+   {
+    "t": 14.45,
+    "calls": 328,
+    "sha": "c6d8e9bc8e073157f6349751b2a0ebbdbe489b8ebd72f33bd0ced806c73f79e0"
+   },
+   {
+    "t": 15,
+    "calls": 428,
+    "sha": "da1e765e5f6c3bd2be1574824bf72097ee85b473219b0505c5aa5c4c6312ce67"
+   },
+   {
+    "t": 16.1,
+    "calls": 117,
+    "sha": "ab8c124104fcb906a348862b418929290b98bb66ce86c2fee4cb70a3b815385f"
+   },
+   {
+    "t": 18.25,
+    "calls": 131,
+    "sha": "cb29f80a8c77e6755fc414257004b2a2e0d51899936132f7ba738ee137bc5c77"
+   },
+   {
+    "t": 18.8,
+    "calls": 378,
+    "sha": "a893e52ec6ba59ca4ef12baf7b39a0189d0dfd160d31a34950546df1992e2594"
+   },
+   {
+    "t": 19.9,
+    "calls": 384,
+    "sha": "3951a78d5b595b0ced5113b9f68e96124b67f58fc88508c40327f143739b5ea4"
+   },
+   {
+    "t": 31.8,
+    "calls": 87,
+    "sha": "add48610f24dfa99be3024ea7c75234f87f87f771061ff5d8050a4d7d2e13e2b"
+   },
+   {
+    "t": 58.8,
+    "calls": 87,
+    "sha": "1c9566721dbb3af81dc01f6215b12845b6e183243470b1aa3af7417cf47ae7b7"
+   }
+  ]
+ },
+ {
+  "name": "latin-stroke-no-glow-no-persp",
+  "plan": "47da0888e24d2b4dd544565d564602c209798a046e0cdfae1124a67600580d34",
+  "summary": [
+   {
+    "key": "1000:Line number 1 sings along the quiet road tonight",
+    "x": 314,
+    "y": 357,
+    "angle": -4,
+    "rows": [
+     "Line number 1 sings along the quiet road tonight"
+    ],
+    "box": {
+     "x": 304,
+     "y": 236.35925208639213,
+     "width": 924.141870327692,
+     "height": 145.29274791360785
+    },
+    "start": 1,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 3.2,
+    "fadeEnd": 3.8375000000000004,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "3200:Line number 2 sings along the quiet road tonight",
+    "x": 845,
+    "y": 712,
+    "angle": -2,
+    "rows": [
+     "Line number 2 sings along the quiet road tonight"
+    ],
+    "box": {
+     "x": 835,
+     "y": 622.2407908964192,
+     "width": 925.7603031975686,
+     "height": 114.41120910358076
+    },
+    "start": 3.2,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 5.4,
+    "fadeEnd": 6.0375000000000005,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "5400:Line number 3 sings along the quiet road tonight",
+    "x": 848,
+    "y": 449,
+    "angle": 6,
+    "rows": [
+     "Line number 3 sings along the quiet road tonight"
+    ],
+    "box": {
+     "x": 838,
+     "y": 390.15999999999997,
+     "width": 921.4466732015225,
+     "height": 176.09899203197767
+    },
+    "start": 5.4,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 7.6,
+    "fadeEnd": 8.237499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "7600:Line number 4 sings along the quiet road tonight",
+    "x": 847,
+    "y": 126,
+    "angle": 2,
+    "rows": [
+     "Line number 4 sings along the quiet road tonight"
+    ],
+    "box": {
+     "x": 837,
+     "y": 67.16,
+     "width": 925.7603031975686,
+     "height": 114.41120910358076
+    },
+    "start": 7.6,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 9.8,
+    "fadeEnd": 10.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "9800:Line number 5 sings along the quiet road tonight",
+    "x": 921,
+    "y": 451,
+    "angle": -8,
+    "rows": [
+     "Line number 5 sings along the quiet road tonight"
+    ],
+    "box": {
+     "x": 911,
+     "y": 268.85959120442993,
+     "width": 917.677995501595,
+     "height": 206.79240879557005
+    },
+    "start": 9.8,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 12,
+    "fadeEnd": 12.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "12000:Line number 6 sings along the quiet road tonight",
+    "x": 478,
+    "y": 127,
+    "angle": 2,
+    "rows": [
+     "Line number 6 sings along the quiet road tonight"
+    ],
+    "box": {
+     "x": 468,
+     "y": 68.16,
+     "width": 925.7603031975686,
+     "height": 114.41120910358076
+    },
+    "start": 12,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 14.2,
+    "fadeEnd": 14.837499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "14200:Line number 7 sings along the quiet road tonight",
+    "x": 618,
+    "y": 325,
+    "angle": 7,
+    "rows": [
+     "Line number 7 sings along the quiet road tonight"
+    ],
+    "box": {
+     "x": 608,
+     "y": 266.15999999999997,
+     "width": 919.69626304663,
+     "height": 191.4621447897905
+    },
+    "start": 14.2,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 16.4,
+    "fadeEnd": 17.037499999999998,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "16400:Line number 8 sings along the quiet road tonight",
+    "x": 183,
+    "y": 765,
+    "angle": 5,
+    "rows": [
+     "Line number 8 sings along the quiet road tonight"
+    ],
+    "box": {
+     "x": 173,
+     "y": 706.16,
+     "width": 922.9286927743827,
+     "height": 160.70763028728783
+    },
+    "start": 16.4,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 18.6,
+    "fadeEnd": 19.2375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "18600:Line number 9 sings along the quiet road tonight",
+    "x": 660,
+    "y": 286,
+    "angle": 2,
+    "rows": [
+     "Line number 9 sings along the quiet road tonight"
+    ],
+    "box": {
+     "x": 650,
+     "y": 227.16,
+     "width": 925.7603031975686,
+     "height": 114.41120910358076
+    },
+    "start": 18.6,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 20.8,
+    "fadeEnd": 21.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "20800:Line number 10 sings along the quiet road tonight",
+    "x": 514,
+    "y": 581,
+    "angle": 1,
+    "rows": [
+     "Line number 10 sings along the quiet road tonight"
+    ],
+    "box": {
+     "x": 504,
+     "y": 522.16,
+     "width": 945.0121945775036,
+     "height": 99.28293734445414
+    },
+    "start": 20.8,
+    "interval": 50,
+    "slotBorn": null,
+    "fadeStart": null,
+    "fadeEnd": null,
+    "overlapped": false,
+    "locked": false
+   }
+  ],
+  "frames": [
+   {
+    "t": 0,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 0.3,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 1.05,
+    "calls": 15,
+    "sha": "817464daa6c706f478d3c6d079a8d47aa80f76d88ce8272776de8b080c14a5bc"
+   },
+   {
+    "t": 1.6,
+    "calls": 167,
+    "sha": "86724c684c779f3fc71aed6b0981472f035f4185e67ff0f3bcaced2904e89dd9"
+   },
+   {
+    "t": 2.7,
+    "calls": 391,
+    "sha": "7173bc196d6826287dcfa921765db103f575acf30d499d2f96624a7ef743e4ff"
+   },
+   {
+    "t": 3.25,
+    "calls": 400,
+    "sha": "9ff26bb2b6ed92be33fd4252c38a1016c2a33dc07f56f9652a2ae8a1bb3d0272"
+   },
+   {
+    "t": 3.8,
+    "calls": 552,
+    "sha": "91b1dca29ede6ae88afa65724969de1f30b1023e9b01d597dd72254180589268"
+   },
+   {
+    "t": 4.9,
+    "calls": 391,
+    "sha": "286f7b05f86eefaa5bf62e2597938431e670d2fef9f69107ee88ac6769dbc9d6"
+   },
+   {
+    "t": 5.45,
+    "calls": 400,
+    "sha": "512a144333058d95014ac1ecda0499b659db820dce86f07007b06466599d4502"
+   },
+   {
+    "t": 6,
+    "calls": 552,
+    "sha": "52ba77b0e95702cb74397411620fb9b987084335e4650e0c82e53061ca7781cf"
+   },
+   {
+    "t": 7.1,
+    "calls": 391,
+    "sha": "f44ef38928a58007c8789125f9b15f72a4bcd46a8f2041621fce333ccf3ddb0c"
+   },
+   {
+    "t": 7.65,
+    "calls": 400,
+    "sha": "9e1be4d0af4d794d15abe9e3ed2eaec7d0845c4824117dc03631c6ac7daa42b0"
+   },
+   {
+    "t": 8.2,
+    "calls": 552,
+    "sha": "c365f8a5ae6c64bc03d19bb4d3ca431ff8afe14050e36d153fa7f88a51fc2a32"
+   },
+   {
+    "t": 9.3,
+    "calls": 391,
+    "sha": "aa63bf8e50a3a7885d8ee843747560b24fa9e9e5fdbd983856d279639c381ae5"
+   },
+   {
+    "t": 9.85,
+    "calls": 400,
+    "sha": "5b1cd870fb67d4857cf42a304f6e6083ea23926d479c9f491bd67476b712d5fa"
+   },
+   {
+    "t": 10.4,
+    "calls": 552,
+    "sha": "2cc8491b77fd2178edc10d82c0c37fec717176f444acd3e51bf706e6d06853ad"
+   },
+   {
+    "t": 11.5,
+    "calls": 391,
+    "sha": "f3e208c4b61cb6682735dc7bcddb10986dcc0b8075967bd8a2b0f6d291e68481"
+   },
+   {
+    "t": 12.05,
+    "calls": 400,
+    "sha": "3b1f8e9c2363776815838cc4c5a2287b76853e57dfc033455f8745066d327d50"
+   },
+   {
+    "t": 12.6,
+    "calls": 552,
+    "sha": "970f7f7d5c85c4583ee0804c61df8d581c2f7ddebe949b207b2d2503ba2fac59"
+   },
+   {
+    "t": 13.7,
+    "calls": 391,
+    "sha": "b47ef905af6052851619e4eda2eb206ccc697e3db7e17229b5e5d0864b52e396"
+   },
+   {
+    "t": 23.8,
+    "calls": 399,
+    "sha": "c389f11caccd5c9fc43ee35bb916dd1f33747326dc6f8dc624ff97bf481e53ce"
+   },
+   {
+    "t": 50.8,
+    "calls": 399,
+    "sha": "37c0f644ff5a5b825bd700deab8d3bb4cea652e69608ee7d93b6478ac3c40c97"
+   }
+  ]
+ },
+ {
+  "name": "portrait-locked",
+  "plan": "397b29cc0a0d0caeab394b1f85956f59902900b8b5a1bf4d395ee85763a409b4",
+  "summary": [
+   {
+    "key": "1000:燭火在桌邊搖晃",
+    "x": 424,
+    "y": 326,
+    "angle": 4,
+    "rows": [
+     "燭火在桌邊搖晃"
+    ],
+    "box": {
+     "x": 410,
+     "y": 263.15999999999997,
+     "width": 316.3861406654757,
+     "height": 109.07063138351958
+    },
+    "start": 1,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 4.2,
+    "fadeEnd": 4.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "4200:地圖上沒有名字的路",
+    "x": 128,
+    "y": 1052,
+    "angle": 8,
+    "rows": [
+     "地圖上沒有名字的路"
+    ],
+    "box": {
+     "x": 114,
+     "y": 989.16,
+     "width": 397.73007109716764,
+     "height": 138.254161922582
+    },
+    "start": 4.2,
+    "interval": 30,
+    "slotBorn": 1,
+    "fadeStart": 7.6,
+    "fadeEnd": 8.237499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "7600:我們把勇氣寫進角色卡",
+    "x": 244,
+    "y": 679,
+    "angle": -2,
+    "rows": [
+     "我們把勇氣寫進角色卡"
+    ],
+    "box": {
+     "x": 230,
+     "y": 602.9679902464546,
+     "width": 442.7697326132182,
+     "height": 104.68400975354537
+    },
+    "start": 7.6,
+    "interval": 30,
+    "slotBorn": 4.2,
+    "fadeStart": 11,
+    "fadeEnd": 11.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "11000:擲出去吧　命運的骰子",
+    "x": 399,
+    "y": 1365,
+    "angle": 8,
+    "rows": [
+     "擲出去吧　命運的骰子"
+    ],
+    "box": {
+     "x": 385,
+     "y": 1302.16,
+     "width": 439.3213299843136,
+     "height": 144.09943216290475
+    },
+    "start": 11,
+    "interval": 30,
+    "slotBorn": 7.6,
+    "fadeStart": 14.4,
+    "fadeEnd": 15.0375,
+    "overlapped": false,
+    "locked": true
+   },
+   {
+    "key": "14400:就算大失敗也要笑著前進",
+    "x": 110,
+    "y": 496,
+    "angle": -5,
+    "rows": [
+     "就算大失敗也要笑著前進"
+    ],
+    "box": {
+     "x": 96,
+     "y": 396.55458804598356,
+     "width": 483.40177319853314,
+     "height": 128.09741195401642
+    },
+    "start": 14.4,
+    "interval": 30,
+    "slotBorn": 11,
+    "fadeStart": 18.2,
+    "fadeEnd": 18.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "18200:Keep walking through the dark",
+    "x": 127,
+    "y": 665,
+    "angle": 8,
+    "rows": [
+     "Keep walking through the dark"
+    ],
+    "box": {
+     "x": 113,
+     "y": 602.16,
+     "width": 751.242275192767,
+     "height": 190.2770670614545
+    },
+    "start": 18.2,
+    "interval": 30,
+    "slotBorn": 14.4,
+    "fadeStart": 21.4,
+    "fadeEnd": 22.037499999999998,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "21400:把今晚的故事　留給明天的我們",
+    "x": 220,
+    "y": 1144,
+    "angle": 9,
+    "rows": [
+     "把今晚的故事　留給明天的我們"
+    ],
+    "box": {
+     "x": 206,
+     "y": 1081.16,
+     "width": 604.2778339649452,
+     "height": 176.90521791196608
+    },
+    "start": 21.4,
+    "interval": 30,
+    "slotBorn": 18.2,
+    "fadeStart": 25.6,
+    "fadeEnd": 26.2375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "25600:燭火熄滅之前",
+    "x": 182,
+    "y": 236,
+    "angle": 3,
+    "rows": [
+     "燭火熄滅之前"
+    ],
+    "box": {
+     "x": 168,
+     "y": 173.16,
+     "width": 274.7122022984605,
+     "height": 102.4825508110182
+    },
+    "start": 25.6,
+    "interval": 30,
+    "slotBorn": 21.4,
+    "fadeStart": 28.8,
+    "fadeEnd": 29.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "28800:再說一次　出發吧",
+    "x": 383,
+    "y": 757,
+    "angle": -7,
+    "rows": [
+     "再說一次　出發吧"
+    ],
+    "box": {
+     "x": 369,
+     "y": 658.3304130388866,
+     "width": 356.8085685825487,
+     "height": 127.32158696111337
+    },
+    "start": 28.8,
+    "interval": 50,
+    "slotBorn": 25.6,
+    "fadeStart": null,
+    "fadeEnd": null,
+    "overlapped": false,
+    "locked": false
+   }
+  ],
+  "frames": [
+   {
+    "t": 0,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 0.3,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 1.05,
+    "calls": 63,
+    "sha": "28f5c568e9eba8950a13c022e01abcde5ccb8dd0d8ba0254c8e2c0b3c46c3e8a"
+   },
+   {
+    "t": 1.6,
+    "calls": 123,
+    "sha": "13f0c55a8a8cb942c053a2cfb8ed1b8cc226453bfad1b34d63e819c49024f319"
+   },
+   {
+    "t": 2.7,
+    "calls": 123,
+    "sha": "faca7341843968c7ffa55815482c6102bff5ea3130b059bfafafecd885c729f8"
+   },
+   {
+    "t": 4.25,
+    "calls": 139,
+    "sha": "6bc0c041a4ed973393ab1692904e2bf8442fd19ccac973ef33c54a41e8078dec"
+   },
+   {
+    "t": 4.8,
+    "calls": 219,
+    "sha": "916664ab85c5d371838a810813874fd02cef2cc90d965933a7fbda5c6a45bf96"
+   },
+   {
+    "t": 5.9,
+    "calls": 148,
+    "sha": "d1981c1e4d43bf94bf8040248f94c99d47d20a0da2375dc1ad04f7f95fc072da"
+   },
+   {
+    "t": 7.65,
+    "calls": 159,
+    "sha": "d893fa9fa62d388d878439ab17d618a0f1069925ff3e8f428264a538d934c169"
+   },
+   {
+    "t": 8.2,
+    "calls": 249,
+    "sha": "c5b975eeae57f0acca3964b4a33b05c3d2ff61d19af6730896e58748570163e5"
+   },
+   {
+    "t": 9.3,
+    "calls": 158,
+    "sha": "ce95a498e27630987ad5bc41743523363e309fe0b158b468cd7148544b0a3a63"
+   },
+   {
+    "t": 11.05,
+    "calls": 174,
+    "sha": "c0bd8048d04c9b60345f6fef286cd3a8b973338194c5d83fb06374af55244d38"
+   },
+   {
+    "t": 11.6,
+    "calls": 264,
+    "sha": "0c1f82def1bb4961f87811740b958d9ff4524e465240d138e6ea77ffa14a3e5a"
+   },
+   {
+    "t": 12.7,
+    "calls": 163,
+    "sha": "78cfeaced1cf34f3f1a5bd5a7d78dcf9c8f58c08e727b99d65fbbefefef099dd"
+   },
+   {
+    "t": 14.45,
+    "calls": 351,
+    "sha": "257df269c2eda7ea93f4c7050d82e23896de425235020a7fe896bfb6a52ace19"
+   },
+   {
+    "t": 15,
+    "calls": 451,
+    "sha": "638cb13ad5536e4723ca2d970fa835b4505bba402a65a7dba2c8d77e433072bb"
+   },
+   {
+    "t": 16.1,
+    "calls": 350,
+    "sha": "cb4b4369cdbe757c7016ef8ab11b6460ea4a1cbac83cead381d42ccac9299503"
+   },
+   {
+    "t": 18.25,
+    "calls": 202,
+    "sha": "caf91cd86cc1ba7dc839a9d42c556242cf75695b2095125e9b37b3149f3c725e"
+   },
+   {
+    "t": 18.8,
+    "calls": 449,
+    "sha": "f9c1d1aef559dcc2c8311c133a703578b0b8f0da805187c34de57914c3f1c909"
+   },
+   {
+    "t": 19.9,
+    "calls": 455,
+    "sha": "cf14b741d7776eae932eedf94f68cdfe2bef301cb182c97d7348508c5ba6192c"
+   },
+   {
+    "t": 31.8,
+    "calls": 87,
+    "sha": "848a71a07b0f65a3a91a281daccb3a37365860cff1f380c19b74f4942ccecd21"
+   },
+   {
+    "t": 58.8,
+    "calls": 87,
+    "sha": "aa4fae4501facacba065ad8801cb3505b53b82415928cb95d713791cf9ea9f70"
+   }
+  ]
+ },
+ {
+  "name": "crowded-rewrap-fallback",
+  "plan": "b58cd03d00db61549f5e41f5fd92e164c6e3987994ea1622907ebfae5bc2948a",
+  "summary": [
+   {
+    "key": "1000:第1句很長很長的歌詞在畫面上擠來擠去看看放不放得下",
+    "x": 130,
+    "y": 254,
+    "angle": 21,
+    "rows": [
+     "第1句很長很長的歌詞在畫面上擠來擠",
+     "去看看放不放得下"
+    ],
+    "box": {
+     "x": 116,
+     "y": 134.39999999999998,
+     "width": 1344.060484682295,
+     "height": 639.7591651979776
+    },
+    "start": 1,
+    "interval": 30,
+    "slotBorn": null,
+    "fadeStart": 1.6,
+    "fadeEnd": 2.2375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "1600:第2句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦",
+    "x": 1575,
+    "y": 190,
+    "angle": -1,
+    "rows": [
+     "第2句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下啦"
+    ],
+    "box": {
+     "x": 1561,
+     "y": 68.061377537404,
+     "width": 277.9741081765865,
+     "height": 1265.858622462596
+    },
+    "start": 1.6,
+    "interval": 30,
+    "slotBorn": 1,
+    "fadeStart": 2.2,
+    "fadeEnd": 2.8375000000000004,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "2200:第3句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦",
+    "x": 1161,
+    "y": 206,
+    "angle": -12,
+    "rows": [
+     "第3",
+     "句很",
+     "長很",
+     "長的",
+     "歌詞",
+     "在畫",
+     "面上",
+     "擠來",
+     "擠去",
+     "看看",
+     "放不",
+     "放得",
+     "下啦",
+     "啦"
+    ],
+    "box": {
+     "x": 1147,
+     "y": 68.72750628049045,
+     "width": 191.14254606237347,
+     "height": 1967.5924937195098
+    },
+    "start": 2.2,
+    "interval": 30,
+    "slotBorn": 1,
+    "fadeStart": 2.8,
+    "fadeEnd": 3.4375,
+    "overlapped": true,
+    "locked": false
+   },
+   {
+    "key": "2800:第4句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦",
+    "x": 298,
+    "y": 227,
+    "angle": -27,
+    "rows": [
+     "第4",
+     "句很",
+     "長很",
+     "長的",
+     "歌詞",
+     "在畫",
+     "面上",
+     "擠來",
+     "擠去",
+     "看看",
+     "放不",
+     "放得",
+     "下啦",
+     "啦啦"
+    ],
+    "box": {
+     "x": 284,
+     "y": 68.81080752213853,
+     "width": 183.73555455601127,
+     "height": 1988.5091924778617
+    },
+    "start": 2.8,
+    "interval": 30,
+    "slotBorn": 1.6,
+    "fadeStart": 3.4,
+    "fadeEnd": 4.0375,
+    "overlapped": true,
+    "locked": false
+   },
+   {
+    "key": "3400:第5句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦",
+    "x": 861,
+    "y": 188,
+    "angle": 6,
+    "rows": [
+     "第5",
+     "句很",
+     "長很",
+     "長的",
+     "歌詞",
+     "在畫",
+     "面上",
+     "擠來",
+     "擠去",
+     "看看",
+     "放不",
+     "放得",
+     "下啦",
+     "啦啦",
+     "啦"
+    ],
+    "box": {
+     "x": 847,
+     "y": 68.39999999999999,
+     "width": 192.5343611063032,
+     "height": 2087.2000000000003
+    },
+    "start": 3.4,
+    "interval": 30,
+    "slotBorn": 2.2,
+    "fadeStart": 4,
+    "fadeEnd": 4.6375,
+    "overlapped": true,
+    "locked": false
+   },
+   {
+    "key": "4000:第6句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦啦",
+    "x": 556,
+    "y": 214,
+    "angle": -11,
+    "rows": [
+     "第6句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下啦啦",
+     "啦啦啦"
+    ],
+    "box": {
+     "x": 542,
+     "y": 68.83159461954298,
+     "width": 274.87662118610285,
+     "height": 1426.368405380457
+    },
+    "start": 4,
+    "interval": 30,
+    "slotBorn": 2.8,
+    "fadeStart": 4.6,
+    "fadeEnd": 5.2375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "4600:第7句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦啦啦",
+    "x": 1379,
+    "y": 282,
+    "angle": -18,
+    "rows": [
+     "第7句很長",
+     "很長的歌詞",
+     "在畫面上擠",
+     "來擠去看看",
+     "放不放得下",
+     "啦啦啦啦啦",
+     "啦"
+    ],
+    "box": {
+     "x": 1365,
+     "y": 68.458833710016,
+     "width": 431.3592155403522,
+     "height": 1082.901166289984
+    },
+    "start": 4.6,
+    "interval": 30,
+    "slotBorn": 3.4,
+    "fadeStart": 5.2,
+    "fadeEnd": 5.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "5200:第8句很長很長的歌詞在畫面上擠來擠去看看放不放得下",
+    "x": 1096,
+    "y": 218,
+    "angle": -13,
+    "rows": [
+     "第8句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下"
+    ],
+    "box": {
+     "x": 1082,
+     "y": 68.25655871792208,
+     "width": 273.64291101349,
+     "height": 1293.663441282078
+    },
+    "start": 5.2,
+    "interval": 30,
+    "slotBorn": 4,
+    "fadeStart": 5.8,
+    "fadeEnd": 6.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "5800:第9句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦",
+    "x": 113,
+    "y": 276,
+    "angle": -16,
+    "rows": [
+     "第9句很長",
+     "很長的歌詞",
+     "在畫面上擠",
+     "來擠去看看",
+     "放不放得下",
+     "啦"
+    ],
+    "box": {
+     "x": 99,
+     "y": 72.60624383163224,
+     "width": 434.8289766190284,
+     "height": 935.4737561683677
+    },
+    "start": 5.8,
+    "interval": 30,
+    "slotBorn": 4.6,
+    "fadeStart": 6.4,
+    "fadeEnd": 7.0375000000000005,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "6400:第10句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦",
+    "x": 832,
+    "y": 188,
+    "angle": 4,
+    "rows": [
+     "第10",
+     "句很",
+     "長很",
+     "長的",
+     "歌詞",
+     "在畫",
+     "面上",
+     "擠來",
+     "擠去",
+     "看看",
+     "放不",
+     "放得",
+     "下啦",
+     "啦"
+    ],
+    "box": {
+     "x": 818,
+     "y": 68.39999999999999,
+     "width": 205.67358273481645,
+     "height": 1949.92
+    },
+    "start": 6.4,
+    "interval": 30,
+    "slotBorn": 5.2,
+    "fadeStart": 7,
+    "fadeEnd": 7.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "7000:第11句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦",
+    "x": 600,
+    "y": 236,
+    "angle": -21,
+    "rows": [
+     "第11",
+     "句很",
+     "長很",
+     "長的",
+     "歌詞",
+     "在畫",
+     "面上",
+     "擠來",
+     "擠去",
+     "看看",
+     "放不",
+     "放得",
+     "下啦",
+     "啦啦"
+    ],
+    "box": {
+     "x": 586,
+     "y": 68.37869476092976,
+     "width": 197.09977715062502,
+     "height": 1997.9413052390705
+    },
+    "start": 7,
+    "interval": 30,
+    "slotBorn": 5.8,
+    "fadeStart": 7.6,
+    "fadeEnd": 8.237499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "7600:第12句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦",
+    "x": 1386,
+    "y": 270,
+    "angle": -3,
+    "rows": [
+     "第12句很",
+     "長很長的歌",
+     "詞在畫面上",
+     "擠來擠去看",
+     "看放不放得",
+     "下啦啦啦啦"
+    ],
+    "box": {
+     "x": 1372,
+     "y": 136.37396372689105,
+     "width": 447.5340418165551,
+     "height": 865.7060362731089
+    },
+    "start": 7.6,
+    "interval": 30,
+    "slotBorn": 6.4,
+    "fadeStart": 8.2,
+    "fadeEnd": 8.837499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "8200:第13句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦啦",
+    "x": 1079,
+    "y": 188,
+    "angle": 21,
+    "rows": [
+     "第13句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下啦啦",
+     "啦啦啦"
+    ],
+    "box": {
+     "x": 1065,
+     "y": 68.39999999999999,
+     "width": 278.84521804898793,
+     "height": 1461.722551422701
+    },
+    "start": 8.2,
+    "interval": 30,
+    "slotBorn": 7,
+    "fadeStart": 8.8,
+    "fadeEnd": 9.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "8800:第14句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦啦啦",
+    "x": 108,
+    "y": 293,
+    "angle": -23,
+    "rows": [
+     "第14句很",
+     "長很長的歌",
+     "詞在畫面上",
+     "擠來擠去看",
+     "看放不放得",
+     "下啦啦啦啦",
+     "啦啦"
+    ],
+    "box": {
+     "x": 94,
+     "y": 68.68405756487465,
+     "width": 420.97165017382974,
+     "height": 1093.6759424351253
+    },
+    "start": 8.8,
+    "interval": 30,
+    "slotBorn": 7.6,
+    "fadeStart": 9.4,
+    "fadeEnd": 10.0375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "9400:第15句很長很長的歌詞在畫面上擠來擠去看看放不放得下",
+    "x": 877,
+    "y": 188,
+    "angle": 29,
+    "rows": [
+     "第15",
+     "句很",
+     "長很",
+     "長的",
+     "歌詞",
+     "在畫",
+     "面上",
+     "擠來",
+     "擠去",
+     "看看",
+     "放不",
+     "放得",
+     "下"
+    ],
+    "box": {
+     "x": 863,
+     "y": 68.39999999999999,
+     "width": 189.19904075667904,
+     "height": 1812.64
+    },
+    "start": 9.4,
+    "interval": 30,
+    "slotBorn": 8.2,
+    "fadeStart": 10,
+    "fadeEnd": 10.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "10000:第16句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦",
+    "x": 553,
+    "y": 251,
+    "angle": -20,
+    "rows": [
+     "第16句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下啦"
+    ],
+    "box": {
+     "x": 539,
+     "y": 68.8103137714026,
+     "width": 279.96374960382127,
+     "height": 1326.1096862285974
+    },
+    "start": 10,
+    "interval": 30,
+    "slotBorn": 8.8,
+    "fadeStart": 10.6,
+    "fadeEnd": 11.237499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "10600:第17句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦",
+    "x": 1416,
+    "y": 314,
+    "angle": -28,
+    "rows": [
+     "第17句很",
+     "長很長的歌",
+     "詞在畫面上",
+     "擠來擠去看",
+     "看放不放得",
+     "下啦啦"
+    ],
+    "box": {
+     "x": 1402,
+     "y": 68.58162117338125,
+     "width": 408.20218157203516,
+     "height": 977.4983788266187
+    },
+    "start": 10.6,
+    "interval": 30,
+    "slotBorn": 9.4,
+    "fadeStart": 11.2,
+    "fadeEnd": 11.837499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "11200:第18句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦",
+    "x": 1116,
+    "y": 188,
+    "angle": 14,
+    "rows": [
+     "第18句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下啦啦",
+     "啦"
+    ],
+    "box": {
+     "x": 1102,
+     "y": 68.39999999999999,
+     "width": 285.56411790850734,
+     "height": 1400.8
+    },
+    "start": 11.2,
+    "interval": 30,
+    "slotBorn": 10,
+    "fadeStart": 11.8,
+    "fadeEnd": 12.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "11800:第19句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦",
+    "x": 108,
+    "y": 201,
+    "angle": 13,
+    "rows": [
+     "第19句很",
+     "長很長的歌",
+     "詞在畫面上",
+     "擠來擠去看",
+     "看放不放得",
+     "下啦啦啦啦"
+    ],
+    "box": {
+     "x": 94,
+     "y": 81.39999999999999,
+     "width": 439.28582202698,
+     "height": 928.163358476914
+    },
+    "start": 11.8,
+    "interval": 30,
+    "slotBorn": 10.6,
+    "fadeStart": 12.4,
+    "fadeEnd": 13.0375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "12400:第20句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦啦",
+    "x": 837,
+    "y": 188,
+    "angle": 1,
+    "rows": [
+     "第20",
+     "句很",
+     "長很",
+     "長的",
+     "歌詞",
+     "在畫",
+     "面上",
+     "擠來",
+     "擠去",
+     "看看",
+     "放不",
+     "放得",
+     "下啦",
+     "啦啦",
+     "啦啦"
+    ],
+    "box": {
+     "x": 823,
+     "y": 68.39999999999999,
+     "width": 205.97959115095642,
+     "height": 2088.6834545471693
+    },
+    "start": 12.4,
+    "interval": 30,
+    "slotBorn": 11.2,
+    "fadeStart": 13,
+    "fadeEnd": 13.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "13000:第21句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦啦啦",
+    "x": 580,
+    "y": 188,
+    "angle": 25,
+    "rows": [
+     "第21",
+     "句很",
+     "長很",
+     "長的",
+     "歌詞",
+     "在畫",
+     "面上",
+     "擠來",
+     "擠去",
+     "看看",
+     "放不",
+     "放得",
+     "下啦",
+     "啦啦",
+     "啦啦",
+     "啦"
+    ],
+    "box": {
+     "x": 566,
+     "y": 68.39999999999999,
+     "width": 193.4452434629111,
+     "height": 2224.4799999999996
+    },
+    "start": 13,
+    "interval": 30,
+    "slotBorn": 11.8,
+    "fadeStart": 13.6,
+    "fadeEnd": 14.237499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "13600:第22句很長很長的歌詞在畫面上擠來擠去看看放不放得下",
+    "x": 1409,
+    "y": 210,
+    "angle": 1,
+    "rows": [
+     "第22句很",
+     "長很長的歌",
+     "詞在畫面上",
+     "擠來擠去看",
+     "看放不放得",
+     "下"
+    ],
+    "box": {
+     "x": 1395,
+     "y": 90.39999999999999,
+     "width": 447.94821635317305,
+     "height": 851.68
+    },
+    "start": 13.6,
+    "interval": 30,
+    "slotBorn": 12.4,
+    "fadeStart": 14.2,
+    "fadeEnd": 14.837499999999999,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "14200:第23句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦",
+    "x": 1100,
+    "y": 188,
+    "angle": 16,
+    "rows": [
+     "第23句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下啦"
+    ],
+    "box": {
+     "x": 1086,
+     "y": 68.39999999999999,
+     "width": 283.91089035671234,
+     "height": 1286.9491752444449
+    },
+    "start": 14.2,
+    "interval": 30,
+    "slotBorn": 13,
+    "fadeStart": 14.8,
+    "fadeEnd": 15.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "14800:第24句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦",
+    "x": 121,
+    "y": 278,
+    "angle": -18,
+    "rows": [
+     "第24句很",
+     "長很長的歌",
+     "詞在畫面上",
+     "擠來擠去看",
+     "看放不放得",
+     "下啦啦"
+    ],
+    "box": {
+     "x": 107,
+     "y": 75.58344550751409,
+     "width": 431.3592155403522,
+     "height": 934.4965544924859
+    },
+    "start": 14.8,
+    "interval": 30,
+    "slotBorn": 13.6,
+    "fadeStart": 15.4,
+    "fadeEnd": 16.0375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "15400:第25句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦",
+    "x": 817,
+    "y": 251,
+    "angle": -20,
+    "rows": [
+     "第25句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下啦啦",
+     "啦"
+    ],
+    "box": {
+     "x": 803,
+     "y": 68.8103137714026,
+     "width": 279.96374960382127,
+     "height": 1463.3896862285974
+    },
+    "start": 15.4,
+    "interval": 30,
+    "slotBorn": 14.2,
+    "fadeStart": 16,
+    "fadeEnd": 16.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "16000:第26句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦",
+    "x": 592,
+    "y": 188,
+    "angle": 11,
+    "rows": [
+     "第26",
+     "句很",
+     "長很",
+     "長的",
+     "歌詞",
+     "在畫",
+     "面上",
+     "擠來",
+     "擠去",
+     "看看",
+     "放不",
+     "放得",
+     "下啦",
+     "啦啦",
+     "啦"
+    ],
+    "box": {
+     "x": 578,
+     "y": 68.39999999999999,
+     "width": 203.53804258198699,
+     "height": 2087.2000000000003
+    },
+    "start": 16,
+    "interval": 30,
+    "slotBorn": 14.8,
+    "fadeStart": 16.6,
+    "fadeEnd": 17.2375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "16600:第27句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦啦",
+    "x": 1416,
+    "y": 225,
+    "angle": -8,
+    "rows": [
+     "第27句很",
+     "長很長的歌",
+     "詞在畫面上",
+     "擠來擠去看",
+     "看放不放得",
+     "下啦啦啦啦",
+     "啦"
+    ],
+    "box": {
+     "x": 1402,
+     "y": 68.10160894270246,
+     "width": 444.6911433721339,
+     "height": 1026.2583910572976
+    },
+    "start": 16.6,
+    "interval": 30,
+    "slotBorn": 15.4,
+    "fadeStart": 17.2,
+    "fadeEnd": 17.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "17200:第28句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦啦啦",
+    "x": 1117,
+    "y": 188,
+    "angle": 0,
+    "rows": [
+     "第28句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下啦啦",
+     "啦啦啦",
+     "啦"
+    ],
+    "box": {
+     "x": 1103,
+     "y": 68.39999999999999,
+     "width": 291,
+     "height": 1538.08
+    },
+    "start": 17.2,
+    "interval": 30,
+    "slotBorn": 16,
+    "fadeStart": 17.8,
+    "fadeEnd": 18.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "17800:第29句很長很長的歌詞在畫面上擠來擠去看看放不放得下",
+    "x": 110,
+    "y": 198,
+    "angle": 10,
+    "rows": [
+     "第29句很",
+     "長很長的歌",
+     "詞在畫面上",
+     "擠來擠去看",
+     "看放不放得",
+     "下"
+    ],
+    "box": {
+     "x": 96,
+     "y": 78.39999999999999,
+     "width": 442.8346360241507,
+     "height": 851.68
+    },
+    "start": 17.8,
+    "interval": 30,
+    "slotBorn": 16.6,
+    "fadeStart": 18.4,
+    "fadeEnd": 19.037499999999998,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "18400:第30句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦",
+    "x": 805,
+    "y": 188,
+    "angle": 15,
+    "rows": [
+     "第30句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下啦"
+    ],
+    "box": {
+     "x": 791,
+     "y": 68.39999999999999,
+     "width": 284.7644262108995,
+     "height": 1285.5196188337143
+    },
+    "start": 18.4,
+    "interval": 30,
+    "slotBorn": 17.2,
+    "fadeStart": 19,
+    "fadeEnd": 19.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "19000:第31句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦",
+    "x": 591,
+    "y": 188,
+    "angle": 26,
+    "rows": [
+     "第31",
+     "句很",
+     "長很",
+     "長的",
+     "歌詞",
+     "在畫",
+     "面上",
+     "擠來",
+     "擠去",
+     "看看",
+     "放不",
+     "放得",
+     "下啦",
+     "啦"
+    ],
+    "box": {
+     "x": 577,
+     "y": 68.39999999999999,
+     "width": 192.4384022040884,
+     "height": 1949.92
+    },
+    "start": 19,
+    "interval": 30,
+    "slotBorn": 17.8,
+    "fadeStart": 19.6,
+    "fadeEnd": 20.2375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "19600:第32句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦",
+    "x": 1435,
+    "y": 288,
+    "angle": -22,
+    "rows": [
+     "第32句很",
+     "長很長的歌",
+     "詞在畫面上",
+     "擠來擠去看",
+     "看放不放得",
+     "下啦啦啦"
+    ],
+    "box": {
+     "x": 1421,
+     "y": 68.00543296453557,
+     "width": 423.2425105527077,
+     "height": 952.0745670354644
+    },
+    "start": 19.6,
+    "interval": 30,
+    "slotBorn": 18.4,
+    "fadeStart": 20.2,
+    "fadeEnd": 20.8375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "20200:第33句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦",
+    "x": 1113,
+    "y": 188,
+    "angle": 0,
+    "rows": [
+     "第33句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下啦啦",
+     "啦啦"
+    ],
+    "box": {
+     "x": 1099,
+     "y": 68.39999999999999,
+     "width": 291,
+     "height": 1400.8
+    },
+    "start": 20.2,
+    "interval": 30,
+    "slotBorn": 19,
+    "fadeStart": 20.8,
+    "fadeEnd": 21.4375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "20800:第34句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦啦",
+    "x": 122,
+    "y": 188,
+    "angle": 18,
+    "rows": [
+     "第34句很",
+     "長很長的歌",
+     "詞在畫面上",
+     "擠來擠去看",
+     "看放不放得",
+     "下啦啦啦啦",
+     "啦"
+    ],
+    "box": {
+     "x": 108,
+     "y": 68.39999999999999,
+     "width": 431.3592155403522,
+     "height": 988.96
+    },
+    "start": 20.8,
+    "interval": 30,
+    "slotBorn": 19.6,
+    "fadeStart": 21.4,
+    "fadeEnd": 22.037499999999998,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "21400:第35句很長很長的歌詞在畫面上擠來擠去看看放不放得下啦啦啦啦啦啦",
+    "x": 810,
+    "y": 188,
+    "angle": 16,
+    "rows": [
+     "第35句",
+     "很長很",
+     "長的歌",
+     "詞在畫",
+     "面上擠",
+     "來擠去",
+     "看看放",
+     "不放得",
+     "下啦啦",
+     "啦啦啦",
+     "啦"
+    ],
+    "box": {
+     "x": 796,
+     "y": 68.39999999999999,
+     "width": 283.91089035671234,
+     "height": 1538.08
+    },
+    "start": 21.4,
+    "interval": 30,
+    "slotBorn": 20.2,
+    "fadeStart": 22,
+    "fadeEnd": 22.6375,
+    "overlapped": false,
+    "locked": false
+   },
+   {
+    "key": "22000:第36句很長很長的歌詞在畫面上擠來擠去看看放不放得下",
+    "x": 595,
+    "y": 188,
+    "angle": 26,
+    "rows": [
+     "第36",
+     "句很",
+     "長很",
+     "長的",
+     "歌詞",
+     "在畫",
+     "面上",
+     "擠來",
+     "擠去",
+     "看看",
+     "放不",
+     "放得",
+     "下"
+    ],
+    "box": {
+     "x": 581,
+     "y": 68.39999999999999,
+     "width": 192.4384022040884,
+     "height": 1812.64
+    },
+    "start": 22,
+    "interval": 50,
+    "slotBorn": 20.8,
+    "fadeStart": null,
+    "fadeEnd": null,
+    "overlapped": false,
+    "locked": false
+   }
+  ],
+  "frames": [
+   {
+    "t": 0,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 0.3,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 1.05,
+    "calls": 284,
+    "sha": "40b68c512ffc6e6d680917c3ba9cb5c9cd9f4a917de37e1f4f0a2f2106e0499b"
+   },
+   {
+    "t": 1.6,
+    "calls": 393,
+    "sha": "60108fb0b9d9c91983938da5321f407bc5b1761b1ad77e137f0038a8c5ee7ae9"
+   },
+   {
+    "t": 2.7,
+    "calls": 715,
+    "sha": "f4a6b5c7e4d07ff5e3ae4ae1afc475c540831aa25b6d3a4e500807991a391fea"
+   },
+   {
+    "t": 1.65,
+    "calls": 545,
+    "sha": "fe3e168353bad18c53df365bdc2acf36ed4b0d7cceb87f6201e56a132387ba40"
+   },
+   {
+    "t": 2.2,
+    "calls": 659,
+    "sha": "9df32f7d2e4a0c1e8077d1350babb62325d799f9c2f43c739f7d5b0eb7eb914b"
+   },
+   {
+    "t": 3.3,
+    "calls": 735,
+    "sha": "81ea297600eefed093141a21411ae836f53ebce124f30092b4af7e5c51e08bff"
+   },
+   {
+    "t": 2.25,
+    "calls": 565,
+    "sha": "42c28ab19d55fac425c86286e46721a0680f926abfbf4ba4adcb51b1e9195d02"
+   },
+   {
+    "t": 2.8,
+    "calls": 684,
+    "sha": "04d7ab398ee4c09dd5bdfba1b82ba5865cffb16d8780edd65e01a403bb23b659"
+   },
+   {
+    "t": 3.9,
+    "calls": 755,
+    "sha": "1d874a5ed43c4f8fe407e9290bc6f44130890cfab149990fc3ce08a2004b46f1"
+   },
+   {
+    "t": 2.85,
+    "calls": 585,
+    "sha": "09f8b3dbff1cc19f4b5d69b933fffb168cca79bd4754c381940405cbd68bfe88"
+   },
+   {
+    "t": 3.4,
+    "calls": 709,
+    "sha": "1b1f7c8fe9fe22bd08afa12af3acbcc7989db178a9b1741d668dc591e003032f"
+   },
+   {
+    "t": 4.5,
+    "calls": 740,
+    "sha": "d4a369c287f29e3052c3d6a8100d1b9db8702477fb297e19ba2935d005ba24d5"
+   },
+   {
+    "t": 3.45,
+    "calls": 605,
+    "sha": "e8e260e213ab823f8fe6b5f99841f7df2291f3fadbfa1287446abfeb3571c1ff"
+   },
+   {
+    "t": 4,
+    "calls": 734,
+    "sha": "c5fa1cbf12cdab6be18c1f994fdbf275a6f544cafffeee5a8ecc1514e1774b91"
+   },
+   {
+    "t": 5.1,
+    "calls": 725,
+    "sha": "4b2b15c6abcd21bb5726ce4d4a01a48f678a2b8e8caacba15a895faef0ed0385"
+   },
+   {
+    "t": 4.05,
+    "calls": 590,
+    "sha": "fd7b6f7e0c1a3766718c39a9fd8727f0fc7f0aa1d76686de02bceae7682f52c3"
+   },
+   {
+    "t": 4.6,
+    "calls": 724,
+    "sha": "aea53c6221036f08fbb89fcaa764928b9ed2897d030bd99708119f7d99eadad4"
+   },
+   {
+    "t": 5.7,
+    "calls": 750,
+    "sha": "41729e416c36adfe682ccc8fb5c527dbae3b60753f7b63b5ac5675ca9ab25a4d"
+   },
+   {
+    "t": 25,
+    "calls": 267,
+    "sha": "810facded99df03cf65bc943901449312e571a1d6d5632eb4d59d6108d238550"
+   },
+   {
+    "t": 52,
+    "calls": 267,
+    "sha": "8b8fb6da313aecc8bb004083fca4182c27767992b42cc8e6145d68e327300770"
+   }
+  ]
+ },
+ {
+  "name": "untimed",
+  "plan": "df3a88bea9c4785b9e9641de23fe47218cfd0dddb28f87c8889c9f894a918735",
+  "summary": [
+   {
+    "key": "untimed",
+    "x": 222,
+    "y": 243,
+    "angle": 6,
+    "rows": [
+     "沒有時間的第一行",
+     "第二行比較長一點點",
+     "third line"
+    ],
+    "box": {
+     "x": 208,
+     "y": 180.16,
+     "width": 399.15935684373983,
+     "height": 242.32416889451517
+    },
+    "start": 0,
+    "interval": 50,
+    "slotBorn": null,
+    "fadeStart": null,
+    "fadeEnd": null,
+    "overlapped": false,
+    "locked": false
+   }
+  ],
+  "frames": [
+   {
+    "t": 0,
+    "calls": 0,
+    "sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   },
+   {
+    "t": 0.3,
+    "calls": 67,
+    "sha": "0aae345479a2a99b2ecc2a840d66cbb20b202c73fde8cf294bbc4ce764f7df94"
+   },
+   {
+    "t": 0.05,
+    "calls": 17,
+    "sha": "a0f528978f25d95411dba97e1743137cfbe8884eb79e55fa4accd90402745589"
+   },
+   {
+    "t": 0.6,
+    "calls": 127,
+    "sha": "79e68b02b8498dc820028f3136c929ae435b6e3279451e6ca7a500ea3518385a"
+   },
+   {
+    "t": 1.7,
+    "calls": 277,
+    "sha": "4bc8bbdc2d9bbe83617850468371dfe68746136f802595a77ff174ca04574e33"
+   },
+   {
+    "t": 3,
+    "calls": 277,
+    "sha": "a6a1f0ab3b36c5885baa237f554712e7c607b28b7a7cc42714edd880f1177dc5"
+   },
+   {
+    "t": 30,
+    "calls": 277,
+    "sha": "9167630fb81f163e7c42aa5c0eb187182780b4c15311983b2c075f041be6b4d9"
+   }
+  ]
+ }
+]
