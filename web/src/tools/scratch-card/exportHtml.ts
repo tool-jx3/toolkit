@@ -4,8 +4,15 @@
  * buildInteractiveHtml 是純函式（圖片網址由呼叫端給；瀏覽器裡用 images.ts 的 resolveExportSources 把上傳的圖變成 data URL）。
  * 結果的圖放在一張圖片表裡（同一張只放一份），開頁時由程式填進 `<img data-scx-img>`；裁切範圍照樣寫在 HTML 裡（顯示時才裁）。
  */
-import { safeFileName } from '@/core/files';
 import { escapeHtml } from '@/core/html';
+import {
+  type InteractiveHtml,
+  interactiveFileName,
+  widgetId as newWidgetId,
+  scriptJson,
+  standaloneDocument,
+  styleText,
+} from '@/core/interactive';
 import type { Card } from './card';
 import { mountScratch } from './engine';
 import {
@@ -20,23 +27,12 @@ import type { ImageRef } from './model';
 import { S } from './strings';
 
 /** 元件的 id（每次產生都不同，同一頁貼好幾張也不會互相影響） */
-export const widgetId = (): string =>
-  `scx-${Math.random().toString(36).slice(2, 10).padEnd(8, '0')}`;
+export const widgetId = (): string => newWidgetId('scx');
 
 /** 刮刮卡程式的原始碼（函式運算式） */
 export const engineSource = (): string => mountScratch.toString();
 
-/** 放進 <script> 的 JSON：`<` 換成跳脫的寫法（字串裡有 </script> 也不會提早結束） */
-const scriptJson = (v: unknown) =>
-  JSON.stringify(v)
-    .replace(/</g, '\\u003c')
-    .replace(/\u2028/g, '\\u2028')
-    .replace(/\u2029/g, '\\u2029');
-
-export interface InteractiveHtml {
-  snippet: string;
-  standalone: string;
-}
+export type { InteractiveHtml };
 
 export function buildInteractiveHtml(
   card: Card,
@@ -76,31 +72,22 @@ export function buildInteractiveHtml(
 <div class="scx-actions"><button type="button" class="scx-reset">${escapeHtml(S.recover)}</button></div>
 </div>
 <style>
-${css.replace(/<\//g, '<\\/')}
+${styleText(css)}
 </style>
 <script>
 ${script}
 </script>
 <!-- ${S.html.commentEnd} -->`;
   const title = card.title?.text.trim() || S.html.docTitle;
-  const standalone = `<!doctype html>
-<html lang="zh-Hant-TW">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escapeHtml(title)}</title>
-<style>html,body{margin:0}body{display:flex;align-items:center;justify-content:center;min-height:100vh;box-sizing:border-box;padding:16px;background:#f3f4f6}body>.scx{width:100%}</style>
-</head>
-<body>
-${snippet}
-</body>
-</html>
-`;
+  const standalone = standaloneDocument({
+    title,
+    css: 'html,body{margin:0}body{display:flex;align-items:center;justify-content:center;min-height:100vh;box-sizing:border-box;padding:16px;background:#f3f4f6}body>.scx{width:100%}',
+    body: snippet,
+  });
   return { snippet, standalone };
 }
 
 /** 互動 HTML 的檔名：刮刮卡.html／刮刮卡_<標題>.html */
 export function htmlFileName(card: Card): string {
-  const t = safeFileName(card.title?.text.trim() ?? '', { fallback: '', maxLength: 40 });
-  return t ? `刮刮卡_${t}.html` : '刮刮卡.html';
+  return interactiveFileName('刮刮卡', card.title?.text ?? '');
 }

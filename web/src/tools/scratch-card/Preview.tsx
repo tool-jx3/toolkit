@@ -3,6 +3,7 @@
  */
 import { Code2, Eraser, RotateCcw, Share2, Sparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { shareTooLong } from '@/core/share';
 import { Button, Notice, Stage } from '@/ui';
 import { CardView } from './CardView';
 import { buildCard, specOf } from './card';
@@ -37,7 +38,7 @@ export function PreviewArea() {
 
   const shareBlock = usesUploadedImages(spec)
     ? S.shareUploaded
-    : encodeShare(spec).length - 1 > SHARE_MAX_LENGTH
+    : shareTooLong(encodeShare(spec), SHARE_MAX_LENGTH)
       ? S.shareTooLong
       : null;
 
