@@ -1280,7 +1280,7 @@ test('分享連結：畫面只有遊玩畫面、能玩、不含 KP 備註、不�
   const dialog = page.getByTestId('share-dialog');
   const link = dialog.getByRole('textbox', { name: '連結' });
   const url = await link.inputValue();
-  expect(url).toMatch(/\/next\/clue-map\/#m=[A-Za-z0-9_-]+$/);
+  expect(url).toMatch(/\/tools\/clue-map\/#m=[A-Za-z0-9_-]+$/);
   expect(url.length).toBeLessThan(8100);
   /* 字數和上限用同一個量法：# 後面（F91） */
   const hashLen = url.length - (url.indexOf('#') + 1);
