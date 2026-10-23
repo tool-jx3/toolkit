@@ -380,6 +380,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'screenshot-fx',
+    name: '截圖演出產生器',
+    summary:
+      '在截圖上畫放大框、螢光筆、塗黑：周圍變暗、框彈出放大、螢光筆畫出來、塗黑剝開或蓋上，背景可以模糊或透明，加上出處，匯出完成圖 PNG、APNG 或影片。',
+    group: 'G2',
+    status: 'next',
+    inspiration: {
+      name: 'KIIN／スクショ演出スタジオ',
+      url: 'https://screenshot-studio-8n8.pages.dev/',
+    },
+  },
+  {
     id: 'room-zip',
     name: '房間 ZIP 產生器',
     summary:
