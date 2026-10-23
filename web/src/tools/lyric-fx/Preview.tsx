@@ -14,6 +14,7 @@ import {
 } from '@/ui';
 import { currentRegion, notify, removeAudio } from './actions';
 import { savePng } from './exporter';
+import { LineOverlay, LineToolbar } from './LineOverlay';
 import { formatClock, sizeOf } from './model';
 import { RegionOverlay, RegionToolbar } from './RegionOverlay';
 import { builtLines, drawFrame, loopLength, planOf, styleOf, usesRegion } from './scene';
@@ -53,6 +54,9 @@ export function Preview() {
   loopRef.current = loop;
   /* 避開區域是工具層的共用設定；目前的風格不避開它時不畫框 */
   const region = usesRegion(styleOf(s)) ? s.region : null;
+  /* 預覽上的逐句操作（F76）：暫停時才能點選、拖曳 */
+  const time = hasAudio ? audio.time : loop.time;
+  const playing = hasAudio ? audio.playing : loop.playing;
 
   useEffect(() => {
     if (hasAudio) loopRef.current.pause();
@@ -172,9 +176,11 @@ export function Preview() {
           data-testid="preview-canvas"
           aria-label={S.preview.aria}
         />
+        <LineOverlay time={time} playing={playing} width={size.width} height={size.height} />
         <RegionOverlay region={region} show={showRegion} />
       </Stage>
       <RegionToolbar />
+      <LineToolbar time={time} playing={playing} />
       {hasAudio ? (
         <div className="flex min-w-0 flex-col gap-2" data-testid="audio-transport">
           <Transport

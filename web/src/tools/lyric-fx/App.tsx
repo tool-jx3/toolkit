@@ -21,6 +21,7 @@ import {
   projectFiles,
   rerollAll,
   resetAll,
+  selectLine,
   setToaster,
   stampNow,
   syncAudio,
@@ -39,7 +40,7 @@ import {
   togglePreview,
 } from './Preview';
 import { CanvasTab, ExportTab, LyricsTab, StyleTab } from './panels';
-import { builtLines, frameText, planOf, styleOf, styleSettings } from './scene';
+import { builtLines, fontsToLoad, placementOf, planOf, styleOf, styleSettings } from './scene';
 import {
   edit,
   PROJECT_VERSION,
@@ -85,11 +86,10 @@ function useMediaSync() {
   }, [bgId]);
 }
 
-/** 字型：換字型或改了歌詞就載入用到的字（0.25 秒內的連續變更合併） */
+/** 字型：換字型（含逐句換的字型）或改了歌詞就載入用到的字（0.25 秒內的連續變更合併） */
 function useFontSync() {
   const s = useSettings((st) => st.data);
-  const fonts = JSON.stringify(styleOf(s).fonts(styleSettings(s)));
-  const key = `${fonts}|${frameText(s)}`;
+  const key = JSON.stringify(fontsToLoad(s));
   // biome-ignore lint/correctness/useExhaustiveDependencies: 只在字型或用到的字改變時載入
   useEffect(() => {
     const t = setTimeout(() => {
@@ -160,6 +160,13 @@ function useTestHook() {
             box: { x: number; y: number; width: number; height: number };
             locked: boolean;
             latin: boolean;
+            font: string;
+            pinned?: boolean;
+            th?: number;
+            textColor?: string;
+            glowColor?: string;
+            opacity?: number;
+            glyphs: { adv?: number }[];
           }[];
         };
         return {
@@ -180,8 +187,32 @@ function useTestHook() {
             box: l.box,
             locked: l.locked,
             latin: l.latin,
+            font: l.font,
+            pinned: !!l.pinned,
+            th: l.th ?? null,
+            textColor: l.textColor ?? null,
+            glowColor: l.glowColor ?? null,
+            opacity: l.opacity ?? null,
+            width: l.glyphs.reduce((w, g) => w + (g.adv ?? 0), 0),
           })),
         };
+      },
+      /* 逐句的手動調整（F75～F81） */
+      selected: () => useSession.getState().selected,
+      select: (key: string | null) => selectLine(key, 'preview'),
+      placement: (key: string, t?: number) =>
+        placementOf(settingsNow(), useSession.getState().fontTick, key, t ?? previewNow()),
+      hit: (x: number, y: number, t?: number) => {
+        const s = settingsNow();
+        return (
+          styleOf(s).hitTest?.(
+            planOf(s, useSession.getState().fontTick),
+            styleSettings(s),
+            t ?? previewNow(),
+            x,
+            y,
+          ) ?? null
+        );
       },
       seek: (t: number) => seekPreview(t),
       time: () => previewNow(),

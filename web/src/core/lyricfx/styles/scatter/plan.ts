@@ -15,6 +15,7 @@ import type { JitterSpec } from '../../jitter';
 import { IDENTITY_PERSPECTIVE, type Perspective, perspectiveAt } from '../../perspective';
 import { createRng, hash32 } from '../../random';
 import type {
+  LyricFont,
   LyricFxLine,
   LyricLineAdjust,
   LyricMeasureEnv,
@@ -141,6 +142,8 @@ export interface ScatterLinePlan {
   glowColor?: string;
   /** 不透明度的倍率（0～1；沒有＝1） */
   opacity?: number;
+  /** 這一句的字型（逐句換過字型時；沒有＝風格的字型） */
+  face?: LyricFont;
 }
 
 export interface ScatterPlan {
@@ -608,6 +611,7 @@ export function planScatter(
     if (d.m !== m) out.th = d.m.th;
     if (adj?.color) out.textColor = adj.color;
     if (adj?.glowColor) out.glowColor = adj.glowColor;
+    if (adj?.font) out.face = { ...adj.font };
     if (adj && finiteNum(adj.opacity) && adj.opacity !== 1)
       out.opacity = Math.min(1, Math.max(0, adj.opacity));
     return out;

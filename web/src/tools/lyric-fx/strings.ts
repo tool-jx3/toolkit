@@ -7,6 +7,7 @@ export const S = {
     '沒有時間標記的歌詞：放進音樂後播放，聽到每一句開始時按 Ctrl＋Enter（或「打點」）。',
     '在「風格」分頁調整字型、顏色、抖動、殘影與預點亮；在預覽上框選「避開區域」（例如角色的臉）。',
     '位置不喜歡就按「重新抽位置」（G），喜歡的句可以在「逐句調整」鎖定。',
+    '暫停時在預覽上點一句可以選取它：拖曳移動、拖圓點旋轉；顏色、大小、透明度、字型在「逐句調整」的「調整」裡改。',
     '在「匯出」分頁存成有聲影片、透明 WebM（直播疊加、剪輯軟體）或 PNG 連番。',
   ],
   about: '全部在瀏覽器裡處理，音樂與歌詞不會上傳。',
@@ -85,10 +86,54 @@ export const S = {
     rerollAllHint: '換一個亂數種子：沒有鎖定的句全部重新抽。',
     clear: '清除逐句調整',
     clearTitle: '清除所有逐句調整？',
-    clearText: '改過的時間與文字、重抽與鎖定都會拿掉（可以復原）。',
-    count: (edited: number, locked: number) =>
-      `${edited ? `${edited} 句改過` : ''}${edited && locked ? '、' : ''}${locked ? `${locked} 句鎖定` : ''}`,
+    clearText: '改過的時間與文字、重抽、鎖定與手動調整都會拿掉（可以復原）。',
+    count: (edited: number, locked: number, adjusted = 0) =>
+      [
+        edited ? `${edited} 句改過` : '',
+        locked ? `${locked} 句鎖定` : '',
+        adjusted ? `${adjusted} 句手動調整` : '',
+      ]
+        .filter(Boolean)
+        .join('、'),
     seed: (n: number) => `目前的種子：${n}`,
+    adjust: (i: number) => `調整第 ${i} 句`,
+    adjusted: '手動調整',
+    pinned: '位置固定',
+  },
+
+  /** 逐句的手動調整（F75～F81） */
+  adjust: {
+    title: (i: number) => `第 ${i} 句的手動調整`,
+    x: 'X',
+    y: 'Y',
+    angle: '角度',
+    positionHint: '錨點（第一個字）在畫面的位置。改了位置或角度，這一句就固定不動，其他句避開它。',
+    color: '文字顏色',
+    glowColor: '發光顏色',
+    glowHint: '風格的「發光」開著時才看得到。',
+    useStyle: '回到風格的顏色',
+    scale: '大小',
+    scaleHint: '字級的倍率（字間距一起縮放）；排位置照改過的大小。',
+    opacity: '透明度',
+    opacityHint:
+      '乘在風格的透明度與淡入淡出上；0% 時看不到，但照樣占位置（要拿掉整句請把文字清空）。',
+    font: '字型',
+    fontStyle: '同風格',
+    fontOwn: '另選字型',
+    reset: '恢復自動',
+    resetHint: '拿掉這一句的手動調整（位置、角度、顏色、大小、透明度、字型）。',
+    unsupported: '目前的風格不支援逐句的手動調整。',
+  },
+
+  /** 預覽上的選取（F76） */
+  pick: {
+    toolbar: (i: number) => `已選取第 ${i} 句`,
+    hint: '拖曳移動、拖圓點旋轉（Shift 每 15°）、方向鍵微調（Shift 10 倍）、Esc 取消選取。',
+    hidden: '這個時間不在畫面上。',
+    playing: '播放中不能拖曳，暫停後再調整。',
+    openList: '在逐句清單調整',
+    deselect: '取消選取',
+    rotate: (i: number) => `旋轉第 ${i} 句`,
   },
 
   style: {
@@ -219,6 +264,7 @@ export const S = {
     exported: (name: string) => `已匯出「${name}」`,
     cancelled: '已取消匯出',
     rerolled: '已重新抽位置',
+    adjustReset: '已恢復自動',
     locked: '已鎖定這一句的位置',
     fontFailed: '字型載入失敗，暫時用電腦的字型。',
   },

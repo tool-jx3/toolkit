@@ -104,6 +104,10 @@ export interface Session {
   regionPending: LyricRegion | null;
   /** 預覽的時間（沒有音樂時的時鐘；有音樂時看 player） */
   loopTime: number;
+  /** 選取的句（預覽上點選、或逐句清單的「調整」；F76）：不列入復原、不存檔 */
+  selected: string | null;
+  /** 從預覽選取時加 1：逐句清單捲到那一句 */
+  revealTick: number;
 }
 
 export const useSession = create<Session>(() => ({
@@ -120,6 +124,8 @@ export const useSession = create<Session>(() => ({
   regionEditing: false,
   regionPending: null,
   loopTime: 0,
+  selected: null,
+  revealTick: 0,
 }));
 
 export const setTab = (tab: TabId) => useSession.setState({ tab });

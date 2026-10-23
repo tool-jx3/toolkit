@@ -89,6 +89,10 @@ export interface LyricLinePlacement {
   shownAt: number;
   /** 位置固定（手動位置／角度或鎖定） */
   fixed: boolean;
+  /** 這一句實際用的文字顏色、光暈顏色、字型（逐句清單的欄位顯示用；沒有調整時是風格的設定） */
+  color?: string;
+  glowColor?: string;
+  font?: LyricFont;
 }
 
 /** 量字（瀏覽器用畫布量；單元測試給固定寬度） */
