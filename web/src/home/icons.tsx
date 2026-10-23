@@ -21,6 +21,7 @@ import {
   Flower,
   FolderArchive,
   Frame,
+  Gamepad2,
   Gauge,
   Grid2x2Check,
   Grid3x3,
@@ -45,6 +46,7 @@ import {
   MessageSquareText,
   MessagesSquare,
   MicVocal,
+  MousePointerClick,
   Music,
   Network,
   Newspaper,
@@ -67,6 +69,7 @@ import {
   Table,
   TextQuote,
   Ticket,
+  TreeDeciduous,
   Trophy,
   UserCog,
   Users,
@@ -87,6 +90,7 @@ const ICONS: Record<string, LucideIcon> = {
   'discord-color': Highlighter,
   'speech-bubble': MessageCircleMore,
   'lyric-fx': Subtitles,
+  'rpg-screenshot': Gamepad2,
   /* G2 轉場與動態 */
   'scene-transition': Clapperboard,
   'apng-wipe': Blend,
@@ -125,6 +129,7 @@ const ICONS: Record<string, LucideIcon> = {
   'scratch-card': Ticket,
   'lock-screen': Smartphone,
   'id-ticket': IdCardLanyard,
+  'clue-map': MousePointerClick,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,
@@ -138,6 +143,7 @@ const ICONS: Record<string, LucideIcon> = {
   'prose-card': Feather,
   'captcha-card': Grid2x2Check,
   'social-post': MessageSquareHeart,
+  'family-tree': TreeDeciduous,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,

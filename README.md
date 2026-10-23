@@ -25,7 +25,8 @@
 [s2ndrome](https://github.com/s2ndrome) 與
 [al1scut](https://github.com/al1scut) 與
 [YouRanCoder](https://github.com/YouRanCoder) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 68 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[momo102938](https://github.com/momo102938) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 71 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -56,6 +57,7 @@
 | [劇本心得九宮格](https://tool-jx3.github.io/toolkit/tools/review-grid/) | 把跑過的劇本做成心得卡片：每格放劇本圖、規則、名稱與作者，選幾個心得標籤，排成九宮格或清單存成 PNG，也能把多人的心得合成比較圖 |
 | [填字遊戲產生器](https://tool-jx3.github.io/toolkit/tools/crossword/) | 從答案清單或一段文字自動排出填字遊戲，當作劇本的謎題道具；匯出題目與解答的 PNG、HTML，或印成一頁 A4 |
 | [刮刮卡產生器](https://tool-jx3.github.io/toolkit/tools/scratch-card/) | 做出可以用滑鼠或手指刮開的刮刮卡（隨機圖示、句子或圖片），當劇本的抽獎或謎題道具；輸出不連網也能用的互動網頁或分享連結 |
+| [調查熱點圖](https://tool-jx3.github.io/toolkit/tools/clue-map/) | 在場景圖上畫熱點，點開是線索卡：可以設「先找到某個線索才出現」與隱藏熱點，玩家有已找到清單與進度；存成離線也能玩的互動 HTML 或分享連結，另有攤開全部線索的總覽 PNG 給 KP |
 | [鎖定畫面訊息產生器](https://tool-jx3.github.io/toolkit/tools/lock-screen/) | 做一張角色手機的鎖定畫面當 handout：換上桌布、寫下最多 4 則訊息，存成 PNG 或訊息一則一則跳出來的 GIF，也能把手機放在外框照片上 |
 | [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | 做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、偵探執照，電影票、登機證、車票、收據；正反面、照片、真的條碼與 QR code，可匯出印刷尺寸（含出血、600 dpi）的 PNG 或閃光 GIF |
 | [角色介紹圖產生器](https://tool-jx3.github.io/toolkit/tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；也有會自動分頁、能匯出 PDF 的文字記錄版型；可存到存檔槽或匯出成編輯檔 |
@@ -64,6 +66,7 @@
 | [角色分析圖產生器](https://tool-jx3.github.io/toolkit/tools/char-chart/) | 一份角色清單做成兩張圖：性格四象限（拖曳角色、算契合度）與關係圖（頭像排成一圈、用不同的線連起來），存成 PNG |
 | [拍立得相框產生器](https://tool-jx3.github.io/toolkit/tools/polaroid/) | 把照片放進拍立得相框：縮放與拖曳照片、寫一行字、用筆在上面畫、貼最多 5 張貼紙，存成高解析度的 PNG |
 | [角色關係圖產生器](https://tool-jx3.github.io/toolkit/tools/relation-chart/) | 在畫布上擺角色、定義關係的顏色與線型、點兩個人拉出關係線，用標籤框出陣營、整理角色庫與關係庫、加便利貼與世界觀，自動排列後匯出 PNG、分層 SVG／PSD、可以分享的互動網頁，或把分頁做成時間軸動畫（GIF／影片） |
+| [家系圖產生器](https://tool-jx3.github.io/toolkit/tools/family-tree/) | 從始祖一路加上子女、配偶與兄弟姊妹，一代一列自動排好的家系圖：雙擊就地編輯、拖曳換順序或換父母、折疊子孫、色分類與圖例，匯出整張或某人以下的直式、橫式 PNG；舊家、遺產與血脈的劇本 handout |
 | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | 把台詞、後日談、劇本宣傳文句或心得排成 1200 × 1600 的直式圖片：封面、內文頁或照片＋文字三種版面，文字可以加粗、換色、螢光筆，放不下時自動接到下一頁，存成 PNG 或 ZIP |
 | [驗證題梗圖產生器](https://tool-jx3.github.io/toolkit/tools/captcha-card/) | 做一張「請選出所有包含 ○○ 的圖片」的驗證題梗圖：放代表圖與 3 × 3／4 × 4 的圖片格、勾選答案，匯出 PNG，或游標一格一格點選、按下驗證的 GIF 動畫 |
 | [社群貼文產生器](https://tool-jx3.github.io/toolkit/tools/social-post/) | 做出相片社群 App 的貼文、留言、限時動態與個人頁畫面：照片輪播、按讚與留言、限時動態的版面與貼紙，存成 PNG，或從個人頁點進貼文與限時動態的 HTML 檔 |
@@ -100,6 +103,7 @@
 | [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | 一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈 |
 | [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | 把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，支援直書，可輸出 APNG（含 256 色減色）、GIF、WebP、PNG 或連番 ZIP |
 | [歌詞演出產生器](https://tool-jx3.github.io/toolkit/tools/lyric-fx/) | 放進音樂與有時間標記的歌詞（LRC／SRT，也能邊聽邊打點），讓歌詞散落在畫面上逐字出現、抖動、發光，唱完往上飄著淡出；可以框出要避開的區域、預先暗顯下一句，匯出有聲影片或透明背景的 WebM，疊在直播或遊戲畫面上 |
+| [RPG 截圖產生器](https://tool-jx3.github.io/toolkit/tools/rpg-screenshot/) | 把一張圖做成老式 RPG 遊戲的截圖：像素化、抖色與色調濾鏡、掃描線，加上訊息視窗、名字、選項、演出文字與地點，台詞可以分頁、換說話者、換顏色，用繁中像素字型匯出 PNG，或逐字打出的 GIF、APNG、WebP |
 
 所有工具都在瀏覽器本機執行，不會上傳你建立的任何內容。字型從 Google Fonts 載入；用到 AI 模型的工具（立繪去背、2.5D 動態立繪的臉部追蹤）第一次使用時才下載模型，存在瀏覽器裡。
 
@@ -141,6 +145,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `apng-wipe` | [輕量轉場 APNG 產生器](https://tool-jx3.github.io/toolkit/tools/apng-wipe/) | 出處不明的轉場 APNG 小工具 |
 | `text-fx` | [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發） |
 | `lyric-fx` | [歌詞演出產生器](https://tool-jx3.github.io/toolkit/tools/lyric-fx/) | [YouRanCoder/LimbusLyricSimulator](https://github.com/YouRanCoder/LimbusLyricSimulator) |
+| `rpg-screenshot` | [RPG 截圖產生器](https://tool-jx3.github.io/toolkit/tools/rpg-screenshot/) | [dearmysn1p3r/DearMySn1p3r_43](https://github.com/dearmysn1p3r/DearMySn1p3r_43)（RPG Screenshot Maker） |
 | `textbox` | [文字方框產生器](https://tool-jx3.github.io/toolkit/tools/textbox/) | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) |
 | `portrait-size` | [立繪尺寸統一器](https://tool-jx3.github.io/toolkit/tools/portrait-size/) | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) |
 | `text-path` | [文字軌跡產生器](https://tool-jx3.github.io/toolkit/tools/text-path/) | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) |
@@ -193,6 +198,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `floor-plan` | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | [くま。／TRPG室内図メーカー](https://kumachansteps.github.io/trpg-web-tools/)、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結、房間編號） |
 | `rank-chart` | [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | [sotsotssi/would-you-rank](https://github.com/sotsotssi/would-you-rank) |
 | `scratch-card` | [刮刮卡產生器](https://tool-jx3.github.io/toolkit/tools/scratch-card/) | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard) |
+| `clue-map` | [調查熱點圖](https://tool-jx3.github.io/toolkit/tools/clue-map/) | [momo102938/MUNgs_click](https://github.com/momo102938/MUNgs_click)（콕콕；本站自己的構想，只借「熱區＋解鎖」的想法） |
 | `crossword` | [填字遊戲產生器](https://tool-jx3.github.io/toolkit/tools/crossword/) | [sotsotssi/text2crossword](https://github.com/sotsotssi/text2crossword) |
 | `review-grid` | [劇本心得九宮格](https://tool-jx3.github.io/toolkit/tools/review-grid/) | [sotsotssi/scenario-review](https://github.com/sotsotssi/scenario-review) |
 | `polaroid` | [拍立得相框產生器](https://tool-jx3.github.io/toolkit/tools/polaroid/) | [swoonqx/sw-polaroid](https://github.com/swoonqx/sw-polaroid) |
@@ -200,6 +206,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `lock-screen` | [鎖定畫面訊息產生器](https://tool-jx3.github.io/toolkit/tools/lock-screen/) | [TEXTSCENE](https://textscene.netlify.app/) |
 | `id-ticket` | [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | [dearmysn1p3r/DearMySn1p3r_20](https://github.com/dearmysn1p3r/DearMySn1p3r_20)（ID Studio）、[dearmysn1p3r/DearMySn1p3r_36](https://github.com/dearmysn1p3r/DearMySn1p3r_36)（Ticket Studio） |
 | `relation-chart` | [角色關係圖產生器](https://tool-jx3.github.io/toolkit/tools/relation-chart/) | [PaiTei4234／Relationship Chart Maker](https://paitei4234.itch.io/relationshipchartmaker)（CC BY-NC-SA 4.0） |
+| `family-tree` | [家系圖產生器](https://tool-jx3.github.io/toolkit/tools/family-tree/) | [가계도 편집기](https://gagyedo.j-segrc.workers.dev) |
 | `prose-card` | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | [dan0030/writeediter2](https://github.com/dan0030/writeediter2) |
 | `captcha-card` | [驗證題梗圖產生器](https://tool-jx3.github.io/toolkit/tools/captcha-card/) | [dearmysn1p3r/DearMySn1p3r_44](https://github.com/dearmysn1p3r/DearMySn1p3r_44) |
 | `social-post` | [社群貼文產生器](https://tool-jx3.github.io/toolkit/tools/social-post/) | [s2ndrome/4layout](https://github.com/s2ndrome/4layout) |

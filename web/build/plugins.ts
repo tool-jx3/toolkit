@@ -63,6 +63,22 @@ export function toolkitHtml(): Plugin {
 /* ---------- 第三方授權清單 ---------- */
 
 const bundledPackages = new Set<string>();
+/**
+ * 本站附帶的第三方檔案（例如 `core/fonts/files/<資料夾>/` 的字型）：被打包進去的檔案所在的資料夾有 `meta.json`
+ * （`{ name, version, license, copyright?, url }`）與 `LICENSE.txt`（授權全文）時，列進通知檔。
+ */
+const bundledAssetDirs = new Set<string>();
+const ASSET_META = 'meta.json';
+const ASSET_LICENSE = 'LICENSE.txt';
+
+function assetDirOf(id: string): string | null {
+  const file = id.replace(/\\/g, '/').replace(/[?#].*$/, '');
+  if (file.includes('/node_modules/') || !path.isAbsolute(file)) return null;
+  const dir = path.dirname(file);
+  return existsSync(path.join(dir, ASSET_META)) && existsSync(path.join(dir, ASSET_LICENSE))
+    ? dir
+    : null;
+}
 
 function packageDirOf(id: string): string | null {
   const norm = id.replace(/\\/g, '/');
@@ -85,6 +101,8 @@ export function collectNotices(): Plugin {
         for (const id of item.moduleIds) {
           const dir = packageDirOf(id);
           if (dir) bundledPackages.add(dir);
+          const asset = assetDirOf(id);
+          if (asset) bundledAssetDirs.add(asset);
         }
       }
     },
@@ -116,6 +134,28 @@ function upstreamNotices(tools: readonly ToolEntry[], srcToolsDir: string): stri
     out.push(`### ${tool.id}（原作：${source}）\n\n\`\`\`\n${body}\n\`\`\``);
   }
   return out;
+}
+
+/** 本站附帶的第三方檔案（字型等）：表格的列與授權全文 */
+function assetNotices(): { rows: string[]; texts: string[] } {
+  const rows: string[] = [];
+  const texts: string[] = [];
+  for (const dir of [...bundledAssetDirs].sort()) {
+    const meta = JSON.parse(readFileSync(path.join(dir, ASSET_META), 'utf8')) as {
+      name: string;
+      version?: string;
+      license?: string;
+      copyright?: string;
+      url?: string;
+    };
+    rows.push(
+      `| ${meta.name} | ${meta.version ?? ''} | ${meta.license ?? '（未標示）'} | ${meta.url ?? ''} |`,
+    );
+    const body = readText(path.join(dir, ASSET_LICENSE));
+    const head = meta.copyright ? `${meta.copyright}\n\n` : '';
+    texts.push(`### ${meta.name}\n\n\`\`\`\n${head}${body}\n\`\`\``);
+  }
+  return { rows, texts };
 }
 
 function noticesMarkdown(tools: readonly ToolEntry[] = [], srcToolsDir = ''): string {
@@ -166,6 +206,23 @@ function noticesMarkdown(tools: readonly ToolEntry[] = [], srcToolsDir = ''): st
     '',
     ...texts,
     '',
+    ...(() => {
+      const assets = assetNotices();
+      return assets.rows.length
+        ? [
+            '## 本站附帶的字型與素材',
+            '',
+            '下列檔案隨網站一起提供（不從 CDN 載入），依其授權保留著作權聲明與授權全文。',
+            '',
+            '| 名稱 | 版本 | 授權 | 網址 |',
+            '|---|---|---|---|',
+            ...assets.rows,
+            '',
+            ...assets.texts,
+            '',
+          ]
+        : [];
+    })(),
     ...(() => {
       const upstream = srcToolsDir ? upstreamNotices(tools, srcToolsDir) : [];
       return upstream.length

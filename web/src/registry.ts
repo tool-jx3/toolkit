@@ -251,6 +251,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'rpg-screenshot',
+    name: 'RPG 截圖產生器',
+    summary:
+      '把一張圖做成老式 RPG 遊戲的截圖：像素化、抖色與色調濾鏡，加上訊息視窗、名字、選項、演出文字與掃描線，台詞可以分頁、換說話者、換顏色，匯出 PNG 或逐字打出的 GIF。',
+    group: 'G1',
+    status: 'live',
+    inspiration: {
+      name: 'dearmysn1p3r/DearMySn1p3r_43（RPG Screenshot Maker）',
+      url: 'https://dearmysn1p3r.github.io/DearMySn1p3r_43/',
+    },
+  },
+  {
     id: 'ccfolia-cropper',
     name: '立繪裁切器',
     summary:
@@ -557,6 +569,18 @@ export const TOOLS: readonly ToolEntry[] = [
     },
   },
   {
+    id: 'clue-map',
+    name: '調查熱點圖',
+    summary:
+      '在場景圖上畫出可以點的熱點，每個熱點藏著一則線索（文字、圖片、檢定提示），可以設成先找到別的線索才出現或隱藏；PL 點一點就翻出線索卡，匯出能玩的互動 HTML、分享連結與 KP 用的總覽 PNG。',
+    group: 'G6',
+    status: 'live',
+    inspiration: {
+      name: 'momo102938/MUNgs_click（콕콕）',
+      url: 'https://momo102938.github.io/MUNgs_click/',
+    },
+  },
+  {
     id: 'video-anim',
     name: '影片轉動圖工具',
     summary:
@@ -849,6 +873,15 @@ export const TOOLS: readonly ToolEntry[] = [
       name: 's2ndrome/4layout',
       url: 'https://s2ndrome.github.io/4layout/',
     },
+  },
+  {
+    id: 'family-tree',
+    name: '家系圖產生器',
+    summary:
+      '一代一列地接出人物卡片，做成舊家、名門的家系圖：雙擊直接改字、拖曳換順序或換父母、顏色分類與折疊子孫，匯出縱向或橫向的 PNG，給 KP 整理人物關係與 handout 用。',
+    group: 'G7',
+    status: 'live',
+    inspiration: { name: '가계도 편집기', url: 'https://gagyedo.j-segrc.workers.dev' },
   },
 ];
 

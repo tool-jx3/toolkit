@@ -4,8 +4,9 @@
  * 網址有分享的內容（#c=…）時只顯示卡片（Player）。
  */
 import { Redo2, Undo2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { clearShareHash } from '@/core/share';
+import { useShareHash } from '@/core/share/react';
 import { useSaveError, useUndoRedo } from '@/core/storage';
 import { IconButton, type Shortcut, ToolShell, useToast, withShortcut } from '@/ui';
 import {
@@ -80,16 +81,6 @@ function Usage() {
   );
 }
 
-function useShare(): SharedCard | 'none' | 'broken' {
-  const [share, setShare] = useState(() => readShare(location.hash));
-  useEffect(() => {
-    const on = () => setShare(readShare(location.hash));
-    window.addEventListener('hashchange', on);
-    return () => window.removeEventListener('hashchange', on);
-  }, []);
-  return share;
-}
-
 function Editor({ brokenShare }: { brokenShare: boolean }) {
   const { canUndo, canRedo } = useUndoRedo(useScratch);
   const undo = () => historyStep('undo');
@@ -131,7 +122,7 @@ function Editor({ brokenShare }: { brokenShare: boolean }) {
 }
 
 export function App() {
-  const share = useShare();
+  const share: SharedCard | 'none' | 'broken' = useShareHash(readShare);
   if (typeof share === 'object')
     return <ToolShell toolId={TOOL_ID} body={<Player shared={share} />} />;
   return <Editor brokenShare={share === 'broken'} />;

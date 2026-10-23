@@ -46,6 +46,7 @@
 | `apng-wipe` | 輕量轉場 APNG 產生器 | 出處不明的轉場 APNG 小工具（使用者提供的單檔 HTML，沒有可連結的網址） | `cb0c619` |
 | `text-fx` | 文字演出產生器 | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發，沒有使用原作的程式碼，見下節） | `cb0c619` |
 | `lyric-fx` | 歌詞演出產生器 | [YouRanCoder/LimbusLyricSimulator](https://github.com/YouRanCoder/LimbusLyricSimulator)（GPL-3.0，只參考效果與數值） | —（新收錄，沒有舊版） |
+| `rpg-screenshot` | RPG 截圖產生器 | [dearmysn1p3r/DearMySn1p3r_43](https://github.com/dearmysn1p3r/DearMySn1p3r_43)（RPG Screenshot Maker，未授權） | —（新收錄，沒有舊版） |
 | `textbox` | 文字方框產生器 | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) | `cb0c619` |
 | `portrait-size` | 立繪尺寸統一器 | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) | `cb0c619` |
 | `text-path` | 文字軌跡產生器 | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) | `b8a22a1` |
@@ -101,9 +102,11 @@
 | `polaroid` | 拍立得相框產生器 | [swoonqx/sw-polaroid](https://github.com/swoonqx/sw-polaroid)（未授權） | —（新收錄，沒有舊版） |
 | `crossword` | 填字遊戲產生器 | [sotsotssi/text2crossword](https://github.com/sotsotssi/text2crossword)（MIT） | —（新收錄，沒有舊版） |
 | `scratch-card` | 刮刮卡產生器 | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard)（未授權） | —（新收錄，沒有舊版） |
+| `clue-map` | 調查熱點圖 | [momo102938/MUNgs_click](https://github.com/momo102938/MUNgs_click)（콕콕，未授權；只借想法） | —（新收錄，沒有舊版） |
 | `lock-screen` | 鎖定畫面訊息產生器 | [TEXTSCENE](https://textscene.netlify.app/)（未授權） | —（新收錄，沒有舊版） |
 | `id-ticket` | 證件與票券產生器 | [dearmysn1p3r/DearMySn1p3r_20](https://github.com/dearmysn1p3r/DearMySn1p3r_20)（ID Studio，未授權）、[dearmysn1p3r/DearMySn1p3r_36](https://github.com/dearmysn1p3r/DearMySn1p3r_36)（Ticket Studio，未授權） | —（新收錄，沒有舊版） |
 | `relation-chart` | 角色關係圖產生器 | [PaiTei4234／Relationship Chart Maker](https://paitei4234.itch.io/relationshipchartmaker)（CC BY-NC-SA 4.0） | —（新收錄，沒有舊版） |
+| `family-tree` | 家系圖產生器 | [가계도 편집기](https://gagyedo.j-segrc.workers.dev)（作者不明、未授權） | —（新收錄，沒有舊版） |
 | `prose-card` | 短文圖片產生器 | [dan0030/writeediter2](https://github.com/dan0030/writeediter2)（未授權） | —（新收錄，沒有舊版） |
 | `captcha-card` | 驗證題梗圖產生器 | [dearmysn1p3r/DearMySn1p3r_44](https://github.com/dearmysn1p3r/DearMySn1p3r_44)（未授權） | —（新收錄，沒有舊版） |
 | `social-post` | 社群貼文產生器 | [s2ndrome/4layout](https://github.com/s2ndrome/4layout)（未授權） | —（新收錄，沒有舊版） |
@@ -139,6 +142,10 @@
 
 `scratch-card` 照新工具引入流程直接在新框架做：原作沒有授權條款，只照原作的功能、數值與做法（抽籤、塗層、刮開判定和原作相同），程式、介面文字、8 個圖示與彩帶都由本站自做，不載入原作用的 CDN；可以開啟原作的設定檔（JSON）。
 
+`clue-map` 是本站自己的構想：靈感來源 momo102938/MUNgs_click（commit `9de2685`，沒有授權條款）是點角色的部位提高好感度的互動玩具，本站只借「圖上的熱區＋點了有反應＋達成條件才解鎖」的想法，做成跑團用的調查 handout；程式、介面文字、範例與內建場景都由本站自做。互動 HTML 與分享連結的做法和 `scratch-card` 共用（`@/core/interactive`）。
+
+`family-tree` 照新工具引入流程直接在新框架做：原作「가계도 편집기」（使用者提供的網頁存檔；網頁上沒有作者、版權或授權的字樣）只照原作的功能、卡片尺寸、排版與拖曳的規則（同樣的家族資料排出和原作相同的位置），程式、介面文字（原作是韓文）、配色、圖示與範例都由本站自做；原作內建的範例是真實的歷史家族，本站沒有沿用，範例是虛構的家族。分兩批，第一批是樹的核心。
+
 `lock-screen` 照新工具引入流程直接在新框架做：原作（使用者 2026-10-09 提供的網站檔案）沒有授權條款，只照原作的功能、版面數值與動畫曲線（通知卡片的位置、大小與彈出的時間點和原作相同），程式、介面文字、範例訊息、預設桌布、手機外框與圖示都由本站自做；不沿用原作的專有字型（改用思源黑體，SIL OFL），外觀不仿特定廠牌的手機與訊息 App。
 
 `relation-chart` 照新工具引入流程直接在新框架做（2026-10-15 使用者選定；分五批做完，2026-10-16 完成）：原作（使用者提供的網站檔案）是 CC BY-NC-SA 4.0，本工具**繼承同一授權**（使用者 2026-10-15 決定）：排列陣型、磁鐵（力導向）排列、線的繞開與橋接、名字讓位、圖例配置、關係表格式等演算法與數值照原作改寫，角色圖示集沿用原作自繪的向量圖示，介面改成本站的元件與繁中用詞；改編的東西只放在 `web/src/tools/relation-chart/` 與它的測試，授權全文、署名與改了什麼在該資料夾的 `UPSTREAM_LICENSE`（建置時併入通知檔），匯出的互動網頁開頭也有出處與授權註解。共用框架（`core/`、`ui/`）仍是 MIT，沒有改編的程式。原作的桌寵、成就、導覽、多語、佈景主題、面板配置不移植，其他功能都做了。
@@ -158,6 +165,8 @@
 `bg-motion` 的「圖片切換」模式（2026-10）參考 utiyoso 的きりかえメーカー（commit `0e166ef`，沒有授權條款）的功能、效果的畫法與數值（同樣的圖片與設定，時間軸、每一格的時間與畫面和原作相同），程式、介面文字與範例圖由本站自做。
 
 `lyric-fx` 照新工具引入流程直接在新框架做：原作（commit `d3c4f8d`）是 GPL-3.0 的 Windows 桌面程式，和本站的 MIT 不相容，所以只參考歌詞演出的效果、數值與規則（打字間隔、殘影的淡出與上飄、抖動、排位置與避開區域的規則），程式全部由本站自己寫；排位置的模組在驗證時發現逐行對應原作，已由沒看過原作的實作者依規格以無塵室方式重寫，並由驗證者逐函式比對確認不再對應。原作附的字型不沿用，介面不使用原作模仿的遊戲名稱。
+
+`rpg-screenshot` 照新工具引入流程直接在新框架做：原作（commit `2777ad4`）沒有授權條款，只照原作的功能、版面、濾鏡與像素化的演算法與數值（同樣的圖、台詞與設定畫出和原作逐像素相同的畫面；名字膠囊照原作程式本來想要的顏色，見規格 D16），程式、介面文字（原作是韓文）、範例台詞與範例圖都由本站自做。繁中像素字型「俐方體 11 號」「縫合像素體 10px」都是 SIL OFL 1.1，授權全文附在建置的第三方聲明。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 

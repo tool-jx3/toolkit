@@ -354,6 +354,44 @@ test('模組：自動牆壁（squareEdgeRuns、subtractSpans）；對話框：�
   expect(errors).toEqual([]);
 });
 
+test('對話框：互動 HTML（程式碼、下載、開新視窗的內容能跑）與分享連結', async ({ page }) => {
+  const errors = await openGallery(page);
+  await page.getByRole('tab', { name: '對話框' }).click();
+  await page.getByRole('button', { name: '互動 HTML', exact: true }).click();
+  const dialog = page.getByTestId('interactive-demo');
+  const code = dialog.getByRole('textbox', { name: '程式碼' });
+  await expect(code).toHaveValue(/<div id="demo-[a-z0-9]{8}">/);
+  const html = await code.inputValue();
+  expect(html).toContain('<script>');
+  /* 下載的獨立 HTML：能打開、按鈕會計數（引擎原樣放進 <script>） */
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    dialog.getByRole('button', { name: '下載 HTML' }).click(),
+  ]);
+  expect(dl.suggestedFilename()).toBe('示範.html');
+  const text = readFileSync((await dl.path()) as string, 'utf-8');
+  expect(text).toMatch(/^<!doctype html>\n<html lang="zh-Hant-TW">/);
+  const demo = await page.context().newPage();
+  await demo.setContent(text);
+  await demo.getByRole('button', { name: '按我' }).click();
+  await demo.getByRole('button', { name: '按了 1' }).click();
+  await expect(demo.getByRole('button', { name: '按了 2' })).toBeVisible();
+  await demo.close();
+  await page.keyboard.press('Escape');
+  /* 分享連結 */
+  await page.getByRole('button', { name: '分享連結', exact: true }).click();
+  const share = page.getByTestId('share-demo');
+  await expect(share.getByRole('textbox', { name: '連結' })).toHaveValue(/#demo=/);
+  /* 字數：# 後面的部分（含鍵名）和上限用同一個量法 */
+  const demoUrl = await share.getByRole('textbox', { name: '連結' }).inputValue();
+  const demoLen = demoUrl.length - (demoUrl.indexOf('#') + 1);
+  await expect(share.getByTestId('text-output-count')).toHaveText(
+    `內容 ${demoLen.toLocaleString('en-US')} 字（上限 8,000 字）`,
+  );
+  await expect(share.getByRole('link', { name: '開啟連結' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('模組：印刷尺寸與解析度（printPixels、setPngDpi）', async ({ page }) => {
   const errors = await openGallery(page);
   await page.getByRole('tab', { name: '模組' }).click();
