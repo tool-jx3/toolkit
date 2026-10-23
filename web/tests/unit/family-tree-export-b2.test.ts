@@ -221,7 +221,9 @@ describe('SVG 記錄器', () => {
     expect(svg).toContain('d="M14 20L26 20A4 4 0 0 1 30 24Z"');
     expect(svg).toContain('stroke-dasharray="4 3"');
     expect(svg).toContain('stroke-opacity="0.5"');
-    expect(svg).toMatch(/<clipPath id="c1"><path d="M13 20A3 3 0 1 1 7 20A3 3 0 1 1 13 20"\/><\/clipPath>/);
+    expect(svg).toMatch(
+      /<clipPath id="c1"><path d="M13 20A3 3 0 1 1 7 20A3 3 0 1 1 13 20"\/><\/clipPath>/,
+    );
     expect(svg).toContain(
       '<text x="11" y="22" font-family="&quot;Noto Sans TC&quot;" font-size="22" font-weight="700" fill="#123456" text-anchor="middle" clip-path="url(#c1)">綾瀬 &lt;家&gt;</text>',
     );
