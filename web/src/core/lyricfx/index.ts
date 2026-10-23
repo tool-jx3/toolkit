@@ -14,7 +14,9 @@
  * - 亂數由種子決定（random.ts），抖動是時間的函式（jitter.ts）：同樣的設定，預覽、逐格匯出每次都一樣。
  * - 設定面板由風格的 `controls`（純資料）描述，共用元件 `@/ui` 的 `LyricStyleControls` 照著產生。
  * - 避開區域是工具層的共用設定（region.ts）：不在風格的設定裡，plan 從 `options.region`、控制項從 `context.region` 拿到。
+ * - 逐句的手動調整（adjust.ts）：通用的格式放在 `LyricFxLine.adjust`，風格用 `adjust` 宣告支援哪些、用 `placement`／`hitTest` 讓工具在預覽上操作。
  */
+export * from './adjust';
 export * from './jitter';
 export * from './lines';
 export * from './measure';

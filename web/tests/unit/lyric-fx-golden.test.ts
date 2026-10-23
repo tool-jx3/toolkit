@@ -8,9 +8,8 @@
  * - 幾個時間點畫出來的 canvas 指令（tests/helpers/canvasRecorder：指令相同＝像素相同）的 SHA-256。
  * 量字用固定寬度（roughMeasure），和字型、環境無關。
  */
-import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { bytesToHex, sha256Sync } from '@/core/files';
 import {
   buildLyricLines,
   type LyricFxLine,
@@ -28,6 +27,15 @@ import {
 import { SAMPLE_LYRICS } from '@/tools/lyric-fx/sample';
 import { recordCanvas } from '../helpers/canvasRecorder';
 
+const FS = 'node:fs';
+const { existsSync, readFileSync, writeFileSync } = (await import(/* @vite-ignore */ FS)) as {
+  existsSync: (p: string) => boolean;
+  readFileSync: (p: string, enc: 'utf8') => string;
+  writeFileSync: (p: string, data: string) => void;
+};
+const WRITE =
+  (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env
+    .LYRIC_FX_GOLDEN_WRITE === '1';
 const FIXTURE = new URL('./fixtures/lyric-fx-golden.json', import.meta.url).pathname;
 const env = roughMeasure();
 
@@ -68,13 +76,7 @@ function cases(): Case[] {
     size: { width: 1920, height: 1080 },
   };
   /* 鎖定第 4 句（在 1920 × 1080 記下），再換到直式畫面 */
-  const lockPlan = planScatter(
-    sample,
-    scatterDefaults(),
-    base.seed,
-    base.size,
-    env,
-  ) as ScatterPlan;
+  const lockPlan = planScatter(sample, scatterDefaults(), base.seed, base.size, env) as ScatterPlan;
   const lock = scatterLock(lockPlan, sample[3].key);
   const locked = sample.map((l, i) => (i === 3 ? { ...l, lock } : l));
   return [
@@ -131,17 +133,19 @@ function cases(): Case[] {
 }
 
 const sha = (v: unknown) =>
-  createHash('sha256')
-    .update(
-      JSON.stringify(v, (_k, x) =>
-        x instanceof Map
-          ? undefined
-          : typeof x === 'number' && !Number.isFinite(x)
-            ? String(x)
-            : x,
+  bytesToHex(
+    sha256Sync(
+      new TextEncoder().encode(
+        JSON.stringify(v, (_k, x) =>
+          x instanceof Map
+            ? undefined
+            : typeof x === 'number' && !Number.isFinite(x)
+              ? String(x)
+              : x,
+        ),
       ),
-    )
-    .digest('hex');
+    ),
+  );
 
 /** 畫的時間點：每一句開始後 0.05、0.6、1.7 秒（前 6 句）＋開頭與最後 */
 function timesOf(p: ScatterPlan): number[] {
@@ -180,7 +184,7 @@ function snapshot(c: Case) {
 
 describe('沒有逐句手動調整時，plan 與畫面和改版前完全相同', () => {
   const all = cases().map(snapshot);
-  if (process.env.LYRIC_FX_GOLDEN_WRITE) {
+  if (WRITE) {
     writeFileSync(FIXTURE, `${JSON.stringify(all, null, 1)}\n`);
     it.skip('寫入基準', () => {});
     return;

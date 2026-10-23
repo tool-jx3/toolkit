@@ -5,14 +5,18 @@
  * - 位置：依開始時間逐句模擬畫面上有哪些句（目前這一句、殘影、槽位），每一句用自己的亂數流找位置（規格 3.5、3.7）；
  *   排版（折行、斜排、範圍）在 layout.ts，找位置在 search.ts。
  * - 鎖定的句（F12）用記下的位置、角度與折行：照比例換算到這個畫面後夾回畫面內，放不進畫面時改用新的折行。
+ * - 逐句的手動調整（LyricFxLine.adjust，F75～F81）：手動位置的句固定（照比例換算、整塊夾在畫面內），角度照手動的；
+ *   大小、字型改這一句的字寬（這一句自己的 Metrics）；顏色、透明度只記下來給 draw.ts。沒有調整的句和以前完全相同。
  * - 殘影、打字、槽位的時間函式（fadeAlpha 等）也在這裡，draw.ts 用它們畫任一時間的一格。
  */
 import { fontCss } from '../../../fonts';
+import { ADJUST_RANGES } from '../../adjust';
 import type { JitterSpec } from '../../jitter';
 import { IDENTITY_PERSPECTIVE, type Perspective, perspectiveAt } from '../../perspective';
 import { createRng, hash32 } from '../../random';
 import type {
   LyricFxLine,
+  LyricLineAdjust,
   LyricMeasureEnv,
   LyricPlanOptions,
   LyricRegion,
@@ -30,6 +34,7 @@ import {
   rulerFor,
   type Shape,
   type Side,
+  type Span,
   screenSpan,
   segmentsOf,
   shapeOf,
@@ -124,8 +129,18 @@ export interface ScatterLinePlan {
   jitter: JitterSpec;
   /** 用了允許重疊的備用位置 */
   overlapped: boolean;
-  /** 用鎖定的位置 */
+  /** 用鎖定的位置（或鎖定記下的折行） */
   locked: boolean;
+  /* 以下只在有逐句手動調整（LyricFxLine.adjust）時才有 */
+  /** 位置是手動固定的 */
+  pinned?: true;
+  /** 這一句的字高（大小改過時；沒有＝ScatterPlan.th） */
+  th?: number;
+  /** 這一句的文字顏色、光暈顏色（沒有＝風格的設定） */
+  textColor?: string;
+  glowColor?: string;
+  /** 不透明度的倍率（0～1；沒有＝1） */
+  opacity?: number;
 }
 
 export interface ScatterPlan {
@@ -244,6 +259,8 @@ function timingsOf(input: readonly LyricFxLine[], s: ScatterSettings, slots: num
 
 interface Draft {
   line: LyricFxLine;
+  /** 這一句用的量（大小、字型改過時是自己的一份；否則和整個 plan 同一份） */
+  m: Metrics;
   latin: boolean;
   font: string;
   ruler: Ruler;
@@ -254,19 +271,38 @@ interface Draft {
   shapes: Map<string, Shape>;
 }
 
-function draftOf(line: LyricFxLine, s: ScatterSettings, m: Metrics, env: LyricMeasureEnv): Draft {
+/** 字級的倍率（逐句的大小；沒有或不合法＝1） */
+function scaleOf(a: LyricLineAdjust | undefined): number {
+  const v = a?.scale;
+  if (typeof v !== 'number' || !Number.isFinite(v) || v === 1) return 1;
+  return Math.min(ADJUST_RANGES.scale.max, Math.max(ADJUST_RANGES.scale.min, v));
+}
+
+function draftOf(
+  line: LyricFxLine,
+  s: ScatterSettings,
+  base: Metrics,
+  env: LyricMeasureEnv,
+): Draft {
   const latin =
     s.mode === 'latin'
       ? true
       : s.mode === 'cjk'
         ? false
         : detectLatin(line.text + line.tr) === true;
-  const face = latin && s.latinFont ? s.latinFont : s.font;
-  const font = fontCss(face, s.fontSize);
-  const ruler = rulerFor(env, font, s.spacing);
+  /* 逐句的大小：字級與字間距一起乘上倍率（這一句自己的字高、行距、一行最多多寬） */
+  const k = scaleOf(line.adjust);
+  const m =
+    k === 1
+      ? base
+      : metricsFor({ ...s, fontSize: s.fontSize * k, spacing: s.spacing * k }, base.W, base.H);
+  const face = line.adjust?.font ?? (latin && s.latinFont ? s.latinFont : s.font);
+  const font = fontCss(face, s.fontSize * k);
+  const ruler = rulerFor(env, font, m.spacing);
   const segments = segmentsOf(line.text, line.tr);
   return {
     line,
+    m,
     latin,
     font,
     ruler,
@@ -276,11 +312,11 @@ function draftOf(line: LyricFxLine, s: ScatterSettings, m: Metrics, env: LyricMe
   };
 }
 
-function shapeFor(d: Draft, m: Metrics, rows: readonly string[], angle: number): Shape {
+function shapeFor(d: Draft, rows: readonly string[], angle: number): Shape {
   const k = `${angle}\n${rows.join('\n')}`;
   let hit = d.shapes.get(k);
   if (!hit) {
-    hit = shapeOf(rows, angle, d.ruler, m);
+    hit = shapeOf(rows, angle, d.ruler, d.m);
     d.shapes.set(k, hit);
   }
   return hit;
@@ -302,19 +338,59 @@ function readLock(v: unknown): ScatterLock | null {
  * 鎖定的位置：記下的比例換算到這個畫面、夾回畫面內（錨點的範圍不含出現範圍）；
  * 記下的折行放不進這個畫面（範圍是空的）時改用照一行最多多寬折好的，還是放不進就固定在最小值。
  */
-function lockedSpot(d: Draft, m: Metrics, lock: ScatterLock): Spot {
+const clampTo = (v: number, span: Span) => Math.min(span.hi, Math.max(span.lo, v));
+
+function lockedSpot(d: Draft, lock: ScatterLock): Spot {
+  const { m } = d;
   const fits = (sh: Shape) => {
     const span = screenSpan(sh.ext, m);
     return span.x.lo <= span.x.hi && span.y.lo <= span.y.hi;
   };
-  let shape = shapeFor(d, m, lock.rows, lock.angle);
-  if (!fits(shape)) shape = shapeFor(d, m, rowsOf(d.wrapping), lock.angle);
+  let shape = shapeFor(d, lock.rows, lock.angle);
+  if (!fits(shape)) shape = shapeFor(d, rowsOf(d.wrapping), lock.angle);
   const span = anchorSpan(shape.ext, m, false, null);
-  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
   return {
     shape,
-    x: clamp(Math.round(lock.fx * m.W), span.x.lo, span.x.hi),
-    y: clamp(Math.round(lock.fy * m.H), span.y.lo, span.y.hi),
+    x: clampTo(Math.round(lock.fx * m.W), span.x),
+    y: clampTo(Math.round(lock.fy * m.H), span.y),
+  };
+}
+
+/* ---------- 逐句的手動位置（F75～F77） ---------- */
+
+/** 整塊留在畫面內時錨點可以在的範圍（手動位置用：不留邊距、不和出現範圍取交集）；空的時固定在最小值 */
+export function frameSpan(ext: Shape['ext'], W: number, H: number): { x: Span; y: Span } {
+  const axis = (lo: number, hi: number): Span => (lo <= hi ? { lo, hi } : { lo, hi: lo });
+  return {
+    x: axis(Math.ceil(-ext.left), Math.floor(W - ext.right)),
+    y: axis(Math.ceil(-ext.top), Math.floor(H - ext.bottom)),
+  };
+}
+
+const finiteNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * 手動位置的句：錨點＝(round(x × W), round(y × H))，夾在「整塊在畫面內」的範圍；角度＝手動的（沒有時用鎖定的、
+ * 再沒有時用這一句的亂數流抽一個）；折行＝鎖定記下的（對得上時），否則照一行最多多寬折的（放不進畫面時也改用它）。
+ */
+function pinnedSpot(
+  d: Draft,
+  pos: { x: number; y: number },
+  angle: number,
+  lock: ScatterLock | null,
+): Spot {
+  const { m } = d;
+  const fits = (sh: Shape) => {
+    const span = screenSpan(sh.ext, m);
+    return span.x.lo <= span.x.hi && span.y.lo <= span.y.hi;
+  };
+  let shape = shapeFor(d, lock ? lock.rows : rowsOf(d.wrapping), angle);
+  if (lock && !fits(shape)) shape = shapeFor(d, rowsOf(d.wrapping), angle);
+  const span = frameSpan(shape.ext, m.W, m.H);
+  return {
+    shape,
+    x: clampTo(Math.round(pos.x * m.W), span.x),
+    y: clampTo(Math.round(pos.y * m.H), span.y),
   };
 }
 
@@ -326,6 +402,7 @@ interface Placed {
   spot: Spot;
   overlapped: boolean;
   locked: boolean;
+  pinned?: true;
 }
 
 /**
@@ -404,24 +481,67 @@ export function planScatter(
   const settle = (i: number, avoid: Rect[], role: Role) => {
     const d = drafts[i];
     const side: Side = s.partition ? (i % 2 === 0 ? 'left' : 'right') : null;
-    const lock = readLock(d.line.lock);
+    const raw = readLock(d.line.lock);
+    const lock = raw && rowsMatch(raw.rows, d.line.text, d.line.tr) ? raw : null;
+    const adj = d.line.adjust;
+    const pos =
+      adj && finiteNum(adj.x) && finiteNum(adj.y)
+        ? { x: adj.x, y: adj.y }
+        : adj && finiteNum(adj.angle) && lock
+          ? { x: lock.fx, y: lock.fy }
+          : null;
+    const fixedAngle =
+      adj && finiteNum(adj.angle)
+        ? Math.min(ADJUST_RANGES.angle.max, Math.max(ADJUST_RANGES.angle.min, adj.angle))
+        : null;
+    const rng = () => createRng(hash32(seed, d.line.key, d.line.reroll));
     let p: Placed;
-    if (lock && rowsMatch(lock.rows, d.line.text, d.line.tr))
-      p = { spot: lockedSpot(d, m, lock), overlapped: false, locked: true };
+    if (pos) {
+      /* 手動位置（F75）：固定；角度＝手動的、鎖定的，或這一句的亂數流抽一個 */
+      const angle = fixedAngle ?? lock?.angle ?? rng().randint(m.angleLo, m.angleHi);
+      p = {
+        spot: pinnedSpot(d, pos, angle, lock),
+        overlapped: false,
+        locked: !!lock,
+        pinned: true,
+      };
+    } else if (lock) p = { spot: lockedSpot(d, lock), overlapped: false, locked: true };
     else {
-      const h = hash32(seed, d.line.key, d.line.reroll);
+      /* 只有手動角度（沒有位置）：位置照常找，角度固定 */
+      const lm = fixedAngle == null ? d.m : { ...d.m, angleLo: fixedAngle, angleHi: fixedAngle };
       const ctx: SearchContext = {
-        m,
-        rng: createRng(h),
+        m: lm,
+        rng: rng(),
         avoid,
         side,
-        shape: (rows, angle) => shapeFor(d, m, rows, angle),
+        shape: (rows, angle) => shapeFor(d, rows, angle),
         perspAt: persp,
       };
       p = placeLine(ctx, d, zone, role);
     }
     placed[i] = p;
     boxes[i] = boxAt(p.spot.shape.ext, p.spot.x, p.spot.y);
+  };
+
+  /*
+   * 手動位置的句（F75）：位置和其他句無關，先放好。之後每放一句，除了這時候畫面上的句，也避開「還沒出現、
+   * 但會在這一句還在畫面上時出現」的手動位置的句（同時在畫面上的句不論先後都避開它；鎖定維持只有之後放的句避開）。
+   */
+  const pinned: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = input[i].adjust;
+    if (a && finiteNum(a.x) && finiteNum(a.y)) {
+      settle(i, [], 'current');
+      pinned.push(i);
+    }
+  }
+  const bornAt = (k: number) => times[k].slotBorn ?? times[k].start;
+  const goneAt = (k: number) => (times[k].fades ? times[k].fadeEnd : times[k].fadeStart);
+  const ahead = (j: number, now: number): Rect[] => {
+    const out: Rect[] = [];
+    for (const k of pinned)
+      if (k !== j && bornAt(k) > now && bornAt(k) < goneAt(j)) out.push(boxes[k] as Rect);
+    return out;
   };
 
   /* 依開始時間模擬（規格 3.5）：前一句變成殘影 → 拿掉淡完的殘影 → 這一句（有槽位就沿用）→ 補齊槽位 */
@@ -442,10 +562,10 @@ export function planScatter(
       }
       return out;
     };
-    if (!placed[i]) settle(i, [...waiting(-1), ...fading], 'current');
+    if (!placed[i]) settle(i, [...waiting(-1), ...fading, ...ahead(i, now)], 'current');
     const current = boxes[i] as Rect;
     for (let k = i + 1; k < n && k <= i + slots; k++)
-      if (!placed[k]) settle(k, [current, ...fading, ...waiting(k)], 'slot');
+      if (!placed[k]) settle(k, [current, ...fading, ...waiting(k), ...ahead(k, now)], 'slot');
   }
 
   const lines: ScatterLinePlan[] = input.map((line, i) => {
@@ -453,7 +573,7 @@ export function planScatter(
     const d = drafts[i];
     const p = placed[i] as Placed;
     const { shape, x, y } = p.spot;
-    return {
+    const out: ScatterLinePlan = {
       key: line.key,
       index: i,
       rows: shape.rows,
@@ -482,6 +602,15 @@ export function planScatter(
       overlapped: p.overlapped,
       locked: p.locked,
     };
+    /* 逐句的手動調整：只有調整過的句才多這些欄位（沒有調整的句和以前完全相同） */
+    const adj = line.adjust;
+    if (p.pinned) out.pinned = true;
+    if (d.m !== m) out.th = d.m.th;
+    if (adj?.color) out.textColor = adj.color;
+    if (adj?.glowColor) out.glowColor = adj.glowColor;
+    if (adj && finiteNum(adj.opacity) && adj.opacity !== 1)
+      out.opacity = Math.min(1, Math.max(0, adj.opacity));
+    return out;
   });
 
   return {

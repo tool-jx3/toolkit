@@ -5,6 +5,7 @@
 import type { LyricFxLine, LyricStyle } from '../../types';
 import { drawScatter } from './draw';
 import { planScatter, type ScatterPlan, scatterLock } from './plan';
+import { scatterAnchorAt, scatterAngleTo, scatterHitTest, scatterPlacement } from './pointer';
 import {
   normalizeScatter,
   SCATTER_CONTROLS,
@@ -20,6 +21,20 @@ export const scatterStyle: LyricStyle<ScatterSettings, ScatterPlan> = {
   defaults: scatterDefaults,
   normalize: normalizeScatter,
   controls: SCATTER_CONTROLS,
+  /* 逐句的手動調整（規格 F75～F81）：全部支援 */
+  adjust: {
+    position: true,
+    angle: true,
+    color: true,
+    glowColor: true,
+    scale: true,
+    opacity: true,
+    font: true,
+  },
+  placement: scatterPlacement,
+  hitTest: scatterHitTest,
+  anchorAt: scatterAnchorAt,
+  angleTo: scatterAngleTo,
   fonts: (s) => {
     const list = [s.font];
     if (
@@ -54,5 +69,6 @@ export const scatterStyle: LyricStyle<ScatterSettings, ScatterPlan> = {
 
 export * from './draw';
 export * from './plan';
+export * from './pointer';
 export * from './settings';
 export { SCATTER_TEXT } from './strings';
