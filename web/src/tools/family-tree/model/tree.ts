@@ -150,7 +150,8 @@ export function nextOrder(people: People, parentId: string | null): number {
   let max = 0;
   for (const p of Object.values(people)) {
     if (!isMember(p)) continue;
-    if ((lineParent(people, p, { all: true }) ?? null) === parentId) max = Math.max(max, p.order ?? 0);
+    if ((lineParent(people, p, { all: true }) ?? null) === parentId)
+      max = Math.max(max, p.order ?? 0);
   }
   return max + 1;
 }

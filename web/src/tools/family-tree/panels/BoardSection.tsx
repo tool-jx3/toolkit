@@ -1,0 +1,140 @@
+/**
+ * 「圖板」區塊（規格 1.1）：切換、名稱、新增、刪除、加入範例。
+ */
+import { BookOpen, Plus, Trash2 } from 'lucide-react';
+import { historyGesture } from '@/core/storage';
+import { Button, Field, Section, Select, TextInput, useConfirm } from '@/ui';
+import { notify } from '../actions';
+import { exampleBoard } from '../model/example';
+import { type Board, LIMITS, newId } from '../model/types';
+import {
+  boardNow,
+  setCollapsed,
+  switchBoard,
+  treeNow,
+  uniqueTitle,
+  updateBoard,
+  useBoard,
+  useTree,
+} from '../store';
+import { S } from '../strings';
+
+const gesture = historyGesture(useTree);
+
+function emptyBoard(boards: readonly Board[]): Board {
+  return {
+    id: newId('b'),
+    title: uniqueTitle(S.newBoardTitle, boards),
+    createdAt: new Date().toISOString(),
+    align: 'center',
+    cats: [],
+    people: {},
+  };
+}
+
+/** 加一張圖板並切過去（不列入復原：切換時復原紀錄清空） */
+export function addBoard(b: Board): void {
+  useTree.getState().update((d) => {
+    d.boards.push(b);
+  });
+  switchBoard(b.id);
+  useTree.temporal.getState().clear();
+}
+
+export function BoardSection() {
+  const confirm = useConfirm();
+  const boards = useTree((s) => s.data.boards);
+  const board = useBoard();
+  const full = boards.length >= LIMITS.boards;
+  const sorted = [...boards].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+  const onNew = () => {
+    const b = emptyBoard(treeNow().boards);
+    addBoard(b);
+    notify({ title: S.boardAdded(b.title), tone: 'success', replace: true });
+    setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>('[data-field="board-title"]');
+      el?.focus();
+      el?.select();
+    }, 30);
+  };
+  const onExample = () => {
+    const b = exampleBoard();
+    b.title = uniqueTitle(b.title, treeNow().boards);
+    addBoard(b);
+    notify({ title: S.boardAdded(b.title), tone: 'success', replace: true });
+  };
+  const onDelete = async () => {
+    const cur = boardNow();
+    const ok = await confirm({
+      title: S.deleteBoardTitle(cur.title),
+      description: S.deleteBoardDesc,
+      confirmLabel: S.deleteBoardConfirm,
+      danger: true,
+    });
+    if (!ok) return;
+    const rest = treeNow().boards.filter((b) => b.id !== cur.id);
+    /* 至少留一張：刪掉最後一張時換成空白的圖板（D24） */
+    const next = rest.length ? null : emptyBoard([]);
+    const nextId =
+      next?.id ?? [...rest].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]?.id ?? '';
+    useTree.getState().update((d) => {
+      d.boards = d.boards.filter((b) => b.id !== cur.id);
+      if (next) d.boards.push(next);
+    });
+    setCollapsed(cur.id, []);
+    switchBoard(nextId);
+    useTree.temporal.getState().clear();
+    notify({ title: S.boardDeleted(cur.title), tone: 'success', replace: true });
+  };
+
+  return (
+    <Section title={S.boardSection} persistKey="family-tree:boards">
+      <Field label={S.boardSelect}>
+        <Select
+          value={board.id}
+          data-field="board-select"
+          options={sorted.map((b) => ({ value: b.id, label: b.title || S.untitledBoard }))}
+          onValueChange={(id) => switchBoard(id)}
+        />
+      </Field>
+      <Field label={S.boardTitle} hint={S.boardTitleHint}>
+        <TextInput
+          value={board.title}
+          maxLength={LIMITS.title}
+          data-field="board-title"
+          onFocus={gesture.begin}
+          onChange={(e) => {
+            const v = Array.from(e.target.value).slice(0, LIMITS.title).join('');
+            updateBoard((b) => {
+              b.title = v;
+            });
+          }}
+          onBlur={() => {
+            if (!boardNow().title.trim())
+              updateBoard((b) => {
+                b.title = S.untitledBoard;
+              });
+            gesture.commit();
+          }}
+        />
+      </Field>
+      <div className="flex flex-wrap gap-1.5">
+        <Button size="sm" icon={<Plus />} disabled={full} onClick={onNew}>
+          {S.newBoard}
+        </Button>
+        <Button size="sm" icon={<BookOpen />} disabled={full} onClick={onExample}>
+          {S.addExample}
+        </Button>
+        <Button size="sm" variant="danger" icon={<Trash2 />} onClick={() => void onDelete()}>
+          {S.deleteBoard}
+        </Button>
+      </div>
+      <p className="m-0 mt-1.5 text-xs text-muted" data-testid="board-count">
+        {full
+          ? S.boardsFull(LIMITS.boards)
+          : S.boardCount(Object.keys(board.people).length, boards.length)}
+      </p>
+    </Section>
+  );
+}

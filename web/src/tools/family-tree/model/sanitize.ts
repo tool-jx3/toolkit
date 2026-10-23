@@ -11,8 +11,8 @@ import {
   type Board,
   type Category,
   type Gender,
-  type LifeStatus,
   LIMITS,
+  type LifeStatus,
   type LinkInfo,
   type Member,
   newId,
@@ -68,7 +68,17 @@ function cleanLink(v: unknown): LinkInfo | undefined {
 function base(raw: Obj, id: string, order: number) {
   const out: Pick<
     Person,
-    'id' | 'name' | 'reading' | 'birth' | 'death' | 'note' | 'cat' | 'order' | 'status' | 'secret' | 'avatar'
+    | 'id'
+    | 'name'
+    | 'reading'
+    | 'birth'
+    | 'death'
+    | 'note'
+    | 'cat'
+    | 'order'
+    | 'status'
+    | 'secret'
+    | 'avatar'
   > = {
     id,
     name: clip(raw.name, LIMITS.name),

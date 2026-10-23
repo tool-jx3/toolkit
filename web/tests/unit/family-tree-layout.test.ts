@@ -3,8 +3,6 @@
  * 期待值是把同一份資料（原作的備份檔格式，人物都是虛構的）放進原作的網頁，在各種顯示設定下從 DOM 讀出的座標
  * （.impl-tmp/parity/orig-extract.mjs → make-fixtures.mjs）。
  */
-import { readdirSync, readFileSync } from 'node:fs';
-import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   chipX,
@@ -17,8 +15,6 @@ import {
 } from '@/tools/family-tree/model/layout';
 import { boardsFromLegacy } from '@/tools/family-tree/model/legacy';
 import type { Align, Board, Member, People } from '@/tools/family-tree/model/types';
-
-const FIX = path.join(__dirname, '../fixtures/family-tree');
 
 interface Variant {
   align: Align;
@@ -39,9 +35,9 @@ interface Fixture {
   variants: Record<string, Variant>;
 }
 
-const fixtures: Fixture[] = readdirSync(FIX)
-  .filter((f) => f.endsWith('.json'))
-  .map((f) => JSON.parse(readFileSync(path.join(FIX, f), 'utf8')));
+const fixtures: Fixture[] = Object.values(
+  import.meta.glob<Fixture>('../fixtures/family-tree/*.json', { eager: true, import: 'default' }),
+);
 
 function boardOf(fx: Fixture): Board {
   const [b] = boardsFromLegacy(fx.data, '測試');
@@ -76,9 +72,9 @@ describe('排版和原作逐張相同', () => {
         /* 世代標籤、虛線 */
         const G = guides(L);
         expect(G.rows.map((r) => [`${r.gen}세`, G.labelX, r.y + dims.H / 2 - 10])).toEqual(v.gens);
-        expect(
-          G.rows.slice(0, -1).map((r) => [G.lineX, rowLineY(r, dims), G.lineWidth]),
-        ).toEqual(v.lines);
+        expect(G.rows.slice(0, -1).map((r) => [G.lineX, rowLineY(r, dims), G.lineWidth])).toEqual(
+          v.lines,
+        );
         /* 親子連線 */
         if (v.paths) expect(L.nodes.map((n) => edgePath(n, dims)).filter(Boolean)).toEqual(v.paths);
       });
@@ -99,7 +95,11 @@ const base = { dims: DIMS.full, spouses: true, align: 'center' as Align };
 describe('排版的規則', () => {
   it('一代一列、y＝(代數 − 最小代數) × (H ＋ VG)', () => {
     const L = layoutTree(
-      people([member('a', { gen: 3 }), member('b', { fatherId: 'a' }), member('c', { fatherId: 'b' })]),
+      people([
+        member('a', { gen: 3 }),
+        member('b', { fatherId: 'a' }),
+        member('c', { fatherId: 'b' }),
+      ]),
       base,
     );
     expect(L.nodes.map((n) => [n.id, n.gen, n.y])).toEqual([
@@ -192,17 +192,26 @@ describe('排版的規則', () => {
       base,
     );
     const plain = layoutTree(
-      people([member('r'), member('a', { fatherId: 'r', order: 1 }), member('b', { fatherId: 'r', order: 2 })]),
+      people([
+        member('r'),
+        member('a', { fatherId: 'r', order: 1 }),
+        member('b', { fatherId: 'r', order: 2 }),
+      ]),
       base,
     );
-    const rel = (L: typeof lead, id: string) => (L.byId.get(id)?.x ?? 0) - (L.byId.get('r')?.x ?? 0);
+    const rel = (L: typeof lead, id: string) =>
+      (L.byId.get(id)?.x ?? 0) - (L.byId.get('r')?.x ?? 0);
     expect(rel(lead, 'a') - rel(plain, 'a')).toBe(40);
     expect(rel(lead, 'b') - rel(plain, 'b')).toBe(40);
   });
 
   it('矮的子樹塞進高的子樹旁邊（每一代各自的輪廓）', () => {
     /* a 底下：b（很寬的孫輩）、c（沒有孩子）：c 只要和 b 這一列相隔 HG */
-    const list = [member('a'), member('b', { fatherId: 'a', order: 1 }), member('c', { fatherId: 'a', order: 2 })];
+    const list = [
+      member('a'),
+      member('b', { fatherId: 'a', order: 1 }),
+      member('c', { fatherId: 'a', order: 2 }),
+    ];
     for (let i = 0; i < 5; i++) list.push(member(`g${i}`, { fatherId: 'b', order: i + 1 }));
     const L = layoutTree(people(list), base);
     const x = Object.fromEntries(L.nodes.map((n) => [n.id, n.x]));
@@ -218,7 +227,11 @@ describe('排版的規則', () => {
 
   it('家系之間相隔 3 × HG；沒有共同世代時接在最右邊之後', () => {
     const L = layoutTree(
-      people([member('a', { order: 1 }), member('b', { order: 2 }), member('c', { order: 3, gen: 5 })]),
+      people([
+        member('a', { order: 1 }),
+        member('b', { order: 2 }),
+        member('c', { order: 3, gen: 5 }),
+      ]),
       base,
     );
     const x = Object.fromEntries(L.nodes.map((n) => [n.id, n.x]));
@@ -228,7 +241,11 @@ describe('排版的規則', () => {
 
   it('配偶加寬區塊；不顯示配偶時變窄', () => {
     const P: People = {
-      ...people([member('a'), member('b', { fatherId: 'a', order: 1 }), member('c', { fatherId: 'a', order: 2 })]),
+      ...people([
+        member('a'),
+        member('b', { fatherId: 'a', order: 1 }),
+        member('c', { fatherId: 'a', order: 2 }),
+      ]),
       s1: { id: 's1', kind: 'spouse', spouseOf: 'b', name: 's1', order: 1 },
       s2: { id: 's2', kind: 'spouse', spouseOf: 'b', name: 's2', order: 2 },
     };
@@ -241,7 +258,11 @@ describe('排版的規則', () => {
   });
 
   it('折疊的人當作沒有孩子', () => {
-    const P = people([member('a'), member('b', { fatherId: 'a', order: 1 }), member('c', { fatherId: 'a', order: 2 })]);
+    const P = people([
+      member('a'),
+      member('b', { fatherId: 'a', order: 1 }),
+      member('c', { fatherId: 'a', order: 2 }),
+    ]);
     const L = layoutTree(P, { ...base, collapsed: ['a'] });
     expect(L.nodes.map((n) => n.id)).toEqual(['a']);
     expect(L.nodes[0].hasKids).toBe(true);
@@ -251,7 +272,15 @@ describe('排版的規則', () => {
     const P: People = {
       ...people([member('a'), member('d', { fatherId: 'a', gender: 'F' })]),
       h: { id: 'h', kind: 'spouse', spouseOf: 'd', name: 'h', order: 1 },
-      k: { id: 'k', kind: 'member', name: 'k', gender: 'M', order: 1, fatherId: 'h', motherId: 'd' },
+      k: {
+        id: 'k',
+        kind: 'member',
+        name: 'k',
+        gender: 'M',
+        order: 1,
+        fatherId: 'h',
+        motherId: 'd',
+      },
     };
     expect(layoutTree(P, base).byId.get('k')?.parent?.id).toBe('d');
     expect(layoutTree(P, { ...base, maternal: false }).byId.has('k')).toBe(false);
