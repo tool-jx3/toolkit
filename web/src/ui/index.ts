@@ -173,6 +173,14 @@ export {
 export { ImageSampler, type ImageSamplerProps, type SamplePoint } from './ImageSampler';
 export { InspirationFooter } from './InspirationFooter';
 export {
+  InteractiveHtmlDialog,
+  type InteractiveHtmlDialogProps,
+  type InteractiveHtmlStrings,
+  ShareLinkDialog,
+  type ShareLinkDialogProps,
+  type ShareLinkStrings,
+} from './InteractiveHtmlDialog';
+export {
   ISSUE_LEVEL_LABELS,
   type IssueItem,
   type IssueLevel,

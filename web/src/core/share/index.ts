@@ -189,6 +189,14 @@ export function shareUrl(data: unknown, options: ShareOptions, base?: string): s
   return u.toString();
 }
 
+/** `#…=…` 的 # 後面有幾個字（含鍵名；給「放不放得進連結」的判斷用） */
+export const shareHashLength = (hash: string): number =>
+  hash.startsWith('#') ? hash.length - 1 : hash.length;
+
+/** 連結的 # 後面超過 maxLength 字（讀回時會被當成太長而忽略，所以輸出時要停用） */
+export const shareTooLong = (hash: string, maxLength: number): boolean =>
+  shareHashLength(hash) > maxLength;
+
 /** 清掉網址的 #（不重新載入、不留歷史紀錄）；例如「從頭來過」 */
 export function clearShareHash(): void {
   if (typeof history === 'undefined' || typeof location === 'undefined') return;

@@ -1,7 +1,15 @@
 import { Copy, Info, Lock, Pencil, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { diagnosticText } from '@/core/diagnostics';
 import { copyText } from '@/core/files';
+import {
+  interactiveFileName,
+  scriptJson,
+  standaloneDocument,
+  styleText,
+  widgetId,
+} from '@/core/interactive';
+import { encodeShareHash, shareTooLong } from '@/core/share';
 import type { ToolEntry } from '@/registry';
 import {
   Button,
@@ -12,9 +20,11 @@ import {
   Dialog,
   DialogClose,
   GroupTabs,
+  InteractiveHtmlDialog,
   Kbd,
   Notice,
   Section,
+  ShareLinkDialog,
   ShortcutHelp,
   Tooltip,
   UsageSection,
@@ -51,6 +61,96 @@ function DiagnosticsNotice() {
     <Notice tone="danger" action={details ? <CopyDiagnostics text={details} /> : undefined}>
       無法讀取：範例.jpg
     </Notice>
+  );
+}
+
+/** 示範用的互動 HTML：一顆按了會計數的按鈕（互動程式是一個自給自足的函式，原樣放進 <script>） */
+function demoCounter(root: HTMLElement, cfg: { label: string }): void {
+  let n = 0;
+  const b = root.querySelector('button') as HTMLButtonElement;
+  b.addEventListener('click', () => {
+    n++;
+    b.textContent = `${cfg.label} ${n}`;
+  });
+}
+
+async function buildDemoHtml() {
+  const id = widgetId('demo');
+  const css = `#${id} button{padding:8px 16px;font:inherit}`;
+  const snippet = `<div id="${id}"><button type="button">按我</button></div>
+<style>
+${styleText(css)}
+</style>
+<script>
+(function () {
+  var mount = (${demoCounter.toString()});
+  mount(document.getElementById(${scriptJson(id)}), ${scriptJson({ label: '按了' })});
+})();
+</script>`;
+  return {
+    snippet,
+    standalone: standaloneDocument({ title: '示範', css: 'body{margin:16px}', body: snippet }),
+  };
+}
+
+const DEMO_HTML_STRINGS = {
+  title: '互動 HTML',
+  lead: '做成可以玩的網頁。',
+  note: '複製下面的程式碼貼進能貼 HTML 的網站，或下載成獨立的網頁檔。',
+  generating: '正在產生…',
+  failed: '產生失敗：',
+  code: '程式碼',
+  copy: '複製程式碼',
+  copied: '已複製程式碼',
+  size: (bytes: string) => `約 ${bytes}`,
+  download: '下載 HTML',
+  open: '開新視窗試玩',
+  popupBlocked: '瀏覽器擋住了新視窗',
+  popupBlockedHint: '請允許這個網站開新視窗',
+};
+
+const DEMO_SHARE_STRINGS = {
+  title: '分享連結',
+  lead: '把設定放進網址。',
+  note: '開連結的人只會看到這個畫面。',
+  generating: '正在產生…',
+  tooLong: '連結太長，放不進網址。',
+  link: '連結',
+  copy: '複製連結',
+  copied: '已複製連結',
+  count: (n: number) => `${n} 字`,
+  open: '開啟連結',
+};
+
+/** 互動 HTML 與分享連結的對話框（InteractiveHtmlDialog、ShareLinkDialog；核心零件 core/interactive、core/share） */
+function InteractiveDemo() {
+  const [htmlOpen, setHtmlOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const build = useCallback(buildDemoHtml, []);
+  const url = `${location.origin}${location.pathname}${encodeShareHash({ demo: 'x'.repeat(40) }, { version: 1, key: 'demo' })}`;
+  return (
+    <Section title="互動 HTML／分享連結 InteractiveHtmlDialog／ShareLinkDialog">
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => setHtmlOpen(true)}>互動 HTML</Button>
+        <Button onClick={() => setShareOpen(true)}>分享連結</Button>
+      </div>
+      <InteractiveHtmlDialog
+        open={htmlOpen}
+        onOpenChange={setHtmlOpen}
+        strings={DEMO_HTML_STRINGS}
+        build={build}
+        fileName={interactiveFileName('示範', '')}
+        data-testid="interactive-demo"
+      />
+      <ShareLinkDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        strings={DEMO_SHARE_STRINGS}
+        url={url}
+        tooLong={shareTooLong(url.slice(url.indexOf('#')), 8000)}
+        data-testid="share-demo"
+      />
+    </Section>
   );
 }
 
@@ -218,6 +318,7 @@ export function DialogsDemo() {
           <Button icon={<Info />}>停在我上面</Button>
         </Tooltip>
       </Section>
+      <InteractiveDemo />
       <Section title="群組分頁 GroupTabs">
         <p className="m-0 text-xs text-muted">
           實際使用時從 registry 讀同群組的工具；這裡用示範資料。
