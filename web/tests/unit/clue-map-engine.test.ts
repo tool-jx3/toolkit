@@ -3,7 +3,7 @@
  * 調查熱點圖的遊玩畫面（引擎 mountClueMap）：找到、線索卡、解鎖、隱藏熱點、顯示所有熱點、重來、記住進度、文字跳脫、
  * 自給自足（原始碼拿出來在乾淨的環境執行，和互動 HTML 裡的一樣）、和 model 的出現條件規則一致。規格 F60～F72、3.2、3.3。
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type ClueMapConfig, type ClueMapHandle, mountClueMap } from '@/tools/clue-map/engine';
 import { playConfig, progressKey } from '@/tools/clue-map/markup';
 import {
@@ -361,6 +361,33 @@ describe('重來', () => {
   });
 });
 
+describe('重來的確認逾時', () => {
+  it('第一次按之後 3 秒內沒再按，按鈕變回「重來」，進度不變', () => {
+    vi.useFakeTimers();
+    try {
+      mount();
+      click(SAMPLE_IDS.desk);
+      const reset = q('.cm-reset');
+      reset.click();
+      expect(reset.textContent).toBe('再按一次確定重來');
+      vi.advanceTimersByTime(2900);
+      expect(reset.textContent).toBe('再按一次確定重來');
+      vi.advanceTimersByTime(200);
+      expect(reset.textContent).toBe('重來');
+      reset.click();
+      expect(reset.textContent).toBe('再按一次確定重來');
+      expect(text('.cm-progress')).toBe('找到 1／8');
+      /* 提示「出現了…」5 秒後消失 */
+      click(SAMPLE_IDS.shelf);
+      expect(text('.cm-note')).toBe('出現了 1 處新的地方可以調查。');
+      vi.advanceTimersByTime(5100);
+      expect(text('.cm-note')).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('進度', () => {
   it('三種顯示；全部找到時顯示完成', () => {
     const s = blankState();
@@ -507,20 +534,45 @@ describe('記住進度', () => {
 });
 
 describe('hooks 與 handle', () => {
-  it('onChange 在找到、重來、顯示所有熱點時通知；open() 只翻出已找到的', () => {
-    const calls: { found: string[]; revealing: boolean }[] = [];
+  it('onChange 在找到、翻開線索卡、關閉、顯示所有熱點、重來時通知；open() 只翻出已找到的', () => {
+    const calls: { found: string[]; revealing: boolean; open: string | null }[] = [];
     mount(sampleState(), {}, standalone, { onChange: (s) => calls.push(s) });
     click(SAMPLE_IDS.desk);
-    expect(calls.at(-1)).toEqual({ found: [SAMPLE_IDS.desk], revealing: false });
+    expect(calls.at(-1)).toEqual({
+      found: [SAMPLE_IDS.desk],
+      revealing: false,
+      open: SAMPLE_IDS.desk,
+    });
     handle?.setReveal(true);
-    expect(calls.at(-1)).toEqual({ found: [SAMPLE_IDS.desk], revealing: true });
+    expect(calls.at(-1)).toEqual({
+      found: [SAMPLE_IDS.desk],
+      revealing: true,
+      open: SAMPLE_IDS.desk,
+    });
     handle?.open(SAMPLE_IDS.shelf);
     expect(text('.cm-card-name')).toBe('書桌');
     handle?.open(null);
     expect(q('.cm-card').hasAttribute('data-empty')).toBe(true);
+    expect(calls.at(-1)).toEqual({ found: [SAMPLE_IDS.desk], revealing: true, open: null });
     handle?.reset();
-    expect(calls.at(-1)).toEqual({ found: [], revealing: false });
+    expect(calls.at(-1)).toEqual({ found: [], revealing: false, open: null });
     expect(handle?.found()).toEqual([]);
+  });
+
+  it('initialReveal、initialOpen（試玩重新掛載帶回進度）：開著「顯示所有熱點」、翻開的線索卡；沒找到的卡不翻', () => {
+    mount(sampleState(), {
+      initialFound: [SAMPLE_IDS.desk, SAMPLE_IDS.shelf],
+      initialReveal: true,
+      initialOpen: SAMPLE_IDS.shelf,
+    });
+    expect(q('.cm-reveal').getAttribute('aria-pressed')).toBe('true');
+    expect(text('.cm-card-name')).toBe('書架');
+    expect(
+      root.querySelector(`[data-found-item="${SAMPLE_IDS.shelf}"]`)?.getAttribute('aria-current'),
+    ).toBe('true');
+    handle?.destroy();
+    mount(sampleState(), { initialFound: [SAMPLE_IDS.desk], initialOpen: SAMPLE_IDS.shelf });
+    expect(q('.cm-card').hasAttribute('data-empty')).toBe(true);
   });
 
   it('destroy 清乾淨：再掛載一次是新的', () => {

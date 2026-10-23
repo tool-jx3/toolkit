@@ -1,5 +1,5 @@
 /**
- * 頁首的「專案」選單：存成專案檔（有上傳的圖片時是 ZIP：設定＋圖片）、開啟專案檔、重設（回到範例）。
+ * 頁首的「專案」選單：存成專案檔（ZIP：設定＋圖片；沒有圖片時只有 project.json）、開啟專案檔、重設（回到範例）。
  */
 import { useSaveError, useSaveStatus } from '@/core/storage';
 import { ProjectMenu, useToast } from '@/ui';

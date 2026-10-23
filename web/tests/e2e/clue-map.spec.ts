@@ -105,13 +105,38 @@ const tab = (page: Page, name: string) => page.getByRole('tab', { name, exact: t
 const spotRows = (page: Page) => page.locator('[data-spot-row]');
 const stageImage = (page: Page) => page.getByTestId('stage-image');
 
-async function stored(page: Page): Promise<Record<string, any>> {
+interface StoredSpot {
+  id: string;
+  name: string;
+  shape: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  text: string;
+  check: string;
+  memo: string;
+  image: unknown;
+  locked: boolean;
+  requires: string[];
+  mode: string;
+  hidden: boolean;
+}
+
+interface StoredData {
+  title: string;
+  intro: string;
+  scene: Record<string, unknown>;
+  spots: StoredSpot[];
+}
+
+async function stored(page: Page): Promise<StoredData> {
   await page.waitForFunction((k) => localStorage.getItem(k) !== null, KEY);
   return page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? 'null')?.state?.data, KEY);
 }
 
 /** 存檔裡的熱點（依順序） */
-async function storedSpots(page: Page): Promise<Record<string, any>[]> {
+async function storedSpots(page: Page): Promise<StoredSpot[]> {
   return (await stored(page)).spots;
 }
 
@@ -1111,9 +1136,7 @@ test('互動 HTML：程式碼、下載的檔案離線也能玩、記住進度、
   await expect(root.locator('.cm-title')).toHaveText('舊書房的調查');
   await expect(root.locator('.cm-progress')).toHaveText('找到 0／8');
   await expect
-    .poll(() =>
-      root.locator('.cm-img').evaluate((e) => (e as HTMLImageElement).naturalWidth),
-    )
+    .poll(() => root.locator('.cm-img').evaluate((e) => (e as HTMLImageElement).naturalWidth))
     .toBe(1200);
   await root.locator(`[data-spot="${ID.shelf}"]`).click();
   await expect(root.locator('.cm-card-name')).toHaveText('書架');
@@ -1221,7 +1244,9 @@ test('互動 HTML：標題、名稱、文字裡的 HTML 與 </script> 一律當�
   await expect(p2.locator('.cm-card-name')).toHaveText(evil);
   await expect(p2.locator('.cm-card .cm-text')).toHaveText(long);
   await expect(p2.locator('.cm-check')).toHaveText(`檢定提示：${evil}`);
-  expect(await p2.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();
+  expect(
+    await p2.evaluate(() => (window as unknown as { __pwned?: number }).__pwned),
+  ).toBeUndefined();
   expect(await p2.locator('.cm b').count()).toBe(0);
   expect(errs2).toEqual([]);
   expect(errors).toEqual([]);
@@ -1314,7 +1339,10 @@ test('分享連結：上傳的圖片時停用並說明；網址的圖與內建�
   await page.getByTestId('clue-image-url').press('Enter');
   await expect(share).toBeEnabled();
   await share.click();
-  const url = await page.getByTestId('share-dialog').getByRole('textbox', { name: '連結' }).inputValue();
+  const url = await page
+    .getByTestId('share-dialog')
+    .getByRole('textbox', { name: '連結' })
+    .inputValue();
   await page.keyboard.press('Escape');
   const p2 = await page.context().newPage();
   await routeImages(p2);
@@ -1392,12 +1420,9 @@ test('壞掉的連結：照常開編輯畫面、通知一次、拿掉網址的 #
   await expect(p.locator('.cm-title')).toHaveText('<b>改</b>');
   await expect(p).toHaveAttribute('data-theme', 'dark');
   const a = spot(p, 's0');
-  expect(await a.evaluate((e) => [e.style.left, e.style.top, e.style.width, e.style.height])).toEqual([
-    '50%',
-    '99.25%',
-    '100%',
-    '1.5%',
-  ]);
+  expect(
+    await a.evaluate((e) => [e.style.left, e.style.top, e.style.width, e.style.height]),
+  ).toEqual(['50%', '99.25%', '100%', '1.5%']);
   await expect(a).toHaveAttribute('data-shape', 'rect');
   /* A 的條件：0 是自己、99 與 -1 超出範圍都丟掉，只剩 1（B）→ 要先找到 B；B 的條件只有自己（重複）→ 沒有條件 */
   await expect(a).toHaveAttribute('data-state', 'locked');
@@ -1430,7 +1455,8 @@ async function inspectPng(
       const ctx = c.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
       ctx.drawImage(bmp, 0, 0);
       const px = ctx.getImageData(0, 0, c.width, c.height).data;
-      const at = (x: number, y: number) => Array.from(px.slice((y * c.width + x) * 4, (y * c.width + x) * 4 + 4));
+      const at = (x: number, y: number) =>
+        Array.from(px.slice((y * c.width + x) * 4, (y * c.width + x) * 4 + 4));
       let n = 0;
       if (color)
         for (let i = 0; i < px.length; i += 4)
@@ -1503,4 +1529,262 @@ test('總覽 PNG：沒有熱點、很長的文字、線索圖片、網址的圖�
   const small = await inspectPng(page, readFileSync((await dl2.path()) as string), []);
   expect(small.height).toBeLessThan(info.height / 2);
   expect(errors.filter((e) => !/Failed to load|ERR_FAILED/.test(e))).toEqual([]);
+});
+
+/* ---------- 專案檔、自動儲存、復原、快捷鍵 ---------- */
+
+/** 專案檔（JSON）的內容 */
+const projectJson = (data: unknown) =>
+  Buffer.from(
+    JSON.stringify({
+      format: 'trpg-toolkit-project',
+      tool: 'clue-map',
+      version: 1,
+      savedAt: new Date().toISOString(),
+      data,
+    }),
+  );
+
+test('專案檔（ZIP，沒有圖片時也是）：存檔、重設（回到範例）、開啟；含 KP 備註（F94）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await page.getByTestId('title-input').fill('改過的標題');
+  await page.getByTestId('title-input').press('Enter');
+  const saved = await saveProject(page);
+  expect(saved.name).toMatch(/^調查熱點圖_\d{8}\.zip$/);
+  const zip0 = unzipSync(new Uint8Array(saved.bytes));
+  expect(Object.keys(zip0)).toEqual(['project.json']);
+  const project = JSON.parse(strFromU8(zip0['project.json']));
+  expect(project).toMatchObject({ format: 'trpg-toolkit-project', tool: 'clue-map', version: 1 });
+  expect(project.data.title).toBe('改過的標題');
+  expect(project.data.spots).toHaveLength(8);
+  expect(project.data.spots[0].memo).toContain('筆痕');
+  expect(project.data.scene).toEqual({ kind: 'builtin', id: 'study' });
+  /* 重設：回到範例 */
+  await page.waitForTimeout(450);
+  await openProjectItem(page, '重設…');
+  await expect(page.getByRole('alertdialog')).toContainText('回到範例的書房');
+  await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
+  await expect(page.getByTestId('title-input')).toHaveValue('舊書房的調查');
+  /* 開啟剛才的專案檔 */
+  await page.waitForTimeout(450);
+  await openProjectFile(page, saved.name, saved.bytes, 'application/zip');
+  await expect(toast(page, '已開啟專案檔')).toBeVisible();
+  await expect(page.getByTestId('title-input')).toHaveValue('改過的標題');
+  await expect(page.getByTestId('stage-shapes').locator('[data-shape-id]')).toHaveCount(8);
+  /* 開啟專案檔也可以復原 */
+  await page.waitForTimeout(450);
+  await page.getByRole('button', { name: '復原' }).first().click();
+  await expect(page.getByTestId('title-input')).toHaveValue('舊書房的調查');
+  expect(errors).toEqual([]);
+});
+
+test('專案檔（有上傳的圖片時是 ZIP）：場景與線索圖片都放進去、重設、開啟後圖片還在（F94）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await page
+    .getByRole('group', { name: '場景圖' })
+    .locator('input[type=file]')
+    .setInputFiles(file('房間.png', await solid(30, 60, 90, 120, 80)));
+  await expect(page.getByTestId('scene-name')).toHaveText('房間.png');
+  await selectRow(page, 1);
+  await page
+    .locator('[data-clue-drop] input[type=file]')
+    .setInputFiles(file('書影.png', await solid(200, 20, 20, 64, 48)));
+  await expect(page.getByTestId('clue-image')).toBeVisible();
+  const saved = await saveProject(page);
+  expect(saved.name).toMatch(/^調查熱點圖_\d{8}\.zip$/);
+  const zip = unzipSync(new Uint8Array(saved.bytes));
+  const project = JSON.parse(strFromU8(zip['project.json']));
+  expect(project).toMatchObject({ format: 'trpg-toolkit-project', tool: 'clue-map', version: 1 });
+  const sceneId = project.data.scene.id;
+  const clueId = project.data.spots[1].image.id;
+  expect(Object.keys(zip)).toEqual(
+    expect.arrayContaining([`files/${sceneId}.png`, `files/${clueId}.png`]),
+  );
+  /* 重設 */
+  await openProjectItem(page, '重設…');
+  await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
+  await tab(page, '場景').click();
+  await expect(page.getByTestId('scene-name')).toHaveText('書房');
+  /* 開啟 ZIP：圖片回來 */
+  await openProjectFile(page, saved.name, saved.bytes, 'application/zip');
+  await expect(toast(page, '已開啟專案檔')).toBeVisible();
+  await tab(page, '場景').click();
+  await expect(page.getByTestId('scene-name')).toHaveText('房間.png');
+  await selectRow(page, 1);
+  await expect(page.getByTestId('clue-image')).toContainText('書影.png');
+  /* 重新整理後圖片還在 */
+  await page.reload();
+  await expect(page.getByTestId('scene-name')).toHaveText('房間.png');
+  await expect
+    .poll(() => stageImage(page).evaluate((e) => (e as HTMLImageElement).naturalWidth))
+    .toBe(120);
+  expect(errors).toEqual([]);
+});
+
+test('專案檔：不認得的檔、缺圖片、超過 40 個熱點的通知（F94、F23、E06）', async ({ page }) => {
+  const errors = await open(page);
+  await openProjectFile(page, 'x.json', Buffer.from('{"hello":1}'), 'application/json');
+  await expect(toast(page, '無法開啟專案檔')).toBeVisible();
+  await expect(page.getByTestId('title-input')).toHaveValue('舊書房的調查');
+  /* 缺圖片：專案檔指到不存在的上傳圖 */
+  await openProjectFile(
+    page,
+    'missing.json',
+    projectJson({
+      title: '缺圖',
+      scene: { kind: 'asset', id: 'anotexist', name: 'x.png', width: 10, height: 10 },
+      spots: [],
+    }),
+    'application/json',
+  );
+  await expect(toast(page, '無法開啟專案檔')).toHaveCount(2);
+  await expect(page.getByTestId('title-input')).toHaveValue('舊書房的調查');
+  /* 超過 40 個：多的丟掉並通知 */
+  await openProjectFile(
+    page,
+    'many.json',
+    projectJson({
+      title: '很多',
+      spots: Array.from({ length: 45 }, (_, i) => ({ id: `m${i}x`, name: `P${i}` })),
+    }),
+    'application/json',
+  );
+  await expect(toast(page, '熱點最多 40 個，多出來的 5 個沒有加入。')).toBeVisible();
+  await expect(page.getByTestId('title-input')).toHaveValue('很多');
+  await tab(page, '熱點').click();
+  await expect(page.getByText('熱點清單（40／40）')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('自動儲存與還原（含圖片）；存檔壞掉時整理後照常開頁（F95）', async ({ page }) => {
+  const errors = await open(page);
+  await page.getByTestId('title-input').fill('會留下來的標題');
+  await dragStage(page, [15, 25], [25, 35]);
+  await expect.poll(async () => (await stored(page)).title).toBe('會留下來的標題');
+  await page.reload();
+  await expect(page.getByTestId('title-input')).toHaveValue('會留下來的標題');
+  expect((await storedSpots(page))[3].x).toBeCloseTo(16.67, 0);
+  /* 存檔壞掉：缺欄位、數值亂填、不合格的圖片網址 */
+  await page.evaluate((k) => {
+    localStorage.setItem(
+      k,
+      JSON.stringify({
+        state: {
+          data: {
+            title: '壞掉的存檔',
+            scene: { kind: 'url', url: 'javascript:alert(1)' },
+            look: { theme: 'neon', accent: 'red' },
+            spots: [{ id: 'aaa', x: 'zzz', w: 9999, h: -3, text: 5, shape: 'star' }, 'junk', null],
+          },
+        },
+        version: 1,
+      }),
+    );
+  }, KEY);
+  await page.reload();
+  await expect(page.getByTestId('title-input')).toHaveValue('壞掉的存檔');
+  await expect(page.getByTestId('scene-name')).toHaveText('舊紙');
+  await expect(page.getByTestId('stage-shapes').locator('[data-shape-id]')).toHaveCount(1);
+  const s = await storedSpots(page).catch(() => [] as StoredSpot[]);
+  if (s.length) expect(s[0]).toMatchObject({ shape: 'rect', w: 100, h: 1.5 });
+  await goPlay(page);
+  await expect(play(page).locator('.cm')).toHaveCount(0);
+  await expect(play(page)).toHaveAttribute('data-theme', 'dark');
+  expect(errors).toEqual([]);
+});
+
+test('復原／重做：文字欄一次一步、拖曳一次一步、新增熱點、工具列與 Ctrl＋Z（F95）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const undo = page.getByRole('button', { name: /^復原/ }).first();
+  const redo = page.getByRole('button', { name: /^重做/ }).first();
+  await expect(undo).toBeDisabled();
+  /* 文字欄：從聚焦到離開算一步 */
+  await page.getByTestId('title-input').fill('第一版');
+  await page.getByTestId('title-input').press('Enter');
+  await page.waitForTimeout(450);
+  await page.getByTestId('title-input').fill('第二版');
+  await page.getByTestId('title-input').press('Enter');
+  await expect(undo).toBeEnabled();
+  await undo.click();
+  await expect(page.getByTestId('title-input')).toHaveValue('第一版');
+  await redo.click();
+  await expect(page.getByTestId('title-input')).toHaveValue('第二版');
+  /* 拖曳一次一步 */
+  await page.waitForTimeout(450);
+  const x0 = (await stored(page)).spots[3].x;
+  await dragStage(page, [15, 25], [25, 35]);
+  expect((await storedSpots(page))[3].x).not.toBeCloseTo(x0, 0);
+  await page.locator('body').click({ position: { x: 4, y: 200 } });
+  await page.keyboard.press('Control+z');
+  expect((await storedSpots(page))[3].x).toBeCloseTo(x0, 5);
+  await page.keyboard.press('Control+Shift+z');
+  expect((await storedSpots(page))[3].x).not.toBeCloseTo(x0, 0);
+  await page.keyboard.press('Control+z');
+  /* 新增熱點 */
+  await page.waitForTimeout(450);
+  await tab(page, '熱點').click();
+  await btn(page, '新增矩形').click();
+  await expect(spotRows(page)).toHaveCount(9);
+  await page.locator('body').click({ position: { x: 4, y: 200 } });
+  await page.keyboard.press('Control+z');
+  await expect(spotRows(page)).toHaveCount(8);
+  await page.keyboard.press('Control+y');
+  await expect(spotRows(page)).toHaveCount(9);
+  expect(errors).toEqual([]);
+});
+
+test('快捷鍵說明、Ctrl＋V 貼上圖片換場景（文字欄裡不攔截）（F96）', async ({ page }) => {
+  const errors = await open(page);
+  await page.locator('body').click({ position: { x: 4, y: 200 } });
+  await page.keyboard.press('?');
+  const help = page.getByRole('dialog', { name: /快捷鍵/ });
+  await expect(help).toBeVisible();
+  for (const t of ['選取', '畫矩形', '畫橢圓', '刪除選取的熱點', '微調選取的熱點']) {
+    await expect(help).toContainText(t);
+  }
+  await page.keyboard.press('Escape');
+  const b64 = (await bigPng(page, 300, 200)).toString('base64');
+  const paste = (selector: string) =>
+    page.evaluate(
+      ({ b64, selector }) => {
+        const bin = atob(b64);
+        const u8 = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        const dt = new DataTransfer();
+        dt.items.add(new File([u8], '貼上.png', { type: 'image/png' }));
+        document
+          .querySelector(selector)
+          ?.dispatchEvent(
+            new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
+          );
+      },
+      { b64, selector },
+    );
+  /* 文字欄裡貼上：不換場景 */
+  await paste('[data-testid="title-input"]');
+  await page.waitForTimeout(500);
+  await expect(page.getByTestId('scene-name')).toHaveText('書房');
+  /* 頁面上貼上：換場景 */
+  await paste('body');
+  await expect(page.getByTestId('scene-name')).toHaveText('貼上.png');
+  await expect(toast(page, '已換成新的場景圖')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('舞台背景可以切換、記在瀏覽器、不列入復原（F97）', async ({ page }) => {
+  const errors = await open(page);
+  await page.getByRole('radio', { name: '白色背景', exact: true }).click();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('trpg-toolkit:clue-map:preview')))
+    .toContain('"stageBg":"light"');
+  await page.reload();
+  await expect(page.getByRole('radio', { name: '白色背景', exact: true })).toBeChecked();
+  await expect(page.getByRole('button', { name: /^復原/ }).first()).toBeDisabled();
+  expect(errors).toEqual([]);
 });

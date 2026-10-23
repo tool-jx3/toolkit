@@ -1,5 +1,5 @@
 /**
- * 專案檔（共用專案檔格式：沒有上傳的圖片時是 JSON，有時是 ZIP：project.json＋files/<圖片的資產 id>.<副檔名>，規格 3.1）。
+ * 專案檔（共用專案檔格式的 ZIP：project.json＋files/<圖片的資產 id>.<副檔名>，沒有圖片時只有 project.json；也讀只有 JSON 的專案檔，規格 3.1）。
  */
 import { importAssetFiles } from '@/core/assets';
 import { assetIds, type ClueMapState, LIMITS, normalizeState } from './model';
