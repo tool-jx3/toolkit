@@ -66,7 +66,7 @@
 | [角色分析圖產生器](https://tool-jx3.github.io/toolkit/tools/char-chart/) | 一份角色清單做成兩張圖：性格四象限（拖曳角色、算契合度）與關係圖（頭像排成一圈、用不同的線連起來），存成 PNG |
 | [拍立得相框產生器](https://tool-jx3.github.io/toolkit/tools/polaroid/) | 把照片放進拍立得相框：縮放與拖曳照片、寫一行字、用筆在上面畫、貼最多 5 張貼紙，存成高解析度的 PNG |
 | [角色關係圖產生器](https://tool-jx3.github.io/toolkit/tools/relation-chart/) | 在畫布上擺角色、定義關係的顏色與線型、點兩個人拉出關係線，用標籤框出陣營、整理角色庫與關係庫、加便利貼與世界觀，自動排列後匯出 PNG、分層 SVG／PSD、可以分享的互動網頁，或把分頁做成時間軸動畫（GIF／影片） |
-| [家系圖產生器](https://tool-jx3.github.io/toolkit/tools/family-tree/) | 從始祖一路加上子女、配偶與兄弟姊妹，一代一列自動排好的家系圖：雙擊就地編輯、拖曳換順序或換父母、折疊子孫、色分類與圖例，匯出整張或某人以下的直式、橫式 PNG；舊家、遺產與血脈的劇本 handout |
+| [家系圖產生器](https://tool-jx3.github.io/toolkit/tools/family-tree/) | 從始祖一路加上子女、配偶與兄弟姊妹，一代一列自動排好的家系圖：雙擊就地編輯、拖曳換順序或換父母、折疊子孫、色分類與圖例；過繼（出系／入系）、母系外孫、跨家系的婚姻、存歿與失蹤、頭像，GM 專用的人與欄位在 PL 版自動拿掉；匯出整張、某人以下或框選範圍的直式、橫式 PNG 與 SVG；舊家、遺產與血脈的劇本 handout |
 | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | 把台詞、後日談、劇本宣傳文句或心得排成 1200 × 1600 的直式圖片：封面、內文頁或照片＋文字三種版面，文字可以加粗、換色、螢光筆，放不下時自動接到下一頁，存成 PNG 或 ZIP |
 | [驗證題梗圖產生器](https://tool-jx3.github.io/toolkit/tools/captcha-card/) | 做一張「請選出所有包含 ○○ 的圖片」的驗證題梗圖：放代表圖與 3 × 3／4 × 4 的圖片格、勾選答案，匯出 PNG，或游標一格一格點選、按下驗證的 GIF 動畫 |
 | [社群貼文產生器](https://tool-jx3.github.io/toolkit/tools/social-post/) | 做出相片社群 App 的貼文、留言、限時動態與個人頁畫面：照片輪播、按讚與留言、限時動態的版面與貼紙，存成 PNG，或從個人頁點進貼文與限時動態的 HTML 檔 |
