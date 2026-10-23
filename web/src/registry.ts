@@ -256,7 +256,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把一張圖做成老式 RPG 遊戲的截圖：像素化、抖色與色調濾鏡，加上訊息視窗、名字、選項、演出文字與掃描線，台詞可以分頁、換說話者、換顏色，匯出 PNG 或逐字打出的 GIF。',
     group: 'G1',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'dearmysn1p3r/DearMySn1p3r_43（RPG Screenshot Maker）',
       url: 'https://dearmysn1p3r.github.io/DearMySn1p3r_43/',

@@ -585,6 +585,11 @@ test('播放：空白鍵逐字打出（每字的音效）、全部顯示；換�
   await expect(page.getByTestId('page-info')).toContainText('1 / 2');
   await expect(canvas(page)).toHaveAttribute('data-playing', 'false');
   await expect(page.getByRole('button', { name: '上一頁' })).toBeDisabled();
+  /* 焦點在按鈕上時 ←／→ 不換頁（F50、F70） */
+  await page.getByRole('button', { name: '全部顯示' }).focus();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(200);
+  await expect(page.getByTestId('page-info')).toContainText('1 / 2');
   await page.getByRole('button', { name: '下一頁' }).click();
   await expect(page.getByRole('button', { name: '下一頁' })).toBeDisabled();
   await expect(canvas(page)).toHaveAttribute('data-playing', 'false', { timeout: 5000 });

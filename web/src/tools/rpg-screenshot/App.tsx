@@ -119,6 +119,10 @@ function Usage() {
   );
 }
 
+/** 焦點在按鈕、連結上時，←／→ 不換頁（F50、F70，同原作；共用的 useShortcuts 只擋表單控制項） */
+const onButton = (e: KeyboardEvent) =>
+  e.target instanceof Element && !!e.target.closest('button,a');
+
 export function App() {
   const { canUndo, canRedo } = useUndoRedo(useDoc);
   const screenRef = useRef<ScreenHandle>(null);
@@ -145,13 +149,17 @@ export function App() {
         keys: 'arrowleft',
         label: S.prevShortcut,
         group: S.groupPlay,
-        handler: () => goPage(useLive.getState().page - 1),
+        handler: (e) => {
+          if (!onButton(e)) goPage(useLive.getState().page - 1);
+        },
       },
       {
         keys: 'arrowright',
         label: S.nextShortcut,
         group: S.groupPlay,
-        handler: () => goPage(useLive.getState().page + 1, true),
+        handler: (e) => {
+          if (!onButton(e)) goPage(useLive.getState().page + 1, true);
+        },
       },
       {
         keys: 'mod+s',

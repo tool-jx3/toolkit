@@ -242,7 +242,7 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | id-ticket | 證件與票券產生器（2026-10-19 第一批） | dearmysn1p3r/DearMySn1p3r_20（ID Studio）＋DearMySn1p3r_36（Ticket Studio） | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
 | vhs-frame | 錄影帶畫面產生器（2026-10-19 第一批） | dearmysn1p3r/VHS_Maker | 未授權 | G8 | ✅ | ✅ | ✅ | ✅ |
 | lyric-fx | 歌詞演出產生器（2026-10-21 另外加入；第一種風格「散落」，保留之後加其他風格與併入音樂播放畫面產生器的擴充性） | YouRanCoder/LimbusLyricSimulator | GPL-3.0（只參考效果與做法，程式自己寫） | G1 | ✅ | ✅ | ✅ | ✅ |
-| rpg-screenshot | RPG 截圖產生器（2026-10-23 另外加入） | dearmysn1p3r/DearMySn1p3r_43（RPG Screenshot Maker） | 未授權 | G1 | ⬜ | ⬜ | ⬜ | ⬜ |
+| rpg-screenshot | RPG 截圖產生器（2026-10-23 另外加入） | dearmysn1p3r/DearMySn1p3r_43（RPG Screenshot Maker） | 未授權 | G1 | ✅ | ✅ | ✅ | ✅ |
 | family-tree | 家系圖產生器（2026-10-23 另外加入；分兩批，第一批＝樹的核心） | 가계도 편집기（gagyedo.j-segrc.workers.dev） | 未授權 | G7 | ⬜ | ⬜ | ⬜ | ⬜ |
 | clue-map | 調查熱點圖（2026-10-23 另外加入；本站自己的構想：場景圖上的熱點點開是線索、可以設「先找到某個線索才解鎖」，只借原作「熱區＋解鎖」的想法） | momo102938/MUNgs_click（콕콕） | 未授權 | G6 | ⬜ | ⬜ | ⬜ | ⬜ |
 

@@ -100,6 +100,7 @@
 | [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | 一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈 |
 | [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | 把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，支援直書，可輸出 APNG（含 256 色減色）、GIF、WebP、PNG 或連番 ZIP |
 | [歌詞演出產生器](https://tool-jx3.github.io/toolkit/tools/lyric-fx/) | 放進音樂與有時間標記的歌詞（LRC／SRT，也能邊聽邊打點），讓歌詞散落在畫面上逐字出現、抖動、發光，唱完往上飄著淡出；可以框出要避開的區域、預先暗顯下一句，匯出有聲影片或透明背景的 WebM，疊在直播或遊戲畫面上 |
+| [RPG 截圖產生器](https://tool-jx3.github.io/toolkit/tools/rpg-screenshot/) | 把一張圖做成老式 RPG 遊戲的截圖：像素化、抖色與色調濾鏡、掃描線，加上訊息視窗、名字、選項、演出文字與地點，台詞可以分頁、換說話者、換顏色，用繁中像素字型匯出 PNG，或逐字打出的 GIF、APNG、WebP |
 
 所有工具都在瀏覽器本機執行，不會上傳你建立的任何內容。字型從 Google Fonts 載入；用到 AI 模型的工具（立繪去背、2.5D 動態立繪的臉部追蹤）第一次使用時才下載模型，存在瀏覽器裡。
 
@@ -141,6 +142,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `apng-wipe` | [輕量轉場 APNG 產生器](https://tool-jx3.github.io/toolkit/tools/apng-wipe/) | 出處不明的轉場 APNG 小工具 |
 | `text-fx` | [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發） |
 | `lyric-fx` | [歌詞演出產生器](https://tool-jx3.github.io/toolkit/tools/lyric-fx/) | [YouRanCoder/LimbusLyricSimulator](https://github.com/YouRanCoder/LimbusLyricSimulator) |
+| `rpg-screenshot` | [RPG 截圖產生器](https://tool-jx3.github.io/toolkit/tools/rpg-screenshot/) | [dearmysn1p3r/DearMySn1p3r_43](https://github.com/dearmysn1p3r/DearMySn1p3r_43)（RPG Screenshot Maker） |
 | `textbox` | [文字方框產生器](https://tool-jx3.github.io/toolkit/tools/textbox/) | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) |
 | `portrait-size` | [立繪尺寸統一器](https://tool-jx3.github.io/toolkit/tools/portrait-size/) | [woolwag3338/character-image-size](https://github.com/woolwag3338/character-image-size) |
 | `text-path` | [文字軌跡產生器](https://tool-jx3.github.io/toolkit/tools/text-path/) | [sotsotssi/text-path-generator](https://github.com/sotsotssi/text-path-generator) |
