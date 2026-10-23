@@ -11,6 +11,9 @@ import {
   FILTER_PRESET_IDS,
   FILTER_PRESETS,
   type FilterPresetId,
+  pixelateImage,
+  RETRO_TONES,
+  type RetroTone,
 } from '@/core/image';
 import { drawImageMotion, type SizedImage, VANISH_KINDS, type VanishKind } from '@/core/motion';
 import { historyGesture, useUndoRedo } from '@/core/storage';
@@ -29,6 +32,7 @@ import {
   Select,
   Show,
   Slider,
+  ThumbChoice,
   type ThumbnailItem,
   ThumbnailList,
   Toggle,
@@ -507,12 +511,87 @@ function DecodeDemo() {
   );
 }
 
+/* ---------- 復古像素化（core/image 的 pixelateImage，rpg-screenshot） ---------- */
+
+const RETRO_LABELS: Record<RetroTone, string> = {
+  none: '原色',
+  warm: '暖色',
+  cool: '冷色',
+  sepia: '懷舊',
+  night: '夜晚',
+  mono: '黑白',
+  faded: '褪色',
+  gameboy: '掌機四色',
+};
+
+function RetroDemo() {
+  const [image, setImage] = useState<SizedImage | null>(null);
+  const [tone, setTone] = useState<RetroTone>('none');
+  const [pixelSize, setPixelSize] = useState(3);
+  const [levels, setLevels] = useState(8);
+  const [dither, setDither] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    loadDemoImage()
+      .then((b) => alive && setImage(b))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const draw = useCallback(
+    (ctx: CanvasRenderingContext2D, t: RetroTone) => {
+      const { width: W, height: H } = ctx.canvas;
+      if (!image) {
+        ctx.fillStyle = '#3a3150';
+        ctx.fillRect(0, 0, W, H);
+        return;
+      }
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(
+        pixelateImage(image as ImageBitmap, W, H, { pixelSize, levels, dither, tone: t }),
+        0,
+        0,
+      );
+    },
+    [image, pixelSize, levels, dither],
+  );
+  return (
+    <Section title="復古像素化 core/image（pixelateImage）" persistKey="_gallery:g2:retro">
+      <p className="m-0 text-xs text-muted">
+        縮成像素方塊（畫布預設的平滑縮放）→ 色調、亮度、對比、飽和度（中間不截斷）→ 4 × 4
+        有序抖色取色階 → 最近鄰放大。RPG 截圖產生器的背景圖與頭像用它。
+      </p>
+      <Field label="像素大小">
+        <Slider value={pixelSize} onChange={setPixelSize} min={1} max={8} unit="px" />
+      </Field>
+      <Field label="色階">
+        <Slider value={levels} onChange={setLevels} min={2} max={32} />
+      </Field>
+      <Field label="抖色" layout="inline">
+        <Toggle checked={dither} onCheckedChange={setDither} />
+      </Field>
+      <ThumbChoice<RetroTone>
+        aria-label="色調"
+        options={RETRO_TONES.map((t) => ({ value: t, label: RETRO_LABELS[t] }))}
+        value={tone}
+        onValueChange={setTone}
+        draw={draw}
+        thumbWidth={128}
+        thumbHeight={72}
+        minItemWidth={96}
+      />
+    </Section>
+  );
+}
+
 export function G2Demo() {
   return (
     <div className="flex flex-col gap-3">
       <TransitionControls />
       <CurveControls />
       <MotionControls />
+      <RetroDemo />
       <DecodeDemo />
     </div>
   );
