@@ -165,4 +165,40 @@ describe('快捷鍵', () => {
     );
     expect(screen.queryByText(IN_INPUT_BADGE)).toBeNull();
   });
+
+  it('單獨的功能鍵與修飾鍵：F2、Alt、Shift（只列在說明裡的按鍵；family-tree 對等驗證）', () => {
+    expect(formatCombo('f2', false)).toEqual(['F2']);
+    expect(formatCombo('f12', true)).toEqual(['F12']);
+    expect(formatCombo('alt', false)).toEqual(['Alt']);
+    expect(formatCombo('shift', false)).toEqual(['Shift']);
+    expect(formatCombo('ctrl', false)).toEqual(['Ctrl']);
+    expect(formatCombo('alt', true)).toEqual(['⌥']);
+    expect(formatCombo('shift', true)).toEqual(['⇧']);
+    /* 原本的寫法不變 */
+    expect(formatCombo('alt+shift+f2', false)).toEqual(['Alt', 'Shift', 'F2']);
+    expect(formatCombo('enter', false)).toEqual(['Enter']);
+    expect(formatCombo('escape', false)).toEqual(['Esc']);
+    expect(formatCombo('arrowup', false)).toEqual(['↑']);
+    expect(formatCombo('insert', false)).toEqual(['insert']);
+  });
+
+  it('ShortcutHelp：單獨的 F2、Alt、Shift 顯示成「F2」「Alt」「Shift」', () => {
+    render(
+      <ShortcutHelp
+        open
+        onOpenChange={() => {}}
+        shortcuts={[
+          { keys: 'f2', label: '直接修改名字' },
+          { keys: 'alt', label: '換父母' },
+          { keys: 'shift', label: '連同子孫' },
+        ]}
+      />,
+    );
+    const dialog = screen.getByRole('dialog', { name: '快捷鍵' });
+    expect([...dialog.querySelectorAll('kbd')].map((k) => k.textContent)).toEqual([
+      'F2',
+      'Alt',
+      'Shift',
+    ]);
+  });
 });

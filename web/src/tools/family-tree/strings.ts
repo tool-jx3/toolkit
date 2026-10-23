@@ -45,6 +45,8 @@ export const S = {
   dragGap: '調間距',
   dragOrderHint: '拖曳卡片換兄弟姊妹之間的順序',
   dragGapHint: '拖曳卡片只調整和左邊的間距',
+  /** 選項的無障礙名稱：以畫面上的字開頭（語音控制說得出來），說明接在後面 */
+  dragModeLabel: (label: string, hint: string) => `${label}（${hint}）`,
   addRoot: '始祖',
   addRootLabel: '新增始祖',
   autoArrange: '自動整列',
@@ -201,6 +203,8 @@ export const S = {
 
   /* ---- 匯出 ---- */
   exportTitle: '匯出圖片',
+  /** 匯出分頁上方那一組的標題（共用匯出區才叫「匯出圖片」，兩個標題不重複） */
+  exportOptionsTitle: '範圍與內容',
   exportName: '檔名',
   exportRange: '範圍',
   rangeAll: '全部',

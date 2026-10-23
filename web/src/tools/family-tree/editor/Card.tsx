@@ -184,8 +184,18 @@ function GenderMark({ female, compact }: { female: boolean; compact?: boolean })
   );
 }
 
+/* 外框（outline）不放在這裡：`outline-none` 和拖曳時的 `outline-dashed` 同時套用會讓 none 贏（F44），
+   所以各卡片自己選一個（成員卡片：移動中是虛線、其他沒有；配偶卡片：沒有） */
 const cardBase =
-  'relative flex cursor-pointer select-none flex-col overflow-hidden border text-fg shadow-1 outline-none transition-[border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-focus';
+  'relative flex cursor-pointer select-none flex-col overflow-hidden border text-fg shadow-1 transition-[border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-focus';
+
+/** 拖曳中要移動的卡片：2 px 虛線外框、和卡片隔 3 px（F44，同原作） */
+const OUTLINE_MOVING = 'outline-2 outline-offset-3 outline-dashed outline-border-strong';
+const OUTLINE_NONE = 'outline-none';
+
+/** 簡易卡片的圓角 8 px、詳細卡片 10 px（規格 3.2） */
+const RADIUS_COMPACT = 'rounded-[8px]';
+const RADIUS_FULL = 'rounded-[10px]';
 
 export interface MemberCardProps {
   p: Member;
@@ -231,7 +241,7 @@ export const MemberCard = memo(function MemberCard({
     : selected
       ? 'border-accent! shadow-[0_0_0_1px_var(--accent),var(--shadow-2)]'
       : 'hover:border-border-strong';
-  const outline = moving ? 'outline-2 outline-offset-3 outline-dashed outline-border-strong' : '';
+  const outline = moving ? OUTLINE_MOVING : OUTLINE_NONE;
   const common = {
     'data-pid': ghost ? undefined : p.id,
     tabIndex: ghost ? -1 : 0,
@@ -246,7 +256,8 @@ export const MemberCard = memo(function MemberCard({
         {...common}
         className={cn(
           cardBase,
-          'items-center justify-center rounded-lg bg-surface px-1.5 py-1 text-center',
+          'items-center justify-center bg-surface px-1.5 py-1 text-center',
+          RADIUS_COMPACT,
           ring,
           outline,
         )}
@@ -279,7 +290,7 @@ export const MemberCard = memo(function MemberCard({
   return (
     <div
       {...common}
-      className={cn(cardBase, 'gap-0.5 rounded-[10px] bg-surface px-2.5 py-2', ring, outline)}
+      className={cn(cardBase, 'gap-0.5 bg-surface px-2.5 py-2', RADIUS_FULL, ring, outline)}
       style={style}
     >
       <div className="ft-row1 flex min-w-0 items-center gap-[5px]">
@@ -365,7 +376,9 @@ export const SpouseCard = memo(function SpouseCard({
         {...props}
         className={cn(
           cardBase,
-          'items-center justify-center rounded-lg border-dashed bg-bg px-1.5 py-1 text-center',
+          'items-center justify-center border-dashed bg-bg px-1.5 py-1 text-center',
+          RADIUS_COMPACT,
+          OUTLINE_NONE,
           ring,
         )}
         style={style}
@@ -385,7 +398,13 @@ export const SpouseCard = memo(function SpouseCard({
   return (
     <div
       {...props}
-      className={cn(cardBase, 'gap-px rounded-[10px] border-dashed bg-bg px-[9px] py-[7px]', ring)}
+      className={cn(
+        cardBase,
+        'gap-px border-dashed bg-bg px-[9px] py-[7px]',
+        RADIUS_FULL,
+        OUTLINE_NONE,
+        ring,
+      )}
       style={style}
     >
       <div className="text-[11px] text-muted">{rel}</div>

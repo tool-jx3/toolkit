@@ -93,7 +93,7 @@ export function ExportTab() {
 
   return (
     <div className="flex flex-col gap-3" data-testid="export-tab">
-      <Section title={S.exportTitle} persistKey="family-tree:export-options">
+      <Section title={S.exportOptionsTitle} persistKey="family-tree:export-options">
         <Field label={S.exportName}>
           <TextInput
             value={exportName ?? board.title}

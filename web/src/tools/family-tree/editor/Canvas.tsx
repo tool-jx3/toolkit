@@ -20,7 +20,6 @@ import {
   cancelInline,
   canvasApi,
   commitInline,
-  doAddRoot,
   doReparent,
   layoutNow,
   notify,
@@ -52,6 +51,7 @@ import {
 } from '../store';
 import { S } from '../strings';
 import { type InlineState, MemberCard, SpouseCard } from './Card';
+import { EmptyState } from './EmptyState';
 import {
   BUTTON_STEP,
   centerView,
@@ -847,23 +847,6 @@ function Legend({ cats }: { cats: Category[] }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-      <div
-        data-overlay
-        className="pointer-events-auto flex max-w-sm flex-col items-center gap-2.5 rounded-xl border border-border bg-surface px-6 py-7 text-center shadow-2"
-      >
-        <h2 className="m-0 text-lg font-semibold">{S.emptyTitle}</h2>
-        <p className="m-0 text-sm leading-relaxed text-muted">{S.emptyBody}</p>
-        <Button variant="primary" icon={<Plus />} onClick={doAddRoot}>
-          {S.emptyAdd}
-        </Button>
-      </div>
-    </div>
   );
 }
 

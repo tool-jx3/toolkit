@@ -10,6 +10,7 @@ import { createPreviewStore, createToolStore } from '@/core/storage';
 import type { ExportCard, ExportOrient, ExportRange } from './export/render';
 import { exampleBoard } from './model/example';
 import type { CardMode } from './model/layout';
+import { isFull } from './model/ops';
 import { cleanTreeData } from './model/sanitize';
 import type { Board, InlineField, People, TreeData } from './model/types';
 import { S } from './strings';
@@ -92,6 +93,11 @@ export function useBoard(): Board {
   const data = useTree((s) => s.data);
   const current = usePrefs((s) => s.data.current);
   return pickBoard(data, current);
+}
+
+/** 目前的圖板滿了（2,000 人）：所有加人的按鈕停用並提示（規格第 2 節、F07） */
+export function usePeopleFull(): boolean {
+  return isFull(useBoard().people);
 }
 
 /** 改目前的圖板（一次 update＝一步復原） */

@@ -84,6 +84,23 @@ const pos = async (page: Page, name: string) => {
 const tab = (page: Page, name: '人物' | '顯示' | '匯出' | '圖板') =>
   page.getByRole('tab', { name, exact: true }).click();
 const settle = (page: Page) => page.waitForTimeout(STEP);
+/** 卡片的虛線外框（F44）：樣式、粗細、和框的間距 */
+const outlineOf = (el: Locator) =>
+  el.evaluate((e) => {
+    const c = getComputedStyle(e);
+    return `${c.outlineStyle} ${c.outlineWidth} ${c.outlineOffset}`;
+  });
+/** 卡片四個角的圓角（F17） */
+const radiusOf = (el: Locator) =>
+  el.evaluate((e) => {
+    const c = getComputedStyle(e);
+    return [
+      c.borderTopLeftRadius,
+      c.borderTopRightRadius,
+      c.borderBottomRightRadius,
+      c.borderBottomLeftRadius,
+    ].join(' ');
+  });
 
 /** 從 a 的卡片拖到 b 的卡片中央（或位移 dx, dy；畫面 px） */
 async function dragCard(
@@ -355,6 +372,56 @@ test('加兒子、加女兒、加配偶、加兄弟姊妹、加上一代、新�
   expect(root?.x).toBe(Math.max(...nodes.filter((n) => n.gen === 1).map((n) => n.x)));
 });
 
+/** 人數剛好 n 的原作備份檔：一位始祖＋n − 1 位孩子 */
+function crowdFile(n: number) {
+  const people: Record<string, unknown> = {
+    r: { id: 'r', kind: 'member', name: '根', gender: 'M', gen: 1, order: 1 },
+  };
+  for (let i = 0; i < n - 1; i++)
+    people[`k${i}`] = {
+      id: `k${i}`,
+      kind: 'member',
+      name: `子${i}`,
+      gender: i % 2 ? 'F' : 'M',
+      order: i + 1,
+      fatherId: 'r',
+    };
+  return { format: 'family-tree/v1', title: '人數上限', meta: {}, people };
+}
+
+test('一張圖板滿 2,000 人：工具列的「＋始祖」停用並提示（F07、規格第 2 節）', async ({ page }) => {
+  await open(page);
+  /* 1,999 人：還能加 */
+  await openFile(page, 'crowd.json', crowdFile(1999));
+  await expect(page.getByRole('combobox', { name: '目前的圖板' })).toContainText('人數上限');
+  const toolbar = page.getByTestId('canvas-toolbar');
+  const add = toolbar.getByRole('button', { name: '新增始祖' });
+  await expect(add).toBeEnabled();
+  await expect(toolbar).not.toContainText('一張圖板最多 2000 人。');
+  /* 加第 2,000 位之後：停用、旁邊寫原因（按鈕的說明指到它） */
+  await add.click();
+  await expect(page.locator('input[data-inline="name"]')).toBeFocused();
+  await page.keyboard.type('第兩千位');
+  await page.keyboard.press('Enter');
+  expect(Object.keys((await board(page)).people).length).toBe(2000);
+  await expect(add).toBeDisabled();
+  await expect(toolbar).toContainText('一張圖板最多 2000 人。');
+  const hint = await add.getAttribute('aria-describedby');
+  expect(hint).toBeTruthy();
+  await expect(page.locator(`[id="${hint}"]`)).toHaveText('一張圖板最多 2000 人。');
+  /* 人物面板的加人按鈕本來就停用 */
+  await expect(page.getByTestId('add-buttons').getByRole('button').first()).toBeDisabled();
+  /* 復原回到 1,999 人：又能加（加人與輸入名字可能是兩步，退到人數少一為止） */
+  for (let i = 0; i < 3; i++) {
+    if (Object.keys((await board(page)).people).length < 2000) break;
+    await settle(page);
+    await page.keyboard.press('Control+z');
+  }
+  expect(Object.keys((await board(page)).people).length).toBe(1999);
+  await expect(add).toBeEnabled();
+  await expect(toolbar).not.toContainText('一張圖板最多 2000 人。');
+});
+
 /* ---------- 拖曳 ---------- */
 
 test('拖曳換順序（連同子孫）、Esc 取消、通知的復原（F44、F45、F49）', async ({ page }) => {
@@ -372,9 +439,16 @@ test('拖曳換順序（連同子孫）、Esc 取消、通知的復原（F44、F
     {
       hold: async (p) => {
         await expect(p.getByTestId('drag-label')).toHaveText('連同子孫 2 人換順序');
+        /* F44：要移動的卡片（被拖的人與子孫）有 2 px 虛線外框、間距 3 px（同原作）；其他卡片沒有 */
+        for (const n of ['綾瀬 和臣', '綾瀬 遥', '綾瀬 慎吾'])
+          expect(await outlineOf(card(p, n)), n).toBe('dashed 2px 3px');
+        for (const n of ['綾瀬 雪乃', '綾瀬 透'])
+          expect(await outlineOf(card(p, n)), n).toMatch(/^none /);
       },
     },
   );
+  /* 放開後虛線外框收掉 */
+  await expect.poll(() => outlineOf(card(page, '綾瀬 和臣'))).toMatch(/^none /);
   const order = async () =>
     (
       await Promise.all(['綾瀬 和臣', '綾瀬 雪乃', '綾瀬 透'].map((n) => personByName(page, n)))
@@ -513,8 +587,14 @@ test('父親的位置、簡易卡片、備註、配偶（F16、F17、F20、F28�
   const box = await card(page, '綾瀬 正嗣').boundingBox();
   expect(box?.width).toBeCloseTo(104 * s, 0);
   expect(box?.height).toBeCloseTo(68 * s, 0);
+  /* 圓角：簡易卡片與簡易配偶卡片 8 px（規格 3.2） */
+  expect(await radiusOf(card(page, '綾瀬 正嗣'))).toBe('8px 8px 8px 8px');
+  expect(await radiusOf(chip(page, '綾瀬 千代'))).toBe('8px 8px 8px 8px');
   await expect(page.getByRole('switch', { name: '備註' })).toBeDisabled();
   await page.getByRole('radio', { name: '詳細' }).click();
+  /* 詳細卡片 10 px */
+  expect(await radiusOf(card(page, '綾瀬 正嗣'))).toBe('10px 10px 10px 10px');
+  expect(await radiusOf(chip(page, '綾瀬 千代'))).toBe('10px 10px 10px 10px');
   /* 備註：卡片高 126 */
   await page.getByRole('switch', { name: '備註' }).click();
   const box2 = await card(page, '綾瀬 透').boundingBox();
@@ -703,6 +783,12 @@ test('圖板：新增（空白）、新增始祖、改名、切換、刪除（�
 
 test('匯出 PNG：大小、檔名、橫向、選取的人以下（F60～F67）', async ({ page }) => {
   await open(page);
+  /* 匯出分頁的兩組標題不重複：共用匯出區（標題）叫「匯出圖片」，上面那一組（可摺疊的區塊）叫「範圍與內容」 */
+  await tab(page, '匯出');
+  const exportTab = page.getByTestId('export-tab');
+  await expect(exportTab.getByRole('heading', { name: '匯出圖片', exact: true })).toHaveCount(1);
+  await expect(exportTab.getByRole('button', { name: '匯出圖片', exact: true })).toHaveCount(0);
+  await expect(exportTab.getByRole('button', { name: '範圍與內容', exact: true })).toHaveCount(1);
   /* 縱向、詳細卡片、2 倍：2256 × 1716（版面同原作：寬＝卡片範圍 ＋ 96 ＋ 40） */
   const v = await exportPng(page);
   expect(v.name).toBe('範例：綾瀬家.png');
@@ -744,6 +830,35 @@ test('匯出 PNG：大小、檔名、橫向、選取的人以下（F60～F67）'
   await page.getByRole('option', { name: /^100%/ }).click();
   const one = await exportPng(page);
   expect(one.width * 2).toBe(named.width);
+});
+
+test('快捷鍵對話框的按鍵名；拖曳方式的無障礙名稱包含畫面上的字（F50、F57）', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('?');
+  const dialog = page.getByRole('dialog', { name: '快捷鍵' });
+  await expect(dialog).toBeVisible();
+  const keysOf = (label: string) =>
+    dialog
+      .locator('dt', { hasText: label })
+      .locator('xpath=following-sibling::dd[1]')
+      .locator('kbd')
+      .allTextContents();
+  expect(await keysOf('（卡片上）直接修改名字')).toEqual(['F2']);
+  expect(await keysOf('（拖曳中）放到同一列的卡片上換父母')).toEqual(['Alt']);
+  expect(await keysOf('（手動模式拖曳中）連同子孫')).toEqual(['Shift']);
+  expect(await keysOf('（卡片上）選取')).toEqual(['Enter']);
+  expect(await keysOf('取消選取／取消拖曳')).toEqual(['Esc']);
+  await page.keyboard.press('Escape');
+  /* 語音控制說畫面上的字（「換順序」「調間距」）要對得到：無障礙名稱以畫面上的字開頭，說明接在後面 */
+  const modes = page.getByRole('radiogroup', { name: '拖曳方式' });
+  for (const [text, hint] of [
+    ['換順序', '拖曳卡片換兄弟姊妹之間的順序'],
+    ['調間距', '拖曳卡片只調整和左邊的間距'],
+  ]) {
+    const radio = modes.getByRole('radio', { name: text });
+    await expect(radio).toHaveText(text);
+    await expect(radio).toHaveAccessibleName(new RegExp(`^${text}.*${hint}`));
+  }
 });
 
 /* ---------- 專案檔 ---------- */

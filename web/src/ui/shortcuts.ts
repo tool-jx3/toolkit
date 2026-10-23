@@ -110,7 +110,32 @@ const LABELS: Record<string, string> = {
   tab: 'Tab',
 };
 
-/** 'shift+mod+z' → ['Shift', 'Ctrl', 'Z']（Mac：['⇧', '⌘', 'Z']） */
+/**
+ * 單獨寫成按鍵的修飾鍵（例如 `{ keys: 'shift', label: '按住：連同子孫' }`：沒有 handler、只列在說明裡）的字樣：
+ * [Mac, 其他]。和組合裡的修飾鍵（`formatCombo` 前面幾段）同一套寫法。
+ */
+const MODIFIER_KEY_LABELS: Record<string, readonly [string, string]> = {
+  shift: ['⇧', 'Shift'],
+  alt: ['⌥', 'Alt'],
+  option: ['⌥', 'Alt'],
+  ctrl: ['⌃', 'Ctrl'],
+  control: ['⌃', 'Ctrl'],
+  meta: ['⌘', 'Win'],
+  cmd: ['⌘', 'Win'],
+  mod: ['⌘', 'Ctrl'],
+};
+
+/** 最後一段按鍵的字樣：Esc、Enter、←；單獨的修飾鍵（Shift、Alt）；功能鍵（F2）；單一字元大寫（Z）；其餘照寫 */
+function keyLabel(key: string, mac: boolean): string {
+  const known = LABELS[key];
+  if (known) return known;
+  const modifier = MODIFIER_KEY_LABELS[key];
+  if (modifier) return mac ? modifier[0] : modifier[1];
+  if (key.length === 1 || /^f([1-9]|1[0-9]|2[0-4])$/.test(key)) return key.toUpperCase();
+  return key;
+}
+
+/** 'shift+mod+z' → ['Shift', 'Ctrl', 'Z']（Mac：['⇧', '⌘', 'Z']）；'f2' → ['F2']；單獨的 'alt' → ['Alt'] */
 export function formatCombo(combo: string, mac = isMac()): string[] {
   const c = parseCombo(combo);
   const out: string[] = [];
@@ -119,7 +144,7 @@ export function formatCombo(combo: string, mac = isMac()): string[] {
   if (c.alt) out.push(mac ? '⌥' : 'Alt');
   if (c.shift) out.push(mac ? '⇧' : 'Shift');
   if (c.code !== undefined) out.push(codeLabel(c.code));
-  else out.push(LABELS[c.key] ?? (c.key.length === 1 ? c.key.toUpperCase() : c.key));
+  else out.push(keyLabel(c.key, mac));
   return out;
 }
 
