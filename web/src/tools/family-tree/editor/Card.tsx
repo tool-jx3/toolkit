@@ -29,7 +29,8 @@ export function catStyle(cat: Category | null, base: string): CSSProperties | un
 
 export interface InlineState {
   field: InlineField;
-  onCommit: (value: string, move: -1 | 0 | 1) => void;
+  /** byKey：用 Enter 確定（之後焦點回到卡片） */
+  onCommit: (value: string, move: -1 | 0 | 1, byKey?: boolean) => void;
   onCancel: () => void;
 }
 
@@ -65,7 +66,8 @@ function InlineInput({
     if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter') {
       e.preventDefault();
-      finish(() => state.onCommit(e.currentTarget.value, 0));
+      const v = e.currentTarget.value;
+      finish(() => state.onCommit(v, 0, true));
     } else if (e.key === 'Escape') {
       e.preventDefault();
       finish(state.onCancel);

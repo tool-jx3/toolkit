@@ -182,7 +182,8 @@ export function resetUi(): void {
 export function select(id: string | null): void {
   if (useUi.getState().selectedId === id) return;
   useUi.setState({ selectedId: id, editing: null });
-  if (id) setPrefs({ tab: 'person' });
+  /* 切到「人物」分頁；在「匯出」分頁時不切（選「選取的人以下」的那個人） */
+  if (id && prefsNow().tab !== 'export') setPrefs({ tab: 'person' });
 }
 
 /* ---------- 新圖板 ---------- */

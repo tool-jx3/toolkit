@@ -429,7 +429,12 @@ export function TreeCanvas() {
     if (target.closest('input,textarea,select,button,[data-overlay]')) return;
     /* 面板上打到一半的文字欄先確定（復原的一步在離開時記下） */
     const active = document.activeElement as HTMLElement | null;
-    if (active && active !== document.body && !viewport.current?.contains(active)) active.blur();
+    if (
+      active &&
+      active !== document.body &&
+      (active.matches('input,textarea,select') || !viewport.current?.contains(active))
+    )
+      active.blur();
     const card = e.button === 0 ? target.closest<HTMLElement>('[data-pid]') : null;
     const p: Pointer = { kind: 'pan', id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
     if (card) {
@@ -617,8 +622,14 @@ export function TreeCanvas() {
     const { id, field } = editing;
     return {
       field,
-      onCommit: (v, move) => commitInline(id, field, v, move),
-      onCancel: cancelInline,
+      onCommit: (v, move, byKey) => {
+        commitInline(id, field, v, move);
+        if (byKey) focusCard(id);
+      },
+      onCancel: () => {
+        cancelInline();
+        focusCard(id);
+      },
     };
   }, [editing]);
 
@@ -802,6 +813,15 @@ export function TreeCanvas() {
       </div>
     </div>
   );
+}
+
+/** 就地編輯用鍵盤結束後，焦點回到那張卡片 */
+function focusCard(id: string) {
+  setTimeout(() => {
+    document
+      .querySelector<HTMLElement>(`[data-pid="${CSS.escape(id)}"][role="button"]`)
+      ?.focus({ preventScroll: true });
+  }, 0);
 }
 
 /** 拖曳開始時的排版設定（以當下的顯示設定為準） */

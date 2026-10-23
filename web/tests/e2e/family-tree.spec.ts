@@ -254,6 +254,17 @@ test('雙擊就地編輯：Enter 確定、Esc 取消、Tab 跳欄、F2；復原�
   await page.locator('input[data-inline]').fill('  綾瀬 透  ');
   await page.keyboard.press('Enter');
   await expect(card(page, '綾瀬 透')).toBeVisible();
+  /* Enter 之後焦點回到卡片 */
+  await expect(card(page, '綾瀬 透')).toBeFocused();
+  /* 點畫布的空白處＝確定 */
+  await settle(page);
+  await card(page, '綾瀬 冬子').locator('[data-f="name"]').dblclick();
+  await page.locator('input[data-inline]').fill('綾瀬 冬');
+  const c = await canvas(page).boundingBox();
+  await page.mouse.click((c?.x ?? 0) + 20, (c?.y ?? 0) + (c?.height ?? 0) - 120);
+  await expect(card(page, '綾瀬 冬')).toBeVisible();
+  await page.keyboard.press('Control+z');
+  await expect(card(page, '綾瀬 冬子')).toBeVisible();
   /* 復原：回到「綾瀬 徹」 */
   await settle(page);
   await page.keyboard.press('Control+z');
@@ -716,6 +727,9 @@ test('匯出 PNG：大小、檔名、橫向、選取的人以下（F60～F67）'
     page.getByRole('region', { name: '匯出圖片' }).getByRole('button', { name: /^匯出/ }),
   ).toBeDisabled();
   await card(page, '綾瀬 和臣').click();
+  /* 在「匯出」分頁點卡片不會切到「人物」 */
+  await expect(page.getByRole('tab', { name: '匯出' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText('綾瀬 和臣與他所有的子孫（折疊的不畫）。')).toBeVisible();
   const sub = await exportPng(page);
   expect(sub.height).toBe(2 * (2 * 36 + 40 + 80 + 40));
   /* 檔名欄 */
