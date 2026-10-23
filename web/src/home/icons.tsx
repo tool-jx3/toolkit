@@ -45,6 +45,7 @@ import {
   MessageSquareText,
   MessagesSquare,
   MicVocal,
+  MousePointerClick,
   Music,
   Network,
   Newspaper,
@@ -125,6 +126,7 @@ const ICONS: Record<string, LucideIcon> = {
   'scratch-card': Ticket,
   'lock-screen': Smartphone,
   'id-ticket': IdCardLanyard,
+  'clue-map': MousePointerClick,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,

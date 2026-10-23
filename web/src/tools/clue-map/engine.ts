@@ -81,11 +81,16 @@ export interface ClueMapConfig {
   storageKey: string | null;
   /** 一開始就已經找到的（試玩重新掛載時帶回進度；給了就不讀儲存） */
   initialFound?: string[];
+  /** 一開始就開著「顯示所有熱點」、翻開的線索卡（試玩重新掛載時帶回） */
+  initialReveal?: boolean;
+  initialOpen?: string | null;
 }
 
 export interface ClueMapState {
   found: string[];
   revealing: boolean;
+  /** 翻開的線索卡（熱點代號；沒有時 null） */
+  open: string | null;
 }
 
 export interface ClueMapHooks {
@@ -120,7 +125,7 @@ export function mountClueMap(
   /* ---------- 狀態 ---------- */
   let found: string[] = [];
   let foundSet: Record<string, boolean> = {};
-  let revealing = false;
+  let revealing = !!cfg.initialReveal;
   let current: string | null = null;
   let lastFocus: HTMLElement | null = null;
   let resetTimer: ReturnType<typeof setTimeout> | null = null;
@@ -178,6 +183,9 @@ export function mountClueMap(
       found.push(id);
     }
   }
+
+  if (cfg.initialOpen && byId[cfg.initialOpen] && foundSet[cfg.initialOpen])
+    current = cfg.initialOpen;
 
   /* ---------- 畫面 ---------- */
   const el = (tag: string, cls?: string, text?: string): HTMLElement => {
@@ -452,7 +460,7 @@ export function mountClueMap(
   };
 
   const emit = (): void => {
-    if (hooks?.onChange) hooks.onChange({ found: found.slice(), revealing });
+    if (hooks?.onChange) hooks.onChange({ found: found.slice(), revealing, open: current });
   };
 
   const renderAll = (): void => {
@@ -491,6 +499,7 @@ export function mountClueMap(
     renderFound();
     renderCard();
     if (id) showCardInView();
+    emit();
   };
 
   const closeCard = (): void => {
@@ -499,6 +508,7 @@ export function mountClueMap(
     renderCard();
     const target = lastFocus;
     if (target && root.contains(target) && !target.hidden && target.tabIndex !== -1) target.focus();
+    emit();
   };
 
   const setNote = (text: string): void => {

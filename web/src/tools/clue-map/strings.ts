@@ -102,6 +102,9 @@ export const S = {
     imageDrop: '拖放線索圖片',
     imageChoose: '選擇檔案',
     imageHint: '每個熱點一張；顯示在線索文字上面。',
+    imageAdded: '已加入線索圖片',
+    imageUrlLabel: '用圖片網址',
+    imageUrlAdd: '用網址',
     check: '檢定提示',
     checkPlaceholder: '例：圖書館使用 50%',
     checkHint: '純文字，顯示在線索卡上。',
@@ -222,6 +225,17 @@ export const S = {
   },
   fileBase: '調查熱點圖',
   fileOverview: '總覽',
+  overview: {
+    defaultTitle: '調查熱點圖',
+    heading: (n: number) => `線索一覽（${n}）`,
+    none: '還沒有熱點。',
+    legend: '實線＝一開始看得到　虛線＝隱藏熱點　深色編號＝要先找到其他線索',
+    tagHidden: '隱藏',
+    tagNeeds: (names: string, anyOf: boolean) => `先找到：${names}（${anyOf ? '任一個' : '全部'}）`,
+    check: '檢定提示：',
+    memo: 'KP 備註：',
+    imageMissing: '圖片讀不到',
+  },
 
   /* ---- 分享連結的畫面 ---- */
   sharedLead: '點場景裡的熱點，找出所有線索。',

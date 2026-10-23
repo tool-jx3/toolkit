@@ -64,7 +64,17 @@ export const progressKey = (d: Pick<ClueMapState, 'title' | 'intro' | 'scene' | 
 export function playConfig(
   d: Pick<ClueMapState, 'title' | 'intro' | 'scene' | 'spots' | 'look'>,
   srcOf: SrcOf,
-  { storageKey = null, initialFound }: { storageKey?: string | null; initialFound?: string[] } = {},
+  {
+    storageKey = null,
+    initialFound,
+    initialReveal,
+    initialOpen,
+  }: {
+    storageKey?: string | null;
+    initialFound?: string[];
+    initialReveal?: boolean;
+    initialOpen?: string | null;
+  } = {},
 ): ClueMapConfig {
   const images: string[] = [];
   const index = new Map<string, number>();
@@ -117,6 +127,8 @@ export function playConfig(
     labels: { ...S.player },
     storageKey,
     ...(initialFound ? { initialFound } : {}),
+    ...(initialReveal ? { initialReveal } : {}),
+    ...(initialOpen ? { initialOpen } : {}),
   };
 }
 
