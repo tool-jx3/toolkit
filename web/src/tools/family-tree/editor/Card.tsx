@@ -642,6 +642,8 @@ export const SpouseCard = memo(function SpouseCard({
     'aria-label': S.chipLabel(src.name || S.unnamed, rel, hostName),
     onKeyDown: onKey ? (e: KeyboardEvent<HTMLDivElement>) => onKey(e, s.id) : undefined,
   };
+  /* 狀態（F85）：配偶卡片的印記接在「妻／夫」後面（右上角留給頭像） */
+  const st = src.status === 'dead' || src.status === 'missing' ? src.status : null;
   const relText = (
     <>
       {rel}
@@ -650,6 +652,11 @@ export const SpouseCard = memo(function SpouseCard({
           {' · '}
           {S.linkedChip}
         </b>
+      ) : null}
+      {st ? (
+        <span className="ml-1 inline-flex align-middle">
+          <Seal kind={st} text={S.statusSeal[st]} compact />
+        </span>
       ) : null}
     </>
   );

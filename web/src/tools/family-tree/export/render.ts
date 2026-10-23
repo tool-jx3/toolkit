@@ -843,6 +843,23 @@ function sealList(t: { adopted: boolean; status: 'dead' | 'missing' | null }) {
   return out;
 }
 
+/** 配偶卡片的狀態印記（小的，接在「妻／夫」後面；F85） */
+function chipStatus(ctx: Ctx, p: Person, x: number, y: number) {
+  const st = p.status === 'dead' || p.status === 'missing' ? p.status : null;
+  if (!st) return;
+  const C = EXPORT_COLORS;
+  const t = S.statusSeal[st];
+  const w = Array.from(t).length > 1 ? 22 : 14;
+  ctx.fillStyle = st === 'dead' ? C.dead : C.missingBg;
+  rr(ctx, x, y, w, 14, 4);
+  ctx.fill();
+  ctx.fillStyle = st === 'dead' ? C.deadText : C.missing;
+  ctx.font = font(600, 9.5);
+  ctx.textAlign = 'center';
+  ctx.fillText(t, x + w / 2, y + 10.5);
+  ctx.textAlign = 'left';
+}
+
 /** 頭像（圓形）；沒有圖時名字的第一個字 */
 function drawAvatar(ctx: Ctx, p: Person, cx: number, cy: number, d: number, avatars: AvatarImages) {
   const C = EXPORT_COLORS;
@@ -981,7 +998,9 @@ function drawFullCards(ctx: Ctx, plan: ExportPlan, avatars: AvatarImages) {
       if (AV && ct.src.avatar) drawAvatar(ctx, ct.src, c.x + SPW - 18, c.y + 16, 20, avatars);
       ctx.fillStyle = C.muted;
       ctx.font = font(400, 11);
-      ctx.fillText(ct.linked ? `${ct.rel} · ${S.linkedChip}` : ct.rel, c.x + 9, c.y + 18);
+      const rel = ct.linked ? `${ct.rel} · ${S.linkedChip}` : ct.rel;
+      ctx.fillText(rel, c.x + 9, c.y + 18);
+      chipStatus(ctx, ct.src, c.x + 9 + ctx.measureText(rel).width + 4, c.y + 7);
       ctx.fillStyle = C.text;
       ctx.font = font(600, 13);
       ctx.fillText(fitText(ctx, nameOf(ct.src), SPW - 18), c.x + 9, c.y + 36);
@@ -1117,6 +1136,7 @@ function drawCompactCards(ctx: Ctx, plan: ExportPlan, avatars: AvatarImages) {
       if (sgm.only) hatch(ctx, c.x, c.y, SPW, H, 7);
       if (sgm.info) secretCorner(ctx, c.x, c.y, SPW, H, 7);
       if (AV && ct.src.avatar) drawAvatar(ctx, ct.src, c.x + SPW - 12, c.y + 12, 16, avatars);
+      chipStatus(ctx, ct.src, c.x + 4, c.y + 3);
       text(c.x, c.y, SPW, ct.src, 15);
     });
   }

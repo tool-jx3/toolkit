@@ -1262,6 +1262,7 @@ test('狀態：存活／死亡／失蹤的印記（F85）', async ({ page }) => 
   await page.getByTestId('spouse-panel').getByRole('radio', { name: '死亡' }).click();
   await settle(page);
   await expect(chip(page, '綾瀬 志乃')).toHaveAttribute('data-status', 'dead');
+  await expect(chip(page, '綾瀬 志乃').locator('[data-seal="dead"]')).toHaveText('歿');
 });
 
 test('GM 專用與 PL 檢視：只有 GM 看得到的人與欄位、GM 筆記、PL 用與 GM 用的匯出、P 鍵（F86）', async ({
