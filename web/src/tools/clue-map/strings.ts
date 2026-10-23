@@ -105,6 +105,7 @@ export const S = {
     imageAdded: '已加入線索圖片',
     imageUrlLabel: '用圖片網址',
     imageUrlAdd: '用網址',
+    imageUrlPlaceholder: 'https://…/clue.png',
     check: '檢定提示',
     checkPlaceholder: '例：圖書館使用 50%',
     checkHint: '純文字，顯示在線索卡上。',

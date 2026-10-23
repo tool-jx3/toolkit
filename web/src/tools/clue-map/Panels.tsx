@@ -187,11 +187,13 @@ function Color({
 function UrlField({
   label,
   buttonLabel,
+  placeholder,
   onAdd,
   testId,
 }: {
   label: string;
   buttonLabel: string;
+  placeholder: string;
   onAdd: (url: string) => void;
   testId?: string;
 }) {
@@ -215,7 +217,7 @@ function UrlField({
           type="url"
           inputMode="url"
           value={url}
-          placeholder={S.scene.urlPlaceholder}
+          placeholder={placeholder}
           maxLength={LIMITS.url}
           data-testid={testId}
           onChange={(e) => {
@@ -383,6 +385,7 @@ export function SceneTab() {
         <UrlField
           label={S.scene.urlLabel}
           buttonLabel={S.scene.urlAdd}
+          placeholder={S.scene.urlPlaceholder}
           testId="scene-url"
           onAdd={(url) => setScene({ kind: 'url', url, name: urlImageName(url) })}
         />
@@ -608,6 +611,7 @@ function ClueImageField({ spot }: { spot: Spot }) {
           <UrlField
             label={S.spot.imageUrlLabel}
             buttonLabel={S.spot.imageUrlAdd}
+            placeholder={S.spot.imageUrlPlaceholder}
             testId="clue-image-url"
             onAdd={(url) => set({ kind: 'url', url, name: urlImageName(url) })}
           />

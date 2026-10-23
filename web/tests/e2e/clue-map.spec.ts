@@ -1502,7 +1502,7 @@ test('總覽 PNG：寬 1200（2× 是 2400）、背景色、熱點的輪廓顏�
   expect(errors).toEqual([]);
 });
 
-test('總覽 PNG：沒有熱點、很長的文字、線索圖片、網址的圖讀不到時用灰底並通知（F93）', async ({
+test('總覽 PNG：網址的圖讀不到時用灰底並通知、沒有熱點時只有場景（F93）', async ({
   page,
 }) => {
   const errors = await open(page);
