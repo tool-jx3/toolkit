@@ -139,7 +139,8 @@ export function PreviewArea() {
     d.scene.kind === 'url' && measured?.key === d.scene.url ? measured : null,
   );
 
-  /* 試玩：設定一變就重新掛載；進度放在工具的狀態裡帶回去 */
+  /* 試玩：設定一變（或切回試玩）就重新掛載；進度放在工具的狀態裡帶回去 */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mode 只用來在切回試玩時重算，帶回最新的進度
   const config = useMemo(() => {
     const u = useUi.getState();
     return playConfig(d, srcOf, {
@@ -147,7 +148,7 @@ export function PreviewArea() {
       initialReveal: u.revealing,
       initialOpen: u.open,
     });
-  }, [d, srcOf]);
+  }, [d, srcOf, mode]);
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
