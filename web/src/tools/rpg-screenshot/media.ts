@@ -3,6 +3,7 @@
  * 同一批檔案的問題整理成一則通知（不是圖片、讀不到、第二張以後沒有用、存不進瀏覽器）。
  * 範例圖是共用的示意場景（本站自己畫的 SVG）畫成 960 × 540 的 PNG。
  */
+import { useEffect, useState } from 'react';
 import { splitImageFiles } from '@/core/assets';
 import { canvasToBlob, loadImage, makeCanvas } from '@/core/image';
 import { STAGE_SCENE_SVG } from '@/ui';
@@ -97,4 +98,58 @@ export async function loadSampleBackground(): Promise<BatchNotice | null> {
   } catch {
     return { title: S.bgFailed, description: S.sampleFailed, tone: 'danger' };
   }
+}
+
+/* ---------- 畫圖用的 <img> ---------- */
+
+/**
+ * 像素化從 <img> 取樣（不是 ImageBitmap）：瀏覽器畫布縮小 <img> 與 ImageBitmap 的取樣方式不同（Chromium 實測，
+ * 1200 × 900 縮成 136 × 104 有 2 萬多個值不同），原作畫的是 <img>，照做才會逐像素相同。依資產 id 快取。
+ */
+const elements = new Map<string, Promise<HTMLImageElement | null>>();
+
+export function assetElement(id: string): Promise<HTMLImageElement | null> {
+  let p = elements.get(id);
+  if (!p) {
+    p = (async () => {
+      const url = await assets.url(id).catch(() => undefined);
+      if (!url) return null;
+      const img = new Image();
+      img.src = url;
+      try {
+        await img.decode();
+      } catch {
+        return null;
+      }
+      return img.naturalWidth > 0 ? img : null;
+    })();
+    const mine = p;
+    void mine.then((v) => {
+      if (!v && elements.get(id) === mine) elements.delete(id);
+    });
+    elements.set(id, p);
+  }
+  return p;
+}
+
+/** 資產的 <img>（還沒載好、沒有 id、讀不到時 null） */
+export function useAssetElement(id: string | null | undefined): HTMLImageElement | null {
+  const [state, setState] = useState<{ id: string | null; img: HTMLImageElement | null }>({
+    id: null,
+    img: null,
+  });
+  useEffect(() => {
+    let alive = true;
+    if (!id) {
+      setState({ id: null, img: null });
+      return;
+    }
+    void assetElement(id).then((img) => {
+      if (alive) setState({ id, img });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+  return state.id === id ? state.img : null;
 }

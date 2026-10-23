@@ -33,8 +33,16 @@ import {
   useToast,
   useWebpSupport,
 } from '@/ui';
-import { animationTable, pngBlob, renderFrame, runExport, type SceneImages } from './exporter';
+import {
+  animationTable,
+  buildImages,
+  pngBlob,
+  renderFrame,
+  runExport,
+  type SceneImages,
+} from './exporter';
 import { ensureFont, fontStack, isFontReady, useFontTick } from './fonts';
+import { assetElement, useAssetElement } from './media';
 import {
   ANIM_MAX_SCALE,
   type BgView,
@@ -46,10 +54,12 @@ import {
   isAnimated,
   KEY_STEP,
   KEY_STEP_BIG,
+  normalizeState,
   outputSize,
   panView,
   parsePages,
   REPLAY_DELAY,
+  type RpgState,
   SCALES,
   screenSize,
   type Token,
@@ -147,8 +157,8 @@ function Screen({ ref }: { ref: Ref<ScreenHandle> }) {
     contrast,
     saturation,
   } = s;
-  const bgBitmap = bgImg.bitmap;
-  const faceBitmap = faceImg.bitmap;
+  const bgBitmap = useAssetElement(bg?.id);
+  const faceBitmap = useAssetElement(face?.id);
   const bgCanvas = useMemo(
     () =>
       bgBitmap && bg
@@ -787,6 +797,13 @@ declare global {
  */
 export function useTestHook(screen: React.RefObject<ScreenHandle | null>) {
   useEffect(() => {
+    /** 用目前的內容重新像素化（不靠預覽的快取） */
+    const freshImages = async (): Promise<SceneImages> => {
+      const s = docNow();
+      const bg = s.bg ? await assetElement(s.bg.id) : null;
+      const face = s.face ? await assetElement(s.face.id) : null;
+      return buildImages(s, bg, face);
+    };
     const render = async (clocks: FrameClocks, pageIndex: number, noScanline = false) => {
       const s = docNow();
       await ensureFont(s.font);
@@ -794,13 +811,23 @@ export function useTestHook(screen: React.RefObject<ScreenHandle | null>) {
       const c = document.createElement('canvas');
       c.width = width;
       c.height = height;
-      const imgs = screen.current?.images() ?? { bg: null, face: null };
-      renderFrame(c, s, pageIndex, imgs, clocks, noScanline);
+      renderFrame(c, s, pageIndex, await freshImages(), clocks, noScanline);
       return c.toDataURL('image/png');
     };
+    const blobUrl = (b: Blob) =>
+      new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => reject(r.error);
+        r.readAsDataURL(b);
+      });
     window.__rpgShot = {
       doc: () => docNow(),
       prefs: () => prefsNow(),
+      /** 測試用：換掉部分內容（整理後套用，一步復原） */
+      set: (patch: Partial<RpgState>) =>
+        useDoc.getState().replace(normalizeState({ ...docNow(), ...patch })),
+      goto: (i: number) => goPage(i),
       live: () => {
         const l = useLive.getState();
         return { page: l.page, overflow: l.overflow, fontState: l.fontState };
@@ -819,6 +846,9 @@ export function useTestHook(screen: React.RefObject<ScreenHandle | null>) {
         return t ? render(t.clocks, t.page, o.light) : null;
       },
       still: () => render(FULL_CLOCKS, useLive.getState().page),
+      /** PNG（同匯出）的 data URL */
+      png: async (scale: number) =>
+        blobUrl(await pngBlob(docNow(), useLive.getState().page, await freshImages(), scale)),
       total: () => {
         const s = docNow();
         const pages = parsePages(s.dialogue, s.speaker);

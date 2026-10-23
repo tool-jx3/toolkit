@@ -4,7 +4,7 @@
  * APNG、WebP 用同樣的 1/100 秒。
  */
 import { createEncoder, type EncoderSpec } from '@/core/encode';
-import { canvasToBlob, makeCanvas } from '@/core/image';
+import { canvasToBlob, makeCanvas, type RetroSource } from '@/core/image';
 import type { ExportOutput } from '@/ui';
 import { ensureFont, fontStack } from './fonts';
 import {
@@ -36,8 +36,8 @@ export interface SceneImages {
 /** 原圖 → 像素化後的背景圖與頭像 */
 export function buildImages(
   s: RpgState,
-  bg: ImageBitmap | null | undefined,
-  face: ImageBitmap | null | undefined,
+  bg: RetroSource | null | undefined,
+  face: RetroSource | null | undefined,
 ): SceneImages {
   return {
     bg: bg && s.bg ? buildBackground(bg, s) : null,

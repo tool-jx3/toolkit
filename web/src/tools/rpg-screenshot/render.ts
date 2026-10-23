@@ -199,6 +199,12 @@ export function drawScene(ctx: Ctx, input: SceneInput): SceneResult {
 
   ctx.clearRect(0, 0, W, H);
   if (!input.bg) return { done: true, animating: false, idle: false };
+  /*
+   * 線的接合：原作一直畫在同一張畫布上，文字效果「描邊」的字把接合設成圓角之後就一直是圓角（名字的描邊在 save／restore 裡，
+   * 不會留下來），之後每一格的名字標籤框線都以圓角接合畫；陰影、無時一直是預設的尖角。新版每一格可能是新的畫布，
+   * 所以照這個規則先設好（膠囊兩側的反鋸齒才會和原作逐像素相同）。
+   */
+  ctx.lineJoin = S.textFx === 'outline' ? 'round' : 'miter';
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(input.bg, 0, 0);
 
