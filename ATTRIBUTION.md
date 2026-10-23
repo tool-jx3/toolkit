@@ -102,6 +102,7 @@
 | `polaroid` | 拍立得相框產生器 | [swoonqx/sw-polaroid](https://github.com/swoonqx/sw-polaroid)（未授權） | —（新收錄，沒有舊版） |
 | `crossword` | 填字遊戲產生器 | [sotsotssi/text2crossword](https://github.com/sotsotssi/text2crossword)（MIT） | —（新收錄，沒有舊版） |
 | `scratch-card` | 刮刮卡產生器 | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard)（未授權） | —（新收錄，沒有舊版） |
+| `clue-map` | 調查熱點圖 | [momo102938/MUNgs_click](https://github.com/momo102938/MUNgs_click)（콕콕，未授權；只借想法） | —（新收錄，沒有舊版） |
 | `lock-screen` | 鎖定畫面訊息產生器 | [TEXTSCENE](https://textscene.netlify.app/)（未授權） | —（新收錄，沒有舊版） |
 | `id-ticket` | 證件與票券產生器 | [dearmysn1p3r/DearMySn1p3r_20](https://github.com/dearmysn1p3r/DearMySn1p3r_20)（ID Studio，未授權）、[dearmysn1p3r/DearMySn1p3r_36](https://github.com/dearmysn1p3r/DearMySn1p3r_36)（Ticket Studio，未授權） | —（新收錄，沒有舊版） |
 | `relation-chart` | 角色關係圖產生器 | [PaiTei4234／Relationship Chart Maker](https://paitei4234.itch.io/relationshipchartmaker)（CC BY-NC-SA 4.0） | —（新收錄，沒有舊版） |
@@ -139,6 +140,8 @@
 `crossword` 照新工具引入流程直接在新框架做：原作（commit `1031c06`）是 MIT（授權全文在通知檔），擷取規則與排法照原作（同樣的輸入與種子得到同樣的盤面，用原作的程式對照過），另外加上自己列答案與中文斷詞；原作的編號錯誤與大盤面的版面錯誤修正。
 
 `scratch-card` 照新工具引入流程直接在新框架做：原作沒有授權條款，只照原作的功能、數值與做法（抽籤、塗層、刮開判定和原作相同），程式、介面文字、8 個圖示與彩帶都由本站自做，不載入原作用的 CDN；可以開啟原作的設定檔（JSON）。
+
+`clue-map` 是本站自己的構想：靈感來源 momo102938/MUNgs_click（commit `9de2685`，沒有授權條款）是點角色的部位提高好感度的互動玩具，本站只借「圖上的熱區＋點了有反應＋達成條件才解鎖」的想法，做成跑團用的調查 handout；程式、介面文字、範例與內建場景都由本站自做。互動 HTML 與分享連結的做法和 `scratch-card` 共用（`@/core/interactive`）。
 
 `lock-screen` 照新工具引入流程直接在新框架做：原作（使用者 2026-10-09 提供的網站檔案）沒有授權條款，只照原作的功能、版面數值與動畫曲線（通知卡片的位置、大小與彈出的時間點和原作相同），程式、介面文字、範例訊息、預設桌布、手機外框與圖示都由本站自做；不沿用原作的專有字型（改用思源黑體，SIL OFL），外觀不仿特定廠牌的手機與訊息 App。
 

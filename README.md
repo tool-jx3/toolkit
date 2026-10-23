@@ -25,7 +25,8 @@
 [s2ndrome](https://github.com/s2ndrome) 與
 [al1scut](https://github.com/al1scut) 與
 [YouRanCoder](https://github.com/YouRanCoder) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 68 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[momo102938](https://github.com/momo102938) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 70 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中兩個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -56,6 +57,7 @@
 | [劇本心得九宮格](https://tool-jx3.github.io/toolkit/tools/review-grid/) | 把跑過的劇本做成心得卡片：每格放劇本圖、規則、名稱與作者，選幾個心得標籤，排成九宮格或清單存成 PNG，也能把多人的心得合成比較圖 |
 | [填字遊戲產生器](https://tool-jx3.github.io/toolkit/tools/crossword/) | 從答案清單或一段文字自動排出填字遊戲，當作劇本的謎題道具；匯出題目與解答的 PNG、HTML，或印成一頁 A4 |
 | [刮刮卡產生器](https://tool-jx3.github.io/toolkit/tools/scratch-card/) | 做出可以用滑鼠或手指刮開的刮刮卡（隨機圖示、句子或圖片），當劇本的抽獎或謎題道具；輸出不連網也能用的互動網頁或分享連結 |
+| [調查熱點圖](https://tool-jx3.github.io/toolkit/tools/clue-map/) | 在場景圖上畫熱點，點開是線索卡：可以設「先找到某個線索才出現」與隱藏熱點，玩家有已找到清單與進度；存成離線也能玩的互動 HTML 或分享連結，另有攤開全部線索的總覽 PNG 給 KP |
 | [鎖定畫面訊息產生器](https://tool-jx3.github.io/toolkit/tools/lock-screen/) | 做一張角色手機的鎖定畫面當 handout：換上桌布、寫下最多 4 則訊息，存成 PNG 或訊息一則一則跳出來的 GIF，也能把手機放在外框照片上 |
 | [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | 做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、偵探執照，電影票、登機證、車票、收據；正反面、照片、真的條碼與 QR code，可匯出印刷尺寸（含出血、600 dpi）的 PNG 或閃光 GIF |
 | [角色介紹圖產生器](https://tool-jx3.github.io/toolkit/tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；也有會自動分頁、能匯出 PDF 的文字記錄版型；可存到存檔槽或匯出成編輯檔 |
@@ -195,6 +197,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `floor-plan` | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | [くま。／TRPG室内図メーカー](https://kumachansteps.github.io/trpg-web-tools/)、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結、房間編號） |
 | `rank-chart` | [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | [sotsotssi/would-you-rank](https://github.com/sotsotssi/would-you-rank) |
 | `scratch-card` | [刮刮卡產生器](https://tool-jx3.github.io/toolkit/tools/scratch-card/) | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard) |
+| `clue-map` | [調查熱點圖](https://tool-jx3.github.io/toolkit/tools/clue-map/) | [momo102938/MUNgs_click](https://github.com/momo102938/MUNgs_click)（콕콕；本站自己的構想，只借「熱區＋解鎖」的想法） |
 | `crossword` | [填字遊戲產生器](https://tool-jx3.github.io/toolkit/tools/crossword/) | [sotsotssi/text2crossword](https://github.com/sotsotssi/text2crossword) |
 | `review-grid` | [劇本心得九宮格](https://tool-jx3.github.io/toolkit/tools/review-grid/) | [sotsotssi/scenario-review](https://github.com/sotsotssi/scenario-review) |
 | `polaroid` | [拍立得相框產生器](https://tool-jx3.github.io/toolkit/tools/polaroid/) | [swoonqx/sw-polaroid](https://github.com/swoonqx/sw-polaroid) |

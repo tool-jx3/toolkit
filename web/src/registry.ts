@@ -574,7 +574,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '在場景圖上畫出可以點的熱點，每個熱點藏著一則線索（文字、圖片、檢定提示），可以設成先找到別的線索才出現或隱藏；PL 點一點就翻出線索卡，匯出能玩的互動 HTML、分享連結與 KP 用的總覽 PNG。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'momo102938/MUNgs_click（콕콕）',
       url: 'https://momo102938.github.io/MUNgs_click/',
