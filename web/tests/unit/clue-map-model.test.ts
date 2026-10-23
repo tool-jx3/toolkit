@@ -21,6 +21,7 @@ import {
   reachableIds,
   removeSpotFrom,
   type Spot,
+  trimBox,
   unreachable,
   usesUploadedImages,
 } from '@/tools/clue-map/model';
@@ -63,6 +64,16 @@ describe('位置與大小', () => {
       w: 30.11,
       h: 6,
     });
+  });
+
+  it('trimBox：調整大小超出場景的部分切掉（對邊不動），不是整個框往內推', () => {
+    /* 左邊的控點往左拉出場景：右邊不動 */
+    expect(trimBox({ x: -8, y: 10, w: 39.67, h: 20 })).toEqual({ x: 0, y: 10, w: 31.67, h: 20 });
+    /* 右下角拉出場景 */
+    expect(trimBox({ x: 80, y: 90, w: 40, h: 30 })).toEqual({ x: 80, y: 90, w: 20, h: 10 });
+    /* 全在場景內：不變；切到比最小值還小：用最小值 */
+    expect(trimBox({ x: 10, y: 10, w: 20, h: 20 })).toEqual({ x: 10, y: 10, w: 20, h: 20 });
+    expect(trimBox({ x: -30, y: 10, w: 30.5, h: 20 })).toMatchObject({ x: 0, w: 1.5 });
   });
 
   it('新增的預設位置：矩形 22% × 16%；橢圓是正圓（邊長＝較短邊的 20%）；往右下錯開、每 6 個回到中央', () => {

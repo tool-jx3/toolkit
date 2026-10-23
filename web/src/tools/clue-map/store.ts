@@ -105,8 +105,8 @@ export interface UiState {
   tool: Tool;
   mode: Mode;
   tab: SettingsTab;
-  /** 每次要把焦點放到「名稱」欄時加一 */
-  focusName: number;
+  /** 要把焦點放到「名稱」欄的熱點（放好就清掉） */
+  focusName: string | null;
   /** 試玩：找到的熱點（找到的先後順序）、顯示所有熱點、翻開的線索卡 */
   found: string[];
   revealing: boolean;
@@ -120,7 +120,7 @@ export const useUi = create<UiState>(() => ({
   tool: 'select',
   mode: 'edit',
   tab: 'scene',
-  focusName: 0,
+  focusName: null,
   found: [],
   revealing: false,
   open: null,
@@ -153,12 +153,7 @@ export function addSpot(shape: Shape, box?: PctBox): string | null {
   edit((draft) => {
     draft.spots.push(newSpot(id, shape, b, ''));
   });
-  useUi.setState((u) => ({
-    selectedId: id,
-    tab: 'spots',
-    tool: 'select',
-    focusName: u.focusName + 1,
-  }));
+  useUi.setState({ selectedId: id, tab: 'spots', tool: 'select', focusName: id });
   return id;
 }
 

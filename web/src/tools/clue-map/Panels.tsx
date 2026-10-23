@@ -691,13 +691,12 @@ function UnlockFields({ spot, info }: { spot: Spot; info: UnreachableInfo | unde
 function SpotDetail({ spot, index, info }: { spot: Spot; index: number; info?: UnreachableInfo }) {
   const nameRef = useRef<HTMLInputElement>(null);
   const focusName = useUi((s) => s.focusName);
-  const lastFocus = useRef(focusName);
   useEffect(() => {
-    if (focusName === lastFocus.current) return;
-    lastFocus.current = focusName;
+    if (focusName !== spot.id) return;
     nameRef.current?.focus();
     nameRef.current?.select();
-  }, [focusName]);
+    useUi.setState({ focusName: null });
+  }, [focusName, spot.id]);
   const full = useData((d) => d.spots.length >= LIMITS.spots);
   const label = spotLabel(spot, index);
   const setBox = (patch: Partial<Pick<Spot, 'x' | 'y' | 'w' | 'h'>>) =>

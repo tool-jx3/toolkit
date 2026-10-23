@@ -22,6 +22,7 @@ import {
   type Shape,
   type Spot,
   spotLabel,
+  trimBox,
 } from './model';
 import {
   addSpot,
@@ -225,8 +226,9 @@ export function StageEditor({
     resizable: true,
     handles: HANDLES,
     limits: { minWidth: LIMITS.minSize, minHeight: LIMITS.minSize, maxWidth: 100, maxHeight: 100 },
-    clamp: (b: Box) => {
-      const c = clampBox({ x: b.x, y: b.y, w: b.width, h: b.height });
+    clamp: (b: Box, op: 'move' | 'resize') => {
+      const raw = { x: b.x, y: b.y, w: b.width, h: b.height };
+      const c = op === 'resize' ? trimBox(raw) : clampBox(raw);
       return { x: c.x, y: c.y, width: c.w, height: c.h };
     },
   }));

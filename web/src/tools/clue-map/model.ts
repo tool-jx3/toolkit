@@ -289,6 +289,15 @@ export function clampBox(b: PctBox): PctBox {
   return { x, y, w, h };
 }
 
+/** 調整大小之後把超出場景的部分切掉（對邊不動）；比最小值小時用最小值 */
+export function trimBox(b: PctBox): PctBox {
+  const x0 = Math.max(0, b.x);
+  const y0 = Math.max(0, b.y);
+  const x1 = Math.min(100, b.x + b.w);
+  const y1 = Math.min(100, b.y + b.h);
+  return clampBox({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+}
+
 /** 新增按鈕用的預設位置與大小：矩形 22% × 16%；橢圓是正圓（邊長＝場景較短邊的 20%）；每個比上一個往右下錯開 4%（每 6 個回到中央） */
 export function defaultBox(shape: Shape, aspect: number, count: number): PctBox {
   const size =
