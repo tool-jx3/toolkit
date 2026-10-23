@@ -17,7 +17,7 @@ import {
   useToast,
   withShortcut,
 } from '@/ui';
-import { toaster } from './actions';
+import { layoutNow, toaster } from './actions';
 import { TreeCanvas } from './editor/Canvas';
 import { CanvasToolbar } from './editor/Toolbar';
 import { exampleBoard } from './model/example';
@@ -46,6 +46,21 @@ import {
 import { S } from './strings';
 
 const stamp = () => new Date().toISOString().slice(0, 10);
+
+declare global {
+  interface Window {
+    /** 測試與對等驗證用：目前的排版與圖板 */
+    __familyTree?: {
+      layout: () => { id: string; x: number; y: number; gen: number }[];
+      board: () => Board;
+    };
+  }
+}
+
+window.__familyTree = {
+  layout: () => layoutNow().nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, gen: n.gen })),
+  board: () => boardNow(),
+};
 
 function Usage() {
   return (
