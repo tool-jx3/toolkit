@@ -67,6 +67,7 @@ declare global {
       layout: () => { id: string; x: number; y: number; gen: number }[];
       stubs: () => { id: string; x: number; y: number; gen: number; parent: string | null }[];
       board: () => Board;
+      area: () => string[] | null;
     };
   }
 }
@@ -82,6 +83,7 @@ window.__familyTree = {
       .nodes.filter((n) => n.stub)
       .map((n) => ({ id: n.id, x: n.x, y: n.y, gen: n.gen, parent: n.parent?.id ?? null })),
   board: () => boardNow(),
+  area: () => useUi.getState().area.keys,
 };
 
 /** 專案檔帶的頭像（所有圖板或一張圖板；沒有頭像時是 JSON 專案檔，有時是 ZIP） */

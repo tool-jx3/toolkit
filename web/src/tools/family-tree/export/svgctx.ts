@@ -177,7 +177,7 @@ export class SvgContext {
     const d = r / Math.tan(ang / 2);
     const t1 = { x: x1 + (v1x / l1) * d, y: y1 + (v1y / l1) * d };
     const t2 = { x: x1 + (v2x / l2) * d, y: y1 + (v2y / l2) * d };
-    this.lineTo(t1.x, t1.y);
+    if (Math.hypot(t1.x - p0.x, t1.y - p0.y) > 1e-9) this.lineTo(t1.x, t1.y);
     const R = num(r * this.st.s);
     this.path.push(`A${R} ${R} 0 0 ${cross < 0 ? 1 : 0} ${num(this.X(t2.x))} ${num(this.Y(t2.y))}`);
     this.cur = t2;
