@@ -21,6 +21,7 @@ import {
   Flower,
   FolderArchive,
   Frame,
+  Gamepad2,
   Gauge,
   Grid2x2Check,
   Grid3x3,
@@ -87,6 +88,7 @@ const ICONS: Record<string, LucideIcon> = {
   'discord-color': Highlighter,
   'speech-bubble': MessageCircleMore,
   'lyric-fx': Subtitles,
+  'rpg-screenshot': Gamepad2,
   /* G2 轉場與動態 */
   'scene-transition': Clapperboard,
   'apng-wipe': Blend,

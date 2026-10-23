@@ -560,6 +560,8 @@ export * from './mask';
 export * from './placement';
 export * from './region';
 export * from './resample';
+/* ---------- 復古像素化：縮小成像素方塊、色調、有序抖色取色階（rpg-screenshot） ---------- */
+export * from './retro';
 export * from './sizing';
 export * from './store';
 export * from './vivid';
