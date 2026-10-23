@@ -8,6 +8,8 @@
  * - 畫面：尺寸、背景色、背景圖；音樂（選檔、播放列、拿掉）；拖放；
  * - 匯出：有聲影片（無頭 Chromium 是 VP9＋Opus 的 MP4，用 <video> 讀回）、透明 WebM（解析 EBML、<video> 讀回檢查透明度）、
  *   PNG 連番（解析 ZIP）、PNG（與預覽逐點相同）、PNG 連番超過上限時停用；
+ * - 逐句的手動調整（F75～F81）：預覽上點選、拖曳、旋轉（Shift 每 15°）、方向鍵、Esc；清單的欄位（X、Y、角度、顏色、大小、
+ *   透明度、字型）；恢復自動、復原、清除；字型換了之後的寬度與折行、逐句的字型先載入；PNG、PNG 連番的像素；390 寬觸控拖曳；
  * - 自動儲存（重新整理後音樂還在）、專案檔（ZIP）、重設；鍵盤；390 寬沒有橫向捲動；1280／390 視覺基準圖。
  */
 import { readFileSync } from 'node:fs';
@@ -33,6 +35,29 @@ interface PlanLine {
   box: { x: number; y: number; width: number; height: number };
   locked: boolean;
   latin: boolean;
+  font: string;
+  pinned: boolean;
+  th: number | null;
+  textColor: string | null;
+  glowColor: string | null;
+  opacity: number | null;
+  /** 每個字的前進寬度的和 */
+  width: number;
+}
+interface Pt {
+  x: number;
+  y: number;
+}
+interface Placement {
+  x: number;
+  y: number;
+  angle: number;
+  bounds: { x: number; y: number; width: number; height: number };
+  box: { x: number; y: number; width: number; height: number } | null;
+  pivot: Pt;
+  tip: Pt;
+  shownAt: number;
+  fixed: boolean;
 }
 interface Hook {
   // biome-ignore lint/suspicious/noExplicitAny: 測試讀設定的各種欄位
@@ -60,6 +85,10 @@ interface Hook {
   seek: (t: number) => void;
   time: () => number;
   toggle: () => void;
+  selected: () => string | null;
+  select: (key: string | null) => void;
+  placement: (key: string, t?: number) => Placement | null;
+  hit: (x: number, y: number, t?: number) => string | null;
 }
 type W = { __lyricFx: Hook };
 const hook = <T>(page: Page, fn: (h: Hook) => T) =>
@@ -228,6 +257,67 @@ const probeVideo = (page: Page, bytes: Uint8Array, type: string, t: number) =>
   );
 
 const TWO = '[00:00.20]第一句測試的歌詞\n[00:02.00]第二句也在這裡\n[00:04.00]第三句結束';
+
+/* ---------- 逐句的手動調整（F75～F81） ---------- */
+
+const placementOf = (page: Page, key: string, t?: number) =>
+  page.evaluate(
+    ([k, tt]) =>
+      (window as unknown as W).__lyricFx.placement(k as string, tt as number | undefined),
+    [key, t] as const,
+  ) as Promise<Placement>;
+
+/** 畫面的比例 → 螢幕座標 */
+async function toScreen(page: Page, p: Pt): Promise<Pt> {
+  const r = await canvas(page).boundingBox();
+  if (!r) throw new Error('no canvas');
+  return { x: r.x + p.x * r.width, y: r.y + p.y * r.height };
+}
+
+/** 跳到一句完整出現的時間（暫停）、等預覽畫好 */
+async function showLine(page: Page, key: string) {
+  const pl = await placementOf(page, key, 0);
+  await at(page, Math.round(pl.shownAt * 1000) / 1000);
+}
+
+/** 解一張 PNG：紅色（文字顏色 #ff0000）的像素數與最大的不透明度 */
+const redPixels = (page: Page, png: Uint8Array) =>
+  page.evaluate(async (b64) => {
+    const bin = atob(b64);
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const bmp = await createImageBitmap(new Blob([u8], { type: 'image/png' }), {
+      premultiplyAlpha: 'none',
+      colorSpaceConversion: 'none',
+    });
+    const c = document.createElement('canvas');
+    c.width = bmp.width;
+    c.height = bmp.height;
+    const g = c.getContext('2d')!;
+    g.drawImage(bmp, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let count = 0;
+    let maxAlpha = 0;
+    for (let i = 0; i < d.length; i += 4)
+      if (d[i + 3] > 0 && d[i] > 200 && d[i + 1] < 60 && d[i + 2] < 60) {
+        count++;
+        maxAlpha = Math.max(maxAlpha, d[i + 3]);
+      }
+    return { count, maxAlpha, w: bmp.width, h: bmp.height };
+  }, Buffer.from(png).toString('base64'));
+
+async function savePngBytes(page: Page): Promise<Uint8Array> {
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('save-png').click(),
+  ]);
+  return new Uint8Array(readFileSync((await download.path()) as string));
+}
+
+const ex = <T>(v: T | null | undefined): T => {
+  if (v == null) throw new Error('missing');
+  return v;
+};
 
 test.describe('歌詞演出產生器', () => {
   test('開頁：外框、頁尾、示範歌詞；預覽只由時間決定', async ({ page }) => {
@@ -797,6 +887,271 @@ test.describe('歌詞演出產生器', () => {
     expect(errors).toEqual([]);
   });
 
+  test('逐句手動調整：預覽上點選、拖曳、旋轉、方向鍵、Esc；清單的欄位；恢復自動、復原、清除', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const area = page.getByTestId('lyrics-text');
+    await area.fill(TWO);
+    await area.blur();
+    await page.waitForTimeout(450);
+    const base = await plan(page);
+    const key = base.lines[1].key;
+    await showLine(page, key);
+
+    /* 點空白處：沒有選取 */
+    const corner = await toScreen(page, { x: 0.005, y: 0.99 });
+    await page.mouse.click(corner.x, corner.y);
+    expect(await hook(page, (h) => h.selected())).toBeNull();
+    /* 點一句：選取（外框、旋轉控點、工具列、清單標出並展開欄位） */
+    const pl0 = await placementOf(page, key);
+    const p0 = await toScreen(page, pl0.pivot);
+    const grab = { x: p0.x + 6, y: p0.y };
+    await page.mouse.click(grab.x, grab.y);
+    await expect.poll(() => hook(page, (h) => h.selected())).toBe(key);
+    await expect(page.getByTestId('line-selection')).toBeVisible();
+    await expect(page.getByTestId('line-rotate')).toBeVisible();
+    await expect(page.getByTestId('line-toolbar')).toContainText('已選取第 2 句');
+    const selectedRow = page.locator('[data-testid="line-row"][data-selected]');
+    await expect(selectedRow).toHaveAttribute('data-key', key);
+    await expect(selectedRow.getByTestId('line-adjust')).toBeVisible();
+
+    /* 拖曳：錨點在畫面上跟著指標移動；這一句固定 */
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(grab.x + i * 10, grab.y + i * 5);
+    await page.mouse.up();
+    const pl1 = await placementOf(page, key);
+    const p1 = await toScreen(page, pl1.pivot);
+    expect(Math.abs(p1.x - (p0.x + 80))).toBeLessThan(1.5);
+    expect(Math.abs(p1.y - (p0.y + 40))).toBeLessThan(1.5);
+    const s1 = await settings(page);
+    expect(s1.overrides[key].adjust).toMatchObject({ angle: base.lines[1].angle });
+    expect((await plan(page)).lines[1].pinned).toBe(true);
+    await expect(selectedRow.getByTestId('line-adjusted')).toBeVisible();
+    /* 清單的欄位和預覽同步 */
+    const panel = page.getByTestId('line-adjust');
+    await expect
+      .poll(async () =>
+        Number.parseFloat(await panel.getByRole('spinbutton', { name: 'X' }).inputValue()),
+      )
+      .toBeCloseTo(pl1.x * 100, 1);
+    /* 復原：一次拖曳算一步 */
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => (await settings(page)).overrides[key]).toBeUndefined();
+    await page.keyboard.press('Control+Shift+z');
+    await expect
+      .poll(async () => (await settings(page)).overrides[key]?.adjust?.x)
+      .toBe(s1.overrides[key].adjust.x);
+    await page.waitForTimeout(450);
+
+    /* 旋轉：第一行指向控點拖到的方向 */
+    const aim = (from: Pt, deg: number, r = 220) => ({
+      x: from.x + r * Math.cos((deg * Math.PI) / 180),
+      y: from.y + r * Math.sin((deg * Math.PI) / 180),
+    });
+    const rot = ex(await page.getByTestId('line-rotate').boundingBox());
+    await page.mouse.move(rot.x + rot.width / 2, rot.y + rot.height / 2);
+    await page.mouse.down();
+    for (const d of [5, 12, 20, 25]) {
+      const q = aim(p1, d);
+      await page.mouse.move(q.x, q.y);
+    }
+    await page.mouse.up();
+    const pl2 = await placementOf(page, key);
+    const tip = await toScreen(page, pl2.tip);
+    const piv = await toScreen(page, pl2.pivot);
+    const cursor = aim(p1, 25);
+    const shown = (Math.atan2(tip.y - piv.y, tip.x - piv.x) * 180) / Math.PI;
+    const wanted = (Math.atan2(cursor.y - piv.y, cursor.x - piv.x) * 180) / Math.PI;
+    expect(Math.abs(shown - wanted)).toBeLessThan(1.5);
+    expect((await plan(page)).lines[1].angle).toBe(pl2.angle);
+    await page.waitForTimeout(450);
+    /* Shift：每 15° */
+    const rot2 = ex(await page.getByTestId('line-rotate').boundingBox());
+    await page.mouse.move(rot2.x + rot2.width / 2, rot2.y + rot2.height / 2);
+    await page.keyboard.down('Shift');
+    await page.mouse.down();
+    for (const d of [10, -10, -38]) {
+      const q = aim(piv, d);
+      await page.mouse.move(q.x, q.y);
+    }
+    await page.mouse.up();
+    await page.keyboard.up('Shift');
+    const a3 = (await plan(page)).lines[1].angle;
+    expect(Math.abs(a3 % 15)).toBe(0);
+    expect(a3).toBeLessThan(0);
+    await page.waitForTimeout(450);
+
+    /* 方向鍵：1 px，Shift 10 px */
+    const before = (await plan(page)).lines[1];
+    for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Shift+ArrowUp');
+    await expect.poll(async () => (await plan(page)).lines[1].x).toBe(before.x + 3);
+    expect((await plan(page)).lines[1].y).toBe(before.y - 10);
+    /* Delete 不刪句 */
+    await page.keyboard.press('Delete');
+    expect((await hook(page, (h) => h.lines())).length).toBe(3);
+    expect(await hook(page, (h) => h.selected())).toBe(key);
+    /* Esc：取消選取 */
+    await page.keyboard.press('Escape');
+    await expect.poll(() => hook(page, (h) => h.selected())).toBeNull();
+    await expect(page.getByTestId('line-selection')).toHaveCount(0);
+    await expect(page.getByTestId('line-toolbar')).toHaveCount(0);
+    await page.waitForTimeout(450);
+
+    /* 清單的「調整」：選取、預覽跳到這一句完整出現的時間 */
+    const k0 = base.lines[0].key;
+    await page.getByRole('button', { name: '調整第 1 句' }).click();
+    await expect.poll(() => hook(page, (h) => h.selected())).toBe(k0);
+    const shownAt = (await placementOf(page, k0, 0)).shownAt;
+    await expect.poll(() => hook(page, (h) => h.time())).toBeCloseTo(shownAt, 2);
+    await expect(page.getByTestId('line-selection')).toBeVisible();
+    /* 欄位：X、角度 */
+    const fx = panel.getByRole('spinbutton', { name: 'X' });
+    await fx.fill('30');
+    await fx.press('Enter');
+    await expect.poll(async () => (await plan(page)).lines[0].x).toBe(576);
+    await page.waitForTimeout(450);
+    const fa = panel.getByRole('spinbutton', { name: '角度' });
+    await fa.fill('-30');
+    await fa.press('Enter');
+    await expect.poll(async () => (await plan(page)).lines[0].angle).toBe(-30);
+    expect((await plan(page)).lines[0].pinned).toBe(true);
+    await page.waitForTimeout(450);
+    /* 文字顏色（可以清掉回到風格的顏色）、發光顏色 */
+    const color = panel.getByRole('textbox', { name: '文字顏色' });
+    await color.fill('#ff0000');
+    await color.press('Enter');
+    await expect.poll(async () => (await plan(page)).lines[0].textColor).toBe('#ff0000');
+    await page.waitForTimeout(450);
+    await panel.getByTestId('adjust-color-clear').click();
+    await expect.poll(async () => (await plan(page)).lines[0].textColor).toBeNull();
+    await page.waitForTimeout(450);
+    const glow = panel.getByRole('textbox', { name: '發光顏色' });
+    await glow.fill('#00ff00');
+    await glow.press('Enter');
+    await expect.poll(async () => (await plan(page)).lines[0].glowColor).toBe('#00ff00');
+    await page.waitForTimeout(450);
+    /* 大小、透明度 */
+    const size = panel.getByRole('spinbutton', { name: '大小' });
+    await size.fill('150');
+    await size.press('Enter');
+    await expect.poll(async () => (await plan(page)).lines[0].font).toContain('55.5px');
+    expect((await plan(page)).lines[0].th).toBeCloseTo(37 * 1.5 * 1.32, 6);
+    await page.waitForTimeout(450);
+    const op = panel.getByRole('spinbutton', { name: '透明度' });
+    await op.fill('40');
+    await op.press('Enter');
+    await expect.poll(async () => (await plan(page)).lines[0].opacity).toBe(0.4);
+    await page.waitForTimeout(450);
+    await expect(page.getByTestId('lines-summary')).toHaveText('2 句手動調整');
+    /* 恢復自動（一步）→ 復原 */
+    const adjusted = (await settings(page)).overrides[k0].adjust;
+    await panel.getByTestId('adjust-reset').click();
+    await expect.poll(async () => (await settings(page)).overrides[k0]).toBeUndefined();
+    const auto = (await plan(page)).lines[0];
+    expect([auto.textColor, auto.glowColor, auto.opacity, auto.th, auto.pinned]).toEqual([
+      null,
+      null,
+      null,
+      null,
+      false,
+    ]);
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => (await settings(page)).overrides[k0]?.adjust).toEqual(adjusted);
+    await page.waitForTimeout(450);
+    /* 清除逐句調整：全部回到自動（和調整之前的排位置完全相同） */
+    await page.getByTestId('clear-overrides').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: '確定' }).click();
+    await expect.poll(async () => Object.keys((await settings(page)).overrides).length).toBe(0);
+    const back = await plan(page);
+    expect(back.lines.map((l) => [l.x, l.y, l.angle, l.rows])).toEqual(
+      base.lines.map((l) => [l.x, l.y, l.angle, l.rows]),
+    );
+    expect(errors).toEqual([]);
+  });
+
+  test('逐句手動調整：換字型（寬度、折行、先載入）；PNG 與 PNG 連番的像素（顏色、透明度）', async ({
+    page,
+  }) => {
+    const fontCss: string[] = [];
+    page.on('request', (r) => {
+      if (/fonts\.googleapis\.com/.test(r.url())) fontCss.push(decodeURIComponent(r.url()));
+    });
+    const errors = await open(page);
+    const area = page.getByTestId('lyrics-text');
+    const words = Array.from({ length: 30 }, () => 'iiiii').join(' ');
+    await area.fill(`[00:00.20]${words}\n[00:03.00]第二句紅色的歌詞`);
+    await area.blur();
+    await page.waitForTimeout(450);
+    const p0 = await plan(page);
+    const [k0, k1] = p0.lines.map((l) => l.key);
+    /* 「另選字型」：先帶入這一句目前的字型 */
+    await page.getByRole('button', { name: '調整第 1 句' }).click();
+    const panel = page.getByTestId('line-adjust');
+    await panel.getByRole('radio', { name: '另選字型' }).click();
+    await expect
+      .poll(async () => (await settings(page)).overrides[k0]?.adjust?.font?.family)
+      .toBe('Noto Sans TC');
+    await page.waitForTimeout(450);
+    /* 換成等寬的電腦字型：用新字型量字寬，折行跟著變；另一句照風格的字型 */
+    await set(page, `overrides.${k0}.adjust.font`, {
+      source: 'local',
+      family: 'DejaVu Sans Mono',
+      weight: 400,
+    });
+    await expect.poll(async () => (await plan(page)).lines[0].font).toContain('DejaVu Sans Mono');
+    const p1 = await plan(page);
+    expect(p1.lines[0].width).toBeGreaterThan(p0.lines[0].width * 1.5);
+    expect(p1.lines[0].rows.length).toBeGreaterThan(p0.lines[0].rows.length);
+    expect(p1.lines[0].rows.join(' ')).toBe(words);
+    expect(p1.lines[1].font).toBe(p0.lines[1].font);
+    /* Google 字型：逐句用到的字型也先載入 */
+    await set(page, `overrides.${k1}`, {
+      adjust: { font: { source: 'google', family: 'Klee One', weight: 600 } },
+    });
+    await expect.poll(() => fontCss.some((u) => /Klee[+ ]One/.test(u))).toBe(true);
+    await expect.poll(async () => (await plan(page)).lines[1].font).toContain('Klee One');
+
+    /* PNG：這一句的文字顏色與透明度（背景透明；發光、描邊關掉，只剩填色） */
+    await set(page, `overrides.${k1}`, { adjust: { color: '#ff0000', opacity: 0.5 } });
+    await set(page, 'styles.scatter.glow', false);
+    await set(page, 'styles.scatter.mode', 'latin');
+    await set(page, 'styles.scatter.strokeWidth', 0);
+    await showLine(page, k1);
+    const halfBox = (await plan(page)).lines[1].box;
+    const half = await redPixels(page, await savePngBytes(page));
+    expect(half.count).toBeGreaterThan(300);
+    expect(half.maxAlpha).toBeGreaterThanOrEqual(120);
+    expect(half.maxAlpha).toBeLessThanOrEqual(130);
+    await set(page, `overrides.${k1}`, { adjust: { color: '#ff0000' } });
+    await page.waitForTimeout(100);
+    const full = await redPixels(page, await savePngBytes(page));
+    expect(full.maxAlpha).toBe(255);
+    expect(full.count).toBeGreaterThan(half.count * 0.8);
+    /* 透明度 0：看不到，但照樣占位置 */
+    await set(page, `overrides.${k1}`, { adjust: { color: '#ff0000', opacity: 0 } });
+    await page.waitForTimeout(100);
+    expect((await redPixels(page, await savePngBytes(page))).count).toBe(0);
+    expect((await plan(page)).lines[1].box).toEqual(halfBox);
+
+    /* PNG 連番：同一句在連番的那一格也是紅色、半透明 */
+    await set(page, `overrides.${k1}`, { adjust: { color: '#ff0000', opacity: 0.5 } });
+    await tab(page, '匯出').click();
+    await page.getByRole('radio', { name: /PNG 連番/ }).click();
+    await page.getByRole('combobox', { name: 'FPS' }).click();
+    await page.getByRole('option', { name: '24 fps' }).click();
+    const zip = await exportFile(page, /PNG 連番/);
+    const entries = unzipSync(zip.bytes);
+    const t = (await placementOf(page, k1, 0)).shownAt;
+    const name = `lyric-fx-lyrics-frames/lyric-fx-lyrics_${String(Math.ceil(t * 24) + 1).padStart(4, '0')}.png`;
+    const frame = await redPixels(page, ex(entries[name]));
+    expect(frame.count).toBeGreaterThan(300);
+    expect(frame.maxAlpha).toBeLessThanOrEqual(130);
+    expect(errors).toEqual([]);
+  });
+
   test('鍵盤：空白鍵播放／暫停、R 從頭播放', async ({ page }) => {
     const errors = await open(page);
     await page.locator('body').click({ position: { x: 5, y: 5 } });
@@ -833,6 +1188,44 @@ test.describe('歌詞演出產生器', () => {
     }
     await at(page, 12.5);
     await expect(page).toHaveScreenshot('lyric-fx-390.png', { fullPage: true, mask: masks });
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('歌詞演出產生器（手機寬度、觸控）', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  test('390 寬：觸控點選與拖曳一句；工具列；沒有橫向捲動', async ({ page }) => {
+    const errors = await open(page);
+    const area = page.getByTestId('lyrics-text');
+    await area.fill(TWO);
+    await area.blur();
+    await page.waitForTimeout(450);
+    const key = (await plan(page)).lines[1].key;
+    await showLine(page, key);
+    await canvas(page).scrollIntoViewIfNeeded();
+    const pl0 = await placementOf(page, key);
+    const p0 = await toScreen(page, pl0.pivot);
+    const cdp = await page.context().newCDPSession(page);
+    const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x = 0, y = 0) =>
+      cdp.send('Input.dispatchTouchEvent', {
+        type,
+        touchPoints: type === 'touchEnd' ? [] : [{ x, y }],
+      });
+    await touch('touchStart', p0.x + 2, p0.y);
+    for (let i = 1; i <= 6; i++) await touch('touchMove', p0.x + 2 + i * 5, p0.y + i * 3);
+    await touch('touchEnd');
+    await expect.poll(() => hook(page, (h) => h.selected())).toBe(key);
+    await expect.poll(async () => (await settings(page)).overrides[key]?.adjust?.x).toBeTruthy();
+    const p1 = await toScreen(page, (await placementOf(page, key)).pivot);
+    expect(Math.abs(p1.x - (p0.x + 30))).toBeLessThan(1.5);
+    expect(Math.abs(p1.y - (p0.y + 18))).toBeLessThan(1.5);
+    await expect(page.getByTestId('line-toolbar')).toBeVisible();
+    await noHorizontalScroll(page);
+    /* 工具列的「恢復自動」 */
+    await page.getByTestId('toolbar-reset').click();
+    await expect.poll(async () => (await settings(page)).overrides[key]).toBeUndefined();
+    await noHorizontalScroll(page);
     expect(errors).toEqual([]);
   });
 });

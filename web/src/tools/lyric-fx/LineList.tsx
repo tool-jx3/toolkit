@@ -216,16 +216,24 @@ export function LineList() {
   const [open, setOpen] = useState(readOpen);
   const list = useRef<HTMLOListElement>(null);
 
-  /* 從預覽選取：展開這個區塊、捲到那一句 */
+  /*
+   * 從預覽選取：展開這個區塊、清單自己捲到那一句。只捲清單（不用 scrollIntoView）：手機寬度時整頁是一欄，
+   * 捲動頁面會讓預覽在拖曳中跑掉。
+   */
   // biome-ignore lint/correctness/useExhaustiveDependencies: 只在預覽上選取時（revealTick 變了）捲動
   useEffect(() => {
     if (!revealTick || !selected) return;
     setOpen(true);
     requestAnimationFrame(() => {
-      const el = [
-        ...(list.current?.querySelectorAll<HTMLElement>('[data-testid="line-row"]') ?? []),
-      ].find((x) => x.dataset.key === selected);
-      el?.scrollIntoView({ block: 'nearest' });
+      const ol = list.current;
+      const el = [...(ol?.querySelectorAll<HTMLElement>('[data-testid="line-row"]') ?? [])].find(
+        (x) => x.dataset.key === selected,
+      );
+      if (!ol || !el) return;
+      const a = ol.getBoundingClientRect();
+      const b = el.getBoundingClientRect();
+      if (b.top < a.top) ol.scrollTop -= a.top - b.top;
+      else if (b.bottom > a.bottom) ol.scrollTop += Math.min(b.bottom - a.bottom, b.top - a.top);
     });
   }, [revealTick]);
 

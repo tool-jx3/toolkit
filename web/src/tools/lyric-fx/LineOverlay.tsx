@@ -41,15 +41,27 @@ type Drag =
     }
   | { kind: 'rotate'; id: number; key: string; moved: boolean };
 
-/** 是不是在打字（輸入框、選單、可編輯的區塊、對話框裡）：方向鍵、Esc 留給它們 */
+/** 焦點在自己會用方向鍵、Esc 的控制項上（輸入框、選單、滑桿、選項、分頁、對話框裡）：留給它們 */
+const KEYS_TAKEN = [
+  'input',
+  'textarea',
+  'select',
+  '[contenteditable=""]',
+  '[contenteditable="true"]',
+  '[role="dialog"]',
+  '[role="alertdialog"]',
+  '[role="slider"]',
+  '[role="listbox"]',
+  '[role="option"]',
+  '[role="radio"]',
+  '[role="tab"]',
+  '[role="menu"]',
+  '[role="menuitem"]',
+  '[role="combobox"]',
+  '[role="spinbutton"]',
+].join(', ');
 function typingIn(target: EventTarget | null): boolean {
-  const el = target instanceof HTMLElement ? target : null;
-  if (!el) return false;
-  if (el.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]'))
-    return true;
-  if (el.closest('[role="dialog"], [role="alertdialog"], [role="slider"], [role="listbox"]'))
-    return true;
-  return false;
+  return target instanceof HTMLElement && !!target.closest(KEYS_TAKEN);
 }
 
 export function LineOverlay({
