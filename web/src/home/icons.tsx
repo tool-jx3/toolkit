@@ -69,6 +69,7 @@ import {
   Table,
   TextQuote,
   Ticket,
+  TreeDeciduous,
   Trophy,
   UserCog,
   Users,
@@ -142,6 +143,7 @@ const ICONS: Record<string, LucideIcon> = {
   'prose-card': Feather,
   'captcha-card': Grid2x2Check,
   'social-post': MessageSquareHeart,
+  'family-tree': TreeDeciduous,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,

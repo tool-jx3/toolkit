@@ -645,6 +645,10 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
   沒有共用的：Code 128 條碼（`web/src/tools/id-ticket/code128.ts`：B／C 字集自動切換、檢查碼，約 80 行）、QR code（`qr.ts`：npm 的
   `qrcode-generator`，中文以 UTF-8 位元組交給套件）、畫證件與票券的小工具（`kit.ts`：字距、自動縮小與「…」、欄位的點選範圍、照片格、印章），
   別的工具要條碼或 QR code 時可以把 `code128.ts`、`qr.ts` 搬進 `core/`。
+- G7 family-tree（家系圖產生器）：畫布是 DOM 卡片＋SVG 連線、整張以 transform 平移縮放（卡片要能聚焦、雙擊就地編輯，所以不用畫在 canvas 上的 `PanZoomViewport`；
+  `Stage` 的高度跟著內容比例、沒有以指標為中心的縮放與兩指捏合，也不合用）。沒有共用的：平移縮放的計算（`web/src/tools/family-tree/editor/view.ts`：以指標為中心縮放、全覽、
+  滑鼠滾輪與觸控板的分辨）與畫布元件（`editor/Canvas.tsx`：拖曳、捏合、邊緣自動捲動），一代一列的家系排版（`model/layout.ts`，每一代各自的左右輪廓）——
+  別的工具要做「DOM 物件可以平移縮放的大畫布」或樹狀圖時可以搬進 `ui`／`core/layout`。
 
 ## 5. 用詞表（台灣繁體中文）
 
