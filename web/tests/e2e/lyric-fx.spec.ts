@@ -14,7 +14,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
-import { strFromU8, unzipSync } from 'fflate';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { encodeWav } from '../../src/core/audio/pcm';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
@@ -847,6 +847,20 @@ test.describe('歌詞演出產生器', () => {
     await page.keyboard.press('Control+Shift+z');
     await expect.poll(async () => (await settings(page)).styles.scatter.mode).toBe('latin');
     await loadAudio(page, 2);
+    /* 逐句的手動調整也自動儲存、存進專案檔（版本 3） */
+    const adjKey = (await hook(page, (h) => h.lines()))[2].key;
+    const adjust = {
+      x: 0.3,
+      y: 0.4,
+      angle: 12,
+      color: '#ff0000',
+      glowColor: '#00ff00',
+      scale: 1.2,
+      opacity: 0.7,
+      font: { source: 'google', family: 'Noto Serif TC', weight: 700 },
+    };
+    await set(page, `overrides.${adjKey}`, { adjust });
+    await expect.poll(async () => (await plan(page)).lines[2].pinned).toBe(true);
     const saved = await settings(page);
     await expect(page.getByText(/已自動儲存/).first()).toBeVisible();
     await page.reload();
@@ -869,7 +883,9 @@ test.describe('歌詞演出產生器', () => {
     ]);
     const json = JSON.parse(strFromU8(zip['project.json']));
     expect(json.tool).toBe('lyric-fx');
+    expect(json.version).toBe(3);
     expect(json.data.styles.scatter.fontSize).toBe(50);
+    expect(json.data.overrides[adjKey].adjust).toEqual(adjust);
     await page.getByRole('button', { name: '專案' }).click();
     await page.getByRole('menuitem', { name: '重設…' }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: '重設' }).click();
@@ -884,6 +900,38 @@ test.describe('歌詞演出產生器', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
     await expect.poll(async () => settings(page)).toEqual(saved);
     await expect.poll(async () => (await session(page)).audioState).toBe('ready');
+    expect((await plan(page)).lines[2]).toMatchObject({ pinned: true, angle: 12, opacity: 0.7 });
+    /* 版本 2 的專案檔（沒有手動調整）照常開啟 */
+    const v2 = zipSync({
+      'project.json': strToU8(
+        JSON.stringify({
+          format: 'trpg-toolkit-project',
+          tool: 'lyric-fx',
+          version: 2,
+          savedAt: new Date().toISOString(),
+          data: {
+            lyrics: { text: TWO, fileName: '', offset: 0 },
+            overrides: { '200:第一句測試的歌詞': { reroll: 3 } },
+            region: null,
+          },
+        }),
+      ),
+    });
+    await page.getByRole('button', { name: '專案' }).click();
+    const [chooser2] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
+    ]);
+    await chooser2.setFiles({
+      name: 'old-v2.zip',
+      mimeType: 'application/zip',
+      buffer: Buffer.from(v2),
+    });
+    await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
+    await expect
+      .poll(async () => (await settings(page)).overrides)
+      .toEqual({ '200:第一句測試的歌詞': { reroll: 3 } });
+    expect((await hook(page, (h) => h.lines())).length).toBe(3);
     expect(errors).toEqual([]);
   });
 
