@@ -9,6 +9,7 @@ import {
   ChevronsUpDown,
   Eraser,
   Eye,
+  EyeOff,
   Heart,
   Link2,
   Plus,
@@ -21,7 +22,6 @@ import { addImageFile, ImageLoadError, useAssetImage } from '@/core/assets';
 import { historyGesture } from '@/core/storage';
 import {
   Button,
-  Checkbox,
   cn,
   Field,
   FieldRow,
@@ -433,15 +433,35 @@ function GmSection({
         />
       </Field>
       <Field label={S.gmFields} hint={note ?? S.gmFieldsHint}>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-3" data-testid="gm-fields">
-          {fields.map((f) => (
-            <Checkbox
-              key={f}
-              label={S.gmFieldName[f]}
-              checked={!!person.gmFields?.includes(f)}
-              onCheckedChange={(v) => updatePeople((d) => setGmField(d as People, person.id, f, v))}
-            />
-          ))}
+        {/* 按鈕（aria-pressed）而不是勾選框：欄位名稱和上面的文字欄同名，避免標籤重複 */}
+        {/* biome-ignore lint/a11y/useSemanticElements: 一組相關的開關按鈕，不是表單分組 */}
+        <div
+          role="group"
+          aria-label={S.gmFields}
+          className="flex flex-wrap gap-1.5"
+          data-testid="gm-fields"
+        >
+          {fields.map((f) => {
+            const on = !!person.gmFields?.includes(f);
+            return (
+              <button
+                key={f}
+                type="button"
+                aria-pressed={on}
+                data-gm-field={f}
+                className={cn(
+                  'inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs',
+                  on
+                    ? 'border-warning bg-warning-soft font-semibold text-fg'
+                    : 'border-border bg-bg text-muted hover:bg-surface-3 hover:text-fg',
+                )}
+                onClick={() => updatePeople((d) => setGmField(d as People, person.id, f, !on))}
+              >
+                {on ? <EyeOff className="size-3.5" /> : null}
+                {S.gmFieldName[f]}
+              </button>
+            );
+          })}
         </div>
       </Field>
       <TextField

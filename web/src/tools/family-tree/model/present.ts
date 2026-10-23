@@ -98,5 +98,11 @@ export function chipText(
 /** 狀態的印記文字 */
 export const statusSeal = (s: MemberText['status']): string | null => (s ? S.statusSeal[s] : null);
 
-/** 頭像的佔位：名字的第一個字（沒有名字時空白） */
-export const initialOf = (name: string): string => Array.from(name.trim())[0] ?? '';
+/**
+ * 頭像的佔位字：名字有空格時取最後一段的第一個字（「綾瀬 冬子」→「冬」：同一家人的姓都一樣），
+ * 否則第一個字；沒有名字時空白。
+ */
+export function initialOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return Array.from(parts[parts.length - 1] ?? '')[0] ?? '';
+}

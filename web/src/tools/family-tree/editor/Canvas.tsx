@@ -21,7 +21,7 @@ import {
 } from 'react';
 import { create } from 'zustand';
 import { useAssetBitmaps } from '@/core/assets';
-import { Button, IconButton } from '@/ui';
+import { Button, cn, IconButton } from '@/ui';
 import {
   cancelInline,
   canvasApi,
@@ -1065,7 +1065,10 @@ export function TreeCanvas() {
       <Dock />
       <div
         data-overlay
-        className="pointer-events-none absolute bottom-3 left-3 z-[5] hidden max-w-[calc(100%-14rem)] flex-wrap gap-x-3 gap-y-1 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-muted shadow-1 lg:flex"
+        className={cn(
+          'pointer-events-none absolute bottom-3 left-3 z-[5] hidden max-w-[calc(100%-14rem)] flex-wrap gap-x-3 gap-y-1 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-muted shadow-1',
+          !pl && 'lg:flex',
+        )}
       >
         {S.hints.map((h) => (
           <span key={h}>{h}</span>
@@ -1196,7 +1199,8 @@ function AreaOverlay({
           return;
         }
         useUi.setState({ area: { picking: false, keys: [...keys] } });
-        exportApi.current?.();
+        /* 匯出區要先拿到新的範圍（按鈕才會啟用）：下一輪再匯出 */
+        setTimeout(() => exportApi.current?.(), 80);
       }}
     >
       <div

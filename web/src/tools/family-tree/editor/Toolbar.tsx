@@ -26,7 +26,7 @@ export function CanvasToolbar() {
       data-testid="canvas-toolbar"
     >
       <BoardSelect />
-      <label className="relative flex min-w-0 flex-[1_1_10rem] items-center sm:flex-[0_1_14rem]">
+      <label className="relative flex min-w-0 flex-[1_1_10rem] items-center sm:flex-[0_1_12rem]">
         <Search aria-hidden className="pointer-events-none absolute left-2 size-4 text-muted" />
         <span className="sr-only">{S.search}</span>
         <input
@@ -50,8 +50,8 @@ export function CanvasToolbar() {
         value={viewMode}
         onValueChange={(v) => setPrefs({ viewMode: v })}
         options={[
-          { value: 'gm', label: S.viewGm, ariaLabel: S.dragModeLabel(S.viewGm, S.viewGmHint) },
-          { value: 'pl', label: S.viewPl, ariaLabel: S.dragModeLabel(S.viewPl, S.viewPlHint) },
+          { value: 'gm', label: 'GM', ariaLabel: S.dragModeLabel(S.viewGm, S.viewGmHint) },
+          { value: 'pl', label: 'PL', ariaLabel: S.dragModeLabel(S.viewPl, S.viewPlHint) },
         ]}
       />
       <Segmented<DragMode>

@@ -141,7 +141,7 @@ export function BoardSelect() {
       size="sm"
       value={board.id}
       data-field="board-select"
-      className="min-w-0 max-w-full sm:max-w-56"
+      className="min-w-0 max-w-full sm:max-w-52"
       options={sorted.map((b) => ({ value: b.id, label: b.title || S.untitledBoard }))}
       onValueChange={(id) => switchBoard(id)}
     />
