@@ -306,10 +306,10 @@ Person（配偶）= { id, kind: 'spouse', spouseOf, name, reading?, birth?, deat
 ### 3.7 對等驗證的比對方法
 
 - `.impl-tmp/` 的腳本把本站自己編的測試資料（原作的備份檔格式）放進原作（本機伺服器 8248），設定父親的位置、卡片、備註、配偶、折疊後，
-  讀每張卡片外框的 `left`／`top`、配偶卡片的 `offsetLeft`、世代標籤與虛線的位置、親子連線的 SVG 路徑，存成期待值（`web/tests/fixtures/family-tree/`）。
+  讀每張卡片外框的 `left`／`top`、配偶卡片的 `offsetLeft`、世代標籤與虛線的位置、親子連線的 SVG 路徑，存成期待值（`web/tests/unit/fixtures/family-tree/`）。
 - 單元測試讀同一份資料（經過「讀原作的備份檔」的轉換），用本站的排版算出座標，逐張卡片比對（要完全相同）。
 - PNG：同一份資料、同樣的匯出設定（縱向／橫向 × 詳細／簡易／只有名字／名字＋讀音、備註、不畫標題與世代、不畫配偶、選取的人以下），
-  在兩邊各匯出一次比畫布大小（`.impl-tmp/parity/export-compare.mjs`；期待值存成 `web/tests/fixtures/family-tree-export-sizes.json`，單元測試比對），並排目視卡片與連線的位置。
+  在兩邊各匯出一次比畫布大小（`.impl-tmp/parity/export-compare.mjs`；期待值存成 `web/tests/unit/fixtures/family-tree-export-sizes.json`，單元測試比對），並排目視卡片與連線的位置。
 - 拖曳：同一份資料，在兩邊做同樣的拖曳（以排版座標換算成各自畫面上的位移；換順序、調間距、手動模式只移動父母、Shift、換父母、Alt、放到自己的子孫），
   比對拖完之後每張卡片的座標（`.impl-tmp/parity/drag-compare.mjs`）。
 - 原作的畫面上，簡易卡片的配偶卡片之間的 DOM 間距固定 6 px（排版用 5 px，所以每多一張配偶卡片就往右多 1 px，最後一張會吃進相鄰子樹的間距 1～3 px）；

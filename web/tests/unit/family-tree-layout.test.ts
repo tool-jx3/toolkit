@@ -36,7 +36,7 @@ interface Fixture {
 }
 
 const fixtures: Fixture[] = Object.values(
-  import.meta.glob<Fixture>('../fixtures/family-tree/*.json', { eager: true, import: 'default' }),
+  import.meta.glob<Fixture>('./fixtures/family-tree/*.json', { eager: true, import: 'default' }),
 );
 
 function boardOf(fx: Fixture): Board {

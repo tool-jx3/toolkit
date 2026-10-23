@@ -13,14 +13,14 @@ import {
 import { boardsFromLegacy } from '@/tools/family-tree/model/legacy';
 import type { Board, Member } from '@/tools/family-tree/model/types';
 import { pngFileName } from '@/tools/family-tree/panels/ExportTab';
-import sizes from '../fixtures/family-tree-export-sizes.json';
+import sizes from './fixtures/family-tree-export-sizes.json';
 
-const datasets = import.meta.glob<{ data: unknown }>('../fixtures/family-tree/*.json', {
+const datasets = import.meta.glob<{ data: unknown }>('./fixtures/family-tree/*.json', {
   eager: true,
   import: 'default',
 });
 const board = (name: string): Board =>
-  boardsFromLegacy(datasets[`../fixtures/family-tree/${name}.json`].data, '測試')[0];
+  boardsFromLegacy(datasets[`./fixtures/family-tree/${name}.json`].data, '測試')[0];
 
 interface Case {
   orient: 'v' | 'h';
