@@ -168,7 +168,8 @@ export const S = {
     copy: '複製連結',
     copied: '已複製分享連結',
     open: '開新視窗試刮',
-    count: (n: number) => `${n} 字`,
+    count: (n: number, max: number) =>
+      `內容 ${n.toLocaleString('en-US')} 字（上限 ${max.toLocaleString('en-US')} 字）`,
   },
 
   /* 分享連結的畫面 */

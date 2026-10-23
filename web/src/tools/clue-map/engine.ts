@@ -295,7 +295,10 @@ export function mountClueMap(
           : names.join('、'),
     });
     nodes[s.id] = { btn, tag, dot, ring, mark, badge, lockedHint };
-    btn.addEventListener('click', () => activate(s, btn));
+    btn.addEventListener('click', (e) => {
+      if (visible(s)) activate(s, btn);
+      else passThrough(e);
+    });
     layer.appendChild(btn);
     tagLayer.appendChild(tag);
   }
@@ -308,6 +311,12 @@ export function mountClueMap(
   card.setAttribute('aria-label', L.cardLabel);
   const foundBox = el('section', 'cm-found');
   foundBox.setAttribute('data-cm', 'found');
+  /* 已找到的清單：標題、空狀態、清單各一個，項目只增不減（重來時才全部拿掉），開線索卡時不重建，鍵盤的焦點才不會掉 */
+  const foundTitleEl = el('h3', 'cm-found-title');
+  const foundEmptyEl = el('p', 'cm-found-empty', L.foundEmpty);
+  const foundList = el('ol', 'cm-found-list');
+  const foundItems: Record<string, HTMLButtonElement> = {};
+  foundBox.appendChild(foundTitleEl);
   side.append(card, foundBox);
   main.append(scene, side);
   root.appendChild(main);
@@ -389,29 +398,42 @@ export function mountClueMap(
   };
 
   const renderFound = (): void => {
-    foundBox.textContent = '';
-    foundBox.appendChild(el('h3', 'cm-found-title', fmt(L.foundTitle, { n: found.length })));
-    if (!found.length) {
-      foundBox.appendChild(el('p', 'cm-found-empty', L.foundEmpty));
-      return;
+    foundTitleEl.textContent = fmt(L.foundTitle, { n: found.length });
+    /* 重來之後不在清單裡的項目拿掉 */
+    for (const id of Object.keys(foundItems)) {
+      if (foundSet[id]) continue;
+      foundItems[id].parentElement?.remove();
+      delete foundItems[id];
     }
-    const ol = el('ol', 'cm-found-list');
+    /* 找到的順序只會往後加：新的接在最後，原本的項目不動 */
     for (const id of found) {
-      const s = byId[id];
-      const li = el('li');
-      const b = button('cm-found-item');
-      b.setAttribute('data-found-item', id);
+      let b = foundItems[id];
+      if (!b) {
+        const s = byId[id];
+        const li = el('li');
+        b = button('cm-found-item');
+        b.setAttribute('data-found-item', id);
+        b.append(el('span', 'cm-num', String(s.n)), el('span', 'cm-found-name', nameOf(s)));
+        const item = b;
+        b.addEventListener('click', () => {
+          lastFocus = item;
+          openCard(id);
+          flash(id);
+        });
+        li.appendChild(b);
+        foundList.appendChild(li);
+        foundItems[id] = b;
+      }
       if (current === id) b.setAttribute('aria-current', 'true');
-      b.append(el('span', 'cm-num', String(s.n)), el('span', 'cm-found-name', nameOf(s)));
-      b.addEventListener('click', () => {
-        lastFocus = b;
-        openCard(id);
-        flash(id);
-      });
-      li.appendChild(b);
-      ol.appendChild(li);
+      else b.removeAttribute('aria-current');
     }
-    foundBox.appendChild(ol);
+    if (found.length) {
+      foundEmptyEl.remove();
+      if (!foundList.parentNode) foundBox.appendChild(foundList);
+    } else {
+      foundList.remove();
+      if (!foundEmptyEl.parentNode) foundBox.appendChild(foundEmptyEl);
+    }
   };
 
   const renderCard = (): void => {
@@ -541,6 +563,25 @@ export function mountClueMap(
     }
     showCardInView();
     emit();
+  };
+
+  /**
+   * 還沒解鎖的熱點（顯示所有熱點時畫成灰色虛線）被點到：它不存在，點擊穿過去，
+   * 由上到下找第一個看得到的熱點（沒有就沒有反應）。保留灰色熱點本身可以被指到，滑過才看得到「尚未解鎖」的說明。
+   * 鍵盤或程式呼叫的 click 沒有指標位置（detail 是 0），不穿透。
+   */
+  const passThrough = (e: MouseEvent): void => {
+    if (!e.detail) return;
+    const at = root.getRootNode() as Document | ShadowRoot;
+    if (typeof at.elementsFromPoint !== 'function') return;
+    for (const x of at.elementsFromPoint(e.clientX, e.clientY)) {
+      const id = x.getAttribute('data-spot');
+      const s = id ? byId[id] : null;
+      if (s && root.contains(x) && visible(s)) {
+        activate(s, x as HTMLElement);
+        return;
+      }
+    }
   };
 
   const doReset = (): void => {

@@ -105,6 +105,7 @@ export function ShareDialog({
       }}
       url={url}
       tooLong={url !== null && shareTooLong(new URL(url).hash, SHARE_MAX_LENGTH)}
+      maxLength={SHARE_MAX_LENGTH}
       data-testid="share-dialog"
     />
   );

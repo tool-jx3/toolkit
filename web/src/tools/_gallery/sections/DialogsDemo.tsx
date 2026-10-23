@@ -118,7 +118,8 @@ const DEMO_SHARE_STRINGS = {
   link: '連結',
   copy: '複製連結',
   copied: '已複製連結',
-  count: (n: number) => `${n} 字`,
+  count: (n: number, max: number) =>
+    `內容 ${n.toLocaleString('en-US')} 字（上限 ${max.toLocaleString('en-US')} 字）`,
   open: '開啟連結',
 };
 
@@ -148,6 +149,7 @@ function InteractiveDemo() {
         strings={DEMO_SHARE_STRINGS}
         url={url}
         tooLong={shareTooLong(url.slice(url.indexOf('#')), 8000)}
+        maxLength={8000}
         data-testid="share-demo"
       />
     </Section>

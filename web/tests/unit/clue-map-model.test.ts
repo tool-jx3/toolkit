@@ -12,6 +12,7 @@ import {
   clampBox,
   cleanImageUrl,
   defaultBox,
+  imageUrlProblem,
   isUnlocked,
   LIMITS,
   newSpot,
@@ -51,6 +52,22 @@ describe('文字', () => {
     expect(cleanImageUrl('data:image/png;base64,AAAA')).toBeNull();
     expect(cleanImageUrl('')).toBeNull();
     expect(cleanImageUrl(`https://e.com/${'a'.repeat(2001)}`)).toBeNull();
+    /* 剛好 2000 字（以字元計）收，2001 字不收 */
+    expect(cleanImageUrl(`https://e.com/${'a'.repeat(2000 - 14)}`)).not.toBeNull();
+    expect(cleanImageUrl(`https://e.com/${'a'.repeat(2001 - 14)}`)).toBeNull();
+  });
+
+  it('網址欄的檢查：空白、不是 http(s) 是 invalid，超過 2000 字是 long（輸入欄不截斷，F04）', () => {
+    expect(imageUrlProblem('https://example.com/a.png')).toBeNull();
+    expect(imageUrlProblem('')).toBe('invalid');
+    expect(imageUrlProblem('   \n')).toBe('invalid');
+    expect(imageUrlProblem('example.com/a.png')).toBe('invalid');
+    expect(imageUrlProblem('javascript:alert(1)')).toBe('invalid');
+    expect(imageUrlProblem('https://')).toBe('invalid');
+    expect(imageUrlProblem(`https://e.com/${'a'.repeat(2001 - 14)}`)).toBe('long');
+    expect(imageUrlProblem(`  https://e.com/${'a'.repeat(5000)}  `)).toBe('long');
+    /* 以字元計：2000 個字元但超過 2000 個 UTF-16 單位的網址仍然收 */
+    expect(imageUrlProblem(`https://e.com/${'😀'.repeat(2000 - 14)}`)).toBeNull();
   });
 });
 

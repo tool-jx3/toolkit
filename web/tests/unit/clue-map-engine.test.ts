@@ -612,6 +612,119 @@ describe('安全：使用者的文字一律當文字', () => {
   });
 });
 
+describe('鍵盤與焦點（F72，規格 7.1）', () => {
+  const item = (id: string) => q(`[data-found-item="${id}"]`);
+  const esc = () =>
+    (document.activeElement ?? root).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+
+  it('從「已找到的線索」清單打開線索卡：清單不重建，焦點留在那一項；Esc 關閉後焦點還在那一項', () => {
+    mount();
+    click(SAMPLE_IDS.shelf);
+    click(SAMPLE_IDS.window);
+    const shelf = item(SAMPLE_IDS.shelf);
+    const win = item(SAMPLE_IDS.window);
+    shelf.focus();
+    shelf.click();
+    expect(text('.cm-card-name')).toBe('書架');
+    expect(item(SAMPLE_IDS.shelf)).toBe(shelf);
+    expect(item(SAMPLE_IDS.window)).toBe(win);
+    expect(document.activeElement).toBe(shelf);
+    expect(shelf.getAttribute('aria-current')).toBe('true');
+    expect(win.hasAttribute('aria-current')).toBe(false);
+    esc();
+    expect(q('.cm-card').hasAttribute('data-empty')).toBe(true);
+    expect(document.activeElement).toBe(shelf);
+    expect(shelf.hasAttribute('aria-current')).toBe(false);
+    /* 換另一項 */
+    win.focus();
+    win.click();
+    expect(text('.cm-card-name')).toBe('窗戶');
+    expect(document.activeElement).toBe(win);
+    esc();
+    expect(document.activeElement).toBe(win);
+  });
+
+  it('找到新的熱點時，原本的清單項目仍是同一個元素（新的加在後面，順序是找到的先後）', () => {
+    mount();
+    click(SAMPLE_IDS.shelf);
+    const shelf = item(SAMPLE_IDS.shelf);
+    shelf.focus();
+    click(SAMPLE_IDS.desk);
+    expect(item(SAMPLE_IDS.shelf)).toBe(shelf);
+    expect(foundItems()).toEqual(['書架', '書桌']);
+    expect(document.activeElement).toBe(shelf);
+    /* 重來之後清單是空的，再找到的是新的元素 */
+    q('.cm-reset').click();
+    q('.cm-reset').click();
+    expect(foundItems()).toEqual([]);
+    click(SAMPLE_IDS.shelf);
+    expect(foundItems()).toEqual(['書架']);
+  });
+
+  it('用關閉鈕關閉：焦點回到打開線索卡的清單項目', () => {
+    mount();
+    click(SAMPLE_IDS.shelf);
+    const shelf = item(SAMPLE_IDS.shelf);
+    shelf.focus();
+    shelf.click();
+    (q('.cm-close') as HTMLElement).focus();
+    (q('.cm-close') as HTMLElement).click();
+    expect(document.activeElement).toBe(shelf);
+  });
+});
+
+describe('顯示所有熱點時還沒解鎖的熱點讓點擊穿過（規格 7.1）', () => {
+  /** jsdom 沒有版面：用一個假的 elementsFromPoint 回傳「由上到下」的元素 */
+  const hit = (...ids: string[]) => {
+    (document as unknown as { elementsFromPoint: unknown }).elementsFromPoint = () =>
+      ids.map((id) => spotEl(id));
+  };
+  const pointerClick = (id: string, detail = 1) =>
+    spotEl(id).dispatchEvent(
+      new MouseEvent('click', { bubbles: true, detail, clientX: 10, clientY: 10 }),
+    );
+  afterEach(() => {
+    delete (document as unknown as { elementsFromPoint?: unknown }).elementsFromPoint;
+  });
+
+  it('點到還沒解鎖的熱點：由上到下找第一個看得到的熱點，找到它；沒有就沒有反應', () => {
+    mount();
+    q('.cm-reveal').click();
+    /* 保險箱（還沒解鎖）疊在掛畫上面 */
+    hit(SAMPLE_IDS.safe, SAMPLE_IDS.painting);
+    pointerClick(SAMPLE_IDS.safe);
+    expect(text('.cm-card-name')).toBe('掛畫');
+    expect(stateOf(SAMPLE_IDS.painting)).toBe('found');
+    expect(stateOf(SAMPLE_IDS.safe)).toBe('locked');
+    expect(text('.cm-progress')).toBe('找到 1／8');
+    /* 底下全是還沒解鎖的：沒有反應 */
+    hit(SAMPLE_IDS.drawer, SAMPLE_IDS.safe);
+    pointerClick(SAMPLE_IDS.drawer);
+    expect(text('.cm-progress')).toBe('找到 1／8');
+    /* 底下是隱藏熱點（看得到、只是不畫輪廓）：照常被點到 */
+    hit(SAMPLE_IDS.drawer, SAMPLE_IDS.hatch);
+    pointerClick(SAMPLE_IDS.drawer);
+    expect(stateOf(SAMPLE_IDS.hatch)).toBe('found');
+  });
+
+  it('鍵盤或程式呼叫的 click（沒有指標位置，detail 是 0）不穿透', () => {
+    mount();
+    q('.cm-reveal').click();
+    hit(SAMPLE_IDS.safe, SAMPLE_IDS.painting);
+    pointerClick(SAMPLE_IDS.safe, 0);
+    expect(text('.cm-progress')).toBe('找到 0／8');
+  });
+
+  it('沒有 elementsFromPoint 的環境也不會出錯', () => {
+    mount();
+    q('.cm-reveal').click();
+    expect(() => pointerClick(SAMPLE_IDS.safe)).not.toThrow();
+    expect(text('.cm-progress')).toBe('找到 0／8');
+  });
+});
+
 describe('自給自足', () => {
   it('原始碼不引用模組裡的東西：獨立執行的版本和直接 import 的行為一樣', () => {
     mount(sampleState(), {}, standalone);

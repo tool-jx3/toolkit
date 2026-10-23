@@ -578,6 +578,11 @@ test('分享連結：畫面只有卡片、能刮、不動到自己存的內容�
   const url = await link.inputValue();
   expect(url).toMatch(/\/(next|tools)\/scratch-card\/#c=/);
   expect(url).not.toContain('秘密');
+  /* 字數和上限用同一個量法：# 後面（共用的 ShareLinkDialog，clue-map 對等驗證後修正） */
+  const hashLen = url.length - (url.indexOf('#') + 1);
+  await expect(page.getByTestId('share-dialog').getByTestId('text-output-count')).toHaveText(
+    `內容 ${hashLen.toLocaleString('en-US')} 字（上限 8,000 字）`,
+  );
   await page.keyboard.press('Escape');
   const before = await stored(page);
 

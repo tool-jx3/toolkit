@@ -905,11 +905,24 @@ test('試玩：隱藏熱點點對位置才出現；橢圓的點擊範圍是橢�
   await page.getByTestId('spot-name').fill('小點');
   await goPlay(page);
   const tiny = p.locator('[data-spot]').last();
+  const id = (await tiny.getAttribute('data-spot'))!;
+  /* 熱點本身（和它的輪廓）還是只有約 11 px；點擊範圍從中心撐到 28 × 28（詳細量測見 F71 的測試） */
   const tb = (await tiny.boundingBox())!;
-  expect(tb.width).toBeGreaterThanOrEqual(27.5);
-  expect(tb.height).toBeGreaterThanOrEqual(27.5);
+  expect(tb.width).toBeLessThan(20);
   const sb = (await p.locator('.cm-scene').boundingBox())!;
   expect(tb.width).toBeLessThan(sb.width * 0.2);
+  const hit = (dx: number, dy: number) =>
+    page.evaluate(
+      ([x, y]) =>
+        document.elementFromPoint(x, y)?.closest('[data-spot]')?.getAttribute('data-spot') ?? null,
+      [tb.x + tb.width / 2 + dx, tb.y + tb.height / 2 + dy] as const,
+    );
+  expect(await hit(0, 0)).toBe(id);
+  expect(await hit(13, 0)).toBe(id);
+  expect(await hit(0, 13)).toBe(id);
+  /* （熱點在場景的左上角，往左與往上的範圍被場景的邊界切掉，所以只量右與下） */
+  expect(await hit(17, 0)).not.toBe(id);
+  expect(await hit(0, 17)).not.toBe(id);
   expect(errors).toEqual([]);
 });
 
@@ -931,9 +944,11 @@ test('試玩：顯示所有熱點、重來（兩段確認）、鍵盤、進度�
   await expect(spot(p, ID.hatch)).toHaveAttribute('data-dashed', '1');
   await expect(spot(p, ID.desk).locator('.cm-badge')).toHaveText('1');
   await expect(p.locator('.cm-progress')).toHaveText('找到 0／8');
-  /* 不能點未解鎖的 */
+  /* 不能點未解鎖的：抽屜（還沒解鎖）疊在書桌上，點到它時穿過去點到下面的書桌，抽屜自己不會被找到（F60、F66，規格 7.1） */
   await spot(p, ID.drawer).click({ force: true });
-  await expect(p.locator('.cm-progress')).toHaveText('找到 0／8');
+  await expect(spot(p, ID.drawer)).toHaveAttribute('data-state', 'locked');
+  await expect(spot(p, ID.desk)).toHaveAttribute('data-state', 'found');
+  await expect(p.locator('.cm-progress')).toHaveText('找到 1／8');
   await reveal.click();
   await expect(spot(p, ID.drawer)).toBeHidden();
   /* 鍵盤：Tab 順序只有看得到的；Enter 找到、Esc 關閉並把焦點還回去 */
@@ -1267,7 +1282,12 @@ test('分享連結：畫面只有遊玩畫面、能玩、不含 KP 備註、不�
   const url = await link.inputValue();
   expect(url).toMatch(/\/next\/clue-map\/#m=[A-Za-z0-9_-]+$/);
   expect(url.length).toBeLessThan(8100);
-  await expect(dialog.getByText(/^\d+ 字$/)).toBeVisible();
+  /* 字數和上限用同一個量法：# 後面（F91） */
+  const hashLen = url.length - (url.indexOf('#') + 1);
+  expect(hashLen).toBeLessThan(url.length);
+  await expect(dialog.getByTestId('text-output-count')).toHaveText(
+    `內容 ${hashLen.toLocaleString('en-US')} 字（上限 8,000 字）`,
+  );
   await expect(dialog.getByRole('link', { name: '開啟連結' })).toHaveAttribute('href', url);
   await page.keyboard.press('Escape');
 
@@ -1627,7 +1647,12 @@ test('專案檔：不認得的檔、缺圖片、超過 40 個熱點的通知（F
   const errors = await open(page);
   await openProjectFile(page, 'x.json', Buffer.from('{"hello":1}'), 'application/json');
   await expect(toast(page, '無法開啟專案檔')).toBeVisible();
+  await expect(toast(page, '這不是 TRPG Toolkit 的專案檔。')).toBeVisible();
   await expect(page.getByTestId('title-input')).toHaveValue('舊書房的調查');
+  /* 內容不能用：用共用專案選單的那一句（和「內容無法使用」同一套說法，規格 7.1） */
+  await openProjectFile(page, 'bad.json', projectJson(5), 'application/json');
+  await expect(toast(page, '專案檔的內容無法使用。')).toBeVisible();
+  await expect(toast(page, '這不是正確的專案檔')).toHaveCount(0);
   /* 缺圖片：專案檔指到不存在的上傳圖 */
   await openProjectFile(
     page,
@@ -1639,7 +1664,9 @@ test('專案檔：不認得的檔、缺圖片、超過 40 個熱點的通知（F
     }),
     'application/json',
   );
-  await expect(toast(page, '無法開啟專案檔')).toHaveCount(2);
+  await expect(toast(page, '無法開啟專案檔')).toHaveCount(3);
+  await expect(toast(page, '專案檔缺少用到的圖片，沒有開啟。')).toBeVisible();
+  await expect(toast(page, '專案檔缺少圖片')).toHaveCount(0);
   await expect(page.getByTestId('title-input')).toHaveValue('舊書房的調查');
   /* 超過 40 個：多的丟掉並通知 */
   await openProjectFile(
@@ -1784,5 +1811,400 @@ test('舞台背景可以切換、記在瀏覽器、不列入復原（F97）', as
   await page.reload();
   await expect(page.getByRole('radio', { name: '白色背景', exact: true })).toBeChecked();
   await expect(page.getByRole('button', { name: /^復原/ }).first()).toBeDisabled();
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 對等驗證後的修正（規格 7.1） ---------- */
+
+/** 開啟一份只有指定熱點的專案（場景用內建的書房） */
+async function loadSpots(page: Page, spots: object[]) {
+  await openProjectFile(
+    page,
+    'seed.json',
+    projectJson({ title: '測試', scene: { kind: 'builtin', id: 'study' }, spots }),
+    'application/json',
+  );
+  await expect(toast(page, '已開啟專案檔')).toBeVisible();
+  await expect(page.getByTestId('title-input')).toHaveValue('測試');
+}
+
+/** 把編輯畫面的內容下載成互動 HTML，在另一個分頁（真的網址）打開 */
+async function openPlayer(page: Page, size?: { width: number; height: number }) {
+  const { html } = await downloadHtml(page);
+  const p2 = await page.context().newPage();
+  if (size) await p2.setViewportSize(size);
+  await openStandalone(p2, html);
+  await expect(p2.locator('.cm-main')).toBeVisible();
+  return p2;
+}
+
+test('F71：小熱點的點擊範圍至少 28 × 28 px（橢圓以橢圓判定），輪廓維持熱點本身的大小（互動 HTML）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await loadSpots(page, [
+    { id: 'tinyrect', name: '小矩形', shape: 'rect', x: 20, y: 30, w: 1.5, h: 1.5, text: '矩形' },
+    {
+      id: 'tinyoval',
+      name: '小橢圓',
+      shape: 'ellipse',
+      x: 60,
+      y: 30,
+      w: 1.5,
+      h: 1.5,
+      text: '橢圓',
+    },
+    { id: 'thinbar', name: '細長條', shape: 'rect', x: 40, y: 50, w: 1.5, h: 30, text: '長條' },
+    { id: 'bigone', name: '大的', shape: 'rect', x: 70, y: 60, w: 20, h: 20, text: '大' },
+  ]);
+  const p2 = await openPlayer(page, { width: 390, height: 844 });
+  /* 輪廓有 2 px 的框線，再小也不會小於 4 px（左右各 2 px）；其餘就是熱點的 % 大小 */
+  const BORDER2 = 4;
+  /* 輪廓的大小、場景的大小，以及從輪廓中心偏移 (dx, dy) px 的各點點到的是哪個熱點 */
+  const probe = (id: string, offsets: Array<[number, number]>) =>
+    p2.evaluate(
+      ([id, offsets]) => {
+        const btn = document.querySelector(`[data-spot="${id}"]`) as HTMLElement;
+        const ring = btn.querySelector('.cm-ring') as HTMLElement;
+        const r = ring.getBoundingClientRect();
+        const layer = (document.querySelector('.cm-layer') as HTMLElement).getBoundingClientRect();
+        const cx = r.x + r.width / 2;
+        const cy = r.y + r.height / 2;
+        return {
+          ring: { w: r.width, h: r.height },
+          layer: { w: layer.width, h: layer.height },
+          shown: getComputedStyle(ring).display !== 'none',
+          hits: (offsets as Array<[number, number]>).map(
+            ([dx, dy]) =>
+              document
+                .elementFromPoint(cx + dx, cy + dy)
+                ?.closest('[data-spot]')
+                ?.getAttribute('data-spot') ?? null,
+          ),
+        };
+      },
+      [id, offsets] as const,
+    );
+
+  /* 小矩形：輪廓 1.5%（約 5 px），不是 28 px；中心上下左右 13 px 內都點得到，16 px 以外點不到 */
+  const rect = await probe('tinyrect', [
+    [0, 0],
+    [13, 0],
+    [-13, 0],
+    [0, 13],
+    [0, -13],
+    [13, 13],
+    [-13, -13],
+    [16, 0],
+    [0, 16],
+    [-16, -16],
+  ]);
+  expect(rect.shown).toBe(true);
+  expect(rect.ring.w).toBeCloseTo(Math.max(BORDER2, rect.layer.w * 0.015), 0);
+  expect(rect.ring.h).toBeCloseTo(Math.max(BORDER2, rect.layer.h * 0.015), 0);
+  expect(rect.ring.w).toBeLessThan(10);
+  expect(rect.hits).toEqual([
+    'tinyrect',
+    'tinyrect',
+    'tinyrect',
+    'tinyrect',
+    'tinyrect',
+    'tinyrect',
+    'tinyrect',
+    null,
+    null,
+    null,
+  ]);
+  /* 小橢圓：點擊範圍是 28 px 的橢圓（半徑 14）：斜 9 px（距離 12.7）點得到，斜 11 px（距離 15.6）點不到 */
+  const oval = await probe('tinyoval', [
+    [0, 0],
+    [13, 0],
+    [0, -13],
+    [9, 9],
+    [-9, -9],
+    [11, 11],
+    [-11, 11],
+    [16, 0],
+  ]);
+  expect(oval.ring.w).toBeCloseTo(Math.max(BORDER2, oval.layer.w * 0.015), 0);
+  expect(oval.ring.h).toBeCloseTo(Math.max(BORDER2, oval.layer.h * 0.015), 0);
+  expect(oval.hits).toEqual([
+    'tinyoval',
+    'tinyoval',
+    'tinyoval',
+    'tinyoval',
+    'tinyoval',
+    null,
+    null,
+    null,
+  ]);
+  /* 細長條：只有寬不夠，高照原樣；左右各撐到 28 px */
+  const bar = await probe('thinbar', [
+    [0, 0],
+    [13, 0],
+    [-13, 0],
+    [16, 0],
+    [0, 20],
+  ]);
+  expect(bar.ring.w).toBeCloseTo(Math.max(BORDER2, bar.layer.w * 0.015), 0);
+  expect(bar.ring.h).toBeCloseTo(bar.layer.h * 0.3, 0);
+  expect(bar.hits).toEqual(['thinbar', 'thinbar', 'thinbar', null, 'thinbar']);
+  /* 夠大的熱點：輪廓就是熱點本身 */
+  const big = await probe('bigone', [[0, 0]]);
+  expect(big.ring.w).toBeCloseTo(big.layer.w * 0.2, 0);
+  expect(big.ring.h).toBeCloseTo(big.layer.h * 0.2, 0);
+  /* 真的點一下：橢圓的外側沒有反應，矩形的外側 12 px 找得到 */
+  const at = (id: string, dx: number, dy: number) =>
+    p2.evaluate(
+      ([id, dx, dy]) => {
+        const r = (
+          document.querySelector(`[data-spot="${id}"] .cm-ring`) as HTMLElement
+        ).getBoundingClientRect();
+        return { x: r.x + r.width / 2 + (dx as number), y: r.y + r.height / 2 + (dy as number) };
+      },
+      [id, dx, dy] as const,
+    );
+  const out = await at('tinyoval', 11, 11);
+  await p2.mouse.click(out.x, out.y);
+  await expect(p2.locator('.cm-progress')).toHaveText('找到 0／4');
+  const near = await at('tinyrect', 12, 0);
+  await p2.mouse.click(near.x, near.y);
+  await expect(p2.locator('.cm-card-name')).toHaveText('小矩形');
+  await expect(p2.locator('.cm-progress')).toHaveText('找到 1／4');
+  /* 找到之後（打勾、變色）輪廓還是熱點本身的大小 */
+  const found = await probe('tinyrect', [[0, 0]]);
+  expect(found.ring.w).toBeCloseTo(Math.max(BORDER2, found.layer.w * 0.015), 0);
+  await p2.close();
+  expect(errors).toEqual([]);
+});
+
+test('F72：互動 HTML 的「已找到的線索」清單用鍵盤打開線索卡，焦點留在那一項；Esc 與關閉鈕都把焦點還給它', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const p2 = await openPlayer(page);
+  const root = p2.locator('[data-cm="root"]');
+  const active = () =>
+    p2.evaluate(
+      () =>
+        document.activeElement?.getAttribute('data-found-item') ?? document.activeElement?.tagName,
+    );
+  const item = (id: string) => root.locator(`[data-found-item="${id}"]`);
+  await root.locator(`[data-spot="${ID.shelf}"]`).click();
+  await root.locator(`[data-spot="${ID.window}"]`).click();
+  await expect(root.locator('.cm-found-item')).toHaveCount(2);
+  /* 鍵盤：Enter 打開，焦點還在那一項 */
+  await item(ID.shelf).focus();
+  await p2.keyboard.press('Enter');
+  await expect(root.locator('.cm-card-name')).toHaveText('書架');
+  expect(await active()).toBe(ID.shelf);
+  await expect(item(ID.shelf)).toHaveAttribute('aria-current', 'true');
+  /* Esc：關閉線索卡，焦點還是那一項 */
+  await p2.keyboard.press('Escape');
+  await expect(root.locator('.cm-card')).toContainText('點選場景裡的熱點');
+  expect(await active()).toBe(ID.shelf);
+  /* 從那裡 Tab 到下一項（不用從頭 Tab），空白鍵打開、Esc 關閉 */
+  await p2.keyboard.press('Tab');
+  expect(await active()).toBe(ID.window);
+  await p2.keyboard.press('Space');
+  await expect(root.locator('.cm-card-name')).toHaveText('窗戶');
+  expect(await active()).toBe(ID.window);
+  await p2.keyboard.press('Escape');
+  await expect(root.locator('.cm-card')).toContainText('點選場景裡的熱點');
+  expect(await active()).toBe(ID.window);
+  /* 關閉鈕：Shift＋Tab 回到線索卡的關閉鈕，Enter 關閉，焦點回到打開它的那一項 */
+  await item(ID.shelf).focus();
+  await p2.keyboard.press('Enter');
+  await expect(root.locator('.cm-card-name')).toHaveText('書架');
+  await p2.keyboard.press('Shift+Tab');
+  expect(await p2.evaluate(() => document.activeElement?.className)).toBe('cm-close');
+  await p2.keyboard.press('Enter');
+  await expect(root.locator('.cm-card')).toContainText('點選場景裡的熱點');
+  expect(await active()).toBe(ID.shelf);
+  /* 熱點本身：Enter 打開、Esc 焦點還給熱點（原本就是這樣） */
+  await root.locator(`[data-spot="${ID.desk}"]`).focus();
+  await p2.keyboard.press('Enter');
+  await expect(root.locator('.cm-card-name')).toHaveText('書桌');
+  await p2.keyboard.press('Escape');
+  expect(await p2.evaluate(() => document.activeElement?.getAttribute('data-spot'))).toBe(ID.desk);
+  await p2.close();
+  expect(errors).toEqual([]);
+});
+
+test('F04：網址欄空白要顯示錯誤；超過 2000 字不截斷也不收，顯示錯誤（場景、線索圖片）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const url = page.getByTestId('scene-url');
+  const add = page.getByRole('button', { name: '用網址', exact: true }).first();
+  const invalid = page.getByText('請貼 http:// 或 https:// 開頭的圖片網址');
+  const tooLong = page.getByText('網址太長，最多 2,000 字');
+  /* 空白、只有空白：按鈕與 Enter 都顯示錯誤 */
+  await add.click();
+  await expect(invalid).toBeVisible();
+  await url.fill('   ');
+  await url.press('Enter');
+  await expect(invalid).toBeVisible();
+  /* 打字之後錯誤消失 */
+  await url.fill('h');
+  await expect(invalid).toHaveCount(0);
+  /* 超過 2000 字：輸入欄不截斷、也不收下 */
+  const long = `https://img.example/${'a'.repeat(2100 - 20)}.png`;
+  await url.fill(long);
+  expect((await url.inputValue()).length).toBe(long.length);
+  await add.click();
+  await expect(tooLong).toBeVisible();
+  await expect(page.getByTestId('scene-name')).toHaveText('書房');
+  expect((await url.inputValue()).length).toBe(long.length);
+  /* 剛好 2001 字也不收；剛好 2000 字收 */
+  await url.fill(`https://img.example/${'b'.repeat(2001 - 20)}`);
+  await url.press('Enter');
+  await expect(tooLong).toBeVisible();
+  await expect(page.getByTestId('scene-name')).toHaveText('書房');
+  const ok = `https://img.example/${'c'.repeat(2000 - 20)}`;
+  await url.fill(ok);
+  await expect(tooLong).toHaveCount(0);
+  await url.press('Enter');
+  await expect(page.getByTestId('scene-info')).toContainText('網址');
+  await expect.poll(async () => ((await stored(page)).scene as { url?: string }).url).toBe(ok);
+  /* 線索圖片的網址欄一樣 */
+  await selectRow(page, 0);
+  const clueUrl = page.getByTestId('clue-image-url');
+  await clueUrl.scrollIntoViewIfNeeded();
+  await page.getByRole('button', { name: '用網址', exact: true }).first().click();
+  await expect(invalid).toBeVisible();
+  await clueUrl.fill(long);
+  expect((await clueUrl.inputValue()).length).toBe(long.length);
+  await clueUrl.press('Enter');
+  await expect(tooLong).toBeVisible();
+  expect((await storedSpots(page))[0].image).toBeNull();
+  expect(errors.filter((e) => !/Failed to load resource|ERR_FAILED/.test(e))).toEqual([]);
+});
+
+test('F91：分享對話框的字數是「內容 N 字（上限 8,000 字）」，N 只算 # 後面、有千分位（和 floor-plan 同）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  let seed = 11;
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  for (const i of [1, 2, 3]) {
+    await selectRow(page, i);
+    const text = Array.from({ length: 550 }, () =>
+      String.fromCodePoint(0x4e00 + Math.floor(rand() * 20000)),
+    ).join('');
+    await field(page, 'spot-text').fill(text);
+  }
+  await page.getByTestId('export-share').click();
+  const dialog = page.getByTestId('share-dialog');
+  const url = await dialog.getByRole('textbox', { name: '連結' }).inputValue();
+  const n = url.length - (url.indexOf('#') + 1);
+  /* 夠長，有千分位；整個網址比 # 後面多出前面那一段 */
+  expect(n).toBeGreaterThan(4000);
+  expect(n).toBeLessThanOrEqual(8000);
+  expect(url.length).toBeGreaterThan(n + 20);
+  await expect(dialog.getByTestId('text-output-count')).toHaveText(
+    `內容 ${n.toLocaleString('en-US')} 字（上限 8,000 字）`,
+  );
+  expect(errors).toEqual([]);
+});
+
+test('顯示所有熱點：還沒解鎖的灰色熱點讓點擊穿過，下面的熱點照常被點到；說明仍在（F60、F66）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await goPlay(page);
+  const p = play(page);
+  await p.getByRole('button', { name: '顯示所有熱點', exact: true }).click();
+  const safe = spot(p, ID.safe);
+  await expect(safe).toHaveAttribute('data-state', 'locked');
+  /* 保險箱（還沒解鎖）整個疊在掛畫上：點保險箱的中心，點到的是下面的掛畫 */
+  const sb = (await safe.boundingBox())!;
+  await page.mouse.click(sb.x + sb.width / 2, sb.y + sb.height / 2);
+  await expect(p.locator('.cm-card-name')).toHaveText('掛畫');
+  await expect(spot(p, ID.painting)).toHaveAttribute('data-state', 'found');
+  await expect(safe).toHaveAttribute('data-state', 'locked');
+  await expect(p.locator('.cm-progress')).toHaveText('找到 1／8');
+  /* 滑過顯示的說明還在 */
+  await expect(safe).toHaveAttribute('title', '尚未解鎖：先找到 掛畫、書桌抽屜');
+  expect(errors).toEqual([]);
+});
+
+test('手機寬度：畫出或新增熱點後，名稱欄取得焦點但頁面不捲離舞台（F10、F11）', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = await open(page);
+  await clearAll(page);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const stageTop = async () => (await stageImage(page).boundingBox())!.y;
+  const scrollY = () => page.evaluate(() => window.scrollY);
+  /* 畫出：舞台在最上面，畫完名稱欄取得焦點，頁面沒有捲動 */
+  await tool(page, '畫矩形').click();
+  expect(await scrollY()).toBe(0);
+  await dragStage(page, [20, 20], [50, 50]);
+  await expect(field(page, 'spot-name')).toBeFocused();
+  expect(await scrollY()).toBe(0);
+  expect(await stageTop()).toBeGreaterThanOrEqual(0);
+  expect(await stageTop()).toBeLessThan(844);
+  /* 按鈕新增：先捲到按鈕，按下去之後聚焦不再捲動 */
+  const add = btn(page, '新增橢圓');
+  await add.scrollIntoViewIfNeeded();
+  const before = await scrollY();
+  await add.evaluate((e) => (e as HTMLElement).click());
+  await expect(spotRows(page)).toHaveCount(2);
+  await expect(field(page, 'spot-name')).toBeFocused();
+  expect(await scrollY()).toBe(before);
+  expect(errors).toEqual([]);
+});
+
+test('輪廓呼吸的不透明度是 0.65 ↔ 1（規格第 4 節）', async ({ page }) => {
+  const errors = await open(page);
+  await goPlay(page);
+  const ring = spot(play(page), ID.desk).locator('.cm-ring');
+  await expect(ring).toHaveCSS('animation-name', 'cm-breathe');
+  const frames = await ring.evaluate((e) =>
+    e
+      .getAnimations()
+      .flatMap((a) => (a.effect as KeyframeEffect).getKeyframes())
+      .map((k) => [k.offset, k.opacity]),
+  );
+  expect(frames).toEqual([
+    [0, '1'],
+    [0.5, '0.65'],
+    [1, '1'],
+  ]);
+  expect(errors).toEqual([]);
+});
+
+test('F17：編輯舞台上橢圓用外接框選取（控點也在外接框上）；遊玩畫面的點擊範圍才是橢圓', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await clearAll(page);
+  await tool(page, '畫橢圓').click();
+  await dragStage(page, [30, 30], [70, 70]);
+  const target = page.locator('[data-layout-item]').first();
+  /* 點空白處取消選取；外接框的角落（橢圓外面）點下去仍選到它 */
+  const empty = await onStage(page, 5, 5);
+  await page.mouse.click(empty.x, empty.y);
+  await expect(target).not.toHaveAttribute('data-selected', 'true');
+  const corner = await onStage(page, 31, 31);
+  await page.mouse.click(corner.x, corner.y);
+  await expect(target).toHaveAttribute('data-selected', 'true');
+  /* 控點在外接框的四角與四邊 */
+  await expect(page.locator('[data-layout-handle]')).toHaveCount(8);
+  const nw = (await page.locator('[data-layout-handle="nw"]').boundingBox())!;
+  const o = await onStage(page, 30, 30);
+  expect(Math.abs(nw.x + nw.width / 2 - o.x)).toBeLessThan(6);
+  expect(Math.abs(nw.y + nw.height / 2 - o.y)).toBeLessThan(6);
+  /* 遊玩畫面：同一個熱點，外接框的角落點不到 */
+  await goPlay(page);
+  const p = play(page);
+  const b = (await p.locator('[data-spot]').first().boundingBox())!;
+  await page.mouse.click(b.x + 3, b.y + 3);
+  await expect(p.locator('.cm-progress')).toHaveText('找到 0／1');
+  await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+  await expect(p.locator('.cm-progress')).toHaveText('全部線索都找到了');
   expect(errors).toEqual([]);
 });

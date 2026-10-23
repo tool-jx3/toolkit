@@ -5,20 +5,22 @@
  *   「開新視窗」。`build` 的身分一變（依賴的內容變了）就重新產生，所以呼叫端用 `useCallback` 包。
  *   `extra` 放在說明和程式碼之間（例如 scratch-card 的「上傳的圖片改成待填的網址」開關）。
  * - `ShareLinkDialog`：分享連結（呼叫端算好 `url`，算的過程中是 null）→ 可複製的連結、「開啟連結」；
- *   `tooLong` 時只顯示說明（連結超過上限，讀回時會被忽略）。
+ *   `tooLong` 時只顯示說明（連結超過上限，讀回時會被忽略）。標題旁的字數是 `#` 後面的字數（和上限同一個量法），
+ *   寫成 `strings.count(n, maxLength)`，例如「內容 7,998 字（上限 8,000 字）」。
  *
  * 文字全部由呼叫端用 `strings` 帶入（各工具自己的用詞）。核心零件在 `@/core/interactive`、`@/core/share`。
  *
  * ```tsx
  * const build = useCallback(() => buildMyHtml(state), [state]);
  * <InteractiveHtmlDialog open={open} onOpenChange={setOpen} build={build} fileName="調查熱點圖.html" strings={S.html} />
- * <ShareLinkDialog open={open} onOpenChange={setOpen} url={url} tooLong={tooLong} strings={S.share} />
+ * <ShareLinkDialog open={open} onOpenChange={setOpen} url={url} tooLong={tooLong} maxLength={8000} strings={S.share} />
  * ```
  */
 import { Download, ExternalLink } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { downloadText, formatBytes } from '@/core/files';
 import { type InteractiveHtml, openHtmlWindow } from '@/core/interactive';
+import { shareHashLength } from '@/core/share';
 import { Button, buttonClass } from './Button';
 import { Dialog } from './Dialog';
 import { Notice } from './Notice';
@@ -150,8 +152,11 @@ export interface ShareLinkStrings {
   link: string;
   copy: string;
   copied: string;
-  /** 標題旁的字數 */
-  count: (n: number) => string;
+  /**
+   * 標題旁的字數：n 是連結 `#` 後面的字數（和上限同一個量法），max 是 `maxLength`。
+   * 例：`內容 7,998 字（上限 8,000 字）`（同 floor-plan 的分享對話框）
+   */
+  count: (n: number, max: number) => string;
   open: string;
 }
 
@@ -163,8 +168,16 @@ export interface ShareLinkDialogProps {
   url: string | null;
   /** 連結超過上限 */
   tooLong: boolean;
+  /** 連結 `#` 後面的字數上限（只用來顯示；判斷是否太長由呼叫端用 `shareTooLong` 做，才會是同一個量法） */
+  maxLength: number;
   'data-testid'?: string;
 }
+
+/** 網址 `#` 後面的字數（沒有 # 時 0；和 `shareTooLong` 同一個量法） */
+const hashChars = (url: string): number => {
+  const i = url.indexOf('#');
+  return i < 0 ? 0 : shareHashLength(url.slice(i));
+};
 
 export function ShareLinkDialog({
   open,
@@ -172,6 +185,7 @@ export function ShareLinkDialog({
   strings: s,
   url,
   tooLong,
+  maxLength,
   'data-testid': testId,
 }: ShareLinkDialogProps) {
   return (
@@ -187,7 +201,7 @@ export function ShareLinkDialog({
             <TextOutputPanel
               text={url}
               title={s.link}
-              count={(t) => s.count(t.length)}
+              count={(t) => s.count(hashChars(t), maxLength)}
               copyLabel={s.copy}
               messages={{ copied: s.copied }}
               className="max-h-[30dvh] overflow-auto"

@@ -221,7 +221,8 @@ export const S = {
     link: '連結',
     copy: '複製連結',
     copied: '已複製連結',
-    count: (n: number) => `${n} 字`,
+    count: (n: number, max: number) =>
+      `內容 ${n.toLocaleString('en-US')} 字（上限 ${max.toLocaleString('en-US')} 字）`,
     open: '開啟連結',
   },
   fileBase: '調查熱點圖',
@@ -247,8 +248,9 @@ export const S = {
   /* ---- 檔案與通知 ---- */
   saveFailed: '自動儲存失敗：可能是瀏覽器的儲存空間不足。',
   projectOpened: '已開啟專案檔',
-  projectBad: '這不是正確的專案檔',
-  projectMissingImage: '專案檔缺少圖片',
+  /* 專案檔讀不出來的說明和共用專案選單（ProjectMenu）同一套：句號結尾，標題都是「無法開啟專案檔」 */
+  projectBad: '專案檔的內容無法使用。',
+  projectMissingImage: '專案檔缺少用到的圖片，沒有開啟。',
   openConfirmTitle: '開啟專案檔？',
   openConfirmDesc: '目前的內容會被取代（可以復原）。',
   openConfirmLabel: '開啟',
@@ -258,6 +260,7 @@ export const S = {
   notImage: (name: string) => `「${name}」不是圖片，沒有加入。`,
   decodeError: (name: string) => `讀不了圖片「${name}」。`,
   urlInvalid: '請貼 http:// 或 https:// 開頭的圖片網址',
+  urlTooLong: '網址太長，最多 2,000 字',
   spotsOver: (n: number) => `熱點最多 40 個，多出來的 ${n} 個沒有加入。`,
   popup: '瀏覽器擋住了新視窗',
 

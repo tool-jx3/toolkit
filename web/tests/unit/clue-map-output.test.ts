@@ -230,6 +230,39 @@ describe('遊玩畫面的設定（playConfig）', () => {
     expect(css).toContain('clip-path:ellipse(50% 50% at 50% 50%)');
     expect(css).toContain('prefers-reduced-motion:reduce');
   });
+
+  it('點擊範圍與輪廓分開（F71）：按鈕本身是熱點的大小，28 px 的最小點擊範圍在 ::before，橢圓的 clip-path 也在它上面', () => {
+    const css = clueMapCss('#cm-test');
+    const rule = (sel: string) => {
+      const line = css.split('\n').find((l) => l.startsWith(`#cm-test ${sel}{`));
+      return line ?? '';
+    };
+    const spot = rule('.cm-spot');
+    expect(spot).not.toContain('min-width');
+    expect(spot).not.toContain('min-height');
+    expect(spot).toContain('pointer-events:none');
+    const hit = rule('.cm-spot::before');
+    expect(hit).toContain('min-width:28px');
+    expect(hit).toContain('min-height:28px');
+    expect(hit).toContain('width:100%');
+    expect(hit).toContain('pointer-events:auto');
+    expect(hit).toContain('translate(-50%,-50%)');
+    expect(rule('.cm-spot[data-shape="ellipse"]::before')).toContain(
+      'clip-path:ellipse(50% 50% at 50% 50%)',
+    );
+    expect(rule('.cm-spot[data-shape="ellipse"]')).not.toContain('clip-path');
+    /* 還沒解鎖的灰色熱點仍可以指到（滑過顯示說明），但游標不是「禁止」：點擊由引擎轉給下面的熱點 */
+    expect(rule('.cm-spot[data-state="locked"]')).toContain('cursor:default');
+    expect(css).not.toContain('not-allowed');
+    /* 鍵盤焦點的框至少和點擊範圍一樣大 */
+    expect(rule('.cm-spot:focus-visible::after')).toContain('min-width:28px');
+  });
+
+  it('輪廓呼吸的不透明度是 0.65 ↔ 1（規格第 4 節）', () => {
+    const css = clueMapCss('#cm-test');
+    expect(css).toContain('@keyframes cm-breathe{0%,100%{opacity:1}50%{opacity:.65}}');
+    expect(css).not.toContain('opacity:.55');
+  });
 });
 
 describe('互動 HTML', () => {

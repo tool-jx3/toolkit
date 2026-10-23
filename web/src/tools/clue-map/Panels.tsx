@@ -48,6 +48,7 @@ import {
   cleanImageUrl,
   FOUND_MARKS,
   type FoundMark,
+  imageUrlProblem,
   LIMITS,
   MARKERS,
   type Marker,
@@ -202,7 +203,8 @@ function UrlField({
   const add = () => {
     const clean = cleanImageUrl(url);
     if (!clean) {
-      setError(url.trim() ? S.urlInvalid : null);
+      /* 空白、不是 http／https、超過 2000 字都不收，各自顯示錯誤（輸入欄不截斷） */
+      setError(imageUrlProblem(url) === 'long' ? S.urlTooLong : S.urlInvalid);
       return;
     }
     onAdd(clean);
@@ -218,7 +220,6 @@ function UrlField({
           inputMode="url"
           value={url}
           placeholder={placeholder}
-          maxLength={LIMITS.url}
           data-testid={testId}
           onChange={(e) => {
             setUrl(e.target.value);
@@ -697,7 +698,8 @@ function SpotDetail({ spot, index, info }: { spot: Spot; index: number; info?: U
   const focusName = useUi((s) => s.focusName);
   useEffect(() => {
     if (focusName !== spot.id) return;
-    nameRef.current?.focus();
+    /* 手機上設定欄在舞台下面：聚焦時不要把頁面捲離剛畫出的熱點（preventScroll，規格 7.1） */
+    nameRef.current?.focus({ preventScroll: true });
     nameRef.current?.select();
     useUi.setState({ focusName: null });
   }, [focusName, spot.id]);

@@ -161,6 +161,12 @@ export function cleanImageUrl(raw: string): string | null {
   }
 }
 
+/** 網址欄的檢查：合格 null；超過上限 'long'；其他（空白、不是 http／https、不是網址）'invalid' */
+export function imageUrlProblem(raw: string): 'long' | 'invalid' | null {
+  if (cleanImageUrl(raw)) return null;
+  return chars(String(raw ?? '').trim()).length > LIMITS.url ? 'long' : 'invalid';
+}
+
 function decodeSafe(s: string): string {
   try {
     return decodeURIComponent(s);
