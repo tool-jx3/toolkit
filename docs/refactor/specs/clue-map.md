@@ -343,3 +343,13 @@ div.cm[data-cm=root][data-theme][data-marker][data-found-mark]
 
 | 編號 | 結果 | 方法與證據（截圖／腳本路徑） | 備註 |
 |---|---|---|---|
+
+## 7. 主控裁定（2026-10-23）
+
+- **評估**：收錄（使用者 2026-10-23 選定）。這是本站自己的構想：靈感來源 momo102938/MUNgs_click（콕콕，未授權）是戀愛養成式的觸碰玩具，本工具只借「圖上的熱區＋點了有反應＋達成條件才解鎖」的想法，做成跑團用的調查 handout；程式、文字、範例、內建場景都是本站自己的，不放 `UPSTREAM_LICENSE`。第 1 節的功能都是「新」，對等驗證照規格驗（沒有原作要對齊）。G6「劇本與紀錄」。主控看過編輯、試玩、匯出的互動 HTML、總覽 PNG 與 390 寬的截圖。
+- **D1～D19 照「建議做法」核准**，補充：
+  - D4：分享連結只放內建場景與網址圖，用了上傳的圖時停用並說明（改用互動 HTML）——核准。
+  - D7：純前端做不到防偷看，對話框照實說明——核准。
+  - D16：共用層新增 `@/core/interactive`、`core/share` 的長度檢查與 `useShareHash`、`ui` 的 `InteractiveHtmlDialog`／`ShareLinkDialog`，scratch-card 改用後輸出逐字相同——核准；character-select 之後再改用共用的對話框（不在這次範圍）。
+  - D18：專案檔一律 ZIP（也讀 JSON）——核准。
+- **上線**：對等驗證通過後 `status: 'live'`，README、ATTRIBUTION、PLAN 6.1 跟著改。
