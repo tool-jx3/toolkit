@@ -1,11 +1,12 @@
 /**
  * 「匯出」分頁（規格 1.10）：共用匯出區（PNG、倍率）＋檔名、範圍、方向、卡片內容、要畫的項目。
  */
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { safeFileName } from '@/core/files';
 import {
   type ExportFormatOption,
   ExportPanel,
+  type ExportPanelHandle,
   Field,
   Section,
   Segmented,
@@ -67,6 +68,7 @@ export function pngFileName(input: string | null, title: string): string {
 }
 
 export function ExportTab() {
+  const exportRef = useRef<ExportPanelHandle>(null);
   const board = useBoard();
   const prefs = usePrefs((s) => s.data);
   const selectedId = useUi((s) => s.selectedId);
@@ -96,6 +98,13 @@ export function ExportTab() {
           <TextInput
             value={exportName ?? board.title}
             data-field="export-name"
+            onKeyDown={(e) => {
+              /* Enter 直接匯出（F60） */
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                exportRef.current?.exportNow('png');
+              }
+            }}
             onChange={(e) => useUi.setState({ exportName: e.target.value })}
           />
         </Field>
@@ -157,6 +166,7 @@ export function ExportTab() {
         <p className="m-0 text-xs text-muted">{S.exportNote}</p>
       </Section>
       <ExportPanel
+        ref={exportRef}
         title={S.exportTitle}
         formats={formats}
         baseSize={

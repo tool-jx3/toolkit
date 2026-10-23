@@ -83,7 +83,6 @@ const pos = async (page: Page, name: string) => {
 };
 const tab = (page: Page, name: '人物' | '顯示' | '匯出' | '圖板') =>
   page.getByRole('tab', { name, exact: true }).click();
-const toast = (page: Page) => page.getByRole('status').filter({ hasText: /./ });
 const settle = (page: Page) => page.waitForTimeout(STEP);
 
 /** 從 a 的卡片拖到 b 的卡片中央（或位移 dx, dy；畫面 px） */
@@ -848,7 +847,7 @@ test('390 寬沒有橫向捲動；觸控點選與捏合；1280 與 390 的視覺
   const cx = (c?.x ?? 0) + 150;
   const cy = (c?.y ?? 0) + 200;
   const cdp = await page.context().newCDPSession(page);
-  const touch = (type: string, d: number) =>
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', d: number) =>
     cdp.send('Input.dispatchTouchEvent', {
       type,
       touchPoints:
