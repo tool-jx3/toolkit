@@ -1136,6 +1136,91 @@ test.describe('歌詞演出產生器', () => {
     expect(errors).toEqual([]);
   });
 
+  test('逐句手動調整：用了改折行候選的句，拖曳、方向鍵後折行不變；改大小才重新折行（D27）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* 每 0.6 秒一句、預點亮 2、字級 60：畫面很擠，有些句放不下原本的折行、改用改折行的候選 */
+    const names = '甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥天地玄黃宇宙洪荒';
+    const text = Array.from(names)
+      .map((c, i) => {
+        const t = 1 + i * 0.6;
+        return `[00:${t.toFixed(2).padStart(5, '0')}]第${c}句${'長'.repeat(20)}`;
+      })
+      .join('\n');
+    const area = page.getByTestId('lyrics-text');
+    await area.fill(text);
+    await area.blur();
+    await set(page, 'styles.scatter.fontSize', 60);
+    await set(page, 'styles.scatter.preview', 2);
+    await expect.poll(async () => (await plan(page)).preview).toBe(2);
+    const p0 = await plan(page);
+    /* 每一句的字一樣多：原本的折行每一行的字數都一樣，和大多數不同的就是改折行的候選 */
+    const sig = (rows: string[]) => rows.map((r) => Array.from(r).length).join(',');
+    const count = new Map<string, number>();
+    for (const l of p0.lines) count.set(sig(l.rows), (count.get(sig(l.rows)) ?? 0) + 1);
+    const base = [...count.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    const candidates = p0.lines.filter(
+      (l) => sig(l.rows) !== base && l.box.height < 1080 - 140 && l.box.width < 1920 - 140,
+    );
+    expect(candidates.length, '要有用了改折行候選的句').toBeGreaterThan(0);
+    /* 找一句在它完整出現的時候點得到的（畫面很擠，可能被別的句蓋住） */
+    let target: { key: string; rows: string[]; grab: Pt } | null = null;
+    for (const c of candidates) {
+      await showLine(page, c.key);
+      const pl = await placementOf(page, c.key);
+      for (const f of [0.05, 0.2, 0.4, 0.6, 0.8]) {
+        const q = {
+          x: pl.pivot.x + (pl.tip.x - pl.pivot.x) * f,
+          y: pl.pivot.y + (pl.tip.y - pl.pivot.y) * f,
+        };
+        const who = await page.evaluate(([x, y]) => (window as unknown as W).__lyricFx.hit(x, y), [
+          q.x,
+          q.y,
+        ] as const);
+        if (who === c.key) {
+          target = { key: c.key, rows: c.rows, grab: await toScreen(page, q) };
+          break;
+        }
+      }
+      if (target) break;
+    }
+    const { key, rows, grab } = ex(target);
+    /* 拖曳：位置固定、記下當下的折行，折行不變 */
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) await page.mouse.move(grab.x + i * 6, grab.y + i * 4);
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await settings(page)).overrides[key]?.adjust?.rows)
+      .toEqual(rows);
+    const after = ex((await plan(page)).lines.find((l) => l.key === key));
+    expect(after.pinned).toBe(true);
+    expect(after.rows).toEqual(rows);
+    await page.waitForTimeout(450);
+    /* 方向鍵、再拖一次：折行照樣不變 */
+    await page.keyboard.press('Shift+ArrowLeft');
+    await page.keyboard.press('Shift+ArrowUp');
+    await page.waitForTimeout(450);
+    const g2 = await toScreen(page, (await placementOf(page, key)).pivot);
+    await page.mouse.move(g2.x + 4, g2.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) await page.mouse.move(g2.x + 4 - i * 5, g2.y + i * 5);
+    await page.mouse.up();
+    await expect
+      .poll(async () => ex((await plan(page)).lines.find((l) => l.key === key)).rows)
+      .toEqual(rows);
+    await page.waitForTimeout(450);
+    /* 改大小：字寬變了，記下的折行拿掉、重新折行 */
+    const size = page.getByTestId('line-adjust').getByRole('spinbutton', { name: '大小' });
+    await size.fill('80');
+    await size.press('Enter');
+    await expect.poll(async () => (await settings(page)).overrides[key]?.adjust?.scale).toBe(0.8);
+    expect((await settings(page)).overrides[key].adjust.rows).toBeUndefined();
+    expect(ex((await plan(page)).lines.find((l) => l.key === key)).rows).not.toEqual(rows);
+    expect(errors).toEqual([]);
+  });
+
   test('逐句手動調整：換字型（寬度、折行、先載入）；PNG 與 PNG 連番的像素（顏色、透明度）', async ({
     page,
   }) => {
@@ -1231,6 +1316,15 @@ test.describe('歌詞演出產生器', () => {
     await page.keyboard.press('r');
     await page.waitForTimeout(300);
     expect(await hook(page, (h) => h.time())).toBeLessThan(t2);
+    /* ? 快捷鍵說明：預覽上選取的句的按鍵（F76） */
+    await page.keyboard.press('?');
+    const help = page.getByRole('dialog');
+    await expect(help).toContainText('預覽上選取的句：微調位置（1 px）');
+    await expect(help).toContainText('預覽上選取的句：微調位置（10 px）');
+    await expect(help).toContainText('預覽上選取的句：取消選取');
+    await expect(help).toContainText('拖旋轉控點時按住：每 15° 對齊');
+    await page.keyboard.press('Escape');
+    await expect(help).toHaveCount(0);
     await page.keyboard.press('Space');
     expect(errors).toEqual([]);
   });

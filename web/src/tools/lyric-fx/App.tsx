@@ -262,6 +262,19 @@ export function App() {
       },
       { keys: 'r', label: S.keys.restart, group: S.keys.group, handler: free(restartPreview) },
       { keys: 'g', label: S.keys.reroll, group: S.keys.group, handler: free(rerollAll) },
+      /* 預覽上選取的句（F76）：由 LineOverlay 自己處理，這裡只列在說明裡 */
+      {
+        keys: ['arrowleft', 'arrowright', 'arrowup', 'arrowdown'],
+        label: S.keys.nudge,
+        group: S.keys.group,
+      },
+      {
+        keys: ['shift+arrowleft', 'shift+arrowright', 'shift+arrowup', 'shift+arrowdown'],
+        label: S.keys.nudge10,
+        group: S.keys.group,
+      },
+      { keys: 'escape', label: S.keys.deselect, group: S.keys.group },
+      { keys: 'shift', label: S.keys.rotateSnap, group: S.keys.group },
       {
         keys: 'mod+enter',
         label: S.keys.stamp,
