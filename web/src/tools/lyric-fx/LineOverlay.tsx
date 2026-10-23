@@ -341,7 +341,7 @@ export function LineToolbar({ time, playing }: { time: number; playing: boolean 
       className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-accent bg-accent-soft p-2"
       data-testid="line-toolbar"
     >
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 grow basis-56 flex-col">
         <span className="truncate text-sm font-medium">
           {S.pick.toolbar(i + 1)}：{row.text}
         </span>
