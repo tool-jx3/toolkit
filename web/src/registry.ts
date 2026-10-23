@@ -880,7 +880,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '一代一列地接出人物卡片，做成舊家、名門的家系圖：雙擊直接改字、拖曳換順序或換父母、顏色分類與折疊子孫，匯出縱向或橫向的 PNG，給 KP 整理人物關係與 handout 用。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: { name: '가계도 편집기', url: 'https://gagyedo.j-segrc.workers.dev' },
   },
 ];
