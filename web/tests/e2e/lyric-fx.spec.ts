@@ -1136,6 +1136,172 @@ test.describe('歌詞演出產生器', () => {
     expect(errors).toEqual([]);
   });
 
+  test('逐句手動調整：拖到貼著畫面邊，碰到邊的那一軸停住、另一軸照樣跟著指標（F76、D26）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* 第 3 句特別寬（約 700 px）：整塊要留在畫面內，錨點的範圍比短句窄很多 */
+    const text = [
+      '[00:01.00]第一句歌詞',
+      '[00:03.00]第二句歌詞',
+      '[00:05.00]這一句很寬很寬很寬很寬很寬很寬很寬很寬',
+      '[00:07.00]第四句歌詞',
+      '[00:09.00]第五句歌詞',
+    ].join('\n');
+    const area = page.getByTestId('lyrics-text');
+    await area.fill(text);
+    await area.blur();
+    await page.waitForTimeout(450);
+    const base = await plan(page);
+    const key = base.lines[2].key;
+    expect(base.lines[2].width, '要是一句寬的句').toBeGreaterThan(550);
+    await showLine(page, key);
+    const pl0 = await placementOf(page, key);
+    const piv0 = await toScreen(page, pl0.pivot);
+    const grab = { x: piv0.x + 6, y: piv0.y };
+    const cv = ex(await canvas(page).boundingBox());
+    await page.mouse.click(grab.x, grab.y);
+    await expect.poll(() => hook(page, (h) => h.selected())).toBe(key);
+
+    /* 錨點在畫面上要落的位置：按下時的錨點加上指標走的距離（D26） */
+    const wantAt = (pointer: Pt): Pt => ({
+      x: piv0.x + (pointer.x - grab.x),
+      y: piv0.y + (pointer.y - grab.y),
+    });
+    const err = async (pointer: Pt) => {
+      const now = await toScreen(page, (await placementOf(page, key)).pivot);
+      const w = wantAt(pointer);
+      return { dx: now.x - w.x, dy: now.y - w.y };
+    };
+    const bounds = async () => (await placementOf(page, key)).bounds;
+    const anchor = async () => ex((await settings(page)).overrides[key].adjust) as Pt;
+    const moveTo = async (p: Pt) => {
+      await page.mouse.move(p.x, p.y, { steps: 6 });
+      await page.waitForTimeout(60);
+    };
+
+    /* 錨點的某一軸停在 bounds 的邊上＝整塊要留在畫面內、到不了指標的位置；沒停在邊上的那一軸要對得上指標（誤差 < 1.5 px） */
+    const edge = 2e-5;
+    const atEdge = async (axis: 'x' | 'y', side: 'lo' | 'hi') => {
+      const a = (await anchor())[axis];
+      const bd = await bounds();
+      const lo = axis === 'x' ? bd.x : bd.y;
+      const hi = lo + (axis === 'x' ? bd.width : bd.height);
+      return Math.abs(a - (side === 'lo' ? lo : hi)) < edge;
+    };
+    let followed = 0;
+    const follow = async (axis: 'x' | 'y', p: Pt, what: string) => {
+      await moveTo(p);
+      const e = await err(p);
+      expect(Math.abs(axis === 'x' ? e.dx : e.dy), what).toBeLessThan(1.5);
+      followed++;
+    };
+
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+    /* 往畫面正下方拖到指標 y 99%：y 停在「整塊在畫面內」的下緣，x 照樣跟著指標（修之前偏了幾十 px）；
+       指標的 x 讓錨點落在畫面約 30% 寬（寬的句可以放的範圍中間），再貼著下緣左右移動 */
+    const bottom = cv.y + 0.99 * cv.height;
+    const px = grab.x + (cv.x + 0.3 * cv.width - piv0.x);
+    await moveTo({ x: grab.x, y: bottom });
+    expect(await atEdge('y', 'hi'), '停在下緣').toBe(true);
+    await follow('x', { x: grab.x, y: bottom }, '直直往下拖，x 不偏');
+    for (const dx of [-80, -40, 0, 40, 80]) {
+      await follow('x', { x: px + dx, y: bottom }, `貼著下緣、指標往右 ${dx} px`);
+      expect(await atEdge('y', 'hi'), `貼著下緣、指標往右 ${dx} px：y 仍停在下緣`).toBe(true);
+    }
+    /* 往右拖到底（指標 x 99.5%）：x 停在「整塊在畫面內」的右緣，y 照樣跟著指標 */
+    const right = cv.x + 0.995 * cv.width;
+    await moveTo({ x: px, y: cv.y + 0.4 * cv.height });
+    await follow('y', { x: right, y: cv.y + 0.4 * cv.height }, '往右拖到底，y 不偏');
+    expect(await atEdge('x', 'hi'), '停在右緣').toBe(true);
+    for (const f of [0.25, 0.35, 0.5, 0.6]) {
+      await follow('y', { x: right, y: cv.y + f * cv.height }, `貼著右緣、指標在 ${f * 100}% 高`);
+      expect(await atEdge('x', 'hi'), `貼著右緣、指標在 ${f * 100}% 高：x 仍停在右緣`).toBe(true);
+    }
+    expect(followed, '到得了的位置都有檢查').toBe(11);
+    /* 往回拖：立刻跟著指標（沒有空轉） */
+    const back = { x: px, y: cv.y + 0.4 * cv.height };
+    await moveTo(back);
+    const e = await err(back);
+    expect(Math.hypot(e.dx, e.dy)).toBeLessThan(1.5);
+    await page.mouse.up();
+    /* 存下來的位置整塊在畫面內 */
+    const line = ex((await plan(page)).lines.find((l) => l.key === key));
+    expect(line.box.x).toBeGreaterThanOrEqual(-2);
+    expect(line.box.y).toBeGreaterThanOrEqual(-2);
+    expect(errors).toEqual([]);
+  });
+
+  test('逐句手動調整：預覽上拖曳時逐句清單不重畫，被選取那一列的數字欄放開才更新（F76、D28）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const text = Array.from({ length: 80 }, (_, i) => {
+      const t = 1 + i * 1.5;
+      const m = Math.floor(t / 60);
+      return `[0${m}:${(t - m * 60).toFixed(2).padStart(5, '0')}]第${i + 1}句歌詞在這裡`;
+    }).join('\n');
+    const area = page.getByTestId('lyrics-text');
+    await area.fill(text);
+    await area.blur();
+    await page.waitForTimeout(450);
+    const key = (await plan(page)).lines[40].key;
+    await showLine(page, key);
+    const pl0 = await placementOf(page, key);
+    const p0 = await toScreen(page, pl0.pivot);
+    const grab = { x: p0.x + 6, y: p0.y };
+    await page.mouse.click(grab.x, grab.y);
+    await expect.poll(() => hook(page, (h) => h.selected())).toBe(key);
+    const xField = page.getByTestId('line-adjust').getByRole('spinbutton', { name: 'X' });
+    await expect(xField).toBeVisible();
+    const x0 = Number.parseFloat(await xField.inputValue());
+    expect(x0).toBeCloseTo(pl0.x * 100, 1);
+    /* 清單的 DOM 變動計數（子節點、屬性、文字） */
+    await page.evaluate(() => {
+      const w = window as unknown as { __muts: number };
+      w.__muts = 0;
+      const list = document.querySelector('[data-testid="line-list"]');
+      if (!list) throw new Error('no list');
+      new MutationObserver((r) => {
+        w.__muts += r.length;
+      }).observe(list, { subtree: true, childList: true, attributes: true, characterData: true });
+    });
+    const muts = () => page.evaluate(() => (window as unknown as { __muts: number }).__muts);
+
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+    /* 第一次移動：這一句變成固定（列多了「手動調整」標示），之後的移動清單的 DOM 一個都不動 */
+    await page.mouse.move(grab.x + 12, grab.y + 6);
+    await expect(
+      page.locator('[data-testid="line-row"][data-selected]').getByTestId('line-adjusted'),
+    ).toBeVisible();
+    await page.waitForTimeout(100);
+    await page.evaluate(() => {
+      (window as unknown as { __muts: number }).__muts = 0;
+    });
+    for (let i = 2; i <= 12; i++) {
+      await page.mouse.move(grab.x + i * 12, grab.y + i * 6);
+      await page.waitForTimeout(20);
+    }
+    const moved = await placementOf(page, key);
+    expect(moved.x, '預覽上的位置有跟著動').toBeGreaterThan(pl0.x + 0.03);
+    expect(await muts(), '拖曳中逐句清單的 DOM 沒有任何變動').toBe(0);
+    expect(Number.parseFloat(await xField.inputValue()), '數字欄停在拖曳前的值').toBeCloseTo(x0, 1);
+    await page.mouse.up();
+    /* 放開：數字欄更新成這一句目前的位置 */
+    await expect
+      .poll(async () => Number.parseFloat(await xField.inputValue()))
+      .toBeCloseTo(moved.x * 100, 1);
+    expect(Number.parseFloat(await xField.inputValue())).toBeGreaterThan(x0 + 3);
+    /* 非拖曳的修改（方向鍵）照樣即時 */
+    await page.keyboard.press('Shift+ArrowLeft');
+    await expect
+      .poll(async () => Number.parseFloat(await xField.inputValue()))
+      .toBeCloseTo((moved.x - 10 / 1920) * 100, 1);
+    expect(errors).toEqual([]);
+  });
+
   test('逐句手動調整：用了改折行候選的句，拖曳、方向鍵後折行不變；改大小才重新折行（D27）', async ({
     page,
   }) => {

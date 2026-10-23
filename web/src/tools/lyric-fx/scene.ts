@@ -14,6 +14,7 @@ import {
   type LyricFont,
   type LyricLinePlacement,
   type LyricMeasureEnv,
+  type LyricRow,
 } from '@/core/lyricfx';
 import { loopLengthFor, type Settings, sizeOf } from './model';
 
@@ -22,16 +23,46 @@ import { loopLengthFor, type Settings, sizeOf } from './model';
 let linesKey: unknown[] = [];
 let linesValue: BuiltLines | null = null;
 
+const sameRow = (a: LyricRow, b: LyricRow): boolean =>
+  a.key === b.key &&
+  a.t === b.t &&
+  a.text === b.text &&
+  a.tr === b.tr &&
+  a.edited === b.edited &&
+  a.skipped === b.skipped &&
+  a.original.t === b.original.t &&
+  a.original.text === b.original.text &&
+  a.original.tr === b.original.tr;
+
+/**
+ * 逐句清單的列：內容沒變的沿用上一次的物件（全部沒變時連陣列也沿用）。拖曳、改顏色這類只動手動調整的變更，
+ * 每次都重建整份 BuiltLines，但清單每一列的內容（時間、文字、翻譯、略過）並沒有變，列的元件就不必重畫（規格 D28）。
+ */
+function reuseRows(prev: LyricRow[], next: LyricRow[]): LyricRow[] {
+  const old = new Map(prev.map((r) => [r.key, r]));
+  let same = prev.length === next.length;
+  const rows = next.map((r, i) => {
+    const o = old.get(r.key);
+    const row = o && sameRow(o, r) ? o : r;
+    if (row !== prev[i]) same = false;
+    return row;
+  });
+  return same ? prev : rows;
+}
+
 export function builtLines(s: Settings): BuiltLines {
   const key = [s.lyrics.text, s.lyrics.offset, s.language, s.filters, s.overrides];
   if (!linesValue || key.some((v, i) => !Object.is(v, linesKey[i]))) {
-    linesValue = buildLyricLines(s.lyrics.text, {
+    const next = buildLyricLines(s.lyrics.text, {
       language: s.language,
       offset: s.lyrics.offset,
       filters: s.filters,
       overrides: s.overrides,
     });
+    const built = linesValue ? { ...next, rows: reuseRows(linesValue.rows, next.rows) } : next;
+    linesValue = built;
     linesKey = key;
+    return built;
   }
   return linesValue;
 }

@@ -283,10 +283,11 @@ export function LineList() {
         <p className="m-0 text-xs text-muted">
           {S.lines.rerollAllHint}　{S.lines.seed(s.seed)}
         </p>
+        {/* [contain:paint]：清單自成繪製範圍——頁面上別處（預覽、工具列）每次變動時，瀏覽器不必重走這幾百列（D28） */}
         {rows.length ? (
           <ol
             ref={list}
-            className="m-0 max-h-[32rem] min-w-0 list-none overflow-y-auto rounded-md border border-border bg-surface-2 px-2"
+            className="m-0 max-h-[32rem] min-w-0 list-none overflow-y-auto rounded-md border border-border bg-surface-2 px-2 [contain:paint]"
             data-testid="line-list"
           >
             {rows.map((r, i) => (

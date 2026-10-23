@@ -78,6 +78,20 @@ function shownAt(p: ScatterLinePlan): number {
   return Math.max(p.start + 0.001, (p.start + end) / 2);
 }
 
+/** 錨點能放的範圍（基準畫面的 px）：整塊（含光暈、影子的 pad）留在畫面內；和 placement.bounds、排位置的夾法是同一個 */
+function anchorSpan(plan: ScatterPlan, p: ScatterLinePlan) {
+  return frameSpan(
+    {
+      left: p.box.x - p.x,
+      top: p.box.y - p.y,
+      right: p.box.x + p.box.width - p.x,
+      bottom: p.box.y + p.box.height - p.y,
+    },
+    plan.width,
+    plan.height,
+  );
+}
+
 /** 一句目前的位置與時間 t 看得到的範圍（規格 3.8 的 placement） */
 export function scatterPlacement(
   plan: ScatterPlan,
@@ -88,13 +102,7 @@ export function scatterPlacement(
   const p = plan.byKey.get(key);
   if (!p?.glyphs.length) return null;
   const { width: W, height: H } = plan;
-  const ext = {
-    left: p.box.x - p.x,
-    top: p.box.y - p.y,
-    right: p.box.x + p.box.width - p.x,
-    bottom: p.box.y + p.box.height - p.y,
-  };
-  const span = frameSpan(ext, W, H);
+  const span = anchorSpan(plan, p);
   const rise = riseAt(p, t, s);
   const r = rise ?? 0;
   const proj = (X: number, Y: number) => {
@@ -176,8 +184,11 @@ export function scatterHitTest(
 
 /**
  * 拖曳：要讓錨點在時間 t 的畫面上落在 (x, y)，錨點要放在哪裡（畫面的比例）。
- * 透視的參數由錨點決定，所以用牛頓法（兩軸輪流、數值微分）解 project(參數(A), A − 上飄)＝目標；每一步夾在畫面內。
- * 透視把畫面下方往上縮（預設的透視 Y，錨點在最下面時看起來約在 76% 的高度），到不了的目標停在畫面的邊上。
+ * 透視的參數由錨點決定，所以用牛頓法（兩軸輪流、數值微分）解 project(參數(A), A − 上飄)＝目標。
+ * 錨點的每一軸都夾在「整塊留在畫面內」的範圍（和 placement.bounds 同一個，工具寫進存檔前的夾法也是它），而且是**解的過程中**
+ * 就夾住：到不了的那一軸停在邊上，另一軸用「停住的那一軸的真正位置」去解，所以照樣對得上指標。
+ * （先夾在整個畫面、之後才夾進整塊的範圍，兩次夾法不一致，透視讓另一軸偏掉：規格 7.5。）
+ * 透視把畫面下方往上縮（預設的透視 Y，錨點在最下面時看起來約在 76% 的高度），到不了的目標停在邊上。
  */
 export function scatterAnchorAt(
   plan: ScatterPlan,
@@ -190,30 +201,52 @@ export function scatterAnchorAt(
   const p = plan.byKey.get(key);
   if (!p) return null;
   const { width: W, height: H } = plan;
+  const span = anchorSpan(plan, p);
+  const inX = (v: number) => Math.min(span.x.hi, Math.max(span.x.lo, v));
+  const inY = (v: number) => Math.min(span.y.hi, Math.max(span.y.lo, v));
   const r = riseAt(p, t, s) ?? 0;
   const u = x * W;
   const v = y * H;
-  if (!s.perspective) return { x: u / W, y: (v + r) / H };
+  if (!s.perspective) return { x: inX(u) / W, y: inY(v + r) / H };
   const persp = (X: number, Y: number) =>
     perspectiveAt(X, Y, W, H, s.perspX * 1e-6, s.perspY * 1e-5, s.perspComp * 0.01);
   const f = (X: number, Y: number) => project(persp(X, Y), X, Y - r);
   /* 起點：用目前這一句的透視參數反算 */
   const first = unproject(p.persp, u, v);
-  let X = first.x;
-  let Y = first.y + r;
+  let X = inX(first.x);
+  let Y = inY(first.y + r);
   const h = 0.5;
-  const inside = (v: number, max: number) => Math.min(max, Math.max(0, v));
-  X = inside(X, W);
-  Y = inside(Y, H);
+  /*
+   * 一維的一步：牛頓法的步伐夾進範圍；殘差沒有變小就把步伐減半（透視很強時，螢幕上的位置不隨錨點單調，
+   * 牛頓法會跳到另一邊，這樣就停在最接近的地方）。
+   */
+  const damped = (
+    cur: number,
+    delta: number,
+    inside: (v: number) => number,
+    err: (v: number) => number,
+  ) => {
+    const e0 = err(cur);
+    let k = 1;
+    for (let j = 0; j < 8; j++, k /= 2) {
+      const next = inside(cur - delta * k);
+      if (err(next) <= e0) return next;
+    }
+    return cur;
+  };
   /* 兩軸輪流做一維的牛頓法（兩軸的交互作用很小，收斂得很快；到不了的那一軸停在邊上） */
   for (let i = 0; i < 24; i++) {
     let q = f(X, Y);
     if (Math.abs(q.x - u) < 1e-4 && Math.abs(q.y - v) < 1e-4) break;
+    const X0 = X;
+    const Y0 = Y;
     const a = (f(X + h, Y).x - q.x) / h;
-    if (Math.abs(a) > 1e-9) X = inside(X - (q.x - u) / a, W);
+    if (Math.abs(a) > 1e-9) X = damped(X, (q.x - u) / a, inX, (c) => Math.abs(f(c, Y).x - u));
     q = f(X, Y);
     const d = (f(X, Y + h).y - q.y) / h;
-    if (Math.abs(d) > 1e-9) Y = inside(Y - (q.y - v) / d, H);
+    if (Math.abs(d) > 1e-9) Y = damped(Y, (q.y - v) / d, inY, (c) => Math.abs(f(X, c).y - v));
+    /* 停在邊上的軸不會再動：兩軸都不動了就結束 */
+    if (Math.abs(X - X0) < 1e-7 && Math.abs(Y - Y0) < 1e-7) break;
   }
   return { x: X / W, y: Y / H };
 }

@@ -377,6 +377,11 @@ export function selectLine(key: string | null, from: 'preview' | 'list' = 'previ
   }));
 }
 
+/** 預覽上開始、結束拖曳或旋轉（逐句清單被選取那一列的數字欄拖曳中先不更新：D28） */
+export function setDragging(on: boolean): void {
+  if (useSession.getState().dragging !== on) useSession.setState({ dragging: on });
+}
+
 /** 全部重新抽位置：換一個種子（規格 F14） */
 export function rerollAll(): void {
   if (useSession.getState().exporting) return;

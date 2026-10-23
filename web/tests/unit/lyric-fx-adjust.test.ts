@@ -472,11 +472,12 @@ describe('預覽上的操作（placement、hitTest、anchorAt、angleTo）', () 
   it('anchorAt：拖到哪裡錨點就在畫面上的哪裡（透視反算，誤差 < 0.05 px）', () => {
     const l = p.lines[3];
     const t = l.start + 1;
+    /* 目標都在整塊留得住的位置（否則停在邊上：下面另測） */
     for (const [tx, ty] of [
       [0.1, 0.1],
-      [0.85, 0.6],
+      [0.7, 0.6],
       [0.5, 0.7],
-      [0.02, 0.4],
+      [0.04, 0.4],
     ]) {
       const a = scatterStyle.anchorAt?.(p, s, l.key, t, tx, ty);
       expect(a).toBeTruthy();
@@ -487,13 +488,17 @@ describe('預覽上的操作（placement、hitTest、anchorAt、angleTo）', () 
       expect(Math.abs(q.x - tx * W)).toBeLessThan(0.05);
       expect(Math.abs(q.y - ty * H)).toBeLessThan(0.05);
     }
-    /* 到不了的地方（透視把畫面下方往上縮）：停在畫面的邊上 */
+    /* 到不了的地方（透視把畫面下方往上縮、整塊要留在畫面內）：停在 bounds 的邊上 */
+    const bounds = scatterStyle.placement?.(p, s, l.key, t)?.bounds;
     const far = scatterStyle.anchorAt?.(p, s, l.key, t, 0.5, 0.97);
-    expect(far?.y).toBe(1);
-    if (far) {
-      /* 水平方向照樣對得上 */
-      const persp = perspectiveAt(far.x * W, H, W, H, 50e-6, 30e-5, 0.03);
-      expect(Math.abs(project(persp, far.x * W, H).x - 0.5 * W)).toBeLessThan(0.05);
+    expect(bounds).toBeTruthy();
+    expect(far).toBeTruthy();
+    if (far && bounds) {
+      expect(far.y).toBeCloseTo(bounds.y + bounds.height, 9);
+      expect(far.y).toBeLessThan(1);
+      /* 水平方向照樣對得上（用停住的 y 算透視） */
+      const persp = perspectiveAt(far.x * W, far.y * H, W, H, 50e-6, 30e-5, 0.03);
+      expect(Math.abs(project(persp, far.x * W, far.y * H).x - 0.5 * W)).toBeLessThan(0.05);
     }
   });
   it('angleTo：指向第一行的方向就是這一句的角度', () => {
@@ -508,6 +513,123 @@ describe('預覽上的操作（placement、hitTest、anchorAt、angleTo）', () 
   it('手動位置、鎖定的句 placement.fixed', () => {
     const q = plan(withAdjust(ls, 2, { x: 0.5, y: 0.5, angle: 0 }));
     expect(scatterStyle.placement?.(q, s, q.lines[2].key, 0)?.fixed).toBe(true);
+  });
+});
+
+/**
+ * 拖到貼著畫面邊（F76、D26、2026-10 驗證後修）：模擬工具的一次拖曳——anchorAt 反算錨點 → pinLine 夾進 placement.bounds
+ * （整塊留在畫面內）、角度取整數、第一次連同折行一起記下 → 重排 → 看錨點在畫面上落在哪裡。
+ * 只有碰到邊的那一軸停在邊上，另一軸要照樣跟著指標（誤差和沒碰到邊時一樣 < 1.5 px，含透視）。
+ */
+describe('拖到畫面邊：沒碰到邊的那一軸照樣跟著指標', () => {
+  const W = 1920;
+  const H = 1080;
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  /* 第 3 句特別寬（一行十幾個字、約 600 px），其他句短 */
+  const wide = (i: number) => (i === 2 ? '這一句很寬很寬很寬很寬很寬很寬很寬' : `第${i + 1}句歌詞`);
+  const ls = lines(lrc(6, 3, wide));
+
+  /** 從目前的句（ls）拖到畫面上的 (tx, ty)：回傳新的句與錨點在畫面上的位置（輸出像素）、範圍 */
+  function dragTo(
+    cur: readonly LyricFxLine[],
+    i: number,
+    settings: Partial<ScatterSettings>,
+    tx: number,
+    ty: number,
+  ) {
+    const s = { ...scatterDefaults(), ...settings };
+    const p = plan(cur, settings);
+    const l = p.lines[i];
+    const t = l.start + 1;
+    const pl = scatterStyle.placement?.(p, s, l.key, t);
+    const a = scatterStyle.anchorAt?.(p, s, l.key, t, tx, ty);
+    if (!pl || !a) throw new Error('沒有 placement／anchorAt');
+    const b = pl.bounds;
+    /* pinLine：夾進 bounds（錨點已經在範圍內時這一步什麼都不做） */
+    const x = clamp(a.x, b.x, b.x + b.width);
+    const y = clamp(a.y, b.y, b.y + b.height);
+    const next = withAdjust(cur, i, { x, y, angle: Math.round(pl.angle), rows: pl.rows });
+    const q = plan(next, settings);
+    const pl2 = scatterStyle.placement?.(q, s, l.key, t);
+    if (!pl2) throw new Error('沒有 placement');
+    return {
+      next,
+      raw: a,
+      clamped: { x, y },
+      pivot: { x: pl2.pivot.x * W, y: pl2.pivot.y * H },
+      bounds: pl2.bounds,
+      width: l.box.width,
+    };
+  }
+
+  const cases: [string, Partial<ScatterSettings>][] = [
+    ['預設透視', {}],
+    ['透視偏強（X 100、Y 40、補償 10）', { perspX: 100, perspY: 40, perspComp: 10 }],
+    ['關透視', { perspective: false }],
+  ];
+  for (const [name, settings] of cases) {
+    it(`${name}：沿著下、上、右、左邊拖，沒碰到邊的那一軸誤差 < 1.5 px，anchorAt 回傳的位置已在 bounds 內`, () => {
+      const wideIndex = 2;
+      expect(plan(ls, settings).lines[wideIndex].box.width).toBeGreaterThan(400);
+      for (const i of [wideIndex, 3]) {
+        /* 先拖到畫面中間（變成固定的句），再拖到邊上：和工具裡連續拖曳的情形一樣 */
+        const mid = dragTo(ls, i, settings, 0.5, 0.5);
+        expect(Math.hypot(mid.pivot.x - 0.5 * W, mid.pivot.y - 0.5 * H)).toBeLessThan(1.5);
+        /* 沿著邊慢慢拖：錨點的另一軸要一直跟著指標 */
+        const edges: [string, (f: number) => [number, number]][] = [
+          ['下', (f) => [f, 0.99]],
+          ['上', (f) => [f, 0.005]],
+          ['右', (f) => [0.995, f]],
+          ['左', (f) => [0.005, f]],
+        ];
+        for (const [edge, at] of edges) {
+          let cur = mid.next;
+          let interior = 0;
+          for (const f of [0.2, 0.3, 0.4, 0.5]) {
+            const [tx, ty] = at(f);
+            const r = dragTo(cur, i, settings, tx, ty);
+            cur = r.next;
+            const { x: bx, y: by, width: bw, height: bh } = r.bounds;
+            const where = `第 ${i + 1} 句 往${edge}邊 (${tx}, ${ty})`;
+            /* anchorAt 本身就把錨點限制在整塊留在畫面內的範圍（pinLine 的夾法什麼都不用再改） */
+            const eps = 1e-9;
+            expect(r.raw.x, where).toBeGreaterThanOrEqual(bx - eps);
+            expect(r.raw.x, where).toBeLessThanOrEqual(bx + bw + eps);
+            expect(r.raw.y, where).toBeGreaterThanOrEqual(by - eps);
+            expect(r.raw.y, where).toBeLessThanOrEqual(by + bh + eps);
+            expect(r.clamped, where).toEqual(r.raw);
+            /* 碰到邊的那一軸停在邊上；沒碰到邊（解在範圍內）的那一軸，錨點在畫面上要落在指標上 */
+            const freeAxis = edge === '下' || edge === '上' ? 'x' : 'y';
+            const lo = freeAxis === 'x' ? bx : by;
+            const hi = lo + (freeAxis === 'x' ? bw : bh);
+            if (r.raw[freeAxis] > lo + eps && r.raw[freeAxis] < hi - eps) {
+              interior++;
+              const err = freeAxis === 'x' ? r.pivot.x - tx * W : r.pivot.y - ty * H;
+              expect(Math.abs(err), where).toBeLessThan(1.5);
+            }
+          }
+          /* 不能是空的檢查：這幾個位置裡至少有 3 個是到得了的 */
+          expect(interior, `第 ${i + 1} 句 往${edge}邊`).toBeGreaterThanOrEqual(3);
+        }
+      }
+    });
+  }
+  it('透視 Y 開到最大（畫面下方的螢幕位置不隨錨點單調）：往下拖停在最接近的地方，不會跳到畫面上方', () => {
+    const settings = { perspX: 100, perspY: 100, perspComp: 0 };
+    for (const f of [0.2, 0.3, 0.4]) {
+      const r = dragTo(ls, 2, settings, f, 0.99);
+      expect(r.raw.y).toBeGreaterThan(0.5);
+      /* 水平方向照樣對得上 */
+      expect(Math.abs(r.pivot.x - f * W)).toBeLessThan(1.5);
+    }
+  });
+  it('拖到畫面最下面、最右邊的角落：兩軸都停在邊上，整塊在畫面內', () => {
+    const r = dragTo(ls, 2, {}, 0.999, 0.999);
+    const b = r.bounds;
+    expect(r.clamped.x).toBeCloseTo(b.x + b.width, 6);
+    expect(r.clamped.y).toBeCloseTo(b.y + b.height, 6);
+    expect(r.raw.x).toBeCloseTo(r.clamped.x, 9);
+    expect(r.raw.y).toBeCloseTo(r.clamped.y, 9);
   });
 });
 

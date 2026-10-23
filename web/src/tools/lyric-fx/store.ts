@@ -108,6 +108,8 @@ export interface Session {
   selected: string | null;
   /** 從預覽選取時加 1：逐句清單捲到那一句 */
   revealTick: number;
+  /** 正在預覽上拖曳或旋轉一句（F76）：逐句清單裡被選取那一列的數字欄先不跟著每次移動重畫，放開才更新（D28） */
+  dragging: boolean;
 }
 
 export const useSession = create<Session>(() => ({
@@ -126,6 +128,7 @@ export const useSession = create<Session>(() => ({
   loopTime: 0,
   selected: null,
   revealTick: 0,
+  dragging: false,
 }));
 
 export const setTab = (tab: TabId) => useSession.setState({ tab });

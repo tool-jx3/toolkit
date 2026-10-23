@@ -4,6 +4,7 @@
  * 位置與角度顯示這一句目前實際的值（自動排的也看得到）；改了位置或角度，這一句就固定。
  */
 import { Eraser, RotateCcw } from 'lucide-react';
+import { memo, useRef } from 'react';
 import type { FontValue } from '@/core/fonts';
 import { ADJUST_RANGES } from '@/core/lyricfx';
 import {
@@ -17,6 +18,7 @@ import {
   Segmented,
 } from '@/ui';
 import { pinLine, resetAdjust, setAdjust } from './actions';
+import type { Settings } from './model';
 import { adjustSupport, placementOf } from './scene';
 import { useSession, useSettings } from './store';
 import { S } from './strings';
@@ -25,9 +27,32 @@ import { GestureSlider } from './widgets';
 const pct1 = (v: number) => Math.round(v * 1000) / 10;
 const DEFAULT_FONT: FontValue = { source: 'google', family: 'Noto Sans TC', weight: 700 };
 
-export function AdjustFields({ rowKey, n, text }: { rowKey: string; n: number; text: string }) {
-  const s = useSettings((st) => st.data);
-  const fontTick = useSession((st) => st.fontTick);
+/**
+ * 預覽上拖曳、旋轉這一句的時候（session.dragging），欄位的數字停在拖曳前的值、不跟著每次指標移動重畫，放開才更新
+ * （每次移動都重畫會讓整個逐句清單的繪製跟著重來：100 句約多 10 ms，規格 D28）。
+ */
+export function AdjustFields(props: { rowKey: string; n: number; text: string }) {
+  const live = useSettings((st) => st.data);
+  const liveTick = useSession((st) => st.fontTick);
+  const dragging = useSession((st) => st.dragging);
+  const shown = useRef({ s: live, fontTick: liveTick });
+  if (!dragging) shown.current = { s: live, fontTick: liveTick };
+  return <Fields {...props} s={shown.current.s} fontTick={shown.current.fontTick} />;
+}
+
+const Fields = memo(function Fields({
+  s,
+  fontTick,
+  rowKey,
+  n,
+  text,
+}: {
+  s: Settings;
+  fontTick: number;
+  rowKey: string;
+  n: number;
+  text: string;
+}) {
   const exporting = useSession((st) => st.exporting);
   const support = adjustSupport(s);
   const adj = s.overrides[rowKey]?.adjust;
@@ -224,4 +249,4 @@ export function AdjustFields({ rowKey, n, text }: { rowKey: string; n: number; t
       </div>
     </section>
   );
-}
+});

@@ -8,7 +8,7 @@ import { ListOrdered, RotateCcw, X } from 'lucide-react';
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef } from 'react';
 import type { LyricLinePlacement, LyricPoint } from '@/core/lyricfx';
 import { Button, cn, useStageScale } from '@/ui';
-import { pinLine, previewTimeNow, resetAdjust, selectLine } from './actions';
+import { pinLine, previewTimeNow, resetAdjust, selectLine, setDragging } from './actions';
 import {
   adjustSupport,
   builtLines,
@@ -123,6 +123,9 @@ export function LineOverlay({
     return () => window.removeEventListener('keydown', onKey);
   }, [active, selected, time, width, height]);
 
+  /* 拖曳到一半這個元件不見了（換風格、離開頁面）：別讓清單一直停在拖曳中 */
+  useEffect(() => () => setDragging(false), []);
+
   /* 換了歌詞、這一句不見了：取消選取 */
   useEffect(() => {
     if (selected && !planHas(selected)) selectLine(null);
@@ -175,6 +178,7 @@ export function LineOverlay({
       if (!d.moved) {
         d.moved = true;
         useSettings.beginGesture();
+        setDragging(true);
       }
       const target = { x: d.pivot0.x + (p.x - d.p0.x), y: d.pivot0.y + (p.y - d.p0.y) };
       const a = style.anchorAt?.(plan, styleSettings(st), d.key, t, target.x, target.y) ?? {
@@ -195,6 +199,7 @@ export function LineOverlay({
     if (!d.moved) {
       d.moved = true;
       useSettings.beginGesture();
+      setDragging(true);
     }
     pinLine(d.key, { angle }, 'edit');
   };
@@ -203,7 +208,10 @@ export function LineOverlay({
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
     drag.current = null;
-    if (d.moved) useSettings.endGesture();
+    if (d.moved) {
+      useSettings.endGesture();
+      setDragging(false);
+    }
   };
 
   const onRotateDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
