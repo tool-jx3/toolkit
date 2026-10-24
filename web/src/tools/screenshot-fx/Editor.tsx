@@ -3,14 +3,18 @@
  * - 輔助線：每個框的虛線與編號；
  * - 拖曳畫框（Shift 在已有的框上也畫）、共用的 LayoutEditor（選取、拖曳、八個控點、方向鍵、Delete、Esc）；
  * - 第二批：手形（拖曳移動顯示的位置）、滑鼠中鍵隨時可以移動、框選放大（拖曳框出一塊，交給 onRegion）。
+ * - 第一批驗證後：點一下與 Shift＋點一下都選疊放順序最上面的框（stackOrder，輔助線也照這個順序畫）；
+ *   播放中不畫輔助線（框在原本的位置，跟彈出的卡片疊在一起會亂）；舞台縮得很小時圓標跟著縮小（至少 12 px）。
  * 座標：編輯層是畫面 px，框存原圖 px（換算見 model）。
  */
 import { type PointerEvent, useRef, useState } from 'react';
 import type { Box } from '@/core/layout';
 import { LayoutEditor, type LayoutItem, useStageScale } from '@/ui';
 import {
+  badgeDiameter,
   type Frame,
   type FrameKind,
+  frameAt,
   kindIndex,
   type Layout,
   LIMITS,
@@ -18,6 +22,7 @@ import {
   type Rect,
   rectFromDrag,
   type Size,
+  stackOrder,
   toCanvasRect,
   toSourcePoint,
   toSourceRect,
@@ -54,18 +59,22 @@ function Guides({
   W: number;
   H: number;
 }) {
-  const k = 1 / useStageScale();
+  const scale = useStageScale();
+  const k = 1 / scale;
+  const d = badgeDiameter(W * scale);
   return (
     <svg
       aria-hidden
       className="pointer-events-none absolute inset-0 size-full"
       viewBox={`0 0 ${W} ${H}`}
       data-testid="guides"
+      data-badge={d.toFixed(1)}
     >
-      {frames.map((f, i) => {
+      {stackOrder(frames).map((f) => {
+        const i = frames.indexOf(f);
         const r = toCanvasRect(shot, f);
         const col = GUIDE_COLOR[f.kind];
-        const rad = 10 * k;
+        const rad = (d / 2) * k;
         const bx = Math.max(rad, r.x + rad * 0.2);
         const by = Math.max(rad, r.y - rad * 1.2 < 0 ? r.y + rad : r.y - rad * 0.2);
         return (
@@ -95,7 +104,7 @@ function Guides({
               y={by}
               textAnchor="middle"
               dominantBaseline="central"
-              fontSize={11 * k}
+              fontSize={d * 0.55 * k}
               fontWeight={700}
               fill="#000"
             >
@@ -135,12 +144,15 @@ type Drag =
 
 /** 框選放大的範圍至少幾個螢幕 px（太小＝點一下，不放大） */
 const REGION_MIN_PX = 8;
+/** 框的點選範圍往外擴幾個螢幕 px（LayoutEditor 的 hitPadding，Shift＋點一下也用同一個） */
+const HIT_PADDING = 4;
 
 export function Editor({
   layout,
   image,
   frames,
   viewport,
+  playing,
   onBeginEdit,
   onTogglePlay,
   onRegion,
@@ -148,6 +160,8 @@ export function Editor({
   layout: Layout;
   image: Size;
   frames: readonly Frame[];
+  /** 播放中：不畫輔助線 */
+  playing: boolean;
   /** 可以捲動的舞台區域（手形、中鍵移動用） */
   viewport: () => HTMLElement | null;
   onBeginEdit: () => void;
@@ -230,20 +244,15 @@ export function Editor({
       addFrame(rect);
       return;
     }
-    /* 沒有拖動＝點一下：Shift 時選取那裡最上面的框，不然取消選取 */
+    /* 沒有拖動＝點一下：Shift 時選取那裡最上面的框（和一般的點一下同一個順序與點選範圍），不然取消選取 */
     if (drag.shift) {
-      const hit = [...frames]
-        .reverse()
-        .find((f) => b.x >= f.x && b.x <= f.x + f.w && b.y >= f.y && b.y <= f.y + f.h);
+      const hit = frameAt(frames, selected, b, HIT_PADDING / (scale * shot.f));
       select(hit?.id ?? null, !!hit);
     } else select(null);
   };
 
-  /* 放大框在下、其他在上；選取中的放最後（控點不被蓋住） */
-  const ordered = [
-    ...frames.filter((f) => f.kind === 'zoom'),
-    ...frames.filter((f) => f.kind !== 'zoom'),
-  ].sort((a, b) => Number(a.id === selected) - Number(b.id === selected));
+  /* 疊放順序：放大框在下、其他在上；選取中的放最後（控點不被蓋住） */
+  const ordered = stackOrder(frames, selected);
   const items: LayoutItem[] = ordered.map((f) => {
     const r = toCanvasRect(shot, f);
     const n = frames.indexOf(f) + 1;
@@ -286,7 +295,8 @@ export function Editor({
       useDoc.endGesture();
       return;
     }
-    setFrameRect(id, toSrc(box));
+    /* 方向鍵連按（nudge）0.4 秒內的合成一步；拖曳在手勢裡 */
+    setFrameRect(id, toSrc(box), change.phase === 'nudge');
   };
 
   let draft: Rect | null = null;
@@ -362,7 +372,7 @@ export function Editor({
         }
       }}
     >
-      {guides ? <Guides frames={frames} shot={shot} W={W} H={H} /> : null}
+      {guides && !playing ? <Guides frames={frames} shot={shot} W={W} H={H} /> : null}
       {draft ? (
         <div
           aria-hidden
@@ -391,7 +401,7 @@ export function Editor({
           onChange={onChange}
           nudgeStep={shot.f}
           nudgeShiftStep={shot.f * 10}
-          hitPadding={4}
+          hitPadding={HIT_PADDING}
           guides={false}
           onDelete={removeFrame}
           onEscape={() => select(null)}

@@ -4,7 +4,7 @@
  * - 圖片：選檔（換圖時框與出處清空）、整個視窗拖放、貼上、不是圖片的通知、範例圖、示範演出、拿掉；
  * - 畫框：三種工具拖曳畫框、Shift 在已有的框上畫、點空白處取消選取、拖曳移動、控點縮放、方向鍵 1／10 px、
  *   Ctrl＋D 複製、Delete 刪除、復原／重做、清單的選取與個別設定、新畫的框的預設、輔助線開關；
- * - 畫面：放大框跟著放大（框裡的螢光筆）、聚光、塗黑解除／抹消的進度、螢光筆長出來、背景模糊／透明／單色、出處；
+ * - 畫面：放大框跟著放大（框裡的螢光筆）、聚光、塗黑揭開／蓋上的進度、螢光筆長出來、背景模糊／透明／單色、出處；
  * - 時間軸：四段、依序／同時、分段色條、空白鍵播放、循環；
  * - 匯出：PNG（完成圖、與畫面相同）、複製圖片、APNG（影格、色數、只播一次）、MP4、透明 WebM；
  * - 自動儲存與還原（含圖片）、專案檔 ZIP；390 寬沒有橫向捲動。
@@ -342,7 +342,7 @@ test('圖片：選檔、換圖時框與出處清空、拖放、貼上、不是�
   await expect.poll(async () => (await state(page)).frames.length).toBe(5);
   const s = await state(page);
   expect(s.frames.map((f) => f.kind)).toEqual(['zoom', 'redact', 'marker', 'marker', 'redact']);
-  expect(s.credit.text).toBe('出處：霧澤町調查檔案（虛構資料）');
+  expect(s.credit.text).toBe('霧澤町失蹤案卷宗（範例）');
   /* 拿掉 → 空白狀態 */
   await page.getByRole('button', { name: '拿掉圖片' }).click();
   await expect(page.getByTestId('empty-state')).toBeVisible();
@@ -379,14 +379,14 @@ test('畫框：三種工具、Shift 在已有的框上畫、點空白處取消�
   await drag(page, [moved.x + 20, moved.y + 20], [moved.x + 200, moved.y + 50], { shift: true });
   await expect.poll(async () => (await frames(page)).length).toBe(2);
   expect((await frames(page))[1]).toMatchObject({ kind: 'marker', style: 'yellow', dir: 'h' });
-  /* 預設：塗黑換成馬賽克、抹消、直向 → 新畫的框用它 */
+  /* 預設：塗黑換成馬賽克、蓋上、直向 → 新畫的框用它 */
   await tool(page, '塗黑');
   await expect(page.getByTestId('defaults')).toHaveAttribute('data-kind', 'redact');
   const defaults = page.getByTestId('defaults');
   await defaults.getByRole('radio', { name: '馬賽克' }).click();
   await defaults.getByRole('combobox').click();
-  await page.getByRole('option', { name: '抹消（從起點蓋上）' }).click();
-  await defaults.getByRole('radio', { name: '直向（上→下）' }).click();
+  await page.getByRole('option', { name: '蓋上', exact: true }).click();
+  await defaults.getByRole('radio', { name: '直向', exact: true }).click();
   await drag(page, [600, 300], [800, 400]);
   await expect.poll(async () => (await frames(page)).length).toBe(3);
   expect((await frames(page))[2]).toMatchObject({
@@ -407,7 +407,7 @@ test('畫框：三種工具、Shift 在已有的框上畫、點空白處取消�
   await row.locator('button[aria-pressed]').click();
   const editor = row.getByTestId('frame-editor');
   await editor.getByRole('combobox').click();
-  await page.getByRole('option', { name: '科幻發光（監視器）' }).click();
+  await page.getByRole('option', { name: '發光螢幕', exact: true }).click();
   await editor.getByRole('radio', { name: /粗/ }).click();
   const slider = editor.getByRole('slider');
   await slider.focus();
@@ -516,7 +516,7 @@ test('編輯：拖曳移動、控點縮放、方向鍵 1／10 px、Ctrl＋D 複�
 
 /* ---------- 畫面 ---------- */
 
-test('畫面：塗黑解除／抹消的進度、螢光筆長出來、放大框跟著放大、聚光（F12、F27、F30、F34、F36、F39）', async ({
+test('畫面：塗黑揭開／蓋上的進度、螢光筆長出來、放大框跟著放大、聚光（F12、F27、F30、F34、F36、F39）', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -563,7 +563,7 @@ test('畫面：塗黑解除／抹消的進度、螢光筆長出來、放大框�
   });
   expect(tl.total).toBe(5);
   await expect(page.getByTestId('timing-total')).toHaveCount(1);
-  /* 解除：開始前全黑、一半時左半剝開、結束時全部剝開；抹消相反 */
+  /* 揭開：開始前全黑、一半時左半掀開、結束時全部掀開；蓋上相反 */
   const rp: [number, number][] = [
     [610, 330],
     [790, 330],
@@ -655,7 +655,7 @@ test('畫面：背景模糊／透明／單色、截圖大小、出處三種位�
   await expect.poll(async () => (await state(page)).credit.text).toBe('出處：測試資料');
   const l = await layout(page);
   expect(l.shot.h).toBeLessThan(500 * 0.86);
-  for (const pos of ['畫面底部（置中）', '圖內右下（徽章）'] as const) {
+  for (const pos of ['畫面底部', '截圖右下角'] as const) {
     await page.getByRole('combobox', { name: '位置' }).click();
     await page.getByRole('option', { name: pos }).click();
   }
@@ -671,7 +671,7 @@ test('畫面：背景模糊／透明／單色、截圖大小、出處三種位�
   await expect.poll(async () => (await state(page)).credit.size).toBe('lg');
   /* 截圖大小：滑桿到 100% → 截圖寬＝畫面寬 */
   await page.getByRole('combobox', { name: '位置' }).click();
-  await page.getByRole('option', { name: '畫面底部（置中）' }).click();
+  await page.getByRole('option', { name: '畫面底部' }).click();
   const scale = page.getByRole('slider', { name: '截圖大小' });
   await scale.focus();
   await page.keyboard.press('End');
@@ -702,7 +702,7 @@ test('時間軸：四段的秒數、分段色條、空白鍵播放、循環、�
       { id: 'b', kind: 'marker', x: 10, y: 40, w: 50, h: 20, style: 'yellow', dir: 'h' },
     ],
   });
-  const action = page.getByRole('slider', { name: '動作（每個螢光筆、塗黑）' });
+  const action = page.getByRole('slider', { name: '動作', exact: true });
   await action.focus();
   for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowRight');
   await expect(page.getByTestId('timing-total')).toHaveText('總長 7.10 秒');
@@ -922,7 +922,7 @@ test('運鏡：對象、放慢、拉回的範圍、從頭確認（Esc 回到編�
   await tab(page, '時間軸');
   await expect(page.getByTestId('camera-status')).toHaveText('固定畫面。');
   await page.getByRole('combobox', { name: '鏡頭的動作' }).click();
-  await page.getByRole('option', { name: '從框放大開始，慢慢拉回全圖' }).click();
+  await page.getByRole('option', { name: '由近拉遠', exact: true }).click();
   await expect
     .poll(async () => (await state(page)).camera)
     .toMatchObject({
@@ -988,7 +988,7 @@ test('運鏡：對象、放慢、拉回的範圍、從頭確認（Esc 回到編�
   expect([...first.data.slice(k, k + 4)].join()).toBe(zoomed.join());
   /* 運鏡關掉時回到全圖 */
   await page.getByRole('combobox', { name: '鏡頭的動作' }).click();
-  await page.getByRole('option', { name: '沒有（固定畫面）' }).click();
+  await page.getByRole('option', { name: '不用', exact: true }).click();
   await expect(page.getByTestId('camera-status')).toHaveText('固定畫面。');
   expect((await call<TimelineInfo>(page, 'timeline')).camera).toBeNull();
   expect(errors).toEqual([]);
@@ -996,7 +996,7 @@ test('運鏡：對象、放慢、拉回的範圍、從頭確認（Esc 回到編�
 
 /* ---------- 第二批：塗黑的邊界演出 ---------- */
 
-test('塗黑的邊界演出：金光、掃描線、無；只在動作中；改了之後預覽跳到動作一半（F63）', async ({
+test('塗黑的邊界演出：金光、掃描線、不加；只在動作中；改了之後預覽跳到動作一半（F63）', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -1005,7 +1005,7 @@ test('塗黑的邊界演出：金光、掃描線、無；只在動作中；改�
     frames: [redact('r', 100, 200)],
     timing: { intro: 0, popup: 0, action: 2, outro: 1, order: 'sequential', fps: 15 },
   });
-  /* 動作到一半：邊在 x＝250，往左（已經剝開、淺灰的那一側）一點是金色的光 */
+  /* 動作到一半：邊在 x＝250，往左（已經掀開、淺灰的那一側）一點是金色的光 */
   const behind: [number, number] = [235, 230];
   const [glow] = await srcPixels(page, 1, [behind]);
   expect(glow[0]).toBeGreaterThan(glow[2] + 30);
@@ -1024,17 +1024,17 @@ test('塗黑的邊界演出：金光、掃描線、無；只在動作中；改�
   await tab(page, '演出框');
   const row = page.locator('[data-frame-id="r"]');
   await row.locator('button[aria-pressed]').click();
-  await row.getByRole('radio', { name: '金光＋粒子' }).click();
+  await row.getByRole('radio', { name: '金光', exact: true }).click();
   await expect.poll(async () => (await state(page)).frames[0].edge).toBe('glow');
   await expect
     .poll(async () => (await call<{ time: number }>(page, 'player'))?.time)
     .toBeCloseTo(1, 5);
   expect((await call<{ playing: boolean }>(page, 'player'))?.playing).toBe(false);
-  await expect(row.getByRole('slider', { name: '光的強度' })).toBeVisible();
+  await expect(row.getByRole('slider', { name: '發光強度' })).toBeVisible();
   /* 靜止的塗黑沒有邊界演出的設定 */
   await row.getByRole('combobox', { name: '動作' }).click();
-  await page.getByRole('option', { name: '靜止（一直蓋著）' }).click();
-  await expect(row.getByRole('radio', { name: '金光＋粒子' })).toHaveCount(0);
+  await page.getByRole('option', { name: '靜止', exact: true }).click();
+  await expect(row.getByRole('radio', { name: '金光', exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -1153,7 +1153,7 @@ test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、�
   await bar.getByRole('button', { name: '縮小編輯區' }).click();
   await expect.poll(async () => (await live()).viewZoom).toBe(3);
   /* 手形：拖曳移動顯示位置（不會畫框） */
-  await bar.getByRole('button', { name: /^拖曳移動顯示的位置/ }).click();
+  await bar.getByRole('button', { name: /^手形/ }).click();
   expect((await live()).pointer).toBe('hand');
   const s0 = await scroll();
   const box = (await vp.boundingBox()) as { x: number; y: number; width: number; height: number };
@@ -1164,7 +1164,7 @@ test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、�
   const s1 = await scroll();
   expect(s1[0]).toBeGreaterThan(s0[0] + 100);
   expect((await state(page)).frames).toHaveLength(1);
-  await bar.getByRole('button', { name: /^拖曳移動顯示的位置/ }).click();
+  await bar.getByRole('button', { name: /^手形/ }).click();
   expect((await live()).pointer).toBe('edit');
   /* 中鍵：隨時可以移動 */
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -1174,10 +1174,10 @@ test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、�
   expect((await scroll())[0]).toBeLessThan(s1[0] - 50);
   expect((await state(page)).frames).toHaveLength(1);
   /* 全圖 */
-  await bar.getByRole('button', { name: /^回到全圖/ }).click();
+  await bar.getByRole('button', { name: /^看整張圖/ }).click();
   await expect.poll(async () => (await live()).viewZoom).toBe(1);
   /* 框選放大：拖曳框出一塊（不會畫框），放大後回到一般工具 */
-  await bar.getByRole('button', { name: /^在預覽上拖曳框出一塊/ }).click();
+  await bar.getByRole('button', { name: /^圈一塊放大/ }).click();
   const a = await screenOf(page, 100, 100);
   const b = await screenOf(page, 300, 200);
   await page.mouse.move(a.x, a.y);
@@ -1188,9 +1188,9 @@ test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、�
   expect((await live()).pointer).toBe('edit');
   expect((await state(page)).frames).toHaveLength(1);
   /* 到選取的框：放大並把框放在編輯區中央 */
-  await bar.getByRole('button', { name: /^回到全圖/ }).click();
+  await bar.getByRole('button', { name: /^看整張圖/ }).click();
   await call(page, 'select', 'm');
-  await bar.getByRole('button', { name: /^以選取的框為中心放大/ }).click();
+  await bar.getByRole('button', { name: /^湊近看選取的框/ }).click();
   await expect.poll(async () => (await live()).viewZoom).toBeGreaterThan(2);
   const item = page.locator('[data-layout-item="m"]');
   await expect
@@ -1208,7 +1208,7 @@ test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、�
   await page.keyboard.up('Control');
   await expect.poll(async () => (await live()).viewZoom).toBeLessThan(before);
   /* 放大編輯區：佔滿視窗；Esc 回來 */
-  await bar.getByRole('button', { name: /^藏起設定欄/ }).click();
+  await bar.getByRole('button', { name: /^編輯區蓋滿視窗/ }).click();
   const area = page.getByTestId('edit-area');
   await expect(area).toHaveAttribute('data-expanded', 'true');
   const ab = (await area.boundingBox()) as { x: number; y: number; width: number; height: number };
@@ -1221,13 +1221,169 @@ test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、�
 
 /* ---------- 版面 ---------- */
 
-test('390 寬沒有橫向捲動', async ({ page }) => {
+/* ---------- 第一批驗證後的修正（規格 §7.1） ---------- */
+
+/** 測試圖：左半透明、右半不透明的紅（400 × 300） */
+async function alphaPng(w = 400, h = 300): Promise<Buffer> {
+  const px = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++)
+    for (let x = w / 2; x < w; x++) {
+      const o = (y * w + x) * 4;
+      px[o] = 255;
+      px[o + 3] = 255;
+    }
+  return Buffer.from(await encodePng(px, w, h));
+}
+
+test('透明的截圖：透明處沒有陰影與聚光的黑、匯出的 PNG 也是（R1）', async ({ page }) => {
+  const errors = await open(page);
+  await loadImage(page, await alphaPng(), 'alpha.png');
+  await tab(page, '圖片');
+  await page.getByRole('combobox', { name: '畫面大小' }).click();
+  await page.getByRole('option', { name: '原圖大小' }).click();
+  await page
+    .getByRole('radiogroup', { name: '背景', exact: true })
+    .getByRole('radio', { name: '透明' })
+    .click();
+  await expect.poll(async () => (await state(page)).bg.mode).toBe('transparent');
+  const l = await layout(page);
+  const pts: [number, number][] = [
+    [l.shot.x + l.shot.w * 0.25, l.shot.y + l.shot.h * 0.5],
+    [l.shot.x + l.shot.w * 0.25, l.shot.y + l.shot.h * 0.05],
+    [l.shot.x + l.shot.w * 0.02, l.shot.y + l.shot.h * 0.5],
+    [l.shot.x + l.shot.w * 0.75, l.shot.y + l.shot.h + 4],
+  ];
+  const [mid, top, left, below] = await call<Rgba[]>(page, 'pixels', 0, pts);
+  expect([mid[3], top[3], left[3]]).toEqual([0, 0, 0]);
+  expect(below[3]).toBeGreaterThan(20);
+  /* 「只有陰影」的放大框蓋在透明處、聚光 55%：結尾時卡片中間還是透明 */
+  await call(page, 'set', {
+    frames: [
+      {
+        id: 'z',
+        kind: 'zoom',
+        x: 20,
+        y: 60,
+        w: 120,
+        h: 90,
+        scale: 1.25,
+        style: 'shadow',
+        border: 4,
+      },
+    ],
+  });
+  const total = (await call<{ total: number }>(page, 'timeline')).total;
+  const [card] = await call<Rgba[]>(page, 'pixels', total, [
+    [l.shot.x + 80 * l.shot.f, l.shot.y + 105 * l.shot.f],
+  ]);
+  expect(card[3]).toBe(0);
+  /* 匯出的 PNG（結尾那一格） */
+  const png = readPng((await exportFile(page, 'PNG')).bytes);
+  const alphaAt = ([x, y]: [number, number]) =>
+    png.data[(Math.round(y) * png.width + Math.round(x)) * 4 + 3];
+  expect(alphaAt(pts[0])).toBe(0);
+  expect(alphaAt(pts[1])).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('點選與 Shift＋點選一致、表單控制項上的 Delete、播放中沒有輔助線、離散操作各一步、載入區（R6、R7、R9～R11）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  /* R9：載入區只說一次「貼上」 */
+  const load = page.getByTestId('image-load');
+  await expect(load).toContainText('貼上');
+  expect(((await load.textContent()) ?? '').match(/貼上/g)?.length).toBe(1);
+  await loadImage(page);
+  /* 螢光筆 a（清單第 1 個）在放大框 b（第 2 個）裡 */
+  await call(page, 'set', {
+    frames: [
+      { id: 'a', kind: 'marker', x: 150, y: 150, w: 100, h: 40, style: 'yellow', dir: 'h' },
+      {
+        id: 'b',
+        kind: 'zoom',
+        x: 100,
+        y: 100,
+        w: 400,
+        h: 200,
+        scale: 1.25,
+        style: 'card',
+        border: 4,
+      },
+    ],
+  });
+  const selected = async () => (await call<{ selected: string | null }>(page, 'live')).selected;
+  const at = await screenOf(page, 200, 170);
+  const empty = await screenOf(page, 900, 450);
+  /* R7：一般點一下與 Shift＋點一下都選螢光筆（畫在放大框的卡片上面） */
+  await page.mouse.click(at.x, at.y);
+  await expect.poll(selected).toBe('a');
+  await page.mouse.click(empty.x, empty.y);
+  await expect.poll(selected).toBeNull();
+  await page.keyboard.down('Shift');
+  await page.mouse.click(at.x, at.y);
+  await page.keyboard.up('Shift');
+  await expect.poll(selected).toBe('a');
+  /* 選取中的放大框在最上面：兩種點法都還是放大框 */
+  await call(page, 'select', 'b');
+  await page.mouse.click(at.x, at.y);
+  await expect.poll(selected).toBe('b');
+  await page.keyboard.down('Shift');
+  await page.mouse.click(at.x, at.y);
+  await page.keyboard.up('Shift');
+  await expect.poll(selected).toBe('b');
+  /* R11：播放中不畫輔助線，暫停後回來 */
+  await expect(page.getByTestId('guides')).toBeVisible();
+  await page.keyboard.press('Space');
+  await expect
+    .poll(async () => (await call<{ playing: boolean }>(page, 'player'))?.playing)
+    .toBe(true);
+  await expect(page.getByTestId('guides')).toHaveCount(0);
+  await page.keyboard.press('Space');
+  await expect
+    .poll(async () => (await call<{ playing: boolean }>(page, 'player'))?.playing)
+    .toBe(false);
+  await expect(page.getByTestId('guides')).toBeVisible();
+  /* R6：焦點在框的滑桿上按 Delete／Backspace 不刪框 */
+  const row = page.locator('[data-frame-id="b"]');
+  const slider = row.getByTestId('frame-editor').getByRole('slider');
+  await slider.focus();
+  await page.keyboard.press('Delete');
+  await page.keyboard.press('Backspace');
+  await pause(page);
+  expect(await frames(page)).toHaveLength(2);
+  await row.getByTestId('frame-editor').getByRole('combobox').focus();
+  await page.keyboard.press('Delete');
+  await pause(page);
+  expect(await frames(page)).toHaveLength(2);
+  /* R10：Ctrl＋D 連按三次（不等）＝三步，復原一次只少一個 */
+  await page.locator('body').click({ position: { x: 5, y: 880 } });
+  await call(page, 'select', 'b');
+  await page.keyboard.press('Control+d');
+  await page.keyboard.press('Control+d');
+  await page.keyboard.press('Control+d');
+  await expect.poll(async () => (await frames(page)).length).toBe(5);
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await frames(page)).length).toBe(4);
+  /* 焦點不在表單控制項：Delete 刪掉選取的框，馬上上移也是另一步 */
+  await call(page, 'select', 'a');
+  await page.keyboard.press('Delete');
+  await expect.poll(async () => (await frames(page)).length).toBe(3);
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await frames(page)).length).toBe(4);
+  expect(errors).toEqual([]);
+});
+
+test('390 寬沒有橫向捲動、序號圓標縮小（R8）', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const errors = await open(page);
   await noHorizontalScroll(page);
   await page.getByRole('button', { name: '示範演出' }).first().click();
   await expect.poll(async () => (await state(page))?.frames?.length).toBe(5);
   await noHorizontalScroll(page);
+  /* R8：舞台很小時序號圓標縮到 12 px；編輯層維持 touch-none（手指拖曳是畫框） */
+  await expect(page.getByTestId('guides')).toHaveAttribute('data-badge', '12.0');
+  await expect(page.getByTestId('editor')).toHaveClass(/touch-none/);
   for (const t of ['演出框', '時間軸'] as const) {
     await tab(page, t);
     await noHorizontalScroll(page);

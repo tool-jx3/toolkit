@@ -14,7 +14,7 @@ import {
 } from './model';
 import type { PlayerHandle } from './Preview';
 import { RenderCache, type RenderOptions, renderToCanvas } from './render';
-import { assets, docNow, prefsNow, select, useDoc, useLive } from './store';
+import { assets, docNow, edit, prefsNow, select, useLive } from './store';
 
 declare global {
   interface Window {
@@ -33,7 +33,9 @@ export function useTestHook(player: RefObject<PlayerHandle | null>) {
       prefs: () => prefsNow(),
       /** 換掉部分內容（整理後套用，一步復原） */
       set: (patch: Partial<FxState>) =>
-        useDoc.getState().replace(normalizeState({ ...docNow(), ...patch })),
+        edit((d) => {
+          Object.assign(d, normalizeState({ ...docNow(), ...patch }));
+        }),
       select: (id: string | null) => select(id, true),
       live: () => {
         const l = useLive.getState();

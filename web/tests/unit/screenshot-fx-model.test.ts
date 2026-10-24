@@ -254,7 +254,7 @@ describe('時間軸', () => {
 });
 
 describe('塗黑與螢光筆的範圍', () => {
-  it('靜止一直全蓋；解除從起點剝開；抹消從起點蓋上', () => {
+  it('靜止一直全蓋；揭開從起點掀開；蓋上從起點蓋上', () => {
     expect(coverSpan('static', 0)).toEqual([0, 1]);
     expect(coverSpan('static', 0.7)).toEqual([0, 1]);
     expect(coverSpan('reveal', 0)).toEqual([0, 1]);

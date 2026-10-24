@@ -1,6 +1,6 @@
 /**
  * 截圖演出產生器：在截圖上畫放大框、螢光筆、塗黑，依時間軸做出「周圍變暗、框彈出放大、螢光筆畫出來、
- * 塗黑剝開或蓋上」的演出；背景可以模糊、透明或單色，加上圓角、陰影與出處；匯出完成圖 PNG、APNG、MP4／透明 WebM。
+ * 塗黑揭開或蓋上」的演出；背景可以模糊、透明或單色，加上圓角、陰影與出處；匯出完成圖 PNG、APNG、MP4／透明 WebM。
  * 規格：docs/refactor/specs/screenshot-fx.md。
  */
 import { Redo2, Undo2 } from 'lucide-react';

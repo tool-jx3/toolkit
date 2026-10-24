@@ -1,7 +1,8 @@
 /**
  * 狀態與動作：
- * - useDoc：圖片（資產 id）、畫面、背景、截圖、出處、時間軸、演出框（自動儲存、可以復原；滑桿放開、文字欄離開、
- *   拖曳放開才記一步，方向鍵 0.4 秒內連續的算一步）；
+ * - useDoc：圖片（資產 id）、畫面、背景、截圖、出處、時間軸、演出框（自動儲存、可以復原）。復原的步數（第一批驗證 R10）：
+ *   只有連續的操作合成一步——拖曳、滑桿、文字欄（放開／離開才記）、方向鍵連按與顏色拖曳（0.4 秒內連續的）；
+ *   其他（新增、複製、刪除、上移下移、換圖、範例、選項）一次各一步，不和前後的變更合併；
  * - usePrefs：畫框的工具、新畫的框的預設、編輯輔助線、循環播放、匯出設定、預覽背景（自動儲存，不列入復原）；
  * - useLive：選取中的框、設定欄的分頁（不儲存）；
  * - 圖片原檔存在 IndexedDB 的資產庫（core/assets），狀態只記 id。
@@ -53,8 +54,28 @@ export const gesture = historyGesture(useDoc);
 
 export const docNow = (): FxState => useDoc.getState().data;
 
-/** 一次變更＝一步復原（手勢中除外；0.4 秒內連續的變更合成一步） */
+/**
+ * 離散的變更：一次一步復原，不和前後的變更合併（包成一個只有一次變更的手勢；手勢中〔拖曳、滑桿〕則併進那個手勢）
+ */
 export function edit(recipe: (d: FxState) => void): void {
+  const apply = () =>
+    useDoc.getState().update((d) => {
+      recipe(d as FxState);
+    });
+  if (useDoc.inGesture()) {
+    apply();
+    return;
+  }
+  useDoc.beginGesture();
+  try {
+    apply();
+  } finally {
+    useDoc.endGesture();
+  }
+}
+
+/** 連續的變更（方向鍵連按、顏色拖曳）：0.4 秒內連續的合成一步 */
+export function editMerged(recipe: (d: FxState) => void): void {
   useDoc.getState().update((d) => {
     recipe(d as FxState);
   });
@@ -270,24 +291,28 @@ export function addFrame(rect: Rect, kind: FrameKind = prefsNow().tool): string 
   return id;
 }
 
-/** 改一個框的設定（一步復原） */
-export function updateFrame(id: string, recipe: (f: Frame) => void): void {
-  edit((d) => {
+/** 改一個框的設定（一步復原；merge：連續的變更，0.4 秒內的合成一步） */
+export function updateFrame(id: string, recipe: (f: Frame) => void, merge = false): void {
+  (merge ? editMerged : edit)((d) => {
     const f = d.frames.find((x) => x.id === id);
     if (f) recipe(f);
   });
 }
 
-/** 改一個框的範圍（夾在圖裡；沒有變化時不記） */
-export function setFrameRect(id: string, rect: Rect): void {
+/** 改一個框的範圍（夾在圖裡；沒有變化時不記；merge：方向鍵連按） */
+export function setFrameRect(id: string, rect: Rect, merge = false): void {
   const s = docNow();
   const f = s.frames.find((x) => x.id === id);
   if (!f || !s.image) return;
   const r = clampRect(rect, s.image);
   if (r.x === f.x && r.y === f.y && r.w === f.w && r.h === f.h) return;
-  updateFrame(id, (x) => {
-    Object.assign(x, r);
-  });
+  updateFrame(
+    id,
+    (x) => {
+      Object.assign(x, r);
+    },
+    merge,
+  );
 }
 
 export function removeFrame(id: string): void {
@@ -332,9 +357,15 @@ export function moveFrame(id: string, delta: -1 | 1): void {
   });
 }
 
-/** 換掉整份內容（重設、開啟專案檔；可以復原） */
+/** 換掉整份內容（重設、開啟專案檔；一步復原） */
 export function resetAll(next: FxState = initialState()): void {
   select(null);
   useLive.setState({ missing: null });
-  useDoc.getState().replace(next);
+  if (useDoc.inGesture()) useDoc.endGesture();
+  useDoc.beginGesture();
+  try {
+    useDoc.getState().replace(next);
+  } finally {
+    useDoc.endGesture();
+  }
 }

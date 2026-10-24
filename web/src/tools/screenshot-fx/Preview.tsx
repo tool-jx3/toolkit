@@ -667,6 +667,7 @@ export function Preview({
                   image={{ width: image.width, height: image.height }}
                   frames={s.frames}
                   viewport={() => viewport.current}
+                  playing={playback.playing}
                   onBeginEdit={pause}
                   onTogglePlay={playback.toggle}
                   onRegion={(r) => {

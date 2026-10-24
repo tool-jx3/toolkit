@@ -5,8 +5,9 @@
  * 放大框（以框的中心放大、樣式外框；框裡重畫一次截圖與跟它重疊的螢光筆、塗黑，所以它們跟著放大）→ 出處。
  * 螢光筆、塗黑、放大框的外觀都是本站自己設計的（原作的程式與樣式拿不到，也不能沿用）。
  *
- * 第二批：運鏡（只畫畫面的一塊、放大到整個畫面；截圖在放大的倍率下重畫一次，字不會糊）、塗黑解除／抹消的邊界演出、
+ * 第二批：運鏡（只畫畫面的一塊、放大到整個畫面；截圖在放大的倍率下重畫一次，字不會糊）、塗黑揭開／蓋上的邊界演出、
  * 段階公開用的「每個框各自的進度」、圖層（背景／放大框／螢光筆）。
+ * 陰影一律只畫在形狀外面（shadowOutside）：截圖有透明處時，底下不會透出陰影（第一批驗證 R1）。
  */
 import { makeCanvas, roundRectPath } from '@/core/image';
 import { blurCanvas } from '@/core/scene';
@@ -57,11 +58,53 @@ const devScale = (g: Ctx): number => {
   return m ? Math.hypot(m.a, m.b) || 1 : 1;
 };
 
-const ctxOf = (c: AnyCanvas): Ctx => {
-  const g = c.getContext('2d') as Ctx | null;
+const ctxOf = (c: AnyCanvas, willRead = false): Ctx => {
+  const g = c.getContext('2d', willRead ? { willReadFrequently: true } : undefined) as Ctx | null;
   if (!g) throw new Error('無法建立畫布');
   return g;
 };
+
+/** 陰影的設定（模糊、位移是裝置 px：運鏡時呼叫的人自己乘 devScale） */
+export interface ShadowSpec {
+  color: string;
+  blur: number;
+  offsetY: number;
+}
+
+/**
+ * 只在圓角矩形外面畫陰影，形狀本身與它底下都不畫（截圖、放大框的內容有透明處時，不會透出陰影或黑底）。
+ * 做法：形狀畫在可見範圍外、只留位移回來的陰影；剪裁＝很大的矩形挖掉形狀（evenodd）。挖掉的範圍往內縮
+ * 1 個裝置 px，讓邊緣半透明的那圈像素底下照樣有陰影（不然邊上會多一圈亮線）。
+ * extent：可見範圍的大小（使用者座標的寬高上限），用來把形狀移出去。
+ */
+export function shadowOutside(g: Ctx, r: Rect, radius: number, sh: ShadowSpec, extent: Size): void {
+  if (r.w <= 0 || r.h <= 0 || sh.blur < 0) return;
+  const k = devScale(g);
+  const inset = 1 / k;
+  const span = Math.max(extent.width, extent.height);
+  const off = r.x + r.w + span + 100;
+  g.save();
+  g.beginPath();
+  g.rect(-span * 2, -span * 2, span * 5, span * 5);
+  roundRectPath(
+    g,
+    r.x + inset,
+    r.y + inset,
+    Math.max(0, r.w - inset * 2),
+    Math.max(0, r.h - inset * 2),
+    Math.max(0, radius - inset),
+  );
+  g.clip('evenodd');
+  g.shadowColor = sh.color;
+  g.shadowBlur = sh.blur;
+  g.shadowOffsetX = off * k;
+  g.shadowOffsetY = sh.offsetY;
+  g.fillStyle = '#000';
+  g.beginPath();
+  roundRectPath(g, r.x - off, r.y, r.w, r.h, radius);
+  g.fill();
+  g.restore();
+}
 
 /* ---------- 快取 ---------- */
 
@@ -167,20 +210,14 @@ function baseOf(cache: RenderCache, img: ImageSource | null, s: FxState, layout:
     g.fillRect(0, 0, canvas.width, canvas.height);
   }
   if (img) {
-    if (s.shot.shadow > 0) {
-      /* 陰影：形狀畫在畫面外、只留陰影（圖片有透明處時不會透出黑底） */
-      const off = canvas.width + shot.w + 100;
-      g.save();
-      g.shadowColor = 'rgba(0, 0, 0, 0.55)';
-      g.shadowBlur = s.shot.shadow;
-      g.shadowOffsetX = off;
-      g.shadowOffsetY = s.shot.shadow * 0.35;
-      g.fillStyle = '#000';
-      g.beginPath();
-      roundRectPath(g, shot.x - off, shot.y, shot.w, shot.h, shotRadius(s, shot));
-      g.fill();
-      g.restore();
-    }
+    if (s.shot.shadow > 0)
+      shadowOutside(
+        g,
+        shot,
+        shotRadius(s, shot),
+        { color: 'rgba(0, 0, 0, 0.55)', blur: s.shot.shadow, offsetY: s.shot.shadow * 0.35 },
+        canvas,
+      );
     g.save();
     clipShot(g, s, shot);
     g.imageSmoothingQuality = 'high';
@@ -402,6 +439,78 @@ export function mosaicCells(f: RedactFrame, baseScale: number): { cols: number; 
   return { cols: Math.max(1, Math.round(f.w / g)), rows: Math.max(1, Math.round(f.h / g)) };
 }
 
+/** 讀像素用的最小介面（ImageData 或測試用的陣列） */
+export interface Pixels {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+}
+
+/**
+ * 馬賽克的格色：嚴格的區塊平均（規格 3.7）。src 是原圖從 (ox, oy) 開始的一塊（原圖 px）；
+ * 每格只平均「中心落在框內、那一格裡」的像素，依不透明度加權（透明的像素不會把顏色拉黑）；
+ * 一個像素中心都沒有的格（格比 1 px 小）取最接近格中心的那個像素。回傳 cols × rows 的 RGBA。
+ */
+export function blockAverage(
+  src: Pixels,
+  ox: number,
+  oy: number,
+  f: Rect,
+  cols: number,
+  rows: number,
+): Uint8ClampedArray {
+  const n = cols * rows;
+  const sum = new Float64Array(n * 5);
+  const { data, width, height } = src;
+  for (let py = 0; py < height; py++) {
+    const cy = oy + py + 0.5;
+    if (cy < f.y || cy >= f.y + f.h) continue;
+    const row = Math.min(rows - 1, Math.floor(((cy - f.y) * rows) / f.h));
+    for (let px = 0; px < width; px++) {
+      const cx = ox + px + 0.5;
+      if (cx < f.x || cx >= f.x + f.w) continue;
+      const col = Math.min(cols - 1, Math.floor(((cx - f.x) * cols) / f.w));
+      const i = (py * width + px) * 4;
+      const a = data[i + 3];
+      const o = (row * cols + col) * 5;
+      sum[o] += data[i] * a;
+      sum[o + 1] += data[i + 1] * a;
+      sum[o + 2] += data[i + 2] * a;
+      sum[o + 3] += a;
+      sum[o + 4] += 1;
+    }
+  }
+  const out = new Uint8ClampedArray(n * 4);
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const c = row * cols + col;
+      const o = c * 5;
+      if (sum[o + 4] > 0) {
+        const a = sum[o + 3];
+        if (a > 0) {
+          out[c * 4] = Math.round(sum[o] / a);
+          out[c * 4 + 1] = Math.round(sum[o + 1] / a);
+          out[c * 4 + 2] = Math.round(sum[o + 2] / a);
+        }
+        out[c * 4 + 3] = Math.round(a / sum[o + 4]);
+        continue;
+      }
+      const px = Math.min(
+        width - 1,
+        Math.max(0, Math.floor(f.x + ((col + 0.5) * f.w) / cols - ox)),
+      );
+      const py = Math.min(
+        height - 1,
+        Math.max(0, Math.floor(f.y + ((row + 0.5) * f.h) / rows - oy)),
+      );
+      if (width <= 0 || height <= 0) continue;
+      const i = (py * width + px) * 4;
+      out.set(data.subarray(i, i + 4), c * 4);
+    }
+  }
+  return out;
+}
+
 /** 馬賽克、毛玻璃的圖（原圖解析度；設定不變時沿用） */
 function redactCrop(
   cache: RenderCache,
@@ -416,10 +525,27 @@ function redactCrop(
   if (f.style === 'mosaic') {
     if (hit?.key === key) return { canvas: hit.canvas, pad: 0, smooth: false };
     const { cols, rows } = mosaicCells(f, baseScale);
+    /* 框蓋到的原圖像素讀出來，自己算每格的平均（drawImage 縮小會混進隔壁格與框外的顏色） */
+    const x0 = Math.max(0, Math.floor(f.x));
+    const y0 = Math.max(0, Math.floor(f.y));
+    const x1 = Math.min(img.width, Math.ceil(f.x + f.w));
+    const y1 = Math.min(img.height, Math.ceil(f.y + f.h));
+    const work = makeCanvas(Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+    const wg = ctxOf(work, true);
+    wg.drawImage(img, x0, y0, work.width, work.height, 0, 0, work.width, work.height);
+    const cells = blockAverage(
+      wg.getImageData(0, 0, work.width, work.height),
+      x0,
+      y0,
+      f,
+      cols,
+      rows,
+    );
     const c = makeCanvas(cols, rows);
     const g = ctxOf(c);
-    g.imageSmoothingQuality = 'high';
-    g.drawImage(img, f.x, f.y, f.w, f.h, 0, 0, cols, rows);
+    const out = g.createImageData(cols, rows);
+    out.data.set(cells);
+    g.putImageData(out, 0, 0);
     cache.crops.set(id, { key, canvas: c });
     return { canvas: c, pad: 0, smooth: false };
   }
@@ -479,8 +605,8 @@ export const EDGE_GOLD = { r: 255, g: 200, b: 90 } as const;
 export const EDGE_SCAN = { r: 150, g: 245, b: 255 } as const;
 
 /**
- * 解除、抹消時剝開／蓋上的那條邊：金光＝以邊為中心的橢圓金色光暈＋兩端淡出的亮線＋往露出那一側飄散的金色粒子；
- * 掃描線＝一條青白的亮線＋拖在露出那一側的淡青色。濃度＝光的強度 × 頭尾淡入淡出；q＝動作的進度（已套曲線）。
+ * 揭開、蓋上時移動中的那條邊：金光＝以邊為中心的橢圓金色光暈＋兩端淡出的亮線＋往露出那一側飄散的金色粒子；
+ * 掃描線＝一條青白的亮線＋拖在露出那一側的淡青色。濃度＝發光強度 × 頭尾淡入淡出；q＝動作的進度（已套曲線）。
  */
 export function drawEdge(g: Ctx, f: RedactFrame, r: Rect, q: number, u: number, k: number): void {
   if (f.mode === 'static' || f.edge === 'none') return;
@@ -492,7 +618,7 @@ export function drawEdge(g: Ctx, f: RedactFrame, r: Rect, q: number, u: number, 
   const c0 = horiz ? r.y : r.x;
   const start = horiz ? r.x : r.y;
   const pos = start + len * q;
-  /* 露出的那一側：解除＝起點那一側（已經剝開）、抹消＝終點那一側（還沒蓋上） */
+  /* 露出的那一側：揭開＝起點那一側（已經掀開）、蓋上＝終點那一側（還沒蓋上） */
   const side = f.mode === 'reveal' ? -1 : 1;
   const at = (along: number, across: number): [number, number] =>
     horiz ? [along, across] : [across, along];
@@ -798,16 +924,19 @@ function drawCard(
     g.restore();
     return;
   }
-  /* 只有陰影 */
+  /* 只有陰影（陰影只在卡片外面：框裡的截圖有透明處時看得到底下的畫面，不是黑底） */
   const R = 6 * u;
-  g.save();
-  g.shadowColor = `rgba(0, 0, 0, ${(0.62 * a).toFixed(3)})`;
-  g.shadowBlur = 40 * u * a * ds;
-  g.shadowOffsetY = 16 * u * a * ds;
-  g.fillStyle = '#000';
-  rectPath(C, R);
-  g.fill();
-  g.restore();
+  shadowOutside(
+    g,
+    C,
+    R,
+    {
+      color: `rgba(0, 0, 0, ${(0.62 * a).toFixed(3)})`,
+      blur: 40 * u * a * ds,
+      offsetY: 16 * u * a * ds,
+    },
+    layout.canvas,
+  );
   content(() => rectPath(C, R));
 }
 
@@ -963,6 +1092,8 @@ export function renderFrame(
       if (layer !== 'markers' && zooms.length && s.shot.spotlight > 0 && p > 0) {
         g.save();
         if (s.bg.mode === 'transparent') clipShot(g, s, shot);
+        /* 完成圖：只把已經畫上去的東西調暗（source-atop）——截圖的透明處維持透明，不會變成一層半透明的黑 */
+        if (layer === 'final') g.globalCompositeOperation = 'source-atop';
         g.fillStyle = `rgba(0, 0, 0, ${((s.shot.spotlight / 100) * popupAlpha(p)).toFixed(4)})`;
         g.fillRect(-W, -H, W * 3, H * 3);
         g.restore();

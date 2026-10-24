@@ -86,6 +86,7 @@ import {
   docNow,
   duplicate,
   edit,
+  editMerged,
   gesture,
   moveFrame,
   type PanelTab,
@@ -212,8 +213,8 @@ function CanvasSection() {
         label={S.canvas}
         hint={
           preset === 'original'
-            ? `${S.outputSize(size.width, size.height)}。${S.originalHint}`
-            : S.outputSize(size.width, size.height)
+            ? `${S.presetHints[preset]}${S.outputSize(size.width, size.height)}。${S.originalHint}`
+            : `${S.presetHints[preset]}${S.outputSize(size.width, size.height)}。`
         }
       >
         <Select<CanvasPreset>
@@ -267,7 +268,7 @@ function CanvasSection() {
           <ColorField
             value={bg.color}
             onChange={(c) =>
-              edit((d) => {
+              editMerged((d) => {
                 d.bg.color = c.slice(0, 7);
               })
             }
@@ -348,7 +349,7 @@ function CreditSection() {
           }}
         />
       </Field>
-      <Field label={S.creditPos}>
+      <Field label={S.creditPos} hint={S.creditPosHints[credit.pos]}>
         <Select<CreditPos>
           value={credit.pos}
           onValueChange={(v) =>
@@ -429,7 +430,7 @@ function ZoomControls({
           onCommit={commit}
         />
       </Field>
-      <Field label={S.zoomStyle}>
+      <Field label={S.zoomStyle} hint={S.zoomStyleHints[v.style]}>
         <Select<ZoomStyle>
           value={v.style}
           onValueChange={(style) => set({ style })}
@@ -456,7 +457,10 @@ type MarkerProps = FrameDefaults['marker'];
 function MarkerControls({ v, set }: { v: MarkerProps; set: Setter<MarkerProps> }) {
   return (
     <>
-      <Field label={S.markerStyle}>
+      <Field
+        label={S.markerStyle}
+        hint={isHighlight(v.style) ? S.markerStyleHints.highlight : S.markerStyleHints[v.style]}
+      >
         <Select<MarkerStyle>
           value={v.style}
           onValueChange={(style) => set({ style })}
@@ -478,7 +482,7 @@ function MarkerControls({ v, set }: { v: MarkerProps; set: Setter<MarkerProps> }
           ]}
         />
       </Field>
-      <Field label={S.dir}>
+      <Field label={S.dir} hint={S.dirHint}>
         <Segmented<Dir>
           value={v.dir}
           onValueChange={(dir) => set({ dir })}
@@ -510,14 +514,14 @@ function RedactControls({
           fullWidth
         />
       </Field>
-      <Field label={S.redactMode}>
+      <Field label={S.redactMode} hint={S.redactModeHints[v.mode]}>
         <Select<RedactMode>
           value={v.mode}
           onValueChange={(mode) => set({ mode })}
           options={REDACT_MODES.map((m) => ({ value: m, label: S.redactModes[m] }))}
         />
       </Field>
-      <Field label={S.dir} hidden={v.mode === 'static'}>
+      <Field label={S.dir} hint={S.dirHint} hidden={v.mode === 'static'}>
         <Segmented<Dir>
           value={v.dir}
           onValueChange={(dir) => set({ dir })}
@@ -631,21 +635,19 @@ function FrameEditor({ frame }: { frame: Frame }) {
   );
 }
 
-const short = (label: string) => label.replace(/（.*）$/, '');
-
 function frameSummary(f: Frame): string {
   if (f.kind === 'zoom') {
     const z = f as ZoomFrame;
-    return `×${z.scale.toFixed(2)}・${short(S.zoomStyles[z.style])}`;
+    return `×${z.scale.toFixed(2)}・${S.zoomStyles[z.style]}`;
   }
   if (f.kind === 'marker') {
     const m = f as MarkerFrame;
-    return `${S.markerStyles[m.style]}・${short(S.dirs[m.dir])}`;
+    return `${S.markerNames[m.style]}・${S.dirs[m.dir]}`;
   }
   const r = f as RedactFrame;
   return r.mode === 'static'
-    ? `${S.redactStyles[r.style]}・${short(S.redactModes[r.mode])}`
-    : `${S.redactStyles[r.style]}・${short(S.redactModes[r.mode])}・${short(S.dirs[r.dir])}`;
+    ? `${S.redactStyles[r.style]}・${S.redactModes[r.mode]}`
+    : `${S.redactStyles[r.style]}・${S.redactModes[r.mode]}・${S.dirs[r.dir]}`;
 }
 
 function FrameRow({
@@ -855,7 +857,7 @@ function CameraSection() {
     });
   return (
     <Section title={S.sectionCamera} persistKey="screenshot-fx:camera">
-      <Field label={S.cameraMode}>
+      <Field label={S.cameraMode} hint={S.cameraModeHint}>
         <Select<CameraMode>
           value={cam.mode}
           onValueChange={(v) =>
@@ -867,7 +869,7 @@ function CameraSection() {
         />
       </Field>
       <div className="flex flex-col gap-3" data-testid="camera-controls" hidden={!on}>
-        <Field label={S.cameraTarget}>
+        <Field label={S.cameraTarget} hint={S.cameraTargetHint}>
           <Select
             value={cands.some((f) => f.id === cam.target) ? cam.target : 'auto'}
             onValueChange={(v) =>
@@ -884,7 +886,7 @@ function CameraSection() {
             ]}
           />
         </Field>
-        <Field label={S.cameraFocus}>
+        <Field label={S.cameraFocus} hint={S.cameraFocusHint}>
           <Segmented<CameraFocus>
             value={cam.focus}
             onValueChange={(v) =>

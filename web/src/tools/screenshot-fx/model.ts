@@ -103,7 +103,7 @@ export type RedactStyle = 'black' | 'mosaic' | 'frost';
 export const REDACT_STYLES: readonly RedactStyle[] = ['black', 'mosaic', 'frost'];
 export type RedactMode = 'static' | 'reveal' | 'conceal';
 export const REDACT_MODES: readonly RedactMode[] = ['static', 'reveal', 'conceal'];
-/** 塗黑解除、抹消時的邊界演出：金光＋粒子、掃描線、無（第二批） */
+/** 塗黑揭開、蓋上時的邊界演出：金光（光點）、掃描線、不加（第二批） */
 export type EdgeFx = 'glow' | 'scan' | 'none';
 export const EDGE_FXS: readonly EdgeFx[] = ['glow', 'scan', 'none'];
 /** 運鏡（第二批）：沒有／從某個框放大開始，慢慢拉回全圖 */
@@ -178,9 +178,9 @@ export interface RedactFrame extends FrameBase {
   density: number;
   /** 馬賽克的粒大小（畫面 px，以截圖原本的大小計） */
   grain: number;
-  /** 解除、抹消時邊界的演出 */
+  /** 揭開、蓋上時邊界的演出 */
   edge: EdgeFx;
-  /** 光的強度（%） */
+  /** 發光強度（%） */
   glow: number;
 }
 export type Frame = ZoomFrame | MarkerFrame | RedactFrame;
@@ -611,7 +611,7 @@ export const intersects = (a: Rect, b: Rect): boolean =>
 export type PhaseId = 'intro' | 'popup' | 'action' | 'outro';
 export const PHASES: readonly PhaseId[] = ['intro', 'popup', 'action', 'outro'];
 
-/** 會動的框：螢光筆、解除與抹消的塗黑（靜止的塗黑一直蓋著，不佔動作時間） */
+/** 會動的框：螢光筆、揭開與蓋上的塗黑（靜止的塗黑一直蓋著，不佔動作時間） */
 export const isActionFrame = (f: Frame): boolean =>
   f.kind === 'marker' || (f.kind === 'redact' && f.mode !== 'static');
 
@@ -739,7 +739,7 @@ export const actionEase = (q: number): number => EASE.smooth(clamp01(q));
 
 /**
  * 塗黑蓋住的範圍（框的比例 [a, b]，沿方向；q＝已經走了多少，已套曲線）：
- * 靜止＝一直全蓋；解除＝從起點那一側剝開（[q, 1]）；抹消＝從起點那一側蓋上（[0, q]）。
+ * 靜止＝一直全蓋；揭開＝從起點那一側掀開（[q, 1]）；蓋上＝從起點那一側蓋上（[0, q]）。
  */
 export function coverSpan(mode: RedactMode, q: number): [number, number] {
   const v = clamp01(q);
@@ -881,6 +881,43 @@ export function editZoomFor(r: Rect, canvas: Size, fill: number): number {
   if (!(r.w > 0) || !(r.h > 0)) return 1;
   const z = fill * Math.min(canvas.width / r.w, canvas.height / r.h);
   return clamp(Math.round(z * 100) / 100, 1, EDIT_ZOOM_MAX);
+}
+
+/* ---------- 編輯層的疊放與點選（第一批驗證 R7） ---------- */
+
+/**
+ * 輔助線的序號圓標直徑（螢幕 px）：舞台顯示寬度的 1/40，夾在 12～20 px——窄螢幕（舞台縮得很小）時跟著縮小，
+ * 圓標比較不會互相蓋住（第一批驗證 R8）
+ */
+export const badgeDiameter = (displayWidth: number): number =>
+  Math.min(20, Math.max(12, displayWidth / 40));
+
+/**
+ * 預覽上的疊放順序（下 → 上），也是點選的命中順序：放大框（清單順序）在下，螢光筆與塗黑（清單順序）在上——
+ * 跟放大框重疊的螢光筆、塗黑畫在彈出的卡片上面（3.5），看起來就在放大框上面；
+ * 選取中的框放最上面（控點不被別的框蓋住）。
+ */
+export function stackOrder(frames: readonly Frame[], selected: string | null = null): Frame[] {
+  return [
+    ...frames.filter((f) => f.kind === 'zoom'),
+    ...frames.filter((f) => f.kind !== 'zoom'),
+  ].sort((a, b) => Number(a.id === selected) - Number(b.id === selected));
+}
+
+/** 點一下選到的框：疊放順序最上面、範圍（四邊往外 pad，原圖 px）含這一點的；都沒有時 null */
+export function frameAt(
+  frames: readonly Frame[],
+  selected: string | null,
+  p: { x: number; y: number },
+  pad = 0,
+): Frame | null {
+  const order = stackOrder(frames, selected);
+  for (let i = order.length - 1; i >= 0; i--) {
+    const f = order[i];
+    if (p.x >= f.x - pad && p.x <= f.x + f.w + pad && p.y >= f.y - pad && p.y <= f.y + f.h + pad)
+      return f;
+  }
+  return null;
 }
 
 /* ---------- 匯出 ---------- */

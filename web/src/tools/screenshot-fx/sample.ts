@@ -109,7 +109,7 @@ export async function drawSample(): Promise<SampleImage> {
   g.fillText('調查紀錄 No.07', left, 132);
   g.font = font(400, 17);
   g.fillStyle = '#5b5f68';
-  g.fillText('日期：2026 年 10 月 19 日（週一）　天氣：霧', left, 174);
+  g.fillText('日期：1987 年 3 月 4 日（週三）　天氣：霧', left, 174);
   g.fillText('地點：霧澤町　舊診所二樓', left, 202);
   const authorLabel = '記錄：調查員　';
   const authorName = '林澄';
@@ -185,7 +185,7 @@ export async function drawSample(): Promise<SampleImage> {
   };
 }
 
-/** 示範演出：放大登記簿那兩行 → 依序剝開名字、畫螢光筆、在紙條下畫紅線；記錄者的名字一直打馬賽克 */
+/** 示範演出：放大登記簿那兩行 → 依序揭開名字、畫螢光筆、在紙條下畫紅線；記錄者的名字一直打馬賽克 */
 export function demoFrames(a: SampleAnchors): Frame[] {
   const d = initialDefaults();
   const ids: string[] = [];
