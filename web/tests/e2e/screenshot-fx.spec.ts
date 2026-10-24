@@ -1144,16 +1144,16 @@ test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、�
   const vp = page.getByRole('region', { name: '預覽畫面' });
   const scroll = () => vp.evaluate((el) => [el.scrollLeft, el.scrollTop]);
   /* 倍率選單、＋／− */
-  await bar.getByRole('combobox', { name: '編輯區的倍率' }).click();
+  await bar.getByRole('combobox', { name: '倍率', exact: true }).click();
   await page.getByRole('option', { name: '300%' }).click();
   await expect.poll(async () => (await live()).viewZoom).toBe(3);
   await expect(vp).toHaveAttribute('data-zoom', '300');
-  await bar.getByRole('button', { name: '放大編輯區的倍率' }).click();
+  await bar.getByRole('button', { name: '放大', exact: true }).click();
   await expect.poll(async () => (await live()).viewZoom).toBe(4);
-  await bar.getByRole('button', { name: '縮小編輯區' }).click();
+  await bar.getByRole('button', { name: '縮小', exact: true }).click();
   await expect.poll(async () => (await live()).viewZoom).toBe(3);
   /* 手形：拖曳移動顯示位置（不會畫框） */
-  await bar.getByRole('button', { name: /^手形/ }).click();
+  await bar.getByRole('button', { name: '手形', exact: true }).click();
   expect((await live()).pointer).toBe('hand');
   const s0 = await scroll();
   const box = (await vp.boundingBox()) as { x: number; y: number; width: number; height: number };
@@ -1164,7 +1164,7 @@ test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、�
   const s1 = await scroll();
   expect(s1[0]).toBeGreaterThan(s0[0] + 100);
   expect((await state(page)).frames).toHaveLength(1);
-  await bar.getByRole('button', { name: /^手形/ }).click();
+  await bar.getByRole('button', { name: '手形', exact: true }).click();
   expect((await live()).pointer).toBe('edit');
   /* 中鍵：隨時可以移動 */
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -1174,10 +1174,10 @@ test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、�
   expect((await scroll())[0]).toBeLessThan(s1[0] - 50);
   expect((await state(page)).frames).toHaveLength(1);
   /* 全圖 */
-  await bar.getByRole('button', { name: /^看整張圖/ }).click();
+  await bar.getByRole('button', { name: '全圖', exact: true }).click();
   await expect.poll(async () => (await live()).viewZoom).toBe(1);
   /* 框選放大：拖曳框出一塊（不會畫框），放大後回到一般工具 */
-  await bar.getByRole('button', { name: /^圈一塊放大/ }).click();
+  await bar.getByRole('button', { name: '框選放大', exact: true }).click();
   const a = await screenOf(page, 100, 100);
   const b = await screenOf(page, 300, 200);
   await page.mouse.move(a.x, a.y);
@@ -1188,9 +1188,9 @@ test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、�
   expect((await live()).pointer).toBe('edit');
   expect((await state(page)).frames).toHaveLength(1);
   /* 到選取的框：放大並把框放在編輯區中央 */
-  await bar.getByRole('button', { name: /^看整張圖/ }).click();
+  await bar.getByRole('button', { name: '全圖', exact: true }).click();
   await call(page, 'select', 'm');
-  await bar.getByRole('button', { name: /^湊近看選取的框/ }).click();
+  await bar.getByRole('button', { name: '到選取的框', exact: true }).click();
   await expect.poll(async () => (await live()).viewZoom).toBeGreaterThan(2);
   const item = page.locator('[data-layout-item="m"]');
   await expect
@@ -1208,7 +1208,7 @@ test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、�
   await page.keyboard.up('Control');
   await expect.poll(async () => (await live()).viewZoom).toBeLessThan(before);
   /* 放大編輯區：佔滿視窗；Esc 回來 */
-  await bar.getByRole('button', { name: /^編輯區蓋滿視窗/ }).click();
+  await bar.getByRole('button', { name: '放大編輯區', exact: true }).click();
   const area = page.getByTestId('edit-area');
   await expect(area).toHaveAttribute('data-expanded', 'true');
   const ab = (await area.boundingBox()) as { x: number; y: number; width: number; height: number };
@@ -1371,6 +1371,108 @@ test('點選與 Shift＋點選一致、表單控制項上的 Delete、播放中�
   await expect.poll(async () => (await frames(page)).length).toBe(3);
   await page.keyboard.press('Control+z');
   await expect.poll(async () => (await frames(page)).length).toBe(4);
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 第二批驗證後的修正（規格 §7.2） ---------- */
+
+/** 放大編輯區：畫框的工具列最上層是它自己（沒有被頁首蓋住），而且點得到（換工具） */
+async function expectToolbarOnTop(page: Page) {
+  const bar = page.getByRole('radiogroup', { name: '拖曳畫出' });
+  for (const name of ['螢光筆', '放大框'] as const) {
+    const radio = bar.getByRole('radio', { name });
+    const onTop = await radio.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!hit && el.contains(hit);
+    });
+    expect(onTop, `「${name}」的中心不應被別的元素蓋住`).toBe(true);
+    await radio.click();
+    await expect
+      .poll(async () => (await call<Record<string, unknown>>(page, 'prefs')).tool)
+      .toBe(name === '螢光筆' ? 'marker' : 'zoom');
+  }
+  const guides = page.getByRole('switch', { name: '編輯輔助線' });
+  expect(
+    await guides.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!hit && el.contains(hit);
+    }),
+  ).toBe(true);
+}
+
+for (const width of [1280, 1024, 390]) {
+  test(`放大編輯區蓋在頁首上面、工具列點得到（${width} 寬；R12）`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
+    const errors = await open(page);
+    await page.getByRole('button', { name: '示範演出' }).first().click();
+    await expect.poll(async () => (await state(page))?.frames?.length).toBe(5);
+    /* 先捲一點頁面（寬畫面時預覽欄是 sticky） */
+    await page.mouse.wheel(0, 300);
+    const bar = page.getByTestId('view-bar');
+    await bar.getByRole('button', { name: '放大編輯區', exact: true }).click();
+    const area = page.getByTestId('edit-area');
+    await expect(area).toHaveAttribute('data-expanded', 'true');
+    const ab = (await area.boundingBox()) as {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+    expect([Math.round(ab.x), Math.round(ab.y)]).toEqual([0, 0]);
+    await expectToolbarOnTop(page);
+    /* 編輯區工具列的按鈕也在最上層 */
+    expect(
+      await bar.getByRole('button', { name: '放大編輯區', exact: true }).evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return !!hit && el.contains(hit);
+      }),
+    ).toBe(true);
+    /* 收起來：預覽欄的樣式還原（寬畫面時回到 sticky） */
+    await page.locator('body').press('Escape');
+    await expect(area).not.toHaveAttribute('data-expanded', 'true');
+    const pos = await page
+      .locator('#tool-preview')
+      .evaluate((el) => [getComputedStyle(el).position, (el as HTMLElement).style.position]);
+    expect(pos).toEqual([width >= 1024 ? 'sticky' : 'static', '']);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('窄版的「從頭確認運鏡」把預覽捲進畫面；連番 PNG 不顯示未壓縮的資料量（R13、R16）', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const errors = await open(page);
+  await page.getByRole('button', { name: '示範演出' }).first().click();
+  await expect.poll(async () => (await state(page))?.frames?.length).toBe(5);
+  await tab(page, '時間軸');
+  await page.getByRole('combobox', { name: '鏡頭的動作' }).click();
+  await page.getByRole('option', { name: '由近拉遠', exact: true }).click();
+  const run = page.getByRole('button', { name: '從頭確認運鏡' });
+  await run.scrollIntoViewIfNeeded();
+  const stage = page.getByRole('region', { name: '預覽畫面' });
+  expect(((await stage.boundingBox()) as { y: number }).y).toBeLessThan(0);
+  await run.click();
+  const banner = page.getByTestId('camera-preview');
+  await expect(banner).toBeVisible();
+  await expect
+    .poll(async () => {
+      const b = (await banner.boundingBox()) as { y: number; height: number };
+      return b.y >= 0 && b.y + b.height <= 844;
+    })
+    .toBe(true);
+  await expect(stage).toBeInViewport();
+  /* R16：連番 PNG 的 ZIP 沒有「未壓縮」那一行；APNG 照舊有 */
+  await page.locator('body').press('Escape');
+  await chooseFormat(page, '連番 PNG ZIP');
+  await expect(exportPanel(page).getByTestId('export-estimate')).toHaveCount(0);
+  await expect(exportPanel(page)).not.toContainText('未壓縮');
+  await chooseFormat(page, 'APNG');
+  await expect(exportPanel(page).getByTestId('export-estimate')).toContainText('未壓縮');
   expect(errors).toEqual([]);
 });
 

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import {
   type Ref,
+  type RefObject,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -48,9 +49,11 @@ import {
   Stage,
   type StageBackground,
   Toggle,
+  Tooltip,
   Transport,
   usePlayback,
   useToast,
+  withShortcut,
 } from '@/ui';
 import { Editor } from './Editor';
 import { ApngEstimate, useVideoMode, videoFormat } from './ExportExtras';
@@ -116,7 +119,8 @@ const KIND_ICON: Record<FrameKind, React.ReactNode> = {
   redact: <SquareDashed />,
 };
 
-const STAGE_BG_LABEL: Record<StageBg, string> = { checker: '棋盤格', dark: '黑', light: '白' };
+/** 預覽背景的名稱（同共用舞台：透明的是棋盤格；規格 F44、7.1 R3） */
+const STAGE_BG_LABEL: Record<StageBg, string> = { checker: '透明', dark: '黑', light: '白' };
 
 /* ---------- 圖片 ---------- */
 
@@ -211,7 +215,11 @@ function ViewBar({
         size="sm"
         value={stageBg}
         onValueChange={(v) => setPrefs({ stageBg: v })}
-        options={STAGE_BGS.map((b) => ({ value: b, label: STAGE_BG_LABEL[b] }))}
+        options={STAGE_BGS.map((b) => ({
+          value: b,
+          label: STAGE_BG_LABEL[b],
+          ariaLabel: b === 'checker' ? '棋盤格（透明）' : undefined,
+        }))}
       />
       <div className="ml-auto flex flex-wrap items-center gap-1">
         <IconButton
@@ -236,40 +244,77 @@ function ViewBar({
           disabled={z >= EDIT_ZOOM_MAX - 1e-3}
           onClick={() => onZoom(stepEditZoom(z, 1))}
         />
-        <IconButton label={S.viewFitHint} icon={<Maximize />} size="sm" onClick={onFit} />
+        <IconButton label={S.viewFit} icon={<Maximize />} size="sm" onClick={onFit} />
         <IconButton
-          label={S.viewSelectedHint}
+          label={S.viewSelected}
           icon={<LocateFixed />}
           size="sm"
           disabled={!selected || camera}
           onClick={onSelected}
         />
+        <Tooltip
+          content={pointer === 'region' ? withShortcut(S.viewRegion, 'escape') : S.viewRegion}
+        >
+          <IconButton
+            label={S.viewRegion}
+            noTooltip
+            icon={<ScanSearch />}
+            size="sm"
+            pressed={pointer === 'region'}
+            disabled={camera}
+            onClick={() => useLive.setState({ pointer: pointer === 'region' ? 'edit' : 'region' })}
+          />
+        </Tooltip>
         <IconButton
-          label={S.viewRegionHint}
-          icon={<ScanSearch />}
-          size="sm"
-          pressed={pointer === 'region'}
-          disabled={camera}
-          onClick={() => useLive.setState({ pointer: pointer === 'region' ? 'edit' : 'region' })}
-        />
-        <IconButton
-          label={S.viewHandHint}
+          label={S.viewHand}
           icon={<Hand />}
           size="sm"
           pressed={pointer === 'hand'}
           disabled={camera}
           onClick={() => useLive.setState({ pointer: pointer === 'hand' ? 'edit' : 'hand' })}
         />
-        <IconButton
-          label={expanded ? S.viewCollapse : S.viewExpandHint}
-          icon={expanded ? <Minimize2 /> : <Maximize2 />}
-          size="sm"
-          pressed={expanded}
-          onClick={() => useLive.setState({ expanded: !expanded })}
-        />
+        <Tooltip content={expanded ? withShortcut(S.viewExpand, 'escape') : S.viewExpand}>
+          <IconButton
+            label={S.viewExpand}
+            noTooltip
+            icon={expanded ? <Minimize2 /> : <Maximize2 />}
+            size="sm"
+            pressed={expanded}
+            onClick={() => useLive.setState({ expanded: !expanded })}
+          />
+        </Tooltip>
       </div>
     </div>
   );
+}
+
+/**
+ * 放大編輯區（fixed、蓋滿視窗）要蓋在頁首上面（第二批驗證 R12）：寬畫面時共用外框的預覽欄是 sticky，自己形成堆疊內容，
+ * 裡面的 z-50 超不過頁首的 z-30。開著的時候把祖先裡形成堆疊內容的定位（sticky、有 z-index 的定位）暫時改掉
+ * （元素自己的 inline style），收起來或卸載時還原——只在這個工具放大編輯區的時候，不動共用外框的規則與 DOM 結構
+ * （不搬到 portal：搬動會讓舞台重新掛上、捲動位置歸零）。
+ */
+function useLiftOverAncestors(ref: RefObject<HTMLElement | null>, active: boolean) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!active || !el) return;
+    const undo: (() => void)[] = [];
+    const set = (a: HTMLElement, prop: 'position' | 'zIndex', v: string) => {
+      const prev = a.style[prop];
+      a.style[prop] = v;
+      undo.push(() => {
+        a.style[prop] = prev;
+      });
+    };
+    for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      if (cs.position === 'sticky') set(a, 'position', 'static');
+      else if (cs.position !== 'static' && cs.zIndex !== 'auto') set(a, 'zIndex', 'auto');
+    }
+    return () => {
+      for (const f of undo.reverse()) f();
+    };
+  }, [ref, active]);
 }
 
 /** 舞台裡畫面那一層（捲動的內容）：倍率與位置換算 */
@@ -414,8 +459,9 @@ function ExportArea({
           : undefined
       }
       resetKey={s}
+      /* 連番 PNG 的 ZIP 不顯示「未壓縮 N GB」（對 ZIP 沒有意義；張數寫在格式說明裡；第二批驗證 R16） */
       estimate={
-        animated && image
+        animated && fmt !== 'sequence' && image
           ? {
               width: layout.canvas.width,
               height: layout.canvas.height,
@@ -496,12 +542,24 @@ export function Preview({
     onTimeChange(seek.t);
   }, [seek, pause, onTimeChange]);
 
-  /* 運鏡確認：從頭播放（每按一次）；運鏡關掉（或沒有對象）時回到編輯 */
+  /*
+   * 運鏡確認：從頭播放（每按一次）；預覽不在畫面上半部時（窄版：預覽在設定欄上面很遠）把它捲進畫面，
+   * 減少動態時不用平滑捲動（第二批驗證 R13）。運鏡關掉（或沒有對象）時回到編輯。
+   */
   const restartRef = useRef(onRestart);
   restartRef.current = onRestart;
+  const editArea = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (cameraRun > 0) restartRef.current();
+    if (cameraRun <= 0) return;
+    restartRef.current();
+    const el = editArea.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    if (top >= 0 && top < window.innerHeight / 2) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
   }, [cameraRun]);
+  useLiftOverAncestors(editArea, expanded);
   useEffect(() => {
     if (cameraPreview && !tl.camera) useLive.setState({ cameraPreview: false });
   }, [cameraPreview, tl.camera]);
@@ -610,6 +668,7 @@ export function Preview({
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <div
+        ref={editArea}
         className={cn(
           'flex min-w-0 flex-col',
           expanded ? 'fixed inset-0 z-50 gap-2 overflow-auto bg-bg p-3' : 'gap-3',
