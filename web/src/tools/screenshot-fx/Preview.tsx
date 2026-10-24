@@ -1,21 +1,31 @@
 /**
- * 預覽欄（規格 1.3、1.6、1.7）：畫框的工具列、舞台（畫面＋編輯層：輔助線、拖曳畫框、共用的 LayoutEditor）、
- * 播放列（分段色條、循環）、「完成的樣子」與複製圖片、共用的匯出區。
+ * 預覽欄（規格 1.3、1.5、1.6、1.8）：畫框的工具列、編輯區的工具列（預覽背景、倍率、全圖、到選取的框、框選放大、手形、
+ * 放大編輯區）、舞台（畫面＋編輯層）、播放列（分段色條、循環）、「完成的樣子」與複製圖片、共用的匯出區。
  *
- * 預覽平常停在結尾（完成的樣子）；按播放（空白鍵）從頭播。編輯層的座標是畫面 px，框存的是原圖 px（換算見 model）。
+ * 預覽平常停在結尾（完成的樣子）；按播放（空白鍵）從頭播。運鏡確認中（第二批）預覽套用運鏡、不能編輯，Esc 回到編輯。
+ * 編輯區的倍率不影響輸出：倍率改了之後把原本看到的中心（或指定的點）捲回中央。
  */
 import {
+  Clapperboard,
   Copy,
+  Hand,
   Highlighter,
   ImagePlus,
+  LocateFixed,
+  Maximize,
+  Maximize2,
+  Minimize2,
+  Minus,
+  Plus,
+  ScanSearch,
   SkipForward,
   Sparkles,
   SquareDashed,
   ZoomIn,
 } from 'lucide-react';
 import {
-  type PointerEvent,
   type Ref,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -25,58 +35,66 @@ import {
 } from 'react';
 import { useAssetImage } from '@/core/assets';
 import { copyImage } from '@/core/files';
-import type { Box } from '@/core/layout';
 import {
   Button,
+  cn,
   ExportPanel,
   type ExportPanelHandle,
   type ExportSettings,
-  LayoutEditor,
-  type LayoutItem,
+  IconButton,
   Notice,
   Segmented,
+  Select,
   Stage,
   type StageBackground,
   Toggle,
   Transport,
   usePlayback,
-  useStageScale,
   useToast,
 } from '@/ui';
+import { Editor } from './Editor';
 import { ApngEstimate, useVideoMode, videoFormat } from './ExportExtras';
-import { ensureCreditFont, exportApng, exportPng, exportVideo, finalPng } from './exporter';
+import {
+  ensureCreditFont,
+  exportApng,
+  exportLayers,
+  exportPng,
+  exportSequence,
+  exportSteps,
+  exportVideo,
+  finalPng,
+} from './exporter';
 import {
   apngTimes,
-  buildTimeline,
+  cameraView,
   computeLayout,
+  EDIT_ZOOM_MAX,
+  EDIT_ZOOMS,
+  editZoomFor,
   type Frame,
   type FrameKind,
   type FxState,
   kindIndex,
   type Layout,
   LIMITS,
-  type Placement,
   type Rect,
-  rectFromDrag,
-  type Size,
+  SEQUENCE_MAX_FRAMES,
+  stepEditZoom,
+  stepFrames,
+  type Timeline,
+  timelineOf,
   timelineSegments,
   toCanvasRect,
-  toSourcePoint,
-  toSourceRect,
   VIDEO_FPS,
 } from './model';
 import { type ImageSource, RenderCache, renderFrame } from './render';
 import {
   APNG_COLORS,
-  addFrame,
   assets,
   docNow,
   dropMissingImage,
-  removeFrame,
   STAGE_BGS,
   type StageBg,
-  select,
-  setFrameRect,
   setPrefs,
   useDoc,
   useLive,
@@ -98,12 +116,7 @@ const KIND_ICON: Record<FrameKind, React.ReactNode> = {
   redact: <SquareDashed />,
 };
 
-/** 輔助線的顏色（只在預覽） */
-const GUIDE_COLOR: Record<FrameKind, string> = {
-  zoom: '#38bdf8',
-  marker: '#facc15',
-  redact: '#fb7185',
-};
+const STAGE_BG_LABEL: Record<StageBg, string> = { checker: '棋盤格', dark: '黑', light: '白' };
 
 /* ---------- 圖片 ---------- */
 
@@ -140,6 +153,7 @@ function ToolBar() {
   const tool = usePrefs((p) => p.data.tool);
   const guides = usePrefs((p) => p.data.guides);
   const hasImage = useDoc((s) => !!s.data.image);
+  const camera = useLive((l) => l.cameraPreview);
   return (
     <div className="flex flex-col gap-1.5" data-testid="tool-bar">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -152,7 +166,7 @@ function ToolBar() {
             label: S.kinds[k],
             icon: KIND_ICON[k],
           }))}
-          disabled={!hasImage}
+          disabled={!hasImage || camera}
         />
         <Toggle
           label={S.guides}
@@ -167,258 +181,101 @@ function ToolBar() {
   );
 }
 
-/* ---------- 輔助線（框的虛線與編號；不會匯出） ---------- */
+/* ---------- 編輯區的工具列（第二批；不影響輸出） ---------- */
 
-function Guides({
-  frames,
-  shot,
-  W,
-  H,
+function ViewBar({
+  onZoom,
+  onFit,
+  onSelected,
 }: {
-  frames: readonly Frame[];
-  shot: Placement;
-  W: number;
-  H: number;
+  onZoom: (z: number) => void;
+  onFit: () => void;
+  onSelected: () => void;
 }) {
-  const k = 1 / useStageScale();
-  return (
-    <svg
-      aria-hidden
-      className="pointer-events-none absolute inset-0 size-full"
-      viewBox={`0 0 ${W} ${H}`}
-      data-testid="guides"
-    >
-      {frames.map((f, i) => {
-        const r = toCanvasRect(shot, f);
-        const col = GUIDE_COLOR[f.kind];
-        const rad = 10 * k;
-        const bx = Math.max(rad, r.x + rad * 0.2);
-        const by = Math.max(rad, r.y - rad * 1.2 < 0 ? r.y + rad : r.y - rad * 0.2);
-        return (
-          <g key={f.id} data-guide-id={f.id}>
-            <rect
-              x={r.x}
-              y={r.y}
-              width={r.w}
-              height={r.h}
-              fill="none"
-              stroke="rgba(0,0,0,0.55)"
-              strokeWidth={3.5 * k}
-            />
-            <rect
-              x={r.x}
-              y={r.y}
-              width={r.w}
-              height={r.h}
-              fill="none"
-              stroke={col}
-              strokeWidth={1.8 * k}
-              strokeDasharray={`${7 * k} ${4 * k}`}
-            />
-            <circle cx={bx} cy={by} r={rad} fill={col} stroke="#000" strokeWidth={1 * k} />
-            <text
-              x={bx}
-              y={by}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize={11 * k}
-              fontWeight={700}
-              fill="#000"
-            >
-              {i + 1}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
-/* ---------- 編輯層 ---------- */
-
-interface Draft {
-  pointer: number;
-  a: { x: number; y: number };
-  b: { x: number; y: number };
-  shift: boolean;
-}
-
-function Editor({
-  layout,
-  image,
-  frames,
-  onBeginEdit,
-  onTogglePlay,
-}: {
-  layout: Layout;
-  image: Size;
-  frames: readonly Frame[];
-  onBeginEdit: () => void;
-  onTogglePlay: () => void;
-}) {
+  const stageBg = usePrefs((p) => p.data.stageBg);
+  const z = useLive((l) => l.viewZoom);
+  const pointer = useLive((l) => l.pointer);
+  const expanded = useLive((l) => l.expanded);
   const selected = useLive((l) => l.selected);
-  const guides = usePrefs((p) => p.data.guides);
-  const { canvas, shot } = layout;
-  const W = canvas.width;
-  const H = canvas.height;
-  const root = useRef<HTMLDivElement>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const k = 1 / useStageScale();
-
-  const point = (e: PointerEvent) => {
-    const r = root.current?.getBoundingClientRect();
-    const x = r?.width ? ((e.clientX - r.left) / r.width) * W : 0;
-    const y = r?.height ? ((e.clientY - r.top) / r.height) * H : 0;
-    return toSourcePoint(shot, image, x, y);
-  };
-  const beginDraw = (e: PointerEvent<HTMLDivElement>, shift: boolean) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    onBeginEdit();
-    const p = point(e);
-    setDraft({ pointer: e.pointerId, a: p, b: p, shift });
-  };
-  const endDraw = (e: PointerEvent<HTMLDivElement>) => {
-    if (!draft || draft.pointer !== e.pointerId) return;
-    const b = point(e);
-    setDraft(null);
-    const rect = rectFromDrag(draft.a, b, image);
-    if (rect) {
-      if (docNow().frames.length >= LIMITS.frames) return;
-      addFrame(rect);
-      return;
-    }
-    /* 沒有拖動＝點一下：Shift 時選取那裡最上面的框，不然取消選取 */
-    if (draft.shift) {
-      const hit = [...frames]
-        .reverse()
-        .find((f) => b.x >= f.x && b.x <= f.x + f.w && b.y >= f.y && b.y <= f.y + f.h);
-      select(hit?.id ?? null, !!hit);
-    } else select(null);
-  };
-
-  /* 放大框在下、其他在上；選取中的放最後（控點不被蓋住） */
-  const ordered = [
-    ...frames.filter((f) => f.kind === 'zoom'),
-    ...frames.filter((f) => f.kind !== 'zoom'),
-  ].sort((a, b) => Number(a.id === selected) - Number(b.id === selected));
-  const items: LayoutItem[] = ordered.map((f) => {
-    const r = toCanvasRect(shot, f);
-    const n = frames.indexOf(f) + 1;
-    return {
-      id: f.id,
-      label: S.frameAria(n, S.frameName(f.kind, kindIndex(frames, f.id))),
-      box: { x: r.x, y: r.y, width: r.w, height: r.h },
-      resizable: true,
-      handles: ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'],
-      limits: {
-        minWidth: LIMITS.minSize * shot.f,
-        minHeight: LIMITS.minSize * shot.f,
-        maxWidth: shot.w,
-        maxHeight: shot.h,
-      },
-      clamp: (b: Box, op: 'move' | 'resize') => {
-        if (op === 'move')
-          return {
-            ...b,
-            x: Math.min(Math.max(b.x, shot.x), shot.x + shot.w - b.width),
-            y: Math.min(Math.max(b.y, shot.y), shot.y + shot.h - b.height),
-          };
-        const x0 = Math.max(b.x, shot.x);
-        const y0 = Math.max(b.y, shot.y);
-        const x1 = Math.min(b.x + b.width, shot.x + shot.w);
-        const y1 = Math.min(b.y + b.height, shot.y + shot.h);
-        return { x: x0, y: y0, width: Math.max(1, x1 - x0), height: Math.max(1, y1 - y0) };
-      },
-    };
-  });
-
-  const toSrc = (b: Box): Rect => toSourceRect(shot, { x: b.x, y: b.y, w: b.width, h: b.height });
-  const onChange = (id: string, box: Box, change: { phase: string }) => {
-    if (change.phase === 'start') {
-      onBeginEdit();
-      useDoc.beginGesture();
-      return;
-    }
-    if (change.phase === 'end') {
-      useDoc.endGesture();
-      return;
-    }
-    setFrameRect(id, toSrc(box));
-  };
-
-  const draftRect =
-    draft && (draft.a.x !== draft.b.x || draft.a.y !== draft.b.y)
-      ? toCanvasRect(shot, {
-          x: Math.min(draft.a.x, draft.b.x),
-          y: Math.min(draft.a.y, draft.b.y),
-          w: Math.abs(draft.b.x - draft.a.x),
-          h: Math.abs(draft.b.y - draft.a.y),
-        })
-      : null;
-
+  const camera = useLive((l) => l.cameraPreview);
+  const zoomOptions = [...new Set([...EDIT_ZOOMS, z])].sort((a, b) => a - b);
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: 拖曳畫框（鍵盤用清單與方向鍵）；只接住框的按鈕冒上來的空白鍵
     <div
-      ref={root}
-      className="absolute inset-0 touch-none"
-      style={{ cursor: 'crosshair' }}
-      data-testid="editor"
-      onPointerDownCapture={(e) => {
-        /* Shift＋拖曳：在已有的框上也畫新框（不讓框的拖曳層收到） */
-        if (e.shiftKey && e.button === 0) {
-          e.stopPropagation();
-          beginDraw(e, true);
-        }
-      }}
-      onPointerDown={(e) => beginDraw(e, false)}
-      onPointerMove={(e) => {
-        if (draft && draft.pointer === e.pointerId) setDraft({ ...draft, b: point(e) });
-      }}
-      onPointerUp={endDraw}
-      onPointerCancel={() => setDraft(null)}
-      onKeyDown={(e) => {
-        /* 點了框之後焦點在框的按鈕上：空白鍵照樣播放／暫停（共用的快捷鍵把按鈕上的空白鍵讓給按鈕） */
-        if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          e.preventDefault();
-          onTogglePlay();
-        }
-      }}
+      role="toolbar"
+      aria-label={S.viewBar}
+      className="flex flex-wrap items-center gap-1.5"
+      data-testid="view-bar"
     >
-      {guides ? <Guides frames={frames} shot={shot} W={W} H={H} /> : null}
-      {draftRect ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute"
-          data-testid="draw-draft"
-          style={{
-            left: draftRect.x,
-            top: draftRect.y,
-            width: draftRect.w,
-            height: draftRect.h,
-            outline: `${2 * k}px dashed var(--accent)`,
-            background: 'rgba(255,255,255,0.12)',
-          }}
-        />
-      ) : null}
-      <LayoutEditor
-        width={W}
-        height={H}
-        items={items}
-        selectedId={selected}
-        onSelect={(id) => select(id, !!id)}
-        onChange={onChange}
-        nudgeStep={shot.f}
-        nudgeShiftStep={shot.f * 10}
-        hitPadding={4}
-        guides={false}
-        onDelete={removeFrame}
-        onEscape={() => select(null)}
-        aria-label={S.editorLabel}
+      <Segmented<StageBg>
+        aria-label="預覽背景"
+        size="sm"
+        value={stageBg}
+        onValueChange={(v) => setPrefs({ stageBg: v })}
+        options={STAGE_BGS.map((b) => ({ value: b, label: STAGE_BG_LABEL[b] }))}
       />
+      <div className="ml-auto flex flex-wrap items-center gap-1">
+        <IconButton
+          label={S.viewZoomOut}
+          icon={<Minus />}
+          size="sm"
+          disabled={z <= 1 + 1e-3}
+          onClick={() => onZoom(stepEditZoom(z, -1))}
+        />
+        <Select
+          size="sm"
+          aria-label={S.viewZoom}
+          value={String(z)}
+          onValueChange={(v) => onZoom(Number(v))}
+          options={zoomOptions.map((v) => ({ value: String(v), label: S.viewZoomOption(v) }))}
+          className="w-24"
+        />
+        <IconButton
+          label={S.viewZoomIn}
+          icon={<Plus />}
+          size="sm"
+          disabled={z >= EDIT_ZOOM_MAX - 1e-3}
+          onClick={() => onZoom(stepEditZoom(z, 1))}
+        />
+        <IconButton label={S.viewFitHint} icon={<Maximize />} size="sm" onClick={onFit} />
+        <IconButton
+          label={S.viewSelectedHint}
+          icon={<LocateFixed />}
+          size="sm"
+          disabled={!selected || camera}
+          onClick={onSelected}
+        />
+        <IconButton
+          label={S.viewRegionHint}
+          icon={<ScanSearch />}
+          size="sm"
+          pressed={pointer === 'region'}
+          disabled={camera}
+          onClick={() => useLive.setState({ pointer: pointer === 'region' ? 'edit' : 'region' })}
+        />
+        <IconButton
+          label={S.viewHandHint}
+          icon={<Hand />}
+          size="sm"
+          pressed={pointer === 'hand'}
+          disabled={camera}
+          onClick={() => useLive.setState({ pointer: pointer === 'hand' ? 'edit' : 'hand' })}
+        />
+        <IconButton
+          label={expanded ? S.viewCollapse : S.viewExpandHint}
+          icon={expanded ? <Minimize2 /> : <Maximize2 />}
+          size="sm"
+          pressed={expanded}
+          onClick={() => useLive.setState({ expanded: !expanded })}
+        />
+      </div>
     </div>
   );
+}
+
+/** 舞台裡畫面那一層（捲動的內容）：倍率與位置換算 */
+function contentBox(vp: HTMLElement): { el: HTMLElement; rect: DOMRect } | null {
+  const el = vp.firstElementChild as HTMLElement | null;
+  return el ? { el, rect: el.getBoundingClientRect() } : null;
 }
 
 /* ---------- 畫面 ---------- */
@@ -427,26 +284,38 @@ function Painter({
   s,
   image,
   time,
-  W,
-  H,
+  layout,
+  tl,
+  camera,
 }: {
   s: FxState;
   image: ImageSource | null;
   time: number;
-  W: number;
-  H: number;
+  layout: Layout;
+  tl: Timeline;
+  camera: boolean;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const cache = useMemo(() => new RenderCache(), []);
   const fontTick = useCreditFontTick(s);
+  const { width: W, height: H } = layout.canvas;
   // biome-ignore lint/correctness/useExhaustiveDependencies: fontTick 只用來在字型載入後重畫
   useLayoutEffect(() => {
     const g = ref.current?.getContext('2d');
     if (!g) return;
-    renderFrame(g, { state: s, image }, time, cache);
-  }, [s, image, time, cache, fontTick, W, H]);
+    renderFrame(g, { state: s, image }, time, cache, {
+      view: camera ? cameraView(s, layout, tl, time) : null,
+    });
+  }, [s, image, time, cache, fontTick, W, H, camera, layout, tl]);
   return (
-    <canvas ref={ref} width={W} height={H} className="block size-full" data-testid="fx-canvas" />
+    <canvas
+      ref={ref}
+      width={W}
+      height={H}
+      className="block size-full"
+      data-testid="fx-canvas"
+      data-camera={camera || undefined}
+    />
   );
 }
 
@@ -493,19 +362,20 @@ function ExportArea({
   const transparent = s.bg.mode === 'transparent';
   const videoFps = VIDEO_FPS.includes(settings.fps) ? settings.fps : 30;
   const mode = useVideoMode(layout.canvas, videoFps, transparent);
-  const total = buildTimeline(s.timing, s.frames).total;
+  const total = timelineOf(s).total;
   const fmt = settings.format;
-  const animated = fmt === 'apng' || fmt === 'video';
-  const fps = fmt === 'apng' ? s.timing.fps : videoFps;
+  const fixed = fmt === 'apng' || fmt === 'sequence';
+  const animated = fixed || fmt === 'video';
+  const fps = fixed ? s.timing.fps : videoFps;
   const noImage = !image;
+  const off = (extra?: string) => ({
+    disabled: noImage || !!extra,
+    disabledReason: noImage ? S.needImage : extra,
+  });
+  const steps = stepFrames(s.frames).length + 1;
+  const seqN = apngTimes(total, s.timing.fps).length;
   const formats = [
-    {
-      id: 'png',
-      label: S.formats.png,
-      description: S.formatDesc.png,
-      disabled: noImage,
-      disabledReason: noImage ? S.needImage : undefined,
-    },
+    { id: 'png', label: S.formats.png, description: S.formatDesc.png, ...off() },
     {
       id: 'apng',
       label: S.formats.apng,
@@ -513,10 +383,18 @@ function ExportArea({
       animated: true,
       supportsLoop: true,
       supportsColors: true,
-      disabled: noImage,
-      disabledReason: noImage ? S.needImage : undefined,
+      ...off(),
     },
     videoFormat(mode, transparent, noImage),
+    { id: 'steps', label: S.formats.steps, description: S.stepsDesc(steps), ...off() },
+    { id: 'layers', label: S.formats.layers, description: S.layersDesc, ...off() },
+    {
+      id: 'sequence',
+      label: S.formats.sequence,
+      description: S.sequenceDesc(seqN),
+      animated: true,
+      ...off(seqN > SEQUENCE_MAX_FRAMES ? S.sequenceTooMany(seqN, SEQUENCE_MAX_FRAMES) : undefined),
+    },
   ];
   return (
     <ExportPanel
@@ -524,12 +402,17 @@ function ExportArea({
       formats={formats}
       settings={settings}
       onSettingsChange={(next: ExportSettings) => setPrefs({ export: { ...next, scale: 1 } })}
-      fixedFps={fmt === 'apng' ? s.timing.fps : null}
+      fixedFps={fixed ? s.timing.fps : null}
       fixedFpsHint={S.apngFpsHint}
       fpsOptions={VIDEO_FPS}
       colorOptions={APNG_COLORS}
       quantizeHint={S.colorsHint}
       loopHint={S.loopHint}
+      sizeWarningBytes={
+        fmt === 'steps' || fmt === 'layers' || fmt === 'sequence'
+          ? Number.POSITIVE_INFINITY
+          : undefined
+      }
       resetKey={s}
       estimate={
         animated && image
@@ -549,6 +432,9 @@ function ExportArea({
         if (set.format === 'png') return exportPng(cur, img);
         if (set.format === 'apng')
           return exportApng(cur, img, { colors: set.colors ?? 0, plays: set.plays }, ctx);
+        if (set.format === 'steps') return exportSteps(cur, img, ctx);
+        if (set.format === 'layers') return exportLayers(cur, img, ctx);
+        if (set.format === 'sequence') return exportSequence(cur, img, ctx);
         return exportVideo(cur, img, mode ?? { kind: 'none', alpha: transparent }, set.fps, ctx);
       }}
     />
@@ -570,15 +456,30 @@ export function Preview({
   const image = useSourceImage();
   const stageBg = usePrefs((p) => p.data.stageBg);
   const loop = usePrefs((p) => p.data.loop);
+  const viewZoom = useLive((l) => l.viewZoom);
+  const expanded = useLive((l) => l.expanded);
+  const cameraPreview = useLive((l) => l.cameraPreview);
+  const cameraRun = useLive((l) => l.cameraRun);
+  const seek = useLive((l) => l.seek);
   const toast = useToast();
-  const imageSize = s.image ? { width: s.image.width, height: s.image.height } : null;
-  const layout = computeLayout(s, image ? { width: image.width, height: image.height } : imageSize);
+  const layout = useMemo(
+    () =>
+      computeLayout(
+        s,
+        image
+          ? { width: image.width, height: image.height }
+          : s.image
+            ? { width: s.image.width, height: s.image.height }
+            : null,
+      ),
+    [s, image],
+  );
   const W = layout.canvas.width;
   const H = layout.canvas.height;
-  const tl = buildTimeline(s.timing, s.frames);
+  const tl = useMemo(() => timelineOf(s), [s]);
   const total = tl.total;
   const playback = usePlayback({ duration: total, loop, autoPlay: false });
-  const { onTimeChange, pause } = playback;
+  const { onTimeChange, pause, onRestart } = playback;
 
   /* 平常停在結尾：開頁時、停在結尾時總長變了 */
   const lastTotal = useRef<number | null>(null);
@@ -587,6 +488,85 @@ export function Preview({
     lastTotal.current = total;
     if (prev === null || (!playback.playing && playback.time >= prev - 1e-6)) onTimeChange(total);
   }, [total, playback.playing, playback.time, onTimeChange]);
+
+  /* 要求跳到某個時間（調整邊界演出時看動作到一半的樣子） */
+  useEffect(() => {
+    if (!seek) return;
+    pause();
+    onTimeChange(seek.t);
+  }, [seek, pause, onTimeChange]);
+
+  /* 運鏡確認：從頭播放（每按一次）；運鏡關掉（或沒有對象）時回到編輯 */
+  const restartRef = useRef(onRestart);
+  restartRef.current = onRestart;
+  useEffect(() => {
+    if (cameraRun > 0) restartRef.current();
+  }, [cameraRun]);
+  useEffect(() => {
+    if (cameraPreview && !tl.camera) useLive.setState({ cameraPreview: false });
+  }, [cameraPreview, tl.camera]);
+
+  /* Esc：結束運鏡確認 → 取消框選放大 → 回到一般畫面 */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      const t = e.target;
+      if (
+        t instanceof Element &&
+        t.closest('[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"]')
+      )
+        return;
+      const l = useLive.getState();
+      if (l.cameraPreview) useLive.setState({ cameraPreview: false });
+      else if (l.pointer === 'region') useLive.setState({ pointer: 'edit' });
+      else if (l.expanded) useLive.setState({ expanded: false });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  /* 編輯區的倍率：改了之後把指定的點（預設原本看到的中心）捲回中央 */
+  const viewport = useRef<HTMLElement | null>(null);
+  const [centerReq, setCenterReq] = useState<{ x: number; y: number; n: number } | null>(null);
+  const visibleCenter = useCallback((): { x: number; y: number } => {
+    const vp = viewport.current;
+    const box = vp ? contentBox(vp) : null;
+    if (!vp || !box?.rect.width) return { x: W / 2, y: H / 2 };
+    const vr = vp.getBoundingClientRect();
+    const k = box.rect.width / W;
+    return {
+      x: (vr.left + vp.clientWidth / 2 - box.rect.left) / k,
+      y: (vr.top + vp.clientHeight / 2 - box.rect.top) / k,
+    };
+  }, [W, H]);
+  const zoomTo = useCallback(
+    (z: number, center?: { x: number; y: number }) => {
+      const c = center ?? visibleCenter();
+      useLive.setState({ viewZoom: Math.min(EDIT_ZOOM_MAX, Math.max(1, z)) });
+      setCenterReq((r) => ({ ...c, n: (r?.n ?? 0) + 1 }));
+    },
+    [visibleCenter],
+  );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 倍率改了（舞台重新排版之後）才捲
+  useLayoutEffect(() => {
+    const vp = viewport.current;
+    const box = vp ? contentBox(vp) : null;
+    if (!centerReq || !vp || !box?.rect.width) return;
+    const vr = vp.getBoundingClientRect();
+    const k = box.rect.width / W;
+    vp.scrollLeft += box.rect.left + centerReq.x * k - (vr.left + vp.clientWidth / 2);
+    vp.scrollTop += box.rect.top + centerReq.y * k - (vr.top + vp.clientHeight / 2);
+  }, [centerReq, viewZoom, expanded]);
+  const fitView = () => {
+    useLive.setState({ pointer: 'edit' });
+    zoomTo(1, { x: W / 2, y: H / 2 });
+  };
+  const zoomToRect = (r: Rect, fill: number) =>
+    zoomTo(editZoomFor(r, layout.canvas, fill), { x: r.x + r.w / 2, y: r.y + r.h / 2 });
+  const toSelected = () => {
+    const f = s.frames.find((x) => x.id === useLive.getState().selected);
+    if (f) zoomToRect(toCanvasRect(layout.shot, f), 0.55);
+  };
 
   const state = useRef(playback);
   state.current = playback;
@@ -629,41 +609,95 @@ export function Preview({
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <ToolBar />
-      {s.image ? (
-        <Stage<StageBg>
-          width={W}
-          height={H}
-          backgrounds={STAGE_BGS}
-          background={{ kind: stageBg } as StageBackground<StageBg>}
-          onBackgroundChange={(bg) => setPrefs({ stageBg: bg.kind as StageBg })}
-          aria-label={S.stageLabel}
-        >
-          <Painter s={s} image={image} time={playback.time} W={W} H={H} />
-          {image ? (
-            <Editor
-              layout={layout}
-              image={{ width: image.width, height: image.height }}
-              frames={s.frames}
-              onBeginEdit={pause}
-              onTogglePlay={playback.toggle}
-            />
-          ) : null}
-        </Stage>
-      ) : (
-        <EmptyState onSample={onSample} />
-      )}
-      <Transport
-        {...playback}
-        onLoopChange={(v) => {
-          playback.onLoopChange(v);
-          setPrefs({ loop: v });
-        }}
-        segments={segments}
-        markers={markers}
-        fps={s.timing.fps}
-        disabled={!s.image}
-      />
+      <div
+        className={cn(
+          'flex min-w-0 flex-col',
+          expanded ? 'fixed inset-0 z-50 gap-2 overflow-auto bg-bg p-3' : 'gap-3',
+        )}
+        data-testid="edit-area"
+        data-expanded={expanded || undefined}
+      >
+        <ToolBar />
+        {cameraPreview ? (
+          <div
+            role="status"
+            className="flex items-center gap-2 rounded-md bg-accent-soft px-3 py-1.5 text-sm [&_svg]:size-4"
+            data-testid="camera-preview"
+          >
+            <Clapperboard aria-hidden />
+            {S.cameraPreviewing}
+            <Button
+              size="sm"
+              className="ml-auto"
+              title={S.cameraBackHint}
+              onClick={() => useLive.setState({ cameraPreview: false })}
+            >
+              {S.cameraBack}
+            </Button>
+          </div>
+        ) : null}
+        {s.image ? (
+          <>
+            <ViewBar onZoom={(z) => zoomTo(z)} onFit={fitView} onSelected={toSelected} />
+            <Stage<StageBg>
+              width={W}
+              height={H}
+              toolbar={false}
+              backgrounds={STAGE_BGS}
+              background={{ kind: stageBg } as StageBackground<StageBg>}
+              zoom={viewZoom}
+              zoomBase="fit"
+              zoomRange={[1, EDIT_ZOOM_MAX]}
+              onZoomChange={(z) => zoomTo(z === 'fit' ? 1 : z)}
+              viewportRef={viewport}
+              maxViewportHeight={expanded ? 'calc(100dvh - 15rem)' : undefined}
+              aria-label={S.stageLabel}
+            >
+              <Painter
+                s={s}
+                image={image}
+                time={playback.time}
+                layout={layout}
+                tl={tl}
+                camera={cameraPreview}
+              />
+              {image && !cameraPreview ? (
+                <Editor
+                  layout={layout}
+                  image={{ width: image.width, height: image.height }}
+                  frames={s.frames}
+                  viewport={() => viewport.current}
+                  onBeginEdit={pause}
+                  onTogglePlay={playback.toggle}
+                  onRegion={(r) => {
+                    useLive.setState({ pointer: 'edit' });
+                    zoomToRect(r, 0.95);
+                  }}
+                />
+              ) : null}
+            </Stage>
+          </>
+        ) : (
+          <EmptyState onSample={onSample} />
+        )}
+        <p className="m-0 flex flex-wrap gap-x-3 text-xs text-muted">
+          {s.image ? <span>{S.viewHint}</span> : null}
+          <span className="ml-auto tabular-nums" data-testid="output-size">
+            {S.outputSize(W, H)}
+          </span>
+        </p>
+        <Transport
+          {...playback}
+          onLoopChange={(v) => {
+            playback.onLoopChange(v);
+            setPrefs({ loop: v });
+          }}
+          segments={segments}
+          markers={markers}
+          fps={s.timing.fps}
+          disabled={!s.image}
+        />
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"
@@ -680,9 +714,6 @@ export function Preview({
         <Button size="sm" icon={<Copy />} onClick={() => void copy()} disabled={!image}>
           {S.copy}
         </Button>
-        <span className="ml-auto text-xs text-muted tabular-nums" data-testid="output-size">
-          {S.outputSize(W, H)}
-        </span>
       </div>
       {s.frames.length >= LIMITS.frames ? (
         <Notice tone="warning">{S.frameLimit(LIMITS.frames)}</Notice>

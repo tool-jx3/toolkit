@@ -2,11 +2,15 @@
 import type {
   BgMode,
   Border,
+  CameraFocus,
+  CameraMode,
   CanvasPreset,
   CreditPos,
   CreditSize,
   Dir,
+  EdgeFx,
   FrameKind,
+  LayerId,
   MarkerStyle,
   Order,
   PhaseId,
@@ -161,6 +165,11 @@ export const S = {
   densityHint: '黑塊的深淺、毛玻璃的模糊程度。',
   grain: '粒大小',
   grainHint: '馬賽克一格的大小（以截圖原本的大小計）。',
+  edge: '邊界演出',
+  edges: { glow: '金光＋粒子', scan: '掃描線', none: '無' } satisfies Record<EdgeFx, string>,
+  edgeHint:
+    '解除、抹消時剝開／蓋上的那條邊；只在動作中出現。改了之後預覽跳到這個框動作到一半的樣子。',
+  glow: '光的強度',
 
   /* 時間軸 */
   sectionTiming: '時間軸',
@@ -193,14 +202,61 @@ export const S = {
   seconds: '秒',
   actionMarker: (name: string) => `${name} 開始`,
 
+  /* 運鏡（第二批） */
+  sectionCamera: '運鏡',
+  cameraMode: '鏡頭的動作',
+  cameraModes: {
+    off: '沒有（固定畫面）',
+    pullback: '從框放大開始，慢慢拉回全圖',
+  } satisfies Record<CameraMode, string>,
+  cameraTarget: '對象',
+  cameraAuto: '自動（第一個會動的螢光筆或塗黑）',
+  cameraFocus: '一開始看的位置',
+  cameraFocuses: { start: '演出開始的那一端', center: '框的中央' } satisfies Record<
+    CameraFocus,
+    string
+  >,
+  cameraZoom: '一開始的倍率',
+  cameraDuration: '拉回全圖的時間',
+  cameraPreview: '從頭確認運鏡',
+  cameraNote:
+    '從對象開始動作的時候拉回；對象的動作比拉回的時間短時，對象的動作會放慢配合。最後回到一般的全圖。',
+  cameraOutputNote: '和編輯區的放大無關。APNG、影片、連番 PNG 有運鏡；PNG、段階公開、圖層是全圖。',
+  cameraStatus: (name: string, start: number, dur: number) =>
+    `從「${name}」開始：${start.toFixed(2)} 秒起用 ${dur.toFixed(1)} 秒拉回全圖。`,
+  cameraNone: '沒有螢光筆或塗黑：不會運鏡。',
+  cameraOff: '固定畫面。',
+  cameraPreviewing: '運鏡確認中',
+  cameraBack: '回到編輯',
+  cameraBackHint: '回到編輯（Esc）',
+
   /* 預覽 */
-  stageLabel: '預覽',
+  stageLabel: '預覽畫面',
   editorLabel: '演出框編輯',
   frameAria: (n: number, name: string) => `第 ${n} 個框：${name}`,
   emptyTitle: '放一張截圖開始',
   emptyDesc: '選檔、拖到視窗裡，或直接貼上（Ctrl＋V）。',
   toEnd: '完成的樣子',
   toEndHint: '跳到結尾（全部做完的畫面）',
+
+  /* 編輯區（第二批；不影響輸出） */
+  viewBar: '編輯區',
+  viewZoom: '編輯區的倍率',
+  viewZoomOption: (z: number) => `${Math.round(z * 100)}%`,
+  viewZoomOut: '縮小編輯區',
+  viewZoomIn: '放大編輯區的倍率',
+  viewFit: '全圖',
+  viewFitHint: '回到全圖（重設倍率與位置）',
+  viewSelected: '到選取的框',
+  viewSelectedHint: '以選取的框為中心放大',
+  viewRegion: '框選放大',
+  viewRegionHint: '在預覽上拖曳框出一塊，放大到編輯區',
+  viewHand: '手形',
+  viewHandHint: '拖曳移動顯示的位置（滑鼠中鍵隨時可以）',
+  viewExpand: '放大編輯區',
+  viewExpandHint: '藏起設定欄、編輯區佔滿視窗（Esc 回來）',
+  viewCollapse: '回到一般畫面',
+  viewHint: 'Ctrl＋滾輪放大縮小；中鍵拖曳移動顯示的位置。',
   copy: '複製圖片',
   copied: '已複製完成圖',
   copyUnsupported: '這個瀏覽器不能複製圖片，請改用匯出 PNG。',
@@ -220,13 +276,37 @@ export const S = {
   saveFailed: '自動儲存失敗：瀏覽器空間不足或無法存檔，重新整理後可能會遺失修改。',
 
   /* 匯出 */
-  formats: { png: 'PNG', apng: 'APNG', mp4: 'MP4', webm: 'WebM（透明）' },
+  formats: {
+    png: 'PNG',
+    apng: 'APNG',
+    mp4: 'MP4',
+    webm: 'WebM（透明）',
+    steps: '段階公開 ZIP',
+    layers: '圖層 ZIP',
+    sequence: '連番 PNG ZIP',
+  },
   formatDesc: {
     png: '完成的樣子（結尾那一格）一張靜態圖。',
     apng: '動的 PNG：CCFOLIA、OBS 可以直接用；靜止的段落會合併，檔案比較小。',
     mp4: '影片（社群網站、剪輯軟體用）。',
     webm: '背景透明的影片（剪輯軟體疊在畫面上用）；要上傳到社群網站時請把背景改成模糊或單色。',
   },
+  stepsDesc: (n: number) =>
+    `從演出前（step_00）開始，框一個一個做完的每個階段（共 ${n} 張靜態圖；跑團時一張一張公開、做簡報用）。`,
+  layersDesc:
+    '背景、放大框、螢光筆、完成圖 4 張（剪輯軟體裡疊用；螢光筆圖層請設成色彩增值）。背景與放大框的圖層不含會動的塗黑，裡面有原本的內容。',
+  sequenceDesc: (n: number) => `開始到結束的每一格（frame_0001.png…，共 ${n} 格；影格率同 APNG）。`,
+  layerNames: {
+    background: '背景',
+    cutouts: '放大框',
+    markers: '螢光筆',
+    final: '完成',
+  } satisfies Record<LayerId, string>,
+  detailFiles: '內容',
+  stepsValue: (n: number) => `${n} 張（step_00～step_${String(n - 1).padStart(2, '0')}）`,
+  sequenceTooMany: (n: number, max: number) =>
+    `共 ${n} 格，連番 PNG 最多 ${max} 格：請降低影格率或縮短時間。`,
+  zipping: '打包 ZIP',
   needImage: '還沒有圖片，無法匯出。',
   videoUnsupported: '這個瀏覽器不能把動畫編成影片。',
   webmUnsupported: '這個瀏覽器不能編出透明的 WebM。',
@@ -271,6 +351,7 @@ export const S = {
   nudgeShortcut: '移動選取的框 1 px（Shift：10 px）',
   escShortcut: '取消選取',
   shiftShortcut: '按住 Shift 拖曳：在已有的框上畫新框',
+  escViewShortcut: '結束運鏡確認、框選放大、放大編輯區',
 
   /* 專案 */
   projectSaved: '已存成專案檔',
@@ -293,7 +374,9 @@ export const S = {
     '「演出框」分頁可以個別調整每個框：放大倍率與框的樣式、螢光筆的顏色與方向、塗黑的樣式與動作（靜止、解除、抹消）。',
     '「時間軸」分頁調開場、彈出、動作、結尾的秒數，以及多個框要依序還是同時；空白鍵播放。',
     '「圖片」分頁調畫面大小、背景（模糊、透明、單色）、截圖的大小、圓角、陰影、聚光與出處文字。',
-    '匯出完成圖 PNG、會動的 APNG（可以減色、只播一次），或 MP4 影片（背景透明時是透明的 WebM）。',
+    '塗黑的「邊界演出」讓剝開、蓋上的那條邊發出金光與粒子或掃描線；「時間軸」分頁的「運鏡」可以從某個框放大開始、慢慢拉回全圖（「從頭確認運鏡」看效果，Esc 回到編輯）。',
+    '預覽上方的編輯區工具列：倍率、全圖、到選取的框、框選放大、手形（滑鼠中鍵隨時可以拖曳）、放大編輯區；Ctrl＋滾輪也能放大縮小，都不影響輸出。',
+    '匯出完成圖 PNG、會動的 APNG（可以減色、只播一次）、MP4 影片（背景透明時是透明的 WebM），或段階公開、圖層、連番 PNG 三種 ZIP。',
     '圖片、演出框與設定會自動儲存在這個瀏覽器；也可以從「專案」選單存成專案檔，帶到別台電腦。',
   ],
 } as const;

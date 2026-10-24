@@ -413,7 +413,15 @@ describe('存檔與專案檔的整理', () => {
     ).toEqual({
       zoom: { scale: 1.65, style: 'torn', border: 6 },
       marker: { style: 'yellow', dir: 'v' },
-      redact: { style: 'frost', mode: 'static', dir: 'h', density: 55, grain: 8 },
+      redact: {
+        style: 'frost',
+        mode: 'static',
+        dir: 'h',
+        density: 55,
+        grain: 8,
+        edge: 'glow',
+        glow: 70,
+      },
     });
   });
 

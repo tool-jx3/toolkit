@@ -3,9 +3,17 @@
  */
 import { type RefObject, useEffect } from 'react';
 import { ensureCreditFont } from './exporter';
-import { buildTimeline, computeLayout, type FxState, normalizeState } from './model';
+import {
+  cameraView,
+  computeLayout,
+  type FxState,
+  type LayerId,
+  normalizeState,
+  stepProgress,
+  timelineOf,
+} from './model';
 import type { PlayerHandle } from './Preview';
-import { RenderCache, renderToCanvas } from './render';
+import { RenderCache, type RenderOptions, renderToCanvas } from './render';
 import { assets, docNow, prefsNow, select, useDoc, useLive } from './store';
 
 declare global {
@@ -29,9 +37,22 @@ export function useTestHook(player: RefObject<PlayerHandle | null>) {
       select: (id: string | null) => select(id, true),
       live: () => {
         const l = useLive.getState();
-        return { selected: l.selected, tab: l.tab, missing: l.missing };
+        return {
+          selected: l.selected,
+          tab: l.tab,
+          missing: l.missing,
+          cameraPreview: l.cameraPreview,
+          viewZoom: l.viewZoom,
+          pointer: l.pointer,
+          expanded: l.expanded,
+        };
       },
-      timeline: () => buildTimeline(docNow().timing, docNow().frames),
+      timeline: () => timelineOf(docNow()),
+      /** 運鏡在 t 秒看的範圍（全圖時 null） */
+      cameraView: (t: number) => {
+        const s = docNow();
+        return cameraView(s, computeLayout(s, s.image), timelineOf(s), t);
+      },
       layout: () => {
         const s = docNow();
         return computeLayout(s, s.image);
@@ -43,11 +64,20 @@ export function useTestHook(player: RefObject<PlayerHandle | null>) {
         const c = renderToCanvas({ state: s, image: await image() }, t, new RenderCache());
         return (c as HTMLCanvasElement).toDataURL('image/png');
       },
-      /** t 秒的畫面上幾個點的顏色（RGBA） */
-      pixels: async (t: number, points: [number, number][]) => {
+      /**
+       * t 秒的畫面上幾個點的顏色（RGBA）；opts：camera（套用運鏡）、layer（圖層）、step（段階公開的第幾張）
+       */
+      pixels: async (
+        t: number,
+        points: [number, number][],
+        opts: { camera?: boolean; layer?: LayerId; step?: number } = {},
+      ) => {
         const s = docNow();
         await ensureCreditFont(s);
-        const c = renderToCanvas({ state: s, image: await image() }, t, new RenderCache());
+        const r: RenderOptions = { layer: opts.layer };
+        if (opts.camera) r.view = cameraView(s, computeLayout(s, s.image), timelineOf(s), t);
+        if (opts.step !== undefined) r.progress = stepProgress(s.frames, opts.step);
+        const c = renderToCanvas({ state: s, image: await image() }, t, new RenderCache(), r);
         const g = (c as HTMLCanvasElement).getContext('2d') as CanvasRenderingContext2D;
         return points.map(([x, y]) =>
           Array.from(g.getImageData(Math.round(x), Math.round(y), 1, 1).data),

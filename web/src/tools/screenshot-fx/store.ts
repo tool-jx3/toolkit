@@ -159,15 +159,48 @@ export function setDefaults(recipe: (d: FrameDefaults) => void): void {
 /* ---------- 選取（不儲存） ---------- */
 
 export type PanelTab = 'image' | 'frames' | 'timing';
+/** 編輯區的指標工具：畫框（一般）、手形（拖曳移動顯示位置）、框選放大 */
+export type PointerTool = 'edit' | 'hand' | 'region';
 
 export interface Live {
   selected: string | null;
   tab: PanelTab;
   /** 讀不回來的圖（提醒用；換上新的圖時清掉） */
   missing: string | null;
+  /** 運鏡確認中（預覽套用運鏡、不能編輯） */
+  cameraPreview: boolean;
+  /** 每按一次「從頭確認運鏡」加 1（預覽從頭播放） */
+  cameraRun: number;
+  /** 編輯區的倍率（符合畫面＝1；不影響輸出） */
+  viewZoom: number;
+  pointer: PointerTool;
+  /** 放大編輯區（佔滿視窗） */
+  expanded: boolean;
+  /** 要預覽跳到的時間（每次要求 n 加 1） */
+  seek: { t: number; n: number } | null;
 }
 
-export const useLive = create<Live>(() => ({ selected: null, tab: 'image', missing: null }));
+export const useLive = create<Live>(() => ({
+  selected: null,
+  tab: 'image',
+  missing: null,
+  cameraPreview: false,
+  cameraRun: 0,
+  viewZoom: 1,
+  pointer: 'edit',
+  expanded: false,
+  seek: null,
+}));
+
+/** 從頭確認運鏡 */
+export function startCameraPreview(): void {
+  useLive.setState((l) => ({ cameraPreview: true, cameraRun: l.cameraRun + 1 }));
+}
+
+/** 預覽跳到 t 秒並暫停（例如調整邊界演出時，看動作到一半的樣子） */
+export function requestSeek(t: number): void {
+  useLive.setState((l) => ({ seek: { t, n: (l.seek?.n ?? 0) + 1 } }));
+}
 
 /** 選取一個框（reveal：從預覽選的，設定欄換到「演出框」分頁） */
 export function select(id: string | null, reveal = false): void {

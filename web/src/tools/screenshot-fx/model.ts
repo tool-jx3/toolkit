@@ -103,6 +103,15 @@ export type RedactStyle = 'black' | 'mosaic' | 'frost';
 export const REDACT_STYLES: readonly RedactStyle[] = ['black', 'mosaic', 'frost'];
 export type RedactMode = 'static' | 'reveal' | 'conceal';
 export const REDACT_MODES: readonly RedactMode[] = ['static', 'reveal', 'conceal'];
+/** 塗黑解除、抹消時的邊界演出：金光＋粒子、掃描線、無（第二批） */
+export type EdgeFx = 'glow' | 'scan' | 'none';
+export const EDGE_FXS: readonly EdgeFx[] = ['glow', 'scan', 'none'];
+/** 運鏡（第二批）：沒有／從某個框放大開始，慢慢拉回全圖 */
+export type CameraMode = 'off' | 'pullback';
+export const CAMERA_MODES: readonly CameraMode[] = ['off', 'pullback'];
+/** 一開始看的位置：演出開始的那一端／框的中央 */
+export type CameraFocus = 'start' | 'center';
+export const CAMERA_FOCUSES: readonly CameraFocus[] = ['start', 'center'];
 
 /** 範圍（畫面、時間照原作；濃度、粒大小是新版自訂） */
 export const RANGES = {
@@ -119,6 +128,9 @@ export const RANGES = {
   zoomScale: { min: 1.05, max: 1.65, step: 0.05 },
   density: { min: 20, max: 100, step: 5 },
   grain: { min: 4, max: 48, step: 2 },
+  glow: { min: 0, max: 100, step: 5 },
+  camZoom: { min: 1.2, max: 4, step: 0.1 },
+  camDuration: { min: 1, max: 8, step: 0.1 },
 } as const;
 export type RangeKey = keyof typeof RANGES;
 
@@ -166,6 +178,10 @@ export interface RedactFrame extends FrameBase {
   density: number;
   /** 馬賽克的粒大小（畫面 px，以截圖原本的大小計） */
   grain: number;
+  /** 解除、抹消時邊界的演出 */
+  edge: EdgeFx;
+  /** 光的強度（%） */
+  glow: number;
 }
 export type Frame = ZoomFrame | MarkerFrame | RedactFrame;
 
@@ -199,6 +215,17 @@ export interface TimingSettings {
   fps: Fps;
 }
 
+export interface CameraSettings {
+  mode: CameraMode;
+  /** 對象：'auto'（第一個會動的螢光筆或塗黑）或框的 id */
+  target: string;
+  focus: CameraFocus;
+  /** 一開始的倍率 */
+  zoom: number;
+  /** 拉回全圖的秒數 */
+  duration: number;
+}
+
 export interface FxState {
   image: ImageRef | null;
   canvas: CanvasPreset;
@@ -206,8 +233,17 @@ export interface FxState {
   shot: ShotSettings;
   credit: CreditSettings;
   timing: TimingSettings;
+  camera: CameraSettings;
   frames: Frame[];
 }
+
+export const initialCamera = (): CameraSettings => ({
+  mode: 'off',
+  target: 'auto',
+  focus: 'start',
+  zoom: 2.4,
+  duration: 3.6,
+});
 
 export const initialState = (): FxState => ({
   image: null,
@@ -216,6 +252,7 @@ export const initialState = (): FxState => ({
   shot: { scale: 86, radius: 10, shadow: 32, spotlight: 55 },
   credit: { text: '', pos: 'below', size: 'md' },
   timing: { intro: 0.5, popup: 0.6, action: 1.2, outro: 2, order: 'sequential', fps: 15 },
+  camera: initialCamera(),
   frames: [],
 });
 
@@ -224,13 +261,21 @@ export const initialState = (): FxState => ({
 export interface FrameDefaults {
   zoom: Pick<ZoomFrame, 'scale' | 'style' | 'border'>;
   marker: Pick<MarkerFrame, 'style' | 'dir'>;
-  redact: Pick<RedactFrame, 'style' | 'mode' | 'dir' | 'density' | 'grain'>;
+  redact: Pick<RedactFrame, 'style' | 'mode' | 'dir' | 'density' | 'grain' | 'edge' | 'glow'>;
 }
 
 export const initialDefaults = (): FrameDefaults => ({
   zoom: { scale: 1.25, style: 'card', border: 4 },
   marker: { style: 'yellow', dir: 'h' },
-  redact: { style: 'black', mode: 'reveal', dir: 'h', density: 100, grain: 12 },
+  redact: {
+    style: 'black',
+    mode: 'reveal',
+    dir: 'h',
+    density: 100,
+    grain: 12,
+    edge: 'glow',
+    glow: 70,
+  },
 });
 
 /* ---------- 整理（存檔、專案檔、測試入口） ---------- */
@@ -325,8 +370,13 @@ export function normalizeFrame(v: unknown, image: Size, d = initialDefaults()): 
     dir: pick(v.dir, DIRS, d.redact.dir),
     density: snapRange('density', v.density, d.redact.density),
     grain: snapRange('grain', v.grain, d.redact.grain),
+    edge: pick(v.edge, EDGE_FXS, d.redact.edge),
+    glow: snapRange('glow', v.glow, d.redact.glow),
   };
 }
+
+/** 運鏡的對象可以選的框：螢光筆與塗黑 */
+export const isCameraCandidate = (f: Frame): boolean => f.kind === 'marker' || f.kind === 'redact';
 
 /** 存檔可能缺欄位或被改壞：補預設值、夾範圍、拿掉看不懂的框；沒有圖時框也清掉 */
 export function normalizeState(raw: unknown): FxState {
@@ -337,6 +387,7 @@ export function normalizeState(raw: unknown): FxState {
   const shot = isObj(s.shot) ? s.shot : {};
   const credit = isObj(s.credit) ? s.credit : {};
   const timing = isObj(s.timing) ? s.timing : {};
+  const camera = isObj(s.camera) ? s.camera : {};
   const frames: Frame[] = [];
   if (image && Array.isArray(s.frames)) {
     const seen = new Set<string>();
@@ -377,6 +428,18 @@ export function normalizeState(raw: unknown): FxState {
       order: pick(timing.order, ORDERS, d.timing.order),
       fps: pick(timing.fps, FPS_CHOICES, d.timing.fps),
     },
+    camera: {
+      mode: pick(camera.mode, CAMERA_MODES, d.camera.mode),
+      /* 指定的框不在了（或不是螢光筆、塗黑）：回到自動 */
+      target:
+        typeof camera.target === 'string' &&
+        frames.some((f) => f.id === camera.target && isCameraCandidate(f))
+          ? camera.target
+          : 'auto',
+      focus: pick(camera.focus, CAMERA_FOCUSES, d.camera.focus),
+      zoom: snapRange('camZoom', camera.zoom, d.camera.zoom),
+      duration: snapRange('camDuration', camera.duration, d.camera.duration),
+    },
     frames,
   };
 }
@@ -403,6 +466,8 @@ export function normalizeDefaults(raw: unknown): FrameDefaults {
       dir: pick(r.dir, DIRS, d.redact.dir),
       density: snapRange('density', r.density, d.redact.density),
       grain: snapRange('grain', r.grain, d.redact.grain),
+      edge: pick(r.edge, EDGE_FXS, d.redact.edge),
+      glow: snapRange('glow', r.glow, d.redact.glow),
     },
   };
 }
@@ -562,17 +627,47 @@ export interface Timeline {
   windows: Record<string, Window>;
   /** 會動的框的 id（清單順序） */
   actionIds: string[];
+  /** 運鏡：拉回全圖的時間與對象（沒有運鏡時 null） */
+  camera: (Window & { targetId: string }) | null;
+}
+
+/**
+ * 運鏡的對象：指定的框（螢光筆或塗黑）；自動或指定的框不在了時，第一個會動的螢光筆或塗黑，沒有時第一個螢光筆或塗黑。
+ * 運鏡關掉、沒有候選時 null。
+ */
+export function cameraTarget(frames: readonly Frame[], camera: CameraSettings): Frame | null {
+  if (camera.mode !== 'pullback') return null;
+  const cands = frames.filter(isCameraCandidate);
+  if (camera.target !== 'auto') {
+    const f = cands.find((x) => x.id === camera.target);
+    if (f) return f;
+  }
+  return cands.find(isActionFrame) ?? cands[0] ?? null;
 }
 
 /**
  * 四段依序排列：開場（等待）→ 彈出（所有放大框一起彈出、周圍變暗）→ 動作 → 結尾（停在完成的樣子）。
  * 動作：依序＝會動的框照清單順序一個接一個、每個佔「動作」秒數（動作段＝個數 × 秒數）；同時＝全部一起、動作段＝秒數。
  * 沒有會動的框時動作段照樣是「動作」秒數（自訂）。
+ * 運鏡（第二批）：從對象的動作開始拉回全圖；對象的動作比拉回的時間短時，對象的動作放慢到拉回的時間
+ * （依序時後面的框跟著往後）；對象不會動（靜止的塗黑）時從動作段的開頭拉回。拉回超過結尾時結尾跟著延長。
  */
-export function buildTimeline(timing: TimingSettings, frames: readonly Frame[]): Timeline {
+export function buildTimeline(
+  timing: TimingSettings,
+  frames: readonly Frame[],
+  camera?: CameraSettings,
+): Timeline {
   const actionIds = frames.filter(isActionFrame).map((f) => f.id);
-  const n = Math.max(1, actionIds.length);
-  const actionLen = timing.order === 'sequential' ? n * timing.action : timing.action;
+  const target = camera ? cameraTarget(frames, camera) : null;
+  const pullLen = target && camera ? camera.duration : 0;
+  const lenOf = (id: string) =>
+    target && id === target.id ? Math.max(timing.action, pullLen) : timing.action;
+  const sequential = timing.order === 'sequential';
+  const actionLen = !actionIds.length
+    ? timing.action
+    : sequential
+      ? actionIds.reduce((sum, id) => sum + lenOf(id), 0)
+      : Math.max(...actionIds.map(lenOf));
   /* 取到微秒（0.1 秒的加總不會變成 4.6999…） */
   const r6 = (x: number) => Math.round(x * 1e6) / 1e6;
   const win = (start: number, len: number): Window => ({ start: r6(start), end: r6(start + len) });
@@ -581,14 +676,27 @@ export function buildTimeline(timing: TimingSettings, frames: readonly Frame[]):
   const action = win(popup.end, actionLen);
   const outro = win(action.end, timing.outro);
   const windows: Record<string, Window> = {};
-  actionIds.forEach((id, i) => {
-    windows[id] = win(
-      timing.order === 'sequential' ? action.start + i * timing.action : action.start,
-      timing.action,
-    );
-  });
-  return { phases: { intro, popup, action, outro }, total: outro.end, windows, actionIds };
+  let at = action.start;
+  for (const id of actionIds) {
+    windows[id] = win(sequential ? at : action.start, lenOf(id));
+    at += lenOf(id);
+  }
+  let cam: Timeline['camera'] = null;
+  if (target) {
+    cam = { ...win(windows[target.id]?.start ?? action.start, pullLen), targetId: target.id };
+    if (cam.end > outro.end) outro.end = cam.end;
+  }
+  return {
+    phases: { intro, popup, action, outro },
+    total: outro.end,
+    windows,
+    actionIds,
+    camera: cam,
+  };
 }
+
+/** 整份內容的時間軸（含運鏡） */
+export const timelineOf = (s: FxState): Timeline => buildTimeline(s.timing, s.frames, s.camera);
 
 /** 時間軸的分段色條 */
 export function timelineSegments(
@@ -662,6 +770,119 @@ export function cardRect(src: Rect, shot: Placement, canvas: Size, k: number, ma
   return { x, y, w, h };
 }
 
+/** 放大框推回畫面內時留的邊（畫面 px，乘 u） */
+export const CARD_MARGIN = 12;
+
+/** 放大框彈出後（倍率 k）它裡面的一個範圍（原圖 px）在畫面上的位置 */
+export function rectInCard(z: ZoomFrame, r: Rect, layout: Layout, k = z.scale): Rect {
+  const { shot, canvas } = layout;
+  const C = cardRect(z, shot, canvas, k, CARD_MARGIN * unitOf(canvas));
+  const s = shot.f * k;
+  return { x: C.x + (r.x - z.x) * s, y: C.y + (r.y - z.y) * s, w: r.w * s, h: r.h * s };
+}
+
+/* ---------- 各框的進度 ---------- */
+
+/** 每個框在某個時刻的進度：放大框的彈出、會動的框的動作（線性 0～1） */
+export interface Progress {
+  popup: (z: ZoomFrame) => number;
+  action: (f: Frame) => number;
+}
+
+/** 依時間 */
+export const timeProgress = (tl: Timeline, t: number): Progress => {
+  const p = popupProgress(tl, t);
+  return { popup: () => p, action: (f) => actionProgress(tl, f.id, t) };
+};
+
+/** 段階公開的順序：放大框與會動的框，照清單順序（靜止的塗黑一直蓋著，不算一個階段） */
+export const stepFrames = (frames: readonly Frame[]): Frame[] =>
+  frames.filter((f) => f.kind === 'zoom' || isActionFrame(f));
+
+/** 第 k 個階段（0＝演出前）：前 k 個框做完、其他的還沒開始 */
+export function stepProgress(frames: readonly Frame[], k: number): Progress {
+  const done = new Set(
+    stepFrames(frames)
+      .slice(0, Math.max(0, k))
+      .map((f) => f.id),
+  );
+  return {
+    popup: (z) => (done.has(z.id) ? 1 : 0),
+    action: (f) => (isActionFrame(f) ? (done.has(f.id) ? 1 : 0) : 1),
+  };
+}
+
+/* ---------- 運鏡 ---------- */
+
+/** 運鏡一開始看的範圍的中心，離演出開始那一端多遠（畫面寬或高的比例；自訂） */
+export const CAMERA_START_INSET = 0.3;
+
+/** 對象在拉回開始時的位置（畫面 px）：在放大框裡時是放大框彈出後的位置 */
+export function cameraFocusRect(s: FxState, layout: Layout, target: Frame): Rect {
+  const zoom = [...s.frames]
+    .reverse()
+    .find((f): f is ZoomFrame => f.kind === 'zoom' && intersects(f, target));
+  return zoom ? rectInCard(zoom, target, layout) : toCanvasRect(layout.shot, target);
+}
+
+/**
+ * 運鏡在 t 秒看的範圍（畫面 px，寬高比同畫面）；全圖時 null。
+ * 拉回前停在「倍率 Z、對準對象」；拉回時倍率以等比（Z^(1−c)）回到 1、中心跟著回到畫面中央，c＝平滑 S 曲線；範圍不超出畫面。
+ * 一開始的中心：「框的中央」＝對象的中心；「演出開始的那一端」＝橫向時離左端 0.3 個看到的寬度（不超過框的中心）、直向時離上端。
+ */
+export function cameraView(s: FxState, layout: Layout, tl: Timeline, t: number): Rect | null {
+  if (!tl.camera) return null;
+  const target = s.frames.find((f) => f.id === tl.camera?.targetId);
+  if (!target || target.kind === 'zoom') return null;
+  const c = actionEase(windowProgress(tl.camera, t));
+  if (c >= 1) return null;
+  const { width: W, height: H } = layout.canvas;
+  const Z0 = s.camera.zoom;
+  const z = Z0 ** (1 - c);
+  const vw0 = W / Z0;
+  const vh0 = H / Z0;
+  const r = cameraFocusRect(s, layout, target);
+  let sx = r.x + r.w / 2;
+  let sy = r.y + r.h / 2;
+  if (s.camera.focus === 'start') {
+    if (target.dir === 'h') sx = Math.min(r.x + vw0 * CAMERA_START_INSET, sx);
+    else sy = Math.min(r.y + vh0 * CAMERA_START_INSET, sy);
+  }
+  sx = clamp(sx, vw0 / 2, W - vw0 / 2);
+  sy = clamp(sy, vh0 / 2, H - vh0 / 2);
+  const vw = W / z;
+  const vh = H / z;
+  const k = Z0 > 1 ? (vw - vw0) / (W - vw0) : 1;
+  const cx = clamp(sx + (W / 2 - sx) * k, vw / 2, W - vw / 2);
+  const cy = clamp(sy + (H / 2 - sy) * k, vh / 2, H - vh / 2);
+  return { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh };
+}
+
+/* ---------- 塗黑的邊界演出 ---------- */
+
+/** 邊界演出的濃度：動作中才有，頭尾各 8% 淡入淡出（自訂） */
+export const edgeEnvelope = (q: number): number =>
+  q <= 0 || q >= 1 ? 0 : Math.min(1, q / 0.08, (1 - q) / 0.08);
+
+/* ---------- 編輯區的倍率（不影響輸出） ---------- */
+
+/** 編輯區的倍率選項（符合畫面＝1） */
+export const EDIT_ZOOMS: readonly number[] = [1, 1.5, 2, 3, 4, 6, 8];
+export const EDIT_ZOOM_MAX = 8;
+
+/** −／＋：到下一個（上一個）選項 */
+export function stepEditZoom(z: number, dir: 1 | -1): number {
+  if (dir > 0) return EDIT_ZOOMS.find((v) => v > z + 1e-3) ?? EDIT_ZOOM_MAX;
+  return [...EDIT_ZOOMS].reverse().find((v) => v < z - 1e-3) ?? 1;
+}
+
+/** 把一個範圍（畫面 px）放大到佔編輯區的 fill 比例：倍率（1～8，取到 0.01） */
+export function editZoomFor(r: Rect, canvas: Size, fill: number): number {
+  if (!(r.w > 0) || !(r.h > 0)) return 1;
+  const z = fill * Math.min(canvas.width / r.w, canvas.height / r.h);
+  return clamp(Math.round(z * 100) / 100, 1, EDIT_ZOOM_MAX);
+}
+
 /* ---------- 匯出 ---------- */
 
 /** APNG 的取樣時間（每格 1 ÷ FPS 秒；最後一格是完成的樣子） */
@@ -677,13 +898,24 @@ const pad = (n: number) => String(n).padStart(2, '0');
 export const stamp = (d: Date): string =>
   `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 
-export type FileKind = 'png' | 'apng' | 'mp4' | 'webm' | 'mov';
+export type FileKind = 'png' | 'apng' | 'mp4' | 'webm' | 'mov' | 'steps' | 'layers' | 'frames';
 /** 檔名：screenshot-fx-年月日-時分秒（APNG 加 -anim） */
 export function exportFileName(kind: FileKind, now: Date): string {
   const base = `screenshot-fx-${stamp(now)}`;
   if (kind === 'apng') return `${base}-anim.png`;
+  if (kind === 'steps' || kind === 'layers' || kind === 'frames') return `${base}-${kind}.zip`;
   return `${base}.${kind}`;
 }
+
+/** 連番 PNG 最多幾格（防呆；自訂） */
+export const SEQUENCE_MAX_FRAMES = 1200;
+/** ZIP 裡的檔名：段階 step_00.png…、連番 frame_0001.png…（同原作）、圖層四張 */
+export const stepFileName = (k: number): string => `step_${String(k).padStart(2, '0')}.png`;
+export const frameFileName = (i: number, n: number): string =>
+  `frame_${String(i + 1).padStart(Math.max(4, String(n).length), '0')}.png`;
+export type LayerId = 'background' | 'cutouts' | 'markers' | 'final';
+export const LAYERS: readonly LayerId[] = ['background', 'cutouts', 'markers', 'final'];
+export const layerFileName = (id: LayerId): string => `${LAYERS.indexOf(id) + 1}_${id}.png`;
 
 /** 專案檔用到的圖 */
 export const stateAssetIds = (s: FxState): string[] => (s.image ? [s.image.id] : []);

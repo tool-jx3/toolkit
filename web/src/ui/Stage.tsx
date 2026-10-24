@@ -29,6 +29,8 @@ import {
   createContext,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
+  type Ref,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -116,6 +118,11 @@ export interface StageProps<K extends StageAnyBackgroundKind = StageBackgroundKi
    * 要用這個；在 pointerdown 時 stopPropagation 的子元素（控點、裁切框）與捲軸上按兩下不會呼叫。
    */
   onViewportDoubleClick?: () => void;
+  /**
+   * 舞台區域（可以捲動的那一層，`role="region"`）的 ref（screenshot-fx 第二批加的，選填）：工具自己把放大後的內容
+   * 捲到某一點（例如「到選取的框」「框選放大」）、用手形工具或中鍵拖曳時捲動。不給時行為不變。
+   */
+  viewportRef?: Ref<HTMLElement | null>;
 }
 
 export interface StagePan {
@@ -230,6 +237,7 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
   onPanChange,
   backgroundArea = 'viewport',
   onViewportDoubleClick,
+  viewportRef,
   ...rest
 }: StageProps<K>) {
   const [innerBg, setInnerBg] = useState<StageBackground<K>>(defaultBackground);
@@ -246,6 +254,15 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
   };
 
   const viewport = useRef<HTMLDivElement>(null);
+  /* 舞台區域交給工具的 ref（物件 ref 或函式 ref 都可以） */
+  const setViewport = useCallback(
+    (el: HTMLDivElement | null) => {
+      viewport.current = el;
+      if (typeof viewportRef === 'function') viewportRef(el);
+      else if (viewportRef) (viewportRef as { current: HTMLElement | null }).current = el;
+    },
+    [viewportRef],
+  );
   const [fit, setFit] = useState(1);
   useLayoutEffect(() => {
     const el = viewport.current;
@@ -443,7 +460,7 @@ export function Stage<K extends StageAnyBackgroundKind = StageBackgroundKind>({
         </div>
       ) : null}
       <section
-        ref={viewport}
+        ref={setViewport}
         aria-label={label}
         data-zoom={Math.round(level * 100)}
         className={cn(

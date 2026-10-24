@@ -1,14 +1,15 @@
 /**
- * 匯出（規格 3.8、F40～F47）：
+ * 匯出（規格 3.9、F45～F51、F62、F64～F66）：
  * - PNG：結尾那一格（完成的樣子）；複製圖片也是這一張。
  * - APNG：依時間軸的影格率逐格畫（最後一格是完成的樣子），交給共用的 APNG 編碼器（Web Worker；相同的影格合併、
  *   只存變化的範圍；可以減成 256／128／64 色）。
  * - 影片：背景不透明時 MP4（core/video 的 findMoviePlan＋encodeMovie：H.264，沒有時 VP9），
  *   背景透明時透明的 WebM（findAlphaWebmPlan＋encodeAlphaWebm）；瀏覽器不能逐格編碼時改用即時錄影。
+ * - 第二批：運鏡（APNG、影片、連番 PNG）、段階公開 PNG、圖層 4 張、連番 PNG（三種都是 ZIP，fflate）。
  * 先等出處的字型載好再畫。
  */
 import { createEncoder } from '@/core/encode';
-import { formatBytes } from '@/core/files';
+import { formatBytes, zipFiles } from '@/core/files';
 import { ensureFont } from '@/core/fonts';
 import { canvasToBlob, makeCanvas } from '@/core/image';
 import {
@@ -27,12 +28,20 @@ import {
 import type { ExportContext, ExportOutput } from '@/ui';
 import {
   apngTimes,
-  buildTimeline,
+  cameraView,
   computeLayout,
   evenSize,
   exportFileName,
   type FxState,
+  frameFileName,
+  LAYERS,
+  layerFileName,
+  SEQUENCE_MAX_FRAMES,
   type Size,
+  stepFileName,
+  stepFrames,
+  stepProgress,
+  timelineOf,
   videoTimes,
 } from './model';
 import {
@@ -60,20 +69,29 @@ export async function ensureCreditFont(s: FxState): Promise<void> {
   if (text) await ensureFont(CREDIT_FONT_FAMILY, CREDIT_FONT_WEIGHT, text).catch(() => false);
 }
 
-const sizeOf = (s: FxState, image: ImageSource) =>
-  computeLayout(s, { width: image.width, height: image.height }).canvas;
+const layoutOf = (s: FxState, image: ImageSource) =>
+  computeLayout(s, { width: image.width, height: image.height });
+const sizeOf = (s: FxState, image: ImageSource) => layoutOf(s, image).canvas;
+
+/** 動畫的一格（運鏡打開時只畫看到的那一塊；APNG、影片、連番 PNG 共用） */
+function animFrameDrawer(s: FxState, image: ImageSource) {
+  const layout = layoutOf(s, image);
+  const tl = timelineOf(s);
+  const cache = new RenderCache();
+  const input = { state: s, image };
+  return {
+    total: tl.total,
+    draw: (g: Ctx, t: number) =>
+      renderFrame(g, input, t, cache, { view: cameraView(s, layout, tl, t) }),
+  };
+}
 
 /** 完成圖（結尾那一格） */
 export async function finalPng(s: FxState, image: ImageSource): Promise<Blob> {
   await ensureCreditFont(s);
   const size = sizeOf(s, image);
   const c = makeCanvas(size.width, size.height);
-  renderFrame(
-    ctx2d(c),
-    { state: s, image },
-    buildTimeline(s.timing, s.frames).total,
-    new RenderCache(),
-  );
+  renderFrame(ctx2d(c), { state: s, image }, timelineOf(s).total, new RenderCache());
   return canvasToBlob(c, 'image/png');
 }
 
@@ -120,7 +138,8 @@ export async function exportApng(
   if (signal.aborted) throw aborted();
   const size = sizeOf(s, image);
   const fps = s.timing.fps;
-  const total = buildTimeline(s.timing, s.frames).total;
+  const anim = animFrameDrawer(s, image);
+  const total = anim.total;
   const times = apngTimes(total, fps);
   const quantize = job.colors > 0;
   const enc = createEncoder({
@@ -139,17 +158,15 @@ export async function exportApng(
   signal.addEventListener('abort', stop);
   const c = makeCanvas(size.width, size.height);
   const g = ctx2d(c, true);
-  const cache = new RenderCache();
-  const input = { state: s, image };
   try {
     /* 完成的樣子當代表畫面（減色時的調色盤多照顧它） */
     if (quantize) {
-      renderFrame(g, input, total, cache);
+      anim.draw(g, total);
       await abortable(enc.setStill(g.getImageData(0, 0, size.width, size.height).data), signal);
     }
     for (let i = 0; i < times.length; i++) {
       if (signal.aborted) throw aborted();
-      renderFrame(g, input, times[i], cache);
+      anim.draw(g, times[i]);
       await abortable(enc.addFrame(g.getImageData(0, 0, size.width, size.height).data, 1), signal);
       onProgress(((i + 1) / times.length) * 0.7, S.rendering(i + 1, times.length));
     }
@@ -259,14 +276,13 @@ export async function exportVideo(
   await ensureCreditFont(s);
   if (signal.aborted) throw aborted();
   const size = evenSize(sizeOf(s, image));
-  const total = buildTimeline(s.timing, s.frames).total;
+  const anim = animFrameDrawer(s, image);
+  const total = anim.total;
   const times = videoTimes(total, fps);
-  const cache = new RenderCache();
-  const input = { state: s, image };
   const c = makeCanvas(size.width, size.height);
   const g = ctx2d(c, mode.kind === 'webm');
   const draw = (t: number) => {
-    renderFrame(g, input, t, cache);
+    anim.draw(g, t);
     if (mode.kind === 'mp4') {
       /* MP4 沒有透明度：透明的地方鋪黑（背景是模糊或單色時本來就不透明） */
       g.save();
@@ -339,7 +355,7 @@ export async function exportVideo(
       bitsPerSecond: videoBitrate(fps),
       signal,
       draw: (ctx, t) => {
-        renderFrame(ctx, input, Math.min(total, t), cache);
+        anim.draw(ctx, Math.min(total, t));
         onProgress(
           Math.min(1, t / Math.max(0.001, total)),
           S.rendering(Math.round(t * fps), times.length),
@@ -360,6 +376,110 @@ export async function exportVideo(
   } catch (e) {
     throw friendly(e);
   }
+}
+
+/* ---------- ZIP（第二批） ---------- */
+
+async function pngBytes(c: AnyCanvas): Promise<Uint8Array> {
+  return new Uint8Array(await (await canvasToBlob(c, 'image/png')).arrayBuffer());
+}
+
+function zipOutput(
+  entries: { name: string; data: Uint8Array }[],
+  fileName: string,
+  size: Size,
+  details: { label: string; value: string }[],
+  frames?: number,
+): ExportOutput {
+  /* PNG 已經壓過：只打包不壓縮 */
+  const zip = zipFiles(entries, { level: 0 });
+  return {
+    blob: new Blob([zip as Uint8Array<ArrayBuffer>], { type: 'application/zip' }),
+    fileName,
+    ...size,
+    frames,
+    details,
+  };
+}
+
+/** 段階公開：演出前（step_00）→ 放大框與會動的框照清單順序一個一個做完（全圖，沒有運鏡） */
+export async function exportSteps(
+  s: FxState,
+  image: ImageSource,
+  { signal, onProgress }: ExportContext,
+): Promise<ExportOutput> {
+  await ensureCreditFont(s);
+  const size = sizeOf(s, image);
+  const n = stepFrames(s.frames).length + 1;
+  const c = makeCanvas(size.width, size.height);
+  const g = ctx2d(c);
+  const cache = new RenderCache();
+  const entries: { name: string; data: Uint8Array }[] = [];
+  for (let k = 0; k < n; k++) {
+    if (signal.aborted) throw aborted();
+    renderFrame(g, { state: s, image }, 0, cache, { progress: stepProgress(s.frames, k) });
+    entries.push({ name: stepFileName(k), data: await pngBytes(c) });
+    onProgress((k + 1) / (n + 1), S.rendering(k + 1, n));
+  }
+  return zipOutput(entries, exportFileName('steps', new Date()), size, [
+    { label: S.detailFiles, value: S.stepsValue(n) },
+  ]);
+}
+
+/** 圖層：背景、放大框、螢光筆、完成（結尾那一格、全圖；背景與放大框不含會動的塗黑） */
+export async function exportLayers(
+  s: FxState,
+  image: ImageSource,
+  { signal, onProgress }: ExportContext,
+): Promise<ExportOutput> {
+  await ensureCreditFont(s);
+  const size = sizeOf(s, image);
+  const total = timelineOf(s).total;
+  const c = makeCanvas(size.width, size.height);
+  const g = ctx2d(c);
+  const cache = new RenderCache();
+  const entries: { name: string; data: Uint8Array }[] = [];
+  for (const [i, layer] of LAYERS.entries()) {
+    if (signal.aborted) throw aborted();
+    renderFrame(g, { state: s, image }, total, cache, { layer });
+    entries.push({ name: layerFileName(layer), data: await pngBytes(c) });
+    onProgress((i + 1) / (LAYERS.length + 1), S.layerNames[layer]);
+  }
+  return zipOutput(entries, exportFileName('layers', new Date()), size, [
+    { label: S.detailFiles, value: LAYERS.map((l) => S.layerNames[l]).join('、') },
+  ]);
+}
+
+/** 連番 PNG：時間軸的影格率逐格（含運鏡），frame_0001.png… */
+export async function exportSequence(
+  s: FxState,
+  image: ImageSource,
+  { signal, onProgress }: ExportContext,
+): Promise<ExportOutput> {
+  await ensureCreditFont(s);
+  const size = sizeOf(s, image);
+  const fps = s.timing.fps;
+  const anim = animFrameDrawer(s, image);
+  const times = apngTimes(anim.total, fps);
+  if (times.length > SEQUENCE_MAX_FRAMES)
+    throw new Error(S.sequenceTooMany(times.length, SEQUENCE_MAX_FRAMES));
+  const c = makeCanvas(size.width, size.height);
+  const g = ctx2d(c);
+  const entries: { name: string; data: Uint8Array }[] = [];
+  for (let i = 0; i < times.length; i++) {
+    if (signal.aborted) throw aborted();
+    anim.draw(g, times[i]);
+    entries.push({ name: frameFileName(i, times.length), data: await pngBytes(c) });
+    onProgress((i + 1) / (times.length + 1), S.rendering(i + 1, times.length));
+  }
+  onProgress(times.length / (times.length + 1), S.zipping);
+  return zipOutput(
+    entries,
+    exportFileName('frames', new Date()),
+    size,
+    [{ label: S.detailFps, value: `${fps} fps` }],
+    times.length,
+  );
 }
 
 /** 試算大小的徽章 */

@@ -5,6 +5,7 @@
 import {
   ArrowDown,
   ArrowUp,
+  Clapperboard,
   Copy,
   Highlighter,
   ImageIcon,
@@ -34,22 +35,29 @@ import {
 import {
   BG_MODES,
   BORDERS,
-  buildTimeline,
+  CAMERA_FOCUSES,
+  CAMERA_MODES,
   CANVAS_PRESETS,
+  type CameraFocus,
+  type CameraMode,
   type CanvasPreset,
   CREDIT_POSITIONS,
   CREDIT_SIZES,
   type CreditPos,
   type CreditSize,
+  cameraTarget,
   canvasSize,
   DIRS,
   type Dir,
+  EDGE_FXS,
+  type EdgeFx,
   FPS_CHOICES,
   type Fps,
   type Frame,
   type FrameDefaults,
   type FrameKind,
   type FxState,
+  isCameraCandidate,
   isHighlight,
   kindIndex,
   LIMITS,
@@ -67,6 +75,7 @@ import {
   type RedactFrame,
   type RedactMode,
   type RedactStyle,
+  timelineOf,
   ZOOM_STYLES,
   type ZoomFrame,
   type ZoomStyle,
@@ -74,14 +83,17 @@ import {
 import {
   clearFrames,
   clearImage,
+  docNow,
   duplicate,
   edit,
   gesture,
   moveFrame,
   type PanelTab,
   removeFrame,
+  requestSeek,
   select,
   setDefaults,
+  startCameraPreview,
   updateFrame,
   useDoc,
   useLive,
@@ -534,6 +546,23 @@ function RedactControls({
           />
         </Field>
       )}
+      <Field label={S.edge} hint={S.edgeHint} hidden={v.mode === 'static'}>
+        <Segmented<EdgeFx>
+          value={v.edge}
+          onValueChange={(edge) => set({ edge })}
+          options={EDGE_FXS.map((e) => ({ value: e, label: S.edges[e] }))}
+          fullWidth
+        />
+      </Field>
+      <Field label={S.glow} hidden={v.mode === 'static' || v.edge === 'none'}>
+        <RangeSlider
+          k="glow"
+          value={v.glow}
+          unit="%"
+          onChange={(glow) => set({ glow }, true)}
+          onCommit={commit}
+        />
+      </Field>
     </>
   );
 }
@@ -580,6 +609,11 @@ function FrameEditor({ frame }: { frame: Frame }) {
     const apply = () => updateFrame(frame.id, (f) => void Object.assign(f, patch));
     if (live) gesture.live(apply)();
     else apply();
+    /* 邊界演出：預覽跳到這個框動作到一半的樣子（同原作） */
+    if ('edge' in patch || 'glow' in patch) {
+      const w = timelineOf(docNow()).windows[frame.id];
+      if (w) requestSeek((w.start + w.end) / 2);
+    }
   };
   return (
     <div
@@ -750,9 +784,9 @@ function FramesSection() {
 /* ---------- 時間軸 ---------- */
 
 function TimingSection() {
-  const timing = useDoc((s) => s.data.timing);
-  const frames = useDoc((s) => s.data.frames);
-  const total = buildTimeline(timing, frames).total;
+  const doc = useDoc((s) => s.data);
+  const timing = doc.timing;
+  const total = timelineOf(doc).total;
   return (
     <Section title={S.sectionTiming} persistKey="screenshot-fx:timing">
       {PHASES.map((p: PhaseId) => (
@@ -794,6 +828,103 @@ function TimingSection() {
       <p className="m-0 text-sm tabular-nums" data-testid="timing-total">
         {S.total(total)}
       </p>
+    </Section>
+  );
+}
+
+/** 運鏡（第二批）：鏡頭的動作、對象、一開始看的位置、倍率、拉回的時間、從頭確認 */
+function CameraSection() {
+  const doc = useDoc((s) => s.data);
+  const cam = doc.camera;
+  const cands = doc.frames.filter(isCameraCandidate);
+  const target = cameraTarget(doc.frames, cam);
+  const tl = timelineOf(doc);
+  const on = cam.mode === 'pullback';
+  const status = !on
+    ? S.cameraOff
+    : !target || !tl.camera
+      ? S.cameraNone
+      : S.cameraStatus(
+          S.frameName(target.kind, kindIndex(doc.frames, target.id)),
+          tl.camera.start,
+          tl.camera.end - tl.camera.start,
+        );
+  const setCam = (recipe: (c: FxState['camera']) => void) =>
+    edit((d) => {
+      recipe(d.camera);
+    });
+  return (
+    <Section title={S.sectionCamera} persistKey="screenshot-fx:camera">
+      <Field label={S.cameraMode}>
+        <Select<CameraMode>
+          value={cam.mode}
+          onValueChange={(v) =>
+            setCam((c) => {
+              c.mode = v;
+            })
+          }
+          options={CAMERA_MODES.map((m) => ({ value: m, label: S.cameraModes[m] }))}
+        />
+      </Field>
+      <div className="flex flex-col gap-3" data-testid="camera-controls" hidden={!on}>
+        <Field label={S.cameraTarget}>
+          <Select
+            value={cands.some((f) => f.id === cam.target) ? cam.target : 'auto'}
+            onValueChange={(v) =>
+              setCam((c) => {
+                c.target = v;
+              })
+            }
+            options={[
+              { value: 'auto', label: S.cameraAuto },
+              ...cands.map((f) => ({
+                value: f.id,
+                label: `${doc.frames.indexOf(f) + 1}. ${S.frameName(f.kind, kindIndex(doc.frames, f.id))}`,
+              })),
+            ]}
+          />
+        </Field>
+        <Field label={S.cameraFocus}>
+          <Segmented<CameraFocus>
+            value={cam.focus}
+            onValueChange={(v) =>
+              setCam((c) => {
+                c.focus = v;
+              })
+            }
+            options={CAMERA_FOCUSES.map((f) => ({ value: f, label: S.cameraFocuses[f] }))}
+            fullWidth
+          />
+        </Field>
+        <Field label={S.cameraZoom}>
+          <DocSlider
+            k="camZoom"
+            value={cam.zoom}
+            unit=" 倍"
+            set={(d, v) => {
+              d.camera.zoom = v;
+            }}
+          />
+        </Field>
+        <Field label={S.cameraDuration}>
+          <DocSlider
+            k="camDuration"
+            value={cam.duration}
+            unit=" 秒"
+            set={(d, v) => {
+              d.camera.duration = v;
+            }}
+          />
+        </Field>
+        <Button icon={<Clapperboard />} disabled={!tl.camera} onClick={startCameraPreview}>
+          {S.cameraPreview}
+        </Button>
+        <p className="m-0 text-xs text-muted">{S.cameraNote}</p>
+      </div>
+      <p className="m-0 text-sm" role="status" data-testid="camera-status">
+        {status}
+      </p>
+      <p className="m-0 text-xs text-muted">{S.cameraOutputNote}</p>
     </Section>
   );
 }
@@ -840,7 +971,12 @@ export function Settings({
         {
           value: 'timing',
           label: S.tabs.timing,
-          content: <TimingSection />,
+          content: (
+            <div className="flex flex-col gap-3">
+              <TimingSection />
+              <CameraSection />
+            </div>
+          ),
         },
       ]}
     />

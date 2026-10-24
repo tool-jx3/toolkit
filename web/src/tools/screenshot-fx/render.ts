@@ -4,33 +4,38 @@
  * 順序：底圖（背景＋截圖的陰影＋圓角截圖，設定不變時快取）→ 截圖上的螢光筆與塗黑 → 聚光（周圍變暗）→
  * 放大框（以框的中心放大、樣式外框；框裡重畫一次截圖與跟它重疊的螢光筆、塗黑，所以它們跟著放大）→ 出處。
  * 螢光筆、塗黑、放大框的外觀都是本站自己設計的（原作的程式與樣式拿不到，也不能沿用）。
+ *
+ * 第二批：運鏡（只畫畫面的一塊、放大到整個畫面；截圖在放大的倍率下重畫一次，字不會糊）、塗黑解除／抹消的邊界演出、
+ * 段階公開用的「每個框各自的進度」、圖層（背景／放大框／螢光筆）。
  */
 import { makeCanvas, roundRectPath } from '@/core/image';
 import { blurCanvas } from '@/core/scene';
-import { clamp01, hashSigned, seedOf } from '@/core/timeline';
+import { clamp01, hashSigned, hashUnit, seedOf } from '@/core/timeline';
 import {
   actionEase,
-  actionProgress,
-  buildTimeline,
+  CARD_MARGIN,
   cardRect,
   computeLayout,
   coverSpan,
+  edgeEnvelope,
   type Frame,
   type FxState,
   HIGHLIGHT_COLORS,
   intersects,
   isHighlight,
+  type LayerId,
   type Layout,
   type MarkerFrame,
   type Placement,
+  type Progress,
   popupAlpha,
-  popupProgress,
   RED_PEN,
   type Rect,
   type RedactFrame,
   type Size,
   spanRect,
-  type Timeline,
+  timelineOf,
+  timeProgress,
   unitOf,
   type ZoomFrame,
   zoomFactor,
@@ -45,6 +50,12 @@ export const UI_FONT_STACK =
   '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
 export const CREDIT_FONT_FAMILY = 'Noto Sans TC';
 export const CREDIT_FONT_WEIGHT = 700;
+
+/** 目前的變換倍率（運鏡時 > 1）：陰影、光暈的模糊不跟著變換縮放，要自己乘 */
+const devScale = (g: Ctx): number => {
+  const m = typeof g.getTransform === 'function' ? g.getTransform() : null;
+  return m ? Math.hypot(m.a, m.b) || 1 : 1;
+};
 
 const ctxOf = (c: AnyCanvas): Ctx => {
   const g = c.getContext('2d') as Ctx | null;
@@ -304,13 +315,20 @@ function wobblyLine(
   });
 }
 
-export function drawMarker(g: Ctx, f: MarkerFrame, r: Rect, q: number, lw: number): void {
+export function drawMarker(
+  g: Ctx,
+  f: MarkerFrame,
+  r: Rect,
+  q: number,
+  lw: number,
+  multiply = true,
+): void {
   if (q <= 0 || r.w <= 0 || r.h <= 0) return;
   const seed = seedOf(f.id);
   g.save();
   if (isHighlight(f.style)) {
-    /* 螢光筆：色塊以色彩增值疊上，兩端稍圓，沿方向長出 */
-    g.globalCompositeOperation = 'multiply';
+    /* 螢光筆：色塊以色彩增值疊上，兩端稍圓，沿方向長出（圖層匯出時一般疊上，剪輯軟體裡再設色彩增值） */
+    if (multiply) g.globalCompositeOperation = 'multiply';
     g.fillStyle = HIGHLIGHT_COLORS[f.style];
     g.globalAlpha = 0.92;
     const grow = spanRect(r, f.dir, 0, q);
@@ -455,28 +473,140 @@ export function drawRedact(
   g.restore();
 }
 
+/* ---------- 塗黑的邊界演出（第二批，自訂） ---------- */
+
+export const EDGE_GOLD = { r: 255, g: 200, b: 90 } as const;
+export const EDGE_SCAN = { r: 150, g: 245, b: 255 } as const;
+
+/**
+ * 解除、抹消時剝開／蓋上的那條邊：金光＝以邊為中心的橢圓金色光暈＋兩端淡出的亮線＋往露出那一側飄散的金色粒子；
+ * 掃描線＝一條青白的亮線＋拖在露出那一側的淡青色。濃度＝光的強度 × 頭尾淡入淡出；q＝動作的進度（已套曲線）。
+ */
+export function drawEdge(g: Ctx, f: RedactFrame, r: Rect, q: number, u: number, k: number): void {
+  if (f.mode === 'static' || f.edge === 'none') return;
+  const A = edgeEnvelope(q) * (f.glow / 100);
+  if (A <= 0) return;
+  const horiz = f.dir === 'h';
+  const len = horiz ? r.w : r.h;
+  const cross = horiz ? r.h : r.w;
+  const c0 = horiz ? r.y : r.x;
+  const start = horiz ? r.x : r.y;
+  const pos = start + len * q;
+  /* 露出的那一側：解除＝起點那一側（已經剝開）、抹消＝終點那一側（還沒蓋上） */
+  const side = f.mode === 'reveal' ? -1 : 1;
+  const at = (along: number, across: number): [number, number] =>
+    horiz ? [along, across] : [across, along];
+  const rgba = (c: { r: number; g: number; b: number }, a: number) =>
+    `rgba(${c.r}, ${c.g}, ${c.b}, ${Math.max(0, Math.min(1, a)).toFixed(3)})`;
+  /** 沿著邊的一條線（兩端淡出） */
+  const line = (width: number, color: { r: number; g: number; b: number }, a: number) => {
+    const [x0, y0] = at(pos, c0);
+    const [x1, y1] = at(pos, c0 + cross);
+    const grad = g.createLinearGradient(x0, y0, x1, y1);
+    grad.addColorStop(0, rgba(color, 0));
+    grad.addColorStop(0.2, rgba(color, a));
+    grad.addColorStop(0.8, rgba(color, a));
+    grad.addColorStop(1, rgba(color, 0));
+    g.fillStyle = grad;
+    const [lx, ly] = at(pos - width / 2, c0);
+    if (horiz) g.fillRect(lx, ly, width, cross);
+    else g.fillRect(lx, ly, cross, width);
+  };
+  const core = Math.max(1.5 * k, 2.5 * u * k);
+  g.save();
+  if (f.edge === 'glow') {
+    /* 光暈：以邊的中點為中心的橢圓 */
+    const gr = Math.max(10 * u * k, cross * 0.55);
+    const [cx, cy] = at(pos, c0 + cross / 2);
+    g.save();
+    g.translate(cx, cy);
+    g.scale(horiz ? gr : cross * 0.8, horiz ? cross * 0.8 : gr);
+    const halo = g.createRadialGradient(0, 0, 0, 0, 0, 1);
+    halo.addColorStop(0, rgba(EDGE_GOLD, 0.6 * A));
+    halo.addColorStop(0.45, rgba(EDGE_GOLD, 0.28 * A));
+    halo.addColorStop(1, rgba(EDGE_GOLD, 0));
+    g.fillStyle = halo;
+    g.beginPath();
+    g.arc(0, 0, 1, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+    line(core * 2.4, EDGE_GOLD, 0.7 * A);
+    line(core, { r: 255, g: 248, b: 225 }, 0.95 * A);
+    /* 粒子：每顆在某個進度從邊上出生，往露出的那一側飄、往上一點，慢慢變小變淡（依框固定） */
+    const seed = seedOf(f.id);
+    const n = Math.round(8 + 16 * (f.glow / 100));
+    const life = 0.2;
+    for (let i = 0; i < n; i++) {
+      const born = hashUnit(seed, i, 1) * (1 - life * 0.5);
+      const age = (q - born) / life;
+      if (age < 0 || age > 1) continue;
+      const along = start + len * born + side * age * gr * (0.8 + hashUnit(seed, i, 2));
+      const across = c0 + cross * hashUnit(seed, i, 3) - age * cross * 0.35 * hashUnit(seed, i, 4);
+      const size = (1.2 + 2.2 * hashUnit(seed, i, 5)) * u * k * (1 - age * 0.5);
+      const [x, y] = at(along, across);
+      g.fillStyle = rgba(EDGE_GOLD, A * (1 - age));
+      g.beginPath();
+      g.arc(x, y, Math.max(0.7, size), 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = rgba({ r: 255, g: 250, b: 230 }, A * (1 - age) * 0.9);
+      g.beginPath();
+      g.arc(x, y, Math.max(0.35, size * 0.45), 0, Math.PI * 2);
+      g.fill();
+    }
+  } else {
+    /* 掃描線：拖在露出那一側的淡光＋亮線 */
+    const tail = Math.max(14 * u * k, len * 0.12);
+    const [x0, y0] = at(pos, 0);
+    const [x1, y1] = at(pos + side * tail, 0);
+    const grad = horiz
+      ? g.createLinearGradient(x0, 0, x1, 0)
+      : g.createLinearGradient(0, y0, 0, y1);
+    grad.addColorStop(0, rgba(EDGE_SCAN, 0.4 * A));
+    grad.addColorStop(1, rgba(EDGE_SCAN, 0));
+    g.fillStyle = grad;
+    const a0 = Math.min(pos, pos + side * tail);
+    if (horiz) g.fillRect(a0, c0, tail, cross);
+    else g.fillRect(c0, a0, cross, tail);
+    line(core * 1.4, EDGE_SCAN, 0.95 * A);
+  }
+  g.restore();
+}
+
 /* ---------- 截圖上的框 ---------- */
 
-/** 螢光筆與塗黑（清單順序）；only 給了時只畫跟它重疊的（放大框裡） */
+interface AnnotationOptions {
+  /** 只畫這些框 */
+  filter?: (f: Frame) => boolean;
+  /** 只畫跟它重疊的（放大框裡） */
+  only?: Rect;
+  /** 螢光筆以色彩增值疊上（圖層匯出時 false） */
+  multiply?: boolean;
+}
+
+/** 螢光筆與塗黑（清單順序） */
 function drawAnnotations(
   g: Ctx,
   m: Mapping,
   frames: readonly Frame[],
-  tl: Timeline,
-  t: number,
+  prog: Progress,
   img: ImageSource,
   cache: RenderCache,
   baseScale: number,
-  lw: number,
-  only?: Rect,
+  u: number,
+  { filter, only, multiply = true }: AnnotationOptions = {},
 ) {
+  const lw = penWidth(u);
   for (const f of frames) {
     if (f.kind === 'zoom') continue;
+    if (filter && !filter(f)) continue;
     if (only && !intersects(f, only)) continue;
     const r = mapRect(m, f);
-    const q = actionEase(actionProgress(tl, f.id, t));
-    if (f.kind === 'marker') drawMarker(g, f, r, q, lw * m.k);
-    else drawRedact(g, f, r, coverSpan(f.mode, q), img, cache, baseScale);
+    const q = actionEase(prog.action(f));
+    if (f.kind === 'marker') drawMarker(g, f, r, q, lw * m.k, multiply);
+    else {
+      drawRedact(g, f, r, coverSpan(f.mode, q), img, cache, baseScale);
+      drawEdge(g, f, r, q, u, m.k);
+    }
   }
 }
 
@@ -522,11 +652,16 @@ const grow = (r: Rect, d: number): Rect => ({
 /** 放大框的外觀參數（畫面 px；u＝短邊 1080 為 1） */
 export const CARD = {
   radius: 12,
-  margin: 12,
   cyan: '#3be6ff',
   paper: '#f3ecdb',
   tape: 'rgba(236, 222, 180, 0.78)',
 } as const;
+
+interface CardOptions {
+  /** 畫外框、陰影與框裡的截圖（圖層「螢光筆」時 false：只畫框裡的螢光筆） */
+  body: boolean;
+  annotations: AnnotationOptions;
+}
 
 function drawCard(
   g: Ctx,
@@ -534,29 +669,38 @@ function drawCard(
   p: number,
   layout: Layout,
   frames: readonly Frame[],
-  tl: Timeline,
-  t: number,
+  prog: Progress,
   img: ImageSource,
   cache: RenderCache,
-  lw: number,
+  { body, annotations }: CardOptions,
 ) {
   if (p <= 0) return;
   const { shot, canvas } = layout;
   const u = unitOf(canvas);
+  const ds = devScale(g);
   const k = zoomFactor(z.scale, p);
   const a = popupAlpha(p);
-  const C = cardRect(z, shot, canvas, k, CARD.margin * u);
+  const C = cardRect(z, shot, canvas, k, CARD_MARGIN * u);
   const m: Mapping = { ox: C.x - z.x * shot.f * k, oy: C.y - z.y * shot.f * k, s: shot.f * k, k };
   const b = z.border * u;
   const content = (clip: () => void) => {
     g.save();
     clip();
     g.clip();
-    g.imageSmoothingQuality = 'high';
-    g.drawImage(img, z.x, z.y, z.w, z.h, C.x, C.y, C.w, C.h);
-    drawAnnotations(g, m, frames, tl, t, img, cache, shot.f, lw, z);
+    if (body) {
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(img, z.x, z.y, z.w, z.h, C.x, C.y, C.w, C.h);
+    }
+    drawAnnotations(g, m, frames, prog, img, cache, shot.f, u, { ...annotations, only: z });
     g.restore();
   };
+  if (!body) {
+    content(() => {
+      g.beginPath();
+      g.rect(C.x, C.y, C.w, C.h);
+    });
+    return;
+  }
   const rectPath = (r: Rect, rad: number) => {
     g.beginPath();
     roundRectPath(g, r.x, r.y, r.w, r.h, rad);
@@ -567,8 +711,8 @@ function drawCard(
     const outer = grow(C, b);
     g.save();
     g.shadowColor = `rgba(0, 0, 0, ${(0.5 * a).toFixed(3)})`;
-    g.shadowBlur = 36 * u * a;
-    g.shadowOffsetY = 14 * u * a;
+    g.shadowBlur = 36 * u * a * ds;
+    g.shadowOffsetY = 14 * u * a * ds;
     g.fillStyle = `rgba(255, 255, 255, ${a.toFixed(3)})`;
     rectPath(outer, R + b);
     g.fill();
@@ -583,8 +727,8 @@ function drawCard(
     g.save();
     g.globalAlpha = a;
     g.shadowColor = 'rgba(0, 0, 0, 0.45)';
-    g.shadowBlur = 24 * u;
-    g.shadowOffsetY = 8 * u;
+    g.shadowBlur = 24 * u * ds;
+    g.shadowOffsetY = 8 * u * ds;
     g.fillStyle = CARD.paper;
     tornPath(g, paper, mg * 0.55, 12 * u, seed);
     g.fill();
@@ -632,7 +776,7 @@ function drawCard(
     g.globalAlpha = a;
     g.strokeStyle = CARD.cyan;
     g.shadowColor = CARD.cyan;
-    g.shadowBlur = 18 * u;
+    g.shadowBlur = 18 * u * ds;
     g.lineWidth = b;
     g.strokeRect(C.x - b / 2, C.y - b / 2, C.w + b, C.h + b);
     const L = Math.min(C.w, C.h) * 0.18;
@@ -658,8 +802,8 @@ function drawCard(
   const R = 6 * u;
   g.save();
   g.shadowColor = `rgba(0, 0, 0, ${(0.62 * a).toFixed(3)})`;
-  g.shadowBlur = 40 * u * a;
-  g.shadowOffsetY = 16 * u * a;
+  g.shadowBlur = 40 * u * a * ds;
+  g.shadowOffsetY = 16 * u * a * ds;
   g.fillStyle = '#000';
   rectPath(C, R);
   g.fill();
@@ -703,9 +847,10 @@ function drawCredit(g: Ctx, s: FxState, layout: Layout) {
   } else {
     const dark = s.bg.mode === 'solid' && luminance(s.bg.color) > 0.6;
     if (!dark) {
+      const ds = devScale(g);
       g.shadowColor = 'rgba(0, 0, 0, 0.65)';
-      g.shadowBlur = c.px * 0.35;
-      g.shadowOffsetY = c.px * 0.06;
+      g.shadowBlur = c.px * 0.35 * ds;
+      g.shadowOffsetY = c.px * 0.06 * ds;
     }
     g.fillStyle = dark ? 'rgba(24, 24, 28, 0.88)' : 'rgba(255, 255, 255, 0.9)';
     const max = s.credit.pos === 'below' ? shot.w : canvas.width * 0.92;
@@ -722,48 +867,129 @@ export interface FrameInput {
   image: ImageSource | null;
 }
 
+export interface RenderOptions {
+  /** 運鏡：畫面上的哪一塊（畫面 px）放大到整個畫面；null＝全圖 */
+  view?: Rect | null;
+  /** 每個框各自的進度（段階公開）；不給時依時間 */
+  progress?: Progress;
+  /** 圖層：背景（背景＋截圖＋靜止的塗黑＋出處）、放大框（周圍變暗＋放大框，框裡只有靜止的塗黑）、螢光筆、完成（預設） */
+  layer?: LayerId;
+}
+
+const isStaticRedact = (f: Frame) => f.kind === 'redact' && f.mode === 'static';
+const isMarker = (f: Frame) => f.kind === 'marker';
+
 /** 畫 t 秒的那一格（畫布大小要等於畫面大小） */
-export function renderFrame(g: Ctx, input: FrameInput, t: number, cache: RenderCache): void {
+export function renderFrame(
+  g: Ctx,
+  input: FrameInput,
+  t: number,
+  cache: RenderCache,
+  opts: RenderOptions = {},
+): void {
   const { state: s, image } = input;
   const layout = computeLayout(s, image ? { width: image.width, height: image.height } : null);
   const { canvas, shot } = layout;
+  const { width: W, height: H } = canvas;
+  const layer = opts.layer ?? 'final';
+  const view = opts.view && (opts.view.w < W - 1e-6 || opts.view.h < H - 1e-6) ? opts.view : null;
+  const withBase = layer === 'final' || layer === 'background';
   g.save();
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.globalAlpha = 1;
   g.globalCompositeOperation = 'source-over';
-  g.clearRect(0, 0, canvas.width, canvas.height);
-  g.drawImage(baseOf(cache, image, s, layout), 0, 0);
-  if (image) {
-    const tl = buildTimeline(s.timing, s.frames);
-    const u = unitOf(canvas);
-    const lw = penWidth(u);
-    const base: Mapping = { ox: shot.x, oy: shot.y, s: shot.f, k: 1 };
-    g.save();
-    clipShot(g, s, shot);
-    drawAnnotations(g, base, s.frames, tl, t, image, cache, shot.f, lw);
-    g.restore();
-    const zooms = s.frames.filter((f): f is ZoomFrame => f.kind === 'zoom');
-    const p = popupProgress(tl, t);
-    if (zooms.length && s.shot.spotlight > 0 && p > 0) {
+  g.clearRect(0, 0, W, H);
+  if (withBase) {
+    const base = baseOf(cache, image, s, layout);
+    if (view) {
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(base, view.x, view.y, view.w, view.h, 0, 0, W, H);
+    } else g.drawImage(base, 0, 0);
+  }
+  if (view) {
+    const kx = W / view.w;
+    const ky = H / view.h;
+    g.setTransform(kx, 0, 0, ky, -view.x * kx, -view.y * ky);
+    /* 放大後截圖從原圖重畫一次（底圖是畫面解析度，放大會糊） */
+    if (image && withBase) {
       g.save();
-      if (s.bg.mode === 'transparent') clipShot(g, s, shot);
-      g.fillStyle = `rgba(0, 0, 0, ${((s.shot.spotlight / 100) * popupAlpha(p)).toFixed(4)})`;
-      g.fillRect(0, 0, canvas.width, canvas.height);
+      clipShot(g, s, shot);
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(image, shot.x, shot.y, shot.w, shot.h);
       g.restore();
     }
-    for (const z of zooms) drawCard(g, z, p, layout, s.frames, tl, t, image, cache, lw);
   }
-  drawCredit(g, s, layout);
+  if (image) {
+    const prog = opts.progress ?? timeProgress(timelineOf(s), t);
+    const u = unitOf(canvas);
+    const filter =
+      layer === 'background' || layer === 'cutouts'
+        ? isStaticRedact
+        : layer === 'markers'
+          ? isMarker
+          : undefined;
+    const ann: AnnotationOptions = { filter, multiply: layer !== 'markers' };
+    const zooms = s.frames.filter((f): f is ZoomFrame => f.kind === 'zoom');
+    if (layer !== 'cutouts') {
+      g.save();
+      clipShot(g, s, shot);
+      if (layer === 'markers') {
+        /* 螢光筆圖層：放大框蓋住的地方不畫截圖上的那一份（放大框裡另外畫，疊起來才不會重複） */
+        g.beginPath();
+        g.rect(-W, -H, W * 3, H * 3);
+        for (const z of zooms) {
+          const p = prog.popup(z);
+          if (p <= 0) continue;
+          const C = cardRect(z, shot, canvas, zoomFactor(z.scale, p), CARD_MARGIN * u);
+          g.rect(C.x, C.y, C.w, C.h);
+        }
+        g.clip('evenodd');
+      }
+      drawAnnotations(
+        g,
+        { ox: shot.x, oy: shot.y, s: shot.f, k: 1 },
+        s.frames,
+        prog,
+        image,
+        cache,
+        shot.f,
+        u,
+        ann,
+      );
+      g.restore();
+    }
+    if (layer !== 'background') {
+      const p = zooms.reduce((mx, z) => Math.max(mx, prog.popup(z)), 0);
+      if (layer !== 'markers' && zooms.length && s.shot.spotlight > 0 && p > 0) {
+        g.save();
+        if (s.bg.mode === 'transparent') clipShot(g, s, shot);
+        g.fillStyle = `rgba(0, 0, 0, ${((s.shot.spotlight / 100) * popupAlpha(p)).toFixed(4)})`;
+        g.fillRect(-W, -H, W * 3, H * 3);
+        g.restore();
+      }
+      for (const z of zooms)
+        drawCard(g, z, prog.popup(z), layout, s.frames, prog, image, cache, {
+          body: layer !== 'markers',
+          annotations: ann,
+        });
+    }
+  }
+  if (withBase) drawCredit(g, s, layout);
   g.restore();
 }
 
 /** 畫成一張新的畫布 */
-export function renderToCanvas(input: FrameInput, t: number, cache = new RenderCache()): AnyCanvas {
+export function renderToCanvas(
+  input: FrameInput,
+  t: number,
+  cache = new RenderCache(),
+  opts: RenderOptions = {},
+): AnyCanvas {
   const layout = computeLayout(
     input.state,
     input.image ? { width: input.image.width, height: input.image.height } : null,
   );
   const c = makeCanvas(layout.canvas.width, layout.canvas.height);
-  renderFrame(ctxOf(c), input, t, cache);
+  renderFrame(ctxOf(c), input, t, cache, opts);
   return c;
 }

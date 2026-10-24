@@ -197,6 +197,7 @@ export function App() {
       },
       { keys: 'escape', label: S.escShortcut, group: S.groupFrame },
       { keys: 'shift', label: S.shiftShortcut, group: S.groupFrame },
+      { keys: 'escape', label: S.escViewShortcut, group: S.groupPlay },
     ],
     [],
   );

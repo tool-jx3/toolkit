@@ -36,6 +36,7 @@ interface Frame {
 
 interface Doc {
   image: { id: string; name: string; width: number; height: number } | null;
+  camera: Record<string, unknown>;
   shot: Record<string, number>;
   frames: Frame[];
   credit: { text: string; pos: string; size: string };
@@ -56,6 +57,20 @@ async function shotPng(w = 1000, h = 500): Promise<Buffer> {
       px[o] = left ? 240 : 60;
       px[o + 1] = left ? 240 : 120;
       px[o + 2] = left ? 240 : 200;
+      px[o + 3] = 255;
+    }
+  return Buffer.from(await encodePng(px, w, h));
+}
+
+/** 測試圖：橫向漸層（紅隨 x、綠隨 y），每個位置的顏色都不同 */
+async function gradientPng(w = 1000, h = 500): Promise<Buffer> {
+  const px = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 4;
+      px[o] = Math.round((x / (w - 1)) * 255);
+      px[o + 1] = Math.round((y / (h - 1)) * 255);
+      px[o + 2] = 128;
       px[o + 3] = 255;
     }
   return Buffer.from(await encodePng(px, w, h));
@@ -192,9 +207,32 @@ function readPng(bytes: Uint8Array): Img {
 const dataUrlBytes = (url: string) => new Uint8Array(Buffer.from(url.split(',')[1], 'base64'));
 
 /** 匯出並下載 */
+/** 匯出區的格式（六種，用下拉選單） */
+async function chooseFormat(page: Page, format: string) {
+  await exportPanel(page).getByRole('combobox', { name: '格式' }).click();
+  await page.getByRole('option', { name: format, exact: true }).click();
+}
+
+/** 格式可以選（瀏覽器檢查完能不能編影片） */
+async function expectFormatEnabled(page: Page, format: string) {
+  await expect
+    .poll(
+      async () => {
+        await exportPanel(page).getByRole('combobox', { name: '格式' }).click();
+        const disabled = await page
+          .getByRole('option', { name: format, exact: true })
+          .getAttribute('aria-disabled');
+        await page.keyboard.press('Escape');
+        return disabled !== 'true';
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+}
+
 async function exportFile(page: Page, format: string) {
   const panel = exportPanel(page);
-  await panel.getByRole('radio', { name: format, exact: true }).click();
+  await chooseFormat(page, format);
   await panel.getByRole('button', { name: `匯出 ${format}` }).click();
   const result = page.getByTestId('export-result');
   await expect(result).toBeVisible({ timeout: 180_000 });
@@ -759,8 +797,7 @@ test('匯出：影片（不透明 MP4、透明 WebM）（F50、F51）', async ({
     frames: [{ id: 'm', kind: 'marker', x: 10, y: 10, w: 200, h: 40, style: 'yellow', dir: 'h' }],
     timing: { intro: 0, popup: 0, action: 0.5, outro: 0.5, order: 'sequential', fps: 15 },
   });
-  const panel = exportPanel(page);
-  await expect(panel.getByRole('radio', { name: 'MP4' })).toBeEnabled({ timeout: 30_000 });
+  await expectFormatEnabled(page, 'MP4');
   const mp4 = await exportFile(page, 'MP4');
   expect(mp4.name).toMatch(/\.(mp4|mov|webm)$/);
   expect(mp4.bytes.length).toBeGreaterThan(1000);
@@ -772,7 +809,7 @@ test('匯出：影片（不透明 MP4、透明 WebM）（F50、F51）', async ({
     .getByRole('radiogroup', { name: '背景', exact: true })
     .getByRole('radio', { name: '透明' })
     .click();
-  await expect(panel.getByRole('radio', { name: 'WebM（透明）' })).toBeEnabled({ timeout: 30_000 });
+  await expectFormatEnabled(page, 'WebM（透明）');
   const webm = await exportFile(page, 'WebM（透明）');
   expect(webm.name).toMatch(/\.webm$/);
   expect([...webm.bytes.slice(0, 4)]).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
@@ -828,6 +865,357 @@ test('自動儲存與還原（含圖片）、專案檔 ZIP（F52～F54）', asyn
   await page.keyboard.press('Shift+?');
   await expect(page.getByRole('dialog')).toContainText('複製選取的框');
   await page.keyboard.press('Escape');
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 第二批：運鏡 ---------- */
+
+interface TimelineInfo {
+  total: number;
+  windows: Record<string, { start: number; end: number }>;
+  camera: { start: number; end: number; targetId: string } | null;
+}
+interface ViewRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const marker = (id: string, x: number, y: number, w = 300, h = 40) => ({
+  id,
+  kind: 'marker',
+  x,
+  y,
+  w,
+  h,
+  style: 'yellow',
+  dir: 'h',
+});
+const redact = (id: string, x: number, y: number, extra: Record<string, unknown> = {}) => ({
+  id,
+  kind: 'redact',
+  x,
+  y,
+  w: 300,
+  h: 60,
+  style: 'black',
+  mode: 'reveal',
+  dir: 'h',
+  density: 100,
+  grain: 12,
+  edge: 'glow',
+  glow: 100,
+  ...extra,
+});
+
+test('運鏡：對象、放慢、拉回的範圍、從頭確認（Esc 回到編輯）、匯出有運鏡（F57～F62）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await loadImage(page, await gradientPng(), 'grad.png');
+  await call(page, 'set', {
+    canvas: '1200x900',
+    frames: [marker('a', 100, 100), marker('b', 500, 300)],
+    timing: { intro: 0.2, popup: 0.2, action: 0.6, outro: 0.4, order: 'sequential', fps: 15 },
+  });
+  await tab(page, '時間軸');
+  await expect(page.getByTestId('camera-status')).toHaveText('固定畫面。');
+  await page.getByRole('combobox', { name: '鏡頭的動作' }).click();
+  await page.getByRole('option', { name: '從框放大開始，慢慢拉回全圖' }).click();
+  await expect
+    .poll(async () => (await state(page)).camera)
+    .toMatchObject({
+      mode: 'pullback',
+      target: 'auto',
+      zoom: 2.4,
+      duration: 3.6,
+    });
+  /* 自動＝第一個會動的框（a）；動作 0.6 秒比拉回 3.6 秒短：a 放慢到 3.6 秒，b 往後 */
+  await expect(page.getByTestId('camera-status')).toHaveText(
+    '從「螢光筆 1」開始：0.40 秒起用 3.6 秒拉回全圖。',
+  );
+  let tl = await call<TimelineInfo>(page, 'timeline');
+  expect(tl.windows.a).toEqual({ start: 0.4, end: 4 });
+  expect(tl.windows.b).toEqual({ start: 4, end: 4.6 });
+  expect(tl.total).toBe(5);
+  /* 指定對象 b、倍率 2、時間 1 秒 */
+  await page.getByRole('combobox', { name: '對象' }).click();
+  await page.getByRole('option', { name: '2. 螢光筆 2' }).click();
+  await call(page, 'set', {
+    camera: { ...(await state(page)).camera, target: 'b', zoom: 2, duration: 1 },
+  });
+  tl = await call<TimelineInfo>(page, 'timeline');
+  expect(tl.camera).toEqual({ start: 1, end: 2, targetId: 'b' });
+  /* 拉回前：看到畫面的一半（1200 ÷ 2）；結束後是全圖 */
+  const v0 = await call<ViewRect | null>(page, 'cameraView', 0);
+  expect(v0?.w).toBeCloseTo(600, 5);
+  expect(v0?.h).toBeCloseTo(450, 5);
+  expect(await call(page, 'cameraView', 2)).toBeNull();
+  /* 畫面：運鏡時畫面上一點看到的是全圖裡「看到的範圍」對應的那一點（漸層的圖，紅隨 x） */
+  const corner: [number, number] = [600, 450];
+  const [plain] = await call<Rgba[]>(page, 'pixels', 0, [corner]);
+  const [zoomed] = await call<Rgba[]>(page, 'pixels', 0, [corner], { camera: true });
+  const q: [number, number] = [
+    (v0?.x ?? 0) + (corner[0] * (v0?.w ?? 0)) / 1200,
+    (v0?.y ?? 0) + (corner[1] * (v0?.h ?? 0)) / 900,
+  ];
+  const [mapped] = await call<Rgba[]>(page, 'pixels', 0, [q]);
+  expect(zoomed.join()).not.toBe(plain.join());
+  expect(Math.abs(zoomed[0] - mapped[0])).toBeLessThanOrEqual(3);
+  expect(Math.abs(zoomed[1] - mapped[1])).toBeLessThanOrEqual(3);
+  /* 從頭確認：預覽套用運鏡、不能編輯、從頭播放；Esc 回到編輯 */
+  await page.getByRole('button', { name: '從頭確認運鏡' }).click();
+  await expect(page.getByTestId('camera-preview')).toBeVisible();
+  await expect(page.getByTestId('fx-canvas')).toHaveAttribute('data-camera', 'true');
+  await expect(page.getByTestId('editor')).toHaveCount(0);
+  await expect
+    .poll(async () => (await call<{ playing: boolean }>(page, 'player'))?.playing)
+    .toBe(true);
+  await page.locator('body').click({ position: { x: 5, y: 880 } });
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('camera-preview')).toHaveCount(0);
+  await expect(page.getByTestId('editor')).toBeVisible();
+  /* 連番 PNG 的第一格有運鏡（和套用運鏡的畫面相同） */
+  const seq = await exportFile(page, '連番 PNG ZIP');
+  expect(seq.name).toMatch(/-frames\.zip$/);
+  const files = unzipSync(seq.bytes);
+  const names = Object.keys(files);
+  expect(names).toHaveLength(Math.ceil(tl.total * 15 - 1e-9));
+  expect(names[0]).toBe('frame_0001.png');
+  const first = readPng(files['frame_0001.png']);
+  const k = (Math.round(corner[1]) * first.width + Math.round(corner[0])) * 4;
+  expect([...first.data.slice(k, k + 4)].join()).toBe(zoomed.join());
+  /* 運鏡關掉時回到全圖 */
+  await page.getByRole('combobox', { name: '鏡頭的動作' }).click();
+  await page.getByRole('option', { name: '沒有（固定畫面）' }).click();
+  await expect(page.getByTestId('camera-status')).toHaveText('固定畫面。');
+  expect((await call<TimelineInfo>(page, 'timeline')).camera).toBeNull();
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 第二批：塗黑的邊界演出 ---------- */
+
+test('塗黑的邊界演出：金光、掃描線、無；只在動作中；改了之後預覽跳到動作一半（F63）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await loadImage(page);
+  await call(page, 'set', {
+    frames: [redact('r', 100, 200)],
+    timing: { intro: 0, popup: 0, action: 2, outro: 1, order: 'sequential', fps: 15 },
+  });
+  /* 動作到一半：邊在 x＝250，往左（已經剝開、淺灰的那一側）一點是金色的光 */
+  const behind: [number, number] = [235, 230];
+  const [glow] = await srcPixels(page, 1, [behind]);
+  expect(glow[0]).toBeGreaterThan(glow[2] + 30);
+  /* 開始前、結束後沒有光（淺灰 240） */
+  const [after] = await srcPixels(page, 3, [behind]);
+  expect(after.slice(0, 3)).toEqual([240, 240, 240]);
+  /* 掃描線：青色（藍比紅多） */
+  await call(page, 'set', { frames: [redact('r', 100, 200, { edge: 'scan' })] });
+  const [scan] = await srcPixels(page, 1, [[247, 230]]);
+  expect(scan[2]).toBeGreaterThan(scan[0]);
+  /* 無 */
+  await call(page, 'set', { frames: [redact('r', 100, 200, { edge: 'none' })] });
+  const [none] = await srcPixels(page, 1, [behind]);
+  expect(none.slice(0, 3)).toEqual([240, 240, 240]);
+  /* 清單裡改邊界演出：預覽跳到這個框動作到一半（1 秒）並暫停 */
+  await tab(page, '演出框');
+  const row = page.locator('[data-frame-id="r"]');
+  await row.locator('button[aria-pressed]').click();
+  await row.getByRole('radio', { name: '金光＋粒子' }).click();
+  await expect.poll(async () => (await state(page)).frames[0].edge).toBe('glow');
+  await expect
+    .poll(async () => (await call<{ time: number }>(page, 'player'))?.time)
+    .toBeCloseTo(1, 5);
+  expect((await call<{ playing: boolean }>(page, 'player'))?.playing).toBe(false);
+  await expect(row.getByRole('slider', { name: '光的強度' })).toBeVisible();
+  /* 靜止的塗黑沒有邊界演出的設定 */
+  await row.getByRole('combobox', { name: '動作' }).click();
+  await page.getByRole('option', { name: '靜止（一直蓋著）' }).click();
+  await expect(row.getByRole('radio', { name: '金光＋粒子' })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 第二批：ZIP ---------- */
+
+test('ZIP：段階公開（step_00…）、圖層 4 張、連番 PNG（F64～F66）', async ({ page }) => {
+  const errors = await open(page);
+  await loadImage(page);
+  await call(page, 'set', {
+    canvas: '1200x900',
+    frames: [
+      {
+        id: 'z',
+        kind: 'zoom',
+        x: 600,
+        y: 300,
+        w: 300,
+        h: 100,
+        scale: 1.2,
+        style: 'card',
+        border: 4,
+      },
+      redact('r', 100, 100),
+      marker('m', 100, 300),
+      redact('s', 100, 400, { mode: 'static' }),
+    ],
+    timing: { intro: 0.1, popup: 0.2, action: 0.3, outro: 0.2, order: 'sequential', fps: 15 },
+  });
+  const l = await layout(page);
+  const px = (img: Img, sx: number, sy: number): Rgba => {
+    const x = Math.round(l.shot.x + sx * l.shot.f);
+    const y = Math.round(l.shot.y + sy * l.shot.f);
+    const k = (y * img.width + x) * 4;
+    return [img.data[k], img.data[k + 1], img.data[k + 2], img.data[k + 3]];
+  };
+  const dark = (p: Rgba) => p[0] < 40 && p[1] < 40 && p[2] < 40;
+  /* 段階公開：放大框、塗黑、螢光筆＝3 個階段＋演出前＝4 張 */
+  const steps = await exportFile(page, '段階公開 ZIP');
+  expect(steps.name).toMatch(/-steps\.zip$/);
+  const sf = unzipSync(steps.bytes);
+  expect(Object.keys(sf)).toEqual(['step_00.png', 'step_01.png', 'step_02.png', 'step_03.png']);
+  await expect(steps.result).toContainText('4 張（step_00～step_03）');
+  const s0 = readPng(sf['step_00.png']);
+  const s2 = readPng(sf['step_02.png']);
+  const s3 = readPng(sf['step_03.png']);
+  expect(dark(px(s0, 250, 130))).toBe(true);
+  expect(dark(px(s2, 250, 130))).toBe(false);
+  /* 螢光筆：第 2 張還沒（灰）、第 3 張畫好了（黃：藍比紅少很多）；放大框彈出後周圍變暗 */
+  const m2 = px(s2, 250, 320);
+  const m3 = px(s3, 250, 320);
+  expect(Math.abs(m2[0] - m2[2])).toBeLessThan(5);
+  expect(m3[0] - m3[2]).toBeGreaterThan(50);
+  /* 靜止的塗黑一直蓋著 */
+  expect(dark(px(s0, 250, 430)) && dark(px(s3, 250, 430))).toBe(true);
+  /* 圖層 */
+  const layers = await exportFile(page, '圖層 ZIP');
+  const lf = unzipSync(layers.bytes);
+  expect(Object.keys(lf)).toEqual([
+    '1_background.png',
+    '2_cutouts.png',
+    '3_markers.png',
+    '4_final.png',
+  ]);
+  const bg = readPng(lf['1_background.png']);
+  const cut = readPng(lf['2_cutouts.png']);
+  const mk = readPng(lf['3_markers.png']);
+  const fin = readPng(lf['4_final.png']);
+  /* 背景：會動的塗黑不在裡面（原本的內容看得到）、靜止的塗黑在；螢光筆不在 */
+  expect(px(bg, 250, 130).slice(0, 3)).toEqual([240, 240, 240]);
+  expect(dark(px(bg, 250, 430))).toBe(true);
+  expect(px(bg, 250, 320)[2]).toBe(240);
+  /* 放大框：周圍是半透明的黑（聚光）、框的地方不透明 */
+  expect(cut.data[3]).toBeGreaterThan(100);
+  expect(cut.data[3]).toBeLessThan(200);
+  expect(px(cut, 750, 350)[3]).toBe(255);
+  /* 螢光筆：只有螢光筆的地方有顏色，其他透明 */
+  expect(px(mk, 250, 320)[3]).toBeGreaterThan(200);
+  expect(px(mk, 250, 130)[3]).toBe(0);
+  /* 完成＝匯出的 PNG（結尾那一格） */
+  const total = (await call<TimelineInfo>(page, 'timeline')).total;
+  const ref = readPng(dataUrlBytes(await call<string>(page, 'render', total)));
+  let diff = 0;
+  for (let i = 0; i < fin.data.length; i++) if (fin.data[i] !== ref.data[i]) diff++;
+  expect(diff).toBe(0);
+  /* 連番 PNG：格數＝⌈總長 × 15⌉ */
+  const seq = await exportFile(page, '連番 PNG ZIP');
+  const qf = Object.keys(unzipSync(seq.bytes));
+  expect(qf).toHaveLength(Math.ceil(total * 15 - 1e-9));
+  expect(qf.at(-1)).toBe(`frame_${String(qf.length).padStart(4, '0')}.png`);
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 第二批：細部編輯 ---------- */
+
+test('細部編輯：倍率、框選放大、手形與中鍵移動、全圖、到選取的框、放大編輯區（F67～F71）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await loadImage(page);
+  await call(page, 'set', { frames: [marker('m', 700, 380, 200, 40)] });
+  const live = () =>
+    call<{ viewZoom: number; pointer: string; expanded: boolean; selected: string | null }>(
+      page,
+      'live',
+    );
+  const bar = page.getByTestId('view-bar');
+  const vp = page.getByRole('region', { name: '預覽畫面' });
+  const scroll = () => vp.evaluate((el) => [el.scrollLeft, el.scrollTop]);
+  /* 倍率選單、＋／− */
+  await bar.getByRole('combobox', { name: '編輯區的倍率' }).click();
+  await page.getByRole('option', { name: '300%' }).click();
+  await expect.poll(async () => (await live()).viewZoom).toBe(3);
+  await expect(vp).toHaveAttribute('data-zoom', '300');
+  await bar.getByRole('button', { name: '放大編輯區的倍率' }).click();
+  await expect.poll(async () => (await live()).viewZoom).toBe(4);
+  await bar.getByRole('button', { name: '縮小編輯區' }).click();
+  await expect.poll(async () => (await live()).viewZoom).toBe(3);
+  /* 手形：拖曳移動顯示位置（不會畫框） */
+  await bar.getByRole('button', { name: /^拖曳移動顯示的位置/ }).click();
+  expect((await live()).pointer).toBe('hand');
+  const s0 = await scroll();
+  const box = (await vp.boundingBox()) as { x: number; y: number; width: number; height: number };
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 - 120, box.y + box.height / 2 - 60, { steps: 4 });
+  await page.mouse.up();
+  const s1 = await scroll();
+  expect(s1[0]).toBeGreaterThan(s0[0] + 100);
+  expect((await state(page)).frames).toHaveLength(1);
+  await bar.getByRole('button', { name: /^拖曳移動顯示的位置/ }).click();
+  expect((await live()).pointer).toBe('edit');
+  /* 中鍵：隨時可以移動 */
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down({ button: 'middle' });
+  await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2, { steps: 4 });
+  await page.mouse.up({ button: 'middle' });
+  expect((await scroll())[0]).toBeLessThan(s1[0] - 50);
+  expect((await state(page)).frames).toHaveLength(1);
+  /* 全圖 */
+  await bar.getByRole('button', { name: /^回到全圖/ }).click();
+  await expect.poll(async () => (await live()).viewZoom).toBe(1);
+  /* 框選放大：拖曳框出一塊（不會畫框），放大後回到一般工具 */
+  await bar.getByRole('button', { name: /^在預覽上拖曳框出一塊/ }).click();
+  const a = await screenOf(page, 100, 100);
+  const b = await screenOf(page, 300, 200);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(async () => (await live()).viewZoom).toBeGreaterThan(3);
+  expect((await live()).pointer).toBe('edit');
+  expect((await state(page)).frames).toHaveLength(1);
+  /* 到選取的框：放大並把框放在編輯區中央 */
+  await bar.getByRole('button', { name: /^回到全圖/ }).click();
+  await call(page, 'select', 'm');
+  await bar.getByRole('button', { name: /^以選取的框為中心放大/ }).click();
+  await expect.poll(async () => (await live()).viewZoom).toBeGreaterThan(2);
+  const item = page.locator('[data-layout-item="m"]');
+  await expect
+    .poll(async () => {
+      const ib = (await item.boundingBox()) as { x: number; y: number; width: number };
+      const vb = (await vp.boundingBox()) as { x: number; y: number; width: number };
+      return Math.abs(ib.x + ib.width / 2 - (vb.x + vb.width / 2));
+    })
+    .toBeLessThan(30);
+  /* Ctrl＋滾輪也能縮放 */
+  const before = (await live()).viewZoom;
+  await vp.hover();
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, 200);
+  await page.keyboard.up('Control');
+  await expect.poll(async () => (await live()).viewZoom).toBeLessThan(before);
+  /* 放大編輯區：佔滿視窗；Esc 回來 */
+  await bar.getByRole('button', { name: /^藏起設定欄/ }).click();
+  const area = page.getByTestId('edit-area');
+  await expect(area).toHaveAttribute('data-expanded', 'true');
+  const ab = (await area.boundingBox()) as { x: number; y: number; width: number; height: number };
+  expect(ab.width).toBeGreaterThanOrEqual(1270);
+  expect(ab.height).toBeGreaterThanOrEqual(890);
+  await page.locator('body').press('Escape');
+  await expect(area).not.toHaveAttribute('data-expanded', 'true');
   expect(errors).toEqual([]);
 });
 
