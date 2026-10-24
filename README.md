@@ -26,6 +26,7 @@
 [al1scut](https://github.com/al1scut) 與
 [YouRanCoder](https://github.com/YouRanCoder) 與
 [momo102938](https://github.com/momo102938) 與
+[KIIN](https://kiin.booth.pm/) 與
 [SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 72 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
