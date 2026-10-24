@@ -59,6 +59,7 @@ import {
   Scaling,
   ScanEye,
   ScanFace,
+  ScanSearch,
   ScrollText,
   Smartphone,
   Smile,
@@ -96,6 +97,7 @@ const ICONS: Record<string, LucideIcon> = {
   'apng-wipe': Blend,
   'bg-motion': Waves,
   'loading-maker': Loader,
+  'screenshot-fx': ScanSearch,
   /* G3 立繪工作台 */
   'ccfolia-cropper': Crop,
   'portrait-size': Scaling,

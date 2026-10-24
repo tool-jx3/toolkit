@@ -14,6 +14,8 @@
  *   `hitPadding`：點選範圍往外擴幾個螢幕 px（小物件比較好點）。重疊時後面的物件（上層）優先。
  * - loading-maker 加的（選填）：LayoutItem 的 `attachedTo`：跟著另一個物件移動的物件，拖曳那個物件時不當吸附目標。
  * - gif-combiner 加的（選填）：`onDelete`：給了時 Delete／Backspace 改成刪除選取的物件（呼叫 onDelete(id)）；不給時照舊取消選取。
+ * - screenshot-fx 驗證後修正：Delete／Backspace 也照上面說的避開所有表單控制項（`isFormControlTarget`：滑桿、選單、開關、
+ *   勾選、輸入欄…；以前只避開文字欄，焦點在滑桿上按 Delete 會刪掉選取的物件）。按鈕（例如物件本身、清單的列）上照常作用。
  *
  * ```tsx
  * <Stage width={1024} height={1024}>
@@ -55,7 +57,7 @@ import {
 } from '@/core/layout';
 import { cn } from './cn';
 import { useStageScale } from './Stage';
-import { isEditableTarget, isFormControlTarget } from './shortcuts';
+import { isFormControlTarget } from './shortcuts';
 
 export interface LayoutItem {
   id: string;
@@ -283,7 +285,8 @@ export function LayoutEditor({
       const item = l.items.find((it) => it.id === l.selectedId);
       if (!item) return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (e.ctrlKey || isEditableTarget(t)) return;
+        /* 焦點在表單控制項（文字欄、選單、滑桿、開關、勾選…）上時不刪（screenshot-fx 驗證後修正：以前只避開文字欄） */
+        if (e.ctrlKey || isFormControlTarget(t)) return;
         e.preventDefault();
         if (l.onDelete) l.onDelete(item.id);
         else l.onSelect(null);
