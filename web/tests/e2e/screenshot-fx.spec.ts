@@ -1,5 +1,5 @@
 /**
- * 截圖演出產生器（建置產物 next/screenshot-fx/）的端對端測試（規格 docs/refactor/specs/screenshot-fx.md）：
+ * 截圖演出產生器（建置產物 tools/screenshot-fx/）的端對端測試（規格 docs/refactor/specs/screenshot-fx.md）：
  * - 開頁沒有錯誤、空白狀態、頁尾只有靈感來源、匯出區停用並說明；
  * - 圖片：選檔（換圖時框與出處清空）、整個視窗拖放、貼上、不是圖片的通知、範例圖、示範演出、拿掉；
  * - 畫框：三種工具拖曳畫框、Shift 在已有的框上畫、點空白處取消選取、拖曳移動、控點縮放、方向鍵 1／10 px、
