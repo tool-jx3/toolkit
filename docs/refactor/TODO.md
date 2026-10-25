@@ -9,7 +9,9 @@
 
 ## 進行中
 
-（目前沒有）
+| 項目 | 本站工具 | 來源 | 授權 | 內容 |
+|---|---|---|---|---|
+| 地圖演出產生器（新工具） | map-fx | KIIN／[マップ・見取り図 演出スタジオ](https://map-stage.pages.dev/)（BOOTH 付費工具；免費 Lite 版） | 未授權 | 和 screenshot-fx 共用引擎（已抽到 core/imagefx）。第一批 2D 已實作、驗證中：區域放大、路線與地點、房間遮罩、每個房間一張遮罩 PNG 的 ZIP、X 用 MP4；第二批進階 3D 實作中 |
 
 ## 一、已收錄工具的原作更新
 
@@ -25,7 +27,6 @@
 
 | 候選 | 來源 | 授權 | 內容 | 跑團用途 | 工作量 |
 |---|---|---|---|---|---|
-| 地圖演出產生器 | KIIN／[マップ・見取り図 演出スタジオ](https://map-stage.pages.dev/)（BOOTH 付費工具；免費 Lite 版） | 未授權（付費、條款禁止再散布程式與意匠） | 和 screenshot-fx 同一位作者、同一套引擎：區域放大；移動路線（紅點線＋箭頭、腳印、霓虹、金色箭頭；直線／L 字／Z 字／逐點的 U 字與往返）與標籤、目的地圖釘＋聲納波紋、鎖定準星、危險區斜線；房間遮罩（黑暗＋「？房名」、禁止進入斜線、戰爭迷霧、馬賽克；淡出或掃描揭開）；CCFOLIA 自由探索用的「每個房間一張遮罩 PNG」ZIP（同尺寸透明圖＋檔名刻格數）；X 用 MP4；進階 3D（把房間圈成線框立體、放入口、沿路線走過去的影片） | CoC 探索進度、移動路線的演出 | 中（2D）＋大（3D） |
 | 團期行事曆 | [KumachanSteps/trpg-web-tools](https://github.com/KumachanSteps/trpg-web-tools)（`tools/session-check-calendar/`）、[utiyoso/taku_calendar](https://github.com/utiyoso/taku_calendar) | 未授權 | 場次＋準備事項、iCal／JSON 匯入匯出、本月截圖、空檔日期清單 | 約團；原作是日本假日，要換台灣的 | 中 |
 | CoC 日誌分析 | [Liesegang/coc-ccfolia-tools](https://github.com/Liesegang/coc-ccfolia-tools)、[756y/SkillRoll_Analytics](https://github.com/756y/SkillRoll_Analytics)、[tukasa0001/DiceStats](https://github.com/tukasa0001/DiceStats) | 未授權／未授權／MIT | 從 CCFOLIA 日誌統計成長檢定、骰運 | CoC 7 版團後整理 | 中 |
 | 多風格線索道具 | [KKumuu/trpgforkk](https://github.com/KKumuu/trpgforkk)（`D.html`） | 未授權 | 報紙、通緝令、便條、信件、終端機等 11 種 handout | 本站沒有報紙、通緝令 | 中 |
@@ -56,6 +57,10 @@
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | CC0 | 原作的 `/` 斜線候選清單（規格 D46；跟進 v3.26 時決定先不做） | 小 |
 | music-frame | [dearmysn1p3r/MOMO_MusicCloud](https://github.com/dearmysn1p3r/MOMO_MusicCloud)（取代 _16／_27／_54） | 未授權 | 黑膠、CD、卡帶、串流的樣品圖、播放清單影片；原作 10-17～10-20 大改 | 中 |
 | floor-plan | Maptsukuri（maptsukuri.pages.dev，不在 GitHub） | 未授權 | .dd2vtt 匯出、隨機配置 | 中 |
+
+## 內部改善
+
+- 共用 ui 區塊（`@/ui` 總入口）收著只有特定工具用的元件（例如 PostEditor、LyricStyleControls），每個工具都會載入；可以照 `@/ui/imagefx` 的做法改成各自的入口，減少每頁的載入量（map-fx 實作時發現，2026-10-25）。
 
 ## 四、先觀察
 
