@@ -4,12 +4,14 @@
  */
 import {
   type CcfoliaMarker,
+  type CcfoliaNote,
   type CcfoliaRoomData,
   type CcfoliaStatus,
   createScene as createCcfoliaScene,
   createEffect,
   createItem,
   createMarker,
+  createNote,
   createRoom,
   createRoomCharacter,
   createRoomData,
@@ -82,16 +84,59 @@ export function sceneText(scene: Scene, cutins: readonly Cutin[]): string {
   return `@${c.name}${body ? `\n${body}` : ''}`;
 }
 
-/** 生成的物件加上讀入時原樣保留的欄位（工具管理的欄位不被覆蓋；沒有可加的欄位時原物件不變，3.7.2） */
+/**
+ * 讀入的物件：工具管理的欄位（owned）取生成的值，其餘欄位照讀入時原樣（extra）；原檔沒有的欄位不補預設值（3.7.2、R3）。
+ * 不是讀入的物件（沒有 extra）原樣不動。
+ */
 function withExtra<T extends object>(
   base: T,
   extra: Extra | undefined,
   owned: readonly string[],
 ): T {
   if (!extra) return base;
+  const mine = Object.entries(base).filter(([k]) => owned.includes(k));
   const rest = Object.entries(extra).filter(([k]) => k !== '__proto__' && !owned.includes(k));
-  return rest.length ? { ...base, ...Object.fromEntries(rest) } : base;
+  return Object.fromEntries([...mine, ...rest]) as T;
 }
+
+/**
+ * 一類物件的 `order`（3.7.2）：讀入的物件相對順序沒變就維持原值，新增的接在最大值後面，不重複；
+ * 相對順序變了（或原值不能用）就整類重排成 1、2、3…（跳過 reserved，那是原樣保留的同類項目用掉的）。
+ * 沒有讀入的物件（都沒有原值）時就是 1、2、3…。
+ */
+export function assignOrders(origs: readonly unknown[], reserved: Iterable<number> = []): number[] {
+  const used = new Set<number>(reserved);
+  const out: (number | undefined)[] = [];
+  let last = Number.NEGATIVE_INFINITY;
+  for (const o of origs) {
+    if (typeof o === 'number' && Number.isFinite(o) && !used.has(o)) {
+      if (o <= last) return renumber(origs.length, reserved);
+      out.push(o);
+      used.add(o);
+      last = o;
+    } else out.push(undefined);
+  }
+  let next = 1;
+  for (const u of used) next = Math.max(next, Math.floor(u) + 1);
+  return out.map((o) => o ?? next++);
+}
+
+function renumber(n: number, reserved: Iterable<number>): number[] {
+  const skip = new Set(reserved);
+  const out: number[] = [];
+  let c = 1;
+  for (let i = 0; i < n; i++) {
+    while (skip.has(c)) c++;
+    out.push(c++);
+  }
+  return out;
+}
+
+/** 原樣保留的同類項目用掉的 order */
+const keptOrders = (keep: RoomKeep | undefined, kind: string): number[] =>
+  Object.values(keep?.entities?.[kind] ?? {}).flatMap((o) =>
+    isObj(o) && typeof o.order === 'number' && Number.isFinite(o.order) ? [o.order] : [],
+  );
 
 /** 中心座標的物件 → マーカーパネル（讀入的位置沒改過就用原始左上角，3.7.4） */
 function markerFrom(o: {
@@ -164,7 +209,7 @@ function mergeStatus(raw: readonly unknown[], hp: string, mp: string): unknown[]
 }
 
 /** 棋子 → キャラクター（3.1.7、3.2.10；差分以 { label, iconUrl } 寫出，第 7 節裁定 D1；讀入的欄位原樣加上，3.7.6） */
-function characterFrom(p: Piece, i: number) {
+function characterFrom(p: Piece, i: number, order: number) {
   const { status: rawStatus, ...rest } = p.extra ?? {};
   const status = Array.isArray(rawStatus) ? mergeStatus(rawStatus, p.hp, p.mp) : [];
   if (!Array.isArray(rawStatus)) {
@@ -177,7 +222,7 @@ function characterFrom(p: Piece, i: number) {
       status.push({ label: 'MP', value: v, max: v });
     }
   }
-  return withExtra(
+  const out = withExtra(
     createRoomCharacter({
       name: p.name || NAMES.pieceNumbered(i + 1),
       memo: p.memo || '',
@@ -187,11 +232,14 @@ function characterFrom(p: Piece, i: number) {
         withExtra({ label: f.label, iconUrl: f.iconUrl || null }, f.extra, OWNED.face),
       ),
       commands: p.commands || '',
-      order: i + 1,
+      order,
     }),
     p.extra ? rest : undefined,
-    OWNED.piece,
+    [...OWNED.piece, 'order', 'status'],
   );
+  /* 原檔沒有狀態欄、現在也沒有 HP／MP：不補空的狀態欄 */
+  if (p.extra && !Object.hasOwn(p.extra, 'status') && !status.length) delete (out as Obj).status;
+  return out;
 }
 
 /** 讀入時保留的資料寫回（3.7.8）：生成的優先，沒有的才補上；不認得的類別整個放回去 */
@@ -230,34 +278,39 @@ export function buildRoomData(project: Project, opts: ExportOptions): CcfoliaRoo
 
   const keep = project.keep;
   const roomMarkers: Record<string, CcfoliaMarker> = {};
-  for (const p of markerParts) roomMarkers[p.id] = markerFrom(p);
+  for (const p of markerParts) roomMarkers[p.key ?? p.id] = markerFrom(p);
   for (const [id, raw] of Object.entries(keep?.roomMarkers ?? {})) {
     if (!(id in roomMarkers)) roomMarkers[id] = raw as CcfoliaMarker;
   }
 
   const items: Record<string, ReturnType<typeof createItem>> = {};
+  const itemOrders = assignOrders(
+    panelParts.map((p) => p.extra?.order),
+    keptOrders(keep, 'items'),
+  );
   panelParts.forEach((p, i) => {
     const r = exportRect(p, p.origin);
-    items[p.id] = withExtra(
+    items[p.key ?? p.id] = withExtra(
       createItem({
         ...r,
         z: toNumber(p.z, 2),
         memo: p.text || '',
         imageUrl: p.imageUrl,
-        order: i + 1,
+        order: itemOrders[i],
       }),
       p.extra,
-      OWNED.item,
+      [...OWNED.item, 'order'],
     );
   });
 
   const scenes: Record<string, ReturnType<typeof createCcfoliaScene>> = {};
+  const sceneOrders = assignOrders(project.scenes.map((s) => s.extra?.order));
   project.scenes.forEach((s, i) => {
     const markers: Record<string, CcfoliaMarker> = {};
     for (const p of markerParts) {
       const e = effectivePart(p, s);
       if (e.hidden) continue;
-      markers[p.id] = markerFrom({
+      markers[p.key ?? p.id] = markerFrom({
         ...e,
         text: p.text,
         imageUrl: e.imageUrl,
@@ -287,7 +340,7 @@ export function buildRoomData(project: Project, opts: ExportOptions): CcfoliaRoo
     scenes[s.id] = withExtra(
       createCcfoliaScene({
         name: s.name || NAMES.sceneNumbered(i + 1),
-        order: i + 1,
+        order: sceneOrders[i],
         backgroundUrl: sceneBackgroundUrl(s, room),
         foregroundUrl: s.foregroundUrl || null,
         fieldObjectFit: s.autoCrop ? 'cover' : 'fill',
@@ -299,30 +352,46 @@ export function buildRoomData(project: Project, opts: ExportOptions): CcfoliaRoo
         text: sceneText(s, project.cutins),
       }),
       s.extra,
-      OWNED.scene,
+      [...OWNED.scene, 'order'],
     );
   });
 
   const characters: Record<string, ReturnType<typeof createRoomCharacter>> = {};
+  const pieceOrders = assignOrders(project.pieces.map((p) => p.extra?.order));
   project.pieces.forEach((p, i) => {
-    characters[p.id] = characterFrom(p, i);
+    characters[p.id] = characterFrom(p, i, pieceOrders[i]);
   });
 
   const effects: Record<string, ReturnType<typeof createEffect>> = {};
-  project.cutins
-    .filter((c) => c.name || c.imageUrl)
-    .forEach((c, i) => {
-      effects[c.id] = withExtra(
-        createEffect({
-          name: c.name || NAMES.cutinNumbered(i + 1),
-          order: i + 1,
-          imageUrl: c.imageUrl || null,
-          playTime: now,
-        }),
-        c.extra,
-        OWNED.cutin,
-      );
-    });
+  const outCutins = project.cutins.filter((c) => c.name || c.imageUrl);
+  const cutinOrders = assignOrders(
+    outCutins.map((c) => c.extra?.order),
+    keptOrders(keep, 'effects'),
+  );
+  outCutins.forEach((c, i) => {
+    effects[c.id] = withExtra(
+      createEffect({
+        name: c.name || NAMES.cutinNumbered(i + 1),
+        order: cutinOrders[i],
+        imageUrl: c.imageUrl || null,
+        playTime: now,
+      }),
+      c.extra,
+      [...OWNED.cutin, 'order'],
+    );
+  });
+
+  /* 劇本文字：讀入的（有 note 的）寫回成 notes；工具自己寫的不輸出（D14） */
+  const notes: Record<string, CcfoliaNote> = {};
+  const noteStories = project.story.filter((t) => t.note);
+  const noteOrders = assignOrders(noteStories.map((t) => t.note?.order));
+  noteStories.forEach((t, i) => {
+    notes[t.id] = withExtra(
+      createNote({ name: t.title, text: t.body, order: noteOrders[i] }),
+      t.note,
+      [...OWNED.note, 'order'],
+    );
+  });
 
   /* 套用中的場景：讀入時的那個場景還在就維持（讀入時是「沒有套用」也維持），否則第一個場景 */
   const first = project.scenes[0]?.id ?? null;
@@ -351,7 +420,7 @@ export function buildRoomData(project: Project, opts: ExportOptions): CcfoliaRoo
       [...OWNED.room, 'sceneId'],
     ),
     items,
-    notes: {},
+    notes,
     characters,
     effects,
     scenes,

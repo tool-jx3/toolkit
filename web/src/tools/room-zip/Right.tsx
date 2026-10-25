@@ -20,7 +20,7 @@ import {
   tachieY,
 } from './geometry';
 import { filterMaterials, TAG_LABELS } from './materials';
-import { type Project, type Scene, TAGS, type Tag } from './model';
+import { hiddenInCcfolia, type Project, type Scene, TAGS, type Tag } from './model';
 import {
   commit,
   goPage,
@@ -278,6 +278,7 @@ export function sceneItems(
       kind: part.kind,
       locked: part.kind === 'marker' && scene ? !!e.override?.locked || part.locked : part.locked,
       resizable: true,
+      dimmed: hiddenInCcfolia(part),
     });
   }
   if (scene) {

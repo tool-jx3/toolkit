@@ -4,6 +4,7 @@
  */
 import { isRoomImageName } from '@/ccfolia';
 import { type Material, NAMES, type Project, TAGS, type Tag } from './model';
+import { isExternalUrl, isImageKey } from './roomFields';
 
 export const TAG_LABELS: Record<Tag, string> = {
   fg: '前景',
@@ -157,6 +158,7 @@ export function eachKeptUrl(
     for (const f of p.faces) walk(f.extra);
   }
   for (const s of project.scenes) walk(s.extra);
+  for (const t of project.story) walk(t.note);
   for (const s of [...project.scenes, ...project.sceneTemplates])
     for (const m of s.markers) walk(m.extra);
   walk(project.keep);
@@ -270,8 +272,12 @@ export function replaceImageRefs(project: Project, oldName: string, newName: str
 /** 專案裡引用到的所有房間圖片名稱（素材一覽本身不算） */
 export function referencedImages(project: Project): Set<string> {
   const out = new Set<string>();
+  /*
+   * 引用＝內容 SHA-256 的檔名，或任何不是網址的名稱（讀入的房間 ZIP 裡檔名可以是任何樣子，R5）：
+   * 工具內只有素材名稱，所以非網址的名稱都要有圖片資料，匯出前才不會漏。
+   */
   const add = (v: string | null | undefined) => {
-    if (v && isRoomImageName(v)) out.add(v);
+    if (v && (isRoomImageName(v) || !isExternalUrl(v))) out.add(v);
   };
   add(project.room.backgroundUrl);
   add(project.room.foregroundUrl);
@@ -288,7 +294,11 @@ export function referencedImages(project: Project): Set<string> {
     for (const m of s.markers) add(m.imageUrl);
     for (const o of Object.values(s.overrides)) add(o?.imageUrl ?? null);
   }
-  eachKeptUrl(project, (o, k) => add(o[k] as string));
+  /* 原樣保留的欄位：圖片欄位的任何檔名，或任何欄位裡的 SHA-256 檔名（匯出時會被收進 ZIP） */
+  eachKeptUrl(project, (o, k) => {
+    const v = o[k] as string;
+    if (v && (isRoomImageName(v) || (isImageKey(k) && !isExternalUrl(v)))) out.add(v);
+  });
   return out;
 }
 

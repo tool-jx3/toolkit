@@ -272,9 +272,11 @@ export function ConfirmDialog({
               onOpenChange(false);
             }}
           />
-          <AlertDialog.Title className="m-0 text-lg font-semibold">{title}</AlertDialog.Title>
+          <AlertDialog.Title className="m-0 shrink-0 text-lg font-semibold">
+            {title}
+          </AlertDialog.Title>
           {description ? (
-            <AlertDialog.Description className="m-0 mt-2 text-sm text-muted">
+            <AlertDialog.Description className="m-0 mt-2 min-h-0 overflow-y-auto text-sm text-muted">
               {description}
             </AlertDialog.Description>
           ) : (
@@ -282,7 +284,7 @@ export function ConfirmDialog({
               {typeof title === 'string' ? title : '確認'}
             </AlertDialog.Description>
           )}
-          <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <div className="mt-4 flex shrink-0 flex-wrap justify-end gap-2">
             <AlertDialog.Cancel asChild>
               <Button onClick={onCancel}>{cancelLabel}</Button>
             </AlertDialog.Cancel>
@@ -429,9 +431,11 @@ export function ChoiceDialog<V extends string = string>({
               onOpenChange(false);
             }}
           />
-          <AlertDialog.Title className="m-0 text-lg font-semibold">{title}</AlertDialog.Title>
+          <AlertDialog.Title className="m-0 shrink-0 text-lg font-semibold">
+            {title}
+          </AlertDialog.Title>
           {description ? (
-            <AlertDialog.Description className="m-0 mt-2 text-sm text-muted">
+            <AlertDialog.Description className="m-0 mt-2 min-h-0 overflow-y-auto text-sm text-muted">
               {description}
             </AlertDialog.Description>
           ) : (
@@ -439,7 +443,7 @@ export function ChoiceDialog<V extends string = string>({
               {typeof title === 'string' ? title : '請選擇'}
             </AlertDialog.Description>
           )}
-          <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <div className="mt-4 flex shrink-0 flex-wrap justify-end gap-2">
             <AlertDialog.Cancel asChild>
               <Button onClick={() => onChoose(null)}>{cancelLabel}</Button>
             </AlertDialog.Cancel>

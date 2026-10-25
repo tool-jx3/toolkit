@@ -56,7 +56,7 @@ import { S } from '../strings';
 
 export function MaterialsPage() {
   const n = useNotify();
-  const { openRoom, pickRoom } = useRoomZipOpener();
+  const { openAnyFile, pickRoom } = useRoomZipOpener();
   const materials = useProject((s) => s.data.materials);
   const p = useProject((s) => s.data);
   const urls = useBlobs((s) => s.urls);
@@ -81,11 +81,11 @@ export function MaterialsPage() {
 
   const doImport = async (files: File[]) => {
     if (!files.length) return;
-    /* 房間 ZIP 不是素材：拖進來的 ZIP 走「讀入房間 ZIP」（F288） */
+    /* ZIP 不是素材：拖進來的 ZIP 走「讀入房間 ZIP」或開專案檔（F288） */
     const zip = files.find(isZipFile);
     if (zip) {
       if (files.length > 1) n(S.roomImport.droppedOthers(files.length - 1), 'warning');
-      await openRoom(zip);
+      await openAnyFile(zip);
       return;
     }
     const r = await importFiles(files);

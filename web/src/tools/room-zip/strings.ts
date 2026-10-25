@@ -940,6 +940,9 @@ export const S = {
   pieceTemplateUsed: '已加入棋子',
   pieceTemplateSummary: (kind: string, parts: string[]) => [kind, ...parts].join('・'),
 
+  saveFailedBanner:
+    '自動儲存失敗（瀏覽器空間不足或被封鎖）：重新整理後這些內容會不見，請先存成專案檔。',
+
   /* ---------- 儲存與說明 ---------- */
   saveTitle: '儲存與匯出',
   saveDownload: '儲存（下載專案檔）',
@@ -1103,6 +1106,8 @@ export const S = {
     partLock: '選取部件的鎖定切換',
     partVisible: '選取部件的顯示切換',
   } as Record<string, string>,
+  partCcHidden:
+    'CCFOLIA 裡不顯示這個面板（讀入時它就是隱藏或不在盤面上），預覽用半透明標示；匯出照原樣寫回。',
   partNeedOne: '請剛好選一個部件',
   partNeedSel: '請先在畫布上選取部件',
   partsLocked: (on: boolean) => (on ? '已鎖定選取的部件' : '已解除鎖定'),
@@ -1113,7 +1118,7 @@ export const S = {
     button: '讀入房間 ZIP…',
     buttonShort: '讀入房間 ZIP',
     lead: '讀入 CCFOLIA 匯出的房間 ZIP（本工具匯出的也可以）：圖片變成素材，房間設定、共用標記、螢幕面板、場景、棋子、切入變成這個專案的內容，再匯出時沒有對應功能的資料也會原樣寫回。',
-    dropHint: '圖片，或 CCFOLIA 的房間 ZIP（一次一個，會取代目前的專案）',
+    dropHint: '圖片、CCFOLIA 的房間 ZIP，或本工具的專案檔（ZIP 一次一個，會取代目前的專案）',
     materialsLabel: '已經有 CCFOLIA 的房間 ZIP？',
     pickDescription: 'CCFOLIA 的房間 ZIP',
     busy: '讀入房間 ZIP',
@@ -1124,15 +1129,27 @@ export const S = {
     errors: {
       'too-large': (mb: number) =>
         `這個檔案超過 ${mb} MB，瀏覽器可能處理不了。請先在 CCFOLIA 把不用的圖片整理掉再匯出。`,
+      'too-large-unzipped': (mb: number) =>
+        `這個 ZIP 解開後超過 ${mb} MB，瀏覽器撐不住（也可能是刻意壓縮得很小的檔案），所以沒有解開。`,
       'not-zip': '這個檔案不是 ZIP，或檔案已經損壞。CCFOLIA 的房間資料要在房間設定裡匯出成 ZIP。',
       'project-file':
         '這是本工具的專案檔，不是 CCFOLIA 的房間 ZIP。請用「開啟專案檔」或「讀取」開啟。',
       'no-data': '這個 ZIP 裡找不到房間資料（__data.json），不是 CCFOLIA 的房間 ZIP。',
-      'bad-json': '房間資料（__data.json）不是正確的 JSON，檔案可能已經損壞。',
+      'bad-json':
+        '房間資料（__data.json）不是正確的 JSON，或內容是空的（null），檔案可能已經損壞。',
       'not-room': '這個 ZIP 裡的資料看不出是 CCFOLIA 的房間資料。',
       version: (v: string) =>
-        `房間資料的版本是 ${v}，這個工具只認得 1.x 版的格式（CCFOLIA 改版時需要更新工具）。`,
+        v
+          ? `房間資料的版本是 ${v}，這個工具只認得 1.x 版的格式（CCFOLIA 改版時需要更新工具）。`
+          : '房間資料的版本欄位是空的，這個工具只認得 1.x 版的格式；請確認檔案是 CCFOLIA 匯出的。',
     },
+    /** 頁首「讀取」選到的 ZIP 既不是專案檔、也看不出是房間資料 */
+    neitherZip:
+      '這個 ZIP 既不是本工具的專案檔，也看不出是 CCFOLIA 的房間資料（裡面找不到 __data.json 或 project.json）。',
+    openProjectConfirmTitle: '讀取專案檔？',
+    openProjectConfirm:
+      '目前的專案會被換成專案檔的內容，而且無法復原。要繼續嗎？（沒有存的話，可以先存成專案檔。）',
+    openProjectConfirmOk: '讀取',
     failed: (e: string) => `讀不了這個房間 ZIP：${e}`,
     unchanged: '目前的專案沒有改變。',
     confirmTitle: (name: string) => `讀入房間 ZIP「${name}」？`,
@@ -1145,14 +1162,14 @@ export const S = {
       panels: number;
       pieces: number;
       cutins: number;
+      notes: number;
     }) =>
-      `素材 ${c.materials} 張・場景 ${c.scenes} 個・共用標記 ${c.markers} 個・螢幕面板 ${c.panels} 個・棋子 ${c.pieces} 個・切入 ${c.cutins} 個`,
+      `素材 ${c.materials} 張・場景 ${c.scenes} 個・共用標記 ${c.markers} 個・螢幕面板 ${c.panels} 個・棋子 ${c.pieces} 個・切入 ${c.cutins} 個・劇本文字 ${c.notes} 則`,
     convertedLine: (n: number) =>
       `場景專屬的面板 ${n} 個會成為場景的「演出」（立繪庫的立繪不會還原，這些面板照原本的位置與大小）。`,
     externalLine: (n: number) => `${n} 張圖是網址連結：工具裡看不到預覽，匯出時網址原樣寫回。`,
     keptTitle: '原樣保留（工具裡不能編輯，匯出時寫回）',
     keptKinds: {
-      notes: '劇本文字',
       decks: '牌堆',
       savedatas: '存檔',
       snapshots: '快照',
@@ -1164,7 +1181,11 @@ export const S = {
     keptCount: (label: string, n: number) => `${label} ${n}`,
     keptOther: (kind: string) => `其他類別「${kind}」`,
     notPersisted:
-      '圖片存不進這個瀏覽器的儲存空間，重新整理後會不見。請先存成專案檔或匯出房間 ZIP。',
+      '資料存不進這個瀏覽器的儲存空間（圖片或保留的資料太大），重新整理後會不見。請先存成專案檔或匯出房間 ZIP。',
+    undoHint: '想回到讀入前的專案，按「復原」。',
+    notesNote:
+      '標「房間」的劇本文字是讀入的房間 ZIP 裡的，匯出房間 ZIP 時會寫回（工具自己寫的不會）。',
+    storyBadge: '房間',
     keptFields:
       '棋子的狀態、參數、位置、顏色，以及房間的聊天分頁、BGM、音效、場景的 BGM 與音效等欄位也會原樣寫回。',
     lostTitle: '會少掉的東西',
@@ -1177,6 +1198,8 @@ export const S = {
     lostUnlinked: (n: number) =>
       `有 ${n} 處不是圖片欄位的地方寫著圖片檔名，匯出時對應的圖片不會收進 ZIP。`,
     lostTop: (list: string) => `最上層本工具不認得的欄位不會保留：${list}。`,
+    lostReserved: (n: number) =>
+      `有 ${n} 個名稱是「__proto__」的項目或欄位，會破壞物件的結構，沒有讀入。`,
     done: (name: string) => `已讀入房間「${name}」`,
     doneWarn: (name: string) => `已讀入房間「${name}」，但有東西沒有帶進來`,
     droppedOthers: (n: number) => `一次只讀入一個房間 ZIP，其他 ${n} 個檔案沒有處理`,

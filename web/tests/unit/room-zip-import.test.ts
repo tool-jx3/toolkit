@@ -16,7 +16,7 @@ import {
   readRoomZip,
 } from '@/ccfolia';
 import { encodePng } from '@/core/encode/png';
-import { zipFiles } from '@/core/files';
+import { zipFiles, zipUncompressedSize } from '@/core/files';
 import { createToolStore } from '@/core/storage';
 import {
   addEffect,
@@ -35,13 +35,14 @@ import {
   updateEffect,
   updatePart,
 } from '@/tools/room-zip/actions';
-import { buildRoomData } from '@/tools/room-zip/exportRoom';
+import { assignOrders, buildRoomData } from '@/tools/room-zip/exportRoom';
 import { materialLookup } from '@/tools/room-zip/geometry';
 import { imageInfo } from '@/tools/room-zip/imageInfo';
 import { brokenImages, materialUsages } from '@/tools/room-zip/materials';
 import {
   createProject,
   createToolSettings,
+  hiddenInCcfolia,
   type Material,
   type Project,
   type ToolSettings,
@@ -60,8 +61,10 @@ import {
   type RoomImportResult,
   replaceUndoable,
   splitSceneText,
+  zipKind,
 } from '@/tools/room-zip/roomImport';
 import { sha, solidPng } from '../helpers/psdStudio';
+import { realLikeRoom } from '../helpers/realLikeRoom';
 import { type Json, roomFixture, TINY_GIF } from '../helpers/roomZipImport';
 
 const SETTINGS = { noimage: false, noimageCount: 1, noimageZ: 45 };
@@ -296,7 +299,7 @@ describe('讀入 CCFOLIA 格式的房間 ZIP（F287～F298）', () => {
     expect(r.project.room.foregroundUrl).toBe(name);
     expect(r.project.scenes[0].backgroundMode).toBe('room');
     /* 原樣保留的資料裡的圖片欄位也換成素材名稱 */
-    expect(r.project.keep?.entities?.notes?.n).toMatchObject({ iconUrl: name });
+    expect(r.project.story[0].note).toMatchObject({ iconUrl: name });
   });
 
   it('共用標記：中心座標、奇數寬、小數位置保留原始值、沒有圖的標記放進保留', async () => {
@@ -334,7 +337,7 @@ describe('讀入 CCFOLIA 格式的房間 ZIP（F287～F298）', () => {
       coverImageUrl: fx.names.cover,
       locked: false,
     });
-    expect(panels[1].extra?.order).toBeUndefined();
+    expect(panels[1].extra?.order).toBe(2);
     expect(Object.keys(p.keep?.entities?.items ?? {}).sort()).toEqual(['i3', 'i4']);
   });
 
@@ -443,17 +446,27 @@ describe('讀入 CCFOLIA 格式的房間 ZIP（F287～F298）', () => {
     expect(p.pieces[1]).toMatchObject({ hp: '', mp: '', iconUrl: fx.names.gif });
   });
 
-  it('沒有對應功能的資料原樣保留：劇本文字、牌堆、存檔、快照、不認得的類別、meta', async () => {
+  it('劇本文字（notes）成為「劇本文字」頁的內容：依 order、標題＝名稱、內文＝text，其餘欄位記在 note（R2）', async () => {
+    const fx = await roomFixture();
+    const { project: p } = await importRoomZip(fx.zip);
+    expect(p.story.map((s) => [s.id, s.title, s.body])).toEqual([
+      ['n2', '劇本零', '更多'],
+      ['n1', '劇本一', '內容'],
+    ]);
+    expect(p.story[1].note).toEqual({ order: 2, iconUrl: fx.names.noteIcon });
+    expect(p.story[0].note).toEqual({ order: 1, iconUrl: '' });
+    expect(p.keep?.entities?.notes).toBeUndefined();
+  });
+
+  it('沒有對應功能的資料原樣保留：牌堆、存檔、快照、不認得的類別、meta', async () => {
     const fx = await roomFixture();
     const { project: p, report } = await importRoomZip(fx.zip);
     expect(p.keep?.meta).toEqual({ version: '1.1.0' });
-    expect(p.keep?.entities?.notes).toEqual(fx.json.entities.notes);
     expect(p.keep?.entities?.decks).toEqual(fx.json.entities.decks);
     expect(p.keep?.entities?.savedatas).toEqual(fx.json.entities.savedatas);
     expect(p.keep?.entities?.snapshots).toEqual(fx.json.entities.snapshots);
     expect(p.keep?.entities?.extraKind).toEqual(fx.json.entities.extraKind);
     expect(report.kept).toMatchObject({
-      notes: 2,
       decks: 1,
       savedatas: 1,
       snapshots: 1,
@@ -464,7 +477,7 @@ describe('讀入 CCFOLIA 格式的房間 ZIP（F287～F298）', () => {
       other: ['extraKind'],
       fields: true,
     });
-    expect(keptCounts(p.keep)).toMatchObject({ notes: 2, other: ['extraKind'] });
+    expect(keptCounts(p.keep)).toMatchObject({ decks: 1, other: ['extraKind'] });
   });
 
   it('報告：件數、轉換、網址的圖、會少掉的東西', async () => {
@@ -477,6 +490,7 @@ describe('讀入 CCFOLIA 格式的房間 ZIP（F287～F298）', () => {
       panels: 2,
       pieces: 2,
       cutins: 1,
+      notes: 2,
     });
     expect(report.externalImages).toBe(1);
     expect(report.lost).toEqual({
@@ -485,13 +499,15 @@ describe('讀入 CCFOLIA 格式的房間 ZIP（F287～F298）', () => {
       missing: [],
       unlinked: 1,
       topFields: ['foo'],
+      reserved: 0,
     });
     expect(hasLost(report)).toBe(true);
     const d = describeReport(report);
     expect(d.counts).toContain('素材 16 張');
     expect(d.lost.join('\n')).toContain('1 個檔案不是房間資料');
     expect(d.lost.join('\n')).toContain('foo');
-    expect(d.kept.join('、')).toContain('劇本文字 2');
+    expect(d.kept.join('、')).toContain('牌堆 1');
+    expect(d.counts).toContain('劇本文字 2 則');
   });
 
   it('圖片檔壞掉、引用的圖不在 ZIP 裡、網址：照實報告，網址原樣', async () => {
@@ -697,7 +713,8 @@ describe('讀入後編輯再匯出（F297）', () => {
     const { p } = await load();
     delete p.keep;
     const out = dataOf(p).entities as unknown as Json;
-    expect(out.notes).toEqual({});
+    /* 劇本文字已經是「劇本文字」頁的內容，不屬於保留的資料 */
+    expect(Object.keys(out.notes).sort()).toEqual(['n1', 'n2']);
     expect(out.decks).toEqual({});
     expect(out.extraKind).toBeUndefined();
     expect(Object.keys(out.items).sort()).toEqual(['i1', 'i2']);
@@ -1031,7 +1048,11 @@ describe('讀入的容錯（5. 容易做壞的地方）', () => {
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
     expect(r.project.scenes.map((s) => s.name)).toEqual(['好']);
     expect(r.project.parts).toEqual([]);
-    expect(Object.keys(r.project.keep?.entities?.notes ?? {})).toEqual(['n']);
+    expect(r.project.story.map((s) => s.title)).toEqual(['好']);
+    /* 名稱是 __proto__ 的項目與欄位：讀入報告列進「會少掉的東西」 */
+    expect(r.report.lost.reserved).toBe(6);
+    expect(hasLost(r.report)).toBe(true);
+    expect(describeReport(r.report).lost.join('\n')).toContain('__proto__');
     const out = dataOf(r.project).entities as unknown as Json;
     expect(Object.keys(out.scenes)).toEqual(['s']);
   });
@@ -1137,5 +1158,315 @@ describe('一步復原（F290）', () => {
     const p = createProject();
     p.keep = { meta: { version: '1.1.0' } };
     expect(isProjectBlank(p)).toBe(false);
+  });
+});
+
+describe('照 CCFOLIA 真實匯出的結構組的合成房間：讀入 → 不改匯出 → 逐欄相同（R3）', () => {
+  /** 匯出再解開成 `__data.json` */
+  async function roundTrip(r: RoomImportResult, project: Project = r.project) {
+    const built = zipOf(project, imagesOf(r));
+    expect(built.missing).toEqual([]);
+    expect((await checkRoomZip(built.bytes)).problems).toEqual([]);
+    return readRoomZip(built.bytes).json as Json;
+  }
+
+  it('不改直接匯出：__data.json 與原檔逐欄相同（order 不重編、沒有的欄位不補預設值）', async () => {
+    const fx = await realLikeRoom();
+    const r = await importRoomZip(fx.zip);
+    expect(r.report.lost.missing).toEqual([]);
+    expect(hasLost(r.report)).toBe(false);
+    const out = await roundTrip(r);
+    expect(out).toEqual(fx.json);
+    /* 房間沒有 name、沒有 mediaName 等欄位：匯出也沒有 */
+    const room = out.entities.room as Json;
+    for (const k of ['name', 'mediaName', 'mediaType', 'mediaRepeat', 'mediaVolume'])
+      expect(room, k).not.toHaveProperty(k);
+    expect(room.mediaRef).toBeNull();
+    expect(room.allowDuplicate).toBe(false);
+    expect(room.sceneId).toBeNull();
+    expect(Object.keys(out.entities.items).length).toBe(12);
+    /* 原檔的 order 不連續，匯出也是 */
+    const orders = Object.values(out.entities.items as Json).map((i) => i.order);
+    expect(orders).toEqual([1, 2, 4, 5, 9, 10, 14, 16, 17, 18, 20, 21]);
+  });
+
+  it('讀入的專案名稱用檔名（房間沒有 name）；奇數寬高、y＝0 的奇數高、z＝−1 都沒有變', async () => {
+    const fx = await realLikeRoom();
+    const r = await importRoomZip(fx.zip, { fileName: '合成房間.zip' });
+    expect(r.project.name).toBe('合成房間');
+    /* y＝0、高 3：整數中心換不回來，記下原始位置；寬高都是偶數或位置不是 0 的找得到整數中心 */
+    expect(r.project.parts[0].origin).toEqual({ x: -12, y: 0, width: 3, height: 3 });
+    expect(r.project.parts.some((p) => !p.origin)).toBe(true);
+    const items = (await roundTrip(r)).entities.items as Json;
+    const raw = fx.json.entities.items as Json;
+    for (const [id, it] of Object.entries(items)) {
+      for (const k of ['x', 'y', 'width', 'height', 'z'])
+        expect((it as Json)[k], `${id}.${k}`).toBe(raw[id][k]);
+    }
+  });
+
+  it('新增的面板接在最大值後面、不重複；刪掉一個其餘維持原值', async () => {
+    const fx = await realLikeRoom();
+    const r = await importRoomZip(fx.zip);
+    const p = structuredClone(r.project) as Project;
+    const ids = p.parts.map((x) => x.id);
+    p.parts = p.parts.filter((x) => x.id !== ids[3]);
+    p.parts.unshift({
+      ...p.parts[0],
+      id: 'newPanel',
+      name: '新增',
+      extra: undefined,
+      origin: undefined,
+    });
+    const out = (await roundTrip(r, p)).entities.items as Json;
+    const orders = Object.entries(out).map(([id, it]) => [id, (it as Json).order]);
+    const byId = Object.fromEntries(orders);
+    expect(byId.newPanel).toBe(22);
+    for (const id of ids.filter((x) => x !== ids[3])) {
+      expect(byId[id], id).toBe((fx.json.entities.items as Json)[id].order);
+    }
+    const values = Object.values(byId) as number[];
+    expect(new Set(values).size).toBe(values.length);
+  });
+
+  it('順序改了：整類重排成 1、2、3…，不會重複', async () => {
+    const fx = await realLikeRoom();
+    const r = await importRoomZip(fx.zip);
+    const p = structuredClone(r.project) as Project;
+    p.parts.reverse();
+    const out = (await roundTrip(r, p)).entities.items as Json;
+    const values = (Object.values(out) as Json[])
+      .map((i) => i.order as number)
+      .sort((a, b) => a - b);
+    expect(values).toEqual(Array.from({ length: 12 }, (_, i) => i + 1));
+  });
+
+  it('assignOrders：維持、新增接最大值、順序變了重排、避開保留項目用掉的值', () => {
+    expect(assignOrders([])).toEqual([]);
+    expect(assignOrders([undefined, undefined])).toEqual([1, 2]);
+    expect(assignOrders([3, 5, 9])).toEqual([3, 5, 9]);
+    expect(assignOrders([undefined, 3, undefined, 9])).toEqual([10, 3, 11, 9]);
+    expect(assignOrders([5, 3, 9])).toEqual([1, 2, 3]);
+    expect(assignOrders([3, 3, 9])).toEqual([3, 10, 9]);
+    expect(assignOrders([1, 2], [2, 3])).toEqual([1, 4]);
+    expect(assignOrders([5, 3], [1, 2])).toEqual([3, 4]);
+    expect(assignOrders(['x', 1.5, Number.NaN])).toEqual([2, 1.5, 3]);
+  });
+
+  it('角色：diceSkin 是空物件、狀態沒改過維持（目前值 7、最大值 10）', async () => {
+    const fx = await realLikeRoom();
+    const r = await importRoomZip(fx.zip);
+    expect(r.project.pieces[0]).toMatchObject({ hp: '10', mp: '' });
+    const out = (await roundTrip(r)).entities.characters as Json;
+    expect(out.ch0AbCdEf.diceSkin).toEqual({});
+    expect(out.ch0AbCdEf.status).toEqual([{ label: 'HP', max: 10, value: 7 }]);
+  });
+});
+
+describe('R4：共用標記與螢幕面板是不同的 ID 空間', () => {
+  it('同 ID 的標記與面板：匯出各自保留原 ID（面板內部 ID 不同，但不會變成「~2」寫出去）', async () => {
+    const img = await solidPng(8, 8, [9, 9, 9, 255]);
+    const name = `${sha(img)}.png`;
+    const json = {
+      meta: { version: '1.1.0' },
+      entities: {
+        room: {
+          fieldWidth: 10,
+          fieldHeight: 10,
+          markers: { a: { x: -5, y: -5, z: 1, width: 2, height: 2, imageUrl: name, text: '' } },
+        },
+        items: { a: { x: 1, y: 1, z: 2, width: 2, height: 2, imageUrl: name, memo: '', order: 1 } },
+        scenes: {
+          s: {
+            name: 'S',
+            order: 1,
+            markers: {
+              a: { x: -5, y: -5, z: 1, width: 2, height: 2, imageUrl: name, text: '' },
+            },
+          },
+        },
+      },
+      resources: { [name]: { type: 'image/png' } },
+    };
+    const r = await importRoomZip(
+      zipFiles([
+        { name: '__data.json', data: JSON.stringify(json) },
+        { name, data: img },
+      ]),
+    );
+    expect(r.project.parts.map((p) => [p.kind, p.id, p.key])).toEqual([
+      ['marker', 'a', undefined],
+      ['panel', 'a~2', 'a'],
+    ]);
+    expect(r.project.scenes[0].overrides).toEqual({});
+    const out = dataOf(r.project).entities as unknown as Json;
+    expect(Object.keys(out.items)).toEqual(['a']);
+    expect(Object.keys(out.room.markers)).toEqual(['a']);
+    expect(Object.keys(out.scenes.s.markers)).toEqual(['a']);
+  });
+});
+
+describe('R5：遺失圖片涵蓋任何檔名', () => {
+  it('引用的檔名不是 SHA-256、ZIP 裡也沒有：讀入報告與匯出前的偵測一致', async () => {
+    const img = await solidPng(8, 8, [1, 9, 9, 255]);
+    const name = `${sha(img)}.png`;
+    const zip = zipFiles([
+      {
+        name: '__data.json',
+        data: JSON.stringify({
+          entities: {
+            room: {
+              fieldWidth: 8,
+              fieldHeight: 8,
+              backgroundUrl: 'missing-bg.png',
+              foregroundUrl: name,
+            },
+            items: { i: { x: 0, y: 0, width: 2, height: 2, imageUrl: 'gone/item.jpg', order: 1 } },
+            characters: { c: { name: 'C', iconUrl: 'no-icon.webp', externalUrl: 'my sheet' } },
+          },
+        }),
+      },
+      { name, data: img },
+    ]);
+    const r = await importRoomZip(zip);
+    expect(r.report.lost.missing.sort()).toEqual([
+      'gone/item.jpg',
+      'missing-bg.png',
+      'no-icon.webp',
+    ]);
+    const have = new Set(r.project.materials.map((m) => m.name));
+    const broken = brokenImages(r.project, (n) => have.has(n));
+    expect(broken.map((b) => b.name).sort()).toEqual([
+      'gone/item.jpg',
+      'missing-bg.png',
+      'no-icon.webp',
+    ]);
+    /* 圖片欄位以外的連結（externalUrl）不算 */
+    expect(broken.some((b) => b.name === 'my sheet')).toBe(false);
+    /* 網址不算 */
+    const web = await importRoomZip(
+      zipFiles([
+        {
+          name: '__data.json',
+          data: JSON.stringify({
+            entities: {
+              room: { backgroundUrl: 'https://example.com/a.png', fieldWidth: 5, fieldHeight: 5 },
+            },
+          }),
+        },
+      ]),
+    );
+    expect(brokenImages(web.project, () => false)).toEqual([]);
+    expect(web.report.externalImages).toBe(1);
+  });
+});
+
+describe('R9：空專案的判定', () => {
+  it('房間設計、專案名稱、KP 設定、備忘、待辦改過就不算空', () => {
+    const base = createProject();
+    expect(isProjectBlank(base)).toBe(true);
+    const mod = (f: (p: Project) => void) => {
+      const p = structuredClone(base) as Project;
+      f(p);
+      return p;
+    };
+    expect(isProjectBlank(mod((p) => (p.room.fieldWidth = 41)))).toBe(false);
+    expect(isProjectBlank(mod((p) => (p.name = '我的房間')))).toBe(false);
+    expect(isProjectBlank(mod((p) => (p.kp.pcs = ['阿明'])))).toBe(false);
+    expect(isProjectBlank(mod((p) => (p.memo = '備忘')))).toBe(false);
+    expect(
+      isProjectBlank(mod((p) => p.todos.push({ id: 't', text: 'x', done: false, sub: false }))),
+    ).toBe(false);
+    expect(isProjectBlank(mod((p) => (p.name = '新的房間')))).toBe(true);
+  });
+});
+
+describe('R10、R12：訊息與解壓炸彈', () => {
+  it('資料檔是 null、版本是空字串：說清楚', async () => {
+    const nul = await importRoomZip(zipFiles([{ name: '__data.json', data: 'null' }])).catch(
+      (e) => e,
+    );
+    expect(nul).toBeInstanceOf(RoomImportError);
+    expect(nul.code).toBe('bad-json');
+    expect(nul.message).toContain('null');
+    const empty = await importRoomZip(
+      zipFiles([
+        {
+          name: '__data.json',
+          data: JSON.stringify({ meta: { version: '' }, entities: { room: {} } }),
+        },
+      ]),
+    ).catch((e) => e);
+    expect(empty.code).toBe('version');
+    expect(empty.message).toContain('版本欄位是空的');
+    expect(empty.message).not.toContain('版本是 ，');
+  });
+
+  it('zipKind：房間、專案檔、兩者都不是、不是 ZIP', async () => {
+    const fx = await roomFixture();
+    expect(zipKind(fx.zip)).toBe('room');
+    expect(zipKind(zipFiles([{ name: 'project.json', data: '{}' }]))).toBe('project');
+    expect(zipKind(zipFiles([{ name: 'a.txt', data: 'x' }]))).toBe('other');
+    expect(zipKind(zipFiles([{ name: 'a.json', data: '{"x":1}' }]))).toBe('other');
+    expect(zipKind(new TextEncoder().encode('{}'))).toBe('not-zip');
+  });
+
+  it('解開後太大：解開之前就擋下（只看目錄記的大小，不解壓縮）', async () => {
+    /* 1.2 GB 的零：壓縮後很小。zipUncompressedSize 只讀目錄，不會真的解開 */
+    const big = new Uint8Array(1_200_000_000 / 6);
+    const bytes = zipFiles(
+      [
+        { name: 'zeros.bin', data: big },
+        { name: '__data.json', data: '{"entities":{}}' },
+      ],
+      { level: 9 },
+    );
+    expect(bytes.length).toBeLessThan(5_000_000);
+    expect(zipUncompressedSize(bytes)).toBeGreaterThan(200_000_000);
+    expect(zipUncompressedSize(zipFiles([{ name: 'a', data: 'xyz' }]))).toBe(3);
+  });
+});
+
+describe('R11：CCFOLIA 裡不顯示的面板', () => {
+  it('visible 或 active 是 false 的螢幕面板：標出來，匯出照原樣寫回', async () => {
+    const img = await solidPng(8, 8, [3, 3, 3, 255]);
+    const name = `${sha(img)}.png`;
+    const mkItem = (over: Json) => ({
+      x: 0,
+      y: 0,
+      z: 0,
+      width: 2,
+      height: 2,
+      imageUrl: name,
+      memo: '',
+      order: 1,
+      visible: true,
+      active: true,
+      ...over,
+    });
+    const r = await importRoomZip(
+      zipFiles([
+        {
+          name: '__data.json',
+          data: JSON.stringify({
+            entities: {
+              room: { fieldWidth: 6, fieldHeight: 6 },
+              items: {
+                v: mkItem({ visible: false, order: 1 }),
+                a: mkItem({ active: false, order: 2 }),
+                ok: mkItem({ order: 3 }),
+              },
+            },
+          }),
+        },
+        { name, data: img },
+      ]),
+    );
+    const flags = Object.fromEntries(r.project.parts.map((p) => [p.id, hiddenInCcfolia(p)]));
+    expect(flags).toEqual({ v: true, a: true, ok: false });
+    const out = dataOf(r.project).entities.items as unknown as Json;
+    expect(out.v.visible).toBe(false);
+    expect(out.a.active).toBe(false);
+    expect(out.ok.visible).toBe(true);
   });
 });

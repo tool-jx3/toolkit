@@ -833,9 +833,8 @@ test('讀入房間 ZIP：選檔、確認、編輯、再匯出（沒有對應功�
   const dialog = page.getByRole('alertdialog');
   await expect(dialog).toContainText('讀入房間 ZIP「整合測試房」？');
   await expect(dialog.getByTestId('room-import-counts')).toContainText(
-    '素材 16 張・場景 4 個・共用標記 3 個・螢幕面板 2 個・棋子 2 個・切入 1 個',
+    '素材 16 張・場景 4 個・共用標記 3 個・螢幕面板 2 個・棋子 2 個・切入 1 個・劇本文字 2 則',
   );
-  await expect(dialog.getByTestId('room-import-kept')).toContainText('劇本文字 2');
   await expect(dialog.getByTestId('room-import-kept')).toContainText('牌堆 1');
   await expect(dialog.getByTestId('room-import-lost')).toContainText('1 個檔案不是房間資料');
   await expect(dialog.getByTestId('room-import-lost')).toContainText('foo');
@@ -864,7 +863,17 @@ test('讀入房間 ZIP：選檔、確認、編輯、再匯出（沒有對應功�
 
   /* 保留的資料列在儲存頁 */
   await go(page, 'save');
-  await expect(page.getByTestId('keep-list')).toContainText('劇本文字 2');
+  await expect(page.getByTestId('keep-list')).toContainText('牌堆 1');
+
+  /* 劇本文字（notes）在「劇本文字」頁，標「房間」，可以編輯（R2） */
+  await go(page, 'story');
+  await expect(page.locator('[data-story]')).toHaveCount(2);
+  await expect(page.getByTestId('story-from-room')).toHaveCount(2);
+  await expect(page.getByRole('textbox', { name: '標題 1' })).toHaveValue('劇本零');
+  const body2 = page.getByRole('textbox', { name: '正文 2' });
+  await expect(body2).toHaveValue('內容');
+  await body2.fill('改過的內容');
+  await body2.blur();
 
   /* 編輯：場景改名、棋子的 HP */
   await go(page, 'scenes');
@@ -891,10 +900,12 @@ test('讀入房間 ZIP：選檔、確認、編輯、再匯出（沒有對應功�
   ]);
   expect(e.characters.c1.x).toBe(3);
   expect(e.characters.c1.params).toEqual(o.characters.c1.params);
-  /* 沒動的：原樣寫回（含工具不能編輯的劇本文字、牌堆、存檔、快照、不認得的類別） */
-  for (const k of ['notes', 'decks', 'savedatas', 'snapshots', 'extraKind', 'items', 'effects']) {
+  /* 沒動的：原樣寫回（含工具不能編輯的牌堆、存檔、快照、不認得的類別） */
+  for (const k of ['decks', 'savedatas', 'snapshots', 'extraKind', 'items', 'effects']) {
     expect(e[k], k).toEqual(o[k]);
   }
+  /* 劇本文字：改過的跟著改，沒改的（含 order、圖示）維持 */
+  expect(e.notes).toEqual({ ...o.notes, n1: { ...o.notes.n1, text: '改過的內容' } });
   expect(e.room.markers).toEqual(o.room.markers);
   expect(e.room.messageChannels).toEqual(['メイン', '情報', '雑談', 'GM']);
   expect(e.room.sceneId).toBe('s2');
@@ -1039,10 +1050,163 @@ test('讀入房間 ZIP：放掉保留的資料後，匯出不再帶有它們（F
   const out = await exportZip(page);
   const { data } = await expectValidRoomZip(out.bytes);
   const e = data.entities as unknown as Record<string, Record<string, unknown>>;
-  expect(e.notes).toEqual({});
+  /* 劇本文字不屬於保留的資料（在「劇本文字」頁），捨棄後仍在 */
+  expect(Object.keys(e.notes).sort()).toEqual(['n1', 'n2']);
   expect(e.decks).toEqual({});
   expect(e.extraKind).toBeUndefined();
   expect(Object.keys(e.items).sort()).toEqual(['i1', 'i2']);
+  expect(errors).toEqual([]);
+});
+
+test('讀入房間 ZIP：矮視窗裡確認對話框的內容會捲動、按鈕一直看得到（R1）', async ({ page }) => {
+  const errors = await open(page);
+  const fx = await roomFixture();
+  await importImages(page, [file('舊素材.png', await png(640, 360, [10, 120, 200]))]);
+  await go(page, 'home');
+  for (const size of [
+    { width: 844, height: 390 },
+    { width: 390, height: 700 },
+  ]) {
+    await page.setViewportSize(size);
+    await chooseFile(page, () => roomButton(page).click(), zipFile('整合.zip', fx.zip));
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toBeVisible();
+    const ok = dialog.getByRole('button', { name: '讀入', exact: true });
+    const cancel = dialog.getByRole('button', { name: '取消' });
+    for (const b of [ok, cancel]) {
+      const box = await b.boundingBox();
+      expect(box, `${size.width}×${size.height} 按鈕`).not.toBeNull();
+      expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(size.height);
+      expect(box?.y ?? -1).toBeGreaterThanOrEqual(0);
+    }
+    const box = await dialog.boundingBox();
+    expect((box?.y ?? -1) >= 0 && (box?.y ?? 0) + (box?.height ?? 0) <= size.height).toBe(true);
+    /* 說明自己捲動 */
+    const scrolls = await page.getByTestId('room-import-summary').evaluate((el) => {
+      const p = el.parentElement as HTMLElement;
+      return p.scrollHeight > p.clientHeight && getComputedStyle(p).overflowY === 'auto';
+    });
+    if (size.height === 390) expect(scrolls).toBe(true);
+    await cancel.click();
+    await expect(dialog).toHaveCount(0);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('讀入房間 ZIP：房間設計或備忘改過就不算空專案，要先確認（R9）；完成通知提到可以復原', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const fx = await roomFixture({ clean: true });
+  await page.getByRole('button', { name: /備忘與待辦/ }).click();
+  await page.getByRole('textbox', { name: '整體備忘' }).fill('我寫過備忘');
+  await chooseFile(page, () => roomButton(page).click(), zipFile('整合.zip', fx.zip));
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('讀入房間 ZIP「整合測試房」？');
+  await dialog.getByRole('button', { name: '讀入', exact: true }).click();
+  await expect(page.getByTestId('project-name')).toHaveText('整合測試房');
+  await expect(page.getByText(/想回到讀入前的專案，按「復原」/).first()).toBeVisible();
+  await page.getByRole('button', { name: /^復原/ }).click();
+  await expect(page.getByTestId('project-name')).toHaveText('未命名房間');
+  await expect(page.getByRole('textbox', { name: '整體備忘' })).toHaveValue('我寫過備忘');
+  expect(errors).toEqual([]);
+});
+
+test('讀入房間 ZIP：專案存不進瀏覽器時警告，標題不寫「有東西沒有帶進來」（R7、R8）', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k: string, v: string) {
+      if (k === 'trpg-toolkit:room-zip' && String(v).includes('整合測試房')) {
+        throw new DOMException('quota', 'QuotaExceededError');
+      }
+      return set.call(this, k, v);
+    };
+  });
+  const errors = await open(page);
+  const fx = await roomFixture({ clean: true });
+  await chooseFile(page, () => roomButton(page).click(), zipFile('整合.zip', fx.zip));
+  await expect(page.getByTestId('project-name')).toHaveText('整合測試房');
+  await expect(page.getByText('已讀入房間「整合測試房」', { exact: true })).toBeVisible();
+  await expect(page.getByText(/資料存不進這個瀏覽器的儲存空間/).first()).toBeVisible();
+  await expect(page.getByText(/但有東西沒有帶進來/)).toHaveCount(0);
+  await expect(page.getByTestId('save-error')).toContainText('自動儲存失敗');
+  expect(errors.filter((e) => !/QuotaExceeded|quota/i.test(e))).toEqual([]);
+});
+
+test('讀取：ZIP 既不是專案檔也不像房間資料時說清楚（R10）；拖放專案檔直接開、專案有內容時先確認（R13）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await chooseFile(
+    page,
+    () => page.getByRole('button', { name: '讀取', exact: true }).click(),
+    zipFile('不明.zip', zipSync({ 'a.txt': new TextEncoder().encode('x') })),
+  );
+  await expect(
+    page.getByText(/既不是本工具的專案檔，也看不出是 CCFOLIA 的房間資料/).first(),
+  ).toBeVisible();
+  await expect(page.getByTestId('project-name')).toHaveText('未命名房間');
+
+  /* 做一份專案檔：範例房間 */
+  await loadSample(page);
+  await go(page, 'save');
+  const [saved] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('save-page').getByRole('button', { name: '儲存（下載專案檔）' }).click(),
+  ]);
+  const project = readFileSync(await saved.path());
+  await page.getByTestId('save-page').getByRole('button', { name: '開新房間' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /開新房間|確定/ })
+    .click();
+  await expect(page.getByTestId('project-name')).toHaveText('新的房間');
+  /* 專案是空的：拖放 .rzproj 直接開 */
+  await dropFiles(page, [{ name: '範例房間.rzproj', type: '', buffer: project }]);
+  await expect(page.getByTestId('project-name')).toHaveText('範例房間');
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  /* 專案有內容：先確認，取消什麼都沒變 */
+  await dropFiles(page, [{ name: '範例房間.rzproj', type: '', buffer: project }]);
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('讀取專案檔？');
+  await dialog.getByRole('button', { name: '取消' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByTestId('project-name')).toHaveText('範例房間');
+  /* 頁首的「讀取」同樣先確認；讀取 */
+  await chooseFile(
+    page,
+    () => page.getByRole('button', { name: '讀取', exact: true }).click(),
+    zipFile('範例房間.rzproj', project),
+  );
+  await expect(page.getByRole('alertdialog')).toContainText('讀取專案檔？');
+  await page.getByRole('alertdialog').getByRole('button', { name: '讀取', exact: true }).click();
+  await expect(page.getByTestId('project-name')).toHaveText('範例房間');
+  expect(errors).toEqual([]);
+});
+
+test('讀入房間 ZIP：CCFOLIA 裡不顯示的螢幕面板在預覽與清單標出來（R11）', async ({ page }) => {
+  const errors = await open(page);
+  const fx = await roomFixture({
+    clean: true,
+    mutate: (j) => {
+      j.entities.items.i1.visible = false;
+    },
+  });
+  await chooseFile(page, () => roomButton(page).click(), zipFile('整合.zip', fx.zip));
+  await expect(page.getByTestId('project-name')).toHaveText('整合測試房');
+  await go(page, 'room');
+  await expect(page.locator('[data-part="i1"]').getByTestId('part-cc-hidden')).toBeVisible();
+  await expect(page.locator('[data-part="i2"]').getByTestId('part-cc-hidden')).toHaveCount(0);
+  const hidden = page.locator('[data-board-item="i1"]');
+  await expect(hidden).toHaveClass(/opacity-40/);
+  await expect(hidden).toContainText('CCFOLIA 不顯示');
+  await expect(page.locator('[data-board-item="i2"]')).not.toHaveClass(/opacity-40/);
+  /* 匯出照原樣寫回 */
+  const out = await exportZip(page);
+  const { data } = await expectValidRoomZip(out.bytes);
+  expect((data.entities.items as Record<string, Record<string, unknown>>).i1.visible).toBe(false);
   expect(errors).toEqual([]);
 });
 

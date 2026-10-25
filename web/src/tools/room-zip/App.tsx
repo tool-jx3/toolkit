@@ -27,6 +27,7 @@ import {
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
+import { useSaveError } from '@/core/storage';
 import {
   Button,
   cn,
@@ -176,6 +177,7 @@ function TopBar() {
     ]),
   );
   const [rename, node] = useRenameProject();
+  const saveError = useSaveError(TOOL_ID);
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
       <button
@@ -191,6 +193,11 @@ function TopBar() {
         {S.summary(counts[0], counts[1], counts[2], counts[3])}
       </span>
       <span className="hidden text-xs text-muted md:inline">{S.subtitle}</span>
+      {saveError ? (
+        <span className="text-xs text-warning" role="status" data-testid="save-error">
+          {S.saveFailedBanner}
+        </span>
+      ) : null}
       {node}
     </div>
   );
@@ -498,7 +505,7 @@ function Workspace() {
   const page = useSession((s) => s.page);
   const lay = useLayout((s) => s.data);
   const n = useNotify();
-  const { openRoom } = useRoomZipOpener();
+  const { openAnyFile } = useRoomZipOpener();
   const showRight = page !== 'room';
   return (
     <div className={'flex min-w-0 flex-1 flex-col gap-3'} data-page={page}>
@@ -522,11 +529,11 @@ function Workspace() {
         hint={S.roomImport.dropHint}
         onDrop={async (files) => {
           if (useSession.getState().picker) return;
-          /* 房間 ZIP（和拖放圖片分開）：一次一個，其他檔案不處理（F288） */
+          /* ZIP（房間 ZIP 或專案檔，和拖放圖片分開）：一次一個，其他檔案不處理（F288） */
           const zip = files.find(isZipFile);
           if (zip) {
             if (files.length > 1) n(S.roomImport.droppedOthers(files.length - 1), 'warning');
-            await openRoom(zip);
+            await openAnyFile(zip);
             return;
           }
           const r = await importFiles(files);

@@ -35,6 +35,8 @@ export interface BoardItem {
   axis?: 'y';
   /** 全畫面演出不顯示外框 */
   frameless?: boolean;
+  /** 在 CCFOLIA 裡不顯示（讀入的面板；畫成半透明加標示，R11） */
+  dimmed?: boolean;
   /** 圖片的即時預覽樣式（房間設計的快速加工：裁切、透明、翻轉） */
   imageStyle?: CSSProperties;
 }
@@ -149,6 +151,7 @@ function ItemView({
       onPointerDown={onDown}
       className={cn(
         'absolute touch-none select-none',
+        item.dimmed && 'opacity-40',
         item.locked ? 'cursor-not-allowed' : 'cursor-move',
         decorations && !item.frameless && 'outline outline-1 outline-[#ffffff66]',
         decorations && placeholder && 'border-2 border-dashed border-warning bg-warning-soft',
@@ -175,6 +178,7 @@ function ItemView({
         <span className="pointer-events-none absolute top-0 left-0 inline-flex max-w-full items-center gap-0.5 truncate rounded-br-sm bg-[#000000a6] px-1 text-[10px] leading-4 text-[#fff]">
           {item.locked ? <Lock className="size-2.5 shrink-0" aria-hidden /> : null}
           {item.label}
+          {item.dimmed ? '（CCFOLIA 不顯示）' : ''}
         </span>
       ) : null}
       {decorations && selected && item.resizable && !item.locked ? (

@@ -125,11 +125,17 @@ export interface Part {
   visible: boolean;
   /** 盤面文字（共用標記＝マーカーパネルの文字；螢幕面板＝スクリーンパネルの備註） */
   text: string;
-  /** 讀入時本工具不編輯的欄位（角度、鎖定、點擊動作…），再匯出時寫回 */
+  /** 讀入時的 CCFOLIA ID：和別種部件的 ID 撞名而改了內部 ID 時才有（匯出用這個當鍵，3.7.5） */
+  key?: string;
+  /** 讀入時本工具不編輯的欄位（角度、鎖定、點擊動作、order…），再匯出時寫回 */
   extra?: Extra;
   /** 讀入時的原始左上角與大小：位置、大小都沒改過時，匯出就用它（整數格的中心座標表示不了的位置，3.7.4） */
   origin?: GridRect;
 }
+
+/** 讀入的螢幕面板在 CCFOLIA 裡不顯示（`visible` 或 `active` 是 false）：預覽裡標出來，匯出照原樣寫回（R11） */
+export const hiddenInCcfolia = (p: Pick<Part, 'kind' | 'extra'>): boolean =>
+  p.kind === 'panel' && (p.extra?.visible === false || p.extra?.active === false);
 
 /* ---------- 立繪庫 ---------- */
 
@@ -294,6 +300,11 @@ export interface StoryText {
   id: string;
   title: string;
   body: string;
+  /**
+   * 讀入的房間 ZIP 裡的劇本文字（`notes`）：有這個欄位的匯出時寫回成劇本文字（標題＝名稱、內文＝text），
+   * 值是工具不編輯的欄位（順序、圖示…）；工具自己寫的劇本文字沒有，照 D14 不輸出（3.7.8）。
+   */
+  note?: Extra;
 }
 
 export type KpSystem = 'coc6' | 'coc7' | 'emoklore';

@@ -8,7 +8,8 @@
  * - 場景 → 場景：背景模式、前景、盤面、裁切、格線、切換文字（開頭的「@切入名稱」還原成指定切入）；場景的マーカー與共用標記同 ID、
  *   只差圖片／位置／大小／堆疊順序的 → 場景差異，不在這個場景裡的共用標記 → 本場景隱藏，其餘 → 演出。
  * - `effects` → 切入；`characters` → 棋子（名稱、備忘、HP／MP、圖示、差分、聊天面板；狀態、參數、位置等原樣記在 `extra`）。
- * - 沒有對應功能的資料（劇本文字、牌堆、存檔、快照、無法對應的面板…）原樣放進 `keep`，匯出時寫回。
+ * - `notes`（劇本文字）→ 「劇本文字」頁的內容（標題、內文；順序、圖示等原樣記在 `note`，匯出時寫回成劇本文字）。
+ * - 沒有對應功能的資料（牌堆、存檔、快照、無法對應的面板…）原樣放進 `keep`，匯出時寫回。
  * 壞檔、不是房間 ZIP、版本不認得時丟 `RoomImportError`（訊息可直接顯示；呼叫端的目前專案不受影響）。
  */
 import {
@@ -23,16 +24,20 @@ import {
   resolveRoomData,
   sniffImageMime,
 } from '@/ccfolia';
+import { zipUncompressedSize } from '@/core/files';
 import { isZipBytes, type ToolStore } from '@/core/storage';
 import { imageInfo } from './imageInfo';
 import { baseName, guessTag } from './materials';
 import {
   type Cutin,
+  createKpSettings,
   createProject,
   createRoomDesign,
+  DEFAULT_PROJECT_NAME,
   type Extra,
   type Material,
   NAMES,
+  NEW_PROJECT_NAME,
   newLocalId,
   type Part,
   type PartOverride,
@@ -42,16 +47,18 @@ import {
   type RoomKeep,
   type Scene,
   type SceneMarker,
+  type StoryText,
   type Tag,
 } from './model';
 import { fitRect, sameRect } from './rect';
-import { KEEP_KINDS, OWNED } from './roomFields';
+import { EXTERNAL_RE, isImageKey, KEEP_KINDS, OWNED } from './roomFields';
 import { S } from './strings';
 
 /* ---------- 錯誤 ---------- */
 
 export type RoomImportErrorCode =
   | 'too-large'
+  | 'too-large-unzipped'
   | 'not-zip'
   | 'project-file'
   | 'no-data'
@@ -61,6 +68,9 @@ export type RoomImportErrorCode =
 
 /** 讀得進來的房間 ZIP 大小上限（位元組）：整份讀進記憶體再解開，太大的瀏覽器可能撐不住 */
 export const ROOM_ZIP_MAX_BYTES = 400 * 1024 * 1024;
+
+/** 解開後的總大小上限（位元組）：擋掉解壓炸彈（檔案很小、解開來好幾 GB） */
+export const ROOM_ZIP_MAX_UNZIPPED_BYTES = 1024 * 1024 * 1024;
 
 /** 讀不了房間 ZIP（訊息可直接顯示給使用者） */
 export class RoomImportError extends Error {
@@ -74,7 +84,9 @@ export class RoomImportError extends Error {
         ? S.roomImport.errors.version(detail)
         : code === 'too-large'
           ? S.roomImport.errors['too-large'](ROOM_ZIP_MAX_BYTES / 1024 / 1024)
-          : S.roomImport.errors[code],
+          : code === 'too-large-unzipped'
+            ? S.roomImport.errors['too-large-unzipped'](ROOM_ZIP_MAX_UNZIPPED_BYTES / 1024 / 1024)
+            : S.roomImport.errors[code],
     );
   }
 }
@@ -104,6 +116,8 @@ export interface RoomImportReport {
     panels: number;
     pieces: number;
     cutins: number;
+    /** 讀成「劇本文字」頁內容的劇本文字數 */
+    notes: number;
   };
   /** 場景專屬、成為「演出」的面板數 */
   sceneOnlyMarkers: number;
@@ -126,6 +140,8 @@ export interface RoomImportReport {
     unlinked: number;
     /** 最上層本工具不認得的欄位 */
     topFields: string[];
+    /** 名稱是 `__proto__` 的項目與欄位數（會污染物件原型，不能保留） */
+    reserved: number;
   };
 }
 
@@ -137,7 +153,6 @@ export interface RoomImportResult {
 
 /** 原樣保留的資料有多少（類別 → 件數；`other` 是不認得的類別名稱） */
 export interface KeptCounts {
-  notes: number;
   decks: number;
   savedatas: number;
   snapshots: number;
@@ -153,9 +168,8 @@ export function keptCounts(keep: RoomKeep | undefined): KeptCounts {
   const size = (v: unknown): number =>
     Array.isArray(v) ? v.length : v && typeof v === 'object' ? Object.keys(v).length : 0;
   const kind = (k: string) => size(keep?.entities?.[k]);
-  const known = ['notes', 'decks', 'savedatas', 'snapshots', 'items', 'effects'];
+  const known = ['decks', 'savedatas', 'snapshots', 'items', 'effects'];
   return {
-    notes: kind('notes'),
     decks: kind('decks'),
     savedatas: kind('savedatas'),
     snapshots: kind('snapshots'),
@@ -186,7 +200,8 @@ export const hasLost = (r: RoomImportReport): boolean =>
   r.lost.images.length > 0 ||
   r.lost.missing.length > 0 ||
   r.lost.unlinked > 0 ||
-  r.lost.topFields.length > 0;
+  r.lost.topFields.length > 0 ||
+  r.lost.reserved > 0;
 
 /** 讀入報告的文字（對話框與通知用；回傳一行一行的字串） */
 export function describeReport(r: RoomImportReport): {
@@ -206,6 +221,7 @@ export function describeReport(r: RoomImportReport): {
   if (r.lost.missing.length) lost.push(T.lostMissing(r.lost.missing.length, list(r.lost.missing)));
   if (r.lost.unlinked) lost.push(T.lostUnlinked(r.lost.unlinked));
   if (r.lost.topFields.length) lost.push(T.lostTop(list(r.lost.topFields)));
+  if (r.lost.reserved) lost.push(T.lostReserved(r.lost.reserved));
   return {
     counts: T.countsLine(r.counts),
     converted: r.sceneOnlyMarkers ? T.convertedLine(r.sceneOnlyMarkers) : null,
@@ -269,12 +285,6 @@ function sameJson(a: unknown, b: unknown): boolean {
   return false;
 }
 
-/** 網址（不是 ZIP 裡的檔案） */
-const EXTERNAL_RE = /^(https?:|data:|blob:)/i;
-/** 放圖片的欄位（沒有欄位名稱＝工具自己讀的圖片欄位）；externalUrl、embedUrl 這類連結不算 */
-const imageKey = (key: string): boolean =>
-  !key || /(image|icon|background|foreground|cover|thumbnail|avatar|picture)Url$/i.test(key);
-
 const rectOf = (o: Obj): GridRect => ({
   x: num(o.x),
   y: num(o.y),
@@ -295,18 +305,27 @@ function isProjectZip(read: RoomZipContents): boolean {
   );
 }
 
-/** 便宜的判斷：是 ZIP、有房間資料檔、沒有本工具專案檔的 project.json（給「讀取」自動分辨用） */
-export function looksLikeRoomZip(bytes: Uint8Array): boolean {
-  if (!isZipBytes(bytes)) return false;
+/** ZIP 的種類（頁首「讀取」自動分辨用）：房間資料、本工具的專案檔、兩者都不是、不是 ZIP（或讀不了） */
+export type ZipKind = 'room' | 'project' | 'other' | 'not-zip';
+
+export function zipKind(bytes: Uint8Array): ZipKind {
+  if (!isZipBytes(bytes)) return 'not-zip';
   try {
     const read = readRoomZip(bytes);
-    return !isProjectZip(read) && read.isRoom;
+    if (isProjectZip(read)) return 'project';
+    return read.isRoom ? 'room' : 'other';
   } catch {
-    return false;
+    return 'not-zip';
   }
 }
 
-/** 專案是空的（沒有任何素材、場景、部件、立繪、切入、棋子、劇本文字）：讀入時不必確認 */
+/** 便宜的判斷：是 ZIP、有房間資料檔、沒有本工具專案檔的 project.json */
+export const looksLikeRoomZip = (bytes: Uint8Array): boolean => zipKind(bytes) === 'room';
+
+/**
+ * 專案是空的（沒有任何素材、場景、部件、立繪、切入、棋子、劇本文字、保留的資料，房間設計、KP 設定、備忘、待辦、專案名稱都沒改過）：
+ * 讀入時不必確認（R9）。
+ */
 export function isProjectBlank(p: Project): boolean {
   return (
     !p.materials.length &&
@@ -317,7 +336,12 @@ export function isProjectBlank(p: Project): boolean {
     !p.pieces.length &&
     !p.story.length &&
     !p.sceneTemplates.length &&
-    !p.keep
+    !p.keep &&
+    !p.memo.trim() &&
+    !p.todos.length &&
+    (p.name === DEFAULT_PROJECT_NAME || p.name === NEW_PROJECT_NAME) &&
+    sameJson(p.room, createRoomDesign()) &&
+    sameJson(p.kp, createKpSettings())
   );
 }
 
@@ -351,6 +375,14 @@ export async function importRoomZip(
 ): Promise<RoomImportResult> {
   assertRoomZipSize(bytes.length);
   if (!isZipBytes(bytes)) throw new RoomImportError('not-zip');
+  /* 解開之前先看目錄記的解開後大小（R12，擋解壓炸彈） */
+  let unzipped: number;
+  try {
+    unzipped = zipUncompressedSize(bytes);
+  } catch {
+    throw new RoomImportError('not-zip');
+  }
+  if (unzipped > ROOM_ZIP_MAX_UNZIPPED_BYTES) throw new RoomImportError('too-large-unzipped');
   let read: RoomZipContents;
   try {
     read = readRoomZip(bytes);
@@ -427,7 +459,7 @@ export async function importRoomZip(
       hit = { out: path ? (pathToName.get(path) ?? v) : v, found: path !== null };
       resolved.set(v, hit);
     }
-    if (!hit.found && imageKey(key)) noteUnresolved(v);
+    if (!hit.found && isImageKey(key)) noteUnresolved(v);
     return hit.out;
   };
   const noteUnresolved = (v: string) => {
@@ -508,6 +540,7 @@ export async function importRoomZip(
     partRaw.set(pid, raw);
     parts.push({
       id: pid,
+      ...(pid !== id ? { key: id } : {}),
       kind: 'marker',
       name: firstLine(text) || `${NAMES.marker}${markerNo}`,
       imageUrl: use(img(m.imageUrl), firstLine(text) || `${NAMES.marker}${markerNo}`),
@@ -535,6 +568,7 @@ export async function importRoomZip(
     const pid = uniquePartId(id);
     parts.push({
       id: pid,
+      ...(pid !== id ? { key: id } : {}),
       kind: 'panel',
       name: label,
       imageUrl: use(img(it.imageUrl), label),
@@ -610,7 +644,7 @@ export async function importRoomZip(
     const seen = new Set<string>();
     let freeNo = 0;
     for (const [mid, m] of entriesOf(s.markers)) {
-      const part = markerParts.find((p) => p.id === mid);
+      const part = markerParts.find((p) => (p.key ?? p.id) === mid);
       const o = part ? overrideOf(part, partRaw.get(part.id) as GridRect, m) : undefined;
       if (part && o) {
         seen.add(part.id);
@@ -707,12 +741,18 @@ export async function importRoomZip(
     });
   }
 
+  /* ---------- 劇本文字（notes）→「劇本文字」頁 ---------- */
+  const story: StoryText[] = [];
+  for (const [id, n] of byOrder(entriesOf(ent.notes))) {
+    story.push({ id, title: str(n.name), body: str(n.text), note: mapUrls(omit(n, OWNED.note)) });
+  }
+
   /* ---------- 沒有對應功能的類別 ---------- */
   for (const [kind, container] of Object.entries(ent)) {
     if (kind === '__proto__') continue;
     if ((KEEP_KINDS as readonly string[]).includes(kind)) {
       for (const [id, o] of entriesOf(container)) keepEntity(kind, id, o);
-    } else if (!['room', 'items', 'characters', 'effects', 'scenes'].includes(kind)) {
+    } else if (!['room', 'items', 'characters', 'effects', 'scenes', 'notes'].includes(kind)) {
       /* 不認得的類別：整個原樣保留（含不是物件的內容） */
       keepEntities[kind] = mapUrls(container) as Record<string, unknown>;
     }
@@ -744,6 +784,7 @@ export async function importRoomZip(
     scenes,
     cutins,
     pieces,
+    story,
     materials,
   };
   const keep: RoomKeep = {};
@@ -764,6 +805,7 @@ export async function importRoomZip(
       panels: parts.length - markerParts.length,
       pieces: pieces.length,
       cutins: cutins.length,
+      notes: story.length,
     },
     sceneOnlyMarkers,
     externalImages: external.size,
@@ -788,6 +830,7 @@ export async function importRoomZip(
       missing: [...missing],
       unlinked,
       topFields: Object.keys(json).filter((k) => !TOP_KEYS.includes(k)),
+      reserved: countOwnKey(json, '__proto__'),
     },
   };
 
@@ -823,6 +866,22 @@ function statusValue(status: unknown, label: 'HP' | 'MP'): string {
   if (!isObj(s)) return '';
   const v = typeof s.max === 'number' ? s.max : s.value;
   return typeof v === 'number' && Number.isFinite(v) ? String(v) : '';
+}
+
+/** JSON 裡名稱是 key 的自有鍵有幾個（`__proto__` 之類的鍵放進物件會污染原型，讀入時略過並報告，R6） */
+function countOwnKey(root: unknown, key: string): number {
+  let n = 0;
+  const walk = (v: unknown) => {
+    if (Array.isArray(v)) for (const x of v) walk(x);
+    else if (isObj(v)) {
+      for (const [k, x] of Object.entries(v)) {
+        if (k === key) n++;
+        walk(x);
+      }
+    }
+  };
+  walk(root);
+  return n;
 }
 
 /** 欄位名稱不是 Url 結尾、值卻是房間圖片檔名的位置數（資料裡的圖片檔名只有 Url 欄位會被匯出時收進 ZIP） */

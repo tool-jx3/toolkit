@@ -11,7 +11,12 @@ import {
   sniffImageMime,
 } from '@/ccfolia';
 import { downloadBlob, readAsBytes, safeFileName } from '@/core/files';
-import { ProjectFileError, parseProjectBytes, serializeProjectZip } from '@/core/storage';
+import {
+  getSaveError,
+  ProjectFileError,
+  parseProjectBytes,
+  serializeProjectZip,
+} from '@/core/storage';
 import { type CreateKind, createFromMaterials } from './actions';
 import { buildRoomData } from './exportRoom';
 import { initialEndpoints } from './fade';
@@ -28,7 +33,7 @@ import {
   type Scene,
   TOOL_ID,
 } from './model';
-import { looksLikeRoomZip, type RoomImportResult, replaceUndoable } from './roomImport';
+import { type RoomImportResult, replaceUndoable, zipKind } from './roomImport';
 import {
   assets,
   commit,
@@ -392,10 +397,16 @@ export async function saveProject(
 }
 
 /** 讀取專案檔（F275）：整個專案換掉、素材從檔案裡的圖片重建、目前場景＝第一個、復原紀錄清空、標記為已儲存 */
-export async function openProjectFile(file: File, notify: Notify): Promise<boolean> {
+export async function openProjectFile(
+  file: File,
+  notify: Notify,
+  confirmReplace?: () => Promise<boolean>,
+): Promise<boolean> {
   try {
     const parsed = parseProjectBytes<Project>(await readAsBytes(file), TOOL_ID);
     const p = normalizeProject(parsed.data);
+    /* 檔案讀得進來才確認（壞檔只通知原因，不問） */
+    if (confirmReplace && !(await confirmReplace())) return false;
     for (const [path, data] of parsed.files) {
       const name = path.split('/').pop() ?? path;
       const m = p.materials.find((x) => x.name === name);
@@ -432,17 +443,24 @@ export async function openProjectFile(file: File, notify: Notify): Promise<boole
 }
 
 /**
- * 「讀取」：專案檔，或 CCFOLIA 的房間 ZIP（看內容分辨：有房間資料、沒有 project.json 的 ZIP 交給 openRoom，F287）。
- * openRoom 要自己確認與通知（見 dialogs/RoomImport.tsx 的 useRoomZipOpener）。
+ * 「讀取」與拖放：專案檔，或 CCFOLIA 的房間 ZIP（看內容分辨，F287）。
+ * 房間 ZIP 交給 openRoom（要自己確認與通知，見 dialogs/RoomImport.tsx 的 useRoomZipOpener）；專案檔讀得進來之後、
+ * 專案不是空的時先問 confirmReplace（R13）；ZIP 既不是專案檔也不像房間資料時說清楚（R10）。
  */
 export async function openAny(
   file: File,
   notify: Notify,
   openRoom: (file: File, bytes: Uint8Array) => Promise<boolean>,
+  confirmReplace?: () => Promise<boolean>,
 ): Promise<boolean> {
   const bytes = await readAsBytes(file).catch(() => null);
-  if (bytes && looksLikeRoomZip(bytes)) return openRoom(file, bytes);
-  return openProjectFile(file, notify);
+  const kind = bytes ? zipKind(bytes) : 'not-zip';
+  if (bytes && kind === 'room') return openRoom(file, bytes);
+  if (kind === 'other') {
+    notify(S.roomImport.neitherZip, 'danger', S.roomImport.unchanged);
+    return false;
+  }
+  return openProjectFile(file, notify, confirmReplace);
 }
 
 /* ---------- 讀入房間 ZIP（F287～F299） ---------- */
@@ -477,6 +495,8 @@ export async function applyRoomImport(r: RoomImportResult): Promise<boolean> {
     }
     await loadBlobs(r.project.materials.map((m) => m.name));
     replaceUndoable(useProject, r.project);
+    /* 專案本身（含保留的資料）存不進這個瀏覽器時，和圖片存不進去一樣要警告（R7） */
+    if (getSaveError(TOOL_ID)) persisted = false;
     domain.current = 'project';
     markSaved();
     setSession({

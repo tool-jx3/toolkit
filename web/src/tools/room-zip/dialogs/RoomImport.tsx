@@ -105,12 +105,13 @@ export function useRoomZipOpener(): RoomZipOpener {
         notify(S.roomImport.failed(e instanceof Error ? e.message : String(e)), 'danger');
         return false;
       }
-      const warn = lost || !persisted;
+      /* 標題只在真的有資料沒帶進來時才寫「有東西沒有帶進來」；只有存不進瀏覽器時另外在說明欄警告（R8） */
       const lines = [S.roomImport.countsLine(report.counts)];
       if (!persisted) lines.push(S.roomImport.notPersisted);
+      lines.push(S.roomImport.undoHint);
       notify(
-        warn ? S.roomImport.doneWarn(report.roomName) : S.roomImport.done(report.roomName),
-        warn ? 'warning' : 'success',
+        lost ? S.roomImport.doneWarn(report.roomName) : S.roomImport.done(report.roomName),
+        lost || !persisted ? 'warning' : 'success',
         lines.join('\n'),
       );
       return true;
@@ -119,8 +120,21 @@ export function useRoomZipOpener(): RoomZipOpener {
   );
 
   const openAnyFile = useCallback(
-    (file: File) => openAny(file, notify, (f, bytes) => openRoom(f, bytes)),
-    [notify, openRoom],
+    (file: File) =>
+      openAny(
+        file,
+        notify,
+        (f, bytes) => openRoom(f, bytes),
+        async () =>
+          isProjectBlank(useProject.getState().data) ||
+          confirm({
+            title: S.roomImport.openProjectConfirmTitle,
+            description: S.roomImport.openProjectConfirm,
+            confirmLabel: S.roomImport.openProjectConfirmOk,
+            danger: true,
+          }),
+      ),
+    [notify, confirm, openRoom],
   );
 
   return useMemo(

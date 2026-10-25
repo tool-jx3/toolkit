@@ -88,6 +88,11 @@ export function useSaveError(toolId: string): unknown {
   return saveErrors((s) => s[toolId] ?? null);
 }
 
+/** useSaveError 的非 React 版（room-zip 讀入房間 ZIP 後確認專案存不存得進瀏覽器） */
+export function getSaveError(toolId: string): unknown {
+  return saveErrors.getState()[toolId] ?? null;
+}
+
 function trackingStorage(
   toolId: string,
   base: StateStorage,
