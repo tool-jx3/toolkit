@@ -503,6 +503,8 @@ export function mdSuggest(
   skip: readonly BlockType[],
 ): { list: MdSuggestItem[]; q: string } | null {
   if (before == null || before.includes('\n')) return null;
+  /* 標題不能放的地方（段落裡）不列 # 的候選（同原作） */
+  if (skip.includes('h1') && /^[#＃]/.test(before)) return null;
   let m = before.match(/^[#＃]{1,3}$/);
   if (m) return { list: MD_SUGGEST_H.filter((x) => (x.lv ?? 0) >= m![0].length), q: '' };
   m = before.match(/^ {0,3}[:：]{2,3}([^\s:：[\]［］{}｛｝]{0,16})$/);
@@ -523,4 +525,13 @@ export function mdSuggest(
     .sort((a, b) => a[0] - b[0] || a[1] - b[1])
     .map((r) => r[2]);
   return list.length ? { list, q } : null;
+}
+
+/**
+ * 候選右邊顯示的寫法：用英文的別名比對到時顯示那個別名（`::ta` → `:::talk`、`::n` → `::newpage`），
+ * 其他是正式的寫法（同原作；7.5 的 T6）
+ */
+export function mdShown(it: MdSuggestItem, q: string): string {
+  const alias = q ? it.names.find((a) => a.startsWith(q)) : undefined;
+  return alias ? it.gl + alias : it.cm.trim();
 }

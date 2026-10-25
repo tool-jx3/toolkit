@@ -510,4 +510,67 @@ test.describe('劇本排版台：2026-10 跟進第二批', () => {
     expect(texts[1].text).not.toContain('↩');
     expect(errors.filter((e) => !/net::ERR_FAILED|Failed to load resource/.test(e))).toEqual([]);
   });
+  test.describe('第二批驗證後的修正（7.5 的 T1、T2、T4）', () => {
+    test('T1：頁面圖片旁邊的特殊區塊整個縮到圖片旁', async ({ page }) => {
+      const errors = await open(page);
+      const long = '這是一段很長的特殊區塊的內容，用來看框是否縮到頁面圖片的旁邊。'.repeat(4);
+      await loadDoc(
+        page,
+        '圖片旁',
+        [
+          blk('p', 'proc', long, {
+            bx: { ln: 'solid', bar: true, fill: true, sm: false, col: 'sumi' },
+          }),
+        ],
+        {
+          pageImgs: [
+            { id: 'pi', img: PNG, ar: 0.75, cap: '', pg: 1, x: 16, y: 18, w: 30, wu: 'pct' },
+          ],
+        },
+      );
+      await expect(stage(page).locator('.pimg[data-pimg="pi"]')).toHaveAttribute(
+        'title',
+        /設定欄改位置與大小/,
+      );
+      const im = await stage(page).locator('.pimg[data-pimg="pi"]').boundingBox();
+      const pf = await stage(page).locator('.bp[data-id="p"] > .b').boundingBox();
+      expect(im && pf && pf.x >= im.x + im.width - 1).toBe(true);
+      expect(errors).toEqual([]);
+    });
+
+    test('T2：自由配置 → 復原 → Delete → 重做：圖片回來（Delete 不清掉重做）', async ({ page }) => {
+      const errors = await open(page);
+      await loadDoc(page, '重做', [
+        blk('a', 'desc', '前文'),
+        blk('im', 'image', '', { cols: 1, img: PNG, ar: 0.75, w: 40, pos: 'inline' }),
+      ]);
+      await stage(page).locator('.bp[data-id="im"] img').click();
+      await page.getByRole('radio', { name: '自由配置' }).click();
+      await expect(stage(page).locator('.pimg')).toHaveCount(1);
+      await page.waitForTimeout(800);
+      await page.locator('body').click({ position: { x: 3, y: 3 } });
+      await page.keyboard.press('Control+z');
+      await expect(stage(page).locator('.pimg')).toHaveCount(0);
+      await page.keyboard.press('Delete');
+      await page.keyboard.press('Control+y');
+      await expect(stage(page).locator('.pimg')).toHaveCount(1);
+      expect(errors).toEqual([]);
+    });
+
+    test('T4：第一行 :::table ＋ Enter：游標在下面新加的描述文', async ({ page }) => {
+      const errors = await open(page);
+      await loadDoc(page, '表格', [blk('a', 'desc', '')]);
+      await source(page).locator('textarea[data-bid="a"]').click();
+      await page.keyboard.type(':::table');
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Enter');
+      await expect(status(page)).toContainText('已改成表格');
+      const focused = page.locator('textarea:focus');
+      await expect(focused).toHaveCount(1);
+      expect(await focused.getAttribute('data-bid')).not.toBe('a');
+      await page.keyboard.type('接著寫');
+      await expect(focused).toHaveValue('接著寫');
+      expect(errors).toEqual([]);
+    });
+  });
 });

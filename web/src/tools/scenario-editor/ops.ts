@@ -1279,10 +1279,12 @@ export function mdLineFire(id: string, text: string, caret: number): boolean {
   if (inside) {
     select([nb.id], { scroll: false });
     focusBlock(nb.id, 0);
-  } else if (nx && OWN_BODY_TYPES.includes(nb.type)) {
+  } else if (nx && nb.type === 'flow') {
+    /* 流程圖：維持選取、設定欄顯示它（同原作：游標不放進下一段） */
     setUi({ focusId: null });
     select([nb.id]);
   } else if (nx) {
+    /* 表格、彈出視窗、NPC 卡、圖片、目錄也是：游標放進下面新加的描述文（同原作；7.5 的 T4） */
     select([nx.id], { scroll: false });
     focusBlock(nx.id, 0);
   }
@@ -1570,6 +1572,11 @@ export function editPimg(id: string, recipe: (o: PageImg, d: Doc) => void): void
 
 /** 刪除頁面圖片（F283） */
 export function deletePimg(id: string): void {
+  /* 已經不在了（例如復原之後還留著的選取）：不動原稿，重做的紀錄才不會被清掉（7.5 的 T2） */
+  if (!(doc().pageImgs ?? []).some((x) => x.id === id)) {
+    setUi({ pimgSel: null });
+    return;
+  }
   edit((d) => {
     d.pageImgs = (d.pageImgs ?? []).filter((x) => x.id !== id);
   });

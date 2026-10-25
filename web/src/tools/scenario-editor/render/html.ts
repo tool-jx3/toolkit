@@ -671,10 +671,13 @@ export function pageShapesHtml(doc: Doc, i: number, cols: number, n?: number): s
 }
 
 /** 頁面圖片（紙的左上角為原點；edit：編輯畫面可以點選） */
+/** 編輯畫面的頁面圖片的提示（同原作；7.5 的 T7） */
+export const PIMG_TIP = '按一下選取，可以在設定欄改位置與大小';
+
 export function pimgHtml(o: PageImg, doc: Doc, edit: boolean): string {
   const b = pimgBox(o, doc);
   return withVars(
-    `<div class="pimg"${edit ? ` data-pimg="${esc(o.id)}"` : ''} style="left:${fnum(b.x)}mm;top:${fnum(b.y)}mm;width:${fnum(b.w)}mm"><div class="t-image">${imageHtml(o, 'width:100%')}</div></div>`,
+    `<div class="pimg"${edit ? ` data-pimg="${esc(o.id)}" title="${PIMG_TIP}"` : ''} style="left:${fnum(b.x)}mm;top:${fnum(b.y)}mm;width:${fnum(b.w)}mm"><div class="t-image">${imageHtml(o, 'width:100%')}</div></div>`,
     doc,
   );
 }

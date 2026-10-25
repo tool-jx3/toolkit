@@ -28,7 +28,7 @@ import {
   typeName,
 } from './model/blocks';
 import { popupLabel } from './model/doc';
-import { type MdSuggestItem, mdSuggest } from './model/md';
+import { type MdSuggestItem, mdShown, mdSuggest } from './model/md';
 import { pimgPage } from './model/pageImg';
 import { blockLabel, procName } from './model/proc';
 import { applySlash } from './model/rich';
@@ -164,7 +164,7 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
   }, [focusReq]);
 
   /* markdown 的候選（:: 與 #；2026-10，F293） */
-  const [sug, setSug] = useState<{ list: MdSuggestItem[]; i: number } | null>(null);
+  const [sug, setSug] = useState<{ list: MdSuggestItem[]; i: number; q: string } | null>(null);
   const sugId = `se-md-${b.id}`;
   const updSug = (el: HTMLTextAreaElement) => {
     if (composing.current || b.type !== 'desc' || el.selectionStart !== el.selectionEnd) {
@@ -181,6 +181,7 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
         ? {
             list: r.list,
             i: Math.max(0, prev ? r.list.indexOf(prev.list[prev.i]) : 0),
+            q: r.q,
           }
         : null,
     );
@@ -399,6 +400,7 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
               <MdSuggestList
                 id={sugId}
                 list={sug.list}
+                q={sug.q}
                 cur={sug.i}
                 onPick={(it) => {
                   if (ta.current) applySug(ta.current, it);
@@ -1078,11 +1080,13 @@ function PageImgList() {
 function MdSuggestList({
   id,
   list,
+  q,
   cur,
   onPick,
 }: {
   id: string;
   list: readonly MdSuggestItem[];
+  q: string;
   cur: number;
   onPick: (it: MdSuggestItem) => void;
 }) {
@@ -1126,7 +1130,7 @@ function MdSuggestList({
               <span className="ml-1 text-xs text-muted">{it.ds}</span>
             </span>
             <span aria-hidden className="shrink-0 font-mono text-xs text-muted">
-              {it.cm.trim()}
+              {mdShown(it, q)}
             </span>
           </div>
         ))}

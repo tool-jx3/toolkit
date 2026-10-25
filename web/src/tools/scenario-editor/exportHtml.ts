@@ -87,7 +87,7 @@ export interface ExportInput {
 
 const VIEW_CSS = `
 body{margin:0;background:#1a1a1c;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
-#nav{position:fixed;left:0;top:0;bottom:0;width:250px;box-sizing:border-box;background:#14161b;color:#dde2ec;overflow:auto;padding:56px 12px 18px;z-index:9}
+#nav{position:fixed;left:0;top:0;bottom:0;width:250px;box-sizing:border-box;background:#14161b;color:#dde2ec;overflow:auto;padding:48px 12px 18px;z-index:9}
 #nav h1{font-size:14px;letter-spacing:.14em;color:#d3a534;margin:0 0 12px}
 .nv{display:flex;align-items:baseline;gap:6px;color:#c8cfdd;text-decoration:none;padding:5px 7px;border-radius:4px;font-size:13px;line-height:1.4}
 .nv:hover{background:#212734;color:#fff}

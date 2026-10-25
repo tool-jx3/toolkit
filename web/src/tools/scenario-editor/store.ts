@@ -137,6 +137,12 @@ export const useUi = create<UiState>(() => ({
 }));
 
 export const ui = (): UiState => useUi.getState();
+
+/* 選取的頁面圖片不在原稿裡了（復原、刪除頁面…）：取消選取（同原作 renderProps；7.5 的 T2） */
+useDoc.subscribe((s) => {
+  const p = useUi.getState().pimgSel;
+  if (p && !(s.data.pageImgs ?? []).some((x) => x.id === p)) useUi.setState({ pimgSel: null });
+});
 export const setUi = (p: Partial<UiState>): void => useUi.setState(p);
 
 let seq = 0;
