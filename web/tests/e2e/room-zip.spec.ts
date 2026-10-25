@@ -4,16 +4,18 @@
  * - 匯入圖片（自動推測用途、合併重複）、建立場景、立繪登場，匯出房間 ZIP 後解開檢查：
  *   `__data.json`、`.token`、圖片檔名＝內容的 SHA-256＋副檔名、resources 與圖片一一對應、場景與立繪的座標；
  * - 載入範例專案再匯出、專案檔存檔與讀取的來回；
+ * - 讀入房間 ZIP（F287～F299）：選檔、確認、編輯、再匯出（沒有對應功能的資料原樣寫回）、復原、壞檔、拖放；
  * - 390 寬沒有橫向捲動；1280／390 視覺基準圖。
  */
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
-import { unzipSync } from 'fflate';
+import { unzipSync, zipSync } from 'fflate';
 import { checkRoomZip } from '../../src/ccfolia';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
 import { parseApng } from '../helpers/png';
+import { type Json, roomFixture } from '../helpers/roomZipImport';
 
 const URL = `/${outputDir(getTool('room-zip') ?? { id: 'room-zip', status: 'next' })}/`;
 
@@ -777,6 +779,270 @@ test('補上原圖：選原本那個檔時補回圖片資料（F280）', async (
   await expect(page.getByText('已補上', { exact: true })).toBeVisible();
   expect((await projectData(page)).materials.map((m) => m.name)).toEqual([name]);
   expect(await assetBlob(page, name)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 讀入房間 ZIP（F287～F299） ---------- */
+
+const zipFile = (name: string, bytes: Uint8Array | Buffer | string) => ({
+  name,
+  mimeType: 'application/zip',
+  buffer: Buffer.from(bytes as Uint8Array),
+});
+
+/** 按下按鈕、在選檔視窗選好檔案 */
+async function chooseFile(
+  page: Page,
+  click: () => Promise<void>,
+  f: { name: string; mimeType: string; buffer: Buffer },
+) {
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), click()]);
+  await chooser.setFiles(f);
+}
+
+/** 以 DataTransfer 把檔案放到視窗（整個視窗的拖放） */
+async function dropFiles(page: Page, files: { name: string; type: string; buffer: Buffer }[]) {
+  await page.evaluate(
+    ({ files }) => {
+      const dt = new DataTransfer();
+      for (const f of files) {
+        const bytes = Uint8Array.from(atob(f.b64), (c) => c.charCodeAt(0));
+        dt.items.add(new File([bytes], f.name, { type: f.type }));
+      }
+      window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }));
+      window.dispatchEvent(
+        new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }),
+      );
+    },
+    { files: files.map((f) => ({ name: f.name, type: f.type, b64: f.buffer.toString('base64') })) },
+  );
+}
+
+const roomButton = (page: Page) => page.getByRole('button', { name: '讀入房間 ZIP…' }).first();
+
+test('讀入房間 ZIP：選檔、確認、編輯、再匯出（沒有對應功能的資料原樣寫回）、復原（F287～F299）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const fx = await roomFixture();
+  await importImages(page, [file('舊素材.png', await png(640, 360, [10, 120, 200]))]);
+  await expect(nav(page, 'materials')).toContainText('1');
+  await go(page, 'home');
+  await chooseFile(page, () => roomButton(page).click(), zipFile('整合.zip', fx.zip));
+  /* 專案不是空的、又有會少掉的東西：先確認；內容寫清楚 */
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('讀入房間 ZIP「整合測試房」？');
+  await expect(dialog.getByTestId('room-import-counts')).toContainText(
+    '素材 16 張・場景 4 個・共用標記 3 個・螢幕面板 2 個・棋子 2 個・切入 1 個',
+  );
+  await expect(dialog.getByTestId('room-import-kept')).toContainText('劇本文字 2');
+  await expect(dialog.getByTestId('room-import-kept')).toContainText('牌堆 1');
+  await expect(dialog.getByTestId('room-import-lost')).toContainText('1 個檔案不是房間資料');
+  await expect(dialog.getByTestId('room-import-lost')).toContainText('foo');
+  /* 取消：什麼都沒變 */
+  await dialog.getByRole('button', { name: '取消' }).click();
+  await expect(page.getByTestId('project-name')).toHaveText('未命名房間');
+  await expect(page.getByTestId('project-summary')).toContainText('素材 1・場景 0');
+
+  await chooseFile(page, () => roomButton(page).click(), zipFile('整合.zip', fx.zip));
+  await page.getByRole('alertdialog').getByRole('button', { name: '讀入', exact: true }).click();
+  await expect(page.getByTestId('project-name')).toHaveText('整合測試房');
+  await expect(page.getByTestId('project-summary')).toContainText(
+    '素材 16・場景 4・部件 5・棋子 2',
+  );
+  await expect(
+    page.getByText('已讀入房間「整合測試房」，但有東西沒有帶進來', { exact: true }),
+  ).toBeVisible();
+  await expect(nav(page, 'scenes')).toContainText('4');
+
+  /* 讀入可以一步復原、再重做 */
+  await page.getByRole('button', { name: /^復原/ }).click();
+  await expect(page.getByTestId('project-name')).toHaveText('未命名房間');
+  await expect(page.getByTestId('project-summary')).toContainText('素材 1・場景 0');
+  await page.getByRole('button', { name: /^重做/ }).click();
+  await expect(page.getByTestId('project-name')).toHaveText('整合測試房');
+
+  /* 保留的資料列在儲存頁 */
+  await go(page, 'save');
+  await expect(page.getByTestId('keep-list')).toContainText('劇本文字 2');
+
+  /* 編輯：場景改名、棋子的 HP */
+  await go(page, 'scenes');
+  await page.locator('[data-scene-row="s1"]').click();
+  const sceneName = page.getByTestId('scene-detail').getByRole('textbox', { name: '場景名稱' });
+  await expect(sceneName).toHaveValue('序章');
+  await sceneName.fill('序章（改）');
+  await go(page, 'pieces');
+  const hp = page.locator('[data-piece="c1"]').getByRole('spinbutton', { name: 'HP：艾琳' });
+  await expect(hp).toHaveValue('12');
+  await hp.fill('20');
+
+  const out = await exportZip(page);
+  expect(out.name).toBe('整合測試房.zip');
+  const { data } = await expectValidRoomZip(out.bytes);
+  const e = data.entities as unknown as Json;
+  const o = fx.json.entities;
+  expect(e.scenes.s1.name).toBe('序章（改）');
+  expect(e.scenes.s1.text).toBe('@閃光\n開場白');
+  expect(e.characters.c1.status).toEqual([
+    { label: 'HP', value: 20, max: 20 },
+    { label: 'SAN', value: 50, max: 99 },
+    { label: 'MP', value: 4, max: 4 },
+  ]);
+  expect(e.characters.c1.x).toBe(3);
+  expect(e.characters.c1.params).toEqual(o.characters.c1.params);
+  /* 沒動的：原樣寫回（含工具不能編輯的劇本文字、牌堆、存檔、快照、不認得的類別） */
+  for (const k of ['notes', 'decks', 'savedatas', 'snapshots', 'extraKind', 'items', 'effects']) {
+    expect(e[k], k).toEqual(o[k]);
+  }
+  expect(e.room.markers).toEqual(o.room.markers);
+  expect(e.room.messageChannels).toEqual(['メイン', '情報', '雑談', 'GM']);
+  expect(e.room.sceneId).toBe('s2');
+  expect(e.scenes.s2).toEqual(o.scenes.s2);
+  expect(e.scenes.s4).toEqual(o.scenes.s4);
+  expect(Object.keys(data.resources).sort()).toEqual(Object.keys(fx.json.resources).sort());
+  expect(errors).toEqual([]);
+});
+
+test('讀入房間 ZIP：壞檔、不是房間 ZIP、版本不認得——只通知原因，目前的專案不受影響（F289）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await importImages(page, [file('舊素材.png', await png(640, 360, [10, 120, 200]))]);
+  await go(page, 'save');
+  const fx = await roomFixture();
+  const noData = zipFile('沒有資料.zip', zipSync({ 'a.txt': new TextEncoder().encode('x') }));
+  const cases: [string, ReturnType<typeof zipFile>, string][] = [
+    ['不是 ZIP', zipFile('壞.zip', 'hello'), '不是 ZIP'],
+    ['被截斷', zipFile('截斷.zip', Buffer.from(fx.zip).subarray(0, 80)), '不是 ZIP'],
+    ['沒有房間資料', noData, '找不到房間資料'],
+    [
+      'JSON 壞掉',
+      zipFile('json.zip', zipSync({ '__data.json': new TextEncoder().encode('{ 壞') })),
+      '不是正確的 JSON',
+    ],
+    [
+      '看不出是房間',
+      zipFile('hello.zip', zipSync({ '__data.json': new TextEncoder().encode('{"hello":1}') })),
+      '看不出是 CCFOLIA 的房間資料',
+    ],
+    [
+      '版本不認得',
+      zipFile(
+        'v2.zip',
+        zipSync({
+          '__data.json': new TextEncoder().encode(
+            JSON.stringify({ meta: { version: '2.0.0' }, entities: { room: {} }, resources: {} }),
+          ),
+        }),
+      ),
+      '版本是 2.0.0',
+    ],
+  ];
+  for (const [label, f, text] of cases) {
+    await chooseFile(page, () => roomButton(page).click(), f);
+    await expect(page.getByText(/^讀不了這個房間 ZIP：/).first(), label).toBeVisible();
+    await expect(page.getByText(new RegExp(text)).first(), label).toBeVisible();
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    await expect(page.getByTestId('project-name')).toHaveText('未命名房間');
+    await expect(page.getByTestId('project-summary')).toContainText('素材 1・場景 0');
+    const toasts = page.getByRole('button', { name: '關閉通知' });
+    while ((await toasts.count()) > 0) await toasts.first().click();
+  }
+  /* 本工具的專案檔：請用開啟專案檔 */
+  await loadSample(page);
+  await go(page, 'save');
+  const [saved] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('save-page').getByRole('button', { name: '儲存（下載專案檔）' }).click(),
+  ]);
+  const project = readFileSync(await saved.path());
+  await chooseFile(page, () => roomButton(page).click(), zipFile('範例房間.rzproj', project));
+  await expect(page.getByText(/這是本工具的專案檔/).first()).toBeVisible();
+  await expect(page.getByTestId('project-name')).toHaveText('範例房間');
+  expect(errors).toEqual([]);
+});
+
+test('讀入房間 ZIP：頁首的「讀取」看內容分辨專案檔或房間 ZIP；專案是空的又沒有會少掉的東西就不問（F287）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const fx = await roomFixture({ clean: true });
+  await chooseFile(
+    page,
+    () => page.getByRole('button', { name: '讀取', exact: true }).click(),
+    zipFile('整合.zip', fx.zip),
+  );
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await expect(page.getByTestId('project-name')).toHaveText('整合測試房');
+  await expect(page.getByText('已讀入房間「整合測試房」', { exact: true })).toBeVisible();
+  /* 讀入後圖片真的在（縮圖載得出來） */
+  await go(page, 'materials');
+  const cards = page.getByTestId('materials-page').locator('[data-material]');
+  await expect(cards).toHaveCount(15);
+  await expect
+    .poll(() =>
+      cards
+        .first()
+        .locator('img')
+        .first()
+        .evaluate((im) => (im as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(0);
+  await expect(cards.first().getByRole('textbox')).toHaveValue('房間背景');
+  expect(errors).toEqual([]);
+});
+
+test('讀入房間 ZIP：把房間 ZIP 拖到視窗（和拖放圖片分開）；素材頁也有入口（F288）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const fx = await roomFixture({ clean: true });
+  await dropFiles(page, [
+    { name: '整合.zip', type: 'application/zip', buffer: Buffer.from(fx.zip) },
+  ]);
+  await expect(page.getByTestId('project-name')).toHaveText('整合測試房');
+  await expect(nav(page, 'materials')).toContainText('15');
+  /* 圖片照舊匯入成素材，不碰目前的專案 */
+  await dropFiles(page, [
+    { name: '新圖.png', type: 'image/png', buffer: await png(320, 180, [200, 50, 90]) },
+  ]);
+  await expect(nav(page, 'materials')).toContainText('16');
+  await expect(page.getByTestId('project-name')).toHaveText('整合測試房');
+  /* 專案有內容了：再拖一個房間 ZIP 會先問 */
+  await dropFiles(page, [
+    { name: '整合.zip', type: 'application/zip', buffer: Buffer.from(fx.zip) },
+  ]);
+  await expect(page.getByRole('alertdialog')).toContainText('讀入房間 ZIP「整合測試房」？');
+  await page.getByRole('alertdialog').getByRole('button', { name: '取消' }).click();
+  await expect(nav(page, 'materials')).toContainText('16');
+  /* 素材頁的按鈕 */
+  await go(page, 'materials');
+  await chooseFile(page, () => roomButton(page).click(), zipFile('整合.zip', fx.zip));
+  await page.getByRole('alertdialog').getByRole('button', { name: '讀入', exact: true }).click();
+  await expect(nav(page, 'materials')).toContainText('15');
+  expect(errors).toEqual([]);
+});
+
+test('讀入房間 ZIP：放掉保留的資料後，匯出不再帶有它們（F299）', async ({ page }) => {
+  const errors = await open(page);
+  const fx = await roomFixture({ clean: true });
+  await dropFiles(page, [
+    { name: '整合.zip', type: 'application/zip', buffer: Buffer.from(fx.zip) },
+  ]);
+  await expect(page.getByTestId('project-name')).toHaveText('整合測試房');
+  await go(page, 'save');
+  await expect(page.getByTestId('keep-card')).toBeVisible();
+  await page.getByTestId('keep-card').getByRole('button', { name: '不再保留這些資料' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '捨棄', exact: true }).click();
+  await expect(page.getByTestId('keep-card')).toHaveCount(0);
+  const out = await exportZip(page);
+  const { data } = await expectValidRoomZip(out.bytes);
+  const e = data.entities as unknown as Record<string, Record<string, unknown>>;
+  expect(e.notes).toEqual({});
+  expect(e.decks).toEqual({});
+  expect(e.extraKind).toBeUndefined();
+  expect(Object.keys(e.items).sort()).toEqual(['i1', 'i2']);
   expect(errors).toEqual([]);
 });
 

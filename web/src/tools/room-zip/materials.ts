@@ -126,6 +126,42 @@ export function toggleTag(tags: readonly Tag[], tag: Tag, on: boolean): Tag[] {
   return out.length ? out : ['other'];
 }
 
+/* ---------- 讀入的房間資料裡的圖片欄位（extra、keep；F297） ---------- */
+
+/**
+ * 讀入的房間 ZIP 帶來、原樣保留的資料（各物件的 extra、keep）裡所有名稱以 Url 結尾的字串欄位（頭像、牌堆的圖、音效以外的圖…）。
+ * 圖片素材被刪除或取代時這些欄位也要一起處理，不然匯出時會引用到 ZIP 裡沒有的圖。
+ */
+export function eachKeptUrl(
+  project: Project,
+  visit: (holder: Record<string, unknown>, key: string) => void,
+): void {
+  const walk = (v: unknown) => {
+    if (Array.isArray(v)) {
+      for (const x of v) walk(x);
+      return;
+    }
+    if (!v || typeof v !== 'object') return;
+    const o = v as Record<string, unknown>;
+    for (const k of Object.keys(o)) {
+      if (typeof o[k] === 'string') {
+        if (/Url$/.test(k)) visit(o, k);
+      } else walk(o[k]);
+    }
+  };
+  walk(project.room.extra);
+  for (const p of project.parts) walk(p.extra);
+  for (const c of project.cutins) walk(c.extra);
+  for (const p of project.pieces) {
+    walk(p.extra);
+    for (const f of p.faces) walk(f.extra);
+  }
+  for (const s of project.scenes) walk(s.extra);
+  for (const s of [...project.scenes, ...project.sceneTemplates])
+    for (const m of s.markers) walk(m.extra);
+  walk(project.keep);
+}
+
 /* ---------- 使用處（F063） ---------- */
 
 export type UsageTarget =
@@ -134,7 +170,9 @@ export type UsageTarget =
   | { page: 'tachie'; id: string }
   | { page: 'cutins'; id: string }
   | { page: 'pieces'; id: string }
-  | { page: 'scenes'; sceneId: string };
+  | { page: 'scenes'; sceneId: string }
+  /** 讀入的房間 ZIP 帶來、原樣保留的欄位 */
+  | { page: 'save' };
 
 export interface Usage {
   label: string;
@@ -185,6 +223,11 @@ export function materialUsages(project: Project, name: string): Usage[] {
         add(`場景「${sn}」的共用標記「${p?.name ?? ''}」`, target);
       }
   }
+  let kept = false;
+  eachKeptUrl(project, (o, k) => {
+    if (o[k] === name) kept = true;
+  });
+  if (kept) add('讀入的房間資料（原樣保留的欄位）', { page: 'save' });
   return out;
 }
 
@@ -218,6 +261,10 @@ export function replaceImageRefs(project: Project, oldName: string, newName: str
       else delete o.imageUrl;
     }
   }
+  /* 讀入的房間資料裡原樣保留的欄位（頭像、牌堆的圖…）也一起換或清掉 */
+  eachKeptUrl(project, (o, k) => {
+    if (o[k] === oldName) o[k] = newName;
+  });
 }
 
 /** 專案裡引用到的所有房間圖片名稱（素材一覽本身不算） */
@@ -241,6 +288,7 @@ export function referencedImages(project: Project): Set<string> {
     for (const m of s.markers) add(m.imageUrl);
     for (const o of Object.values(s.overrides)) add(o?.imageUrl ?? null);
   }
+  eachKeptUrl(project, (o, k) => add(o[k] as string));
   return out;
 }
 

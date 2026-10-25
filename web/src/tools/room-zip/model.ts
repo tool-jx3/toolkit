@@ -6,7 +6,7 @@
  * 輸出時才換成 CCFOLIA 的左上角（`@/ccfolia` 的 centerToTopLeft）。
  * 圖片一律以房間 ZIP 的檔名（內容 SHA-256＋副檔名）識別，素材、部件、場景…都只存這個名稱。
  */
-import { gridLength, newRoomEntityId, roundGrid } from '@/ccfolia';
+import { type GridRect, gridLength, newRoomEntityId, roundGrid } from '@/ccfolia';
 
 export const TOOL_ID = 'room-zip';
 /** 專案檔的資料版本 */
@@ -36,6 +36,26 @@ export interface Material {
   /** 實際像素尺寸（0＝未知） */
   width: number;
   height: number;
+}
+
+/* ---------- 讀入的 CCFOLIA 房間資料（F287 起） ---------- */
+
+/** 讀入的 CCFOLIA 物件上、本工具不編輯的欄位（原樣；再匯出時寫回，3.7） */
+export type Extra = Record<string, unknown>;
+
+/**
+ * 讀入的房間 ZIP 裡、本工具沒有對應功能的資料（原樣；再匯出時寫回，3.7.8）：meta、牌堆、劇本文字、存檔、快照、
+ * 無法對應成部件的面板、沒有圖片也沒有文字的場景面板、沒有名稱也沒有圖的切入、本工具不認得的類別。
+ */
+export interface RoomKeep {
+  /** 讀入的 meta（版本等） */
+  meta?: Extra;
+  /** 類別（items、notes、decks、effects…）→ ID → 內容 */
+  entities?: Record<string, Record<string, unknown>>;
+  /** 無法對應成共用標記的房間マーカー（沒有圖片）：ID → 內容 */
+  roomMarkers?: Record<string, unknown>;
+  /** 無法對應的場景マーカー（沒有圖片也沒有文字）：場景 ID → ID → 內容 */
+  sceneMarkers?: Record<string, Record<string, unknown>>;
 }
 
 /* ---------- 房間設計 ---------- */
@@ -79,6 +99,8 @@ export interface RoomDesign {
   /** 舊式骰子（不用 3D 骰子） */
   legacyDice: boolean;
   placeholders: Placeholder[];
+  /** 讀入的房間設定裡本工具不編輯的欄位（聊天分頁、BGM、變數…；sceneId 是讀入時套用中的場景） */
+  extra?: Extra;
 }
 
 /** 共用標記（マーカーパネル）或螢幕面板（スクリーンパネル） */
@@ -103,6 +125,10 @@ export interface Part {
   visible: boolean;
   /** 盤面文字（共用標記＝マーカーパネルの文字；螢幕面板＝スクリーンパネルの備註） */
   text: string;
+  /** 讀入時本工具不編輯的欄位（角度、鎖定、點擊動作…），再匯出時寫回 */
+  extra?: Extra;
+  /** 讀入時的原始左上角與大小：位置、大小都沒改過時，匯出就用它（整數格的中心座標表示不了的位置，3.7.4） */
+  origin?: GridRect;
 }
 
 /* ---------- 立繪庫 ---------- */
@@ -153,6 +179,10 @@ export interface SceneMarker {
   ySig?: string;
   /** 本場景的預覽裡不能拖（不輸出） */
   locked?: boolean;
+  /** 讀入時本工具不編輯的欄位，再匯出時寫回 */
+  extra?: Extra;
+  /** 讀入時的原始左上角與大小（同 Part.origin） */
+  origin?: GridRect;
 }
 
 /** 場景對共用標記的差異（沒寫的項目沿用共用值） */
@@ -190,6 +220,8 @@ export interface Scene {
   markers: SceneMarker[];
   /** 指定的切入（最多一個） */
   cutinId: string | null;
+  /** 讀入時本工具不編輯的欄位（BGM、音效、格線間隔…），再匯出時寫回 */
+  extra?: Extra;
 }
 
 /** 場景範本（存在專案裡） */
@@ -215,6 +247,8 @@ export interface Cutin {
   id: string;
   name: string;
   imageUrl: string | null;
+  /** 讀入時本工具不編輯的欄位（音效、播放時間…），再匯出時寫回 */
+  extra?: Extra;
 }
 
 export type PieceKind = 'kp' | 'enemy' | 'ally' | 'normal';
@@ -223,6 +257,7 @@ export interface PieceFace {
   id: string;
   label: string;
   iconUrl: string | null;
+  extra?: Extra;
 }
 
 export interface Skill {
@@ -248,6 +283,11 @@ export interface Piece {
   /** 聊天面板（チャットパレット） */
   commands: string;
   memo: string;
+  /**
+   * 讀入時本工具不編輯的欄位（狀態、參數、位置、顏色…），再匯出時寫回；
+   * `status` 是讀入時的完整狀態列，HP、MP 兩欄沒改過就維持原樣（3.7.6）。
+   */
+  extra?: Extra;
 }
 
 export interface StoryText {
@@ -298,6 +338,8 @@ export interface Project {
   materials: Material[];
   memo: string;
   todos: Todo[];
+  /** 讀入的房間 ZIP 裡本工具沒有對應功能的資料（原樣保留，3.7.8） */
+  keep?: RoomKeep;
 }
 
 /* ---------- 工具設定（同一瀏覽器內跨專案） ---------- */

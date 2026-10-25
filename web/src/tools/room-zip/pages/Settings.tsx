@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowUp,
   Download,
+  FileArchive,
   FilePlus2,
   FolderOpen,
   GripVertical,
@@ -28,6 +29,7 @@ import {
 } from '@/ui';
 import { sceneFromTemplate } from '../actions';
 import { Card, Hint, ImageField, Labeled, NumCell, Row, Thumb, useNotify } from '../common';
+import { useRoomZipOpener } from '../dialogs/RoomImport';
 import { ACTIONS, type ActionGroup, comboFromEvent, keyOf, sameCombo } from '../keys';
 import {
   addPartFromTemplate,
@@ -55,10 +57,10 @@ import {
   exportRoom,
   newRoom,
   normalizeProject,
-  pickAndOpen,
   saveProject,
   saveTarget,
 } from '../ops';
+import { keptCounts, keptLabels } from '../roomImport';
 import {
   autoSaves,
   commit,
@@ -76,9 +78,47 @@ import { useEntryDrag } from './Others';
 
 /* =================== 儲存與說明 =================== */
 
+/** 讀入房間 ZIP 時原樣保留的資料（F297、F299）：有什麼、一鍵放掉 */
+function KeepCard() {
+  const n = useNotify();
+  const confirm = useConfirm();
+  const keep = useProject((s) => s.data.keep);
+  const labels = keptLabels(keptCounts(keep));
+  if (!labels.length) return null;
+  return (
+    <Card title={S.roomImport.keepCardTitle} data-testid="keep-card">
+      <Hint>{S.roomImport.keepCardLead}</Hint>
+      <p className="m-0 text-sm" data-testid="keep-list">
+        {labels.join('、')}
+      </p>
+      <div>
+        <Button
+          size="sm"
+          onClick={async () => {
+            const ok = await confirm({
+              title: S.roomImport.keepDiscard,
+              description: S.roomImport.keepDiscardConfirm,
+              confirmLabel: S.roomImport.keepDiscardOk,
+              danger: true,
+            });
+            if (!ok) return;
+            commit((d) => {
+              delete d.keep;
+            });
+            n(S.roomImport.keepDiscarded, 'success');
+          }}
+        >
+          {S.roomImport.keepDiscard}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 export function SavePage() {
   const n = useNotify();
   const confirm = useConfirm();
+  const { pickAny, pickRoom } = useRoomZipOpener();
   return (
     <div className="flex min-w-0 flex-col gap-3" data-testid="save-page">
       <Card title={S.saveTitle}>
@@ -89,8 +129,11 @@ export function SavePage() {
           <Button icon={<Save />} onClick={() => void saveProject('download', n)}>
             {S.saveDownload}
           </Button>
-          <Button icon={<FolderOpen />} onClick={() => void pickAndOpen(n)}>
+          <Button icon={<FolderOpen />} onClick={() => void pickAny()}>
             {S.open}
+          </Button>
+          <Button icon={<FileArchive />} onClick={() => void pickRoom()}>
+            {S.roomImport.button}
           </Button>
           <Button
             icon={<FilePlus2 />}
@@ -102,7 +145,9 @@ export function SavePage() {
             {S.newRoom}
           </Button>
         </Row>
+        <Hint>{S.roomImport.lead}</Hint>
       </Card>
+      <KeepCard />
       <Card title={S.helpTitle}>
         <div className="text-sm leading-relaxed [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5">
           <p className="m-0">{S.usageIntro}</p>

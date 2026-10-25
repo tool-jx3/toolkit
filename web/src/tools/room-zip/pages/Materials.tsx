@@ -4,6 +4,7 @@
  */
 import {
   Brush,
+  FileArchive,
   Info,
   Palette,
   Scissors,
@@ -27,6 +28,7 @@ import {
 } from '@/ui';
 import { deleteMaterials, setMaterialTags } from '../actions';
 import { Card, Hint, Labeled, Row, startMaterialDrag, Thumb, useNotify } from '../common';
+import { useRoomZipOpener } from '../dialogs/RoomImport';
 import { importFiles, importMessage } from '../importer';
 import { addFavorite, ensureMaterial, removeFavorite, takeFavorite } from '../library';
 import {
@@ -39,7 +41,7 @@ import {
   toggleTag,
 } from '../materials';
 import { SEARCH_PLACEHOLDER, TAGS, type Tag } from '../model';
-import { createFrom, openFade, openMaker } from '../ops';
+import { createFrom, isZipFile, openFade, openMaker } from '../ops';
 import { sequenceLabel } from '../scenes';
 import {
   commit,
@@ -54,6 +56,7 @@ import { S } from '../strings';
 
 export function MaterialsPage() {
   const n = useNotify();
+  const { openRoom, pickRoom } = useRoomZipOpener();
   const materials = useProject((s) => s.data.materials);
   const p = useProject((s) => s.data);
   const urls = useBlobs((s) => s.urls);
@@ -78,6 +81,13 @@ export function MaterialsPage() {
 
   const doImport = async (files: File[]) => {
     if (!files.length) return;
+    /* 房間 ZIP 不是素材：拖進來的 ZIP 走「讀入房間 ZIP」（F288） */
+    const zip = files.find(isZipFile);
+    if (zip) {
+      if (files.length > 1) n(S.roomImport.droppedOthers(files.length - 1), 'warning');
+      await openRoom(zip);
+      return;
+    }
     const r = await importFiles(files);
     const msg = importMessage(r);
     n(msg.text, msg.ok ? 'success' : 'warning');
@@ -137,6 +147,12 @@ export function MaterialsPage() {
           />
         </Row>
         <Hint>{S.convertHint}</Hint>
+        <Row>
+          <span className="text-xs text-muted">{S.roomImport.materialsLabel}</span>
+          <Button size="sm" icon={<FileArchive />} onClick={() => void pickRoom()}>
+            {S.roomImport.button}
+          </Button>
+        </Row>
         <Row>
           <span className="text-xs text-muted">{S.makeTitle}</span>
           <Button

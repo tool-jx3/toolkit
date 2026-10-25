@@ -10,7 +10,7 @@ import {
   type RoomImageFile,
   sniffImageMime,
 } from '@/ccfolia';
-import { downloadBlob, pickFiles, readAsBytes, safeFileName } from '@/core/files';
+import { downloadBlob, readAsBytes, safeFileName } from '@/core/files';
 import { ProjectFileError, parseProjectBytes, serializeProjectZip } from '@/core/storage';
 import { type CreateKind, createFromMaterials } from './actions';
 import { buildRoomData } from './exportRoom';
@@ -28,6 +28,7 @@ import {
   type Scene,
   TOOL_ID,
 } from './model';
+import { looksLikeRoomZip, type RoomImportResult, replaceUndoable } from './roomImport';
 import {
   assets,
   commit,
@@ -430,9 +431,70 @@ export async function openProjectFile(file: File, notify: Notify): Promise<boole
   }
 }
 
-export async function pickAndOpen(notify: Notify): Promise<void> {
-  const [file] = await pickFiles({ accept: PROJECT_ACCEPT });
-  if (file) await openProjectFile(file, notify);
+/**
+ * 「讀取」：專案檔，或 CCFOLIA 的房間 ZIP（看內容分辨：有房間資料、沒有 project.json 的 ZIP 交給 openRoom，F287）。
+ * openRoom 要自己確認與通知（見 dialogs/RoomImport.tsx 的 useRoomZipOpener）。
+ */
+export async function openAny(
+  file: File,
+  notify: Notify,
+  openRoom: (file: File, bytes: Uint8Array) => Promise<boolean>,
+): Promise<boolean> {
+  const bytes = await readAsBytes(file).catch(() => null);
+  if (bytes && looksLikeRoomZip(bytes)) return openRoom(file, bytes);
+  return openProjectFile(file, notify);
+}
+
+/* ---------- 讀入房間 ZIP（F287～F299） ---------- */
+
+/** 開檔用的檔案類型（選檔視窗） */
+export const ROOM_ZIP_ACCEPT = '.zip,application/zip';
+/** 拖放時算「ZIP」的檔案 */
+export const isZipFile = (f: Pick<File, 'name' | 'type'>): boolean =>
+  /\.(zip|rzproj)$/i.test(f.name) || /zip/i.test(f.type);
+
+/**
+ * 換成讀入的專案（3.7.3）：圖片存進圖片庫（已經有的不重存）、整個專案換掉並記成一步復原、
+ * 標記為已儲存、選取清空。回傳圖片有沒有都存進這個瀏覽器（存不進去時重新整理後會不見）。
+ */
+export async function applyRoomImport(r: RoomImportResult): Promise<boolean> {
+  const total = r.images.length;
+  const busy = (done: number, detail: string) =>
+    setSession({ busy: { title: S.roomImport.busy, detail, done, total } });
+  let persisted = true;
+  try {
+    busy(0, S.roomImport.busyImages);
+    let done = 0;
+    for (const im of r.images) {
+      if (!hasBlob(im.name)) {
+        const ok = await putBlob(
+          im.name,
+          new Blob([im.data as Uint8Array<ArrayBuffer>], { type: im.mime }),
+        );
+        if (!ok) persisted = false;
+      }
+      busy(++done, S.roomImport.busyImages);
+    }
+    await loadBlobs(r.project.materials.map((m) => m.name));
+    replaceUndoable(useProject, r.project);
+    domain.current = 'project';
+    markSaved();
+    setSession({
+      sceneId: r.project.scenes[0]?.id ?? null,
+      sceneSel: [],
+      sceneAnchor: null,
+      imgSel: [],
+      imgAnchor: null,
+      roomSel: [],
+      previewSel: null,
+      advancedSceneId: null,
+      clip: null,
+      modal: null,
+    });
+    return persisted;
+  } finally {
+    setTimeout(() => setSession({ busy: null }), 180);
+  }
 }
 
 /** 開新房間（F257）：專案名稱改成預設名、盤面 40×30、內容與素材清空、復原紀錄清空、標記為已儲存、回到首頁 */

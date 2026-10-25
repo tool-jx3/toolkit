@@ -5,7 +5,7 @@
 import {
   type CcfoliaMarker,
   type CcfoliaRoomData,
-  centerToTopLeft,
+  type CcfoliaStatus,
   createScene as createCcfoliaScene,
   createEffect,
   createItem,
@@ -14,11 +14,14 @@ import {
   createRoomCharacter,
   createRoomData,
   crossfadeFlag,
+  type GridRect,
   gridLength,
+  ROOM_META_VERSION,
 } from '@/ccfolia';
 import { effectivePart, effectRect, type MaterialLookup } from './geometry';
 import {
   type Cutin,
+  type Extra,
   KP_TEXT,
   type KpSettings,
   NAMES,
@@ -26,9 +29,12 @@ import {
   type Piece,
   type Project,
   type RoomDesign,
+  type RoomKeep,
   type Scene,
   toNumber,
 } from './model';
+import { exportRect } from './rect';
+import { OWNED } from './roomFields';
 
 /** 匯出時用到的工具設定（空白演出格） */
 export interface ExportSettings {
@@ -76,7 +82,18 @@ export function sceneText(scene: Scene, cutins: readonly Cutin[]): string {
   return `@${c.name}${body ? `\n${body}` : ''}`;
 }
 
-/** 中心座標的物件 → マーカーパネル */
+/** 生成的物件加上讀入時原樣保留的欄位（工具管理的欄位不被覆蓋；沒有可加的欄位時原物件不變，3.7.2） */
+function withExtra<T extends object>(
+  base: T,
+  extra: Extra | undefined,
+  owned: readonly string[],
+): T {
+  if (!extra) return base;
+  const rest = Object.entries(extra).filter(([k]) => k !== '__proto__' && !owned.includes(k));
+  return rest.length ? { ...base, ...Object.fromEntries(rest) } : base;
+}
+
+/** 中心座標的物件 → マーカーパネル（讀入的位置沒改過就用原始左上角，3.7.4） */
 function markerFrom(o: {
   x: number;
   y: number;
@@ -85,10 +102,16 @@ function markerFrom(o: {
   z: number;
   text?: string;
   imageUrl: string | null;
+  extra?: Extra;
+  origin?: GridRect;
 }): CcfoliaMarker {
-  const r = centerToTopLeft({ x: o.x, y: o.y, width: o.width, height: o.height });
+  const r = exportRect({ x: o.x, y: o.y, width: o.width, height: o.height }, o.origin);
   const z = toNumber(o.z, 2);
-  return createMarker({ ...r, z, text: o.text || '', imageUrl: o.imageUrl || null });
+  return withExtra(
+    createMarker({ ...r, z, text: o.text || '', imageUrl: o.imageUrl || null }),
+    o.extra,
+    OWNED.marker,
+  );
 }
 
 /** 空白演出格（3.2.8）：每個場景最後追加 N 個，中心 (0,0)、房間的盤面寬高、堆疊順序依序 +1 */
@@ -111,26 +134,79 @@ function noimageMarkers(room: RoomDesign, s: ExportSettings, newId: () => string
 
 const filled = (v: string): boolean => v != null && String(v).trim() !== '';
 
-/** 棋子 → キャラクター（3.1.7、3.2.10；差分以 { label, iconUrl } 寫出，第 7 節裁定 D1） */
+type Obj = Record<string, unknown>;
+const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** 讀入時的完整狀態列和 HP、MP 欄合併（3.7.6）：欄位沒改過維持原樣，改過了寫成 { value, max } 同值，空白就拿掉 */
+function mergeStatus(raw: readonly unknown[], hp: string, mp: string): unknown[] {
+  const value = { HP: hp, MP: mp };
+  const done = { HP: false, MP: false };
+  const out: unknown[] = [];
+  for (const s of raw) {
+    const label = isObj(s) ? s.label : undefined;
+    if ((label === 'HP' || label === 'MP') && isObj(s) && !done[label]) {
+      done[label] = true;
+      if (!filled(value[label])) continue;
+      const v = toNumber(value[label], 0);
+      const current = typeof s.max === 'number' ? s.max : s.value;
+      out.push(current === v ? s : { ...s, value: v, max: v });
+      continue;
+    }
+    out.push(s);
+  }
+  const added: CcfoliaStatus[] = [];
+  for (const label of ['HP', 'MP'] as const) {
+    if (done[label] || !filled(value[label])) continue;
+    const v = toNumber(value[label], 0);
+    added.push({ label, value: v, max: v });
+  }
+  return [...added, ...out];
+}
+
+/** 棋子 → キャラクター（3.1.7、3.2.10；差分以 { label, iconUrl } 寫出，第 7 節裁定 D1；讀入的欄位原樣加上，3.7.6） */
 function characterFrom(p: Piece, i: number) {
-  const status = [];
-  if (filled(p.hp)) {
-    const v = toNumber(p.hp, 0);
-    status.push({ label: 'HP', value: v, max: v });
+  const { status: rawStatus, ...rest } = p.extra ?? {};
+  const status = Array.isArray(rawStatus) ? mergeStatus(rawStatus, p.hp, p.mp) : [];
+  if (!Array.isArray(rawStatus)) {
+    if (filled(p.hp)) {
+      const v = toNumber(p.hp, 0);
+      status.push({ label: 'HP', value: v, max: v });
+    }
+    if (filled(p.mp)) {
+      const v = toNumber(p.mp, 0);
+      status.push({ label: 'MP', value: v, max: v });
+    }
   }
-  if (filled(p.mp)) {
-    const v = toNumber(p.mp, 0);
-    status.push({ label: 'MP', value: v, max: v });
+  return withExtra(
+    createRoomCharacter({
+      name: p.name || NAMES.pieceNumbered(i + 1),
+      memo: p.memo || '',
+      status: status as CcfoliaStatus[],
+      iconUrl: p.iconUrl || null,
+      faces: p.faces.map((f) =>
+        withExtra({ label: f.label, iconUrl: f.iconUrl || null }, f.extra, OWNED.face),
+      ),
+      commands: p.commands || '',
+      order: i + 1,
+    }),
+    p.extra ? rest : undefined,
+    OWNED.piece,
+  );
+}
+
+/** 讀入時保留的資料寫回（3.7.8）：生成的優先，沒有的才補上；不認得的類別整個放回去 */
+function applyKeep(data: CcfoliaRoomData, keep: RoomKeep | undefined): CcfoliaRoomData {
+  if (!keep) return data;
+  const entities = data.entities as unknown as Record<string, Record<string, unknown>>;
+  for (const [kind, raw] of Object.entries(keep.entities ?? {})) {
+    if (kind === '__proto__') continue;
+    entities[kind] = isObj(entities[kind]) && isObj(raw) ? { ...raw, ...entities[kind] } : raw;
   }
-  return createRoomCharacter({
-    name: p.name || NAMES.pieceNumbered(i + 1),
-    memo: p.memo || '',
-    status,
-    iconUrl: p.iconUrl || null,
-    faces: p.faces.map((f) => ({ label: f.label, iconUrl: f.iconUrl || null })),
-    commands: p.commands || '',
-    order: i + 1,
-  });
+  if (keep.meta) {
+    const version = typeof keep.meta.version === 'string' ? keep.meta.version : ROOM_META_VERSION;
+    data.meta = { ...keep.meta, version };
+  }
+  return data;
 }
 
 /**
@@ -138,7 +214,8 @@ function characterFrom(p: Piece, i: number) {
  * - room：背景、前景、盤面寬高；markers＝可見、有圖的共用標記（清單順序）；sceneId＝第一個場景。
  * - items：可見、有圖的螢幕面板（場景差異不影響）。
  * - scenes：依清單順序；markers＝共用標記（套用差異、被隱藏的不輸出）＋立繪與演出（有圖或有文字）＋空白演出格。
- * - characters：棋子；effects：有名稱或有圖的切入；notes 一律空（第 7 節 D14）。
+ * - characters：棋子；effects：有名稱或有圖的切入；notes 一律空（第 7 節 D14；讀入的房間 ZIP 裡的劇本文字例外，見 3.7.8）。
+ * - 讀入的房間 ZIP 帶來的 extra、origin、keep 原樣寫回（3.7）；沒有這些欄位的專案輸出和以前完全相同。
  */
 export function buildRoomData(project: Project, opts: ExportOptions): CcfoliaRoomData {
   const { find, settings } = opts;
@@ -151,19 +228,27 @@ export function buildRoomData(project: Project, opts: ExportOptions): CcfoliaRoo
   const markerParts = project.parts.filter((p) => p.kind === 'marker' && p.visible && p.imageUrl);
   const panelParts = project.parts.filter((p) => p.kind === 'panel' && p.visible && p.imageUrl);
 
+  const keep = project.keep;
   const roomMarkers: Record<string, CcfoliaMarker> = {};
   for (const p of markerParts) roomMarkers[p.id] = markerFrom(p);
+  for (const [id, raw] of Object.entries(keep?.roomMarkers ?? {})) {
+    if (!(id in roomMarkers)) roomMarkers[id] = raw as CcfoliaMarker;
+  }
 
   const items: Record<string, ReturnType<typeof createItem>> = {};
   panelParts.forEach((p, i) => {
-    const r = centerToTopLeft(p);
-    items[p.id] = createItem({
-      ...r,
-      z: toNumber(p.z, 2),
-      memo: p.text || '',
-      imageUrl: p.imageUrl,
-      order: i + 1,
-    });
+    const r = exportRect(p, p.origin);
+    items[p.id] = withExtra(
+      createItem({
+        ...r,
+        z: toNumber(p.z, 2),
+        memo: p.text || '',
+        imageUrl: p.imageUrl,
+        order: i + 1,
+      }),
+      p.extra,
+      OWNED.item,
+    );
   });
 
   const scenes: Record<string, ReturnType<typeof createCcfoliaScene>> = {};
@@ -172,7 +257,13 @@ export function buildRoomData(project: Project, opts: ExportOptions): CcfoliaRoo
     for (const p of markerParts) {
       const e = effectivePart(p, s);
       if (e.hidden) continue;
-      markers[p.id] = markerFrom({ ...e, text: p.text, imageUrl: e.imageUrl });
+      markers[p.id] = markerFrom({
+        ...e,
+        text: p.text,
+        imageUrl: e.imageUrl,
+        extra: p.extra,
+        origin: p.origin,
+      });
     }
     for (const m of s.markers) {
       if (!m.imageUrl && !m.text) continue;
@@ -185,22 +276,31 @@ export function buildRoomData(project: Project, opts: ExportOptions): CcfoliaRoo
         z: m.z,
         text: m.text,
         imageUrl: m.imageUrl,
+        extra: m.extra,
+        origin: m.kind === 'free' ? m.origin : undefined,
       });
     }
     for (const b of noimageMarkers(room, settings, newId)) markers[b.id] = b.marker;
-    scenes[s.id] = createCcfoliaScene({
-      name: s.name || NAMES.sceneNumbered(i + 1),
-      order: i + 1,
-      backgroundUrl: sceneBackgroundUrl(s, room),
-      foregroundUrl: s.foregroundUrl || null,
-      fieldObjectFit: s.autoCrop ? 'cover' : 'fill',
-      fieldWidth: gridLength(toNumber(s.fieldWidth, fw), fw),
-      fieldHeight: gridLength(toNumber(s.fieldHeight, fh), fh),
-      displayGrid: s.displayGrid === true,
-      gridSize: 1,
-      markers,
-      text: sceneText(s, project.cutins),
-    });
+    for (const [id, raw] of Object.entries(keep?.sceneMarkers?.[s.id] ?? {})) {
+      if (!(id in markers)) markers[id] = raw as CcfoliaMarker;
+    }
+    scenes[s.id] = withExtra(
+      createCcfoliaScene({
+        name: s.name || NAMES.sceneNumbered(i + 1),
+        order: i + 1,
+        backgroundUrl: sceneBackgroundUrl(s, room),
+        foregroundUrl: s.foregroundUrl || null,
+        fieldObjectFit: s.autoCrop ? 'cover' : 'fill',
+        fieldWidth: gridLength(toNumber(s.fieldWidth, fw), fw),
+        fieldHeight: gridLength(toNumber(s.fieldHeight, fh), fh),
+        displayGrid: s.displayGrid === true,
+        gridSize: 1,
+        markers,
+        text: sceneText(s, project.cutins),
+      }),
+      s.extra,
+      OWNED.scene,
+    );
   });
 
   const characters: Record<string, ReturnType<typeof createRoomCharacter>> = {};
@@ -212,32 +312,51 @@ export function buildRoomData(project: Project, opts: ExportOptions): CcfoliaRoo
   project.cutins
     .filter((c) => c.name || c.imageUrl)
     .forEach((c, i) => {
-      effects[c.id] = createEffect({
-        name: c.name || NAMES.cutinNumbered(i + 1),
-        order: i + 1,
-        imageUrl: c.imageUrl || null,
-        playTime: now,
-      });
+      effects[c.id] = withExtra(
+        createEffect({
+          name: c.name || NAMES.cutinNumbered(i + 1),
+          order: i + 1,
+          imageUrl: c.imageUrl || null,
+          playTime: now,
+        }),
+        c.extra,
+        OWNED.cutin,
+      );
     });
 
-  return createRoomData({
-    room: createRoom({
-      backgroundUrl: room.backgroundUrl || null,
-      foregroundUrl: room.foregroundUrl || null,
-      fieldWidth: fw,
-      fieldHeight: fh,
-      markers: roomMarkers,
-      sceneId: project.scenes[0]?.id ?? null,
-      hidden3dDice: room.legacyDice === true,
-      displayGrid: false,
-      enableCrossfade: crossfadeFlag(room.bgmCrossfade !== false),
-    }),
+  /* 套用中的場景：讀入時的那個場景還在就維持（讀入時是「沒有套用」也維持），否則第一個場景 */
+  const first = project.scenes[0]?.id ?? null;
+  const kept = room.extra && Object.hasOwn(room.extra, 'sceneId') ? room.extra.sceneId : undefined;
+  const sceneId =
+    kept === null
+      ? null
+      : typeof kept === 'string' && project.scenes.some((s) => s.id === kept)
+        ? kept
+        : first;
+
+  const data = createRoomData({
+    room: withExtra(
+      createRoom({
+        backgroundUrl: room.backgroundUrl || null,
+        foregroundUrl: room.foregroundUrl || null,
+        fieldWidth: fw,
+        fieldHeight: fh,
+        markers: roomMarkers,
+        sceneId,
+        hidden3dDice: room.legacyDice === true,
+        displayGrid: false,
+        enableCrossfade: crossfadeFlag(room.bgmCrossfade !== false),
+      }),
+      room.extra,
+      [...OWNED.room, 'sceneId'],
+    ),
     items,
     notes: {},
     characters,
     effects,
     scenes,
   });
+  return applyKeep(data, keep);
 }
 
 /* ---------- KP 用棋子的聊天面板（3.2.10） ---------- */

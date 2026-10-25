@@ -1108,6 +1108,87 @@ export const S = {
   partsLocked: (on: boolean) => (on ? '已鎖定選取的部件' : '已解除鎖定'),
   partsShown: (on: boolean) => (on ? '已顯示選取的部件' : '已隱藏選取的部件'),
 
+  /* ---------- 讀入房間 ZIP（F287～F299） ---------- */
+  roomImport: {
+    button: '讀入房間 ZIP…',
+    buttonShort: '讀入房間 ZIP',
+    lead: '讀入 CCFOLIA 匯出的房間 ZIP（本工具匯出的也可以）：圖片變成素材，房間設定、共用標記、螢幕面板、場景、棋子、切入變成這個專案的內容，再匯出時沒有對應功能的資料也會原樣寫回。',
+    dropHint: '圖片，或 CCFOLIA 的房間 ZIP（一次一個，會取代目前的專案）',
+    materialsLabel: '已經有 CCFOLIA 的房間 ZIP？',
+    pickDescription: 'CCFOLIA 的房間 ZIP',
+    busy: '讀入房間 ZIP',
+    busyReading: '解開並檢查',
+    busyImages: '儲存圖片',
+    busyApply: '換成新的專案',
+    defaultName: '讀入的房間',
+    errors: {
+      'too-large': (mb: number) =>
+        `這個檔案超過 ${mb} MB，瀏覽器可能處理不了。請先在 CCFOLIA 把不用的圖片整理掉再匯出。`,
+      'not-zip': '這個檔案不是 ZIP，或檔案已經損壞。CCFOLIA 的房間資料要在房間設定裡匯出成 ZIP。',
+      'project-file':
+        '這是本工具的專案檔，不是 CCFOLIA 的房間 ZIP。請用「開啟專案檔」或「讀取」開啟。',
+      'no-data': '這個 ZIP 裡找不到房間資料（__data.json），不是 CCFOLIA 的房間 ZIP。',
+      'bad-json': '房間資料（__data.json）不是正確的 JSON，檔案可能已經損壞。',
+      'not-room': '這個 ZIP 裡的資料看不出是 CCFOLIA 的房間資料。',
+      version: (v: string) =>
+        `房間資料的版本是 ${v}，這個工具只認得 1.x 版的格式（CCFOLIA 改版時需要更新工具）。`,
+    },
+    failed: (e: string) => `讀不了這個房間 ZIP：${e}`,
+    unchanged: '目前的專案沒有改變。',
+    confirmTitle: (name: string) => `讀入房間 ZIP「${name}」？`,
+    confirmLead: '目前的專案會被換掉；讀入後可以用「復原」回到現在的內容。',
+    confirmOk: '讀入',
+    countsLine: (c: {
+      materials: number;
+      scenes: number;
+      markers: number;
+      panels: number;
+      pieces: number;
+      cutins: number;
+    }) =>
+      `素材 ${c.materials} 張・場景 ${c.scenes} 個・共用標記 ${c.markers} 個・螢幕面板 ${c.panels} 個・棋子 ${c.pieces} 個・切入 ${c.cutins} 個`,
+    convertedLine: (n: number) =>
+      `場景專屬的面板 ${n} 個會成為場景的「演出」（立繪庫的立繪不會還原，這些面板照原本的位置與大小）。`,
+    externalLine: (n: number) => `${n} 張圖是網址連結：工具裡看不到預覽，匯出時網址原樣寫回。`,
+    keptTitle: '原樣保留（工具裡不能編輯，匯出時寫回）',
+    keptKinds: {
+      notes: '劇本文字',
+      decks: '牌堆',
+      savedatas: '存檔',
+      snapshots: '快照',
+      items: '卡牌與沒有圖的螢幕面板',
+      effects: '沒有名稱也沒有圖的切入',
+      roomMarkers: '沒有圖的共用標記',
+      sceneMarkers: '場景裡的空白面板',
+    } as Record<string, string>,
+    keptCount: (label: string, n: number) => `${label} ${n}`,
+    keptOther: (kind: string) => `其他類別「${kind}」`,
+    notPersisted:
+      '圖片存不進這個瀏覽器的儲存空間，重新整理後會不見。請先存成專案檔或匯出房間 ZIP。',
+    keptFields:
+      '棋子的狀態、參數、位置、顏色，以及房間的聊天分頁、BGM、音效、場景的 BGM 與音效等欄位也會原樣寫回。',
+    lostTitle: '會少掉的東西',
+    lostFiles: (n: number) =>
+      `ZIP 裡有 ${n} 個檔案不是房間資料，也不是 PNG、JPEG、GIF、WebP 圖片，匯出時不會帶上。`,
+    lostImages: (n: number, list: string) =>
+      `${n} 個圖片檔的格式不支援或內容是空的，沒有讀入：${list}`,
+    lostMissing: (n: number, list: string) =>
+      `房間資料引用了 ${n} 個 ZIP 裡找不到的圖片檔（${list}）；匯出前要到「遺失圖片」處理。`,
+    lostUnlinked: (n: number) =>
+      `有 ${n} 處不是圖片欄位的地方寫著圖片檔名，匯出時對應的圖片不會收進 ZIP。`,
+    lostTop: (list: string) => `最上層本工具不認得的欄位不會保留：${list}。`,
+    done: (name: string) => `已讀入房間「${name}」`,
+    doneWarn: (name: string) => `已讀入房間「${name}」，但有東西沒有帶進來`,
+    droppedOthers: (n: number) => `一次只讀入一個房間 ZIP，其他 ${n} 個檔案沒有處理`,
+    keepCardTitle: '讀入時保留的房間資料',
+    keepCardLead: '這些資料本工具沒有對應的功能，匯出房間 ZIP 時原樣寫回，CCFOLIA 讀入後仍然在。',
+    keepDiscard: '不再保留這些資料',
+    keepDiscardOk: '捨棄',
+    keepDiscardConfirm:
+      '要放掉這些保留的資料嗎？之後匯出的房間 ZIP 不會再帶有它們（可以用「復原」還原）。',
+    keepDiscarded: '已放掉保留的房間資料',
+  },
+
   /* ---------- 說明 ---------- */
   usageIntro:
     '把自己的圖片整理成 CCFOLIA 可以直接匯入的房間 ZIP。全部在瀏覽器裡處理，不會上傳任何東西。',
