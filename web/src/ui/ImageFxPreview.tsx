@@ -139,10 +139,10 @@ export function useFxSourceImage(fx: AnyFxStore): ImageSource | null {
   return img.bitmap;
 }
 
-/** 出處的字型載好之後重畫 */
-function useCreditFontTick(s: FxDoc): number {
+/** 出處與框上的文字（RenderKit.fontText）的字型載好之後重畫 */
+function useCreditFontTick(s: FxDoc, extra: string): number {
   const [tick, setTick] = useState(0);
-  const text = s.credit.text.trim();
+  const text = `${s.credit.text.trim()}${extra}`;
   // biome-ignore lint/correctness/useExhaustiveDependencies: 只在文字改變時等字型
   useEffect(() => {
     if (!text) return;
@@ -322,7 +322,7 @@ function Painter<F extends FrameBase>({
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const cache = useMemo(() => new RenderCache(), []);
-  const fontTick = useCreditFontTick(s);
+  const fontTick = useCreditFontTick(s, kit.fontText?.(s.frames) ?? '');
   const { width: W, height: H } = layout.canvas;
   // biome-ignore lint/correctness/useExhaustiveDependencies: fontTick 只用來在字型載入後重畫
   useLayoutEffect(() => {
@@ -387,7 +387,6 @@ export interface ImageFxStageContext {
   image: Size;
   viewport: () => HTMLElement | null;
   playing: boolean;
-  pause: () => void;
 }
 
 export interface ImageFxPreviewProps<F extends FrameBase, S extends FxDoc<F>> {
@@ -404,7 +403,7 @@ export interface ImageFxPreviewProps<F extends FrameBase, S extends FxDoc<F>> {
   guideColor: (f: F) => string;
   /** 輔助線上另外畫的東西 */
   guideExtra?: (f: F, shot: Placement, k: number) => ReactNode;
-  /** 舞台上另外疊的一層（例如點選建立路線）；給了而且不是 null 時編輯層藏起來 */
+  /** 舞台上另外疊的一層（例如點選建立路線）；給了時編輯層藏起來、播放暫停 */
   stageOverlay?: (ctx: ImageFxStageContext) => ReactNode;
   /** 匯出區 */
   exportArea: (ctx: { s: S; image: ImageSource | null }) => ReactNode;
@@ -596,6 +595,11 @@ export function ImageFxPreview<F extends FrameBase, S extends FxDoc<F>>({
       });
   };
 
+  /* 舞台上另外疊一層（例如點選建立路線）的時候暫停播放 */
+  const overlayOn = !!(image && !cameraPreview && stageOverlay);
+  useEffect(() => {
+    if (overlayOn) pause();
+  }, [overlayOn, pause]);
   const overlay =
     image && !cameraPreview && stageOverlay
       ? stageOverlay({
@@ -603,7 +607,6 @@ export function ImageFxPreview<F extends FrameBase, S extends FxDoc<F>>({
           image: { width: image.width, height: image.height },
           viewport: () => viewport.current,
           playing: playback.playing,
-          pause,
         })
       : null;
 

@@ -1,19 +1,12 @@
 /**
- * 預覽欄（規格 1.3、1.5、1.6、1.8）：共用的圖片演出預覽欄（@/ui 的 ImageFxPreview：編輯區的工具列、舞台、編輯層、
+ * 預覽欄（規格 1.3、1.5、1.6、1.8）：共用的圖片演出預覽欄（@/ui/imagefx 的 ImageFxPreview：編輯區的工具列、舞台、編輯層、
  * 播放列、「完成的樣子」與複製圖片）＋截圖演出自己的畫框工具列（放大框、螢光筆、塗黑、編輯輔助線）與匯出區。
  */
 import { Highlighter, SquareDashed, ZoomIn } from 'lucide-react';
 import type { Ref } from 'react';
 import type { ImageSource } from '@/core/imagefx';
-import {
-  type ExportPanelHandle,
-  type FxPlayerHandle,
-  fxFrameName,
-  ImageFxExportArea,
-  ImageFxPreview,
-  Segmented,
-  Toggle,
-} from '@/ui';
+import { type ExportPanelHandle, Segmented, Toggle } from '@/ui';
+import { type FxPlayerHandle, fxFrameName, ImageFxExportArea, ImageFxPreview } from '@/ui/imagefx';
 import { exporter, finalPng } from './exporter';
 import type { Frame, FrameKind, FxState } from './model';
 import { KIT } from './render';

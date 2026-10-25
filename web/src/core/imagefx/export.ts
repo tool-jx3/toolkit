@@ -103,9 +103,9 @@ export const ctx2d = (c: AnyCanvas, willRead = false): Ctx => {
   return g;
 };
 
-/** 出處的字型（沒有出處時不等） */
-export async function ensureCreditFont(s: Pick<FxDoc, 'credit'>): Promise<void> {
-  const text = s.credit.text.trim();
+/** 出處的字型（沒有出處時不等）；extra＝框上的文字（RenderKit.fontText） */
+export async function ensureCreditFont(s: Pick<FxDoc, 'credit'>, extra = ''): Promise<void> {
+  const text = `${s.credit.text.trim()}${extra}`;
   if (text) await ensureFont(CREDIT_FONT_FAMILY, CREDIT_FONT_WEIGHT, text).catch(() => false);
 }
 
@@ -373,6 +373,8 @@ export const formatSize = (bytes: number): string => formatBytes(bytes);
 /* ---------- 工具的匯出函式 ---------- */
 
 export interface FxExporter<S extends FxDoc> {
+  /** 等出處與框上的文字的字型載好 */
+  ensureFonts: (s: S) => Promise<void>;
   /** 檔名（<前綴>-年月日-時分秒…） */
   fileName: (kind: FileKind, now?: Date) => string;
   /** 畫一格（綁好工具的 kit） */
@@ -420,6 +422,7 @@ export function createFxExporter<F extends FrameBase, S extends FxDoc<F>>(
   const sizeOf = (s: S, image: ImageSource) => layoutOf(s, image).canvas;
   const timelineOf = (s: S) => buildTimeline(s.timing, s.frames, kit, s.camera);
   const isAction = (f: F) => kit.isAction(f);
+  const ensureFonts = (s: S) => ensureCreditFont(s, kit.fontText?.(s.frames) ?? '');
   const render = (
     g: Ctx,
     s: S,
@@ -441,7 +444,7 @@ export function createFxExporter<F extends FrameBase, S extends FxDoc<F>>(
   };
 
   const finalPng = async (s: S, image: ImageSource): Promise<Blob> => {
-    await ensureCreditFont(s);
+    await ensureFonts(s);
     const size = sizeOf(s, image);
     const c = makeCanvas(size.width, size.height);
     render(ctx2d(c), s, image, timelineOf(s).total, new RenderCache());
@@ -460,7 +463,7 @@ export function createFxExporter<F extends FrameBase, S extends FxDoc<F>>(
     job: ApngJob,
     { signal, onProgress }: FxExportContext,
   ): Promise<FxExportOutput> => {
-    await ensureCreditFont(s);
+    await ensureFonts(s);
     if (signal.aborted) throw aborted();
     const size = sizeOf(s, image);
     const fps = s.timing.fps;
@@ -543,7 +546,7 @@ export function createFxExporter<F extends FrameBase, S extends FxDoc<F>>(
   ): Promise<FxExportOutput> => {
     if (mode.kind === 'none')
       throw new Error(mode.alpha ? text.webmUnsupported : text.videoUnsupported);
-    await ensureCreditFont(s);
+    await ensureFonts(s);
     if (ctx.signal.aborted) throw aborted();
     const anim = animFrameDrawer(s, image);
     return encodeFxVideo(
@@ -566,7 +569,7 @@ export function createFxExporter<F extends FrameBase, S extends FxDoc<F>>(
     image: ImageSource,
     { signal, onProgress }: FxExportContext,
   ): Promise<FxExportOutput> => {
-    await ensureCreditFont(s);
+    await ensureFonts(s);
     const size = sizeOf(s, image);
     const n = stepFrames(s.frames, isAction).length + 1;
     const c = makeCanvas(size.width, size.height);
@@ -590,7 +593,7 @@ export function createFxExporter<F extends FrameBase, S extends FxDoc<F>>(
     image: ImageSource,
     { signal, onProgress }: FxExportContext,
   ): Promise<FxExportOutput> => {
-    await ensureCreditFont(s);
+    await ensureFonts(s);
     const size = sizeOf(s, image);
     const total = timelineOf(s).total;
     const c = makeCanvas(size.width, size.height);
@@ -614,7 +617,7 @@ export function createFxExporter<F extends FrameBase, S extends FxDoc<F>>(
     image: ImageSource,
     { signal, onProgress }: FxExportContext,
   ): Promise<FxExportOutput> => {
-    await ensureCreditFont(s);
+    await ensureFonts(s);
     const size = sizeOf(s, image);
     const fps = s.timing.fps;
     const anim = animFrameDrawer(s, image);
@@ -641,6 +644,7 @@ export function createFxExporter<F extends FrameBase, S extends FxDoc<F>>(
   };
 
   return {
+    ensureFonts,
     fileName,
     render,
     animFrameDrawer,

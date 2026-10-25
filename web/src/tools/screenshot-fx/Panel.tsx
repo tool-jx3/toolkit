@@ -4,9 +4,8 @@
  */
 import { Clapperboard, Highlighter, SquareDashed, ZoomIn } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Button, Field, Section, Segmented, Select, Tabs } from '@/ui';
 import {
-  Button,
-  Field,
   FxDocSlider,
   FxRangeSlider,
   fxFrameName,
@@ -17,11 +16,7 @@ import {
   ImageFxShotSection,
   ImageFxTimingSection,
   ImageFxZoomControls,
-  Section,
-  Segmented,
-  Select,
-  Tabs,
-} from '@/ui';
+} from '@/ui/imagefx';
 import {
   CAMERA_FOCUSES,
   CAMERA_MODES,

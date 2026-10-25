@@ -895,6 +895,18 @@ export const TOOLS: readonly ToolEntry[] = [
     status: 'live',
     inspiration: { name: '가계도 편집기', url: 'https://gagyedo.j-segrc.workers.dev' },
   },
+  {
+    id: 'map-fx',
+    name: '地圖演出產生器',
+    summary:
+      '在地圖或平面圖上畫區域放大、移動路線與地點、房間遮罩，做成「路線一路畫過去、迷霧散開、房間出現」的探索演出，匯出 PNG、APNG、影片，或給 CCFOLIA 自由探索用的每個房間一張遮罩 PNG。',
+    group: 'G10',
+    status: 'next',
+    inspiration: {
+      name: 'KIIN／マップ・見取り図 演出スタジオ',
+      url: 'https://map-stage.pages.dev/',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

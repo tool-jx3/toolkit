@@ -231,6 +231,11 @@ export interface ImageFxExtraFormat<S> {
   panel?: ReactNode;
   /** 不顯示「預估大小」那一行（ZIP 等） */
   noEstimate?: boolean;
+  /** 固定的影格率（例如 X 用 MP4 的 30 fps）與它的說明 */
+  fixedFps?: number;
+  fixedFpsHint?: string;
+  /** 輸出大小和畫面不同時（例如縮小的影片），預估用的大小 */
+  size?: Size;
   run: (
     s: S,
     image: ImageSource,
@@ -277,7 +282,7 @@ export function ImageFxExportArea<F extends FrameBase, S extends FxDoc<F>>({
   const fixed = fmt === 'apng' || fmt === 'sequence';
   const extraNow = extra.find((x) => x.option.id === fmt);
   const animated = fixed || fmt === 'video' || !!extraNow?.option.animated;
-  const fps = fixed ? s.timing.fps : videoFps;
+  const fps = fixed ? s.timing.fps : (extraNow?.fixedFps ?? videoFps);
   const noImage = !image;
   const off = (why?: string) => ({
     disabled: noImage || !!why,
@@ -319,8 +324,8 @@ export function ImageFxExportArea<F extends FrameBase, S extends FxDoc<F>>({
       formats={formats}
       settings={settings}
       onSettingsChange={(next: ExportSettings) => onSettingsChange({ ...next, scale: 1 })}
-      fixedFps={fixed ? s.timing.fps : null}
-      fixedFpsHint={text.apngFpsHint}
+      fixedFps={fixed ? s.timing.fps : (extraNow?.fixedFps ?? null)}
+      fixedFpsHint={extraNow?.fixedFpsHint ?? text.apngFpsHint}
       fpsOptions={VIDEO_FPS}
       colorOptions={colorOptions}
       quantizeHint={text.colorsHint}
@@ -331,8 +336,8 @@ export function ImageFxExportArea<F extends FrameBase, S extends FxDoc<F>>({
       estimate={
         animated && fmt !== 'sequence' && !extraNow?.noEstimate && image
           ? {
-              width: layout.canvas.width,
-              height: layout.canvas.height,
+              width: extraNow?.size?.width ?? layout.canvas.width,
+              height: extraNow?.size?.height ?? layout.canvas.height,
               frames: apngTimes(total, fps).length,
               duration: total,
             }

@@ -463,6 +463,8 @@ export interface RedactEnv {
   u: number;
   /** 原圖 px → 畫面 px（k＝放大框的倍率） */
   m: Mapping;
+  /** 畫面大小（標籤之類的不要超出畫面時用） */
+  canvas: Size;
 }
 
 /** 黑塊：#0c0c0e，不透明度＝濃度 */
@@ -654,6 +656,8 @@ export interface RenderKit<F extends FrameBase = FrameBase> extends TimelineKit<
   paintCard(g: Ctx, z: ZoomFrameBase, env: CardEnv): void;
   /** 工具自己的塗黑樣式：畫滿 r（已剪到蓋住的那一段）；回傳 false＝交給引擎（black、mosaic、frost） */
   paintRedact?(g: Ctx, f: RedactFrameBase, r: Rect, env: RedactEnv): boolean;
+  /** 框上要畫的文字（標籤、房名…）：預覽與匯出先等介面字型（粗體）載好這些字 */
+  fontText?(frames: readonly F[]): string;
 }
 
 /* ---------- 圖上的框 ---------- */
@@ -677,6 +681,7 @@ function drawAnnotations<F extends FrameBase>(
   cache: RenderCache,
   baseScale: number,
   u: number,
+  canvas: Size,
   kit: RenderKit<F>,
   { filter, only, multiply = true }: AnnotationOptions = {},
 ) {
@@ -694,11 +699,11 @@ function drawAnnotations<F extends FrameBase>(
         rf,
         r,
         redactCover(rf.mode, rf.dir, q),
-        { img, cache, baseScale, u, m },
+        { img, cache, baseScale, u, m, canvas },
         kit.paintRedact,
       );
       drawEdge(g, rf, r, q, u, m.k);
-    } else kit.drawMark(g, f, r, q, { img, cache, baseScale, u, m, p, multiply });
+    } else kit.drawMark(g, f, r, q, { img, cache, baseScale, u, m, canvas, p, multiply });
   }
 }
 
@@ -739,7 +744,10 @@ function drawCard<F extends FrameBase>(
       g.imageSmoothingQuality = 'high';
       g.drawImage(img, z.x, z.y, z.w, z.h, C.x, C.y, C.w, C.h);
     }
-    drawAnnotations(g, m, frames, prog, img, cache, shot.f, u, kit, { ...annotations, only: z });
+    drawAnnotations(g, m, frames, prog, img, cache, shot.f, u, canvas, kit, {
+      ...annotations,
+      only: z,
+    });
     g.restore();
   };
   if (!body) {
@@ -917,6 +925,7 @@ export function renderFrame<F extends FrameBase>(
         cache,
         shot.f,
         u,
+        canvas,
         kit,
         ann,
       );

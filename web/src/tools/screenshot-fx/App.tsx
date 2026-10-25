@@ -8,17 +8,19 @@ import { useMemo, useRef } from 'react';
 import { useUndoRedo } from '@/core/storage';
 import {
   type ExportPanelHandle,
-  FxSaveErrorNotice,
   IconButton,
-  ImageFxProjectMenu,
-  imageFxShortcuts,
   type Shortcut,
   ToolShell,
-  useFxAssetCleanup,
   useToast,
   WindowDrop,
   withShortcut,
 } from '@/ui';
+import {
+  FxSaveErrorNotice,
+  ImageFxProjectMenu,
+  imageFxShortcuts,
+  useFxAssetCleanup,
+} from '@/ui/imagefx';
 import { type BatchNotice, loadImageFiles, loadSample } from './media';
 import { Settings } from './Panel';
 import { type PlayerHandle, Preview } from './Preview';

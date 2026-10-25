@@ -9,7 +9,7 @@
  * - 匯出（PNG、APNG、MP4／透明 WebM、段階公開／圖層／連番 PNG 的 ZIP）——export.ts（createFxExporter）；
  * - 狀態與動作（復原、偏好、選取、資產、框的新增／複製／刪除…）——store.ts（createFxStore）；
  * - 圖片的載入、專案檔——media.ts。
- * 介面的共用元件在 `@/ui`（ImageFx* 開頭）。
+ * 介面的共用元件在 `@/ui/imagefx`（ImageFx* 開頭；不在 `@/ui` 的總入口）。
  *
  * ```ts
  * const kit: RenderKit<MyFrame> = { isAction, drawMark, paintCard, paintRedact };
