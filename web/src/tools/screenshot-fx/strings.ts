@@ -118,6 +118,7 @@ export const S = {
   defaultsHint: (kind: string) =>
     `接下來畫的「${kind}」會用這些設定；畫好之後可以在下面的清單個別調整。`,
   sectionFrames: (n: number) => `演出框（${n} 個）`,
+  listLabel: '演出框',
   framesEmpty: '還沒有演出框：在預覽上拖曳畫一個。',
   framesNeedImage: '先放一張截圖，才能畫演出框。',
   frameName: (kind: FrameKind, i: number) => `${KINDS[kind]} ${i}`,

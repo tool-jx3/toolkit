@@ -170,6 +170,53 @@ export {
   turnedSize,
   zoomAt,
 } from './ImageFrameDialog';
+export {
+  FxSaveErrorNotice,
+  ImageFxProjectMenu,
+  type ImageFxProjectText,
+  type ImageFxShortcutText,
+  imageFxShortcuts,
+  useFxAssetCleanup,
+} from './ImageFxApp';
+export { ImageFxEditLayer, type ImageFxEditLayerProps } from './ImageFxEditLayer';
+export {
+  fxVideoFormat,
+  ImageFxApngEstimate,
+  ImageFxExportArea,
+  type ImageFxExportAreaProps,
+  type ImageFxExportText,
+  type ImageFxExtraFormat,
+  useFxVideoMode,
+} from './ImageFxExport';
+export {
+  type FxPlayerHandle,
+  ImageFxPreview,
+  type ImageFxPreviewProps,
+  type ImageFxPreviewText,
+  type ImageFxStageContext,
+  useFxSourceImage,
+} from './ImageFxPreview';
+export {
+  FxDocSlider,
+  FxRangeSlider,
+  type FxZoomProps,
+  fxFrameName,
+  fxRangeText,
+  ImageFxCanvasSection,
+  type ImageFxCanvasText,
+  ImageFxCreditSection,
+  type ImageFxCreditText,
+  ImageFxFramesSection,
+  type ImageFxFramesText,
+  ImageFxImageSection,
+  type ImageFxImageText,
+  ImageFxShotSection,
+  type ImageFxShotText,
+  ImageFxTimingSection,
+  type ImageFxTimingText,
+  ImageFxZoomControls,
+  type ImageFxZoomText,
+} from './ImageFxSettings';
 export { ImageSampler, type ImageSamplerProps, type SamplePoint } from './ImageSampler';
 export { InspirationFooter } from './InspirationFooter';
 export {
