@@ -3,6 +3,7 @@
  */
 import { allBlocks, blockLists, newBlock, newPage, newPageBg, subLists } from './blocks';
 import { ensureFlow } from './flow';
+import { hasLegacySizes, migrateLegacySizes, ptRound } from './fontSize';
 import { ensureNpc } from './npc/model';
 import { applyBxTpl, BX_TPL, bxTplClean, ensureProc } from './proc';
 import { MD_VER, mdText } from './rich';
@@ -88,6 +89,12 @@ export function fixBlock(nb: Block): Block {
   nb.ind = Math.max(0, Math.min(4, Number.parseInt(String(nb.ind ?? 0), 10) || 0));
   if (Array.isArray(nb.mk)) nb.mk = tidyMarks(nb.mk);
   else if (nb.mk != null) delete nb.mk;
+  /* 段落的文字大小（pt）：5～72、0.5 一階（2026-10，上游 v3.21.0） */
+  if (nb.pt != null) {
+    if (+nb.pt > 0) nb.pt = ptRound(nb.pt);
+    else delete nb.pt;
+  }
+  if (nb.jump != null) nb.jump = String(nb.jump);
   if (nb.type === 'flow') nb.cols = 1;
   if ((nb.type as string) === 'list') {
     const mk = ['disc', 'num', 'box'].includes(String(nb.mark)) ? String(nb.mark) : 'disc';
@@ -184,9 +191,13 @@ function mdMigrate(list: Block[]): void {
 
 const pageFrom = (p: unknown, cols?: 1 | 2): PageSetting => {
   const o = (p && typeof p === 'object' ? p : {}) as Partial<PageSetting> & { cols?: unknown };
+  const bg = { ...newPageBg(), ...(o.bg ?? {}) };
+  /* 紙的顏色（2026-10，上游 v3.13.0）：不是 #rrggbb 的當成沒有指定 */
+  if (bg.color != null)
+    bg.color = /^#[0-9a-f]{6}$/i.test(String(bg.color)) ? String(bg.color).toLowerCase() : '';
   return {
     id: o.id || uid(),
-    bg: { ...newPageBg(), ...(o.bg ?? {}) },
+    bg,
     cols: cols ?? (o.cols === 2 ? 2 : 1),
   };
 };
@@ -246,6 +257,8 @@ export function normalizeDoc(raw: unknown): Doc {
   fixTyped(out.blocks);
   numberHandouts(out);
   if ((+(d.mdv ?? 0) || 0) < MD_VER) mdMigrate(out.blocks);
+  /* 原作 v3.17～v3.20 的文字大小（倍率）換成當時的 pt（3.17.5） */
+  if (hasLegacySizes(out.blocks)) migrateLegacySizes(out.blocks, out.base, out.base);
   return out;
 }
 

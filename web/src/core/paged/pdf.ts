@@ -68,6 +68,11 @@ export interface PdfOptions {
    * 這些字就用它們畫在紙面上量到的位置。丟 PdfFontError 時整個 PDF 失敗（訊息說明原因）；回傳空陣列時略過這些字。
    */
   missingGlyphs?: (req: PdfMissingGlyphs) => Promise<readonly PdfFontSource[]>;
+  /**
+   * 頁內連結（scenario-editor 2026-10 加，選填；不給時行為不變＝沒有連結）：頁面裡看得到的 `a[href^="#"]`，
+   * 連到的 id 在這次的頁面裡時，在 PDF 加上同樣位置、跳到那個元素所在頁與高度的連結（Link 註解、沒有框線）。
+   */
+  links?: boolean;
 }
 
 /** 補字的要求 */
@@ -830,6 +835,7 @@ export async function pagesToPdf(o: PdfOptions): Promise<Uint8Array> {
   const range = document.createRange();
   const total = o.pages.length;
   await prepareFonts(o, book);
+  const placed: { page: PDFPage; origin: DOMRect; pageH: number }[] = [];
   for (let i = 0; i < total; i++) {
     o.signal?.throwIfAborted();
     const el = o.pages[i];
@@ -837,6 +843,7 @@ export async function pagesToPdf(o: PdfOptions): Promise<Uint8Array> {
       const origin = el.getBoundingClientRect();
       const pageH = Math.max(hPt, origin.height * PX_PT);
       const page = doc.addPage([wPt, pageH]);
+      placed.push({ page, origin, pageH });
       const bg = await rasterBackground(el, o);
       page.drawImage(await doc.embedJpg(bg), {
         x: 0,
@@ -865,7 +872,57 @@ export async function pagesToPdf(o: PdfOptions): Promise<Uint8Array> {
     });
     o.onProgress?.(i + 1, total);
   }
+  if (o.links) addInternalLinks(doc, o.pages, placed);
   return doc.save();
+}
+
+/** 頁內連結 → PDF 的 Link 註解（跳到目標元素所在頁、目標的上緣） */
+function addInternalLinks(
+  doc: PDFDocumentType,
+  pages: readonly HTMLElement[],
+  placed: readonly { page: PDFPage; origin: DOMRect; pageH: number }[],
+): void {
+  const where = (id: string): { k: number; y: number } | null => {
+    for (let k = 0; k < pages.length && k < placed.length; k++) {
+      const t =
+        pages[k].querySelector(`[id="${CSS.escape(id)}"]`) ??
+        (pages[k].id === id ? pages[k] : null);
+      if (!t) continue;
+      const r = t.getBoundingClientRect();
+      const P = placed[k];
+      return { k, y: P.pageH - Math.max(0, r.top - P.origin.top) * PX_PT };
+    }
+    return null;
+  };
+  pages.forEach((el, k) => {
+    const P = placed[k];
+    if (!P) return;
+    for (const a of el.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')) {
+      const href = a.getAttribute('href') ?? '';
+      if (href.length < 2) continue;
+      /* 量測用的容器可能是 visibility:hidden（畫完之後頁面也還原成 hidden），所以只看 display 與大小 */
+      if (getComputedStyle(a).display === 'none') continue;
+      const to = where(decodeURIComponent(href.slice(1)));
+      if (!to) continue;
+      const dest = placed[to.k].page.ref;
+      for (const r of a.getClientRects()) {
+        if (r.width <= 0 || r.height <= 0) continue;
+        const x1 = (r.left - P.origin.left) * PX_PT;
+        const x2 = (r.right - P.origin.left) * PX_PT;
+        const y1 = P.pageH - (r.bottom - P.origin.top) * PX_PT;
+        const y2 = P.pageH - (r.top - P.origin.top) * PX_PT;
+        const annot = doc.context.obj({
+          Type: 'Annot',
+          Subtype: 'Link',
+          Rect: [x1, y1, x2, y2].map((v) => +v.toFixed(2)),
+          Border: [0, 0, 0],
+          /* 跳到那一頁、目標的上緣（左與縮放不變） */
+          Dest: [dest, 'XYZ', null, +to.y.toFixed(2), null],
+        });
+        P.page.node.addAnnot(doc.context.register(annot));
+      }
+    }
+  });
 }
 
 /* ---------- 自己畫的頁面（畫布＋逐字位置） ---------- */

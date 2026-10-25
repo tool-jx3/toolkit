@@ -2,7 +2,7 @@
  * 設定欄的「段落」分頁：選取資訊（F081）、各書式的設定（1.6）、共通設定（1.5）、所在儲存格（F080）。
  */
 import { Eye } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Button,
   Checkbox,
@@ -22,6 +22,7 @@ import { bridge } from '../bridge';
 import { allBlocks, cellOwnerOf, findBlock, typeName } from '../model/blocks';
 import { popupLabel } from '../model/doc';
 import { FLOW_MAX_H, FLOW_MAX_W } from '../model/flow';
+import { PT_BUTTONS, PT_MAX, PT_MIN, ptRound } from '../model/fontSize';
 import {
   applyBxTpl,
   BOX_COLORS,
@@ -35,8 +36,9 @@ import {
   sameStyle,
 } from '../model/proc';
 import { slashCommandsFor } from '../model/rich';
+import { headingChoices, sceneTargetOf, sceneWanted } from '../model/scene';
 import { tblCols, tblDelCol, tblDelRow, tblRows } from '../model/table';
-import { setBlockText } from '../model/text';
+import { rubyPlain, setBlockText } from '../model/text';
 import { ensureToc, TOC_PICKS, tocOf } from '../model/toc';
 import type { Block, BoxStyle, BoxTemplate } from '../model/types';
 import { ensureHo, hoOf, isVarName } from '../model/vars';
@@ -58,7 +60,9 @@ import {
   addCommentToSelection,
   addRuby,
   applyColor,
+  applyPt,
   applyRichMark,
+  currentPt,
   RICH_BUTTONS,
 } from '../textOps';
 import { ImageProps } from './ImageProps';
@@ -127,11 +131,17 @@ function TypeProps({ b }: { b: Block }) {
       return <TableProps b={b} />;
     case 'npc':
       return <NpcProps b={b} />;
+    case 'scene':
+      return (
+        <>
+          <SceneProps b={b} />
+          <HeadingTocProps b={b} />
+        </>
+      );
     case 'title':
     case 'h1':
     case 'h2':
     case 'h3':
-    case 'scene':
     case 'subtitle':
       return <HeadingTocProps b={b} />;
     default:
@@ -618,6 +628,49 @@ function TocProps({ b }: { b: Block }) {
   );
 }
 
+/* ---------- 場景轉換連到的標題（F270、F271；2026-10，上游 v3.15.0、v3.24.0） ---------- */
+
+function SceneProps({ b }: { b: Block }) {
+  const d = useDoc((s) => s.data);
+  const pageOf = useUi((s) => s.layout.pageOf);
+  const h = sceneTargetOf(d, b);
+  const want = sceneWanted(b);
+  const pg = h && pageOf[h.id] != null ? pageOf[h.id] + 1 : null;
+  const listId = `se-jump-${b.id}`;
+  return (
+    <Section title="場景轉換" fixed>
+      <Field
+        label="跳到的標題"
+        hint="寫標題 1～3 的名稱，匯出的 HTML、列印與 PDF 裡就會連到那個標題（可以從候選選）。空白時，本文的目的地名稱（「前往書房」「→ 移動到書房」「場景 3『書房』」等）和標題完全相同才連過去。"
+      >
+        <TextInput
+          value={String(b.jump ?? '')}
+          list={listId}
+          placeholder="空白＝依本文的目的地名稱找"
+          onChange={(e) => editBlock(b.id, (x) => (x.jump = e.target.value))}
+        />
+      </Field>
+      <datalist id={listId}>
+        {headingChoices(d).map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
+      <p className="m-0 text-xs" data-testid="se-scene-target">
+        {h ? (
+          <span className="text-fg">
+            →「{rubyPlain(String(h.text ?? '')).trim()}」{pg ? `（P.${pg}）` : ''}
+          </span>
+        ) : (
+          <span className="text-muted">
+            找不到要連的標題{want.length ? `（建立名為「${want[0]}」的標題 1～3 就能連過去）` : ''}
+            。
+          </span>
+        )}
+      </p>
+    </Section>
+  );
+}
+
 /* ---------- 標題的目錄設定（F171） ---------- */
 
 function HeadingTocProps({ b }: { b: Block }) {
@@ -761,6 +814,7 @@ function CommonProps({ blocks }: { blocks: Block[] }) {
           </Button>
         </div>
       </Field>
+      <TextSize />
       <Field label="縮排" hint={`目前第 ${b.ind ?? 0} 層（每層 4 mm，最多 4 層）。`}>
         <div className="flex gap-1">
           <Button size="sm" variant="secondary" onClick={() => indentSel(-1)}>
@@ -803,6 +857,132 @@ function CommonProps({ blocks }: { blocks: Block[] }) {
       </FieldRow>
       <p className="m-0 text-xs text-muted">只套用在這個段落的間距；留空＝依書式的預設。</p>
     </Section>
+  );
+}
+
+/** 文字欄裡的選取範圍變了就重畫（文字大小的「目前大小」跟著選取的文字） */
+function useSelectionTick(): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const on = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        setN((x) => x + 1);
+      });
+    };
+    document.addEventListener('selectionchange', on);
+    return () => {
+      document.removeEventListener('selectionchange', on);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+  return n;
+}
+
+/** 文字大小（F273～F275；2026-10，上游 v3.21.0、v3.24.0） */
+function TextSize() {
+  useSelectionTick();
+  useDoc((s) => s.data);
+  useUi((s) => s.sel);
+  const { value, mixed } = currentPt();
+  return (
+    <Field
+      label="文字大小"
+      hint="文字欄裡有選取文字時只改那一段，沒有時改選取的段落（5～72 pt）。大小直接記 pt，改內文字級時不會跟著變。"
+    >
+      <div className="flex flex-col gap-1.5">
+        {/* biome-ignore lint/a11y/useSemanticElements: 一組切換按鈕 */}
+        <div role="group" aria-label="文字大小" className="grid grid-cols-7 gap-1">
+          {PT_BUTTONS.map((v) => {
+            const on = value != null && Math.abs(value - v) < 0.01;
+            return (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={on}
+                aria-label={`${v} pt`}
+                title={`改成 ${v} pt`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applyPt(v)}
+                className={`flex min-h-9 flex-col items-center justify-end rounded-sm border px-0 pt-0.5 leading-none ${
+                  on
+                    ? 'border-accent bg-accent-soft text-accent'
+                    : 'border-border bg-surface-2 text-fg hover:border-accent'
+                }`}
+              >
+                <b aria-hidden style={{ fontSize: `${Math.min(19, 7 + v * 0.38).toFixed(1)}px` }}>
+                  A
+                </b>
+                <small aria-hidden className="text-[10px] text-muted">
+                  {v}
+                </small>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-1">
+          <PtInput value={value} mixed={mixed} />
+          <span className="text-xs text-muted">pt</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyPt(null)}
+            title="選取段落時，段落裡文字另外設的大小也一起恢復"
+          >
+            恢復預設
+          </Button>
+        </div>
+      </div>
+    </Field>
+  );
+}
+
+/** 文字大小的數字欄：Enter、離開欄位、微調鈕時套用（打字中不套用） */
+function PtInput({ value, mixed }: { value: number | null; mixed: boolean }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const ref = useRef<HTMLInputElement>(null);
+  const commit = (raw: string) => {
+    setDraft(null);
+    const v = Number.parseFloat(raw.normalize('NFKC'));
+    if (Number.isFinite(v) && v > 0) applyPt(ptRound(v));
+  };
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    /* 原生的 change：微調鈕、離開欄位（打字中不觸發） */
+    const on = () => commitRef.current(el.value);
+    el.addEventListener('change', on);
+    return () => el.removeEventListener('change', on);
+  }, []);
+  return (
+    <TextInput
+      ref={ref}
+      type="number"
+      min={PT_MIN}
+      max={PT_MAX}
+      step={0.5}
+      aria-label="文字大小（pt）"
+      className="w-20"
+      placeholder={mixed ? '—' : ''}
+      title={
+        mixed ? '選取的範圍裡大小不只一種：按按鈕或輸入大小就會統一' : `${PT_MIN}～${PT_MAX} pt`
+      }
+      value={draft ?? (value == null ? '' : String(value))}
+      onChange={(e) => setDraft(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+          e.preventDefault();
+          commit(e.currentTarget.value);
+        } else if (e.key === 'Escape') {
+          setDraft(null);
+        }
+      }}
+    />
   );
 }
 

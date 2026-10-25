@@ -42,20 +42,40 @@ export function blockComments(b: Pick<Block, 'cm'>): Comment[] {
   return Array.isArray(b.cm) ? b.cm.filter((c) => c && c.b > c.a) : [];
 }
 
+/** 有作用的裝飾：顏色、粗體、文字大小（pt），或原作 v3.17～v3.20 的倍率（還沒換成 pt 的） */
+const markOn = (c: Partial<Mark> | null | undefined): c is Mark =>
+  !!c &&
+  (c.b ?? 0) > (c.a ?? 0) &&
+  !!(c.col || c.bold || +(c.pt ?? 0) > 0 || (+(c.sz ?? 0) > 0 && +(c.sz ?? 0) !== 1));
+
 export function blockMarks(b: Pick<Block, 'mk'>): Mark[] {
-  return Array.isArray(b.mk) ? b.mk.filter((c) => c && c.b > c.a && (c.col || c.bold)) : [];
+  return Array.isArray(b.mk) ? b.mk.filter(markOn) : [];
 }
 
-/** 把同樣裝飾的重疊或相鄰段合併，依位置排序 */
+const sameMark = (p: Mark, c: Mark): boolean =>
+  p.col === c.col &&
+  p.bold === c.bold &&
+  (p.pt ?? 0) === (c.pt ?? 0) &&
+  (p.sz ?? 1) === (c.sz ?? 1);
+
+/**
+ * 把同樣裝飾的重疊或相鄰段合併，依位置排序。顏色與大小是分開的裝飾（範圍可以重疊，2026-10，上游 v3.17.0）：
+ * 只有顏色、粗體、大小都相同的才合併。
+ */
 export function tidyMarks(list: readonly Partial<Mark>[]): Mark[] {
   const a = list
-    .filter((c): c is Mark => !!c && (c.b ?? 0) > (c.a ?? 0) && !!(c.col || c.bold))
-    .map((c) => ({ a: c.a, b: c.b, col: c.col || '', bold: !!c.bold }))
+    .filter(markOn)
+    .map((c) => {
+      const o: Mark = { a: c.a, b: c.b, col: c.col || '', bold: !!c.bold };
+      if (+(c.pt ?? 0) > 0) o.pt = +(c.pt ?? 0);
+      if (+(c.sz ?? 0) > 0 && +(c.sz ?? 0) !== 1) o.sz = +(c.sz ?? 0);
+      return o;
+    })
     .sort((x, y) => x.a - y.a || x.b - y.b);
   const out: Mark[] = [];
   for (const c of a) {
     const p = out[out.length - 1];
-    if (p && p.col === c.col && p.bold === c.bold && c.a <= p.b) {
+    if (p && sameMark(p, c) && c.a <= p.b) {
       p.b = Math.max(p.b, c.b);
       continue;
     }
@@ -100,8 +120,11 @@ export function setBlockText(b: Block, text: unknown): void {
   b.text = nw;
 }
 
-/** 先拿掉 [a, z) 範圍上的裝飾（只切掉重疊的部分） */
-export function clearMarkRange(b: Block, a: number, z: number): void {
+/**
+ * 拿掉 [a, z) 範圍上的裝飾（只切掉重疊的部分）。prop 給了時只拿掉那一種（'col'＝顏色、'pt'＝大小），
+ * 重疊部分的其他裝飾留著（上色時大小不會不見，反之亦然；2026-10，上游 v3.17.0）。
+ */
+export function clearMarkRange(b: Block, a: number, z: number, prop?: 'col' | 'pt'): void {
   const out: Mark[] = [];
   for (const c of blockMarks(b)) {
     if (c.b <= a || c.a >= z) {
@@ -110,14 +133,31 @@ export function clearMarkRange(b: Block, a: number, z: number): void {
     }
     if (c.a < a) out.push({ ...c, b: a });
     if (c.b > z) out.push({ ...c, a: z });
+    if (prop) {
+      const mid: Mark = { ...c, a: Math.max(a, c.a), b: Math.min(z, c.b) };
+      if (prop === 'col') mid.col = '';
+      else {
+        delete mid.pt;
+        delete mid.sz;
+      }
+      out.push(mid);
+    }
   }
   b.mk = tidyMarks(out);
 }
 
-/** 給 [a, z) 上色（color 空字串＝拿掉顏色） */
+/** 給 [a, z) 上色（color 空字串＝拿掉顏色；大小留著） */
 export function setMarkColor(b: Block, a: number, z: number, color: string): void {
-  clearMarkRange(b, a, z);
+  clearMarkRange(b, a, z, 'col');
   if (color) b.mk = tidyMarks([...blockMarks(b), { a, b: z, col: color, bold: false }]);
+}
+
+/** 把 [a, z) 的文字大小設成 pt（null＝拿掉，回到段落的大小；顏色留著） */
+export function setMarkPt(b: Block, a: number, z: number, pt: number | null): void {
+  clearMarkRange(b, a, z, 'pt');
+  if (pt != null && pt > 0)
+    b.mk = tidyMarks([...blockMarks(b), { a, b: z, col: '', bold: false, pt }]);
+  if (!b.mk?.length) delete b.mk;
 }
 
 /** 加一則註解（依起點排序） */
@@ -158,10 +198,15 @@ export function rubyRange(
     const e0 = pts[i + 1];
     if (e0 <= s0) continue;
     let h = rubyHtml(t.slice(s0, e0));
-    const mk = ms.find((c) => c.a <= s0 && c.b >= e0);
-    if (mk) {
+    /* 顏色與大小是分開的裝飾，可能重疊：這一段上所有的裝飾合在一起 */
+    const on = ms.filter((c) => c.a <= s0 && c.b >= e0);
+    if (on.length) {
+      const col = safeColor(on.find((c) => c.col)?.col);
+      const pt = +(on.find((c) => +(c.pt ?? 0) > 0)?.pt ?? 0);
       const st =
-        (mk.col ? `color:${safeColor(mk.col)};` : '') + (mk.bold ? 'font-weight:700;' : '');
+        (col ? `color:${col};` : '') +
+        (on.some((c) => c.bold) ? 'font-weight:700;' : '') +
+        (pt > 0 ? `font-size:${pt}pt;` : '');
       if (st) h = `<span style="${st}">${h}</span>`;
     }
     const ci = cs.findIndex((c) => c.a <= s0 && c.b >= e0);

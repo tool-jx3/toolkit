@@ -7,7 +7,9 @@
 import {
   BookOpen,
   FileDown,
+  FileJson,
   FolderOpen,
+  HardDrive,
   LayoutList,
   PanelRight,
   Printer,
@@ -17,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { useUndoRedo } from '@/core/storage';
-import { Button, cn, IconButton, Tabs, ToolShell, withShortcut } from '@/ui';
+import { Button, cn, IconButton, MenuButton, Tabs, ToolShell, withShortcut } from '@/ui';
 import { CcfDialogs } from './dialogs/CcfDialogs';
 import { FlowDialog } from './dialogs/FlowDialog';
 import { LibraryDialog } from './dialogs/LibraryDialog';
@@ -32,7 +34,7 @@ import { BlockPanel } from './panel/BlockPanel';
 import { DocTab } from './panel/DocTab';
 import { PagesTab } from './panel/PagesTab';
 import { SourcePane } from './SourcePane';
-import { openFile, retrySave, saveFile, startSession, useSession } from './session';
+import { openFile, retrySave, saveFile, saveToBrowser, startSession, useSession } from './session';
 import { setUi, useDoc, usePrefs, useUi } from './store';
 import { S } from './strings';
 import { BlockOps, TypeButtons } from './TypeButtons';
@@ -61,6 +63,7 @@ function useStartup() {
 
 function Toolbar() {
   const { undo, redo, canUndo, canRedo } = useUndoRedo(useDoc);
+  const idb = useSession((s) => s.idb);
   const prefs = usePrefs((s) => s.data);
   const patch = usePrefs((s) => s.patch);
   return (
@@ -68,15 +71,29 @@ function Toolbar() {
       <Button size="sm" icon={<BookOpen />} onClick={() => setUi({ libraryOpen: true })}>
         {S.toolbar.library}
       </Button>
-      <Button
-        size="sm"
-        variant="secondary"
+      <MenuButton
+        label={S.toolbar.save}
         icon={<Save />}
-        title={withShortcut('存成檔案', 'mod+s')}
-        onClick={saveFile}
-      >
-        {S.toolbar.save}
-      </Button>
+        title={S.toolbar.saveTitle}
+        menuLabel={S.toolbar.save}
+        data-testid="se-save-menu"
+        items={[
+          {
+            label: S.toolbar.saveBrowser,
+            description: idb ? S.toolbar.saveBrowserHint : S.toolbar.saveBrowserNoIdb,
+            icon: <HardDrive />,
+            disabled: !idb,
+            onSelect: () => void saveToBrowser(),
+          },
+          {
+            label: S.toolbar.saveFile,
+            description: S.toolbar.saveFileHint,
+            icon: <FileJson />,
+            shortcut: 'mod+s',
+            onSelect: saveFile,
+          },
+        ]}
+      />
       <Button size="sm" variant="secondary" icon={<FolderOpen />} onClick={() => void openFile()}>
         {S.toolbar.open}
       </Button>

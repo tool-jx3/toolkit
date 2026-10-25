@@ -9,6 +9,7 @@ import { bridge } from './bridge';
 import {
   busyIds,
   GEN_EVERY,
+  GEN_NAME_MAX,
   hasLocks,
   JOURNAL_MAX,
   journalClear,
@@ -468,6 +469,37 @@ export async function resetDoc(): Promise<void> {
   useDoc.getState().replace(fresh);
   resetUi();
   say(S.status.reset);
+}
+
+/* ---------- 存到瀏覽器（F262；2026-10，上游 v3.26.0） ---------- */
+
+/** 把目前的內容加上名稱，留在「過去的版本」（自己留的：不算進 10 份、不會被擠掉） */
+export async function saveToBrowser(): Promise<void> {
+  const id = ses().id;
+  if (!ses().idb || !id) {
+    say(S.status.browserSaveNoIdb, 'warn');
+    return;
+  }
+  const def = S.saveBrowser.defaultName(whenText(Date.now()));
+  const r = await bridge.prompt({
+    title: S.saveBrowser.title,
+    description: S.saveBrowser.description,
+    label: S.saveBrowser.label,
+    value: def,
+    maxLength: GEN_NAME_MAX,
+    confirmLabel: S.saveBrowser.ok,
+  });
+  if (!r) return;
+  const name = r.value.trim() || def;
+  try {
+    /* 打到一半的先寫完，再把目前的內容留成版本 */
+    await flushNow();
+    if (ses().id !== id) return;
+    if (!(await snapGen(id, JSON.stringify(doc()), Date.now(), name))) throw new Error('no work');
+    say(S.status.browserSaved(name));
+  } catch {
+    say(S.status.browserSaveFailed, 'err');
+  }
 }
 
 /* ---------- 檔案（F013、F015） ---------- */

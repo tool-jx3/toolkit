@@ -179,8 +179,8 @@ export function LibraryDialog() {
   ) : view === 'gens' ? (
     <div className="flex flex-col gap-2">
       <p className="m-0 text-sm text-muted">
-        「{sel?.title}」保留的版本（開啟時、書寫中每 10 分鐘、全部清除之前各留一份，最多 10
-        份）。還原會建立新的作品，目前的作品不變。
+        「{sel?.title}」保留的版本（開啟時、書寫中每 10 分鐘、全部清除之前各留一份，最多 10 份）。★
+        是用「儲存」→「存到瀏覽器」加上名稱留下的版本，不會被自動留的版本擠掉。還原會建立新的作品，目前的作品不變。
       </p>
       <ul className="m-0 flex max-h-[50dvh] list-none flex-col gap-1 overflow-auto p-0">
         {[...(sel?.gens ?? [])].reverse().map((g) => (
@@ -188,7 +188,14 @@ export function LibraryDialog() {
             key={g.t}
             className="flex items-center gap-2 rounded-sm border border-border px-2 py-1 text-sm"
           >
-            <span className="flex-1">{whenText(g.t)}</span>
+            <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
+              <span>{whenText(g.t)}</span>
+              {g.name ? (
+                <b className="min-w-0 truncate text-accent" data-testid="se-gen-name">
+                  ★ {g.name}
+                </b>
+              ) : null}
+            </span>
             <span className="text-xs text-muted">{sizeText(g.size)}</span>
             <Button
               size="sm"

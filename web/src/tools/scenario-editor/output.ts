@@ -12,7 +12,7 @@ import { appendixPagesHtml } from './layout';
 import { allBlocks } from './model/blocks';
 import { escapeHtml } from './model/text';
 import type { Block, Doc } from './model/types';
-import { type RenderCtx, staticPageHtml } from './render/html';
+import { newPrintLinks, type RenderCtx, staticPageHtml } from './render/html';
 import { fontCss, PAPER_CSS, safeFontName } from './render/paperCss';
 import { TOOL_ID } from './store';
 
@@ -66,8 +66,20 @@ export function outputPagesHtml(
   pages.forEach((ids, i) => {
     for (const id of ids) pageNo.set(id, i + 1);
   });
-  const ctx: RenderCtx = { doc, edit: false, pageOf: (id) => pageNo.get(id) ?? null, total };
-  const byId = new Map<string, Block>(allBlocks(doc).map((b) => [b.id, b]));
+  const all = allBlocks(doc);
+  const ctx: RenderCtx = {
+    doc,
+    edit: false,
+    pageOf: (id) => pageNo.get(id) ?? null,
+    total,
+    /* 標題的錨點、「→ 附錄」「↩ 回到 P.n」、場景轉換連到範圍內的標題（F269、F270） */
+    anchors: true,
+    links: newPrintLinks(doc, all, (id) => {
+      const p = pageNo.get(id);
+      return p != null && p >= range.from + 1 && p <= range.to + 1;
+    }),
+  };
+  const byId = new Map<string, Block>(all.map((b) => [b.id, b]));
   const out: string[] = [];
   for (let i = range.from; i <= range.to; i++)
     out.push(staticPageHtml(i, pages[i] ?? [], ctx, byId));
@@ -159,6 +171,8 @@ export async function pdfRange(
       fallback: { serif: ['Noto Serif TC'], sans: ['Noto Sans TC'] },
       /* 繁中字型沒有的字（NPC 卡系統資料的日文漢字等）：下載 Noto Serif JP／Noto Sans JP 的子集補上 */
       missingGlyphs: p.missingGlyphs ?? googleSubsetFallback(),
+      /* 頁內連結（→ 附錄、↩ 回到、場景轉換、目錄）變成 PDF 裡可以按的連結（D15） */
+      links: true,
       title: doc.title,
       signal: p.signal,
       onProgress: p.onProgress,

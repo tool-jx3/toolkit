@@ -217,6 +217,7 @@ export {
   type LyricStyleControlsProps,
   type LyricUserPreset,
 } from './LyricStyleControls';
+export { MenuButton, type MenuButtonItem, type MenuButtonProps } from './MenuButton';
 export {
   type ComposedMessage,
   type ComposerKind,

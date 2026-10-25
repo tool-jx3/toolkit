@@ -4,9 +4,12 @@
 import { gapPull, isFreeImg, isOnlyPopup, popIsBlocks } from '../model/blocks';
 import { POPUP_DEFAULT_LABEL, popupByLabel, popupLabel } from '../model/doc';
 import { edgeGeom, flowColor, round2 as fnum } from '../model/flow';
+import { ptStyle } from '../model/fontSize';
 import { freeShape, imageOffset, imagePos, imageWidthMm, PAPER_H } from '../model/image';
+import { MARGIN_PATTERNS, pageColor } from '../model/paper';
 import { blockLabel, boxColor, procStyleOf } from '../model/proc';
 import { hasRich } from '../model/rich';
+import { sceneLinks } from '../model/scene';
 import { cellList, tblCols, tblRows } from '../model/table';
 import {
   blockComments,
@@ -36,6 +39,77 @@ export interface RenderCtx {
   anchors?: boolean;
   /** 匯出：表格與 NPC 卡右上的複製按鈕、情報區塊與手冊按一下複製（F259） */
   copyButtons?: boolean;
+  /** 列印、PDF、匯出：「→ 附錄」與「↩ 回到」的連結、場景轉換連到標題（F269、F270） */
+  links?: PrintLinks;
+}
+
+/**
+ * 列印、PDF、匯出用的連結（2026-10，上游 v3.15.0；3.17.4）：
+ * 彈出視窗的按鈕後面放「→ 附錄「名稱」」（id＝pr<彈出視窗 id>-<第幾個>，連到附錄的 apx<彈出視窗 id>），
+ * 附錄的每一節放「↩ 回到 P.n」（連回每個按鈕；附錄裡的按鈕不算）。頁面依序畫，附錄最後畫。
+ */
+export interface PrintLinks {
+  /** 有附錄的彈出視窗：id → 名稱 */
+  pops: Map<string, string>;
+  /** 場景轉換 id → 連到的標題 id */
+  scenes: Map<string, string>;
+  /** 正在畫的頁（0 起算；附錄、不是頁面時 -1） */
+  page: number;
+  /** 頁碼的寫法（P.3） */
+  pageLabel: (i: number) => string;
+  /** 每個彈出視窗已經放了幾個連結 */
+  count: Map<string, number>;
+  /** 每個彈出視窗：連回去的地方（連結 id、頁碼） */
+  refs: Map<string, { id: string; page: string }[]>;
+}
+
+/**
+ * 列印、PDF、匯出用的連結的狀態。inRange：輸出範圍內的段落（場景轉換只連到範圍內的標題）。
+ * 頁碼：顯示頁碼時用紙面的頁碼（第一頁的頁碼起算），不顯示時從 1 算。
+ */
+export function newPrintLinks(
+  doc: Doc,
+  all: readonly Block[],
+  inRange: (id: string) => boolean,
+): PrintLinks {
+  const from = Number.isFinite(+doc.foot?.from) ? +doc.foot.from : 1;
+  const num = doc.foot?.num !== false;
+  return {
+    pops: new Map(popupsWithContent(all).map((b) => [b.id, popupLabel(b)])),
+    scenes: sceneLinks(doc, inRange),
+    page: -1,
+    pageLabel: (i) => `P.${num ? i + from : i + 1}`,
+    count: new Map(),
+    refs: new Map(),
+  };
+}
+
+/** 彈出視窗按鈕後面的「→ 附錄「名稱」」（沒有附錄的彈出視窗沒有） */
+function popLinkHtml(id: string, ctx: RenderCtx): string {
+  const L = ctx.links;
+  const label = L?.pops.get(id);
+  if (!L || label == null) return '';
+  const n = (L.count.get(id) ?? 0) + 1;
+  L.count.set(id, n);
+  const lid = `pr${id}-${n}`;
+  if (L.page >= 0) {
+    const list = L.refs.get(id) ?? [];
+    list.push({ id: lid, page: L.pageLabel(L.page) });
+    L.refs.set(id, list);
+  }
+  return `<a class="pop-plink" href="#apx${esc(id)}" id="${esc(lid)}">→ 附錄「${esc(label)}」</a>`;
+}
+
+/** 附錄一節的「↩ 回到 P.n」 */
+function backLinksHtml(id: string, ctx: RenderCtx): string {
+  const refs = ctx.links?.refs.get(id);
+  if (!refs?.length) return '';
+  return `<div class="ap-backs">${refs
+    .map(
+      (r) =>
+        `<a class="ap-back" href="#${esc(r.id)}">↩ ${r.page ? `回到 ${esc(r.page)}` : '回到本文'}</a>`,
+    )
+    .join('')}</div>`;
 }
 
 /** 變數的位置包成顯示預設值的標記（F257；原稿沒有變數時原樣） */
@@ -58,11 +132,12 @@ export function popRefHtml(name: string, ctx: RenderCtx): string {
   const t = popupByLabel(ctx.doc, n);
   if (!t)
     return `<button type="button" class="pop-btn pop-miss" data-popmake="${esc(n)}"><span class="pop-ic">▤ </span>${esc(n)}（按下即建立）</button>`;
-  return `<button type="button" class="pop-btn" data-popopen="${esc(t.id)}"><span class="pop-ic">▤ </span>${esc(popupLabel(t))}</button>`;
+  return popButton(t, ctx);
 }
 
-function popupButtonHtml(b: Block): string {
-  return `<button type="button" class="pop-btn" data-popopen="${esc(b.id)}"><span class="pop-ic">▤ </span>${esc(popupLabel(b))}</button>`;
+function popButton(b: Block, ctx: RenderCtx): string {
+  const link = popLinkHtml(b.id, ctx);
+  return `<button type="button" class="pop-btn${link ? ' has-plink' : ''}" data-popopen="${esc(b.id)}"><span class="pop-ic">▤ </span>${esc(popupLabel(b))}</button>${link}`;
 }
 
 /** 彈出視窗的內容（以段落保存的照紙面排，舊式的照巢狀書式） */
@@ -320,7 +395,7 @@ export function blockInnerHtml(b: Block, ctx: RenderCtx): string {
     case 'table':
       return tableHtml(b, ctx);
     case 'popup':
-      return popupButtonHtml(b);
+      return popButton(b, ctx);
     case 'flow':
       return flowHtml(b.flow);
     case 'proc':
@@ -349,7 +424,10 @@ export function blockInnerHtml(b: Block, ctx: RenderCtx): string {
           ? `<span class="spk">${esc(b.sp)}</span>`
           : '';
       const mk = b.type === 'h3' ? '<span class="h3mk">◆ </span>' : '';
-      return spk + mk + rubyHtmlWithComments(b);
+      const inner = spk + mk + rubyHtmlWithComments(b);
+      /* 場景轉換連到標題（列印、PDF、匯出；F270） */
+      const to = b.type === 'scene' ? ctx.links?.scenes.get(b.id) : undefined;
+      return to ? `<a class="scene-link" href="#b${esc(to)}">${inner}</a>` : inner;
     }
   }
 }
@@ -391,6 +469,8 @@ export function blockHtml(b: Block, ctx: RenderCtx, place: Place): string {
   if (b.mb != null) ist += `margin-bottom:${b.mb}mm;`;
   const col = safeColor(b.col);
   if (col) ist += `color:${col};`;
+  /* 段落的文字大小（pt；F273） */
+  ist += ptStyle(b);
   if (b.type === 'proc') {
     const v = procVars(b);
     icls += v.cls;
@@ -458,6 +538,18 @@ export function pageSettingAt(doc: Doc, i: number): PageSetting {
   );
 }
 
+/**
+ * 頁面的 style：指定了紙色時 --paper；飾邊類的花紋要紙面間距（--mv 上下、--mh 左右；3.17.2）。
+ * 沒有用到時不加（舊原稿的輸出不變）。
+ */
+export function pageStyleAttr(p: PageSetting | undefined, doc: Pick<Doc, 'padV' | 'padH'>): string {
+  const c = pageColor(p?.bg);
+  let st = '';
+  if (p && MARGIN_PATTERNS.includes(p.bg.preset)) st += `--mv:${+doc.padV}mm;--mh:${+doc.padH}mm;`;
+  if (c) st += `--paper:${c};`;
+  return st ? ` style="${st}"` : '';
+}
+
 /** 頁面的外框：pg（背景、本文區、頁尾）。body 由呼叫端放進去 */
 export function pageOpenHtml(
   i: number,
@@ -467,7 +559,7 @@ export function pageOpenHtml(
   const st = pageSettingAt(ctx.doc, i);
   const cls = bgClass(st);
   return {
-    open: `<div class="pg ${cls}"${id ? ` id="${id}"` : ''}><div class="pg-bg ${cls}"></div>${bgImageHtml(st)}<div class="pg-body${st.cols === 2 ? ' cols2' : ''}" style="padding:${ctx.doc.padV}mm ${ctx.doc.padH}mm;font-size:${ctx.doc.base}pt">`,
+    open: `<div class="pg ${cls}"${id ? ` id="${id}"` : ''}${pageStyleAttr(st, ctx.doc)}><div class="pg-bg ${cls}"></div>${bgImageHtml(st)}<div class="pg-body${st.cols === 2 ? ' cols2' : ''}" style="padding:${ctx.doc.padV}mm ${ctx.doc.padH}mm;font-size:${ctx.doc.base}pt">`,
     close: `</div>${footHtml(i, ctx.total, ctx.doc)}</div>`,
   };
 }
@@ -493,6 +585,7 @@ export function staticPageHtml(
 ): string {
   const st = pageSettingAt(ctx.doc, i);
   const { open, close } = pageOpenHtml(i, ctx, ctx.anchors ? `p${i + 1}` : undefined);
+  if (ctx.links) ctx.links.page = i;
   let prev: string | null = null;
   let topDone = false;
   let body = '';
@@ -511,6 +604,7 @@ export function staticPageHtml(
   const free = freeImagesOn(ctx.doc, i);
   const shapes = free.map((b) => freeShapeHtml(b, ctx.doc, st.cols)).join('');
   const frees = free.map((b) => blockHtml(b, ctx, { cols: st.cols, pull: 0, top: false })).join('');
+  if (ctx.links) ctx.links.page = -1;
   return open + shapes + body + frees + close;
 }
 
@@ -544,10 +638,14 @@ export function appendixItems(ctx: RenderCtx, all: readonly Block[]): FlowItem[]
   ];
   for (const b of list) {
     const label = withVars(esc(b.pop?.label || POPUP_DEFAULT_LABEL), ctx.doc);
+    /* 列印、PDF、匯出：這一節的錨點（apx<id>）與「↩ 回到 P.n」（F269） */
+    const aid = ctx.links ? ` id="apx${esc(b.id)}"` : '';
     out.push({
       type: 'h2',
-      html: (p) =>
-        `<div class="bp bp-h2${p.top ? ' top' : ''}"${pullStyle(p)}><div class="b t-h2">${label}</div></div>`,
+      html: (p) => {
+        if (ctx.links) ctx.links.page = -1;
+        return `<div class="bp bp-h2${p.top ? ' top' : ''}"${pullStyle(p)}><div class="b t-h2"${aid}>${label}</div>${backLinksHtml(b.id, ctx)}</div>`;
+      },
     });
     if (popIsBlocks(b)) {
       for (const x of (b.pop?.blocks ?? []).filter(
@@ -579,7 +677,7 @@ export function appendixHtml(ctx: RenderCtx, all: readonly Block[]): string {
       return h;
     })
     .join('');
-  return `<div class="pg pg-appx ${cls}"><div class="pg-bg ${cls}"></div><div class="pg-body" style="padding:${ctx.doc.padV}mm ${ctx.doc.padH}mm;font-size:${ctx.doc.base}pt;height:auto;min-height:${PAPER_H}mm">${body}</div></div>`;
+  return `<div class="pg pg-appx ${cls}"${pageStyleAttr(st, ctx.doc)}><div class="pg-bg ${cls}"></div><div class="pg-body" style="padding:${ctx.doc.padV}mm ${ctx.doc.padH}mm;font-size:${ctx.doc.base}pt;height:auto;min-height:${PAPER_H}mm">${body}</div></div>`;
 }
 
 /** 段落有沒有用到注音、註解或顏色（文字欄的提示用） */

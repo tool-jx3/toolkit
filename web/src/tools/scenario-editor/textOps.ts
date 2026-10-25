@@ -1,13 +1,22 @@
 /**
- * 作用在「文字欄裡選取的文字」的操作：注音（F070）、註解（F072）、文字顏色（F074）、巢狀書式按鈕（F078）。
+ * 作用在「文字欄裡選取的文字」的操作：注音（F070）、註解（F072）、文字顏色（F074）、巢狀書式按鈕（F078）、
+ * 文字大小（F273～F275；2026-10）。
  * 最後聚焦的文字欄（文字欄、規則框的內容欄、彈出視窗裡的文字欄、表格名稱欄）記在 lastField；
  * 按設定欄的按鈕時焦點會離開，但選取範圍還留在那個欄位上。
  */
 import { bridge } from './bridge';
 import { findBlock } from './model/blocks';
+import { curPt, natPt, PT_LIST, PT_MAX, ptSummary, ptsIn, ptText, stepPt } from './model/fontSize';
 import { appendMarkLine, RICH_TYPES, richApply } from './model/rich';
 import { cellHead, cellWrite } from './model/table';
-import { addComment, setBlockText, setMarkColor } from './model/text';
+import {
+  addComment,
+  blockMarks,
+  clearMarkRange,
+  setBlockText,
+  setMarkColor,
+  setMarkPt,
+} from './model/text';
 import { doc, edit, editBlock, say, ui } from './store';
 import { S } from './strings';
 
@@ -148,6 +157,90 @@ export function applyColor(color: string): void {
     }
   });
   say(S.status.colorSet);
+}
+
+/**
+ * 文字大小（F273、F274）：文字欄裡有選取文字時只改那一段（null＝回到段落的大小），
+ * 否則改選取的段落（null＝恢復預設，連段落裡文字另外設的大小也拿掉；和書式本來的大小相同時不記）。
+ */
+export function applyPt(v: number | null): void {
+  const f = activeField();
+  if (f?.name) {
+    say(S.status.sizeNameField, 'warn');
+    return;
+  }
+  if (f?.cell && f.z > f.a) {
+    say(S.status.sizeNoField, 'warn');
+    return;
+  }
+  if (f && !f.cell && f.z > f.a) {
+    editBlock(f.id, (b) => setMarkPt(b, f.a, f.z, v));
+    say(v != null ? S.status.sizeSet(ptText(v)) : S.status.sizeRangeReset);
+    restore(f, f.a, f.z);
+    return;
+  }
+  const ids = ui().sel;
+  if (!ids.length) {
+    say(S.status.noSelection, 'warn');
+    return;
+  }
+  edit((d) => {
+    for (const id of ids) {
+      const b = findBlock(d, id)?.b;
+      if (!b) continue;
+      if (v == null) {
+        delete b.pt;
+        clearMarkRange(b, 0, String(b.text ?? '').length, 'pt');
+        if (!b.mk?.length) delete b.mk;
+      } else if (Math.abs(v - natPt(d, b)) < 0.01) delete b.pt;
+      else b.pt = v;
+    }
+  });
+  say(v != null ? S.status.sizeSet(ptText(v)) : S.status.sizeReset);
+}
+
+/** 目前的大小：選取的文字（或選取的段落）上出現的大小；混在一起時 mixed（欄位顯示「—」） */
+export function currentPt(): { value: number | null; mixed: boolean } {
+  const d = doc();
+  const f = activeField();
+  if (f && !f.cell && !f.name && f.z > f.a) {
+    const b = findBlock(d, f.id)?.b;
+    if (b) return ptSummary(ptsIn(d, b, f.a, f.z));
+  }
+  const vals = new Set<number>();
+  for (const id of ui().sel) {
+    const b = findBlock(d, id)?.b;
+    if (!b) continue;
+    for (const v of ptsIn(d, b, 0, Math.max(1, String(b.text ?? '').length))) vals.add(v);
+  }
+  return ptSummary(vals);
+}
+
+/** Ctrl＋Shift＋> ／ <（F275）：從目前的大小往大或往小走一格（Word 的字級清單） */
+export function stepTextPt(dir: 1 | -1): void {
+  const d = doc();
+  const f = activeField();
+  let cur: number | null = null;
+  if (f && !f.cell && !f.name && f.z > f.a) {
+    const b = findBlock(d, f.id)?.b;
+    if (b) {
+      const at = blockMarks(b).find((c) => +(c.pt ?? 0) > 0 && c.a <= f.a && c.b > f.a);
+      cur = at ? +(at.pt as number) : curPt(d, b);
+    }
+  } else {
+    const b = findBlock(d, ui().sel[0])?.b;
+    if (b) cur = curPt(d, b);
+  }
+  if (cur == null) {
+    say(S.status.noSelection, 'warn');
+    return;
+  }
+  const nx = stepPt(cur, dir);
+  if (nx == null) {
+    say(dir > 0 ? S.status.sizeMax(ptText(PT_MAX)) : S.status.sizeMin(ptText(PT_LIST[0])), 'warn');
+    return;
+  }
+  applyPt(nx);
 }
 
 /**

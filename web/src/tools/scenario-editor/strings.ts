@@ -6,6 +6,12 @@ export const S = {
   toolbar: {
     library: '作品',
     save: '儲存',
+    saveTitle: '存到瀏覽器（留下有名稱的版本），或存成 JSON 檔（Ctrl＋S 是存成 JSON 檔）',
+    saveBrowser: '存到瀏覽器',
+    saveBrowserHint: '加上名稱，留在「過去的版本」（★）',
+    saveBrowserNoIdb: '這個瀏覽器無法使用 IndexedDB，只能存成 JSON 檔',
+    saveFile: '存成 JSON 檔',
+    saveFileHint: '下載原稿檔，留在自己的電腦裡',
     open: '開啟',
     undo: '復原',
     redo: '重做',
@@ -105,6 +111,17 @@ export const S = {
     breakHint: '換頁在紙面上看不到；之後的段落從新的一頁開始。',
     lockedOther: '這個作品正在別的分頁編輯，不能在這裡開啟。',
     legacyImported: (n: number) => `已接收舊版儲存的 ${n} 個作品`,
+    browserSaved: (n: string) => `已在這個瀏覽器留下「${n}」（「作品」→「過去的版本」可以還原）`,
+    browserSaveNoIdb: '這個瀏覽器不能存放作品，請存成 JSON 檔。',
+    browserSaveFailed: '無法存到瀏覽器，請存成 JSON 檔。',
+    sizeSet: (t: string) => `已把文字大小改成 ${t}`,
+    sizeReset: '已把文字大小恢復預設',
+    sizeRangeReset: '已把選取文字的大小恢復成段落的大小',
+    sizeNoField: '表格的儲存格裡不能只改一部分文字的大小（要改整個表格時，取消選取文字再按）。',
+    sizeNameField: '表格名稱不能改文字大小。',
+    sizeMax: (t: string) => `不能再放大了（最大 ${t}）`,
+    sizeMin: (t: string) => `不能再縮小了（最小 ${t}）`,
+    paperBrightened: '這個顏色和文字的對比不夠，已調亮到看得清楚的亮度。',
   },
   confirm: {
     deleteBlocks: (n: number) => `刪除 ${n} 個段落？`,
@@ -164,6 +181,15 @@ export const S = {
     badName: '名稱只能用英數字、底線、假名、漢字，最多 16 字（title、page、total 不能用）。',
     dupName: '已經有同名的變數了（只算第一個）。',
     registered: (n: string) => `已登錄變數 {${n}}`,
+  },
+  /** 存到瀏覽器（2026-10，上游 v3.26.0） */
+  saveBrowser: {
+    title: '存到瀏覽器',
+    description:
+      '把目前的內容加上名稱，留在這個作品的「過去的版本」（標上★）。不會被自動留的版本擠掉；只存在這個瀏覽器裡，不會傳到網路上。',
+    label: '這個版本的名稱',
+    defaultName: (when: string) => `手動儲存 ${when}`,
+    ok: '儲存',
   },
   hints: {
     emptyText: '（在這裡輸入）',

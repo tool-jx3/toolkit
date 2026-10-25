@@ -14,6 +14,7 @@ import type { Block, Doc } from './model/types';
 import { type VarItem, varShown, varView, wrapVarsHtml } from './model/vars';
 import {
   appendixHtml,
+  newPrintLinks,
   popupContentHtml,
   popupsWithContent,
   type RenderCtx,
@@ -29,6 +30,7 @@ export const EXPORT_TEXT = {
   showToc: '顯示目錄',
   hideToc: '收起目錄',
   close: '關閉',
+  closeEsc: '關閉（Esc）',
   note: '註解',
   copied: '已複製',
   noContent: '（沒有內容）',
@@ -82,13 +84,15 @@ body:not(.notoc) #tocBtn i:nth-child(2){opacity:0}
 body:not(.notoc) #tocBtn i:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
 body.notoc #nav{display:none}
 body.notoc #doc{margin-left:0}
-#popOv{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
-#popOv.on{display:flex}
-#popWrap{position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:min(820px,94vw)}
-#popBox{background:#fbf7ef;color:#23201c;border-radius:8px;width:min(820px,94vw);box-sizing:border-box;max-height:80vh;overflow:auto;padding:22px 26px;box-shadow:0 8px 40px rgba(0,0,0,.5);line-height:1.9;font-size:14px;font-family:"Noto Serif TC",serif}
-#popBox h3{margin:0 0 12px;color:#a8331f;font-size:16px;letter-spacing:.08em}
-#popX{flex:0 0 auto;border:0;background:#23201c;color:#f7f3ea;border-radius:4px;padding:5px 14px;cursor:pointer;font:inherit;font-size:12px;opacity:.9}
-#popX:hover{opacity:1;background:#a8331f}
+.fwin{position:fixed;z-index:50;display:flex;flex-direction:column;box-sizing:border-box;background:#fbf7ef;color:#23201c;border-radius:8px;box-shadow:0 10px 36px rgba(0,0,0,.42),0 0 0 1px rgba(35,32,28,.28);overflow:hidden;resize:both;min-width:240px;min-height:140px;max-width:96vw;max-height:94vh}
+.fw-h{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:5px 5px 5px 14px;background:#23201c;color:#f7f3ea;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none}
+.fw-t{flex:1;min-width:0;font-size:13px;font-weight:700;letter-spacing:.08em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fw-x{flex:0 0 auto;border:0;background:transparent;color:#f7f3ea;font-size:19px;line-height:1;width:32px;height:28px;border-radius:4px;cursor:pointer}
+.fw-x:hover,.fw-x:focus-visible{background:#a8331f;outline:none}
+.fw-b{flex:1;min-height:0;overflow:auto;padding:16px 20px 20px;line-height:1.9;font-size:14px;font-family:"Noto Serif TC",serif}
+.fw-t .tvar{color:inherit;border-bottom:1px dashed currentColor}
+.fw-t .tvar.unset{color:#9a8e74;border-bottom:1px dotted #b9ab8c}
+@media (max-width:700px){.fwin{left:0!important;right:0;top:auto!important;bottom:0;width:auto!important;height:56vh!important;max-width:none;resize:none;border-radius:12px 12px 0 0}.fw-h{cursor:default}}
 .popbody{display:none}
 .appx{display:none}
 #cmtRail{position:fixed;right:14px;top:80px;width:250px;display:none;z-index:40}
@@ -102,7 +106,7 @@ body.notoc #doc{margin-left:0}
 .bp-table>.b,.bp-npc>.b{position:relative}
 @media (max-width:1200px){#cmtRail{right:8px;width:200px}}
 @media (max-width:1000px){#nav{position:static;width:auto;height:auto;bottom:auto}#doc{margin-left:0;overflow-x:auto;align-items:flex-start}}
-@media print{#nav,#tocBtn,#popOv,.copybtn,#cmtRail{display:none!important}#doc{margin:0;padding:0;display:block}.pagebox{margin:0}.pg{box-shadow:none}.appx{display:block}.cmt{border-bottom:0}.cmt-n{display:none}@page{size:A4;margin:0}}
+@media print{#nav,#tocBtn,.fwin,.copybtn,#cmtRail{display:none!important}#doc{margin:0;padding:0;display:block}.pagebox{margin:0}.pg{box-shadow:none}.appx{display:block}.cmt{border-bottom:0}.cmt-n{display:none}@page{size:A4;margin:0}}
 `;
 
 /** 登場人物欄（F258） */
@@ -129,7 +133,38 @@ const COPY_CSS = `
 
 const SCRIPT = `(function(){
 var T=${JSON.stringify(EXPORT_TEXT)};
-var ov=document.getElementById('popOv'),inn=document.getElementById('popIn');
+var wins={},zTop=50,drag=null,wseq=0;
+function front(w){w.style.zIndex=String(++zTop);}
+function openWin(key,src,title,opener){
+  var w=wins[key];
+  if(w){front(w);w.querySelector('.fw-x').focus();return;}
+  var tid='fwt'+(++wseq);
+  w=document.createElement('section');w.className='fwin';
+  w.setAttribute('role','dialog');w.setAttribute('aria-modal','false');w.setAttribute('aria-labelledby',tid);
+  w.innerHTML='<div class="fw-h"><b class="fw-t"></b><button type="button" class="fw-x"></button></div><div class="fw-b"></div>';
+  var t=w.querySelector('.fw-t'),x=w.querySelector('.fw-x'),b=w.querySelector('.fw-b');
+  t.id=tid;x.setAttribute('aria-label',T.close);x.title=T.closeEsc;x.textContent='\u00d7';
+  var st=src&&src.querySelector('.pw-t'),sb=src&&src.querySelector('.pw-b');
+  if(st)t.innerHTML=st.innerHTML;else t.textContent=title;
+  if(sb)b.innerHTML=sb.innerHTML;else b.innerHTML='<p>'+T.noContent+'</p>';
+  var k=Object.keys(wins).length,W=Math.min(480,innerWidth-24),H=Math.min(Math.round(innerHeight*0.7),600);
+  w.style.width=W+'px';w.style.height=H+'px';
+  w.style.left=Math.max(12,innerWidth-W-24-k*28)+'px';w.style.top=Math.max(12,Math.min(innerHeight-160,60+k*28))+'px';
+  w._key=key;w._op=opener;wins[key]=w;document.body.appendChild(w);front(w);x.focus();
+}
+function closeWin(w){delete wins[w._key];w.remove();if(w._op&&document.contains(w._op))w._op.focus();}
+document.addEventListener('pointerdown',function(e){
+  var w=e.target.closest&&e.target.closest('.fwin');if(!w)return;front(w);
+  var h=e.target.closest('.fw-h');if(!h||e.target.closest('.fw-x')||innerWidth<=700)return;
+  drag={w:w,x:e.clientX-w.offsetLeft,y:e.clientY-w.offsetTop};try{h.setPointerCapture(e.pointerId);}catch(er){}e.preventDefault();
+});
+document.addEventListener('pointermove',function(e){
+  if(!drag)return;var w=drag.w;
+  w.style.left=Math.max(80-w.offsetWidth,Math.min(innerWidth-80,e.clientX-drag.x))+'px';
+  w.style.top=Math.max(0,Math.min(innerHeight-40,e.clientY-drag.y))+'px';
+});
+document.addEventListener('pointerup',function(){drag=null;});
+document.addEventListener('pointercancel',function(){drag=null;});
 function copyText(s){
   if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(s).catch(function(){fallback(s);});
   fallback(s);return Promise.resolve();
@@ -152,10 +187,11 @@ function setNoToc(off){
 document.addEventListener('click',function(e){
   var t=e.target;if(!t||!t.closest)return;
   var pb=t.closest('[data-popopen]');
-  if(pb&&ov){var src=document.getElementById('pop'+pb.getAttribute('data-popopen'));inn.innerHTML=src?src.innerHTML:'<p>'+T.noContent+'</p>';ov.classList.add('on');return;}
+  if(pb){e.preventDefault();var pid=pb.getAttribute('data-popopen');openWin(pid,document.getElementById('pop'+pid),pb.textContent,pb);return;}
   var pm=t.closest('[data-popmake]');
-  if(pm&&ov){inn.innerHTML='<p>'+T.noContent+'</p>';ov.classList.add('on');return;}
-  if(t.id==='popOv'||t.id==='popX'){ov.classList.remove('on');return;}
+  if(pm){e.preventDefault();openWin('m:'+pm.getAttribute('data-popmake'),null,pm.getAttribute('data-popmake'),pm);return;}
+  var fx=t.closest('.fw-x');
+  if(fx){closeWin(fx.closest('.fwin'));return;}
   if(t.id==='tocMask'){setTocMask(!document.body.classList.contains('tocmask'));return;}
   if(t.closest('#tocBtn')){var off=!document.body.classList.contains('notoc');setNoToc(off);store('trpg-notoc',off?'1':'0');return;}
   var cm=t.closest('[data-cmt]');
@@ -166,7 +202,12 @@ document.addEventListener('click',function(e){
   var cb=t.closest('.copybtn');
   if(cb){var d=document.getElementById(cb.getAttribute('data-for'));if(d){copyText(d.textContent);var o=cb.textContent;cb.textContent=T.copied;setTimeout(function(){cb.textContent=o;},1400);}return;}
 });
-document.addEventListener('keydown',function(e){if(e.key==='Escape'&&ov)ov.classList.remove('on');});
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape')return;
+  var a=document.activeElement,w=a&&a.closest&&a.closest('.fwin');
+  if(!w){for(var k in wins){if(!w||+wins[k].style.zIndex>+w.style.zIndex)w=wins[k];}}
+  if(w){e.preventDefault();closeWin(w);}
+});
 if(load('trpg-notoc')==='1')setNoToc(true);
 setTocMask(load('trpg-tocmask')!=='0');
 })();`;
@@ -245,6 +286,7 @@ export function exportHtml({ doc, pages, from, to }: ExportInput): string {
   pages.forEach((ids, i) => {
     for (const id of ids) pageNo.set(id, i + 1);
   });
+  const all = allBlocks(doc);
   const ctx: RenderCtx = {
     doc,
     edit: false,
@@ -252,8 +294,12 @@ export function exportHtml({ doc, pages, from, to }: ExportInput): string {
     total,
     anchors: true,
     copyButtons: true,
+    /* 列印用的「→ 附錄」「↩ 回到」、場景轉換連到範圍內的標題（F269、F270） */
+    links: newPrintLinks(doc, all, (id) => {
+      const p = pageNo.get(id);
+      return p != null && p >= a + 1 && p <= b + 1;
+    }),
   };
-  const all = allBlocks(doc);
   const byId = new Map<string, Block>(all.map((x) => [x.id, x]));
   let body = '';
   for (let i = a; i <= b; i++)
@@ -268,10 +314,12 @@ export function exportHtml({ doc, pages, from, to }: ExportInput): string {
     .join('');
   const view = varView(doc);
   const vars = view?.list ?? [];
+  /* 浮動視窗的內容（按下按鈕時複製一份放進視窗；F268）：視窗裡沒有「→ 附錄」 */
+  const winCtx: RenderCtx = { ...ctx, links: undefined };
   const popData = popupsWithContent(all)
     .map(
       (p) =>
-        `<div class="popbody" id="pop${esc(p.id)}" hidden><h3>${wrapVarsHtml(esc(p.pop?.label || '詳細'), view)}</h3>${popupContentHtml(p.pop, ctx)}</div>`,
+        `<div class="popbody" id="pop${esc(p.id)}" hidden><div class="pw-t">${wrapVarsHtml(esc(p.pop?.label || '詳細'), view)}</div><div class="pw-b">${popupContentHtml(p.pop, winCtx)}</div></div>`,
     )
     .join('');
   const copy = all.some((x) => x.type === 'info' || x.type === 'handout');
@@ -310,7 +358,6 @@ export function exportHtml({ doc, pages, from, to }: ExportInput): string {
     `<button id="tocBtn" type="button" title="${EXPORT_TEXT.hideToc}" aria-label="${EXPORT_TEXT.hideToc}"><i></i><i></i><i></i></button>` +
     `<nav id="nav"><h1>${wrapVarsHtml(esc(doc.title || EXPORT_TEXT.toc), view)}</h1>${varPanel}<button id="tocMask" type="button">${EXPORT_TEXT.showHeads}</button>${nav}</nav>` +
     `<main id="doc">${body}${appx ? `<div class="pagebox appx">${appx}</div>` : ''}</main>` +
-    `<div id="popOv"><div id="popWrap"><button id="popX" type="button">${EXPORT_TEXT.close}</button><div id="popBox"><div id="popIn"></div></div></div></div>` +
     `<div id="cmtRail"></div>${popData}${dataBits}${cmtData}${copy ? '<div id="cpToast" role="status" aria-live="polite"></div>' : ''}<script>${viewScript({ vars: vars.length ? vars : null, key: VARS_KEY_PREFIX + (doc.title || ''), copy })}</script></body></html>`
   );
 }

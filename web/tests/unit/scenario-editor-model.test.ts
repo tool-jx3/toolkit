@@ -531,7 +531,9 @@ describe('閱覽 HTML（3.9）', () => {
   });
   it('附錄、彈出視窗、預先放好的資料（結束標籤無害化）', () => {
     expect(html).toContain('class="pagebox appx"');
-    expect(html).toContain('<div class="popbody" id="popp" hidden><h3>地圖</h3>');
+    expect(html).toContain(
+      '<div class="popbody" id="popp" hidden><div class="pw-t">地圖</div><div class="pw-b">',
+    );
     expect(html).toContain('<script type="text/plain" class="outdata" id="outt">/roll-table');
     expect(html).toContain('<\\/script>');
     expect(html).toContain('localStorage.setItem(k,v)');

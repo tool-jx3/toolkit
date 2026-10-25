@@ -256,7 +256,7 @@ button.pop-btn:hover{background:#a8331f}
 .pg-foot .ft{letter-spacing:.1em}
 .pg-foot .pn{font-variant-numeric:tabular-nums}
 
-/* 背景花紋（新版提供素色與紙紋；其他是舊原稿的花紋，照樣顯示） */
+/* 背景花紋：紙紋與舊原稿的花紋（照樣顯示）；2026-10 加的 7 種見 PATTERN_CSS */
 .bg-grid{background-image:linear-gradient(rgba(35,32,28,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(35,32,28,.10) 1px,transparent 1px);background-size:5mm 5mm}
 .bg-rule{background-image:linear-gradient(rgba(35,32,28,.13) 1px,transparent 1px);background-size:100% 8mm}
 .bg-dot{background-image:radial-gradient(rgba(35,32,28,.18) 1px,transparent 1.2px);background-size:4mm 4mm}
@@ -267,13 +267,58 @@ button.pop-btn:hover{background:#a8331f}
 .bg-fog{background:radial-gradient(70% 45% at 15% 10%,rgba(40,60,80,.14),transparent 70%),radial-gradient(60% 40% at 90% 80%,rgba(40,60,80,.12),transparent 70%)}
 `;
 
+/** 花紋用的 SVG（data URL） */
+const svgUrl = (svg: string) => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+
+/** 四角花飾的一角（左上；其他三角用翻轉） */
+const corner = (t: string) =>
+  svgUrl(
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><g transform='${t}'><path d='M3 30 V3 H30' fill='none' stroke='#7a5b32' stroke-opacity='.6' stroke-width='1.1'/><path d='M7 22 C7 12 11 7 21 7' fill='none' stroke='#7a5b32' stroke-opacity='.5' stroke-width='.8'/><circle cx='3' cy='3' r='2' fill='#7a5b32' fill-opacity='.55'/><path d='M10 16 q4 -6 10 -6' fill='none' stroke='#a8331f' stroke-opacity='.45' stroke-width='.7'/></g></svg>`,
+  );
+
+/** 和紙的纖維（橫向拉長的雜訊，淡褐色、6% 不透明） */
+const WASHI = svgUrl(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='0.9 0.06' numOctaves='2' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.45  0 0 0 0 0.37  0 0 0 0 0.25  0 0 0 0.06 0'/></filter><rect width='240' height='240' filter='url(#n)'/></svg>`,
+);
+
+/**
+ * 2026-10（上游 v3.12.0～v3.13.0）的 7 種花紋（3.17.2）：本文底下的都很淡（和文字的對比 7:1 以上），
+ * 飾邊（裝飾框、四角花飾、上下色帶）只放在紙面間距裡，大小跟著頁面的 --mv（上下）、--mh（左右）間距。
+ * .pg 也帶同樣的 class，所以只畫在 .pg-bg 上。
+ */
+const PATTERN_CSS = `
+.pg-bg.bg-grid5{background-image:linear-gradient(rgba(35,32,28,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(35,32,28,.06) 1px,transparent 1px);background-size:5mm 5mm}
+.pg-bg.bg-dot5{background-image:radial-gradient(rgba(35,32,28,.16) .55px,transparent .8px);background-size:5mm 5mm}
+.pg-bg.bg-aged{background:radial-gradient(110% 80% at 50% 48%,transparent 50%,rgba(120,88,40,.34) 100%)}
+.pg-bg.bg-washi{background-image:${WASHI};background-size:240px 240px}
+.pg-bg.bg-frame::before{content:"";position:absolute;inset:calc(min(4mm,var(--mv,18mm)*.45)) calc(min(4mm,var(--mh,16mm)*.45));border:1px solid rgba(122,91,50,.55);box-shadow:inset 0 0 0 2px var(--paper,#f7f3ea),inset 0 0 0 2.5px rgba(122,91,50,.35)}
+.pg-bg.bg-corner{--cs:calc(min(11mm,min(var(--mv,18mm),var(--mh,16mm))*.75));--co:calc(min(3mm,min(var(--mv,18mm),var(--mh,16mm))*.2));background-image:${corner('')},${corner('translate(40 0) scale(-1 1)')},${corner('translate(0 40) scale(1 -1)')},${corner('translate(40 40) scale(-1 -1)')};background-repeat:no-repeat;background-size:var(--cs) var(--cs);background-position:left var(--co) top var(--co),right var(--co) top var(--co),left var(--co) bottom var(--co),right var(--co) bottom var(--co)}
+.pg.bg-band2{--paper:#f1efea}
+.pg-bg.bg-band2{--bh:calc(min(5mm,var(--mv,18mm)*.3));background:linear-gradient(rgba(35,32,28,.85),rgba(35,32,28,.85)) left top/100% var(--bh) no-repeat,linear-gradient(rgba(168,51,31,.6),rgba(168,51,31,.6)) left 0 top calc(var(--bh) + .8mm)/100% .3mm no-repeat,linear-gradient(rgba(35,32,28,.85),rgba(35,32,28,.85)) left bottom/100% var(--bh) no-repeat,linear-gradient(rgba(168,51,31,.6),rgba(168,51,31,.6)) left 0 bottom calc(var(--bh) + .8mm)/100% .3mm no-repeat}
+`;
+
+/**
+ * 列印、PDF 用的連結（2026-10，上游 v3.15.0；F269、F270）：畫面上看不到「→ 附錄」與「↩ 回到」，
+ * 列印（與模擬列印的 .pv-print）時彈出視窗的按鈕換成「→ 附錄「名稱」」、附錄的每一節加上「↩ 回到 P.n」。
+ * 場景轉換連到標題的連結外觀照場景轉換的文字。
+ */
+const LINK_CSS = `
+.t-scene a.scene-link{color:inherit;text-decoration:inherit;text-underline-offset:inherit}
+.pop-plink,.ap-backs{display:none}
+.pv-print .pop-btn.has-plink{display:none!important}
+.pv-print .pop-plink{display:inline;color:#a8331f;text-decoration:underline;text-underline-offset:.2em;font-weight:700}
+.pv-print .ap-backs{display:flex;flex-wrap:wrap;gap:1mm 5mm;margin:-1mm 0 3mm;font-size:.85em;white-space:normal}
+.ap-back{color:#a8331f;text-decoration:underline;text-underline-offset:.2em}
+@media print{.pop-btn.has-plink{display:none!important}.pop-plink{display:inline;color:#a8331f;text-decoration:underline;text-underline-offset:.2em;font-weight:700}.ap-backs{display:flex;flex-wrap:wrap;gap:1mm 5mm;margin:-1mm 0 3mm;font-size:.85em;white-space:normal}}
+`;
+
 /** 段落間距（3.2.4）：上＝外框的上內距、下＝內容的下外距 */
 export const SPACE_CSS = Object.entries(SPACE)
   .map(([k, v]) => `.bp-${k}{padding-top:${v.t}mm}\n.t-${k}{margin-bottom:${v.b}mm}`)
   .join('\n');
 
 /** 紙面的完整樣式 */
-export const PAPER_CSS = `${BASE_CSS}\n${SPACE_CSS}\n`;
+export const PAPER_CSS = `${BASE_CSS}\n${PATTERN_CSS}\n${LINK_CSS}\n${SPACE_CSS}\n`;
 
 /** 嵌入字型的名稱只留在 CSS 字串裡安全的字元 */
 export const safeFontName = (v: unknown): string =>

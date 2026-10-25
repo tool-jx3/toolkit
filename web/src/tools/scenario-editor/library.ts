@@ -22,7 +22,14 @@ export const LOCAL_MAX = 4 * 1024 * 1024;
 export interface WorkGen {
   t: number;
   size: number;
+  /** 「存到瀏覽器」時取的名稱（2026-10，上游 v3.26.0；F262） */
+  name?: string;
+  /** 自己留的版本：不算進自動的 GEN_MAX 份，不會被擠掉 */
+  keep?: boolean;
 }
+
+/** 自己留的版本的名稱最多幾個字 */
+export const GEN_NAME_MAX = 60;
 
 export interface WorkMeta {
   id: string;
@@ -276,11 +283,30 @@ export function strHash(s: string): string {
   return `${(h >>> 0).toString(36)}:${s.length}`;
 }
 
-/** 留一份版本（與上一份相同時不留，最多 10 份）；json 省略時取存放處裡的本體 */
+/**
+ * 版本清單加上一份：自動的版本最多 max 份（超過時刪最舊的自動版本）；自己留的（keep）不算、不刪。
+ * 回傳新的清單與要刪掉的版本。
+ */
+export function addGen(
+  gens: readonly WorkGen[],
+  g: WorkGen,
+  max = GEN_MAX,
+): { gens: WorkGen[]; drop: WorkGen[] } {
+  const all = [...gens, g];
+  const autos = all.filter((x) => !x.keep);
+  const drop = autos.slice(0, Math.max(0, autos.length - max));
+  return { gens: all.filter((x) => !drop.includes(x)), drop };
+}
+
+/**
+ * 留一份版本；json 省略時取存放處裡的本體。
+ * 自動的版本：與上一份相同時不留，最多 10 份。name 給了時是自己留的版本（F262）：內容相同也留、不算進 10 份、不會被擠掉。
+ */
 export async function snapGen(
   id: string,
   json?: string | null,
   now = Date.now(),
+  name?: string | null,
 ): Promise<boolean> {
   if (!(await workStore())) return false;
   const body = json ?? (await readWork(id));
@@ -288,17 +314,21 @@ export async function snapGen(
   const m = (await listAll()).find((x) => x.id === id);
   if (!m) return false;
   const h = strHash(body);
-  if (m.genHash === h) return false;
-  const gens = [...(m.gens ?? [])];
-  const t = Math.max(now, (gens.at(-1)?.t ?? 0) + 1);
-  gens.push({ t, size: body.length });
-  const drop = gens.slice(0, Math.max(0, gens.length - GEN_MAX));
+  if (name == null && m.genHash === h) return false;
+  const old = m.gens ?? [];
+  const t = Math.max(now, (old.at(-1)?.t ?? 0) + 1);
+  const g: WorkGen = { t, size: body.length };
+  if (name != null) {
+    g.name = String(name).slice(0, GEN_NAME_MAX);
+    g.keep = true;
+  }
+  const { gens, drop } = addGen(old, g);
   await batch(
-    [[genKey(id, t), body], ...drop.map((g) => [genKey(id, g.t), undefined] as const)],
+    [[genKey(id, t), body], ...drop.map((x) => [genKey(id, x.t), undefined] as const)],
     (list) => {
       const mm = metaOf(list, id, false);
       if (mm) {
-        mm.gens = gens.slice(-GEN_MAX);
+        mm.gens = gens;
         mm.genHash = h;
         mm.genAt = t;
       }

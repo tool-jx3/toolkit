@@ -38,12 +38,17 @@ export interface Comment {
   t: string;
 }
 
-/** 文字裝飾（目前只有顏色）：第 a 字到第 b 字 */
+/** 文字裝飾：第 a 字到第 b 字的顏色、大小（顏色與大小可以分開付上、範圍可以重疊） */
 export interface Mark {
   a: number;
   b: number;
+  /** 顏色（空字串＝沒有） */
   col: string;
   bold: boolean;
+  /** 文字大小（pt；2026-10，上游 v3.21.0） */
+  pt?: number;
+  /** 原作 v3.17～v3.20 的大小（倍率）：讀入時換成 pt（3.17.5） */
+  sz?: number;
 }
 
 /** 規則框的外觀 */
@@ -206,6 +211,12 @@ export interface Block {
   ho?: Handout;
   /** 舊的「條列」書式 */
   mark?: string;
+  /** 段落的文字大小（pt，5～72；沒有＝依書式；2026-10，上游 v3.21.0） */
+  pt?: number;
+  /** 原作 v3.17～v3.20 的段落大小（倍率）：讀入時換成 pt（3.17.5） */
+  fs?: number;
+  /** 場景轉換：跳到的標題（空白＝依本文的目的地名稱找；2026-10，上游 v3.24.0） */
+  jump?: string;
 }
 
 export interface PageBg {
@@ -213,6 +224,8 @@ export interface PageBg {
   img: string | null;
   fit: 'cover' | 'contain' | 'repeat';
   opa: number;
+  /** 紙的顏色（#rrggbb；空字串或沒有＝預設的米白；2026-10，上游 v3.13.0） */
+  color?: string;
 }
 
 export interface PageSetting {

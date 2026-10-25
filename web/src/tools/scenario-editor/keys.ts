@@ -20,7 +20,7 @@ import { paperApi } from './Paper';
 import { saveFile } from './session';
 import { clearSelection, say, selectedBlocks, setUi, ui, useDoc, usePrefs } from './store';
 import { S } from './strings';
-import { addRuby } from './textOps';
+import { addRuby, stepTextPt } from './textOps';
 
 /** e.code → 按鍵（Digit1 → '1'、KeyT → 'T'、BracketLeft → '['） */
 export function keyOfCode(code: string): string {
@@ -127,6 +127,12 @@ export function onWindowKey(e: KeyboardEvent): void {
     if (k === ']' || k === '[') {
       e.preventDefault();
       indentSel(k === ']' ? 1 : -1);
+      return;
+    }
+    /* 文字大小（F275）：Ctrl＋Shift＋>（句點的位置）放大、Ctrl＋Shift＋<（逗號的位置）縮小 */
+    if (e.code === 'Period' || e.code === 'Comma') {
+      e.preventDefault();
+      stepTextPt(e.code === 'Period' ? 1 : -1);
       return;
     }
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -273,9 +279,15 @@ export function shortcutList(): Shortcut[] {
       group: '編輯',
       allowInInput: true,
     },
+    {
+      keys: ['mod+shift+.', 'mod+shift+,'],
+      label: '文字放大／縮小一級（> ／ <）',
+      group: '編輯',
+      allowInInput: true,
+    },
     { keys: 'mod+z', label: '復原', group: '編輯', allowInInput: true },
     { keys: ['mod+y', 'mod+shift+z'], label: '重做', group: '編輯', allowInInput: true },
-    { keys: 'mod+s', label: '儲存（存成檔案）', group: '檔案', allowInInput: true },
+    { keys: 'mod+s', label: '儲存（存成 JSON 檔）', group: '檔案', allowInInput: true },
     {
       keys: ['mod+c', 'mod+v'],
       label: '整段複製／貼上（不在文字欄、沒有選取文字時）',

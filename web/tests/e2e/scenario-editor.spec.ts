@@ -172,11 +172,15 @@ async function loadDoc(page: Page, doc: { title: string }) {
   await expect(status(page)).toContainText(doc.title);
 }
 
-/** 目前的原稿（「儲存」下載的專案檔） */
+/** 「儲存」選單的「存成 JSON 檔」（F261） */
+async function saveJson(page: Page) {
+  await page.getByTestId('se-save-menu').click();
+  await page.getByRole('menuitem', { name: /存成 JSON 檔/ }).click();
+}
+
+/** 目前的原稿（「儲存」→「存成 JSON 檔」下載的專案檔） */
 async function savedDoc(page: Page) {
-  const { bytes } = await download(page, () =>
-    page.getByRole('button', { name: '儲存', exact: true }).click(),
-  );
+  const { bytes } = await download(page, () => saveJson(page));
   return JSON.parse(bytes.toString('utf8')).data as {
     blocks: (TestBlock & { col?: string; mk?: { a: number; b: number; col: string }[] })[];
   };
@@ -290,9 +294,7 @@ test.describe('劇本排版台', () => {
 
   test('存成檔案：專案檔格式', async ({ page }) => {
     await open(page);
-    const { name, bytes } = await download(page, () =>
-      page.getByRole('button', { name: '儲存', exact: true }).click(),
-    );
+    const { name, bytes } = await download(page, () => saveJson(page));
     expect(name).toBe('未命名的劇本.json');
     const json = JSON.parse(bytes.toString('utf8'));
     expect(json.format).toBe('trpg-toolkit-project');
@@ -330,11 +332,12 @@ test.describe('劇本排版台', () => {
     await view.locator('#tocMask').click();
     await expect(view.locator('#nav .nvt').first()).toHaveText('導入');
     /* 彈出視窗 */
+    /* 彈出視窗：本文上方的浮動視窗（F268） */
     await view.locator('[data-popopen]').first().click();
-    await expect(view.locator('#popOv')).toHaveClass(/on/);
-    await expect(view.locator('#popIn')).toContainText('二樓的走廊盡頭');
+    await expect(view.locator('.fwin')).toHaveCount(1);
+    await expect(view.locator('.fwin .fw-b')).toContainText('二樓的走廊盡頭');
     await view.keyboard.press('Escape');
-    await expect(view.locator('#popOv')).not.toHaveClass(/on/);
+    await expect(view.locator('.fwin')).toHaveCount(0);
     /* 預先放好的資料：表格的 roll-table、NPC 卡的棋子 */
     const out = await view.locator('script.outdata[id^="out"]').first().textContent();
     expect(out).toBe('/roll-table\n大廳的事件\n1D3\n1:時鐘響起\n2:燈光熄滅\n3:樓上傳來腳步聲');
@@ -391,7 +394,8 @@ test.describe('劇本排版台', () => {
     /* 補字：只向 Google Fonts 要繁中字型沒有的字（明體堆疊 → Noto Serif JP） */
     const jp = asked.filter((a) => a.startsWith('Noto Serif JP'));
     expect(jp).toHaveLength(1);
-    expect([...jp[0].split('|')[1]].sort().join('')).toBe([...JP_ONLY].sort().join(''));
+    /* 附錄的「↩ 回到 P.n」（2026-10，F269）的「↩」測試用的繁中字型也沒有，一起補 */
+    expect([...jp[0].split('|')[1]].sort().join('')).toBe([...`${JP_ONLY}↩`].sort().join(''));
     await expect(status(page)).toContainText('霧中的洋館.pdf');
     expect(errors).toEqual([]);
   });
@@ -580,6 +584,13 @@ test.describe('劇本排版台', () => {
     await page.getByRole('tab', { name: '頁面' }).click();
     await page.getByRole('button', { name: '選取全部頁面' }).click();
     await expect(stage(page).locator('[data-pgsel]:checked')).toHaveCount(5);
+    /* 勾選時面板換成第一頁的背景（紙紋；F266），改成素色再套用 */
+    const chips = page.getByRole('group', { name: '花紋' });
+    await expect(chips.getByRole('button', { name: '紙紋' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await chips.getByRole('button', { name: '素色' }).click();
     await page.getByRole('button', { name: '套用到選取的頁面' }).click();
     await expect(status(page)).toContainText('已把背景套用到 5 頁');
     await expect(stage(page).locator('.pg.bg-paper')).toHaveCount(0);
@@ -1027,9 +1038,7 @@ test.describe('劇本排版台', () => {
     await page.keyboard.press('Control+y');
     await expect(page.getByLabel('變數 2 的名稱')).toHaveCount(0);
     /* 存檔：專案檔版本 2、變數與兩種書式 */
-    const { bytes } = await download(page, () =>
-      page.getByRole('button', { name: '儲存', exact: true }).click(),
-    );
+    const { bytes } = await download(page, () => saveJson(page));
     const saved = JSON.parse(bytes.toString('utf8'));
     expect(saved.version).toBe(2);
     expect(saved.data.vars).toEqual([{ n: 'KP', def: '守秘人', note: 'KP 的名字' }]);
@@ -1276,7 +1285,7 @@ test.describe('劇本排版台', () => {
       'rgb(154, 142, 116)',
     );
     await view.locator('#doc button.pop-btn').nth(1).click();
-    const rh1 = await measure(view.locator('#popIn .rh1 .tvar'));
+    const rh1 = await measure(view.locator('.fwin .fw-b .rh1 .tvar'));
     expect(rh1.ratio).toBeGreaterThanOrEqual(4.5);
     expect(rh1.line).not.toBe('none');
     await view.close();
