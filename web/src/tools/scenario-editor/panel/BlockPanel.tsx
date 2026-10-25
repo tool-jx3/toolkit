@@ -2,7 +2,7 @@
  * 設定欄的「段落」分頁：選取資訊（F081）、各書式的設定（1.6）、共通設定（1.5）、所在儲存格（F080）。
  */
 import { Eye } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Button,
   Checkbox,
@@ -14,32 +14,43 @@ import {
   Section,
   Segmented,
   Select,
-  TextArea,
   TextInput,
   Toggle,
 } from '@/ui';
 import { bridge } from '../bridge';
-import { allBlocks, cellOwnerOf, findBlock, typeName } from '../model/blocks';
+import {
+  allBlocks,
+  cellOwnerOf,
+  findBlock,
+  kidsOwnerOf,
+  space,
+  spKey,
+  typeName,
+} from '../model/blocks';
 import { popupLabel } from '../model/doc';
 import { FLOW_MAX_H, FLOW_MAX_W } from '../model/flow';
+import { PT_BUTTONS, PT_MAX, PT_MIN, ptRound } from '../model/fontSize';
 import {
   applyBxTpl,
   BOX_COLORS,
   BX_TPL,
+  BX_TPL_BUTTONS,
   blockLabel,
   bxTplClean,
   ensureProc,
   LABEL_INFO,
   LABEL_PICKS,
+  procName,
   procStyleOf,
   sameStyle,
 } from '../model/proc';
 import { slashCommandsFor } from '../model/rich';
+import { headingChoices, headNames, sceneTargetOf, sceneWanted } from '../model/scene';
 import { tblCols, tblDelCol, tblDelRow, tblRows } from '../model/table';
-import { setBlockText } from '../model/text';
-import { ensureToc, TOC_PICKS, tocOf } from '../model/toc';
+import { rubyPlain } from '../model/text';
+import { ensureToc, TOC_PICKS, tocEntriesFor, tocOf } from '../model/toc';
 import type { Block, BoxStyle, BoxTemplate } from '../model/types';
-import { ensureHo, hoOf, isVarName } from '../model/vars';
+import { ensureHo, hoNote, hoOf, isVarName } from '../model/vars';
 import { deleteComments, indentSel, renamePopup, setGap, setSpan, toggleClear } from '../ops';
 import { rememberTemplates } from '../session';
 import {
@@ -58,11 +69,15 @@ import {
   addCommentToSelection,
   addRuby,
   applyColor,
+  applyPt,
   applyRichMark,
+  currentPt,
   RICH_BUTTONS,
 } from '../textOps';
 import { ImageProps } from './ImageProps';
 import { NpcProps } from './NpcProps';
+import { PageImgPanel } from './PageImgProps';
+import { PanelHead } from './PanelHead';
 import { TableProps } from './TableProps';
 
 /** 文字顏色的色票（F074） */
@@ -85,19 +100,23 @@ export function PreviewButton({ id }: { id: string }) {
 
 export function BlockPanel() {
   const sel = useUi((s) => s.sel);
+  const pimgSel = useUi((s) => s.pimgSel);
   const d = useDoc((s) => s.data);
   const found = sel.map((id) => findBlock(d, id)).filter((f) => !!f);
+  /* 頁面圖片（2026-10）：選取時設定欄顯示它的設定 */
+  if (!found.length && pimgSel && (d.pageImgs ?? []).some((x) => x.id === pimgSel))
+    return <PageImgPanel />;
   if (!found.length) return <p className="m-0 p-2 text-sm text-muted">{S.hints.noSelection}</p>;
   const b = found[0].b;
   const single = found.length === 1;
   const owner = single ? cellOwnerOf(d, found[0].list) : null;
   return (
     <div className="flex flex-col gap-2" data-testid="se-block-panel">
-      <p className="m-0 text-sm text-muted" aria-live="polite">
+      <PanelHead>
         {single
-          ? `目前：${typeName(b.type)}／${b.cols === 1 ? '全寬' : '欄內'}`
+          ? `目前：${b.type === 'proc' ? procName(b) : typeName(b.type)}／${b.cols === 1 ? '全寬' : '欄內'}${kidsOwnerOf(d, found[0].list) ? '（段落裡）' : ''}`
           : `已選取 ${found.length} 段`}
-      </p>
+      </PanelHead>
       {single ? <TypeProps b={b} /> : null}
       <CommonProps blocks={found.map((f) => f.b)} />
       {owner ? <CellSection tbl={owner.b} r={owner.r} c={owner.c} /> : null}
@@ -113,6 +132,8 @@ function TypeProps({ b }: { b: Block }) {
       return <ProcProps b={b} />;
     case 'info':
       return <InfoProps b={b} />;
+    case 'note':
+      return <NoteProps b={b} />;
     case 'handout':
       return <HandoutProps key={b.id} b={b} />;
     case 'popup':
@@ -127,11 +148,17 @@ function TypeProps({ b }: { b: Block }) {
       return <TableProps b={b} />;
     case 'npc':
       return <NpcProps b={b} />;
+    case 'scene':
+      return (
+        <>
+          <SceneProps b={b} />
+          <HeadingTocProps b={b} />
+        </>
+      );
     case 'title':
     case 'h1':
     case 'h2':
     case 'h3':
-    case 'scene':
     case 'subtitle':
       return <HeadingTocProps b={b} />;
     default:
@@ -159,16 +186,24 @@ function DialogProps({ b }: { b: Block }) {
   );
 }
 
-/* ---------- 規則框（F091～F095） ---------- */
+/* ---------- 特殊區塊（F091～F095、F303～F306） ---------- */
+
+type BarKind = 'none' | 'thin' | 'mid' | 'thick';
+const barOf = (x: Required<BoxStyle>): BarKind =>
+  x.bar ? (x.thin ? 'thin' : x.mid ? 'mid' : 'thick') : 'none';
+const BAR_STYLE: Record<BarKind, Pick<BoxStyle, 'bar' | 'thin' | 'mid'>> = {
+  none: { bar: false, thin: false, mid: false },
+  thin: { bar: true, thin: true, mid: false },
+  mid: { bar: true, thin: false, mid: true },
+  thick: { bar: true, thin: false, mid: false },
+};
 
 function ProcProps({ b }: { b: Block }) {
   const tpls = useDoc((s) => s.data.bxTpl);
   const st = procStyleOf(b);
   const setStyle = (p: Partial<BoxStyle>) =>
     editBlock(b.id, (x) => Object.assign(ensureProc(x), p));
-  const heads = String(b.text ?? '')
-    .split('\n')
-    .filter((l) => /^\s*[■◆]/.test(l)).length;
+  const kids = b.kids?.length ?? 0;
   const apply = (key: string) => {
     edit((d) => {
       const x = findBlock(d, b.id)?.b;
@@ -177,10 +212,10 @@ function ProcProps({ b }: { b: Block }) {
   };
   const saveTpl = async () => {
     const r = await bridge.prompt({
-      title: '把目前的外觀存成樣板',
-      label: '樣板的名稱（最多 24 字）',
+      title: '把目前的外觀存成範本',
+      label: '範本的名稱（最多 24 字）',
       maxLength: 24,
-      confirmLabel: '存成樣板',
+      confirmLabel: '存成範本',
     });
     const n = r?.value.trim().slice(0, 24);
     if (!n) return;
@@ -213,7 +248,7 @@ function ProcProps({ b }: { b: Block }) {
   };
   const rename = async (t: BoxTemplate) => {
     const r = await bridge.prompt({
-      title: '樣板的名稱與標題語',
+      title: '範本的名稱與標題語',
       label: '名稱（最多 24 字）',
       value: t.n,
       maxLength: 24,
@@ -250,20 +285,16 @@ function ProcProps({ b }: { b: Block }) {
     rememberTemplates(list);
     say(S.status.tplRemoved(t.n));
   };
-  const builtin: [string, string, BoxStyle][] = [
-    ['skill', '技能檢定', BX_TPL.skill],
-    ['rule', '特殊規則', BX_TPL.rule],
-  ];
   return (
-    <Section title="規則框" fixed>
-      <Field label="樣板">
+    <Section title="特殊區塊" fixed>
+      <Field label="範本" hint="按下就換成那個外觀與標題語；下面可以再細調。">
         <div className="flex flex-wrap gap-1">
-          {builtin.map(([k, name, s]) => (
+          {BX_TPL_BUTTONS.map(({ k, name }) => (
             <Button
               key={k}
               size="sm"
-              variant={sameStyle(st, s) ? 'primary' : 'secondary'}
-              aria-pressed={sameStyle(st, s)}
+              variant={sameStyle(st, BX_TPL[k]) ? 'primary' : 'secondary'}
+              aria-pressed={sameStyle(st, BX_TPL[k])}
               onClick={() => apply(k)}
             >
               {name}
@@ -272,7 +303,7 @@ function ProcProps({ b }: { b: Block }) {
         </div>
       </Field>
       {tpls.length ? (
-        <ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label="自己的樣板">
+        <ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label="自己的範本">
           {tpls.map((t) => (
             <li key={t.id} className="flex flex-wrap items-center gap-1">
               <Button
@@ -297,12 +328,16 @@ function ProcProps({ b }: { b: Block }) {
         </ul>
       ) : null}
       <Button size="sm" variant="secondary" onClick={() => void saveTpl()}>
-        把目前的外觀存成樣板
+        把目前的外觀存成範本
       </Button>
-      <Field label="標題語" hint="框左上的小標；空白時不顯示。">
+      <Field
+        label="標題語"
+        hint="框左上的小標；空白時不顯示。對話的樣子時是說話者。左邊文字欄的文字上方也可以改。"
+      >
         <TextInput
-          value={b.lb == null ? '技能檢定' : String(b.lb)}
+          value={blockLabel(b)}
           list="se-lb-picks"
+          placeholder="標題語（對話的樣子時是說話者）"
           onChange={(e) => editBlock(b.id, (x) => (x.lb = e.target.value))}
         />
       </Field>
@@ -330,15 +365,46 @@ function ProcProps({ b }: { b: Block }) {
           ]}
         />
       </Field>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
-        <Checkbox
-          checked={st.bar}
-          onCheckedChange={(v) => setStyle({ bar: !!v })}
-          label="左側粗線"
+      <Field label="左側的線">
+        <Segmented
+          size="sm"
+          value={barOf(st)}
+          onValueChange={(v) => setStyle(BAR_STYLE[v])}
+          options={[
+            { value: 'none', label: '無' },
+            { value: 'thin', label: '細' },
+            { value: 'mid', label: '中' },
+            { value: 'thick', label: '粗' },
+          ]}
         />
+      </Field>
+      <Field label="字的大小">
+        <Segmented
+          size="sm"
+          value={st.xs ? 'xs' : st.sm ? 'sm' : 'n'}
+          onValueChange={(v) => setStyle({ sm: v === 'sm', xs: v === 'xs' })}
+          options={[
+            { value: 'n', label: '一般' },
+            { value: 'sm', label: '小一點' },
+            { value: 'xs', label: '更小' },
+          ]}
+        />
+      </Field>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
         <Checkbox checked={st.fill} onCheckedChange={(v) => setStyle({ fill: !!v })} label="底色" />
-        <Checkbox checked={st.sm} onCheckedChange={(v) => setStyle({ sm: !!v })} label="字級稍小" />
+        <Checkbox
+          checked={st.ink}
+          onCheckedChange={(v) => setStyle({ ink: !!v })}
+          label="文字也用框的顏色"
+        />
       </div>
+      <Field
+        label="按一下複製"
+        layout="inline"
+        hint="匯出的 HTML 裡按這個框，複製內文（含裡面的段落）。跑團時貼到聊天室用。"
+      >
+        <Toggle checked={st.copy} onCheckedChange={(v) => setStyle({ copy: !!v })} />
+      </Field>
       <Field label="顏色">
         <div className="flex flex-wrap gap-1">
           {BOX_COLORS.map((c) => (
@@ -357,45 +423,30 @@ function ProcProps({ b }: { b: Block }) {
           ))}
         </div>
       </Field>
-      <Field
-        label="內容"
-        hint={`行首「■」是小標、「>」是檢定框（第一行冒號前是框的小標）。目前小標 ${heads} 個。`}
-      >
-        <TextArea
-          rows={5}
-          value={String(b.text ?? '')}
-          data-bid={b.id}
-          onChange={(e) => editBlock(b.id, (x) => setTextKeep(x, e.target.value))}
-        />
-      </Field>
-      <div className="flex flex-wrap gap-1">
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => editBlock(b.id, (x) => setTextKeep(x, appendLine(x.text, '■小標')))}
-        >
-          ＋小標
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => editBlock(b.id, (x) => setTextKeep(x, appendLine(x.text, '> 技能檢定：')))}
-        >
-          ＋檢定框
-        </Button>
+      <PanelNote>
+        {`裡面的段落：在左邊文字欄這個特殊區塊的文字最後按 Enter（或在下一段按 Tab）。「■成功」開頭的是左邊有線的一塊；在裡面選「特殊區塊」是巢狀的檢定。${kids ? `目前裡面有 ${kids} 個段落。` : ''}`}
+      </PanelNote>
+      <div>
         <PreviewButton id={b.id} />
       </div>
     </Section>
   );
 }
 
-function setTextKeep(b: Block, t: string): void {
-  setBlockText(b, t);
-}
+/* ---------- 注釋的標題語（第三批驗證後 U7；同原作的注釋範本） ---------- */
 
-function appendLine(text: unknown, line: string): string {
-  const t = String(text ?? '').replace(/\n*$/, '');
-  return t ? `${t}\n${line}` : line;
+function NoteProps({ b }: { b: Block }) {
+  return (
+    <Section title={S.note.title} fixed>
+      <Field label={S.note.label} hint={S.note.labelHint}>
+        <TextInput
+          value={blockLabel(b)}
+          placeholder="（沒有標題語）"
+          onChange={(e) => editBlock(b.id, (x) => (x.lb = e.target.value))}
+        />
+      </Field>
+    </Section>
+  );
 }
 
 /* ---------- 情報區塊（F251） ---------- */
@@ -473,6 +524,33 @@ function HandoutProps({ b }: { b: Block }) {
           }
         />
       </Field>
+      <FieldRow columns={2}>
+        <Field label={`${S.handout.varLabel(h.no)}　${S.vars.def}`}>
+          <TextInput
+            value={String(h.def ?? '')}
+            placeholder={h.no}
+            data-testid="se-ho-def"
+            onChange={(e) =>
+              editBlock(b.id, (x) => {
+                ensureHo(x).def = e.target.value;
+              })
+            }
+          />
+        </Field>
+        <Field label={S.vars.note}>
+          <TextInput
+            value={String(h.note ?? '')}
+            placeholder={hoNote(h.ttl)}
+            data-testid="se-ho-note"
+            onChange={(e) =>
+              editBlock(b.id, (x) => {
+                ensureHo(x).note = e.target.value;
+              })
+            }
+          />
+        </Field>
+      </FieldRow>
+      <PanelNote>{S.handout.varHint(h.no)}</PanelNote>
       <PanelNote>{S.handout.copyHint}</PanelNote>
       <div>
         <PreviewButton id={b.id} />
@@ -507,7 +585,8 @@ function PopupProps({ b }: { b: Block }) {
         />
       </Field>
       <p className="m-0 text-xs text-muted">
-        在描述文、注釋、規則框的行首寫「＠{popupLabel(b)}」就是開啟它的按鈕。
+        在描述文、對話文、注釋、特殊區塊、情報區塊、手冊的行首寫「＠{popupLabel(b)}
+        」就是開啟它的按鈕。
       </p>
       <div className="flex flex-wrap gap-1">
         <Button size="sm" onClick={() => setUi({ popEdit: b.id })}>
@@ -574,14 +653,38 @@ function TocProps({ b }: { b: Block }) {
   const t = tocOf(b);
   const set = (fn: (x: ReturnType<typeof ensureToc>) => void) =>
     editBlock(b.id, (x) => fn(ensureToc(x)));
-  const n = d.blocks.filter((x) => {
-    const m = x.tocMode;
-    if (m === 'off' || x.tocOff) return false;
-    return (m === 'on' || t.pick.includes(x.type)) && String(x.tl || x.text || '').trim() !== '';
-  }).length;
-  void layout;
+  const top = d.blocks.some((x) => x.id === b.id);
+  const n = tocEntriesFor(b, d.blocks, (id) =>
+    layout.pageOf[id] != null ? layout.pageOf[id] + 1 : null,
+  ).length;
   return (
     <Section title="目錄" fixed>
+      {top ? (
+        <Field
+          label="收錄的範圍"
+          hint={
+            t.scope === 'chapter'
+              ? '收錄上一個標題 1 到下一個標題 1 之前的標題（每一章自己的目錄）。'
+              : '收錄整份劇本的標題。'
+          }
+        >
+          <Segmented
+            size="sm"
+            aria-label="收錄的範圍"
+            value={t.scope === 'chapter' ? 'chapter' : 'all'}
+            onValueChange={(v) =>
+              set((x) => {
+                if (v === 'chapter') x.scope = 'chapter';
+                else delete x.scope;
+              })
+            }
+            options={[
+              { value: 'all', label: '整份' },
+              { value: 'chapter', label: '這一章' },
+            ]}
+          />
+        </Field>
+      ) : null}
       <Field label="標題語" hint="空白時不顯示。">
         <TextInput value={t.lb} onChange={(e) => set((x) => (x.lb = e.target.value))} />
       </Field>
@@ -614,6 +717,54 @@ function TocProps({ b }: { b: Block }) {
       </div>
       <p className="m-0 text-xs text-muted">目前收錄 {n} 項。</p>
       <PreviewButton id={b.id} />
+    </Section>
+  );
+}
+
+/* ---------- 場景轉換連到的標題（F270、F271；2026-10，上游 v3.15.0、v3.24.0） ---------- */
+
+function SceneProps({ b }: { b: Block }) {
+  const d = useDoc((s) => s.data);
+  const pageOf = useUi((s) => s.layout.pageOf);
+  const h = sceneTargetOf(d, b);
+  const want = sceneWanted(b);
+  /* 已經有這個名稱的段落（例如彈出視窗裡的標題、主標題）時不叫人「建立」（7.5 的 S1） */
+  const named =
+    !h &&
+    allBlocks(d).some((x) => x.type !== 'scene' && headNames(x.text).some((n) => want.includes(n)));
+  const pg = h && pageOf[h.id] != null ? pageOf[h.id] + 1 : null;
+  const listId = `se-jump-${b.id}`;
+  return (
+    <Section title="場景轉換" fixed>
+      <Field
+        label="跳到的標題"
+        hint="寫標題 1～3 的名稱，匯出的 HTML、列印與 PDF 裡就會連到那個標題（可以從候選選）。空白時，本文的目的地名稱（「前往書房」「→ 移動到書房」「場景 3『書房』」等）和標題完全相同才連過去。"
+      >
+        <TextInput
+          value={String(b.jump ?? '')}
+          list={listId}
+          placeholder="空白＝依本文的目的地名稱找"
+          onChange={(e) => editBlock(b.id, (x) => (x.jump = e.target.value))}
+        />
+      </Field>
+      <datalist id={listId}>
+        {headingChoices(d).map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
+      <p className="m-0 text-xs" data-testid="se-scene-target">
+        {h ? (
+          <span className="text-fg">
+            →「{rubyPlain(String(h.text ?? '')).trim()}」{pg ? `（P.${pg}）` : ''}
+          </span>
+        ) : (
+          <span className="text-muted">
+            {named
+              ? '找不到要連的標題（只連到本文的標題 1～3）。'
+              : `找不到要連的標題${want.length ? `（建立名為「${want[0]}」的標題 1～3 就能連過去）` : ''}。`}
+          </span>
+        )}
+      </p>
     </Section>
   );
 }
@@ -673,11 +824,14 @@ function CommonProps({ blocks }: { blocks: Block[] }) {
   const spanFixed = blocks.every((x) => x.type === 'npc' || x.type === 'flow');
   const allSpan = blocks.every((x) => x.cols === 1);
   const allFlow = blocks.every((x) => x.cols === 2);
-  const rich = single && ['desc', 'note', 'proc', 'info', 'handout', 'table'].includes(b.type);
+  const rich =
+    single && ['desc', 'dialog', 'note', 'proc', 'info', 'handout', 'table'].includes(b.type);
   const gapVal = (k: 'mt' | 'mb') => {
     const vals = new Set(blocks.map((x) => (x[k] == null ? '' : String(x[k]))));
     return vals.size === 1 ? [...vals][0] : '';
   };
+  /* 沒有指定時淡淡顯示書式的預設（第一個段落的；上游 v3.24.0） */
+  const sp0 = space(spKey(b) ?? b.type);
   return (
     <Section title="段落的設定" fixed>
       {rich ? (
@@ -761,6 +915,7 @@ function CommonProps({ blocks }: { blocks: Block[] }) {
           </Button>
         </div>
       </Field>
+      <TextSize />
       <Field label="縮排" hint={`目前第 ${b.ind ?? 0} 層（每層 4 mm，最多 4 層）。`}>
         <div className="flex gap-1">
           <Button size="sm" variant="secondary" onClick={() => indentSel(-1)}>
@@ -785,7 +940,7 @@ function CommonProps({ blocks }: { blocks: Block[] }) {
             max={100}
             step={0.5}
             unit="mm"
-            placeholder="預設"
+            placeholder={`預設 ${sp0.t}`}
             onChange={(v) => setGap('mt', v === '' ? null : Math.max(0, +v))}
           />
         </Field>
@@ -796,13 +951,141 @@ function CommonProps({ blocks }: { blocks: Block[] }) {
             max={100}
             step={0.5}
             unit="mm"
-            placeholder="預設"
+            placeholder={`預設 ${sp0.b}`}
             onChange={(v) => setGap('mb', v === '' ? null : Math.max(0, +v))}
           />
         </Field>
       </FieldRow>
-      <p className="m-0 text-xs text-muted">只套用在這個段落的間距；留空＝依書式的預設。</p>
+      <p className="m-0 text-xs text-muted">
+        只套用在這個段落的間距；留空＝依書式的預設（淡淡顯示的值）。和前後的段落之間是較大的那個。
+      </p>
     </Section>
+  );
+}
+
+/** 文字欄裡的選取範圍變了就重畫（文字大小的「目前大小」跟著選取的文字） */
+function useSelectionTick(): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const on = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        setN((x) => x + 1);
+      });
+    };
+    document.addEventListener('selectionchange', on);
+    return () => {
+      document.removeEventListener('selectionchange', on);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+  return n;
+}
+
+/** 文字大小（F273～F275；2026-10，上游 v3.21.0、v3.24.0） */
+function TextSize() {
+  useSelectionTick();
+  useDoc((s) => s.data);
+  useUi((s) => s.sel);
+  const { value, mixed } = currentPt();
+  return (
+    <Field
+      label="文字大小"
+      hint="文字欄裡有選取文字時只改那一段，沒有時改選取的段落（5～72 pt）。大小直接記 pt，改內文字級時不會跟著變。"
+    >
+      <div className="flex flex-col gap-1.5">
+        {/* biome-ignore lint/a11y/useSemanticElements: 一組切換按鈕 */}
+        <div role="group" aria-label="文字大小" className="grid grid-cols-7 gap-1">
+          {PT_BUTTONS.map((v) => {
+            const on = value != null && Math.abs(value - v) < 0.01;
+            return (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={on}
+                aria-label={`${v} pt`}
+                title={`改成 ${v} pt`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applyPt(v)}
+                className={`flex min-h-9 flex-col items-center justify-end rounded-sm border px-0 pt-0.5 leading-none ${
+                  on
+                    ? 'border-accent bg-accent-soft text-accent'
+                    : 'border-border bg-surface-2 text-fg hover:border-accent'
+                }`}
+              >
+                <b aria-hidden style={{ fontSize: `${Math.min(19, 7 + v * 0.38).toFixed(1)}px` }}>
+                  A
+                </b>
+                <small aria-hidden className="text-[10px] text-muted">
+                  {v}
+                </small>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-1">
+          <PtInput value={value} mixed={mixed} />
+          <span className="text-xs text-muted">pt</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyPt(null)}
+            title="選取段落時，段落裡文字另外設的大小也一起恢復"
+          >
+            恢復預設
+          </Button>
+        </div>
+      </div>
+    </Field>
+  );
+}
+
+/** 文字大小的數字欄：Enter、離開欄位、微調鈕時套用（打字中不套用） */
+function PtInput({ value, mixed }: { value: number | null; mixed: boolean }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const ref = useRef<HTMLInputElement>(null);
+  const commit = (raw: string) => {
+    setDraft(null);
+    const v = Number.parseFloat(raw.normalize('NFKC'));
+    if (Number.isFinite(v) && v > 0) applyPt(ptRound(v));
+  };
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    /* 原生的 change：微調鈕、離開欄位（打字中不觸發） */
+    const on = () => commitRef.current(el.value);
+    el.addEventListener('change', on);
+    return () => el.removeEventListener('change', on);
+  }, []);
+  return (
+    <TextInput
+      ref={ref}
+      type="number"
+      min={PT_MIN}
+      max={PT_MAX}
+      step={0.5}
+      aria-label="文字大小（pt）"
+      className="w-20"
+      placeholder={mixed ? '—' : ''}
+      title={
+        mixed ? '選取的範圍裡大小不只一種：按按鈕或輸入大小就會統一' : `${PT_MIN}～${PT_MAX} pt`
+      }
+      value={draft ?? (value == null ? '' : String(value))}
+      onChange={(e) => setDraft(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+          e.preventDefault();
+          commit(e.currentTarget.value);
+        } else if (e.key === 'Escape') {
+          setDraft(null);
+        }
+      }}
+    />
   );
 }
 

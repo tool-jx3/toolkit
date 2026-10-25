@@ -27,6 +27,7 @@ import {
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
+import { useSaveError } from '@/core/storage';
 import {
   Button,
   cn,
@@ -39,13 +40,14 @@ import {
   withShortcut,
 } from '@/ui';
 import { useNotify, useRenameProject } from './common';
+import { useRoomZipOpener } from './dialogs/RoomImport';
 import { ImagePicker } from './ImagePicker';
 import { importFiles, importMessage } from './importer';
 import { ACTIONS, keyOf } from './keys';
 import { Modals } from './Modals';
 import { formatMb } from './materials';
 import { TOOL_ID } from './model';
-import { exportRoom, pickAndOpen, redoAny, restoreBlobs, saveProject, undoAny } from './ops';
+import { exportRoom, isZipFile, redoAny, restoreBlobs, saveProject, undoAny } from './ops';
 import { HomePage } from './pages/Home';
 import { MaterialsPage } from './pages/Materials';
 import { CutinsPage, PiecesPage, StoryPage } from './pages/Others';
@@ -114,6 +116,7 @@ function Startup() {
 
 function HeaderActions() {
   const n = useNotify();
+  const { pickAny } = useRoomZipOpener();
   const projectUndo = useStore(useProject.temporal, (s) => s.pastStates.length > 0);
   const projectRedo = useStore(useProject.temporal, (s) => s.futureStates.length > 0);
   const templateUndo = useTemplateHistory((s) => s.past.length > 0);
@@ -147,7 +150,7 @@ function HeaderActions() {
         icon={<SaveAll />}
         onClick={() => void saveProject('saveAs', n)}
       />
-      <IconButton label={S.open} icon={<FolderOpen />} onClick={() => void pickAndOpen(n)} />
+      <IconButton label={S.open} icon={<FolderOpen />} onClick={() => void pickAny()} />
       <Button
         variant="primary"
         size="sm"
@@ -174,6 +177,7 @@ function TopBar() {
     ]),
   );
   const [rename, node] = useRenameProject();
+  const saveError = useSaveError(TOOL_ID);
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
       <button
@@ -189,6 +193,11 @@ function TopBar() {
         {S.summary(counts[0], counts[1], counts[2], counts[3])}
       </span>
       <span className="hidden text-xs text-muted md:inline">{S.subtitle}</span>
+      {saveError ? (
+        <span className="text-xs text-warning" role="status" data-testid="save-error">
+          {S.saveFailedBanner}
+        </span>
+      ) : null}
       {node}
     </div>
   );
@@ -496,6 +505,7 @@ function Workspace() {
   const page = useSession((s) => s.page);
   const lay = useLayout((s) => s.data);
   const n = useNotify();
+  const { openAnyFile } = useRoomZipOpener();
   const showRight = page !== 'room';
   return (
     <div className={'flex min-w-0 flex-1 flex-col gap-3'} data-page={page}>
@@ -516,8 +526,16 @@ function Workspace() {
       <ImagePicker />
       <WindowDrop
         label={S.materialsDrop}
+        hint={S.roomImport.dropHint}
         onDrop={async (files) => {
           if (useSession.getState().picker) return;
+          /* ZIP（房間 ZIP 或專案檔，和拖放圖片分開）：一次一個，其他檔案不處理（F288） */
+          const zip = files.find(isZipFile);
+          if (zip) {
+            if (files.length > 1) n(S.roomImport.droppedOthers(files.length - 1), 'warning');
+            await openAnyFile(zip);
+            return;
+          }
           const r = await importFiles(files);
           const msg = importMessage(r);
           n(msg.text, msg.ok ? 'success' : 'warning');

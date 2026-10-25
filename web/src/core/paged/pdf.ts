@@ -3,7 +3,8 @@
  *
  * 直接讀瀏覽器排好的版面（不重新排版，所以位置與畫面完全相同）：
  * - 底圖層（rasterLayers 選到的元素，例如紙色、花紋、背景圖）用 SVG foreignObject 畫成點陣（沒有文字，不受字型影響）；
- * - 其他元素依 DOM 順序畫成向量：底色（含圓角）、框線（實線、虛線、點線）、圖片、行內 SVG（點陣化）；
+ * - 其他元素依 DOM 順序畫成向量：底色（含圓角）、框線（實線、虛線、點線、雙線）、圖片（drop-shadow 的陰影畫成點陣）、
+ *   行內 SVG（點陣化）；
  * - 文字逐字量出位置（Range），用嵌入的字型放在同一個位置，所以可以選取、搜尋；底線另外畫。
  * 頁面元素要已經排好版、沒有被 transform 縮放（例如放在畫面外的容器裡），看得到的字都要是真的文字（不用 ::before 的 content）。
  * 量測用的容器（頁面元素的祖先）可以是 visibility:hidden：畫的時候頁面元素暫時設成 visible，頁面裡另外設成 hidden 的元素照樣不畫。
@@ -68,6 +69,11 @@ export interface PdfOptions {
    * 這些字就用它們畫在紙面上量到的位置。丟 PdfFontError 時整個 PDF 失敗（訊息說明原因）；回傳空陣列時略過這些字。
    */
   missingGlyphs?: (req: PdfMissingGlyphs) => Promise<readonly PdfFontSource[]>;
+  /**
+   * 頁內連結（scenario-editor 2026-10 加，選填；不給時行為不變＝沒有連結）：頁面裡看得到的 `a[href^="#"]`，
+   * 連到的 id 在這次的頁面裡時，在 PDF 加上同樣位置、跳到那個元素所在頁與高度的連結（Link 註解、沒有框線）。
+   */
+  links?: boolean;
 }
 
 /** 補字的要求 */
@@ -480,10 +486,84 @@ function paintBox(
       dashArray: dash(s.style, s.w),
     });
   };
-  if (t) line(t, r.left, r.top + t.w / 2, r.right, r.top + t.w / 2);
-  if (b) line(b, r.left, r.bottom - b.w / 2, r.right, r.bottom - b.w / 2);
-  if (l) line(l, r.left + l.w / 2, r.top, r.left + l.w / 2, r.bottom);
-  if (rr) line(rr, r.right - rr.w / 2, r.top, r.right - rr.w / 2, r.bottom);
+  /* 雙線（double）：外側與內側各一條、各 1/3 的粗細（中間 1/3 是空白），與瀏覽器相同 */
+  const edge = (
+    s: { w: number; style: string; col: Rgba } | null,
+    at: (k: number) => [number, number, number, number],
+  ) => {
+    if (!s) return;
+    if (s.style === 'double' && s.w >= 3) {
+      const one = { ...s, w: s.w / 3, style: 'solid' };
+      line(one, ...at(s.w / 6));
+      line(one, ...at((s.w * 5) / 6));
+      return;
+    }
+    line(s, ...at(s.w / 2));
+  };
+  edge(t, (k) => [r.left, r.top + k, r.right, r.top + k]);
+  edge(b, (k) => [r.left, r.bottom - k, r.right, r.bottom - k]);
+  edge(l, (k) => [r.left + k, r.top, r.left + k, r.bottom]);
+  edge(rr, (k) => [r.right - k, r.top, r.right - k, r.bottom]);
+}
+
+/** CSS filter 的 drop-shadow（算出來的值：「drop-shadow(rgba(0, 0, 0, 0.2) 1.1px 1.5px 3px)」） */
+export function parseDropShadow(
+  filter: string,
+): { color: string; dx: number; dy: number; blur: number } | null {
+  const m = String(filter ?? '').match(/drop-shadow\((.*)\)/);
+  if (!m) return null;
+  const inner = m[1];
+  const cm =
+    inner.match(/(rgba?\([^)]*\)|#[0-9a-f]{3,8}\b)/i) ?? inner.match(/(?:^|\s)([a-z]+)(?=\s|$)/i);
+  const nums = inner
+    .replace(/rgba?\([^)]*\)/i, '')
+    .match(/-?[\d.]+(?:px)?/g)
+    ?.map((x) => Number.parseFloat(x));
+  if (!nums || nums.length < 2) return null;
+  return { color: cm?.[1] ?? 'rgba(0,0,0,.5)', dx: nums[0], dy: nums[1], blur: nums[2] ?? 0 };
+}
+
+/**
+ * 圖片的 drop-shadow：只把陰影畫成點陣（圖片放在畫布外、陰影位移回畫布裡；透明的圖片沿著形狀），
+ * 疊在圖片的下面。畫布不支援時略過（圖片照畫）。
+ */
+async function paintImageShadow(
+  p: Painter,
+  el: HTMLImageElement,
+  r: DOMRect,
+  sh: { color: string; dx: number; dy: number; blur: number },
+): Promise<void> {
+  const s = Math.max(1, p.scale);
+  const pad = Math.ceil(Math.abs(sh.dx) + Math.abs(sh.dy) + sh.blur * 2 + 2);
+  const w = r.width + pad * 2;
+  const h = r.height + pad * 2;
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * s));
+  c.height = Math.max(1, Math.round(h * s));
+  const ctx = c.getContext('2d');
+  if (!ctx) return;
+  try {
+    if (!el.complete) await el.decode();
+  } catch {
+    return;
+  }
+  const off = c.width + 10;
+  ctx.shadowColor = sh.color;
+  ctx.shadowBlur = sh.blur * s;
+  ctx.shadowOffsetX = sh.dx * s + off;
+  ctx.shadowOffsetY = sh.dy * s;
+  try {
+    ctx.drawImage(el, pad * s - off, pad * s, r.width * s, r.height * s);
+  } catch {
+    return;
+  }
+  const png = await p.doc.embedPng(await canvasBytes(c, 'image/png'));
+  p.page.drawImage(png, {
+    x: X(p, r.left - pad),
+    y: Y(p, r.bottom + pad),
+    width: w * PX_PT,
+    height: h * PX_PT,
+  });
 }
 
 function dash(style: string, w: number): number[] | undefined {
@@ -536,6 +616,8 @@ async function paintImage(
   if (r.width <= 0 || r.height <= 0 || !el.currentSrc) return;
   const img = await embedImageUrl(p, el.currentSrc || el.src, el);
   if (!img) return;
+  const sh = parseDropShadow(cs.filter);
+  if (sh) await paintImageShadow(p, el, r, sh);
   let { left, top, width, height } = r;
   const fit = cs.objectFit;
   if ((fit === 'contain' || fit === 'scale-down') && el.naturalWidth && el.naturalHeight) {
@@ -830,6 +912,7 @@ export async function pagesToPdf(o: PdfOptions): Promise<Uint8Array> {
   const range = document.createRange();
   const total = o.pages.length;
   await prepareFonts(o, book);
+  const placed: { page: PDFPage; origin: DOMRect; pageH: number }[] = [];
   for (let i = 0; i < total; i++) {
     o.signal?.throwIfAborted();
     const el = o.pages[i];
@@ -837,6 +920,7 @@ export async function pagesToPdf(o: PdfOptions): Promise<Uint8Array> {
       const origin = el.getBoundingClientRect();
       const pageH = Math.max(hPt, origin.height * PX_PT);
       const page = doc.addPage([wPt, pageH]);
+      placed.push({ page, origin, pageH });
       const bg = await rasterBackground(el, o);
       page.drawImage(await doc.embedJpg(bg), {
         x: 0,
@@ -865,7 +949,70 @@ export async function pagesToPdf(o: PdfOptions): Promise<Uint8Array> {
     });
     o.onProgress?.(i + 1, total);
   }
+  if (o.links) addInternalLinks(doc, o.pages, placed);
   return doc.save();
+}
+
+/**
+ * 頁內連結的 href（「#id」）→ 目標的 id：URL 編碼的照解碼，解不開的（例如 id 裡有「%」）用原字串
+ * （劇本排版台 2026-10 對等驗證 S2：以前解不開時整份 PDF 失敗）
+ */
+export function hrefTargetId(href: string): string {
+  const raw = String(href ?? '').replace(/^#/, '');
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/** 頁內連結 → PDF 的 Link 註解（跳到目標元素所在頁、目標的上緣） */
+function addInternalLinks(
+  doc: PDFDocumentType,
+  pages: readonly HTMLElement[],
+  placed: readonly { page: PDFPage; origin: DOMRect; pageH: number }[],
+): void {
+  const where = (id: string): { k: number; y: number } | null => {
+    for (let k = 0; k < pages.length && k < placed.length; k++) {
+      const t =
+        pages[k].querySelector(`[id="${CSS.escape(id)}"]`) ??
+        (pages[k].id === id ? pages[k] : null);
+      if (!t) continue;
+      const r = t.getBoundingClientRect();
+      const P = placed[k];
+      return { k, y: P.pageH - Math.max(0, r.top - P.origin.top) * PX_PT };
+    }
+    return null;
+  };
+  pages.forEach((el, k) => {
+    const P = placed[k];
+    if (!P) return;
+    for (const a of el.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')) {
+      const href = a.getAttribute('href') ?? '';
+      if (href.length < 2) continue;
+      /* 量測用的容器可能是 visibility:hidden（畫完之後頁面也還原成 hidden），所以只看 display 與大小 */
+      if (getComputedStyle(a).display === 'none') continue;
+      const to = where(hrefTargetId(href)) ?? where(href.slice(1));
+      if (!to) continue;
+      const dest = placed[to.k].page.ref;
+      for (const r of a.getClientRects()) {
+        if (r.width <= 0 || r.height <= 0) continue;
+        const x1 = (r.left - P.origin.left) * PX_PT;
+        const x2 = (r.right - P.origin.left) * PX_PT;
+        const y1 = P.pageH - (r.bottom - P.origin.top) * PX_PT;
+        const y2 = P.pageH - (r.top - P.origin.top) * PX_PT;
+        const annot = doc.context.obj({
+          Type: 'Annot',
+          Subtype: 'Link',
+          Rect: [x1, y1, x2, y2].map((v) => +v.toFixed(2)),
+          Border: [0, 0, 0],
+          /* 跳到那一頁、目標的上緣（左與縮放不變） */
+          Dest: [dest, 'XYZ', null, +to.y.toFixed(2), null],
+        });
+        P.page.node.addAnnot(doc.context.register(annot));
+      }
+    }
+  });
 }
 
 /* ---------- 自己畫的頁面（畫布＋逐字位置） ---------- */

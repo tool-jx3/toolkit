@@ -38,26 +38,43 @@ export interface Comment {
   t: string;
 }
 
-/** 文字裝飾（目前只有顏色）：第 a 字到第 b 字 */
+/** 文字裝飾：第 a 字到第 b 字的顏色、大小（顏色與大小可以分開付上、範圍可以重疊） */
 export interface Mark {
   a: number;
   b: number;
+  /** 顏色（空字串＝沒有） */
   col: string;
   bold: boolean;
+  /** 文字大小（pt；2026-10，上游 v3.21.0） */
+  pt?: number;
+  /** 原作 v3.17～v3.20 的大小（倍率）：讀入時換成 pt（3.17.5） */
+  sz?: number;
 }
 
-/** 規則框的外觀 */
+/** 特殊區塊（舊名規則框）的外觀（2026-10 第三批：上游 v3.22～v3.25 加了 thin、mid、xs、ink、copy） */
 export interface BoxStyle {
   ln: 'solid' | 'dash' | 'none';
+  /** 左側的粗線 */
   bar: boolean;
+  /** 左側的線：細（注釋的樣子） */
+  thin?: boolean;
+  /** 左側的線：中（情報區塊的樣子） */
+  mid?: boolean;
   fill: boolean;
   sm: boolean;
+  /** 字更小（注釋的樣子；比 sm 優先） */
+  xs?: boolean;
+  /** 文字也用框的顏色 */
+  ink?: boolean;
+  /** 匯出的 HTML 裡按一下複製內文（含裡面的段落） */
+  copy?: boolean;
   col: BoxColorKey;
 }
 
-export type BoxColorKey = 'aka' | 'sumi' | 'ai' | 'koke' | 'kin' | 'hai';
+/** 色票（kon、nando：2026-10，上游 v3.22.0 起有 8 色） */
+export type BoxColorKey = 'aka' | 'sumi' | 'kon' | 'nando' | 'ai' | 'koke' | 'kin' | 'hai';
 
-/** 自己做的規則框樣板 */
+/** 自己做的特殊區塊範本 */
 export interface BoxTemplate extends BoxStyle {
   id: string;
   /** 名稱（最多 24 字） */
@@ -133,9 +150,51 @@ export interface TocSettings {
   pick: string[];
   pn: boolean;
   dots: boolean;
+  /** 收錄的範圍：all＝整份、chapter＝這一章（上一個標題 1 到下一個標題 1 之前；2026-10，上游 v3.7.0） */
+  scope?: 'all' | 'chapter';
 }
 
+/** 圖片段落的配置。free 是舊原稿的自由配置（讀入時移到 doc.pageImgs，3.18.1） */
 export type ImagePos = 'inline' | 'left' | 'right' | 'free';
+
+/** 圖片的寬的單位：pct＝版心寬的％、px＝像素（96 px＝25.4 mm；2026-10，上游 v3.16.0） */
+export type ImageWidthUnit = 'pct' | 'px';
+/** 圖片的外框（疊在圖片上；2026-10，上游 v3.16.0） */
+export type ImageFrame = 'thin' | 'thick' | 'double';
+/** 圖片的陰影 */
+export type ImageShadow = 's' | 'm' | 'l';
+
+/** 圖片的外框與陰影（圖片段落與頁面圖片共用） */
+export interface ImageFx {
+  fr?: ImageFrame;
+  /** 外框的顏色（色票；沒有＝墨） */
+  frc?: BoxColorKey;
+  sh?: ImageShadow;
+}
+
+/**
+ * 頁面圖片（2026-10，上游 v3.14.0 的 pageImgs）：不在段落的串列裡，直接疊在某一頁上，
+ * 位置是紙的左上角到圖片左上角的距離（mm），本文的文字避開它。
+ */
+export interface PageImg extends ImageFx {
+  id: string;
+  img: string;
+  /** 長寬比（高 ÷ 寬；0＝還不知道） */
+  ar: number;
+  cap: string;
+  /** 放在第幾頁（1 起算；超過總頁數時放在最後一頁） */
+  pg: number;
+  x: number;
+  y: number;
+  /** 寬（wu＝pct 時是版心寬的％，px 時是像素） */
+  w: number;
+  wu: ImageWidthUnit;
+  /** 與文字的距離（mm，0～30；沒有＝上下 1.5、左右 3） */
+  gv?: number;
+  gh?: number;
+  /** 新版：重疊（文字不避開；舊原稿自由配置的「重疊」，D25） */
+  wrap?: 'none';
+}
 
 /** 手冊（3.16）：no＝編號（同時是變數 {HO1} 的名稱）、ttl＝題名 */
 export interface Handout {
@@ -147,6 +206,8 @@ export interface Handout {
   def?: string;
   /** 原作 v3.8.0 的框裡的 PC 名稱欄（保留不顯示） */
   pc?: boolean;
+  /** 手冊變數的說明（匯出 HTML 的輸入欄下方；空白＝「手冊「題名」的 PC」；2026-10 第三批，上游 v3.10.2） */
+  note?: string;
 }
 
 /** 登錄的變數（3.16）：n＝名稱、def＝預設值、note＝說明 */
@@ -181,7 +242,7 @@ export interface Block {
   tocOff?: boolean;
   /** 對話文的說話者 */
   sp?: string;
-  /** 規則框、情報區塊的標題語（null／沒有＝預設） */
+  /** 特殊區塊、情報區塊的標題語（null／沒有＝預設） */
   lb?: string | null;
   bx?: BoxStyle;
   /* 圖片 */
@@ -197,6 +258,12 @@ export interface Block {
   fy?: number;
   pg?: number;
   wrap?: 'square' | 'none';
+  /** 寬的單位（沒有＝pct；2026-10） */
+  wu?: ImageWidthUnit;
+  /** 外框、外框的顏色、陰影（2026-10） */
+  fr?: ImageFrame;
+  frc?: BoxColorKey;
+  sh?: ImageShadow;
   /* 各書式的資料 */
   tbl?: Table;
   pop?: Popup;
@@ -206,6 +273,14 @@ export interface Block {
   ho?: Handout;
   /** 舊的「條列」書式 */
   mark?: string;
+  /** 段落的文字大小（pt，5～72；沒有＝依書式；2026-10，上游 v3.21.0） */
+  pt?: number;
+  /** 原作 v3.17～v3.20 的段落大小（倍率）：讀入時換成 pt（3.17.5） */
+  fs?: number;
+  /** 場景轉換：跳到的標題（空白＝依本文的目的地名稱找；2026-10，上游 v3.24.0） */
+  jump?: string;
+  /** 段落裡的段落（2026-10 第三批，上游 v3.19.0～v3.20.0） */
+  kids?: Block[];
 }
 
 export interface PageBg {
@@ -213,6 +288,8 @@ export interface PageBg {
   img: string | null;
   fit: 'cover' | 'contain' | 'repeat';
   opa: number;
+  /** 紙的顏色（#rrggbb；空字串或沒有＝預設的米白；2026-10，上游 v3.13.0） */
+  color?: string;
 }
 
 export interface PageSetting {
@@ -230,6 +307,8 @@ export interface EmbeddedFont {
 export interface Doc {
   /** 行首記號改成 markdown 寫法的版本（3.1.3） */
   mdv: number;
+  /** 特殊區塊的 ■、＞ 行改成段落裡的段落的版本（同原作的 pkv；2026-10 第三批） */
+  pkv?: number;
   title: string;
   padV: number;
   padH: number;
@@ -242,6 +321,8 @@ export interface Doc {
   bxTpl: BoxTemplate[];
   /** 登錄的變數（2026-10） */
   vars: DocVar[];
+  /** 頁面圖片（2026-10，上游 v3.14.0） */
+  pageImgs: PageImg[];
   pages: PageSetting[];
   blocks: Block[];
 }

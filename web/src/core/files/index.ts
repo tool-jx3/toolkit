@@ -369,6 +369,21 @@ export interface UnzipOptions {
   directories?: boolean;
 }
 
+/**
+ * ZIP 解開後的總大小（位元組）：只讀目錄記的各檔「解開後大小」，**不解壓縮**（解壓炸彈：檔案很小、解開來好幾 GB，
+ * 解開之前先擋）。ZIP 損壞、目錄讀不了時丟錯。
+ */
+export function zipUncompressedSize(bytes: Uint8Array): number {
+  let total = 0;
+  unzipSync(bytes, {
+    filter: (file) => {
+      total += file.originalSize;
+      return false;
+    },
+  });
+  return total;
+}
+
 /** 解開 ZIP，回傳檔案清單（依 ZIP 內的順序；預設略過資料夾項目） */
 export function unzipFiles(
   bytes: Uint8Array,

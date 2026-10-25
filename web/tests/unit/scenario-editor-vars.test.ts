@@ -93,7 +93,7 @@ describe('書式（F250、F252、3.2.4）', () => {
     expect(PAPER_CSS).toContain('.t-handout{margin-bottom:4mm}');
     expect(RICH_TYPES).toEqual(expect.arrayContaining(['info', 'handout']));
   });
-  it('情報區塊的標題語：沒寫＝「情報」、空字串＝不顯示；規則框照舊', () => {
+  it('情報區塊的標題語：沒寫＝「情報」、空字串＝不顯示；特殊區塊照舊', () => {
     expect(blockLabel(blk('a', 'info'))).toBe('情報');
     expect(blockLabel(blk('a', 'info', '', { lb: '' }))).toBe('');
     expect(blockLabel(blk('a', 'proc'))).toBe('技能檢定');
@@ -436,7 +436,7 @@ describe('匯出 HTML（F258、F259、3.9）', () => {
     expect(html).toContain('class="b t-info" tabindex="0" title="按一下複製內文"');
     expect(html).toContain('class="b t-handout" tabindex="0" title="按一下複製內文"');
     expect(html).toContain('<div id="cpToast" role="status" aria-live="polite"></div>');
-    expect(html).toContain('.t-info,.t-handout{cursor:copy');
+    expect(html).toContain('.t-info,.t-handout,.t-proc.bx-copy{cursor:copy');
   });
   it('登場人物欄：每個變數一列（提示文字＝預設值或名稱、說明）', () => {
     const vx = html.slice(html.indexOf('<div id="vx">'), html.indexOf('<button id="tocMask"'));

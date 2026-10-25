@@ -9,7 +9,7 @@
 輸入：封面圖片、音訊檔、歌詞檔（LRC／SRT／VTT／純文字）或貼上的歌詞、各欄位的設定、預覽上的播放與跳轉。
 輸出：PNG（1920 × 1080）；影片（1920 × 1080，30／60 FPS，MP4／MOV，或不能逐格編碼時的即時錄影）；新版另有專案檔。
 
-靈感來源：zznaptime/1007mv「윳! 뮤직 프레임 메이커」（<https://github.com/zznaptime/1007mv>，網站 <https://zznaptime.github.io/1007mv/>），
+靈感來源：zZnaptime/MVmaker「윳! 뮤직 프레임 메이커」（<https://github.com/zZnaptime/MVmaker>；原本的 repo zznaptime/1007mv 已不公開，2026-10-24 確認同一個工具搬到 MVmaker，index.html 只差網頁圖示、滑桿樣式、使用期限標示與一句字型提示，功能沒變），
 評估時的版本 commit `0c24db2`（2026-10-05），單一 HTML 檔。
 
 **評估（主控，新工具引入流程第 1 步）**：

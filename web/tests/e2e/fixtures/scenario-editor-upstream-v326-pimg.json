@@ -1,0 +1,176 @@
+{
+  "mdv": 1,
+  "title": "第二批的驗證稿",
+  "padV": 18,
+  "padH": 16,
+  "base": 10,
+  "defCols": 1,
+  "foot": {
+    "num": true,
+    "text": "",
+    "from": 1
+  },
+  "fonts": [],
+  "bxTpl": [],
+  "fontBody": "",
+  "fontHead": "",
+  "vars": [],
+  "pageImgs": [
+    {
+      "id": "p1",
+      "img": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAIklEQVR4AWTIMQ0AAAwCwQY7dVIz9T/BSuCTXw57Tx8TFQgAAP//DCT3LgAAAAZJREFUAwA8igeTxnrmGAAAAABJRU5ErkJggg==",
+      "ar": 0.75,
+      "cap": "書房",
+      "pg": 1,
+      "x": 120,
+      "y": 40,
+      "w": 40,
+      "wu": "pct",
+      "fr": "thick",
+      "frc": "nando",
+      "sh": "l"
+    },
+    {
+      "id": "p2",
+      "img": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAIklEQVR4AWTIMQ0AAAwCwQY7dVIz9T/BSuCTXw57Tx8TFQgAAP//DCT3LgAAAAZJREFUAwA8igeTxnrmGAAAAABJRU5ErkJggg==",
+      "ar": 0.75,
+      "cap": "",
+      "pg": 2,
+      "x": 16,
+      "y": 150,
+      "w": 200,
+      "wu": "px",
+      "gv": 5,
+      "gh": 8
+    },
+    {
+      "id": "old",
+      "img": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAIklEQVR4AWTIMQ0AAAwCwQY7dVIz9T/BSuCTXw57Tx8TFQgAAP//DCT3LgAAAAZJREFUAwA8igeTxnrmGAAAAABJRU5ErkJggg==",
+      "ar": 0.75,
+      "cap": "",
+      "pg": 1,
+      "x": 20,
+      "y": 30,
+      "w": 47,
+      "wu": "pct"
+    }
+  ],
+  "pages": [
+    {
+      "id": "pg1",
+      "bg": {
+        "preset": "none",
+        "img": null,
+        "fit": "cover",
+        "opa": 35
+      },
+      "cols": 1
+    }
+  ],
+  "blocks": [
+    {
+      "id": "h1a",
+      "type": "h1",
+      "cols": 2,
+      "text": "第一章",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "toc1",
+      "type": "toc",
+      "cols": 1,
+      "text": "",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0,
+      "toc": {
+        "lb": "目　次",
+        "pick": ["h1", "h2", "h3"],
+        "pn": true,
+        "dots": true,
+        "scope": "chapter"
+      }
+    },
+    {
+      "id": "d1",
+      "type": "desc",
+      "cols": 2,
+      "text": "本文。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "h2a",
+      "type": "h2",
+      "cols": 2,
+      "text": "一之一",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "im1",
+      "type": "image",
+      "cols": 1,
+      "text": "",
+      "mt": null,
+      "mb": null,
+      "img": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAIklEQVR4AWTIMQ0AAAwCwQY7dVIz9T/BSuCTXw57Tx8TFQgAAP//DCT3LgAAAAZJREFUAwA8igeTxnrmGAAAAABJRU5ErkJggg==",
+      "w": 250,
+      "cap": "地圖",
+      "ar": 0.75,
+      "wu": "px",
+      "fr": "double",
+      "frc": "kon",
+      "sh": "m",
+      "pos": "inline",
+      "ind": 0,
+      "dy": 0,
+      "dx": 0,
+      "fl": "",
+      "pg": 1
+    },
+    {
+      "id": "h1b",
+      "type": "h1",
+      "cols": 2,
+      "text": "第二章",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "h2b",
+      "type": "h2",
+      "cols": 2,
+      "text": "二之一",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    }
+  ],
+  "pkv": 1,
+  "fsv": 1,
+  "tkv": 2
+}

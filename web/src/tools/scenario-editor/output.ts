@@ -12,8 +12,8 @@ import { appendixPagesHtml } from './layout';
 import { allBlocks } from './model/blocks';
 import { escapeHtml } from './model/text';
 import type { Block, Doc } from './model/types';
-import { type RenderCtx, staticPageHtml } from './render/html';
-import { fontCss, PAPER_CSS, safeFontName } from './render/paperCss';
+import { newPrintLinks, type RenderCtx, staticPageHtml } from './render/html';
+import { fontCss, HR_LINE, PAPER_CSS, safeFontName } from './render/paperCss';
 import { TOOL_ID } from './store';
 
 export interface OutputRange {
@@ -55,6 +55,33 @@ export function offscreenHost(className = 'pv-print'): HTMLElement {
   return el;
 }
 
+/**
+ * PDF：有標籤的橫線的線。紙面是背景的漸層（畫在繞排圖片下面，線到圖片邊；3.2.2），PDF 的向量層不畫漸層、
+ * 又照 DOM 的順序畫（繞排圖片在橫線前面），所以先量好位置，在頁面的最前面放一條同位置的線：
+ * 之後畫的圖片、標籤的紙色底蓋在上面，和紙面一樣（第三批驗證後 U8）。
+ */
+export function addPdfHrLines(pg: HTMLElement): void {
+  const o = pg.getBoundingClientRect();
+  const lines: HTMLElement[] = [];
+  for (const el of pg.querySelectorAll<HTMLElement>('.t-hr.hastx')) {
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) continue;
+    const ln = document.createElement('div');
+    ln.className = 'pdf-hrl';
+    Object.assign(ln.style, {
+      position: 'absolute',
+      margin: '0',
+      left: `${r.left - o.left - pg.clientLeft}px`,
+      top: `${r.top - o.top - pg.clientTop + (r.height - 1) / 2}px`,
+      width: `${r.width}px`,
+      height: '0',
+      borderTop: `1px solid ${HR_LINE}`,
+    });
+    lines.push(ln);
+  }
+  pg.prepend(...lines);
+}
+
 /** 範圍內的頁面＋附錄頁的 HTML */
 export function outputPagesHtml(
   doc: Doc,
@@ -66,8 +93,20 @@ export function outputPagesHtml(
   pages.forEach((ids, i) => {
     for (const id of ids) pageNo.set(id, i + 1);
   });
-  const ctx: RenderCtx = { doc, edit: false, pageOf: (id) => pageNo.get(id) ?? null, total };
-  const byId = new Map<string, Block>(allBlocks(doc).map((b) => [b.id, b]));
+  const all = allBlocks(doc);
+  const ctx: RenderCtx = {
+    doc,
+    edit: false,
+    pageOf: (id) => pageNo.get(id) ?? null,
+    total,
+    /* 標題的錨點、「→ 附錄」「↩ 回到 P.n」、場景轉換連到範圍內的標題（F269、F270） */
+    anchors: true,
+    links: newPrintLinks(doc, all, (id) => {
+      const p = pageNo.get(id);
+      return p != null && p >= range.from + 1 && p <= range.to + 1;
+    }),
+  };
+  const byId = new Map<string, Block>(all.map((b) => [b.id, b]));
   const out: string[] = [];
   for (let i = range.from; i <= range.to; i++)
     out.push(staticPageHtml(i, pages[i] ?? [], ctx, byId));
@@ -121,6 +160,27 @@ export function docFontSources(
   });
 }
 
+/**
+ * 新版自己加的記號（「↩ 回到 P.n」的 ↩；7.5）：補字的字型下載失敗時，只缺這些字的話略過這些字、PDF 照常產生
+ * （文字「回到 P.n」照樣在、連結照樣可以按）。其他缺的字（例如日文漢字）照舊說明失敗的原因。
+ */
+export const OPTIONAL_GLYPHS: ReadonlySet<string> = new Set(['↩']);
+
+export function tolerantMissingGlyphs(
+  inner: NonNullable<PdfOptions['missingGlyphs']>,
+): NonNullable<PdfOptions['missingGlyphs']> {
+  return async (req) => {
+    try {
+      return await inner(req);
+    } catch (e) {
+      const fontErr = e instanceof Error && e.name === 'PdfFontError';
+      if (fontErr && !req.signal?.aborted && [...req.text].every((c) => OPTIONAL_GLYPHS.has(c)))
+        return [];
+      throw e;
+    }
+  };
+}
+
 export interface PdfProgress {
   signal?: AbortSignal;
   onProgress?: (done: number, total: number) => void;
@@ -145,6 +205,7 @@ export async function pdfRange(
     host.innerHTML = html.join('');
     await settleContent(host);
     const els = [...host.children].filter((el): el is HTMLElement => el.classList.contains('pg'));
+    for (const el of els) addPdfHrLines(el);
     const css = outputCss(doc);
     return await pagesToPdf({
       pages: els,
@@ -158,7 +219,9 @@ export async function pdfRange(
       ],
       fallback: { serif: ['Noto Serif TC'], sans: ['Noto Sans TC'] },
       /* 繁中字型沒有的字（NPC 卡系統資料的日文漢字等）：下載 Noto Serif JP／Noto Sans JP 的子集補上 */
-      missingGlyphs: p.missingGlyphs ?? googleSubsetFallback(),
+      missingGlyphs: tolerantMissingGlyphs(p.missingGlyphs ?? googleSubsetFallback()),
+      /* 頁內連結（→ 附錄、↩ 回到、場景轉換、目錄）變成 PDF 裡可以按的連結（D15） */
+      links: true,
       title: doc.title,
       signal: p.signal,
       onProgress: p.onProgress,
@@ -180,15 +243,16 @@ export async function downloadPdf(
   return name;
 }
 
-/** 匯出閱覽 HTML（F232） */
+/** 匯出閱覽 HTML（F232；flow＝不分頁的一張，F285） */
 export function downloadExportHtml(
   doc: Doc,
   pages: readonly (readonly string[])[],
   range: OutputRange,
+  flow = false,
 ): string {
   const name = paperFileName(doc.title, 'html');
   downloadText(
-    exportHtml({ doc, pages, from: range.from, to: range.to }),
+    exportHtml({ doc, pages, from: range.from, to: range.to, flow }),
     name,
     'text/html;charset=utf-8',
   );

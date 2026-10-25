@@ -16,9 +16,12 @@ export const EDITOR_CSS = `
 .pghead-b:focus-visible,.pghead-ck input:focus-visible{outline:2px solid var(--focus,#6af);outline-offset:1px}
 .se-stage .bp[data-id]{cursor:pointer}
 .se-stage .bp.is-sel{outline:2px solid rgba(211,165,52,.9);outline-offset:1px;background:rgba(211,165,52,.2)}
-.se-stage .bp.is-flash{animation:se-flash .7s ease-out}
+.se-stage .pimg[data-pimg]{cursor:pointer}
+.se-stage .pimg[data-pimg]:hover{box-shadow:0 0 0 1px rgba(211,165,52,.65)}
+.se-stage .pimg.is-sel{box-shadow:0 0 0 2px rgba(211,165,52,.95)}
+.se-stage .bp.is-flash,.se-stage .pimg.is-flash{animation:se-flash .7s ease-out}
 @keyframes se-flash{0%{background:rgba(211,165,52,.6)}100%{background:transparent}}
-@media (prefers-reduced-motion:reduce){.se-stage .bp.is-flash{animation:none}}
+@media (prefers-reduced-motion:reduce){.se-stage .bp.is-flash,.se-stage .pimg.is-flash{animation:none}}
 .se-stage .bp.npc-over{outline:2px dashed #c0392b;outline-offset:2px;position:relative}
 .npc-over-lb{position:absolute;right:2mm;top:-1mm;transform:translateY(-100%);background:#c0392b;color:#fff;font:700 10pt/1.4 var(--font-ui,sans-serif);padding:0 2mm;border-radius:1mm;letter-spacing:.05em}
 .se-stage .cmt.is-open{background:rgba(168,51,31,.14)}

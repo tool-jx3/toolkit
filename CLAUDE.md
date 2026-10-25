@@ -5,6 +5,8 @@
 - `docs/refactor/PLAN.md`：目標、群組、架構、進度表
 - `docs/refactor/PROCESS.md`：重寫流程（參考原作程式改寫）、規格寫法、對等驗證、上線清單、新工具引入流程
 - `docs/refactor/DESIGN.md`：設計 token、共用元件與模組、用詞表
+- `docs/refactor/TODO.md`：待做與候選清單（上游更新、新工具、可以併進現有工具的功能）。做完的項目從清單刪掉；
+  每次上游檢查或搜尋新工具之後更新它
 
 ## 不可違反的規則
 

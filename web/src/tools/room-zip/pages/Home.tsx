@@ -2,13 +2,13 @@
  * 首頁（F025～F032）：專案名稱大標題、回到上次的頁面、開啟專案檔、範例專案、圖片遺失警示、下一步建議、
  * 製作流程清單、目前房間統計。
  */
-import { ArrowRight, FolderOpen, Pencil, Sparkles, TriangleAlert } from 'lucide-react';
+import { ArrowRight, FileArchive, FolderOpen, Pencil, Sparkles, TriangleAlert } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Button, cn, useConfirm } from '@/ui';
 import { Card, Hint, useNotify, useRenameProject } from '../common';
+import { useRoomZipOpener } from '../dialogs/RoomImport';
 import { brokenImages } from '../materials';
 import { DEFAULT_PROJECT_NAME, NEW_PROJECT_NAME } from '../model';
-import { pickAndOpen } from '../ops';
 import { loadSample } from '../sample';
 import { goPage, type PageId, setSession, useBlobs, useLayout, useProject } from '../store';
 import { S } from '../strings';
@@ -20,6 +20,7 @@ export function HomePage() {
   const [rename, node] = useRenameProject();
   const confirm = useConfirm();
   const n = useNotify();
+  const { pickAny, pickRoom } = useRoomZipOpener();
   const broken = brokenImages(p, (name) => !!urls[name]);
   const counts = useProject(
     useShallow((s) => ({
@@ -96,8 +97,11 @@ export function HomePage() {
           <Button variant="primary" icon={<ArrowRight />} onClick={resume}>
             {S.homeResume}
           </Button>
-          <Button icon={<FolderOpen />} onClick={() => void pickAndOpen(n)}>
+          <Button icon={<FolderOpen />} onClick={() => void pickAny()}>
             {S.homeOpen}
+          </Button>
+          <Button icon={<FileArchive />} onClick={() => void pickRoom()}>
+            {S.roomImport.button}
           </Button>
           <Button icon={<Sparkles />} onClick={() => void sample()}>
             {S.homeSample}

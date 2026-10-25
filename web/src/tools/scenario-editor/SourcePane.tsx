@@ -1,9 +1,11 @@
 /**
- * 文字欄（F030～F044）：每個段落一列，可以直接打字；巢狀的串列（彈出視窗的內容、表格每一格）接在下面。
- * 選取（按、Shift、Ctrl、拖過、框選）、拖曳搬移、Enter 分段、Backspace 接合、多段貼上、斜線指令、Tab 縮排。
+ * 文字欄（F030～F044）：每個段落一列，可以直接打字；巢狀的串列（彈出視窗的內容、表格每一格、段落裡的段落）接在下面。
+ * 選取（按、Shift、Ctrl、拖過、框選）、拖曳搬移、Enter 分段、Backspace 接合、多段貼上、斜線指令、
+ * Tab 放進上一段（不行時縮排）、↑↓ 跨段移動、特殊區塊的標題語欄（第三批）。
  */
 import { GripVertical } from 'lucide-react';
 import {
+  type ChangeEvent,
   type ClipboardEvent,
   type KeyboardEvent,
   memo,
@@ -14,33 +16,56 @@ import {
   useState,
 } from 'react';
 import { cn, Segmented } from '@/ui';
+import { atEdge, caretBox, navMove } from './caretNav';
 import {
+  CELL_SKIP,
   findBlock,
-  isFreeImg,
   isOnlyPopup,
+  KIDS_SKIP,
+  POP_SKIP,
   popIsBlocks,
   TEXT_TYPES,
   typeName,
 } from './model/blocks';
 import { popupLabel } from './model/doc';
+import { type MdSuggestItem, mdShown, mdSuggest } from './model/md';
+import { pimgPage } from './model/pageImg';
+import { blockLabel, procName } from './model/proc';
 import { applySlash } from './model/rich';
 import { tblCols, tblRows } from './model/table';
 import { setBlockText } from './model/text';
 import type { Block, Doc } from './model/types';
 import { hoOf } from './model/vars';
 import {
+  clearAll,
   clickSelect,
   ensurePopRefs,
-  indentSel,
+  enterAt,
   joinBack,
   type ListRef,
+  mdApplySuggest,
+  mdHeadFire,
+  mdLineFire,
   moveBlocksTo,
+  nestSel,
   pasteParagraphs,
+  setBlockLabel,
   splitAt,
 } from './ops';
 import { pageSettingAt } from './render/html';
 import { SYS_LABEL } from './render/npc';
-import { clearSelection, doc, editBlock, select, setUi, ui, useDoc, useUi } from './store';
+import {
+  clearSelection,
+  doc,
+  editBlock,
+  focusBlock,
+  select,
+  selectPimg,
+  setUi,
+  ui,
+  useDoc,
+  useUi,
+} from './store';
 import { S } from './strings';
 
 /* ---------- 文字欄（自動長高） ---------- */
@@ -71,6 +96,15 @@ const TYPE_TEXT_CLASS: Partial<Record<string, string>> = {
 
 /* ---------- 一列 ---------- */
 
+/** 文字欄上方有標題語欄的書式（第三批，上游 v3.24.1；對話文是說話者） */
+const LABEL_ROW_TYPES: readonly string[] = ['proc', 'info', 'dialog', 'note'];
+
+/** 一列的書式名稱：特殊區塊依樣子（對話文、注釋、情報區塊的範本時用那個名稱） */
+const rowTypeName = (b: Block): string => (b.type === 'proc' ? procName(b) : typeName(b.type));
+
+/** ↑↓ 走到不能打字的段落時：選取它（紙面捲過去） */
+const pickRow = (id: string) => select([id]);
+
 interface RowProps {
   b: Block;
   listKey: string;
@@ -95,7 +129,7 @@ function summaryOf(b: Block, d: Doc): string {
     case 'popup':
       return `彈出視窗：${popupLabel(b)}${isOnlyPopup(b) ? '（不放在紙面）' : ''}`;
     case 'image':
-      return isFreeImg(b) ? `P.${Math.max(1, +(b.pg ?? 1) || 1)}　自由配置` : '';
+      return '';
     case 'break':
       return '換頁（之後從新的一頁開始）';
     case 'colbr':
@@ -129,7 +163,35 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
     if (ui().focusReq === focusReq) setUi({ focusReq: null });
   }, [focusReq]);
 
-  const onChange = (el: HTMLTextAreaElement) => {
+  /* markdown 的候選（:: 與 #；2026-10，F293） */
+  const [sug, setSug] = useState<{ list: MdSuggestItem[]; i: number; q: string } | null>(null);
+  const sugId = `se-md-${b.id}`;
+  const updSug = (el: HTMLTextAreaElement) => {
+    if (composing.current || b.type !== 'desc' || el.selectionStart !== el.selectionEnd) {
+      setSug(null);
+      return;
+    }
+    const ref = JSON.parse(listKey) as ListRef;
+    const r = mdSuggest(
+      el.value.slice(0, el.selectionStart),
+      ref.k === 'kids' ? KIDS_SKIP : ref.k === 'cell' ? CELL_SKIP : ref.k === 'pop' ? POP_SKIP : [],
+    );
+    setSug((prev) =>
+      r
+        ? {
+            list: r.list,
+            i: Math.max(0, prev ? r.list.indexOf(prev.list[prev.i]) : 0),
+            q: r.q,
+          }
+        : null,
+    );
+  };
+  const applySug = (el: HTMLTextAreaElement, it: MdSuggestItem) => {
+    setSug(null);
+    mdApplySuggest(b.id, it, el.value, el.selectionStart);
+  };
+
+  const onChange = (el: HTMLTextAreaElement, ev?: ChangeEvent<HTMLTextAreaElement>) => {
     const v = el.value;
     let next = v;
     if (!composing.current) {
@@ -142,21 +204,65 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
          */
         el.value = next;
         el.setSelectionRange(s.caret, s.caret);
+      } else {
+        /* 描述文的開頭打「# 」：變成標題（F290；打的是空白時才換，貼上或輸入法的確定不算） */
+        const data = (ev?.nativeEvent as InputEvent | undefined)?.data;
+        if ((data === ' ' || data === '　') && mdHeadFire(b.id, v, el.selectionStart)) {
+          setSug(null);
+          return;
+        }
       }
     }
     editBlock(b.id, (x) => setBlockText(x, next));
+    updSug(el);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     const el = e.currentTarget;
     const ime = e.nativeEvent.isComposing || e.keyCode === 229 || composing.current;
+    /* 候選清單開著：↑↓ 選擇、Enter／Tab 套用、Esc 關閉 */
+    if (sug && !ime && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const n = sug.list.length;
+        setSug({ ...sug, i: (sug.i + (e.key === 'ArrowDown' ? 1 : -1) + n) % n });
+        return;
+      }
+      if ((e.key === 'Enter' && !e.shiftKey) || (e.key === 'Tab' && !e.shiftKey)) {
+        e.preventDefault();
+        applySug(el, sug.list[sug.i]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setSug(null);
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (ime || Date.now() - imeEnd.current < IME_GRACE_MS) return;
       e.preventDefault();
       const a = el.selectionStart;
       const z = el.selectionEnd;
-      if (z > a) editBlock(b.id, (x) => setBlockText(x, el.value.slice(0, a) + el.value.slice(z)));
-      splitAt(b.id, a);
+      /* 第一行只有 :::名稱、::名稱、--- 時按 Enter：變成那個書式（F291） */
+      if (a === z && mdLineFire(b.id, el.value, a)) return;
+      let v = el.value;
+      if (z > a) {
+        v = v.slice(0, a) + v.slice(z);
+        const cut = v;
+        editBlock(b.id, (x) => setBlockText(x, cut));
+      }
+      /* 特殊區塊、裡面有段落、段落裡最後的空段落、「■」那一行（第三批；F300） */
+      const how = enterAt(b.id, v, a);
+      if (how === 'newline') {
+        const nv = `${v.slice(0, a)}\n${v.slice(a)}`;
+        el.value = nv;
+        el.setSelectionRange(a + 1, a + 1);
+        editBlock(b.id, (x) => setBlockText(x, nv));
+        return;
+      }
+      if (how === 'split') splitAt(b.id, a);
       return;
     }
     if (e.key === 'Backspace' && !ime && el.selectionStart === 0 && el.selectionEnd === 0) {
@@ -164,21 +270,42 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
       return;
     }
     if (e.key === 'Tab' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      if (ime) return;
       e.preventDefault();
       if (!ui().sel.includes(b.id)) select([b.id], { scroll: false });
-      indentSel(e.shiftKey ? -1 : 1);
+      /* 放進上一段的最後／拿到外面；不行時縮排（F297）。列會換位置：游標放回原處 */
+      const caret = el.selectionStart;
+      nestSel(e.shiftKey ? -1 : 1);
+      focusBlock(b.id, caret);
       return;
     }
+    /* ↑↓：最上面、最下面一行時移到上一個、下一個欄位（F309） */
+    if (
+      (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+      !ime &&
+      !e.shiftKey &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey
+    ) {
+      const up = e.key === 'ArrowUp';
+      if (atEdge(el, up)) {
+        const x = caretBox(el, el.selectionStart).x;
+        if (navMove(el, up ? -1 : 1, x, pickRow)) e.preventDefault();
+      }
+      return;
+    }
+    /* Esc：選取、游標全部取消（F313；上游 v3.24.0） */
     if (e.key === 'Escape' && !ime) {
       e.preventDefault();
-      el.blur();
-      select([b.id], { scroll: false });
+      clearAll();
     }
   };
 
+  /* 貼上：當成 markdown 讀（有寫法或分成好幾段時變成段落；F036、F289） */
   const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
     const t = e.clipboardData.getData('text/plain');
-    if (!t || !/\n[ \t　]*\n/.test(t.replace(/\r\n?/g, '\n'))) return;
+    if (!t) return;
     const made = pasteParagraphs(b.id, t);
     if (made) e.preventDefault();
   };
@@ -193,12 +320,14 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
 
   const onBlur = () => {
     if (ui().focusId === b.id) setUi({ focusId: null });
+    setSug(null);
     ensurePopRefs(b.id);
   };
 
   /* 手冊的書式名稱處顯示編號（F252） */
   const ho = b.type === 'handout' ? hoOf(b).no : '';
-  const label = ho ? `${typeName(b.type)} ${ho}` : typeName(b.type);
+  const label = ho ? `${typeName(b.type)} ${ho}` : rowTypeName(b);
+  const hasLabel = LABEL_ROW_TYPES.includes(b.type);
   return (
     <div
       className={cn(
@@ -227,36 +356,65 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
         <span className={cn('font-semibold', selected && 'text-accent')}>{ho || label}</span>
         {span ? <span className="text-[10px] text-muted">全寬</span> : null}
       </button>
-      <div className="min-w-0 flex-1">
+      <div className="relative min-w-0 flex-1">
         {isText ? (
-          <textarea
-            ref={ta}
-            rows={1}
-            value={text}
-            data-bid={b.id}
-            aria-label={`${label}的文字`}
-            placeholder={S.hints.emptyText}
-            spellCheck={false}
-            className={cn(
-              'block w-full resize-none overflow-hidden rounded-sm border border-transparent bg-transparent px-1.5 py-0.5 text-sm leading-relaxed text-fg placeholder:text-muted focus:border-border-strong focus:bg-surface focus:outline-none',
-              TYPE_TEXT_CLASS[b.type],
-            )}
-            onChange={(e) => onChange(e.currentTarget)}
-            onKeyDown={onKeyDown}
-            onPaste={onPaste}
-            onFocus={onFocus}
-            onBlur={onBlur}
-            onCompositionStart={() => {
-              composing.current = true;
-            }}
-            onCompositionEnd={(e) => {
-              composing.current = false;
-              imeEnd.current = Date.now();
-              onChange(e.currentTarget);
-            }}
-          />
+          <>
+            {hasLabel ? (
+              <LabelField b={b} name={label} onFocus={onFocus} next={() => ta.current} />
+            ) : null}
+            <textarea
+              ref={ta}
+              rows={1}
+              value={text}
+              data-bid={b.id}
+              data-nav="t"
+              data-navid={b.id}
+              aria-label={`${label}的文字`}
+              placeholder={S.hints.emptyText}
+              spellCheck={false}
+              className={cn(
+                'block w-full resize-none overflow-hidden rounded-sm border border-transparent bg-transparent px-1.5 py-0.5 text-sm leading-relaxed text-fg placeholder:text-muted focus:border-border-strong focus:bg-surface focus:outline-none',
+                TYPE_TEXT_CLASS[b.type],
+              )}
+              onChange={(e) => onChange(e.currentTarget, e)}
+              onKeyDown={onKeyDown}
+              onPaste={onPaste}
+              onSelect={(e) => {
+                if (sug || b.type === 'desc') updSug(e.currentTarget);
+              }}
+              aria-autocomplete={b.type === 'desc' ? 'list' : undefined}
+              aria-controls={sug ? sugId : undefined}
+              aria-activedescendant={sug ? `${sugId}-${sug.i}` : undefined}
+              onFocus={onFocus}
+              onBlur={onBlur}
+              onCompositionStart={() => {
+                composing.current = true;
+              }}
+              onCompositionEnd={(e) => {
+                composing.current = false;
+                imeEnd.current = Date.now();
+                onChange(e.currentTarget);
+              }}
+            />
+            {sug ? (
+              <MdSuggestList
+                id={sugId}
+                list={sug.list}
+                q={sug.q}
+                cur={sug.i}
+                onPick={(it) => {
+                  if (ta.current) applySug(ta.current, it);
+                }}
+              />
+            ) : null}
+          </>
         ) : b.type === 'image' ? (
-          <div className="flex items-center gap-2 px-1.5 py-0.5 text-sm" data-dbl={b.id}>
+          <div
+            className="flex items-center gap-2 px-1.5 py-0.5 text-sm"
+            data-dbl={b.id}
+            data-nav="sel"
+            data-navid={b.id}
+          >
             {b.img ? (
               <img
                 src={b.img}
@@ -269,12 +427,14 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
             <span className="min-w-0 truncate">
               {String(b.cap ?? '').trim() || summaryOf(b, doc())}
             </span>
-            {isFreeImg(b) && String(b.cap ?? '').trim() ? (
-              <span className="text-xs text-muted">{summaryOf(b, doc())}</span>
-            ) : null}
           </div>
         ) : (
-          <div className="px-1.5 py-0.5 text-sm text-muted" data-dbl={b.id}>
+          <div
+            className="px-1.5 py-0.5 text-sm text-muted"
+            data-dbl={b.id}
+            data-nav="sel"
+            data-navid={b.id}
+          >
             {summaryOf(b, doc())}
           </div>
         )}
@@ -282,6 +442,64 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
     </div>
   );
 });
+
+/**
+ * 文字欄上方的標題語欄（特殊區塊、情報區塊的標題語；對話文的說話者；第三批，上游 v3.24.1；F311）：
+ * Enter 到文字的開頭、↑↓ 移到上一個、下一個欄位、Esc 全部取消；和設定欄的欄位是同一個值。
+ */
+function LabelField({
+  b,
+  name,
+  onFocus,
+  next,
+}: {
+  b: Block;
+  name: string;
+  onFocus: () => void;
+  next: () => HTMLTextAreaElement | null;
+}) {
+  const spk = b.type === 'dialog';
+  const value = spk ? String(b.sp ?? '') : blockLabel(b);
+  const ph = spk || name === '對話文' ? '（沒有說話者）' : '（沒有標題語）';
+  return (
+    <input
+      type="text"
+      value={value}
+      data-nav="lb"
+      data-navid={b.id}
+      data-lbl={b.id}
+      aria-label={`${name}的${spk ? '說話者' : '標題語'}`}
+      placeholder={ph}
+      spellCheck={false}
+      className="block w-full rounded-sm border border-transparent bg-transparent px-1.5 py-0 text-xs font-bold tracking-wider text-accent placeholder:font-normal placeholder:tracking-normal placeholder:text-muted focus:border-border-strong focus:bg-surface focus:outline-none"
+      onFocus={onFocus}
+      onChange={(e) => setBlockLabel(b.id, e.target.value)}
+      onKeyDown={(e) => {
+        const el = e.currentTarget;
+        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          const t = next();
+          if (t) {
+            t.focus();
+            t.setSelectionRange(0, 0);
+          }
+          return;
+        }
+        if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.shiftKey) {
+          const x = caretBox(el, el.selectionStart ?? 0).x;
+          if (navMove(el, e.key === 'ArrowUp' ? -1 : 1, x, pickRow)) e.preventDefault();
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          clearAll();
+        }
+      }}
+    />
+  );
+}
 
 /* ---------- 串列 ---------- */
 
@@ -332,6 +550,46 @@ function Nested({
   d: Doc;
   spanOf: (b: Block) => boolean;
 }) {
+  /* 段落裡的段落（第三批）：在強調色的直線裡面；同一條線裡面是同一層 */
+  const kids = b.kids?.length ? (
+    <div
+      className="my-0.5 border-l-2 border-accent pl-1"
+      style={{ marginLeft: depth * 14 + 12 }}
+      data-kids={b.id}
+    >
+      <BlockList
+        list={b.kids}
+        refKey={{ k: 'kids', id: b.id }}
+        depth={0}
+        sel={sel}
+        d={d}
+        spanOf={() => false}
+      />
+    </div>
+  ) : null;
+  const sub = nestedLists({ b, depth, sel, d, spanOf });
+  if (!kids) return sub;
+  return (
+    <>
+      {sub}
+      {kids}
+    </>
+  );
+}
+
+function nestedLists({
+  b,
+  depth,
+  sel,
+  d,
+  spanOf,
+}: {
+  b: Block;
+  depth: number;
+  sel: ReadonlySet<string>;
+  d: Doc;
+  spanOf: (b: Block) => boolean;
+}): React.ReactNode {
   if (b.type === 'popup' && popIsBlocks(b)) {
     const ref: ListRef = { k: 'pop', id: b.id };
     const list = b.pop?.blocks ?? [];
@@ -394,11 +652,27 @@ function TableNameRow({ b }: { b: Block }) {
         type="text"
         value={String(b.tbl?.name ?? '')}
         data-tname={b.id}
+        data-nav="in"
+        data-navid={b.id}
         className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-surface-2 px-2 text-sm text-fg"
         onFocus={() => {
           if (!(ui().sel.length === 1 && ui().sel[0] === b.id)) select([b.id]);
         }}
         onKeyDown={(e) => {
+          /* ↑↓：上一個、下一個欄位（F309） */
+          if (
+            (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+            !e.shiftKey &&
+            !e.ctrlKey &&
+            !e.altKey &&
+            !e.metaKey &&
+            !e.nativeEvent.isComposing
+          ) {
+            const el = e.currentTarget;
+            const x = caretBox(el, el.selectionStart ?? 0).x;
+            if (navMove(el, e.key === 'ArrowUp' ? -1 : 1, x, pickRow)) e.preventDefault();
+            return;
+          }
           /* Tab：移到下一個表格欄位（第一格的文字欄，游標在最後）；Shift＋Tab 照瀏覽器 */
           if (e.key !== 'Tab' || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
           if (e.nativeEvent.isComposing) return;
@@ -688,7 +962,7 @@ export function SourcePane({ popupId }: { popupId?: string } = {}) {
       groups.push(
         <div key="rest">
           <div className="mt-2 mb-0.5 rounded-sm bg-surface-3 px-2 py-0.5 text-xs font-semibold text-muted">
-            不在紙面上的段落（換頁、自由配置的圖片…）
+            不在紙面上的段落（換頁…）
           </div>
           <BlockList
             list={d.blocks}
@@ -707,6 +981,7 @@ export function SourcePane({ popupId }: { popupId?: string } = {}) {
       <BlockList list={d.blocks} refKey={bodyRef} depth={0} sel={sel} d={d} spanOf={spanOf} />
     );
   }
+  const pimgs = popupId ? [] : (d.pageImgs ?? []);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -737,6 +1012,7 @@ export function SourcePane({ popupId }: { popupId?: string } = {}) {
         onDoubleClick={onDoubleClick}
       >
         {content}
+        {pimgs.length ? <PageImgList /> : null}
         {drop ? (
           <div
             className="pointer-events-none absolute z-10 h-[3px] rounded-full bg-accent"
@@ -749,6 +1025,120 @@ export function SourcePane({ popupId }: { popupId?: string } = {}) {
             style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }}
           />
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 頁面圖片的清單（2026-10；紙面上也可以點選） ---------- */
+
+function PageImgList() {
+  const list = useDoc((s) => s.data.pageImgs ?? []);
+  const cur = useUi((s) => s.pimgSel);
+  const total = useUi((s) => s.total);
+  return (
+    <div className="mt-3" data-testid="se-pimg-list">
+      <div className="mb-0.5 rounded-sm bg-surface-3 px-2 py-0.5 text-xs font-semibold text-muted">
+        自由配置的圖片（頁面圖片）
+      </div>
+      <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+        {list.map((o) => {
+          const on = cur === o.id;
+          const cap = String(o.cap ?? '').trim();
+          return (
+            <li key={o.id}>
+              <button
+                type="button"
+                aria-pressed={on}
+                data-pimgrow={o.id}
+                onClick={() => selectPimg(o.id)}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md border px-2 py-1 text-left text-sm',
+                  on ? 'border-accent bg-accent-soft' : 'border-transparent hover:bg-surface-2',
+                )}
+              >
+                <img
+                  src={o.img}
+                  alt=""
+                  className="h-10 w-14 rounded-sm bg-surface-3 object-contain"
+                />
+                <span className="min-w-0 truncate">
+                  P.{pimgPage(o, total) + 1}
+                  {cap ? `　${cap}` : '　（沒有說明）'}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/* ---------- markdown 的候選清單（2026-10，上游 v3.16.1；F293） ---------- */
+
+function MdSuggestList({
+  id,
+  list,
+  q,
+  cur,
+  onPick,
+}: {
+  id: string;
+  list: readonly MdSuggestItem[];
+  q: string;
+  cur: number;
+  onPick: (it: MdSuggestItem) => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    box.current
+      ?.querySelector<HTMLElement>(`[id="${CSS.escape(`${id}-${cur}`)}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [id, cur]);
+  return (
+    <div
+      ref={box}
+      className="absolute top-full left-0 z-20 mt-1 max-h-72 w-72 overflow-auto rounded-md border border-border-strong bg-surface p-1 text-sm shadow-2"
+      data-testid="se-md-suggest"
+    >
+      <div id={id} role="listbox" aria-label="段落的書式（markdown）">
+        <div aria-hidden className="px-2 py-1 text-xs font-semibold text-muted">
+          段落的書式（markdown）
+        </div>
+        {list.map((it, i) => (
+          <div
+            key={it.nm}
+            id={`${id}-${i}`}
+            role="option"
+            tabIndex={-1}
+            aria-selected={i === cur}
+            className={cn(
+              'flex cursor-pointer items-baseline gap-2 rounded-sm px-2 py-1',
+              i === cur ? 'bg-accent-soft text-fg' : 'hover:bg-surface-2',
+            )}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onPick(it);
+            }}
+          >
+            <span aria-hidden className="w-8 shrink-0 font-mono text-xs text-accent">
+              {it.gl}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="font-semibold">{it.lb}</span>
+              <span className="ml-1 text-xs text-muted">{it.ds}</span>
+            </span>
+            <span aria-hidden className="shrink-0 font-mono text-xs text-muted">
+              {mdShown(it, q)}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-border px-2 pt-1 text-xs text-muted">
+        ↑↓ 選擇　Enter 套用　Esc 關閉
+        <br />
+        繼續打字可以縮小範圍（pa、換 等）
       </div>
     </div>
   );

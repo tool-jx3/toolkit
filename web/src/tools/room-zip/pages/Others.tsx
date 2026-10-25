@@ -727,6 +727,7 @@ export function StoryPage() {
           </Row>
         ) : null}
         {!story.length ? <Hint>{S.storyEmpty}</Hint> : null}
+        {story.some((x) => x.note) ? <Hint>{S.roomImport.notesNote}</Hint> : null}
         {story.map((x, i) => (
           <StoryItem
             key={x.id}
@@ -773,6 +774,15 @@ function StoryItem({
     >
       <Row>
         <span className="text-xs text-muted tabular-nums">{i + 1}</span>
+        {x.note ? (
+          <span
+            className="rounded-sm bg-accent-soft px-1.5 text-xs text-accent"
+            title={S.roomImport.notesNote}
+            data-testid="story-from-room"
+          >
+            {S.roomImport.storyBadge}
+          </span>
+        ) : null}
         <TextInput
           aria-label={`${S.storyTitleField} ${i + 1}`}
           value={x.title}

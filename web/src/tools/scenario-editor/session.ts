@@ -9,6 +9,7 @@ import { bridge } from './bridge';
 import {
   busyIds,
   GEN_EVERY,
+  GEN_NAME_MAX,
   hasLocks,
   JOURNAL_MAX,
   journalClear,
@@ -301,7 +302,7 @@ function post(t: string): void {
   }
 }
 
-/* ---------- 樣板（記在這個瀏覽器） ---------- */
+/* ---------- 範本（記在這個瀏覽器） ---------- */
 
 function browserTemplates(): BoxTemplate[] {
   return readBrowserTemplates()
@@ -309,14 +310,14 @@ function browserTemplates(): BoxTemplate[] {
     .filter((t): t is BoxTemplate => !!t);
 }
 
-/** 開啟原稿時：這個瀏覽器記住的樣板，原稿沒有的同名加進去 */
+/** 開啟原稿時：這個瀏覽器記住的範本，原稿沒有的同名加進去 */
 function withBrowserTemplates(d: Doc): Doc {
   const merged = mergeTemplates(d.bxTpl, browserTemplates());
   writeBrowserTemplates(merged);
   return { ...d, bxTpl: merged };
 }
 
-/** 樣板改變時記到這個瀏覽器 */
+/** 範本改變時記到這個瀏覽器 */
 export function rememberTemplates(list: readonly BoxTemplate[]): void {
   writeBrowserTemplates([...list]);
 }
@@ -470,6 +471,37 @@ export async function resetDoc(): Promise<void> {
   say(S.status.reset);
 }
 
+/* ---------- 存到瀏覽器（F262；2026-10，上游 v3.26.0） ---------- */
+
+/** 把目前的內容加上名稱，留在「過去的版本」（自己留的：不算進 10 份、不會被擠掉） */
+export async function saveToBrowser(): Promise<void> {
+  const id = ses().id;
+  if (!ses().idb || !id) {
+    say(S.status.browserSaveNoIdb, 'warn');
+    return;
+  }
+  const def = S.saveBrowser.defaultName(whenText(Date.now()));
+  const r = await bridge.prompt({
+    title: S.saveBrowser.title,
+    description: S.saveBrowser.description,
+    label: S.saveBrowser.label,
+    value: def,
+    maxLength: GEN_NAME_MAX,
+    confirmLabel: S.saveBrowser.ok,
+  });
+  if (!r) return;
+  const name = r.value.trim() || def;
+  try {
+    /* 打到一半的先寫完，再把目前的內容留成版本 */
+    await flushNow();
+    if (ses().id !== id) return;
+    if (!(await snapGen(id, JSON.stringify(doc()), Date.now(), name))) throw new Error('no work');
+    say(S.status.browserSaved(name));
+  } catch {
+    say(S.status.browserSaveFailed, 'err');
+  }
+}
+
 /* ---------- 檔案（F013、F015） ---------- */
 
 export function saveFile(): void {
@@ -504,23 +536,23 @@ export function docFromFileText(text: string): Doc {
   return normalizeDoc(obj);
 }
 
-/** 開啟檔案：新增為一個新作品並開啟（F015） */
-export async function openFile(file?: File): Promise<void> {
+/** 開啟檔案：新增為一個新作品並開啟（F015、F308）。開好了回傳 true */
+export async function openFile(file?: File): Promise<boolean> {
   const f = file ?? (await pickFiles({ accept: '.json,application/json' }))[0];
-  if (!f) return;
+  if (!f) return false;
   let text: string;
   try {
     text = await readAsText(f);
   } catch {
     say(S.status.readFail, 'err');
-    return;
+    return false;
   }
   let d: Doc;
   try {
     d = docFromFileText(text);
   } catch (e) {
     say(e instanceof Error ? e.message : S.status.notDoc, 'err');
-    return;
+    return false;
   }
   if (!ses().idb) {
     loadDoc(withBrowserTemplates(d));
@@ -528,10 +560,12 @@ export async function openFile(file?: File): Promise<void> {
     resetUi();
     void flush();
     say(S.status.opened(d.title));
-    return;
+    return true;
   }
   const id = await createWork(d);
-  if (await openWork(id)) say(S.status.openedNew(d.title || UNTITLED));
+  const ok = await openWork(id);
+  if (ok) say(S.status.openedNew(d.title || UNTITLED));
+  return ok;
 }
 
 /* ---------- 啟動（F008、F017、F018） ---------- */

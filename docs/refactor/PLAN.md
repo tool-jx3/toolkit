@@ -57,7 +57,7 @@
 | acrylic-goods | 壓克力周邊工房 | sotsotssi/acrylic-goods | MIT | G7 |
 | video-anim | 影片轉動圖工具 | sotsotssi/video-to-pic | MIT | G8 |
 | gif-combiner | GIF 接合器 | sotsotssi/GIF-Combiner | MIT | G8 |
-| music-frame | 音樂播放畫面產生器 | zznaptime/1007mv | 未授權 | G8 |
+| music-frame | 音樂播放畫面產生器 | zZnaptime/MVmaker（原 zznaptime/1007mv） | 未授權 | G8 |
 | battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator | MIT | G10（原 G8） |
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
@@ -219,6 +219,9 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 另外找了各作者 10/09 之後的新工具與 10/15 之後才收錄的作者的全部 repo。使用者 2026-10-19 選了第一批：室內平面圖讀原作新版檔的相容、劇本排版台的情報／手冊／變數、
 證件與票券產生器、錄影帶畫面產生器；另外評估 Maptsukuri（maptsukuri.pages.dev）有沒有值得併進室內平面圖的功能。
 
+上游檢查（2026-10-24）：59 個 GitHub 上游裡 8 個有新 commit，另外找了已收錄作者的新工具與 GitHub 上新作者的跑團工具；結果整理在 [TODO.md](TODO.md)（之後的檢查都更新那份清單）。
+music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修正。使用者 2026-10-25 選了：room-zip 讀入房間 ZIP 再編輯、scenario-editor 跟進 v3.26。
+
 | 工具 id | 名稱 | 靈感來源 | 原授權 | 群組 | 規格 | 實作 | 對等驗證 | 上線 |
 |---|---|---|---|---|---|---|---|---|
 | ai-fail | AI 誤判梗圖產生器 | swoonqx/ai-fails-meme-maker | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
@@ -274,6 +277,8 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 | floor-plan | 第二批：新的門窗 7 種、牆 3 種與每個房間的牆種類、房間 14 種、外觀樓層（屋頂）與「顯示內部」；讀原作新版檔時保留這些種類 | 同上 | ✅ |
 | floor-plan | 第三批：家具擴充（約 230 種、含貼在牆上的素材，圖形自己畫）、家具與範本的標籤搜尋、更多自己設計的範本（分批） | 同上 | ✅ |
 | lyric-fx | 逐句手動調整：在預覽上點選一句拖曳位置、旋轉角度，逐句改文字顏色、發光顏色、大小、透明度與字型；調整過的句固定不動、其他句照樣避開它 | 本站（使用者 2026-10-23 要求） | ✅ |
+| scenario-editor | 跟進原作 v3.10～v3.26（三批）：儲存選單（存到瀏覽器的命名版本／JSON）、每頁紙色與背景花紋、浮動視窗、「→ 附錄」「↩ 回到」與場景轉換連到標題、文字以 pt 設定大小；頁面圖片（圖層、外框、陰影、％／px）、markdown 輸入與 `::`／`#` 候選、不分頁的 HTML 與章目錄；段落裡的段落、特殊區塊與範本、按一下複製、變數清單直接改、作品清單讀入 JSON、↑↓ 跨段、Esc 一次取消、在下面新增 | sedn14636361/trpg-scenario-editor v3.10.0～v3.26.0（CC0，使用者 2026-10-25） | ✅ |
+| room-zip | 讀入 CCFOLIA 匯出的房間 ZIP 再編輯、再匯出：圖片變素材、房間設定、場景、面板、棋子、切入、劇本文字都帶進來，不能編輯的資料原樣寫回（不改直接匯出與原檔逐欄相同） | 756y/ccfolia_scene_maker（未授權，功能參考；使用者 2026-10-25） | ✅ |
 
 ## 7. 往後新增工具
 

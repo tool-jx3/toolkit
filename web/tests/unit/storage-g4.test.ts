@@ -4,6 +4,7 @@ import {
   applyTemplate,
   createPreviewStore,
   createToolStore,
+  getSaveError,
   historyGesture,
   resetToolStore,
   safeStorage,
@@ -169,6 +170,21 @@ describe('localStorage 讀寫失敗時不丟例外（chat-window F96）', () => 
     const settings = createToolStore('blocked3', { v: 1 }, { coalesceMs: 0 });
     expect(() => settings.getState().patch({ v: 2 })).not.toThrow();
     expect(settings.getState().data.v).toBe(2);
+  });
+
+  it('getSaveError：寫入失敗時回傳錯誤（非 React 版的 useSaveError），之後寫入成功就清掉', () => {
+    const blocked = new DOMException('quota', 'QuotaExceededError');
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw blocked;
+    });
+    const s = createToolStore('saveerr1', { v: 1 }, { coalesceMs: 0 });
+    expect(getSaveError('saveerr1')).toBeNull();
+    s.getState().patch({ v: 2 });
+    expect(getSaveError('saveerr1')).toBe(blocked);
+    expect(getSaveError('另一個工具')).toBeNull();
+    spy.mockRestore();
+    s.getState().patch({ v: 3 });
+    expect(getSaveError('saveerr1')).toBeNull();
   });
 
   it('讀取被擋（getItem 丟錯）：用初始值開始，之後照常寫入', () => {

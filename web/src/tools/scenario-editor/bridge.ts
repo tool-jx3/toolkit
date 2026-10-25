@@ -12,7 +12,7 @@ export interface PromptOptions {
   maxLength?: number;
   multiline?: boolean;
   confirmLabel?: string;
-  /** 第二個欄位（例如樣板的標題語） */
+  /** 第二個欄位（例如範本的標題語） */
   second?: { label: string; value?: string; maxLength?: number };
 }
 

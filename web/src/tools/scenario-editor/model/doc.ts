@@ -3,8 +3,12 @@
  */
 import { allBlocks, blockLists, newBlock, newPage, newPageBg, subLists } from './blocks';
 import { ensureFlow } from './flow';
+import { hasLegacySizes, migrateLegacySizes, ptRound } from './fontSize';
+import { bodyWidthMm, fixImageFx, PAPER_W } from './image';
+import { PK_VER, procMigrate } from './kids';
 import { ensureNpc } from './npc/model';
-import { applyBxTpl, BX_TPL, bxTplClean, ensureProc } from './proc';
+import { cleanPimgs, freeToPimg } from './pageImg';
+import { applyBxTpl, BOX_COLORS, BX_TPL, bxTplClean, ensureProc } from './proc';
 import { MD_VER, mdText } from './rich';
 import { ensureTable, tblFit } from './table';
 import { setBlockText, tidyMarks, uid } from './text';
@@ -40,6 +44,7 @@ export function sampleBlocks(): Block[] {
 export function blankDoc(): Doc {
   return {
     mdv: MD_VER,
+    pkv: PK_VER,
     title: UNTITLED,
     padV: 18,
     padH: 16,
@@ -51,6 +56,7 @@ export function blankDoc(): Doc {
     fontHead: '',
     bxTpl: [],
     vars: [],
+    pageImgs: [],
     pages: [{ id: uid(), bg: newPageBg('bg-paper'), cols: 1 }],
     blocks: sampleBlocks(),
   };
@@ -88,6 +94,12 @@ export function fixBlock(nb: Block): Block {
   nb.ind = Math.max(0, Math.min(4, Number.parseInt(String(nb.ind ?? 0), 10) || 0));
   if (Array.isArray(nb.mk)) nb.mk = tidyMarks(nb.mk);
   else if (nb.mk != null) delete nb.mk;
+  /* 段落的文字大小（pt）：5～72、0.5 一階（2026-10，上游 v3.21.0） */
+  if (nb.pt != null) {
+    if (+nb.pt > 0) nb.pt = ptRound(nb.pt);
+    else delete nb.pt;
+  }
+  if (nb.jump != null) nb.jump = String(nb.jump);
   if (nb.type === 'flow') nb.cols = 1;
   if ((nb.type as string) === 'list') {
     const mk = ['disc', 'num', 'box'].includes(String(nb.mark)) ? String(nb.mark) : 'disc';
@@ -118,9 +130,16 @@ export function fixBlock(nb: Block): Block {
     nb.fx = +(nb.fx ?? 0) || 0;
     nb.fy = +(nb.fy ?? 0) || 0;
     nb.pg = Math.max(1, +(nb.pg ?? 1) || 1);
-    if (!nb.w) nb.w = 70;
+    /* 寬的單位（2026-10，上游 v3.16.0）：px 以外都是版心寬的％ */
+    if (nb.wu === 'px') {
+      if (!(+(nb.w ?? 0) > 0)) nb.w = 200;
+    } else {
+      delete nb.wu;
+      if (!nb.w) nb.w = 70;
+    }
     nb.ar = +(nb.ar ?? 0) > 0 ? +(nb.ar ?? 0) : 0;
     nb.wrap = nb.wrap === 'none' ? 'none' : 'square';
+    fixImageFx(nb, BOX_COLORS);
   }
   return nb;
 }
@@ -166,6 +185,11 @@ export function fixTyped(list: Block[]): Block[] {
       if (Array.isArray(p.blocks))
         p.blocks = p.blocks.filter((x) => x && typeof x === 'object').map(blockFrom);
     }
+    /* 段落裡的段落（第三批）：不是段落的拿掉、補齊欄位（cols 照原值，畫的時候不看；第三批驗證後 U10）；空的不留 */
+    if (Array.isArray(b.kids)) {
+      b.kids = b.kids.filter((x) => x && typeof x === 'object').map(blockFrom);
+      if (!b.kids.length) delete b.kids;
+    } else if (b.kids != null) delete b.kids;
     for (const l of subLists(b)) fixTyped(l);
   }
   return list;
@@ -184,12 +208,39 @@ function mdMigrate(list: Block[]): void {
 
 const pageFrom = (p: unknown, cols?: 1 | 2): PageSetting => {
   const o = (p && typeof p === 'object' ? p : {}) as Partial<PageSetting> & { cols?: unknown };
+  const bg = { ...newPageBg(), ...(o.bg ?? {}) };
+  /* 紙的顏色（2026-10，上游 v3.13.0）：不是 #rrggbb 的當成沒有指定 */
+  if (bg.color != null)
+    bg.color = /^#[0-9a-f]{6}$/i.test(String(bg.color)) ? String(bg.color).toLowerCase() : '';
   return {
     id: o.id || uid(),
-    bg: { ...newPageBg(), ...(o.bg ?? {}) },
+    bg,
     cols: cols ?? (o.cols === 2 ? 2 : 1),
   };
 };
+
+/**
+ * 舊原稿的自由配置圖片（3.18.1）：本文的移到頁面圖片（同原作 v3.14.0；沒有圖的不要）；
+ * 彈出視窗、儲存格裡的（放不到頁上）改成行內，寬從紙寬的％換成版心寬的％。
+ */
+function migrateFreeImages(out: Doc): void {
+  out.blocks = out.blocks.filter((b) => {
+    if (b.type !== 'image' || b.pos !== 'free') return true;
+    if (b.img) out.pageImgs.push(freeToPimg(b, out.padH, out.padV));
+    return false;
+  });
+  const bodyW = bodyWidthMm(out);
+  for (const list of blockLists(out))
+    for (const b of list) {
+      if (b.type !== 'image' || b.pos !== 'free') continue;
+      const wOld = (PAPER_W * Math.max(1, Math.min(100, +(b.w ?? 0) || 40))) / 100;
+      b.w = Math.max(1, Math.min(100, Math.round((wOld / bodyW) * 100)));
+      delete b.wu;
+      b.pos = 'inline';
+      b.fl = '';
+      b.cols = 1;
+    }
+}
 
 /** 是不是原稿（舊版的原稿物件、或新版 data） */
 export function looksLikeDoc(d: unknown): d is Partial<Doc> {
@@ -207,6 +258,8 @@ export function normalizeDoc(raw: unknown): Doc {
   const d = raw as Omit<Partial<Doc>, 'pages'> & { pages?: LegacyPage[] };
   const out: Doc = {
     mdv: MD_VER,
+    /* 比本站新的 pkv（原作日後的版本）照留，不降成 1（第三批驗證後 U10） */
+    pkv: Number.isFinite(+(d.pkv ?? 0)) ? Math.max(PK_VER, +(d.pkv ?? 0) || 0) : PK_VER,
     title: d.title || UNTITLED,
     padV: +(d.padV ?? 0) || 18,
     padH: +(d.padH ?? 0) || 16,
@@ -218,6 +271,8 @@ export function normalizeDoc(raw: unknown): Doc {
     fontHead: d.fontHead || '',
     bxTpl: (Array.isArray(d.bxTpl) ? d.bxTpl : []).map(bxTplClean).filter((x) => !!x),
     vars: cleanVars(d.vars),
+    /* 頁面圖片（2026-10，上游 v3.14.0） */
+    pageImgs: cleanPimgs(d.pageImgs),
     pages: [],
     blocks: [],
   };
@@ -242,10 +297,15 @@ export function normalizeDoc(raw: unknown): Doc {
     for (const b of Array.isArray(d.blocks) ? d.blocks : []) out.blocks.push(blockFrom(b));
   }
   if (!out.pages.length) out.pages.push(newPage(out.defCols));
-  if (!out.blocks.length) out.blocks = sampleBlocks();
   fixTyped(out.blocks);
+  migrateFreeImages(out);
+  if (!out.blocks.length) out.blocks = fixTyped(sampleBlocks());
   numberHandouts(out);
   if ((+(d.mdv ?? 0) || 0) < MD_VER) mdMigrate(out.blocks);
+  /* 特殊區塊的 ■、＞ 行改成段落裡的段落（只做一次；記在 pkv、存檔時寫出；3.19.1） */
+  if ((+(d.pkv ?? 0) || 0) < PK_VER) procMigrate(out.blocks);
+  /* 原作 v3.17～v3.20 的文字大小（倍率）換成當時的 pt（3.17.5） */
+  if (hasLegacySizes(out.blocks)) migrateLegacySizes(out.blocks, out.base, out.base);
   return out;
 }
 
@@ -309,7 +369,7 @@ export function renewIds(b: Block): Block {
 
 /**
  * 每次修改之後：避免本文變成空的；每一格都至少留一個段落（隨時都有地方可以寫）；
- * 新的手冊（或編號不合規則的）自動編號（F252）。
+ * 新的手冊（或編號不合規則的）自動編號（F252）；空的 kids 拿掉。
  */
 export function keepNotEmpty(doc: Doc): void {
   if (!doc.blocks.length) doc.blocks.push(newBlock('desc', ''));
@@ -318,6 +378,8 @@ export function keepNotEmpty(doc: Doc): void {
     for (const b of list) {
       if (b.type === 'table' && b.tbl) tblFit(b.tbl);
       if (b.type === 'handout') ho = true;
+      /* 段落裡的段落都拿掉了：不留空的 kids（第三批） */
+      if (Array.isArray(b.kids) && !b.kids.length) delete b.kids;
     }
   if (ho) numberHandouts(doc);
 }

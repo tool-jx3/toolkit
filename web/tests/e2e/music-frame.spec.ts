@@ -385,9 +385,9 @@ const probeVideo = (page: Page, bytes: Uint8Array, type: string) =>
 test.describe('音樂播放畫面產生器', () => {
   test('開頁：預設值、示範封面、分頁、外框與頁尾', async ({ page }) => {
     const errors = await open(page);
-    await expect(page.getByRole('link', { name: /zznaptime\/1007mv/ })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: /zZnaptime\/MVmaker/ })).toHaveAttribute(
       'href',
-      'https://github.com/zznaptime/1007mv',
+      'https://github.com/zZnaptime/MVmaker',
     );
     await expect(page.getByRole('tablist', { name: '設定分類' }).getByRole('tab')).toHaveText([
       '曲目',

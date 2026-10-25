@@ -3,16 +3,24 @@
  */
 import type { BlockType } from './types';
 
-/** 可以用巢狀書式的書式 */
-export const RICH_TYPES: readonly BlockType[] = ['desc', 'note', 'proc', 'info', 'handout'];
+/** 可以用巢狀書式的書式（對話文：第三批驗證後 U2，同原作的對話範本） */
+export const RICH_TYPES: readonly BlockType[] = [
+  'desc',
+  'dialog',
+  'note',
+  'proc',
+  'info',
+  'handout',
+];
 
 /** 「這段文字有沒有用到巢狀書式」用的行首記號 */
-const RICH_MARK = /^[ 　\t]*(?:[■◆]|[◇]|[※＊]|[＞>]|[・･]|[-*+][ \t]|\d+[.．)）]|[□☐]|[＠@]|[|｜])/;
+const RICH_MARK =
+  /^[ 　\t]*(?:#{4,6}[ \t]|[■◆]|[◇]|[※＊]|[＞>]|[・･]|[-*+][ \t]|\d+[.．)）]|[□☐]|[＠@]|[|｜])/;
 /** 整行是「…」（前面可以有 1～10 字的名字） */
 export const RICH_TALK = /^\s*(?:([^「『、。！？\s]{1,10})\s*)?[「『][\s\S]*[」』]\s*$/;
 /** 行首的記號（換書式時先拿掉） */
 export const RICH_HEAD_RE =
-  /^[ 　\t]*(?:[■◆]|[◇]|[※＊]|[＞>]|[・･]|[-*+][ \t]*\[[ xX]?\]|[-*+][ \t]|\d+[.．)）]|[□☐]|[＠@]|#{1,3})[ 　\t]*/;
+  /^[ 　\t]*(?:[■◆]|[◇]|[※＊]|[＞>]|[・･]|[-*+][ \t]*\[[ xX]?\]|[-*+][ \t]|\d+[.．)）]|[□☐]|[＠@]|#{1,6})[ 　\t]*/;
 
 export interface RichMark {
   /** 插入的記號 */
@@ -114,6 +122,9 @@ export function markKey(s: string): MarkKey {
   if (/^\d/.test(c)) return 'num';
   if (/^[□☐]/.test(c)) return 'box';
   if (/^[＠@]/.test(c)) return 'pop';
+  /* markdown 的 ####＝■、#####（######）＝◇（2026-10，上游 v3.16.0） */
+  if (/^#{5}/.test(c)) return 'heads';
+  if (/^####/.test(c)) return 'head';
   if (/^###/.test(c)) return 'h3';
   if (/^##/.test(c)) return 'h2';
   if (/^#/.test(c)) return 'h1';
@@ -248,8 +259,11 @@ const LINE_RULES: readonly (readonly [RegExp, (m: RegExpMatchArray, ln: string) 
 ];
 
 export function richKind(ln: string, opt: { heads?: boolean } = {}): RichLine {
+  /* markdown 的 #### 是小標（■）、#####、###### 是小一級的小標（◇）；#～### 是段落的標題 1～3（2026-10，上游 v3.16.0） */
+  const sm = ln.match(/^(#{4,6})[ \t]+(?=\S)/);
+  if (sm) return { k: sm[1].length === 4 ? 'head' : 'heads', ofs: sm[0].length };
   if (opt.heads) {
-    const h = ln.match(/^(#{1,3})\s*(?=\S)/);
+    const h = ln.match(/^(#{1,3})(?!#)\s*(?=\S)/);
     if (h) return { k: 'h', lv: h[1].length as 1 | 2 | 3, ofs: h[0].length };
   }
   for (const [re, make] of LINE_RULES) {
@@ -330,13 +344,11 @@ export function mdText(text: unknown): string {
 
 export type Guess = readonly [BlockType, string, ('skill' | 'rule')?];
 
+/** 段落的第一行猜書式（markdown 的寫法決定不了的段落；# 標題由 md.ts 處理，半形的 * 是條列不是注釋，2026-10） */
 export function guessType(line: string): Guess {
   const t = String(line ?? '').trim();
-  if (/^###\s/.test(t)) return ['h3', t.replace(/^###\s*/, '')];
-  if (/^##\s/.test(t)) return ['h2', t.replace(/^##\s*/, '')];
-  if (/^#\s/.test(t)) return ['h1', t.replace(/^#\s*/, '')];
   if (/^[「『]/.test(t)) return ['dialog', t];
-  if (/^[※＊*]/.test(t)) return ['note', t.replace(/^[※＊*]\s*/, '')];
+  if (/^[※＊]/.test(t)) return ['note', t.replace(/^[※＊]\s*/, '')];
   if (/^【?(技能判定|判定|技能檢定|檢定)】?/.test(t))
     return ['proc', t.replace(/^【?(技能判定|判定|技能檢定|檢定)】?[：:\s]*/, ''), 'skill'];
   if (/^【?(特殊ルール|特殊規則)】?/.test(t))

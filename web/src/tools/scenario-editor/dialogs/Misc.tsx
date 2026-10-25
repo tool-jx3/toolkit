@@ -1,5 +1,5 @@
 /**
- * 輸出範圍（F230～F233）、查看成品（F079）、文字輸入（註解、樣板名稱）與選擇（TTC 的字體）的對話框。
+ * 輸出範圍（F230～F233）、查看成品（F079）、文字輸入（註解、範本名稱）與選擇（TTC 的字體）的對話框。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
@@ -21,7 +21,7 @@ import { bridge, type PromptOptions, type PromptResult } from '../bridge';
 import { findBlock } from '../model/blocks';
 import { clampRange, downloadExportHtml, downloadPdf, printRange } from '../output';
 import { blockHtml, type RenderCtx } from '../render/html';
-import { doc, say, setUi, useDoc, useUi } from '../store';
+import { doc, say, setUi, useDoc, usePrefs, useUi } from '../store';
 import { S } from '../strings';
 
 /* ---------- 輸出範圍 ---------- */
@@ -81,8 +81,10 @@ export function OutputDialog() {
       abort.current = null;
     }
   };
+  const shape = usePrefs((s) => s.data.exportShape);
+  const setShape = (v: 'page' | 'flow') => usePrefs.getState().patch({ exportShape: v });
   const doExport = () => {
-    const name = downloadExportHtml(doc(), pages(), range());
+    const name = downloadExportHtml(doc(), pages(), range(), shape === 'flow');
     say(S.status.htmlDone(name));
     close();
   };
@@ -141,6 +143,26 @@ export function OutputDialog() {
               <NativeNumberInput value={b} min={1} max={total} onChange={setB} unit="頁" />
             </Field>
           </div>
+        ) : null}
+        {exp ? (
+          <Field
+            label="形式"
+            hint={
+              shape === 'flow'
+                ? '拿掉頁的分隔（換頁、換欄、頁碼、雙欄），捲動就能讀完的一張；彈出視窗的內容也放在最後。'
+                : '和紙面一樣，一頁一頁排出 A4 的頁。'
+            }
+          >
+            <Segmented
+              value={shape}
+              onValueChange={setShape}
+              aria-label="形式"
+              options={[
+                { value: 'page', label: '逐頁（A4）' },
+                { value: 'flow', label: '不分頁的一張' },
+              ]}
+            />
+          </Field>
         ) : null}
         {!exp ? (
           <p className="m-0 text-xs text-muted">

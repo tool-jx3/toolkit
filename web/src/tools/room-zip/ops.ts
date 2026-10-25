@@ -10,8 +10,13 @@ import {
   type RoomImageFile,
   sniffImageMime,
 } from '@/ccfolia';
-import { downloadBlob, pickFiles, readAsBytes, safeFileName } from '@/core/files';
-import { ProjectFileError, parseProjectBytes, serializeProjectZip } from '@/core/storage';
+import { downloadBlob, readAsBytes, safeFileName } from '@/core/files';
+import {
+  getSaveError,
+  ProjectFileError,
+  parseProjectBytes,
+  serializeProjectZip,
+} from '@/core/storage';
 import { type CreateKind, createFromMaterials } from './actions';
 import { buildRoomData } from './exportRoom';
 import { initialEndpoints } from './fade';
@@ -28,6 +33,7 @@ import {
   type Scene,
   TOOL_ID,
 } from './model';
+import { type RoomImportResult, replaceUndoable, zipKind } from './roomImport';
 import {
   assets,
   commit,
@@ -391,10 +397,16 @@ export async function saveProject(
 }
 
 /** 讀取專案檔（F275）：整個專案換掉、素材從檔案裡的圖片重建、目前場景＝第一個、復原紀錄清空、標記為已儲存 */
-export async function openProjectFile(file: File, notify: Notify): Promise<boolean> {
+export async function openProjectFile(
+  file: File,
+  notify: Notify,
+  confirmReplace?: () => Promise<boolean>,
+): Promise<boolean> {
   try {
     const parsed = parseProjectBytes<Project>(await readAsBytes(file), TOOL_ID);
     const p = normalizeProject(parsed.data);
+    /* 檔案讀得進來才確認（壞檔只通知原因，不問） */
+    if (confirmReplace && !(await confirmReplace())) return false;
     for (const [path, data] of parsed.files) {
       const name = path.split('/').pop() ?? path;
       const m = p.materials.find((x) => x.name === name);
@@ -430,9 +442,79 @@ export async function openProjectFile(file: File, notify: Notify): Promise<boole
   }
 }
 
-export async function pickAndOpen(notify: Notify): Promise<void> {
-  const [file] = await pickFiles({ accept: PROJECT_ACCEPT });
-  if (file) await openProjectFile(file, notify);
+/**
+ * 「讀取」與拖放：專案檔，或 CCFOLIA 的房間 ZIP（看內容分辨，F287）。
+ * 房間 ZIP 交給 openRoom（要自己確認與通知，見 dialogs/RoomImport.tsx 的 useRoomZipOpener）；專案檔讀得進來之後、
+ * 專案不是空的時先問 confirmReplace（R13）；ZIP 既不是專案檔也不像房間資料時說清楚（R10）。
+ */
+export async function openAny(
+  file: File,
+  notify: Notify,
+  openRoom: (file: File, bytes: Uint8Array) => Promise<boolean>,
+  confirmReplace?: () => Promise<boolean>,
+): Promise<boolean> {
+  const bytes = await readAsBytes(file).catch(() => null);
+  const kind = bytes ? zipKind(bytes) : 'not-zip';
+  if (bytes && kind === 'room') return openRoom(file, bytes);
+  if (kind === 'other') {
+    notify(S.roomImport.neitherZip, 'danger', S.roomImport.unchanged);
+    return false;
+  }
+  return openProjectFile(file, notify, confirmReplace);
+}
+
+/* ---------- 讀入房間 ZIP（F287～F299） ---------- */
+
+/** 開檔用的檔案類型（選檔視窗） */
+export const ROOM_ZIP_ACCEPT = '.zip,application/zip';
+/** 拖放時算「ZIP」的檔案 */
+export const isZipFile = (f: Pick<File, 'name' | 'type'>): boolean =>
+  /\.(zip|rzproj)$/i.test(f.name) || /zip/i.test(f.type);
+
+/**
+ * 換成讀入的專案（3.7.3）：圖片存進圖片庫（已經有的不重存）、整個專案換掉並記成一步復原、
+ * 標記為已儲存、選取清空。回傳圖片有沒有都存進這個瀏覽器（存不進去時重新整理後會不見）。
+ */
+export async function applyRoomImport(r: RoomImportResult): Promise<boolean> {
+  const total = r.images.length;
+  const busy = (done: number, detail: string) =>
+    setSession({ busy: { title: S.roomImport.busy, detail, done, total } });
+  let persisted = true;
+  try {
+    busy(0, S.roomImport.busyImages);
+    let done = 0;
+    for (const im of r.images) {
+      if (!hasBlob(im.name)) {
+        const ok = await putBlob(
+          im.name,
+          new Blob([im.data as Uint8Array<ArrayBuffer>], { type: im.mime }),
+        );
+        if (!ok) persisted = false;
+      }
+      busy(++done, S.roomImport.busyImages);
+    }
+    await loadBlobs(r.project.materials.map((m) => m.name));
+    replaceUndoable(useProject, r.project);
+    /* 專案本身（含保留的資料）存不進這個瀏覽器時，和圖片存不進去一樣要警告（R7） */
+    if (getSaveError(TOOL_ID)) persisted = false;
+    domain.current = 'project';
+    markSaved();
+    setSession({
+      sceneId: r.project.scenes[0]?.id ?? null,
+      sceneSel: [],
+      sceneAnchor: null,
+      imgSel: [],
+      imgAnchor: null,
+      roomSel: [],
+      previewSel: null,
+      advancedSceneId: null,
+      clip: null,
+      modal: null,
+    });
+    return persisted;
+  } finally {
+    setTimeout(() => setSession({ busy: null }), 180);
+  }
 }
 
 /** 開新房間（F257）：專案名稱改成預設名、盤面 40×30、內容與素材清空、復原紀錄清空、標記為已儲存、回到首頁 */

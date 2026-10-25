@@ -83,7 +83,7 @@
 | `pair-maker` | 角色介紹圖產生器 | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `83fd605` |
 | `character-select` | 選角畫面產生器 | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `83fd605` |
 | `acrylic-goods` | 壓克力周邊工房 | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `83fd605` |
-| `music-frame` | 音樂播放畫面產生器 | [zznaptime/1007mv](https://github.com/zznaptime/1007mv)（未授權） | —（新收錄，沒有舊版） |
+| `music-frame` | 音樂播放畫面產生器 | [zZnaptime/MVmaker](https://github.com/zZnaptime/MVmaker)（未授權） | —（新收錄，沒有舊版） |
 | `bg-remover` | 立繪去背工具 | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation)（Apache-2.0） | —（新收錄，沒有舊版） |
 | `coc-dice` | CoC 擲骰工具 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的擲骰頁與 BCDice 傷害加總頁合併） | `6957b28` |
 | `coc-npc` | CoC NPC 產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的 NPC 頁） | `6957b28` |

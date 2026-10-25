@@ -172,11 +172,15 @@ async function loadDoc(page: Page, doc: { title: string }) {
   await expect(status(page)).toContainText(doc.title);
 }
 
-/** 目前的原稿（「儲存」下載的專案檔） */
+/** 「儲存」選單的「存成 JSON 檔」（F261） */
+async function saveJson(page: Page) {
+  await page.getByTestId('se-save-menu').click();
+  await page.getByRole('menuitem', { name: /存成 JSON 檔/ }).click();
+}
+
+/** 目前的原稿（「儲存」→「存成 JSON 檔」下載的專案檔） */
 async function savedDoc(page: Page) {
-  const { bytes } = await download(page, () =>
-    page.getByRole('button', { name: '儲存', exact: true }).click(),
-  );
+  const { bytes } = await download(page, () => saveJson(page));
   return JSON.parse(bytes.toString('utf8')).data as {
     blocks: (TestBlock & { col?: string; mk?: { a: number; b: number; col: string }[] })[];
   };
@@ -243,10 +247,16 @@ test.describe('劇本排版台', () => {
     await page.keyboard.press('Backspace');
     await expect(rowText(page, '描述文')).toHaveCount(1);
     await expect(rowText(page, '描述文').first()).toHaveValue(/追加新的段落/);
-    /* 空的段落：Backspace 刪除它，回到前一段 */
+    /* 「■」那一行的最後按 Enter：同一段裡換行（F300，2026-10 第三批）；再按一次（空的一行）才切開 */
     await page.keyboard.press('Control+End');
     await page.keyboard.press('Enter');
+    await expect(rowText(page, '描述文')).toHaveCount(1);
+    await expect(rowText(page, '描述文').first()).toHaveValue(/■\n$/);
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Enter');
     await expect(rowText(page, '描述文')).toHaveCount(2);
+    /* 空的段落：Backspace 刪除它，回到前一段 */
     await page.keyboard.press('Backspace');
     await expect(rowText(page, '描述文')).toHaveCount(1);
     await expect(status(page)).toContainText('已刪除 1 個段落');
@@ -266,7 +276,7 @@ test.describe('劇本排版台', () => {
     });
     await expect(rowText(page, '標題 2')).toHaveValue('第二章');
     await expect(rowText(page, '對話文').first()).toHaveValue('「你好」');
-    await expect(rowText(page, '規則框').first()).toHaveValue('〈聆聽〉成功的話聽見腳步聲。');
+    await expect(rowText(page, '特殊區塊').first()).toHaveValue('〈聆聽〉成功的話聽見腳步聲。');
     await expect(status(page)).toContainText('已貼上 3 個段落');
   });
 
@@ -290,9 +300,7 @@ test.describe('劇本排版台', () => {
 
   test('存成檔案：專案檔格式', async ({ page }) => {
     await open(page);
-    const { name, bytes } = await download(page, () =>
-      page.getByRole('button', { name: '儲存', exact: true }).click(),
-    );
+    const { name, bytes } = await download(page, () => saveJson(page));
     expect(name).toBe('未命名的劇本.json');
     const json = JSON.parse(bytes.toString('utf8'));
     expect(json.format).toBe('trpg-toolkit-project');
@@ -330,11 +338,12 @@ test.describe('劇本排版台', () => {
     await view.locator('#tocMask').click();
     await expect(view.locator('#nav .nvt').first()).toHaveText('導入');
     /* 彈出視窗 */
+    /* 彈出視窗：本文上方的浮動視窗（F268） */
     await view.locator('[data-popopen]').first().click();
-    await expect(view.locator('#popOv')).toHaveClass(/on/);
-    await expect(view.locator('#popIn')).toContainText('二樓的走廊盡頭');
+    await expect(view.locator('.fwin')).toHaveCount(1);
+    await expect(view.locator('.fwin .fw-b')).toContainText('二樓的走廊盡頭');
     await view.keyboard.press('Escape');
-    await expect(view.locator('#popOv')).not.toHaveClass(/on/);
+    await expect(view.locator('.fwin')).toHaveCount(0);
     /* 預先放好的資料：表格的 roll-table、NPC 卡的棋子 */
     const out = await view.locator('script.outdata[id^="out"]').first().textContent();
     expect(out).toBe('/roll-table\n大廳的事件\n1D3\n1:時鐘響起\n2:燈光熄滅\n3:樓上傳來腳步聲');
@@ -391,7 +400,8 @@ test.describe('劇本排版台', () => {
     /* 補字：只向 Google Fonts 要繁中字型沒有的字（明體堆疊 → Noto Serif JP） */
     const jp = asked.filter((a) => a.startsWith('Noto Serif JP'));
     expect(jp).toHaveLength(1);
-    expect([...jp[0].split('|')[1]].sort().join('')).toBe([...JP_ONLY].sort().join(''));
+    /* 附錄的「↩ 回到 P.n」（2026-10，F269）的「↩」測試用的繁中字型也沒有，一起補 */
+    expect([...jp[0].split('|')[1]].sort().join('')).toBe([...`${JP_ONLY}↩`].sort().join(''));
     await expect(status(page)).toContainText('霧中的洋館.pdf');
     expect(errors).toEqual([]);
   });
@@ -518,24 +528,24 @@ test.describe('劇本排版台', () => {
     const label = (name: string) =>
       source(page).locator('[data-label]').filter({ hasText: name }).first();
     const types = () => source(page).locator('[data-label] span:first-child').allTextContents();
-    expect(await types()).toEqual(['主標題', '副標題', '標題 1', '描述文', '對話文', '規則框']);
+    expect(await types()).toEqual(['主標題', '副標題', '標題 1', '描述文', '對話文', '特殊區塊']);
     /* 選取對話文 → 上移 */
     await label('對話文').click();
     await page.getByRole('button', { name: '上移' }).click();
-    expect(await types()).toEqual(['主標題', '副標題', '標題 1', '對話文', '描述文', '規則框']);
+    expect(await types()).toEqual(['主標題', '副標題', '標題 1', '對話文', '描述文', '特殊區塊']);
     /* Shift＋按：範圍選取 → 合併 */
     await label('描述文').click({ modifiers: ['Shift'] });
     await expect(page.getByTestId('se-block-panel')).toContainText('已選取 2 段');
     await page.getByRole('button', { name: '合併選取的段落' }).click();
-    expect(await types()).toEqual(['主標題', '副標題', '標題 1', '對話文', '規則框']);
+    expect(await types()).toEqual(['主標題', '副標題', '標題 1', '對話文', '特殊區塊']);
     await expect(rowText(page, '對話文')).toHaveValue(
       /^「首先，請試著點一下這個段落」\n在這裡寫導入的描述/,
     );
     /* 複製段落 */
     await page.getByRole('button', { name: '複製段落（放在下方）' }).click();
-    expect(await types()).toEqual(['主標題', '副標題', '標題 1', '對話文', '對話文', '規則框']);
+    expect(await types()).toEqual(['主標題', '副標題', '標題 1', '對話文', '對話文', '特殊區塊']);
     /* Delete 刪除（焦點在按鈕上） */
-    await label('規則框').click();
+    await label('特殊區塊').click();
     await page.keyboard.press('Delete');
     expect(await types()).toEqual(['主標題', '副標題', '標題 1', '對話文', '對話文']);
     await expect(status(page)).toContainText('已刪除 1 個段落');
@@ -580,6 +590,13 @@ test.describe('劇本排版台', () => {
     await page.getByRole('tab', { name: '頁面' }).click();
     await page.getByRole('button', { name: '選取全部頁面' }).click();
     await expect(stage(page).locator('[data-pgsel]:checked')).toHaveCount(5);
+    /* 勾選時面板換成第一頁的背景（紙紋；F266），改成素色再套用 */
+    const chips = page.getByRole('group', { name: '花紋' });
+    await expect(chips.getByRole('button', { name: '紙紋' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await chips.getByRole('button', { name: '素色' }).click();
     await page.getByRole('button', { name: '套用到選取的頁面' }).click();
     await expect(status(page)).toContainText('已把背景套用到 5 頁');
     await expect(stage(page).locator('.pg.bg-paper')).toHaveCount(0);
@@ -625,8 +642,10 @@ test.describe('劇本排版台', () => {
     await expect(img).toHaveCount(1);
     const size = await img.evaluate((el: HTMLImageElement) => [el.naturalWidth, el.naturalHeight]);
     expect(size).toEqual([1600, 800]);
+    /* 自由配置＝頁面圖片（2026-10 第二批，F278） */
     await page.getByRole('radio', { name: '自由配置' }).click();
-    await expect(stage(page).locator('.bp-image.free')).toHaveCount(1);
+    await expect(stage(page).locator('.pimg[data-pimg]')).toHaveCount(1);
+    await expect(stage(page).locator('.bp-image')).toHaveCount(0);
     await expect(status(page)).toContainText('已改成自由配置');
     expect(errors).toEqual([]);
   });
@@ -715,11 +734,15 @@ test.describe('劇本排版台', () => {
     );
     const panel = page.getByTestId('se-block-panel');
     const n = source(page).locator('textarea[data-bid="n"]');
+    /* Esc 之後全部取消（F313，2026-10 第三批）：再按書式名稱選取這一段 */
     const selectThenEsc = async () => {
       await n.click();
       await n.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(1, 3));
       await page.keyboard.press('Escape');
       await expect(n).not.toBeFocused();
+      await expect(panel).toHaveCount(0);
+      await source(page).locator('[data-label="n"]').click();
+      await expect(panel).toContainText('目前：描述文');
     };
     /* F070：提示先選取文字，不插入 */
     await selectThenEsc();
@@ -963,7 +986,7 @@ test.describe('劇本排版台', () => {
       '標題 1',
       '描述文',
       '對話文',
-      '規則框',
+      '特殊區塊',
       '情報區塊',
       'HO1',
       'HO2',
@@ -1001,8 +1024,13 @@ test.describe('劇本排版台', () => {
     /* 文件分頁：手冊與 HO＋數字、還沒登錄的名稱 → 登錄 KP */
     await page.getByRole('tab', { name: '文件' }).click();
     const vars = page.getByTestId('se-vars');
-    await expect(vars).toContainText('{HO1}手冊「古書店的常客」的 PC');
-    await expect(vars).toContainText('{HO3}本文寫到的 HO＋數字（自動）');
+    /* 2026-10 第三批：清單是一張表，每一列可以直接改（F307） */
+    await expect(vars).toContainText('{HO1}・手冊「古書店的常客」');
+    await expect(vars.getByLabel('{HO1}的說明')).toHaveAttribute(
+      'placeholder',
+      '手冊「古書店的常客」的 PC',
+    );
+    await expect(vars).toContainText('{HO3}・本文寫到的 HO＋數字（自動）');
     await page.getByTestId('se-var-found').getByRole('button', { name: '＋ {KP}' }).click();
     await expect(status(page)).toContainText('已登錄變數 {KP}');
     await expect(page.getByLabel('變數 1 的名稱')).toHaveValue('KP');
@@ -1027,9 +1055,7 @@ test.describe('劇本排版台', () => {
     await page.keyboard.press('Control+y');
     await expect(page.getByLabel('變數 2 的名稱')).toHaveCount(0);
     /* 存檔：專案檔版本 2、變數與兩種書式 */
-    const { bytes } = await download(page, () =>
-      page.getByRole('button', { name: '儲存', exact: true }).click(),
-    );
+    const { bytes } = await download(page, () => saveJson(page));
     const saved = JSON.parse(bytes.toString('utf8'));
     expect(saved.version).toBe(2);
     expect(saved.data.vars).toEqual([{ n: 'KP', def: '守秘人', note: 'KP 的名字' }]);
@@ -1276,7 +1302,7 @@ test.describe('劇本排版台', () => {
       'rgb(154, 142, 116)',
     );
     await view.locator('#doc button.pop-btn').nth(1).click();
-    const rh1 = await measure(view.locator('#popIn .rh1 .tvar'));
+    const rh1 = await measure(view.locator('.fwin .fw-b .rh1 .tvar'));
     expect(rh1.ratio).toBeGreaterThanOrEqual(4.5);
     expect(rh1.line).not.toBe('none');
     await view.close();
@@ -1321,7 +1347,7 @@ test.describe('劇本排版台', () => {
     const panel = page.getByTestId('se-block-panel');
     await page.keyboard.press('Control+Shift+KeyY');
     await expect(rowText(page, '手冊 HO1')).toBeFocused();
-    await page.keyboard.press('Escape');
+    await source(page).locator('[data-label]').filter({ hasText: 'HO1' }).click();
     await expect(panel).toContainText('目前：手冊');
     /* 改了題名之後 0.7 秒內打錯編號 */
     await panel.getByLabel('題名').fill('常客');

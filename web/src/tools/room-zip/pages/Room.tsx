@@ -49,6 +49,7 @@ import { keyOf } from '../keys';
 import { findPartTemplate, partTemplateFrom, savePartTemplate } from '../library';
 import {
   fieldSizeInput,
+  hiddenInCcfolia,
   type Part,
   type PartKind,
   type ProjectDefaults,
@@ -387,6 +388,7 @@ function RoomCanvas() {
         kind: x.kind,
         locked: x.locked,
         resizable: true,
+        dimmed: hiddenInCcfolia(x),
         imageStyle: quick?.id === x.id ? quickPreview(quick) : undefined,
       }));
     const y = tachieY(room, ph.height, 0);
@@ -1123,6 +1125,11 @@ function PartCard({ part }: { part: Part }) {
       data-part={part.id}
       aria-label={part.name}
     >
+      {hiddenInCcfolia(part) ? (
+        <p className="m-0 text-xs text-warning" data-testid="part-cc-hidden">
+          {S.partCcHidden}
+        </p>
+      ) : null}
       <Row>
         <Toggle
           checked={part.visible}

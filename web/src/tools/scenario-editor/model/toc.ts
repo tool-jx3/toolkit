@@ -16,6 +16,9 @@ export const TOC_PICKS: readonly (readonly [BlockType, number])[] = [
 ];
 
 export const TOC_DEFAULT_HEAD = '目　錄';
+/** 章目錄的預設（標題 1 之後插入目錄時；2026-10，上游 v3.7.0） */
+export const TOC_CHAPTER_HEAD = '本章目錄';
+export const TOC_CHAPTER_PICK: readonly BlockType[] = ['h2', 'h3', 'scene'];
 
 export const tocPickName = (k: string): string => typeName(k);
 
@@ -31,6 +34,8 @@ export function ensureToc(b: Block): TocSettings {
   if (!t.pick.length) t.pick = ['h1', 'h2', 'h3'];
   t.pn = t.pn !== false;
   t.dots = t.dots !== false;
+  if (t.scope === 'chapter') t.scope = 'chapter';
+  else delete t.scope;
   return t;
 }
 
@@ -45,7 +50,37 @@ export function tocOf(b: Block): TocSettings {
     pick: pick.length ? pick : ['h1', 'h2', 'h3'],
     pn: t?.pn !== false,
     dots: t?.dots !== false,
+    scope: t?.scope === 'chapter' ? 'chapter' : 'all',
   };
+}
+
+/**
+ * 章目錄收錄的段落（本文的 id）：上一個標題 1 的下一段到下一個標題 1 之前；
+ * 放在第一個標題 1 之前的目錄是原稿開頭到第一個標題 1 之前（同原作）。
+ */
+export function chapterIds(blocks: readonly Block[], tocId: string): Set<string> {
+  const ids = new Set<string>();
+  const i = blocks.findIndex((b) => b.id === tocId);
+  if (i < 0) return ids;
+  let a = i;
+  while (a > 0 && blocks[a - 1].type !== 'h1') a--;
+  let z = i;
+  while (z < blocks.length - 1 && blocks[z + 1].type !== 'h1') z++;
+  for (let k = a; k <= z; k++) ids.add(blocks[k].id);
+  return ids;
+}
+
+/** 這個目錄段落收錄的項目（範圍＝這一章時只收這一章的） */
+export function tocEntriesFor(
+  b: Block,
+  blocks: readonly Block[],
+  pageOf: (id: string) => number | null,
+): TocEntry[] {
+  const t = tocOf(b);
+  const e = tocEntries(blocks, pageOf, t.pick);
+  if (t.scope !== 'chapter') return e;
+  const ids = chapterIds(blocks, b.id);
+  return e.filter((x) => ids.has(x.id));
 }
 
 export const isTocType = (k: string): boolean => TOC_PICKS.some((x) => x[0] === k);

@@ -1,0 +1,331 @@
+{
+  "mdv": 1,
+  "title": "紙色與連結的驗證稿",
+  "padV": 18,
+  "padH": 16,
+  "base": 10,
+  "defCols": 1,
+  "foot": {
+    "num": true,
+    "text": "",
+    "from": 1
+  },
+  "fonts": [],
+  "bxTpl": [],
+  "fontBody": "",
+  "fontHead": "",
+  "vars": [],
+  "pageImgs": [],
+  "pages": [
+    {
+      "id": "pg1",
+      "bg": {
+        "preset": "bg-washi",
+        "img": null,
+        "fit": "cover",
+        "opa": 35,
+        "color": "#f8ece9"
+      },
+      "cols": 1
+    },
+    {
+      "id": "huu5rmv",
+      "bg": {
+        "preset": "bg-frame",
+        "img": null,
+        "fit": "cover",
+        "opa": 35,
+        "color": ""
+      },
+      "cols": 1
+    },
+    {
+      "id": "4i205o4",
+      "bg": {
+        "preset": "bg-band2",
+        "img": null,
+        "fit": "cover",
+        "opa": 35,
+        "color": ""
+      },
+      "cols": 1
+    },
+    {
+      "id": "07e5a4d",
+      "bg": {
+        "preset": "bg-corner",
+        "img": null,
+        "fit": "cover",
+        "opa": 35,
+        "color": "#88b0d7"
+      },
+      "cols": 1
+    }
+  ],
+  "blocks": [
+    {
+      "id": "h1a",
+      "type": "h1",
+      "cols": 2,
+      "text": "書房",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "d1",
+      "type": "desc",
+      "cols": 2,
+      "text": "書架上排滿了舊書。\n＠管家的證詞",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "pp1",
+      "type": "popup",
+      "cols": 2,
+      "text": "",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "pop": {
+        "label": "書房的抽屜",
+        "body": "",
+        "only": false,
+        "blocks": [
+          {
+            "id": "pc1",
+            "type": "desc",
+            "cols": 2,
+            "text": "抽屜裡有一本日記。",
+            "mt": null,
+            "mb": null,
+            "img": null,
+            "w": 70,
+            "cap": "",
+            "ind": 0
+          }
+        ]
+      },
+      "ind": 0
+    },
+    {
+      "id": "pp2",
+      "type": "popup",
+      "cols": 2,
+      "text": "",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "pop": {
+        "label": "管家的證詞",
+        "body": "",
+        "only": true,
+        "blocks": [
+          {
+            "id": "pc2",
+            "type": "desc",
+            "cols": 2,
+            "text": "「那晚我什麼都沒聽見。」",
+            "mt": null,
+            "mb": null,
+            "img": null,
+            "w": 70,
+            "cap": "",
+            "ind": 0
+          }
+        ]
+      },
+      "ind": 0
+    },
+    {
+      "id": "sc1",
+      "type": "scene",
+      "cols": 2,
+      "text": "→ 前往大廳",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "sc2",
+      "type": "scene",
+      "cols": 2,
+      "text": "書房へ移行",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "sc3",
+      "type": "scene",
+      "cols": 2,
+      "text": "シーン2『大廳』へ",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "sc4",
+      "type": "scene",
+      "cols": 2,
+      "text": "回到起點",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "jump": "大廳",
+      "ind": 0
+    },
+    {
+      "id": "br1",
+      "type": "break",
+      "cols": 2,
+      "text": "",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "h1b",
+      "type": "h1",
+      "cols": 2,
+      "text": "大廳",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "d2",
+      "type": "desc",
+      "cols": 2,
+      "text": "大廳的時鐘停在三點。這裡的字比較大。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0,
+      "pt": 14,
+      "mk": [
+        {
+          "a": 2,
+          "b": 4,
+          "col": "",
+          "bold": false,
+          "pt": 18
+        },
+        {
+          "a": 2,
+          "b": 4,
+          "col": "#a8331f",
+          "bold": false
+        }
+      ]
+    },
+    {
+      "id": "h2a",
+      "type": "h2",
+      "cols": 2,
+      "text": "地下室",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0,
+      "pt": 20
+    },
+    {
+      "id": "d3",
+      "type": "desc",
+      "cols": 2,
+      "text": "地下室很冷。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0,
+      "pt": 13
+    },
+    {
+      "id": "br2",
+      "type": "break",
+      "cols": 2,
+      "text": "",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "d4",
+      "type": "desc",
+      "cols": 2,
+      "text": "第三頁。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "br3",
+      "type": "break",
+      "cols": 2,
+      "text": "",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "d5",
+      "type": "desc",
+      "cols": 2,
+      "text": "第四頁。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    }
+  ],
+  "pkv": 1,
+  "fsv": 1,
+  "tkv": 2
+}
