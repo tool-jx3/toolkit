@@ -623,7 +623,7 @@ export const TOOLS: readonly ToolEntry[] = [
       '做出跑團 BGM、角色主題曲的「正在播放」畫面：放進封面與音樂，選版面、配色、視覺化與邊框，可以隨時間顯示歌詞，存成 1920 × 1080 的 PNG 或有聲音的影片。',
     group: 'G8',
     status: 'live',
-    inspiration: { name: 'zznaptime/1007mv', url: 'https://github.com/zznaptime/1007mv' },
+    inspiration: { name: 'zZnaptime/MVmaker', url: 'https://github.com/zZnaptime/MVmaker' },
   },
   {
     id: 'geo-bloom',

@@ -57,7 +57,7 @@
 | acrylic-goods | 壓克力周邊工房 | sotsotssi/acrylic-goods | MIT | G7 |
 | video-anim | 影片轉動圖工具 | sotsotssi/video-to-pic | MIT | G8 |
 | gif-combiner | GIF 接合器 | sotsotssi/GIF-Combiner | MIT | G8 |
-| music-frame | 音樂播放畫面產生器 | zznaptime/1007mv | 未授權 | G8 |
+| music-frame | 音樂播放畫面產生器 | zZnaptime/MVmaker（原 zznaptime/1007mv） | 未授權 | G8 |
 | battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator | MIT | G10（原 G8） |
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
@@ -218,6 +218,9 @@ zznaptime/1007mv 已經不公開（music-frame 不受影響）；JIZURA 只連�
 上游檢查（2026-10-18）：60 多個上游裡有 9 個有新 commit（くま。的室内図メーカー v1.05～v1.13、trpg-scenario-editor v3.4～v3.9、character-height-board、4layout、tkmizGeo、dp-cardmaker 等），
 另外找了各作者 10/09 之後的新工具與 10/15 之後才收錄的作者的全部 repo。使用者 2026-10-19 選了第一批：室內平面圖讀原作新版檔的相容、劇本排版台的情報／手冊／變數、
 證件與票券產生器、錄影帶畫面產生器；另外評估 Maptsukuri（maptsukuri.pages.dev）有沒有值得併進室內平面圖的功能。
+
+上游檢查（2026-10-24）：59 個 GitHub 上游裡 8 個有新 commit，另外找了已收錄作者的新工具與 GitHub 上新作者的跑團工具；結果整理在 [TODO.md](TODO.md)（之後的檢查都更新那份清單）。
+music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修正。使用者 2026-10-25 選了：room-zip 讀入房間 ZIP 再編輯、scenario-editor 跟進 v3.26。
 
 | 工具 id | 名稱 | 靈感來源 | 原授權 | 群組 | 規格 | 實作 | 對等驗證 | 上線 |
 |---|---|---|---|---|---|---|---|---|

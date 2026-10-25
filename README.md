@@ -184,7 +184,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `pair-maker` | [角色介紹圖產生器](https://tool-jx3.github.io/toolkit/tools/pair-maker/) | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) |
 | `character-select` | [選角畫面產生器](https://tool-jx3.github.io/toolkit/tools/character-select/) | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) |
 | `acrylic-goods` | [壓克力周邊工房](https://tool-jx3.github.io/toolkit/tools/acrylic-goods/) | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) |
-| `music-frame` | [音樂播放畫面產生器](https://tool-jx3.github.io/toolkit/tools/music-frame/) | [zznaptime/1007mv](https://github.com/zznaptime/1007mv) |
+| `music-frame` | [音樂播放畫面產生器](https://tool-jx3.github.io/toolkit/tools/music-frame/) | [zZnaptime/MVmaker](https://github.com/zZnaptime/MVmaker) |
 | `bg-remover` | [立繪去背工具](https://tool-jx3.github.io/toolkit/tools/bg-remover/) | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation) |
 | `coc-dice` | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `coc-npc` | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
