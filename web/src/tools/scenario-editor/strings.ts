@@ -65,6 +65,9 @@ export const S = {
     copyFailed: '無法寫進剪貼簿。',
     blocksCopied: (n: number) => `已記下 ${n} 個段落（按「貼上」放到選取的段落之後）`,
     pasted: (n: number) => `已貼上 ${n} 個段落`,
+    /** 一次貼上多段，有的不能放進去（第三批驗證後 U5；D47） */
+    pastedSkip: (n: number, skip: number, where: string) =>
+      `已貼上 ${n} 個段落，略過 ${skip} 個不能放進${where}的段落`,
     nothingToPaste: '還沒有記下的段落。',
     noSelection: '請先選取段落。',
     colsSet: (pages: string, cols: number) => `已把 ${pages} 設成${cols === 2 ? '雙欄' : '單欄'}`,
@@ -92,8 +95,8 @@ export const S = {
     noBlocksOnPage: '勾選的頁面上沒有段落。',
     bgApplied: (n: number) => `已把背景套用到 ${n} 頁`,
     bgRemoved: (n: number) => `已移除 ${n} 頁的背景`,
-    tplSaved: (n: string) => `已把目前的外觀存成樣板「${n}」`,
-    tplRemoved: (n: string) => `已刪除樣板「${n}」`,
+    tplSaved: (n: string) => `已把目前的外觀存成範本「${n}」`,
+    tplRemoved: (n: string) => `已刪除範本「${n}」`,
     outCopied: '已複製輸出',
     outEmpty: '輸出是空的。',
     ccfCopied: '已複製 CCFOLIA 棋子，到 CCFOLIA 的房間裡貼上即可。',
@@ -154,14 +157,19 @@ export const S = {
     deleteWorkHint: '垃圾桶裡的作品 30 天內可以還原。',
     removeArt: '移除立繪？',
     deleteTab: (t: string) => `刪除分頁「${t}」？`,
-    overwriteTpl: (n: string) => `已經有名為「${n}」的樣板，要覆寫嗎？`,
-    deleteTpl: (n: string) => `刪除樣板「${n}」？`,
+    overwriteTpl: (n: string) => `已經有名為「${n}」的範本，要覆寫嗎？`,
+    deleteTpl: (n: string) => `刪除範本「${n}」？`,
     deleteFont: (n: string) => `刪除字型「${n}」？`,
     deleteFontHint: '用到它的內文、標題會改回預設的字型。',
     ok: '確定',
     del: '刪除',
   },
   /** 情報區塊、手冊、變數（2026-10，規格 1.13） */
+  note: {
+    title: '注釋',
+    label: '標題語',
+    labelHint: '注釋上方的小標；空白時不顯示。',
+  },
   info: {
     title: '情報區塊',
     label: '標題語',

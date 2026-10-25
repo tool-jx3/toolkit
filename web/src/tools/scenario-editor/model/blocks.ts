@@ -19,7 +19,7 @@ export const TYPES: readonly TypeDef[] = [
   { k: 'desc', name: '描述文', key: '0', group: 'body' },
   { k: 'dialog', name: '對話文', key: '4', group: 'body' },
   { k: 'note', name: '注釋', key: '5', group: 'body' },
-  /* 2026-10 第三批：原作 v3.22 的「処理」→「特殊」（對話文、注釋、情報區塊的樣子也可以是它的樣板） */
+  /* 2026-10 第三批：原作 v3.22 的「処理」→「特殊」（對話文、注釋、情報區塊的樣子也可以是它的範本） */
   { k: 'proc', name: '特殊區塊', key: '6', group: 'body' },
   { k: 'h1', name: '標題 1', key: '1', group: 'heading' },
   { k: 'h2', name: '標題 2', key: '2', group: 'heading' },
@@ -288,8 +288,11 @@ export const KIDS_PARENT: readonly BlockType[] = [
   'handout',
   'scene',
 ];
-/** 有框的書式：裡面的段落放在框裡（其他的往內縮 4 mm） */
-export const KIDS_FRAMED: readonly BlockType[] = ['proc', 'info', 'handout', 'note'];
+/**
+ * 有框的書式：裡面的段落放在框裡（其他的往內縮 4 mm）。對話文同原作的對話範本（特殊區塊）也算在這裡
+ * （第三批驗證後 U4）。
+ */
+export const KIDS_FRAMED: readonly BlockType[] = ['proc', 'info', 'handout', 'note', 'dialog'];
 /** 段落裡不能放的書式（紙面的分頁、目錄、封面，大的插入物） */
 export const KIDS_SKIP: readonly BlockType[] = [
   'break',

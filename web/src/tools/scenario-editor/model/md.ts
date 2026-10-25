@@ -16,7 +16,7 @@ import { ensureToc } from './toc';
 import type { Block, BlockType, BoxTemplate } from './types';
 import { ensureHo, isVarName, VAR_RESERVED } from './vars';
 
-/** 名稱 → 書式（「proc:skill」＝特殊區塊＋技能檢定的樣板）。查的時候不分大小寫 */
+/** 名稱 → 書式（「proc:skill」＝特殊區塊＋技能檢定的範本）。查的時候不分大小寫 */
 const NAMES: Record<string, string> = {
   /* 英文（正式） */
   desc: 'desc',
@@ -112,7 +112,7 @@ export interface MdDirective {
   /** 冒號的數量（2＝一行的書式，3 以上＝圍起來） */
   n: number;
   k: BlockType | null;
-  /** 樣板（proc:skill 的 skill） */
+  /** 範本（proc:skill 的 skill） */
   tpl: string;
   /** [標籤]（沒有寫時 null） */
   lb: string | null;
@@ -158,7 +158,7 @@ export interface MdCtx {
   skip: readonly BlockType[];
   /** 用過的手冊編號（新的手冊用還沒用的） */
   ho: Set<string>;
-  /** 自己的特殊區塊樣板 */
+  /** 自己的特殊區塊範本 */
   tpls: BoxTemplate[];
 }
 
@@ -231,6 +231,10 @@ export function mdMake(
   } else if (k === 'dialog') {
     nb = makeBlock('dialog', txt);
     if (lb) nb.sp = lb;
+  } else if (k === 'note') {
+    /* :::note[標題語]（同原作的注釋範本；第三批驗證後 U7） */
+    nb = makeBlock('note', txt);
+    if (lb) nb.lb = lb;
   } else if (k === 'popup') {
     nb = makeBlock('popup');
     const p = ensurePopup(nb);

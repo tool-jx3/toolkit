@@ -1,6 +1,6 @@
 /**
  * 劇本排版台：原稿的整理（3.1）、間距（3.2.4）、表格（3.6.3、3.6.4）、目錄（3.6.1）、流程圖（3.6.5）、圖片（3.2.9）、
- * 規則框的樣板（3.6.2）、閱覽 HTML（3.9）、檔名與範圍（3.13、F230）。
+ * 特殊區塊的範本（3.6.2）、閱覽 HTML（3.9）、檔名與範圍（3.13、F230）。
  */
 import { describe, expect, it } from 'vitest';
 import { paperFileName } from '../../src/core/paged';
@@ -183,7 +183,7 @@ describe('讀入舊版原稿的整理（3.1.3）', () => {
       sampleBlocks().map((b) => b.type),
     );
   });
-  it('樣板只留有名稱的，名稱最多 24 字', () => {
+  it('範本只留有名稱的，名稱最多 24 字', () => {
     const d = normalizeDoc({
       blocks: [],
       bxTpl: [{ n: '' }, { n: 'x'.repeat(30), col: 'ai', ln: 'solid' }],
@@ -426,8 +426,8 @@ describe('圖片（3.2.9、F151～F154；2026-10 起自由配置是頁面圖片�
   });
 });
 
-describe('規則框的樣板（3.6.2、F091、F092）', () => {
-  it('標題語只在還沒寫、或仍是樣板的預設時才換', () => {
+describe('特殊區塊的範本（3.6.2、F091、F092）', () => {
+  it('標題語只在還沒寫、或仍是範本的預設時才換', () => {
     const b = makeBlock('proc');
     applyBxTpl(b, 'rule');
     expect(b.lb).toBe('特殊規則');

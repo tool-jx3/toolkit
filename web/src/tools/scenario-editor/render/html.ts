@@ -494,19 +494,22 @@ export function blockInnerHtml(b: Block, ctx: RenderCtx): string {
       return '';
     case 'hr': {
       const tx = String(b.text ?? '').trim();
-      return tx
-        ? `<span class="hrl"></span><span class="hrtx">${rubyHtmlWithComments(b)}</span><span class="hrl"></span>`
-        : '';
+      return tx ? `<span class="hrtx">${rubyHtmlWithComments(b)}</span>` : '';
+    }
+    case 'dialog': {
+      /* 對話文：照原作的對話範本（特殊區塊）一行一行分——「」包住的行 .rt（行高 1.85），其他 .rp（第三批驗證後 U2） */
+      const spk = String(b.sp ?? '').trim() ? `<span class="spk">${esc(b.sp)}</span>` : '';
+      return spk + richBlockHtml(b, popRef);
+    }
+    case 'note': {
+      /* 注釋：同原作的注釋範本，標題語（U7）＋一律一行一行分（.rp 的下方間距是外面文字到裡面的段落的間距；U4） */
+      const lb = blockLabel(b).trim();
+      return (lb ? `<div class="blb">${esc(lb)}</div>` : '') + richBlockHtml(b, popRef);
     }
     default: {
-      if ((b.type === 'desc' || b.type === 'note') && hasRich(b.text))
-        return richBlockHtml(b, popRef);
-      const spk =
-        b.type === 'dialog' && String(b.sp ?? '').trim()
-          ? `<span class="spk">${esc(b.sp)}</span>`
-          : '';
+      if (b.type === 'desc' && hasRich(b.text)) return richBlockHtml(b, popRef);
       const mk = b.type === 'h3' ? '<span class="h3mk">◆ </span>' : '';
-      const inner = spk + mk + rubyHtmlWithComments(b);
+      const inner = mk + rubyHtmlWithComments(b);
       /* 場景轉換連到標題（列印、PDF、匯出；F270） */
       const to = b.type === 'scene' ? ctx.links?.scenes.get(b.id) : undefined;
       return to ? `<a class="scene-link" href="#b${esc(to)}">${inner}</a>` : inner;
@@ -562,7 +565,8 @@ function blockHtmlRaw(b: Block, ctx: RenderCtx, place: Place): string {
     const v = procVars(b);
     icls += v.cls;
     ist = v.style + ist;
-  } else if ((b.type === 'desc' || b.type === 'note') && hasRich(b.text)) icls += ' hasrich';
+  } else if (b.type === 'dialog' || b.type === 'note' || (b.type === 'desc' && hasRich(b.text)))
+    icls += ' hasrich';
   else if (b.type === 'hr' && String(b.text ?? '').trim()) icls += ' hastx';
   inner = blockInnerHtml(b, ctx);
   const anchor = ctx.anchors && ANCHOR_TYPES.has(b.type) ? ` id="b${esc(b.id)}"` : '';

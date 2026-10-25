@@ -193,7 +193,7 @@ describe('貼上時猜書式（3.4.6）', () => {
     expect(guessType('＊ 補充')).toEqual(['note', '補充']);
     expect(guessType('* 條列')[0]).toBe('desc');
   });
-  it('規則框：日文與繁中的標記', () => {
+  it('特殊區塊：日文與繁中的標記', () => {
     expect(guessType('【技能判定】〈目星〉')).toEqual(['proc', '〈目星〉', 'skill']);
     expect(guessType('【技能檢定】〈偵查〉')).toEqual(['proc', '〈偵查〉', 'skill']);
     expect(guessType('【特殊規則】追擊')).toEqual(['proc', '追擊', 'rule']);

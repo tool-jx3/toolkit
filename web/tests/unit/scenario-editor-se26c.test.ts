@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 劇本排版台 2026-10 跟進（上游 v3.10～v3.26）第三批：段落裡的段落（Tab）、特殊區塊的樣板與外觀、按一下複製、
+ * 劇本排版台 2026-10 跟進（上游 v3.10～v3.26）第三批：段落裡的段落（Tab）、特殊區塊的範本與外觀、按一下複製、
  * Enter／Backspace／Tab 的規則、書式按鈕在下面新增、Esc、手冊與變數清單（規格 1.14 F297～F315、3.19、5.4）。
  * 「原作的結果」是在原作 v3.26.0（origin/HEAD 5048f6d）的頁面裡用原作的函式算的
  * （procSplit、normalize、mdParse、spKey、procName、procClass、procStyle、applyBxTpl、kidsMove、ptMigrate、
@@ -100,8 +100,8 @@ const ctxOf = (d: Doc, copy = false): RenderCtx => ({
 });
 const docWith = (blocks: Block[]): Doc => ({ ...blankDoc(), blocks });
 
-describe('特殊區塊的樣板（3.19.2、F303）', () => {
-  it('內建樣板 5 個：與原作 BX_TPL 相同（標題語是繁中）', () => {
+describe('特殊區塊的範本（3.19.2、F303）', () => {
+  it('內建範本 5 個：與原作 BX_TPL 相同（標題語是繁中）', () => {
     expect(BX_TPL_BUTTONS.map((x) => x.k)).toEqual(['skill', 'rule', 'dialog', 'note', 'info']);
     const look = (k: keyof typeof BX_TPL) => {
       const { lb, ...st } = BX_TPL[k];
@@ -181,14 +181,14 @@ describe('特殊區塊的樣板（3.19.2、F303）', () => {
       '注釋',
       '情報區塊',
     ]);
-    /* 改了顏色就不是樣板的樣子 */
+    /* 改了顏色就不是範本的樣子 */
     const d = P('d', 'dialog');
     ensureProc(d).col = 'aka';
     expect(procName(d)).toBe('特殊區塊');
     expect(spKey(d)).toBe('dialog');
     expect(spKey(B('n', 'note'))).toBe('note');
   });
-  it('套用樣板的標題語：與原作相同（空的樣板標題語也換、自己改過的不換）', () => {
+  it('套用範本的標題語：與原作相同（空的範本標題語也換、自己改過的不換）', () => {
     const lbOf = (lb0: string | null | undefined, k: string) => {
       const b = B('x', 'proc', '', { bx: { ...SKILL_BX } as Block['bx'] });
       if (lb0 !== undefined) b.lb = lb0;
@@ -205,7 +205,7 @@ describe('特殊區塊的樣板（3.19.2、F303）', () => {
       lbOf(null, 'info'),
     ]).toEqual(['', '', '共鳴判定', '技能檢定', '特殊規則', '情報']);
   });
-  it('「目前」的樣板不看「按一下複製」（同原作）；自己的樣板也記住新的欄位', () => {
+  it('「目前」的範本不看「按一下複製」（同原作）；自己的範本也記住新的欄位', () => {
     const b = P('x', 'info');
     ensureProc(b).copy = false;
     expect(sameStyle(procStyleOf(b), BX_TPL.info)).toBe(true);
@@ -343,7 +343,7 @@ describe('段落裡的段落：資料（3.19.1、F297、F302）', () => {
     expect(JSON.parse(JSON.stringify(normalizeDoc(n0))).blocks[0].kids).toHaveLength(1);
     expect(blankDoc().pkv).toBe(PK_VER);
   });
-  it('本站以前存的原稿（沒有 pkv）：規則框的 ■、> 行換成裡面的段落；註解與顏色在留下的部分照舊', () => {
+  it('本站以前存的原稿（沒有 pkv）：特殊區塊的 ■、> 行換成裡面的段落；註解與顏色在留下的部分照舊', () => {
     const d = normalizeDoc({
       mdv: 1,
       pages: [{ id: 'p', bg: { preset: 'none' }, cols: 1 }],
@@ -367,7 +367,7 @@ describe('段落裡的段落：資料（3.19.1、F297、F302）', () => {
       { type: 'proc', text: '腳步聲', lb: '聆聽' },
     ]);
   });
-  it('原作 v3.26 的原稿：裡面的段落、對話／注釋／情報的樣板、按一下複製、pt 照讀，再存不會遺失', () => {
+  it('原作 v3.26 的原稿：裡面的段落、對話／注釋／情報的範本、按一下複製、pt 照讀，再存不會遺失', () => {
     const d = docFromFileText(JSON.stringify(UP_KIDS));
     const by = (id: string) => findBlock(d, id)?.b as Block;
     expect(by('d1').kids?.map((x) => x.id)).toEqual(['d1k']);
@@ -483,7 +483,7 @@ describe('段落裡的段落：紙面（3.19.3、F298、F299）', () => {
       '.bx-kids{margin-top:1.2mm}',
       '.bx-kids.kids-ind{margin-left:4mm}',
       '.bp.sec>.b{border-left:2px solid var(--bxl,rgba(168,51,31,.6));padding-left:3mm}',
-      '.t-h1,.t-h2,.t-note,.t-proc,.t-info,.t-handout,.t-hr,.t-table{display:flow-root}',
+      '.t-h1,.t-h2,.t-dialog,.t-note,.t-proc,.t-info,.t-handout,.t-hr,.t-table{display:flow-root}',
       '.bp.sp-dialog{padding-top:0mm}',
       '.t-proc.sp-note{margin-bottom:2.5mm}',
       '.bp.sp-info{padding-top:3mm}',

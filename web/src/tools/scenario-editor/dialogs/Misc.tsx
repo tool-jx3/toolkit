@@ -1,5 +1,5 @@
 /**
- * 輸出範圍（F230～F233）、查看成品（F079）、文字輸入（註解、樣板名稱）與選擇（TTC 的字體）的對話框。
+ * 輸出範圍（F230～F233）、查看成品（F079）、文字輸入（註解、範本名稱）與選擇（TTC 的字體）的對話框。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';

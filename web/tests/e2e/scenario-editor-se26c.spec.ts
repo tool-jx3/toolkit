@@ -1,7 +1,7 @@
 /**
  * 劇本排版台 2026-10 跟進（上游 v3.10～v3.26）第三批的端對端測試（規格 1.14 F297～F315）：
  * - 段落裡的段落：Tab／Shift＋Tab、Enter 的規則（特殊區塊、外面、「■」的換行）、紙面的結構；
- * - 特殊區塊：標題語欄、樣板、外觀、按一下複製（匯出）；讀入原作 v3.26 的原稿、PDF；
+ * - 特殊區塊：標題語欄、範本、外觀、按一下複製（匯出）；讀入原作 v3.26 的原稿、PDF；
  * - ↑↓ 跨段、只選了段落時的 ↑↓／Enter／Tab、書式按鈕在下面新增、標題 1 下的章目錄；
  * - Esc 一次取消、設定欄的「×」、新增段落後紙面捲過去、間距欄的預設值；
  * - 手冊的變數、變數清單直接改；作品清單「讀入 JSON」。
@@ -13,7 +13,7 @@ import { getTool, outputDir } from '../../src/registry';
 import { pdfPageTexts } from '../helpers/pdf';
 
 const URL = `/${outputDir(getTool('scenario-editor') ?? { id: 'scenario-editor', status: 'next' })}/`;
-/** 原作 v3.26.0 的程式產生的原稿（段落裡的段落、對話／注釋／情報的樣板、按一下複製、pt、繞排圖片旁的框） */
+/** 原作 v3.26.0 的程式產生的原稿（段落裡的段落、對話／注釋／情報的範本、按一下複製、pt、繞排圖片旁的框） */
 const UP_KIDS = new globalThis.URL(
   './fixtures/scenario-editor-upstream-v326-kids.json',
   import.meta.url,
@@ -182,7 +182,7 @@ test.describe('劇本排版台：2026-10 跟進第三批', () => {
     expect(errors).toEqual([]);
   });
 
-  test('特殊區塊：標題語欄、樣板、外觀、按一下複製（F303～F306、F311）', async ({
+  test('特殊區塊：標題語欄、範本、外觀、按一下複製（F303～F306、F311）', async ({
     page,
     context,
   }) => {
@@ -206,7 +206,7 @@ test.describe('劇本排版台：2026-10 跟進第三批', () => {
     await expect(lbl(page, 'p')).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await expect(ta(page, 'p')).toBeFocused();
-    /* 樣板：對話 → 文字欄的書式名稱是「對話文」；外觀可以細調 */
+    /* 範本：對話 → 文字欄的書式名稱是「對話文」；外觀可以細調 */
     await panel(page).getByRole('button', { name: '對話', exact: true }).click();
     await expect(source(page).locator('[data-row="p"] [data-label]')).toContainText('對話文');
     await expect(stage(page).locator('.bp[data-id="p"]')).toHaveClass(/sp-dialog/);
@@ -414,7 +414,7 @@ test.describe('劇本排版台：2026-10 跟進第三批', () => {
     expect(errors).toEqual([]);
   });
 
-  test('讀入原作 v3.26 的原稿：裡面的段落、樣板的名稱、pt；再存不會遺失；PDF（F302）', async ({
+  test('讀入原作 v3.26 的原稿：裡面的段落、範本的名稱、pt；再存不會遺失；PDF（F302）', async ({
     page,
   }) => {
     test.setTimeout(150_000);

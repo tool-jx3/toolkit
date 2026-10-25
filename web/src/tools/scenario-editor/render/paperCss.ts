@@ -9,6 +9,12 @@ import type { Doc } from '../model/types';
 export const SERIF_STACK =
   '"Noto Serif TC","Hiragino Mincho ProN","Yu Mincho",YuMincho,"PMingLiU","Noto Serif JP",serif';
 
+/**
+ * 有標籤的橫線的線（背景的漸層，同原作：區塊不縮、線畫到繞排圖片邊，標籤底下用紙色蓋掉；第三批驗證後 U8）。
+ * PDF 的向量層另外畫這條線（output.ts 的 pdfHrLines）。
+ */
+export const HR_LINE = 'rgba(35,32,28,.5)';
+
 const BASE_CSS = `
 .pg{--paper:#f7f3ea;position:relative;box-sizing:border-box;width:210mm;height:297mm;background:var(--paper);color:#23201c;overflow:hidden;
   font-family:${SERIF_STACK};font-weight:400;line-height:normal;text-align:left;letter-spacing:normal;
@@ -39,9 +45,8 @@ const BASE_CSS = `
 .t-cover{text-align:center;font-size:2.9em;letter-spacing:.22em;line-height:1.5;font-weight:600;break-after:avoid}
 .t-colophon{font-size:.76em;line-height:2;color:#5f5849;letter-spacing:.04em;border-top:1px solid rgba(35,32,28,.45);padding-top:3.5mm}
 .t-hr{border-top:1px solid rgba(35,32,28,.5);padding:0;height:0;overflow:visible;text-align:center;font-size:.78em;color:#5f5849;letter-spacing:.2em;line-height:0}
-.t-hr.hastx{height:auto;line-height:1.4;border-top:0;display:flex;align-items:center}
-.hrl{flex:1 1 0;height:0;border-top:1px solid rgba(35,32,28,.5)}
-.hrtx{padding:0 3mm;white-space:pre-wrap}
+.t-hr.hastx{height:auto;line-height:1.4;border-top:0;display:block;background:linear-gradient(${HR_LINE},${HR_LINE}) 0 50%/100% 1px no-repeat}
+.hrtx{background:var(--paper,#f7f3ea);padding:0 3mm;white-space:pre-wrap}
 .t-vr{border-left:2px solid rgba(35,32,28,.55);padding-left:3mm;line-height:1.9;min-height:8mm}
 .bp-colbr{break-before:column;padding:0!important}
 .t-colbr{height:0;margin:0!important;padding:0;font-size:0;line-height:0}
@@ -74,11 +79,11 @@ const BASE_CSS = `
 .bp.sec>.b>.rh:first-child{border-left:0;padding-left:0;margin-top:0}
 
 /* 繞排的圖片旁邊：有框、底色的書式整個縮到圖片旁（不鑽到圖片下面；第三批，上游 v3.10.3） */
-.t-h1,.t-h2,.t-note,.t-proc,.t-info,.t-handout,.t-hr,.t-table{display:flow-root}
+.t-h1,.t-h2,.t-dialog,.t-note,.t-proc,.t-info,.t-handout,.t-hr,.t-table{display:flow-root}
 
 /* 情報區塊、手冊（2026-10，上游 v3.8.0～v3.9.0；3.2.2） */
 .t-info{--bxc:#2f5d73;--bxl:rgba(47,93,115,.6);--bxf:rgba(47,93,115,.07);line-height:1.8;padding:2.5mm 3.5mm;border-left:3px solid var(--bxc);background:var(--bxf)}
-.t-info .blb{color:var(--bxc)}
+.t-info .blb,.t-note .blb{color:var(--bxc)}
 .t-handout{line-height:1.8;padding:3.5mm 4.5mm;border:1.4px solid #23201c;border-radius:1px}
 .ho-h{display:flex;align-items:baseline;gap:3mm;flex-wrap:wrap;border-bottom:1px solid rgba(35,32,28,.55);padding-bottom:1.5mm;margin-bottom:2mm;white-space:normal}
 .ho-n{font-weight:700;font-size:1.2em;letter-spacing:.06em;color:#a8331f}
@@ -109,11 +114,11 @@ const BASE_CSS = `
 .rin .blb{font-size:.72em;margin-bottom:.8mm;color:var(--bxc,#a8331f)}
 .rt{white-space:pre-wrap;line-height:1.85;color:#1c2b3c;margin:0 0 1.2mm}
 .rt:last-child{margin-bottom:0}
-.t-proc .rt .spk,.t-note .rt .spk,.t-info .rt .spk{color:var(--bxc)}
+.t-proc .rt .spk,.t-dialog .rt .spk,.t-note .rt .spk,.t-info .rt .spk{color:var(--bxc)}
 .rtbl{width:100%;border-collapse:collapse;font-size:.9em;margin:1.2mm 0;white-space:normal}
 .rtbl th,.rtbl td{border:1px solid rgba(35,32,28,.4);padding:.8mm 1.5mm;text-align:left;line-height:1.6;white-space:pre-wrap}
 .rtbl th{background:rgba(35,32,28,.07);font-weight:700}
-.t-proc .rtbl th,.t-note .rtbl th,.t-info .rtbl th{background:var(--bxf,rgba(35,32,28,.07))}
+.t-proc .rtbl th,.t-dialog .rtbl th,.t-note .rtbl th,.t-info .rtbl th{background:var(--bxf,rgba(35,32,28,.07))}
 .rh1{font-size:1.25em;font-weight:700;letter-spacing:.08em;color:#f7f3ea;background:#23201c;padding:1mm 2.5mm;margin:3mm 0 1.6mm}
 .rh2{font-size:1.12em;letter-spacing:.05em;margin:2.6mm 0 1.4mm;padding:0 0 .6mm 2.5mm;border-left:3px solid #a8331f;border-bottom:1px solid rgba(35,32,28,.25)}
 .rh3{font-size:1.02em;font-weight:700;color:#5c4a33;margin:2mm 0 1mm}
@@ -125,7 +130,7 @@ ul.ls li.lv1{padding-left:1.6em}ul.ls li.lv2{padding-left:3.2em}ul.ls li.lv3{pad
 ul.ls .mk{flex:0 0 auto;color:#a8331f;min-width:1.1em}
 ul.ls-num .mk{color:#5c4a33;font-variant-numeric:tabular-nums}
 ul.ls-box .mk{color:#23201c}
-.t-proc ul.ls .mk,.t-note ul.ls .mk,.t-info ul.ls .mk{color:var(--bxc)}
+.t-proc ul.ls .mk,.t-dialog ul.ls .mk,.t-note ul.ls .mk,.t-info ul.ls .mk{color:var(--bxc)}
 ul.ls .tx{flex:1;min-width:0;white-space:pre-wrap}
 
 /* 註解（列印與 PDF 不顯示底線與編號） */

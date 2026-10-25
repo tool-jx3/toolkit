@@ -1,5 +1,5 @@
 /**
- * 特殊區塊（舊名規則框）的外觀、內建樣板與自己做的樣板（規格 3.6.2、F091～F094、3.19.2）。
+ * 特殊區塊（舊名規則框）的外觀、內建範本與自己做的範本（規格 3.6.2、F091～F094、3.19.2）。
  */
 import { uid } from './text';
 import type { Block, BoxColorKey, BoxStyle, BoxTemplate } from './types';
@@ -49,7 +49,7 @@ export const LABEL_PICKS: readonly string[] = [
   'GM 用',
 ];
 
-/** 舊原稿可能存的是日文的預設標題語：套用樣板時一樣當成「預設值」 */
+/** 舊原稿可能存的是日文的預設標題語：套用範本時一樣當成「預設值」 */
 const LEGACY_DEFAULT_LABELS = ['技能判定', '特殊ルール', '技能檢定', '特殊規則'];
 
 export interface BuiltinTemplate extends Required<BoxStyle> {
@@ -59,8 +59,8 @@ export interface BuiltinTemplate extends Required<BoxStyle> {
 export type BuiltinTplKey = 'skill' | 'rule' | 'dialog' | 'note' | 'info';
 
 /**
- * 內建樣板（上游 v3.26 的 BX_TPL）。dialog／note／info 是原作把對話文、注釋、情報區塊改成特殊區塊的樣板時
- * 照原本的樣子做的；本站保留這三個書式（規格 D35），樣板讓原作的原稿與「特殊區塊」的面板用得到同樣的樣子。
+ * 內建範本（上游 v3.26 的 BX_TPL）。dialog／note／info 是原作把對話文、注釋、情報區塊改成特殊區塊的範本時
+ * 照原本的樣子做的；本站保留這三個書式（規格 D35），範本讓原作的原稿與「特殊區塊」的面板用得到同樣的樣子。
  */
 export const BX_TPL: Record<BuiltinTplKey, BuiltinTemplate> = {
   skill: {
@@ -133,7 +133,7 @@ export const BX_TPL: Record<BuiltinTplKey, BuiltinTemplate> = {
   },
 };
 
-/** 樣板按鈕的順序與名稱（「特殊區塊」的設定欄） */
+/** 範本按鈕的順序與名稱（「特殊區塊」的設定欄） */
 export const BX_TPL_BUTTONS: readonly { k: BuiltinTplKey; name: string }[] = [
   { k: 'skill', name: LABEL_SKILL },
   { k: 'rule', name: LABEL_RULE },
@@ -144,7 +144,7 @@ export const BX_TPL_BUTTONS: readonly { k: BuiltinTplKey; name: string }[] = [
 
 export const isBuiltinTpl = (k: string): k is BuiltinTplKey => Object.hasOwn(BX_TPL, k);
 
-/** 樣板的外觀部分（不含名稱、標題語） */
+/** 範本的外觀部分（不含名稱、標題語） */
 const tplStyle = (t: BoxStyle): Required<BoxStyle> => ({
   ln: t.ln,
   bar: !!t.bar,
@@ -202,7 +202,7 @@ export function procStyleOf(b: Block): Required<BoxStyle> {
 }
 
 /**
- * 原稿欄的書式名稱：外觀仍是對話文、注釋、情報區塊的樣板時用那個名稱，其他是「特殊區塊」（同原作 procName）。
+ * 原稿欄的書式名稱：外觀仍是對話文、注釋、情報區塊的範本時用那個名稱，其他是「特殊區塊」（同原作 procName）。
  */
 export function procName(b: Block): string {
   const x = procStyleOf(b);
@@ -222,7 +222,9 @@ export function procName(b: Block): string {
 
 /** 框的標題語（null＝預設：特殊區塊「技能檢定」、情報區塊「情報」） */
 export function blockLabel(b: Block): string {
-  return b.lb != null ? String(b.lb) : b.type === 'info' ? LABEL_INFO : LABEL_SKILL;
+  if (b.lb != null) return String(b.lb);
+  /* 注釋的標題語：沒寫時空白（同原作的注釋範本；第三批驗證後 U7） */
+  return b.type === 'info' ? LABEL_INFO : b.type === 'note' ? '' : LABEL_SKILL;
 }
 
 export function bxTplClean(t: unknown): BoxTemplate | null {
@@ -249,7 +251,7 @@ export function bxTplClean(t: unknown): BoxTemplate | null {
   };
 }
 
-/** 外觀一樣嗎（樣板按鈕的「目前」標示；「按一下複製」不算，同原作） */
+/** 外觀一樣嗎（範本按鈕的「目前」標示；「按一下複製」不算，同原作） */
 export const sameStyle = (a: BoxStyle | undefined, b: BoxStyle): boolean =>
   !!a &&
   a.ln === b.ln &&
@@ -263,9 +265,9 @@ export const sameStyle = (a: BoxStyle | undefined, b: BoxStyle): boolean =>
   a.col === b.col;
 
 /**
- * 套用樣板：外觀整個換掉；標題語只在還沒寫、或仍是某個樣板的預設標題語時才換（F091）。
- * 樣板的標題語是空的（對話、注釋）時也換成空的＝不顯示標題語（同原作 v3.25）。
- * key 是內建樣板（BX_TPL）或自己做的樣板 id。
+ * 套用範本：外觀整個換掉；標題語只在還沒寫、或仍是某個範本的預設標題語時才換（F091）。
+ * 範本的標題語是空的（對話、注釋）時也換成空的＝不顯示標題語（同原作 v3.25）。
+ * key 是內建範本（BX_TPL）或自己做的範本 id。
  */
 export function applyBxTpl(b: Block, key: string, userTpls: readonly BoxTemplate[] = []): void {
   const t: (BoxStyle & { lb?: string }) | undefined = isBuiltinTpl(key)
@@ -284,7 +286,7 @@ export function applyBxTpl(b: Block, key: string, userTpls: readonly BoxTemplate
   }
 }
 
-/** 把同名的樣板合併進清單（同名的保留清單裡那一份） */
+/** 把同名的範本合併進清單（同名的保留清單裡那一份） */
 export function mergeTemplates(
   list: readonly BoxTemplate[],
   mine: readonly BoxTemplate[],

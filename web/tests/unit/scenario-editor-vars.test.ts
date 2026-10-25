@@ -93,7 +93,7 @@ describe('書式（F250、F252、3.2.4）', () => {
     expect(PAPER_CSS).toContain('.t-handout{margin-bottom:4mm}');
     expect(RICH_TYPES).toEqual(expect.arrayContaining(['info', 'handout']));
   });
-  it('情報區塊的標題語：沒寫＝「情報」、空字串＝不顯示；規則框照舊', () => {
+  it('情報區塊的標題語：沒寫＝「情報」、空字串＝不顯示；特殊區塊照舊', () => {
     expect(blockLabel(blk('a', 'info'))).toBe('情報');
     expect(blockLabel(blk('a', 'info', '', { lb: '' }))).toBe('');
     expect(blockLabel(blk('a', 'proc'))).toBe('技能檢定');

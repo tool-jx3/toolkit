@@ -457,7 +457,7 @@ export function singleWrite(json: string): 'ok' | 'big' | 'fail' {
   return lsSet(LS.single, json) ? 'ok' : 'fail';
 }
 
-/* ---------- 樣板（記在這個瀏覽器，F092） ---------- */
+/* ---------- 範本（記在這個瀏覽器，F092） ---------- */
 
 export function readBrowserTemplates(): unknown[] {
   const out: unknown[] = [];

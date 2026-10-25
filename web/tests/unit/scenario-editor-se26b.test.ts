@@ -528,7 +528,7 @@ describe('markdown（3.18.3、F289～F293）', () => {
     ]);
   });
 
-  it('::: 與 :: 的書式（樣板、標籤、手冊編號、彈出視窗裡再讀一次、全形）', () => {
+  it('::: 與 :: 的書式（範本、標籤、手冊編號、彈出視窗裡再讀一次、全形）', () => {
     const r = mdParse(
       ':::proc[偵查]{tpl=rule}\n〈偵查〉成功時\n:::\n::pagebreak\n:::info[線索]\n情報的內容\n:::\n::scene[前往書房]\n:::handout[密使]{no=HO3}\n你是密使。\n:::\n:::handout[第二]\n內容\n:::\n:::dialog[管家]\n「歡迎」\n:::',
       ctx(),
@@ -797,7 +797,7 @@ describe('第一批對等驗證後的修正（7.5 的 S2～S4、S6）', () => {
     expect(html).toContain('"popTitle":"詳細"');
     expect(html).toContain("openWin(pid,document.getElementById('pop'+pid),T.popTitle,pb)");
   });
-  it('S6：規則框不認得的顏色、線照原樣留著（畫的時候用預設）', () => {
+  it('S6：特殊區塊不認得的顏色、線照原樣留著（畫的時候用預設）', () => {
     const d = normalizeDoc({
       blocks: [
         {

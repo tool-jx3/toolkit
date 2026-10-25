@@ -13,7 +13,7 @@ import { allBlocks } from './model/blocks';
 import { escapeHtml } from './model/text';
 import type { Block, Doc } from './model/types';
 import { newPrintLinks, type RenderCtx, staticPageHtml } from './render/html';
-import { fontCss, PAPER_CSS, safeFontName } from './render/paperCss';
+import { fontCss, HR_LINE, PAPER_CSS, safeFontName } from './render/paperCss';
 import { TOOL_ID } from './store';
 
 export interface OutputRange {
@@ -53,6 +53,33 @@ export function offscreenHost(className = 'pv-print'): HTMLElement {
   });
   document.body.appendChild(el);
   return el;
+}
+
+/**
+ * PDF：有標籤的橫線的線。紙面是背景的漸層（畫在繞排圖片下面，線到圖片邊；3.2.2），PDF 的向量層不畫漸層、
+ * 又照 DOM 的順序畫（繞排圖片在橫線前面），所以先量好位置，在頁面的最前面放一條同位置的線：
+ * 之後畫的圖片、標籤的紙色底蓋在上面，和紙面一樣（第三批驗證後 U8）。
+ */
+export function addPdfHrLines(pg: HTMLElement): void {
+  const o = pg.getBoundingClientRect();
+  const lines: HTMLElement[] = [];
+  for (const el of pg.querySelectorAll<HTMLElement>('.t-hr.hastx')) {
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) continue;
+    const ln = document.createElement('div');
+    ln.className = 'pdf-hrl';
+    Object.assign(ln.style, {
+      position: 'absolute',
+      margin: '0',
+      left: `${r.left - o.left - pg.clientLeft}px`,
+      top: `${r.top - o.top - pg.clientTop + (r.height - 1) / 2}px`,
+      width: `${r.width}px`,
+      height: '0',
+      borderTop: `1px solid ${HR_LINE}`,
+    });
+    lines.push(ln);
+  }
+  pg.prepend(...lines);
 }
 
 /** 範圍內的頁面＋附錄頁的 HTML */
@@ -178,6 +205,7 @@ export async function pdfRange(
     host.innerHTML = html.join('');
     await settleContent(host);
     const els = [...host.children].filter((el): el is HTMLElement => el.classList.contains('pg'));
+    for (const el of els) addPdfHrLines(el);
     const css = outputCss(doc);
     return await pagesToPdf({
       pages: els,

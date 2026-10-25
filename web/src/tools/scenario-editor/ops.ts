@@ -729,7 +729,13 @@ export function pasteBlocks(src: readonly Block[] | null = ui().clip): void {
     );
   });
   select(ok.map((b) => b.id));
-  say(S.status.pasted(ok.length));
+  const skip = fresh.length - ok.length;
+  say(
+    skip
+      ? S.status.pastedSkip(ok.length, skip, isCell ? '儲存格' : isKids ? '段落' : '彈出視窗')
+      : S.status.pasted(ok.length),
+    skip ? 'warn' : undefined,
+  );
 }
 
 /* ---------- 段落的設定（F071～F077） ---------- */

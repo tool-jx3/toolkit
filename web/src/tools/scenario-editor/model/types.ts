@@ -51,7 +51,7 @@ export interface Mark {
   sz?: number;
 }
 
-/** 特殊區塊（規則框）的外觀（2026-10 第三批：上游 v3.22～v3.25 加了 thin、mid、xs、ink、copy） */
+/** 特殊區塊（舊名規則框）的外觀（2026-10 第三批：上游 v3.22～v3.25 加了 thin、mid、xs、ink、copy） */
 export interface BoxStyle {
   ln: 'solid' | 'dash' | 'none';
   /** 左側的粗線 */
@@ -74,7 +74,7 @@ export interface BoxStyle {
 /** 色票（kon、nando：2026-10，上游 v3.22.0 起有 8 色） */
 export type BoxColorKey = 'aka' | 'sumi' | 'kon' | 'nando' | 'ai' | 'koke' | 'kin' | 'hai';
 
-/** 自己做的特殊區塊樣板 */
+/** 自己做的特殊區塊範本 */
 export interface BoxTemplate extends BoxStyle {
   id: string;
   /** 名稱（最多 24 字） */

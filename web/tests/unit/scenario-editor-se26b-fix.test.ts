@@ -38,7 +38,7 @@ function load(d: Doc): void {
 }
 
 const FLOW_ROOT =
-  '.t-h1,.t-h2,.t-note,.t-proc,.t-info,.t-handout,.t-hr,.t-table{display:flow-root}';
+  '.t-h1,.t-h2,.t-dialog,.t-note,.t-proc,.t-info,.t-handout,.t-hr,.t-table{display:flow-root}';
 
 describe('T1：有框的段落在頁面圖片旁邊也整個縮到圖片旁（紙面、匯出）', () => {
   it('紙面與兩種匯出的樣式都有 flow-root（同原作 v3.10.3；第三批 F316 起）', () => {
@@ -149,7 +149,7 @@ describe('T9：逐頁匯出的目錄區上方內距', () => {
 });
 
 describe('T11：:::dialog 的標籤、:::info 沒有標籤', () => {
-  it('對話文的說話者＝原作樣板的標題語；情報區塊沒有標籤時顯示「情報」（D35）', async () => {
+  it('對話文的說話者＝原作範本的標題語；情報區塊沒有標籤時顯示「情報」（D35）', async () => {
     const { mdParse } = await import('../../src/tools/scenario-editor/model/md');
     const { blockLabel } = await import('../../src/tools/scenario-editor/model/proc');
     const r = mdParse(':::dialog[山田]\n「你好」\n:::\n\n:::info\n情報\n:::', {

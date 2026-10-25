@@ -185,15 +185,9 @@ export function fixTyped(list: Block[]): Block[] {
       if (Array.isArray(p.blocks))
         p.blocks = p.blocks.filter((x) => x && typeof x === 'object').map(blockFrom);
     }
-    /* 段落裡的段落（第三批）：不是段落的拿掉、補齊欄位；空的不留 */
+    /* 段落裡的段落（第三批）：不是段落的拿掉、補齊欄位（cols 照原值，畫的時候不看；第三批驗證後 U10）；空的不留 */
     if (Array.isArray(b.kids)) {
-      b.kids = b.kids
-        .filter((x) => x && typeof x === 'object')
-        .map((x) => {
-          const k = blockFrom(x);
-          k.cols = 2;
-          return k;
-        });
+      b.kids = b.kids.filter((x) => x && typeof x === 'object').map(blockFrom);
       if (!b.kids.length) delete b.kids;
     } else if (b.kids != null) delete b.kids;
     for (const l of subLists(b)) fixTyped(l);
@@ -264,7 +258,8 @@ export function normalizeDoc(raw: unknown): Doc {
   const d = raw as Omit<Partial<Doc>, 'pages'> & { pages?: LegacyPage[] };
   const out: Doc = {
     mdv: MD_VER,
-    pkv: PK_VER,
+    /* 比本站新的 pkv（原作日後的版本）照留，不降成 1（第三批驗證後 U10） */
+    pkv: Number.isFinite(+(d.pkv ?? 0)) ? Math.max(PK_VER, +(d.pkv ?? 0) || 0) : PK_VER,
     title: d.title || UNTITLED,
     padV: +(d.padV ?? 0) || 18,
     padH: +(d.padH ?? 0) || 16,

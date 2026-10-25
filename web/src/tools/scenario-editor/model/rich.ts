@@ -3,8 +3,15 @@
  */
 import type { BlockType } from './types';
 
-/** 可以用巢狀書式的書式 */
-export const RICH_TYPES: readonly BlockType[] = ['desc', 'note', 'proc', 'info', 'handout'];
+/** 可以用巢狀書式的書式（對話文：第三批驗證後 U2，同原作的對話範本） */
+export const RICH_TYPES: readonly BlockType[] = [
+  'desc',
+  'dialog',
+  'note',
+  'proc',
+  'info',
+  'handout',
+];
 
 /** 「這段文字有沒有用到巢狀書式」用的行首記號 */
 const RICH_MARK =

@@ -302,7 +302,7 @@ function post(t: string): void {
   }
 }
 
-/* ---------- 樣板（記在這個瀏覽器） ---------- */
+/* ---------- 範本（記在這個瀏覽器） ---------- */
 
 function browserTemplates(): BoxTemplate[] {
   return readBrowserTemplates()
@@ -310,14 +310,14 @@ function browserTemplates(): BoxTemplate[] {
     .filter((t): t is BoxTemplate => !!t);
 }
 
-/** 開啟原稿時：這個瀏覽器記住的樣板，原稿沒有的同名加進去 */
+/** 開啟原稿時：這個瀏覽器記住的範本，原稿沒有的同名加進去 */
 function withBrowserTemplates(d: Doc): Doc {
   const merged = mergeTemplates(d.bxTpl, browserTemplates());
   writeBrowserTemplates(merged);
   return { ...d, bxTpl: merged };
 }
 
-/** 樣板改變時記到這個瀏覽器 */
+/** 範本改變時記到這個瀏覽器 */
 export function rememberTemplates(list: readonly BoxTemplate[]): void {
   writeBrowserTemplates([...list]);
 }

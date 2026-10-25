@@ -97,9 +97,9 @@ const TYPE_TEXT_CLASS: Partial<Record<string, string>> = {
 /* ---------- 一列 ---------- */
 
 /** 文字欄上方有標題語欄的書式（第三批，上游 v3.24.1；對話文是說話者） */
-const LABEL_ROW_TYPES: readonly string[] = ['proc', 'info', 'dialog'];
+const LABEL_ROW_TYPES: readonly string[] = ['proc', 'info', 'dialog', 'note'];
 
-/** 一列的書式名稱：特殊區塊依樣子（對話文、注釋、情報區塊的樣板時用那個名稱） */
+/** 一列的書式名稱：特殊區塊依樣子（對話文、注釋、情報區塊的範本時用那個名稱） */
 const rowTypeName = (b: Block): string => (b.type === 'proc' ? procName(b) : typeName(b.type));
 
 /** ↑↓ 走到不能打字的段落時：選取它（紙面捲過去） */

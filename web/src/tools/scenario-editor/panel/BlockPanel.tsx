@@ -132,6 +132,8 @@ function TypeProps({ b }: { b: Block }) {
       return <ProcProps b={b} />;
     case 'info':
       return <InfoProps b={b} />;
+    case 'note':
+      return <NoteProps b={b} />;
     case 'handout':
       return <HandoutProps key={b.id} b={b} />;
     case 'popup':
@@ -210,10 +212,10 @@ function ProcProps({ b }: { b: Block }) {
   };
   const saveTpl = async () => {
     const r = await bridge.prompt({
-      title: '把目前的外觀存成樣板',
-      label: '樣板的名稱（最多 24 字）',
+      title: '把目前的外觀存成範本',
+      label: '範本的名稱（最多 24 字）',
       maxLength: 24,
-      confirmLabel: '存成樣板',
+      confirmLabel: '存成範本',
     });
     const n = r?.value.trim().slice(0, 24);
     if (!n) return;
@@ -246,7 +248,7 @@ function ProcProps({ b }: { b: Block }) {
   };
   const rename = async (t: BoxTemplate) => {
     const r = await bridge.prompt({
-      title: '樣板的名稱與標題語',
+      title: '範本的名稱與標題語',
       label: '名稱（最多 24 字）',
       value: t.n,
       maxLength: 24,
@@ -285,7 +287,7 @@ function ProcProps({ b }: { b: Block }) {
   };
   return (
     <Section title="特殊區塊" fixed>
-      <Field label="樣板" hint="按下就換成那個外觀與標題語；下面可以再細調。">
+      <Field label="範本" hint="按下就換成那個外觀與標題語；下面可以再細調。">
         <div className="flex flex-wrap gap-1">
           {BX_TPL_BUTTONS.map(({ k, name }) => (
             <Button
@@ -301,7 +303,7 @@ function ProcProps({ b }: { b: Block }) {
         </div>
       </Field>
       {tpls.length ? (
-        <ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label="自己的樣板">
+        <ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label="自己的範本">
           {tpls.map((t) => (
             <li key={t.id} className="flex flex-wrap items-center gap-1">
               <Button
@@ -326,7 +328,7 @@ function ProcProps({ b }: { b: Block }) {
         </ul>
       ) : null}
       <Button size="sm" variant="secondary" onClick={() => void saveTpl()}>
-        把目前的外觀存成樣板
+        把目前的外觀存成範本
       </Button>
       <Field
         label="標題語"
@@ -427,6 +429,22 @@ function ProcProps({ b }: { b: Block }) {
       <div>
         <PreviewButton id={b.id} />
       </div>
+    </Section>
+  );
+}
+
+/* ---------- 注釋的標題語（第三批驗證後 U7；同原作的注釋範本） ---------- */
+
+function NoteProps({ b }: { b: Block }) {
+  return (
+    <Section title={S.note.title} fixed>
+      <Field label={S.note.label} hint={S.note.labelHint}>
+        <TextInput
+          value={blockLabel(b)}
+          placeholder="（沒有標題語）"
+          onChange={(e) => editBlock(b.id, (x) => (x.lb = e.target.value))}
+        />
+      </Field>
     </Section>
   );
 }
@@ -567,7 +585,8 @@ function PopupProps({ b }: { b: Block }) {
         />
       </Field>
       <p className="m-0 text-xs text-muted">
-        在描述文、注釋、規則框的行首寫「＠{popupLabel(b)}」就是開啟它的按鈕。
+        在描述文、對話文、注釋、特殊區塊、情報區塊、手冊的行首寫「＠{popupLabel(b)}
+        」就是開啟它的按鈕。
       </p>
       <div className="flex flex-wrap gap-1">
         <Button size="sm" onClick={() => setUi({ popEdit: b.id })}>
@@ -805,7 +824,8 @@ function CommonProps({ blocks }: { blocks: Block[] }) {
   const spanFixed = blocks.every((x) => x.type === 'npc' || x.type === 'flow');
   const allSpan = blocks.every((x) => x.cols === 1);
   const allFlow = blocks.every((x) => x.cols === 2);
-  const rich = single && ['desc', 'note', 'proc', 'info', 'handout', 'table'].includes(b.type);
+  const rich =
+    single && ['desc', 'dialog', 'note', 'proc', 'info', 'handout', 'table'].includes(b.type);
   const gapVal = (k: 'mt' | 'mb') => {
     const vals = new Set(blocks.map((x) => (x[k] == null ? '' : String(x[k]))));
     return vals.size === 1 ? [...vals][0] : '';

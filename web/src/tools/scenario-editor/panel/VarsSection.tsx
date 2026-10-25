@@ -1,11 +1,13 @@
 /**
  * 文件分頁的「變數」（F255、F256；原作 v3.8.0～v3.9.0）：手冊的編號、登錄的變數、本文寫到的 HO＋數字，
  * 依匯出時的順序列成一張表，每一列都可以直接改（第三批，上游 v3.10.2；F307）：
- * 手冊的列改手冊的編號（離開欄位時檢查）、預設值、說明；自動的列填了預設值或說明就變成登錄的變數。
+ * 手冊的列改手冊的編號（離開欄位時檢查）、預設值、說明；自動的列填了預設值或說明就變成登錄的變數
+ * （輸入法組字中先不轉，選好字或離開欄位時才轉；第三批驗證後 U1）。
  * 最後是原稿裡寫到、還沒登錄的名稱。
  */
 import { X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import type { ChangeEvent, CompositionEvent, FocusEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, IconButton, Section, TextInput } from '@/ui';
 import { allBlocks, findBlock } from '../model/blocks';
 import { ensureHo, hoNote, hoOf, isVarName, varCandidates, varList } from '../model/vars';
@@ -57,6 +59,9 @@ export function VarsSection() {
   const [touched, setTouched] = useState<ReadonlySet<number>>(new Set());
   /* 手冊編號打到一半（離開欄位時才檢查、寫進原稿） */
   const [hoDraft, setHoDraft] = useState<Record<string, string>>({});
+  /* 自動的列用輸入法組字中的字（「列:欄位」→ 字；選好字才登錄，免得注音留在欄位裡） */
+  const [autoDraft, setAutoDraft] = useState<Record<string, string>>({});
+  const composing = useRef(false);
   useEffect(() => releaseVarHold, []);
 
   const rows: Row[] = [];
@@ -132,14 +137,55 @@ export function VarsSection() {
       const b = findBlock(x, id)?.b;
       if (b) ensureHo(b)[k] = v;
     });
-  /* 自動的列：填了就登錄（同一列接著改登錄的那一個） */
+  /* 自動的列：填了就登錄（同一列接著改登錄的那一個）；已經登錄了（組字結束與 input 都來）就改那一個 */
   const setAuto = (n: string, k: 'def' | 'note', v: string) => {
-    const i = regs.length;
+    let i = regs.length;
     edit((x) => {
       if (!Array.isArray(x.vars)) x.vars = [];
-      x.vars.push({ n, def: k === 'def' ? v : '', note: k === 'note' ? v : '' });
+      const j = x.vars.findIndex((r) => String(r?.n ?? '').trim() === n);
+      if (j >= 0) {
+        x.vars[j][k] = v;
+        i = j;
+      } else x.vars.push({ n, def: k === 'def' ? v : '', note: k === 'note' ? v : '' });
     });
     focusField(`r${i}`, k);
+  };
+  const dropAutoDraft = (dk: string) =>
+    setAutoDraft((x) => {
+      if (!(dk in x)) return x;
+      const { [dk]: _drop, ...rest } = x;
+      return rest;
+    });
+  /* 自動的列的預設值、說明：組字中只留在欄位裡，選好字（compositionend）或離開欄位時才登錄 */
+  const autoHandlers = (r: Row, k: 'def' | 'note') => {
+    const dk = `${r.key}:${k}`;
+    return {
+      onCompositionStart: () => {
+        composing.current = true;
+      },
+      onChange: (e: ChangeEvent<HTMLInputElement>) => {
+        const v = e.target.value;
+        if (composing.current || (e.nativeEvent as InputEvent).isComposing) {
+          setAutoDraft((x) => ({ ...x, [dk]: v }));
+          return;
+        }
+        dropAutoDraft(dk);
+        if (v) setAuto(r.n, k, v);
+      },
+      onCompositionEnd: (e: CompositionEvent<HTMLInputElement>) => {
+        composing.current = false;
+        const v = e.currentTarget.value;
+        dropAutoDraft(dk);
+        if (v) setAuto(r.n, k, v);
+      },
+      onBlur: (e: FocusEvent<HTMLInputElement>) => {
+        composing.current = false;
+        const v = e.currentTarget.value;
+        if (!(dk in autoDraft)) return;
+        dropAutoDraft(dk);
+        if (v) setAuto(r.n, k, v);
+      },
+    };
   };
   const checkName = (i: number) => {
     setTouched((t) => new Set(t).add(i));
@@ -239,18 +285,27 @@ export function VarsSection() {
                   if (e.key === 'Enter' && r.kind === 'ho' && r.id) commitHo(r.id);
                 }}
               />
-              <TextInput
-                value={r.def}
-                data-vk="def"
-                aria-label={`${what}的${S.vars.def}`}
-                placeholder={r.defPh}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (r.kind === 'reg' && r.i != null) setReg(r.i, 'def', v);
-                  else if (r.kind === 'ho' && r.id) setHo(r.id, 'def', v);
-                  else if (v) setAuto(r.n, 'def', v);
-                }}
-              />
+              {r.kind === 'auto' ? (
+                <TextInput
+                  value={autoDraft[`${r.key}:def`] ?? r.def}
+                  data-vk="def"
+                  aria-label={`${what}的${S.vars.def}`}
+                  placeholder={r.defPh}
+                  {...autoHandlers(r, 'def')}
+                />
+              ) : (
+                <TextInput
+                  value={r.def}
+                  data-vk="def"
+                  aria-label={`${what}的${S.vars.def}`}
+                  placeholder={r.defPh}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (r.kind === 'reg' && r.i != null) setReg(r.i, 'def', v);
+                    else if (r.kind === 'ho' && r.id) setHo(r.id, 'def', v);
+                  }}
+                />
+              )}
               {r.kind === 'reg' && r.i != null ? (
                 <IconButton
                   size="sm"
@@ -262,19 +317,29 @@ export function VarsSection() {
               ) : (
                 <span />
               )}
-              <TextInput
-                className="col-span-3"
-                value={r.note}
-                data-vk="note"
-                aria-label={`${what}的${S.vars.note}`}
-                placeholder={r.notePh}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (r.kind === 'reg' && r.i != null) setReg(r.i, 'note', v);
-                  else if (r.kind === 'ho' && r.id) setHo(r.id, 'note', v);
-                  else if (v) setAuto(r.n, 'note', v);
-                }}
-              />
+              {r.kind === 'auto' ? (
+                <TextInput
+                  className="col-span-3"
+                  value={autoDraft[`${r.key}:note`] ?? r.note}
+                  data-vk="note"
+                  aria-label={`${what}的${S.vars.note}`}
+                  placeholder={r.notePh}
+                  {...autoHandlers(r, 'note')}
+                />
+              ) : (
+                <TextInput
+                  className="col-span-3"
+                  value={r.note}
+                  data-vk="note"
+                  aria-label={`${what}的${S.vars.note}`}
+                  placeholder={r.notePh}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (r.kind === 'reg' && r.i != null) setReg(r.i, 'note', v);
+                    else if (r.kind === 'ho' && r.id) setHo(r.id, 'note', v);
+                  }}
+                />
+              )}
             </div>
           );
         })}
