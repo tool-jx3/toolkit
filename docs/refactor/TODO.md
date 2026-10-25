@@ -11,19 +11,19 @@
 
 | 項目 | 本站工具 | 來源 | 授權 | 內容 |
 |---|---|---|---|---|
-| 讀入房間 ZIP 再編輯 | room-zip | [756y/ccfolia_scene_maker](https://github.com/756y/ccfolia_scene_maker) | 未授權 | 讀入 CCFOLIA 匯出的房間 ZIP，改完再匯出（共用的 `readRoomZip` 已經有） |
-| 跟進 v3.9 → v3.26 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | CC0 | 47 個 commit，見下方「scenario-editor v3.26 的八項」 |
+| 讀入房間 ZIP 再編輯 | room-zip | [756y/ccfolia_scene_maker](https://github.com/756y/ccfolia_scene_maker) | 未授權 | 讀入 CCFOLIA 匯出的房間 ZIP，改完再匯出；已實作（roomzip-import 分支 737c013），驗證中（含使用者提供的真實房間 ZIP） |
+| 跟進 v3.9 → v3.26 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | CC0 | 47 個 commit，分三批，見下方 |
 
-### scenario-editor v3.26 的八項（做完一項刪一項）
+### scenario-editor 跟進 v3.26（合併上線後整批刪掉）
 
-1. 儲存選單：存到瀏覽器（命名版本）或存 JSON（小）
-2. 每頁紙色與 8 種背景花紋（小～中）
-3. 輸出 HTML 的浮動視窗、「→ 追記」連結、場景轉換連到標題（小～中）
-4. 圖片的頁面圖層、邊框與陰影（中）
-5. 文字以 pt 逐字、逐段設定大小（中）
-6. markdown 輸入與 `:::` 指令（中）
-7. 段落裡再放段落（Tab 巢狀）與「特殊」區塊（大）
-8. 不分頁的 HTML 與章目錄（中）
+- 第一批（已實作 27e8117，驗證中）：儲存選單（存到瀏覽器的命名版本／JSON）、每頁紙色與背景花紋、輸出 HTML 的浮動視窗、
+  「→ 追記」與「↩ 回到」連結、場景轉換連到標題、文字以 pt 設定大小。
+- 第二批（實作中）：圖片的頁面圖層、邊框與陰影、寬度 ％／px；markdown 輸入與 `:::` 指令、紙面上的 `::`／`#` 候選；
+  不分頁的 HTML 與章目錄；開啟後第一次分頁圖片高度 0 的問題；「這頁設為單欄／雙欄」沿用最後一頁的問題。
+- 第三批：段落裡再放段落（Tab 巢狀）與「特殊」區塊（標題、「按一下複製」開關）；手冊變數可以編預設值與說明、變數清單直接改；
+  新增段落後捲到那段；框類段落縮到繞排圖片旁邊；作品清單裡「讀入 JSON」；文字欄 ↑↓ 移到前後段、不能打字的段落按 Enter 或書式按鈕在下面新增；
+  點紙面時選取與游標同步、Esc 一次取消選取、設定欄的「×」。
+- 不跟：工具列重新分組與左側抽屜、「上下間距」欄的位置（本站用自己的設計）。
 
 ## 一、已收錄工具的原作更新
 
