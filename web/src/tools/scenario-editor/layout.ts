@@ -3,24 +3,25 @@
  * 編輯畫面、列印、PDF、頁面一覽都用同一份分頁結果（每頁放了哪些段落）。
  */
 import { paginate } from '@/core/paged';
-import { allBlocks, gapPull, isFreeImg, subLists } from './model/blocks';
+import { allBlocks, gapPull, subLists } from './model/blocks';
+import { pimgsOn } from './model/pageImg';
 import type { Block, Doc } from './model/types';
 import { varPlain, varView } from './model/vars';
 import {
   appendixItems,
   blockHtml,
   footHtml,
-  freeImagesOn,
-  freeShapeHtml,
   inFlow,
   pageOpenHtml,
   pageSettingAt,
+  pageShapesHtml,
+  pimgHtml,
   type RenderCtx,
   tocHtml,
 } from './render/html';
 import type { Layout } from './store';
 
-/** 原稿依換頁切成幾段（換頁本身不放進頁面；自由配置的圖片與只給儲存格用的彈出視窗不在流程裡） */
+/** 原稿依換頁切成幾段（換頁本身不放進頁面；只給儲存格用的彈出視窗不在流程裡） */
 export function sectionsOf(doc: Pick<Doc, 'blocks'>): {
   sections: Block[][];
   breaks: (Block | null)[];
@@ -58,7 +59,7 @@ export interface LayoutResult extends Layout {
 }
 
 const isOutOfFlow = (el: Element) =>
-  el.classList.contains('imgshape') || el.classList.contains('free');
+  el.classList.contains('imgshape') || el.classList.contains('pimg');
 
 /** 頁首的小列（F182；列印與匯出不含） */
 function pageHeadHtml(i: number, cols: 1 | 2): string {
@@ -93,12 +94,8 @@ export function layoutDoc(doc: Doc, host: HTMLElement, o: LayoutOptions): Layout
       pg.querySelector('.pg-foot')?.remove();
       pg.dataset.page = String(i);
       const body = pg.querySelector('.pg-body') as HTMLElement;
-      body.insertAdjacentHTML(
-        'afterbegin',
-        freeImagesOn(doc, i)
-          .map((b) => freeShapeHtml(b, doc, st.cols))
-          .join(''),
-      );
+      /* 文字避開頁面圖片的浮動框：先放（之後放的段落才會避開；3.18.1） */
+      body.insertAdjacentHTML('afterbegin', pageShapesHtml(doc, i, st.cols));
       let root: HTMLElement = pg;
       if (o.edit) {
         root = document.createElement('div');
@@ -139,17 +136,24 @@ export function layoutDoc(doc: Doc, host: HTMLElement, o: LayoutOptions): Layout
     if (b.type === 'table')
       for (const l of subLists(b)) for (const x of walk(l)) pageOf.set(x.id, p);
   }
-  for (const b of doc.blocks)
-    if (isFreeImg(b)) {
-      const p = Math.max(1, +(b.pg ?? 1) || 1) - 1;
-      if (p < total) pageOf.set(b.id, p);
-    }
   ctx.total = total;
-  /* 自由配置的圖片、頁尾、目錄的頁碼 */
+  /* 頁數比圖片的頁號少時，那些圖片放在最後一頁：最後一頁的避開框重做（同原作） */
+  const lastBody = bodies[total - 1];
+  if (lastBody && (doc.pageImgs ?? []).some((o) => (+o.pg || 1) > total)) {
+    for (const el of lastBody.querySelectorAll(':scope > .imgshape')) el.remove();
+    lastBody.insertAdjacentHTML(
+      'afterbegin',
+      pageShapesHtml(doc, total - 1, pageSettingAt(doc, total - 1).cols, total),
+    );
+  }
+  /* 頁面圖片、頁尾、目錄的頁碼 */
   bodies.forEach((body, i) => {
-    const st = pageSettingAt(doc, i);
-    for (const b of freeImagesOn(doc, i))
-      body.appendChild(htmlToElement(blockHtml(b, ctx, { cols: st.cols, pull: 0, top: false })));
+    body.insertAdjacentHTML(
+      'beforeend',
+      pimgsOn(doc, i, total)
+        .map((x) => pimgHtml(x, doc, o.edit))
+        .join(''),
+    );
     const foot = footHtml(i, total, doc);
     if (foot) body.parentElement?.insertAdjacentHTML('beforeend', foot);
   });

@@ -1,10 +1,11 @@
-import { Bold, Italic, Plus, Save, Trash2, Underline } from 'lucide-react';
+import { Bold, Download, HardDrive, Italic, Plus, Save, Trash2, Underline } from 'lucide-react';
 import { useState } from 'react';
 import {
   Button,
   Field,
   FieldRow,
   IconButton,
+  MenuButton,
   NativeNumberInput,
   NumberInput,
   Section,
@@ -30,6 +31,7 @@ export function ControlsDemo() {
   const [size, setSize] = useState(48);
   const [opacity, setOpacity] = useState(0.8);
   const [pressed, setPressed] = useState(false);
+  const [menuPick, setMenuPick] = useState('（還沒選）');
   return (
     <div className="flex flex-col gap-3">
       <Section title="按鈕 Button／IconButton">
@@ -131,6 +133,35 @@ export function ControlsDemo() {
             disabled
           />
         </Field>
+      </Section>
+      <Section title="按鈕＋下拉選單 MenuButton">
+        <div className="flex flex-wrap items-center gap-2">
+          <MenuButton
+            label="儲存"
+            icon={<Save />}
+            data-testid="gallery-menu-button"
+            items={[
+              {
+                label: '存到瀏覽器',
+                description: '加上名稱，留在「過去的版本」',
+                icon: <HardDrive />,
+                onSelect: () => setMenuPick('存到瀏覽器'),
+              },
+              {
+                label: '存成 JSON 檔',
+                description: '下載原稿檔，留在自己的電腦裡',
+                icon: <Download />,
+                shortcut: 'mod+s',
+                onSelect: () => setMenuPick('存成 JSON 檔'),
+              },
+              { label: '停用的項目', disabled: true, onSelect: () => {} },
+            ]}
+          />
+          <MenuButton label="停用" disabled items={[{ label: '—', onSelect: () => {} }]} />
+          <span className="text-sm text-muted" data-testid="gallery-menu-pick">
+            選了：{menuPick}
+          </span>
+        </div>
       </Section>
       <Section title="文字輸入 TextInput／TextArea">
         <Field label="角色名稱" hint="最多 20 字。">

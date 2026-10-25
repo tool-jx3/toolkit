@@ -4,8 +4,10 @@
 import { allBlocks, blockLists, newBlock, newPage, newPageBg, subLists } from './blocks';
 import { ensureFlow } from './flow';
 import { hasLegacySizes, migrateLegacySizes, ptRound } from './fontSize';
+import { bodyWidthMm, fixImageFx, PAPER_W } from './image';
 import { ensureNpc } from './npc/model';
-import { applyBxTpl, BX_TPL, bxTplClean, ensureProc } from './proc';
+import { cleanPimgs, freeToPimg } from './pageImg';
+import { applyBxTpl, BOX_COLORS, BX_TPL, bxTplClean, ensureProc } from './proc';
 import { MD_VER, mdText } from './rich';
 import { ensureTable, tblFit } from './table';
 import { setBlockText, tidyMarks, uid } from './text';
@@ -52,6 +54,7 @@ export function blankDoc(): Doc {
     fontHead: '',
     bxTpl: [],
     vars: [],
+    pageImgs: [],
     pages: [{ id: uid(), bg: newPageBg('bg-paper'), cols: 1 }],
     blocks: sampleBlocks(),
   };
@@ -125,9 +128,16 @@ export function fixBlock(nb: Block): Block {
     nb.fx = +(nb.fx ?? 0) || 0;
     nb.fy = +(nb.fy ?? 0) || 0;
     nb.pg = Math.max(1, +(nb.pg ?? 1) || 1);
-    if (!nb.w) nb.w = 70;
+    /* 寬的單位（2026-10，上游 v3.16.0）：px 以外都是版心寬的％ */
+    if (nb.wu === 'px') {
+      if (!(+(nb.w ?? 0) > 0)) nb.w = 200;
+    } else {
+      delete nb.wu;
+      if (!nb.w) nb.w = 70;
+    }
     nb.ar = +(nb.ar ?? 0) > 0 ? +(nb.ar ?? 0) : 0;
     nb.wrap = nb.wrap === 'none' ? 'none' : 'square';
+    fixImageFx(nb, BOX_COLORS);
   }
   return nb;
 }
@@ -202,6 +212,29 @@ const pageFrom = (p: unknown, cols?: 1 | 2): PageSetting => {
   };
 };
 
+/**
+ * 舊原稿的自由配置圖片（3.18.1）：本文的移到頁面圖片（同原作 v3.14.0；沒有圖的不要）；
+ * 彈出視窗、儲存格裡的（放不到頁上）改成行內，寬從紙寬的％換成版心寬的％。
+ */
+function migrateFreeImages(out: Doc): void {
+  out.blocks = out.blocks.filter((b) => {
+    if (b.type !== 'image' || b.pos !== 'free') return true;
+    if (b.img) out.pageImgs.push(freeToPimg(b, out.padH, out.padV));
+    return false;
+  });
+  const bodyW = bodyWidthMm(out);
+  for (const list of blockLists(out))
+    for (const b of list) {
+      if (b.type !== 'image' || b.pos !== 'free') continue;
+      const wOld = (PAPER_W * Math.max(1, Math.min(100, +(b.w ?? 0) || 40))) / 100;
+      b.w = Math.max(1, Math.min(100, Math.round((wOld / bodyW) * 100)));
+      delete b.wu;
+      b.pos = 'inline';
+      b.fl = '';
+      b.cols = 1;
+    }
+}
+
 /** 是不是原稿（舊版的原稿物件、或新版 data） */
 export function looksLikeDoc(d: unknown): d is Partial<Doc> {
   return (
@@ -229,6 +262,8 @@ export function normalizeDoc(raw: unknown): Doc {
     fontHead: d.fontHead || '',
     bxTpl: (Array.isArray(d.bxTpl) ? d.bxTpl : []).map(bxTplClean).filter((x) => !!x),
     vars: cleanVars(d.vars),
+    /* 頁面圖片（2026-10，上游 v3.14.0） */
+    pageImgs: cleanPimgs(d.pageImgs),
     pages: [],
     blocks: [],
   };
@@ -253,8 +288,9 @@ export function normalizeDoc(raw: unknown): Doc {
     for (const b of Array.isArray(d.blocks) ? d.blocks : []) out.blocks.push(blockFrom(b));
   }
   if (!out.pages.length) out.pages.push(newPage(out.defCols));
-  if (!out.blocks.length) out.blocks = sampleBlocks();
   fixTyped(out.blocks);
+  migrateFreeImages(out);
+  if (!out.blocks.length) out.blocks = fixTyped(sampleBlocks());
   numberHandouts(out);
   if ((+(d.mdv ?? 0) || 0) < MD_VER) mdMigrate(out.blocks);
   /* 原作 v3.17～v3.20 的文字大小（倍率）換成當時的 pt（3.17.5） */

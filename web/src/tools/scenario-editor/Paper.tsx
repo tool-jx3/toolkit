@@ -17,7 +17,7 @@ import { offscreenHost } from './output';
 import { EDITOR_CSS } from './render/editorCss';
 import { fontCss, PAPER_CSS } from './render/paperCss';
 import { silentEdit } from './session';
-import { doc, focusBlock, revealSource, setUi, ui, useDoc, useUi } from './store';
+import { doc, focusBlock, revealSource, selectPimg, setUi, ui, useDoc, useUi } from './store';
 import { S } from './strings';
 
 /** 打字後多久重新排版（毫秒） */
@@ -69,6 +69,7 @@ export function Paper() {
   const data = useDoc((s) => s.data);
   const zoom = useUi((s) => s.zoom);
   const sel = useUi((s) => s.sel);
+  const pimgSel = useUi((s) => s.pimgSel);
   const flash = useUi((s) => s.flash);
   const total = useUi((s) => s.total);
   const vp = useRef<PagedViewportHandle>(null);
@@ -76,6 +77,7 @@ export function Paper() {
   const host = useRef<HTMLElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const first = useRef(true);
+  const imgRetry = useRef(0);
   const [count, setCount] = useState(0);
   const [cmt, setCmt] = useState<CmtCard | null>(null);
 
@@ -88,14 +90,26 @@ export function Paper() {
     const d = doc();
     const res = layoutDoc(d, host.current, { edit: true, prev: ui().layout });
     const keep = vp.current?.scroller?.scrollTop;
+    /*
+     * 排版時還沒解碼、也沒有先留好高度（aspect-ratio）的圖片，量到的高度是 0：
+     * 載入後再排一次（2026-10，同原作 v3.15.1 的修正；同一份原稿最多再排 2 次）。
+     */
+    const waiting = [...host.current.querySelectorAll('img')].filter(
+      (im) => !im.complete && !im.style.aspectRatio,
+    );
     st.replaceChildren(...res.pageEls);
     host.current.replaceChildren();
     setUi({
       layout: { pages: res.pages, pageOf: res.pageOf, over: res.over },
       total: res.pages.length,
     });
-    paintSelection(st, ui().sel, ui().pageSel);
+    paintSelection(st, ui().sel, ui().pageSel, ui().pimgSel);
     if (keep != null && vp.current?.scroller) vp.current.scroller.scrollTop = keep;
+    watchImages(st, waiting, () => {
+      if (imgRetry.current >= 2) return;
+      imgRetry.current++;
+      schedule(80);
+    });
     /* 多出的頁面設定刪掉（不列入復原） */
     if (d.pages.length > res.pages.length)
       silentEdit((x) => {
@@ -111,6 +125,7 @@ export function Paper() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: 原稿改變就重新排版
   useEffect(() => {
+    imgRetry.current = 0;
     schedule(first.current ? 0 : RELAYOUT_MS);
     first.current = false;
   }, [data]);
@@ -137,8 +152,8 @@ export function Paper() {
   /* ---------- 選取的顯示、勾選的頁 ---------- */
   const pageSel = useUi((s) => s.pageSel);
   useEffect(() => {
-    if (stage.current) paintSelection(stage.current, sel, pageSel);
-  }, [sel, pageSel]);
+    if (stage.current) paintSelection(stage.current, sel, pageSel, pimgSel);
+  }, [sel, pageSel, pimgSel]);
 
   /* ---------- 選取時捲過去並閃一下（F040、F190） ---------- */
   // biome-ignore lint/correctness/useExhaustiveDependencies: 只在要求閃一下時
@@ -147,7 +162,9 @@ export function Paper() {
     const go = () => {
       const st = stage.current;
       if (!st) return;
-      const el = st.querySelector<HTMLElement>(`.bp[data-id="${CSS.escape(flash.id)}"]`);
+      const el =
+        st.querySelector<HTMLElement>(`.bp[data-id="${CSS.escape(flash.id)}"]`) ??
+        st.querySelector<HTMLElement>(`.pimg[data-pimg="${CSS.escape(flash.id)}"]`);
       if (el) {
         vp.current?.revealRect(el.getBoundingClientRect(), 0.3);
         el.classList.remove('is-flash');
@@ -205,6 +222,13 @@ export function Paper() {
       return;
     }
     if (t.closest('.pghead')) return;
+    /* 頁面圖片（2026-10）：選取，設定欄顯示它的設定 */
+    const pim = t.closest<HTMLElement>('.pimg[data-pimg]');
+    if (pim?.dataset.pimg) {
+      setCmt(null);
+      selectPimg(pim.dataset.pimg, false);
+      return;
+    }
     const anchor = t.closest<HTMLAnchorElement>('a[href^="#b"]');
     if (anchor) e.preventDefault();
     const po = t.closest<HTMLElement>('[data-popopen]');
@@ -374,8 +398,66 @@ function growFlowNodes(st: HTMLElement): void {
   });
 }
 
-/** 選取的段落、勾選的頁 */
-function paintSelection(st: HTMLElement, sel: readonly string[], pageSel: readonly number[]): void {
+/**
+ * 圖片載入後（2026-10，上游 v3.15.1）：段落與頁面圖片記下實際的長寬比（沒有記、或差超過 1% 時；不列入復原），
+ * 排版時還沒解碼的圖片載入後再排一次。
+ */
+function watchImages(
+  st: HTMLElement,
+  waiting: readonly HTMLImageElement[],
+  again: () => void,
+): void {
+  const pending = new Set(waiting);
+  const check = (im: HTMLImageElement) => {
+    if (!im.naturalWidth) return;
+    const ar = im.naturalHeight / im.naturalWidth;
+    const near = (v: unknown) => +(v as number) > 0 && Math.abs(+(v as number) - ar) <= ar * 0.01;
+    const bid = im.closest<HTMLElement>('.bp-image[data-id]')?.dataset.id;
+    const pid = im.closest<HTMLElement>('.pimg[data-pimg]')?.dataset.pimg;
+    if (bid) {
+      const b = findBlock(doc(), bid)?.b;
+      if (b && b.type === 'image' && !near(b.ar))
+        silentEdit((x) => {
+          const y = findBlock(x, bid)?.b;
+          if (y) y.ar = ar;
+        });
+    } else if (pid) {
+      const o = (doc().pageImgs ?? []).find((x) => x.id === pid);
+      if (o && !near(o.ar))
+        silentEdit((x) => {
+          const y = (x.pageImgs ?? []).find((z) => z.id === pid);
+          if (y) y.ar = ar;
+        });
+    }
+  };
+  let asked = false;
+  for (const im of st.querySelectorAll<HTMLImageElement>('.bp-image img, .pimg img')) {
+    if (im.complete) check(im);
+    else im.addEventListener('load', () => check(im), { once: true });
+  }
+  for (const im of pending) {
+    const done = () => {
+      if (asked) return;
+      asked = true;
+      again();
+    };
+    if (im.complete) done();
+    else {
+      im.addEventListener('load', done, { once: true });
+      im.addEventListener('error', done, { once: true });
+    }
+  }
+}
+
+/** 選取的段落、勾選的頁、選取的頁面圖片 */
+function paintSelection(
+  st: HTMLElement,
+  sel: readonly string[],
+  pageSel: readonly number[],
+  pimgSel: string | null,
+): void {
+  for (const el of st.querySelectorAll<HTMLElement>('.pimg[data-pimg]'))
+    el.classList.toggle('is-sel', el.dataset.pimg === pimgSel);
   const want = new Set(sel);
   for (const el of st.querySelectorAll<HTMLElement>('.bp.is-sel'))
     if (!want.has(el.dataset.id ?? '')) el.classList.remove('is-sel');

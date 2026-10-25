@@ -1,23 +1,33 @@
 /**
  * 閱覽 HTML（3.9、F232）：範圍內的頁面＋左側目錄（可遮住標題、可收起）＋附錄＋彈出視窗、註解、複製按鈕、嵌入的字型；
- * 2026-10：登場人物（變數）欄與全文替換（F258）、情報區塊與手冊按一下複製（F259）。
+ * 2026-10：登場人物（變數）欄與全文替換（F258）、情報區塊與手冊按一下複製（F259）；
+ * 不分頁的一張（F285、F286）、目錄跳到那一頁的開頭（F288）。
  * 純字串（不依賴 DOM），方便測試。
  */
 import { googleFontCssUrl } from '@/core/fonts';
-import { allBlocks } from './model/blocks';
+import { allBlocks, gapPull, popIsBlocks } from './model/blocks';
 import { copyBodyText } from './model/count';
+import { POPUP_DEFAULT_LABEL } from './model/doc';
+import { bodyWidthMm, fnum } from './model/image';
 import { ccfoliaText } from './model/npc/ccfolia';
+import { pimgBox, pimgShapes, pimgsOn } from './model/pageImg';
+import { pagePaper } from './model/paper';
 import { exportOutText } from './model/table';
 import { blockComments, escapeHtml as esc } from './model/text';
-import { tocEntries } from './model/toc';
+import { tocEntries, tocEntriesFor, tocOf } from './model/toc';
 import type { Block, Doc } from './model/types';
 import { type VarItem, varShown, varView, wrapVarsHtml } from './model/vars';
 import {
   appendixHtml,
+  bgClass,
+  blockHtml,
   newPrintLinks,
+  pageSettingAt,
+  pimgFlowHtml,
   popupContentHtml,
   popupsWithContent,
   type RenderCtx,
+  shapesHtml,
   staticPageHtml,
 } from './render/html';
 import { fontCss, PAPER_CSS } from './render/paperCss';
@@ -34,6 +44,18 @@ export const EXPORT_TEXT = {
   note: '註解',
   copied: '已複製',
   noContent: '（沒有內容）',
+  /** 沒有內容的彈出視窗的視窗標題（原作「くわしく」；7.5 的 S3） */
+  popTitle: POPUP_DEFAULT_LABEL,
+};
+
+/** 不分頁的一張（2026-10，上游 v3.7.0；F285、F286） */
+export const EXPORT_TEXT_FLOW = {
+  appendix: '附錄',
+  backToBody: '↩ 回到本文',
+  upToc: '↑ 回到目錄',
+  upChapter: '↑ 回到本章目錄',
+  back: '↩ 返回',
+  start: '開頭',
 };
 
 /** 2026-10：登場人物欄、按一下複製的提示（只在用到時放進匯出檔） */
@@ -58,6 +80,8 @@ export interface ExportInput {
   /** 範圍（0 起算，含兩端） */
   from: number;
   to: number;
+  /** 不分頁的一張（F285）；沒有＝逐頁（A4） */
+  flow?: boolean;
 }
 
 const VIEW_CSS = `
@@ -104,6 +128,9 @@ body.notoc #doc{margin-left:0}
 .copybtn{position:absolute;right:0;top:-1.6em;border:0;border-radius:3px;background:#23201c;color:#f7f3ea;padding:1px 9px;font:inherit;font-size:11px;cursor:pointer;opacity:.55;letter-spacing:.04em;z-index:2}
 .copybtn:hover{opacity:1;background:#a8331f}
 .bp-table>.b,.bp-npc>.b{position:relative}
+.pg-hit{animation:pghit 1.6s ease}
+@keyframes pghit{0%{background:rgba(211,165,52,.45)}100%{background:transparent}}
+@media (prefers-reduced-motion:reduce){.pg-hit{animation:none}}
 @media (max-width:1200px){#cmtRail{right:8px;width:200px}}
 @media (max-width:1000px){#nav{position:static;width:auto;height:auto;bottom:auto}#doc{margin-left:0;overflow-x:auto;align-items:flex-start}}
 @media print{#nav,#tocBtn,.fwin,.copybtn,#cmtRail{display:none!important}#doc{margin:0;padding:0;display:block}.pagebox{margin:0}.pg{box-shadow:none}.appx{display:block}.cmt{border-bottom:0}.cmt-n{display:none}@page{size:A4;margin:0}}
@@ -187,7 +214,7 @@ function setNoToc(off){
 document.addEventListener('click',function(e){
   var t=e.target;if(!t||!t.closest)return;
   var pb=t.closest('[data-popopen]');
-  if(pb){e.preventDefault();var pid=pb.getAttribute('data-popopen');openWin(pid,document.getElementById('pop'+pid),pb.textContent,pb);return;}
+  if(pb){e.preventDefault();var pid=pb.getAttribute('data-popopen');openWin(pid,document.getElementById('pop'+pid),T.popTitle,pb);return;}
   var pm=t.closest('[data-popmake]');
   if(pm){e.preventDefault();openWin('m:'+pm.getAttribute('data-popmake'),null,pm.getAttribute('data-popmake'),pm);return;}
   var fx=t.closest('.fw-x');
@@ -209,6 +236,17 @@ document.addEventListener('keydown',function(e){
   if(w){e.preventDefault();closeWin(w);}
 });
 if(load('trpg-notoc')==='1')setNoToc(true);
+if(!document.body.classList.contains('fx'))document.addEventListener('click',function(e){
+  var a=e.target&&e.target.closest&&e.target.closest('a[href^="#b"]');if(!a)return;
+  var el=document.getElementById(a.getAttribute('href').slice(1));if(!el)return;
+  var pg=el.closest('.pg');if(!pg)return;
+  e.preventDefault();
+  var y=pg.getBoundingClientRect().top+scrollY-20,hy=el.getBoundingClientRect().top+scrollY;
+  if(hy-y>innerHeight*0.75)y=hy-innerHeight*0.35;
+  scrollTo(0,Math.max(0,y));
+  var h=el.closest('.bp')||el;h.classList.remove('pg-hit');void h.offsetWidth;h.classList.add('pg-hit');
+  if(history.replaceState)history.replaceState(null,'',a.getAttribute('href'));
+});
 setTocMask(load('trpg-tocmask')!=='0');
 })();`;
 
@@ -253,6 +291,188 @@ updVars();
 `;
 };
 
+/* ---------- 不分頁的一張（2026-10，上游 v3.7.0～v3.13.0；F285、F286） ---------- */
+
+/** 整個畫面是一張紙，目錄在紙的左邊用細線隔開；紙面間距的花紋改放在畫面或本文欄（同原作） */
+const FLOW_CSS = `
+body.fx{background:#f7f3ea}
+.fx-paper.pg{display:block;width:auto;height:auto;min-height:100vh;overflow:visible;box-shadow:none}
+.fx-paper .pg-bg.bg-aged{position:fixed}
+.fx-paper .pg-bg.bg-frame::before{display:none}
+.fx-paper.bg-frame .fx-body.pg-body{padding:9mm 8mm!important;border:1px solid rgba(122,91,50,.55);box-shadow:inset 0 0 0 2px var(--paper,#f7f3ea),inset 0 0 0 2.5px rgba(122,91,50,.35)}
+.fx-paper .pg-bg.bg-corner{position:fixed;left:240px;--cs:11mm;--co:3mm}
+body.fx.notoc .fx-paper .pg-bg.bg-corner{left:0}
+@media (max-width:1000px){.fx-paper .pg-bg.bg-corner{left:0}}
+@media (max-width:700px){.fx-paper .pg-bg.bg-corner{display:none}}
+#nav.fx-nav{position:fixed;left:0;top:0;bottom:0;width:240px;box-sizing:border-box;background:transparent;color:#23201c;border-right:1px solid rgba(35,32,28,.16);padding:58px 16px 24px 20px;z-index:9;overflow:auto}
+#nav.fx-nav h1{color:#a8331f;font-size:15px;letter-spacing:.16em;margin:0 0 14px}
+.fx .nv{color:#3a342a}
+.fx .nv:hover{background:rgba(35,32,28,.06);color:#000}
+.fx .nv.l0{color:#a8331f}.fx .nv.l3{color:#6f6450}
+body.fx.tocmask .nv .nvt{color:#a99d82}
+.fx #tocMask{background:transparent;border:1px solid rgba(35,32,28,.25);color:#3a342a}
+.fx #tocMask:hover{border-color:#a8331f;color:#a8331f}
+.fx #tocBtn{background:transparent;opacity:.75}
+.fx #tocBtn i{background:#23201c}
+.fx #tocBtn:hover{background:rgba(35,32,28,.08);opacity:1}
+.fx #doc{display:block;margin-left:240px;padding:44px 32px 100vh}
+body.fx.notoc #doc{margin-left:0}
+.fx-body.pg-body{height:auto;overflow:visible;margin:0 auto;padding:0}
+.fx-body .b{scroll-margin-top:28px}
+.fx-pg{position:relative;display:flow-root}
+.fx .toc-line .pn,.fx .toc-line .dots,.fx .nv i{display:none}
+.fx-appx{margin-top:16mm;padding-top:8mm;border-top:1px dashed rgba(35,32,28,.3)}
+.fx-back,.fx-up{float:right;font-size:11px;font-weight:400;letter-spacing:.04em;color:inherit;text-decoration:none;border:1px solid currentColor;border-radius:999px;padding:0 9px;margin:3px 0 0 8px;opacity:.55;font-family:system-ui,sans-serif}
+.fx-back:hover,.fx-up:hover,.fx-back:focus-visible,.fx-up:focus-visible{opacity:1}
+.fx-back{color:#a8331f;opacity:.85}
+.fx .pop-btn::after{content:" →"}
+#fxBack{position:fixed;right:22px;bottom:22px;z-index:20;display:none;align-items:center;gap:8px;background:#23201c;color:#f7f3ea;border:0;border-radius:999px;padding:9px 16px;font:13px system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.3);cursor:pointer}
+#fxBack.on{display:flex}
+#fxBack small{color:#d3a534;font-size:11px}
+.fx-hit{animation:fxhit 1.6s ease}
+@keyframes fxhit{0%{background:rgba(211,165,52,.45)}100%{background:transparent}}
+@media (prefers-reduced-motion:reduce){.fx-hit{animation:none}}
+.fx #vx{border-bottom-color:rgba(35,32,28,.16)}
+.fx #vx h2,.fx #vx small{color:#7a6d52}
+.fx #vx label b{color:#a8331f}
+.fx #vx input{color:#23201c;border-bottom-color:rgba(35,32,28,.35)}
+.fx #vx input::placeholder{color:#8a7d63}
+.fx #vx input:focus{border-bottom-color:#a8331f}
+@media (max-width:1000px){#nav.fx-nav{position:static;width:auto;border-right:0;border-bottom:1px solid rgba(35,32,28,.16)}.fx #doc{margin-left:0;padding:28px 18px 100vh}}
+@media print{#fxBack,.fx-up,.fx-back{display:none!important}.fx #doc{margin:0;padding:0}.fx-paper .pg-bg{display:none}.fx-body.pg-body{zoom:1!important}}
+`;
+
+/** 不分頁的一張的腳本：本文配合視窗放大、紙色漸層、「↑ 回到目錄」、跳過去之後的「↩ 返回」 */
+const flowJs = (up: Record<string, [string, string]>, bodyMm: number) => {
+  const json = (x: unknown) => JSON.stringify(x).replace(/</g, '\\u003c');
+  return `(function(){
+var F=${json(EXPORT_TEXT_FLOW)},UP=${json(up)},stack=[],btn=document.getElementById('fxBack');
+var BODY=document.querySelector('.fx-body'),DOC=document.getElementById('doc');
+function fit(){if(!BODY||!DOC)return;var avail=DOC.clientWidth-64;var z=Math.max(1,Math.min(1.5,avail*0.94/(${fnum(bodyMm)}*96/25.4)));BODY.style.zoom=z.toFixed(3);}
+fit();addEventListener('resize',fit);
+var PAPER=document.querySelector('.fx-paper[data-grad]');
+function paint(){
+  if(!PAPER)return;var ms=[].slice.call(document.querySelectorAll('.fx-body [data-pc]'));if(!ms.length)return;
+  var top=PAPER.getBoundingClientRect().top,H=PAPER.scrollHeight;
+  var ys=ms.map(function(m){return m.getBoundingClientRect().top-top;});
+  var end=BODY.getBoundingClientRect().bottom-top;
+  var st=['linear-gradient(to bottom',ms[0].getAttribute('data-pc')+' 0px'];
+  ms.forEach(function(m,k){var a=ys[k],b=(k+1<ys.length)?ys[k+1]:end;st.push(m.getAttribute('data-pc')+' '+Math.round((a+b)/2)+'px');});
+  st.push(ms[ms.length-1].getAttribute('data-pc')+' '+Math.max(H,end)+'px');
+  PAPER.style.background=st.join(',')+')';
+}
+paint();addEventListener('resize',paint);addEventListener('load',paint);
+Object.keys(UP).forEach(function(id){
+  var el=document.getElementById('b'+id);if(!el)return;
+  if(!el.getAttribute('data-h'))el.setAttribute('data-h',el.textContent.trim());
+  var a=document.createElement('a');a.className='fx-up';a.href='#b'+UP[id][0];a.textContent=UP[id][1];el.appendChild(a);
+});
+function here(){
+  var hs=document.querySelectorAll('.fx-body .t-title[id],.fx-body .t-h1[id],.fx-body .t-h2[id],.fx-body .t-h3[id],.fx-body .t-scene[id]'),lb='';
+  for(var i=0;i<hs.length;i++){if(hs[i].getBoundingClientRect().top<=120)lb=hs[i].getAttribute('data-h')||hs[i].textContent.trim();}
+  lb=lb||F.start;return lb.length>12?lb.slice(0,12)+'\u2026':lb;
+}
+function show(){btn.classList.toggle('on',stack.length>0);if(stack.length)btn.querySelector('small').textContent='\uff08'+stack[stack.length-1].lb+'\uff09';}
+function flash(el){var h=el.closest('.bp')||el;h.classList.remove('fx-hit');void h.offsetWidth;h.classList.add('fx-hit');}
+function jump(id){var el=document.getElementById(id);if(!el)return;stack.push({y:scrollY,lb:here()});if(stack.length>50)stack.shift();el.scrollIntoView({block:'start'});flash(el);show();}
+function back(fb){var s=stack.pop();if(s)scrollTo(0,s.y);else if(fb){var r=document.querySelector('[data-popopen="'+fb+'"]');if(r){r.scrollIntoView({block:'center'});flash(r);}}show();}
+document.addEventListener('click',function(e){
+  var t=e.target;if(!t||!t.closest)return;
+  var bk=t.closest('[data-back]');if(bk){e.preventDefault();back(bk.getAttribute('data-back'));return;}
+  if(t.closest('#fxBack')){back();return;}
+  if(t.closest('[data-popopen],[data-popmake],.fwin'))return;
+  var a=t.closest('a[href^="#"]');
+  if(a&&a.getAttribute('href').length>1){e.preventDefault();var h=a.getAttribute('href').slice(1),id=h;try{id=decodeURIComponent(h);}catch(er){}jump(document.getElementById(id)?id:h);}
+});
+})();`;
+};
+
+/** 不分頁的一張的本文：範圍內每一頁的段落接成一串（不換頁、不換欄、不分欄、沒有頁尾） */
+function flowBodyHtml(
+  ctx: RenderCtx,
+  pages: readonly (readonly string[])[],
+  a: number,
+  b: number,
+  byId: Map<string, Block>,
+): string {
+  const doc = ctx.doc;
+  let prev: string | null = null;
+  let topDone = false;
+  let out = '';
+  for (let i = a; i <= b; i++) {
+    if (ctx.links) ctx.links.page = i;
+    let h = '';
+    for (const id of pages[i] ?? []) {
+      const x = byId.get(id);
+      if (!x || x.type === 'break' || x.type === 'colbr') continue;
+      const pull = gapPull(prev, x.type);
+      prev = x.type;
+      h += blockHtml(x, ctx, { cols: 1, pull, top: !topDone });
+      topDone = true;
+    }
+    /* 這頁的頁面圖片：這頁的段落包在一個框裡（原點＝本文的開頭），框至少高到圖片的下緣 */
+    const onPg = pimgsOn(doc, i, pages.length);
+    if (onPg.length) {
+      const minH = Math.max(
+        ...onPg.map((o) => {
+          const bx = pimgBox(o, doc);
+          return Math.max(0, bx.y - doc.padV) + bx.h;
+        }),
+      );
+      h = `<div class="fx-pg" style="min-height:${fnum(minH)}mm">${shapesHtml(pimgShapes(onPg, doc, 1, true), true)}${h}${onPg.map((o) => pimgFlowHtml(o, doc)).join('')}</div>`;
+    }
+    /* 每一頁開頭的段落記下那一頁的紙色（紙色不同時用漸層連起來） */
+    if (h) h = h.replace('<div', `<div data-pc="${pagePaper(pageSettingAt(doc, i).bg)}"`);
+    out += h;
+  }
+  if (ctx.links) ctx.links.page = -1;
+  return out;
+}
+
+/** 不分頁的一張的書末：每個有內容的彈出視窗一節（名稱是標題 2＋「↩ 回到本文」） */
+function flowAppendixHtml(ctx: RenderCtx, all: readonly Block[]): string {
+  const list = popupsWithContent(all);
+  if (!list.length) return '';
+  const view = varView(ctx.doc);
+  let h = `<section class="fx-appx"><div class="bp bp-h1 span"><div class="b t-h1" id="appx">${EXPORT_TEXT_FLOW.appendix}</div></div>`;
+  for (const p of list) {
+    const id = esc(p.id);
+    const label = p.pop?.label || POPUP_DEFAULT_LABEL;
+    h += `<div class="fx-pop" id="fxp${id}"><div class="bp bp-h2"><div class="b t-h2" id="apx${id}" data-h="${esc(label)}">${wrapVarsHtml(esc(label), view)}<a class="fx-back" href="#" data-back="${id}">${EXPORT_TEXT_FLOW.backToBody}</a></div></div>`;
+    if (popIsBlocks(p)) {
+      let prev: string | null = 'h2';
+      for (const x of (p.pop?.blocks ?? []).filter(
+        (y) => y.type !== 'break' && y.type !== 'colbr',
+      )) {
+        h += blockHtml(x, ctx, { cols: 1, pull: gapPull(prev, x.type), top: false });
+        prev = x.type;
+      }
+    } else
+      h += `<div class="bp bp-desc"><div class="b t-desc" style="white-space:normal">${popupContentHtml(p.pop, ctx)}</div></div>`;
+    h += '</div>';
+  }
+  return `${h}</section>`;
+}
+
+/** 標題 → 收錄它的目錄（「↑ 回到目錄」連到的目錄；範圍內的目錄，章目錄優先，同原作） */
+export function flowUpMap(
+  doc: Doc,
+  inRange: (id: string) => boolean,
+  pageOf: (id: string) => number | null,
+): Record<string, [string, string]> {
+  const up: Record<string, [string, string]> = {};
+  for (const tb of doc.blocks) {
+    if (tb.type !== 'toc' || !inRange(tb.id)) continue;
+    const ch = tocOf(tb).scope === 'chapter';
+    for (const x of tocEntriesFor(tb, doc.blocks, pageOf)) {
+      if (!inRange(x.id)) continue;
+      if (up[x.id] && !ch) continue;
+      up[x.id] = [tb.id, ch ? EXPORT_TEXT_FLOW.upChapter : EXPORT_TEXT_FLOW.upToc];
+    }
+  }
+  return up;
+}
+
 /** 閱覽頁的腳本：沒有用到 2026-10 的功能時與以前完全相同 */
 export function viewScript(o: {
   vars: readonly VarItem[] | null;
@@ -278,7 +498,7 @@ export function viewScript(o: {
 }
 
 /** 閱覽 HTML 的全文 */
-export function exportHtml({ doc, pages, from, to }: ExportInput): string {
+export function exportHtml({ doc, pages, from, to, flow = false }: ExportInput): string {
   const total = pages.length;
   const a = Math.max(0, Math.min(total - 1, from));
   const b = Math.max(a, Math.min(total - 1, to));
@@ -302,20 +522,23 @@ export function exportHtml({ doc, pages, from, to }: ExportInput): string {
   };
   const byId = new Map<string, Block>(all.map((x) => [x.id, x]));
   let body = '';
-  for (let i = a; i <= b; i++)
-    body += `<div class="pagebox">${staticPageHtml(i, pages[i] ?? [], ctx, byId)}</div>\n`;
-  const appx = appendixHtml(ctx, all);
-  const nav = tocEntries(doc.blocks, ctx.pageOf)
+  if (!flow)
+    for (let i = a; i <= b; i++)
+      body += `<div class="pagebox">${staticPageHtml(i, pages[i] ?? [], ctx, byId)}</div>\n`;
+  const appx = flow ? '' : appendixHtml(ctx, all);
+  const navItem = (href: string, lv: number, text: string, page: number | null) =>
+    `<a class="nv l${lv}" href="#${esc(href)}"><span class="nvt" data-t="${esc(text)}">${esc(maskText(text))}</span>${page != null ? `<i>${page}</i>` : ''}</a>`;
+  let nav = tocEntries(doc.blocks, ctx.pageOf)
     .filter((x) => x.page >= a + 1 && x.page <= b + 1)
-    .map(
-      (x) =>
-        `<a class="nv l${x.lv}" href="#b${esc(x.id)}"><span class="nvt" data-t="${esc(x.text)}">${esc(maskText(x.text))}</span><i>${x.page}</i></a>`,
-    )
+    .map((x) => navItem(`b${x.id}`, x.lv, x.text, x.page))
     .join('');
   const view = varView(doc);
   const vars = view?.list ?? [];
-  /* 浮動視窗的內容（按下按鈕時複製一份放進視窗；F268）：視窗裡沒有「→ 附錄」 */
-  const winCtx: RenderCtx = { ...ctx, links: undefined };
+  /*
+   * 浮動視窗的內容（按下按鈕時複製一份放進視窗；F268）：視窗裡沒有「→ 附錄」，
+   * 標題也不加錨點（附錄裡的才有，id 不重複；7.5 的 S4）
+   */
+  const winCtx: RenderCtx = { ...ctx, links: undefined, anchors: false };
   const popData = popupsWithContent(all)
     .map(
       (p) =>
@@ -352,12 +575,53 @@ export function exportHtml({ doc, pages, from, to }: ExportInput): string {
         .join('')}</div>`
     : '';
   const fontLink = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${esc(googleFontCssUrl('Noto Serif TC', [400, 600, 700]))}">`;
+  const script = viewScript({
+    vars: vars.length ? vars : null,
+    key: VARS_KEY_PREFIX + (doc.title || ''),
+    copy,
+  });
+  const navHtml = (cls: string) =>
+    `<nav id="nav"${cls}><h1>${wrapVarsHtml(esc(doc.title || EXPORT_TEXT.toc), view)}</h1>${varPanel}<button id="tocMask" type="button">${EXPORT_TEXT.showHeads}</button>${nav}</nav>`;
+  let main: string;
+  let flowTail = '';
+  if (flow) {
+    /* 不分頁的一張（F285）：目錄的最後列出附錄的各節 */
+    const pops = popupsWithContent(all);
+    if (pops.length)
+      nav +=
+        navItem('appx', 1, EXPORT_TEXT_FLOW.appendix, null) +
+        pops
+          .map((p) => navItem(`fxp${p.id}`, 2, p.pop?.label || POPUP_DEFAULT_LABEL, null))
+          .join('');
+    const idx: number[] = [];
+    for (let i = a; i <= b; i++) idx.push(i);
+    /* 背景花紋：範圍內最多頁用的那一種；紙色都一樣時用那個顏色，不一樣時用漸層連起來 */
+    const count = new Map<string, number>();
+    for (const i of idx) {
+      const k = pageSettingAt(doc, i).bg.preset || 'none';
+      count.set(k, (count.get(k) ?? 0) + 1);
+    }
+    const top = [...count.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? 'none';
+    const cls = bgClass({ id: '', cols: 1, bg: { preset: top, img: null, fit: 'cover', opa: 35 } });
+    const pcs = idx.map((i) => pagePaper(pageSettingAt(doc, i).bg));
+    const grad = pcs.some((c) => c !== pcs[0]);
+    const bodyMm = bodyWidthMm(doc);
+    const inRange = (id: string) => {
+      const p = pageNo.get(id);
+      return p != null && p >= a + 1 && p <= b + 1;
+    };
+    main =
+      `<div class="pg fx-paper${cls ? ` ${cls}` : ''}" style="--paper:${pcs[0]}"${grad ? ' data-grad="1"' : ''}><div class="pg-bg${cls ? ` ${cls}` : ''}"></div>${navHtml(' class="fx-nav"')}` +
+      `<main id="doc"><div class="pg-body fx-body" style="font-size:${doc.base}pt;max-width:${fnum(bodyMm)}mm">${flowBodyHtml(ctx, pages, a, b, byId)}${flowAppendixHtml(ctx, all)}</div></main></div>` +
+      `<button id="fxBack" type="button">${EXPORT_TEXT_FLOW.back}<small></small></button>`;
+    flowTail = `<script>${flowJs(flowUpMap(doc, inRange, ctx.pageOf), bodyMm)}</script>`;
+  } else
+    main = `${navHtml('')}<main id="doc">${body}${appx ? `<div class="pagebox appx">${appx}</div>` : ''}</main>`;
   return (
     `<!DOCTYPE html><html lang="zh-Hant-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>${fontLink}` +
-    `<style>${PAPER_CSS}\n${fontCss(doc)}\n${VIEW_CSS}${vars.length ? VAR_CSS : ''}${copy ? COPY_CSS : ''}</style></head><body class="tocmask">` +
+    `<style>${PAPER_CSS}\n${fontCss(doc)}\n${VIEW_CSS}${vars.length ? VAR_CSS : ''}${copy ? COPY_CSS : ''}${flow ? FLOW_CSS : ''}</style></head><body class="tocmask${flow ? ' fx' : ''}">` +
     `<button id="tocBtn" type="button" title="${EXPORT_TEXT.hideToc}" aria-label="${EXPORT_TEXT.hideToc}"><i></i><i></i><i></i></button>` +
-    `<nav id="nav"><h1>${wrapVarsHtml(esc(doc.title || EXPORT_TEXT.toc), view)}</h1>${varPanel}<button id="tocMask" type="button">${EXPORT_TEXT.showHeads}</button>${nav}</nav>` +
-    `<main id="doc">${body}${appx ? `<div class="pagebox appx">${appx}</div>` : ''}</main>` +
-    `<div id="cmtRail"></div>${popData}${dataBits}${cmtData}${copy ? '<div id="cpToast" role="status" aria-live="polite"></div>' : ''}<script>${viewScript({ vars: vars.length ? vars : null, key: VARS_KEY_PREFIX + (doc.title || ''), copy })}</script></body></html>`
+    main +
+    `<div id="cmtRail"></div>${popData}${dataBits}${cmtData}${copy ? '<div id="cpToast" role="status" aria-live="polite"></div>' : ''}<script>${script}</script>${flowTail}</body></html>`
   );
 }

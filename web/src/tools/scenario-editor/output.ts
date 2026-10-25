@@ -133,6 +133,27 @@ export function docFontSources(
   });
 }
 
+/**
+ * 新版自己加的記號（「↩ 回到 P.n」的 ↩；7.5）：補字的字型下載失敗時，只缺這些字的話略過這些字、PDF 照常產生
+ * （文字「回到 P.n」照樣在、連結照樣可以按）。其他缺的字（例如日文漢字）照舊說明失敗的原因。
+ */
+export const OPTIONAL_GLYPHS: ReadonlySet<string> = new Set(['↩']);
+
+export function tolerantMissingGlyphs(
+  inner: NonNullable<PdfOptions['missingGlyphs']>,
+): NonNullable<PdfOptions['missingGlyphs']> {
+  return async (req) => {
+    try {
+      return await inner(req);
+    } catch (e) {
+      const fontErr = e instanceof Error && e.name === 'PdfFontError';
+      if (fontErr && !req.signal?.aborted && [...req.text].every((c) => OPTIONAL_GLYPHS.has(c)))
+        return [];
+      throw e;
+    }
+  };
+}
+
 export interface PdfProgress {
   signal?: AbortSignal;
   onProgress?: (done: number, total: number) => void;
@@ -170,7 +191,7 @@ export async function pdfRange(
       ],
       fallback: { serif: ['Noto Serif TC'], sans: ['Noto Sans TC'] },
       /* 繁中字型沒有的字（NPC 卡系統資料的日文漢字等）：下載 Noto Serif JP／Noto Sans JP 的子集補上 */
-      missingGlyphs: p.missingGlyphs ?? googleSubsetFallback(),
+      missingGlyphs: tolerantMissingGlyphs(p.missingGlyphs ?? googleSubsetFallback()),
       /* 頁內連結（→ 附錄、↩ 回到、場景轉換、目錄）變成 PDF 裡可以按的連結（D15） */
       links: true,
       title: doc.title,
@@ -194,15 +215,16 @@ export async function downloadPdf(
   return name;
 }
 
-/** 匯出閱覽 HTML（F232） */
+/** 匯出閱覽 HTML（F232；flow＝不分頁的一張，F285） */
 export function downloadExportHtml(
   doc: Doc,
   pages: readonly (readonly string[])[],
   range: OutputRange,
+  flow = false,
 ): string {
   const name = paperFileName(doc.title, 'html');
   downloadText(
-    exportHtml({ doc, pages, from: range.from, to: range.to }),
+    exportHtml({ doc, pages, from: range.from, to: range.to, flow }),
     name,
     'text/html;charset=utf-8',
   );

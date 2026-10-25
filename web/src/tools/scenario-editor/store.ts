@@ -69,6 +69,8 @@ export type OutputKind = 'print' | 'export' | 'pdf';
 
 export interface UiState {
   sel: string[];
+  /** 選取的頁面圖片（2026-10；與段落的選取互斥） */
+  pimgSel: string | null;
   /** Shift 範圍選取的起點 */
   anchor: string | null;
   /** 正在文字欄輸入的段落 */
@@ -109,6 +111,7 @@ const EMPTY_LAYOUT: Layout = { pages: [[]], pageOf: {}, over: [] };
 
 export const useUi = create<UiState>(() => ({
   sel: [],
+  pimgSel: null,
   anchor: null,
   focusId: null,
   cell: null,
@@ -170,13 +173,26 @@ export function select(
   const first = uniq[0] ?? null;
   useUi.setState((s) => ({
     sel: uniq,
+    pimgSel: uniq.length ? null : s.pimgSel,
     anchor: opts.anchor === undefined ? (uniq.length === 1 ? first : s.anchor) : opts.anchor,
     flash: opts.scroll !== false && first ? { id: first, n: next() } : s.flash,
   }));
 }
 
+/** 取消選取（段落與頁面圖片） */
 export function clearSelection(): void {
-  useUi.setState({ sel: [], anchor: null });
+  useUi.setState({ sel: [], anchor: null, pimgSel: null });
+}
+
+/** 選取頁面圖片（段落的選取取消；scroll：紙面捲過去並閃一下） */
+export function selectPimg(id: string, scroll = true): void {
+  useUi.setState((s) => ({
+    sel: [],
+    anchor: null,
+    focusId: null,
+    pimgSel: id,
+    flash: scroll ? { id, n: next() } : s.flash,
+  }));
 }
 
 export function revealSource(id: string): void {
@@ -206,6 +222,8 @@ export interface Prefs {
   thumbW: number;
   /** 沒有選取時設定欄也保持開著（F082） */
   sidePinned: boolean;
+  /** 匯出閱覽 HTML 的形式：page＝逐頁（A4）、flow＝不分頁的一張（F285） */
+  exportShape: 'page' | 'flow';
 }
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
@@ -213,4 +231,5 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   overviewMode: 'thumbs',
   thumbW: 130,
   sidePinned: false,
+  exportShape: 'page',
 });

@@ -186,12 +186,12 @@ describe('斜線指令（3.4.5）', () => {
 });
 
 describe('貼上時猜書式（3.4.6）', () => {
-  it('標題、對話、注釋', () => {
-    expect(guessType('### 小節')).toEqual(['h3', '小節']);
-    expect(guessType('## 章')).toEqual(['h2', '章']);
-    expect(guessType('# 部')).toEqual(['h1', '部']);
+  it('對話、注釋（2026-10：# 標題由 markdown 的讀法處理、半形 * 不是注釋，3.18.3）', () => {
+    expect(guessType('# 部')[0]).toBe('desc');
     expect(guessType('「你好」')[0]).toBe('dialog');
     expect(guessType('※ 補充')).toEqual(['note', '補充']);
+    expect(guessType('＊ 補充')).toEqual(['note', '補充']);
+    expect(guessType('* 條列')[0]).toBe('desc');
   });
   it('規則框：日文與繁中的標記', () => {
     expect(guessType('【技能判定】〈目星〉')).toEqual(['proc', '〈目星〉', 'skill']);

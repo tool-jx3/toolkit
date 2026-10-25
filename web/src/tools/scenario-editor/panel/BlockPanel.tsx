@@ -36,10 +36,10 @@ import {
   sameStyle,
 } from '../model/proc';
 import { slashCommandsFor } from '../model/rich';
-import { headingChoices, sceneTargetOf, sceneWanted } from '../model/scene';
+import { headingChoices, headNames, sceneTargetOf, sceneWanted } from '../model/scene';
 import { tblCols, tblDelCol, tblDelRow, tblRows } from '../model/table';
 import { rubyPlain, setBlockText } from '../model/text';
-import { ensureToc, TOC_PICKS, tocOf } from '../model/toc';
+import { ensureToc, TOC_PICKS, tocEntriesFor, tocOf } from '../model/toc';
 import type { Block, BoxStyle, BoxTemplate } from '../model/types';
 import { ensureHo, hoOf, isVarName } from '../model/vars';
 import { deleteComments, indentSel, renamePopup, setGap, setSpan, toggleClear } from '../ops';
@@ -67,6 +67,7 @@ import {
 } from '../textOps';
 import { ImageProps } from './ImageProps';
 import { NpcProps } from './NpcProps';
+import { PageImgPanel } from './PageImgProps';
 import { TableProps } from './TableProps';
 
 /** 文字顏色的色票（F074） */
@@ -89,8 +90,12 @@ export function PreviewButton({ id }: { id: string }) {
 
 export function BlockPanel() {
   const sel = useUi((s) => s.sel);
+  const pimgSel = useUi((s) => s.pimgSel);
   const d = useDoc((s) => s.data);
   const found = sel.map((id) => findBlock(d, id)).filter((f) => !!f);
+  /* 頁面圖片（2026-10）：選取時設定欄顯示它的設定 */
+  if (!found.length && pimgSel && (d.pageImgs ?? []).some((x) => x.id === pimgSel))
+    return <PageImgPanel />;
   if (!found.length) return <p className="m-0 p-2 text-sm text-muted">{S.hints.noSelection}</p>;
   const b = found[0].b;
   const single = found.length === 1;
@@ -178,7 +183,7 @@ function ProcProps({ b }: { b: Block }) {
     editBlock(b.id, (x) => Object.assign(ensureProc(x), p));
   const heads = String(b.text ?? '')
     .split('\n')
-    .filter((l) => /^\s*[■◆]/.test(l)).length;
+    .filter((l) => /^\s*(?:[■◆]|####(?!#)[ \t])/.test(l)).length;
   const apply = (key: string) => {
     edit((d) => {
       const x = findBlock(d, b.id)?.b;
@@ -584,14 +589,38 @@ function TocProps({ b }: { b: Block }) {
   const t = tocOf(b);
   const set = (fn: (x: ReturnType<typeof ensureToc>) => void) =>
     editBlock(b.id, (x) => fn(ensureToc(x)));
-  const n = d.blocks.filter((x) => {
-    const m = x.tocMode;
-    if (m === 'off' || x.tocOff) return false;
-    return (m === 'on' || t.pick.includes(x.type)) && String(x.tl || x.text || '').trim() !== '';
-  }).length;
-  void layout;
+  const top = d.blocks.some((x) => x.id === b.id);
+  const n = tocEntriesFor(b, d.blocks, (id) =>
+    layout.pageOf[id] != null ? layout.pageOf[id] + 1 : null,
+  ).length;
   return (
     <Section title="目錄" fixed>
+      {top ? (
+        <Field
+          label="收錄的範圍"
+          hint={
+            t.scope === 'chapter'
+              ? '收錄上一個標題 1 到下一個標題 1 之前的標題（每一章自己的目錄）。'
+              : '收錄整份劇本的標題。'
+          }
+        >
+          <Segmented
+            size="sm"
+            aria-label="收錄的範圍"
+            value={t.scope === 'chapter' ? 'chapter' : 'all'}
+            onValueChange={(v) =>
+              set((x) => {
+                if (v === 'chapter') x.scope = 'chapter';
+                else delete x.scope;
+              })
+            }
+            options={[
+              { value: 'all', label: '整份' },
+              { value: 'chapter', label: '這一章' },
+            ]}
+          />
+        </Field>
+      ) : null}
       <Field label="標題語" hint="空白時不顯示。">
         <TextInput value={t.lb} onChange={(e) => set((x) => (x.lb = e.target.value))} />
       </Field>
@@ -635,6 +664,10 @@ function SceneProps({ b }: { b: Block }) {
   const pageOf = useUi((s) => s.layout.pageOf);
   const h = sceneTargetOf(d, b);
   const want = sceneWanted(b);
+  /* 已經有這個名稱的段落（例如彈出視窗裡的標題、主標題）時不叫人「建立」（7.5 的 S1） */
+  const named =
+    !h &&
+    allBlocks(d).some((x) => x.type !== 'scene' && headNames(x.text).some((n) => want.includes(n)));
   const pg = h && pageOf[h.id] != null ? pageOf[h.id] + 1 : null;
   const listId = `se-jump-${b.id}`;
   return (
@@ -662,8 +695,9 @@ function SceneProps({ b }: { b: Block }) {
           </span>
         ) : (
           <span className="text-muted">
-            找不到要連的標題{want.length ? `（建立名為「${want[0]}」的標題 1～3 就能連過去）` : ''}
-            。
+            {named
+              ? '找不到要連的標題（只連到本文的標題 1～3）。'
+              : `找不到要連的標題${want.length ? `（建立名為「${want[0]}」的標題 1～3 就能連過去）` : ''}。`}
           </span>
         )}
       </p>

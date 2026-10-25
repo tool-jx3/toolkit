@@ -25,12 +25,8 @@ import {
   newFlow,
   newFlowNode,
 } from '../../src/tools/scenario-editor/model/flow';
-import {
-  freeShape,
-  imageWidthMm,
-  setImagePos,
-  snapImage,
-} from '../../src/tools/scenario-editor/model/image';
+import { imageWidthMm, setImagePos } from '../../src/tools/scenario-editor/model/image';
+import { edgePos, pimgShapes } from '../../src/tools/scenario-editor/model/pageImg';
 import {
   applyBxTpl,
   BX_TPL,
@@ -393,33 +389,40 @@ describe('流程圖（3.6.5、F130～F139）', () => {
   });
 });
 
-describe('圖片（3.2.9、F151～F154）', () => {
+describe('圖片（3.2.9、F151～F154；2026-10 起自由配置是頁面圖片，3.18.1）', () => {
   const doc = { padH: 16, padV: 18 };
-  it('寬：行內與繞排以版心、自由配置以紙寬為準', () => {
+  it('寬：行內與繞排以版心為準', () => {
     const b = { ...makeBlock('image'), w: 50 };
     expect(imageWidthMm(b, doc)).toBe(89);
-    setImagePos(b, 'free', 3);
-    expect(b).toMatchObject({ pos: 'free', pg: 3, cols: 1 });
-    expect(imageWidthMm(b, doc)).toBe(105);
-    setImagePos(b, 'left', 1);
+    setImagePos(b, 'left');
     expect(b).toMatchObject({ fl: 'l', cols: 2 });
   });
-  it('靠到紙邊、避開矩形', () => {
-    const b = { ...makeBlock('image'), pos: 'free' as const, w: 40, ar: 0.5, fx: 20, fy: 30 };
-    snapImage(b, 'right', doc);
-    expect(b.fx).toBe(Math.round(210 - 84 - 16));
-    snapImage(b, 'bottom', doc);
-    expect(b.fy).toBe(Math.round(297 - 42 - 18));
-    b.fx = 20;
-    b.fy = 30;
-    expect(freeShape(b, doc, 1)).toEqual({
-      side: 'left',
-      width: 20 + 84 - 16 + 3,
-      height: 30 - 18 - 1.5 + 42 + 3,
-      top: 30 - 18 - 1.5,
-    });
-    expect(freeShape(b, doc, 2)).toBeNull();
-    expect(freeShape({ ...b, ar: 0 }, doc, 1)).toBeNull();
+  it('靠到版心的邊、避開矩形', () => {
+    /* 頁面圖片的寬 40％＝版心 178 的 40％＝71.2 mm */
+    const o = {
+      id: 'p',
+      img: 'data:,',
+      ar: 0.5,
+      cap: '',
+      pg: 1,
+      x: 20,
+      y: 30,
+      w: 40,
+      wu: 'pct' as const,
+    };
+    expect(edgePos(o, 'right', doc).x).toBeCloseTo(210 - 71.2 - 16);
+    expect(edgePos(o, 'bottom', doc).y).toBeCloseTo(297 - 35.6 - 18);
+    expect(pimgShapes([o], doc, 1)).toEqual([
+      {
+        side: 'left',
+        spacer: 30 - 18 - 1.5,
+        width: expect.closeTo(20 + 71.2 - 16 + 3),
+        height: expect.closeTo(35.6 + 3),
+        widthPct: expect.closeTo(((20 + 71.2 - 16 + 3) / 178) * 100),
+      },
+    ]);
+    expect(pimgShapes([o], doc, 2)).toEqual([]);
+    expect(pimgShapes([{ ...o, ar: 0 }], doc, 1)).toEqual([]);
   });
 });
 

@@ -10,6 +10,7 @@ import type { Block } from './model/types';
 import {
   clone,
   copyBlocks,
+  deletePimg,
   deleteSel,
   indentSel,
   pasteBlocks,
@@ -185,7 +186,14 @@ export function onWindowKey(e: KeyboardEvent): void {
     void deleteSel(false);
     return;
   }
-  if (e.key === 'Escape' && ui().sel.length) {
+  /* 頁面圖片（2026-10）：Delete 刪除、Esc 取消選取 */
+  const pimg = ui().pimgSel;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && pimg && !ui().sel.length) {
+    e.preventDefault();
+    deletePimg(pimg);
+    return;
+  }
+  if (e.key === 'Escape' && (ui().sel.length || pimg)) {
     clearSelection();
   }
 }

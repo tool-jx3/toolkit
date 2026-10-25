@@ -85,6 +85,8 @@ export function MenuButton({
           align={align}
           sideOffset={6}
           aria-label={menuLabel ?? (typeof label === 'string' ? label : undefined)}
+          /* 有給 menuLabel 時用它當名稱（Radix 預設以按鈕當名稱的 aria-labelledby 會蓋過 aria-label） */
+          {...(menuLabel ? { 'aria-labelledby': undefined } : {})}
           className="z-50 min-w-56 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-surface p-1 shadow-2"
         >
           {items.map((it, i) => (

@@ -81,7 +81,7 @@ export function Overview() {
             size="sm"
             variant="secondary"
             onClick={() => void makeTocHere()}
-            title="在選取的段落之後（沒有選取時在第一段之後）插入目錄與換頁"
+            title="在選取的段落之後（沒有選取時在第一段之後）插入目錄與換頁；選取標題 1 時建立這一章的目錄"
           >
             在這個位置建立目錄區塊
           </Button>

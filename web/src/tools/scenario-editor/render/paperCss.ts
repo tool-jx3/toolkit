@@ -123,9 +123,15 @@ ruby rt{font-size:.5em;font-weight:inherit;letter-spacing:0;line-height:1.1;text
 .t-image img{display:block;margin:0 auto;max-width:100%}
 .t-imgcap{font-size:.78em;color:#5f5849;margin-top:1.2mm;line-height:1.6;text-align:center}
 .t-imgph{border:1.5px dashed rgba(35,32,28,.4);color:#8a7d63;padding:6mm 2mm;font-size:.85em}
-.bp.bp-image.free{position:absolute;margin:0!important;padding:0!important;z-index:3}
-.bp.bp-image.free .t-image{margin:0}
-.bp.bp-image.free img{width:100%!important}
+.pimg{position:absolute;margin:0;padding:0;z-index:3}
+.pimg .t-image{margin:0}
+.pimg img{width:100%!important}
+.imgfr{position:relative;display:flow-root;margin:0 auto;max-width:100%}
+.imgfr img{width:100%!important;max-width:100%}
+.imgfr-b{position:absolute;inset:0;pointer-events:none;box-sizing:border-box}
+.sh-s{filter:drop-shadow(.3mm .4mm .8mm rgba(0,0,0,.2))}
+.sh-m{filter:drop-shadow(.6mm .8mm 1.4mm rgba(0,0,0,.3))}
+.sh-l{filter:drop-shadow(1mm 1.3mm 2.2mm rgba(0,0,0,.42))}
 .bp.bp-image.fl-l{float:left;clear:left;margin:0 4mm 2mm 0;padding-top:1mm}
 .bp.bp-image.fl-r{float:right;clear:right;margin:0 0 2mm 4mm;padding-top:1mm}
 .bp.bp-image.fl-l .t-image,.bp.bp-image.fl-r .t-image{margin:0}

@@ -6,9 +6,11 @@ import { plainCount } from './rich';
 import { rubyPlain } from './text';
 import type { Block, Doc } from './types';
 
-/** 本文、彈出視窗與儲存格裡所有段落的字數（記號、表格的直線、注音的讀音、空白不算） */
-export function docCharCount(doc: Pick<Doc, 'blocks'>): number {
+/** 本文、彈出視窗與儲存格裡所有段落（與頁面圖片的說明）的字數（記號、表格的直線、注音的讀音、空白不算） */
+export function docCharCount(doc: Pick<Doc, 'blocks'> & Partial<Pick<Doc, 'pageImgs'>>): number {
   let n = 0;
+  /* 頁面圖片的說明（2026-10；以前的自由配置圖片是段落，一樣算） */
+  for (const o of doc.pageImgs ?? []) n += plainCount(o.cap);
   for (const b of allBlocks(doc)) {
     if (b.type === 'flow') {
       if (Array.isArray(b.flow?.nodes))

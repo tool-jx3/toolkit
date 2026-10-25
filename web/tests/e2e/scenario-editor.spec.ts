@@ -636,8 +636,10 @@ test.describe('劇本排版台', () => {
     await expect(img).toHaveCount(1);
     const size = await img.evaluate((el: HTMLImageElement) => [el.naturalWidth, el.naturalHeight]);
     expect(size).toEqual([1600, 800]);
+    /* 自由配置＝頁面圖片（2026-10 第二批，F278） */
     await page.getByRole('radio', { name: '自由配置' }).click();
-    await expect(stage(page).locator('.bp-image.free')).toHaveCount(1);
+    await expect(stage(page).locator('.pimg[data-pimg]')).toHaveCount(1);
+    await expect(stage(page).locator('.bp-image')).toHaveCount(0);
     await expect(status(page)).toContainText('已改成自由配置');
     expect(errors).toEqual([]);
   });

@@ -18,6 +18,9 @@ export interface BoxColor {
 export const BOX_COLORS: readonly BoxColor[] = [
   { k: 'aka', name: '朱', c: '#a8331f', l: 'rgba(168,51,31,.6)', f: 'rgba(168,51,31,.05)' },
   { k: 'sumi', name: '墨', c: '#23201c', l: 'rgba(35,32,28,.55)', f: 'rgba(35,32,28,.045)' },
+  /* 2026-10（上游 v3.22.0 起）：紺、納戶 */
+  { k: 'kon', name: '藏青', c: '#1c2b3c', l: 'rgba(28,43,60,.55)', f: 'rgba(28,43,60,.045)' },
+  { k: 'nando', name: '青藍', c: '#2f5d73', l: 'rgba(47,93,115,.6)', f: 'rgba(47,93,115,.07)' },
   { k: 'ai', name: '藍', c: '#2b4a6f', l: 'rgba(43,74,111,.6)', f: 'rgba(43,74,111,.05)' },
   { k: 'koke', name: '苔綠', c: '#4a6141', l: 'rgba(74,97,65,.6)', f: 'rgba(74,97,65,.05)' },
   { k: 'kin', name: '金褐', c: '#8a6a2f', l: 'rgba(138,106,47,.6)', f: 'rgba(138,106,47,.055)' },
@@ -59,15 +62,19 @@ export const BX_TPL: Record<'skill' | 'rule', BuiltinTemplate> = {
 };
 
 /** 補齊規則框的外觀（就地修改並回傳） */
+/** 讀入的原稿裡不認得、但有寫的值（不是空的字串） */
+const keepRaw = (v: unknown): boolean => typeof v === 'string' && v.trim() !== '';
+
 export function ensureProc(b: Block): BoxStyle {
   const d = BX_TPL.skill;
   if (!b.bx || typeof b.bx !== 'object') b.bx = { ...d };
   const x = b.bx as BoxStyle;
-  x.ln = (['solid', 'dash', 'none'] as const).includes(x.ln) ? x.ln : d.ln;
+  /* 不認得的線、顏色（原作之後的版本加的）照原樣留著（畫的時候用預設；7.5 的 S6） */
+  x.ln = (['solid', 'dash', 'none'] as const).includes(x.ln) || keepRaw(x.ln) ? x.ln : d.ln;
   x.bar = !!x.bar;
   x.fill = x.fill !== false;
   x.sm = !!x.sm;
-  x.col = BOX_COLORS.some((c) => c.k === x.col) ? x.col : d.col;
+  x.col = BOX_COLORS.some((c) => c.k === x.col) || keepRaw(x.col) ? x.col : d.col;
   return x;
 }
 

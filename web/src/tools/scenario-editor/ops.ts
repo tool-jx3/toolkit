@@ -11,7 +11,6 @@ import {
   cellOwnerOf,
   type Found,
   findBlock,
-  isFreeImg,
   newBlock,
   ownsList,
   POP_SKIP,
@@ -30,12 +29,24 @@ import {
   prepareType,
   renewIds,
 } from './model/doc';
-import { applyBxTpl } from './model/proc';
-import { guessType, popRefNames, RICH_TYPES, renamePopRefsIn } from './model/rich';
+import { copyImageFx, PAPER_W, setImagePos } from './model/image';
+import {
+  MD_HR_IME_RE,
+  type MdCtx,
+  type MdSuggestItem,
+  mdDirective,
+  mdMake,
+  mdParse,
+  NO_TEXT_TYPES,
+  OWN_BODY_TYPES,
+} from './model/md';
+import { dropPagesPimgs, pimgPage, pimgRound } from './model/pageImg';
+import { popRefNames, RICH_TYPES, renamePopRefsIn } from './model/rich';
 import { cellBlocks, cellKey, tblCols, tblRows } from './model/table';
 import { blockComments, blockMarks, setBlockText, tidyMarks } from './model/text';
-import type { Block, BlockType, Comment, Doc, Mark, PageSetting } from './model/types';
-import { freshHandoutNumbers } from './model/vars';
+import { TOC_CHAPTER_HEAD, TOC_CHAPTER_PICK } from './model/toc';
+import type { Block, BlockType, Comment, Doc, Mark, PageImg, PageSetting } from './model/types';
+import { freshHandoutNumbers, hoOf } from './model/vars';
 import {
   type CellTarget,
   clearSelection,
@@ -44,6 +55,7 @@ import {
   focusBlock,
   say,
   select,
+  selectPimg,
   setUi,
   ui,
   useDoc,
@@ -338,26 +350,38 @@ export function makeColophon(): void {
   say(S.status.colophonMade);
 }
 
-/** 在選取段落之後（沒有選取時在第一段之後）插入目錄、換頁、空描述文 */
+/**
+ * 在選取段落之後（沒有選取時在第一段之後）插入目錄、換頁、空描述文。
+ * 選取的是標題 1 時改成這一章的目錄（標題語「本章目錄」、收標題 2、3 與場景轉換；不換頁、不問已經有目錄；
+ * 2026-10，上游 v3.7.0，F287）。
+ */
 export async function makeTocHere(): Promise<void> {
   const d0 = doc();
-  if (
-    d0.blocks.some((b) => b.type === 'toc') &&
-    !(await bridge.confirm({ title: S.confirm.tocAgain }))
-  )
-    return;
   const sel = new Set(ui().sel);
   let at = -1;
   d0.blocks.forEach((b, i) => {
     if (sel.has(b.id)) at = i;
   });
+  const chapter = at >= 0 && d0.blocks[at].type === 'h1';
+  if (
+    !chapter &&
+    d0.blocks.some((b) => b.type === 'toc' && b.toc?.scope !== 'chapter') &&
+    !(await bridge.confirm({ title: S.confirm.tocAgain }))
+  )
+    return;
   if (at < 0) at = 0;
   const toc = makeBlock('toc');
+  if (chapter && toc.toc) {
+    toc.toc.scope = 'chapter';
+    toc.toc.lb = TOC_CHAPTER_HEAD;
+    toc.toc.pick = [...TOC_CHAPTER_PICK];
+  }
   edit((d) => {
-    d.blocks.splice(at + 1, 0, toc, makeBlock('break'), newBlock('desc', ''));
+    if (chapter) d.blocks.splice(at + 1, 0, toc);
+    else d.blocks.splice(at + 1, 0, toc, makeBlock('break'), newBlock('desc', ''));
   });
   select([toc.id]);
-  say(S.status.tocMade);
+  say(chapter ? S.status.chapterTocMade : S.status.tocMade);
 }
 
 /* ---------- 段落操作（F060～F068） ---------- */
@@ -705,7 +729,10 @@ export function pageAt(d: Doc, i: number): PageSetting {
 }
 
 export function setPageCols(idx: readonly number[], cols: 1 | 2): void {
+  const total = ui().total;
   edit((d) => {
+    /* 還沒有自己設定的頁（沿用最後一頁）先各自記下目前的樣子：只改勾選的頁（同 F266） */
+    pageAt(d, Math.max(0, total - 1));
     for (const i of idx) pageAt(d, i).cols = cols;
   });
   say(S.status.colsSet(idx.map((i) => `P.${i + 1}`).join('、'), cols));
@@ -723,10 +750,13 @@ export function blocksOnPages(idx: readonly number[]): string[] {
     const nx = at >= 0 ? d0.blocks[at + 1] : null;
     if (nx?.type === 'break') ids.add(nx.id);
   }
-  /* 放在那一頁的自由配置圖片 */
-  for (const b of d0.blocks)
-    if (isFreeImg(b) && idx.includes(Math.max(1, +(b.pg ?? 1) || 1) - 1)) ids.add(b.id);
   return [...ids];
+}
+
+/** 放在這些頁的頁面圖片的張數（超過總頁數的算在最後一頁） */
+export function pimgsOnPages(idx: readonly number[]): number {
+  const n = ui().total;
+  return (doc().pageImgs ?? []).filter((o) => idx.includes(pimgPage(o, n))).length;
 }
 
 export async function deletePages(): Promise<void> {
@@ -741,9 +771,11 @@ export async function deletePages(): Promise<void> {
     return;
   }
   const label = idx.map((i) => `P.${i + 1}`).join('、');
+  const imgN = pimgsOnPages(idx);
+  const total = ui().total;
   if (
     !(await bridge.confirm({
-      title: S.confirm.deletePages(label, ids.length),
+      title: S.confirm.deletePages(label, ids.length, imgN),
       description: S.confirm.deleteBlocksHint,
       confirmLabel: S.confirm.del,
       danger: true,
@@ -753,10 +785,12 @@ export async function deletePages(): Promise<void> {
   const drop = new Set(ids);
   edit((d) => {
     d.blocks = d.blocks.filter((b) => !drop.has(b.id));
+    /* 那些頁上的頁面圖片也刪掉，之後的頁的圖片頁號往前移（同原作） */
+    dropPagesPimgs(d, idx, total);
     for (const i of [...idx].sort((a, b) => b - a))
       if (d.pages.length > 1 && d.pages[i]) d.pages.splice(i, 1);
   });
-  setUi({ pageSel: [], sel: [], focusId: null });
+  setUi({ pageSel: [], sel: [], pimgSel: null, focusId: null });
   say(S.status.pagesDeleted(idx.length));
 }
 
@@ -840,25 +874,36 @@ export function joinBack(id: string): boolean {
   return true;
 }
 
-/** 貼上含空行的文字（F036）：切成多個段落、依第一行猜書式，插在 id 之後（id 是空的就取代它） */
+/* ---------- markdown（2026-10，上游 v3.16.0～v3.16.1；F289～F294） ---------- */
+
+/** 這個串列不能放的書式（儲存格、彈出視窗）與用過的手冊編號 */
+export function mdCtxFor(d: Doc, list: readonly Block[]): MdCtx {
+  const skip = cellOwnerOf(d, list as Block[])
+    ? CELL_SKIP
+    : popOwnerOf(d, list as Block[])
+      ? POP_SKIP
+      : [];
+  const ho = new Set(
+    allBlocks(d)
+      .filter((b) => b.type === 'handout')
+      .map((b) => hoOf(b).no),
+  );
+  return { skip, ho, tpls: d.bxTpl };
+}
+
+/**
+ * 貼上（F036、F289）：當成 markdown 讀成段落（沒有 markdown 的寫法時，空行分段、依第一行猜書式）。
+ * 沒有任何寫法、又只有一段時回傳 null（照一般的文字貼上）。插在 id 之後（id 是空的文字段落就取代它）。
+ */
 export function pasteParagraphs(id: string | null, text: string): string[] | null {
-  const parts = String(text ?? '')
-    .replace(/\r\n?/g, '\n')
-    .split(/\n[ \t　]*\n+/)
-    .map((p) => p.replace(/^\n+|\n+$/g, ''))
-    .filter((p) => p.trim() !== '');
-  if (parts.length < 2) return null;
-  const tpls = doc().bxTpl;
-  const made = parts.map((p) => {
-    const [first, ...rest] = p.split('\n');
-    const [k, head, tpl] = guessType(first);
-    const b = makeBlock(k, [head, ...rest].join('\n'), tpls);
-    if (k === 'proc' && tpl) applyBxTpl(b, tpl, tpls);
-    return b;
-  });
   const d0 = doc();
   const f = id ? findBlock(d0, id) : null;
   const ref = f ? refOfList(d0, f.list) : addTargetRef();
+  const list0 = f ? f.list : ((ref && listOf(d0, ref)) ?? d0.blocks);
+  const md = mdParse(String(text ?? ''), mdCtxFor(d0, list0));
+  if (!md.marked && md.blocks.length < 2) return null;
+  const made = md.blocks;
+  if (!made.length) return null;
   edit((d) => {
     const list = (ref && listOf(d, ref, true)) || d.blocks;
     const at = f ? list.findIndex((b) => b.id === f.b.id) : -1;
@@ -873,9 +918,98 @@ export function pasteParagraphs(id: string | null, text: string): string[] | nul
   return made.map((b) => b.id);
 }
 
-/* ---------- 彈出視窗（F110～F112、F104） ---------- */
+/** 描述文才會在打字時換書式（標題、框裡面寫到一半不會變成別的） */
+const mdTypable = (b: Block | undefined): boolean => b?.type === 'desc';
 
-/** 改名：指向舊名稱的「＠舊名稱」行一起改（F110） */
+/**
+ * 描述文的開頭打了「# 」「## 」「### 」（＃、全形空白也可以）：變成標題 1～3，游標後面的字是標題的文字（F290）。
+ * text：打完之後的文字；caret：游標位置。換了回傳 true。
+ */
+export function mdHeadFire(id: string, text: string, caret: number): boolean {
+  const f = findBlock(doc(), id);
+  if (!f || !mdTypable(f.b)) return false;
+  const m = text.slice(0, caret).match(/^[#＃]{1,3}[ 　\u00a0]$/);
+  if (!m) return false;
+  mdToHead(id, m[0].length - 1, text.slice(caret));
+  return true;
+}
+
+/** 這個段落改成標題 lv、文字換成 rest（游標在開頭） */
+export function mdToHead(id: string, lv: number, rest: string): void {
+  const k = `h${lv}` as BlockType;
+  edit((d) => {
+    const g = findBlock(d, id);
+    if (!g) return;
+    g.b.type = k;
+    setBlockText(g.b, rest);
+  });
+  select([id], { scroll: false });
+  focusBlock(id, 0);
+  say(S.status.mdTyped(typeName(k)));
+}
+
+/**
+ * 第一行只有「:::名稱」「::名稱」「---」（輸入法的 ：、ーーー 也可以）時按 Enter：變成那個書式（F291）。
+ * ::: 的書式有文字時游標放進去（游標後面的字是內容）；其他（::、橫線、沒有文字的書式）在後面加一個描述文，
+ * 游標後面的字放到那裡（有自己的設定的書式維持選取、在設定欄顯示設定）。換了回傳 true（這裡不能放時也是 true）。
+ */
+export function mdLineFire(id: string, text: string, caret: number): boolean {
+  const d0 = doc();
+  const f = findBlock(d0, id);
+  if (!f || !mdTypable(f.b)) return false;
+  const head = text.slice(0, caret);
+  if (head.includes('\n')) return false;
+  let rest = text.slice(caret).replace(/^\n/, '');
+  const ctx = mdCtxFor(d0, f.list);
+  let nb: Block;
+  let inside = false;
+  if (MD_HR_IME_RE.test(head)) nb = makeBlock('hr', '');
+  else {
+    const dir = mdDirective(head);
+    if (!dir?.k) return false;
+    if (dir.n >= 3) {
+      nb = mdMake(dir, rest, ctx);
+      rest = '';
+      inside = !NO_TEXT_TYPES.includes(nb.type);
+    } else nb = mdMake(dir, null, ctx);
+  }
+  if (ctx.skip.includes(nb.type)) {
+    say(S.status.mdNotHere(typeName(nb.type)), 'warn');
+    return true;
+  }
+  /* 同一個段落換掉（位置與選取不變；第一行的寫法不見了，註解、顏色不帶過去） */
+  nb.id = id;
+  const nx = inside ? null : newBlock('desc', rest);
+  edit((d) => {
+    const g = findBlock(d, id);
+    if (!g) return;
+    g.list.splice(g.i, 1, nb);
+    if (nx) g.list.splice(g.i + 1, 0, nx);
+  });
+  if (inside) {
+    select([nb.id], { scroll: false });
+    focusBlock(nb.id, 0);
+  } else if (nx && OWN_BODY_TYPES.includes(nb.type)) {
+    setUi({ focusId: null });
+    select([nb.id]);
+  } else if (nx) {
+    select([nx.id], { scroll: false });
+    focusBlock(nx.id, 0);
+  }
+  say(S.status.mdTyped(typeName(nb.type)));
+  return true;
+}
+
+/** 選了候選（F293）：同打完那一行按 Enter（標題同打了「# 」） */
+export function mdApplySuggest(id: string, it: MdSuggestItem, text: string, caret: number): void {
+  const rest = text.slice(caret).replace(/^\n/, '');
+  if (it.lv) {
+    mdToHead(id, it.lv, rest);
+    return;
+  }
+  mdLineFire(id, it.cm + (rest ? `\n${rest}` : ''), it.cm.length);
+}
+
 export function renamePopup(id: string, name: string): void {
   edit((d) => {
     const b = findBlock(d, id)?.b;
@@ -1020,4 +1154,117 @@ export function clickSelect(
     }
   }
   select([id], { scroll });
+}
+
+/* ---------- 頁面圖片（2026-10，上游 v3.14.0～v3.16.0；F277～F284） ---------- */
+
+/** 圖片在紙面上的位置（紙的左上角到圖片左上角，mm；量不到時 null） */
+function measureOnPaper(id: string): { x: number; y: number; pg: number } | null {
+  const stage = document.querySelector('[data-testid="se-stage"]');
+  const bp = stage?.querySelector<HTMLElement>(`.bp[data-id="${CSS.escape(id)}"]`);
+  const pg = bp?.closest<HTMLElement>('.pg');
+  const wrap = bp?.closest<HTMLElement>('.pgwrap');
+  if (!bp || !pg || !wrap) return null;
+  const img = bp.querySelector('img') ?? bp;
+  const pr = pg.getBoundingClientRect();
+  const r = img.getBoundingClientRect();
+  if (!pr.width) return null;
+  const k = pr.width / PAPER_W;
+  return { x: (r.left - pr.left) / k, y: (r.top - pr.top) / k, pg: Number(wrap.dataset.page) + 1 };
+}
+
+/**
+ * 圖片段落改成頁面圖片（配置選「自由配置」；F278）：現在紙面上的位置照用，從段落的串列拿掉。
+ * 彈出視窗、儲存格裡的圖片放不到頁上。
+ */
+export function imageToPage(id: string): void {
+  const d0 = doc();
+  const f = findBlock(d0, id);
+  if (f?.b.type !== 'image') return;
+  if (f.list !== d0.blocks) {
+    say(S.status.pimgNested, 'warn');
+    return;
+  }
+  if (!f.b.img) {
+    say(S.status.pimgNoImage, 'warn');
+    return;
+  }
+  const here = measureOnPaper(id);
+  const page = (ui().layout.pageOf[id] ?? 0) + 1;
+  const o: PageImg = {
+    id: f.b.id,
+    img: f.b.img,
+    ar: +(f.b.ar ?? 0) > 0 ? +(f.b.ar ?? 0) : 0,
+    cap: String(f.b.cap ?? ''),
+    pg: here ? here.pg : page,
+    x: here ? pimgRound(here.x) : d0.padH,
+    y: here ? pimgRound(here.y) : d0.padV,
+    w: +(f.b.w ?? 0) || 70,
+    wu: f.b.wu === 'px' ? 'px' : 'pct',
+  };
+  copyImageFx(f.b, o);
+  edit((d) => {
+    const g = findBlock(d, id);
+    if (!g) return;
+    g.list.splice(g.i, 1);
+    if (!d.pageImgs) d.pageImgs = [];
+    d.pageImgs.push(o);
+  });
+  selectPimg(o.id, false);
+  say(S.status.pimgMade);
+}
+
+/**
+ * 頁面圖片改回圖片段落（行內、靠左繞排、靠右繞排；F278）：放在那一頁的第一個段落之前（同原作）。
+ */
+export function pimgToFlow(id: string, pos: 'inline' | 'left' | 'right'): void {
+  const d0 = doc();
+  const o = (d0.pageImgs ?? []).find((x) => x.id === id);
+  if (!o) return;
+  const s = ui();
+  const first = s.layout.pages[pimgPage(o, s.total)]?.[0];
+  const nb = makeBlock('image');
+  nb.img = o.img;
+  nb.ar = o.ar;
+  nb.cap = o.cap;
+  nb.w = o.w;
+  if (o.wu === 'px') nb.wu = 'px';
+  else delete nb.wu;
+  copyImageFx(o, nb);
+  setImagePos(nb, pos);
+  edit((d) => {
+    d.pageImgs = (d.pageImgs ?? []).filter((x) => x.id !== id);
+    const at = first ? d.blocks.findIndex((b) => b.id === first) : -1;
+    d.blocks.splice(at < 0 ? d.blocks.length : at, 0, nb);
+  });
+  select([nb.id]);
+  say(S.status.pimgToFlow);
+}
+
+/** 修改一張頁面圖片（找不到就不動） */
+export function editPimg(id: string, recipe: (o: PageImg, d: Doc) => void): void {
+  edit((d) => {
+    const o = (d.pageImgs ?? []).find((x) => x.id === id);
+    if (o) recipe(o, d);
+  });
+}
+
+/** 刪除頁面圖片（F283） */
+export function deletePimg(id: string): void {
+  edit((d) => {
+    d.pageImgs = (d.pageImgs ?? []).filter((x) => x.id !== id);
+  });
+  setUi({ pimgSel: null });
+  say(S.status.pimgDeleted);
+}
+
+/** 頁面圖片換圖（F283） */
+export async function reselectPimg(id: string): Promise<void> {
+  const img = await pickImage();
+  if (!img) return;
+  editPimg(id, (o) => {
+    o.img = img.data;
+    o.ar = img.ar || 0;
+  });
+  say(S.status.pimgReselected);
 }

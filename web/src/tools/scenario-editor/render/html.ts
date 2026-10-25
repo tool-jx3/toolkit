@@ -1,11 +1,20 @@
 /**
  * 紙面的 HTML（編輯畫面的預覽、列印、PDF、閱覽 HTML、頁面一覽共用同一套，外觀一致）。規格 3.2、3.6。
  */
-import { gapPull, isFreeImg, isOnlyPopup, popIsBlocks } from '../model/blocks';
+import { gapPull, isOnlyPopup, popIsBlocks } from '../model/blocks';
 import { POPUP_DEFAULT_LABEL, popupByLabel, popupLabel } from '../model/doc';
 import { edgeGeom, flowColor, round2 as fnum } from '../model/flow';
 import { ptStyle } from '../model/fontSize';
-import { freeShape, imageOffset, imagePos, imageWidthMm, PAPER_H } from '../model/image';
+import {
+  IMAGE_FRAME_W,
+  imageFrameOf,
+  imageOffset,
+  imagePos,
+  imageShadowOf,
+  imageWidthMm,
+  PAPER_H,
+} from '../model/image';
+import { pimgBox, pimgFlowBox, pimgShapes, pimgsOn, type ShapeBox } from '../model/pageImg';
 import { MARGIN_PATTERNS, pageColor } from '../model/paper';
 import { blockLabel, boxColor, procStyleOf } from '../model/proc';
 import { hasRich } from '../model/rich';
@@ -21,8 +30,18 @@ import {
   rubyPlain,
   safeColor,
 } from '../model/text';
-import { tocEntries, tocOf } from '../model/toc';
-import type { Block, Doc, Flow, FlowNode, PageSetting, Popup, Table } from '../model/types';
+import { tocEntries, tocEntriesFor, tocOf } from '../model/toc';
+import type {
+  Block,
+  Doc,
+  Flow,
+  FlowNode,
+  ImageFx,
+  PageImg,
+  PageSetting,
+  Popup,
+  Table,
+} from '../model/types';
 import { hoOf, varView, wrapVarsHtml } from '../model/vars';
 import { npcHtml } from './npc';
 import { richBlockHtml, richTextHtml } from './rich';
@@ -35,7 +54,7 @@ export interface RenderCtx {
   pageOf: (id: string) => number | null;
   /** 總頁數 */
   total: number;
-  /** 匯出：標題段落加錨點 id="b<段落 id>" */
+  /** 匯出、列印、PDF：可以收進目錄的段落與目錄加錨點 id="b<段落 id>" */
   anchors?: boolean;
   /** 匯出：表格與 NPC 卡右上的複製按鈕、情報區塊與手冊按一下複製（F259） */
   copyButtons?: boolean;
@@ -143,9 +162,7 @@ function popButton(b: Block, ctx: RenderCtx): string {
 /** 彈出視窗的內容（以段落保存的照紙面排，舊式的照巢狀書式） */
 export function popupContentHtml(pop: Popup | undefined, ctx: RenderCtx): string {
   if (Array.isArray(pop?.blocks)) {
-    const list = pop.blocks.filter(
-      (b) => b && b.type !== 'break' && b.type !== 'colbr' && !isFreeImg(b),
-    );
+    const list = pop.blocks.filter((b) => b && b.type !== 'break' && b.type !== 'colbr');
     if (!list.length) return '<p class="pop-empty">（還沒有放入任何內容）</p>';
     return listHtml(list, ctx);
   }
@@ -267,7 +284,10 @@ export function tableHtml(b: Block, ctx: RenderCtx): string {
 
 export function tocHtml(b: Block | null, ctx: RenderCtx): string {
   const t = b ? tocOf(b) : { lb: '目　錄', pick: ['h1', 'h2', 'h3'], pn: true, dots: true };
-  const e = tocEntries(ctx.doc.blocks, ctx.pageOf, t.pick);
+  /* 範圍＝這一章時只收這一章的（2026-10，上游 v3.7.0） */
+  const e = b
+    ? tocEntriesFor(b, ctx.doc.blocks, ctx.pageOf)
+    : tocEntries(ctx.doc.blocks, ctx.pageOf, t.pick);
   const head = String(t.lb ?? '').trim();
   return withVars(
     (head ? `<div class="toc-h">${esc(head)}</div>` : '') +
@@ -359,19 +379,42 @@ export function flowHtml(f: Flow | undefined, withIds = false): string {
 
 /* ---------- 圖片 ---------- */
 
+/**
+ * 圖片與說明。full：圖片寬＝外框寬（繞排、頁面圖片）；否則圖片寬＝設定的寬。
+ * 知道長寬比時先用 aspect-ratio 留好高度（圖片解碼前也量得到；2026-10，上游 v3.15.1）。
+ * 外框疊在圖片上（實際的元素 .imgfr-b，PDF 也畫得出來）；陰影是圖片的 drop-shadow（2026-10，上游 v3.16.0）。
+ */
+export function imageHtml(
+  o: { img?: string | null; cap?: string; ar?: number } & ImageFx,
+  wst: string,
+): string {
+  if (!o.img) return '<div class="t-imgph">（未設定圖片）</div>';
+  const ar = +(o.ar ?? 0);
+  const ast = ar > 0 ? `aspect-ratio:auto 1 / ${ar.toFixed(4)}` : '';
+  const alt = esc(rubyPlain(o.cap ?? ''));
+  const fr = imageFrameOf(o);
+  const sh = imageShadowOf(o);
+  const shc = sh ? ` class="sh-${sh}"` : '';
+  const im = fr
+    ? `<div class="imgfr" style="${wst}"><img src="${esc(o.img)}"${shc}${ast ? ` style="${ast}"` : ''} alt="${alt}"><span class="imgfr-b" aria-hidden="true" style="border:${IMAGE_FRAME_W[fr]} ${fr === 'double' ? 'double' : 'solid'} ${boxColor(o.frc ?? 'sumi').c}"></span></div>`
+    : `<img src="${esc(o.img)}"${shc} style="${wst}${ast ? `;${ast}` : ''}" alt="${alt}">`;
+  return im + (String(o.cap ?? '').trim() ? `<div class="t-imgcap">${rubyHtml(o.cap)}</div>` : '');
+}
+
 export function imageInnerHtml(b: Block, doc: Doc): string {
-  if (!b.img) return '<div class="t-imgph">（未設定圖片）</div>';
   const pos = imagePos(b);
-  const wst =
-    pos === 'left' || pos === 'right' || pos === 'free'
+  return imageHtml(
+    b,
+    pos === 'left' || pos === 'right'
       ? 'width:100%'
-      : `width:${fnum(imageWidthMm(b, doc))}mm;max-width:100%`;
-  return `<img src="${esc(b.img)}" style="${wst}" alt="${esc(rubyPlain(b.cap ?? ''))}">${String(b.cap ?? '').trim() ? `<div class="t-imgcap">${rubyHtml(b.cap)}</div>` : ''}`;
+      : `width:${fnum(imageWidthMm(b, doc))}mm;max-width:100%`,
+  );
 }
 
 /* ---------- 段落 ---------- */
 
-const HEADING_TYPES = new Set(['title', 'h1', 'h2', 'h3']);
+/** 加錨點的段落：可以收進目錄的書式與目錄本身（場景轉換、副標題也有，目錄與「↑ 目錄」連得到；2026-10，上游 v3.7.0） */
+const ANCHOR_TYPES = new Set(['title', 'subtitle', 'h1', 'h2', 'h3', 'scene', 'toc']);
 
 function procVars(b: Block): { cls: string; style: string } {
   const x = procStyleOf(b);
@@ -435,11 +478,9 @@ export function blockInnerHtml(b: Block, ctx: RenderCtx): string {
 /** 段落（外框＋內容）。place：所在頁的欄數、與前一段的間距、是不是頁首 */
 export function blockHtml(b: Block, ctx: RenderCtx, place: Place): string {
   if (b.type === 'break') return '';
-  const free = isFreeImg(b);
   const pos = b.type === 'image' ? imagePos(b) : 'inline';
-  const flc = free
-    ? ' free'
-    : b.type === 'image' && (pos === 'left' || pos === 'right')
+  const flc =
+    b.type === 'image' && (pos === 'left' || pos === 'right')
       ? ` fl-${pos === 'left' ? 'l' : 'r'}`
       : '';
   const cls =
@@ -450,9 +491,7 @@ export function blockHtml(b: Block, ctx: RenderCtx, place: Place): string {
     (b.clr ? ' clr' : '') +
     (b.ind ? ` i${Math.min(4, b.ind)}` : '');
   let ost = '';
-  if (free) {
-    ost = `width:${fnum(imageWidthMm(b, ctx.doc))}mm;left:${+(b.fx ?? 0) || 0}mm;top:${+(b.fy ?? 0) || 0}mm;`;
-  } else if (flc) {
+  if (flc) {
     const o = imageOffset(b, place.cols);
     const mt = o.dy - place.pull;
     ost = `width:${fnum(imageWidthMm(b, ctx.doc))}mm;`;
@@ -478,7 +517,7 @@ export function blockHtml(b: Block, ctx: RenderCtx, place: Place): string {
   } else if ((b.type === 'desc' || b.type === 'note') && hasRich(b.text)) icls += ' hasrich';
   else if (b.type === 'hr' && String(b.text ?? '').trim()) icls += ' hastx';
   inner = blockInnerHtml(b, ctx);
-  const anchor = ctx.anchors && HEADING_TYPES.has(b.type) ? ` id="b${esc(b.id)}"` : '';
+  const anchor = ctx.anchors && ANCHOR_TYPES.has(b.type) ? ` id="b${esc(b.id)}"` : '';
   let extra = '';
   if (ctx.copyButtons && b.type === 'table')
     extra = `<button type="button" class="copybtn" data-for="out${esc(b.id)}">複製輸出</button>`;
@@ -564,16 +603,40 @@ export function pageOpenHtml(
   };
 }
 
-/** 自由配置圖片的「避開矩形」浮動框（放在本文最前面） */
-export function freeShapeHtml(b: Block, doc: Doc, pageCols: number): string {
-  const s = freeShape(b, doc, pageCols);
-  if (!s) return '';
-  return `<div class="imgshape" aria-hidden="true" style="float:${s.side};width:${s.width.toFixed(2)}mm;height:${s.height.toFixed(2)}mm;shape-outside:inset(${s.top.toFixed(2)}mm 0 0 0)"></div>`;
+/**
+ * 文字避開頁面圖片的浮動框（放在本文最前面；3.18.1）：每個框前面是寬 0 的讓位框。
+ * flow：不分頁的匯出（寬是版心寬的％）
+ */
+export function shapesHtml(list: readonly ShapeBox[], flow = false): string {
+  return list
+    .map(
+      (s) =>
+        `<div class="imgshape" aria-hidden="true" style="float:${s.side};clear:${s.side};width:0;height:${s.spacer.toFixed(2)}mm"></div><div class="imgshape" aria-hidden="true" style="float:${s.side};clear:${s.side};width:${flow ? `${fnum(s.widthPct)}%` : `${s.width.toFixed(2)}mm`};height:${s.height.toFixed(2)}mm"></div>`,
+    )
+    .join('');
 }
 
-/** 放在第 i 頁（0 起算）的自由配置圖片 */
-export function freeImagesOn(doc: Doc, i: number): Block[] {
-  return doc.blocks.filter((b) => isFreeImg(b) && Math.max(1, +(b.pg ?? 1) || 1) - 1 === i);
+/** 第 i 頁（0 起算）的避開框；n＝總頁數（不給時只收 pg＝i＋1 的，分頁時用） */
+export function pageShapesHtml(doc: Doc, i: number, cols: number, n?: number): string {
+  return shapesHtml(pimgShapes(pimgsOn(doc, i, n), doc, cols));
+}
+
+/** 頁面圖片（紙的左上角為原點；edit：編輯畫面可以點選） */
+export function pimgHtml(o: PageImg, doc: Doc, edit: boolean): string {
+  const b = pimgBox(o, doc);
+  return withVars(
+    `<div class="pimg"${edit ? ` data-pimg="${esc(o.id)}"` : ''} style="left:${fnum(b.x)}mm;top:${fnum(b.y)}mm;width:${fnum(b.w)}mm"><div class="t-image">${imageHtml(o, 'width:100%')}</div></div>`,
+    doc,
+  );
+}
+
+/** 不分頁的匯出：頁面圖片（這一頁本文的開頭為原點，寬與左是版心寬的％） */
+export function pimgFlowHtml(o: PageImg, doc: Doc): string {
+  const b = pimgFlowBox(o, doc);
+  return withVars(
+    `<div class="pimg" style="left:${fnum(b.left)}%;top:${fnum(b.top)}mm;width:${fnum(b.width)}%"><div class="t-image">${imageHtml(o, 'width:100%')}</div></div>`,
+    doc,
+  );
 }
 
 /** 一頁的完整 HTML（匯出、列印、PDF、頁面一覽）。ids：這頁放的段落 */
@@ -601,11 +664,12 @@ export function staticPageHtml(
     }
     body += blockHtml(b, ctx, { cols: st.cols, pull, top });
   }
-  const free = freeImagesOn(ctx.doc, i);
-  const shapes = free.map((b) => freeShapeHtml(b, ctx.doc, st.cols)).join('');
-  const frees = free.map((b) => blockHtml(b, ctx, { cols: st.cols, pull: 0, top: false })).join('');
+  /* 頁面圖片（超過總頁數的放在最後一頁） */
+  const onPg = pimgsOn(ctx.doc, i, ctx.total);
+  const shapes = shapesHtml(pimgShapes(onPg, ctx.doc, st.cols));
+  const imgs = onPg.map((o) => pimgHtml(o, ctx.doc, false)).join('');
   if (ctx.links) ctx.links.page = -1;
-  return open + shapes + body + frees + close;
+  return open + shapes + body + imgs + close;
 }
 
 /** 有內容的彈出視窗（附錄用） */
@@ -648,9 +712,7 @@ export function appendixItems(ctx: RenderCtx, all: readonly Block[]): FlowItem[]
       },
     });
     if (popIsBlocks(b)) {
-      for (const x of (b.pop?.blocks ?? []).filter(
-        (y) => y.type !== 'break' && y.type !== 'colbr' && !isFreeImg(y),
-      ))
+      for (const x of (b.pop?.blocks ?? []).filter((y) => y.type !== 'break' && y.type !== 'colbr'))
         out.push({ type: x.type, html: (p) => blockHtml(x, ctx, p) });
     } else {
       out.push({
@@ -684,5 +746,5 @@ export function appendixHtml(ctx: RenderCtx, all: readonly Block[]): string {
 export const hasDecor = (b: Block): boolean =>
   blockComments(b).length > 0 || blockMarks(b).length > 0 || hasRuby(b.text);
 
-/** 是否放在紙面的流程裡（不含自由配置圖片與只給儲存格用的彈出視窗） */
-export const inFlow = (b: Block): boolean => !isFreeImg(b) && !isOnlyPopup(b);
+/** 是否放在紙面的流程裡（不含只給儲存格用的彈出視窗） */
+export const inFlow = (b: Block): boolean => !isOnlyPopup(b);

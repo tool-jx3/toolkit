@@ -390,16 +390,45 @@ describe('文字大小：段落（F273、F275、3.17.5）', () => {
 /* ---------- F270、F271：場景轉換 ---------- */
 
 describe('場景轉換連到標題（F270、F271、3.17.4）', () => {
-  it('目的地名稱：日文的寫法照原作、另外認繁中的寫法（D14）', () => {
+  it('目的地名稱：先照原作（和標題完全相同的寫法一定在）、之後加繁中的寫法（D14、7.5 的 S1）', () => {
     expect(sceneNames('書房へ移行')).toEqual(['書房']);
     expect(sceneNames('→ 書斎へ移動する。')).toEqual(['書斎']);
     expect(sceneNames('シーン3『書斎』へ')).toEqual(['シーン3『書斎』', '書斎']);
     expect(sceneNames('シーン移行：大廳')).toEqual(['大廳']);
-    expect(sceneNames('→ 前往大廳')).toEqual(['大廳']);
-    expect(sceneNames('移動到「地下室」')).toEqual(['「地下室」', '地下室']);
+    expect(sceneNames('→ 前往大廳')).toEqual(['前往大廳', '大廳']);
+    expect(sceneNames('移動到「地下室」')).toEqual(['移動到「地下室」', '「地下室」', '地下室']);
     expect(sceneNames('場景 3：書房')).toEqual(['場景 3：書房', '書房']);
+    expect(sceneNames('場景轉換：大廳')).toEqual(['場景轉換：大廳', '大廳']);
     expect(sceneNames('｜書房《しょさい》へ')).toEqual(['書房']);
     expect(headNames('場景 2「大廳」')).toEqual(['場景 2「大廳」', '大廳']);
+  });
+  it('和標題完全相同的中文前綴的寫法一定連（原作的行為，7.5 的 S1）', () => {
+    const e = docOf([
+      blk('s1', 'scene', '進入地下室'),
+      blk('s2', 'scene', '回到起點'),
+      blk('s3', 'scene', '前往書房'),
+      blk('s4', 'scene', '場景轉換：大廳'),
+      blk('h1', 'h1', '進入地下室'),
+      blk('h2', 'h1', '回到起點'),
+      blk('h3', 'h1', '書房'),
+      blk('h4', 'h1', '場景轉換：大廳'),
+    ]);
+    const t = (id: string) => sceneTargetOf(e, byId(e, id))?.id ?? null;
+    /* 原作：h1、h2、null、h4；新版另外 s3 → h3（D14） */
+    expect(['s1', 's2', 's3', 's4'].map(t)).toEqual(['h1', 'h2', 'h3', 'h4']);
+    /* 原作的取法先找（前後都找），找不到才拿掉繁中的前綴：「大廳」比較近，仍然連到「前往大廳」 */
+    const f = docOf([
+      blk('s', 'scene', '前往大廳'),
+      blk('a', 'h1', '大廳'),
+      blk('b', 'h1', '前往大廳'),
+    ]);
+    expect(sceneTargetOf(f, byId(f, 's'))?.id).toBe('b');
+    const g = docOf([
+      blk('b', 'h1', '前往大廳'),
+      blk('s', 'scene', '前往大廳'),
+      blk('a', 'h1', '大廳'),
+    ]);
+    expect(sceneTargetOf(g, byId(g, 's'))?.id).toBe('b');
   });
   it('與原作 v3.26 相同：完全相同才連、之後最近的優先、「跳到的標題」優先', () => {
     const d = normalizeDoc(UP326());

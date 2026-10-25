@@ -229,7 +229,7 @@ export function App() {
   const shortcuts = useMemo(shortcutList, []);
   const overview = usePrefs((s) => s.data.overview);
   const pinned = usePrefs((s) => s.data.sidePinned);
-  const hasSel = useUi((s) => s.sel.length > 0);
+  const hasSel = useUi((s) => s.sel.length > 0 || s.pimgSel != null);
   const showSide = hasSel || pinned;
   return (
     <ToolShell
