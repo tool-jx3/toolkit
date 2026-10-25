@@ -9,23 +9,7 @@
 
 ## 進行中
 
-| 項目 | 本站工具 | 來源 | 授權 | 內容 |
-|---|---|---|---|---|
-| 讀入房間 ZIP 再編輯 | room-zip | [756y/ccfolia_scene_maker](https://github.com/756y/ccfolia_scene_maker) | 未授權 | 讀入 CCFOLIA 匯出的房間 ZIP，改完再匯出；已完成並驗證（含使用者提供的真實房間 ZIP），等合併上線後刪掉這列 |
-| 跟進 v3.9 → v3.26 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | CC0 | 47 個 commit，分三批，見下方 |
-
-### scenario-editor 跟進 v3.26（合併上線後整批刪掉）
-
-- 三批都已實作（27e8117、a763b28、9fd7574）；第一、二批已驗證，正在修第二批驗證找到的問題、驗證第三批。
-- 第一批：儲存選單（存到瀏覽器的命名版本／JSON）、每頁紙色與背景花紋、輸出 HTML 的浮動視窗、
-  「→ 追記」與「↩ 回到」連結、場景轉換連到標題、文字以 pt 設定大小。
-- 第二批：圖片的頁面圖層、邊框與陰影、寬度 ％／px；markdown 輸入與 `:::` 指令、紙面上的 `::`／`#` 候選；
-  不分頁的 HTML 與章目錄；開啟後第一次分頁圖片高度 0 的問題；「這頁設為單欄／雙欄」沿用最後一頁的問題。
-- 第三批：段落裡再放段落（Tab 巢狀）與「特殊」區塊（標題、「按一下複製」開關）；手冊變數可以編預設值與說明、變數清單直接改；
-  新增段落後捲到那段；框類段落縮到繞排圖片旁邊；作品清單裡「讀入 JSON」；文字欄 ↑↓ 移到前後段、不能打字的段落按 Enter 或書式按鈕在下面新增；
-  點紙面時選取與游標同步、Esc 一次取消選取、設定欄的「×」。
-- 不跟：工具列重新分組與左側抽屜、「上下間距」欄的位置（本站用自己的設計）。
-- 跟進之後可以再考慮：原作的 `/` 斜線候選清單（規格 D46，之前決定不做）。
+（目前沒有）
 
 ## 一、已收錄工具的原作更新
 
@@ -67,6 +51,7 @@
 | color-palette | [dearmysn1p3r/Colorpalettecard_Maker](https://github.com/dearmysn1p3r/Colorpalettecard_Maker) | 未授權 | k-means 自動取 N 色、色名、一鍵複製 HEX；「照片色票卡」版型 | 小～中 |
 | pair-maker | [dearmysn1p3r/DearMySn1p3r_24](https://github.com/dearmysn1p3r/DearMySn1p3r_24)、[_25](https://github.com/dearmysn1p3r/DearMySn1p3r_25) | 未授權 | PC 設定資料表、自我介紹卡兩個版型 | 小～中 |
 | prose-card | [dearmysn1p3r/DearMySn1p3r_12](https://github.com/dearmysn1p3r/DearMySn1p3r_12)、[_47](https://github.com/dearmysn1p3r/DearMySn1p3r_47) | 未授權 | 尺寸、對話行樣式、筆記本橫線與裝飾、作品組；原作 10-24 還在加自訂 HTML／CSS 裝飾層，等穩定再讀 | 小～中 |
+| scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | CC0 | 原作的 `/` 斜線候選清單（規格 D46；跟進 v3.26 時決定先不做） | 小 |
 | music-frame | [dearmysn1p3r/MOMO_MusicCloud](https://github.com/dearmysn1p3r/MOMO_MusicCloud)（取代 _16／_27／_54） | 未授權 | 黑膠、CD、卡帶、串流的樣品圖、播放清單影片；原作 10-17～10-20 大改 | 中 |
 | floor-plan | Maptsukuri（maptsukuri.pages.dev，不在 GitHub） | 未授權 | .dd2vtt 匯出、隨機配置 | 中 |
 
@@ -91,3 +76,4 @@
 - 2026-10-24：上游檢查（59 個 GitHub 上游，8 個有新 commit）＋已收錄作者的新工具＋GitHub 上新作者的跑團工具。
   不在 GitHub 的原作（KIIN、TEXTSCENE、PaiTei4234、gagyedo、Maptsukuri、scenario-tool-jade）這次連不到，沒有檢查。
   music-frame 的原作 repo 搬到 [zZnaptime/MVmaker](https://github.com/zZnaptime/MVmaker)，連結已修正。
+- 2026-10-25：完成並移出清單——room-zip 讀入房間 ZIP 再編輯、scenario-editor 跟進原作 v3.26（三批）。
