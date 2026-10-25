@@ -14,12 +14,19 @@ import {
   Section,
   Segmented,
   Select,
-  TextArea,
   TextInput,
   Toggle,
 } from '@/ui';
 import { bridge } from '../bridge';
-import { allBlocks, cellOwnerOf, findBlock, typeName } from '../model/blocks';
+import {
+  allBlocks,
+  cellOwnerOf,
+  findBlock,
+  kidsOwnerOf,
+  space,
+  spKey,
+  typeName,
+} from '../model/blocks';
 import { popupLabel } from '../model/doc';
 import { FLOW_MAX_H, FLOW_MAX_W } from '../model/flow';
 import { PT_BUTTONS, PT_MAX, PT_MIN, ptRound } from '../model/fontSize';
@@ -27,21 +34,23 @@ import {
   applyBxTpl,
   BOX_COLORS,
   BX_TPL,
+  BX_TPL_BUTTONS,
   blockLabel,
   bxTplClean,
   ensureProc,
   LABEL_INFO,
   LABEL_PICKS,
+  procName,
   procStyleOf,
   sameStyle,
 } from '../model/proc';
 import { slashCommandsFor } from '../model/rich';
 import { headingChoices, headNames, sceneTargetOf, sceneWanted } from '../model/scene';
 import { tblCols, tblDelCol, tblDelRow, tblRows } from '../model/table';
-import { rubyPlain, setBlockText } from '../model/text';
+import { rubyPlain } from '../model/text';
 import { ensureToc, TOC_PICKS, tocEntriesFor, tocOf } from '../model/toc';
 import type { Block, BoxStyle, BoxTemplate } from '../model/types';
-import { ensureHo, hoOf, isVarName } from '../model/vars';
+import { ensureHo, hoNote, hoOf, isVarName } from '../model/vars';
 import { deleteComments, indentSel, renamePopup, setGap, setSpan, toggleClear } from '../ops';
 import { rememberTemplates } from '../session';
 import {
@@ -68,6 +77,7 @@ import {
 import { ImageProps } from './ImageProps';
 import { NpcProps } from './NpcProps';
 import { PageImgPanel } from './PageImgProps';
+import { PanelHead } from './PanelHead';
 import { TableProps } from './TableProps';
 
 /** 文字顏色的色票（F074） */
@@ -102,11 +112,11 @@ export function BlockPanel() {
   const owner = single ? cellOwnerOf(d, found[0].list) : null;
   return (
     <div className="flex flex-col gap-2" data-testid="se-block-panel">
-      <p className="m-0 text-sm text-muted" aria-live="polite">
+      <PanelHead>
         {single
-          ? `目前：${typeName(b.type)}／${b.cols === 1 ? '全寬' : '欄內'}`
+          ? `目前：${b.type === 'proc' ? procName(b) : typeName(b.type)}／${b.cols === 1 ? '全寬' : '欄內'}${kidsOwnerOf(d, found[0].list) ? '（段落裡）' : ''}`
           : `已選取 ${found.length} 段`}
-      </p>
+      </PanelHead>
       {single ? <TypeProps b={b} /> : null}
       <CommonProps blocks={found.map((f) => f.b)} />
       {owner ? <CellSection tbl={owner.b} r={owner.r} c={owner.c} /> : null}
@@ -174,16 +184,24 @@ function DialogProps({ b }: { b: Block }) {
   );
 }
 
-/* ---------- 規則框（F091～F095） ---------- */
+/* ---------- 特殊區塊（F091～F095、F303～F306） ---------- */
+
+type BarKind = 'none' | 'thin' | 'mid' | 'thick';
+const barOf = (x: Required<BoxStyle>): BarKind =>
+  x.bar ? (x.thin ? 'thin' : x.mid ? 'mid' : 'thick') : 'none';
+const BAR_STYLE: Record<BarKind, Pick<BoxStyle, 'bar' | 'thin' | 'mid'>> = {
+  none: { bar: false, thin: false, mid: false },
+  thin: { bar: true, thin: true, mid: false },
+  mid: { bar: true, thin: false, mid: true },
+  thick: { bar: true, thin: false, mid: false },
+};
 
 function ProcProps({ b }: { b: Block }) {
   const tpls = useDoc((s) => s.data.bxTpl);
   const st = procStyleOf(b);
   const setStyle = (p: Partial<BoxStyle>) =>
     editBlock(b.id, (x) => Object.assign(ensureProc(x), p));
-  const heads = String(b.text ?? '')
-    .split('\n')
-    .filter((l) => /^\s*(?:[■◆]|####(?!#)[ \t])/.test(l)).length;
+  const kids = b.kids?.length ?? 0;
   const apply = (key: string) => {
     edit((d) => {
       const x = findBlock(d, b.id)?.b;
@@ -265,20 +283,16 @@ function ProcProps({ b }: { b: Block }) {
     rememberTemplates(list);
     say(S.status.tplRemoved(t.n));
   };
-  const builtin: [string, string, BoxStyle][] = [
-    ['skill', '技能檢定', BX_TPL.skill],
-    ['rule', '特殊規則', BX_TPL.rule],
-  ];
   return (
-    <Section title="規則框" fixed>
-      <Field label="樣板">
+    <Section title="特殊區塊" fixed>
+      <Field label="樣板" hint="按下就換成那個外觀與標題語；下面可以再細調。">
         <div className="flex flex-wrap gap-1">
-          {builtin.map(([k, name, s]) => (
+          {BX_TPL_BUTTONS.map(({ k, name }) => (
             <Button
               key={k}
               size="sm"
-              variant={sameStyle(st, s) ? 'primary' : 'secondary'}
-              aria-pressed={sameStyle(st, s)}
+              variant={sameStyle(st, BX_TPL[k]) ? 'primary' : 'secondary'}
+              aria-pressed={sameStyle(st, BX_TPL[k])}
               onClick={() => apply(k)}
             >
               {name}
@@ -314,10 +328,14 @@ function ProcProps({ b }: { b: Block }) {
       <Button size="sm" variant="secondary" onClick={() => void saveTpl()}>
         把目前的外觀存成樣板
       </Button>
-      <Field label="標題語" hint="框左上的小標；空白時不顯示。">
+      <Field
+        label="標題語"
+        hint="框左上的小標；空白時不顯示。對話的樣子時是說話者。左邊文字欄的文字上方也可以改。"
+      >
         <TextInput
-          value={b.lb == null ? '技能檢定' : String(b.lb)}
+          value={blockLabel(b)}
           list="se-lb-picks"
+          placeholder="標題語（對話的樣子時是說話者）"
           onChange={(e) => editBlock(b.id, (x) => (x.lb = e.target.value))}
         />
       </Field>
@@ -345,15 +363,46 @@ function ProcProps({ b }: { b: Block }) {
           ]}
         />
       </Field>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
-        <Checkbox
-          checked={st.bar}
-          onCheckedChange={(v) => setStyle({ bar: !!v })}
-          label="左側粗線"
+      <Field label="左側的線">
+        <Segmented
+          size="sm"
+          value={barOf(st)}
+          onValueChange={(v) => setStyle(BAR_STYLE[v])}
+          options={[
+            { value: 'none', label: '無' },
+            { value: 'thin', label: '細' },
+            { value: 'mid', label: '中' },
+            { value: 'thick', label: '粗' },
+          ]}
         />
+      </Field>
+      <Field label="字的大小">
+        <Segmented
+          size="sm"
+          value={st.xs ? 'xs' : st.sm ? 'sm' : 'n'}
+          onValueChange={(v) => setStyle({ sm: v === 'sm', xs: v === 'xs' })}
+          options={[
+            { value: 'n', label: '一般' },
+            { value: 'sm', label: '小一點' },
+            { value: 'xs', label: '更小' },
+          ]}
+        />
+      </Field>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
         <Checkbox checked={st.fill} onCheckedChange={(v) => setStyle({ fill: !!v })} label="底色" />
-        <Checkbox checked={st.sm} onCheckedChange={(v) => setStyle({ sm: !!v })} label="字級稍小" />
+        <Checkbox
+          checked={st.ink}
+          onCheckedChange={(v) => setStyle({ ink: !!v })}
+          label="文字也用框的顏色"
+        />
       </div>
+      <Field
+        label="按一下複製"
+        layout="inline"
+        hint="匯出的 HTML 裡按這個框，複製內文（含裡面的段落）。跑團時貼到聊天室用。"
+      >
+        <Toggle checked={st.copy} onCheckedChange={(v) => setStyle({ copy: !!v })} />
+      </Field>
       <Field label="顏色">
         <div className="flex flex-wrap gap-1">
           {BOX_COLORS.map((c) => (
@@ -372,45 +421,14 @@ function ProcProps({ b }: { b: Block }) {
           ))}
         </div>
       </Field>
-      <Field
-        label="內容"
-        hint={`行首「■」是小標、「>」是檢定框（第一行冒號前是框的小標）。目前小標 ${heads} 個。`}
-      >
-        <TextArea
-          rows={5}
-          value={String(b.text ?? '')}
-          data-bid={b.id}
-          onChange={(e) => editBlock(b.id, (x) => setTextKeep(x, e.target.value))}
-        />
-      </Field>
-      <div className="flex flex-wrap gap-1">
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => editBlock(b.id, (x) => setTextKeep(x, appendLine(x.text, '■小標')))}
-        >
-          ＋小標
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => editBlock(b.id, (x) => setTextKeep(x, appendLine(x.text, '> 技能檢定：')))}
-        >
-          ＋檢定框
-        </Button>
+      <PanelNote>
+        {`裡面的段落：在左邊文字欄這個特殊區塊的文字最後按 Enter（或在下一段按 Tab）。「■成功」開頭的是左邊有線的一塊；在裡面選「特殊區塊」是巢狀的檢定。${kids ? `目前裡面有 ${kids} 個段落。` : ''}`}
+      </PanelNote>
+      <div>
         <PreviewButton id={b.id} />
       </div>
     </Section>
   );
-}
-
-function setTextKeep(b: Block, t: string): void {
-  setBlockText(b, t);
-}
-
-function appendLine(text: unknown, line: string): string {
-  const t = String(text ?? '').replace(/\n*$/, '');
-  return t ? `${t}\n${line}` : line;
 }
 
 /* ---------- 情報區塊（F251） ---------- */
@@ -488,6 +506,33 @@ function HandoutProps({ b }: { b: Block }) {
           }
         />
       </Field>
+      <FieldRow columns={2}>
+        <Field label={`${S.handout.varLabel(h.no)}　${S.vars.def}`}>
+          <TextInput
+            value={String(h.def ?? '')}
+            placeholder={h.no}
+            data-testid="se-ho-def"
+            onChange={(e) =>
+              editBlock(b.id, (x) => {
+                ensureHo(x).def = e.target.value;
+              })
+            }
+          />
+        </Field>
+        <Field label={S.vars.note}>
+          <TextInput
+            value={String(h.note ?? '')}
+            placeholder={hoNote(h.ttl)}
+            data-testid="se-ho-note"
+            onChange={(e) =>
+              editBlock(b.id, (x) => {
+                ensureHo(x).note = e.target.value;
+              })
+            }
+          />
+        </Field>
+      </FieldRow>
+      <PanelNote>{S.handout.varHint(h.no)}</PanelNote>
       <PanelNote>{S.handout.copyHint}</PanelNote>
       <div>
         <PreviewButton id={b.id} />
@@ -765,6 +810,8 @@ function CommonProps({ blocks }: { blocks: Block[] }) {
     const vals = new Set(blocks.map((x) => (x[k] == null ? '' : String(x[k]))));
     return vals.size === 1 ? [...vals][0] : '';
   };
+  /* 沒有指定時淡淡顯示書式的預設（第一個段落的；上游 v3.24.0） */
+  const sp0 = space(spKey(b) ?? b.type);
   return (
     <Section title="段落的設定" fixed>
       {rich ? (
@@ -873,7 +920,7 @@ function CommonProps({ blocks }: { blocks: Block[] }) {
             max={100}
             step={0.5}
             unit="mm"
-            placeholder="預設"
+            placeholder={`預設 ${sp0.t}`}
             onChange={(v) => setGap('mt', v === '' ? null : Math.max(0, +v))}
           />
         </Field>
@@ -884,12 +931,14 @@ function CommonProps({ blocks }: { blocks: Block[] }) {
             max={100}
             step={0.5}
             unit="mm"
-            placeholder="預設"
+            placeholder={`預設 ${sp0.b}`}
             onChange={(v) => setGap('mb', v === '' ? null : Math.max(0, +v))}
           />
         </Field>
       </FieldRow>
-      <p className="m-0 text-xs text-muted">只套用在這個段落的間距；留空＝依書式的預設。</p>
+      <p className="m-0 text-xs text-muted">
+        只套用在這個段落的間距；留空＝依書式的預設（淡淡顯示的值）。和前後的段落之間是較大的那個。
+      </p>
     </Section>
   );
 }

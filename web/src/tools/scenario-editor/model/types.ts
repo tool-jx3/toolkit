@@ -51,19 +51,30 @@ export interface Mark {
   sz?: number;
 }
 
-/** 規則框的外觀 */
+/** 特殊區塊（規則框）的外觀（2026-10 第三批：上游 v3.22～v3.25 加了 thin、mid、xs、ink、copy） */
 export interface BoxStyle {
   ln: 'solid' | 'dash' | 'none';
+  /** 左側的粗線 */
   bar: boolean;
+  /** 左側的線：細（注釋的樣子） */
+  thin?: boolean;
+  /** 左側的線：中（情報區塊的樣子） */
+  mid?: boolean;
   fill: boolean;
   sm: boolean;
+  /** 字更小（注釋的樣子；比 sm 優先） */
+  xs?: boolean;
+  /** 文字也用框的顏色 */
+  ink?: boolean;
+  /** 匯出的 HTML 裡按一下複製內文（含裡面的段落） */
+  copy?: boolean;
   col: BoxColorKey;
 }
 
 /** 色票（kon、nando：2026-10，上游 v3.22.0 起有 8 色） */
 export type BoxColorKey = 'aka' | 'sumi' | 'kon' | 'nando' | 'ai' | 'koke' | 'kin' | 'hai';
 
-/** 自己做的規則框樣板 */
+/** 自己做的特殊區塊樣板 */
 export interface BoxTemplate extends BoxStyle {
   id: string;
   /** 名稱（最多 24 字） */
@@ -195,6 +206,8 @@ export interface Handout {
   def?: string;
   /** 原作 v3.8.0 的框裡的 PC 名稱欄（保留不顯示） */
   pc?: boolean;
+  /** 手冊變數的說明（匯出 HTML 的輸入欄下方；空白＝「手冊「題名」的 PC」；2026-10 第三批，上游 v3.10.2） */
+  note?: string;
 }
 
 /** 登錄的變數（3.16）：n＝名稱、def＝預設值、note＝說明 */
@@ -229,7 +242,7 @@ export interface Block {
   tocOff?: boolean;
   /** 對話文的說話者 */
   sp?: string;
-  /** 規則框、情報區塊的標題語（null／沒有＝預設） */
+  /** 特殊區塊、情報區塊的標題語（null／沒有＝預設） */
   lb?: string | null;
   bx?: BoxStyle;
   /* 圖片 */
@@ -266,6 +279,8 @@ export interface Block {
   fs?: number;
   /** 場景轉換：跳到的標題（空白＝依本文的目的地名稱找；2026-10，上游 v3.24.0） */
   jump?: string;
+  /** 段落裡的段落（2026-10 第三批，上游 v3.19.0～v3.20.0） */
+  kids?: Block[];
 }
 
 export interface PageBg {
@@ -292,6 +307,8 @@ export interface EmbeddedFont {
 export interface Doc {
   /** 行首記號改成 markdown 寫法的版本（3.1.3） */
   mdv: number;
+  /** 特殊區塊的 ■、＞ 行改成段落裡的段落的版本（同原作的 pkv；2026-10 第三批） */
+  pkv?: number;
   title: string;
   padV: number;
   padH: number;

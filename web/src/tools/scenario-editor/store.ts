@@ -207,11 +207,22 @@ export function flashBlock(id: string): void {
   useUi.setState({ flash: { id, n: next() } });
 }
 
-/** 選取的段落（依原稿順序，找不到的略過） */
+/**
+ * 選取的段落（依原稿順序，找不到的略過）。外面那段也選取著的段落裡的段落不重複算（外面那段已經含它）
+ */
 export function selectedBlocks(): Block[] {
   const ids = new Set(ui().sel);
   if (!ids.size) return [];
-  return allBlocks(doc()).filter((b) => ids.has(b.id));
+  const all = allBlocks(doc());
+  const inner = new Set<string>();
+  const mark = (bs: readonly Block[] | undefined) => {
+    for (const b of bs ?? []) {
+      inner.add(b.id);
+      mark(b.kids);
+    }
+  };
+  for (const b of all) if (ids.has(b.id)) mark(b.kids);
+  return all.filter((b) => ids.has(b.id) && !inner.has(b.id));
 }
 
 /* ---------- 偏好（記在瀏覽器） ---------- */

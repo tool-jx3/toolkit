@@ -19,7 +19,8 @@ export const TYPES: readonly TypeDef[] = [
   { k: 'desc', name: '描述文', key: '0', group: 'body' },
   { k: 'dialog', name: '對話文', key: '4', group: 'body' },
   { k: 'note', name: '注釋', key: '5', group: 'body' },
-  { k: 'proc', name: '規則框', key: '6', group: 'body' },
+  /* 2026-10 第三批：原作 v3.22 的「処理」→「特殊」（對話文、注釋、情報區塊的樣子也可以是它的樣板） */
+  { k: 'proc', name: '特殊區塊', key: '6', group: 'body' },
   { k: 'h1', name: '標題 1', key: '1', group: 'heading' },
   { k: 'h2', name: '標題 2', key: '2', group: 'heading' },
   { k: 'h3', name: '標題 3', key: '3', group: 'heading' },
@@ -193,7 +194,7 @@ export const newPage = (cols: 1 | 2 = 1): PageSetting => ({ id: uid(), bg: newPa
 export const popIsBlocks = (b: Block): boolean =>
   b.type === 'popup' && Array.isArray(b.pop?.blocks);
 
-/** 這個段落擁有的串列：彈出視窗的內容、表格每一格（依列、欄順序） */
+/** 這個段落擁有的串列：彈出視窗的內容、表格每一格（依列、欄順序）、段落裡的段落 */
 export function subLists(b: Block): Block[][] {
   const out: Block[][] = [];
   if (b.type === 'popup' && Array.isArray(b.pop?.blocks)) out.push(b.pop.blocks);
@@ -208,6 +209,8 @@ export function subLists(b: Block): Block[][] {
       if (Array.isArray(l) && l.length) out.push(l);
     }
   }
+  /* 段落裡的段落（2026-10 第三批，上游 v3.19.0～v3.20.0） */
+  if (Array.isArray(b.kids) && b.kids.length) out.push(b.kids);
   return out;
 }
 
@@ -271,6 +274,61 @@ export function cellOwnerOf(
 /** b 是否擁有 list（含孫層）：用來防止把彈出視窗搬進自己裡面 */
 export function ownsList(b: Block, list: Block[]): boolean {
   return subLists(b).some((sub) => sub === list || sub.some((x) => ownsList(x, list)));
+}
+
+/* ---------- 段落裡的段落（2026-10 第三批，上游 v3.19.0～v3.20.0；規格 3.19.1） ---------- */
+
+/** 可以有段落裡的段落的書式（標題、主標題不行：一整章變成一塊，就不能跨頁） */
+export const KIDS_PARENT: readonly BlockType[] = [
+  'desc',
+  'dialog',
+  'note',
+  'proc',
+  'info',
+  'handout',
+  'scene',
+];
+/** 有框的書式：裡面的段落放在框裡（其他的往內縮 4 mm） */
+export const KIDS_FRAMED: readonly BlockType[] = ['proc', 'info', 'handout', 'note'];
+/** 段落裡不能放的書式（紙面的分頁、目錄、封面，大的插入物） */
+export const KIDS_SKIP: readonly BlockType[] = [
+  'break',
+  'colbr',
+  'toc',
+  'cover',
+  'colophon',
+  'title',
+  'subtitle',
+  'h1',
+  'h2',
+  'h3',
+  'handout',
+  'npc',
+  'popup',
+  'flow',
+];
+
+/** 擁有這個串列的段落（段落裡的段落；不是時 null） */
+export function kidsOwnerOf(doc: Pick<Doc, 'blocks'>, list: Block[]): Block | null {
+  for (const b of allBlocks(doc)) if (b.kids === list) return b;
+  return null;
+}
+
+/** 「■成功」這種小標開頭的描述文：左邊有線的一塊 */
+export const isSecBlock = (b: Block | null | undefined): boolean =>
+  !!b && b.type === 'desc' && /^[ 　]*(?:[■◆]|#{4,6}[ \t])/.test(String(b.text ?? ''));
+
+/**
+ * 決定上下間距的書式：特殊區塊依樣子（對話文、注釋、情報區塊的樣子用它們的間距；同原作 spKey）
+ */
+export function spKey(b: Block | null | undefined): string | null {
+  if (!b) return null;
+  if (b.type !== 'proc') return b.type;
+  const x = (b.bx ?? {}) as Partial<NonNullable<Block['bx']>>;
+  if (x.ln === 'none' && !x.bar && !x.fill) return 'dialog';
+  if (x.bar && x.thin) return 'note';
+  if (x.ln === 'none' && x.bar && x.mid) return 'info';
+  return 'proc';
 }
 
 /** 只從儲存格指向、不放在紙面的彈出視窗 */

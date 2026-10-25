@@ -5,6 +5,7 @@ import { allBlocks, blockLists, newBlock, newPage, newPageBg, subLists } from '.
 import { ensureFlow } from './flow';
 import { hasLegacySizes, migrateLegacySizes, ptRound } from './fontSize';
 import { bodyWidthMm, fixImageFx, PAPER_W } from './image';
+import { PK_VER, procMigrate } from './kids';
 import { ensureNpc } from './npc/model';
 import { cleanPimgs, freeToPimg } from './pageImg';
 import { applyBxTpl, BOX_COLORS, BX_TPL, bxTplClean, ensureProc } from './proc';
@@ -43,6 +44,7 @@ export function sampleBlocks(): Block[] {
 export function blankDoc(): Doc {
   return {
     mdv: MD_VER,
+    pkv: PK_VER,
     title: UNTITLED,
     padV: 18,
     padH: 16,
@@ -183,6 +185,17 @@ export function fixTyped(list: Block[]): Block[] {
       if (Array.isArray(p.blocks))
         p.blocks = p.blocks.filter((x) => x && typeof x === 'object').map(blockFrom);
     }
+    /* 段落裡的段落（第三批）：不是段落的拿掉、補齊欄位；空的不留 */
+    if (Array.isArray(b.kids)) {
+      b.kids = b.kids
+        .filter((x) => x && typeof x === 'object')
+        .map((x) => {
+          const k = blockFrom(x);
+          k.cols = 2;
+          return k;
+        });
+      if (!b.kids.length) delete b.kids;
+    } else if (b.kids != null) delete b.kids;
     for (const l of subLists(b)) fixTyped(l);
   }
   return list;
@@ -251,6 +264,7 @@ export function normalizeDoc(raw: unknown): Doc {
   const d = raw as Omit<Partial<Doc>, 'pages'> & { pages?: LegacyPage[] };
   const out: Doc = {
     mdv: MD_VER,
+    pkv: PK_VER,
     title: d.title || UNTITLED,
     padV: +(d.padV ?? 0) || 18,
     padH: +(d.padH ?? 0) || 16,
@@ -293,6 +307,8 @@ export function normalizeDoc(raw: unknown): Doc {
   if (!out.blocks.length) out.blocks = fixTyped(sampleBlocks());
   numberHandouts(out);
   if ((+(d.mdv ?? 0) || 0) < MD_VER) mdMigrate(out.blocks);
+  /* 特殊區塊的 ■、＞ 行改成段落裡的段落（只做一次；記在 pkv、存檔時寫出；3.19.1） */
+  if ((+(d.pkv ?? 0) || 0) < PK_VER) procMigrate(out.blocks);
   /* 原作 v3.17～v3.20 的文字大小（倍率）換成當時的 pt（3.17.5） */
   if (hasLegacySizes(out.blocks)) migrateLegacySizes(out.blocks, out.base, out.base);
   return out;
@@ -358,7 +374,7 @@ export function renewIds(b: Block): Block {
 
 /**
  * 每次修改之後：避免本文變成空的；每一格都至少留一個段落（隨時都有地方可以寫）；
- * 新的手冊（或編號不合規則的）自動編號（F252）。
+ * 新的手冊（或編號不合規則的）自動編號（F252）；空的 kids 拿掉。
  */
 export function keepNotEmpty(doc: Doc): void {
   if (!doc.blocks.length) doc.blocks.push(newBlock('desc', ''));
@@ -367,6 +383,8 @@ export function keepNotEmpty(doc: Doc): void {
     for (const b of list) {
       if (b.type === 'table' && b.tbl) tblFit(b.tbl);
       if (b.type === 'handout') ho = true;
+      /* 段落裡的段落都拿掉了：不留空的 kids（第三批） */
+      if (Array.isArray(b.kids) && !b.kids.length) delete b.kids;
     }
   if (ho) numberHandouts(doc);
 }

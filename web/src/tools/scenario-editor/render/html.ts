@@ -1,10 +1,18 @@
 /**
  * 紙面的 HTML（編輯畫面的預覽、列印、PDF、閱覽 HTML、頁面一覽共用同一套，外觀一致）。規格 3.2、3.6。
  */
-import { gapPull, isOnlyPopup, popIsBlocks } from '../model/blocks';
+import {
+  gapPull,
+  isOnlyPopup,
+  isSecBlock,
+  KIDS_FRAMED,
+  KIDS_PARENT,
+  popIsBlocks,
+  spKey,
+} from '../model/blocks';
 import { POPUP_DEFAULT_LABEL, popupByLabel, popupLabel } from '../model/doc';
 import { edgeGeom, flowColor, round2 as fnum } from '../model/flow';
-import { ptStyle } from '../model/fontSize';
+import { natPt, ptStyle } from '../model/fontSize';
 import {
   IMAGE_FRAME_W,
   imageFrameOf,
@@ -177,16 +185,36 @@ export function popupContentHtml(pop: Popup | undefined, ctx: RenderCtx): string
 /* ---------- 一串段落（彈出視窗的內容、儲存格；不分頁） ---------- */
 
 export function listHtml(list: readonly Block[], ctx: RenderCtx): string {
+  return listHtmlRaw(list, ctx, true);
+}
+
+/** wrap：變數包成標記（段落裡的段落由外面那段一起包） */
+function listHtmlRaw(list: readonly Block[], ctx: RenderCtx, wrap: boolean): string {
   let prev: string | null = null;
   let first = true;
   let out = '';
   for (const b of list) {
-    const pull = gapPull(prev, b.type);
-    prev = b.type;
-    out += blockHtml(b, ctx, { cols: 1, pull, top: first });
+    /* 上下間距依 spKey（特殊區塊依樣子；同原作） */
+    const k = spKey(b) ?? b.type;
+    const pull = gapPull(prev, k);
+    prev = k;
+    const place = { cols: 1 as const, pull, top: first };
+    out += wrap ? blockHtml(b, ctx, place) : blockHtmlRaw(b, ctx, place);
     first = false;
   }
   return out;
+}
+
+/**
+ * 段落裡的段落（第三批，同原作 kidsHTML）：放在外面那段的框裡（有框的書式、「■」開頭的描述文），
+ * 其他往內縮 4 mm；外面那段指定了 pt 時，裡面的段落用本來的大小（不跟著外面的 pt）。
+ */
+export function kidsHtml(b: Block, ctx: RenderCtx, wrap = false): string {
+  const l = Array.isArray(b.kids) ? b.kids : [];
+  if (!l.length || !KIDS_PARENT.includes(b.type)) return '';
+  const ind = KIDS_FRAMED.includes(b.type) || isSecBlock(b) ? '' : ' kids-ind';
+  const fs = +(b.pt ?? 0) > 0 ? ` style="font-size:${+natPt(ctx.doc, b).toFixed(3)}pt"` : '';
+  return `<div class="cellblk bx-kids${ind}"${fs}>${listHtmlRaw(l, ctx, wrap)}</div>`;
 }
 
 /* ---------- 表格 ---------- */
@@ -416,11 +444,22 @@ export function imageInnerHtml(b: Block, doc: Doc): string {
 /** 加錨點的段落：可以收進目錄的書式與目錄本身（場景轉換、副標題也有，目錄與「↑ 目錄」連得到；2026-10，上游 v3.7.0） */
 const ANCHOR_TYPES = new Set(['title', 'subtitle', 'h1', 'h2', 'h3', 'scene', 'toc']);
 
-function procVars(b: Block): { cls: string; style: string } {
+/** 特殊區塊的 class 與顏色（同原作 procClass、procStyle） */
+export function procVars(b: Block): { cls: string; style: string } {
   const x = procStyleOf(b);
   const c = boxColor(x.col);
+  const sp = spKey(b);
   return {
-    cls: ` bx-l-${x.ln}${x.bar ? ' bx-bar' : ''}${x.fill ? ' bx-fill' : ''}${x.sm ? ' bx-sm' : ''}`,
+    cls:
+      ` bx-l-${x.ln}` +
+      (x.bar ? ' bx-bar' : '') +
+      (x.bar && x.thin ? ' bx-thin' : '') +
+      (x.bar && x.mid ? ' bx-mid' : '') +
+      (x.fill ? ' bx-fill' : '') +
+      (x.copy ? ' bx-copy' : '') +
+      (x.xs ? ' bx-xs' : x.sm ? ' bx-sm' : '') +
+      (x.ink ? ' bx-ink' : '') +
+      (sp !== 'proc' ? ` sp-${sp}` : ''),
     style: `--bxc:${c.c};--bxl:${c.l};--bxf:${c.f};`,
   };
 }
@@ -478,13 +517,22 @@ export function blockInnerHtml(b: Block, ctx: RenderCtx): string {
 /** 段落（外框＋內容）。place：所在頁的欄數、與前一段的間距、是不是頁首 */
 export function blockHtml(b: Block, ctx: RenderCtx, place: Place): string {
   if (b.type === 'break') return '';
+  return withVars(blockHtmlRaw(b, ctx, place), ctx.doc);
+}
+
+/** 段落（變數還沒包成標記） */
+function blockHtmlRaw(b: Block, ctx: RenderCtx, place: Place): string {
+  if (b.type === 'break') return '';
   const pos = b.type === 'image' ? imagePos(b) : 'inline';
   const flc =
     b.type === 'image' && (pos === 'left' || pos === 'right')
       ? ` fl-${pos === 'left' ? 'l' : 'r'}`
       : '';
+  const sp = spKey(b);
   const cls =
     `bp bp-${b.type}` +
+    (sp && sp !== b.type ? ` sp-${sp}` : '') +
+    (isSecBlock(b) ? ' sec' : '') +
     (b.cols === 1 && place.cols === 2 ? ' span' : '') +
     (place.top && b.type !== 'colbr' ? ' top' : '') +
     flc +
@@ -523,16 +571,17 @@ export function blockHtml(b: Block, ctx: RenderCtx, place: Place): string {
     extra = `<button type="button" class="copybtn" data-for="out${esc(b.id)}">複製輸出</button>`;
   if (ctx.copyButtons && b.type === 'npc')
     extra = `<button type="button" class="copybtn" data-for="ccf${esc(b.id)}">複製 CCFOLIA 棋子</button>`;
-  /* 匯出：情報區塊、手冊按一下（或 Enter／空白鍵）複製內文（F259） */
+  /* 匯出：情報區塊、手冊、「按一下複製」的特殊區塊按一下（或 Enter／空白鍵）複製內文（F259、F305） */
   const copyAttr =
-    ctx.copyButtons && (b.type === 'info' || b.type === 'handout')
-      ? ` tabindex="0" title="${COPY_BLOCK_TIP}"`
-      : '';
-  return withVars(
-    `<div class="${cls}" data-id="${esc(b.id)}"${ost ? ` style="${ost}"` : ''}><div${anchor} class="${icls}"${ist ? ` style="${ist}"` : ''}${copyAttr}>${extra}${inner}</div></div>`,
-    ctx.doc,
-  );
+    ctx.copyButtons && copiesBody(b) ? ` tabindex="0" title="${COPY_BLOCK_TIP}"` : '';
+  /* 段落裡的段落放在內容的最後（框的裡面） */
+  const kids = kidsHtml(b, ctx);
+  return `<div class="${cls}" data-id="${esc(b.id)}"${ost ? ` style="${ost}"` : ''}><div${anchor} class="${icls}"${ist ? ` style="${ist}"` : ''}${copyAttr}>${extra}${inner}${kids}</div></div>`;
 }
+
+/** 匯出 HTML 裡按一下複製內文的段落：情報區塊、手冊、勾了「按一下複製」的特殊區塊 */
+export const copiesBody = (b: Block): boolean =>
+  b.type === 'info' || b.type === 'handout' || (b.type === 'proc' && procStyleOf(b).copy);
 
 /** 匯出 HTML：情報區塊、手冊的提示 */
 export const COPY_BLOCK_TIP = '按一下複製內文';
@@ -655,8 +704,9 @@ export function staticPageHtml(
   for (const id of ids) {
     const b = byId.get(id);
     if (!b) continue;
-    const pull = gapPull(prev, b.type);
-    prev = b.type;
+    const k = spKey(b) ?? b.type;
+    const pull = gapPull(prev, k);
+    prev = k;
     let top = false;
     if (!topDone && b.type !== 'break' && b.type !== 'colbr') {
       top = true;
@@ -683,6 +733,7 @@ export function popupsWithContent(all: readonly Block[]): Block[] {
 
 /** 附錄裡的一個項目（標題、段落）：依所在位置（頁首、與前一段的間距）產生 HTML */
 export interface FlowItem {
+  /** 決定間距的書式（spKey） */
   type: string;
   html: (place: Place) => string;
 }
@@ -713,7 +764,7 @@ export function appendixItems(ctx: RenderCtx, all: readonly Block[]): FlowItem[]
     });
     if (popIsBlocks(b)) {
       for (const x of (b.pop?.blocks ?? []).filter((y) => y.type !== 'break' && y.type !== 'colbr'))
-        out.push({ type: x.type, html: (p) => blockHtml(x, ctx, p) });
+        out.push({ type: spKey(x) ?? x.type, html: (p) => blockHtml(x, ctx, p) });
     } else {
       out.push({
         type: 'desc',

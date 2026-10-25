@@ -326,7 +326,7 @@ test.describe('劇本排版台：2026-10 跟進第二批', () => {
     await expect(source(page).locator('[data-row="a"]')).toContainText('標題 2');
     await expect(ta).toHaveValue('小節');
     await expect(status(page)).toContainText('已改成標題 2');
-    /* Enter：新的描述文，第一行 :::skill ＋ Enter → 規則框、游標在裡面 */
+    /* Enter：新的描述文，第一行 :::skill ＋ Enter → 特殊區塊、游標在裡面 */
     await page.keyboard.press('End');
     await page.keyboard.press('Enter');
     await page.keyboard.type(':::skill');
@@ -335,7 +335,7 @@ test.describe('劇本排版台：2026-10 跟進第二批', () => {
     await page.keyboard.press('Escape');
     await expect(sug).toHaveCount(0);
     await page.keyboard.press('Enter');
-    await expect(status(page)).toContainText('已改成規則框');
+    await expect(status(page)).toContainText('已改成特殊區塊');
     await page.keyboard.type('〈偵查〉成功時');
     let d = await savedDoc(page);
     expect(d.blocks.map((b) => [b.type, b.text])).toEqual([
@@ -345,7 +345,11 @@ test.describe('劇本排版台：2026-10 跟進第二批', () => {
     /* 新的描述文：--- ＋ Enter → 橫線＋描述文（存檔時焦點離開了文字欄，先點回去） */
     await source(page).locator('textarea').nth(1).click();
     await page.keyboard.press('Control+End');
+    /* 特殊區塊的文字最後的 Enter 是裡面的段落、空的再按 Enter 拿到外面（F300，第三批） */
     await page.keyboard.press('Enter');
+    await expect(source(page).locator('[data-kids] textarea')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(source(page).locator('[data-kids]')).toHaveCount(0);
     await page.keyboard.type('---');
     await page.keyboard.press('Enter');
     await expect(status(page)).toContainText('已改成橫線');

@@ -536,23 +536,23 @@ export function docFromFileText(text: string): Doc {
   return normalizeDoc(obj);
 }
 
-/** 開啟檔案：新增為一個新作品並開啟（F015） */
-export async function openFile(file?: File): Promise<void> {
+/** 開啟檔案：新增為一個新作品並開啟（F015、F308）。開好了回傳 true */
+export async function openFile(file?: File): Promise<boolean> {
   const f = file ?? (await pickFiles({ accept: '.json,application/json' }))[0];
-  if (!f) return;
+  if (!f) return false;
   let text: string;
   try {
     text = await readAsText(f);
   } catch {
     say(S.status.readFail, 'err');
-    return;
+    return false;
   }
   let d: Doc;
   try {
     d = docFromFileText(text);
   } catch (e) {
     say(e instanceof Error ? e.message : S.status.notDoc, 'err');
-    return;
+    return false;
   }
   if (!ses().idb) {
     loadDoc(withBrowserTemplates(d));
@@ -560,10 +560,12 @@ export async function openFile(file?: File): Promise<void> {
     resetUi();
     void flush();
     say(S.status.opened(d.title));
-    return;
+    return true;
   }
   const id = await createWork(d);
-  if (await openWork(id)) say(S.status.openedNew(d.title || UNTITLED));
+  const ok = await openWork(id);
+  if (ok) say(S.status.openedNew(d.title || UNTITLED));
+  return ok;
 }
 
 /* ---------- 啟動（F008、F017、F018） ---------- */

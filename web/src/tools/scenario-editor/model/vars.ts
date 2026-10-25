@@ -110,6 +110,8 @@ export interface VarItem {
   src: VarSource;
   /** 手冊的題名（src＝ho 時） */
   ttl?: string;
+  /** 手冊段落的 id（src＝ho 時） */
+  id?: string;
 }
 
 const DATA_KEYS = new Set(['img', 'art', 'data']);
@@ -150,7 +152,15 @@ export function varList(doc: Pick<Doc, 'blocks' | 'vars'>): VarItem[] {
     const h = hoOf(b);
     if (!isVarName(h.no) || seen.has(h.no)) continue;
     seen.add(h.no);
-    out.push({ n: h.no, def: String(h.def ?? ''), note: hoNote(h.ttl), src: 'ho', ttl: h.ttl });
+    /* 說明：手冊自己寫的（第三批，上游 v3.10.2），沒有時「手冊「題名」的 PC」 */
+    out.push({
+      n: h.no,
+      def: String(h.def ?? ''),
+      note: String(h.note ?? '').trim() || hoNote(h.ttl),
+      src: 'ho',
+      ttl: h.ttl,
+      id: b.id,
+    });
   }
   for (const v of Array.isArray(doc.vars) ? doc.vars : []) {
     const n = String(v?.n ?? '').trim();

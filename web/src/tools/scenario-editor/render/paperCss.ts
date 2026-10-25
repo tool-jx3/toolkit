@@ -32,9 +32,9 @@ const BASE_CSS = `
 .t-h3{font-size:1.08em;font-weight:700;color:#5c4a33}
 .h3mk{color:#a8331f;font-size:.85em}
 .t-desc{line-height:1.9}
-.t-dialog{line-height:1.85;color:#1c2b3c}
+.t-dialog{--bxc:#1c2b3c;--bxl:rgba(28,43,60,.55);--bxf:rgba(28,43,60,.045);line-height:1.8;color:#1c2b3c}
 .spk{display:block;font-size:.78em;font-weight:700;letter-spacing:.12em;color:#5c4a33;margin:0 0 .1em;line-height:1.3}
-.t-note{font-size:.86em;line-height:1.75;color:#5f5849;background:rgba(35,32,28,.05);border-left:2px solid rgba(35,32,28,.35);padding:2mm 3mm}
+.t-note{--bxc:#5f5849;--bxl:rgba(95,88,73,.6);--bxf:rgba(95,88,73,.05);font-size:.86em;line-height:1.75;color:#5f5849;background:var(--bxf);border-left:2px solid var(--bxl);padding:2mm 3mm}
 .t-scene{text-align:right;font-size:.88em;font-weight:700;text-decoration:underline;text-underline-offset:.28em;line-height:1.8;letter-spacing:.06em;break-after:avoid}
 .t-cover{text-align:center;font-size:2.9em;letter-spacing:.22em;line-height:1.5;font-weight:600;break-after:avoid}
 .t-colophon{font-size:.76em;line-height:2;color:#5f5849;letter-spacing:.04em;border-top:1px solid rgba(35,32,28,.45);padding-top:3.5mm}
@@ -46,20 +46,39 @@ const BASE_CSS = `
 .bp-colbr{break-before:column;padding:0!important}
 .t-colbr{height:0;margin:0!important;padding:0;font-size:0;line-height:0}
 
-/* 規則框 */
+/* 特殊區塊（第三批：同原作 v3.26 的線、字、顏色的組合；對話文、注釋、情報區塊的樣子） */
 .t-proc{line-height:1.8;padding:2.5mm 3.5mm}
 .t-proc.bx-sm{font-size:.95em}
 .t-proc.bx-l-solid{border:1.3px solid var(--bxl)}
 .t-proc.bx-l-dash{border:1.3px dashed var(--bxc)}
-.t-proc.bx-l-none{border:0;padding-left:0;padding-right:0}
+.t-proc.bx-l-none{border:0;padding:0}
+.t-proc.bx-l-none.bx-fill,.t-proc.bx-l-none.bx-bar{padding:2.5mm 2.5mm}
 .t-proc.bx-bar{border-left:5px solid var(--bxc);padding-left:3.5mm}
+.t-proc.bx-bar.bx-thin{border-left:2px solid var(--bxl);padding-left:3mm}
+.t-proc.bx-l-none.bx-bar{padding-left:3.5mm}
+.t-proc.bx-l-none.bx-bar.bx-thin{padding-left:3mm}
+.t-proc.bx-bar.bx-mid{border-left:3px solid var(--bxc)}
+.b.t-proc.bx-l-none.sp-info{padding:2.5mm 3.5mm}
+.t-proc.bx-xs{font-size:.86em}
+.t-proc.bx-ink{color:var(--bxc)}
 .t-proc.bx-fill{background:var(--bxf)}
 .blb{display:block;font-size:.75em;letter-spacing:.28em;font-weight:700;margin-bottom:1mm;white-space:pre-wrap}
 .t-proc .blb{color:var(--bxc)}
+.t-proc.sp-dialog .blb{font-size:.78em;letter-spacing:.12em;color:#5c4a33;margin:0 0 .1em;line-height:1.3}
+.b.t-proc.bx-l-none.sp-note{padding:2mm 3mm;line-height:1.75}
+
+/* 段落裡的段落（第三批）：有框的書式放在框裡，其他的往內縮 4 mm；「■」開頭的描述文左邊有線 */
+.bx-kids{margin-top:1.2mm}
+.bx-kids.kids-ind{margin-left:4mm}
+.bp.sec>.b{border-left:2px solid var(--bxl,rgba(168,51,31,.6));padding-left:3mm}
+.bp.sec>.b>.rh:first-child{border-left:0;padding-left:0;margin-top:0}
+
+/* 繞排的圖片旁邊：有框、底色的書式整個縮到圖片旁（不鑽到圖片下面；第三批，上游 v3.10.3） */
+.t-h1,.t-h2,.t-note,.t-proc,.t-info,.t-handout,.t-hr,.t-table{display:flow-root}
 
 /* 情報區塊、手冊（2026-10，上游 v3.8.0～v3.9.0；3.2.2） */
-.t-info{line-height:1.8;padding:2.5mm 3.5mm;border-left:3px solid #2f5d73;background:rgba(47,93,115,.07)}
-.t-info .blb{color:#2f5d73}
+.t-info{--bxc:#2f5d73;--bxl:rgba(47,93,115,.6);--bxf:rgba(47,93,115,.07);line-height:1.8;padding:2.5mm 3.5mm;border-left:3px solid var(--bxc);background:var(--bxf)}
+.t-info .blb{color:var(--bxc)}
 .t-handout{line-height:1.8;padding:3.5mm 4.5mm;border:1.4px solid #23201c;border-radius:1px}
 .ho-h{display:flex;align-items:baseline;gap:3mm;flex-wrap:wrap;border-bottom:1px solid rgba(35,32,28,.55);padding-bottom:1.5mm;margin-bottom:2mm;white-space:normal}
 .ho-n{font-weight:700;font-size:1.2em;letter-spacing:.06em;color:#a8331f}
@@ -89,11 +108,12 @@ const BASE_CSS = `
 .rin{border:1.2px dashed var(--bxc,#a8331f);background:var(--bxf,rgba(168,51,31,.05));border-radius:1mm;padding:1.8mm 2.5mm;margin:1.8mm 0}
 .rin .blb{font-size:.72em;margin-bottom:.8mm;color:var(--bxc,#a8331f)}
 .rt{white-space:pre-wrap;line-height:1.85;color:#1c2b3c;margin:0 0 1.2mm}
-.t-proc .rt .spk{color:var(--bxc)}
+.rt:last-child{margin-bottom:0}
+.t-proc .rt .spk,.t-note .rt .spk,.t-info .rt .spk{color:var(--bxc)}
 .rtbl{width:100%;border-collapse:collapse;font-size:.9em;margin:1.2mm 0;white-space:normal}
 .rtbl th,.rtbl td{border:1px solid rgba(35,32,28,.4);padding:.8mm 1.5mm;text-align:left;line-height:1.6;white-space:pre-wrap}
 .rtbl th{background:rgba(35,32,28,.07);font-weight:700}
-.t-proc .rtbl th{background:var(--bxf,rgba(35,32,28,.07))}
+.t-proc .rtbl th,.t-note .rtbl th,.t-info .rtbl th{background:var(--bxf,rgba(35,32,28,.07))}
 .rh1{font-size:1.25em;font-weight:700;letter-spacing:.08em;color:#f7f3ea;background:#23201c;padding:1mm 2.5mm;margin:3mm 0 1.6mm}
 .rh2{font-size:1.12em;letter-spacing:.05em;margin:2.6mm 0 1.4mm;padding:0 0 .6mm 2.5mm;border-left:3px solid #a8331f;border-bottom:1px solid rgba(35,32,28,.25)}
 .rh3{font-size:1.02em;font-weight:700;color:#5c4a33;margin:2mm 0 1mm}
@@ -105,7 +125,7 @@ ul.ls li.lv1{padding-left:1.6em}ul.ls li.lv2{padding-left:3.2em}ul.ls li.lv3{pad
 ul.ls .mk{flex:0 0 auto;color:#a8331f;min-width:1.1em}
 ul.ls-num .mk{color:#5c4a33;font-variant-numeric:tabular-nums}
 ul.ls-box .mk{color:#23201c}
-.t-proc ul.ls .mk{color:var(--bxc)}
+.t-proc ul.ls .mk,.t-note ul.ls .mk,.t-info ul.ls .mk{color:var(--bxc)}
 ul.ls .tx{flex:1;min-width:0;white-space:pre-wrap}
 
 /* 註解（列印與 PDF 不顯示底線與編號） */
@@ -137,6 +157,8 @@ ruby rt{font-size:.5em;font-weight:inherit;letter-spacing:0;line-height:1.1;text
 .bp.bp-image.fl-l .t-image,.bp.bp-image.fl-r .t-image{margin:0}
 .bp.bp-image.fl-l img,.bp.bp-image.fl-r img{width:100%!important}
 .imgshape{pointer-events:none;visibility:hidden}
+/* 頁首的段落：繞排的圖片也不留上方的間距（同原作：頁首的規則在圖片的規則之後） */
+.bp.top.bp-image{padding-top:0}
 
 /* 表格 */
 .t-table{white-space:normal}
@@ -319,9 +341,15 @@ const LINK_CSS = `
 `;
 
 /** 段落間距（3.2.4）：上＝外框的上內距、下＝內容的下外距 */
-export const SPACE_CSS = Object.entries(SPACE)
+export const SPACE_CSS = `${Object.entries(SPACE)
   .map(([k, v]) => `.bp-${k}{padding-top:${v.t}mm}\n.t-${k}{margin-bottom:${v.b}mm}`)
-  .join('\n');
+  .join('\n')}
+${(['dialog', 'note', 'info'] as const)
+  .map(
+    (k) =>
+      `.bp.sp-${k}{padding-top:${SPACE[k].t}mm}\n.t-proc.sp-${k}{margin-bottom:${SPACE[k].b}mm}`,
+  )
+  .join('\n')}`;
 
 /** 紙面的完整樣式 */
 export const PAPER_CSS = `${BASE_CSS}\n${PATTERN_CSS}\n${LINK_CSS}\n${SPACE_CSS}\n`;

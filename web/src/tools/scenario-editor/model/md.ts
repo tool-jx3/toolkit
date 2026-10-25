@@ -6,16 +6,17 @@
  *   ::名稱[標籤]{屬性}                  （沒有內容的一行，例如換頁）
  * 名稱：英文是正式的；也認繁中的書式名稱與原作的日文名稱（D27）。不認得的名稱照原文留在描述文裡。
  */
-import { newBlock, POP_SKIP } from './blocks';
+import { KIDS_SKIP, newBlock, POP_SKIP } from './blocks';
 import { ensurePopup, fixBlock, makeBlock, prepareType } from './doc';
-import { applyBxTpl, BX_TPL } from './proc';
+import { procSplit } from './kids';
+import { applyBxTpl, isBuiltinTpl } from './proc';
 import { guessType } from './rich';
 import { newTable } from './table';
 import { ensureToc } from './toc';
 import type { Block, BlockType, BoxTemplate } from './types';
 import { ensureHo, isVarName, VAR_RESERVED } from './vars';
 
-/** 名稱 → 書式（「proc:skill」＝規則框＋技能檢定的樣板）。查的時候不分大小寫 */
+/** 名稱 → 書式（「proc:skill」＝特殊區塊＋技能檢定的樣板）。查的時候不分大小寫 */
 const NAMES: Record<string, string> = {
   /* 英文（正式） */
   desc: 'desc',
@@ -53,6 +54,7 @@ const NAMES: Record<string, string> = {
   注釋: 'note',
   對話文: 'dialog',
   對話: 'dialog',
+  特殊區塊: 'proc',
   規則框: 'proc',
   技能檢定: 'proc:skill',
   檢定: 'proc:skill',
@@ -156,7 +158,7 @@ export interface MdCtx {
   skip: readonly BlockType[];
   /** 用過的手冊編號（新的手冊用還沒用的） */
   ho: Set<string>;
-  /** 自己的規則框樣板 */
+  /** 自己的特殊區塊樣板 */
   tpls: BoxTemplate[];
 }
 
@@ -196,10 +198,20 @@ export function mdMake(
   const one = txt || lb || '';
   let nb: Block;
   if (k === 'proc') {
-    nb = makeBlock('proc', txt, ctx.tpls);
+    /* ■成功、＞檢定、裡面的 ::: 是特殊區塊裡面的段落（第三批，同原作 v3.20） */
+    const sp = procSplit(txt, {
+      open: (ln) => {
+        const dd = mdDirective(ln);
+        return dd ? dd.n : 0;
+      },
+      close: (ln) => ln.match(CLOSE_RE)?.[1].length ?? 0,
+      parse: (inner) => mdParse(inner, { ...ctx, skip: [...ctx.skip, ...KIDS_SKIP] }).blocks,
+    });
+    nb = makeBlock('proc', sp.text, ctx.tpls);
+    if (sp.kids.length) nb.kids = sp.kids;
     const tn = at.tpl || d.tpl || 'skill';
     const mine = ctx.tpls.find((t) => t.n === tn || t.id === tn);
-    applyBxTpl(nb, tn in BX_TPL ? tn : mine ? mine.id : 'skill', ctx.tpls);
+    applyBxTpl(nb, isBuiltinTpl(tn) ? tn : mine ? mine.id : 'skill', ctx.tpls);
     if (lb != null) nb.lb = lb;
   } else if (k === 'info') {
     nb = makeBlock('info', txt);
@@ -421,9 +433,9 @@ export interface MdSuggestItem {
 }
 
 const SUGGEST: readonly (readonly [string, string, string, string, string])[] = [
-  ['proc', 'proc', '規則框', '框住檢定或規則', '規則框 檢定 規則'],
-  ['skill', 'proc:skill', '規則框（技能檢定）', '技能檢定外觀的框', '技能檢定 檢定'],
-  ['rule', 'proc:rule', '規則框（特殊規則）', '特殊規則外觀的框', '特殊規則 規則'],
+  ['proc', 'proc', '特殊區塊', '框住檢定或規則', '特殊區塊 規則框 檢定 規則'],
+  ['skill', 'proc:skill', '特殊區塊（技能檢定）', '技能檢定外觀的框', '技能檢定 檢定'],
+  ['rule', 'proc:rule', '特殊區塊（特殊規則）', '特殊規則外觀的框', '特殊規則 規則'],
   ['info', 'info', '情報區塊', '按一下就能複製內文的框', '情報區塊 情報'],
   ['handout', 'handout', '手冊', '有編號與題名的框', '手冊 HO'],
   ['note', 'note', '注釋', '小一點的補充', '注釋 註釋'],

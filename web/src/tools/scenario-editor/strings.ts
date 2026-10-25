@@ -132,6 +132,13 @@ export const S = {
     pimgCorner: (c: string) => `已對齊版心的${c}`,
     mdTyped: (t: string) => `已改成${t}`,
     mdNotHere: (t: string) => `這裡不能放${t}。`,
+    /* 段落裡的段落、特殊區塊（第三批） */
+    kidsIn: '已放進上一個段落裡',
+    kidsOut: '已拿到外面（放在外面那段的下面）',
+    noKidsType: (t: string) => `${t}不能放進段落裡。`,
+    selfInside: '段落不能搬進自己裡面。',
+    insertedBelow: (t: string) => `已在下面新增「${t}」（選取的段落沒有改）`,
+    cleared: '已取消選取',
   },
   confirm: {
     deleteBlocks: (n: number) => `刪除 ${n} 個段落？`,
@@ -171,6 +178,10 @@ export const S = {
     ttlPlaceholder: '例：古書店的常客',
     copyHint: '匯出的 HTML 裡按一下這個框，就把內文（不含編號與題名）複製到剪貼簿。',
     noDup: '這個編號別的手冊用過了。',
+    /* 手冊的變數（第三批，上游 v3.10.2） */
+    varLabel: (no: string) => `變數 {${no}}`,
+    varHint: (no: string) =>
+      `預設值是匯出的 HTML 裡還沒填名字時顯示的字（空白＝「${no}」）；說明顯示在輸入欄下方。文件分頁的「變數」也可以改。`,
   },
   vars: {
     title: '變數',
@@ -192,6 +203,12 @@ export const S = {
     badName: '名稱只能用英數字、底線、假名、漢字，最多 16 字（title、page、total 不能用）。',
     dupName: '已經有同名的變數了（只算第一個）。',
     registered: (n: string) => `已登錄變數 {${n}}`,
+    /* 清單直接改（第三批，上游 v3.10.2） */
+    hoRow: (no: string, ttl: string) => `{${no}}・手冊${ttl.trim() ? `「${ttl.trim()}」` : ''}`,
+    hoRowTip: '手冊的編號、預設值、說明（與手冊的設定相同）',
+    autoRow: (no: string) => `{${no}}・本文寫到的 HO＋數字（自動）`,
+    autoRowTip: '填了預設值或說明就變成登錄的變數',
+    hoNoBad: '編號只能用英數字、底線、假名、漢字，最多 16 字（title、page、total 不能用）。',
   },
   /** 存到瀏覽器（2026-10，上游 v3.26.0） */
   saveBrowser: {

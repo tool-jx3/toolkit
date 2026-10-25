@@ -4,7 +4,7 @@
  * 書式本來的大小＝所在位置的大小 × 書式的倍率（倍率與紙面的樣式相同）。
  */
 
-import { cellOwnerOf, findBlock } from './blocks';
+import { cellOwnerOf, findBlock, kidsOwnerOf } from './blocks';
 import { blockMarks, tidyMarks } from './text';
 import type { Block, Doc, Table } from './types';
 
@@ -35,7 +35,8 @@ const TYPE_EM: Readonly<Record<string, number>> = {
 };
 
 export function typeEm(b: Pick<Block, 'type' | 'bx'>): number {
-  if (b.type === 'proc') return b.bx?.sm ? 0.95 : 1;
+  /* 特殊區塊：更小（注釋的樣子）0.86、小一點 0.95 */
+  if (b.type === 'proc') return b.bx?.xs ? 0.86 : b.bx?.sm ? 0.95 : 1;
   return TYPE_EM[b.type] ?? 1;
 }
 
@@ -54,11 +55,16 @@ export function cellEm(t: Pick<Table, 'look'> | undefined, key: string): number 
   return 1;
 }
 
-/** 段落所在位置的大小（pt）：本文、彈出視窗＝內文字級；儲存格＝表格的大小 × 儲存格的倍率 */
+/**
+ * 段落所在位置的大小（pt）：本文、彈出視窗＝內文字級；段落裡的段落＝外面那段本來的大小
+ * （外面那段指定了 pt 也不跟著變；2026-10 第三批，上游 v3.21.0）；儲存格＝表格的大小 × 儲存格的倍率
+ */
 export function ctxPt(doc: Pick<Doc, 'blocks' | 'base'>, b: Block): number {
   const base = +doc.base || 10;
   const f = findBlock(doc, b.id);
   if (!f) return base;
+  const own = kidsOwnerOf(doc, f.list);
+  if (own) return natPt(doc, own);
   const cell = cellOwnerOf(doc, f.list);
   if (cell) return curPt(doc, cell.b) * cellEm(cell.b.tbl, cell.key);
   return base;
@@ -133,6 +139,8 @@ export function migrateLegacySizes(list: Block[], ctx: number, base: number): vo
       }
       b.mk = tidyMarks(b.mk);
     }
+    /* 段落裡的段落：外面那段本來的大小（不跟著外面的倍率） */
+    if (Array.isArray(b.kids)) migrateLegacySizes(b.kids, nat, base);
     if (b.type === 'popup' && Array.isArray(b.pop?.blocks))
       migrateLegacySizes(b.pop.blocks, base, base);
     if (b.type === 'table' && b.tbl?.cb)
@@ -146,6 +154,7 @@ export function hasLegacySizes(list: readonly Block[]): boolean {
   for (const b of list) {
     if (b.fs != null) return true;
     if (Array.isArray(b.mk) && b.mk.some((c) => c && c.sz != null)) return true;
+    if (Array.isArray(b.kids) && hasLegacySizes(b.kids)) return true;
     if (b.type === 'popup' && Array.isArray(b.pop?.blocks) && hasLegacySizes(b.pop.blocks))
       return true;
     if (b.type === 'table' && b.tbl?.cb)

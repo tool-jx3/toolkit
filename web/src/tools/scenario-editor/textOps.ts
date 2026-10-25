@@ -55,6 +55,11 @@ export function trackFields(): void {
       last = { el: t, id: t.dataset.bid, name: false };
     else if (t instanceof HTMLInputElement && t.dataset.tname)
       last = { el: t, id: t.dataset.tname, name: true };
+    /* 特殊區塊的標題語欄（第三批）：注音、註解、顏色不作用在這裡 */ else if (
+      t instanceof HTMLInputElement &&
+      t.dataset.lbl
+    )
+      last = null;
     else if (
       (t instanceof HTMLTextAreaElement || t instanceof HTMLInputElement) &&
       t.dataset.cellOf

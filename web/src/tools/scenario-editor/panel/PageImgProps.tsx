@@ -35,6 +35,7 @@ import {
   type ImagePosChoice,
   ImageWidthField,
 } from './ImageProps';
+import { PanelHead } from './PanelHead';
 
 const EDGES = [
   ['top', '靠上緣'],
@@ -49,9 +50,7 @@ export function PageImgPanel() {
   if (!o) return null;
   return (
     <div className="flex flex-col gap-2" data-testid="se-pimg-panel">
-      <p className="m-0 text-sm text-muted" aria-live="polite">
-        目前：自由配置的圖片（頁面圖片）
-      </p>
+      <PanelHead>目前：自由配置的圖片（頁面圖片）</PanelHead>
       <PageImgProps o={o} />
     </div>
   );

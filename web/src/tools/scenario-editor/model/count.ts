@@ -32,7 +32,10 @@ export function docCharCount(doc: Pick<Doc, 'blocks'> & Partial<Pick<Doc, 'pageI
 /** 千位加逗號 */
 export const formatCount = (n: number): string => n.toLocaleString('en-US');
 
-/** 段落的純文字（複製文字用）：換頁與目錄略過、圖片取說明、NPC 卡取名字／立場／備忘 */
+/**
+ * 段落的純文字（複製文字用）：換頁與目錄略過、圖片取說明、NPC 卡取名字／立場／備忘；
+ * 段落裡的段落接在後面（一行一段，空白的略過；第三批，同原作 v3.19）
+ */
 export function blockPlainText(b: Block): string {
   if (b.type === 'break' || b.type === 'toc') return '';
   if (b.type === 'image') return String(b.cap ?? '').trim();
@@ -43,6 +46,10 @@ export function blockPlainText(b: Block): string {
       .filter(Boolean)
       .join('\n');
   }
+  if (Array.isArray(b.kids) && b.kids.length)
+    return [String(b.text ?? ''), ...b.kids.map(blockPlainText)]
+      .filter((x) => x.trim() !== '')
+      .join('\n');
   return String(b.text ?? '');
 }
 
@@ -52,6 +59,13 @@ export function blockPlainText(b: Block): string {
  */
 export function copyBodyText(b: Pick<Block, 'text'>): string {
   return rubyPlain(String(b.text ?? '')).replace(/\n+$/, '');
+}
+
+/**
+ * 「按一下複製」的特殊區塊（第三批，上游 v3.25.0）：內文與裡面的段落的文字（注音只留本文字、結尾的換行去掉）。
+ */
+export function procCopyText(b: Block): string {
+  return rubyPlain(blockPlainText(b)).replace(/\n+$/, '');
 }
 
 /** 幾個段落的純文字以空行接起來（空白的略過） */

@@ -5,8 +5,8 @@
  * 純字串（不依賴 DOM），方便測試。
  */
 import { googleFontCssUrl } from '@/core/fonts';
-import { allBlocks, gapPull, popIsBlocks } from './model/blocks';
-import { copyBodyText } from './model/count';
+import { allBlocks, gapPull, popIsBlocks, spKey } from './model/blocks';
+import { copyBodyText, procCopyText } from './model/count';
 import { POPUP_DEFAULT_LABEL } from './model/doc';
 import { bodyWidthMm, fnum } from './model/image';
 import { ccfoliaText } from './model/npc/ccfolia';
@@ -21,6 +21,7 @@ import {
   appendixHtml,
   bgClass,
   blockHtml,
+  copiesBody,
   newPrintLinks,
   pageSettingAt,
   pimgFlowHtml,
@@ -149,10 +150,10 @@ const VAR_CSS = `
 #vx small{display:block;font-size:11px;color:#8d97ac;margin:-3px 0 6px 42px}
 `;
 
-/** 情報區塊、手冊按一下複製（F259） */
+/** 情報區塊、手冊、「按一下複製」的特殊區塊按一下複製（F259、F305） */
 const COPY_CSS = `
-.t-info,.t-handout{cursor:copy;transition:box-shadow .12s}
-.t-info:hover,.t-handout:hover,.t-info:focus-visible,.t-handout:focus-visible{box-shadow:0 0 0 2px rgba(211,165,52,.55);outline:0}
+.t-info,.t-handout,.t-proc.bx-copy{cursor:copy;transition:box-shadow .12s}
+.t-info:hover,.t-handout:hover,.t-proc.bx-copy:hover,.t-info:focus-visible,.t-handout:focus-visible,.t-proc.bx-copy:focus-visible{box-shadow:0 0 0 2px rgba(211,165,52,.55);outline:0}
 #cpToast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;background:#23201c;color:#f7f3ea;border-radius:999px;padding:7px 16px;font:13px system-ui,sans-serif;opacity:0;pointer-events:none;transition:opacity .2s}
 #cpToast.on{opacity:1}
 @media print{#cpToast{display:none!important}}
@@ -251,7 +252,7 @@ setTocMask(load('trpg-tocmask')!=='0');
 })();`;
 
 /** 按一下情報區塊、手冊時（比對註解之後、複製按鈕之前） */
-const COPY_CLICK = `  var cp=t.closest('.t-info,.t-handout');
+const COPY_CLICK = `  var cp=t.closest('.t-info,.t-handout,.t-proc.bx-copy');
   if(cp&&!t.closest('a,button,input')&&!String(window.getSelection?window.getSelection():'').trim()){copyBlock(cp);return;}
 `;
 
@@ -261,7 +262,7 @@ const copyJs = (
 function copyBlock(el){var pad=el.closest('[data-id]');var src=pad&&document.getElementById('cp'+pad.getAttribute('data-id'));if(!src)return;
   copyText(${vars ? 'VT(src.textContent)' : 'src.textContent'});
   if(toast){toast.textContent=CT;toast.classList.add('on');clearTimeout(toastT);toastT=setTimeout(function(){toast.classList.remove('on');},1400);}}
-document.addEventListener('keydown',function(e){if(e.key!=='Enter'&&e.key!==' ')return;var t=e.target;if(!t||!t.classList||!(t.classList.contains('t-info')||t.classList.contains('t-handout')))return;e.preventDefault();copyBlock(t);});
+document.addEventListener('keydown',function(e){if(e.key!=='Enter'&&e.key!==' ')return;var t=e.target;if(!t||!t.classList||!(t.classList.contains('t-info')||t.classList.contains('t-handout')||t.classList.contains('bx-copy')))return;e.preventDefault();copyBlock(t);});
 `;
 
 /** 登場人物欄：讀出記住的值、替換全文的 .tvar 與目錄的原文、每次輸入就寫回（F258） */
@@ -405,8 +406,9 @@ function flowBodyHtml(
     for (const id of pages[i] ?? []) {
       const x = byId.get(id);
       if (!x || x.type === 'break' || x.type === 'colbr') continue;
-      const pull = gapPull(prev, x.type);
-      prev = x.type;
+      const k = spKey(x) ?? x.type;
+      const pull = gapPull(prev, k);
+      prev = k;
       h += blockHtml(x, ctx, { cols: 1, pull, top: !topDone });
       topDone = true;
     }
@@ -444,8 +446,9 @@ function flowAppendixHtml(ctx: RenderCtx, all: readonly Block[]): string {
       for (const x of (p.pop?.blocks ?? []).filter(
         (y) => y.type !== 'break' && y.type !== 'colbr',
       )) {
-        h += blockHtml(x, ctx, { cols: 1, pull: gapPull(prev, x.type), top: false });
-        prev = x.type;
+        const k = spKey(x) ?? x.type;
+        h += blockHtml(x, ctx, { cols: 1, pull: gapPull(prev, k), top: false });
+        prev = k;
       }
     } else
       h += `<div class="bp bp-desc"><div class="b t-desc" style="white-space:normal">${popupContentHtml(p.pop, ctx)}</div></div>`;
@@ -545,11 +548,14 @@ export function exportHtml({ doc, pages, from, to, flow = false }: ExportInput):
         `<div class="popbody" id="pop${esc(p.id)}" hidden><div class="pw-t">${wrapVarsHtml(esc(p.pop?.label || '詳細'), view)}</div><div class="pw-b">${popupContentHtml(p.pop, winCtx)}</div></div>`,
     )
     .join('');
-  const copy = all.some((x) => x.type === 'info' || x.type === 'handout');
+  const copy = all.some(copiesBody);
   const dataBits = all
     .map((x) => {
       if (x.type === 'info' || x.type === 'handout')
         return `<script type="text/plain" class="outdata" id="cp${esc(x.id)}">${scriptSafe(copyBodyText(x))}</script>`;
+      /* 「按一下複製」的特殊區塊：裡面的段落的文字也複製（第三批，上游 v3.25.0） */
+      if (x.type === 'proc' && copiesBody(x))
+        return `<script type="text/plain" class="outdata" id="cp${esc(x.id)}">${scriptSafe(procCopyText(x))}</script>`;
       if (x.type === 'table' && x.tbl)
         return `<script type="text/plain" class="outdata" id="out${esc(x.id)}">${scriptSafe(exportOutText(x.tbl))}</script>`;
       if (x.type === 'npc' && x.npc)

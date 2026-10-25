@@ -1,0 +1,423 @@
+{
+  "mdv": 1,
+  "title": "第三批的驗證稿",
+  "padV": 18,
+  "padH": 16,
+  "base": 10,
+  "defCols": 1,
+  "foot": {
+    "num": true,
+    "text": "",
+    "from": 1
+  },
+  "fonts": [],
+  "bxTpl": [],
+  "fontBody": "",
+  "fontHead": "",
+  "vars": [],
+  "pageImgs": [],
+  "pages": [
+    {
+      "id": "pg1",
+      "bg": {
+        "preset": "none",
+        "img": null,
+        "fit": "cover",
+        "opa": 35
+      },
+      "cols": 1
+    }
+  ],
+  "blocks": [
+    {
+      "id": "h1a",
+      "type": "h1",
+      "cols": 2,
+      "text": "第一章　書房",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    },
+    {
+      "id": "d1",
+      "type": "desc",
+      "cols": 2,
+      "text": "房間裡很暗。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "kids": [
+        {
+          "id": "d1k",
+          "type": "desc",
+          "cols": 2,
+          "text": "桌上有一封信。",
+          "mt": null,
+          "mb": null,
+          "img": null,
+          "w": 70,
+          "cap": "",
+          "ind": 0
+        }
+      ],
+      "ind": 0
+    },
+    {
+      "id": "sk",
+      "type": "proc",
+      "cols": 2,
+      "text": "調查桌子。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "kids": [
+        {
+          "id": "sec1",
+          "type": "desc",
+          "cols": 2,
+          "text": "■成功\n找到信封。",
+          "mt": null,
+          "mb": null,
+          "img": null,
+          "w": 70,
+          "cap": "",
+          "ind": 0
+        },
+        {
+          "id": "sec2",
+          "type": "desc",
+          "cols": 2,
+          "text": "■失敗\n什麼都沒有。",
+          "mt": null,
+          "mb": null,
+          "img": null,
+          "w": 70,
+          "cap": "",
+          "ind": 0
+        },
+        {
+          "id": "sk2",
+          "type": "proc",
+          "cols": 2,
+          "text": "聽見腳步聲。",
+          "mt": null,
+          "mb": null,
+          "img": null,
+          "w": 70,
+          "cap": "",
+          "lb": "聆聽",
+          "bx": {
+            "ln": "dash",
+            "bar": false,
+            "thin": false,
+            "mid": false,
+            "fill": true,
+            "sm": true,
+            "xs": false,
+            "ink": false,
+            "copy": false,
+            "col": "aka"
+          },
+          "ind": 0,
+          "kids": []
+        }
+      ],
+      "bx": {
+        "ln": "dash",
+        "bar": false,
+        "thin": false,
+        "mid": false,
+        "fill": true,
+        "sm": true,
+        "xs": false,
+        "ink": false,
+        "copy": false,
+        "col": "aka"
+      },
+      "lb": "技能判定",
+      "ind": 0
+    },
+    {
+      "id": "dl",
+      "type": "proc",
+      "cols": 2,
+      "text": "「歡迎光臨。」",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "lb": "管家",
+      "bx": {
+        "ln": "none",
+        "bar": false,
+        "thin": false,
+        "mid": false,
+        "fill": false,
+        "sm": false,
+        "xs": false,
+        "ink": true,
+        "copy": false,
+        "col": "kon"
+      },
+      "ind": 0,
+      "kids": []
+    },
+    {
+      "id": "nt",
+      "type": "proc",
+      "cols": 2,
+      "text": "※ 這裡的燈會閃。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "bx": {
+        "ln": "none",
+        "bar": true,
+        "thin": true,
+        "mid": false,
+        "fill": true,
+        "sm": false,
+        "xs": true,
+        "ink": true,
+        "copy": false,
+        "col": "hai"
+      },
+      "lb": "",
+      "ind": 0,
+      "kids": []
+    },
+    {
+      "id": "inf",
+      "type": "proc",
+      "cols": 2,
+      "text": "信的內容：明天中午到鐘樓。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "kids": [
+        {
+          "id": "infk",
+          "type": "desc",
+          "cols": 2,
+          "text": "署名是 K。",
+          "mt": null,
+          "mb": null,
+          "img": null,
+          "w": 70,
+          "cap": "",
+          "ind": 0
+        }
+      ],
+      "bx": {
+        "ln": "none",
+        "bar": true,
+        "thin": false,
+        "mid": true,
+        "fill": true,
+        "sm": false,
+        "xs": false,
+        "ink": false,
+        "copy": true,
+        "col": "nando"
+      },
+      "lb": "情報",
+      "ind": 0
+    },
+    {
+      "id": "rl",
+      "type": "proc",
+      "cols": 2,
+      "text": "每回合失去 1 點。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "pt": 14,
+      "kids": [
+        {
+          "id": "rlk",
+          "type": "desc",
+          "cols": 2,
+          "text": "裡面的段落用本來的大小。",
+          "mt": null,
+          "mb": null,
+          "img": null,
+          "w": 70,
+          "cap": "",
+          "ind": 0
+        }
+      ],
+      "bx": {
+        "ln": "solid",
+        "bar": true,
+        "thin": false,
+        "mid": false,
+        "fill": true,
+        "sm": false,
+        "xs": false,
+        "ink": false,
+        "copy": false,
+        "col": "sumi"
+      },
+      "lb": "特殊ルール",
+      "ind": 0
+    },
+    {
+      "id": "sc",
+      "type": "scene",
+      "cols": 2,
+      "text": "前往鐘樓",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "kids": [
+        {
+          "id": "sck",
+          "type": "desc",
+          "cols": 2,
+          "text": "路上下著雨。",
+          "mt": null,
+          "mb": null,
+          "img": null,
+          "w": 70,
+          "cap": "",
+          "ind": 0
+        }
+      ],
+      "ind": 0
+    },
+    {
+      "id": "ho",
+      "type": "handout",
+      "cols": 2,
+      "text": "你是記者。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ho": {
+        "no": "HO1",
+        "ttl": "記者",
+        "def": "記者小姐",
+        "note": "扮演記者的 PC",
+        "rec": ""
+      },
+      "kids": [
+        {
+          "id": "hok",
+          "type": "desc",
+          "cols": 2,
+          "text": "你在追一個案子。",
+          "mt": null,
+          "mb": null,
+          "img": null,
+          "w": 70,
+          "cap": "",
+          "ind": 0
+        }
+      ],
+      "ind": 0
+    },
+    {
+      "id": "imf",
+      "type": "image",
+      "cols": 2,
+      "text": "",
+      "mt": null,
+      "mb": null,
+      "img": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAIklEQVR4AWTIMQ0AAAwCwQZnXeui/kXASuCTXw73Sx8TFQgAAP//q3F5pAAAAAZJREFUAwBDHgezNFJmNgAAAABJRU5ErkJggg==",
+      "w": 30,
+      "cap": "",
+      "ar": 0.75,
+      "pos": "left",
+      "fl": "l",
+      "ind": 0,
+      "dy": 0,
+      "dx": 0,
+      "pg": 1
+    },
+    {
+      "id": "pf",
+      "type": "proc",
+      "cols": 2,
+      "text": "圖片旁邊的框整個縮到圖片的旁邊，不鑽到圖片下面。圖片旁邊的框整個縮到圖片的旁邊，不鑽到圖片下面。圖片旁邊的框整個縮到圖片的旁邊，不鑽到圖片下面。圖片旁邊的框整個縮到圖片的旁邊，不鑽到圖片下面。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "bx": {
+        "ln": "solid",
+        "bar": true,
+        "thin": false,
+        "mid": false,
+        "fill": true,
+        "sm": false,
+        "xs": false,
+        "ink": false,
+        "copy": false,
+        "col": "sumi"
+      },
+      "lb": "特殊ルール",
+      "ind": 0,
+      "kids": []
+    },
+    {
+      "id": "nf",
+      "type": "proc",
+      "cols": 2,
+      "text": "圖片旁邊的框整個縮到圖片的旁邊，不鑽到圖片下面。圖片旁邊的框整個縮到圖片的旁邊，不鑽到圖片下面。圖片旁邊的框整個縮到圖片的旁邊，不鑽到圖片下面。圖片旁邊的框整個縮到圖片的旁邊，不鑽到圖片下面。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "bx": {
+        "ln": "none",
+        "bar": true,
+        "thin": true,
+        "mid": false,
+        "fill": true,
+        "sm": false,
+        "xs": true,
+        "ink": true,
+        "copy": false,
+        "col": "hai"
+      },
+      "lb": "",
+      "ind": 0,
+      "kids": []
+    },
+    {
+      "id": "d2",
+      "type": "desc",
+      "cols": 2,
+      "text": "結尾。",
+      "mt": null,
+      "mb": null,
+      "img": null,
+      "w": 70,
+      "cap": "",
+      "ind": 0
+    }
+  ],
+  "pkv": 1,
+  "fsv": 1,
+  "tkv": 2
+}

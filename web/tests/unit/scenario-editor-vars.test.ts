@@ -436,7 +436,7 @@ describe('匯出 HTML（F258、F259、3.9）', () => {
     expect(html).toContain('class="b t-info" tabindex="0" title="按一下複製內文"');
     expect(html).toContain('class="b t-handout" tabindex="0" title="按一下複製內文"');
     expect(html).toContain('<div id="cpToast" role="status" aria-live="polite"></div>');
-    expect(html).toContain('.t-info,.t-handout{cursor:copy');
+    expect(html).toContain('.t-info,.t-handout,.t-proc.bx-copy{cursor:copy');
   });
   it('登場人物欄：每個變數一列（提示文字＝預設值或名稱、說明）', () => {
     const vx = html.slice(html.indexOf('<div id="vx">'), html.indexOf('<button id="tocMask"'));

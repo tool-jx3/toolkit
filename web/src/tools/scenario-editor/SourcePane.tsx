@@ -1,6 +1,7 @@
 /**
- * 文字欄（F030～F044）：每個段落一列，可以直接打字；巢狀的串列（彈出視窗的內容、表格每一格）接在下面。
- * 選取（按、Shift、Ctrl、拖過、框選）、拖曳搬移、Enter 分段、Backspace 接合、多段貼上、斜線指令、Tab 縮排。
+ * 文字欄（F030～F044）：每個段落一列，可以直接打字；巢狀的串列（彈出視窗的內容、表格每一格、段落裡的段落）接在下面。
+ * 選取（按、Shift、Ctrl、拖過、框選）、拖曳搬移、Enter 分段、Backspace 接合、多段貼上、斜線指令、
+ * Tab 放進上一段（不行時縮排）、↑↓ 跨段移動、特殊區塊的標題語欄（第三批）。
  */
 import { GripVertical } from 'lucide-react';
 import {
@@ -15,10 +16,12 @@ import {
   useState,
 } from 'react';
 import { cn, Segmented } from '@/ui';
+import { atEdge, caretBox, navMove } from './caretNav';
 import {
   CELL_SKIP,
   findBlock,
   isOnlyPopup,
+  KIDS_SKIP,
   POP_SKIP,
   popIsBlocks,
   TEXT_TYPES,
@@ -27,22 +30,26 @@ import {
 import { popupLabel } from './model/doc';
 import { type MdSuggestItem, mdSuggest } from './model/md';
 import { pimgPage } from './model/pageImg';
+import { blockLabel, procName } from './model/proc';
 import { applySlash } from './model/rich';
 import { tblCols, tblRows } from './model/table';
 import { setBlockText } from './model/text';
 import type { Block, Doc } from './model/types';
 import { hoOf } from './model/vars';
 import {
+  clearAll,
   clickSelect,
   ensurePopRefs,
-  indentSel,
+  enterAt,
   joinBack,
   type ListRef,
   mdApplySuggest,
   mdHeadFire,
   mdLineFire,
   moveBlocksTo,
+  nestSel,
   pasteParagraphs,
+  setBlockLabel,
   splitAt,
 } from './ops';
 import { pageSettingAt } from './render/html';
@@ -51,6 +58,7 @@ import {
   clearSelection,
   doc,
   editBlock,
+  focusBlock,
   select,
   selectPimg,
   setUi,
@@ -87,6 +95,15 @@ const TYPE_TEXT_CLASS: Partial<Record<string, string>> = {
 };
 
 /* ---------- 一列 ---------- */
+
+/** 文字欄上方有標題語欄的書式（第三批，上游 v3.24.1；對話文是說話者） */
+const LABEL_ROW_TYPES: readonly string[] = ['proc', 'info', 'dialog'];
+
+/** 一列的書式名稱：特殊區塊依樣子（對話文、注釋、情報區塊的樣板時用那個名稱） */
+const rowTypeName = (b: Block): string => (b.type === 'proc' ? procName(b) : typeName(b.type));
+
+/** ↑↓ 走到不能打字的段落時：選取它（紙面捲過去） */
+const pickRow = (id: string) => select([id]);
 
 interface RowProps {
   b: Block;
@@ -157,7 +174,7 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
     const ref = JSON.parse(listKey) as ListRef;
     const r = mdSuggest(
       el.value.slice(0, el.selectionStart),
-      ref.k === 'cell' ? CELL_SKIP : ref.k === 'pop' ? POP_SKIP : [],
+      ref.k === 'kids' ? KIDS_SKIP : ref.k === 'cell' ? CELL_SKIP : ref.k === 'pop' ? POP_SKIP : [],
     );
     setSug((prev) =>
       r
@@ -229,8 +246,22 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
       const z = el.selectionEnd;
       /* 第一行只有 :::名稱、::名稱、--- 時按 Enter：變成那個書式（F291） */
       if (a === z && mdLineFire(b.id, el.value, a)) return;
-      if (z > a) editBlock(b.id, (x) => setBlockText(x, el.value.slice(0, a) + el.value.slice(z)));
-      splitAt(b.id, a);
+      let v = el.value;
+      if (z > a) {
+        v = v.slice(0, a) + v.slice(z);
+        const cut = v;
+        editBlock(b.id, (x) => setBlockText(x, cut));
+      }
+      /* 特殊區塊、裡面有段落、段落裡最後的空段落、「■」那一行（第三批；F300） */
+      const how = enterAt(b.id, v, a);
+      if (how === 'newline') {
+        const nv = `${v.slice(0, a)}\n${v.slice(a)}`;
+        el.value = nv;
+        el.setSelectionRange(a + 1, a + 1);
+        editBlock(b.id, (x) => setBlockText(x, nv));
+        return;
+      }
+      if (how === 'split') splitAt(b.id, a);
       return;
     }
     if (e.key === 'Backspace' && !ime && el.selectionStart === 0 && el.selectionEnd === 0) {
@@ -238,15 +269,35 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
       return;
     }
     if (e.key === 'Tab' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      if (ime) return;
       e.preventDefault();
       if (!ui().sel.includes(b.id)) select([b.id], { scroll: false });
-      indentSel(e.shiftKey ? -1 : 1);
+      /* 放進上一段的最後／拿到外面；不行時縮排（F297）。列會換位置：游標放回原處 */
+      const caret = el.selectionStart;
+      nestSel(e.shiftKey ? -1 : 1);
+      focusBlock(b.id, caret);
       return;
     }
+    /* ↑↓：最上面、最下面一行時移到上一個、下一個欄位（F309） */
+    if (
+      (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+      !ime &&
+      !e.shiftKey &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey
+    ) {
+      const up = e.key === 'ArrowUp';
+      if (atEdge(el, up)) {
+        const x = caretBox(el, el.selectionStart).x;
+        if (navMove(el, up ? -1 : 1, x, pickRow)) e.preventDefault();
+      }
+      return;
+    }
+    /* Esc：選取、游標全部取消（F313；上游 v3.24.0） */
     if (e.key === 'Escape' && !ime) {
       e.preventDefault();
-      el.blur();
-      select([b.id], { scroll: false });
+      clearAll();
     }
   };
 
@@ -274,7 +325,8 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
 
   /* 手冊的書式名稱處顯示編號（F252） */
   const ho = b.type === 'handout' ? hoOf(b).no : '';
-  const label = ho ? `${typeName(b.type)} ${ho}` : typeName(b.type);
+  const label = ho ? `${typeName(b.type)} ${ho}` : rowTypeName(b);
+  const hasLabel = LABEL_ROW_TYPES.includes(b.type);
   return (
     <div
       className={cn(
@@ -306,11 +358,16 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
       <div className="relative min-w-0 flex-1">
         {isText ? (
           <>
+            {hasLabel ? (
+              <LabelField b={b} name={label} onFocus={onFocus} next={() => ta.current} />
+            ) : null}
             <textarea
               ref={ta}
               rows={1}
               value={text}
               data-bid={b.id}
+              data-nav="t"
+              data-navid={b.id}
               aria-label={`${label}的文字`}
               placeholder={S.hints.emptyText}
               spellCheck={false}
@@ -350,7 +407,12 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
             ) : null}
           </>
         ) : b.type === 'image' ? (
-          <div className="flex items-center gap-2 px-1.5 py-0.5 text-sm" data-dbl={b.id}>
+          <div
+            className="flex items-center gap-2 px-1.5 py-0.5 text-sm"
+            data-dbl={b.id}
+            data-nav="sel"
+            data-navid={b.id}
+          >
             {b.img ? (
               <img
                 src={b.img}
@@ -365,7 +427,12 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
             </span>
           </div>
         ) : (
-          <div className="px-1.5 py-0.5 text-sm text-muted" data-dbl={b.id}>
+          <div
+            className="px-1.5 py-0.5 text-sm text-muted"
+            data-dbl={b.id}
+            data-nav="sel"
+            data-navid={b.id}
+          >
             {summaryOf(b, doc())}
           </div>
         )}
@@ -373,6 +440,64 @@ const Row = memo(function Row({ b, listKey, index, depth, selected, span }: RowP
     </div>
   );
 });
+
+/**
+ * 文字欄上方的標題語欄（特殊區塊、情報區塊的標題語；對話文的說話者；第三批，上游 v3.24.1；F311）：
+ * Enter 到文字的開頭、↑↓ 移到上一個、下一個欄位、Esc 全部取消；和設定欄的欄位是同一個值。
+ */
+function LabelField({
+  b,
+  name,
+  onFocus,
+  next,
+}: {
+  b: Block;
+  name: string;
+  onFocus: () => void;
+  next: () => HTMLTextAreaElement | null;
+}) {
+  const spk = b.type === 'dialog';
+  const value = spk ? String(b.sp ?? '') : blockLabel(b);
+  const ph = spk || name === '對話文' ? '（沒有說話者）' : '（沒有標題語）';
+  return (
+    <input
+      type="text"
+      value={value}
+      data-nav="lb"
+      data-navid={b.id}
+      data-lbl={b.id}
+      aria-label={`${name}的${spk ? '說話者' : '標題語'}`}
+      placeholder={ph}
+      spellCheck={false}
+      className="block w-full rounded-sm border border-transparent bg-transparent px-1.5 py-0 text-xs font-bold tracking-wider text-accent placeholder:font-normal placeholder:tracking-normal placeholder:text-muted focus:border-border-strong focus:bg-surface focus:outline-none"
+      onFocus={onFocus}
+      onChange={(e) => setBlockLabel(b.id, e.target.value)}
+      onKeyDown={(e) => {
+        const el = e.currentTarget;
+        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          const t = next();
+          if (t) {
+            t.focus();
+            t.setSelectionRange(0, 0);
+          }
+          return;
+        }
+        if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.shiftKey) {
+          const x = caretBox(el, el.selectionStart ?? 0).x;
+          if (navMove(el, e.key === 'ArrowUp' ? -1 : 1, x, pickRow)) e.preventDefault();
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          clearAll();
+        }
+      }}
+    />
+  );
+}
 
 /* ---------- 串列 ---------- */
 
@@ -423,6 +548,46 @@ function Nested({
   d: Doc;
   spanOf: (b: Block) => boolean;
 }) {
+  /* 段落裡的段落（第三批）：在強調色的直線裡面；同一條線裡面是同一層 */
+  const kids = b.kids?.length ? (
+    <div
+      className="my-0.5 border-l-2 border-accent pl-1"
+      style={{ marginLeft: depth * 14 + 12 }}
+      data-kids={b.id}
+    >
+      <BlockList
+        list={b.kids}
+        refKey={{ k: 'kids', id: b.id }}
+        depth={0}
+        sel={sel}
+        d={d}
+        spanOf={() => false}
+      />
+    </div>
+  ) : null;
+  const sub = nestedLists({ b, depth, sel, d, spanOf });
+  if (!kids) return sub;
+  return (
+    <>
+      {sub}
+      {kids}
+    </>
+  );
+}
+
+function nestedLists({
+  b,
+  depth,
+  sel,
+  d,
+  spanOf,
+}: {
+  b: Block;
+  depth: number;
+  sel: ReadonlySet<string>;
+  d: Doc;
+  spanOf: (b: Block) => boolean;
+}): React.ReactNode {
   if (b.type === 'popup' && popIsBlocks(b)) {
     const ref: ListRef = { k: 'pop', id: b.id };
     const list = b.pop?.blocks ?? [];
@@ -485,11 +650,27 @@ function TableNameRow({ b }: { b: Block }) {
         type="text"
         value={String(b.tbl?.name ?? '')}
         data-tname={b.id}
+        data-nav="in"
+        data-navid={b.id}
         className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-surface-2 px-2 text-sm text-fg"
         onFocus={() => {
           if (!(ui().sel.length === 1 && ui().sel[0] === b.id)) select([b.id]);
         }}
         onKeyDown={(e) => {
+          /* ↑↓：上一個、下一個欄位（F309） */
+          if (
+            (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+            !e.shiftKey &&
+            !e.ctrlKey &&
+            !e.altKey &&
+            !e.metaKey &&
+            !e.nativeEvent.isComposing
+          ) {
+            const el = e.currentTarget;
+            const x = caretBox(el, el.selectionStart ?? 0).x;
+            if (navMove(el, e.key === 'ArrowUp' ? -1 : 1, x, pickRow)) e.preventDefault();
+            return;
+          }
           /* Tab：移到下一個表格欄位（第一格的文字欄，游標在最後）；Shift＋Tab 照瀏覽器 */
           if (e.key !== 'Tab' || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
           if (e.nativeEvent.isComposing) return;

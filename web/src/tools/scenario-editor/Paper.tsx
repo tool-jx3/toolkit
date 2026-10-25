@@ -12,6 +12,7 @@ import { findBlock } from './model/blocks';
 import { docCharCount, formatCount } from './model/count';
 import { flowGrowNode } from './model/flow';
 import { blockComments } from './model/text';
+import type { Doc } from './model/types';
 import { clickSelect, createPopupNamed, setPageCols } from './ops';
 import { offscreenHost } from './output';
 import { EDITOR_CSS } from './render/editorCss';
@@ -105,6 +106,7 @@ export function Paper() {
     });
     paintSelection(st, ui().sel, ui().pageSel, ui().pimgSel);
     if (keep != null && vp.current?.scroller) vp.current.scroller.scrollTop = keep;
+    followNewBlocks(d, st);
     watchImages(st, waiting, () => {
       if (imgRetry.current >= 2) return;
       imgRetry.current++;
@@ -116,6 +118,27 @@ export function Paper() {
         x.pages.splice(Math.max(1, res.pages.length));
       });
     growFlowNodes(st);
+  };
+
+  /*
+   * 新增了段落：紙面捲到那一段（看不到時；第三批，上游 v3.10.2，F310）。每次排版找之前沒看過的本文段落：
+   * 有選取的新段落時捲到它，沒有時只在一次加了 5 段以內時捲到第一段（開啟作品時不動）。
+   */
+  const known = useRef<Set<string> | null>(null);
+  const followNewBlocks = (d: Doc, st: HTMLElement) => {
+    const ids = d.blocks.map((b) => b.id);
+    if (!known.current) {
+      known.current = new Set(ids);
+      return;
+    }
+    const seen = known.current;
+    const fresh = ids.filter((id) => !seen.has(id));
+    for (const id of ids) seen.add(id);
+    if (!fresh.length) return;
+    const sel = new Set(ui().sel);
+    const t = fresh.find((id) => sel.has(id)) ?? (fresh.length <= 5 ? fresh[0] : null);
+    const el = t ? st.querySelector<HTMLElement>(`.bp[data-id="${CSS.escape(t)}"]`) : null;
+    if (el) vp.current?.revealRect(el.getBoundingClientRect(), 0.3);
   };
 
   const schedule = (ms: number) => {

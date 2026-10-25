@@ -18,6 +18,7 @@ import {
   duplicateWork,
   flushNow,
   newWork,
+  openFile,
   openWork,
   restoreFromTrash,
   restoreGen,
@@ -300,6 +301,15 @@ export function LibraryDialog() {
         }}
       >
         新建
+      </Button>
+      {/* 讀入原稿的 JSON 檔：加成新的作品並開啟（第三批，上游 v3.11.1；F308） */}
+      <Button
+        variant="secondary"
+        onClick={async () => {
+          if (await openFile()) close();
+        }}
+      >
+        讀入 JSON
       </Button>
       <Button ref={openBtn} disabled={!sel || busy.has(sel.id)} onClick={() => void doOpen()}>
         開啟

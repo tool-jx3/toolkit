@@ -3,7 +3,7 @@
  * 編輯畫面、列印、PDF、頁面一覽都用同一份分頁結果（每頁放了哪些段落）。
  */
 import { paginate } from '@/core/paged';
-import { allBlocks, gapPull, subLists } from './model/blocks';
+import { allBlocks, gapPull, spKey, subLists } from './model/blocks';
 import { pimgsOn } from './model/pageImg';
 import type { Block, Doc } from './model/types';
 import { varPlain, varView } from './model/vars';
@@ -110,9 +110,11 @@ export function layoutDoc(doc: Doc, host: HTMLElement, o: LayoutOptions): Layout
     },
     renderItem: (b, { pageIndex, before }) => {
       const st = pageSettingAt(doc, pageIndex);
-      const prev = before.length ? before[before.length - 1].type : null;
+      const prev = before.length ? spKey(before[before.length - 1]) : null;
       const top = b.type !== 'colbr' && !before.some((x) => x.type !== 'colbr');
-      return htmlToElement(blockHtml(b, ctx, { cols: st.cols, pull: gapPull(prev, b.type), top }));
+      return htmlToElement(
+        blockHtml(b, ctx, { cols: st.cols, pull: gapPull(prev, spKey(b) ?? b.type), top }),
+      );
     },
     isOutOfFlow,
   });
@@ -133,8 +135,9 @@ export function layoutDoc(doc: Doc, host: HTMLElement, o: LayoutOptions): Layout
   for (const b of doc.blocks) {
     const p = pageOf.get(b.id);
     if (p == null) continue;
-    if (b.type === 'table')
-      for (const l of subLists(b)) for (const x of walk(l)) pageOf.set(x.id, p);
+    /* 儲存格裡的段落、段落裡的段落＝那個段落的頁 */
+    for (const l of subLists(b))
+      if (b.type === 'table' || l === b.kids) for (const x of walk(l)) pageOf.set(x.id, p);
   }
   ctx.total = total;
   /* 頁數比圖片的頁號少時，那些圖片放在最後一頁：最後一頁的避開框重做（同原作） */
