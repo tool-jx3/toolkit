@@ -7,7 +7,7 @@
  * 也可以加自己的塗黑樣式。
  *
  * 也有：運鏡（只畫畫面的一塊、放大到整個畫面；圖在放大的倍率下重畫一次，字不會糊）、
- * 段階公開用的「每個框各自的進度」、圖層（背景／放大框／標記）。
+ * 逐步公開用的「每個框各自的進度」、圖層（背景／放大框／標記）。
  * 陰影一律只畫在形狀外面（shadowOutside）：圖有透明處時，底下不會透出陰影。
  */
 import { makeCanvas, roundRectPath } from '@/core/image';
@@ -840,7 +840,7 @@ export interface FrameInput<S extends FxDoc = FxDoc> {
 export interface RenderOptions {
   /** 運鏡：畫面上的哪一塊（畫面 px）放大到整個畫面；null＝全圖 */
   view?: Rect | null;
-  /** 每個框各自的進度（段階公開）；不給時依時間 */
+  /** 每個框各自的進度（逐步公開）；不給時依時間 */
   progress?: Progress;
   /** 圖層：背景（背景＋圖＋靜止的塗黑＋出處）、放大框（周圍變暗＋放大框，框裡只有靜止的塗黑）、標記、完成（預設） */
   layer?: LayerId;

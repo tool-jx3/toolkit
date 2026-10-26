@@ -2,7 +2,7 @@
  * 截圖演出產生器：共用引擎（core/imagefx）抽出前後，畫出來的每一格逐像素相同。
  *
  * 基準檔 `fixtures/screenshot-fx-golden.json` 是**抽出之前**的程式（commit 83ece3d 的 screenshot-fx）在 node-canvas 上
- * 畫的：每個場景、每個時間（含運鏡、圖層、段階公開）的 RGBA 的 SHA-256。之後引擎改了、screenshot-fx 的輸出跟著變，
+ * 畫的：每個場景、每個時間（含運鏡、圖層、逐步公開）的 RGBA 的 SHA-256。之後引擎改了、screenshot-fx 的輸出跟著變，
  * 這個測試就會失敗——要刻意改變外觀時，用 `UPDATE_GOLDEN=1 npx vitest run tests/unit/screenshot-fx-golden.test.ts` 重新產生並在規格寫明。
  * 場景涵蓋三種背景、四種放大框樣式、七種螢光筆、三種塗黑 × 三種動作 × 兩種方向、邊界演出、聚光、透明截圖、依序／同時、運鏡。
  * 沒有出處文字（字型因機器而異）。沒有 node-canvas 時跳過。
@@ -277,7 +277,7 @@ async function sha(data: Uint8ClampedArray): Promise<string> {
 }
 
 describe.runIf(nc)('screenshot-fx 的輸出與共用引擎抽出之前逐像素相同', () => {
-  it('每個場景、每個時間、運鏡、圖層、段階公開的 RGBA 都和基準相同', async () => {
+  it('每個場景、每個時間、運鏡、圖層、逐步公開的 RGBA 都和基準相同', async () => {
     const img = testImage();
     const got: Record<string, string> = {};
     for (const j of jobs()) {

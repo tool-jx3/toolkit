@@ -346,7 +346,10 @@ test.describe('訊息框產生器', () => {
     await expect(page.getByTestId('css-preview-area')).toContainText('套用前');
     await page.getByRole('button', { name: '顯示套用後' }).click();
     await expect(f.locator('header.MuiAppBar-root')).toBeHidden();
-    await page.getByRole('radio', { name: '棋盤格（透明）' }).click();
+    await page
+      .getByRole('radiogroup', { name: '預覽背景' })
+      .getByRole('radio', { name: '透明', exact: true })
+      .click();
     expect(await api(page, (a) => (a.preview().background as { kind: string }).kind)).toBe(
       'checker',
     );

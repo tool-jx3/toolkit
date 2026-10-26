@@ -271,13 +271,14 @@ test.describe('範本一覽', () => {
     expect(near(await corner(), [0x1b, 0x1d, 0x22, 255])).toBe(true);
     await page.getByRole('radio', { name: '淺色', exact: true }).click();
     await expect.poll(corner).toEqual([0xf5, 0xf3, 0xee, 255]);
-    await page.getByRole('radio', { name: '透明', exact: true }).click();
+    const thumbBg = page.getByRole('radiogroup', { name: '縮圖背景' });
+    await thumbBg.getByRole('radio', { name: '透明', exact: true }).click();
     await expect.poll(async () => (await corner())[3]).toBe(0);
     await motion.click();
     await expect(motion).toBeChecked();
     await page.reload();
     await expect(page.getByRole('switch', { name: '縮圖一起播放' })).toBeChecked();
-    await expect(page.getByRole('radio', { name: '透明', exact: true })).toHaveAttribute(
+    await expect(thumbBg.getByRole('radio', { name: '透明', exact: true })).toHaveAttribute(
       'aria-checked',
       'true',
     );

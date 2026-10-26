@@ -12,6 +12,7 @@ import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
 import {
   clampRect,
+  type DragCorner,
   type FrameBase,
   type FxDoc,
   type ImageRef,
@@ -68,8 +69,14 @@ export interface FxStoreConfig<
   normalizeState: (raw: unknown) => S;
   initialPrefs: () => P;
   normalizePrefs: (raw: unknown) => P;
-  /** 用目前的預設做一個新框 */
-  makeFrame: (kind: P['tool'], rect: Rect, defaults: P['defaults'], id: string) => F;
+  /** 用目前的預設做一個新框（from：拖曳的起點在哪個角；需要方向的工具用，例如地圖演出的 L 字路線） */
+  makeFrame: (
+    kind: P['tool'],
+    rect: Rect,
+    defaults: P['defaults'],
+    id: string,
+    from?: DragCorner,
+  ) => F;
   /** 複製：往右下移一點（夾在圖裡）、新的 id */
   duplicateFrame: (f: F, image: Size, id: string) => F;
   /** 框的範圍改了（拖曳、控點、方向鍵）：預設只換 x、y、w、h；路線之類的點要跟著動時自己改 */
@@ -269,11 +276,15 @@ export function createFxStore<
   }
 
   /** 畫一個新框（用目前的工具與預設）；回傳 id（到上限時 null） */
-  function addFrame(rect: Rect, kind: P['tool'] = prefsNow().tool): string | null {
+  function addFrame(
+    rect: Rect,
+    kind: P['tool'] = prefsNow().tool,
+    from?: DragCorner,
+  ): string | null {
     const s = docNow();
     if (!s.image || s.frames.length >= LIMITS.frames) return null;
     const id = newFrameId(s.frames.map((f) => f.id));
-    const frame = config.makeFrame(kind, clampRect(rect, s.image), prefsNow().defaults, id);
+    const frame = config.makeFrame(kind, clampRect(rect, s.image), prefsNow().defaults, id, from);
     return insertFrame(frame);
   }
 

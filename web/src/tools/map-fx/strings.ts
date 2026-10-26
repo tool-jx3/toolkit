@@ -178,7 +178,8 @@ export const S = {
     vh: 'L 字：先直後橫',
     z: 'Z 字（曲柄）',
   } satisfies Record<RouteShape, string>,
-  routeShapeHint: '直線走框的中線；L 字與 Z 字從框的左上角出發、到右下角。',
+  routeShapeHint:
+    '直線照選的方向走框的中線；L 字與 Z 字從拖曳開始的那一角出發、走到對角（從右下往左上拖，就從右下出發）。',
   pointShape: '點選建立',
   pointShapeHint: (n: number) =>
     `照點的順序走過 ${n} 個點；在預覽上拖曳框可以整條移動、拉控點等比縮放。`,
@@ -201,7 +202,8 @@ export const S = {
   pointBar: '點選路線',
   pointLayer: '點選路線的編輯層',
   pointHandle: (i: number) => `第 ${i} 個點`,
-  routeToolHint: '直線、L 字、地點用拖曳畫；U 字和往返用「點選建立路線」。',
+  routeToolHint:
+    '要繞路、折返或走 U 字時，按「點選建立路線」一點一點點出來；其他形狀與地點直接在地圖上拖一個框。',
 
   /* 房間遮罩 */
   redactStyle: '樣式',
@@ -215,7 +217,7 @@ export const S = {
     dark: '整間塗黑，中間寫一個大大的「？」和房名。',
     keepout: '琥珀色的斜線帶，像拉起了封鎖線。',
     fog: '毛玻璃般的霧，隱約看得到輪廓。',
-    mosaic: '打上馬賽克（以地圖原本的大小計粒大小）。',
+    mosaic: '打上馬賽克（粒大小以輸出畫面的像素計）。',
   } satisfies Record<RedactStyle, string>,
   redactMode: '動作',
   redactModes: {
@@ -224,9 +226,9 @@ export const S = {
     conceal: '蓋上',
   } satisfies Record<RedactMode, string>,
   redactModeHints: {
-    reveal: '一開始蓋著，輪到它時霧散開、房間露出來。',
-    static: '從頭到尾都蓋著（做 CCFOLIA 面板的遮罩時用），不佔動作的時間。',
-    conceal: '一開始看得到，輪到它時才蓋起來（例如區域被封鎖）。',
+    reveal: '先遮住；輪到這個框時遮罩消失，底下的房間顯示出來。',
+    static: '不跟著時間軸動，影片從頭到尾都看不到裡面，也不佔動作的秒數。',
+    conceal: '和揭開相反：先看得到，輪到它時才被遮住，可以用在門被鎖上、通道被堵住之類的轉折。',
   } satisfies Record<RedactMode, string>,
   revealFx: '揭開的效果',
   revealFxs: {
@@ -241,7 +243,7 @@ export const S = {
   density: '濃度',
   densityHint: '遮罩的深淺、迷霧的濃淡。',
   grain: '粒大小',
-  grainHint: '馬賽克一格的大小（以地圖原本的大小計）。',
+  grainHint: '馬賽克一格的大小（以輸出畫面的像素計）。',
   edge: '邊界演出',
   edges: { glow: '金光', scan: '掃描線', none: '不加' } satisfies Record<EdgeFx, string>,
   edgeHint:
@@ -328,7 +330,7 @@ export const S = {
     webm: 'WebM（透明）',
     xmp4: 'X 用 MP4',
     rooms: '房間遮罩 ZIP',
-    steps: '段階公開 ZIP',
+    steps: '逐步公開 ZIP',
     layers: '圖層 ZIP',
     sequence: '連番 PNG ZIP',
   },
@@ -337,10 +339,10 @@ export const S = {
     apng: '會動的圖片檔，放進 CCFOLIA、OBS 就會播。',
     mp4: '一般的 MP4 影片，播放器、剪輯軟體都開得了。',
     webm: '保留透明背景的 WebM，疊在剪輯軟體的其他畫面上用；要直接發到社群網站，改用「X 用 MP4」或先把背景換成模糊、單色。',
-    xmp4: '發到 X 用：30 fps、長邊縮到 1280 px 以內，整張畫面都放進去，透明的地方用「單色」背景的顏色補上；不會改動編輯中的設定。',
+    xmp4: '直接貼上 X 的影片：H.264 編碼、每秒 30 格。比 1280 px 大的畫面整張等比縮小，不裁切；背景是透明的時候用「單色」那個顏色墊底。縮小只套在這個檔案，畫面設定不受影響。',
   },
   roomsDesc: (n: number, grid: number) =>
-    `給 CCFOLIA 自由探索用：原本的地圖一張，加上 ${n} 個房間遮罩各兩張——和地圖同尺寸的透明 PNG（疊在地圖上不用對位），以及往外對齊格線裁下的 PNG（從地圖左上角起算，擴到整格、不足的地方透明；1 格＝${grid} px），檔名寫著在第幾格、幾格大（例如 x5y2_6x4），放面板時照格子對齊。玩家走到哪間就拿掉哪一張。`,
+    `ZIP 裡有原地圖，和 ${n} 個房間遮罩的兩種版本：整張版跟地圖一樣大，蓋上去位置就對；裁切版往外擴到整格（1 格＝${grid} px，從地圖左上角數，多出來的地方透明），檔名標了起點格與格數（例如 x5y2_6x4），在 CCFOLIA 放面板時照格子擺。PL 探索到哪間，就把那片遮罩拿掉。`,
   roomsNone: '還沒有房間遮罩：先用「房間遮罩」畫幾個房間。',
   roomsValue: (n: number) => `原地圖 1 張＋房間 ${n} 個 × 2 張`,
   gridLabel: '1 格幾 px',
@@ -349,7 +351,8 @@ export const S = {
   gridValue: (n: number) => `1 格＝${n} px`,
   detailGrid: '格的大小',
   xNoH264:
-    '這個瀏覽器編不出 H.264（X 收的影片編碼），不做 X 用 MP4，免得發不上去；請換用 Chrome、Edge 或 Safari。一般的 MP4、WebM 照舊可以匯出。',
+    '這個瀏覽器沒有 H.264 編碼器，做不出 X 能收的影片，所以先關掉這個格式；Chrome、Edge、Safari 通常可以。一般的 MP4、WebM 不受影響。',
+  xFpsHint: 'X 用 MP4 固定每秒 30 格。',
   stepsDesc: (n: number) =>
     `${n} 張靜態圖：第一張什麼都還沒發生，之後每一張多演完一個框。探索時可以照進度一張張貼出來。`,
   layersDesc:
@@ -520,7 +523,7 @@ export const S = {
     '房間遮罩：選樣式（黑暗、禁止進入、戰爭迷霧、馬賽克）與動作——揭開（房間露出來）、一直蓋著、蓋上；揭開可以淡出或由左往右、由上往下掃描。房名寫在遮罩上，也會用在房間遮罩 ZIP 的檔名。',
     '「時間軸」分頁調開場、彈出、動作、結尾的秒數，以及多個框要依序還是同時；空白鍵播放。',
     '框很小不好調時，用預覽上方那一排把編輯區拉近：選倍率、到選取的框、框選放大，再用手形或按住滾輪移動；「全圖」回到整張。',
-    '匯出完成圖 PNG、會動的 APNG、MP4 影片（背景透明時是透明的 WebM）、發到 X 用的 MP4，或段階公開、圖層、連番 PNG 三種 ZIP。',
+    '匯出完成圖 PNG、會動的 APNG、MP4 影片（背景透明時是透明的 WebM）、發到 X 用的 MP4，或逐步公開、圖層、連番 PNG 三種 ZIP。',
     '要在 CCFOLIA 讓玩家自由探索：把每個房間用「房間遮罩」蓋起來，匯出「房間遮罩 ZIP」——地圖當背景，每個房間的遮罩各放一張面板，玩家進了哪間就把那張拿掉。',
     '注意：淡的遮罩、迷霧、馬賽克可能還看得出底下的內容；ZIP 裡附了原本的地圖。給玩家之前自己逐張檢查過。',
     '「進階 3D」分頁：在平面圖上框出房間與走廊（可以從房間遮罩建立）、在牆上放入口、依序點出現在位置、轉角與目的地，就能看鏡頭沿著路線走過去，並匯出 MP4 影片。',

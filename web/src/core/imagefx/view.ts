@@ -99,7 +99,7 @@ export function fxFileName(prefix: string, kind: FileKind, now: Date, zip = fals
 
 /** 連番 PNG 最多幾格（防呆；自訂） */
 export const SEQUENCE_MAX_FRAMES = 1200;
-/** ZIP 裡的檔名：段階 step_00.png…、連番 frame_0001.png…、圖層四張 */
+/** ZIP 裡的檔名：逐步公開 step_00.png…、連番 frame_0001.png…、圖層四張 */
 export const stepFileName = (k: number): string => `step_${String(k).padStart(2, '0')}.png`;
 export const frameFileName = (i: number, n: number): string =>
   `frame_${String(i + 1).padStart(Math.max(4, String(n).length), '0')}.png`;

@@ -8,6 +8,8 @@
 import { type PointerEvent, type ReactNode, useRef, useState } from 'react';
 import {
   badgeDiameter,
+  type DragCorner,
+  dragCorner,
   type FrameBase,
   frameAt,
   type Layout,
@@ -157,7 +159,8 @@ export interface ImageFxEditLayerProps<F extends FrameBase> {
   /** 框選放大：範圍（畫面 px） */
   onRegion: (r: Rect) => void;
   /** 拖曳畫出一個框（原圖 px，已夾在圖裡） */
-  onDraw: (r: Rect) => void;
+  /** 拖曳畫出一個框（from：拖曳的起點在哪個角） */
+  onDraw: (r: Rect, from: DragCorner) => void;
   /** 選取（reveal：從預覽選的，設定欄換到框的分頁） */
   onSelect: (id: string | null, reveal: boolean) => void;
   /** 框的範圍改了（原圖 px，未取整；merge：方向鍵連按） */
@@ -260,7 +263,7 @@ export function ImageFxEditLayer<F extends FrameBase>({
     const rect = rectFromDrag(drag.a, b, image);
     if (rect) {
       if (frames.length >= LIMITS.frames) return;
-      onDraw(rect);
+      onDraw(rect, dragCorner(drag.a, b));
       return;
     }
     /* 沒有拖動＝點一下：Shift 時選取那裡最上面的框（和一般的點一下同一個順序與點選範圍），不然取消選取 */

@@ -8,7 +8,7 @@
  * - 畫面：淡出揭開的進度、掃描揭開、路線長出來；
  * - 匯出：PNG（與畫面相同）、APNG、X 用 MP4（1280×720、30 fps；沒有 H.264 時停用）、房間遮罩 ZIP（檔名、往外對齊格線的
  *   裁切與格數、地圖大小的透明遮罩）、
- *   段階公開與圖層；
+ *   逐步公開與圖層；
  * - 自動儲存與還原、專案檔 ZIP；390 寬沒有橫向捲動；1280／390 的視覺基準圖；
  * - 進階 3D：示範演出的房間、入口、路線與 3D 場景（房名開關、地圖鋪在地上、沿路線的鏡頭、匯出的一格）、
  *   平面圖的操作（框出房間與走廊、房名、入口、路線、刪除、從房間遮罩建立、復原、換圖清空）、3D 移動影片、自動儲存與專案檔。
@@ -458,6 +458,36 @@ test('畫框：三種工具、新畫的框的預設、清單的摘要與個別�
   expect(errors).toEqual([]);
 });
 
+test('L 字與 Z 字從拖曳的起點那一角出發，直線照選的方向（D10）', async ({ page }) => {
+  const errors = await open(page);
+  await loadImage(page);
+  await tab(page, '演出框');
+  await tool(page, '路線・地點');
+  const defaults = page.getByTestId('defaults');
+  await defaults.getByRole('combobox', { name: '路線的形狀' }).click();
+  await page.getByRole('option', { name: 'Z 字（曲柄）' }).click();
+  await expect(defaults).toContainText('從右下往左上拖，就從右下出發');
+  /* 從右下往左上拖：從右下角出發 */
+  await drag(page, [700, 600], [400, 400]);
+  await expect.poll(async () => (await frames(page)).length).toBe(1);
+  const z = (await frames(page))[0];
+  expect(z).toMatchObject({ shape: 'z', from: 'se' });
+  const zp = await call<{ x: number; y: number }[]>(page, 'path', z.id);
+  expect(zp[0]).toEqual({ x: z.x + z.w, y: z.y + z.h });
+  expect(zp[3]).toEqual({ x: z.x, y: z.y });
+  /* 直線：從右往左拖也照「左 → 右」 */
+  await defaults.getByRole('combobox', { name: '路線的形狀' }).click();
+  await page.getByRole('option', { name: '直線：左 → 右' }).click();
+  await pause(page);
+  await drag(page, [1100, 300], [800, 100]);
+  await expect.poll(async () => (await frames(page)).length).toBe(2);
+  const line = (await frames(page))[1];
+  const lp = await call<{ x: number; y: number }[]>(page, 'path', line.id);
+  expect(lp[0].x).toBe(line.x);
+  expect(lp[1].x).toBe(line.x + line.w);
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 點選建立路線、編輯點 ---------- */
 
 test('點選建立路線：同一點再點、退回上一點、Enter 確定、Esc 取消、Backspace 不刪框（F33、F35）', async ({
@@ -471,6 +501,11 @@ test('點選建立路線：同一點再點、退回上一點、Enter 確定、Es
   await page.getByRole('button', { name: '點選建立路線' }).click();
   await expect(page.getByTestId('point-layer')).toBeVisible();
   await expect(page.getByTestId('editor')).toBeHidden();
+  /* 點選建立中按空白鍵不會開始播放（M4） */
+  await page.getByTestId('point-layer').focus();
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(300);
+  expect((await call<{ playing: boolean }>(page, 'player')).playing).toBe(false);
   /* U 字：去、回到同一點 */
   await clickAt(page, 100, 100);
   await clickAt(page, 500, 100);
@@ -613,6 +648,14 @@ test('編輯選取路線的點：拖曳點、按兩下加點、Delete 刪點、E
   await page.getByRole('button', { name: '編輯選取路線的點' }).click();
   await expect(page.getByTestId('point-layer')).toHaveAttribute('data-points', '4');
   expect((await frames(page))[0]).toMatchObject({ shape: 'points', style: 'march' });
+  /* 換成點選的之後馬上復原：回到 Z 字，編輯層自己結束（M5） */
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await frames(page))[0].shape).toBe('z');
+  await expect(page.getByTestId('point-layer')).toBeHidden();
+  await page.keyboard.press('Control+Shift+z');
+  await expect.poll(async () => (await frames(page))[0].shape).toBe('points');
+  await call(page, 'select', 'd1');
+  await page.getByRole('button', { name: '編輯選取路線的點' }).click();
   await page.getByRole('button', { name: '結束編輯' }).click();
   await expect(page.getByTestId('point-layer')).toBeHidden();
   expect(errors).toEqual([]);
@@ -752,7 +795,7 @@ test('匯出：PNG（與畫面相同）、APNG、X 用 MP4（F57、F59、F63、F
     await expect(x.result).toContainText('30 fps');
   } else {
     await expect(exportPanel(page).locator('[data-disabled-format="xmp4"]')).toContainText(
-      '這個瀏覽器編不出 H.264（X 收的影片編碼），不做 X 用 MP4',
+      'X 用 MP4：這個瀏覽器沒有 H.264 編碼器',
       { timeout: 30_000 },
     );
     await exportPanel(page).getByRole('combobox', { name: '格式' }).click();
@@ -768,7 +811,7 @@ test('匯出：PNG（與畫面相同）、APNG、X 用 MP4（F57、F59、F63、F
   expect(errors).toEqual([]);
 });
 
-test('匯出：房間遮罩 ZIP（地圖、同尺寸的透明遮罩、裁切、格數）、段階公開與圖層（F64～F66）', async ({
+test('匯出：房間遮罩 ZIP（地圖、同尺寸的透明遮罩、裁切、格數）、逐步公開與圖層（F64～F66）', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -822,8 +865,8 @@ test('匯出：房間遮罩 ZIP（地圖、同尺寸的透明遮罩、裁切、�
   /* 和同尺寸的那張逐點相同（位置照格線換算） */
   const full48 = readPng(z48['01_院長室_full.png']);
   expect(alphaAt(full48, 48 + 5, 48 + 30)).toBe(alphaAt(crop48, 5, 30));
-  /* 段階公開：演出前＋區域放大＋3 個會動的框（一直蓋著的兩個不算） */
-  const steps = await exportFile(page, '段階公開 ZIP');
+  /* 逐步公開：演出前＋區域放大＋3 個會動的框（一直蓋著的兩個不算） */
+  const steps = await exportFile(page, '逐步公開 ZIP');
   expect(Object.keys(unzipSync(steps.bytes))).toEqual([
     'step_00.png',
     'step_01.png',
@@ -1163,7 +1206,34 @@ test('進階 3D：設定自動儲存、存進專案檔；390 寬沒有橫向捲�
 
 /* ---------- 版面 ---------- */
 
+/**
+ * 視覺基準圖不依賴瀏覽器有沒有 H.264 編碼器：一律當成沒有（逐格編碼與即時錄影都不給 H.264），
+ * 匯出區「X 用 MP4」停用的說明固定出現。
+ */
+async function stubNoH264(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as {
+      VideoEncoder?: { isConfigSupported: (c: { codec: string }) => Promise<unknown> };
+      MediaRecorder?: { isTypeSupported: (t: string) => boolean };
+    };
+    const enc = w.VideoEncoder;
+    if (enc) {
+      const orig = enc.isConfigSupported.bind(enc);
+      enc.isConfigSupported = (c) =>
+        String(c.codec).startsWith('avc1')
+          ? Promise.resolve({ supported: false, config: c })
+          : orig(c);
+    }
+    const rec = w.MediaRecorder;
+    if (rec) {
+      const orig = rec.isTypeSupported.bind(rec);
+      rec.isTypeSupported = (t) => (/avc1|^video\/mp4/i.test(t) ? false : orig(t));
+    }
+  });
+}
+
 test('390 寬沒有橫向捲動；視覺基準圖 1280／390', async ({ page }) => {
+  await stubNoH264(page);
   const errors = await open(page);
   await page.getByRole('button', { name: '範例地圖' }).first().click();
   await expect.poll(async () => (await state(page))?.image?.name).toBe('範例：霧澤療養院一樓');

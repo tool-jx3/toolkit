@@ -5,7 +5,7 @@
  *   只存變化的範圍；可以減成 256／128／64 色）。
  * - 影片：背景不透明時 MP4（core/video 的 findMoviePlan＋encodeMovie：H.264，沒有時 VP9），
  *   背景透明時透明的 WebM（findAlphaWebmPlan＋encodeAlphaWebm）；瀏覽器不能逐格編碼時改用即時錄影。
- * - 運鏡（APNG、影片、連番 PNG）、段階公開 PNG、圖層 4 張、連番 PNG（三種都是 ZIP，fflate，只打包不壓縮）。
+ * - 運鏡（APNG、影片、連番 PNG）、逐步公開 PNG、圖層 4 張、連番 PNG（三種都是 ZIP，fflate，只打包不壓縮）。
  * 先等出處的字型載好再畫。工具用 createFxExporter(kit, 檔名前綴, 文字) 拿到這些函式。
  */
 import { createEncoder } from '@/core/encode';
@@ -563,7 +563,7 @@ export function createFxExporter<F extends FrameBase, S extends FxDoc<F>>(
     );
   };
 
-  /** 段階公開：演出前（step_00）→ 放大框與會動的框照清單順序一個一個做完（全圖，沒有運鏡） */
+  /** 逐步公開：演出前（step_00）→ 放大框與會動的框照清單順序一個一個做完（全圖，沒有運鏡） */
   const exportSteps = async (
     s: S,
     image: ImageSource,

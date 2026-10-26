@@ -1,6 +1,6 @@
 /**
  * 時間軸：開場、彈出、動作、結尾四段；會動的框依序或同時動作；運鏡從對象的動作開始拉回全圖。
- * 各框的進度（彈出、動作）、塗黑蓋住的範圍、段階公開的每一階段、運鏡在某個時刻看的範圍。
+ * 各框的進度（彈出、動作）、塗黑蓋住的範圍、逐步公開的每一階段、運鏡在某個時刻看的範圍。
  */
 import { clamp, clamp01, EASE, type TimelineSegment } from '@/core/timeline';
 import { intersects, type Layout, rectInCard, toCanvasRect } from './layout';
@@ -186,7 +186,7 @@ export const timeProgress = (tl: Timeline, t: number): Progress => {
   return { popup: () => p, action: (f) => actionProgress(tl, f.id, t) };
 };
 
-/** 段階公開的順序：放大框與會動的框，照清單順序（不會動的框一直是做完的樣子，不算一個階段） */
+/** 逐步公開的順序：放大框與會動的框，照清單順序（不會動的框一直是做完的樣子，不算一個階段） */
 export const stepFrames = <F extends FrameBase>(
   frames: readonly F[],
   isAction: (f: F) => boolean,

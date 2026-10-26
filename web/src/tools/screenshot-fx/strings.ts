@@ -205,7 +205,7 @@ export const S = {
   density: '濃度',
   densityHint: '黑塊的深淺、毛玻璃的模糊程度。',
   grain: '粒大小',
-  grainHint: '馬賽克一格的大小（以截圖原本的大小計）。',
+  grainHint: '馬賽克一格的大小（以輸出畫面的像素計）。',
   edge: '邊界演出',
   edges: { glow: '金光', scan: '掃描線', none: '不加' } satisfies Record<EdgeFx, string>,
   edgeHint:
@@ -263,7 +263,7 @@ export const S = {
   cameraNote:
     '鏡頭在對象開始動的那一刻往後退；如果對象很快就動完，它會配合鏡頭放慢。退到底就是平常的畫面。',
   cameraOutputNote:
-    '這是成品裡的鏡頭，跟編輯區放大看細節是兩回事。會動的 APNG、影片、連番 PNG 有鏡頭移動；靜態的 PNG、段階公開與圖層一律是整個畫面。',
+    '這是成品裡的鏡頭，跟編輯區放大看細節是兩回事。會動的 APNG、影片、連番 PNG 有鏡頭移動；靜態的 PNG、逐步公開與圖層一律是整個畫面。',
   cameraStatus: (name: string, start: number, dur: number) =>
     `從「${name}」開始：${start.toFixed(2)} 秒起用 ${dur.toFixed(1)} 秒拉回全圖。`,
   cameraNone: '沒有螢光筆或塗黑：不會運鏡。',
@@ -318,7 +318,7 @@ export const S = {
     apng: 'APNG',
     mp4: 'MP4',
     webm: 'WebM（透明）',
-    steps: '段階公開 ZIP',
+    steps: '逐步公開 ZIP',
     layers: '圖層 ZIP',
     sequence: '連番 PNG ZIP',
   },
@@ -414,7 +414,7 @@ export const S = {
     '「圖片」分頁調畫面大小、背景（模糊、透明、單色）、截圖的大小、圓角、陰影、聚光與出處文字。',
     '會動的塗黑可以在移動的那條邊加上金光或掃描線。想讓成品有鏡頭感，到「時間軸」分頁的「運鏡」選「由近拉遠」，再按「從頭確認運鏡」播一次（Esc 回到編輯）。',
     '框很小不好調時，用預覽上方那一排把編輯區拉近：選倍率、到選取的框、框選放大，再用手形或按住滾輪移動；「全圖」回到整張。這些只是編輯時看得清楚，成品不受影響。',
-    '匯出完成圖 PNG、會動的 APNG（可以減色、只播一次）、MP4 影片（背景透明時是透明的 WebM），或段階公開、圖層、連番 PNG 三種 ZIP。',
+    '匯出完成圖 PNG、會動的 APNG（可以減色、只播一次）、MP4 影片（背景透明時是透明的 WebM），或逐步公開、圖層、連番 PNG 三種 ZIP。',
     '圖片、演出框與設定會自動儲存在這個瀏覽器；也可以從「專案」選單存成專案檔，帶到別台電腦。',
   ],
 } as const;

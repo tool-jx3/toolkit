@@ -861,13 +861,14 @@ test('7.1：同一張圖被抽到好幾次時，互動 HTML 裡只放一份（F4
 
 test('7.1：預覽背景記在瀏覽器（重新整理後還在、不列入復原）（F59）', async ({ page }) => {
   await open(page);
-  const radio = (name: string) => page.getByRole('radio', { name, exact: true });
+  const radio = (name: string) =>
+    page.getByRole('radiogroup', { name: '預覽背景' }).getByRole('radio', { name, exact: true });
   await expect(radio('白色背景')).toHaveAttribute('aria-checked', 'true');
-  await radio('棋盤格（透明）').click();
-  await expect(radio('棋盤格（透明）')).toHaveAttribute('aria-checked', 'true');
+  await radio('透明').click();
+  await expect(radio('透明')).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('button', { name: /^復原/ })).toBeDisabled();
   await page.reload();
-  await expect(radio('棋盤格（透明）')).toHaveAttribute('aria-checked', 'true');
+  await expect(radio('透明')).toHaveAttribute('aria-checked', 'true');
   await radio('黑色背景').click();
   await page.reload();
   await expect(radio('黑色背景')).toHaveAttribute('aria-checked', 'true');

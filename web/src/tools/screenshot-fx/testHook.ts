@@ -67,7 +67,7 @@ export function useTestHook(player: RefObject<PlayerHandle | null>) {
         return (c as HTMLCanvasElement).toDataURL('image/png');
       },
       /**
-       * t 秒的畫面上幾個點的顏色（RGBA）；opts：camera（套用運鏡）、layer（圖層）、step（段階公開的第幾張）
+       * t 秒的畫面上幾個點的顏色（RGBA）；opts：camera（套用運鏡）、layer（圖層）、step（逐步公開的第幾張）
        */
       pixels: async (
         t: number,

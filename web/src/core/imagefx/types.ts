@@ -23,6 +23,13 @@ export interface Point {
   y: number;
 }
 
+/** 拖曳畫框時從哪個角開始（左上、右上、左下、右下）；工具用來決定框裡的方向（例：地圖演出的 L 字路線） */
+export type DragCorner = 'nw' | 'ne' | 'sw' | 'se';
+export const DRAG_CORNERS: readonly DragCorner[] = ['nw', 'ne', 'sw', 'se'];
+/** 從 a 拖到 b：起點在框的哪個角（同一條線上時算左、上） */
+export const dragCorner = (a: Point, b: Point): DragCorner =>
+  `${a.y <= b.y ? 'n' : 's'}${a.x <= b.x ? 'w' : 'e'}` as DragCorner;
+
 /* ---------- 畫面、背景、出處、時間軸、運鏡 ---------- */
 
 /** 畫面大小：三種預設與「原圖大小」 */

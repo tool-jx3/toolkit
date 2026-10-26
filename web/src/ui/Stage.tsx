@@ -151,7 +151,7 @@ export function useStageView(): StageView | null {
 
 /** 背景選項（順序即工具列順序）。深＝純黑、淺＝純白，方便檢查透明部分 */
 const BACKGROUND_OPTIONS: { value: StageAnyBackgroundKind; label: string; ariaLabel: string }[] = [
-  { value: 'checker', label: '透明', ariaLabel: '棋盤格（透明）' },
+  { value: 'checker', label: '透明', ariaLabel: '透明' },
   { value: 'dark', label: '黑', ariaLabel: '黑色背景' },
   { value: 'light', label: '白', ariaLabel: '白色背景' },
   { value: 'color', label: '色', ariaLabel: '自訂顏色背景' },

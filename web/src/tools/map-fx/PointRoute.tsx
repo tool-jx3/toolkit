@@ -87,9 +87,11 @@ export function PointRouteLayer({
   const k = 1 / scale;
   const { width: W, height: H } = layout.canvas;
   const editing = draft.mode === 'edit' ? routeById(draft.id) : null;
-  /* 編輯中的路線被復原掉、刪掉了：結束 */
+  /* 編輯中的路線被復原掉、刪掉了，或復原回拖曳畫出的形狀（不再是點選的）：結束 */
   const exists = useDoc((s) =>
-    draft.mode === 'edit' ? s.data.frames.some((f) => f.id === draft.id) : true,
+    draft.mode === 'edit'
+      ? s.data.frames.some((f) => f.id === draft.id && f.kind === 'route' && f.shape === 'points')
+      : true,
   );
   useEffect(() => {
     if (!exists) endPointMode();

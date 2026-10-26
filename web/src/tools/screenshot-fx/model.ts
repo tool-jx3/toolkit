@@ -356,7 +356,7 @@ export const buildTimeline = (
 /** 整份內容的時間軸（含運鏡） */
 export const timelineOf = (s: FxState): Timeline => buildTimeline(s.timing, s.frames, s.camera);
 
-/** 段階公開的順序：放大框與會動的框，照清單順序（靜止的塗黑一直蓋著，不算一個階段） */
+/** 逐步公開的順序：放大框與會動的框，照清單順序（靜止的塗黑一直蓋著，不算一個階段） */
 export const stepFrames = (frames: readonly Frame[]): Frame[] =>
   fxStepFrames(frames, isActionFrame);
 

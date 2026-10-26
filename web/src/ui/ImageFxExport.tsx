@@ -1,6 +1,6 @@
 /**
  * 圖片演出的匯出區（截圖演出、地圖演出共用）：PNG、APNG（色數、播放次數、試算大小）、影片（MP4／透明 WebM，
- * 依瀏覽器能不能編、背景是否透明）、段階公開／圖層／連番 PNG 的 ZIP；工具可以再加自己的格式（extra）。
+ * 依瀏覽器能不能編、背景是否透明）、逐步公開／圖層／連番 PNG 的 ZIP；工具可以再加自己的格式（extra）。
  */
 import { Calculator } from 'lucide-react';
 import { type ReactNode, type Ref, useEffect, useRef, useState } from 'react';

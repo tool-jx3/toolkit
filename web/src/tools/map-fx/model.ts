@@ -11,6 +11,8 @@ import {
   type Border,
   buildTimeline as buildFxTimeline,
   clampRect,
+  DRAG_CORNERS,
+  type DragCorner,
   DUPLICATE_OFFSET,
   EDGE_FXS,
   type FxDoc,
@@ -159,6 +161,11 @@ export interface RouteFrame extends Rect {
   points: Point[];
   /** 標籤（例：「0:10 潛入」） */
   label: string;
+  /**
+   * 拖曳畫出時從哪個角開始（L 字與 Z 字從這個角出發、走到對角；直線照形狀的方向）。
+   * 左上（nw）時不寫（舊的存檔、點選建立的路線都沒有這個欄位）。
+   */
+  from?: DragCorner;
 }
 
 export interface RedactFrame extends RedactFrameBase<RedactStyle, RevealFx> {
@@ -231,8 +238,9 @@ export const clampPoint = (p: Point, image: Size): Point => ({
 
 /**
  * 路線經過的點（原圖 px）：點選建立的照 points；拖曳畫出的在範圍裡——
- * 直線走範圍的中線（左→右、右→左、上→下、下→上），L 字從左上角出發（先橫後直到右下、先直後橫到右下），
- * Z 字從左上角往右走到一半、往下、再往右到右下角。地點（圖釘、準星、危險區）不是路線，回傳空的。
+ * 直線走範圍的中線（左→右、右→左、上→下、下→上，照形狀的選項），
+ * L 字從拖曳的起點那一角（from，預設左上）出發、走到對角（先橫後直、先直後橫），
+ * Z 字從起點那一角橫走到一半、直走、再橫走到對角。地點（圖釘、準星、危險區）不是路線，回傳空的。
  */
 export function routePath(f: RouteFrame): Point[] {
   if (f.shape === 'points') return f.points.map((p) => ({ ...p }));
@@ -263,26 +271,31 @@ export function routePath(f: RouteFrame): Point[] {
         { x: cx, y: y1 },
         { x: cx, y },
       ];
-    case 'hv':
-      return [
-        { x, y },
-        { x: x1, y },
-        { x: x1, y: y1 },
-      ];
-    case 'vh':
-      return [
-        { x, y },
-        { x, y: y1 },
-        { x: x1, y: y1 },
-      ];
-    default:
-      return [
-        { x, y },
-        { x: cx, y },
-        { x: cx, y: y1 },
-        { x: x1, y: y1 },
-      ];
   }
+  /* L 字、Z 字：起點那一角 → 對角 */
+  const from = f.from ?? 'nw';
+  const sx = from.endsWith('e') ? x1 : x;
+  const ex = from.endsWith('e') ? x : x1;
+  const sy = from.startsWith('s') ? y1 : y;
+  const ey = from.startsWith('s') ? y : y1;
+  if (f.shape === 'hv')
+    return [
+      { x: sx, y: sy },
+      { x: ex, y: sy },
+      { x: ex, y: ey },
+    ];
+  if (f.shape === 'vh')
+    return [
+      { x: sx, y: sy },
+      { x: sx, y: ey },
+      { x: ex, y: ey },
+    ];
+  return [
+    { x: sx, y: sy },
+    { x: cx, y: sy },
+    { x: cx, y: ey },
+    { x: ex, y: ey },
+  ];
 }
 
 /** 折線的長度 */
@@ -390,7 +403,8 @@ export function removePoint(points: readonly Point[], i: number): Point[] {
 /** 把拖曳畫出的路線換成點選的（編輯點的時候） */
 export function toPointRoute(f: RouteFrame, image: Size): RouteFrame {
   const points = f.shape === 'points' ? f.points : routePath(f);
-  return { ...f, shape: 'points', points: points.map((p) => clampPoint(p, image)) };
+  const { from: _from, ...rest } = f;
+  return { ...rest, shape: 'points', points: points.map((p) => clampPoint(p, image)) };
 }
 
 /* ---------- 整理（存檔、專案檔、測試入口） ---------- */
@@ -438,6 +452,7 @@ export function normalizeFrame(v: unknown, image: Size, d = initialDefaults()): 
         label: lineText(v.label, MAP_LIMITS.label),
       };
     }
+    const from = pick(v.from, DRAG_CORNERS, 'nw');
     return {
       id,
       kind,
@@ -446,6 +461,7 @@ export function normalizeFrame(v: unknown, image: Size, d = initialDefaults()): 
       shape: pick(v.shape, ROUTE_SHAPES, d.route.shape),
       points: [],
       label: lineText(v.label, MAP_LIMITS.label),
+      ...(from === 'nw' ? null : { from }),
     };
   }
   return {
@@ -501,10 +517,24 @@ export function normalizeDefaults(raw: unknown): FrameDefaults {
   };
 }
 
-/** 用目前的預設做一個新框（拖曳畫出） */
-export function makeFrame(kind: FrameKind, rect: Rect, defaults: FrameDefaults, id: string): Frame {
+/** 用目前的預設做一個新框（拖曳畫出；from：拖曳的起點那一角，L 字與 Z 字從這裡出發） */
+export function makeFrame(
+  kind: FrameKind,
+  rect: Rect,
+  defaults: FrameDefaults,
+  id: string,
+  from: DragCorner = 'nw',
+): Frame {
   if (kind === 'zoom') return { id, kind, ...rect, ...defaults.zoom };
-  if (kind === 'route') return { id, kind, ...rect, ...defaults.route, points: [] };
+  if (kind === 'route')
+    return {
+      id,
+      kind,
+      ...rect,
+      ...defaults.route,
+      points: [],
+      ...(from === 'nw' ? null : { from }),
+    };
   return { id, kind, ...rect, ...defaults.redact };
 }
 
@@ -549,6 +579,7 @@ export function duplicateFrame(f: Frame, image: Size, id: string): Frame {
 /** 點選路線的點改了：範圍重算 */
 export function setRoutePoints(draft: RouteFrame, points: readonly Point[], image: Size): void {
   draft.shape = 'points';
+  delete draft.from;
   draft.points = points.slice(0, MAP_LIMITS.points).map((p) => clampPoint(p, image));
   Object.assign(draft, boundsOf(draft.points, image));
   if (!isPathStyle(draft.style)) draft.style = 'dashed';

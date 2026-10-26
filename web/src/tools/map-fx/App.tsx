@@ -25,7 +25,7 @@ import {
 import { type BatchNotice, loadImageFiles, loadSample } from './media';
 import { Settings } from './Panel';
 import { type PlayerHandle, Preview } from './Preview';
-import { fx, historyStep, TOOL_ID, useDoc, useLive } from './store';
+import { fx, historyStep, TOOL_ID, useDoc, useLive, usePoints } from './store';
 import { S } from './strings';
 import { useTestHook } from './testHook';
 
@@ -110,14 +110,22 @@ export function App() {
 
   const shortcuts = useMemo<Shortcut[]>(
     () =>
-      imageFxShortcuts(fx, S, () => playerRef.current?.toggle(), [
-        { keys: 'enter', label: S.enterShortcut, group: S.groupPoints },
-        { keys: 'backspace', label: S.backShortcut, group: S.groupPoints },
-        { keys: 'escape', label: S.escPointShortcut, group: S.groupPoints },
-        { keys: ['delete', 'backspace'], label: S.walk.delShortcut, group: S.walk.groupWalk },
-        { keys: 'backspace', label: S.walk.backShortcut, group: S.walk.groupWalk },
-        { keys: 'escape', label: S.walk.escShortcut, group: S.walk.groupWalk },
-      ]),
+      /* 點選建立路線、編輯點的期間空白鍵不播放（這時預覽是暫停的編輯狀態） */
+      imageFxShortcuts(
+        fx,
+        S,
+        () => {
+          if (!usePoints.getState().draft) playerRef.current?.toggle();
+        },
+        [
+          { keys: 'enter', label: S.enterShortcut, group: S.groupPoints },
+          { keys: 'backspace', label: S.backShortcut, group: S.groupPoints },
+          { keys: 'escape', label: S.escPointShortcut, group: S.groupPoints },
+          { keys: ['delete', 'backspace'], label: S.walk.delShortcut, group: S.walk.groupWalk },
+          { keys: 'backspace', label: S.walk.backShortcut, group: S.walk.groupWalk },
+          { keys: 'escape', label: S.walk.escShortcut, group: S.walk.groupWalk },
+        ],
+      ),
     [],
   );
 

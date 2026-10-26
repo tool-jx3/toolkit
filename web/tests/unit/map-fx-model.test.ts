@@ -4,7 +4,7 @@
  * 規格 docs/refactor/specs/map-fx.md 第 3 節。
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { redactCover, type VideoMode } from '@/core/imagefx';
+import { dragCorner, redactCover, type VideoMode } from '@/core/imagefx';
 import {
   applyRect,
   boundsOf,
@@ -113,6 +113,48 @@ describe('路線的形狀（3.7）', () => {
       { x: 250, y: 300 },
       { x: 400, y: 300 },
     ]);
+  });
+
+  it('L 字與 Z 字從拖曳的起點那一角出發、走到對角（D10）；直線照形狀的方向，不看起點', () => {
+    expect(routePath(route({ shape: 'hv', from: 'se' }))).toEqual([
+      { x: 400, y: 300 },
+      { x: 100, y: 300 },
+      { x: 100, y: 200 },
+    ]);
+    expect(routePath(route({ shape: 'vh', from: 'ne' }))).toEqual([
+      { x: 400, y: 200 },
+      { x: 400, y: 300 },
+      { x: 100, y: 300 },
+    ]);
+    expect(routePath(route({ shape: 'z', from: 'sw' }))).toEqual([
+      { x: 100, y: 300 },
+      { x: 250, y: 300 },
+      { x: 250, y: 200 },
+      { x: 400, y: 200 },
+    ]);
+    expect(routePath(route({ shape: 'right', from: 'se' }))).toEqual(
+      routePath(route({ shape: 'right' })),
+    );
+    /* 拖曳的方向 → 起點那一角 */
+    expect(dragCorner({ x: 400, y: 300 }, { x: 100, y: 200 })).toBe('se');
+    expect(dragCorner({ x: 100, y: 300 }, { x: 400, y: 200 })).toBe('sw');
+    expect(dragCorner({ x: 400, y: 200 }, { x: 100, y: 300 })).toBe('ne');
+    expect(dragCorner({ x: 100, y: 200 }, { x: 400, y: 300 })).toBe('nw');
+  });
+
+  it('起點那一角：新框記下來（左上不寫）、整理時保留、換成點選的路線時拿掉', () => {
+    const d = initialDefaults();
+    const r = { x: 100, y: 200, w: 300, h: 100 };
+    expect(makeFrame('route', r, d, 'a', 'se')).toMatchObject({ from: 'se' });
+    expect(makeFrame('route', r, d, 'a', 'nw')).not.toHaveProperty('from');
+    expect(makeFrame('route', r, d, 'a')).not.toHaveProperty('from');
+    expect(normalizeFrame(route({ shape: 'hv', from: 'ne' }), IMG)).toMatchObject({ from: 'ne' });
+    expect(normalizeFrame(route({ shape: 'hv', from: 'x' as never }), IMG)).not.toHaveProperty(
+      'from',
+    );
+    const pr = toPointRoute(route({ shape: 'hv', from: 'se' }), IMG);
+    expect(pr).not.toHaveProperty('from');
+    expect(pr.points[0]).toEqual({ x: 400, y: 300 });
   });
 
   it('點選建立的照點的順序；地點（圖釘、準星、危險區）沒有路線', () => {
@@ -348,7 +390,7 @@ describe('遮罩的揭開進度（3.8）', () => {
     expect(tl.actionIds).toHaveLength(4);
     expect(tl.total).toBeCloseTo(7.9, 6);
     expect(tl.windows[s.frames[1].id]).toEqual({ start: 1.1, end: 2.3 });
-    /* 段階公開：區域放大＋4 個會動的框 */
+    /* 逐步公開：區域放大＋4 個會動的框 */
     expect(stepFrames(s.frames)).toHaveLength(5);
   });
 });

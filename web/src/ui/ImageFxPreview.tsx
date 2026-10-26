@@ -191,11 +191,7 @@ function ViewBar({
         size="sm"
         value={stageBg}
         onValueChange={(v) => fx.setPrefs({ stageBg: v })}
-        options={STAGE_BGS.map((b) => ({
-          value: b,
-          label: STAGE_BG_LABEL[b],
-          ariaLabel: b === 'checker' ? '棋盤格（透明）' : undefined,
-        }))}
+        options={STAGE_BGS.map((b) => ({ value: b, label: STAGE_BG_LABEL[b] }))}
       />
       <div className="ml-auto flex flex-wrap items-center gap-1">
         <IconButton
@@ -692,8 +688,8 @@ export function ImageFxPreview<F extends FrameBase, S extends FxDoc<F>>({
                     fx.useLive.setState({ pointer: 'edit' });
                     zoomToRect(r, 0.95);
                   }}
-                  onDraw={(r) => {
-                    fx.addFrame(r);
+                  onDraw={(r, from) => {
+                    fx.addFrame(r, undefined, from);
                   }}
                   onSelect={(id, reveal) => fx.select(id, reveal)}
                   onRectChange={(id, r, merge) => fx.setFrameRect(id, r, merge)}

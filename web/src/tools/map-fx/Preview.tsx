@@ -233,7 +233,7 @@ function ExportArea({
         disabledReason: xReason,
       },
       fixedFps: X_FPS,
-      fixedFpsHint: S.formatDesc.xmp4,
+      fixedFpsHint: S.xFpsHint,
       size: xSize,
       run: (cur, img, _set, ctx) =>
         exportXVideo(cur, img, xMode ?? { kind: 'none', alpha: false }, ctx),

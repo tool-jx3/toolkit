@@ -1,6 +1,6 @@
 /**
  * 截圖演出產生器第二批的規則（規格 docs/refactor/specs/screenshot-fx.md 1.8、3.11～3.14）：
- * 運鏡（對象、時間軸的放慢與延長、看的範圍）、塗黑的邊界演出（欄位、淡入淡出）、段階公開的順序與進度、
+ * 運鏡（對象、時間軸的放慢與延長、看的範圍）、塗黑的邊界演出（欄位、淡入淡出）、逐步公開的順序與進度、
  * 編輯區的倍率、ZIP 的檔名。
  */
 import { describe, expect, it } from 'vitest';
@@ -220,7 +220,7 @@ describe('塗黑的邊界演出', () => {
   });
 });
 
-describe('段階公開', () => {
+describe('逐步公開', () => {
   const frames = [
     zoom('z'),
     redact('s', 'static'),
@@ -267,7 +267,7 @@ describe('編輯區的倍率（不影響輸出）', () => {
 });
 
 describe('ZIP 的檔名', () => {
-  it('三種 ZIP、段階 step_00、連番 frame_0001（超過 9999 格時位數跟著加）、圖層四張', () => {
+  it('三種 ZIP、逐步公開 step_00、連番 frame_0001（超過 9999 格時位數跟著加）、圖層四張', () => {
     const now = new Date(2026, 9, 24, 8, 1, 2);
     expect(exportFileName('steps', now)).toBe('screenshot-fx-20261024-080102-steps.zip');
     expect(exportFileName('layers', now)).toBe('screenshot-fx-20261024-080102-layers.zip');
