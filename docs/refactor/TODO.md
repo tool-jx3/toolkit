@@ -11,6 +11,7 @@
 
 - text-fx 併入 SF 標題：Mellow Noise 的作者發布的「SF 타이틀 메이커」（https://mellow-noise.naru.pub/#sf_title_maker，未授權）——
   8 種 HUD 範本（準星、資料掃描、警告面板等）、代碼與編號、解碼登場、光暈、顆粒雜訊、掃描線、故障，APNG／WebP；做成 text-fx 的新模式。
+  2026-10-26 實作完成（text-fx 第四個模式「SF 標題」，規格 1.18 F311～F335、D13～D23），待驗證者填規格第 6 節與主控裁定 D 項。
 
 ## 一、已收錄工具的原作更新
 

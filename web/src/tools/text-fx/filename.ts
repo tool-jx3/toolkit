@@ -3,6 +3,7 @@
  */
 import { INTRO } from './motion';
 import { FLOW_NAMES, type Settings } from './settings';
+import { sfOf, sfTemplateInfo } from './sf';
 
 /** 文字的開頭：第一個非空行，超過 14 字時在標點處截斷（英文不切斷單字），去掉結尾的破折號與刪節號 */
 export function textHead(text: string): string {
@@ -46,7 +47,17 @@ export function sanitizeName(s: string): string {
   return out.slice(0, 48).join('') || '文字演出';
 }
 
+/** SF 標題：「標題開頭_範本名稱[_無登場][_無退場][_循環]」 */
+function sfFileName(c: Settings): string {
+  const parts = [textHead(c.text) || textHead(c.sub) || 'SF標題', sfTemplateInfo(sfOf(c).tpl).name];
+  if (c.introOn === false) parts.push('無登場');
+  if (!c.outroOn) parts.push('無退場');
+  if (c.loop === 'infinite') parts.push('循環');
+  return sanitizeName(parts.join('_'));
+}
+
 export function autoFileName(c: Settings): string {
+  if (c.mode === 'sf') return sfFileName(c);
   const scroll = c.mode === 'long' && c.flow.kind === 'scroll';
   /* 登場動畫關閉（P11）時效果名稱換成「無登場」 */
   const fx =

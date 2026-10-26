@@ -18,6 +18,12 @@ import { mineEntry, type TfxData, templateEntry } from './store';
 
 export type BatchKind = 'off' | 'lines' | 'templates';
 
+/** 目前模式實際用的批次方式：SF 標題只有一行標題，沒有「每一行各一個」（當作不用） */
+export function batchKindOf(kind: BatchKind | undefined, mode: Mode): BatchKind {
+  const k = kind ?? 'off';
+  return mode === 'sf' && k === 'lines' ? 'off' : k;
+}
+
 export interface BatchItem {
   cfg: Settings;
   /** 清單與進度顯示用的名稱（行的文字或範本名稱） */

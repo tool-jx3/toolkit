@@ -3,6 +3,7 @@
  * 每一格的時間只在這個元件裡變動，設定面板不會跟著每格重繪。
  */
 import { type Ref, type RefObject, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { SIZE_WARNING_BYTES } from '@/core/files';
 import type { AnimationExportFormat } from '@/core/timeline';
 import { frameCount } from '@/core/timeline';
 import {
@@ -13,6 +14,7 @@ import {
   type ExportSettings,
   Field,
   Notice,
+  Slider,
   Stage,
   type StageBackground,
   TextInput,
@@ -22,14 +24,22 @@ import {
   useWebpSupport,
 } from '@/ui';
 import { BatchField } from './BatchField';
-import { batchByLines, batchByTemplates, batchNames, batchZipName, runBatch } from './batch';
+import {
+  batchByLines,
+  batchByTemplates,
+  batchKindOf,
+  batchNames,
+  batchZipName,
+  runBatch,
+} from './batch';
 import { setCfg } from './controls';
 import { MAX_FRAMES, phaseLabel, runExport, sceneSegments } from './exporter';
 import { autoFileName, baseName } from './filename';
 import { templateById } from './library';
 import { useMine } from './mine';
 import type { Scene } from './scene';
-import { FPS_CHOICES, MODES, playsOf, type Settings } from './settings';
+import { fpsChoicesOf, MODES, playsOf, type Settings } from './settings';
+import { sfOf } from './sf';
 import { setManualName, updateCfg, useReplay, useTfx, useView } from './store';
 import { S } from './strings';
 
@@ -68,7 +78,8 @@ function Hints({ scene, cfg }: { scene: Scene; cfg: Settings }) {
       text: S.hints.breathe,
       action: [S.hints.breatheAction, () => setCfg('glow.on', true)],
     });
-  if (!cfg.outroOn && cfg.loop === 'infinite')
+  /* SF 標題的「只有停留動作」（登場、退場都關＋無限循環）是正常的無縫循環，不提示 */
+  if (!cfg.outroOn && cfg.loop === 'infinite' && !(cfg.mode === 'sf' && cfg.introOn === false))
     items.push({
       key: 'loop',
       tone: 'warning',
@@ -234,7 +245,9 @@ export function Preview({
   const tplName =
     mineName !== undefined ? mineName.trim() || S.mine.unnamed : templateById(mode, tplId).name;
   const isScroll = cfg.mode === 'long' && cfg.flow.kind === 'scroll';
-  const batchOn = (view.batch ?? 'off') !== 'off';
+  const isSf = cfg.mode === 'sf';
+  const batchOn = batchKindOf(view.batch, cfg.mode) !== 'off';
+  const fpsChoices = fpsChoicesOf(cfg.mode);
   /* 一次匯出多個時不能用連番 PNG（每個都會是一包 ZIP） */
   const formats = animationFormats(['apng', 'gif', 'webp', 'png', 'zip'], {
     webpSupported: webp,
@@ -317,8 +330,9 @@ export function Preview({
         ref={exportRef}
         formats={formats}
         baseSize={{ width: scene.W, height: scene.H }}
-        fpsOptions={FPS_CHOICES}
+        fpsOptions={fpsChoices}
         maxPlays={999}
+        limit={isSf ? { bytes: SIZE_WARNING_BYTES, label: S.sf.limit } : undefined}
         loopHint={cfg.loop === 'once' ? S.export.loopOnceHint : undefined}
         quantizeHint={S.export.quantizeHint}
         sizeWarningHint={S.export.sizeWarning}
@@ -327,7 +341,7 @@ export function Preview({
           if (next.format !== view.format || next.scale !== view.scale)
             useView.getState().patch({ format: next.format, scale: next.scale });
           updateCfg((s) => {
-            if ((FPS_CHOICES as readonly number[]).includes(next.fps)) s.fps = next.fps;
+            if (fpsChoicesOf(s.mode).includes(next.fps)) s.fps = next.fps;
             s.colors = next.quantize ? 256 : 'full';
             if (next.plays !== playsOf(s)) {
               if (next.plays === 0) s.loop = 'infinite';
@@ -353,6 +367,17 @@ export function Preview({
                 />
               </Field>
             ) : null}
+            {isSf && view.format === 'webp' ? (
+              <Field label={S.sf.webpQuality} hint={S.sf.webpHint}>
+                <Slider
+                  value={sfOf(cfg).webpQuality}
+                  onChange={(v) => setCfg('sf.webpQuality', Math.min(95, Math.max(50, v)))}
+                  min={50}
+                  max={95}
+                  step={5}
+                />
+              </Field>
+            ) : null}
             <Field label="自動裁掉透明邊" layout="inline">
               <Toggle checked={cfg.autoCrop} onCheckedChange={(on) => setCfg('autoCrop', on)} />
             </Field>
@@ -367,7 +392,7 @@ export function Preview({
           const d = useTfx.getState().data;
           const c = d.modes[d.mode].s;
           const p = state.current.playback;
-          const batch = useView.getState().data.batch ?? 'off';
+          const batch = batchKindOf(useView.getState().data.batch, d.mode);
           if (batch !== 'off') {
             /* 一次匯出多個（P11）：用目前的匯出設定，預設圖、裁邊照目前的設定 */
             const picked = useView.getState().data.batchPick?.[d.mode] ?? [];

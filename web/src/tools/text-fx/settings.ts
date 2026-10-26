@@ -5,13 +5,24 @@ import type { GradientStop } from '@/core/typeset';
 import { DEFAULT_FONT, usedWeight } from './fonts';
 import { HOLD, INTRO, OUTRO } from './motion';
 import { BACKDROP_CHOICES, DECO_CHOICES } from './ornament';
+import {
+  normalizeSf,
+  SF_DESIGN,
+  SF_FPS_CHOICES,
+  SF_FPS_DEFAULT,
+  type SfSettings,
+  sfDefaults,
+  sfHeight,
+} from './sf';
 
-export type Mode = 'title' | 'long' | 'caption';
+/** 標語、長文、字幕；SF 標題（2026-10-26 新增：HUD 範本，見 sf.ts） */
+export type Mode = 'title' | 'long' | 'caption' | 'sf';
 
 export const MODES: readonly (readonly [Mode, string])[] = [
   ['title', '標語'],
   ['long', '長文'],
   ['caption', '字幕'],
+  ['sf', 'SF 標題'],
 ];
 
 export interface FontRef {
@@ -176,9 +187,15 @@ export interface Settings {
   colors: 256 | 'full';
   stillFallback: boolean;
   autoCrop: boolean;
+  /** SF 標題模式才有（其他模式沒有這個欄位） */
+  sf?: SfSettings;
 }
 
 export const FPS_CHOICES = [12, 15, 20, 24, 30, 60] as const;
+
+/** 這個模式可以選的 fps（SF 標題照原作 10～24） */
+export const fpsChoicesOf = (mode: Mode): readonly number[] =>
+  mode === 'sf' ? SF_FPS_CHOICES : FPS_CHOICES;
 
 export const FLOW_NAMES: Record<string, string> = {
   seq: '逐字打出',
@@ -200,7 +217,7 @@ export function evenStops(colors: readonly string[]): GradientStop[] {
 export function baseSettings(mode: Mode): Settings {
   const long = mode === 'long';
   const caption = mode === 'caption';
-  return {
+  const s: Settings = {
     mode,
     text: '',
     sub: '',
@@ -322,6 +339,15 @@ export function baseSettings(mode: Mode): Settings {
     stillFallback: true,
     autoCrop: false,
   };
+  if (mode === 'sf') {
+    /* SF 標題：960 × 320（3:1）、15 fps、登場→退場循環 */
+    s.canvasW = 960;
+    s.canvasH = sfHeight(960, SF_DESIGN.w / SF_DESIGN.h);
+    s.fps = SF_FPS_DEFAULT;
+    s.loop = 'infinite';
+    s.sf = sfDefaults();
+  }
+  return s;
 }
 
 /* ---------- 合併與修正 ---------- */
@@ -402,7 +428,13 @@ export function normalizeSettings(mode: Mode, s: unknown): Settings {
   if (!FLOW_NAMES[out.flow.kind]) out.flow.kind = 'seq';
   if (!DECO_CHOICES.some((d) => d[0] === out.deco.kind)) out.deco.kind = 'none';
   if (!BACKDROP_CHOICES.some((d) => d[0] === out.bg.kind)) out.bg.kind = 'none';
-  if (!(FPS_CHOICES as readonly number[]).includes(out.fps)) out.fps = 24;
+  if (mode === 'sf') {
+    out.sf = normalizeSf(out.sf);
+    if (!(SF_FPS_CHOICES as readonly number[]).includes(out.fps)) out.fps = SF_FPS_DEFAULT;
+  } else {
+    delete out.sf;
+    if (!(FPS_CHOICES as readonly number[]).includes(out.fps)) out.fps = 24;
+  }
   if (!Array.isArray(out.fill.stops) || !out.fill.stops.length)
     out.fill.stops = evenStops(['#fff7d6', '#f2c14e', '#9c6a12']);
   return out;

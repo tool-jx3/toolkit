@@ -28,7 +28,7 @@ import {
   typeset,
 } from '@/core/typeset';
 import { rgba } from './color';
-import { type FontLoad, fontCssFor, fontLoads, usedWeight } from './fonts';
+import { type FontLoad, fontCssFor, fontLoads, sfFontLoads, usedWeight } from './fonts';
 import {
   type BlockFx,
   type BlockState,
@@ -57,7 +57,15 @@ import {
   type TextOutline,
   WRAP_DECOS,
 } from './ornament';
-import { type DecoSettings, type MotionSettings, type Settings, splitPages } from './settings';
+import {
+  type DecoSettings,
+  hasText,
+  type MotionSettings,
+  type Settings,
+  splitPages,
+} from './settings';
+import { sfTiming } from './sf';
+import { SfPainter } from './sfDraw';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -262,6 +270,7 @@ function pageSources(cfg: Settings): PageSrc[] {
 
 /** 這組設定要先載入的字型 */
 export function sceneFontLoads(cfg: Settings): FontLoad[] {
+  if (cfg.mode === 'sf') return sfFontLoads(cfg);
   const src = pageSources(cfg);
   return fontLoads(cfg, src.map((p) => p.main).join('\n'), src.map((p) => p.sub).join('\n'));
 }
@@ -278,6 +287,7 @@ export interface BuildOptions {
 }
 
 export function buildScene(cfg: Settings, opts: BuildOptions = {}): Scene {
+  if (cfg.mode === 'sf') return buildSfScene(cfg, opts);
   const maxCanvas = opts.maxCanvas ?? 2048;
   const W = clamp(Math.round(cfg.canvasW), 16, maxCanvas);
   const H = clamp(Math.round(cfg.canvasH), 16, maxCanvas);
@@ -1065,6 +1075,10 @@ export interface SceneInit {
   empty: boolean;
   flowKind: string | null;
   shrunk: { from: number; to: number } | null;
+  /** 自己畫整格（SF 標題的 HUD 範本）：有給時 draw 清空畫布後交給它畫 */
+  paint?: (ctx: Ctx, t: number) => void;
+  /** 無縫循環：匯出時最後一格不取在結尾（SF 標題的循環） */
+  seamless?: boolean;
 }
 
 export class Scene implements SceneInit {
@@ -1090,6 +1104,8 @@ export class Scene implements SceneInit {
   empty!: boolean;
   flowKind!: string | null;
   shrunk!: { from: number; to: number } | null;
+  paint?: (ctx: Ctx, t: number) => void;
+  seamless?: boolean;
   readonly phases: ScenePhase[] = [];
   private readonly st: GlyphState = freshGlyphState();
   private readonly blk: BlockState = freshBlockState();
@@ -1155,6 +1171,10 @@ export class Scene implements SceneInit {
     ctx.globalCompositeOperation = 'source-over';
     if (canvasFilterOk()) ctx.filter = 'none';
     ctx.clearRect(0, 0, W, H);
+    if (this.paint) {
+      this.paint(ctx, t);
+      return;
+    }
     drawBackdrop(ctx, this.cfg.bg, W, H, this.backdropAmount(t));
     const page = this.pageAt(t);
     if (!page) return;
@@ -1746,4 +1766,65 @@ export class Scene implements SceneInit {
     ctx.drawImage(L.a.c, 0, 0);
     ctx.restore();
   }
+}
+
+/* ---------- SF 標題（2026-10-26） ---------- */
+
+/**
+ * SF 標題的場景：一頁，登場＝0～登場長度、停留到退場前、退場＝最後 0.4 秒（sf.ts 的 sfTiming）；
+ * 代表畫面＝登場結束的時刻。畫面交給 SfPainter（HUD 範本）畫，沒有字的 sprite 與排版。
+ */
+function buildSfScene(cfg: Settings, opts: BuildOptions): Scene {
+  const maxCanvas = opts.maxCanvas ?? 2048;
+  const W = clamp(Math.round(cfg.canvasW), 16, maxCanvas);
+  const H = clamp(Math.round(cfg.canvasH), 16, maxCanvas);
+  const tm = sfTiming(cfg);
+  const box: Box = { x: 0, y: 0, w: W, h: H };
+  const page: ScenePage = {
+    index: 0,
+    box,
+    mainBox: box,
+    subBox: null,
+    groups: [],
+    deco: null,
+    center: { x: W / 2, y: H / 2 },
+    t0: 0,
+    S: 0,
+    textStart: 0,
+    introEnd: tm.Ti,
+    holdEnd: tm.D - tm.To,
+    end: tm.D,
+    visibleEnd: tm.outroOn ? tm.D : Number.POSITIVE_INFINITY,
+    repTime: tm.Ti,
+    decoIn: null,
+    decoOut: null,
+  };
+  const painter = opts.paint === false ? null : new SfPainter();
+  return new Scene({
+    cfg,
+    W,
+    H,
+    S: 0,
+    S0: 0,
+    k: 1,
+    vertical: false,
+    pages: [page],
+    duration: tm.D,
+    repTime: tm.Ti,
+    lastEnd: tm.D,
+    preEnd: 0,
+    outroOn: tm.outroOn,
+    instant: !tm.introOn,
+    holdFx: HOLD.none,
+    glowStrength: 0,
+    deco: { ...cfg.deco, kind: 'none' },
+    decoOn: false,
+    bgSync: false,
+    empty: !hasText(cfg),
+    flowKind: null,
+    shrunk: null,
+    paint: painter ? (ctx, t) => painter.draw(ctx, cfg, t, W, H) : () => {},
+    /* 播放一次、又有退場時最後一格取在結尾（全透明）；其他（循環、停住）照原作取 i ÷ fps */
+    seamless: cfg.loop !== 'once' || !tm.outroOn,
+  });
 }

@@ -29,6 +29,13 @@ import { useMine } from './mine';
 import { type PlayHandle, Preview } from './Preview';
 import { DecoPanel } from './panels/DecoPanel';
 import { ModePanel } from './panels/ModePanel';
+import {
+  SfDecoPanel,
+  SfModePanel,
+  SfStylePanel,
+  SfTextPanel,
+  SfTimePanel,
+} from './panels/SfPanels';
 import { StylePanel } from './panels/StylePanel';
 import { TextPanel } from './panels/TextPanel';
 import { TimePanel } from './panels/TimePanel';
@@ -93,8 +100,8 @@ const USAGE = (
   <>
     <ol>
       <li>
-        在「模式」選擇要做的素材：<b>標語</b>（畫面中央的大字）、<b>長文</b>（開場白、預告、旁白）或
-        <b>字幕</b>（地點、時間），再挑一個範本當起點。
+        在「模式」選擇要做的素材：<b>標語</b>（畫面中央的大字）、<b>長文</b>（開場白、預告、旁白）、
+        <b>字幕</b>（地點、時間）或<b>SF 標題</b>（科幻風的 HUD 標題），再挑一個範本當起點。
       </li>
       <li>
         在「文字」改成自己的內容。長文模式裡<b>空一行就是換頁</b>。
@@ -109,6 +116,11 @@ const USAGE = (
         <b>每一行各一個</b>（長文是每一頁）或<b>勾選的範本</b>，完成後可以打包成 ZIP。
       </li>
     </ol>
+    <p>
+      <b>SF 標題</b>有準星、資料掃描、警告面板等 8 種 HUD 範本：輸入標題、副文字、代碼與編號，
+      選主色、強調色、光暈、顆粒雜訊、掃描線與故障效果；播放方式可以選「登場→退場循環」「登場一次後停住」或
+      「只有停留動作」。範本只換版面，文字與樣式會保留。
+    </p>
     <p>
       調好的設定可以在「模式」的<b>我的範本</b>存起來，之後一鍵套用；也能匯出成範本檔分享給別人。
       不想要登場動畫時，把「要有登場」關掉，第一格就是完成狀態。
@@ -149,6 +161,7 @@ export function App() {
   const [gallery, setGallery] = useState<GalleryKind | null>(null);
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
+  const isSf = cfg.mode === 'sf';
 
   /* 測試與除錯用：讀寫設定、跳到指定時間、對等驗證用的函式 */
   useEffect(() => {
@@ -289,16 +302,31 @@ export function App() {
                 value: 'mode',
                 label: S.tabs.mode,
                 icon: <Clapperboard />,
-                content: <ModePanel onGallery={setGallery} />,
+                content: isSf ? <SfModePanel /> : <ModePanel onGallery={setGallery} />,
               },
-              { value: 'text', label: S.tabs.text, icon: <Type />, content: <TextPanel /> },
-              { value: 'style', label: S.tabs.style, icon: <Palette />, content: <StylePanel /> },
-              { value: 'deco', label: S.tabs.deco, icon: <Shapes />, content: <DecoPanel /> },
+              {
+                value: 'text',
+                label: S.tabs.text,
+                icon: <Type />,
+                content: isSf ? <SfTextPanel /> : <TextPanel />,
+              },
+              {
+                value: 'style',
+                label: S.tabs.style,
+                icon: <Palette />,
+                content: isSf ? <SfStylePanel /> : <StylePanel />,
+              },
+              {
+                value: 'deco',
+                label: S.tabs.deco,
+                icon: <Shapes />,
+                content: isSf ? <SfDecoPanel /> : <DecoPanel />,
+              },
               {
                 value: 'time',
                 label: S.tabs.time,
                 icon: <Timer />,
-                content: <TimePanel scene={scene} />,
+                content: isSf ? <SfTimePanel scene={scene} /> : <TimePanel scene={scene} />,
               },
             ]}
           />

@@ -2,6 +2,7 @@
  * 字型：設定裡的字型參照 → 畫布用的字型字串（含自動替代）、要先載入的字型清單。
  */
 import { ensureFont, findGoogleFont } from '@/core/fonts';
+import { type BundledFontId, loadBundledFont } from '@/core/fonts/bundled';
 import {
   canvasFont,
   type FontStyleClass,
@@ -10,6 +11,7 @@ import {
   type StackFont,
 } from '@/core/typeset';
 import type { FontRef, Settings } from './settings';
+import { SF_FONT_SAMPLE, SF_MONO_FONT, SF_WEIGHTS, sfCjkFont, sfCodeOf, sfOf } from './sf';
 
 const ALL_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
 
@@ -104,6 +106,8 @@ export interface FontLoad {
   weight: number;
   italic: boolean;
   text: string;
+  /** 本站附帶的字型（SF 標題的像素字型；不是 Google Fonts） */
+  bundled?: BundledFontId;
 }
 
 /** 這組設定要用到的字型（含自動替代的字型），給 ensureFont 先載入 */
@@ -124,14 +128,58 @@ export function fontLoads(cfg: Settings, mainText: string, subText: string): Fon
   return out;
 }
 
+/**
+ * SF 標題要用到的字型：英文字型（標題的 700／800／900）、等寬字型（小字）、中文字型（400 與標題的字重）。
+ * 範本裡固定的英數字與解碼的亂碼也一起載入。
+ */
+export function sfFontLoads(cfg: Settings): FontLoad[] {
+  const sf = sfOf(cfg);
+  const text = [cfg.text, cfg.sub, sfCodeOf(cfg), sf.num].join('');
+  const latinText = SF_FONT_SAMPLE + text;
+  const out: FontLoad[] = [];
+  const seen = new Set<string>();
+  const add = (f: FontLoad) => {
+    const key = `${f.family}\u0001${f.weight}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(f);
+  };
+  const latin = findGoogleFont(sf.latin);
+  for (const w of SF_WEIGHTS.slice(1))
+    add({
+      family: sf.latin,
+      weight: latin ? nearestWeightUp(latin.weights, w) : w,
+      italic: false,
+      text: latinText,
+    });
+  add({ family: SF_MONO_FONT, weight: 400, italic: false, text: latinText });
+  const cjk = sfCjkFont(sf.cjk);
+  const cjkText = text || '永';
+  if (cjk.bundled)
+    add({ family: cjk.family, weight: 400, italic: false, text: cjkText, bundled: cjk.bundled });
+  else {
+    const entry = findGoogleFont(cjk.family);
+    for (const w of SF_WEIGHTS)
+      add({
+        family: cjk.family,
+        weight: entry ? nearestWeightUp(entry.weights, w) : w,
+        italic: false,
+        text: cjkText,
+      });
+  }
+  return out;
+}
+
 /** 載入字型（逾時就算了，用替代字型畫）。回傳是否全部在時限內完成。 */
 export async function loadFonts(list: readonly FontLoad[], timeoutMs = 12000): Promise<boolean> {
   const all = Promise.all(
     list.map((f) =>
-      ensureFont(f.family, f.weight, f.text, {
-        timeoutMs,
-        style: f.italic ? 'italic' : 'normal',
-      }).catch(() => false),
+      f.bundled
+        ? loadBundledFont(f.bundled).catch(() => false)
+        : ensureFont(f.family, f.weight, f.text, {
+            timeoutMs,
+            style: f.italic ? 'italic' : 'normal',
+          }).catch(() => false),
     ),
   );
   let timer: ReturnType<typeof setTimeout> | undefined;

@@ -112,9 +112,29 @@ function TemplateSection() {
   );
 }
 
+/** 模式的切換（SF 標題的「模式」分頁也用） */
+export function ModeSection() {
+  const mode = useTfx((st) => st.data.mode);
+  return (
+    <Section title="模式" fixed>
+      <Segmented
+        aria-label="模式"
+        value={mode}
+        onValueChange={(m) => setMode(m as Mode)}
+        options={MODES.map(([value, label], i) => ({
+          value,
+          label,
+          ariaLabel: `${label}（${S.modeDesc[value]}，快捷鍵 ${i + 1}）`,
+        }))}
+        fullWidth
+      />
+      <p className="m-0 -mt-1 text-xs text-muted">{S.modeDesc[mode]}</p>
+    </Section>
+  );
+}
+
 export function ModePanel({ onGallery }: { onGallery: (k: GalleryKind) => void }) {
   const c = useCfg();
-  const mode = useTfx((st) => st.data.mode);
   const isLong = c.mode === 'long';
   const isShort = !isLong;
   const isScroll = isLong && c.flow.kind === 'scroll';
@@ -131,20 +151,7 @@ export function ModePanel({ onGallery }: { onGallery: (k: GalleryKind) => void }
 
   return (
     <div className="flex flex-col gap-3">
-      <Section title="模式" fixed>
-        <Segmented
-          aria-label="模式"
-          value={mode}
-          onValueChange={(m) => setMode(m as Mode)}
-          options={MODES.map(([value, label], i) => ({
-            value,
-            label,
-            ariaLabel: `${label}（${S.modeDesc[value]}，快捷鍵 ${i + 1}）`,
-          }))}
-          fullWidth
-        />
-        <p className="m-0 -mt-1 text-xs text-muted">{S.modeDesc[mode]}</p>
-      </Section>
+      <ModeSection />
 
       <TemplateSection />
 
