@@ -9,9 +9,7 @@
 
 ## 進行中
 
-| 項目 | 本站工具 | 來源 | 授權 | 內容 |
-|---|---|---|---|---|
-| 地圖演出產生器（新工具） | map-fx | KIIN／[マップ・見取り図 演出スタジオ](https://map-stage.pages.dev/)（BOOTH 付費工具；免費 Lite 版） | 未授權 | 和 screenshot-fx 共用引擎（已抽到 core/imagefx）。第一批 2D 已實作、驗證中：區域放大、路線與地點、房間遮罩、每個房間一張遮罩 PNG 的 ZIP、X 用 MP4；第二批進階 3D 實作中 |
+（目前沒有）
 
 ## 一、已收錄工具的原作更新
 
@@ -85,3 +83,4 @@
   music-frame 的原作 repo 搬到 [zZnaptime/MVmaker](https://github.com/zZnaptime/MVmaker)，連結已修正。
 - 2026-10-25：完成並移出清單——room-zip 讀入房間 ZIP 再編輯、scenario-editor 跟進原作 v3.26（三批）。
 - 2026-10-25：使用者提供兩個候選——KIIN 的マップ・見取り図 演出スタジオ（新工具候選）、shinshin86/mesh-avatar-studio（併進 anime-rig）。
+- 2026-10-26：完成並移出清單——地圖演出產生器（map-fx，2D 地圖演出＋進階 3D；和截圖演出產生器共用 core/imagefx）。
