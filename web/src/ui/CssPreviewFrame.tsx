@@ -123,7 +123,7 @@ const SRCDOC =
   '<!doctype html><html><head><meta charset="utf-8"><style id="tk-user-css"></style></head><body></body></html>';
 
 const BG_OPTIONS: { value: PreviewBackgroundKind; label: string; ariaLabel: string }[] = [
-  { value: 'checker', label: '透明', ariaLabel: '棋盤格（透明）' },
+  { value: 'checker', label: '透明', ariaLabel: '透明' },
   { value: 'dark', label: '深', ariaLabel: '深色背景' },
   { value: 'light', label: '淺', ariaLabel: '淺色背景' },
   { value: 'scene', label: '場景', ariaLabel: '彩色場景' },

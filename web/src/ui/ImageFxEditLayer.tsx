@@ -1,24 +1,21 @@
 /**
- * 編輯層（規格 F15～F25、F67～F71）：疊在舞台的畫面上（DOM，不會匯出）。
- * - 輔助線：每個框的虛線與編號；
+ * 圖片演出的編輯層（截圖演出、地圖演出共用；疊在舞台的畫面上，DOM，不會匯出）：
+ * - 輔助線：每個框的虛線與清單序號的圓標（照疊放順序；播放中不畫；舞台縮得很小時圓標跟著縮小，至少 12 px）；
  * - 拖曳畫框（Shift 在已有的框上也畫）、共用的 LayoutEditor（選取、拖曳、八個控點、方向鍵、Delete、Esc）；
- * - 第二批：手形（拖曳移動顯示的位置）、滑鼠中鍵隨時可以移動、框選放大（拖曳框出一塊，交給 onRegion）。
- * - 第一批驗證後：點一下與 Shift＋點一下都選疊放順序最上面的框（stackOrder，輔助線也照這個順序畫）；
- *   播放中不畫輔助線（框在原本的位置，跟彈出的卡片疊在一起會亂）；舞台縮得很小時圓標跟著縮小（至少 12 px）。
- * 座標：編輯層是畫面 px，框存原圖 px（換算見 model）。
+ * - 手形（拖曳移動顯示的位置）、滑鼠中鍵隨時可以移動、框選放大（拖曳框出一塊，交給 onRegion）。
+ * 點一下與 Shift＋點一下都選疊放順序最上面的框（stackOrder）。座標：編輯層是畫面 px，框存原圖 px。
  */
-import { type PointerEvent, useRef, useState } from 'react';
-import type { Box } from '@/core/layout';
-import { LayoutEditor, type LayoutItem, useStageScale } from '@/ui';
+import { type PointerEvent, type ReactNode, useRef, useState } from 'react';
 import {
   badgeDiameter,
-  type Frame,
-  type FrameKind,
+  type DragCorner,
+  dragCorner,
+  type FrameBase,
   frameAt,
-  kindIndex,
   type Layout,
   LIMITS,
   type Placement,
+  type PointerTool,
   type Rect,
   rectFromDrag,
   type Size,
@@ -26,38 +23,27 @@ import {
   toCanvasRect,
   toSourcePoint,
   toSourceRect,
-} from './model';
-import {
-  addFrame,
-  docNow,
-  removeFrame,
-  select,
-  setFrameRect,
-  useDoc,
-  useLive,
-  usePrefs,
-} from './store';
-import { S } from './strings';
-
-/** 輔助線的顏色（只在預覽） */
-const GUIDE_COLOR: Record<FrameKind, string> = {
-  zoom: '#38bdf8',
-  marker: '#facc15',
-  redact: '#fb7185',
-};
+} from '@/core/imagefx';
+import type { Box } from '@/core/layout';
+import { LayoutEditor, type LayoutItem } from './LayoutEditor';
+import { useStageScale } from './Stage';
 
 /* ---------- 輔助線（框的虛線與編號；不會匯出） ---------- */
 
-function Guides({
+function Guides<F extends FrameBase>({
   frames,
   shot,
   W,
   H,
+  color,
+  extra,
 }: {
-  frames: readonly Frame[];
+  frames: readonly F[];
   shot: Placement;
   W: number;
   H: number;
+  color: (f: F) => string;
+  extra?: (f: F, shot: Placement, k: number) => ReactNode;
 }) {
   const scale = useStageScale();
   const k = 1 / scale;
@@ -73,7 +59,7 @@ function Guides({
       {stackOrder(frames).map((f) => {
         const i = frames.indexOf(f);
         const r = toCanvasRect(shot, f);
-        const col = GUIDE_COLOR[f.kind];
+        const col = color(f);
         const rad = (d / 2) * k;
         const bx = Math.max(rad, r.x + rad * 0.2);
         const by = Math.max(rad, r.y - rad * 1.2 < 0 ? r.y + rad : r.y - rad * 0.2);
@@ -98,6 +84,7 @@ function Guides({
               strokeWidth={1.8 * k}
               strokeDasharray={`${7 * k} ${4 * k}`}
             />
+            {extra?.(f, shot, k)}
             <circle cx={bx} cy={by} r={rad} fill={col} stroke="#000" strokeWidth={1 * k} />
             <text
               x={bx}
@@ -147,31 +134,66 @@ const REGION_MIN_PX = 8;
 /** 框的點選範圍往外擴幾個螢幕 px（LayoutEditor 的 hitPadding，Shift＋點一下也用同一個） */
 const HIT_PADDING = 4;
 
-export function Editor({
-  layout,
-  image,
-  frames,
-  viewport,
-  playing,
-  onBeginEdit,
-  onTogglePlay,
-  onRegion,
-}: {
+export interface ImageFxEditLayerProps<F extends FrameBase> {
   layout: Layout;
   image: Size;
-  frames: readonly Frame[];
+  frames: readonly F[];
+  selected: string | null;
+  pointerTool: PointerTool;
+  /** 編輯輔助線 */
+  guides: boolean;
   /** 播放中：不畫輔助線 */
   playing: boolean;
   /** 可以捲動的舞台區域（手形、中鍵移動用） */
   viewport: () => HTMLElement | null;
+  /** 輔助線的顏色（依種類） */
+  guideColor: (f: F) => string;
+  /** 輔助線上另外畫的東西（例如路線的點） */
+  guideExtra?: (f: F, shot: Placement, k: number) => ReactNode;
+  /** 框的可及名稱（index：清單的序號 0 起） */
+  itemLabel: (f: F, index: number) => string;
+  /** 編輯層的可及名稱 */
+  ariaLabel: string;
   onBeginEdit: () => void;
   onTogglePlay: () => void;
   /** 框選放大：範圍（畫面 px） */
   onRegion: (r: Rect) => void;
-}) {
-  const selected = useLive((l) => l.selected);
-  const pointerTool = useLive((l) => l.pointer);
-  const guides = usePrefs((p) => p.data.guides);
+  /** 拖曳畫出一個框（原圖 px，已夾在圖裡） */
+  /** 拖曳畫出一個框（from：拖曳的起點在哪個角） */
+  onDraw: (r: Rect, from: DragCorner) => void;
+  /** 選取（reveal：從預覽選的，設定欄換到框的分頁） */
+  onSelect: (id: string | null, reveal: boolean) => void;
+  /** 框的範圍改了（原圖 px，未取整；merge：方向鍵連按） */
+  onRectChange: (id: string, r: Rect, merge: boolean) => void;
+  /** 拖曳、控點的開始與結束（記成一步復原） */
+  onGestureStart: () => void;
+  onGestureEnd: () => void;
+  onDelete: (id: string) => void;
+}
+
+export function ImageFxEditLayer<F extends FrameBase>({
+  layout,
+  image,
+  frames,
+  selected,
+  pointerTool,
+  guides,
+  playing,
+  viewport,
+  guideColor,
+  guideExtra,
+  itemLabel,
+  ariaLabel,
+  onBeginEdit,
+  onTogglePlay,
+  onRegion,
+  onDraw,
+  onSelect,
+  onRectChange,
+  onGestureStart,
+  onGestureEnd,
+  onDelete,
+}: ImageFxEditLayerProps<F>) {
   const { canvas, shot } = layout;
   const W = canvas.width;
   const H = canvas.height;
@@ -240,25 +262,24 @@ export function Editor({
     const b = point(e);
     const rect = rectFromDrag(drag.a, b, image);
     if (rect) {
-      if (docNow().frames.length >= LIMITS.frames) return;
-      addFrame(rect);
+      if (frames.length >= LIMITS.frames) return;
+      onDraw(rect, dragCorner(drag.a, b));
       return;
     }
     /* 沒有拖動＝點一下：Shift 時選取那裡最上面的框（和一般的點一下同一個順序與點選範圍），不然取消選取 */
     if (drag.shift) {
       const hit = frameAt(frames, selected, b, HIT_PADDING / (scale * shot.f));
-      select(hit?.id ?? null, !!hit);
-    } else select(null);
+      onSelect(hit?.id ?? null, !!hit);
+    } else onSelect(null, false);
   };
 
   /* 疊放順序：放大框在下、其他在上；選取中的放最後（控點不被蓋住） */
   const ordered = stackOrder(frames, selected);
   const items: LayoutItem[] = ordered.map((f) => {
     const r = toCanvasRect(shot, f);
-    const n = frames.indexOf(f) + 1;
     return {
       id: f.id,
-      label: S.frameAria(n, S.frameName(f.kind, kindIndex(frames, f.id))),
+      label: itemLabel(f, frames.indexOf(f)),
       box: { x: r.x, y: r.y, width: r.w, height: r.h },
       resizable: true,
       handles: ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'],
@@ -288,15 +309,15 @@ export function Editor({
   const onChange = (id: string, box: Box, change: { phase: string }) => {
     if (change.phase === 'start') {
       onBeginEdit();
-      useDoc.beginGesture();
+      onGestureStart();
       return;
     }
     if (change.phase === 'end') {
-      useDoc.endGesture();
+      onGestureEnd();
       return;
     }
     /* 方向鍵連按（nudge）0.4 秒內的合成一步；拖曳在手勢裡 */
-    setFrameRect(id, toSrc(box), change.phase === 'nudge');
+    onRectChange(id, toSrc(box), change.phase === 'nudge');
   };
 
   let draft: Rect | null = null;
@@ -372,7 +393,9 @@ export function Editor({
         }
       }}
     >
-      {guides && !playing ? <Guides frames={frames} shot={shot} W={W} H={H} /> : null}
+      {guides && !playing ? (
+        <Guides frames={frames} shot={shot} W={W} H={H} color={guideColor} extra={guideExtra} />
+      ) : null}
       {draft ? (
         <div
           aria-hidden
@@ -397,15 +420,15 @@ export function Editor({
           height={H}
           items={items}
           selectedId={selected}
-          onSelect={(id) => select(id, !!id)}
+          onSelect={(id) => onSelect(id, !!id)}
           onChange={onChange}
           nudgeStep={shot.f}
           nudgeShiftStep={shot.f * 10}
           hitPadding={HIT_PADDING}
           guides={false}
-          onDelete={removeFrame}
-          onEscape={() => select(null)}
-          aria-label={S.editorLabel}
+          onDelete={onDelete}
+          onEscape={() => onSelect(null, false)}
+          aria-label={ariaLabel}
         />
       </div>
     </div>

@@ -1040,7 +1040,7 @@ test('塗黑的邊界演出：金光、掃描線、不加；只在動作中；�
 
 /* ---------- 第二批：ZIP ---------- */
 
-test('ZIP：段階公開（step_00…）、圖層 4 張、連番 PNG（F64～F66）', async ({ page }) => {
+test('ZIP：逐步公開（step_00…）、圖層 4 張、連番 PNG（F64～F66）', async ({ page }) => {
   const errors = await open(page);
   await loadImage(page);
   await call(page, 'set', {
@@ -1071,8 +1071,8 @@ test('ZIP：段階公開（step_00…）、圖層 4 張、連番 PNG（F64～F66
     return [img.data[k], img.data[k + 1], img.data[k + 2], img.data[k + 3]];
   };
   const dark = (p: Rgba) => p[0] < 40 && p[1] < 40 && p[2] < 40;
-  /* 段階公開：放大框、塗黑、螢光筆＝3 個階段＋演出前＝4 張 */
-  const steps = await exportFile(page, '段階公開 ZIP');
+  /* 逐步公開：放大框、塗黑、螢光筆＝3 個階段＋演出前＝4 張 */
+  const steps = await exportFile(page, '逐步公開 ZIP');
   expect(steps.name).toMatch(/-steps\.zip$/);
   const sf = unzipSync(steps.bytes);
   expect(Object.keys(sf)).toEqual(['step_00.png', 'step_01.png', 'step_02.png', 'step_03.png']);

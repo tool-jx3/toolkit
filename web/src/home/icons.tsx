@@ -55,6 +55,7 @@ import {
   Orbit,
   Palette,
   Puzzle,
+  Route,
   Ruler,
   Scaling,
   ScanEye,
@@ -164,6 +165,7 @@ const ICONS: Record<string, LucideIcon> = {
   'grid-maker': Grid3x3,
   'range-ruler': Ruler,
   'floor-plan': House,
+  'map-fx': Route,
   /* 其他網站 */
   jizura: MicVocal,
 };
