@@ -1,6 +1,11 @@
 /** 文字演出產生器的介面文字 */
 export const S = {
-  modeDesc: { title: '畫面中央的大字', long: '開場白、預告、旁白', caption: '地點、時間字幕' },
+  modeDesc: {
+    title: '畫面中央的大字',
+    long: '開場白、預告、旁白',
+    caption: '地點、時間字幕',
+    sf: '科幻風的 HUD 標題',
+  },
   tabs: { mode: '模式', text: '文字', style: '樣式', deco: '裝飾', time: '時間與尺寸' },
   phase: {
     intro: '登場',
@@ -166,4 +171,77 @@ export const S = {
     glyph: '逐字',
   },
   loadingFonts: '字型載入中…',
+  /** SF 標題模式（2026-10-26） */
+  sf: {
+    tplTitle: '範本',
+    tplNote:
+      'SF 標題的範本只換版面：文字、顏色、字型、效果與長度都保留。滑鼠移到縮圖上會播放停留中的動作。',
+    tplLabel: 'SF 標題範本',
+    resetConfirm: '把 SF 標題的所有設定（含文字、顏色、字型）恢復成預設？畫面尺寸與播放方式保留。',
+    playTitle: '播放方式',
+    playLabel: '播放方式',
+    playCustom: (intro: boolean, outro: boolean, loop: string) =>
+      `目前是自訂的組合（登場${intro ? '開' : '關'}、退場${outro ? '開' : '關'}、${loop}）；選一種播放方式就會一起改掉。`,
+    playHint: '播放方式會一起設定預覽下方的「登場」「退場」開關與匯出的循環；也可以分開調整。',
+    dur: '長度',
+    durHint: '整段的長度：登場約占 45%（最多 1.6 秒），退場是最後 0.4 秒，中間是停留中的動作。',
+    textTitle: '文字',
+    title: '標題',
+    titlePlaceholder: '例如：異常訊號',
+    sub: '副文字（可留空）',
+    subPlaceholder: '例如：第 13 區・觀測站回報',
+    code: '代碼標籤（留空＝自動）',
+    codeHint: (auto: string) => `留空時依標題自動產生：${auto}`,
+    num: '編號',
+    numHint: '「大字編號」「勳章緞帶」「識別吊牌」「取景框」「數據讀取」會顯示；留空時顯示 01。',
+    colorTitle: '顏色',
+    main: '主色',
+    accent: '強調色',
+    swatchLabel: (name: string, hex: string) => `${name}（${hex}）`,
+    custom: '自訂',
+    fontTitle: '字型',
+    fontNote:
+      '英文、數字用英文字型，中文用中文字型；代碼、副文字等小字用等寬字型。網路字型只在選到時才下載。',
+    latin: '英文字型',
+    cjk: '中文字型',
+    fxTitle: '效果',
+    glow: '光暈',
+    grain: '顆粒雜訊',
+    grainHint: '細細的顆粒，讓畫面像舊螢幕；越大越明顯。',
+    scan: '掃描線',
+    glitch: '故障',
+    glitchHint:
+      '用文字演出的雜訊效果：登場是「雜訊干擾」、停留中是「偶爾雜訊」、退場是「雜訊斷訊」（兩色分色＋水平錯位；打開後可以在下方改兩個分色的顏色）。',
+    glitchColors: '雜訊顏色',
+    ratio: '比例',
+    width: '寬度',
+    customSize: '自訂',
+    sizeNote: '範本畫在 3:1 的版面裡，依畫面尺寸置中縮放；選 2:1 或 16:9 時上下會留空白。',
+    webpQuality: 'WebP 品質',
+    webpHint: '數字越大越清楚、檔案越大（有損壓縮）。',
+    limit: '上傳上限（CCFOLIA 等）',
+    sizeWarning: '建議縮小寬度、降低 fps、改用 256 色，或縮短長度。',
+    batchPickDesc:
+      '勾選要一次匯出的範本。SF 標題的範本共用目前的文字與樣式，只換版面；我的範本照它存的設定（只保留畫面尺寸）。',
+    durAria: '長度（秒，每 0.5 秒）',
+  },
 } as const;
+
+const CJK = /[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef]/u;
+const LATIN = /[A-Za-z0-9]/;
+
+/**
+ * 接起幾段介面文字：中文與英文、數字相鄰的地方自動加半形空白（DESIGN.md 第 5 節「英文與數字前後加半形空白」）。
+ * 例：joinText('切換到', 'SF 標題') → 「切換到 SF 標題」；joinText('切換到', '標語') → 「切換到標語」。
+ */
+export function joinText(...parts: string[]): string {
+  let out = '';
+  for (const p of parts) {
+    if (!p) continue;
+    const a = out.slice(-1);
+    const b = p[0];
+    const gap = (CJK.test(a) && LATIN.test(b)) || (LATIN.test(a) && CJK.test(b));
+    out += (gap ? ' ' : '') + p;
+  }
+  return out;
+}

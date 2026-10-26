@@ -16,8 +16,8 @@ import { TEMPLATES, type Template } from '../library';
 import { useMine } from '../mine';
 import { fxGroups, HOLD, INTRO, ORDER_CHOICES, OUTRO } from '../motion';
 import { MODES, type Mode } from '../settings';
-import { applyTemplate, resetTemplate, setMode, useTfx } from '../store';
-import { S } from '../strings';
+import { applyTemplate, resetTemplate, setMode, tplIdOf, useTfx } from '../store';
+import { joinText, S } from '../strings';
 import { useTemplateThumbs } from '../thumbs';
 import { MinePanel } from './MinePanel';
 
@@ -57,7 +57,7 @@ function GalleryButton({ kind, onOpen }: { kind: GalleryKind; onOpen: (k: Galler
 
 function TemplateSection() {
   const mode = useTfx((st) => st.data.mode);
-  const tplId = useTfx((st) => st.data.modes[st.data.mode].tpl);
+  const tplId = useTfx((st) => tplIdOf(st.data));
   /* 套用中的是我的範本時，內建範本都不標示 */
   const mineId = useTfx((st) => st.data.modes[st.data.mode].mine);
   const mineOn = useMine((st) => !!mineId && st.data.items.some((t) => t.id === mineId));
@@ -91,7 +91,7 @@ function TemplateSection() {
     >
       <div data-thumbs-ready={thumbs.ready ? 'true' : 'false'}>
         <TemplateGallery
-          aria-label={`${MODES.find((m) => m[0] === mode)?.[1]}範本`}
+          aria-label={joinText(MODES.find((m) => m[0] === mode)?.[1] ?? '', '範本')}
           key={mode}
           confirm={false}
           size="sm"
@@ -112,9 +112,29 @@ function TemplateSection() {
   );
 }
 
+/** 模式的切換（SF 標題的「模式」分頁也用） */
+export function ModeSection() {
+  const mode = useTfx((st) => st.data.mode);
+  return (
+    <Section title="模式" fixed>
+      <Segmented
+        aria-label="模式"
+        value={mode}
+        onValueChange={(m) => setMode(m as Mode)}
+        options={MODES.map(([value, label], i) => ({
+          value,
+          label,
+          ariaLabel: `${label}（${S.modeDesc[value]}，快捷鍵 ${i + 1}）`,
+        }))}
+        fullWidth
+      />
+      <p className="m-0 -mt-1 text-xs text-muted">{S.modeDesc[mode]}</p>
+    </Section>
+  );
+}
+
 export function ModePanel({ onGallery }: { onGallery: (k: GalleryKind) => void }) {
   const c = useCfg();
-  const mode = useTfx((st) => st.data.mode);
   const isLong = c.mode === 'long';
   const isShort = !isLong;
   const isScroll = isLong && c.flow.kind === 'scroll';
@@ -131,20 +151,7 @@ export function ModePanel({ onGallery }: { onGallery: (k: GalleryKind) => void }
 
   return (
     <div className="flex flex-col gap-3">
-      <Section title="模式" fixed>
-        <Segmented
-          aria-label="模式"
-          value={mode}
-          onValueChange={(m) => setMode(m as Mode)}
-          options={MODES.map(([value, label], i) => ({
-            value,
-            label,
-            ariaLabel: `${label}（${S.modeDesc[value]}，快捷鍵 ${i + 1}）`,
-          }))}
-          fullWidth
-        />
-        <p className="m-0 -mt-1 text-xs text-muted">{S.modeDesc[mode]}</p>
-      </Section>
+      <ModeSection />
 
       <TemplateSection />
 

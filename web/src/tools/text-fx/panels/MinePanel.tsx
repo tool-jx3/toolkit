@@ -16,7 +16,8 @@ import {
 } from '../mine';
 import { INTRO } from '../motion';
 import { FLOW_NAMES, MODES } from '../settings';
-import { applyMine, importMine, removeMine, renameMine, saveMine, useTfx } from '../store';
+import { sfOf, sfTemplateInfo } from '../sf';
+import { applyMine, importMine, removeMine, renameMine, saveMine, tplIdOf, useTfx } from '../store';
 import { S } from '../strings';
 import { useSettingsThumbs } from '../thumbs';
 
@@ -24,11 +25,13 @@ import { useSettingsThumbs } from '../thumbs';
 function metaOf(t: MyTemplate): string {
   const s = t.s;
   const fx =
-    s.introOn === false && !(s.mode === 'long' && s.flow.kind === 'scroll')
-      ? '無登場'
-      : s.mode === 'long'
-        ? FLOW_NAMES[s.flow.kind]
-        : (INTRO[s.intro.fx] || INTRO.fade).name;
+    s.mode === 'sf'
+      ? sfTemplateInfo(sfOf(s).tpl).name
+      : s.introOn === false && !(s.mode === 'long' && s.flow.kind === 'scroll')
+        ? '無登場'
+        : s.mode === 'long'
+          ? FLOW_NAMES[s.flow.kind]
+          : (INTRO[s.intro.fx] || INTRO.fade).name;
   return S.mine.meta(textHead(s.text) || textHead(s.sub), fx);
 }
 
@@ -98,7 +101,7 @@ export function MinePanel() {
             const d = useTfx.getState().data;
             const cur = d.modes[d.mode];
             saveMine(
-              textHead(cur.s.text) || textHead(cur.s.sub) || templateById(d.mode, cur.tpl).name,
+              textHead(cur.s.text) || textHead(cur.s.sub) || templateById(d.mode, tplIdOf(d)).name,
             );
           }}
           addLabel={S.mine.add}

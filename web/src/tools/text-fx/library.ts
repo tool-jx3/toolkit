@@ -12,6 +12,7 @@ import {
   type MotionSettings,
   type Settings,
 } from './settings';
+import { SF_DEFAULT_SUB, SF_DEFAULT_TEXT, SF_TEMPLATES } from './sf';
 
 /** 選了某個效果時帶入它的預設時長與字間隔，曲線回到自動、強度回到 1 */
 export function introOf(id: string, extra: Partial<MotionSettings> = {}): MotionSettings {
@@ -996,6 +997,16 @@ export const TEMPLATES: Record<Mode, readonly Template[]> = {
       },
     },
   ],
+  /* SF 標題（2026-10-26）：範本只決定版面（HUD 構圖），文字、顏色、字型與效果在所有範本共用（見 store.ts 的 templateEntry） */
+  sf: SF_TEMPLATES.map((t) => ({
+    id: t.id,
+    group: 'SF 標題',
+    name: t.name,
+    text: SF_DEFAULT_TEXT,
+    sub: SF_DEFAULT_SUB,
+    loop: 'infinite' as const,
+    patch: { sf: { tpl: t.id } },
+  })),
 };
 
 export function templateById(mode: Mode, id: string | null | undefined): Template {

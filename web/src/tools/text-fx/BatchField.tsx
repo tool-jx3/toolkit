@@ -5,13 +5,11 @@
 import { ListChecks } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Checkbox, Dialog, DialogClose, Field, Select } from '@/ui';
-import { batchByLines, batchChoices } from './batch';
+import { type BatchKind, batchByLines, batchChoices, batchKindOf } from './batch';
 import { useMine } from './mine';
 import type { Mode, Settings } from './settings';
 import { useView } from './store';
 import { S } from './strings';
-
-type BatchKind = 'off' | 'lines' | 'templates';
 
 const PREVIEW_MAX = 5;
 
@@ -32,7 +30,7 @@ function PickDialog({
   const set = new Set(picked);
   const write = (next: Set<string>) => {
     const keys = choices.filter((c) => next.has(c.key)).map((c) => c.key);
-    const cur = useView.getState().data.batchPick ?? { title: [], long: [], caption: [] };
+    const cur = useView.getState().data.batchPick ?? { title: [], long: [], caption: [], sf: [] };
     useView.getState().patch({ batchPick: { ...cur, [mode]: keys } });
   };
   const toggle = (key: string, on: boolean) => {
@@ -46,7 +44,7 @@ function PickDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={S.batch.pickTitle}
-      description={S.batch.pickDesc}
+      description={mode === 'sf' ? S.sf.batchPickDesc : S.batch.pickDesc}
       size="lg"
       footer={
         <>
@@ -104,8 +102,8 @@ function PickDialog({
 }
 
 export function BatchField({ cfg }: { cfg: Settings }) {
-  const kind = useView((st) => st.data.batch ?? 'off') as BatchKind;
   const mode = cfg.mode;
+  const kind = useView((st) => batchKindOf(st.data.batch as BatchKind | undefined, mode));
   const mine = useMine((st) => st.data.items);
   const picked = useView((st) => st.data.batchPick?.[mode] ?? []);
   const [open, setOpen] = useState(false);
@@ -132,7 +130,9 @@ export function BatchField({ cfg }: { cfg: Settings }) {
           onValueChange={(v) => useView.getState().patch({ batch: v as BatchKind })}
           options={[
             { value: 'off', label: S.batch.off },
-            { value: 'lines', label: isLong ? S.batch.pages : S.batch.lines },
+            ...(mode === 'sf'
+              ? []
+              : [{ value: 'lines', label: isLong ? S.batch.pages : S.batch.lines }]),
             { value: 'templates', label: S.batch.templates },
           ]}
         />

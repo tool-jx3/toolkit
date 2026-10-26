@@ -431,7 +431,7 @@ test.describe('P11 新增：登場開關、理智範本、我的範本、一次�
     expect(await hook<boolean>(page, '(t) => t.app.cfg().introOn')).toBe(false);
     await hook(page, '(t) => t.seek(0)');
     await expect.poll(() => blankHash(page)).toBe(false);
-    expect(await hook<number>(page, '(t) => t.scene.repTime')).toBe(0);
+    await expect.poll(() => hook<number>(page, '(t) => t.scene.repTime')).toBe(0);
     await expect(page.getByRole('textbox', { name: '檔名（留空＝自動命名）' })).toHaveAttribute(
       'placeholder',
       '戰鬥開始_無登場',
@@ -646,6 +646,344 @@ test.describe('版面', () => {
     }
     for (const m of ['長文', '字幕']) {
       await page.getByRole('radio', { name: new RegExp(`^${m}`) }).click();
+      await noHorizontalScroll(page);
+    }
+    expect(errors).toEqual([]);
+  });
+});
+
+/* ---------- SF 標題（2026-10-26，規格 1.18 F311～F335） ---------- */
+
+test.describe('SF 標題', () => {
+  test.use({ contextOptions: { reducedMotion: 'reduce' }, viewport: { width: 1280, height: 900 } });
+
+  const blankHash = (page: Page) =>
+    page.getByTestId('tfx-canvas').evaluate((c: HTMLCanvasElement) => {
+      const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 0) return false;
+      return true;
+    });
+
+  /** APNG 的 acTL：影格數、播放次數 */
+  function apngInfo(b: Buffer) {
+    const i = b.indexOf(Buffer.from('acTL', 'latin1'));
+    expect(i).toBeGreaterThan(0);
+    return { frames: b.readUInt32BE(i + 4), plays: b.readUInt32BE(i + 8) };
+  }
+
+  /** 動態 WebP：畫布尺寸、循環次數、影格數、每格的編碼（VP8＝有損、VP8L＝無損） */
+  function webpInfo(b: Buffer) {
+    expect(b.subarray(0, 4).toString('latin1')).toBe('RIFF');
+    expect(b.subarray(8, 12).toString('latin1')).toBe('WEBP');
+    const out = { width: 0, height: 0, loops: -1, frames: 0, codecs: new Set<string>() };
+    for (let o = 12; o + 8 <= b.length; ) {
+      const id = b.subarray(o, o + 4).toString('latin1');
+      const size = b.readUInt32LE(o + 4);
+      const p = o + 8;
+      if (id === 'VP8X') {
+        out.width = b.readUIntLE(p + 4, 3) + 1;
+        out.height = b.readUIntLE(p + 7, 3) + 1;
+      } else if (id === 'ANIM') out.loops = b.readUInt16LE(p + 4);
+      else if (id === 'ANMF') {
+        out.frames++;
+        for (let q = p + 16; q + 8 <= p + size; ) {
+          const sid = b.subarray(q, q + 4).toString('latin1');
+          const ssz = b.readUInt32LE(q + 4);
+          if (sid !== 'ALPH') out.codecs.add(sid.trim());
+          q += 8 + ssz + (ssz & 1);
+        }
+      }
+      o = p + size + (size & 1);
+    }
+    return out;
+  }
+
+  async function decodeFrames(page: Page, bytes: Buffer, type: string) {
+    return page.evaluate(
+      async ({ b64, type }) => {
+        const data = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        // biome-ignore lint/suspicious/noExplicitAny: ImageDecoder 還沒有型別
+        const d = new (window as any).ImageDecoder({ data, type });
+        await d.tracks.ready;
+        await d.completed;
+        const first = await d.decode({ frameIndex: 0 });
+        const out = {
+          frames: d.tracks.selectedTrack.frameCount as number,
+          width: first.image.displayWidth as number,
+          height: first.image.displayHeight as number,
+        };
+        first.image.close();
+        return out;
+      },
+      { b64: bytes.toString('base64'), type },
+    );
+  }
+
+  async function exportAs(page: Page, format: string) {
+    await page.getByRole('radio', { name: format, exact: true }).click();
+    await page.getByRole('button', { name: `匯出 ${format}` }).click();
+    const card = page.getByTestId('export-result');
+    await expect(card).toBeVisible({ timeout: 120_000 });
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      card.getByRole('link', { name: '下載' }).click(),
+    ]);
+    return { name: download.suggestedFilename(), bytes: readFileSync(await download.path()), card };
+  }
+
+  test('切到 SF 標題、選範本、改文字與樣式、播放方式、尺寸（F311～F329、F335）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    /* 停在「裝飾」分頁時切到 SF 標題：裝飾分頁不顯示，改看「樣式」（R9） */
+    await page.getByRole('tab', { name: '裝飾' }).click();
+    /* 快捷鍵 4 切到 SF 標題（快捷鍵說明寫「切換到 SF 標題」，R7） */
+    await page.locator('body').click({ position: { x: 5, y: 300 } });
+    await page.keyboard.press('Shift+Slash');
+    await expect(page.getByRole('dialog', { name: '快捷鍵' })).toContainText('切換到 SF 標題');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('4');
+    expect(await hook<string>(page, '(t) => t.app.mode()')).toBe('sf');
+    await expect(page.getByTestId('meta-line')).toContainText(
+      'SF 標題／雷達掃描・960×320・15 fps・4.00 秒・60 格',
+    );
+    await expect(page.getByRole('tab', { name: '裝飾' })).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: '樣式' })).toHaveAttribute('aria-selected', 'true');
+    await page.getByRole('tab', { name: '模式' }).click();
+    /* 切換模式會從頭播放；暫停在代表畫面（登場結束＝1.6 秒） */
+    expect(await hook<number>(page, '(t) => t.scene.repTime')).toBeCloseTo(1.6, 6);
+    await hook(page, '(t) => t.seek(t.scene.repTime)');
+    await expect.poll(() => blankHash(page)).toBe(false);
+    const h0 = await canvasHash(page);
+
+    /* 8 個範本（縮圖選項）；選「指令視窗」 */
+    const group = page.getByRole('radiogroup', { name: 'SF 標題範本' });
+    await expect(group.getByRole('radio')).toHaveCount(8);
+    await group.getByRole('radio', { name: /指令視窗/ }).click();
+    expect(await hook<string>(page, '(t) => t.app.tplId()')).toBe('console');
+    expect(await hook<string>(page, '(t) => t.app.cfg().sf.tpl')).toBe('console');
+    await expect(page.getByTestId('meta-line')).toContainText('SF 標題／指令視窗');
+    await hook(page, '(t) => t.seek(t.scene.repTime)');
+    await expect.poll(() => canvasHash(page)).not.toBe(h0);
+
+    /* 文字：標題、副文字、代碼（留空＝自動）、編號 */
+    await page.getByRole('tab', { name: '文字' }).click();
+    const title = page.getByRole('textbox', { name: '標題' });
+    await expect(title).toHaveValue('異常訊號');
+    const code = page.getByRole('textbox', { name: '代碼標籤（留空＝自動）' });
+    const auto0 = await code.getAttribute('placeholder');
+    expect(auto0).toMatch(/^[A-Z]{2}-[0-9A-F]{4}·\d{2}$/);
+    const h1 = await canvasHash(page);
+    await title.fill('封鎖區域');
+    await expect.poll(() => hook<string>(page, '(t) => t.app.cfg().text')).toBe('封鎖區域');
+    await expect(code).not.toHaveAttribute('placeholder', auto0!);
+    await hook(page, '(t) => t.seek(t.scene.repTime)');
+    await expect.poll(() => canvasHash(page)).not.toBe(h1);
+    await code.fill('ZX-0001');
+    await page.getByRole('textbox', { name: '編號' }).fill('42');
+    await expect.poll(() => hook<string>(page, '(t) => t.app.cfg().sf.code')).toBe('ZX-0001');
+    expect(await hook<string>(page, '(t) => t.app.cfg().sf.num')).toBe('42');
+
+    /* 樣式：主色色票、強調色、字型、光暈、掃描線、故障 */
+    await page.getByRole('tab', { name: '樣式' }).click();
+    await page
+      .getByRole('radiogroup', { name: '主色' })
+      .getByRole('radio', { name: '琥珀（#ffc861）' })
+      .click();
+    expect(await hook<string>(page, '(t) => t.app.cfg().sf.main')).toBe('#ffc861');
+    await expect(
+      page
+        .getByRole('radiogroup', { name: '主色' })
+        .getByRole('radio', { name: '琥珀（#ffc861）' }),
+    ).toHaveAttribute('aria-checked', 'true');
+    await page
+      .getByRole('radiogroup', { name: '強調色' })
+      .getByRole('radio', { name: '螢光綠（#d4ff40）' })
+      .click();
+    expect(await hook<string>(page, '(t) => t.app.cfg().sf.accent')).toBe('#d4ff40');
+    /* 色票用方向鍵移動並選取（R8） */
+    const lime = page
+      .getByRole('radiogroup', { name: '強調色' })
+      .getByRole('radio', { name: '螢光綠（#d4ff40）' });
+    await expect(lime).toBeFocused();
+    /* 方向鍵按住一下再放（Radix 的單選在焦點移過去時，按鍵還按著才選取；press 太快放開會漏掉） */
+    await page.keyboard.down('ArrowRight');
+    await expect(
+      page
+        .getByRole('radiogroup', { name: '強調色' })
+        .getByRole('radio', { name: '琥珀（#ffc861）' }),
+    ).toBeFocused();
+    await page.keyboard.up('ArrowRight');
+    await expect.poll(() => hook<string>(page, '(t) => t.app.cfg().sf.accent')).toBe('#ffc861');
+    await page.getByRole('combobox', { name: '中文字型' }).click();
+    await page.getByRole('option', { name: '俐方體 11 號（像素）' }).click();
+    expect(await hook<string>(page, '(t) => t.app.cfg().sf.cjk')).toBe('cubic-11');
+    await page.getByRole('switch', { name: '掃描線' }).click();
+    expect(await hook<boolean>(page, '(t) => t.app.cfg().sf.scan')).toBe(true);
+
+    /* 播放方式：對應到登場、退場開關與循環 */
+    await page.getByRole('tab', { name: '模式' }).click();
+    const play = page.getByRole('combobox', { name: '播放方式' });
+    await play.click();
+    await page.getByRole('option', { name: '循環播放（只有停留）' }).click();
+    expect(
+      await hook<unknown[]>(
+        page,
+        '(t) => [t.app.cfg().introOn, t.app.cfg().outroOn, t.app.cfg().loop]',
+      ),
+    ).toEqual([false, false, 'infinite']);
+    /* 無縫循環：不提示「退場關閉又設成無限循環」；完成狀態在 0 秒 */
+    await expect(page.getByText('退場關閉又設成無限循環')).toHaveCount(0);
+    await expect.poll(() => hook<number>(page, '(t) => t.scene.repTime')).toBe(0);
+    await play.click();
+    await page.getByRole('option', { name: '播放一次（沒有退場）' }).click();
+    expect(
+      await hook<unknown[]>(
+        page,
+        '(t) => [t.app.cfg().introOn, t.app.cfg().outroOn, t.app.cfg().loop]',
+      ),
+    ).toEqual([true, false, 'once']);
+    /* 預覽下方的退場開關打開＝自訂的組合 */
+    await page.getByRole('switch', { name: '退場', exact: true }).click();
+    await expect(play).toContainText('自訂的組合');
+
+    /* 時間與尺寸：比例 2:1、寬 800、fps 10、長度 */
+    await page.getByRole('tab', { name: '時間與尺寸' }).click();
+    await page.getByRole('radio', { name: '2:1' }).click();
+    await page.getByRole('radio', { name: '800', exact: true }).click();
+    await expect
+      .poll(() => hook<number[]>(page, '(t) => [t.scene.W, t.scene.H]'))
+      .toEqual([800, 400]);
+    await page.getByRole('radio', { name: '16:9' }).click();
+    await expect
+      .poll(() => hook<number[]>(page, '(t) => [t.scene.W, t.scene.H]'))
+      .toEqual([800, 450]);
+    await page.getByRole('radio', { name: '10', exact: true }).click();
+    /* 長度：打 3.3 → 離開欄位時取到 3.5（R3） */
+    const dur = page.getByRole('spinbutton', { name: '長度' });
+    await dur.fill('3.3');
+    await dur.press('Tab');
+    await expect(dur).toHaveValue('3.5');
+    expect(await hook<number>(page, '(t) => t.app.cfg().sf.dur')).toBe(3.5);
+    await hook(page, "(t) => t.app.set('sf.dur', 6)");
+    await expect(page.getByTestId('total-note')).toContainText('總長 6.00 秒・10 fps 共 60 格');
+    /* 匯出區的 FPS 選單也是 10～24 */
+    await page.getByRole('combobox', { name: 'FPS' }).click();
+    await expect(page.getByRole('option')).toHaveText([
+      '10 fps',
+      '12 fps',
+      '15 fps',
+      '20 fps',
+      '24 fps',
+    ]);
+    await page.keyboard.press('Escape');
+
+    /* 一次匯出多個的「勾選的範本」：SF 的說明（R5） */
+    await page.getByRole('combobox', { name: '一次匯出多個' }).click();
+    await page.getByRole('option', { name: '勾選的範本' }).click();
+    await page.getByRole('button', { name: /^選擇範本/ }).click();
+    const pick = page.getByRole('dialog', { name: '一次匯出的範本' });
+    await expect(pick).toContainText('範本共用目前的文字與樣式');
+    await expect(pick.getByRole('checkbox')).toHaveCount(8);
+    await page.keyboard.press('Escape');
+    await page.getByRole('combobox', { name: '一次匯出多個' }).click();
+    await page.getByRole('option', { name: '不用（只匯出目前的設定）' }).click();
+
+    /* 切回標語：各自保留設定（F002）；裝飾分頁回來 */
+    await page.locator('body').click({ position: { x: 5, y: 300 } });
+    await page.keyboard.press('1');
+    expect(await hook<string>(page, '(t) => t.app.cfg().text')).toBe('戰鬥開始');
+    await expect(page.getByRole('tab', { name: '裝飾' })).toHaveCount(1);
+    await page.keyboard.press('4');
+    expect(await hook<string>(page, '(t) => t.app.cfg().text')).toBe('封鎖區域');
+    expect(await hook<string>(page, '(t) => t.app.cfg().sf.tpl')).toBe('console');
+    expect(errors).toEqual([]);
+  });
+
+  test('匯出 APNG 與 WebP：尺寸、格數、循環次數、5 MB 標示、決定性（F326～F334）', async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    const errors = await open(page);
+    await page.getByRole('radio', { name: /^SF 標題/ }).click();
+    /* 3:1 × 640、10 fps、長度 2 秒 → 20 格 */
+    await page.getByRole('tab', { name: '時間與尺寸' }).click();
+    await page.getByRole('radio', { name: '3:1' }).click();
+    await page.getByRole('radio', { name: '640', exact: true }).click();
+    await page.getByRole('radio', { name: '10', exact: true }).click();
+    await hook(page, "(t) => t.app.set('sf.dur', 2)");
+    await expect
+      .poll(() => hook<number[]>(page, '(t) => [t.scene.W, t.scene.H, t.scene.duration]'))
+      .toEqual([640, 214, 2]);
+
+    /* 循環播放（登場→停留→退場）：APNG 無限循環 */
+    const a1 = await exportAs(page, 'APNG');
+    expect(a1.name).toBe('異常訊號_雷達掃描_循環.png');
+    const i1 = apngInfo(a1.bytes);
+    expect(i1.plays).toBe(0);
+    expect(i1.frames).toBeGreaterThan(15);
+    expect(i1.frames).toBeLessThanOrEqual(20);
+    expect(await decodeFrames(page, a1.bytes, 'image/png')).toMatchObject({
+      width: 640,
+      height: 214,
+    });
+    await expect(a1.card).toContainText('20 格');
+    /* 5,000,000 位元組（共用匯出區以 1024 進位顯示成 4.77 MB），沒超過＝綠色 */
+    await expect(a1.card.getByTestId('export-limit')).toContainText('／4.77 MB');
+    await expect(a1.card.getByTestId('export-limit')).not.toHaveAttribute('data-over', '');
+    /* 同樣的設定再匯出一次：逐位元組相同 */
+    const a2 = await exportAs(page, 'APNG');
+    expect(a2.bytes.equals(a1.bytes)).toBe(true);
+
+    /* 播放一次（沒有退場）：APNG 播放 1 次 */
+    await page.getByRole('tab', { name: '模式' }).click();
+    await page.getByRole('combobox', { name: '播放方式' }).click();
+    await page.getByRole('option', { name: '播放一次（沒有退場）' }).click();
+    const once = await exportAs(page, 'APNG');
+    expect(once.name).toBe('異常訊號_雷達掃描_無退場.png');
+    expect(apngInfo(once.bytes).plays).toBe(1);
+
+    /* 循環播放（只有停留）＋WebP（品質 60，有損） */
+    await page.getByRole('combobox', { name: '播放方式' }).click();
+    await page.getByRole('option', { name: '循環播放（只有停留）' }).click();
+    await page.getByRole('radio', { name: 'WebP', exact: true }).click();
+    await expect(page.getByText('WebP 品質', { exact: true })).toBeVisible();
+    await hook(page, "(t) => t.app.set('sf.webpQuality', 60)");
+    const w = await exportAs(page, 'WebP');
+    expect(w.name).toBe('異常訊號_雷達掃描_無登場_無退場_循環.webp');
+    const wi = webpInfo(w.bytes);
+    expect(wi).toMatchObject({ width: 640, height: 214, loops: 0 });
+    expect(wi.frames).toBeGreaterThan(15);
+    expect(wi.frames).toBeLessThanOrEqual(20);
+    expect([...wi.codecs]).toEqual(['VP8']);
+    expect((await decodeFrames(page, w.bytes, 'image/webp')).frames).toBe(wi.frames);
+    await expect(w.card).toContainText('WebP 品質60');
+
+    /* 一次匯出多個：SF 標題沒有「每一行各一個」 */
+    await page.getByRole('combobox', { name: '一次匯出多個' }).click();
+    await expect(page.getByRole('option')).toHaveText(['不用（只匯出目前的設定）', '勾選的範本']);
+    await page.keyboard.press('Escape');
+    expect(errors).toEqual([]);
+  });
+
+  test('視覺回歸：SF 標題 1280 寬；390 寬每個分頁都沒有橫向捲動', async ({ page }) => {
+    const errors = await open(page);
+    await page.getByRole('radio', { name: /^SF 標題/ }).click();
+    await expect(page.getByRole('button', { name: '暫停', exact: true })).toBeVisible();
+    await hook(page, '(t) => t.setPlaying(false)');
+    await expect(page.getByRole('button', { name: '播放', exact: true })).toBeVisible();
+    await hook(page, '(t) => t.seek(t.scene.repTime)');
+    await expect
+      .poll(() => hook<number>(page, '(t) => Math.abs(t.t - t.scene.repTime)'))
+      .toBeLessThan(1e-6);
+    await page.mouse.move(0, 0);
+    await expect(page).toHaveScreenshot('text-fx-sf-1280.png', {
+      fullPage: true,
+      mask: [page.getByRole('status').filter({ hasText: '自動儲存' })],
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const tab of ['文字', '樣式', '時間與尺寸', '模式']) {
+      await page.getByRole('tab', { name: tab }).click();
       await noHorizontalScroll(page);
     }
     expect(errors).toEqual([]);

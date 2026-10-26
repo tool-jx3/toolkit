@@ -28,7 +28,7 @@ import {
   typeset,
 } from '@/core/typeset';
 import { rgba } from './color';
-import { type FontLoad, fontCssFor, fontLoads, usedWeight } from './fonts';
+import { type FontLoad, fontCssFor, fontLoads, sfFontLoads, usedWeight } from './fonts';
 import {
   type BlockFx,
   type BlockState,
@@ -47,6 +47,7 @@ import {
   stackPose,
   type Wipe,
 } from './motion';
+import { type NoiseLayer, paintNoise } from './noise';
 import {
   type DecoShape,
   decoAlongReserve,
@@ -57,7 +58,15 @@ import {
   type TextOutline,
   WRAP_DECOS,
 } from './ornament';
-import { type DecoSettings, type MotionSettings, type Settings, splitPages } from './settings';
+import {
+  type DecoSettings,
+  hasText,
+  type MotionSettings,
+  type Settings,
+  splitPages,
+} from './settings';
+import { sfTiming } from './sf';
+import { SfPainter } from './sfDraw';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -262,6 +271,7 @@ function pageSources(cfg: Settings): PageSrc[] {
 
 /** 這組設定要先載入的字型 */
 export function sceneFontLoads(cfg: Settings): FontLoad[] {
+  if (cfg.mode === 'sf') return sfFontLoads(cfg);
   const src = pageSources(cfg);
   return fontLoads(cfg, src.map((p) => p.main).join('\n'), src.map((p) => p.sub).join('\n'));
 }
@@ -278,6 +288,7 @@ export interface BuildOptions {
 }
 
 export function buildScene(cfg: Settings, opts: BuildOptions = {}): Scene {
+  if (cfg.mode === 'sf') return buildSfScene(cfg, opts);
   const maxCanvas = opts.maxCanvas ?? 2048;
   const W = clamp(Math.round(cfg.canvasW), 16, maxCanvas);
   const H = clamp(Math.round(cfg.canvasH), 16, maxCanvas);
@@ -1036,10 +1047,7 @@ function scheduleOutro(cfg: Settings, page: ScenePage, groups: SceneGroup[]): nu
 
 /* ---------- 場景 ---------- */
 
-interface Layer {
-  c: SpriteCanvas;
-  x: Ctx;
-}
+type Layer = NoiseLayer;
 
 export interface SceneInit {
   cfg: Settings;
@@ -1065,6 +1073,10 @@ export interface SceneInit {
   empty: boolean;
   flowKind: string | null;
   shrunk: { from: number; to: number } | null;
+  /** 自己畫整格（SF 標題的 HUD 範本）：有給時 draw 清空畫布後交給它畫 */
+  paint?: (ctx: Ctx, t: number) => void;
+  /** 無縫循環：匯出時最後一格不取在結尾（SF 標題的循環） */
+  seamless?: boolean;
 }
 
 export class Scene implements SceneInit {
@@ -1090,6 +1102,8 @@ export class Scene implements SceneInit {
   empty!: boolean;
   flowKind!: string | null;
   shrunk!: { from: number; to: number } | null;
+  paint?: (ctx: Ctx, t: number) => void;
+  seamless?: boolean;
   readonly phases: ScenePhase[] = [];
   private readonly st: GlyphState = freshGlyphState();
   private readonly blk: BlockState = freshBlockState();
@@ -1155,6 +1169,10 @@ export class Scene implements SceneInit {
     ctx.globalCompositeOperation = 'source-over';
     if (canvasFilterOk()) ctx.filter = 'none';
     ctx.clearRect(0, 0, W, H);
+    if (this.paint) {
+      this.paint(ctx, t);
+      return;
+    }
     drawBackdrop(ctx, this.cfg.bg, W, H, this.backdropAmount(t));
     const page = this.pageAt(t);
     if (!page) return;
@@ -1678,10 +1696,7 @@ export class Scene implements SceneInit {
     x.restore();
   }
 
-  /**
-   * 雜訊外觀：洋紅往左、青色往右的兩份單色複本墊在後面，再加 2～6 條水平錯位切片。
-   * 亂數每 1/20 秒換一次，不隨輸出 fps 變。
-   */
+  /** 雜訊外觀（noise.ts；SF 標題也用同一套） */
   private drawGlitch(
     ctx: Ctx,
     src: SpriteCanvas,
@@ -1691,59 +1706,77 @@ export class Scene implements SceneInit {
     S: number,
     hold: BlockState,
   ): void {
-    const L = this.getLayers();
-    const { W, H } = this;
-    const slot = timeSlot(t, 20);
-    const seed = 4242;
-    const u01 = (n: number) => (hashSigned(slot, n, seed) + 1) / 2;
-    const off = S * (0.03 + 0.03 * u01(1)) * Math.min(g, 2.5);
-    const tint = (layer: Layer, color: string) => {
-      const x = layer.x;
-      x.setTransform(1, 0, 0, 1, 0, 0);
-      x.globalCompositeOperation = 'source-over';
-      x.globalAlpha = 1;
-      x.clearRect(0, 0, W, H);
-      x.drawImage(src, 0, 0);
-      x.globalCompositeOperation = 'source-in';
-      x.fillStyle = color;
-      x.fillRect(0, 0, W, H);
-      x.globalCompositeOperation = 'source-over';
-    };
-    tint(L.a, this.cfg.glitchA || '#ff2a6d');
-    tint(L.b, this.cfg.glitchB || '#23e5ff');
-    /* 合成層：src 是 text 層時用 mix，src 已經是 mix（裂開效果）時改用 text 層 */
-    const comp = src === L.mix.c ? L.text : L.mix;
-    const m = comp.x;
-    m.setTransform(1, 0, 0, 1, 0, 0);
-    m.globalCompositeOperation = 'source-over';
-    m.globalAlpha = 1;
-    m.clearRect(0, 0, W, H);
-    m.globalAlpha = 0.8 * clamp01(g * 2.5);
-    m.drawImage(L.a.c, -off, 0);
-    m.drawImage(L.b.c, off, 0);
-    m.globalAlpha = 1;
-    m.drawImage(src, 0, 0);
-    /* 水平切片錯位：在另一層（L.a，已用完）組好，再整張畫到畫面上，不動到底下的背景與裝飾 */
-    const out = L.a.x;
-    out.setTransform(1, 0, 0, 1, 0, 0);
-    out.globalAlpha = 1;
-    out.clearRect(0, 0, W, H);
-    out.drawImage(comp.c, 0, 0);
-    const box = page.box;
-    const n = 2 + Math.floor(u01(2) * 5);
-    for (let i = 0; i < n; i++) {
-      const hgt = S * (0.03 + 0.14 * u01(20 + i));
-      const y = Math.round(box.y + hold.dy - S * 0.2 + u01(10 + i) * (box.h + S * 0.4) - hgt / 2);
-      const shift = Math.round(hashSigned(slot, 30 + i, seed) * 0.25 * S * Math.min(g, 2.5));
-      const y0 = clamp(y, 0, H - 1);
-      const y1 = clamp(y + Math.max(1, Math.round(hgt)), 0, H);
-      if (y1 <= y0) continue;
-      out.clearRect(0, y0, W, y1 - y0);
-      out.drawImage(comp.c, 0, y0, W, y1 - y0, shift, y0, W, y1 - y0);
-    }
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(L.a.c, 0, 0);
-    ctx.restore();
+    paintNoise(ctx, src, this.getLayers(), {
+      W: this.W,
+      H: this.H,
+      amount: g,
+      t,
+      unit: S,
+      top: page.box.y + hold.dy,
+      height: page.box.h,
+      colorA: this.cfg.glitchA || '#ff2a6d',
+      colorB: this.cfg.glitchB || '#23e5ff',
+    });
   }
+}
+
+/* ---------- SF 標題（2026-10-26） ---------- */
+
+/**
+ * SF 標題的場景：一頁，登場＝0～登場長度、停留到退場前、退場＝最後 0.4 秒（sf.ts 的 sfTiming）；
+ * 代表畫面＝登場結束的時刻。畫面交給 SfPainter（HUD 範本）畫，沒有字的 sprite 與排版。
+ */
+function buildSfScene(cfg: Settings, opts: BuildOptions): Scene {
+  const maxCanvas = opts.maxCanvas ?? 2048;
+  const W = clamp(Math.round(cfg.canvasW), 16, maxCanvas);
+  const H = clamp(Math.round(cfg.canvasH), 16, maxCanvas);
+  const tm = sfTiming(cfg);
+  const box: Box = { x: 0, y: 0, w: W, h: H };
+  const page: ScenePage = {
+    index: 0,
+    box,
+    mainBox: box,
+    subBox: null,
+    groups: [],
+    deco: null,
+    center: { x: W / 2, y: H / 2 },
+    t0: 0,
+    S: 0,
+    textStart: 0,
+    introEnd: tm.Ti,
+    holdEnd: tm.D - tm.To,
+    end: tm.D,
+    visibleEnd: tm.outroOn ? tm.D : Number.POSITIVE_INFINITY,
+    repTime: tm.Ti,
+    decoIn: null,
+    decoOut: null,
+  };
+  const painter = opts.paint === false ? null : new SfPainter();
+  return new Scene({
+    cfg,
+    W,
+    H,
+    S: 0,
+    S0: 0,
+    k: 1,
+    vertical: false,
+    pages: [page],
+    duration: tm.D,
+    repTime: tm.Ti,
+    lastEnd: tm.D,
+    preEnd: 0,
+    outroOn: tm.outroOn,
+    instant: !tm.introOn,
+    holdFx: HOLD.none,
+    glowStrength: 0,
+    deco: { ...cfg.deco, kind: 'none' },
+    decoOn: false,
+    bgSync: false,
+    empty: !hasText(cfg),
+    flowKind: null,
+    shrunk: null,
+    paint: painter ? (ctx, t) => painter.draw(ctx, cfg, t, W, H) : () => {},
+    /* 播放一次、又有退場時最後一格取在結尾（全透明）；其他（循環、停住）照原作取 i ÷ fps */
+    seamless: cfg.loop !== 'once' || !tm.outroOn,
+  });
 }

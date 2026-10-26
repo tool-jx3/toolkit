@@ -622,6 +622,14 @@ export const GOOGLE_FONTS: readonly FontEntry[] = [
   },
   /* G10 地圖編輯器（2026-10-08 以 css2 驗證） */
   { family: 'Eater', label: 'Eater', scripts: ['latin'], category: 'display', weights: [400] },
+  /* text-fx 的 SF 標題（2026-10-26 以 css2 驗證：只有 400） */
+  {
+    family: 'Michroma',
+    label: 'Michroma',
+    scripts: ['latin'],
+    category: 'display',
+    weights: [400],
+  },
   /* G7 拍立得相框產生器的文字（2026-10-09 以 css2 驗證字重） */
   { family: 'Poppins', label: 'Poppins', scripts: ['latin'], category: 'sans', weights: ALL },
   {

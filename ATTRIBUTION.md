@@ -44,7 +44,7 @@
 |---|---|---|---|
 | `battlemap` | 戰鬥地圖產生器 | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `cb0c619` |
 | `apng-wipe` | 輕量轉場 APNG 產生器 | 出處不明的轉場 APNG 小工具（使用者提供的單檔 HTML，沒有可連結的網址） | `cb0c619` |
-| `text-fx` | 文字演出產生器 | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發，沒有使用原作的程式碼，見下節） | `cb0c619` |
+| `text-fx` | 文字演出產生器 | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發，沒有使用原作的程式碼，見下節）、[Mellow Noise／SF 타이틀 메이커](https://mellow-noise.naru.pub/#sf_title_maker)（SF 標題模式，未授權） | `cb0c619` |
 | `lyric-fx` | 歌詞演出產生器 | [YouRanCoder/LimbusLyricSimulator](https://github.com/YouRanCoder/LimbusLyricSimulator)（GPL-3.0，只參考效果與數值） | —（新收錄，沒有舊版） |
 | `rpg-screenshot` | RPG 截圖產生器 | [dearmysn1p3r/DearMySn1p3r_43](https://github.com/dearmysn1p3r/DearMySn1p3r_43)（RPG Screenshot Maker，未授權） | —（新收錄，沒有舊版） |
 | `textbox` | 文字方框產生器 | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) | `cb0c619` |
@@ -259,6 +259,8 @@
 那一版沒有提交就整個作廢，才改用上述流程重做。
 
 2026-10-06 起，介面頁尾與上表把くま。的「文字画像APNGメーカー」列為**靈感來源**（與其他くま。的工具一致），首頁徽章改為「本站重寫」。網站整體的利用規約（`terms.html`）只限制站內的圖片與圖示，但這個工具自己的利用規約（工具目錄下的 `terms.html`，「禁止」與第 7 條）明文禁止無斷複製、再散布工具本體或主要部分、公開複製的工具，所以程式維持上述的無塵室版本，不讀原作程式移植。
+
+2026-10 加入第四個模式「SF 標題」，參考 Mellow Noise 的「SF 타이틀 메이커」（韓國創作者在個人主頁 Naru 上發布的單一 HTML 工具，檔內沒有授權條款）：只照功能、選項與數值範圍（標題、副文字、代碼與編號、主色與強調色、光暈、顆粒雜訊、掃描線、故障、三種播放方式、長度、比例、寬度、fps、APNG／WebP 匯出）。第一版的範本畫法照搬了原作的座標，驗證時發現後整組作廢，8 個範本的構圖、名稱、範例文字都由本站重新設計，故障改用本工具既有的雜訊效果（經過與原作的相似度比對，見 [docs/refactor/specs/text-fx.md](docs/refactor/specs/text-fx.md) 第 5 節的主控裁定）。頁尾的靈感來源仍只放くま。。
 
 ## 本 repo 的授權
 

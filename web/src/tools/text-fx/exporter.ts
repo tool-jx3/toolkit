@@ -14,6 +14,7 @@ import type { ExportOutput } from '@/ui';
 import { loadFonts } from './fonts';
 import { buildScene, type Scene, sceneFontLoads } from './scene';
 import { deepClone, hasText, playsOf, type Settings } from './settings';
+import { sfOf } from './sf';
 import { S } from './strings';
 
 export const MAX_FRAMES = 1800;
@@ -59,6 +60,7 @@ export function sceneSource(scene: Scene, stillTime = scene.repTime): AnimationS
     duration: scene.duration,
     stillTime,
     segments: sceneSegments(scene),
+    ...(scene.seamless ? { loop: true } : {}),
     render(ctx: Ctx2D, t: number) {
       const m = ctx.getTransform();
       const identity = m.a === 1 && m.b === 0 && m.c === 0 && m.d === 1 && m.e === 0 && m.f === 0;
@@ -138,6 +140,8 @@ export async function runExport(
   const source = sceneSource(scene, stillTime);
   const fileName =
     format === 'png' ? `${o.name}_靜止` : format === 'zip' ? `${o.name}_連番` : o.name;
+  /* SF 標題的 WebP 照原作是有損（品質 50～95）；其他模式照舊無損 */
+  const webpQuality = cfg.mode === 'sf' && format === 'webp' ? sfOf(cfg).webpQuality : null;
   const result = await exportAnimation(source, {
     format,
     fps: o.fps,
@@ -148,6 +152,7 @@ export async function runExport(
     stillForPalette: true,
     stillWeightMin: 4,
     autoCrop: cfg.autoCrop,
+    ...(webpQuality != null ? { webpQuality: webpQuality / 100 } : {}),
     fileName,
     sequenceBaseName: o.name,
     sequenceInfo: (m) =>
@@ -188,6 +193,7 @@ export async function runExport(
           o.plays === 0 ? '無限循環' : o.plays === 1 ? '播放一次（停在最後一格）' : `${o.plays} 次`,
       });
     }
+    if (webpQuality != null) details.push({ label: 'WebP 品質', value: String(webpQuality) });
     if (format === 'apng')
       details.push({
         label: '預設圖',

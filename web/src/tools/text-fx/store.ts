@@ -9,9 +9,11 @@ import { createToolStore } from '@/core/storage';
 import { settingsFromTemplate, TEMPLATES, templateById } from './library';
 import { addParsed, makeMine, mineOf, type ParsedTemplate, useMine } from './mine';
 import { deepClone, MODES, type Mode, normalizeSettings, type Settings } from './settings';
+import { type SfTemplateId, sfOf } from './sf';
 
 export interface ModeEntry {
-  tpl: string;
+  /** 內建範本的代號；SF 標題不存（版面只記在 s.sf.tpl 一處，用 tplIdOf 讀） */
+  tpl?: string;
   s: Settings;
   /** 套用中的「我的範本」（P11；套用內建範本時清掉） */
   mine?: string | null;
@@ -44,6 +46,7 @@ export function templateEntry(
   { ignoreMemo = false }: { ignoreMemo?: boolean } = {},
 ): ModeEntry {
   const tpl = templateById(mode, id);
+  if (mode === 'sf') return sfTemplateEntry(tpl.id, prev, ignoreMemo);
   const s = normalizeSettings(mode, settingsFromTemplate(mode, tpl));
   if (prev) {
     s.canvasW = prev.canvasW;
@@ -72,12 +75,43 @@ export function templateEntry(
   return { tpl: tpl.id, s };
 }
 
+/**
+ * SF 標題的範本只換版面（HUD 構圖）：文字、顏色、字型、效果、長度與播放方式都照目前的設定（原作的做法）。
+ * 重設（ignoreMemo）：全部回到預設，只保留畫面尺寸與播放方式（登場、退場開關與循環）。
+ */
+function sfTemplateEntry(id: string, prev: Settings | null, reset: boolean): ModeEntry {
+  const tpl = templateById('sf', id);
+  const s = normalizeSettings(
+    'sf',
+    prev && !reset ? deepClone(prev) : settingsFromTemplate('sf', tpl),
+  );
+  if (prev && reset) {
+    s.canvasW = prev.canvasW;
+    s.canvasH = prev.canvasH;
+    s.introOn = prev.introOn;
+    s.outroOn = prev.outroOn;
+    s.loop = prev.loop;
+    s.loopCount = prev.loopCount;
+  }
+  s.sf = { ...sfOf(s), tpl: tpl.id as SfTemplateId };
+  return { s };
+}
+
+/** 一個模式目前的內建範本代號（SF 標題讀 s.sf.tpl） */
+export function entryTplId(mode: Mode, e: ModeEntry): string {
+  return mode === 'sf' ? sfOf(e.s).tpl : templateById(mode, e.tpl).id;
+}
+
+/** 目前模式的內建範本代號 */
+export const tplIdOf = (d: Pick<TfxData, 'mode' | 'modes'>): string =>
+  entryTplId(d.mode, d.modes[d.mode]);
+
 export function initialData(): TfxData {
   const memo: TextMemo = { title: {}, long: {}, caption: null };
   const modes = Object.fromEntries(
     MODES.map(([m]) => [m, templateEntry({ memo }, m, TEMPLATES[m][0].id, null)]),
   ) as Record<Mode, ModeEntry>;
-  return { mode: 'title', modes, memo, names: { title: '', long: '', caption: '' } };
+  return { mode: 'title', modes, memo, names: { title: '', long: '', caption: '', sf: '' } };
 }
 
 /** 存檔、專案檔、舊版存檔 → 完整且合法的資料 */
@@ -102,7 +136,8 @@ export function normalizeData(raw: unknown): TfxData {
     )?.[m];
     if (e?.s)
       modes[m] = {
-        tpl: templateById(m, e.tpl).id,
+        /* SF 標題的版面只看設定裡的 sf.tpl（舊資料另外帶的 tpl 不用） */
+        ...(m === 'sf' ? {} : { tpl: templateById(m, e.tpl).id }),
         s: normalizeSettings(m, e.s),
         ...(typeof e.mine === 'string' && e.mine ? { mine: e.mine } : {}),
       };
@@ -155,7 +190,7 @@ export const VIEW_DEFAULTS: ViewPrefs = {
   format: 'apng',
   scale: 1,
   batch: 'off',
-  batchPick: { title: [], long: [], caption: [] },
+  batchPick: { title: [], long: [], caption: [], sf: [] },
 };
 
 export const useView = createToolStore<ViewPrefs>(`${TOOL_ID}:view`, VIEW_DEFAULTS, {
@@ -199,10 +234,10 @@ const bumpReplay = () => useReplay.setState((s) => ({ token: s.token + 1 }));
 export const cfgOf = (d: TfxData): Settings => d.modes[d.mode].s;
 
 function rememberText(d: Draft<TfxData>): void {
-  /* 套用中的是「我的範本」：文字跟著那一組設定，不記到內建範本 */
-  if (d.modes[d.mode].mine) return;
+  /* 套用中的是「我的範本」：文字跟著那一組設定，不記到內建範本；SF 標題的文字本來就所有範本共用 */
+  if (d.modes[d.mode].mine || d.mode === 'sf') return;
   const s = d.modes[d.mode].s;
-  const tpl = d.modes[d.mode].tpl;
+  const tpl = entryTplId(d.mode, d.modes[d.mode]);
   if (d.mode === 'caption') d.memo.caption = { text: s.text, sub: s.sub };
   else if (d.mode === 'title') d.memo.title[tpl] = { text: s.text, sub: s.sub };
   else d.memo.long[tpl] = { text: s.text };
@@ -246,12 +281,12 @@ export function resetTemplate(): void {
     applyMine(mine.id);
     return;
   }
-  const id = d.modes[d.mode].tpl;
+  const id = tplIdOf(d);
   const entry = templateEntry(d, d.mode, id, deepClone(d.modes[d.mode].s), { ignoreMemo: true });
   useTfx.getState().update((x) => {
     if (x.mode === 'caption') x.memo.caption = null;
     else if (x.mode === 'title') delete x.memo.title[id];
-    else delete x.memo.long[id];
+    else if (x.mode === 'long') delete x.memo.long[id];
     x.modes[x.mode] = entry;
   });
   bumpReplay();
@@ -264,7 +299,8 @@ export function mineEntry(prev: ModeEntry, mineS: Settings, mode: Mode, id: stri
   const s = normalizeSettings(mode, deepClone(mineS));
   s.canvasW = prev.s.canvasW;
   s.canvasH = prev.s.canvasH;
-  return { tpl: prev.tpl, s, mine: id };
+  /* SF 標題的版面就在設定裡（跟著我的範本的版面走） */
+  return { ...(mode === 'sf' ? {} : { tpl: prev.tpl }), s, mine: id };
 }
 
 export function applyMine(id: string): void {
