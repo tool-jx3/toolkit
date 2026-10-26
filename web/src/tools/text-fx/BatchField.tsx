@@ -44,7 +44,7 @@ function PickDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={S.batch.pickTitle}
-      description={S.batch.pickDesc}
+      description={mode === 'sf' ? S.sf.batchPickDesc : S.batch.pickDesc}
       size="lg"
       footer={
         <>

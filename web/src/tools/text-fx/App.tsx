@@ -29,13 +29,7 @@ import { useMine } from './mine';
 import { type PlayHandle, Preview } from './Preview';
 import { DecoPanel } from './panels/DecoPanel';
 import { ModePanel } from './panels/ModePanel';
-import {
-  SfDecoPanel,
-  SfModePanel,
-  SfStylePanel,
-  SfTextPanel,
-  SfTimePanel,
-} from './panels/SfPanels';
+import { SfModePanel, SfStylePanel, SfTextPanel, SfTimePanel } from './panels/SfPanels';
 import { StylePanel } from './panels/StylePanel';
 import { TextPanel } from './panels/TextPanel';
 import { TimePanel } from './panels/TimePanel';
@@ -59,11 +53,12 @@ import {
   setMode,
   type TfxData,
   TOOL_ID,
+  tplIdOf,
   updateCfg,
   useTfx,
   useView,
 } from './store';
-import { S } from './strings';
+import { joinText, S } from './strings';
 
 /** 依設定建場景；字型先用替代字型畫，載入完自動重建 */
 function useScene(cfg: Settings): { scene: Scene; fontsLoading: boolean } {
@@ -170,8 +165,7 @@ export function App() {
       cfg: cur,
       mode: () => useTfx.getState().data.mode,
       tplId: () => {
-        const d = useTfx.getState().data;
-        return d.modes[d.mode].tpl;
+        return tplIdOf(useTfx.getState().data);
       },
       get: (path: string) => getPath(cur(), path),
       set: (path: string, value: unknown) => setCfg(path, value),
@@ -258,7 +252,7 @@ export function App() {
     },
     ...MODES.map(([m, name], i) => ({
       keys: String(i + 1),
-      label: `切換到${name}`,
+      label: joinText('切換到', name),
       group: '模式',
       handler: () => setMode(m),
     })),
@@ -295,7 +289,7 @@ export function App() {
           <UsageSection persistKey="text-fx">{USAGE}</UsageSection>
           <Tabs
             aria-label="設定分類"
-            value={tab}
+            value={isSf && tab === 'deco' ? 'style' : tab}
             onValueChange={(v) => useView.getState().patch({ tab: v })}
             items={[
               {
@@ -316,12 +310,12 @@ export function App() {
                 icon: <Palette />,
                 content: isSf ? <SfStylePanel /> : <StylePanel />,
               },
-              {
-                value: 'deco',
-                label: S.tabs.deco,
-                icon: <Shapes />,
-                content: isSf ? <SfDecoPanel /> : <DecoPanel />,
-              },
+              /* SF 標題的裝飾都由範本畫好：不顯示「裝飾」分頁 */
+              ...(isSf
+                ? []
+                : [
+                    { value: 'deco', label: S.tabs.deco, icon: <Shapes />, content: <DecoPanel /> },
+                  ]),
               {
                 value: 'time',
                 label: S.tabs.time,

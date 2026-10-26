@@ -14,6 +14,7 @@ import {
   parseTemplatesFile,
   templatesFileText,
 } from '@/tools/text-fx/mine';
+import { HOLD } from '@/tools/text-fx/motion';
 import { buildScene } from '@/tools/text-fx/scene';
 import {
   baseSettings,
@@ -24,6 +25,8 @@ import {
   type Settings,
 } from '@/tools/text-fx/settings';
 import {
+  introWindow,
+  loopPhase,
   normalizeSf,
   SF_PLAYS,
   SF_RATIOS,
@@ -31,20 +34,17 @@ import {
   SF_TEMPLATE_IDS,
   SF_WIDTHS,
   type SfTemplateId,
-  sfAlpha,
   sfAutoCode,
   sfCodeOf,
-  sfCycle,
   sfDecode,
   sfFit,
-  sfGlitchAmount,
   sfHeight,
-  sfPhase,
   sfPlayOf,
+  sfProgress,
   sfSizeOf,
   sfTiming,
 } from '@/tools/text-fx/sf';
-import { drawSfTemplate, sfFonts } from '@/tools/text-fx/sfDraw';
+import { drawSfTemplate, sfBlockAt, sfFonts } from '@/tools/text-fx/sfDraw';
 import {
   applyMine,
   applyTemplate,
@@ -56,9 +56,11 @@ import {
   saveMine,
   setMode,
   templateEntry,
+  tplIdOf,
   updateCfg,
   useTfx,
 } from '@/tools/text-fx/store';
+import { joinText } from '@/tools/text-fx/strings';
 
 const sfCfg = (patch: (c: Settings) => void = () => {}) => {
   const c = settingsFromTemplate('sf', TEMPLATES.sf[0]);
@@ -97,8 +99,11 @@ class Recorder {
   private path: [number, number][] = [];
   box = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
   log: string[] = [];
+  /** 目前的裁切範圍（畫布座標）；裁切外的點不算畫出來 */
+  clipBox = { x0: -Infinity, y0: -Infinity, x1: Infinity, y1: Infinity };
   private keys = [
     'm',
+    'clipBox',
     'globalAlpha',
     'globalCompositeOperation',
     'fillStyle',
@@ -140,7 +145,15 @@ class Recorder {
     const m = this.m;
     return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
   }
-  private hit(pts: [number, number][], pad: number, what: string) {
+  private hit(raw: [number, number][], pad: number, what: string) {
+    const cb = this.clipBox;
+    const pts = raw.map(
+      ([x, y]) =>
+        [
+          Math.min(cb.x1 + pad, Math.max(cb.x0 - pad, x)),
+          Math.min(cb.y1 + pad, Math.max(cb.y0 - pad, y)),
+        ] as [number, number],
+    );
     for (const [x, y] of pts) {
       this.box.x0 = Math.min(this.box.x0, x - pad);
       this.box.y0 = Math.min(this.box.y0, y - pad);
@@ -173,7 +186,17 @@ class Recorder {
   rect(x: number, y: number, w: number, h: number) {
     this.path.push(this.tp(x, y), this.tp(x + w, y), this.tp(x + w, y + h), this.tp(x, y + h));
   }
-  clip() {}
+  clip() {
+    const xs = this.path.map((p) => p[0]);
+    const ys = this.path.map((p) => p[1]);
+    const cb = this.clipBox;
+    this.clipBox = {
+      x0: Math.max(cb.x0, Math.min(...xs)),
+      y0: Math.max(cb.y0, Math.min(...ys)),
+      x1: Math.min(cb.x1, Math.max(...xs)),
+      y1: Math.min(cb.y1, Math.max(...ys)),
+    };
+  }
   stroke() {
     this.hit(this.path, (this.lineWidth * this.unit) / 2, 'stroke');
   }
@@ -207,6 +230,9 @@ class Recorder {
     for (const ch of s) w += (WIDE.test(ch) ? size : 0.62 * size) + ls;
     return { width: w };
   }
+  strokeText(s: string, x: number, y: number) {
+    this.fillText(s, x, y);
+  }
   fillText(s: string, x: number, y: number) {
     const size = Number(/([\d.]+)px/.exec(this.font)?.[1] ?? 10);
     const w = this.measureText(s).width;
@@ -231,19 +257,19 @@ function record(
   t: number,
   W = 1200,
   H = 400,
-  ph?: { ip: number; op: number },
+  ph?: { intro: number; outro: number },
 ) {
   const rec = new Recorder();
   const { s, ox, oy } = sfFit(W, H);
   rec.setTransform(s, 0, 0, s, ox, oy);
   const tm = sfTiming(cfg);
-  const p = ph ?? sfPhase(tm, t);
+  const p = ph ?? sfProgress(tm, t);
   drawSfTemplate(tpl, {
     ctx: rec as unknown as CanvasRenderingContext2D,
     t,
     D: tm.D,
-    ip: p.ip,
-    op: p.op,
+    intro: p.intro,
+    outro: p.outro,
     main: '#eef4fb',
     accent: '#ff4458',
     title: cfg.text.trim(),
@@ -261,16 +287,26 @@ describe('SF 標題：模式、範本與預設（F311～F314、F331）', () => {
     expect(MODES.map((m) => m[0])).toEqual(['title', 'long', 'caption', 'sf']);
     expect(MODES[3][1]).toBe('SF 標題');
     expect(TEMPLATES.sf.map((t) => t.name)).toEqual([
-      '準星',
-      '資料掃描',
-      '警告面板',
-      '賽博標籤',
-      '六角徽章',
-      '索引',
-      '括號框',
-      '終端機',
+      '雷達掃描',
+      '數據讀取',
+      '警報橫幅',
+      '識別吊牌',
+      '勳章緞帶',
+      '大字編號',
+      '取景框',
+      '指令視窗',
     ]);
     expect(TEMPLATES.sf.map((t) => t.id)).toEqual(SF_TEMPLATE_IDS);
+    expect(SF_TEMPLATE_IDS).toEqual([
+      'radar',
+      'readout',
+      'alert',
+      'tag',
+      'medal',
+      'chapter',
+      'viewfinder',
+      'console',
+    ]);
     const s = baseSettings('sf');
     expect([s.canvasW, s.canvasH, s.fps, s.loop, s.introOn, s.outroOn]).toEqual([
       960,
@@ -281,7 +317,7 @@ describe('SF 標題：模式、範本與預設（F311～F314、F331）', () => {
       true,
     ]);
     expect(s.sf).toMatchObject({
-      tpl: 'reticle',
+      tpl: 'radar',
       code: '',
       glow: 4,
       grain: 2,
@@ -312,17 +348,18 @@ describe('SF 標題：模式、範本與預設（F311～F314、F331）', () => {
       c.sf!.dur = 6;
     });
     const memo = { title: {}, long: {}, caption: null };
-    const e = templateEntry({ memo }, 'sf', 'terminal', prev);
-    expect(e.tpl).toBe('terminal');
-    expect(e.s.sf).toMatchObject({ tpl: 'terminal', main: '#123456', glow: 9, dur: 6 });
+    const e = templateEntry({ memo }, 'sf', 'console', prev);
+    /* 版面只記在 s.sf.tpl 一處（R4） */
+    expect('tpl' in e).toBe(false);
+    expect(e.s.sf).toMatchObject({ tpl: 'console', main: '#123456', glow: 9, dur: 6 });
     expect([e.s.text, e.s.sub, e.s.canvasW, e.s.introOn]).toEqual([
       '自己的標題',
       '副',
       1200,
       false,
     ]);
-    const r = templateEntry({ memo }, 'sf', 'hex', prev, { ignoreMemo: true });
-    expect(r.s.sf).toMatchObject({ tpl: 'hex', main: '#eef4fb', glow: 4, dur: 4 });
+    const r = templateEntry({ memo }, 'sf', 'medal', prev, { ignoreMemo: true });
+    expect(r.s.sf).toMatchObject({ tpl: 'medal', main: '#eef4fb', glow: 4, dur: 4 });
     expect(r.s.text).toBe(TEMPLATES.sf[0].text);
     expect([r.s.canvasW, r.s.canvasH, r.s.introOn, r.s.outroOn, r.s.loop]).toEqual([
       1200,
@@ -335,12 +372,12 @@ describe('SF 標題：模式、範本與預設（F311～F314、F331）', () => {
 
   it('自動檔名：標題開頭＋範本名稱（＋無登場／無退場／循環）', () => {
     const s = sfCfg();
-    expect(autoFileName(s)).toBe('異常訊號_準星_循環');
+    expect(autoFileName(s)).toBe('異常訊號_雷達掃描_循環');
     expect(autoFileName({ ...s, introOn: false, outroOn: false })).toBe(
-      '異常訊號_準星_無登場_無退場_循環',
+      '異常訊號_雷達掃描_無登場_無退場_循環',
     );
     expect(autoFileName({ ...s, text: '', sub: '', loop: 'once', outroOn: false })).toBe(
-      'SF標題_準星_無退場',
+      'SF標題_雷達掃描_無退場',
     );
   });
 });
@@ -402,8 +439,8 @@ describe('播放方式、時間與循環（F323、F326、F327、F330）', () => 
     const t4 = sfTiming(sfCfg());
     expect(t4).toMatchObject({ D: 4, Ti: 1.6, To: 0.4 });
     expect(sfTiming(sfCfg((c) => (c.sf!.dur = 2))).Ti).toBeCloseTo(0.9, 9);
-    expect(sfPhase(t4, 0.8)).toEqual({ ip: 0.5, op: 0 });
-    expect(sfPhase(t4, 3.8).op).toBeCloseTo(0.5, 9);
+    expect(sfProgress(t4, 0.8)).toEqual({ intro: 0.5, outro: 0 });
+    expect(sfProgress(t4, 3.8).outro).toBeCloseTo(0.5, 9);
     const idle = sfTiming(
       sfCfg((c) => {
         c.introOn = false;
@@ -411,8 +448,8 @@ describe('播放方式、時間與循環（F323、F326、F327、F330）', () => 
       }),
     );
     expect(idle).toMatchObject({ Ti: 0, To: 0 });
-    expect(sfPhase(idle, 0)).toEqual({ ip: 1, op: 0 });
-    expect(sfPhase(idle, 3.99)).toEqual({ ip: 1, op: 0 });
+    expect(sfProgress(idle, 0)).toEqual({ intro: 1, outro: 0 });
+    expect(sfProgress(idle, 3.99)).toEqual({ intro: 1, outro: 0 });
   });
 
   it('場景：一頁的登場／停留／退場、代表畫面、總長；循環時匯出不取結尾那一格', () => {
@@ -463,24 +500,47 @@ describe('播放方式、時間與循環（F323、F326、F327、F330）', () => 
     expect('loop' in sceneSource(buildScene(baseSettings('title'), { paint: false }))).toBe(false);
   });
 
-  it('一個循環的相位無縫接回；故障強度與退場閃爍只看時間（與 fps 無關）', () => {
-    expect(sfCycle(0, 4, 1)).toBe(0);
-    expect(sfCycle(4, 4, 1)).toBe(0);
-    expect(sfCycle(1, 4, 2)).toBeCloseTo(0.5, 9);
-    const tm = sfTiming(sfCfg());
-    /* 登場剛開始最強、一半時閃一下、退場越來越強；停留中只在循環的 62%～65.5% */
-    expect(sfGlitchAmount(tm, { ip: 0, op: 0 }, 0)).toBe(1);
-    expect(sfGlitchAmount(tm, { ip: 0.53, op: 0 }, 0.85)).toBe(0.55);
-    expect(sfGlitchAmount(tm, { ip: 0.3, op: 0 }, 0.5)).toBe(0);
-    expect(sfGlitchAmount(tm, { ip: 1, op: 0 }, 4 * 0.64)).toBe(0.45);
-    expect(sfGlitchAmount(tm, { ip: 1, op: 0 }, 2)).toBe(0);
-    expect(sfGlitchAmount(tm, { ip: 1, op: 0.7 }, 3.88)).toBeCloseTo(0.7, 9);
-    expect(sfAlpha(0, 1)).toBe(1);
-    for (const t of [3.61, 3.7, 3.8, 3.95]) {
-      const a = sfAlpha(sfPhase(tm, t).op, t);
-      expect(a).toBe(sfAlpha(sfPhase(tm, t).op, t));
-      expect(a).toBeLessThanOrEqual(1 - sfPhase(tm, t).op + 1e-9);
+  it('一個循環的相位無縫接回；元件的登場時段（緩停）', () => {
+    expect(loopPhase(0, 4, 1)).toBe(0);
+    expect(loopPhase(4, 4, 1)).toBe(0);
+    expect(loopPhase(1, 4, 2)).toBeCloseTo(0.5, 9);
+    expect(introWindow(0.1, 0.2, 0.4)).toBe(0);
+    expect(introWindow(0.6, 0.2, 0.4)).toBe(1);
+    expect(introWindow(0.4, 0.2, 0.4)).toBeCloseTo(0.875, 9);
+  });
+
+  it('故障用文字演出的雜訊效果：登場＝雜訊干擾、停留＝偶爾雜訊、退場＝雜訊斷訊（F323）', () => {
+    const cfg = sfCfg();
+    const S = 64;
+    /* 登場一開始最強，之後減弱 */
+    expect(sfBlockAt(cfg, 0, S).glitch).toBe(1);
+    expect(sfBlockAt(cfg, 0.5, S).glitch).toBeLessThan(sfBlockAt(cfg, 0.1, S).glitch);
+    expect(sfBlockAt(cfg, 1.2, S).glitch).toBe(0);
+    /* 停留中：和「偶爾雜訊」完全相同（每 1.7 秒一下，這裡 2.55～2.69 秒） */
+    const pulse = HOLD.glitchPulse.block!;
+    for (const t of [2, 2.6, 3.3]) {
+      const ref = { glitch: 0, dx: 0 } as Parameters<typeof pulse>[0];
+      pulse(ref, t, { S, P: 1, seed: 777, vertical: false });
+      expect(sfBlockAt(cfg, t, S).glitch).toBe(ref.glitch);
     }
+    expect(sfBlockAt(cfg, 2.6, S).glitch).toBeGreaterThan(0.4);
+    expect(sfBlockAt(cfg, 2, S).glitch).toBe(0);
+    /* 退場：雜訊越來越強、淡出；故障關掉時只留淡出與閃斷 */
+    const late = sfBlockAt(cfg, 3.95, S);
+    expect(late.glitch).toBeGreaterThan(0.5);
+    expect(late.alpha).toBeLessThan(0.5);
+    const off = sfCfg((c) => {
+      c.sf!.glitch = false;
+    });
+    for (const t of [0, 0.3, 2.6, 3.7, 3.95]) {
+      const b = sfBlockAt(off, t, S);
+      expect(b.glitch).toBe(0);
+      expect(b.dx).toBe(0);
+    }
+    expect(sfBlockAt(off, 3.95, S).alpha).toBe(late.alpha);
+    expect(sfBlockAt(off, 1, S).alpha).toBe(1);
+    /* 縮圖（停留中的樣子）：沒有登場、退場 */
+    expect(sfBlockAt(cfg, 0, S, undefined, true).glitch).toBe(0);
   });
 });
 
@@ -509,11 +569,11 @@ describe('尺寸（F328）：比例 3:1、2:1、16:9 × 寬 640、800、960、12
     c.sub = 'M'.repeat(60);
   });
   const phases = [
-    { ip: 0.05, op: 0 },
-    { ip: 0.3, op: 0 },
-    { ip: 0.6, op: 0 },
-    { ip: 1, op: 0 },
-    { ip: 1, op: 0.6 },
+    { intro: 0.05, outro: 0 },
+    { intro: 0.3, outro: 0 },
+    { intro: 0.6, outro: 0 },
+    { intro: 1, outro: 0 },
+    { intro: 1, outro: 0.6 },
   ];
 
   it('8 個範本（短標題、長標題、英文長標題、沒有副文字）都畫在 1200 × 400 的設計空間裡', () => {
@@ -523,7 +583,7 @@ describe('尺寸（F328）：比例 3:1、2:1、16:9 × 寬 640、800、960、12
         for (const ph of phases) {
           for (const t of [0.3, 1.1, 2.2, 3.7]) {
             const b = record(id, cfg, t, 1200, 400, ph).box;
-            const tag = `${id} ${cfg.text.slice(0, 4)} ip=${ph.ip} t=${t}`;
+            const tag = `${id} ${cfg.text.slice(0, 4)} intro=${ph.intro} t=${t}`;
             expect(b.x0, tag).toBeGreaterThanOrEqual(0);
             expect(b.y0, tag).toBeGreaterThanOrEqual(0);
             expect(b.x1, tag).toBeLessThanOrEqual(1200);
@@ -543,7 +603,7 @@ describe('尺寸（F328）：比例 3:1、2:1、16:9 × 寬 640、800、960、12
         expect(oy).toBeGreaterThanOrEqual(0);
         expect(ox * 2 + 1200 * s).toBeCloseTo(w, 6);
         for (const id of SF_TEMPLATE_IDS) {
-          const b = record(id, long, 2.2, w, h, { ip: 1, op: 0 }).box;
+          const b = record(id, long, 2.2, w, h, { intro: 1, outro: 0 }).box;
           const tag = `${id} ${w}×${h}`;
           expect(b.x0, tag).toBeGreaterThanOrEqual(0);
           expect(b.y0, tag).toBeGreaterThanOrEqual(0);
@@ -570,9 +630,13 @@ describe('決定性（F334、text-fx 4.2）', () => {
   it('停留中的動作會動（不同時間點畫面不同），一個循環後接回原樣', () => {
     const cfg = sfCfg();
     for (const id of SF_TEMPLATE_IDS) {
-      const at = (t: number) => record(id, cfg, t, 1200, 400, { ip: 1, op: 0 }).log.join('\n');
+      const at = (t: number) =>
+        record(id, cfg, t, 1200, 400, { intro: 1, outro: 0 }).log.join('\n');
       expect(at(1.7), id).not.toBe(at(2.9));
-      expect(at(0.5), id).toBe(at(4.5));
+      const a = at(0.5).split('\n');
+      const b = at(4.5).split('\n');
+      const i = a.findIndex((x, k) => x !== b[k]);
+      expect(i < 0 ? '' : `${a[i]}\n${b[i]}`, id).toBe('');
     }
   });
 });
@@ -595,7 +659,7 @@ describe('設定修正、舊專案檔與範本檔（F333）', () => {
         scan: 'yes',
       }),
     ).toMatchObject({
-      tpl: 'reticle',
+      tpl: 'radar',
       main: '#eef4fb',
       accent: '#abcdef',
       latin: 'Orbitron',
@@ -611,7 +675,7 @@ describe('設定修正、舊專案檔與範本檔（F333）', () => {
     const s = normalizeSettings('sf', { fps: 30, sf: { dur: 1 } });
     expect([s.fps, s.sf!.dur]).toEqual([15, 2]);
     /* 其他模式帶了 sf 欄位時拿掉 */
-    expect('sf' in normalizeSettings('title', { sf: { tpl: 'hex' } })).toBe(false);
+    expect('sf' in normalizeSettings('title', { sf: { tpl: 'medal' } })).toBe(false);
   });
 
   it('舊的存檔／專案檔沒有 SF 標題：補上預設，其他模式照舊', () => {
@@ -624,24 +688,28 @@ describe('設定修正、舊專案檔與範本檔（F333）', () => {
     const d = normalizeData(old);
     expect(d.mode).toBe('caption');
     expect(d.modes.caption.s.text).toBe('舊的');
-    expect(d.modes.sf.tpl).toBe('reticle');
+    expect(tplIdOf({ mode: 'sf', modes: d.modes })).toBe('radar');
+    expect('tpl' in d.modes.sf).toBe(false);
     expect(d.modes.sf.s.sf).toEqual(baseSettings('sf').sf);
     expect(d.names).toEqual({ title: '', long: '', caption: '舊檔名', sf: '' });
     /* 不認得的模式改回標語；SF 的存檔缺欄位時補上 */
     expect(normalizeData({ mode: 'nope' }).mode).toBe('title');
+    /* 舊資料另外帶的 tpl 不用：版面以設定裡的 sf.tpl 為準（R4） */
     const m = normalizeData({
       mode: 'sf',
-      modes: { sf: { tpl: 'index', s: { sf: { tpl: 'index' } } } },
+      modes: { sf: { tpl: 'medal', s: { sf: { tpl: 'chapter' } } } },
     });
     expect(m.mode).toBe('sf');
-    expect(m.modes.sf.s.sf).toMatchObject({ tpl: 'index', glow: 4, dur: 4 });
+    expect(m.modes.sf.s.sf).toMatchObject({ tpl: 'chapter', glow: 4, dur: 4 });
+    expect(tplIdOf(m)).toBe('chapter');
+    expect('tpl' in m.modes.sf).toBe(false);
     expect(normalizeData(null)).toEqual(initialData());
   });
 
   it('範本檔：SF 標題的我的範本可以寫出、讀回；舊的範本檔照讀', () => {
     const s = sfCfg((c) => {
       c.text = '我的 SF';
-      c.sf!.tpl = 'warning';
+      c.sf!.tpl = 'alert';
       c.sf!.accent = '#00ff88';
     });
     const item = makeMine([], 'sf', s, '警告');
@@ -649,8 +717,8 @@ describe('設定修正、舊專案檔與範本檔（F333）', () => {
     const back = parseTemplatesFile(text);
     expect(back.templates).toHaveLength(1);
     expect(back.templates[0].mode).toBe('sf');
-    expect(back.templates[0].s.sf).toMatchObject({ tpl: 'warning', accent: '#00ff88' });
-    expect(normalizeMine({ items: [item] }).items[0].s.sf?.tpl).toBe('warning');
+    expect(back.templates[0].s.sf).toMatchObject({ tpl: 'alert', accent: '#00ff88' });
+    expect(normalizeMine({ items: [item] }).items[0].s.sf?.tpl).toBe('alert');
     const oldFile = JSON.stringify({
       format: 'trpg-toolkit:text-fx-templates',
       version: 1,
@@ -674,12 +742,15 @@ describe('一次匯出多個、字型（F332、F319）', () => {
     d.mode = 'sf';
     d.modes.sf.s.text = '同一個標題';
     d.modes.sf.s.sf!.main = '#ff00aa';
-    const items = batchByTemplates(d, ['b:reticle', 'b:terminal'], []);
+    const items = batchByTemplates(d, ['b:radar', 'b:console'], []);
     expect(items.map((it) => [it.label, it.cfg.sf!.tpl, it.cfg.text, it.cfg.sf!.main])).toEqual([
-      ['準星', 'reticle', '同一個標題', '#ff00aa'],
-      ['終端機', 'terminal', '同一個標題', '#ff00aa'],
+      ['雷達掃描', 'radar', '同一個標題', '#ff00aa'],
+      ['指令視窗', 'console', '同一個標題', '#ff00aa'],
     ]);
-    expect(batchNames(items, '')).toEqual(['01_同一個標題_準星_循環', '02_同一個標題_終端機_循環']);
+    expect(batchNames(items, '')).toEqual([
+      '01_同一個標題_雷達掃描_循環',
+      '02_同一個標題_指令視窗_循環',
+    ]);
     expect(batchKindOf('lines', 'sf')).toBe('off');
     expect(batchKindOf('templates', 'sf')).toBe('templates');
     expect(batchKindOf('lines', 'title')).toBe('lines');
@@ -724,23 +795,34 @@ describe('狀態：切到 SF 標題、套範本、重設', () => {
       c.text = '新的';
       c.sf!.glow = 7;
     });
-    applyTemplate('slab');
+    applyTemplate('tag');
     const d = useTfx.getState().data;
-    expect(d.modes.sf.tpl).toBe('slab');
+    expect(tplIdOf(d)).toBe('tag');
     expect(cfgOf(d).text).toBe('新的');
-    expect(cfgOf(d).sf).toMatchObject({ tpl: 'slab', glow: 7 });
+    expect(cfgOf(d).sf).toMatchObject({ tpl: 'tag', glow: 7 });
     expect(d.memo).toEqual({ title: {}, long: {}, caption: null });
     resetTemplate();
-    expect(cfgOf(useTfx.getState().data).sf).toMatchObject({ tpl: 'slab', glow: 4 });
+    expect(cfgOf(useTfx.getState().data).sf).toMatchObject({ tpl: 'tag', glow: 4 });
     expect(cfgOf(useTfx.getState().data).text).toBe('異常訊號');
     /* 我的範本：版面跟著範本走（資訊列、重設都用它） */
-    applyTemplate('index');
-    const mine = saveMine('索引版');
-    applyTemplate('reticle');
+    applyTemplate('chapter');
+    const mine = saveMine('大字版');
+    applyTemplate('radar');
     applyMine(mine.id);
-    expect(useTfx.getState().data.modes.sf.tpl).toBe('index');
-    expect(cfgOf(useTfx.getState().data).sf?.tpl).toBe('index');
+    expect(tplIdOf(useTfx.getState().data)).toBe('chapter');
+    expect(cfgOf(useTfx.getState().data).sf?.tpl).toBe('chapter');
     setMode('title');
     expect(cfgOf(useTfx.getState().data).text).toBe('戰鬥開始');
+  });
+});
+
+describe('介面文字的中英文空白（R7）', () => {
+  it('中文與英文、數字相鄰時加半形空白，其他照接', () => {
+    expect(joinText('切換到', 'SF 標題')).toBe('切換到 SF 標題');
+    expect(joinText('切換到', '標語')).toBe('切換到標語');
+    expect(joinText('SF 標題', '範本')).toBe('SF 標題範本');
+    expect(joinText('標語', '範本')).toBe('標語範本');
+    expect(joinText('第', '3', '頁')).toBe('第 3 頁');
+    expect(joinText('', 'A')).toBe('A');
   });
 });

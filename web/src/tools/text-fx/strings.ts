@@ -193,7 +193,7 @@ export const S = {
     code: '代碼標籤（留空＝自動）',
     codeHint: (auto: string) => `留空時依標題自動產生：${auto}`,
     num: '編號',
-    numHint: '「索引」「括號框」範本會顯示；留空時顯示 01。',
+    numHint: '「大字編號」「勳章緞帶」「識別吊牌」「取景框」「數據讀取」會顯示；留空時顯示 01。',
     colorTitle: '顏色',
     main: '主色',
     accent: '強調色',
@@ -210,9 +210,9 @@ export const S = {
     grainHint: '細細的顆粒，讓畫面像舊螢幕；越大越明顯。',
     scan: '掃描線',
     glitch: '故障',
-    glitchHint: '登場、停留中偶爾、退場時，畫面有幾條水平切片左右錯開。',
-    decoNote:
-      'SF 標題的線條、框與徽章都由範本畫好，這裡沒有可以調的裝飾。顏色、光暈、雜訊、掃描線在「樣式」分頁。',
+    glitchHint:
+      '用文字演出的雜訊效果：登場是「雜訊干擾」、停留中是「偶爾雜訊」、退場是「雜訊斷訊」（紅藍分色＋水平錯位）。',
+    glitchColors: '雜訊顏色',
     ratio: '比例',
     width: '寬度',
     customSize: '自訂',
@@ -220,5 +220,28 @@ export const S = {
     webpQuality: 'WebP 品質',
     webpHint: '數字越大越清楚、檔案越大（有損壓縮）。',
     limit: '上傳上限（CCFOLIA 等）',
+    sizeWarning: '建議縮小寬度、降低 fps、改用 256 色，或縮短長度。',
+    batchPickDesc:
+      '勾選要一次匯出的範本。SF 標題的範本共用目前的文字與樣式，只換版面；我的範本照它存的設定（只保留畫面尺寸）。',
+    durAria: '長度（秒，每 0.5 秒）',
   },
 } as const;
+
+const CJK = /[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef]/u;
+const LATIN = /[A-Za-z0-9]/;
+
+/**
+ * 接起幾段介面文字：中文與英文、數字相鄰的地方自動加半形空白（DESIGN.md 第 5 節「英文與數字前後加半形空白」）。
+ * 例：joinText('切換到', 'SF 標題') → 「切換到 SF 標題」；joinText('切換到', '標語') → 「切換到標語」。
+ */
+export function joinText(...parts: string[]): string {
+  let out = '';
+  for (const p of parts) {
+    if (!p) continue;
+    const a = out.slice(-1);
+    const b = p[0];
+    const gap = (CJK.test(a) && LATIN.test(b)) || (LATIN.test(a) && CJK.test(b));
+    out += (gap ? ' ' : '') + p;
+  }
+  return out;
+}

@@ -1,9 +1,9 @@
 /**
  * SF 標題模式（2026-10-26 新增的第四個模式）：設定、範本、色票、字型、代碼自動產生、解碼字串、時間軸與尺寸。
  *
- * 功能參考 Mellow Noise 的「SF 타이틀 메이커」（未授權：只參考功能、選項、數值與動畫的時間安排；
- * 程式、範本的畫法、文字與色票由本站自做）。範本在 1200 × 400 的設計空間畫，依輸出尺寸置中縮放（sfDraw.ts）。
- * 這個檔不碰畫布，方便單元測試。
+ * 靈感來源是 Mellow Noise 的「SF 타이틀 메이커」（未授權）：只參考功能（8 種 HUD 類型、解碼、光澤、鏤空、光暈、
+ * 顆粒雜訊、掃描線、故障）、選項與時間安排；範本的構圖與畫法、文字、色票都由本站設計（sfDraw.ts；主控裁定 R1）。
+ * 範本在 1200 × 400 的設計空間畫，依輸出尺寸置中縮放。這個檔不碰畫布，方便單元測試。
  */
 
 import type { BundledFontId } from '@/core/fonts/bundled';
@@ -12,39 +12,37 @@ import type { LoopMode, Settings } from './settings';
 
 /* ---------- 範本 ---------- */
 
+/** 8 種 HUD（雷達、數據、警報、吊牌、勳章、大字編號、取景框、指令視窗）；構圖與畫法都是本站設計 */
 export type SfTemplateId =
-  | 'reticle'
-  | 'callout'
-  | 'warning'
-  | 'slab'
-  | 'hex'
-  | 'index'
-  | 'bracket'
-  | 'terminal';
+  | 'radar'
+  | 'readout'
+  | 'alert'
+  | 'tag'
+  | 'medal'
+  | 'chapter'
+  | 'viewfinder'
+  | 'console';
 
 export interface SfTemplateInfo {
   id: SfTemplateId;
   name: string;
   /** 滑鼠提示 */
   note: string;
-  /** 範本會畫出編號 */
-  usesNum?: boolean;
 }
 
 export const SF_TEMPLATES: readonly SfTemplateInfo[] = [
-  { id: 'reticle', name: '準星', note: '左邊轉動的瞄準環，右邊四角框住標題。' },
-  { id: 'callout', name: '資料掃描', note: '定位點拉出引線，旁邊是讀數與進度格。' },
-  { id: 'warning', name: '警告面板', note: '切角面板、閃爍的警示三角與斜紋警戒條。' },
-  { id: 'slab', name: '賽博標籤', note: '整塊斜角色塊，標題鏤空，旁邊有箭頭與條碼。' },
-  { id: 'hex', name: '六角徽章', note: '轉動的六角徽章，接一條箭頭形的鏤空標題帶。' },
-  { id: 'index', name: '索引', note: '鏤空標題的色帶，右邊菱形裡放編號。', usesNum: true },
+  { id: 'radar', name: '雷達掃描', note: '標題在左，右邊是掃描線轉動、光點閃爍的圓形雷達。' },
+  { id: 'readout', name: '數據讀取', note: '圓角面板：左邊跳動的長條圖，右邊標題與三格讀數。' },
+  { id: 'alert', name: '警報橫幅', note: '上下兩條反向流動的警戒條，兩側閃爍的驚嘆號圓章。' },
+  { id: 'tag', name: '識別吊牌', note: '有穿孔與撕線的吊牌，頂端色帶鏤空代碼，右邊點陣碼。' },
+  { id: 'medal', name: '勳章緞帶', note: '上方轉動的齒輪勳章（內有編號），下方燕尾緞帶鏤空標題。' },
+  { id: 'chapter', name: '大字編號', note: '左邊空心大數字慢慢注滿，右邊標題與頁碼刻度。' },
   {
-    id: 'bracket',
-    name: '括號框',
-    note: '大括號框住置中的標題，下方有來回移動的游標。',
-    usesNum: true,
+    id: 'viewfinder',
+    name: '取景框',
+    note: '攝影機取景畫面：對焦框收向標題、錄影燈、時間碼、音量表。',
   },
-  { id: 'terminal', name: '終端機', note: '終端機視窗逐字打出標題，下方捲動系統紀錄。' },
+  { id: 'console', name: '指令視窗', note: '有行號的指令視窗逐字打出標題，右邊是捲動的波形。' },
 ];
 
 export const SF_TEMPLATE_IDS = SF_TEMPLATES.map((t) => t.id);
@@ -118,7 +116,7 @@ export const SF_WEIGHTS = [400, 700, 800, 900] as const;
 
 /** 範本裡固定的英數字（給字型先載入） */
 export const SF_FONT_SAMPLE =
-  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 #%&*+-/<>=:;[]()._!?·';
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 #%&*+-/<>=:;[]()._!?·°$~';
 
 /* ---------- 設定 ---------- */
 
@@ -159,7 +157,7 @@ export const SF_DEFAULT_SUB = '第 13 區・觀測站回報';
 
 export function sfDefaults(): SfSettings {
   return {
-    tpl: 'reticle',
+    tpl: 'radar',
     code: '',
     num: '13',
     main: SF_MAIN_SWATCHES[0][0],
@@ -275,49 +273,28 @@ export function sfTiming(cfg: Pick<Settings, 'introOn' | 'outroOn' | 'sf'>): SfT
   return { D, Ti: introOn ? Math.min(1.6, D * 0.45) : 0, To: outroOn ? 0.4 : 0, introOn, outroOn };
 }
 
-export interface SfPhase {
-  /** 登場進度、退場進度（0～1） */
-  ip: number;
-  op: number;
+/** 登場進度、退場進度（0～1） */
+export interface SfProgress {
+  intro: number;
+  outro: number;
 }
 
-export function sfPhase(tm: SfTiming, t: number): SfPhase {
+export function sfProgress(tm: SfTiming, t: number): SfProgress {
   return {
-    ip: tm.Ti > 0 ? clamp01(t / tm.Ti) : 1,
-    op: tm.To > 0 ? clamp01((t - (tm.D - tm.To)) / tm.To) : 0,
+    intro: tm.Ti > 0 ? clamp01(t / tm.Ti) : 1,
+    outro: tm.To > 0 ? clamp01((t - (tm.D - tm.To)) / tm.To) : 0,
   };
 }
 
-/** 範本裡一段動作的進度：登場進度在 a～b 之間時 0→1（緩停） */
-export const sfSeg = (ip: number, a: number, b: number): number =>
-  EASE.out(clamp01((ip - a) / (b - a)));
+/** 一個元件的登場：登場進度從 start 起、經過 span 從 0 到 1（緩停） */
+export const introWindow = (intro: number, start: number, span: number): number =>
+  EASE.out(clamp01((intro - start) / span));
 
-/** 一個循環裡轉 n 圈的相位（0～1），循環接回去時無縫 */
-export const sfCycle = (t: number, D: number, n: number): number => {
-  const v = ((t / D) * n) % 1;
+/** 一個長度裡轉 turns 圈的相位（0～1）；整數圈時循環接回去無縫 */
+export const loopPhase = (t: number, D: number, turns: number): number => {
+  const v = ((t / D) * turns) % 1;
   return v < 0 ? v + 1 : v;
 };
-
-/** 退場時整體的不透明度：淡出，同時每 1/30 秒有機會暗一下 */
-export function sfAlpha(op: number, t: number): number {
-  if (op <= 0) return 1;
-  return (1 - op) * (hashUnit(timeSlot(t, 30), 3, 0x51) > 0.35 ? 1 : 0.35);
-}
-
-/**
- * 故障（水平切片錯位）的強度：登場剛開始最強、登場一半時閃一下、停留中每個循環偶爾一下、退場越來越強。
- */
-export function sfGlitchAmount(tm: SfTiming, ph: SfPhase, t: number): number {
-  let g = 0;
-  if (ph.ip < 1) {
-    if (ph.ip < 0.12) g = 1 - ph.ip / 0.12;
-    else if (ph.ip > 0.5 && ph.ip < 0.56) g = 0.55;
-  }
-  if (ph.op > 0) g = Math.max(g, ph.op);
-  const c = sfCycle(t, tm.D, 1);
-  if (ph.ip >= 1 && ph.op === 0 && c > 0.62 && c < 0.655) g = 0.45;
-  return g;
-}
 
 /* ---------- 播放方式（對應到既有的登場、退場開關與循環） ---------- */
 
@@ -335,24 +312,24 @@ export interface SfPlayInfo {
 export const SF_PLAYS: readonly SfPlayInfo[] = [
   {
     id: 'full',
-    label: '登場→退場循環',
-    note: '登場、停留、退場之後從頭再來（無限循環）。',
+    label: '循環播放（登場→停留→退場）',
+    note: '登場、停留、退場播完後從頭再來，一直循環。',
     introOn: true,
     outroOn: true,
     loop: 'infinite',
   },
   {
     id: 'once',
-    label: '登場一次後停住',
-    note: '登場之後播停留動作，最後停在最後一格（播放 1 次）。',
+    label: '播放一次（沒有退場）',
+    note: '登場後停留，播完停在最後一格（播放 1 次）。',
     introOn: true,
     outroOn: false,
     loop: 'once',
   },
   {
     id: 'idle',
-    label: '只有停留動作',
-    note: '沒有登場與退場，停留中的小動作無縫循環。',
+    label: '循環播放（只有停留）',
+    note: '沒有登場與退場，只循環停留中的動作（接回第一格不跳）。',
     introOn: false,
     outroOn: false,
     loop: 'infinite',

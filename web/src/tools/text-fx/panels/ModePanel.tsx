@@ -16,8 +16,8 @@ import { TEMPLATES, type Template } from '../library';
 import { useMine } from '../mine';
 import { fxGroups, HOLD, INTRO, ORDER_CHOICES, OUTRO } from '../motion';
 import { MODES, type Mode } from '../settings';
-import { applyTemplate, resetTemplate, setMode, useTfx } from '../store';
-import { S } from '../strings';
+import { applyTemplate, resetTemplate, setMode, tplIdOf, useTfx } from '../store';
+import { joinText, S } from '../strings';
 import { useTemplateThumbs } from '../thumbs';
 import { MinePanel } from './MinePanel';
 
@@ -57,7 +57,7 @@ function GalleryButton({ kind, onOpen }: { kind: GalleryKind; onOpen: (k: Galler
 
 function TemplateSection() {
   const mode = useTfx((st) => st.data.mode);
-  const tplId = useTfx((st) => st.data.modes[st.data.mode].tpl);
+  const tplId = useTfx((st) => tplIdOf(st.data));
   /* 套用中的是我的範本時，內建範本都不標示 */
   const mineId = useTfx((st) => st.data.modes[st.data.mode].mine);
   const mineOn = useMine((st) => !!mineId && st.data.items.some((t) => t.id === mineId));
@@ -91,7 +91,7 @@ function TemplateSection() {
     >
       <div data-thumbs-ready={thumbs.ready ? 'true' : 'false'}>
         <TemplateGallery
-          aria-label={`${MODES.find((m) => m[0] === mode)?.[1]}範本`}
+          aria-label={joinText(MODES.find((m) => m[0] === mode)?.[1] ?? '', '範本')}
           key={mode}
           confirm={false}
           size="sm"

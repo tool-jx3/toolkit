@@ -1,8 +1,10 @@
 /**
  * SF 標題模式（2026-10-26）的設定分頁：模式（範本、我的範本、播放方式）、文字（標題、副文字、代碼、編號）、
- * 樣式（主色、強調色、字型、光暈、顆粒雜訊、掃描線、故障）、裝飾（說明）、時間與尺寸（比例、寬度、fps、長度）。
+ * 樣式（主色、強調色、字型、光暈、顆粒雜訊、掃描線、故障）、時間與尺寸（比例、寬度、fps、長度）。
+ * 「裝飾」分頁在 SF 標題不顯示（裝飾都由範本畫好）。
  */
 import { RotateCcw } from 'lucide-react';
+import { RadioGroup } from 'radix-ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { frameCount } from '@/core/timeline';
 import {
@@ -15,11 +17,20 @@ import {
   Section,
   Segmented,
   Select,
+  Slider,
   TextInput,
   ThumbChoice,
   useConfirm,
 } from '@/ui';
-import { getPath, NumField, SegField, setCfg, ToggleField, useCfg } from '../controls';
+import {
+  ColorPathField,
+  getPath,
+  NumField,
+  SegField,
+  setCfg,
+  ToggleField,
+  useCfg,
+} from '../controls';
 import { loadFonts, sfFontLoads } from '../fonts';
 import type { Scene } from '../scene';
 import type { Settings } from '../settings';
@@ -127,6 +138,27 @@ function SfTemplateSection() {
   );
 }
 
+/** 長度：2～8 秒，打字或拖曳時都取到 0.5 秒（和重新載入後一致） */
+const roundDur = (v: number) => Math.min(8, Math.max(2, Math.round(v * 2) / 2));
+
+function DurationField() {
+  const c = useCfg();
+  return (
+    <Field label={S.sf.dur} hint={S.sf.durHint}>
+      <Slider
+        value={sfOf(c).dur}
+        onChange={(v) => setCfg('sf.dur', roundDur(v))}
+        onCommit={(v) => setCfg('sf.dur', roundDur(v))}
+        min={2}
+        max={8}
+        step={0.5}
+        unit="秒"
+        precision={1}
+      />
+    </Field>
+  );
+}
+
 /** 播放方式：一次設定登場、退場開關與循環 */
 function applyPlay(id: SfPlay): void {
   const p = SF_PLAYS.find((x) => x.id === id);
@@ -158,16 +190,7 @@ function SfPlaySection() {
           options={SF_PLAYS.map((p) => ({ value: p.id, label: p.label }))}
         />
       </Field>
-      <NumField
-        label={S.sf.dur}
-        path="sf.dur"
-        min={2}
-        max={8}
-        step={0.5}
-        unit="秒"
-        digits={1}
-        hint={S.sf.durHint}
-      />
+      <DurationField />
       <p className="m-0 text-xs text-muted">{S.sf.playHint}</p>
     </Section>
   );
@@ -237,7 +260,7 @@ export function SfTextPanel() {
   );
 }
 
-/** 色票＋自訂色 */
+/** 色票（單選，方向鍵移動並選取）＋自訂色 */
 function SwatchField({
   label,
   path,
@@ -249,31 +272,33 @@ function SwatchField({
 }) {
   const c = useCfg();
   const value = String(getPath(c, path) || '#ffffff').toLowerCase();
+  const picked = swatches.some(([hex]) => hex === value) ? value : '';
   return (
     <Field label={label}>
       <div className="flex flex-col gap-2">
-        <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
-          {swatches.map(([hex, name]) => {
-            const on = value === hex;
-            return (
-              // biome-ignore lint/a11y/useSemanticElements: 色票是一組圓形按鈕（radiogroup＋radio）
-              <button
-                key={hex}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                aria-label={S.sf.swatchLabel(name, hex)}
-                title={S.sf.swatchLabel(name, hex)}
-                onClick={() => setCfg(path, hex)}
-                className={cn(
-                  'size-7 shrink-0 rounded-full border border-border-strong',
-                  on && 'ring-2 ring-accent ring-offset-2 ring-offset-surface',
-                )}
-                style={{ background: hex }}
-              />
-            );
-          })}
-        </div>
+        <RadioGroup.Root
+          aria-label={label}
+          value={picked}
+          onValueChange={(hex) => setCfg(path, hex)}
+          orientation="horizontal"
+          loop
+          className="flex flex-wrap gap-1.5"
+        >
+          {swatches.map(([hex, name]) => (
+            <RadioGroup.Item
+              key={hex}
+              value={hex}
+              aria-label={S.sf.swatchLabel(name, hex)}
+              title={S.sf.swatchLabel(name, hex)}
+              className={cn(
+                'size-7 shrink-0 rounded-full border border-border-strong outline-none',
+                'focus-visible:ring-2 focus-visible:ring-focus',
+                'data-[state=checked]:ring-2 data-[state=checked]:ring-accent data-[state=checked]:ring-offset-2 data-[state=checked]:ring-offset-surface',
+              )}
+              style={{ background: hex }}
+            />
+          ))}
+        </RadioGroup.Root>
         <ColorField
           aria-label={`${label}（${S.sf.custom}）`}
           value={value}
@@ -323,17 +348,12 @@ export function SfStylePanel() {
         />
         <ToggleField label={S.sf.scan} path="sf.scan" />
         <ToggleField label={S.sf.glitch} path="sf.glitch" hint={S.sf.glitchHint} />
-      </Section>
-    </div>
-  );
-}
-
-/** 「裝飾」分頁（SF 標題）：裝飾由範本決定 */
-export function SfDecoPanel() {
-  return (
-    <div className="flex flex-col gap-3">
-      <Section title="裝飾" fixed>
-        <p className="m-0 text-sm text-muted">{S.sf.decoNote}</p>
+        {sf.glitch ? (
+          <FieldRow>
+            <ColorPathField label="往左的分色" path="glitchA" />
+            <ColorPathField label="往右的分色" path="glitchB" />
+          </FieldRow>
+        ) : null}
       </Section>
     </div>
   );
@@ -419,16 +439,7 @@ export function SfTimePanel({ scene }: { scene: Scene }) {
           parse={Number}
           options={SF_FPS_CHOICES.map((f) => [String(f), String(f)] as const)}
         />
-        <NumField
-          label={S.sf.dur}
-          path="sf.dur"
-          min={2}
-          max={8}
-          step={0.5}
-          unit="秒"
-          digits={1}
-          hint={S.sf.durHint}
-        />
+        <DurationField />
         <p
           className="m-0 rounded-md bg-surface-2 px-3 py-2 text-xs text-muted"
           data-testid="total-note"

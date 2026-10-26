@@ -40,7 +40,7 @@ import { useMine } from './mine';
 import type { Scene } from './scene';
 import { fpsChoicesOf, MODES, playsOf, type Settings } from './settings';
 import { sfOf } from './sf';
-import { setManualName, updateCfg, useReplay, useTfx, useView } from './store';
+import { setManualName, tplIdOf, updateCfg, useReplay, useTfx, useView } from './store';
 import { S } from './strings';
 
 export interface PlayHandle {
@@ -165,7 +165,7 @@ export function Preview({
 }) {
   const view = useView((st) => st.data);
   const mode = useTfx((st) => st.data.mode);
-  const tplId = useTfx((st) => st.data.modes[st.data.mode].tpl);
+  const tplId = useTfx((st) => tplIdOf(st.data));
   const mineId = useTfx((st) => st.data.modes[st.data.mode].mine);
   const mineName = useMine((st) => st.data.items.find((t) => t.id === mineId)?.name);
   const playback = usePlayback({ duration: scene.duration, loop: view.loop });
@@ -335,7 +335,7 @@ export function Preview({
         limit={isSf ? { bytes: SIZE_WARNING_BYTES, label: S.sf.limit } : undefined}
         loopHint={cfg.loop === 'once' ? S.export.loopOnceHint : undefined}
         quantizeHint={S.export.quantizeHint}
-        sizeWarningHint={S.export.sizeWarning}
+        sizeWarningHint={isSf ? S.sf.sizeWarning : S.export.sizeWarning}
         settings={exportSettings}
         onSettingsChange={(next) => {
           if (next.format !== view.format || next.scale !== view.scale)

@@ -12,7 +12,8 @@ import { deepClone, MODES, type Mode, normalizeSettings, type Settings } from '.
 import { type SfTemplateId, sfOf } from './sf';
 
 export interface ModeEntry {
-  tpl: string;
+  /** 內建範本的代號；SF 標題不存（版面只記在 s.sf.tpl 一處，用 tplIdOf 讀） */
+  tpl?: string;
   s: Settings;
   /** 套用中的「我的範本」（P11；套用內建範本時清掉） */
   mine?: string | null;
@@ -93,8 +94,17 @@ function sfTemplateEntry(id: string, prev: Settings | null, reset: boolean): Mod
     s.loopCount = prev.loopCount;
   }
   s.sf = { ...sfOf(s), tpl: tpl.id as SfTemplateId };
-  return { tpl: tpl.id, s };
+  return { s };
 }
+
+/** 一個模式目前的內建範本代號（SF 標題讀 s.sf.tpl） */
+export function entryTplId(mode: Mode, e: ModeEntry): string {
+  return mode === 'sf' ? sfOf(e.s).tpl : templateById(mode, e.tpl).id;
+}
+
+/** 目前模式的內建範本代號 */
+export const tplIdOf = (d: Pick<TfxData, 'mode' | 'modes'>): string =>
+  entryTplId(d.mode, d.modes[d.mode]);
 
 export function initialData(): TfxData {
   const memo: TextMemo = { title: {}, long: {}, caption: null };
@@ -126,7 +136,8 @@ export function normalizeData(raw: unknown): TfxData {
     )?.[m];
     if (e?.s)
       modes[m] = {
-        tpl: templateById(m, e.tpl).id,
+        /* SF 標題的版面只看設定裡的 sf.tpl（舊資料另外帶的 tpl 不用） */
+        ...(m === 'sf' ? {} : { tpl: templateById(m, e.tpl).id }),
         s: normalizeSettings(m, e.s),
         ...(typeof e.mine === 'string' && e.mine ? { mine: e.mine } : {}),
       };
@@ -226,7 +237,7 @@ function rememberText(d: Draft<TfxData>): void {
   /* 套用中的是「我的範本」：文字跟著那一組設定，不記到內建範本；SF 標題的文字本來就所有範本共用 */
   if (d.modes[d.mode].mine || d.mode === 'sf') return;
   const s = d.modes[d.mode].s;
-  const tpl = d.modes[d.mode].tpl;
+  const tpl = entryTplId(d.mode, d.modes[d.mode]);
   if (d.mode === 'caption') d.memo.caption = { text: s.text, sub: s.sub };
   else if (d.mode === 'title') d.memo.title[tpl] = { text: s.text, sub: s.sub };
   else d.memo.long[tpl] = { text: s.text };
@@ -270,7 +281,7 @@ export function resetTemplate(): void {
     applyMine(mine.id);
     return;
   }
-  const id = d.modes[d.mode].tpl;
+  const id = tplIdOf(d);
   const entry = templateEntry(d, d.mode, id, deepClone(d.modes[d.mode].s), { ignoreMemo: true });
   useTfx.getState().update((x) => {
     if (x.mode === 'caption') x.memo.caption = null;
@@ -288,8 +299,8 @@ export function mineEntry(prev: ModeEntry, mineS: Settings, mode: Mode, id: stri
   const s = normalizeSettings(mode, deepClone(mineS));
   s.canvasW = prev.s.canvasW;
   s.canvasH = prev.s.canvasH;
-  /* SF 標題：內建範本＝版面，跟著我的範本的版面走 */
-  return { tpl: mode === 'sf' ? sfOf(s).tpl : prev.tpl, s, mine: id };
+  /* SF 標題的版面就在設定裡（跟著我的範本的版面走） */
+  return { ...(mode === 'sf' ? {} : { tpl: prev.tpl }), s, mine: id };
 }
 
 export function applyMine(id: string): void {

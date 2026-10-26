@@ -47,6 +47,7 @@ import {
   stackPose,
   type Wipe,
 } from './motion';
+import { type NoiseLayer, paintNoise } from './noise';
 import {
   type DecoShape,
   decoAlongReserve,
@@ -1046,10 +1047,7 @@ function scheduleOutro(cfg: Settings, page: ScenePage, groups: SceneGroup[]): nu
 
 /* ---------- 場景 ---------- */
 
-interface Layer {
-  c: SpriteCanvas;
-  x: Ctx;
-}
+type Layer = NoiseLayer;
 
 export interface SceneInit {
   cfg: Settings;
@@ -1698,10 +1696,7 @@ export class Scene implements SceneInit {
     x.restore();
   }
 
-  /**
-   * 雜訊外觀：洋紅往左、青色往右的兩份單色複本墊在後面，再加 2～6 條水平錯位切片。
-   * 亂數每 1/20 秒換一次，不隨輸出 fps 變。
-   */
+  /** 雜訊外觀（noise.ts；SF 標題也用同一套） */
   private drawGlitch(
     ctx: Ctx,
     src: SpriteCanvas,
@@ -1711,60 +1706,17 @@ export class Scene implements SceneInit {
     S: number,
     hold: BlockState,
   ): void {
-    const L = this.getLayers();
-    const { W, H } = this;
-    const slot = timeSlot(t, 20);
-    const seed = 4242;
-    const u01 = (n: number) => (hashSigned(slot, n, seed) + 1) / 2;
-    const off = S * (0.03 + 0.03 * u01(1)) * Math.min(g, 2.5);
-    const tint = (layer: Layer, color: string) => {
-      const x = layer.x;
-      x.setTransform(1, 0, 0, 1, 0, 0);
-      x.globalCompositeOperation = 'source-over';
-      x.globalAlpha = 1;
-      x.clearRect(0, 0, W, H);
-      x.drawImage(src, 0, 0);
-      x.globalCompositeOperation = 'source-in';
-      x.fillStyle = color;
-      x.fillRect(0, 0, W, H);
-      x.globalCompositeOperation = 'source-over';
-    };
-    tint(L.a, this.cfg.glitchA || '#ff2a6d');
-    tint(L.b, this.cfg.glitchB || '#23e5ff');
-    /* 合成層：src 是 text 層時用 mix，src 已經是 mix（裂開效果）時改用 text 層 */
-    const comp = src === L.mix.c ? L.text : L.mix;
-    const m = comp.x;
-    m.setTransform(1, 0, 0, 1, 0, 0);
-    m.globalCompositeOperation = 'source-over';
-    m.globalAlpha = 1;
-    m.clearRect(0, 0, W, H);
-    m.globalAlpha = 0.8 * clamp01(g * 2.5);
-    m.drawImage(L.a.c, -off, 0);
-    m.drawImage(L.b.c, off, 0);
-    m.globalAlpha = 1;
-    m.drawImage(src, 0, 0);
-    /* 水平切片錯位：在另一層（L.a，已用完）組好，再整張畫到畫面上，不動到底下的背景與裝飾 */
-    const out = L.a.x;
-    out.setTransform(1, 0, 0, 1, 0, 0);
-    out.globalAlpha = 1;
-    out.clearRect(0, 0, W, H);
-    out.drawImage(comp.c, 0, 0);
-    const box = page.box;
-    const n = 2 + Math.floor(u01(2) * 5);
-    for (let i = 0; i < n; i++) {
-      const hgt = S * (0.03 + 0.14 * u01(20 + i));
-      const y = Math.round(box.y + hold.dy - S * 0.2 + u01(10 + i) * (box.h + S * 0.4) - hgt / 2);
-      const shift = Math.round(hashSigned(slot, 30 + i, seed) * 0.25 * S * Math.min(g, 2.5));
-      const y0 = clamp(y, 0, H - 1);
-      const y1 = clamp(y + Math.max(1, Math.round(hgt)), 0, H);
-      if (y1 <= y0) continue;
-      out.clearRect(0, y0, W, y1 - y0);
-      out.drawImage(comp.c, 0, y0, W, y1 - y0, shift, y0, W, y1 - y0);
-    }
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(L.a.c, 0, 0);
-    ctx.restore();
+    paintNoise(ctx, src, this.getLayers(), {
+      W: this.W,
+      H: this.H,
+      amount: g,
+      t,
+      unit: S,
+      top: page.box.y + hold.dy,
+      height: page.box.h,
+      colorA: this.cfg.glitchA || '#ff2a6d',
+      colorB: this.cfg.glitchB || '#23e5ff',
+    });
   }
 }
 

@@ -17,7 +17,7 @@ import {
 import { INTRO } from '../motion';
 import { FLOW_NAMES, MODES } from '../settings';
 import { sfOf, sfTemplateInfo } from '../sf';
-import { applyMine, importMine, removeMine, renameMine, saveMine, useTfx } from '../store';
+import { applyMine, importMine, removeMine, renameMine, saveMine, tplIdOf, useTfx } from '../store';
 import { S } from '../strings';
 import { useSettingsThumbs } from '../thumbs';
 
@@ -101,7 +101,7 @@ export function MinePanel() {
             const d = useTfx.getState().data;
             const cur = d.modes[d.mode];
             saveMine(
-              textHead(cur.s.text) || textHead(cur.s.sub) || templateById(d.mode, cur.tpl).name,
+              textHead(cur.s.text) || textHead(cur.s.sub) || templateById(d.mode, tplIdOf(d)).name,
             );
           }}
           addLabel={S.mine.add}

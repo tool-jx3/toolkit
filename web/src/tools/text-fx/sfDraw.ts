@@ -1,26 +1,29 @@
 /**
  * SF 標題的繪製：8 個 HUD 範本畫在 1200 × 400 的設計空間（依輸出尺寸置中縮放），
- * 再疊上顆粒雜訊、掃描線、光暈與故障切片。只依設定與時間 t 畫，同一個時間點永遠畫出同一格。
+ * 再疊上顆粒雜訊、掃描線、光暈，故障用 text-fx 的雜訊引擎（雜訊干擾、偶爾雜訊、雜訊斷訊）。
+ * 只依設定與時間 t 畫，同一個時間點永遠畫出同一格。
  *
- * 範本的構圖參考 Mellow Noise 的「SF 타이틀 메이커」，畫法、細節與文字由本站自寫（見 sf.ts）。
+ * 8 個範本的構圖、元件、位置與停留中的動作都是本站設計（主控裁定 R1，2026-10-26）；
+ * 只有「8 種 HUD 類型」這個分類與解碼、光澤、鏤空等效果的概念參考 Mellow Noise 的 SF 타이틀 메이커。
  */
-import { hashUnit, seedOf, timeSlot } from '@/core/timeline';
+import { createRandom, EASE, hashUnit, seedOf, timeSlot } from '@/core/timeline';
 import { createSpriteCanvas, type SpriteCanvas } from '@/core/typeset';
+import { type BlockState, freshBlockState, HOLD, INTRO, OUTRO } from './motion';
+import { type NoiseLayer, type NoiseLayers, paintNoise } from './noise';
 import type { Settings } from './settings';
 import {
+  introWindow,
+  loopPhase,
+  SF_DESIGN,
   SF_LIMITS,
   SF_MONO_FONT,
   type SfTemplateId,
-  sfAlpha,
   sfCjkFont,
   sfCodeOf,
-  sfCycle,
   sfDecode,
   sfFit,
-  sfGlitchAmount,
   sfOf,
-  sfPhase,
-  sfSeg,
+  sfProgress,
   sfTiming,
 } from './sf';
 
@@ -50,16 +53,17 @@ export function sfFonts(cfg: Pick<Settings, 'sf'>): SfFontSet {
   };
 }
 
-/* ---------- 一格的資料與畫圖小工具 ---------- */
+/* ---------- 一格的資料與畫筆 ---------- */
 
 export interface SfFrame {
   /** 已套用設計空間座標的畫布 */
   ctx: Ctx;
   t: number;
+  /** 長度（一個循環） */
   D: number;
   /** 登場進度、退場進度 */
-  ip: number;
-  op: number;
+  intro: number;
+  outro: number;
   main: string;
   accent: string;
   title: string;
@@ -71,7 +75,7 @@ export interface SfFrame {
   scratch: { c: SpriteCanvas; x: Ctx } | null;
 }
 
-interface TextOpts {
+export interface TextStyle {
   mono?: boolean;
   weight?: number;
   align?: CanvasTextAlign;
@@ -79,38 +83,59 @@ interface TextOpts {
   track?: number;
   alpha?: number;
   color?: string;
-  /** 鏤空（把底下的色塊挖掉） */
+  /** 鏤空：把底下的色塊挖掉 */
   knock?: boolean;
-  /** 光澤掃過 */
-  sheen?: boolean;
+  /** 空心字（只描邊，線寬 px） */
+  outline?: number;
+  /** 光澤：每個循環的前段有一道斜的亮光掃過 */
+  glint?: boolean;
 }
 
-export class Hud {
+/** 畫一個範本用的筆：登場的時段、循環的相位、線條與文字 */
+export class HudPen {
   constructor(readonly f: SfFrame) {}
 
   get x(): Ctx {
     return this.f.ctx;
   }
 
-  /** 登場進度在 a～b 之間時 0→1 */
-  seg(a: number, b: number): number {
-    return sfSeg(this.f.ip, a, b);
+  /** 這個元件的登場：登場進度從 start 起，經過 span 從 0 到 1（緩停） */
+  enter(start: number, span: number): number {
+    return this.f.intro >= 1 ? 1 : introWindow(this.f.intro, start, span);
   }
 
-  /** 一個循環裡轉 n 圈的相位 */
-  cyc(n: number): number {
-    return sfCycle(this.f.t, this.f.D, n);
+  /** 登場進度在 start 起、經過 span 的線性進度（登場結束時一定是 1，不受小數誤差影響） */
+  private span(start: number, span: number): number {
+    return this.f.intro >= 1 ? 1 : Math.min(1, Math.max(0, (this.f.intro - start) / span));
   }
 
-  get settled(): boolean {
-    return this.f.ip >= 1;
+  /** 一個長度裡轉 n 圈的相位（0～1） */
+  turns(n: number): number {
+    return loopPhase(this.f.t, this.f.D, n);
   }
 
-  decode(s: string, p: number): string {
-    return sfDecode(s, p, this.f.t);
+  /** 登場已經結束 */
+  settled(): boolean {
+    return this.f.intro >= 1;
   }
 
-  /** 以 k 倍的不透明度畫 fn 裡的東西 */
+  /** 一個長度裡亮 n 次，每次亮 duty 的時間；登場中一直亮 */
+  lit(n: number, duty = 0.5): boolean {
+    return this.f.intro < 1 || this.turns(n) < duty;
+  }
+
+  /** 解碼中的字串（登場進度 start 起，經過 span 全部定下來） */
+  decode(str: string, start: number, span: number): string {
+    return sfDecode(str, this.span(start, span), this.f.t);
+  }
+
+  /** 逐字打出（登場進度 start 起，經過 span 打完） */
+  typed(str: string, start: number, span: number): string {
+    const chars = Array.from(str);
+    return chars.slice(0, Math.floor(chars.length * this.span(start, span))).join('');
+  }
+
+  /** 以 k 倍的不透明度畫 */
   fade(k: number, fn: () => void): void {
     if (k <= 0) return;
     const c = this.x;
@@ -120,44 +145,58 @@ export class Hud {
     c.restore();
   }
 
-  /** 線段：從起點畫到 p（0～1）的位置 */
-  line(x1: number, y1: number, x2: number, y2: number, w = 2, p = 1): void {
+  /** 只在矩形裡畫 */
+  clipped(x: number, y: number, w: number, h: number, fn: () => void): void {
+    if (w <= 0 || h <= 0) return;
+    const c = this.x;
+    c.save();
+    c.beginPath();
+    c.rect(x, y, w, h);
+    c.clip();
+    fn();
+    c.restore();
+  }
+
+  line(x1: number, y1: number, x2: number, y2: number, width: number, p = 1): void {
     if (p <= 0) return;
     const c = this.x;
-    c.lineWidth = w;
+    const k = Math.min(1, p);
+    c.lineWidth = width;
     c.beginPath();
     c.moveTo(x1, y1);
-    c.lineTo(x1 + (x2 - x1) * Math.min(1, p), y1 + (y2 - y1) * Math.min(1, p));
+    c.lineTo(x1 + (x2 - x1) * k, y1 + (y2 - y1) * k);
     c.stroke();
   }
 
-  /** 折線：依長度畫到 p 的位置（close：回到起點） */
-  poly(pts: readonly Pt[], p: number, w = 2, close = false): void {
+  /** 折線：依長度畫到 p 的位置（closed：回到起點） */
+  path(pts: readonly Pt[], p: number, width: number, closed = false): void {
     if (p <= 0 || pts.length < 2) return;
-    const path = close ? [...pts, pts[0]] : pts;
-    const lens: number[] = [];
+    const all = closed ? [...pts, pts[0]] : pts;
     let total = 0;
-    for (let i = 1; i < path.length; i++) {
-      const d = Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]);
-      lens.push(d);
+    const seg: number[] = [];
+    for (let i = 1; i < all.length; i++) {
+      const d = Math.hypot(all[i][0] - all[i - 1][0], all[i][1] - all[i - 1][1]);
+      seg.push(d);
       total += d;
     }
     let left = total * Math.min(1, p);
     const c = this.x;
-    c.lineWidth = w;
+    c.lineWidth = width;
     c.beginPath();
-    c.moveTo(path[0][0], path[0][1]);
-    for (let i = 1; i < path.length && left > 0; i++) {
-      const k = Math.min(1, left / lens[i - 1]);
-      const [ax, ay] = path[i - 1];
-      c.lineTo(ax + (path[i][0] - ax) * k, ay + (path[i][1] - ay) * k);
-      left -= lens[i - 1];
+    c.moveTo(all[0][0], all[0][1]);
+    for (let i = 1; i < all.length && left > 0; i++) {
+      const k = Math.min(1, left / seg[i - 1]);
+      c.lineTo(
+        all[i - 1][0] + (all[i][0] - all[i - 1][0]) * k,
+        all[i - 1][1] + (all[i][1] - all[i - 1][1]) * k,
+      );
+      left -= seg[i - 1];
     }
     c.stroke();
   }
 
   /** 實心多邊形 */
-  shape(pts: readonly Pt[], color?: string): void {
+  solid(pts: readonly Pt[], color?: string): void {
     const c = this.x;
     if (color) c.fillStyle = color;
     c.beginPath();
@@ -167,36 +206,17 @@ export class Hud {
     c.fill();
   }
 
-  /** 四個角的 L 形角線（長度 len×p） */
-  corners(x: number, y: number, w: number, h: number, len: number, p: number, lw = 2): void {
-    const l = len * Math.min(1, p);
-    if (l <= 0) return;
+  /** 圓弧：從 from 起掃過 sweep（弧度） */
+  ring(cx: number, cy: number, r: number, from: number, sweep: number, width: number): void {
+    if (r <= 0 || sweep <= 0) return;
     const c = this.x;
-    c.lineWidth = lw;
+    c.lineWidth = width;
     c.beginPath();
-    for (const [cx, cy, sx, sy] of [
-      [x, y, 1, 1],
-      [x + w, y, -1, 1],
-      [x + w, y + h, -1, -1],
-      [x, y + h, 1, -1],
-    ] as const) {
-      c.moveTo(cx, cy + sy * l);
-      c.lineTo(cx, cy);
-      c.lineTo(cx + sx * l, cy);
-    }
+    c.arc(cx, cy, r, from, from + Math.min(TAU, sweep));
     c.stroke();
   }
 
-  arc(cx: number, cy: number, r: number, a0: number, a1: number, w: number): void {
-    if (r <= 0 || a1 <= a0) return;
-    const c = this.x;
-    c.lineWidth = w;
-    c.beginPath();
-    c.arc(cx, cy, r, a0, a1);
-    c.stroke();
-  }
-
-  dot(cx: number, cy: number, r: number, color?: string): void {
+  disc(cx: number, cy: number, r: number, color?: string): void {
     if (r <= 0) return;
     const c = this.x;
     if (color) c.fillStyle = color;
@@ -205,13 +225,13 @@ export class Hud {
     c.fill();
   }
 
-  private setFont(c: Ctx, px: number, o: TextOpts): void {
+  private setFont(c: Ctx, px: number, o: TextStyle): void {
     c.font = o.mono ? this.f.fonts.mono(px) : this.f.fonts.title(o.weight ?? 700, px);
     if ('letterSpacing' in c) c.letterSpacing = `${o.track ?? 0}px`;
   }
 
   /** 字的寬度（含字距） */
-  measure(str: string, px: number, o: TextOpts = {}): number {
+  measure(str: string, px: number, o: TextStyle = {}): number {
     const c = this.x;
     c.save();
     this.setFont(c, px, o);
@@ -220,22 +240,16 @@ export class Hud {
     return w;
   }
 
-  /** 放不下 maxW 時縮小（最小 min px）；字距是固定的 px，不跟著字級縮 */
-  fit(str: string, base: number, maxW: number, o: TextOpts = {}, min = 14): number {
+  /** 放得進 maxW 的字級（最小 min）；字距是固定的 px，不跟著字級縮 */
+  fitSize(str: string, base: number, maxW: number, o: TextStyle = {}, min = 14): number {
     const w = this.measure(str, base, o);
     if (w <= maxW) return base;
     const fixed = (o.track ?? 0) * Array.from(str || ' ').length;
     return Math.max(min, (base * Math.max(0, maxW - fixed)) / Math.max(1, w - fixed));
   }
 
-  /** 副文字（等寬小字）：放不下 maxW 時縮小，依完整的副文字算（解碼中字級不跳動） */
-  subText(str: string, x: number, y: number, px: number, maxW: number, o: TextOpts = {}): number {
-    const opts = { ...o, mono: true };
-    return this.text(str, x, y, this.fit(this.f.sub, px, maxW, opts, 8), opts);
-  }
-
   /** 畫字，回傳寬度 */
-  text(str: string, x: number, y: number, px: number, o: TextOpts = {}): number {
+  text(str: string, x: number, y: number, px: number, o: TextStyle = {}): number {
     if (!str) return 0;
     const c = this.x;
     c.save();
@@ -248,8 +262,13 @@ export class Hud {
       c.globalCompositeOperation = 'destination-out';
       c.fillStyle = '#000000';
       c.fillText(str, x, y);
-    } else if (o.sheen && this.f.scratch) {
-      this.sheenText(str, x, y, px, w, o);
+    } else if (o.outline) {
+      c.strokeStyle = o.color ?? this.f.main;
+      c.lineWidth = o.outline;
+      c.lineJoin = 'round';
+      c.strokeText(str, x, y);
+    } else if (o.glint && this.f.scratch) {
+      this.glintText(str, x, y, px, w, o);
     } else {
       c.fillStyle = o.color ?? this.f.main;
       c.fillText(str, x, y);
@@ -258,8 +277,24 @@ export class Hud {
     return w;
   }
 
-  /** 光澤：字先畫在暫存畫布，亮帶只疊在字上，再整張貼回來（每個循環掃過一次） */
-  private sheenText(str: string, x: number, y: number, px: number, w: number, o: TextOpts): void {
+  /** 小字：放不下 maxW 時縮小（依完整的字串算，解碼、打字中字級不跳動；最小 8 px） */
+  small(
+    str: string,
+    full: string,
+    x: number,
+    y: number,
+    px: number,
+    maxW: number,
+    o: TextStyle = {},
+  ) {
+    const style = { ...o, mono: true };
+    return this.text(str, x, y, this.fitSize(full, px, maxW, style, 8), style);
+  }
+
+  /**
+   * 光澤：字先畫在暫存畫布，再只在字上疊一道斜的亮光；亮光在每個循環的 8%～48% 從左掃到右，其餘時間沒有。
+   */
+  private glintText(str: string, x: number, y: number, px: number, w: number, o: TextStyle): void {
     const c = this.x;
     const s = this.f.scratch!;
     const sx = s.x;
@@ -274,638 +309,745 @@ export class Hud {
     sx.textBaseline = 'alphabetic';
     sx.fillStyle = o.color ?? this.f.main;
     sx.fillText(str, x, y);
-    const left = c.textAlign === 'center' ? x - w / 2 : c.textAlign === 'right' ? x - w : x;
-    const pos = left - 160 + (w + 320) * this.cyc(1);
-    const g = sx.createLinearGradient(pos - 90, 0, pos + 90, 0);
-    g.addColorStop(0, 'rgba(255,255,255,0)');
-    g.addColorStop(0.5, 'rgba(255,255,255,0.85)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    sx.globalCompositeOperation = 'source-atop';
-    sx.fillStyle = g;
-    sx.fillRect(left - 200, y - px * 1.4, w + 400, px * 2);
+    const k = (this.turns(1) - 0.08) / 0.4;
+    if (k > 0 && k < 1) {
+      const left = c.textAlign === 'center' ? x - w / 2 : c.textAlign === 'right' ? x - w : x;
+      const band = px * 1.1;
+      const at = left - band + (w + band * 2) * EASE.smooth(k);
+      /* 斜的亮光：漸層方向往右上傾 */
+      const g = sx.createLinearGradient(at - band / 2, y, at + band / 2, y - px * 0.6);
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(0.45, 'rgba(255,255,255,0.9)');
+      g.addColorStop(0.55, 'rgba(255,255,255,0.9)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      sx.globalCompositeOperation = 'source-atop';
+      sx.fillStyle = g;
+      sx.fillRect(left - band * 2, y - px * 1.2, w + band * 4, px * 1.6);
+    }
     c.setTransform(1, 0, 0, 1, 0, 0);
-    c.drawImage(s.c, 0, 0);
+    c.drawImage(s.c as CanvasImageSource, 0, 0);
   }
 }
+
+/* ---------- 形狀小工具 ---------- */
+
+/** 圓角矩形的頂點（順時針，從左上角的直邊起；每個角 4 段） */
+function roundedRect(x: number, y: number, w: number, h: number, r: number): Pt[] {
+  const out: Pt[] = [];
+  const corner = (cx: number, cy: number, a0: number) => {
+    for (let i = 0; i <= 4; i++) {
+      const a = a0 + (i * Math.PI) / 8;
+      out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+    }
+  };
+  corner(x + w - r, y + r, -Math.PI / 2);
+  corner(x + w - r, y + h - r, 0);
+  corner(x + r, y + h - r, Math.PI / 2);
+  corner(x + r, y + r, Math.PI);
+  return out;
+}
+
+/** 指向右邊的箭頭（mirror：指向左邊，以 x 為對稱軸） */
+const chevron = (x: number, cy: number, mirror: boolean): Pt[] => {
+  const pts: Pt[] = [
+    [0, -16],
+    [9, -16],
+    [21, 0],
+    [9, 16],
+    [0, 16],
+    [12, 0],
+  ];
+  return pts.map(([dx, dy]) => [mirror ? x - dx : x + dx, cy + dy] as Pt);
+};
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
 
 /* ---------- 8 個範本（設計空間 1200 × 400） ---------- */
 
-const hexPts = (cx: number, cy: number, r: number, rot: number): Pt[] =>
-  Array.from({ length: 6 }, (_, i) => [
-    cx + Math.cos(rot + (i * TAU) / 6) * r,
-    cy + Math.sin(rot + (i * TAU) / 6) * r,
-  ]);
-
-/** 準星：左邊轉動的瞄準環，右邊四角框住標題 */
-function reticle(h: Hud): void {
-  const f = h.f;
-  const c = h.x;
-  const a = h.seg(0, 0.45);
-  const b = h.seg(0.12, 0.6);
-  const cc = h.seg(0.3, 0.8);
-  const d = h.seg(0.45, 1);
-  const cx = 210;
+/** 雷達掃描：標題在左，右邊是掃描線轉動、光點閃爍的圓形雷達 */
+function radar(p: HudPen): void {
+  const f = p.f;
+  const c = p.x;
+  const cx = 1000;
   const cy = 200;
-  h.fade(a, () => {
+  const R = 160;
+  p.ring(cx, cy, R, -Math.PI / 2, TAU * p.enter(0, 0.5), 2);
+  p.fade(0.45 * p.enter(0.15, 0.4), () => {
+    for (const r of [120, 80, 40]) p.ring(cx, cy, r, 0, TAU, 1);
+  });
+  p.fade(0.35 * p.enter(0.2, 0.4), () => {
     c.save();
-    c.translate(cx, cy);
-    c.scale(0.7 + 0.3 * a, 0.7 + 0.3 * a);
-    const spin = h.cyc(1) * TAU;
-    /* 外圈：四段弧，登場時各自伸長 */
-    for (let k = 0; k < 4; k++) {
-      const a0 = spin + (k * TAU) / 4 + 0.2;
-      h.arc(0, 0, 148, a0, a0 + (TAU / 4 - 0.4) * b, 2);
-    }
-    /* 刻度環：反方向慢轉，每 4 格一條長刻度 */
-    h.fade(0.7, () => {
-      c.save();
-      c.rotate(-spin / 6);
-      const n = Math.floor(48 * b);
-      for (let i = 0; i < n; i++) {
-        const an = (i * TAU) / 48;
-        const long = i % 4 === 0;
-        c.lineWidth = long ? 2 : 1;
-        c.beginPath();
-        c.moveTo(Math.cos(an) * 116, Math.sin(an) * 116);
-        c.lineTo(Math.cos(an) * (long ? 132 : 124), Math.sin(an) * (long ? 132 : 124));
-        c.stroke();
-      }
-      c.restore();
-    });
-    /* 三段粗弧：一個循環轉兩圈的三分之一 */
-    const turn = (h.cyc(2) * TAU) / 3;
-    for (let k = 0; k < 3; k++) {
-      const a0 = turn + (k * TAU) / 3;
-      h.arc(0, 0, 98, a0, a0 + 1.1 * cc, 8);
-    }
-    /* 點線環與內圈 */
-    h.fade(0.75, () => {
-      c.save();
-      c.setLineDash([2, 6]);
-      c.lineDashOffset = -h.cyc(1) * 64;
-      h.arc(0, 0, 80, 0, TAU * cc, 1.5);
-      c.restore();
-    });
-    h.arc(0, 0, 60, -Math.PI / 2, -Math.PI / 2 + TAU * cc, 1.5);
-    /* 十字準線＋菱形指標 */
-    h.fade(d, () => {
-      for (let k = 0; k < 4; k++) {
-        c.save();
-        c.rotate((k * TAU) / 4);
-        h.line(164, 0, 192, 0, 2);
-        h.shape([
-          [156, 0],
-          [162, -5],
-          [168, 0],
-          [162, 5],
-        ]);
-        c.restore();
-      }
-    });
-    /* 中心：脈動的小圈 */
-    const pr = 10 * (1 + 0.2 * Math.sin(h.cyc(2) * TAU));
-    h.arc(0, 0, pr * d, 0, TAU, 2);
-    h.dot(0, 0, 3 * d);
+    c.setLineDash([3, 9]);
+    p.line(cx - R, cy, cx + R, cy, 1);
+    p.line(cx, cy - R, cx, cy + R, 1);
     c.restore();
   });
-
-  /* 右邊的框 */
-  const fx = 404;
-  const fy = 116;
-  const fw = 756;
-  const fh = 168;
-  h.line(364, 200, fx, 200, 1.5, d);
-  h.dot(fx, 200, 4 * d);
-  h.corners(fx, fy, fw, fh, 28, h.seg(0.3, 0.75), 2.5);
-  h.fade(0.45, () => {
-    h.line(fx + 40, fy, fx + 320, fy, 1, h.seg(0.35, 0.8));
-    h.line(fx + fw - 40, fy + fh, fx + 260, fy + fh, 1, h.seg(0.4, 0.85));
-  });
-  h.text(h.decode(f.code, h.seg(0.35, 0.8)), fx + 4, fy - 12, 15, {
-    mono: true,
-    track: 2,
-    alpha: 0.8,
-  });
-  const hasSub = !!f.sub;
-  const size = h.fit(f.title, 70, 680, { track: 2 });
-  h.text(h.decode(f.title, h.seg(0.4, 1)), fx + 34, hasSub ? 212 : 200 + size * 0.35, size, {
-    track: 2,
-    sheen: true,
-  });
-  if (hasSub)
-    h.subText(h.decode(f.sub, h.seg(0.55, 1)), fx + 36, 256, 18, 700, { track: 3, alpha: 0.8 });
-  /* 右下角：依序亮起的四格 */
-  const lit = Math.floor(h.cyc(4) * 4);
-  for (let i = 0; i < 4; i++)
-    h.fade(d * (lit === i ? 1 : 0.3), () => c.fillRect(fx + fw - 80 + i * 16, fy + fh - 20, 8, 8));
-  /* 框外的尺規 */
-  h.fade(0.5 * cc, () => {
-    for (let y = fy + 12, i = 0; y < fy + fh - 8; y += 12, i++)
-      h.line(fx + fw + 12, y, fx + fw + (i % 3 === 0 ? 30 : 20), y, 1);
-  });
-}
-
-/** 資料掃描：定位點拉出引線，旁邊是讀數與進度格 */
-function callout(h: Hud): void {
-  const f = h.f;
-  const c = h.x;
-  const a = h.seg(0, 0.3);
-  h.fade(a, () => {
-    h.arc(118, 298, 16, 0, TAU, 2);
-    h.dot(118, 298, 5);
-    const ph = h.cyc(2);
-    h.fade((1 - ph) * 0.8, () => h.arc(118, 298, 16 + 34 * ph, 0, TAU, 1.5));
-  });
-  h.poly(
-    [
-      [130, 286],
-      [214, 204],
-      [332, 204],
-    ],
-    h.seg(0.05, 0.45),
-    2,
-  );
-  h.text(h.decode(`ANALYZE // ${f.code}`, h.seg(0.3, 0.7)), 348, 132, 15, {
-    mono: true,
-    track: 2,
-    alpha: 0.85,
-  });
-  const size = h.fit(f.title, 76, 600, { track: 1 });
-  h.text(h.decode(f.title, h.seg(0.35, 0.9)), 346, 212, size, { track: 1, sheen: true });
-  const ul = h.seg(0.3, 0.8);
-  h.line(332, 234, 1112, 234, 2, ul);
-  if (ul >= 1) c.fillRect(1106, 229, 10, 10);
-  h.fade(0.5, () => {
-    c.save();
-    c.setLineDash([6, 6]);
-    c.lineDashOffset = -h.cyc(2) * 48;
-    h.line(348, 246, 760, 246, 1, h.seg(0.45, 0.9));
-    c.restore();
-  });
-  if (f.sub) h.subText(h.decode(f.sub, h.seg(0.5, 1)), 348, 280, 17, 760, { track: 2, alpha: 0.8 });
-  /* 右邊的讀數：登場時從 0% 跑上去，停留中在 96～100% 之間跳 */
-  let pct = Math.floor(100 * h.seg(0.2, 0.9));
-  if (h.settled) pct = 96 + Math.floor(hashUnit(timeSlot(f.t % f.D, 3), 9, 0x2d) * 5);
-  pct = Math.min(100, pct);
-  const pv = h.seg(0.25, 0.6);
-  h.fade(pv, () => {
-    h.text('LOCK', 1112, 150, 12, { mono: true, align: 'right', track: 3, alpha: 0.7 });
-    h.text(`${String(pct).padStart(3, '0')}%`, 1112, 190, 30, { mono: true, align: 'right' });
-    for (let i = 0; i < 10; i++)
-      h.fade(i < pct / 10 ? 1 : 0.2, () =>
-        h.shape([
-          [994 + i * 12, 214],
-          [998 + i * 12, 200],
-          [1006 + i * 12, 200],
-          [1002 + i * 12, 214],
-        ]),
+  /* 方位刻度：每 10°，每 90° 長一點 */
+  const ticks = Math.floor(36 * p.enter(0.3, 0.4));
+  p.fade(0.8, () => {
+    for (let i = 0; i < ticks; i++) {
+      const a = (i * TAU) / 36 - Math.PI / 2;
+      const r2 = R + (i % 9 === 0 ? 20 : 11);
+      p.line(
+        cx + Math.cos(a) * (R + 5),
+        cy + Math.sin(a) * (R + 5),
+        cx + Math.cos(a) * r2,
+        cy + Math.sin(a) * r2,
+        i % 9 === 0 ? 2 : 1,
       );
+    }
   });
-}
-
-/** 警告面板：切角面板、閃爍的警示三角與斜紋警戒條 */
-function warning(h: Hud): void {
-  const f = h.f;
-  const c = h.x;
-  const frame: Pt[] = [
-    [192, 80],
-    [1100, 80],
-    [1100, 278],
-    [1058, 320],
-    [150, 320],
-    [150, 122],
-  ];
-  h.poly(frame, h.seg(0, 0.5), 2.5, true);
-  h.fade(0.3, () =>
-    h.poly(
-      frame.map(([x, y]) => [x + (x < 600 ? 10 : -10), y + (y < 200 ? 10 : -10)] as Pt),
-      h.seg(0.1, 0.6),
-      1,
-      true,
-    ),
-  );
-  const tp = h.seg(0.2, 0.6);
-  c.save();
-  c.strokeStyle = f.accent;
-  c.lineJoin = 'round';
-  h.poly(
-    [
-      [262, 140],
-      [318, 236],
-      [206, 236],
-    ],
-    tp,
-    4,
-    true,
-  );
-  if (tp >= 1 && (h.cyc(3) < 0.7 || !h.settled))
-    h.text('!', 262, 226, 58, { color: f.accent, align: 'center', weight: 900 });
-  c.restore();
-  h.fade(0.5, () => h.line(360, 112, 360, 288, 1, h.seg(0.25, 0.65)));
-  const hasSub = !!f.sub;
-  const size = h.fit(f.title, 64, 660, { track: 1 });
-  h.text(h.decode(f.title, h.seg(0.35, 0.95)), 390, hasSub ? 198 : 214, size, {
-    track: 1,
-    sheen: true,
+  /* 掃描扇形：一個長度轉一圈，尾巴漸淡 */
+  const heading = -Math.PI / 2 + p.turns(1) * TAU;
+  const sw = p.enter(0.5, 0.4);
+  p.fade(sw, () => {
+    for (let k = 0; k < 10; k++) {
+      c.save();
+      c.globalAlpha *= 0.42 * (1 - k / 10);
+      c.beginPath();
+      c.moveTo(cx, cy);
+      c.arc(cx, cy, R - 2, heading - (k + 1) * 0.07, heading - k * 0.07);
+      c.closePath();
+      c.fill();
+      c.restore();
+    }
+    p.line(cx, cy, cx + Math.cos(heading) * (R - 2), cy + Math.sin(heading) * (R - 2), 2);
   });
-  if (hasSub)
-    h.subText(h.decode(f.sub, h.seg(0.5, 1)), 392, 238, 17, 690, { track: 2, alpha: 0.8 });
-  /* 警戒條：斜紋往右流動 */
-  const hw = 668 * h.seg(0.4, 0.9);
-  if (hw > 0) {
-    c.save();
-    c.beginPath();
-    c.rect(390, 262, hw, 22);
-    c.clip();
-    c.fillStyle = f.accent;
-    c.globalAlpha *= 0.9;
-    const off = (h.cyc(1) * 84) % 28;
-    for (let x = 362 + off; x < 1100; x += 28)
-      h.shape([
-        [x, 262],
-        [x + 14, 262],
-        [x + 36, 284],
-        [x + 22, 284],
-      ]);
-    c.restore();
-  }
-  h.text(h.decode(`ALERT ${f.code}`, h.seg(0.3, 0.75)), 1080, 108, 13, {
-    mono: true,
-    align: 'right',
-    track: 2,
-    alpha: 0.75,
-  });
-  const lit = Math.floor(h.cyc(3) * 3);
-  for (let i = 0; i < 3; i++)
-    h.fade(h.seg(0.5, 0.9) * (lit === i ? 1 : 0.35), () => c.fillRect(1112, 150 + i * 30, 8, 20));
-}
-
-/** 賽博標籤：整塊斜角色塊，標題鏤空，旁邊有箭頭與條碼 */
-function slab(h: Hud): void {
-  const f = h.f;
-  const c = h.x;
-  const rev = h.seg(0, 0.45);
-  if (rev > 0) {
-    c.save();
-    c.beginPath();
-    c.rect(130, 140, 940 * rev, 130);
-    c.clip();
-    h.shape([
-      [144, 150],
-      [1034, 150],
-      [1062, 262],
-      [172, 262],
-    ]);
-    c.restore();
-  }
-  const size = h.fit(f.title, 84, 800, { weight: 900, track: 1 });
-  h.text(h.decode(f.title, h.seg(0.3, 0.9)), 194, 206 + size * 0.36, size, {
-    weight: 900,
-    track: 1,
-    knock: true,
-  });
-  c.fillStyle = f.accent;
-  h.fade(h.seg(0.1, 0.4), () => c.fillRect(116, 150, 12, 112));
-  c.fillStyle = f.main;
-  h.text(h.decode(f.code, h.seg(0.3, 0.7)), 174, 136, 14, { mono: true, track: 2, alpha: 0.85 });
-  h.fade(0.6, () => h.line(420, 131, 1062, 131, 1, h.seg(0.25, 0.7)));
-  c.fillStyle = f.accent;
-  h.fade(h.seg(0.4, 0.8), () => {
-    for (let i = 0; i < 3; i++) c.fillRect(1020 + i * 14, 118, 9, 9);
-  });
-  c.fillStyle = f.main;
-  /* 右邊三個箭頭：亮度依序往右傳 */
-  const ch = h.seg(0.45, 0.85);
-  for (let i = 0; i < 3; i++) {
-    const w = (((h.cyc(2) * 3 - i) % 3) + 3) % 3;
-    const x = 1084 + i * 26;
-    h.fade(ch * (0.25 + 0.75 * Math.max(0, 1 - w)), () =>
-      h.shape([
-        [x, 170],
-        [x + 12, 170],
-        [x + 30, 206],
-        [x + 12, 242],
-        [x, 242],
-        [x + 18, 206],
-      ]),
-    );
-  }
-  /* 條碼：依標題與代碼雜湊決定粗細 */
-  const bp = h.seg(0.4, 0.8);
+  /* 光點：位置依標題與代碼決定，被掃到時亮起來再慢慢暗 */
   const seed = seedOf(f.title + f.code);
-  for (let x = 172, i = 0; x < 172 + 250 * bp; i++) {
-    const w = 1 + Math.floor(hashUnit(seed, i, 1) * 4);
-    if (hashUnit(seed, i, 2) > 0.35) c.fillRect(x, 278, w, 30);
-    x += w + 2;
+  const blips = p.enter(0.6, 0.4);
+  for (let i = 0; i < 5; i++) {
+    const a = hashUnit(seed, i, 1) * TAU;
+    const r = 34 + hashUnit(seed, i, 2) * (R - 54);
+    const since = (((heading - a) % TAU) + TAU) % TAU;
+    const glow = Math.max(0, 1 - since / 2.4);
+    const bx = cx + Math.cos(a) * r;
+    const by = cy + Math.sin(a) * r;
+    p.fade(blips * (0.3 + 0.7 * glow), () => p.disc(bx, by, 4, f.accent));
+    p.fade(blips * glow * 0.6, () => {
+      c.strokeStyle = f.accent;
+      p.ring(bx, by, 6 + 10 * (1 - glow), 0, TAU, 1.5);
+    });
   }
-  if (f.sub)
-    h.subText(h.decode(f.sub, h.seg(0.5, 1)), 446, 300, 16, 510, { track: 2, alpha: 0.85 });
+  p.solid([
+    [cx, cy - 6],
+    [cx + 6, cy],
+    [cx, cy + 6],
+    [cx - 6, cy],
+  ]);
+  const deg = String(Math.round(p.turns(1) * 360) % 360).padStart(3, '0');
+  p.text(`BRG ${deg}°`, 836, 388, 13, { mono: true, track: 2, alpha: 0.7 * p.enter(0.5, 0.3) });
+
+  /* 左邊：代碼、標題、分隔線、副文字 */
+  const twoLines = !!f.sub;
   c.fillStyle = f.accent;
-  h.fade(h.seg(0.6, 1), () => c.fillRect(974, 290, 60, 8));
+  p.fade(p.enter(0.1, 0.3), () => c.fillRect(64, 104, 8, 8));
+  c.fillStyle = f.main;
+  p.small(p.decode(f.code, 0.1, 0.4), f.code, 80, 112, 14, 680, { track: 2, alpha: 0.85 });
+  const size = p.fitSize(f.title, 82, 680, { weight: 800, track: 1 });
+  const yT = twoLines ? 190 : 206;
+  p.text(p.decode(f.title, 0.3, 0.6), 64, yT, size, { weight: 800, track: 1, glint: true });
+  const yD = yT + 28;
+  const dp = p.enter(0.2, 0.4);
+  p.line(64, yD, 64 + 700 * dp, yD, 1.5);
+  c.fillStyle = f.accent;
+  c.fillRect(64, yD - 3, 88 * dp, 4);
+  c.fillStyle = f.main;
+  if (twoLines)
+    p.small(p.decode(f.sub, 0.5, 0.5), f.sub, 64, yD + 32, 18, 680, { track: 2, alpha: 0.85 });
+  p.fade(0.6, () => {
+    c.save();
+    c.setLineDash([2, 5]);
+    p.line(776, yD, 836, yD, 1.5, p.enter(0.45, 0.3));
+    c.restore();
+  });
 }
 
-/** 六角徽章：轉動的六角徽章，接一條箭頭形的鏤空標題帶 */
-function hex(h: Hud): void {
-  const f = h.f;
-  const c = h.x;
-  const cx = 222;
-  const cy = 200;
-  const up = -Math.PI / 2;
-  h.poly(hexPts(cx, cy, 112, up), h.seg(0, 0.5), 3, true);
-  const outer = hexPts(cx, cy, 132, up);
-  h.fade(0.6 * h.seg(0.2, 0.6), () => {
-    for (const k of [0, 3]) {
-      const [x1, y1] = outer[k];
-      const [x2, y2] = outer[(k + 1) % 6];
-      h.line(x1, y1, x2, y2, 2);
-    }
-  });
-  /* 內圈六段：慢轉，亮的那一段依序換 */
-  const inner = hexPts(cx, cy, 84, up + (h.cyc(1) * TAU) / 6);
-  const hot = Math.floor(h.cyc(6) * 6);
-  const sp = h.seg(0.25, 0.7);
-  for (let k = 0; k < 6; k++) {
-    const [x1, y1] = inner[k];
-    const [x2, y2] = inner[(k + 1) % 6];
-    h.fade(sp * (k === hot ? 1 : 0.45), () =>
-      h.line(
-        x1 + (x2 - x1) * 0.15,
-        y1 + (y2 - y1) * 0.15,
-        x1 + (x2 - x1) * 0.85,
-        y1 + (y2 - y1) * 0.85,
-        8,
-      ),
-    );
-  }
-  h.fade(h.seg(0.35, 0.8), () => {
-    h.corners(cx - 26, cy - 26, 52, 52, 12, 1, 2);
-    h.dot(cx, cy, 3);
-  });
-  /* 箭頭形的標題帶 */
-  const bp = h.seg(0.25, 0.65);
-  if (bp > 0) {
-    c.save();
-    c.beginPath();
-    c.rect(360, 150, 780 * bp, 100);
-    c.clip();
-    h.shape([
-      [366, 160],
-      [1080, 160],
-      [1120, 200],
-      [1080, 240],
-      [366, 240],
-      [388, 200],
-    ]);
-    c.restore();
-  }
-  h.line(336, 200, 366, 200, 2, h.seg(0.2, 0.4));
-  const size = h.fit(f.title, 56, 620, { weight: 800, track: 1 });
-  h.text(h.decode(f.title, h.seg(0.4, 0.95)), 420, 200 + size * 0.36, size, {
-    weight: 800,
-    track: 1,
-    knock: true,
-  });
-  h.fade(0.8, () => h.line(380, 140, 1080, 140, 1.5, h.seg(0.3, 0.75)));
-  h.arc(1062, 128, 6 * h.seg(0.5, 0.8), 0, TAU, 1.5);
-  h.text(h.decode(f.code, h.seg(0.4, 0.8)), 400, 130, 14, { mono: true, track: 2, alpha: 0.85 });
-  h.fade(0.7, () => {
-    c.save();
-    c.setLineDash([12, 6]);
-    c.lineDashOffset = -h.cyc(1) * 144;
-    h.line(380, 262, 1100, 262, 2, h.seg(0.4, 0.85));
-    c.restore();
-  });
-  if (f.sub)
-    h.subText(h.decode(f.sub, h.seg(0.5, 1)), 400, 292, 16, 690, { track: 2, alpha: 0.85 });
-}
-
-/** 索引：鏤空標題的色帶，右邊菱形裡放編號 */
-function index(h: Hud): void {
-  const f = h.f;
-  const c = h.x;
-  const bp = h.seg(0, 0.42);
-  if (bp > 0) {
-    c.save();
-    c.beginPath();
-    c.rect(900 - 760 * bp, 150, 760 * bp, 110);
-    c.clip();
-    c.fillRect(140, 160, 760, 86);
-    c.restore();
-  }
-  const size = h.fit(f.title, 54, 520, { weight: 800, track: 2 });
-  h.text(h.decode(f.title, h.seg(0.3, 0.9)), 176, 203 + size * 0.36, size, {
-    weight: 800,
-    track: 2,
-    knock: true,
-  });
-  /* 鏤空的三個左箭頭 */
-  for (let i = 0; i < 3; i++) {
-    const w = (((h.cyc(3) * 3 + i) % 3) + 3) % 3;
-    c.save();
-    c.globalCompositeOperation = 'destination-out';
-    c.globalAlpha = h.seg(0.4, 0.8) * (0.35 + (0.65 * w) / 3);
-    const x = 768 + i * 34;
-    c.fillStyle = '#000000';
-    h.shape([
-      [x + 22, 180],
-      [x + 12, 180],
-      [x - 6, 203],
-      [x + 12, 226],
-      [x + 22, 226],
-      [x + 4, 203],
-    ]);
-    c.restore();
-  }
-  /* 菱形編號 */
-  const dp = h.seg(0.3, 0.65);
-  if (dp > 0) {
-    c.save();
-    c.translate(962, 203);
-    c.scale(dp, dp);
-    c.rotate(Math.PI / 4);
-    c.fillRect(-40, -40, 80, 80);
-    c.restore();
-  }
-  if (dp > 0.5) {
-    const n = f.num || '01';
-    const ns = h.fit(n, 36, 50, { weight: 800 });
-    h.text(n, 962, 203 + ns * 0.36, ns, { weight: 800, align: 'center', knock: true });
-  }
-  /* 一排小點：亮點往右跑 */
-  for (let i = 0; i < 9; i++) {
-    const vis = h.seg(0.5 + i * 0.04, 0.62 + i * 0.04);
-    const near = (((h.cyc(2) * 9 - i) % 9) + 9) % 9 < 2;
-    h.fade(vis * (near ? 1 : 0.3), () => h.dot(1036 + i * 15, 203, 2.6, f.accent));
+/** 數據讀取：圓角面板，左邊跳動的長條圖，右邊標題與三格讀數 */
+function readout(p: HudPen): void {
+  const f = p.f;
+  const c = p.x;
+  p.path(roundedRect(56, 64, 1088, 272, 16), p.enter(0, 0.4), 2, true);
+  /* 長條圖：7 條，高度依標題雜湊，停留中上下起伏；最高的一條用強調色 */
+  const seed = seedOf(f.title);
+  const base = Array.from({ length: 7 }, (_, i) => 0.35 + 0.6 * hashUnit(seed, i, 7));
+  const top = base.indexOf(Math.max(...base));
+  for (let i = 0; i < 7; i++) {
+    const grow = p.enter(0.15 + i * 0.04, 0.35);
+    const wave = 0.75 + 0.25 * Math.sin(p.turns(2) * TAU + i * 0.9);
+    const h = 170 * base[i] * wave * grow;
+    c.fillStyle = i === top ? f.accent : f.main;
+    c.fillRect(98 + i * 33, 298 - h, 24, h);
   }
   c.fillStyle = f.main;
-  h.text(h.decode(f.code, h.seg(0.3, 0.7)), 140, 146, 13, { mono: true, track: 3, alpha: 0.85 });
-  if (f.sub)
-    h.subText(h.decode(f.sub, h.seg(0.5, 1)), 142, 282, 16, 750, { track: 2, alpha: 0.85 });
-  c.fillStyle = f.accent;
-  h.fade(h.seg(0.2, 0.5), () => c.fillRect(140, 252, 120, 3));
+  p.line(90, 301, 332, 301, 1.5, p.enter(0.1, 0.3));
+  p.fade(0.5 * p.enter(0.5, 0.4), () => {
+    const y = 130 + 170 * p.turns(1);
+    p.line(90, y, 332, y, 1);
+  });
+  p.fade(0.6, () => p.line(366, 96, 366, 304, 1, p.enter(0.3, 0.3)));
+
+  const x0 = 402;
+  p.fade(p.enter(0.2, 0.3), () => p.disc(408, 112, 4, f.accent));
   c.fillStyle = f.main;
+  p.small(p.decode(f.code, 0.25, 0.35), f.code, 420, 117, 14, 680, { track: 2, alpha: 0.85 });
+  const twoLines = !!f.sub;
+  const size = p.fitSize(f.title, 72, 700, { track: 1 });
+  p.text(p.decode(f.title, 0.35, 0.55), x0, twoLines ? 192 : 206, size, { track: 1, glint: true });
+  if (twoLines)
+    p.small(p.decode(f.sub, 0.5, 0.5), f.sub, x0 + 2, 230, 17, 700, { track: 2, alpha: 0.8 });
+  /* 三格讀數 */
+  const cells = p.enter(0.55, 0.4);
+  const sig = p.settled()
+    ? 91 + Math.floor(hashUnit(timeSlot(f.t % f.D, 4), 3, 0x31) * 9)
+    : Math.floor(95 * cells);
+  const frq = (100 + hashUnit(seedOf(f.code), 1, 2) * 800).toFixed(1);
+  const vals: [string, string][] = [
+    ['SIG', `${sig}%`],
+    ['FRQ', frq],
+    ['IDX', f.num || '01'],
+  ];
+  vals.forEach(([label, value], k) => {
+    const x = x0 + k * 240;
+    p.fade(cells, () => {
+      p.fade(0.5, () => {
+        c.lineWidth = 1;
+        c.strokeRect(x, 254, 220, 50);
+      });
+      p.text(label, x + 10, 270, 11, { mono: true, track: 2, alpha: 0.6 });
+      p.text(p.decode(value, 0.6, 0.35), x + 10, 296, 20, { mono: true, track: 1 });
+    });
+  });
 }
 
-/** 括號框：大括號框住置中的標題，下方有來回移動的游標 */
-function bracket(h: Hud): void {
-  const f = h.f;
-  const c = h.x;
-  h.corners(160, 104, 880, 196, 36, h.seg(0, 0.5), 3);
-  h.fade(0.6 * h.seg(0.2, 0.6), () => {
-    for (const [x, y] of [
-      [126, 74],
-      [1074, 74],
-      [126, 330],
-      [1074, 330],
-    ] as const) {
+/** 警報橫幅：上下兩條反向流動的警戒條，兩側閃爍的驚嘆號圓章 */
+function alert(p: HudPen): void {
+  const f = p.f;
+  const c = p.x;
+  const open = p.enter(0, 0.45);
+  const half = 560 * open;
+  const band = (y0: number, dir: 1 | -1) => {
+    p.clipped(600 - half, y0, half * 2, 34, () => {
+      c.fillStyle = f.accent;
+      const shift = (dir * p.turns(3) * 32) % 32;
+      for (let x = 8 + shift - 64; x < 1200; x += 32)
+        p.solid([
+          [x, y0],
+          [x + 16, y0],
+          [x + 34, y0 + 34],
+          [x + 18, y0 + 34],
+        ]);
+      c.fillStyle = f.main;
+    });
+    p.fade(0.8, () => {
       c.lineWidth = 1.5;
-      c.strokeRect(x - 4, y - 4, 8, 8);
-    }
-  });
-  h.text(h.decode(`// ${f.code} //`, h.seg(0.25, 0.7)), 600, 94, 14, {
-    mono: true,
+      if (half > 0) c.strokeRect(600 - half, y0, half * 2, 34);
+    });
+  };
+  band(34, -1);
+  band(332, 1);
+  /* 上方色塊：鏤空的代碼 */
+  const chip = p.enter(0.3, 0.3);
+  if (chip > 0 && f.code) {
+    const cs = p.fitSize(f.code, 15, 400, { mono: true, track: 2 }, 8);
+    const w = p.measure(f.code, cs, { mono: true, track: 2 }) + 30;
+    p.fade(chip, () => {
+      c.fillRect(600 - w / 2, 30, w, 44);
+      p.text(p.decode(f.code, 0.3, 0.35), 600, 57, cs, {
+        mono: true,
+        track: 2,
+        align: 'center',
+        knock: true,
+      });
+    });
+  }
+  /* 兩側的驚嘆號圓章：停留中左右輪流亮 */
+  const badge = p.enter(0.2, 0.35);
+  const left = p.lit(2, 0.5);
+  for (const [x, on] of [
+    [112, left],
+    [1088, !left || !p.settled()],
+  ] as const) {
+    p.fade(badge * (on ? 1 : 0.3), () => {
+      c.save();
+      c.translate(x, 200);
+      c.scale(0.6 + 0.4 * badge, 0.6 + 0.4 * badge);
+      c.strokeStyle = f.accent;
+      p.ring(0, 0, 46, 0, TAU, 5);
+      p.text('!', 0, 19, 54, { weight: 900, align: 'center', color: f.accent });
+      c.restore();
+    });
+  }
+  /* 箭頭：往標題指，亮度往內傳 */
+  const arrows = p.enter(0.6, 0.35);
+  const step = Math.floor(p.turns(3) * 3);
+  for (let i = 0; i < 3; i++) {
+    const k = arrows * (step === i ? 1 : 0.35);
+    p.fade(k, () => {
+      p.solid(chevron(184 + i * 24, 200, false));
+      p.solid(chevron(1016 - i * 24, 200, true));
+    });
+  }
+  const twoLines = !!f.sub;
+  const size = p.fitSize(f.title, 84, 680, { weight: 900, track: 2 });
+  p.text(p.decode(f.title, 0.35, 0.6), 600, twoLines ? 196 : 216, size, {
+    weight: 900,
+    track: 2,
     align: 'center',
-    track: 3,
-    alpha: 0.8,
+    glint: true,
   });
-  const hasSub = !!f.sub;
-  const size = h.fit(f.title, 72, 780, { track: 4 });
-  h.text(h.decode(f.title, h.seg(0.3, 0.95)), 600, hasSub ? 212 : 200 + size * 0.36, size, {
-    align: 'center',
-    track: 4,
-    sheen: true,
-  });
-  if (hasSub)
-    h.subText(h.decode(f.sub, h.seg(0.5, 1)), 600, 258, 18, 780, {
+  if (twoLines)
+    p.small(p.decode(f.sub, 0.55, 0.45), f.sub, 600, 252, 18, 680, {
+      track: 3,
       align: 'center',
-      track: 4,
       alpha: 0.85,
     });
-  const lp = h.seg(0.35, 0.8);
-  h.fade(0.55, () => {
-    h.line(590, 284, 300, 284, 1, lp);
-    h.line(610, 284, 900, 284, 1, lp);
-  });
-  const mx = 600 + Math.sin(h.cyc(1) * TAU) * 220;
-  c.fillStyle = f.accent;
-  h.fade(lp, () => c.fillRect(mx - 30, 282, 60, 4));
-  c.fillStyle = f.main;
-  const tail = h.seg(0.5, 0.9);
-  h.text(`NO. ${f.num || '01'}`, 1040, 326, 14, {
-    mono: true,
-    align: 'right',
-    track: 2,
-    alpha: 0.8 * tail,
-  });
-  h.fade(0.7 * tail, () => {
-    for (let i = 0; i < 3; i++) h.line(166 + i * 10, 330, 176 + i * 10, 318, 2);
-  });
 }
 
-/** 終端機的紀錄（本站自寫） */
-const TERMINAL_LOG = [
-  'SYS  UPLINK ............ OK',
-  'SYS  DECRYPT KEY 4/4 ... OK',
-  'NET  PING 12ms',
-  'WARN SIGNAL NOISE +2dB',
-  'SYS  ARCHIVE MOUNTED',
-  'SYS  OPERATOR VERIFIED',
-];
-
-/** 終端機：終端機視窗逐字打出標題，下方捲動系統紀錄 */
-function terminal(h: Hud): void {
-  const f = h.f;
-  const c = h.x;
-  const x0 = 150;
-  const y0 = 70;
-  const w = 900;
-  const ht = 260;
-  h.poly(
+/** 識別吊牌：有穿孔與撕線的吊牌，頂端色帶鏤空代碼，右邊點陣碼 */
+function tag(p: HudPen): void {
+  const f = p.f;
+  const c = p.x;
+  p.path(
     [
-      [x0, y0],
-      [x0 + w, y0],
-      [x0 + w, y0 + ht],
-      [x0, y0 + ht],
+      [178, 96],
+      [1112, 96],
+      [1112, 304],
+      [178, 304],
+      [92, 200],
     ],
-    h.seg(0, 0.4),
-    2,
+    p.enter(0, 0.45),
+    2.5,
     true,
   );
-  const hp = h.seg(0.1, 0.45);
-  if (hp > 0) {
+  p.fade(p.enter(0.3, 0.2), () => p.ring(152, 200, 15, 0, TAU, 2));
+  p.fade(0.7 * p.enter(0.35, 0.25), () => {
     c.save();
-    c.beginPath();
-    c.rect(x0, y0, w * hp, 26);
-    c.clip();
-    c.fillRect(x0, y0, w, 26);
+    c.setLineDash([5, 7]);
+    p.line(212, 108, 212, 292, 1.5);
     c.restore();
-  }
-  if (hp > 0.3)
-    h.text(`SHELL :: ${f.code}`, x0 + 14, y0 + 18, 13, { mono: true, track: 2, knock: true });
-  for (let i = 0; i < 3; i++) {
-    c.save();
-    c.globalCompositeOperation = 'destination-out';
-    c.globalAlpha = hp;
-    c.fillRect(x0 + w - 22 - i * 16, y0 + 9, 9, 9);
-    c.restore();
-  }
-  h.fade(0.22 * h.seg(0.2, 0.6), () => {
-    for (let gx = x0 + w - 220; gx < x0 + w - 20; gx += 16)
-      for (let gy = y0 + 46; gy < y0 + ht - 20; gy += 16) c.fillRect(gx, gy, 2, 2);
   });
-  /* 逐字打出的標題＋游標 */
-  const chars = Array.from(f.title);
-  const typed = chars.slice(0, Math.floor(chars.length * h.seg(0.2, 0.75))).join('');
-  const size = h.fit(`> ${f.title}_`, 64, 640, { track: 1 });
-  const by = f.sub ? 178 : 200 + size * 0.36;
-  const tw = h.text(`> ${typed}`, x0 + 36, by, size, { track: 1 });
-  if (h.cyc(4) < 0.55 || !h.settled) {
-    c.fillStyle = f.accent;
-    c.fillRect(x0 + 40 + tw, by - size * 0.72, size * 0.42, size * 0.8);
-    c.fillStyle = f.main;
+  /* 頂端色帶：由左展開，代碼與編號鏤空 */
+  const bw = p.enter(0.2, 0.35);
+  if (bw > 0) {
+    c.fillRect(236, 108, 862 * bw, 44);
+    if (bw > 0.3) {
+      p.small(p.decode(f.code, 0.35, 0.35), f.code, 254, 138, 16, 560, { track: 2, knock: true });
+      p.text(`#${f.num || '01'}`, 1086, 138, 16, { mono: true, align: 'right', knock: true });
+    }
   }
-  if (f.sub) {
-    const sc = Array.from(f.sub);
-    const st = sc.slice(0, Math.floor(sc.length * h.seg(0.6, 0.95))).join('');
-    h.subText(st, x0 + 38, by + 42, 18, 640, { track: 2, alpha: 0.85 });
-  }
-  /* 系統紀錄：一個循環捲兩輪 */
-  const off = Math.floor(h.cyc(2) * TERMINAL_LOG.length);
-  const lp = h.seg(0.55, 1);
-  for (let i = 0; i < 3; i++)
-    h.text(TERMINAL_LOG[(off + i) % TERMINAL_LOG.length], x0 + 38, y0 + ht - 64 + i * 18, 12, {
-      mono: true,
-      track: 1,
-      alpha: (0.35 + i * 0.2) * lp,
-    });
-  /* 右側的進度條 */
-  const bh = (ht - 70) * h.seg(0.3, 0.9);
-  h.fade(0.5, () => {
+  const twoLines = !!f.sub;
+  const size = p.fitSize(f.title, 70, 620, { weight: 800 });
+  p.text(p.decode(f.title, 0.35, 0.55), 254, twoLines ? 226 : 240, size, { weight: 800 });
+  if (twoLines)
+    p.small(p.decode(f.sub, 0.55, 0.45), f.sub, 256, 270, 16, 620, { track: 2, alpha: 0.85 });
+  /* 點陣碼：依標題與代碼決定，一列一列出現；停留中有一條掃描線往下走 */
+  const seed = seedOf(f.title + f.code);
+  const rows = Math.floor(7 * p.enter(0.5, 0.45));
+  const scanY = 164 + 133 * p.turns(1);
+  for (let r = 0; r < rows; r++)
+    for (let k = 0; k < 10; k++) {
+      if (hashUnit(seed, r * 10 + k, 5) <= 0.48) continue;
+      const y = 170 + r * 18;
+      p.fade(Math.abs(y + 6 - scanY) < 12 && p.settled() ? 1 : 0.7, () =>
+        c.fillRect(902 + k * 18, y, 13, 13),
+      );
+    }
+  p.fade(0.5 * p.enter(0.45, 0.3), () => {
     c.lineWidth = 1;
-    c.strokeRect(x0 + w - 14, y0 + 40, 6, ht - 70);
+    c.strokeRect(896, 164, 192, 133);
   });
-  c.fillStyle = f.accent;
-  c.fillRect(x0 + w - 14, y0 + 40 + (ht - 70) - bh, 6, bh);
-  c.fillStyle = f.main;
+  if (p.settled()) {
+    c.fillStyle = f.accent;
+    c.fillRect(896, scanY, 192, 3);
+  }
+  p.fade(p.enter(0.6, 0.3), () =>
+    p.solid(
+      [
+        [1112, 268],
+        [1112, 304],
+        [1076, 304],
+      ],
+      f.accent,
+    ),
+  );
 }
 
-const DRAW: Record<SfTemplateId, (h: Hud) => void> = {
-  reticle,
-  callout,
-  warning,
-  slab,
-  hex,
-  index,
-  bracket,
-  terminal,
+/** 勳章緞帶：上方轉動的齒輪勳章（內有編號），下方燕尾緞帶鏤空標題 */
+function medal(p: HudPen): void {
+  const f = p.f;
+  const c = p.x;
+  const cx = 600;
+  const cy = 92;
+  const pop = p.enter(0, 0.45);
+  p.fade(pop, () => {
+    c.save();
+    c.translate(cx, cy);
+    c.scale(0.4 + 0.6 * pop, 0.4 + 0.6 * pop);
+    /* 齒輪：18 齒，一個長度轉一齒 */
+    c.rotate(((p.turns(1) + (1 - pop) * 0.8) * TAU) / 18);
+    const teeth: Pt[] = [];
+    for (let i = 0; i < 36; i++) {
+      const a = (i * TAU) / 36;
+      const r = i % 2 === 0 ? 70 : 61;
+      teeth.push([Math.cos(a) * r, Math.sin(a) * r]);
+    }
+    p.path(teeth, 1, 2, true);
+    c.restore();
+    p.fade(0.5, () => p.ring(cx, cy, 78, 0, TAU, 1));
+    p.disc(cx, cy, 50, f.main);
+    const n = f.num || '01';
+    const ns = p.fitSize(n, 42, 64, { weight: 800 });
+    p.text(n, cx, cy + ns * 0.35, ns, { weight: 800, align: 'center', knock: true });
+  });
+  /* 勳章邊上的閃光：一個長度閃兩次 */
+  for (const [a, phase] of [
+    [-0.6, 0],
+    [2.4, 0.5],
+  ] as const) {
+    const k = (p.turns(2) + phase) % 1;
+    const s = p.settled() && k < 0.25 ? Math.sin((k / 0.25) * Math.PI) : 0;
+    if (s <= 0) continue;
+    const sx = cx + Math.cos(a) * 74;
+    const sy = cy + Math.sin(a) * 74;
+    const r = 10 * s;
+    p.solid(
+      [
+        [sx, sy - r],
+        [sx + r * 0.25, sy - r * 0.25],
+        [sx + r, sy],
+        [sx + r * 0.25, sy + r * 0.25],
+        [sx, sy + r],
+        [sx - r * 0.25, sy + r * 0.25],
+        [sx - r, sy],
+        [sx - r * 0.25, sy - r * 0.25],
+      ],
+      f.accent,
+    );
+  }
+  /* 兩側的翼：三條往外變短的橫條 */
+  const wing = p.enter(0.35, 0.3);
+  c.fillStyle = f.main;
+  for (let i = 0; i < 3; i++) {
+    const len = (90 - i * 24) * wing;
+    c.fillRect(512 - len, 80 + i * 16, len, 5);
+    c.fillRect(688, 80 + i * 16, len, 5);
+  }
+  /* 燕尾緞帶：從中央往兩側展開，標題鏤空 */
+  const half = 474 * p.enter(0.2, 0.4);
+  p.clipped(600 - half, 180, half * 2, 98, () =>
+    p.solid([
+      [126, 184],
+      [1074, 184],
+      [1044, 229],
+      [1074, 274],
+      [126, 274],
+      [156, 229],
+    ]),
+  );
+  p.fade(p.enter(0.45, 0.2), () => {
+    p.solid(
+      [
+        [156, 274],
+        [196, 274],
+        [196, 294],
+      ],
+      f.accent,
+    );
+    p.solid(
+      [
+        [1044, 274],
+        [1004, 274],
+        [1004, 294],
+      ],
+      f.accent,
+    );
+  });
+  c.fillStyle = f.main;
+  if (half > 300) {
+    const size = p.fitSize(f.title, 62, 780, { weight: 900, track: 2 });
+    p.text(p.decode(f.title, 0.4, 0.55), 600, 229 + size * 0.35, size, {
+      weight: 900,
+      track: 2,
+      align: 'center',
+      knock: true,
+    });
+  }
+  if (f.sub)
+    p.small(p.decode(f.sub, 0.55, 0.45), f.sub, 600, 330, 18, 900, {
+      track: 3,
+      align: 'center',
+      alpha: 0.85,
+    });
+  p.small(p.decode(f.code, 0.6, 0.35), f.code, 600, 372, 13, 900, {
+    track: 3,
+    align: 'center',
+    alpha: 0.7,
+  });
+}
+
+/** 大字編號：左邊空心大數字慢慢注滿，右邊標題與頁碼刻度 */
+function chapter(p: HudPen): void {
+  const f = p.f;
+  const c = p.x;
+  const n = f.num || '01';
+  const ns = p.fitSize(n, 220, 290, { weight: 900 }, 36);
+  const nw = p.measure(n, ns, { weight: 900 });
+  const baseY = 318;
+  const topY = baseY - ns * 0.85;
+  /* 空心數字：由上往下出現，內部由下往上注滿到三成五；停留中一道亮帶往上走 */
+  const wipe = p.enter(0, 0.4);
+  p.clipped(44, topY - 10, nw + 60, (baseY - topY + 30) * wipe, () =>
+    p.text(n, 64, baseY, ns, { weight: 900, outline: 3 }),
+  );
+  const fill = p.enter(0.3, 0.5);
+  const span = baseY - topY + 20;
+  p.clipped(44, baseY + 10 - span * fill, nw + 60, span * fill, () =>
+    p.text(n, 64, baseY, ns, { weight: 900, alpha: 0.35 }),
+  );
+  if (p.settled()) {
+    const y = baseY + 10 - span * p.turns(1);
+    p.clipped(44, y - 17, nw + 60, 34, () => p.text(n, 64, baseY, ns, { weight: 900 }));
+  }
+  /* 直線與右邊的文字 */
+  const rx = Math.min(420, 64 + nw + 38);
+  c.fillStyle = f.accent;
+  p.fade(p.enter(0.2, 0.2), () => c.fillRect(rx - 3, 78, 6, 6));
+  c.fillStyle = f.main;
+  p.line(rx, 88, rx, 88 + 236 * p.enter(0.2, 0.35), 2);
+  const x0 = rx + 32;
+  const maxW = 1136 - x0;
+  p.small(p.decode(f.code, 0.25, 0.35), f.code, x0, 118, 14, maxW, { track: 3, alpha: 0.85 });
+  const twoLines = !!f.sub;
+  const size = p.fitSize(f.title, 76, maxW, { weight: 800 });
+  p.text(p.decode(f.title, 0.35, 0.6), x0, twoLines ? 202 : 220, size, { weight: 800 });
+  if (twoLines)
+    p.small(p.decode(f.sub, 0.55, 0.45), f.sub, x0 + 2, 246, 17, maxW, { track: 2, alpha: 0.8 });
+  /* 頁碼刻度：10 格，目前那格用強調色，一個長度走一輪 */
+  const shown = Math.floor(10 * p.enter(0.6, 0.35));
+  const cur = Math.floor(p.turns(1) * 10);
+  for (let i = 0; i < shown; i++) {
+    if (i === cur && p.settled()) {
+      c.fillStyle = f.accent;
+      c.fillRect(x0 + i * 30, 284, 20, 6);
+      c.fillStyle = f.main;
+    } else p.fade(0.35, () => c.fillRect(x0 + i * 30, 284, 20, 6));
+  }
+}
+
+/** 取景框：攝影機取景畫面，對焦框收向標題，錄影燈、時間碼、音量表 */
+function viewfinder(p: HudPen): void {
+  const f = p.f;
+  const c = p.x;
+  /* 四角的取景線：從外面滑進來 */
+  const inset = 30 * (1 - p.enter(0, 0.4));
+  p.fade(p.enter(0, 0.3), () => {
+    for (const [x, y, sx, sy] of [
+      [40, 26, 1, 1],
+      [1160, 26, -1, 1],
+      [1160, 374, -1, -1],
+      [40, 374, 1, -1],
+    ] as const) {
+      const ax = x - sx * inset;
+      const ay = y - sy * inset;
+      p.path(
+        [
+          [ax, ay + sy * 56],
+          [ax, ay],
+          [ax + sx * 56, ay],
+        ],
+        1,
+        3,
+      );
+    }
+  });
+  p.fade(0.25 * p.enter(0.2, 0.3), () => {
+    c.save();
+    c.setLineDash([6, 10]);
+    c.lineWidth = 1;
+    c.strokeRect(110, 70, 980, 260);
+    c.restore();
+  });
+  const hud = p.enter(0.4, 0.4);
+  p.fade(hud, () => {
+    if (p.lit(2, 0.6)) p.disc(76, 62, 8, f.accent);
+    c.fillStyle = f.main;
+    p.text('REC', 92, 68, 16, { mono: true, track: 2 });
+    p.text(`CAM ${f.num || '01'}`, 1056, 68, 15, { mono: true, track: 2, align: 'right' });
+    c.lineWidth = 1.5;
+    c.strokeRect(1070, 50, 46, 22);
+    c.fillRect(1116, 56, 4, 10);
+    for (let i = 0; i < 4; i++) if (i < 3 || p.lit(4, 0.7)) c.fillRect(1075 + i * 10, 54, 7, 14);
+    /* 時間碼：每個循環從 0 起算（24 格／秒） */
+    const local = f.t % f.D;
+    const sec = Math.floor(local);
+    const fr = Math.floor((local % 1) * 24);
+    p.text(`00:00:${pad2(sec)}:${pad2(fr)}`, 76, 354, 16, { mono: true, track: 1 });
+    /* 音量表：12 格，每 1/12 秒跳一次 */
+    const level = 0.3 + 0.7 * hashUnit(timeSlot(f.t % f.D, 12), 4, 0x55);
+    for (let i = 0; i < 12; i++) {
+      const on = i < level * 12;
+      c.fillStyle = i >= 10 ? f.accent : f.main;
+      p.fade(on ? 1 : 0.2, () => c.fillRect(520 + i * 14, 344, 10, 10));
+    }
+    c.fillStyle = f.main;
+  });
+  p.small(p.decode(f.code, 0.5, 0.4), f.code, 1126, 354, 14, 400, {
+    track: 2,
+    align: 'right',
+    alpha: 0.8,
+  });
+  /* 標題與對焦框 */
+  const twoLines = !!f.sub;
+  const size = p.fitSize(f.title, 70, 760, { track: 1 });
+  const yT = twoLines ? 200 : 214;
+  p.text(p.decode(f.title, 0.35, 0.6), 600, yT, size, { track: 1, align: 'center', glint: true });
+  if (twoLines)
+    p.small(p.decode(f.sub, 0.55, 0.45), f.sub, 600, 248, 18, 760, {
+      track: 3,
+      align: 'center',
+      alpha: 0.85,
+    });
+  const tw = Math.max(
+    p.measure(f.title, size, { track: 1 }),
+    twoLines
+      ? p.measure(f.sub, p.fitSize(f.sub, 18, 760, { mono: true, track: 3 }, 8), {
+          mono: true,
+          track: 3,
+        })
+      : 0,
+  );
+  const focus = p.enter(0.2, 0.5);
+  const k = (1 + 0.6 * (1 - focus)) * (1 + 0.025 * Math.sin(p.turns(2) * TAU));
+  const hw = Math.min(490, (tw / 2 + 40) * k);
+  const top = yT - size * 0.9 - 18;
+  const bottom = (twoLines ? 262 : yT + size * 0.3) + 18;
+  const mid = (top + bottom) / 2;
+  const hh = Math.min(150, ((bottom - top) / 2) * k);
+  p.fade(focus, () => {
+    for (const [sx, sy] of [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
+    ] as const) {
+      const x = 600 + sx * hw;
+      const y = mid + sy * hh;
+      p.path(
+        [
+          [x, y - sy * 22],
+          [x, y],
+          [x - sx * 22, y],
+        ],
+        1,
+        2.5,
+      );
+    }
+    p.line(600 - hw, mid, 600 - hw + 10, mid, 2);
+    p.line(600 + hw, mid, 600 + hw - 10, mid, 2);
+  });
+}
+
+/** 指令視窗的第一行（本站自寫） */
+const CONSOLE_PROMPT = '$ open';
+
+/** 指令視窗：有行號的視窗逐字打出標題，右邊是捲動的波形 */
+function consoleWindow(p: HudPen): void {
+  const f = p.f;
+  const c = p.x;
+  p.path(roundedRect(56, 44, 752, 310, 12), p.enter(0, 0.4), 2, true);
+  const head = p.enter(0.1, 0.25);
+  p.fade(head, () => {
+    p.disc(84, 72, 6, f.accent);
+    c.strokeStyle = f.main;
+    p.ring(106, 72, 6, 0, TAU, 1.5);
+    p.ring(128, 72, 6, 0, TAU, 1.5);
+    p.small(f.code, f.code, 470, 77, 13, 480, { track: 2, align: 'center', alpha: 0.75 });
+    p.fade(0.5, () => p.line(56, 94, 808, 94, 1));
+  });
+  /* 行號 */
+  const rows = [134, 200, 252, 306];
+  p.fade(p.enter(0.2, 0.3), () => {
+    rows.forEach((y, i) => {
+      p.text(String(i + 1), 100, y, 14, { mono: true, align: 'right', alpha: 0.4 });
+    });
+    p.fade(0.25, () => p.line(114, 104, 114, 340, 1));
+  });
+  p.text(p.typed(`${CONSOLE_PROMPT} ${f.code}`, 0.2, 0.3), 130, rows[0], 16, {
+    mono: true,
+    track: 1,
+    alpha: 0.6,
+  });
+  /* 標題：逐字打出，後面是強調色的底線游標 */
+  const size = p.fitSize(f.title, 58, 660, { track: 1 });
+  const tw = p.text(p.typed(f.title, 0.3, 0.5), 130, rows[1], size, { track: 1 });
+  if (p.lit(4)) {
+    c.fillStyle = f.accent;
+    c.fillRect(130 + tw + 6, rows[1] + 6, size * 0.55, Math.max(3, size * 0.1));
+    c.fillStyle = f.main;
+  }
+  if (f.sub)
+    p.small(p.typed(`# ${f.sub}`, 0.6, 0.35), `# ${f.sub}`, 130, rows[2], 17, 660, {
+      track: 2,
+      alpha: 0.8,
+    });
+  /* 進度條：登場時跑到 100%，停留中有一塊亮光來回 */
+  const prog = p.enter(0.4, 0.6);
+  p.fade(p.enter(0.35, 0.2), () => {
+    c.lineWidth = 1;
+    c.strokeRect(130, 296, 300, 12);
+    c.fillStyle = f.accent;
+    c.fillRect(130, 296, 300 * prog, 12);
+    if (p.settled()) {
+      c.fillStyle = f.main;
+      p.fade(0.5, () => c.fillRect(130 + 256 * p.turns(1), 296, 44, 12));
+    }
+    c.fillStyle = f.main;
+    p.text(`${Math.round(prog * 100)}%`, 446, 307, 14, { mono: true, track: 1 });
+  });
+  /* 右邊的波形面板 */
+  p.fade(0.8, () => p.path(roundedRect(836, 44, 310, 310, 10), p.enter(0.25, 0.35), 1.5, true));
+  const panel = p.enter(0.4, 0.3);
+  p.fade(panel, () => {
+    p.text('WAVE', 852, 72, 12, { mono: true, track: 2, alpha: 0.7 });
+    p.fade(0.18, () => {
+      for (let k = 0; k < 4; k++) p.line(846, 120 + k * 56, 1136, 120 + k * 56, 1);
+      for (let k = 0; k < 5; k++) p.line(876 + k * 52, 96, 876 + k * 52, 344, 1);
+    });
+  });
+  const amp = p.enter(0.5, 0.45);
+  if (amp > 0) {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 58; i++) {
+      const u = i / 58;
+      const v =
+        0.62 * Math.sin(TAU * (u * 2 + p.turns(1))) + 0.38 * Math.sin(TAU * (u * 5 - p.turns(2)));
+      pts.push([846 + i * 5, 218 + v * 68 * amp]);
+    }
+    p.path(pts, 1, 2);
+    const last = pts[pts.length - 1];
+    p.disc(last[0], last[1], 4, f.accent);
+    c.fillStyle = f.main;
+  }
+}
+
+const DRAW: Record<SfTemplateId, (p: HudPen) => void> = {
+  radar,
+  readout,
+  alert,
+  tag,
+  medal,
+  chapter,
+  viewfinder,
+  console: consoleWindow,
 };
 
-/** 在設計空間畫一個範本（ctx 已經設好設計空間的座標、整體不透明度與主色） */
+/** 在設計空間畫一個範本（ctx 已經設好設計空間的座標、整體不透明度） */
 export function drawSfTemplate(tpl: SfTemplateId, frame: SfFrame): void {
   const c = frame.ctx;
   c.strokeStyle = frame.main;
   c.fillStyle = frame.main;
-  (DRAW[tpl] ?? reticle)(new Hud(frame));
+  (DRAW[tpl] ?? radar)(new HudPen(frame));
 }
 
 /* ---------- 合成：顆粒雜訊、掃描線、光暈、故障 ---------- */
@@ -922,26 +1064,21 @@ const clip = (v: unknown, n: number) =>
 
 let grainTile: SpriteCanvas | null = null;
 
-/** 顆粒雜訊的底圖（192 × 192，每個像素的透明度是固定的亂數） */
-function grain(): SpriteCanvas {
+/** 顆粒雜訊的底圖（160 × 160，每個像素的透明度是固定的亂數） */
+function grainImage(): SpriteCanvas {
   if (grainTile) return grainTile;
-  const n = 192;
+  const n = 160;
   const c = createSpriteCanvas(n, n);
   const x = c.getContext('2d') as Ctx;
   const img = x.createImageData(n, n);
-  for (let i = 0; i < n * n; i++)
-    img.data[i * 4 + 3] = Math.floor(hashUnit(i % n, Math.floor(i / n), 0x6a) * 256);
+  const rnd = createRandom('text-fx:sf-grain');
+  for (let i = 0; i < n * n; i++) img.data[i * 4 + 3] = rnd.int(0, 255);
   x.putImageData(img, 0, 0);
   grainTile = c;
   return c;
 }
 
-interface Layer {
-  c: SpriteCanvas;
-  x: Ctx;
-}
-
-const mkLayer = (w: number, h: number): Layer => {
+const mkLayer = (w: number, h: number): NoiseLayer => {
   const c = createSpriteCanvas(w, h);
   return { c, x: c.getContext('2d') as Ctx };
 };
@@ -953,41 +1090,112 @@ export interface SfDrawOptions {
   tpl?: SfTemplateId;
 }
 
+/** 雜訊的尺度（設計空間的 px；分色距離、切片高度與錯開量以它為準） */
+const NOISE_UNIT = 64;
+
+/**
+ * 這一格的整塊狀態：故障開著時，登場用「雜訊干擾」、停留中用「偶爾雜訊」、退場用「雜訊斷訊」（text-fx 的效果），
+ * 退場的淡出與閃斷一律照「雜訊斷訊」；故障關掉時只留退場的淡出與閃斷。
+ */
+export function sfBlockAt(
+  cfg: Settings,
+  t: number,
+  unit: number,
+  out: BlockState = freshBlockState(),
+  idle = false,
+): BlockState {
+  const b = freshBlockState(out);
+  const sf = sfOf(cfg);
+  const tm = sfTiming(cfg);
+  const pr = idle ? { intro: 1, outro: 0 } : sfProgress(tm, t);
+  const linear = (u: number) => u;
+  const noiseIn = INTRO.glitch;
+  if (sf.glitch && !idle && tm.Ti > 0 && noiseIn.unit === 'block') {
+    const dur = Math.min(noiseIn.dur, tm.Ti);
+    if (t < dur)
+      noiseIn.apply(b, t / dur, linear, {
+        S: unit,
+        P: 1,
+        seed: seedOf('glitch'),
+        vertical: false,
+        tLocal: t,
+        tAbs: t,
+        dur,
+      });
+  }
+  if (sf.glitch && pr.intro >= 1 && pr.outro <= 0)
+    HOLD.glitchPulse.block?.(b, t, {
+      S: unit,
+      P: 1,
+      seed: 777,
+      vertical: false,
+      introEnd: tm.Ti,
+      holdEnd: tm.D - tm.To,
+    });
+  if (pr.outro > 0) {
+    const start = tm.D - tm.To;
+    const o = freshBlockState();
+    const noiseOut = OUTRO.glitchOut;
+    if (noiseOut.unit === 'block')
+      noiseOut.apply(o, pr.outro, linear, {
+        S: unit,
+        P: 1,
+        seed: seedOf('glitchOut') + 3,
+        vertical: false,
+        tLocal: t - start,
+        tAbs: t,
+        dur: tm.To,
+      });
+    b.alpha *= o.alpha;
+    if (sf.glitch) {
+      b.glitch = Math.max(b.glitch, o.glitch);
+      b.dx += o.dx;
+    }
+  }
+  return b;
+}
+
 /** 畫 SF 標題的一格（每個 painter 有自己的暫存畫布） */
 export class SfPainter {
-  private layer: Layer | null = null;
-  private scratch: Layer | null = null;
+  private layers: (NoiseLayers & { scratch: NoiseLayer }) | null = null;
+  private readonly blk: BlockState = freshBlockState();
 
-  private ensure(W: number, H: number): { layer: Layer; scratch: Layer } {
-    if (!this.layer || this.layer.c.width !== W || this.layer.c.height !== H) {
-      this.layer = mkLayer(W, H);
-      this.scratch = mkLayer(W, H);
-    }
-    return { layer: this.layer, scratch: this.scratch! };
+  private ensure(W: number, H: number) {
+    const L = this.layers;
+    if (!L || L.text.c.width !== W || L.text.c.height !== H)
+      this.layers = {
+        text: mkLayer(W, H),
+        a: mkLayer(W, H),
+        b: mkLayer(W, H),
+        mix: mkLayer(W, H),
+        scratch: mkLayer(W, H),
+      };
+    return this.layers!;
   }
 
   draw(ctx: Ctx, cfg: Settings, t: number, W: number, H: number, o: SfDrawOptions = {}): void {
     const sf = sfOf(cfg);
     const tm = sfTiming(cfg);
-    const ph = o.idle ? { ip: 1, op: 0 } : sfPhase(tm, t);
-    const { layer, scratch } = this.ensure(W, H);
+    const pr = o.idle ? { intro: 1, outro: 0 } : sfProgress(tm, t);
+    const L = this.ensure(W, H);
     const { s, ox, oy } = sfFit(W, H);
-    const lx = layer.x;
-    lx.setTransform(1, 0, 0, 1, 0, 0);
-    lx.globalAlpha = 1;
-    lx.globalCompositeOperation = 'source-over';
-    lx.clearRect(0, 0, W, H);
-    lx.setTransform(s, 0, 0, s, ox, oy);
-    lx.globalAlpha = sfAlpha(ph.op, t);
-    lx.lineCap = 'butt';
-    lx.lineJoin = 'miter';
-    lx.setLineDash([]);
+    const blk = sfBlockAt(cfg, t, NOISE_UNIT * s, this.blk, o.idle);
+    const art = L.text.x;
+    art.setTransform(1, 0, 0, 1, 0, 0);
+    art.globalAlpha = 1;
+    art.globalCompositeOperation = 'source-over';
+    art.clearRect(0, 0, W, H);
+    art.setTransform(s, 0, 0, s, ox + blk.dx, oy);
+    art.globalAlpha = Math.max(0, Math.min(1, blk.alpha));
+    art.lineCap = 'butt';
+    art.lineJoin = 'miter';
+    art.setLineDash([]);
     drawSfTemplate(o.tpl ?? sf.tpl, {
-      ctx: lx,
+      ctx: art,
       t,
       D: tm.D,
-      ip: ph.ip,
-      op: ph.op,
+      intro: pr.intro,
+      outro: pr.outro,
       main: sf.main,
       accent: sf.accent,
       title: clip(cfg.text, SF_LIMITS.title),
@@ -995,57 +1203,66 @@ export class SfPainter {
       code: sfCodeOf(cfg),
       num: sf.num.trim(),
       fonts: sfFonts(cfg),
-      scratch,
+      scratch: L.scratch,
     });
-    lx.setTransform(1, 0, 0, 1, 0, 0);
-    lx.globalAlpha = 1;
-    /* 顆粒雜訊：用固定的雜訊圖挖掉一點點透明度 */
+    art.setTransform(1, 0, 0, 1, 0, 0);
+    art.globalAlpha = 1;
+    /* 顆粒雜訊：用固定的雜訊圖挖掉一點點透明度（不隨時間變） */
     if (sf.grain > 0) {
-      const pat = lx.createPattern(grain() as CanvasImageSource, 'repeat');
+      const pat = art.createPattern(grainImage() as CanvasImageSource, 'repeat');
       if (pat) {
-        lx.globalCompositeOperation = 'destination-out';
-        lx.globalAlpha = sf.grain * 0.055;
-        lx.fillStyle = pat;
-        lx.fillRect(0, 0, W, H);
-        lx.globalAlpha = 1;
+        art.globalCompositeOperation = 'destination-out';
+        art.globalAlpha = sf.grain * 0.05;
+        art.fillStyle = pat;
+        art.fillRect(0, 0, W, H);
+        art.globalAlpha = 1;
       }
     }
-    /* 掃描線：每隔幾個像素挖掉一條 */
+    /* 掃描線：每隔約 4 個設計單位挖掉一條細線 */
     if (sf.scan) {
-      lx.globalCompositeOperation = 'destination-out';
-      lx.fillStyle = 'rgba(0,0,0,0.42)';
-      const step = Math.max(2, Math.round(3.6 * s));
-      const band = Math.max(1, step / 3);
-      for (let y = 0; y < H; y += step) lx.fillRect(0, y, W, band);
+      art.globalCompositeOperation = 'destination-out';
+      art.fillStyle = 'rgba(0,0,0,0.38)';
+      const step = Math.max(2, Math.round(4 * s));
+      const band = Math.max(1, Math.round(1.5 * s));
+      for (let y = 0; y < H; y += step) art.fillRect(0, y, W, band);
     }
-    lx.globalCompositeOperation = 'source-over';
+    art.globalCompositeOperation = 'source-over';
 
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
+    /* 光暈：只畫影子（圖本身移到畫面外），近的一層＋遠的一層 */
     if (sf.glow > 0) {
+      const away = W + 64;
       ctx.shadowColor = sf.main;
-      ctx.shadowBlur = sf.glow * 8 * s;
-    }
-    ctx.drawImage(layer.c as CanvasImageSource, 0, 0);
-    ctx.shadowBlur = 0;
-    ctx.shadowColor = 'transparent';
-    /* 故障：幾條水平切片左右錯開（每 1/30 秒換一次） */
-    const g = sf.glitch ? sfGlitchAmount(tm, ph, t) : 0;
-    if (g > 0.02) {
-      const slot = timeSlot(t, 30);
-      const u = (n: number) => hashUnit(slot, n, 0x47);
-      const n = 3 + Math.floor(g * 5);
-      for (let k = 0; k < n; k++) {
-        const y = Math.floor(u(10 + k) * H);
-        const hh = Math.min(H - y, Math.max(2, Math.floor(u(20 + k) * H * 0.12)));
-        if (hh <= 0) continue;
-        const dx = (u(30 + k) - 0.5) * 60 * s * g;
-        ctx.clearRect(0, y, W, hh);
-        ctx.drawImage(layer.c as CanvasImageSource, 0, y, W, hh, dx, y, W, hh);
+      ctx.shadowOffsetX = away;
+      for (const [blur, a] of [
+        [sf.glow * 4 * s, 0.9],
+        [sf.glow * 11 * s, 0.5],
+      ] as const) {
+        ctx.globalAlpha = a;
+        ctx.shadowBlur = blur;
+        ctx.drawImage(L.text.c as CanvasImageSource, -away, 0);
       }
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowColor = 'transparent';
+      ctx.globalAlpha = 1;
     }
+    if (blk.glitch > 0.004)
+      paintNoise(ctx, L.text.c, L, {
+        W,
+        H,
+        amount: blk.glitch,
+        t,
+        unit: NOISE_UNIT * s,
+        top: oy,
+        height: SF_DESIGN.h * s,
+        colorA: cfg.glitchA || '#ff2a6d',
+        colorB: cfg.glitchB || '#23e5ff',
+      });
+    else ctx.drawImage(L.text.c as CanvasImageSource, 0, 0);
     ctx.restore();
   }
 }
