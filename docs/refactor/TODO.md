@@ -9,7 +9,8 @@
 
 ## 進行中
 
-（目前沒有）
+- anime-rig 相容 see-through 的輸出（[shitagaki-lab/see-through](https://github.com/shitagaki-lab/see-through)，Apache-2.0）：
+  認得左右分割的圖層名稱（`irides-l`、`eyebrow-r`、`handwear-l` 等，see-through 的 `-r` 是畫面左邊），讀 `_depth.psd` 用每個部件的深度做轉頭視差，使用說明補連結。
 
 ## 一、已收錄工具的原作更新
 
@@ -73,6 +74,7 @@
 - flipphone-poster（[DearloveDive/flipphone-poster](https://github.com/DearloveDive/flipphone-poster)）：使用者 2026-10-23 沒選。
 - dearmysn1p3r 的角色同人小遊戲（Cheonseong_Game、YAMINABEPARTY_Game）、特定社群世界觀的證件 maker（COVE_Card、PLX_Card、SERAPHIX_Card、_08）。
 - Mellow Noise 的主頁本體（創作者作品集網站）：使用者 2026-10-26 決定只收同一位作者的 SF 標題產生器。
+- see-through 的模型本身（SDXL 擴散模型＋Marigold，要 GPU）：只做 anime-rig 對它輸出的相容。
 - 需要後端或登入的（Supabase／Firebase）、瀏覽器擴充、bot、AI GM、D&D 專用 DM 工具；其餘排除清單見檢查紀錄裡的報告。
 
 ## 檢查紀錄
@@ -88,3 +90,5 @@
 - 2026-10-26：使用者提供 Mellow Noise（韓文的創作者主頁，後台用 Naru DB）。主頁本體不收；要收的是作者的
   SF 標題產生器（使用者另外提供原檔），併進 text-fx。
 - 2026-10-26：完成並移出清單——text-fx 的第四個模式「SF 標題」（8 個 HUD 範本由本站重新設計）。
+- 2026-10-27：使用者提供 shitagaki-lab/see-through（單張插圖拆成 23 層 PSD 的研究專案）。模型要 Python＋8～16 GB GPU，不能放進本站；
+  anime-rig 已接受它的 PSD，這次補左右分割的名稱與深度 PSD。
