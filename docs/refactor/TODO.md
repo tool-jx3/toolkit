@@ -9,8 +9,8 @@
 
 ## 進行中
 
-- SF 標題產生器：Mellow Noise 的作者發布的「SF 타이틀 메이커」（https://mellow-noise.naru.pub/#sf_title_maker），做 SF 感的標題，存成 APNG、WebP；
-  未授權。naru.pub 從這裡連不到，等使用者提供 `sf_title_maker.html` 再評估要做新工具還是併進 text-fx。
+- text-fx 併入 SF 標題：Mellow Noise 的作者發布的「SF 타이틀 메이커」（https://mellow-noise.naru.pub/#sf_title_maker，未授權）——
+  8 種 HUD 範本（準星、資料掃描、警告面板等）、代碼與編號、解碼登場、光暈、顆粒雜訊、掃描線、故障，APNG／WebP；做成 text-fx 的新模式。
 
 ## 一、已收錄工具的原作更新
 
@@ -87,4 +87,4 @@
 - 2026-10-25：使用者提供兩個候選——KIIN 的マップ・見取り図 演出スタジオ（新工具候選）、shinshin86/mesh-avatar-studio（併進 anime-rig）。
 - 2026-10-26：完成並移出清單——地圖演出產生器（map-fx，2D 地圖演出＋進階 3D；和截圖演出產生器共用 core/imagefx）。
 - 2026-10-26：使用者提供 Mellow Noise（韓文的創作者主頁，後台用 Naru DB）。主頁本體不收；要收的是作者的
-  SF 標題產生器（主頁「範本」分頁裡的另一個檔，附檔沒有）。
+  SF 標題產生器（使用者另外提供原檔），併進 text-fx。
