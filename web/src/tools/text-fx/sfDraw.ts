@@ -589,7 +589,8 @@ function alert(p: HudPen): void {
     });
   }
   const twoLines = !!f.sub;
-  const size = p.fitSize(f.title, 84, 680, { weight: 900, track: 2 });
+  /* 最寬 620：兩側箭頭的內緣在 253、947，留 30 px 以上的空隙 */
+  const size = p.fitSize(f.title, 84, 620, { weight: 900, track: 2 });
   p.text(p.decode(f.title, 0.35, 0.6), 600, twoLines ? 196 : 216, size, {
     weight: 900,
     track: 2,
