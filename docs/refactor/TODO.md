@@ -9,9 +9,8 @@
 
 ## 進行中
 
-- 個人主頁產生器（profile-site，新工具，G7）：參考 Mellow Noise（使用者 2026-10-26 提供的韓文創作者主頁，出處不明、未授權）——
-  自介、作品、網頁作品（即時縮圖＋預覽視窗）、素材、商品分頁，標籤搜尋與分享連結，匯出成網站 ZIP 或單一 HTML 檔；
-  原作的 Naru DB 後台改成本站的編輯器。第一批：資料、編輯器與網站本體；第二批：雜訊星空標題、游標星光、十字繡框與配色、字型。
+- SF 標題產生器：Mellow Noise 的作者發布的「SF 타이틀 메이커」（https://mellow-noise.naru.pub/#sf_title_maker），做 SF 感的標題，存成 APNG、WebP；
+  未授權。naru.pub 從這裡連不到，等使用者提供 `sf_title_maker.html` 再評估要做新工具還是併進 text-fx。
 
 ## 一、已收錄工具的原作更新
 
@@ -74,6 +73,7 @@
 
 - flipphone-poster（[DearloveDive/flipphone-poster](https://github.com/DearloveDive/flipphone-poster)）：使用者 2026-10-23 沒選。
 - dearmysn1p3r 的角色同人小遊戲（Cheonseong_Game、YAMINABEPARTY_Game）、特定社群世界觀的證件 maker（COVE_Card、PLX_Card、SERAPHIX_Card、_08）。
+- Mellow Noise 的主頁本體（創作者作品集網站）：使用者 2026-10-26 決定只收同一位作者的 SF 標題產生器。
 - 需要後端或登入的（Supabase／Firebase）、瀏覽器擴充、bot、AI GM、D&D 專用 DM 工具；其餘排除清單見檢查紀錄裡的報告。
 
 ## 檢查紀錄
@@ -86,5 +86,5 @@
 - 2026-10-25：完成並移出清單——room-zip 讀入房間 ZIP 再編輯、scenario-editor 跟進原作 v3.26（三批）。
 - 2026-10-25：使用者提供兩個候選——KIIN 的マップ・見取り図 演出スタジオ（新工具候選）、shinshin86/mesh-avatar-studio（併進 anime-rig）。
 - 2026-10-26：完成並移出清單——地圖演出產生器（map-fx，2D 地圖演出＋進階 3D；和截圖演出產生器共用 core/imagefx）。
-- 2026-10-26：使用者提供 Mellow Noise（韓文的創作者主頁，後台用 Naru DB）。現有工具沒有可以併入的（social-post 的個人頁是模擬 App 的畫面、
-  pair-maker 只出圖片），做成新工具「個人主頁產生器」。
+- 2026-10-26：使用者提供 Mellow Noise（韓文的創作者主頁，後台用 Naru DB）。主頁本體不收；要收的是作者的
+  SF 標題產生器（主頁「範本」分頁裡的另一個檔，附檔沒有）。
