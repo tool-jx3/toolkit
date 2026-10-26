@@ -1,6 +1,7 @@
 /**
- * 設定欄（規格 1.1～1.7）：三個分頁——地圖（載入、畫面、背景、地圖的擺放、出處）、
- * 演出框（新畫的框的預設、框的清單與每個框的設定）、時間軸（四段秒數、依序／同時、APNG 的影格率）。
+ * 設定欄（規格 1.1～1.7、1.11）：四個分頁——地圖（載入、畫面、背景、地圖的擺放、出處）、
+ * 演出框（新畫的框的預設、框的清單與每個框的設定）、時間軸（四段秒數、依序／同時、APNG 的影格率）、
+ * 進階 3D（WalkPanel.tsx）。
  * 共用的區塊在 @/ui/imagefx；這裡是地圖演出的三種框的設定。
  */
 import { MapPinned, Spline, SquareDashed, ZoomIn } from 'lucide-react';
@@ -58,6 +59,7 @@ import {
   usePrefs,
 } from './store';
 import { S } from './strings';
+import { WalkPanel } from './WalkPanel';
 
 export const KIND_ICON: Record<FrameKind, ReactNode> = {
   zoom: <ZoomIn />,
@@ -464,6 +466,7 @@ export function Settings({
             </div>
           ),
         },
+        { value: 'walk', label: S.tabs.walk, content: <WalkPanel /> },
       ]}
     />
   );

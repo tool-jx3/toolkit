@@ -39,9 +39,11 @@ import {
   type Timeline,
   type TimelineKit,
   type TimingSettings,
+  type VideoMode,
   type ZoomFrameBase,
 } from '@/core/imagefx';
 import { clamp } from '@/core/timeline';
+import { initialWalk, normalizeWalk, type WalkState } from './walk';
 
 export type {
   Border,
@@ -166,7 +168,8 @@ export interface RedactFrame extends RedactFrameBase<RedactStyle, RevealFx> {
 
 export type Frame = ZoomFrame | RouteFrame | RedactFrame;
 
-export type MapState = FxDoc<Frame>;
+/** 內容：共用的圖片演出內容（地圖、畫面、背景、擺放、出處、時間軸、框）＋進階 3D 的設定（walk.ts） */
+export type MapState = FxDoc<Frame> & { walk: WalkState };
 
 export const initialState = (): MapState => ({
   image: null,
@@ -176,6 +179,7 @@ export const initialState = (): MapState => ({
   credit: initialCredit(),
   timing: initialTiming(),
   frames: [],
+  walk: initialWalk(),
 });
 
 /* ---------- 新畫的框的預設（不列入復原） ---------- */
@@ -459,12 +463,12 @@ export function normalizeFrame(v: unknown, image: Size, d = initialDefaults()): 
   };
 }
 
-/** 存檔可能缺欄位或被改壞：補預設值、夾範圍、拿掉看不懂的框；沒有圖時框也清掉 */
+/** 存檔可能缺欄位或被改壞：補預設值、夾範圍、拿掉看不懂的框；沒有圖時框（與 3D 的房間、入口、路線）也清掉 */
 export function normalizeState(raw: unknown): MapState {
   const s = isObj(raw) ? raw : {};
   const base = normalizeDocBase(s);
   const frames = normalizeFrames(s.frames, base.image, (f, image) => normalizeFrame(f, image));
-  return { ...base, frames };
+  return { ...base, frames, walk: normalizeWalk(s.walk, base.image) };
 }
 
 export function normalizeDefaults(raw: unknown): FrameDefaults {
@@ -581,7 +585,11 @@ export function exportFileName(kind: string, now: Date): string {
   return fxFileName(TOOL_PREFIX, kind, now);
 }
 
-/** X 用 MP4：30 fps、長邊 1280 以內（整張畫面等比縮小、寬高偶數） */
+/** 3D 移動影片：map-fx-年月日-時分秒-3d.mp4（不能逐格編碼、即時錄成 WebM 時 .webm） */
+export const walkFileName = (ext: string, now: Date): string =>
+  `${fxFileName(TOOL_PREFIX, 'mp4', now).replace(/\.mp4$/, '')}-3d.${ext === 'webm' ? 'webm' : 'mp4'}`;
+
+/** X 用 MP4：30 fps、長邊 1280 以內（整張畫面等比縮小、寬高偶數）；只用 H.264（X 收的編碼） */
 export const X_MAX_SIDE = 1280;
 export const X_FPS = 30;
 export function xVideoSize(canvas: Size): Size {
@@ -589,6 +597,17 @@ export function xVideoSize(canvas: Size): Size {
   const w = Math.max(2, Math.round(canvas.width * k));
   const h = Math.max(2, Math.round(canvas.height * k));
   return { width: w - (w % 2), height: h - (h % 2) };
+}
+
+/**
+ * 這個編法做得出 X 收的影片嗎：只有 H.264 的 MP4 算（WebCodecs 的 avc1，或即時錄影的 video/mp4;codecs=avc1…）；
+ * VP9 的 MP4、WebM、沒寫編碼的 video/mp4 都不算（X 可能不收）。
+ */
+export function xVideoUsable(mode: VideoMode | null | undefined): boolean {
+  if (!mode) return false;
+  if (mode.kind === 'mp4') return mode.plan.video.codec === 'avc1';
+  if (mode.kind === 'realtime') return /^video\/mp4;\s*codecs="?avc1/i.test(mode.mimeType);
+  return false;
 }
 
 /** 房間遮罩 ZIP：1 格幾 px（預設 24，CCFOLIA 的一格） */
@@ -612,18 +631,44 @@ export function safeName(text: string): string {
     .join('');
 }
 
-/** 房間遮罩（清單裡的房間遮罩，照清單順序）的檔名：01_房名_full.png、01_房名_6x4.png */
-export function roomFileNames(
-  rooms: readonly Pick<RedactFrame, 'label' | 'w' | 'h'>[],
+/**
+ * 房間遮罩的裁切範圍：以地圖左上角為原點，往外擴到整格（原圖 px；可能超出地圖，超出的地方透明）。
+ * cells：在第幾格（0 起，左上角＝x0y0）與寬高幾格。
+ */
+export function gridRect(
+  r: Pick<Rect, 'x' | 'y' | 'w' | 'h'>,
   grid: number,
-): { full: string; crop: string }[] {
+): { rect: Rect; cells: Rect } {
+  const g = Math.max(1, grid);
+  /* 浮點誤差：剛好在格線上的不要多擴一格 */
+  const cx = Math.floor(r.x / g + 1e-9);
+  const cy = Math.floor(r.y / g + 1e-9);
+  const cx1 = Math.max(cx + 1, Math.ceil((r.x + r.w) / g - 1e-9));
+  const cy1 = Math.max(cy + 1, Math.ceil((r.y + r.h) / g - 1e-9));
+  return {
+    rect: { x: cx * g, y: cy * g, w: (cx1 - cx) * g, h: (cy1 - cy) * g },
+    cells: { x: cx, y: cy, w: cx1 - cx, h: cy1 - cy },
+  };
+}
+
+/**
+ * 房間遮罩（清單裡的房間遮罩，照清單順序）的檔名：01_房名_full.png（地圖大小）、
+ * 01_房名_x5y2_6x4.png（往外對齊格線的裁切：在第 5、2 格〔0 起〕、寬 6 高 4 格）
+ */
+export function roomFileNames(
+  rooms: readonly Pick<RedactFrame, 'label' | 'x' | 'y' | 'w' | 'h'>[],
+  grid: number,
+): { full: string; crop: string; rect: Rect; cells: Rect }[] {
   return rooms.map((r, i) => {
     const n = String(i + 1).padStart(2, '0');
     const name = safeName(r.label);
     const base = name ? `${n}_${name}` : n;
+    const { rect, cells } = gridRect(r, grid);
     return {
       full: `${base}_full.png`,
-      crop: `${base}_${cellCount(r.w, grid)}x${cellCount(r.h, grid)}.png`,
+      crop: `${base}_x${cells.x}y${cells.y}_${cells.w}x${cells.h}.png`,
+      rect,
+      cells,
     };
   });
 }

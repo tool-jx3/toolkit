@@ -4,7 +4,7 @@
  * 規格 docs/refactor/specs/map-fx.md 第 3 節。
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { redactCover } from '@/core/imagefx';
+import { redactCover, type VideoMode } from '@/core/imagefx';
 import {
   applyRect,
   boundsOf,
@@ -13,6 +13,7 @@ import {
   duplicateFrame,
   exportFileName,
   type Frame,
+  gridRect,
   initialDefaults,
   initialState,
   insertPoint,
@@ -38,6 +39,7 @@ import {
   timelineOf,
   toPointRoute,
   xVideoSize,
+  xVideoUsable,
 } from '@/tools/map-fx/model';
 import { demoFrames, ROOMS, roomRect, SAMPLE_SIZE } from '@/tools/map-fx/sample';
 import {
@@ -360,21 +362,64 @@ describe('房間遮罩 ZIP 的檔名與格數、X 用 MP4 的大小（3.9）', (
     expect(mapFileName(IMG, 24)).toBe('map_50x35.png');
   });
 
-  it('檔名：兩位數序號＋房名（去掉不能用的字、最多 24 字）＋ full／格數', () => {
+  it('裁切範圍往外對齊格線：以地圖左上角為原點擴到整格（剛好在格線上的不多擴）', () => {
+    /* 剛好對齊 */
+    expect(gridRect({ x: 48, y: 72, w: 240, h: 264 }, 24)).toEqual({
+      rect: { x: 48, y: 72, w: 240, h: 264 },
+      cells: { x: 2, y: 3, w: 10, h: 11 },
+    });
+    /* 沒對齊：左上往左上擴、右下往右下擴 */
+    expect(gridRect({ x: 48, y: 72, w: 240, h: 264 }, 48)).toEqual({
+      rect: { x: 48, y: 48, w: 240, h: 288 },
+      cells: { x: 1, y: 1, w: 5, h: 6 },
+    });
+    expect(gridRect({ x: 130, y: 50, w: 100, h: 20 }, 24)).toEqual({
+      rect: { x: 120, y: 48, w: 120, h: 24 },
+      cells: { x: 5, y: 2, w: 5, h: 1 },
+    });
+    /* 浮點誤差不多擴一格；很小的房間也至少一格 */
+    expect(
+      gridRect({ x: 0.1 + 0.2 - 0.3, y: 24.000000001, w: 47.9999999, h: 2 }, 24).cells,
+    ).toEqual({ x: 0, y: 1, w: 2, h: 1 });
+    /* 超出地圖（1200×840、1 格 48 px＝17.5 格高）：照樣擴到整格，超出的地方匯出時是透明的 */
+    expect(gridRect({ x: 1100, y: 800, w: 100, h: 40 }, 48)).toEqual({
+      rect: { x: 1056, y: 768, w: 144, h: 96 },
+      cells: { x: 22, y: 16, w: 3, h: 2 },
+    });
+  });
+
+  it('檔名：兩位數序號＋房名（去掉不能用的字、最多 24 字）＋ full／在第幾格與幾格大', () => {
     expect(safeName(' 地下 室/A:B? ')).toBe('地下_室_A_B');
     expect(Array.from(safeName('房'.repeat(40)))).toHaveLength(24);
-    expect(
-      roomFileNames(
-        [
-          { label: '院長室', w: 240, h: 264 },
-          { label: '', w: 150, h: 100 },
-        ],
-        24,
-      ),
-    ).toEqual([
-      { full: '01_院長室_full.png', crop: '01_院長室_10x11.png' },
-      { full: '02_full.png', crop: '02_6.3x4.2.png' },
+    const names = roomFileNames(
+      [
+        { label: '院長室', x: 48, y: 72, w: 240, h: 264 },
+        { label: '', x: 130, y: 50, w: 150, h: 100 },
+      ],
+      24,
+    );
+    expect(names.map((n) => [n.full, n.crop])).toEqual([
+      ['01_院長室_full.png', '01_院長室_x2y3_10x11.png'],
+      ['02_full.png', '02_x5y2_7x5.png'],
     ]);
+    expect(names[1].rect).toEqual({ x: 120, y: 48, w: 168, h: 120 });
+    expect(roomFileNames([{ label: '書房', x: 120, y: 48, w: 140, h: 90 }], 24)[0].crop).toBe(
+      '01_書房_x5y2_6x4.png',
+    );
+  });
+
+  it('X 用 MP4 只用 H.264：VP9 的 MP4、WebM、沒寫編碼的即時錄影都不算', () => {
+    const plan = (codec: 'avc1' | 'vp09') =>
+      ({ kind: 'mp4', plan: { video: { codec } } }) as unknown as VideoMode;
+    expect(xVideoUsable(plan('avc1'))).toBe(true);
+    expect(xVideoUsable(plan('vp09'))).toBe(false);
+    const rec = (mimeType: string): VideoMode => ({ kind: 'realtime', mimeType, alpha: false });
+    expect(xVideoUsable(rec('video/mp4;codecs=avc1.640028'))).toBe(true);
+    expect(xVideoUsable(rec('video/mp4;codecs=avc1'))).toBe(true);
+    expect(xVideoUsable(rec('video/mp4'))).toBe(false);
+    expect(xVideoUsable(rec('video/webm;codecs=vp9'))).toBe(false);
+    expect(xVideoUsable({ kind: 'none', alpha: false })).toBe(false);
+    expect(xVideoUsable(null)).toBe(false);
   });
 
   it('X 用 MP4：長邊 1280 以內、等比、偶數', () => {

@@ -24,6 +24,7 @@ import {
   RANGES,
   X_FPS,
   xVideoSize,
+  xVideoUsable,
 } from './model';
 import { KIND_ICON } from './Panel';
 import { PointRouteLayer } from './PointRoute';
@@ -194,6 +195,8 @@ function guideExtra(f: Frame, shot: Placement, k: number) {
 
 /* ---------- 匯出 ---------- */
 
+const X_CODECS = ['avc1'] as const;
+
 function ExportArea({
   s,
   image,
@@ -207,7 +210,8 @@ function ExportArea({
   const grid = usePrefs((p) => p.data.grid);
   const layout = computeLayout(s, image ? { width: image.width, height: image.height } : null);
   const xSize = xVideoSize(layout.canvas);
-  const xMode = useFxVideoMode(xSize, X_FPS, false, ['avc1', 'vp09']);
+  /* X 只收 H.264：只試 avc1，編不出來就停用（一般的 MP4／WebM 不受影響） */
+  const xMode = useFxVideoMode(xSize, X_FPS, false, X_CODECS);
   const rooms = roomsOf(s).length;
   const xReason = !image
     ? S.needImage
@@ -215,7 +219,9 @@ function ExportArea({
       ? S.videoChecking
       : xMode.kind === 'none'
         ? S.videoUnsupported
-        : undefined;
+        : !xVideoUsable(xMode)
+          ? S.xNoH264
+          : undefined;
   const extra: ImageFxExtraFormat<MapState>[] = [
     {
       option: {

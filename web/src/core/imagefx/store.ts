@@ -76,6 +76,11 @@ export interface FxStoreConfig<
   applyRect?: (draft: F, r: Rect) => void;
   /** 內容用到的圖（資產 id） */
   assetIds: (s: S) => string[];
+  /**
+   * 換圖、拿掉圖、圖讀不回來時，工具自己的內容怎麼處理（框與出處以外；例：地圖演出的 3D 房間與路線清空）。
+   * setImage 的 extra.tool 原樣傳進來（示範演出一起換上的內容）。不給時只清框與出處（與以前相同）。
+   */
+  resetForImage?: (draft: S, tool?: unknown) => void;
   /** 設定欄的分頁：開頁時、從預覽選了框時切到哪一頁 */
   tabs: { initial: Tab; frames: Tab };
 }
@@ -213,19 +218,27 @@ export function createFxStore<
       useDoc.getState().update((d) => {
         (d as S).image = null;
         (d as S).frames = [];
+        config.resetForImage?.(d as S);
       });
     } finally {
       t.resume();
     }
   }
 
-  /** 換上圖片：演出框與出處清空（一步復原）；frames／credit 給了時一起換上（示範演出） */
-  function setImage(image: ImageRef, extra?: { frames?: F[]; credit?: string }): void {
+  /**
+   * 換上圖片：演出框與出處清空（一步復原）；frames／credit 給了時一起換上（示範演出）；
+   * tool：工具自己的內容（交給 config.resetForImage）
+   */
+  function setImage(
+    image: ImageRef,
+    extra?: { frames?: F[]; credit?: string; tool?: unknown },
+  ): void {
     useLive.setState({ missing: null, selected: null });
     edit((d) => {
       d.image = { ...image };
       d.frames = extra?.frames ? extra.frames.map((f) => structuredClone(f)) : [];
       d.credit.text = extra?.credit ?? '';
+      config.resetForImage?.(d, extra?.tool);
     });
   }
 
@@ -235,6 +248,7 @@ export function createFxStore<
     edit((d) => {
       d.image = null;
       d.frames = [];
+      config.resetForImage?.(d);
     });
   }
 

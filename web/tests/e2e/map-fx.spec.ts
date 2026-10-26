@@ -6,9 +6,12 @@
  * - 點選建立路線（同一點再點、退回、Enter、Esc 取消、Backspace 不會刪框）、編輯點（拖曳、按兩下加點、Delete 刪點、Esc 結束）、
  *   拖曳框時點跟著動；
  * - 畫面：淡出揭開的進度、掃描揭開、路線長出來；
- * - 匯出：PNG（與畫面相同）、APNG、X 用 MP4（1280×720、30 fps）、房間遮罩 ZIP（檔名、格數、地圖大小的透明遮罩、裁切）、
+ * - 匯出：PNG（與畫面相同）、APNG、X 用 MP4（1280×720、30 fps；沒有 H.264 時停用）、房間遮罩 ZIP（檔名、往外對齊格線的
+ *   裁切與格數、地圖大小的透明遮罩）、
  *   段階公開與圖層；
- * - 自動儲存與還原、專案檔 ZIP；390 寬沒有橫向捲動；1280／390 的視覺基準圖。
+ * - 自動儲存與還原、專案檔 ZIP；390 寬沒有橫向捲動；1280／390 的視覺基準圖；
+ * - 進階 3D：示範演出的房間、入口、路線與 3D 場景（房名開關、地圖鋪在地上、沿路線的鏡頭、匯出的一格）、
+ *   平面圖的操作（框出房間與走廊、房名、入口、路線、刪除、從房間遮罩建立、復原、換圖清空）、3D 移動影片、自動儲存與專案檔。
  * 兩次修改之間至少隔 450 ms（0.4 秒內的連續變更會合成一步復原）。
  */
 import { readFileSync } from 'node:fs';
@@ -722,13 +725,44 @@ test('匯出：PNG（與畫面相同）、APNG、X 用 MP4（F57、F59、F63、F
   const info = parseApng(apng.bytes);
   expect(info.ihdr.width).toBe(1920);
   await expect(apng.result).toContainText(`${Math.ceil(total * 15 - 1e-9)} 格`);
-  /* X 用 MP4：1280 × 720、30 fps；FPS 欄鎖在 30 */
-  await expectFormatEnabled(page, 'X 用 MP4');
-  const x = await exportFile(page, 'X 用 MP4');
-  expect(x.name).toMatch(/^map-fx-\d{8}-\d{6}-x\.(mp4|webm)$/);
-  expect(x.bytes.length).toBeGreaterThan(1000);
-  await expect(x.result).toContainText('1280×720');
-  await expect(x.result).toContainText('30 fps');
+  /* X 用 MP4：只用 H.264。這個瀏覽器有 H.264 就匯出（1280 × 720、30 fps）；沒有就停用並說明原因，一般的 MP4 照舊可用 */
+  const xFrame = await call<{ size: { width: number; height: number }; url: string }>(
+    page,
+    'xFrame',
+    total,
+  );
+  expect(xFrame.size).toEqual({ width: 1280, height: 720 });
+  const xImg = readPng(dataUrlBytes(xFrame.url));
+  expect([xImg.width, xImg.height]).toEqual([1280, 720]);
+  const h264 = await page.evaluate(async () => {
+    if (typeof VideoEncoder !== 'undefined') {
+      for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42001f']) {
+        const r = await VideoEncoder.isConfigSupported({ codec, width: 1280, height: 720 });
+        if (r.supported) return true;
+      }
+    }
+    return MediaRecorder.isTypeSupported('video/mp4;codecs=avc1');
+  });
+  if (h264) {
+    await expectFormatEnabled(page, 'X 用 MP4');
+    const x = await exportFile(page, 'X 用 MP4');
+    expect(x.name).toMatch(/^map-fx-\d{8}-\d{6}-x\.mp4$/);
+    expect(x.bytes.length).toBeGreaterThan(1000);
+    await expect(x.result).toContainText('1280×720');
+    await expect(x.result).toContainText('30 fps');
+  } else {
+    await expect(exportPanel(page).locator('[data-disabled-format="xmp4"]')).toContainText(
+      '這個瀏覽器編不出 H.264（X 收的影片編碼），不做 X 用 MP4',
+      { timeout: 30_000 },
+    );
+    await exportPanel(page).getByRole('combobox', { name: '格式' }).click();
+    await expect(page.getByRole('option', { name: 'X 用 MP4', exact: true })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await page.keyboard.press('Escape');
+    await expectFormatEnabled(page, 'MP4');
+  }
   /* 畫面的設定沒有變 */
   expect((await call<{ canvas: { width: number } }>(page, 'layout')).canvas.width).toBe(1920);
   expect(errors).toEqual([]);
@@ -754,11 +788,11 @@ test('匯出：房間遮罩 ZIP（地圖、同尺寸的透明遮罩、裁切、�
     [
       'map_50x35.png',
       '01_院長室_full.png',
-      '01_院長室_10x11.png',
+      '01_院長室_x2y3_10x11.png',
       '02_儲藏室_full.png',
-      '02_儲藏室_7x14.png',
+      '02_儲藏室_x34y18_7x14.png',
       '03_封鎖中_full.png',
-      '03_封鎖中_7x14.png',
+      '03_封鎖中_x41y18_7x14.png',
     ].sort(),
   );
   const map = readPng(z['map_50x35.png']);
@@ -769,16 +803,25 @@ test('匯出：房間遮罩 ZIP（地圖、同尺寸的透明遮罩、裁切、�
   expect(alphaAt(full, 20, 20)).toBe(0);
   expect(alphaAt(full, 600, 600)).toBe(0);
   expect(alphaAt(full, 60, 80)).toBe(255);
-  const crop = readPng(z['01_院長室_10x11.png']);
+  const crop = readPng(z['01_院長室_x2y3_10x11.png']);
   expect([crop.width, crop.height]).toEqual([240, 264]);
   expect(alphaAt(crop, 5, 5)).toBe(255);
   await expect(rooms.result).toContainText('房間 3 個');
-  /* 1 格＝48 px：格數跟著變 */
+  /* 1 格＝48 px：往外對齊格線（院長室 y 72～336 → 第 1～7 格，上面 24 px 是透明的） */
   await page.getByRole('spinbutton', { name: '1 格幾 px' }).fill('48');
   await page.getByRole('spinbutton', { name: '1 格幾 px' }).press('Enter');
   await expect.poll(async () => (await call<{ grid: number }>(page, 'prefs')).grid).toBe(48);
   const rooms48 = await exportFile(page, '房間遮罩 ZIP');
-  expect(Object.keys(unzipSync(rooms48.bytes))).toContain('01_院長室_5x5.5.png');
+  const z48 = unzipSync(rooms48.bytes);
+  expect(Object.keys(z48)).toContain('01_院長室_x1y1_5x6.png');
+  expect(Object.keys(z48)).toContain('map_25x17.5.png');
+  const crop48 = readPng(z48['01_院長室_x1y1_5x6.png']);
+  expect([crop48.width, crop48.height]).toEqual([240, 288]);
+  expect(alphaAt(crop48, 5, 5)).toBe(0);
+  expect(alphaAt(crop48, 5, 30)).toBe(255);
+  /* 和同尺寸的那張逐點相同（位置照格線換算） */
+  const full48 = readPng(z48['01_院長室_full.png']);
+  expect(alphaAt(full48, 48 + 5, 48 + 30)).toBe(alphaAt(crop48, 5, 30));
   /* 段階公開：演出前＋區域放大＋3 個會動的框（一直蓋著的兩個不算） */
   const steps = await exportFile(page, '段階公開 ZIP');
   expect(Object.keys(unzipSync(steps.bytes))).toEqual([
@@ -840,6 +883,281 @@ test('自動儲存與還原、專案檔 ZIP、快捷鍵說明（F69～F71）', a
   await page.keyboard.press('Shift+?');
   await expect(page.getByRole('dialog')).toContainText('點選建立路線：確定');
   await page.keyboard.press('Escape');
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 進階 3D ---------- */
+
+interface WalkRoom {
+  id: string;
+  kind: 'room' | 'hall';
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  name: string;
+}
+interface Walk {
+  rooms: WalkRoom[];
+  doors: { id: string; room: string; side: string; at: number }[];
+  path: { x: number; y: number }[];
+  names: boolean;
+  floor: boolean;
+  wall: number;
+  door: number;
+  duration: number;
+}
+interface WalkViewInfo {
+  stats: {
+    rooms: number;
+    halls: number;
+    openings: number;
+    labels: number;
+    route: boolean;
+    floor: boolean;
+  };
+  camera: { mode: string; pos: number[]; target: number[]; fov: number };
+  time: number;
+}
+const walk = (page: Page) => call<Walk>(page, 'walk');
+const walkView = (page: Page) => call<WalkViewInfo | null>(page, 'walkView');
+const walkTool = (page: Page, name: '房間' | '走廊' | '入口' | '路線') =>
+  page.getByRole('radiogroup', { name: '平面圖的工具' }).getByRole('radio', { name }).click();
+
+/** 平面圖上的原圖 px → 螢幕座標 */
+async function planPoint(page: Page, x: number, y: number) {
+  const img = (await doc(page)).image as { width: number; height: number };
+  const b = (await page.getByTestId('walk-plan').boundingBox()) as {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  return { x: b.x + (x / img.width) * b.width, y: b.y + (y / img.height) * b.height };
+}
+async function planDrag(page: Page, a: [number, number], b: [number, number]) {
+  const p = await planPoint(page, a[0], a[1]);
+  const q = await planPoint(page, b[0], b[1]);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.move((p.x + q.x) / 2, (p.y + q.y) / 2, { steps: 3 });
+  await page.mouse.move(q.x, q.y, { steps: 3 });
+  await page.mouse.up();
+}
+async function planClick(page: Page, x: number, y: number) {
+  const p = await planPoint(page, x, y);
+  await page.mouse.click(p.x, p.y);
+}
+
+async function openDemoWalk(page: Page) {
+  const errors = await open(page);
+  await page.getByTestId('empty-state').getByRole('button', { name: '示範演出' }).click();
+  await expect.poll(async () => (await walk(page)).rooms.length).toBe(11);
+  await page.getByRole('tab', { name: '進階 3D' }).click();
+  await expect(page.getByTestId('walk-canvas')).toBeVisible();
+  await expect.poll(async () => (await walkView(page))?.stats.rooms).toBe(10);
+  return errors;
+}
+
+test('進階 3D：示範演出的房間與走廊、入口、路線；3D 的場景、房名開關、沿路線的鏡頭（F74～F77、F79、F81）', async ({
+  page,
+}) => {
+  const errors = await openDemoWalk(page);
+  /* 平面圖：10 個房間＋走廊、12 個入口、4 點的路線；設定欄的清單 */
+  const w = await walk(page);
+  expect(w.doors).toHaveLength(12);
+  expect(w.path).toHaveLength(4);
+  await expect(page.locator('[data-room-item]')).toHaveCount(11);
+  await expect(page.getByTestId('walk-path-count')).toHaveText('4 個點');
+  /* 3D：房間 10、走廊 1、房名 11 個、有開口、路線、地圖鋪在地上 */
+  const v = (await walkView(page)) as WalkViewInfo;
+  expect(v.stats).toMatchObject({ rooms: 10, halls: 1, labels: 11, route: true, floor: true });
+  expect(v.stats.openings).toBeGreaterThanOrEqual(12);
+  expect(v.camera.mode).toBe('orbit');
+  /* 房名開關（F79）、地圖鋪在地上（F81） */
+  await page.getByRole('switch', { name: '顯示房名' }).click();
+  await expect.poll(async () => (await walkView(page))?.stats.labels).toBe(0);
+  expect((await walk(page)).names).toBe(false);
+  await page.getByRole('switch', { name: '顯示房名' }).click();
+  await expect.poll(async () => (await walkView(page))?.stats.labels).toBe(11);
+  await page.getByRole('switch', { name: '地圖鋪在地上' }).click();
+  await expect.poll(async () => (await walkView(page))?.stats.floor).toBe(false);
+  /* 沿路線（F77）：鏡頭跟著時間走，眼睛高＝牆高 × 0.55 */
+  await page.getByRole('radio', { name: '沿路線' }).click();
+  await expect.poll(async () => (await walkView(page))?.camera.mode).toBe('walk');
+  await call(page, 'seek', 4);
+  await expect.poll(async () => (await walkView(page))?.time).toBe(4);
+  const cam = await call<{ pos: { x: number; y: number }; eye: number }>(page, 'walkCamera', 4);
+  const now = (await walkView(page)) as WalkViewInfo;
+  expect(now.camera.pos[0]).toBeCloseTo(cam.pos.x, 3);
+  expect(now.camera.pos[1]).toBeCloseTo(48 * 0.55, 3);
+  expect(now.camera.pos[2]).toBeCloseTo(cam.pos.y, 3);
+  expect(now.camera.fov).toBe(70);
+  /* 播放：時間往前走 */
+  await page
+    .getByRole('group', { name: '播放控制' })
+    .getByRole('button', { name: '播放', exact: true })
+    .click();
+  await expect.poll(async () => (await walkView(page))?.time ?? 0).toBeGreaterThan(4.3);
+  await page
+    .getByRole('group', { name: '播放控制' })
+    .getByRole('button', { name: '暫停', exact: true })
+    .click();
+  /* 俯瞰：回到可以轉動的鏡頭 */
+  await page.getByRole('radio', { name: '俯瞰' }).click();
+  await expect.poll(async () => (await walkView(page))?.camera.mode).toBe('orbit');
+  /* 匯出用的一格：上半是底色（單色背景的顏色），畫面裡有發光的綠線 */
+  const img = readPng(dataUrlBytes(await call<string>(page, 'walkFrame', 5, 320, 180)));
+  expect([img.width, img.height]).toEqual([320, 180]);
+  const px = (x: number, y: number) =>
+    Array.from(img.data.slice((y * 320 + x) * 4, (y * 320 + x) * 4 + 3));
+  const top = px(160, 4);
+  for (const [i, v] of [16, 19, 26].entries()) expect(Math.abs(top[i] - v)).toBeLessThanOrEqual(2);
+  let green = 0;
+  for (let i = 0; i < img.data.length; i += 4)
+    if (img.data[i + 1] > 170 && img.data[i + 1] > img.data[i] + 50) green++;
+  expect(green).toBeGreaterThan(50);
+  expect(errors).toEqual([]);
+});
+
+test('進階 3D：在平面圖上框出房間與走廊、改房名、放入口、點出路線、刪除、從房間遮罩建立、復原（F74～F76、F82）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await loadImage(page);
+  await call(page, 'set', { frames: fixedFrames() });
+  await page.getByRole('tab', { name: '進階 3D' }).click();
+  await expect(page.getByTestId('walk-plan')).toBeVisible();
+  /* 房間：拖曳框出 */
+  await planDrag(page, [96, 96], [384, 288]);
+  await expect.poll(async () => (await walk(page)).rooms.length).toBe(1);
+  const r = (await walk(page)).rooms[0];
+  expect(r.kind).toBe('room');
+  expect(Math.abs(r.x - 96)).toBeLessThanOrEqual(3);
+  expect(Math.abs(r.w - 288)).toBeLessThanOrEqual(4);
+  /* 走廊 */
+  await walkTool(page, '走廊');
+  /* 從房間外面開始拖（按在房間上是移動那個房間） */
+  await planDrag(page, [720, 168], [386, 216]);
+  await expect
+    .poll(async () => (await walk(page)).rooms.map((x) => x.kind))
+    .toEqual(['room', 'hall']);
+  /* 房名（設定欄的清單） */
+  await page.getByRole('textbox', { name: '房名（房間 1）', exact: true }).fill('書房');
+  await expect.poll(async () => (await walk(page)).rooms[0].name).toBe('書房');
+  /* 入口：在房間的右牆上點一下 */
+  await walkTool(page, '入口');
+  await planClick(page, r.x + r.w, r.y + 40);
+  await expect.poll(async () => (await walk(page)).doors.length).toBe(1);
+  expect((await walk(page)).doors[0]).toMatchObject({ room: r.id, side: 'e' });
+  /* 離牆太遠的地方不放 */
+  await planClick(page, r.x + r.w / 2, r.y + r.h / 2);
+  await page.waitForTimeout(200);
+  expect((await walk(page)).doors).toHaveLength(1);
+  /* 路線：依序點三點，Backspace 退回一點 */
+  await walkTool(page, '路線');
+  await planClick(page, 200, 200);
+  await planClick(page, 500, 192);
+  await planClick(page, 600, 400);
+  await expect.poll(async () => (await walk(page)).path.length).toBe(3);
+  await expect(page.getByTestId('walk-path-count')).toHaveText('3 個點');
+  await page.keyboard.press('Backspace');
+  await expect.poll(async () => (await walk(page)).path.length).toBe(2);
+  /* 選房間、Delete：房間與它牆上的入口一起刪掉；復原拿回來 */
+  await walkTool(page, '房間');
+  await planClick(page, r.x + 30, r.y + 30);
+  await expect
+    .poll(async () => (await call<{ selected: unknown }>(page, 'walkLive')).selected)
+    .toEqual({
+      kind: 'room',
+      id: r.id,
+    });
+  await page.keyboard.press('Delete');
+  await expect.poll(async () => (await walk(page)).rooms.length).toBe(1);
+  expect((await walk(page)).doors).toHaveLength(0);
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await walk(page)).rooms.length).toBe(2);
+  expect((await walk(page)).doors).toHaveLength(1);
+  /* 從房間遮罩建立：三個房間遮罩做成房間（房名帶過來）；再按一次不重複加 */
+  await page.getByRole('button', { name: '從房間遮罩建立' }).click();
+  await expect(toast(page, '從房間遮罩加了 3 個房間')).toBeVisible();
+  expect((await walk(page)).rooms.slice(2).map((x) => x.name)).toEqual([
+    '院長室',
+    '儲藏室',
+    '封鎖中',
+  ]);
+  await page.getByRole('button', { name: '從房間遮罩建立' }).click();
+  await expect(toast(page, /沒有可以加的房間遮罩/)).toBeVisible();
+  expect((await walk(page)).rooms).toHaveLength(5);
+  /* 換一張地圖：房間、入口、路線清空 */
+  await page.getByRole('tab', { name: '地圖' }).click();
+  await loadImage(page, 'other.png');
+  expect((await walk(page)).rooms).toEqual([]);
+  expect((await walk(page)).path).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('進階 3D：匯出 3D 移動影片（MP4、30 fps）；路線不夠時停用並說明（F78）', async ({ page }) => {
+  test.setTimeout(240_000);
+  const errors = await openDemoWalk(page);
+  await call(page, 'set', { canvas: '1200x900', walk: { ...(await walk(page)), duration: 2 } });
+  await expect(exportPanel(page)).toContainText('1200×900');
+  /* 路線清掉：停用並說明 */
+  await page.getByRole('button', { name: '清除路線' }).click();
+  await expect(exportPanel(page).locator('[data-disabled-format="walk"]')).toContainText(
+    '路線至少要兩個不同的點',
+  );
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await walk(page)).path.length).toBe(4);
+  await expect(exportPanel(page).locator('[data-disabled-format="walk"]')).toHaveCount(0, {
+    timeout: 30_000,
+  });
+  /* 2 秒＋停留 2 秒＝4 秒、120 格 */
+  await expect(exportPanel(page)).toContainText('120 格');
+  /* 只有一種格式：直接按匯出 */
+  await exportPanel(page).getByRole('button', { name: '匯出 3D 移動影片' }).click();
+  const result = page.getByTestId('export-result');
+  await expect(result).toBeVisible({ timeout: 180_000 });
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    result.getByRole('link', { name: '下載' }).click(),
+  ]);
+  const out = {
+    name: dl.suggestedFilename(),
+    bytes: new Uint8Array(readFileSync((await dl.path()) as string)),
+    result,
+  };
+  expect(out.name).toMatch(/^map-fx-\d{8}-\d{6}-3d\.(mp4|webm)$/);
+  expect(out.bytes.length).toBeGreaterThan(2000);
+  if (out.name.endsWith('.mp4')) expect(strFromU8(out.bytes.slice(4, 8))).toBe('ftyp');
+  await expect(out.result).toContainText('1200×900');
+  await expect(out.result).toContainText('30 fps');
+  expect(errors).toEqual([]);
+});
+
+test('進階 3D：設定自動儲存、存進專案檔；390 寬沒有橫向捲動（F80）', async ({ page }) => {
+  const errors = await openDemoWalk(page);
+  await page.getByRole('textbox', { name: /^房名（房間 1：/ }).fill('院長的書房');
+  await expect.poll(async () => (await walk(page)).rooms[0].name).toBe('院長的書房');
+  const before = await walk(page);
+  await page.reload();
+  await page.waitForFunction(() => !!(window as unknown as { __mapFx?: unknown }).__mapFx);
+  expect(await walk(page)).toEqual(before);
+  expect((await state(page)).walk).toEqual(before);
+  await page.getByRole('button', { name: '專案' }).click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+  ]);
+  const project = JSON.parse(
+    strFromU8(unzipSync(new Uint8Array(readFileSync((await dl.path()) as string)))['project.json']),
+  );
+  expect(project.data.walk).toEqual(before);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('tab', { name: '進階 3D' }).click();
+  await expect(page.getByTestId('walk-canvas')).toBeVisible();
+  await page.waitForTimeout(300);
+  await noHorizontalScroll(page);
   expect(errors).toEqual([]);
 });
 

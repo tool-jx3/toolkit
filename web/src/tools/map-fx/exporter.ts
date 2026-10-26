@@ -1,9 +1,11 @@
 /**
  * 匯出（規格 3.9、F57～F68）：PNG、APNG、影片、段階公開／圖層／連番 PNG 的 ZIP 都走共用的 createFxExporter；
  * 地圖演出自己的兩種：
- * - X 用 MP4：30 fps、長邊 1280 以內（整張畫面等比縮小放進去）、透明的地方鋪「單色背景」的顏色；不改編輯中的設定。
+ * - X 用 MP4：30 fps、長邊 1280 以內（整張畫面等比縮小放進去）、透明的地方鋪「單色背景」的顏色；不改編輯中的設定；
+ *   只用 H.264（沒有 H.264 的瀏覽器停用這個格式）。
  * - 房間遮罩 ZIP（CCFOLIA 自由探索用）：原地圖一張、每個房間遮罩兩張——和地圖同尺寸的透明 PNG（放在地圖上不用對位）
- *   與裁切到房間大小的 PNG（檔名寫上以「1 格＝N px」換算的格數）；遮罩一律是蓋滿的樣子。
+ *   與往外對齊格線裁下的 PNG（以地圖左上角為原點擴到整格、不足的地方透明；檔名寫在第幾格與幾格大）；
+ *   遮罩一律是蓋滿的樣子。
  */
 
 import { makeCanvas } from '@/core/image';
@@ -31,6 +33,7 @@ import {
   unitOf,
   X_FPS,
   xVideoSize,
+  xVideoUsable,
 } from './model';
 import { KIT } from './render';
 import { S } from './strings';
@@ -59,45 +62,55 @@ export const {
 /** 試算大小的徽章 */
 export const sizeBadge = (bytes: number) => fxSizeBadge(bytes, S);
 
-/** X 用 MP4（mode：detectVideoMode(xVideoSize(畫面), 30, false)） */
-export async function exportXVideo(
-  s: MapState,
-  image: ImageSource,
-  mode: VideoMode,
-  ctx: FxExportContext,
-): Promise<FxExportOutput> {
-  await ensureFonts(s);
+/** X 用 MP4 的一格：整張畫面等比縮小到 xVideoSize、透明的地方鋪「單色背景」的顏色（encodeFxVideo 的 matte） */
+export function xFrameDrawer(s: MapState, image: ImageSource) {
   const layout = computeLayout(s, { width: image.width, height: image.height });
   const full = layout.canvas;
   const size = xVideoSize(full);
   const anim = exporter.animFrameDrawer(s, image);
   const src = makeCanvas(full.width, full.height);
   const sg = src.getContext('2d') as CanvasRenderingContext2D;
-  const out = await encodeFxVideo(
+  return {
+    size,
+    total: anim.total,
+    draw: (g: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, t: number) => {
+      anim.draw(sg, t);
+      g.save();
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, size.width, size.height);
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(src, 0, 0, size.width, size.height);
+      g.restore();
+    },
+  };
+}
+
+/**
+ * X 用 MP4（mode：detectVideoMode(xVideoSize(畫面), 30, false, ['avc1'])）。
+ * 只用 H.264：編不出來（xVideoUsable 不成立）就不匯出，免得做出 X 可能不收的檔。
+ */
+export async function exportXVideo(
+  s: MapState,
+  image: ImageSource,
+  mode: VideoMode,
+  ctx: FxExportContext,
+): Promise<FxExportOutput> {
+  if (!xVideoUsable(mode)) throw new Error(mode.kind === 'none' ? S.videoUnsupported : S.xNoH264);
+  await ensureFonts(s);
+  const x = xFrameDrawer(s, image);
+  return encodeFxVideo(
     mode,
     {
-      size,
+      size: x.size,
       fps: X_FPS,
-      total: anim.total,
+      total: x.total,
       matte: s.bg.color,
-      draw: (g, t) => {
-        anim.draw(sg, t);
-        g.save();
-        g.setTransform(1, 0, 0, 1, 0, 0);
-        g.clearRect(0, 0, size.width, size.height);
-        g.imageSmoothingQuality = 'high';
-        g.drawImage(src, 0, 0, size.width, size.height);
-        g.restore();
-      },
+      draw: x.draw,
       fileName: () => exportFileName('x', new Date()),
     },
     S,
     ctx,
   );
-  const vp9 = mode.kind === 'mp4' && mode.plan.video.codec === 'vp09';
-  return vp9
-    ? { ...out, details: [...(out.details ?? []), { label: S.detailNote, value: S.xVp9Note }] }
-    : out;
 }
 
 /** 清單裡的房間遮罩（照清單順序） */
@@ -131,7 +144,7 @@ export function drawRoomMask(
   );
 }
 
-/** 房間遮罩 ZIP：map_W×H.png（原地圖）＋每個房間 01_房名_full.png、01_房名_6x4.png */
+/** 房間遮罩 ZIP：map_W×H.png（原地圖）＋每個房間 01_房名_full.png、01_房名_x5y2_6x4.png */
 export async function exportRooms(
   s: MapState,
   image: ImageSource,
@@ -156,18 +169,10 @@ export async function exportRooms(
     g.clearRect(0, 0, W, H);
     drawRoomMask(g, s, image, room, cache);
     entries.push({ name: names[i].full, data: await pngBytes(full) });
-    const crop = makeCanvas(room.w, room.h);
-    (crop.getContext('2d') as CanvasRenderingContext2D).drawImage(
-      full,
-      room.x,
-      room.y,
-      room.w,
-      room.h,
-      0,
-      0,
-      room.w,
-      room.h,
-    );
+    /* 往外對齊格線的裁切（超出地圖的地方透明） */
+    const { rect } = names[i];
+    const crop = makeCanvas(rect.w, rect.h);
+    (crop.getContext('2d') as CanvasRenderingContext2D).drawImage(full, -rect.x, -rect.y);
     entries.push({ name: names[i].crop, data: await pngBytes(crop) });
     onProgress((i + 1) / (rooms.length + 1), S.rendering(i + 1, rooms.length));
   }

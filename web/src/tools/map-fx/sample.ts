@@ -6,6 +6,7 @@ import { ensureFont } from '@/core/fonts';
 import { makeCanvas, roundRectPath } from '@/core/image';
 import { newFrameId, UI_FONT_STACK } from '@/core/imagefx';
 import { type Frame, initialDefaults, type Rect } from './model';
+import { initialWalk, type WalkDoor, type WalkRoom, type WalkState } from './walk';
 
 export const GRID = 24;
 export const SAMPLE_SIZE = { width: 1200, height: 840 } as const;
@@ -326,4 +327,67 @@ export function demoFrames(): Frame[] {
       label: '封鎖中',
     },
   ];
+}
+
+/**
+ * 示範演出的進階 3D：十個房間＋中間的走廊（房名照範例地圖）、每間通往走廊的門、正門與後門；
+ * 路線同 2D 的移動路線：從正門進玄關大廳 → 走廊 → 往東 → 進診療室。
+ */
+export function demoWalk(): WalkState {
+  const w = initialWalk();
+  const rooms: WalkRoom[] = ROOMS.map((r) => ({
+    id: `w-${r.id}`,
+    kind: 'room',
+    ...roomRect(r.id),
+    name: r.name,
+  }));
+  rooms.push({
+    id: 'w-corridor',
+    kind: 'hall',
+    x: px(2),
+    y: px(14),
+    w: px(46),
+    h: px(4),
+    name: '走廊',
+  });
+  /* 門的中心（格）：上排在南牆、下排在北牆；正門在玄關大廳的南牆、後門在走廊的西牆 */
+  const doors: { room: string; side: WalkDoor['side']; center: number }[] = [
+    { room: 'director', side: 's', center: 7 },
+    { room: 'pharmacy', side: 's', center: 16 },
+    { room: 'exam', side: 's', center: 25 },
+    { room: 'wardA', side: 's', center: 34 },
+    { room: 'wardB', side: 's', center: 43 },
+    { room: 'hall', side: 'n', center: 8 },
+    { room: 'desk', side: 'n', center: 17 },
+    { room: 'waiting', side: 'n', center: 28 },
+    { room: 'storage', side: 'n', center: 37 },
+    { room: 'stairs', side: 'n', center: 44.5 },
+    { room: 'hall', side: 's', center: 8 },
+  ];
+  const at = (id: string, c: number) => {
+    const [x, , cw] = (ROOMS.find((r) => r.id === id) as Room).cells;
+    return Math.round(((c - x) / cw) * 10000) / 10000;
+  };
+  return {
+    ...w,
+    rooms,
+    doors: [
+      ...doors.map((d, i) => ({
+        id: `w-door${i + 1}`,
+        room: `w-${d.room}`,
+        side: d.side,
+        at: at(d.room, d.center),
+      })),
+      { id: 'w-back', room: 'w-corridor', side: 'w', at: 0.5 },
+    ],
+    path: [
+      { x: px(8), y: px(30) },
+      { x: px(8), y: px(16) },
+      { x: px(25), y: px(16) },
+      { x: px(25), y: px(8) },
+    ],
+    wall: 48,
+    door: 48,
+    duration: 9,
+  };
 }

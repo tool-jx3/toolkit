@@ -38,6 +38,18 @@ import {
   toPointRoute,
   VIDEO_FPS,
 } from './model';
+import {
+  clampDoorAt,
+  clampRoomRect,
+  normalizeWalk,
+  roomsFromMasks,
+  type Side,
+  WALK_LIMITS,
+  type WalkKind,
+  type WalkRoom,
+  type WalkState,
+  wallOf,
+} from './walk';
 
 export { type PointerTool, STAGE_BGS, type StageBg } from '@/core/imagefx';
 
@@ -115,7 +127,7 @@ export function normalizePrefs(raw: unknown): Prefs {
   };
 }
 
-export type PanelTab = 'image' | 'frames' | 'timing';
+export type PanelTab = 'image' | 'frames' | 'timing' | 'walk';
 
 export const fx = createFxStore<Frame, MapState, Prefs, PanelTab>({
   toolId: TOOL_ID,
@@ -129,6 +141,11 @@ export const fx = createFxStore<Frame, MapState, Prefs, PanelTab>({
   applyRect,
   assetIds: stateAssetIds,
   tabs: { initial: 'image', frames: 'frames' },
+  /* 換圖、拿掉圖：3D 的房間、入口、路線清空（牆高等設定留著）；示範演出時換上範例的 3D 設定 */
+  resetForImage: (d, tool) => {
+    d.walk = normalizeWalk(tool ?? { ...d.walk, rooms: [], doors: [], path: [] }, d.image);
+    useWalk.setState({ selected: null, camera: 'orbit' });
+  },
 });
 
 export const {
@@ -264,4 +281,197 @@ export function addPointOnSegment(id: string, index: number, p: Point): void {
   setPoints(id, insertPoint(f.points, index, p));
   const d = usePoints.getState().draft;
   if (d?.mode === 'edit') usePoints.setState({ draft: { ...d, active: index + 1 } });
+}
+
+/* ---------- 進階 3D（規格 1.11、3.12）：房間與走廊、入口、移動路線 ---------- */
+
+/** 平面圖的工具：房間、走廊（拖曳框出）、入口（在牆上點）、路線（依序點） */
+export type WalkTool = 'room' | 'hall' | 'door' | 'path';
+export const WALK_TOOLS: readonly WalkTool[] = ['room', 'hall', 'door', 'path'];
+export type WalkSelection = { kind: 'room' | 'door'; id: string } | null;
+/** 3D 的鏡頭：俯瞰（拖曳轉動）／沿路線（播放、拖時間軸） */
+export type WalkCamera = 'orbit' | 'walk';
+
+export const useWalk = create<{ tool: WalkTool; selected: WalkSelection; camera: WalkCamera }>(
+  () => ({ tool: 'room', selected: null, camera: 'orbit' }),
+);
+
+export const walkNow = (): WalkState => docNow().walk;
+
+const walkIds = (w: WalkState) => [...w.rooms.map((r) => r.id), ...w.doors.map((d) => d.id)];
+
+/** 選取中的房間／入口（被復原掉、刪掉時 null） */
+export function walkSelected(w: WalkState, sel: WalkSelection) {
+  if (!sel) return null;
+  if (sel.kind === 'room') {
+    const room = w.rooms.find((r) => r.id === sel.id);
+    return room ? { kind: 'room' as const, room } : null;
+  }
+  const door = w.doors.find((d) => d.id === sel.id);
+  return door ? { kind: 'door' as const, door } : null;
+}
+
+export const selectWalk = (selected: WalkSelection): void => useWalk.setState({ selected });
+
+/** 框出一個房間或走廊（一步復原）；到上限、沒有地圖時 null */
+export function addRoom(kind: WalkKind, rect: { x: number; y: number; w: number; h: number }) {
+  const s = docNow();
+  if (!s.image || s.walk.rooms.length >= WALK_LIMITS.rooms) return null;
+  const id = newFrameId(walkIds(s.walk));
+  const r = clampRoomRect(rect, s.image);
+  edit((d) => {
+    d.walk.rooms.push({ id, kind, ...r, name: '' });
+  });
+  selectWalk({ kind: 'room', id });
+  return id;
+}
+
+/** 改房間的範圍（拖曳中在手勢裡；merge：方向鍵連按） */
+export function setRoomRect(
+  id: string,
+  rect: { x: number; y: number; w: number; h: number },
+  merge = false,
+): void {
+  const s = docNow();
+  const room = s.walk.rooms.find((r) => r.id === id);
+  if (!room || !s.image) return;
+  const r = clampRoomRect(rect, s.image);
+  if (r.x === room.x && r.y === room.y && r.w === room.w && r.h === room.h) return;
+  (merge ? editMerged : edit)((d) => {
+    const x = d.walk.rooms.find((y) => y.id === id);
+    if (x) Object.assign(x, r);
+  });
+}
+
+/** 改房名、種類（文字欄：連續打字併成一步） */
+export function updateRoom(
+  id: string,
+  patch: Partial<Pick<WalkRoom, 'name' | 'kind'>>,
+  merge = false,
+): void {
+  (merge ? editMerged : edit)((d) => {
+    const x = d.walk.rooms.find((y) => y.id === id);
+    if (x) Object.assign(x, patch);
+  });
+}
+
+/** 刪掉房間（放在它牆上的入口一起） */
+export function removeRoom(id: string): void {
+  edit((d) => {
+    d.walk.rooms = d.walk.rooms.filter((r) => r.id !== id);
+    d.walk.doors = d.walk.doors.filter((o) => o.room !== id);
+  });
+  const sel = useWalk.getState().selected;
+  if (sel?.id === id) selectWalk(null);
+}
+
+/** 在牆上放入口（到上限時 null） */
+export function addDoor(room: string, side: Side, at: number): string | null {
+  const w = walkNow();
+  const r = w.rooms.find((x) => x.id === room);
+  if (!r || w.doors.length >= WALK_LIMITS.doors) return null;
+  const id = newFrameId(walkIds(w));
+  const a = clampDoorAt(wallOf(r, side), at, w.door);
+  edit((d) => {
+    d.walk.doors.push({ id, room, side, at: Math.round(a * 10000) / 10000 });
+  });
+  selectWalk({ kind: 'door', id });
+  return id;
+}
+
+/** 移動入口（可以換到別的牆；拖曳中在手勢裡） */
+export function moveDoor(id: string, room: string, side: Side, at: number): void {
+  const w = walkNow();
+  const r = w.rooms.find((x) => x.id === room);
+  const cur = w.doors.find((x) => x.id === id);
+  if (!r || !cur) return;
+  const a = Math.round(clampDoorAt(wallOf(r, side), at, w.door) * 10000) / 10000;
+  if (cur.room === room && cur.side === side && cur.at === a) return;
+  edit((d) => {
+    const x = d.walk.doors.find((y) => y.id === id);
+    if (x) Object.assign(x, { room, side, at: a });
+  });
+}
+
+export function removeDoor(id: string): void {
+  edit((d) => {
+    d.walk.doors = d.walk.doors.filter((o) => o.id !== id);
+  });
+  if (useWalk.getState().selected?.id === id) selectWalk(null);
+}
+
+export function clearDoors(): void {
+  if (!walkNow().doors.length) return;
+  edit((d) => {
+    d.walk.doors = [];
+  });
+  if (useWalk.getState().selected?.kind === 'door') selectWalk(null);
+}
+
+/** 刪掉選取的房間或入口 */
+export function removeWalkSelected(): boolean {
+  const sel = walkSelected(walkNow(), useWalk.getState().selected);
+  if (!sel) return false;
+  if (sel.kind === 'room') removeRoom(sel.room.id);
+  else removeDoor(sel.door.id);
+  return true;
+}
+
+/** 路線：依序點出現在位置、轉角、目的地（一點一步復原；到上限為止） */
+export function addPathPoint(p: { x: number; y: number }): void {
+  const s = docNow();
+  if (!s.image || s.walk.path.length >= WALK_LIMITS.path) return;
+  const x = Math.round(Math.min(s.image.width, Math.max(0, p.x)) * 10) / 10;
+  const y = Math.round(Math.min(s.image.height, Math.max(0, p.y)) * 10) / 10;
+  edit((d) => {
+    d.walk.path.push({ x, y });
+  });
+}
+
+/** 移動路線上的一點（拖曳中在手勢裡） */
+export function setPathPoint(i: number, p: { x: number; y: number }): void {
+  const s = docNow();
+  if (!s.image || !s.walk.path[i]) return;
+  const x = Math.round(Math.min(s.image.width, Math.max(0, p.x)) * 10) / 10;
+  const y = Math.round(Math.min(s.image.height, Math.max(0, p.y)) * 10) / 10;
+  edit((d) => {
+    d.walk.path[i] = { x, y };
+  });
+}
+
+export function undoPathPoint(): void {
+  if (!walkNow().path.length) return;
+  edit((d) => {
+    d.walk.path.pop();
+  });
+}
+
+export function clearPath(): void {
+  if (!walkNow().path.length) return;
+  edit((d) => {
+    d.walk.path = [];
+  });
+}
+
+/** 牆高、入口寬、秒數、房名顯示、地圖鋪在地上 */
+export function setWalkOptions(
+  patch: Partial<Pick<WalkState, 'names' | 'floor' | 'wall' | 'door' | 'duration'>>,
+): void {
+  edit((d) => {
+    Object.assign(d.walk, patch);
+  });
+}
+
+/** 房間遮罩當草稿：清單裡的房間遮罩做成房間（房名照抄、範圍相同的不重複加）；回傳加了幾個 */
+export function roomsFromRedacts(): number {
+  const s = docNow();
+  if (!s.image) return 0;
+  const masks = s.frames.filter((f) => f.kind === 'redact');
+  const image = s.image;
+  const add = roomsFromMasks(masks, s.walk.rooms, image, (taken) => newFrameId(taken));
+  if (!add.length) return 0;
+  edit((d) => {
+    d.walk.rooms.push(...add);
+  });
+  return add.length;
 }

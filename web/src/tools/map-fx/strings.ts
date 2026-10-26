@@ -20,7 +20,7 @@ const KINDS = { zoom: '區域放大', route: '路線・地點', redact: '房間�
 
 export const S = {
   /* 分頁 */
-  tabs: { image: '地圖', frames: '演出框', timing: '時間軸' },
+  tabs: { image: '地圖', frames: '演出框', timing: '時間軸', walk: '進階 3D' },
   tabsLabel: '設定分類',
 
   /* 地圖 */
@@ -340,16 +340,16 @@ export const S = {
     xmp4: '發到 X 用：30 fps、長邊縮到 1280 px 以內，整張畫面都放進去，透明的地方用「單色」背景的顏色補上；不會改動編輯中的設定。',
   },
   roomsDesc: (n: number, grid: number) =>
-    `給 CCFOLIA 自由探索用：原本的地圖一張，加上 ${n} 個房間遮罩各兩張——和地圖同尺寸的透明 PNG（疊在地圖上不用對位），以及裁成房間大小、檔名寫著格數（1 格＝${grid} px）的 PNG。玩家走到哪間就拿掉哪一張。`,
+    `給 CCFOLIA 自由探索用：原本的地圖一張，加上 ${n} 個房間遮罩各兩張——和地圖同尺寸的透明 PNG（疊在地圖上不用對位），以及往外對齊格線裁下的 PNG（從地圖左上角起算，擴到整格、不足的地方透明；1 格＝${grid} px），檔名寫著在第幾格、幾格大（例如 x5y2_6x4），放面板時照格子對齊。玩家走到哪間就拿掉哪一張。`,
   roomsNone: '還沒有房間遮罩：先用「房間遮罩」畫幾個房間。',
   roomsValue: (n: number) => `原地圖 1 張＋房間 ${n} 個 × 2 張`,
   gridLabel: '1 格幾 px',
-  gridHint: 'CCFOLIA 的一格是 24 px；地圖本身的格子是別的大小時改這裡（只影響檔名裡的格數）。',
+  gridHint:
+    'CCFOLIA 的一格是 24 px；地圖本身的格子是別的大小時改這裡（影響裁切的範圍與檔名裡的格數）。',
   gridValue: (n: number) => `1 格＝${n} px`,
   detailGrid: '格的大小',
-  detailNote: '注意',
-  xVp9Note:
-    '這個瀏覽器沒有 H.264 編碼器，這個 MP4 是 VP9，X 可能不收；請換用 Chrome、Edge 或 Safari 再匯出。',
+  xNoH264:
+    '這個瀏覽器編不出 H.264（X 收的影片編碼），不做 X 用 MP4，免得發不上去；請換用 Chrome、Edge 或 Safari。一般的 MP4、WebM 照舊可以匯出。',
   stepsDesc: (n: number) =>
     `${n} 張靜態圖：第一張什麼都還沒發生，之後每一張多演完一個框。探索時可以照進度一張張貼出來。`,
   layersDesc:
@@ -415,6 +415,89 @@ export const S = {
   backShortcut: '點選建立路線：退回上一點',
   escPointShortcut: '點選建立路線：取消；編輯點：結束',
 
+  /* 進階 3D */
+  walk: {
+    intro:
+      '把平面圖變成走得進去的線框立體空間：鏡頭從現在位置沿著路線走到目的地，可以存成影片，用在探索的引導或團報。',
+    steps: [
+      '框出房間與走廊（可以拿畫好的房間遮罩當草稿）',
+      '在要穿過的牆上放入口',
+      '依序點出現在位置、轉角、目的地',
+      '播放確認，再匯出影片',
+    ],
+    stepsLabel: '做法',
+    needImage: '先在「地圖」分頁放一張地圖或平面圖，才能框出房間。',
+    emptyTitle: '還沒有地圖',
+    sectionRooms: '房間與走廊',
+    fromMasks: '從房間遮罩建立',
+    fromMasksHint:
+      '「演出框」裡的房間遮罩照清單順序做成房間，房名一起帶過來；範圍相同的不會重複加。',
+    fromMasksDone: (n: number) => `從房間遮罩加了 ${n} 個房間`,
+    fromMasksNone: '沒有可以加的房間遮罩：還沒畫，或都已經加過了。',
+    roomsEmpty: '還沒有房間：在預覽上選「房間」或「走廊」，在地圖上拖曳框出範圍。',
+    roomCount: (n: number, max: number) => `${n}／${max} 個`,
+    kinds: { room: '房間', hall: '走廊' },
+    kindLabel: '種類',
+    roomName: '房名',
+    roomNamePlaceholder: '例：書房',
+    roomItem: (i: number, kind: string, name: string) => `${kind} ${i}${name ? `：${name}` : ''}`,
+    removeRoom: '刪除',
+    removeRoomLabel: (name: string) => `刪除「${name}」`,
+    sectionDoors: '入口',
+    doorsHint:
+      '選「入口」工具，在房間或走廊的牆上點一下放入口；拖曳可以沿著牆移動，也能換到別面牆。相鄰的兩間共用一面牆時放在其中一邊就好，兩邊都會開口。',
+    doorCount: (n: number) => `${n} 個入口`,
+    clearDoors: '清除所有入口',
+    sectionPath: '移動路線',
+    pathHint:
+      '選「路線」工具，依序點出現在位置、轉角、目的地；拖曳點可以移動，Backspace 退回上一點。',
+    pathCount: (n: number) => (n ? `${n} 個點` : '還沒有點'),
+    pathUndo: '退回上一點',
+    clearPath: '清除路線',
+    needPath: '路線至少要兩個不同的點（現在位置與目的地）才能走。',
+    sectionLook: '立體的樣子',
+    wall: '牆高',
+    door: '入口寬',
+    names: '顯示房名',
+    floor: '地圖鋪在地上',
+    sectionWalk: '走過去',
+    duration: '走完路線的秒數',
+    durationHint: (total: string) =>
+      `開頭在現在位置停 0.8 秒、到了目的地停 1.2 秒，整段 ${total} 秒。`,
+    tools: { room: '房間', hall: '走廊', door: '入口', path: '路線' },
+    toolLabel: '平面圖的工具',
+    toolHints: {
+      room: '在地圖上拖曳框出房間；拖曳已有的房間移動，拉四個角改大小',
+      hall: '在地圖上拖曳框出走廊；拖曳已有的走廊移動，拉四個角改大小',
+      door: '在房間或走廊的牆上點一下放入口；拖曳入口沿著牆移動',
+      path: '依序點出現在位置、轉角、目的地；拖曳點移動，Backspace 退回上一點',
+    },
+    planLabel: '平面圖：框出房間與走廊、放入口、點出路線',
+    planBar: '平面圖',
+    deleteSelected: '刪除選取的',
+    deleteHint: 'Delete 刪除選取的房間或入口，Esc 取消選取。',
+    cameraLabel: '鏡頭',
+    camera: { orbit: '俯瞰', walk: '沿路線' },
+    resetCamera: '重設鏡頭',
+    viewLabel: '3D 預覽：俯瞰時拖曳轉動、滾輪拉近；沿路線時用下面的播放列',
+    viewSection: '3D 預覽',
+    building: '組立體空間中…',
+    webglFailed: '這個瀏覽器不能顯示 3D（WebGL 無法使用）。',
+    start: '現在位置',
+    goal: '目的地',
+    formatLabel: '3D 移動影片',
+    formatDesc: (w: number, h: number) =>
+      `鏡頭從現在位置沿著路線走到目的地的影片：MP4、30 fps，大小跟著「畫面」（長邊最多 1920 px；目前 ${w}×${h}）。`,
+    fpsHint: '3D 移動影片固定 30 fps。',
+    segStart: '停在現在位置',
+    segWalk: '走過去',
+    segEnd: '停在目的地',
+    groupWalk: '進階 3D',
+    delShortcut: '刪除選取的房間或入口',
+    backShortcut: '路線：退回上一點',
+    escShortcut: '取消選取',
+  },
+
   /* 專案 */
   projectSaved: '已存成專案檔',
   projectOpened: '已開啟專案檔。',
@@ -440,6 +523,7 @@ export const S = {
     '匯出完成圖 PNG、會動的 APNG、MP4 影片（背景透明時是透明的 WebM）、發到 X 用的 MP4，或段階公開、圖層、連番 PNG 三種 ZIP。',
     '要在 CCFOLIA 讓玩家自由探索：把每個房間用「房間遮罩」蓋起來，匯出「房間遮罩 ZIP」——地圖當背景，每個房間的遮罩各放一張面板，玩家進了哪間就把那張拿掉。',
     '注意：淡的遮罩、迷霧、馬賽克可能還看得出底下的內容；ZIP 裡附了原本的地圖。給玩家之前自己逐張檢查過。',
-    '地圖、演出框與設定會自動儲存在這個瀏覽器；也可以從「專案」選單存成專案檔，帶到別台電腦。',
+    '「進階 3D」分頁：在平面圖上框出房間與走廊（可以從房間遮罩建立）、在牆上放入口、依序點出現在位置、轉角與目的地，就能看鏡頭沿著路線走過去，並匯出 MP4 影片。',
+    '地圖、演出框與設定（包括進階 3D）會自動儲存在這個瀏覽器；也可以從「專案」選單存成專案檔，帶到別台電腦。',
   ],
 } as const;

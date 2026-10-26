@@ -1,10 +1,11 @@
 /**
  * 地圖演出產生器：在地圖或平面圖上畫區域放大、移動路線與地點、房間遮罩，依時間軸做出「區域彈出放大、
  * 路線一路畫過去、迷霧散開房間出現」的探索演出；匯出 PNG、APNG、影片、X 用 MP4、房間遮罩 ZIP 等。
+ * 「進階 3D」分頁：房間與走廊做成線框立體空間，鏡頭沿路線走過去（WalkPanel、WalkPreview）。
  * 規格：docs/refactor/specs/map-fx.md。引擎與大部分介面和截圖演出產生器共用（core/imagefx、@/ui/imagefx）。
  */
 import { Redo2, Undo2 } from 'lucide-react';
-import { useMemo, useRef } from 'react';
+import { lazy, Suspense, useMemo, useRef } from 'react';
 import { useUndoRedo } from '@/core/storage';
 import {
   type ExportPanelHandle,
@@ -24,7 +25,7 @@ import {
 import { type BatchNotice, loadImageFiles, loadSample } from './media';
 import { Settings } from './Panel';
 import { type PlayerHandle, Preview } from './Preview';
-import { fx, historyStep, TOOL_ID, useDoc } from './store';
+import { fx, historyStep, TOOL_ID, useDoc, useLive } from './store';
 import { S } from './strings';
 import { useTestHook } from './testHook';
 
@@ -64,6 +65,9 @@ function SettingsColumn() {
   );
 }
 
+/** 進階 3D 的預覽欄：用到 three.js，切到「進階 3D」分頁時才載入 */
+const WalkPreview = lazy(() => import('./WalkPreview'));
+
 function PreviewColumn({
   playerRef,
   exportRef,
@@ -72,6 +76,22 @@ function PreviewColumn({
   exportRef: React.RefObject<ExportPanelHandle | null>;
 }) {
   const notify = useNotify();
+  const tab = useLive((l) => l.tab);
+  if (tab === 'walk')
+    return (
+      <Suspense
+        fallback={
+          <p className="m-0 p-6 text-center text-sm text-muted" role="status">
+            {S.walk.building}
+          </p>
+        }
+      >
+        <WalkPreview
+          playerRef={playerRef}
+          onSample={(demo) => void loadSample(demo).then(notify)}
+        />
+      </Suspense>
+    );
   return (
     <Preview
       playerRef={playerRef}
@@ -94,6 +114,9 @@ export function App() {
         { keys: 'enter', label: S.enterShortcut, group: S.groupPoints },
         { keys: 'backspace', label: S.backShortcut, group: S.groupPoints },
         { keys: 'escape', label: S.escPointShortcut, group: S.groupPoints },
+        { keys: ['delete', 'backspace'], label: S.walk.delShortcut, group: S.walk.groupWalk },
+        { keys: 'backspace', label: S.walk.backShortcut, group: S.walk.groupWalk },
+        { keys: 'escape', label: S.walk.escShortcut, group: S.walk.groupWalk },
       ]),
     [],
   );
