@@ -14,6 +14,7 @@ import {
   docNow,
   historyStep,
   moveDoor,
+  nudgeWalkSelected,
   removeRoom,
   removeWalkSelected,
   resetAll,
@@ -21,6 +22,7 @@ import {
   selectWalk,
   setImage,
   setRoomRect,
+  setWalkOptions,
   undoPathPoint,
   useWalk,
   walkNow,
@@ -31,6 +33,7 @@ import {
   clampDoorAt,
   clampRoomRect,
   cleanPath,
+  doorAt,
   doorSegment,
   doorSpan,
   eyeHeight,
@@ -38,7 +41,11 @@ import {
   lookAhead,
   nearestWall,
   normalizeWalk,
+  nudgeDoorAt,
   roomsFromMasks,
+  snapMove,
+  snapPoint,
+  snapValue,
   solidPieces,
   stopShort,
   WALK_HOLD,
@@ -243,6 +250,51 @@ describe('牆與入口（F75、3.12）', () => {
   });
 });
 
+describe('平面圖的吸附與點選（N6、N7）', () => {
+  const a = room({ id: 'a', x: 100, y: 100, w: 200, h: 100 });
+  const b = room({ id: 'b', x: 300, y: 100, w: 100, h: 100 });
+
+  it('吸附到 tol 以內最近的邊；太遠不動', () => {
+    expect(snapValue(203, [100, 200, 300], 6)).toBe(200);
+    expect(snapValue(250, [100, 200, 300], 6)).toBe(250);
+    expect(snapPoint({ x: 304, y: 197 }, [a, b], 6)).toEqual({ x: 300, y: 200 });
+    expect(snapPoint({ x: 304, y: 197 }, [a, b], 6, 'b')).toEqual({ x: 300, y: 200 });
+    expect(snapPoint({ x: 404, y: 150 }, [a, b], 6, 'b')).toEqual({ x: 404, y: 150 });
+  });
+
+  it('移動時整個框平移到對齊鄰近房間的邊（大小不變）', () => {
+    const moved = snapMove({ x: 304, y: 103, w: 100, h: 100 }, [a, b], 6, 'b');
+    expect(moved).toEqual({ x: 300, y: 100, w: 100, h: 100 });
+    expect(snapMove({ x: 320, y: 140, w: 100, h: 100 }, [a, b], 6, 'b')).toEqual({
+      x: 320,
+      y: 140,
+      w: 100,
+      h: 100,
+    });
+  });
+
+  it('兩個入口很近時，按到最近的那個（不是清單後面的）', () => {
+    const w = {
+      rooms: [a],
+      door: 20,
+      doors: [
+        { id: 'd1', room: 'a', side: 'n' as const, at: 0.5 },
+        { id: 'd2', room: 'a', side: 'n' as const, at: 0.62 },
+      ],
+    };
+    /* d1：x 190～210、d2：x 214～234（y＝100） */
+    expect(doorAt(w, { x: 211, y: 102 }, 10)?.id).toBe('d1');
+    expect(doorAt(w, { x: 214, y: 102 }, 10)?.id).toBe('d2');
+    expect(doorAt(w, { x: 211, y: 140 }, 10)).toBeNull();
+  });
+
+  it('方向鍵移動入口：沿牆換算成 at、夾在牆裡', () => {
+    const d = { id: 'd', room: 'a', side: 'n' as const, at: 0.5 };
+    expect(nudgeDoorAt(a, d, 10, 20)).toBeCloseTo(0.55);
+    expect(nudgeDoorAt(a, d, 500, 20)).toBeCloseTo(0.95);
+  });
+});
+
 describe('路線與鏡頭（F76、F77、3.12）', () => {
   const path = [
     { x: 0, y: 0 },
@@ -281,17 +333,18 @@ describe('路線與鏡頭（F76、F77、3.12）', () => {
     expect(alongExtended(pts, -50)).toEqual({ x: -50, y: 0 });
   });
 
-  it('鏡頭：開始在現在位置、眼睛高＝牆高 × 0.55、看著前方 2 倍牆高；結尾停在目的地前一個牆高', () => {
+  it('鏡頭：開始在現在位置、眼睛高＝牆高 × 0.55、看著前方 2 倍牆高；結尾停在目的地前 2.2 倍牆高（短路線最多 30%）', () => {
     const c0 = walkCamera(w, 0);
     expect(c0?.pos).toEqual({ x: 0, y: 0 });
     expect(c0?.look).toEqual({ x: lookAhead(50), y: 0 });
     expect(c0?.eye).toBe(eyeHeight(50));
     expect(c0?.eye).toBeCloseTo(27.5);
     const end = walkCamera(w, walkTotal(w));
-    expect(stopShort(50, 700)).toBe(50);
+    expect(stopShort(50, 700)).toBeCloseTo(110);
+    expect(stopShort(50, 200)).toBe(60);
     expect(end?.pos.x).toBeCloseTo(300);
-    expect(end?.pos.y).toBeCloseTo(350);
-    expect(end?.look.y).toBeCloseTo(450);
+    expect(end?.pos.y).toBeCloseTo(290);
+    expect(end?.look.y).toBeCloseTo(390);
     /* 快到轉角時已經往轉過去的方向看 */
     const corner = walkCamera({ ...w, duration: 10 }, 0.8 + 4.2);
     expect(corner?.pos.y).toBeCloseTo(0);
@@ -400,6 +453,38 @@ describe('狀態與動作（F74～F76、F80、F82）', () => {
     expect(roomsFromRedacts()).toBe(1);
     expect(walkNow().rooms[0]).toMatchObject({ x: 48, y: 72, w: 240, h: 264, name: '院長室' });
     expect(roomsFromRedacts()).toBe(0);
+  });
+
+  it('牆高、入口寬、秒數立刻夾住並吸附到間隔（N5）', () => {
+    setWalkOptions({ wall: 47, door: 33, duration: 7.3 });
+    expect(walkNow()).toMatchObject({ wall: 48, door: 34, duration: 7.5 });
+    setWalkOptions({ wall: 999 });
+    expect(walkNow().wall).toBe(240);
+  });
+
+  it('方向鍵移動選取的房間、入口、路線的點；連按併成一步復原（N6）', () => {
+    const id = addRoom('room', { x: 100, y: 100, w: 200, h: 100 }) as string;
+    nudgeWalkSelected(1, 0);
+    nudgeWalkSelected(10, 0);
+    nudgeWalkSelected(0, -1);
+    expect(walkNow().rooms[0]).toMatchObject({ x: 111, y: 99 });
+    historyStep('undo');
+    expect(walkNow().rooms[0]).toMatchObject({ x: 100, y: 100 });
+    const door = addDoor(id, 'n', 0.5) as string;
+    nudgeWalkSelected(20, 0);
+    expect(walkNow().doors[0].at).toBeCloseTo(0.6);
+    nudgeWalkSelected(0, 5);
+    expect(walkNow().doors[0].at).toBeCloseTo(0.6);
+    selectWalk({ kind: 'door', id: door });
+    addPathPoint({ x: 10, y: 10 });
+    selectWalk({ kind: 'point', index: 0 });
+    nudgeWalkSelected(-10, 10);
+    expect(walkNow().path[0]).toEqual({ x: 0, y: 20 });
+    /* Delete：刪掉選取的點 */
+    expect(removeWalkSelected()).toBe(true);
+    expect(walkNow().path).toEqual([]);
+    selectWalk(null);
+    expect(nudgeWalkSelected(1, 0)).toBe(false);
   });
 
   it('換圖：房間、入口、路線清空（牆高等設定留著）；示範演出一起換上範例的 3D 設定；都可以復原', () => {

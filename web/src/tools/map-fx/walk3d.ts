@@ -295,7 +295,7 @@ function markerGroup(
   text: string,
   w: WalkState,
   radius: number,
-): { group: Group; pulse: Mesh; tall: Object3D[] } {
+): { group: Group; pulse: Mesh; tall: Object3D[]; label: Sprite } {
   const g = new Group();
   g.position.set(p.x, 0, p.y);
   const common = { color, transparent: true, depthWrite: false, side: DoubleSide } as const;
@@ -323,7 +323,7 @@ function markerGroup(
   const label = labelSprite(text, color, color, w.wall * 0.34);
   label.position.y = beamH + w.wall * 0.22;
   g.add(label);
-  return { group: g, pulse, tall: [beam, label] };
+  return { group: g, pulse, tall: [beam, label], label };
 }
 
 /* ---------- 檢視 ---------- */
@@ -337,7 +337,10 @@ export class WalkView {
   private lineMats: { mat: LineMaterial; width: number }[] = [];
   private pulses: Mesh[] = [];
   /** 標記的光柱與標籤（沿路線時鏡頭站在旁邊就藏起來，不然整個畫面被光柱蓋住） */
-  private markers: { at: Point; tall: Object3D[]; radius: number }[] = [];
+  private markers: { at: Point; tall: Object3D[]; radius: number; label: Sprite; text: string }[] =
+    [];
+  /** 房名牌子（沿路線時離鏡頭近的淡掉，不擋住前面的東西） */
+  private roomLabels: { sprite: Sprite; at: Point }[] = [];
   private floorTex: { src: ImageSource; tex: CanvasTexture } | null = null;
   private input: WalkSceneInput | null = null;
   private orbitSaved: { pos: Vector3; target: Vector3 } | null = null;
@@ -423,6 +426,7 @@ export class WalkView {
     this.lineMats = [];
     this.pulses = [];
     this.markers = [];
+    this.roomLabels = [];
     const root = new Group();
     this.view.scene.background = new Color(input.bg);
 
@@ -500,6 +504,7 @@ export class WalkView {
         s.position.set(room.x + room.w / 2, w.wall * 0.92, room.y + room.h / 2);
         s.name = 'room-label';
         root.add(s);
+        this.roomLabels.push({ sprite: s, at: { x: room.x + room.w / 2, y: room.y + room.h / 2 } });
         labels++;
       }
 
@@ -518,7 +523,7 @@ export class WalkView {
       const m = markerGroup(p, color, text, w, radius);
       root.add(m.group);
       this.pulses.push(m.pulse);
-      this.markers.push({ at: p, tall: m.tall, radius });
+      this.markers.push({ at: p, tall: m.tall, radius, label: m.label, text });
     }
 
     this.content = root;
@@ -532,9 +537,9 @@ export class WalkView {
       floor: showFloor,
     };
     this.setResolution(this.view.size.width, this.view.size.height);
-    /* 第一次、或房間的外接範圍變了：俯瞰重新對準 */
+    /* 第一次、或房間的外接範圍變了：俯瞰重新對準（改牆高、入口寬、房名不動鏡頭） */
     const b = walkBounds(w.rooms, size);
-    const key = `${b.x},${b.y},${b.w},${b.h},${w.wall}`;
+    const key = `${b.x},${b.y},${b.w},${b.h}`;
     if (key !== this.framedFor) {
       this.framedFor = key;
       this.orbitSaved = null;
@@ -630,6 +635,14 @@ export class WalkView {
       const near = !!cam && Math.hypot(cam.pos.x - m.at.x, cam.pos.y - m.at.y) < m.radius * 2;
       for (const o of m.tall) o.visible = !near;
     }
+    /* 房名牌子：沿路線時離鏡頭 1.2 倍牆高以內看不見、3 倍以外完全看得見，中間漸變 */
+    const wall = this.input?.walk.wall ?? 48;
+    for (const l of this.roomLabels) {
+      const d = cam ? Math.hypot(cam.pos.x - l.at.x, cam.pos.y - l.at.y) / wall : 99;
+      const a = Math.min(1, Math.max(0, (d - 1.2) / 1.8));
+      (l.sprite.material as SpriteMaterial).opacity = a;
+      l.sprite.visible = a > 0.01;
+    }
     if (!cam) return;
     const camera = this.view.camera;
     const c = this.view.controls;
@@ -650,6 +663,27 @@ export class WalkView {
     this.setTime(t);
     this.setResolution(w, h);
     this.view.capture(ctx, w, h);
+  }
+
+  /** 標籤在畫面上的位置（NDC，-1～1）與看不看得到（測試用：結尾要看得到「目的地」、房名牌子不擋住它） */
+  labelInfo() {
+    this.view.camera.updateMatrixWorld();
+    const ndc = (o: Object3D) => {
+      const v = o.getWorldPosition(new Vector3()).project(this.view.camera);
+      return [v.x, v.y, v.z];
+    };
+    return {
+      markers: this.markers.map((m) => ({
+        text: m.text,
+        visible: m.label.visible,
+        ndc: ndc(m.label),
+      })),
+      rooms: this.roomLabels.map((l) => ({
+        opacity: (l.sprite.material as SpriteMaterial).opacity,
+        visible: l.sprite.visible,
+        ndc: ndc(l.sprite),
+      })),
+    };
   }
 
   /** 目前的鏡頭（測試用） */
@@ -674,6 +708,54 @@ export class WalkView {
     this.view.dispose();
     if (loseContext) this.view.renderer.forceContextLoss();
   }
+}
+
+/* ---------- WebGL 環境 ---------- */
+
+let webglCache: boolean | null = null;
+/** 這個瀏覽器能不能開 WebGL（試開一次就放掉；結果快取） */
+export function webglAvailable(): boolean {
+  if (webglCache !== null) return webglCache;
+  try {
+    const c = document.createElement('canvas');
+    const gl = (c.getContext('webgl2') ?? c.getContext('webgl')) as WebGLRenderingContext | null;
+    webglCache = !!gl;
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+  } catch {
+    webglCache = false;
+  }
+  return webglCache;
+}
+
+const pendingLoss = new WeakMap<HTMLCanvasElement, number>();
+
+/**
+ * 預覽的檢視：建立前先「認領」畫布（StrictMode 卸載後馬上在同一張畫布重新掛載時，取消上一次排定的放掉）。
+ */
+export function createPreviewView(canvas: HTMLCanvasElement, size: Size): WalkView {
+  const t = pendingLoss.get(canvas);
+  if (t !== undefined) {
+    window.clearTimeout(t);
+    pendingLoss.delete(canvas);
+  }
+  return new WalkView(canvas, size);
+}
+
+/**
+ * 放掉預覽的檢視；這張畫布之後沒有馬上再用（例如離開「進階 3D」分頁）就連 WebGL 環境一起放掉，
+ * 來回切分頁時環境不會越積越多。開發模式的 StrictMode 會立刻在同一張畫布重新掛載：那時不放（createPreviewView 取消）。
+ */
+export function releasePreviewView(v: WalkView): void {
+  const canvas = v.view.canvas;
+  const gl = v.view.renderer.getContext();
+  v.dispose();
+  pendingLoss.set(
+    canvas,
+    window.setTimeout(() => {
+      pendingLoss.delete(canvas);
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+    }, 0),
+  );
 }
 
 /* ---------- 匯出 ---------- */
@@ -710,8 +792,14 @@ export async function exportWalkVideo(
   ctx: FxExportContext,
 ): Promise<FxExportOutput> {
   if (!canWalk(s.walk.path)) throw new Error(S.walk.needPath);
+  if (!webglAvailable()) throw new Error(S.walk.webglFailed);
   const size = walkVideoSize(computeLayout(s, { width: image.width, height: image.height }).canvas);
-  const v = await offscreenWalkView(s, image, size);
+  let v: WalkView;
+  try {
+    v = await offscreenWalkView(s, image, size);
+  } catch {
+    throw new Error(S.walk.webglFailed);
+  }
   try {
     return await encodeFxVideo(
       mode,
@@ -726,6 +814,12 @@ export async function exportWalkVideo(
       S,
       ctx,
     );
+  } catch (e) {
+    /* 取消照舊；其他錯誤一律換成繁中的說明（不顯示英文的錯誤訊息） */
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    if (e instanceof Error && /[\u3400-\u9fff]/.test(e.message)) throw e;
+    console.warn('3D 移動影片：', e);
+    throw new Error(S.walk.exportFailed);
   } finally {
     v.dispose(true);
   }

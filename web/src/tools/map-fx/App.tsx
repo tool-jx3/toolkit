@@ -5,9 +5,10 @@
  * 規格：docs/refactor/specs/map-fx.md。引擎與大部分介面和截圖演出產生器共用（core/imagefx、@/ui/imagefx）。
  */
 import { Redo2, Undo2 } from 'lucide-react';
-import { lazy, Suspense, useMemo, useRef } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useUndoRedo } from '@/core/storage';
 import {
+  ErrorBoundary,
   type ExportPanelHandle,
   IconButton,
   type Shortcut,
@@ -65,8 +66,24 @@ function SettingsColumn() {
   );
 }
 
-/** 進階 3D 的預覽欄：用到 three.js，切到「進階 3D」分頁時才載入 */
-const WalkPreview = lazy(() => import('./WalkPreview'));
+/**
+ * 進階 3D 的預覽欄：用到 three.js，第一次切到「進階 3D」分頁時才載入。
+ * 下載失敗時瀏覽器會記住失敗的那個網址（再 import 一次也是失敗）：重試時在網址後面加參數重新下載
+ * （網址從錯誤訊息取得；取不到時照原樣再試）。
+ */
+let walkChunkUrl: string | null = null;
+let walkRetries = 0;
+const loadWalkPreview = (): Promise<typeof import('./WalkPreview')> => {
+  if (walkChunkUrl) {
+    walkRetries += 1;
+    return import(/* @vite-ignore */ `${walkChunkUrl}?retry=${walkRetries}`);
+  }
+  return import('./WalkPreview').catch((e: unknown) => {
+    const url = /https?:\/\/\S+?\.js/.exec(e instanceof Error ? e.message : String(e));
+    if (url) walkChunkUrl = url[0];
+    throw e;
+  });
+};
 
 function PreviewColumn({
   playerRef,
@@ -76,28 +93,41 @@ function PreviewColumn({
   exportRef: React.RefObject<ExportPanelHandle | null>;
 }) {
   const notify = useNotify();
+  const onSample = (demo: boolean) => void loadSample(demo).then(notify);
   const tab = useLive((l) => l.tab);
-  if (tab === 'walk')
-    return (
-      <Suspense
-        fallback={
-          <p className="m-0 p-6 text-center text-sm text-muted" role="status">
-            {S.walk.building}
-          </p>
-        }
-      >
-        <WalkPreview
-          playerRef={playerRef}
-          onSample={(demo) => void loadSample(demo).then(notify)}
-        />
-      </Suspense>
-    );
+  const active = tab === 'walk';
+  /* 開過一次之後一直掛著（離開分頁時只留藏起來的匯出區，做到一半的 3D 影片不會被取消） */
+  const [opened, setOpened] = useState(active);
+  useEffect(() => {
+    if (active) setOpened(true);
+  }, [active]);
+  /* 下載失敗時「重試」換一個新的 lazy（React 會記住失敗的那一個） */
+  const [WalkPreview, setWalkPreview] = useState(() => lazy(loadWalkPreview));
   return (
-    <Preview
-      playerRef={playerRef}
-      exportRef={exportRef}
-      onSample={(demo) => void loadSample(demo).then(notify)}
-    />
+    <>
+      {active ? null : <Preview playerRef={playerRef} exportRef={exportRef} onSample={onSample} />}
+      {opened || active ? (
+        <div hidden={!active} className="min-w-0">
+          <ErrorBoundary
+            title={S.walk.loadFailedTitle}
+            description={S.walk.loadFailed}
+            onRetry={() => setWalkPreview(() => lazy(loadWalkPreview))}
+          >
+            <Suspense
+              fallback={
+                active ? (
+                  <p className="m-0 p-6 text-center text-sm text-muted" role="status">
+                    {S.walk.building}
+                  </p>
+                ) : null
+              }
+            >
+              <WalkPreview active={active} playerRef={playerRef} onSample={onSample} />
+            </Suspense>
+          </ErrorBoundary>
+        </div>
+      ) : null}
+    </>
   );
 }
 

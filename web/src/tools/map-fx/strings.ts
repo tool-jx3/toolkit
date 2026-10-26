@@ -482,10 +482,17 @@ export const S = {
     cameraLabel: '鏡頭',
     camera: { orbit: '俯瞰', walk: '沿路線' },
     resetCamera: '重設鏡頭',
-    viewLabel: '3D 預覽：俯瞰時拖曳轉動、滾輪拉近；沿路線時用下面的播放列',
+    viewLabel: '3D 預覽：俯瞰時拖曳轉動、右鍵拖曳平移、滾輪拉近；沿路線時用下面的播放列',
     viewSection: '3D 預覽',
     building: '組立體空間中…',
-    webglFailed: '這個瀏覽器不能顯示 3D（WebGL 無法使用）。',
+    webglFailed:
+      '這個瀏覽器不能顯示 3D（WebGL 無法使用），也就不能做 3D 移動影片；2D 的演出照常可以用。',
+    exportFailed:
+      '3D 移動影片做到一半失敗了。可以再試一次；一直失敗的話，換一個瀏覽器或把「畫面」改小。',
+    loadFailedTitle: '進階 3D 沒有載入',
+    loadFailed:
+      '3D 的程式沒有下載完成，可能是網路暫時斷了。按「重試」再下載一次（一直不行就重新整理頁面，內容會自動儲存）；其他分頁（2D 的演出）照常可以用。',
+    sizeHint: '檔案比較大：可以縮短「走完路線的秒數」，或在「地圖」分頁把「畫面大小」改小。',
     start: '現在位置',
     goal: '目的地',
     formatLabel: '3D 移動影片',

@@ -331,7 +331,8 @@ export function demoFrames(): Frame[] {
 
 /**
  * 示範演出的進階 3D：十個房間＋中間的走廊（房名照範例地圖）、每間通往走廊的門、正門與後門；
- * 路線同 2D 的移動路線：從正門進玄關大廳 → 走廊 → 往東 → 進診療室。
+ * 路線：從正門進玄關大廳 → 走廊 → 往東 → 進診療室（目的地在房間中央偏門口，結尾從門口看得到「目的地」標籤，
+ * 不會被房名牌子擋住）。
  */
 export function demoWalk(): WalkState {
   const w = initialWalk();
@@ -384,7 +385,7 @@ export function demoWalk(): WalkState {
       { x: px(8), y: px(30) },
       { x: px(8), y: px(16) },
       { x: px(25), y: px(16) },
-      { x: px(25), y: px(8) },
+      { x: px(25), y: px(10) },
     ],
     wall: 48,
     door: 48,

@@ -356,6 +356,108 @@ export function nearestWall(
   return best;
 }
 
+/* ---------- 平面圖的吸附與點選 ---------- */
+
+/** v 吸附到 candidates 裡最近的一個（距離不超過 tol）；沒有時原樣 */
+export function snapValue(v: number, candidates: readonly number[], tol: number): number {
+  let best = v;
+  let d = tol;
+  for (const c of candidates) {
+    const e = Math.abs(c - v);
+    if (e <= d) {
+      d = e;
+      best = c;
+    }
+  }
+  return best;
+}
+
+/** 其他房間的邊（x 與 y 各一組；exclude 的房間不算） */
+export function roomEdges(
+  rooms: readonly (Rect & { id?: string })[],
+  exclude?: string,
+): { xs: number[]; ys: number[] } {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const r of rooms) {
+    if (exclude && r.id === exclude) continue;
+    xs.push(r.x, r.x + r.w);
+    ys.push(r.y, r.y + r.h);
+  }
+  return { xs, ys };
+}
+
+/** 一個點吸附到鄰近房間的邊（畫房間、拉角改大小時用；tol：原圖 px） */
+export function snapPoint(
+  p: Point,
+  rooms: readonly (Rect & { id?: string })[],
+  tol: number,
+  exclude?: string,
+): Point {
+  const { xs, ys } = roomEdges(rooms, exclude);
+  return { x: snapValue(p.x, xs, tol), y: snapValue(p.y, ys, tol) };
+}
+
+/** 移動房間時整個框吸附：左右邊、上下邊各找最近的鄰近房間的邊，框跟著平移（大小不變） */
+export function snapMove(
+  r: Rect,
+  rooms: readonly (Rect & { id?: string })[],
+  tol: number,
+  exclude?: string,
+): Rect {
+  const { xs, ys } = roomEdges(rooms, exclude);
+  const shift = (a: number, b: number, list: number[]) => {
+    let best = 0;
+    let d = tol;
+    for (const c of list)
+      for (const e of [a, b]) {
+        const diff = c - e;
+        if (Math.abs(diff) <= d) {
+          d = Math.abs(diff);
+          best = diff;
+        }
+      }
+    return best;
+  };
+  return { ...r, x: r.x + shift(r.x, r.x + r.w, xs), y: r.y + shift(r.y, r.y + r.h, ys) };
+}
+
+/** 平面圖上按到的入口：離按的點最近、在 tol 以內的那個（不是清單後面的優先） */
+export function doorAt(
+  w: Pick<WalkState, 'rooms' | 'doors' | 'door'>,
+  p: Point,
+  tol: number,
+): WalkDoor | null {
+  let best: WalkDoor | null = null;
+  let d = tol;
+  for (const door of w.doors) {
+    const room = w.rooms.find((r) => r.id === door.room);
+    if (!room) continue;
+    const [a, b] = doorSegment(room, door, w.door);
+    const e = distToSegment(p, a, b);
+    if (e <= d) {
+      d = e;
+      best = door;
+    }
+  }
+  return best;
+}
+
+export function distToSegment(p: Point, a: Point, b: Point): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const l2 = dx * dx + dy * dy;
+  const u = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
+  return Math.hypot(p.x - (a.x + dx * u), p.y - (a.y + dy * u));
+}
+
+/** 方向鍵移動入口：沿牆移 px（換算成 at，夾在牆裡） */
+export function nudgeDoorAt(room: Rect, door: WalkDoor, px: number, width: number): number {
+  const wall = wallOf(room, door.side);
+  if (wall.len <= 0) return door.at;
+  return clampDoorAt(wall, door.at + px / wall.len, width);
+}
+
 /* ---------- 路線與鏡頭 ---------- */
 
 /** 路線上相鄰的重複點拿掉（同一點連點兩次不算轉角） */
@@ -419,8 +521,12 @@ export const eyeHeight = (wall: number): number => wall * 0.55;
 /** 往前看多遠：牆高 × 2 */
 export const lookAhead = (wall: number): number => wall * 2;
 
-/** 停在目的地前多遠：牆高（路線很短時最多全長的 30%），結尾看得到目的地的標記 */
-export const stopShort = (wall: number, length: number): number => Math.min(wall, length * 0.3);
+/**
+ * 停在目的地前多遠：牆高 × 2.2（路線很短時最多全長的 30%）。往前看 2 倍牆高，所以結尾正對著目的地，
+ * 標記的光柱與「目的地」標籤（離地約 1.5 倍牆高）都在畫面裡。
+ */
+export const stopShort = (wall: number, length: number): number =>
+  Math.min(wall * 2.2, length * 0.3);
 
 /**
  * 第 t 秒的鏡頭（原圖 px＋高度）：站在路線上走了 walkProgress 的地方（走到目的地前 stopShort 停下）、

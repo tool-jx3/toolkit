@@ -1049,6 +1049,48 @@ test('進階 3D：示範演出的房間與走廊、入口、路線；3D 的場�
   /* 俯瞰：回到可以轉動的鏡頭 */
   await page.getByRole('radio', { name: '俯瞰' }).click();
   await expect.poll(async () => (await walkView(page))?.camera.mode).toBe('orbit');
+  /* 播放中按一次「俯瞰」就停下來切過去（N3） */
+  await page
+    .getByRole('group', { name: '播放控制' })
+    .getByRole('button', { name: '播放', exact: true })
+    .click();
+  await expect.poll(async () => (await walkView(page))?.camera.mode).toBe('walk');
+  await page.getByRole('radio', { name: '俯瞰' }).click();
+  await expect.poll(async () => (await walkView(page))?.camera.mode).toBe('orbit');
+  expect((await call<{ playing: boolean }>(page, 'player')).playing).toBe(false);
+  await page.waitForTimeout(400);
+  expect((await walkView(page))?.camera.mode).toBe('orbit');
+  /* 改牆高不重新對準俯瞰的鏡頭（N4）；輸入立刻吸附到間隔（N5） */
+  const before = ((await walkView(page)) as WalkViewInfo).camera.pos;
+  const wallInput = page.getByRole('spinbutton', { name: '牆高' });
+  await wallInput.fill('47');
+  await wallInput.press('Enter');
+  await expect.poll(async () => (await walk(page)).wall).toBe(48);
+  await wallInput.fill('81');
+  await wallInput.press('Enter');
+  await expect.poll(async () => (await walk(page)).wall).toBe(82);
+  await page.waitForTimeout(300);
+  const after = ((await walkView(page)) as WalkViewInfo).camera.pos;
+  for (const [i, v] of before.entries()) expect(after[i]).toBeCloseTo(v, 3);
+  await page.getByRole('button', { name: /^復原/ }).click();
+  await expect.poll(async () => (await walk(page)).wall).toBe(48);
+  /* 結尾看得到「目的地」標籤，房名牌子不擋住它（N8） */
+  const total = await call<number>(page, 'walkTotal');
+  const labels = await call<{
+    markers: { text: string; visible: boolean; ndc: number[] }[];
+    rooms: { opacity: number; visible: boolean; ndc: number[] }[];
+  }>(page, 'walkLabels', total);
+  const goal = labels.markers.find((m) => m.text === '目的地');
+  expect(goal?.visible).toBe(true);
+  expect(Math.abs(goal?.ndc[0] ?? 9)).toBeLessThan(0.9);
+  expect(Math.abs(goal?.ndc[1] ?? 9)).toBeLessThan(0.9);
+  for (const r of labels.rooms) {
+    const close =
+      Math.abs(r.ndc[0] - (goal?.ndc[0] ?? 0)) < 0.2 &&
+      Math.abs(r.ndc[1] - (goal?.ndc[1] ?? 0)) < 0.12 &&
+      r.ndc[2] < 1;
+    if (close && r.visible) expect(r.opacity).toBeLessThan(0.3);
+  }
   /* 匯出用的一格：上半是底色（單色背景的顏色），畫面裡有發光的綠線 */
   const img = readPng(dataUrlBytes(await call<string>(page, 'walkFrame', 5, 320, 180)));
   expect([img.width, img.height]).toEqual([320, 180]);
@@ -1085,6 +1127,8 @@ test('進階 3D：在平面圖上框出房間與走廊、改房名、放入口�
   await expect
     .poll(async () => (await walk(page)).rooms.map((x) => x.kind))
     .toEqual(['room', 'hall']);
+  /* 走廊的左邊在房間右邊的 6 螢幕 px 內放開：吸附對齊（N6） */
+  expect((await walk(page)).rooms[1].x).toBe(r.x + r.w);
   /* 房名（設定欄的清單） */
   await page.getByRole('textbox', { name: '房名（房間 1）', exact: true }).fill('書房');
   await expect.poll(async () => (await walk(page)).rooms[0].name).toBe('書房');
@@ -1115,6 +1159,16 @@ test('進階 3D：在平面圖上框出房間與走廊、改房名、放入口�
       kind: 'room',
       id: r.id,
     });
+  /* 方向鍵移動選取的房間：1 px、Shift 10 px；一連串算一步復原（N6） */
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Shift+ArrowDown');
+  await expect.poll(async () => (await walk(page)).rooms[0].x).toBe(r.x + 2);
+  expect((await walk(page)).rooms[0].y).toBe(r.y + 10);
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await walk(page)).rooms[0].x).toBe(r.x);
+  expect((await walk(page)).rooms[0].y).toBe(r.y);
+  await planClick(page, r.x + 30, r.y + 30);
   await page.keyboard.press('Delete');
   await expect.poll(async () => (await walk(page)).rooms.length).toBe(1);
   expect((await walk(page)).doors).toHaveLength(0);
@@ -1202,6 +1256,111 @@ test('進階 3D：設定自動儲存、存進專案檔；390 寬沒有橫向捲�
   await page.waitForTimeout(300);
   await noHorizontalScroll(page);
   expect(errors).toEqual([]);
+});
+
+test('進階 3D：離開分頁時放掉 WebGL 環境；匯出中離開分頁不會取消，回來時結果還在（N2、N11）', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  await page.addInitScript(() => {
+    const w = window as unknown as { __gl: WebGLRenderingContext[] };
+    w.__gl = [];
+    const gc = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      t: string,
+      ...a: unknown[]
+    ) {
+      const c = (gc as (...x: unknown[]) => unknown).call(
+        this,
+        t,
+        ...a,
+      ) as WebGLRenderingContext | null;
+      if (c && /webgl/.test(t) && !w.__gl.includes(c)) w.__gl.push(c);
+      return c;
+    } as typeof gc;
+  });
+  const errors = await openDemoWalk(page);
+  const alive = () =>
+    page.evaluate(
+      () =>
+        (window as unknown as { __gl: WebGLRenderingContext[] }).__gl.filter(
+          (c) => !c.isContextLost(),
+        ).length,
+    );
+  for (let i = 0; i < 8; i++) {
+    await page.getByRole('tab', { name: '演出框' }).click();
+    await page.getByRole('tab', { name: '進階 3D' }).click();
+    await expect(page.getByTestId('walk-canvas')).toBeVisible();
+  }
+  await expect.poll(alive).toBeLessThanOrEqual(1);
+  /* 匯出中離開分頁 */
+  await call(page, 'set', { canvas: '1200x900', walk: { ...(await walk(page)), duration: 2 } });
+  await expect(exportPanel(page).locator('[data-disabled-format="walk"]')).toHaveCount(0, {
+    timeout: 30_000,
+  });
+  await exportPanel(page).getByRole('button', { name: '匯出 3D 移動影片' }).click();
+  await page.waitForTimeout(800);
+  await page.getByRole('tab', { name: '演出框' }).click();
+  await expect(page.getByTestId('walk-canvas')).toHaveCount(0);
+  await page.waitForTimeout(1500);
+  await page.getByRole('tab', { name: '進階 3D' }).click();
+  const result = exportPanel(page).getByTestId('export-result');
+  await expect(result).toBeVisible({ timeout: 180_000 });
+  await expect(result).toContainText('1200×900');
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    result.getByRole('link', { name: '下載' }).click(),
+  ]);
+  expect(dl.suggestedFilename()).toMatch(/-3d\.(mp4|webm)$/);
+  expect(errors).toEqual([]);
+});
+
+test('進階 3D：沒有 WebGL 時說明、匯出停用，不顯示英文的錯誤（N10）', async ({ page }) => {
+  await page.addInitScript(() => {
+    const gc = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      t: string,
+      ...a: unknown[]
+    ) {
+      if (/webgl/.test(t)) return null;
+      return (gc as (...x: unknown[]) => unknown).call(this, t, ...a);
+    } as typeof gc;
+  });
+  await open(page);
+  await page.getByTestId('empty-state').getByRole('button', { name: '示範演出' }).click();
+  await expect.poll(async () => (await walk(page)).rooms.length).toBe(11);
+  await page.getByRole('tab', { name: '進階 3D' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: '不能顯示 3D' })).toBeVisible();
+  await expect(page.getByTestId('walk-plan')).toBeVisible();
+  await expect(exportPanel(page).locator('[data-disabled-format="walk"]')).toContainText(
+    '不能顯示 3D',
+  );
+  await expect(exportPanel(page).getByRole('button', { name: '匯出 3D 移動影片' })).toBeDisabled();
+  expect(await exportPanel(page).innerText()).not.toMatch(/[A-Za-z]{4,} (context|error|WebGL)/i);
+});
+
+test('進階 3D：3D 區塊下載失敗時只有這一塊顯示說明與「重試」，2D 照常可用（N1）', async ({
+  page,
+}) => {
+  await open(page);
+  await page.route(/WalkPreview-[^/]*\.js/, (r) => r.abort());
+  await page.getByTestId('empty-state').getByRole('button', { name: '示範演出' }).click();
+  await expect.poll(async () => (await walk(page)).rooms.length).toBe(11);
+  await page.getByRole('tab', { name: '進階 3D' }).click();
+  const alert = page.getByRole('alert').filter({ hasText: '進階 3D 沒有載入' });
+  await expect(alert).toBeVisible();
+  await expect(alert).toContainText('重試');
+  /* 2D 照常 */
+  await page.getByRole('tab', { name: '地圖' }).click();
+  await expect(page.getByTestId('editor')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '地圖演出產生器' })).toBeVisible();
+  /* 網路恢復後按「重試」 */
+  await page.unroute(/WalkPreview-[^/]*\.js/);
+  await page.getByRole('tab', { name: '進階 3D' }).click();
+  await alert.getByRole('button', { name: '重試' }).click();
+  await expect(page.getByTestId('walk-canvas')).toBeVisible();
 });
 
 /* ---------- 版面 ---------- */

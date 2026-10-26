@@ -10,6 +10,7 @@ import {
   newFrameId,
   STAGE_BGS,
   type StageBg,
+  snapTo,
 } from '@/core/imagefx';
 import type { ExportSettings } from '@/ui';
 import {
@@ -42,9 +43,11 @@ import {
   clampDoorAt,
   clampRoomRect,
   normalizeWalk,
+  nudgeDoorAt,
   roomsFromMasks,
   type Side,
   WALK_LIMITS,
+  WALK_RANGES,
   type WalkKind,
   type WalkRoom,
   type WalkState,
@@ -288,7 +291,10 @@ export function addPointOnSegment(id: string, index: number, p: Point): void {
 /** 平面圖的工具：房間、走廊（拖曳框出）、入口（在牆上點）、路線（依序點） */
 export type WalkTool = 'room' | 'hall' | 'door' | 'path';
 export const WALK_TOOLS: readonly WalkTool[] = ['room', 'hall', 'door', 'path'];
-export type WalkSelection = { kind: 'room' | 'door'; id: string } | null;
+export type WalkSelection =
+  | { kind: 'room' | 'door'; id: string }
+  | { kind: 'point'; index: number }
+  | null;
 /** 3D 的鏡頭：俯瞰（拖曳轉動）／沿路線（播放、拖時間軸） */
 export type WalkCamera = 'orbit' | 'walk';
 
@@ -300,9 +306,13 @@ export const walkNow = (): WalkState => docNow().walk;
 
 const walkIds = (w: WalkState) => [...w.rooms.map((r) => r.id), ...w.doors.map((d) => d.id)];
 
-/** 選取中的房間／入口（被復原掉、刪掉時 null） */
+/** 選取中的房間／入口／路線的點（被復原掉、刪掉時 null） */
 export function walkSelected(w: WalkState, sel: WalkSelection) {
   if (!sel) return null;
+  if (sel.kind === 'point') {
+    const point = w.path[sel.index];
+    return point ? { kind: 'point' as const, index: sel.index, point } : null;
+  }
   if (sel.kind === 'room') {
     const room = w.rooms.find((r) => r.id === sel.id);
     return room ? { kind: 'room' as const, room } : null;
@@ -362,7 +372,7 @@ export function removeRoom(id: string): void {
     d.walk.doors = d.walk.doors.filter((o) => o.room !== id);
   });
   const sel = useWalk.getState().selected;
-  if (sel?.id === id) selectWalk(null);
+  if (sel && sel.kind !== 'point' && sel.id === id) selectWalk(null);
 }
 
 /** 在牆上放入口（到上限時 null） */
@@ -380,14 +390,14 @@ export function addDoor(room: string, side: Side, at: number): string | null {
 }
 
 /** 移動入口（可以換到別的牆；拖曳中在手勢裡） */
-export function moveDoor(id: string, room: string, side: Side, at: number): void {
+export function moveDoor(id: string, room: string, side: Side, at: number, merge = false): void {
   const w = walkNow();
   const r = w.rooms.find((x) => x.id === room);
   const cur = w.doors.find((x) => x.id === id);
   if (!r || !cur) return;
   const a = Math.round(clampDoorAt(wallOf(r, side), at, w.door) * 10000) / 10000;
   if (cur.room === room && cur.side === side && cur.at === a) return;
-  edit((d) => {
+  (merge ? editMerged : edit)((d) => {
     const x = d.walk.doors.find((y) => y.id === id);
     if (x) Object.assign(x, { room, side, at: a });
   });
@@ -397,7 +407,8 @@ export function removeDoor(id: string): void {
   edit((d) => {
     d.walk.doors = d.walk.doors.filter((o) => o.id !== id);
   });
-  if (useWalk.getState().selected?.id === id) selectWalk(null);
+  const sel = useWalk.getState().selected;
+  if (sel?.kind === 'door' && sel.id === id) selectWalk(null);
 }
 
 export function clearDoors(): void {
@@ -413,7 +424,13 @@ export function removeWalkSelected(): boolean {
   const sel = walkSelected(walkNow(), useWalk.getState().selected);
   if (!sel) return false;
   if (sel.kind === 'room') removeRoom(sel.room.id);
-  else removeDoor(sel.door.id);
+  else if (sel.kind === 'door') removeDoor(sel.door.id);
+  else {
+    edit((d) => {
+      d.walk.path.splice(sel.index, 1);
+    });
+    selectWalk(null);
+  }
   return true;
 }
 
@@ -429,12 +446,12 @@ export function addPathPoint(p: { x: number; y: number }): void {
 }
 
 /** 移動路線上的一點（拖曳中在手勢裡） */
-export function setPathPoint(i: number, p: { x: number; y: number }): void {
+export function setPathPoint(i: number, p: { x: number; y: number }, merge = false): void {
   const s = docNow();
   if (!s.image || !s.walk.path[i]) return;
   const x = Math.round(Math.min(s.image.width, Math.max(0, p.x)) * 10) / 10;
   const y = Math.round(Math.min(s.image.height, Math.max(0, p.y)) * 10) / 10;
-  edit((d) => {
+  (merge ? editMerged : edit)((d) => {
     d.walk.path[i] = { x, y };
   });
 }
@@ -454,12 +471,38 @@ export function clearPath(): void {
 }
 
 /** 牆高、入口寬、秒數、房名顯示、地圖鋪在地上 */
+/** 牆高、入口寬、秒數、房名顯示、地圖鋪在地上（數值立刻夾住並吸附到間隔：預覽與存檔一致） */
 export function setWalkOptions(
   patch: Partial<Pick<WalkState, 'names' | 'floor' | 'wall' | 'door' | 'duration'>>,
 ): void {
+  const cur = walkNow();
+  const next = { ...patch };
+  for (const k of ['wall', 'door', 'duration'] as const)
+    if (next[k] !== undefined) next[k] = snapTo(WALK_RANGES[k], next[k], cur[k]);
   edit((d) => {
-    Object.assign(d.walk, patch);
+    Object.assign(d.walk, next);
   });
+}
+
+/**
+ * 方向鍵移動選取的房間、入口（沿牆）或路線的點：1 px（Shift 10 px）；0.4 秒內連按併成一步復原。
+ * 回傳有沒有東西可以移。
+ */
+export function nudgeWalkSelected(dx: number, dy: number): boolean {
+  const w = walkNow();
+  const sel = walkSelected(w, useWalk.getState().selected);
+  if (!sel) return false;
+  if (sel.kind === 'room') {
+    const r = sel.room;
+    setRoomRect(r.id, { x: r.x + dx, y: r.y + dy, w: r.w, h: r.h }, true);
+  } else if (sel.kind === 'door') {
+    const room = w.rooms.find((x) => x.id === sel.door.room);
+    if (!room) return false;
+    const along = sel.door.side === 'n' || sel.door.side === 's' ? dx : dy;
+    if (!along) return true;
+    moveDoor(sel.door.id, room.id, sel.door.side, nudgeDoorAt(room, sel.door, along, w.door), true);
+  } else setPathPoint(sel.index, { x: sel.point.x + dx, y: sel.point.y + dy }, true);
+  return true;
 }
 
 /** 房間遮罩當草稿：清單裡的房間遮罩做成房間（房名照抄、範圍相同的不重複加）；回傳加了幾個 */

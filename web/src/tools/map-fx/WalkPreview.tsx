@@ -1,6 +1,9 @@
 /**
  * 進階 3D 的預覽欄（規格 1.11）：平面圖的工具列、平面圖（WalkPlan）、3D 預覽（共用 Viewport3D＋walk3d 的 WalkView）、
  * 播放列（沿路線走過去）、3D 移動影片的匯出。設定欄在「進階 3D」分頁時換成這一欄（three.js 只在這時才載入）。
+ *
+ * 離開分頁（active＝false）時：平面圖與 3D 預覽卸載（WebGL 環境放掉），匯出區留著但藏起來——
+ * 匯出用的是另一個看不到的檢視，和分頁無關，做到一半不會被取消，回到分頁時結果卡還在。
  */
 import {
   Box,
@@ -30,6 +33,7 @@ import type { MapState } from './model';
 import {
   docNow,
   fx,
+  nudgeWalkSelected,
   removeWalkSelected,
   selectWalk,
   undoPathPoint,
@@ -43,7 +47,16 @@ import {
 import { S } from './strings';
 import { WalkPlan } from './WalkPlan';
 import { canWalk, WALK_FPS, WALK_HOLD, walkTotal, walkVideoSize } from './walk';
-import { ensureWalkFonts, exportWalkVideo, WalkView, walkRegistry, walkText } from './walk3d';
+import {
+  createPreviewView,
+  ensureWalkFonts,
+  exportWalkVideo,
+  releasePreviewView,
+  type WalkView,
+  walkRegistry,
+  walkText,
+  webglAvailable,
+} from './walk3d';
 
 const TOOL_ICON: Record<WalkTool, React.ReactNode> = {
   room: <Box />,
@@ -103,9 +116,13 @@ function ToolBar() {
   );
 }
 
-/** 平面圖的鍵盤：Delete 刪除選取的、Backspace（路線工具）退回上一點、Esc 取消選取 */
-function useWalkKeys() {
+/**
+ * 平面圖的鍵盤（只在「進階 3D」分頁）：Delete 刪除選取的、Backspace（路線工具）退回上一點、Esc 取消選取；
+ * 焦點在平面圖上時方向鍵移動選取的房間、入口或路線的點（1 px，Shift 10 px；連按併成一步復原）。
+ */
+function useWalkKeys(active: boolean) {
   useEffect(() => {
+    if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
       if (isEditableTarget(e.target)) return;
@@ -124,11 +141,20 @@ function useWalkKeys() {
         undoPathPoint();
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         if (removeWalkSelected()) e.preventDefault();
+      } else if (
+        e.key.startsWith('Arrow') &&
+        t instanceof Element &&
+        t.closest('[data-testid="walk-plan"]')
+      ) {
+        const step = e.shiftKey ? 10 : 1;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        if (nudgeWalkSelected(dx, dy)) e.preventDefault();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [active]);
 }
 
 /* ---------- 3D 預覽 ---------- */
@@ -161,14 +187,21 @@ function View3D({
   const playback = usePlayback({ duration: total, loop: true, autoPlay: false });
   const { time, playing, pause } = playback;
 
-  /* 檢視：開一次（StrictMode 會開兩次，前一個要釋放）；大小改了由下一個 effect 處理 */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 只在開頁時建立
+  /*
+   * 檢視：掛載時建立、卸載時放掉（連 WebGL 環境；StrictMode 立刻重新掛載同一張畫布時不放，見 releasePreviewView）。
+   * 大小改了由下一個 effect 處理。
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只在掛載時建立
   useEffect(() => {
     const c = canvas.current;
     if (!c) return;
+    if (!webglAvailable()) {
+      setFailed(true);
+      return;
+    }
     let v: WalkView;
     try {
-      v = new WalkView(c, size);
+      v = createPreviewView(c, size);
     } catch {
       setFailed(true);
       return;
@@ -178,7 +211,7 @@ function View3D({
     setView(v);
     return () => {
       if (walkRegistry.preview === v) walkRegistry.preview = null;
-      v.dispose();
+      releasePreviewView(v);
       setView(null);
     };
   }, []);
@@ -214,9 +247,13 @@ function View3D({
   useEffect(() => {
     if (!walkable && camera === 'walk') useWalk.setState({ camera: 'orbit' });
   }, [walkable, camera]);
+  /* 開始播放的那一刻換成沿路線（之後按「俯瞰」會停下來、留在俯瞰） */
+  const wasPlaying = useRef(playing);
   useEffect(() => {
-    if (playing && camera !== 'walk' && walkable) useWalk.setState({ camera: 'walk' });
-  }, [playing, camera, walkable]);
+    if (playing && !wasPlaying.current && walkable && useWalk.getState().camera !== 'walk')
+      useWalk.setState({ camera: 'walk' });
+    wasPlaying.current = playing;
+  }, [playing, walkable]);
   useEffect(() => {
     if (camera === 'orbit') pause();
     view?.setMode(camera);
@@ -282,7 +319,11 @@ function View3D({
             size="sm"
             aria-label={S.walk.cameraLabel}
             value={camera}
-            onValueChange={(v) => useWalk.setState({ camera: v })}
+            onValueChange={(v) => {
+              /* 播放中按「俯瞰」：先停下來，一次就切過去 */
+              if (v === 'orbit') pause();
+              useWalk.setState({ camera: v });
+            }}
             options={[
               { value: 'orbit', label: S.walk.camera.orbit, icon: <Orbit /> },
               {
@@ -298,6 +339,7 @@ function View3D({
             variant="ghost"
             icon={<RotateCcw />}
             onClick={() => {
+              pause();
               useWalk.setState({ camera: 'orbit' });
               view?.setMode('orbit');
               view?.resetOrbit();
@@ -336,11 +378,18 @@ function WalkExport({ s, image }: { s: MapState; image: ImageSource }) {
   const total = walkTotal(s.walk);
   const reason = !walkable
     ? S.walk.needPath
-    : !mode
-      ? S.videoChecking
-      : mode.kind === 'none'
-        ? S.videoUnsupported
-        : undefined;
+    : !webglAvailable()
+      ? S.walk.webglFailed
+      : !mode
+        ? S.videoChecking
+        : mode.kind === 'none'
+          ? S.videoUnsupported
+          : undefined;
+  /* 結果作廢：3D 影片用到的內容（3D 設定、畫面大小、底色、地圖）改了才清 */
+  const resetKey = useMemo(
+    () => [s.walk, s.canvas, s.bg.color, s.image?.id],
+    [s.walk, s.canvas, s.bg.color, s.image?.id],
+  );
   const formats: ExportFormatOption[] = [
     {
       id: 'walk',
@@ -357,7 +406,8 @@ function WalkExport({ s, image }: { s: MapState; image: ImageSource }) {
       defaultSettings={{ format: 'walk', fps: WALK_FPS }}
       fixedFps={WALK_FPS}
       fixedFpsHint={S.walk.fpsHint}
-      resetKey={s}
+      sizeWarningHint={S.walk.sizeHint}
+      resetKey={resetKey}
       estimate={{
         width: video.width,
         height: video.height,
@@ -395,27 +445,37 @@ function EmptyWalk({ onSample }: { onSample: (demo: boolean) => void }) {
 }
 
 export default function WalkPreview({
+  active,
   playerRef,
   onSample,
 }: {
+  /** 在「進階 3D」分頁（false：只留著藏起來的匯出區，讓做到一半的匯出繼續） */
+  active: boolean;
   playerRef: Ref<FxPlayerHandle>;
   onSample: (demo: boolean) => void;
 }) {
   const s = useDoc((st) => st.data);
   const image = useFxSourceImage(fx);
-  useWalkKeys();
+  useWalkKeys(active);
   /* 進來時取消 2D 的選取（2D 的快捷鍵不會動到看不到的框） */
   useEffect(() => {
-    fx.select(null);
-  }, []);
-  if (!s.image || !image) return <EmptyWalk onSample={onSample} />;
+    if (active) fx.select(null);
+  }, [active]);
+  if (!s.image || !image) return active ? <EmptyWalk onSample={onSample} /> : null;
+  /* 匯出區一直在同一個位置（第三個），切分頁時不會重建 */
   return (
-    <div className="flex min-w-0 flex-col gap-3" data-testid="walk-preview">
-      <section aria-label={S.walk.planBar} className="flex min-w-0 flex-col gap-2">
-        <ToolBar />
-        <WalkPlan image={image} />
-      </section>
-      <View3D s={s} image={image} playerRef={playerRef} />
+    <div
+      className={active ? 'flex min-w-0 flex-col gap-3' : undefined}
+      hidden={!active}
+      data-testid={active ? 'walk-preview' : undefined}
+    >
+      {active ? (
+        <section aria-label={S.walk.planBar} className="flex min-w-0 flex-col gap-2">
+          <ToolBar />
+          <WalkPlan image={image} />
+        </section>
+      ) : null}
+      {active ? <View3D s={s} image={image} playerRef={playerRef} /> : null}
       <WalkExport s={s} image={image} />
     </div>
   );

@@ -24,7 +24,16 @@ import {
   walkSelected,
 } from './store';
 import { S } from './strings';
-import { doorSegment, nearestWall, WALK_LIMITS, type WalkRoom, type WalkState } from './walk';
+import {
+  doorAt,
+  doorSegment,
+  nearestWall,
+  snapMove,
+  snapPoint,
+  WALK_LIMITS,
+  type WalkRoom,
+  type WalkState,
+} from './walk';
 
 /** 平面圖上的顏色（只在編輯時；自訂） */
 const PLAN = {
@@ -52,14 +61,6 @@ const rectFrom = (a: Point, b: Point): Rect => ({
   w: Math.abs(b.x - a.x),
   h: Math.abs(b.y - a.y),
 });
-
-function distToSegment(p: Point, a: Point, b: Point): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const l2 = dx * dx + dy * dy;
-  const u = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
-  return Math.hypot(p.x - (a.x + dx * u), p.y - (a.y + dy * u));
-}
 
 /** 最上面（清單後面）包含這點的房間 */
 function roomAt(rooms: readonly WalkRoom[], p: Point): WalkRoom | null {
@@ -115,6 +116,8 @@ function PlanLayer({ walk, W, H }: { walk: WalkState; W: number; H: number }) {
   const root = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const tol = 10 * k;
+  /** 吸附到鄰近房間的邊：6 螢幕 px 以內 */
+  const snapTol = 6 * k;
 
   const point = (e: PointerEvent): Point => {
     const r = root.current?.getBoundingClientRect();
@@ -132,27 +135,34 @@ function PlanLayer({ walk, W, H }: { walk: WalkState; W: number; H: number }) {
     const p = point(e);
     const capture = () => e.currentTarget.setPointerCapture?.(e.pointerId);
     if (tool === 'path') {
-      const i = walk.path.findIndex((q) => Math.hypot(q.x - p.x, q.y - p.y) <= 9 * k);
+      /* 按在點上（最近的那個）：選取＋拖曳；不然加一點 */
+      let i = -1;
+      let best = 9 * k;
+      walk.path.forEach((q, j) => {
+        const d = Math.hypot(q.x - p.x, q.y - p.y);
+        if (d <= best) {
+          best = d;
+          i = j;
+        }
+      });
       capture();
       if (i >= 0) {
+        selectWalk({ kind: 'point', index: i });
         setDrag({ kind: 'point', pointer: e.pointerId, index: i, moved: false });
         return;
       }
+      selectWalk(null);
       addPathPoint(p);
       return;
     }
     if (tool === 'door') {
-      for (let i = walk.doors.length - 1; i >= 0; i--) {
-        const d = walk.doors[i];
-        const room = walk.rooms.find((r) => r.id === d.room);
-        if (!room) continue;
-        const [a, b] = doorSegment(room, d, walk.door);
-        if (distToSegment(p, a, b) <= tol) {
-          selectWalk({ kind: 'door', id: d.id });
-          capture();
-          setDrag({ kind: 'door', pointer: e.pointerId, id: d.id, moved: false });
-          return;
-        }
+      /* 按在入口上：離按的點最近的那個 */
+      const near = doorAt(walk, p, tol);
+      if (near) {
+        selectWalk({ kind: 'door', id: near.id });
+        capture();
+        setDrag({ kind: 'door', pointer: e.pointerId, id: near.id, moved: false });
+        return;
       }
       const hit = nearestWall(walk.rooms, p, tol);
       if (hit) addDoor(hit.room.id, hit.side, hit.at);
@@ -188,14 +198,15 @@ function PlanLayer({ walk, W, H }: { walk: WalkState; W: number; H: number }) {
       });
       return;
     }
-    setDrag({ kind: 'create', pointer: e.pointerId, tool, start: p, cur: p });
+    const start = snapPoint(p, walk.rooms, snapTol);
+    setDrag({ kind: 'create', pointer: e.pointerId, tool, start, cur: start });
   };
 
   const onPointerMove = (e: PointerEvent<SVGSVGElement>) => {
     if (!drag || e.pointerId !== drag.pointer) return;
     const p = point(e);
     if (drag.kind === 'create') {
-      setDrag({ ...drag, cur: p });
+      setDrag({ ...drag, cur: snapPoint(p, walk.rooms, snapTol) });
       return;
     }
     gesture.begin();
@@ -204,9 +215,21 @@ function PlanLayer({ walk, W, H }: { walk: WalkState; W: number; H: number }) {
       const dy = p.y - drag.start.y;
       if (!drag.moved && Math.hypot(dx, dy) < 2 * k) return;
       if (!drag.moved) setDrag({ ...drag, moved: true });
-      setRoomRect(drag.id, { ...drag.orig, x: drag.orig.x + dx, y: drag.orig.y + dy });
+      /* 吸附到鄰近房間的邊（共用的牆容易對齊） */
+      setRoomRect(
+        drag.id,
+        snapMove(
+          { ...drag.orig, x: drag.orig.x + dx, y: drag.orig.y + dy },
+          walk.rooms,
+          snapTol,
+          drag.id,
+        ),
+      );
     } else if (drag.kind === 'resize') {
-      setRoomRect(drag.id, resized(drag.orig, drag.corner, p));
+      setRoomRect(
+        drag.id,
+        resized(drag.orig, drag.corner, snapPoint(p, walk.rooms, snapTol, drag.id)),
+      );
     } else if (drag.kind === 'door') {
       const hit = nearestWall(walk.rooms, p, tol * 3);
       if (hit) moveDoor(drag.id, hit.room.id, hit.side, hit.at);
@@ -220,7 +243,7 @@ function PlanLayer({ walk, W, H }: { walk: WalkState; W: number; H: number }) {
   const onPointerUp = (e: PointerEvent<SVGSVGElement>) => {
     if (!drag || e.pointerId !== drag.pointer) return;
     if (drag.kind === 'create') {
-      const r = rectFrom(drag.start, point(e));
+      const r = rectFrom(drag.start, snapPoint(point(e), walk.rooms, snapTol));
       if (r.w >= WALK_LIMITS.minSize && r.h >= WALK_LIMITS.minSize) addRoom(drag.tool, r);
       else selectWalk(null);
     } else gesture.commit();
@@ -344,16 +367,19 @@ function PlanLayer({ walk, W, H }: { walk: WalkState; W: number; H: number }) {
           {walk.path.map((p, i) => {
             const last = i === walk.path.length - 1 && i > 0;
             const color = i === 0 ? PLAN.start : last ? PLAN.goal : PLAN.path;
+            const on = sel?.kind === 'point' && sel.index === i;
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: 路線的點沒有 id，順序就是身分
               <g key={i}>
                 <circle
                   cx={p.x}
                   cy={p.y}
-                  r={7 * k}
+                  r={(on ? 8.5 : 7) * k}
                   fill={color}
-                  stroke="#0b1512"
-                  strokeWidth={sw}
+                  stroke={on ? PLAN.select : '#0b1512'}
+                  strokeWidth={on ? sw * 1.4 : sw}
+                  data-point={i}
+                  data-selected={on || undefined}
                 />
                 <text
                   x={p.x}

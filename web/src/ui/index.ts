@@ -112,6 +112,7 @@ export {
   type PadVector,
 } from './DirectionPad';
 export { EffectGrid, type EffectGridItem, type EffectGridProps } from './EffectGrid';
+export { ErrorBoundary, type ErrorBoundaryProps } from './ErrorBoundary';
 export {
   animationFormats,
   DEFAULT_FPS_OPTIONS,

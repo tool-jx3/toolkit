@@ -108,6 +108,20 @@ export function useTestHook(player: RefObject<PlayerHandle | null>) {
         const v = walkRegistry.preview;
         return v ? { stats: v.stats, camera: v.cameraState(), time: v.time } : null;
       },
+      /** 匯出用的看不到的檢視在第 t 秒（沿路線）的標籤位置（NDC）與房名牌子的不透明度 */
+      walkLabels: async (t: number, w = 640, h = 360) => {
+        const img = await image();
+        if (!img) return null;
+        const { offscreenWalkView } = await import('./walk3d');
+        const v = await offscreenWalkView(docNow(), img, { width: w, height: h });
+        try {
+          v.setSize(w, h);
+          v.setTime(t);
+          return v.labelInfo();
+        } finally {
+          v.dispose(true);
+        }
+      },
       /** 匯出用的看不到的檢視畫第 t 秒（沿路線；w × h，data URL） */
       walkFrame: async (t: number, w = 320, h = 180) => {
         const img = await image();
