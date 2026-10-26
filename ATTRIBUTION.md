@@ -67,6 +67,7 @@
 | `loading-maker` | 讀取動畫產生器 | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `83fd605` |
 | `bg-motion` | 動態背景產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`haikei-motion-maker`）、[utiyoso/kirikae-maker](https://github.com/utiyoso/kirikae-maker)（きりかえメーカー，圖片切換模式的功能參考，未授權） | `83fd605` |
 | `screenshot-fx` | 截圖演出產生器 | [KIIN／スクショ演出スタジオ](https://screenshot-studio-8n8.pages.dev/)（BOOTH 販售的付費工具，條款禁止再散布程式與工具固有的意匠，視同未授權） | —（新收錄，沒有舊版） |
+| `map-fx` | 地圖演出產生器 | [KIIN／マップ・見取り図 演出スタジオ](https://map-stage.pages.dev/)（BOOTH 販售的付費工具，條款禁止再散布程式與工具固有的意匠，視同未授權） | —（新收錄，沒有舊版） |
 | `character-editor` | 角色資料編輯器 | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) | `83fd605` |
 | `foreground-frame` | 前景框產生器 | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) | `83fd605` |
 | `room-zip` | 房間 ZIP 產生器 | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) | `83fd605` |
@@ -170,6 +171,8 @@
 `rpg-screenshot` 照新工具引入流程直接在新框架做：原作（commit `2777ad4`）沒有授權條款，只照原作的功能、版面、濾鏡與像素化的演算法與數值（同樣的圖、台詞與設定畫出和原作逐像素相同的畫面；名字膠囊照原作程式本來想要的顏色，見規格 D16），程式、介面文字（原作是韓文）、範例台詞與範例圖都由本站自做。繁中像素字型「俐方體 11 號」「縫合像素體 10px」都是 SIL OFL 1.1，授權全文附在建置的第三方聲明。
 
 `screenshot-fx` 照新工具引入流程直接在新框架做：原作是 KIIN 在 BOOTH 販售的付費工具，條款禁止再散布程式與工具固有的意匠，視同未授權。本站只拿得到免費試用版 Lite 的 HTML，程式拿不到，所以只參考功能、選項與數值範圍（從頁面上各控制項的最小值、最大值、間隔、預設值與選單的選項讀出）；程式、介面、框與筆的外觀、範例圖與文字都由本站自做（繁中），不放 `UPSTREAM_LICENSE`。Lite 的浮水印與製品版才能用的限制都沒有，功能全部開放。
+
+`map-fx` 照新工具引入流程直接在新框架做：原作同樣是 KIIN 在 BOOTH 販售的付費工具，條款禁止再散布程式與工具固有的意匠，視同未授權。本站只拿得到免費試用版 Lite 的 HTML（程式 `app.js`、進階 3D 的 `advanced3d.js` 與樣式都拿不到），所以只參考功能、選項與數值範圍（從頁面上各控制項的最小值、最大值、間隔、預設值、選單的選項與使用說明讀出）；程式、介面、框・路線・圖釘・遮罩與 3D 的外觀、範例地圖（虛構的霧澤療養院）與文字都由本站自做（繁中），不放 `UPSTREAM_LICENSE`。Lite 的浮水印與製品版才能用的限制都沒有，功能全部開放。和 `screenshot-fx` 是同一位作者、同一套做法，本站把兩者共用的部分抽成共用的圖片演出引擎（`core/imagefx`），兩個工具各自提供框的種類與外觀；進階 3D 用 npm 的 three.js（MIT）。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 

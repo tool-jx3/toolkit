@@ -79,7 +79,7 @@
 | G7 介紹圖與宣傳 | 版型畫布（Konva）、3D（three.js） | pair-maker、character-select、magic-circle、acrylic-goods |
 | G8 影像與動圖 | 影片解碼、動圖編碼、程序生成 | video-anim、gif-combiner、music-frame |
 | G9 CoC 跑團輔助 | CoC 規則（骰子算式、成功等級、DB／體格、衍生值） | coc-dice、coc-npc、coc-sheet（由 trpg-lab 拆出） |
-| G10 地圖與網格 | 格子幾何（方格／六角格、座標、距離）、地圖畫布（Fabric） | map-editor、grid-maker、range-ruler（由 trpg-lab 拆出）、battlemap（從 G8 移來） |
+| G10 地圖與網格 | 格子幾何（方格／六角格、座標、距離）、地圖畫布（Fabric） | map-editor、grid-maker、range-ruler（由 trpg-lab 拆出）、battlemap（從 G8 移來）、map-fx（2026-10-25 另外加入；和 screenshot-fx 共用 core/imagefx，進階 3D 用 three.js） |
 
 G9 的決定（2026-10-08，使用者裁定）：trpg-lab 拆成 6 個工具（擲骰＋傷害計算合成 coc-dice、方格＋六角格合成 grid-maker、兩個量尺合成 range-ruler）、
 實驗室首頁與共用頁首捨棄（舊網址轉址）；anime-rig 維持獨立工具、放 G3；地圖編輯器用 Fabric（從 npm 打包，舊地圖可以搬過來）；
@@ -249,6 +249,7 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 | family-tree | 家系圖產生器（2026-10-23 另外加入；分兩批：第一批＝樹的核心、第二批＝過繼、母系外孫、跨家系的婚姻連結、框選範圍匯出、狀態、GM 專用與 PL 版、頭像、SVG，都已上線） | 가계도 편집기（gagyedo.j-segrc.workers.dev） | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
 | clue-map | 調查熱點圖（2026-10-23 另外加入；本站自己的構想：場景圖上的熱點點開是線索、可以設「先找到某個線索才解鎖」，只借原作「熱區＋解鎖」的想法） | momo102938/MUNgs_click（콕콕） | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
 | screenshot-fx | 截圖演出產生器（2026-10-23 另外加入；分兩批：第一批＝截圖、畫面、放大框／螢光筆／塗黑、時間軸、PNG／APNG／影片、專案檔；第二批＝運鏡、塗黑的邊界演出、三種 ZIP、細部編輯） | KIIN／スクショ演出スタジオ（BOOTH 付費工具，只參考 Lite 版的頁面） | 未授權（條款禁止再散布程式、固有意匠與範例） | G2 | ✅ | ✅ | ✅ | ✅ |
+| map-fx | 地圖演出產生器（2026-10-25 另外加入；分兩批：第一批＝2D 地圖演出〔區域放大、路線・地點、房間遮罩、時間軸、PNG／APNG／影片、X 用 MP4、房間遮罩 ZIP、逐步公開／圖層／連番 PNG 的 ZIP、專案檔〕；第二批＝進階 3D〔房間與走廊、入口、移動路線、沿路線走過去的預覽與 MP4〕；引入時把 screenshot-fx 的引擎抽成共用的 core/imagefx） | KIIN／マップ・見取り図 演出スタジオ（BOOTH 付費工具，只參考 Lite 版的頁面） | 未授權（條款禁止再散布程式、固有意匠與範例） | G10 | ✅ | ✅ | ✅ | ✅ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 
