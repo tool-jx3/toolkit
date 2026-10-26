@@ -104,7 +104,7 @@
 | [CCFOLIA & 圖片調色工作室](https://tool-jx3.github.io/toolkit/tools/psd-studio/) | 把 CCFOLIA 房間 ZIP、PSD 或圖片一次統一調色（色相、曲線、漸層對應），APNG 自動壓到 5 MB 以下，再輸出成房間 ZIP |
 | [文字方框產生器](https://tool-jx3.github.io/toolkit/tools/textbox/) | 用框線字元和全形空白排出可以直接貼進聊天欄的文字方框與表格，自動補正全形字寬 |
 | [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | 一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈 |
-| [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | 把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，支援直書，可輸出 APNG（含 256 色減色）、GIF、WebP、PNG 或連番 ZIP |
+| [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | 把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，還有雷達、警報橫幅、指令視窗等 8 種 SF 風的 HUD 標題，支援直書，可輸出 APNG（含 256 色減色）、GIF、WebP、PNG 或連番 ZIP |
 | [歌詞演出產生器](https://tool-jx3.github.io/toolkit/tools/lyric-fx/) | 放進音樂與有時間標記的歌詞（LRC／SRT，也能邊聽邊打點），讓歌詞散落在畫面上逐字出現、抖動、發光，唱完往上飄著淡出；可以框出要避開的區域、預先暗顯下一句，匯出有聲影片或透明背景的 WebM，疊在直播或遊戲畫面上 |
 | [RPG 截圖產生器](https://tool-jx3.github.io/toolkit/tools/rpg-screenshot/) | 把一張圖做成老式 RPG 遊戲的截圖：像素化、抖色與色調濾鏡、掃描線，加上訊息視窗、名字、選項、演出文字與地點，台詞可以分頁、換說話者、換顏色，用繁中像素字型匯出 PNG，或逐字打出的 GIF、APNG、WebP |
 
@@ -146,7 +146,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 |---|---|---|
 | `battlemap` | [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) |
 | `apng-wipe` | [輕量轉場 APNG 產生器](https://tool-jx3.github.io/toolkit/tools/apng-wipe/) | 出處不明的轉場 APNG 小工具 |
-| `text-fx` | [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發） |
+| `text-fx` | [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發）、[Mellow Noise／SF 타이틀 메이커](https://mellow-noise.naru.pub/#sf_title_maker)（SF 標題模式） |
 | `lyric-fx` | [歌詞演出產生器](https://tool-jx3.github.io/toolkit/tools/lyric-fx/) | [YouRanCoder/LimbusLyricSimulator](https://github.com/YouRanCoder/LimbusLyricSimulator) |
 | `rpg-screenshot` | [RPG 截圖產生器](https://tool-jx3.github.io/toolkit/tools/rpg-screenshot/) | [dearmysn1p3r/DearMySn1p3r_43](https://github.com/dearmysn1p3r/DearMySn1p3r_43)（RPG Screenshot Maker） |
 | `textbox` | [文字方框產生器](https://tool-jx3.github.io/toolkit/tools/textbox/) | [sotsotssi/TextBoxGen](https://github.com/sotsotssi/TextBoxGen) |

@@ -256,6 +256,7 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 | 工具 | 內容 | 來源 | 狀態 |
 |---|---|---|---|
 | text-fx | 自訂範本（存、讀、用檔案分享）、批次匯出、理智檢定（SAN）範本 | くま。／文字画像APNGメーカー v1.05～1.12 | ✅ |
+| text-fx | 第四個模式「SF 標題」：8 種 HUD 範本、代碼與編號、解碼登場、光暈、顆粒雜訊、掃描線、故障、三種播放方式、APNG／WebP（2026-10-26） | Mellow Noise／SF 타이틀 메이커（未授權） | 驗證中 |
 | pair-maker | 背景改成單色或圖片（可模糊）、段落標題可以改（雙人資料卡）；多人資料卡每列 2～5 張 | baegop157902/PairMaker 2026-10-01 | ✅ |
 | log-converter | 新增匯出 EPUB 電子書 | sotsotssi/CcfoliaLogConverter（未授權） | ✅ |
 | session-log、session-report | 跑團紀錄簿的 SKP 角色；團報產生器用括號包住選取的文字、裝飾面板分頁 | くま。 session-log-tool v1.100、session-report-generator v1.73～1.76 | ✅ |
