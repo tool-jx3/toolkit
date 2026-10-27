@@ -31,7 +31,7 @@ import {
   rebaseDepth,
   validateDepthHeader,
 } from '../../src/tools/anime-rig/seeThrough';
-import { clonePsd, rigTestPsdBytes, type TestPsd } from '../helpers/animeRig';
+import { clonePsd, rect, rigTestPsdBytes, type TestPsd } from '../helpers/animeRig';
 import {
   ST_SIZE,
   type StPart,
@@ -195,12 +195,53 @@ describe('名稱已分好左右的圖層（F99、F100）', () => {
     expect(warningText(swaps[0])).toBe('「handwear」的左右名稱和位置相反，已依實際位置判斷左右。');
   });
 
-  it('只有一邊時依名稱', () => {
+  const irides = (rig: Rig) =>
+    rig.layers.filter((l) => l.name.startsWith('irides')).map((l) => [l.name, l.source]);
+
+  it('只有一邊、名稱與位置一致：沒有警告', () => {
     const parts = seeThroughParts({ split: true }).filter((p) => p.tag !== 'irides-r');
     const rig = bind(seeThroughColorPsd(parts));
-    expect(rig.layers.filter((l) => l.name.startsWith('irides')).map((l) => l.name)).toEqual([
-      'irides_r',
+    expect(irides(rig)).toEqual([['irides_r', 'irides-l']]);
+    expect(rig.warnings.some((w) => w.code === 'sideSwapped')).toBe(false);
+  });
+
+  it('只有一邊、名稱與位置相反（手做的 PSD 用底線 _l＝畫面左邊）：依位置並警告', () => {
+    const parts = seeThroughParts({ split: true })
+      .filter((p) => p.tag !== 'irides-l')
+      .map((p) => (p.tag === 'irides-r' ? { ...p, tag: 'irides_l' } : p));
+    const rig = bind(seeThroughColorPsd(parts));
+    /* 名稱依 see-through 的方向是右，但圖在臉中心的左邊 → 左 */
+    expect(irides(rig)).toEqual([['irides_l', 'irides_l']]);
+    expect(rig.warnings.filter((w) => w.code === 'sideSwapped').map((w) => w.args)).toEqual([
+      ['irides'],
     ]);
+    expect(rig.anchors.eyeL!.icx).toBeCloseTo(bind(split()).anchors.eyeL!.icx, 6);
+  });
+
+  it('沒有臉時照名稱（不警告）', () => {
+    const swapped = seeThroughParts({ split: true })
+      .filter((p) => p.tag !== 'face')
+      .map((p) => ({ ...p, tag: p.tag.replace(/-(l|r)$/, (_, s) => (s === 'l' ? '-r' : '-l')) }));
+    const rig = bind(seeThroughColorPsd(swapped));
+    expect(rig.warnings.map((w) => w.code)).toContain('noFace');
+    expect(rig.warnings.some((w) => w.code === 'sideSwapped')).toBe(false);
+    /* 名稱是 -r（＝左）的是畫面右邊的那一塊 */
+    const l = part(rig, 'irides_l');
+    expect(l.source).toBe('irides-r');
+    expect(centroidX(l)).toBeGreaterThan(128);
+  });
+
+  it('重心在臉中心附近（臉寬 × 0.05 以內）時照名稱', () => {
+    const parts: StPart[] = [
+      ...seeThroughParts({ split: false }),
+      /* 臉的中心約 x 127.5、臉寬 92 → 4.6 px 以內 */
+      { tag: 'eyebrow-l', paint: rect(120, 60, 137, 63, [80, 40, 60]), depth: 96 },
+    ];
+    const rig = bind(seeThroughColorPsd(parts));
+    const p = rig.layers.find((l) => l.source === 'eyebrow-l')!;
+    expect(Math.abs(centroidX(p) - rig.anchors.face.cx)).toBeLessThan(4.6);
+    expect(p.name).toBe('eyebrow_r');
+    expect(rig.warnings.some((w) => w.code === 'sideSwapped')).toBe(false);
   });
 });
 

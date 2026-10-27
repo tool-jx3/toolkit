@@ -204,9 +204,9 @@ see-through（[shitagaki-lab/see-through](https://github.com/shitagaki-lab/see-t
 
 | 編號 | 功能 | 行為描述（看得到的結果） | 預設值／範圍 | 驗證方式 |
 |---|---|---|---|---|
-| F98 | 左右分割的名稱 | `<部位>-r`／`<部位>-l`（see-through 的 `--tblr_split`）認得成已分好左右的部件：**`-r`（角色的右邊＝畫面左邊）→ 本站的左（`_l`），`-l` → 右（`_r`）**。分隔符號可以是 `-`、`_`、空白，大小寫、全形照 F13 正規化（`Eyebrow_L`、`IRIDES R`、`瞳-r`、`ear_R` 都認得）；編號在左右之前或之後都可以（`handwear-1-r`→`handwear_1_l`、`handwear-r-0`→`handwear_0_l`）。部位限眼白、瞳孔、睫毛、眉毛、閉眼、長閉眼、手臂與手、耳朵；其他部位（`hair-l`、`tail-r`）與沒有分隔符號的（`eyel`）照舊。see-through 內部的 `hairf`／`hairb` → 瀏海／後髮（別名，3.2）。對應表見 3.7。 | — | 自動（單元） |
+| F98 | 左右分割的名稱 | `<部位>-r`／`<部位>-l`（see-through 的 `--tblr_split`）認得成已分好左右的部件。名稱的方向照 see-through：**`-r`（角色的右邊＝畫面左邊）→ 本站的左（`_l`），`-l` → 右（`_r`）**；實際的左右有臉時依位置決定（F100），名稱是備援。分隔符號可以是 `-`、`_`、空白，大小寫、全形照 F13 正規化（`Eyebrow_L`、`IRIDES R`、`瞳-r`、`ear_R` 都認得）；編號在左右之前或之後都可以（`handwear-1-r`→`handwear_1_l`、`handwear-r-0`→`handwear_0_l`）。部位限眼白、瞳孔、睫毛、眉毛、閉眼、長閉眼、手臂與手、耳朵；其他部位（`hair-l`、`tail-r`）與沒有分隔符號的（`eyel`）照舊。see-through 內部的 `hairf`／`hairb` → 瀏海／後髮（別名，3.2）。對應表見 3.7。 | — | 自動（單元） |
 | F99 | 已分好左右的部件 | 名稱已分好左右的圖層整個當作那一邊的部件，不再做 F21 的區塊分離與外擴（圖層裡有兩塊也不分）；眨眼、瞳孔與視線、眉毛、內建閉眼（F29）、眼睛的錨點（F24）都照那一邊。同一張圖不分左右時 F21 分出來的部件（範圍、像素、左右）與錨點和分好左右時相同。圖層清單的角色顯示「左／右」（手臂與手、耳朵也是）；診斷「名稱已分好左右的圖層：N 個（依名稱分左右，不再自動分）」。 | — | 自動（單元、e2e） |
-| F100 | 名稱與位置相反 | 同一部位（含編號）兩邊都有、而且名稱是左的部件的重心（透明度加權）在名稱是右的右邊時（另一種命名方式：`_l`＝畫面左邊），那個部位依位置對調左右，診斷警告「「部位」的左右名稱和位置相反，已依實際位置判斷左右。」。只有一邊時照名稱。 | — | 自動（單元） |
+| F100 | 左右依位置（名稱是備援） | 有臉時，名稱帶左右的部件一律依位置決定左右：部件的重心（透明度加權）在臉中心的左邊＝左、右邊＝右（和 F21 同一個基準）。名稱只在沒有臉（F23 推測的臉不算）、或重心離臉中心在臉寬 × 0.05 以內時採用。位置和名稱不同時（例如手做的 PSD 用 `_l`＝畫面左邊、只有一邊的 `eyewhite_l`），每個部位在診斷警告一次「「部位」的左右名稱和位置相反，已依實際位置判斷左右。」。 | 臉寬 × 0.05 | 自動（單元） |
 | F101 | 深度 PSD | see-through 的 `<名稱>_depth.psd`（灰階或 RGB、8 位元、128 MB 以下）：圖層依名稱對應彩色 PSD 的圖層（同名的依順序），每個圖層的深度＝彩色圖層透明度 > 10 的像素底下的深度中位數 ÷ 255（0＝近、1＝遠，取到 4 位小數；與 see-through 的 `depth_median` 相同的定義）。部件的深度＝它的圖層的深度（F21 分出來的兩邊相同，內建差分沒有）。 | — | 自動（單元、e2e） |
 | F102 | `.psd.json` | `<名稱>.psd.json` 的 `parts[名稱].depth_median`（0～1）；和深度 PSD 一起給時只補深度 PSD 沒有的圖層。單獨的 `.psd.json`，或內容是 see-through 格式（有 `parts`、沒有 `format`）的 `.json` 都當深度讀。 | 1 MB 以下 | 自動（單元、e2e） |
 | F103 | 讀入方式 | ①彩色 PSD 和 `_depth.psd`（或 `.psd.json`）一起拖放或一起選（「開啟 PSD」可以多選）就一起讀入；名稱沒有 `_depth` 時，兩個以上的 PSD 裡唯一的灰階 PSD 當深度。②讀入後在「圖層」的「深度（see-through）」按「加入深度 PSD」（深度 PSD 與／或 `.psd.json`，可以多選，手機也能選），或只拖放深度檔：加到目前的模型（一步復原）。③沒有模型時只給深度檔：「請先讀入彩色的 PSD，再加入深度 PSD（也可以兩個檔案一起拖進來）。」。沒有深度檔時照 F01 只讀第一個檔案。讀深度時「正在讀取深度 PSD…」；成功「已讀入 <檔名>。深度 PSD 對上 N／M 個圖層，按「儲存調整」就能記住深度。」／「已加入深度（<檔名>，N／M 個圖層）。按「儲存調整」就能記住。」。 | — | 自動（e2e） |
@@ -385,14 +385,14 @@ save_part、dump_parts_psd，`common/utils/io_utils.py` 的 save_psd，`common/l
 | back hair、hairb、hair（在臉之下） | back hair（後髮） | |
 | face、nose、mouth | face、nose、mouth_open（張嘴） | mouth 沒有閉嘴差分時自動補（F30） |
 | eyewhite／irides／eyelash／eyebrow | 同名（不分左右時自動分，F21） | |
-| eyewhite-r、irides-r、eyelash-r、eyebrow-r | `<部位>_l`（左＝畫面左邊） | F98、F99 |
+| eyewhite-r、irides-r、eyelash-r、eyebrow-r | `<部位>_l`（左＝畫面左邊） | F98、F99；有臉時實際的左右依位置（F100） |
 | eyewhite-l、irides-l、eyelash-l、eyebrow-l | `<部位>_r`（右＝畫面右邊） | |
 | handwear-r／handwear-l、ears-r／ears-l | handwear_l／_r、ears_l／_r | 角色顯示左右；動作不分左右 |
 | handwear-1-r、handwear-r-0 | handwear_1_l、handwear_0_l | 編號在前或在後 |
 | headwear、eyewear、ears、earwear、neck、neckwear、topwear、handwear、bottomwear、legwear、footwear、tail、wings、objects | 同名 | |
 | eyes、skin、beard、eyel、eyer、browl、browr（V1／V2） | 未分類（F19） | |
 
-**深度**：
+**深度**（以下的倍率範圍、門檻與換算／不換算的部位**以合成資料調整，還沒用真實 see-through 輸出校正**；驗證時請用真的輸出確認觀感）：
 - 圖層的深度 s（0～1）：F101、F102。
 - 臉的深度 s_face＝臉的部件的 s（有好幾個時取中位數）。
 - 倍率 K：頭髮（front hair、side hair、ahoge、back hair，含編號）的 x＝s_face − s、y＝部位表的深度 − 1，**K＝Σxy ÷ Σx²**（過「臉＝1」的最小平方法，
@@ -437,8 +437,8 @@ save_part、dump_parts_psd，`common/utils/io_utils.py` 的 save_psd，`common/l
 - **測試入口**：e2e 以 `window.__animeRigFakeLandmarks`（addInitScript）把臉部偵測換成假的特徵點來源（不需要模型），走完攝影機 → 參數的流程；
   `window.__animeRig.still()` 讓預覽停在決定性的姿勢（呼吸 0、物理歸零、參數直接採用），截圖與像素比對用。真模型的 e2e 要設定 `ANIME_RIG_FACE_MODEL`（模型檔的路徑）才跑。
 
-- **see-through 的左右**：see-through 的 `-r` 是角色的右邊（畫面左邊），本站的 `_l` 是畫面左邊，方向相反（3.7）；名稱分好左右的部件要和 F21 分出來的一樣進
-  左右的錨點與差分。沒有左右分割的名稱、沒有深度時綁定結果要和以前逐值相同（`anime-rig-golden.test.ts`）。
+- **see-through 的左右**：see-through 的 `-r` 是角色的右邊（畫面左邊），本站的 `_l` 是畫面左邊，方向相反（3.7）；有臉時實際的左右依位置（F100），
+  名稱分好左右的部件要和 F21 分出來的一樣進左右的錨點與差分。沒有左右分割的名稱、沒有深度時綁定結果要和以前逐值相同（`anime-rig-golden.test.ts`）。
 - **深度的對應**：深度 PSD 的透明度全是 255，部件的範圍要用彩色圖層的透明度（> 10）；彩色 PSD 讀入後去過雜點、裁過（F15），深度 PSD 的位置檢查要用讀入時的範圍。
   深度 PSD 的緩衝區轉移給目前模型的 Worker（彩色 PSD 的圖層樹留在那裡）。
 - **深度與圖層設定**：圖層的深度（F73）是存檔的絕對值；換深度的設定時以「新的綁定時深度 − 舊的」移動，手動的差距才保留，來回切換也回到原值（取到 0.001）。
@@ -459,8 +459,8 @@ save_part、dump_parts_psd，`common/utils/io_utils.py` 的 save_psd，`common/l
 | D10 | **錄影長度的偏好** | 原作的偏好允許 1～60 的任何整數，但選單只有 3／5／10／15／30／60（其他值時選單顯示 5、實際卻錄存的值）。新版只接受選單上的值（其他值當 5）。 |
 | D11 | **@mediapipe/tasks-vision 的授權全文** | npm 套件沒有附授權檔（package.json 寫 Apache-2.0），新版在 `web/build/licenses/@mediapipe__tasks-vision.txt` 補上 Apache License 2.0 全文，建置時併入 THIRD_PARTY_NOTICES（同 onnxruntime-web 的做法）。WebAssembly 裡另有 MediaPipe 的第三方程式（上游的授權清單），需要時再補連結。 |
 | D12 | **重新整理後的模型** | 原作與新版都不保存 PSD 本身（可能上百 MB），重新整理後要再讀一次 PSD（調整依指紋自動還原，F82）。可以考慮之後把最後一個 PSD 存進 IndexedDB 自動重開（未做）。 |
-| D13 | **左右分割的名稱（see-through 的 `--tblr_split`，2026-10-27）** | 原作（2026-09-23 的版本）不認得 `irides-l` 等名稱，當成未分類的圖層（只跟著頭部或身體，不會眨眼、不分左右）。新版照 see-through 的方向（`-r`＝畫面左邊）認得、不再自動分；名稱和位置相反時依位置（F98～F100）。`hairf`／`hairb` 也是新版加的別名。建議照這樣。 |
-| D14 | **see-through 的深度** | 原作沒有；轉頭的深度只有部位表的固定值。新版讀 `_depth.psd`／`.psd.json`，換算方式是本站設計的（3.7：倍率配合部位表裡頭髮的深度，貼在臉與身體表面的部件維持部位表），有開關與強度、可以移除（F101～F106）。建議照這樣。 |
+| D13 | **左右分割的名稱（see-through 的 `--tblr_split`，2026-10-27）** | 原作（2026-09-23 的版本）不認得 `irides-l` 等名稱，當成未分類的圖層（只跟著頭部或身體，不會眨眼、不分左右）。新版認得、不再自動分；有臉時左右依位置（和 F21 同一個基準），名稱（see-through 的方向，`-r`＝畫面左邊）只在沒有臉或在臉中心附近時用（F98～F100；主控 2026-10-27 裁定）。`hairf`／`hairb` 也是新版加的別名。V1／V2 的 eyel／eyer／browl／browr、eyes、skin、beard 維持未分類（主控裁定）。 |
+| D14 | **see-through 的深度** | 原作沒有；轉頭的深度只有部位表的固定值。新版讀 `_depth.psd`／`.psd.json`，換算方式是本站設計的（3.7：倍率配合部位表裡頭髮的深度，貼在臉與身體表面的部件維持部位表），有開關與強度（上限 1）、可以移除（F101～F106）。倍率範圍 0.5～20、太平的門檻 0.004 與換算的部位是以合成資料調整的，還沒用真實 see-through 輸出校正（主控 2026-10-27：先照這樣）。 |
 | D15 | **設定 JSON 的 `seeThrough`** | 原作的格式沒有這個欄位；新版有深度時才寫（沒有深度時和以前逐字相同）。原作的 runtime.js 讀新版的 JSON 時不看這個欄位，但 `layers` 的深度已經是換算後的值，照樣套用（實作時以舊版的 runtime.js 確認）。 |
 | D16 | **一次給好幾個檔案** | 原作只讀第一個檔案、選檔視窗單選；新版有深度檔時彩色 PSD 和深度檔一起讀、選檔視窗可以多選；沒有深度檔時照舊只讀第一個（F103）。 |
 

@@ -932,7 +932,6 @@ export function buildRig(psd: PsdRoot, opts: BuildRigOptions = {}): Rig {
     const suffix = e.name.slice(4);
     e.name = (faceIndex >= 0 && idx > faceIndex ? 'front hair' : 'back hair') + suffix;
   });
-  markPresplit(entries, W, H, warnings);
   const byBase: Record<string, { alpha: Uint8Array }[]> = Object.create(null);
   for (const e of entries) {
     const bn = baseName(e.name);
@@ -952,6 +951,9 @@ export function buildRig(psd: PsdRoot, opts: BuildRigOptions = {}): Rig {
     warnings.push({ code: 'noFace', args: [] });
     FACE = { cx: W / 2, cy: H * 0.3, x0: W * 0.35, x1: W * 0.65, y0: H * 0.1, y1: H * 0.5 };
   }
+
+  /* 名稱已經分好左右的圖層：有臉時依位置決定左右（規格 F98～F100） */
+  markPresplit(entries, W, H, faceAlpha ? FACE : null, warnings);
 
   /* 部件 */
   const parts: RigPart[] = [];
@@ -1201,36 +1203,37 @@ interface Entry {
   stem?: string;
 }
 
+/** 名稱帶左右的部件：重心離臉中心在臉寬的這個比例以內時，左右照名稱（規格 F100） */
+export const SIDE_NAME_MARGIN = 0.05;
+
 /**
- * 名稱已經分好左右的圖層（`eyewhite_l`…，normName 已經把 see-through 的方向換成本站的；規格 F99）。
- * 同一個部位兩邊都有、而且「左」的重心在「右」的右邊時（另一種命名方式：`_l`＝畫面左邊），依位置對調並警告（F100）。
+ * 名稱已經分好左右的圖層（`eyewhite_l`…，normName 已經把 see-through 的方向換成本站的；規格 F99、F100）。
+ * 有臉時左右一律依位置：部件的重心（透明度加權）在臉中心的左邊＝左、右邊＝右（和 F21 同一個基準）；
+ * 沒有臉、或重心離臉中心在臉寬 × 0.05 以內時照名稱。位置和名稱不同時，每個部位警告一次。
  */
-function markPresplit(entries: Entry[], W: number, H: number, warnings: RigWarning[]): void {
-  const stems = new Map<string, Entry[]>();
+function markPresplit(
+  entries: Entry[],
+  W: number,
+  H: number,
+  face: FaceAnchor | null,
+  warnings: RigWarning[],
+): void {
+  const margin = face ? Math.max(1, face.x1 - face.x0) * SIDE_NAME_MARGIN : 0;
+  const swapped: string[] = [];
   for (const e of entries) {
     const m = /^(.+)_(l|r)$/.exec(e.name);
     if (!m || !SIDE_SLOTS.has(baseName(m[1]))) continue;
+    const named: Side = m[2] === 'l' ? 'L' : 'R';
+    let side = named;
+    if (face) {
+      const c = centroidOf(e.alpha, W, H);
+      if (c && Math.abs(c.cx - face.cx) > margin) side = c.cx < face.cx ? 'L' : 'R';
+    }
     e.stem = m[1];
-    e.side = m[2] === 'l' ? 'L' : 'R';
-    const list = stems.get(m[1]) ?? [];
-    list.push(e);
-    stems.set(m[1], list);
+    e.side = side;
+    if (side !== named && !swapped.includes(m[1])) swapped.push(m[1]);
   }
-  for (const [stem, list] of stems) {
-    const cx = (side: Side) => {
-      const a = mergeAlphas(
-        list.filter((e) => e.side === side),
-        W,
-        H,
-      );
-      return a ? (centroidOf(a, W, H)?.cx ?? null) : null;
-    };
-    const l = cx('L');
-    const r = cx('R');
-    if (l === null || r === null || l <= r) continue;
-    for (const e of list) e.side = e.side === 'L' ? 'R' : 'L';
-    warnings.push({ code: 'sideSwapped', args: [stem] });
-  }
+  for (const stem of swapped) warnings.push({ code: 'sideSwapped', args: [stem] });
 }
 
 /**
