@@ -5,9 +5,11 @@
  *   人名拆分與正規化、自己的名字、同團玩家、時間、劇本計數鍵
  * - dates：日期清單整理、主要日期（最晚一天）、彈性日期解讀、本地日期
  * - report：紀錄簿 → 團報產生器的交接資料（localStorage 固定鍵名，格式沿用舊版）
+ * - log：團期行事曆 → 紀錄簿的交接資料（localStorage 固定鍵名，格式沿用原作的卓準備カレンダー）
  *
  * 規格：docs/refactor/specs/session-log.md 第 3.1～3.6、3.9 節。
  */
 export * from './dates';
+export * from './log';
 export * from './model';
 export * from './report';

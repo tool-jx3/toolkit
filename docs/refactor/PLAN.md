@@ -73,9 +73,9 @@
 | G1 文字演出 | 文字排版（直書、禁則、自動縮小）、逐字動畫時間軸、字型 | text-fx、typewriter、cutin、text-path、collage-letter、textbox |
 | G2 轉場與動態 | 時間軸、遮罩與轉場、圖片動態 | scene-transition、apng-wipe、bg-motion、loading-maker |
 | G3 立繪工作台 | 圖片匯入、批次處理、裁切、透明邊偵測、取色 | ccfolia-cropper、portrait-size、icon-maker、variant-manager、height-board、color-palette、emotion-maker、bg-remover |
-| G4 OBS 疊加 | CCFOLIA／Discord 畫面模擬、CSS 產生器、預覽 | status-bar、chat-window、message-box、obs-tachie |
+| G4 OBS 疊加 | CCFOLIA／Discord 畫面模擬、CSS 產生器、預覽 | status-bar、chat-window、message-box、obs-tachie、ui-frame（2026-10-27 另外加入） |
 | G5 CCFOLIA 資料 | 房間 ZIP、角色 JSON、聊天面板、日誌解析 | character-editor、room-zip、psd-studio、foreground-frame、log-converter、scenario-cards |
-| G6 劇本與紀錄 | 富文本與分頁排版、列印／PDF、紀錄資料庫 | scenario-editor、coc-typesetter、session-log、session-report |
+| G6 劇本與紀錄 | 富文本與分頁排版、列印／PDF、紀錄資料庫 | scenario-editor、coc-typesetter、session-log、session-report、handout-maker、session-calendar（2026-10-27 另外加入） |
 | G7 介紹圖與宣傳 | 版型畫布（Konva）、3D（three.js） | pair-maker、character-select、magic-circle、acrylic-goods |
 | G8 影像與動圖 | 影片解碼、動圖編碼、程序生成 | video-anim、gif-combiner、music-frame |
 | G9 CoC 跑團輔助 | CoC 規則（骰子算式、成功等級、DB／體格、衍生值） | coc-dice、coc-npc、coc-sheet（由 trpg-lab 拆出） |
@@ -250,6 +250,9 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 | clue-map | 調查熱點圖（2026-10-23 另外加入；本站自己的構想：場景圖上的熱點點開是線索、可以設「先找到某個線索才解鎖」，只借原作「熱區＋解鎖」的想法） | momo102938/MUNgs_click（콕콕） | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
 | screenshot-fx | 截圖演出產生器（2026-10-23 另外加入；分兩批：第一批＝截圖、畫面、放大框／螢光筆／塗黑、時間軸、PNG／APNG／影片、專案檔；第二批＝運鏡、塗黑的邊界演出、三種 ZIP、細部編輯） | KIIN／スクショ演出スタジオ（BOOTH 付費工具，只參考 Lite 版的頁面） | 未授權（條款禁止再散布程式、固有意匠與範例） | G2 | ✅ | ✅ | ✅ | ✅ |
 | map-fx | 地圖演出產生器（2026-10-25 另外加入；分兩批：第一批＝2D 地圖演出〔區域放大、路線・地點、房間遮罩、時間軸、PNG／APNG／影片、X 用 MP4、房間遮罩 ZIP、逐步公開／圖層／連番 PNG 的 ZIP、專案檔〕；第二批＝進階 3D〔房間與走廊、入口、移動路線、沿路線走過去的預覽與 MP4〕；引入時把 screenshot-fx 的引擎抽成共用的 core/imagefx） | KIIN／マップ・見取り図 演出スタジオ（BOOTH 付費工具，只參考 Lite 版的頁面） | 未授權（條款禁止再散布程式、固有意匠與範例） | G10 | ✅ | ✅ | ✅ | ✅ |
+| handout-maker | 線索道具產生器（2026-10-27 另外加入；11 種主題的 handout：報紙、通緝令、便條、便利貼、拍立得、系統視窗、遊戲的系統通知、終端機、簡訊、電子郵件，塗黑、印章、紙張質感、附圖濾鏡、清單與 ZIP） | KKumuu/trpgforkk（`D.html`） | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
+| session-calendar | 團期行事曆（2026-10-27 另外加入；合併兩個原作：場次＋準備事項、年曆＋月曆、多日預定與配色、空檔日期、PNG、JSON／iCal；台灣的國定假日〔新增共用模組 core/holidays〕；送到跑團紀錄簿〔session-log F117〕） | くま。／卓準備カレンダー v0.13、utiyoso/taku_calendar | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
+| ui-frame | UI 框素材產生器（2026-10-27 另外加入；TRPG・直播與文字冒險兩種用途的透明 UI 框 PNG、世界觀預設與主色配色、TyranoScript 配置程式碼、ZIP） | KIIN／ノベワク STUDIO（BOOTH 販售，只參考免費體驗版的頁面） | 未授權（條款禁止再散布程式） | G4 | ✅ | ✅ | ✅ | ✅ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 

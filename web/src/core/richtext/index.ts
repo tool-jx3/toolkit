@@ -362,9 +362,21 @@ interface Item {
 /** 不放在行尾的字（左括號、左引號；'word' 規則用）：後面不換行 */
 export const NO_LINE_END = new Set([...'([（【〈《「『“‘']);
 
-/** 左右對齊時兩個字之間可以撐開嗎（英數字詞裡面不撐開，其他地方都可以：中日韓文字的字間、空白前後） */
+/** ASCII 的標點與符號（撇號、連字號、底線已經算英數字詞的字） */
+const ASCII_PUNCT = /^[!-/:-@[-`{-~]$/;
+
+/**
+ * 左右對齊時兩個字之間可以撐開嗎：英數字詞裡面不撐開；英數字詞與緊接的 ASCII 標點之間（「dog.」「Hello,」「(really)」）、
+ * 連續的 ASCII 標點之間（「?!」「).」）也不撐開（handout-maker 驗證後加的，2026-10）。其他地方都可以：中日韓文字的字間、空白前後、
+ * 中日韓文字與標點之間。
+ */
 export function justifyOpportunity(prev: string, cur: string): boolean {
-  return !(WORD_CHAR.test(prev) && WORD_CHAR.test(cur));
+  const pw = WORD_CHAR.test(prev);
+  const cw = WORD_CHAR.test(cur);
+  if (pw && cw) return false;
+  const pp = ASCII_PUNCT.test(prev);
+  const cp = ASCII_PUNCT.test(cur);
+  return !((pw && cp) || (pp && cw) || (pp && cp));
 }
 
 /** 'word' 規則下，第 i 個字前面可不可以換行 */

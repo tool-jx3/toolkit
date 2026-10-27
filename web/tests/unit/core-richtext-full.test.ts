@@ -143,6 +143,23 @@ describe('排版：word 規則', () => {
     expect(justifyOpportunity('a', ' ')).toBe(true);
     expect(justifyOpportunity('a', '一')).toBe(true);
   });
+
+  it('英數字詞與緊接的 ASCII 標點、連續的 ASCII 標點之間不撐開；中日韓文字照舊（handout-maker 驗證後）', () => {
+    expect(justifyOpportunity('g', '.')).toBe(false);
+    expect(justifyOpportunity('o', ',')).toBe(false);
+    expect(justifyOpportunity('(', 'r')).toBe(false);
+    expect(justifyOpportunity('y', ')')).toBe(false);
+    expect(justifyOpportunity(')', '.')).toBe(false);
+    expect(justifyOpportunity('?', '!')).toBe(false);
+    expect(justifyOpportunity('3', '%')).toBe(false);
+    /* 空白前後、中日韓文字與標點之間照舊可以撐開 */
+    expect(justifyOpportunity(',', ' ')).toBe(true);
+    expect(justifyOpportunity(' ', '(')).toBe(true);
+    expect(justifyOpportunity('字', ',')).toBe(true);
+    expect(justifyOpportunity('字', '，')).toBe(true);
+    expect(justifyOpportunity('，', '字')).toBe(true);
+    expect(justifyOpportunity('」', '字')).toBe(true);
+  });
 });
 
 describe('分頁', () => {

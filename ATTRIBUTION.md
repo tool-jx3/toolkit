@@ -114,6 +114,9 @@
 | `social-post` | 社群貼文產生器 | [s2ndrome/4layout](https://github.com/s2ndrome/4layout)（未授權） | —（新收錄，沒有舊版） |
 | `geo-bloom` | 幾何花紋產生器 | [al1scut/tkmizGeo](https://github.com/al1scut/tkmizGeo)（未授權） | —（新收錄，沒有舊版） |
 | `vhs-frame` | 錄影帶畫面產生器 | [dearmysn1p3r/VHS_Maker](https://github.com/dearmysn1p3r/VHS_Maker)（未授權） | —（新收錄，沒有舊版） |
+| `handout-maker` | 線索道具產生器 | [KKumuu/trpgforkk](https://github.com/KKumuu/trpgforkk)（`D.html`，未授權） | —（新收錄，沒有舊版） |
+| `session-calendar` | 團期行事曆 | [くま。／卓準備カレンダー](https://kumachansteps.github.io/trpg-web-tools/tools/session-check-calendar/)（未授權）、[utiyoso/taku_calendar](https://github.com/utiyoso/taku_calendar)（未授權） | —（新收錄，沒有舊版） |
+| `ui-frame` | UI 框素材產生器 | [KIIN／ノベワク STUDIO](https://novewaku-studio.pages.dev)（BOOTH 販售的工具，條款禁止再散布程式，視同未授權） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -173,6 +176,12 @@
 `screenshot-fx` 照新工具引入流程直接在新框架做：原作是 KIIN 在 BOOTH 販售的付費工具，條款禁止再散布程式與工具固有的意匠，視同未授權。本站只拿得到免費試用版 Lite 的 HTML，程式拿不到，所以只參考功能、選項與數值範圍（從頁面上各控制項的最小值、最大值、間隔、預設值與選單的選項讀出）；程式、介面、框與筆的外觀、範例圖與文字都由本站自做（繁中），不放 `UPSTREAM_LICENSE`。Lite 的浮水印與製品版才能用的限制都沒有，功能全部開放。
 
 `map-fx` 照新工具引入流程直接在新框架做：原作同樣是 KIIN 在 BOOTH 販售的付費工具，條款禁止再散布程式與工具固有的意匠，視同未授權。本站只拿得到免費試用版 Lite 的 HTML（程式 `app.js`、進階 3D 的 `advanced3d.js` 與樣式都拿不到），所以只參考功能、選項與數值範圍（從頁面上各控制項的最小值、最大值、間隔、預設值、選單的選項與使用說明讀出）；程式、介面、框・路線・圖釘・遮罩與 3D 的外觀、範例地圖（虛構的霧澤療養院）與文字都由本站自做（繁中），不放 `UPSTREAM_LICENSE`。Lite 的浮水印與製品版才能用的限制都沒有，功能全部開放。和 `screenshot-fx` 是同一位作者、同一套做法，本站把兩者共用的部分抽成共用的圖片演出引擎（`core/imagefx`），兩個工具各自提供框的種類與外觀；進階 3D 用 npm 的 three.js（MIT）。
+
+`handout-maker` 照新工具引入流程直接在新框架做：原作 KKumuu/trpgforkk 的 `D.html`（핸드아웃 편집기，commit `10f7aca`）沒有授權條款，只參考功能、選項與數值範圍；11 個主題的畫法、紙張質感、印章圖示、範例文字（虛構的事件與人名）都由本站自做（繁中），不放 `UPSTREAM_LICENSE`。原作用 Tailwind 與 html2canvas 的 CDN，本站預覽與匯出用同一套 canvas 畫法，驗證時在本機把原作跑起來逐一並排比對（原作與本站的差異見 [docs/refactor/specs/handout-maker.md](docs/refactor/specs/handout-maker.md) 第 5 節）。
+
+`session-calendar` 照新工具引入流程直接在新框架做，合併兩個原作的功能：くま。的「卓準備カレンダー」（v0.13，trpg-web-tools 的 `tools/session-check-calendar/`）與 utiyoso/taku_calendar（commit `8e852f3`），兩個都沒有授權條款，只參考功能；程式、版面、範例資料都由本站自做。原作是日本的祝日，本站改成台灣的國定假日：2017～2027 年用行政院人事行政總處的「中華民國政府行政機關辦公日曆表」（政府資料開放平台，政府資料開放授權條款－第 1 版），經 [ruyut/TaiwanCalendar](https://github.com/ruyut/TaiwanCalendar)（CC BY 4.0）整理後精簡成資料檔；2028 年以後依《紀念日及節日實施條例》推算，農曆節日的日期表由 lunar-javascript（MIT）在本機算好後只存日期（沒有把套件打包進來）。假日資料的出處與授權聲明另外列在網站的 `assets/build/THIRD_PARTY_NOTICES.md`。頁尾的靈感來源只放卓準備カレンダー。
+
+`ui-frame` 照新工具引入流程直接在新框架做：原作是 KIIN 的「ノベワク STUDIO」（和 screenshot-fx、map-fx 同一位作者），條款禁止再散布程式與改作版本，視同未授權。本站只拿得到免費體驗版的 HTML，從中讀出功能、選項與數值範圍（製品版的功能照體驗版頁面的比較表），框的形狀、四角裝飾、質感、按鈕的畫法、範例背景與立繪、預設集（第一版和原作的搭配太像，驗證時發現後整組重新設計）與說明文字都由本站自做，不放 `UPSTREAM_LICENSE`；體驗版的限制不做。產生的 TyranoScript 配置程式碼照 TyranoScript 官方原始碼裡的標籤定義撰寫（本站不收錄、不散布 TyranoScript 本體）。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 
