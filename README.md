@@ -27,7 +27,9 @@
 [YouRanCoder](https://github.com/YouRanCoder) 與
 [momo102938](https://github.com/momo102938) 與
 [KIIN](https://kiin.booth.pm/) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 73 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[KKumuu](https://github.com/KKumuu) 與
+[utiyoso](https://github.com/utiyoso) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 76 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -50,6 +52,7 @@
 | [角色資料編輯器](https://tool-jx3.github.io/toolkit/tools/character-editor/) | 在 CCFOLIA 外編輯角色的 JSON：狀態、參數、聊天面板都能改，也能直接讀編輯畫面貼上的文字 |
 | [聊天視窗產生器](https://tool-jx3.github.io/toolkit/tools/chat-window/) | 做出自訂 CSS，把 CCFOLIA 的骰子結果與秘匿聊天以喜歡的樣式顯示在 OBS 上，可在預覽中一邊送訊息一邊調整 |
 | [訊息框產生器](https://tool-jx3.github.io/toolkit/tools/message-box/) | 做出自訂 CSS，把 CCFOLIA 發言時出現在畫面下方、附立繪的訊息框以喜歡的樣式顯示在 OBS 上；8 種範本可再細調，預覽中能送出範例訊息、一邊看一邊調整 |
+| [UI 框素材產生器](https://tool-jx3.github.io/toolkit/tools/ui-frame/) | 選一組世界觀預設與主色，做出整套透明 PNG 的 UI 框：CCFOLIA 螢幕面板與 OBS 用的畫面外框、角色框、狀態徽章、骰子面板、留言板，或文字冒險遊戲的訊息框、名字框、四種狀態的選項與系統按鈕（附 TyranoScript 配置程式碼），一次打包 ZIP |
 | [立繪尺寸統一器](https://tool-jx3.github.io/toolkit/tools/portrait-size/) | 把同一角色的差分立繪裁掉透明邊並統一寬度，切換立繪時棋子圖就不會忽大忽小；也能單張拿來裁邊與轉 WebP |
 | [立繪去背工具](https://tool-jx3.github.io/toolkit/tools/bg-remover/) | 去掉立繪的背景：AI 模型（第一次使用時下載約 176 MB，之後存在瀏覽器）認得動漫角色，白底與單色底也能依顏色去掉；用筆刷修邊，可以批次處理，存成透明 PNG／WebP 或 ZIP |
 | [立繪身高比較板](https://tool-jx3.github.io/toolkit/tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
@@ -61,6 +64,7 @@
 | [調查熱點圖](https://tool-jx3.github.io/toolkit/tools/clue-map/) | 在場景圖上畫熱點，點開是線索卡：可以設「先找到某個線索才出現」與隱藏熱點，玩家有已找到清單與進度；存成離線也能玩的互動 HTML 或分享連結，另有攤開全部線索的總覽 PNG 給 KP |
 | [鎖定畫面訊息產生器](https://tool-jx3.github.io/toolkit/tools/lock-screen/) | 做一張角色手機的鎖定畫面當 handout：換上桌布、寫下最多 4 則訊息，存成 PNG 或訊息一則一則跳出來的 GIF，也能把手機放在外框照片上 |
 | [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | 做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、偵探執照，電影票、登機證、車票、收據；正反面、照片、真的條碼與 QR code，可匯出印刷尺寸（含出血、600 dpi）的 PNG 或閃光 GIF |
+| [線索道具產生器](https://tool-jx3.github.io/toolkit/tools/handout-maker/) | 做線索 handout：報紙剪報、通緝令、便條、便利貼、拍立得、系統視窗、遊戲的系統通知、終端機、手機簡訊、電子郵件，部分文字塗黑、狀態印章、紙張質感、附圖濾鏡，匯出 PNG 或直接複製貼到 CCFOLIA |
 | [角色介紹圖產生器](https://tool-jx3.github.io/toolkit/tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；也有會自動分頁、能匯出 PDF 的文字記錄版型；可存到存檔槽或匯出成編輯檔 |
 | [AI 誤判梗圖產生器](https://tool-jx3.github.io/toolkit/tools/ai-fail/) | 放一張照片，畫上 AI 物件辨識風格的綠框與標籤（例如把貓標成「object」），做成「AI 認錯了」的梗圖：可以多個框、改顏色與字級、調整前後，存成 PNG |
 | [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | 盲選排行榜：一次揭曉一位、當場決定名次，名次確定後就不能改，排完存成 PNG 或 WebP |
@@ -98,6 +102,7 @@
 | [簡易頭像產生器](https://tool-jx3.github.io/toolkit/tools/icon-maker/) | 從 PNG 立繪做出 1:1 的 TRPG 角色頭像，可加外框、背景、名字（直書或橫書）與 HO 標籤 |
 | [跑團紀錄簿](https://tool-jx3.github.io/toolkit/tools/session-log/) | 記錄玩過的團，整理感想、團報與已通關劇本清單；可匯入試算表或團報文字，每一團都能直接送到團報產生器 |
 | [團報產生器](https://tool-jx3.github.io/toolkit/tools/session-report/) | 填入劇本、KP／PL／PC 與結果，從 17 種範本產生可直接貼到 X 的團報文，能即時預覽、編輯 |
+| [團期行事曆](https://tool-jx3.github.io/toolkit/tools/session-calendar/) | 把場次、準備事項和其他預定排在同一張月曆：台灣的國定假日與補假、拖曳新增多日預定、配色與 CP 色、輸出空檔日期揪團、整月或整年存成 PNG、JSON／iCal 匯出入（可讀 Google 日曆匯出的檔案），一團可以直接送到跑團紀錄簿 |
 | [角色差分管理器](https://tool-jx3.github.io/toolkit/tools/variant-manager/) | 一次檢查立繪與表情差分、整理好檔名打包成 ZIP，並產生 CCFOLIA 用的 @差分 聊天面板 |
 | [劇本資訊卡片產生器](https://tool-jx3.github.io/toolkit/tools/scenario-cards/) | 把劇本內文裡的場景、探索地點、資料、技能成功等資訊做成卡片，複製成 CCFOLIA／Discord 用的文字或 CCFOLIA 的卡片 JSON |
 | [CCFOLIA 日誌轉換器](https://tool-jx3.github.io/toolkit/tools/log-converter/) | 把 CCFOLIA 匯出的日誌 HTML 轉成小說、時間軸或 CCFOLIA 風格的網頁；可指定旁白、插入插圖、依則數分割檔案，或轉成部落格貼文用的格式；也能匯出 EPUB 電子書 |
@@ -170,6 +175,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `bg-motion` | [動態背景產生器](https://tool-jx3.github.io/toolkit/tools/bg-motion/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)、[utiyoso/kirikae-maker](https://github.com/utiyoso/kirikae-maker)（圖片切換） |
 | `screenshot-fx` | [截圖演出產生器](https://tool-jx3.github.io/toolkit/tools/screenshot-fx/) | [KIIN／スクショ演出スタジオ](https://screenshot-studio-8n8.pages.dev/) |
 | `map-fx` | [地圖演出產生器](https://tool-jx3.github.io/toolkit/tools/map-fx/) | [KIIN／マップ・見取り図 演出スタジオ](https://map-stage.pages.dev/) |
+| `ui-frame` | [UI 框素材產生器](https://tool-jx3.github.io/toolkit/tools/ui-frame/) | [KIIN／ノベワク STUDIO](https://novewaku-studio.pages.dev) |
 | `character-editor` | [角色資料編輯器](https://tool-jx3.github.io/toolkit/tools/character-editor/) | [organon-torah/ccfoliaCharacterEditor](https://github.com/organon-torah/ccfoliaCharacterEditor) |
 | `foreground-frame` | [前景框產生器](https://tool-jx3.github.io/toolkit/tools/foreground-frame/) | [shiki365/foreground-frame-maker](https://github.com/shiki365/foreground-frame-maker) |
 | `room-zip` | [房間 ZIP 產生器](https://tool-jx3.github.io/toolkit/tools/room-zip/) | [johnko00/ccfolia-room-zip-maker-demo](https://github.com/johnko00/ccfolia-room-zip-maker-demo) |
@@ -178,6 +184,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `psd-studio` | [CCFOLIA & 圖片調色工作室](https://tool-jx3.github.io/toolkit/tools/psd-studio/) | [fyam-hamu/F_Ccfolia-PSD-Studio](https://github.com/fyam-hamu/F_Ccfolia-PSD-Studio) |
 | `session-log` | [跑團紀錄簿](https://tool-jx3.github.io/toolkit/tools/session-log/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `session-report` | [團報產生器](https://tool-jx3.github.io/toolkit/tools/session-report/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
+| `session-calendar` | [團期行事曆](https://tool-jx3.github.io/toolkit/tools/session-calendar/) | [くま。／卓準備カレンダー](https://kumachansteps.github.io/trpg-web-tools/tools/session-check-calendar/)、[utiyoso/taku_calendar](https://github.com/utiyoso/taku_calendar) |
 | `coc-typesetter` | [CoC 劇本排版工具](https://tool-jx3.github.io/toolkit/tools/coc-typesetter/) | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明） |
 | `scenario-editor` | [劇本排版台](https://tool-jx3.github.io/toolkit/tools/scenario-editor/) | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) |
 | `gif-combiner` | [GIF 接合器](https://tool-jx3.github.io/toolkit/tools/gif-combiner/) | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) |
@@ -217,6 +224,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `social-post` | [社群貼文產生器](https://tool-jx3.github.io/toolkit/tools/social-post/) | [s2ndrome/4layout](https://github.com/s2ndrome/4layout) |
 | `geo-bloom` | [幾何花紋產生器](https://tool-jx3.github.io/toolkit/tools/geo-bloom/) | [al1scut/tkmizGeo](https://github.com/al1scut/tkmizGeo) |
 | `vhs-frame` | [錄影帶畫面產生器](https://tool-jx3.github.io/toolkit/tools/vhs-frame/) | [dearmysn1p3r/VHS_Maker](https://github.com/dearmysn1p3r/VHS_Maker) |
+| `handout-maker` | [線索道具產生器](https://tool-jx3.github.io/toolkit/tools/handout-maker/) | [KKumuu/trpgforkk](https://github.com/KKumuu/trpgforkk)（`D.html`） |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

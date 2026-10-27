@@ -9,14 +9,7 @@
 
 ## 進行中
 
-- 團期行事曆（新工具，G6）：參考 KumachanSteps 的卓準備カレンダー（v0.13，[trpg-web-tools](https://github.com/KumachanSteps/trpg-web-tools) 的 `tools/session-check-calendar/`）
-  與 [utiyoso/taku_calendar](https://github.com/utiyoso/taku_calendar)，皆未授權——場次＋準備事項、月曆與年曆、多日預定與配色、
-  空檔日期清單、本月截圖、iCal／JSON 匯入匯出、台灣的國定假日、送到跑團紀錄簿。
-- UI 框素材產生器（新工具，G4）：參考 KIIN 的ノベワク STUDIO（https://novewaku-studio.pages.dev ，條款禁止再散布程式，視同未授權）——
-  選世界觀預設與主色，產生一整套透明 UI 框 PNG：TRPG・直播模式（角色框、狀態、骰子面板、留言板，給 CCFOLIA 畫面面板與 OBS）、
-  文字冒險模式（訊息框、名字框、四種狀態的按鈕、翻頁游標＋TyranoScript 配置碼），ZIP 匯出。之後可以把「直播版面產生器」候選併進來。
-- 線索道具產生器（新工具，G6）：參考 [KKumuu/trpgforkk](https://github.com/KKumuu/trpgforkk) 的 `D.html`（핸드아웃 편집기，未授權）——
-  報紙、通緝令、便條、便利貼、拍立得、系統視窗、遊戲狀態視窗、終端機、簡訊、電子郵件等 handout，塗黑、印章、紙張質感，匯出 PNG。
+（目前沒有）
 
 ## 一、已收錄工具的原作更新
 
@@ -33,7 +26,6 @@
 | 候選 | 來源 | 授權 | 內容 | 跑團用途 | 工作量 |
 |---|---|---|---|---|---|
 | CoC 日誌分析 | [Liesegang/coc-ccfolia-tools](https://github.com/Liesegang/coc-ccfolia-tools)、[756y/SkillRoll_Analytics](https://github.com/756y/SkillRoll_Analytics)、[tukasa0001/DiceStats](https://github.com/tukasa0001/DiceStats) | 未授權／未授權／MIT | 從 CCFOLIA 日誌統計成長檢定、骰運 | CoC 7 版團後整理 | 中 |
-| 直播版面產生器 | [knightleft/trpg-overlay](https://github.com/knightleft/trpg-overlay) | 未授權 | OBS 直播版面；作者寫繁中 | 跑團直播 | 中 |
 | PL 自我介紹卡／地雷表 | [sonata9x/trpg-profile-maker](https://github.com/sonata9x/trpg-profile-maker)、[Jara03mofu/trpg-jirai-check](https://github.com/Jara03mofu/trpg-jirai-check)、[Tetoriapot/sosaku-sheet-maker](https://github.com/Tetoriapot/sosaku-sheet-maker)、dearmysn1p3r _25 | 未授權 | 跑過的系統、KP／PL、地雷與 NG | 揪團 | 小～中 |
 | 匿名論壇貼文 | [dearmysn1p3r/DearMySn1p3r_05](https://github.com/dearmysn1p3r/DearMySn1p3r_05)、[_09](https://github.com/dearmysn1p3r/DearMySn1p3r_09) | 未授權 | 匿名討論串截圖（作者與留言者自動編號、回覆、反應數） | 現代背景的都市傳說 handout | 中 |
 | 電影字幕／片尾名單 | [dearmysn1p3r/DearMySn1p3r_15](https://github.com/dearmysn1p3r/DearMySn1p3r_15)（可併 [_40](https://github.com/dearmysn1p3r/DearMySn1p3r_40)、[_18](https://github.com/dearmysn1p3r/DearMySn1p3r_18) 封面） | 未授權 | 字幕截圖、片尾名單捲動、海報、評分卡、預告 | 團報宣傳、戰役結束的片尾名單 | 中～大 |
@@ -60,6 +52,7 @@
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | CC0 | 原作的 `/` 斜線候選清單（規格 D46；跟進 v3.26 時決定先不做） | 小 |
 | music-frame | [dearmysn1p3r/MOMO_MusicCloud](https://github.com/dearmysn1p3r/MOMO_MusicCloud)（取代 _16／_27／_54） | 未授權 | 黑膠、CD、卡帶、串流的樣品圖、播放清單影片；原作 10-17～10-20 大改 | 中 |
 | floor-plan | Maptsukuri（maptsukuri.pages.dev，不在 GitHub） | 未授權 | .dd2vtt 匯出、隨機配置 | 中 |
+| ui-frame | [knightleft/trpg-overlay](https://github.com/knightleft/trpg-overlay)（原本列為新工具候選「直播版面產生器」） | 未授權 | OBS 直播版面（作者寫繁中）：和 ui-frame 的 TRPG・直播模式重疊，可以補整面版面配置 | 中 |
 
 ## 內部改善
 
@@ -105,3 +98,5 @@
   卓準備カレンダー v0.11 → v0.13（10-24，紙本手帳風的新設計、精簡說明文字，功能沒變）。
 - 2026-10-27：使用者提供 img2threejs，評估後不收（見「不收的」）。
 - 2026-10-27：使用者提供 KIIN 的ノベワク STUDIO，做成新工具「UI 框素材產生器」（兩種模式都做）。
+- 2026-10-27：完成並移出清單——線索道具產生器（handout-maker）、團期行事曆（session-calendar，台灣假日共用模組 core/holidays、送到跑團紀錄簿）、
+  UI 框素材產生器（ui-frame）。

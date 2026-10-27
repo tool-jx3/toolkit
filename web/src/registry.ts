@@ -913,7 +913,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '做跑團用的線索道具圖：報紙剪報、通緝令、便條、便利貼、拍立得、系統視窗、遊戲的系統通知、終端機、手機簡訊、電子郵件，可以塗黑、蓋狀態印章、換紙張質感，匯出 PNG 或直接複製貼到 CCFOLIA。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: { name: 'KKumuu/trpgforkk', url: 'https://github.com/KKumuu/trpgforkk' },
   },
   {
@@ -922,7 +922,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '選一個主色，做出整套透明 PNG 的 UI 框：文字冒險的訊息框、名字框、選項與系統按鈕（一般、滑過、按下、停用）附 TyranoScript 配置程式碼，或 CCFOLIA 螢幕面板、OBS 用的畫面外框、角色框、狀態徽章、骰子面板與留言板。',
     group: 'G4',
-    status: 'next',
+    status: 'live',
     inspiration: { name: 'KIIN／ノベワク STUDIO', url: 'https://novewaku-studio.pages.dev' },
   },
   {
@@ -931,7 +931,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把跑團的場次、準備事項和其他預定排在同一張月曆上：標出台灣的國定假日與補假，拖曳新增多日的預定、換日子，算出空檔日期拿去揪團，整個月或整年存成 PNG，匯出入 JSON／iCal（可讀 Google 日曆匯出的檔案），也能把一團送到跑團紀錄簿。',
     group: 'G6',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'くま。／卓準備カレンダー',
       url: 'https://kumachansteps.github.io/trpg-web-tools/tools/session-check-calendar/',

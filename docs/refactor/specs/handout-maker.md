@@ -270,8 +270,18 @@ e2e 用瀏覽器畫布的 `filter`（同樣的 CSS 寫法）算出的顏色比�
 原作需要 Tailwind 與 html2canvas 的 CDN（字型另外從 jsDelivr、Google 載入）；在可以連外的環境用瀏覽器打開 `D.html` 就能並排比對
 （或在暫存的複本裡把 CDN 換成本機的檔案；不要放進 repo）。連不到時以本規格第 1、3 節的數值為準（PROCESS.md 第 6 節第 5 點）。
 
+獨立驗證者（另一個代理，2026-10-27，受測 `8c95a72`）在本機把原作跑起來並排比對：Tailwind 用 `tailwindcss@3` 的 CLI 從 `D.html` 的 class 編出 CSS、html2canvas 1.4.1 從 npm 裝在暫存資料夾、Google Fonts 由 Node 代抓（韓文字型與質感圖的 CDN 連不到，比對以版面與元素為主）。11 個主題都並排截圖（原作畫面、原作 html2canvas 存出的圖、新版）。腳本與輸出在 scratchpad 的 `verify-han1/`。結果：通過 30、部分 2（F09、F17）、不通過 0；e2e 14／14、vitest 63／63、主控台 0 錯；11 個主題 × 5 種極端尺寸都畫得出來。第 7.1 節的修正（`d7a78b6`）後，實作者用驗證者的腳本重跑：`t_justify.js`、`t_undo2.js` 通過，60 張打字的 long task 由 14 個降為 0；vitest 67、e2e 14 全過。
+
 | 編號 | 結果 | 方法與證據（截圖／腳本路徑） | 備註 |
 |---|---|---|---|
+| F01 | ✅ 通過 | `verify-han1/t_list.js`：「N / 60 張」、縮圖、名稱規則、點選與 ↑↓、主題・寬 × 高 | |
+| F02～F08 | ✅ 通過 | `t_theme.js`、`t_examples.js`、`t_list.js`、`t_size.js`、`t_fonts.js`、`t_text.js`：11 個主題的欄位、範例（加成新的一張／取代、可復原、60 張警告）、清單操作、字型與主題預設、標題與欄位的字數 | F04 復原「新增」後的選取 → 7.1 修正（14） |
+| F09 | ✅ 通過（7.1 修正後） | `t_text.js`、`t_text2.js`：4 種對齊、末行靠左 | 驗證時「部分」：簡訊沒有說明、英文標點被拉開 → 7.1 的 12、13 修正 |
+| F10～F16 | ✅ 通過 | `t_markup.js`（13 種配對、條寬條高、跨行、跳脫）、`t_stamp.js`（7 種印章）、`t_images.js`、`t_types.js`、`t_idbfail.js`、`t_race.js` | 數值與原作的差異見 D25、D27 |
+| F17 | ✅ 通過（7.1 修正後） | `t_images.js`：6 種濾鏡；修正後黑白用 CSS grayscale 的係數，與瀏覽器畫的差 ≤ 3 | 驗證時「部分」：黑白差 4.6 階 → 7.1 的 11 |
+| F18～F25 | ✅ 通過 | `t_bg.js`（背景圖與 CSS 參考圖的平均差 0.3～0.5）、`t_color.js`、`textures_sheet.png`（7 種質感在 11 個主題）、`t_size.js`（24 px 對齊） | |
+| F26～F28 | ✅ 通過 | `t_export.js`、`t_scale.js`、`t_dlall.js`：1／2／3 倍尺寸、2 倍與預覽逐像素相同、透明處、ZIP、複製到剪貼簿 | |
+| F29～F32 | ✅ 通過 | `t_save.js`、`t_save2.js`、`t_undo.js`、`t_misc.js`：自動儲存與圖片還原、專案檔往返、復原、說明與頁尾 | |
 
 ## 7. 主控裁定
 
