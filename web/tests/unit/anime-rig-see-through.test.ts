@@ -31,7 +31,7 @@ import {
   rebaseDepth,
   validateDepthHeader,
 } from '../../src/tools/anime-rig/seeThrough';
-import { clonePsd, rect, rigTestPsdBytes, type TestPsd } from '../helpers/animeRig';
+import { clonePsd, ellipse, rect, rigTestPsdBytes, type TestPsd } from '../helpers/animeRig';
 import {
   ST_SIZE,
   type StPart,
@@ -184,15 +184,28 @@ describe('名稱已分好左右的圖層（F99、F100）', () => {
     }
     expect(rig.anchors).toEqual(ok.anchors);
     const swaps = rig.warnings.filter((w) => w.code === 'sideSwapped');
-    expect(swaps.map((w) => w.args[0])).toEqual([
-      'handwear',
-      'ears',
-      'eyewhite',
-      'irides',
-      'eyelash',
-      'eyebrow',
-    ]);
-    expect(warningText(swaps[0])).toBe('「handwear」的左右名稱和位置相反，已依實際位置判斷左右。');
+    expect(swaps.map((w) => w.args)).toEqual(
+      ['handwear', 'ears', 'eyewhite', 'irides', 'eyelash', 'eyebrow'].map((s) => [s, 'pair']),
+    );
+    expect(warningText(swaps[0])).toBe('「handwear」的左右名稱和兩層的位置相反，已依位置對調。');
+  });
+
+  it('臉偏一邊、名稱一左一右：依兩層的位置（不看臉中心）', () => {
+    /* 臉往右偏：兩隻眼睛都在臉中心的左邊 */
+    const parts = seeThroughParts({ split: true }).map((p) =>
+      p.tag === 'face'
+        ? { ...p, paint: ellipse(170, 100, 46, 56, [250, 220, 200] as [number, number, number]) }
+        : p,
+    );
+    const rig = bind(seeThroughColorPsd(parts));
+    expect(rig.anchors.face.cx).toBeGreaterThan(150);
+    for (const bn of ['eyewhite', 'irides', 'eyelash', 'eyebrow']) {
+      expect(part(rig, `${bn}_l`).source).toBe(`${bn}-r`);
+      expect(part(rig, `${bn}_r`).source).toBe(`${bn}-l`);
+    }
+    expect(rig.anchors.eyeL!.icx).toBeLessThan(rig.anchors.eyeR!.icx);
+    expect(rig.warnings.some((w) => w.code === 'sideSwapped')).toBe(false);
+    expect(rig.warnings.some((w) => w.code === 'eyeAnchor')).toBe(false);
   });
 
   const irides = (rig: Rig) =>
@@ -212,23 +225,33 @@ describe('名稱已分好左右的圖層（F99、F100）', () => {
     const rig = bind(seeThroughColorPsd(parts));
     /* 名稱依 see-through 的方向是右，但圖在臉中心的左邊 → 左 */
     expect(irides(rig)).toEqual([['irides_l', 'irides_l']]);
-    expect(rig.warnings.filter((w) => w.code === 'sideSwapped').map((w) => w.args)).toEqual([
-      ['irides'],
-    ]);
+    const swaps = rig.warnings.filter((w) => w.code === 'sideSwapped');
+    expect(swaps.map((w) => w.args)).toEqual([['irides', 'L']]);
+    expect(warningText(swaps[0])).toBe('「irides」的名稱是右邊，但在臉中心的左邊，已依位置判斷。');
     expect(rig.anchors.eyeL!.icx).toBeCloseTo(bind(split()).anchors.eyeL!.icx, 6);
   });
 
-  it('沒有臉時照名稱（不警告）', () => {
-    const swapped = seeThroughParts({ split: true })
-      .filter((p) => p.tag !== 'face')
-      .map((p) => ({ ...p, tag: p.tag.replace(/-(l|r)$/, (_, s) => (s === 'l' ? '-r' : '-l')) }));
-    const rig = bind(seeThroughColorPsd(swapped));
+  it('沒有臉時：單層照名稱（不警告），成對的照樣依兩層的位置', () => {
+    const noFace = seeThroughParts({ split: true }).filter((p) => p.tag !== 'face');
+    /* 單層：畫面左邊的瞳孔取名 irides-l（see-through 的方向＝右） */
+    const single = noFace
+      .filter((p) => p.tag !== 'irides-l')
+      .map((p) => (p.tag === 'irides-r' ? { ...p, tag: 'irides-l' } : p));
+    const rig = bind(seeThroughColorPsd(single));
     expect(rig.warnings.map((w) => w.code)).toContain('noFace');
     expect(rig.warnings.some((w) => w.code === 'sideSwapped')).toBe(false);
-    /* 名稱是 -r（＝左）的是畫面右邊的那一塊 */
-    const l = part(rig, 'irides_l');
-    expect(l.source).toBe('irides-r');
-    expect(centroidX(l)).toBeGreaterThan(128);
+    const r = part(rig, 'irides_r');
+    expect(r.source).toBe('irides-l');
+    expect(centroidX(r)).toBeLessThan(128);
+    /* 成對而且名稱相反：依兩層的位置對調 */
+    const swapped = noFace.map((p) => ({
+      ...p,
+      tag: p.tag.replace(/-(l|r)$/, (_, s) => (s === 'l' ? '-r' : '-l')),
+    }));
+    const rig2 = bind(seeThroughColorPsd(swapped));
+    expect(part(rig2, 'irides_l').source).toBe('irides-l');
+    expect(centroidX(part(rig2, 'irides_l'))).toBeLessThan(128);
+    expect(rig2.warnings.filter((w) => w.code === 'sideSwapped')).toHaveLength(6);
   });
 
   it('重心在臉中心附近（臉寬 × 0.05 以內）時照名稱', () => {
@@ -348,6 +371,36 @@ describe('深度 PSD 與 .psd.json（F101、F102）', () => {
     });
   });
 
+  it('沒有可用的深度（heuristic_partseg 的 0／1）：有 json 時改用 json、沒有時不用', async () => {
+    const { psd, rects } = await colorTree();
+    const binary = seeThroughDepthLayers().map((l) => ({
+      ...l,
+      gray: l.gray.map((v) => (v === 255 ? 1 : 0)),
+    }));
+    const depth = await readTree(writeGrayPsd(256, 256, binary));
+    const alone = measureDepth(psd, rects, depth, null);
+    expect(alone).toMatchObject({ matched: 0, issues: [{ code: 'degenerate', args: [''] }] });
+    expect(alone.values.every((v) => v === null)).toBe(true);
+    const withJson = measureDepth(psd, rects, depth, seeThroughJson());
+    expect(withJson.values).toEqual(want);
+    expect(withJson.used).toEqual({ psd: false, json: true });
+    expect(withJson.issues).toEqual([{ code: 'degenerate', args: ['json'] }]);
+    /* 全部同一個值也算 */
+    const flat = seeThroughDepthLayers().map((l) => ({ ...l, gray: l.gray.map(() => 120) }));
+    expect(
+      measureDepth(psd, rects, await readTree(writeGrayPsd(256, 256, flat)), null).issues,
+    ).toEqual([{ code: 'degenerate', args: [''] }]);
+  });
+
+  it('一個圖層名稱都對不上：noMatch（不是「多出 N 個」）', async () => {
+    const { psd, rects } = await colorTree();
+    const renamed = seeThroughDepthLayers().map((l) => ({ ...l, name: `x ${l.name}` }));
+    const m = measureDepth(psd, rects, await readTree(writeGrayPsd(256, 256, renamed)), null);
+    expect(m).toMatchObject({ matched: 0, issues: [{ code: 'noMatch', args: [] }] });
+    const json = { parts: { nothing: { depth_median: 0.5 } }, frame_size: [256, 256] };
+    expect(measureDepth(psd, rects, null, json).issues).toEqual([{ code: 'noMatch', args: [] }]);
+  });
+
   it('深度 PSD 沒給到的圖層用 .psd.json 補', async () => {
     const { psd, rects } = await colorTree();
     const layers = seeThroughDepthLayers().filter((l) => l.name !== 'nose');
@@ -431,12 +484,19 @@ describe('see-through 的深度 → 轉頭的深度（規格 3.7）', () => {
       { id: '99:front hair_2', bn: 'front hair', unknown: false, synthetic: false, table: 1.28 },
     ];
     const v2 = { ...values, '99:front hair_2': 120 / 255 };
-    expect(mapSeeThroughDepth(ps2, v2).mapped['99:front hair_2']).toBe(1);
+    const m2 = mapSeeThroughDepth(ps2, v2);
+    expect(m2.mapped['99:front hair_2']).toBe(1);
+    expect(m2.limit).toBeNull();
+    expect(m2.clamped).toEqual([{ id: '99:front hair_2', from: expect.any(Number), to: 1 }]);
+    expect(m2.clamped[0].from).toBeLessThan(1);
     /* 頭髮與臉只差一點點 → 倍率夾在 20，後面的手（畫面左邊）夾到 0 */
     const tiny = { ...values, [id('front hair')]: 100 / 255, [id('back hair')]: 104 / 255 };
     const m = mapSeeThroughDepth(ps, tiny);
     expect(m.scale).toBe(20);
+    expect(m.limit).toBe('max');
     expect(m.mapped[id('handwear_l')]).toBe(0);
+    expect(m.clamped.map((c) => c.id)).toContain(id('handwear_l'));
+    expect(mapSeeThroughDepth(ps, values).limit).toBeNull();
     expect(m.mapped[id('back hair')]).toBeLessThanOrEqual(1);
   });
 

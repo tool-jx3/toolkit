@@ -4,6 +4,7 @@
 import { CircleAlert, CircleCheck, Sparkles, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { depthMapOf } from './actions';
+import { baseName } from './rigger';
 import { warningText } from './rigText';
 import type { SeeThroughSetting } from './runtime';
 import { type ModelInfo, useEdit, useSession } from './store';
@@ -76,7 +77,11 @@ export function diagnose(m: ModelInfo, seeThrough: SeeThroughSetting | null = nu
     if (w.code === 'emptyLayer' || w.code === 'eyeAnchor') add('warn', warningText(w));
   }
   if (m.presplit) add('ok', S.diag.presplit, S.diag.presplitNote(m.presplit));
-  for (const w of m.warnings) if (w.code === 'sideSwapped') add('warn', warningText(w));
+  for (const w of m.warnings) {
+    if (w.code !== 'sideSwapped') continue;
+    const [stem = '', actual = ''] = w.args;
+    add('warn', S.diag.sideSwapped(stemLabel(stem, actual), actual));
+  }
   if (seeThrough) {
     const map = depthMapOf(m, seeThrough);
     const n = Object.keys(seeThrough.values).length;
@@ -90,6 +95,15 @@ export function diagnose(m: ModelInfo, seeThrough: SeeThroughSetting | null = nu
       );
   }
   return out;
+}
+
+/** 部位（`handwear_1` 等）在介面上的名稱：中文部位名＋編號（＋單層時的左右） */
+export function stemLabel(stem: string, side = ''): string {
+  const bn = baseName(stem);
+  const num = stem.slice(bn.length).replace(/^_/, '');
+  const role = S.roles[bn] ?? bn;
+  const lr = side === 'L' ? ` · ${S.sideL}` : side === 'R' ? ` · ${S.sideR}` : '';
+  return `${role}${num ? ` ${num}` : ''}${lr}`;
 }
 
 const ICON: Record<DiagLevel, ReactNode> = {

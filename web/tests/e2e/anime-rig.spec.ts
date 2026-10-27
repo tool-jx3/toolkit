@@ -1141,7 +1141,13 @@ test('see-through：彩色＋深度 PSD 一起拖進來 → 左右分好的部�
   await expect(layers.locator('[data-layer="1:handwear_l"]')).toContainText('手臂與手 · 左');
   await expect(layers.locator('[data-layer="13:eye_close_l"]')).toContainText('自動產生');
   const info = page.getByTestId('rig-info');
-  await expect(info).toContainText('名稱已分好左右的圖層：12 個（依名稱分左右，不再自動分）');
+  await expect(info).toContainText(
+    '名稱帶左右的圖層：12 個（成對的依兩層的位置、單層依在臉中心的哪一邊，沒有臉時照名稱；不再自動分）',
+  );
+  await expect(page.getByTestId('depth-offsets')).toContainText(
+    '轉頭時和臉相比的前後（＋＝在臉前面）：瀏海 ＋0.16、頭飾 ＋0.10、手臂與手 · 右 ＋0.09',
+  );
+  await expect(page.getByTestId('depth-offsets')).toContainText('後髮 −0.49');
   await expect(info).toContainText('深度（see-through）：20／20 個圖層，倍率 2.23');
   await expect(page.getByTestId('depth-summary')).toContainText(
     'see-through_depth.psd：20／20 個圖層有深度',
@@ -1322,6 +1328,17 @@ test('see-through：沒有深度時設定 JSON 沒有 seeThrough、拖放兩個 
   const json = JSON.parse(new TextDecoder().decode(await readDownload(await dl)));
   expect('seeThrough' in json).toBe(false);
   await expect(page.getByTestId('rig-info')).not.toContainText('深度（see-through）');
+  /* 兩個灰階 PSD 分不出哪個是深度：彩色的照常讀、說明深度為什麼沒用 */
+  await dropFiles(page, [
+    { name: 'see-through.psd', bytes: ST_COLOR },
+    { name: 'a.psd', bytes: writeGrayPsd(256, 256, []) },
+    { name: 'b.psd', bytes: writeGrayPsd(256, 256, []) },
+  ]);
+  await expect(status(page)).toHaveText(
+    '已讀入 see-through.psd。有兩個以上的灰階 PSD，分不出哪一個是深度 PSD，深度沒有使用（深度 PSD 的檔名請以 _depth.psd 結尾）。',
+    { timeout: 30_000 },
+  );
+  expect((await state(page)).model?.name).toBe('see-through.psd');
 });
 
 async function noHorizontalScroll(page: Page) {

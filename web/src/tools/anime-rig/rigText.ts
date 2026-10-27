@@ -38,7 +38,7 @@ export type RigWarningCode =
   | 'synthMouth'
   | 'sideSwapped';
 
-/** 警告（args：圖層名稱，unknownLayer 的第二個是 'head'／'body'） */
+/** 警告（args：圖層名稱，unknownLayer 的第二個是 'head'／'body'；sideSwapped 是部位與 'pair'／實際的 'L'／'R'） */
 export interface RigWarning {
   code: RigWarningCode;
   args: string[];
@@ -66,7 +66,9 @@ export function warningText(w: RigWarning): string {
     case 'synthMouth':
       return '沒有 mouth_close，已自動放上通用的閉嘴（可以用「嘴巴」的滑桿調整）。';
     case 'sideSwapped':
-      return `「${a}」的左右名稱和位置相反，已依實際位置判斷左右。`;
+      return b === 'pair'
+        ? `「${a}」的左右名稱和兩層的位置相反，已依位置對調。`
+        : `「${a}」的名稱是${b === 'L' ? '右' : '左'}邊，但在臉中心的${b === 'L' ? '左' : '右'}邊，已依位置判斷。`;
   }
 }
 

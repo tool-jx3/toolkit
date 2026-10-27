@@ -111,16 +111,29 @@ export async function openFiles(files: readonly File[]): Promise<void> {
   if (!files.length) return;
   const psds = files.filter((f) => /\.psd$/i.test(f.name));
   let depth = psds.find((f) => isDepthPsdName(f.name)) ?? null;
+  let notice: string | undefined;
+  let color: File | null = null;
   if (!depth && psds.length >= 2) {
     const gray = await Promise.all(psds.map(sniffGray));
-    if (gray.filter(Boolean).length === 1) depth = psds[gray.indexOf(true)];
+    const n = gray.filter(Boolean).length;
+    if (n === 1) depth = psds[gray.indexOf(true)];
+    else if (n >= 2) {
+      /* 分不出哪個灰階 PSD 是深度：彩色的照常讀，說明深度為什麼沒用 */
+      color = psds.find((_f, i) => !gray[i]) ?? null;
+      notice = S.depth.ambiguous;
+    }
   }
   const json = files.find((f) => isSeeThroughJsonName(f.name)) ?? null;
+  if (notice) {
+    if (color) await loadPsdFile(color, { depth: null, json, notice });
+    else setStatus(S.depth.ambiguous, 'warning');
+    return;
+  }
   if (!depth && !json) {
     openFile(files[0]);
     return;
   }
-  const color = psds.find((f) => f !== depth) ?? null;
+  color = psds.find((f) => f !== depth) ?? null;
   if (color) await loadPsdFile(color, { depth, json });
   else await addDepthFiles({ depth, json });
 }
@@ -186,7 +199,9 @@ export async function loadPsdFile(file: File, extra?: DepthFiles): Promise<void>
     useEdit.temporal.getState().clear();
     useSession.setState({ savedSnapshot: baseline, loading: null });
     document.title = `${name}｜2.5D 動態立繪｜TRPG Toolkit`;
-    if (depthDone) setStatus(depthDone.text, depthDone.tone);
+    if (depthDone)
+      setStatus(depthDone.text + (extra?.notice ?? ''), extra?.notice ? 'warning' : depthDone.tone);
+    else if (extra?.notice) setStatus(`${S.loadDone(name)}。${extra.notice}`, 'warning');
     else setStatus(S.loadDone(name), 'success');
   } catch (err) {
     if (ticket !== loadTicket || (err as { name?: string })?.name === 'AbortError') return;
@@ -270,6 +285,8 @@ function defaultLayers(
 export interface DepthFiles {
   depth: File | null;
   json: File | null;
+  /** 讀入後狀態列加上的說明（例如分不出深度 PSD） */
+  notice?: string;
 }
 
 const isDepthPsdName = (name: string) => /_depth\.psd$/i.test(name);
@@ -429,16 +446,16 @@ function applyDepthResult(
   const map = depthMapOf(m, next);
   const n = measure?.matched ?? 0;
   const total = measure?.total ?? 0;
-  let text = loadedName ? head + S.depth.loaded(n, total) : S.depth.added(label, n, total);
-  let tone: StatusTone = 'success';
-  if (map.reason) {
-    text += `但${S.depth.mapFailed(S.depth.reasons[map.reason])}`;
-    tone = 'warning';
-  } else if (issues.length || error) {
-    text += S.depth.someIssues;
-    tone = 'warning';
-  }
-  return { text, tone };
+  const viaJson = !!measure && !measure.used.psd && measure.used.json;
+  let text = loadedName ? head + S.depth.loaded(n, total, viaJson) : S.depth.added(label, n, total);
+  const notes: string[] = [];
+  if (map.reason) notes.push(`但${S.depth.mapFailed(S.depth.reasons[map.reason])}`);
+  else if (map.limit) notes.push(S.depth.limit(map.limit === 'max'));
+  const degenerate = issues.find((i) => i.code === 'degenerate');
+  if (degenerate) notes.push(S.depth.issue(degenerate));
+  if (error || issues.some((i) => i.code !== 'degenerate')) notes.push(S.depth.someIssues);
+  text += notes.join('');
+  return { text, tone: notes.length ? 'warning' : 'success' };
 }
 
 /** 目前的模型加入 see-through 的深度 PSD／.psd.json（「加入深度 PSD」、拖放、選檔；規格 F103） */

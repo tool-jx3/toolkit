@@ -21,9 +21,20 @@ export interface LayerRect {
   bottom: number;
 }
 
-export type DepthIssueCode = 'size' | 'jsonSize' | 'notGray' | 'missing' | 'extra' | 'offset';
+export type DepthIssueCode =
+  | 'size'
+  | 'jsonSize'
+  | 'notGray'
+  | 'degenerate'
+  | 'noMatch'
+  | 'missing'
+  | 'extra'
+  | 'offset';
 
-/** 深度檔和彩色 PSD 對不上的地方（args：尺寸或圖層名稱） */
+/**
+ * 深度檔和彩色 PSD 對不上的地方（args：尺寸或圖層名稱；degenerate 的 args[0] 是 'json'＝改用了 .psd.json；
+ * noMatch＝一個圖層名稱都對不上）
+ */
 export interface DepthIssue {
   code: DepthIssueCode;
   args: string[];
@@ -43,6 +54,9 @@ export interface DepthMeasure {
 
 /** 和彩色 PSD 的部件一樣：透明度 > 10 的像素算部件（see-through 的 save_part） */
 export const DEPTH_MASK_ALPHA = 10;
+
+/** 所有圖層取到的灰階值只有這麼多種（或最大值 ≤ 1）時，深度 PSD 當作沒有可用的深度（規格 F105） */
+export const DEPTH_MIN_KINDS = 2;
 
 /** 深度 PSD 的檔頭（8BPS、版本 1、8 位元、灰階或 RGB）；不合時丟 Error（訊息可以直接顯示） */
 export function validateDepthHeader(buffer: ArrayBuffer): { w: number; h: number; gray: boolean } {
@@ -102,9 +116,9 @@ function maskCount(c: PsdNode): number {
 function sampleMedian(c: PsdNode, d: PsdNode) {
   const ci = c.imageData;
   const di = d.imageData;
-  const out = { median: null as number | null, n: 0, nonGray: 0 };
-  if (!ci || !di) return out;
   const hist = new Uint32Array(256);
+  const out = { median: null as number | null, n: 0, nonGray: 0, hist };
+  if (!ci || !di) return out;
   const ox = ((c.left ?? 0) | 0) - ((d.left ?? 0) | 0);
   const oy = ((c.top ?? 0) | 0) - ((d.top ?? 0) | 0);
   for (let y = 0; y < ci.height; y++) {
@@ -160,7 +174,9 @@ function jsonDepths(value: unknown): {
  * 深度檔 → 每個彩色圖層的深度（規格 F101、F102）。
  * - 深度 PSD：圖層依名稱對應（同名的依順序），在彩色圖層的部件像素（透明度 > 10）底下取深度的中位數 ÷ 255；
  *   畫布尺寸不同時整個不用；位置或範圍和彩色 PSD 讀入時不同的照樣以畫布座標取，列進提示；
- *   像素不是灰階（> 1％ 的像素 R、G、B 差 > 2）時整個不用（多半是給錯了彩色 PSD）。
+ *   像素不是灰階（> 1％ 的像素 R、G、B 差 > 2）時整個不用（多半是給錯了彩色 PSD）；
+ *   取到的灰階值只有 ≤ 2 種或最大值 ≤ 1 時整個不用（heuristic_partseg 的 `_wdepth_depth.psd` 等只剩 0 與 1）；
+ *   一個圖層名稱都對不上時 noMatch。
  * - `.psd.json`：`parts[名稱].depth_median`；深度 PSD 沒有給值的圖層才用；`frame_size` 和畫布不同時不用。
  * @param color 彩色 PSD（去過雜點的圖層樹）
  * @param rects 彩色 PSD 讀入時（去雜點、裁切之前）每個圖像圖層的範圍
@@ -194,6 +210,7 @@ export function measureDepth(
       });
       const found: (number | null)[] = cl.map(() => null);
       const offset: string[] = [];
+      const seen = new Uint32Array(256);
       let usedD = 0;
       let samples = 0;
       let nonGray = 0;
@@ -211,10 +228,23 @@ export function measureDepth(
         const m = sampleMedian(c, d);
         samples += m.n;
         nonGray += m.nonGray;
+        for (let v = 0; v < 256; v++) seen[v] += m.hist[v];
         if (m.median !== null) found[ci] = round4(m.median / 255);
       });
-      if (samples && nonGray > samples * 0.01) {
+      let kinds = 0;
+      let max = 0;
+      for (let v = 0; v < 256; v++)
+        if (seen[v]) {
+          kinds++;
+          max = v;
+        }
+      if (dl.length && !usedD) {
+        issues.push({ code: 'noMatch', args: [] });
+      } else if (samples && nonGray > samples * 0.01) {
         issues.push({ code: 'notGray', args: [] });
+      } else if (samples && (kinds <= DEPTH_MIN_KINDS || max <= 1)) {
+        /* heuristic_partseg 的 _wdepth／_lrsplit：0～1 的小數直接存成灰階，只剩 0 與 1 */
+        issues.push({ code: 'degenerate', args: [''] });
       } else {
         found.forEach((v, i) => {
           if (v !== null) {
@@ -242,8 +272,12 @@ export function measureDepth(
         values[i] = round4(v);
         used.json = true;
       });
+      if (!used.psd && !used.json && !issues.some((i) => i.code === 'noMatch'))
+        issues.push({ code: 'noMatch', args: [] });
     }
   }
+  const degenerate = issues.find((i) => i.code === 'degenerate');
+  if (degenerate) degenerate.args = [used.json ? 'json' : ''];
   const missing = cl
     .filter((_c, i) => counts[i] > 0 && values[i] === null)
     .map((c) => String(c.name ?? ''));
@@ -298,9 +332,21 @@ export interface DepthPart {
 
 export type DepthMapReason = 'noFace' | 'noHair' | 'flat' | 'reversed';
 
+export interface DepthClamp {
+  id: string;
+  /** 夾之前的換算值 */
+  from: number;
+  /** 夾之後 */
+  to: number;
+}
+
 export interface DepthMap {
   /** 部件代號 → 換算後的深度（強度 1 的值，0～2、3 位小數） */
   mapped: Record<string, number>;
+  /** 倍率碰到上限（20）或下限（0.5） */
+  limit: 'max' | 'min' | null;
+  /** 被夾住的部件（瀏海、呆毛至少 1.0、後髮最多 1.0、0～2） */
+  clamped: DepthClamp[];
   /** 倍率 K（深度差 1 ＝ 轉頭的深度差 K） */
   scale: number | null;
   /** 臉的 see-through 深度 */
@@ -331,6 +377,8 @@ export function mapSeeThroughDepth(
 ): DepthMap {
   const fail = (reason: DepthMapReason, face: number | null = null): DepthMap => ({
     mapped: {},
+    limit: null,
+    clamped: [],
     scale: null,
     face,
     reason,
@@ -356,16 +404,21 @@ export function mapSeeThroughDepth(
   const k = sxy / sxx;
   if (!(k > 0)) return fail('reversed', sFace);
   const K = Math.max(DEPTH_SCALE_RANGE[0], Math.min(DEPTH_SCALE_RANGE[1], k));
+  const limit = k > DEPTH_SCALE_RANGE[1] ? 'max' : k < DEPTH_SCALE_RANGE[0] ? 'min' : null;
   const mapped: Record<string, number> = {};
+  const clamped: DepthClamp[] = [];
   for (const p of parts) {
     const v = values[p.id];
     if (p.synthetic || !(DEPTH_MAPPED_PARTS.has(p.bn) || p.unknown) || !isNum(v)) continue;
-    let d = 1 + K * (sFace - v);
+    const raw = 1 + K * (sFace - v);
+    let d = raw;
     if (p.bn === 'front hair' || p.bn === 'ahoge') d = Math.max(1, d);
     if (p.bn === 'back hair') d = Math.min(1, d);
-    mapped[p.id] = round3(Math.max(0, Math.min(2, d)));
+    d = round3(Math.max(0, Math.min(2, d)));
+    mapped[p.id] = d;
+    if (d !== round3(raw)) clamped.push({ id: p.id, from: round3(raw), to: d });
   }
-  return { mapped, scale: round3(K), face: round4(sFace), reason: null };
+  return { mapped, limit, clamped, scale: round3(K), face: round4(sFace), reason: null };
 }
 
 /** 綁定時的深度（開關關著、沒有換算值時＝部位表；強度 0～1 在部位表與換算值之間） */

@@ -1203,13 +1203,15 @@ interface Entry {
   stem?: string;
 }
 
-/** 名稱帶左右的部件：重心離臉中心在臉寬的這個比例以內時，左右照名稱（規格 F100） */
+/** 單層的部件：重心離臉中心在臉寬的這個比例以內時，左右照名稱（規格 F100） */
 export const SIDE_NAME_MARGIN = 0.05;
 
 /**
  * 名稱已經分好左右的圖層（`eyewhite_l`…，normName 已經把 see-through 的方向換成本站的；規格 F99、F100）。
- * 有臉時左右一律依位置：部件的重心（透明度加權）在臉中心的左邊＝左、右邊＝右（和 F21 同一個基準）；
- * 沒有臉、或重心離臉中心在臉寬 × 0.05 以內時照名稱。位置和名稱不同時，每個部位警告一次。
+ * - 同一部位（含編號）兩邊的名稱都有：比兩邊的重心（透明度加權）x，小的是左（畫面左邊），不看臉中心；
+ *   和名稱相反時整個部位對調，警告一次（args：部位、'pair'）。
+ * - 只有一邊（單層，或同一邊好幾層）：每一層的重心在臉中心的左邊＝左、右邊＝右（和 F21 同一個基準）；
+ *   沒有臉、或重心離臉中心在臉寬 × 0.05 以內時照名稱。和名稱不同時警告一次（args：部位、實際的 'L'／'R'）。
  */
 function markPresplit(
   entries: Entry[],
@@ -1218,22 +1220,44 @@ function markPresplit(
   face: FaceAnchor | null,
   warnings: RigWarning[],
 ): void {
-  const margin = face ? Math.max(1, face.x1 - face.x0) * SIDE_NAME_MARGIN : 0;
-  const swapped: string[] = [];
+  const stems = new Map<string, Entry[]>();
+  const named = new Map<Entry, Side>();
   for (const e of entries) {
     const m = /^(.+)_(l|r)$/.exec(e.name);
     if (!m || !SIDE_SLOTS.has(baseName(m[1]))) continue;
-    const named: Side = m[2] === 'l' ? 'L' : 'R';
-    let side = named;
-    if (face) {
-      const c = centroidOf(e.alpha, W, H);
-      if (c && Math.abs(c.cx - face.cx) > margin) side = c.cx < face.cx ? 'L' : 'R';
-    }
     e.stem = m[1];
-    e.side = side;
-    if (side !== named && !swapped.includes(m[1])) swapped.push(m[1]);
+    e.side = m[2] === 'l' ? 'L' : 'R';
+    named.set(e, e.side);
+    const list = stems.get(m[1]) ?? [];
+    list.push(e);
+    stems.set(m[1], list);
   }
-  for (const stem of swapped) warnings.push({ code: 'sideSwapped', args: [stem] });
+  const margin = face ? Math.max(1, face.x1 - face.x0) * SIDE_NAME_MARGIN : 0;
+  for (const [stem, list] of stems) {
+    const left = list.filter((e) => named.get(e) === 'L');
+    const right = list.filter((e) => named.get(e) === 'R');
+    if (left.length && right.length) {
+      const cx = (group: Entry[]) => {
+        const a = mergeAlphas(group, W, H);
+        return a ? (centroidOf(a, W, H)?.cx ?? null) : null;
+      };
+      const l = cx(left);
+      const r = cx(right);
+      if (l === null || r === null || l <= r) continue;
+      for (const e of list) e.side = named.get(e) === 'L' ? 'R' : 'L';
+      warnings.push({ code: 'sideSwapped', args: [stem, 'pair'] });
+      continue;
+    }
+    let flipped: Side | null = null;
+    for (const e of list) {
+      if (!face) continue;
+      const c = centroidOf(e.alpha, W, H);
+      if (!c || Math.abs(c.cx - face.cx) <= margin) continue;
+      e.side = c.cx < face.cx ? 'L' : 'R';
+      if (e.side !== named.get(e)) flipped = e.side;
+    }
+    if (flipped) warnings.push({ code: 'sideSwapped', args: [stem, flipped] });
+  }
 }
 
 /**

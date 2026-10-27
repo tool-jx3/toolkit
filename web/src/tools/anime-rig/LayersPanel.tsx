@@ -16,6 +16,7 @@ import { useContext, useState } from 'react';
 import { historyGesture } from '@/core/storage';
 import { Button, Field, IconButton, Slider, SortableList, ThumbnailImage, Toggle } from '@/ui';
 import {
+  depthDefaults,
   depthMapOf,
   moveLayer,
   pickDepthFiles,
@@ -25,6 +26,7 @@ import {
   setSeeThroughOn,
   setSeeThroughStrength,
 } from './actions';
+import { stemLabel } from './Diagnostics';
 import type { LayerSetting } from './runtime';
 import { hit, SearchCtx } from './search';
 import { type LayerInfo, type ModelInfo, useEdit, useSession } from './store';
@@ -154,6 +156,12 @@ function LayerRow({
   );
 }
 
+/** 部件在介面上的名稱（中文部位名＋編號＋左右；未分類的用原名） */
+export function partLabel(info: LayerInfo): string {
+  if (!S.roles[info.bn]) return info.source || info.name;
+  return stemLabel(info.name.replace(/_(l|r)$/, ''), info.side ?? '');
+}
+
 /** 深度區塊裡可以搜尋的文字 */
 export const DEPTH_TEXTS = [
   S.depth.title,
@@ -170,6 +178,19 @@ function DepthPanel({ model }: { model: ModelInfo }) {
   const busy = useSession((s) => s.depthBusy);
   const map = st ? depthMapOf(model, st) : null;
   const n = st ? Object.keys(st.values).length : 0;
+  const infoById = new Map(model.layers.map((l) => [l.id, l]));
+  /* 換算的部件：目前的開關、強度下和臉相比的前後（由前到後） */
+  const defaults = st?.on ? depthDefaults(model, st) : null;
+  const offsets =
+    map && defaults
+      ? Object.keys(map.mapped)
+          .map((id) => ({ id, d: (defaults.get(id) ?? 1) - 1 }))
+          .sort((a, b) => b.d - a.d)
+          .map(({ id, d }) => S.depth.offsetItem(partLabel(infoById.get(id) as LayerInfo), d))
+      : [];
+  const clamped = (map?.clamped ?? []).map((c) =>
+    S.depth.clampedItem(partLabel(infoById.get(c.id) as LayerInfo), c.from, c.to),
+  );
   return (
     <div
       className="flex flex-col gap-2 rounded-md border border-border p-2"
@@ -180,17 +201,36 @@ function DepthPanel({ model }: { model: ModelInfo }) {
         <span className="text-xs text-muted">{S.depth.hint}</span>
       </div>
       {st ? (
-        <p className="m-0 text-xs text-fg" data-testid="depth-summary">
-          {report
-            ? S.depth.summary(report.file, report.matched, report.total)
-            : S.depth.restored(n)}
-          {map?.scale != null && map.face != null ? (
-            <>
-              <br />
-              <span className="text-muted">{S.depth.scale(map.scale, map.face)}</span>
-            </>
+        <div className="flex flex-col gap-1">
+          <p className="m-0 text-xs text-fg" data-testid="depth-summary">
+            {report
+              ? S.depth.summary(report.file, report.matched, report.total)
+              : S.depth.restored(n)}
+          </p>
+          {offsets.length ? (
+            <p className="m-0 text-xs text-fg" data-testid="depth-offsets">
+              {S.depth.offsets(offsets.join('、'))}
+            </p>
           ) : null}
-        </p>
+          {map?.limit ? (
+            <p className="m-0 text-xs text-warning" data-depth-issue={`limit-${map.limit}`}>
+              {S.depth.limit(map.limit === 'max')}
+            </p>
+          ) : null}
+          {clamped.length ? (
+            <p className="m-0 text-xs text-muted" data-testid="depth-clamped">
+              {S.depth.clamped(clamped.join('、'))}（{S.depth.clampNote}）
+            </p>
+          ) : null}
+          {map?.scale != null && map.face != null ? (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted">{S.depth.details}</summary>
+              <p className="m-0 mt-1 text-muted" data-testid="depth-scale">
+                {S.depth.scale(map.scale, map.face)}
+              </p>
+            </details>
+          ) : null}
+        </div>
       ) : (
         <p className="m-0 text-xs text-muted">{S.depth.none}</p>
       )}
